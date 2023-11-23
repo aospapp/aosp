@@ -15,7 +15,5 @@
 -->
 <resources>
     <!-- The theme for the LinkViewerActivity. -->
-    <style name="AppTheme" parent="android:Theme.DeviceDefault.NoActionBar" >
-       <item name="android:tint">@color/car_tint</item>
-    </style>
+    <style name="AppTheme" parent="Theme.CarUi.WithToolbar"/>
 </resources>

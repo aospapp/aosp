@@ -28,16 +28,16 @@
 
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_receiveInputEvent" translatable="false">receive input events from <xliff:g id="app_name">Live TV</xliff:g>  app</string>
+    <string name="permlab_receiveInputEvent" translatable="false">receive input events from <xliff:g id="app_name">Live TV</xliff:g> app</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_receiveInputEvent" translatable="false">Allows the app to receive input events from <xliff:g id="app_name">Live TV</xliff:g>  app</string>
+    <string name="permdesc_receiveInputEvent" translatable="false">Allows the app to receive input events from <xliff:g id="app_name">Live TV</xliff:g> app</string>
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_customizeTvApp" translatable="false">customize <xliff:g id="app_name">Live TV</xliff:g>  app</string>
+    <string name="permlab_customizeTvApp" translatable="false">customize <xliff:g id="app_name">Live TV</xliff:g> app</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_customizeTvApp" translatable="false">Allows the app to customize <xliff:g id="app_name">Live TV</xliff:g>  app</string>
+    <string name="permdesc_customizeTvApp" translatable="false">Allows the app to customize <xliff:g id="app_name">Live TV</xliff:g> app</string>
 
     <!-- Program information, mainly used for channel banner and program guide. -->
     <eat-comment />
@@ -388,13 +388,13 @@
     <!-- Description on the locked screen with the rating when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked_format">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>.\nTo watch this program, press Right and enter your PIN.</string>
     <!-- Description on the locked screen when current channel is locked by parental control. [CHAR LIMIT=NONE] -->
-    <string name="tvview_channel_locked_no_permission">To watch this channel, use the default Live TV app.</string>
+    <string name="tvview_channel_locked_no_permission">To watch this channel, use the default TV app.</string>
     <!-- Description on the locked screen when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
-    <string name="tvview_content_locked_no_permission">To watch this program, use the default Live TV app.</string>
+    <string name="tvview_content_locked_no_permission">To watch this program, use the default TV app.</string>
     <!-- Description on the locked screen when the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
-    <string name="tvview_content_locked_unrated_no_permission">This program is unrated.\nTo watch this program, use the default Live TV app.</string>
+    <string name="tvview_content_locked_unrated_no_permission">This program is unrated.\nTo watch this program, use the default TV app.</string>
     <!-- Description on the locked screen with the rating when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
-    <string name="tvview_content_locked_format_no_permission">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>.\nTo watch this program, use the default Live TV app.</string>
+    <string name="tvview_content_locked_format_no_permission">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>.\nTo watch this program, use the default TV app.</string>
 
     <!-- Description on the locked screen when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="shrunken_tvview_content_locked">Program is blocked</string>
@@ -479,7 +479,7 @@
          the source video through to the display and don't provide ability to tune to a specific
          channel unless the user directly controls the external source device (e.g. game console,
          DVD player, settop box, etc) that is connected to the TV. [CHAR LIMIT=NONE] -->
-    <string name="msg_not_passthrough_input">Tuner type not suitable. Please launch <xliff:g id="app_name">Live TV</xliff:g>  app for tuner type TV input.</string>
+    <string name="msg_not_passthrough_input">Tuner type not suitable. Please launch <xliff:g id="app_name">Live TV</xliff:g> app for tuner type TV input.</string>
     <!-- Error message when tune is failed. [CHAR LIMIT=NONE] -->
     <string name="msg_tune_failed">Tune failed</string>
     <!-- Error message when the user attempts an action (select TIS setup-activity, app-link,
@@ -496,7 +496,7 @@
          (commands for external device)  [CHAR LIMIT=NONE] -->
     <string name="msg_back_key_guide">BACK key is for connected device. Press HOME button to exit.</string>
     <!-- Error message when a user denied to grant READ_TV_LISTING permission. [CHAR LIMIT=NONE] -->
-    <string name="msg_read_tv_listing_permission_denied"><xliff:g id="app_name">Live TV</xliff:g>  needs permission to read the TV listings.</string>
+    <string name="msg_read_tv_listing_permission_denied"><xliff:g id="app_name">Live TV</xliff:g> needs permission to read the TV listings.</string>
 
     <!-- Strings for debug or not to be shown to users -->
     <eat-comment />
@@ -518,17 +518,17 @@
     <!-- Title of Recently watched dialog. It is used for debug purpose. -->
     <string name="recently_watched" translatable="false">Recently watched</string>
 
-    <!-- Title of DVR history dialog. -->
+    <!-- Title of DVR history dialog. [CHAR LIMIT=50] -->
     <string name="dvr_history_dialog_title" translatable="false">DVR history</string>
 
-    <!-- Display name of DVR recording service's notification channel. -->
-    <string name="dvr_notification_channel_name" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  DVR</string>
-    <!-- Content title of DVR recording service's notification. -->
-    <string name="dvr_notification_content_title" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  DVR</string>
-    <!-- Content text of DVR recording service's notification during recording. -->
-    <string name="dvr_notification_content_text_recording" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  are recording.</string>
-    <!-- Content text of DVR recording service's notification during updating schedules. -->
-    <string name="dvr_notification_content_text_loading" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  are updating recording schedules.</string>
+    <!-- Display name of DVR recording service's notification channel. [CHAR LIMIT=50] -->
+    <string name="dvr_notification_channel_name" ><xliff:g id="app_name">Live TV</xliff:g> DVR</string>
+    <!-- Content title of DVR recording service's notification. [CHAR LIMIT=50] -->
+    <string name="dvr_notification_content_title" ><xliff:g id="app_name">Live TV</xliff:g> DVR</string>
+    <!-- Content text of DVR recording service's notification during recording. [CHAR LIMIT=NONE] -->
+    <string name="dvr_notification_content_text_recording" ><xliff:g id="app_name">Live TV</xliff:g> are recording.</string>
+    <!-- Content text of DVR recording service's notification during updating schedules. [CHAR LIMIT=NONE] -->
+    <string name="dvr_notification_content_text_loading" ><xliff:g id="app_name">Live TV</xliff:g> are updating recording schedules.</string>
 
     <!-- Default content title of tuner installing notifications. -->
     <string name="tuner_install_notification_content_title" translatable="false">Install <xliff:g id="tuner_package" example="Tuner package">%s</xliff:g></string>
@@ -546,9 +546,6 @@
     <eat-comment />
     <!-- Text for the channel sources screen in onboarding. -->
     <string name="setup_sources_text">Set up your sources</string>
-    <!-- Description for channel sources screen in onboarding. -->
-    <string name="setup_sources_description">Live channels combines the experience of traditional TV channels with streaming channels provided by apps.
-\n\nGet started by setting up the channel sources already installed. Or browse the online store for more apps that offer live channels.</string>
 
     <!-- Menu item label to start DVR manager UI. -->
     <string name="channels_item_dvr">Recordings &amp; schedules</string>
@@ -693,8 +690,8 @@
         <item quantity="one">%1$d of %2$d episode is deleted</item>
         <item quantity="other">%1$d of %2$d episodes are deleted</item>
     </plurals>
-    <!-- Title of DVR series settings -->
-    <string name="dvr_series_settings_title" translatable="false">Recording settings</string>
+    <!-- Title of screen with settings for the recording of a TV Program or Series. [CHAR LIMIT=50] -->
+    <string name="dvr_series_settings_title">Recording settings</string>
     <!-- Item label to change priority of TV series for DVR -->
     <string name="dvr_series_settings_priority">Priority</string>
     <!-- Item description when the current series has the height proirty among scheduled
@@ -720,12 +717,38 @@
     <!-- Button label in priority settings fragment for one-time recordings -->
     <string name="dvr_priority_action_one_time_recording">One-time recordings have the highest priority</string>
 
+    <!-- Title of DVR recording settings -->
+    <string name="dvr_recording_settings_title" translatable="false">Recording settings</string>
+    <!-- Title of recording start early settings fragment -->
+    <string name="dvr_start_early_title" translatable="false">Start early</string>
+    <!-- Title of recording end late settings fragment -->
+    <string name="dvr_end_late_title" translatable="false">End Late</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_none" translatable="false">On time</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_one_min" translatable="false">One Minute</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_five_mins" translatable="false">5 Minutes</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_fifteen_mins" translatable="false">15 Minutes</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_half_hour" translatable="false">30 Minutes</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_one_hour" translatable="false">60 Minutes</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_two_hours" translatable="false">120 Minutes</string>
+    <!-- Item description of time when the program has to be started early or ended late. -->
+    <string name="dvr_recording_settings_time_three_hours" translatable="false">180 Minutes</string>
+
     <!-- DVR epg strings -->
     <eat-comment />
-    <string name="dvr_action_delete_schedule" translatable="false">Delete schedule</string>
-    <string name="dvr_action_record_program" translatable="false">Record program</string>
-    <!-- The action to forget DVR storage which is missing currently. invoke android internal storage settings activity. -->
-    <string name="dvr_action_error_storage_settings" translatable="false">Open storage settings</string>
+    <!--  Button text that deletes scheduled future recordings of a TV Program or Series. [CHAR LIMIT=50] -->
+    <string name="dvr_action_delete_schedule">Delete schedule</string>
+    <!--  Button text that records the selected program. [CHAR LIMIT=50] -->
+    <string name="dvr_action_record_program">Record program</string>
+    <!-- Button text that invokes android internal storage settings activity.
+         [CHAR LIMIT=50] -->
+    <string name="dvr_action_error_storage_settings">Open storage settings</string>
     <!-- The action to stop recording. [CHAR LIMIT=10] -->
     <string name="dvr_action_stop">Stop</string>
     <!-- The action to open the activity which shows all the schedules.[CHAR LIMIT=32] -->
@@ -767,8 +790,10 @@
     <!-- Dvr label in epg to indicate the recording of the program has been failed. [CHAR LIMIT=30] -->
     <string name="dvr_epg_program_recording_failed">Recording failed</string>
     <string name="dvr_epg_program_icon_text" translatable="false">DVR</string>
-    <string name="dvr_epg_channel_watch_conflict_dialog_title" translatable="false">Upcoming schedules</string>
-    <string name="dvr_epg_channel_watch_conflict_dialog_description" translatable="false">The programs will not be recorded if you keep watching this channel. Cancel the recordings, or current channel will be blocked when the recording starts.</string>
+    <!-- Title of a dialog box displayed when a previously scheduled recording requires an action.[CHAR LIMIT=50] -->
+    <string name="dvr_epg_channel_watch_conflict_dialog_title">Upcoming schedules</string>
+    <!-- Description in a dialog box displayed when a previously scheduled recording requires an action. [CHAR LIMIT=NONE] -->
+    <string name="dvr_epg_channel_watch_conflict_dialog_description">The program will not be recorded if you keep watching this channel. Cancel the recording, or the current channel will be blocked when the recording starts.</string>
     <!-- A popup message which informs that Live TV is reading program information. -->
     <string name="dvr_series_progress_message_reading_programs">Reading programs</string>
     <!-- Dialog action which let user view the recent recordings. -->
@@ -798,10 +823,10 @@
     <string name="dvr_error_no_free_space_description">This program will not be recorded because there is not enough storage. Try deleting some existing recordings.</string>
     <!-- Dialog title which will be shown when the current DVR storage is not accessible. -->
     <string name="dvr_error_missing_storage_title">Missing storage</string>
-    <!-- Dialog description which will be shown when the current DVR storage is not accessible. -->
-    <string name="dvr_error_missing_storage_description" translatable="false">Some of the storage used for recording is missing. Please connect the external drive you used before to re-enable recording. Alternately, you can forget the storage in the storage settings, if it\'s no longer available.</string>
-    <!-- The recording being requested to play is not existent in storage. It may be deleted. -->
-    <string name="dvr_toast_recording_deleted" translatable="false">The recording seems to be deleted.</string>
+    <!-- Dialog description which will be shown when the current DVR storage is not accessible. [CHAR LIMIT=NONE]  -->
+    <string name="dvr_error_missing_storage_description">Some of the storage used for recording is missing. Please connect the external drive you used before to re-enable recording. Alternately, you can forget the storage in the storage settings, if it\'s no longer available.</string>
+    <!-- A toast message displad to the user when the recording being requested to play is not found in storage. [CHAR LIMIT=NONE] -->
+    <string name="dvr_toast_recording_deleted">Recording not found.</string>
 
     <!-- DVR half sized dialogs -->
     <eat-comment />
@@ -908,7 +933,8 @@
 
     <!-- DVR channel banner strings -->
     <eat-comment />
-    <string name="dvr_recording_till_format" translatable="false">Recording till <xliff:g id="recordingEndTime" example="9:00pm">%1$s</xliff:g></string>
+    <!-- Text desplayed on screen to show that the current program is being recorded until the time listed. [CHAR LIMIT=30] -->
+    <string name="dvr_recording_till_format">Recording till <xliff:g id="recordingEndTime" example="9:00pm">%1$s</xliff:g></string>
 
     <!-- DVR schedule list strings -->
     <eat-comment/>

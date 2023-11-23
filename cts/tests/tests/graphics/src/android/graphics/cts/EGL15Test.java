@@ -322,6 +322,37 @@ public class EGL15Test {
                     + " why did call not report that!");
         }
     }
+
+    @Test
+    public void testEGL15CreateDebugContext() {
+        int error;
+
+        if (mEglVersion < 15) {
+            return;
+        }
+
+        mEglContext = EGL14.eglCreateContext(mEglDisplay, mEglConfig, EGL14.EGL_NO_CONTEXT,
+                new int[] { EGL15.EGL_CONTEXT_OPENGL_DEBUG, EGL14.EGL_FALSE, EGL14.EGL_NONE }, 0);
+        if (mEglContext == EGL15.EGL_NO_CONTEXT) {
+            throw new RuntimeException("eglCreateContext failed");
+        }
+        error = EGL14.eglGetError();
+        if (error != EGL14.EGL_SUCCESS) {
+            throw new RuntimeException("eglCreateContext failed");
+        }
+        EGL14.eglDestroyContext(mEglDisplay, mEglContext);
+
+        mEglContext = EGL14.eglCreateContext(mEglDisplay, mEglConfig, EGL14.EGL_NO_CONTEXT,
+                new int[] { EGL15.EGL_CONTEXT_OPENGL_DEBUG, EGL14.EGL_TRUE, EGL14.EGL_NONE }, 0);
+        if (mEglContext == EGL15.EGL_NO_CONTEXT) {
+            throw new RuntimeException("eglCreateContext failed");
+        }
+        error = EGL14.eglGetError();
+        if (error != EGL14.EGL_SUCCESS) {
+            throw new RuntimeException("eglCreateContext failed");
+        }
+        EGL14.eglDestroyContext(mEglDisplay, mEglContext);
+    }
 }
 
 // Note: Need to add tests for eglCreatePlatformWindowSurface

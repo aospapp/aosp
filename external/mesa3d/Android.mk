@@ -24,15 +24,21 @@
 # BOARD_GPU_DRIVERS should be defined.  The valid values are
 #
 #   classic drivers: i915 i965
-#   gallium drivers: swrast freedreno i915g nouveau pl111 r300g r600g radeonsi vc4 virgl vmwgfx etnaviv imx
+#   gallium drivers: swrast freedreno i915g nouveau kmsro r300g r600g radeonsi vc4 virgl vmwgfx etnaviv iris lima
 #
 # The main target is libGLES_mesa.  For each classic driver enabled, a DRI
 # module will also be built.  DRI modules will be loaded by libGLES_mesa.
 
+LOCAL_PATH := $(call my-dir)
+
 ifneq ($(BOARD_USE_CUSTOMIZED_MESA), true)
 ifneq ($(BOARD_GPU_DRIVERS),)
 
-MESA_TOP := $(call my-dir)
+MESA_TOP := $(LOCAL_PATH)
+
+ifeq ($(filter $(MESA_TOP),$(PRODUCT_SOONG_NAMESPACES)),)
+  $(error $(MESA_TOP) must be in PRODUCT_SOONG_NAMESPACES)
+endif
 
 MESA_ANDROID_MAJOR_VERSION := $(word 1, $(subst ., , $(PLATFORM_VERSION)))
 ifneq ($(filter 2 4, $(MESA_ANDROID_MAJOR_VERSION)),)
@@ -55,7 +61,7 @@ gallium_drivers := \
 	freedreno.HAVE_GALLIUM_FREEDRENO \
 	i915g.HAVE_GALLIUM_I915 \
 	nouveau.HAVE_GALLIUM_NOUVEAU \
-	pl111.HAVE_GALLIUM_PL111 \
+	kmsro.HAVE_GALLIUM_KMSRO \
 	r300g.HAVE_GALLIUM_R300 \
 	r600g.HAVE_GALLIUM_R600 \
 	radeonsi.HAVE_GALLIUM_RADEONSI \
@@ -63,7 +69,8 @@ gallium_drivers := \
 	vc4.HAVE_GALLIUM_VC4 \
 	virgl.HAVE_GALLIUM_VIRGL \
 	etnaviv.HAVE_GALLIUM_ETNAVIV \
-	imx.HAVE_GALLIUM_IMX
+	iris.HAVE_GALLIUM_IRIS \
+	lima.HAVE_GALLIUM_LIMA
 
 ifeq ($(BOARD_GPU_DRIVERS),all)
 MESA_BUILD_CLASSIC := $(filter HAVE_%, $(subst ., , $(classic_drivers)))
@@ -100,18 +107,19 @@ define mesa-build-with-llvm
   $(if $(filter $(MESA_ANDROID_MAJOR_VERSION), 4 5), \
     $(warning Unsupported LLVM version in Android $(MESA_ANDROID_MAJOR_VERSION)),) \
   $(if $(filter 6,$(MESA_ANDROID_MAJOR_VERSION)), \
-    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0307 -DMESA_LLVM_VERSION_PATCH=0)) \
+    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0307 -DMESA_LLVM_VERSION_STRING=\"3.7\")) \
   $(if $(filter 7,$(MESA_ANDROID_MAJOR_VERSION)), \
-    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0308 -DMESA_LLVM_VERSION_PATCH=0)) \
+    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0308 -DMESA_LLVM_VERSION_STRING=\"3.8\")) \
   $(if $(filter 8,$(MESA_ANDROID_MAJOR_VERSION)), \
-    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0309 -DMESA_LLVM_VERSION_PATCH=0)) \
+    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0309 -DMESA_LLVM_VERSION_STRING=\"3.9\")) \
   $(if $(filter P,$(MESA_ANDROID_MAJOR_VERSION)), \
-    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0309 -DMESA_LLVM_VERSION_PATCH=0)) \
+    $(eval LOCAL_CFLAGS += -DHAVE_LLVM=0x0309 -DMESA_LLVM_VERSION_STRING=\"3.9\")) \
   $(eval LOCAL_SHARED_LIBRARIES += libLLVM)
 endef
 
 # add subdirectories
 SUBDIRS := \
+	src/freedreno \
 	src/gbm \
 	src/loader \
 	src/mapi \
@@ -129,5 +137,13 @@ INC_DIRS := $(call all-named-subdir-makefiles,$(SUBDIRS))
 INC_DIRS += $(call all-named-subdir-makefiles,src/gallium)
 include $(INC_DIRS)
 
+else
+  ifneq ($(filter $(LOCAL_PATH),$(PRODUCT_SOONG_NAMESPACES)),)
+    $(error $(LOCAL_PATH) in PRODUCT_SOONG_NAMESPACES, but not configured in Make)
+  endif
 endif # BOARD_GPU_DRIVERS != ""
+else
+  ifneq ($(filter $(LOCAL_PATH),$(PRODUCT_SOONG_NAMESPACES)),)
+    $(error $(LOCAL_PATH) in PRODUCT_SOONG_NAMESPACES, but not configured in Make)
+  endif
 endif # BOARD_USE_CUSTOMIZED_MESA != true

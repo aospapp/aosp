@@ -81,17 +81,43 @@ static void translate_image(struct fd5_image *img, struct pipe_image_view *pimg)
 		lvl = 0;
 		img->offset = pimg->u.buf.offset;
 		img->pitch  = pimg->u.buf.size;
-		img->array_pitch = 0;
 	} else {
 		lvl = pimg->u.tex.level;
-		img->offset = rsc->slices[lvl].offset;
+		img->offset = fd_resource_offset(rsc, lvl, pimg->u.tex.first_layer);
 		img->pitch  = rsc->slices[lvl].pitch * rsc->cpp;
-		img->array_pitch = rsc->layer_size;
 	}
 
 	img->width     = u_minify(prsc->width0, lvl);
 	img->height    = u_minify(prsc->height0, lvl);
-	img->depth     = u_minify(prsc->depth0, lvl);
+
+	unsigned layers = pimg->u.tex.last_layer - pimg->u.tex.first_layer + 1;
+
+	switch (prsc->target) {
+	case PIPE_TEXTURE_RECT:
+	case PIPE_TEXTURE_1D:
+	case PIPE_TEXTURE_2D:
+		img->array_pitch = rsc->layer_size;
+		img->depth = 1;
+		break;
+	case PIPE_TEXTURE_1D_ARRAY:
+	case PIPE_TEXTURE_2D_ARRAY:
+		img->array_pitch = rsc->layer_size;
+		img->depth = layers;
+		break;
+	case PIPE_TEXTURE_CUBE:
+	case PIPE_TEXTURE_CUBE_ARRAY:
+		img->array_pitch = rsc->layer_size;
+		img->depth = layers;
+		break;
+	case PIPE_TEXTURE_3D:
+		img->array_pitch = rsc->slices[lvl].size0;
+		img->depth = u_minify(prsc->depth0, lvl);
+		break;
+	default:
+		img->array_pitch = 0;
+		img->depth = 0;
+		break;
+	}
 }
 
 static void emit_image_tex(struct fd_ringbuffer *ring, unsigned slot,
@@ -134,19 +160,6 @@ static void emit_image_tex(struct fd_ringbuffer *ring, unsigned slot,
 static void emit_image_ssbo(struct fd_ringbuffer *ring, unsigned slot,
 		struct fd5_image *img, enum pipe_shader_type shader)
 {
-	OUT_PKT7(ring, CP_LOAD_STATE4, 3 + 4);
-	OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(slot) |
-		CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
-		CP_LOAD_STATE4_0_STATE_BLOCK(imgsb[shader]) |
-		CP_LOAD_STATE4_0_NUM_UNIT(1));
-	OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(0) |
-		CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
-	OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
-	OUT_RING(ring, A5XX_SSBO_0_0_BASE_LO(0));
-	OUT_RING(ring, A5XX_SSBO_0_1_PITCH(img->pitch));
-	OUT_RING(ring, A5XX_SSBO_0_2_ARRAY_PITCH(img->array_pitch));
-	OUT_RING(ring, A5XX_SSBO_0_3_CPP(img->cpp));
-
 	OUT_PKT7(ring, CP_LOAD_STATE4, 3 + 2);
 	OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(slot) |
 		CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
@@ -176,48 +189,25 @@ static void emit_image_ssbo(struct fd_ringbuffer *ring, unsigned slot,
 	}
 }
 
-/* Note that to avoid conflicts with textures and non-image "SSBO"s, images
- * are placedd, in reverse order, at the end of the state block, so for
- * example the sampler state:
- *
- *   0:   first texture
- *   1:   second texture
- *   ....
- *   N-1: second image
- *   N:   first image
- */
-static unsigned
-get_image_slot(unsigned index)
-{
-	/* TODO figure out real limit per generation, and don't hardcode.
-	 * This needs to match get_image_slot() in ir3_compiler_nir.
-	 * Possibly should be factored out into shared helper?
-	 */
-	const unsigned max_samplers = 16;
-	return max_samplers - index - 1;
-}
-
 /* Emit required "SSBO" and sampler state.  The sampler state is used by the
  * hw for imageLoad(), and "SSBO" state for imageStore().  Returns max sampler
  * used.
  */
 void
 fd5_emit_images(struct fd_context *ctx, struct fd_ringbuffer *ring,
-		enum pipe_shader_type shader)
+		enum pipe_shader_type shader, const struct ir3_shader_variant *v)
 {
 	struct fd_shaderimg_stateobj *so = &ctx->shaderimg[shader];
+	unsigned enabled_mask = so->enabled_mask;
+	const struct ir3_ibo_mapping *m = &v->image_mapping;
 
-	so->dirty_mask &= so->enabled_mask;
-
-	while (so->dirty_mask) {
-		unsigned index = u_bit_scan(&so->dirty_mask);
-		unsigned slot = get_image_slot(index);
+	while (enabled_mask) {
+		unsigned index = u_bit_scan(&enabled_mask);
 		struct fd5_image img;
 
 		translate_image(&img, &so->si[index]);
 
-		emit_image_tex(ring, slot, &img, shader);
-		emit_image_ssbo(ring, slot, &img, shader);
+		emit_image_tex(ring, m->image_to_tex[index] + m->tex_base, &img, shader);
+		emit_image_ssbo(ring, m->image_to_ibo[index], &img, shader);
 	}
 }
-

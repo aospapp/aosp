@@ -14,30 +14,5 @@
 
 LOCAL_PATH := $(call my-dir)
 
-include $(CLEAR_VARS)
-
-# Only compile source java files in this apk.
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
-LOCAL_MODULE := CtsAppSecurityHostTestCases
-
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
-
-LOCAL_STATIC_JAVA_LIBRARIES := truth-prebuilt-jar
-
-LOCAL_JAVA_RESOURCE_DIRS := res
-
-LOCAL_CTS_TEST_PACKAGE := android.appsecurity
-
-# tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-
-LOCAL_REQUIRED_MODULES := \
-	CtsCorruptApkTests_b71360999 \
-	CtsCorruptApkTests_b71361168 \
-	CtsCorruptApkTests_b79488511
-
-include $(BUILD_CTS_HOST_JAVA_LIBRARY)
-
 # Build the test APKs using their own makefiles
 include $(call all-makefiles-under,$(LOCAL_PATH))

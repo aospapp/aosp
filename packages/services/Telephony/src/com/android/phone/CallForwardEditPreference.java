@@ -159,6 +159,7 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
                     mPhone.setCallForwardingOption(action,
                             reason,
                             number,
+                            mServiceClass,
                             time,
                             mHandler.obtainMessage(MyHandler.MESSAGE_SET_CF,
                                     action,
@@ -216,7 +217,7 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
      */
     void startCallForwardOptionsQuery() {
         if (!mCallForwardByUssd) {
-            mPhone.getCallForwardingOption(reason,
+            mPhone.getCallForwardingOption(reason, mServiceClass,
                     mHandler.obtainMessage(MyHandler.MESSAGE_GET_CF,
                             // unused in this case
                             CommandsInterface.CF_ACTION_DISABLE,
@@ -359,9 +360,8 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
                     mTcpListener.onError(CallForwardEditPreference.this, RESPONSE_ERROR);
                 }
                 CallForwardInfo cfInfoArray[] = (CallForwardInfo[]) ar.result;
-                if (cfInfoArray.length == 0) {
+                if (cfInfoArray == null || cfInfoArray.length == 0) {
                     Log.d(LOG_TAG, "handleGetCFResponse: cfInfoArray.length==0");
-                    setEnabled(false);
                     mTcpListener.onError(CallForwardEditPreference.this, RESPONSE_ERROR);
                 } else {
                     for (int i = 0, length = cfInfoArray.length; i < length; i++) {
@@ -371,6 +371,11 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
                             // corresponding class
                             CallForwardInfo info = cfInfoArray[i];
                             handleCallForwardResult(info);
+
+                            if (ar.userObj instanceof Throwable) {
+                                Log.d(LOG_TAG, "Skipped duplicated error dialog");
+                                continue;
+                            }
 
                             // Show an alert if we got a success response but
                             // with unexpected values.
@@ -423,7 +428,7 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
             }
             Log.d(LOG_TAG, "handleSetCFResponse: re get");
             if (!mCallForwardByUssd) {
-                mPhone.getCallForwardingOption(reason,
+                mPhone.getCallForwardingOption(reason, mServiceClass,
                         obtainMessage(MESSAGE_GET_CF, msg.arg1, MESSAGE_SET_CF, ar.exception));
             } else {
                 mHandler.sendMessage(mHandler.obtainMessage(mHandler.MESSAGE_GET_CF_USSD,

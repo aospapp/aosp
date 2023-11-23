@@ -63,6 +63,7 @@ public class Camera2Activity extends Activity {
                         " could not connect camera service");
                 return;
             }
+            // TODO: http://b/145308043 move this back to getCameraIdListNoLazy()
             String[] cameraIds = manager.getCameraIdList();
 
             if (cameraIds == null || cameraIds.length == 0) {
@@ -86,6 +87,22 @@ public class Camera2Activity extends Activity {
                     mErrorServiceConnection.logAsync(TestConstants.EVENT_CAMERA_UNAVAILABLE,
                             cameraId);
                     Log.i(TAG, "Camera " + cameraId + " is unavailable");
+                }
+
+                @Override
+                public void onPhysicalCameraAvailable(String cameraId, String physicalCameraId) {
+                    super.onPhysicalCameraAvailable(cameraId, physicalCameraId);
+                    mErrorServiceConnection.logAsync(TestConstants.EVENT_CAMERA_AVAILABLE,
+                            cameraId + " : " + physicalCameraId);
+                    Log.i(TAG, "Camera " + cameraId + " : " + physicalCameraId + " is available");
+                }
+
+                @Override
+                public void onPhysicalCameraUnavailable(String cameraId, String physicalCameraId) {
+                    super.onPhysicalCameraUnavailable(cameraId, physicalCameraId);
+                    mErrorServiceConnection.logAsync(TestConstants.EVENT_CAMERA_UNAVAILABLE,
+                            cameraId + " : " + physicalCameraId);
+                    Log.i(TAG, "Camera " + cameraId + " : " + physicalCameraId + " is unavailable");
                 }
             }, null);
 

@@ -56,7 +56,7 @@ public class BugreportzOnFailureCollectorTest {
     public void testCollect() throws Exception {
         TestDescription test = new TestDescription("class", "test");
         mMockListener.testStarted(EasyMock.eq(test), EasyMock.anyLong());
-        mMockListener.testFailed(EasyMock.eq(test), EasyMock.anyObject());
+        mMockListener.testFailed(EasyMock.eq(test), (String) EasyMock.anyObject());
         mMockListener.testEnded(
                 EasyMock.eq(test),
                 EasyMock.anyLong(),

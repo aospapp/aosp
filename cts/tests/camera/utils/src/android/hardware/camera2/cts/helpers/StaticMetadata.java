@@ -25,6 +25,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.hardware.camera2.params.Capability;
 import android.util.Range;
 import android.util.Size;
 import android.util.Log;
@@ -75,7 +76,7 @@ public class StaticMetadata {
 
     // Last defined capability enum, for iterating over all of them
     public static final int LAST_CAPABILITY_ENUM =
-            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_SECURE_IMAGE_DATA;
+            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_OFFLINE_PROCESSING;
 
     // Access via getAeModeName() to account for vendor extensions
     public static final String[] AE_MODE_NAMES = new String[] {
@@ -517,7 +518,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get max AE regions and do sanity check.
+     * Get max AE regions and do validity check.
      *
      * @return AE max regions supported by the camera device
      */
@@ -530,7 +531,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get max AWB regions and do sanity check.
+     * Get max AWB regions and do validity check.
      *
      * @return AWB max regions supported by the camera device
      */
@@ -543,7 +544,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get max AF regions and do sanity check.
+     * Get max AF regions and do validity check.
      *
      * @return AF max regions supported by the camera device
      */
@@ -627,7 +628,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get available thumbnail sizes and do the sanity check.
+     * Get available thumbnail sizes and do the validity check.
      *
      * @return The array of available thumbnail sizes
      */
@@ -655,7 +656,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get available focal lengths and do the sanity check.
+     * Get available focal lengths and do the validity check.
      *
      * @return The array of available focal lengths
      */
@@ -676,7 +677,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get available apertures and do the sanity check.
+     * Get available apertures and do the validity check.
      *
      * @return The non-null array of available apertures
      */
@@ -991,7 +992,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get hyperfocalDistance and do the sanity check.
+     * Get hyperfocalDistance and do the validity check.
      * <p>
      * Note that, this tag is optional, will return -1 if this tag is not
      * available.
@@ -1150,7 +1151,7 @@ public class StaticMetadata {
     }
 
     /**
-     * get android.control.availableModes and do the sanity check.
+     * get android.control.availableModes and do the validity check.
      *
      * @return available control modes.
      */
@@ -1206,7 +1207,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get aeAvailableModes and do the sanity check.
+     * Get aeAvailableModes and do the validity check.
      *
      * <p>Depending on the check level this class has, for WAR or COLLECT levels,
      * If the aeMode list is invalid, return an empty mode array. The the caller doesn't
@@ -1276,7 +1277,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get available AWB modes and do the sanity check.
+     * Get available AWB modes and do the validity check.
      *
      * @return array that contains available AWB modes, empty array if awbAvailableModes is
      * unavailable.
@@ -1302,7 +1303,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get available AF modes and do the sanity check.
+     * Get available AF modes and do the validity check.
      *
      * @return array that contains available AF modes, empty array if afAvailableModes is
      * unavailable.
@@ -1690,7 +1691,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get value of key android.control.aeCompensationStep and do the sanity check.
+     * Get value of key android.control.aeCompensationStep and do the validity check.
      *
      * @return default value if the value is null.
      */
@@ -1715,7 +1716,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get value of key android.control.aeCompensationRange and do the sanity check.
+     * Get value of key android.control.aeCompensationRange and do the validity check.
      *
      * @return default value if the value is null or malformed.
      */
@@ -1745,7 +1746,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get availableVideoStabilizationModes and do the sanity check.
+     * Get availableVideoStabilizationModes and do the validity check.
      *
      * @return available video stabilization modes, empty array if it is unavailable.
      */
@@ -1776,7 +1777,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get availableOpticalStabilization and do the sanity check.
+     * Get availableOpticalStabilization and do the validity check.
      *
      * @return available optical stabilization modes, empty array if it is unavailable.
      */
@@ -1815,6 +1816,26 @@ public class StaticMetadata {
         return maxZoom;
     }
 
+    public Range<Float> getZoomRatioRangeChecked() {
+        Key<Range<Float>> key =
+                CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE;
+
+        Range<Float> zoomRatioRange = getValueFromKeyNonNull(key);
+        if (zoomRatioRange == null) {
+            return new Range<Float>(1.0f, 1.0f);
+        }
+
+        checkTrueForKey(key, String.format(" min zoom ratio %f should be no more than 1",
+                zoomRatioRange.getLower()), zoomRatioRange.getLower() <= 1.0);
+        checkTrueForKey(key, String.format(" max zoom ratio %f should be no less than 1",
+                zoomRatioRange.getUpper()), zoomRatioRange.getUpper() >= 1.0);
+        final float ZOOM_MIN_RANGE = 0.01f;
+        checkTrueForKey(key, " zoom ratio range should be reasonably large",
+                zoomRatioRange.getUpper().equals(zoomRatioRange.getLower()) ||
+                zoomRatioRange.getUpper() - zoomRatioRange.getLower() > ZOOM_MIN_RANGE);
+        return zoomRatioRange;
+    }
+
     public int[] getAvailableSceneModesChecked() {
         Key<int[]> key =
                 CameraCharacteristics.CONTROL_AVAILABLE_SCENE_MODES;
@@ -1850,6 +1871,62 @@ public class StaticMetadata {
                 modeList.contains(CameraMetadata.CONTROL_EFFECT_MODE_OFF));
 
         return modes;
+    }
+
+    public Capability[] getAvailableExtendedSceneModeCapsChecked() {
+        final Size FULL_HD = new Size(1920, 1080);
+        Rect activeRect = getValueFromKeyNonNull(
+                CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+        Key<Capability[]> key =
+                CameraCharacteristics.CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES;
+        Capability[] caps = mCharacteristics.get(key);
+        if (caps == null) {
+            return new Capability[0];
+        }
+
+        Size[] yuvSizes = getAvailableSizesForFormatChecked(ImageFormat.YUV_420_888,
+                StaticMetadata.StreamDirection.Output);
+        List<Size> yuvSizesList = Arrays.asList(yuvSizes);
+        for (Capability cap : caps) {
+            int extendedSceneMode = cap.getMode();
+            Size maxStreamingSize = cap.getMaxStreamingSize();
+            boolean maxStreamingSizeIsZero =
+                    maxStreamingSize.getWidth() == 0 && maxStreamingSize.getHeight() == 0;
+            switch (extendedSceneMode) {
+                case CameraMetadata.CONTROL_EXTENDED_SCENE_MODE_BOKEH_STILL_CAPTURE:
+                    // STILL_CAPTURE: Must either be (0, 0), or one of supported yuv/private sizes.
+                    // Because spec requires yuv and private sizes match, only check YUV sizes here.
+                    checkTrueForKey(key,
+                            String.format(" maxStreamingSize [%d, %d] for extended scene mode " +
+                            "%d must be a supported YCBCR_420_888 size, or (0, 0)",
+                            maxStreamingSize.getWidth(), maxStreamingSize.getHeight(),
+                            extendedSceneMode),
+                            yuvSizesList.contains(maxStreamingSize) || maxStreamingSizeIsZero);
+                    break;
+                case CameraMetadata.CONTROL_EXTENDED_SCENE_MODE_BOKEH_CONTINUOUS:
+                    // CONTINUOUS: Must be one of supported yuv/private stream sizes.
+                    checkTrueForKey(key,
+                            String.format(" maxStreamingSize [%d, %d] for extended scene mode " +
+                            "%d must be a supported YCBCR_420_888 size.",
+                            maxStreamingSize.getWidth(), maxStreamingSize.getHeight(),
+                            extendedSceneMode), yuvSizesList.contains(maxStreamingSize));
+                    // Must be at least 1080p if sensor is at least 1080p.
+                    if (activeRect.width() >= FULL_HD.getWidth() &&
+                            activeRect.height() >= FULL_HD.getHeight()) {
+                        checkTrueForKey(key,
+                                String.format(" maxStreamingSize [%d, %d] for extended scene " +
+                                "mode %d must be at least 1080p", maxStreamingSize.getWidth(),
+                                maxStreamingSize.getHeight(), extendedSceneMode),
+                                maxStreamingSize.getWidth() >= FULL_HD.getWidth() &&
+                                maxStreamingSize.getHeight() >= FULL_HD.getHeight());
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return caps;
     }
 
     /**
@@ -1890,7 +1967,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get max pipeline depth and do the sanity check.
+     * Get max pipeline depth and do the validity check.
      *
      * @return max pipeline depth, default value if it is not available.
      */
@@ -1956,7 +2033,7 @@ public class StaticMetadata {
 
 
     /**
-     * Get available capabilities and do the sanity check.
+     * Get available capabilities and do the validity check.
      *
      * @return reported available capabilities list, empty list if the value is unavailable.
      */
@@ -1997,6 +2074,45 @@ public class StaticMetadata {
 
         return availableCapabilities.contains(capability);
     }
+
+    /**
+     * Determine whether the current device supports a private reprocessing capability or not.
+     *
+     * @return {@code true} if the capability is supported, {@code false} otherwise.
+     *
+     * @throws IllegalArgumentException if {@code capability} was negative
+     */
+    public boolean isPrivateReprocessingSupported() {
+        return isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING);
+    }
+
+    /**
+     * Get sorted (descending order) size list for given input format. Remove the sizes larger than
+     * the bound. If the bound is null, don't do the size bound filtering.
+     *
+     * @param format input format
+     * @param bound maximum allowed size bound
+     *
+     * @return Sorted input size list (descending order)
+     */
+    public List<Size> getSortedSizesForInputFormat(int format, Size bound) {
+        Size[] availableSizes = getAvailableSizesForFormatChecked(format, StreamDirection.Input);
+        if (bound == null) {
+            return CameraTestUtils.getAscendingOrderSizes(Arrays.asList(availableSizes),
+                    /*ascending*/false);
+        }
+
+        List<Size> sizes = new ArrayList<Size>();
+        for (Size sz: availableSizes) {
+            if (sz.getWidth() <= bound.getWidth() && sz.getHeight() <= bound.getHeight()) {
+                sizes.add(sz);
+            }
+        }
+
+        return CameraTestUtils.getAscendingOrderSizes(sizes, /*ascending*/false);
+    }
+
 
     /**
      * Determine whether or not all the {@code keys} are available characteristics keys
@@ -2183,7 +2299,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get max number of output raw streams and do the basic sanity check.
+     * Get max number of output raw streams and do the basic validity check.
      *
      * @return reported max number of raw output stream
      */
@@ -2196,7 +2312,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get max number of output processed streams and do the basic sanity check.
+     * Get max number of output processed streams and do the basic validity check.
      *
      * @return reported max number of processed output stream
      */
@@ -2209,7 +2325,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get max number of output stalling processed streams and do the basic sanity check.
+     * Get max number of output stalling processed streams and do the basic validity check.
      *
      * @return reported max number of stalling processed output stream
      */
@@ -2222,7 +2338,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get lens facing and do the sanity check
+     * Get lens facing and do the validity check
      * @return lens facing, return default value (BACK) if value is unavailable.
      */
     public int getLensFacingChecked() {
@@ -2361,6 +2477,14 @@ public class StaticMetadata {
     }
 
     /**
+     * Check if offline processing is supported, based on the respective capability
+     */
+    public boolean isOfflineProcessingSupported() {
+        return isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_OFFLINE_PROCESSING);
+    }
+
+    /**
      * Check if standard outputs (PRIVATE, YUV, JPEG) outputs are supported, based on the
      * backwards-compatible capability
      */
@@ -2390,6 +2514,14 @@ public class StaticMetadata {
     public boolean isHeicSupported() {
         int[] formats = getAvailableFormats(StaticMetadata.StreamDirection.Output);
         return CameraTestUtils.contains(formats, ImageFormat.HEIC);
+    }
+
+    /**
+     * Check if Depth Jpeg format is supported
+     */
+    public boolean isDepthJpegSupported() {
+        int[] formats = getAvailableFormats(StaticMetadata.StreamDirection.Output);
+        return CameraTestUtils.contains(formats, ImageFormat.DEPTH_JPEG);
     }
 
     /**

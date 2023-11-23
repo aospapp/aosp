@@ -17,7 +17,7 @@
 %                                 May 2002                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -138,7 +138,7 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
   ssize_t
     y;
 
-  unsigned int
+  unsigned char
     offset;
 
   void
@@ -152,8 +152,7 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
   image=AcquireImage(image_info,exception);
-  if (!IsClipboardFormatAvailable(CF_BITMAP) &&
-      !IsClipboardFormatAvailable(CF_DIB) &&
+  if (!IsClipboardFormatAvailable(CF_DIB) &&
       !IsClipboardFormatAvailable(CF_DIBV5))
     ThrowReaderException(CoderError,"NoBitmapOnClipboard");
   if (!OpenClipboard(NULL))
@@ -178,6 +177,7 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
   if (clip_mem == (LPVOID) NULL)
     {
       CloseClipboard();
+      clip_data=RelinquishMagickMemory(clip_data);
       ThrowReaderException(CoderError,"UnableToReadImageData");
     }
   p=(unsigned char *) clip_data;
@@ -186,7 +186,9 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
   (void) GlobalUnlock(clip_mem);
   (void) CloseClipboard();
   memset(clip_data,0,BMP_HEADER_SIZE);
-  offset=((unsigned int) p[0])+BMP_HEADER_SIZE;
+  offset=p[0]+BMP_HEADER_SIZE;
+  if ((p[0] == 40) && (p[16] == BI_BITFIELDS))
+    offset+=12;
   p-=BMP_HEADER_SIZE;
   p[0]='B';
   p[1]='M';
@@ -340,7 +342,7 @@ static MagickBooleanType WriteCLIPBOARDImage(const ImageInfo *image_info,
       ThrowWriterException(CoderError,"UnableToWriteImageData");
     }
   clip_mem=GlobalLock(clip_handle);
-  if (clip_handle == (LPVOID) NULL)
+  if (clip_mem == (LPVOID) NULL)
     {
       (void) GlobalFree((HGLOBAL) clip_handle);
       clip_data=RelinquishMagickMemory(clip_data);

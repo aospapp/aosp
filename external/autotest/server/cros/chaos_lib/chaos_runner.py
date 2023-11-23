@@ -245,7 +245,7 @@ class ChaosRunner(object):
                         result = job.run_test(self._test,
                                      capturer=capturer,
                                      capturer_frequency=networks[0].frequency,
-                                     capturer_ht_type=networks[0].ht,
+                                     capturer_ht_type=networks[0].width,
                                      host=self._host,
                                      assoc_params=assoc_params,
                                      client=client,
@@ -268,8 +268,7 @@ class ChaosRunner(object):
                 batch_locker.unlock_aps()
 
             if webdriver_tunnel:
-                webdriver_instance.disconnect_ssh_tunnel(webdriver_tunnel,
-                                                         WEBDRIVER_PORT)
+                webdriver_instance.disconnect_ssh_tunnel(webdriver_tunnel)
                 webdriver_instance.close()
             capturer.close()
             logging.info('Powering off VM %s', webdriver_instance)

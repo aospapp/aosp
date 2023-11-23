@@ -22,7 +22,7 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.service.watchdog.ExplicitHealthCheckService;
 
-import com.android.internal.annotations.GuardedBy;
+import androidx.annotation.GuardedBy;
 
 /**
  * Observes the network stack via the ConnectivityManager.

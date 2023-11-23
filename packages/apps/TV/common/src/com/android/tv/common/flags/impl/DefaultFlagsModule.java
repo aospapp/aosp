@@ -18,9 +18,12 @@ package com.android.tv.common.flags.impl;
 import dagger.Module;
 import dagger.Provides;
 import dagger.Reusable;
+
 import com.android.tv.common.flags.BackendKnobsFlags;
 import com.android.tv.common.flags.CloudEpgFlags;
-import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
+import com.android.tv.common.flags.DvrFlags;
+import com.android.tv.common.flags.LegacyFlags;
+import com.android.tv.common.flags.StartupFlags;
 import com.android.tv.common.flags.TunerFlags;
 import com.android.tv.common.flags.UiFlags;
 
@@ -42,8 +45,20 @@ public class DefaultFlagsModule {
 
     @Provides
     @Reusable
-    ConcurrentDvrPlaybackFlags provideConcurrentDvrPlaybackFlags() {
-        return new DefaultConcurrentDvrPlaybackFlags();
+    DvrFlags provideDvrFlags() {
+        return new DefaultDvrFlags();
+    }
+
+    @Provides
+    @Reusable
+    LegacyFlags provideLegacyFlags() {
+        return DefaultLegacyFlags.DEFAULT;
+    }
+
+    @Provides
+    @Reusable
+    StartupFlags provideStartupFlags() {
+        return new DefaultStartupFlags();
     }
 
     @Provides

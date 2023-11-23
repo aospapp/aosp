@@ -43,7 +43,7 @@ import org.junit.runner.RunWith;
 public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
 
     /** The name of the package of the app under test */
-    private static final String KEY_VALUE_RESTORE_APP_PACKAGE =
+    static final String KEY_VALUE_RESTORE_APP_PACKAGE =
             "android.cts.backup.keyvaluerestoreapp";
 
     /** The name of the package with the activity testing shared preference restore. */
@@ -51,11 +51,11 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
             "android.cts.backup.sharedprefrestoreapp";
 
     /** The name of the device side test class */
-    private static final String KEY_VALUE_RESTORE_DEVICE_TEST_NAME =
+    static final String KEY_VALUE_RESTORE_DEVICE_TEST_NAME =
             KEY_VALUE_RESTORE_APP_PACKAGE + ".KeyValueBackupRestoreTest";
 
     /** The name of the apk of the app under test */
-    private static final String KEY_VALUE_RESTORE_APP_APK = "CtsKeyValueBackupRestoreApp.apk";
+    static final String KEY_VALUE_RESTORE_APP_APK = "CtsKeyValueBackupRestoreApp.apk";
 
     /** The name of the apk with the activity testing shared preference restore. */
     private static final String SHARED_PREFERENCES_RESTORE_APP_APK =

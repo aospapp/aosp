@@ -24,9 +24,9 @@ class display_HotPlugAtSuspend(test.test):
     """
     version = 1
     # Duration of suspend, in second.
-    SUSPEND_DURATION = 30
+    SUSPEND_DURATION = 40
     # Allowed timeout for the transition of suspend.
-    SUSPEND_TIMEOUT = 20
+    SUSPEND_TIMEOUT = 30
     # Allowed timeout for the transition of resume.
     RESUME_TIMEOUT = 60
     # Time margin to do plug/unplug before resume.

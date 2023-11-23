@@ -22,6 +22,8 @@ import static org.mockito.MockitoAnnotations.initMocks;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.ksoap2.serialization.SoapObject;
@@ -33,7 +35,7 @@ import java.util.Map;
  * Unit tests for {@link SppResponseMessage}.
  */
 @SmallTest
-public class SppResponseMessageTest {
+public class SppResponseMessageTest extends WifiBaseTest {
     private static final String TEST_STATUS = "OK";
     private static final String TEST_ERROR_STATUS = "Error occurred";
     private static final String TEST_SESSION_ID = "D215D696517BA138F1D28442DF0F4E07";

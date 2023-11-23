@@ -53,7 +53,7 @@ class OperationFactory {
 
     // Factory methods
     virtual OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                         keymaster_error_t* error) const = 0;
+                                         keymaster_error_t* error) = 0;
 
     // Informational methods.  The returned arrays reference static memory and must not be
     // deallocated or modified.
@@ -81,6 +81,9 @@ class OperationFactory {
                                keymaster_padding_t* padding, keymaster_error_t* error) const;
     bool GetAndValidateDigest(const AuthorizationSet& begin_params, const Key& key,
                               keymaster_digest_t* digest, keymaster_error_t* error) const;
+    bool GetAndValidateDigest(const AuthorizationSet& begin_params, const Key& key,
+                              keymaster_digest_t* digest, keymaster_error_t* error,
+                              bool require_explicit_digest) const;
 };
 
 /**

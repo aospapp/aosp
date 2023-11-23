@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Maak skakel oop"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"NFC-leesfout. Probeer weer."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"Geen gesteunde program vir hierdie NFC-merker nie"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC is dalk geblokkeer"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"Tik om uit te vind hoe om dit reg te stel."</string>
 </resources>

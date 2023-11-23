@@ -19,7 +19,10 @@ import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 import com.android.tradefed.build.proto.BuildInformation;
 import com.android.tradefed.build.proto.BuildInformation.BuildFile;
 import com.android.tradefed.build.proto.BuildInformation.KeyBuildFilePair;
+import com.android.tradefed.config.DynamicRemoteFileResolver;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.MultiMap;
@@ -33,6 +36,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -60,8 +64,6 @@ public class BuildInfo implements IBuildInfo {
     private String mBuildFlavor = null;
     private String mBuildBranch = null;
     private String mDeviceSerial = null;
-    /** Whether or not the build info describes a test resource */
-    private boolean mTestResourceBuild = false;
 
     /** File handling properties: Some files of the BuildInfo might requires special handling */
     private final Set<BuildInfoProperties> mProperties = new HashSet<>();
@@ -122,18 +124,6 @@ public class BuildInfo implements IBuildInfo {
     @Override
     public void setBuildId(String buildId) {
         mBuildId = buildId;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean isTestResourceBuild() {
-        return mTestResourceBuild;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setTestResourceBuild(boolean testResourceBuild) {
-        mTestResourceBuild = testResourceBuild;
     }
 
     /**
@@ -211,7 +201,6 @@ public class BuildInfo implements IBuildInfo {
         setBuildFlavor(build.getBuildFlavor());
         setBuildBranch(build.getBuildBranch());
         setTestTag(build.getTestTag());
-        setTestResourceBuild(build.isTestResourceBuild());
     }
 
     protected MultiMap<String, String> getAttributesMultiMap() {
@@ -390,6 +379,23 @@ public class BuildInfo implements IBuildInfo {
         setFile(key.getFileKey(), file, version);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<VersionedFile> getAppPackageFiles() {
+        List<VersionedFile> origList = getVersionedFiles(BuildInfoFileKey.PACKAGE_FILES);
+        List<VersionedFile> listCopy = new ArrayList<VersionedFile>();
+        if (origList != null) {
+            listCopy.addAll(origList);
+        }
+        return listCopy;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addAppPackageFile(File appPackageFile, String version) {
+        setFile(BuildInfoFileKey.PACKAGE_FILES, appPackageFile, version);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -458,6 +464,7 @@ public class BuildInfo implements IBuildInfo {
         }
         copy.setBuildBranch(mBuildBranch);
         copy.setBuildFlavor(mBuildFlavor);
+        copy.setDeviceSerial(mDeviceSerial);
 
         return copy;
     }
@@ -526,13 +533,13 @@ public class BuildInfo implements IBuildInfo {
             return false;
         }
         BuildInfo other = (BuildInfo) obj;
-        return Objects.equal(mBuildAttributes, other.mBuildAttributes) &&
-                Objects.equal(mBuildBranch, other.mBuildBranch) &&
-                Objects.equal(mBuildFlavor, other.mBuildFlavor) &&
-                Objects.equal(mBuildId, other.mBuildId) &&
-                Objects.equal(mBuildTargetName, other.mBuildTargetName) &&
-                Objects.equal(mTestTag, other.mTestTag) &&
-                Objects.equal(mDeviceSerial, other.mDeviceSerial);
+        return Objects.equal(mBuildAttributes, other.mBuildAttributes)
+                && Objects.equal(mBuildBranch, other.mBuildBranch)
+                && Objects.equal(mBuildFlavor, other.mBuildFlavor)
+                && Objects.equal(mBuildId, other.mBuildId)
+                && Objects.equal(mBuildTargetName, other.mBuildTargetName)
+                && Objects.equal(mTestTag, other.mTestTag)
+                && Objects.equal(mDeviceSerial, other.mDeviceSerial);
     }
 
     /**
@@ -573,14 +580,17 @@ public class BuildInfo implements IBuildInfo {
             for (VersionedFile vFile : mVersionedFileMultiMap.get(fileKey)) {
                 BuildFile.Builder fileInformation = BuildFile.newBuilder();
                 fileInformation.setVersion(vFile.getVersion());
-                fileInformation.setLocalPath(vFile.getFile().getAbsolutePath());
+                if (fileKey.startsWith(IBuildInfo.REMOTE_FILE_PREFIX)) {
+                    // Remote file doesn't exist on local cache, so don't save absolute path.
+                    fileInformation.setLocalPath(vFile.getFile().toString());
+                } else {
+                    fileInformation.setLocalPath(vFile.getFile().getAbsolutePath());
+                }
                 buildFile.addFile(fileInformation);
             }
             protoBuilder.addVersionedFile(buildFile);
         }
         protoBuilder.setBuildInfoClass(this.getClass().getCanonicalName());
-        // Test resource
-        protoBuilder.setIsTestResource(isTestResourceBuild());
         return protoBuilder.build();
     }
 
@@ -619,8 +629,14 @@ public class BuildInfo implements IBuildInfo {
         } else {
             // Restore the original type of build info.
             try {
-                buildInfo = (IBuildInfo) Class.forName(buildClass).newInstance();
-            } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+                buildInfo =
+                        (BuildInfo)
+                                Class.forName(buildClass).getDeclaredConstructor().newInstance();
+            } catch (InstantiationException
+                    | IllegalAccessException
+                    | ClassNotFoundException
+                    | InvocationTargetException
+                    | NoSuchMethodException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -649,27 +665,40 @@ public class BuildInfo implements IBuildInfo {
                         buildFile.getVersion());
             }
         }
-        // Test resource
-        buildInfo.setTestResourceBuild(protoBuild.getIsTestResource());
         return buildInfo;
     }
 
-    /**
-     * Get test resource from a list of builds.
-     *
-     * @param testResourceBuildInfos An list of {@link IBuildInfo}.
-     * @param testResourceName the test resource name
-     * @return the test resource file.
-     */
-    public static File getTestResource(
-            List<IBuildInfo> testResourceBuildInfos, String testResourceName) {
-        if (testResourceBuildInfos == null) {
-            return null;
+    /** {@inheritDoc} */
+    @Override
+    public Set<File> getRemoteFiles() {
+        Set<File> remoteFiles = new HashSet<>();
+        for (String fileKey : mVersionedFileMultiMap.keySet()) {
+            if (fileKey.startsWith(IBuildInfo.REMOTE_FILE_PREFIX)) {
+                // Remote file is not versioned, there should be only one entry.
+                remoteFiles.add(mVersionedFileMultiMap.get(fileKey).get(0).getFile());
+            }
         }
-        for (IBuildInfo buildInfo : testResourceBuildInfos) {
-            File testResourceFile = buildInfo.getFile(testResourceName);
-            if (testResourceFile != null) {
-                return testResourceFile;
+        return remoteFiles;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public File stageRemoteFile(String fileName, File workingDir) {
+        InvocationMetricLogger.addInvocationMetrics(
+                InvocationMetricKey.STAGE_TESTS_INDIVIDUAL_DOWNLOADS, fileName);
+        List<String> includeFilters = Arrays.asList(String.format("/%s$", fileName));
+        for (File file : getRemoteFiles()) {
+            try {
+                new DynamicRemoteFileResolver()
+                        .resolvePartialDownloadZip(
+                                workingDir, file.toString(), includeFilters, null);
+            } catch (BuildRetrievalError e) {
+                throw new RuntimeException(e);
+            }
+
+            File stagedFile = FileUtil.findFile(workingDir, fileName);
+            if (stagedFile != null) {
+                return stagedFile;
             }
         }
         return null;

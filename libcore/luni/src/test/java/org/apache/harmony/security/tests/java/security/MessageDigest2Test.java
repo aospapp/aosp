@@ -33,9 +33,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import dalvik.system.VMRuntime;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 import sun.security.jca.Providers;
 
-public class MessageDigest2Test extends junit.framework.TestCase {
+public class MessageDigest2Test extends TestCaseWithRules {
+
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Rule
+    public TestRule enableDeprecatedBCAlgorithmsRule =
+            EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
 
     private static final String MESSAGEDIGEST_ID = "MessageDigest.";
 
@@ -434,18 +444,6 @@ public class MessageDigest2Test extends junit.framework.TestCase {
         for (Provider provider : providers) {
             digestAlgs.put(provider, getDigestAlgorithms(provider));
         }
-
-        // Allow access to deprecated BC algorithms in this test, so we can ensure they
-        // continue to work
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                VMRuntime.getRuntime().getTargetSdkVersion());
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
-        super.tearDown();
     }
 
     /*

@@ -92,7 +92,8 @@ class FakeCarPropertyService extends ICarProperty.Stub implements CarPropertyCon
     }
 
     @Override
-    public void setProperty(CarPropertyValue prop) throws RemoteException {
+    public void setProperty(CarPropertyValue prop, ICarPropertyEventListener listener)
+            throws RemoteException {
         mValues.put(PropKey.of(prop), prop);
         mValuesSet.add(prop);
         sendEvent(prop);

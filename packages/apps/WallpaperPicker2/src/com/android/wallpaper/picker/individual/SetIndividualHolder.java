@@ -113,7 +113,7 @@ class SetIndividualHolder extends IndividualHolder implements View.OnClickListen
         wallpaperPersister.setIndividualWallpaper(mWallpaper, desktopAsset, null /* cropRect */,
                 1.0f /* scale */, WallpaperPersister.DEST_BOTH, new SetWallpaperCallback() {
                     @Override
-                    public void onSuccess() {
+                    public void onSuccess(WallpaperInfo wallpaperInfo) {
                         mOnSetListener.onWallpaperSet(adapterPosition);
                         eventLogger.logWallpaperSet(
                                 mWallpaper.getCollectionId(appContext), mWallpaper.getWallpaperId());

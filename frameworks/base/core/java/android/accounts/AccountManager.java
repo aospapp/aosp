@@ -25,8 +25,9 @@ import android.annotation.SdkConstant.SdkConstantType;
 import android.annotation.Size;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
+import android.annotation.UserHandleAware;
 import android.app.Activity;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -40,6 +41,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcelable;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.text.TextUtils;
@@ -528,12 +530,9 @@ public class AccountManager {
      *     authenticator known to the AccountManager service.  Empty (never
      *     null) if no authenticators are known.
      */
+    @UserHandleAware
     public AuthenticatorDescription[] getAuthenticatorTypes() {
-        try {
-            return mService.getAuthenticatorTypes(UserHandle.getCallingUserId());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return getAuthenticatorTypesAsUser(mContext.getUserId());
     }
 
     /**
@@ -563,19 +562,31 @@ public class AccountManager {
      * account, or the AbstractAcccountAuthenticator managing the account did so or because the
      * client shares a signature with the managing AbstractAccountAuthenticator.
      *
+     * <div class="caution"><p><b>Caution: </b>This method returns personal and sensitive user data.
+     * If your app accesses, collects, uses, or shares personal and sensitive data, you must clearly
+     * disclose that fact to users. For apps published on Google Play, policies protecting user data
+     * require that you do the following:</p>
+     * <ul>
+     * <li>Disclose to the user how your app accesses, collects, uses, or shares personal and
+     * sensitive data. Learn more about
+     * <a href="https://play.google.com/about/privacy-security-deception/user-data/#!#personal-sensitive">acceptable
+     * disclosure and consent</a>.</li>
+     * <li>Provide a privacy policy that describes your use of this data on- and off-device.</li>
+     * </ul>
+     * <p>To learn more, visit the
+     * <a href="https://play.google.com/about/privacy-security-deception/user-data">Google Play
+     * Policy regarding user data</a>.</p></div>
+     *
      * <p>
      * It is safe to call this method from the main thread.
      *
      * @return An array of {@link Account}, one for each account. Empty (never null) if no accounts
      *         have been added.
      */
+    @UserHandleAware
     @NonNull
     public Account[] getAccounts() {
-        try {
-            return mService.getAccounts(null, mContext.getOpPackageName());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return getAccountsAsUser(mContext.getUserId());
     }
 
     /**
@@ -649,6 +660,22 @@ public class AccountManager {
      * the account. For example, there are types corresponding to Google and Facebook. The exact
      * string token to use will be published somewhere associated with the authenticator in
      * question.
+     * </p>
+     *
+     * <div class="caution"><p><b>Caution: </b>This method returns personal and sensitive user data.
+     * If your app accesses, collects, uses, or shares personal and sensitive data, you must clearly
+     * disclose that fact to users. For apps published on Google Play, policies protecting user data
+     * require that you do the following:</p>
+     * <ul>
+     * <li>Disclose to the user how your app accesses, collects, uses, or shares personal and
+     * sensitive data. Learn more about
+     * <a href="https://play.google.com/about/privacy-security-deception/user-data/#!#personal-sensitive">acceptable
+     * disclosure and consent</a>.</li>
+     * <li>Provide a privacy policy that describes your use of this data on- and off-device.</li>
+     * </ul>
+     * <p>To learn more, visit the
+     * <a href="https://play.google.com/about/privacy-security-deception/user-data">Google Play
+     * Policy regarding user data</a>.</p></div>
      *
      * <p>
      * It is safe to call this method from the main thread.
@@ -677,6 +704,7 @@ public class AccountManager {
      * @return An array of {@link Account}, one per matching account. Empty (never null) if no
      *         accounts of the specified type have been added.
      */
+    @UserHandleAware
     @NonNull
     public Account[] getAccountsByType(String type) {
         return getAccountsByTypeAsUser(type, mContext.getUser());
@@ -1152,23 +1180,11 @@ public class AccountManager {
      *     {@link #removeAccount(Account, Activity, AccountManagerCallback, Handler)}
      *     instead
      */
+    @UserHandleAware
     @Deprecated
     public AccountManagerFuture<Boolean> removeAccount(final Account account,
             AccountManagerCallback<Boolean> callback, Handler handler) {
-        if (account == null) throw new IllegalArgumentException("account is null");
-        return new Future2Task<Boolean>(handler, callback) {
-            @Override
-            public void doWork() throws RemoteException {
-                mService.removeAccount(mResponse, account, false);
-            }
-            @Override
-            public Boolean bundleToResult(Bundle bundle) throws AuthenticatorException {
-                if (!bundle.containsKey(KEY_BOOLEAN_RESULT)) {
-                    throw new AuthenticatorException("no result in response");
-                }
-                return bundle.getBoolean(KEY_BOOLEAN_RESULT);
-            }
-        }.start();
+        return removeAccountAsUser(account, callback, handler, mContext.getUser());
     }
 
     /**
@@ -1212,15 +1228,10 @@ public class AccountManager {
      *      adding accounts (of this type) has been disabled by policy
      * </ul>
      */
+    @UserHandleAware
     public AccountManagerFuture<Bundle> removeAccount(final Account account,
             final Activity activity, AccountManagerCallback<Bundle> callback, Handler handler) {
-        if (account == null) throw new IllegalArgumentException("account is null");
-        return new AmsTask(activity, handler, callback) {
-            @Override
-            public void doWork() throws RemoteException {
-                mService.removeAccount(mResponse, account, activity != null);
-            }
-        }.start();
+        return removeAccountAsUser(account, activity, callback, handler, mContext.getUser());
     }
 
     /**
@@ -1810,24 +1821,30 @@ public class AccountManager {
      *      creating a new account, usually because of network trouble
      * </ul>
      */
+    @UserHandleAware
     public AccountManagerFuture<Bundle> addAccount(final String accountType,
             final String authTokenType, final String[] requiredFeatures,
             final Bundle addAccountOptions,
             final Activity activity, AccountManagerCallback<Bundle> callback, Handler handler) {
-        if (accountType == null) throw new IllegalArgumentException("accountType is null");
-        final Bundle optionsIn = new Bundle();
-        if (addAccountOptions != null) {
-            optionsIn.putAll(addAccountOptions);
-        }
-        optionsIn.putString(KEY_ANDROID_PACKAGE_NAME, mContext.getPackageName());
-
-        return new AmsTask(activity, handler, callback) {
-            @Override
-            public void doWork() throws RemoteException {
-                mService.addAccount(mResponse, accountType, authTokenType,
-                        requiredFeatures, activity != null, optionsIn);
+        if (Process.myUserHandle().equals(mContext.getUser())) {
+            if (accountType == null) throw new IllegalArgumentException("accountType is null");
+            final Bundle optionsIn = new Bundle();
+            if (addAccountOptions != null) {
+                optionsIn.putAll(addAccountOptions);
             }
-        }.start();
+            optionsIn.putString(KEY_ANDROID_PACKAGE_NAME, mContext.getPackageName());
+
+            return new AmsTask(activity, handler, callback) {
+                @Override
+                public void doWork() throws RemoteException {
+                    mService.addAccount(mResponse, accountType, authTokenType,
+                            requiredFeatures, activity != null, optionsIn);
+                }
+            }.start();
+        } else {
+            return addAccountAsUser(accountType, authTokenType, requiredFeatures, addAccountOptions,
+                    activity, callback, handler, mContext.getUser());
+        }
     }
 
     /**
@@ -1912,35 +1929,6 @@ public class AccountManager {
     }
 
     /**
-     * @hide
-     * Removes the shared account.
-     * @param account the account to remove
-     * @param user the user to remove the account from
-     * @return
-     */
-    public boolean removeSharedAccount(final Account account, UserHandle user) {
-        try {
-            boolean val = mService.removeSharedAccountAsUser(account, user.getIdentifier());
-            return val;
-        } catch (RemoteException re) {
-            throw re.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     * @param user
-     * @return
-     */
-    public Account[] getSharedAccounts(UserHandle user) {
-        try {
-            return mService.getSharedAccountsAsUser(user.getIdentifier());
-        } catch (RemoteException re) {
-            throw re.rethrowFromSystemServer();
-        }
-    }
-
-    /**
      * Confirms that the user knows the password for an account to make extra
      * sure they are the owner of the account.  The user-entered password can
      * be supplied directly, otherwise the authenticator for this account type
@@ -2000,6 +1988,7 @@ public class AccountManager {
      *      verifying the password, usually because of network trouble
      * </ul>
      */
+    @UserHandleAware
     public AccountManagerFuture<Bundle> confirmCredentials(final Account account,
             final Bundle options,
             final Activity activity,
@@ -3207,6 +3196,7 @@ public class AccountManager {
      *         </ul>
      * @see #startAddAccountSession and #startUpdateCredentialsSession
      */
+    @UserHandleAware
     public AccountManagerFuture<Bundle> finishSession(
             final Bundle sessionBundle,
             final Activity activity,

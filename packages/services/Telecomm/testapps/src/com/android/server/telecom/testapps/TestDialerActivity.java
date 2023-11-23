@@ -1,17 +1,28 @@
 package com.android.server.telecom.testapps;
 
+import static android.content.res.Configuration.UI_MODE_TYPE_CAR;
+
 import android.app.Activity;
+import android.app.UiModeManager;
+import android.content.ComponentName;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.provider.CallLog.Calls;
+import android.provider.Settings;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
+import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
+import android.telephony.ims.ImsRcsManager;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -21,6 +32,7 @@ public class TestDialerActivity extends Activity {
 
     private EditText mNumberView;
     private CheckBox mRttCheckbox;
+    private EditText mPriorityView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +68,29 @@ public class TestDialerActivity extends Activity {
 
         mNumberView = (EditText) findViewById(R.id.number);
         mRttCheckbox = (CheckBox) findViewById(R.id.call_with_rtt_checkbox);
+        findViewById(R.id.enable_car_mode).setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                enableCarMode();
+            }
+        });
+        findViewById(R.id.disable_car_mode).setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                disableCarMode();
+            }
+        });
+        findViewById(R.id.toggle_incallservice).setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                toggleInCallService();
+            }
+        });
+
+        Button discoveryButton = findViewById(R.id.send_contact_discovery_button);
+        discoveryButton.setOnClickListener(v -> sendContactDiscoveryIntent());
+
+        mPriorityView = findViewById(R.id.priority);
         updateMutableUi();
     }
 
@@ -139,5 +174,47 @@ public class TestDialerActivity extends Activity {
         intentExtras.putBundle(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, extras);
         Log.i("Santos xtr", intentExtras.toString());
         return intentExtras;
+    }
+
+    private void enableCarMode() {
+        int priority;
+        try {
+            priority = Integer.parseInt(mPriorityView.getText().toString());
+        } catch (NumberFormatException nfe) {
+            Toast.makeText(this, "Invalid priority; not enabling car mode.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
+        uiModeManager.enableCarMode(priority, 0);
+        Toast.makeText(this, "Enabling car mode with priority " + priority,
+                Toast.LENGTH_LONG).show();
+    }
+
+    private void disableCarMode() {
+        UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
+        uiModeManager.disableCarMode(0);
+        Toast.makeText(this, "Disabling car mode", Toast.LENGTH_LONG).show();
+    }
+
+    private void toggleInCallService() {
+        ComponentName uiComponent = new ComponentName(
+                TestInCallServiceImpl.class.getPackage().getName(),
+                TestInCallServiceImpl.class.getName());
+        boolean isEnabled = getPackageManager().getComponentEnabledSetting(uiComponent)
+                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+        getPackageManager().setComponentEnabledSetting(uiComponent,
+                isEnabled ? PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        : PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP);
+        isEnabled = getPackageManager().getComponentEnabledSetting(uiComponent)
+                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+        Toast.makeText(this, "Is UI enabled? " + isEnabled, Toast.LENGTH_LONG).show();
+    }
+
+    private void sendContactDiscoveryIntent() {
+        Intent intent = new Intent(ImsRcsManager.ACTION_SHOW_CAPABILITY_DISCOVERY_OPT_IN);
+        intent.putExtra(Settings.EXTRA_SUB_ID, SubscriptionManager.getDefaultSubscriptionId());
+        startActivity(intent);
     }
 }

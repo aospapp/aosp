@@ -4,6 +4,7 @@
 
 import json
 import logging
+import os
 import socket
 import time
 import urllib2
@@ -11,6 +12,7 @@ import urlparse
 
 from autotest_lib.client.bin import utils as client_utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server import hosts
 
@@ -46,30 +48,21 @@ class OmahaDevserver(object):
     _DEVSERVER_TIMELIMIT_SECONDS = 12 * 60 * 60
 
 
-    def __init__(self, omaha_host, update_payload_staged_url, max_updates=1,
-                 critical_update=True):
+    def __init__(self, omaha_host, payload_location, critical_update=True,
+                 moblab=False):
         """Starts a private devserver instance, operating at Omaha capacity.
 
         @param omaha_host: host address where the devserver is spawned.
-        @param update_payload_staged_url: URL to provision for update requests.
-        @param max_updates: int number of updates this devserver will handle.
-                            This is passed to src/platform/dev/devserver.py.
+        @param payload_location: partial path from static dir to payload.
         @param critical_update: Whether to set a deadline in responses.
+        @param moblab: True if we are running on moblab.
+
         """
-        self._devserver_dir = '/home/chromeos-test/chromiumos/src/platform/dev'
-
-        if not update_payload_staged_url:
-            raise error.TestError('Missing update payload url')
-
         self._critical_update = critical_update
-        self._max_updates = max_updates
         self._omaha_host = omaha_host
         self._devserver_pid = 0
         self._devserver_port = 0  # Determined later from devserver portfile.
-        self._update_payload_staged_url = update_payload_staged_url
-
-        self._devserver_ssh = hosts.SSHHost(self._omaha_host,
-                                            user='chromeos-test')
+        self._payload_location = payload_location
 
         # Temporary files for various devserver outputs.
         self._devserver_logfile = None
@@ -77,6 +70,18 @@ class OmahaDevserver(object):
         self._devserver_portfile = None
         self._devserver_pidfile = None
         self._devserver_static_dir = None
+
+        if moblab:
+            self._devserver_dir = global_config.global_config.get_config_value(
+                'CROS', 'devserver_dir')
+            ssh_user = 'moblab'
+            os.environ['CROS_CACHEDIR'] = '/mnt/moblab/cros_cache'
+        else:
+            self._devserver_dir = \
+                '/home/chromeos-test/chromiumos/src/platform/dev'
+            ssh_user = 'chromeos-test'
+        self._devserver_ssh = hosts.SSHHost(self._omaha_host,
+                                            user=ssh_user)
 
 
     def _cleanup_devserver_files(self):
@@ -196,9 +201,6 @@ class OmahaDevserver(object):
             OmahaDevserverFailedToStart: If the time limit is reached and we
                                          cannot connect to the devserver.
         """
-        update_payload_url_base, update_payload_path = self._split_url(
-                self._update_payload_staged_url)
-
         # Allocate temporary files for various server outputs.
         self._devserver_logfile = self._create_tempfile_on_devserver('log')
         self._devserver_stdoutfile = self._create_tempfile_on_devserver(
@@ -215,16 +217,14 @@ class OmahaDevserver(object):
                 'timeout', '-s', 'TERM', '-k', '30',
                 str(self._DEVSERVER_TIMELIMIT_SECONDS),
                 '%s/devserver.py' % self._devserver_dir,
-                '--payload=%s' % update_payload_path,
                 '--port=0',
                 '--pidfile=%s' % self._devserver_pidfile,
                 '--portfile=%s' % self._devserver_portfile,
                 '--logfile=%s' % self._devserver_logfile,
-                '--remote_payload',
-                '--urlbase=%s' % update_payload_url_base,
-                '--max_updates=%s' % self._max_updates,
                 '--host_log',
-                '--static_dir=%s' % self._devserver_static_dir
+                '--static_dir=%s' % self._devserver_static_dir,
+                '--payload=%s' % os.path.join(self._devserver_static_dir,
+                                              self._payload_location),
         ]
 
         if self._critical_update:
@@ -325,10 +325,8 @@ class OmahaDevserver(object):
             ['http', self.get_netloc(), '/api/hostlog',
              'ip=' + ip, ''])
 
-        # 4 rootfs and 1 post reboot
-        expected_events_count = 5
-        # 10 minute timeout.
-        timeout = time.time() + 60 * 10
+        # Wait for a few minutes for the post-reboot update check.
+        timeout = time.time() + 60 * 3
         while True:
             try:
                 conn = urllib2.urlopen(omaha_hostlog_url)
@@ -350,7 +348,7 @@ class OmahaDevserver(object):
                 else:
                     time.sleep(5)
                     if time.time() > timeout:
-                        raise error.TestError('Timed out getting hostlog.')
+                        return None
                     continue
             else:
                 return hostlog
@@ -365,16 +363,6 @@ class OmahaDevserver(object):
                     snippet(self._get_devserver_stdout()))
         logging.log(logging_level, "Devserver log file:\n" +
                     snippet(self._get_devserver_log()))
-
-
-    @staticmethod
-    def _split_url(url):
-        """Splits a URL into the URL base and path."""
-        split_url = urlparse.urlsplit(url)
-        url_base = urlparse.urlunsplit(
-                (split_url.scheme, split_url.netloc, '', '', ''))
-        url_path = split_url.path
-        return url_base, url_path.lstrip('/')
 
 
     def stop_devserver(self):

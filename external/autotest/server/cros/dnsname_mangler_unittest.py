@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -12,7 +12,7 @@ from autotest_lib.server.cros import dnsname_mangler
 HOST = 'chromeos1-row1-rack1-host1'
 ROUTER = 'chromeos1-row1-rack1-host1-router'
 ATTENUATOR = 'chromeos1-row1-rack1-host1-attenuator'
-TESTER = 'chromeos1-row1-rack1-host1-router'
+TESTER = 'chromeos1-row1-rack1-host1-chameleon'
 
 HOST_FROM_OUTSIDE_LAB = HOST + '.cros'
 ROUTER_FROM_OUTSIDE_LAB = ROUTER + '.cros'

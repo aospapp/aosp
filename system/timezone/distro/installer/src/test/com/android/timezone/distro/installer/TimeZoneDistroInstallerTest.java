@@ -301,6 +301,44 @@ public class TimeZoneDistroInstallerTest extends TestCase {
         assertNoInstalledDistro();
     }
 
+    /** Tests that a distro with a missing telephonylookup file will not update the content. */
+    public void testStageInstallWithErrorCode_missingTelephonyLookupFile() throws Exception {
+        byte[] stagedDistroBytes = createValidTimeZoneDistroBytes(NEW_RULES_VERSION, 1);
+        assertEquals(
+                TimeZoneDistroInstaller.INSTALL_SUCCESS,
+                installer.stageInstallWithErrorCode(new TimeZoneDistro(stagedDistroBytes)));
+        assertInstallDistroStaged(stagedDistroBytes);
+
+        byte[] incompleteDistroBytes =
+                createValidTimeZoneDistroBuilder(NEWER_RULES_VERSION, 1)
+                        .setTelephonyLookupXml(null)
+                        .buildUnvalidatedBytes();
+        assertEquals(
+                TimeZoneDistroInstaller.INSTALL_FAIL_BAD_DISTRO_STRUCTURE,
+                installer.stageInstallWithErrorCode(new TimeZoneDistro(incompleteDistroBytes)));
+        assertInstallDistroStaged(stagedDistroBytes);
+        assertNoInstalledDistro();
+    }
+
+    /** Tests that a distro with a bad telephonylookup file will not update the content. */
+    public void testStageInstallWithErrorCode_badTelephonyLookupFile() throws Exception {
+        byte[] stagedDistroBytes = createValidTimeZoneDistroBytes(NEW_RULES_VERSION, 1);
+        assertEquals(
+                TimeZoneDistroInstaller.INSTALL_SUCCESS,
+                installer.stageInstallWithErrorCode(new TimeZoneDistro(stagedDistroBytes)));
+        assertInstallDistroStaged(stagedDistroBytes);
+
+        byte[] incompleteDistroBytes =
+                createValidTimeZoneDistroBuilder(NEWER_RULES_VERSION, 1)
+                        .setTelephonyLookupXml("<foo />")
+                        .buildUnvalidatedBytes();
+        assertEquals(
+                TimeZoneDistroInstaller.INSTALL_FAIL_VALIDATION_ERROR,
+                installer.stageInstallWithErrorCode(new TimeZoneDistro(incompleteDistroBytes)));
+        assertInstallDistroStaged(stagedDistroBytes);
+        assertNoInstalledDistro();
+    }
+
     /**
      * Tests that an update will be unpacked even if there is a partial update from a previous run.
      */
@@ -501,7 +539,7 @@ public class TimeZoneDistroInstallerTest extends TestCase {
 
     public void testReadBaseRulesVersion() throws Exception {
         TzDataSetVersion actualBaseVersion = installer.readBaseVersion();
-        assertEquals(BASE_RULES_VERSION, actualBaseVersion.rulesVersion);
+        assertEquals(BASE_RULES_VERSION, actualBaseVersion.getRulesVersion());
     }
 
     public void testGetInstalledDistroVersion() throws Exception {
@@ -603,6 +641,10 @@ public class TimeZoneDistroInstallerTest extends TestCase {
                 + "    </country>\n"
                 + "  </countryzones>\n"
                 + "</timezones>\n";
+        String telephonylookupXml = "<telephony_lookup>\n"
+                + "  <networks>\n"
+                + "  </networks>\n"
+                + "</telephony_lookup>\n";
         DistroVersion distroVersion = new DistroVersion(
                 TzDataSetVersion.currentFormatMajorVersion(),
                 TzDataSetVersion.currentFormatMinorVersion(),
@@ -612,7 +654,8 @@ public class TimeZoneDistroInstallerTest extends TestCase {
                 .setDistroVersion(distroVersion)
                 .setTzDataFile(tzData)
                 .setIcuDataFile(icuData)
-                .setTzLookupXml(tzlookupXml);
+                .setTzLookupXml(tzlookupXml)
+                .setTelephonyLookupXml(telephonylookupXml);
     }
 
     private void assertInstallDistroStaged(byte[] expectedDistroBytes) throws Exception {
@@ -633,6 +676,10 @@ public class TimeZoneDistroInstallerTest extends TestCase {
 
         File tzLookupFile = new File(stagedTzDataDir, TimeZoneDistro.TZLOOKUP_FILE_NAME);
         assertTrue(tzLookupFile.exists());
+
+        File telephonyLookupFile = new File(stagedTzDataDir,
+                TimeZoneDistro.TELEPHONYLOOKUP_FILE_NAME);
+        assertTrue(telephonyLookupFile.exists());
 
         // Assert getStagedDistroState() is reporting correctly.
         StagedDistroOperation stagedDistroOperation = installer.getStagedDistroOperation();
@@ -656,7 +703,10 @@ public class TimeZoneDistroInstallerTest extends TestCase {
         assertContentsMatches(
                 new File(expectedZipContentDir, TimeZoneDistro.TZLOOKUP_FILE_NAME),
                 tzLookupFile);
-        assertFileCount(4, expectedZipContentDir);
+        assertContentsMatches(
+                new File(expectedZipContentDir, TimeZoneDistro.TELEPHONYLOOKUP_FILE_NAME),
+                telephonyLookupFile);
+        assertFileCount(5, expectedZipContentDir);
 
         // Also check no working directory is left lying around.
         File workingDir = installer.getWorkingDir();

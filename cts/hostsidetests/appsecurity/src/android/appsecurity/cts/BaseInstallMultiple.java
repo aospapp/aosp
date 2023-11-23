@@ -46,15 +46,22 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
     private final IAbi mAbi;
 
     private final List<String> mArgs = new ArrayList<>();
-    private final List<File> mApks = new ArrayList<>();
+    private final List<File> mFiles = new ArrayList<>();
     private final List<String> mSplits = new ArrayList<>();
     private boolean mUseNaturalAbi;
 
     public BaseInstallMultiple(ITestDevice device, IBuildInfo buildInfo, IAbi abi) {
+        this(device, buildInfo, abi, true);
+    }
+
+    public BaseInstallMultiple(ITestDevice device, IBuildInfo buildInfo, IAbi abi,
+            boolean grantPermissions) {
         mDevice = device;
         mBuild = buildInfo;
         mAbi = abi;
-        addArg("-g");
+        if (grantPermissions) {
+            addArg("-g");
+        }
     }
 
     T addArg(String arg) {
@@ -62,9 +69,9 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
         return (T) this;
     }
 
-    T addApk(String apk) throws FileNotFoundException {
+    T addFile(String file) throws FileNotFoundException {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
-        mApks.add(buildHelper.getTestFile(apk));
+        mFiles.add(buildHelper.getTestFile(file, mAbi));
         return (T) this;
     }
 
@@ -114,6 +121,15 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
         return (T) this;
     }
 
+    T restrictPermissions() {
+        addArg("--restrict-permissions");
+        return (T) this;
+    }
+
+    protected String deriveRemoteName(String originalName, int index) {
+        return index + "_" + originalName;
+    }
+
     void run() throws DeviceNotAvailableException {
         run(true, null);
     }
@@ -157,17 +173,18 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
 
         // Push our files into session. Ideally we'd use stdin streaming,
         // but ddmlib doesn't support it yet.
-        for (int i = 0; i < mApks.size(); i++) {
-            final File apk = mApks.get(i);
-            final String remotePath = "/data/local/tmp/" + i + "_" + apk.getName();
-            if (!device.pushFile(apk, remotePath)) {
-                throw new IllegalStateException("Failed to push " + apk);
+        for (int i = 0; i < mFiles.size(); i++) {
+            final File file = mFiles.get(i);
+            final String remoteName = deriveRemoteName(file.getName(), i);
+            final String remotePath = "/data/local/tmp/" + remoteName;
+            if (!device.pushFile(file, remotePath)) {
+                throw new IllegalStateException("Failed to push " + file);
             }
 
             cmd.setLength(0);
             cmd.append("pm install-write");
             cmd.append(' ').append(sessionId);
-            cmd.append(' ').append(i + "_" + apk.getName());
+            cmd.append(' ').append(remoteName);
             cmd.append(' ').append(remotePath);
 
             result = device.executeShellCommand(cmd.toString());

@@ -53,7 +53,6 @@
 #include <cutils/properties.h>
 #include <log/log.h>
 #include <log/log_properties.h>
-#include <logwrap/logwrap.h>
 #include "Fwmark.h"
 #include "InterfaceController.h"
 #include "NetdConstants.h"
@@ -87,7 +86,7 @@ constexpr uint32_t ALGO_MASK_CRYPT_ALL = ~0;
 // Exposed for testing
 constexpr uint32_t ALGO_MASK_AEAD_ALL = ~0;
 // Exposed for testing
-constexpr uint8_t REPLAY_WINDOW_SIZE = 4;
+constexpr uint8_t REPLAY_WINDOW_SIZE = 32;
 
 namespace {
 
@@ -1262,7 +1261,7 @@ int XfrmController::fillUserSpInfo(const XfrmSpInfo& record, XfrmDirection direc
     return sizeof(*usersp);
 }
 
-int XfrmController::fillUserTemplate(const XfrmSpInfo& record, xfrm_user_tmpl* tmpl) {
+void XfrmController::fillUserTemplate(const XfrmSpInfo& record, xfrm_user_tmpl* tmpl) {
     tmpl->id.daddr = record.dstAddr;
     tmpl->id.spi = record.spi;
     tmpl->id.proto = IPPROTO_ESP;
@@ -1278,7 +1277,6 @@ int XfrmController::fillUserTemplate(const XfrmSpInfo& record, xfrm_user_tmpl* t
                                         // algos, we should find it and apply it.
                                         // I can't find one.
     tmpl->ealgos = ALGO_MASK_CRYPT_ALL; // TODO: if there's a bitmask somewhere...
-    return sizeof(xfrm_user_tmpl*);
 }
 
 int XfrmController::fillNlAttrUserTemplate(const XfrmSpInfo& record, nlattr_user_tmpl* tmpl) {

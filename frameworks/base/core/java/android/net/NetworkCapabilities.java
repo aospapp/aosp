@@ -16,25 +16,32 @@
 
 package android.net;
 
+import static com.android.internal.annotations.VisibleForTesting.Visibility.PRIVATE;
+
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.net.ConnectivityManager.NetworkCallback;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.Process;
+import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.proto.ProtoOutputStream;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.BitUtils;
 import com.android.internal.util.Preconditions;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -55,12 +62,20 @@ import java.util.StringJoiner;
  */
 public final class NetworkCapabilities implements Parcelable {
     private static final String TAG = "NetworkCapabilities";
-    private static final int INVALID_UID = -1;
+
+    // Set to true when private DNS is broken.
+    private boolean mPrivateDnsBroken;
 
     /**
-     * @hide
+     * Uid of the app making the request.
      */
-    @UnsupportedAppUsage
+    private int mRequestorUid;
+
+    /**
+     * Package name of the app making the request.
+     */
+    private String mRequestorPackageName;
+
     public NetworkCapabilities() {
         clearAll();
         mNetworkCapabilities = DEFAULT_CAPABILITIES;
@@ -84,8 +99,12 @@ public final class NetworkCapabilities implements Parcelable {
         mTransportInfo = null;
         mSignalStrength = SIGNAL_STRENGTH_UNSPECIFIED;
         mUids = null;
-        mEstablishingVpnAppUid = INVALID_UID;
+        mAdministratorUids = new int[0];
+        mOwnerUid = Process.INVALID_UID;
         mSSID = null;
+        mPrivateDnsBroken = false;
+        mRequestorUid = Process.INVALID_UID;
+        mRequestorPackageName = null;
     }
 
     /**
@@ -101,9 +120,13 @@ public final class NetworkCapabilities implements Parcelable {
         mTransportInfo = nc.mTransportInfo;
         mSignalStrength = nc.mSignalStrength;
         setUids(nc.mUids); // Will make the defensive copy
-        mEstablishingVpnAppUid = nc.mEstablishingVpnAppUid;
+        setAdministratorUids(nc.getAdministratorUids());
+        mOwnerUid = nc.mOwnerUid;
         mUnwantedNetworkCapabilities = nc.mUnwantedNetworkCapabilities;
         mSSID = nc.mSSID;
+        mPrivateDnsBroken = nc.mPrivateDnsBroken;
+        mRequestorUid = nc.mRequestorUid;
+        mRequestorPackageName = nc.mRequestorPackageName;
     }
 
     /**
@@ -146,6 +169,7 @@ public final class NetworkCapabilities implements Parcelable {
             NET_CAPABILITY_OEM_PAID,
             NET_CAPABILITY_MCX,
             NET_CAPABILITY_PARTIAL_CONNECTIVITY,
+            NET_CAPABILITY_TEMPORARILY_NOT_METERED,
     })
     public @interface NetCapability { }
 
@@ -313,8 +337,16 @@ public final class NetworkCapabilities implements Parcelable {
     @SystemApi
     public static final int NET_CAPABILITY_PARTIAL_CONNECTIVITY = 24;
 
+    /**
+     * This capability will be set for networks that are generally metered, but are currently
+     * unmetered, e.g., because the user is in a particular area. This capability can be changed at
+     * any time. When it is removed, applications are responsible for stopping any data transfer
+     * that should not occur on a metered network.
+     */
+    public static final int NET_CAPABILITY_TEMPORARILY_NOT_METERED = 25;
+
     private static final int MIN_NET_CAPABILITY = NET_CAPABILITY_MMS;
-    private static final int MAX_NET_CAPABILITY = NET_CAPABILITY_PARTIAL_CONNECTIVITY;
+    private static final int MAX_NET_CAPABILITY = NET_CAPABILITY_TEMPORARILY_NOT_METERED;
 
     /**
      * Network capabilities that are expected to be mutable, i.e., can change while a particular
@@ -330,7 +362,8 @@ public final class NetworkCapabilities implements Parcelable {
             | (1 << NET_CAPABILITY_FOREGROUND)
             | (1 << NET_CAPABILITY_NOT_CONGESTED)
             | (1 << NET_CAPABILITY_NOT_SUSPENDED)
-            | (1 << NET_CAPABILITY_PARTIAL_CONNECTIVITY);
+            | (1 << NET_CAPABILITY_PARTIAL_CONNECTIVITY
+            | (1 << NET_CAPABILITY_TEMPORARILY_NOT_METERED));
 
     /**
      * Network capabilities that are not allowed in NetworkRequests. This exists because the
@@ -394,19 +427,34 @@ public final class NetworkCapabilities implements Parcelable {
             | (1 << NET_CAPABILITY_PARTIAL_CONNECTIVITY);
 
     /**
+     * Capabilities that are allowed for test networks. This list must be set so that it is safe
+     * for an unprivileged user to create a network with these capabilities via shell. As such,
+     * it must never contain capabilities that are generally useful to the system, such as
+     * INTERNET, IMS, SUPL, etc.
+     */
+    private static final long TEST_NETWORKS_ALLOWED_CAPABILITIES =
+            (1 << NET_CAPABILITY_NOT_METERED)
+            | (1 << NET_CAPABILITY_TEMPORARILY_NOT_METERED)
+            | (1 << NET_CAPABILITY_NOT_RESTRICTED)
+            | (1 << NET_CAPABILITY_NOT_VPN)
+            | (1 << NET_CAPABILITY_NOT_ROAMING)
+            | (1 << NET_CAPABILITY_NOT_CONGESTED)
+            | (1 << NET_CAPABILITY_NOT_SUSPENDED);
+
+    /**
      * Adds the given capability to this {@code NetworkCapability} instance.
-     * Multiple capabilities may be applied sequentially.  Note that when searching
-     * for a network to satisfy a request, all capabilities requested must be satisfied.
-     * <p>
-     * If the given capability was previously added to the list of unwanted capabilities
-     * then the capability will also be removed from the list of unwanted capabilities.
+     * Note that when searching for a network to satisfy a request, all capabilities
+     * requested must be satisfied.
      *
      * @param capability the capability to be added.
      * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
-    @UnsupportedAppUsage
     public @NonNull NetworkCapabilities addCapability(@NetCapability int capability) {
+        // If the given capability was previously added to the list of unwanted capabilities
+        // then the capability will also be removed from the list of unwanted capabilities.
+        // TODO: Consider adding unwanted capabilities to the public API and mention this
+        // in the documentation.
         checkValidCapability(capability);
         mNetworkCapabilities |= 1 << capability;
         mUnwantedNetworkCapabilities &= ~(1 << capability);  // remove from unwanted capability list
@@ -415,9 +463,9 @@ public final class NetworkCapabilities implements Parcelable {
 
     /**
      * Adds the given capability to the list of unwanted capabilities of this
-     * {@code NetworkCapability} instance.  Multiple unwanted capabilities may be applied
-     * sequentially.  Note that when searching for a network to satisfy a request, the network
-     * must not contain any capability from unwanted capability list.
+     * {@code NetworkCapability} instance. Note that when searching for a network to
+     * satisfy a request, the network must not contain any capability from unwanted capability
+     * list.
      * <p>
      * If the capability was previously added to the list of required capabilities (for
      * example, it was there by default or added using {@link #addCapability(int)} method), then
@@ -434,16 +482,14 @@ public final class NetworkCapabilities implements Parcelable {
 
     /**
      * Removes (if found) the given capability from this {@code NetworkCapability} instance.
-     * <p>
-     * Note that this method removes capabilities that were added via {@link #addCapability(int)},
-     * {@link #addUnwantedCapability(int)} or {@link #setCapabilities(int[], int[])} .
      *
      * @param capability the capability to be removed.
      * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
-    @UnsupportedAppUsage
     public @NonNull NetworkCapabilities removeCapability(@NetCapability int capability) {
+        // Note that this method removes capabilities that were added via addCapability(int),
+        // addUnwantedCapability(int) or setCapabilities(int[], int[]).
         checkValidCapability(capability);
         final long mask = ~(1 << capability);
         mNetworkCapabilities &= mask;
@@ -454,7 +500,6 @@ public final class NetworkCapabilities implements Parcelable {
     /**
      * Sets (or clears) the given capability on this {@link NetworkCapabilities}
      * instance.
-     *
      * @hide
      */
     public @NonNull NetworkCapabilities setCapability(@NetCapability int capability,
@@ -473,6 +518,7 @@ public final class NetworkCapabilities implements Parcelable {
      * @return an array of capability values for this instance.
      * @hide
      */
+    @UnsupportedAppUsage
     @TestApi
     public @NetCapability int[] getCapabilities() {
         return BitUtils.unpackBits(mNetworkCapabilities);
@@ -557,6 +603,9 @@ public final class NetworkCapabilities implements Parcelable {
         }
         if (mLinkUpBandwidthKbps != 0 || mLinkDownBandwidthKbps != 0) return "link bandwidth";
         if (hasSignalStrength()) return "signalStrength";
+        if (isPrivateDnsBroken()) {
+            return "privateDnsBroken";
+        }
         return null;
     }
 
@@ -588,15 +637,13 @@ public final class NetworkCapabilities implements Parcelable {
     }
 
     /**
-     * Removes the NET_CAPABILITY_NOT_RESTRICTED capability if all the capabilities it provides are
-     * typically provided by restricted networks.
+     * Deduces that all the capabilities it provides are typically provided by restricted networks
+     * or not.
      *
-     * TODO: consider:
-     * - Renaming it to guessRestrictedCapability and make it set the
-     *   restricted capability bit in addition to clearing it.
+     * @return {@code true} if the network should be restricted.
      * @hide
      */
-    public void maybeMarkCapabilitiesRestricted() {
+    public boolean deduceRestrictedCapability() {
         // Check if we have any capability that forces the network to be restricted.
         final boolean forceRestrictedCapability =
                 (mNetworkCapabilities & FORCE_RESTRICTED_CAPABILITIES) != 0;
@@ -610,9 +657,47 @@ public final class NetworkCapabilities implements Parcelable {
         final boolean hasRestrictedCapabilities =
                 (mNetworkCapabilities & RESTRICTED_CAPABILITIES) != 0;
 
-        if (forceRestrictedCapability
-                || (hasRestrictedCapabilities && !hasUnrestrictedCapabilities)) {
+        return forceRestrictedCapability
+                || (hasRestrictedCapabilities && !hasUnrestrictedCapabilities);
+    }
+
+    /**
+     * Removes the NET_CAPABILITY_NOT_RESTRICTED capability if deducing the network is restricted.
+     *
+     * @hide
+     */
+    public void maybeMarkCapabilitiesRestricted() {
+        if (deduceRestrictedCapability()) {
             removeCapability(NET_CAPABILITY_NOT_RESTRICTED);
+        }
+    }
+
+    /**
+     * Test networks have strong restrictions on what capabilities they can have. Enforce these
+     * restrictions.
+     * @hide
+     */
+    public void restrictCapabilitesForTestNetwork(int creatorUid) {
+        final long originalCapabilities = mNetworkCapabilities;
+        final long originalTransportTypes = mTransportTypes;
+        final NetworkSpecifier originalSpecifier = mNetworkSpecifier;
+        final int originalSignalStrength = mSignalStrength;
+        final int originalOwnerUid = getOwnerUid();
+        final int[] originalAdministratorUids = getAdministratorUids();
+        clearAll();
+        mTransportTypes = (originalTransportTypes & TEST_NETWORKS_ALLOWED_TRANSPORTS)
+                | (1 << TRANSPORT_TEST);
+        mNetworkCapabilities = originalCapabilities & TEST_NETWORKS_ALLOWED_CAPABILITIES;
+        mNetworkSpecifier = originalSpecifier;
+        mSignalStrength = originalSignalStrength;
+
+        // Only retain the owner and administrator UIDs if they match the app registering the remote
+        // caller that registered the network.
+        if (originalOwnerUid == creatorUid) {
+            setOwnerUid(creatorUid);
+        }
+        if (ArrayUtils.contains(originalAdministratorUids, creatorUid)) {
+            setAdministratorUids(new int[] {creatorUid});
         }
     }
 
@@ -703,8 +788,15 @@ public final class NetworkCapabilities implements Parcelable {
     };
 
     /**
+     * Allowed transports on a test network, in addition to TRANSPORT_TEST.
+     */
+    private static final int TEST_NETWORKS_ALLOWED_TRANSPORTS = 1 << TRANSPORT_TEST
+            // Test ethernet networks can be created with EthernetManager#setIncludeTestInterfaces
+            | 1 << TRANSPORT_ETHERNET;
+
+    /**
      * Adds the given transport type to this {@code NetworkCapability} instance.
-     * Multiple transports may be applied sequentially.  Note that when searching
+     * Multiple transports may be applied.  Note that when searching
      * for a network to satisfy a request, any listed in the request will satisfy the request.
      * For example {@code TRANSPORT_WIFI} and {@code TRANSPORT_ETHERNET} added to a
      * {@code NetworkCapabilities} would cause either a Wi-Fi network or an Ethernet network
@@ -715,7 +807,6 @@ public final class NetworkCapabilities implements Parcelable {
      * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
-    @UnsupportedAppUsage
     public @NonNull NetworkCapabilities addTransportType(@Transport int transportType) {
         checkValidTransportType(transportType);
         mTransportTypes |= 1 << transportType;
@@ -800,31 +891,177 @@ public final class NetworkCapabilities implements Parcelable {
     }
 
     /**
-     * UID of the app that manages this network, or INVALID_UID if none/unknown.
+     * UID of the app that owns this network, or Process#INVALID_UID if none/unknown.
      *
-     * This field keeps track of the UID of the app that created this network and is in charge
-     * of managing it. In the practice, it is used to store the UID of VPN apps so it is named
-     * accordingly, but it may be renamed if other mechanisms are offered for third party apps
-     * to create networks.
+     * <p>This field keeps track of the UID of the app that created this network and is in charge of
+     * its lifecycle. This could be the UID of apps such as the Wifi network suggestor, the running
+     * VPN, or Carrier Service app managing a cellular data connection.
      *
-     * Because this field is only used in the services side (and to avoid apps being able to
-     * set this to whatever they want), this field is not parcelled and will not be conserved
-     * across the IPC boundary.
-     * @hide
+     * <p>For NetworkCapability instances being sent from ConnectivityService, this value MUST be
+     * reset to Process.INVALID_UID unless all the following conditions are met:
+     *
+     * <p>The caller is the network owner, AND one of the following sets of requirements is met:
+     *
+     * <ol>
+     *   <li>The described Network is a VPN
+     * </ol>
+     *
+     * <p>OR:
+     *
+     * <ol>
+     *   <li>The calling app is the network owner
+     *   <li>The calling app has the ACCESS_FINE_LOCATION permission granted
+     *   <li>The user's location toggle is on
+     * </ol>
+     *
+     * This is because the owner UID is location-sensitive. The apps that request a network could
+     * know where the device is if they can tell for sure the system has connected to the network
+     * they requested.
+     *
+     * <p>This is populated by the network agents and for the NetworkCapabilities instance sent by
+     * an app to the System Server, the value MUST be reset to Process.INVALID_UID by the system
+     * server.
      */
-    private int mEstablishingVpnAppUid = INVALID_UID;
+    private int mOwnerUid = Process.INVALID_UID;
 
     /**
-     * Set the UID of the managing app.
+     * Set the UID of the owner app.
      * @hide
      */
-    public void setEstablishingVpnAppUid(final int uid) {
-        mEstablishingVpnAppUid = uid;
+    public @NonNull NetworkCapabilities setOwnerUid(final int uid) {
+        mOwnerUid = uid;
+        return this;
     }
 
-    /** @hide */
-    public int getEstablishingVpnAppUid() {
-        return mEstablishingVpnAppUid;
+    /**
+     * Retrieves the UID of the app that owns this network.
+     *
+     * <p>For user privacy reasons, this field will only be populated if the following conditions
+     * are met:
+     *
+     * <p>The caller is the network owner, AND one of the following sets of requirements is met:
+     *
+     * <ol>
+     *   <li>The described Network is a VPN
+     * </ol>
+     *
+     * <p>OR:
+     *
+     * <ol>
+     *   <li>The calling app is the network owner
+     *   <li>The calling app has the ACCESS_FINE_LOCATION permission granted
+     *   <li>The user's location toggle is on
+     * </ol>
+     *
+     * Instances of NetworkCapabilities sent to apps without the appropriate permissions will have
+     * this field cleared out.
+     */
+    public int getOwnerUid() {
+        return mOwnerUid;
+    }
+
+    /**
+     * UIDs of packages that are administrators of this network, or empty if none.
+     *
+     * <p>This field tracks the UIDs of packages that have permission to manage this network.
+     *
+     * <p>Network owners will also be listed as administrators.
+     *
+     * <p>For NetworkCapability instances being sent from the System Server, this value MUST be
+     * empty unless the destination is 1) the System Server, or 2) Telephony. In either case, the
+     * receiving entity must have the ACCESS_FINE_LOCATION permission and target R+.
+     *
+     * <p>When received from an app in a NetworkRequest this is always cleared out by the system
+     * server. This field is never used for matching NetworkRequests to NetworkAgents.
+     */
+    @NonNull private int[] mAdministratorUids = new int[0];
+
+    /**
+     * Sets the int[] of UIDs that are administrators of this network.
+     *
+     * <p>UIDs included in administratorUids gain administrator privileges over this Network.
+     * Examples of UIDs that should be included in administratorUids are:
+     *
+     * <ul>
+     *   <li>Carrier apps with privileges for the relevant subscription
+     *   <li>Active VPN apps
+     *   <li>Other application groups with a particular Network-related role
+     * </ul>
+     *
+     * <p>In general, user-supplied networks (such as WiFi networks) do not have an administrator.
+     *
+     * <p>An app is granted owner privileges over Networks that it supplies. The owner UID MUST
+     * always be included in administratorUids.
+     *
+     * <p>The administrator UIDs are set by network agents.
+     *
+     * @param administratorUids the UIDs to be set as administrators of this Network.
+     * @throws IllegalArgumentException if duplicate UIDs are contained in administratorUids
+     * @see #mAdministratorUids
+     * @hide
+     */
+    @NonNull
+    public NetworkCapabilities setAdministratorUids(@NonNull final int[] administratorUids) {
+        mAdministratorUids = Arrays.copyOf(administratorUids, administratorUids.length);
+        Arrays.sort(mAdministratorUids);
+        for (int i = 0; i < mAdministratorUids.length - 1; i++) {
+            if (mAdministratorUids[i] >= mAdministratorUids[i + 1]) {
+                throw new IllegalArgumentException("All administrator UIDs must be unique");
+            }
+        }
+        return this;
+    }
+
+    /**
+     * Retrieves the UIDs that are administrators of this Network.
+     *
+     * <p>This is only populated in NetworkCapabilities objects that come from network agents for
+     * networks that are managed by specific apps on the system, such as carrier privileged apps or
+     * wifi suggestion apps. This will include the network owner.
+     *
+     * @return the int[] of UIDs that are administrators of this Network
+     * @see #mAdministratorUids
+     * @hide
+     */
+    @NonNull
+    @SystemApi
+    @TestApi
+    public int[] getAdministratorUids() {
+        return Arrays.copyOf(mAdministratorUids, mAdministratorUids.length);
+    }
+
+    /**
+     * Tests if the set of administrator UIDs of this network is the same as that of the passed one.
+     *
+     * <p>The administrator UIDs must be in sorted order.
+     *
+     * <p>nc is assumed non-null. Else, NPE.
+     *
+     * @hide
+     */
+    @VisibleForTesting(visibility = PRIVATE)
+    public boolean equalsAdministratorUids(@NonNull final NetworkCapabilities nc) {
+        return Arrays.equals(mAdministratorUids, nc.mAdministratorUids);
+    }
+
+    /**
+     * Combine the administrator UIDs of the capabilities.
+     *
+     * <p>This is only legal if either of the administrators lists are empty, or if they are equal.
+     * Combining administrator UIDs is only possible for combining non-overlapping sets of UIDs.
+     *
+     * <p>If both administrator lists are non-empty but not equal, they conflict with each other. In
+     * this case, it would not make sense to add them together.
+     */
+    private void combineAdministratorUids(@NonNull final NetworkCapabilities nc) {
+        if (nc.mAdministratorUids.length == 0) return;
+        if (mAdministratorUids.length == 0) {
+            mAdministratorUids = Arrays.copyOf(nc.mAdministratorUids, nc.mAdministratorUids.length);
+            return;
+        }
+        if (!equalsAdministratorUids(nc)) {
+            throw new IllegalStateException("Can't combine two different administrator UID lists");
+        }
     }
 
     /**
@@ -845,13 +1082,7 @@ public final class NetworkCapabilities implements Parcelable {
      * Sets the upstream bandwidth for this network in Kbps.  This always only refers to
      * the estimated first hop transport bandwidth.
      * <p>
-     * Note that when used to request a network, this specifies the minimum acceptable.
-     * When received as the state of an existing network this specifies the typical
-     * first hop bandwidth expected.  This is never measured, but rather is inferred
-     * from technology type and other link parameters.  It could be used to differentiate
-     * between very slow 1xRTT cellular links and other faster networks or even between
-     * 802.11b vs 802.11AC wifi technologies.  It should not be used to differentiate between
-     * fast backhauls and slow backhauls.
+     * {@see Builder#setLinkUpstreamBandwidthKbps}
      *
      * @param upKbps the estimated first hop upstream (device to network) bandwidth.
      * @hide
@@ -875,13 +1106,7 @@ public final class NetworkCapabilities implements Parcelable {
      * Sets the downstream bandwidth for this network in Kbps.  This always only refers to
      * the estimated first hop transport bandwidth.
      * <p>
-     * Note that when used to request a network, this specifies the minimum acceptable.
-     * When received as the state of an existing network this specifies the typical
-     * first hop bandwidth expected.  This is never measured, but rather is inferred
-     * from technology type and other link parameters.  It could be used to differentiate
-     * between very slow 1xRTT cellular links and other faster networks or even between
-     * 802.11b vs 802.11AC wifi technologies.  It should not be used to differentiate between
-     * fast backhauls and slow backhauls.
+     * {@see Builder#setLinkUpstreamBandwidthKbps}
      *
      * @param downKbps the estimated first hop downstream (network to device) bandwidth.
      * @hide
@@ -945,7 +1170,8 @@ public final class NetworkCapabilities implements Parcelable {
      * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
-    public @NonNull NetworkCapabilities setNetworkSpecifier(NetworkSpecifier networkSpecifier) {
+    public @NonNull NetworkCapabilities setNetworkSpecifier(
+            @NonNull NetworkSpecifier networkSpecifier) {
         if (networkSpecifier != null && Long.bitCount(mTransportTypes) != 1) {
             throw new IllegalStateException("Must have a single transport specified to use " +
                     "setNetworkSpecifier");
@@ -964,7 +1190,7 @@ public final class NetworkCapabilities implements Parcelable {
      * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
-    public @NonNull NetworkCapabilities setTransportInfo(TransportInfo transportInfo) {
+    public @NonNull NetworkCapabilities setTransportInfo(@NonNull TransportInfo transportInfo) {
         mTransportInfo = transportInfo;
         return this;
     }
@@ -973,10 +1199,8 @@ public final class NetworkCapabilities implements Parcelable {
      * Gets the optional bearer specific network specifier. May be {@code null} if not set.
      *
      * @return The optional {@link NetworkSpecifier} specifying the bearer specific network
-     *         specifier or {@code null}. See {@link #setNetworkSpecifier}.
-     * @hide
+     *         specifier or {@code null}.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public @Nullable NetworkSpecifier getNetworkSpecifier() {
         return mNetworkSpecifier;
     }
@@ -1002,7 +1226,7 @@ public final class NetworkCapabilities implements Parcelable {
     }
 
     private boolean satisfiedBySpecifier(NetworkCapabilities nc) {
-        return mNetworkSpecifier == null || mNetworkSpecifier.satisfiedBy(nc.mNetworkSpecifier)
+        return mNetworkSpecifier == null || mNetworkSpecifier.canBeSatisfiedBy(nc.mNetworkSpecifier)
                 || nc.mNetworkSpecifier instanceof MatchAllNetworkSpecifier;
     }
 
@@ -1047,7 +1271,6 @@ public final class NetworkCapabilities implements Parcelable {
      * @param signalStrength the bearer-specific signal strength.
      * @hide
      */
-    @UnsupportedAppUsage
     public @NonNull NetworkCapabilities setSignalStrength(int signalStrength) {
         mSignalStrength = signalStrength;
         return this;
@@ -1102,7 +1325,7 @@ public final class NetworkCapabilities implements Parcelable {
      * member is null, then the network is not restricted by app UID. If it's an empty list, then
      * it means nobody can use it.
      * As a special exception, the app managing this network (as identified by its UID stored in
-     * mEstablishingVpnAppUid) can always see this network. This is embodied by a special check in
+     * mOwnerUid) can always see this network. This is embodied by a special check in
      * satisfiedByUids. That still does not mean the network necessarily <strong>applies</strong>
      * to the app that manages it as determined by #appliesToUid.
      * <p>
@@ -1209,7 +1432,7 @@ public final class NetworkCapabilities implements Parcelable {
      * in the passed nc (representing the UIDs that this network is available to).
      * <p>
      * As a special exception, the UID that created the passed network (as represented by its
-     * mEstablishingVpnAppUid field) always satisfies a NetworkRequest requiring it (of LISTEN
+     * mOwnerUid field) always satisfies a NetworkRequest requiring it (of LISTEN
      * or REQUEST types alike), even if the network does not apply to it. That is so a VPN app
      * can see its own network when it listens for it.
      * <p>
@@ -1220,7 +1443,7 @@ public final class NetworkCapabilities implements Parcelable {
     public boolean satisfiedByUids(@NonNull NetworkCapabilities nc) {
         if (null == nc.mUids || null == mUids) return true; // The network satisfies everything.
         for (UidRange requiredRange : mUids) {
-            if (requiredRange.contains(nc.mEstablishingVpnAppUid)) return true;
+            if (requiredRange.contains(nc.mOwnerUid)) return true;
             if (!nc.appliesToUidRange(requiredRange)) {
                 return false;
             }
@@ -1282,7 +1505,9 @@ public final class NetworkCapabilities implements Parcelable {
      * Gets the SSID of this network, or null if none or unknown.
      * @hide
      */
-    public @Nullable String getSSID() {
+    @SystemApi
+    @TestApi
+    public @Nullable String getSsid() {
         return mSSID;
     }
 
@@ -1333,6 +1558,8 @@ public final class NetworkCapabilities implements Parcelable {
         combineSignalStrength(nc);
         combineUids(nc);
         combineSSIDs(nc);
+        combineRequestor(nc);
+        combineAdministratorUids(nc);
     }
 
     /**
@@ -1352,7 +1579,8 @@ public final class NetworkCapabilities implements Parcelable {
                 && satisfiedBySpecifier(nc)
                 && (onlyImmutable || satisfiedBySignalStrength(nc))
                 && (onlyImmutable || satisfiedByUids(nc))
-                && (onlyImmutable || satisfiedBySSID(nc)));
+                && (onlyImmutable || satisfiedBySSID(nc)))
+                && (onlyImmutable || satisfiedByRequestor(nc));
     }
 
     /**
@@ -1436,14 +1664,17 @@ public final class NetworkCapabilities implements Parcelable {
     public boolean equals(@Nullable Object obj) {
         if (obj == null || (obj instanceof NetworkCapabilities == false)) return false;
         NetworkCapabilities that = (NetworkCapabilities) obj;
-        return (equalsNetCapabilities(that)
+        return equalsNetCapabilities(that)
                 && equalsTransportTypes(that)
                 && equalsLinkBandwidths(that)
                 && equalsSignalStrength(that)
                 && equalsSpecifier(that)
                 && equalsTransportInfo(that)
                 && equalsUids(that)
-                && equalsSSID(that));
+                && equalsSSID(that)
+                && equalsPrivateDnsBroken(that)
+                && equalsRequestor(that)
+                && equalsAdministratorUids(that);
     }
 
     @Override
@@ -1460,13 +1691,18 @@ public final class NetworkCapabilities implements Parcelable {
                 + (mSignalStrength * 29)
                 + Objects.hashCode(mUids) * 31
                 + Objects.hashCode(mSSID) * 37
-                + Objects.hashCode(mTransportInfo) * 41;
+                + Objects.hashCode(mTransportInfo) * 41
+                + Objects.hashCode(mPrivateDnsBroken) * 43
+                + Objects.hashCode(mRequestorUid) * 47
+                + Objects.hashCode(mRequestorPackageName) * 53
+                + Arrays.hashCode(mAdministratorUids) * 59;
     }
 
     @Override
     public int describeContents() {
         return 0;
     }
+
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeLong(mNetworkCapabilities);
@@ -1479,6 +1715,11 @@ public final class NetworkCapabilities implements Parcelable {
         dest.writeInt(mSignalStrength);
         dest.writeArraySet(mUids);
         dest.writeString(mSSID);
+        dest.writeBoolean(mPrivateDnsBroken);
+        dest.writeIntArray(getAdministratorUids());
+        dest.writeInt(mOwnerUid);
+        dest.writeInt(mRequestorUid);
+        dest.writeString(mRequestorPackageName);
     }
 
     public static final @android.annotation.NonNull Creator<NetworkCapabilities> CREATOR =
@@ -1498,6 +1739,11 @@ public final class NetworkCapabilities implements Parcelable {
                 netCap.mUids = (ArraySet<UidRange>) in.readArraySet(
                         null /* ClassLoader, null for default */);
                 netCap.mSSID = in.readString();
+                netCap.mPrivateDnsBroken = in.readBoolean();
+                netCap.setAdministratorUids(in.createIntArray());
+                netCap.mOwnerUid = in.readInt();
+                netCap.mRequestorUid = in.readInt();
+                netCap.mRequestorPackageName = in.readString();
                 return netCap;
             }
             @Override
@@ -1547,13 +1793,24 @@ public final class NetworkCapabilities implements Parcelable {
                 sb.append(" Uids: <").append(mUids).append(">");
             }
         }
-        if (mEstablishingVpnAppUid != INVALID_UID) {
-            sb.append(" EstablishingAppUid: ").append(mEstablishingVpnAppUid);
+        if (mOwnerUid != Process.INVALID_UID) {
+            sb.append(" OwnerUid: ").append(mOwnerUid);
+        }
+
+        if (mAdministratorUids.length == 0) {
+            sb.append(" AdministratorUids: ").append(Arrays.toString(mAdministratorUids));
         }
 
         if (null != mSSID) {
             sb.append(" SSID: ").append(mSSID);
         }
+
+        if (mPrivateDnsBroken) {
+            sb.append(" Private DNS is broken");
+        }
+
+        sb.append(" RequestorUid: ").append(mRequestorUid);
+        sb.append(" RequestorPackageName: ").append(mRequestorPackageName);
 
         sb.append("]");
         return sb.toString();
@@ -1563,6 +1820,7 @@ public final class NetworkCapabilities implements Parcelable {
     private interface NameOf {
         String nameOf(int value);
     }
+
     /**
      * @hide
      */
@@ -1585,7 +1843,7 @@ public final class NetworkCapabilities implements Parcelable {
     }
 
     /** @hide */
-    public void writeToProto(@NonNull ProtoOutputStream proto, long fieldId) {
+    public void dumpDebug(@NonNull ProtoOutputStream proto, long fieldId) {
         final long token = proto.start(fieldId);
 
         for (int transport : getTransportTypes()) {
@@ -1655,6 +1913,7 @@ public final class NetworkCapabilities implements Parcelable {
             case NET_CAPABILITY_OEM_PAID:             return "OEM_PAID";
             case NET_CAPABILITY_MCX:                  return "MCX";
             case NET_CAPABILITY_PARTIAL_CONNECTIVITY: return "PARTIAL_CONNECTIVITY";
+            case NET_CAPABILITY_TEMPORARILY_NOT_METERED:    return "TEMPORARILY_NOT_METERED";
             default:                                  return Integer.toString(capability);
         }
     }
@@ -1705,5 +1964,470 @@ public final class NetworkCapabilities implements Parcelable {
      */
     public boolean isMetered() {
         return !hasCapability(NET_CAPABILITY_NOT_METERED);
+    }
+
+    /**
+     * Check if private dns is broken.
+     *
+     * @return {@code true} if {@code mPrivateDnsBroken} is set when private DNS is broken.
+     * @hide
+     */
+    public boolean isPrivateDnsBroken() {
+        return mPrivateDnsBroken;
+    }
+
+    /**
+     * Set mPrivateDnsBroken to true when private dns is broken.
+     *
+     * @param broken the status of private DNS to be set.
+     * @hide
+     */
+    public void setPrivateDnsBroken(boolean broken) {
+        mPrivateDnsBroken = broken;
+    }
+
+    private boolean equalsPrivateDnsBroken(NetworkCapabilities nc) {
+        return mPrivateDnsBroken == nc.mPrivateDnsBroken;
+    }
+
+    /**
+     * Set the UID of the app making the request.
+     *
+     * For instances of NetworkCapabilities representing a request, sets the
+     * UID of the app making the request. For a network created by the system,
+     * sets the UID of the only app whose requests can match this network.
+     * This can be set to {@link Process#INVALID_UID} if there is no such app,
+     * or if this instance of NetworkCapabilities is about to be sent to a
+     * party that should not learn about this.
+     *
+     * @param uid UID of the app.
+     * @hide
+     */
+    public @NonNull NetworkCapabilities setRequestorUid(int uid) {
+        mRequestorUid = uid;
+        return this;
+    }
+
+    /**
+     * Returns the UID of the app making the request.
+     *
+     * For a NetworkRequest being made by an app, contains the app's UID. For a network
+     * created by the system, contains the UID of the only app whose requests can match
+     * this network, or {@link Process#INVALID_UID} if none or if the
+     * caller does not have permission to learn about this.
+     *
+     * @return the uid of the app making the request.
+     * @hide
+     */
+    public int getRequestorUid() {
+        return mRequestorUid;
+    }
+
+    /**
+     * Set the package name of the app making the request.
+     *
+     * For instances of NetworkCapabilities representing a request, sets the
+     * package name of the app making the request. For a network created by the system,
+     * sets the package name of the only app whose requests can match this network.
+     * This can be set to null if there is no such app, or if this instance of
+     * NetworkCapabilities is about to be sent to a party that should not learn about this.
+     *
+     * @param packageName package name of the app.
+     * @hide
+     */
+    public @NonNull NetworkCapabilities setRequestorPackageName(@NonNull String packageName) {
+        mRequestorPackageName = packageName;
+        return this;
+    }
+
+    /**
+     * Returns the package name of the app making the request.
+     *
+     * For a NetworkRequest being made by an app, contains the app's package name. For a
+     * network created by the system, contains the package name of the only app whose
+     * requests can match this network, or null if none or if the caller does not have
+     * permission to learn about this.
+     *
+     * @return the package name of the app making the request.
+     * @hide
+     */
+    @Nullable
+    public String getRequestorPackageName() {
+        return mRequestorPackageName;
+    }
+
+    /**
+     * Set the uid and package name of the app causing this network to exist.
+     *
+     * {@see #setRequestorUid} and {@link #setRequestorPackageName}
+     *
+     * @param uid UID of the app.
+     * @param packageName package name of the app.
+     * @hide
+     */
+    public @NonNull NetworkCapabilities setRequestorUidAndPackageName(
+            int uid, @NonNull String packageName) {
+        return setRequestorUid(uid).setRequestorPackageName(packageName);
+    }
+
+    /**
+     * Test whether the passed NetworkCapabilities satisfies the requestor restrictions of this
+     * capabilities.
+     *
+     * This method is called on the NetworkCapabilities embedded in a request with the
+     * capabilities of an available network. If the available network, sets a specific
+     * requestor (by uid and optionally package name), then this will only match a request from the
+     * same app. If either of the capabilities have an unset uid or package name, then it matches
+     * everything.
+     * <p>
+     * nc is assumed nonnull. Else, NPE.
+     */
+    private boolean satisfiedByRequestor(NetworkCapabilities nc) {
+        // No uid set, matches everything.
+        if (mRequestorUid == Process.INVALID_UID || nc.mRequestorUid == Process.INVALID_UID) {
+            return true;
+        }
+        // uids don't match.
+        if (mRequestorUid != nc.mRequestorUid) return false;
+        // No package names set, matches everything
+        if (null == nc.mRequestorPackageName || null == mRequestorPackageName) return true;
+        // check for package name match.
+        return TextUtils.equals(mRequestorPackageName, nc.mRequestorPackageName);
+    }
+
+    /**
+     * Combine requestor info of the capabilities.
+     * <p>
+     * This is only legal if either the requestor info of this object is reset, or both info are
+     * equal.
+     * nc is assumed nonnull.
+     */
+    private void combineRequestor(@NonNull NetworkCapabilities nc) {
+        if (mRequestorUid != Process.INVALID_UID && mRequestorUid != nc.mOwnerUid) {
+            throw new IllegalStateException("Can't combine two uids");
+        }
+        if (mRequestorPackageName != null
+                && !mRequestorPackageName.equals(nc.mRequestorPackageName)) {
+            throw new IllegalStateException("Can't combine two package names");
+        }
+        setRequestorUid(nc.mRequestorUid);
+        setRequestorPackageName(nc.mRequestorPackageName);
+    }
+
+    private boolean equalsRequestor(NetworkCapabilities nc) {
+        return mRequestorUid == nc.mRequestorUid
+                && TextUtils.equals(mRequestorPackageName, nc.mRequestorPackageName);
+    }
+
+    /**
+     * Builder class for NetworkCapabilities.
+     *
+     * This class is mainly for for {@link NetworkAgent} instances to use. Many fields in
+     * the built class require holding a signature permission to use - mostly
+     * {@link android.Manifest.permission.NETWORK_FACTORY}, but refer to the specific
+     * description of each setter. As this class lives entirely in app space it does not
+     * enforce these restrictions itself but the system server clears out the relevant
+     * fields when receiving a NetworkCapabilities object from a caller without the
+     * appropriate permission.
+     *
+     * Apps don't use this builder directly. Instead, they use {@link NetworkRequest} via
+     * its builder object.
+     *
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    public static final class Builder {
+        private final NetworkCapabilities mCaps;
+
+        /**
+         * Creates a new Builder to construct NetworkCapabilities objects.
+         */
+        public Builder() {
+            mCaps = new NetworkCapabilities();
+        }
+
+        /**
+         * Creates a new Builder of NetworkCapabilities from an existing instance.
+         */
+        public Builder(@NonNull final NetworkCapabilities nc) {
+            Objects.requireNonNull(nc);
+            mCaps = new NetworkCapabilities(nc);
+        }
+
+        /**
+         * Adds the given transport type.
+         *
+         * Multiple transports may be added. Note that when searching for a network to satisfy a
+         * request, satisfying any of the transports listed in the request will satisfy the request.
+         * For example {@code TRANSPORT_WIFI} and {@code TRANSPORT_ETHERNET} added to a
+         * {@code NetworkCapabilities} would cause either a Wi-Fi network or an Ethernet network
+         * to be selected. This is logically different than
+         * {@code NetworkCapabilities.NET_CAPABILITY_*}.
+         *
+         * @param transportType the transport type to be added or removed.
+         * @return this builder
+         */
+        @NonNull
+        public Builder addTransportType(@Transport int transportType) {
+            checkValidTransportType(transportType);
+            mCaps.addTransportType(transportType);
+            return this;
+        }
+
+        /**
+         * Removes the given transport type.
+         *
+         * {@see #addTransportType}.
+         *
+         * @param transportType the transport type to be added or removed.
+         * @return this builder
+         */
+        @NonNull
+        public Builder removeTransportType(@Transport int transportType) {
+            checkValidTransportType(transportType);
+            mCaps.removeTransportType(transportType);
+            return this;
+        }
+
+        /**
+         * Adds the given capability.
+         *
+         * @param capability the capability
+         * @return this builder
+         */
+        @NonNull
+        public Builder addCapability(@NetCapability final int capability) {
+            mCaps.setCapability(capability, true);
+            return this;
+        }
+
+        /**
+         * Removes the given capability.
+         *
+         * @param capability the capability
+         * @return this builder
+         */
+        @NonNull
+        public Builder removeCapability(@NetCapability final int capability) {
+            mCaps.setCapability(capability, false);
+            return this;
+        }
+
+        /**
+         * Sets the owner UID.
+         *
+         * The default value is {@link Process#INVALID_UID}. Pass this value to reset.
+         *
+         * Note: for security the system will clear out this field when received from a
+         * non-privileged source.
+         *
+         * @param ownerUid the owner UID
+         * @return this builder
+         */
+        @NonNull
+        @RequiresPermission(android.Manifest.permission.NETWORK_FACTORY)
+        public Builder setOwnerUid(final int ownerUid) {
+            mCaps.setOwnerUid(ownerUid);
+            return this;
+        }
+
+        /**
+         * Sets the list of UIDs that are administrators of this network.
+         *
+         * <p>UIDs included in administratorUids gain administrator privileges over this
+         * Network. Examples of UIDs that should be included in administratorUids are:
+         * <ul>
+         *     <li>Carrier apps with privileges for the relevant subscription
+         *     <li>Active VPN apps
+         *     <li>Other application groups with a particular Network-related role
+         * </ul>
+         *
+         * <p>In general, user-supplied networks (such as WiFi networks) do not have
+         * administrators.
+         *
+         * <p>An app is granted owner privileges over Networks that it supplies. The owner
+         * UID MUST always be included in administratorUids.
+         *
+         * The default value is the empty array. Pass an empty array to reset.
+         *
+         * Note: for security the system will clear out this field when received from a
+         * non-privileged source, such as an app using reflection to call this or
+         * mutate the member in the built object.
+         *
+         * @param administratorUids the UIDs to be set as administrators of this Network.
+         * @return this builder
+         */
+        @NonNull
+        @RequiresPermission(android.Manifest.permission.NETWORK_FACTORY)
+        public Builder setAdministratorUids(@NonNull final int[] administratorUids) {
+            Objects.requireNonNull(administratorUids);
+            mCaps.setAdministratorUids(administratorUids);
+            return this;
+        }
+
+        /**
+         * Sets the upstream bandwidth of the link.
+         *
+         * Sets the upstream bandwidth for this network in Kbps. This always only refers to
+         * the estimated first hop transport bandwidth.
+         * <p>
+         * Note that when used to request a network, this specifies the minimum acceptable.
+         * When received as the state of an existing network this specifies the typical
+         * first hop bandwidth expected. This is never measured, but rather is inferred
+         * from technology type and other link parameters. It could be used to differentiate
+         * between very slow 1xRTT cellular links and other faster networks or even between
+         * 802.11b vs 802.11AC wifi technologies. It should not be used to differentiate between
+         * fast backhauls and slow backhauls.
+         *
+         * @param upKbps the estimated first hop upstream (device to network) bandwidth.
+         * @return this builder
+         */
+        @NonNull
+        public Builder setLinkUpstreamBandwidthKbps(final int upKbps) {
+            mCaps.setLinkUpstreamBandwidthKbps(upKbps);
+            return this;
+        }
+
+        /**
+         * Sets the downstream bandwidth for this network in Kbps. This always only refers to
+         * the estimated first hop transport bandwidth.
+         * <p>
+         * Note that when used to request a network, this specifies the minimum acceptable.
+         * When received as the state of an existing network this specifies the typical
+         * first hop bandwidth expected. This is never measured, but rather is inferred
+         * from technology type and other link parameters. It could be used to differentiate
+         * between very slow 1xRTT cellular links and other faster networks or even between
+         * 802.11b vs 802.11AC wifi technologies. It should not be used to differentiate between
+         * fast backhauls and slow backhauls.
+         *
+         * @param downKbps the estimated first hop downstream (network to device) bandwidth.
+         * @return this builder
+         */
+        @NonNull
+        public Builder setLinkDownstreamBandwidthKbps(final int downKbps) {
+            mCaps.setLinkDownstreamBandwidthKbps(downKbps);
+            return this;
+        }
+
+        /**
+         * Sets the optional bearer specific network specifier.
+         * This has no meaning if a single transport is also not specified, so calling
+         * this without a single transport set will generate an exception, as will
+         * subsequently adding or removing transports after this is set.
+         * </p>
+         *
+         * @param specifier a concrete, parcelable framework class that extends NetworkSpecifier,
+         *        or null to clear it.
+         * @return this builder
+         */
+        @NonNull
+        public Builder setNetworkSpecifier(@Nullable final NetworkSpecifier specifier) {
+            mCaps.setNetworkSpecifier(specifier);
+            return this;
+        }
+
+        /**
+         * Sets the optional transport specific information.
+         *
+         * @param info A concrete, parcelable framework class that extends {@link TransportInfo},
+         *             or null to clear it.
+         * @return this builder
+         */
+        @NonNull
+        public Builder setTransportInfo(@Nullable final TransportInfo info) {
+            mCaps.setTransportInfo(info);
+            return this;
+        }
+
+        /**
+         * Sets the signal strength. This is a signed integer, with higher values indicating a
+         * stronger signal. The exact units are bearer-dependent. For example, Wi-Fi uses the
+         * same RSSI units reported by wifi code.
+         * <p>
+         * Note that when used to register a network callback, this specifies the minimum
+         * acceptable signal strength. When received as the state of an existing network it
+         * specifies the current value. A value of code SIGNAL_STRENGTH_UNSPECIFIED} means
+         * no value when received and has no effect when requesting a callback.
+         *
+         * Note: for security the system will throw if it receives a NetworkRequest where
+         * the underlying NetworkCapabilities has this member set from a source that does
+         * not hold the {@link android.Manifest.permission.NETWORK_SIGNAL_STRENGTH_WAKEUP}
+         * permission. Apps with this permission can use this indirectly through
+         * {@link android.net.NetworkRequest}.
+         *
+         * @param signalStrength the bearer-specific signal strength.
+         * @return this builder
+         */
+        @NonNull
+        @RequiresPermission(android.Manifest.permission.NETWORK_SIGNAL_STRENGTH_WAKEUP)
+        public Builder setSignalStrength(final int signalStrength) {
+            mCaps.setSignalStrength(signalStrength);
+            return this;
+        }
+
+        /**
+         * Sets the SSID of this network.
+         *
+         * Note: for security the system will clear out this field when received from a
+         * non-privileged source, like an app using reflection to set this.
+         *
+         * @param ssid the SSID, or null to clear it.
+         * @return this builder
+         */
+        @NonNull
+        @RequiresPermission(android.Manifest.permission.NETWORK_FACTORY)
+        public Builder setSsid(@Nullable final String ssid) {
+            mCaps.setSSID(ssid);
+            return this;
+        }
+
+        /**
+         * Set the uid of the app causing this network to exist.
+         *
+         * Note: for security the system will clear out this field when received from a
+         * non-privileged source.
+         *
+         * @param uid UID of the app.
+         * @return this builder
+         */
+        @NonNull
+        @RequiresPermission(android.Manifest.permission.NETWORK_FACTORY)
+        public Builder setRequestorUid(final int uid) {
+            mCaps.setRequestorUid(uid);
+            return this;
+        }
+
+        /**
+         * Set the package name of the app causing this network to exist.
+         *
+         * Note: for security the system will clear out this field when received from a
+         * non-privileged source.
+         *
+         * @param packageName package name of the app, or null to clear it.
+         * @return this builder
+         */
+        @NonNull
+        @RequiresPermission(android.Manifest.permission.NETWORK_FACTORY)
+        public Builder setRequestorPackageName(@Nullable final String packageName) {
+            mCaps.setRequestorPackageName(packageName);
+            return this;
+        }
+
+        /**
+         * Builds the instance of the capabilities.
+         *
+         * @return the built instance of NetworkCapabilities.
+         */
+        @NonNull
+        public NetworkCapabilities build() {
+            if (mCaps.getOwnerUid() != Process.INVALID_UID) {
+                if (!ArrayUtils.contains(mCaps.getAdministratorUids(), mCaps.getOwnerUid())) {
+                    throw new IllegalStateException("The owner UID must be included in "
+                            + " administrator UIDs.");
+                }
+            }
+            return new NetworkCapabilities(mCaps);
+        }
     }
 }

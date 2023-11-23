@@ -362,10 +362,12 @@ void complexity_RC_reset_marking(enc_ctxt_t *ps_enc_ctxt, WORD32 i4_cur_ipe_idx,
         ASSERT(i4_is_cur_pic_high_complex_region != -1);
 
         /*get the next idx of p/i picture */
-        i4_next_ipe_idx =
-            (i4_cur_ipe_idx + 1) % (ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe + 1);
-        i4_temp_ipe_idx =
-            (i4_cur_ipe_idx + 1) % (ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe + 1);
+        i4_next_ipe_idx = (i4_cur_ipe_idx + 1);
+        if(i4_next_ipe_idx >= ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe)
+        {
+            i4_next_ipe_idx = 0;
+        }
+        i4_temp_ipe_idx = i4_next_ipe_idx;
         for(i = 0; i < (1 << i4_max_temporal_layers); i++)
         {
             ps_lap_out_temp =
@@ -376,12 +378,18 @@ void complexity_RC_reset_marking(enc_ctxt_t *ps_enc_ctxt, WORD32 i4_cur_ipe_idx,
             {
                 break;
             }
-            i4_next_ipe_idx = (i4_next_ipe_idx + 1) %
-                              (ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe + 1);
+            i4_next_ipe_idx++;
+            if(i4_next_ipe_idx >= ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe)
+            {
+                i4_next_ipe_idx = 0;
+            }
         }
         /* get the next idx of next p/i picture*/
-        i4_next_next_ipe_idx =
-            (i4_next_ipe_idx + 1) % (ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe + 1);
+        i4_next_next_ipe_idx = (i4_next_ipe_idx + 1);
+        if(i4_next_next_ipe_idx >= ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe)
+        {
+            i4_next_next_ipe_idx = 0;
+        }
         for(i = 0; i < (1 << i4_max_temporal_layers); i++)
         {
             ps_lap_out_temp =
@@ -392,8 +400,11 @@ void complexity_RC_reset_marking(enc_ctxt_t *ps_enc_ctxt, WORD32 i4_cur_ipe_idx,
             {
                 break;
             }
-            i4_next_next_ipe_idx = (i4_next_next_ipe_idx + 1) %
-                                   (ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe + 1);
+            i4_next_next_ipe_idx++;
+            if(i4_next_next_ipe_idx >= ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe)
+            {
+                i4_next_next_ipe_idx = 0;
+            }
         }
 
         /*check for any possible RC reset in the future 8 frames*/
@@ -411,8 +422,11 @@ void complexity_RC_reset_marking(enc_ctxt_t *ps_enc_ctxt, WORD32 i4_cur_ipe_idx,
             {
                 ps_enc_ctxt->i4_future_RC_scd_reset = 1;
             }
-            i4_temp_ipe_idx = (i4_temp_ipe_idx + 1) %
-                              (ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe + 1);
+            i4_temp_ipe_idx++;
+            if(i4_temp_ipe_idx >= ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe)
+            {
+                i4_temp_ipe_idx = 0;
+            }
         }
 
         if((!ps_enc_ctxt->i4_future_RC_reset) && (ps_enc_ctxt->i4_past_RC_reset_count > 8))
@@ -3021,11 +3035,6 @@ WORD32 ihevce_enc_frm_proc_slave_thrd(void *pv_frm_proc_thrd_ctxt)
                     ps_curr_out_me->i4_end_flag =
                         ps_enc_ctxt->s_multi_thrd.aps_cur_inp_me_prms[i4_me_frm_id]->i4_end_flag;
 
-                    /* set the parameters for sync b/w entropy thread */
-
-                    ps_enc_ctxt->s_multi_thrd.me_end_flag =
-                        ps_enc_ctxt->s_multi_thrd.aps_cur_inp_me_prms[i4_me_frm_id]->i4_end_flag;
-
                     /* do the processing if input frm data is valid */
                     if(1 == ps_curr_inp->s_input_buf.i4_inp_frm_data_valid_flag)
                     {
@@ -3205,6 +3214,10 @@ WORD32 ihevce_enc_frm_proc_slave_thrd(void *pv_frm_proc_thrd_ctxt)
             ps_curr_L0_IPE_inp_prms =
                 ps_enc_ctxt->s_multi_thrd.aps_cur_L0_ipe_inp_prms[i4_me_frm_id];
             ps_curr_inp = ps_enc_ctxt->s_multi_thrd.aps_cur_inp_me_prms[i4_me_frm_id]->ps_curr_inp;
+            if(i4_thrd_id == 0)
+            {
+                PROFILE_START(&ps_hle_ctxt->profile_enc_me[ps_enc_ctxt->i4_resolution_id]);
+            }
 
             /* -------------------------------------------------- */
             /*    Motion estimation (enc layer) of entire frame   */
@@ -3240,7 +3253,6 @@ WORD32 ihevce_enc_frm_proc_slave_thrd(void *pv_frm_proc_thrd_ctxt)
                         i4_me_frm_id);
                 }
                 else
-
                 {
                     /* Init i4_is_prev_frame_reference for the next P-frame */
                     me_master_ctxt_t *ps_master_ctxt =
@@ -3264,6 +3276,10 @@ WORD32 ihevce_enc_frm_proc_slave_thrd(void *pv_frm_proc_thrd_ctxt)
                                 ->ps_curr_inp->s_lap_out.i4_is_ref_pic;
                     }
                 }
+            }
+            if(i4_thrd_id == 0)
+            {
+                PROFILE_STOP(&ps_hle_ctxt->profile_enc_me[ps_enc_ctxt->i4_resolution_id], NULL);
             }
         }
         /************************************/
@@ -5354,7 +5370,6 @@ void ihevce_pre_enc_init(
             ps_curr_out->ps_layer2_buf,
             ps_curr_out->ps_ed_ctb_l1,
             ps_curr_out->as_lambda_prms[0].i4_ol_sad_lambda_qf,
-            ps_curr_out->s_slice_hdr.i1_slice_type,
             ps_curr_out->ps_ctb_analyse);
     }
 
@@ -5368,73 +5383,6 @@ void ihevce_pre_enc_init(
     *pi4_cur_qp_ret = cur_qp;
     *pi4_decomp_lyr_idx = i4_decomp_lyrs_idx;
     //*pps_frm_recon_ret = ps_frm_recon;
-}
-
-/*!
-******************************************************************************
-* \if Function name : ihevce_pre_enc_process_frame \endif
-*
-* \brief
-*    Frame processing main function
-*
-* \param[in] Encoder context pointer
-* \param[in] Current input buffer params pointer
-* \param[out] Current output buffer params pointer
-* \param[in] Current frame QP
-*
-* \return
-*    None
-*
-* \author
-*  Ittiam
-*
-*****************************************************************************
-*/
-void ihevce_pre_enc_process_frame(
-    enc_ctxt_t *ps_enc_ctxt,
-    ihevce_lap_enc_buf_t *ps_curr_inp,
-    pre_enc_me_ctxt_t *ps_curr_out,
-    WORD32 i4_cur_frame_qp,
-    WORD32 i4_thrd_id,
-    WORD32 i4_ping_pong)
-{
-    if(1 == ps_curr_out->i4_frm_proc_valid_flag)
-    {
-        /* ------------------------------------------------------------ */
-        /*        Layer Decomp and Intra 4x4 Analysis                   */
-        /* ------------------------------------------------------------ */
-        ihevce_decomp_pre_intra_process(
-            ps_enc_ctxt->s_module_ctxt.pv_decomp_pre_intra_ctxt,
-            &ps_curr_inp->s_lap_out,
-            &ps_enc_ctxt->s_frm_ctb_prms,
-            &ps_enc_ctxt->s_multi_thrd,
-            i4_thrd_id,
-            i4_ping_pong,
-            ps_curr_out->ps_layer0_cur_satd,
-            ps_curr_out->ps_layer0_cur_mean);
-
-        /* ------------------------------------------------------------ */
-        /*  Coarse Motion estimation and early intra-inter decision     */
-        /* ------------------------------------------------------------ */
-        ihevce_coarse_me_process(
-            ps_enc_ctxt->s_module_ctxt.pv_coarse_me_ctxt,
-            ps_curr_inp,
-            &ps_enc_ctxt->s_multi_thrd,
-            i4_thrd_id,
-            i4_ping_pong);
-
-        /* ------------------------------------------------------------ */
-        /*  Update qp used in based in L1 satd/act in case of scene cut */
-        /* ------------------------------------------------------------ */
-        //ihevce_update_qp_L1_sad_based(ps_enc_ctxt,ps_curr_inp,ps_curr_out);
-
-        /* Calculate the average activity values from the previous frame and
-        these would be used by the current frame*/
-        /*ihevce_decomp_pre_intra_curr_frame_pre_intra_deinit(
-        ps_enc_ctxt->s_module_ctxt.pv_decomp_pre_intra_ctxt,
-        ps_enc_ctxt->s_module_ctxt.pv_ipe_ctxt,
-        i4_thrd_id);*/
-    }
 }
 
 /*!
@@ -5549,318 +5497,149 @@ void ihevce_pre_enc_coarse_me_init(
     *pps_frm_recon_ret = ps_frm_recon;
 }
 
-#define MAX_64BIT_VAL 0x7fffffffffffffff
-
 /*!
 ******************************************************************************
-* \if Function name : ihevce_variance_calc_acc_activity \endif
-*
 * \brief
-*    Function to calculate modulation based on spatial variance across lap period
-*
-* \param[in] pv_ctxt : pointer to IPE module
-*
-* \return
-*    None
-*
-* \author
-*  Ittiam
+*  Function to calculate modulation based on spatial variance across lap period
 *
 *****************************************************************************
 */
 void ihevce_variance_calc_acc_activity(enc_ctxt_t *ps_enc_ctxt, WORD32 i4_cur_ipe_idx)
 {
-    WORD32 j, i4_k;
-    WORD32 i = 0;
-    WORD32 is_i_frame =
-        ((ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_cur_ipe_idx]->s_lap_out.i4_pic_type ==
-          IV_I_FRAME) ||
-         (ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_cur_ipe_idx]->s_lap_out.i4_pic_type ==
-          IV_IDR_FRAME));
-
-    WORD32 is_p_frame =
-        (ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_cur_ipe_idx]->s_lap_out.i4_pic_type ==
-         IV_P_FRAME);
-
-    WORD32 i4_delay_loop = (ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe + 1);
-    pre_enc_me_ctxt_t *ps_pre_enc_me_ctxt_t;
     pre_enc_me_ctxt_t *ps_curr_out = ps_enc_ctxt->s_multi_thrd.aps_curr_out_pre_enc[i4_cur_ipe_idx];
-    rc_lap_out_params_t *ps_temp_ipe_rc_lap_out;
-    UWORD8 is_no_scene_change = 1;
-    WORD32 loop_lap2, i4_pass_num;
-    UWORD32 u4_scene_num;
-    i4_pass_num = ps_enc_ctxt->ps_stat_prms->s_pass_prms.i4_pass;
-    ps_temp_ipe_rc_lap_out =
-        &ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_cur_ipe_idx]->s_rc_lap_out;
+    WORD32 is_curr_bslice = (ps_curr_out->s_slice_hdr.i1_slice_type == BSLICE);
+#if MODULATION_OVER_LAP
+    WORD32 loop_lap2 = MAX(1, ps_enc_ctxt->s_multi_thrd.i4_delay_pre_me_btw_l0_ipe - 1);
+#else
+    WORD32 loop_lap2 = 1;
+#endif
+    WORD32 i4_delay_loop = ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe;
+    WORD32 i, j;
+
     ps_curr_out->i8_acc_frame_8x8_sum_act_sqr = 0;
     ps_curr_out->i8_acc_frame_8x8_sum_act_for_strength = 0;
-    for(i4_k = 0; i4_k < 2; i4_k++)
+    for(i = 0; i < 2; i++)
     {
-        ps_curr_out->i8_acc_frame_8x8_sum_act[i4_k] = 0;
-        ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k] = 0;
-
-        ps_curr_out->i8_acc_frame_16x16_sum_act[i4_k] = 0;
-        ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k] = 0;
-
-        ps_curr_out->i8_acc_frame_32x32_sum_act[i4_k] = 0;
-        ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k] = 0;
+        ps_curr_out->i8_acc_frame_8x8_sum_act[i] = 0;
+        ps_curr_out->i4_acc_frame_8x8_num_blks[i] = 0;
+        ps_curr_out->i8_acc_frame_16x16_sum_act[i] = 0;
+        ps_curr_out->i4_acc_frame_16x16_num_blks[i] = 0;
+        ps_curr_out->i8_acc_frame_32x32_sum_act[i] = 0;
+        ps_curr_out->i4_acc_frame_32x32_num_blks[i] = 0;
     }
-    ps_curr_out->i8_acc_frame_16x16_sum_act[i4_k] = 0;
-    ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k] = 0;
+    ps_curr_out->i8_acc_frame_16x16_sum_act[i] = 0;
+    ps_curr_out->i4_acc_frame_16x16_num_blks[i] = 0;
+    ps_curr_out->i8_acc_frame_32x32_sum_act[i] = 0;
+    ps_curr_out->i4_acc_frame_32x32_num_blks[i] = 0;
 
-    ps_curr_out->i8_acc_frame_32x32_sum_act[i4_k] = 0;
-    ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k] = 0;
-
-    u4_scene_num =
-        ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_cur_ipe_idx]->s_lap_out.u4_scene_num;
-
-    //ps_curr_out->i4_acc_frame_median_sum_act = 0;
-
-#if MODULATION_OVER_LAP
-    if(ps_enc_ctxt->s_multi_thrd.i4_delay_pre_me_btw_l0_ipe - 1 <= 0)
-        loop_lap2 = 1;
-    else
-        loop_lap2 = ps_enc_ctxt->s_multi_thrd.i4_delay_pre_me_btw_l0_ipe - 1;
-#else
-    loop_lap2 = 1;
-#endif
-
-    if(ps_temp_ipe_rc_lap_out->ps_rc_lap_out_next_encode == NULL ||
-       ps_temp_ipe_rc_lap_out->i4_is_non_I_scd)
+    if(!is_curr_bslice)
     {
-        is_no_scene_change = 0;
-    }
-
-    /*Loop over complete lap2 struct ad make sure no scene change occurs in the lap2 frmaes */
-    for(i = 1; i < loop_lap2; i++)
-    {
-        WORD32 i4_temp_ipe_idx = (i4_cur_ipe_idx + i) % i4_delay_loop;
-        if(0 == is_no_scene_change)
-        {
-            loop_lap2 = i;
-            break;
-        }
-        ps_temp_ipe_rc_lap_out =
-            &ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_temp_ipe_idx]->s_rc_lap_out;
-
-        /*check if the current frame scene num is same as previous frame scene num */
-        is_no_scene_change = (u4_scene_num == ps_temp_ipe_rc_lap_out->u4_rc_scene_num);
-
-        if(ps_temp_ipe_rc_lap_out->ps_rc_lap_out_next_encode == NULL ||
-           ps_temp_ipe_rc_lap_out->i4_is_non_I_scd)
-        {
-            is_no_scene_change = 0;
-            loop_lap2 = i;
-            break;
-        }
-    }
-
-    /*Only if there is no scene change then process the lap2 for modulation index calcuation */
-    if(((1 == is_i_frame) || (1 == is_p_frame)) &&
-       (1 == is_no_scene_change || (ps_enc_ctxt->i4_active_scene_num != (WORD32)u4_scene_num)))
-    {
-        //do
-        ps_enc_ctxt->i4_active_scene_num = u4_scene_num;
         for(i = 0; i < loop_lap2; i++)
         {
-            WORD32 i4_temp_ipe_idx = (i4_cur_ipe_idx + i) % i4_delay_loop;
-            UWORD8 i_frame =
-                ((ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_temp_ipe_idx]
-                      ->s_lap_out.i4_pic_type == IV_I_FRAME) ||
-                 (ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_temp_ipe_idx]
-                      ->s_lap_out.i4_pic_type == IV_IDR_FRAME));
-            UWORD8 p_frame =
-                (ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_temp_ipe_idx]
-                     ->s_lap_out.i4_pic_type == IV_P_FRAME);
+            WORD32 ipe_idx_tmp = (i4_cur_ipe_idx + i) % i4_delay_loop;
+            ihevce_lap_enc_buf_t *ps_in = ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[ipe_idx_tmp];
+            pre_enc_me_ctxt_t *ps_out = ps_enc_ctxt->s_multi_thrd.aps_curr_out_pre_enc[ipe_idx_tmp];
+            UWORD8 is_bslice = (ps_out->s_slice_hdr.i1_slice_type == BSLICE);
 
-            ps_pre_enc_me_ctxt_t = ps_enc_ctxt->s_multi_thrd.aps_curr_out_pre_enc[i4_temp_ipe_idx];
-
-            if(1 == (p_frame || i_frame))
+            if(!is_bslice)
             {
-                ps_curr_out->i8_acc_frame_8x8_sum_act_sqr +=
-                    ps_pre_enc_me_ctxt_t->u8_curr_frame_8x8_sum_act_sqr;
-                ps_curr_out->i8_acc_frame_8x8_sum_act_for_strength +=
-                    ps_pre_enc_me_ctxt_t->i4_curr_frame_8x8_sum_act_for_strength[0];
-                for(i4_k = 0; i4_k < 2; i4_k++)
+                ps_curr_out->i8_acc_frame_8x8_sum_act_sqr += ps_out->u8_curr_frame_8x8_sum_act_sqr;
+                ps_curr_out->i8_acc_frame_8x8_sum_act_for_strength += ps_out->i4_curr_frame_8x8_sum_act_for_strength[0];
+                for(j = 0; j < 2; j++)
                 {
-                    ps_curr_out->i8_acc_frame_8x8_sum_act[i4_k] +=
-                        ps_pre_enc_me_ctxt_t->i8_curr_frame_8x8_sum_act[i4_k];
-                    ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k] +=
-                        ps_pre_enc_me_ctxt_t->i4_curr_frame_8x8_num_blks[i4_k];
-
-                    ps_curr_out->i8_acc_frame_16x16_sum_act[i4_k] +=
-                        ps_pre_enc_me_ctxt_t->i8_curr_frame_16x16_sum_act[i4_k];
-                    ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k] +=
-                        ps_pre_enc_me_ctxt_t->i4_curr_frame_16x16_num_blks[i4_k];
-
-                    ps_curr_out->i8_acc_frame_32x32_sum_act[i4_k] +=
-                        ps_pre_enc_me_ctxt_t->i8_curr_frame_32x32_sum_act[i4_k];
-                    ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k] +=
-                        ps_pre_enc_me_ctxt_t->i4_curr_frame_32x32_num_blks[i4_k];
+                    ps_curr_out->i8_acc_frame_8x8_sum_act[j] += ps_out->i8_curr_frame_8x8_sum_act[j];
+                    ps_curr_out->i4_acc_frame_8x8_num_blks[j] += ps_out->i4_curr_frame_8x8_num_blks[j];
+                    ps_curr_out->i8_acc_frame_16x16_sum_act[j] += ps_out->i8_curr_frame_16x16_sum_act[j];
+                    ps_curr_out->i4_acc_frame_16x16_num_blks[j] += ps_out->i4_curr_frame_16x16_num_blks[j];
+                    ps_curr_out->i8_acc_frame_32x32_sum_act[j] += ps_out->i8_curr_frame_32x32_sum_act[j];
+                    ps_curr_out->i4_acc_frame_32x32_num_blks[j] += ps_out->i4_curr_frame_32x32_num_blks[j];
                 }
-
-                ps_curr_out->i8_acc_frame_16x16_sum_act[i4_k] +=
-                    ps_pre_enc_me_ctxt_t->i8_curr_frame_16x16_sum_act[i4_k];
-                ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k] +=
-                    ps_pre_enc_me_ctxt_t->i4_curr_frame_16x16_num_blks[i4_k];
-
-                ps_curr_out->i8_acc_frame_32x32_sum_act[i4_k] +=
-                    ps_pre_enc_me_ctxt_t->i8_curr_frame_32x32_sum_act[i4_k];
-                ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k] +=
-                    ps_pre_enc_me_ctxt_t->i4_curr_frame_32x32_num_blks[i4_k];
-
-                //ps_curr_out->i4_acc_frame_median_sum_act    += ps_lap_out->i4_curr_frame_median_sum_act;
-                //ps_curr_out->i4_acc_frame_median_num_blks    += ps_lap_out->i4_curr_frame_median_num_blks;
+                ps_curr_out->i8_acc_frame_16x16_sum_act[j] += ps_out->i8_curr_frame_16x16_sum_act[j];
+                ps_curr_out->i4_acc_frame_16x16_num_blks[j] += ps_out->i4_curr_frame_16x16_num_blks[j];
+                ps_curr_out->i8_acc_frame_32x32_sum_act[j] += ps_out->i8_curr_frame_32x32_sum_act[j];
+                ps_curr_out->i4_acc_frame_32x32_num_blks[j] += ps_out->i4_curr_frame_32x32_num_blks[j];
             }
-
-            //ps_is_next_frame_available = (ihevce_lap_output_params_t *)ps_is_next_frame_available->ps_lap_out_next_encode;
-            if(NULL == ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_temp_ipe_idx]
-                           ->s_rc_lap_out.ps_rc_lap_out_next_encode)
+            if(NULL == ps_in->s_rc_lap_out.ps_rc_lap_out_next_encode)
                 break;
-        }  //while(NULL != ps_is_next_frame_available);
+        }
 
-        /*calculate corr. average, overwrite frame avg by acc. avergae*/
+        for(j = 0; j < 3; j++)
         {
-            for(i4_k = 0; i4_k < 2; i4_k++)
+            if(j < 2)
+                ASSERT(0 != ps_curr_out->i4_acc_frame_8x8_num_blks[j]);
+            ASSERT(0 != ps_curr_out->i4_acc_frame_16x16_num_blks[j]);
+            ASSERT(0 != ps_curr_out->i4_acc_frame_32x32_num_blks[j]);
+
+#define AVG_ACTIVITY(a, b, c) a = ((b + (c >> 1)) / c)
+
+            if(j < 2)
             {
-                if(1 == is_i_frame)
+                if(0 == ps_curr_out->i4_acc_frame_8x8_num_blks[j])
                 {
-                    ASSERT(0 != ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k]);
-                    ASSERT(0 != ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k]);
-                    ASSERT(0 != ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k]);
-                }
-
-                /*In P frame, if no occlusion is present, tehn accumalted avg can be 0*/
-                /*In that case, modulation index is made 1*/
-                if(0 == ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k])
-                {
-                    ps_curr_out->i8_curr_frame_8x8_avg_act[i4_k] = 0;
+                    ps_curr_out->i8_curr_frame_8x8_avg_act[j] = 0;
                 }
                 else
                 {
-                    ps_curr_out->i8_curr_frame_8x8_sum_act_for_strength =
-                        (ps_curr_out->i8_acc_frame_8x8_sum_act_for_strength +
-                         (ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k] >> 1)) /
-                        ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k];
-                    ps_curr_out->i8_curr_frame_8x8_avg_act[i4_k] =
-                        (ps_curr_out->i8_acc_frame_8x8_sum_act[i4_k] +
-                         (ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k] >> 1)) /
-                        ps_curr_out->i4_acc_frame_8x8_num_blks[i4_k];
-                    ps_curr_out->ld_curr_frame_8x8_log_avg[i4_k] =
-                        (log(1 + (long double)ps_curr_out->i8_curr_frame_8x8_avg_act[i4_k]) /
-                         log(2.0));
-                }
-
-                if(0 == ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k])
-                {
-                    ps_curr_out->i8_curr_frame_16x16_avg_act[i4_k] = 0;
-                }
-                else
-                {
-                    ps_curr_out->i8_curr_frame_16x16_avg_act[i4_k] =
-                        (ps_curr_out->i8_acc_frame_16x16_sum_act[i4_k] +
-                         (ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k] >> 1)) /
-                        ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k];
-                    ps_curr_out->ld_curr_frame_16x16_log_avg[i4_k] =
-                        (log(1 + (long double)ps_curr_out->i8_curr_frame_16x16_avg_act[i4_k]) /
-                         log(2.0));
-                }
-
-                if(0 == ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k])
-                {
-                    ps_curr_out->i8_curr_frame_32x32_avg_act[i4_k] = 0;
-                }
-                else
-                {
-                    ps_curr_out->i8_curr_frame_32x32_avg_act[i4_k] =
-                        (ps_curr_out->i8_acc_frame_32x32_sum_act[i4_k] +
-                         (ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k] >> 1)) /
-                        ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k];
-                    ps_curr_out->ld_curr_frame_32x32_log_avg[i4_k] =
-                        (log(1 + (long double)ps_curr_out->i8_curr_frame_32x32_avg_act[i4_k]) /
-                         log(2.0));
+                    AVG_ACTIVITY(ps_curr_out->i8_curr_frame_8x8_sum_act_for_strength,
+                                 ps_curr_out->i8_acc_frame_8x8_sum_act_for_strength,
+                                 ps_curr_out->i4_acc_frame_8x8_num_blks[j]);
+                    AVG_ACTIVITY(ps_curr_out->i8_curr_frame_8x8_avg_act[j],
+                                 ps_curr_out->i8_acc_frame_8x8_sum_act[j],
+                                 ps_curr_out->i4_acc_frame_8x8_num_blks[j]);
+                    ps_curr_out->ld_curr_frame_8x8_log_avg[j] =
+                        fast_log2(1 + ps_curr_out->i8_curr_frame_8x8_avg_act[j]);
                 }
             }
 
-            if(1 == is_i_frame)
+            if(0 == ps_curr_out->i4_acc_frame_16x16_num_blks[j])
             {
-                ASSERT(0 != ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k]);
-                ASSERT(0 != ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k]);
-                //ASSERT(0 != ps_curr_out->i4_acc_frame_median_num_blks);
-            }
-            if(0 == ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k])
-            {
-                ps_curr_out->i8_curr_frame_16x16_avg_act[i4_k] = 0;
+                ps_curr_out->i8_curr_frame_16x16_avg_act[j] = 0;
             }
             else
             {
-                ps_curr_out->i8_curr_frame_16x16_avg_act[i4_k] =
-                    (ps_curr_out->i8_acc_frame_16x16_sum_act[i4_k] +
-                     (ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k] >> 1)) /
-                    ps_curr_out->i4_acc_frame_16x16_num_blks[i4_k];
-                ps_curr_out->ld_curr_frame_16x16_log_avg[i4_k] =
-                    (log(1 + (long double)ps_curr_out->i8_curr_frame_16x16_avg_act[i4_k]) /
-                     log(2.0));
+                AVG_ACTIVITY(ps_curr_out->i8_curr_frame_16x16_avg_act[j],
+                             ps_curr_out->i8_acc_frame_16x16_sum_act[j],
+                             ps_curr_out->i4_acc_frame_16x16_num_blks[j]);
+                ps_curr_out->ld_curr_frame_16x16_log_avg[j] =
+                    fast_log2(1 + ps_curr_out->i8_curr_frame_16x16_avg_act[j]);
             }
 
-            if(0 == ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k])
+            if(0 == ps_curr_out->i4_acc_frame_32x32_num_blks[j])
             {
-                ps_curr_out->i8_curr_frame_32x32_avg_act[i4_k] = 0;
+                ps_curr_out->i8_curr_frame_32x32_avg_act[j] = 0;
             }
             else
             {
-                ps_curr_out->i8_curr_frame_32x32_avg_act[i4_k] =
-                    (ps_curr_out->i8_acc_frame_32x32_sum_act[i4_k] +
-                     (ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k] >> 1)) /
-                    ps_curr_out->i4_acc_frame_32x32_num_blks[i4_k];
-                ps_curr_out->ld_curr_frame_32x32_log_avg[i4_k] =
-                    (log(1 + (long double)ps_curr_out->i8_curr_frame_32x32_avg_act[i4_k]) /
-                     log(2.0));
+                AVG_ACTIVITY(ps_curr_out->i8_curr_frame_32x32_avg_act[j],
+                             ps_curr_out->i8_acc_frame_32x32_sum_act[j],
+                             ps_curr_out->i4_acc_frame_32x32_num_blks[j]);
+                ps_curr_out->ld_curr_frame_32x32_log_avg[j] =
+                    fast_log2(1 + ps_curr_out->i8_curr_frame_32x32_avg_act[j]);
             }
         }
-        /*store the avg activity for B pictures*/
-        {
+
+        /* store the avg activity for B pictures */
 #if POW_OPT
-            ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[0] =
-                ps_curr_out->ld_curr_frame_8x8_log_avg[0];
-            ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[1] =
-                ps_curr_out->ld_curr_frame_8x8_log_avg[1];
-
-            ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[0] =
-                ps_curr_out->ld_curr_frame_16x16_log_avg[0];
-            ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[1] =
-                ps_curr_out->ld_curr_frame_16x16_log_avg[1];
-            ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[2] =
-                ps_curr_out->ld_curr_frame_16x16_log_avg[2];
-
-            ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[0] =
-                ps_curr_out->ld_curr_frame_32x32_log_avg[0];
-            ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[1] =
-                ps_curr_out->ld_curr_frame_32x32_log_avg[1];
-            ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[2] =
-                ps_curr_out->ld_curr_frame_32x32_log_avg[2];
+        ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[0] = ps_curr_out->ld_curr_frame_8x8_log_avg[0];
+        ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[1] = ps_curr_out->ld_curr_frame_8x8_log_avg[1];
+        ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[0] = ps_curr_out->ld_curr_frame_16x16_log_avg[0];
+        ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[1] = ps_curr_out->ld_curr_frame_16x16_log_avg[1];
+        ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[2] = ps_curr_out->ld_curr_frame_16x16_log_avg[2];
+        ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[0] = ps_curr_out->ld_curr_frame_32x32_log_avg[0];
+        ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[1] = ps_curr_out->ld_curr_frame_32x32_log_avg[1];
+        ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[2] = ps_curr_out->ld_curr_frame_32x32_log_avg[2];
 #else
-            ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[0] =
-                ps_curr_out->i8_curr_frame_8x8_avg_act[0];
-            ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[1] =
-                ps_curr_out->i8_curr_frame_8x8_avg_act[1];
-
-            ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[0] =
-                ps_curr_out->i8_curr_frame_16x16_avg_act[0];
-            ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[1] =
-                ps_curr_out->i8_curr_frame_16x16_avg_act[1];
-            ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[2] =
-                ps_curr_out->i8_curr_frame_16x16_avg_act[2];
-
-            ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[0] =
-                ps_curr_out->i8_curr_frame_32x32_avg_act[0];
-            ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[1] =
-                ps_curr_out->i8_curr_frame_32x32_avg_act[1];
-            ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[2] =
-                ps_curr_out->i8_curr_frame_32x32_avg_act[2];
+        ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[0] = ps_curr_out->i8_curr_frame_8x8_avg_act[0];
+        ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[1] = ps_curr_out->i8_curr_frame_8x8_avg_act[1];
+        ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[0] = ps_curr_out->i8_curr_frame_16x16_avg_act[0];
+        ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[1] = ps_curr_out->i8_curr_frame_16x16_avg_act[1];
+        ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[2] = ps_curr_out->i8_curr_frame_16x16_avg_act[2];
+        ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[0] = ps_curr_out->i8_curr_frame_32x32_avg_act[0];
+        ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[1] = ps_curr_out->i8_curr_frame_32x32_avg_act[1];
+        ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[2] = ps_curr_out->i8_curr_frame_32x32_avg_act[2];
 #endif
-        }
-        /*Calculte modulation index */
+
+        /* calculate modulation index */
         {
             LWORD64 i8_mean, i8_mean_sqr, i8_variance;
             LWORD64 i8_deviation;
@@ -5870,44 +5649,34 @@ void ihevce_variance_calc_acc_activity(enc_ctxt_t *ps_enc_ctxt, WORD32 i4_cur_ip
             if(ps_curr_out->i4_acc_frame_8x8_num_blks[0] > 0)
             {
 #if STRENGTH_BASED_ON_CURR_FRM
-                i8_mean_sqr =
-                    ((ps_curr_out->i8_curr_frame_8x8_sum_act_sqr +
-                      (ps_curr_out->i4_curr_frame_8x8_num_blks[0] >> 1)) /
-                     ps_curr_out->i4_curr_frame_8x8_num_blks[0]);
+                AVG_ACTIVITY(i8_mean_sqr, ps_curr_out->i8_curr_frame_8x8_sum_act_sqr,
+                             ps_curr_out->i4_curr_frame_8x8_num_blks[0]);
 #else
-                i8_mean_sqr =
-                    ((ps_curr_out->i8_acc_frame_8x8_sum_act_sqr +
-                      (ps_curr_out->i4_acc_frame_8x8_num_blks[0] >> 1)) /
-                     ps_curr_out->i4_acc_frame_8x8_num_blks[0]);
+                AVG_ACTIVITY(i8_mean_sqr, ps_curr_out->i8_acc_frame_8x8_sum_act_sqr,
+                             ps_curr_out->i4_acc_frame_8x8_num_blks[0]);
 #endif
-                i8_mean = (ps_curr_out->i8_curr_frame_8x8_sum_act_for_strength);
-
+                i8_mean = ps_curr_out->i8_curr_frame_8x8_sum_act_for_strength;
                 i8_variance = i8_mean_sqr - (i8_mean * i8_mean);
-                i8_deviation = (LWORD64)sqrt((long double)i8_variance);
-#if STRENGTH_BASED_ON_DEVIATION
+                i8_deviation = sqrt(i8_variance);
 
-                if(((float)i8_deviation) <= (REF_MOD_DEVIATION))
+#if STRENGTH_BASED_ON_DEVIATION
+                if(i8_deviation <= REF_MOD_DEVIATION)
                 {
-                    f_strength =
-                        (float)((((float)i8_deviation - (BELOW_REF_DEVIATION)) * REF_MOD_STRENGTH) / ((REF_MOD_DEVIATION) - (BELOW_REF_DEVIATION)));
+                    f_strength = ((i8_deviation - BELOW_REF_DEVIATION) * REF_MOD_STRENGTH) / (REF_MOD_DEVIATION - BELOW_REF_DEVIATION);
                 }
                 else
                 {
-                    f_strength =
-                        (float)((((float)i8_deviation - (ABOVE_REF_DEVIATION)) * REF_MOD_STRENGTH) / ((REF_MOD_DEVIATION) - (ABOVE_REF_DEVIATION)));
+                    f_strength = ((i8_deviation - ABOVE_REF_DEVIATION) * REF_MOD_STRENGTH) / (REF_MOD_DEVIATION - ABOVE_REF_DEVIATION);
                 }
-
 #else
-                f_strength = (((float)((float)i8_mean_sqr / (float)(i8_mean * i8_mean)) - 1.0)) *
-                             REF_MOD_STRENGTH / REF_MOD_VARIANCE;
+                f_strength = ((i8_mean_sqr / (float)(i8_mean * i8_mean)) - 1.0) * REF_MOD_STRENGTH / REF_MOD_VARIANCE;
 #endif
                 i4_mod_factor = (WORD32)(i8_deviation / 60);
-
-                f_strength = (float)CLIP3(f_strength, 0.0, REF_MAX_STRENGTH);
+                f_strength = CLIP3(f_strength, 0.0, REF_MAX_STRENGTH);
             }
             else
             {
-                /*If not sufficient blocks are present, turn modulation index to 1  */
+                /* If not sufficient blocks are present, turn modulation index to 1  */
                 i4_mod_factor = 1;
                 f_strength = 0;
             }
@@ -5915,159 +5684,39 @@ void ihevce_variance_calc_acc_activity(enc_ctxt_t *ps_enc_ctxt, WORD32 i4_cur_ip
             ps_curr_out->ai4_mod_factor_derived_by_variance[1] = i4_mod_factor;
             ps_curr_out->f_strength = f_strength;
 
-            if(1 == ps_enc_ctxt->s_runtime_src_prms.i4_field_pic)
-            {
-                /*For Interlace period, store mod factor and strenght if only first field*/
-                if(1 == ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_cur_ipe_idx]
-                            ->s_lap_out.i4_first_field)
-                {
-                    ps_enc_ctxt->ai4_mod_factor_derived_by_variance[0] = i4_mod_factor;
-                    ps_enc_ctxt->ai4_mod_factor_derived_by_variance[1] = i4_mod_factor;
-                    ps_enc_ctxt->f_strength = f_strength;
-                }
-            }
-            else
-            {
-                ps_enc_ctxt->ai4_mod_factor_derived_by_variance[0] = i4_mod_factor;
-                ps_enc_ctxt->ai4_mod_factor_derived_by_variance[1] = i4_mod_factor;
-                ps_enc_ctxt->f_strength = f_strength;
-            }
+            ps_enc_ctxt->ai4_mod_factor_derived_by_variance[0] = i4_mod_factor;
+            ps_enc_ctxt->ai4_mod_factor_derived_by_variance[1] = i4_mod_factor;
+            ps_enc_ctxt->f_strength = f_strength;
         }
     }
     else
     {
-        ps_curr_out->ai4_mod_factor_derived_by_variance[0] =
-            ps_enc_ctxt->ai4_mod_factor_derived_by_variance[0];
-        ps_curr_out->ai4_mod_factor_derived_by_variance[1] =
-            ps_enc_ctxt->ai4_mod_factor_derived_by_variance[1];
+        ps_curr_out->ai4_mod_factor_derived_by_variance[0] = ps_enc_ctxt->ai4_mod_factor_derived_by_variance[0];
+        ps_curr_out->ai4_mod_factor_derived_by_variance[1] = ps_enc_ctxt->ai4_mod_factor_derived_by_variance[1];
         ps_curr_out->f_strength = ps_enc_ctxt->f_strength;
-        /*copy the prev avg activity from Tid 0 for B pictures*/
-        {
+
+        /* copy the prev avg activity from Tid 0 for B pictures*/
 #if POW_OPT
-            ps_curr_out->ld_curr_frame_8x8_log_avg[0] =
-                ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[0];
-            ps_curr_out->ld_curr_frame_8x8_log_avg[1] =
-                ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[1];
-
-            ps_curr_out->ld_curr_frame_16x16_log_avg[0] =
-                ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[0];
-            ps_curr_out->ld_curr_frame_16x16_log_avg[1] =
-                ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[1];
-            ps_curr_out->ld_curr_frame_16x16_log_avg[2] =
-                ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[2];
-
-            ps_curr_out->ld_curr_frame_32x32_log_avg[0] =
-                ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[0];
-            ps_curr_out->ld_curr_frame_32x32_log_avg[1] =
-                ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[1];
-            ps_curr_out->ld_curr_frame_32x32_log_avg[2] =
-                ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[2];
+        ps_curr_out->ld_curr_frame_8x8_log_avg[0] = ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[0];
+        ps_curr_out->ld_curr_frame_8x8_log_avg[1] = ps_enc_ctxt->ald_lap2_8x8_log_avg_act_from_T0[1];
+        ps_curr_out->ld_curr_frame_16x16_log_avg[0] = ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[0];
+        ps_curr_out->ld_curr_frame_16x16_log_avg[1] = ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[1];
+        ps_curr_out->ld_curr_frame_16x16_log_avg[2] = ps_enc_ctxt->ald_lap2_16x16_log_avg_act_from_T0[2];
+        ps_curr_out->ld_curr_frame_32x32_log_avg[0] = ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[0];
+        ps_curr_out->ld_curr_frame_32x32_log_avg[1] = ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[1];
+        ps_curr_out->ld_curr_frame_32x32_log_avg[2] = ps_enc_ctxt->ald_lap2_32x32_log_avg_act_from_T0[2];
 #else
-            ps_curr_out->i8_curr_frame_8x8_avg_act[0] =
-                ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[0];
-            ps_curr_out->i8_curr_frame_8x8_avg_act[1] =
-                ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[1];
-
-            ps_curr_out->i8_curr_frame_16x16_avg_act[0] =
-                ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[0];
-            ps_curr_out->i8_curr_frame_16x16_avg_act[1] =
-                ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[1];
-            ps_curr_out->i8_curr_frame_16x16_avg_act[2] =
-                ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[2];
-
-            ps_curr_out->i8_curr_frame_32x32_avg_act[0] =
-                ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[0];
-            ps_curr_out->i8_curr_frame_32x32_avg_act[1] =
-                ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[1];
-            ps_curr_out->i8_curr_frame_32x32_avg_act[2] =
-                ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[2];
+        ps_curr_out->i8_curr_frame_8x8_avg_act[0] = ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[0];
+        ps_curr_out->i8_curr_frame_8x8_avg_act[1] = ps_enc_ctxt->ai8_lap2_8x8_avg_act_from_T0[1];
+        ps_curr_out->i8_curr_frame_16x16_avg_act[0] = ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[0];
+        ps_curr_out->i8_curr_frame_16x16_avg_act[1] = ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[1];
+        ps_curr_out->i8_curr_frame_16x16_avg_act[2] = ps_enc_ctxt->ai8_lap2_16x16_avg_act_from_T0[2];
+        ps_curr_out->i8_curr_frame_32x32_avg_act[0] = ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[0];
+        ps_curr_out->i8_curr_frame_32x32_avg_act[1] = ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[1];
+        ps_curr_out->i8_curr_frame_32x32_avg_act[2] = ps_enc_ctxt->ai8_lap2_32x32_avg_act_from_T0[2];
 #endif
-        }
     }
-
-    /*If Compenated block, then CLIP qp to max of frame qp and modulated qp*/
-    {
-        WORD32 ctb_ctr, vert_ctr;
-        WORD32 ctb_ctr_blks = ps_enc_ctxt->s_frm_ctb_prms.i4_num_ctbs_horz;
-        WORD32 vert_ctr_blks = ps_enc_ctxt->s_frm_ctb_prms.i4_num_ctbs_vert;
-        ihevce_ed_ctb_l1_t *ps_ed_ctb_pic_l1 =
-            ps_enc_ctxt->s_multi_thrd.aps_curr_out_pre_enc[i4_cur_ipe_idx]->ps_ed_ctb_l1;
-        WORD32 i4_pic_type =
-            ps_enc_ctxt->s_multi_thrd.aps_curr_inp_pre_enc[i4_cur_ipe_idx]->s_lap_out.i4_pic_type;
-        for(vert_ctr = 0; vert_ctr < vert_ctr_blks; vert_ctr++)
-        {
-            ihevce_ed_ctb_l1_t *ps_ed_ctb_row_l1 = ps_ed_ctb_pic_l1 + vert_ctr * ctb_ctr_blks;
-
-            for(ctb_ctr = 0; ctb_ctr < ctb_ctr_blks; ctb_ctr++)
-            {
-                ihevce_ed_ctb_l1_t *ps_ed_ctb_curr_l1 = ps_ed_ctb_row_l1 + ctb_ctr;
-
-                WORD32 is_min_block_comensated_in_l32x32 = 0;
-
-                /*Populate avg satd to calculate MI and activity factors*/
-                for(i = 0; i < 4; i++)
-                {
-                    WORD32 is_min_block_comensated_in_l116x16 = 0;
-
-                    for(j = 0; j < 4; j++)
-                    {
-                        /*Accumulate the sum of 8*8 activities in the current layer (16*16 CU in L0)*/
-                        if(ps_ed_ctb_curr_l1->i4_sum_4x4_satd[i * 4 + j] != -1)
-                        {
-                            WORD32 is_skipped = 0;
-                            if((i4_pic_type != IV_I_FRAME) && (i4_pic_type != IV_IDR_FRAME) &&
-                               (1 == is_skipped))
-                            {
-                                is_min_block_comensated_in_l116x16 += 1;
-                                is_min_block_comensated_in_l32x32 += 1;
-
-                                if(ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][0] <
-                                   ps_curr_out->i8_curr_frame_8x8_avg_act[0])
-                                    ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][0] = -1;
-
-                                if(ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][1] <
-                                   ps_curr_out->i8_curr_frame_8x8_avg_act[1])
-                                    ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][1] = -1;
-                            }
-                        }
-                    }
-
-                    if(4 == is_min_block_comensated_in_l116x16)
-                    {
-                        if(ps_ed_ctb_curr_l1->i4_16x16_satd[i][0] <
-                           ps_curr_out->i8_curr_frame_16x16_avg_act[0])
-                            ps_ed_ctb_curr_l1->i4_16x16_satd[i][0] = -1;
-
-                        if(ps_ed_ctb_curr_l1->i4_16x16_satd[i][1] <
-                           ps_curr_out->i8_curr_frame_16x16_avg_act[1])
-                            ps_ed_ctb_curr_l1->i4_16x16_satd[i][1] = -1;
-
-                        if(ps_ed_ctb_curr_l1->i4_16x16_satd[i][2] <
-                           ps_curr_out->i8_curr_frame_16x16_avg_act[2])
-                            ps_ed_ctb_curr_l1->i4_16x16_satd[i][2] = -1;
-                    }
-                }
-
-                if((16 == is_min_block_comensated_in_l32x32))
-                {
-                    if(ps_ed_ctb_curr_l1->i4_32x32_satd[0][0] <
-                       ps_curr_out->i8_curr_frame_32x32_avg_act[0])
-                        ps_ed_ctb_curr_l1->i4_32x32_satd[0][0] = -1;
-
-                    if(ps_ed_ctb_curr_l1->i4_32x32_satd[0][1] <
-                       ps_curr_out->i8_curr_frame_32x32_avg_act[1])
-                        ps_ed_ctb_curr_l1->i4_32x32_satd[0][1] = -1;
-
-                    if(ps_ed_ctb_curr_l1->i4_32x32_satd[0][2] <
-                       ps_curr_out->i8_curr_frame_32x32_avg_act[2])
-                        ps_ed_ctb_curr_l1->i4_32x32_satd[0][2] = -1;
-                }
-            }
-        }
-    }
-
-    /**/
-    return;
+#undef AVG_ACTIVITY
 }
 
 /*!
@@ -6110,10 +5759,6 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
 
     (void)ps_hle_ctxt;
     (void)i4_resolution_id;
-    if(i4_thrd_id == 0)
-    {
-        PROFILE_START(&ps_hle_ctxt->profile_pre_enc[i4_resolution_id]);
-    }
 
     /* ---------- Processing Loop until Flush command is received --------- */
     while(0 == i4_end_flag)
@@ -6248,7 +5893,10 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
             if(OSAL_SUCCESS != i4_status)
                 return 0;
         }
-
+        if(i4_thrd_id == 0)
+        {
+            PROFILE_START(&ps_hle_ctxt->profile_pre_enc_l1l2[i4_resolution_id]);
+        }
         /* ------------------------------------------------------------ */
         /*        Layer Decomp and Pre Intra Analysis                   */
         /* ------------------------------------------------------------ */
@@ -6264,9 +5912,7 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
                     &ps_enc_ctxt->s_frm_ctb_prms,
                     ps_multi_thrd,
                     i4_thrd_id,
-                    i4_cur_decomp_idx,
-                    ps_curr_out->ps_layer0_cur_satd,
-                    ps_curr_out->ps_layer0_cur_mean);
+                    i4_cur_decomp_idx);
             }
         }
 
@@ -6304,7 +5950,7 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
         i4_cur_decomp_idx = i4_cur_decomp_idx + 1;
 
         /* wrap around case */
-        if(i4_cur_decomp_idx == (MAX_PRE_ENC_STAGGER + NUM_BUFS_DECOMP_HME))
+        if(i4_cur_decomp_idx >= ps_multi_thrd->i4_max_delay_pre_me_btw_l0_ipe)
         {
             i4_cur_decomp_idx = 0;
         }
@@ -6353,9 +5999,6 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
                     ps_multi_thrd->ai4_decomp_lyr_buf_idx[i4_cur_coarse_me_idx],
                     ps_multi_thrd->ai4_cur_frame_qp_pre_enc[i4_cur_coarse_me_idx],
                     i4_cur_coarse_me_idx);
-
-                /* store the recon buffer pointer */
-                ps_multi_thrd->aps_frm_recon_pre_enc[i4_cur_coarse_me_idx] = ps_frm_recon;
             }
 
             ps_multi_thrd->ai4_pre_enc_hme_init_done[i4_cur_coarse_me_idx] = 1;
@@ -6418,7 +6061,7 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
                     /* wrap around case */
                     if(i4_cur_coarse_me_idx == 0)
                     {
-                        i4_prev_coarse_me_idx = MAX_PRE_ENC_STAGGER + NUM_BUFS_DECOMP_HME - 1;
+                        i4_prev_coarse_me_idx = ps_multi_thrd->i4_max_delay_pre_me_btw_l0_ipe - 1;
                     }
                     else
                     {
@@ -6464,10 +6107,7 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
                         ihevce_decomp_pre_intra_curr_frame_pre_intra_deinit(
                             ps_enc_ctxt->s_module_ctxt.pv_decomp_pre_intra_ctxt,
                             ps_multi_thrd->aps_curr_out_pre_enc[i4_cur_coarse_me_idx],
-                            1,
-                            &ps_enc_ctxt->s_frm_ctb_prms,
-                            ps_curr_inp->s_lap_out.i4_temporal_lyr_id,
-                            i4_enable_noise_detection);
+                            &ps_enc_ctxt->s_frm_ctb_prms);
                     }
                 }
 
@@ -6495,7 +6135,7 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
             i4_cur_coarse_me_idx = i4_cur_coarse_me_idx + 1;
 
             /* wrap around case */
-            if(i4_cur_coarse_me_idx == (MAX_PRE_ENC_STAGGER + NUM_BUFS_DECOMP_HME))
+            if(i4_cur_coarse_me_idx >= ps_multi_thrd->i4_max_delay_pre_me_btw_l0_ipe)
             {
                 i4_cur_coarse_me_idx = 0;
             }
@@ -6531,7 +6171,7 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
             i4_cur_coarse_me_idx = i4_cur_coarse_me_idx + 1;
 
             /* wrap around case */
-            if(i4_cur_coarse_me_idx == (MAX_PRE_ENC_STAGGER + NUM_BUFS_DECOMP_HME))
+            if(i4_cur_coarse_me_idx >= ps_multi_thrd->i4_max_delay_pre_me_btw_l0_ipe)
             {
                 i4_cur_coarse_me_idx = 0;
             }
@@ -6547,10 +6187,18 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
                 return 0;
         }
 
+        if(i4_thrd_id == 0)
+        {
+            PROFILE_STOP(&ps_hle_ctxt->profile_pre_enc_l1l2[i4_resolution_id], NULL);
+        }
+
         /* ----------------------------------------------------------- */
         /*     IPE init and process                                    */
         /* ----------------------------------------------------------- */
-
+        if(i4_thrd_id == 0)
+        {
+            PROFILE_START(&ps_hle_ctxt->profile_pre_enc_l0ipe[i4_resolution_id]);
+        }
         if(i4_num_buf_prod_for_l0_ipe >= ps_multi_thrd->i4_delay_pre_me_btw_l0_ipe || i4_end_flag ||
            i4_out_flush_flag)
         {
@@ -6970,10 +6618,11 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
                     i4_cur_ipe_idx = i4_cur_ipe_idx + 1;
 
                     /* wrap around case */
-                    if(i4_cur_ipe_idx == (MAX_PRE_ENC_STAGGER + NUM_BUFS_DECOMP_HME))
+                    if(i4_cur_ipe_idx >= ps_multi_thrd->i4_max_delay_pre_me_btw_l0_ipe)
                     {
                         i4_cur_ipe_idx = 0;
                     }
+
                     i4_num_buf_prod_for_l0_ipe--;
                 }
                 /*NOTE: update of above indices should mark end if ipe.do not access below this*/
@@ -6994,10 +6643,10 @@ WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_frm_proc_thrd_ctxt)
                 }
             } while((i4_end_flag || i4_out_flush_flag) && i4_num_buf_prod_for_l0_ipe);
         }
-    }
-    if(i4_thrd_id == 0)
-    {
-        PROFILE_STOP(&ps_hle_ctxt->profile_pre_enc[i4_resolution_id], NULL);
+        if(i4_thrd_id == 0)
+        {
+            PROFILE_STOP(&ps_hle_ctxt->profile_pre_enc_l0ipe[i4_resolution_id], NULL);
+        }
     }
 
     return 0;

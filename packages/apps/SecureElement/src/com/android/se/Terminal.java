@@ -24,7 +24,9 @@
 package com.android.se;
 
 import android.content.Context;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.hardware.secure_element.V1_0.ISecureElement;
 import android.hardware.secure_element.V1_0.ISecureElementHalCallback;
 import android.hardware.secure_element.V1_0.LogicalChannelResponse;
@@ -40,7 +42,6 @@ import android.se.omapi.ISecureElementReader;
 import android.se.omapi.ISecureElementSession;
 import android.se.omapi.SEService;
 import android.util.Log;
-import android.util.StatsLog;
 
 import com.android.se.SecureElementService.SecureElementSession;
 import com.android.se.internal.ByteArrayConverter;
@@ -50,6 +51,7 @@ import com.android.se.security.ChannelAccess;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -74,10 +76,37 @@ public class Terminal {
     private static final int GET_SERVICE_DELAY_MILLIS = 4 * 1000;
     private static final int EVENT_GET_HAL = 1;
 
+    private final int mMaxGetHalRetryCount = 5;
+    private int mGetHalRetryCount = 0;
+
     private ISecureElement mSEHal;
+    private android.hardware.secure_element.V1_2.ISecureElement mSEHal12;
 
     /** For each Terminal there will be one AccessController object. */
     private AccessControlEnforcer mAccessControlEnforcer;
+
+    private static final String SECURE_ELEMENT_PRIVILEGED_OPERATION_PERMISSION =
+            "android.permission.SECURE_ELEMENT_PRIVILEGED_OPERATION";
+
+    public static final byte[] ISD_R_AID =
+            new byte[]{
+                    (byte) 0xA0,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x05,
+                    (byte) 0x59,
+                    (byte) 0x10,
+                    (byte) 0x10,
+                    (byte) 0xFF,
+                    (byte) 0xFF,
+                    (byte) 0xFF,
+                    (byte) 0xFF,
+                    (byte) 0x89,
+                    (byte) 0x00,
+                    (byte) 0x00,
+                    (byte) 0x01,
+                    (byte) 0x00,
+            };
 
     private ISecureElementHalCallback.Stub mHalCallback = new ISecureElementHalCallback.Stub() {
         @Override
@@ -106,9 +135,9 @@ public class Terminal {
                 if (mAccessControlEnforcer != null) {
                     mAccessControlEnforcer.reset();
                 }
-                StatsLog.write(
-                        StatsLog.SE_STATE_CHANGED,
-                        StatsLog.SE_STATE_CHANGED__STATE__DISCONNECTED,
+                SecureElementStatsLog.write(
+                        SecureElementStatsLog.SE_STATE_CHANGED,
+                        SecureElementStatsLog.SE_STATE_CHANGED__STATE__DISCONNECTED,
                         reason,
                         mName);
             } else {
@@ -123,9 +152,9 @@ public class Terminal {
                     // ignore
                 }
                 mDefaultApplicationSelectedOnBasicChannel = true;
-                StatsLog.write(
-                        StatsLog.SE_STATE_CHANGED,
-                        StatsLog.SE_STATE_CHANGED__STATE__CONNECTED,
+                SecureElementStatsLog.write(
+                        SecureElementStatsLog.SE_STATE_CHANGED,
+                        SecureElementStatsLog.SE_STATE_CHANGED__STATE__CONNECTED,
                         reason,
                         mName);
             }
@@ -136,9 +165,9 @@ public class Terminal {
         @Override
         public void serviceDied(long cookie) {
             Log.e(mTag, mName + " died");
-            StatsLog.write(
-                    StatsLog.SE_STATE_CHANGED,
-                    StatsLog.SE_STATE_CHANGED__STATE__HALCRASH,
+            SecureElementStatsLog.write(
+                    SecureElementStatsLog.SE_STATE_CHANGED,
+                    SecureElementStatsLog.SE_STATE_CHANGED__STATE__HALCRASH,
                     "HALCRASH",
                     mName);
             synchronized (mLock) {
@@ -160,11 +189,20 @@ public class Terminal {
             switch (message.what) {
                 case EVENT_GET_HAL:
                     try {
-                        initialize();
+                        if (mName.startsWith(SecureElementService.ESE_TERMINAL)) {
+                            initialize(true);
+                        } else {
+                            initialize(false);
+                        }
                     } catch (Exception e) {
                         Log.e(mTag, mName + " could not be initialized again");
-                        sendMessageDelayed(obtainMessage(EVENT_GET_HAL, 0),
-                                GET_SERVICE_DELAY_MILLIS);
+                        if (mGetHalRetryCount < mMaxGetHalRetryCount) {
+                            mGetHalRetryCount++;
+                            sendMessageDelayed(obtainMessage(EVENT_GET_HAL, 0),
+                                    GET_SERVICE_DELAY_MILLIS);
+                        } else {
+                            Log.e(mTag, mName + " reach maximum retry count");
+                        }
                     }
                     break;
                 default:
@@ -185,34 +223,43 @@ public class Terminal {
      * @throws NoSuchElementException if there is no HAL implementation for the specified SE name
      * @throws RemoteException if there is a failure communicating with the remote
      */
-    public void initialize() throws NoSuchElementException, RemoteException {
+    public void initialize(boolean retryOnFail) throws NoSuchElementException, RemoteException {
+        android.hardware.secure_element.V1_1.ISecureElement mSEHal11 = null;
         synchronized (mLock) {
-            android.hardware.secure_element.V1_1.ISecureElement seHal11 = null;
             try {
-                seHal11 =
-                        android.hardware.secure_element.V1_1.ISecureElement.getService(mName, true);
+                mSEHal = mSEHal11 = mSEHal12 =
+                        android.hardware.secure_element.V1_2.ISecureElement.getService(mName,
+                                                                                       retryOnFail);
             } catch (Exception e) {
-                Log.d(mTag, "SE Hal V1.1 is not supported");
+                Log.d(mTag, "SE Hal V1.2 is not supported");
             }
+            if (mSEHal12 == null) {
+                try {
+                    mSEHal = mSEHal11 =
+                            android.hardware.secure_element.V1_1.ISecureElement.getService(mName,
+                                    retryOnFail);
+                } catch (Exception e) {
+                    Log.d(mTag, "SE Hal V1.1 is not supported");
+                }
 
-            if (seHal11 == null) {
-                mSEHal = ISecureElement.getService(mName, true);
-                if (mSEHal == null) {
-                    throw new NoSuchElementException("No HAL is provided for " + mName);
+                if (mSEHal11 == null) {
+                    mSEHal = ISecureElement.getService(mName, retryOnFail);
+                    if (mSEHal == null) {
+                        throw new NoSuchElementException("No HAL is provided for " + mName);
+                    }
                 }
             }
-            if (seHal11 != null) {
-                mSEHal = seHal11;
-                seHal11.init_1_1(mHalCallback11);
+            if (mSEHal11 != null || mSEHal12 != null) {
+                mSEHal11.init_1_1(mHalCallback11);
             } else {
                 mSEHal.init(mHalCallback);
             }
             mSEHal.linkToDeath(mDeathRecipient, 0);
         }
         Log.i(mTag, mName + " was initialized");
-        StatsLog.write(
-                StatsLog.SE_STATE_CHANGED,
-                StatsLog.SE_STATE_CHANGED__STATE__INITIALIZED,
+        SecureElementStatsLog.write(
+                SecureElementStatsLog.SE_STATE_CHANGED,
+                SecureElementStatsLog.SE_STATE_CHANGED__STATE__INITIALIZED,
                 "INIT",
                 mName);
     }
@@ -246,22 +293,22 @@ public class Terminal {
         if (channel == null) {
             return;
         }
-        if (mIsConnected) {
-            try {
-                byte status = mSEHal.closeChannel((byte) channel.getChannelNumber());
-                /* For Basic Channels, errors are expected.
-                 * Underlying implementations use this call as an indication when there
-                 * aren't any users actively using the channel, and the chip can go
-                 * into low power state.
-                 */
-                if (!channel.isBasicChannel() && status != SecureElementStatus.SUCCESS) {
-                    Log.e(mTag, "Error closing channel " + channel.getChannelNumber());
-                }
-            } catch (RemoteException e) {
-                Log.e(mTag, "Exception in closeChannel() " + e);
-            }
-        }
         synchronized (mLock) {
+            if (mIsConnected) {
+                try {
+                    byte status = mSEHal.closeChannel((byte) channel.getChannelNumber());
+                    /* For Basic Channels, errors are expected.
+                     * Underlying implementations use this call as an indication when there
+                     * aren't any users actively using the channel, and the chip can go
+                     * into low power state.
+                     */
+                    if (!channel.isBasicChannel() && status != SecureElementStatus.SUCCESS) {
+                        Log.e(mTag, "Error closing channel " + channel.getChannelNumber());
+                    }
+                } catch (RemoteException e) {
+                    Log.e(mTag, "Exception in closeChannel() " + e);
+                }
+            }
             mChannels.remove(channel.getChannelNumber(), channel);
             if (mChannels.get(channel.getChannelNumber()) != null) {
                 Log.e(mTag, "Removing channel failed");
@@ -383,17 +430,21 @@ public class Terminal {
             throw new IOException("Secure Element is not connected");
         }
 
-        Log.w(mTag, "Enable access control on basic channel for " + packageName);
-        StatsLog.write(
-                StatsLog.SE_OMAPI_REPORTED,
-                StatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
-                mName,
-                packageName);
-        ChannelAccess channelAccess;
-        try {
-            channelAccess = setUpChannelAccess(aid, packageName, pid);
-        } catch (MissingResourceException e) {
-            return null;
+        ChannelAccess channelAccess = null;
+        if (packageName != null) {
+            Log.w(mTag, "Enable access control on basic channel for " + packageName);
+            SecureElementStatsLog.write(
+                    SecureElementStatsLog.SE_OMAPI_REPORTED,
+                    SecureElementStatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
+                    mName,
+                    packageName);
+            try {
+                // For application without privilege permission or carrier privilege,
+                // openBasicChannel with UICC terminals should be rejected.
+                channelAccess = setUpChannelAccess(aid, packageName, pid, true);
+            } catch (MissingResourceException e) {
+                return null;
+            }
         }
 
         synchronized (mLock) {
@@ -471,14 +522,14 @@ public class Terminal {
         ChannelAccess channelAccess = null;
         if (packageName != null) {
             Log.w(mTag, "Enable access control on logical channel for " + packageName);
-            StatsLog.write(
-                    StatsLog.SE_OMAPI_REPORTED,
-                    StatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
+            SecureElementStatsLog.write(
+                    SecureElementStatsLog.SE_OMAPI_REPORTED,
+                    SecureElementStatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
                     mName,
                     packageName);
             try {
-                channelAccess = setUpChannelAccess(aid, packageName, pid);
-            } catch (MissingResourceException e) {
+                channelAccess = setUpChannelAccess(aid, packageName, pid, false);
+            } catch (MissingResourceException | UnsupportedOperationException e) {
                 return null;
             }
         }
@@ -578,7 +629,7 @@ public class Terminal {
 
         if (sw1 == 0x6C) {
             cmd[cmd.length - 1] = rsp[rsp.length - 1];
-            rsp = transmitInternal(cmd);
+            rsp = transmit(cmd);
         } else if (sw1 == 0x61) {
             do {
                 byte[] getResponseCmd = new byte[]{
@@ -656,13 +707,43 @@ public class Terminal {
     }
 
     /**
+     * Reset the Secure Element. Return true if success, false otherwise.
+     */
+    public boolean reset() {
+        if (mSEHal12 == null) {
+            return false;
+        }
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.SECURE_ELEMENT_PRIVILEGED_OPERATION,
+                "Need SECURE_ELEMENT_PRIVILEGED_OPERATION permission");
+
+        try {
+            byte status = mSEHal12.reset();
+            // Successfully trigger reset. HAL service should send onStateChange
+            // after secure element reset and initialization process complete
+            if (status == SecureElementStatus.SUCCESS) {
+                return true;
+            }
+            Log.e(mTag, "Error reseting terminal " + mName);
+        } catch (RemoteException e) {
+            Log.e(mTag, "Exception in reset()" + e);
+        }
+        return false;
+    }
+
+    /**
      * Initialize the Access Control and set up the channel access.
      */
-    private ChannelAccess setUpChannelAccess(byte[] aid, String packageName, int pid)
-            throws IOException, MissingResourceException {
+    private ChannelAccess setUpChannelAccess(byte[] aid, String packageName, int pid,
+            boolean isBasicChannel) throws IOException, MissingResourceException {
         boolean checkRefreshTag = true;
+        if (isPrivilegedApplication(packageName)) {
+            return ChannelAccess.getPrivilegeAccess(packageName, pid);
+        }
         // Attempt to initialize the access control enforcer if it failed
         // due to a kind of temporary failure or no rule was found in the previous attempt.
+        // For privilege access, do not attempt to initialize the access control enforcer
+        // if no rule was found in the previous attempt.
         if (mAccessControlEnforcer == null || mAccessControlEnforcer.isNoRuleFound()) {
             initializeAccessControl();
             // Just finished to initialize the access control enforcer.
@@ -670,6 +751,34 @@ public class Terminal {
             checkRefreshTag = false;
         }
         mAccessControlEnforcer.setPackageManager(mContext.getPackageManager());
+
+        // Check carrier privilege when AID is not ISD-R
+        if (getName().startsWith(SecureElementService.UICC_TERMINAL)
+                && !Arrays.equals(aid, ISD_R_AID)) {
+            try {
+                PackageManager pm = mContext.getPackageManager();
+                if (pm != null) {
+                    PackageInfo pkgInfo =
+                            pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES);
+                    // Do not check the refresh tag for carrier privilege
+                    if (mAccessControlEnforcer.checkCarrierPrivilege(pkgInfo, false)) {
+                        Log.i(mTag, "setUp PrivilegeAccess for CarrierPrivilegeApplication. ");
+                        return ChannelAccess.getCarrierPrivilegeAccess(packageName, pid);
+                    }
+                }
+            } catch (NameNotFoundException ne) {
+                Log.e(mTag, "checkCarrierPrivilege(): packageInfo is not found. ");
+            } catch (Exception e) {
+                Log.e(mTag, "checkCarrierPrivilege() Exception: " + e.getMessage());
+            }
+            if (isBasicChannel) {
+                throw new MissingResourceException("openBasicChannel is not allowed.", "", "");
+            } else if (aid == null) {
+                // openLogicalChannel with null aid is only allowed for privilege applications
+                throw new UnsupportedOperationException(
+                        "null aid is not accepted in UICC terminal.");
+            }
+        }
 
         synchronized (mLock) {
             try {
@@ -708,8 +817,49 @@ public class Terminal {
         }
     }
 
+    /**
+     * Checks if Secure Element Privilege permission exists for the given package
+     */
+    private boolean isPrivilegedApplication(String packageName) {
+        PackageManager pm = mContext.getPackageManager();
+        if (pm != null) {
+            return (pm.checkPermission(SECURE_ELEMENT_PRIVILEGED_OPERATION_PERMISSION,
+                    packageName) == PackageManager.PERMISSION_GRANTED);
+        }
+        return false;
+    }
+
     public AccessControlEnforcer getAccessControlEnforcer() {
         return mAccessControlEnforcer;
+    }
+
+    public Context getContext() {
+        return mContext;
+    }
+
+    /**
+     * Checks if Carrier Privilege exists for the given package
+     */
+    public boolean checkCarrierPrivilegeRules(PackageInfo pInfo) {
+        boolean checkRefreshTag = true;
+        if (mAccessControlEnforcer == null || mAccessControlEnforcer.isNoRuleFound()) {
+            try {
+                initializeAccessControl();
+            } catch (IOException e) {
+                return false;
+            }
+            checkRefreshTag = false;
+        }
+        mAccessControlEnforcer.setPackageManager(mContext.getPackageManager());
+
+        synchronized (mLock) {
+            try {
+                return mAccessControlEnforcer.checkCarrierPrivilege(pInfo, checkRefreshTag);
+            } catch (Exception e) {
+                Log.i(mTag, "checkCarrierPrivilege() Exception: " + e.getMessage());
+                return false;
+            }
+        }
     }
 
     /** Dump data for debug purpose . */
@@ -800,6 +950,11 @@ public class Terminal {
 
         Terminal getTerminal() {
             return Terminal.this;
+        }
+
+        @Override
+        public boolean reset() {
+            return Terminal.this.reset();
         }
     }
 }

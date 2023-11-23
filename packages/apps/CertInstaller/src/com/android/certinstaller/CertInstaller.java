@@ -16,28 +16,29 @@
 
 package com.android.certinstaller;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.KeyguardManager;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Process;
+import android.security.Credentials;
 import android.security.KeyChain;
 import android.security.KeyChain.KeyChainConnection;
-import android.security.KeyStore;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Slog;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.EditText;
-import android.widget.Spinner;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import java.io.Serializable;
@@ -55,16 +56,14 @@ public class CertInstaller extends Activity {
     private static final int NAME_CREDENTIAL_DIALOG = 1;
     private static final int PKCS12_PASSWORD_DIALOG = 2;
     private static final int PROGRESS_BAR_DIALOG = 3;
+    private static final int REDIRECT_CA_CERTIFICATE_DIALOG = 4;
+    private static final int SELECT_CERTIFICATE_USAGE_DIALOG = 5;
+    private static final int INVALID_CERTIFICATE_DIALOG = 6;
 
     private static final int REQUEST_SYSTEM_INSTALL_CODE = 1;
-    private static final int REQUEST_CONFIRM_CREDENTIALS = 2;
 
     // key to states Bundle
     private static final String NEXT_ACTION_KEY = "na";
-
-    // Values for usage type spinner
-    private static final int USAGE_TYPE_SYSTEM = 0;
-    private static final int USAGE_TYPE_WIFI = 1;
 
     private final ViewHelper mView = new ViewHelper();
 
@@ -85,6 +84,7 @@ public class CertInstaller extends Activity {
     @Override
     protected void onCreate(Bundle savedStates) {
         super.onCreate(savedStates);
+        getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
 
         mCredentials = createCredentialHelper(getIntent());
 
@@ -95,20 +95,8 @@ public class CertInstaller extends Activity {
                 toastErrorAndFinish(R.string.no_cert_to_saved);
                 finish();
             } else {
-                // Confirm credentials if there's _only_ a CA certificate
-                // NOTE: This will affect WiFi CA certificates - those should not require
-                // confirming the lock screen credentials but the code currently cannot skip the
-                // confirmation for WiFi CA certificates because the user designates the certificate
-                // to a UID only after this stage.
-                if (mCredentials.hasCaCerts() && !mCredentials.hasPrivateKey() &&
-                        !mCredentials.hasUserCertificate()) {
-                    KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
-                    Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
-                    if (intent == null) { // No screenlock
-                        extractPkcs12OrInstall();
-                    } else {
-                        startActivityForResult(intent, REQUEST_CONFIRM_CREDENTIALS);
-                    }
+                if (installingCaCertificate()) {
+                    extractPkcs12OrInstall();
                 } else {
                     if (mCredentials.hasUserCertificate() && !mCredentials.hasPrivateKey()) {
                         toastErrorAndFinish(R.string.action_missing_private_key);
@@ -124,6 +112,11 @@ public class CertInstaller extends Activity {
             mNextAction = (MyAction)
                     savedStates.getSerializable(NEXT_ACTION_KEY);
         }
+    }
+
+    private boolean installingCaCertificate() {
+        return mCredentials.hasCaCerts() && !mCredentials.hasPrivateKey() &&
+                !mCredentials.hasUserCertificate();
     }
 
     @Override
@@ -161,7 +154,7 @@ public class CertInstaller extends Activity {
                 return createPkcs12PasswordDialog();
 
             case NAME_CREDENTIAL_DIALOG:
-                return createNameCredentialDialog();
+                return createNameCertificateDialog();
 
             case PROGRESS_BAR_DIALOG:
                 ProgressDialog dialog = new ProgressDialog(this);
@@ -169,6 +162,15 @@ public class CertInstaller extends Activity {
                 dialog.setIndeterminate(true);
                 dialog.setCancelable(false);
                 return dialog;
+
+            case REDIRECT_CA_CERTIFICATE_DIALOG:
+                return createRedirectCaCertificateDialog();
+
+            case SELECT_CERTIFICATE_USAGE_DIALOG:
+                return createSelectCertificateUsageDialog();
+
+            case INVALID_CERTIFICATE_DIALOG:
+                return createInvalidCertificateDialog();
 
             default:
                 return null;
@@ -186,23 +188,12 @@ public class CertInstaller extends Activity {
                 }
 
                 Log.d(TAG, "credential is added: " + mCredentials.getName());
-                Toast.makeText(this, getString(R.string.cert_is_added, mCredentials.getName()),
-                        Toast.LENGTH_LONG).show();
-
-                if (mCredentials.includesVpnAndAppsTrustAnchors()) {
-                    // more work to do, don't finish just yet
-                    new InstallVpnAndAppsTrustAnchorsTask().execute();
-                    return;
+                if (mCredentials.getCertUsageSelected().equals(Credentials.CERTIFICATE_USAGE_WIFI)) {
+                    Toast.makeText(this, R.string.wifi_cert_is_added, Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(this, R.string.user_cert_is_added, Toast.LENGTH_LONG).show();
                 }
                 setResult(RESULT_OK);
-                finish();
-                break;
-            case REQUEST_CONFIRM_CREDENTIALS:
-                if (resultCode == RESULT_OK) {
-                    extractPkcs12OrInstall();
-                    return;
-                }
-                // Failed to confirm credentials, do nothing.
                 finish();
                 break;
             default:
@@ -220,14 +211,19 @@ public class CertInstaller extends Activity {
                 new Pkcs12ExtractAction("").run(this);
             }
         } else {
-            MyAction action = new InstallOthersAction();
-            action.run(this);
+            if (mCredentials.calledBySettings()) {
+                MyAction action = new InstallOthersAction();
+                action.run(this);
+            } else {
+                createRedirectOrSelectUsageDialog();
+            }
         }
     }
 
     private class InstallVpnAndAppsTrustAnchorsTask extends AsyncTask<Void, Void, Boolean> {
 
-        @Override protected Boolean doInBackground(Void... unused) {
+        @Override
+        protected Boolean doInBackground(Void... unused) {
             try {
                 try (KeyChainConnection keyChainConnection = KeyChain.bind(CertInstaller.this)) {
                     return mCredentials.installVpnAndAppsTrustAnchors(CertInstaller.this,
@@ -239,8 +235,11 @@ public class CertInstaller extends Activity {
             }
         }
 
-        @Override protected void onPostExecute(Boolean success) {
+        @Override
+        protected void onPostExecute(Boolean success) {
             if (success) {
+                Toast.makeText(getApplicationContext(), R.string.ca_cert_is_added,
+                        Toast.LENGTH_LONG).show();
                 setResult(RESULT_OK);
             }
             finish();
@@ -263,13 +262,38 @@ public class CertInstaller extends Activity {
             return;
         }
 
-        nameCredential();
+        if (validCertificateSelected()) {
+            installCertificateOrShowNameDialog();
+        } else {
+            showDialog(INVALID_CERTIFICATE_DIALOG);
+        }
     }
 
-    private void nameCredential() {
+    private boolean validCertificateSelected() {
+        switch (mCredentials.getCertUsageSelected()) {
+            case Credentials.CERTIFICATE_USAGE_CA:
+                return mCredentials.hasOnlyVpnAndAppsTrustAnchors();
+            case Credentials.CERTIFICATE_USAGE_USER:
+                return mCredentials.hasUserCertificate()
+                        && !mCredentials.hasOnlyVpnAndAppsTrustAnchors();
+            case Credentials.CERTIFICATE_USAGE_WIFI:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void installCertificateOrShowNameDialog() {
         if (!mCredentials.hasAnyForSystemInstall()) {
             toastErrorAndFinish(R.string.no_cert_to_saved);
+        } else if (mCredentials.hasOnlyVpnAndAppsTrustAnchors()) {
+            // If there's only a CA certificate to install, then it's going to be used
+            // as a trust anchor. Install it and skip importing to Keystore.
+
+            // more work to do, don't finish just yet
+            new InstallVpnAndAppsTrustAnchorsTask().execute();
         } else {
+            // Name is required if installing User certificate
             showDialog(NAME_CREDENTIAL_DIALOG);
         }
     }
@@ -299,11 +323,116 @@ public class CertInstaller extends Activity {
         removeDialog(PROGRESS_BAR_DIALOG);
         if (success) {
             removeDialog(PKCS12_PASSWORD_DIALOG);
-            nameCredential();
+            if (mCredentials.calledBySettings()) {
+                if (validCertificateSelected()) {
+                    installCertificateOrShowNameDialog();
+                } else {
+                    showDialog(INVALID_CERTIFICATE_DIALOG);
+                }
+            } else {
+                createRedirectOrSelectUsageDialog();
+            }
         } else {
             showDialog(PKCS12_PASSWORD_DIALOG);
             mView.setText(R.id.credential_password, "");
             mView.showError(R.string.password_error);
+        }
+    }
+
+    private void createRedirectOrSelectUsageDialog() {
+        if (mCredentials.hasOnlyVpnAndAppsTrustAnchors()) {
+            showDialog(REDIRECT_CA_CERTIFICATE_DIALOG);
+        } else {
+            showDialog(SELECT_CERTIFICATE_USAGE_DIALOG);
+        }
+    }
+
+    public CharSequence getCallingAppLabel() {
+        final String callingPkg = mCredentials.getReferrer();
+        if (callingPkg == null) {
+            Log.e(TAG, "Cannot get calling calling AppPackage");
+            return null;
+        }
+
+        final PackageManager pm = getPackageManager();
+        final ApplicationInfo appInfo;
+        try {
+            appInfo = pm.getApplicationInfo(callingPkg, PackageManager.MATCH_DISABLED_COMPONENTS);
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Unable to find info for package: " + callingPkg);
+            return null;
+        }
+
+        return appInfo.loadLabel(pm);
+    }
+
+    private Dialog createRedirectCaCertificateDialog() {
+        final String message = getString(
+                R.string.redirect_ca_certificate_with_app_info_message, getCallingAppLabel());
+        Dialog d = new AlertDialog.Builder(this)
+                .setTitle(R.string.redirect_ca_certificate_title)
+                .setMessage(message)
+                .setPositiveButton(R.string.redirect_ca_certificate_close_button,
+                        (dialog, id) -> toastErrorAndFinish(R.string.cert_not_saved))
+                .create();
+        d.setOnCancelListener(dialog -> toastErrorAndFinish(R.string.cert_not_saved));
+        return d;
+    }
+
+    private Dialog createSelectCertificateUsageDialog() {
+        ViewGroup view = (ViewGroup) View.inflate(this, R.layout.select_certificate_usage_dialog,
+                null);
+        mView.setView(view);
+
+        RadioGroup radioGroup = view.findViewById(R.id.certificate_usage);
+        radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            switch (checkedId) {
+                case R.id.user_certificate:
+                    mCredentials.setCertUsageSelectedAndUid(Credentials.CERTIFICATE_USAGE_USER);
+                    break;
+                case R.id.wifi_certificate:
+                    mCredentials.setCertUsageSelectedAndUid(Credentials.CERTIFICATE_USAGE_WIFI);
+                default:
+                    Slog.i(TAG, "Unknown selection for scope");
+            }
+        });
+
+
+        final Context appContext = getApplicationContext();
+        Dialog d = new AlertDialog.Builder(this)
+                .setView(view)
+                .setPositiveButton(android.R.string.ok, (dialog, id) -> {
+                    showDialog(NAME_CREDENTIAL_DIALOG);
+                })
+                .setNegativeButton(android.R.string.cancel,
+                        (dialog, id) -> toastErrorAndFinish(R.string.cert_not_saved))
+                .create();
+        d.setOnCancelListener(dialog -> toastErrorAndFinish(R.string.cert_not_saved));
+        return d;
+    }
+
+    private Dialog createInvalidCertificateDialog() {
+        Dialog d = new AlertDialog.Builder(this)
+                .setTitle(R.string.invalid_certificate_title)
+                .setMessage(getString(R.string.invalid_certificate_message,
+                        getCertificateUsageName()))
+                .setPositiveButton(R.string.invalid_certificate_close_button,
+                        (dialog, id) -> toastErrorAndFinish(R.string.cert_not_saved))
+                .create();
+        d.setOnCancelListener(dialog -> finish());
+        return d;
+    }
+
+    String getCertificateUsageName() {
+        switch (mCredentials.getCertUsageSelected()) {
+            case Credentials.CERTIFICATE_USAGE_CA:
+                return getString(R.string.ca_certificate);
+            case Credentials.CERTIFICATE_USAGE_USER:
+                return getString(R.string.user_certificate);
+            case Credentials.CERTIFICATE_USAGE_WIFI:
+                return getString(R.string.wifi_certificate);
+            default:
+                return getString(R.string.certificate);
         }
     }
 
@@ -334,53 +463,23 @@ public class CertInstaller extends Activity {
         return d;
     }
 
-    private Dialog createNameCredentialDialog() {
-        ViewGroup view = (ViewGroup) View.inflate(this, R.layout.name_credential_dialog, null);
+    private Dialog createNameCertificateDialog() {
+        ViewGroup view = (ViewGroup) View.inflate(this, R.layout.name_certificate_dialog, null);
         mView.setView(view);
         if (mView.getHasEmptyError()) {
             mView.showError(R.string.name_empty_error);
             mView.setHasEmptyError(false);
         }
-        mView.setText(R.id.credential_info, mCredentials.getDescription(this).toString());
-        final EditText nameInput = view.findViewById(R.id.credential_name);
-        if (mCredentials.isInstallAsUidSet()) {
-            view.findViewById(R.id.credential_usage_group).setVisibility(View.GONE);
-        } else {
-            final Spinner usageSpinner = view.findViewById(R.id.credential_usage);
-            final View ca_capabilities_warning = view.findViewById(R.id.credential_capabilities_warning);
-
-            usageSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                    switch ((int) id) {
-                        case USAGE_TYPE_SYSTEM:
-                            ca_capabilities_warning.setVisibility(
-                                    mCredentials.includesVpnAndAppsTrustAnchors() ?
-                                    View.VISIBLE : View.GONE);
-                            mCredentials.setInstallAsUid(KeyStore.UID_SELF);
-                            break;
-                        case USAGE_TYPE_WIFI:
-                            ca_capabilities_warning.setVisibility(View.GONE);
-                            mCredentials.setInstallAsUid(Process.WIFI_UID);
-                            break;
-                        default:
-                            Log.w(TAG, "Unknown selection for scope: " + id);
-                    }
-                }
-
-                @Override
-                public void onNothingSelected(AdapterView<?> parent) {
-                }
-            });
-        }
+        final EditText nameInput = view.findViewById(R.id.certificate_name);
         nameInput.setText(getDefaultName());
         nameInput.selectAll();
         final Context appContext = getApplicationContext();
+
         Dialog d = new AlertDialog.Builder(this)
                 .setView(view)
                 .setTitle(R.string.name_credential_dialog_title)
                 .setPositiveButton(android.R.string.ok, (dialog, id) -> {
-                    String name = mView.getText(R.id.credential_name);
+                    String name = mView.getText(R.id.certificate_name);
                     if (TextUtils.isEmpty(name)) {
                         mView.setHasEmptyError(true);
                         removeDialog(NAME_CREDENTIAL_DIALOG);
@@ -388,16 +487,7 @@ public class CertInstaller extends Activity {
                     } else {
                         removeDialog(NAME_CREDENTIAL_DIALOG);
                         mCredentials.setName(name);
-
-                        // install everything to system keystore
-                        try {
-                            startActivityForResult(
-                                    mCredentials.createSystemInstallIntent(appContext),
-                                    REQUEST_SYSTEM_INSTALL_CODE);
-                        } catch (ActivityNotFoundException e) {
-                            Log.w(TAG, "systemInstall(): " + e);
-                            toastErrorAndFinish(R.string.cert_not_saved);
-                        }
+                        installCertificateToKeystore(appContext);
                     }
                 })
                 .setNegativeButton(android.R.string.cancel,
@@ -405,6 +495,17 @@ public class CertInstaller extends Activity {
                 .create();
         d.setOnCancelListener(dialog -> toastErrorAndFinish(R.string.cert_not_saved));
         return d;
+    }
+
+    private void installCertificateToKeystore(Context context) {
+        try {
+            startActivityForResult(
+                    mCredentials.createSystemInstallIntent(context),
+                    REQUEST_SYSTEM_INSTALL_CODE);
+        } catch (ActivityNotFoundException e) {
+            Log.w(TAG, "installCertificateToKeystore(): ", e);
+            toastErrorAndFinish(R.string.cert_not_saved);
+        }
     }
 
     private String getDefaultName() {

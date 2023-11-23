@@ -24,7 +24,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.os.Build;
 import android.support.annotation.IntDef;
-import android.support.v17.leanback.widget.RowPresenter;
+import androidx.leanback.widget.RowPresenter;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;

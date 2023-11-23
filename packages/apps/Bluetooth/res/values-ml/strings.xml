@@ -20,7 +20,7 @@
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"BluetoothShare മാനേജർ ആക്‌സസ്സുചെയ്യാനും ഫയലുകൾ കൈമാറാൻ അത് ഉപയോഗിക്കാനും അപ്ലിക്കേഷനെ അനുവദിക്കുന്നു."</string>
     <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"വൈറ്റ്‌ലിസ്റ്റ് ബ്ലൂടൂത്ത് ഉപകരണ ആക്‌സസ്സ്."</string>
     <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"ഒരു ബ്ലൂടൂത്ത് ഉപകരണം താൽക്കാലികമായി വൈറ്റ്‌ലിസ്റ്റുചെയ്യാൻ അപ്ലിക്കേഷനെ അനുവദിക്കുന്നു, അത് ഉപയോക്താവിന്റെ സ്ഥിരീകരണമില്ലാതെ ഈ ഉപകരണത്തിലേക്ക് ഫയലുകൾ അയയ്‌ക്കാൻ ആ ഉപകരണത്തെ അനുവദിക്കുന്നു."</string>
-    <string name="bt_share_picker_label" msgid="6268100924487046932">"ബ്ലൂടൂത്ത്"</string>
+    <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"അജ്ഞാത ഉപകരണം"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"അറിയില്ല"</string>
     <string name="airplane_error_title" msgid="2683839635115739939">"ഫ്ലൈറ്റ് മോഡ്"</string>
@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"ശരി"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"ഈ ഫയൽ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" -ലേക്ക് അയച്ചില്ല."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ഫയൽ: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"വീണ്ടും ശ്രമിക്കുക"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"അവസാനിപ്പിക്കുക"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ശരി"</string>
     <string name="unknown_file" msgid="6092727753965095366">"അജ്ഞാത ഫയൽ"</string>
@@ -100,7 +99,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"കണക്ഷൻ പരാജയപ്പെട്ടു."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"അഭ്യർത്ഥന ശരിയായി കൈകാര്യം ചെയ്യാനാകില്ല."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"അജ്ഞാത പിശക്."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"ബ്ലൂടൂത്തിലൂടെ ലഭിച്ചവ"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth-ലൂടെ ലഭിച്ചവ"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"Bluetooth പങ്കിടൽ"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> നേടൽ പൂർത്തിയായി."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> അയച്ചത് പൂർത്തിയായി."</string>
@@ -132,4 +131,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth ഓഡിയോ വിച്ഛേദിച്ചു"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth ഓഡിയോ"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB-യിൽ കൂടുതലുള്ള ഫയലുകൾ കൈമാറാനാവില്ല"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Bluetooth-ലേക്ക് കണക്‌റ്റ് ചെയ്യുക"</string>
 </resources>

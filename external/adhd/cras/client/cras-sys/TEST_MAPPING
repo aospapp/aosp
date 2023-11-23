@@ -1,0 +1,8 @@
+{
+  "presubmit": [
+    {
+      "name": "cras-sys_tests_cras_sys",
+      "host": true
+    }
+  ]
+}

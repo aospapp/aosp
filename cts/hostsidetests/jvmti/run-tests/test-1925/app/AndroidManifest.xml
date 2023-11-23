@@ -21,6 +21,8 @@
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
         <meta-data android:name="android.jvmti.cts.run_test_nr" android:value="1925" />
+        <!-- Perform extra logging to try to get to the bottom of b/144947842 -->
+        <meta-data android:name="android.jvmti.cts.run_test.extra_logging" android:value="true" />
         <activity android:name="android.jvmti.JvmtiActivity" >
         </activity>
     </application>

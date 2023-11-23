@@ -25,14 +25,13 @@
         android:id="@+id/current_path"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:textAppearance="@style/TextAppearance.Car.Body2"
-        android:layout_marginStart="@dimen/car_gutter_width"
-        android:layout_marginEnd="@dimen/car_margin"/>
+        android:textAppearance="@style/TextAppearance.CarUi.Body2"
+        android:layout_marginStart="@dimen/car_ui_scrollbar_container_width"
+        android:layout_marginEnd="@dimen/folder_list_start_margin"/>
 
-    <androidx.car.widget.PagedListView
+    <com.android.car.ui.recyclerview.CarUiRecyclerView
         android:id="@+id/folder_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:showPagedListViewDivider="true"
-        app:gutter="start"/>
+        app:enableDivider="true" />
 </LinearLayout>

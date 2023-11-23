@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"打开链接"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"NFC 读取错误，请重试。"</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"没有应用支持此 NFC 标签"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC 可能被屏蔽了"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"点按即可了解如何解决该问题。"</string>
 </resources>

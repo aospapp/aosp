@@ -39,8 +39,7 @@
 %
 %
 */
-
-
+
 /*
   Include declarations.
 */
@@ -104,7 +103,6 @@
 #define ICC_PROFILE  "ICC_PROFILE"
 #define IPTC_MARKER  (JPEG_APP0+13)
 #define XML_MARKER  (JPEG_APP0+1)
-#define MaxBufferExtent  16384
 #define MaxJPEGScans  1024
 
 /*
@@ -125,8 +123,8 @@ typedef struct _DestinationManager
 
 typedef struct _ErrorManager
 {
-  ExceptionInfo
-    *exception;
+  jmp_buf
+    error_recovery;
 
   Image
     *image;
@@ -137,8 +135,8 @@ typedef struct _ErrorManager
   StringInfo
     *profile;
 
-  jmp_buf
-    error_recovery;
+  ExceptionInfo
+    *exception;
 } ErrorManager;
 
 typedef struct _SourceManager
@@ -178,7 +176,7 @@ typedef struct _QuantizationTable
   Const declarations.
 */
 static const char
-  *xmp_namespace = "http://ns.adobe.com/xap/1.0/ ";
+  xmp_namespace[] = "http://ns.adobe.com/xap/1.0/ ";
 #define XmpNamespaceExtent 28
 
 /*
@@ -259,7 +257,7 @@ static boolean FillInputBuffer(j_decompress_ptr cinfo)
 
   source=(SourceManager *) cinfo->src;
   source->manager.bytes_in_buffer=(size_t) ReadBlob(source->image,
-    MaxBufferExtent,source->buffer);
+    MagickMinBufferExtent,source->buffer);
   if (source->manager.bytes_in_buffer == 0)
     {
       if (source->start_of_blob != FALSE)
@@ -277,7 +275,11 @@ static boolean FillInputBuffer(j_decompress_ptr cinfo)
 static int GetCharacter(j_decompress_ptr jpeg_info)
 {
   if (jpeg_info->src->bytes_in_buffer == 0)
-    (void) (*jpeg_info->src->fill_input_buffer)(jpeg_info);
+    {
+      (void) (*jpeg_info->src->fill_input_buffer)(jpeg_info);
+      if (jpeg_info->err->msg_code == JWRN_JPEG_EOF)
+        return EOF;
+    }
   jpeg_info->src->bytes_in_buffer--;
   return((int) GETJOCTET(*jpeg_info->src->next_input_byte++));
 }
@@ -455,7 +457,7 @@ static boolean ReadComment(j_decompress_ptr jpeg_info)
   */
   error_manager->profile=comment;
   p=GetStringInfoDatum(comment);
-  for (i=0; i < (ssize_t) GetStringInfoLength(comment); i++)
+  for (i=0; i < (ssize_t) length; i++)
   {
     int
       c;
@@ -467,6 +469,14 @@ static boolean ReadComment(j_decompress_ptr jpeg_info)
   }
   *p='\0';
   error_manager->profile=NULL;
+  if (i != (ssize_t) length)
+    {
+      comment=DestroyStringInfo(comment);
+      (void) ThrowMagickException(exception,GetMagickModule(),
+        CorruptImageError,"InsufficientImageDataInFile","`%s'",
+        image->filename);
+      return(FALSE);
+    }
   p=GetStringInfoDatum(comment);
   (void) SetImageProperty(image,"comment",(const char *) p,exception);
   comment=DestroyStringInfo(comment);
@@ -543,7 +553,7 @@ static boolean ReadICCProfile(j_decompress_ptr jpeg_info)
     }
   error_manager->profile=profile;
   p=GetStringInfoDatum(profile);
-  for (i=(ssize_t) GetStringInfoLength(profile)-1; i >= 0; i--)
+  for (i=0; i < (ssize_t) length; i++)
   {
     int
       c;
@@ -554,6 +564,14 @@ static boolean ReadICCProfile(j_decompress_ptr jpeg_info)
     *p++=(unsigned char) c;
   }
   error_manager->profile=NULL;
+  if (i != (ssize_t) length)
+    {
+      profile=DestroyStringInfo(profile);
+      (void) ThrowMagickException(exception,GetMagickModule(),
+        CorruptImageError,"InsufficientImageDataInFile","`%s'",
+        image->filename);
+      return(FALSE);
+    }
   icc_profile=(StringInfo *) GetImageProfile(image,"icc");
   if (icc_profile != (StringInfo *) NULL)
     {
@@ -660,7 +678,7 @@ static boolean ReadIPTCProfile(j_decompress_ptr jpeg_info)
     }
   error_manager->profile=profile;
   p=GetStringInfoDatum(profile);
-  for (i=0;  i < (ssize_t) GetStringInfoLength(profile); i++)
+  for (i=0; i < (ssize_t) length; i++)
   {
     int
       c;
@@ -671,7 +689,17 @@ static boolean ReadIPTCProfile(j_decompress_ptr jpeg_info)
     *p++=(unsigned char) c;
   }
   error_manager->profile=NULL;
-  /* The IPTC profile is actually an 8bim */
+  if (i != (ssize_t) length)
+    {
+      profile=DestroyStringInfo(profile);
+      (void) ThrowMagickException(exception,GetMagickModule(),
+        CorruptImageError,"InsufficientImageDataInFile","`%s'",
+        image->filename);
+      return(FALSE);
+    }
+  /*
+    The IPTC profile is actually an 8bim.
+  */
   iptc_profile=(StringInfo *) GetImageProfile(image,"8bim");
   if (iptc_profile != (StringInfo *) NULL)
     {
@@ -752,7 +780,7 @@ static boolean ReadProfile(j_decompress_ptr jpeg_info)
     }
   error_manager->profile=profile;
   p=GetStringInfoDatum(profile);
-  for (i=0; i < (ssize_t) GetStringInfoLength(profile); i++)
+  for (i=0; i < (ssize_t) length; i++)
   {
     int
       c;
@@ -763,31 +791,40 @@ static boolean ReadProfile(j_decompress_ptr jpeg_info)
     *p++=(unsigned char) c;
   }
   error_manager->profile=NULL;
+  if (i != (ssize_t) length)
+    {
+      profile=DestroyStringInfo(profile);
+      (void) ThrowMagickException(exception,GetMagickModule(),
+        CorruptImageError,"InsufficientImageDataInFile","`%s'",
+        image->filename);
+      return(FALSE);
+    }
   if (marker == 1)
     {
       p=GetStringInfoDatum(profile);
       if ((length > 4) && (LocaleNCompare((char *) p,"exif",4) == 0))
         (void) CopyMagickString(name,"exif",MagickPathExtent);
-      else if ((length > XmpNamespaceExtent) &&
-          (LocaleNCompare((char *) p,xmp_namespace,XmpNamespaceExtent-1) == 0))
-        {
-          ssize_t
-            j;
-
-          /*
-            Extract namespace from XMP profile.
-          */
-          p=GetStringInfoDatum(profile)+XmpNamespaceExtent;
-          for (j=XmpNamespaceExtent; j < (ssize_t) GetStringInfoLength(profile); j++)
+      else
+        if ((length > XmpNamespaceExtent) &&
+            (LocaleNCompare((char *) p,xmp_namespace,XmpNamespaceExtent-1) == 0))
           {
-            if (*p == '\0')
-              break;
-            p++;
+            ssize_t
+              j;
+
+            /*
+              Extract namespace from XMP profile.
+            */
+            p=GetStringInfoDatum(profile)+XmpNamespaceExtent;
+            for (j=XmpNamespaceExtent; j < (ssize_t) GetStringInfoLength(profile); j++)
+            {
+              if (*p == '\0')
+                break;
+              p++;
+            }
+            if (j < (ssize_t) GetStringInfoLength(profile))
+              (void) DestroyStringInfo(SplitStringInfo(profile,(size_t) (j+1)));
+            (void) CopyMagickString(name,"xmp",MagickPathExtent);
           }
-          if (j < (ssize_t) GetStringInfoLength(profile))
-            (void) DestroyStringInfo(SplitStringInfo(profile,(size_t) (j+1)));
-          (void) CopyMagickString(name,"xmp",MagickPathExtent);
-        }
     }
   previous_profile=GetImageProfile(image,name);
   if ((previous_profile != (const StringInfo *) NULL) &&
@@ -805,6 +842,7 @@ static boolean ReadProfile(j_decompress_ptr jpeg_info)
       (void) memcpy(GetStringInfoDatum(profile),
         GetStringInfoDatum(previous_profile),
         GetStringInfoLength(previous_profile));
+      GetStringInfoDatum(profile)[GetStringInfoLength(profile)]='\0';
     }
   status=SetImageProfile(image,name,profile,exception);
   profile=DestroyStringInfo(profile);
@@ -851,7 +889,7 @@ static void JPEGSourceManager(j_decompress_ptr cinfo,Image *image)
     ((j_common_ptr) cinfo,JPOOL_IMAGE,sizeof(SourceManager));
   source=(SourceManager *) cinfo->src;
   source->buffer=(JOCTET *) (*cinfo->mem->alloc_small)
-    ((j_common_ptr) cinfo,JPOOL_IMAGE,MaxBufferExtent*sizeof(JOCTET));
+    ((j_common_ptr) cinfo,JPOOL_IMAGE,MagickMinBufferExtent*sizeof(JOCTET));
   source=(SourceManager *) cinfo->src;
   source->manager.init_source=InitializeSource;
   source->manager.fill_input_buffer=FillInputBuffer;
@@ -1381,9 +1419,6 @@ static Image *ReadJPEGImage(const ImageInfo *image_info,
   if (jpeg_info.arith_code == TRUE)
     (void) SetImageProperty(image,"jpeg:coding","arithmetic",exception);
 #endif
-  if ((dct_method == (const char *) NULL) && (image->quality > 0) &&
-      (image->quality <= 90))
-    jpeg_info.dct_method=JDCT_IFAST;
   if (image_info->ping != MagickFalse)
     {
       jpeg_destroy_decompress(&jpeg_info);
@@ -1786,8 +1821,8 @@ static boolean EmptyOutputBuffer(j_compress_ptr cinfo)
 
   destination=(DestinationManager *) cinfo->dest;
   destination->manager.free_in_buffer=(size_t) WriteBlob(destination->image,
-    MaxBufferExtent,destination->buffer);
-  if (destination->manager.free_in_buffer != MaxBufferExtent)
+    MagickMinBufferExtent,destination->buffer);
+  if (destination->manager.free_in_buffer != MagickMinBufferExtent)
     ERREXIT(cinfo,JERR_FILE_WRITE);
   destination->manager.next_output_byte=destination->buffer;
   return(TRUE);
@@ -1994,9 +2029,9 @@ static void InitializeDestination(j_compress_ptr cinfo)
 
   destination=(DestinationManager *) cinfo->dest;
   destination->buffer=(JOCTET *) (*cinfo->mem->alloc_small)
-    ((j_common_ptr) cinfo,JPOOL_IMAGE,MaxBufferExtent*sizeof(JOCTET));
+    ((j_common_ptr) cinfo,JPOOL_IMAGE,MagickMinBufferExtent*sizeof(JOCTET));
   destination->manager.next_output_byte=destination->buffer;
-  destination->manager.free_in_buffer=MaxBufferExtent;
+  destination->manager.free_in_buffer=MagickMinBufferExtent;
 }
 
 static void TerminateDestination(j_compress_ptr cinfo)
@@ -2005,15 +2040,15 @@ static void TerminateDestination(j_compress_ptr cinfo)
     *destination;
 
   destination=(DestinationManager *) cinfo->dest;
-  if ((MaxBufferExtent-(int) destination->manager.free_in_buffer) > 0)
+  if ((MagickMinBufferExtent-(int) destination->manager.free_in_buffer) > 0)
     {
       ssize_t
         count;
 
-      count=WriteBlob(destination->image,MaxBufferExtent-
+      count=WriteBlob(destination->image,MagickMinBufferExtent-
         destination->manager.free_in_buffer,destination->buffer);
       if (count != (ssize_t)
-          (MaxBufferExtent-destination->manager.free_in_buffer))
+          (MagickMinBufferExtent-destination->manager.free_in_buffer))
         ERREXIT(cinfo,JERR_FILE_WRITE);
     }
 }
@@ -2058,7 +2093,7 @@ static void WriteProfile(j_compress_ptr jpeg_info,Image *image,
         id=JPEG_APP0+StringToInteger(name+3);
         for (i=0; i < (ssize_t) length; i+=65533L)
            jpeg_write_marker(jpeg_info,id,GetStringInfoDatum(profile)+i,
-             MagickMin(length-i,65533));
+             (unsigned int) MagickMin(length-i,65533));
       }
     if (LocaleCompare(name,"EXIF") == 0)
       {
@@ -2128,7 +2163,8 @@ static void WriteProfile(j_compress_ptr jpeg_info,Image *image,
             custom_profile),(unsigned int) (length+tag_length+roundup));
         }
       }
-    if (LocaleCompare(name,"XMP") == 0)
+   if ((LocaleCompare(name,"XMP") == 0) &&
+       (GetStringInfoLength(profile) <= 65502))
       {
         StringInfo
           *xmp_profile;
@@ -2807,9 +2843,15 @@ static MagickBooleanType WriteJPEGImage(const ImageInfo *image_info,
   */
   value=GetImageProperty(image,"comment",exception);
   if (value != (char *) NULL)
-    for (i=0; i < (ssize_t) strlen(value); i+=65533L)
-      jpeg_write_marker(&jpeg_info,JPEG_COM,(unsigned char *) value+i,
-        (unsigned int) MagickMin((size_t) strlen(value+i),65533L));
+    {
+      size_t
+        length;
+
+      length=strlen(value);
+      for (i=0; i < (ssize_t) length; i+=65533L)
+        jpeg_write_marker(&jpeg_info,JPEG_COM,(unsigned char *) value+i,
+          (unsigned int) MagickMin((size_t) strlen(value+i),65533L));
+    }
   if (image->profiles != (void *) NULL)
     WriteProfile(&jpeg_info,image,exception);
   /*

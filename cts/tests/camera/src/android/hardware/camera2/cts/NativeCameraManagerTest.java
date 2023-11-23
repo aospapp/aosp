@@ -16,13 +16,21 @@
 
 package android.hardware.camera2.cts;
 
-import android.test.AndroidTestCase;
+import android.hardware.cts.helpers.CameraParameterizedTestCase;
 import android.util.Log;
+
+import org.junit.runners.Parameterized;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+import static junit.framework.Assert.*;
 
 /**
  * <p>Basic test for CameraManager class.</p>
  */
-public class NativeCameraManagerTest extends AndroidTestCase {
+
+@RunWith(Parameterized.class)
+public class NativeCameraManagerTest extends CameraParameterizedTestCase {
     private static final String TAG = "NativeCameraManagerTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
@@ -33,21 +41,31 @@ public class NativeCameraManagerTest extends AndroidTestCase {
         Log.i("NativeCameraManagerTest", "after loadlibrary");
     }
 
+    @Test
     public void testCameraManagerGetAndClose() {
         assertTrue("testCameraManagerGetAndClose fail, see log for details",
                 testCameraManagerGetAndCloseNative());
     }
 
+    @Test
     public void testCameraManagerGetCameraIds() {
         assertTrue("testCameraManagerGetCameraIds fail, see log for details",
                 testCameraManagerGetCameraIdsNative());
     }
 
+    @Test
     public void testCameraManagerAvailabilityCallback() {
         assertTrue("testCameraManagerAvailabilityCallback fail, see log for details",
                 testCameraManagerAvailabilityCallbackNative());
     }
 
+    @Test
+    public void testCameraManagerExtendedAvailabilityCallback() {
+        assertTrue("testCameraManagerExtendedAvailabilityCallback fail, see log for details",
+                testCameraManagerExtendedAvailabilityCallbackNative());
+    }
+
+    @Test
     public void testCameraManagerCameraCharacteristics() {
         assertTrue("testCameraManagerCameraCharacteristics fail, see log for details",
                 testCameraManagerCharacteristicsNative());
@@ -56,5 +74,6 @@ public class NativeCameraManagerTest extends AndroidTestCase {
     private static native boolean testCameraManagerGetAndCloseNative();
     private static native boolean testCameraManagerGetCameraIdsNative();
     private static native boolean testCameraManagerAvailabilityCallbackNative();
+    private static native boolean testCameraManagerExtendedAvailabilityCallbackNative();
     private static native boolean testCameraManagerCharacteristicsNative();
 }

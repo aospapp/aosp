@@ -16,14 +16,6 @@ owner: Platform
 module: "android.sysprop.CarProperties"
 
 prop {
-    api_name: "headless_system_user"
-    type: Boolean
-    scope: Internal
-    access: ReadWrite
-    prop_name: "android.car.systemuser.headless"
-}
-
-prop {
     api_name: "boot_user_override_id"
     type: Integer
     scope: Internal
@@ -39,4 +31,40 @@ prop {
     scope: Internal
     access: Readonly
     prop_name: "ro.android.car.trusteddevice.device_name_prefix"
+}
+
+# Number of warm users pre-created during boot
+prop {
+    api_name: "number_pre_created_users"
+    type: Integer
+    scope: Internal
+    access: ReadWrite
+    prop_name: "android.car.number_pre_created_users"
+}
+
+# Number of warm guest users pre-created during boot
+prop {
+    api_name: "number_pre_created_guests"
+    type: Integer
+    scope: Internal
+    access: ReadWrite
+    prop_name: "android.car.number_pre_created_guests"
+}
+
+# Whether the Vehicle HAL should be used for user management tasks.
+prop {
+    api_name: "user_hal_enabled"
+    type: Boolean
+    scope: Internal
+    access: ReadWrite
+    prop_name: "android.car.user_hal_enabled"
+}
+
+# Timeout (in ms) waiting for Vehicle HAL responses for user management requests.
+prop {
+    api_name: "user_hal_timeout"
+    type: Integer
+    scope: Internal
+    access: ReadWrite
+    prop_name: "android.car.user_hal_timeout"
 }

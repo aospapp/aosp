@@ -31,6 +31,7 @@ import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.provider.MediaStore;
 import android.provider.MediaStore.MediaColumns;
@@ -52,6 +53,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
+@Presubmit
+@NonMediaMainlineTest
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "TODO: evaluate and port to instant")
@@ -617,14 +620,14 @@ public class MediaScannerTest extends AndroidTestCase {
 
     public static void startMediaScan() {
         new Thread(() -> {
-            MediaStore.scanVolume(InstrumentationRegistry.getTargetContext(),
-                    Environment.getExternalStorageDirectory());
+            MediaStore.scanVolume(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                    MediaStore.VOLUME_EXTERNAL_PRIMARY);
         }).start();
     }
 
     public static void startMediaScanAndWait() {
-        MediaStore.scanVolume(InstrumentationRegistry.getTargetContext(),
-                Environment.getExternalStorageDirectory());
+        MediaStore.scanVolume(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                MediaStore.VOLUME_EXTERNAL_PRIMARY);
     }
 
     private void checkMediaScannerConnection() {

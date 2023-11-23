@@ -22,6 +22,7 @@
 #include <resolv.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/system_properties.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -29,6 +30,7 @@
 #include <string>
 #include <vector>
 
+#include <DnsProxydProtocol.h>  // NETID_USE_LOCAL_NAMESERVERS
 #include <android-base/parseint.h>
 #include <android-base/unique_fd.h>
 
@@ -49,21 +51,49 @@ namespace {
 
 // Keep this in sync with CMD_BUF_SIZE in FrameworkListener.cpp.
 constexpr size_t MAX_CMD_SIZE = 4096;
+// Whether sendto(), sendmsg(), sendmmsg() in libc are shimmed or not. This property is evaluated at
+// process start time and cannot change at runtime on a given device.
+constexpr char PROPERTY_REDIRECT_SOCKET_CALLS[] = "ro.vendor.redirect_socket_calls";
+// Whether some shimmed functions dispatch FwmarkCommand or not. The property can be changed by
+// System Server at runtime. Note: accept4(), socket(), connect() are always shimmed.
+constexpr char PROPERTY_REDIRECT_SOCKET_CALLS_HOOKED[] = "net.redirect_socket_calls.hooked";
 
 std::atomic_uint netIdForProcess(NETID_UNSET);
 std::atomic_uint netIdForResolv(NETID_UNSET);
+std::atomic_bool allowNetworkingForProcess(true);
 
 typedef int (*Accept4FunctionType)(int, sockaddr*, socklen_t*, int);
 typedef int (*ConnectFunctionType)(int, const sockaddr*, socklen_t);
 typedef int (*SocketFunctionType)(int, int, int);
 typedef unsigned (*NetIdForResolvFunctionType)(unsigned);
 typedef int (*DnsOpenProxyType)();
+typedef int (*SendmmsgFunctionType)(int, const mmsghdr*, unsigned int, int);
+typedef ssize_t (*SendmsgFunctionType)(int, const msghdr*, unsigned int);
+typedef int (*SendtoFunctionType)(int, const void*, size_t, int, const sockaddr*, socklen_t);
 
 // These variables are only modified at startup (when libc.so is loaded) and never afterwards, so
 // it's okay that they are read later at runtime without a lock.
 Accept4FunctionType libcAccept4 = nullptr;
 ConnectFunctionType libcConnect = nullptr;
 SocketFunctionType libcSocket = nullptr;
+SendmmsgFunctionType libcSendmmsg = nullptr;
+SendmsgFunctionType libcSendmsg = nullptr;
+SendtoFunctionType libcSendto = nullptr;
+
+static bool propertyValueIsTrue(const char* prop_name) {
+    char prop_value[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(prop_name, prop_value) > 0) {
+        if (strcmp(prop_value, "true") == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool redirectSocketCallsIsTrue() {
+    static bool cached_result = propertyValueIsTrue(PROPERTY_REDIRECT_SOCKET_CALLS);
+    return cached_result;
+}
 
 int checkSocket(int socketFd) {
     if (socketFd < 0) {
@@ -120,7 +150,15 @@ int netdClientConnect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
     const bool shouldSetFwmark = shouldMarkSocket(sockfd, addr);
     if (shouldSetFwmark) {
         FwmarkCommand command = {FwmarkCommand::ON_CONNECT, 0, 0, 0};
-        if (int error = FwmarkClient().send(&command, sockfd, nullptr)) {
+        int error;
+        if (redirectSocketCallsIsTrue()) {
+            FwmarkConnectInfo connectInfo(0, 0, addr);
+            error = FwmarkClient().send(&command, sockfd, &connectInfo);
+        } else {
+            error = FwmarkClient().send(&command, sockfd, nullptr);
+        }
+
+        if (error) {
             errno = -error;
             return -1;
         }
@@ -130,9 +168,9 @@ int netdClientConnect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
     const int ret = libcConnect(sockfd, addr, addrlen);
     // Save errno so it isn't clobbered by sending ON_CONNECT_COMPLETE
     const int connectErrno = errno;
-    const unsigned latencyMs = lround(s.timeTaken());
+    const auto latencyMs = static_cast<unsigned>(s.timeTakenUs() / 1000);
     // Send an ON_CONNECT_COMPLETE command that includes sockaddr and connect latency for reporting
-    if (shouldSetFwmark && FwmarkClient::shouldReportConnectComplete(addr->sa_family)) {
+    if (shouldSetFwmark) {
         FwmarkConnectInfo connectInfo(ret == 0 ? 0 : connectErrno, latencyMs, addr);
         // TODO: get the netId from the socket mark once we have continuous benchmark runs
         FwmarkCommand command = {FwmarkCommand::ON_CONNECT_COMPLETE, /* netId (ignored) */ 0,
@@ -145,6 +183,11 @@ int netdClientConnect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
 }
 
 int netdClientSocket(int domain, int type, int protocol) {
+    // Block creating AF_INET/AF_INET6 socket if networking is not allowed.
+    if (FwmarkCommand::isSupportedFamily(domain) && !allowNetworkingForProcess.load()) {
+        errno = EPERM;
+        return -1;
+    }
     int socketFd = libcSocket(domain, type, protocol);
     if (socketFd == -1) {
         return -1;
@@ -156,6 +199,48 @@ int netdClientSocket(int domain, int type, int protocol) {
         }
     }
     return socketFd;
+}
+
+int netdClientSendmmsg(int sockfd, const mmsghdr* msgs, unsigned int msgcount, int flags) {
+    if (propertyValueIsTrue(PROPERTY_REDIRECT_SOCKET_CALLS_HOOKED) && !checkSocket(sockfd)) {
+        const sockaddr* addr = nullptr;
+        if ((msgcount > 0) && (msgs != nullptr) && (msgs[0].msg_hdr.msg_name != nullptr)) {
+            addr = reinterpret_cast<const sockaddr*>(msgs[0].msg_hdr.msg_name);
+            if ((addr != nullptr) && (FwmarkCommand::isSupportedFamily(addr->sa_family))) {
+                FwmarkConnectInfo sendmmsgInfo(0, 0, addr);
+                FwmarkCommand command = {FwmarkCommand::ON_SENDMMSG, 0, 0, 0};
+                FwmarkClient().send(&command, sockfd, &sendmmsgInfo);
+            }
+        }
+    }
+    return libcSendmmsg(sockfd, msgs, msgcount, flags);
+}
+
+ssize_t netdClientSendmsg(int sockfd, const msghdr* msg, unsigned int flags) {
+    if (propertyValueIsTrue(PROPERTY_REDIRECT_SOCKET_CALLS_HOOKED) && !checkSocket(sockfd)) {
+        const sockaddr* addr = nullptr;
+        if ((msg != nullptr) && (msg->msg_name != nullptr)) {
+            addr = reinterpret_cast<const sockaddr*>(msg->msg_name);
+            if ((addr != nullptr) && (FwmarkCommand::isSupportedFamily(addr->sa_family))) {
+                FwmarkConnectInfo sendmsgInfo(0, 0, addr);
+                FwmarkCommand command = {FwmarkCommand::ON_SENDMSG, 0, 0, 0};
+                FwmarkClient().send(&command, sockfd, &sendmsgInfo);
+            }
+        }
+    }
+    return libcSendmsg(sockfd, msg, flags);
+}
+
+int netdClientSendto(int sockfd, const void* buf, size_t bufsize, int flags, const sockaddr* addr,
+                     socklen_t addrlen) {
+    if (propertyValueIsTrue(PROPERTY_REDIRECT_SOCKET_CALLS_HOOKED) && !checkSocket(sockfd)) {
+        if ((addr != nullptr) && (FwmarkCommand::isSupportedFamily(addr->sa_family))) {
+            FwmarkConnectInfo sendtoInfo(0, 0, addr);
+            FwmarkCommand command = {FwmarkCommand::ON_SENDTO, 0, 0, 0};
+            FwmarkClient().send(&command, sockfd, &sendtoInfo);
+        }
+    }
+    return libcSendto(sockfd, buf, bufsize, flags, addr, addrlen);
 }
 
 unsigned getNetworkForResolv(unsigned netId) {
@@ -206,6 +291,13 @@ int dns_open_proxy() {
         return -1;
     }
 
+    // If networking is not allowed, dns_open_proxy should just fail here.
+    // Then eventually, the DNS related functions in local mode will get
+    // EPERM while creating socket.
+    if (!allowNetworkingForProcess.load()) {
+        errno = EPERM;
+        return -1;
+    }
     const auto socketFunc = libcSocket ? libcSocket : socket;
     int s = socketFunc(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (s == -1) {
@@ -304,34 +396,52 @@ bool readResponseCode(int fd, int* result) {
 
 }  // namespace
 
-#define CHECK_SOCKET_IS_MARKABLE(sock)          \
-    do {                                        \
-        int err;                                \
-        if ((err = checkSocket(sock)) != 0) {   \
-            return err;                         \
-        }                                       \
-    } while (false);
+#define CHECK_SOCKET_IS_MARKABLE(sock) \
+    do {                               \
+        int err = checkSocket(sock);   \
+        if (err) return err;           \
+    } while (false)
+
+#define HOOK_ON_FUNC(remoteFunc, nativeFunc, localFunc) \
+    do {                                                \
+        if ((remoteFunc) && *(remoteFunc)) {            \
+            (nativeFunc) = *(remoteFunc);               \
+            *(remoteFunc) = (localFunc);                \
+        }                                               \
+    } while (false)
 
 // accept() just calls accept4(..., 0), so there's no need to handle accept() separately.
 extern "C" void netdClientInitAccept4(Accept4FunctionType* function) {
-    if (function && *function) {
-        libcAccept4 = *function;
-        *function = netdClientAccept4;
-    }
+    HOOK_ON_FUNC(function, libcAccept4, netdClientAccept4);
 }
 
 extern "C" void netdClientInitConnect(ConnectFunctionType* function) {
-    if (function && *function) {
-        libcConnect = *function;
-        *function = netdClientConnect;
-    }
+    HOOK_ON_FUNC(function, libcConnect, netdClientConnect);
 }
 
 extern "C" void netdClientInitSocket(SocketFunctionType* function) {
-    if (function && *function) {
-        libcSocket = *function;
-        *function = netdClientSocket;
+    HOOK_ON_FUNC(function, libcSocket, netdClientSocket);
+}
+
+extern "C" void netdClientInitSendmmsg(SendmmsgFunctionType* function) {
+    if (!propertyValueIsTrue(PROPERTY_REDIRECT_SOCKET_CALLS)) {
+        return;
     }
+    HOOK_ON_FUNC(function, libcSendmmsg, netdClientSendmmsg);
+}
+
+extern "C" void netdClientInitSendmsg(SendmsgFunctionType* function) {
+    if (!propertyValueIsTrue(PROPERTY_REDIRECT_SOCKET_CALLS)) {
+        return;
+    }
+    HOOK_ON_FUNC(function, libcSendmsg, netdClientSendmsg);
+}
+
+extern "C" void netdClientInitSendto(SendtoFunctionType* function) {
+    if (!propertyValueIsTrue(PROPERTY_REDIRECT_SOCKET_CALLS)) {
+        return;
+    }
+    HOOK_ON_FUNC(function, libcSendto, netdClientSendto);
 }
 
 extern "C" void netdClientInitNetIdForResolv(NetIdForResolvFunctionType* function) {
@@ -378,9 +488,7 @@ extern "C" int setNetworkForResolv(unsigned netId) {
 }
 
 extern "C" int protectFromVpn(int socketFd) {
-    if (socketFd < 0) {
-        return -EBADF;
-    }
+    CHECK_SOCKET_IS_MARKABLE(socketFd);
     FwmarkCommand command = {FwmarkCommand::PROTECT_FROM_VPN, 0, 0, 0};
     return FwmarkClient().send(&command, socketFd, nullptr);
 }
@@ -496,6 +604,10 @@ extern "C" int resNetworkResult(int fd, int* rcode, uint8_t* answer, size_t ansl
 
 extern "C" void resNetworkCancel(int fd) {
     close(fd);
+}
+
+extern "C" void setAllowNetworkingForProcess(bool allowNetworking) {
+    allowNetworkingForProcess.store(allowNetworking);
 }
 
 extern "C" int getNetworkForDns(unsigned* dnsNetId) {

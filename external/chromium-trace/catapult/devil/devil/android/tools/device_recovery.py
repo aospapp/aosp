@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env vpython
 # Copyright 2016 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,6 +6,7 @@
 """A script to recover devices in a known bad state."""
 
 import argparse
+import glob
 import logging
 import os
 import signal
@@ -30,14 +31,18 @@ from devil.utils import reset_usb  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
+from py_utils import modules_util
+
+
+# Script depends on features from psutil version 2.0 or higher.
+modules_util.RequireVersion(psutil, '2.0')
+
 
 def KillAllAdb():
   def get_all_adb():
     for p in psutil.process_iter():
       try:
-        # Note: p.as_dict is compatible with both older (v1 and under) as well
-        # as newer (v2 and over) versions of psutil.
-        # See: http://grodola.blogspot.com/2014/01/psutil-20-porting.html
+        # Retrieve all required process infos at once.
         pinfo = p.as_dict(attrs=['pid', 'name', 'cmdline'])
         if pinfo['name'] == 'adb':
           pinfo['cmdline'] = ' '.join(pinfo['cmdline'])
@@ -60,10 +65,56 @@ def KillAllAdb():
       pass
 
 
+def TryAuth(device):
+  """Uses anything in ~/.android/ that looks like a key to auth with the device.
+
+  Args:
+    device: The DeviceUtils device to attempt to auth.
+
+  Returns:
+    True if device successfully authed.
+  """
+  possible_keys = glob.glob(os.path.join(adb_wrapper.ADB_HOST_KEYS_DIR, '*key'))
+  if len(possible_keys) <= 1:
+    logger.warning(
+        'Only %d ADB keys available. Not forcing auth.', len(possible_keys))
+    return False
+
+  KillAllAdb()
+  adb_wrapper.AdbWrapper.StartServer(keys=possible_keys)
+  new_state = device.adb.GetState()
+  if new_state != 'device':
+    logger.error(
+        'Auth failed. Device %s still stuck in %s.', str(device), new_state)
+    return False
+
+  # It worked! Now register the host's default ADB key on the device so we don't
+  # have to do all that again.
+  pub_key = os.path.join(adb_wrapper.ADB_HOST_KEYS_DIR, 'adbkey.pub')
+  if not os.path.exists(pub_key):  # This really shouldn't happen.
+    logger.error('Default ADB key not available at %s.', pub_key)
+    return False
+
+  with open(pub_key) as f:
+    pub_key_contents = f.read()
+  try:
+    device.WriteFile(adb_wrapper.ADB_KEYS_FILE, pub_key_contents, as_root=True)
+  except (device_errors.CommandTimeoutError,
+          device_errors.CommandFailedError,
+          device_errors.DeviceUnreachableError):
+    logger.exception('Unable to write default ADB key to %s.', str(device))
+    return False
+  return True
+
+
 def RecoverDevice(device, blacklist, should_reboot=lambda device: True):
   if device_status.IsBlacklisted(device.adb.GetDeviceSerial(),
                                  blacklist):
     logger.debug('%s is blacklisted, skipping recovery.', str(device))
+    return
+
+  if device.adb.GetState() == 'unauthorized' and TryAuth(device):
+    logger.info('Successfully authed device %s!', str(device))
     return
 
   if should_reboot(device):
@@ -136,7 +187,7 @@ def RecoverDevices(devices, blacklist, enable_usb_reset=False):
   should_restart_adb = should_restart_usb.union(set(
       status['serial'] for status in statuses
       if status['adb_status'] == 'unauthorized'))
-  should_reboot_device = should_restart_adb.union(set(
+  should_reboot_device = should_restart_usb.union(set(
       status['serial'] for status in statuses
       if status['blacklisted']))
 

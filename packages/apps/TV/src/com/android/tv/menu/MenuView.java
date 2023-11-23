@@ -250,39 +250,40 @@ public class MenuView extends FrameLayout implements IMenuView {
         // The bounds of the views move and overlap with each other during the animation. In this
         // situation, the framework can't perform the correct focus navigation. So the menu view
         // should search by itself.
-        if (direction == View.FOCUS_UP) {
-            View newView = super.focusSearch(focused, direction);
-            MenuRowView oldfocusedParent = getParentMenuRowView(focused);
-            MenuRowView newFocusedParent = getParentMenuRowView(newView);
-            int selectedPosition = mLayoutManager.getSelectedPosition();
-            if (newFocusedParent != oldfocusedParent) {
-                // The focus leaves from the current menu row view.
-                for (int i = selectedPosition - 1; i >= 0; --i) {
-                    MenuRowView view = mMenuRowViews.get(i);
-                    if (view.getVisibility() == View.VISIBLE) {
-                        return view;
-                    }
-                }
-            }
-            return newView;
-        } else if (direction == View.FOCUS_DOWN) {
-            View newView = super.focusSearch(focused, direction);
-            MenuRowView oldfocusedParent = getParentMenuRowView(focused);
-            MenuRowView newFocusedParent = getParentMenuRowView(newView);
-            int selectedPosition = mLayoutManager.getSelectedPosition();
-            if (newFocusedParent != oldfocusedParent) {
-                // The focus leaves from the current menu row view.
-                int count = mMenuRowViews.size();
-                for (int i = selectedPosition + 1; i < count; ++i) {
-                    MenuRowView view = mMenuRowViews.get(i);
-                    if (view.getVisibility() == View.VISIBLE) {
-                        return view;
-                    }
-                }
-            }
-            return newView;
+        if (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN) {
+            return getUpDownFocus(focused, direction);
         }
         return super.focusSearch(focused, direction);
+    }
+
+    private View getUpDownFocus(View focused, int direction) {
+        View newView = super.focusSearch(focused, direction);
+        MenuRowView oldfocusedParent = getParentMenuRowView(focused);
+        MenuRowView newFocusedParent = getParentMenuRowView(newView);
+        int selectedPosition = mLayoutManager.getSelectedPosition();
+        int start, delta;
+        if (direction == View.FOCUS_UP) {
+            start = selectedPosition - 1;
+            delta = -1;
+        } else {
+            start = selectedPosition + 1;
+            delta = 1;
+        }
+        if (newFocusedParent != oldfocusedParent) {
+            // The focus leaves from the current menu row view.
+            int count = mMenuRowViews.size();
+            int i = start;
+            while (i < count && i >= 0) {
+                MenuRowView view = mMenuRowViews.get(i);
+                if (view.getVisibility() == View.VISIBLE) {
+                    mMenuRows.get(i).setIsReselected(false);
+                    return view;
+                }
+                i += delta;
+            }
+        }
+        mMenuRows.get(selectedPosition).setIsReselected(true);
+        return newView;
     }
 
     private MenuRowView getParentMenuRowView(View view) {

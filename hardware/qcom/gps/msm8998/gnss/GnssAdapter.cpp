@@ -509,7 +509,6 @@ GnssAdapter::setConfigCommand()
         inline virtual void proc() const {
             LocDualContext::injectFeatureConfig(mAdapter.getContext());
             mApi.setSUPLVersion(mAdapter.convertSuplVersion(ContextBase::mGps_conf.SUPL_VER));
-            mApi.setLPPConfig(mAdapter.convertLppProfile(ContextBase::mGps_conf.LPP_PROFILE));
             mApi.setSensorControlConfig(ContextBase::mSap_conf.SENSOR_USAGE,
                                            ContextBase::mSap_conf.SENSOR_PROVIDER);
             mApi.setAGLONASSProtocol(ContextBase::mGps_conf.A_GLONASS_POS_PROTOCOL_SELECT);
@@ -679,6 +678,7 @@ GnssAdapter::gnssUpdateConfigCommand(GnssConfig config)
                     errs[index++] = err;
                 }
             }
+            /* Comment out LPP injection as it's configured by MBN.
             if (mConfig.flags & GNSS_CONFIG_FLAGS_LPP_PROFILE_VALID_BIT) {
                 uint32_t newLppProfile = mAdapter.convertLppProfile(mConfig.lppProfile);
                 if (newLppProfile != ContextBase::mGps_conf.LPP_PROFILE) {
@@ -691,6 +691,7 @@ GnssAdapter::gnssUpdateConfigCommand(GnssConfig config)
                     errs[index++] = err;
                 }
             }
+            */
             if (mConfig.flags & GNSS_CONFIG_FLAGS_LPPE_CONTROL_PLANE_VALID_BIT) {
                 uint32_t newLppeControlPlaneMask =
                     mAdapter.convertLppeCp(mConfig.lppeControlPlaneMask);
@@ -2543,6 +2544,12 @@ void GnssAdapter::dataConnOpenCommand(
                         new char[apnLen + 1]), mApnLen(apnLen), mIpType(ipType) {
 
             LOC_LOGV("AgpsMsgAtlOpenSuccess");
+            if (mApnName == nullptr) {
+                LOC_LOGE("%s] new allocation failed, fatal error.", __func__);
+                // Reporting the failure here
+                mAgpsManager->reportAtlClosed(mAgpsType);
+                return;
+            }
             memcpy(mApnName, apnName, apnLen);
             mApnName[apnLen] = 0;
         }
@@ -2558,9 +2565,15 @@ void GnssAdapter::dataConnOpenCommand(
                     mIpType);
         }
     };
-
+    // Added inital length checks for apnlen check to avoid security issues
+    // In case of failure reporting the same
+    if (NULL == apnName || apnLen <= 0 || apnLen > MAX_APN_LEN || (strlen(apnName) != apnLen)) {
+        LOC_LOGe("%s]: incorrect apnlen length or incorrect apnName", __func__);
+        mAgpsManager.reportAtlClosed(agpsType);
+    } else {
     sendMsg( new AgpsMsgAtlOpenSuccess(
             &mAgpsManager, (AGpsExtType)agpsType, apnName, apnLen, ipType));
+    }
 }
 
 void GnssAdapter::dataConnClosedCommand(AGpsExtType agpsType){

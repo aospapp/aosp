@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,7 +17,7 @@ package org.jacoco.core.test.perf;
 public interface IPerfOutput {
 
 	/** Indicator for no reference time given */
-	public static final long NO_REFERENCE = Long.MIN_VALUE;
+	long NO_REFERENCE = Long.MIN_VALUE;
 
 	/**
 	 * Reports the result of a time measurement with a optional reference time

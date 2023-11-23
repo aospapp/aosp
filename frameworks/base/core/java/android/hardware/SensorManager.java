@@ -18,7 +18,7 @@ package android.hardware;
 
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
@@ -498,7 +498,7 @@ public abstract class SensorManager {
                 || type == Sensor.TYPE_TILT_DETECTOR || type == Sensor.TYPE_WAKE_GESTURE
                 || type == Sensor.TYPE_GLANCE_GESTURE || type == Sensor.TYPE_PICK_UP_GESTURE
                 || type == Sensor.TYPE_WRIST_TILT_GESTURE
-                || type == Sensor.TYPE_DYNAMIC_SENSOR_META) {
+                || type == Sensor.TYPE_DYNAMIC_SENSOR_META || type == Sensor.TYPE_HINGE_ANGLE) {
             wakeUpSensor = true;
         }
 
@@ -942,12 +942,6 @@ public abstract class SensorManager {
 
     /** @hide */
     protected abstract void destroyDirectChannelImpl(SensorDirectChannel channel);
-
-    /** @removed */
-    @Deprecated
-    public int configureDirectChannel(SensorDirectChannel channel, Sensor sensor, int rateLevel) {
-        return configureDirectChannelImpl(channel, sensor, rateLevel);
-    }
 
     /** @hide */
     protected abstract int configureDirectChannelImpl(

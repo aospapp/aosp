@@ -100,62 +100,120 @@ public class TestPaths extends TestFmwkPlus {
         return b.toString();
     }
 
-    public void TestGetFullPath() {
-        Status status = new Status();
-
-        for (String locale : getLocalesToTest()) {
-            CLDRFile file = testInfo.getCLDRFile(locale, true);
-            logln(locale);
-
-            for (Iterator<String> it = file.iterator(); it.hasNext();) {
-                String path = it.next();
-                String fullPath = file.getFullXPath(path);
-                String value = file.getStringValue(path);
-                String source = file.getSourceLocaleID(path, status);
-                if (fullPath == null) {
-                    errln("Locale: " + locale + ",\t FullPath: " + path);
-                }
-                if (value == null) {
-                    errln("Locale: " + locale + ",\t Value: " + path);
-                }
-                if (source == null) {
-                    errln("Locale: " + locale + ",\t Source: " + path);
-                }
-                if (status.pathWhereFound == null) {
-                    errln("Locale: " + locale + ",\t Found Path: " + path);
-                }
-            }
-        }
-    }
-
-    public void TestPathHeaders() {
-
+    /**
+     * For each locale to test, loop through all the paths, including "extra" paths,
+     * checking for each path: checkFullpathValue; checkPrettyPaths
+     */
+    public void TestPathHeadersAndValues() {
+        /*
+         * Use the pathsSeen hash to keep track of which paths have
+         * already been seen. Since the test checkPrettyPaths isn't really
+         * locale-dependent, run it only once for each path, for the first
+         * locale in which the path occurs.
+         */
         Set<String> pathsSeen = new HashSet<String>();
         CLDRFile englishFile = testInfo.getCldrFactory().make("en", true);
         PathHeader.Factory phf = PathHeader.getFactory(englishFile);
-
+        Status status = new Status();
         for (String locale : getLocalesToTest()) {
-            CLDRFile file = testInfo.getCldrFactory().make(locale, true);
-            logln("Testing path headers for locale => " + locale);
-
+            CLDRFile file = testInfo.getCLDRFile(locale, true);
+            logln("Testing path headers and values for locale => " + locale);
             for (Iterator<String> it = file.iterator(); it.hasNext();) {
-                checkPaths(it.next(), pathsSeen, phf, locale);
+                String path = it.next();
+                checkFullpathValue(path, file, locale, status, false /* not extra path */);
+                if (!pathsSeen.contains(path)) {
+                    pathsSeen.add(path);
+                    checkPrettyPaths(path, phf);
+                }
             }
             for (String path : file.getExtraPaths()) {
-                checkPaths(path, pathsSeen, phf, locale);
+                checkFullpathValue(path, file, locale, status, true /* extra path */);
+                if (!pathsSeen.contains(path)) {
+                    pathsSeen.add(path);
+                    checkPrettyPaths(path, phf);
+                }
             }
         }
     }
 
-    private void checkPaths(String path, Set<String> pathsSeen,
-        PathHeader.Factory phf, String locale) {
+    /**
+     * For the given path and CLDRFile, check that fullPath, value, and source are all non-null.
+     *
+     * Allow null value for some exceptional extra paths.
+     *
+     * @param path the path, such as '//ldml/dates/fields/field[@type="tue"]/relative[@type="1"]'
+     * @param file the CLDRFile
+     * @param locale the locale string
+     * @param status the Status to be used/set by getSourceLocaleID
+     * @param isExtraPath true if the path is an "extra" path, else false
+     */
+    private void checkFullpathValue(String path, CLDRFile file, String locale, Status status, boolean isExtraPath) {
+        String fullPath = file.getFullXPath(path);
+        String value = file.getStringValue(path);
+        String source = file.getSourceLocaleID(path, status);
+        if (fullPath == null) {
+            errln("Locale: " + locale + ",\t FullPath: " + path);
+        }
+        if (value == null) {
+            /*
+             * Allow null value for some exceptional extra paths.
+             */
+            if (!isExtraPath || !extraPathAllowsNullValue(path)) {
+                errln("Locale: " + locale + ",\t Value: " + path);
+            }
+        }
+        if (source == null) {
+            errln("Locale: " + locale + ",\t Source: " + path);
+        }
+        if (status.pathWhereFound == null) {
+            errln("Locale: " + locale + ",\t Found Path: " + path);
+        }
+    }
+
+    /**
+     * Is the given extra path exceptional in the sense that null value is allowed?
+     *
+     * @param path the extra path
+     * @return true if null value is allowed for path, else false
+     *
+     * As of 2019-08-09, null values are found for many "metazone" paths like:
+     * //ldml/dates/timeZoneNames/metazone[@type="Galapagos"]/long/standard
+     * for many locales. Also for some "zone" paths like:
+     * //ldml/dates/timeZoneNames/zone[@type="Pacific/Honolulu"]/short/generic
+     * for locales including root, ja, and ar. Also for some "dayPeriods" paths like
+     * //ldml/dates/calendars/calendar[@type="gregorian"]/dayPeriods/dayPeriodContext[@type="stand-alone"]/dayPeriodWidth[@type="wide"]/dayPeriod[@type="midnight"]
+     * only for these six locales: bs_Cyrl, bs_Cyrl_BA, pa_Arab, pa_Arab_PK, uz_Arab, uz_Arab_AF.
+     *
+     * This function is nearly identical to the JavaScript function with the same name.
+     * Keep the two functions consistent with each other. It would be more ideal if this
+     * knowledge were encapsulated on the server and the client didn't need to know about it.
+     * The server could send the client special fallback values instead of null.
+     *
+     * Extra paths are generated by CLDRFile.getRawExtraPathsPrivate; this function may need
+     * updating (to allow null for other paths) if that function changes.
+     *
+     * Reference: https://unicode-org.atlassian.net/browse/CLDR-11238
+     */
+    private boolean extraPathAllowsNullValue(String path) {
+        if (path.contains("timeZoneNames/metazone") ||
+            path.contains("timeZoneNames/zone") ||
+            path.contains("dayPeriods/dayPeriodContext")) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check that the given path and PathHeader.Factory undergo correct
+     * roundtrip conversion between original and pretty paths.
+     *
+     * @param path the path string
+     * @param phf the PathHeader.Factory
+     */
+    private void checkPrettyPaths(String path, PathHeader.Factory phf) {
         if (path.endsWith("/alias")) {
             return;
         }
-        if (pathsSeen.contains(path)) {
-            return;
-        }
-        pathsSeen.add(path);
         logln("Testing ==> " + path);
         String prettied = phf.fromPath(path).toString();
         String unprettied = phf.fromPath(path).getOriginalPath();
@@ -294,7 +352,6 @@ public class TestPaths extends TestFmwkPlus {
     public void TestNonLdml() {
         int maxPerDirectory = getInclusion() <= 5 ? 20 : Integer.MAX_VALUE;
         CheckDeprecated checkDeprecated = new CheckDeprecated(this);
-        XPathParts parts = new XPathParts();
         PathStarrer starrer = new PathStarrer();
         StringBuilder removed = new StringBuilder();
         Set<String> nonFinalValues = new LinkedHashSet<>();
@@ -331,11 +388,10 @@ public class TestPaths extends TestFmwkPlus {
                     DtdType type = null;
                     DtdData dtdData = null;
                     String fullName = dir2 + "/" + file;
-                    //logln(fullName);
                     for (Pair<String, String> pathValue : XMLFileReader.loadPathValues(fullName, new ArrayList<Pair<String, String>>(), true)) {
                         String path = pathValue.getFirst();
                         final String value = pathValue.getSecond();
-                        parts.set(path);
+                        XPathParts parts = XPathParts.getInstance(path); // not frozen, for removeNonDistinguishing
                         if (dtdData == null) {
                             type = DtdType.valueOf(parts.getElement(0));
                             dtdData = DtdData.getInstance(type);
@@ -378,7 +434,7 @@ public class TestPaths extends TestFmwkPlus {
                         if (skipLast.contains(last)) {
                             continue;
                         }
-                        String dpath = CLDRFile.getDistinguishingXPath(path, normalizedPath, true);
+                        String dpath = CLDRFile.getDistinguishingXPath(path, normalizedPath);
                         if (!dpath.equals(path)) {
                             checkParts(dpath, dtdData);
                         }
@@ -417,7 +473,7 @@ public class TestPaths extends TestFmwkPlus {
     }
 
     private void checkParts(String path, DtdData dtdData) {
-        XPathParts parts = new XPathParts().set(path);
+        XPathParts parts = XPathParts.getFrozenInstance(path);
         Element current = dtdData.ROOT;
         for (int i = 0; i < parts.size(); ++i) {
             String elementName = parts.getElement(i);
@@ -441,6 +497,15 @@ public class TestPaths extends TestFmwkPlus {
 
     static final Set<String> SKIP_NON_NODE = new HashSet<>(Arrays.asList("references", "visibility", "access"));
 
+    /**
+     *
+     * @param parts the thawed XPathParts (can't be frozen, for putAttributeValue)
+     * @param data
+     * @param counter
+     * @param removed
+     * @param nonFinalValues
+     * @return
+     */
     private int removeNonDistinguishing(XPathParts parts, DtdData data, int counter, StringBuilder removed, Set<String> nonFinalValues) {
         removed.setLength(0);
         nonFinalValues.clear();
@@ -448,9 +513,6 @@ public class TestPaths extends TestFmwkPlus {
         nonFinalValues.clear();
         int size = parts.size();
         int last = size - 1;
-//        if (parts.getElement(-1).equals("rbnfrule")) {
-//            int x = 0;
-//        }
         for (int i = 0; i < size; ++i) {
             removed.append("/");
             String element = parts.getElement(i);

@@ -23,6 +23,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 
@@ -38,6 +39,8 @@ import java.io.IOException;
  * the codes related to the Direct Share feature are in {@link SharingShortcutsManager}.
  */
 public class MainActivity extends Activity {
+
+    private static final String TAG = "MainActivity";
 
     // Domain authority for our app FileProvider
     private static final String FILE_PROVIDER_AUTHORITY =
@@ -113,10 +116,10 @@ public class MainActivity extends Activity {
             Uri contentUri = saveImageThumbnail();
             return ClipData.newUri(getContentResolver(), null, contentUri);
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
+            Log.e(TAG, e.getLocalizedMessage());
             return null;
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, e.getLocalizedMessage());
             return null;
         }
     }

@@ -25,6 +25,7 @@ import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent;
 import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.CarrierIdMatching;
 import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.CarrierKeyChange;
 import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.ModemRestart;
+import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.NetworkCapabilitiesInfo;
 import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.RilDeactivateDataCall;
 import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.RilSetupDataCall;
 import static com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.RilSetupDataCallResponse;
@@ -93,6 +94,12 @@ public class TelephonyEventBuilder {
         return this;
     }
 
+    public TelephonyEventBuilder setSignalStrength(int signalstrength) {
+        mEvent.type = TelephonyEvent.Type.SIGNAL_STRENGTH;
+        mEvent.signalStrength = signalstrength;
+        return this;
+    }
+
     public TelephonyEventBuilder setSetupDataCall(RilSetupDataCall request) {
         mEvent.type = TelephonyEvent.Type.DATA_CALL_SETUP;
         mEvent.setupDataCall = request;
@@ -148,9 +155,11 @@ public class TelephonyEventBuilder {
      * Set and build EMERGENCY_NUMBER_REPORT event
      */
     public TelephonyEventBuilder setUpdatedEmergencyNumber(
-            EmergencyNumberInfo emergencyNumberInfo) {
+            EmergencyNumberInfo emergencyNumberInfo,
+            int emergencyNumberDbVersion) {
         mEvent.type = TelephonyEvent.Type.EMERGENCY_NUMBER_REPORT;
         mEvent.updatedEmergencyNumber = emergencyNumberInfo;
+        mEvent.emergencyNumberDatabaseVersion = emergencyNumberDbVersion;
         return this;
     }
 
@@ -207,6 +216,14 @@ public class TelephonyEventBuilder {
     public TelephonyEventBuilder setOnDemandDataSwitch(OnDemandDataSwitch onDemandDataSwitch) {
         mEvent.type = TelephonyEvent.Type.ON_DEMAND_DATA_SWITCH;
         mEvent.onDemandDataSwitch = onDemandDataSwitch;
+        return this;
+    }
+
+    /** Set and build network capabilities changed event. */
+    public TelephonyEventBuilder setNetworkCapabilities(
+            NetworkCapabilitiesInfo networkCapabilities) {
+        mEvent.type = TelephonyEvent.Type.NETWORK_CAPABILITIES_CHANGED;
+        mEvent.networkCapabilities = networkCapabilities;
         return this;
     }
 }

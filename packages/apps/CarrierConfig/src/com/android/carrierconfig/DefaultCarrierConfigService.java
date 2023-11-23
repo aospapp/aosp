@@ -1,6 +1,7 @@
 package com.android.carrierconfig;
 
 import android.annotation.Nullable;
+import android.content.Context;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.service.carrier.CarrierIdentifier;
@@ -52,7 +53,7 @@ public class DefaultCarrierConfigService extends CarrierService {
      * {@link TelephonyManager#getSimCarrierId()}. NOTE: config files named after mccmnc
      * are for those without a matching carrier id and should be renamed to carrier id once the
      * missing IDs are added to
-     * <a href="https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/master/assets/carrier_list.textpb">carrier id list</a>
+     * <a href="https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/master/assets/latest_carrier_id/carrier_list.textpb">carrier id list</a>
      *
      * First, look for file named after
      * carrier_config_carrierid_<carrierid>_<carriername>.xml if carrier id is not
@@ -87,7 +88,9 @@ public class DefaultCarrierConfigService extends CarrierService {
                 PersistableBundle configByCarrierId = new PersistableBundle();
                 PersistableBundle configBySpecificCarrierId = new PersistableBundle();
                 PersistableBundle configByMccMncFallBackCarrierId = new PersistableBundle();
-                int mccmncCarrierId = TelephonyManager.from(getApplicationContext())
+                TelephonyManager telephonyManager = getApplicationContext()
+                        .getSystemService(TelephonyManager.class);
+                int mccmncCarrierId = telephonyManager
                         .getCarrierIdFromMccMnc(id.getMcc() + id.getMnc());
                 for (String file : getApplicationContext().getAssets().list("")) {
                     if (file.startsWith(CARRIER_ID_PREFIX + id.getSpecificCarrierId() + "_")) {
@@ -263,8 +266,8 @@ public class DefaultCarrierConfigService extends CarrierService {
                     result = result && value.equalsIgnoreCase(Build.DEVICE);
                     break;
                 case "cid":
-                    result = result && (value.equals(id.getCarrierId())
-                            || value.equals(id.getSpecificCarrierId()));
+                    result = result && ((Integer.parseInt(value) == id.getCarrierId())
+                            || (Integer.parseInt(value) == id.getSpecificCarrierId()));
                     break;
                 case "name":
                     // name is used together with cid for readability. ignore for filter.

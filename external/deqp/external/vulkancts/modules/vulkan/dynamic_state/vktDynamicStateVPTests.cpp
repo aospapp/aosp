@@ -129,7 +129,7 @@ public:
 
 	virtual void setDynamicStates(void)
 	{
-		const vk::VkViewport viewport	= { 0.0f, 0.0f, (float)WIDTH * 2, (float)HEIGHT * 2, 0.0f, 0.0f };
+		const vk::VkViewport viewport	= { 0.0f, 0.0f, static_cast<float>(WIDTH) * 2.0f, static_cast<float>(HEIGHT) * 2.0f, 0.0f, 0.0f };
 		const vk::VkRect2D scissor		= { { 0, 0 }, { WIDTH, HEIGHT } };
 
 		setDynamicViewportState(1, &viewport, &scissor);
@@ -140,7 +140,7 @@ public:
 
 	virtual tcu::Texture2D buildReferenceFrame (void)
 	{
-		tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+		tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 		referenceFrame.allocLevel(0);
 
 		const deInt32 frameWidth	= referenceFrame.getWidth();
@@ -187,7 +187,7 @@ public:
 
 	virtual tcu::Texture2D buildReferenceFrame (void)
 	{
-		tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+		tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 		referenceFrame.allocLevel(0);
 
 		const deInt32 frameWidth	= referenceFrame.getWidth();
@@ -223,17 +223,6 @@ public:
 		: DynamicStateBaseClass	(context, shaders[glu::SHADERTYPE_VERTEX], shaders[glu::SHADERTYPE_FRAGMENT])
 		, m_geometryShaderName	(shaders[glu::SHADERTYPE_GEOMETRY])
 	{
-		// Check geometry shader support
-		{
-			const vk::VkPhysicalDeviceFeatures& deviceFeatures = m_context.getDeviceFeatures();
-
-			if (!deviceFeatures.multiViewport)
-				throw tcu::NotSupportedError("Multi-viewport is not supported");
-
-			if (!deviceFeatures.geometryShader)
-				throw tcu::NotSupportedError("Geometry shaders are not supported");
-		}
-
 		for (int i = 0; i < 4; i++)
 		{
 			m_data.push_back(PositionColorVertex(tcu::Vec4(-1.0f, 1.0f, (float)i / 3.0f, 1.0f), tcu::RGBA::green().toVec()));
@@ -319,7 +308,7 @@ public:
 
 		// validation
 		{
-			tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+			tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 			referenceFrame.allocLevel(0);
 
 			const deInt32 frameWidth = referenceFrame.getWidth();
@@ -356,6 +345,12 @@ public:
 	}
 };
 
+void checkGeometryAndMultiViewportSupport (Context& context)
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER);
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_MULTI_VIEWPORT);
+}
+
 } //anonymous
 
 DynamicStateVPTests::DynamicStateVPTests (tcu::TestContext& testCtx)
@@ -378,7 +373,7 @@ void DynamicStateVPTests::init (void)
 	addChild(new InstanceFactory<ScissorParamTestInstance>(m_testCtx, "scissor", "Perform a scissor test on 1/4 bottom-left part of the surface", shaderPaths));
 
 	shaderPaths[glu::SHADERTYPE_GEOMETRY] = "vulkan/dynamic_state/ViewportArray.geom";
-	addChild(new InstanceFactory<ViewportArrayTestInstance>(m_testCtx, "viewport_array", "Multiple viewports and scissors", shaderPaths));
+	addChild(new InstanceFactory<ViewportArrayTestInstance, FunctionSupport0>(m_testCtx, "viewport_array", "Multiple viewports and scissors", shaderPaths, checkGeometryAndMultiViewportSupport));
 }
 
 } // DynamicState

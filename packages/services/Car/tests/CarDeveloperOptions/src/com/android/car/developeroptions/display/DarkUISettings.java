@@ -21,15 +21,18 @@ import android.app.settings.SettingsEnums;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.provider.SearchIndexableResource;
+
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
+
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.RadioButtonPickerFragment;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 import com.android.settingslib.widget.CandidateInfo;
 import com.android.settingslib.widget.FooterPreference;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

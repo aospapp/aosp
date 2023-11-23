@@ -116,8 +116,7 @@ class MoblabHost(cros_host.CrosHost):
         """
         try:
             result = host.run(
-                    'grep -q moblab /etc/lsb-release && '
-                    '! test -f /mnt/stateful_partition/.android_tester',
+                    'grep -q moblab /etc/lsb-release',
                     ignore_status=True, timeout=timeout)
         except (error.AutoservRunError, error.AutoservSSHTimeout):
             return False
@@ -203,8 +202,21 @@ class MoblabHost(cros_host.CrosHost):
                 dut_ip = match.group('ip')
                 if dut_ip in existing_hosts:
                     break
-                self.add_dut(dut_ip)
+                if self._check_dut_ssh(dut_ip):
+                    self.add_dut(dut_ip)
+                    existing_hosts.append(dut_ip)
 
+    def _check_dut_ssh(self, dut_ip):
+       is_sshable = False
+       count = 0
+       while not is_sshable and count < 10:
+           cmd = ('ssh  -o ConnectTimeout=30 -o ConnectionAttempts=30'
+                  ' root@%s echo Testing' % dut_ip)
+           result = self.run(cmd)
+           is_sshable = 'Testing' in result.stdout
+           logging.info(is_sshable)
+           count += 1
+       return is_sshable
 
     def verify_software(self):
         """Create the autodir then do standard verify."""

@@ -18,7 +18,9 @@
     package="libcore.heapdumper">
 
     <uses-sdk android:minSdkVersion="19" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
     <instrumentation
             android:name="libcore.heapdumper.HeapDumpInstrumentation"
@@ -30,6 +32,7 @@
 
     <application
             android:allowBackup="false"
+            android:requestLegacyExternalStorage="true"
             android:label="@string/libcore_heap_dumper_title">
     </application>
 </manifest>

@@ -50,7 +50,8 @@ class PsiParameterItem(
 
     override fun publicName(): String? {
         if (isKotlin(psiParameter)) {
-            if (name == "\$receiver") {
+            // Don't print out names for extension function receiver parameters
+            if (isReceiver()) {
                 return null
             }
             return name
@@ -73,6 +74,9 @@ class PsiParameterItem(
             modifiers.annotations().any { it.isDefaultValue() }
         }
     }
+
+    // Note receiver parameter used to be named $receiver in previous UAST versions, now it is $this$functionName
+    private fun isReceiver(): Boolean = parameterIndex == 0 && name.startsWith("\$this\$")
 
     private fun getKtParameter(): KtParameter? {
         val ktParameters =
@@ -104,7 +108,7 @@ class PsiParameterItem(
         // UAST (see UastKotlinPsiParameter which replaces parameter names to p$index)
         if (index >= 0) {
             val parameter = ktParameters[index]
-            if (name != "\$receiver") {
+            if (!isReceiver()) {
                 return parameter
             }
         }

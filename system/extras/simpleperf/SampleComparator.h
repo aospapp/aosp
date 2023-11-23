@@ -50,8 +50,8 @@ int Compare(const T& a, const T& b) {
     return strcmp(sample1->compare_part, sample2->compare_part);    \
   }
 
-BUILD_COMPARE_VALUE_FUNCTION(ComparePid, thread->pid);
-BUILD_COMPARE_VALUE_FUNCTION(CompareTid, thread->tid);
+BUILD_COMPARE_VALUE_FUNCTION(ComparePid, pid);
+BUILD_COMPARE_VALUE_FUNCTION(CompareTid, tid);
 BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareSampleCount, sample_count);
 BUILD_COMPARE_STRING_FUNCTION(CompareComm, thread_comm);
 BUILD_COMPARE_STRING_FUNCTION(CompareDso, map->dso->Path().c_str());

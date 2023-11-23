@@ -98,7 +98,7 @@ struct ashCalInfo {
 #define ASH_CAL_SAVE_INTERVAL_USEC UINT64_C(300000000)
 
 //! This is used to indicate that the cal params are invalid.
-#define ASH_CAL_PARAMS_SOURCE_NONE    UINT8_C(0)
+#define ASH_CAL_PARAMS_SOURCE_NONE UINT8_C(0)
 
 //! This is used to indicate that the cal params were set by factory
 //! calibration.

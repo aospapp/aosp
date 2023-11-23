@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright 2008 Google Inc. All Rights Reserved.
 
@@ -1665,6 +1665,15 @@ class host_create_unittest(host_mod_create_tests, cli_mock.cli_unittest):
                                            discovered_labels=[labels[0]])
         self.run_cmd(argv=self._command_single + ['--labels', labels[1]],
                      rpcs=rpcs, out_words_ok=out)
+
+    def test_remove_hostname_suffix(self):
+        self.assertEqual(
+            host._remove_hostname_suffix_if_present( \
+                "a", host.MIGRATED_HOST_SUFFIX), "a")
+        self.assertEqual( \
+            host._remove_hostname_suffix_if_present( \
+                "b" + host.MIGRATED_HOST_SUFFIX, \
+            host.MIGRATED_HOST_SUFFIX), "b")
 
 
 if __name__ == '__main__':

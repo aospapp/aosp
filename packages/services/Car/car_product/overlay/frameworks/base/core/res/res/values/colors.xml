@@ -33,9 +33,6 @@
     <!-- The secondary text color if the text is on top of a dark background. -->
     <color name="notification_secondary_text_color_dark">@*android:color/car_body2</color>
 
-    <!-- The background color of a notification card. -->
-    <color name="notification_material_background_color">@*android:color/car_colorPrimary</color>
-
     <!-- The default color for text in a notification. This color is also the default color for
          icons. -->
     <color name="notification_default_color">@*android:color/car_accent</color>

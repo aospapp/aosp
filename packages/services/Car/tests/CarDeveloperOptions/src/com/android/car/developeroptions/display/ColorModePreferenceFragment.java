@@ -23,15 +23,15 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.SearchIndexableResource;
-
 import android.provider.Settings.Secure;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.PreferenceScreen;
 
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.RadioButtonPickerFragment;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 import com.android.settingslib.widget.CandidateInfo;
 import com.android.settingslib.widget.LayoutPreference;

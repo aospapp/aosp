@@ -109,6 +109,7 @@ ja{
         car{"カリブ語"}
         cay{"カユーガ語"}
         cch{"チャワイ語"}
+        ccp{"チャクマ語"}
         ce{"チェチェン語"}
         ceb{"セブアノ語"}
         cgg{"チガ語"}
@@ -632,6 +633,14 @@ ja{
         zxx{"言語的内容なし"}
         zza{"ザザ語"}
     }
+    Languages%long{
+        zh_Hans{"標準中国語 (簡体字)"}
+        zh_Hant{"標準中国語 (繁体字)"}
+    }
+    Languages%menu{
+        yue{"中国語 (広東語)"}
+        zh{"中国語 (標準語)"}
+    }
     Languages%short{
         az{"アゼリー語"}
         en_GB{"英語(英国)"}
@@ -747,7 +756,7 @@ ja{
         Ogam{"オガム文字"}
         Olck{"オルチキ文字"}
         Orkh{"オルホン文字"}
-        Orya{"オリヤー文字"}
+        Orya{"オディア文字"}
         Osma{"オスマニア文字"}
         Palm{"パルミラ文字"}
         Pauc{"パウ・チン・ハウ文字"}
@@ -783,7 +792,7 @@ ja{
         Takr{"タークリー文字"}
         Tale{"タイ・レ文字"}
         Talu{"新タイ・ルー文字"}
-        Taml{"タミール文字"}
+        Taml{"タミル文字"}
         Tang{"西夏文字"}
         Tavt{"タイ・ヴェト文字"}
         Telu{"テルグ文字"}
@@ -808,7 +817,7 @@ ja{
         Zsym{"記号文字"}
         Zxxx{"非表記"}
         Zyyy{"共通文字"}
-        Zzzz{"未定義文字"}
+        Zzzz{"不明な文字"}
     }
     Scripts%stand-alone{
         Hans{"漢字(簡体字)"}
@@ -887,7 +896,7 @@ ja{
             reformed{"リフォーム"}
             search{"汎用検索"}
             searchjl{"ハングル語頭子音による並べ替え"}
-            standard{"標準ソート順序"}
+            standard{"標準並べ替え順序"}
             stroke{"画数順"}
             traditional{"トラディッショナル"}
             unihan{"部首順"}
@@ -928,7 +937,7 @@ ja{
             brah{"ブラーフミー数字"}
             cakm{"チャクマ数字"}
             cham{"チャム数字"}
-            deva{"デーヴァナーガリー数字"}
+            deva{"デーバナーガリー数字"}
             ethi{"エチオピア数字"}
             finance{"財務用漢数字"}
             fullwide{"全角数字"}
@@ -963,7 +972,7 @@ ja{
             native{"独自の記数法"}
             nkoo{"ンコ数字"}
             olck{"オルチキ数字"}
-            orya{"オリヤー数字"}
+            orya{"オディア数字"}
             osma{"オスマニア数字"}
             roman{"ローマ数字"}
             romanlow{"ローマ数字(小文字)"}
@@ -973,7 +982,7 @@ ja{
             sund{"スンダ数字"}
             takr{"タークリー数字"}
             talu{"新タイ・ルー数字"}
-            taml{"タミール数字"}
+            taml{"伝統的タミル数字"}
             tamldec{"タミル数字"}
             telu{"テルグ数字"}
             thai{"タイ数字"}
@@ -1047,7 +1056,7 @@ ja{
         VALLADER{"ヴァラダー"}
         WADEGILE{"ウェード式ローマ字表記法"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — すべて"}
         category-list{"{0}: {1}"}

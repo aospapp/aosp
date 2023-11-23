@@ -93,6 +93,14 @@ public enum PartnerConfig {
   CONFIG_FOOTER_BUTTON_TEXT_SIZE(
       PartnerConfigKey.KEY_FOOTER_BUTTON_TEXT_SIZE, ResourceType.DIMENSION),
 
+  // Disabled background alpha of the footer buttons
+  CONFIG_FOOTER_BUTTON_DISABLED_ALPHA(
+      PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_ALPHA, ResourceType.FRACTION),
+
+  // Disabled background color of the footer buttons
+  CONFIG_FOOTER_BUTTON_DISABLED_BG_COLOR(
+      PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_BG_COLOR, ResourceType.COLOR),
+
   // Background color of the primary footer button
   CONFIG_FOOTER_PRIMARY_BUTTON_BG_COLOR(
       PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_BG_COLOR, ResourceType.COLOR),
@@ -139,15 +147,55 @@ public enum PartnerConfig {
       PartnerConfigKey.KEY_DESCRIPTION_LINK_TEXT_COLOR, ResourceType.COLOR),
 
   // Font family of the description
-  CONFIG_DESCRIPTION_FONT_FAMILY(PartnerConfigKey.KEY_DESCRIPTION_FONT_FAMILY, ResourceType.STRING);
+  CONFIG_DESCRIPTION_FONT_FAMILY(PartnerConfigKey.KEY_DESCRIPTION_FONT_FAMILY, ResourceType.STRING),
+
+  // Text size of the body content text
+  CONFIG_CONTENT_TEXT_SIZE(PartnerConfigKey.KEY_CONTENT_TEXT_SIZE, ResourceType.DIMENSION),
+
+  // Text color of the body content text
+  CONFIG_CONTENT_TEXT_COLOR(PartnerConfigKey.KEY_CONTENT_TEXT_COLOR, ResourceType.COLOR),
+
+  // Link text color of the body content text
+  CONFIG_CONTENT_LINK_TEXT_COLOR(PartnerConfigKey.KEY_CONTENT_LINK_TEXT_COLOR, ResourceType.COLOR),
+
+  // Font family of the body content text
+  CONFIG_CONTENT_FONT_FAMILY(PartnerConfigKey.KEY_CONTENT_FONT_FAMILY, ResourceType.STRING),
+
+  // Gravity of the body content text
+  CONFIG_CONTENT_LAYOUT_GRAVITY(PartnerConfigKey.KEY_CONTENT_LAYOUT_GRAVITY, ResourceType.STRING),
+
+  // The animation of loading screen used in those activities which is non of below type.
+  CONFIG_PROGRESS_ILLUSTRATION_DEFAULT(
+      PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_DEFAULT, ResourceType.ILLUSTRATION),
+
+  // The animation of loading screen used in those activity which is processing account info or
+  // related functions.
+  // For example:com.google.android.setupwizard.LOAD_ADD_ACCOUNT_INTENT
+  CONFIG_PROGRESS_ILLUSTRATION_ACCOUNT(
+      PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_ACCOUNT, ResourceType.ILLUSTRATION),
+
+  // The animation of loading screen used in those activity which is processing data connection.
+  // For example:com.android.setupwizard.CAPTIVE_PORTAL
+  CONFIG_PROGRESS_ILLUSTRATION_CONNECTION(
+      PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_CONNECTION, ResourceType.ILLUSTRATION),
+
+  // The animation of loading screen used in those activities which is updating device.
+  // For example:com.google.android.setupwizard.COMPAT_EARLY_UPDATE
+  CONFIG_PROGRESS_ILLUSTRATION_UPDATE(
+      PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_UPDATE, ResourceType.ILLUSTRATION),
+
+  CONFIG_PROGRESS_ILLUSTRATION_DISPLAY_MINIMUM_MS(
+      PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_DISPLAY_MINIMUM_MS, ResourceType.INTEGER);
 
   public enum ResourceType {
+    INTEGER,
     BOOL,
     COLOR,
     DRAWABLE,
     STRING,
     DIMENSION,
-    FRACTION;
+    FRACTION,
+    ILLUSTRATION;
   }
 
   private final String resourceName;

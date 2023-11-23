@@ -27,9 +27,11 @@ import static org.mockito.Mockito.when;
 import android.os.IncidentProto;
 
 import com.android.tradefed.config.ConfigurationDef;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
@@ -37,6 +39,8 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 
 import org.junit.After;
@@ -49,6 +53,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
@@ -62,6 +67,7 @@ import java.util.Map;
 public class IncidentReportCollectorTest {
     private static final TestDescription FAKE_TEST = new TestDescription("class", "test");
     private static final String FAKE_REPORT_PATH = "/sdcard/incidents/final.pb";
+    private static final long FAKE_TIME = 10000;
 
     // The {@code IncidentReportCollector} under test.
     private IncidentReportCollector mIncidentCollector;
@@ -153,7 +159,7 @@ public class IncidentReportCollectorTest {
         // Replay the test started and test ended events to simulate a test.
         mIncidentCollector.testStarted(FAKE_TEST);
         mIncidentCollector.testEnded(FAKE_TEST, TfMetricProtoUtil.upgradeConvert(deviceMetrics));
-        // Ensure the file was processed and contains the expected report.
+        // Ensure the metrics/files were not pulled or processed.
         verify(mInvocationListener, never()).testLog(any(), any(), any());
         verify(mMockTestDevice, never()).pullFile(any(String.class));
     }
@@ -175,5 +181,33 @@ public class IncidentReportCollectorTest {
         verify(mInvocationListener).testLog(matches(".*incident.*"), any(), any());
         // Ensure the processed file was not successfully processed or reported.
         verify(mInvocationListener, never()).testLog(matches(".*processed.*"), any(), any());
+    }
+
+    /** Tests that a report is collected and reported if the test run end option is set. */
+    @Test
+    public void testCollectOnTestRunEnd() throws Exception {
+        OptionSetter setter = new OptionSetter(mIncidentCollector);
+        setter.setOptionValue("incident-on-test-run-end", "true");
+        // Replay the test started and test ended events to simulate a test.
+        mIncidentCollector.testStarted(FAKE_TEST);
+        mIncidentCollector.testEnded(
+                FAKE_TEST, TfMetricProtoUtil.upgradeConvert(new HashMap<String, String>()));
+        // Call test run end and ensure something is collected.
+        when(mMockTestDevice.executeShellV2Command(
+                        eq(IncidentReportCollector.INCIDENT_REPORT_CMD),
+                        any(FileOutputStream.class)))
+                .thenReturn(new CommandResult(CommandStatus.SUCCESS));
+        mIncidentCollector.testRunEnded(FAKE_TIME, new HashMap<String, Metric>());
+        // Ensure the expected "on-test-run-end" files were logged and processed.
+        verify(mInvocationListener)
+                .testLog(
+                        matches(".*incident-on-test-run-end.*"),
+                        eq(LogDataType.PB),
+                        any(FileInputStreamSource.class));
+        verify(mInvocationListener)
+                .testLog(
+                        matches(".*incident-on-test-run-end.*-processed"),
+                        eq(LogDataType.PB),
+                        any(ByteArrayInputStreamSource.class));
     }
 }

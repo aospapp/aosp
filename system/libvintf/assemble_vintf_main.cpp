@@ -49,7 +49,6 @@ void help() {
                  "               After writing the output file, the program checks against\n"
                  "               the \"check file\", depending on environment variables.\n"
                  "               - PRODUCT_ENFORCE_VINTF_MANIFEST=true: check compatibility\n"
-                 "               - VINTF_ENFORCE_NO_UNUSED_HALS  =true: check unused HALs\n"
                  "               If any check fails, an error message is written to stderr.\n"
                  "               Return 1.\n"
                  "    --kernel=<version>:<android-base.config>[:<android-base-arch.config>[...]]\n"

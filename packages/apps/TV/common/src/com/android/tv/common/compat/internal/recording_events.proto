@@ -18,6 +18,7 @@
 // support new features on older devices. NOTE: this proto is internal to this
 // package and should not be used outside it.
 syntax = "proto3";
+
 package android.tv.common.compat.internal;
 
 option java_outer_classname = "RecordingEvents";
@@ -46,4 +47,3 @@ message RecordingStarted {
   // Recording URI.
   string uri = 1;
 }
-

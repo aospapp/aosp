@@ -16,7 +16,7 @@
 
 package android.view;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Looper;
 
 /**
@@ -35,7 +35,7 @@ public class BatchedInputEventReceiver extends InputEventReceiver {
     }
 
     @Override
-    public void onBatchedInputEventPending() {
+    public void onBatchedInputEventPending(int source) {
         scheduleBatchedInput();
     }
 

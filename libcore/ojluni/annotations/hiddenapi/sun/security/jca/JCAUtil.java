@@ -39,7 +39,7 @@ public final class JCAUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.security.SecureRandom getSecureRandom() {
         throw new RuntimeException("Stub!");
     }

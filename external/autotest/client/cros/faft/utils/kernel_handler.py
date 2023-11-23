@@ -1,7 +1,6 @@
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """A module containing kernel handler class used by SAFT."""
 
 import hashlib
@@ -17,6 +16,7 @@ KERNEL_RESIGN_MOD = 3
 
 
 class KernelHandlerError(Exception):
+    """KernelHandler-specific exception."""
     pass
 
 
@@ -47,7 +47,7 @@ class KernelHandler(object):
         data = self.os_if.read_partition(device, 0x4000)
         return self.os_if.retrieve_body_version(data)
 
-    def _get_datakey_version(self,device):
+    def _get_datakey_version(self, device):
         """Get datakey version of kernel hosted on the passed in partition."""
         # 16 K should be enought to include headers and keys
         data = self.os_if.read_partition(device, 0x4000)
@@ -67,7 +67,7 @@ class KernelHandler(object):
 
         kernel_partitions = re.compile('KERN-([AB])')
         disk_map = self.os_if.run_shell_command_get_output(
-            'cgpt show %s' % target_device)
+                'cgpt show %s' % target_device)
 
         for line in disk_map:
             matched_line = kernel_partitions.search(line)
@@ -88,8 +88,8 @@ class KernelHandler(object):
         @param kernel_path: The path to the kernel image.
         """
         dev = self.partition_map[section.upper()]['device']
-        cmd = 'dd if=%s of=%s bs=%dM count=1' % (
-                dev, kernel_path, self.KERNEL_SIZE_MB)
+        cmd = 'dd if=%s of=%s bs=%dM count=1' % (dev, kernel_path,
+                                                 self.KERNEL_SIZE_MB)
         self.os_if.run_shell_command(cmd)
 
     def write_kernel(self, section, kernel_path):
@@ -99,11 +99,12 @@ class KernelHandler(object):
         @param kernel_path: The path to the kernel image to write.
         """
         dev = self.partition_map[section.upper()]['device']
-        cmd = 'dd if=%s of=%s bs=%dM count=1' % (
-                kernel_path, dev, self.KERNEL_SIZE_MB)
-        self.os_if.run_shell_command(cmd)
+        dd_cmd = 'dd if=%s of=%s bs=%dM count=1' % (kernel_path, dev,
+                                                    self.KERNEL_SIZE_MB)
+        self.os_if.run_shell_command(dd_cmd, modifies_device=True)
 
-    def _modify_kernel(self, section,
+    def _modify_kernel(self,
+                       section,
                        delta,
                        modification_type=KERNEL_BODY_MOD,
                        key_path=None):
@@ -131,11 +132,12 @@ class KernelHandler(object):
             new_version = delta
             kernel_to_write = self.dump_file_name + '.new'
             self.os_if.run_shell_command(
-                'vbutil_kernel --repack %s --version %d '
-                '--signprivate %s --oldblob %s' % (
-                    kernel_to_write, new_version,
-                    os.path.join(self.dev_key_path, 'kernel_data_key.vbprivk'),
-                    self.dump_file_name))
+                    'vbutil_kernel --repack %s --version %d '
+                    '--signprivate %s --oldblob %s' %
+                    (kernel_to_write, new_version,
+                     os.path.join(self.dev_key_path,
+                                  'kernel_data_key.vbprivk'),
+                     self.dump_file_name))
         elif modification_type == KERNEL_RESIGN_MOD:
             if key_path and self.os_if.is_dir(key_path):
                 resign_key_path = key_path
@@ -144,12 +146,12 @@ class KernelHandler(object):
 
             kernel_to_write = self.dump_file_name + '.new'
             self.os_if.run_shell_command(
-                'vbutil_kernel --repack %s '
-                '--signprivate %s --oldblob %s --keyblock %s' % (
-                    kernel_to_write,
-                    os.path.join(resign_key_path, 'kernel_data_key.vbprivk'),
-                    self.dump_file_name,
-                    os.path.join(resign_key_path, 'kernel.keyblock')))
+                    'vbutil_kernel --repack %s '
+                    '--signprivate %s --oldblob %s --keyblock %s' %
+                    (kernel_to_write,
+                     os.path.join(resign_key_path, 'kernel_data_key.vbprivk'),
+                     self.dump_file_name,
+                     os.path.join(resign_key_path, 'kernel.keyblock')))
         else:
             return  # Unsupported mode, ignore.
         self.write_kernel(section, kernel_to_write)
@@ -185,10 +187,8 @@ class KernelHandler(object):
 
     def resign_kernel(self, section, key_path=None):
         """Resign kernel with original kernel version and keys in key_path."""
-        self._modify_kernel(section.upper(),
-                            self.get_version(section),
-                            KERNEL_RESIGN_MOD,
-                            key_path)
+        self._modify_kernel(section.upper(), self.get_version(section),
+                            KERNEL_RESIGN_MOD, key_path)
 
     def init(self, os_if, dev_key_path='.', internal_disk=True):
         """Initialize the kernel handler object.

@@ -7,9 +7,10 @@
 #ifndef XFA_FXFA_CXFA_FFIMAGEEDIT_H_
 #define XFA_FXFA_CXFA_FFIMAGEEDIT_H_
 
+#include "core/fxcrt/unowned_ptr.h"
 #include "xfa/fxfa/cxfa_fffield.h"
 
-class CXFA_FFImageEdit : public CXFA_FFField {
+class CXFA_FFImageEdit final : public CXFA_FFField {
  public:
   explicit CXFA_FFImageEdit(CXFA_Node* pNode);
   ~CXFA_FFImageEdit() override;
@@ -17,9 +18,11 @@ class CXFA_FFImageEdit : public CXFA_FFField {
   // CXFA_FFField
   void RenderWidget(CXFA_Graphics* pGS,
                     const CFX_Matrix& matrix,
-                    uint32_t dwStatus) override;
+                    HighlightOption highlight) override;
   bool LoadWidget() override;
-  void UnloadWidget() override;
+  bool AcceptsFocusOnButtonDown(uint32_t dwFlags,
+                                const CFX_PointF& point,
+                                FWL_MouseCommand command) override;
   bool OnLButtonDown(uint32_t dwFlags, const CFX_PointF& point) override;
   void OnProcessMessage(CFWL_Message* pMessage) override;
   void OnProcessEvent(CFWL_Event* pEvent) override;
@@ -32,7 +35,7 @@ class CXFA_FFImageEdit : public CXFA_FFField {
   bool UpdateFWLData() override;
   bool CommitData() override;
 
-  IFWL_WidgetDelegate* m_pOldDelegate;
+  UnownedPtr<IFWL_WidgetDelegate> m_pOldDelegate;
 };
 
 #endif  // XFA_FXFA_CXFA_FFIMAGEEDIT_H_

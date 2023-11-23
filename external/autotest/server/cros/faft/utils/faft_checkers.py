@@ -6,7 +6,6 @@ import re
 import logging
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.server.cros import vboot_constants as vboot
 
 
 class FAFTCheckers(object):
@@ -186,31 +185,6 @@ class FAFTCheckers(object):
             return False
         return True
 
-    def ro_normal_checker(self, expected_fw=None, twostop=False):
-        """Check the current boot uses RO boot.
-
-        @param expected_fw: A string of expected firmware, 'A', 'B', or
-                            None if don't care.
-        @param twostop: True to expect a TwoStop boot; False to expect a RO
-                        boot.
-        @return: True if the currect boot firmware matched and used RO boot;
-                 otherwise, False.
-        """
-        crossystem_dict = {'tried_fwb': '0'}
-        if expected_fw:
-            crossystem_dict['mainfw_act'] = expected_fw.upper()
-        succeed = True
-        if not self.vdat_flags_checker(vboot.VDAT_FLAG_LF_USE_RO_NORMAL,
-                0 if twostop else vboot.VDAT_FLAG_LF_USE_RO_NORMAL):
-            succeed = False
-        if not self.crossystem_checker(crossystem_dict):
-            succeed = False
-        if self.faft_framework.check_ec_capability(suppress_warning=True):
-            expected_ec = ('RW' if twostop else 'RO')
-            if not self.ec_act_copy_checker(expected_ec):
-                succeed = False
-        return succeed
-
     def dev_boot_usb_checker(self, dev_boot_usb=True, kernel_key_hash=False):
         """Check the current boot is from a developer USB (Ctrl-U trigger).
 
@@ -257,10 +231,7 @@ class FAFTCheckers(object):
                               the expected copy of EC running firmware.
         @return: True if the current EC running copy matches; otherwise, False.
         """
-        if self.faft_client.system.has_host():
-            cmd = 'fwtool ec version'
-        else:
-            cmd = 'ectool version'
+        cmd = 'ectool version'
         lines = self.faft_client.system.run_shell_command_get_output(cmd)
         pattern = re.compile("Firmware copy: (.*)")
         for line in lines:

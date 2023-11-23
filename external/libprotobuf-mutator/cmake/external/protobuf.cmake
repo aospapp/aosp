@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# We only need protobuf_generate_cpp from FindProtobuf, and we are going to
+# override the rest with ExternalProject version.
 include (FindProtobuf)
 
 set(PROTOBUF_TARGET external.protobuf)
@@ -28,26 +30,40 @@ ELSE()
 ENDIF()
 
 foreach(lib ${PROTOBUF_LIBRARIES})
-  list(APPEND PROTOBUF_BUILD_BYPRODUCTS ${PROTOBUF_INSTALL_DIR}/lib/lib${lib}.a)
+  if (MSVC)
+    set(LIB_PATH ${PROTOBUF_INSTALL_DIR}/lib/lib${lib}.lib)
+  else()
+    set(LIB_PATH ${PROTOBUF_INSTALL_DIR}/lib/lib${lib}.a)
+  endif()
+  list(APPEND PROTOBUF_BUILD_BYPRODUCTS ${LIB_PATH})
 
   add_library(${lib} STATIC IMPORTED)
   set_property(TARGET ${lib} PROPERTY IMPORTED_LOCATION
-               ${PROTOBUF_INSTALL_DIR}/lib/lib${lib}.a)
+               ${LIB_PATH})
   add_dependencies(${lib} ${PROTOBUF_TARGET})
 endforeach(lib)
 
 set(PROTOBUF_PROTOC_EXECUTABLE ${PROTOBUF_INSTALL_DIR}/bin/protoc)
 list(APPEND PROTOBUF_BUILD_BYPRODUCTS ${PROTOBUF_PROTOC_EXECUTABLE})
-add_executable(protoc IMPORTED)
-set_property(TARGET protoc PROPERTY IMPORTED_LOCATION
+
+if(${CMAKE_VERSION} VERSION_LESS "3.10.0")
+  set(PROTOBUF_PROTOC_TARGET protoc)
+else()
+  set(PROTOBUF_PROTOC_TARGET protobuf::protoc)
+endif()
+
+if(NOT TARGET ${PROTOBUF_PROTOC_TARGET})
+  add_executable(${PROTOBUF_PROTOC_TARGET} IMPORTED)
+endif()
+set_property(TARGET ${PROTOBUF_PROTOC_TARGET} PROPERTY IMPORTED_LOCATION
              ${PROTOBUF_PROTOC_EXECUTABLE})
-add_dependencies(protoc ${PROTOBUF_TARGET})
+add_dependencies(${PROTOBUF_PROTOC_TARGET} ${PROTOBUF_TARGET})
 
 include (ExternalProject)
 ExternalProject_Add(${PROTOBUF_TARGET}
     PREFIX ${PROTOBUF_TARGET}
     GIT_REPOSITORY https://github.com/google/protobuf.git
-    GIT_TAG 47b7d2c
+    GIT_TAG 1363bf9c051af36c555c23d734a204246c215697
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ${CMAKE_COMMAND} ${PROTOBUF_INSTALL_DIR}/src/${PROTOBUF_TARGET}/cmake
         -G${CMAKE_GENERATOR}

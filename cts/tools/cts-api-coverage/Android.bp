@@ -27,7 +27,6 @@ java_library_host {
     },
 
     java_resource_dirs: ["res"],
-    manifest: "MANIFEST.mf",
 
     static_libs: [
         "compatibility-host-util",
@@ -45,10 +44,13 @@ java_binary_host {
     name: "cts-api-coverage",
     wrapper: "etc/cts-api-coverage",
     static_libs: ["api-coverage"],
+    manifest: "MANIFEST.mf",
 }
+
 
 java_binary_host {
     name: "ndk-api-report",
     wrapper: "etc/ndk-api-report",
     static_libs: ["api-coverage"],
+    manifest: "MANIFEST.mf",
 }

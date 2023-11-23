@@ -97,10 +97,10 @@ TEST_F(SystemVendorTest, KernelCompatibility) {
 // AVB version is not a compliance requirement.
 TEST_F(SystemVendorTest, VendorFrameworkCompatibility) {
   string error;
-  EXPECT_EQ(android::vintf::COMPATIBLE,
-            VintfObject::CheckCompatibility(
-                {}, &error,
-                ::android::vintf::CheckFlags::ENABLE_ALL_CHECKS.disableAvb()))
+  EXPECT_EQ(
+      android::vintf::COMPATIBLE,
+      VintfObject::GetInstance()->checkCompatibility(
+          &error, ::android::vintf::CheckFlags::ENABLE_ALL_CHECKS.disableAvb()))
       << error;
 }
 

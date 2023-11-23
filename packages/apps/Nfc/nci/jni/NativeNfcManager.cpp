@@ -64,6 +64,7 @@ extern void nativeNfcTag_formatStatus(bool is_ok);
 extern void nativeNfcTag_resetPresenceCheck();
 extern void nativeNfcTag_doReadCompleted(tNFA_STATUS status);
 extern void nativeNfcTag_setRfInterface(tNFA_INTF_TYPE rfInterface);
+extern void nativeNfcTag_setActivatedRfProtocol(tNFA_INTF_TYPE rfProtocol);
 extern void nativeNfcTag_abortWaits();
 extern void nativeLlcpConnectionlessSocket_abortWait();
 extern void nativeNfcTag_registerNdefTypeHandler();
@@ -83,7 +84,6 @@ bool gActivated = false;
 SyncEvent gDeactivatedEvent;
 SyncEvent sNfaSetPowerSubState;
 bool legacy_mfc_reader = true;
-bool gNfccConfigControlStatus = false;
 
 namespace android {
 jmethodID gCachedNfcManagerNotifyNdefMessageListeners;
@@ -191,7 +191,8 @@ void initializeGlobalDebugEnabledFlag() {
 }
 void initializeMfcReaderOption() {
   legacy_mfc_reader =
-      (NfcConfig::getUnsigned(NAME_LEGACY_MIFARE_READER, 1) != 0) ? true : false;
+      (NfcConfig::getUnsigned(NAME_LEGACY_MIFARE_READER, 0) != 0) ? true
+                                                                  : false;
 
   DLOG_IF(INFO, nfc_debug_enabled)
       << __func__ <<": mifare reader option=" << legacy_mfc_reader;
@@ -227,18 +228,31 @@ nfc_jni_native_data* getNative(JNIEnv* e, jobject o) {
 **
 *******************************************************************************/
 static void handleRfDiscoveryEvent(tNFC_RESULT_DEVT* discoveredDevice) {
+  NfcTag& natTag = NfcTag::getInstance();
+  natTag.setNumDiscNtf(natTag.getNumDiscNtf() + 1);
   if (discoveredDevice->more == NCI_DISCOVER_NTF_MORE) {
     // there is more discovery notification coming
     return;
   }
 
-  bool isP2p = NfcTag::getInstance().isP2pDiscovered();
-  if (!sReaderModeEnabled && isP2p) {
+  bool isP2p = natTag.isP2pDiscovered();
+
+  if (natTag.getNumDiscNtf() > 1) {
+    natTag.setMultiProtocolTagSupport(true);
+    if (isP2p) {
+      // Remove NFC_DEP NTF count
+      // Skip NFC_DEP protocol in MultiProtocolTag select.
+      natTag.setNumDiscNtf(natTag.getNumDiscNtf() - 1);
+    }
+  }
+
+  if (sP2pEnabled && !sReaderModeEnabled && isP2p) {
     // select the peer that supports P2P
-    NfcTag::getInstance().selectP2p();
+    natTag.selectP2p();
   } else {
+    natTag.setNumDiscNtf(natTag.getNumDiscNtf() - 1);
     // select the first of multiple tags that is discovered
-    NfcTag::getInstance().selectFirstTag();
+    natTag.selectFirstTag();
   }
 }
 
@@ -295,6 +309,8 @@ static void nfaConnectionCallback(uint8_t connEvent,
           << StringPrintf("%s: NFA_RF_DISCOVERY_STOPPED_EVT: status = %u",
                           __func__, eventData->status);
 
+      gActivated = false;
+
       SyncEventGuard guard(sNfaEnableDisablePollingEvent);
       sNfaEnableDisablePollingEvent.notifyOne();
     } break;
@@ -304,6 +320,7 @@ static void nfaConnectionCallback(uint8_t connEvent,
       DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
           "%s: NFA_DISC_RESULT_EVT: status = %d", __func__, status);
       if (status != NFA_STATUS_OK) {
+        NfcTag::getInstance().setNumDiscNtf(0);
         LOG(ERROR) << StringPrintf("%s: NFA_DISC_RESULT_EVT error: status = %d",
                                    __func__, status);
       } else {
@@ -340,14 +357,23 @@ static void nfaConnectionCallback(uint8_t connEvent,
       break;
 
     case NFA_ACTIVATED_EVT:  // NFC link/protocol activated
+    {
       DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
           "%s: NFA_ACTIVATED_EVT: gIsSelectingRfInterface=%d, sIsDisabling=%d",
           __func__, gIsSelectingRfInterface, sIsDisabling);
+      uint8_t activatedProtocol =
+          (tNFA_INTF_TYPE)eventData->activated.activate_ntf.protocol;
+      if (NFC_PROTOCOL_T5T == activatedProtocol &&
+          NfcTag::getInstance().getNumDiscNtf()) {
+        /* T5T doesn't support multiproto detection logic */
+        NfcTag::getInstance().setNumDiscNtf(0);
+      }
       if ((eventData->activated.activate_ntf.protocol !=
            NFA_PROTOCOL_NFC_DEP) &&
           (!isListenMode(eventData->activated))) {
         nativeNfcTag_setRfInterface(
             (tNFA_INTF_TYPE)eventData->activated.activate_ntf.intf_param.type);
+        nativeNfcTag_setActivatedRfProtocol(activatedProtocol);
       }
       if (EXTNS_GetConnectFlag() == TRUE) {
         NfcTag::getInstance().setActivationState();
@@ -398,6 +424,12 @@ static void nfaConnectionCallback(uint8_t connEvent,
         }
       } else {
         NfcTag::getInstance().connectionEventHandler(connEvent, eventData);
+        if (NfcTag::getInstance().getNumDiscNtf()) {
+          /*If its multiprotocol tag, deactivate tag with current selected
+          protocol to sleep . Select tag with next supported protocol after
+          deactivation event is received*/
+          NFA_Deactivate(true);
+        }
 
         // We know it is not activating for P2P.  If it activated in
         // listen mode then it is likely for an SE transaction.
@@ -406,13 +438,13 @@ static void nfaConnectionCallback(uint8_t connEvent,
           sSeRfActive = true;
         }
       }
-      break;
-
+    } break;
     case NFA_DEACTIVATED_EVT:  // NFC link/protocol deactivated
       DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
           "%s: NFA_DEACTIVATED_EVT   Type: %u, gIsTagDeactivating: %d",
           __func__, eventData->deactivated.type, gIsTagDeactivating);
       NfcTag::getInstance().setDeactivationState(eventData->deactivated);
+      NfcTag::getInstance().selectNextTagIfExists();
       if (eventData->deactivated.type != NFA_DEACTIVATE_TYPE_SLEEP) {
         {
           SyncEventGuard g(gDeactivatedEvent);
@@ -892,11 +924,12 @@ static jboolean nfcManager_routeAid(JNIEnv* e, jobject, jbyteArray aid,
   if (aid == NULL) {
     buf = NULL;
     bufLen = 0;
-  } else {
-    ScopedByteArrayRO bytes(e, aid);
-    buf = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&bytes[0]));
-    bufLen = bytes.size();
+    return RoutingManager::getInstance().addAidRouting(buf, bufLen, route,
+                                                       aidInfo);
   }
+  ScopedByteArrayRO bytes(e, aid);
+  buf = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&bytes[0]));
+  bufLen = bytes.size();
   return RoutingManager::getInstance().addAidRouting(buf, bufLen, route,
                                                      aidInfo);
 }
@@ -919,13 +952,12 @@ static jboolean nfcManager_unrouteAid(JNIEnv* e, jobject, jbyteArray aid) {
   if (aid == NULL) {
     buf = NULL;
     bufLen = 0;
-  } else {
-    ScopedByteArrayRO bytes(e, aid);
-    buf = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&bytes[0]));
-    bufLen = bytes.size();
+    return RoutingManager::getInstance().removeAidRouting(buf, bufLen);
   }
-  bool result = RoutingManager::getInstance().removeAidRouting(buf, bufLen);
-  return result;
+  ScopedByteArrayRO bytes(e, aid);
+  buf = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&bytes[0]));
+  bufLen = bytes.size();
+  return RoutingManager::getInstance().removeAidRouting(buf, bufLen);
 }
 
 /*******************************************************************************
@@ -1165,20 +1197,20 @@ static void nfcManager_doShutdown(JNIEnv*, jobject) {
 }
 
 static void nfcManager_configNfccConfigControl(bool flag) {
-  // configure NFCC_CONFIG_CONTROL- NFCC allowed to manage RF configuration.
-  if (NFC_GetNCIVersion() != NCI_VERSION_1_0) {
-    uint8_t nfa_set_config[] = {0x00};
+    // configure NFCC_CONFIG_CONTROL- NFCC allowed to manage RF configuration.
+    if (NFC_GetNCIVersion() != NCI_VERSION_1_0) {
+        uint8_t nfa_set_config[] = { 0x00 };
 
-    nfa_set_config[0] = (flag == true ? 1 : 0);
-    gNfccConfigControlStatus = flag;
+        nfa_set_config[0] = (flag == true ? 1 : 0);
 
-    tNFA_STATUS status =
-        NFA_SetConfig(NCI_PARAM_ID_NFCC_CONFIG_CONTROL, sizeof(nfa_set_config),
-                      &nfa_set_config[0]);
-    if (status != NFA_STATUS_OK) {
-      LOG(ERROR) << __func__ << ": Failed to configure NFCC_CONFIG_CONTROL";
+        tNFA_STATUS status = NFA_SetConfig(NCI_PARAM_ID_NFCC_CONFIG_CONTROL,
+                                           sizeof(nfa_set_config),
+                                           &nfa_set_config[0]);
+        if (status != NFA_STATUS_OK) {
+            LOG(ERROR) << __func__
+            << ": Failed to configure NFCC_CONFIG_CONTROL";
+        }
     }
-  }
 }
 
 /*******************************************************************************
@@ -1248,8 +1280,7 @@ static void nfcManager_enableDiscovery(JNIEnv* e, jobject o,
         sReaderModeEnabled = true;
         NFA_DisableListening();
 
-        // configure NFCC_CONFIG_CONTROL- NFCC not allowed to manage RF
-        // configuration.
+        // configure NFCC_CONFIG_CONTROL- NFCC not allowed to manage RF configuration.
         nfcManager_configNfccConfigControl(false);
 
         NFA_SetRfDiscoveryDuration(READER_MODE_DISCOVERY_DURATION);
@@ -1258,11 +1289,8 @@ static void nfcManager_enableDiscovery(JNIEnv* e, jobject o,
         sReaderModeEnabled = false;
         NFA_EnableListening();
 
-        // configure NFCC_CONFIG_CONTROL- NFCC allowed to manage RF
-        // configuration.
-        if (gNfccConfigControlStatus == false) {
-          nfcManager_configNfccConfigControl(true);
-        }
+        // configure NFCC_CONFIG_CONTROL- NFCC allowed to manage RF configuration.
+        nfcManager_configNfccConfigControl(true);
 
         NFA_SetRfDiscoveryDuration(nat->discovery_duration);
       }
@@ -1963,6 +1991,11 @@ static jboolean nfcManager_doSetNfcSecure(JNIEnv* e, jobject o,
   }
   return true;
 }
+
+static jstring nfcManager_doGetNfaStorageDir(JNIEnv* e, jobject o) {
+  string nfaStorageDir = NfcConfig::getString(NAME_NFA_STORAGE, "/data/nfc");
+  return e->NewStringUTF(nfaStorageDir.c_str());
+}
 /*****************************************************************************
 **
 ** JNI functions for android-4.0.1_r1
@@ -2050,6 +2083,9 @@ static JNINativeMethod gMethods[] = {
     {"getAidTableSize", "()I", (void*)nfcManager_getAidTableSize},
 
     {"doSetNfcSecure", "(Z)Z", (void*)nfcManager_doSetNfcSecure},
+
+    {"getNfaStorageDir", "()Ljava/lang/String;",
+     (void*)nfcManager_doGetNfaStorageDir},
 };
 
 /*******************************************************************************
@@ -2141,9 +2177,8 @@ void doStartupConfig() {
   }
 
   // configure NFCC_CONFIG_CONTROL- NFCC allowed to manage RF configuration.
-  if (gNfccConfigControlStatus == false) {
-    nfcManager_configNfccConfigControl(true);
-  }
+  nfcManager_configNfccConfigControl(true);
+
 }
 
 /*******************************************************************************

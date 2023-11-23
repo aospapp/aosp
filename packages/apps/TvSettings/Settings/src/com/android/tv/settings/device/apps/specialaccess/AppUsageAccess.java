@@ -18,6 +18,7 @@ package com.android.tv.settings.device.apps.specialaccess;
 
 import android.Manifest;
 import android.app.AppOpsManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.os.Bundle;
 
 import androidx.annotation.Keep;
@@ -112,5 +113,10 @@ public class AppUsageAccess extends ManageAppOp
     @Override
     public PreferenceGroup getAppPreferenceGroup() {
         return getPreferenceScreen();
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SPECIAL_APP_ACCESS_USAGE_ACCESS;
     }
 }

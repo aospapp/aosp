@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -119,8 +119,8 @@ static inline void CompositePixelOver(const Image *image,const PixelInfo *p,
   }
 }
 
-static inline void CompositePixelInfoOver(const PixelInfo *p,
-  const double alpha,const PixelInfo *q,const double beta,PixelInfo *composite)
+static inline void CompositePixelInfoOver(const PixelInfo *p,const double alpha,
+  const PixelInfo *q,const double beta,PixelInfo *composite)
 {
   double
     Da,

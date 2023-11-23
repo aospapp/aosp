@@ -15,14 +15,22 @@
  */
 package com.android.car.vehiclehal.test;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+
+import static java.lang.Integer.toHexString;
 
 import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
 import android.car.hardware.property.CarPropertyManager.CarPropertyEventCallback;
+import android.car.hardware.property.VehicleVendorPermission;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
+import android.os.SystemClock;
 import android.util.ArraySet;
 import android.util.Log;
 
@@ -33,11 +41,11 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static java.lang.Integer.toHexString;
-
-import java.io.File;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The test suite will execute end-to-end Car Property API test by generating VHAL property data
@@ -51,88 +59,145 @@ public class CarPropertyTest extends E2eCarTestBase {
     private static final String TAG = Utils.concatTag(CarPropertyTest.class);
 
     // Test should be completed within 10 minutes as it only covers a finite set of properties
-    private static final Duration TEST_TIME_OUT = Duration.ofMinutes(10);
+    private static final Duration TEST_TIME_OUT = Duration.ofMinutes(3);
 
     private static final String CAR_HVAC_TEST_JSON = "car_hvac_test.json";
+    private static final String CAR_HVAC_TEST_SET_JSON = "car_hvac_test.json";
     private static final String CAR_INFO_TEST_JSON = "car_info_test.json";
+    // kMixedTypePropertyForTest property ID
+    private static final int MIXED_TYPE_PROPERTY = 0x21e01111;
+    // kSetPropertyFromVehicleForTest
+    private static final int SET_INT_FROM_VEHICLE = 0x21e01112;
+    private static final int SET_FLOAT_FROM_VEHICLE = 0x21e01113;
+    private static final int SET_BOOLEAN_FROM_VEHICLE = 0x21e01114;
+    private static final int WAIT_FOR_CALLBACK = 200;
 
+    // kMixedTypePropertyForTest default value
+    private static final Object[] DEFAULT_VALUE = {"MIXED property", true, 2, 3, 4.5f};
+    private static final String CAR_PROPERTY_TEST_JSON = "car_property_test.json";
+    private static final int GEAR_PROPERTY_ID = 289408000;
+
+    private static final Set<String> VENDOR_PERMISSIONS = new HashSet<>(Arrays.asList(
+            Car.PERMISSION_VENDOR_EXTENSION,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_WINDOW,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_WINDOW,
+            // permissions for the property related with door
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_DOOR,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_DOOR,
+            // permissions for the property related with seat
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_SEAT,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_SEAT,
+            // permissions for the property related with mirror
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_MIRROR,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_MIRROR,
+
+            // permissions for the property related with car's information
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_INFO,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_INFO,
+            // permissions for the property related with car's engine
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_ENGINE,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_ENGINE,
+            // permissions for the property related with car's HVAC
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_HVAC,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_HVAC,
+            // permissions for the property related with car's light
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_LIGHT,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_LIGHT,
+
+            // permissions reserved for other vendor permission
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_1,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_1,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_2,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_2,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_3,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_3,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_4,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_4,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_5,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_5,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_6,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_6,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_7,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_7,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_8,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_8,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_9,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_9,
+            VehicleVendorPermission.PERMISSION_SET_CAR_VENDOR_CATEGORY_10,
+            VehicleVendorPermission.PERMISSION_GET_CAR_VENDOR_CATEGORY_10
+    ));
     private class CarPropertyEventReceiver implements CarPropertyEventCallback {
 
         private VhalEventVerifier mVerifier;
-        private Integer mNumOfEventToSkip;
+        private boolean mStartVerify = false;
 
-        CarPropertyEventReceiver(VhalEventVerifier verifier, int numOfEventToSkip) {
+        CarPropertyEventReceiver(VhalEventVerifier verifier) {
             mVerifier = verifier;
-            mNumOfEventToSkip = numOfEventToSkip;
         }
 
         @Override
         public void onChangeEvent(CarPropertyValue carPropertyValue) {
-            Log.d(TAG, "Received event: " + carPropertyValue);
-            synchronized (mNumOfEventToSkip) {
-                if (mNumOfEventToSkip > 0) {
-                    mNumOfEventToSkip--;
-                    return;
-                }
+            if (mStartVerify) {
+                mVerifier.verify(carPropertyValue);
             }
-            mVerifier.verify(carPropertyValue);
         }
 
         @Override
         public void onErrorEvent(final int propertyId, final int zone) {
             Assert.fail("Error: propertyId=" + toHexString(propertyId) + " zone=" + zone);
         }
-    }
 
-    private int countNumPropEventsToSkip(CarPropertyManager propMgr, ArraySet<Integer> props) {
-        int numToSkip = 0;
-        for (CarPropertyConfig c : propMgr.getPropertyList(props)) {
-            numToSkip += c.getAreaCount();
+        // Start verifying events
+        public void startVerifying() {
+            mStartVerify = true;
         }
-        return numToSkip;
     }
 
     /**
-     * This test will let Default VHAL to generate HVAC data and verify on-the-fly in the test. It
-     * is simulating the HVAC actions coming from hard buttons in a car.
+     * This test will use {@link CarPropertyManager#setProperty(Class, int, int, Object)} to turn
+     * on the HVAC_PROWER and then let Default VHAL to generate HVAC data and verify on-the-fly
+     * in the test. It is simulating the HVAC actions coming from hard buttons in a car.
      * @throws Exception
      */
     @Test
     public void testHvacHardButtonOperations() throws Exception {
+
         Log.d(TAG, "Prepare HVAC test data");
         List<CarPropertyValue> expectedEvents = getExpectedEvents(CAR_HVAC_TEST_JSON);
-        VhalEventVerifier verifier = new VhalEventVerifier(expectedEvents);
+        List<CarPropertyValue> expectedSetEvents = getExpectedEvents(CAR_HVAC_TEST_SET_JSON);
 
         CarPropertyManager propMgr = (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
         assertNotNull("CarPropertyManager is null", propMgr);
 
-        ArraySet<Integer> props = new ArraySet<>();
-        for (CarPropertyValue event : expectedEvents) {
-            if (!props.contains(event.getPropertyId())) {
-                props.add(event.getPropertyId());
-            }
+        // test set method from android side
+        for (CarPropertyValue expectedEvent : expectedSetEvents) {
+            Class valueClass = expectedEvent.getValue().getClass();
+            propMgr.setProperty(valueClass,
+                    expectedEvent.getPropertyId(),
+                    expectedEvent.getAreaId(),
+                    expectedEvent.getValue());
+            Thread.sleep(WAIT_FOR_CALLBACK);
+            CarPropertyValue receivedEvent = propMgr.getProperty(valueClass,
+                    expectedEvent.getPropertyId(), expectedEvent.getAreaId());
+            assertTrue("Mismatched events, expected: " + expectedEvent + ", received: "
+                    + receivedEvent, Utils.areCarPropertyValuesEqual(expectedEvent, receivedEvent));
         }
 
-        int numToSkip = countNumPropEventsToSkip(propMgr, props);
-        Log.d(TAG, String.format("Start listening to the HAL."
-                                 + " Skipping %d events for listener registration", numToSkip));
-        CarPropertyEventCallback receiver =
-                new CarPropertyEventReceiver(verifier, numToSkip);
+        // test that set from vehicle side will trigger callback to android
+        VhalEventVerifier verifier = new VhalEventVerifier(expectedEvents);
+        ArraySet<Integer> props = new ArraySet<>();
+        for (CarPropertyValue event : expectedEvents) {
+                props.add(event.getPropertyId());
+        }
+        CarPropertyEventReceiver receiver =
+                new CarPropertyEventReceiver(verifier);
         for (Integer prop : props) {
             propMgr.registerCallback(receiver, prop, 0);
         }
-
-        File sharedJson = makeShareable(CAR_HVAC_TEST_JSON);
-        Log.d(TAG, "Send command to VHAL to start generation");
-        VhalEventGenerator hvacGenerator =
-                new JsonVhalEventGenerator(mVehicle).setJsonFile(sharedJson);
-        hvacGenerator.start();
-
-        Log.d(TAG, "Receiving and verifying VHAL events");
+        Thread.sleep(WAIT_FOR_CALLBACK);
+        receiver.startVerifying();
+        injectEventFromVehicleSide(expectedEvents, propMgr);
         verifier.waitForEnd(TEST_TIME_OUT.toMillis());
-
-        Log.d(TAG, "Send command to VHAL to stop generation");
-        hvacGenerator.stop();
         propMgr.unregisterCallback(receiver);
 
         assertTrue("Detected mismatched events: " + verifier.getResultString(),
@@ -140,38 +205,7 @@ public class CarPropertyTest extends E2eCarTestBase {
     }
 
     /**
-     * This test will exercise on "set" calls to inject HVAC data in order to test the Car Property
-     * API end-to-end functionality.
-     * @throws Exception
-     */
-    @Test
-    @SuppressWarnings("unchecked")
-    public void testHvacSetGetOperations() throws Exception {
-        Log.d(TAG, "Prepare HVAC test data");
-        List<CarPropertyValue> expectedEvents = getExpectedEvents(CAR_HVAC_TEST_JSON);
-
-        CarPropertyManager propMgr = (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
-        assertNotNull("CarPropertyManager is null", propMgr);
-
-        final long waitForSetMillisecond = 2;
-        for (CarPropertyValue expectedEvent : expectedEvents) {
-            Class valueClass = expectedEvent.getValue().getClass();
-            propMgr.setProperty(valueClass,
-                                expectedEvent.getPropertyId(),
-                                expectedEvent.getAreaId(),
-                                expectedEvent.getValue());
-
-            Thread.sleep(waitForSetMillisecond);
-            CarPropertyValue receivedEvent = propMgr.getProperty(valueClass,
-                    expectedEvent.getPropertyId(), expectedEvent.getAreaId());
-            assertTrue("Mismatched events, expected: " + expectedEvent + ", received: "
-                    + receivedEvent, Utils.areCarPropertyValuesEqual(expectedEvent, receivedEvent));
-        }
-    }
-
-    /**
-     * This test will load static vehicle information from test data file and verify them through
-     * get calls.
+     * Static properties' value should never be changed.
      * @throws Exception
      */
     @Test
@@ -181,20 +215,6 @@ public class CarPropertyTest extends E2eCarTestBase {
         List<CarPropertyValue> expectedEvents = getExpectedEvents(CAR_INFO_TEST_JSON);
         CarPropertyManager propMgr = (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
         assertNotNull("CarPropertyManager is null", propMgr);
-
-        File sharedJson = makeShareable(CAR_INFO_TEST_JSON);
-        Log.d(TAG, "Send command to VHAL to start generation");
-        VhalEventGenerator infoGenerator =
-                new JsonVhalEventGenerator(mVehicle).setJsonFile(sharedJson);
-        infoGenerator.start();
-
-        // Wait for some time to ensure information is all loaded
-        // It is assuming the test data is not very large
-        Thread.sleep(2000);
-
-        Log.d(TAG, "Send command to VHAL to stop generation");
-        infoGenerator.stop();
-
         for (CarPropertyValue expectedEvent : expectedEvents) {
             CarPropertyValue actualEvent = propMgr.getProperty(
                     expectedEvent.getPropertyId(), expectedEvent.getAreaId());
@@ -202,6 +222,140 @@ public class CarPropertyTest extends E2eCarTestBase {
                     "Mismatched car information data, actual: %s, expected: %s",
                     actualEvent, expectedEvent),
                     Utils.areCarPropertyValuesEqual(actualEvent, expectedEvent));
+        }
+    }
+
+    /**
+     * This test will test set/get on MIX type properties. It needs a vendor property in Google
+     * Vehicle HAL. See kMixedTypePropertyForTest in google defaultConfig.h for details.
+     * @throws Exception
+     */
+    @Test
+    public void testMixedTypeProperty() throws Exception {
+        CarPropertyManager propertyManager =
+                (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
+        ArraySet<Integer> propConfigSet = new ArraySet<>();
+        propConfigSet.add(MIXED_TYPE_PROPERTY);
+
+        List<CarPropertyConfig> configs = propertyManager.getPropertyList(propConfigSet);
+
+        // use google HAL in the test
+        assertNotEquals("Can not find MIXED type properties in HAL",
+                0, configs.size());
+
+        // test CarPropertyConfig
+        CarPropertyConfig<?> cfg = configs.get(0);
+        List<Integer> configArrayExpected = Arrays.asList(1, 1, 0, 2, 0, 0, 1, 0, 0);
+        assertArrayEquals(configArrayExpected.toArray(), cfg.getConfigArray().toArray());
+
+        // test SET/GET methods
+        CarPropertyValue<Object[]> propertyValue = propertyManager.getProperty(Object[].class,
+                MIXED_TYPE_PROPERTY, 0);
+        assertArrayEquals(DEFAULT_VALUE, propertyValue.getValue());
+
+        Object[] expectedValue = {"MIXED property", false, 5, 4, 3.2f};
+        propertyManager.setProperty(Object[].class, MIXED_TYPE_PROPERTY, 0, expectedValue);
+        // Wait for VHAL
+        Thread.sleep(WAIT_FOR_CALLBACK);
+        CarPropertyValue<Object[]> result = propertyManager.getProperty(Object[].class,
+                MIXED_TYPE_PROPERTY, 0);
+        assertArrayEquals(expectedValue, result.getValue());
+    }
+
+    /**
+     * This test will test the case: vehicle events comes to android out of order.
+     * See the events in car_property_test.json.
+     * @throws Exception
+     */
+    @Test
+    public void testPropertyEventOutOfOrder() throws Exception {
+        CarPropertyManager propMgr = (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
+        assertNotNull("CarPropertyManager is null", propMgr);
+        List<CarPropertyValue> expectedEvents = getExpectedEvents(CAR_PROPERTY_TEST_JSON);
+
+        GearEventTestCallback cb = new GearEventTestCallback();
+        propMgr.registerCallback(cb, GEAR_PROPERTY_ID, CarPropertyManager.SENSOR_RATE_ONCHANGE);
+        injectEventFromVehicleSide(expectedEvents, propMgr);
+        // check VHAL ignored the last event in car_property_test, because it is out of order.
+        int currentGear = propMgr.getIntProperty(GEAR_PROPERTY_ID, 0);
+        assertEquals(16, currentGear);
+    }
+
+    /**
+     * Check only vendor properties have vendor permissions.
+     */
+    @Test
+    public void checkPropertyPermission() {
+        CarPropertyManager propMgr = (CarPropertyManager) mCar.getCarManager(Car.PROPERTY_SERVICE);
+        List<CarPropertyConfig> configs = propMgr.getPropertyList();
+        for (CarPropertyConfig cfg : configs) {
+            String readPermission = propMgr.getReadPermission(cfg.getPropertyId());
+            String writePermission = propMgr.getWritePermission(cfg.getPropertyId());
+            if ((cfg.getPropertyId() & VehiclePropertyGroup.MASK) == VehiclePropertyGroup.VENDOR) {
+                Assert.assertTrue(readPermission == null
+                        || VENDOR_PERMISSIONS.contains(readPermission));
+                Assert.assertTrue(writePermission == null
+                        || VENDOR_PERMISSIONS.contains(writePermission));
+            } else {
+                Assert.assertTrue(readPermission == null
+                        || !VENDOR_PERMISSIONS.contains(readPermission));
+                Assert.assertTrue(writePermission == null
+                        || !VENDOR_PERMISSIONS.contains(writePermission));
+            }
+        }
+    }
+
+    private class GearEventTestCallback implements CarPropertyEventCallback {
+        private long mTimestamp = 0L;
+
+        @Override
+        public void onChangeEvent(CarPropertyValue carPropertyValue) {
+            if (carPropertyValue.getPropertyId() != GEAR_PROPERTY_ID) {
+                return;
+            }
+            if (carPropertyValue.getStatus() == CarPropertyValue.STATUS_AVAILABLE) {
+                Assert.assertTrue("Received events out of oder",
+                        mTimestamp <= carPropertyValue.getTimestamp());
+                mTimestamp = carPropertyValue.getTimestamp();
+            }
+        }
+
+        @Override
+        public void onErrorEvent(final int propertyId, final int zone) {
+            Assert.fail("Error: propertyId: x0" + toHexString(propertyId) + " areaId: " + zone);
+        }
+    }
+
+    /**
+     * Inject events from vehicle side. It change the value of property even the property is a
+     * read_only property such as GEAR_SELECTION. It only works with Google VHAL.
+     */
+    private void injectEventFromVehicleSide(List<CarPropertyValue> expectedEvents,
+            CarPropertyManager propMgr) {
+        for (CarPropertyValue propertyValue : expectedEvents) {
+            Object[] values = new Object[3];
+            int propId;
+            // The order of values is matter
+            if (propertyValue.getValue() instanceof Integer) {
+                propId = SET_INT_FROM_VEHICLE;
+                values[0] = propertyValue.getPropertyId();
+                values[1] = propertyValue.getValue();
+                values[2] = propertyValue.getTimestamp() + SystemClock.elapsedRealtimeNanos();
+            } else if (propertyValue.getValue() instanceof Float) {
+                values[0] = propertyValue.getPropertyId();
+                values[1] = propertyValue.getTimestamp() + SystemClock.elapsedRealtimeNanos();
+                values[2] = propertyValue.getValue();
+                propId = SET_FLOAT_FROM_VEHICLE;
+            } else if (propertyValue.getValue() instanceof Boolean) {
+                propId = SET_BOOLEAN_FROM_VEHICLE;
+                values[1] = propertyValue.getPropertyId();
+                values[0] = propertyValue.getValue();
+                values[2] = propertyValue.getTimestamp() + SystemClock.elapsedRealtimeNanos();
+            } else {
+                throw new IllegalArgumentException(
+                        "Unexpected property type for property " + propertyValue.getPropertyId());
+            }
+            propMgr.setProperty(Object[].class, propId, propertyValue.getAreaId(), values);
         }
     }
 }

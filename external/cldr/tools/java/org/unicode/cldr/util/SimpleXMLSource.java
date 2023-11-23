@@ -43,6 +43,11 @@ public class SimpleXMLSource extends XMLSource {
     public String getValueAtDPath(String xpath) {
         return (String) xpath_value.get(xpath);
     }
+    
+    public String getValueAtDPathSkippingInheritanceMarker(String xpath) {
+        String result = (String) xpath_value.get(xpath);
+        return CldrUtility.INHERITANCE_MARKER.equals(result) ? null : result;
+    }
 
     public String getFullPathAtDPath(String xpath) {
         String result = (String) xpath_fullXPath.get(xpath);
@@ -124,7 +129,11 @@ public class SimpleXMLSource extends XMLSource {
                 VALUE_TO_PATH = Relation.of(new HashMap<String, Set<String>>(), HashSet.class);
                 for (Iterator<String> it = iterator(); it.hasNext();) {
                     String path = it.next();
-                    String value = normalize(getValueAtDPath(path));
+                    String value1 = getValueAtDPathSkippingInheritanceMarker(path);
+                    if (value1 == null) {
+                        continue;
+                    }
+                    String value = normalize(value1);
                     VALUE_TO_PATH.put(value, path);
                 }
             }
@@ -149,7 +158,7 @@ public class SimpleXMLSource extends XMLSource {
     static final Normalizer2 NFKC = Normalizer2.getNFKCInstance();
 
     // The following includes letters, marks, numbers, currencies, and *selected* symbols/punctuation
-    static final UnicodeSet NON_ALPHANUM = new UnicodeSet("[^[:L:][:M:][:N:][:Sc:]/+\\-°′″%‰٪؉−⍰()]").freeze();
+    static final UnicodeSet NON_ALPHANUM = new UnicodeSet("[^[:L:][:M:][:N:][:Sc:]/+\\-°′″%‰‱٪؉−⍰()⊕☉]").freeze();
 
     public static String normalize(String valueToMatch) {
         return replace(NON_ALPHANUM, NFKCCF.normalize(valueToMatch), "");

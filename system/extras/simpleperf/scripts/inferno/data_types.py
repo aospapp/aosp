@@ -113,15 +113,16 @@ class FlameGraphCallSite(object):
                                                               self._get_next_callsite_id())
         return child
 
-    def trim_callchain(self, min_num_events):
+    def trim_callchain(self, min_num_events, max_depth, depth=0):
         """ Remove call sites with num_events < min_num_events in the subtree.
             Remaining children are collected in a list.
         """
-        for key in self.child_dict:
-            child = self.child_dict[key]
-            if child.num_events >= min_num_events:
-                child.trim_callchain(min_num_events)
-                self.children.append(child)
+        if depth <= max_depth:
+            for key in self.child_dict:
+                child = self.child_dict[key]
+                if child.num_events >= min_num_events:
+                    child.trim_callchain(min_num_events, max_depth, depth + 1)
+                    self.children.append(child)
         # Relese child_dict since it will not be used.
         self.child_dict = None
 

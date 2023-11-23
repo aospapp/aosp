@@ -595,18 +595,51 @@ public class SapService extends ProfileService {
         }
     }
 
-    public boolean setPriority(BluetoothDevice device, int priority) {
+    /**
+     * Set connection policy of the profile and disconnects it if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     */
+    public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         if (DEBUG) {
-            Log.d(TAG, "Saved priority " + device + " = " + priority);
+            Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         AdapterService.getAdapterService().getDatabase()
-                .setProfilePriority(device, BluetoothProfile.SAP, priority);
+                .setProfileConnectionPolicy(device, BluetoothProfile.SAP, connectionPolicy);
+        if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            disconnect(device);
+        }
         return true;
     }
 
-    public int getPriority(BluetoothDevice device) {
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         return AdapterService.getAdapterService().getDatabase()
-                .getProfilePriority(device, BluetoothProfile.SAP);
+                .getProfileConnectionPolicy(device, BluetoothProfile.SAP);
     }
 
     @Override
@@ -782,8 +815,9 @@ public class SapService extends ProfileService {
 
             if (action.equals(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY)) {
                 Log.v(TAG, " - Received BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY");
-                if (!mIsWaitingAuthorization) {
-                    // this reply is not for us
+
+                int requestType = intent.getIntExtra(BluetoothDevice.EXTRA_ACCESS_REQUEST_TYPE, -1);
+                if (requestType != BluetoothDevice.REQUEST_TYPE_SIM_ACCESS) {
                     return;
                 }
 
@@ -792,7 +826,7 @@ public class SapService extends ProfileService {
                 if (intent.getIntExtra(BluetoothDevice.EXTRA_CONNECTION_ACCESS_RESULT,
                         BluetoothDevice.CONNECTION_ACCESS_NO)
                         == BluetoothDevice.CONNECTION_ACCESS_YES) {
-                    //bluetooth connection accepted by user
+                    // bluetooth connection accepted by user
                     if (intent.getBooleanExtra(BluetoothDevice.EXTRA_ALWAYS_ALLOWED, false)) {
                         boolean result = mRemoteDevice.setSimAccessPermission(
                                 BluetoothDevice.ACCESS_ALLOWED);
@@ -800,6 +834,10 @@ public class SapService extends ProfileService {
                             Log.v(TAG, "setSimAccessPermission(ACCESS_ALLOWED) result=" + result);
                         }
                     }
+                    boolean result = setConnectionPolicy(mRemoteDevice,
+                            BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                    Log.d(TAG, "setConnectionPolicy ALLOWED, result = " + result);
+
                     try {
                         if (mConnSocket != null) {
                             // start obex server and rfcomm connection
@@ -818,6 +856,9 @@ public class SapService extends ProfileService {
                             Log.v(TAG, "setSimAccessPermission(ACCESS_REJECTED) result=" + result);
                         }
                     }
+                    boolean result = setConnectionPolicy(mRemoteDevice,
+                            BluetoothProfile.CONNECTION_POLICY_FORBIDDEN);
+                    Log.d(TAG, "setConnectionPolicy FORBIDDEN, result = " + result);
                     // Ensure proper cleanup, and prepare for new connect.
                     mSessionStatusHandler.sendEmptyMessage(MSG_SERVERSESSION_CLOSE);
                 }
@@ -977,21 +1018,21 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public boolean setPriority(BluetoothDevice device, int priority) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             SapService service = getService();
             if (service == null) {
                 return false;
             }
-            return service.setPriority(device, priority);
+            return service.setConnectionPolicy(device, connectionPolicy);
         }
 
         @Override
-        public int getPriority(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device) {
             SapService service = getService();
             if (service == null) {
-                return BluetoothProfile.PRIORITY_UNDEFINED;
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
-            return service.getPriority(device);
+            return service.getConnectionPolicy(device);
         }
     }
 }

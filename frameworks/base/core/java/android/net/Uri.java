@@ -19,7 +19,7 @@ package android.net;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Intent;
 import android.os.Environment;
 import android.os.Parcel;
@@ -500,7 +500,7 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
         }
 
         static Uri readFrom(Parcel parcel) {
-            return new StringUri(parcel.readString());
+            return new StringUri(parcel.readString8());
         }
 
         public int describeContents() {
@@ -509,7 +509,7 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
 
         public void writeToParcel(Parcel parcel, int flags) {
             parcel.writeInt(TYPE_ID);
-            parcel.writeString(uriString);
+            parcel.writeString8(uriString);
         }
 
         /** Cached scheme separator index. */
@@ -875,7 +875,7 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
 
         static Uri readFrom(Parcel parcel) {
             return new OpaqueUri(
-                parcel.readString(),
+                parcel.readString8(),
                 Part.readFrom(parcel),
                 Part.readFrom(parcel)
             );
@@ -887,7 +887,7 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
 
         public void writeToParcel(Parcel parcel, int flags) {
             parcel.writeInt(TYPE_ID);
-            parcel.writeString(scheme);
+            parcel.writeString8(scheme);
             ssp.writeTo(parcel);
             fragment.writeTo(parcel);
         }
@@ -1195,7 +1195,7 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
 
         static Uri readFrom(Parcel parcel) {
             return new HierarchicalUri(
-                parcel.readString(),
+                parcel.readString8(),
                 Part.readFrom(parcel),
                 PathPart.readFrom(parcel),
                 Part.readFrom(parcel),
@@ -1209,7 +1209,7 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
 
         public void writeToParcel(Parcel parcel, int flags) {
             parcel.writeInt(TYPE_ID);
-            parcel.writeString(scheme);
+            parcel.writeString8(scheme);
             authority.writeTo(parcel);
             path.writeTo(parcel);
             query.writeTo(parcel);
@@ -1983,21 +1983,26 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
      */
     static abstract class AbstractPart {
 
-        /**
-         * Enum which indicates which representation of a given part we have.
-         */
-        static class Representation {
-            static final int BOTH = 0;
-            static final int ENCODED = 1;
-            static final int DECODED = 2;
-        }
+        // Possible values of mCanonicalRepresentation.
+        static final int REPRESENTATION_ENCODED = 1;
+        static final int REPRESENTATION_DECODED = 2;
 
         volatile String encoded;
         volatile String decoded;
+        private final int mCanonicalRepresentation;
 
         AbstractPart(String encoded, String decoded) {
-            this.encoded = encoded;
-            this.decoded = decoded;
+            if (encoded != NOT_CACHED) {
+                this.mCanonicalRepresentation = REPRESENTATION_ENCODED;
+                this.encoded = encoded;
+                this.decoded = NOT_CACHED;
+            } else if (decoded != NOT_CACHED) {
+                this.mCanonicalRepresentation = REPRESENTATION_DECODED;
+                this.encoded = NOT_CACHED;
+                this.decoded = decoded;
+            } else {
+                throw new IllegalArgumentException("Neither encoded nor decoded");
+            }
         }
 
         abstract String getEncoded();
@@ -2009,25 +2014,21 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
         }
 
         final void writeTo(Parcel parcel) {
-            @SuppressWarnings("StringEquality")
-            boolean hasEncoded = encoded != NOT_CACHED;
-
-            @SuppressWarnings("StringEquality")
-            boolean hasDecoded = decoded != NOT_CACHED;
-
-            if (hasEncoded && hasDecoded) {
-                parcel.writeInt(Representation.BOTH);
-                parcel.writeString(encoded);
-                parcel.writeString(decoded);
-            } else if (hasEncoded) {
-                parcel.writeInt(Representation.ENCODED);
-                parcel.writeString(encoded);
-            } else if (hasDecoded) {
-                parcel.writeInt(Representation.DECODED);
-                parcel.writeString(decoded);
+            final String canonicalValue;
+            if (mCanonicalRepresentation == REPRESENTATION_ENCODED) {
+                canonicalValue = encoded;
+            } else if (mCanonicalRepresentation == REPRESENTATION_DECODED) {
+                canonicalValue = decoded;
             } else {
-                throw new IllegalArgumentException("Neither encoded nor decoded");
+                throw new IllegalArgumentException("Unknown representation: "
+                    + mCanonicalRepresentation);
             }
+            if (canonicalValue == NOT_CACHED) {
+                throw new AssertionError("Canonical value not cached ("
+                    + mCanonicalRepresentation + ")");
+            }
+            parcel.writeInt(mCanonicalRepresentation);
+            parcel.writeString8(canonicalValue);
         }
     }
 
@@ -2059,13 +2060,12 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
 
         static Part readFrom(Parcel parcel) {
             int representation = parcel.readInt();
+            String value = parcel.readString8();
             switch (representation) {
-                case Representation.BOTH:
-                    return from(parcel.readString(), parcel.readString());
-                case Representation.ENCODED:
-                    return fromEncoded(parcel.readString());
-                case Representation.DECODED:
-                    return fromDecoded(parcel.readString());
+                case REPRESENTATION_ENCODED:
+                    return fromEncoded(value);
+                case REPRESENTATION_DECODED:
+                    return fromDecoded(value);
                 default:
                     throw new IllegalArgumentException("Unknown representation: "
                             + representation);
@@ -2127,6 +2127,11 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
         private static class EmptyPart extends Part {
             public EmptyPart(String value) {
                 super(value, value);
+                if (value != null && !value.isEmpty()) {
+                    throw new IllegalArgumentException("Expected empty value, got: " + value);
+                }
+                // Avoid having to re-calculate the non-canonical value.
+                encoded = decoded = value;
             }
 
             @Override
@@ -2245,14 +2250,12 @@ public abstract class Uri implements Parcelable, Comparable<Uri> {
         static PathPart readFrom(Parcel parcel) {
             int representation = parcel.readInt();
             switch (representation) {
-                case Representation.BOTH:
-                    return from(parcel.readString(), parcel.readString());
-                case Representation.ENCODED:
-                    return fromEncoded(parcel.readString());
-                case Representation.DECODED:
-                    return fromDecoded(parcel.readString());
+                case REPRESENTATION_ENCODED:
+                    return fromEncoded(parcel.readString8());
+                case REPRESENTATION_DECODED:
+                    return fromDecoded(parcel.readString8());
                 default:
-                    throw new IllegalArgumentException("Bad representation: " + representation);
+                    throw new IllegalArgumentException("Unknown representation: " + representation);
             }
         }
 

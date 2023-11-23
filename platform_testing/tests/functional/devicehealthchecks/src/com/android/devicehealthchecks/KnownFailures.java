@@ -28,23 +28,6 @@ import java.util.regex.Pattern;
 public class KnownFailures {
 
     private Map<String, List<KnownFailureItem>> mKnownFailures = new HashMap<>();
-    {
-        // add known failures per dropbox label below:
-        // Example:
-        // addKnownFailure(
-        //         "system_app_anr",  // dropbox label
-        //         Pattern.compile("^.*Process:.*com\\.google\\.android\\.googlequicksearchbox"
-        //                 + ":search.*$", Pattern.MULTILINE),  // regex pattern
-        //         "73254069");  // bug number
-        // add known failures for additional dropbox labels here
-        // It's recommended to use multiline matching and a snippet will be matched if it's found
-        // to contain the pattern described by regex
-        addKnownFailure(
-                "system_app_crash",  // dropbox label
-                Pattern.compile("^.*Process:.*com\\.android\\.vending.*$",
-                    Pattern.MULTILINE),  // regex pattern
-                "77533385");  // bug number
-     }
 
     /**
      * Convenience method to add a known failure to list
@@ -53,6 +36,14 @@ public class KnownFailures {
      * @param bugNumber
      */
     public void addKnownFailure(String dropboxLabel, Pattern pattern, String bugNumber) {
+        // Example:
+        // addKnownFailure(
+        //         "system_app_anr",  // dropbox label
+        //         Pattern.compile("^.*Process:.*com\\.google\\.android\\.googlequicksearchbox"
+        //                 + ":search.*$", Pattern.MULTILINE),  // regex pattern
+        //         "73254069");  // bug number
+        // It's recommended to use multiline matching and a snippet will be matched if it's found
+        // to contain the pattern described by regex
         List<KnownFailureItem> knownFailures = mKnownFailures.get(dropboxLabel);
         if (knownFailures == null) {
             knownFailures = new ArrayList<>();

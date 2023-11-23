@@ -35,15 +35,22 @@ class MountedApexDatabase {
     std::string full_path;  // Full path to the apex file.
     std::string mount_point;  // Path this apex is mounted on.
     std::string device_name;  // Name of the dm verity device.
+    // Name of the loop device backing up hashtree or empty string in case
+    // hashtree is embedded inside an APEX.
+    std::string hashtree_loop_name;
+    // Whenever apex file specified in full_path was deleted.
+    bool deleted;
 
     MountedApexData() {}
     MountedApexData(const std::string& loop_name, const std::string& full_path,
                     const std::string& mount_point,
-                    const std::string& device_name)
+                    const std::string& device_name,
+                    const std::string& hashtree_loop_name)
         : loop_name(loop_name),
           full_path(full_path),
           mount_point(mount_point),
-          device_name(device_name) {}
+          device_name(device_name),
+          hashtree_loop_name(hashtree_loop_name) {}
 
     inline bool operator<(const MountedApexData& rhs) const {
       int compare_val = loop_name.compare(rhs.loop_name);
@@ -64,7 +71,13 @@ class MountedApexDatabase {
       } else if (compare_val > 0) {
         return false;
       }
-      return device_name < rhs.device_name;
+      compare_val = device_name.compare(rhs.device_name);
+      if (compare_val < 0) {
+        return true;
+      } else if (compare_val > 0) {
+        return false;
+      }
+      return hashtree_loop_name < rhs.hashtree_loop_name;
     }
   };
 
@@ -92,6 +105,10 @@ class MountedApexDatabase {
         if (pair.first.device_name != "") {
           CHECK(dm_devices.insert(pair.first.device_name).second)
               << "Duplicate dm device: " << pair.first.device_name;
+        }
+        if (pair.first.hashtree_loop_name != "") {
+          CHECK(loop_devices.insert(pair.first.hashtree_loop_name).second)
+              << "Duplicate loop device: " << pair.first.hashtree_loop_name;
         }
       }
     }

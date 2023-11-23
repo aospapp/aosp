@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiLoggerHal;
 
 import org.junit.Test;
@@ -28,7 +29,7 @@ import org.junit.Test;
  * Unit tests for {@link com.android.server.wifi.util.FrameParser}.
  */
 @SmallTest
-public class FrameParserTest {
+public class FrameParserTest extends WifiBaseTest {
 
     private static final byte[] TEST_EAPOL_1_OF_4_FRAME_BYTES = new byte[] {
             (byte) 0x7C, (byte) 0x7D, (byte) 0x3D, (byte) 0x51, (byte) 0x10, (byte) 0xDC,

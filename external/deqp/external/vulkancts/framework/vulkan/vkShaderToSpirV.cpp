@@ -28,24 +28,20 @@
 #include "deClock.h"
 #include "qpDebugOut.h"
 
-#if defined(DEQP_HAVE_GLSLANG)
-#	include "SPIRV/GlslangToSpv.h"
-#	include "SPIRV/disassemble.h"
-#	include "SPIRV/SPVRemapper.h"
-#	include "SPIRV/doc.h"
-#	include "glslang/Include/InfoSink.h"
-#	include "glslang/Include/ShHandle.h"
-#	include "glslang/MachineIndependent/localintermediate.h"
-#	include "glslang/Public/ShaderLang.h"
-#endif
+#include "SPIRV/GlslangToSpv.h"
+#include "SPIRV/disassemble.h"
+#include "SPIRV/SPVRemapper.h"
+#include "SPIRV/doc.h"
+#include "glslang/Include/InfoSink.h"
+#include "glslang/Include/ShHandle.h"
+#include "glslang/MachineIndependent/localintermediate.h"
+#include "glslang/Public/ShaderLang.h"
 
 namespace vk
 {
 
 using std::string;
 using std::vector;
-
-#if defined(DEQP_HAVE_GLSLANG)
 
 namespace
 {
@@ -60,6 +56,12 @@ EShLanguage getGlslangStage (glu::ShaderType type)
 		EShLangTessControl,
 		EShLangTessEvaluation,
 		EShLangCompute,
+		EShLangRayGenNV,
+		EShLangAnyHitNV,
+		EShLangClosestHitNV,
+		EShLangMissNV,
+		EShLangIntersectNV,
+		EShLangCallableNV,
 	};
 	return de::getSizedArrayElement<glu::SHADERTYPE_LAST>(stageMap, type);
 }
@@ -84,7 +86,7 @@ void prepareGlslang (void)
 
 // Fail compilation if more members are added to TLimits or TBuiltInResource
 struct LimitsSizeHelper_s			{ bool m0, m1, m2, m3, m4, m5, m6, m7, m8; };
-struct BuiltInResourceSizeHelper_s	{ int m[92]; LimitsSizeHelper_s l; };
+struct BuiltInResourceSizeHelper_s	{ int m[93]; LimitsSizeHelper_s l; };
 
 DE_STATIC_ASSERT(sizeof(TLimits)			== sizeof(LimitsSizeHelper_s));
 DE_STATIC_ASSERT(sizeof(TBuiltInResource)	== sizeof(BuiltInResourceSizeHelper_s));
@@ -184,8 +186,8 @@ void getDefaultBuiltInResources (TBuiltInResource* builtin)
 	builtin->maxFragmentAtomicCounterBuffers			= 1;
 	builtin->maxCombinedAtomicCounterBuffers			= 1;
 	builtin->maxAtomicCounterBufferSize					= 16384;
-	builtin->maxTransformFeedbackBuffers				= 4;
-	builtin->maxTransformFeedbackInterleavedComponents	= 64;
+	builtin->maxTransformFeedbackBuffers				= 8;
+	builtin->maxTransformFeedbackInterleavedComponents	= 16382;
 	builtin->maxCullDistances							= 8;
 	builtin->maxCombinedClipAndCullDistances			= 8;
 	builtin->maxSamples									= 4;
@@ -198,6 +200,7 @@ void getDefaultBuiltInResources (TBuiltInResource* builtin)
 	builtin->maxTaskWorkGroupSizeY_NV					= 1;
 	builtin->maxTaskWorkGroupSizeZ_NV					= 1;
 	builtin->maxMeshViewCountNV							= 4;
+	builtin->maxDualSourceDrawBuffersEXT				= 1;
 };
 
 int getNumShaderStages (const std::vector<std::string>* sources)
@@ -252,7 +255,7 @@ EShMessages getCompileFlags (const ShaderBuildOptions& buildOpts, const ShaderLa
 
 bool compileShaderToSpirV (const std::vector<std::string>* sources, const ShaderBuildOptions& buildOptions, const ShaderLanguage shaderLanguage, std::vector<deUint32>* dst, glu::ShaderProgramInfo* buildInfo)
 {
-	TBuiltInResource	builtinRes = {0};
+	TBuiltInResource	builtinRes = {};
 	const EShMessages	compileFlags	= getCompileFlags(buildOptions, shaderLanguage);
 
 	if (buildOptions.targetVersion >= SPIRV_VERSION_LAST)
@@ -271,7 +274,6 @@ bool compileShaderToSpirV (const std::vector<std::string>* sources, const Shader
 		{
 			const std::string&		srcText				= getShaderStageSource(sources, buildOptions, (glu::ShaderType)shaderType);
 			const char*				srcPtrs[]			= { srcText.c_str() };
-			const int				srcLengths[]		= { (int)srcText.size() };
 			const EShLanguage		shaderStage			= getGlslangStage(glu::ShaderType(shaderType));
 			glslang::TShader		shader				(shaderStage);
 			glslang::TProgram		glslangProgram;
@@ -292,6 +294,14 @@ bool compileShaderToSpirV (const std::vector<std::string>* sources, const Shader
 			case SPIRV_VERSION_1_3:
 				shader.setEnvTarget(glslang::EshTargetSpv, (glslang::EShTargetLanguageVersion)0x10300);
 				break;
+			case SPIRV_VERSION_1_4:
+				shader.setEnvTarget(glslang::EshTargetSpv, (glslang::EShTargetLanguageVersion)0x10400);
+				break;
+			case SPIRV_VERSION_1_5:
+				shader.setEnvTarget(glslang::EshTargetSpv, (glslang::EShTargetLanguageVersion)0x10500);
+				break;
+			default:
+				TCU_THROW(InternalError, "Unsupported SPIR-V target version");
 			}
 
 			glslangProgram.addShader(&shader);
@@ -359,24 +369,5 @@ void stripSpirVDebugInfo (const size_t numSrcInstrs, const deUint32* srcInstrs, 
 	std::copy(srcInstrs, srcInstrs+numSrcInstrs, dst->begin());
 	remapper.remap(*dst, spv::spirvbin_base_t::STRIP);
 }
-
-#else // defined(DEQP_HAVE_GLSLANG)
-
-bool compileGlslToSpirV (const GlslSource&, std::vector<deUint32>*, glu::ShaderProgramInfo*)
-{
-	TCU_THROW(NotSupportedError, "GLSL to SPIR-V compilation not supported (DEQP_HAVE_GLSLANG not defined)");
-}
-
-bool compileHlslToSpirV (const HlslSource&, std::vector<deUint32>*, glu::ShaderProgramInfo*)
-{
-	TCU_THROW(NotSupportedError, "HLSL to SPIR-V compilation not supported (DEQP_HAVE_GLSLANG not defined)");
-}
-
-void stripSpirVDebugInfo (const size_t, const deUint32*, std::vector<deUint32>*)
-{
-	TCU_THROW(NotSupportedError, "SPIR-V stripping not supported (DEQP_HAVE_GLSLANG not defined)");
-}
-
-#endif // defined(DEQP_HAVE_GLSLANG)
 
 } // vk

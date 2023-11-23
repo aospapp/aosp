@@ -24,6 +24,7 @@ import android.util.Log;
 
 import java.util.List;
 
+@NonMediaMainlineTest
 public class CameraProfileTest extends AndroidTestCase {
 
     private static final String TAG = "CameraProfileTest";

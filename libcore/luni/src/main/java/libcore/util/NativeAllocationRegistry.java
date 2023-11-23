@@ -41,6 +41,7 @@ import java.lang.ref.Reference;
  * @hide
  */
 @libcore.api.CorePlatformApi
+@libcore.api.IntraCoreApi
 public class NativeAllocationRegistry {
 
     private final ClassLoader classLoader;
@@ -118,6 +119,7 @@ public class NativeAllocationRegistry {
      *                     kind of native allocation
      */
     @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
     public static NativeAllocationRegistry createMalloced(
             ClassLoader classLoader, long freeFunction) {
         return new NativeAllocationRegistry(classLoader, freeFunction, 0, true);
@@ -227,6 +229,7 @@ public class NativeAllocationRegistry {
      *                           thrown.
      */
     @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
     public Runnable registerNativeAllocation(Object referent, long nativePtr) {
         if (referent == null) {
             throw new IllegalArgumentException("referent is null");

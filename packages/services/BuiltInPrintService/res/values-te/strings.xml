@@ -49,7 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"ప్రింటర్‌కి మద్దతు లేదు"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct ప్రింటర్‌లను కనుగొనండి"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct ముద్రణ"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct ప్రింటింగ్"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct ప్రింటర్‌లు"</string>
     <string name="searching" msgid="2114018057619514587">"వెతుకుతోంది…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"మీరు మీ ప్రింటర్ ముందు ప్యానెల్‌లో ఈ కనెక్షన్‌ని ఆమోదించవలసి రావచ్చు"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"విస్మరించండి"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct ద్వారా కనెక్ట్ చేస్తోంది"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> వద్ద ప్రస్తుత నెట్‌వర్క్ ద్వారా కనెక్ట్ చేస్తోంది"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"డిఫాల్ట్ ముద్రణ సేవలో ప్రాథమిక ఎంపికలు అందించబడతాయి. ఈ ప్రింటర్‌కు సంబంధించిన ఇతర ఎంపికలు మరొక ముద్రణ సేవలో అందుబాటులో ఉండవచ్చు."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"సిఫార్సు చేయబడిన సేవలు"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ఇన్‌స్టాల్ చేయడానికి ఎంచుకోండి"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"ప్రారంభించడానికి ఎంచుకోండి"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"సేవలను నిర్వహించు"</string>
     <string name="security" msgid="2279008326210305401">"భద్రత"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ఈ ప్రింటర్‌కి కొత్త భద్రతా సర్టిఫికెట్‌ అందించి ఉండవచ్చు లేదా వేరే పరికరం ఏదైనా దీన్ని అనుకరిస్తూ ఉండవచ్చు. కొత్త సర్టిఫికెట్‌ని ఆమోదిస్తారా?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ఈ ప్రింటర్ ఇకపై ఎన్‌క్రిప్ట్ చేసిన ఫైల్‌లను తీసుకోదు అయినా ప్రింట్ చేయడాన్ని కొనసాగిస్తారా?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"కనెక్షన్‌లు"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"సమీపంలో ఉన్న పరికరాలను కనుగొనడానికి డిఫాల్ట్ ముద్రణ సేవకు స్థాన అనుమతి అవసరం."</string>
     <string name="fix" msgid="7784394272611365393">"అనుమతిని సమీక్షించు"</string>
+    <string name="print" msgid="7851318072404916362">"ప్రింట్ చేయి"</string>
 </resources>

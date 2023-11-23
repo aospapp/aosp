@@ -25,15 +25,8 @@ import com.android.compatibility.common.util.WifiConfigCreator;
  */
 public class WifiSetHttpProxyTest extends BaseDeviceOwnerTest {
 
-    private static final String TAG = "WifiSetHttpProxyTest";
     private static final String TEST_PAC_URL = "http://www.example.com/proxy.pac";
     private static final String TEST_SSID = "SomeProxyApSsid";
-    private static final int FAILURE_NETWORK_ID = -1;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
 
     /**
      * Test WifiManager.addNetwork() succeeds for a DeviceOwner adding a WifiConfiguraiton
@@ -43,7 +36,7 @@ public class WifiSetHttpProxyTest extends BaseDeviceOwnerTest {
      * 4. Adds the WifiConfiguration via WifiManager.addNetwork(), expects success
      * 5. Verifies the added WifiConfiguration has the same proxy
      */
-    public void testSetHttpProxy() throws Exception {
+    public void testSetHttpProxy() {
         PackageManager packageManager = getContext().getPackageManager();
         if (!packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
             // skip the test if WiFi is not supported

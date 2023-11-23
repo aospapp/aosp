@@ -20,21 +20,22 @@ import static android.content.ContentResolver.MIME_TYPE_DEFAULT;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.mtp.MtpConstants;
 
-import libcore.net.MimeUtils;
+import libcore.content.type.MimeMap;
 
 import java.util.HashMap;
+import java.util.Locale;
 
 /**
  * MediaScanner helper class.
  * <p>
  * This heavily relies upon extension to MIME type mappings which are maintained
- * in {@link MimeUtils}, to ensure consistency across the OS.
+ * in {@link MimeMap}, to ensure consistency across the OS.
  * <p>
  * When adding a new file type, first add the MIME type mapping to
- * {@link MimeUtils}, and then add the MTP format mapping here.
+ * {@link MimeMap}, and then add the MTP format mapping here.
  *
  * @hide
  */
@@ -78,6 +79,10 @@ public class MediaFile {
     // maps MTP format code to mime type
     @UnsupportedAppUsage
     private static final HashMap<Integer, String> sFormatToMimeTypeMap = new HashMap<>();
+
+    @UnsupportedAppUsage
+    public MediaFile() {
+    }
 
     /** @deprecated file types no longer exist */
     @Deprecated
@@ -196,6 +201,84 @@ public class MediaFile {
         return null;
     }
 
+    /**
+     * Check whether the mime type is document or not.
+     * @param mimeType the mime type to check
+     * @return true, if the mimeType is matched. Otherwise, false.
+     */
+    public static boolean isDocumentMimeType(@Nullable String mimeType) {
+        if (mimeType == null) {
+            return false;
+        }
+
+        final String normalizedMimeType = normalizeMimeType(mimeType);
+        if (normalizedMimeType.startsWith("text/")) {
+            return true;
+        }
+
+        switch (normalizedMimeType.toLowerCase(Locale.ROOT)) {
+            case "application/epub+zip":
+            case "application/msword":
+            case "application/pdf":
+            case "application/rtf":
+            case "application/vnd.ms-excel":
+            case "application/vnd.ms-excel.addin.macroenabled.12":
+            case "application/vnd.ms-excel.sheet.binary.macroenabled.12":
+            case "application/vnd.ms-excel.sheet.macroenabled.12":
+            case "application/vnd.ms-excel.template.macroenabled.12":
+            case "application/vnd.ms-powerpoint":
+            case "application/vnd.ms-powerpoint.addin.macroenabled.12":
+            case "application/vnd.ms-powerpoint.presentation.macroenabled.12":
+            case "application/vnd.ms-powerpoint.slideshow.macroenabled.12":
+            case "application/vnd.ms-powerpoint.template.macroenabled.12":
+            case "application/vnd.ms-word.document.macroenabled.12":
+            case "application/vnd.ms-word.template.macroenabled.12":
+            case "application/vnd.oasis.opendocument.chart":
+            case "application/vnd.oasis.opendocument.database":
+            case "application/vnd.oasis.opendocument.formula":
+            case "application/vnd.oasis.opendocument.graphics":
+            case "application/vnd.oasis.opendocument.graphics-template":
+            case "application/vnd.oasis.opendocument.presentation":
+            case "application/vnd.oasis.opendocument.presentation-template":
+            case "application/vnd.oasis.opendocument.spreadsheet":
+            case "application/vnd.oasis.opendocument.spreadsheet-template":
+            case "application/vnd.oasis.opendocument.text":
+            case "application/vnd.oasis.opendocument.text-master":
+            case "application/vnd.oasis.opendocument.text-template":
+            case "application/vnd.oasis.opendocument.text-web":
+            case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+            case "application/vnd.openxmlformats-officedocument.presentationml.slideshow":
+            case "application/vnd.openxmlformats-officedocument.presentationml.template":
+            case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            case "application/vnd.openxmlformats-officedocument.spreadsheetml.template":
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.template":
+            case "application/vnd.stardivision.calc":
+            case "application/vnd.stardivision.chart":
+            case "application/vnd.stardivision.draw":
+            case "application/vnd.stardivision.impress":
+            case "application/vnd.stardivision.impress-packed":
+            case "application/vnd.stardivision.mail":
+            case "application/vnd.stardivision.math":
+            case "application/vnd.stardivision.writer":
+            case "application/vnd.stardivision.writer-global":
+            case "application/vnd.sun.xml.calc":
+            case "application/vnd.sun.xml.calc.template":
+            case "application/vnd.sun.xml.draw":
+            case "application/vnd.sun.xml.draw.template":
+            case "application/vnd.sun.xml.impress":
+            case "application/vnd.sun.xml.impress.template":
+            case "application/vnd.sun.xml.math":
+            case "application/vnd.sun.xml.writer":
+            case "application/vnd.sun.xml.writer.global":
+            case "application/vnd.sun.xml.writer.template":
+            case "application/x-mspublisher":
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public static boolean isExifMimeType(@Nullable String mimeType) {
         // For simplicity, assume that all image files might have EXIF data
         return isImageMimeType(mimeType);
@@ -286,7 +369,8 @@ public class MediaFile {
 
     @UnsupportedAppUsage
     public static @NonNull String getMimeTypeForFile(@Nullable String path) {
-        final String mimeType = MimeUtils.guessMimeTypeFromExtension(getFileExtension(path));
+        String ext = getFileExtension(path);
+        final String mimeType = MimeMap.getDefault().guessMimeTypeFromExtension(ext);
         return (mimeType != null) ? mimeType : MIME_TYPE_DEFAULT;
     }
 
@@ -348,10 +432,11 @@ public class MediaFile {
      * ".flac" to "audio/flac".
      */
     private static @NonNull String normalizeMimeType(@Nullable String mimeType) {
-        final String extension = MimeUtils.guessExtensionFromMimeType(mimeType);
+        MimeMap mimeMap = MimeMap.getDefault();
+        final String extension = mimeMap.guessExtensionFromMimeType(mimeType);
         if (extension != null) {
-            final String extensionMimeType = MimeUtils.guessMimeTypeFromExtension(extension);
-            if ( extensionMimeType != null) {
+            final String extensionMimeType = mimeMap.guessMimeTypeFromExtension(extension);
+            if (extensionMimeType != null) {
                 return extensionMimeType;
             }
         }

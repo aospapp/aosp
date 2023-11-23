@@ -17,10 +17,14 @@
 #include <android-base/logging.h>
 
 #include <android-base/file.h>
+#include <android/hardware/health/2.0/types.h>
 #include <health2/Health.h>
 
 #include <hal_conversion.h>
 #include <hidl/HidlTransportSupport.h>
+
+using HealthInfo_1_0 = android::hardware::health::V1_0::HealthInfo;
+using android::hardware::health::V1_0::hal_conversion::convertFromHealthInfo;
 
 extern void healthd_battery_update_internal(bool);
 
@@ -148,7 +152,16 @@ Return<Result> Health::update() {
 
     // Retrieve all information and call healthd_mode_ops->battery_update, which calls
     // notifyListeners.
-    bool chargerOnline = battery_monitor_->update();
+    battery_monitor_->updateValues();
+    const HealthInfo_1_0& health_info = battery_monitor_->getHealthInfo_1_0();
+    struct BatteryProperties props;
+    convertFromHealthInfo(health_info, &props);
+    bool log = (healthd_board_battery_update(&props) == 0);
+    if (log) {
+        battery_monitor_->logValues();
+    }
+    healthd_mode_ops->battery_update(&props);
+    bool chargerOnline = battery_monitor_->isChargerOnline();
 
     // adjust uevent / wakealarm periods
     healthd_battery_update_internal(chargerOnline);
@@ -246,10 +259,7 @@ Return<void> Health::getHealthInfo(getHealthInfo_cb _hidl_cb) {
     using android::hardware::health::V1_0::hal_conversion::convertToHealthInfo;
 
     updateAndNotify(nullptr);
-    struct android::BatteryProperties p = getBatteryProperties(battery_monitor_.get());
-
-    V1_0::HealthInfo batteryInfo;
-    convertToHealthInfo(&p, batteryInfo);
+    HealthInfo healthInfo = battery_monitor_->getHealthInfo_2_0();
 
     std::vector<StorageInfo> info;
     get_storage_info(info);
@@ -265,8 +275,6 @@ Return<void> Health::getHealthInfo(getHealthInfo_cb _hidl_cb) {
         currentAvg = static_cast<int32_t>(prop.valueInt64);
     }
 
-    V2_0::HealthInfo healthInfo = {};
-    healthInfo.legacy = std::move(batteryInfo);
     healthInfo.batteryCurrentAverage = currentAvg;
     healthInfo.diskStats = stats;
     healthInfo.storageInfos = info;

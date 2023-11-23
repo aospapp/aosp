@@ -21,7 +21,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ProviderInfo;
 import android.net.Uri;
-import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
@@ -68,8 +67,7 @@ public class BluetoothOppFileProvider extends FileProvider {
             if (!mRegisteredReceiver) {
                 IntentFilter userFilter = new IntentFilter();
                 userFilter.addAction(Intent.ACTION_USER_UNLOCKED);
-                mContext.registerReceiverAsUser(mBroadcastReceiver, UserHandle.CURRENT, userFilter,
-                        null, null);
+                mContext.registerReceiver(mBroadcastReceiver, userFilter, null, null);
                 mRegisteredReceiver = true;
             }
             UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);

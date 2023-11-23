@@ -36,6 +36,10 @@
 
 #pragma once
 
+/**
+ * `__BIONIC__` is always defined if you're building with bionic. See
+ * https://android.googlesource.com/platform/bionic/+/master/docs/defines.md.
+ */
 #define __BIONIC__ 1
 
 #if defined(__cplusplus)
@@ -86,6 +90,7 @@
 #define __noreturn __attribute__((__noreturn__))
 #define __mallocfunc  __attribute__((__malloc__))
 #define __packed __attribute__((__packed__))
+#define __returns_twice __attribute__((__returns_twice__))
 #define __unused __attribute__((__unused__))
 #define __used __attribute__((__used__))
 
@@ -232,14 +237,15 @@
 #define __BIONIC_FORTIFY_UNKNOWN_SIZE ((size_t) -1)
 
 #if defined(_FORTIFY_SOURCE) && _FORTIFY_SOURCE > 0
-/*
- * FORTIFY's _chk functions effectively disable ASAN's stdlib interceptors.
- * Additionally, the static analyzer/clang-tidy try to pattern match some
- * standard library functions, and FORTIFY sometimes interferes with this. So,
- * we turn FORTIFY off in both cases.
- */
-#  if !__has_feature(address_sanitizer) && !defined(__clang_analyzer__)
+/* FORTIFY can interfere with pattern-matching of clang-tidy/the static analyzer.  */
+#  if !defined(__clang_analyzer__)
 #    define __BIONIC_FORTIFY 1
+/* ASAN has interceptors that FORTIFY's _chk functions can break.  */
+#    if __has_feature(address_sanitizer)
+#      define __BIONIC_FORTIFY_RUNTIME_CHECKS_ENABLED 0
+#    else
+#      define __BIONIC_FORTIFY_RUNTIME_CHECKS_ENABLED 1
+#    endif
 #  endif
 #endif
 
@@ -271,7 +277,7 @@
  * Because clang-FORTIFY uses overloads, we can't mark functions as `extern
  * inline` without making them available externally.
  */
-#  define __BIONIC_FORTIFY_INLINE static __inline__ __always_inline
+#  define __BIONIC_FORTIFY_INLINE static __inline__ __always_inline __VERSIONER_FORTIFY_INLINE
 /*
  * We should use __BIONIC_FORTIFY_VARIADIC instead of __BIONIC_FORTIFY_INLINE
  * for variadic functions because compilers cannot inline them.
@@ -287,6 +293,24 @@
 #endif
 #define __pass_object_size __pass_object_size_n(__bos_level)
 #define __pass_object_size0 __pass_object_size_n(0)
+
+/* Intended for use in unevaluated contexts, e.g. diagnose_if conditions. */
+#define __bos_unevaluated_lt(bos_val, val) \
+  ((bos_val) != __BIONIC_FORTIFY_UNKNOWN_SIZE && (bos_val) < (val))
+
+#define __bos_unevaluated_le(bos_val, val) \
+  ((bos_val) != __BIONIC_FORTIFY_UNKNOWN_SIZE && (bos_val) <= (val))
+
+/* Intended for use in evaluated contexts. */
+#define __bos_dynamic_check_impl_and(bos_val, op, index, cond) \
+  ((bos_val) == __BIONIC_FORTIFY_UNKNOWN_SIZE ||                 \
+   (__builtin_constant_p(index) && bos_val op index && (cond)))
+
+#define __bos_dynamic_check_impl(bos_val, op, index) \
+  __bos_dynamic_check_impl_and(bos_val, op, index, 1)
+
+#define __bos_trivially_ge(bos_val, index) __bos_dynamic_check_impl((bos_val), >=, (index))
+#define __bos_trivially_gt(bos_val, index) __bos_dynamic_check_impl((bos_val), >, (index))
 
 #if defined(__BIONIC_FORTIFY) || defined(__BIONIC_DECLARE_FORTIFY_HELPERS)
 #  define __BIONIC_INCLUDE_FORTIFY_HEADERS 1
@@ -336,3 +360,6 @@ int __size_mul_overflow(__SIZE_TYPE__ a, __SIZE_TYPE__ b, __SIZE_TYPE__ *result)
 
 #include <android/versioning.h>
 #include <android/api-level.h>
+#if __has_include(<android/ndk-version.h>)
+#include <android/ndk-version.h>
+#endif

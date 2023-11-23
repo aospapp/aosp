@@ -44,6 +44,7 @@ class firmware_ConsecutiveLidSwitch(FirmwareTest):
 
 
     def run_once(self, host):
+        """Runs a single iteration of the test."""
         # Login as a normal user and stay there. Closing lid at the login
         # screen may shut the machine down, that also verifies the lid switch
         # but take more time. Once logged in, closing lid triggers suspend.

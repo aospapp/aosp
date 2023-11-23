@@ -767,9 +767,8 @@ int ProxyResolverV8::SetPacScript(const std::u16string& script_data) {
   v8::V8::SetFlagsFromString(kNoOpt, strlen(kNoOpt));
 
   // Try parsing the PAC script.
-  ArrayBufferAllocator allocator;
   v8::Isolate::CreateParams create_params;
-  create_params.array_buffer_allocator = &allocator;
+  create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
 
   context_ = new Context(js_bindings_, error_listener_, v8::Isolate::New(create_params));
   int rv;

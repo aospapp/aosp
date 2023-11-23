@@ -34,6 +34,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.uirendering.cts.R;
+import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 
@@ -793,5 +794,61 @@ public class CanvasTests extends ActivityTestBase {
         new Canvas(getMutableBitmap()).drawPosText(text, new float[]{
                 10.0f, 30.f
         }, getPaint());
+    }
+
+    @Test
+    public void testAntiAliasClipping() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint paint = new Paint();
+                    Path clipPath = new Path();
+
+                    clipPath.addCircle(
+                            width / 2.0f, height / 2.0f,
+                            Math.min(width, height) / 2.0f,
+                            Path.Direction.CW
+                    );
+
+                    paint.setColor(Color.WHITE);
+                    canvas.drawRect(0, 0, width, height, paint);
+
+                    paint.setColor(Color.RED);
+
+                    canvas.save();
+
+                    canvas.clipPath(clipPath);
+                    canvas.drawRect(0, 0, width, height, paint);
+
+                    canvas.restore();
+
+                })
+                .runWithVerifier(new AntiAliasPixelCounter(Color.WHITE, Color.RED, 10));
+    }
+
+    private static class AntiAliasPixelCounter extends BitmapVerifier {
+
+        private final int mColor1;
+        private final int mColor2;
+        private final int mCountThreshold;
+
+        AntiAliasPixelCounter(int color1, int color2, int countThreshold) {
+            mColor1 = color1;
+            mColor2 = color2;
+            mCountThreshold = countThreshold;
+        }
+
+        @Override
+        public boolean verify(int[] bitmap, int offset, int stride, int width, int height) {
+            int nonTargetColorCount = 0;
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    int pixelColor = bitmap[indexFromXAndY(x, y, stride, offset)];
+                    if (pixelColor != mColor1 && pixelColor != mColor2) {
+                        nonTargetColorCount++;
+                    }
+                }
+            }
+            return nonTargetColorCount > mCountThreshold;
+        }
     }
 }

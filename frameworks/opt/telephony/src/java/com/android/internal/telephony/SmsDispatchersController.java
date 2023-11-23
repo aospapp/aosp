@@ -18,6 +18,9 @@ package com.android.internal.telephony;
 
 import static com.android.internal.telephony.IccSmsInterfaceManager.SMS_MESSAGE_PERIOD_NOT_SPECIFIED;
 import static com.android.internal.telephony.IccSmsInterfaceManager.SMS_MESSAGE_PRIORITY_NOT_SPECIFIED;
+import static com.android.internal.telephony.SmsResponse.NO_ERROR_CODE;
+import static com.android.internal.telephony.cdma.sms.BearerData.ERROR_NONE;
+import static com.android.internal.telephony.cdma.sms.BearerData.ERROR_TEMPORARY;
 
 import android.app.Activity;
 import android.app.PendingIntent;
@@ -33,7 +36,6 @@ import android.os.Message;
 import android.os.UserManager;
 import android.provider.Telephony.Sms;
 import android.provider.Telephony.Sms.Intents;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
@@ -44,11 +46,13 @@ import com.android.internal.telephony.cdma.CdmaInboundSmsHandler;
 import com.android.internal.telephony.cdma.CdmaSMSDispatcher;
 import com.android.internal.telephony.gsm.GsmInboundSmsHandler;
 import com.android.internal.telephony.gsm.GsmSMSDispatcher;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 /**
  *
@@ -428,91 +432,102 @@ public class SmsDispatchersController extends Handler {
      */
     public void sendRetrySms(SMSDispatcher.SmsTracker tracker) {
         String oldFormat = tracker.mFormat;
+        boolean retryUsingImsService = false;
 
-        // newFormat will be based on voice technology
+        if (!tracker.mUsesImsServiceForIms && mImsSmsDispatcher.isAvailable()) {
+            // If this tracker has not been handled by ImsSmsDispatcher yet and IMS Service is
+            // available now, retry this failed tracker using IMS Service.
+            retryUsingImsService = true;
+        }
+
+        // If retryUsingImsService is true, newFormat will be IMS SMS format. Otherwise, newFormat
+        // will be based on voice technology.
         String newFormat =
-                (PhoneConstants.PHONE_TYPE_CDMA == mPhone.getPhoneType())
-                        ? mCdmaDispatcher.getFormat() : mGsmDispatcher.getFormat();
+                retryUsingImsService
+                        ? mImsSmsDispatcher.getFormat()
+                        : (PhoneConstants.PHONE_TYPE_CDMA == mPhone.getPhoneType())
+                                ? mCdmaDispatcher.getFormat()
+                                : mGsmDispatcher.getFormat();
 
-        // was previously sent sms format match with voice tech?
-        if (oldFormat.equals(newFormat)) {
-            if (isCdmaFormat(newFormat)) {
-                Rlog.d(TAG, "old format matched new format (cdma)");
-                mCdmaDispatcher.sendSms(tracker);
-                return;
-            } else {
-                Rlog.d(TAG, "old format matched new format (gsm)");
-                mGsmDispatcher.sendSms(tracker);
+        Rlog.d(TAG, "old format(" + oldFormat + ") ==> new format (" + newFormat + ")");
+        if (!oldFormat.equals(newFormat)) {
+            // format didn't match, need to re-encode.
+            HashMap map = tracker.getData();
+
+            // to re-encode, fields needed are: scAddr, destAddr and text if originally sent as
+            // sendText or data and destPort if originally sent as sendData.
+            if (!(map.containsKey("scAddr") && map.containsKey("destAddr")
+                    && (map.containsKey("text")
+                    || (map.containsKey("data") && map.containsKey("destPort"))))) {
+                // should never come here...
+                Rlog.e(TAG, "sendRetrySms failed to re-encode per missing fields!");
+                tracker.onFailed(mContext, SmsManager.RESULT_SMS_SEND_RETRY_FAILED, NO_ERROR_CODE);
                 return;
             }
-        }
+            String scAddr = (String) map.get("scAddr");
+            String destAddr = (String) map.get("destAddr");
 
-        // format didn't match, need to re-encode.
-        HashMap map = tracker.getData();
+            SmsMessageBase.SubmitPduBase pdu = null;
+            // figure out from tracker if this was sendText/Data
+            if (map.containsKey("text")) {
+                Rlog.d(TAG, "sms failed was text");
+                String text = (String) map.get("text");
 
-        // to re-encode, fields needed are:  scAddr, destAddr, and
-        //   text if originally sent as sendText or
-        //   data and destPort if originally sent as sendData.
-        if (!(map.containsKey("scAddr") && map.containsKey("destAddr")
-                && (map.containsKey("text")
-                || (map.containsKey("data") && map.containsKey("destPort"))))) {
-            // should never come here...
-            Rlog.e(TAG, "sendRetrySms failed to re-encode per missing fields!");
-            tracker.onFailed(mContext, SmsManager.RESULT_ERROR_GENERIC_FAILURE, 0/*errorCode*/);
-            return;
-        }
-        String scAddr = (String) map.get("scAddr");
-        String destAddr = (String) map.get("destAddr");
+                if (isCdmaFormat(newFormat)) {
+                    pdu = com.android.internal.telephony.cdma.SmsMessage.getSubmitPdu(
+                            scAddr, destAddr, text, (tracker.mDeliveryIntent != null), null);
+                } else {
+                    pdu = com.android.internal.telephony.gsm.SmsMessage.getSubmitPdu(
+                            scAddr, destAddr, text, (tracker.mDeliveryIntent != null), null);
+                }
+            } else if (map.containsKey("data")) {
+                Rlog.d(TAG, "sms failed was data");
+                byte[] data = (byte[]) map.get("data");
+                Integer destPort = (Integer) map.get("destPort");
 
-        SmsMessageBase.SubmitPduBase pdu = null;
-        //    figure out from tracker if this was sendText/Data
-        if (map.containsKey("text")) {
-            Rlog.d(TAG, "sms failed was text");
-            String text = (String) map.get("text");
-
-            if (isCdmaFormat(newFormat)) {
-                Rlog.d(TAG, "old format (gsm) ==> new format (cdma)");
-                pdu = com.android.internal.telephony.cdma.SmsMessage.getSubmitPdu(
-                        scAddr, destAddr, text, (tracker.mDeliveryIntent != null), null);
-            } else {
-                Rlog.d(TAG, "old format (cdma) ==> new format (gsm)");
-                pdu = com.android.internal.telephony.gsm.SmsMessage.getSubmitPdu(
-                        scAddr, destAddr, text, (tracker.mDeliveryIntent != null), null);
-            }
-        } else if (map.containsKey("data")) {
-            Rlog.d(TAG, "sms failed was data");
-            byte[] data = (byte[]) map.get("data");
-            Integer destPort = (Integer) map.get("destPort");
-
-            if (isCdmaFormat(newFormat)) {
-                Rlog.d(TAG, "old format (gsm) ==> new format (cdma)");
-                pdu = com.android.internal.telephony.cdma.SmsMessage.getSubmitPdu(
+                if (isCdmaFormat(newFormat)) {
+                    pdu = com.android.internal.telephony.cdma.SmsMessage.getSubmitPdu(
                             scAddr, destAddr, destPort.intValue(), data,
                             (tracker.mDeliveryIntent != null));
-            } else {
-                Rlog.d(TAG, "old format (cdma) ==> new format (gsm)");
-                pdu = com.android.internal.telephony.gsm.SmsMessage.getSubmitPdu(
+                } else {
+                    pdu = com.android.internal.telephony.gsm.SmsMessage.getSubmitPdu(
                             scAddr, destAddr, destPort.intValue(), data,
                             (tracker.mDeliveryIntent != null));
+                }
             }
+
+            // replace old smsc and pdu with newly encoded ones
+            map.put("smsc", pdu.encodedScAddress);
+            map.put("pdu", pdu.encodedMessage);
+            tracker.mFormat = newFormat;
         }
 
-        // replace old smsc and pdu with newly encoded ones
-        map.put("smsc", pdu.encodedScAddress);
-        map.put("pdu", pdu.encodedMessage);
+        SMSDispatcher dispatcher =
+                retryUsingImsService
+                        ? mImsSmsDispatcher
+                        : (isCdmaFormat(newFormat)) ? mCdmaDispatcher : mGsmDispatcher;
 
-        SMSDispatcher dispatcher = (isCdmaFormat(newFormat)) ? mCdmaDispatcher : mGsmDispatcher;
-
-        tracker.mFormat = dispatcher.getFormat();
         dispatcher.sendSms(tracker);
     }
 
+    /**
+     * SMS over IMS is supported if IMS is registered and SMS is supported on IMS.
+     *
+     * @return true if SMS over IMS is supported via an IMS Service or mIms is true for the older
+     *         implementation. Otherwise, false.
+     */
     public boolean isIms() {
-        return mIms;
+        return mImsSmsDispatcher.isAvailable() ? true : mIms;
     }
 
+    /**
+     * Gets SMS format supported on IMS.
+     *
+     * @return the SMS format from an IMS Service if available. Otherwise, mImsSmsFormat for the
+     *         older implementation.
+     */
     public String getImsSmsFormat() {
-        return mImsSmsFormat;
+        return mImsSmsDispatcher.isAvailable() ? mImsSmsDispatcher.getFormat() : mImsSmsFormat;
     }
 
     /**
@@ -528,7 +543,7 @@ public class SmsDispatchersController extends Handler {
             return (PhoneConstants.PHONE_TYPE_CDMA == mPhone.getPhoneType());
         }
         // IMS is registered with SMS support
-        return isCdmaFormat(mImsSmsFormat);
+        return isCdmaFormat(getImsSmsFormat());
     }
 
     /**
@@ -628,20 +643,22 @@ public class SmsDispatchersController extends Handler {
      */
     public void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
             PendingIntent deliveryIntent, Uri messageUri, String callingPkg, boolean persistMessage,
-            int priority, boolean expectMore, int validityPeriod, boolean isForVvm) {
+            int priority, boolean expectMore, int validityPeriod, boolean isForVvm,
+            long messageId) {
         if (mImsSmsDispatcher.isAvailable() || mImsSmsDispatcher.isEmergencySmsSupport(destAddr)) {
             mImsSmsDispatcher.sendText(destAddr, scAddr, text, sentIntent, deliveryIntent,
                     messageUri, callingPkg, persistMessage, SMS_MESSAGE_PRIORITY_NOT_SPECIFIED,
-                    false /*expectMore*/, SMS_MESSAGE_PERIOD_NOT_SPECIFIED, isForVvm);
+                    false /*expectMore*/, SMS_MESSAGE_PERIOD_NOT_SPECIFIED, isForVvm,
+                    messageId);
         } else {
             if (isCdmaMo()) {
                 mCdmaDispatcher.sendText(destAddr, scAddr, text, sentIntent, deliveryIntent,
                         messageUri, callingPkg, persistMessage, priority, expectMore,
-                        validityPeriod, isForVvm);
+                        validityPeriod, isForVvm, messageId);
             } else {
                 mGsmDispatcher.sendText(destAddr, scAddr, text, sentIntent, deliveryIntent,
                         messageUri, callingPkg, persistMessage, priority, expectMore,
-                        validityPeriod, isForVvm);
+                        validityPeriod, isForVvm, messageId);
             }
         }
     }
@@ -690,33 +707,37 @@ public class SmsDispatchersController extends Handler {
      *  Validity Period(Minimum) -> 5 mins
      *  Validity Period(Maximum) -> 635040 mins(i.e.63 weeks).
      *  Any Other values included Negative considered as Invalid Validity Period of the message.
-
+     * @param messageId An id that uniquely identifies the message requested to be sent.
+     *                 Used for logging and diagnostics purposes. The id may be 0.
+     *
      */
     protected void sendMultipartText(String destAddr, String scAddr,
             ArrayList<String> parts, ArrayList<PendingIntent> sentIntents,
             ArrayList<PendingIntent> deliveryIntents, Uri messageUri, String callingPkg,
-            boolean persistMessage, int priority, boolean expectMore, int validityPeriod) {
+            boolean persistMessage, int priority, boolean expectMore, int validityPeriod,
+            long messageId) {
         if (mImsSmsDispatcher.isAvailable()) {
             mImsSmsDispatcher.sendMultipartText(destAddr, scAddr, parts, sentIntents,
                     deliveryIntents, messageUri, callingPkg, persistMessage,
                     SMS_MESSAGE_PRIORITY_NOT_SPECIFIED,
-                    false /*expectMore*/, SMS_MESSAGE_PERIOD_NOT_SPECIFIED);
+                    false /*expectMore*/, SMS_MESSAGE_PERIOD_NOT_SPECIFIED,
+                    messageId);
         } else {
             if (isCdmaMo()) {
                 mCdmaDispatcher.sendMultipartText(destAddr, scAddr, parts, sentIntents,
                         deliveryIntents, messageUri, callingPkg, persistMessage, priority,
-                        expectMore, validityPeriod);
+                        expectMore, validityPeriod, messageId);
             } else {
                 mGsmDispatcher.sendMultipartText(destAddr, scAddr, parts, sentIntents,
                         deliveryIntents, messageUri, callingPkg, persistMessage, priority,
-                        expectMore, validityPeriod);
+                        expectMore, validityPeriod, messageId);
             }
         }
     }
 
     /**
      * Returns the premium SMS permission for the specified package. If the package has never
-     * been seen before, the default {@link SmsUsageMonitor#PREMIUM_SMS_PERMISSION_ASK_USER}
+     * been seen before, the default {@link SmsUsageMonitor#PREMIUM_SMS_PERMISSION_UNKNOWN}
      * will be returned.
      * @param packageName the name of the package to query permission
      * @return one of {@link SmsUsageMonitor#PREMIUM_SMS_PERMISSION_UNKNOWN},
@@ -745,6 +766,30 @@ public class SmsDispatchersController extends Handler {
     }
 
     /**
+     * Handles the sms status report for the sent sms through ImsSmsDispatcher. Carriers can send
+     * the report over CS even if the previously submitted SMS-SUBMIT was sent over IMS. For this
+     * case, finds a corresponding tracker from the tracker map in ImsSmsDispatcher and handles it.
+     *
+     * @param messageRef the TP-MR of the previously submitted SMS-SUBMIT in the report.
+     * @param format the format.
+     * @param pdu the pdu of the report.
+     */
+    public void handleSentOverImsStatusReport(int messageRef, String format, byte[] pdu) {
+        for (Entry<Integer, SMSDispatcher.SmsTracker> entry :
+                mImsSmsDispatcher.mTrackers.entrySet()) {
+            int token = entry.getKey();
+            SMSDispatcher.SmsTracker tracker = entry.getValue();
+            if (tracker.mMessageRef == messageRef) {
+                Pair<Boolean, Boolean> result = handleSmsStatusReport(tracker, format, pdu);
+                if (result.second) {
+                    mImsSmsDispatcher.mTrackers.remove(token);
+                }
+                return;
+            }
+        }
+    }
+
+    /**
      * Triggers the correct method for handling the sms status report based on the format.
      *
      * @param tracker the sms tracker.
@@ -766,9 +811,23 @@ public class SmsDispatchersController extends Handler {
 
     private Pair<Boolean, Boolean> handleCdmaStatusReport(SMSDispatcher.SmsTracker tracker,
             String format, byte[] pdu) {
-        tracker.updateSentMessageStatus(mContext, Sms.STATUS_COMPLETE);
-        boolean success = triggerDeliveryIntent(tracker, format, pdu);
-        return new Pair(success, true /* complete */);
+        com.android.internal.telephony.cdma.SmsMessage sms =
+                com.android.internal.telephony.cdma.SmsMessage.createFromPdu(pdu);
+        boolean complete = false;
+        boolean success = false;
+        if (sms != null) {
+            // The status is composed of an error class (bits 25-24) and a status code (bits 23-16).
+            int errorClass = (sms.getStatus() >> 24) & 0x03;
+            if (errorClass != ERROR_TEMPORARY) {
+                // Update the message status (COMPLETE or FAILED)
+                tracker.updateSentMessageStatus(
+                        mContext,
+                        (errorClass == ERROR_NONE) ? Sms.STATUS_COMPLETE : Sms.STATUS_FAILED);
+                complete = true;
+            }
+            success = triggerDeliveryIntent(tracker, format, pdu);
+        }
+        return new Pair(success, complete);
     }
 
     private Pair<Boolean, Boolean> handleGsmStatusReport(SMSDispatcher.SmsTracker tracker,

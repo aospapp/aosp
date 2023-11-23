@@ -9,7 +9,7 @@
 struct fsverity_hash_alg {
 	const char *name;
 	unsigned int digest_size;
-	bool cryptographic;
+	unsigned int block_size;
 	struct hash_ctx *(*create_ctx)(const struct fsverity_hash_alg *alg);
 };
 
@@ -26,7 +26,9 @@ struct hash_ctx {
 const struct fsverity_hash_alg *find_hash_alg_by_name(const char *name);
 const struct fsverity_hash_alg *find_hash_alg_by_num(unsigned int num);
 void show_all_hash_algs(FILE *fp);
-#define DEFAULT_HASH_ALG (&fsverity_hash_algs[FS_VERITY_ALG_SHA256])
+
+/* The hash algorithm that fsverity-utils assumes when none is specified */
+#define FS_VERITY_HASH_ALG_DEFAULT	FS_VERITY_HASH_ALG_SHA256
 
 /*
  * Largest digest size among all hash algorithms supported by fs-verity.
@@ -60,5 +62,7 @@ static inline void hash_free(struct hash_ctx *ctx)
 	if (ctx)
 		ctx->free(ctx);
 }
+
+void hash_full(struct hash_ctx *ctx, const void *data, size_t size, u8 *digest);
 
 #endif /* HASH_ALGS_H */

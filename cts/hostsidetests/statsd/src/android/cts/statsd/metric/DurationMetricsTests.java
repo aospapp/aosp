@@ -48,10 +48,6 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
     private static final int APP_BREADCRUMB_REPORTED_B_MATCH_STOP_ID = 3;
 
     public void testDurationMetric() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-
         final int label = 1;
         // Add AtomMatchers.
         AtomMatcher startAtomMatcher =
@@ -105,10 +101,6 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
     }
 
     public void testDurationMetricWithCondition() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-
         final int durationLabel = 1;
         final int conditionLabel = 2;
 
@@ -218,10 +210,6 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
     }
 
     public void testDurationMetricWithActivation() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-
         final int activationMatcherId = 5;
         final int activationMatcherLabel = 5;
         final int ttlSec = 5;
@@ -311,10 +299,6 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
     }
 
     public void testDurationMetricWithConditionAndActivation() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-
         final int durationLabel = 1;
         final int conditionLabel = 2;
         final int activationMatcherId = 5;
@@ -488,9 +472,6 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
     }
 
     public void testDurationMetricWithDimension() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         // Add AtomMatchers.
         AtomMatcher startAtomMatcherA =
             MetricsUtils.startAtomMatcher(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID);

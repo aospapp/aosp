@@ -1,0 +1,20 @@
+<resources>
+    <bool name="profile_supported_a2dp">false</bool>
+    <bool name="profile_supported_hs_hfp">false</bool>
+    <bool name="profile_supported_pbap">false</bool>
+    <bool name="profile_supported_map">false</bool>
+    <bool name="profile_supported_hdp">false</bool>
+    <bool name="profile_supported_opp">false</bool>
+    <bool name="enable_phone_policy">false</bool>
+
+    <bool name="profile_supported_hfpclient">false</bool>
+    <bool name="hfp_client_connection_service_enabled">false</bool>
+    <bool name="profile_supported_pbapclient">false</bool>
+    <bool name="profile_supported_pan">false</bool>
+    <bool name="profile_supported_mapmce">false</bool>
+
+    <bool name="profile_supported_hid_host">true</bool>
+    <bool name="profile_supported_avrcp_target">true</bool>
+    <bool name="profile_supported_avrcp_controller">true</bool>
+    <bool name="profile_supported_a2dp_sink">true</bool>
+</resources>

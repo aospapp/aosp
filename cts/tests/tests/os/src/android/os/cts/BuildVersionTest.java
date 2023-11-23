@@ -29,22 +29,30 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashSet;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 public class BuildVersionTest extends TestCase {
 
     private static final String LOG_TAG = "BuildVersionTest";
-    private static final int EXPECTED_SDK = 29;
+    private static final int EXPECTED_SDK = 30;
     private static final String EXPECTED_BUILD_VARIANT = "user";
-    private static final String EXPECTED_TAG = "release-keys";
-    private static final String PLATFORM_VERSIONS_FILE = "platform_versions.txt";
+    private static final String EXPECTED_KEYS = "release-keys";
+    private static final String PLATFORM_RELEASES_FILE = "platform_releases.txt";
 
     @SuppressWarnings("deprecation")
     @RestrictedBuildTest
     public void testReleaseVersion() {
         // Applications may rely on the exact release version
         assertAnyOf("BUILD.VERSION.RELEASE", Build.VERSION.RELEASE, getExpectedReleases());
+        if ("REL".equals(Build.VERSION.CODENAME)) {
+            assertEquals("BUILD.VERSION.RELEASE_OR_CODENAME", Build.VERSION.RELEASE,
+                    Build.VERSION.RELEASE_OR_CODENAME);
+        } else {
+            assertEquals("BUILD.VERSION.RELEASE_OR_CODENAME", Build.VERSION.CODENAME,
+                    Build.VERSION.RELEASE_OR_CODENAME);
+        }
         assertEquals("Build.VERSION.SDK", "" + EXPECTED_SDK, Build.VERSION.SDK);
         assertEquals("Build.VERSION.SDK_INT", EXPECTED_SDK, Build.VERSION.SDK_INT);
     }
@@ -82,7 +90,10 @@ public class BuildVersionTest extends TestCase {
         String[] buildNumberVariant = fingerprintSegs[4].split(":");
         String buildVariant = buildNumberVariant[1];
         assertEquals("Variant", EXPECTED_BUILD_VARIANT, buildVariant);
-        assertEquals("Tag", EXPECTED_TAG, fingerprintSegs[5]);
+
+        List<String> buildTagsList = Arrays.asList(fingerprintSegs[5].split(","));
+        boolean containsReleaseKeys = buildTagsList.contains(EXPECTED_KEYS);
+        assertTrue("Keys", containsReleaseKeys);
     }
 
     public void testPartitions() {
@@ -130,12 +141,12 @@ public class BuildVersionTest extends TestCase {
                 InstrumentationRegistry.getInstrumentation().getTargetContext().getAssets();
         String line;
         try (BufferedReader br =
-                new BufferedReader(new InputStreamReader(assets.open(PLATFORM_VERSIONS_FILE)))) {
+                new BufferedReader(new InputStreamReader(assets.open(PLATFORM_RELEASES_FILE)))) {
             while ((line = br.readLine()) != null) {
                 expectedReleases.add(line);
             }
         } catch (IOException e) {
-            fail("Could not open file " + PLATFORM_VERSIONS_FILE + " to run test");
+            fail("Could not open file " + PLATFORM_RELEASES_FILE + " to run test");
         }
         return expectedReleases;
     }

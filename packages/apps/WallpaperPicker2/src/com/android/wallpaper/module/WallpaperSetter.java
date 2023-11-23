@@ -3,11 +3,13 @@ package com.android.wallpaper.module;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.app.WallpaperManager;
-import android.content.Context;
 import android.content.pm.ActivityInfo;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
+import android.util.Log;
+import android.view.Display;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
@@ -22,11 +24,14 @@ import com.android.wallpaper.module.WallpaperPersister.Destination;
 import com.android.wallpaper.module.WallpaperPersister.SetWallpaperCallback;
 import com.android.wallpaper.picker.SetWallpaperDialogFragment;
 import com.android.wallpaper.picker.SetWallpaperDialogFragment.Listener;
+import com.android.wallpaper.util.ScreenSizeCalculator;
 import com.android.wallpaper.util.ThrowableAnalyzer;
+import com.android.wallpaper.util.WallpaperCropUtils;
 
 import com.bumptech.glide.Glide;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * Helper class used to set the current wallpaper. It handles showing the destination request dialog
@@ -36,6 +41,7 @@ import java.io.IOException;
  */
 public class WallpaperSetter {
 
+    private static final String TAG = "WallpaperSetter";
     private static final String PROGRESS_DIALOG_NO_TITLE = null;
     private static final boolean PROGRESS_DIALOG_INDETERMINATE = true;
 
@@ -47,7 +53,7 @@ public class WallpaperSetter {
     private final boolean mTestingModeEnabled;
     private final UserEventLogger mUserEventLogger;
     private ProgressDialog mProgressDialog;
-    private int mCurrentScreenOrientation;
+    private Optional<Integer> mCurrentScreenOrientation = Optional.empty();
 
     public WallpaperSetter(WallpaperPersister wallpaperPersister,
             WallpaperPreferences preferences, UserEventLogger userEventLogger,
@@ -56,6 +62,38 @@ public class WallpaperSetter {
         mWallpaperPersister = wallpaperPersister;
         mPreferences = preferences;
         mUserEventLogger = userEventLogger;
+    }
+
+    /**
+     * Sets current wallpaper to the device with the minimum scale to fit the screen size.
+     *
+     * @param containerActivity main Activity that owns the current fragment
+     * @param wallpaper info for the actual wallpaper to set
+     * @param destination the wallpaper destination i.e. home vs. lockscreen vs. both.
+     * @param callback optional callback to be notified when the wallpaper is set.
+     */
+    public void setCurrentWallpaper(Activity containerActivity, WallpaperInfo wallpaper,
+                                    @Destination final int destination,
+                                    @Nullable SetWallpaperCallback callback) {
+        Asset wallpaperAsset = wallpaper.getAsset(containerActivity.getApplicationContext());
+        wallpaperAsset.decodeRawDimensions(containerActivity, dimensions -> {
+            if (dimensions == null) {
+                Log.e(TAG, "Raw wallpaper's dimensions are null");
+                return;
+            }
+
+            Display defaultDisplay = containerActivity.getWindowManager().getDefaultDisplay();
+            Point screenSize = ScreenSizeCalculator.getInstance().getScreenSize(defaultDisplay);
+            Rect visibleRawWallpaperRect =
+                    WallpaperCropUtils.calculateVisibleRect(dimensions, screenSize);
+            float wallpaperScale = WallpaperCropUtils.calculateMinZoom(dimensions, screenSize);
+            Rect cropRect = WallpaperCropUtils.calculateCropRect(
+                    containerActivity.getApplicationContext(), defaultDisplay,
+                    dimensions, visibleRawWallpaperRect, wallpaperScale);
+
+            setCurrentWallpaper(containerActivity, wallpaper, wallpaperAsset, destination,
+                    wallpaperScale, cropRect, callback);
+        });
     }
 
     /**
@@ -72,8 +110,9 @@ public class WallpaperSetter {
      * @param callback optional callback to be notified when the wallpaper is set.
      */
     public void setCurrentWallpaper(Activity containerActivity, WallpaperInfo wallpaper,
-            Asset wallpaperAsset, @Destination final int destination, float wallpaperScale,
-            @Nullable Rect cropRect, @Nullable SetWallpaperCallback callback) {
+            @Nullable Asset wallpaperAsset, @Destination final int destination,
+            float wallpaperScale, @Nullable Rect cropRect,
+            @Nullable SetWallpaperCallback callback) {
         if (wallpaper instanceof LiveWallpaperInfo) {
             setCurrentLiveWallpaper(containerActivity, (LiveWallpaperInfo) wallpaper, destination,
                     callback);
@@ -84,7 +123,7 @@ public class WallpaperSetter {
 
         // Save current screen rotation so we can temporarily disable rotation while setting the
         // wallpaper and restore after setting the wallpaper finishes.
-        saveAndLockScreenOrientation(containerActivity);
+        saveAndLockScreenOrientationIfNeeded(containerActivity);
 
         // Clear MosaicView tiles and Glide's cache and pools to reclaim memory for final cropped
         // bitmap.
@@ -108,10 +147,10 @@ public class WallpaperSetter {
                 wallpaper, wallpaperAsset, cropRect,
                 wallpaperScale, destination, new SetWallpaperCallback() {
                     @Override
-                    public void onSuccess() {
+                    public void onSuccess(WallpaperInfo wallpaperInfo) {
                         onWallpaperApplied(wallpaper, containerActivity);
                         if (callback != null) {
-                            callback.onSuccess();
+                            callback.onSuccess(wallpaper);
                         }
                     }
 
@@ -130,7 +169,7 @@ public class WallpaperSetter {
         try {
             // Save current screen rotation so we can temporarily disable rotation while setting the
             // wallpaper and restore after setting the wallpaper finishes.
-            saveAndLockScreenOrientation(activity);
+            saveAndLockScreenOrientationIfNeeded(activity);
 
             if (destination == WallpaperPersister.DEST_LOCK_SCREEN) {
                 throw new IllegalArgumentException(
@@ -148,7 +187,7 @@ public class WallpaperSetter {
             }
             onWallpaperApplied(wallpaper, activity);
             if (callback != null) {
-                callback.onSuccess();
+                callback.onSuccess(wallpaper);
             }
         } catch (RuntimeException | IOException e) {
             onWallpaperApplyError(e, activity);
@@ -169,7 +208,7 @@ public class WallpaperSetter {
                 UserEventLogger.WALLPAPER_SET_RESULT_SUCCESS);
 
         cleanUp();
-        restoreScreenOrientation(containerActivity);
+        restoreScreenOrientationIfNeeded(containerActivity);
     }
 
     private void onWallpaperApplyError(Throwable throwable, Activity containerActivity) {
@@ -184,7 +223,7 @@ public class WallpaperSetter {
         mUserEventLogger.logWallpaperSetFailureReason(failureReason);
 
         cleanUp();
-        restoreScreenOrientation(containerActivity);
+        restoreScreenOrientationIfNeeded(containerActivity);
     }
 
     /**
@@ -204,9 +243,9 @@ public class WallpaperSetter {
      * @param listener {@link SetWallpaperDialogFragment.Listener} that will receive the response.
      * @see Destination
      */
-    public void requestDestination(Context context, FragmentManager fragmentManager,
+    public void requestDestination(Activity activity, FragmentManager fragmentManager,
                                    Listener listener, boolean isLiveWallpaper) {
-        requestDestination(context, fragmentManager, R.string.set_wallpaper_dialog_message,
+        requestDestination(activity, fragmentManager, R.string.set_wallpaper_dialog_message,
                 listener, isLiveWallpaper);
     }
 
@@ -218,20 +257,39 @@ public class WallpaperSetter {
      * @param titleResId title for the dialog
      * @see Destination
      */
-    public void requestDestination(Context context, FragmentManager fragmentManager,
+    public void requestDestination(Activity activity, FragmentManager fragmentManager,
             @StringRes int titleResId, Listener listener, boolean isLiveWallpaper) {
         CurrentWallpaperInfoFactory factory = InjectorProvider.getInjector()
-                .getCurrentWallpaperFactory(context);
+                .getCurrentWallpaperFactory(activity);
+        saveAndLockScreenOrientationIfNeeded(activity);
+        Listener listenerWrapper = new Listener() {
+            @Override
+            public void onSet(int destination) {
+                if (listener != null) {
+                    listener.onSet(destination);
+                }
+            }
 
+            @Override
+            public void onDialogDismissed(boolean withItemSelected) {
+                if (!withItemSelected) {
+                    restoreScreenOrientationIfNeeded(activity);
+                }
+                if (listener != null) {
+                    listener.onDialogDismissed(withItemSelected);
+                }
+            }
+        };
         factory.createCurrentWallpaperInfos((homeWallpaper, lockWallpaper, presentationMode) -> {
             SetWallpaperDialogFragment setWallpaperDialog = new SetWallpaperDialogFragment();
             setWallpaperDialog.setTitleResId(titleResId);
-            setWallpaperDialog.setListener(listener);
+            setWallpaperDialog.setListener(listenerWrapper);
             if (homeWallpaper instanceof LiveWallpaperInfo && lockWallpaper == null) {
                 if (isLiveWallpaper) {
                     // If lock wallpaper is live and we're setting a live wallpaper, we can only
                     // set it to both, so bypass the dialog.
                     listener.onSet(WallpaperPersister.DEST_BOTH);
+                    restoreScreenOrientationIfNeeded(activity);
                     return;
                 }
                 // if the lock wallpaper is a live wallpaper, we cannot set a home-only static one
@@ -244,14 +302,19 @@ public class WallpaperSetter {
         }, true); // Force refresh as the wallpaper may have been set while this fragment was paused
     }
 
-    private void saveAndLockScreenOrientation(Activity activity) {
-        mCurrentScreenOrientation = activity.getRequestedOrientation();
+    private void saveAndLockScreenOrientationIfNeeded(Activity activity) {
+        if (!mCurrentScreenOrientation.isPresent()) {
+            mCurrentScreenOrientation = Optional.of(activity.getRequestedOrientation());
             activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
+        }
     }
 
-    private void restoreScreenOrientation(Activity activity) {
-        if (activity.getRequestedOrientation() != mCurrentScreenOrientation) {
-            activity.setRequestedOrientation(mCurrentScreenOrientation);
-        }
+    private void restoreScreenOrientationIfNeeded(Activity activity) {
+        mCurrentScreenOrientation.ifPresent(orientation -> {
+            if (activity.getRequestedOrientation() != orientation) {
+                activity.setRequestedOrientation(orientation);
+            }
+            mCurrentScreenOrientation = Optional.empty();
+        });
     }
 }

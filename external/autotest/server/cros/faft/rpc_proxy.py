@@ -11,7 +11,7 @@ from autotest_lib.client.cros.faft.config import Config as ClientConfig
 from autotest_lib.server import autotest
 
 
-class _Method:
+class _Method(object):
     """Class to save the name of the RPC method instead of the real object.
 
     It keeps the name of the RPC method locally first such that the RPC method
@@ -32,6 +32,14 @@ class _Method:
     def __call__(self, *args, **dargs):
         return self.__call_method(self.__name, *args, **dargs)
 
+    def __str__(self):
+        """Return a description of the method object"""
+        return "%s('%s')" % (self.__class__.__name__, self.__name)
+
+    def __repr__(self):
+        """Return a description of the method object"""
+        return "<%s '%s'>" % (self.__class__.__name__, self.__name)
+
 
 class RPCProxy(object):
     """Proxy to the FAFTClient RPC server on DUT.
@@ -40,6 +48,11 @@ class RPCProxy(object):
      - postpone the RPC connection to the first class method call;
      - reconnect to the RPC server in case connection lost, e.g. reboot;
      - always call the latest RPC proxy object.
+
+     @ivar _client: the ssh host object
+     @type host: autotest_lib.server.hosts.abstract_ssh.AbstractSSHHost
+     @ivar _faft_client: the real serverproxy to use for calls
+     @type _faft_client: xmlrpclib.ServerProxy
     """
     _client_config = ClientConfig()
 
@@ -68,10 +81,11 @@ class RPCProxy(object):
         @param dargs: The rest of dict-type arguments.
         @return: The return value of the FAFTClient RPC method.
         """
+        if self._faft_client is None:
+            self.connect()
         try:
             return getattr(self._faft_client, name)(*args, **dargs)
-        except (AttributeError,  # _faft_client not initialized, still None
-                socket.error,
+        except (socket.error,
                 httplib.BadStatusLine,
                 xmlrpclib.ProtocolError):
             # Reconnect the RPC server in case connection lost, e.g. reboot.
@@ -97,3 +111,11 @@ class RPCProxy(object):
         """Disconnect the RPC server."""
         self._client.rpc_server_tracker.disconnect(self._client_config.rpc_port)
         self._faft_client = None
+
+    def __str__(self):
+        """Return a description of the proxy object"""
+        return '%s(%s)' % (self.__class__.__name__, self._client)
+
+    def __repr__(self):
+        """Return a description of the proxy object"""
+        return "<%s '%s'>" % (self.__class__.__name__, self._client.hostname)

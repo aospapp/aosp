@@ -600,11 +600,8 @@ countries {
 countries {
   iso_code: "DE"
   eccs {
-    phone_number: "110"
-    types: POLICE
-  }
-  eccs {
     phone_number: "112"
+    types: POLICE
     types: AMBULANCE
     types: FIRE
   }
@@ -2619,15 +2616,15 @@ countries {
 countries {
   iso_code: "UA"
   eccs {
-    phone_number: "02"
+    phone_number: "102"
     types: POLICE
   }
   eccs {
-    phone_number: "03"
+    phone_number: "103"
     types: AMBULANCE
   }
   eccs {
-    phone_number: "01"
+    phone_number: "101"
     types: FIRE
   }
   ecc_fallback: "112"

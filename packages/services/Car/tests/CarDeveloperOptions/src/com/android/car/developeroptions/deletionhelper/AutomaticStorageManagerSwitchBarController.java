@@ -25,10 +25,11 @@ import android.widget.Switch;
 import androidx.fragment.app.FragmentManager;
 import androidx.preference.Preference;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.widget.SwitchBar;
 import com.android.settingslib.Utils;
 import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
+
+import java.util.Objects;
 
 /** Handles the logic for flipping the storage management toggle on a {@link SwitchBar}. */
 public class AutomaticStorageManagerSwitchBarController
@@ -48,11 +49,11 @@ public class AutomaticStorageManagerSwitchBarController
             MetricsFeatureProvider metrics,
             Preference daysToRetainPreference,
             FragmentManager fragmentManager) {
-        mContext = Preconditions.checkNotNull(context);
-        mSwitchBar = Preconditions.checkNotNull(switchBar);
-        mMetrics = Preconditions.checkNotNull(metrics);
-        mDaysToRetainPreference = Preconditions.checkNotNull(daysToRetainPreference);
-        mFragmentManager = Preconditions.checkNotNull(fragmentManager);
+        mContext = Objects.requireNonNull(context);
+        mSwitchBar = Objects.requireNonNull(switchBar);
+        mMetrics = Objects.requireNonNull(metrics);
+        mDaysToRetainPreference = Objects.requireNonNull(daysToRetainPreference);
+        mFragmentManager = Objects.requireNonNull(fragmentManager);
 
         initializeCheckedStatus();
     }

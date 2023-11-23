@@ -309,6 +309,6 @@ ssize_t getHWBinderKernelReferences(size_t count, uintptr_t* buf) {
     return proc->getKernelReferences(count, buf);
 }
 
-}; // namespace hardware
-}; // namespace android
+} // namespace hardware
+} // namespace android
 

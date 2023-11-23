@@ -20,7 +20,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Representation of a constructor in the API with parameters (arguments). */
 class ApiConstructor implements Comparable<ApiConstructor> {
@@ -32,7 +34,7 @@ class ApiConstructor implements Comparable<ApiConstructor> {
     private final boolean mDeprecated;
 
     // A list of test APKs (aka CTS modules) that use this method.
-    private final Set<String> mCoveredWith = new HashSet<>();
+    private final Map<String, Boolean> mCoveredWith = new ConcurrentHashMap<>();
 
     ApiConstructor(String name, List<String> parameterTypes, boolean deprecated) {
         mName = name;
@@ -65,10 +67,10 @@ class ApiConstructor implements Comparable<ApiConstructor> {
         if (coveredWithModule.endsWith(".apk")) {
             coveredWithModule = coveredWithModule.substring(0, coveredWithModule.length() - 4);
         }
-        mCoveredWith.add(coveredWithModule);
+        mCoveredWith.put(coveredWithModule, true);
     }
 
     public Set<String> getCoveredWith() {
-        return mCoveredWith;
+        return mCoveredWith.keySet();
     }
 }

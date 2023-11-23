@@ -15,7 +15,7 @@
 # Main function.
 function _asuite_main() {
     local T="$(gettop)/tools"
-    src_atest="$T/tradefederation/core/atest/atest_completion.sh"
+    src_atest="$T/asuite/atest/atest_completion.sh"
     src_acloud="$T/acloud/acloud_completion.sh"
     src_aidegen="$T/asuite/aidegen/aidegen_completion.sh"
     declare -a asuite_srcs=($src_atest $src_acloud $src_aidegen)

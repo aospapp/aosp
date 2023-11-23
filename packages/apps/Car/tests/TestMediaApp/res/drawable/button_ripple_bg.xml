@@ -17,4 +17,4 @@
 
 <ripple
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="@*android:color/car_card_ripple_background" />
+    android:color="@color/ripple_background_color" />

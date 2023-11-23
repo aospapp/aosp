@@ -22,9 +22,10 @@ import android.graphics.drawable.Drawable;
 import android.os.UserManager;
 import android.util.SparseArray;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.Utils;
 import com.android.settingslib.utils.AsyncLoaderCompat;
+
+import java.util.Objects;
 
 /**
  * Fetches a user icon as a loader using a given icon loading lambda.
@@ -48,7 +49,7 @@ public class UserIconLoader extends AsyncLoaderCompat<SparseArray<Drawable>> {
 
     public UserIconLoader(Context context, FetchUserIconTask task) {
         super(context);
-        mTask = Preconditions.checkNotNull(task);
+        mTask = Objects.requireNonNull(task);
     }
 
     @Override

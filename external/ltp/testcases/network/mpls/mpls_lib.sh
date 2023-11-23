@@ -8,7 +8,7 @@ TST_NEEDS_ROOT=1
 TST_NEEDS_DRIVERS="mpls_router mpls_iptunnel mpls_gso"
 TST_NEEDS_CMDS="sysctl modprobe"
 TST_TEST_DATA="icmp tcp udp"
-
+TST_NETLOAD_BINDTODEVICE=
 . tst_net.sh
 
 mpls_cleanup()
@@ -84,7 +84,7 @@ mpls_virt_setup()
 mpls_virt_test()
 {
 	local type=$2
-	local max_size=10000
+	local max_size=$TST_NET_MAX_PKT
 
 	if [ "$type" = "icmp" ]; then
 		tst_ping $ip_virt_local $ip_virt_remote 10 100 1000 2000 $max_size

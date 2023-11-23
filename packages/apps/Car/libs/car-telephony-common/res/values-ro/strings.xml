@@ -21,8 +21,8 @@
     <string name="phone_label_with_info" msgid="4652109530699808645">"<xliff:g id="LABEL">%1$s</xliff:g>  ·  <xliff:g id="DURATION">%2$s</xliff:g>"</string>
     <string name="call_state_connecting" msgid="5930724746375294866">"Se conectează…"</string>
     <string name="call_state_dialing" msgid="1534599871716648114">"Se apelează…"</string>
-    <string name="call_state_hold" msgid="6834028102796624100">"În așteptare"</string>
-    <string name="call_state_call_ended" msgid="4159349597599886429">"Apel încheiat"</string>
+    <string name="call_state_hold" msgid="8063542005458186874">"În așteptare"</string>
+    <string name="call_state_call_ended" msgid="1432127342949555464">"Apel încheiat"</string>
     <string name="call_state_call_active" msgid="2769644783657864202">"Conectat"</string>
     <string name="call_state_call_ringing" msgid="4618803402954375017">"Sună…"</string>
     <string name="call_state_call_ending" msgid="5037498349965472247">"Se deconectează…"</string>

@@ -19,15 +19,14 @@ bootstrap_go_package {
         "package_ctx.go",
         "scope.go",
         "singleton_ctx.go",
-        "unpack.go",
     ],
     testSrcs: [
         "context_test.go",
         "glob_test.go",
+        "module_ctx_test.go",
         "ninja_strings_test.go",
         "ninja_writer_test.go",
         "splice_modules_test.go",
-        "unpack_test.go",
         "visit_test.go",
     ],
 }
@@ -75,20 +74,27 @@ bootstrap_go_package {
 bootstrap_go_package {
     name: "blueprint-proptools",
     pkgPath: "github.com/google/blueprint/proptools",
+    deps: [
+        "blueprint-parser",
+    ],
     srcs: [
         "proptools/clone.go",
         "proptools/escape.go",
         "proptools/extend.go",
+        "proptools/filter.go",
         "proptools/proptools.go",
         "proptools/tag.go",
         "proptools/typeequal.go",
+        "proptools/unpack.go",
     ],
     testSrcs: [
         "proptools/clone_test.go",
         "proptools/escape_test.go",
         "proptools/extend_test.go",
+        "proptools/filter_test.go",
         "proptools/tag_test.go",
         "proptools/typeequal_test.go",
+        "proptools/unpack_test.go",
     ],
 }
 
@@ -125,6 +131,8 @@ bootstrap_go_package {
         "bootstrap/bpdoc/reader.go",
     ],
     testSrcs: [
+        "bootstrap/bpdoc/bpdoc_test.go",
+        "bootstrap/bpdoc/properties_test.go",
         "bootstrap/bpdoc/reader_test.go",
     ],
 }

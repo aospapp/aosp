@@ -25,6 +25,14 @@ namespace binder {
 
 struct RequestId : public AutoParcelable<RequestId> {
   int64_t request_id;
+
+  constexpr bool operator==(const RequestId& other) const {
+    return request_id == other.request_id;
+  }
+
+  constexpr bool operator!=(const RequestId& other) const {
+    return !(*this == other);
+  }
 };
 
 IORAP_INTROSPECT_ADAPT_STRUCT(RequestId, request_id);

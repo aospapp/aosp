@@ -33,6 +33,7 @@ public class AllTestAppsInstallSetupTest extends TestCase {
         mMockTestDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockTestDevice.getSerialNumber()).andStubReturn(SERIAL);
         EasyMock.expect(mMockTestDevice.getDeviceDescriptor()).andStubReturn(null);
+        EasyMock.expect(mMockTestDevice.isAppEnumerationSupported()).andStubReturn(false);
     }
 
     public void testNotIDeviceBuildInfo() throws DeviceNotAvailableException {
@@ -43,8 +44,7 @@ public class AllTestAppsInstallSetupTest extends TestCase {
             fail("Should have thrown a TargetSetupError");
         } catch (TargetSetupError e) {
             // expected
-            assertEquals("Invalid buildInfo, expecting an IDeviceBuildInfo null",
-                    e.getMessage());
+            assertEquals("Invalid buildInfo, expecting an IDeviceBuildInfo", e.getMessage());
         }
         EasyMock.verify(mockBuildInfo, mMockTestDevice);
     }
@@ -56,8 +56,7 @@ public class AllTestAppsInstallSetupTest extends TestCase {
             mPrep.setUp(mMockTestDevice, mMockBuildInfo);
             fail("Should have thrown a TargetSetupError");
         } catch (TargetSetupError e) {
-            assertEquals("Failed to find a valid test zip directory. null",
-                    e.getMessage());
+            assertEquals("Failed to find a valid test zip directory.", e.getMessage());
         }
         EasyMock.verify(mMockBuildInfo, mMockTestDevice);
     }
@@ -69,7 +68,7 @@ public class AllTestAppsInstallSetupTest extends TestCase {
             mPrep.installApksRecursively(null, mMockTestDevice);
             fail("Should have thrown a TargetSetupError");
         } catch (TargetSetupError e) {
-            assertEquals("Invalid test zip directory! null", e.getMessage());
+            assertEquals("Invalid test zip directory!", e.getMessage());
         }
         EasyMock.verify(mMockBuildInfo, mMockTestDevice);
     }
@@ -93,6 +92,22 @@ public class AllTestAppsInstallSetupTest extends TestCase {
             FileUtil.recursiveDelete(testDir);
         }
     }
+    public void testSetupForceQueryable() throws Exception {
+        EasyMock.expect(mMockTestDevice.isAppEnumerationSupported()).andReturn(true);
+        File testDir = FileUtil.createTempDir("TestAppSetupForceQueryableTest");
+        // fake hierarchy of directory and files
+        FileUtil.createTempFile("fakeApk", ".apk", testDir);
+        try {
+            EasyMock.expect(mMockBuildInfo.getTestsDir()).andReturn(testDir);
+            EasyMock.expect(mMockTestDevice.installPackage((File)EasyMock.anyObject(),
+                    EasyMock.eq(true), EasyMock.eq("--force-queryable"))).andReturn(null);
+            EasyMock.replay(mMockBuildInfo, mMockTestDevice);
+            mPrep.setUp(mMockTestDevice, mMockBuildInfo);
+            EasyMock.verify(mMockBuildInfo, mMockTestDevice);
+        } finally {
+            FileUtil.recursiveDelete(testDir);
+        }
+    }
 
     public void testInstallFailure() throws DeviceNotAvailableException {
         final String failure = "INSTALL_PARSE_FAILED_MANIFEST_MALFORMED";
@@ -104,8 +119,9 @@ public class AllTestAppsInstallSetupTest extends TestCase {
             mPrep.installApk(new File("TEST"), mMockTestDevice);
             fail("Should have thrown an exception");
         } catch (TargetSetupError e) {
-            String expected = String.format("Failed to install %s on %s. Reason: '%s' "
-                    + "null", file, SERIAL, failure);
+            String expected =
+                    String.format(
+                            "Failed to install %s on %s. Reason: '%s'", file, SERIAL, failure);
             assertEquals(expected, e.getMessage());
         }
         EasyMock.verify(mMockBuildInfo, mMockTestDevice);

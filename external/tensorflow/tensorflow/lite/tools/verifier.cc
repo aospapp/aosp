@@ -14,7 +14,10 @@ limitations under the License.
 ==============================================================================*/
 
 #include "tensorflow/lite/tools/verifier.h"
+
 #include <climits>
+#include <cstdint>
+
 #include "absl/container/flat_hash_set.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/string_util.h"
@@ -57,6 +60,11 @@ const uint32_t kMaxNumString = UINT_MAX / sizeof(int32_t) - 2;
 bool VerifyStringTensorBuffer(const Tensor& tensor, const Buffer& buffer,
                               ErrorReporter* error_reporter) {
   uint32_t buffer_size = buffer.data()->size();
+  if (buffer_size < sizeof(uint32_t)) {
+    ReportError(error_reporter, "String tensor %s is invalid (empty)",
+                tensor.name()->c_str());
+    return false;
+  }
   const char* buffer_ptr = reinterpret_cast<const char*>(buffer.data()->data());
 
   uint32_t num_strings = *GetIntPtr(buffer_ptr);
@@ -105,6 +113,139 @@ bool VerifyStringTensorBuffer(const Tensor& tensor, const Buffer& buffer,
   return true;
 }
 
+// The sparsity parameter defines a tree structure to map each non-zero element
+// stored in the flattened buffer back to its index in the conceptual dense
+// tensor.
+// Traverse the tree level by level, count total number of elements, and
+// validate the sparsity parameters along the way.
+absl::optional<uint64_t> VerifyAndCountElements(
+    const SparsityParameters& sparsity, const std::vector<int>& dim_sizes) {
+  const int total_level = sparsity.traversal_order()->size();
+  uint64_t num_elements = 1;
+  for (int i = 0; i < total_level; i++) {
+    const int original_dim = sparsity.traversal_order()->Get(i);
+    const auto* dim_metadata = sparsity.dim_metadata()->Get(i);
+    if (dim_metadata->format() == DimensionType_DENSE) {
+      if (dim_metadata->dense_size() != dim_sizes[original_dim]) {
+        return absl::nullopt;
+      }
+
+      // Each index in a dense dimension is stored implicitly.
+      num_elements *= dim_metadata->dense_size();
+    } else {
+      const auto* array_segments = dim_metadata->array_segments();
+      const auto* array_indices = dim_metadata->array_indices();
+      if (array_segments == nullptr || array_indices == nullptr) {
+        return absl::nullopt;
+      }
+
+      for (int j = 0; j < array_segments->size() - 1; j++) {
+        if (array_segments->Get(j) < 0 || array_segments->Get(j + 1) < 0 ||
+            array_segments->Get(j) > array_segments->Get(j + 1)) {
+          return absl::nullopt;
+        }
+      }
+
+      if (num_elements != array_segments->size() - 1) {
+        return absl::nullopt;
+      }
+
+      if (array_indices->size() !=
+          array_segments->Get(array_segments->size() - 1)) {
+        return absl::nullopt;
+      }
+
+      for (int j = 0; j < array_indices->size(); j++) {
+        if (array_indices->Get(j) < 0 ||
+            array_indices->Get(j) >= dim_sizes[original_dim]) {
+          return absl::nullopt;
+        }
+      }
+
+      // Need to reset num_elements when seeing a sparse dimension.
+      num_elements = array_indices->size();
+    }
+  }
+
+  return num_elements;
+}
+
+absl::optional<uint64_t> VerifyAndCountSparseElements(const Tensor& tensor) {
+  const auto* sparsity = tensor.sparsity();
+  if (sparsity->traversal_order() == nullptr ||
+      sparsity->dim_metadata() == nullptr) {
+    return absl::nullopt;
+  }
+
+  const int total_dims = sparsity->traversal_order()->size();
+  const int original_rank = tensor.shape()->size();
+
+  if (total_dims < original_rank ||
+      sparsity->dim_metadata()->size() != total_dims) {
+    return absl::nullopt;
+  }
+
+  const int block_rank = total_dims - original_rank;
+  if (block_rank > 0 && (sparsity->block_map() == nullptr ||
+                         sparsity->block_map()->size() != block_rank)) {
+    return absl::nullopt;
+  }
+
+  // For a n-dimensional tensor (d0, ..., dn-1) with k-dimensional block (dn,
+  // ..., dn+k-1), the first n elements in the traversal order should be a
+  // permutation of (d0, ..., dn-1), and the last k elements should be a
+  // permutation of (dn, ..., dn+k-1).
+  std::vector<int> traversal_order(total_dims);
+  for (int i = 0; i < total_dims; i++) {
+    traversal_order[i] = sparsity->traversal_order()->Get(i);
+  }
+
+  std::sort(traversal_order.begin(), traversal_order.begin() + original_rank);
+  for (int i = 0; i < original_rank; i++) {
+    if (traversal_order[i] != i) {
+      return absl::nullopt;
+    }
+  }
+
+  std::sort(traversal_order.begin() + original_rank, traversal_order.end());
+  for (int i = original_rank; i < total_dims; i++) {
+    if (traversal_order[i] != i) {
+      return absl::nullopt;
+    }
+  }
+
+  // For a n-dimensional tensor (d0, ..., dn-1) with k-dimensional block (dn,
+  // ..., dn+k-1), the expanded_dim_sizes holds the size of each dimension in
+  // the order of (d0, ..., dn-1, dn, ..., dn+k-1), not the traversal order.
+  // For example, a 4x4 tensor with 2x2 block has expanded_dim_sizes = {2, 2, 2,
+  // 2}.
+  std::vector<int> expanded_dim_sizes;
+  expanded_dim_sizes.resize(total_dims);
+  // First go through the original tensor dimensions, populate their sizes.
+  for (int i = 0; i < original_rank; i++) {
+    expanded_dim_sizes[i] = tensor.shape()->Get(i);
+  }
+  // Then go through the block dimensions, and
+  //   1. populate block dimension size.
+  //   2. block_map[i] has the original dimension that block dimension i maps
+  //   to. Divide the size of the original dimension by the size of the ith
+  //   block dimension.
+  for (int i = 0; i < block_rank; i++) {
+    int original_block_dim =
+        sparsity->traversal_order()->Get(i + original_rank);
+    int block_dim_size =
+        sparsity->dim_metadata()->Get(i + original_rank)->dense_size();
+    if (block_dim_size == 0) {
+      return absl::nullopt;
+    }
+
+    expanded_dim_sizes[original_block_dim] = block_dim_size;
+    expanded_dim_sizes[sparsity->block_map()->Get(i)] /= block_dim_size;
+  }
+
+  return VerifyAndCountElements(*sparsity, expanded_dim_sizes);
+}
+
 // Verifies numeric tensor has legit buffer.
 bool VerifyNumericTensorBuffer(const Tensor& tensor, const Buffer& buffer,
                                ErrorReporter* error_reporter) {
@@ -113,32 +254,58 @@ bool VerifyNumericTensorBuffer(const Tensor& tensor, const Buffer& buffer,
     // Empty tensor. Avoid further checks.
     return true;
   }
-  for (int dim : *tensor.shape()) {
-    bytes_required *= dim;
+  if (tensor.sparsity() != nullptr) {
+    const auto num_elements = VerifyAndCountSparseElements(tensor);
+    if (!num_elements.has_value()) {
+      ReportError(error_reporter, "Tensor %s has invalid sparsity parameters",
+                  tensor.name()->c_str());
+      return false;
+    }
+    bytes_required = num_elements.value();
     if (bytes_required > UINT_MAX) {
       ReportError(error_reporter, "Tensor %s dimension overflow",
                   tensor.name()->c_str());
       return false;
     }
+  } else {
+    for (int dim : *tensor.shape()) {
+      bytes_required *= dim;
+      if (bytes_required > UINT_MAX) {
+        ReportError(error_reporter, "Tensor %s dimension overflow",
+                    tensor.name()->c_str());
+        return false;
+      }
+    }
   }
+
   switch (tensor.type()) {
     case TensorType_FLOAT32:
       bytes_required *= sizeof(float);
       break;
-    case TensorType_INT8:
-      bytes_required *= sizeof(int8_t);
-      break;
-    case TensorType_UINT8:
-      bytes_required *= sizeof(uint8_t);
+    case TensorType_FLOAT16:
+      bytes_required *= sizeof(uint16_t);
       break;
     case TensorType_INT32:
       bytes_required *= sizeof(int32_t);
       break;
+    case TensorType_UINT8:
+      bytes_required *= sizeof(uint8_t);
+      break;
+    case TensorType_INT8:
+      bytes_required *= sizeof(int8_t);
+      break;
     case TensorType_INT64:
       bytes_required *= sizeof(int64_t);
       break;
-    case TensorType_FLOAT16:
-      // FALLTHROUGH_INTENDED;
+    case TensorType_BOOL:
+      bytes_required *= sizeof(bool);
+      break;
+    case TensorType_INT16:
+      bytes_required *= sizeof(uint16_t);
+      break;
+    case TensorType_COMPLEX64:
+      bytes_required *= sizeof(std::complex<float>);
+      break;
     default:
       ReportError(error_reporter, "Tensor %s invalid type: %d",
                   tensor.name()->c_str(), tensor.type());
@@ -196,65 +363,82 @@ bool VerifySubGraphConsistency(const Model& model, const SubGraph& subgraph,
                                ErrorReporter* error_reporter) {
   absl::flat_hash_set<int> subgraph_input_tensors, constant_tensors,
       variable_tensors, output_tensors;
-  for (int i = 0; i < subgraph.tensors()->Length(); ++i) {
-    const auto* tensor = subgraph.tensors()->Get(i);
-    if (IsConstantTensor(*tensor, model)) {
-      constant_tensors.insert(i);
-    } else if (tensor->is_variable()) {
-      variable_tensors.insert(i);
+  if (subgraph.tensors()) {
+    for (int i = 0; i < subgraph.tensors()->Length(); ++i) {
+      const auto* tensor = subgraph.tensors()->Get(i);
+      if (IsConstantTensor(*tensor, model)) {
+        constant_tensors.insert(i);
+      } else if (tensor->is_variable()) {
+        variable_tensors.insert(i);
+      }
     }
   }
-  for (const int tensor_idx : *subgraph.inputs()) {
-    subgraph_input_tensors.insert(tensor_idx);
+  if (subgraph.inputs()) {
+    for (const int tensor_idx : *subgraph.inputs()) {
+      subgraph_input_tensors.insert(tensor_idx);
+    }
   }
 
-  for (int op_idx = 0; op_idx < subgraph.operators()->Length(); ++op_idx) {
-    const auto* op = subgraph.operators()->Get(op_idx);
-    const auto& opcode = model.operator_codes()->Get(op->opcode_index());
-    // Check for invalid inputs by ensuring all exist in produced_tensors.
-    for (const int input_idx : *op->inputs()) {
-      if (input_idx == kOptionalTensor) continue;
-      if (constant_tensors.find(input_idx) == constant_tensors.end() &&
-          variable_tensors.find(input_idx) == variable_tensors.end() &&
-          subgraph_input_tensors.find(input_idx) ==
-              subgraph_input_tensors.end() &&
-          output_tensors.find(input_idx) == output_tensors.end()) {
+  if (subgraph.operators()) {
+    for (int op_idx = 0; op_idx < subgraph.operators()->Length(); ++op_idx) {
+      const auto* op = subgraph.operators()->Get(op_idx);
+      if (!model.operator_codes() ||
+          (op->opcode_index() >= model.operator_codes()->size())) {
         ReportError(error_reporter,
-                    "Input tensor %d to op %d (%s) is not produced", input_idx,
-                    op_idx, EnumNameBuiltinOperator(opcode->builtin_code()));
+                    "Operator %d does not exist in model op codes",
+                    op->opcode_index());
         return false;
       }
-    }
-    // Check for cycles/invalid outputs by ensuring that none exist in
-    // produced_tensors.
-    for (const int output_idx : *op->outputs()) {
-      if (constant_tensors.find(output_idx) != constant_tensors.end()) {
-        ReportError(error_reporter,
-                    "Output tensor %d to op %d (%s) is a constant", output_idx,
-                    op_idx, EnumNameBuiltinOperator(opcode->builtin_code()));
-        return false;
-      } else if (variable_tensors.find(output_idx) != variable_tensors.end()) {
-        ReportError(error_reporter,
-                    "Output tensor %d to op %d (%s) is a variable", output_idx,
-                    op_idx, EnumNameBuiltinOperator(opcode->builtin_code()));
-        return false;
-      } else if (subgraph_input_tensors.find(output_idx) !=
-                 subgraph_input_tensors.end()) {
-        ReportError(error_reporter,
-                    "Output tensor %d to op %d (%s) is a subgraph input",
-                    output_idx, op_idx,
-                    EnumNameBuiltinOperator(opcode->builtin_code()));
-        return false;
-      } else if (output_tensors.find(output_idx) != output_tensors.end()) {
-        ReportError(error_reporter,
-                    "Output tensor %d to op %d (%s) is an output from "
-                    "another op. There is a cycle in the graph",
-                    output_idx, op_idx,
-                    EnumNameBuiltinOperator(opcode->builtin_code()));
-        return false;
+      const auto& opcode = model.operator_codes()->Get(op->opcode_index());
+      // Check for invalid inputs by ensuring all exist in produced_tensors.
+      for (const int input_idx : *op->inputs()) {
+        if (input_idx == kTfLiteOptionalTensor) continue;
+        if (constant_tensors.find(input_idx) == constant_tensors.end() &&
+            variable_tensors.find(input_idx) == variable_tensors.end() &&
+            subgraph_input_tensors.find(input_idx) ==
+                subgraph_input_tensors.end() &&
+            output_tensors.find(input_idx) == output_tensors.end()) {
+          ReportError(error_reporter,
+                      "Input tensor %d to op %d (%s) is not produced",
+                      input_idx, op_idx,
+                      EnumNameBuiltinOperator(opcode->builtin_code()));
+          return false;
+        }
       }
-      // This can be an input to a subsequent op.
-      output_tensors.insert(output_idx);
+      // Check for cycles/invalid outputs by ensuring that none exist in
+      // produced_tensors.
+      for (const int output_idx : *op->outputs()) {
+        if (constant_tensors.find(output_idx) != constant_tensors.end()) {
+          ReportError(error_reporter,
+                      "Output tensor %d to op %d (%s) is a constant",
+                      output_idx, op_idx,
+                      EnumNameBuiltinOperator(opcode->builtin_code()));
+          return false;
+        } else if (variable_tensors.find(output_idx) !=
+                   variable_tensors.end()) {
+          ReportError(error_reporter,
+                      "Output tensor %d to op %d (%s) is a variable",
+                      output_idx, op_idx,
+                      EnumNameBuiltinOperator(opcode->builtin_code()));
+          return false;
+        } else if (subgraph_input_tensors.find(output_idx) !=
+                   subgraph_input_tensors.end()) {
+          ReportError(error_reporter,
+                      "Output tensor %d to op %d (%s) is a subgraph input",
+                      output_idx, op_idx,
+                      EnumNameBuiltinOperator(opcode->builtin_code()));
+          return false;
+        } else if (output_tensors.find(output_idx) != output_tensors.end()) {
+          ReportError(error_reporter,
+                      "Output tensor %d to op %d (%s) is an output from "
+                      "another op. There is a cycle in the graph",
+                      output_idx, op_idx,
+                      EnumNameBuiltinOperator(opcode->builtin_code()));
+          return false;
+        }
+        // This can be an input to a subsequent op.
+        output_tensors.insert(output_idx);
+      }
     }
   }
   return true;

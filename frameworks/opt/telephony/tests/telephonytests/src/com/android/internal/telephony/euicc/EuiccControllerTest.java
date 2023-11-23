@@ -15,6 +15,7 @@
  */
 package com.android.internal.telephony.euicc;
 
+import static android.telephony.euicc.EuiccCardManager.RESET_OPTION_DELETE_OPERATIONAL_PROFILES;
 import static android.telephony.euicc.EuiccManager.EUICC_OTA_STATUS_UNAVAILABLE;
 
 import static org.junit.Assert.assertEquals;
@@ -984,14 +985,43 @@ public class EuiccControllerTest extends TelephonyTest {
     public void testEraseSubscriptions_error() throws Exception {
         setHasWriteEmbeddedPermission(true);
         callEraseSubscriptions(true /* complete */, 42 /* result */);
-        verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR,
-                42 /* detailedCode */);
+        verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR, 42 /* detailedCode */);
     }
 
     @Test
     public void testEraseSubscriptions_success() throws Exception {
         setHasWriteEmbeddedPermission(true);
         callEraseSubscriptions(true /* complete */, EuiccService.RESULT_OK);
+        verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK, 0 /* detailedCode */);
+        assertTrue(mController.mCalledRefreshSubscriptionsAndSendResult);
+    }
+
+    @Test(expected = SecurityException.class)
+    public void testEraseSubscriptionsWithOptions_noPrivileges() throws Exception {
+        setHasWriteEmbeddedPermission(false);
+        callEraseSubscriptionsWithOptions(false /* complete */, 0 /* result */);
+    }
+
+    @Test
+    public void testEraseSubscriptionsWithOptions_serviceUnavailable() throws Exception {
+        setHasWriteEmbeddedPermission(true);
+        callEraseSubscriptionsWithOptions(false /* complete */, 0 /* result */);
+        verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR,
+                0 /* detailedCode */);
+        verify(mMockConnector).eraseSubscriptionsWithOptions(anyInt(), anyInt(), any());
+    }
+
+    @Test
+    public void testEraseSubscriptionsWithOptions_error() throws Exception {
+        setHasWriteEmbeddedPermission(true);
+        callEraseSubscriptionsWithOptions(true /* complete */, 42 /* result */);
+        verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR, 42 /* detailedCode */);
+    }
+
+    @Test
+    public void testEraseSubscriptionsWithOptions_success() throws Exception {
+        setHasWriteEmbeddedPermission(true);
+        callEraseSubscriptionsWithOptions(true /* complete */, EuiccService.RESULT_OK);
         verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK, 0 /* detailedCode */);
         assertTrue(mController.mCalledRefreshSubscriptionsAndSendResult);
     }
@@ -1024,6 +1054,78 @@ public class EuiccControllerTest extends TelephonyTest {
         verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK, 0 /* detailedCode */);
     }
 
+    @Test
+    public void testAddExtrasToResultIntent_withSmdxOperationCode_normal_case() {
+        // Same setup as testGetDownloadableSubscriptionMetadata_error
+        setHasWriteEmbeddedPermission(true);
+        GetDownloadableSubscriptionMetadataResult result =
+                new GetDownloadableSubscriptionMetadataResult(0xA8b1051 /* result */,
+                        null /* subscription */);
+        callGetDownloadableSubscriptionMetadata(SUBSCRIPTION, true /* complete */, result);
+
+        assertEquals(mController.mExtrasIntent.getIntExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_OPERATION_CODE, -1),
+                EuiccManager.OPERATION_SMDX_SUBJECT_REASON_CODE);
+        assertEquals(mController.mExtrasIntent.getStringExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE), "8.11.1");
+        assertEquals(mController.mExtrasIntent.getStringExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE), "5.1");
+
+    }
+
+    @Test
+    public void testAddExtrasToResultIntent_withSmdxOperationCode_general_case() {
+        // Same setup as testGetDownloadableSubscriptionMetadata_error
+        setHasWriteEmbeddedPermission(true);
+        GetDownloadableSubscriptionMetadataResult result =
+                new GetDownloadableSubscriptionMetadataResult(0xA123456 /* result */,
+                        null /* subscription */);
+        callGetDownloadableSubscriptionMetadata(SUBSCRIPTION, true /* complete */, result);
+
+        assertEquals(mController.mExtrasIntent.getIntExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_OPERATION_CODE, -1),
+                EuiccManager.OPERATION_SMDX_SUBJECT_REASON_CODE);
+        assertEquals(mController.mExtrasIntent.getStringExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE), "1.2.3");
+        assertEquals(mController.mExtrasIntent.getStringExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE), "4.5.6");
+
+    }
+
+    @Test
+    public void testAddExtrasToResultIntent_withSmdxOperationCode_and_padding() {
+        // Same setup as testGetDownloadableSubscriptionMetadata_error
+        setHasWriteEmbeddedPermission(true);
+        GetDownloadableSubscriptionMetadataResult result =
+                new GetDownloadableSubscriptionMetadataResult(0xA003006 /* result */,
+                        null /* subscription */);
+        callGetDownloadableSubscriptionMetadata(SUBSCRIPTION, true /* complete */, result);
+
+        assertEquals(mController.mExtrasIntent.getIntExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_OPERATION_CODE, -1),
+                EuiccManager.OPERATION_SMDX_SUBJECT_REASON_CODE);
+        assertEquals(mController.mExtrasIntent.getStringExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE), "3");
+        assertEquals(mController.mExtrasIntent.getStringExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE), "6");
+    }
+
+    @Test
+    public void testAddExtrasToResultIntent_withOperationCode() {
+        // Same setup as testGetDownloadableSubscriptionMetadata_error
+        setHasWriteEmbeddedPermission(true);
+        GetDownloadableSubscriptionMetadataResult result =
+                new GetDownloadableSubscriptionMetadataResult(0x12345678 /* result */,
+                        null /* subscription */);
+        callGetDownloadableSubscriptionMetadata(SUBSCRIPTION, true /* complete */, result);
+
+        assertEquals(mController.mExtrasIntent.getIntExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_OPERATION_CODE, -1),
+                0x12);
+        assertEquals(mController.mExtrasIntent.getIntExtra(
+                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_ERROR_CODE, -1), 0x345678);
+    }
+
     private void setGetEidPermissions(
             boolean hasPhoneStatePrivileged, boolean hasCarrierPrivileges) throws Exception {
         doReturn(hasPhoneStatePrivileged
@@ -1052,7 +1154,7 @@ public class EuiccControllerTest extends TelephonyTest {
         SubscriptionInfo subInfo = new SubscriptionInfo(
                 0, "", 0, "", "", 0, 0, "", 0, null, "", "", "", true /* isEmbedded */,
                 hasPrivileges ? new UiccAccessRule[] { ACCESS_RULE } : null, "", CARD_ID,
-                false, null, false, 0, 0, 0, null);
+                false, null, false, 0, 0, 0, null, null, true);
         when(mSubscriptionManager.canManageSubscription(subInfo, PACKAGE_NAME)).thenReturn(
                 hasPrivileges);
         when(mSubscriptionManager.getActiveSubscriptionInfoList(anyBoolean())).thenReturn(
@@ -1073,11 +1175,11 @@ public class EuiccControllerTest extends TelephonyTest {
         SubscriptionInfo subInfo1 = new SubscriptionInfo(
                 0, "", 0, "", "", 0, 0, "", 0, null, "", "", "", true /* isEmbedded */,
                 hasPrivileges ? new UiccAccessRule[] { ACCESS_RULE } : null, "", CARD_ID,
-                false, null, false, 0, 0, 0, null);
+                false, null, false, 0, 0, 0, null, null, true);
         SubscriptionInfo subInfo2 = new SubscriptionInfo(
                 0, "", 0, "", "", 0, 0, "", 0, null, "", "", "", true /* isEmbedded */,
                 hasPrivileges ? new UiccAccessRule[] { ACCESS_RULE } : null, "",
-                1 /* cardId */, false, null, false, 0, 0, 0, null);
+                1 /* cardId */, false, null, false, 0, 0, 0, null, null, true);
         when(mSubscriptionManager.canManageSubscription(subInfo1, PACKAGE_NAME)).thenReturn(
                 hasPrivileges);
         when(mSubscriptionManager.canManageSubscription(subInfo2, PACKAGE_NAME)).thenReturn(
@@ -1316,6 +1418,25 @@ public class EuiccControllerTest extends TelephonyTest {
             }
         }).when(mMockConnector).eraseSubscriptions(anyInt(), any());
         mController.eraseSubscriptions(CARD_ID, resultCallback);
+    }
+
+    private void callEraseSubscriptionsWithOptions(final boolean complete, final int result) {
+        PendingIntent resultCallback = PendingIntent.getBroadcast(mContext, 0, new Intent(), 0);
+        doAnswer(new Answer<Void>() {
+            @Override
+            public Void answer(InvocationOnMock invocation) throws Exception {
+                EuiccConnector.EraseCommandCallback cb = invocation
+                        .getArgument(2 /* resultCallback */);
+                if (complete) {
+                    cb.onEraseComplete(result);
+                } else {
+                    cb.onEuiccServiceUnavailable();
+                }
+                return null;
+            }
+        }).when(mMockConnector).eraseSubscriptionsWithOptions(anyInt(), anyInt(), any());
+        mController.eraseSubscriptionsWithOptions(CARD_ID,
+                RESET_OPTION_DELETE_OPERATIONAL_PROFILES, resultCallback);
     }
 
     private void callRetainSubscriptionsForFactoryReset(final boolean complete, final int result) {

@@ -109,6 +109,8 @@ cc_library_headers {
     name: "libbcinfo-headers",
     vendor_available: true,
     host_supported: true,
+    // TODO(b/153609531): remove when no longer needed.
+    native_bridge_supported: true,
     export_include_dirs: ["include"],
     target: {
         windows: {

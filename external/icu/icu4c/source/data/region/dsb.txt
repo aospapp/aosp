@@ -181,7 +181,6 @@ dsb{
         MF{"St. Martin"}
         MG{"Madagaskar"}
         MH{"Marshallowe kupy"}
-        MK{"Makedońska (PRJ)"}
         ML{"Mali"}
         MM{"Myanmar"}
         MN{"Mongolska"}
@@ -302,5 +301,5 @@ dsb{
         CI{"Słonowokósćowy pśibrjog"}
         TL{"Pódzajtšny Timor"}
     }
-    Version{"2.1.41.34"}
+    Version{"36.1"}
 }

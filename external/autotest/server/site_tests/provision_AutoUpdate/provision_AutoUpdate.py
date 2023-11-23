@@ -153,23 +153,11 @@ class provision_AutoUpdate(test.test):
         # that the test that runs after this provision finishes doesn't error
         # out because the devserver that its job_repo_url is set to is missing
         # autotest test code.
-        # TODO(milleral): http://crbug.com/249426
-        # Add an asynchronous staging call so that we can ask the devserver to
-        # fetch autotest in the background here, and then wait on it after
-        # reimaging finishes or at some other point in the provisioning.
         ds = None
-        use_quick_provision = False
         try:
             ds = dev_server.ImageServer.resolve(image, host.hostname)
             ds.stage_artifacts(image, ['full_payload', 'stateful',
                                        'autotest_packages'])
-            if not force_update_engine:
-                try:
-                    ds.stage_artifacts(image, ['quick_provision'])
-                    use_quick_provision = True
-                except dev_server.DevServerException as e:
-                    logging.warning('Unable to stage quick provision '
-                                    'payload: %s', e)
         except dev_server.DevServerException as e:
             raise error.TestFail, str(e), sys.exc_info()[2]
         finally:
@@ -188,7 +176,8 @@ class provision_AutoUpdate(test.test):
         failure = None
         try:
             afe_utils.machine_install_and_update_labels(
-                    host, url, use_quick_provision, with_cheets)
+                    host, url, not force_update_engine, with_cheets,
+                    staging_server=ds)
         except BaseException as e:
             failure = e
             raise

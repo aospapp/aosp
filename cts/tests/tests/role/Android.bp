@@ -17,19 +17,26 @@ android_test {
     sdk_version: "test_current",
 
     srcs: [
-        "src/**/*.java"
+        "src/**/*.java",
+        "src/**/*.kt",
     ],
 
     static_libs: [
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
-        "truth-prebuilt"
+        "truth-prebuilt",
     ],
 
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
-    ]
+        "mts",
+    ],
+
+    data: [
+        ":CtsRoleTestApp",
+        ":CtsRoleTestApp28",
+    ],
 }

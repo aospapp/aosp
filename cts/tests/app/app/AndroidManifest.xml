@@ -45,6 +45,7 @@
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application android:label="Android TestCase"
                 android:icon="@drawable/size_48x48"
@@ -79,7 +80,6 @@
         </activity>
 
         <activity android:name="android.app.stubs.InstrumentationTestActivity"
-                  android:theme="@style/Theme_NoSwipeDismiss"
                   android:label="InstrumentationTestActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -133,14 +133,17 @@
             <meta-data android:name="android.app.stubs.reference" android:resource="@xml/metadata" />
         </service>
 
-        <service android:name="android.app.stubs.LocalForegroundService">
+        <service android:name="android.app.stubs.LocalStoppedService" />
+
+        <service android:name="android.app.stubs.LocalForegroundService"
+                 android:foregroundServiceType="camera|microphone">
             <intent-filter>
                 <action android:name="android.app.stubs.FOREGROUND_SERVICE" />
             </intent-filter>
         </service>
 
         <service android:name="android.app.stubs.LocalForegroundServiceLocation"
-                android:foregroundServiceType="location">
+                android:foregroundServiceType="location|camera|microphone">
             <intent-filter>
                 <action android:name="android.app.stubs.FOREGROUND_SERVICE_LOCATION" />
             </intent-filter>
@@ -238,7 +241,6 @@
         </activity>
 
         <activity android:name="android.app.stubs.DialogStubActivity"
-                  android:theme="@style/Theme_NoSwipeDismiss"
                   android:label="DialogStubActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -314,18 +316,6 @@
         <activity android:name="android.app.stubs.ActivityManagerMemoryClassTestActivity"
                 android:process=":memoryclass" />
 
-        <activity android:name="android.app.stubs.PipActivity"
-                  android:label="PipActivity"
-                  android:resizeableActivity="true"
-                  android:supportsPictureInPicture="true"
-                  android:configChanges="smallestScreenSize|orientation|screenSize|screenLayout"
-                  android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
         <activity android:name="android.app.stubs.PipNotSupportedActivity"
                   android:label="PipNotSupportedActivity"
                   android:resizeableActivity="true"
@@ -382,6 +372,18 @@
             </intent-filter>
         </service>
 
+        <service android:name="android.app.stubs.ToggleableTestTileService"
+                 android:exported="true"
+                 android:label="BooleanTestTileService"
+                 android:icon="@drawable/robot"
+                 android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                       android:value="true"/>
+        </service>
+
         <activity android:name="android.app.stubs.AutomaticZenRuleActivity">
             <intent-filter>
                 <action android:name="android.app.action.AUTOMATIC_ZEN_RULE" />
@@ -395,28 +397,37 @@
         <receiver android:name="android.app.stubs.CommandReceiver"
                   android:exported="true" />
 
-        <activity android:name="android.app.stubs.BubblesTestActivity"
-                  android:allowEmbedded="true"
-                  android:documentLaunchMode="always"
-                  android:resizeableActivity="true"
-                  android:turnScreenOn="true"/>
+        <activity android:name="android.app.stubs.SendBubbleActivity"
+                  android:turnScreenOn="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
 
-        <activity android:name="android.app.stubs.BubblesTestNotEmbeddableActivity"
-                  android:resizeableActivity="true"
-                  android:documentLaunchMode="always"
-                  android:exported="true"
-        />
-
-        <activity android:name="android.app.stubs.BubblesTestNotDocumentLaunchModeActivity"
-                  android:resizeableActivity="true"
-                  android:allowEmbedded="true"
-                  android:exported="true"
-        />
+        <activity android:name="android.app.stubs.BubbledActivity"
+                  android:resizeableActivity="true"/>
 
         <service android:name="android.app.stubs.BubblesTestService"
                  android:label="BubblesTestsService"
                  android:exported="true">
         </service>
+
+        <service android:name="android.app.stubs.LocalAlertService" />
+
+        <activity android:name=".SimpleActivity"
+                  android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <meta-data android:name="android.app.shortcuts"
+                       android:resource="@xml/shortcuts" />
+        </activity>
+
     </application>
 
 </manifest>

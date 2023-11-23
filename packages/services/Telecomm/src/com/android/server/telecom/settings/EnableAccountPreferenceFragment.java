@@ -19,9 +19,11 @@ package com.android.server.telecom.settings;
 import android.content.Context;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
+import android.preference.Preference;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
+import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -52,14 +54,16 @@ public class EnableAccountPreferenceFragment extends PreferenceFragment {
                 setIcon(icon.loadDrawable(context));
             }
             setChecked(account.isEnabled());
+            setOnPreferenceChangeListener(this::onPreferenceChange);
         }
 
-        /** ${inheritDoc} */
-        @Override
-        protected void onClick() {
-            super.onClick();
+        private boolean onPreferenceChange(Preference preference, Object newValue) {
+            Log.d(this, "onPreferenceChange: key = %s", preference.getKey());
+            Log.d(this, "  preference = '%s'", preference);
+            Log.d(this, "  newValue = '%b'", newValue);
 
-            mTelecomManager.enablePhoneAccount(mAccount.getAccountHandle(), isChecked());
+            mTelecomManager.enablePhoneAccount(mAccount.getAccountHandle(), (boolean) newValue);
+            return true;
         }
     }
 

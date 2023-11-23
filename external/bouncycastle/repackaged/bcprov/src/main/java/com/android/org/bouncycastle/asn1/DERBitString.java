@@ -97,7 +97,7 @@ public class DERBitString
         super(data, padBits);
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public DERBitString(
         byte[]  data)

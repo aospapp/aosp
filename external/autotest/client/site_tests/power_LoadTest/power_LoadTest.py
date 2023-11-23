@@ -7,6 +7,7 @@ import json
 import logging
 import numpy
 import os
+import re
 import time
 
 from autotest_lib.client.bin import utils
@@ -115,15 +116,26 @@ class power_LoadTest(arc.ArcTest):
         self._force_discharge = force_discharge
         self._pdash_note = pdash_note
 
-        if not power_utils.has_battery():
+        self._power_status = power_status.get_status()
+
+        if force_discharge:
+            if not self._power_status.battery:
+                raise error.TestNAError('DUT does not have battery. '
+                                        'Could not force discharge.')
+            if not power_utils.charge_control_by_ectool(False):
+                raise error.TestError('Could not run battery force discharge.')
+            self._ac_ok = True
+
+        if not self._power_status.battery:
             if ac_ok and (power_utils.has_powercap_support() or
                           power_utils.has_rapl_support()):
                 logging.info("Device has no battery but has powercap data.")
             else:
                 rsp = "Skipping test for device without battery and powercap."
                 raise error.TestNAError(rsp)
-        self._power_status = power_status.get_status()
-        self._tmp_keyvals['b_on_ac'] = self._power_status.on_ac()
+
+        self._tmp_keyvals['b_on_ac'] = (not force_discharge and
+                                        self._power_status.on_ac())
 
         self._gaia_login = gaia_login
         if gaia_login is None:
@@ -132,12 +144,8 @@ class power_LoadTest(arc.ArcTest):
         self._username = power_load_util.get_username()
         self._password = power_load_util.get_password()
 
-        if not ac_ok:
+        if not self._ac_ok:
             self._power_status.assert_battery_state(percent_initial_charge_min)
-
-        if force_discharge:
-            if not power_utils.charge_control_by_ectool(False):
-                raise error.TestError('Could not run battery force discharge.')
 
         # If force wifi enabled, convert eth0 to backchannel and connect to the
         # specified WiFi AP.
@@ -237,8 +245,11 @@ class power_LoadTest(arc.ArcTest):
             self._test_low_batt_p = min_low_batt_p
 
         if self._power_status.battery:
-            self._ah_charge_start = self._power_status.battery[0].charge_now
-            self._wh_energy_start = self._power_status.battery[0].energy
+            self._ah_charge_start = self._power_status.battery.charge_now
+            self._wh_energy_start = self._power_status.battery.energy
+
+        self.task_monitor_file = open(os.path.join(self.resultsdir,
+                                      'task-monitor.json'), 'wt')
 
 
     def run_once(self):
@@ -344,6 +355,21 @@ class power_LoadTest(arc.ArcTest):
                                                       loop_counter,
                                                       test_instance)))
 
+            keyvalues_tracking = self._testServer.add_wait_url(url='/keyvalues')
+
+            self._testServer.add_url_handler(url='/keyvalues',\
+                handler_func=(lambda handler, forms, test_instance=self,
+                              loop_counter=i:\
+                    _extension_key_values_handler(handler, forms,
+                                                  loop_counter,
+                                                  test_instance)))
+            self._testServer.add_url(url='/task-monitor')
+            self._testServer.add_url_handler(
+                url='/task-monitor',
+                handler_func=lambda handler, forms:
+                    self._extension_task_monitor_handler(handler, forms)
+            )
+
             # setup a handler to simulate waking up the base of a detachable
             # on user interaction. On scrolling, wake for 1s, on page
             # navigation, wake for 10s.
@@ -359,18 +385,18 @@ class power_LoadTest(arc.ArcTest):
                               plt._detachable_handler.wake_base(1000)))
             # reset backlight level since powerd might've modified it
             # based on ambient light
-            self._set_backlight_level()
+            self._set_backlight_level(i)
             self._set_lightbar_level()
             if self._keyboard_backlight:
-                self._set_keyboard_backlight_level()
+                self._set_keyboard_backlight_level(loop=i)
             audio_helper.set_volume_levels(self._volume_level,
                                            self._mic_gain)
 
             low_battery = self._do_wait(self._verbose, self._loop_time,
                                         latch)
-
             script_logging.set()
             pagetime_tracking.set()
+            keyvalues_tracking.set()
 
             self._log_loop_checkpoint(i, start_time, time.time())
 
@@ -386,6 +412,7 @@ class power_LoadTest(arc.ArcTest):
         psr.refresh()
         self._tmp_keyvals['minutes_battery_life_tested'] = (t1 - t0) / 60
         self._tmp_keyvals.update(psr.get_keyvals())
+
 
     def postprocess_iteration(self):
         """Postprocess: write keyvals / log and send data to power dashboard."""
@@ -435,24 +462,24 @@ class power_LoadTest(arc.ArcTest):
 
         # record battery stats
         if self._power_status.battery:
-            keyvals['a_current_now'] = self._power_status.battery[0].current_now
+            keyvals['a_current_now'] = self._power_status.battery.current_now
             keyvals['ah_charge_full'] = \
-                    self._power_status.battery[0].charge_full
+                    self._power_status.battery.charge_full
             keyvals['ah_charge_full_design'] = \
-                    self._power_status.battery[0].charge_full_design
+                    self._power_status.battery.charge_full_design
             keyvals['ah_charge_start'] = self._ah_charge_start
-            keyvals['ah_charge_now'] = self._power_status.battery[0].charge_now
+            keyvals['ah_charge_now'] = self._power_status.battery.charge_now
             keyvals['ah_charge_used'] = keyvals['ah_charge_start'] - \
                                         keyvals['ah_charge_now']
             keyvals['wh_energy_start'] = self._wh_energy_start
-            keyvals['wh_energy_now'] = self._power_status.battery[0].energy
+            keyvals['wh_energy_now'] = self._power_status.battery.energy
             keyvals['wh_energy_used'] = keyvals['wh_energy_start'] - \
                                         keyvals['wh_energy_now']
             keyvals['v_voltage_min_design'] = \
-                    self._power_status.battery[0].voltage_min_design
+                    self._power_status.battery.voltage_min_design
             keyvals['wh_energy_full_design'] = \
-                    self._power_status.battery[0].energy_full_design
-            keyvals['v_voltage_now'] = self._power_status.battery[0].voltage_now
+                    self._power_status.battery.energy_full_design
+            keyvals['v_voltage_now'] = self._power_status.battery.voltage_now
 
         keyvals.update(self._tmp_keyvals)
 
@@ -510,8 +537,7 @@ class power_LoadTest(arc.ArcTest):
                             core_keyvals.iteritems()}
         else:
             for key, value in core_keyvals.iteritems():
-                if key.startswith('percent_cpuidle') and \
-                   key.endswith('C0_time'):
+                if re.match(r'percent_[cg]pu(idle|pkg).*_R?C0(_C1)?_time', key):
                     self.output_perf_value(description=key,
                                            value=value,
                                            units='percent',
@@ -548,6 +574,9 @@ class power_LoadTest(arc.ArcTest):
             self._services.restore_services()
         self._detachable_handler.restore()
 
+        if self.task_monitor_file:
+            self.task_monitor_file.close()
+
         # cleanup backchannel interface
         # Prevent wifi congestion in test lab by forcing machines to forget the
         # wifi AP we connected to at the start of the test.
@@ -577,9 +606,9 @@ class power_LoadTest(arc.ArcTest):
                 raise error.TestError('Running on AC power now.')
 
             if self._power_status.battery:
-                charge_now = self._power_status.battery[0].charge_now
-                energy_rate = self._power_status.battery[0].energy_rate
-                voltage_now = self._power_status.battery[0].voltage_now
+                charge_now = self._power_status.battery.charge_now
+                energy_rate = self._power_status.battery.energy_rate
+                voltage_now = self._power_status.battery.voltage_now
                 self._stats['w_energy_rate'].append(energy_rate)
                 self._stats['v_voltage_now'].append(voltage_now)
                 if verbose:
@@ -610,10 +639,11 @@ class power_LoadTest(arc.ArcTest):
 
         return low_battery
 
-    def _set_backlight_level(self):
+
+    def _set_backlight_level(self, loop=None):
         self._backlight.set_default()
         # record brightness level
-        self._tmp_keyvals['level_backlight_current'] = \
+        self._tmp_keyvals[_loop_keyname(loop, 'level_backlight')] = \
             self._backlight.get_level()
 
 
@@ -667,8 +697,8 @@ class power_LoadTest(arc.ArcTest):
         energy_wh = 0
         loop = 0
         while True:
-            duration_key = 'loop%d_system_duration' % loop
-            avg_power_key = 'loop%d_system_pwr_avg' % loop
+            duration_key = _loop_keyname(loop, 'system_duration')
+            avg_power_key = _loop_keyname(loop, 'system_pwr_avg')
             if duration_key not in keyval or avg_power_key not in keyval:
                 break
             energy_wh += keyval[duration_key] * keyval[avg_power_key] / 3600
@@ -694,7 +724,7 @@ class power_LoadTest(arc.ArcTest):
         return True
 
 
-    def _set_keyboard_backlight_level(self):
+    def _set_keyboard_backlight_level(self, loop=None):
         """
         Sets keyboard backlight based on light sensor and hover.
         These values are based on UMA as mentioned in
@@ -730,11 +760,12 @@ class power_LoadTest(arc.ArcTest):
 
         logging.info('Setting keyboard backlight to %d', level_to_set)
         self._keyboard_backlight.set_level(level_to_set)
-        self._tmp_keyvals['percent_kbd_backlight'] = \
-            self._keyboard_backlight.get_percent()
+        keyname = _loop_keyname(loop, 'percent_kbd_backlight')
+        self._tmp_keyvals[keyname] = self._keyboard_backlight.get_percent()
+
 
     def _log_loop_checkpoint(self, loop, start, end):
-        loop_str = 'loop%d' % loop
+        loop_str = _loop_prefix(loop)
         self._checkpoint_logger.checkpoint(loop_str, start, end)
 
         # Don't log section if we run custom tasks.
@@ -749,7 +780,7 @@ class power_LoadTest(arc.ArcTest):
         ]
 
         # Use start time from extension if found by look for google.com start.
-        goog_str = loop_str+ '_web_page_www.google.com'
+        goog_str = loop_str + '_web_page_www.google.com'
         for item, start_extension, _ in self._task_tracker:
             if item == goog_str:
                 if start_extension >= start:
@@ -774,6 +805,37 @@ class power_LoadTest(arc.ArcTest):
             self._checkpoint_logger.checkpoint(loop_section, s_start, s_end)
 
 
+    def _extension_task_monitor_handler(self, handler, form):
+        """
+        We use the httpd library to allow us to log chrome processes usage.
+        """
+        if form:
+            logging.debug("[task-monitor] got %d samples", len(form))
+            for idx in sorted(form.keys()):
+                json = form[idx].value
+                self.task_monitor_file.write(json)
+                self.task_monitor_file.write(",\n")
+                # we don't want to add url information to our keyvals.
+                # httpd adds them automatically so we remove them again
+                del handler.server._form_entries[idx]
+        handler.send_response(200)
+
+
+def alphanum_key(s):
+    """ Turn a string into a list of string and numeric chunks. This enables a
+        sort function to use this list as a key to sort alphanumeric strings
+        naturally without padding zero digits.
+        "z23a" -> ["z", 23, "a"]
+    """
+    chunks = re.split('([-.0-9]+)', s)
+    for i in range(len(chunks)):
+        try:
+            chunks[i] = float(chunks[i])
+        except ValueError:
+            pass
+    return chunks
+
+
 def _extension_log_handler(handler, form, loop_number):
     """
     We use the httpd library to allow us to log whatever we
@@ -785,13 +847,15 @@ def _extension_log_handler(handler, form, loop_number):
     unused parameter, because httpd passes the server itself
     into the handler.
     """
+
     if form:
-        for field in form.keys():
-            logging.debug("[extension] @ loop_%d %s", loop_number,
+        for field in sorted(form.keys(), key=alphanum_key):
+            logging.debug("[extension] @ %s %s", _loop_prefix(loop_number),
             form[field].value)
             # we don't want to add url information to our keyvals.
             # httpd adds them automatically so we remove them again
             del handler.server._form_entries[field]
+
 
 def _extension_page_time_info_handler(handler, form, loop_number,
                                       test_instance):
@@ -807,27 +871,24 @@ def _extension_page_time_info_handler(handler, form, loop_number,
         logging.debug("no page time information returned")
         return
 
-    for field in form.keys():
-        url = field[str.find(field, "http"):]  # remove unique url salt
+    for field in sorted(form.keys(), key=alphanum_key):
         page = json.loads(form[field].value)
+        url = page['url']
 
-        logging.debug("[extension] @ loop_%d url: %s start_time: %d",
-            loop_number, url, page['start_time'])
+        pstr = "[extension] @ %s url: %s" % (_loop_prefix(loop_number), url)
+        logging.debug("%s start_time: %d", pstr, page['start_time'])
 
         if page['end_load_time']:
-            logging.debug("[extension] @ loop_%d url: %s end_load_time: %d",
-                loop_number, url, page['end_load_time'])
+            logging.debug("%s end_load_time: %d", pstr, page['end_load_time'])
 
             load_time = page['end_load_time'] - page['start_time']
 
             loadtime_measurements.append(load_time)
             sorted_pagelt.append((url, load_time))
 
-            logging.debug("[extension] @ loop_%d url: %s load time: %d ms",
-                loop_number, url, load_time)
+            logging.debug("%s load time: %d ms", pstr, load_time)
 
-        logging.debug("[extension] @ loop_%d url: %s end_browse_time: %d",
-            loop_number, url, page['end_browse_time'])
+        logging.debug("%s end_browse_time: %d", pstr, page['end_browse_time'])
 
         page_timestamps.append(page)
 
@@ -835,7 +896,7 @@ def _extension_page_time_info_handler(handler, form, loop_number,
         # httpd adds them automatically so we remove them again
         del handler.server._form_entries[field]
 
-    page_base = 'loop%d_web_page_' % loop_number
+    page_base = _loop_keyname(loop_number, 'web_page_')
     for page in page_timestamps:
         page_failed = "_failed"
         # timestamps from javascript are in milliseconds, change to seconds
@@ -875,3 +936,34 @@ def _extension_page_time_info_handler(handler, form, loop_number,
         message += "\t%s w/ %d ms" % (url, msecs)
 
     logging.debug("%s\n", message)
+
+
+def _extension_key_values_handler(handler, form, loop_number,
+                                      test_instance):
+    if not form:
+        logging.debug("no key value information returned")
+        return
+
+    for field in sorted(form.keys(), key=alphanum_key):
+        keyval_data = json.loads(form[field].value)
+
+        # Print each key:value pair and associate it with the data
+        for key, value in keyval_data.iteritems():
+            logging.debug("[extension] @ %s key: %s val: %s",
+                _loop_prefix(loop_number), key, value)
+            # Add the key:values to the _tmp_keyvals set
+            test_instance._tmp_keyvals[_loop_keyname(loop_number, key)] = value
+
+        # we don't want to add url information to our keyvals.
+        # httpd adds them automatically so we remove them again
+        del handler.server._form_entries[field]
+
+
+def _loop_prefix(loop):
+    return "loop%02d" % loop
+
+
+def _loop_keyname(loop, keyname):
+    if loop != None:
+        return "%s_%s" % (_loop_prefix(loop), keyname)
+    return keyname

@@ -20,6 +20,7 @@ import android.content.res.AssetFileDescriptor;
 import android.drm.DrmConvertedStatus;
 import android.drm.DrmManagerClient;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.media.MediaCodec;
@@ -31,6 +32,7 @@ import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
+import android.os.Build;
 import android.util.Log;
 import android.util.Range;
 
@@ -299,11 +301,86 @@ public class MediaUtils {
     }
 
     public static boolean canDecode(MediaFormat format) {
-        if (sMCL.findDecoderForFormat(format) == null) {
+        return canDecode(format, 0.0);
+    }
+
+    // this is "do we claim to decode"; caller is on the hook to determine
+    // if we actually meet that claim, specifically around speed.
+    public static boolean canDecode(MediaFormat format, double rate ) {
+        String decoder = sMCL.findDecoderForFormat(format);
+
+        if (decoder == null) {
             Log.i(TAG, "no decoder for " + format);
             return false;
         }
-        return true;
+
+        if (rate == 0.0) {
+            return true;
+        }
+
+        // before Q, we always said yes once we found a decoder for the format.
+        if (ApiLevelUtil.isBefore(Build.VERSION_CODES.Q)) {
+            return true;
+        }
+
+        // we care about speed of decoding
+        Log.d(TAG, "checking for decoding " + format + " at " +
+                   rate + " fps with " + decoder);
+
+        String mime = format.getString(MediaFormat.KEY_MIME);
+        int width = format.getInteger(MediaFormat.KEY_WIDTH);
+        int height = format.getInteger(MediaFormat.KEY_HEIGHT);
+
+        MediaCodecInfo[] mciList = sMCL.getCodecInfos();
+
+        if (mciList == null) {
+            Log.d(TAG, "did not get list of MediaCodecInfo");
+            return false;
+        }
+
+        MediaCodecInfo mci = null;
+        for (MediaCodecInfo mci2 : mciList) {
+            if (mci2.getName().equals(decoder)) {
+                mci = mci2;
+                break;
+            }
+        }
+        if (mci == null) {
+            return false;
+        }
+        if (!mci.getName().equals(decoder)) {
+            Log.e(TAG, "did not find expected " + decoder);
+            return false;
+        }
+
+        if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.Q)
+                && PropertyUtil.isVendorApiLevelAtLeast(Build.VERSION_CODES.Q)
+                && mci.isHardwareAccelerated()) {
+            MediaCodecInfo.VideoCapabilities caps =
+                            mci.getCapabilitiesForType(mime).getVideoCapabilities();
+            List<MediaCodecInfo.VideoCapabilities.PerformancePoint> pp =
+                            caps.getSupportedPerformancePoints();
+            VideoCapabilities.PerformancePoint target =
+                            new VideoCapabilities.PerformancePoint(width, height, (int) rate);
+            for (MediaCodecInfo.VideoCapabilities.PerformancePoint point : pp) {
+                if (point.covers(target)) {
+                    Log.i(TAG, "target " + target.toString() +
+                               " covered by point " + point.toString());
+                    return true;
+                }
+            }
+            Log.i(TAG, "NOT covered by any hardware performance point");
+            return false;
+        } else {
+            String verified = MediaPerfUtils.areAchievableFrameRates(
+                              decoder, mime, width, height, rate);
+            if (verified == null) {
+                Log.d(TAG, "claims to decode content at " + rate + " fps");
+                return true;
+            }
+            Log.d(TAG, "achieveable framerates says: " + verified);
+            return false;
+        }
     }
 
     public static boolean supports(String codecName, String mime, int w, int h) {
@@ -554,15 +631,27 @@ public class MediaUtils {
         return check(hasCodecForMimes(true /* encoder */, mimes), "no encoder found");
     }
 
+    // checks format, does not address actual speed of decoding
     public static boolean canDecodeVideo(String mime, int width, int height, float rate) {
+        return canDecodeVideo(mime, width, height, rate, (float)0.0);
+    }
+
+    // format + decode rate
+    public static boolean canDecodeVideo(String mime, int width, int height, float rate, float decodeRate) {
         MediaFormat format = MediaFormat.createVideoFormat(mime, width, height);
         format.setFloat(MediaFormat.KEY_FRAME_RATE, rate);
-        return canDecode(format);
+        return canDecode(format, decodeRate);
     }
 
     public static boolean canDecodeVideo(
             String mime, int width, int height, float rate,
             Integer profile, Integer level, Integer bitrate) {
+        return canDecodeVideo(mime, width, height, rate, profile, level, bitrate, (float)0.0);
+    }
+
+    public static boolean canDecodeVideo(
+            String mime, int width, int height, float rate,
+            Integer profile, Integer level, Integer bitrate, float decodeRate) {
         MediaFormat format = MediaFormat.createVideoFormat(mime, width, height);
         format.setFloat(MediaFormat.KEY_FRAME_RATE, rate);
         if (profile != null) {
@@ -574,7 +663,7 @@ public class MediaUtils {
         if (bitrate != null) {
             format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
         }
-        return canDecode(format);
+        return canDecode(format, decodeRate);
     }
 
     public static boolean checkEncoderForFormat(MediaFormat format) {
@@ -714,10 +803,15 @@ public class MediaUtils {
 
     public static boolean hasHardwareCodec(String mime, boolean encode) {
         for (MediaCodecInfo info : sMCL.getCodecInfos()) {
-            if (info.isEncoder() == encode &&
-                    info.isHardwareAccelerated() &&
-                    info.getCapabilitiesForType(mime) != null) {
-                return true;
+            if (info.isEncoder() == encode && info.isHardwareAccelerated()) {
+                try {
+                     if (info.getCapabilitiesForType(mime) != null) {
+                         return true;
+                     }
+                } catch (IllegalArgumentException e) {
+                     // mime is not supported
+                     Log.w(TAG, "not supported mime: " + mime);
+                }
             }
         }
         return false;
@@ -1168,36 +1262,46 @@ public class MediaUtils {
 
         MessageDigest md = MessageDigest.getInstance("MD5");
 
-        int imageWidth = image.getWidth();
-        int imageHeight = image.getHeight();
+        Rect crop = image.getCropRect();
+        int cropLeft = crop.left;
+        int cropRight = crop.right;
+        int cropTop = crop.top;
+        int cropBottom = crop.bottom;
+
+        int imageWidth = cropRight - cropLeft;
+        int imageHeight = cropBottom - cropTop;
 
         Image.Plane[] planes = image.getPlanes();
         for (int i = 0; i < planes.length; ++i) {
             ByteBuffer buf = planes[i].getBuffer();
 
-            int width, height, rowStride, pixelStride, x, y;
+            int width, height, rowStride, pixelStride, x, y, top, left;
             rowStride = planes[i].getRowStride();
             pixelStride = planes[i].getPixelStride();
             if (i == 0) {
                 width = imageWidth;
                 height = imageHeight;
+                left = cropLeft;
+                top = cropTop;
             } else {
                 width = imageWidth / 2;
                 height = imageHeight /2;
+                left = cropLeft / 2;
+                top = cropTop / 2;
             }
             // local contiguous pixel buffer
             byte[] bb = new byte[width * height];
             if (buf.hasArray()) {
                 byte b[] = buf.array();
-                int offs = buf.arrayOffset();
+                int offs = buf.arrayOffset() + left * pixelStride;
                 if (pixelStride == 1) {
                     for (y = 0; y < height; ++y) {
-                        System.arraycopy(bb, y * width, b, y * rowStride + offs, width);
+                        System.arraycopy(bb, y * width, b, (top + y) * rowStride + offs, width);
                     }
                 } else {
                     // do it pixel-by-pixel
                     for (y = 0; y < height; ++y) {
-                        int lineOffset = offs + y * rowStride;
+                        int lineOffset = offs + (top + y) * rowStride;
                         for (x = 0; x < width; ++x) {
                             bb[y * width + x] = b[lineOffset + x * pixelStride];
                         }
@@ -1207,7 +1311,7 @@ public class MediaUtils {
                 int pos = buf.position();
                 if (pixelStride == 1) {
                     for (y = 0; y < height; ++y) {
-                        buf.position(pos + y * rowStride);
+                        buf.position(pos + left + (top + y) * rowStride);
                         buf.get(bb, y * width, width);
                     }
                 } else {
@@ -1215,7 +1319,7 @@ public class MediaUtils {
                     byte[] lb = new byte[rowStride];
                     // do it pixel-by-pixel
                     for (y = 0; y < height; ++y) {
-                        buf.position(pos + y * rowStride);
+                        buf.position(pos + left * pixelStride + (top + y) * rowStride);
                         // we're only guaranteed to have pixelStride * (width - 1) + 1 bytes
                         buf.get(lb, 0, pixelStride * (width - 1) + 1);
                         for (x = 0; x < width; ++x) {

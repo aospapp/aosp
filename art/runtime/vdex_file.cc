@@ -27,6 +27,7 @@
 #include "base/bit_utils.h"
 #include "base/leb128.h"
 #include "base/stl_util.h"
+#include "base/systrace.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
 #include "class_loader_context.h"
@@ -102,6 +103,7 @@ std::unique_ptr<VdexFile> VdexFile::OpenAtAddress(uint8_t* mmap_addr,
                                                   bool low_4gb,
                                                   bool unquicken,
                                                   std::string* error_msg) {
+  ScopedTrace trace(("VdexFile::OpenAtAddress " + vdex_filename).c_str());
   if (!OS::FileExists(vdex_filename.c_str())) {
     *error_msg = "File " + vdex_filename + " does not exist.";
     return nullptr;
@@ -153,11 +155,13 @@ std::unique_ptr<VdexFile> VdexFile::OpenAtAddress(uint8_t* mmap_addr,
     mmap_reuse = false;
   }
   CHECK(!mmap_reuse || mmap_addr != nullptr);
+  CHECK(!(writable && unquicken)) << "We don't want to be writing unquickened files out to disk!";
+  // Start as PROT_WRITE so we can mprotect back to it if we want to.
   MemMap mmap = MemMap::MapFileAtAddress(
       mmap_addr,
       vdex_length,
-      (writable || unquicken) ? PROT_READ | PROT_WRITE : PROT_READ,
-      unquicken ? MAP_PRIVATE : MAP_SHARED,
+      PROT_READ | PROT_WRITE,
+      writable ? MAP_SHARED : MAP_PRIVATE,
       file_fd,
       /* start= */ 0u,
       low_4gb,
@@ -181,11 +185,17 @@ std::unique_ptr<VdexFile> VdexFile::OpenAtAddress(uint8_t* mmap_addr,
     if (!vdex->OpenAllDexFiles(&unique_ptr_dex_files, error_msg)) {
       return nullptr;
     }
+    // TODO: It would be nice to avoid doing the return-instruction stuff but then we end up not
+    // being able to tell if we need dequickening later. Instead just get rid of that too.
     vdex->Unquicken(MakeNonOwningPointerVector(unique_ptr_dex_files),
-                    /* decompile_return_instruction= */ false);
+                    /* decompile_return_instruction= */ true);
     // Update the quickening info size to pretend there isn't any.
     size_t offset = vdex->GetDexSectionHeaderOffset();
     reinterpret_cast<DexSectionHeader*>(vdex->mmap_.Begin() + offset)->quickening_info_size_ = 0;
+  }
+
+  if (!writable) {
+    vdex->AllowWriting(false);
   }
 
   return vdex;
@@ -207,8 +217,12 @@ const uint8_t* VdexFile::GetNextDexFileData(const uint8_t* cursor) const {
   }
 }
 
+void VdexFile::AllowWriting(bool val) const {
+  CHECK(mmap_.Protect(val ? (PROT_READ | PROT_WRITE) : PROT_READ));
+}
+
 bool VdexFile::OpenAllDexFiles(std::vector<std::unique_ptr<const DexFile>>* dex_files,
-                               std::string* error_msg) {
+                               std::string* error_msg) const {
   const ArtDexFileLoader dex_file_loader;
   size_t i = 0;
   for (const uint8_t* dex_file_start = GetNextDexFileData(nullptr);
@@ -235,6 +249,23 @@ bool VdexFile::OpenAllDexFiles(std::vector<std::unique_ptr<const DexFile>>* dex_
     dex_files->push_back(std::move(dex));
   }
   return true;
+}
+
+void VdexFile::UnquickenInPlace(bool decompile_return_instruction) const {
+  CHECK_NE(mmap_.GetProtect() & PROT_WRITE, 0)
+      << "File not mapped writable. Cannot unquicken! " << mmap_;
+  if (HasDexSection()) {
+    std::vector<std::unique_ptr<const DexFile>> unique_ptr_dex_files;
+    std::string error_msg;
+    if (!OpenAllDexFiles(&unique_ptr_dex_files, &error_msg)) {
+      return;
+    }
+    Unquicken(MakeNonOwningPointerVector(unique_ptr_dex_files),
+              decompile_return_instruction);
+    // Update the quickening info size to pretend there isn't any.
+    size_t offset = GetDexSectionHeaderOffset();
+    reinterpret_cast<DexSectionHeader*>(mmap_.Begin() + offset)->quickening_info_size_ = 0;
+  }
 }
 
 void VdexFile::Unquicken(const std::vector<const DexFile*>& target_dex_files,
@@ -277,7 +308,8 @@ static ArrayRef<const uint8_t> GetQuickeningInfoAt(const ArrayRef<const uint8_t>
 void VdexFile::UnquickenDexFile(const DexFile& target_dex_file,
                                 const DexFile& source_dex_file,
                                 bool decompile_return_instruction) const {
-  UnquickenDexFile(target_dex_file, source_dex_file.Begin(), decompile_return_instruction);
+  UnquickenDexFile(
+      target_dex_file, source_dex_file.Begin(), decompile_return_instruction);
 }
 
 void VdexFile::UnquickenDexFile(const DexFile& target_dex_file,
@@ -329,9 +361,16 @@ ArrayRef<const uint8_t> VdexFile::GetQuickenedInfoOf(const DexFile& dex_file,
 
 static std::string ComputeBootClassPathChecksumString() {
   Runtime* const runtime = Runtime::Current();
+  // Do not include boot image extension checksums, use their dex file checksums instead. Unlike
+  // oat files, vdex files do not reference anything in image spaces, so there is no reason why
+  // loading or not loading a boot image extension would affect the validity of the vdex file.
+  // Note: Update of a boot class path module such as conscrypt invalidates the vdex file anyway.
+  ArrayRef<gc::space::ImageSpace* const> image_spaces(runtime->GetHeap()->GetBootImageSpaces());
+  size_t boot_image_components =
+      image_spaces.empty() ? 0u : image_spaces[0]->GetImageHeader().GetComponentCount();
   return gc::space::ImageSpace::GetBootClassPathChecksums(
-          runtime->GetHeap()->GetBootImageSpaces(),
-          runtime->GetClassLinker()->GetBootClassPath());
+          image_spaces.SubArray(/*pos=*/ 0u, boot_image_components),
+          ArrayRef<const DexFile* const>(runtime->GetClassLinker()->GetBootClassPath()));
 }
 
 static bool CreateDirectories(const std::string& child_path, /* out */ std::string* error_msg) {

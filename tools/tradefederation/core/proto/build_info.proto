@@ -43,7 +43,7 @@ message BuildInfo {
   string build_id = 1;
   // The build flavor. For example: sailfish-userdebug
   string build_flavor = 2;
-  // The branch where the build come from: For example: git_master
+  // The branch where the build come from: For example: git_main
   string branch = 3;
   // The build attributes, as a key value
   map<string, string> attributes = 4;
@@ -52,6 +52,6 @@ message BuildInfo {
   // The type of the IBuildInfo instance.
   // For example: com.android.tradefed.build.BuildInfo
   string build_info_class = 6;
-  // Whether or not the build info represents a test resource.
+  // Deprecated: Whether or not the build info represents a test resource.
   bool is_test_resource = 7;
 }

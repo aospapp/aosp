@@ -92,8 +92,15 @@ public class DiagnosticTestFragment extends Fragment {
     }
 
     private void resumeDiagnosticManager() {
+        Car car = mActivity.getCar();
+        if (!car.isFeatureEnabled(Car.DIAGNOSTIC_SERVICE)) {
+            String notSupported = Car.DIAGNOSTIC_SERVICE + " not supported";
+            mLiveDiagnosticInfo.setText(notSupported);
+            mFreezeDiagnosticInfo.setText(notSupported);
+            return;
+        }
         mDiagnosticManager =
-                (CarDiagnosticManager) mActivity.getCar().getCarManager(Car.DIAGNOSTIC_SERVICE);
+                (CarDiagnosticManager) car.getCarManager(Car.DIAGNOSTIC_SERVICE);
         if (mLiveListener != null) {
             mDiagnosticManager.registerListener(mLiveListener,
                     CarDiagnosticManager.FRAME_TYPE_LIVE,

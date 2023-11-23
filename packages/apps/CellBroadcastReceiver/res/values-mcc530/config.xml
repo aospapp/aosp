@@ -15,6 +15,17 @@
  -->
 
 <resources>
+    <!-- 4370 -->
+    <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
+        <item>0x1112:rat=gsm, emergency=true, override_dnd=true</item>
+    </string-array>
+
     <bool name="show_date_time_title">true</bool>
-    <bool name="use_full_volume">true</bool>
+    <!-- Disable Amber alert-->
+    <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false"></string-array>
+
+    <!-- Whether enable LED flash when playing alert tones -->
+    <bool name="enable_led_flash">true</bool>
+    <!-- Whether to disable a grey-out presidential alert -->
+    <bool name="show_presidential_alerts_settings">true</bool>
 </resources>

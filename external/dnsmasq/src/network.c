@@ -833,8 +833,11 @@ void set_interfaces(const char* interfaces) {
      * Enumerate IP addresses (via RTM_GETADDR), adding IP entries to
      * daemon->interfaces for interface names listed in daemon->if_names.
      * The sockets are created by the create_bound_listener call below.
+     * Only do this if at least one interface was found. Otherwise,
+     * enumerate_interfaces will start listening on all interfaces on
+     * the system.
      */
-    if (!enumerate_interfaces()) {
+    if (daemon->if_names != NULL && !enumerate_interfaces()) {
         die(_("enumerate interfaces error in set_interfaces: %s"), NULL, EC_BADNET);
     }
 

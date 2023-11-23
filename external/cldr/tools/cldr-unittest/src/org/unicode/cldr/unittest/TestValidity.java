@@ -2,25 +2,39 @@ package org.unicode.cldr.unittest;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
+import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.LanguageTagCanonicalizer;
 import org.unicode.cldr.util.LanguageTagParser;
+import org.unicode.cldr.util.StandardCodes;
+import org.unicode.cldr.util.StandardCodes.LstrField;
 import org.unicode.cldr.util.StandardCodes.LstrType;
+import org.unicode.cldr.util.TransliteratorUtilities;
 import org.unicode.cldr.util.Validity;
 import org.unicode.cldr.util.Validity.Status;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.ibm.icu.impl.Row.R2;
 import com.ibm.icu.text.UnicodeSet;
+import com.ibm.icu.util.ULocale;
 
 public class TestValidity extends TestFmwkPlus {
 
@@ -39,19 +53,31 @@ public class TestValidity extends TestFmwkPlus {
             { LstrType.language, null, false, "root" },
             { LstrType.language, Validity.Status.special, true, "mul" },
             { LstrType.language, Validity.Status.deprecated, true, "aju" },
-            { LstrType.language, Validity.Status.private_use, true, "qaa" },
+            { LstrType.language, Validity.Status.reserved, true, "qaa", "qfy" },
+            { LstrType.language, Validity.Status.private_use, true, "qfz" },
             { LstrType.language, Validity.Status.unknown, true, "und" },
 
-            { LstrType.script, Validity.Status.regular, true, "Zyyy" },
+            { LstrType.script, Validity.Status.reserved, true, "Qaaa", "Qaap"},
+            { LstrType.script, Validity.Status.private_use, true, "Qaaq", "Qabx"},
+
+            { LstrType.script, Validity.Status.special, true, "Zanb" },
+            { LstrType.script, Validity.Status.special, true, "Zinh" },
+            { LstrType.script, Validity.Status.special, true, "Zmth" },
             { LstrType.script, Validity.Status.special, true, "Zsye" },
-            { LstrType.script, Validity.Status.regular, true, "Zyyy" },
+            { LstrType.script, Validity.Status.special, true, "Zsym" },
+            { LstrType.script, Validity.Status.special, true, "Zxxx" },
+            { LstrType.script, Validity.Status.special, true, "Zyyy" },
+
             { LstrType.script, Validity.Status.unknown, true, "Zzzz" },
 
             { LstrType.region, Validity.Status.deprecated, true, "QU" },
             { LstrType.region, Validity.Status.macroregion, true, "EU" },
             { LstrType.region, Validity.Status.regular, true, "XK" },
             { LstrType.region, Validity.Status.macroregion, true, "001" },
-            { LstrType.region, Validity.Status.private_use, true, "AA" },
+
+            { LstrType.region, Validity.Status.reserved, true, "AA", "QM", "QZ"},
+            { LstrType.region, Validity.Status.private_use, true, "XC",  "XZ"},
+
             { LstrType.region, Validity.Status.unknown, true, "ZZ" },
 
             { LstrType.subdivision, Validity.Status.unknown, true, "kzzzzz" },
@@ -73,7 +99,9 @@ public class TestValidity extends TestFmwkPlus {
                 List<Status> subtypes = subtypeRaw == null ? Arrays.asList(Status.values()) : Collections.singletonList(subtypeRaw);
                 for (Status subtype : subtypes) {
                     Set<String> actual = validity.getStatusToCodes(lstr).get(subtype);
-                    assertRelation("Validity", desired, CldrUtility.ifNull(actual, Collections.EMPTY_SET), TestFmwkPlus.CONTAINS, code);
+                    if (!assertRelation("Validity", desired, CldrUtility.ifNull(actual, Collections.EMPTY_SET), TestFmwkPlus.CONTAINS, code)) {
+                        int debug = 0;
+                    }
                 }
             }
         }
@@ -92,6 +120,7 @@ public class TestValidity extends TestFmwkPlus {
 
     static final Set<String> ALLOWED_UNDELETIONS = ImmutableSet.of("ug331", "nlbq1", "nlbq2", "nlbq3", "no21", "no22");
     static final Set<String> ALLOWED_MISSING = ImmutableSet.of("root", "POSIX", "REVISED", "SAAHO");
+    static final Set<String> ALLOWED_REGULAR_TO_SPECIAL = ImmutableSet.of("Zanb", "Zinh", "Zyyy");
 
     public void TestCompatibility() {
         // Only run the rest in exhaustive mode, since it requires CLDR_ARCHIVE_DIRECTORY
@@ -113,7 +142,7 @@ public class TestValidity extends TestFmwkPlus {
 //            final String oldValidityLocation = CLDRPaths.ARCHIVE_DIRECTORY + "cldr-" + ToolConstants.PREVIOUS_CHART_VERSION +
 //                File.separator + "common" + File.separator + "validity" + File.separator;
             Validity oldValidity = Validity.getInstance(oldValidityLocation.toString() + File.separator);
-            
+
             for (LstrType type : LstrType.values()) {
                 final Map<Status, Set<String>> statusToCodes = oldValidity.getStatusToCodes(type);
                 if (statusToCodes == null) {
@@ -127,7 +156,7 @@ public class TestValidity extends TestFmwkPlus {
                         if (oldStatus == newStatus) {
                             continue;
                         }
-                        
+
                         if (newStatus == null) {
                             if (ALLOWED_MISSING.contains(code)) {
                                 continue;
@@ -151,6 +180,9 @@ public class TestValidity extends TestFmwkPlus {
                             if (newStatus == Status.deprecated) {
 //                                logln(messages, "OK: " + type + ":" + code + " was " + oldStatus + " => " + newStatus);
                                 continue;
+                            } else if (newStatus == Status.special && ALLOWED_REGULAR_TO_SPECIAL.contains(code)) {
+//                              logln(messages, "OK: " + type + ":" + code + " was " + oldStatus + " => " + newStatus);
+                                continue;
                             }
                             errln(messages, type + ":" + code + ":" + oldStatus + " => " + newStatus 
                                 + " — regular item changed, and didn't become deprecated");
@@ -161,7 +193,9 @@ public class TestValidity extends TestFmwkPlus {
                             }
                             errln(messages, type + ":" + code + ":" + oldStatus + " => " + newStatus
                                 + " // add to exception list if really un-deprecated");
-                        } else {
+                        } else if (oldStatus == Status.private_use && newStatus == Status.regular) {
+//                          logln(messages, "OK: " + type + ":" + code + " was " + oldStatus + " => " + newStatus);
+                        } else if (oldStatus == Status.deprecated) {
                             errln(messages, type + ":" + code + " was " + oldStatus + " => " + newStatus);
                         }
                     }
@@ -176,7 +210,7 @@ public class TestValidity extends TestFmwkPlus {
             messages.add(string);
         }
     }
-    
+
     private void errln(Set<String> messages, String string) {
         if (!messages.contains(string)) {
             errln(string);
@@ -321,13 +355,20 @@ public class TestValidity extends TestFmwkPlus {
     public void TestLanguageTagParser() {
         String[][] tests = {
             { "en-cyrl_ru_variant2_variant1", "en_Cyrl_RU_VARIANT1_VARIANT2", "en-Cyrl-RU-variant1-variant2" },
-            { "EN-U-CO-PHONEBK-EM-EMOJI-T_RU", "en_t_ru_u_co_phonebk_em_emoji", "en-t-ru-u-co-phonebk-em-emoji" },
+            // Hold off, since ICU doesn't canonicalize: doesn't correctly interpret en@co=PHONEBK;em=EMOJI;t=RU
+            // { "EN-U-CO-PHONEBK-EM-EMOJI-T_RU", "en@T=RU;CO=PHONEBK;EM=EMOJI", "en-t-ru-u-co-phonebk-em-emoji" },
         };
         LanguageTagParser ltp = new LanguageTagParser();
         for (String[] test : tests) {
             String source = test[0];
             String expectedLanguageSubtagParserIcu = test[1];
             String expectedLanguageSubtagParserBCP = test[2];
+            
+            // check that field 2 is the same as ICU
+            ULocale icuFromICU = new ULocale(expectedLanguageSubtagParserIcu);
+            ULocale icuFromBCP = ULocale.forLanguageTag(expectedLanguageSubtagParserBCP);
+            assertEquals("ICU from BCP47 => ICU from legacy:\t" + source, icuFromBCP, icuFromICU);
+
             ltp.set(source);
             String actualLanguageSubtagParserIcu = ltp.toString();
             assertEquals("Language subtag (ICU) for " + source, expectedLanguageSubtagParserIcu, actualLanguageSubtagParserIcu);
@@ -352,5 +393,157 @@ public class TestValidity extends TestFmwkPlus {
         for (String[] inputExpected : tests) {
             assertEquals("Canonicalize", inputExpected[1], canon.transform(inputExpected[0]));
         }
+    }
+
+    final Map<LstrType, Map<String, Map<LstrField, String>>> lstr = StandardCodes.getEnumLstreg();
+    final Map<String, Map<String, R2<List<String>, String>>> typeToCodeToReplacement = CLDRConfig.getInstance().getSupplementalDataInfo().getLocaleAliasInfo();
+
+    public void TestLstrConsistency() {
+        // get the alias info, and process
+        // eg "language" -> "sh" -> <{"sr_Latn"}, reason>
+
+        // quick consistency check of lstr
+        // hack for extlang.
+        Map<String, Map<LstrField, String>> extlangItems = lstr.get(LstrType.extlang);
+        Map<String, Map<LstrField, String>> languageItems = lstr.get(LstrType.language);
+        if (!languageItems.keySet().containsAll(extlangItems.keySet())) {
+            errln("extlang not subset of language: " + setDifference(extlangItems.keySet(), languageItems.keySet()));
+        }
+
+
+        ImmutableSet<LstrType> LstrTypesToSkip = ImmutableSet.of(LstrType.extlang, LstrType.grandfathered, LstrType.redundant);
+        Set<LstrType> lstrTypesToTest = EnumSet.allOf(LstrType.class);
+        lstrTypesToTest.removeAll(LstrTypesToSkip);
+        Set<String> missingAliases = new LinkedHashSet<>();
+        Map<String,String> changedAliases = new LinkedHashMap<>();
+
+        for (LstrType lstrType : lstrTypesToTest) {
+            Map<String, Map<LstrField, String>> lstrValue = lstr.get(lstrType);
+            if (lstrValue == null) {
+                continue;
+            }
+            Map<String, R2<List<String>, String>> codeToReplacement = typeToCodeToReplacement.get(lstrType.toCompatString());
+
+
+            Set<String> lstrDeprecated = new TreeSet<>();
+            Set<String> aliased = new TreeSet<>();
+            Map<String, String> lstrPreferred = new TreeMap<>();
+            Map<String, String> aliasPreferred = new TreeMap<>();
+
+            for (Entry<String, Map<LstrField, String>> codeToData : lstrValue.entrySet()) {
+                String code = codeToData.getKey();
+                Map<LstrField, String> data = codeToData.getValue();
+                boolean deprecated = data.get(LstrField.Deprecated) != null;
+                if (deprecated) {
+                    lstrDeprecated.add(code);
+                }
+                String preferred = data.get(LstrField.Preferred_Value);
+                if (preferred != null) {
+                    lstrPreferred.put(code, preferred);
+                }
+                if (codeToReplacement != null) {
+                    R2<List<String>, String> replacement = codeToReplacement.get(code);
+                    if (replacement != null) {
+                        aliased.add(code);
+                        List<String> replacementList = replacement.get0();
+                        aliasPreferred.put(code, CldrUtility.join(replacementList, " "));
+                    }
+                }
+            }
+            Set<String> diff = setDifference(aliased, lstrDeprecated);
+            logln(lstrType + ": aliased and not deprecated in lstr: " + diff);
+            lstrDeprecated.addAll(diff);
+
+//            // special exceptions
+//            switch(lstrType) {
+//            case script: lstrDeprecated.add("Qaai"); break;
+//            case region: lstrDeprecated.add("QU"); break;
+//            default: break;
+//            }
+
+            Map<Status, Set<String>> statusToCodes = validity.getStatusToCodes(lstrType);
+            Set<String> validityDeprecated = statusToCodes == null ? null : statusToCodes.get(Status.deprecated);
+
+            if (!Objects.equal(lstrDeprecated, validityDeprecated)) {
+                showMinus("Deprecated lstr - validity", lstrType, lstrDeprecated, validityDeprecated);
+                showMinus("Deprecated validity - lstr", lstrType, validityDeprecated, lstrDeprecated);
+            }
+
+            if (!Objects.equal(lstrPreferred, aliasPreferred)) {
+                //showMinus("Preferred lstr - alias", lstrType, lstrPreferred.entrySet(), aliasPreferred.entrySet());
+                for (Entry<String, String> entry : lstrPreferred.entrySet()) {
+                    String code = entry.getKey();
+                    String lstrReplacement = entry.getValue();
+                    String aliasValue = aliasPreferred.get(code);
+                    if (lstrReplacement.equals(aliasValue)) {
+                        continue;
+                    }
+                    String newAlias = makeAliasXml(lstrType, code, lstrReplacement, "deprecated");
+                    if (aliasValue == null) {
+                        missingAliases.add(newAlias);
+                    } else {
+                        changedAliases.put(newAlias, makeAliasXml(lstrType, code, aliasValue, "deprecated"));
+                    }
+                }
+            }
+        }
+        if (!missingAliases.isEmpty()) {
+            errln("Missing aliases for supplementalMetadata: " + missingAliases.size());
+            for (String s : missingAliases) {
+                System.out.println(s);
+            }
+        }
+        if (!changedAliases.isEmpty()) {
+            warnln("Changed aliases from LSTR, just double-check: " + changedAliases.size());
+            for (Entry<String, String> entry : changedAliases.entrySet()) {
+                System.out.println("\tcurrent=" + entry.getValue() + "\n\tlstr=" + entry.getKey());
+            }
+        }
+    }
+
+    // <languageAlias type="art_lojban" replacement="jbo" reason="deprecated"/> <!-- Lojban -->
+    // <scriptAlias type="Qaai" replacement="Zinh" reason="deprecated"/>
+    // <territoryAlias type="AAA" replacement="AA" reason="overlong"/> <!-- null -->
+    // <variantAlias type="AALAND" replacement="AX" reason="deprecated"/>
+    private String makeAliasXml(LstrType lstrType, String code, String lstrReplacement, String reason) {
+        return "<" + lstrType.toCompatString() + "Alias"
+            + " type=\"" + code + "\""
+            + " replacement=\"" + lstrReplacement + "\""
+            + " reason=\"" + reason + "\"/>"
+            + " <!-- " + TransliteratorUtilities.toXML.transform(
+                CLDRConfig.getInstance().getEnglish().getName(code) + " ⇒ " + CLDRConfig.getInstance().getEnglish().getName(lstrReplacement)
+                ) + " -->";
+    }
+
+    private <T, U extends Collection<T>> Set<T> setDifference(U a, U b) {
+        Set<T> diff = new LinkedHashSet<>(a);
+        diff.removeAll(b);
+        return diff;
+    }
+
+    private <T> Set<T> showMinus(String title, LstrType lstrType, Set<T> a, Set<T> b) {
+        if (a == null) {
+            a = Collections.emptySet();
+        }
+        if (b == null) {
+            b = Collections.emptySet();
+        }
+
+        Set<T> diff = setDifference(a, b);
+        if (!diff.isEmpty()) {
+            T first = diff.iterator().next();
+            if (first instanceof String) {
+                List<String> names = diff.stream()
+                    .map(code -> "\n\t\t" + code + " ⇒\t" + lstr.get(lstrType).get(code)
+                        + "\n\t\tvalid.⇒\t" + CldrUtility.ifNull(validity.getCodeToStatus(lstrType), Collections.emptyMap()).get(code)
+                        + "\n\t\talias⇒\t" + CldrUtility.ifNull(typeToCodeToReplacement.get(lstrType.toCompatString()), Collections.emptyMap()).get(code)
+                        )
+                    .collect(Collectors.toList());
+                errln(title + "\n\tLstrType=\t" + lstrType + "\n\tsize=\t" + diff.size() + "\n\tcodes=\t" + diff + "\n\tnames=\t" + names);
+            } else {
+                errln(title + "\n\tLstrType=\t" + lstrType + "\n\tsize=\t" + diff.size() + "\n\tcodes=\t" + diff);
+            }
+        }
+        return diff;
     }
 }

@@ -2,7 +2,7 @@
 
 if [ $# -ne 3 ]; then
   echo "Usage: $0 <vbmeta.img> <system.img> <VbmetaBootParams.textproto>"
-  exit 1
+  exit 0
 fi
 
 # Example Output from 'avbtool calculate_vbmeta_digest --image $OUT/vbmeta.img':
@@ -42,14 +42,11 @@ readonly TARGET=$3
 # Extract the digest
 readonly VBMETA_DIGEST=$(${AVBTOOL:-avbtool} calculate_vbmeta_digest --image $VBMETAIMG)
 
-echo "digest is $VBMETA_DIGEST"
 
 readonly INFO_OUTPUT=$(${AVBTOOL:-avbtool} info_image --image $VBMETAIMG | grep "^Algorithm:")
-echo "output is $INFO_OUTPUT"
 
 # Extract the algorithm
 readonly ALG_OUTPUT=$(echo $INFO_OUTPUT | grep "Algorithm:")
-echo \"$ALG_OUTPUT\"
 readonly ALG_SPLIT=($(echo $ALG_OUTPUT | tr ' ' '\n'))
 readonly ORG_ALGORITHM=${ALG_SPLIT[1]}
 
@@ -59,7 +56,6 @@ else
 die "Don't know anything about $ORG_ALGORITHM"
 fi
 
-echo "hash algorithm is $VBMETA_HASH_ALG"
 
 # extract the size
 
@@ -77,7 +73,6 @@ SYSMETA_SIZE=$(get_bytes $SYSIMG "VBMeta size:")
 
 VBMETA_SIZE=$(expr $HEADER_SIZE + $AUTHEN_SIZE + $AUX_SIZE + $SYSMETA_SIZE)
 
-echo "vbmeta size $VBMETA_SIZE"
 
 HEADER_COMMENT="# androidboot.vbmeta.size=$VBMETA_SIZE androidboot.vbmeta.hash_alg=$VBMETA_HASH_ALG androidboot.vbmeta.digest=$VBMETA_DIGEST"
 

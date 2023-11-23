@@ -22,6 +22,8 @@ import android.bluetooth.BluetoothDevice;
  * Callback interface for BLE connection state changes during trusted device enrollment.
  *
  * @hide
+ * @deprecated Adding a trust agent is no longer a supported feature and these APIs will be removed
+ * in the next Android release.
  */
 oneway interface ICarTrustAgentBleCallback {
     /**

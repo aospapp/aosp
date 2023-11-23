@@ -6,19 +6,17 @@
 
 #include "xfa/fxfa/parser/cxfa_soapaction.h"
 
-#include "fxjs/xfa/cjx_soapaction.h"
+#include "fxjs/xfa/cjx_textnode.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kSoapActionAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"soapAction";
+};
 
 }  // namespace
 
@@ -28,9 +26,8 @@ CXFA_SoapAction::CXFA_SoapAction(CXFA_Document* doc, XFA_PacketType packet)
                 XFA_XDPPACKET_ConnectionSet,
                 XFA_ObjectType::TextNode,
                 XFA_Element::SoapAction,
-                nullptr,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_SoapAction>(this)) {}
+                {},
+                kSoapActionAttributeData,
+                pdfium::MakeUnique<CJX_TextNode>(this)) {}
 
-CXFA_SoapAction::~CXFA_SoapAction() {}
+CXFA_SoapAction::~CXFA_SoapAction() = default;

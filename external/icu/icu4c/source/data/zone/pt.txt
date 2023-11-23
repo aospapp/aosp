@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 pt{
-    Version{"2.1.45.46"}
+    Version{"36.1"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Abidjan"}
@@ -166,7 +166,7 @@ pt{
             ec{"Anchorage"}
         }
         "America:Anguilla"{
-            ec{"Anguilla"}
+            ec{"Anguila"}
         }
         "America:Antigua"{
             ec{"Antígua"}
@@ -609,9 +609,6 @@ pt{
         "Antarctica:Davis"{
             ec{"Davis"}
         }
-        "Antarctica:DumontDUrville"{
-            ec{"Dumont d’Urville"}
-        }
         "Antarctica:Macquarie"{
             ec{"Macquarie"}
         }
@@ -628,7 +625,7 @@ pt{
             ec{"Rothera"}
         }
         "Antarctica:Syowa"{
-            ec{"Showa"}
+            ec{"Syowa"}
         }
         "Antarctica:Troll"{
             ec{"Troll"}
@@ -640,7 +637,7 @@ pt{
             ec{"Longyearbyen"}
         }
         "Asia:Aden"{
-            ec{"Adem"}
+            ec{"Áden"}
         }
         "Asia:Almaty"{
             ec{"Almaty"}
@@ -652,10 +649,10 @@ pt{
             ec{"Anadyr"}
         }
         "Asia:Aqtau"{
-            ec{"Aqtau"}
+            ec{"Aktau"}
         }
         "Asia:Aqtobe"{
-            ec{"Aqtöbe"}
+            ec{"Aktobe"}
         }
         "Asia:Ashgabat"{
             ec{"Asgabate"}
@@ -688,7 +685,7 @@ pt{
             ec{"Brunei"}
         }
         "Asia:Calcutta"{
-            ec{"Kolkata"}
+            ec{"Calcutá"}
         }
         "Asia:Chita"{
             ec{"Chita"}
@@ -721,7 +718,7 @@ pt{
             ec{"Gaza"}
         }
         "Asia:Hebron"{
-            ec{"Hebrom"}
+            ec{"Hebron"}
         }
         "Asia:Hong_Kong"{
             ec{"Hong Kong"}
@@ -742,16 +739,16 @@ pt{
             ec{"Jerusalém"}
         }
         "Asia:Kabul"{
-            ec{"Kabul"}
+            ec{"Cabul"}
         }
         "Asia:Kamchatka"{
             ec{"Kamchatka"}
         }
         "Asia:Karachi"{
-            ec{"Carachi"}
+            ec{"Karachi"}
         }
         "Asia:Katmandu"{
-            ec{"Catmandu"}
+            ec{"Katmandu"}
         }
         "Asia:Khandyga"{
             ec{"Khandyga"}
@@ -760,7 +757,7 @@ pt{
             ec{"Krasnoyarsk"}
         }
         "Asia:Kuala_Lumpur"{
-            ec{"Kuala Lampur"}
+            ec{"Kuala Lumpur"}
         }
         "Asia:Kuching"{
             ec{"Kuching"}
@@ -773,9 +770,6 @@ pt{
         }
         "Asia:Magadan"{
             ec{"Magadan"}
-        }
-        "Asia:Makassar"{
-            ec{"Macáçar"}
         }
         "Asia:Manila"{
             ec{"Manila"}
@@ -808,19 +802,19 @@ pt{
             ec{"Pyongyang"}
         }
         "Asia:Qatar"{
-            ec{"Qatar"}
+            ec{"Catar"}
+        }
+        "Asia:Qostanay"{
+            ec{"Qostanay"}
         }
         "Asia:Qyzylorda"{
             ec{"Qyzylorda"}
         }
         "Asia:Rangoon"{
-            ec{"Yangon"}
+            ec{"Rangum"}
         }
         "Asia:Riyadh"{
             ec{"Riade"}
-        }
-        "Asia:Saigon"{
-            ec{"Ho Chi Minh"}
         }
         "Asia:Sakhalin"{
             ec{"Sacalina"}
@@ -835,7 +829,7 @@ pt{
             ec{"Xangai"}
         }
         "Asia:Singapore"{
-            ec{"Cingapura"}
+            ec{"Singapura"}
         }
         "Asia:Srednekolymsk"{
             ec{"Srednekolymsk"}
@@ -853,7 +847,7 @@ pt{
             ec{"Teerã"}
         }
         "Asia:Thimphu"{
-            ec{"Timphu"}
+            ec{"Thimphu"}
         }
         "Asia:Tokyo"{
             ec{"Tóquio"}
@@ -998,7 +992,7 @@ pt{
         }
         "Europe:Dublin"{
             ec{"Dublin"}
-            ld{"Horário Padrão da Irlanda"}
+            ld{"Horário Padrão Irlandês"}
         }
         "Europe:Gibraltar"{
             ec{"Gibraltar"}
@@ -1173,7 +1167,7 @@ pt{
             ec{"Reunião"}
         }
         "Pacific:Apia"{
-            ec{"Ápia"}
+            ec{"Apia"}
         }
         "Pacific:Auckland"{
             ec{"Auckland"}
@@ -1182,7 +1176,7 @@ pt{
             ec{"Bougainville"}
         }
         "Pacific:Chatham"{
-            ec{"Chatham"}
+            ec{"Chatnam"}
         }
         "Pacific:Easter"{
             ec{"Ilha de Páscoa"}
@@ -1259,9 +1253,6 @@ pt{
         "Pacific:Pitcairn"{
             ec{"Pitcairn"}
         }
-        "Pacific:Ponape"{
-            ec{"Pohnpei"}
-        }
         "Pacific:Port_Moresby"{
             ec{"Port Moresby"}
         }
@@ -1279,9 +1270,6 @@ pt{
         }
         "Pacific:Tongatapu"{
             ec{"Tongatapu"}
-        }
-        "Pacific:Truk"{
-            ec{"Chuuk"}
         }
         "Pacific:Wake"{
             ec{"Wake"}
@@ -1547,7 +1535,7 @@ pt{
             ls{"Horário da Guiana Francesa"}
         }
         "meta:French_Southern"{
-            ls{"Horário da Antártida e do Sul da França"}
+            ls{"Horário dos Territórios Franceses do Sul e Antártida"}
         }
         "meta:GMT"{
             ls{"Horário do Meridiano de Greenwich"}
@@ -1669,7 +1657,7 @@ pt{
             ls{"Horário de Lanka"}
         }
         "meta:Line_Islands"{
-            ls{"Horário das Ilhas Line"}
+            ls{"Horário das Ilhas da Linha"}
         }
         "meta:Lord_Howe"{
             ld{"Horário de Verão de Lord Howe"}
@@ -1786,7 +1774,7 @@ pt{
             ls{"Horário de Palau"}
         }
         "meta:Papua_New_Guinea"{
-            ls{"Horário de Papua Nova Guiné"}
+            ls{"Horário de Papua-Nova Guiné"}
         }
         "meta:Paraguay"{
             ld{"Horário de Verão do Paraguai"}
@@ -1807,9 +1795,9 @@ pt{
             ls{"Horário das Ilhas Fênix"}
         }
         "meta:Pierre_Miquelon"{
-            ld{"Horário de Verão de Saint Pierre e Miquelon"}
-            lg{"Horário de Saint Pierre e Miquelon"}
-            ls{"Horário Padrão de Saint Pierre e Miquelon"}
+            ld{"Horário Verão de São Pedro e Miquelão"}
+            lg{"Horário de São Pedro e Miquelão"}
+            ls{"Horário Padrão de São Pedro e Miquelão"}
         }
         "meta:Pitcairn"{
             ls{"Horário de Pitcairn"}

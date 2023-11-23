@@ -27,6 +27,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+    <!-- Permission to modify Recorded Program -->
+    <uses-permission android:name="com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA" />
 
     <!-- Permissions/feature for USB tuner -->
     <uses-permission android:name="android.permission.DVB_DEVICE" />
@@ -36,7 +38,7 @@
     <uses-feature android:name="android.software.leanback" android:required="true" />
     <uses-feature android:name="android.software.live_tv" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
-    <uses-sdk android:targetSdkVersion="27" android:minSdkVersion="23"/>
+    <uses-sdk android:targetSdkVersion="29" android:minSdkVersion="23"/>
     <application
         android:name=".app.SampleDvbTuner"
         android:icon="@mipmap/ic_launcher"

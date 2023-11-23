@@ -24,7 +24,7 @@
  */
 package java.lang.invoke;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import java.io.Serializable;
 
 public final class SerializedLambda implements Serializable {

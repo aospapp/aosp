@@ -25,8 +25,8 @@ class BtFactoryResetTest(BluetoothBaseTest):
     default_timeout = 10
     grace_timeout = 4
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.pri_dut = self.android_devices[0]
         self.sec_dut = self.android_devices[1]
 

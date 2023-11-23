@@ -1,0 +1,20 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# system_internal_prop      -- Properties used only in /system
+# system_restricted_prop    -- Properties which can't be written outside system
+# system_public_prop        -- Properties with no restrictions
+# system_vendor_config_prop -- Properties which can be written only by vendor_init
+# vendor_internal_prop      -- Properties used only in /vendor
+# vendor_restricted_prop    -- Properties which can't be written outside vendor
+# vendor_public_prop        -- Properties with no restrictions
+
+# TODO(b/131162102): uncomment these after assigning ownership attributes to all properties
+#typeattribute vendor_default_prop vendor_property_type;
+#neverallow domain {
+#  property_type
+#  -system_property_type
+#  -product_property_type
+#  -vendor_property_type
+#}:file no_rw_file_perms;

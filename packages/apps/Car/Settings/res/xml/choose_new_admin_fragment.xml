@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/choose_new_admin_label">
+    android:title="@string/choose_new_admin_label"
+    android:key="@string/psk_choose_new_admin">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_choose_new_admin"
         settings:controller="com.android.car.settings.users.ChooseNewAdminPreferenceController"/>

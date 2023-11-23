@@ -17,11 +17,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="170210454004696382">"Key Chain"</string>
-    <string name="title_no_certs" msgid="8350009443064722873">"לא נמצאו אישורים"</string>
     <string name="title_select_cert" msgid="3588447616418041699">"בחר אישור"</string>
     <string name="requesting_application" msgid="1589142627467598421">"‏האפליקציה %s ביקשה אישור. בחירת אישור תאפשר לאפליקציה להשתמש בזהות זו מול שרתים כעת ובעתיד."</string>
     <string name="requesting_server" msgid="5832565605998634370">"‏האפליקציה זיהתה את השרת המבקש כ-%s, אך עליך לתת לאפליקציה גישה לאישור רק אם אתה סומך עליה."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"‏ניתן להתקין אישורים מקובץ PKCS#12 עם סיומת %1$s או %2$s הממוקם באחסון חיצוני."</string>
     <string name="allow_button" msgid="3030990695030371561">"בחר"</string>
     <string name="deny_button" msgid="3766539809121892584">"דחה"</string>
+    <string name="loading_certs_message" msgid="814752048905775439">"טעינת האישורים מתבצעת…"</string>
 </resources>

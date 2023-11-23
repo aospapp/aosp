@@ -30,6 +30,7 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
@@ -51,15 +52,22 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Runner that creates a {@link CompatibilityTestSuite} to re-run some previous results.
- * Only the 'cts' plan is supported.
- * TODO: explore other new way to build the retry (instead of relying on one massive pair of
- * include/exclude filters)
+ * Runner that creates a {@link CompatibilityTestSuite} to re-run some previous results. Only the
+ * 'cts' plan is supported. TODO: explore other new way to build the retry (instead of relying on
+ * one massive pair of include/exclude filters)
+ *
+ * @deprecated A new retry has been implemented.
  */
+@Deprecated
 @OptionClass(alias = "compatibility")
-public class RetryFactoryTest implements IRemoteTest, IDeviceTest, IBuildReceiver,
-        ISystemStatusCheckerReceiver, IInvocationContextReceiver, IShardableTest,
-        IConfigurationReceiver {
+public class RetryFactoryTest
+        implements IRemoteTest,
+                IDeviceTest,
+                IBuildReceiver,
+                ISystemStatusCheckerReceiver,
+                IInvocationContextReceiver,
+                IShardableTest,
+                IConfigurationReceiver {
 
     /**
      * Mirror the {@link CompatibilityTestSuite} options in order to create it.
@@ -201,14 +209,13 @@ public class RetryFactoryTest implements IRemoteTest, IDeviceTest, IBuildReceive
         mMainConfiguration = configuration;
     }
 
-    /**
-     * Build a CompatibilityTest with appropriate filters to run only the tests of interests.
-     */
+    /** Build a CompatibilityTest with appropriate filters to run only the tests of interests. */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         CompatibilityTestSuite test = loadSuite();
         // run the retry run.
-        test.run(listener);
+        test.run(testInfo, listener);
     }
 
     @Override

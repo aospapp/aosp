@@ -22,9 +22,11 @@ import static org.junit.Assert.fail;
 import android.app.Instrumentation;
 import android.hardware.input.cts.InputCallback;
 import android.hardware.input.cts.InputCtsActivity;
+import android.util.Log;
 import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -45,17 +47,22 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public abstract class InputTestCase {
+    private static final String TAG = "InputTestCase";
     private static final float TOLERANCE = 0.005f;
 
     private final BlockingQueue<InputEvent> mEvents;
 
     private InputListener mInputListener;
     private Instrumentation mInstrumentation;
+    private View mDecorView;
     private HidDevice mHidDevice;
     private HidJsonParser mParser;
     // Stores the name of the currently running test
     private String mCurrentTestCase;
     private int mRegisterResourceId; // raw resource that contains json for registering a hid device
+
+    // State used for motion events
+    private int mLastButtonState;
 
     InputTestCase(int registerResourceId) {
         mEvents = new LinkedBlockingQueue<>();
@@ -71,6 +78,7 @@ public abstract class InputTestCase {
     public void setUp() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivityRule.getActivity().setInputCallback(mInputListener);
+        mDecorView = mActivityRule.getActivity().getWindow().getDecorView();
         mParser = new HidJsonParser(mInstrumentation.getTargetContext());
         int hidDeviceId = mParser.readDeviceId(mRegisterResourceId);
         String registerCommand = mParser.readRegisterCommand(mRegisterResourceId);
@@ -84,23 +92,27 @@ public abstract class InputTestCase {
     }
 
     /**
-     * Asserts that the application received a {@link android.view.KeyEvent} with the given action
-     * and keycode.
+     * Asserts that the application received a {@link android.view.KeyEvent} with the given
+     * metadata.
      *
      * If other KeyEvents are received by the application prior to the expected KeyEvent, or no
      * KeyEvents are received within a reasonable amount of time, then this will throw an
-     * AssertionFailedError.
+     * {@link AssertionError}.
      *
-     * Only action and keyCode are being compared.
+     * Only action, source, keyCode and metaState are being compared.
      */
     private void assertReceivedKeyEvent(@NonNull KeyEvent expectedKeyEvent) {
         KeyEvent receivedKeyEvent = waitForKey();
         if (receivedKeyEvent == null) {
             failWithMessage("Did not receive " + expectedKeyEvent);
         }
-        assertEquals(mCurrentTestCase, expectedKeyEvent.getAction(), receivedKeyEvent.getAction());
-        assertEquals(mCurrentTestCase,
+        assertEquals(mCurrentTestCase + " (action)",
+                expectedKeyEvent.getAction(), receivedKeyEvent.getAction());
+        assertSource(mCurrentTestCase, expectedKeyEvent.getSource(), receivedKeyEvent.getSource());
+        assertEquals(mCurrentTestCase + " (keycode)",
                 expectedKeyEvent.getKeyCode(), receivedKeyEvent.getKeyCode());
+        assertEquals(mCurrentTestCase + " (meta state)",
+                expectedKeyEvent.getMetaState(), receivedKeyEvent.getMetaState());
     }
 
     private void assertReceivedMotionEvent(@NonNull MotionEvent expectedEvent) {
@@ -120,11 +132,35 @@ public abstract class InputTestCase {
         if (event.getHistorySize() > 0) {
             failWithMessage("expected each MotionEvent to only have a single entry");
         }
-        assertEquals(mCurrentTestCase, expectedEvent.getAction(), event.getAction());
+        assertEquals(mCurrentTestCase + " (action)",
+                expectedEvent.getAction(), event.getAction());
+        assertSource(mCurrentTestCase, expectedEvent.getSource(), event.getSource());
+        assertEquals(mCurrentTestCase + " (button state)",
+                expectedEvent.getButtonState(), event.getButtonState());
+        if (event.getActionMasked() == MotionEvent.ACTION_BUTTON_PRESS
+                || event.getActionMasked() == MotionEvent.ACTION_BUTTON_RELEASE) {
+            // Only checking getActionButton() for ACTION_BUTTON_PRESS or ACTION_BUTTON_RELEASE
+            // because for actions other than ACTION_BUTTON_PRESS and ACTION_BUTTON_RELEASE the
+            // returned value of getActionButton() is undefined.
+            assertEquals(mCurrentTestCase + " (action button)",
+                    mLastButtonState ^ event.getButtonState(), event.getActionButton());
+            mLastButtonState = event.getButtonState();
+        }
         for (int axis = MotionEvent.AXIS_X; axis <= MotionEvent.AXIS_GENERIC_16; axis++) {
             assertEquals(mCurrentTestCase + " (" + MotionEvent.axisToString(axis) + ")",
                     expectedEvent.getAxisValue(axis), event.getAxisValue(axis), TOLERANCE);
         }
+    }
+
+    /**
+     * Asserts source flags. Separate this into a different method to allow individual test case to
+     * specify it.
+     *
+     * @param expectedSource expected source flag specified in JSON files.
+     * @param actualSource actual source flag received in the test app.
+     */
+    void assertSource(String testCase, int expectedSource, int actualSource) {
+        assertEquals(testCase + " (source)", expectedSource, actualSource);
     }
 
     /**
@@ -156,13 +192,19 @@ public abstract class InputTestCase {
             // Make sure we received the expected input events
             for (int i = 0; i < testData.events.size(); i++) {
                 final InputEvent event = testData.events.get(i);
-                if (event instanceof MotionEvent) {
-                    assertReceivedMotionEvent((MotionEvent) event);
-                } else if (event instanceof KeyEvent) {
-                    assertReceivedKeyEvent((KeyEvent) event);
-                } else {
-                    fail("Entry " + i + " is neither a KeyEvent nor a MotionEvent: " + event);
+                try {
+                    if (event instanceof MotionEvent) {
+                        assertReceivedMotionEvent((MotionEvent) event);
+                        continue;
+                    }
+                    if (event instanceof KeyEvent) {
+                        assertReceivedKeyEvent((KeyEvent) event);
+                        continue;
+                    }
+                } catch (AssertionError error) {
+                    throw new AssertionError("Assertion on entry " + i + " failed.", error);
                 }
+                fail("Entry " + i + " is neither a KeyEvent nor a MotionEvent: " + event);
             }
         }
         assertNoMoreEvents();
@@ -182,6 +224,9 @@ public abstract class InputTestCase {
         if (event instanceof KeyEvent) {
             return (KeyEvent) event;
         }
+        if (event instanceof MotionEvent) {
+            failWithMessage("Instead of a key event, received " + event);
+        }
         return null;
     }
 
@@ -189,6 +234,9 @@ public abstract class InputTestCase {
         InputEvent event = waitForEvent();
         if (event instanceof MotionEvent) {
             return (MotionEvent) event;
+        }
+        if (event instanceof KeyEvent) {
+            failWithMessage("Instead of a motion event, received " + event);
         }
         return null;
     }
@@ -235,6 +283,7 @@ public abstract class InputTestCase {
                             event.getXPrecision(), event.getYPrecision(),
                             event.getDeviceId(), event.getEdgeFlags(),
                             event.getSource(), event.getFlags());
+            singleEvent.setActionButton(event.getActionButton());
             events.add(singleEvent);
         }
 
@@ -245,14 +294,24 @@ public abstract class InputTestCase {
                         event.getXPrecision(), event.getYPrecision(),
                         event.getDeviceId(), event.getEdgeFlags(),
                         event.getSource(), event.getFlags());
+        singleEvent.setActionButton(event.getActionButton());
         events.add(singleEvent);
         return events;
     }
 
     /**
      * Append the name of the currently executing test case to the fail message.
+     * Dump out the events queue to help debug.
      */
     private void failWithMessage(String message) {
+        if (mEvents.isEmpty()) {
+            Log.i(TAG, "The events queue is empty");
+        } else {
+            Log.e(TAG, "There are additional events received by the test activity:");
+            for (InputEvent event : mEvents) {
+                Log.i(TAG, event.toString());
+            }
+        }
         fail(mCurrentTestCase + ": " + message);
     }
 
@@ -275,6 +334,25 @@ public abstract class InputTestCase {
             } catch (InterruptedException ex) {
                 failWithMessage("interrupted while adding a MotionEvent to the queue");
             }
+        }
+    }
+
+    protected class PointerCaptureSession implements AutoCloseable {
+        protected PointerCaptureSession() {
+            requestPointerCaptureSync();
+        }
+
+        @Override
+        public void close() {
+            releasePointerCaptureSync();
+        }
+
+        private void requestPointerCaptureSync() {
+            mInstrumentation.runOnMainSync(mDecorView::requestPointerCapture);
+        }
+
+        private void releasePointerCaptureSync() {
+            mInstrumentation.runOnMainSync(mDecorView::releasePointerCapture);
         }
     }
 }

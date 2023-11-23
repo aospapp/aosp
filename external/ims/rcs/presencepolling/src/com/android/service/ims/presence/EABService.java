@@ -47,15 +47,9 @@ import android.os.Looper;
 import android.os.Message;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
-import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 
-import android.telephony.SubscriptionManager;
 import com.android.ims.internal.EABContract;
-
-import com.android.ims.ImsConfig;
-import com.android.ims.ImsManager;
-import com.android.ims.ImsException;
 
 import com.android.ims.RcsManager;
 import com.android.ims.RcsPresence;
@@ -1095,46 +1089,5 @@ public class EABService extends Service {
                 contactProfileMinId.toString(), null));
 
         EABDbUtil.deleteContactsFromEabDb(mContext, contactListToDelete);
-    }
-
-    private boolean isRcsProvisioned(){
-        boolean isVoLTEProvisioned = false;
-        boolean isLvcProvisioned = false;
-        boolean isEabProvisioned = false;
-        ImsManager imsManager = null;
-        ImsConfig imsConfig = null;
-
-        // Get instance of imsManagr.
-        imsManager = ImsManager.getInstance(mContext,
-                SubscriptionManager.getDefaultVoiceSubscriptionId());
-        try {
-            imsConfig = imsManager.getConfigInterface();
-            logger.debug("imsConfig initialized.");
-        } catch (Exception e) {
-            logger.error("getConfigInterface() exception:", e);
-            imsConfig = null;
-        }
-
-        if (null != imsConfig) {
-            try {
-                isVoLTEProvisioned = imsConfig.getProvisionedValue(
-                        ImsConfig.ConfigConstants.VLT_SETTING_ENABLED)
-                        == ImsConfig.FeatureValueConstants.ON;
-                isLvcProvisioned = imsConfig.getProvisionedValue(
-                        ImsConfig.ConfigConstants.LVC_SETTING_ENABLED)
-                        == ImsConfig.FeatureValueConstants.ON;
-                isEabProvisioned = imsConfig.getProvisionedValue(
-                        ImsConfig.ConfigConstants.EAB_SETTING_ENABLED)
-                        == ImsConfig.FeatureValueConstants.ON;
-            } catch (ImsException e) {
-                logger.error("ImsException in isRcsProvisioned() : ", e);
-            }
-        } else {
-            logger.debug("isRcsProvisioned - imsConfig is null");
-        }
-        logger.debug("isVoLTEProvisioned : " + isVoLTEProvisioned + " isLvcProvisioned : " +
-                isLvcProvisioned
-                + " isEabProvisioned : " + isEabProvisioned);
-        return (isVoLTEProvisioned && isLvcProvisioned && isEabProvisioned);
     }
 }

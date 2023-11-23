@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 pt_PT{
-    Version{"2.1.44.9"}
+    Version{"36.1"}
     zoneStrings{
         "Africa:Addis_Ababa"{
             ec{"Adis-Abeba"}
@@ -39,9 +39,6 @@ pt_PT{
         "Africa:Tunis"{
             ec{"Tunes"}
         }
-        "America:Anguilla"{
-            ec{"Anguila"}
-        }
         "America:Araguaina"{
             ec{"Araguaina"}
         }
@@ -66,6 +63,9 @@ pt_PT{
         "America:Dominica"{
             ec{"Domínica"}
         }
+        "America:El_Salvador"{
+            ec{"Salvador"}
+        }
         "America:Montevideo"{
             ec{"Montevideu"}
         }
@@ -87,8 +87,14 @@ pt_PT{
         "America:St_Thomas"{
             ec{"St. Thomas"}
         }
-        "Antarctica:Syowa"{
-            ec{"Syowa"}
+        "Antarctica:DumontDUrville"{
+            ec{"Dumont d’Urville"}
+        }
+        "Asia:Aden"{
+            ec{"Adem"}
+        }
+        "Asia:Aqtau"{
+            ec{"Aqtau"}
         }
         "Asia:Aqtobe"{
             ec{"Aqtobe"}
@@ -102,20 +108,14 @@ pt_PT{
         "Asia:Bangkok"{
             ec{"Banguecoque"}
         }
-        "Asia:Calcutta"{
-            ec{"Calcutá"}
-        }
         "Asia:Dhaka"{
             ec{"Daca"}
         }
-        "Asia:Hebron"{
-            ec{"Hebron"}
+        "Asia:Karachi"{
+            ec{"Carachi"}
         }
-        "Asia:Kabul"{
-            ec{"Cabul"}
-        }
-        "Asia:Kuala_Lumpur"{
-            ec{"Kuala Lumpur"}
+        "Asia:Katmandu"{
+            ec{"Catmandu"}
         }
         "Asia:Kuwait"{
             ec{"Koweit"}
@@ -123,20 +123,23 @@ pt_PT{
         "Asia:Makassar"{
             ec{"Macassar"}
         }
-        "Asia:Qatar"{
-            ec{"Catar"}
+        "Asia:Qostanay"{
+            ec{"Kostanay"}
+        }
+        "Asia:Rangoon"{
+            ec{"Yangon"}
         }
         "Asia:Saigon"{
             ec{"Cidade de Ho Chi Minh"}
-        }
-        "Asia:Singapore"{
-            ec{"Singapura"}
         }
         "Asia:Taipei"{
             ec{"Taipé"}
         }
         "Asia:Tehran"{
             ec{"Teerão"}
+        }
+        "Asia:Thimphu"{
+            ec{"Timphu"}
         }
         "Asia:Yerevan"{
             ec{"Erevan"}
@@ -198,8 +201,8 @@ pt_PT{
         "Indian:Mauritius"{
             ec{"Maurícia"}
         }
-        "Pacific:Apia"{
-            ec{"Apia"}
+        "Pacific:Chatham"{
+            ec{"Chatham"}
         }
         "Pacific:Easter"{
             ec{"Ilha da Páscoa"}
@@ -210,8 +213,14 @@ pt_PT{
         "Pacific:Pitcairn"{
             ec{"Ilhas Pitcairn"}
         }
+        "Pacific:Ponape"{
+            ec{"Pohnpei"}
+        }
         "Pacific:Tarawa"{
             ec{"Tarawa"}
+        }
+        "Pacific:Truk"{
+            ec{"Chuuk"}
         }
         "meta:Acre"{
             ld{"Hora de verão do Acre"}
@@ -257,24 +266,24 @@ pt_PT{
             ss{"∅∅∅"}
         }
         "meta:America_Central"{
-            ld{"Hora de verão Central"}
-            lg{"Hora Central"}
-            ls{"Hora padrão Central"}
+            ld{"Hora de verão central norte-americana"}
+            lg{"Hora central norte-americana"}
+            ls{"Hora padrão central norte-americana"}
         }
         "meta:America_Eastern"{
-            ld{"Hora de verão Oriental"}
-            lg{"Hora Oriental"}
-            ls{"Hora padrão Oriental"}
+            ld{"Hora de verão oriental norte-americana"}
+            lg{"Hora oriental norte-americana"}
+            ls{"Hora padrão oriental norte-americana"}
         }
         "meta:America_Mountain"{
-            ld{"Hora de verão da Montanha"}
-            lg{"Hora da Montanha"}
-            ls{"Hora padrão da Montanha"}
+            ld{"Hora de verão de montanha norte-americana"}
+            lg{"Hora de montanha norte-americana"}
+            ls{"Hora padrão de montanha norte-americana"}
         }
         "meta:America_Pacific"{
-            ld{"Hora de verão do Pacífico"}
-            lg{"Hora do Pacífico"}
-            ls{"Hora padrão do Pacífico"}
+            ld{"Hora de verão do Pacífico norte-americana"}
+            lg{"Hora do Pacífico norte-americana"}
+            ls{"Hora padrão do Pacífico norte-americana"}
         }
         "meta:Anadyr"{
             ld{"Hora de verão de Anadyr"}

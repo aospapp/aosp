@@ -53,11 +53,6 @@
 #ifndef __LVM_H__
 #define __LVM_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
-
 /****************************************************************************************/
 /*                                                                                      */
 /*  Includes                                                                            */
@@ -65,7 +60,6 @@ extern "C" {
 /****************************************************************************************/
 
 #include "LVM_Types.h"
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -108,7 +102,6 @@ extern "C" {
 /* Instance handle */
 typedef void *LVM_Handle_t;
 
-
 /* Status return values */
 typedef enum
 {
@@ -122,7 +115,6 @@ typedef enum
     LVM_ALGORITHMPSA       = 7,                     /* Algorithm PSA returns an error */
     LVM_RETURNSTATUS_DUMMY = LVM_MAXENUM
 } LVM_ReturnStatus_en;
-
 
 /* Buffer Management mode */
 typedef enum
@@ -227,7 +219,6 @@ typedef struct
     LVM_CHAR                    *pPlatform;             /* Pointer to the library platform type */
 } LVM_VersionInfo_st;
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /*  Structures                                                                          */
@@ -248,7 +239,6 @@ typedef struct
     LVM_UINT16                  QFactor;                /* Band quality factor (x100) */
 } LVM_EQNB_BandDef_t;
 
-
 /* Headroom band definition */
 typedef struct
 {
@@ -256,7 +246,6 @@ typedef struct
     LVM_UINT16                  Limit_High;             /* High frequency limit of the band in Hertz */
     LVM_INT16                   Headroom_Offset;        /* Headroom = biggest band gain - Headroom_Offset */
 } LVM_HeadroomBandDef_t;
-
 
 /* Control Parameter structure */
 typedef struct
@@ -303,7 +292,6 @@ typedef struct
 
 } LVM_ControlParams_t;
 
-
 /* Instance Parameter structure */
 typedef struct
 {
@@ -333,7 +321,6 @@ typedef struct
 /*                                                                                      */
 /****************************************************************************************/
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVM_GetVersionInfo                                          */
@@ -353,7 +340,6 @@ typedef struct
 /*                                                                                      */
 /****************************************************************************************/
 LVM_ReturnStatus_en LVM_GetVersionInfo(LVM_VersionInfo_st  *pVersion);
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -391,7 +377,6 @@ LVM_ReturnStatus_en LVM_GetMemoryTable(LVM_Handle_t         hInstance,
                                        LVM_MemTab_t         *pMemoryTable,
                                        LVM_InstParams_t     *pInstParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVM_GetInstanceHandle                                       */
@@ -418,7 +403,6 @@ LVM_ReturnStatus_en LVM_GetInstanceHandle(LVM_Handle_t        *phInstance,
                                           LVM_MemTab_t        *pMemoryTable,
                                           LVM_InstParams_t    *pInstParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVM_ClearAudioBuffers                                       */
@@ -438,7 +422,6 @@ LVM_ReturnStatus_en LVM_GetInstanceHandle(LVM_Handle_t        *phInstance,
 /*                                                                                      */
 /****************************************************************************************/
 LVM_ReturnStatus_en LVM_ClearAudioBuffers(LVM_Handle_t  hInstance);
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -463,7 +446,6 @@ LVM_ReturnStatus_en LVM_ClearAudioBuffers(LVM_Handle_t  hInstance);
 LVM_ReturnStatus_en LVM_GetControlParameters(LVM_Handle_t           hInstance,
                                              LVM_ControlParams_t    *pParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVM_SetControlParameters                                    */
@@ -486,7 +468,6 @@ LVM_ReturnStatus_en LVM_GetControlParameters(LVM_Handle_t           hInstance,
 /****************************************************************************************/
 LVM_ReturnStatus_en LVM_SetControlParameters(LVM_Handle_t           hInstance,
                                              LVM_ControlParams_t    *pParams);
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -518,20 +499,11 @@ LVM_ReturnStatus_en LVM_SetControlParameters(LVM_Handle_t           hInstance,
 /*      STEREO              the number of sample pairs in the block                     */
 /*                                                                                      */
 /****************************************************************************************/
-#ifdef BUILD_FLOAT
 LVM_ReturnStatus_en LVM_Process(LVM_Handle_t                hInstance,
                                 const LVM_FLOAT             *pInData,
                                 LVM_FLOAT                      *pOutData,
                                 LVM_UINT16                  NumSamples,
                                 LVM_UINT32                  AudioTime);
-#else
-LVM_ReturnStatus_en LVM_Process(LVM_Handle_t                hInstance,
-                                const LVM_INT16             *pInData,
-                                LVM_INT16                   *pOutData,
-                                LVM_UINT16                  NumSamples,
-                                LVM_UINT32                  AudioTime);
-#endif
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -555,7 +527,6 @@ LVM_ReturnStatus_en LVM_Process(LVM_Handle_t                hInstance,
 LVM_ReturnStatus_en LVM_SetHeadroomParams(  LVM_Handle_t            hInstance,
                                             LVM_HeadroomParams_t    *pHeadroomParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVM_GetHeadroomParams                                       */
@@ -577,7 +548,6 @@ LVM_ReturnStatus_en LVM_SetHeadroomParams(  LVM_Handle_t            hInstance,
 /****************************************************************************************/
 LVM_ReturnStatus_en LVM_GetHeadroomParams(  LVM_Handle_t            hInstance,
                                             LVM_HeadroomParams_t    *pHeadroomParams);
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -631,11 +601,6 @@ LVM_ReturnStatus_en LVM_GetSpectrum( LVM_Handle_t            hInstance,
 /****************************************************************************************/
 LVM_ReturnStatus_en LVM_SetVolumeNoSmoothing( LVM_Handle_t           hInstance,
                                               LVM_ControlParams_t    *pParams);
-
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
 
 #endif      /* __LVM_H__ */
 

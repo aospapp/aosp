@@ -18,13 +18,17 @@ package com.android.server.wifi;
 
 import android.annotation.NonNull;
 import android.content.Context;
+import android.os.BugreportManager;
+import android.os.BugreportParams;
+import android.util.ArraySet;
 import android.util.Base64;
+import android.util.Log;
 import android.util.SparseLongArray;
 
-import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.wifi.util.ByteArrayRingBuffer;
 import com.android.server.wifi.util.StringUtil;
+import com.android.wifi.resources.R;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -40,6 +44,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.zip.Deflater;
 
@@ -103,43 +109,44 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
     /** Minimum dump period with same error code */
     public static final long MIN_DUMP_TIME_WINDOW_MILLIS = 10 * 60 * 1000; // 10 mins
 
+    // Timeout for logcat process termination
+    private static final long LOGCAT_PROC_TIMEOUT_MILLIS = 50;
+    // Timeout for logcat read from input/error stream each.
+    @VisibleForTesting
+    public static final long LOGCAT_READ_TIMEOUT_MILLIS = 50;
+
+    private long mLastBugReportTime;
+
     @VisibleForTesting public static final String FIRMWARE_DUMP_SECTION_HEADER =
             "FW Memory dump";
     @VisibleForTesting public static final String DRIVER_DUMP_SECTION_HEADER =
             "Driver state dump";
 
-    private final int RING_BUFFER_BYTE_LIMIT_SMALL;
-    private final int RING_BUFFER_BYTE_LIMIT_LARGE;
     private int mLogLevel = VERBOSE_NO_LOG;
     private boolean mIsLoggingEventHandlerRegistered;
     private WifiNative.RingBufferStatus[] mRingBuffers;
     private WifiNative.RingBufferStatus mPerPacketRingBuffer;
+    private final Context mContext;
     private final BuildProperties mBuildProperties;
     private final WifiLog mLog;
     private final LastMileLogger mLastMileLogger;
     private final Runtime mJavaRuntime;
     private final WifiMetrics mWifiMetrics;
     private int mMaxRingBufferSizeBytes;
-    private final List<Integer> mFatalFirmwareAlertErrorCodeList;
     private WifiInjector mWifiInjector;
     private Clock mClock;
+
+    /** Interfaces started logging */
+    private final Set<String> mActiveInterfaces = new ArraySet<>();
 
     public WifiDiagnostics(Context context, WifiInjector wifiInjector,
                            WifiNative wifiNative, BuildProperties buildProperties,
                            LastMileLogger lastMileLogger, Clock clock) {
         super(wifiNative);
-        RING_BUFFER_BYTE_LIMIT_SMALL = context.getResources().getInteger(
-                R.integer.config_wifi_logger_ring_buffer_default_size_limit_kb) * 1024;
-        RING_BUFFER_BYTE_LIMIT_LARGE = context.getResources().getInteger(
-                R.integer.config_wifi_logger_ring_buffer_verbose_size_limit_kb) * 1024;
-        int[] fatalFirmwareAlertErrorCodeArray = context.getResources().getIntArray(
-                R.array.config_wifi_fatal_firmware_alert_error_code_list);
 
+        mContext = context;
         mBuildProperties = buildProperties;
         mIsLoggingEventHandlerRegistered = false;
-        mMaxRingBufferSizeBytes = RING_BUFFER_BYTE_LIMIT_SMALL;
-        mFatalFirmwareAlertErrorCodeList = Arrays.stream(fatalFirmwareAlertErrorCodeArray)
-                .boxed().collect(Collectors.toList());
         mLog = wifiInjector.makeLog(TAG);
         mLastMileLogger = lastMileLogger;
         mJavaRuntime = wifiInjector.getJavaRuntime();
@@ -148,40 +155,35 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         mClock = clock;
     }
 
+    /**
+     * Start wifi HAL dependent logging features.
+     * This method should be called only after the interface has
+     * been set up.
+     *
+     * @param ifaceName the interface requesting to start logging.
+     */
     @Override
-    public synchronized void startLogging(boolean verboseEnabled) {
-        mFirmwareVersion = mWifiNative.getFirmwareVersion();
-        mDriverVersion = mWifiNative.getDriverVersion();
-        mSupportedFeatureSet = mWifiNative.getSupportedLoggerFeatureSet();
+    public synchronized void startLogging(@NonNull String ifaceName) {
+        if (mActiveInterfaces.contains(ifaceName)) {
+            Log.w(TAG, "Interface: " + ifaceName + " had already started logging");
+            return;
+        }
+        if (mActiveInterfaces.isEmpty()) {
+            mFirmwareVersion = mWifiNative.getFirmwareVersion();
+            mDriverVersion = mWifiNative.getDriverVersion();
+            mSupportedFeatureSet = mWifiNative.getSupportedLoggerFeatureSet();
 
-        if (!mIsLoggingEventHandlerRegistered) {
-            mIsLoggingEventHandlerRegistered = mWifiNative.setLoggingEventHandler(mHandler);
+            if (!mIsLoggingEventHandlerRegistered) {
+                mIsLoggingEventHandlerRegistered = mWifiNative.setLoggingEventHandler(mHandler);
+            }
+
+            startLoggingRingBuffers();
         }
 
-        if (verboseEnabled) {
-            mLogLevel = VERBOSE_LOG_WITH_WAKEUP;
-            mMaxRingBufferSizeBytes = RING_BUFFER_BYTE_LIMIT_LARGE;
-        } else {
-            mLogLevel = VERBOSE_NORMAL_LOG;
-            mMaxRingBufferSizeBytes = enableVerboseLoggingForDogfood()
-                    ? RING_BUFFER_BYTE_LIMIT_LARGE : RING_BUFFER_BYTE_LIMIT_SMALL;
-            clearVerboseLogs();
-        }
+        mActiveInterfaces.add(ifaceName);
 
-        if (mRingBuffers == null) {
-            fetchRingBuffers();
-        }
-
-        if (mRingBuffers != null) {
-            /* log level may have changed, so restart logging with new levels */
-            stopLoggingAllBuffers();
-            resizeRingBuffers();
-            startLoggingAllExceptPerPacketBuffers();
-        }
-
-        if (!mWifiNative.startPktFateMonitoring(mWifiNative.getClientInterfaceName())) {
-            mLog.wC("Failed to start packet fate monitoring");
-        }
+        Log.d(TAG, "startLogging() iface list is " + mActiveInterfaces
+                + " after adding " + ifaceName);
     }
 
     @Override
@@ -202,8 +204,28 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         }
     }
 
+    /**
+     * Stop wifi HAL dependent logging features.
+     * This method should be called before the interface has been
+     * torn down.
+     *
+     * @param ifaceName the interface requesting to stop logging.
+     */
     @Override
-    public synchronized void stopLogging() {
+    public synchronized void stopLogging(@NonNull String ifaceName) {
+        if (!mActiveInterfaces.contains(ifaceName)) {
+            Log.w(TAG, "ifaceName: " + ifaceName + " is not in the start log user list");
+            return;
+        }
+
+        mActiveInterfaces.remove(ifaceName);
+
+        Log.d(TAG, "stopLogging() iface list is " + mActiveInterfaces
+                + " after removing " + ifaceName);
+
+        if (!mActiveInterfaces.isEmpty()) {
+            return;
+        }
         if (mIsLoggingEventHandlerRegistered) {
             if (!mWifiNative.resetLogHandler()) {
                 mLog.wC("Fail to reset log handler");
@@ -217,7 +239,6 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         if (mLogLevel != VERBOSE_NO_LOG) {
             stopLoggingAllBuffers();
             mRingBuffers = null;
-            mLogLevel = VERBOSE_NO_LOG;
         }
     }
 
@@ -242,7 +263,9 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         report.alertData = alertData;
         mLastAlerts.addLast(report);
         /* Flush HAL ring buffer when detecting data stall */
-        if (mFatalFirmwareAlertErrorCodeList.contains(errorCode)) {
+        if (Arrays.stream(mContext.getResources().getIntArray(
+                R.array.config_wifi_fatal_firmware_alert_error_code_list))
+                .boxed().collect(Collectors.toList()).contains(errorCode)) {
             flushDump(REPORT_REASON_FATAL_FW_ALERT);
         }
     }
@@ -274,19 +297,29 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         pw.println("--------------------------------------------------------------------");
     }
 
-    @Override
     /**
-     * Initiates a system-level bugreport, in a non-blocking fashion.
+     * Initiates a system-level bug report if there is no bug report taken recently.
+     * This is done in a non-blocking fashion.
      */
+    @Override
     public void takeBugReport(String bugTitle, String bugDetail) {
-        if (mBuildProperties.isUserBuild()) {
+        if (mBuildProperties.isUserBuild()
+                || !mContext.getResources().getBoolean(
+                        R.bool.config_wifi_diagnostics_bugreport_enabled)) {
             return;
         }
-
+        long currentTime = mClock.getWallClockMillis();
+        if ((currentTime - mLastBugReportTime)
+                < mWifiInjector.getDeviceConfigFacade().getBugReportMinWindowMs()
+                && mLastBugReportTime > 0) {
+            return;
+        }
+        mLastBugReportTime = currentTime;
+        BugreportManager bugreportManager = mContext.getSystemService(BugreportManager.class);
+        BugreportParams params = new BugreportParams(BugreportParams.BUGREPORT_MODE_FULL);
         try {
-            mWifiInjector.getActivityManagerService().requestWifiBugReport(
-                    bugTitle, bugDetail);
-        } catch (Exception e) {  // diagnostics should never crash system_server
+            bugreportManager.requestBugreport(params, bugTitle, bugDetail);
+        } catch (RuntimeException e) {
             mLog.err("error taking bugreport: %").c(e.getClass().getName()).flush();
         }
     }
@@ -300,7 +333,7 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         byte[] fwMemoryDump;
         byte[] mDriverStateDump;
         byte[] alertData;
-        LimitedCircularArray<String> kernelLogLines;
+        ArrayList<String> kernelLogLines;
         ArrayList<String> logcatLines;
 
         void clearVerboseLogs() {
@@ -440,6 +473,33 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
     synchronized void onWifiAlert(int errorCode, @NonNull byte[] buffer) {
         captureAlertData(errorCode, buffer);
         mWifiMetrics.logFirmwareAlert(errorCode);
+        mWifiInjector.getWifiScoreCard().noteFirmwareAlert(errorCode);
+    }
+
+    /**
+     * Enables or disables verbose logging
+     *
+     * @param verbose - with the obvious interpretation
+     */
+    @Override
+    public synchronized void enableVerboseLogging(boolean verboseEnabled) {
+        final int ringBufferByteLimitSmall = mContext.getResources().getInteger(
+                R.integer.config_wifi_logger_ring_buffer_default_size_limit_kb) * 1024;
+        final int ringBufferByteLimitLarge = mContext.getResources().getInteger(
+                R.integer.config_wifi_logger_ring_buffer_verbose_size_limit_kb) * 1024;
+        if (verboseEnabled) {
+            mLogLevel = VERBOSE_LOG_WITH_WAKEUP;
+            mMaxRingBufferSizeBytes = ringBufferByteLimitLarge;
+        } else {
+            mLogLevel = VERBOSE_NORMAL_LOG;
+            mMaxRingBufferSizeBytes = enableVerboseLoggingForDogfood()
+                    ? ringBufferByteLimitLarge : ringBufferByteLimitSmall;
+        }
+
+        if (!mActiveInterfaces.isEmpty()) {
+            mLog.wC("verbosity changed: restart logging");
+            startLoggingRingBuffers();
+        }
     }
 
     private boolean isVerboseLoggingEnabled() {
@@ -447,7 +507,6 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
     }
 
     private void clearVerboseLogs() {
-        mPacketFatesForLastFailure = null;
 
         for (int i = 0; i < mLastAlerts.size(); i++) {
             mLastAlerts.get(i).clearVerboseLogs();
@@ -483,6 +542,21 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
     private void resizeRingBuffers() {
         for (ByteArrayRingBuffer byteArrayRingBuffer : mRingBufferData.values()) {
             byteArrayRingBuffer.resize(mMaxRingBufferSizeBytes);
+        }
+    }
+
+    private void startLoggingRingBuffers() {
+        if (!isVerboseLoggingEnabled()) {
+            clearVerboseLogs();
+        }
+        if (mRingBuffers == null) {
+            fetchRingBuffers();
+        }
+        if (mRingBuffers != null) {
+            // Log level may have changed, so restart logging with new levels.
+            stopLoggingAllBuffers();
+            resizeRingBuffers();
+            startLoggingAllExceptPerPacketBuffers();
         }
     }
 
@@ -579,8 +653,8 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
             }
         }
 
-        report.logcatLines = getLogcat(127);
-        report.kernelLogLines = getKernelLog(127);
+        report.logcatLines = getLogcatSystem(127);
+        report.kernelLogLines = getLogcatKernel(127);
 
         if (captureFWDump) {
             report.fwMemoryDump = mWifiNative.getFwMemoryDump();
@@ -639,38 +713,43 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         return result;
     }
 
-    private ArrayList<String> getLogcat(int maxLines) {
-        ArrayList<String> lines = new ArrayList<String>(maxLines);
+    private void readLogcatStreamLinesWithTimeout(
+            BufferedReader inReader, List<String> outLinesList) throws IOException {
+        long startTimeMs = mClock.getElapsedSinceBootMillis();
+        while (mClock.getElapsedSinceBootMillis() < startTimeMs + LOGCAT_READ_TIMEOUT_MILLIS) {
+            // If there is a burst of data, continue reading without checking for timeout.
+            while (inReader.ready()) {
+                String line = inReader.readLine();
+                if (line == null) return; // end of stream.
+                outLinesList.add(line);
+            }
+            mClock.sleep(LOGCAT_READ_TIMEOUT_MILLIS / 10);
+        }
+    }
+
+    private ArrayList<String> getLogcat(String logcatSections, int maxLines) {
+        ArrayList<String> lines = new ArrayList<>(maxLines);
         try {
-            Process process = mJavaRuntime.exec(String.format("logcat -t %d", maxLines));
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                lines.add(line);
-            }
-            reader = new BufferedReader(
-                    new InputStreamReader(process.getErrorStream()));
-            while ((line = reader.readLine()) != null) {
-                lines.add(line);
-            }
-            process.waitFor();
+            Process process = mJavaRuntime.exec(
+                    String.format("logcat -b %s -t %d", logcatSections, maxLines));
+            readLogcatStreamLinesWithTimeout(
+                    new BufferedReader(new InputStreamReader(process.getInputStream())), lines);
+            readLogcatStreamLinesWithTimeout(
+                    new BufferedReader(new InputStreamReader(process.getErrorStream())), lines);
+            process.waitFor(LOGCAT_PROC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException|IOException e) {
             mLog.dump("Exception while capturing logcat: %").c(e.toString()).flush();
         }
         return lines;
+
     }
 
-    private LimitedCircularArray<String> getKernelLog(int maxLines) {
-        if (DBG) mLog.tC("Reading kernel log ...");
-        LimitedCircularArray<String> lines = new LimitedCircularArray<String>(maxLines);
-        String log = mWifiNative.readKernelLog();
-        String logLines[] = log.split("\n");
-        for (int i = 0; i < logLines.length; i++) {
-            lines.addLast(logLines[i]);
-        }
-        if (DBG) mLog.dump("Added % lines").c(logLines.length).flush();
-        return lines;
+    private ArrayList<String> getLogcatSystem(int maxLines) {
+        return getLogcat("main,system,crash", maxLines);
+    }
+
+    private ArrayList<String> getLogcatKernel(int maxLines) {
+        return getLogcat("kernel", maxLines);
     }
 
     /** Packet fate reporting */
@@ -742,5 +821,17 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         }
 
         pw.println("--------------------------------------------------------------------");
+    }
+
+    /**
+     * Enable packet fate monitoring.
+     *
+     * @param ifaceName Name of the interface.
+     */
+    @Override
+    public void startPktFateMonitoring(@NonNull String ifaceName) {
+        if (!mWifiNative.startPktFateMonitoring(ifaceName)) {
+            mLog.wC("Failed to start packet fate monitoring");
+        }
     }
 }

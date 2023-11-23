@@ -186,6 +186,39 @@ public class EnqueueJobWorkTest extends ConstraintTest {
     }
 
     /**
+     * Test that continuing to enqueue work after changing the job's constraints
+     * properly retains any already-enqueued work.
+     */
+    public void testEnqueuedWorkNewConstraints() throws Exception {
+        Intent work1 = new Intent("work1");
+        Intent work2 = new Intent("work2");
+        TestWorkItem[] work = new TestWorkItem[] {
+                new TestWorkItem(work1),
+                new TestWorkItem(work2)
+        };
+
+        kTestEnvironment.setExpectedExecutions(1);
+        kTestEnvironment.setExpectedWork(work);
+
+        // enqueue work under one set of constraints
+        JobInfo ji = new JobInfo.Builder(ENQUEUE_WORK_JOB_ID, kJobServiceComponent)
+                .setMinimumLatency(5000L)
+                .build();
+        mJobScheduler.enqueue(ji, new JobWorkItem(work1));
+
+        // now enqueue more work and also change the job's constraints
+        ji = new JobInfo.Builder(ENQUEUE_WORK_JOB_ID, kJobServiceComponent)
+                .setOverrideDeadline(0)
+                .build();
+        mJobScheduler.enqueue(ji, new JobWorkItem(work2));
+
+        kTestEnvironment.readyToWork();
+        assertTrue("Job with work enqueued did not start",
+                kTestEnvironment.awaitExecution());
+        compareWork(work, kTestEnvironment.getLastReceivedWork());
+    }
+
+    /**
      * Test basic enqueueing batches of work that will be executed in parallel.
      */
     public void testEnqueueParallel2Work() throws Exception {

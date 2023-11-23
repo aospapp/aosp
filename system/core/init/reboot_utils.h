@@ -18,6 +18,8 @@
 
 #include <string>
 
+#define PROC_SYSRQ "/proc/sysrq-trigger"
+
 namespace android {
 namespace init {
 
@@ -27,7 +29,7 @@ void SetFatalRebootTarget();
 bool IsRebootCapable();
 // This is a wrapper around the actual reboot calls.
 void __attribute__((noreturn)) RebootSystem(unsigned int cmd, const std::string& reboot_target);
-void __attribute__((noreturn)) InitFatalReboot();
+void __attribute__((noreturn)) InitFatalReboot(int signal_number);
 void InstallRebootSignalHandlers();
 
 }  // namespace init

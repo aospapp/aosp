@@ -217,7 +217,7 @@ static int r600_init_surface(struct r600_common_screen *rscreen,
 		bpe = 4; /* stencil is allocated separately on evergreen */
 	} else {
 		bpe = util_format_get_blocksize(ptex->format);
-		assert(util_is_power_of_two(bpe));
+		assert(util_is_power_of_two_or_zero(bpe));
 	}
 
 	if (!is_flushed_depth && is_depth) {
@@ -245,8 +245,8 @@ static int r600_init_surface(struct r600_common_screen *rscreen,
 	if (!(ptex->flags & R600_RESOURCE_FLAG_FORCE_TILING))
 		flags |= RADEON_SURF_OPTIMIZE_FOR_SPACE;
 
-	r = rscreen->ws->surface_init(rscreen->ws, ptex, flags, bpe,
-				      array_mode, surface);
+	r = rscreen->ws->surface_init(rscreen->ws, ptex,
+				      flags, bpe, array_mode, surface);
 	if (r) {
 		return r;
 	}
@@ -442,6 +442,32 @@ static void r600_reallocate_texture_inplace(struct r600_common_context *rctx,
 	p_atomic_inc(&rctx->screen->dirty_tex_counter);
 }
 
+static void r600_texture_get_info(struct pipe_screen* screen,
+				  struct pipe_resource *resource,
+				  unsigned *pstride,
+				  unsigned *poffset)
+{
+	struct r600_common_screen *rscreen = (struct r600_common_screen*)screen;
+	struct r600_texture *rtex = (struct r600_texture*)resource;
+	unsigned stride = 0;
+	unsigned offset = 0;
+
+	if (!rscreen || !rtex)
+		return;
+
+	if (resource->target != PIPE_BUFFER) {
+		offset = rtex->surface.u.legacy.level[0].offset;
+		stride = rtex->surface.u.legacy.level[0].nblk_x *
+			 rtex->surface.bpe;
+	}
+
+	if (pstride)
+		*pstride = stride;
+
+	if (poffset)
+		*poffset = offset;
+}
+
 static boolean r600_texture_get_handle(struct pipe_screen* screen,
 				       struct pipe_context *ctx,
 				       struct pipe_resource *resource,
@@ -500,9 +526,6 @@ static boolean r600_texture_get_handle(struct pipe_screen* screen,
 			rscreen->ws->buffer_set_metadata(res->buf, &metadata);
 		}
 
-		offset = rtex->surface.u.legacy.level[0].offset;
-		stride = rtex->surface.u.legacy.level[0].nblk_x *
-			rtex->surface.bpe;
 		slice_size = (uint64_t)rtex->surface.u.legacy.level[0].slice_size_dw * 4;
 	} else {
 		/* Move a suballocated buffer into a non-suballocated allocation. */
@@ -532,10 +555,10 @@ static boolean r600_texture_get_handle(struct pipe_screen* screen,
 		}
 
 		/* Buffers */
-		offset = 0;
-		stride = 0;
 		slice_size = 0;
 	}
+
+	r600_texture_get_info(screen, resource, &stride, &offset);
 
 	if (res->b.is_shared) {
 		/* USAGE_EXPLICIT_FLUSH must be cleared if at least one user
@@ -616,8 +639,8 @@ void r600_texture_get_fmask_info(struct r600_common_screen *rscreen,
 		bpe *= 2;
 	}
 
-	if (rscreen->ws->surface_init(rscreen->ws, &templ, flags, bpe,
-				      RADEON_SURF_MODE_2D, &fmask)) {
+	if (rscreen->ws->surface_init(rscreen->ws, &templ,
+				      flags, bpe, RADEON_SURF_MODE_2D, &fmask)) {
 		R600_ERR("Got error in surface_init while allocating FMASK.\n");
 		return;
 	}
@@ -774,8 +797,8 @@ static void r600_texture_get_htile_size(struct r600_common_screen *rscreen,
 		return;
 	}
 
-	width = align(rtex->resource.b.b.width0, cl_width * 8);
-	height = align(rtex->resource.b.b.height0, cl_height * 8);
+	width = align(rtex->surface.u.legacy.level[0].nblk_x, cl_width * 8);
+	height = align(rtex->surface.u.legacy.level[0].nblk_y, cl_height * 8);
 
 	slice_elements = (width * height) / (8 * 8);
 	slice_bytes = slice_elements * 4;
@@ -953,10 +976,6 @@ r600_texture_create_object(struct pipe_screen *screen,
 		r600_init_resource_fields(rscreen, resource, rtex->size,
 					  rtex->surface.surf_alignment);
 
-		/* Displayable surfaces are not suballocated. */
-		if (resource->b.b.bind & PIPE_BIND_SCANOUT)
-			resource->flags |= RADEON_FLAG_NO_SUBALLOC;
-
 		if (!r600_alloc_resource(rscreen, resource)) {
 			FREE(rtex);
 			return NULL;
@@ -1056,7 +1075,7 @@ r600_choose_tiling(struct r600_common_screen *rscreen,
 		/* 1D textures should be linear - fixes image operations on 1d */
 		if (templ->target == PIPE_TEXTURE_1D ||
 		    templ->target == PIPE_TEXTURE_1D_ARRAY)
-                       return RADEON_SURF_MODE_LINEAR_ALIGNED;
+			return RADEON_SURF_MODE_LINEAR_ALIGNED;
 
 		/* Textures likely to be mapped often. */
 		if (templ->usage == PIPE_USAGE_STAGING ||
@@ -1112,7 +1131,9 @@ static struct pipe_resource *r600_texture_from_handle(struct pipe_screen *screen
 	      templ->depth0 != 1 || templ->last_level != 0)
 		return NULL;
 
-	buf = rscreen->ws->buffer_from_handle(rscreen->ws, whandle, &stride, &offset);
+	buf = rscreen->ws->buffer_from_handle(rscreen->ws, whandle,
+					      rscreen->info.max_alignment,
+					      &stride, &offset);
 	if (!buf)
 		return NULL;
 
@@ -1640,7 +1661,7 @@ static void r600_clear_texture(struct pipe_context *pipe,
 			desc->unpack_rgba_float(color.f, 0, data, 0, 1, 1);
 
 		if (screen->is_format_supported(screen, tex->format,
-						tex->target, 0,
+						tex->target, 0, 0,
 						PIPE_BIND_RENDER_TARGET)) {
 			pipe->clear_render_target(pipe, sf, &color,
 						  box->x, box->y,
@@ -1798,6 +1819,16 @@ void evergreen_do_fast_color_clear(struct r600_common_context *rctx,
 		    !(tex->resource.external_usage & PIPE_HANDLE_USAGE_EXPLICIT_FLUSH))
 			continue;
 
+		/* Use a slow clear for small surfaces where the cost of
+		 * the eliminate pass can be higher than the benefit of fast
+		 * clear. AMDGPU-pro does this, but the numbers may differ.
+		 *
+		 * This helps on both dGPUs and APUs, even small ones.
+		 */
+		if (tex->resource.b.b.nr_samples <= 1 &&
+		    tex->resource.b.b.width0 * tex->resource.b.b.height0 <= 300 * 300)
+			continue;
+
 		{
 			/* 128-bit formats are unusupported */
 			if (tex->surface.bpe > 8) {
@@ -1846,6 +1877,7 @@ r600_memobj_from_handle(struct pipe_screen *screen,
 		return NULL;
 
 	buf = rscreen->ws->buffer_from_handle(rscreen->ws, whandle,
+					      rscreen->info.max_alignment,
 					      &stride, &offset);
 	if (!buf) {
 		free(memobj);
@@ -1936,7 +1968,7 @@ r600_texture_from_memobj(struct pipe_screen *screen,
 	pb_reference(&buf, memobj->buf);
 
 	rtex->resource.b.is_shared = true;
-	rtex->resource.external_usage = PIPE_HANDLE_USAGE_READ_WRITE;
+	rtex->resource.external_usage = PIPE_HANDLE_USAGE_FRAMEBUFFER_WRITE;
 
 	if (rscreen->apply_opaque_metadata)
 		rscreen->apply_opaque_metadata(rscreen, rtex, &metadata);
@@ -1948,6 +1980,7 @@ void r600_init_screen_texture_functions(struct r600_common_screen *rscreen)
 {
 	rscreen->b.resource_from_handle = r600_texture_from_handle;
 	rscreen->b.resource_get_handle = r600_texture_get_handle;
+	rscreen->b.resource_get_info = r600_texture_get_info;
 	rscreen->b.resource_from_memobj = r600_texture_from_memobj;
 	rscreen->b.memobj_create_from_handle = r600_memobj_from_handle;
 	rscreen->b.memobj_destroy = r600_memobj_destroy;

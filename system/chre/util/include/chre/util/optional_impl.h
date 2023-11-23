@@ -24,29 +24,29 @@
 
 namespace chre {
 
-template<typename ObjectType>
-Optional<ObjectType>::Optional(const ObjectType& object) {
+template <typename ObjectType>
+Optional<ObjectType>::Optional(const ObjectType &object) {
   new (objectAddr()) ObjectType(object);
   mHasValue = true;
 }
 
-template<typename ObjectType>
-Optional<ObjectType>::Optional(ObjectType&& object) {
+template <typename ObjectType>
+Optional<ObjectType>::Optional(ObjectType &&object) {
   new (objectAddr()) ObjectType(std::move(object));
   mHasValue = true;
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 Optional<ObjectType>::~Optional() {
   reset();
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 bool Optional<ObjectType>::has_value() const {
   return mHasValue;
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 void Optional<ObjectType>::reset() {
   if (mHasValue) {
     object().~ObjectType();
@@ -54,18 +54,18 @@ void Optional<ObjectType>::reset() {
   }
 }
 
-template<typename ObjectType>
-ObjectType& Optional<ObjectType>::value() {
+template <typename ObjectType>
+ObjectType &Optional<ObjectType>::value() {
   return object();
 }
 
-template<typename ObjectType>
-const ObjectType& Optional<ObjectType>::value() const {
+template <typename ObjectType>
+const ObjectType &Optional<ObjectType>::value() const {
   return object();
 }
 
-template<typename ObjectType>
-Optional<ObjectType>& Optional<ObjectType>::operator=(ObjectType&& other) {
+template <typename ObjectType>
+Optional<ObjectType> &Optional<ObjectType>::operator=(ObjectType &&other) {
   if (mHasValue) {
     object() = std::move(other);
   } else {
@@ -76,9 +76,9 @@ Optional<ObjectType>& Optional<ObjectType>::operator=(ObjectType&& other) {
   return *this;
 }
 
-template<typename ObjectType>
-Optional<ObjectType>& Optional<ObjectType>::operator=(
-    Optional<ObjectType>&& other) {
+template <typename ObjectType>
+Optional<ObjectType> &Optional<ObjectType>::operator=(
+    Optional<ObjectType> &&other) {
   if (mHasValue) {
     if (other.mHasValue) {
       object() = std::move(other.object());
@@ -93,8 +93,8 @@ Optional<ObjectType>& Optional<ObjectType>::operator=(
   return *this;
 }
 
-template<typename ObjectType>
-Optional<ObjectType>& Optional<ObjectType>::operator=(const ObjectType& other) {
+template <typename ObjectType>
+Optional<ObjectType> &Optional<ObjectType>::operator=(const ObjectType &other) {
   if (mHasValue) {
     object() = std::move(other);
   } else {
@@ -105,9 +105,9 @@ Optional<ObjectType>& Optional<ObjectType>::operator=(const ObjectType& other) {
   return *this;
 }
 
-template<typename ObjectType>
-Optional<ObjectType>& Optional<ObjectType>::operator=(
-    const Optional<ObjectType>& other) {
+template <typename ObjectType>
+Optional<ObjectType> &Optional<ObjectType>::operator=(
+    const Optional<ObjectType> &other) {
   if (mHasValue) {
     if (other.mHasValue) {
       object() = other.object();
@@ -122,42 +122,42 @@ Optional<ObjectType>& Optional<ObjectType>::operator=(
   return *this;
 }
 
-template<typename ObjectType>
-ObjectType& Optional<ObjectType>::operator*() {
+template <typename ObjectType>
+ObjectType &Optional<ObjectType>::operator*() {
   return object();
 }
 
-template<typename ObjectType>
-const ObjectType& Optional<ObjectType>::operator*() const {
+template <typename ObjectType>
+const ObjectType &Optional<ObjectType>::operator*() const {
   return object();
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 ObjectType *Optional<ObjectType>::operator->() {
   return objectAddr();
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 const ObjectType *Optional<ObjectType>::operator->() const {
   return objectAddr();
 }
 
-template<typename ObjectType>
-ObjectType& Optional<ObjectType>::object() {
+template <typename ObjectType>
+ObjectType &Optional<ObjectType>::object() {
   return *objectAddr();
 }
 
-template<typename ObjectType>
-const ObjectType& Optional<ObjectType>::object() const {
+template <typename ObjectType>
+const ObjectType &Optional<ObjectType>::object() const {
   return *objectAddr();
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 ObjectType *Optional<ObjectType>::objectAddr() {
   return reinterpret_cast<ObjectType *>(&mObject);
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 const ObjectType *Optional<ObjectType>::objectAddr() const {
   return reinterpret_cast<const ObjectType *>(&mObject);
 }

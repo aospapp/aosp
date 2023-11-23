@@ -29,7 +29,7 @@ MODULE_DIRS="\
     benchmark-base \
     common \
     openjdk \
-    openjdk-integ-tests \
+    common \
     platform \
     testing \
 "
@@ -44,8 +44,11 @@ SOURCE_DIRS="\
 source ${ANDROID_BUILD_TOP}/tools/currysrc/scripts/repackage-common.sh
 
 # Remove some unused test files:
-rm -fr ${REPACKAGED_DIR}/openjdk-integ-tests/src/test/java/com/android/org/conscrypt/ConscryptSuite.java
-rm -fr ${REPACKAGED_DIR}/openjdk-integ-tests/src/test/java/com/android/org/conscrypt/ConscryptJava7Suite.java
+rm -fr ${REPACKAGED_DIR}/common/src/test/java/com/android/org/conscrypt/ConscryptSuite.java
+rm -fr ${REPACKAGED_DIR}/common/src/test/java/com/android/org/conscrypt/ConscryptJava7Suite.java
+
+# Remove any leftovers from older directory layout
+rm -fr openjdk-integ-tests ${REPACKAGED_DIR}/openjdk-integ-tests
 
 echo "Reformatting generated code to adhere to format required by the preupload check"
 cd ${PROJECT_DIR}

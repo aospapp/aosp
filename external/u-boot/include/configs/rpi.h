@@ -9,12 +9,15 @@
 #include <linux/sizes.h>
 #include <asm/arch/timer.h>
 
+#ifndef __ASSEMBLY__
+#include <asm/arch/base.h>
+#endif
+
 #if defined(CONFIG_TARGET_RPI_2) || defined(CONFIG_TARGET_RPI_3_32B)
 #define CONFIG_SKIP_LOWLEVEL_INIT
 #endif
 
 /* Architecture, CPU, etc.*/
-#define CONFIG_ARCH_CPU_INIT
 
 /* Use SoC timer for AArch32, but architected timer for AArch64 */
 #ifndef CONFIG_ARM64
@@ -39,7 +42,6 @@
 #endif
 
 /* Memory layout */
-#define CONFIG_NR_DRAM_BANKS		1
 #define CONFIG_SYS_SDRAM_BASE		0x00000000
 #define CONFIG_SYS_UBOOT_BASE		CONFIG_SYS_TEXT_BASE
 /*
@@ -57,6 +59,10 @@
 #define CONFIG_SYS_MEMTEST_END		0x00200000
 #define CONFIG_LOADADDR			0x00200000
 
+#ifdef CONFIG_ARM64
+#define CONFIG_SYS_BOOTM_LEN		SZ_64M
+#endif
+
 /* Devices */
 /* GPIO */
 #define CONFIG_BCM2835_GPIO
@@ -65,22 +71,14 @@
 #define CONFIG_VIDEO_BCM2835
 
 #ifdef CONFIG_CMD_USB
-#ifndef CONFIG_BCM2835
-#define CONFIG_USB_DWC2_REG_ADDR 0x3f980000
-#else
-#define CONFIG_USB_DWC2_REG_ADDR 0x20980000
-#endif
 #define CONFIG_TFTP_TSIZE
-#define CONFIG_MISC_INIT_R
 #endif
 
 /* Console configuration */
 #define CONFIG_SYS_CBSIZE		1024
 
 /* Environment */
-#define CONFIG_ENV_SIZE			SZ_16K
 #define CONFIG_SYS_LOAD_ADDR		0x1000000
-#define CONFIG_PREBOOT			"usb start"
 
 /* Shell */
 
@@ -153,16 +151,42 @@
 	"fdt_addr_r=0x02600000\0" \
 	"ramdisk_addr_r=0x02700000\0"
 
+#if CONFIG_IS_ENABLED(CMD_MMC)
+	#define BOOT_TARGET_MMC(func) \
+		func(MMC, mmc, 0) \
+		func(MMC, mmc, 1)
+#else
+	#define BOOT_TARGET_MMC(func)
+#endif
+
+#if CONFIG_IS_ENABLED(CMD_USB)
+	#define BOOT_TARGET_USB(func) func(USB, usb, 0)
+#else
+	#define BOOT_TARGET_USB(func)
+#endif
+
+#if CONFIG_IS_ENABLED(CMD_PXE)
+	#define BOOT_TARGET_PXE(func) func(PXE, pxe, na)
+#else
+	#define BOOT_TARGET_PXE(func)
+#endif
+
+#if CONFIG_IS_ENABLED(CMD_DHCP)
+	#define BOOT_TARGET_DHCP(func) func(DHCP, dhcp, na)
+#else
+	#define BOOT_TARGET_DHCP(func)
+#endif
+
 #define BOOT_TARGET_DEVICES(func) \
-	func(MMC, mmc, 0) \
-	func(USB, usb, 0) \
-	func(PXE, pxe, na) \
-	func(DHCP, dhcp, na)
+	BOOT_TARGET_MMC(func) \
+	BOOT_TARGET_USB(func) \
+	BOOT_TARGET_PXE(func) \
+	BOOT_TARGET_DHCP(func)
+
 #include <config_distro_bootcmd.h>
 
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"dhcpuboot=usb start; dhcp u-boot.uimg; bootm\0" \
-	"silent=1\0" \
 	ENV_DEVICE_SETTINGS \
 	ENV_MEM_LAYOUT_SETTINGS \
 	BOOTENV

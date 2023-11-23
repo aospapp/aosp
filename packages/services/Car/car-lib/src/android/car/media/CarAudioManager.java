@@ -16,24 +16,30 @@
 package android.car.media;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarLibLog;
 import android.car.CarManagerBase;
-import android.content.Context;
 import android.media.AudioAttributes;
+import android.media.AudioDeviceAttributes;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
+import android.media.AudioManager.AudioDeviceRole;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
-import android.view.Display;
-import android.view.DisplayAddress;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * APIs for handling audio in a car.
@@ -52,7 +58,7 @@ import java.util.List;
  * - There is exactly one audio zone, which is the primary zone
  * - Each volume group represents a controllable STREAM_TYPE, same as AudioManager
  */
-public final class CarAudioManager implements CarManagerBase {
+public final class CarAudioManager extends CarManagerBase {
 
     /**
      * Zone id of the primary audio zone.
@@ -60,6 +66,19 @@ public final class CarAudioManager implements CarManagerBase {
      */
     @SystemApi
     public static final int PRIMARY_AUDIO_ZONE = 0x0;
+
+    /**
+     * Zone id of the invalid audio zone.
+     * @hide
+     */
+    @SystemApi
+    public static final int INVALID_AUDIO_ZONE = 0xffffffff;
+
+    /**
+     * Volume Group ID when volume group not found.
+     * @hide
+     */
+    public static final int INVALID_VOLUME_GROUP_ID = -1;
 
     /**
      * Extra for {@link android.media.AudioAttributes.Builder#addBundle(Bundle)}: when used in an
@@ -87,7 +106,8 @@ public final class CarAudioManager implements CarManagerBase {
             "android.car.media.AUDIOFOCUS_EXTRA_REQUEST_ZONE_ID";
 
     private final ICarAudio mService;
-    private final List<CarVolumeCallback> mCarVolumeCallbacks;
+    private final CopyOnWriteArrayList<CarVolumeCallback> mCarVolumeCallbacks;
+    private final AudioManager mAudioManager;
 
     private final ICarVolumeCallback mCarVolumeCallbackImpl = new ICarVolumeCallback.Stub() {
         @Override
@@ -114,7 +134,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.isDynamicRoutingEnabled();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -147,7 +167,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             mService.setGroupVolume(zoneId, groupId, index, flags);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -177,7 +197,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.getGroupMaxVolume(zoneId, groupId);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, 0);
         }
     }
 
@@ -207,7 +227,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.getGroupMinVolume(zoneId, groupId);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, 0);
         }
     }
 
@@ -240,7 +260,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.getGroupVolume(zoneId, groupId);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, 0);
         }
     }
 
@@ -259,7 +279,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             mService.setFadeTowardFront(value);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -278,7 +298,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             mService.setBalanceTowardRight(value);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -300,7 +320,8 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.getExternalSources();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
+            return new String[0];
         }
     }
 
@@ -330,7 +351,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.createAudioPatch(sourceAddress, usage, gainInMillibels);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 
@@ -350,7 +371,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             mService.releaseAudioPatch(patch);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -379,7 +400,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.getVolumeGroupCount(zoneId);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, 0);
         }
     }
 
@@ -409,7 +430,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.getVolumeGroupIdForUsage(zoneId, usage);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, 0);
         }
     }
 
@@ -426,17 +447,41 @@ public final class CarAudioManager implements CarManagerBase {
     }
 
     /**
+     * Gets array of {@link AudioAttributes} usages for a volume group in a zone.
+     *
+     * @param zoneId The zone id whose volume group is queried.
+     * @param groupId The volume group id whose associated audio usages is returned.
+     * @return Array of {@link AudioAttributes} usages for a given volume group id
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME)
+    public @NonNull int[] getUsagesForVolumeGroupId(int zoneId, int groupId) {
+        try {
+            return mService.getUsagesForVolumeGroupId(zoneId, groupId);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, new int[0]);
+        }
+    }
+
+    /**
      * Gets the audio zones currently available
      *
      * @return audio zone ids
      * @hide
      */
+    @SystemApi
     @RequiresPermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS)
-    public @NonNull int[] getAudioZoneIds() {
+    public @NonNull List<Integer> getAudioZoneIds() {
         try {
-            return mService.getAudioZoneIds();
+            int[] zoneIdArray = mService.getAudioZoneIds();
+            List<Integer> zoneIdList = new ArrayList<Integer>(zoneIdArray.length);
+            for (int zoneIdValue : zoneIdArray) {
+                zoneIdList.add(zoneIdValue);
+            }
+            return zoneIdList;
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, Collections.emptyList());
         }
     }
 
@@ -453,7 +498,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.getZoneIdForUid(uid);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, 0);
         }
     }
 
@@ -470,7 +515,7 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.setZoneIdForUid(zoneId, uid);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -486,62 +531,64 @@ public final class CarAudioManager implements CarManagerBase {
         try {
             return mService.clearZoneIdForUid(uid);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
     /**
-     * Get the zone id for the display
+     * Gets the output device for a given {@link AudioAttributes} usage in zoneId.
      *
-     * @param  display display to query
-     * @return zone id for display or
-     * CarAudioManager.PRIMARY_AUDIO_ZONE if no match is found.
-     * @hide
-     */
-    @RequiresPermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS)
-    public int getZoneIdForDisplay(Display display) {
-        DisplayAddress address = display.getAddress();
-        if (address instanceof DisplayAddress.Physical) {
-            DisplayAddress.Physical physicalAddress = (DisplayAddress.Physical) address;
-            if (physicalAddress != null) {
-                return getZoneIdForDisplayPortId(physicalAddress.getPort());
-            }
-        }
-        return PRIMARY_AUDIO_ZONE;
-    }
-
-    /**
-     * Get the zone id for the display port id passed in
+     * <p><b>Note:</b> To be used for routing to a specific device. Most applications should
+     * use the regular routing mechanism, which is to set audio attribute usage to
+     * an audio track.
      *
-     * @param  displayPortId display port id to query
-     * @return zone id for display port id or
-     * CarAudioManager.PRIMARY_AUDIO_ZONE if no match is found.
-     * @hide
-     */
-    @RequiresPermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS)
-    public int getZoneIdForDisplayPortId(byte displayPortId) {
-        try {
-            return mService.getZoneIdForDisplayPortId(displayPortId);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Gets array of {@link AudioAttributes} usages for a volume group in a zone.
+     * @param zoneId zone id to query for device
+     * @param usage usage where audio is routed
+     * @return Audio device info, returns {@code null} if audio device usage fails to map to
+     * an active audio device. This is different from the using an invalid value for
+     * {@link AudioAttributes} usage. In the latter case the query will fail with a
+     * RuntimeException indicating the issue.
      *
-     * @param zoneId The zone id whose volume group is queried.
-     * @param groupId The volume group id whose associated audio usages is returned.
-     * @return Array of {@link AudioAttributes} usages for a given volume group id
      * @hide
      */
     @SystemApi
-    @RequiresPermission(Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME)
-    public @NonNull int[] getUsagesForVolumeGroupId(int zoneId, int groupId) {
+    @Nullable
+    @RequiresPermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS)
+    public AudioDeviceInfo getOutputDeviceForUsage(int zoneId,
+            @AudioAttributes.AttributeUsage int usage) {
         try {
-            return mService.getUsagesForVolumeGroupId(zoneId, groupId);
+            String deviceAddress = mService.getOutputDeviceAddressForUsage(zoneId, usage);
+            if (deviceAddress == null) {
+                return null;
+            }
+            AudioDeviceInfo[] outputDevices =
+                    mAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            for (AudioDeviceInfo info : outputDevices) {
+                if (info.getAddress().equals(deviceAddress)) {
+                    return info;
+                }
+            }
+            return null;
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, null);
+        }
+    }
+
+    /**
+     * Gets the input devices for an audio zone
+     *
+     * @return list of input devices
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS)
+    public @NonNull List<AudioDeviceInfo> getInputDevicesForZoneId(int zoneId) {
+        try {
+            return convertInputDevicesToDeviceInfos(
+                    mService.getInputDevicesForZoneId(zoneId),
+                    AudioManager.GET_DEVICES_INPUTS);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, new ArrayList<>());
         }
     }
 
@@ -549,19 +596,48 @@ public final class CarAudioManager implements CarManagerBase {
     @Override
     public void onCarDisconnected() {
         if (mService != null) {
-            try {
-                mService.unregisterVolumeCallback(mCarVolumeCallbackImpl.asBinder());
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
-            }
+            unregisterVolumeCallback();
         }
     }
 
     /** @hide */
-    public CarAudioManager(IBinder service, Context context, Handler handler) {
+    public CarAudioManager(Car car, IBinder service) {
+        super(car);
         mService = ICarAudio.Stub.asInterface(service);
-        mCarVolumeCallbacks = new ArrayList<>();
+        mAudioManager = getContext().getSystemService(AudioManager.class);
+        mCarVolumeCallbacks = new CopyOnWriteArrayList<>();
+    }
 
+    /**
+     * Registers a {@link CarVolumeCallback} to receive volume change callbacks
+     * @param callback {@link CarVolumeCallback} instance, can not be null
+     * <p>
+     * Requires permission Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME
+     */
+    public void registerCarVolumeCallback(@NonNull CarVolumeCallback callback) {
+        Objects.requireNonNull(callback);
+
+        if (mCarVolumeCallbacks.isEmpty()) {
+            registerVolumeCallback();
+        }
+
+        mCarVolumeCallbacks.add(callback);
+    }
+
+    /**
+     * Unregisters a {@link CarVolumeCallback} from receiving volume change callbacks
+     * @param callback {@link CarVolumeCallback} instance previously registered, can not be null
+     * <p>
+     * Requires permission Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME
+     */
+    public void unregisterCarVolumeCallback(@NonNull CarVolumeCallback callback) {
+        Objects.requireNonNull(callback);
+        if (mCarVolumeCallbacks.remove(callback) && mCarVolumeCallbacks.isEmpty()) {
+            unregisterVolumeCallback();
+        }
+    }
+
+    private void registerVolumeCallback() {
         try {
             mService.registerVolumeCallback(mCarVolumeCallbackImpl.asBinder());
         } catch (RemoteException e) {
@@ -569,20 +645,31 @@ public final class CarAudioManager implements CarManagerBase {
         }
     }
 
-    /**
-     * Registers a {@link CarVolumeCallback} to receive volume change callbacks
-     * @param callback {@link CarVolumeCallback} instance, can not be null
-     */
-    public void registerCarVolumeCallback(@NonNull CarVolumeCallback callback) {
-        mCarVolumeCallbacks.add(callback);
+    private void unregisterVolumeCallback() {
+        try {
+            mService.unregisterVolumeCallback(mCarVolumeCallbackImpl.asBinder());
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e);
+        }
     }
 
-    /**
-     * Unregisters a {@link CarVolumeCallback} from receiving volume change callbacks
-     * @param callback {@link CarVolumeCallback} instance previously registered, can not be null
-     */
-    public void unregisterCarVolumeCallback(@NonNull CarVolumeCallback callback) {
-        mCarVolumeCallbacks.remove(callback);
+    private List<AudioDeviceInfo> convertInputDevicesToDeviceInfos(
+            List<AudioDeviceAttributes> devices, @AudioDeviceRole int flag) {
+        int addressesSize = devices.size();
+        Set<String> deviceAddressMap = new HashSet<>(addressesSize);
+        for (int i = 0; i < addressesSize; ++i) {
+            AudioDeviceAttributes device = devices.get(i);
+            deviceAddressMap.add(device.getAddress());
+        }
+        List<AudioDeviceInfo> deviceInfoList = new ArrayList<>(devices.size());
+        AudioDeviceInfo[] inputDevices = mAudioManager.getDevices(flag);
+        for (int i = 0; i < inputDevices.length; ++i) {
+            AudioDeviceInfo info = inputDevices[i];
+            if (info.isSource() && deviceAddressMap.contains(info.getAddress())) {
+                deviceInfoList.add(info);
+            }
+        }
+        return deviceInfoList;
     }
 
     /**

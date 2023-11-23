@@ -948,8 +948,13 @@ public class RequestThreadManager {
                             Log.d(TAG, "Stopped repeating request. Last frame number is " +
                                     lastFrameNumber);
                         }
-                        mDeviceState.setRepeatingRequestError(lastFrameNumber,
-                                burstHolder.getRequestId());
+                        if (lastFrameNumber != RequestQueue.INVALID_FRAME) {
+                            mDeviceState.setRepeatingRequestError(lastFrameNumber,
+                                    burstHolder.getRequestId());
+                        } else {
+                            Log.e(TAG, "Repeating request id: " + burstHolder.getRequestId() +
+                                    " already canceled!");
+                        }
                     }
 
                     if (DEBUG) {
@@ -1103,5 +1108,19 @@ public class RequestThreadManager {
         ConfigureHolder holder = new ConfigureHolder(condition, outputs);
         handler.sendMessage(handler.obtainMessage(MSG_CONFIGURE_OUTPUTS, 0, 0, holder));
         condition.block();
+    }
+
+    public void setAudioRestriction(int mode) {
+        if (mCamera != null) {
+            mCamera.setAudioRestriction(mode);
+        }
+        throw new IllegalStateException("Camera has been released!");
+    }
+
+    public int getAudioRestriction() {
+        if (mCamera != null) {
+            return mCamera.getAudioRestriction();
+        }
+        throw new IllegalStateException("Camera has been released!");
     }
 }

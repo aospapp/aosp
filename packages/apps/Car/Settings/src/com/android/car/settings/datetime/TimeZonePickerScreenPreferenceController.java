@@ -16,7 +16,8 @@
 
 package com.android.car.settings.datetime;
 
-import android.app.AlarmManager;
+import android.app.timezonedetector.ManualTimeZoneSuggestion;
+import android.app.timezonedetector.TimeZoneDetector;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
@@ -27,6 +28,7 @@ import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiPreference;
 import com.android.settingslib.datetime.ZoneGetter;
 
 import java.util.ArrayList;
@@ -43,12 +45,12 @@ public class TimeZonePickerScreenPreferenceController extends
 
     private List<Preference> mZonesList;
     @VisibleForTesting
-    AlarmManager mAlarmManager;
+    TimeZoneDetector mTimeZoneDetector;
 
     public TimeZonePickerScreenPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mAlarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+        mTimeZoneDetector = getContext().getSystemService(TimeZoneDetector.class);
     }
 
     @Override
@@ -85,12 +87,15 @@ public class TimeZonePickerScreenPreferenceController extends
 
     /** Construct a time zone preference based on the Map object given by {@link ZoneGetter}. */
     private Preference createTimeZonePreference(Map<String, Object> timeZone) {
-        Preference preference = new Preference(getContext());
+        CarUiPreference preference = new CarUiPreference(getContext());
         preference.setKey(timeZone.get(ZoneGetter.KEY_ID).toString());
         preference.setTitle(timeZone.get(ZoneGetter.KEY_DISPLAY_LABEL).toString());
         preference.setSummary(timeZone.get(ZoneGetter.KEY_OFFSET_LABEL).toString());
         preference.setOnPreferenceClickListener(pref -> {
-            mAlarmManager.setTimeZone(timeZone.get(ZoneGetter.KEY_ID).toString());
+            String tzId = timeZone.get(ZoneGetter.KEY_ID).toString();
+            ManualTimeZoneSuggestion suggestion = TimeZoneDetector.createManualTimeZoneSuggestion(
+                    tzId, "Settings: Set time zone");
+            mTimeZoneDetector.suggestManualTimeZone(suggestion);
             getFragmentController().goBack();
 
             // Note: This is intentionally ACTION_TIME_CHANGED, not ACTION_TIMEZONE_CHANGED.

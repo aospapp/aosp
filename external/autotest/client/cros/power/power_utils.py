@@ -24,7 +24,6 @@ DISPLAY_POWER_MAX = 4
 
 # Retry times for ectool chargecontrol
 ECTOOL_CHARGECONTROL_RETRY_TIMES = 3
-ECTOOL_CHARGECONTROL_TIMEOUT_SECS = 3
 
 
 def get_x86_cpu_arch():
@@ -77,7 +76,7 @@ def has_rapl_support():
         Boolean, True if RAPL supported, False otherwise.
     """
     rapl_set = set(["Haswell", "Haswell-E", "Broadwell", "Skylake", "Goldmont",
-                    "Kaby Lake"])
+                    "Kaby Lake", "Comet Lake", "Ice Lake", "Tiger Lake"])
     cpu_uarch = utils.get_intel_cpu_uarch()
     if (cpu_uarch in rapl_set):
         return True
@@ -222,14 +221,18 @@ def has_hammer():
     return utils.run(command, ignore_status=True).exit_status == 0
 
 
-def _charge_control_by_ectool(is_charge):
+def _charge_control_by_ectool(is_charge, ignore_status):
     """execute ectool command.
 
     Args:
       is_charge: Boolean, True for charging, False for discharging.
+      ignore_status: do not raise an exception.
 
     Returns:
       Boolean, True if the command success, False otherwise.
+
+    Raises:
+      error.CmdError: if ectool returns non-zero exit status.
     """
     ec_cmd_discharge = 'ectool chargecontrol discharge'
     ec_cmd_normal = 'ectool chargecontrol normal'
@@ -240,28 +243,29 @@ def _charge_control_by_ectool(is_charge):
            utils.run(ec_cmd_discharge)
     except error.CmdError as e:
         logging.warning('Unable to use ectool: %s', e)
-        return False
+        if ignore_status:
+            return False
+        else:
+            raise e
 
-    success = utils.wait_for_value(lambda: (
-        is_charge != bool(re.search(r'Flags.*DISCHARGING',
-                                    utils.run('ectool battery',
-                                              ignore_status=True).stdout,
-                                    re.MULTILINE))),
-        expected_value=True, timeout_sec=ECTOOL_CHARGECONTROL_TIMEOUT_SECS)
-    return success
+    return True
 
 
-def charge_control_by_ectool(is_charge):
+def charge_control_by_ectool(is_charge, ignore_status=True):
     """Force the battery behavior by the is_charge paremeter.
 
     Args:
       is_charge: Boolean, True for charging, False for discharging.
+      ignore_status: do not raise an exception.
 
     Returns:
       Boolean, True if the command success, False otherwise.
+
+    Raises:
+      error.CmdError: if ectool returns non-zero exit status.
     """
     for i in xrange(ECTOOL_CHARGECONTROL_RETRY_TIMES):
-        if _charge_control_by_ectool(is_charge):
+        if _charge_control_by_ectool(is_charge, ignore_status):
             return True
 
     return False
@@ -591,6 +595,7 @@ class BacklightController(object):
         num_steps_taken = 0
         while num_steps_taken < self._max_num_steps:
             self.increase_brightness()
+            time.sleep(0.05)
             num_steps_taken += 1
 
     def set_brightness_to_min(self, allow_off=False):
@@ -608,6 +613,7 @@ class BacklightController(object):
         num_steps_taken = 0
         while num_steps_taken < self._max_num_steps:
             self.decrease_brightness(allow_off)
+            time.sleep(0.05)
             num_steps_taken += 1
 
 

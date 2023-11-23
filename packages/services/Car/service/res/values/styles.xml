@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2018 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2018 The Android Open Source Project
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,23 +15,31 @@ limitations under the License.
 <resources>
     <!-- TextAppearances for ActivityBlockingActivity. -->
     <style name="ActivityBlockingActivityText">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">roboto-regular</item>
         <item name="android:textColor">@color/blocking_text</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">@dimen/blocking_text_size</item>
     </style>
 
+    <!-- TextAppearances for Button Text in ActivityBlockingActivity. -->
+    <style name="ActionButtonText" parent="android:TextAppearance.DeviceDefault">
+        <item name="android:fontFamily">roboto-regular</item>
+        <item name="android:textColor">@color/blocking_text</item>
+        <item name="android:textSize">@*android:dimen/car_body3_size</item>
+    </style>
+
     <!-- Style for buttons in ActivityBlockingActivity. -->
     <style name="ButtonStyle">
-        <item name="android:background">@drawable/button_ripple_background</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:minHeight">@dimen/button_min_height</item>
-        <item name="android:minWidth">@dimen/button_min_width</item>
-        <item name="android:paddingHorizontal">@dimen/button_padding</item>
-        <item name="android:textAllCaps">true</item>
-        <item name="android:textAlignment">center</item>
-        <item name="android:textAppearance">@style/ActivityBlockingActivityText</item>
-        <item name="android:textColor">@color/button_text</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/action_button_height</item>
+        <item name="android:minWidth">@dimen/action_button_min_width</item>
+        <item name="android:maxWidth">@dimen/action_button_max_width</item>
+        <item name="android:textAppearance">@style/ActionButtonText</item>
+        <item name="android:textColor">@color/blocking_text</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:background">@drawable/action_button_background</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingHorizontal">@dimen/action_button_padding_horizontal</item>
     </style>
 </resources>
 

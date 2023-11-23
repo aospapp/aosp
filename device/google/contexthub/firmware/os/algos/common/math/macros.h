@@ -31,25 +31,29 @@
 #define NANO_MIN(a, b) ((a) < (b)) ? (a) : (b)
 #define SIGMOID(x) (1 / (1 + expf(-x)))
 
+// Floor macro implementation for platforms that do not supply the standard
+// floorf() math function.
+#define NANO_FLOOR(x) ((int)(x) - ((x) < (int)(x)))  // NOLINT
+
 // Timestamp conversion macros.
 #ifdef __cplusplus
-#define MSEC_TO_NANOS(x) (static_cast<uint64_t>(x * UINT64_C(1000000)))
+#define MSEC_TO_NANOS(x) (static_cast<uint64_t>((x) * UINT64_C(1000000)))
 #else
-#define MSEC_TO_NANOS(x) ((uint64_t)(x * UINT64_C(1000000)))  // NOLINT
+#define MSEC_TO_NANOS(x) ((uint64_t)((x) * UINT64_C(1000000)))  // NOLINT
 #endif
 
-#define SEC_TO_NANOS(x)  MSEC_TO_NANOS(x * UINT64_C(1000))
-#define MIN_TO_NANOS(x)  SEC_TO_NANOS (x * UINT64_C(60))
-#define HRS_TO_NANOS(x)  MIN_TO_NANOS (x * UINT64_C(60))
-#define DAYS_TO_NANOS(x) HRS_TO_NANOS (x * UINT64_C(24))
+#define SEC_TO_NANOS(x)  MSEC_TO_NANOS((x) * UINT64_C(1000))
+#define MIN_TO_NANOS(x)  SEC_TO_NANOS ((x) * UINT64_C(60))
+#define HRS_TO_NANOS(x)  MIN_TO_NANOS ((x) * UINT64_C(60))
+#define DAYS_TO_NANOS(x) HRS_TO_NANOS ((x) * UINT64_C(24))
 
 // Sample rate to period conversion.
 #ifdef __cplusplus
 #define HZ_TO_PERIOD_NANOS(hz) \
-  (SEC_TO_NANOS(1024) / (static_cast<uint64_t>(hz * 1024)))
+  (SEC_TO_NANOS(1024) / (static_cast<uint64_t>((hz) * 1024)))
 #else
 #define HZ_TO_PERIOD_NANOS(hz) \
-  (SEC_TO_NANOS(1024) / ((uint64_t)(hz * 1024)))  // NOLINT
+  (SEC_TO_NANOS(1024) / ((uint64_t)((hz) * 1024)))  // NOLINT
 #endif
 
 // Unit conversion: nanoseconds to seconds.

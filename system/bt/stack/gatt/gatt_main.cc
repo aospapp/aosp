@@ -125,7 +125,7 @@ void gatt_init(void) {
 
   /* Now, register with L2CAP for ATT PSM over BR/EDR */
   if (!L2CA_Register(BT_PSM_ATT, (tL2CAP_APPL_INFO*)&dyn_info,
-                     false /* enable_snoop */)) {
+                     false /* enable_snoop */, nullptr)) {
     LOG(ERROR) << "ATT Dynamic Registration failed";
   }
 
@@ -822,6 +822,9 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
                                  0, p_tcb->transport);
     }
   }
+
+  /* Remove the direct connection */
+  connection_manager::on_connection_complete(p_tcb->peer_bda);
 
   if (!p_tcb->app_hold_link.empty() && p_tcb->att_lcid == L2CAP_ATT_CID) {
     /* disable idle timeout if one or more clients are holding the link disable

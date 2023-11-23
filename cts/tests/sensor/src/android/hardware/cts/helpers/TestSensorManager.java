@@ -156,6 +156,20 @@ public class TestSensorManager {
     }
 
     /**
+     * Call {@link SensorManager#flush(SensorEventListener)} and asserts that it fails.
+     */
+    public void assertFlushFail() {
+        if (mTestSensorEventListener == null) {
+            Log.w(LOG_TAG, "No listener registered, returning.");
+            return;
+        }
+        Assert.assertFalse(
+                SensorCtsHelper.formatAssertionMessage(
+                    "Flush succeeded unexpectedly", mEnvironment),
+                mSensorManager.flush(mTestSensorEventListener));
+    }
+
+    /**
      * Call {@link SensorManager#flush(SensorEventListener)}. This method will perform a no-op if
      * the sensor is not registered.
      *

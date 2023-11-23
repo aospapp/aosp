@@ -26,7 +26,7 @@ public class MixedProfileOwnerHostSideTransferTest extends
         DeviceAndProfileOwnerHostSideTransferTest {
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         // We need managed users to be supported in order to create a profile of the user owner.
         mHasFeature &= hasDeviceFeature("android.software.managed_users");

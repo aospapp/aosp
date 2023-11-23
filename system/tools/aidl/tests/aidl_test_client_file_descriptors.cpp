@@ -119,7 +119,7 @@ bool ConfirmFileDescriptors(const sp<ITestService>& s) {
     return false;
   }
 
-  status = s->RepeatFileDescriptor(write_fd, &return_fd);
+  status = s->RepeatFileDescriptor(std::move(write_fd), &return_fd);
 
   if (!status.isOk()) {
     cerr << "Could not repeat file descriptors." << endl;

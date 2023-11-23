@@ -16,7 +16,11 @@
 
 package com.android.tradefed.util.keystore;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.tradefed.util.FileUtil;
 
@@ -134,5 +138,13 @@ public class JSONFileKeyStoreClientTest {
         JSONObject data = new JSONObject(mJsonData);
         mKeyStore.setKeyStore(data);
         assertEquals("value 1", mKeyStore.fetchKey("key1"));
+    }
+
+    @Test
+    public void testSetKey() throws Exception {
+        JSONObject data = new JSONObject(mJsonData);
+        mKeyStore.setKeyStore(data);
+        mKeyStore.setKey("key1", "value 2");
+        assertEquals("value 2", mKeyStore.fetchKey("key1"));
     }
 }

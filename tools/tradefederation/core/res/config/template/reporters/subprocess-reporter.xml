@@ -18,4 +18,5 @@
     <result_reporter class="com.android.tradefed.result.SubprocessResultsReporter">
         <option name="output-test-log" value="true" />
     </result_reporter>
+    <result_reporter class="com.android.tradefed.result.proto.StreamProtoResultReporter" />
 </configuration>

@@ -39,6 +39,7 @@ import com.android.server.wifi.MockResources;
 import com.android.server.wifi.MockWifiMonitor;
 import com.android.server.wifi.ScanDetail;
 import com.android.server.wifi.ScanResults;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiMonitor;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.scanner.ChannelHelper.ChannelCollection;
@@ -60,7 +61,7 @@ import java.util.Set;
  * {@link com.android.server.wifi.scanner.WifiScannerImpl}.
  */
 @SmallTest
-public abstract class BaseWifiScannerImplTest {
+public abstract class BaseWifiScannerImplTest extends WifiBaseTest {
     protected static final String IFACE_NAME = "a_test_interface_name";
     @Mock Context mContext;
     TestAlarmManager mAlarmManager;
@@ -141,7 +142,7 @@ public abstract class BaseWifiScannerImplTest {
     @Test
     public void singleScanSuccessWithChannelsAndHighAccuracyType() {
         WifiNative.ScanSettings settings = new NativeScanSettingsBuilder()
-                .withType(WifiNative.SCAN_TYPE_HIGH_ACCURACY)
+                .withType(WifiScanner.SCAN_TYPE_HIGH_ACCURACY)
                 .withBasePeriod(10000)
                 .withMaxApPerScan(10)
                 .addBucketWithChannels(20000, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN, 5650)
@@ -367,7 +368,7 @@ public abstract class BaseWifiScannerImplTest {
                         WifiScanner.WIFI_BAND_24_GHZ)
                 .build();
         WifiNative.ScanSettings settings2 = new NativeScanSettingsBuilder()
-                .withType(WifiNative.SCAN_TYPE_LOW_POWER)
+                .withType(WifiScanner.SCAN_TYPE_LOW_POWER)
                 .withBasePeriod(10000)
                 .withMaxApPerScan(10)
                 .addBucketWithBand(10000, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN,
@@ -383,7 +384,7 @@ public abstract class BaseWifiScannerImplTest {
         // start first scan
         assertTrue(mScanner.startSingleScan(settings, eventHandler));
 
-        expectSuccessfulSingleScan(order, WifiNative.SCAN_TYPE_LOW_LATENCY, eventHandler,
+        expectSuccessfulSingleScan(order, WifiScanner.SCAN_TYPE_LOW_LATENCY, eventHandler,
                 expectedBandScanFreqs(WifiScanner.WIFI_BAND_24_GHZ),
                 new ArrayList<String>(),
                 ScanResults.create(0, WifiScanner.WIFI_BAND_24_GHZ,
@@ -392,7 +393,7 @@ public abstract class BaseWifiScannerImplTest {
         // start second scan
         assertTrue(mScanner.startSingleScan(settings2, eventHandler));
 
-        expectSuccessfulSingleScan(order, WifiNative.SCAN_TYPE_LOW_POWER, eventHandler,
+        expectSuccessfulSingleScan(order, WifiScanner.SCAN_TYPE_LOW_POWER, eventHandler,
                 expectedBandScanFreqs(WifiScanner.WIFI_BAND_BOTH_WITH_DFS),
                 new ArrayList<String>(),
                 ScanResults.create(0, WifiScanner.WIFI_BAND_BOTH_WITH_DFS,

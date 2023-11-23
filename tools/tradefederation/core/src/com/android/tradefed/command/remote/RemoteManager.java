@@ -391,7 +391,7 @@ public class RemoteManager extends Thread {
         CLog.logAndDisplay(LogLevel.INFO, "Adding command '%s'", ArrayUtil.join(" ",
                 (Object[])c.getCommandArgs()));
         try {
-            if (!mScheduler.addCommand(c.getCommandArgs(), c.getTotalTime())) {
+            if (!mScheduler.addCommand(c.getCommandArgs())) {
                 result.put(RemoteOperation.ERROR, "Failed to add command");
             }
         } catch (ConfigurationException e) {

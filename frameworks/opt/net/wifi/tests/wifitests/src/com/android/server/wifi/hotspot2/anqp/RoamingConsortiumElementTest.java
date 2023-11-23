@@ -23,6 +23,8 @@ import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -37,7 +39,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.RoamingConsortiumElement}.
  */
 @SmallTest
-public class RoamingConsortiumElementTest {
+public class RoamingConsortiumElementTest extends WifiBaseTest {
     // Default test data.  Each test data contained a pair indicating the number of bytes for the
     // OI and the value of the OI.
     private static final Pair<Integer, Long> TEST_OI1 = new Pair<Integer, Long>(1, 0x12L);

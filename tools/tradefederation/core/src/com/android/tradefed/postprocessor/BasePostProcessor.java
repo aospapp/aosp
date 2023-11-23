@@ -20,6 +20,7 @@ import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.DataType;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -33,6 +34,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -49,23 +51,31 @@ public abstract class BasePostProcessor implements IPostProcessor {
 
     private ITestInvocationListener mForwarder;
     private ArrayListMultimap<String, Metric> storedTestMetrics = ArrayListMultimap.create();
+    private Map<TestDescription, Map<String, LogFile>> mTestLogs = new LinkedHashMap<>();
+    private Map<String, LogFile> mRunLogs = new HashMap<>();
+    // Keeps track of the current test; takes null value when the post processor is not in the scope
+    // of any test (i.e. before the first test, in-between tests and after the last test).
+    private TestDescription mCurrentTest = null;
 
     /** {@inheritDoc} */
     @Override
-    public abstract Map<String, Metric.Builder> processRunMetrics(
-            HashMap<String, Metric> rawMetrics);
+    public abstract Map<String, Metric.Builder> processRunMetricsAndLogs(
+            HashMap<String, Metric> rawMetrics, Map<String, LogFile> runLogs);
 
-    /** {@inhericDoc} */
+    /** {@inheritDoc} */
     @Override
-    public Map<String, Metric.Builder> processTestMetrics(
-            TestDescription testDescription, HashMap<String, Metric> testMetrics) {
+    public Map<String, Metric.Builder> processTestMetricsAndLogs(
+            TestDescription testDescription,
+            HashMap<String, Metric> testMetrics,
+            Map<String, LogFile> testLogs) {
         return new HashMap<String, Metric.Builder>();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Map<String, Metric.Builder> processAllTestMetrics(
-            ListMultimap<String, Metric> allTestMetrics) {
+    public Map<String, Metric.Builder> processAllTestMetricsAndLogs(
+            ListMultimap<String, Metric> allTestMetrics,
+            Map<TestDescription, Map<String, LogFile>> allTestLogs) {
         return new HashMap<String, Metric.Builder>();
     }
 
@@ -97,6 +107,11 @@ public abstract class BasePostProcessor implements IPostProcessor {
     }
 
     @Override
+    public final void invocationFailed(FailureDescription failure) {
+        mForwarder.invocationFailed(failure);
+    }
+
+    @Override
     public final void invocationEnded(long elapsedTime) {
         mForwarder.invocationEnded(elapsedTime);
     }
@@ -104,6 +119,16 @@ public abstract class BasePostProcessor implements IPostProcessor {
     @Override
     public final void testLog(String dataName, LogDataType dataType, InputStreamSource dataStream) {
         mForwarder.testLog(dataName, dataType, dataStream);
+    }
+
+    @Override
+    public final void testModuleStarted(IInvocationContext moduleContext) {
+        mForwarder.testModuleStarted(moduleContext);
+    }
+
+    @Override
+    public final void testModuleEnded() {
+        mForwarder.testModuleEnded();
     }
 
     /** Test run callbacks */
@@ -123,6 +148,11 @@ public abstract class BasePostProcessor implements IPostProcessor {
     }
 
     @Override
+    public final void testRunFailed(FailureDescription failure) {
+        mForwarder.testRunFailed(failure);
+    }
+
+    @Override
     public final void testRunStopped(long elapsedTime) {
         mForwarder.testRunStopped(elapsedTime);
     }
@@ -137,10 +167,12 @@ public abstract class BasePostProcessor implements IPostProcessor {
         try {
             HashMap<String, Metric> rawValues = getRawMetricsOnly(runMetrics);
             // Add post-processed run metrics.
-            Map<String, Metric.Builder> postprocessedResults = processRunMetrics(rawValues);
+            Map<String, Metric.Builder> postprocessedResults =
+                    processRunMetricsAndLogs(rawValues, mRunLogs);
             addProcessedMetricsToExistingMetrics(postprocessedResults, runMetrics);
             // Add aggregated test metrics (results from post-processing all test metrics).
-            Map<String, Metric.Builder> aggregateResults = processAllTestMetrics(storedTestMetrics);
+            Map<String, Metric.Builder> aggregateResults =
+                    processAllTestMetricsAndLogs(storedTestMetrics, mTestLogs);
             addProcessedMetricsToExistingMetrics(aggregateResults, runMetrics);
         } catch (RuntimeException e) {
             // Prevent exception from messing up the status reporting.
@@ -148,6 +180,9 @@ public abstract class BasePostProcessor implements IPostProcessor {
         } finally {
             // Clear out the stored test metrics.
             storedTestMetrics.clear();
+            // Clear out the stored test and run logs.
+            mTestLogs.clear();
+            mRunLogs.clear();
         }
         mForwarder.testRunEnded(elapsedTime, runMetrics);
     }
@@ -160,12 +195,24 @@ public abstract class BasePostProcessor implements IPostProcessor {
 
     @Override
     public final void testStarted(TestDescription test, long startTime) {
+        mCurrentTest = test;
+        if (mTestLogs.containsKey(test)) {
+            mTestLogs.get(test).clear();
+        } else {
+            mTestLogs.put(test, new HashMap<String, LogFile>());
+        }
+
         mForwarder.testStarted(test, startTime);
     }
 
     @Override
     public final void testFailed(TestDescription test, String trace) {
         mForwarder.testFailed(test, trace);
+    }
+
+    @Override
+    public final void testFailed(TestDescription test, FailureDescription failure) {
+        mForwarder.testFailed(test, failure);
     }
 
     @Override
@@ -187,13 +234,20 @@ public abstract class BasePostProcessor implements IPostProcessor {
     @Override
     public final void testEnded(
             TestDescription test, long endTime, HashMap<String, Metric> testMetrics) {
+        mCurrentTest = null;
         try {
             HashMap<String, Metric> rawValues = getRawMetricsOnly(testMetrics);
             // Store the raw metrics from the test in storedTestMetrics for potential aggregation.
             for (Map.Entry<String, Metric> entry : rawValues.entrySet()) {
                 storedTestMetrics.put(entry.getKey(), entry.getValue());
             }
-            Map<String, Metric.Builder> results = processTestMetrics(test, rawValues);
+            Map<String, Metric.Builder> results =
+                    processTestMetricsAndLogs(
+                            test,
+                            rawValues,
+                            mTestLogs.containsKey(test)
+                                    ? mTestLogs.get(test)
+                                    : new HashMap<String, LogFile>());
             for (Entry<String, Metric.Builder> newEntry : results.entrySet()) {
                 String newKey = newEntry.getKey();
                 if (testMetrics.containsKey(newKey)) {
@@ -204,7 +258,10 @@ public abstract class BasePostProcessor implements IPostProcessor {
                     continue;
                 }
                 // Force the metric to 'processed' since generated in a post-processor.
-                Metric newMetric = newEntry.getValue().setType(DataType.PROCESSED).build();
+                Metric newMetric =
+                        newEntry.getValue()
+                                .setType(getMetricType())
+                                .build();
                 testMetrics.put(newKey, newMetric);
             }
         } catch (RuntimeException e) {
@@ -217,6 +274,11 @@ public abstract class BasePostProcessor implements IPostProcessor {
     @Override
     public final void testAssumptionFailure(TestDescription test, String trace) {
         mForwarder.testAssumptionFailure(test, trace);
+    }
+
+    @Override
+    public final void testAssumptionFailure(TestDescription test, FailureDescription failure) {
+        mForwarder.testAssumptionFailure(test, failure);
     }
 
     @Override
@@ -239,8 +301,21 @@ public abstract class BasePostProcessor implements IPostProcessor {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Updates the log-to-test assocation. If this method is called during a test, then the log
+     * belongs to the test; otherwise it will be a run log.
+     */
     @Override
     public final void logAssociation(String dataName, LogFile logFile) {
+        // mCurrentTest is null only outside the scope of a test.
+        if (mCurrentTest != null) {
+            mTestLogs.get(mCurrentTest).put(dataName, logFile);
+        } else {
+            mRunLogs.put(dataName, logFile);
+        }
+
         if (mForwarder instanceof ILogSaverListener) {
             ((ILogSaverListener) mForwarder).logAssociation(dataName, logFile);
         }
@@ -274,8 +349,19 @@ public abstract class BasePostProcessor implements IPostProcessor {
                 continue;
             }
             // Force the metric to 'processed' since generated in a post-processor.
-            Metric newMetric = newEntry.getValue().setType(DataType.PROCESSED).build();
+            Metric newMetric =
+                    newEntry.getValue()
+                            .setType(getMetricType())
+                            .build();
             existing.put(newKey, newMetric);
         }
+    }
+
+    /**
+     * Override this method to change the metric type if needed. By default metric is set to
+     * processed type.
+     */
+    protected DataType getMetricType() {
+        return DataType.PROCESSED;
     }
 }

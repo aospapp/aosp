@@ -39,34 +39,32 @@ extern "C" {
 struct AppInfo {
   uint64_t appId;
   uint32_t appVer;
-  bool (*init)(void); 
+  bool (*init)(void);
   void (*end)(void);
-  void (*handle)(uint32_t, uint16_t, const void*);
+  void (*handle)(uint32_t, uint16_t, const void *);
 };
 
-extern void hexChreAddApp(const struct AppInfo* info);
-extern void hexChreRemoveApp(const struct AppInfo* info);
+extern void hexChreAddApp(const struct AppInfo *info);
+extern void hexChreRemoveApp(const struct AppInfo *info);
 
 #if !defined(NANOAPP_ID) || !defined(NANOAPP_VERSION)
 #error NANOAPP_ID and NANOAPP_VERSION must be defined in the build environment
 #endif
 
-static const struct AppInfo mAppInfo = {
-  .appId = NANOAPP_ID,
-  .appVer = NANOAPP_VERSION,
-  .init = (nanoappStart),
-  .end = (nanoappEnd),
-  .handle = (nanoappHandleEvent)
-};
+static const struct AppInfo mAppInfo = {.appId = NANOAPP_ID,
+                                        .appVer = NANOAPP_VERSION,
+                                        .init = (nanoappStart),
+                                        .end = (nanoappEnd),
+                                        .handle = (nanoappHandleEvent)};
 
-static void __appInit (void) __attribute__((constructor));
-  static void __appInit (void) {
-    hexChreAddApp(&(mAppInfo));
+static void __appInit(void) __attribute__((constructor));
+static void __appInit(void) {
+  hexChreAddApp(&(mAppInfo));
 }
 
-static void __appEnd (void) __attribute__((destructor));
-    static void __appEnd (void) {
-      hexChreRemoveApp(&(mAppInfo));
+static void __appEnd(void) __attribute__((destructor));
+static void __appEnd(void) {
+  hexChreRemoveApp(&(mAppInfo));
 }
 
 #ifdef __cplusplus

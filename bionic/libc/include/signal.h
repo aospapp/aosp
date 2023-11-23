@@ -64,7 +64,7 @@ int sigaction64(int __signal, const struct sigaction64* __new_action, struct sig
 
 int siginterrupt(int __signal, int __flag);
 
-#if __ANDROID_API__ >= __ANDROID_API_L__
+#if __ANDROID_API__ >= 21
 sighandler_t signal(int __signal, sighandler_t __handler) __INTRODUCED_IN(21);
 int sigaddset(sigset_t* __set, int __signal) __INTRODUCED_IN(21);
 int sigaddset64(sigset64_t* __set, int __signal) __INTRODUCED_IN(28);
@@ -105,7 +105,7 @@ sighandler_t sigset(int __signal, sighandler_t __handler)
 int raise(int __signal);
 int kill(pid_t __pid, int __signal);
 int killpg(int __pgrp, int __signal);
-int tgkill(int __tgid, int __tid, int __signal) __INTRODUCED_IN_32(16);
+int tgkill(int __tgid, int __tid, int __signal);
 
 int sigaltstack(const stack_t* __new_signal_stack, stack_t* __old_signal_stack);
 

@@ -21,16 +21,19 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
+import org.junit.Test;
+
+import static com.google.common.truth.Truth.assertWithMessage;
 public class ExtraAssistDataTest extends AssistTestBase {
     private static final String TAG = "ExtraAssistDataTest";
     private static final String TEST_CASE_TYPE = Utils.EXTRA_ASSIST;
 
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         startTestActivity(TEST_CASE_TYPE);
     }
 
+    @Test
     public void testAssistContentAndAssistData() throws Exception {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
@@ -46,20 +49,22 @@ public class ExtraAssistDataTest extends AssistTestBase {
         Log.i(TAG, "assist bundle is: " + Utils.toBundleString(mAssistBundle));
 
         // first tests that the assist content's structured data is the expected
-        assertEquals("AssistContent structured data did not match data in onProvideAssistContent",
-                Utils.getStructuredJSON(), mAssistContent.getStructuredData());
+        assertWithMessage(
+                "AssistContent structured data did not match data in onProvideAssistContent").that(
+                        mAssistContent.getStructuredData()).isEqualTo(Utils.getStructuredJSON());
         Bundle extraExpectedBundle = Utils.getExtraAssistBundle();
         Bundle extraAssistBundle = mAssistBundle.getBundle(Intent.EXTRA_ASSIST_CONTEXT);
         for (String key : extraExpectedBundle.keySet()) {
-            assertTrue("Assist bundle does not contain expected extra context key: " + key,
-                    extraAssistBundle.containsKey(key));
-            assertEquals("Extra assist context bundle values do not match for key: " + key,
-                    extraExpectedBundle.get(key), extraAssistBundle.get(key));
+            assertWithMessage("Assist bundle does not contain expected extra context key: %s", key)
+                    .that(extraAssistBundle.containsKey(key)).isTrue();
+            assertWithMessage("Extra assist context bundle values do not match for key: %s", key)
+                    .that(extraAssistBundle.get(key)).isEqualTo(extraExpectedBundle.get(key));
         }
 
         // then test the EXTRA_ASSIST_UID
         int expectedUid = Utils.getExpectedUid(extraAssistBundle);
         int actualUid = mAssistBundle.getInt(Intent.EXTRA_ASSIST_UID);
-        assertEquals("Wrong value for EXTRA_ASSIST_UID", expectedUid, actualUid);
+        assertWithMessage("Wrong value for EXTRA_ASSIST_UID").that(actualUid)
+                .isEqualTo(expectedUid);
     }
 }

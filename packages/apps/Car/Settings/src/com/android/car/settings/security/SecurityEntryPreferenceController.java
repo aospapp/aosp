@@ -17,8 +17,8 @@
 package com.android.car.settings.security;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.os.UserManager;
 
 import androidx.preference.Preference;
 
@@ -31,12 +31,12 @@ import com.android.car.settings.common.PreferenceController;
  */
 public class SecurityEntryPreferenceController extends PreferenceController<Preference> {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
+    private final UserManager mUserManager;
 
     public SecurityEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
+        mUserManager = UserManager.get(context);
     }
 
     @Override
@@ -46,6 +46,6 @@ public class SecurityEntryPreferenceController extends PreferenceController<Pref
 
     @Override
     public int getAvailabilityStatus() {
-        return mCarUserManagerHelper.isCurrentProcessGuestUser() ? DISABLED_FOR_USER : AVAILABLE;
+        return mUserManager.isGuestUser() ? DISABLED_FOR_USER : AVAILABLE;
     }
 }

@@ -16,33 +16,29 @@
 
 package com.android.tradefed.util;
 
-import com.google.common.base.Strings;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.LinkedList;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
-
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.vts.proto.VtsReportMessage.DashboardPostMessage;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.client.json.JsonFactory;
-
-import com.android.vts.proto.VtsReportMessage.DashboardPostMessage;
-import com.android.vts.proto.VtsReportMessage.TestPlanReportMessage;
-
 import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.common.base.Strings;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Uploads the VTS test plan execution result to the web DB using a RESTful API and an OAuth2

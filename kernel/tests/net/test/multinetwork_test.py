@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import cstruct
 import ctypes
 import errno
 import os
@@ -29,6 +30,7 @@ import csocket
 import iproute
 import multinetwork_base
 import net_test
+import netlink
 import packets
 
 # For brevity.
@@ -201,12 +203,15 @@ class OutgoingTest(multinetwork_base.MultiNetworkBaseTest):
       # check that the packets sent on that socket go out on the right network.
       #
       # For connected sockets, routing is cached in the socket's destination
-      # cache entry. In this case, we check that just re-selecting the netid
-      # (except via SO_BINDTODEVICE) does not change routing, but that
-      # subsequently invalidating the destination cache entry does. Arguably
-      # this is a bug in the kernel because re-selecting the netid should cause
-      # routing to change. But it is a convenient way to check that
-      # InvalidateDstCache actually works.
+      # cache entry. In this case, we check that selecting the network a second
+      # time on the same socket (except via SO_BINDTODEVICE, or SO_MARK on 5.0+
+      # kernels) does not change routing, but that subsequently invalidating the
+      # destination cache entry does. This is a bug in the kernel because
+      # re-selecting the netid should cause routing to change, and future
+      # kernels may fix this bug for per-UID routing and ucast_oif routing like
+      # they already have for mark-based routing. But until they do, this
+      # behaviour provides a convenient way to check that InvalidateDstCache
+      # actually works.
       prevnetid = None
       for netid in self.tuns:
         self.SelectInterface(s, netid, mode)
@@ -223,15 +228,33 @@ class OutgoingTest(multinetwork_base.MultiNetworkBaseTest):
             s.sendto(UDP_PAYLOAD, (dstaddr, 53))
           self.ExpectPacketOn(netid, msg, expected)
 
-        if use_connect and mode in ["mark", "uid", "ucast_oif"]:
-          # If we have a destination cache entry, packets are not rerouted...
-          if prevnetid:
+        # Does this socket have a stale dst cache entry that we need to clear?
+        def SocketHasStaleDstCacheEntry():
+          if not prevnetid:
+            # This is the first time we're marking the socket.
+            return False
+          if not use_connect:
+            # Non-connected sockets never have dst cache entries.
+            return False
+          if mode in ["uid", "ucast_oif"]:
+            # No kernel invalidates the dst cache entry if the UID or the
+            # UCAST_OIF socket option changes.
+            return True
+          if mode == "oif":
+            # Changing SO_BINDTODEVICE always invalidates the dst cache entry.
+            return False
+          if mode == "mark":
+            # Changing the mark invalidates the dst cache entry in 5.0+.
+            return net_test.LINUX_VERSION < (5, 0, 0)
+          raise AssertionError("%s must be one of %s" % (mode, modes))
+
+        if SocketHasStaleDstCacheEntry():
             ExpectSendUsesNetid(prevnetid)
             # ... until we invalidate it.
             self.InvalidateDstCache(version, prevnetid)
-          ExpectSendUsesNetid(netid)
-        else:
-          ExpectSendUsesNetid(netid)
+
+        # In any case, future sends must be correct.
+        ExpectSendUsesNetid(netid)
 
         self.SelectInterface(s, None, mode)
         prevnetid = netid
@@ -772,6 +795,11 @@ class RIOTest(multinetwork_base.MultiNetworkBaseTest):
 
 class RATest(multinetwork_base.MultiNetworkBaseTest):
 
+  ND_ROUTER_ADVERT = 134
+  ND_OPT_PREF64 = 38
+  Pref64Option = cstruct.Struct("pref64_option", "!BBH12s",
+                                "type length lft_plc prefix")
+
   def testDoesNotHaveObsoleteSysctl(self):
     self.assertFalse(os.path.isfile(
         "/proc/sys/net/ipv6/route/autoconf_table_offset"))
@@ -854,6 +882,50 @@ class RATest(multinetwork_base.MultiNetworkBaseTest):
       finally:
         del self.tuns[i]
     self.assertLess(num_routes, GetNumRoutes())
+
+  def SendNdUseropt(self, option):
+    options = scapy.ICMPv6NDOptRouteInfo(rtlifetime=rtlifetime, plen=plen,
+                                         prefix=prefix, prf=prf)
+    self.SendRA(self.NETID, options=(options,))
+
+  def MakePref64Option(self, prefix, lifetime):
+    prefix = inet_pton(AF_INET6, prefix)[:12]
+    lft_plc = (lifetime & 0xfff8) | 0  # 96-bit prefix length
+    return self.Pref64Option((self.ND_OPT_PREF64, 2, lft_plc, prefix))
+
+  @unittest.skipUnless(net_test.LINUX_VERSION >= (4, 9, 0), "not backported")
+  def testPref64UserOption(self):
+    # Open a netlink socket to receive RTM_NEWNDUSEROPT messages.
+    s = netlink.NetlinkSocket(netlink.NETLINK_ROUTE, iproute.RTMGRP_ND_USEROPT)
+
+    # Send an RA with the PREF64 option.
+    netid = random.choice(self.NETIDS)
+    opt = self.MakePref64Option("64:ff9b::", 300)
+    self.SendRA(netid, options=(opt.Pack(),))
+
+    # Check that we get an an RTM_NEWNDUSEROPT message on the socket with the
+    # expected option.
+    csocket.SetSocketTimeout(s.sock, 100)
+    try:
+      data = s._Recv()
+    except IOError, e:
+      self.fail("Should have received an RTM_NEWNDUSEROPT message. "
+                "Please ensure the kernel supports receiving the "
+                "PREF64 RA option. Error: %s" % e)
+
+    # Check that the message is received correctly.
+    nlmsghdr, data = cstruct.Read(data, netlink.NLMsgHdr)
+    self.assertEquals(iproute.RTM_NEWNDUSEROPT, nlmsghdr.type)
+
+    # Check the option contents.
+    ndopthdr, data = cstruct.Read(data, iproute.NdUseroptMsg)
+    self.assertEquals(AF_INET6, ndopthdr.family)
+    self.assertEquals(self.ND_ROUTER_ADVERT, ndopthdr.icmp_type)
+    self.assertEquals(len(opt), ndopthdr.opts_len)
+
+    actual_opt = self.Pref64Option(data)
+    self.assertEquals(opt, actual_opt)
+
 
 
 class PMTUTest(multinetwork_base.InboundMarkingTest):

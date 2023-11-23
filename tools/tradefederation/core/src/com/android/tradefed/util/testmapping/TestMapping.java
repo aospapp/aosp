@@ -34,6 +34,7 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +43,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -63,6 +66,24 @@ public class TestMapping {
     private static final String DISABLED_PRESUBMIT_TESTS_FILE = "disabled-presubmit-tests";
 
     private Map<String, Set<TestInfo>> mTestCollection = null;
+    // Pattern used to identify comments start with "//" or "#" in TEST_MAPPING.
+    private static final Pattern COMMENTS_REGEX = Pattern.compile(
+            "(?m)[\\s\\t]*(//|#).*|(\".*?\")");
+    private static final Set<String> COMMENTS = new HashSet<>(Arrays.asList("#", "//"));
+
+    private static List<String> mTestMappingRelativePaths = new ArrayList<>();
+
+    /**
+     * Set the TEST_MAPPING paths inside of TEST_MAPPINGS_ZIP to limit loading the TEST_MAPPING.
+     *
+     * @param relativePaths A {@code List<String>} of TEST_MAPPING paths relative to
+     *     TEST_MAPPINGS_ZIP.
+     */
+    public static void setTestMappingPaths(List<String> relativePaths) {
+        mTestMappingRelativePaths.clear();
+        mTestMappingRelativePaths.addAll(relativePaths);
+    }
+
 
     /**
      * Constructor to create a {@link TestMapping} object from a path to TEST_MAPPING file.
@@ -75,7 +96,8 @@ public class TestMapping {
         String relativePath = testMappingsDir.relativize(path.getParent()).toString();
         String errorMessage = null;
         try {
-            String content = String.join("", Files.readAllLines(path, StandardCharsets.UTF_8));
+            String content = removeComments(
+                    String.join("\n", Files.readAllLines(path, StandardCharsets.UTF_8)));
             if (content != null) {
                 JSONTokener tokener = new JSONTokener(content);
                 JSONObject root = new JSONObject(tokener);
@@ -139,6 +161,26 @@ public class TestMapping {
     }
 
     /**
+     * Helper to remove comments in a TEST_MAPPING file to valid format. Only "//" and "#" are
+     * regarded as comments.
+     *
+     * @param jsonContent A {@link String} of json which content is from a TEST_MAPPING file.
+     * @return A {@link String} of valid json without comments.
+     */
+    @VisibleForTesting
+    static String removeComments(String jsonContent) {
+        StringBuffer out = new StringBuffer();
+        Matcher matcher = COMMENTS_REGEX.matcher(jsonContent);
+        while (matcher.find()) {
+            if (COMMENTS.contains(matcher.group(1))) {
+                matcher.appendReplacement(out, "");
+            }
+        }
+        matcher.appendTail(out);
+        return out.toString();
+    }
+
+    /**
      * Helper to get all tests set in a TEST_MAPPING file for a given group.
      *
      * @param testGroup A {@link String} of the test group.
@@ -155,16 +197,13 @@ public class TestMapping {
 
         for (TestInfo test : mTestCollection.getOrDefault(testGroup, new HashSet<>())) {
             if (disabledTests != null && disabledTests.contains(test.getName())) {
-                CLog.d("Test is disabled: %s.", test);
                 continue;
             }
             if (test.getHostOnly() != hostOnly) {
-                CLog.d("Test doesn't match the host requirement: %s.", test);
                 continue;
             }
             // Skip the test if no keyword is specified but the test requires certain keywords.
             if ((keywords == null || keywords.isEmpty()) && !test.getKeywords().isEmpty()) {
-                CLog.d("Test %s requires keywords: %s. Skip the test.", test, test.getKeywords());
                 continue;
             }
             // Skip the test if any of the required keywords is not specified by the test.
@@ -172,9 +211,6 @@ public class TestMapping {
                 Boolean allKeywordsFound = true;
                 for (String keyword : keywords) {
                     if (!test.getKeywords().contains(keyword)) {
-                        CLog.d(
-                                "Test %s doesn't have required keyword: %s. Skip the test.",
-                                test, keyword);
                         allKeywordsFound = false;
                         break;
                     }
@@ -219,6 +255,39 @@ public class TestMapping {
     }
 
     /**
+     * Helper to get all TEST_MAPPING paths relative to TEST_MAPPINGS_ZIP.
+     *
+     * @param testMappingsRootPath The {@link Path} to a test mappings zip path.
+     * @return A {@code Set<Path>} of all the TEST_MAPPING paths relative to TEST_MAPPINGS_ZIP.
+     */
+    @VisibleForTesting
+    static Set<Path> getAllTestMappingPaths(Path testMappingsRootPath) {
+        Set<Path> allTestMappingPaths = new HashSet<>();
+        for (String path : mTestMappingRelativePaths) {
+            boolean hasAdded = false;
+            Path testMappingPath = testMappingsRootPath.resolve(path);
+            // Recursively find the TEST_MAPPING file until reaching to testMappingsRootPath.
+            while (!testMappingPath.equals(testMappingsRootPath)) {
+                if (testMappingPath.resolve(TEST_MAPPING).toFile().exists()) {
+                    hasAdded = true;
+                    CLog.d("Adding TEST_MAPPING path: %s", testMappingPath);
+                    allTestMappingPaths.add(testMappingPath.resolve(TEST_MAPPING));
+                }
+                testMappingPath = testMappingPath.getParent();
+            }
+            if (!hasAdded) {
+                CLog.w("Couldn't find TEST_MAPPING files from %s", path);
+            }
+        }
+        if (allTestMappingPaths.isEmpty()) {
+            throw new RuntimeException(
+                    String.format(
+                            "Couldn't find TEST_MAPPING files from %s", mTestMappingRelativePaths));
+        }
+        return allTestMappingPaths;
+    }
+
+    /**
      * Helper to find all tests in all TEST_MAPPING files. This is needed when a suite run requires
      * to run all tests in TEST_MAPPING files for a given group, e.g., presubmit.
      *
@@ -236,7 +305,12 @@ public class TestMapping {
         try {
             Path testMappingsRootPath = Paths.get(testMappingsDir.getAbsolutePath());
             Set<String> disabledTests = getDisabledTests(testMappingsRootPath, testGroup);
-            stream = Files.walk(testMappingsRootPath, FileVisitOption.FOLLOW_LINKS);
+            if (mTestMappingRelativePaths.isEmpty()) {
+                stream = Files.walk(testMappingsRootPath, FileVisitOption.FOLLOW_LINKS);
+            }
+            else {
+                stream = getAllTestMappingPaths(testMappingsRootPath).stream();
+            }
             stream.filter(path -> path.getFileName().toString().equals(TEST_MAPPING))
                     .forEach(
                             path ->
@@ -260,7 +334,7 @@ public class TestMapping {
             FileUtil.recursiveDelete(testMappingsDir);
         }
 
-        return TestMapping.mergeTests(tests);
+        return tests;
     }
 
     /**

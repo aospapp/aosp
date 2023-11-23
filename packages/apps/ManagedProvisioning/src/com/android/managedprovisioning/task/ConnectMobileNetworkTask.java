@@ -32,7 +32,7 @@ import com.android.managedprovisioning.task.wifi.NetworkMonitor;
  */
 public class ConnectMobileNetworkTask extends AbstractProvisioningTask
         implements NetworkMonitor.NetworkConnectedCallback {
-    private static final int RECONNECT_TIMEOUT_MS = 60000;
+    private static final int RECONNECT_TIMEOUT_MS = 600000;
 
     private final NetworkMonitor mNetworkMonitor;
 
@@ -61,7 +61,14 @@ public class ConnectMobileNetworkTask extends AbstractProvisioningTask
         Settings.Global.putInt(mContext.getContentResolver(),
                 Settings.Global.DEVICE_PROVISIONING_MOBILE_DATA_ENABLED, 1);
 
-        if (mUtils.isConnectedToNetwork(mContext)) {
+        if (isLegacyConnected()) {
+            success();
+            return;
+        }
+
+        if ((mProvisioningParams.isNfc
+                || mProvisioningParams.isQrProvisioning)
+                && mUtils.isMobileNetworkConnectedToInternet(mContext)) {
             success();
             return;
         }
@@ -84,12 +91,20 @@ public class ConnectMobileNetworkTask extends AbstractProvisioningTask
     @Override
     public void onNetworkConnected() {
         ProvisionLogger.logd("onNetworkConnected");
-        if (mUtils.isConnectedToNetwork(mContext)) {
-            ProvisionLogger.logd("Connected to the mobile network");
+        if (isLegacyConnected()
+                || ((mProvisioningParams.isNfc || mProvisioningParams.isQrProvisioning)
+                && mUtils.isMobileNetworkConnectedToInternet(mContext))) {
+            ProvisionLogger.logd("Connected to mobile data");
             finishTask(true);
             // Remove time out callback.
             mHandler.removeCallbacks(mTimeoutRunnable);
         }
+    }
+
+    private boolean isLegacyConnected() {
+        return !mProvisioningParams.isNfc
+                && !mProvisioningParams.isQrProvisioning
+                && mUtils.isConnectedToNetwork(mContext);
     }
 
     private synchronized void finishTask(boolean isSuccess) {

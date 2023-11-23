@@ -43,15 +43,11 @@ static char *opt_fsizestr;
 static int pagesize;
 static unsigned long cached_max;
 static int ovl_mounted;
+static int readahead_length  = 4096;
+static char sys_bdi_ra_path[PATH_MAX];
+static int orig_bdi_limit;
 
-#define MNTPOINT        "mntpoint"
-#define OVL_LOWER	MNTPOINT"/lower"
-#define OVL_UPPER	MNTPOINT"/upper"
-#define OVL_WORK	MNTPOINT"/work"
-#define OVL_MNT		MNTPOINT"/ovl"
-#define MIN_SANE_READAHEAD (4u * 1024u)
-
-static const char mntpoint[] = MNTPOINT;
+static const char mntpoint[] = OVL_BASE_MNTPOINT;
 
 static struct tst_option options[] = {
 	{"s:", &opt_fsizestr, "-s    testfile size (default 64MB)"},
@@ -130,7 +126,8 @@ static void create_testfile(int use_overlay)
 	char *tmp;
 	size_t i;
 
-	sprintf(testfile, "%s/testfile", use_overlay ? OVL_MNT : MNTPOINT);
+	sprintf(testfile, "%s/testfile",
+		use_overlay ? OVL_MNT : OVL_BASE_MNTPOINT);
 	tst_res(TINFO, "creating test file of size: %zu", testfile_size);
 	tmp = SAFE_MALLOC(pagesize);
 
@@ -165,13 +162,11 @@ static int read_testfile(struct tcase *tc, int do_readahead,
 	size_t i = 0;
 	long read_bytes_start;
 	unsigned char *p, tmp;
-	unsigned long cached_start, max_ra_estimate = 0;
 	off_t offset = 0;
 
 	fd = SAFE_OPEN(fname, O_RDONLY);
 
 	if (do_readahead) {
-		cached_start = get_cached_size();
 		do {
 			TEST(tc->readahead(fd, offset, fsize - offset));
 			if (TST_RET != 0) {
@@ -179,21 +174,8 @@ static int read_testfile(struct tcase *tc, int do_readahead,
 				return TST_ERR;
 			}
 
-			/* estimate max readahead size based on first call */
-			if (!max_ra_estimate) {
-				*cached = get_cached_size();
-				if (*cached > cached_start) {
-					max_ra_estimate = (1024 *
-						(*cached - cached_start));
-					tst_res(TINFO, "max ra estimate: %lu",
-						max_ra_estimate);
-				}
-				max_ra_estimate = MAX(max_ra_estimate,
-					MIN_SANE_READAHEAD);
-			}
-
 			i++;
-			offset += max_ra_estimate;
+			offset += readahead_length;
 		} while ((size_t)offset < fsize);
 		tst_res(TINFO, "readahead calls made: %zu", i);
 		*cached = get_cached_size();
@@ -342,26 +324,48 @@ static void test_readahead(unsigned int n)
 	}
 }
 
-static void setup_overlay(void)
-{
-	int ret;
 
-	/* Setup an overlay mount with lower dir and file */
-	SAFE_MKDIR(OVL_LOWER, 0755);
-	SAFE_MKDIR(OVL_UPPER, 0755);
-	SAFE_MKDIR(OVL_WORK, 0755);
-	SAFE_MKDIR(OVL_MNT, 0755);
-	ret = mount("overlay", OVL_MNT, "overlay", 0, "lowerdir="OVL_LOWER
-		    ",upperdir="OVL_UPPER",workdir="OVL_WORK);
-	if (ret < 0) {
-		if (errno == ENODEV) {
-			tst_res(TINFO,
-				"overlayfs is not configured in this kernel.");
-			return;
+/*
+ * We try raising bdi readahead limit as much as we can. We write
+ * and read back "read_ahead_kb" sysfs value, starting with filesize.
+ * If that fails, we try again with lower value.
+ * readahead_length used in the test is then set to MIN(bdi limit, 2M),
+ * to respect kernels prior to commit 600e19afc5f8a6c.
+ */
+static void setup_readahead_length(void)
+{
+	struct stat sbuf;
+	char tmp[PATH_MAX], *backing_dev;
+	int ra_new_limit, ra_limit;
+
+	/* Find out backing device name */
+	SAFE_LSTAT(tst_device->dev, &sbuf);
+	if (S_ISLNK(sbuf.st_mode))
+		SAFE_READLINK(tst_device->dev, tmp, PATH_MAX);
+	else
+		strcpy(tmp, tst_device->dev);
+
+	backing_dev = basename(tmp);
+	sprintf(sys_bdi_ra_path, "/sys/class/block/%s/bdi/read_ahead_kb",
+		backing_dev);
+	if (access(sys_bdi_ra_path, F_OK))
+		return;
+
+	SAFE_FILE_SCANF(sys_bdi_ra_path, "%d", &orig_bdi_limit);
+
+	/* raise bdi limit as much as kernel allows */
+	ra_new_limit = testfile_size / 1024;
+	while (ra_new_limit > pagesize / 1024) {
+		FILE_PRINTF(sys_bdi_ra_path, "%d", ra_new_limit);
+		SAFE_FILE_SCANF(sys_bdi_ra_path, "%d", &ra_limit);
+
+		if (ra_limit == ra_new_limit) {
+			readahead_length = MIN(ra_new_limit * 1024,
+				2 * 1024 * 1024);
+			break;
 		}
-		tst_brk(TBROK | TERRNO, "overlayfs mount failed");
+		ra_new_limit = ra_new_limit / 2;
 	}
-	ovl_mounted = 1;
 }
 
 static void setup(void)
@@ -380,18 +384,23 @@ static void setup(void)
 
 	pagesize = getpagesize();
 
-	setup_overlay();
+	setup_readahead_length();
+	tst_res(TINFO, "readahead length: %d", readahead_length);
+
+	ovl_mounted = TST_MOUNT_OVERLAY();
 }
 
 static void cleanup(void)
 {
 	if (ovl_mounted)
 		SAFE_UMOUNT(OVL_MNT);
+
+	if (orig_bdi_limit)
+		SAFE_FILE_PRINTF(sys_bdi_ra_path, "%d", orig_bdi_limit);
 }
 
 static struct tst_test test = {
 	.needs_root = 1,
-	.needs_tmpdir = 1,
 	.mount_device = 1,
 	.mntpoint = mntpoint,
 	.setup = setup,
@@ -399,4 +408,9 @@ static struct tst_test test = {
 	.options = options,
 	.test = test_readahead,
 	.tcnt = ARRAY_SIZE(tcases),
+	.tags = (const struct tst_tag[]) {
+		{"linux-git", "b833a3660394"},
+		{"linux-git", "5b910bd615ba"},
+		{}
+	}
 };

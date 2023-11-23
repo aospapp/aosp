@@ -19,13 +19,13 @@ import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
-import android.view.ContextMenu.ContextMenuInfo;
 import android.view.WindowManager.LayoutParams;
 
 public class TestDialog extends Dialog {
@@ -82,6 +82,8 @@ public class TestDialog extends Dialog {
     public MotionEvent onTrackballEvent;
     public MotionEvent onTouchEvent;
     public KeyEvent keyMultipleEvent;
+
+    private View mEmptyView;
 
     public TestDialog(Context context) {
         super(context);
@@ -289,6 +291,8 @@ public class TestDialog extends Dialog {
         menu.add(0, CONTEXT_MENU_ITEM_0, 0, "ContextMenuItem0");
         menu.add(0, CONTEXT_MENU_ITEM_1, 0, "ContextMenuItem1");
         menu.add(0, CONTEXT_MENU_ITEM_2, 0, "ContextMenuItem2");
+        mEmptyView = new EmptyView(v.getContext());
+        menu.setHeaderView(mEmptyView);
         isOnCreateContextMenuCalled = true;
     }
 
@@ -316,5 +320,25 @@ public class TestDialog extends Dialog {
         touchEvent = ev;
         dispatchTouchEventResult = super.dispatchTouchEvent(ev);
         return dispatchTouchEventResult;
+    }
+
+    /**
+     * The context menu shows up in a separate window. There isn't a direct way of getting a handle
+     * to that window. However, we must ensure that we wait until that window has focus prior to
+     * injecting key events.
+     * To get around this issue, we add a view to the context menu. Then, we can use
+     * View.hasWindowFocus to assert the focus state of the window containing the context menu.
+     */
+    public boolean contextMenuHasWindowFocus() {
+        return mEmptyView.hasWindowFocus();
+    }
+
+    /**
+     * View that does nothing. Used for obtaining the state of window focus of the parent window.
+     */
+    private static class EmptyView extends View {
+        EmptyView(Context context) {
+            super(context);
+        }
     }
 }

@@ -14,13 +14,20 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 
-import junit.framework.TestCase;
 import libcore.java.security.TestKeyStore;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-import dalvik.system.VMRuntime;
-import sun.security.jca.Providers;
+public class PKIXRevocationCheckerTest extends TestCaseWithRules {
 
-public class PKIXRevocationCheckerTest extends TestCase {
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Rule
+    public TestRule enableDeprecatedBCAlgorithmsRule =
+            EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
+
     PKIXRevocationChecker checker;
 
     PrivateKeyEntry entity;
@@ -30,11 +37,6 @@ public class PKIXRevocationCheckerTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-
-        // Allow access to deprecated BC algorithms in this test, so we can ensure they
-        // continue to work
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                VMRuntime.getRuntime().getTargetSdkVersion());
 
         CertPathBuilder cpb = CertPathBuilder.getInstance("PKIX");
         CertPathChecker rc = cpb.getRevocationChecker();
@@ -47,13 +49,6 @@ public class PKIXRevocationCheckerTest extends TestCase {
 
         entity = server.getPrivateKey("RSA", "RSA");
         issuer = intermediate.getPrivateKey("RSA", "RSA");
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
-        super.tearDown();
     }
 
     public void test_Initializes() throws Exception {

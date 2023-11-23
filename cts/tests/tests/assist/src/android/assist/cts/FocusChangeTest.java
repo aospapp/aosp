@@ -16,10 +16,14 @@
 
 package android.assist.cts;
 
+import static org.junit.Assert.fail;
+
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.util.Log;
 import android.util.Pair;
+
+import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -32,8 +36,7 @@ public class FocusChangeTest extends AssistTestBase {
     private AutoResetLatch mHasLostFocusLatch = new AutoResetLatch(1);
 
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         mActionLatchReceiver = new ActionLatchReceiver(
                 Pair.create(Utils.GAINED_FOCUS, mHasGainedFocusLatch),
                 Pair.create(Utils.LOST_FOCUS, mHasLostFocusLatch)
@@ -56,6 +59,7 @@ public class FocusChangeTest extends AssistTestBase {
         }
     }
 
+    @Test
     public void testLayerCausesUnderlyingActivityToLoseFocus() throws Exception {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");

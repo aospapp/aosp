@@ -9,10 +9,9 @@
 #include "core/fxge/cfx_cliprgn.h"
 #include "core/fxge/dib/cfx_dibitmap.h"
 
-CFX_BitmapComposer::CFX_BitmapComposer()
-    : m_bRgbByteOrder(false), m_BlendType(FXDIB_BLEND_NORMAL) {}
+CFX_BitmapComposer::CFX_BitmapComposer() = default;
 
-CFX_BitmapComposer::~CFX_BitmapComposer() {}
+CFX_BitmapComposer::~CFX_BitmapComposer() = default;
 
 void CFX_BitmapComposer::Compose(const RetainPtr<CFX_DIBitmap>& pDest,
                                  const CFX_ClipRgn* pClipRgn,
@@ -23,8 +22,7 @@ void CFX_BitmapComposer::Compose(const RetainPtr<CFX_DIBitmap>& pDest,
                                  bool bFlipX,
                                  bool bFlipY,
                                  bool bRgbByteOrder,
-                                 int alpha_flag,
-                                 int blend_type) {
+                                 BlendMode blend_type) {
   m_pBitmap = pDest;
   m_pClipRgn = pClipRgn;
   m_DestLeft = dest_rect.left;
@@ -39,7 +37,6 @@ void CFX_BitmapComposer::Compose(const RetainPtr<CFX_DIBitmap>& pDest,
   m_bVertical = bVertical;
   m_bFlipX = bFlipX;
   m_bFlipY = bFlipY;
-  m_AlphaFlag = alpha_flag;
   m_bRgbByteOrder = bRgbByteOrder;
   m_BlendType = blend_type;
 }
@@ -50,9 +47,9 @@ bool CFX_BitmapComposer::SetInfo(int width,
                                  uint32_t* pSrcPalette) {
   m_SrcFormat = src_format;
   if (!m_Compositor.Init(m_pBitmap->GetFormat(), src_format, width, pSrcPalette,
-                         m_MaskColor, FXDIB_BLEND_NORMAL,
+                         m_MaskColor, BlendMode::kNormal,
                          m_pClipMask != nullptr || (m_BitmapAlpha < 255),
-                         m_bRgbByteOrder, m_AlphaFlag)) {
+                         m_bRgbByteOrder)) {
     return false;
   }
   if (m_bVertical) {
@@ -87,7 +84,7 @@ void CFX_BitmapComposer::DoCompose(uint8_t* dest_scan,
   if (m_SrcFormat == FXDIB_8bppMask) {
     m_Compositor.CompositeByteMaskLine(dest_scan, src_scan, dest_width,
                                        clip_scan, dst_extra_alpha);
-  } else if ((m_SrcFormat & 0xff) == 8) {
+  } else if (GetBppFromFormat(m_SrcFormat) == 8) {
     m_Compositor.CompositePalBitmapLine(dest_scan, src_scan, 0, dest_width,
                                         clip_scan, src_extra_alpha,
                                         dst_extra_alpha);
@@ -112,13 +109,11 @@ void CFX_BitmapComposer::ComposeScanline(int line,
                     m_pClipMask->GetPitch() +
                 (m_DestLeft - m_pClipRgn->GetBox().left);
   }
-  uint8_t* dest_scan =
-      const_cast<uint8_t*>(m_pBitmap->GetScanline(line + m_DestTop)) +
-      m_DestLeft * m_pBitmap->GetBPP() / 8;
+  uint8_t* dest_scan = m_pBitmap->GetWritableScanline(line + m_DestTop) +
+                       m_DestLeft * m_pBitmap->GetBPP() / 8;
   uint8_t* dest_alpha_scan =
       m_pBitmap->m_pAlphaMask
-          ? const_cast<uint8_t*>(
-                m_pBitmap->m_pAlphaMask->GetScanline(line + m_DestTop)) +
+          ? m_pBitmap->m_pAlphaMask->GetWritableScanline(line + m_DestTop) +
                 m_DestLeft
           : nullptr;
   DoCompose(dest_scan, scanline, m_DestWidth, clip_scan, scan_extra_alpha,

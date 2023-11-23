@@ -41,6 +41,7 @@ import android.os.UserHandle;
 import android.provider.Settings;
 import android.provider.Settings.Global;
 import android.provider.Settings.Secure;
+import android.sysprop.TelephonyProperties;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -51,6 +52,7 @@ import com.android.internal.telephony.RILConstants;
 import com.android.internal.util.XmlUtils;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternView;
+import com.android.internal.widget.LockscreenCredential;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -949,8 +951,7 @@ class DatabaseHelper extends SQLiteOpenHelper {
                                                 (1 << AudioManager.STREAM_NOTIFICATION) |
                                                 (1 << AudioManager.STREAM_SYSTEM) |
                                                 (1 << AudioManager.STREAM_SYSTEM_ENFORCED);
-                if (!mContext.getResources().getBoolean(
-                        com.android.internal.R.bool.config_voice_capable)) {
+                if (!getTelephonyManager().isVoiceCapable()) {
                     ringerModeAffectedStreams |= (1 << AudioManager.STREAM_MUSIC);
                 }
                 db.execSQL("DELETE FROM system WHERE name='"
@@ -1189,19 +1190,7 @@ class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         if (upgradeVersion == 81) {
-            // Add package verification setting
-            db.beginTransaction();
-            SQLiteStatement stmt = null;
-            try {
-                stmt = db.compileStatement("INSERT OR REPLACE INTO secure(name,value)"
-                        + " VALUES(?,?);");
-                loadBooleanSetting(stmt, Settings.Global.PACKAGE_VERIFIER_ENABLE,
-                        R.bool.def_package_verifier_enable);
-                db.setTransactionSuccessful();
-            } finally {
-                db.endTransaction();
-                if (stmt != null) stmt.close();
-            }
+            // package_verifier_enable has been removed
             upgradeVersion = 82;
         }
 
@@ -1303,7 +1292,6 @@ class DatabaseHelper extends SQLiteOpenHelper {
                 db.beginTransaction();
                 try {
                     String[] settingsToMove = {
-                            Settings.Global.PACKAGE_VERIFIER_ENABLE,
                             Settings.Global.PACKAGE_VERIFIER_TIMEOUT,
                             Settings.Global.PACKAGE_VERIFIER_DEFAULT_RESPONSE
                     };
@@ -1496,21 +1484,7 @@ class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         if (upgradeVersion == 94) {
-            // Add wireless charging started sound setting
-            if (mUserHandle == UserHandle.USER_SYSTEM) {
-                db.beginTransaction();
-                SQLiteStatement stmt = null;
-                try {
-                    stmt = db.compileStatement("INSERT OR REPLACE INTO global(name,value)"
-                            + " VALUES(?,?);");
-                    loadStringSetting(stmt, Settings.Global.CHARGING_STARTED_SOUND,
-                            R.string.def_wireless_charging_started_sound);
-                    db.setTransactionSuccessful();
-                } finally {
-                    db.endTransaction();
-                    if (stmt != null) stmt.close();
-                }
-            }
+            // charging sound moved to SettingsProvider version 184
             upgradeVersion = 95;
         }
 
@@ -1992,8 +1966,11 @@ class DatabaseHelper extends SQLiteOpenHelper {
                 try {
                     LockPatternUtils lpu = new LockPatternUtils(mContext);
                     List<LockPatternView.Cell> cellPattern =
-                            LockPatternUtils.stringToPattern(lockPattern);
-                    lpu.saveLockPattern(cellPattern, null, UserHandle.USER_SYSTEM);
+                            LockPatternUtils.byteArrayToPattern(lockPattern.getBytes());
+                    lpu.setLockCredential(
+                            LockscreenCredential.createPattern(cellPattern),
+                            LockscreenCredential.createNone(),
+                            UserHandle.USER_SYSTEM);
                 } catch (IllegalArgumentException e) {
                     // Don't want corrupted lock pattern to hang the reboot process
                 }
@@ -2479,9 +2456,6 @@ class DatabaseHelper extends SQLiteOpenHelper {
             loadDefaultAnimationSettings(stmt);
 
             // --- Previously in 'secure'
-            loadBooleanSetting(stmt, Settings.Global.PACKAGE_VERIFIER_ENABLE,
-                    R.bool.def_package_verifier_enable);
-
             loadBooleanSetting(stmt, Settings.Global.WIFI_ON,
                     R.bool.def_wifi_on);
 
@@ -2497,9 +2471,7 @@ class DatabaseHelper extends SQLiteOpenHelper {
 
             // Data roaming default, based on build
             loadSetting(stmt, Settings.Global.DATA_ROAMING,
-                    "true".equalsIgnoreCase(
-                            SystemProperties.get("ro.com.android.dataroaming",
-                                    "false")) ? 1 : 0);
+                    TelephonyProperties.data_roaming().orElse(false) ? 1 : 0);
 
             loadBooleanSetting(stmt, Settings.Global.DEVICE_PROVISIONED,
                     R.bool.def_device_provisioned);
@@ -2520,9 +2492,7 @@ class DatabaseHelper extends SQLiteOpenHelper {
 
             // Mobile Data default, based on build
             loadSetting(stmt, Settings.Global.MOBILE_DATA,
-                    "true".equalsIgnoreCase(
-                            SystemProperties.get("ro.com.android.mobiledata",
-                                    "true")) ? 1 : 0);
+                    TelephonyProperties.mobile_data().orElse(true) ? 1 : 0);
 
             loadBooleanSetting(stmt, Settings.Global.NETSTATS_ENABLED,
                     R.bool.def_netstats_enabled);
@@ -2558,8 +2528,6 @@ class DatabaseHelper extends SQLiteOpenHelper {
                     R.string.def_car_dock_sound);
             loadStringSetting(stmt, Settings.Global.CAR_UNDOCK_SOUND,
                     R.string.def_car_undock_sound);
-            loadStringSetting(stmt, Settings.Global.CHARGING_STARTED_SOUND,
-                    R.string.def_wireless_charging_started_sound);
 
             loadIntegerSetting(stmt, Settings.Global.DOCK_AUDIO_MEDIA_ENABLED,
                     R.integer.def_dock_audio_media_enabled);
@@ -2576,20 +2544,21 @@ class DatabaseHelper extends SQLiteOpenHelper {
 
             // Set the preferred network mode to target desired value or Default
             // value defined in system property
-            String val = "";
-            String mode;
-            for (int phoneId = 0;
-                    phoneId < TelephonyManager.getDefault().getPhoneCount(); phoneId++) {
-                mode = TelephonyManager.getTelephonyProperty(phoneId,
-                        "ro.telephony.default_network",
-                        Integer.toString(RILConstants.PREFERRED_NETWORK_MODE));
-                if (phoneId == 0) {
-                    val = mode;
-                } else {
-                    val = val + "," + mode;
-                }
+            StringBuilder val = new StringBuilder();
+            List<Integer> defaultNetworks = TelephonyProperties.default_network();
+            int phoneCount = 1;
+            TelephonyManager telephonyManager = getTelephonyManager();
+            if (telephonyManager != null) {
+                phoneCount = telephonyManager.getSupportedModemCount();
             }
-            loadSetting(stmt, Settings.Global.PREFERRED_NETWORK_MODE, val);
+            for (int phoneId = 0; phoneId < phoneCount; phoneId++) {
+                int mode = defaultNetworks.size() <= phoneId
+                        || defaultNetworks.get(phoneId) == null
+                        ? TelephonyManager.DEFAULT_PREFERRED_NETWORK_MODE : defaultNetworks.get(phoneId);
+                if (phoneId > 0) val.append(',');
+                val.append(mode);
+            }
+            loadSetting(stmt, Settings.Global.PREFERRED_NETWORK_MODE, val.toString());
 
             // Set the preferred cdma subscription source to target desired value or default
             // value defined in Phone
@@ -2692,5 +2661,9 @@ class DatabaseHelper extends SQLiteOpenHelper {
 
     private String getDefaultDeviceName() {
         return mContext.getResources().getString(R.string.def_device_name_simple, Build.MODEL);
+    }
+
+    private TelephonyManager getTelephonyManager() {
+        return (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
     }
 }

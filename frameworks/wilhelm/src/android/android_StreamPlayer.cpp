@@ -200,7 +200,7 @@ void StreamSourceAppProxy::pullFromBuffQueue() {
                 bufferId = *mAvailableBuffers.begin();
                 CHECK_LT(bufferId, mBuffers.size());
                 sp<IMemory> mem = mBuffers.itemAt(bufferId);
-                bufferLoc = mem->pointer();
+                bufferLoc = mem->unsecurePointer();
                 buffSize = mem->size();
 
                 char *pSrc = ((char*)oldFront->mDataBuffer) + oldFront->mDataSizeConsumed;

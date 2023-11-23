@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_COMMON_GRAPH_DUMP_H
-#define ANDROID_ML_NN_COMMON_GRAPH_DUMP_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_GRAPH_DUMP_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_GRAPH_DUMP_H
 
-#include <android/hardware/neuralnetworks/1.2/types.h>
+#include <android/hardware/neuralnetworks/1.3/types.h>
 
 #include <iostream>
 
@@ -45,11 +45,10 @@ namespace nn {
 // A model input or output (operand) is shown in "reverse colors" --
 // white text on a black background.
 //
-void graphDump(const char* name,
-               const ::android::hardware::neuralnetworks::V1_2::Model& model,
+void graphDump(const char* name, const ::android::hardware::neuralnetworks::V1_3::Model& model,
                std::ostream* outStream = nullptr);
 
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_ML_NN_COMMON_GRAPH_DUMP_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_GRAPH_DUMP_H

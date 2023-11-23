@@ -20,6 +20,8 @@ import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.log.LogUtil.CLog;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,6 +53,15 @@ public abstract class BaseLeveledLogOutput implements ILeveledLogOutput {
                         + "For example: target_preparer WARN."
     )
     private Map<String, LogLevel> mComponentVerbosity = new HashMap<>();
+
+    @Option(
+            name = "force-verbosity-map",
+            description = "Enforce a pre-set verbosity of some component to avoid extreme logging.")
+    private boolean mEnableForcedVerbosity = true;
+
+    // Add components we have less control over (ddmlib for example) to ensure they don't flood
+    // us. This will still write to the log.
+    private Map<String, LogLevel> mForcedVerbosity = ImmutableMap.of("ddms", LogLevel.WARN);
 
     private Map<String, LogLevel> mVerbosityMap = new HashMap<>();
 
@@ -102,12 +113,22 @@ public abstract class BaseLeveledLogOutput implements ILeveledLogOutput {
                 receiver.put(objTag, components.get(component));
             }
         }
-        // Add components we have less control over (ddmlib for example) to ensure they don't flood
-        // us. This will still write to the log.
-        mVerbosityMap.put("ddms", LogLevel.WARN);
+        if (shouldForceVerbosity()) {
+            mVerbosityMap.putAll(mForcedVerbosity);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public abstract ILeveledLogOutput clone();
+
+    /** Whether or not to enforce the verbosity map. */
+    public boolean shouldForceVerbosity() {
+        return mEnableForcedVerbosity;
+    }
+
+    /** Returns the map of the forced verbosity. */
+    public Map<String, LogLevel> getForcedVerbosityMap() {
+        return mForcedVerbosity;
+    }
 }

@@ -16,9 +16,9 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
+import android.platform.test.annotations.FlakyTest;
+
+import org.junit.Test;
 
 import java.util.Collections;
 
@@ -32,7 +32,7 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
     private int mCurrentUserId;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         mHasLauncherApps = getDevice().getApiLevel() >= 21;
 
@@ -45,13 +45,14 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasLauncherApps) {
             uninstallTestApps();
         }
         super.tearDown();
     }
 
+    @Test
     public void testInstallAppMainUser() throws Exception {
         if (!mHasLauncherApps) {
             return;
@@ -62,6 +63,8 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
     }
 
+    @FlakyTest
+    @Test
     public void testLauncherCallbackPackageAddedMainUser() throws Exception {
         if (!mHasLauncherApps) {
             return;
@@ -75,6 +78,8 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
     }
 
+    @FlakyTest
+    @Test
     public void testLauncherCallbackPackageRemovedMainUser() throws Exception {
         if (!mHasLauncherApps) {
             return;
@@ -88,6 +93,8 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
     }
 
+    @FlakyTest
+    @Test
     public void testLauncherCallbackPackageChangedMainUser() throws Exception {
         if (!mHasLauncherApps) {
             return;
@@ -101,6 +108,7 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
     }
 
+    @Test
     public void testLauncherNonExportedAppFails() throws Exception {
         if (!mHasLauncherApps) {
             return;
@@ -111,6 +119,7 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
     }
 
+    @Test
     public void testLaunchNonExportActivityFails() throws Exception {
         if (!mHasLauncherApps) {
             return;
@@ -121,6 +130,7 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
     }
 
+    @Test
     public void testLaunchMainActivity() throws Exception {
         if (!mHasLauncherApps) {
             return;

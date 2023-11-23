@@ -16,12 +16,20 @@
 
 package android.media.cts;
 
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.expectThrows;
+
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.os.Parcel;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+@NonMediaMainlineTest
 public class AudioAttributesTest extends CtsAndroidTestCase {
 
     // -----------------------------------------------------------------
@@ -80,6 +88,85 @@ public class AudioAttributesTest extends CtsAndroidTestCase {
         }
     }
 
+    // -----------------------------------------------------------------
+    // Builder tests
+    // ----------------------------------
+    public void testInvalidUsage() {
+        assertThrows(IllegalArgumentException.class,
+                () -> { new AudioAttributes.Builder()
+                        .setUsage(Integer.MIN_VALUE / 2) // some invalid value
+                        .build();
+                });
+    }
+
+    public void testInvalidContentType() {
+        assertThrows(IllegalArgumentException.class,
+                () -> {
+                    new AudioAttributes.Builder()
+                            .setContentType(Integer.MIN_VALUE / 2) // some invalid value
+                            .build();
+                } );
+    }
+
+    public void testDefaultUnknown() {
+        final AudioAttributes aa = new AudioAttributes.Builder()
+                .setFlags(AudioAttributes.ALLOW_CAPTURE_BY_ALL)
+                .build();
+        assertEquals("Unexpected default usage", AudioAttributes.USAGE_UNKNOWN, aa.getUsage());
+        assertEquals("Unexpected default content type",
+                AudioAttributes.CONTENT_TYPE_UNKNOWN, aa.getContentType());
+    }
+
+    // -----------------------------------------------------------------
+    // System usage tests
+    // ----------------------------------
+
+    public void testSetUsage_throwsWhenPassedSystemUsage()
+            throws NoSuchFieldException, IllegalAccessException {
+        int emergencySystemUsage = getEmergencySystemUsage();
+        AudioAttributes.Builder builder = new AudioAttributes.Builder();
+
+        assertThrows(IllegalArgumentException.class, () -> builder.setUsage(emergencySystemUsage));
+    }
+
+    public void testSetSystemUsage_throwsWhenPassedSdkUsage() {
+        InvocationTargetException e = expectThrows(InvocationTargetException.class, () -> {
+            setSystemUsage(new AudioAttributes.Builder(), AudioAttributes.USAGE_MEDIA);
+        });
+
+        assertEquals(IllegalArgumentException.class, e.getTargetException().getClass());
+    }
+
+    public void testBuild_throwsWhenSettingBothSystemAndSdkUsages()
+            throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException,
+            InvocationTargetException {
+        AudioAttributes.Builder builder = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA);
+        builder = setEmergencySystemUsage(builder);
+
+        assertThrows(IllegalArgumentException.class, builder::build);
+    }
+
+    public void testGetUsage_returnsUnknownWhenSystemUsageSet()
+            throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException,
+            InvocationTargetException {
+        AudioAttributes attributes = getAudioAttributesWithEmergencySystemUsage();
+
+        assertEquals(AudioAttributes.USAGE_UNKNOWN, attributes.getUsage());
+    }
+
+    public void testGetSystemUsage_returnsSetUsage()
+            throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+        AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .build();
+
+        assertEquals(AudioAttributes.USAGE_MEDIA, getSystemUsage(attributes));
+    }
+
+    // -----------------------------------------------------------------
+    // Capture policy tests
+    // ----------------------------------
     public void testAllowedCapturePolicy() throws Exception {
         for (int setPolicy : new int[] { AudioAttributes.ALLOW_CAPTURE_BY_ALL,
                                       AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM,
@@ -111,5 +198,43 @@ public class AudioAttributesTest extends CtsAndroidTestCase {
         AudioAttributes attr2 = builder2.build();
 
         assertEquals(attr1, attr2);
+    }
+
+    // -------------------------------------------------------------------
+    // Reflection helpers for accessing system usage methods and fields
+    // -------------------------------------------------------------------
+    private static AudioAttributes getAudioAttributesWithEmergencySystemUsage()
+            throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException,
+            InvocationTargetException {
+        AudioAttributes.Builder builder = new AudioAttributes.Builder();
+        builder = setEmergencySystemUsage(builder);
+        return builder.build();
+    }
+
+    private static AudioAttributes.Builder setEmergencySystemUsage(AudioAttributes.Builder builder)
+            throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException,
+            InvocationTargetException {
+        int emergencySystemUsage = getEmergencySystemUsage();
+        return setSystemUsage(builder, emergencySystemUsage);
+    }
+
+    private static AudioAttributes.Builder setSystemUsage(AudioAttributes.Builder builder,
+            int systemUsage)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Method setSystemUsageMethod = AudioAttributes.Builder.class
+                .getMethod("setSystemUsage", int.class);
+        return (AudioAttributes.Builder) setSystemUsageMethod.invoke(builder, systemUsage);
+    }
+
+    private static int getEmergencySystemUsage()
+            throws IllegalAccessException, NoSuchFieldException {
+        Field emergencyField = AudioAttributes.class.getDeclaredField("USAGE_EMERGENCY");
+        return emergencyField.getInt(null);
+    }
+
+    private static int getSystemUsage(AudioAttributes attributes)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Method getSystemUsageMethod = AudioAttributes.class.getMethod("getSystemUsage");
+        return (int) getSystemUsageMethod.invoke(attributes);
     }
 }

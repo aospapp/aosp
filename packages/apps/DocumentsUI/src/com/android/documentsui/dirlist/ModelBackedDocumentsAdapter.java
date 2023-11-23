@@ -33,8 +33,8 @@ import com.android.documentsui.Model;
 import com.android.documentsui.Model.Update;
 import com.android.documentsui.base.EventListener;
 import com.android.documentsui.base.Lookup;
-import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.roots.RootCursorWrapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -131,6 +131,7 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
 
         final String docMimeType = getCursorString(cursor, Document.COLUMN_MIME_TYPE);
         final int docFlags = getCursorInt(cursor, Document.COLUMN_FLAGS);
+        final int userIdIdentifier = getCursorInt(cursor, RootCursorWrapper.COLUMN_USER_ID);
 
         boolean enabled = mEnv.isDocumentEnabled(docMimeType, docFlags);
         boolean selected = mEnv.isSelected(modelId);
@@ -140,9 +141,9 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
         holder.setEnabled(enabled);
         holder.setSelected(mEnv.isSelected(modelId), false);
         holder.setAction(mEnv.getDisplayState().action);
-        holder.bindPreviewIcon(Shared.hasQuickViewer(mEnv.getContext())
-                        && mEnv.getDisplayState().shouldShowPreview() && enabled,
+        holder.bindPreviewIcon(mEnv.getDisplayState().shouldShowPreview() && enabled,
                 view -> mEnv.getActionHandler().previewItem(holder.getItemDetails()));
+        holder.bindBriefcaseIcon(mIconHelper.shouldShowBadge(userIdIdentifier));
 
         mEnv.onBindDocumentHolder(holder, cursor);
     }

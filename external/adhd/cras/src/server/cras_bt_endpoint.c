@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 The Chromium Authors. All rights reserved.
+/* Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -16,46 +16,55 @@
 #include "utlist.h"
 
 /* Defined by doc/media-api.txt in the BlueZ source */
-#define ENDPOINT_INTROSPECT_XML						\
-	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE			\
-	"<node>\n"							\
-	"  <interface name=\"org.bluez.MediaEndpoint\">\n"		\
-	"    <method name=\"SetConfiguration\">\n"			\
-	"      <arg name=\"transport\" type=\"o\" direction=\"in\"/>\n"	\
-	"      <arg name=\"configuration\" type=\"a{sv}\" direction=\"in\"/>\n"\
-	"    </method>\n"						\
-	"    <method name=\"SelectConfiguration\">\n"			\
-	"      <arg name=\"capabilities\" type=\"ay\" direction=\"in\"/>\n"\
-	"      <arg name=\"configuration\" type=\"ay\" direction=\"out\"/>\n"\
-	"    </method>\n"						\
-	"    <method name=\"ClearConfiguration\">\n"			\
-	"    </method>\n"						\
-	"    <method name=\"Release\">\n"				\
-	"    </method>\n"						\
-	"  </interface>\n"						\
-	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"	\
-	"    <method name=\"Introspect\">\n"				\
-	"      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"	\
-	"    </method>\n"						\
-	"  </interface>\n"						\
+#define ENDPOINT_INTROSPECT_XML                                                 \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                               \
+	"<node>\n"                                                              \
+	"  <interface name=\"org.bluez.MediaEndpoint\">\n"                      \
+	"    <method name=\"SetConfiguration\">\n"                              \
+	"      <arg name=\"transport\" type=\"o\" direction=\"in\"/>\n"         \
+	"      <arg name=\"configuration\" type=\"a{sv}\" direction=\"in\"/>\n" \
+	"    </method>\n"                                                       \
+	"    <method name=\"SelectConfiguration\">\n"                           \
+	"      <arg name=\"capabilities\" type=\"ay\" direction=\"in\"/>\n"     \
+	"      <arg name=\"configuration\" type=\"ay\" direction=\"out\"/>\n"   \
+	"    </method>\n"                                                       \
+	"    <method name=\"ClearConfiguration\">\n"                            \
+	"    </method>\n"                                                       \
+	"    <method name=\"Release\">\n"                                       \
+	"    </method>\n"                                                       \
+	"  </interface>\n"                                                      \
+	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"            \
+	"    <method name=\"Introspect\">\n"                                    \
+	"      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"             \
+	"    </method>\n"                                                       \
+	"  </interface>\n"                                                      \
 	"</node>\n"
-
 
 static void cras_bt_endpoint_suspend(struct cras_bt_endpoint *endpoint)
 {
+	struct cras_bt_transport *transport;
+
 	if (!endpoint->transport)
 		return;
 
 	endpoint->suspend(endpoint, endpoint->transport);
 
-	cras_bt_transport_set_endpoint(endpoint->transport, NULL);
+	transport = endpoint->transport;
+	cras_bt_transport_set_endpoint(transport, NULL);
 	endpoint->transport = NULL;
+
+	/*
+	 * If BT stack has notified this transport interface removed.
+	 * Destroy transport now since all related objects has been
+	 * cleaned up.
+	 */
+	if (cras_bt_transport_is_removed(transport))
+		cras_bt_transport_destroy(transport);
 }
 
-static DBusHandlerResult cras_bt_endpoint_set_configuration(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+cras_bt_endpoint_set_configuration(DBusConnection *conn, DBusMessage *message,
+				   void *arg)
 {
 	DBusMessageIter message_iter, properties_array_iter;
 	const char *endpoint_path, *transport_path;
@@ -85,16 +94,13 @@ static DBusHandlerResult cras_bt_endpoint_set_configuration(
 
 	transport = cras_bt_transport_get(transport_path);
 	if (transport) {
-		cras_bt_transport_update_properties(transport,
-						    &properties_array_iter,
-						    NULL);
+		cras_bt_transport_update_properties(
+			transport, &properties_array_iter, NULL);
 	} else {
 		transport = cras_bt_transport_create(conn, transport_path);
 		if (transport) {
 			cras_bt_transport_update_properties(
-				transport,
-				&properties_array_iter,
-				NULL);
+				transport, &properties_array_iter, NULL);
 			syslog(LOG_INFO, "Bluetooth Transport: %s added",
 			       cras_bt_transport_object_path(transport));
 		}
@@ -120,10 +126,9 @@ static DBusHandlerResult cras_bt_endpoint_set_configuration(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult cras_bt_endpoint_select_configuration(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+cras_bt_endpoint_select_configuration(DBusConnection *conn,
+				      DBusMessage *message, void *arg)
 {
 	DBusError dbus_error;
 	const char *endpoint_path;
@@ -143,9 +148,8 @@ static DBusHandlerResult cras_bt_endpoint_select_configuration(
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE,
-				   &capabilities, &len,
+	if (!dbus_message_get_args(message, &dbus_error, DBUS_TYPE_ARRAY,
+				   DBUS_TYPE_BYTE, &capabilities, &len,
 				   DBUS_TYPE_INVALID)) {
 		syslog(LOG_WARNING, "Bad SelectConfiguration method call: %s",
 		       dbus_error.message);
@@ -171,10 +175,8 @@ static DBusHandlerResult cras_bt_endpoint_select_configuration(
 	reply = dbus_message_new_method_return(message);
 	if (!reply)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	if (!dbus_message_append_args(reply,
-				      DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE,
-				      &configuration, len,
-				      DBUS_TYPE_INVALID))
+	if (!dbus_message_append_args(reply, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE,
+				      &configuration, len, DBUS_TYPE_INVALID))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	if (!dbus_connection_send(conn, reply, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -183,10 +185,9 @@ static DBusHandlerResult cras_bt_endpoint_select_configuration(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult cras_bt_endpoint_clear_configuration(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+cras_bt_endpoint_clear_configuration(DBusConnection *conn, DBusMessage *message,
+				     void *arg)
 {
 	DBusError dbus_error;
 	const char *endpoint_path, *transport_path;
@@ -204,9 +205,8 @@ static DBusHandlerResult cras_bt_endpoint_clear_configuration(
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   DBUS_TYPE_OBJECT_PATH, &transport_path,
-				   DBUS_TYPE_INVALID)) {
+	if (!dbus_message_get_args(message, &dbus_error, DBUS_TYPE_OBJECT_PATH,
+				   &transport_path, DBUS_TYPE_INVALID)) {
 		syslog(LOG_WARNING, "Bad ClearConfiguration method call: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
@@ -228,16 +228,14 @@ static DBusHandlerResult cras_bt_endpoint_clear_configuration(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult cras_bt_endpoint_release(DBusConnection *conn,
-						  DBusMessage *message,
-						  void *arg)
+static DBusHandlerResult
+cras_bt_endpoint_release(DBusConnection *conn, DBusMessage *message, void *arg)
 {
 	const char *endpoint_path;
 	struct cras_bt_endpoint *endpoint;
 	DBusMessage *reply;
 
-	syslog(LOG_DEBUG, "Release: %s",
-	       dbus_message_get_path(message));
+	syslog(LOG_DEBUG, "Release: %s", dbus_message_get_path(message));
 
 	endpoint_path = dbus_message_get_path(message);
 	endpoint = cras_bt_endpoint_get(endpoint_path);
@@ -265,8 +263,7 @@ static DBusHandlerResult cras_bt_handle_endpoint_message(DBusConnection *conn,
 	       dbus_message_get_interface(message),
 	       dbus_message_get_member(message));
 
-	if (dbus_message_is_method_call(message,
-					DBUS_INTERFACE_INTROSPECTABLE,
+	if (dbus_message_is_method_call(message, DBUS_INTERFACE_INTROSPECTABLE,
 					"Introspect")) {
 		DBusMessage *reply;
 		const char *xml = ENDPOINT_INTROSPECT_XML;
@@ -274,8 +271,7 @@ static DBusHandlerResult cras_bt_handle_endpoint_message(DBusConnection *conn,
 		reply = dbus_message_new_method_return(message);
 		if (!reply)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
-		if (!dbus_message_append_args(reply,
-					      DBUS_TYPE_STRING, &xml,
+		if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &xml,
 					      DBUS_TYPE_INVALID))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		if (!dbus_connection_send(conn, reply, NULL))
@@ -292,8 +288,8 @@ static DBusHandlerResult cras_bt_handle_endpoint_message(DBusConnection *conn,
 	} else if (dbus_message_is_method_call(message,
 					       BLUEZ_INTERFACE_MEDIA_ENDPOINT,
 					       "SelectConfiguration")) {
-		return cras_bt_endpoint_select_configuration(
-			conn, message, arg);
+		return cras_bt_endpoint_select_configuration(conn, message,
+							     arg);
 
 	} else if (dbus_message_is_method_call(message,
 					       BLUEZ_INTERFACE_MEDIA_ENDPOINT,
@@ -313,7 +309,6 @@ static DBusHandlerResult cras_bt_handle_endpoint_message(DBusConnection *conn,
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 }
-
 
 static void cras_bt_on_register_endpoint(DBusPendingCall *pending_call,
 					 void *data)
@@ -354,32 +349,29 @@ int cras_bt_register_endpoint(DBusConnection *conn,
 
 	adapter_path = cras_bt_adapter_object_path(adapter);
 
-	method_call = dbus_message_new_method_call(BLUEZ_SERVICE,
-						   adapter_path,
+	method_call = dbus_message_new_method_call(BLUEZ_SERVICE, adapter_path,
 						   BLUEZ_INTERFACE_MEDIA,
 						   "RegisterEndpoint");
 	if (!method_call)
 		return -ENOMEM;
 
 	dbus_message_iter_init_append(method_call, &message_iter);
-	dbus_message_iter_append_basic(&message_iter,
-				       DBUS_TYPE_OBJECT_PATH,
+	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
 				       &endpoint->object_path);
 
-	dbus_message_iter_open_container(&message_iter,
-					 DBUS_TYPE_ARRAY,
-					 DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
-					 DBUS_TYPE_STRING_AS_STRING
-					 DBUS_TYPE_VARIANT_AS_STRING
-					 DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
-					 &properties_array_iter);
+	dbus_message_iter_open_container(
+		&message_iter, DBUS_TYPE_ARRAY,
+		DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING
+			DBUS_TYPE_VARIANT_AS_STRING
+				DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+		&properties_array_iter);
 
 	key = "UUID";
 	dbus_message_iter_open_container(&properties_array_iter,
 					 DBUS_TYPE_DICT_ENTRY, NULL,
 					 &properties_dict_iter);
-	dbus_message_iter_append_basic(&properties_dict_iter,
-				       DBUS_TYPE_STRING, &key);
+	dbus_message_iter_append_basic(&properties_dict_iter, DBUS_TYPE_STRING,
+				       &key);
 	dbus_message_iter_open_container(&properties_dict_iter,
 					 DBUS_TYPE_VARIANT,
 					 DBUS_TYPE_STRING_AS_STRING,
@@ -394,8 +386,8 @@ int cras_bt_register_endpoint(DBusConnection *conn,
 	dbus_message_iter_open_container(&properties_array_iter,
 					 DBUS_TYPE_DICT_ENTRY, NULL,
 					 &properties_dict_iter);
-	dbus_message_iter_append_basic(&properties_dict_iter,
-				       DBUS_TYPE_STRING, &key);
+	dbus_message_iter_append_basic(&properties_dict_iter, DBUS_TYPE_STRING,
+				       &key);
 	dbus_message_iter_open_container(&properties_dict_iter,
 					 DBUS_TYPE_VARIANT,
 					 DBUS_TYPE_BYTE_AS_STRING,
@@ -410,16 +402,14 @@ int cras_bt_register_endpoint(DBusConnection *conn,
 	dbus_message_iter_open_container(&properties_array_iter,
 					 DBUS_TYPE_DICT_ENTRY, NULL,
 					 &properties_dict_iter);
-	dbus_message_iter_append_basic(&properties_dict_iter,
-				       DBUS_TYPE_STRING, &key);
-	dbus_message_iter_open_container(&properties_dict_iter,
-					 DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_ARRAY_AS_STRING
-					 DBUS_TYPE_BYTE_AS_STRING,
-					 &variant_iter);
+	dbus_message_iter_append_basic(&properties_dict_iter, DBUS_TYPE_STRING,
+				       &key);
+	dbus_message_iter_open_container(
+		&properties_dict_iter, DBUS_TYPE_VARIANT,
+		DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_BYTE_AS_STRING,
+		&variant_iter);
 	dbus_message_iter_open_container(&variant_iter, DBUS_TYPE_ARRAY,
-					 DBUS_TYPE_BYTE_AS_STRING,
-					 &bytes_iter);
+					 DBUS_TYPE_BYTE_AS_STRING, &bytes_iter);
 	dbus_message_iter_append_fixed_array(&bytes_iter, DBUS_TYPE_BYTE,
 					     &capabilities, len);
 	dbus_message_iter_close_container(&variant_iter, &bytes_iter);
@@ -440,9 +430,8 @@ int cras_bt_register_endpoint(DBusConnection *conn,
 	if (!pending_call)
 		return -EIO;
 
-	if (!dbus_pending_call_set_notify(pending_call,
-					  cras_bt_on_register_endpoint,
-					  NULL, NULL)) {
+	if (!dbus_pending_call_set_notify(
+		    pending_call, cras_bt_on_register_endpoint, NULL, NULL)) {
 		dbus_pending_call_cancel(pending_call);
 		dbus_pending_call_unref(pending_call);
 		return -ENOMEM;
@@ -479,15 +468,13 @@ int cras_bt_unregister_endpoint(DBusConnection *conn,
 
 	adapter_path = cras_bt_adapter_object_path(adapter);
 
-	method_call = dbus_message_new_method_call(BLUEZ_SERVICE,
-						   adapter_path,
+	method_call = dbus_message_new_method_call(BLUEZ_SERVICE, adapter_path,
 						   BLUEZ_INTERFACE_MEDIA,
 						   "UnregisterEndpoint");
 	if (!method_call)
 		return -ENOMEM;
 
-	if (!dbus_message_append_args(method_call,
-				      DBUS_TYPE_OBJECT_PATH,
+	if (!dbus_message_append_args(method_call, DBUS_TYPE_OBJECT_PATH,
 				      &endpoint->object_path,
 				      DBUS_TYPE_INVALID))
 		return -ENOMEM;
@@ -502,9 +489,8 @@ int cras_bt_unregister_endpoint(DBusConnection *conn,
 	if (!pending_call)
 		return -EIO;
 
-	if (!dbus_pending_call_set_notify(pending_call,
-					  cras_bt_on_unregister_endpoint,
-					  NULL, NULL)) {
+	if (!dbus_pending_call_set_notify(
+		    pending_call, cras_bt_on_unregister_endpoint, NULL, NULL)) {
 		dbus_pending_call_cancel(pending_call);
 		dbus_pending_call_unref(pending_call);
 		return -ENOMEM;
@@ -512,7 +498,6 @@ int cras_bt_unregister_endpoint(DBusConnection *conn,
 
 	return 0;
 }
-
 
 /* Available endpoints */
 static struct cras_bt_endpoint *endpoints;
@@ -522,7 +507,7 @@ int cras_bt_register_endpoints(DBusConnection *conn,
 {
 	struct cras_bt_endpoint *endpoint;
 
-	DL_FOREACH(endpoints, endpoint)
+	DL_FOREACH (endpoints, endpoint)
 		cras_bt_register_endpoint(conn, adapter, endpoint);
 
 	return 0;
@@ -543,8 +528,7 @@ int cras_bt_endpoint_add(DBusConnection *conn,
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_connection_register_object_path(conn,
-						  endpoint->object_path,
+	if (!dbus_connection_register_object_path(conn, endpoint->object_path,
 						  &endpoint_vtable,
 						  &dbus_error)) {
 		syslog(LOG_WARNING,
@@ -582,7 +566,7 @@ void cras_bt_endpoint_reset()
 {
 	struct cras_bt_endpoint *endpoint;
 
-	DL_FOREACH(endpoints, endpoint)
+	DL_FOREACH (endpoints, endpoint)
 		cras_bt_endpoint_suspend(endpoint);
 }
 
@@ -590,7 +574,7 @@ struct cras_bt_endpoint *cras_bt_endpoint_get(const char *object_path)
 {
 	struct cras_bt_endpoint *endpoint;
 
-	DL_FOREACH(endpoints, endpoint) {
+	DL_FOREACH (endpoints, endpoint) {
 		if (strcmp(endpoint->object_path, object_path) == 0)
 			return endpoint;
 	}

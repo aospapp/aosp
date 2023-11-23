@@ -46,6 +46,7 @@ void ThreadTree::ForkThread(int pid, int tid, int ppid, int ptid) {
     if (child->maps->maps.empty()) {
       *child->maps = *parent->maps;
     } else {
+      CHECK_NE(child->maps, parent->maps);
       for (auto& pair : parent->maps->maps) {
         InsertMap(*child->maps, *pair.second);
       }
@@ -53,39 +54,51 @@ void ThreadTree::ForkThread(int pid, int tid, int ppid, int ptid) {
   }
 }
 
+ThreadEntry* ThreadTree::FindThread(int tid) {
+  if (auto it = thread_tree_.find(tid); it != thread_tree_.end()) {
+    return it->second.get();
+  }
+  return nullptr;
+}
+
 ThreadEntry* ThreadTree::FindThreadOrNew(int pid, int tid) {
   auto it = thread_tree_.find(tid);
-  if (it == thread_tree_.end()) {
-    return CreateThread(pid, tid);
-  } else {
-    if (pid != it->second.get()->pid) {
-      // TODO: b/22185053.
-      LOG(DEBUG) << "unexpected (pid, tid) pair: expected ("
-                 << it->second.get()->pid << ", " << tid << "), actual (" << pid
-                 << ", " << tid << ")";
-    }
+  if (it != thread_tree_.end() && pid == it->second.get()->pid) {
+    return it->second.get();
   }
-  return it->second.get();
+  if (it != thread_tree_.end()) {
+    ExitThread(it->second.get()->pid, tid);
+  }
+  return CreateThread(pid, tid);
 }
 
 ThreadEntry* ThreadTree::CreateThread(int pid, int tid) {
-  MapSet* maps = nullptr;
+  const char* comm;
+  std::shared_ptr<MapSet> maps;
   if (pid == tid) {
-    maps = new MapSet;
-    map_set_storage_.push_back(std::unique_ptr<MapSet>(maps));
+    comm = "unknown";
+    maps.reset(new MapSet);
   } else {
     // Share maps among threads in the same thread group.
     ThreadEntry* process = FindThreadOrNew(pid, pid);
+    comm = process->comm;
     maps = process->maps;
   }
   ThreadEntry* thread = new ThreadEntry{
     pid, tid,
-    "unknown",
+    comm,
     maps,
   };
   auto pair = thread_tree_.insert(std::make_pair(tid, std::unique_ptr<ThreadEntry>(thread)));
   CHECK(pair.second);
   return thread;
+}
+
+void ThreadTree::ExitThread(int pid, int tid) {
+  auto it = thread_tree_.find(tid);
+  if (it != thread_tree_.end() && pid == it->second.get()->pid) {
+    thread_tree_.erase(it);
+  }
 }
 
 void ThreadTree::AddKernelMap(uint64_t start_addr, uint64_t len, uint64_t pgoff,
@@ -182,9 +195,9 @@ void ThreadTree::InsertMap(MapSet& maps, const MapEntry& entry) {
   maps.version++;
 }
 
-static const MapEntry* FindMapByAddr(const MapSet& maps, uint64_t addr) {
-  auto it = maps.maps.upper_bound(addr);
-  if (it != maps.maps.begin()) {
+const MapEntry* MapSet::FindMapByAddr(uint64_t addr) const {
+  auto it = maps.upper_bound(addr);
+  if (it != maps.begin()) {
     --it;
     if (it->second->get_end_addr() > addr) {
       return it->second;
@@ -196,19 +209,19 @@ static const MapEntry* FindMapByAddr(const MapSet& maps, uint64_t addr) {
 const MapEntry* ThreadTree::FindMap(const ThreadEntry* thread, uint64_t ip, bool in_kernel) {
   const MapEntry* result = nullptr;
   if (!in_kernel) {
-    result = FindMapByAddr(*thread->maps, ip);
+    result = thread->maps->FindMapByAddr(ip);
   } else {
-    result = FindMapByAddr(kernel_maps_, ip);
+    result = kernel_maps_.FindMapByAddr(ip);
   }
   return result != nullptr ? result : &unknown_map_;
 }
 
 const MapEntry* ThreadTree::FindMap(const ThreadEntry* thread, uint64_t ip) {
-  const MapEntry* result = FindMapByAddr(*thread->maps, ip);
+  const MapEntry* result = thread->maps->FindMapByAddr(ip);
   if (result != nullptr) {
     return result;
   }
-  result = FindMapByAddr(kernel_maps_, ip);
+  result = kernel_maps_.FindMapByAddr(ip);
   return result != nullptr ? result : &unknown_map_;
 }
 
@@ -260,7 +273,6 @@ const Symbol* ThreadTree::FindKernelSymbol(uint64_t ip) {
 void ThreadTree::ClearThreadAndMap() {
   thread_tree_.clear();
   thread_comm_storage_.clear();
-  map_set_storage_.clear();
   kernel_maps_.maps.clear();
   map_storage_.clear();
 }
@@ -313,6 +325,9 @@ void ThreadTree::Update(const Record& record) {
   } else if (record.type() == PERF_RECORD_FORK) {
     const ForkRecord& r = *static_cast<const ForkRecord*>(&record);
     ForkThread(r.data->pid, r.data->tid, r.data->ppid, r.data->ptid);
+  } else if (record.type() == PERF_RECORD_EXIT) {
+    const ExitRecord& r = *static_cast<const ExitRecord*>(&record);
+    ExitThread(r.data->pid, r.data->tid);
   } else if (record.type() == SIMPLE_PERF_RECORD_KERNEL_SYMBOL) {
     const auto& r = *static_cast<const KernelSymbolRecord*>(&record);
     Dso::SetKallsyms(std::move(r.kallsyms));
@@ -330,14 +345,6 @@ std::vector<Dso*> ThreadTree::GetAllDsos() const {
   }
   result.push_back(unknown_dso_.get());
   return result;
-}
-
-std::vector<const ThreadEntry*> ThreadTree::GetAllThreads() const {
-  std::vector<const ThreadEntry*> threads;
-  for (auto& pair : thread_tree_) {
-    threads.push_back(pair.second.get());
-  }
-  return threads;
 }
 
 }  // namespace simpleperf

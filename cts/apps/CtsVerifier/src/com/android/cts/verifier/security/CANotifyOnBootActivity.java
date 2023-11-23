@@ -4,6 +4,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -13,16 +14,9 @@ import android.widget.Toast;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-
 public class CANotifyOnBootActivity extends PassFailButtons.Activity {
 
     private static final String TAG = CANotifyOnBootActivity.class.getSimpleName();
-    private static final String CERT_ASSET_NAME = "myCA.cer";
-    private File certStagingFile = new File("/sdcard/", CERT_ASSET_NAME);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,29 +53,12 @@ public class CANotifyOnBootActivity extends PassFailButtons.Activity {
     class InstallCert implements OnClickListener {
         @Override
         public void onClick(View v) {
-            InputStream is = null;
-            FileOutputStream os = null;
-            try {
-                try {
-                    is = getAssets().open(CERT_ASSET_NAME);
-                    os = new FileOutputStream(certStagingFile);
-                    byte[] buffer = new byte[1024];
-                    int length;
-                    while ((length = is.read(buffer)) > 0) {
-                        os.write(buffer, 0, length);
-                    }
-                } finally {
-                    if (is != null) is.close();
-                    if (os != null) os.close();
-                    certStagingFile.setReadable(true, false);
-                }
-            } catch (IOException ioe) {
-                Log.w(TAG, "Problem moving cert file to /sdcard/", ioe);
+            if (!CACertWriter.extractCertToDownloads(getApplicationContext(), getAssets())) {
                 return;
             }
 
             try {
-                startActivity(new Intent("android.credentials.INSTALL"));
+                startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS));
             } catch (ActivityNotFoundException e) {
                 // do nothing
             }

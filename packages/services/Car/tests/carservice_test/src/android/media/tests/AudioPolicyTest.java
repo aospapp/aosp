@@ -32,9 +32,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -51,7 +51,7 @@ public class AudioPolicyTest {
     private static final long WAIT_TIMEOUT_MS = 1000;
     private AudioManager mAudioManager;
     private Handler mHandler;
-    private Context mContext = InstrumentationRegistry.getContext();
+    private Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
 
     @Before
     public void setUp() throws Exception {
@@ -68,7 +68,8 @@ public class AudioPolicyTest {
     public void testAudioPorts() throws Exception {
         AudioPortUpdateListener listener = new AudioPortUpdateListener();
         mAudioManager.registerAudioPortUpdateListener(listener);
-        ArrayList<AudioPort> initialPorts = dumpAudioPorts("initial state");
+        // TODO(b/142554800): assert ports
+        dumpAudioPorts("initial state");
         AudioMix mediaMix = createAudioMix(AudioAttributes.CONTENT_TYPE_UNKNOWN,
                 AudioAttributes.CONTENT_TYPE_MUSIC);
         AudioPolicy audioPolicy = new AudioPolicy.Builder(mContext)
@@ -78,7 +79,7 @@ public class AudioPolicyTest {
         mAudioManager.registerAudioPolicy(audioPolicy);
         dumpAudioPorts("policy set");
         mAudioManager.unregisterAudioPolicyAsync(audioPolicy);
-        ArrayList<AudioPort> afterUnregisterPorts = dumpAudioPorts("policy unset");
+        dumpAudioPorts("policy unset");
         mAudioManager.unregisterAudioPortUpdateListener(listener);
     }
 
@@ -87,7 +88,7 @@ public class AudioPolicyTest {
         ArrayList<AudioPort> ports = new ArrayList<>();
         assertEquals(AudioManager.SUCCESS, AudioManager.listAudioPorts(ports));
         for (AudioPort port : ports) {
-            Log.i(TAG, "port:" + port.toString() + " name:" + port.name());
+            Log.i(TAG, "port:" + port + " name:" + port.name());
         }
         return ports;
     }

@@ -73,7 +73,7 @@ public class RecyclerViewUtil {
         } catch (ReflectionException e) {
             Throwable cause = getCause(e);
             Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                    "Error occurred while trying to setup RecyclerView.", cause, null);
+                    "Error occurred while trying to setup RecyclerView.", cause, null, null);
         }
     }
 

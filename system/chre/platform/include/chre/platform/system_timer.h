@@ -31,7 +31,7 @@ namespace chre {
  * @param The data pointer here is passed in by the entity that requested the
  *        timer and is used to provided a context in the callback.
  */
-typedef void (SystemTimerCallback)(void *data);
+typedef void(SystemTimerCallback)(void *data);
 
 /**
  * Abstracts a system timer from the underlying platform, which will invoke the
@@ -41,8 +41,7 @@ typedef void (SystemTimerCallback)(void *data);
  * responsible for ensuring that it handles this potential concurrency
  * appropriately.
  */
-class SystemTimer : public SystemTimerBase,
-                    public NonCopyable {
+class SystemTimer : public SystemTimerBase, public NonCopyable {
  public:
   /**
    * Allows the platform to construct a timer.

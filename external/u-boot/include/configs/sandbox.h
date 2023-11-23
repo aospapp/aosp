@@ -8,11 +8,11 @@
 
 #ifdef FTRACE
 #define CONFIG_TRACE
+#define CONFIG_CMD_TRACE
 #define CONFIG_TRACE_BUFFER_SIZE	(16 << 20)
-#define CONFIG_TRACE_EARLY_SIZE		(8 << 20)
+#define CONFIG_TRACE_EARLY_SIZE		(16 << 20)
 #define CONFIG_TRACE_EARLY
 #define CONFIG_TRACE_EARLY_ADDR		0x00100000
-
 #endif
 
 #ifndef CONFIG_SPL_BUILD
@@ -37,8 +37,6 @@
 
 /* turn on command-line edit/c/auto */
 
-#define CONFIG_ENV_SIZE		8192
-
 /* SPI - enable all SPI flash types for testing purposes */
 
 #define CONFIG_I2C_EDID
@@ -55,7 +53,6 @@
 #define CONFIG_SYS_SDRAM_BASE		0
 #define CONFIG_SYS_SDRAM_SIZE		(128 << 20)
 #define CONFIG_SYS_MONITOR_BASE	0
-#define CONFIG_NR_DRAM_BANKS		1
 
 #define CONFIG_SYS_BAUDRATE_TABLE	{4800, 9600, 19200, 38400, 57600,\
 					115200}
@@ -64,7 +61,11 @@
 	func(HOST, host, 1) \
 	func(HOST, host, 0)
 
+#ifdef __ASSEMBLY__
+#define BOOTENV
+#else
 #include <config_distro_bootcmd.h>
+#endif
 
 #define CONFIG_KEEP_SERVERADDR
 #define CONFIG_UDP_CHECKSUM
@@ -72,7 +73,6 @@
 #define CONFIG_BOOTP_DNS2
 #define CONFIG_BOOTP_SEND_HOSTNAME
 #define CONFIG_BOOTP_SERVERIP
-#define CONFIG_IP_DEFRAG
 
 #ifndef SANDBOX_NO_SDL
 #define CONFIG_SANDBOX_SDL

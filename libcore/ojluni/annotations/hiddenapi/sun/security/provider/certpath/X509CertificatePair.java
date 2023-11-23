@@ -43,7 +43,7 @@ public class X509CertificatePair {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static synchronized void clearCache() {
         throw new RuntimeException("Stub!");
     }

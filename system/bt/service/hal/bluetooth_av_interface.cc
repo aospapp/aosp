@@ -46,11 +46,11 @@ GetA2dpSourceObservers();
 base::ObserverList<BluetoothAvInterface::A2dpSinkObserver>*
 GetA2dpSinkObservers();
 
-#define VERIFY_INTERFACE_OR_RETURN()                                   \
+#define VERIFY_INTERFACE_OR_RETURN(...)                                \
   do {                                                                 \
     if (!g_interface) {                                                \
       LOG(WARNING) << "Callback received while |g_interface| is NULL"; \
-      return;                                                          \
+      return __VA_ARGS__;                                              \
     }                                                                  \
   } while (0)
 
@@ -88,6 +88,17 @@ void SourceAudioConfigCallback(
   }
 }
 
+bool SourceMandatoryCodecPreferredCallback(const RawAddress& bd_addr) {
+  VERIFY_INTERFACE_OR_RETURN(false);
+  // The mandatory codec is preferred only when all observers disable their
+  // optional codecs.
+  for (auto& observer : *GetA2dpSourceObservers()) {
+    if (!observer.MandatoryCodecPreferredCallback(g_interface, bd_addr))
+      return false;
+  }
+  return true;
+}
+
 void SinkConnectionStateCallback(const RawAddress& bd_addr,
                                  btav_connection_state_t state) {
   std::shared_lock<shared_mutex_impl> lock(g_instance_lock);
@@ -121,6 +132,7 @@ btav_source_callbacks_t av_source_callbacks = {
     .connection_state_cb = SourceConnectionStateCallback,
     .audio_state_cb = SourceAudioStateCallback,
     .audio_config_cb = SourceAudioConfigCallback,
+    .mandatory_codec_preferred_cb = SourceMandatoryCodecPreferredCallback,
 };
 
 btav_sink_callbacks_t av_sink_callbacks = {
@@ -146,9 +158,11 @@ class BluetoothAvInterfaceImpl : public BluetoothAvInterface {
 
     // Right now we only support one connected audio device.
     int max_connected_audio_devices = 1;
+    std::vector<btav_a2dp_codec_config_t> offloading_preference(0);
     if (hal_source_iface_->init(
             &av_source_callbacks, max_connected_audio_devices,
-            std::move(codec_priorities)) != BT_STATUS_SUCCESS) {
+            std::move(codec_priorities),
+            std::move(offloading_preference)) != BT_STATUS_SUCCESS) {
       LOG(ERROR) << "Failed to initialize HAL A2DP source interface";
       return false;
     }
@@ -293,6 +307,12 @@ void BluetoothAvInterface::A2dpSourceObserver::AudioConfigCallback(
     const std::vector<btav_a2dp_codec_config_t>
         codecs_selectable_capabilities) {
   // Do nothing.
+}
+
+bool BluetoothAvInterface::A2dpSourceObserver::MandatoryCodecPreferredCallback(
+    BluetoothAvInterface* iface, const RawAddress& bd_addr) {
+  // Do nothing.
+  return false;
 }
 
 void BluetoothAvInterface::A2dpSinkObserver::ConnectionStateCallback(

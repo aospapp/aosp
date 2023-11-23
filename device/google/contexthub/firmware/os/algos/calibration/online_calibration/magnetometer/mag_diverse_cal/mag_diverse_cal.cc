@@ -16,12 +16,13 @@
 
 #include "calibration/online_calibration/magnetometer/mag_diverse_cal/mag_diverse_cal.h"
 
+#ifdef MAG_CAL_DEBUG_ENABLE
 #include "calibration/util/cal_log.h"
+#endif  // MAG_CAL_DEBUG_ENABLE
 
 namespace online_calibration {
 
 // Empirically estimated upper bounds on offset error.
-constexpr float MagDiverseCal::kLowQualityUt;
 constexpr float MagDiverseCal::kHighQualityUt;
 
 void MagDiverseCal::Initialize(
@@ -71,8 +72,10 @@ bool MagDiverseCal::SetInitialCalibration(
     const CalibrationDataThreeAxis& input_cal_data) {
   // Checks that the input calibration type matches the algorithm type.
   if (input_cal_data.type != get_sensor_type()) {
+#ifdef MAG_CAL_DEBUG_ENABLE
     CAL_DEBUG_LOG("[MagDiverseCal]",
                   "SetInitialCalibration failed due to wrong sensor type.");
+#endif  // MAG_CAL_DEBUG_ENABLE
     return false;
   }
 

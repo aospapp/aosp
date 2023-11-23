@@ -16,9 +16,11 @@
 
 package com.android.tv.settings.device.display.daydream;
 
-import static android.provider.Settings.Secure.SLEEP_TIMEOUT;
 import static android.provider.Settings.System.SCREEN_OFF_TIMEOUT;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -54,14 +56,12 @@ public class DaydreamFragment extends SettingsPreferenceFragment
 
     private static final String KEY_ACTIVE_DREAM = "activeDream";
     private static final String KEY_DREAM_TIME = "dreamTime";
-    private static final String KEY_SLEEP_TIME = "sleepTime";
     private static final String KEY_DREAM_NOW = "dreamNow";
 
     private static final String DREAM_COMPONENT_NONE = "NONE";
     private static final String PACKAGE_SCHEME = "package";
 
     private static final int DEFAULT_DREAM_TIME_MS = (int) (30 * DateUtils.MINUTE_IN_MILLIS);
-    private static final int DEFAULT_SLEEP_TIME_MS = (int) (3 * DateUtils.HOUR_IN_MILLIS);
 
     private final PackageReceiver mPackageReceiver = new PackageReceiver();
 
@@ -106,16 +106,15 @@ public class DaydreamFragment extends SettingsPreferenceFragment
 
         final ListPreference activeDreamPref = (ListPreference) findPreference(KEY_ACTIVE_DREAM);
         refreshActiveDreamPref(activeDreamPref);
-        activeDreamPref.setOnPreferenceChangeListener(this);
+        if (activeDreamPref != null) {
+            activeDreamPref.setOnPreferenceChangeListener(this);
+        }
 
         final ListPreference dreamTimePref = (ListPreference) findPreference(KEY_DREAM_TIME);
-        dreamTimePref.setValue(Integer.toString(getDreamTime()));
-        dreamTimePref.setOnPreferenceChangeListener(this);
-
-        final ListPreference sleepTimePref = (ListPreference) findPreference(KEY_SLEEP_TIME);
-        sleepTimePref.setValue(Integer.toString(getSleepTime()));
-        sleepTimePref.setOnPreferenceChangeListener(this);
-
+        if (dreamTimePref != null) {
+            dreamTimePref.setValue(Integer.toString(getDreamTime()));
+            dreamTimePref.setOnPreferenceChangeListener(this);
+        }
         final Preference dreamNowPref = findPreference(KEY_DREAM_NOW);
         dreamNowPref.setEnabled(mBackend.isEnabled());
     }
@@ -125,11 +124,15 @@ public class DaydreamFragment extends SettingsPreferenceFragment
         final CharSequence[] dreamEntries = new CharSequence[infos.size() + 1];
         final CharSequence[] dreamEntryValues = new CharSequence[infos.size() + 1];
         refreshDreamInfoMap(infos, dreamEntries, dreamEntryValues);
-        activeDreamPref.setEntries(dreamEntries);
-        activeDreamPref.setEntryValues(dreamEntryValues);
+        if (activeDreamPref != null) {
+            activeDreamPref.setEntries(dreamEntries);
+            activeDreamPref.setEntryValues(dreamEntryValues);
+        }
         final ComponentName currentDreamComponent = mBackend.getActiveDream();
-        activeDreamPref.setValue(mBackend.isEnabled() && currentDreamComponent != null
-                ? currentDreamComponent.toShortString() : DREAM_COMPONENT_NONE);
+        if (activeDreamPref != null) {
+            activeDreamPref.setValue(mBackend.isEnabled() && currentDreamComponent != null
+                    ? currentDreamComponent.toShortString() : DREAM_COMPONENT_NONE);
+        }
     }
 
     private void refreshDreamInfoMap(List<DreamBackend.DreamInfo> infos,
@@ -151,13 +154,15 @@ public class DaydreamFragment extends SettingsPreferenceFragment
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         switch (preference.getKey()) {
             case KEY_ACTIVE_DREAM:
+                logEntrySelected(TvSettingsEnums.PREFERENCES_SCREENSAVER_CHOOSER);
                 setActiveDream((String) newValue);
                 break;
             case KEY_DREAM_TIME:
-                setDreamTime(Integer.parseInt((String) newValue));
-                break;
-            case KEY_SLEEP_TIME:
-                setSleepTime(Integer.parseInt((String) newValue));
+                final int sleepTimeout = Integer.parseInt((String) newValue);
+                if (getSleepTimeoutEntryId(sleepTimeout) != -1) {
+                    logEntrySelected(getSleepTimeoutEntryId(sleepTimeout));
+                }
+                setDreamTime(sleepTimeout);
                 break;
         }
         return true;
@@ -190,22 +195,13 @@ public class DaydreamFragment extends SettingsPreferenceFragment
 
     private void setDreamTime(int ms) {
         Settings.System.putInt(getActivity().getContentResolver(), SCREEN_OFF_TIMEOUT, ms);
-
-    }
-
-    private int getSleepTime() {
-        return Settings.Secure.getInt(getActivity().getContentResolver(), SLEEP_TIMEOUT,
-                DEFAULT_SLEEP_TIME_MS);
-    }
-
-    private void setSleepTime(int ms) {
-        Settings.Secure.putInt(getActivity().getContentResolver(), SLEEP_TIMEOUT, ms);
     }
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
         switch (preference.getKey()) {
             case KEY_DREAM_NOW:
+                logEntrySelected(TvSettingsEnums.PREFERENCES_SCREENSAVER_START_NOW);
                 mBackend.startDreaming();
                 return true;
             default:
@@ -229,11 +225,6 @@ public class DaydreamFragment extends SettingsPreferenceFragment
             dreamTimePref.setValue(Integer.toString(getDreamTime()));
         }
 
-        final ListPreference sleepTimePref = (ListPreference) findPreference(KEY_SLEEP_TIME);
-        if (sleepTimePref != null) {
-            sleepTimePref.setValue(Integer.toString(getSleepTime()));
-        }
-
         final Preference dreamNowPref = findPreference(KEY_DREAM_NOW);
         if (dreamNowPref != null) {
             dreamNowPref.setEnabled(mBackend.isEnabled());
@@ -252,4 +243,26 @@ public class DaydreamFragment extends SettingsPreferenceFragment
         }
     }
 
+    // Map @array/sleep_timeout_entries to defined log enum
+    private int getSleepTimeoutEntryId(int sleepTimeout) {
+        switch(sleepTimeout) {
+            case 300000:
+                return TvSettingsEnums.PREFERENCES_SCREENSAVER_START_DELAY_5M;
+            case 900000:
+                return TvSettingsEnums.PREFERENCES_SCREENSAVER_START_DELAY_15M;
+            case 1800000:
+                return TvSettingsEnums.PREFERENCES_SCREENSAVER_START_DELAY_30M;
+            case 3600000:
+                return TvSettingsEnums.PREFERENCES_SCREENSAVER_START_DELAY_1H;
+            case 7200000:
+                return TvSettingsEnums.PREFERENCES_SCREENSAVER_START_DELAY_2H;
+            default:
+                return -1;
+        }
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.PREFERENCES_SCREENSAVER;
+    }
 }

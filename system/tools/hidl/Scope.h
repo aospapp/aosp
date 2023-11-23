@@ -21,6 +21,7 @@
 #include "NamedType.h"
 
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -33,7 +34,8 @@ struct Interface;
 struct LocalIdentifier;
 
 struct Scope : public NamedType {
-    Scope(const char* localName, const FQName& fullName, const Location& location, Scope* parent);
+    Scope(const std::string& localName, const FQName& fullName, const Location& location,
+          Scope* parent);
     virtual ~Scope();
 
     void addType(NamedType* type);
@@ -58,8 +60,7 @@ struct Scope : public NamedType {
     void setAnnotations(std::vector<Annotation*>* annotations);
 
     std::vector<const Type*> getDefinedTypes() const override;
-
-    std::vector<const ConstantExpression*> getConstantExpressions() const override;
+    std::vector<const NamedType*> getSortedDefinedTypes() const;
 
     void topologicalReorder(const std::unordered_map<const Type*, size_t>& reversedOrder);
 
@@ -68,6 +69,8 @@ struct Scope : public NamedType {
     void emitPackageTypeDeclarations(Formatter& out) const override;
     void emitPackageTypeHeaderDefinitions(Formatter& out) const override;
     void emitPackageHwDeclarations(Formatter& out) const override;
+
+    void emitHidlDefinition(Formatter& out) const override;
 
     void emitJavaTypeDeclarations(Formatter& out, bool atTopLevel) const override;
 
@@ -82,7 +85,7 @@ struct Scope : public NamedType {
     void appendToExportedTypesVector(
             std::vector<const Type *> *exportedTypes) const override;
 
-   private:
+  private:
     std::vector<NamedType *> mTypes;
     std::map<std::string, size_t> mTypeIndexByName;
     std::vector<Annotation*> mAnnotations;

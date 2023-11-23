@@ -510,7 +510,7 @@ class power_Consumption(test.test):
             raise error.TestError('on AC changed between start & stop of test')
 
         if not on_ac:
-            whrs = self._power_status.battery[0].energy_full_design
+            whrs = self._power_status.battery.energy_full_design
             logging.info("energy_full_design = %0.3f Wh", whrs)
 
             # Calculate expected battery life time with ChromeVer power draw

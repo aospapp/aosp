@@ -19,10 +19,10 @@ gu{
         "[અ {અ\u0A82} {અઃ} આ ઇ ઈ ઉ ઊ ઋ ઍ એ ઐ ઑ ઓ ઔ ક {ક\u0ACDષ} ખ ગ ઘ ઙ ચ છ જ {જ"
         "\u0ACDઞ} ઝ ઞ ટ ઠ ડ ઢ ણ ત {ત\u0ACDર} થ દ ધ ન પ ફ બ ભ મ ય ર લ વ શ ષ સ હ ળ]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0૦ 1૧ 2૨ 3૩ 4૪ 5૫ 6૬ 7૭ 8૮ 9૯]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0૦ 1૧ 2૨ 3૩ 4૪ 5૫ 6૬ 7૭ 8૮ 9૯]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -252,7 +252,7 @@ gu{
         minimumGroupingDigits{"1"}
         native{"gujr"}
     }
-    Version{"2.1.44.2"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -553,6 +553,33 @@ gu{
                 yyyyQQQQ{"QQQQ G y"}
             }
             intervalFormats{
+                GyMEd{
+                    G{"GGGGG y-dd-MM, E – GGGGG y-dd-MM, E"}
+                    M{"GGGGG y-dd-MM, E – y-dd-MM, E"}
+                    d{"E, M/d/y – E, M/d/y GGGGG"}
+                    y{"GGGGG y-dd-MM, E – y-dd-MM, E"}
+                }
+                GyMMM{
+                    M{"G y MMM – MMM"}
+                }
+                GyMMMEd{
+                    G{"G y d MMM, E – G y d MMM, E"}
+                    M{"G y d MMM, E – d MMM, E"}
+                    d{"G y d MMM, E – d MMM, E"}
+                    y{"G y d MMM, E – y d MMM , E"}
+                }
+                GyMMMd{
+                    G{"G y d MMM – G y d MMM"}
+                    M{"G y d MMM – d MMM"}
+                    d{"G y d–d MMM"}
+                    y{"G y d MMM – y d MMM"}
+                }
+                GyMd{
+                    G{"GGGGG y-dd-MM – GGGGG y-dd-MM"}
+                    M{"GGGGG y-dd-MM – y-dd-MM"}
+                    d{"GGGGG y-dd-MM – y-dd-MM"}
+                    y{"GGGGG y-dd-MM – y-dd-MM"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -705,8 +732,8 @@ gu{
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMW{
-                    one{"MMM ના W અઠવાડિયા"}
-                    other{"MMM ના W અઠવાડિયા"}
+                    one{"MMMMના W અઠવાડિયા"}
+                    other{"MMMMના W અઠવાડિયા"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -890,6 +917,36 @@ gu{
                 }
             }
             intervalFormats{
+                Bh{
+                    h{"h – h B"}
+                }
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                GyMEd{
+                    G{"GGGGG y-dd-MM, E – GGGGG y-dd-MM, E"}
+                    M{"GGGGG y-dd-MM, E – y-dd-MM, E"}
+                    d{"GGGGG y-dd-MM, E – y-dd-MM, E"}
+                }
+                GyMMMEd{
+                    G{"G y d MMM, E – G y d MMM, E"}
+                    M{"G y d MMM, E – d MMM, E"}
+                    d{"G y d MMM, E – d MMM, E"}
+                    y{"G y d MMM, E – y d MMM , E"}
+                }
+                GyMMMd{
+                    G{"G y d MMM – G y d MMM"}
+                    M{"G y d MMM – d MMM"}
+                    d{"G y d–d MMM"}
+                    y{"G y d MMM – y d MMM"}
+                }
+                GyMd{
+                    G{"GGGGG y-dd-MM – GGGGG y-dd-MM"}
+                    M{"GGGGG y-dd-MM – y-dd-MM"}
+                    d{"GGGGG y-dd-MM – y-dd-MM"}
+                    y{"GGGGG y-dd-MM – y-dd-MM"}
+                }
                 H{
                     H{"HH – HH"}
                 }
@@ -1533,7 +1590,7 @@ gu{
                         "12",
                     }
                     wide{
-                        "Farvardin",
+                        "ફાર્વાર્દિન",
                         "ઓરડીબેહેશ્ટ",
                         "ખોરદાદ",
                         "તિર",
@@ -2484,11 +2541,18 @@ gu{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        or-short{
+            end{"{0} અથવા {1}"}
+        }
         standard{
             2{"{0} અને {1}"}
             end{"{0} અને {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
         }
         standard-short{
             2{"{0} અને {1}"}

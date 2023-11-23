@@ -45,6 +45,7 @@ struct Mat33 {
   float elem[3][3];
 };
 
+// Note: Keep this code to preserve Android codebase dependencies.
 struct Size3 {
   uint32_t elem[3];
 };
@@ -109,6 +110,7 @@ void mat33Invert(struct Mat33 *out, const struct Mat33 *A);
 void mat33MultiplyTransposed(struct Mat33 *out, const struct Mat33 *A,
                              const struct Mat33 *B);
 
+// Note: Keep this code to preserve Android codebase dependencies.
 // Updates out with the multiplication of A with B's transpose, i.e.:
 // out = A B^T
 void mat33MultiplyTransposed2(struct Mat33 *out, const struct Mat33 *A,

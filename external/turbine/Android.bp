@@ -25,12 +25,9 @@ java_library_host {
     manifest: "manifest.txt",
     static_libs: [
         "error_prone_annotations",
-        "guava-21.0",
-        "jsr305-3.0.1",
+        "guava",
     ],
 
-    // Required for use of javax.annotation.Generated per http://b/62050818
-    javacflags: ["-J--add-modules=java.xml.ws.annotation"],
     plugins: ["dagger2-auto-value"],
     libs: ["dagger2-auto-value"],
 

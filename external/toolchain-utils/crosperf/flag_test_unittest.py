@@ -1,12 +1,16 @@
-#!/usr/bin/env python2
-#
-# Copyright 2014 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2014 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """The unittest of flags."""
 
 from __future__ import print_function
-import test_flag
 
 import unittest
+
+import test_flag
 
 
 class FlagTestCase(unittest.TestCase):
@@ -15,7 +19,7 @@ class FlagTestCase(unittest.TestCase):
   def test_test_flag(self):
     # Verify that test_flag.is_test exists, that it is a list,
     # and that it contains 1 element.
-    self.assertTrue(type(test_flag.is_test) is list)
+    self.assertTrue(isinstance(test_flag.is_test, list))
     self.assertEqual(len(test_flag.is_test), 1)
 
     # Verify that the getting the flag works and that the flag
@@ -33,7 +37,7 @@ class FlagTestCase(unittest.TestCase):
 
     # Verify that test_flag.is_test still exists, that it still is a
     # list, and that it still contains 1 element.
-    self.assertTrue(type(test_flag.is_test) is list)
+    self.assertTrue(isinstance(test_flag.is_test, list))
     self.assertEqual(len(test_flag.is_test), 1)
 
 

@@ -58,7 +58,7 @@ class MapInfoCreateMemoryTest : public ::testing::Test {
     ASSERT_TRUE(android::base::WriteFully(fd, buffer.data(), buffer.size()));
   }
 
-  static void SetUpTestCase() {
+  void SetUp() override {
     std::vector<uint8_t> buffer(12288, 0);
     memcpy(buffer.data(), ELFMAG, SELFMAG);
     buffer[EI_CLASS] = ELFCLASS32;
@@ -72,9 +72,7 @@ class MapInfoCreateMemoryTest : public ::testing::Test {
 
     InitElf<Elf32_Ehdr, Elf32_Shdr>(elf32_at_map_.fd, 0x1000, 0x2000, ELFCLASS32);
     InitElf<Elf64_Ehdr, Elf64_Shdr>(elf64_at_map_.fd, 0x2000, 0x3000, ELFCLASS64);
-  }
 
-  void SetUp() override {
     memory_ = new MemoryFake;
     process_memory_.reset(memory_);
   }
@@ -82,20 +80,16 @@ class MapInfoCreateMemoryTest : public ::testing::Test {
   MemoryFake* memory_;
   std::shared_ptr<Memory> process_memory_;
 
-  static TemporaryFile elf_;
+  TemporaryFile elf_;
 
-  static TemporaryFile elf_at_1000_;
+  TemporaryFile elf_at_1000_;
 
-  static TemporaryFile elf32_at_map_;
-  static TemporaryFile elf64_at_map_;
+  TemporaryFile elf32_at_map_;
+  TemporaryFile elf64_at_map_;
 };
-TemporaryFile MapInfoCreateMemoryTest::elf_;
-TemporaryFile MapInfoCreateMemoryTest::elf_at_1000_;
-TemporaryFile MapInfoCreateMemoryTest::elf32_at_map_;
-TemporaryFile MapInfoCreateMemoryTest::elf64_at_map_;
 
 TEST_F(MapInfoCreateMemoryTest, end_le_start) {
-  MapInfo info(nullptr, 0x100, 0x100, 0, 0, elf_.path);
+  MapInfo info(nullptr, nullptr, 0x100, 0x100, 0, 0, elf_.path);
 
   std::unique_ptr<Memory> memory(info.CreateMemory(process_memory_));
   ASSERT_TRUE(memory.get() == nullptr);
@@ -114,7 +108,7 @@ TEST_F(MapInfoCreateMemoryTest, end_le_start) {
 // Verify that if the offset is non-zero but there is no elf at the offset,
 // that the full file is used.
 TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_full_file) {
-  MapInfo info(nullptr, 0x100, 0x200, 0x100, 0, elf_.path);
+  MapInfo info(nullptr, nullptr, 0x100, 0x200, 0x100, 0, elf_.path);
 
   std::unique_ptr<Memory> memory(info.CreateMemory(process_memory_));
   ASSERT_TRUE(memory.get() != nullptr);
@@ -135,8 +129,9 @@ TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_full_file) {
 
   // Now verify the elf start offset is set correctly based on the previous
   // info.
-  MapInfo prev_info(nullptr, 0, 0x100, 0x10, 0, "");
+  MapInfo prev_info(nullptr, nullptr, 0, 0x100, 0x10, 0, "");
   info.prev_map = &prev_info;
+  info.prev_real_map = &prev_info;
 
   // No preconditions met, change each one until it should set the elf start
   // offset to zero.
@@ -183,7 +178,7 @@ TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_full_file) {
 // Verify that if the offset is non-zero and there is an elf at that
 // offset, that only part of the file is used.
 TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_partial_file) {
-  MapInfo info(nullptr, 0x100, 0x200, 0x1000, 0, elf_at_1000_.path);
+  MapInfo info(nullptr, nullptr, 0x100, 0x200, 0x1000, 0, elf_at_1000_.path);
 
   std::unique_ptr<Memory> memory(info.CreateMemory(process_memory_));
   ASSERT_TRUE(memory.get() != nullptr);
@@ -208,7 +203,7 @@ TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_partial_file) {
 // embedded elf is bigger than the initial map, the new object is larger
 // than the original map size. Do this for a 32 bit elf and a 64 bit elf.
 TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_partial_file_whole_elf32) {
-  MapInfo info(nullptr, 0x5000, 0x6000, 0x1000, 0, elf32_at_map_.path);
+  MapInfo info(nullptr, nullptr, 0x5000, 0x6000, 0x1000, 0, elf32_at_map_.path);
 
   std::unique_ptr<Memory> memory(info.CreateMemory(process_memory_));
   ASSERT_TRUE(memory.get() != nullptr);
@@ -226,7 +221,7 @@ TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_partial_file_whole_e
 }
 
 TEST_F(MapInfoCreateMemoryTest, file_backed_non_zero_offset_partial_file_whole_elf64) {
-  MapInfo info(nullptr, 0x7000, 0x8000, 0x2000, 0, elf64_at_map_.path);
+  MapInfo info(nullptr, nullptr, 0x7000, 0x8000, 0x2000, 0, elf64_at_map_.path);
 
   std::unique_ptr<Memory> memory(info.CreateMemory(process_memory_));
   ASSERT_TRUE(memory.get() != nullptr);
@@ -249,14 +244,14 @@ TEST_F(MapInfoCreateMemoryTest, check_device_maps) {
   // be returned if the file mapping fails, but the device check is incorrect.
   std::vector<uint8_t> buffer(1024);
   uint64_t start = reinterpret_cast<uint64_t>(buffer.data());
-  MapInfo info(nullptr, start, start + buffer.size(), 0, 0x8000, "/dev/something");
+  MapInfo info(nullptr, nullptr, start, start + buffer.size(), 0, 0x8000, "/dev/something");
 
   std::unique_ptr<Memory> memory(info.CreateMemory(process_memory_));
   ASSERT_TRUE(memory.get() == nullptr);
 }
 
 TEST_F(MapInfoCreateMemoryTest, process_memory) {
-  MapInfo info(nullptr, 0x2000, 0x3000, 0, PROT_READ, "");
+  MapInfo info(nullptr, nullptr, 0x2000, 0x3000, 0, PROT_READ, "");
 
   Elf32_Ehdr ehdr = {};
   TestInitEhdr<Elf32_Ehdr>(&ehdr, ELFCLASS32, EM_ARM);

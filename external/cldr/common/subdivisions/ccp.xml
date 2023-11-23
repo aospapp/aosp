@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2019 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 13875 $"/>
+		<version number="$Revision$"/>
 		<language type="ccp"/>
 	</identity>
 	<localeDisplayNames>
@@ -2349,7 +2349,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="gbels">𑄃𑄯𑄑𑄢𑄴 𑄦𑄝𑄳𑄢𑄭𑄖𑄴𑄌𑄴</subdivision>
 			<!-- in gbeng : England -->
 			<subdivision type="gbenf">𑄃𑄬𑄚𑄴𑄜𑄨𑄣𑄳𑄓𑄴</subdivision>
-			<subdivision type="gbeng">𑄃𑄨𑄁𑄣𑄳𑄠𑄚𑄳𑄓𑄴</subdivision>
 			<!-- in gbsct : Scotland -->
 			<subdivision type="gberw">𑄛𑄪𑄇𑄴 𑄢𑄬𑄚𑄴𑄜𑄳𑄢𑄬𑄥𑄠𑄢𑄴</subdivision>
 			<!-- in gbeng : England -->
@@ -2566,7 +2565,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="gbsay">𑄘𑄧𑄊𑄨𑄚𑄴 𑄃𑄠𑄢𑄴𑄥𑄠𑄢𑄴</subdivision>
 			<!-- in gbsct : Scotland -->
 			<subdivision type="gbscb">𑄌𑄳𑄇𑄧𑄑𑄨𑄌𑄴 𑄝𑄧𑄢𑄴𑄓𑄢𑄴</subdivision>
-			<subdivision type="gbsct">𑄌𑄳𑄇𑄧𑄖𑄴𑄣𑄳𑄠𑄚𑄳𑄓𑄴</subdivision>
 			<!-- in gbeng : England -->
 			<subdivision type="gbsfk">𑄥𑄜𑄮𑄇𑄴</subdivision>
 			<!-- in gbeng : England -->
@@ -2654,7 +2652,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="gbwll">𑄤𑄣𑄴𑄥𑄧𑄣𑄴</subdivision>
 			<!-- in gbsct : Scotland -->
 			<subdivision type="gbwln">𑄛𑄧𑄏𑄨𑄟𑄴 𑄣𑄮𑄗𑄨𑄠𑄚𑄴</subdivision>
-			<subdivision type="gbwls">𑄃𑄮𑄠𑄬𑄣𑄴</subdivision>
 			<!-- in gbeng : England -->
 			<subdivision type="gbwlv">𑄤𑄠𑄮𑄣𑄴𑄞𑄢𑄴𑄦𑄟𑄴𑄛𑄴𑄑𑄧𑄚𑄴</subdivision>
 			<!-- in gbeng : England -->

@@ -39,6 +39,7 @@ extern void btm_send_hci_create_connection(
     uint16_t conn_timeout, uint16_t min_ce_len, uint16_t max_ce_len,
     uint8_t phy);
 extern void btm_ble_create_conn_cancel();
+void wl_remove_complete(uint8_t* p_data, uint16_t /* evt_len */);
 
 // Unfortunately (for now?) we have to maintain a copy of the device whitelist
 // on the host to determine if a device is pending to be connected or not. This
@@ -72,7 +73,14 @@ static void background_connection_add(uint8_t addr_type,
         BackgroundConnection{address, addr_type, false, 0, false};
   } else {
     BackgroundConnection* connection = &map_iter->second;
-    connection->addr_type = addr_type;
+    if (addr_type != connection->addr_type) {
+      LOG(INFO) << __func__ << " Addr type mismatch " << address;
+      btsnd_hcic_ble_remove_from_white_list(
+        connection->addr_type_in_wl, connection->address,
+        base::Bind(&wl_remove_complete));
+      connection->addr_type = addr_type;
+      connection->in_controller_wl = false;
+    }
     connection->pending_removal = false;
   }
 }
@@ -170,8 +178,7 @@ bool BTM_BackgroundConnectAddressKnown(const RawAddress& address) {
     return true;
 
   // bonded device with identity address known
-  if (p_dev_rec->ble.identity_addr != address &&
-      !p_dev_rec->ble.identity_addr.IsEmpty()) {
+  if (!p_dev_rec->ble.identity_addr.IsEmpty()) {
     return true;
   }
 
@@ -197,8 +204,7 @@ bool btm_add_dev_to_controller(bool to_add, const RawAddress& bd_addr) {
 
   if (p_dev_rec != NULL && p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) {
     if (to_add) {
-      if (p_dev_rec->ble.identity_addr != bd_addr &&
-          !p_dev_rec->ble.identity_addr.IsEmpty()) {
+      if (!p_dev_rec->ble.identity_addr.IsEmpty()) {
         background_connection_add(p_dev_rec->ble.identity_addr_type,
                                   p_dev_rec->ble.identity_addr);
       } else {
@@ -212,8 +218,7 @@ bool btm_add_dev_to_controller(bool to_add, const RawAddress& bd_addr) {
 
       p_dev_rec->ble.in_controller_list |= BTM_WHITE_LIST_BIT;
     } else {
-      if (!p_dev_rec->ble.identity_addr.IsEmpty() &&
-          p_dev_rec->ble.identity_addr != bd_addr) {
+      if (!p_dev_rec->ble.identity_addr.IsEmpty()) {
         background_connection_remove(p_dev_rec->ble.identity_addr);
       } else {
         background_connection_remove(bd_addr);
@@ -304,6 +309,14 @@ bool btm_execute_wl_dev_operation(void) {
  ******************************************************************************/
 void btm_ble_white_list_init(uint8_t white_list_size) {
   BTM_TRACE_DEBUG("%s white_list_size = %d", __func__, white_list_size);
+}
+
+uint8_t BTM_GetWhiteListSize() {
+  const controller_t* controller = controller_get_interface();
+  if (!controller->supports_ble()) {
+    return 0;
+  }
+  return controller->get_ble_white_list_size();
 }
 
 bool BTM_SetLeConnectionModeToFast() {

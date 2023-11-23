@@ -33,7 +33,7 @@ func init() {
 var (
 	pctx = android.NewPackageContext("android/soong/bpf")
 
-	cc = pctx.AndroidGomaStaticRule("cc",
+	ccRule = pctx.AndroidRemoteStaticRule("ccRule", android.RemoteRuleSupports{Goma: true},
 		blueprint.RuleParams{
 			Depfile:     "${out}.d",
 			Deps:        blueprint.DepsGCC,
@@ -66,6 +66,8 @@ func (bpf *bpf) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		// The architecture doesn't matter here, but asm/types.h is included by linux/types.h.
 		"-isystem bionic/libc/kernel/uapi/asm-arm64",
 		"-isystem bionic/libc/kernel/android/uapi",
+		// TODO(b/149785767): only give access to specific file with AID_* constants
+		"-I       system/core/libcutils/include",
 		"-I       system/bpf/progs/include",
 		"-I " + ctx.ModuleDir(),
 	}
@@ -82,7 +84,7 @@ func (bpf *bpf) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		obj := android.ObjPathWithExt(ctx, "", src, "o")
 
 		ctx.Build(pctx, android.BuildParams{
-			Rule:   cc,
+			Rule:   ccRule,
 			Input:  src,
 			Output: obj,
 			Args: map[string]string{
@@ -122,13 +124,18 @@ func (bpf *bpf) AndroidMk() android.AndroidMkData {
 	}
 }
 
-// Implements SourceFileProducer interface so that the obj output can be used in the data property
+// Implements OutputFileFileProducer interface so that the obj output can be used in the data property
 // of other modules.
-func (bpf *bpf) Srcs() android.Paths {
-	return bpf.objs
+func (bpf *bpf) OutputFiles(tag string) (android.Paths, error) {
+	switch tag {
+	case "":
+		return bpf.objs, nil
+	default:
+		return nil, fmt.Errorf("unsupported module reference tag %q", tag)
+	}
 }
 
-var _ android.SourceFileProducer = (*bpf)(nil)
+var _ android.OutputFileProducer = (*bpf)(nil)
 
 func bpfFactory() android.Module {
 	module := &bpf{}

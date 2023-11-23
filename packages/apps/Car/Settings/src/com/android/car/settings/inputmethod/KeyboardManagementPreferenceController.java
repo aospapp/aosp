@@ -24,7 +24,6 @@ import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreference;
 
@@ -92,13 +91,15 @@ public class KeyboardManagementPreferenceController extends
                 getFragmentController().findDialogByTag(DIRECT_BOOT_WARN_DIALOG_TAG);
         ConfirmationDialogFragment.resetListeners(dialogFragment,
                 mDirectBootWarnConfirmListener,
-                mRejectListener);
+                mRejectListener,
+                /* neutralListener= */ null);
 
         dialogFragment = (ConfirmationDialogFragment) getFragmentController()
                 .findDialogByTag(SECURITY_WARN_DIALOG_TAG);
         ConfirmationDialogFragment.resetListeners(dialogFragment,
                 mSecurityWarnDialogConfirmListener,
-                mRejectListener);
+                mRejectListener,
+                /* neutralListener= */ null);
     }
 
     @Override
@@ -129,12 +130,12 @@ public class KeyboardManagementPreferenceController extends
             if (!isInputMethodAllowedByOrganization(permittedInputMethodsSet, inputMethodInfo)) {
                 continue;
             }
+            // Hide "Google voice typing" IME.
+            if (inputMethodInfo.getPackageName().equals(InputMethodUtil.GOOGLE_VOICE_TYPING)) {
+                continue;
+            }
 
-            Preference preference = createSwitchPreference(inputMethodInfo);
-
-            preference.setEnabled(!isOnlyEnabledDefaultInputMethod(inputMethodInfo));
-
-            preferenceGroup.addPreference(preference);
+            preferenceGroup.addPreference(createSwitchPreference(inputMethodInfo));
         }
     }
 
@@ -142,6 +143,11 @@ public class KeyboardManagementPreferenceController extends
             InputMethodInfo inputMethodInfo) {
         // permittedList is null means that all input methods are allowed.
         return (permittedList == null) || permittedList.contains(inputMethodInfo.getPackageName());
+    }
+
+    private boolean isInputMethodEnabled(InputMethodInfo inputMethodInfo) {
+        return InputMethodUtil.isInputMethodEnabled(
+                getContext().getContentResolver(), inputMethodInfo);
     }
 
     /**
@@ -186,6 +192,15 @@ public class KeyboardManagementPreferenceController extends
                 .getContentResolver(), inputMethodInfo));
         switchPreference.setSummary(InputMethodUtil.getSummaryString(getContext(),
                 mInputMethodManager, inputMethodInfo));
+
+        // A switch preference for any disabled IME should be enabled. This is due to the
+        // possibility of having only one default IME that is disabled, which would prevent the IME
+        // from being enabled without another default input method that is enabled being present.
+        if (!isInputMethodEnabled(inputMethodInfo)) {
+            switchPreference.setEnabled(true);
+        } else {
+            switchPreference.setEnabled(!isOnlyEnabledDefaultInputMethod(inputMethodInfo));
+        }
 
         switchPreference.setOnPreferenceChangeListener((switchPref, newValue) -> {
             boolean enable = (boolean) newValue;

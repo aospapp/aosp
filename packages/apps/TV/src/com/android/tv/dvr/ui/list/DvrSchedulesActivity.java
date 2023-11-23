@@ -20,13 +20,15 @@ import android.app.Activity;
 import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.support.annotation.IntDef;
+
 import com.android.tv.R;
 import com.android.tv.Starter;
-import com.android.tv.data.Program;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.provider.EpisodicProgramLoadTask;
 import com.android.tv.dvr.recorder.SeriesRecordingScheduler;
 import com.android.tv.dvr.ui.BigArguments;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Collections;

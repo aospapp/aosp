@@ -15,11 +15,12 @@
  */
 package android.ext.services.autofill;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
+import android.os.Bundle;
 import android.view.autofill.AutofillValue;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 final class EditDistanceScorer {
 
@@ -34,19 +35,19 @@ final class EditDistanceScorer {
      */
     @VisibleForTesting
     static float calculateScore(@Nullable AutofillValue actualValue,
-            @Nullable String userDataValue) {
+            @Nullable String userDataValue, @Nullable Bundle args) {
         if (actualValue == null || !actualValue.isText() || userDataValue == null) return 0;
 
         final String actualValueText = actualValue.getTextValue().toString();
         final int actualValueLength = actualValueText.length();
-        final int userDatalength = userDataValue.length();
-        if (userDatalength == 0) {
+        final int userDataLength = userDataValue.length();
+        if (userDataLength == 0) {
             return (actualValueLength == 0) ? 1 : 0;
         }
 
         final int distance = editDistance(actualValueText.toLowerCase(),
                 userDataValue.toLowerCase());
-        final int maxLength = Math.max(actualValueLength, userDatalength);
+        final int maxLength = Math.max(actualValueLength, userDataLength);
         return ((float) maxLength - distance) / maxLength;
     }
 

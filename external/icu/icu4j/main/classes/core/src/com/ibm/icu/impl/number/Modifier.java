@@ -2,8 +2,10 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 package com.ibm.icu.impl.number;
 
+import java.text.Format.Field;
+
+import com.ibm.icu.impl.FormattedStringBuilder;
 import com.ibm.icu.impl.StandardPlural;
-import com.ibm.icu.text.NumberFormat.Field;
 
 /**
  * A Modifier is an object that can be passed through the formatting pipeline until it is finally applied
@@ -28,7 +30,7 @@ public interface Modifier {
      *            number is being formatted.
      * @return The number of characters (UTF-16 code units) that were added to the string builder.
      */
-    public int apply(NumberStringBuilder output, int leftIndex, int rightIndex);
+    public int apply(FormattedStringBuilder output, int leftIndex, int rightIndex);
 
     /**
      * Gets the length of the prefix. This information can be used in combination with {@link #apply} to

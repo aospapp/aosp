@@ -42,7 +42,7 @@
     <!-- common src="logger"/ -->
 
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
@@ -59,25 +59,17 @@
         </api_refs>
         <description>
             <![CDATA[
-A basic sample showing how to support ambient mode for native Wear apps.
+Sample moved to [github.com/android/wear-os][1].
+
+[1]: https://github.com/android/wear-os
 ]]>
         </description>
 
         <intro>
             <![CDATA[
-[WearableActivity][1] offers methods for supporting your native app staying on the screen when the Wear device enters ambient mode.
+This repo and all Wear OS samples have been moved to [github.com/android/wear-os][1]. Please check out the code there. Thank you!
 
-This example extends [WearableActivity][1] and overrides onEnterAmbient, onUpdateAmbient, and onExitAmbient to allow the simple native Wear app to support ambient mode.
-
-In ambient mode, this app follows best practices by keeping most pixels black, avoiding large blocks of white pixels, using only black and white, and disabling anti-aliasing (following the [design guidelines for Watch Faces][2]).
-
-In addition and most importantly, the app sleeps while in ambient mode for 20 seconds between any updates to conserving battery life (processor allowed to sleep). If you can hold off on updates for a full minute, you can throw away the Handler and just use onUpdateAmbient to save even more battery life.
-
-As always, you will still want to apply the [performance guidelines][3] outlined in the Watch Faces documention to your app.
-
-[1]: http://developer.android.com/reference/android/support/wearable/activity/WearableActivity.html
-[2]: https://developer.android.com/training/wearables/watch-faces/designing.html#DesignGuidelines
-[3]: https://developer.android.com/training/wearables/watch-faces/performance.html
+[1]: https://github.com/android/wear-os
 ]]>
         </intro>
     </metadata>

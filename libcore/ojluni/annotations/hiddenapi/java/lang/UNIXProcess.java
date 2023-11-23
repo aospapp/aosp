@@ -104,7 +104,7 @@ final class UNIXProcess extends java.lang.Process {
 
     private boolean hasExited;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private final int pid;
+    @android.compat.annotation.UnsupportedAppUsage private final int pid;
 
     {
         pid = 0;

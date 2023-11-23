@@ -3651,6 +3651,13 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
                                 ": filled %d of %d format 0x%lx", fd, plane[0].bytesused, plane[0].length, m_sVenc_cfg.inputformat);
                 }
             } else {
+                // color_format == 1 ==> RGBA to YUV Color-converted buffer
+                // Buffers color-converted via C2D have 601-Limited color
+                if (!streaming[OUTPUT_PORT]) {
+                    DEBUG_PRINT_HIGH("Setting colorspace 601-L for Color-converted buffer");
+                    venc_set_colorspace(MSM_VIDC_BT601_6_625, 0 /*range-limited*/,
+                            MSM_VIDC_TRANSFER_601_6_525, MSM_VIDC_MATRIX_601_6_525);
+                }
                 plane[0].m.userptr = (unsigned long) bufhdr->pBuffer;
                 plane[0].data_offset = bufhdr->nOffset;
                 plane[0].length = bufhdr->nAllocLen;

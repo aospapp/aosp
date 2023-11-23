@@ -21,8 +21,8 @@
  * Everything here is expected to be VM-neutral.
  */
 
-#ifndef JNI_H_
-#define JNI_H_
+#ifndef LIBNATIVEHELPER_INCLUDE_JNI_JNI_H_
+#define LIBNATIVEHELPER_INCLUDE_JNI_JNI_H_
 
 #include <stdarg.h>
 #include <stdint.h>
@@ -1140,4 +1140,4 @@ JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved);
 #define JNI_COMMIT      1           /* copy content, do not free buffer */
 #define JNI_ABORT       2           /* free buffer w/o copying back */
 
-#endif  /* JNI_H_ */
+#endif  // LIBNATIVEHELPER_INCLUDE_JNI_JNI_H_

@@ -32,4 +32,9 @@ public class NegativeHandler implements IModuleParameter {
     public void applySetup(IConfiguration moduleConfiguration) {
         throw new RuntimeException("Should never be called");
     }
+
+    @Override
+    public void addParameterSpecificConfig(IConfiguration moduleConfiguration) {
+        throw new RuntimeException("Should never be called");
+    }
 }

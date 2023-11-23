@@ -181,7 +181,7 @@ lb{
         MF{"St. Martin"}
         MG{"Madagaskar"}
         MH{"Marshallinselen"}
-        MK{"Mazedonien (EJR)"}
+        MK{"Nordmazedonien"}
         ML{"Mali"}
         MM{"Myanmar"}
         MN{"Mongolei"}
@@ -301,5 +301,5 @@ lb{
         CG{"Kongo (Republik)"}
         CI{"Elfebeeküst"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

@@ -22,6 +22,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 import androidx.recyclerview.selection.SelectionTracker;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.TestData;
 import com.android.documentsui.testing.TestFeatures;
 import com.android.documentsui.testing.TestGridLayoutManager;
@@ -53,8 +54,8 @@ public class FocusManagerTest extends AndroidTestCase {
 
         mSelectionMgr = SelectionHelpers.createTestInstance(ITEMS);
         mFeatures = new TestFeatures();
-        mManager = new FocusManager(mFeatures, mSelectionMgr, null, null, 0)
-                .reset(mView, new TestModel(TEST_AUTHORITY, mFeatures));
+        mManager = new FocusManager(mFeatures, mSelectionMgr, null, null, 0).reset(mView,
+                new TestModel(UserId.DEFAULT_USER, TEST_AUTHORITY, mFeatures));
     }
 
     public void testFocus() {
@@ -75,7 +76,7 @@ public class FocusManagerTest extends AndroidTestCase {
         mView = TestRecyclerView.create(new ArrayList<>());
         mManager = new FocusManager(
                 mFeatures, SelectionHelpers.createTestInstance(), null, null, 0)
-                .reset(mView, new TestModel(TEST_AUTHORITY, mFeatures));
+                .reset(mView, new TestModel(UserId.DEFAULT_USER, TEST_AUTHORITY, mFeatures));
         assertFalse(mManager.focusDirectoryList());
     }
 

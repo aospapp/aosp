@@ -20,6 +20,9 @@
 #include <android-base/stringprintf.h>
 
 #include "art_method-inl.h"
+#include "base/enums.h"
+#include "base/locks.h"
+#include "base/logging.h"
 #include "base/systrace.h"
 #include "base/utils.h"
 #include "class_linker.h"
@@ -28,11 +31,15 @@
 #include "dex/class_reference.h"
 #include "dex/descriptors_names.h"
 #include "dex/dex_file-inl.h"
+#include "handle.h"
 #include "handle_scope-inl.h"
 #include "method_verifier-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache.h"
 #include "runtime.h"
+#include "thread.h"
+#include "verifier/method_verifier.h"
+#include "verifier/reg_type_cache.h"
 
 namespace art {
 namespace verifier {
@@ -42,6 +49,83 @@ using android::base::StringPrintf;
 // We print a warning blurb about "dx --no-optimize" when we find monitor-locking issues. Make
 // sure we only print this once.
 static bool gPrintedDxMonitorText = false;
+
+class StandardVerifyCallback : public VerifierCallback {
+ public:
+  void SetDontCompile(ArtMethod* m, bool value) override REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (value) {
+      m->SetDontCompile();
+    }
+  }
+  void SetMustCountLocks(ArtMethod* m, bool value) override REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (value) {
+      m->SetMustCountLocks();
+    }
+  }
+};
+
+FailureKind ClassVerifier::ReverifyClass(Thread* self,
+                                         ObjPtr<mirror::Class> klass,
+                                         HardFailLogMode log_level,
+                                         uint32_t api_level,
+                                         std::string* error) {
+  DCHECK(!Runtime::Current()->IsAotCompiler());
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Class> h_klass(hs.NewHandle(klass));
+  // We don't want to mess with these while other mutators are possibly looking at them. Instead we
+  // will wait until we can update them while everything is suspended.
+  class DelayedVerifyCallback : public VerifierCallback {
+   public:
+    void SetDontCompile(ArtMethod* m, bool value) override REQUIRES_SHARED(Locks::mutator_lock_) {
+      dont_compiles_.push_back({ m, value });
+    }
+    void SetMustCountLocks(ArtMethod* m, bool value) override
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      count_locks_.push_back({ m, value });
+    }
+    void UpdateFlags(bool skip_access_checks) REQUIRES(Locks::mutator_lock_) {
+      for (auto it : count_locks_) {
+        VLOG(verifier_debug) << "Setting " << it.first->PrettyMethod() << " count locks to "
+                             << it.second;
+        if (it.second) {
+          it.first->SetMustCountLocks();
+        } else {
+          it.first->ClearMustCountLocks();
+        }
+        if (skip_access_checks && it.first->IsInvokable() && !it.first->IsNative()) {
+          it.first->SetSkipAccessChecks();
+        }
+      }
+      for (auto it : dont_compiles_) {
+        VLOG(verifier_debug) << "Setting " << it.first->PrettyMethod() << " dont-compile to "
+                             << it.second;
+        if (it.second) {
+          it.first->SetDontCompile();
+        } else {
+          it.first->ClearDontCompile();
+        }
+      }
+    }
+
+   private:
+    std::vector<std::pair<ArtMethod*, bool>> dont_compiles_;
+    std::vector<std::pair<ArtMethod*, bool>> count_locks_;
+  };
+  DelayedVerifyCallback dvc;
+  FailureKind res = CommonVerifyClass(self,
+                                      h_klass.Get(),
+                                      /*callbacks=*/nullptr,
+                                      &dvc,
+                                      /*allow_soft_failures=*/false,
+                                      log_level,
+                                      api_level,
+                                      error);
+  DCHECK_NE(res, FailureKind::kHardFailure);
+  ScopedThreadSuspension sts(Thread::Current(), ThreadState::kSuspended);
+  ScopedSuspendAll ssa("Update method flags for reverify");
+  dvc.UpdateFlags(res == FailureKind::kNoFailure);
+  return res;
+}
 
 FailureKind ClassVerifier::VerifyClass(Thread* self,
                                        ObjPtr<mirror::Class> klass,
@@ -53,6 +137,25 @@ FailureKind ClassVerifier::VerifyClass(Thread* self,
   if (klass->IsVerified()) {
     return FailureKind::kNoFailure;
   }
+  StandardVerifyCallback svc;
+  return CommonVerifyClass(self,
+                           klass,
+                           callbacks,
+                           &svc,
+                           allow_soft_failures,
+                           log_level,
+                           api_level,
+                           error);
+}
+
+FailureKind ClassVerifier::CommonVerifyClass(Thread* self,
+                                             ObjPtr<mirror::Class> klass,
+                                             CompilerCallbacks* callbacks,
+                                             VerifierCallback* verifier_callback,
+                                             bool allow_soft_failures,
+                                             HardFailLogMode log_level,
+                                             uint32_t api_level,
+                                             std::string* error) {
   bool early_failure = false;
   std::string failure_message;
   const DexFile& dex_file = klass->GetDexFile();
@@ -86,6 +189,32 @@ FailureKind ClassVerifier::VerifyClass(Thread* self,
                      class_loader,
                      *class_def,
                      callbacks,
+                     verifier_callback,
+                     allow_soft_failures,
+                     log_level,
+                     api_level,
+                     error);
+}
+
+
+FailureKind ClassVerifier::VerifyClass(Thread* self,
+                                       const DexFile* dex_file,
+                                       Handle<mirror::DexCache> dex_cache,
+                                       Handle<mirror::ClassLoader> class_loader,
+                                       const dex::ClassDef& class_def,
+                                       CompilerCallbacks* callbacks,
+                                       bool allow_soft_failures,
+                                       HardFailLogMode log_level,
+                                       uint32_t api_level,
+                                       std::string* error) {
+  StandardVerifyCallback svc;
+  return VerifyClass(self,
+                     dex_file,
+                     dex_cache,
+                     class_loader,
+                     class_def,
+                     callbacks,
+                     &svc,
                      allow_soft_failures,
                      log_level,
                      api_level,
@@ -98,6 +227,7 @@ FailureKind ClassVerifier::VerifyClass(Thread* self,
                                        Handle<mirror::ClassLoader> class_loader,
                                        const dex::ClassDef& class_def,
                                        CompilerCallbacks* callbacks,
+                                       VerifierCallback* verifier_callback,
                                        bool allow_soft_failures,
                                        HardFailLogMode log_level,
                                        uint32_t api_level,
@@ -140,6 +270,8 @@ FailureKind ClassVerifier::VerifyClass(Thread* self,
     std::string hard_failure_msg;
     MethodVerifier::FailureData result =
         MethodVerifier::VerifyMethod(self,
+                                     linker,
+                                     Runtime::Current()->GetArenaPool(),
                                      method_idx,
                                      dex_file,
                                      dex_cache,
@@ -149,10 +281,12 @@ FailureKind ClassVerifier::VerifyClass(Thread* self,
                                      resolved_method,
                                      method.GetAccessFlags(),
                                      callbacks,
+                                     verifier_callback,
                                      allow_soft_failures,
                                      log_level,
                                      /*need_precise_constants=*/ false,
                                      api_level,
+                                     Runtime::Current()->IsAotCompiler(),
                                      &hard_failure_msg);
     if (result.kind == FailureKind::kHardFailure) {
       if (failure_data.kind == FailureKind::kHardFailure) {
@@ -190,8 +324,8 @@ FailureKind ClassVerifier::VerifyClass(Thread* self,
   }
 }
 
-void ClassVerifier::Init() {
-  MethodVerifier::Init();
+void ClassVerifier::Init(ClassLinker* class_linker) {
+  MethodVerifier::Init(class_linker);
 }
 
 void ClassVerifier::Shutdown() {

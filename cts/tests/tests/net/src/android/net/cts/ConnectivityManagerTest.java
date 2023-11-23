@@ -16,11 +16,17 @@
 
 package android.net.cts;
 
+import static android.Manifest.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS;
+import static android.content.pm.PackageManager.FEATURE_ETHERNET;
 import static android.content.pm.PackageManager.FEATURE_TELEPHONY;
+import static android.content.pm.PackageManager.FEATURE_USB_HOST;
 import static android.content.pm.PackageManager.FEATURE_WIFI;
+import static android.content.pm.PackageManager.GET_PERMISSIONS;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_IMS;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 import static android.net.cts.util.CtsNetUtils.ConnectivityActionReceiver;
 import static android.net.cts.util.CtsNetUtils.HTTP_PORT;
@@ -34,6 +40,16 @@ import static android.system.OsConstants.AF_INET6;
 import static android.system.OsConstants.AF_UNSPEC;
 
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.annotation.NonNull;
 import android.app.Instrumentation;
@@ -43,6 +59,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
@@ -57,10 +74,12 @@ import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.NetworkInfo.State;
 import android.net.NetworkRequest;
+import android.net.NetworkUtils;
 import android.net.SocketKeepalive;
 import android.net.cts.util.CtsNetUtils;
 import android.net.util.KeepaliveUtils;
 import android.net.wifi.WifiManager;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Looper;
 import android.os.MessageQueue;
@@ -69,14 +88,22 @@ import android.os.SystemProperties;
 import android.os.VintfRuntimeInfo;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
-import android.test.AndroidTestCase;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.internal.util.ArrayUtils;
+import com.android.testutils.SkipPresubmit;
 
 import libcore.io.Streams;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -103,7 +130,8 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ConnectivityManagerTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ConnectivityManagerTest {
 
     private static final String TAG = ConnectivityManagerTest.class.getSimpleName();
 
@@ -111,13 +139,14 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     public static final int TYPE_WIFI = ConnectivityManager.TYPE_WIFI;
 
     private static final int HOST_ADDRESS = 0x7f000001;// represent ip 127.0.0.1
-    private static final int CONNECT_TIMEOUT_MS = 2000;
     private static final int KEEPALIVE_CALLBACK_TIMEOUT_MS = 2000;
-    private static final int KEEPALIVE_SOCKET_TIMEOUT_MS = 5000;
     private static final int INTERVAL_KEEPALIVE_RETRY_MS = 500;
     private static final int MAX_KEEPALIVE_RETRY_COUNT = 3;
     private static final int MIN_KEEPALIVE_INTERVAL = 10;
-    private static final int NETWORK_CHANGE_METEREDNESS_TIMEOUT = 5000;
+
+    // Changing meteredness on wifi involves reconnecting, which can take several seconds (involves
+    // re-associating, DHCP...)
+    private static final int NETWORK_CHANGE_METEREDNESS_TIMEOUT = 30_000;
     private static final int NUM_TRIES_MULTIPATH_PREF_CHECK = 20;
     private static final long INTERVAL_MULTIPATH_PREF_CHECK_MS = 500;
     // device could have only one interface: data, wifi.
@@ -141,22 +170,19 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     private PackageManager mPackageManager;
     private final HashMap<Integer, NetworkConfig> mNetworks =
             new HashMap<Integer, NetworkConfig>();
-    boolean mWifiConnectAttempted;
+    boolean mWifiWasDisabled;
     private UiAutomation mUiAutomation;
     private CtsNetUtils mCtsNetUtils;
-    private boolean mShellPermissionIdentityAdopted;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        Looper.prepare();
-        mContext = getContext();
+    @Before
+    public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mContext = mInstrumentation.getContext();
         mCm = (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
         mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
         mPackageManager = mContext.getPackageManager();
         mCtsNetUtils = new CtsNetUtils(mContext);
-        mWifiConnectAttempted = false;
+        mWifiWasDisabled = false;
 
         // Get com.android.internal.R.array.networkAttributes
         int resId = mContext.getResources().getIdentifier("networkAttributes", "array", "android");
@@ -173,20 +199,17 @@ public class ConnectivityManagerTest extends AndroidTestCase {
             } catch (Exception e) {}
         }
         mUiAutomation = mInstrumentation.getUiAutomation();
-        mShellPermissionIdentityAdopted = false;
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         // Return WiFi to its original disabled state after tests that explicitly connect.
-        if (mWifiConnectAttempted) {
+        if (mWifiWasDisabled) {
             mCtsNetUtils.disconnectFromWifi(null);
         }
         if (mCtsNetUtils.cellConnectAttempted()) {
             mCtsNetUtils.disconnectFromCell();
         }
-        dropShellPermissionIdentity();
-        super.tearDown();
     }
 
     /**
@@ -195,13 +218,12 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * automatically in tearDown().
      */
     private Network ensureWifiConnected() {
-        if (mWifiManager.isWifiEnabled()) {
-            return mCtsNetUtils.getWifiNetwork();
-        }
-        mWifiConnectAttempted = true;
+        mWifiWasDisabled = !mWifiManager.isWifiEnabled();
+        // Even if wifi is enabled, the network may not be connected or ready yet
         return mCtsNetUtils.connectToWifi();
     }
 
+    @Test
     public void testIsNetworkTypeValid() {
         assertTrue(ConnectivityManager.isNetworkTypeValid(ConnectivityManager.TYPE_MOBILE));
         assertTrue(ConnectivityManager.isNetworkTypeValid(ConnectivityManager.TYPE_WIFI));
@@ -231,12 +253,14 @@ public class ConnectivityManagerTest extends AndroidTestCase {
 
     }
 
+    @Test
     public void testSetNetworkPreference() {
         // getNetworkPreference() and setNetworkPreference() are both deprecated so they do
         // not preform any action.  Verify they are at least still callable.
         mCm.setNetworkPreference(mCm.getNetworkPreference());
     }
 
+    @Test
     public void testGetActiveNetworkInfo() {
         NetworkInfo ni = mCm.getActiveNetworkInfo();
 
@@ -245,6 +269,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         assertTrue(ni.getState() == State.CONNECTED);
     }
 
+    @Test
     public void testGetActiveNetwork() {
         Network network = mCm.getActiveNetwork();
         assertNotNull("You must have an active network connection to complete CTS", network);
@@ -257,9 +282,10 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         assertTrue(ni.getState() == State.CONNECTED);
     }
 
+    @Test
     public void testGetNetworkInfo() {
         for (int type = -1; type <= ConnectivityManager.MAX_NETWORK_TYPE+1; type++) {
-            if (isSupported(type)) {
+            if (shouldBeSupported(type)) {
                 NetworkInfo ni = mCm.getNetworkInfo(type);
                 assertTrue("Info shouldn't be null for " + type, ni != null);
                 State state = ni.getState();
@@ -275,11 +301,12 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetAllNetworkInfo() {
         NetworkInfo[] ni = mCm.getAllNetworkInfo();
         assertTrue(ni.length >= MIN_NUM_NETWORK_TYPES);
         for (int type = 0; type <= ConnectivityManager.MAX_NETWORK_TYPE; type++) {
-            int desiredFoundCount = (isSupported(type) ? 1 : 0);
+            int desiredFoundCount = (shouldBeSupported(type) ? 1 : 0);
             int foundCount = 0;
             for (NetworkInfo i : ni) {
                 if (i.getType() == type) foundCount++;
@@ -298,6 +325,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * and that they are made from different IP addresses.
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
+    @SkipPresubmit(reason = "Virtual devices use a single internet connection for all networks")
     public void testOpenConnection() throws Exception {
         boolean canRunTest = mPackageManager.hasSystemFeature(FEATURE_WIFI)
                 && mPackageManager.hasSystemFeature(FEATURE_TELEPHONY);
@@ -377,6 +406,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         } catch (UnsupportedOperationException expected) {}
     }
 
+    @Test
     public void testStartUsingNetworkFeature() {
 
         final String invalidateFeature = "invalidateFeature";
@@ -387,30 +417,45 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         assertStartUsingNetworkFeatureUnsupported(TYPE_WIFI, mmsFeature);
     }
 
-    private boolean isSupported(int networkType) {
-        return mNetworks.containsKey(networkType) ||
-               (networkType == ConnectivityManager.TYPE_VPN) ||
-               (networkType == ConnectivityManager.TYPE_ETHERNET &&
-                       mContext.getSystemService(Context.ETHERNET_SERVICE) != null);
+    private boolean shouldEthernetBeSupported() {
+        // Instant mode apps aren't allowed to query the Ethernet service due to selinux policies.
+        // When in instant mode, don't fail if the Ethernet service is available. Instead, rely on
+        // the fact that Ethernet should be supported if the device has a hardware Ethernet port, or
+        // if the device can be a USB host and thus can use USB Ethernet adapters.
+        //
+        // Note that this test this will still fail in instant mode if a device supports Ethernet
+        // via other hardware means. We are not currently aware of any such device.
+        return (mContext.getSystemService(Context.ETHERNET_SERVICE) != null) ||
+            mPackageManager.hasSystemFeature(FEATURE_ETHERNET) ||
+            mPackageManager.hasSystemFeature(FEATURE_USB_HOST);
     }
 
+    private boolean shouldBeSupported(int networkType) {
+        return mNetworks.containsKey(networkType) ||
+               (networkType == ConnectivityManager.TYPE_VPN) ||
+               (networkType == ConnectivityManager.TYPE_ETHERNET && shouldEthernetBeSupported());
+    }
+
+    @Test
     public void testIsNetworkSupported() {
         for (int type = -1; type <= ConnectivityManager.MAX_NETWORK_TYPE; type++) {
             boolean supported = mCm.isNetworkSupported(type);
-            if (isSupported(type)) {
-                assertTrue(supported);
+            if (shouldBeSupported(type)) {
+                assertTrue("Network type " + type + " should be supported", supported);
             } else {
-                assertFalse(supported);
+                assertFalse("Network type " + type + " should not be supported", supported);
             }
         }
     }
 
+    @Test
     public void testRequestRouteToHost() {
         for (int type = -1 ; type <= ConnectivityManager.MAX_NETWORK_TYPE; type++) {
             assertRequestRouteToHostUnsupported(type, HOST_ADDRESS);
         }
     }
 
+    @Test
     public void testTest() {
         mCm.getBackgroundDataSetting();
     }
@@ -431,6 +476,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * that it would increase test coverage by much (how many devices have 3G radio but not Wifi?).
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
     public void testRegisterNetworkCallback() {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testRegisterNetworkCallback cannot execute unless device supports WiFi");
@@ -472,6 +518,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * of a {@code NetworkCallback}.
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
     public void testRegisterNetworkCallback_withPendingIntent() {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testRegisterNetworkCallback cannot execute unless device supports WiFi");
@@ -517,6 +564,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * see if we get a callback for an INTERNET request.
      */
     @AppModeFull(reason = "CHANGE_NETWORK_STATE permission can't be granted to instant apps")
+    @Test
     public void testRequestNetworkCallback() {
         final TestNetworkCallback callback = new TestNetworkCallback();
         mCm.requestNetwork(new NetworkRequest.Builder()
@@ -540,6 +588,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * fail. Use WIFI and switch Wi-Fi off.
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
     public void testRequestNetworkCallback_onUnavailable() {
         final boolean previousWifiEnabledState = mWifiManager.isWifiEnabled();
         if (previousWifiEnabledState) {
@@ -577,6 +626,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
 
     /** Verify restricted networks cannot be requested. */
     @AppModeFull(reason = "CHANGE_NETWORK_STATE permission can't be granted to instant apps")
+    @Test
     public void testRestrictedNetworks() {
         // Verify we can request unrestricted networks:
         NetworkRequest request = new NetworkRequest.Builder()
@@ -627,11 +677,14 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         }
     }
 
-    private void waitForActiveNetworkMetered(boolean requestedMeteredness) throws Exception {
+    private void waitForActiveNetworkMetered(int targetTransportType, boolean requestedMeteredness)
+            throws Exception {
         final CountDownLatch latch = new CountDownLatch(1);
         final NetworkCallback networkCallback = new NetworkCallback() {
             @Override
             public void onCapabilitiesChanged(Network network, NetworkCapabilities nc) {
+                if (!nc.hasTransport(targetTransportType)) return;
+
                 final boolean metered = !nc.hasCapability(NET_CAPABILITY_NOT_METERED);
                 if (metered == requestedMeteredness) {
                     latch.countDown();
@@ -695,9 +748,10 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * for metered and unmetered networks.
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
     public void testGetMultipathPreference() throws Exception {
         final ContentResolver resolver = mContext.getContentResolver();
-        final Network network = ensureWifiConnected();
+        ensureWifiConnected();
         final String ssid = unquoteSSID(mWifiManager.getConnectionInfo().getSSID());
         final String oldMeteredSetting = getWifiMeteredStatus(ssid);
         final String oldMeteredMultipathPreference = Settings.Global.getString(
@@ -708,7 +762,11 @@ public class ConnectivityManagerTest extends AndroidTestCase {
             Settings.Global.putString(resolver, NETWORK_METERED_MULTIPATH_PREFERENCE,
                     Integer.toString(newMeteredPreference));
             setWifiMeteredStatus(ssid, "true");
-            waitForActiveNetworkMetered(true);
+            waitForActiveNetworkMetered(TRANSPORT_WIFI, true);
+            // Wifi meterness changes from unmetered to metered will disconnect and reconnect since
+            // R.
+            final Network network = ensureWifiConnected();
+            assertEquals(ssid, unquoteSSID(mWifiManager.getConnectionInfo().getSSID()));
             assertEquals(mCm.getNetworkCapabilities(network).hasCapability(
                     NET_CAPABILITY_NOT_METERED), false);
             assertMultipathPreferenceIsEventually(network, initialMeteredPreference,
@@ -724,7 +782,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
                     oldMeteredPreference, newMeteredPreference);
 
             setWifiMeteredStatus(ssid, "false");
-            waitForActiveNetworkMetered(false);
+            // No disconnect from unmetered to metered.
+            waitForActiveNetworkMetered(TRANSPORT_WIFI, false);
             assertEquals(mCm.getNetworkCapabilities(network).hasCapability(
                     NET_CAPABILITY_NOT_METERED), true);
             assertMultipathPreferenceIsEventually(network, newMeteredPreference,
@@ -834,15 +893,14 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     }
 
     private Socket getConnectedSocket(final Network network, final String host, final int port,
-            final int socketTimeOut, final int family) throws Exception {
+            final int family) throws Exception {
         final Socket s = network.getSocketFactory().createSocket();
         try {
             final InetAddress addr = getAddrByName(host, family);
             if (addr == null) fail("Fail to get destination address for " + family);
 
             final InetSocketAddress sockAddr = new InetSocketAddress(addr, port);
-            s.setSoTimeout(socketTimeOut);
-            s.connect(sockAddr, CONNECT_TIMEOUT_MS);
+            s.connect(sockAddr);
         } catch (Exception e) {
             s.close();
             throw e;
@@ -857,18 +915,6 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         final int[] keepalivesPerTransport = KeepaliveUtils.getSupportedKeepalives(mContext);
         return KeepaliveUtils.getSupportedKeepalivesForNetworkCapabilities(
                 keepalivesPerTransport, nc);
-    }
-
-    private void adoptShellPermissionIdentity() {
-        mUiAutomation.adoptShellPermissionIdentity();
-        mShellPermissionIdentityAdopted = true;
-    }
-
-    private void dropShellPermissionIdentity() {
-        if (mShellPermissionIdentityAdopted) {
-            mUiAutomation.dropShellPermissionIdentity();
-            mShellPermissionIdentityAdopted = false;
-        }
     }
 
     private static boolean isTcpKeepaliveSupportedByKernel() {
@@ -905,6 +951,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * Verifies that version string compare logic returns expected result for various cases.
      * Note that only major and minor number are compared.
      */
+    @Test
     public void testMajorMinorVersionCompare() {
         assertEquals(0, compareMajorMinorVersion("4.8.1", "4.8"));
         assertEquals(1, compareMajorMinorVersion("4.9", "4.8.1"));
@@ -924,6 +971,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * keepalives is set to 0.
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
     public void testKeepaliveWifiUnsupported() throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testKeepaliveUnsupported cannot execute unless device"
@@ -933,32 +981,37 @@ public class ConnectivityManagerTest extends AndroidTestCase {
 
         final Network network = ensureWifiConnected();
         if (getSupportedKeepalivesForNet(network) != 0) return;
+        final InetAddress srcAddr = getFirstV4Address(network);
+        assumeTrue("This test requires native IPv4", srcAddr != null);
 
-        adoptShellPermissionIdentity();
-
-        assertEquals(0, createConcurrentSocketKeepalives(network, 1, 0));
-        assertEquals(0, createConcurrentSocketKeepalives(network, 0, 1));
-
-        dropShellPermissionIdentity();
+        runWithShellPermissionIdentity(() -> {
+            assertEquals(0, createConcurrentSocketKeepalives(network, srcAddr, 1, 0));
+            assertEquals(0, createConcurrentSocketKeepalives(network, srcAddr, 0, 1));
+        });
     }
 
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
+    @SkipPresubmit(reason = "Keepalive is not supported on virtual hardware")
     public void testCreateTcpKeepalive() throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testCreateTcpKeepalive cannot execute unless device supports WiFi");
             return;
         }
 
-        adoptShellPermissionIdentity();
-
         final Network network = ensureWifiConnected();
         if (getSupportedKeepalivesForNet(network) == 0) return;
+        final InetAddress srcAddr = getFirstV4Address(network);
+        assumeTrue("This test requires native IPv4", srcAddr != null);
+
         // If kernel < 4.8 then it doesn't support TCP keepalive, but it might still support
         // NAT-T keepalive. If keepalive limits from resource overlay is not zero, TCP keepalive
         // needs to be supported except if the kernel doesn't support it.
         if (!isTcpKeepaliveSupportedByKernel()) {
             // Sanity check to ensure the callback result is expected.
-            assertEquals(0, createConcurrentSocketKeepalives(network, 0, 1));
+            runWithShellPermissionIdentity(() -> {
+                assertEquals(0, createConcurrentSocketKeepalives(network, srcAddr, 0, 1));
+            });
             Log.i(TAG, "testCreateTcpKeepalive is skipped for kernel "
                     + VintfRuntimeInfo.getKernelVersion());
             return;
@@ -967,12 +1020,13 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         final byte[] requestBytes = CtsNetUtils.HTTP_REQUEST.getBytes("UTF-8");
         // So far only ipv4 tcp keepalive offload is supported.
         // TODO: add test case for ipv6 tcp keepalive offload when it is supported.
-        try (Socket s = getConnectedSocket(network, TEST_HOST, HTTP_PORT,
-                KEEPALIVE_SOCKET_TIMEOUT_MS, AF_INET)) {
+        try (Socket s = getConnectedSocket(network, TEST_HOST, HTTP_PORT, AF_INET)) {
 
             // Should able to start keep alive offload when socket is idle.
             final Executor executor = mContext.getMainExecutor();
             final TestSocketKeepaliveCallback callback = new TestSocketKeepaliveCallback();
+
+            mUiAutomation.adoptShellPermissionIdentity();
             try (SocketKeepalive sk = mCm.createSocketKeepalive(network, s, executor, callback)) {
                 sk.start(MIN_KEEPALIVE_INTERVAL);
                 callback.expectStarted();
@@ -994,6 +1048,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
                 // Stop.
                 sk.stop();
                 callback.expectStopped();
+            } finally {
+                mUiAutomation.dropShellPermissionIdentity();
             }
 
             // Ensure socket is still connected.
@@ -1022,9 +1078,12 @@ public class ConnectivityManagerTest extends AndroidTestCase {
 
             // Should get ERROR_SOCKET_NOT_IDLE because there is still data in the receive queue
             // that has not been read.
+            mUiAutomation.adoptShellPermissionIdentity();
             try (SocketKeepalive sk = mCm.createSocketKeepalive(network, s, executor, callback)) {
                 sk.start(MIN_KEEPALIVE_INTERVAL);
                 callback.expectError(SocketKeepalive.ERROR_SOCKET_NOT_IDLE);
+            } finally {
+                mUiAutomation.dropShellPermissionIdentity();
             }
         }
     }
@@ -1069,7 +1128,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     }
 
     private @NonNull ArrayList<SocketKeepalive> createConcurrentNattSocketKeepalives(
-            @NonNull Network network, int requestCount,
+            @NonNull Network network, @NonNull InetAddress srcAddr, int requestCount,
             @NonNull TestSocketKeepaliveCallback callback)  throws Exception {
 
         final Executor executor = mContext.getMainExecutor();
@@ -1077,7 +1136,6 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         // Initialize a real NaT-T socket.
         final IpSecManager mIpSec = (IpSecManager) mContext.getSystemService(Context.IPSEC_SERVICE);
         final UdpEncapsulationSocket nattSocket = mIpSec.openUdpEncapsulationSocket();
-        final InetAddress srcAddr = getFirstV4Address(network);
         final InetAddress dstAddr = getAddrByName(TEST_HOST, AF_INET);
         assertNotNull(srcAddr);
         assertNotNull(dstAddr);
@@ -1102,7 +1160,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
             // sockets will be duplicated and kept valid in service side if the keepalives are
             // successfully started.
             try (Socket tcpSocket = getConnectedSocket(network, TEST_HOST, HTTP_PORT,
-                    0 /* Unused */, AF_INET)) {
+                    AF_INET)) {
                 return mCm.createSocketKeepalive(network, tcpSocket, executor, callback);
             } catch (Exception e) {
                 fail("Unexpected error when creating TCP socket: " + e);
@@ -1118,11 +1176,12 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * @return the total number of keepalives created.
      */
     private int createConcurrentSocketKeepalives(
-            @NonNull Network network, int nattCount, int tcpCount) throws Exception {
+            @NonNull Network network, @NonNull InetAddress srcAddr, int nattCount, int tcpCount)
+            throws Exception {
         final ArrayList<SocketKeepalive> kalist = new ArrayList<>();
         final TestSocketKeepaliveCallback callback = new TestSocketKeepaliveCallback();
 
-        kalist.addAll(createConcurrentNattSocketKeepalives(network, nattCount, callback));
+        kalist.addAll(createConcurrentNattSocketKeepalives(network, srcAddr, nattCount, callback));
         kalist.addAll(createConcurrentTcpSocketKeepalives(network, tcpCount, callback));
 
         final int ret = kalist.size();
@@ -1142,6 +1201,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * get leaked after iterations.
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
+    @SkipPresubmit(reason = "Keepalive is not supported on virtual hardware")
     public void testSocketKeepaliveLimitWifi() throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testSocketKeepaliveLimitWifi cannot execute unless device"
@@ -1154,33 +1215,39 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         if (supported == 0) {
             return;
         }
+        final InetAddress srcAddr = getFirstV4Address(network);
+        assumeTrue("This test requires native IPv4", srcAddr != null);
 
-        adoptShellPermissionIdentity();
+        runWithShellPermissionIdentity(() -> {
+            // Verifies that the supported keepalive slots meet MIN_SUPPORTED_KEEPALIVE_COUNT.
+            assertGreaterOrEqual(supported, MIN_SUPPORTED_WIFI_KEEPALIVE_COUNT);
 
-        // Verifies that the supported keepalive slots meet MIN_SUPPORTED_KEEPALIVE_COUNT.
-        assertGreaterOrEqual(supported, MIN_SUPPORTED_WIFI_KEEPALIVE_COUNT);
-
-        // Verifies that Nat-T keepalives can be established.
-        assertEquals(supported, createConcurrentSocketKeepalives(network, supported + 1, 0));
-        // Verifies that keepalives don't get leaked in second round.
-        assertEquals(supported, createConcurrentSocketKeepalives(network, supported, 0));
+            // Verifies that Nat-T keepalives can be established.
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr,
+                    supported + 1, 0));
+            // Verifies that keepalives don't get leaked in second round.
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr, supported,
+                    0));
+        });
 
         // If kernel < 4.8 then it doesn't support TCP keepalive, but it might still support
         // NAT-T keepalive. Test below cases only if TCP keepalive is supported by kernel.
-        if (isTcpKeepaliveSupportedByKernel()) {
-            assertEquals(supported, createConcurrentSocketKeepalives(network, 0, supported + 1));
+        if (!isTcpKeepaliveSupportedByKernel()) return;
+
+        runWithShellPermissionIdentity(() -> {
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr, 0,
+                    supported + 1));
 
             // Verifies that different types can be established at the same time.
-            assertEquals(supported, createConcurrentSocketKeepalives(network,
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr,
                     supported / 2, supported - supported / 2));
 
             // Verifies that keepalives don't get leaked in second round.
-            assertEquals(supported, createConcurrentSocketKeepalives(network, 0, supported));
-            assertEquals(supported, createConcurrentSocketKeepalives(network,
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr, 0,
+                    supported));
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr,
                     supported / 2, supported - supported / 2));
-        }
-
-        dropShellPermissionIdentity();
+        });
     }
 
     /**
@@ -1188,6 +1255,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * don't get leaked after iterations.
      */
     @AppModeFull(reason = "Cannot request network in instant app mode")
+    @Test
+    @SkipPresubmit(reason = "Keepalive is not supported on virtual hardware")
     public void testSocketKeepaliveLimitTelephony() throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_TELEPHONY)) {
             Log.i(TAG, "testSocketKeepaliveLimitTelephony cannot execute unless device"
@@ -1204,18 +1273,19 @@ public class ConnectivityManagerTest extends AndroidTestCase {
 
         final Network network = mCtsNetUtils.connectToCell();
         final int supported = getSupportedKeepalivesForNet(network);
+        final InetAddress srcAddr = getFirstV4Address(network);
+        assumeTrue("This test requires native IPv4", srcAddr != null);
 
-        adoptShellPermissionIdentity();
-
-        // Verifies that the supported keepalive slots meet minimum requirement.
-        assertGreaterOrEqual(supported, MIN_SUPPORTED_CELLULAR_KEEPALIVE_COUNT);
-
-        // Verifies that Nat-T keepalives can be established.
-        assertEquals(supported, createConcurrentSocketKeepalives(network, supported + 1, 0));
-        // Verifies that keepalives don't get leaked in second round.
-        assertEquals(supported, createConcurrentSocketKeepalives(network, supported, 0));
-
-        dropShellPermissionIdentity();
+        runWithShellPermissionIdentity(() -> {
+            // Verifies that the supported keepalive slots meet minimum requirement.
+            assertGreaterOrEqual(supported, MIN_SUPPORTED_CELLULAR_KEEPALIVE_COUNT);
+            // Verifies that Nat-T keepalives can be established.
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr,
+                    supported + 1, 0));
+            // Verifies that keepalives don't get leaked in second round.
+            assertEquals(supported, createConcurrentSocketKeepalives(network, srcAddr, supported,
+                    0));
+        });
     }
 
     private int getIntResourceForName(@NonNull String resName) {
@@ -1228,6 +1298,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * Verifies that the keepalive slots are limited as customized for unprivileged requests.
      */
     @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
+    @SkipPresubmit(reason = "Keepalive is not supported on virtual hardware")
     public void testSocketKeepaliveUnprivileged() throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testSocketKeepaliveUnprivileged cannot execute unless device"
@@ -1240,6 +1312,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         if (supported == 0) {
             return;
         }
+        final InetAddress srcAddr = getFirstV4Address(network);
+        assumeTrue("This test requires native IPv4", srcAddr != null);
 
         // Resource ID might be shifted on devices that compiled with different symbols.
         // Thus, resolve ID at runtime is needed.
@@ -1255,11 +1329,46 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         final int expectedUnprivileged =
                 Math.min(allowedUnprivilegedPerUid, supported - reservedPrivilegedSlots);
         assertEquals(expectedUnprivileged,
-                createConcurrentSocketKeepalives(network, supported + 1, 0));
+                createConcurrentSocketKeepalives(network, srcAddr, supported + 1, 0));
     }
 
     private static void assertGreaterOrEqual(long greater, long lesser) {
         assertTrue("" + greater + " expected to be greater than or equal to " + lesser,
                 greater >= lesser);
+    }
+
+    /**
+     * Verifies that apps are not allowed to access restricted networks even if they declare the
+     * CONNECTIVITY_USE_RESTRICTED_NETWORKS permission in their manifests.
+     * See. b/144679405.
+     */
+    @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
+    @Test
+    public void testRestrictedNetworkPermission() throws Exception {
+        // Ensure that CONNECTIVITY_USE_RESTRICTED_NETWORKS isn't granted to this package.
+        final PackageInfo app = mPackageManager.getPackageInfo(mContext.getPackageName(),
+                GET_PERMISSIONS);
+        final int index = ArrayUtils.indexOf(
+                app.requestedPermissions, CONNECTIVITY_USE_RESTRICTED_NETWORKS);
+        assertTrue(index >= 0);
+        assertTrue(app.requestedPermissionsFlags[index] != PERMISSION_GRANTED);
+
+        // Ensure that NetworkUtils.queryUserAccess always returns false since this package should
+        // not have netd system permission to call this function.
+        final Network wifiNetwork = ensureWifiConnected();
+        assertFalse(NetworkUtils.queryUserAccess(Binder.getCallingUid(), wifiNetwork.netId));
+
+        // Ensure that this package cannot bind to any restricted network that's currently
+        // connected.
+        Network[] networks = mCm.getAllNetworks();
+        for (Network network : networks) {
+            NetworkCapabilities nc = mCm.getNetworkCapabilities(network);
+            if (nc != null && !nc.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)) {
+                try {
+                    network.bindSocket(new Socket());
+                    fail("Bind to restricted network " + network + " unexpectedly succeeded");
+                } catch (IOException expected) {}
+            }
+        }
     }
 }

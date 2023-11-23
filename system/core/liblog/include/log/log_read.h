@@ -48,76 +48,16 @@ extern "C" {
  * access to raw information, or parsing is an issue.
  */
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wzero-length-array"
-/*
- * The userspace structure for version 1 of the logger_entry ABI.
- */
-#ifndef __struct_logger_entry_defined
-#define __struct_logger_entry_defined
 struct logger_entry {
-  uint16_t len;   /* length of the payload */
-  uint16_t __pad; /* no matter what, we get 2 bytes of padding */
-  int32_t pid;    /* generating process's pid */
-  int32_t tid;    /* generating process's tid */
-  int32_t sec;    /* seconds since Epoch */
-  int32_t nsec;   /* nanoseconds */
-  char msg[0]; /* the entry's payload */
-};
-#endif
-
-/*
- * The userspace structure for version 2 of the logger_entry ABI.
- */
-#ifndef __struct_logger_entry_v2_defined
-#define __struct_logger_entry_v2_defined
-struct logger_entry_v2 {
   uint16_t len;      /* length of the payload */
-  uint16_t hdr_size; /* sizeof(struct logger_entry_v2) */
-  int32_t pid;       /* generating process's pid */
-  int32_t tid;       /* generating process's tid */
-  int32_t sec;       /* seconds since Epoch */
-  int32_t nsec;      /* nanoseconds */
-  uint32_t euid;     /* effective UID of logger */
-  char msg[0]; /* the entry's payload */
-} __attribute__((__packed__));
-#endif
-
-/*
- * The userspace structure for version 3 of the logger_entry ABI.
- */
-#ifndef __struct_logger_entry_v3_defined
-#define __struct_logger_entry_v3_defined
-struct logger_entry_v3 {
-  uint16_t len;      /* length of the payload */
-  uint16_t hdr_size; /* sizeof(struct logger_entry_v3) */
-  int32_t pid;       /* generating process's pid */
-  int32_t tid;       /* generating process's tid */
-  int32_t sec;       /* seconds since Epoch */
-  int32_t nsec;      /* nanoseconds */
-  uint32_t lid;      /* log id of the payload */
-  char msg[0]; /* the entry's payload */
-} __attribute__((__packed__));
-#endif
-
-/*
- * The userspace structure for version 4 of the logger_entry ABI.
- */
-#ifndef __struct_logger_entry_v4_defined
-#define __struct_logger_entry_v4_defined
-struct logger_entry_v4 {
-  uint16_t len;      /* length of the payload */
-  uint16_t hdr_size; /* sizeof(struct logger_entry_v4) */
+  uint16_t hdr_size; /* sizeof(struct logger_entry) */
   int32_t pid;       /* generating process's pid */
   uint32_t tid;      /* generating process's tid */
   uint32_t sec;      /* seconds since Epoch */
   uint32_t nsec;     /* nanoseconds */
   uint32_t lid;      /* log id of the payload, bottom 4 bits currently */
   uint32_t uid;      /* generating process's uid */
-  char msg[0]; /* the entry's payload */
 };
-#endif
-#pragma clang diagnostic pop
 
 /*
  * The maximum size of the log entry payload that can be
@@ -133,16 +73,10 @@ struct logger_entry_v4 {
  */
 #define LOGGER_ENTRY_MAX_LEN (5 * 1024)
 
-#ifndef __struct_log_msg_defined
-#define __struct_log_msg_defined
 struct log_msg {
   union {
     unsigned char buf[LOGGER_ENTRY_MAX_LEN + 1];
-    struct logger_entry_v4 entry;
-    struct logger_entry_v4 entry_v4;
-    struct logger_entry_v3 entry_v3;
-    struct logger_entry_v2 entry_v2;
-    struct logger_entry entry_v1;
+    struct logger_entry entry;
   } __attribute__((aligned(4)));
 #ifdef __cplusplus
   /* Matching log_time operators */
@@ -176,22 +110,14 @@ struct log_msg {
   }
   char* msg() {
     unsigned short hdr_size = entry.hdr_size;
-    if (!hdr_size) {
-      hdr_size = sizeof(entry_v1);
-    }
-    if ((hdr_size < sizeof(entry_v1)) || (hdr_size > sizeof(entry))) {
+    if (hdr_size >= sizeof(struct log_msg) - sizeof(entry)) {
       return nullptr;
     }
     return reinterpret_cast<char*>(buf) + hdr_size;
   }
-  unsigned int len() {
-    return (entry.hdr_size ? entry.hdr_size
-                           : static_cast<uint16_t>(sizeof(entry_v1))) +
-           entry.len;
-  }
+  unsigned int len() { return entry.hdr_size + entry.len; }
 #endif
 };
-#endif
 
 struct logger;
 
@@ -209,8 +135,7 @@ ssize_t android_logger_get_statistics(struct logger_list* logger_list,
                                       char* buf, size_t len);
 ssize_t android_logger_get_prune_list(struct logger_list* logger_list,
                                       char* buf, size_t len);
-int android_logger_set_prune_list(struct logger_list* logger_list, char* buf,
-                                  size_t len);
+int android_logger_set_prune_list(struct logger_list* logger_list, const char* buf, size_t len);
 
 #define ANDROID_LOG_RDONLY O_RDONLY
 #define ANDROID_LOG_WRONLY O_WRONLY

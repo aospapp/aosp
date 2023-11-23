@@ -478,6 +478,74 @@ TEST_F(AvbSlotVerifyTest, LoadEntirePartitionIfAllowingVerificationError) {
   avb_slot_verify_data_free(slot_data);
 }
 
+TEST_F(AvbSlotVerifyTest, LoadSmallerPartitionIfAllowingVerificationError) {
+  const size_t boot_partition_size = 16 * 1024 * 1024;
+  const size_t boot_image_size = 5 * 1024 * 1024;
+  const size_t new_boot_image_size = 1 * 1024 * 1024;
+  base::FilePath boot_path = GenerateImage("boot_a.img", boot_image_size);
+
+  // If we're allowing verification errors then check that the whole
+  // partition is loaded. This is needed because in this mode for
+  // example the "boot" partition might be flashed with another
+  // boot.img that is larger than what the HashDescriptor in vbmeta
+  // says.
+  EXPECT_COMMAND(
+      0,
+      "./avbtool add_hash_footer"
+      " --image %s"
+      " --rollback_index 0"
+      " --partition_name boot"
+      " --partition_size %zd"
+      " --kernel_cmdline 'cmdline in hash footer $(ANDROID_SYSTEM_PARTUUID)'"
+      " --salt deadbeef"
+      " --internal_release_string \"\"",
+      boot_path.value().c_str(),
+      boot_partition_size);
+
+  GenerateVBMetaImage(
+      "vbmeta_a.img",
+      "SHA256_RSA2048",
+      4,
+      base::FilePath("test/data/testkey_rsa2048.pem"),
+      base::StringPrintf(
+          "--include_descriptors_from_image %s"
+          " --kernel_cmdline 'cmdline in vbmeta $(ANDROID_BOOT_PARTUUID)'"
+          " --internal_release_string \"\"",
+          boot_path.value().c_str()));
+
+  // Now replace the boot partition with something bigger and
+  // different. Because FakeOps's get_size_of_partition() operation
+  // just returns the file size it means that this is what is returned
+  // by get_size_of_partition().
+  //
+  // Also make sure this image will return a different digest by using
+  // a non-standard starting byte. This is to force avb_slot_verify()
+  // to return ERROR_VERIFICATION below.
+  GenerateImage("boot_a.img", new_boot_image_size, 1 /* start_byte */);
+
+  ops_.set_expected_public_key(
+      PublicKeyAVB(base::FilePath("test/data/testkey_rsa2048.pem")));
+
+  AvbSlotVerifyData* slot_data = NULL;
+  const char* requested_partitions[] = {"boot", NULL};
+  EXPECT_EQ(AVB_SLOT_VERIFY_RESULT_ERROR_VERIFICATION,
+            avb_slot_verify(ops_.avb_ops(),
+                            requested_partitions,
+                            "_a",
+                            AVB_SLOT_VERIFY_FLAGS_ALLOW_VERIFICATION_ERROR,
+                            AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE,
+                            &slot_data));
+  EXPECT_NE(nullptr, slot_data);
+
+  // Check that the loaded partition is actually
+  // |new_boot_image_size|.
+  EXPECT_EQ(size_t(1), slot_data->num_loaded_partitions);
+  EXPECT_EQ("boot",
+            std::string(slot_data->loaded_partitions[0].partition_name));
+  EXPECT_EQ(new_boot_image_size, slot_data->loaded_partitions[0].data_size);
+  avb_slot_verify_data_free(slot_data);
+}
+
 TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMeta) {
   const size_t boot_partition_size = 16 * 1024 * 1024;
   const size_t boot_image_size = 5 * 1024 * 1024;
@@ -512,6 +580,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInVBMeta) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          896 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           4\n"
       "Flags:                    0\n"
@@ -792,6 +861,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartition) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          1728 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           11\n"
       "Flags:                    0\n"
@@ -818,6 +888,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInChainedPartition) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     576 bytes\n"
       "Auxiliary Block:          1280 bytes\n"
+      "Public key (sha1):        2597c218aae470a130f61162feaae70afd97f011\n"
       "Algorithm:                SHA256_RSA4096\n"
       "Rollback Index:           12\n"
       "Flags:                    0\n"
@@ -987,6 +1058,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInOtherVBMetaPartition) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          1728 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           11\n"
       "Flags:                    0\n"
@@ -1007,6 +1079,7 @@ TEST_F(AvbSlotVerifyTest, HashDescriptorInOtherVBMetaPartition) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     576 bytes\n"
       "Auxiliary Block:          1280 bytes\n"
+      "Public key (sha1):        2597c218aae470a130f61162feaae70afd97f011\n"
       "Algorithm:                SHA256_RSA4096\n"
       "Rollback Index:           12\n"
       "Flags:                    0\n"
@@ -1386,6 +1459,7 @@ TEST_F(AvbSlotVerifyTest, ChainedPartitionNoSlots) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          1728 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           11\n"
       "Flags:                    0\n"
@@ -1500,6 +1574,7 @@ TEST_F(AvbSlotVerifyTest, PartitionsOtherThanBoot) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          896 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           4\n"
       "Flags:                    0\n"
@@ -1613,6 +1688,7 @@ TEST_F(AvbSlotVerifyTest, OnlyLoadWhatHasBeenRequested) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          896 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           4\n"
       "Flags:                    0\n"
@@ -1658,6 +1734,115 @@ TEST_F(AvbSlotVerifyTest, OnlyLoadWhatHasBeenRequested) {
   EXPECT_TRUE(partitions.find("vbmeta_a") != partitions.end());
   EXPECT_TRUE(partitions.find("foo_a") != partitions.end());
   EXPECT_TRUE(partitions.find("bar_a") == partitions.end());
+}
+
+TEST_F(AvbSlotVerifyTest, NoVBMetaPartitionFlag) {
+  const size_t foo_partition_size = 16 * 1024 * 1024;
+  const size_t bar_partition_size = 32 * 1024 * 1024;
+  const size_t foo_image_size = 5 * 1024 * 1024;
+  const size_t bar_image_size = 10 * 1024 * 1024;
+  base::FilePath foo_path = GenerateImage("foo_a.img", foo_image_size);
+  base::FilePath bar_path = GenerateImage("bar_a.img", bar_image_size);
+
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hash_footer"
+                 " --image %s"
+                 " --kernel_cmdline 'this is=5 from foo=42'"
+                 " --partition_name foo"
+                 " --partition_size %zd"
+                 " --salt deadbeef"
+                 " --internal_release_string \"\""
+                 " --algorithm SHA256_RSA4096"
+                 " --salt deadbeef"
+                 " --key test/data/testkey_rsa4096.pem"
+                 " --rollback_index 42",
+                 foo_path.value().c_str(),
+                 foo_partition_size);
+
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hash_footer"
+                 " --image %s"
+                 " --kernel_cmdline 'and=43 from bar'"
+                 " --partition_name bar"
+                 " --partition_size %zd"
+                 " --salt deadbeef"
+                 " --internal_release_string \"\""
+                 " --algorithm SHA256_RSA2048"
+                 " --salt deadbeef"
+                 " --key test/data/testkey_rsa2048.pem"
+                 " --rollback_index 43",
+                 bar_path.value().c_str(),
+                 bar_partition_size);
+
+  ops_.set_expected_public_key_for_partition(
+      "foo_a",
+      PublicKeyAVB(base::FilePath("test/data/testkey_rsa4096.pem")),
+      1);
+  ops_.set_expected_public_key_for_partition(
+      "bar_a",
+      PublicKeyAVB(base::FilePath("test/data/testkey_rsa2048.pem")),
+      2);
+  ops_.set_stored_rollback_indexes({{0, 1000}, {1, 10}, {2, 11}});
+  AvbSlotVerifyData* slot_data = NULL;
+  const char* requested_partitions[] = {"foo", "bar", NULL};
+
+  // Without AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION, this should fail because
+  // vbmeta_a (or boot_a) cannot not be found.
+  EXPECT_EQ(AVB_SLOT_VERIFY_RESULT_ERROR_IO,
+            avb_slot_verify(ops_.avb_ops(),
+                            requested_partitions,
+                            "_a",
+                            AVB_SLOT_VERIFY_FLAGS_NONE,
+                            AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE,
+                            &slot_data));
+
+  // However, with this flag it should succeed (note that rollback indexes in
+  // the images exceed the stored rollback indexes)
+  EXPECT_EQ(AVB_SLOT_VERIFY_RESULT_OK,
+            avb_slot_verify(ops_.avb_ops(),
+                            requested_partitions,
+                            "_a",
+                            AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION,
+                            AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE,
+                            &slot_data));
+  EXPECT_NE(nullptr, slot_data);
+  EXPECT_EQ(size_t(2), slot_data->num_loaded_partitions);
+  EXPECT_EQ("foo", std::string(slot_data->loaded_partitions[0].partition_name));
+  EXPECT_EQ("bar", std::string(slot_data->loaded_partitions[1].partition_name));
+  // Note the absence of 'androidboot.vbmeta.device'
+  EXPECT_EQ(
+      "this is=5 from foo=42 and=43 from bar "
+      "androidboot.vbmeta.avb_version=1.1 "
+      "androidboot.vbmeta.device_state=locked "
+      "androidboot.vbmeta.hash_alg=sha256 "
+      "androidboot.vbmeta.size=3456 "
+      "androidboot.vbmeta.digest="
+      "b5dbfb1743073f9a4cb45f94d1d849f89ca9777d158a2a06d09517c79ffd86cd "
+      "androidboot.vbmeta.invalidate_on_error=yes "
+      "androidboot.veritymode=enforcing",
+      std::string(slot_data->cmdline));
+  avb_slot_verify_data_free(slot_data);
+
+  // Check that rollback protection works if we increase the stored rollback
+  // indexes to exceed that of the image... do a check for each location.
+  ops_.set_stored_rollback_indexes({{0, 1000}, {1, 10}, {2, 100}});
+  EXPECT_EQ(AVB_SLOT_VERIFY_RESULT_ERROR_ROLLBACK_INDEX,
+            avb_slot_verify(ops_.avb_ops(),
+                            requested_partitions,
+                            "_a",
+                            AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION,
+                            AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE,
+                            &slot_data));
+  EXPECT_EQ(nullptr, slot_data);
+  ops_.set_stored_rollback_indexes({{0, 1000}, {1, 100}, {2, 10}});
+  EXPECT_EQ(AVB_SLOT_VERIFY_RESULT_ERROR_ROLLBACK_INDEX,
+            avb_slot_verify(ops_.avb_ops(),
+                            requested_partitions,
+                            "_a",
+                            AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION,
+                            AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE,
+                            &slot_data));
+  EXPECT_EQ(nullptr, slot_data);
 }
 
 TEST_F(AvbSlotVerifyTest, PublicKeyMetadata) {
@@ -1751,6 +1936,7 @@ void AvbSlotVerifyTest::CmdlineWithHashtreeVerification(
           "Header Block:             256 bytes\n"
           "Authentication Block:     320 bytes\n"
           "Auxiliary Block:          960 bytes\n"
+          "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
           "Algorithm:                SHA256_RSA2048\n"
           "Rollback Index:           4\n"
           "Flags:                    %d\n"
@@ -1872,6 +2058,7 @@ void AvbSlotVerifyTest::CmdlineWithChainedHashtreeVerification(
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          1088 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1931,6 +2118,8 @@ void AvbSlotVerifyTest::CmdlineWithChainedHashtreeVerification(
                          "Header Block:             256 bytes\n"
                          "Authentication Block:     320 bytes\n"
                          "Auxiliary Block:          1216 bytes\n"
+                         "Public key (sha1):        "
+                         "cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
                          "Algorithm:                SHA256_RSA2048\n"
                          "Rollback Index:           4\n"
                          "Flags:                    %d\n"
@@ -2067,6 +2256,7 @@ void AvbSlotVerifyTest::VerificationDisabled(bool use_avbctl,
           "Header Block:             256 bytes\n"
           "Authentication Block:     320 bytes\n"
           "Auxiliary Block:          960 bytes\n"
+          "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
           "Algorithm:                SHA256_RSA2048\n"
           "Rollback Index:           4\n"
           "Flags:                    %d\n"
@@ -2291,6 +2481,7 @@ TEST_F(AvbSlotVerifyTest, NoVBMetaPartition) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          2624 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    2147483648\n"
@@ -2731,6 +2922,8 @@ class AvbSlotVerifyTestWithPersistentDigest : public AvbSlotVerifyTest {
                                  "Header Block:             256 bytes\n"
                                  "Authentication Block:     320 bytes\n"
                                  "Auxiliary Block:          704 bytes\n"
+                                 "Public key (sha1):        "
+                                 "cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
                                  "Algorithm:                SHA256_RSA2048\n"
                                  "Rollback Index:           0\n"
                                  "Flags:                    0\n"
@@ -2790,6 +2983,8 @@ class AvbSlotVerifyTestWithPersistentDigest : public AvbSlotVerifyTest {
                                  "Header Block:             256 bytes\n"
                                  "Authentication Block:     320 bytes\n"
                                  "Auxiliary Block:          832 bytes\n"
+                                 "Public key (sha1):        "
+                                 "cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
                                  "Algorithm:                SHA256_RSA2048\n"
                                  "Rollback Index:           0\n"
                                  "Flags:                    0\n"

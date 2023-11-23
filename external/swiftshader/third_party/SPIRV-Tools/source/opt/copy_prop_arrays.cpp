@@ -306,8 +306,7 @@ CopyPropagateArrays::BuildMemoryObjectFromCompositeConstruct(
   analysis::ConstantManager* const_mgr = context()->get_constant_mgr();
   const analysis::Constant* last_access =
       const_mgr->FindDeclaredConstant(memory_object->AccessChain().back());
-  if (!last_access ||
-      (!last_access->AsIntConstant() && !last_access->AsNullConstant())) {
+  if (!last_access || !last_access->type()->AsInteger()) {
     return nullptr;
   }
 
@@ -340,7 +339,7 @@ CopyPropagateArrays::BuildMemoryObjectFromCompositeConstruct(
 
     last_access =
         const_mgr->FindDeclaredConstant(member_object->AccessChain().back());
-    if (!last_access || !last_access->AsIntConstant()) {
+    if (!last_access || !last_access->type()->AsInteger()) {
       return nullptr;
     }
 
@@ -368,8 +367,7 @@ CopyPropagateArrays::BuildMemoryObjectFromInsert(Instruction* insert_inst) {
   } else if (const analysis::Array* array_type = result_type->AsArray()) {
     const analysis::Constant* length_const =
         const_mgr->FindDeclaredConstant(array_type->LengthId());
-    assert(length_const->AsIntConstant());
-    number_of_elements = length_const->AsIntConstant()->GetU32();
+    number_of_elements = length_const->GetU32();
   } else if (const analysis::Vector* vector_type = result_type->AsVector()) {
     number_of_elements = vector_type->element_count();
   } else if (const analysis::Matrix* matrix_type = result_type->AsMatrix()) {
@@ -401,7 +399,7 @@ CopyPropagateArrays::BuildMemoryObjectFromInsert(Instruction* insert_inst) {
 
   const analysis::Constant* last_access =
       const_mgr->FindDeclaredConstant(memory_object->AccessChain().back());
-  if (!last_access || !last_access->AsIntConstant()) {
+  if (!last_access || !last_access->type()->AsInteger()) {
     return nullptr;
   }
 
@@ -449,7 +447,7 @@ CopyPropagateArrays::BuildMemoryObjectFromInsert(Instruction* insert_inst) {
     const analysis::Constant* current_last_access =
         const_mgr->FindDeclaredConstant(
             current_memory_object->AccessChain().back());
-    if (!current_last_access || !current_last_access->AsIntConstant()) {
+    if (!current_last_access || !current_last_access->type()->AsInteger()) {
       return nullptr;
     }
 
@@ -513,7 +511,7 @@ bool CopyPropagateArrays::CanUpdateUses(Instruction* original_ptr_inst,
           const analysis::Constant* index_const =
               const_mgr->FindDeclaredConstant(use->GetSingleWordInOperand(i));
           if (index_const) {
-            access_chain.push_back(index_const->AsIntConstant()->GetU32());
+            access_chain.push_back(index_const->GetU32());
           } else {
             // Variable index means the type is a type where every element
             // is the same type.  Use element 0 to get the type.
@@ -527,6 +525,9 @@ bool CopyPropagateArrays::CanUpdateUses(Instruction* original_ptr_inst,
                                     pointer_type->storage_class());
         uint32_t new_pointer_type_id =
             context()->get_type_mgr()->GetTypeInstruction(&pointerTy);
+        if (new_pointer_type_id == 0) {
+          return false;
+        }
 
         if (new_pointer_type_id != use->type_id()) {
           return CanUpdateUses(use, new_pointer_type_id);
@@ -542,6 +543,9 @@ bool CopyPropagateArrays::CanUpdateUses(Instruction* original_ptr_inst,
         const analysis::Type* new_type =
             type_mgr->GetMemberType(type, access_chain);
         uint32_t new_type_id = type_mgr->GetTypeInstruction(new_type);
+        if (new_type_id == 0) {
+          return false;
+        }
 
         if (new_type_id != use->type_id()) {
           return CanUpdateUses(use, new_type_id);
@@ -563,11 +567,6 @@ bool CopyPropagateArrays::CanUpdateUses(Instruction* original_ptr_inst,
 }
 void CopyPropagateArrays::UpdateUses(Instruction* original_ptr_inst,
                                      Instruction* new_ptr_inst) {
-  // TODO (s-perron): Keep the def-use manager up to date.  Not done now because
-  // it can cause problems for the |ForEachUse| traversals.  Can be use by
-  // keeping a list of instructions that need updating, and then updating them
-  // in |PropagateObject|.
-
   analysis::TypeManager* type_mgr = context()->get_type_mgr();
   analysis::ConstantManager* const_mgr = context()->get_constant_mgr();
   analysis::DefUseManager* def_use_mgr = context()->get_def_use_mgr();
@@ -612,7 +611,7 @@ void CopyPropagateArrays::UpdateUses(Instruction* original_ptr_inst,
           const analysis::Constant* index_const =
               const_mgr->FindDeclaredConstant(use->GetSingleWordInOperand(i));
           if (index_const) {
-            access_chain.push_back(index_const->AsIntConstant()->GetU32());
+            access_chain.push_back(index_const->GetU32());
           } else {
             // Variable index means the type is an type where every element
             // is the same type.  Use element 0 to get the type.
@@ -703,74 +702,6 @@ void CopyPropagateArrays::UpdateUses(Instruction* original_ptr_inst,
   }
 }
 
-uint32_t CopyPropagateArrays::GenerateCopy(Instruction* object_inst,
-                                           uint32_t new_type_id,
-                                           Instruction* insertion_position) {
-  analysis::TypeManager* type_mgr = context()->get_type_mgr();
-  analysis::ConstantManager* const_mgr = context()->get_constant_mgr();
-
-  uint32_t original_type_id = object_inst->type_id();
-  if (original_type_id == new_type_id) {
-    return object_inst->result_id();
-  }
-
-  InstructionBuilder ir_builder(
-      context(), insertion_position,
-      IRContext::kAnalysisInstrToBlockMapping | IRContext::kAnalysisDefUse);
-
-  analysis::Type* original_type = type_mgr->GetType(original_type_id);
-  analysis::Type* new_type = type_mgr->GetType(new_type_id);
-
-  if (const analysis::Array* original_array_type = original_type->AsArray()) {
-    uint32_t original_element_type_id =
-        type_mgr->GetId(original_array_type->element_type());
-
-    analysis::Array* new_array_type = new_type->AsArray();
-    assert(new_array_type != nullptr && "Can't copy an array to a non-array.");
-    uint32_t new_element_type_id =
-        type_mgr->GetId(new_array_type->element_type());
-
-    std::vector<uint32_t> element_ids;
-    const analysis::Constant* length_const =
-        const_mgr->FindDeclaredConstant(original_array_type->LengthId());
-    assert(length_const->AsIntConstant());
-    uint32_t array_length = length_const->AsIntConstant()->GetU32();
-    for (uint32_t i = 0; i < array_length; i++) {
-      Instruction* extract = ir_builder.AddCompositeExtract(
-          original_element_type_id, object_inst->result_id(), {i});
-      element_ids.push_back(
-          GenerateCopy(extract, new_element_type_id, insertion_position));
-    }
-
-    return ir_builder.AddCompositeConstruct(new_type_id, element_ids)
-        ->result_id();
-  } else if (const analysis::Struct* original_struct_type =
-                 original_type->AsStruct()) {
-    analysis::Struct* new_struct_type = new_type->AsStruct();
-
-    const std::vector<const analysis::Type*>& original_types =
-        original_struct_type->element_types();
-    const std::vector<const analysis::Type*>& new_types =
-        new_struct_type->element_types();
-    std::vector<uint32_t> element_ids;
-    for (uint32_t i = 0; i < original_types.size(); i++) {
-      Instruction* extract = ir_builder.AddCompositeExtract(
-          type_mgr->GetId(original_types[i]), object_inst->result_id(), {i});
-      element_ids.push_back(GenerateCopy(extract, type_mgr->GetId(new_types[i]),
-                                         insertion_position));
-    }
-    return ir_builder.AddCompositeConstruct(new_type_id, element_ids)
-        ->result_id();
-  } else {
-    // If we do not have an aggregate type, then we have a problem.  Either we
-    // found multiple instances of the same type, or we are copying to an
-    // incompatible type.  Either way the code is illegal.
-    assert(false &&
-           "Don't know how to copy this type.  Code is likely illegal.");
-  }
-  return 0;
-}
-
 uint32_t CopyPropagateArrays::GetMemberTypeId(
     uint32_t id, const std::vector<uint32_t>& access_chain) const {
   for (uint32_t element_index : access_chain) {
@@ -816,8 +747,8 @@ uint32_t CopyPropagateArrays::MemoryObject::GetNumberOfMembers() {
     const analysis::Constant* length_const =
         context->get_constant_mgr()->FindDeclaredConstant(
             array_type->LengthId());
-    assert(length_const->AsIntConstant());
-    return length_const->AsIntConstant()->GetU32();
+    assert(length_const->type()->AsInteger());
+    return length_const->GetU32();
   } else if (const analysis::Vector* vector_type = type->AsVector()) {
     return vector_type->element_count();
   } else if (const analysis::Matrix* matrix_type = type->AsMatrix()) {
@@ -843,8 +774,7 @@ std::vector<uint32_t> CopyPropagateArrays::MemoryObject::GetAccessIds() const {
     if (!element_index_const) {
       access_indices.push_back(0);
     } else {
-      assert(element_index_const->AsIntConstant());
-      access_indices.push_back(element_index_const->AsIntConstant()->GetU32());
+      access_indices.push_back(element_index_const->GetU32());
     }
   }
   return access_indices;

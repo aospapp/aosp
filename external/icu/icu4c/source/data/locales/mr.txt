@@ -19,8 +19,8 @@ mr{
         "[\u200D ॐ \u0902 ः अ आ इ ई उ ऊ ऋ ऌ ए ऐ ऑ ओ औ क ख ग घ ङ च छ ज झ ञ ट ठ ड ढ ण त"
         " थ द ध न प फ ब भ म य र ल व श ष स ह ळ ऽ \u0945 \u094D]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] @ * / \\& # ′ ″]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] @ * / \\& # ′ ″]"}
     MoreInformation{"?"}
     NumberElements{
         default{"deva"}
@@ -243,7 +243,7 @@ mr{
         minimumGroupingDigits{"1"}
         native{"deva"}
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -696,8 +696,8 @@ mr{
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMW{
-                    one{"MMM चा W रा आठवडा"}
-                    other{"MMM चा W रा आठवडा"}
+                    one{"MMMM चा W रा आठवडा"}
+                    other{"MMMM चा W रा आठवडा"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}

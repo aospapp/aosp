@@ -89,12 +89,33 @@ LIBBINDER_NDK { # introduced=29
     AStatus_getStatus;
     AStatus_isOk;
     AStatus_newOk;
-    ABinderProcess_joinThreadPool; # apex
-    ABinderProcess_setThreadPoolMaxThreadCount; # apex
-    ABinderProcess_startThreadPool; # apex
-    AServiceManager_addService; # apex
-    AServiceManager_checkService; # apex
-    AServiceManager_getService; # apex
+    ABinderProcess_joinThreadPool; # apex llndk
+    ABinderProcess_setThreadPoolMaxThreadCount; # apex llndk
+    ABinderProcess_startThreadPool; # apex llndk
+    AServiceManager_addService; # apex llndk
+    AServiceManager_checkService; # apex llndk
+    AServiceManager_getService; # apex llndk
   local:
     *;
+};
+
+LIBBINDER_NDK30 { # introduced=30
+  global:
+    AIBinder_getExtension;
+    AIBinder_setExtension;
+    AStatus_getDescription;
+    AStatus_deleteDescription;
+    AParcel_fromJavaParcel;
+
+    AIBinder_markSystemStability; # apex
+    AIBinder_markVendorStability; # llndk
+    AIBinder_markVintfStability; # apex llndk
+    AIBinder_Class_setHandleShellCommand; # apex llndk
+  local:
+    *;
+};
+
+LIBBINDER_NDK_PLATFORM {
+  global:
+    AParcel_getAllowFds;
 };

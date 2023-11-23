@@ -98,4 +98,13 @@ message UserConfig {
   // List of scopes that will be given to the instance
   // https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances#changeserviceaccountandscopes
   repeated string extra_scopes = 26;
+
+  // Provide some additional parameters to build the ssh tunnel.
+  optional string extra_args_ssh_tunnel = 27;
+
+  // [CVD only] Version of fetch_cvd to use.
+  optional string fetch_cvd_version = 28;
+
+  // [CVD only] Enable multi stage function.
+  optional bool enable_multi_stage = 29;
 }

@@ -35,7 +35,9 @@ import javax.net.ssl.SSLSession;
  * href="http://www.ietf.org/rfc/rfc2818.txt">RFC 2818</a>.
  */
 public final class OkHostnameVerifier implements HostnameVerifier {
-  public static final OkHostnameVerifier INSTANCE = new OkHostnameVerifier();
+  // Android-changed: Add a mode which disallows top-level domain wildcards. b/144694112
+  // public static final OkHostnameVerifier INSTANCE = new OkHostnameVerifier();
+  public static final OkHostnameVerifier INSTANCE = new OkHostnameVerifier(false);
 
   /**
    * Quick and dirty pattern to differentiate IP addresses from hostnames. This
@@ -54,8 +56,19 @@ public final class OkHostnameVerifier implements HostnameVerifier {
   private static final int ALT_DNS_NAME = 2;
   private static final int ALT_IPA_NAME = 7;
 
-  private OkHostnameVerifier() {
+  // BEGIN Android-changed: Add a mode which disallows top-level domain wildcards. b/144694112
+  // private OkHostnameVerifier() {
+  // }
+  private final boolean strictWildcardMode;
+
+  private OkHostnameVerifier(boolean strictWildcardMode) {
+    this.strictWildcardMode = strictWildcardMode;
   }
+
+  public static OkHostnameVerifier strictInstance() {
+    return new OkHostnameVerifier(true);
+  }
+  // END Android-changed: Add a mode which disallows top-level domain wildcards. b/144694112
 
   @Override
   public boolean verify(String host, SSLSession session) {
@@ -214,6 +227,8 @@ public final class OkHostnameVerifier implements HostnameVerifier {
     //    For example, *.example.com matches test.example.com but does not match
     //    sub.test.example.com.
     // 3. Wildcard patterns for single-label domain names are not permitted.
+    // 4. Android-added: if strictWildcardMode is true then wildcards matching top-level domains,
+    //    e.g. *.com, are not permitted.
 
     if ((!pattern.startsWith("*.")) || (pattern.indexOf('*', 1) != -1)) {
       // Asterisk (*) is only permitted in the left-most domain name label and must be the only
@@ -233,6 +248,18 @@ public final class OkHostnameVerifier implements HostnameVerifier {
       // Wildcard pattern for single-label domain name -- not permitted.
       return false;
     }
+
+    // BEGIN Android-added: Disallow top-level wildcards in strict mode. http://b/144694112
+    if (strictWildcardMode) {
+      // By this point we know the pattern has been normalised and starts with a wildcard,
+      // i.e. "*.domainpart."
+      String domainPart = pattern.substring(2, pattern.length() - 1);
+      // If the domain part contains no dots then this pattern will match top level domains.
+      if (domainPart.indexOf('.') < 0) {
+        return false;
+      }
+    }
+    // END Android-added: Disallow top-level wildcards in strict mode. http://b/144694112
 
     // hostName must end with the region of pattern following the asterisk.
     String suffix = pattern.substring(1);

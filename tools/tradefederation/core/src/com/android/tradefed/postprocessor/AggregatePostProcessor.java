@@ -15,8 +15,10 @@
  */
 package com.android.tradefed.postprocessor;
 
+import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.LogFile;
 import com.android.tradefed.result.TestDescription;
 
 import com.google.common.collect.ArrayListMultimap;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
  *
  * <p>It parses metrics from single string as currently metrics are passed this way.
  */
+@OptionClass(alias = "aggregate-post-processor")
 public class AggregatePostProcessor extends BasePostProcessor {
     private static final String STATS_KEY_MIN = "min";
     private static final String STATS_KEY_MAX = "max";
@@ -44,6 +47,7 @@ public class AggregatePostProcessor extends BasePostProcessor {
     private static final String STATS_KEY_VAR = "var";
     private static final String STATS_KEY_STDEV = "stdev";
     private static final String STATS_KEY_MEDIAN = "median";
+    private static final String STATS_KEY_TOTAL = "total";
     // Separator for final upload
     private static final String STATS_KEY_SEPARATOR = "-";
 
@@ -53,8 +57,10 @@ public class AggregatePostProcessor extends BasePostProcessor {
             new HashMap<String, ArrayListMultimap<String, Metric>>();
 
     @Override
-    public Map<String, Metric.Builder> processTestMetrics(
-            TestDescription testDescription, HashMap<String, Metric> testMetrics) {
+    public Map<String, Metric.Builder> processTestMetricsAndLogs(
+            TestDescription testDescription,
+            HashMap<String, Metric> testMetrics,
+            Map<String, LogFile> testLogs) {
         // TODO(b/118708851): Move this processing elsewhere once AnTS is ready.
         // Use the string representation of the test description to key the tests.
         String fullTestName = testDescription.toString();
@@ -102,15 +108,16 @@ public class AggregatePostProcessor extends BasePostProcessor {
     }
 
     @Override
-    public Map<String, Metric.Builder> processRunMetrics(HashMap<String, Metric> rawMetrics) {
+    public Map<String, Metric.Builder> processRunMetricsAndLogs(
+            HashMap<String, Metric> rawMetrics, Map<String, LogFile> runLogs) {
         // Aggregate the test run metrics which has comma separated values which can be
         // parsed to double values.
         Map<String, Metric.Builder> aggregateMetrics = new HashMap<String, Metric.Builder>();
         for (Map.Entry<String, Metric> entry : rawMetrics.entrySet()) {
             String values = entry.getValue().getMeasurements().getSingleString();
             List<String> splitVals = Arrays.asList(values.split(",", 0));
-            // Build stats only for the keys with more than one value.
-            if (isAllDoubleValues(splitVals) && splitVals.size() > 1) {
+            // Build stats for keys with any values, even only one.
+            if (isAllDoubleValues(splitVals)) {
                 buildStats(entry.getKey(), splitVals, aggregateMetrics);
             }
         }
@@ -186,6 +193,7 @@ public class AggregatePostProcessor extends BasePostProcessor {
         stats.put(STATS_KEY_VAR, variance);
         stats.put(STATS_KEY_STDEV, Math.sqrt(variance));
         stats.put(STATS_KEY_MEDIAN, median);
+        stats.put(STATS_KEY_TOTAL, sum);
         return stats;
     }
 }

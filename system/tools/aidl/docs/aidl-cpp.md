@@ -91,7 +91,6 @@ interfaces.
 | String                | String16            | in    | Supports null references.                             |
 | @utf8InCpp String     | std::string         | in    | @utf8InCpp causes UTF16 to UTF8 conversion in C++.    |
 | android.os.Parcelable | android::Parcelable | inout |                                                       |
-| java.util.Map         | android::binder::Map| inout | `std::map<std::string,android::binder::Value>`        |
 | T extends IBinder     | sp<T>               | in    |                                                       |
 | Arrays (T[])          | vector<T>           | inout | May contain only primitives, Strings and parcelables. |
 | List<String>          | vector<String16>    | inout |                                                       |

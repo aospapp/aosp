@@ -24,7 +24,9 @@ from common import BlockDifference, EmptyImage, GetUserImage
 #   deleted. When generating an incremental OTA package, this script needs to
 #   know that an image is present in source build but not in target build.
 USERIMAGE_PARTITIONS = [
+    "odm",
     "product",
+    "system_ext",
 ]
 
 

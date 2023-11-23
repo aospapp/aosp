@@ -25,7 +25,7 @@ cat > platform_tools/android/apps/skqp/src/main/Android.mk <<- "EOM"
 	include $(CLEAR_VARS)
 	LOCAL_MODULE_TAGS := tests optional
 	LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
-	LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+	LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 	LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 	LOCAL_JNI_SHARED_LIBRARIES := libskqp_app
 	LOCAL_MULTILIB := both

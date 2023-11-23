@@ -35,6 +35,8 @@ modprobe dummy 2>/dev/null
 if ! ifconfig dummy0 up 2>/dev/null
 then
   echo "$SHOWSKIP: ifconfig dummy0 up failed"
+  return 2>/dev/null
+  exit
 fi
 
 # Test Description: Disable the dummy0 interface
@@ -84,12 +86,11 @@ testing "dummy0 mtu 1269" \
 "ifconfig dummy0 mtu 1269 && ifconfig dummy0 | grep 1269 | wc -l" \
 "1\n" "" ""
 
-# Test Description: Verify ifconfig add fails with such a small mtu
-# Results Expected: There is one line of error message containing
-#                   "No buffer space available"
+# Test Description: ifconfig add for IPv6 fails with an mtu too small for IPv6.
+# Results Expected: Failure. No check for the exact error because old kernels
+#                   used ENOBUFS but 5.4 uses EINVAL.
 testing "dummy0 add ::2 -- too small mtu" \
-"ifconfig dummy0 add ::2 2>&1 | grep No\ buffer\ space\ available | wc -l" \
-"1\n" "" ""
+"ifconfig dummy0 add ::2 2>/dev/null || echo expected" "expected\n" "" ""
 
 # Test Description: Change the Maximum transmission unit (MTU) of the interface
 # Results Expected: After calling ifconfig dummy0, there is one line with the
@@ -102,14 +103,14 @@ testing "dummy0 mtu 2000" \
 # Results Expected: after calling ifconfig dummy0, there is one line with the
 #                   selected ip address
 testing "dummy0 add ::2" \
-"ifconfig dummy0 add ::2/126 && ifconfig dummy0 | grep \:\:2\/126 | wc -l" \
+"ifconfig dummy0 add ::2/126 && ifconfig dummy0 | grep \:\:2/126 | wc -l" \
 "1\n" "" ""
 
 # Test Description: Verify ifconfig del removes the selected ip6 address
 # Results Expected: after calling ifconfig dummy0, there are no lines with the
 #                   selected ip address
 testing "dummy0 del ::2" \
-"ifconfig dummy0 del ::2/126 && ifconfig dummy0 | grep \:\:2 | wc -l" \
+"ifconfig dummy0 del ::2/126 && ifconfig dummy0 | grep \:\:2/126 | wc -l" \
 "0\n" "" ""
 
 # Test Description: Remove the noarp flag and bring the interface down in
@@ -123,16 +124,18 @@ testing "dummy0 arp down" \
 # Test Description: Call the pointopoint option with no argument
 # Results Expected: After calling ifconfig dummy0, there is one line with the
 #                   NOARP and UP flags
-testing "dummy0 pointopoint" \
-"ifconfig dummy0 pointopoint && ifconfig dummy0 | grep -i NOARP | grep -i UP | wc -l" \
-"1\n" "" ""
+# TODO: http://lists.landley.net/pipermail/toybox-landley.net/2014-November/003795.html
+#testing "dummy0 pointopoint" \
+#"ifconfig dummy0 pointopoint && ifconfig dummy0 | grep -i NOARP | grep -i UP | wc -l" \
+#"1\n" "" ""
 
 # Test Description: Test the pointopoint option and set the ipaddress
 # Results Expected: After calling ifconfig dummy0, there is one line with the
 #                   word inet and the selected ip address
-testing "dummy0 pointopoint 127.0.0.2" \
-"ifconfig dummy0 pointopoint 127.0.0.2 && ifconfig dummy0 | grep -i inet | grep -i 127\.0\.0\.2 | wc -l" \
-"1\n" "" ""
+# TODO: http://lists.landley.net/pipermail/toybox-landley.net/2014-November/003795.html
+#testing "dummy0 pointopoint 127.0.0.2" \
+#"ifconfig dummy0 pointopoint 127.0.0.2 && ifconfig dummy0 | grep -i inet | grep -i 127\.0\.0\.2 | wc -l" \
+#"1\n" "" ""
 
 ####### Flags you can set on an interface (or -remove by prefixing with -): ###############
 

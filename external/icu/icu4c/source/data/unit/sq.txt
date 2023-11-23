@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sq{
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -52,6 +52,11 @@ sq{
                 dnam{"akra"}
                 one{"{0} akër"}
                 other{"{0} akra"}
+            }
+            dunam{
+                dnam{"dynym"}
+                one{"{0} dynym"}
+                other{"{0} dynymë"}
             }
             hectare{
                 dnam{"hektarë"}
@@ -118,6 +123,11 @@ sq{
                 one{"{0} milimol për litër"}
                 other{"{0} milimolë për litër"}
             }
+            mole{
+                dnam{"molë"}
+                one{"{0} mol"}
+                other{"{0} molë"}
+            }
             part-per-million{
                 dnam{"pjesë për milion"}
                 one{"{0} pjesë për milion"}
@@ -132,6 +142,11 @@ sq{
                 dnam{"përmijë"}
                 one{"{0} përmijë"}
                 other{"{0} përmijë"}
+            }
+            permyriad{
+                dnam{"përdhjetëmijë"}
+                one{"{0} përdhjetëmijë"}
+                other{"{0} përdhjetëmijë"}
             }
         }
         consumption{
@@ -232,6 +247,11 @@ sq{
                 other{"{0} ditë"}
                 per{"{0}/ditë"}
             }
+            decade{
+                dnam{"dekada"}
+                one{"{0} dekadë"}
+                other{"{0} dekada"}
+            }
             hour{
                 dnam{"orë"}
                 one{"{0} orë"}
@@ -307,10 +327,20 @@ sq{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"njësi termale britanike"}
+                one{"{0} njësi termale britanike"}
+                other{"{0} njësi termale britanike"}
+            }
             calorie{
                 dnam{"kalori"}
                 one{"{0} kalori"}
                 other{"{0} kalori"}
+            }
+            electronvolt{
+                dnam{"elektrovolt"}
+                one{"{0} elektrovolt"}
+                other{"{0} elektrovolt"}
             }
             foodcalorie{
                 dnam{"kalori ushqimore"}
@@ -337,6 +367,23 @@ sq{
                 one{"{0} kilovat-orë"}
                 other{"{0} kilovat-orë"}
             }
+            therm-us{
+                dnam{"njësi termale amerikane"}
+                one{"{0} njësi termale amerikane"}
+                other{"{0} njësi termale amerikane"}
+            }
+        }
+        force{
+            newton{
+                dnam{"njuton"}
+                one{"{0} njuton"}
+                other{"{0} njuton"}
+            }
+            pound-force{
+                dnam{"paund force"}
+                one{"{0} paund force"}
+                other{"{0} paund force"}
+            }
         }
         frequency{
             gigahertz{
@@ -358,6 +405,43 @@ sq{
                 dnam{"megaherc"}
                 one{"{0} megaherc"}
                 other{"{0} megaherc"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"pika për centimetër"}
+                one{"{0} pikë për centimetër"}
+                other{"{0} pika për centimetër"}
+            }
+            dot-per-inch{
+                dnam{"pika për inç"}
+                one{"{0} pikë për inç"}
+                other{"{0} pika për inç"}
+            }
+            em{
+                dnam{"em tipografike"}
+                one{"{0} em tipografike"}
+                other{"{0} em tipografike"}
+            }
+            megapixel{
+                dnam{"megapikselë"}
+                one{"{0} megapiksel"}
+                other{"{0} megapikselë"}
+            }
+            pixel{
+                dnam{"pikselë"}
+                one{"{0} piksel"}
+                other{"{0} pikselë"}
+            }
+            pixel-per-centimeter{
+                dnam{"pikselë për centimetër"}
+                one{"{0} piksel për centimetër"}
+                other{"{0} pikselë për centimetër"}
+            }
+            pixel-per-inch{
+                dnam{"pikselë për inç"}
+                one{"{0} piksel për inç"}
+                other{"{0} pikselë për inç"}
             }
         }
         length{
@@ -451,6 +535,11 @@ sq{
                 one{"{0} shkallë"}
                 other{"{0} shkallë"}
             }
+            solar-radius{
+                dnam{"rreze diellore"}
+                one{"{0} rreze diellore"}
+                other{"{0} rreze diellore"}
+            }
             yard{
                 dnam{"jardë"}
                 one{"{0} jard"}
@@ -463,12 +552,27 @@ sq{
                 one{"{0} luks"}
                 other{"{0} luks"}
             }
+            solar-luminosity{
+                dnam{"lumenë diellorë"}
+                one{"{0} lumen diellorë"}
+                other{"{0} lumenë diellorë"}
+            }
         }
         mass{
             carat{
                 dnam{"karatë"}
                 one{"{0} karat"}
                 other{"{0} karatë"}
+            }
+            dalton{
+                dnam{"dalton"}
+                one{"{0} dalton"}
+                other{"{0} dalton"}
+            }
+            earth-mass{
+                dnam{"masa Toke"}
+                one{"{0} masë Toke"}
+                other{"{0} masa Toke"}
             }
             gram{
                 dnam{"gramë"}
@@ -514,6 +618,11 @@ sq{
                 other{"{0} paund"}
                 per{"{0}/paund"}
             }
+            solar-mass{
+                dnam{"masa diellore"}
+                one{"{0} masë diellore"}
+                other{"{0} masa diellore"}
+            }
             ton{
                 dnam{"tonë"}
                 one{"{0} ton"}
@@ -558,6 +667,11 @@ sq{
                 one{"{0} atmosferë"}
                 other{"{0} atmosferë"}
             }
+            bar{
+                dnam{"bare"}
+                one{"{0} bar"}
+                other{"{0} bare"}
+            }
             hectopascal{
                 dnam{"hektopaskal"}
                 one{"{0} hektopaskal"}
@@ -567,6 +681,16 @@ sq{
                 dnam{"inç merkuri"}
                 one{"{0} inç merkuri"}
                 other{"{0} inç merkuri"}
+            }
+            kilopascal{
+                dnam{"kilopaskal"}
+                one{"{0} kilopaskal"}
+                other{"{0} kilopaskal"}
+            }
+            megapascal{
+                dnam{"megapaskal"}
+                one{"{0} megapaskal"}
+                other{"{0} megapaskal"}
             }
             millibar{
                 dnam{"milibare"}
@@ -628,11 +752,28 @@ sq{
                 other{"{0} Kelvin"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"njuton-metra"}
+                one{"{0} njuton-metër"}
+                other{"{0} njuton-metra"}
+            }
+            pound-foot{
+                dnam{"paund-këmbë"}
+                one{"{0} paund-këmbë"}
+                other{"{0} paund-këmbë"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"këmbë-akër"}
                 one{"{0} këmbë-akër"}
                 other{"{0} këmbë-akër"}
+            }
+            barrel{
+                dnam{"fuçi"}
+                one{"{0} fuçi"}
+                other{"{0} fuçi"}
             }
             centiliter{
                 dnam{"centilitra"}
@@ -695,6 +836,11 @@ sq{
                 dnam{"onsë të lëngshëm"}
                 one{"{0} ons i lëngshëm"}
                 other{"{0} onsë të lëngshëm"}
+            }
+            fluid-ounce-imperial{
+                dnam{"onsë të lëngshëm imperial"}
+                one{"{0} ons i lëngshëm imperial"}
+                other{"{0} onsë të lëngshëm imperial"}
             }
             gallon{
                 dnam{"gallonë"}
@@ -1081,6 +1227,11 @@ sq{
                 one{"{0} ac"}
                 other{"{0} ac"}
             }
+            dunam{
+                dnam{"dynymë"}
+                one{"{0} dynym"}
+                other{"{0} dynymë"}
+            }
             hectare{
                 dnam{"ha"}
                 one{"{0} ha"}
@@ -1260,6 +1411,11 @@ sq{
                 other{"{0} ditë"}
                 per{"{0}/ditë"}
             }
+            decade{
+                dnam{"dekada"}
+                one{"{0} dekadë"}
+                other{"{0} dekada"}
+            }
             hour{
                 dnam{"orë"}
                 one{"{0} orë"}
@@ -1364,6 +1520,11 @@ sq{
                 dnam{"kWh"}
                 one{"{0} kWh"}
                 other{"{0} kWh"}
+            }
+            therm-us{
+                dnam{"UStu"}
+                one{"UStu"}
+                other{"{0} UStu"}
             }
         }
         frequency{

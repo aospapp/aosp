@@ -1,5 +1,14 @@
-# Default code reviewers picked from top 3 or more developers.
-# Please update this list if you find better candidates.
-riggle@google.com
+# Code owners for various security-related things on Android.
+
+# Sanitizers
+mitchp@google.com
+eugenis@google.com
+
+# Haiku members (fuzzing-on-Android)
+hamzeh@google.com
+ispo@google.com
+kalder@google.com
+
+# ASA
 olorin@google.com
 danielaustin@google.com

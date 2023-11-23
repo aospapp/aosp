@@ -16,8 +16,6 @@
 
 package android.signature.cts.api;
 
-import static android.signature.cts.CurrentApi.API_FILE_DIRECTORY;
-
 import android.os.Bundle;
 import android.signature.cts.DexApiDocumentParser;
 import android.signature.cts.DexField;
@@ -25,10 +23,12 @@ import android.signature.cts.DexMember;
 import android.signature.cts.DexMemberChecker;
 import android.signature.cts.DexMethod;
 import android.signature.cts.FailureType;
+import android.signature.cts.VirtualPath;
 
-import java.io.File;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 /**
  * Checks that it is not possible to access hidden APIs.
@@ -39,7 +39,7 @@ public class HiddenApiTest extends AbstractApiTest {
     private String[] hiddenapiTestFlags;
 
     @Override
-    protected void initializeFromArgs(Bundle instrumentationArgs) throws Exception {
+    protected void initializeFromArgs(Bundle instrumentationArgs) {
         hiddenapiFiles = getCommaSeparatedList(instrumentationArgs, "hiddenapi-files");
         hiddenapiTestFlags = getCommaSeparatedList(instrumentationArgs, "hiddenapi-test-flags");
     }
@@ -136,42 +136,32 @@ public class HiddenApiTest extends AbstractApiTest {
                     }
                 }
             };
-            parseDexApiFilesAsStream(hiddenapiFiles)
-                    .filter(memberFilter)
-                    .forEach(dexMember -> {
-                        if (shouldTestMember(dexMember)) {
-                            DexMemberChecker.checkSingleMember(dexMember, reflection, jni,
-                                    observer);
-                        }
-                    });
-        });
-    }
 
-    private Stream<DexMember> parseDexApiFilesAsStream(String[] apiFiles) {
-        DexApiDocumentParser dexApiDocumentParser = new DexApiDocumentParser();
-        // To allow parallelization with a DexMember output type, we need two
-        // pipes.
-        Stream<Stream<DexMember>> inputsAsStreams = Stream.of(apiFiles).parallel()
-                .map(name -> new File(API_FILE_DIRECTORY + "/" + name))
-                .flatMap(file -> readFileOptimized(file))
-                .map(obj -> dexApiDocumentParser.parseAsStream(obj));
-        // The flatMap inherently serializes the pipe. The number of inputs is
-        // still small here, so reduce by concatenating (note the caveats of
-        // concats).
-        return inputsAsStreams.reduce(null, (prev, stream) -> {
-            if (prev == null) {
-                return stream;
-            }
-            return Stream.concat(prev, stream);
-        });
-    }
-
-    private boolean shouldTestMember(DexMember member) {
-        for (String testFlag : hiddenapiTestFlags) {
-            for (String memberFlag : member.getHiddenapiFlags()) {
-                if (testFlag.equals(memberFlag)) {
-                    return true;
+            for (String apiFile : hiddenapiFiles) {
+                VirtualPath.ResourcePath resourcePath =
+                        VirtualPath.get(getClass().getClassLoader(), apiFile);
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(resourcePath.newInputStream()));
+                int lineIndex = 1;
+                String line = reader.readLine();
+                while (line != null) {
+                    DexMember dexMember = DexApiDocumentParser.parseLine(line, lineIndex);
+                    if (memberFilter.test(dexMember) && shouldTestMember(dexMember)) {
+                        DexMemberChecker.checkSingleMember(dexMember, reflection, jni,
+                                observer);
+                    }
+                    line = reader.readLine();
+                    lineIndex++;
                 }
+            }
+        });
+    }
+
+    protected boolean shouldTestMember(DexMember member) {
+        Set<String> flags = member.getHiddenapiFlags();
+        for (String testFlag : hiddenapiTestFlags) {
+            if (flags.contains(testFlag)) {
+                return true;
             }
         }
         return false;

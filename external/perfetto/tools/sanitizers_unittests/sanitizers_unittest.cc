@@ -21,7 +21,7 @@
 
 #include <memory>
 
-#include "gtest/gtest.h"
+#include "test/gtest_and_gmock.h"
 
 namespace perfetto {
 namespace {
@@ -42,27 +42,6 @@ TEST(SanitizerTests, ASAN_UserAfterFree) {
 }
 #endif  // ADDRESS_SANITIZER
 
-#if defined(THREAD_SANITIZER)
-TEST(SanitizerTests, TSAN_ThreadDataRace) {
-  EXPECT_DEATH(
-      {
-        pthread_t thread;
-        volatile int race_var = 0;
-        auto thread_main = [](void* race_var_ptr) -> void* {
-          (*reinterpret_cast<volatile int*>(race_var_ptr))++;
-          return nullptr;
-        };
-        void* arg =
-            const_cast<void*>(reinterpret_cast<volatile void*>(&race_var));
-        ASSERT_EQ(0, pthread_create(&thread, nullptr, thread_main, arg));
-        race_var--;
-        ASSERT_EQ(0, pthread_join(thread, nullptr));
-        abort();
-      },
-      "ThreadSanitizer:.*data race");
-}
-#endif  // THREAD_SANITIZER
-
 #if defined(MEMORY_SANITIZER)
 TEST(SanitizerTests, MSAN_UninitializedMemory) {
   EXPECT_DEATH(
@@ -77,7 +56,8 @@ TEST(SanitizerTests, MSAN_UninitializedMemory) {
 }
 #endif
 
-#if defined(LEAK_SANITIZER)
+// b/141460117: Leak sanitizer tests don't work in debug builds.
+#if defined(LEAK_SANITIZER) && defined(NDEBUG)
 TEST(SanitizerTests, LSAN_LeakMalloc) {
   EXPECT_DEATH(
       {
@@ -103,7 +83,7 @@ TEST(SanitizerTests, LSAN_LeakCppNew) {
       },
       "LeakSanitizer:.*detected memory leaks");
 }
-#endif  // LEAK_SANITIZER
+#endif  // LEAK_SANITIZER && defined(NDEBUG)
 
 #if defined(UNDEFINED_SANITIZER)
 TEST(SanitizerTests, UBSAN_DivisionByZero) {

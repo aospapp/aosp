@@ -1061,7 +1061,9 @@ extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecConfigure(
         jint frameRate,
         jint iFrameInterval,
         jobject csd,
-        jint flags) {
+        jint flags,
+        jint lowLatency,
+        jobject surface) {
 
     AMediaFormat* format = AMediaFormat_new();
     if (format == NULL) {
@@ -1083,10 +1085,13 @@ extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecConfigure(
             AMEDIAFORMAT_KEY_COLOR_FORMAT,
             AMEDIAFORMAT_KEY_BIT_RATE,
             AMEDIAFORMAT_KEY_FRAME_RATE,
-            AMEDIAFORMAT_KEY_I_FRAME_INTERVAL
+            AMEDIAFORMAT_KEY_I_FRAME_INTERVAL,
+            // need to specify the actual string, since this test needs
+            // to run on API 29, where the symbol doesn't exist
+            "low-latency", // AMEDIAFORMAT_KEY_LOW_LATENCY
     };
 
-    jint values[] = {width, height, colorFormat, bitRate, frameRate, iFrameInterval};
+    jint values[] = {width, height, colorFormat, bitRate, frameRate, iFrameInterval, lowLatency};
     for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
         if (values[i] >= 0) {
             AMediaFormat_setInt32(format, keys[i], values[i]);
@@ -1102,7 +1107,7 @@ extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecConfigure(
     media_status_t err = AMediaCodec_configure(
             reinterpret_cast<AMediaCodec *>(codec),
             format,
-            NULL,
+            surface == NULL ? NULL : ANativeWindow_fromSurface(env, surface),
             NULL,
             flags);
 

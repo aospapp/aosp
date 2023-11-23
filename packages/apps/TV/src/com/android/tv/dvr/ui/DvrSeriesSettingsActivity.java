@@ -19,10 +19,13 @@ package com.android.tv.dvr.ui;
 import android.app.Activity;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
+
+import androidx.leanback.app.GuidedStepFragment;
+
 import com.android.tv.R;
 import com.android.tv.Starter;
 import com.android.tv.common.SoftPreconditions;
+import com.android.tv.data.ProgramImpl;
 
 /** Activity to show details view in DVR. */
 public class DvrSeriesSettingsActivity extends Activity {
@@ -40,7 +43,7 @@ public class DvrSeriesSettingsActivity extends Activity {
     public static final String IS_WINDOW_TRANSLUCENT = "windows_translucent";
     /**
      * Name of the program list. The list contains the programs which belong to the series. Type:
-     * List<{@link com.android.tv.data.Program}>
+     * List<{@link ProgramImpl}>
      */
     public static final String PROGRAM_LIST = "program_list";
 

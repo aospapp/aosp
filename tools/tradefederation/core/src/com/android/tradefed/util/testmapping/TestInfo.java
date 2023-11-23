@@ -19,8 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.android.tradefed.log.LogUtil.CLog;
 
-import com.google.common.base.Joiner;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -276,34 +274,28 @@ public class TestInfo {
             String options =
                     String.format(
                             "Options: %s",
-                            Joiner.on(",")
-                                    .join(
-                                            mOptions.stream()
-                                                    .sorted()
-                                                    .map(TestOption::toString)
-                                                    .collect(Collectors.toList())));
+                            String.join(
+                                    ",",
+                                    mOptions.stream()
+                                            .sorted()
+                                            .map(TestOption::toString)
+                                            .collect(Collectors.toList())));
             string.append("\n\t").append(options);
         }
         if (!mKeywords.isEmpty()) {
             String keywords =
                     String.format(
                             "Keywords: %s",
-                            Joiner.on(",")
-                                    .join(
-                                            mKeywords.stream()
-                                                    .sorted()
-                                                    .collect(Collectors.toList())));
+                            String.join(
+                                    ",", mKeywords.stream().sorted().collect(Collectors.toList())));
             string.append("\n\t").append(keywords);
         }
         if (!mSources.isEmpty()) {
             String sources =
                     String.format(
                             "Sources: %s",
-                            Joiner.on(",")
-                                    .join(
-                                            mSources.stream()
-                                                    .sorted()
-                                                    .collect(Collectors.toList())));
+                            String.join(
+                                    ",", mSources.stream().sorted().collect(Collectors.toList())));
             string.append("\n\t").append(sources);
         }
         string.append("\n\tHost: ").append(mHostOnly);

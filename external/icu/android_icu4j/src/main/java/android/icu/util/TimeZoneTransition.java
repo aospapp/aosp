@@ -15,6 +15,7 @@ package android.icu.util;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.IntraCoreApi
 @libcore.api.CorePlatformApi
 public class TimeZoneTransition {
     private final TimeZoneRule from;
@@ -40,6 +41,7 @@ public class TimeZoneTransition {
      *
      * @return The time of the transition in milliseconds since the base time.
      */
+    @libcore.api.IntraCoreApi
     @libcore.api.CorePlatformApi
     public long getTime() {
         return time;
@@ -50,6 +52,7 @@ public class TimeZoneTransition {
      *
      * @return The time zone rule used after the transition.
      */
+    @libcore.api.IntraCoreApi
     @libcore.api.CorePlatformApi
     public TimeZoneRule getTo() {
         return to;
@@ -60,6 +63,7 @@ public class TimeZoneTransition {
      *
      * @return The time zone rule used after the transition.
      */
+    @libcore.api.IntraCoreApi
     @libcore.api.CorePlatformApi
     public TimeZoneRule getFrom() {
         return from;

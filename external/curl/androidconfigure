@@ -13,8 +13,8 @@ cd $(dirname "$0")
 
 HOST="arm-linux-androideabi"
 T="${ANDROID_BUILD_TOP}"
-export CC="${T}/prebuilts/clang/host/linux-x86/clang-r353983/bin/clang"
-export LD="${T}/prebuilts/clang/host/linux-x86/clang-r353983/bin/lld"
+export CC="${T}/prebuilts/clang/host/linux-x86/clang-r365631c/bin/clang"
+export LD="${T}/prebuilts/clang/host/linux-x86/clang-r365631c/bin/lld"
 
 CFLAGS=(
   "-isystem ${T}/external/libcxx/include"

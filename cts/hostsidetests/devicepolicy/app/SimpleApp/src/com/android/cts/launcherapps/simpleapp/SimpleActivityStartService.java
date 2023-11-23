@@ -17,8 +17,12 @@
 package com.android.cts.launcherapps.simpleapp;
 
 import android.app.Activity;
+import android.app.KeyguardManager;
+import android.app.KeyguardManager.KeyguardDismissCallback;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
 
 /**
  * Test being able to start a service (with no background check restrictions) as soon as
@@ -31,18 +35,34 @@ public class SimpleActivityStartService extends Activity {
             "com.android.cts.launcherapps.simpleapp.SimpleActivityStartService.RESULT";
 
     @Override
-    public void onCreate(Bundle icicle) {
+    protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-        attemptStartService();
-        finish();
-    }
+        getSystemService(KeyguardManager.class).requestDismissKeyguard(this,
+                new KeyguardDismissCallback() {
+            @Override
+            public void onDismissCancelled() {
+                Log.i(TAG, "onDismissCancelled");
+            }
 
-    @Override
-    public void onStart() {
-        super.onStart();
+            @Override
+            public void onDismissError() {
+                Log.i(TAG, "onDismissError");
+            }
+
+            @Override
+            public void onDismissSucceeded() {
+                Log.i(TAG, "onDismissSucceeded");
+            }
+        });
+        // No matter if the dismiss was successful or not, continue the test after 2000ms
+        (new Handler()).postDelayed(()-> {
+            attemptStartService();
+            finish();
+        }, 2000);
     }
 
     void attemptStartService() {
+        Log.i(TAG, "attemptStartService");
         Intent reply = new Intent(ACTION_SIMPLE_ACTIVITY_START_SERVICE_RESULT);
         reply.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         Intent serviceIntent = getIntent().getParcelableExtra("service");

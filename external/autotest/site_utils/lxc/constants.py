@@ -54,6 +54,9 @@ CONTROL_TEMP_PATH = os.path.join(CONTAINER_AUTOTEST_DIR, 'drone_tmp')
 # so the command can return an error code if the directory doesn't exist.
 COUNT_FILE_CMD = '[ -d %(dir)s ] && ls %(dir)s | wc -l'
 
+# Seconds to wait for successful completion of a lxc force-destroy
+LXC_SCRUB_TIMEOUT = 300
+
 # Command line to append content to a file
 APPEND_CMD_FMT = ('echo \'%(content)s\' | sudo tee --append %(file)s'
                   '> /dev/null')
@@ -69,6 +72,10 @@ else:
     SITE_PACKAGES_PATH = os.path.join(common.autotest_dir, 'site-packages')
     CONTAINER_SITE_PACKAGES_PATH = os.path.join(CONTAINER_AUTOTEST_DIR,
                                                 'site-packages')
+
+# This is an alternate site_packages that is built to be Trusty
+# compatible.  crbug.com/1013241
+TRUSTY_SITE_PACKAGES_PATH = '/opt/trusty_site_packages'
 
 # TODO(dshi): If we are adding more logic in how lxc should interact with
 # different systems, we should consider code refactoring to use a setting-style

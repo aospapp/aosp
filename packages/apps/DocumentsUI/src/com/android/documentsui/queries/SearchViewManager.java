@@ -41,6 +41,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.SearchView.OnQueryTextListener;
+import androidx.fragment.app.FragmentManager;
 
 import com.android.documentsui.MetricConsts;
 import com.android.documentsui.Metrics;
@@ -86,9 +87,10 @@ public class SearchViewManager implements
     private boolean mIsHistorySearch;
     private boolean mShowSearchBar;
 
-    private Menu mMenu;
-    private MenuItem mMenuItem;
-    private SearchView mSearchView;
+    private @Nullable Menu mMenu;
+    private @Nullable MenuItem mMenuItem;
+    private @Nullable SearchView mSearchView;
+    private @Nullable FragmentManager mFragmentManager;
 
     public SearchViewManager(
             SearchManagerListener listener,
@@ -156,15 +158,16 @@ public class SearchViewManager implements
      * @return the bundle of query arguments
      */
     public Bundle buildQueryArgs() {
-        final Bundle queryArgs = new Bundle();
+        final Bundle queryArgs = mChipViewManager.getCheckedChipQueryArgs();
         if (!TextUtils.isEmpty(mCurrentSearch)) {
             queryArgs.putString(DocumentsContract.QUERY_ARG_DISPLAY_NAME, mCurrentSearch);
+        } else if (isExpanded() && isSearching()) {
+            // The existence of the DocumentsContract.QUERY_ARG_DISPLAY_NAME constant is used to
+            // determine if this is a text search (as opposed to simply filtering from within a
+            // non-searching view), so ensure the argument exists when searching.
+            queryArgs.putString(DocumentsContract.QUERY_ARG_DISPLAY_NAME, "");
         }
 
-        final String[] checkedMimeTypes = mChipViewManager.getCheckedMimeTypes();
-        if (checkedMimeTypes != null && checkedMimeTypes.length > 0) {
-            queryArgs.putStringArray(DocumentsContract.QUERY_ARG_MIME_TYPES, checkedMimeTypes);
-        }
         return queryArgs;
     }
 
@@ -225,8 +228,12 @@ public class SearchViewManager implements
         mSearchView.setOnQueryTextFocusChangeListener(this);
         final View clearButton = mSearchView.findViewById(R.id.search_close_btn);
         if (clearButton != null) {
+            clearButton.setPadding(clearButton.getPaddingStart() + getPixelForDp(4),
+                    clearButton.getPaddingTop(), clearButton.getPaddingEnd() + getPixelForDp(4),
+                    clearButton.getPaddingBottom());
             clearButton.setOnClickListener(v -> {
                 mSearchView.setQuery("", false);
+                mSearchView.requestFocus();
                 mListener.onSearchViewClearClicked();
             });
         }
@@ -236,7 +243,11 @@ public class SearchViewManager implements
         mSearchView.setMaxWidth(Integer.MAX_VALUE);
         mMenuItem.setOnActionExpandListener(this);
 
-        restoreSearch(false);
+        restoreSearch(true);
+    }
+
+    public void setFragmentManager(FragmentManager fragmentManager) {
+        mFragmentManager = fragmentManager;
     }
 
     /**
@@ -244,7 +255,7 @@ public class SearchViewManager implements
      * is done before onPrepareOptionsMenu(Menu menu) that is overriding the icons visibility.
      */
     public void updateMenu() {
-        if (isExpanded() && mFullBar) {
+        if (mMenu != null && isExpanded() && mFullBar) {
             mMenu.setGroupVisible(R.id.group_hide_when_searching, false);
         }
     }
@@ -253,7 +264,7 @@ public class SearchViewManager implements
      * @param stack New stack.
      */
     public void update(DocumentStack stack) {
-        if (mMenuItem == null) {
+        if (mMenuItem == null || mSearchView == null) {
             if (DEBUG) {
                 Log.d(TAG, "update called before Search MenuItem installed.");
             }
@@ -337,6 +348,11 @@ public class SearchViewManager implements
         return false;
     }
 
+    private int getPixelForDp(int dp) {
+        final float scale = mSearchView.getContext().getResources().getDisplayMetrics().density;
+        return (int) (dp * scale + 0.5f);
+    }
+
     private void cancelQueuedSearch() {
         synchronized (mSearchLock) {
             if (mQueuedSearchTask != null) {
@@ -354,6 +370,10 @@ public class SearchViewManager implements
      * change.
      */
     public void restoreSearch(boolean keepFocus) {
+        if (mSearchView == null) {
+            return;
+        }
+
         if (isTextSearching()) {
             onSearchBarClicked();
             mSearchView.setQuery(mCurrentSearch, false);
@@ -367,13 +387,17 @@ public class SearchViewManager implements
     }
 
     public void onSearchBarClicked() {
+        if (mMenuItem == null) {
+            return;
+        }
+
         mMenuItem.expandActionView();
         onSearchExpanded();
     }
 
     private void onSearchExpanded() {
         mSearchExpanded = true;
-        if (mFullBar) {
+        if (mFullBar && mMenu != null) {
             mMenu.setGroupVisible(R.id.group_hide_when_searching, false);
         }
 
@@ -402,7 +426,7 @@ public class SearchViewManager implements
             mListener.onSearchChanged(mCurrentSearch);
         }
 
-        if (mFullBar) {
+        if (mFullBar && mMenuItem != null) {
             mMenuItem.collapseActionView();
         }
         mListener.onSearchFinished();
@@ -418,6 +442,10 @@ public class SearchViewManager implements
      * @param state Bundle to save state too
      */
     public void onSaveInstanceState(Bundle state) {
+        if (mSearchView != null && mSearchView.hasFocus() && mCurrentSearch == null) {
+            // Restore focus even if no text was input before screen rotation.
+            mCurrentSearch = "";
+        }
         state.putString(Shared.EXTRA_QUERY, mCurrentSearch);
         mChipViewManager.onSaveInstanceState(state);
     }
@@ -456,9 +484,9 @@ public class SearchViewManager implements
     @Override
     public void onFocusChange(View v, boolean hasFocus) {
         if (!hasFocus && !mChipViewManager.hasCheckedItems()) {
-            if (mCurrentSearch == null) {
+            if (mSearchView != null && mCurrentSearch == null) {
                 mSearchView.setIconified(true);
-            } else if (TextUtils.isEmpty(mSearchView.getQuery())) {
+            } else if (TextUtils.isEmpty(getSearchViewText())) {
                 cancelSearch();
             }
         }
@@ -489,8 +517,17 @@ public class SearchViewManager implements
     @Override
     public boolean onQueryTextChange(String newText) {
         //Skip first search when search expanded
-        if (!(mCurrentSearch == null && newText.isEmpty())) {
-            performSearch(newText);
+        if (mCurrentSearch == null && newText.isEmpty()) {
+            return true;
+        }
+
+        performSearch(newText);
+        if (mFragmentManager != null) {
+            if (!newText.isEmpty()) {
+                SearchFragment.dismissFragment(mFragmentManager);
+            } else {
+                SearchFragment.showFragment(mFragmentManager, "");
+            }
         }
         return true;
     }
@@ -528,9 +565,13 @@ public class SearchViewManager implements
     /**
      * Get current text on search view.
      *
-     * @return  Cuttent string on search view
+     * @return  Current string on search view
      */
     public String getSearchViewText() {
+        if (mSearchView == null) {
+            return null;
+        }
+
         return mSearchView.getQuery().toString();
     }
 
@@ -538,6 +579,19 @@ public class SearchViewManager implements
      * Record current search for history.
      */
     public void recordHistory() {
+        if (TextUtils.isEmpty(mCurrentSearch)) {
+            return;
+        }
+
+        recordHistoryInternal();
+    }
+
+    protected void recordHistoryInternal() {
+        if (mSearchView == null) {
+            Log.w(TAG, "Search view is null, skip record history this time");
+            return;
+        }
+
         SearchHistoryManager.getInstance(
                 mSearchView.getContext().getApplicationContext()).addHistory(mCurrentSearch);
     }
@@ -548,6 +602,11 @@ public class SearchViewManager implements
      * @param history target string for removed.
      */
     public void removeHistory(String history) {
+        if (mSearchView == null) {
+            Log.w(TAG, "Search view is null, skip remove history this time");
+            return;
+        }
+
         SearchHistoryManager.getInstance(
                 mSearchView.getContext().getApplicationContext()).deleteHistory(history);
     }
@@ -586,7 +645,7 @@ public class SearchViewManager implements
         return mCurrentSearch != null || mChipViewManager.hasCheckedItems();
     }
 
-    private boolean isTextSearching() {
+    public boolean isTextSearching() {
         return mCurrentSearch != null;
     }
 

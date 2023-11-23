@@ -27,18 +27,19 @@ import android.os.RemoteException;
  * @hide
  */
 @SystemApi
-public final class CarTestManager implements CarManagerBase {
+public final class CarTestManager extends CarManagerBase {
 
     private final ICarTest mService;
 
 
-    public CarTestManager(IBinder carServiceBinder) {
+    public CarTestManager(Car car, IBinder carServiceBinder) {
+        super(car);
         mService = ICarTest.Stub.asInterface(carServiceBinder);
     }
 
     @Override
     public void onCarDisconnected() {
-        // should not happen for embedded
+        // test will fail. nothing to do.
     }
 
     /**
@@ -52,7 +53,7 @@ public final class CarTestManager implements CarManagerBase {
         try {
             mService.stopCarService(token);
         } catch (RemoteException e) {
-            handleRemoteException(e);
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -66,12 +67,7 @@ public final class CarTestManager implements CarManagerBase {
         try {
             mService.startCarService(token);
         } catch (RemoteException e) {
-            handleRemoteException(e);
+            handleRemoteExceptionFromCarService(e);
         }
-    }
-
-    private static void handleRemoteException(RemoteException e) {
-        // let test fail
-        throw new RuntimeException(e);
     }
 }

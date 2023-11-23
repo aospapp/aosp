@@ -1556,10 +1556,7 @@ void AHardwareBufferGLTest::SetUpTexture(const AHardwareBuffer_Desc& desc, int u
             }
         }
     } else {
-        // TODO(b/123042748): The fact that glEGLImageTargetTexStorageEXT does not work for YUV
-        //                    textures is a bug. The condition for the target should be removed
-        //                    once the bug is fixed.
-        if (HasGLExtension("GL_EXT_EGL_image_storage") && mTexTarget != GL_TEXTURE_EXTERNAL_OES) {
+        if (HasGLExtension("GL_EXT_EGL_image_storage")) {
             glEGLImageTargetTexStorageEXT(mTexTarget, static_cast<GLeglImageOES>(mEGLImage),
                                           nullptr);
         } else {
@@ -1592,6 +1589,14 @@ void AHardwareBufferGLTest::SetUpFramebuffer(int width, int height, int layer,
         GL_RGBA8, GL_DEPTH_COMPONENT16, GL_STENCIL_INDEX8, GL_DEPTH24_STENCIL8
     };
     GLuint& fbo = mFramebuffers[mWhich];
+    GLbitfield clear_bits[] = {
+        GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT,
+        GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT
+    };
+
+    glClearColor(0.f, 0.f, 0.f, 0.f);
+    glClearDepthf(1.0f);
+    glClearStencil(0);
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     for (int i = 0; i < 4; ++i) {
@@ -1618,14 +1623,18 @@ void AHardwareBufferGLTest::SetUpFramebuffer(int width, int height, int layer,
                 glGenRenderbuffers(1, &renderbuffer);
                 glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
                 ASSERT_EQ(GLenum{GL_NO_ERROR}, glGetError());
-                if (GetParam().stride & kGlFormat) {
+                bool isGlFormat = GetParam().stride & kGlFormat;
+                if (isGlFormat) {
                     glRenderbufferStorage(GL_RENDERBUFFER, GetParam().format, width, height);
                 } else {
+                    ASSERT_FALSE(FormatIsYuv(GetParam().format)) << "YUV renderbuffers unsupported";
                     glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER,
                                                            static_cast<GLeglImageOES>(mEGLImage));
                 }
                 glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment_points[i],
                                           GL_RENDERBUFFER, renderbuffer);
+                if (isGlFormat)
+                    glClear(clear_bits[i]);
                 break;
             }
             case kRenderbuffer: {
@@ -1636,6 +1645,7 @@ void AHardwareBufferGLTest::SetUpFramebuffer(int width, int height, int layer,
                 glRenderbufferStorage(GL_RENDERBUFFER, default_formats[i], width, height);
                 glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment_points[i],
                                           GL_RENDERBUFFER, renderbuffer);
+                glClear(clear_bits[i]);
                 break;
             }
             default: FAIL() << "Unrecognized binding type";
@@ -1854,14 +1864,27 @@ TEST_P(ColorTest, GpuColorOutputIsRenderable) {
     desc.width = 100;
     desc.height = 100;
     desc.usage = AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+    if (FormatIsYuv(desc.format)) {
+        // YUV formats are only supported for textures, so add texture usage.
+        desc.usage |= AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
+    }
     // This test does not make sense for layered buffers - don't bother testing them.
     if (desc.layers > 1) return;
     if (!SetUpBuffer(desc)) return;
 
     for (int i = 0; i < mContextCount; ++i) {
         MakeCurrent(i);
-        ASSERT_NO_FATAL_FAILURE(
-            SetUpFramebuffer(desc.width, desc.height, 0, kBufferAsRenderbuffer));
+
+        // YUV renderbuffers are unsupported, so we attach as a texture in this case.
+        AttachmentType attachmentType;
+        if (FormatIsYuv(desc.format)) {
+            ASSERT_NO_FATAL_FAILURE(SetUpTexture(desc, 1));
+            attachmentType = kBufferAsTexture;
+        } else {
+            attachmentType = kBufferAsRenderbuffer;
+        }
+
+        ASSERT_NO_FATAL_FAILURE(SetUpFramebuffer(desc.width, desc.height, 0, attachmentType));
     }
 
     // Draw a simple checkerboard pattern in the second context, which will
@@ -1886,6 +1909,10 @@ TEST_P(ColorTest, GpuColorOutputCpuRead) {
     desc.width = 16;
     desc.height = 16;
     desc.usage = AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT | AHARDWAREBUFFER_USAGE_CPU_READ_RARELY;
+    if (FormatIsYuv(desc.format)) {
+        // YUV formats are only supported for textures, so add texture usage.
+        desc.usage |= AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
+    }
     // This test does not make sense for GL formats. Layered buffers do not support CPU access.
     if ((desc.stride & kGlFormat) || desc.layers > 1) {
         ALOGI("Test skipped: Test is for single-layer HardwareBuffer formats only.");
@@ -1894,8 +1921,18 @@ TEST_P(ColorTest, GpuColorOutputCpuRead) {
     if (!SetUpBuffer(desc)) return;
 
     MakeCurrent(1);
-    ASSERT_NO_FATAL_FAILURE(
-        SetUpFramebuffer(desc.width, desc.height, 0, kBufferAsRenderbuffer));
+
+    // YUV renderbuffers are unsupported, so we attach as a texture in this case.
+    AttachmentType attachmentType;
+    if (FormatIsYuv(desc.format)) {
+        ASSERT_NO_FATAL_FAILURE(SetUpTexture(desc, 1));
+        attachmentType = kBufferAsTexture;
+    } else {
+        attachmentType = kBufferAsRenderbuffer;
+    }
+
+    ASSERT_NO_FATAL_FAILURE(SetUpFramebuffer(desc.width, desc.height, 0, attachmentType));
+
     // Draw a simple checkerboard pattern in the second context, which will
     // be current after the loop above, then read it in the first.
     DrawCheckerboard(desc.width, desc.height, desc.format);

@@ -30,11 +30,13 @@
 #include <inttypes.h>
 #include <malloc.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
 #include <sys/param.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <mutex>
@@ -43,8 +45,10 @@
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
-#include <private/bionic_malloc_dispatch.h>
+#include <bionic/malloc_tagged_pointers.h>
+#include <platform/bionic/reserved_signals.h>
 #include <private/MallocXmlElem.h>
+#include <private/bionic_malloc_dispatch.h>
 
 #include "Config.h"
 #include "DebugData.h"
@@ -91,8 +95,8 @@ struct mallinfo debug_mallinfo();
 int debug_mallopt(int param, int value);
 int debug_malloc_info(int options, FILE* fp);
 int debug_posix_memalign(void** memptr, size_t alignment, size_t size);
-int debug_iterate(uintptr_t base, size_t size,
-                  void (*callback)(uintptr_t base, size_t size, void* arg), void* arg);
+int debug_malloc_iterate(uintptr_t base, size_t size,
+                         void (*callback)(uintptr_t base, size_t size, void* arg), void* arg);
 void debug_malloc_disable();
 void debug_malloc_enable();
 
@@ -129,6 +133,40 @@ class ScopedConcurrentLock {
   static pthread_rwlock_t lock_;
 };
 pthread_rwlock_t ScopedConcurrentLock::lock_;
+
+// Use this because the sigprocmask* functions filter out the reserved bionic
+// signals including the signal this code blocks.
+static inline int __rt_sigprocmask(int how, const sigset64_t* new_set, sigset64_t* old_set,
+                                   size_t sigset_size) {
+  return syscall(SYS_rt_sigprocmask, how, new_set, old_set, sigset_size);
+}
+
+// Need to block the backtrace signal while in malloc debug routines
+// otherwise there is a chance of a deadlock and timeout when unwinding.
+// This can occur if a thread is paused while owning a malloc debug
+// internal lock.
+class ScopedBacktraceSignalBlocker {
+ public:
+  ScopedBacktraceSignalBlocker() {
+    sigemptyset64(&backtrace_set_);
+    sigaddset64(&backtrace_set_, BIONIC_SIGNAL_BACKTRACE);
+    sigset64_t old_set;
+    __rt_sigprocmask(SIG_BLOCK, &backtrace_set_, &old_set, sizeof(backtrace_set_));
+    if (sigismember64(&old_set, BIONIC_SIGNAL_BACKTRACE)) {
+      unblock_ = false;
+    }
+  }
+
+  ~ScopedBacktraceSignalBlocker() {
+    if (unblock_) {
+      __rt_sigprocmask(SIG_UNBLOCK, &backtrace_set_, nullptr, sizeof(backtrace_set_));
+    }
+  }
+
+ private:
+  bool unblock_ = true;
+  sigset64_t backtrace_set_;
+};
 
 static void InitAtfork() {
   static pthread_once_t atfork_init = PTHREAD_ONCE_INIT;
@@ -252,9 +290,16 @@ static void* InitHeader(Header* header, void* orig_pointer, size_t size) {
   return g_debug->GetPointer(header);
 }
 
+extern "C" void __asan_init() __attribute__((weak));
+
 bool debug_initialize(const MallocDispatch* malloc_dispatch, bool* zygote_child,
                       const char* options) {
   if (zygote_child == nullptr || options == nullptr) {
+    return false;
+  }
+
+  if (__asan_init != 0) {
+    error_log("malloc debug cannot be enabled alongside ASAN");
     return false;
   }
 
@@ -326,8 +371,8 @@ void debug_finalize() {
 void debug_get_malloc_leak_info(uint8_t** info, size_t* overall_size, size_t* info_size,
                                 size_t* total_memory, size_t* backtrace_size) {
   ScopedConcurrentLock lock;
-
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   // Verify the arguments.
   if (info == nullptr || overall_size == nullptr || info_size == nullptr || total_memory == nullptr ||
@@ -362,6 +407,7 @@ size_t debug_malloc_usable_size(void* pointer) {
   }
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   if (!VerifyPointer(pointer, "malloc_usable_size")) {
     return 0;
@@ -426,6 +472,7 @@ void* debug_malloc(size_t size) {
   }
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   void* pointer = InternalMalloc(size);
 
@@ -502,6 +549,7 @@ void debug_free(void* pointer) {
   }
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   if (g_debug->config().options() & RECORD_ALLOCS) {
     g_debug->record->AddEntry(new FreeEntry(pointer));
@@ -520,6 +568,7 @@ void* debug_memalign(size_t alignment, size_t bytes) {
   }
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   if (bytes == 0) {
     bytes = 1;
@@ -599,6 +648,7 @@ void* debug_realloc(void* pointer, size_t bytes) {
   }
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   if (pointer == nullptr) {
     pointer = InternalMalloc(bytes);
@@ -718,6 +768,7 @@ void* debug_calloc(size_t nmemb, size_t bytes) {
   }
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   size_t size;
   if (__builtin_mul_overflow(nmemb, bytes, &size)) {
@@ -778,16 +829,24 @@ int debug_malloc_info(int options, FILE* fp) {
   if (DebugCallsDisabled() || !g_debug->TrackPointers()) {
     return g_dispatch->malloc_info(options, fp);
   }
+
+  // Make sure any pending output is written to the file.
+  fflush(fp);
+
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
-  MallocXmlElem root(fp, "malloc", "version=\"debug-malloc-1\"");
+  // Avoid any issues where allocations are made that will be freed
+  // in the fclose.
+  int fd = fileno(fp);
+  MallocXmlElem root(fd, "malloc", "version=\"debug-malloc-1\"");
   std::vector<ListInfoType> list;
   PointerData::GetAllocList(&list);
 
   size_t alloc_num = 0;
   for (size_t i = 0; i < list.size(); i++) {
-    MallocXmlElem alloc(fp, "allocation", "nr=\"%zu\"", alloc_num);
+    MallocXmlElem alloc(fd, "allocation", "nr=\"%zu\"", alloc_num);
 
     size_t total = 1;
     size_t size = list[i].size;
@@ -795,8 +854,8 @@ int debug_malloc_info(int options, FILE* fp) {
       i++;
       total++;
     }
-    MallocXmlElem(fp, "size").Contents("%zu", list[i].size);
-    MallocXmlElem(fp, "total").Contents("%zu", total);
+    MallocXmlElem(fd, "size").Contents("%zu", list[i].size);
+    MallocXmlElem(fd, "total").Contents("%zu", total);
     alloc_num++;
   }
   return 0;
@@ -827,7 +886,7 @@ int debug_posix_memalign(void** memptr, size_t alignment, size_t size) {
   return (*memptr != nullptr) ? 0 : ENOMEM;
 }
 
-int debug_iterate(uintptr_t base, size_t size, void (*callback)(uintptr_t, size_t, void*),
+int debug_malloc_iterate(uintptr_t base, size_t size, void (*callback)(uintptr_t, size_t, void*),
                   void* arg) {
   ScopedConcurrentLock lock;
   if (g_debug->TrackPointers()) {
@@ -840,7 +899,7 @@ int debug_iterate(uintptr_t base, size_t size, void (*callback)(uintptr_t, size_
 
   // An option that adds a header will add pointer tracking, so no need to
   // check if headers are enabled.
-  return g_dispatch->iterate(base, size, callback, arg);
+  return g_dispatch->malloc_iterate(base, size, callback, arg);
 }
 
 void debug_malloc_disable() {
@@ -865,10 +924,12 @@ ssize_t debug_malloc_backtrace(void* pointer, uintptr_t* frames, size_t max_fram
   }
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   if (!(g_debug->config().options() & BACKTRACE)) {
     return 0;
   }
+  pointer = UntagPointer(pointer);
   return PointerData::GetFrames(pointer, frames, max_frames);
 }
 
@@ -898,27 +959,31 @@ void* debug_valloc(size_t size) {
 
 static std::mutex g_dump_lock;
 
-static void write_dump(FILE* fp) {
-  fprintf(fp, "Android Native Heap Dump v1.2\n\n");
+static void write_dump(int fd) {
+  dprintf(fd, "Android Native Heap Dump v1.2\n\n");
 
   std::string fingerprint = android::base::GetProperty("ro.build.fingerprint", "unknown");
-  fprintf(fp, "Build fingerprint: '%s'\n\n", fingerprint.c_str());
+  dprintf(fd, "Build fingerprint: '%s'\n\n", fingerprint.c_str());
 
-  PointerData::DumpLiveToFile(fp);
+  PointerData::DumpLiveToFile(fd);
 
-  fprintf(fp, "MAPS\n");
+  dprintf(fd, "MAPS\n");
   std::string content;
   if (!android::base::ReadFileToString("/proc/self/maps", &content)) {
-    fprintf(fp, "Could not open /proc/self/maps\n");
+    dprintf(fd, "Could not open /proc/self/maps\n");
   } else {
-    fprintf(fp, "%s", content.c_str());
+    dprintf(fd, "%s", content.c_str());
   }
-  fprintf(fp, "END\n");
+  dprintf(fd, "END\n");
 }
 
 bool debug_write_malloc_leak_info(FILE* fp) {
+  // Make sure any pending output is written to the file.
+  fflush(fp);
+
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   std::lock_guard<std::mutex> guard(g_dump_lock);
 
@@ -926,23 +991,25 @@ bool debug_write_malloc_leak_info(FILE* fp) {
     return false;
   }
 
-  write_dump(fp);
+  write_dump(fileno(fp));
+
   return true;
 }
 
 void debug_dump_heap(const char* file_name) {
   ScopedConcurrentLock lock;
   ScopedDisableDebugCalls disable;
+  ScopedBacktraceSignalBlocker blocked;
 
   std::lock_guard<std::mutex> guard(g_dump_lock);
 
-  FILE* fp = fopen(file_name, "w+e");
-  if (fp == nullptr) {
+  int fd = open(file_name, O_RDWR | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0644);
+  if (fd == -1) {
     error_log("Unable to create file: %s", file_name);
     return;
   }
 
   error_log("Dumping to file: %s\n", file_name);
-  write_dump(fp);
-  fclose(fp);
+  write_dump(fd);
+  close(fd);
 }

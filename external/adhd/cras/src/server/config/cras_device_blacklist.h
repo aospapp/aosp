@@ -23,8 +23,8 @@ struct cras_device_blacklist;
  * Returns:
  *    A pointer to the created blacklist on success, NULL on failure.
  */
-struct cras_device_blacklist *cras_device_blacklist_create(
-		const char *config_path);
+struct cras_device_blacklist *
+cras_device_blacklist_create(const char *config_path);
 
 /* Destroys a blacklist returned by cras_device_blacklist_create().
  * Args:
@@ -42,9 +42,7 @@ void cras_device_blacklist_destroy(struct cras_device_blacklist *blacklist);
  *  1 if the device is blacklisted, 0 otherwise.
  */
 int cras_device_blacklist_check(struct cras_device_blacklist *blacklist,
-				unsigned vendor_id,
-				unsigned product_id,
-				unsigned desc_checksum,
-				unsigned device_index);
+				unsigned vendor_id, unsigned product_id,
+				unsigned desc_checksum, unsigned device_index);
 
 #endif /* CRAS_CARD_DEVICE_BLACKLIST_H_ */

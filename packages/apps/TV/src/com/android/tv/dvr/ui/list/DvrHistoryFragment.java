@@ -17,23 +17,24 @@
 package com.android.tv.dvr.ui.list;
 
 import android.os.Bundle;
-import android.support.v17.leanback.app.DetailsFragment;
-import android.support.v17.leanback.widget.ClassPresenterSelector;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import androidx.leanback.app.DetailsFragment;
+import androidx.leanback.widget.ClassPresenterSelector;
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.list.SchedulesHeaderRowPresenter.DateHeaderRowPresenter;
+import com.android.tv.common.flags.UiFlags;
 
 /** A fragment to show the DVR history. */
 public class DvrHistoryFragment extends DetailsFragment
         implements DvrDataManager.ScheduledRecordingListener,
-        DvrDataManager.RecordedProgramListener {
+                DvrDataManager.RecordedProgramListener {
 
     private DvrHistoryRowAdapter mRowsAdapter;
     private TextView mEmptyInfoScreenView;
@@ -48,11 +49,17 @@ public class DvrHistoryFragment extends DetailsFragment
         presenterSelector.addClassPresenter(
                 ScheduleRow.class, new ScheduleRowPresenter(getContext()));
         TvSingletons singletons = TvSingletons.getSingletons(getContext());
-        mRowsAdapter = new DvrHistoryRowAdapter(
-                getContext(), presenterSelector, singletons.getClock());
+        UiFlags uiFlags = singletons.getUiFlags();
+        mDvrDataManager = singletons.getDvrDataManager();
+        mRowsAdapter =
+                new DvrHistoryRowAdapter(
+                        getContext(),
+                        presenterSelector,
+                        singletons.getClock(),
+                        mDvrDataManager,
+                        uiFlags);
         setAdapter(mRowsAdapter);
         mRowsAdapter.start();
-        mDvrDataManager = singletons.getDvrDataManager();
         mDvrDataManager.addScheduledRecordingListener(this);
         mDvrDataManager.addRecordedProgramListener(this);
         mEmptyInfoScreenView = (TextView) getActivity().findViewById(R.id.empty_info_screen);
@@ -135,7 +142,6 @@ public class DvrHistoryFragment extends DetailsFragment
                 hideEmptyMessage();
             }
         }
-
     }
 
     @Override

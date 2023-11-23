@@ -32,18 +32,22 @@ LOCAL_MULTILIB := both
 
 LOCAL_JNI_SHARED_LIBRARIES := \
     libdexmakerjvmtiagent \
-    libmultiplejvmtiagentsinterferenceagent
+    libmultiplejvmtiagentsinterferenceagent \
+    libstaticjvmtiagent
 
 LOCAL_JAVA_LIBRARIES := \
     android.test.runner \
     telephony-common \
     android.test.base \
 
-LOCAL_AAPT_FLAGS := --extra-packages com.android.systemui:com.android.keyguard
+LOCAL_AAPT_FLAGS := --extra-packages com.android.systemui
 
 # sign this with platform cert, so this test is allowed to inject key events into
 # UI it doesn't own. This is necessary to allow screenshots to be taken
 LOCAL_CERTIFICATE := platform
+
+LOCAL_FULL_LIBS_MANIFEST_FILES := $(LOCAL_PATH)/AndroidManifest.xml
+LOCAL_MANIFEST_FILE := AndroidManifest-base.xml
 
 # Provide jack a list of classes to exclude from code coverage.
 # This is needed because the SystemUITests compile SystemUI source directly, rather than using

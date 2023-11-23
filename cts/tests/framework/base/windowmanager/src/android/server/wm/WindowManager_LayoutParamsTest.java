@@ -26,6 +26,7 @@ import android.graphics.PixelFormat;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.platform.test.annotations.Presubmit;
 import android.text.SpannedString;
 import android.view.Gravity;
 import android.view.WindowManager;
@@ -36,6 +37,7 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+@Presubmit
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class WindowManager_LayoutParamsTest {
@@ -91,7 +93,7 @@ public class WindowManager_LayoutParamsTest {
 
         new WindowManager.LayoutParams(parcel);
         assertTrue(WindowManager.LayoutParams.mayUseInputMethod(0));
-        assertTrue(WindowManager.LayoutParams.mayUseInputMethod(
+        assertFalse(WindowManager.LayoutParams.mayUseInputMethod(
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM));
         assertFalse(WindowManager.LayoutParams

@@ -79,11 +79,9 @@ import com.android.gallery3d.filtershow.category.SwipableView;
 import com.android.gallery3d.filtershow.data.UserPresetsManager;
 import com.android.gallery3d.filtershow.editors.BasicEditor;
 import com.android.gallery3d.filtershow.editors.Editor;
-import com.android.gallery3d.filtershow.editors.EditorChanSat;
 import com.android.gallery3d.filtershow.editors.EditorColorBorder;
 import com.android.gallery3d.filtershow.editors.EditorCrop;
 import com.android.gallery3d.filtershow.editors.EditorDraw;
-import com.android.gallery3d.filtershow.editors.EditorGrad;
 import com.android.gallery3d.filtershow.editors.EditorManager;
 import com.android.gallery3d.filtershow.editors.EditorMirror;
 import com.android.gallery3d.filtershow.editors.EditorPanel;
@@ -516,8 +514,6 @@ public class FilterShowActivity extends FragmentActivity implements OnItemClickL
     }
 
     private void fillEditors() {
-        mEditorPlaceHolder.addEditor(new EditorChanSat());
-        mEditorPlaceHolder.addEditor(new EditorGrad());
         mEditorPlaceHolder.addEditor(new EditorDraw());
         mEditorPlaceHolder.addEditor(new EditorColorBorder());
         mEditorPlaceHolder.addEditor(new BasicEditor());

@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
-from autotest_lib.client.cros.input_playback import keyboard
 
 
 class policy_IncognitoModeAvailability(
@@ -20,7 +19,6 @@ class policy_IncognitoModeAvailability(
 
     def initialize(self, **kwargs):
         super(policy_IncognitoModeAvailability, self).initialize(**kwargs)
-        self.keyboard = keyboard.Keyboard()
         self.POLICY_NAME = 'IncognitoModeAvailability'
         self.POLICIES = {}
         self.TEST_CASES = {
@@ -37,25 +35,16 @@ class policy_IncognitoModeAvailability(
         @param case: policy description.
 
         """
-        page_scrape_cmd = (
-            'document.getElementById("user-actions-table").innerText;')
-        self.navigate_to_url('chrome://user-actions')
-        current_number_of_chrome_tabs = len(self.cr.browser.tabs)
-        self.keyboard.press_key('ctrl+shift+n')
-        new_tab_count = len(self.cr.browser.tabs)
+        button_name = '/New incognito window/'
+        self.ui.wait_for_ui_obj('Chrome')
+        self.ui.doDefault_on_obj('Chrome')
+        if case == 'Available' and not self.ui.item_present(button_name,
+                                                            isRegex=True):
+            raise error.TestFail('Incognito not available')
 
-        recorded_user_actions = (
-            self.cr.browser.tabs[1].EvaluateJavaScript(page_scrape_cmd))
-
-        if case == 'Available':
-            if (new_tab_count <= current_number_of_chrome_tabs or
-                'NewIncognitoWindow' not in recorded_user_actions):
-                    raise error.TestFail('New Incognito window did not open.')
-
-        else:
-            if (new_tab_count != current_number_of_chrome_tabs or
-                'Accel_New_Incognito_Window' not in recorded_user_actions):
-                   raise error.TestFail('New Incognito window did open.')
+        elif case == 'Disabled' and self.ui.item_present(button_name,
+                                                         isRegex=True):
+           raise error.TestFail('Incognito not available.')
 
     def run_once(self, case):
         """
@@ -67,4 +56,5 @@ class policy_IncognitoModeAvailability(
         case_value = self.TEST_CASES[case]
         self.POLICIES[self.POLICY_NAME] = case_value
         self.setup_case(user_policies=self.POLICIES)
+        self.ui.start_ui_root(self.cr)
         self._check_incognito_mode_availability(case)

@@ -22,8 +22,7 @@ import org.junit.Test
 class PackageFilterTest {
     @Test
     fun testExact() {
-        val filter = PackageFilter()
-        filter.addPackages("foo.bar:bar.baz")
+        val filter = PackageFilter.parse("foo.bar:bar.baz")
         assertThat(filter.matches("foo.bar")).isTrue()
         assertThat(filter.matches("bar.baz")).isTrue()
         assertThat(filter.matches("foo.bar.baz")).isFalse()
@@ -33,8 +32,7 @@ class PackageFilterTest {
 
     @Test
     fun testWildcard() {
-        val filter = PackageFilter()
-        filter.addPackages("foo.bar*:bar.baz.*")
+        val filter = PackageFilter.parse("foo.bar*:bar.baz.*")
         assertThat(filter.matches("foo.bar")).isTrue()
         assertThat(filter.matches("foo.bars")).isTrue()
         assertThat(filter.matches("foo.bar.baz")).isTrue()
@@ -46,8 +44,7 @@ class PackageFilterTest {
 
     @Test
     fun testBoth() {
-        val filter = PackageFilter()
-        filter.addPackages("foo.bar:foo.bar.*")
+        val filter = PackageFilter.parse("foo.bar:foo.bar.*")
         assertThat(filter.matches("foo.bar")).isTrue()
         assertThat(filter.matches("foo.bar.sub")).isTrue()
         assertThat(filter.matches("foo.bar.sub.sub")).isTrue()
@@ -57,12 +54,58 @@ class PackageFilterTest {
 
     @Test
     fun testImplicit() {
-        val filter = PackageFilter()
-        filter.addPackages("foo.bar.*")
+        val filter = PackageFilter.parse("foo.bar.*")
         assertThat(filter.matches("foo.bar")).isTrue()
         assertThat(filter.matches("foo.bar.sub")).isTrue()
         assertThat(filter.matches("foo.bar.sub.sub")).isTrue()
         assertThat(filter.matches("foo.bars")).isFalse()
         assertThat(filter.matches("foo")).isFalse()
+    }
+
+    @Test
+    fun testExplicitInclusion() {
+        val filter = PackageFilter.parse("+sample")
+        assertThat(filter.matches("sample")).isTrue()
+        assertThat(filter.matches("samples")).isFalse()
+        assertThat(filter.matches("sample.example")).isFalse()
+        assertThat(filter.matches("other")).isFalse()
+    }
+
+    @Test
+    fun testOnlyExclusion() {
+        val filter = PackageFilter.parse("-com")
+        assertThat(filter.matches("com")).isFalse()
+        assertThat(filter.matches("org")).isFalse() // not implicitly included
+        assertThat(filter.matches("company")).isFalse() // not implicitly included
+    }
+
+    @Test
+    fun testExclusionOverride() {
+        val filter = PackageFilter.parse("sample.*:-sample.example.*")
+        assertThat(filter.matches("sample")).isTrue()
+        assertThat(filter.matches("sample.other")).isTrue()
+        assertThat(filter.matches("sample.example")).isFalse()
+        assertThat(filter.matches("sample.example.one")).isFalse()
+        assertThat(filter.matches("org")).isFalse()
+    }
+
+    @Test
+    fun testMatchAll() {
+        val star = PackageFilter.parse("*")
+        assertThat(star.matches("sample")).isTrue()
+        val plusStar = PackageFilter.parse("+*")
+        assertThat(plusStar.matches("example")).isTrue()
+    }
+
+    @Test
+    fun testMultipleOverlappingOverrides() {
+        val filter = PackageFilter.parse("+*:-android.*:+android.icu.*:-dalvik.*")
+        assertThat(filter.matches("android")).isFalse()
+        assertThat(filter.matches("android.something")).isFalse()
+        assertThat(filter.matches("android.icu")).isTrue()
+        assertThat(filter.matches("android.icu.other")).isTrue()
+        assertThat(filter.matches("dalvik")).isFalse()
+        assertThat(filter.matches("dalvik.sub")).isFalse()
+        assertThat(filter.matches("org")).isTrue()
     }
 }

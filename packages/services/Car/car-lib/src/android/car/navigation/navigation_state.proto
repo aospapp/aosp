@@ -32,7 +32,8 @@ option java_outer_classname = "NavigationState";
 // Margins: The referenced image does not have internal margins.
 // Format: Content URI must reference a file with MIME type
 //         'image/png', 'image/jpeg' or 'image/bmp'.
-// Color: Images can be either "tintable" or not. A "tintable" image is such that
+// Color: Images can be either "tintable" or not. A "tintable" image is such
+// that
 //        all its content is defined in its alpha channel, while its color
 //        (all other channels) can be altered without losing information
 //        (e.g. icons). A non "tintable" images contains information in all its
@@ -40,8 +41,8 @@ option java_outer_classname = "NavigationState";
 // Caching: Given the same image reference and the same requested size,
 //          it is assumed that the exact same image will always be returned.
 //          This means that it should be safe to cache an image once requested
-//          the first time, using this image reference plus requested size as key,
-//          for as long as needed.
+//          the first time, using this image reference plus requested size as
+//          key, for as long as needed.
 message ImageReference {
   // A URI defining the location that the image can be retrieved from.
   //
@@ -95,7 +96,8 @@ message Distance {
   // in the vehicle.
   //
   // For example, a distance of 1200 meters in ES_es locale could be
-  // represented with `display_value` of "1,2" and `display_units` of KILOMETERS.
+  // represented with `display_value` of "1,2" and `display_units` of
+  // KILOMETERS.
   string display_value = 2;
 
   // The distance unit that should be used to display the distance value
@@ -106,7 +108,6 @@ message Distance {
 
 // Information about a maneuver that the driver will be required to perform.
 message Maneuver {
-
   // Next ID: 57
   enum Type {
     // Maneuver type is unknown, no maneuver information should be displayed.
@@ -119,57 +120,92 @@ message Maneuver {
     NAME_CHANGE = 2;
 
     // No turn, from 0 (included) to 10 (excluded) degrees. Used when we just
-    // wish to say "Keep left" or "Keep right". Note that this is used in
-    // contrast to STRAIGHT for disambiguating cases where there is more than
-    // one option to go into the same general direction.
+    // wish to say "Keep left". Note that this is used in contrast to STRAIGHT
+    // for disambiguating cases where there is more than one option to go into
+    // the same general direction.
     KEEP_LEFT = 3;
+    // No turn, from 0 (included) to 10 (excluded) degrees. Used when we just
+    // wish to say "Keep right". Note that this is used in contrast to STRAIGHT
+    // for disambiguating cases where there is more than one option to go into
+    // the same general direction.
     KEEP_RIGHT = 4;
 
-    // Slight turn at an intersection, from 10 (included) to 45 (excluded)
+    // Slight left turn at an intersection, from 10 (included) to 45 (excluded)
     // degrees.
     TURN_SLIGHT_LEFT = 5;
+    // Slight right turn at an intersection, from 10 (included) to 45 (excluded)
+    // degrees.
     TURN_SLIGHT_RIGHT = 6;
 
-    // Regular turn at an intersection, from 45 (included) to 135 (excluded)
-    // degrees.
+    // Regular left turn at an intersection, from 45 (included) to 135
+    // (excluded) degrees.
     TURN_NORMAL_LEFT = 7;
+    // Regular right turn at an intersection, from 45 (included) to 135
+    // (excluded) degrees.
     TURN_NORMAL_RIGHT = 8;
 
-    // Sharp turn at an intersection, from 135 (included) to 175 (excluded)
-    // degrees
+    // Sharp left turn at an intersection, from 135 (included) to 175 (excluded)
+    // degrees.
     TURN_SHARP_LEFT = 9;
+    // Sharp right turn at an intersection, from 135 (included) to 175
+    // (excluded) degrees.
     TURN_SHARP_RIGHT = 10;
 
-    // A turn onto the opposite side of the same street, from 175 (included) to
-    // 180 (included) degrees.
+    // A left turn onto the opposite side of the same street, from 175
+    // (included) to 180 (included) degrees.
     U_TURN_LEFT = 11;
+    // A right turn onto the opposite side of the same street, from 175
+    // (included) to 180 (included) degrees.
     U_TURN_RIGHT = 12;
 
-    // A turn to enter a turnpike or freeway. See TURN_NORMAL_LEFT,
-    // TURN_SLIGHT_RIGHT, etc., for the difference between slight, sharp, etc.
+    // A slight left turn to enter a turnpike or freeway. See TURN_SLIGHT_LEFT
+    // for the definition of slight.
     ON_RAMP_SLIGHT_LEFT = 13;
+    // A slight right turn to enter a turnpike or freeway. See TURN_SLIGHT_RIGHT
+    // for the definition of slight.
     ON_RAMP_SLIGHT_RIGHT = 14;
+    // A normal left turn to enter a turnpike or freeway. See TURN_NORMAL_LEFT
+    // for the definition of normal.
     ON_RAMP_NORMAL_LEFT = 15;
+    // A normal right turn to enter a turnpike or freeway. See TURN_NORMAL_RIGHT
+    // for the definition of normal.
     ON_RAMP_NORMAL_RIGHT = 16;
+    // A sharp left turn to enter a turnpike or freeway. See TURN_SHARP_LEFT
+    // for the definition of sharp.
     ON_RAMP_SHARP_LEFT = 17;
+    // A sharp right turn to enter a turnpike or freeway. See TURN_SHARP_RIGHT
+    // for the definition of sharp.
     ON_RAMP_SHARP_RIGHT = 18;
+    // A left u-turn to enter a turnpike or freeway. See U_TURN_LEFT for the
+    // definition of u-turn.
     ON_RAMP_U_TURN_LEFT = 19;
+    // A right u-turn to enter a turnpike or freeway. See U_TURN_RIGHT for the
+    // definition of u-turn.
     ON_RAMP_U_TURN_RIGHT = 20;
 
-    // A turn to exit a turnpike or freeway. See TURN_NORMAL_LEFT,
-    // TURN_SLIGHT_RIGHT, etc., for the difference between slight, sharp, etc.
+    // A slight left turn to exit a turnpike or freeway. See TURN_SLIGHT_LEFT
+    // for the definition of slight.
     OFF_RAMP_SLIGHT_LEFT = 21;
+    // A slight right turn to exit a turnpike or freeway. See TURN_SLIGHT_RIGHT
+    // for the definition of slight.
     OFF_RAMP_SLIGHT_RIGHT = 22;
+    // A left turn to exit a turnpike or freeway. See TURN_NORMAL_LEFT
+    // for the definition of normal.
     OFF_RAMP_NORMAL_LEFT = 23;
+    // A right turn to exit a turnpike or freeway. See TURN_NORMAL_RIGHT
+    // for the definition of normal.
     OFF_RAMP_NORMAL_RIGHT = 24;
 
-    // Road diverges (e.g. "Keep left/right at the fork").
+    // Road diverges (e.g. "Keep left at the fork").
     FORK_LEFT = 25;
+    // Road diverges (e.g. "Keep right at the fork").
     FORK_RIGHT = 26;
 
-    // Current road joins another (e.g. "Merge left/right onto Main St.").
+    // Current road joins another (e.g. "Merge right onto Main St.").
     MERGE_LEFT = 27;
+    // Current road joins another (e.g. "Merge left onto Main St.").
     MERGE_RIGHT = 28;
+    // Current road joins another (e.g. "Merge onto Main St.").
     MERGE_SIDE_UNSPECIFIED = 54;
 
     // Roundabout entrance on which the current road ends (e.g. "Enter the
@@ -180,36 +216,90 @@ message Maneuver {
     // the roundabout").
     ROUNDABOUT_EXIT = 30;
 
-    // The following are entrance and exit (e.g. "At the roundabout, take Nth
-    // exit") on a clockwise roundabout (as seen from above, typical for
-    // left-hand drive countries) where the exit is a particular turn amount
-    // (sharp right, vs. normal left, etc. - see the definitions for
-    // TURN_SHARP_LEFT, TURN_SLIGHT_RIGHT, etc., for a definition of what "sharp"
-    // vs. "normal" vs. "slight" is.
+    // Entrance and exit (e.g. "At the roundabout, take Nth exit") on a
+    // clockwise roundabout (as seen from above, typical for left-hand drive
+    // countries).
     ROUNDABOUT_ENTER_AND_EXIT_CW = 55;
+    // Entrance and sharp right turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries). See TURN_SHARP_RIGHT for the definition of
+    // sharp.
     ROUNDABOUT_ENTER_AND_EXIT_CW_SHARP_RIGHT = 31;
+    // Entrance and regular right turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries). See TURN_NORMAL_RIGHT for the definition of
+    // normal.
     ROUNDABOUT_ENTER_AND_EXIT_CW_NORMAL_RIGHT = 32;
+    // Entrance and slight right turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries). See TURN_SLIGHT_RIGHT for the definition of
+    // slight.
     ROUNDABOUT_ENTER_AND_EXIT_CW_SLIGHT_RIGHT = 33;
+    // Entrance and straight exit (e.g. "At the roundabout, take Nth exit") on a
+    // clockwise roundabout (as seen from above, typical for left-hand drive
+    // countries).
     ROUNDABOUT_ENTER_AND_EXIT_CW_STRAIGHT = 34;
+    // Entrance and sharp left turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries). See TURN_SHARP_LEFT for the definition of
+    // sharp.
     ROUNDABOUT_ENTER_AND_EXIT_CW_SHARP_LEFT = 35;
+    // Entrance and regular left turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries). See TURN_NORMAL_LEFT for the definition of
+    // normal.
     ROUNDABOUT_ENTER_AND_EXIT_CW_NORMAL_LEFT = 36;
+    // Entrance and slight left turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries). See TURN_SLIGHT_LEFT for the definition of
+    // slight.
     ROUNDABOUT_ENTER_AND_EXIT_CW_SLIGHT_LEFT = 37;
+    // Entrance and u-turn exit (e.g. "At the roundabout, take Nth exit") on a
+    // clockwise roundabout (as seen from above, typical for left-hand drive
+    // countries).
     ROUNDABOUT_ENTER_AND_EXIT_CW_U_TURN = 38;
 
-    // The following are entrance and exit (e.g. "At the roundabout, take Nth
-    // exit") on a counter-clockwise roundabout (as seen from above, typical
-    // for right-hand drive countries) where the exit is a particular turn
-    // amount (sharp right, vs. normal left, etc. - see the definitions for
-    // TURN_SHARP_LEFT, TURN_SLIGHT_RIGHT, etc., for a definition of what "sharp"
-    // vs. "normal" vs. "slight" is.
+    // Entrance and exit (e.g. "At the roundabout, take Nth exit") on a
+    // counter-clockwise roundabout (as seen from above, typical for right-hand
+    // drive countries).
     ROUNDABOUT_ENTER_AND_EXIT_CCW = 56;
+    // Entrance and sharp right turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a counter-clockwise roundabout (as seen from above, typical for
+    // right-hand drive countries). See TURN_SHARP_RIGHT for the definition of
+    // sharp.
     ROUNDABOUT_ENTER_AND_EXIT_CCW_SHARP_RIGHT = 39;
+    // Entrance and regular right turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a counter-clockwise roundabout (as seen from above, typical for
+    // right-hand drive countries). See TURN_NORMAL_RIGHT for the definition of
+    // normal.
     ROUNDABOUT_ENTER_AND_EXIT_CCW_NORMAL_RIGHT = 40;
+    // Entrance and slight right turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a counter-clockwise roundabout (as seen from above, typical for
+    // right-hand drive countries). See TURN_SLIGHT_RIGHT for the definition of
+    // slight.
     ROUNDABOUT_ENTER_AND_EXIT_CCW_SLIGHT_RIGHT = 41;
+    // Entrance and straight exit (e.g. "At the roundabout, take Nth exit") on a
+    // counter-clockwise roundabout (as seen from above, typical for right-hand
+    // drive countries).
     ROUNDABOUT_ENTER_AND_EXIT_CCW_STRAIGHT = 42;
+    // Entrance and sharp left turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a counter-clockwise roundabout (as seen from above, typical for
+    // right-hand drive countries). See TURN_SHARP_LEFT for the definition of
+    // sharp.
     ROUNDABOUT_ENTER_AND_EXIT_CCW_SHARP_LEFT = 43;
+    // Entrance and regular left turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a counter-clockwise roundabout (as seen from above, typical for
+    // right-hand drive countries). See TURN_NORMAL_LEFT for the definition of
+    // normal.
     ROUNDABOUT_ENTER_AND_EXIT_CCW_NORMAL_LEFT = 44;
+    // Entrance and slight left turn exit (e.g. "At the roundabout, take Nth
+    // exit") on a counter-clockwise roundabout (as seen from above, typical for
+    // right-hand drive countries). See TURN_SLIGHT_LEFT for the definition of
+    // slight.
     ROUNDABOUT_ENTER_AND_EXIT_CCW_SLIGHT_LEFT = 45;
+    // Entrance and u-turn exit (e.g. "At the roundabout, take Nth exit") on a
+    // counter-clockwise roundabout (as seen from above, typical for right-hand
+    // drive countries).
     ROUNDABOUT_ENTER_AND_EXIT_CCW_U_TURN = 46;
 
     // Driver should steer straight.
@@ -224,10 +314,11 @@ message Maneuver {
     // Arrival to a destination where the direction is unknown.
     DESTINATION = 50;
 
-    // Arrival to a destination located in a particular direction (straight
-    // ahead, left side of the road, right side of the road).
+    // Arrival to a destination located straight ahead.
     DESTINATION_STRAIGHT = 51;
+    // Arrival to a destination located on the left side of the road.
     DESTINATION_LEFT = 52;
+    // Arrival to a destination located on the right side of the road.
     DESTINATION_RIGHT = 53;
   }
 
@@ -427,7 +518,8 @@ message LatLng {
 // 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
 // By restricting to that range, we ensure that we can convert to
 // and from  RFC 3339 date strings.
-// See [https://www.ietf.org/rfc/rfc3339.txt](https://www.ietf.org/rfc/rfc3339.txt).
+// See
+// [https://www.ietf.org/rfc/rfc3339.txt](https://www.ietf.org/rfc/rfc3339.txt).
 //
 // This is a subset of
 // https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/timestamp.proto
@@ -534,3 +626,4 @@ message NavigationStateProto {
   // Current status of the navigation.
   ServiceStatus service_status = 4;
 }
+

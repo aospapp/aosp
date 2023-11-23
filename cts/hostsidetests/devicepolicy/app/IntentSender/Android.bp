@@ -25,12 +25,12 @@ android_test_helper_app {
         "ub-uiautomator",
         "androidx.legacy_legacy-support-v4",
     ],
-    sdk_version: "current",
+    platform_apis: true,
     // tag this module as a cts test artifact
     test_suites: [
         "arcts",
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }

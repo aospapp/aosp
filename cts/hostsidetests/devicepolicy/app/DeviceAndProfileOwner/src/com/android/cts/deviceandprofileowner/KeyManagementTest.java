@@ -17,6 +17,7 @@ package com.android.cts.deviceandprofileowner;
 
 import static android.app.admin.DevicePolicyManager.ID_TYPE_BASE_INFO;
 import static android.app.admin.DevicePolicyManager.ID_TYPE_IMEI;
+import static android.app.admin.DevicePolicyManager.ID_TYPE_INDIVIDUAL_ATTESTATION;
 import static android.app.admin.DevicePolicyManager.ID_TYPE_MEID;
 import static android.app.admin.DevicePolicyManager.ID_TYPE_SERIAL;
 import static android.keystore.cts.CertificateUtils.createCertificate;
@@ -657,7 +658,100 @@ public class KeyManagementTest extends BaseDeviceAdminTest {
         }
     }
 
-    public void testCanSetKeyPairCert() throws Exception {
+    public void testUniqueDeviceAttestationUsingDifferentAttestationCert() throws Exception {
+        // This test is only applicable in modes where Device ID attestation can be performed
+        // _and_ the device has StrongBox, which is provisioned with individual attestation
+        // certificates.
+        // The functionality tested should equally work for when the Profile Owner can perform
+        // Device ID attestation, but since the underlying StrongBox implementation cannot
+        // differentiate between PO and DO modes, for simplicity, it is only tested in DO mode.
+        if (!isDeviceOwner() || !hasStrongBox() || !isUniqueDeviceAttestationSupported()) {
+            return;
+        }
+        final String no_id_alias = "com.android.test.key_attested";
+        final String dev_unique_alias = "com.android.test.individual_dev_attested";
+
+        byte[] attestationChallenge = new byte[] {0x01, 0x02, 0x03};
+        try {
+            KeyGenParameterSpec specKeyAttOnly = new KeyGenParameterSpec.Builder(
+                    no_id_alias,
+                    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setAttestationChallenge(attestationChallenge)
+                    .setIsStrongBoxBacked(true)
+                    .build();
+
+            AttestedKeyPair attestedKeyPair = mDevicePolicyManager.generateKeyPair(
+                    getWho(), KeyProperties.KEY_ALGORITHM_EC, specKeyAttOnly,
+                    0 /* device id attestation flags */);
+            assertWithMessage(
+                    String.format("Failed generating a key with attestation in StrongBox."))
+                    .that(attestedKeyPair)
+                    .isNotNull();
+
+            KeyGenParameterSpec specIndividualAtt = new KeyGenParameterSpec.Builder(
+                    dev_unique_alias,
+                    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setAttestationChallenge(attestationChallenge)
+                    .setIsStrongBoxBacked(true)
+                    .build();
+
+            AttestedKeyPair individuallyAttestedPair = mDevicePolicyManager.generateKeyPair(
+                    getWho(), KeyProperties.KEY_ALGORITHM_EC, specIndividualAtt,
+                    ID_TYPE_INDIVIDUAL_ATTESTATION /* device id attestation flags */);
+            assertWithMessage(
+                    String.format("Failed generating a key for unique attestation in StrongBox."))
+                    .that(individuallyAttestedPair)
+                    .isNotNull();
+
+            X509Certificate keyAttestationIntermediate = (X509Certificate)
+                    attestedKeyPair.getAttestationRecord().get(1);
+            X509Certificate devUniqueAttestationIntermediate = (X509Certificate)
+                    individuallyAttestedPair.getAttestationRecord().get(1);
+            assertWithMessage("Device unique attestation intermediate certificate"
+                    + " should be different to the key attestation certificate.")
+                    .that(devUniqueAttestationIntermediate.getEncoded())
+                    .isNotEqualTo(keyAttestationIntermediate.getEncoded());
+        } finally {
+            mDevicePolicyManager.removeKeyPair(getWho(), no_id_alias);
+            mDevicePolicyManager.removeKeyPair(getWho(), dev_unique_alias);
+        }
+    }
+
+    public void testUniqueDeviceAttestationFailsWhenUnsupported() {
+        if (!isDeviceOwner() || !hasStrongBox()) {
+            return;
+        }
+
+        if (isUniqueDeviceAttestationSupported()) {
+            // testUniqueDeviceAttestationUsingDifferentAttestationCert is the positive test case.
+            return;
+        }
+
+        byte[] attestationChallenge = new byte[] {0x01, 0x02, 0x03};
+        final String someAlias = "com.android.test.should_not_exist";
+        try {
+            KeyGenParameterSpec specIndividualAtt = new KeyGenParameterSpec.Builder(
+                    someAlias,
+                    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setAttestationChallenge(attestationChallenge)
+                    .setIsStrongBoxBacked(true)
+                    .build();
+
+            AttestedKeyPair individuallyAttestedPair = mDevicePolicyManager.generateKeyPair(
+                    getWho(), KeyProperties.KEY_ALGORITHM_EC, specIndividualAtt,
+                    ID_TYPE_INDIVIDUAL_ATTESTATION /* device id attestation flags */);
+            fail("When unique attestation is not supported, key generation should fail.");
+        }catch (UnsupportedOperationException expected) {
+        } finally {
+            mDevicePolicyManager.removeKeyPair(getWho(), someAlias);
+        }
+    }
+
+
+        public void testCanSetKeyPairCert() throws Exception {
         final String alias = "com.android.test.set-ec-1";
         try {
             KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
@@ -797,5 +891,9 @@ public class KeyManagementTest extends BaseDeviceAdminTest {
     boolean hasStrongBox() {
         return mActivity.getPackageManager()
             .hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE);
+    }
+
+    boolean isUniqueDeviceAttestationSupported() {
+        return mDevicePolicyManager.isUniqueDeviceAttestationSupported();
     }
 }

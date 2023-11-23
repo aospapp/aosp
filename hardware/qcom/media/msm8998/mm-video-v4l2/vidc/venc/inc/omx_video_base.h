@@ -195,6 +195,7 @@ class omx_video: public qc_omx_component
                 bool get_buffer_size(int port,unsigned int &buf_size);
                 int get_src_format();
                 void close();
+                bool isUBWCChanged(unsigned int flags);
             private:
                 C2DColorConverterBase *c2dcc;
                 pthread_mutex_t c_lock;
@@ -202,6 +203,7 @@ class omx_video: public qc_omx_component
                 ColorConvertFormat src_format;
                 createC2DColorConverter_t *mConvertOpen;
                 destroyC2DColorConverter_t *mConvertClose;
+                unsigned int mFlags = 0;
         };
         omx_c2d_conv c2d_conv;
 #endif

@@ -100,10 +100,10 @@
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"لا تتوفر معلومات حول مالك الهاتف"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"إذا كان هذا هاتفك، فانقر على رمز القلم لإضافة معلومات يتم عرضها هنا في حالة الطوارئ."</string>
-    <string name="clear_all" msgid="8899013032870561633">"مسح الكل"</string>
-    <string name="clear" msgid="3648880442502887163">"مسح"</string>
-    <string name="clear_all_message" msgid="1548432000373861295">"هل تريد مسح جميع المعلومات وجهات الاتصال؟"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"يمكن لإضافة المعلومات الطبية وجهات الاتصال أن تساعد فرق الاستجابة الفورية في حالات الطوارئ.\n\nويمكن لأي شخص قراءة هذه المعلومات من شاشة القفل ومكالمة جهات الاتصال التابعة لك بالنقر على أسمائها من دون الحاجة إلى فتح قفل هاتفك."</string>
+    <string name="clear_all" msgid="8899013032870561633">"محو الكل"</string>
+    <string name="clear" msgid="3648880442502887163">"محو"</string>
+    <string name="clear_all_message" msgid="1548432000373861295">"هل تريد محو جميع المعلومات وجهات الاتصال؟"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"يمكن لإضافة المعلومات الطبية وجهات الاتصال أن تساعد فرق الاستجابة الفورية في حالات الطوارئ.\n\nويمكن لأي شخص قراءة هذه المعلومات من شاشة القفل ومكالمة جهات الاتصال التابعة لك بالنقر على أسمائها بدون الحاجة إلى فتح قفل هاتفك."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"إضافة معلومات الطوارئ"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"السماح لفِرق الإغاثة الفورية بالاطلاع على معلوماتك"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"التقاط صورة"</string>

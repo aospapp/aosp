@@ -34,7 +34,7 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import com.android.ims.MmTelFeatureConnection;
+import com.android.ims.ImsCallbackAdapterManager;
 import com.android.internal.telephony.TelephonyTest;
 
 import org.junit.After;
@@ -55,12 +55,12 @@ public class MmTelFeatureConnectionTest extends TelephonyTest {
     }
 
     private class CallbackManagerTest extends
-            MmTelFeatureConnection.CallbackAdapterManager<TestCallback> {
+            ImsCallbackAdapterManager<TestCallback> {
 
         List<TestCallback> mCallbacks = new ArrayList<>();
 
         CallbackManagerTest(Context context, Object lock) {
-            super(context, lock);
+            super(context, lock, 0 /*slotId*/);
         }
 
         // A callback has been registered. Register that callback with the MmTelFeature.

@@ -19,6 +19,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.multiuser.cts"
           android:targetSandboxVersion="2">
+    <!-- Must be at least 30, otherwise some tests could be invalid. -->
+    <uses-sdk android:targetSdkVersion="30"/>
 
     <application>
         <uses-library android:name="android.test.runner" />

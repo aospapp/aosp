@@ -18,10 +18,12 @@ package com.android.car.settings.wifi;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.net.wifi.WifiConfiguration;
+import android.content.Intent;
+import android.net.wifi.SoftApConfiguration;
 import android.text.TextUtils;
 
 import androidx.annotation.CallSuper;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
@@ -35,6 +37,13 @@ import com.android.car.settings.common.PreferenceController;
  */
 public abstract class WifiTetherBasePreferenceController<V extends Preference> extends
         PreferenceController<V> {
+
+    /**
+     * Action used in the {@link Intent} sent by the {@link LocalBroadcastManager} to request wifi
+     * restart.
+     */
+    public static final String ACTION_RESTART_WIFI_TETHERING =
+            "com.android.car.settings.wifi.ACTION_RESTART_WIFI_TETHERING";
 
     private CarWifiManager mCarWifiManager;
 
@@ -81,12 +90,13 @@ public abstract class WifiTetherBasePreferenceController<V extends Preference> e
         }
     }
 
-    protected WifiConfiguration getCarWifiApConfig() {
-        return mCarWifiManager.getWifiApConfig();
+    protected SoftApConfiguration getCarSoftApConfig() {
+        return mCarWifiManager.getSoftApConfig();
     }
 
-    protected void setCarWifiApConfig(WifiConfiguration configuration) {
-        mCarWifiManager.setWifiApConfig(configuration);
+    protected void setCarSoftApConfig(SoftApConfiguration configuration) {
+        mCarWifiManager.setSoftApConfig(configuration);
+        requestWifiTetherRestart();
     }
 
     protected CarWifiManager getCarWifiManager() {
@@ -96,4 +106,9 @@ public abstract class WifiTetherBasePreferenceController<V extends Preference> e
     protected abstract String getSummary();
 
     protected abstract String getDefaultSummary();
+
+    protected void requestWifiTetherRestart() {
+        Intent intent = new Intent(ACTION_RESTART_WIFI_TETHERING);
+        LocalBroadcastManager.getInstance(getContext()).sendBroadcast(intent);
+    }
 }

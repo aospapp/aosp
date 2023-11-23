@@ -28,6 +28,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
+#include "environment.h"
 #include "perf_event.h"
 #include "utils.h"
 
@@ -100,6 +101,24 @@ class TracingFile {
   uint32_t GetPageSize() const { return page_size; }
 
  private:
+  bool ReadTraceFsFile(const std::string& path, std::string* content, bool report_error = true) {
+    const char* tracefs_dir = GetTraceFsDir();
+    if (tracefs_dir == nullptr) {
+      if (report_error) {
+        LOG(ERROR) << "tracefs doesn't exist";
+      }
+      return false;
+    }
+    std::string full_path = tracefs_dir + path;
+    if (!android::base::ReadFileToString(full_path, content)) {
+      if (report_error) {
+        PLOG(ERROR) << "failed to read " << full_path;
+      }
+      return false;
+    }
+    return true;
+  }
+
   char magic[10];
   std::string version;
   char endian;
@@ -125,56 +144,32 @@ TracingFile::TracingFile() {
 }
 
 bool TracingFile::RecordHeaderFiles() {
-  if (!android::base::ReadFileToString(
-          "/sys/kernel/debug/tracing/events/header_page", &header_page_file)) {
-    PLOG(ERROR)
-        << "failed to read /sys/kernel/debug/tracing/events/header_page";
-    return false;
-  }
-  if (!android::base::ReadFileToString(
-          "/sys/kernel/debug/tracing/events/header_event",
-          &header_event_file)) {
-    PLOG(ERROR)
-        << "failed to read /sys/kernel/debug/tracing/events/header_event";
-    return false;
-  }
-  return true;
+  return ReadTraceFsFile("/events/header_page", &header_page_file) &&
+         ReadTraceFsFile("/events/header_event", &header_event_file);
 }
 
 void TracingFile::RecordFtraceFiles(const std::vector<TraceType>& trace_types) {
   for (const auto& type : trace_types) {
-    std::string format_path = android::base::StringPrintf(
-        "/sys/kernel/debug/tracing/events/ftrace/%s/format", type.name.c_str());
     std::string format_data;
-    if (android::base::ReadFileToString(format_path, &format_data)) {
-      ftrace_format_files.push_back(std::move(format_data));
+    if (ReadTraceFsFile("/events/ftrace/" + type.name + "/format", &format_data, false)) {
+      ftrace_format_files.emplace_back(std::move(format_data));
     }
   }
 }
 
 bool TracingFile::RecordEventFiles(const std::vector<TraceType>& trace_types) {
   for (const auto& type : trace_types) {
-    std::string format_path = android::base::StringPrintf(
-        "/sys/kernel/debug/tracing/events/%s/%s/format", type.system.c_str(),
-        type.name.c_str());
     std::string format_data;
-    if (!android::base::ReadFileToString(format_path, &format_data)) {
-      PLOG(ERROR) << "failed to read " << format_path;
+    if (!ReadTraceFsFile("/events/" + type.system + "/" + type.name + "/format", &format_data)) {
       return false;
     }
-    event_format_files.push_back(
-        std::make_pair(type.system, std::move(format_data)));
+    event_format_files.emplace_back(type.system, std::move(format_data));
   }
   return true;
 }
 
 bool TracingFile::RecordPrintkFormatsFile() {
-  if (!android::base::ReadFileToString(
-          "/sys/kernel/debug/tracing/printk_formats", &printk_formats_file)) {
-    PLOG(ERROR) << "failed to read /sys/kernel/debug/tracing/printk_formats";
-    return false;
-  }
-  return true;
+  return ReadTraceFsFile("/printk_formats", &printk_formats_file);
 }
 
 std::vector<char> TracingFile::BinaryFormat() const {

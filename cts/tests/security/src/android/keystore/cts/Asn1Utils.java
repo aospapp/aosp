@@ -141,7 +141,15 @@ public class Asn1Utils {
             throw new CertificateParsingException(
                     "Expected boolean, found " + value.getClass().getName());
         }
-        return ((ASN1Boolean) value).isTrue();
+        ASN1Boolean booleanValue = (ASN1Boolean) value;
+        if (booleanValue.equals(ASN1Boolean.TRUE)) {
+            return true;
+        } else if (booleanValue.equals((ASN1Boolean.FALSE))) {
+            return false;
+        }
+
+        throw new CertificateParsingException(
+                "DER-encoded boolean values must contain either 0x00 or 0xFF");
     }
 
     private static int bigIntegerToInt(BigInteger bigInt) throws CertificateParsingException {

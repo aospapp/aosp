@@ -16,26 +16,21 @@
 
 package com.android.car.settings.security;
 
-import android.content.Context;
 import android.os.Bundle;
 
 import androidx.annotation.XmlRes;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.internal.widget.LockscreenCredential;
 
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Give user choices of lock screen type: Pin/Pattern/Password or None.
  */
 public class ChooseLockTypeFragment extends SettingsFragment {
-
-    public static final String EXTRA_CURRENT_PASSWORD_QUALITY = "extra_current_password_quality";
-
-    private byte[] mCurrPassword;
-    private int mPasswordQuality;
 
     @Override
     @XmlRes
@@ -43,24 +38,27 @@ public class ChooseLockTypeFragment extends SettingsFragment {
         return R.xml.choose_lock_type_fragment;
     }
 
+    /**
+     * Pass along password and password quality to preference controllers
+     */
     @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         Bundle args = getArguments();
         if (args != null) {
-            mCurrPassword = args.getByteArray(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK);
-            mPasswordQuality = args.getInt(EXTRA_CURRENT_PASSWORD_QUALITY);
-        }
+            LockscreenCredential currPassword = args.getParcelable(
+                    PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK);
+            int passwordQuality = args.getInt(PasswordHelper.EXTRA_CURRENT_PASSWORD_QUALITY);
 
-        List<LockTypeBasePreferenceController> controllers = new ArrayList<>();
-        controllers.add(use(NoLockPreferenceController.class, R.string.pk_no_lock));
-        controllers.add(use(PatternLockPreferenceController.class, R.string.pk_pattern_lock));
-        controllers.add(use(PasswordLockPreferenceController.class, R.string.pk_password_lock));
-        controllers.add(use(PinLockPreferenceController.class, R.string.pk_pin_lock));
-
-        for (LockTypeBasePreferenceController controller : controllers) {
-            controller.setCurrentPassword(mCurrPassword);
-            controller.setCurrentPasswordQuality(mPasswordQuality);
+            PreferenceScreen preferenceScreen = getPreferenceScreen();
+            int preferenceCount = preferenceScreen.getPreferenceCount();
+            for (int i = 0; i < preferenceCount; i++) {
+                Preference preference = preferenceScreen.getPreference(i);
+                preference.getExtras().putParcelable(
+                        PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, currPassword);
+                preference.getExtras().putInt(
+                        PasswordHelper.EXTRA_CURRENT_PASSWORD_QUALITY, passwordQuality);
+            }
         }
     }
 }

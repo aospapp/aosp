@@ -20,7 +20,7 @@
 
 namespace chre {
 
-AudioSource::AudioSource(const std::string& audioFilename,
+AudioSource::AudioSource(const std::string &audioFilename,
                          double minBufferDuration, double maxBufferDuration)
     : audioFilename(audioFilename),
       minBufferDuration(

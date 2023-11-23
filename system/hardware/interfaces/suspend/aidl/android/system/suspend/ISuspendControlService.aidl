@@ -17,6 +17,7 @@
 package android.system.suspend;
 
 import android.system.suspend.ISuspendCallback;
+import android.system.suspend.WakeLockInfo;
 
 /**
  * Interface exposed by the suspend hal that allows framework to toggle the suspend loop and
@@ -45,4 +46,9 @@ interface ISuspendControlService
      * Suspends the system even if there are wakelocks being held.
      */
     boolean forceSuspend();
+
+    /**
+     * Returns a list of wake lock stats.
+     */
+    WakeLockInfo[] getWakeLockStats();
 }

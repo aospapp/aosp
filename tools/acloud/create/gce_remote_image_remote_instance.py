@@ -24,6 +24,7 @@ from acloud.internal import constants
 from acloud.internal.lib import utils
 from acloud.public import device_driver
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,7 +43,7 @@ class GceRemoteImageRemoteInstance(base_avd_create.BaseAVDCreate):
         Returns:
             A Report instance.
         """
-        report = device_driver.CreateAndroidVirtualDevices(
+        report = device_driver.CreateGCETypeAVD(
             avd_spec.cfg,
             avd_spec.remote_image[constants.BUILD_TARGET],
             avd_spec.remote_image[constants.BUILD_ID],
@@ -52,7 +53,7 @@ class GceRemoteImageRemoteInstance(base_avd_create.BaseAVDCreate):
             avd_spec=avd_spec)
 
         # Launch vnc client if we're auto-connecting.
-        if avd_spec.autoconnect:
+        if avd_spec.connect_vnc:
             utils.LaunchVNCFromReport(report, avd_spec, no_prompts)
 
         return report

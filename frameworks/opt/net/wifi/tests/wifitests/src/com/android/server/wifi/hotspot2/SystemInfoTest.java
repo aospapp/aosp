@@ -27,6 +27,7 @@ import android.telephony.TelephonyManager;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiNative;
 
 import org.junit.Before;
@@ -37,7 +38,7 @@ import org.mockito.Mock;
  * Unit tests for {@link SystemInfo}.
  */
 @SmallTest
-public class SystemInfoTest {
+public class SystemInfoTest extends WifiBaseTest {
     @Mock Context mContext;
     @Mock TelephonyManager mTelephonyManager;
     @Mock TelephonyManager mDataTelephonyManager;

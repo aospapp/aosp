@@ -16,15 +16,18 @@
 
 package com.android.bluetooth;
 
-import android.app.ActivityManager;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.AppOpsManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
 import android.os.ParcelUuid;
@@ -32,7 +35,11 @@ import android.os.Process;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Telephony;
 import android.util.Log;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +48,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.util.List;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -57,6 +66,25 @@ public final class Utils {
     static final int BD_ADDR_LEN = 6; // bytes
     static final int BD_UUID_LEN = 16; // bytes
 
+    /*
+     * Special characters
+     *
+     * (See "What is a phone number?" doc)
+     * 'p' --- GSM pause character, same as comma
+     * 'n' --- GSM wild character
+     * 'w' --- GSM wait character
+     */
+    public static final char PAUSE = ',';
+    public static final char WAIT = ';';
+
+    private static boolean isPause(char c) {
+        return c == 'p' || c == 'P';
+    }
+
+    private static boolean isToneWait(char c) {
+        return c == 'w' || c == 'W';
+    }
+
     public static String getAddressStringFromByte(byte[] address) {
         if (address == null || address.length != BD_ADDR_LEN) {
             return null;
@@ -68,6 +96,10 @@ public final class Utils {
 
     public static byte[] getByteAddress(BluetoothDevice device) {
         return getBytesFromAddress(device.getAddress());
+    }
+
+    public static byte[] addressToBytes(String address) {
+        return getBytesFromAddress(address);
     }
 
     public static byte[] getBytesFromAddress(String address) {
@@ -253,11 +285,58 @@ public final class Utils {
         Utils.sForegroundUserId = uid;
     }
 
+    public static void enforceBluetoothPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+                android.Manifest.permission.BLUETOOTH,
+                "Need BLUETOOTH permission");
+    }
+
+    public static void enforceBluetoothAdminPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+                android.Manifest.permission.BLUETOOTH_ADMIN,
+                "Need BLUETOOTH ADMIN permission");
+    }
+
+    public static void enforceBluetoothPrivilegedPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+                android.Manifest.permission.BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH PRIVILEGED permission");
+    }
+
+    public static void enforceLocalMacAddressPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+                android.Manifest.permission.LOCAL_MAC_ADDRESS,
+                "Need LOCAL_MAC_ADDRESS permission");
+    }
+
+    public static void enforceDumpPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+                android.Manifest.permission.DUMP,
+                "Need DUMP permission");
+    }
+
+    public static boolean callerIsSystemOrActiveUser(String tag, String method) {
+        if (!checkCaller()) {
+          Log.w(TAG, method + "() - Not allowed for non-active user and non-system user");
+          return false;
+        }
+        return true;
+    }
+
+    public static boolean callerIsSystemOrActiveOrManagedUser(Context context, String tag, String method) {
+        if (!checkCallerAllowManagedProfiles(context)) {
+          Log.w(TAG, method + "() - Not allowed for non-active user and non-system and non-managed user");
+          return false;
+        }
+        return true;
+    }
+
     public static boolean checkCaller() {
         int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
-        return (sForegroundUserId == callingUser) || (sSystemUiUid == callingUid)
-                || (Process.SYSTEM_UID == callingUid);
+        return (sForegroundUserId == callingUser)
+                || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
+                || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
     }
 
     public static boolean checkCallerAllowManagedProfiles(Context mContext) {
@@ -276,7 +355,8 @@ public final class Utils {
 
             // Always allow SystemUI/System access.
             return (sForegroundUserId == callingUser) || (sForegroundUserId == parentUser)
-                    || (sSystemUiUid == callingUid) || (Process.SYSTEM_UID == callingUid);
+                    || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
+                    || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
         } catch (Exception ex) {
             Log.e(TAG, "checkCallerAllowManagedProfiles: Exception ex=" + ex);
             return false;
@@ -310,7 +390,7 @@ public final class Utils {
      * OP_COARSE_LOCATION is allowed
      */
     public static boolean checkCallerHasCoarseLocation(Context context, AppOpsManager appOps,
-            String callingPackage, UserHandle userHandle) {
+            String callingPackage, @Nullable String callingFeatureId, UserHandle userHandle) {
         if (blockedByLocationOff(context, userHandle)) {
             Log.e(TAG, "Permission denial: Location is off.");
             return false;
@@ -320,7 +400,8 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_COARSE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
+                callingFeatureId)) {
             return true;
         }
 
@@ -335,7 +416,7 @@ public final class Utils {
      * OP_FINE_LOCATION is allowed
      */
     public static boolean checkCallerHasCoarseOrFineLocation(Context context, AppOpsManager appOps,
-            String callingPackage, UserHandle userHandle) {
+            String callingPackage, @Nullable String callingFeatureId, UserHandle userHandle) {
         if (blockedByLocationOff(context, userHandle)) {
             Log.e(TAG, "Permission denial: Location is off.");
             return false;
@@ -344,7 +425,8 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_FINE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
+                callingFeatureId)) {
             return true;
         }
 
@@ -352,7 +434,8 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_COARSE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
+                callingFeatureId)) {
             return true;
         }
 
@@ -366,7 +449,7 @@ public final class Utils {
      * OP_FINE_LOCATION is allowed
      */
     public static boolean checkCallerHasFineLocation(Context context, AppOpsManager appOps,
-            String callingPackage, UserHandle userHandle) {
+            String callingPackage, @Nullable String callingFeatureId, UserHandle userHandle) {
         if (blockedByLocationOff(context, userHandle)) {
             Log.e(TAG, "Permission denial: Location is off.");
             return false;
@@ -375,7 +458,8 @@ public final class Utils {
         if (context.checkCallingOrSelfPermission(
                 android.Manifest.permission.ACCESS_FINE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+                && isAppOppAllowed(appOps, AppOpsManager.OPSTR_FINE_LOCATION, callingPackage,
+                callingFeatureId)) {
             return true;
         }
 
@@ -401,18 +485,13 @@ public final class Utils {
                         == PackageManager.PERMISSION_GRANTED;
     }
 
-    public static boolean isLegacyForegroundApp(Context context, String pkgName) {
-        return !isMApp(context, pkgName) && isForegroundApp(context, pkgName);
-    }
-
-    private static boolean isMApp(Context context, String pkgName) {
-        try {
-            return context.getPackageManager().getApplicationInfo(pkgName, 0).targetSdkVersion
-                    >= Build.VERSION_CODES.M;
-        } catch (PackageManager.NameNotFoundException e) {
-            // In case of exception, assume M app
-        }
-        return true;
+    /**
+     * Returns true if the caller holds RADIO_SCAN_WITHOUT_LOCATION
+     */
+    public static boolean checkCallerHasScanWithoutLocationPermission(Context context) {
+        return context.checkCallingOrSelfPermission(
+                android.Manifest.permission.RADIO_SCAN_WITHOUT_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     public static boolean isQApp(Context context, String pkgName) {
@@ -424,19 +503,10 @@ public final class Utils {
         }
         return true;
     }
-    /**
-     * Return true if the specified package name is a foreground app.
-     *
-     * @param pkgName application package name.
-     */
-    private static boolean isForegroundApp(Context context, String pkgName) {
-        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
-        return !tasks.isEmpty() && pkgName.equals(tasks.get(0).topActivity.getPackageName());
-    }
 
-    private static boolean isAppOppAllowed(AppOpsManager appOps, int op, String callingPackage) {
-        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage)
+    private static boolean isAppOppAllowed(AppOpsManager appOps, String op, String callingPackage,
+            @NonNull String callingFeatureId) {
+        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage, callingFeatureId, null)
                 == AppOpsManager.MODE_ALLOWED;
     }
 
@@ -491,5 +561,76 @@ public final class Utils {
      */
     public static String getUidPidString() {
         return "uid/pid=" + Binder.getCallingUid() + "/" + Binder.getCallingPid();
+    }
+
+    /**
+     * Get system local time
+     *
+     * @return "MM-dd HH:mm:ss.SSS"
+     */
+    public static String getLocalTimeString() {
+        return DateTimeFormatter.ofPattern("MM-dd HH:mm:ss.SSS")
+                .withZone(ZoneId.systemDefault()).format(Instant.now());
+    }
+
+    public static void skipCurrentTag(XmlPullParser parser)
+            throws XmlPullParserException, IOException {
+        int outerDepth = parser.getDepth();
+        int type;
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                && (type != XmlPullParser.END_TAG
+                || parser.getDepth() > outerDepth)) {
+        }
+    }
+
+    /**
+     * Converts pause and tonewait pause characters
+     * to Android representation.
+     * RFC 3601 says pause is 'p' and tonewait is 'w'.
+     */
+    public static String convertPreDial(String phoneNumber) {
+        if (phoneNumber == null) {
+            return null;
+        }
+        int len = phoneNumber.length();
+        StringBuilder ret = new StringBuilder(len);
+
+        for (int i = 0; i < len; i++) {
+            char c = phoneNumber.charAt(i);
+
+            if (isPause(c)) {
+                c = PAUSE;
+            } else if (isToneWait(c)) {
+                c = WAIT;
+            }
+            ret.append(c);
+        }
+        return ret.toString();
+    }
+
+    /**
+     * Move a message to the given folder.
+     *
+     * @param context the context to use
+     * @param uri the message to move
+     * @param messageSent if the message is SENT or FAILED
+     * @return true if the operation succeeded
+     */
+    public static boolean moveMessageToFolder(Context context, Uri uri, boolean messageSent) {
+        if (uri == null) {
+            return false;
+        }
+
+        ContentValues values = new ContentValues(3);
+        if (messageSent) {
+            values.put(Telephony.Sms.READ, 1);
+            values.put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_SENT);
+        } else {
+            values.put(Telephony.Sms.READ, 0);
+            values.put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_FAILED);
+        }
+        values.put(Telephony.Sms.ERROR_CODE, 0);
+
+        return 1 == context.getContentResolver().update(uri, values, null, null);
     }
 }

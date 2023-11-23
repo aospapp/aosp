@@ -744,7 +744,7 @@ extern "C" jboolean Java_android_media_cts_NativeMediaDrmClearkeyTest_testClearK
                     !gListenerGotValidExpiryTime ||
                     !gOnKeyChangeListenerOK) && count++ < 5) {
                // Prevents race condition when the event arrives late
-               usleep(2000);
+               usleep(10000);
             }
 
             if (!gGotVendorDefinedEvent) {

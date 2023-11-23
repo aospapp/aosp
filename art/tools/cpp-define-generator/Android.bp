@@ -23,16 +23,18 @@ cc_object {
         "art_debug_defaults",
         "art_defaults",
     ],
-    include_dirs: [
-        "art/libartbase",
-        "art/libdexfile",
-        "art/libartbase",
-        "art/runtime",
-        "system/core/base/include",
+    header_libs: [
+        "art_libartbase_headers", // For base/bit_utils.h
+        "libart_runtime_headers_ndk",
+        "libdexfile_all_headers", // For dex/modifiers.h
     ],
     // Produce text file rather than binary.
     cflags: ["-S"],
     srcs: ["asm_defines.cc"],
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 // This extracts the compile-time constants from asm_defines.s and creates the header.
@@ -44,12 +46,27 @@ cc_genrule {
     out: ["asm_defines.h"],
     tool_files: ["make_header.py"],
     cmd: "$(location make_header.py) \"$(in)\" > \"$(out)\"",
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 cc_library_headers {
     name: "cpp-define-generator-definitions",
     host_supported: true,
     export_include_dirs: ["."],
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 python_binary_host {

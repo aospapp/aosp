@@ -1,5 +1,6 @@
 cc_binary {
     name: "fsverity",
+    host_supported: true,
     shared_libs: ["libcrypto"],
     cflags: [
         "-Wall",

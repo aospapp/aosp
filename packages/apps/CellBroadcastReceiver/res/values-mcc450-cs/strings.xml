@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Kritická nouzová výstraha"</string>
+    <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Kritická výstražná zpráva"</string>
 </resources>

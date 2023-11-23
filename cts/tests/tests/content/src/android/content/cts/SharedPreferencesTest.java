@@ -47,8 +47,6 @@ public class SharedPreferencesTest extends AndroidTestCase {
 
     private File mPrefsFile;
 
-    private static volatile CountDownLatch sSharedPrefsListenerLatch;
-
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -356,35 +354,88 @@ public class SharedPreferencesTest extends AndroidTestCase {
 
     public void testSharedPrefsChangeListenerIsCalledOnCommit() throws InterruptedException {
         // Setup on change listener
+        final CountDownLatch latch = new CountDownLatch(2);
+        final SharedPreferences.OnSharedPreferenceChangeListener listener =
+                (sharedPreferences, key) -> latch.countDown();
         final SharedPreferences prefs = getPrefs();
-        prefs.registerOnSharedPreferenceChangeListener(
-                (sharedPreferences, key) -> sSharedPrefsListenerLatch.countDown());
 
-        // Verify listener is called for #putString
-        sSharedPrefsListenerLatch = new CountDownLatch(1);
-        prefs.edit().putString("test-key", "test-value").commit();
-        assertTrue(sSharedPrefsListenerLatch.await(1, TimeUnit.SECONDS));
+        try {
+            prefs.registerOnSharedPreferenceChangeListener(listener);
+            prefs.edit().putString("test-key", "test-value").commit(); // latch--
+            prefs.edit().remove("test-key").commit(); // latch--
 
-        // Verify listener is called for #remove
-        sSharedPrefsListenerLatch = new CountDownLatch(1);
-        prefs.edit().remove("test-key").commit();
-        assertTrue(sSharedPrefsListenerLatch.await(1, TimeUnit.SECONDS));
+            assertTrue("OnSharedPreferenceChangeListener was not fired on #commit",
+                    latch.await(10, TimeUnit.SECONDS));
+        } finally {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener);
+        }
     }
 
     public void testSharedPrefsChangeListenerIsCalledOnApply() throws InterruptedException {
         // Setup on change listener
+        final CountDownLatch latch = new CountDownLatch(2);
+        final SharedPreferences.OnSharedPreferenceChangeListener listener =
+                (sharedPreferences, key) -> latch.countDown();
         final SharedPreferences prefs = getPrefs();
-        prefs.registerOnSharedPreferenceChangeListener(
-                (sharedPreferences, key) -> sSharedPrefsListenerLatch.countDown());
 
-        // Verify listener is called for #putString
-        sSharedPrefsListenerLatch = new CountDownLatch(1);
-        prefs.edit().putString("test-key", "test-value").apply();
-        assertTrue(sSharedPrefsListenerLatch.await(1, TimeUnit.SECONDS));
+        try {
+            prefs.registerOnSharedPreferenceChangeListener(listener);
+            prefs.edit().putString("test-key", "test-value").apply(); // latch--
+            prefs.edit().remove("test-key").apply(); // latch--
 
-        // Verify listener is called for #remove
-        sSharedPrefsListenerLatch = new CountDownLatch(1);
-        prefs.edit().remove("test-key").apply();
-        assertTrue(sSharedPrefsListenerLatch.await(1, TimeUnit.SECONDS));
+            assertTrue("OnSharedPreferenceChangeListener was not fired on #apply",
+                    latch.await(10, TimeUnit.SECONDS));
+        } finally {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener);
+        }
+    }
+
+    public void testSharedPrefsChangeListenerIsCalledForClearOnCommit()
+            throws InterruptedException {
+        // Setup on change listener
+        final CountDownLatch latch = new CountDownLatch(1);
+        final SharedPreferences.OnSharedPreferenceChangeListener listener =
+                (sharedPreferences, key) -> {
+                    if (key == null) {
+                        latch.countDown();
+                    }
+                };
+        final SharedPreferences prefs = getPrefs();
+
+        try {
+            prefs.registerOnSharedPreferenceChangeListener(listener);
+            prefs.edit().putString("test-key", "test-value").commit();
+            assertEquals("test-value", prefs.getString("test-key", null));
+            prefs.edit().clear().commit(); // latch--
+
+            assertTrue("OnSharedPreferenceChangeListener was not fired for clear() on #commit",
+                    latch.await(10, TimeUnit.SECONDS));
+        } finally {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener);
+        }
+    }
+
+    public void testSharedPrefsChangeListenerIsCalledForClearOnApply() throws InterruptedException {
+        // Setup on change listener
+        final CountDownLatch latch = new CountDownLatch(1);
+        final SharedPreferences.OnSharedPreferenceChangeListener listener =
+                (sharedPreferences, key) -> {
+                    if (key == null) {
+                        latch.countDown();
+                    }
+                };
+        final SharedPreferences prefs = getPrefs();
+
+        try {
+            prefs.registerOnSharedPreferenceChangeListener(listener);
+            prefs.edit().putString("test-key", "test-value").commit();
+            assertEquals("test-value", prefs.getString("test-key", null));
+            prefs.edit().clear().apply(); // latch--
+
+            assertTrue("OnSharedPreferenceChangeListener was not fired for clear() on #apply",
+                    latch.await(10, TimeUnit.SECONDS));
+        } finally {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener);
+        }
     }
 }

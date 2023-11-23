@@ -21,6 +21,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.PointF;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession;
@@ -37,6 +38,8 @@ import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.cts.helpers.CameraUtils;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.hardware.camera2.params.MandatoryStreamCombination;
+import android.hardware.camera2.params.MandatoryStreamCombination.MandatoryStreamInformation;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
@@ -77,7 +80,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -114,6 +119,8 @@ public class CameraTestUtils extends Assert {
     public static final int SESSION_ACTIVE_TIMEOUT_MS = 1000;
 
     public static final int MAX_READER_IMAGES = 5;
+
+    public static final String OFFLINE_CAMERA_ID = "offline_camera_id";
 
     private static final int EXIF_DATETIME_LENGTH = 19;
     private static final int EXIF_DATETIME_ERROR_MARGIN_SEC = 60;
@@ -198,6 +205,126 @@ public class CameraTestUtils extends Assert {
         return writer;
     }
 
+    public static void setupConfigurationTargets(List<MandatoryStreamInformation> streamsInfo,
+            List<SurfaceTexture> privTargets, List<ImageReader> jpegTargets,
+            List<ImageReader> yuvTargets, List<ImageReader> y8Targets,
+            List<ImageReader> rawTargets, List<ImageReader> heicTargets,
+            List<ImageReader> depth16Targets, List<OutputConfiguration> outputConfigs,
+            int numBuffers, boolean substituteY8, boolean substituteHeic,
+            String overridePhysicalCameraId, Handler handler) {
+
+        ImageDropperListener imageDropperListener = new ImageDropperListener();
+
+        for (MandatoryStreamInformation streamInfo : streamsInfo) {
+            if (streamInfo.isInput()) {
+                continue;
+            }
+            int format = streamInfo.getFormat();
+            if (substituteY8 && (format == ImageFormat.YUV_420_888)) {
+                format = ImageFormat.Y8;
+            } else if (substituteHeic && (format == ImageFormat.JPEG)) {
+                format = ImageFormat.HEIC;
+            }
+            Surface newSurface;
+            Size[] availableSizes = new Size[streamInfo.getAvailableSizes().size()];
+            availableSizes = streamInfo.getAvailableSizes().toArray(availableSizes);
+            Size targetSize = CameraTestUtils.getMaxSize(availableSizes);
+
+            switch (format) {
+                case ImageFormat.PRIVATE: {
+                    SurfaceTexture target = new SurfaceTexture(/*random int*/1);
+                    target.setDefaultBufferSize(targetSize.getWidth(), targetSize.getHeight());
+                    OutputConfiguration config = new OutputConfiguration(new Surface(target));
+                    if (overridePhysicalCameraId != null) {
+                        config.setPhysicalCameraId(overridePhysicalCameraId);
+                    }
+                    outputConfigs.add(config);
+                    privTargets.add(target);
+                    break;
+                }
+                case ImageFormat.JPEG: {
+                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
+                            targetSize.getHeight(), format, numBuffers);
+                    target.setOnImageAvailableListener(imageDropperListener, handler);
+                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                    if (overridePhysicalCameraId != null) {
+                        config.setPhysicalCameraId(overridePhysicalCameraId);
+                    }
+                    outputConfigs.add(config);
+                    jpegTargets.add(target);
+                    break;
+                }
+                case ImageFormat.YUV_420_888: {
+                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
+                            targetSize.getHeight(), format, numBuffers);
+                    target.setOnImageAvailableListener(imageDropperListener, handler);
+                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                    if (overridePhysicalCameraId != null) {
+                        config.setPhysicalCameraId(overridePhysicalCameraId);
+                    }
+                    outputConfigs.add(config);
+                    yuvTargets.add(target);
+                    break;
+                }
+                case ImageFormat.Y8: {
+                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
+                            targetSize.getHeight(), format, numBuffers);
+                    target.setOnImageAvailableListener(imageDropperListener, handler);
+                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                    if (overridePhysicalCameraId != null) {
+                        config.setPhysicalCameraId(overridePhysicalCameraId);
+                    }
+                    outputConfigs.add(config);
+                    y8Targets.add(target);
+                    break;
+                }
+                case ImageFormat.RAW_SENSOR: {
+                    // targetSize could be null in the logical camera case where only
+                    // physical camera supports RAW stream.
+                    if (targetSize != null) {
+                        ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
+                                targetSize.getHeight(), format, numBuffers);
+                        target.setOnImageAvailableListener(imageDropperListener, handler);
+                        OutputConfiguration config =
+                                new OutputConfiguration(target.getSurface());
+                        if (overridePhysicalCameraId != null) {
+                            config.setPhysicalCameraId(overridePhysicalCameraId);
+                        }
+                        outputConfigs.add(config);
+                        rawTargets.add(target);
+                    }
+                    break;
+                }
+                case ImageFormat.HEIC: {
+                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
+                            targetSize.getHeight(), format, numBuffers);
+                    target.setOnImageAvailableListener(imageDropperListener, handler);
+                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                    if (overridePhysicalCameraId != null) {
+                        config.setPhysicalCameraId(overridePhysicalCameraId);
+                    }
+                    outputConfigs.add(config);
+                    heicTargets.add(target);
+                    break;
+                }
+                case ImageFormat.DEPTH16: {
+                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
+                            targetSize.getHeight(), format, numBuffers);
+                    target.setOnImageAvailableListener(imageDropperListener, handler);
+                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                    if (overridePhysicalCameraId != null) {
+                        config.setPhysicalCameraId(overridePhysicalCameraId);
+                    }
+                    outputConfigs.add(config);
+                    depth16Targets.add(target);
+                    break;
+                }
+                default:
+                    fail("Unknown output format " + format);
+            }
+        }
+    }
+
     /**
      * Close pending images and clean up an {@link android.media.ImageReader} object.
      * @param reader an {@link android.media.ImageReader} to close.
@@ -280,7 +407,7 @@ public class CameraTestUtils extends Assert {
                 image = reader.acquireNextImage();
             } finally {
                 if (image != null) {
-                    // Should only do some quick sanity check in callback, as the ImageReader
+                    // Should only do some quick validity checks in callback, as the ImageReader
                     // could be closed asynchronously, which will close all images acquired from
                     // this ImageReader.
                     checkImage(image, mSize.getWidth(), mSize.getHeight(), mFormat);
@@ -410,6 +537,8 @@ public class CameraTestUtils extends Assert {
                 new LinkedBlockingQueue<TotalCaptureResult>();
         private final LinkedBlockingQueue<CaptureFailure> mFailureQueue =
                 new LinkedBlockingQueue<>();
+        private final LinkedBlockingQueue<Integer> mAbortQueue =
+                new LinkedBlockingQueue<>();
         // Pair<CaptureRequest, Long> is a pair of capture request and timestamp.
         private final LinkedBlockingQueue<Pair<CaptureRequest, Long>> mCaptureStartQueue =
                 new LinkedBlockingQueue<>();
@@ -450,6 +579,16 @@ public class CameraTestUtils extends Assert {
             } catch (InterruptedException e) {
                 throw new UnsupportedOperationException(
                         "Can't handle InterruptedException in onCaptureFailed");
+            }
+        }
+
+        @Override
+        public void onCaptureSequenceAborted(CameraCaptureSession session, int sequenceId) {
+            try {
+                mAbortQueue.put(sequenceId);
+            } catch (InterruptedException e) {
+                throw new UnsupportedOperationException(
+                        "Can't handle InterruptedException in onCaptureAborted");
             }
         }
 
@@ -632,6 +771,35 @@ public class CameraTestUtils extends Assert {
         }
 
         /**
+         * Get an array list of aborted capture sequence ids with maxNumAborts entries
+         * at most. If it times out before maxNumAborts are received, return the aborted sequences
+         * received so far.
+         *
+         * @param maxNumAborts The maximal number of aborted sequences to return. If it times out
+         *                     before the maximal number of aborts are received, return the received
+         *                     failed sequences so far.
+         * @throws UnsupportedOperationException If an error happens while waiting on the failed
+         *                                       sequences.
+         */
+        public ArrayList<Integer> geAbortedSequences(long maxNumAborts) {
+            ArrayList<Integer> abortList = new ArrayList<>();
+            try {
+                for (int i = 0; i < maxNumAborts; i++) {
+                    Integer abortSequence = mAbortQueue.poll(CAPTURE_RESULT_TIMEOUT_MS,
+                            TimeUnit.MILLISECONDS);
+                    if (abortSequence == null) {
+                        break;
+                    }
+                    abortList.add(abortSequence);
+                }
+            }  catch (InterruptedException e) {
+                throw new UnsupportedOperationException("Unhandled interrupted exception", e);
+            }
+
+            return abortList;
+        }
+
+        /**
          * Wait until the capture start of a request and expected timestamp arrives or it times
          * out after a number of capture starts.
          *
@@ -696,12 +864,71 @@ public class CameraTestUtils extends Assert {
             return !mFailureQueue.isEmpty();
         }
 
+        public boolean hasMoreAbortedSequences()
+        {
+            return !mAbortQueue.isEmpty();
+        }
+
         public void drain() {
             mQueue.clear();
             mNumFramesArrived.getAndSet(0);
             mFailureQueue.clear();
             mCaptureStartQueue.clear();
+            mAbortQueue.clear();
         }
+    }
+
+    public static boolean hasCapability(CameraCharacteristics characteristics, int capability) {
+        int [] capabilities =
+                characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+        for (int c : capabilities) {
+            if (c == capability) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean isSystemCamera(CameraManager manager, String cameraId)
+            throws CameraAccessException {
+        CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
+        return hasCapability(characteristics,
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_SYSTEM_CAMERA);
+    }
+
+    public static String[] getCameraIdListForTesting(CameraManager manager,
+            boolean getSystemCameras)
+            throws CameraAccessException {
+        String [] ids = manager.getCameraIdListNoLazy();
+        List<String> idsForTesting = new ArrayList<String>();
+        for (String id : ids) {
+            boolean isSystemCamera = isSystemCamera(manager, id);
+            if (getSystemCameras == isSystemCamera) {
+                idsForTesting.add(id);
+            }
+        }
+        return idsForTesting.toArray(new String[idsForTesting.size()]);
+    }
+
+    public static Set<Set<String>> getConcurrentCameraIds(CameraManager manager,
+            boolean getSystemCameras)
+            throws CameraAccessException {
+        Set<String> cameraIds = new HashSet<String>(Arrays.asList(getCameraIdListForTesting(manager, getSystemCameras)));
+        Set<Set<String>> combinations =  manager.getConcurrentCameraIds();
+        Set<Set<String>> correctComb = new HashSet<Set<String>>();
+        for (Set<String> comb : combinations) {
+            Set<String> filteredIds = new HashSet<String>();
+            for (String id : comb) {
+                if (cameraIds.contains(id)) {
+                    filteredIds.add(id);
+                }
+            }
+            if (filteredIds.isEmpty()) {
+                continue;
+            }
+            correctComb.add(filteredIds);
+        }
+        return correctComb;
     }
 
     /**
@@ -1881,8 +2108,8 @@ public class CameraTestUtils extends Assert {
         return new Rect(
                 /*left*/cropCenterX - cropWidth / 2,
                 /*top*/cropCenterY - cropHeight / 2,
-                /*right*/ cropCenterX + cropWidth / 2 - 1,
-                /*bottom*/cropCenterY + cropHeight / 2 - 1);
+                /*right*/ cropCenterX + cropWidth / 2,
+                /*bottom*/cropCenterY + cropHeight / 2);
     }
 
     /**
@@ -1948,11 +2175,10 @@ public class CameraTestUtils extends Assert {
         for (int i = 0; i < requestRegions.length; i++) {
             Rect requestRect = requestRegions[i].getRect();
             Rect resultRect = new Rect();
-            assertTrue("Input 3A region must intersect cropped region",
-                        resultRect.setIntersect(requestRect, cropRect));
+            boolean intersect = resultRect.setIntersect(requestRect, cropRect);
             resultRegions[i] = new MeteringRectangle(
                     resultRect,
-                    requestRegions[i].getMeteringWeight());
+                    intersect ? requestRegions[i].getMeteringWeight() : 0);
         }
         return resultRegions;
     }
@@ -2229,7 +2455,7 @@ public class CameraTestUtils extends Assert {
     /**
      * Simple validation of JPEG image size and format.
      * <p>
-     * Only validate the image object sanity. It is fast, but doesn't actually
+     * Only validate the image object basic correctness. It is fast, but doesn't actually
      * check the buffer data. Assert is used here as it make no sense to
      * continue the test if the jpeg image captured has some serious failures.
      * </p>

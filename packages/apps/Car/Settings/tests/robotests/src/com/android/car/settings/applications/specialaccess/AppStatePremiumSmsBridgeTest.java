@@ -23,10 +23,8 @@ import static org.mockito.Mockito.when;
 
 import android.content.pm.ApplicationInfo;
 import android.os.RemoteException;
+import android.telephony.SmsManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-import com.android.internal.telephony.ISms;
-import com.android.internal.telephony.SmsUsageMonitor;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 
 import org.junit.Before;
@@ -34,15 +32,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 
 import java.util.Arrays;
 
 /** Unit test for {@link AppStatePremiumSmsBridge}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class AppStatePremiumSmsBridgeTest {
 
     @Mock
-    private ISms mSmsManager;
+    private SmsManager mSmsManager;
     private AppStatePremiumSmsBridge mBridge;
 
     @Before
@@ -55,13 +54,13 @@ public class AppStatePremiumSmsBridgeTest {
     public void loadExtraInfo() throws RemoteException {
         String package1 = "test.package1";
         AppEntry appEntry1 = createAppEntry(package1);
-        int value1 = SmsUsageMonitor.PREMIUM_SMS_PERMISSION_ALWAYS_ALLOW;
-        when(mSmsManager.getPremiumSmsPermission(package1)).thenReturn(value1);
+        int value1 = SmsManager.PREMIUM_SMS_CONSENT_ALWAYS_ALLOW;
+        when(mSmsManager.getPremiumSmsConsent(package1)).thenReturn(value1);
 
         String package2 = "test.package2";
         AppEntry appEntry2 = createAppEntry(package2);
-        int value2 = SmsUsageMonitor.PREMIUM_SMS_PERMISSION_NEVER_ALLOW;
-        when(mSmsManager.getPremiumSmsPermission(package2)).thenReturn(value2);
+        int value2 = SmsManager.PREMIUM_SMS_CONSENT_NEVER_ALLOW;
+        when(mSmsManager.getPremiumSmsConsent(package2)).thenReturn(value2);
 
         mBridge.loadExtraInfo(Arrays.asList(appEntry1, appEntry2));
 

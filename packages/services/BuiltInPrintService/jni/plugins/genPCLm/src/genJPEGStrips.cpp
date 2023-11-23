@@ -54,7 +54,8 @@ write_JPEG_Buff(ubyte *buffPtr, int quality, int image_width, int image_height,
 
     // Step 1: allocate and initialize JPEG compression object
     struct jpeg_compress_struct cinfo = {
-            .client_data = NULL, .err = jpeg_std_error(&jerr)
+            .err = jpeg_std_error(&jerr),
+            .client_data = NULL,
     };
 
     // Now we can initialize the JPEG compression object.
@@ -62,9 +63,10 @@ write_JPEG_Buff(ubyte *buffPtr, int quality, int image_width, int image_height,
 
     // Step 2: specify data destination (we will use a memory buffer)
     struct jpeg_destination_mgr dm = {
+            .next_output_byte = buffPtr,
+            .free_in_buffer = (size_t) image_width * image_height * 3,
             .init_destination = init_buffer, .empty_output_buffer = empty_buffer,
-            .term_destination = term_buffer, .next_output_byte = buffPtr,
-            .free_in_buffer = (size_t) image_width * image_height * 3
+            .term_destination = term_buffer,
     };
     cinfo.dest = &dm;
 

@@ -16,7 +16,7 @@
 %                                 June 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -1334,6 +1334,10 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
                 }
 
               /* Allocate next image structure. */
+              if ((image_info->ping != MagickFalse) &&
+                  (image_info->number_scenes != 0))
+                if (image->scene >= (image_info->scene+image_info->number_scenes-1))
+                  goto Finish;
               AcquireNextImage(image_info,image,exception);
               image->depth=8;
               if (image->next == (Image *) NULL)
@@ -1537,6 +1541,10 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
 
 
               /* Allocate next image structure. */
+              if ((image_info->ping != MagickFalse) &&
+                  (image_info->number_scenes != 0))
+                if (image->scene >= (image_info->scene+image_info->number_scenes-1))
+                  goto Finish;
               AcquireNextImage(image_info,image,exception);
               image->depth=8;
               if (image->next == (Image *) NULL)

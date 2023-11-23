@@ -56,6 +56,7 @@ public final class ChannelScanFileParser {
                 }
                 scanChannelList.add(
                         ScanChannel.forTuner(
+                                tokens[0],
                                 Integer.parseInt(tokens[1]),
                                 tokens[2],
                                 tokens.length == 4 ? Integer.parseInt(tokens[3]) : null));

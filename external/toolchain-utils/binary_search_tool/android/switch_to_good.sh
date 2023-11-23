@@ -17,7 +17,7 @@ source android/common.sh
 OBJ_LIST_FILE=$1
 
 # Symlink from GOOD obj to working tree.
-SWITCH_CMD="ln -f ${BISECT_GOOD_BUILD}/{} {}; touch {};"
+SWITCH_CMD="ln -sf ${BISECT_GOOD_BUILD}/{} {}; touch {};"
 
 overall_status=0
 

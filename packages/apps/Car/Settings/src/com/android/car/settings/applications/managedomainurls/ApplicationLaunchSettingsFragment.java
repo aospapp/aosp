@@ -16,9 +16,9 @@
 
 package com.android.car.settings.applications.managedomainurls;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.UserHandle;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
@@ -38,7 +38,6 @@ public class ApplicationLaunchSettingsFragment extends SettingsFragment {
 
     private ApplicationsState mState;
     private ApplicationsState.AppEntry mAppEntry;
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     /** Creates a new instance of this fragment for the package specified in the arguments. */
     public static ApplicationLaunchSettingsFragment newInstance(String pkg) {
@@ -59,11 +58,10 @@ public class ApplicationLaunchSettingsFragment extends SettingsFragment {
     public void onAttach(Context context) {
         super.onAttach(context);
 
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
         mState = ApplicationsState.getInstance(requireActivity().getApplication());
 
         String pkgName = getArguments().getString(ARG_PACKAGE_NAME);
-        mAppEntry = mState.getEntry(pkgName, mCarUserManagerHelper.getCurrentProcessUserId());
+        mAppEntry = mState.getEntry(pkgName, UserHandle.myUserId());
 
         ApplicationWithVersionPreferenceController appController = use(
                 ApplicationWithVersionPreferenceController.class,

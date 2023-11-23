@@ -32,6 +32,11 @@ gcc-8)
     export CXX=g++-8
     ;;
 
+gcc-9)
+    export CC=gcc-9
+    export CXX=g++-9
+    ;;
+
 clang-3.5)
     export CC=clang-3.5
     export CXX=clang++-3.5
@@ -58,17 +63,8 @@ clang-3.9)
     ;;
 
 clang-4.0)
-    case "$OS" in
-    linux)
-        export CC=clang-4.0
-        export CXX=clang++-4.0
-        ;;
-    osx)
-        export CC=/usr/local/opt/llvm/bin/clang
-        export CXX=/usr/local/opt/llvm/bin/clang++
-        ;;
-    *) echo "Error: unexpected OS: $OS"; exit 1 ;;
-    esac
+    export CC=clang-4.0
+    export CXX=clang++-4.0
     ;;
 
 clang-5.0)
@@ -84,6 +80,11 @@ clang-6.0)
 clang-7.0)
     export CC=clang-7
     export CXX=clang++-7
+    ;;
+
+clang-8.0)
+    export CC=clang-8
+    export CXX=clang++-8
     ;;
 
 clang-default)
@@ -105,23 +106,27 @@ run_make() {
 
 if [[ "${COMPILER}" != "bazel" ]]
 then
+    # This is only needed in OS X but it has no effect on Linux so we can add it unconditionally.
+    BOOST_INCLUDE_FLAG="-I /usr/local/include/boost"
+    COMMON_CXX_FLAGS="$STLARG $BOOST_INCLUDE_FLAG -Werror -pedantic"
+
     echo CXX version: $($CXX --version)
     echo C++ Standard library location: $(echo '#include <vector>' | $CXX -x c++ -E - | grep 'vector\"' | awk '{print $3}' | sed 's@/vector@@;s@\"@@g' | head -n 1)
     echo Normalized C++ Standard library location: $(readlink -f $(echo '#include <vector>' | $CXX -x c++ -E - | grep 'vector\"' | awk '{print $3}' | sed 's@/vector@@;s@\"@@g' | head -n 1))
 
     case "$1" in
-    DebugPlain)           CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2") ;;
-    DebugPlainNoPch)      CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
-    DebugAsan)            CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address") ;;
-    DebugAsanNoPch)       CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
-    DebugAsanUbsan)       CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address,undefined") ;;
-    DebugAsanUbsanNoPch)  CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address,undefined" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
-    DebugValgrind)        CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2"     -DRUN_TESTS_UNDER_VALGRIND=TRUE) ;;
-    DebugValgrindNoPch)   CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2"     -DRUN_TESTS_UNDER_VALGRIND=TRUE -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
-    ReleasePlain)         CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic") ;;
-    ReleasePlainNoPch)    CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
-    ReleaseValgrind)      CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic" -DRUN_TESTS_UNDER_VALGRIND=TRUE) ;;
-    ReleaseValgrindNoPch) CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$STLARG -Werror -pedantic" -DRUN_TESTS_UNDER_VALGRIND=TRUE -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
+    DebugPlain)           CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2") ;;
+    DebugPlainNoPch)      CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
+    DebugAsan)            CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address") ;;
+    DebugAsanNoPch)       CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
+    DebugAsanUbsan)       CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address,undefined") ;;
+    DebugAsanUbsanNoPch)  CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O0 -fsanitize=address,undefined" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
+    DebugValgrind)        CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2"     -DRUN_TESTS_UNDER_VALGRIND=TRUE) ;;
+    DebugValgrindNoPch)   CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Debug   -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS -DFRUIT_DEBUG=1 -DFRUIT_EXTRA_DEBUG=1 -D_GLIBCXX_DEBUG=1 -O2"     -DRUN_TESTS_UNDER_VALGRIND=TRUE -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
+    ReleasePlain)         CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS") ;;
+    ReleasePlainNoPch)    CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS" -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
+    ReleaseValgrind)      CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS" -DRUN_TESTS_UNDER_VALGRIND=TRUE) ;;
+    ReleaseValgrindNoPch) CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$COMMON_CXX_FLAGS" -DRUN_TESTS_UNDER_VALGRIND=TRUE -DFRUIT_TESTS_USE_PRECOMPILED_HEADERS=OFF) ;;
     *) echo "Error: you need to specify one of the supported postsubmit modes (see postsubmit.sh)."; exit 1 ;;
     esac
 

@@ -34,7 +34,7 @@
         android:orientation="horizontal" >
 
         <FrameLayout
-            android:id="@android:id/icon"
+            android:id="@+id/icon"
             android:pointerIcon="hand"
             android:layout_width="@dimen/list_item_width"
             android:layout_height="@dimen/list_item_height"
@@ -77,15 +77,29 @@
             android:layout_gravity="center_vertical"
             android:layout_marginEnd="@dimen/list_item_padding" >
 
-            <TextView
-                android:id="@android:id/title"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="0dp"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:singleLine="true"
-                android:textAlignment="viewStart"
-                android:textAppearance="?android:attr/textAppearanceListItem" />
+                android:layout_weight="1">
+
+                <ImageView
+                    android:id="@+id/icon_briefcase"
+                    android:layout_height="@dimen/briefcase_icon_size"
+                    android:layout_width="@dimen/briefcase_icon_size"
+                    android:layout_marginEnd="@dimen/briefcase_icon_margin"
+                    android:layout_gravity="center_vertical"
+                    android:src="@drawable/ic_briefcase"
+                    android:contentDescription="@string/a11y_work"/>
+
+                <TextView
+                    android:id="@android:id/title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:singleLine="true"
+                    android:textAlignment="viewStart"
+                    android:textAppearance="?android:attr/textAppearanceListItem"/>
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/line2"
@@ -103,7 +117,7 @@
                     android:ellipsize="end"
                     android:singleLine="true"
                     android:textAlignment="viewStart"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"/>
+                    android:textAppearance="@style/ItemDocListCaptionText"/>
 
                 <TextView
                     android:id="@+id/size"
@@ -114,7 +128,7 @@
                     android:ellipsize="end"
                     android:singleLine="true"
                     android:textAlignment="viewStart"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"/>
+                    android:textAppearance="@style/ItemDocListCaptionText"/>
 
                 <TextView
                     android:id="@+id/file_type"
@@ -125,7 +139,7 @@
                     android:ellipsize="end"
                     android:singleLine="true"
                     android:textAlignment="viewStart"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"/>
+                    android:textAppearance="@style/ItemDocListCaptionText"/>
             </LinearLayout>
         </LinearLayout>
 

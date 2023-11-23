@@ -111,8 +111,13 @@ static const struct mapping known_issues[] = {
 	{"read", "/proc/sys/vm/nr_hugepages", EOPNOTSUPP},
 	{"read", "/proc/sys/vm/nr_overcommit_hugepages", EOPNOTSUPP},
 	{"read", "/proc/sys/vm/nr_hugepages_mempolicy", EOPNOTSUPP},
+	/* These are added for making sure LTP runs on some of the devices that have non upstream
+	 * proc files. See following commit for more details
+	 *    d59bfa01c ("proc file fixup: This fixes some random qualcomm proc files that act odd")
+	 */
 	{"read", "/proc/debug/fwdump", EINVAL},
 	{"read", "/proc/cid/athdiagpfs", EIO},
+	{"read", "/proc/pressure/*", EOPNOTSUPP},
 	{"", "", 0}
 };
 

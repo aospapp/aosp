@@ -2,14 +2,18 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = 'pstew, quiche, wiley'
+AUTHOR = 'pstew, quiche, wiley, briannorris'
 NAME = 'network_WlanRegulatory'
+ATTRIBUTES = 'suite:wifi_matfunc'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
+# To be safe, let's avoid setting non-default regulatory domains outside of an
+# RF chamber.
+DEPENDENCIES = 'wificell'
 
 DOC = """
-Ensure that the regulatory tool "crda" is runnable and can successfully
-be triggered by the kernel using the "iw" command.
+Ensure the regulatory database is sane and that we can successfully switch
+domains using the "iw" userspace utility.
 """
 
 

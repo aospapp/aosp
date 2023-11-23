@@ -20,18 +20,17 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.SystemProperties;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.shadows.ShadowAlertDialog;
 
 /** Unit test for {@link RegulatoryInfoDisplayActivity}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class RegulatoryInfoDisplayActivityTest {
 
     private ActivityController<RegulatoryInfoDisplayActivity> mActivityController;

@@ -228,6 +228,26 @@ table LowPowerMicAccessRequest {}
 /// microphone data.
 table LowPowerMicAccessRelease {}
 
+/// An enum describing the setting type.
+enum Setting : byte {
+  LOCATION = 0,
+}
+
+/// An enum describing the state of a setting.
+enum SettingState : byte {
+  DISABLED = 0,
+  ENABLED,
+}
+
+/// Notification from the host that a system setting has changed
+table SettingChangeMessage {
+  /// The setting that has changed
+  setting:Setting = LOCATION;
+
+  /// The new setting value
+  state:SettingState = DISABLED;
+}
+
 /// A union that joins together all possible messages. Note that in FlatBuffers,
 /// unions have an implicit type
 union ChreMessage {
@@ -257,6 +277,8 @@ union ChreMessage {
 
   LowPowerMicAccessRequest,
   LowPowerMicAccessRelease,
+
+  SettingChangeMessage,
 }
 
 struct HostAddress {

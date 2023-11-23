@@ -11,6 +11,8 @@
 #include <cstdio>
 #include <thread>
 
+#include <lib/syslog/global.h>
+
 #include "cutils/log.h"
 #include "cutils/properties.h"
 #include "cutils/threads.h"
@@ -30,12 +32,21 @@ int __android_log_print(int priority, const char* tag, const char* format,
   if (!local_tag) {
     local_tag = "<NO_TAG>";
   }
-  printf("%d %s ", priority, local_tag);
   va_list ap;
   va_start(ap, format);
-  vprintf(format, ap);
-  va_end(ap);
-  printf("\n");
+  switch (priority) {
+    case ANDROID_LOG_WARN:
+      FX_LOGVF(WARNING, local_tag, format, ap);
+      break;
+    case ANDROID_LOG_ERROR:
+    case ANDROID_LOG_FATAL:
+      FX_LOGVF(ERROR, local_tag, format, ap);
+      break;
+    case ANDROID_LOG_INFO:
+    default:
+      FX_LOGVF(INFO, local_tag, format, ap);
+      break;
+  }
   return 1;
 }
 
@@ -45,17 +56,12 @@ void __android_log_assert(const char* condition, const char* tag,
   if (!local_tag) {
     local_tag = "<NO_TAG>";
   }
-  printf("__android_log_assert: condition: %s tag: %s ", condition, local_tag);
-  if (format) {
-    va_list ap;
-    va_start(ap, format);
-    vprintf(format, ap);
-    va_end(ap);
-  }
-  printf("\n");
+  va_list ap;
+  va_start(ap, format);
+  FX_LOGVF(ERROR, local_tag, format, ap);
+  va_end(ap);
 
-  assert(0);
-  exit(-1);
+  abort();
 }
 
 int sync_wait(int fd, int timeout) {

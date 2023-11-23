@@ -13,49 +13,75 @@
 // limitations under the License.
 
 #include "VkDescriptorPool.hpp"
+
+#include "VkDescriptorSet.hpp"
 #include "VkDescriptorSetLayout.hpp"
+
 #include <algorithm>
 #include <memory>
 
-namespace vk
-{
+namespace {
 
-DescriptorPool::DescriptorPool(const VkDescriptorPoolCreateInfo* pCreateInfo, void* mem) :
-	pool(reinterpret_cast<VkDescriptorSet>(mem)),
-	poolSize(ComputeRequiredAllocationSize(pCreateInfo))
+inline VkDescriptorSet asDescriptorSet(uint8_t *memory)
+{
+	return vk::TtoVkT<vk::DescriptorSet, VkDescriptorSet>(reinterpret_cast<vk::DescriptorSet *>(memory));
+}
+
+inline uint8_t *asMemory(VkDescriptorSet descriptorSet)
+{
+	return reinterpret_cast<uint8_t *>(vk::Cast(descriptorSet));
+}
+
+}  // anonymous namespace
+
+namespace vk {
+
+DescriptorPool::DescriptorPool(const VkDescriptorPoolCreateInfo *pCreateInfo, void *mem)
+    : pool(static_cast<uint8_t *>(mem))
+    , poolSize(ComputeRequiredAllocationSize(pCreateInfo))
 {
 }
 
-void DescriptorPool::destroy(const VkAllocationCallbacks* pAllocator)
+void DescriptorPool::destroy(const VkAllocationCallbacks *pAllocator)
 {
 	vk::deallocate(pool, pAllocator);
 }
 
-size_t DescriptorPool::ComputeRequiredAllocationSize(const VkDescriptorPoolCreateInfo* pCreateInfo)
+size_t DescriptorPool::ComputeRequiredAllocationSize(const VkDescriptorPoolCreateInfo *pCreateInfo)
 {
-	size_t size = 0;
+	size_t size = pCreateInfo->maxSets * sw::align(sizeof(DescriptorSetHeader), 16);
 
 	for(uint32_t i = 0; i < pCreateInfo->poolSizeCount; i++)
 	{
-		size += pCreateInfo->pPoolSizes[i].descriptorCount * DescriptorSetLayout::GetDescriptorSize(pCreateInfo->pPoolSizes[i].type);
+		size += pCreateInfo->pPoolSizes[i].descriptorCount *
+		        sw::align(DescriptorSetLayout::GetDescriptorSize(pCreateInfo->pPoolSizes[i].type), 16);
 	}
 
 	return size;
 }
 
-VkResult DescriptorPool::allocateSets(uint32_t descriptorSetCount, const VkDescriptorSetLayout* pSetLayouts, VkDescriptorSet* pDescriptorSets)
+VkResult DescriptorPool::allocateSets(uint32_t descriptorSetCount, const VkDescriptorSetLayout *pSetLayouts, VkDescriptorSet *pDescriptorSets)
 {
+	// FIXME (b/119409619): use an allocator here so we can control all memory allocations
 	std::unique_ptr<size_t[]> layoutSizes(new size_t[descriptorSetCount]);
 	for(uint32_t i = 0; i < descriptorSetCount; i++)
 	{
 		pDescriptorSets[i] = VK_NULL_HANDLE;
-		layoutSizes[i] = Cast(pSetLayouts[i])->getSize();
+		layoutSizes[i] = vk::Cast(pSetLayouts[i])->getDescriptorSetAllocationSize();
 	}
 
-	return allocateSets(&(layoutSizes[0]), descriptorSetCount, pDescriptorSets);
+	VkResult result = allocateSets(&(layoutSizes[0]), descriptorSetCount, pDescriptorSets);
+	if(result == VK_SUCCESS)
+	{
+		for(uint32_t i = 0; i < descriptorSetCount; i++)
+		{
+			vk::Cast(pSetLayouts[i])->initialize(vk::Cast(pDescriptorSets[i]));
+		}
+	}
+	return result;
 }
 
-VkDescriptorSet DescriptorPool::findAvailableMemory(size_t size)
+uint8_t *DescriptorPool::findAvailableMemory(size_t size)
 {
 	if(nodes.empty())
 	{
@@ -64,17 +90,17 @@ VkDescriptorSet DescriptorPool::findAvailableMemory(size_t size)
 
 	// First, look for space at the end of the pool
 	const auto itLast = nodes.rbegin();
-	ptrdiff_t itemStart = reinterpret_cast<char*>(itLast->set) - reinterpret_cast<char*>(pool);
+	ptrdiff_t itemStart = itLast->set - pool;
 	ptrdiff_t nextItemStart = itemStart + itLast->size;
 	size_t freeSpace = poolSize - nextItemStart;
 	if(freeSpace >= size)
 	{
-		return reinterpret_cast<VkDescriptorSet>(nextItemStart);
+		return pool + nextItemStart;
 	}
 
 	// Second, look for space at the beginning of the pool
-	const auto itBegin = nodes.end();
-	freeSpace = reinterpret_cast<char*>(itBegin->set) - reinterpret_cast<char*>(pool);
+	const auto itBegin = nodes.begin();
+	freeSpace = itBegin->set - pool;
 	if(freeSpace >= size)
 	{
 		return pool;
@@ -86,18 +112,18 @@ VkDescriptorSet DescriptorPool::findAvailableMemory(size_t size)
 	++nextIt;
 	for(auto it = itBegin; nextIt != itEnd; ++it, ++nextIt)
 	{
-		VkDescriptorSet freeSpaceStart = reinterpret_cast<VkDescriptorSet>(reinterpret_cast<char*>(it->set) + it->size);
-		freeSpace = reinterpret_cast<char*>(nextIt->set) - reinterpret_cast<char*>(freeSpaceStart);
+		uint8_t *freeSpaceStart = it->set + it->size;
+		freeSpace = nextIt->set - freeSpaceStart;
 		if(freeSpace >= size)
 		{
 			return freeSpaceStart;
 		}
 	}
 
-	return VK_NULL_HANDLE;
+	return nullptr;
 }
 
-VkResult DescriptorPool::allocateSets(size_t* sizes, uint32_t numAllocs, VkDescriptorSet* pDescriptorSets)
+VkResult DescriptorPool::allocateSets(size_t *sizes, uint32_t numAllocs, VkDescriptorSet *pDescriptorSets)
 {
 	size_t totalSize = 0;
 	for(uint32_t i = 0; i < numAllocs; i++)
@@ -111,24 +137,30 @@ VkResult DescriptorPool::allocateSets(size_t* sizes, uint32_t numAllocs, VkDescr
 	}
 
 	// Attempt to allocate single chunk of memory
-	VkDescriptorSet memory = findAvailableMemory(totalSize);
-	if(memory != VK_NULL_HANDLE)
 	{
-		pDescriptorSets[0] = memory;
-		for(uint32_t i = 1; i < numAllocs; i++)
+		uint8_t *memory = findAvailableMemory(totalSize);
+		if(memory)
 		{
-			pDescriptorSets[i] =
-				reinterpret_cast<VkDescriptorSet>(reinterpret_cast<char*>(memory) + sizes[i - 1]);
-			nodes.insert(Node(pDescriptorSets[i], sizes[i]));
+			for(uint32_t i = 0; i < numAllocs; i++)
+			{
+				pDescriptorSets[i] = asDescriptorSet(memory);
+				nodes.insert(Node(memory, sizes[i]));
+				memory += sizes[i];
+			}
+
+			return VK_SUCCESS;
 		}
-		return VK_SUCCESS;
 	}
 
 	// Atttempt to allocate each descriptor set separately
 	for(uint32_t i = 0; i < numAllocs; i++)
 	{
-		pDescriptorSets[i] = findAvailableMemory(sizes[i]);
-		if(pDescriptorSets[i] == VK_NULL_HANDLE)
+		uint8_t *memory = findAvailableMemory(sizes[i]);
+		if(memory)
+		{
+			pDescriptorSets[i] = asDescriptorSet(memory);
+		}
+		else
 		{
 			// vkAllocateDescriptorSets can be used to create multiple descriptor sets. If the
 			// creation of any of those descriptor sets fails, then the implementation must
@@ -141,13 +173,13 @@ VkResult DescriptorPool::allocateSets(size_t* sizes, uint32_t numAllocs, VkDescr
 			}
 			return (computeTotalFreeSize() > totalSize) ? VK_ERROR_FRAGMENTED_POOL : VK_ERROR_OUT_OF_POOL_MEMORY;
 		}
-		nodes.insert(Node(pDescriptorSets[i], sizes[i]));
+		nodes.insert(Node(memory, sizes[i]));
 	}
 
 	return VK_SUCCESS;
 }
 
-void DescriptorPool::freeSets(uint32_t descriptorSetCount, const VkDescriptorSet* pDescriptorSets)
+void DescriptorPool::freeSets(uint32_t descriptorSetCount, const VkDescriptorSet *pDescriptorSets)
 {
 	for(uint32_t i = 0; i < descriptorSetCount; i++)
 	{
@@ -158,7 +190,7 @@ void DescriptorPool::freeSets(uint32_t descriptorSetCount, const VkDescriptorSet
 void DescriptorPool::freeSet(const VkDescriptorSet descriptorSet)
 {
 	const auto itEnd = nodes.end();
-	auto it = std::find(nodes.begin(), itEnd, descriptorSet);
+	auto it = std::find(nodes.begin(), itEnd, asMemory(descriptorSet));
 	if(it != itEnd)
 	{
 		nodes.erase(it);
@@ -178,11 +210,11 @@ size_t DescriptorPool::computeTotalFreeSize() const
 
 	// Compute space at the end of the pool
 	const auto itLast = nodes.rbegin();
-	totalFreeSize += poolSize - ((reinterpret_cast<char*>(itLast->set) - reinterpret_cast<char*>(pool)) + itLast->size);
+	totalFreeSize += poolSize - (itLast->set - pool) + itLast->size;
 
 	// Compute space at the beginning of the pool
-	const auto itBegin = nodes.end();
-	totalFreeSize += reinterpret_cast<char*>(itBegin->set) - reinterpret_cast<char*>(pool);
+	const auto itBegin = nodes.begin();
+	totalFreeSize += itBegin->set - pool;
 
 	// Finally, look between existing pool items
 	const auto itEnd = nodes.end();
@@ -190,10 +222,10 @@ size_t DescriptorPool::computeTotalFreeSize() const
 	++nextIt;
 	for(auto it = itBegin; nextIt != itEnd; ++it, ++nextIt)
 	{
-		totalFreeSize += (reinterpret_cast<char*>(nextIt->set) - reinterpret_cast<char*>(it->set)) - it->size;
+		totalFreeSize += (nextIt->set - it->set) - it->size;
 	}
 
 	return totalFreeSize;
 }
 
-} // namespace vk
+}  // namespace vk

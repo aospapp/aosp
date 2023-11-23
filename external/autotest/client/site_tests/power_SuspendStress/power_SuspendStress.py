@@ -7,6 +7,7 @@ import logging, numpy, random, time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import interface
+from autotest_lib.client.cros.networking import shill_proxy
 from autotest_lib.client.cros.power import power_suspend, sys_power
 
 class power_SuspendStress(test.test):
@@ -15,7 +16,7 @@ class power_SuspendStress(test.test):
 
     def initialize(self, duration, idle=False, init_delay=0, min_suspend=0,
                    min_resume=5, max_resume_window=3, check_connection=True,
-                   iterations=None, suspend_state=''):
+                   suspend_iterations=None, suspend_state=''):
         """
         Entry point.
 
@@ -32,8 +33,8 @@ class power_SuspendStress(test.test):
                 max_resume_window seconds.
         @param check_connection: If true, we check that the network interface
                 used for testing is up after resume. Otherwsie we reboot.
-        @param iterations: number of times to attempt suspend.  If !=None has
-                precedence over duration.
+        @param suspend_iterations: number of times to attempt suspend.  If
+                !=None has precedence over duration.
         @param suspend_state: Force to suspend to a specific
                 state ("mem" or "freeze"). If the string is empty, suspend
                 state is left to the default pref on the system.
@@ -46,29 +47,21 @@ class power_SuspendStress(test.test):
         self._min_resume = min_resume
         self._max_resume_window = max_resume_window
         self._check_connection = check_connection
-        self._iterations = iterations
+        self._suspend_iterations = suspend_iterations
         self._suspend_state = suspend_state
-        self._method = sys_power.idle_suspend if idle else sys_power.do_suspend
+        self._method = sys_power.idle_suspend if idle else sys_power.suspend_for
 
     def _done(self):
-        if self._iterations != None:
-            self._iterations -= 1
-            return self._iterations < 0
+        if self._suspend_iterations != None:
+            self._suspend_iterations -= 1
+            return self._suspend_iterations < 0
         return time.time() >= self._endtime
 
     def _get_default_network_interface(self):
-        interface_choices={}
-        with open('/proc/net/route') as fh:
-            for line in fh:
-                fields = line.strip().split()
-                if fields[1] != '00000000' or not int(fields[3], 16) & 2:
-                    continue
-                interface_choices[fields[0]] = int(fields[6])
-        if not interface_choices:
+        iface = shill_proxy.ShillProxy().get_default_interface_name()
+        if not iface:
             return None
-
-        return interface.Interface(min(interface_choices,
-            key=interface_choices.get))
+        return interface.Interface(iface)
 
     def run_once(self):
         time.sleep(self._init_delay)

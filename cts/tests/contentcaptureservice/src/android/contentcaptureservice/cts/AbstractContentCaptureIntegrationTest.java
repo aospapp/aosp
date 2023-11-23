@@ -44,6 +44,7 @@ import com.android.compatibility.common.util.SafeCleanerRule;
 import com.android.compatibility.common.util.SettingsStateChangerRule;
 import com.android.compatibility.common.util.SettingsUtils;
 
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -114,7 +115,7 @@ public abstract class AbstractContentCaptureIntegrationTest {
                 mServiceWatcher.waitOnDestroy();
             }
         } catch (Throwable t) {
-            Log.e(TAG, "error disablign service", t);
+            Log.e(TAG, "error disabling service", t);
         }
     }
 
@@ -199,6 +200,12 @@ public abstract class AbstractContentCaptureIntegrationTest {
     public void clearState() {
         Log.v(mTag, "@Before: clearState()");
         CtsContentCaptureService.resetStaticState();
+    }
+
+    @After
+    public void clearServiceWatcher() {
+        Log.v(mTag, "@After: clearServiceWatcher()");
+        CtsContentCaptureService.clearServiceWatcher();
     }
 
     @Nullable

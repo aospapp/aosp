@@ -18,6 +18,8 @@ package com.android.car.developeroptions.dashboard;
 
 import static android.content.Intent.EXTRA_USER;
 
+import static com.android.settingslib.drawer.SwitchesProvider.METHOD_GET_DYNAMIC_SUMMARY;
+import static com.android.settingslib.drawer.SwitchesProvider.METHOD_GET_PROVIDER_ICON;
 import static com.android.settingslib.drawer.TileUtils.META_DATA_PREFERENCE_ICON_URI;
 import static com.android.settingslib.drawer.TileUtils.META_DATA_PREFERENCE_SUMMARY;
 import static com.android.settingslib.drawer.TileUtils.META_DATA_PREFERENCE_SUMMARY_URI;
@@ -30,6 +32,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -180,7 +183,8 @@ public class DashboardFeatureProviderImpl implements DashboardFeatureProvider {
 
             ThreadUtils.postOnBackgroundThread(() -> {
                 final Map<String, IContentProvider> providerMap = new ArrayMap<>();
-                final String uri = tile.getMetaData().getString(META_DATA_PREFERENCE_SUMMARY_URI);
+                final Uri uri = TileUtils.getCompleteUri(tile, META_DATA_PREFERENCE_SUMMARY_URI,
+                        METHOD_GET_DYNAMIC_SUMMARY);
                 final String summaryFromUri = TileUtils.getTextFromUri(
                         mContext, uri, providerMap, META_DATA_PREFERENCE_SUMMARY);
                 ThreadUtils.postOnMainThread(() -> preference.setSummary(summaryFromUri));
@@ -214,7 +218,8 @@ public class DashboardFeatureProviderImpl implements DashboardFeatureProvider {
                     packageName = intent.getComponent().getPackageName();
                 }
                 final Map<String, IContentProvider> providerMap = new ArrayMap<>();
-                final String uri = tile.getMetaData().getString(META_DATA_PREFERENCE_ICON_URI);
+                final Uri uri = TileUtils.getCompleteUri(tile, META_DATA_PREFERENCE_ICON_URI,
+                        METHOD_GET_PROVIDER_ICON);
                 final Pair<String, Integer> iconInfo = TileUtils.getIconFromUri(
                         mContext, packageName, uri, providerMap);
                 if (iconInfo == null) {
@@ -238,16 +243,15 @@ public class DashboardFeatureProviderImpl implements DashboardFeatureProvider {
         ProfileSelectDialog.updateUserHandlesIfNeeded(mContext, tile);
 
         if (tile.userHandle == null || tile.isPrimaryProfileOnly()) {
-            mMetricsFeatureProvider.logDashboardStartIntent(mContext, intent, sourceMetricCategory);
+            mMetricsFeatureProvider.logStartedIntent(intent, sourceMetricCategory);
             activity.startActivityForResult(intent, 0);
         } else if (tile.userHandle.size() == 1) {
-            mMetricsFeatureProvider.logDashboardStartIntent(mContext, intent, sourceMetricCategory);
+            mMetricsFeatureProvider.logStartedIntent(intent, sourceMetricCategory);
             activity.startActivityForResultAsUser(intent, 0, tile.userHandle.get(0));
         } else {
             final UserHandle userHandle = intent.getParcelableExtra(EXTRA_USER);
             if (userHandle != null && tile.userHandle.contains(userHandle)) {
-                mMetricsFeatureProvider.logDashboardStartIntent(
-                    mContext, intent, sourceMetricCategory);
+                mMetricsFeatureProvider.logStartedIntent(intent, sourceMetricCategory);
                 activity.startActivityForResultAsUser(intent, 0, userHandle);
             } else {
                 ProfileSelectDialog.show(activity.getSupportFragmentManager(), tile);

@@ -21,17 +21,17 @@
 #include "ArrayType.h"
 #include "CompoundType.h"
 #include "ConstantExpression.h"
+#include "Coordinator.h"
 #include "DocComment.h"
 #include "EnumType.h"
 #include "Interface.h"
 #include "Location.h"
 #include "Method.h"
-#include "RefType.h"
 #include "Scope.h"
 #include "TypeDef.h"
 #include "VectorType.h"
 
-#include "hidl-gen_y.h"
+#include "hidl-gen_y-helpers.h"
 
 #include <android-base/logging.h>
 #include <hidl-util/FQName.h>
@@ -40,7 +40,8 @@
 
 using namespace android;
 
-extern int yylex(yy::parser::semantic_type*, yy::parser::location_type*, void*, Scope** const);
+extern int yylex(yy::parser::semantic_type*, yy::parser::location_type*, void*, AST* const,
+                 Scope** const);
 
 void enterScope(AST* /* ast */, Scope** scope, Scope* container) {
     CHECK(container->parent() == (*scope));
@@ -48,15 +49,16 @@ void enterScope(AST* /* ast */, Scope** scope, Scope* container) {
 }
 
 void leaveScope(AST* ast, Scope** scope) {
-    CHECK((*scope) != ast->getRootScope());
+    CHECK((*scope) != &ast->getRootScope());
     *scope = (*scope)->parent();
 }
 
-::android::Location convertYYLoc(const yy::parser::location_type &loc) {
+::android::Location convertYYLoc(const yy::parser::location_type& loc, const AST* ast) {
     return ::android::Location(
-            ::android::Position(*(loc.begin.filename), loc.begin.line, loc.begin.column),
-            ::android::Position(*(loc.end.filename), loc.end.line, loc.end.column)
-    );
+            ::android::Position(ast->getCoordinator().makeRelative(*(loc.begin.filename)),
+                                loc.begin.line, loc.begin.column),
+            ::android::Position(ast->getCoordinator().makeRelative(*(loc.end.filename)),
+                                loc.end.line, loc.end.column));
 }
 
 bool isValidInterfaceField(const std::string& identifier, std::string *errorMsg) {
@@ -216,17 +218,20 @@ bool isValidTypeName(const std::string& identifier, std::string *errorMsg) {
 %parse-param { android::AST* const ast }
 %parse-param { android::Scope** const scope }
 %lex-param { void* scanner }
+%lex-param { android::AST* const ast }
 %lex-param { android::Scope** const scope }
-%pure-parser
 %glr-parser
 %skeleton "glr.cc"
 
 %expect-rr 0
-%error-verbose
+%define parse.error verbose
+%locations
 
+%verbose
 %debug
 
-%token<docComment> DOC_COMMENT "doc comment"
+%token<str> MULTILINE_COMMENT "multiline comment"
+%token<str> DOC_COMMENT "doc comment"
 
 %token<void> ENUM "keyword `enum`"
 %token<void> EXTENDS "keyword `extends`"
@@ -274,7 +279,7 @@ bool isValidTypeName(const std::string& identifier, std::string *errorMsg) {
 
 %token '#'
 
-%type<docComment> doc_comments
+%type<docComment> doc_comment doc_comments ignore_doc_comments
 
 %type<str> error_stmt error
 %type<str> package
@@ -291,17 +296,16 @@ bool isValidTypeName(const std::string& identifier, std::string *errorMsg) {
 %type<type> named_struct_or_union_declaration named_enum_declaration
 %type<type> compound_declaration annotated_compound_declaration
 
-%type<field> field_declaration commentable_field_declaration
+%type<docCommentable> field_declaration commentable_field_declaration
 %type<fields> field_declarations struct_or_union_body
 %type<constantExpression> const_expr
 %type<enumValue> enum_value commentable_enum_value
 %type<enumValues> enum_values enum_declaration_body
 %type<typedVars> typed_vars non_empty_typed_vars
-%type<typedVar> typed_var
+%type<typedVar> typed_var uncommented_typed_var
 %type<method> method_declaration commentable_method_declaration
 %type<compoundStyle> struct_or_union_keyword
 %type<stringVec> annotation_string_values annotation_string_value
-%type<constExprVec> annotation_const_expr_values annotation_const_expr_value
 %type<annotationParam> annotation_param
 %type<annotationParams> opt_annotation_params annotation_params
 %type<annotation> annotation
@@ -327,34 +331,41 @@ bool isValidTypeName(const std::string& identifier, std::string *errorMsg) {
     android::Method *method;
     android::CompoundType::Style compoundStyle;
     std::vector<std::string> *stringVec;
-    std::vector<android::ConstantExpression *> *constExprVec;
     android::AnnotationParam *annotationParam;
     android::AnnotationParamVector *annotationParams;
     android::Annotation *annotation;
     std::vector<android::Annotation *> *annotations;
     android::DocComment* docComment;
+    android::DocCommentable* docCommentable;
 }
 
 %%
 
 program
-    // Don't care if license header is a doc comment or not
-    : DOC_COMMENT package imports type_declarations
-    | package imports type_declarations
+    : doc_comments package declarations ignore_doc_comments
+      {
+        ast->setHeader($1);
+      }
+    | package declarations ignore_doc_comments
+    ;
+
+doc_comment
+    : DOC_COMMENT { $$ = new DocComment($1, convertYYLoc(@1, ast), CommentType::DOC_MULTILINE); }
+    | MULTILINE_COMMENT { $$ = new DocComment($1, convertYYLoc(@1, ast), CommentType::MULTILINE); }
     ;
 
 doc_comments
-    : DOC_COMMENT { $$ = $1; }
-    | doc_comments DOC_COMMENT
+    : doc_comment { $$ = $1; }
+    | doc_comments doc_comment
       {
         $1->merge($2);
         $$ = $1;
       }
-    | doc_comments '}'
-      {
-        std::cerr << "ERROR: Doc comments must preceed what they describe at " << @1 << "\n";
-        YYERROR;
-      }
+    ;
+
+ignore_doc_comments
+    : /*empty*/ { $$ = nullptr; }
+    | doc_comments { ast->addUnhandledComment($1); $$ = $1; }
     ;
 
 valid_identifier
@@ -429,10 +440,6 @@ annotation_param
       {
           $$ = new StringAnnotationParam($1, $3);
       }
-    | IDENTIFIER '=' annotation_const_expr_value
-      {
-          $$ = new ConstantExpressionAnnotationParam($1, $3);
-      }
     ;
 
 annotation_string_value
@@ -451,28 +458,6 @@ annotation_string_values
           $$->push_back($1);
       }
     | annotation_string_values ',' STRING_LITERAL
-      {
-          $$ = $1;
-          $$->push_back($3);
-      }
-    ;
-
-annotation_const_expr_value
-    : const_expr
-      {
-          $$ = new std::vector<ConstantExpression *>;
-          $$->push_back($1);
-      }
-    | '{' annotation_const_expr_values '}' { $$ = $2; }
-    ;
-
-annotation_const_expr_values
-    : const_expr
-      {
-          $$ = new std::vector<ConstantExpression *>;
-          $$->push_back($1);
-      }
-    | annotation_const_expr_values ',' const_expr
       {
           $$ = $1;
           $$->push_back($3);
@@ -522,11 +507,11 @@ fqname
 fqtype
     : fqname
       {
-          $$ = new Reference<Type>(*$1, convertYYLoc(@1));
+          $$ = new Reference<Type>($1->string(), *$1, convertYYLoc(@1, ast));
       }
     | TYPE
       {
-          $$ = new Reference<Type>($1, convertYYLoc(@1));
+          $$ = new Reference<Type>($1->definedName(), $1, convertYYLoc(@1, ast));
       }
     ;
 
@@ -554,7 +539,7 @@ package
 import_stmt
     : IMPORT FQNAME require_semicolon
       {
-          if (!ast->addImport($2)) {
+          if (!ast->addImport($2, convertYYLoc(@2, ast))) {
               std::cerr << "ERROR: Unable to import '" << $2 << "' at " << @2
                         << "\n";
               ast->addSyntaxError();
@@ -562,19 +547,13 @@ import_stmt
       }
     | IMPORT valid_type_name require_semicolon
       {
-          if (!ast->addImport($2)) {
+          if (!ast->addImport($2, convertYYLoc(@2, ast))) {
               std::cerr << "ERROR: Unable to import '" << $2 << "' at " << @2
                         << "\n";
               ast->addSyntaxError();
           }
       }
     | IMPORT error_stmt
-    ;
-
-
-imports
-    : /* empty */
-    | imports import_stmt
     ;
 
 opt_extends
@@ -590,7 +569,7 @@ interface_declarations
 
           std::string errorMsg;
           if ($2 != nullptr && $2->isNamedType() &&
-              !isValidInterfaceField(static_cast<NamedType*>($2)->localName().c_str(),
+              !isValidInterfaceField(static_cast<NamedType*>($2)->definedName().c_str(),
                     &errorMsg)) {
               std::cerr << "ERROR: " << errorMsg << " at "
                         << @2 << "\n";
@@ -611,7 +590,7 @@ interface_declarations
 
           if ($2 != nullptr) {
             Interface *iface = static_cast<Interface*>(*scope);
-            if (!iface->addMethod($2)) {
+            if (!ast->addMethod($2, iface)) {
                 std::cerr << "ERROR: Unable to add method '" << $2->name()
                           << "' at " << @2 << "\n";
 
@@ -622,12 +601,37 @@ interface_declarations
       }
     ;
 
-type_declarations
+declarations
     : /* empty */
     | error_stmt
-    | type_declarations commentable_type_declaration
+    | declarations commentable_declaration
     ;
 
+commentable_declaration
+    : doc_comments type_declaration
+      {
+        $2->setDocComment($1);
+      }
+    | type_declaration
+    | ignore_doc_comments import_stmt
+      {
+        // Import statements must be first. The grammar allows them later so that:
+        // - there is a nice error if imports are later
+        // - doc_comments can be factored out here to avoid shift/reduce conflicts
+        if (!ast->getRootScope().getDefinedTypes().empty()) {
+            std::cerr << "ERROR: import at " << @2
+                      << " follows type definitions, but imports must come first" << std::endl;
+
+            YYERROR;
+        }
+      }
+    ;
+
+/*
+ * For orthogonality/simplicity in the future, import_stmt could be made to share inheritance
+ * hierarchy with type_declaration, and then we could explicitly disallow import inside of
+ * interfaces
+ */
 commentable_type_declaration
     : doc_comments type_declaration
       {
@@ -678,7 +682,7 @@ interface_declaration
               }
               superType = new Reference<Type>();
           } else {
-              if (!ast->addImport(gIBaseFqName.string().c_str())) {
+              if (!ast->addImplicitImport(gIBaseFqName)) {
                   std::cerr << "ERROR: Unable to automatically import '"
                             << gIBaseFqName.string()
                             << "' at " << @$
@@ -687,7 +691,7 @@ interface_declaration
               }
 
               if (superType == nullptr) {
-                  superType = new Reference<Type>(gIBaseFqName, convertYYLoc(@$));
+                  superType = new Reference<Type>(gIBaseFqName.string(), gIBaseFqName, convertYYLoc(@$, ast));
               }
           }
 
@@ -698,7 +702,7 @@ interface_declaration
               YYERROR;
           }
 
-          if (*scope != ast->getRootScope()) {
+          if (*scope != &ast->getRootScope()) {
               std::cerr << "ERROR: All interface must declared in "
                         << "global scope at " << @2 << "\n";
 
@@ -706,22 +710,26 @@ interface_declaration
           }
 
           Interface* iface = new Interface(
-              $2, ast->makeFullName($2, *scope), convertYYLoc(@2),
+              $2, ast->makeFullName($2, *scope), convertYYLoc(@2, ast),
               *scope, *superType, ast->getFileHash());
 
           enterScope(ast, scope, iface);
       }
-      '{' interface_declarations '}'
+      interface_declaration_body
       {
           CHECK((*scope)->isInterface());
 
           Interface *iface = static_cast<Interface *>(*scope);
-          CHECK(iface->addAllReservedMethods());
+          CHECK(ast->addAllReservedMethodsToInterface(iface));
 
           leaveScope(ast, scope);
           ast->addScopedType(iface, *scope);
           $$ = iface;
       }
+    ;
+
+interface_declaration_body
+    : '{' interface_declarations ignore_doc_comments '}'
     ;
 
 typedef_declaration
@@ -731,7 +739,7 @@ typedef_declaration
           // emitting any type definitions later on, since this is just an alias
           // to a type defined elsewhere.
           TypeDef* typeDef = new TypeDef(
-              $3, ast->makeFullName($3, *scope), convertYYLoc(@2), *scope, *$2);
+              $3, ast->makeFullName($3, *scope), convertYYLoc(@2, ast), *scope, *$2);
           ast->addScopedType(typeDef, *scope);
           $$ = typeDef;
       }
@@ -758,12 +766,12 @@ const_expr
           }
 
           $$ = new ReferenceConstantExpression(
-              Reference<LocalIdentifier>(*$1, convertYYLoc(@1)), $1->string());
+              Reference<LocalIdentifier>($1->string(), *$1, convertYYLoc(@1, ast)), $1->string());
       }
     | fqname '#' IDENTIFIER
       {
           $$ = new AttributeConstantExpression(
-              Reference<Type>(*$1, convertYYLoc(@1)), $1->string(), $3);
+              Reference<Type>($1->string(), *$1, convertYYLoc(@1, ast)), $1->string(), $3);
       }
     | const_expr '?' const_expr ':' const_expr
       {
@@ -791,7 +799,11 @@ const_expr
     | '-' const_expr %prec UNARY_MINUS { $$ = new UnaryConstantExpression("-", $2); }
     | '!' const_expr { $$ = new UnaryConstantExpression("!", $2); }
     | '~' const_expr { $$ = new UnaryConstantExpression("~", $2); }
-    | '(' const_expr ')' { $$ = $2; }
+    | '(' const_expr ')'
+      {
+        $2->surroundWithParens();
+        $$ = $2;
+      }
     | '(' error ')'
       {
         ast->addSyntaxError();
@@ -820,7 +832,7 @@ method_declaration
                           new std::vector<NamedReference<Type>*> /* results */,
                           false /* oneway */,
                           $1 /* annotations */,
-                          convertYYLoc(@$));
+                          convertYYLoc(@$, ast));
       }
     | opt_annotations ONEWAY valid_identifier '(' typed_vars ')' require_semicolon
       {
@@ -829,7 +841,7 @@ method_declaration
                           new std::vector<NamedReference<Type>*> /* results */,
                           true /* oneway */,
                           $1 /* annotations */,
-                          convertYYLoc(@$));
+                          convertYYLoc(@$, ast));
       }
     | opt_annotations valid_identifier '(' typed_vars ')' GENERATES '(' typed_vars ')' require_semicolon
       {
@@ -843,7 +855,7 @@ method_declaration
                           $8 /* results */,
                           false /* oneway */,
                           $1 /* annotations */,
-                          convertYYLoc(@$));
+                          convertYYLoc(@$, ast));
       }
     ;
 
@@ -880,13 +892,17 @@ non_empty_typed_vars
     ;
 
 typed_var
-    : type valid_identifier
+    : ignore_doc_comments uncommented_typed_var { $$ = $2; }
+    ;
+
+uncommented_typed_var
+    : type valid_identifier ignore_doc_comments
       {
-          $$ = new NamedReference<Type>($2, *$1, convertYYLoc(@2));
+          $$ = new NamedReference<Type>($2, *$1, convertYYLoc(@2, ast));
       }
     | type
       {
-          $$ = new NamedReference<Type>("", *$1, convertYYLoc(@1));
+          $$ = new NamedReference<Type>("", *$1, convertYYLoc(@1, ast));
 
           const std::string typeName = $$->isResolved()
               ? $$->get()->typeName() : $$->getLookupFqName().string();
@@ -908,14 +924,13 @@ named_struct_or_union_declaration
     : struct_or_union_keyword valid_type_name
       {
           CompoundType *container = new CompoundType(
-              $1, $2, ast->makeFullName($2, *scope), convertYYLoc(@2), *scope);
+              $1, $2, ast->makeFullName($2, *scope), convertYYLoc(@2, ast), *scope);
           enterScope(ast, scope, container);
       }
       struct_or_union_body
       {
           CHECK((*scope)->isCompoundType());
           CompoundType *container = static_cast<CompoundType *>(*scope);
-          container->setFields($4);
 
           leaveScope(ast, scope);
           ast->addScopedType(container, *scope);
@@ -924,19 +939,14 @@ named_struct_or_union_declaration
     ;
 
 struct_or_union_body
-    : '{' field_declarations '}' { $$ = $2; }
+    : '{' field_declarations ignore_doc_comments '}' { $$ = $2; }
     ;
 
 field_declarations
-    : /* empty */ { $$ = new std::vector<NamedReference<Type>*>; }
+    : /* empty */ { $$ = nullptr; }
     | field_declarations commentable_field_declaration
       {
-          $$ = $1;
-
-          // Compound declaration or error
-          if ($2 != nullptr) {
-              $$->push_back($2);
-          }
+          $$ = nullptr;
       }
     ;
 
@@ -955,14 +965,18 @@ field_declaration
           CHECK((*scope)->isCompoundType());
 
           std::string errorMsg;
-          auto style = static_cast<CompoundType *>(*scope)->style();
+          CompoundType* compoundType = static_cast<CompoundType *>(*scope);
+          auto style = compoundType->style();
 
           if (!isValidCompoundTypeField(style, $2, &errorMsg)) {
               std::cerr << "ERROR: " << errorMsg << " at "
                         << @2 << "\n";
               YYERROR;
           }
-          $$ = new NamedReference<Type>($2, *$1, convertYYLoc(@2));
+
+          NamedReference<Type>* field = new NamedReference<Type>($2, *$1, convertYYLoc(@2, ast));
+          compoundType->addField(field);
+          $$ = field;
       }
     | annotated_compound_declaration ';'
       {
@@ -973,13 +987,13 @@ field_declaration
 
           if ($1 != nullptr && $1->isNamedType() &&
               !isValidCompoundTypeField(style, static_cast<NamedType*>(
-                        $1)->localName().c_str(), &errorMsg)) {
+                        $1)->definedName().c_str(), &errorMsg)) {
               std::cerr << "ERROR: " << errorMsg << " at "
                         << @2 << "\n";
               YYERROR;
           }
-          // Returns fields only
-          $$ = nullptr;
+
+          $$ = $1;
       }
     ;
 
@@ -998,13 +1012,8 @@ compound_declaration
     ;
 
 enum_storage_type
-    : ':' fqtype { $$ = $2; }
+    : ':' fqtype ignore_doc_comments { $$ = $2; }
     | /* empty */ { $$ = nullptr; }
-    ;
-
-opt_comma
-    : /* empty */
-    | ','
     ;
 
 named_enum_declaration
@@ -1016,12 +1025,12 @@ named_enum_declaration
               std::cerr << "ERROR: Must explicitly specify enum storage type for "
                         << $2 << " at " << @2 << "\n";
               ast->addSyntaxError();
-              storageType = new Reference<Type>(
-                  new ScalarType(ScalarType::KIND_INT64, *scope), convertYYLoc(@2));
+              ScalarType* scalar = new ScalarType(ScalarType::KIND_INT64, *scope);
+              storageType = new Reference<Type>(scalar->definedName(), scalar, convertYYLoc(@2, ast));
           }
 
           EnumType* enumType = new EnumType(
-              $2, ast->makeFullName($2, *scope), convertYYLoc(@2), *storageType, *scope);
+              $2, ast->makeFullName($2, *scope), convertYYLoc(@2, ast), *storageType, *scope);
           enterScope(ast, scope, enumType);
       }
       enum_declaration_body
@@ -1036,11 +1045,12 @@ named_enum_declaration
     ;
 
 enum_declaration_body
-    : '{' enum_values opt_comma '}' { $$ = $2; }
+    : '{' enum_values '}' { $$ = $2; }
+    | '{' enum_values ',' ignore_doc_comments '}' { $$ = $2; }
     ;
 
 commentable_enum_value
-    : doc_comments enum_value
+    : doc_comments enum_value ignore_doc_comments
       {
         $2->setDocComment($1);
         $$ = $2;
@@ -1051,11 +1061,11 @@ commentable_enum_value
 enum_value
     : valid_identifier
       {
-          $$ = new EnumValue($1 /* name */, nullptr /* value */, convertYYLoc(@$));
+          $$ = new EnumValue($1 /* name */, nullptr /* value */, convertYYLoc(@$, ast));
       }
     | valid_identifier '=' const_expr
       {
-          $$ = new EnumValue($1 /* name */, $3 /* value */, convertYYLoc(@$));
+          $$ = new EnumValue($1 /* name */, $3 /* value */, convertYYLoc(@$, ast));
       }
     ;
 
@@ -1093,20 +1103,20 @@ array_type_base
     | TEMPLATED '<' type '>'
       {
           $1->setElementType(*$3);
-          $$ = new Reference<Type>($1, convertYYLoc(@1));
+          $$ = new Reference<Type>($1->definedName(), $1, convertYYLoc(@1, ast));
       }
     | TEMPLATED '<' TEMPLATED '<' type RSHIFT
       {
           $3->setElementType(*$5);
-          $1->setElementType(Reference<Type>($3, convertYYLoc(@3)));
-          $$ = new Reference<Type>($1, convertYYLoc(@1));
+          $1->setElementType(Reference<Type>($3->definedName(), $3, convertYYLoc(@3, ast)));
+          $$ = new Reference<Type>($1->definedName(), $1, convertYYLoc(@1, ast));
       }
     ;
 
 array_type
-    : array_type_base '[' const_expr ']'
+    : array_type_base ignore_doc_comments '[' const_expr ']'
       {
-          $$ = new ArrayType(*$1, $3, *scope);
+          $$ = new ArrayType(*$1, $4, *scope);
       }
     | array_type '[' const_expr ']'
       {
@@ -1116,20 +1126,23 @@ array_type
     ;
 
 type
-    : array_type_base { $$ = $1; }
-    | array_type { $$ = new Reference<Type>($1, convertYYLoc(@1)); }
-    | INTERFACE
+    : array_type_base ignore_doc_comments { $$ = $1; }
+    | array_type ignore_doc_comments
       {
-          // "interface" is a synonym of android.hidl.base@1.0::IBase
-          $$ = new Reference<Type>(gIBaseFqName, convertYYLoc(@1));
+        $$ = new Reference<Type>($1->definedName(), $1, convertYYLoc(@1, ast));
+      }
+    | INTERFACE ignore_doc_comments
+      {
+        // "interface" is a synonym of android.hidl.base@1.0::IBase
+        $$ = new Reference<Type>("interface", gIBaseFqName, convertYYLoc(@1, ast));
       }
     ;
 
 type_or_inplace_compound_declaration
     : type { $$ = $1; }
-    | annotated_compound_declaration
+    | annotated_compound_declaration ignore_doc_comments
       {
-          $$ = new Reference<Type>($1, convertYYLoc(@1));
+          $$ = new Reference<Type>($1->definedName(), $1, convertYYLoc(@1, ast), true);
       }
     ;
 
@@ -1140,4 +1153,3 @@ void yy::parser::error(
         const std::string &errstr) {
     std::cerr << "ERROR: " << errstr << " at " << where << "\n";
 }
-

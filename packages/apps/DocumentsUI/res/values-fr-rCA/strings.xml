@@ -36,6 +36,7 @@
     <string name="menu_share" msgid="4307140947108068356">"Partager"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Supprimer"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Tout sélectionner"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"Tout désélectionner"</string>
     <string name="menu_select" msgid="1366061076507142387">"Sélectionner"</string>
     <string name="menu_sort" msgid="3362419226163725275">"Trier par…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"Copier dans…"</string>
@@ -44,6 +45,8 @@
     <string name="menu_extract" msgid="8171946945982532262">"Extraire vers…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Renommer"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"En savoir plus"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Afficher les fichiers masqués"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Ne pas afficher les fichiers masqués"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Afficher dans <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Nouvelle fenêtre"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Couper"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"Réessayer"</string>
     <string name="button_clear" msgid="5412304437764369441">"Effacer"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Afficher dans l\'application du fournisseur"</string>
+    <string name="button_back" msgid="1888621708934742182">"Retour"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Non trié"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Nom"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Résumé"</string>
@@ -69,12 +73,12 @@
     <string name="sort_dimension_date" msgid="4231005651895254033">"Dernière modification"</string>
     <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"Nom de fichier (A à Z)"</string>
     <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"Type (A à Z)"</string>
-    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Taille (plus petit en 1er)"</string>
-    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Modif. (plus anc. en 1er)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Taille (plus petits d\'abord)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Date de modification (plus anciens d\'abord)"</string>
     <string name="sort_dimension_name_descending" msgid="1514525521100423342">"Nom de fichier (Z à A)"</string>
     <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"Type (Z à A)"</string>
-    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Taille (plus gros en 1er)"</string>
-    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Modif. (plus réc. en 1er)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Taille (plus gros d\'abord)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Date de modification (plus récents d\'abord)"</string>
     <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Trier par"</string>
     <string name="sort_dimension_button_title" msgid="1898606989130896126">"Trié par <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"Nombre d\'éléments"</string>
@@ -86,8 +90,20 @@
     <string name="save_error" msgid="8631128801982095782">"Échec de l\'enregistrement du document"</string>
     <string name="create_error" msgid="3092144450044861994">"Échec de la création du dossier"</string>
     <string name="query_error" msgid="6625421453613879336">"Impossible de charger le contenu pour le moment"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"Le profil professionnel est interrompu"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"Activer"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Impossible de sélectionner des fichiers professionnels"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Votre administrateur informatique ne vous autorise pas à accéder à des fichiers professionnels à partir d\'une application personnelle"</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Impossible de sélectionner des fichiers personnels"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Votre administrateur informatique ne vous autorise pas à accéder à des fichiers personnels à partir d\'une application professionnelle"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Ιmpossible d\'enregistrer dans le profil professionnel"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Votre administrateur informatique ne vous autorise pas à enregistrer des fichiers personnels dans votre profil professionnel"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Impossible d\'enregistrer dans le profil personnel"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Votre administrateur informatique ne vous autorise pas à enregistrer des fichiers professionnels dans votre profil personnel"</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Cette action n\'est pas autorisée"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Communiquez avec votre administrateur informatique pour en savoir plus"</string>
     <string name="root_recent" msgid="1080156975424341623">"Fichiers récents"</string>
-    <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> disponible"</string>
+    <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> d\'espace libre"</string>
     <string name="root_type_service" msgid="6521366147466512289">"Services de stockage"</string>
     <string name="root_type_shortcut" msgid="6059343175525442279">"Raccourcis"</string>
     <string name="root_type_device" msgid="1713604128005476585">"Appareils"</string>
@@ -97,6 +113,8 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Impossible d\'ouvrir le fichier"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Impossible d\'ouvrir des fichiers dans les archives"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Impossible de supprimer certains documents"</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"Impossible de partager plus de <xliff:g id="COUNT">%1$d</xliff:g> fichiers"</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"Action interdite"</string>
     <string name="share_via" msgid="8725082736005677161">"Partager via"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Copie de fichiers…"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Compression des fichiers"</string>
@@ -222,29 +240,42 @@
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> élément sélectionné</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> éléments sélectionnés</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"Fichiers récents sur le téléphone"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"Fichiers sur le téléphone"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> sur le téléphone"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"Fichiers récents"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"Fichiers"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"Fichiers dans Téléchargements"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"Fichiers sur <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"Fichiers dans <xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"Fichiers de <xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Fichiers de <xliff:g id="LABEL">%1$s</xliff:g> (<xliff:g id="SUMMARY">%2$s</xliff:g>)"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Images récentes sur le téléphone"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Images sur le téléphone"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"Images récentes"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"Images"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"Images dans Téléchargements"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"Images sur l\'appareil <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"Images dans <xliff:g id="FOLDER">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"Images de <xliff:g id="LABEL">%1$s</xliff:g>"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Images de <xliff:g id="LABEL">%1$s</xliff:g>/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"Images"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"Audio"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"Vidéos"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"Documents"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"Fichiers volumineux"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"Cette semaine"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"Nom du dossier"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"Nouveau nom"</string>
     <string name="preview_file" msgid="4056622696305432343">"Afficher un aperçu du fichier <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"Afficher l\'aperçu du fichier professionnel <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"Parcourir les fichiers dans d\'autres applications"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"Anonyme"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"Autoriser l\'accès à « <xliff:g id="DIRECTORY">%1$s</xliff:g> »"</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"Autoriser l\'accès à access « <xliff:g id="DIRECTORY">%1$s</xliff:g> » dans « <xliff:g id="ROOT">%2$s</xliff:g> »?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Cela permettra à « <xliff:g id="APPNAME">%1$s</xliff:g> » d\'accéder à tous les fichiers actuellement stockés sous ce lieu et à tout contenu stocké ici à l\'avenir."</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"Utiliser ce dossier"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"Autoriser <xliff:g id="APPNAME">%1$s</xliff:g> à accéder aux fichiers dans <xliff:g id="DIRECTORY">%2$s</xliff:g>?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"Cela permettra à <xliff:g id="APPNAME">%1$s</xliff:g> d\'accéder au contenu actuel et futur stocké dans <xliff:g id="DIRECTORY">%2$s</xliff:g>."</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"Impossible d\'utiliser ce dossier"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Pour protéger votre confidentialité, choisissez un autre dossier"</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"Créer un dossier"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Rechercher sur ce téléphone"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Supprimer l\'historique de recherche <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"Personnel"</string>
+    <string name="work_tab" msgid="7265359366883747413">"Professionnel"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"Travail"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"Vous ne pouvez pas déplacer de fichiers d\'une autre application."</string>
 </resources>

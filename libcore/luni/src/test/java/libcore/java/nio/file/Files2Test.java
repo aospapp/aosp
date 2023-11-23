@@ -1683,7 +1683,7 @@ public class Files2Test {
         } catch (NullPointerException expected) {}
 
         try {
-            Files.createTempDirectory(filesSetup.getTestDirPath(), tmpDir, null);
+            Files.createTempDirectory(filesSetup.getTestDirPath(), tmpDir, (FileAttribute<?>) null);
             fail();
         } catch (NullPointerException expected) {}
     }
@@ -1710,7 +1710,7 @@ public class Files2Test {
         assertEquals(attr.value(), Files.getAttribute(tmpDirPath, attr.name()));
 
         try {
-            Files.createTempDirectory(tmpDir, null);
+            Files.createTempDirectory(tmpDir, (FileAttribute<?>) null);
             fail();
         } catch (NullPointerException expected) {}
     }
@@ -1757,7 +1757,7 @@ public class Files2Test {
 
         try {
             Files.createTempFile(filesSetup.getTestDirPath(), tmpFilePrefix, tmpFileSuffix,
-                    null);
+                (FileAttribute<?>) null);
             fail();
         } catch (NullPointerException expected) {}
     }
@@ -1796,7 +1796,7 @@ public class Files2Test {
         assertEquals(attr.value(), Files.getAttribute(tmpFilePath, attr.name()));
 
         try {
-            Files.createTempFile(tmpFilePrefix, tmpFileSuffix, null);
+            Files.createTempFile(tmpFilePrefix, tmpFileSuffix, (FileAttribute<?>) null);
             fail();
         } catch (NullPointerException expected) {}
     }

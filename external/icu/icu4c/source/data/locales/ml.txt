@@ -19,8 +19,8 @@ ml{
         "[അ ആ ഇ ഈ ഉ ഊ ഋ എ ഏ ഐ ഒ ഓ ഔ ക ഖ ഗ ഘ ങ ച ഛ ജ ഝ ഞ ട ഠ ഡ ഢ ണ ത ഥ ദ ധ ന പ ഫ ബ ഭ മ"
         " യ ര ല വ ശ ഷ സ ഹ ള ഴ റ]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0൦ 1൧ 2൨ 3൩ 4൪ 5൫ 6൬ 7൭ 8൮ 9൯]"}
-    ExemplarCharactersPunctuation{"[\\- , ; \\: ! ? . ' ‘ ’ \u0022 “ ” ( ) \\[ \\] \\{ \\}]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0൦ 1൧ 2൨ 3൩ 4൪ 5൫ 6൬ 7൭ 8൮ 9൯]"}
+    ExemplarCharactersPunctuation{"[\\- ‑ , ; \\: ! ? . ' ‘ ’ \u0022 “ ” ( ) \\[ \\] \\{ \\}]"}
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -241,7 +241,7 @@ ml{
         }
         native{"mlym"}
     }
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -699,8 +699,8 @@ ml{
                 MMMEd{"MMM d, E"}
                 MMMMEd{"MMMM d, E"}
                 MMMMW{
-                    one{"MMM - ആഴ്ച W"}
-                    other{"MMM - ആഴ്ച W"}
+                    one{"MMMM - ആഴ്ച W"}
+                    other{"MMMM - ആഴ്ച W"}
                 }
                 MMMMd{"MMMM d"}
                 MMMd{"MMM d"}
@@ -2530,7 +2530,7 @@ ml{
             start{"{0}, {1}"}
         }
         unit-narrow{
-            2{"{0} കൂടാതെ {1}"}
+            2{"{0}, {1}"}
             end{"{0} {1}"}
             middle{"{0} {1}"}
             start{"{0} {1}"}

@@ -35,6 +35,7 @@ static void checkAttributes(aaudio_performance_mode_t perfMode,
                             aaudio_content_type_t contentType,
                             aaudio_input_preset_t preset = DONT_SET,
                             aaudio_allowed_capture_policy_t capturePolicy = DONT_SET,
+                            int privacyMode = DONT_SET,
                             aaudio_direction_t direction = AAUDIO_DIRECTION_OUTPUT) {
     if (direction == AAUDIO_DIRECTION_INPUT
             && !deviceSupportsFeature(FEATURE_RECORDING)) return;
@@ -66,6 +67,9 @@ static void checkAttributes(aaudio_performance_mode_t perfMode,
     if (capturePolicy != DONT_SET) {
         AAudioStreamBuilder_setAllowedCapturePolicy(aaudioBuilder, capturePolicy);
     }
+    if (privacyMode != DONT_SET) {
+        AAudioStreamBuilder_setPrivacySensitive(aaudioBuilder, (bool)privacyMode);
+    }
 
     // Create an AAudioStream using the Builder.
     ASSERT_EQ(AAUDIO_OK, AAudioStreamBuilder_openStream(aaudioBuilder, &aaudioStream));
@@ -95,6 +99,13 @@ static void checkAttributes(aaudio_performance_mode_t perfMode,
             ? AAUDIO_ALLOW_CAPTURE_BY_ALL // default
             : capturePolicy;
     EXPECT_EQ(expectedCapturePolicy, AAudioStream_getAllowedCapturePolicy(aaudioStream));
+
+    bool expectedPrivacyMode =
+            (privacyMode == DONT_SET) ?
+                ((preset == AAUDIO_INPUT_PRESET_VOICE_COMMUNICATION
+                    || preset == AAUDIO_INPUT_PRESET_CAMCORDER) ? true : false) :
+                privacyMode;
+    EXPECT_EQ(expectedPrivacyMode, AAudioStream_isPrivacySensitive(aaudioStream));
 
     EXPECT_EQ(AAUDIO_OK, AAudioStream_requestStart(aaudioStream));
 
@@ -126,7 +137,14 @@ static const aaudio_usage_t sUsages[] = {
     AAUDIO_USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
     AAUDIO_USAGE_ASSISTANCE_SONIFICATION,
     AAUDIO_USAGE_GAME,
-    AAUDIO_USAGE_ASSISTANT
+    AAUDIO_USAGE_ASSISTANT,
+};
+
+static const aaudio_usage_t sSystemUsages[] = {
+    AAUDIO_SYSTEM_USAGE_EMERGENCY,
+    AAUDIO_SYSTEM_USAGE_SAFETY,
+    AAUDIO_SYSTEM_USAGE_VEHICLE_STATUS,
+    AAUDIO_SYSTEM_USAGE_ANNOUNCEMENT
 };
 
 static const aaudio_content_type_t sContentypes[] = {
@@ -157,6 +175,12 @@ static const aaudio_input_preset_t sAllowCapturePolicies[] = {
     AAUDIO_ALLOW_CAPTURE_BY_NONE,
 };
 
+static const int sPrivacyModes[] = {
+    DONT_SET,
+    false,
+    true,
+};
+
 static void checkAttributesUsage(aaudio_performance_mode_t perfMode) {
     for (aaudio_usage_t usage : sUsages) {
         // There can be a race condition when switching between devices,
@@ -180,6 +204,7 @@ static void checkAttributesInputPreset(aaudio_performance_mode_t perfMode) {
                         DONT_SET,
                         inputPreset,
                         DONT_SET,
+                        DONT_SET,
                         AAUDIO_DIRECTION_INPUT);
     }
 }
@@ -193,6 +218,19 @@ static void checkAttributesAllowedCapturePolicy(aaudio_performance_mode_t perfMo
                         policy);
     }
 }
+
+static void checkAttributesPrivacySensitive(aaudio_performance_mode_t perfMode) {
+    for (int privacyMode : sPrivacyModes) {
+        checkAttributes(perfMode,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        privacyMode,
+                        AAUDIO_DIRECTION_INPUT);
+    }
+}
+
 
 TEST(test_attributes, aaudio_usage_perfnone) {
     checkAttributesUsage(AAUDIO_PERFORMANCE_MODE_NONE);
@@ -224,4 +262,30 @@ TEST(test_attributes, aaudio_input_preset_lowlat) {
 
 TEST(test_attributes, aaudio_allowed_capture_policy_lowlat) {
     checkAttributesAllowedCapturePolicy(AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
+}
+
+TEST(test_attributes, aaudio_system_usages_rejected) {
+    for (aaudio_usage_t systemUsage : sSystemUsages) {
+        AAudioStreamBuilder *aaudioBuilder = nullptr;
+        AAudioStream *aaudioStream = nullptr;
+
+        // Use an AAudioStreamBuilder to contain requested parameters.
+        ASSERT_EQ(AAUDIO_OK, AAudio_createStreamBuilder(&aaudioBuilder));
+
+        AAudioStreamBuilder_setUsage(aaudioBuilder, systemUsage);
+
+        aaudio_result_t result = AAudioStreamBuilder_openStream(aaudioBuilder, &aaudioStream);
+
+        // Get failed status when trying to create an AAudioStream using the Builder. There are two
+        // potential failures: one if the device doesn't support the system usage, and the  other
+        // if it does but this test doesn't have the MODIFY_AUDIO_ROUTING permission required to
+        // use it.
+        ASSERT_TRUE(result == AAUDIO_ERROR_ILLEGAL_ARGUMENT
+                || result == AAUDIO_ERROR_INTERNAL);
+        AAudioStreamBuilder_delete(aaudioBuilder);
+    }
+}
+
+TEST(test_attributes, aaudio_allowed_privacy_sensitive_lowlat) {
+    checkAttributesPrivacySensitive(AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 }

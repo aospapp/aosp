@@ -2,12 +2,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2014-2018 Oracle and/or its affiliates. All Rights Reserved.
 # Copyright (c) 2018 Petr Vorel <pvorel@suse.cz>
-#
 # Author:       Alexey Kodanev alexey.kodanev@oracle.com
 
-TST_SETUP="init"
+TST_SETUP="dhcp_lib_setup"
+TST_CLEANUP="dhcp_lib_cleanup"
 TST_TESTFUNC="test01"
-TST_CLEANUP="cleanup"
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_ROOT=1
 TST_NEEDS_CMDS="cat $dhcp_name awk ip pgrep pkill dhclient"
@@ -36,14 +35,18 @@ stop_dhcp()
 	[ "$(pgrep -x $dhcp_name)" ] && return 1 || return 0
 }
 
-init()
+dhcp_lib_setup()
 {
+	[ -z "$log" ] && log="$PWD/$(basename $0 '.sh').log"
+
 	if [ $TST_IPV6 ]; then
 		ip_addr="fd00:1:1:2::12/64"
-		ip_addr_check="fd00:1:1:2::100/64"
+		ip_addr_check_noprefix="fd00:1:1:2::100"
+		ip_addr_check="$ip_addr_check_noprefix/128"
 	else
 		ip_addr="10.1.1.12/24"
-		ip_addr_check="10.1.1.100/24"
+		ip_addr_check_noprefix="10.1.1.100"
+		ip_addr_check="$ip_addr_check_noprefix/24"
 	fi
 
 	lsmod | grep -q '^veth ' && veth_loaded=yes || veth_loaded=no
@@ -59,6 +62,7 @@ init()
 	stop_dhcp || tst_brk TBROK "Failed to stop dhcp server"
 
 	dhclient_lease="/var/lib/dhclient/dhclient${TST_IPV6}.leases"
+	[ -f $dhclient_lease ] || dhclient_lease="/var/lib/dhcp/dhclient${TST_IPV6}.leases"
 	if [ -f $dhclient_lease ]; then
 		tst_res TINFO "backup dhclient${TST_IPV6}.leases"
 		mv $dhclient_lease .
@@ -67,11 +71,19 @@ init()
 	tst_res TINFO "add $ip_addr to $iface0"
 	ip addr add $ip_addr dev $iface0 || \
 		tst_brk TBROK "failed to add ip address"
+
+	if [ ! -d "$lease_dir" ]; then
+		mkdir -p $lease_dir
+		lease_dir_added=1
+	fi
 }
 
-cleanup()
+dhcp_lib_cleanup()
 {
 	[ -z "$veth_loaded" ] && return
+
+	[ "$lease_dir_added" = 1 ] && rm -rf $lease_dir
+	rm -f $lease_file
 
 	stop_dhcp
 
@@ -89,9 +101,15 @@ cleanup()
 	[ "$veth_loaded" = "no" ] && lsmod | grep -q '^veth ' && rmmod veth
 }
 
+print_dhcp_log()
+{
+	[ -f "$log" ] && cat $log
+}
+
 test01()
 {
-	local wicked
+	local wicked_cfg="/etc/sysconfig/network/ifcfg-$iface1"
+	local wicked_cleanup
 
 	tst_res TINFO "testing DHCP server $dhcp_name: $(print_dhcp_version)"
 	tst_res TINFO "using DHCP client: $(dhclient --version 2>&1)"
@@ -113,26 +131,41 @@ test01()
 
 	if [ $HAVE_SYSTEMCTL -eq 1 ] && \
 		systemctl --no-pager -p Id show network.service | grep -q Id=wicked.service; then
-		tst_res TINFO "temporarily disabling wicked"
-		wicked=1
-		systemctl disable wicked
+		tst_res TINFO "wicked is running, don't start dhclient"
+		if [ ! -f "$wicked_cfg" ]; then
+			cat <<EOF > $wicked_cfg
+BOOTPROTO='dhcp'
+NAME='LTP card'
+STARTMODE='auto'
+USERCONTROL='no'
+EOF
+			wicked_cleanup=1
+		else
+			tst_res TINFO "wicked config file $wicked_cfg already exist"
+		fi
+
+		tst_res TINFO "restarting wicked"
+		systemctl restart wicked
+	else
+		tst_res TINFO "starting dhclient -$TST_IPVER $iface1"
+		dhclient -$TST_IPVER $iface1 || tst_brk TBROK "dhclient failed"
 	fi
-	tst_res TINFO "starting dhclient -$TST_IPVER $iface1"
-	dhclient -$TST_IPVER $iface1 || tst_brk TBROK "dhclient failed"
 
 	# check that we get configured ip address
-	ip addr show $iface1 | grep $ip_addr_check > /dev/null
+	ip addr show $iface1 | grep -q $ip_addr_check
 	if [ $? -eq 0 ]; then
 		tst_res TPASS "'$ip_addr_check' configured by DHCPv$TST_IPVER"
 	else
-		tst_res TFAIL "'$ip_addr_check' not configured by DHCPv$TST_IPVER"
-		print_dhcp_log
+		if ip addr show $iface1 | grep -q $ip_addr_check_noprefix; then
+			tst_res TFAIL "'$ip_addr_check_noprefix' configured but has wrong prefix, expect '$ip_addr_check'"
+			ip addr show $iface1
+		else
+			tst_res TFAIL "'$ip_addr_check' not configured by DHCPv$TST_IPVER"
+			print_dhcp_log
+		fi
 	fi
 
-	if [ "$wicked" ]; then
-		tst_res TINFO "reenabling wicked"
-		systemctl enable wicked
-	fi
+	[ "$wicked_cleanup" ] && rm -f $wicked_cfg
 
 	stop_dhcp
 }

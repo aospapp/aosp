@@ -32,7 +32,7 @@ public abstract class GlobalsApplication extends Application implements Globals.
     @Override
     public @NonNull ImageLoader getImageLoader() {
         if (mImageLoader == null) {
-            mImageLoader = new ImageLoader(getExecutor());
+            mImageLoader = new ImageLoader(getContentResolver(), getExecutor());
         }
         return mImageLoader;
     }

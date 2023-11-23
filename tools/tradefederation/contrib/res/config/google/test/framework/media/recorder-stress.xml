@@ -5,6 +5,8 @@
 
     <!-- com.google.android.tradefed.targetprep.GoogleDeviceSetup -->
     <option name="google-device-setup:local-data-path" value="/google/data/ro/teams/tradefed/testdata/media/media_api/" />
+    <option name="google-device-setup:set-property" key="persist.sys.isolated_storage" value="false" />
+    <option name="google-device-setup:set-property" key="sys.isolated_storage_snapshot" value="false" />
 
     <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
         <option name="test-file-name" value="mediaframeworktest.apk" />

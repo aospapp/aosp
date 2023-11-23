@@ -21,6 +21,8 @@ import time
 import its.cv2image
 import numpy as np
 
+LOAD_SCENE_DELAY = 2  # seconds
+
 
 def main():
     """Load charts on device and display."""
@@ -51,10 +53,10 @@ def main():
     dst_scene_file = '/sdcard/Download/%s.pdf' % scene
     chart_scaling = its.cv2image.calc_chart_scaling(chart_distance, camera_fov)
     if np.isclose(chart_scaling, its.cv2image.SCALE_TELE_IN_WFOV_BOX, atol=0.01):
-        file_name = '%s_%s_scaled.pdf' % (
+        file_name = '%s_%sx_scaled.pdf' % (
                 scene, str(its.cv2image.SCALE_TELE_IN_WFOV_BOX))
     elif np.isclose(chart_scaling, its.cv2image.SCALE_RFOV_IN_WFOV_BOX, atol=0.01):
-        file_name = '%s_%s_scaled.pdf' % (
+        file_name = '%s_%sx_scaled.pdf' % (
                 scene, str(its.cv2image.SCALE_RFOV_IN_WFOV_BOX))
     else:
         file_name = '%s.pdf' % scene
@@ -63,7 +65,7 @@ def main():
     cmd = 'adb -s %s push %s /mnt%s' % (screen_id, src_scene_file,
                                         dst_scene_file)
     subprocess.Popen(cmd.split())
-    time.sleep(1)  # wait-for-device doesn't always seem to work...
+    time.sleep(LOAD_SCENE_DELAY)  # wait-for-device doesn't always seem to work
     # The intent require PDF viewing app be installed on device.
     # Also the first time such app is opened it might request some permission,
     # so it's  better to grant those permissions before using this script

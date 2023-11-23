@@ -19,6 +19,7 @@ package android.jni.cts;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.Build;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -45,7 +46,6 @@ class LinkerNamespacesHelper {
     private final static Pattern EXTENSION_CONFIG_FILE_PATTERN = Pattern.compile(
             "public\\.libraries-([A-Za-z0-9\\-_.]+)\\.txt");
     private final static String VENDOR_CONFIG_FILE = "/vendor/etc/public.libraries.txt";
-    private final static String RUNTIME_APEX_DIR = "/apex/com.android.runtime";
     private final static String[] PUBLIC_SYSTEM_LIBRARIES = {
         "libaaudio.so",
         "libamidi.so",
@@ -73,8 +73,13 @@ class LinkerNamespacesHelper {
         "libz.so"
     };
 
-    // Libraries listed in public.libraries.android.txt, located in RUNTIME_APEX_DIR path
-    private final static String[] PUBLIC_RUNTIME_LIBRARIES = {
+    // System libraries that may exist in some types of builds.
+    private final static String[] OPTIONAL_SYSTEM_LIBRARIES = {
+      "libclang_rt.hwasan-aarch64-android.so"
+    };
+
+    // Libraries listed in public.libraries.android.txt, located in /apex/com.android.art/${LIB}
+    private final static String[] PUBLIC_ART_LIBRARIES = {
         "libicui18n.so",
         "libicuuc.so",
     };
@@ -100,17 +105,47 @@ class LinkerNamespacesHelper {
 
     private final static String WEBVIEW_PLAT_SUPPORT_LIB = "libwebviewchromium_plat_support.so";
 
+    static enum Bitness { ALL, ONLY_32, ONLY_64 }
+
     private static List<String> readPublicLibrariesFile(File file) throws IOException {
         List<String> libs = new ArrayList<>();
         if (file.exists()) {
             try (BufferedReader br = new BufferedReader(new FileReader(file))) {
                 String line;
+                final boolean is64Bit = android.os.Process.is64Bit();
                 while ((line = br.readLine()) != null) {
                     line = line.trim();
                     if (line.isEmpty() || line.startsWith("#")) {
                         continue;
                     }
-                    libs.add(line);
+                    String[] tokens = line.split(" ");
+                    if (tokens.length < 1 || tokens.length > 3) {
+                        throw new RuntimeException("Malformed line: '" + line + "' in " + file);
+                    }
+                    String soname = tokens[0];
+                    Bitness bitness = Bitness.ALL;
+                    int i = tokens.length;
+                    while(--i >= 1) {
+                        if (tokens[i].equals("nopreload")) {
+                            continue;
+                        }
+                        else if (tokens[i].equals("32") || tokens[i].equals("64")) {
+                            if (bitness != Bitness.ALL) {
+                                throw new RuntimeException("Malformed line: '" + line +
+                                        "' in " + file + ". Bitness can be specified only once");
+                            }
+                            bitness = tokens[i].equals("32") ? Bitness.ONLY_32 : Bitness.ONLY_64;
+                        } else {
+                            throw new RuntimeException("Unrecognized token '" + tokens[i] +
+                                  "' in " + file);
+                        }
+                    }
+                    if ((is64Bit && bitness == Bitness.ONLY_32) ||
+                        (!is64Bit && bitness == Bitness.ONLY_64)) {
+                        // skip unsupported bitness
+                        continue;
+                    }
+                    libs.add(soname);
                 }
             }
         }
@@ -135,11 +170,6 @@ class LinkerNamespacesHelper {
                 // libFoo.acme.so
                 List<String> libNames = readPublicLibrariesFile(configFile);
                 for (String lib : libNames) {
-                    int space = lib.lastIndexOf(' ');
-                    if (space != -1) {
-                      // Drop 64 or 32 from 'libFoo.so 64'
-                      lib = lib.substring(0, space);
-                    }
                     if (lib.endsWith("." + companyName + ".so")) {
                         libs.add(lib);
                     } else {
@@ -154,16 +184,21 @@ class LinkerNamespacesHelper {
 
     public static String runAccessibilityTest() throws IOException {
         List<String> systemLibs = new ArrayList<>();
-        List<String> runtimeApexLibs = new ArrayList<>();
+        List<String> artApexLibs = new ArrayList<>();
 
         Collections.addAll(systemLibs, PUBLIC_SYSTEM_LIBRARIES);
+        Collections.addAll(systemLibs, OPTIONAL_SYSTEM_LIBRARIES);
+	// System path could contain public ART libraries on foreign arch. http://b/149852946
+        if (isForeignArchitecture()) {
+            Collections.addAll(systemLibs, PUBLIC_ART_LIBRARIES);
+        }
 
         if (InstrumentationRegistry.getContext().getPackageManager().
                 hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
             systemLibs.add(WEBVIEW_PLAT_SUPPORT_LIB);
         }
 
-        Collections.addAll(runtimeApexLibs, PUBLIC_RUNTIME_LIBRARIES);
+        Collections.addAll(artApexLibs, PUBLIC_ART_LIBRARIES);
 
         // Check if public.libraries.txt contains libs other than the
         // public system libs (NDK libs).
@@ -197,7 +232,7 @@ class LinkerNamespacesHelper {
         }
 
         return runAccessibilityTestImpl(systemLibs.toArray(new String[systemLibs.size()]),
-                                        runtimeApexLibs.toArray(new String[runtimeApexLibs.size()]),
+                                        artApexLibs.toArray(new String[artApexLibs.size()]),
                                         vendorLibs.toArray(new String[vendorLibs.size()]),
                                         productLibs.toArray(new String[productLibs.size()]));
     }
@@ -350,17 +385,49 @@ class LinkerNamespacesHelper {
         return null;
     }
 
-    public static String runDlopenPublicLibrariesInRuntimeNamespace() {
-        for (String lib : PUBLIC_RUNTIME_LIBRARIES) {
-            String error = LinkerNamespacesHelper.tryDlopen(lib);
-            if (error != null) {
-                return error;
+    public static String runDlopenPublicLibraries() {
+        String error;
+        try {
+            List<String> publicLibs = new ArrayList<>();
+            Collections.addAll(publicLibs, PUBLIC_SYSTEM_LIBRARIES);
+            Collections.addAll(publicLibs, PUBLIC_ART_LIBRARIES);
+            error = readExtensionConfigFiles(PUBLIC_CONFIG_DIR, publicLibs);
+            if (error != null) return error;
+            error = readExtensionConfigFiles(PRODUCT_CONFIG_DIR, publicLibs);
+            if (error != null) return error;
+            publicLibs.addAll(readPublicLibrariesFile(new File(VENDOR_CONFIG_FILE)));
+            for (String lib : publicLibs) {
+                String result = LinkerNamespacesHelper.tryDlopen(lib);
+                if (result != null) {
+                    if (error == null) {
+                        error = "";
+                    }
+                    error += result + "\n";
+                }
             }
+        } catch (IOException e) {
+            return e.toString();
         }
-        return null;
+        return error;
     }
 
     public static native String tryDlopen(String lib);
+
+    private static boolean isForeignArchitecture() {
+        int libAbi = getLibAbi();
+        String cpuAbi = android.os.SystemProperties.get("ro.product.cpu.abi");
+        if ((libAbi == 1 || libAbi == 2) && !cpuAbi.startsWith("arm")) {
+            return true;
+        } else if ((libAbi == 3 || libAbi == 4) && !cpuAbi.startsWith("x86")) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return ABI type of the JNI library. 1: ARM64, 2:ARM, 3: x86_64, 4: x86, 0: others
+     */
+    private static native int getLibAbi();
 }
 
 class ClassNamespaceA1 {

@@ -18,10 +18,6 @@
 #ifndef __INSTALLOC_H__
 #define __INSTALLOC_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include "LVM_Types.h"
 /*######################################################################################*/
 /*  Type declarations                                                                   */
@@ -31,7 +27,6 @@ typedef struct
     LVM_UINT32              TotalSize;      /*  Accumulative total memory size                      */
     uintptr_t               pNextMember;    /*  Pointer to the next instance member to be allocated */
 }   INST_ALLOC;
-
 
 /*######################################################################################*/
 /*  Function prototypes                                                          */
@@ -47,7 +42,6 @@ typedef struct
  ****************************************************************************************/
 
 void   InstAlloc_Init( INST_ALLOC *pms, void *StartAddr );
-
 
 /****************************************************************************************
  *  Name        : InstAlloc_AddMember()
@@ -84,9 +78,5 @@ void    InstAlloc_InitAll( INST_ALLOC                      *pms,
                            LVM_MemoryTable_st             *pMemoryTable);
 
 void    InstAlloc_InitAll_NULL( INST_ALLOC              *pms);
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
 
 #endif /* __JBS_INSTALLOC_H__ */

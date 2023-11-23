@@ -40,6 +40,7 @@
 #include "vkTypeUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuTextureUtil.hpp"
 #include "tcuTexture.hpp"
@@ -969,6 +970,9 @@ void BasicComputeTestInstance::createImageInfos (ImageData& imageData, const vec
 	else
 	{
 		UVec3 size = m_parameters.size;
+		if (m_parameters.imageType == IMAGE_TYPE_1D) {
+			size.y() = 1;
+		}
 		size.z() = 1;
 		const VkExtent3D originalResolutionInBlocks = makeExtent3D(getCompressedImageResolutionInBlocks(m_parameters.formatCompressed, size));
 
@@ -1022,7 +1026,7 @@ bool BasicComputeTestInstance::decompressImage (const VkCommandBuffer&	cmdBuffer
 	{
 		const bool						layoutShaderReadOnly	= (layerNdx % 2u) == 1;
 		const deUint32					imageNdx				= layerNdx + mipNdx * getLayerCount();
-		const VkExtent3D				extentCompressed		= makeExtent3D(mipMapSizes[mipNdx]);
+		const VkExtent3D				extentCompressed		= imageType == VK_IMAGE_TYPE_1D ? makeExtent3D(mipMapSizes[mipNdx].x(), 1, mipMapSizes[mipNdx].z()) : makeExtent3D(mipMapSizes[mipNdx]);
 		const VkImage&					uncompressed			= imageData[m_parameters.imagesCount -1].getImage(imageNdx);
 		const VkExtent3D				extentUncompressed		= imageData[m_parameters.imagesCount -1].getImageInfo(imageNdx).extent;
 		const VkDeviceSize				bufferSizeComp			= getCompressedImageSizeInBytes(m_parameters.formatCompressed, mipMapSizes[mipNdx]);
@@ -1664,7 +1668,7 @@ void GraphicsAttachmentsTestInstance::transcodeRead ()
 	const Unique<VkShaderModule>		vertShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("vert"), 0));
 	const Unique<VkShaderModule>		fragShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("frag"), 0));
 
-	const Unique<VkRenderPass>			renderPass				(makeRenderPass(vk, device, m_parameters.formatUncompressed, m_parameters.formatUncompressed));
+	const Unique<VkRenderPass>			renderPass				(vkt::image::makeRenderPass(vk, device, m_parameters.formatUncompressed, m_parameters.formatUncompressed));
 
 	const Move<VkDescriptorSetLayout>	descriptorSetLayout		(DescriptorSetLayoutBuilder()
 																	.addSingleBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -1721,7 +1725,7 @@ void GraphicsAttachmentsTestInstance::transcodeRead ()
 
 			const VkImageView				attachmentBindInfos[]	= { *srcImageView, *dstImageView };
 			const VkExtent2D				framebufferSize			(makeExtent2D(dstImageResolution[0], dstImageResolution[1]));
-			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, DE_LENGTH_OF_ARRAY(attachmentBindInfos), attachmentBindInfos, framebufferSize, SINGLE_LAYER));
+			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, DE_LENGTH_OF_ARRAY(attachmentBindInfos), attachmentBindInfos, framebufferSize.width, framebufferSize.height, SINGLE_LAYER));
 
 			// Upload source image data
 			const Allocation& alloc = srcImageBuffer->getAllocation();
@@ -1798,7 +1802,7 @@ void GraphicsAttachmentsTestInstance::transcodeWrite ()
 	const Unique<VkShaderModule>		vertShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("vert"), 0));
 	const Unique<VkShaderModule>		fragShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("frag"), 0));
 
-	const Unique<VkRenderPass>			renderPass				(makeRenderPass(vk, device, m_parameters.formatUncompressed, m_parameters.formatUncompressed));
+	const Unique<VkRenderPass>			renderPass				(vkt::image::makeRenderPass(vk, device, m_parameters.formatUncompressed, m_parameters.formatUncompressed));
 
 	const Move<VkDescriptorSetLayout>	descriptorSetLayout		(DescriptorSetLayoutBuilder()
 																	.addSingleBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -1855,7 +1859,7 @@ void GraphicsAttachmentsTestInstance::transcodeWrite ()
 
 			const VkImageView				attachmentBindInfos[]	= { *srcImageView, *dstImageView };
 			const VkExtent2D				framebufferSize			(renderSize);
-			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, DE_LENGTH_OF_ARRAY(attachmentBindInfos), attachmentBindInfos, framebufferSize, SINGLE_LAYER));
+			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, DE_LENGTH_OF_ARRAY(attachmentBindInfos), attachmentBindInfos, framebufferSize.width, framebufferSize.height, SINGLE_LAYER));
 
 			// Upload source image data
 			const Allocation& alloc = srcImageBuffer->getAllocation();
@@ -1940,6 +1944,9 @@ VkImageCreateInfo GraphicsAttachmentsTestInstance::makeCreateImageInfo (const Vk
 		TCU_THROW(NotSupportedError, "Format storage feature not supported");
 	if ((usageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) && !(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT))
 		TCU_THROW(NotSupportedError, "Format color attachment feature not supported");
+	if ((usageFlags & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) && !(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) &&
+		!(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT))
+		TCU_THROW(NotSupportedError, "Format color/depth/stencil attachment feature not supported for input attachment usage");
 
 	const VkImageCreateInfo createImageInfo =
 	{
@@ -2046,7 +2053,7 @@ bool GraphicsAttachmentsTestInstance::verifyDecompression (const std::vector<deU
 	const Unique<VkShaderModule>		vertShaderModule			(createShaderModule(vk, device, m_context.getBinaryCollection().get("vert"), 0));
 	const Unique<VkShaderModule>		fragShaderModule			(createShaderModule(vk, device, m_context.getBinaryCollection().get("frag_verify"), 0));
 
-	const Unique<VkRenderPass>			renderPass					(makeRenderPass(vk, device));
+	const Unique<VkRenderPass>			renderPass					(vk::makeRenderPass(vk, device));
 
 	const Move<VkDescriptorSetLayout>	descriptorSetLayout			(DescriptorSetLayoutBuilder()
 																		.addSingleBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -2083,7 +2090,7 @@ bool GraphicsAttachmentsTestInstance::verifyDecompression (const std::vector<deU
 	const VkImageMemoryBarrier			refSrcCopyImageBarrierPost	= makeImageMemoryBarrier(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, layoutShaderReadOnly ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL, refSrcImage->get(), subresourceRange);
 	const VkImageMemoryBarrier			resCompressedImageBarrier	= makeImageMemoryBarrier(0, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, layoutShaderReadOnly ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL, resCompressedImage->get(), resSubresourceRange);
 
-	const Move<VkFramebuffer>			framebuffer					(makeFramebuffer(vk, device, *renderPass, 0, DE_NULL, renderSize, getLayerCount()));
+	const Move<VkFramebuffer>			framebuffer					(makeFramebuffer(vk, device, *renderPass, 0, DE_NULL, renderSize.width, renderSize.height, getLayerCount()));
 
 	// Upload source image data
 	{
@@ -2242,7 +2249,7 @@ void GraphicsTextureTestInstance::transcodeRead ()
 	const Unique<VkShaderModule>		vertShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("vert"), 0));
 	const Unique<VkShaderModule>		fragShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("frag"), 0));
 
-	const Unique<VkRenderPass>			renderPass				(makeRenderPass(vk, device));
+	const Unique<VkRenderPass>			renderPass				(vk::makeRenderPass(vk, device));
 
 	const Move<VkDescriptorSetLayout>	descriptorSetLayout		(DescriptorSetLayoutBuilder()
 																	.addSingleBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -2305,7 +2312,7 @@ void GraphicsTextureTestInstance::transcodeRead ()
 			const VkImageMemoryBarrier		dstInitImageBarrier		= makeImageMemoryBarrier(0u, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, dstImage->get(), dstSubresourceRange);
 
 			const VkExtent2D				framebufferSize			(makeExtent2D(dstImageResolution[0], dstImageResolution[1]));
-			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, 0, DE_NULL, framebufferSize, SINGLE_LAYER));
+			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, 0, DE_NULL, framebufferSize.width, framebufferSize.height, SINGLE_LAYER));
 
 			// Upload source image data
 			const Allocation& alloc = srcImageBuffer->getAllocation();
@@ -2382,7 +2389,7 @@ void GraphicsTextureTestInstance::transcodeWrite ()
 	const Unique<VkShaderModule>		vertShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("vert"), 0));
 	const Unique<VkShaderModule>		fragShaderModule		(createShaderModule(vk, device, m_context.getBinaryCollection().get("frag"), 0));
 
-	const Unique<VkRenderPass>			renderPass				(makeRenderPass(vk, device));
+	const Unique<VkRenderPass>			renderPass				(vk::makeRenderPass(vk, device));
 
 	const Move<VkDescriptorSetLayout>	descriptorSetLayout		(DescriptorSetLayoutBuilder()
 																	.addSingleBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -2445,7 +2452,7 @@ void GraphicsTextureTestInstance::transcodeWrite ()
 			const VkImageMemoryBarrier		dstInitImageBarrier		= makeImageMemoryBarrier(0u, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, dstImage->get(), dstSubresourceRange);
 
 			const VkExtent2D				framebufferSize			(makeExtent2D(dstImageResolution[0], dstImageResolution[1]));
-			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, 0, DE_NULL, framebufferSize, SINGLE_LAYER));
+			const Move<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, 0, DE_NULL, framebufferSize.width, framebufferSize.height, SINGLE_LAYER));
 
 			// Upload source image data
 			const Allocation& alloc = srcImageBuffer->getAllocation();
@@ -2515,6 +2522,7 @@ public:
 														 const TestParameters&		parameters);
 	void					initPrograms				(SourceCollections&			programCollection) const;
 	TestInstance*			createInstance				(Context&					context) const;
+	virtual void			checkSupport				(Context&					context) const;
 protected:
 	const TestParameters	m_parameters;
 };
@@ -2601,13 +2609,13 @@ void TexelViewCompatibleCase::initPrograms (vk::SourceCollections&	programCollec
 					{
 						// IMAGE_TYPE_1D
 						"    const int     pos = int(gl_GlobalInvocationID.x);\n"
-						"    const float coord = float(gl_GlobalInvocationID.x) / pixels_resolution.x;\n",
+						"    const float coord = (float(gl_GlobalInvocationID.x) + 0.5) / pixels_resolution.x;\n",
 						// IMAGE_TYPE_2D
 						"    const ivec2  pos = ivec2(gl_GlobalInvocationID.xy);\n"
-						"    const vec2 coord = vec2(gl_GlobalInvocationID.xy) / vec2(pixels_resolution);\n",
+						"    const vec2 coord = (vec2(gl_GlobalInvocationID.xy) + 0.5) / vec2(pixels_resolution);\n",
 						// IMAGE_TYPE_3D
 						"    const ivec3  pos = ivec3(gl_GlobalInvocationID.xy, 0);\n"
-						"    const vec2    v2 = vec2(gl_GlobalInvocationID.xy) / vec2(pixels_resolution);\n"
+						"    const vec2    v2 = (vec2(gl_GlobalInvocationID.xy) + 0.5) / vec2(pixels_resolution);\n"
 						"    const vec3 coord = vec3(v2, 0.0);\n",
 					};
 
@@ -2615,7 +2623,7 @@ void TexelViewCompatibleCase::initPrograms (vk::SourceCollections&	programCollec
 						<< "layout (binding = 1, "<<formatQualifierStr<<") writeonly uniform "<<imageTypeStr<<" u_image1;\n\n"
 						<< "void main (void)\n"
 						<< "{\n"
-						<< "    const vec2 pixels_resolution = vec2(gl_NumWorkGroups.x - 1, gl_NumWorkGroups.y - 1);\n"
+						<< "    const vec2 pixels_resolution = vec2(gl_NumWorkGroups.x, gl_NumWorkGroups.y);\n"
 						<< coordDefinitions[imageTypeIndex]
 						<< "    imageStore(u_image1, pos, texture(u_image0, coord));\n"
 						<< "}\n";
@@ -2742,16 +2750,16 @@ void TexelViewCompatibleCase::initPrograms (vk::SourceCollections&	programCollec
 						{
 							// IMAGE_TYPE_1D
 							"    const highp int out_pos = int(gl_FragCoord.x);\n"
-							"    const highp int pixels_resolution = textureSize(u_imageIn, 0) - 1;\n"
-							"    const highp float in_pos = float(out_pos) / pixels_resolution;\n",
+							"    const highp float pixels_resolution = textureSize(u_imageIn, 0);\n"
+							"    const highp float in_pos = gl_FragCoord.x / pixels_resolution;\n",
 							// IMAGE_TYPE_2D
 							"    const ivec2 out_pos = ivec2(gl_FragCoord.xy);\n"
-							"    const ivec2 pixels_resolution = ivec2(textureSize(u_imageIn, 0)) - ivec2(1,1);\n"
-							"    const vec2 in_pos = vec2(out_pos) / vec2(pixels_resolution);\n",
+							"    const vec2 pixels_resolution = vec2(textureSize(u_imageIn, 0));\n"
+							"    const vec2 in_pos = vec2(gl_FragCoord.xy) / vec2(pixels_resolution);\n",
 							// IMAGE_TYPE_3D
 							"    const ivec3 out_pos = ivec3(gl_FragCoord.xy, 0);\n"
-							"    const ivec3 pixels_resolution = ivec3(textureSize(u_imageIn, 0)) - ivec3(1,1,1);\n"
-							"    const vec3 in_pos = vec3(out_pos) / vec3(pixels_resolution.xy, 1.0);\n",
+							"    const vec3 pixels_resolution = vec3(textureSize(u_imageIn, 0));\n"
+							"    const vec3 in_pos = vec3(gl_FragCoord.xy, 0) / vec3(pixels_resolution.xy, 1.0);\n",
 						};
 
 						src << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450) << "\n\n"
@@ -2786,28 +2794,28 @@ void TexelViewCompatibleCase::initPrograms (vk::SourceCollections&	programCollec
 				{
 					// IMAGE_TYPE_1D
 					"    const highp int out_pos = int(gl_FragCoord.x);\n"
-					"    const highp int pixels_resolution0 = textureSize(u_imageIn0, 0) - 1;\n"
-					"    const highp float in_pos0 = float(out_pos) / pixels_resolution0;\n",
+					"    const highp float pixels_resolution0 = textureSize(u_imageIn0, 0);\n"
+					"    const highp float in_pos0 = gl_FragCoord.x / pixels_resolution0;\n",
 					// IMAGE_TYPE_2D
 					"    const ivec2 out_pos = ivec2(gl_FragCoord.xy);\n"
-					"    const ivec2 pixels_resolution0 = ivec2(textureSize(u_imageIn0, 0)) - ivec2(1,1);\n"
-					"    const vec2 in_pos0 = vec2(out_pos) / vec2(pixels_resolution0);\n",
+					"    const vec2 pixels_resolution0 = vec2(textureSize(u_imageIn0, 0));\n"
+					"    const vec2 in_pos0 = vec2(gl_FragCoord.xy) / vec2(pixels_resolution0);\n",
 					// IMAGE_TYPE_3D
 					"    const ivec3 out_pos = ivec3(ivec2(gl_FragCoord.xy), 0);\n"
-					"    const ivec3 pixels_resolution0 = ivec3(textureSize(u_imageIn0, 0)) - ivec3(1,1,1);\n"
-					"    const vec3 in_pos0 = vec3(out_pos) / vec3(pixels_resolution0);\n",
+					"    const vec3 pixels_resolution0 = vec3(textureSize(u_imageIn0, 0));\n"
+					"    const vec3 in_pos0 = vec3(gl_FragCoord.xy, 0) / vec3(pixels_resolution0.xy, 1.0);\n",
 				};
 				const char* pos1Definitions[3] =
 				{
 					// IMAGE_TYPE_1D
-					"    const highp int pixels_resolution1 = textureSize(u_imageIn1, 0) - 1;\n"
-					"    const highp float in_pos1 = float(out_pos) / pixels_resolution1;\n",
+					"    const highp float pixels_resolution1 = textureSize(u_imageIn1, 0);\n"
+					"    const highp float in_pos1 = gl_FragCoord.x / pixels_resolution1;\n",
 					// IMAGE_TYPE_2D
-					"    const ivec2 pixels_resolution1 = ivec2(textureSize(u_imageIn1, 0)) - ivec2(1,1);\n"
-					"    const vec2 in_pos1 = vec2(out_pos) / vec2(pixels_resolution1);\n",
+					"    const vec2 pixels_resolution1 = vec2(textureSize(u_imageIn1, 0));\n"
+					"    const vec2 in_pos1 = vec2(gl_FragCoord.xy) / vec2(pixels_resolution1);\n",
 					// IMAGE_TYPE_3D
-					"    const ivec3 pixels_resolution1 = ivec3(textureSize(u_imageIn1, 0)) - ivec3(1,1,1);\n"
-					"    const vec3 in_pos1 = vec3(out_pos) / vec3(pixels_resolution1);\n",
+					"    const vec3 pixels_resolution1 = vec3(textureSize(u_imageIn1, 0));\n"
+					"    const vec3 in_pos1 = vec3(gl_FragCoord.xy, 0) / vec3(pixels_resolution1.xy, 1.0);\n",
 				};
 
 				src << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450) << "\n\n"
@@ -2836,40 +2844,31 @@ void TexelViewCompatibleCase::initPrograms (vk::SourceCollections&	programCollec
 	}
 }
 
-TestInstance* TexelViewCompatibleCase::createInstance (Context& context) const
+void TexelViewCompatibleCase::checkSupport (Context& context) const
 {
 	const VkPhysicalDevice			physicalDevice			= context.getPhysicalDevice();
 	const InstanceInterface&		vk						= context.getInstanceInterface();
 
-	if (!m_parameters.useMipmaps)
-	{
-		DE_ASSERT(getNumLayers(m_parameters.imageType, m_parameters.size)     == 1u);
-	}
-
-	DE_ASSERT(getLayerSize(m_parameters.imageType, m_parameters.size).x() >  0u);
-	DE_ASSERT(getLayerSize(m_parameters.imageType, m_parameters.size).y() >  0u);
-
-	if (!isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_maintenance2"))
-		TCU_THROW(NotSupportedError, "Extension VK_KHR_maintenance2 not supported");
+	context.requireDeviceFunctionality("VK_KHR_maintenance2");
 
 	{
 		VkImageFormatProperties imageFormatProperties;
 
-		if (VK_ERROR_FORMAT_NOT_SUPPORTED == vk.getPhysicalDeviceImageFormatProperties(physicalDevice, m_parameters.formatUncompressed,
-												mapImageType(m_parameters.imageType), VK_IMAGE_TILING_OPTIMAL,
-												m_parameters.uncompressedImageUsage, 0u, &imageFormatProperties))
+		if (vk.getPhysicalDeviceImageFormatProperties(physicalDevice, m_parameters.formatUncompressed,
+													  mapImageType(m_parameters.imageType), VK_IMAGE_TILING_OPTIMAL,
+													  m_parameters.uncompressedImageUsage, 0u, &imageFormatProperties) == VK_ERROR_FORMAT_NOT_SUPPORTED)
 			TCU_THROW(NotSupportedError, "Operation not supported with this image format");
 
 		if (VK_ERROR_FORMAT_NOT_SUPPORTED == vk.getPhysicalDeviceImageFormatProperties(physicalDevice, m_parameters.formatCompressed,
 												mapImageType(m_parameters.imageType), VK_IMAGE_TILING_OPTIMAL,
-												VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+												m_parameters.compressedImageUsage,
 												VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT_KHR | VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT_KHR,
 												&imageFormatProperties))
 			TCU_THROW(NotSupportedError, "Operation not supported with this image format");
 	}
 
 	{
-		const VkPhysicalDeviceFeatures	physicalDeviceFeatures	= getPhysicalDeviceFeatures (vk, physicalDevice);
+		const VkPhysicalDeviceFeatures	physicalDeviceFeatures	= getPhysicalDeviceFeatures(vk, physicalDevice);
 
 		if (deInRange32(m_parameters.formatCompressed, VK_FORMAT_BC1_RGB_UNORM_BLOCK, VK_FORMAT_BC7_SRGB_BLOCK) &&
 			!physicalDeviceFeatures.textureCompressionBC)
@@ -2883,11 +2882,22 @@ TestInstance* TexelViewCompatibleCase::createInstance (Context& context) const
 			!physicalDeviceFeatures.textureCompressionASTC_LDR)
 			TCU_THROW(NotSupportedError, "textureCompressionASTC_LDR not supported");
 
-		if ((m_parameters.uncompressedImageUsage & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) &&
-			isStorageImageExtendedFormat(m_parameters.formatUncompressed) &&
-			!physicalDeviceFeatures.shaderStorageImageExtendedFormats)
-			TCU_THROW(NotSupportedError, "Storage view format requires shaderStorageImageExtended");
+		if (m_parameters.uncompressedImageUsage & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)
+		{
+			const VkFormatProperties p = getPhysicalDeviceFormatProperties(vk, physicalDevice, m_parameters.formatUncompressed);
+			if ((p.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) == 0)
+				TCU_THROW(NotSupportedError, "Storage view format not supported");
+		}
 	}
+}
+
+TestInstance* TexelViewCompatibleCase::createInstance (Context& context) const
+{
+	if (!m_parameters.useMipmaps)
+		DE_ASSERT(getNumLayers(m_parameters.imageType, m_parameters.size) == 1u);
+
+	DE_ASSERT(getLayerSize(m_parameters.imageType, m_parameters.size).x() > 0u);
+	DE_ASSERT(getLayerSize(m_parameters.imageType, m_parameters.size).y() > 0u);
 
 	switch (m_parameters.shader)
 	{

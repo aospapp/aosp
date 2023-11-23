@@ -122,6 +122,10 @@ class HardwareInterface {
   // Returns the timestamp of the current OS build.
   virtual int64_t GetBuildTimestamp() const = 0;
 
+  // Returns true if the current OS build allows installing the payload with an
+  // older timestamp.
+  virtual bool AllowDowngrade() const = 0;
+
   // Returns whether the first active ping was sent to Omaha at some point, and
   // that the value is persisted across recovery (and powerwash) once set with
   // |SetFirstActiveOmahaPingSent()|.
@@ -130,6 +134,10 @@ class HardwareInterface {
   // Persist the fact that first active ping was sent to omaha and returns false
   // if failed to persist it.
   virtual bool SetFirstActiveOmahaPingSent() = 0;
+
+  // If |warm_reset| is true, sets the warm reset to indicate a warm reset is
+  // needed on the next reboot. Otherwise, clears the flag.
+  virtual void SetWarmReset(bool warm_reset) = 0;
 };
 
 }  // namespace chromeos_update_engine

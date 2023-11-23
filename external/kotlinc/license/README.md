@@ -1,4 +1,4 @@
-The Apache 2 license (given in full in LICENSE.txt) applies to all code in this repository which is copyright
+The Apache 2 license (given in full in [LICENSE.txt](LICENSE.txt)) applies to all code in this repository which is copyright
 by JetBrains. The following sections of the repository contain third-party code, to which different licenses
 may apply:
 
@@ -65,11 +65,11 @@ the Kotlin IntelliJ IDEA plugin:
       - License: Apache 2 ([license/third_party/gwt_license.txt][gwt])
       - Origin: Derived from GWT, (C) 2007-08 Google Inc.
 
- - Path: libraries/stdlib/js/src/js/long.js
+ - Path: libraries/stdlib/js-v1/src/js/long.js
       - License: Apache 2 ([license/third_party/closure-compiler_LICENSE.txt][closure-compiler])
       - Origin: Google Closure Library, Copyright 2009 The Closure Library Authors
 
- - Path: libraries/stdlib/js/src/js/polyfills.js
+ - Path: libraries/stdlib/js-v1/src/js/polyfills.js
       - License: Boost Software License 1.0 ([license/third_party/boost_LICENSE.txt][boost])
       - Origin: Derived from boost special math functions, Copyright Eric Ford & Hubert Holin 2001.
 
@@ -181,6 +181,29 @@ any distributions of the tools or libraries:
       - License: Eclipse Public License v1.0 ([license/third_party/testdata/eclipse_license.txt][eclipse])
              and Eclipse Distribution License - v1.0 ([license/third_party/testdata/eclipse_distribution_license.txt][eclipse-distribution])
       - Origin: javax.persistence, Copyright (c) 2008, 2017 Sun Microsystems, Oracle Corporation.
+      
+ - Path: libraries/tools/kotlin-test-js-runner/karma-kotlin-reporter.js
+      - License: MIT ([license/third_party/karma_LICENSE.txt](third_party/karma_LICENSE.txt)
+             and [license/third_party/karma-teamcity-reporter_LICENSE.txt](third_party/karma-teamcity-reporter_LICENSE.txt))
+      - Origin: Copyright (C) 2011-2019 Google, Inc. and Copyright (C) 2011-2013 Vojta Jína and contributors.
+      
+ - Path: libraries/tools/kotlin-test-js-runner/mocha-kotlin-reporter.js
+      - License: MIT ([license/third_party/mocha-teamcity-reporter_LICENSE.txt](third_party/mocha-teamcity-reporter_LICENSE.txt))
+      - Origin: Copyright (c) 2016 Jamie Sherriff
+      
+ - Path: libraries/tools/kotlin-test-js-runner/src/utils.ts
+      - License: MIT ([license/third_party/teamcity-service-messages_LICENSE.txt](third_party/teamcity-service-messages_LICENSE.txt)
+             and [license/third_party/lodash_LICENSE.txt](third_party/lodash_LICENSE.txt))
+      - Origin: Copyright (c) 2013 Aaron Forsander and Copyright JS Foundation and other contributors <https://js.foundation/>
+      
+ - Path: libraries/tools/kotlin-test-js-runner/src/teamcity-format.js
+      - License: MIT ([license/third_party/mocha-teamcity-reporter_LICENSE.txt](third_party/mocha-teamcity-reporter_LICENSE.txt)
+             and [license/third_party/teamcity-service-messages_LICENSE.txt](third_party/teamcity-service-messages_LICENSE.txt))
+      - Origin: Copyright (c) 2016 Jamie Sherriff and Copyright (c) 2013 Aaron Forsander
+      
+ - Path: libraries/tools/kotlin-source-map-loader/kotlin-source-map-loader.js
+      - License: MIT ([license/third_party/source-map-loader_LICENSE.txt](third_party/source-map-loader_LICENSE.txt))
+      - Origin: Copyright JS Foundation and other contributors
 
 ## Example Code
 

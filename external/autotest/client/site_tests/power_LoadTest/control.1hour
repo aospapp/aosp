@@ -10,7 +10,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:power_loadtest_1hour, suite:power_sanity"
+ATTRIBUTES = "suite:power_loadtest_1hour, suite:power_sanity, suite:power_monitoring"
 
 DOC = """
 This test runs a load test consisting of cycling though web pages, playing

@@ -34,7 +34,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.PendingIntent;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.IPackageManager;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
@@ -65,7 +65,7 @@ public class AgingHelperTest {
     @Mock
     private AlarmManager mAlarmManager;
     @Mock
-    private IPackageManager mPackageManager;
+    private PackageManager mPackageManager;
     @Mock
     private AgingHelper.Callback mCallback;
     @Mock
@@ -89,7 +89,7 @@ public class AgingHelperTest {
         mUid = Process.myUid();
 
         ApplicationInfo info = mock(ApplicationInfo.class);
-        when(mPackageManager.getApplicationInfo(anyString(), anyInt(), anyInt()))
+        when(mPackageManager.getApplicationInfoAsUser(anyString(), anyInt(), any()))
                 .thenReturn(info);
         info.targetSdkVersion = Build.VERSION_CODES.P;
 

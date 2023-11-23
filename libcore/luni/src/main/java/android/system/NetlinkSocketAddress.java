@@ -16,9 +16,10 @@
 
 package android.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import libcore.util.Objects;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.net.SocketAddress;
+import libcore.util.Objects;
 
 /**
  * Netlink socket address.

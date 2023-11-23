@@ -13,7 +13,7 @@ from autotest_lib.client.cros.graphics import graphics_utils
 
 # to run this test manually on a test target
 # ssh root@machine
-# cd /usr/local/autotest/deps/glbench
+# cd /usr/local/glbench/bin
 # stop ui
 # ./windowmanagertest --screenshot1_sec 2 --screenshot2_sec 1 --cooldown_sec 1 \
 #    --screenshot1_cmd "screenshot screenshot1_generated.png" \
@@ -29,12 +29,6 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
 
     # None-init vars used by cleanup() here, in case setup() fails
     _services = None
-
-    def setup(self):
-        self.job.setup_dep(['glbench'])
-        dep = 'glbench'
-        dep_dir = os.path.join(self.autodir, 'deps', dep)
-        self.job.install_pkg(dep, 'dep', dep_dir)
 
     def cleanup(self):
         super(graphics_Sanity, self).cleanup()
@@ -69,7 +63,7 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
 
         w, h = graphics_utils.get_internal_resolution()
         megapixels = (w * h) / 1000000
-        filesize_threshold = 25 * megapixels
+        filesize_threshold = 15 * megapixels
         screenshot1 = graphics_utils.take_screenshot(self.resultsdir,
                                                      'oobe or signin')
 
@@ -89,9 +83,10 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
                 return
 
         raise error.TestFail(
-            'Screenshot filesize is very small. This indicates that '
-            'there is nothing on screen. This ChromeOS image could be '
-            'unusable. Check the screenshot in the results folder.')
+            'Screenshot filesize is smaller than expected(%s <= %s). This '
+            'indicates that there is nothing on screen. This ChromeOS image '
+            'could be unusable. Check the screenshot in the results folder.' %
+            (file_size_kb, filesize_threshold))
 
     def test_generated_screenshots_match_expectation(self):
         """Draws a texture with a soft ellipse twice and captures each image.
@@ -113,7 +108,7 @@ class graphics_Sanity(graphics_utils.GraphicsTest):
         screenshot2_resized = os.path.join(self.resultsdir,
                                            'screenshot2_generated_resized.png')
 
-        exefile = os.path.join(self.autodir, 'deps/glbench/windowmanagertest')
+        exefile = os.path.join('/usr/local/', 'glbench', 'bin', 'windowmanagertest');
 
         # Delay before screenshot: 1 second has caused failures.
         options = ' --screenshot1_sec 2'

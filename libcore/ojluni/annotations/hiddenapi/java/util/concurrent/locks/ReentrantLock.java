@@ -35,7 +35,7 @@
 
 package java.util.concurrent.locks;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ReentrantLock implements java.util.concurrent.locks.Lock, java.io.Serializable {

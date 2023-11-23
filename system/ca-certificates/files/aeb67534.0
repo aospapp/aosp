@@ -34,7 +34,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
              (Negative)11:d4:c2:14:2b:de:21:eb:57:9d:53:fb:0c:22:3b:ff
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=ES, O=Agencia Catalana de Certificacio (NIF Q-0801176-I), OU=Serveis Publics de Certificacio, OU=Vegeu https://www.catcert.net/verarrel (c)03, OU=Jerarquia Entitats de Certificacio Catalanes, CN=EC-ACC
         Validity
             Not Before: Jan  7 23:00:00 2003 GMT
@@ -42,7 +42,7 @@ Certificate:
         Subject: C=ES, O=Agencia Catalana de Certificacio (NIF Q-0801176-I), OU=Serveis Publics de Certificacio, OU=Vegeu https://www.catcert.net/verarrel (c)03, OU=Jerarquia Entitats de Certificacio Catalanes, CN=EC-ACC
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:b3:22:c7:4f:e2:97:42:95:88:47:83:40:f6:1d:
                     17:f3:83:73:24:1e:51:f3:98:8a:c3:92:b8:ff:40:

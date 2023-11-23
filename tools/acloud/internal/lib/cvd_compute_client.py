@@ -45,7 +45,16 @@ from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import gcompute_client
 from acloud.internal.lib import utils
 
+
 logger = logging.getLogger(__name__)
+
+_METADATA_TO_UNSET = ["cvd_01_launch",
+                      "cvd_01_fetch_android_build_target",
+                      "cvd_01_fetch_android_bid",
+                      "cvd_01_fetch_system_bid",
+                      "cvd_01_fetch_system_build_target",
+                      "cvd_01_fetch_kernel_bid",
+                      "cvd_01_fetch_kernel_build_target"]
 
 
 class CvdComputeClient(android_compute_client.AndroidComputeClient):
@@ -61,8 +70,10 @@ class CvdComputeClient(android_compute_client.AndroidComputeClient):
     def CreateInstance(self, instance, image_name, image_project,
                        build_target=None, branch=None, build_id=None,
                        kernel_branch=None, kernel_build_id=None,
-                       blank_data_disk_size_gb=None, avd_spec=None,
-                       extra_scopes=None):
+                       kernel_build_target=None, blank_data_disk_size_gb=None,
+                       avd_spec=None, extra_scopes=None,
+                       system_build_target=None, system_branch=None,
+                       system_build_id=None):
         """Create a cuttlefish instance given stable host image and build id.
 
         Args:
@@ -75,9 +86,14 @@ class CvdComputeClient(android_compute_client.AndroidComputeClient):
             build_id: Build id, a string, e.g. "2263051", "P2804227"
             kernel_branch: Kernel branch name, e.g. "kernel-common-android-4.14"
             kernel_build_id: Kernel build id, a string, e.g. "223051", "P280427"
+            kernel_build_target: String, Kernel build target name.
             blank_data_disk_size_gb: Size of the blank data disk in GB.
             avd_spec: An AVDSpec instance.
             extra_scopes: A list of extra scopes to be passed to the instance.
+            system_build_target: Target name for the system image,
+                           e.g. "cf_x86_phone-userdebug"
+            system_branch: A String, branch name for the system image.
+            system_build_id: A string, build id for the system image.
         """
         self._CheckMachineSize()
 
@@ -102,15 +118,21 @@ class CvdComputeClient(android_compute_client.AndroidComputeClient):
         if kernel_branch and kernel_build_id:
             metadata["cvd_01_fetch_kernel_bid"] = "{branch}/{build_id}".format(
                 branch=kernel_branch, build_id=kernel_build_id)
-        metadata["cvd_01_launch"] = (self._launch_args
-                                     if self._launch_args else "1")
+        if kernel_build_target:
+            metadata["cvd_01_fetch_kernel_build_target"] = kernel_build_target
+        if system_build_target:
+            metadata["cvd_01_fetch_system_build_target"] = system_build_target
+        if system_branch and system_build_id:
+            metadata["cvd_01_fetch_system_bid"] = "{branch}/{build_id}".format(
+                branch=system_branch, build_id=system_build_id)
+        metadata["cvd_01_launch"] = self._GetLaunchCvdArgs(avd_spec)
 
-        # The cuttlefish-google tools changed the usage of this cvd_01_launch
-        # variable. For the local image, we remove the cvd_01_launch from
-        # metadata to tell server not to launch cvd  while instance is booted
-        # up.
+        # For the local image, we unset the _METADATA_TO_UNSET from
+        # metadata to tell server not to launch cvd and not to fetch image
+        # while instance is booted up.
         if avd_spec and avd_spec.image_source == constants.IMAGE_SRC_LOCAL:
-            metadata.pop("cvd_01_launch", None)
+            for meta in _METADATA_TO_UNSET:
+                metadata.pop(meta, None)
 
         if blank_data_disk_size_gb > 0:
             # Policy 'create_if_missing' would create a blank userdata disk if
@@ -130,8 +152,9 @@ class CvdComputeClient(android_compute_client.AndroidComputeClient):
             metadata["cvd_01_x_res"] = avd_spec.hw_property[constants.HW_X_RES]
             metadata["cvd_01_y_res"] = avd_spec.hw_property[constants.HW_Y_RES]
             metadata["cvd_01_dpi"] = avd_spec.hw_property[constants.HW_ALIAS_DPI]
-            metadata["cvd_01_blank_data_disk_size"] = avd_spec.hw_property[
-                constants.HW_ALIAS_DISK]
+            if constants.HW_ALIAS_DISK in avd_spec.hw_property:
+                metadata["cvd_01_blank_data_disk_size"] = avd_spec.hw_property[
+                    constants.HW_ALIAS_DISK]
             # Use another METADATA_DISPLAY to record resolution which will be
             # retrieved in acloud list cmd. We try not to use cvd_01_x_res
             # since cvd_01_xxx metadata is going to deprecated by cuttlefish.
@@ -145,22 +168,6 @@ class CvdComputeClient(android_compute_client.AndroidComputeClient):
             metadata["cvd_01_x_res"] = resolution[0]
             metadata["cvd_01_y_res"] = resolution[1]
 
-        # Add per-instance ssh key
-        if self._ssh_public_key_path:
-            rsa = self._LoadSshPublicKey(self._ssh_public_key_path)
-            logger.info("ssh_public_key_path is specified in config: %s, "
-                        "will add the key to the instance.",
-                        self._ssh_public_key_path)
-            metadata["sshKeys"] = "%s:%s" % (getpass.getuser(), rsa)
-        else:
-            logger.warning(
-                "ssh_public_key_path is not specified in config, "
-                "only project-wide key will be effective.")
-
-        # Add labels for giving the instances ability to be filter for
-        # acloud list/delete cmds.
-        labels = {constants.LABEL_CREATE_BY: getpass.getuser()}
-
         gcompute_client.ComputeClient.CreateInstance(
             self,
             instance=instance,
@@ -171,5 +178,35 @@ class CvdComputeClient(android_compute_client.AndroidComputeClient):
             machine_type=self._machine_type,
             network=self._network,
             zone=self._zone,
-            labels=labels,
             extra_scopes=extra_scopes)
+
+    def _GetLaunchCvdArgs(self, avd_spec):
+        """Define the launch_cvd args.
+
+        Set launch_cvd args with following priority.
+        -First: Set args from config.
+        -Second: Set args from cpu and memory settings.
+        -Third: Set args as "1" to don't pass any args.
+
+        Args:
+            avd_spec: An AVDSpec instance.
+
+        Returns:
+            String of launch_cvd args.
+        """
+        if self._launch_args:
+            return self._launch_args
+
+        if avd_spec:
+            cpu_arg = ""
+            mem_arg = ""
+            if constants.HW_ALIAS_CPUS in avd_spec.hw_property:
+                cpu_arg = ("-cpus=%s" %
+                           avd_spec.hw_property[constants.HW_ALIAS_CPUS])
+            if constants.HW_ALIAS_MEMORY in avd_spec.hw_property:
+                mem_arg = ("-memory_mb=%s" %
+                           avd_spec.hw_property[constants.HW_ALIAS_MEMORY])
+            if cpu_arg or mem_arg:
+                return cpu_arg + " " + mem_arg
+
+        return "1"

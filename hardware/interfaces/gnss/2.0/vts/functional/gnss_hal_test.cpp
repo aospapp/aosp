@@ -16,16 +16,20 @@
 
 #define LOG_TAG "GnssHalTest"
 
+#include <android/hidl/manager/1.2/IServiceManager.h>
 #include <gnss_hal_test.h>
+#include <gtest/gtest.h>
+#include <hidl/ServiceManagement.h>
 #include <chrono>
 #include "Utils.h"
+
+using ::android::hardware::hidl_string;
 
 using ::android::hardware::gnss::common::Utils;
 
 // Implementations for the main test class for GNSS HAL
 void GnssHalTest::SetUp() {
-    gnss_hal_ = ::testing::VtsHalHidlTargetTestBase::getService<IGnss>(
-        GnssHidlEnvironment::Instance()->getServiceName<IGnss>());
+    gnss_hal_ = IGnss::getService(GetParam());
     ASSERT_NE(gnss_hal_, nullptr);
 
     SetUpGnssCallback();
@@ -93,23 +97,24 @@ void GnssHalTest::SetPositionMode(const int min_interval_msec, const bool low_po
     EXPECT_TRUE(result);
 }
 
-bool GnssHalTest::StartAndCheckFirstLocation() {
+bool GnssHalTest::StartAndCheckFirstLocation(bool strict) {
     const auto result = gnss_hal_->start();
 
     EXPECT_TRUE(result.isOk());
     EXPECT_TRUE(result);
-
     /*
      * GnssLocationProvider support of AGPS SUPL & XtraDownloader is not available in VTS,
      * so allow time to demodulate ephemeris over the air.
      */
     const int kFirstGnssLocationTimeoutSeconds = 75;
+    int locationCalledCount = 0;
 
-    EXPECT_TRUE(gnss_cb_->location_cbq_.retrieve(gnss_cb_->last_location_,
-                                                 kFirstGnssLocationTimeoutSeconds));
-    int locationCalledCount = gnss_cb_->location_cbq_.calledCount();
-    EXPECT_EQ(locationCalledCount, 1);
-
+    if (strict) {
+        EXPECT_TRUE(gnss_cb_->location_cbq_.retrieve(gnss_cb_->last_location_,
+                                                     kFirstGnssLocationTimeoutSeconds));
+        locationCalledCount = gnss_cb_->location_cbq_.calledCount();
+        EXPECT_EQ(locationCalledCount, 1);
+    }
     if (locationCalledCount > 0) {
         // don't require speed on first fix
         CheckLocation(gnss_cb_->last_location_, false);
@@ -132,7 +137,7 @@ void GnssHalTest::StartAndCheckLocations(int count) {
 
     SetPositionMode(kMinIntervalMsec, kLowPowerMode);
 
-    EXPECT_TRUE(StartAndCheckFirstLocation());
+    EXPECT_TRUE(StartAndCheckFirstLocation(/* strict= */ true));
 
     for (int i = 1; i < count; i++) {
         EXPECT_TRUE(gnss_cb_->location_cbq_.retrieve(gnss_cb_->last_location_,
@@ -147,12 +152,33 @@ void GnssHalTest::StartAndCheckLocations(int count) {
     }
 }
 
+bool GnssHalTest::IsGnssHalVersion_2_0() const {
+    using ::android::hidl::manager::V1_2::IServiceManager;
+    sp<IServiceManager> manager = ::android::hardware::defaultServiceManager1_2();
+
+    bool hasGnssHalVersion_2_0 = false;
+    manager->listManifestByInterface(
+            "android.hardware.gnss@2.0::IGnss",
+            [&hasGnssHalVersion_2_0](const hidl_vec<hidl_string>& registered) {
+                hasGnssHalVersion_2_0 = registered.size() != 0;
+            });
+
+    bool hasGnssHalVersion_2_1 = false;
+    manager->listManifestByInterface(
+            "android.hardware.gnss@2.1::IGnss",
+            [&hasGnssHalVersion_2_1](const hidl_vec<hidl_string>& registered) {
+                hasGnssHalVersion_2_1 = registered.size() != 0;
+            });
+
+    return hasGnssHalVersion_2_0 && !hasGnssHalVersion_2_1;
+}
+
 GnssHalTest::GnssCallback::GnssCallback()
     : info_cbq_("system_info"),
       name_cbq_("name"),
       capabilities_cbq_("capabilities"),
       location_cbq_("location"),
-      sv_info_cbq_("sv_info") {}
+      sv_info_list_cbq_("sv_info") {}
 
 Return<void> GnssHalTest::GnssCallback::gnssSetSystemInfoCb(
         const IGnssCallback_1_0::GnssSystemInfo& info) {
@@ -204,7 +230,7 @@ Return<void> GnssHalTest::GnssCallback::gnssSvStatusCb(const IGnssCallback_1_0::
 Return<void> GnssHalTest::GnssCallback::gnssSvStatusCb_2_0(
         const hidl_vec<IGnssCallback_2_0::GnssSvInfo>& svInfoList) {
     ALOGI("gnssSvStatusCb_2_0. Size = %d", (int)svInfoList.size());
-    sv_info_cbq_.store(svInfoList);
+    sv_info_list_cbq_.store(svInfoList);
     return Void();
 }
 
@@ -220,4 +246,47 @@ Return<void> GnssHalTest::GnssMeasurementCorrectionsCallback::setCapabilitiesCb(
     ALOGI("GnssMeasurementCorrectionsCallback capabilities received %d", capabilities);
     capabilities_cbq_.store(capabilities);
     return Void();
+}
+
+GnssConstellationType_1_0 GnssHalTest::startLocationAndGetNonGpsConstellation() {
+    const int kLocationsToAwait = 3;
+
+    gnss_cb_->location_cbq_.reset();
+    StartAndCheckLocations(kLocationsToAwait);
+    const int location_called_count = gnss_cb_->location_cbq_.calledCount();
+
+    // Tolerate 1 less sv status to handle edge cases in reporting.
+    int sv_info_list_cbq_size = gnss_cb_->sv_info_list_cbq_.size();
+    EXPECT_GE(sv_info_list_cbq_size + 1, kLocationsToAwait);
+    ALOGD("Observed %d GnssSvStatus, while awaiting %d Locations (%d received)",
+          sv_info_list_cbq_size, kLocationsToAwait, location_called_count);
+
+    // Find first non-GPS constellation to blacklist. Exclude IRNSS in GnssConstellationType_2_0
+    // as blacklisting of this constellation is not supported in gnss@2.0.
+    const int kGnssSvStatusTimeout = 2;
+    GnssConstellationType_1_0 constellation_to_blacklist = GnssConstellationType_1_0::UNKNOWN;
+    for (int i = 0; i < sv_info_list_cbq_size; ++i) {
+        hidl_vec<IGnssCallback_2_0::GnssSvInfo> sv_info_list;
+        gnss_cb_->sv_info_list_cbq_.retrieve(sv_info_list, kGnssSvStatusTimeout);
+        for (IGnssCallback_2_0::GnssSvInfo sv_info : sv_info_list) {
+            if ((sv_info.v1_0.svFlag & IGnssCallback_2_0::GnssSvFlags::USED_IN_FIX) &&
+                (sv_info.constellation != GnssConstellationType_2_0::UNKNOWN) &&
+                (sv_info.constellation != GnssConstellationType_2_0::IRNSS) &&
+                (sv_info.constellation != GnssConstellationType_2_0::GPS)) {
+                // found a non-GPS V1_0 constellation
+                constellation_to_blacklist = Utils::mapConstellationType(sv_info.constellation);
+                break;
+            }
+        }
+        if (constellation_to_blacklist != GnssConstellationType_1_0::UNKNOWN) {
+            break;
+        }
+    }
+
+    if (constellation_to_blacklist == GnssConstellationType_1_0::UNKNOWN) {
+        ALOGI("No non-GPS constellations found, constellation blacklist test less effective.");
+        // Proceed functionally to blacklist something.
+        constellation_to_blacklist = GnssConstellationType_1_0::GLONASS;
+    }
+    return constellation_to_blacklist;
 }

@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -30,7 +32,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.eap.CredentialType}.
  */
 @SmallTest
-public class CredentialTypeTest {
+public class CredentialTypeTest extends WifiBaseTest {
     private static final int TEST_TYPE = CredentialType.CREDENTIAL_TYPE_USIM;
 
     /**

@@ -29,6 +29,10 @@ struct cras_iodev;
  *    conv_buffer_size_frames - Size of conv_buffer in frames.
  *    dev_rate - Sampling rate of device. This is set when dev_stream is
  *               created.
+ *    is_running - For input stream, it should be set to true after it is added
+ *                 into device. For output stream, it should be set to true
+ *                 just before its first fetch to avoid affecting other existing
+ *                 streams.
  */
 struct dev_stream {
 	unsigned int dev_id;
@@ -39,6 +43,7 @@ struct dev_stream {
 	unsigned int conv_buffer_size_frames;
 	size_t dev_rate;
 	struct dev_stream *prev, *next;
+	int is_running;
 };
 
 struct dev_stream *dev_stream_create(struct cras_rstream *stream,
@@ -63,10 +68,8 @@ void dev_stream_destroy(struct dev_stream *dev_stream);
  *        sample rate should adjust to.
  */
 void dev_stream_set_dev_rate(struct dev_stream *dev_stream,
-			     unsigned int dev_rate,
-			     double dev_rate_ratio,
-			     double master_rate_ratio,
-			     int coarse_rate_adjust);
+			     unsigned int dev_rate, double dev_rate_ratio,
+			     double master_rate_ratio, int coarse_rate_adjust);
 
 /*
  * Renders count frames from shm into dst.  Updates count if anything is
@@ -78,8 +81,7 @@ void dev_stream_set_dev_rate(struct dev_stream *dev_stream,
  *    num_to_write - The number of frames written.
  */
 int dev_stream_mix(struct dev_stream *dev_stream,
-		   const struct cras_audio_format *fmt,
-		   uint8_t *dst,
+		   const struct cras_audio_format *fmt, uint8_t *dst,
 		   unsigned int num_to_write);
 
 /*
@@ -91,9 +93,9 @@ int dev_stream_mix(struct dev_stream *dev_stream,
  *    software_gain_scaler - The software gain scaler.
  */
 unsigned int dev_stream_capture(struct dev_stream *dev_stream,
-			const struct cras_audio_area *area,
-			unsigned int area_offset,
-			float software_gain_scaler);
+				const struct cras_audio_area *area,
+				unsigned int area_offset,
+				float software_gain_scaler);
 
 /* Returns the number of iodevs this stream has attached to. */
 int dev_stream_attached_devs(const struct dev_stream *dev_stream);
@@ -120,6 +122,9 @@ unsigned int dev_stream_capture_avail(const struct dev_stream *dev_stream);
  */
 unsigned int dev_stream_cb_threshold(const struct dev_stream *dev_stream);
 
+/* Update next callback time for the stream. */
+void dev_stream_update_next_wake_time(struct dev_stream *dev_stream);
+
 /*
  * If enough samples have been captured, post them to the client.
  * TODO(dgreid) - see if this function can be eliminated.
@@ -130,13 +135,11 @@ int dev_stream_capture_update_rstream(struct dev_stream *dev_stream);
 int dev_stream_playback_update_rstream(struct dev_stream *dev_stream);
 
 /* Fill ts with the time the playback sample will be played. */
-void cras_set_playback_timestamp(size_t frame_rate,
-				 size_t frames,
+void cras_set_playback_timestamp(size_t frame_rate, size_t frames,
 				 struct cras_timespec *ts);
 
 /* Fill ts with the time the capture sample was recorded. */
-void cras_set_capture_timestamp(size_t frame_rate,
-				size_t frames,
+void cras_set_capture_timestamp(size_t frame_rate, size_t frames,
 				struct cras_timespec *ts);
 
 /* Fill shm ts with the time the playback sample will be played or the capture
@@ -147,9 +150,6 @@ void cras_set_capture_timestamp(size_t frame_rate,
  */
 void dev_stream_set_delay(const struct dev_stream *dev_stream,
 			  unsigned int delay_frames);
-
-/* Returns if it's okay to request playback samples for this stream. */
-int dev_stream_can_fetch(struct dev_stream *dev_stream);
 
 /* Ask the client for cb_threshold samples of audio to play. */
 int dev_stream_request_playback_samples(struct dev_stream *dev_stream,
@@ -171,10 +171,8 @@ int dev_stream_request_playback_samples(struct dev_stream *dev_stream,
  *   0 on success; negative error code on failure.
  *   A positive value if there is no need to set wake up time for this stream.
  */
-int dev_stream_wake_time(struct dev_stream *dev_stream,
-			 unsigned int curr_level,
-			 struct timespec *level_tstamp,
-			 unsigned int cap_limit,
+int dev_stream_wake_time(struct dev_stream *dev_stream, unsigned int curr_level,
+			 struct timespec *level_tstamp, unsigned int cap_limit,
 			 int is_cap_limit_stream,
 			 struct timespec *wake_time_out);
 
@@ -184,8 +182,18 @@ int dev_stream_wake_time(struct dev_stream *dev_stream,
  */
 int dev_stream_poll_stream_fd(const struct dev_stream *dev_stream);
 
+static inline int dev_stream_is_running(struct dev_stream *dev_stream)
+{
+	return dev_stream->is_running;
+}
+
+static inline void dev_stream_set_running(struct dev_stream *dev_stream)
+{
+	dev_stream->is_running = 1;
+}
+
 static inline const struct timespec *
-dev_stream_next_cb_ts(struct dev_stream *dev_stream)
+dev_stream_next_cb_ts(const struct dev_stream *dev_stream)
 {
 	if (dev_stream->stream->flags & USE_DEV_TIMING)
 		return NULL;

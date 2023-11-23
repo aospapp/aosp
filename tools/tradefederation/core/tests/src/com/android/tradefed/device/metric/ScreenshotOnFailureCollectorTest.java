@@ -15,8 +15,10 @@
  */
 package com.android.tradefed.device.metric;
 
+import com.android.ddmlib.IDevice;
 import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.TestDeviceState;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
@@ -50,20 +52,21 @@ public class ScreenshotOnFailureCollectorTest {
         mCollector = new ScreenshotOnFailureCollector();
         mContext = new InvocationContext();
         mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
-        mTestListener = mCollector.init(mContext, mMockListener);
-        EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("serial");
+        EasyMock.expect(mMockDevice.getIDevice()).andStubReturn(EasyMock.createMock(IDevice.class));
+        EasyMock.expect(mMockDevice.getSerialNumber()).andStubReturn("serial");
     }
 
     @Test
     public void testCollect() throws Exception {
         TestDescription test = new TestDescription("class", "test");
         mMockListener.testStarted(EasyMock.eq(test), EasyMock.anyLong());
-        mMockListener.testFailed(EasyMock.eq(test), EasyMock.anyObject());
+        mMockListener.testFailed(EasyMock.eq(test), (String) EasyMock.anyObject());
         mMockListener.testEnded(
                 EasyMock.eq(test),
                 EasyMock.anyLong(),
                 EasyMock.<HashMap<String, Metric>>anyObject());
 
+        EasyMock.expect(mMockDevice.getDeviceState()).andReturn(TestDeviceState.ONLINE);
         EasyMock.expect(mMockDevice.getScreenshot())
                 .andReturn(new ByteArrayInputStreamSource("".getBytes()));
         mMockListener.testLog(
@@ -72,6 +75,27 @@ public class ScreenshotOnFailureCollectorTest {
                 EasyMock.anyObject());
 
         EasyMock.replay(mMockListener, mMockDevice);
+        mTestListener = mCollector.init(mContext, mMockListener);
+        mTestListener.testStarted(test);
+        mTestListener.testFailed(test, "I failed");
+        mTestListener.testEnded(test, new HashMap<String, Metric>());
+        EasyMock.verify(mMockListener, mMockDevice);
+    }
+
+    @Test
+    public void testCollect_skipOffline() throws Exception {
+        TestDescription test = new TestDescription("class", "test");
+        mMockListener.testStarted(EasyMock.eq(test), EasyMock.anyLong());
+        mMockListener.testFailed(EasyMock.eq(test), (String) EasyMock.anyObject());
+        mMockListener.testEnded(
+                EasyMock.eq(test),
+                EasyMock.anyLong(),
+                EasyMock.<HashMap<String, Metric>>anyObject());
+
+        EasyMock.expect(mMockDevice.getDeviceState()).andReturn(TestDeviceState.NOT_AVAILABLE);
+
+        EasyMock.replay(mMockListener, mMockDevice);
+        mTestListener = mCollector.init(mContext, mMockListener);
         mTestListener.testStarted(test);
         mTestListener.testFailed(test, "I failed");
         mTestListener.testEnded(test, new HashMap<String, Metric>());

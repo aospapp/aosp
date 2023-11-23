@@ -344,7 +344,7 @@ tcu::TestStatus test (Context& context, const CaseDefinition caseDef)
 		deMemcpy(pData + vertexTessParamsOffset, &gridTessParams[0], static_cast<std::size_t>(sizeInBytes(gridTessParams)));
 		deMemcpy(pData + vertexIndicesOffset,    &gridIndices[0],    static_cast<std::size_t>(sizeInBytes(gridIndices)));
 
-		flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), vertexDataSizeBytes);
+		flushAlloc(vk, device, alloc);
 		// No barrier needed, flushed memory is automatically visible
 	}
 
@@ -364,12 +364,12 @@ tcu::TestStatus test (Context& context, const CaseDefinition caseDef)
 
 	// Pipeline
 
-	const Unique<VkImageView>	   colorAttachmentView	(makeImageView						 (vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
-	const Unique<VkRenderPass>	   renderPass			(makeRenderPass						 (vk, device, colorFormat));
-	const Unique<VkFramebuffer>	   framebuffer			(makeFramebuffer					 (vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y(), 1u));
-	const Unique<VkCommandPool>	   cmdPool				(makeCommandPool					 (vk, device, queueFamilyIndex));
-	const Unique<VkCommandBuffer>  cmdBuffer			(allocateCommandBuffer				 (vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
-	const Unique<VkPipelineLayout> pipelineLayout		(makePipelineLayoutWithoutDescriptors(vk, device));
+	const Unique<VkImageView>		colorAttachmentView	(makeImageView			(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
+	const Unique<VkRenderPass>		renderPass			(makeRenderPass			(vk, device, colorFormat));
+	const Unique<VkFramebuffer>		framebuffer			(makeFramebuffer		(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y()));
+	const Unique<VkCommandPool>		cmdPool				(makeCommandPool		(vk, device, queueFamilyIndex));
+	const Unique<VkCommandBuffer>	cmdBuffer			(allocateCommandBuffer	(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+	const Unique<VkPipelineLayout>	pipelineLayout		(makePipelineLayout		(vk, device));
 
 	const int inPatchSize = (caseDef.primitiveType == TESSPRIMITIVETYPE_TRIANGLES ? 3 : 4);
 	const Unique<VkPipeline> pipeline(GraphicsPipelineBuilder()
@@ -429,11 +429,13 @@ tcu::TestStatus test (Context& context, const CaseDefinition caseDef)
 	{
 		// Log the result image.
 
-		const Allocation& colorBufferAlloc = colorBuffer.getAllocation();
-		invalidateMappedMemoryRange(vk, device, colorBufferAlloc.getMemory(), colorBufferAlloc.getOffset(), colorBufferSizeBytes);
-		const tcu::ConstPixelBufferAccess imagePixelAccess(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, colorBufferAlloc.getHostPtr());
+		const Allocation&					colorBufferAlloc	= colorBuffer.getAllocation();
 
-		tcu::TestLog& log = context.getTestContext().getLog();
+		invalidateAlloc(vk, device, colorBufferAlloc);
+
+		const tcu::ConstPixelBufferAccess	imagePixelAccess	(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, colorBufferAlloc.getHostPtr());
+		tcu::TestLog&						log					= context.getTestContext().getLog();
+
 		log << tcu::TestLog::Image("color0", "Rendered image", imagePixelAccess)
 			<< tcu::TestLog::Message
 			<< "Note: coloring is done to clarify the positioning and orientation of the "
@@ -450,7 +452,6 @@ tcu::TestStatus test (Context& context, const CaseDefinition caseDef)
 			DE_ASSERT(false);
 
 		// Verify the result.
-
 		const bool ok = verifyResult(log, imagePixelAccess);
 		return (ok ? tcu::TestStatus::pass("OK") : tcu::TestStatus::fail("Failure"));
 	}

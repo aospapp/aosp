@@ -17,9 +17,9 @@ package com.android.tradefed.util;
 
 import static org.junit.Assert.assertEquals;
 
-import com.android.tradefed.config.ConfigurationDef.OptionDef;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationDescriptor.LocalTestRunner;
+import com.android.tradefed.config.OptionDef;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.Abi;
 
@@ -101,6 +101,22 @@ public class LocalRunInstructionBuilderTest {
         assertEquals(
                 "Run following command to try the test in a local setup:\n"
                         + "atest module_name:class_name -- --abi arm",
+                instruction);
+    }
+
+    /** Test when a parameterized module needs to be repro. */
+    @Test
+    public void testGetInstruction_withParameter() {
+        ConfigurationDescriptor configDescriptor = new ConfigurationDescriptor();
+        configDescriptor.setAbi(new Abi(ABI_NAME, "32"));
+        configDescriptor.setModuleName(OPTION_SOURCE);
+        configDescriptor.addMetadata(ConfigurationDescriptor.ACTIVE_PARAMETER_KEY, "instant");
+        String instruction =
+                LocalRunInstructionBuilder.getInstruction(
+                        configDescriptor, LocalTestRunner.ATEST, null);
+        assertEquals(
+                "Run following command to try the test in a local setup:\n"
+                        + "atest module_name -- --abi arm --instant",
                 instruction);
     }
 }

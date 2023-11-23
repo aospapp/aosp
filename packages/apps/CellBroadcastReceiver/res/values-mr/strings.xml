@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"आणीबाणीच्या सूचना"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"आणीबाणीच्या सूचना"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"या वापरकर्त्‍यासाठी सेल प्रसारण सेटिंग्‍ज उपलब्‍ध नाहीत"</string>
+    <string name="app_label" msgid="2008319089248760277">"आणीबाणीमधील वायरलेस इशारा"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"आणीबाणीमधील वायरलेस इशारा"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"या वापरकर्त्यासाठी आणीबाणीमधील वायरलेस इशारा सेटिंग्ज उपलब्ध नाही"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"ठीक आहे"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"यापूर्वीचे अलर्ट नाहीत"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"प्रसारणे हटवा"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"तपशील पहा"</string>
     <string name="menu_delete" msgid="128380070910799366">"प्रसारण हटवा"</string>
     <string name="view_details_title" msgid="1780427629491781473">"सूचना तपशील"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"डीबगिंगचे सूचना तपशील पाहा"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"हे प्रसारण हटवायचे?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"सर्व प्राप्त केलेले प्रसारण मेसेज हटवायचे?"</string>
     <string name="button_delete" msgid="4672451757925194350">"हटवा"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"सूचना"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"प्रसारण मेसेज"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"आणीबाणीच्या सूचना"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"व्हॉइस कॉलमधील आणीबाणी सूचना"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"सूचनांना अनुमती द्या"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"आणीबाणी सूचना मिळवा"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"सूचना रिमाइंडरचा आवाज"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"सूचना मेसेज बोला"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"आणीबाणी सूचना मेसेज बोलण्यासाठी टेक्स्ट-टू-स्पीच वापरा"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"आणीबाणीमधील वायरलेस इशारा सूचना स्वीकारा"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"सूचना स्मरणपत्र"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"नियमित व्हॉल्यूमवर एक रिमाइंडर आवाज प्ले होईल"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"आणीबाणी सूचना इतिहास"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"सूचना प्राधान्ये"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ETWS चाचणी प्रसारणे"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"राज्य आणि स्थानिक अधिकार्‍यांकडून चाचणी मेसेज मिळवा"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"आणीबाणीच्या सूचना"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"जीवघेण्या घटनांच्या चेतावण्या द्या"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"आवश्यक मासिक चाचणी"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"सुरक्षा सूचना सिस्टमचे चाचणी मेसेज मिळवा"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"चाचणीच्या सूचना"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"सुरक्षा सूचना सिस्टमकडून वाहक चाचण्या आणि मासिक चाचण्या मिळवा"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"कंपन"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"पूर्ण व्‍हॉल्‍यूम वापरा"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"अन्‍य व्‍हॉल्‍यूम आणि व्‍यत्‍यय आणू नका प्राधान्‍यांकडे दुर्लक्ष करा"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"सूचना नेहमी संपूर्ण व्हॉल्यूमवर द्या"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"व्यत्यय आणू नका कडे दुर्लक्ष करा &amp; इतर व्‍हॉल्‍यूम सेटिंग्ज"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"परिसराशी संबंधित अपडेट ब्रॉडकास्ट"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"सिमच्‍या स्थितीत अपडेटची काही माहिती असल्‍यास दाखवा"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"डेव्हलपर पर्याय"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"सूचना वर्गवारी:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"भूभौतिक"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"हवामानविषयक"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"नवीन सूचना"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"पहिली सूचना (राष्ट्रपतींच्या सूचनेव्यतिरिक्त) डिस्प्ले केल्यानंतर निवड रद्द करा डायलॉग दाखवा."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"निवड रद्द करा संवाद दर्शवा"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"तुम्ही सध्या आणीबाणी सूचना प्राप्त करत आहात. तुम्ही आणीबाणी सूचना प्राप्त करणे सुरु ठेऊ इच्छिता का?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"तुम्हाला सध्या आणीबाणीमधील वायरलेस इशारा सूचना मिळत आहेत. तुम्हाला आणीबाणीमधील वायरलेस इशारा सूचना पुढे सुरू ठेवायच्या आहेत का?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"होय"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"नाही"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"आणीबाणी अलर्ट इतिहास"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"दर 2 मिनिटांनी"</item>
     <item msgid="5718214950343391480">"दर 5 मिनिटांनी"</item>
     <item msgid="3863339891188103437">"दर 15 मिनिटांनी"</item>
-    <item msgid="6868848414437854609">"बंद"</item>
+    <item msgid="7388573183644474611">"कधीही नाही"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"वायरलेस आणीबाणी सूचना"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"राष्ट्रपतींनी दिलेले इशारे"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"राष्ट्रीय चेतावणी संबंधित राष्ट्रपतींनी जारी केलेला मेसेज. बंद केला जाऊ शकत नाही."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"सेल प्रसारण चाचणी मोड सुरू केला आहे."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"सेल प्रसारण चाचणी मोड बंद केला आहे."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"सर्व मेसेज दाखवा"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"नेहमीचे मेसेज दाखवा"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"आयडेंटिफायर:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"सिरीअल नंबर:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"डेटा कोडिंग योजना:"</string>
+    <string name="message_content" msgid="6204502929879474632">"मेसेजचा आशय:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"स्थान तपासण्याची वेळ:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"मेसेज दाखवला:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"निर्देशक:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"प्रतीक्षा करण्याची कमाल वेळ:"</string>
+    <string name="seconds" msgid="141450721520515025">"सेकंद"</string>
+    <string name="message_copied" msgid="6922953753733166675">"मेसेज कॉपी केला"</string>
 </resources>

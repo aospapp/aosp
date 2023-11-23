@@ -16,25 +16,38 @@
 
 #include "linkerconfig/link.h"
 
+#include "linkerconfig/log.h"
+
 namespace android {
 namespace linkerconfig {
 namespace modules {
-void Link::WriteConfig(ConfigWriter& writer) {
-  writer.SetPrefix("namespace." + origin_namespace_ + ".link." +
-                   target_namespace_);
-  if (allow_all_shared_libs_) {
-    writer.WriteLine(".allow_all_shared_libs = true");
-  } else {
-    bool is_first = true;
 
-    for (auto& lib_name : shared_libs_) {
-      writer.WriteLine(".shared_libs %s %s",
-                       is_first ? "=" : "+=", lib_name.c_str());
-      is_first = false;
-    }
+void Link::AddSharedLib(const std::vector<std::string>& lib_names) {
+  if (!allow_all_shared_libs_) {
+    shared_libs_.insert(shared_libs_.end(), lib_names.begin(), lib_names.end());
   }
-  writer.ResetPrefix();
 }
+
+void Link::AllowAllSharedLibs() {
+  if (!allow_all_shared_libs_) {
+    shared_libs_.clear();
+    allow_all_shared_libs_ = true;
+  }
+}
+
+void Link::WriteConfig(ConfigWriter& writer) const {
+  const auto prefix =
+      "namespace." + origin_namespace_ + ".link." + target_namespace_ + ".";
+  if (allow_all_shared_libs_) {
+    writer.WriteLine(prefix + "allow_all_shared_libs = true");
+  } else if (!shared_libs_.empty()) {
+    writer.WriteVars(prefix + "shared_libs", shared_libs_);
+  } else {
+    LOG(WARNING) << "Ignored empty shared libs link from " << origin_namespace_
+                 << " to " << target_namespace_;
+  }
+}
+
 }  // namespace modules
 }  // namespace linkerconfig
 }  // namespace android

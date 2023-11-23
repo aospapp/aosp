@@ -21,7 +21,6 @@ import android.net.wifi.ITrafficStateCallback;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -34,68 +33,83 @@ import java.io.PrintWriter;
  * Polls for traffic stats and notifies the clients
  */
 public class WifiTrafficPoller {
-
     private static final String TAG = "WifiTrafficPoller";
 
-    private long mTxPkts;
-    private long mRxPkts;
-    /* Tracks last reported data activity */
-    private int mDataActivity;
+    private long mTxPkts = 0;
+    private long mRxPkts = 0;
 
-    private final ExternalCallbackTracker<ITrafficStateCallback> mRegisteredCallbacks;
+    private int mLastActivity = -1;
 
-    WifiTrafficPoller(@NonNull Looper looper) {
-        mRegisteredCallbacks = new ExternalCallbackTracker<ITrafficStateCallback>(
-                new Handler(looper));
+    private static class CallbackWrapper {
+        public final ITrafficStateCallback callback;
+        /**
+         * On the first invocation, the callback is invoked no matter if the data activity changed
+         * or not.
+         */
+        public boolean isFirstInvocation = true;
+
+        CallbackWrapper(ITrafficStateCallback callback) {
+            this.callback = callback;
+        }
+    }
+
+    private final ExternalCallbackTracker<CallbackWrapper> mRegisteredCallbacks;
+
+    public WifiTrafficPoller(@NonNull Handler handler) {
+        mRegisteredCallbacks = new ExternalCallbackTracker<>(handler);
     }
 
     /**
      * Add a new callback to the traffic poller.
      */
-    public void addCallback(IBinder binder, ITrafficStateCallback callback,
-                            int callbackIdentifier) {
-        if (!mRegisteredCallbacks.add(binder, callback, callbackIdentifier)) {
+    public void addCallback(IBinder binder, ITrafficStateCallback callback, int callbackId) {
+        if (!mRegisteredCallbacks.add(binder, new CallbackWrapper(callback), callbackId)) {
             Log.e(TAG, "Failed to add callback");
-            return;
         }
     }
 
     /**
      * Remove an existing callback from the traffic poller.
      */
-    public void removeCallback(int callbackIdentifier) {
-        mRegisteredCallbacks.remove(callbackIdentifier);
+    public void removeCallback(int callbackId) {
+        mRegisteredCallbacks.remove(callbackId);
     }
 
-    void notifyOnDataActivity(long txPkts, long rxPkts) {
-        long sent, received;
-        long preTxPkts = mTxPkts, preRxPkts = mRxPkts;
+    /**
+     * Notifies clients of data activity if the activity changed since the last update.
+     */
+    public void notifyOnDataActivity(long newTxPkts, long newRxPkts) {
+        if (newTxPkts <= 0 && newRxPkts <= 0) {
+            return;
+        }
+
+        long sent = newTxPkts - mTxPkts;
+        long received = newRxPkts - mRxPkts;
         int dataActivity = WifiManager.TrafficStateCallback.DATA_ACTIVITY_NONE;
-        mTxPkts = txPkts;
-        mRxPkts = rxPkts;
+        if (sent > 0) {
+            dataActivity |= WifiManager.TrafficStateCallback.DATA_ACTIVITY_OUT;
+        }
+        if (received > 0) {
+            dataActivity |= WifiManager.TrafficStateCallback.DATA_ACTIVITY_IN;
+        }
 
-        if (preTxPkts > 0 || preRxPkts > 0) {
-            sent = mTxPkts - preTxPkts;
-            received = mRxPkts - preRxPkts;
-            if (sent > 0) {
-                dataActivity |= WifiManager.TrafficStateCallback.DATA_ACTIVITY_OUT;
-            }
-            if (received > 0) {
-                dataActivity |= WifiManager.TrafficStateCallback.DATA_ACTIVITY_IN;
-            }
-
-            if (dataActivity != mDataActivity) {
-                mDataActivity = dataActivity;
-                for (ITrafficStateCallback callback : mRegisteredCallbacks.getCallbacks()) {
-                    try {
-                        callback.onStateChanged(mDataActivity);
-                    } catch (RemoteException e) {
-                        // Failed to reach, skip
-                        // Client removal is handled in WifiService
-                    }
+        for (CallbackWrapper wrapper : mRegisteredCallbacks.getCallbacks()) {
+            // if this callback hasn't been triggered before, or the data activity changed,
+            // notify the callback
+            if (wrapper.isFirstInvocation || dataActivity != mLastActivity) {
+                wrapper.isFirstInvocation = false;
+                try {
+                    wrapper.callback.onStateChanged(dataActivity);
+                } catch (RemoteException e) {
+                    // Failed to reach, skip
+                    // Client removal is handled in WifiService
                 }
             }
         }
+
+        mTxPkts = newTxPkts;
+        mRxPkts = newRxPkts;
+        mLastActivity = dataActivity;
     }
 
     /**
@@ -104,8 +118,7 @@ public class WifiTrafficPoller {
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("mTxPkts " + mTxPkts);
         pw.println("mRxPkts " + mRxPkts);
-        pw.println("mDataActivity " + mDataActivity);
+        pw.println("mLastActivity " + mLastActivity);
         pw.println("mRegisteredCallbacks " + mRegisteredCallbacks.getNumCallbacks());
     }
-
 }

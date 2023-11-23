@@ -17,16 +17,20 @@
 package com.android.documentsui.roots;
 
 import android.database.AbstractCursor;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.util.Log;
 
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
+import com.android.documentsui.base.UserId;
+
 /**
  * Cursor wrapper that adds columns to identify which root a document came from.
  */
 public class RootCursorWrapper extends AbstractCursor {
+    private final UserId mUserId;
     private final String mAuthority;
     private final String mRootId;
 
@@ -37,12 +41,16 @@ public class RootCursorWrapper extends AbstractCursor {
 
     private final int mAuthorityIndex;
     private final int mRootIdIndex;
+    private final int mUserIdIndex;
 
+    public static final String COLUMN_USER_ID = "android:userId";
     public static final String COLUMN_AUTHORITY = "android:authority";
     public static final String COLUMN_ROOT_ID = "android:rootId";
     private static final String TAG = "RootCursorWrapper";
 
-    public RootCursorWrapper(String authority, String rootId, Cursor cursor, int maxCount) {
+    public RootCursorWrapper(UserId userId, String authority, String rootId, Cursor cursor,
+            int maxCount) {
+        mUserId = userId;
         mAuthority = authority;
         mRootId = rootId;
         mCursor = cursor;
@@ -54,17 +62,22 @@ public class RootCursorWrapper extends AbstractCursor {
             mCount = count;
         }
 
-        if (cursor.getColumnIndex(COLUMN_AUTHORITY) != -1
+        if (cursor.getColumnIndex(COLUMN_USER_ID) != -1
+                || cursor.getColumnIndex(COLUMN_AUTHORITY) != -1
                 || cursor.getColumnIndex(COLUMN_ROOT_ID) != -1) {
             throw new IllegalArgumentException("Cursor contains internal columns!");
         }
         final String[] before = cursor.getColumnNames();
-        mColumnNames = new String[before.length + 2];
+        // Create a new columnNames and copy the existing one to it.
+        // Add the internal column names to the end of the array.
+        mColumnNames = new String[before.length + 3];
         System.arraycopy(before, 0, mColumnNames, 0, before.length);
         mAuthorityIndex = before.length;
         mRootIdIndex = before.length + 1;
+        mUserIdIndex = before.length + 2;
         mColumnNames[mAuthorityIndex] = COLUMN_AUTHORITY;
         mColumnNames[mRootIdIndex] = COLUMN_ROOT_ID;
+        mColumnNames[mUserIdIndex] = COLUMN_USER_ID;
     }
 
     @Override
@@ -112,7 +125,11 @@ public class RootCursorWrapper extends AbstractCursor {
 
     @Override
     public int getInt(int column) {
-        return mCursor.getInt(column);
+        if (column == mUserIdIndex) {
+            return mUserId.getIdentifier();
+        } else {
+            return mCursor.getInt(column);
+        }
     }
 
     @Override
@@ -144,5 +161,15 @@ public class RootCursorWrapper extends AbstractCursor {
     @Override
     public boolean isNull(int column) {
         return mCursor.isNull(column);
+    }
+
+    @Override
+    public void registerContentObserver(ContentObserver observer) {
+        mCursor.registerContentObserver(observer);
+    }
+
+    @Override
+    public void unregisterContentObserver(ContentObserver observer) {
+        mCursor.unregisterContentObserver(observer);
     }
 }

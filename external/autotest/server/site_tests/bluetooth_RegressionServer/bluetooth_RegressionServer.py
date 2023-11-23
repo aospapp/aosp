@@ -21,7 +21,7 @@ class bluetooth_RegressionServer(test.test):
         @param device_addrs: MAC addresses of Bluetooth devices under test.
         """
         if not client_ip:
-            error.TestError('Must provide client\'s IP address to test')
+            raise error.TestError('Must provide client\'s IP address to test')
 
         client = hosts.create_host(client_ip)
         client_at = autotest.Autotest(client)

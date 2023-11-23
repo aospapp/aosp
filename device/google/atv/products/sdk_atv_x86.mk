@@ -13,21 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-PRODUCT_PROPERTY_OVERRIDES += \
-	rild.libpath=/vendor/lib/libreference-ril.so
+PRODUCT_IS_ATV_SDK := true
 
-PRODUCT_COPY_FILES += \
-    device/generic/goldfish/data/etc/config.ini.tv:config.ini
+# ATV SDK is not designed to have a camera by default
+PRODUCT_SUPPORTS_CAMERA ?= false
 
-PRODUCT_COPY_FILES += \
-    development/sys-img/advancedFeatures.ini:advancedFeatures.ini \
-    device/generic/goldfish/data/etc/encryptionkey.img:encryptionkey.img \
-    prebuilts/qemu-kernel/x86_64/4.14/kernel-qemu2:kernel-ranchu-64
+QEMU_USE_SYSTEM_EXT_PARTITIONS := true
 
-# TODO: separate out a common base for arm/x86 atv SDK build.
-$(call inherit-product, device/google/atv/products/sdk_atv_armv7.mk)
+$(call inherit-product, device/google/atv/products/aosp_tv_x86.mk)
+
+# Define the host tools and libs that are parts of the SDK.
+$(call inherit-product, sdk/build/product_sdk.mk)
+$(call inherit-product, development/build/product_sdk.mk)
+
+# keep this apk for sdk targets for now
+PRODUCT_PACKAGES += \
+    EmulatorSmokeTests
 
 # Overrides
+PRODUCT_BRAND := Android
 PRODUCT_NAME := sdk_atv_x86
 PRODUCT_DEVICE := generic_x86
-PRODUCT_BRAND := google

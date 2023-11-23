@@ -194,7 +194,7 @@ public class StorageHostTest extends BaseHostJUnit4Test {
 
         try {
             // Try our hardest to fill up the entire disk
-            Utils.runDeviceTests(getDevice(), PKG_B, CLASS, "testFullDisk");
+            Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_B, CLASS, "testFullDisk");
         } catch (Throwable t) {
             if (t.getMessage().contains("Skipping")) {
                 // If the device doens't have resgid support, there's nothing
@@ -206,14 +206,14 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         }
 
         // Tweak something that causes PackageManager to persist data
-        Utils.runDeviceTests(getDevice(), PKG_A, CLASS, "testTweakComponent");
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_A, CLASS, "testTweakComponent");
 
         // Wake up/unlock device before running tests
         getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
         getDevice().disableKeyguard();
 
         // Verify that Settings can free space used by abusive app
-        Utils.runDeviceTests(getDevice(), PKG_A, CLASS, "testClearSpace");
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_A, CLASS, "testClearSpace");
     }
 
     public void waitForIdle() throws Exception {

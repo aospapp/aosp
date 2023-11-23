@@ -19,7 +19,9 @@ package com.android.tv.recommendation;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
-import com.android.tv.data.Program;
+
+import com.android.tv.data.api.Program;
+
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Calendar;

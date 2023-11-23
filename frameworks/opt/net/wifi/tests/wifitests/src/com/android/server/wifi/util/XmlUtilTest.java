@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import android.net.IpConfiguration;
+import android.net.util.MacAddressUtils;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
 import android.net.wifi.WifiEnterpriseConfig;
@@ -29,13 +30,16 @@ import android.util.Xml;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiConfigurationTestUtil;
 import com.android.server.wifi.util.XmlUtil.IpConfigurationXmlUtil;
 import com.android.server.wifi.util.XmlUtil.NetworkSelectionStatusXmlUtil;
 import com.android.server.wifi.util.XmlUtil.WifiConfigurationXmlUtil;
 import com.android.server.wifi.util.XmlUtil.WifiEnterpriseConfigXmlUtil;
 
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.MockitoAnnotations;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
@@ -50,7 +54,7 @@ import java.util.HashMap;
  * Unit tests for {@link com.android.server.wifi.util.XmlUtil}.
  */
 @SmallTest
-public class XmlUtilTest {
+public class XmlUtilTest extends WifiBaseTest {
     public static final String XML_STRING_EAP_METHOD_REPLACE_FORMAT =
             "<int name=\"EapMethod\" value=\"%d\" />";
 
@@ -72,6 +76,13 @@ public class XmlUtilTest {
     private static final int TEST_EAP_METHOD = WifiEnterpriseConfig.Eap.PEAP;
     private static final int TEST_PHASE2_METHOD = WifiEnterpriseConfig.Phase2.MSCHAPV2;
     private final String mXmlDocHeader = "XmlUtilTest";
+
+    private WifiConfigStoreEncryptionUtil mWifiConfigStoreEncryptionUtil = null;
+
+    @Before
+    public void setUp() throws Exception {
+        MockitoAnnotations.initMocks(this);
+    }
 
     /**
      * Verify that a open WifiConfiguration is serialized & deserialized correctly.
@@ -98,6 +109,22 @@ public class XmlUtilTest {
     public void testPskWifiConfigurationSerializeDeserialize()
             throws IOException, XmlPullParserException {
         serializeDeserializeWifiConfiguration(WifiConfigurationTestUtil.createPskNetwork());
+    }
+
+    /**
+     * Verify that a psk WifiConfiguration is serialized & deserialized correctly.
+     */
+    @Test
+    public void testPskWifiConfigurationSerializeDeserializeWithEncryption()
+            throws IOException, XmlPullParserException {
+        mWifiConfigStoreEncryptionUtil = mock(WifiConfigStoreEncryptionUtil.class);
+        WifiConfiguration pskNetwork = WifiConfigurationTestUtil.createPskNetwork();
+        EncryptedData encryptedData = new EncryptedData(new byte[0], new byte[0]);
+        when(mWifiConfigStoreEncryptionUtil.encrypt(pskNetwork.preSharedKey.getBytes()))
+                .thenReturn(encryptedData);
+        when(mWifiConfigStoreEncryptionUtil.decrypt(encryptedData))
+                .thenReturn(pskNetwork.preSharedKey.getBytes());
+        serializeDeserializeWifiConfiguration(pskNetwork);
     }
 
     /**
@@ -198,17 +225,15 @@ public class XmlUtilTest {
         configuration.linkedConfigurations = new HashMap<>();
         configuration.linkedConfigurations.put(TEST_DUMMY_CONFIG_KEY, Integer.valueOf(1));
         configuration.defaultGwMacAddress = TEST_STATIC_IP_GATEWAY_ADDRESS;
-        configuration.requirePMF = true;
+        configuration.requirePmf = true;
         configuration.validatedInternetAccess = true;
         configuration.noInternetAccessExpected = true;
-        configuration.userApproved = WifiConfiguration.USER_UNSPECIFIED;
         configuration.meteredHint = true;
         configuration.useExternalScores = true;
         configuration.numAssociation = 5;
         configuration.lastUpdateUid = configuration.lastConnectUid = configuration.creatorUid;
         configuration.creatorName = configuration.lastUpdateName = TEST_PACKAGE_NAME;
-        configuration.creationTime = "04-04-2016";
-        configuration.getOrCreateRandomizedMacAddress();
+        configuration.setRandomizedMacAddress(MacAddressUtils.createRandomUnicastAddress());
         configuration.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_PERSISTENT;
 
         serializeDeserializeWifiConfigurationForConfigStore(configuration);
@@ -238,9 +263,8 @@ public class XmlUtilTest {
             throws IOException, XmlPullParserException {
         NetworkSelectionStatus status = new NetworkSelectionStatus();
         status.setNetworkSelectionStatus(NetworkSelectionStatus.NETWORK_SELECTION_ENABLED);
-        status.setNetworkSelectionDisableReason(NetworkSelectionStatus.NETWORK_SELECTION_ENABLE);
+        status.setNetworkSelectionDisableReason(NetworkSelectionStatus.DISABLED_NONE);
         status.setConnectChoice(TEST_DUMMY_CONFIG_KEY);
-        status.setConnectChoiceTimestamp(867889);
         status.setHasEverConnected(true);
         serializeDeserializeNetworkSelectionStatus(status);
     }
@@ -278,7 +302,6 @@ public class XmlUtilTest {
         status.setNetworkSelectionDisableReason(
                 NetworkSelectionStatus.DISABLED_DHCP_FAILURE);
         status.setConnectChoice(TEST_DUMMY_CONFIG_KEY);
-        status.setConnectChoiceTimestamp(867889);
         status.setHasEverConnected(true);
 
         // Serialize this to XML string.
@@ -303,7 +326,7 @@ public class XmlUtilTest {
         expectedStatus.copy(status);
         expectedStatus.setNetworkSelectionStatus(NetworkSelectionStatus.NETWORK_SELECTION_ENABLED);
         expectedStatus.setNetworkSelectionDisableReason(
-                NetworkSelectionStatus.NETWORK_SELECTION_ENABLE);
+                NetworkSelectionStatus.DISABLED_NONE);
 
         WifiConfigurationTestUtil.assertNetworkSelectionStatusEqualForConfigStore(
                 expectedStatus, retrievedStatus);
@@ -313,7 +336,7 @@ public class XmlUtilTest {
      * Verify that a network selection disable reason deprecation is handled correctly during
      * restore of data after upgrade.
      * This test tries to simulate the scenario where we have a
-     * {@link NetworkSelectionStatus#getNetworkDisableReasonString()} ()} string stored
+     * {@link NetworkSelectionStatus#getNetworkSelectionDisableReasonString()} ()} string stored
      * in the XML file from a previous release which has now been deprecated. The network should
      * be restored as enabled.
      */
@@ -327,7 +350,6 @@ public class XmlUtilTest {
         status.setNetworkSelectionDisableReason(
                 NetworkSelectionStatus.DISABLED_DHCP_FAILURE);
         status.setConnectChoice(TEST_DUMMY_CONFIG_KEY);
-        status.setConnectChoiceTimestamp(867889);
         status.setHasEverConnected(true);
 
         // Serialize this to XML string.
@@ -336,7 +358,8 @@ public class XmlUtilTest {
         // Now modify the disable reason string with some invalid string in XML data.
         String xmlString = new String(xmlData);
         String deprecatedXmlString =
-                xmlString.replaceAll(status.getNetworkDisableReasonString(), "DISABLED_DEPRECATED");
+                xmlString.replaceAll(status.getNetworkSelectionDisableReasonString(),
+                        "DISABLED_DEPRECATED");
         // Ensure that the modification did take effect.
         assertFalse(xmlString.equals(deprecatedXmlString));
 
@@ -351,7 +374,7 @@ public class XmlUtilTest {
         expectedStatus.copy(status);
         expectedStatus.setNetworkSelectionStatus(NetworkSelectionStatus.NETWORK_SELECTION_ENABLED);
         expectedStatus.setNetworkSelectionDisableReason(
-                NetworkSelectionStatus.NETWORK_SELECTION_ENABLE);
+                NetworkSelectionStatus.DISABLED_NONE);
 
         WifiConfigurationTestUtil.assertNetworkSelectionStatusEqualForConfigStore(
                 expectedStatus, retrievedStatus);
@@ -378,6 +401,37 @@ public class XmlUtilTest {
         config.setFieldValue(WifiEnterpriseConfig.CA_PATH_KEY, TEST_CA_PATH);
         config.setEapMethod(TEST_EAP_METHOD);
         config.setPhase2Method(TEST_PHASE2_METHOD);
+        serializeDeserializeWifiEnterpriseConfig(config);
+    }
+
+    /**
+     * Verify that a WifiEnterpriseConfig object is serialized & deserialized correctly.
+     */
+    @Test
+    public void testWifiEnterpriseConfigSerializeDeserializeWithEncryption()
+            throws IOException, XmlPullParserException {
+        WifiEnterpriseConfig config = new WifiEnterpriseConfig();
+        config.setFieldValue(WifiEnterpriseConfig.IDENTITY_KEY, TEST_IDENTITY);
+        config.setFieldValue(WifiEnterpriseConfig.ANON_IDENTITY_KEY, TEST_ANON_IDENTITY);
+        config.setFieldValue(WifiEnterpriseConfig.PASSWORD_KEY, TEST_PASSWORD);
+        config.setFieldValue(WifiEnterpriseConfig.CLIENT_CERT_KEY, TEST_CLIENT_CERT);
+        config.setFieldValue(WifiEnterpriseConfig.CA_CERT_KEY, TEST_CA_CERT);
+        config.setFieldValue(WifiEnterpriseConfig.SUBJECT_MATCH_KEY, TEST_SUBJECT_MATCH);
+        config.setFieldValue(WifiEnterpriseConfig.ENGINE_KEY, TEST_ENGINE);
+        config.setFieldValue(WifiEnterpriseConfig.ENGINE_ID_KEY, TEST_ENGINE_ID);
+        config.setFieldValue(WifiEnterpriseConfig.PRIVATE_KEY_ID_KEY, TEST_PRIVATE_KEY_ID);
+        config.setFieldValue(WifiEnterpriseConfig.ALTSUBJECT_MATCH_KEY, TEST_ALTSUBJECT_MATCH);
+        config.setFieldValue(WifiEnterpriseConfig.DOM_SUFFIX_MATCH_KEY, TEST_DOM_SUFFIX_MATCH);
+        config.setFieldValue(WifiEnterpriseConfig.CA_PATH_KEY, TEST_CA_PATH);
+        config.setEapMethod(TEST_EAP_METHOD);
+        config.setPhase2Method(TEST_PHASE2_METHOD);
+
+        mWifiConfigStoreEncryptionUtil = mock(WifiConfigStoreEncryptionUtil.class);
+        EncryptedData encryptedData = new EncryptedData(new byte[0], new byte[0]);
+        when(mWifiConfigStoreEncryptionUtil.encrypt(TEST_PASSWORD.getBytes()))
+                .thenReturn(encryptedData);
+        when(mWifiConfigStoreEncryptionUtil.decrypt(encryptedData))
+                .thenReturn(TEST_PASSWORD.getBytes());
         serializeDeserializeWifiEnterpriseConfig(config);
     }
 
@@ -424,6 +478,7 @@ public class XmlUtilTest {
     public void testLegacyPasspointConfigSerializeDeserialize() throws Exception {
         WifiConfiguration config = WifiConfigurationTestUtil.createPasspointNetwork();
         config.isLegacyPasspointConfig = true;
+        config.setPasspointUniqueId(null); // Did not exist for legacy Passpoint
         config.roamingConsortiumIds = new long[] {0x12345678};
         config.enterpriseConfig.setPlmn("1234");
         config.enterpriseConfig.setRealm("test.com");
@@ -473,7 +528,8 @@ public class XmlUtilTest {
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
         XmlUtil.writeDocumentStart(out, mXmlDocHeader);
-        WifiConfigurationXmlUtil.writeToXmlForConfigStore(out, configuration);
+        WifiConfigurationXmlUtil.writeToXmlForConfigStore(
+                out, configuration, mWifiConfigStoreEncryptionUtil);
         XmlUtil.writeDocumentEnd(out, mXmlDocHeader);
         return outputStream.toByteArray();
     }
@@ -485,7 +541,10 @@ public class XmlUtilTest {
         ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
         XmlUtil.gotoDocumentStart(in, mXmlDocHeader);
-        return WifiConfigurationXmlUtil.parseFromXml(in, in.getDepth());
+        return WifiConfigurationXmlUtil.parseFromXml(
+                in, in.getDepth(),
+                mWifiConfigStoreEncryptionUtil != null,
+                mWifiConfigStoreEncryptionUtil);
     }
 
     /**
@@ -499,7 +558,7 @@ public class XmlUtilTest {
         retrieved =
                 deserializeWifiConfiguration(
                         serializeWifiConfigurationForBackup(configuration));
-        assertEquals(retrieved.first, retrieved.second.configKey());
+        assertEquals(retrieved.first, retrieved.second.getKey());
         WifiConfigurationTestUtil.assertConfigurationEqualForBackup(
                 configuration, retrieved.second);
     }
@@ -517,7 +576,7 @@ public class XmlUtilTest {
         retrieved =
                 deserializeWifiConfiguration(
                         serializeWifiConfigurationForConfigStore(configuration));
-        assertEquals(retrieved.first, retrieved.second.configKey());
+        assertEquals(retrieved.first, retrieved.second.getKey());
         WifiConfigurationTestUtil.assertConfigurationEqualForConfigStore(
                 configuration, retrieved.second);
     }
@@ -593,7 +652,8 @@ public class XmlUtilTest {
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
         XmlUtil.writeDocumentStart(out, mXmlDocHeader);
-        WifiEnterpriseConfigXmlUtil.writeToXml(out, config);
+        WifiEnterpriseConfigXmlUtil.writeToXml(
+                out, config, mWifiConfigStoreEncryptionUtil);
         XmlUtil.writeDocumentEnd(out, mXmlDocHeader);
         return outputStream.toByteArray();
     }
@@ -604,7 +664,9 @@ public class XmlUtilTest {
         ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
         XmlUtil.gotoDocumentStart(in, mXmlDocHeader);
-        return WifiEnterpriseConfigXmlUtil.parseFromXml(in, in.getDepth());
+        return WifiEnterpriseConfigXmlUtil.parseFromXml(
+                in, in.getDepth(), mWifiConfigStoreEncryptionUtil != null,
+                mWifiConfigStoreEncryptionUtil);
     }
 
     private void serializeDeserializeWifiEnterpriseConfig(WifiEnterpriseConfig config)

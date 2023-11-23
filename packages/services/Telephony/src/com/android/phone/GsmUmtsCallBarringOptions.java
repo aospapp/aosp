@@ -27,7 +27,6 @@ import android.os.PersistableBundle;
 import android.preference.Preference;
 import android.preference.PreferenceScreen;
 import android.telephony.CarrierConfigManager;
-import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
@@ -38,7 +37,6 @@ import com.android.internal.telephony.CommandException;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.GsmCdmaPhone;
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.phone.settings.fdn.EditPinPreference;
 
 import java.util.ArrayList;
@@ -76,7 +74,6 @@ public class GsmUmtsCallBarringOptions extends TimeConsumingPreferenceActivity
     private static final String DIALOG_PW_ENTRY_KEY = "dialog_pw_enter_key";
     private static final String KEY_STATUS = "toggle";
     private static final String PREFERENCE_ENABLED_KEY = "PREFERENCE_ENABLED";
-    private static final String PREFERENCE_SHOW_PASSWORD_KEY = "PREFERENCE_SHOW_PASSWORD";
     private static final String SAVED_BEFORE_LOAD_COMPLETED_KEY = "PROGRESS_SHOWING";
 
     private CallBarringEditPreference mButtonBAOC;
@@ -142,16 +139,13 @@ public class GsmUmtsCallBarringOptions extends TimeConsumingPreferenceActivity
             return;
         }
 
-        String password = null;
-        if (mButtonDisableAll.isPasswordShown()) {
-            password = mButtonDisableAll.getText();
-            // Validate the length of password first, before submitting it to the
-            // RIL for CB disable.
-            if (!validatePassword(password)) {
-                mButtonDisableAll.setText("");
-                displayMessage(R.string.call_barring_right_pwd_number);
-                return;
-            }
+        String password = mButtonDisableAll.getText();
+        // Validate the length of password first, before submitting it to the
+        // RIL for CB disable.
+        if (!validatePassword(password)) {
+            mButtonDisableAll.setText("");
+            displayMessage(R.string.call_barring_right_pwd_number);
+            return;
         }
 
         // Submit the disable all request
@@ -418,36 +412,18 @@ public class GsmUmtsCallBarringOptions extends TimeConsumingPreferenceActivity
         mPreferences.add(mButtonBAIC);
         mPreferences.add(mButtonBAICr);
 
-        // Find out if password is currently used.
-        boolean usePassword = true;
-        boolean useDisableaAll = true;
-
-        ImsPhone imsPhone = mPhone != null ? (ImsPhone) mPhone.getImsPhone() : null;
-        if (imsPhone != null
-                && ((imsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE)
-                        || imsPhone.isUtEnabled())) {
-            usePassword = false;
-            useDisableaAll = false;
-        }
-
         // Find out if the sim card is ready.
         boolean isSimReady = TelephonyManager.from(this).getSimState(
                 SubscriptionManager.getSlotIndex(mPhone.getSubId()))
                         == TelephonyManager.SIM_STATE_READY;
 
-        // Deactivate all option is unavailable when sim card is not ready or Ut is enabled.
-        if (isSimReady && useDisableaAll) {
+        // Deactivate all option and Change password option are unavailable
+        // when sim card is not ready.
+        if (isSimReady) {
             mButtonDisableAll.setEnabled(true);
-            mButtonDisableAll.init(mPhone);
-        } else {
-            mButtonDisableAll.setEnabled(false);
-        }
-
-        // Change password option is unavailable when sim card is not ready or when the password is
-        // not used.
-        if (isSimReady && usePassword) {
             mButtonChangePW.setEnabled(true);
         } else {
+            mButtonDisableAll.setEnabled(false);
             mButtonChangePW.setEnabled(false);
             mButtonChangePW.setSummary(R.string.call_barring_change_pwd_description_disabled);
         }
@@ -475,8 +451,6 @@ public class GsmUmtsCallBarringOptions extends TimeConsumingPreferenceActivity
                     pref.handleCallBarringResult(bundle.getBoolean(KEY_STATUS));
                     pref.init(this, true, mPhone);
                     pref.setEnabled(bundle.getBoolean(PREFERENCE_ENABLED_KEY, pref.isEnabled()));
-                    pref.setInputMethodNeeded(bundle.getBoolean(PREFERENCE_SHOW_PASSWORD_KEY,
-                            pref.needInputMethod()));
                 }
             }
             mPwChangeState = mIcicle.getInt(PW_CHANGE_STATE_KEY);
@@ -516,7 +490,6 @@ public class GsmUmtsCallBarringOptions extends TimeConsumingPreferenceActivity
             Bundle bundle = new Bundle();
             bundle.putBoolean(KEY_STATUS, pref.mIsActivated);
             bundle.putBoolean(PREFERENCE_ENABLED_KEY, pref.isEnabled());
-            bundle.putBoolean(PREFERENCE_SHOW_PASSWORD_KEY, pref.needInputMethod());
             outState.putParcelable(pref.getKey(), bundle);
         }
         outState.putInt(PW_CHANGE_STATE_KEY, mPwChangeState);

@@ -1,10 +1,13 @@
 package org.unicode.cldr.unittest;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -17,6 +20,7 @@ import org.unicode.cldr.util.Annotations.AnnotationSet;
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRPaths;
+import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Emoji;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.SimpleFactory;
@@ -32,6 +36,7 @@ import com.google.common.collect.TreeMultimap;
 import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.dev.util.UnicodeMap;
 import com.ibm.icu.dev.util.UnicodeMap.EntryRange;
+import com.ibm.icu.impl.Utility;
 import com.ibm.icu.text.UnicodeSet;
 
 public class TestAnnotations extends TestFmwkPlus {
@@ -105,8 +110,8 @@ public class TestAnnotations extends TestFmwkPlus {
         AnnotationSet eng = Annotations.getDataSet("en");
         String[][] tests = { // the expected value for keywords can use , as well as |.
             {"👨🏻", "man: light skin tone", "adult | man | light skin tone"},
-            {"👱‍♂️", "man: blond hair", "blond | blond-haired man | man | man: blond hair"},
-            {"👱🏻‍♂️", "man: light skin tone, blond hair", "blond, blond-haired man, man, man: blond hair, light skin tone, blond hair"},
+            {"👱‍♂️", "man: blond hair", "blond, blond-haired man, hair, man, man: blond hair"},
+            {"👱🏻‍♂️", "man: light skin tone, blond hair", "blond, blond-haired man, hair, man, man: blond hair, light skin tone, blond hair"},
             {"👨‍🦰", "man: red hair", "adult | man | red hair"},
             { "👨🏻‍🦰", "man: light skin tone, red hair", "adult | man | light skin tone| red hair"},
             { "🇪🇺", "flag: European Union", "flag" },
@@ -163,6 +168,20 @@ public class TestAnnotations extends TestFmwkPlus {
         }
 
     }
+    
+    /** The English name should line up with the emoji-test.txt file */
+    public void TestNamesVsEmojiData() {
+        AnnotationSet eng = Annotations.getDataSet("en");
+        for (Entry<String, Annotations> s : eng.getExplicitValues().entrySet()) {
+            String emoji = s.getKey();
+            Annotations annotations = s.getValue();
+            String name = Emoji.getName(emoji);
+            String annotationName = annotations.getShortName();
+            if (!emoji.contains("👲")) {
+                assertEquals(emoji, name, annotationName);
+            }
+        }
+    }
 
     // comment this out, since we now have console check for this.
     public void TestUniqueness() {
@@ -194,6 +213,9 @@ public class TestAnnotations extends TestFmwkPlus {
                 String name = data.getShortName(emoji);
                 if (name == null) {
                     continue;
+                }
+                if (name.contains(CldrUtility.INHERITANCE_MARKER)) {
+                    throw new IllegalArgumentException(CldrUtility.INHERITANCE_MARKER + " in name of " + emoji + " in " + locale);
                 }
                 nameToEmoji.put(name, emoji);
             }
@@ -256,10 +278,83 @@ public class TestAnnotations extends TestFmwkPlus {
             Set<String> annotationPaths = enAnnotations.getPaths("//ldml/anno",
                 Pattern.compile("//ldml/annotations/annotation.*tts.*").matcher(""), new TreeSet<>());
             Set<String> annotationPathsExpected = Emoji.getNamePaths();
-            checkAMinusBIsC(locale + ".xml - Emoji.getNamePaths", annotationPaths, annotationPathsExpected, Collections.<String> emptySet());
-            checkAMinusBIsC("Emoji.getNamePaths - " + locale + ".xml", annotationPathsExpected, annotationPaths, Collections.<String> emptySet());
+            checkAMinusBIsC("(" + locale + ".xml - Emoji.getNamePaths)", annotationPaths, annotationPathsExpected, Collections.<String> emptySet());
+            checkAMinusBIsC("(Emoji.getNamePaths - " + locale + ".xml)", annotationPathsExpected, annotationPaths, Collections.<String> emptySet());
         }
     }
+    public void testEmojiImages() {
+        Factory factoryAnnotations = SimpleFactory.make(CLDRPaths.ANNOTATIONS_DIRECTORY, ".*");
+        CLDRFile enAnnotations = factoryAnnotations.make("en", false);
+
+        String emojiImageDir = CLDRPaths.BASE_DIRECTORY + "/tools/cldr-apps/WebContent/images/emoji";
+        for (String emoji : Emoji.getNonConstructed()) { 
+            String noVs = emoji.replace(Emoji.EMOJI_VARIANT, "");
+            
+            // example: emoji_1f1e7_1f1ec.png
+            String fileName = "emoji_" + Utility.hex(noVs, 4, "_").toLowerCase(Locale.ENGLISH) + ".png";
+            File file = new File(emojiImageDir, fileName);
+            
+            if (!file.exists()) {
+                String name = enAnnotations.getStringValue("//ldml/annotations/annotation[@cp=\"" + noVs + "\"][@type=\"tts\"]");
+                errln(fileName + " missing; " + name);
+            }
+        }
+    }
+    
+    /**
+     * check that the order info and categories are consistent.
+     */
+    public void testEmojiOrdering() {
+        // load an array for sorting
+        // and test that every order value maps to exactly one emoji
+        Map<String,String> minorToMajor = new HashMap<>();
+        Map<Integer, String> orderToEmoji = new TreeMap<>();
+        for (String emoji : Emoji.getNonConstructed()) {
+            Integer emojiOrder = Emoji.getEmojiToOrder(emoji);
+            String oldEmoji = orderToEmoji.get(emojiOrder);
+            if (oldEmoji == null) {
+                orderToEmoji.put(emojiOrder, emoji);
+            } else {
+                errln("single order value with different emoji" + emoji + " ≠ " + oldEmoji);
+            }
+        }
+        Set<String> majorsSoFar = new TreeSet<>();
+        String lastMajor = "";
+        Set<String> minorsSoFar = new TreeSet<>();
+        String lastMinor = "";
+        for (Entry<Integer, String> entry : orderToEmoji.entrySet()) {
+            String emoji = entry.getValue();
+            String major = Emoji.getMajorCategory(emoji);
+            String minor = Emoji.getMinorCategory(emoji);
+            if (isVerbose()) {
+                System.out.println(major + "\t" + minor + "\t" + emoji);
+            }
+            String oldMajor = minorToMajor.get(minor);
+            // never get major1:minor1 and major2:minor1
+            if (oldMajor == null) {
+                minorToMajor.put(minor, major); 
+            } else {
+                assertEquals(minor + " maps to different majors for " + Utility.hex(emoji), oldMajor, major);
+            }
+            // never get major1 < major2 < major1
+            if (!major.equals(lastMajor)) {
+                if (majorsSoFar.contains(major)) {
+                    errln("Non-contiguous majors: " + major + " <… " + lastMajor + " < " + major);
+                }
+                majorsSoFar.add(major);
+                lastMajor = major;
+            }
+            // never get minor1 < minor2 < minor1
+            if (!minor.equals(lastMinor)) {
+                if (minorsSoFar.contains(minor)) {
+                    errln("Non-contiguous minors: " + minor + " <… " + lastMinor + " < " + minor);
+                }
+                minorsSoFar.add(minor);
+                lastMinor = minor;
+            }
+        }
+    }
+
 
     public void testSuperfluousAnnotationPaths() {
         Factory factoryAnnotations = SimpleFactory.make(CLDRPaths.ANNOTATIONS_DIRECTORY, ".*");
@@ -310,13 +405,14 @@ public class TestAnnotations extends TestFmwkPlus {
     private void checkAMinusBIsC(String title, Set<String> a, Set<String> b, Set<String> c) {
         Set<String> aMb = new TreeSet<>(a);
         aMb.removeAll(b);
-        assertEquals(title, c, aMb);
+        assertEquals(title + " (" + aMb.size() + ")", c, aMb);
     }
     
     public void testListFormatter() {
         Object[][] tests = {
             {"en", ListTypeLength.NORMAL, "ABC", "A, B, and C"},
-            {"en", ListTypeLength.AND_SHORT, "ABC", "A, B, and C"},
+            {"en", ListTypeLength.AND_SHORT, "ABC", "A, B, & C"},
+            {"en", ListTypeLength.AND_NARROW, "ABC", "A, B, C"},
             {"en", ListTypeLength.OR_WIDE, "ABC", "A, B, or C"}
         };
         Factory factory = CLDRConfig.getInstance().getCldrFactory();

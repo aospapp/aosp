@@ -22,11 +22,11 @@ import (
 
 type StripProperties struct {
 	Strip struct {
-		None              *bool    `android:"arch_variant"`
-		All               *bool    `android:"arch_variant"`
-		Keep_symbols      *bool    `android:"arch_variant"`
-		Keep_symbols_list []string `android:"arch_variant"`
-		Use_gnu_strip     *bool    `android:"arch_variant"`
+		None                         *bool    `android:"arch_variant"`
+		All                          *bool    `android:"arch_variant"`
+		Keep_symbols                 *bool    `android:"arch_variant"`
+		Keep_symbols_list            []string `android:"arch_variant"`
+		Keep_symbols_and_debug_frame *bool    `android:"arch_variant"`
 	} `android:"arch_variant"`
 }
 
@@ -40,23 +40,32 @@ func (stripper *stripper) needsStrip(ctx ModuleContext) bool {
 }
 
 func (stripper *stripper) strip(ctx ModuleContext, in android.Path, out android.ModuleOutPath,
-	flags builderFlags) {
+	flags builderFlags, isStaticLib bool) {
 	if ctx.Darwin() {
 		TransformDarwinStrip(ctx, in, out)
 	} else {
 		if Bool(stripper.StripProperties.Strip.Keep_symbols) {
 			flags.stripKeepSymbols = true
+		} else if Bool(stripper.StripProperties.Strip.Keep_symbols_and_debug_frame) {
+			flags.stripKeepSymbolsAndDebugFrame = true
 		} else if len(stripper.StripProperties.Strip.Keep_symbols_list) > 0 {
 			flags.stripKeepSymbolsList = strings.Join(stripper.StripProperties.Strip.Keep_symbols_list, ",")
 		} else if !Bool(stripper.StripProperties.Strip.All) {
 			flags.stripKeepMiniDebugInfo = true
 		}
-		if Bool(stripper.StripProperties.Strip.Use_gnu_strip) {
-			flags.stripUseGnuStrip = true
-		}
-		if ctx.Config().Debuggable() && !flags.stripKeepMiniDebugInfo {
+		if ctx.Config().Debuggable() && !flags.stripKeepMiniDebugInfo && !isStaticLib {
 			flags.stripAddGnuDebuglink = true
 		}
 		TransformStrip(ctx, in, out, flags)
 	}
+}
+
+func (stripper *stripper) stripExecutableOrSharedLib(ctx ModuleContext, in android.Path,
+	out android.ModuleOutPath, flags builderFlags) {
+	stripper.strip(ctx, in, out, flags, false)
+}
+
+func (stripper *stripper) stripStaticLib(ctx ModuleContext, in android.Path, out android.ModuleOutPath,
+	flags builderFlags) {
+	stripper.strip(ctx, in, out, flags, true)
 }

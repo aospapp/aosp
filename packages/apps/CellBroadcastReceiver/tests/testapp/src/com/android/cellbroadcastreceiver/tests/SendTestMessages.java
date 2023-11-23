@@ -27,9 +27,9 @@ import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
 import android.util.Log;
 
-import com.android.internal.telephony.gsm.GsmSmsCbMessage;
+import com.android.cellbroadcastservice.SmsCbHeader;
+import com.android.internal.telephony.CellBroadcastUtils;
 import com.android.internal.telephony.gsm.SmsCbConstants;
-import com.android.internal.telephony.gsm.SmsCbHeader;
 import com.android.internal.telephony.uicc.IccUtils;
 
 /**
@@ -38,8 +38,6 @@ import com.android.internal.telephony.uicc.IccUtils;
 public class SendTestMessages {
 
     private static String TAG = "SendTestMessages";
-
-    private static final String CB_RECEIVER_PKG = "com.android.cellbroadcastreceiver";
 
     private static final int DCS_7BIT_ENGLISH = 0x01;
     private static final int DCS_16BIT_UCS2 = 0x48;
@@ -423,7 +421,7 @@ public class SendTestMessages {
                 }
             }
             return GsmSmsCbMessage.createSmsCbMessage(context, new SmsCbHeader(pdus[0]),
-                    sEmptyLocation, pdus);
+                    sEmptyLocation, pdus, 0 /* slotIndex */);
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -433,7 +431,8 @@ public class SendTestMessages {
                                       byte[] pdu) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(activity, pdu, serialNumber, category));
-        intent.setPackage(CB_RECEIVER_PKG);
+        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(
+                activity.getApplicationContext()));
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
@@ -465,7 +464,8 @@ public class SendTestMessages {
         pdus[0] = gsm7BitTestMultipage1;
         pdus[1] = gsm7BitTestMultipage2;
         intent.putExtra("message", createFromPdus(activity, pdus, serialNumber, category));
-        intent.setPackage(CB_RECEIVER_PKG);
+        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(
+                activity.getApplicationContext()));
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }

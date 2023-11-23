@@ -51,6 +51,7 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IInterface;
+import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.telecom.CallAudioState;
@@ -62,6 +63,7 @@ import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.TelephonyRegistryManager;
 import android.test.mock.MockContext;
 
 import java.io.File;
@@ -120,6 +122,11 @@ public class ComponentContextFixture implements TestFixture<Context> {
         @Override
         public Context getApplicationContext() {
             return mApplicationContextSpy;
+        }
+
+        @Override
+        public Resources.Theme getTheme() {
+            return mResourcesTheme;
         }
 
         @Override
@@ -194,6 +201,8 @@ public class ComponentContextFixture implements TestFixture<Context> {
                     return mCountryDetector;
                 case Context.ROLE_SERVICE:
                     return mRoleManager;
+                case Context.TELEPHONY_REGISTRY_SERVICE:
+                    return mTelephonyRegistryManager;
                 default:
                     return null;
             }
@@ -209,6 +218,12 @@ public class ComponentContextFixture implements TestFixture<Context> {
                 return Context.AUDIO_SERVICE;
             } else if (svcClass == TelephonyManager.class) {
                 return Context.TELEPHONY_SERVICE;
+            } else if (svcClass == CarrierConfigManager.class) {
+                return Context.CARRIER_CONFIG_SERVICE;
+            } else if (svcClass == SubscriptionManager.class) {
+                return Context.TELEPHONY_SUBSCRIPTION_SERVICE;
+            } else if (svcClass == TelephonyRegistryManager.class) {
+                return Context.TELEPHONY_REGISTRY_SERVICE;
             }
             throw new UnsupportedOperationException();
         }
@@ -441,6 +456,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
     // We then create a spy on the application context allowing standard Mockito-style
     // when(...) logic to be used to add specific little responses where needed.
 
+    private final Resources.Theme mResourcesTheme = mock(Resources.Theme.class);
     private final Resources mResources = mock(Resources.class);
     private final Context mApplicationContextSpy = spy(mApplicationContext);
     private final PackageManager mPackageManager = mock(PackageManager.class);
@@ -458,6 +474,8 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final Configuration mResourceConfiguration = new Configuration();
     private final ApplicationInfo mTestApplicationInfo = new ApplicationInfo();
     private final RoleManager mRoleManager = mock(RoleManager.class);
+    private final TelephonyRegistryManager mTelephonyRegistryManager =
+            mock(TelephonyRegistryManager.class);
 
     private TelecomManager mTelecomManager = mock(TelecomManager.class);
 
@@ -497,12 +515,12 @@ public class ComponentContextFixture implements TestFixture<Context> {
         // Used in CreateConnectionProcessor to rank emergency numbers by viability.
         // For the test, make them all equal to INVALID so that the preferred PhoneAccount will be
         // chosen.
-        when(mTelephonyManager.getSubIdForPhoneAccount((PhoneAccount) any())).thenReturn(
+        when(mTelephonyManager.getSubscriptionId(any())).thenReturn(
                 SubscriptionManager.INVALID_SUBSCRIPTION_ID);
 
         when(mTelephonyManager.getNetworkOperatorName()).thenReturn("label1");
-        when(mTelephonyManager.getMultiSimConfiguration()).thenReturn(
-                TelephonyManager.MultiSimVariants.UNKNOWN);
+        when(mTelephonyManager.getMaxNumberOfSimultaneouslyActiveSims()).thenReturn(1);
+        when(mTelephonyManager.createForSubscriptionId(anyInt())).thenReturn(mTelephonyManager);
         when(mResources.getBoolean(eq(R.bool.grant_location_permission_enabled))).thenReturn(false);
         doAnswer(new Answer<Void>(){
             @Override
@@ -512,6 +530,9 @@ public class ComponentContextFixture implements TestFixture<Context> {
         }).when(mAppOpsManager).checkPackage(anyInt(), anyString());
 
         when(mNotificationManager.matchesCallFilter(any(Bundle.class))).thenReturn(true);
+
+        when(mCarrierConfigManager.getConfig()).thenReturn(new PersistableBundle());
+        when(mCarrierConfigManager.getConfigForSubId(anyInt())).thenReturn(new PersistableBundle());
 
         when(mUserManager.getSerialNumberForUser(any(UserHandle.class))).thenReturn(-1L);
 
@@ -543,14 +564,25 @@ public class ComponentContextFixture implements TestFixture<Context> {
 
     public void addInCallService(
             ComponentName componentName,
-            IInCallService service)
+            IInCallService service,
+            int uid)
             throws Exception {
         addService(InCallService.SERVICE_INTERFACE, componentName, service);
         ServiceInfo serviceInfo = new ServiceInfo();
         serviceInfo.permission = android.Manifest.permission.BIND_INCALL_SERVICE;
         serviceInfo.packageName = componentName.getPackageName();
+        serviceInfo.applicationInfo = new ApplicationInfo();
+        serviceInfo.applicationInfo.uid = uid;
+        serviceInfo.metaData = new Bundle();
+        serviceInfo.metaData.putBoolean(TelecomManager.METADATA_IN_CALL_SERVICE_UI, false);
         serviceInfo.name = componentName.getClassName();
         mServiceInfoByComponentName.put(componentName, serviceInfo);
+
+        // Used in InCallController to check permissions for CONTROL_INCALL_EXPERIENCE
+        when(mPackageManager.getPackagesForUid(eq(uid))).thenReturn(new String[] {
+                componentName.getPackageName() });
+        when(mPackageManager.checkPermission(eq(Manifest.permission.CONTROL_INCALL_EXPERIENCE),
+                eq(componentName.getPackageName()))).thenReturn(PackageManager.PERMISSION_GRANTED);
     }
 
     public void putResource(int id, final String value) {

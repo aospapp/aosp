@@ -31,10 +31,8 @@ struct cras_device_blacklist;
  *    by calling cras_alsa_card_destroy or NULL on error.
  */
 struct cras_alsa_card *cras_alsa_card_create(
-		struct cras_alsa_card_info *info,
-		const char *device_config_dir,
-		struct cras_device_blacklist *blacklist,
-		const char *ucm_suffix);
+	struct cras_alsa_card_info *info, const char *device_config_dir,
+	struct cras_device_blacklist *blacklist, const char *ucm_suffix);
 
 /* Destroys a cras_alsa_card that was returned from cras_alsa_card_create.
  * Args:

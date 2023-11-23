@@ -28,7 +28,7 @@ __attribute__((__weak__, visibility("default")))
 void __loader_android_get_LD_LIBRARY_PATH(char* buffer, size_t buffer_size);
 
 __attribute__((__weak__, visibility("default")))
-    void __loader_android_update_LD_LIBRARY_PATH(const char* ld_library_path);
+void __loader_android_update_LD_LIBRARY_PATH(const char* ld_library_path);
 
 __attribute__((__weak__, visibility("default")))
 void __loader_android_set_application_target_sdk_version(int target);
@@ -114,17 +114,5 @@ __attribute__((__weak__))
 struct android_namespace_t* android_get_exported_namespace(const char* name) {
   return __loader_android_get_exported_namespace(name);
 }
-
-#if defined(__arm__)
-// An arm32 unwinding table has an R_ARM_NONE relocation to
-// __aeabi_unwind_cpp_pr0. This shared library will never invoke the unwinder,
-// so it doesn't actually need the routine. Define a dummy version here,
-// because the real version calls libc functions (e.g. memcpy, abort), which
-// would create a dependency cycle with libc.so.
-__attribute__((visibility("hidden")))
-void __aeabi_unwind_cpp_pr0() {
-  __builtin_trap();
-}
-#endif
 
 } // extern "C"

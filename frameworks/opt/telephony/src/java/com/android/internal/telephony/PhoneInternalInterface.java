@@ -17,7 +17,7 @@
 package com.android.internal.telephony;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -25,6 +25,7 @@ import android.os.ResultReceiver;
 import android.telecom.VideoProfile;
 import android.telephony.ImsiEncryptionInfo;
 import android.telephony.NetworkScanRequest;
+import android.telephony.PreciseDataConnectionState;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 
@@ -192,9 +193,12 @@ public interface PhoneInternalInterface {
     int CDMA_RM_ANY         = TelephonyManager.CDMA_ROAMING_MODE_ANY;
 
     // Used for CDMA subscription mode
-    static final int CDMA_SUBSCRIPTION_UNKNOWN  =-1; // Unknown
-    static final int CDMA_SUBSCRIPTION_RUIM_SIM = 0; // RUIM/SIM (default)
-    static final int CDMA_SUBSCRIPTION_NV       = 1; // NV -> non-volatile memory
+    // Unknown
+    static final int CDMA_SUBSCRIPTION_UNKNOWN  = TelephonyManager.CDMA_SUBSCRIPTION_UNKNOWN;
+    // RUIM/SIM (default)
+    static final int CDMA_SUBSCRIPTION_RUIM_SIM = TelephonyManager.CDMA_SUBSCRIPTION_RUIM_SIM;
+    // NV -> non-volatile memory
+    static final int CDMA_SUBSCRIPTION_NV       = TelephonyManager.CDMA_SUBSCRIPTION_NV;
 
     static final int PREFERRED_CDMA_SUBSCRIPTION = CDMA_SUBSCRIPTION_RUIM_SIM;
 
@@ -235,6 +239,16 @@ public interface PhoneInternalInterface {
      * @param apnType specify for which apn to get connection state info.
      */
     DataState getDataConnectionState(String apnType);
+
+    /**
+     * Get the current Precise DataState. No change notification exists at this
+     * interface -- use
+     * {@link android.telephony.PhoneStateListener} instead.
+     *
+     * @param apnType specify for which apn to get connection state info.
+     * @return the PreciseDataConnectionState for the data connection supporting apnType
+     */
+    PreciseDataConnectionState getPreciseDataConnectionState(String apnType);
 
     /**
      * Get the current DataActivityState. No change notification exists at this
@@ -424,6 +438,21 @@ public interface PhoneInternalInterface {
     Connection dial(String dialString, @NonNull DialArgs dialArgs) throws CallStateException;
 
     /**
+     * Initiate a new conference connection. This happens asynchronously, so you
+     * cannot assume the audio path is connected (or a call index has been
+     * assigned) until PhoneStateChanged notification has occurred.
+     *
+     * @param participantsToDial The participants to dial.
+     * @param dialArgs Parameters to perform the start conference with.
+     * @exception CallStateException if a new outgoing call is not currently
+     *                possible because no more call slots exist or a call exists
+     *                that is dialing, alerting, ringing, or waiting. Other
+     *                errors are handled asynchronously.
+     */
+    Connection startConference(String[] participantsToDial, @NonNull DialArgs dialArgs)
+            throws CallStateException;
+
+    /**
      * Handles PIN MMI commands (PIN/PIN2/PUK/PUK2), which are initiated
      * without SEND (so <code>dial</code> is not appropriate).
      *
@@ -485,7 +514,33 @@ public interface PhoneInternalInterface {
      *
      * @param power true means "on", false means "off".
      */
-    void setRadioPower(boolean power);
+    default void setRadioPower(boolean power) {
+        setRadioPower(power, false, false, false);
+    }
+
+    /**
+     * Sets the radio power on/off state with option to specify whether it's for emergency call
+     * (off is sometimes called "airplane mode"). Current state can be gotten via
+     * {@link #getServiceState()}.{@link
+     * android.telephony.ServiceState#getState() getState()}.
+     * <strong>Note: </strong>This request is asynchronous.
+     * getServiceState().getState() will not change immediately after this call.
+     * registerForServiceStateChanged() to find out when the
+     * request is complete.
+     *
+     * @param power true means "on", false means "off".
+     * @param forEmergencyCall true means the purpose of turning radio power on is for emergency
+     *                         call. No effect if power is set false.
+     * @param isSelectedPhoneForEmergencyCall true means this phone / modem is selected to place
+     *                                  emergency call after turning power on. No effect if power
+     *                                  or forEmergency is set false.
+     * @param forceApply true means always call setRadioPower HAL API without checking against
+     *                   current radio power state. It's needed when: radio was powered on into
+     *                   emergency call mode, to exit from that mode, we set radio
+     *                   power on again with forEmergencyCall being false.
+     */
+    default void setRadioPower(boolean power, boolean forEmergencyCall,
+            boolean isSelectedPhoneForEmergencyCall, boolean forceApply) {}
 
     /**
      * Get the line 1 phone number (MSISDN). For CDMA phones, the MDN is returned
@@ -551,7 +606,7 @@ public interface PhoneInternalInterface {
 
     /**
      * getCallForwardingOptions
-     * gets a call forwarding option. The return value of
+     * gets a call forwarding option for SERVICE_CLASS_VOICE. The return value of
      * ((AsyncResult)onComplete.obj) is an array of CallForwardInfo.
      *
      * @param commandInterfaceCFReason is one of the valid call forwarding
@@ -564,23 +619,63 @@ public interface PhoneInternalInterface {
                                   Message onComplete);
 
     /**
-     * setCallForwardingOptions
-     * sets a call forwarding option.
+     * getCallForwardingOptions
+     * gets a call forwarding option. The return value of
+     * ((AsyncResult)onComplete.obj) is an array of CallForwardInfo.
      *
      * @param commandInterfaceCFReason is one of the valid call forwarding
      *        CF_REASONS, as defined in
      *        <code>com.android.internal.telephony.CommandsInterface.</code>
+     * @param serviceClass is a sum of SERVICE_CLASS_* as defined in
+     *        <code>com.android.internal.telephony.CommandsInterface.</code>
+     * @param onComplete a callback message when the action is completed.
+     *        @see com.android.internal.telephony.CallForwardInfo for details.
+     */
+    void getCallForwardingOption(int commandInterfaceCFReason, int serviceClass,
+                                  Message onComplete);
+
+    /**
+     * setCallForwardingOptions
+     * sets a call forwarding option for SERVICE_CLASS_VOICE.
+     *
      * @param commandInterfaceCFAction is one of the valid call forwarding
      *        CF_ACTIONS, as defined in
+     *        <code>com.android.internal.telephony.CommandsInterface.</code>
+     * @param commandInterfaceCFReason is one of the valid call forwarding
+     *        CF_REASONS, as defined in
      *        <code>com.android.internal.telephony.CommandsInterface.</code>
      * @param dialingNumber is the target phone number to forward calls to
      * @param timerSeconds is used by CFNRy to indicate the timeout before
      *        forwarding is attempted.
      * @param onComplete a callback message when the action is completed.
      */
-    void setCallForwardingOption(int commandInterfaceCFReason,
-                                 int commandInterfaceCFAction,
+    void setCallForwardingOption(int commandInterfaceCFAction,
+                                 int commandInterfaceCFReason,
                                  String dialingNumber,
+                                 int timerSeconds,
+                                 Message onComplete);
+
+    /**
+     * setCallForwardingOptions
+     * sets a call forwarding option.
+     *
+     * @param commandInterfaceCFAction is one of the valid call forwarding
+     *        CF_ACTIONS, as defined in
+     *        <code>com.android.internal.telephony.CommandsInterface.</code>
+     * @param commandInterfaceCFReason is one of the valid call forwarding
+     *        CF_REASONS, as defined in
+     *        <code>com.android.internal.telephony.CommandsInterface.</code>
+     * @param dialingNumber is the target phone number to forward calls to
+     * @param serviceClass is a sum of SERVICE_CLASS_* as defined in
+     *        <code>com.android.internal.telephony.CommandsInterface.</code>
+     * @param timerSeconds is used by CFNRy to indicate the timeout before
+     *        forwarding is attempted.
+     * @param onComplete a callback message when the action is completed.
+     */
+    void setCallForwardingOption(int commandInterfaceCFAction,
+                                 int commandInterfaceCFReason,
+                                 String dialingNumber,
+                                 int serviceClass,
                                  int timerSeconds,
                                  Message onComplete);
 

@@ -44,7 +44,7 @@ public abstract class BackupUtils {
 
     private static final int BACKUP_PROVISIONING_TIMEOUT_SECONDS = 30;
     private static final int BACKUP_PROVISIONING_POLL_INTERVAL_SECONDS = 1;
-    private static final int BACKUP_SERVICE_INIT_TIMEOUT_SECS = 30;
+    private static final long BACKUP_SERVICE_INIT_TIMEOUT_SECS = TimeUnit.MINUTES.toSeconds(2);
 
     private static final Pattern BACKUP_MANAGER_CURRENTLY_ENABLE_STATUS_PATTERN =
             Pattern.compile("^Backup Manager currently (enabled|disabled)$");
@@ -256,32 +256,6 @@ public abstract class BackupUtils {
         }
     }
 
-    /** Executes "dumpsys backup" and returns an {@link InputStream} for its output. */
-    private InputStream dumpsysBackup() throws IOException {
-        return executeShellCommand("dumpsys backup");
-    }
-
-    /**
-     * Parses the output of "dumpsys backup" command to get token. Closes the input stream finally.
-     *
-     * Expected format: "Current: token"
-     */
-    private String getCurrentTokenOrFail(InputStream dumpsysOutput) throws IOException {
-        BufferedReader reader =
-                new BufferedReader(new InputStreamReader(dumpsysOutput, StandardCharsets.UTF_8));
-        try {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains(BACKUP_DUMPSYS_CURRENT_TOKEN_FIELD)) {
-                    return line.split(BACKUP_DUMPSYS_CURRENT_TOKEN_FIELD)[1].trim();
-                }
-            }
-            throw new AssertionError("Couldn't find token in output");
-        } finally {
-            StreamUtil.drainAndClose(reader);
-        }
-    }
-
     /**
      * Execute shell command and return output from this command.
      */
@@ -322,8 +296,10 @@ public abstract class BackupUtils {
     }
 
     /** Execute shell command "bmgr --user <id> activate <activate>." */
-    public void activateBackupForUser(boolean activate, int userId) throws IOException {
+    public boolean activateBackupForUser(boolean activate, int userId) throws IOException {
+        boolean previouslyActivated = isBackupActivatedForUser(userId);
         executeShellCommandSync(String.format("bmgr --user %d activate %b", userId, activate));
+        return previouslyActivated;
     }
 
     /**
@@ -371,7 +347,7 @@ public abstract class BackupUtils {
     }
 
     @VisibleForTesting
-    void waitUntilBackupServiceIsRunning(int userId, int timeout)
+    void waitUntilBackupServiceIsRunning(int userId, long timeout)
             throws IOException, InterruptedException {
         CommonTestUtils.waitUntil(
                 "Backup Manager init timed out",

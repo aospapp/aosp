@@ -30,6 +30,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -402,28 +403,6 @@ public class CommandReceiverActivity extends Activity {
                             PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
                             PackageManager.DONT_KILL_APP);
                 } break;
-                case COMMAND_CREATE_MANAGED_PROFILE: {
-                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
-                        return;
-                    }
-                    if (mUm.getUserProfiles().size() > 1) {
-                        return;
-                    }
-                    startActivityForResult(new Intent(
-                            DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
-                            .putExtra(DevicePolicyManager
-                                    .EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
-                                    CompDeviceAdminTestReceiver.getReceiverComponentName())
-                            .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION, true)
-                            .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_CONSENT,
-                                true), 0);
-                } break;
-                case COMMAND_REMOVE_MANAGED_PROFILE: {
-                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
-                        return;
-                    }
-                    removeManagedProfile();
-                } break;
                 case COMMAND_SET_ALWAYS_ON_VPN: {
                     if (!mDpm.isDeviceOwnerApp(getPackageName())) {
                         return;
@@ -652,7 +631,8 @@ public class CommandReceiverActivity extends Activity {
     }
 
     private boolean isSystemInputMethodInfo(InputMethodInfo inputMethodInfo) {
-        return inputMethodInfo.getServiceInfo().applicationInfo.isSystemApp();
+        final ApplicationInfo applicationInfo = inputMethodInfo.getServiceInfo().applicationInfo;
+        return (applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
     }
 
     private void createAndSwitchUserWithMessage(String startUserSessionMessage,

@@ -20,6 +20,7 @@ import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
 import static android.app.NotificationManager.IMPORTANCE_HIGH;
 import static android.app.NotificationManager.IMPORTANCE_LOW;
 import static android.service.notification.Adjustment.KEY_IMPORTANCE;
+import static android.service.notification.Adjustment.KEY_NOT_CONVERSATION;
 import static android.service.notification.NotificationListenerService.Ranking.USER_SENTIMENT_NEGATIVE;
 import static android.service.notification.NotificationListenerService.Ranking.USER_SENTIMENT_NEUTRAL;
 import static android.service.notification.NotificationListenerService.Ranking.USER_SENTIMENT_POSITIVE;
@@ -44,19 +45,24 @@ import android.app.Notification;
 import android.app.Notification.Builder;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.Person;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
 import android.media.AudioAttributes;
 import android.metrics.LogMaker;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.service.notification.Adjustment;
 import android.service.notification.StatusBarNotification;
+import android.widget.RemoteViews;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -81,8 +87,9 @@ public class NotificationRecordTest extends UiServiceTestCase {
 
     private final Context mMockContext = mock(Context.class);
     @Mock private PackageManager mPm;
+    @Mock private ContentResolver mContentResolver;
 
-    private final String pkg = PKG_N_MR1;
+    private final String mPkg = PKG_O;
     private final int uid = 9583;
     private final int id1 = 1;
     private final String tag1 = "tag1";
@@ -114,7 +121,10 @@ public class NotificationRecordTest extends UiServiceTestCase {
 
         when(mMockContext.getResources()).thenReturn(getContext().getResources());
         when(mMockContext.getPackageManager()).thenReturn(mPm);
-        when(mMockContext.getApplicationInfo()).thenReturn(new ApplicationInfo());
+        when(mMockContext.getContentResolver()).thenReturn(mContentResolver);
+        ApplicationInfo appInfo = new ApplicationInfo();
+        appInfo.targetSdkVersion = Build.VERSION_CODES.O;
+        when(mMockContext.getApplicationInfo()).thenReturn(appInfo);
     }
 
     private StatusBarNotification getNotification(String pkg, boolean noisy, boolean defaultSound,
@@ -163,6 +173,44 @@ public class NotificationRecordTest extends UiServiceTestCase {
         if(group != null) {
             builder.setGroup(group);
         }
+
+        Notification n = builder.build();
+        return new StatusBarNotification(pkg, pkg, id1, tag1, uid, uid, n, mUser, null, uid);
+    }
+
+    private StatusBarNotification getStyledNotification(boolean customContent, boolean customBig,
+            boolean customHeadsUp, Notification.Style style) {
+        final Builder builder = new Builder(mMockContext)
+                .setContentTitle("foo")
+                .setSmallIcon(android.R.drawable.sym_def_app_icon);
+        if (style != null) {
+            builder.setStyle(style);
+        }
+        if (customContent) {
+            builder.setCustomContentView(mock(RemoteViews.class));
+        }
+        if (customBig) {
+            builder.setCustomBigContentView(mock(RemoteViews.class));
+        }
+        if (customHeadsUp) {
+            builder.setCustomHeadsUpContentView(mock(RemoteViews.class));
+        }
+
+        Notification n = builder.build();
+        return new StatusBarNotification(mPkg, mPkg, id1, tag1, uid, uid, n, mUser, null, uid);
+    }
+
+    private StatusBarNotification getMessagingStyleNotification() {
+        return getMessagingStyleNotification(mPkg);
+    }
+
+    private StatusBarNotification getMessagingStyleNotification(String pkg) {
+        final Builder builder = new Builder(mMockContext)
+                .setContentTitle("foo")
+                .setSmallIcon(android.R.drawable.sym_def_app_icon);
+
+        Person person = new Person.Builder().setName("Bob").build();
+        builder.setStyle(new Notification.MessagingStyle(person));
 
         Notification n = builder.build();
         return new StatusBarNotification(pkg, pkg, id1, tag1, uid, uid, n, mUser, null, uid);
@@ -613,7 +661,7 @@ public class NotificationRecordTest extends UiServiceTestCase {
 
         Bundle signals = new Bundle();
         signals.putInt(Adjustment.KEY_USER_SENTIMENT, USER_SENTIMENT_NEGATIVE);
-        record.addAdjustment(new Adjustment(pkg, record.getKey(), signals, null, sbn.getUserId()));
+        record.addAdjustment(new Adjustment(mPkg, record.getKey(), signals, null, sbn.getUserId()));
 
         record.applyAdjustments();
 
@@ -642,7 +690,7 @@ public class NotificationRecordTest extends UiServiceTestCase {
 
         Bundle signals = new Bundle();
         signals.putInt(Adjustment.KEY_USER_SENTIMENT, USER_SENTIMENT_NEGATIVE);
-        record.addAdjustment(new Adjustment(pkg, record.getKey(), signals, null, sbn.getUserId()));
+        record.addAdjustment(new Adjustment(mPkg, record.getKey(), signals, null, sbn.getUserId()));
         record.applyAdjustments();
 
         assertEquals(USER_SENTIMENT_POSITIVE, record.getUserSentiment());
@@ -660,7 +708,7 @@ public class NotificationRecordTest extends UiServiceTestCase {
 
         Bundle signals = new Bundle();
         signals.putInt(Adjustment.KEY_USER_SENTIMENT, USER_SENTIMENT_NEGATIVE);
-        record.addAdjustment(new Adjustment(pkg, record.getKey(), signals, null, sbn.getUserId()));
+        record.addAdjustment(new Adjustment(mPkg, record.getKey(), signals, null, sbn.getUserId()));
 
         record.applyAdjustments();
 
@@ -998,5 +1046,201 @@ public class NotificationRecordTest extends UiServiceTestCase {
         record.calculateImportance();
 
         assertEquals(IMPORTANCE_LOW, record.getImportance());
+    }
+
+    @Test
+    public void testHasUndecoratedRemoteViews_NoRemoteViews() {
+        StatusBarNotification sbn = getStyledNotification(false, false, false, null);
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertFalse("false positive detection", record.hasUndecoratedRemoteView());
+    }
+
+    @Test
+    public void testHasUndecoratedRemoteViews_NoRemoteViewsWithStyle() {
+        StatusBarNotification sbn = getStyledNotification(false, false, false,
+                new Notification.BigPictureStyle());
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertFalse("false positive detection", record.hasUndecoratedRemoteView());
+    }
+
+    @Test
+    public void testHasUndecoratedRemoteViews_UndecoratedContent() {
+        StatusBarNotification sbn = getStyledNotification(true, false, false, null);
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertTrue("false negative detection", record.hasUndecoratedRemoteView());
+    }
+
+
+    @Test
+    public void testHasUndecoratedRemoteViews_UndecoratedBig() {
+        StatusBarNotification sbn = getStyledNotification(false, true, false, null);
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertTrue("false negative detection", record.hasUndecoratedRemoteView());
+    }
+
+
+    @Test
+    public void testHasUndecoratedRemoteViews_UndecoratedHeadsup() {
+        StatusBarNotification sbn = getStyledNotification(false, false, true, null);
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertTrue("false negative detection", record.hasUndecoratedRemoteView());
+    }
+
+    @Test
+    public void testHasUndecoratedRemoteViews_DecoratedRemoteViews() {
+        StatusBarNotification sbn = getStyledNotification(true, true, true,
+                new Notification.DecoratedCustomViewStyle());
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertFalse("false positive detection", record.hasUndecoratedRemoteView());
+    }
+
+    @Test
+    public void testHasUndecoratedRemoteViews_DecoratedMediaRemoteViews() {
+        StatusBarNotification sbn = getStyledNotification(true, true, true,
+                new Notification.DecoratedMediaCustomViewStyle());
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertFalse("false positive detection", record.hasUndecoratedRemoteView());
+    }
+
+    @Test
+    public void testHasUndecoratedRemoteViews_UndecoratedWrongStyle() {
+        StatusBarNotification sbn = getStyledNotification(true, true, true,
+                new Notification.BigPictureStyle());
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+
+        assertTrue("false negative detection", record.hasUndecoratedRemoteView());
+    }
+
+    @Test
+    public void testIsConversation() {
+        StatusBarNotification sbn = getMessagingStyleNotification();
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+        record.setShortcutInfo(mock(ShortcutInfo.class));
+
+        assertTrue(record.isConversation());
+    }
+
+    @Test
+    public void testIsConversation_noShortcut() {
+        StatusBarNotification sbn = getMessagingStyleNotification();
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+        record.setShortcutInfo(null);
+
+        assertTrue(record.isConversation());
+    }
+
+    @Test
+    public void testIsConversation_noShortcut_appHasPreviousSentFullConversation() {
+        StatusBarNotification sbn = getMessagingStyleNotification();
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+        record.setShortcutInfo(null);
+        record.setHasSentValidMsg(true);
+
+        assertFalse(record.isConversation());
+    }
+
+    @Test
+    public void testIsConversation_noShortcut_userDemotedApp() {
+        StatusBarNotification sbn = getMessagingStyleNotification();
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+        record.setShortcutInfo(null);
+        record.userDemotedAppFromConvoSpace(true);
+
+        assertFalse(record.isConversation());
+    }
+
+    @Test
+    public void testIsConversation_noShortcut_targetsR() {
+        StatusBarNotification sbn = getMessagingStyleNotification(PKG_R);
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+        record.setShortcutInfo(null);
+
+        assertFalse(record.isConversation());
+    }
+
+    @Test
+    public void testIsConversation_channelDemoted() {
+        StatusBarNotification sbn = getMessagingStyleNotification();
+        channel.setDemoted(true);
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+        record.setShortcutInfo(mock(ShortcutInfo.class));
+
+        assertFalse(record.isConversation());
+    }
+
+    @Test
+    public void testIsConversation_withAdjustmentOverride() {
+        StatusBarNotification sbn = getMessagingStyleNotification();
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
+        record.setShortcutInfo(mock(ShortcutInfo.class));
+
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(KEY_NOT_CONVERSATION, true);
+        Adjustment adjustment = new Adjustment(
+                PKG_O, record.getKey(), bundle, "", record.getUser().getIdentifier());
+
+        record.addAdjustment(adjustment);
+        record.applyAdjustments();
+
+        assertFalse(record.isConversation());
+    }
+
+    @Test
+    public void isConversation_pkgAllowed_isMsgType() {
+        StatusBarNotification sbn = getNotification(PKG_N_MR1, true /* noisy */,
+                true /* defaultSound */, false /* buzzy */, false /* defaultBuzz */,
+                false /* lights */, false /* defaultLights */, null /* group */);
+        sbn.getNotification().category = Notification.CATEGORY_MESSAGE;
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, defaultChannel);
+
+        record.setPkgAllowedAsConvo(true);
+
+        assertTrue(record.isConversation());
+    }
+
+    @Test
+    public void isConversation_pkgAllowed_isMNotsgType() {
+        StatusBarNotification sbn = getNotification(PKG_N_MR1, true /* noisy */,
+                true /* defaultSound */, false /* buzzy */, false /* defaultBuzz */,
+                false /* lights */, false /* defaultLights */, null /* group */);
+        sbn.getNotification().category = Notification.CATEGORY_ALARM;
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, defaultChannel);
+
+        record.setPkgAllowedAsConvo(true);
+
+        assertFalse(record.isConversation());
+    }
+
+    @Test
+    public void isConversation_pkgNotAllowed_isMsgType() {
+        StatusBarNotification sbn = getNotification(PKG_N_MR1, true /* noisy */,
+                true /* defaultSound */, false /* buzzy */, false /* defaultBuzz */,
+                false /* lights */, false /* defaultLights */, null /* group */);
+        sbn.getNotification().category = Notification.CATEGORY_MESSAGE;
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, defaultChannel);
+
+        record.setPkgAllowedAsConvo(false);
+
+        assertFalse(record.isConversation());
+    }
+
+    @Test
+    public void isConversation_pkgAllowed_isMsgType_targetsR() {
+        StatusBarNotification sbn = getNotification(PKG_R, true /* noisy */,
+                true /* defaultSound */, false /* buzzy */, false /* defaultBuzz */,
+                false /* lights */, false /* defaultLights */, null /* group */);
+        sbn.getNotification().category = Notification.CATEGORY_MESSAGE;
+        NotificationRecord record = new NotificationRecord(mMockContext, sbn, defaultChannel);
+
+        record.setPkgAllowedAsConvo(true);
+
+        assertFalse(record.isConversation());
     }
 }

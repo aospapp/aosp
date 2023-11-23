@@ -19,8 +19,8 @@ package android.media;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.app.ActivityThread;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -88,6 +88,10 @@ import java.util.Vector;
  * MediaPlayer class can be used to control playback
  * of audio/video files and streams. An example on how to use the methods in
  * this class can be found in {@link android.widget.VideoView}.
+ *
+ * <p>MediaPlayer is not thread-safe. Creation of and all access to player instances
+ * should be on the same thread. If registering <a href="#Callbacks">callbacks</a>,
+ * the thread must have a Looper.
  *
  * <p>Topics covered here are:
  * <ol>
@@ -246,7 +250,7 @@ import java.util.Vector;
  *         via {@link #setOnBufferingUpdateListener(OnBufferingUpdateListener)}.
  *         This callback allows applications to keep track of the buffering status
  *         while streaming audio/video.</li>
- *         <li>Calling {@link #start()} has not effect
+ *         <li>Calling {@link #start()} has no effect
  *         on a MediaPlayer object that is already in the <em>Started</em> state.</li>
  *         </ul>
  *         </li>
@@ -305,7 +309,7 @@ import java.util.Vector;
  *         </li>
  *     <li>When the playback reaches the end of stream, the playback completes.
  *         <ul>
- *         <li>If the looping mode was being set to <var>true</var>with
+ *         <li>If the looping mode was being set to <var>true</var> with
  *         {@link #setLooping(boolean)}, the MediaPlayer object shall remain in
  *         the <em>Started</em> state.</li>
  *         <li>If the looping mode was set to <var>false
@@ -554,13 +558,13 @@ import java.util.Vector;
  * possible runtime errors during playback or streaming. Registration for
  * these events is done by properly setting the appropriate listeners (via calls
  * to
- * {@link #setOnPreparedListener(OnPreparedListener)}setOnPreparedListener,
- * {@link #setOnVideoSizeChangedListener(OnVideoSizeChangedListener)}setOnVideoSizeChangedListener,
- * {@link #setOnSeekCompleteListener(OnSeekCompleteListener)}setOnSeekCompleteListener,
- * {@link #setOnCompletionListener(OnCompletionListener)}setOnCompletionListener,
- * {@link #setOnBufferingUpdateListener(OnBufferingUpdateListener)}setOnBufferingUpdateListener,
- * {@link #setOnInfoListener(OnInfoListener)}setOnInfoListener,
- * {@link #setOnErrorListener(OnErrorListener)}setOnErrorListener, etc).
+ * {@link #setOnPreparedListener(OnPreparedListener) setOnPreparedListener},
+ * {@link #setOnVideoSizeChangedListener(OnVideoSizeChangedListener) setOnVideoSizeChangedListener},
+ * {@link #setOnSeekCompleteListener(OnSeekCompleteListener) setOnSeekCompleteListener},
+ * {@link #setOnCompletionListener(OnCompletionListener) setOnCompletionListener},
+ * {@link #setOnBufferingUpdateListener(OnBufferingUpdateListener) setOnBufferingUpdateListener},
+ * {@link #setOnInfoListener(OnInfoListener) setOnInfoListener},
+ * {@link #setOnErrorListener(OnErrorListener) setOnErrorListener}, etc).
  * In order to receive the respective callback
  * associated with these listeners, applications are required to create
  * MediaPlayer objects on a thread with its own Looper running (main UI
@@ -628,7 +632,6 @@ public class MediaPlayer extends PlayerBase
     private boolean mScreenOnWhilePlaying;
     private boolean mStayAwake;
     private int mStreamType = AudioManager.USE_DEFAULT_STREAM_TYPE;
-    private int mUsage = -1;
 
     // Modular DRM
     private UUID mDrmUUID;
@@ -1102,7 +1105,6 @@ public class MediaPlayer extends PlayerBase
             setDataSource(afd);
             return true;
         } catch (NullPointerException | SecurityException | IOException ex) {
-            Log.w(TAG, "Couldn't open " + (uri == null ? "null uri" : uri.toSafeString()), ex);
             return false;
         }
     }
@@ -2216,7 +2218,6 @@ public class MediaPlayer extends PlayerBase
             throw new IllegalArgumentException(msg);
         }
         baseUpdateAudioAttributes(attributes);
-        mUsage = attributes.getUsage();
         Parcel pattributes = Parcel.obtain();
         attributes.writeToParcel(pattributes, AudioAttributes.FLATTEN_TAGS);
         setParameter(KEY_PARAMETER_AUDIO_ATTRIBUTES, pattributes);

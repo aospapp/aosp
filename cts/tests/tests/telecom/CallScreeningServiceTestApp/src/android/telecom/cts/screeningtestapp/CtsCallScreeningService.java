@@ -16,17 +16,12 @@
 
 package android.telecom.cts.screeningtestapp;
 
-import android.content.ComponentName;
 import android.content.Intent;
-import android.graphics.drawable.Icon;
 import android.os.IBinder;
 import android.telecom.Call;
 import android.telecom.CallScreeningService;
 
-import android.text.TextUtils;
 import android.util.Log;
-
-import java.util.List;
 
 /**
  * Provides a CTS-test implementation of {@link CallScreeningService}.
@@ -36,19 +31,21 @@ import java.util.List;
  */
 public class CtsCallScreeningService extends CallScreeningService {
     private static final String TAG = CtsCallScreeningService.class.getSimpleName();
+    private CallScreeningServiceControl mCallScreeningServiceControl;
 
     @Override
     public IBinder onBind(Intent intent) {
         Log.i(TAG, "onBind: returning actual service");
+        mCallScreeningServiceControl = CallScreeningServiceControl.getInstance();
+        mCallScreeningServiceControl.onScreeningServiceBound();
         return super.onBind(intent);
     }
 
     @Override
     public void onScreenCall(Call.Details callDetails) {
         Log.i(TAG, "onScreenCall");
-        CallScreeningServiceControl control = CallScreeningServiceControl.getInstance();
-        if (control != null) {
-            respondToCall(callDetails, control.getCallResponse());
+        if (mCallScreeningServiceControl != null) {
+            respondToCall(callDetails, mCallScreeningServiceControl.getCallResponse());
         } else {
             Log.w(TAG, "No control interface.");
         }

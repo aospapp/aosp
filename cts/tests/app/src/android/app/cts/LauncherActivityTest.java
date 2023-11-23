@@ -24,7 +24,6 @@ import android.view.KeyEvent;
 
 import java.util.List;
 
-import androidx.test.filters.FlakyTest;
 
 public class LauncherActivityTest
         extends ActivityInstrumentationTestCase2<LauncherActivityStub> {
@@ -43,7 +42,6 @@ public class LauncherActivityTest
         mActivity = getActivity();
     }
 
-    @FlakyTest(bugId = 133760851)
     public void testLaunchActivity() throws Throwable {
         runTestOnUiThread(new Runnable() {
             public void run() {

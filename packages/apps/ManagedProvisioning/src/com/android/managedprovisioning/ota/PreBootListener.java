@@ -18,7 +18,6 @@ package com.android.managedprovisioning.ota;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
 
 import com.android.managedprovisioning.common.ProvisionLogger;
 

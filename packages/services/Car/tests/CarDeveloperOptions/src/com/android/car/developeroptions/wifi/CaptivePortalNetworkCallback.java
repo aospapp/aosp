@@ -19,7 +19,7 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 
-import com.android.internal.util.Preconditions;
+import java.util.Objects;
 
 /** Listens for changes to NetworkCapabilities to update the ConnectedAccessPointPreference. */
 final class CaptivePortalNetworkCallback extends NetworkCallback {
@@ -31,8 +31,8 @@ final class CaptivePortalNetworkCallback extends NetworkCallback {
 
     CaptivePortalNetworkCallback(
             Network network, ConnectedAccessPointPreference connectedApPreference) {
-        mNetwork = Preconditions.checkNotNull(network);
-        mConnectedApPreference = Preconditions.checkNotNull(connectedApPreference);
+        mNetwork = Objects.requireNonNull(network);
+        mConnectedApPreference = Objects.requireNonNull(connectedApPreference);
     }
 
     @Override

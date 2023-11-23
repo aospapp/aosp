@@ -7,6 +7,7 @@
 #ifndef CORE_FPDFAPI_PAGE_CPDF_TEXTSTATE_H_
 #define CORE_FPDFAPI_PAGE_CPDF_TEXTSTATE_H_
 
+#include "core/fxcrt/retain_ptr.h"
 #include "core/fxcrt/shared_copy_on_write.h"
 #include "core/fxcrt/unowned_ptr.h"
 
@@ -15,6 +16,7 @@ class CPDF_Font;
 
 // See PDF Reference 1.7, page 402, table 5.3.
 enum class TextRenderingMode {
+  MODE_UNKNOWN = -1,
   MODE_FILL = 0,
   MODE_STROKE = 1,
   MODE_FILL_STROKE = 2,
@@ -23,6 +25,7 @@ enum class TextRenderingMode {
   MODE_STROKE_CLIP = 5,
   MODE_FILL_STROKE_CLIP = 6,
   MODE_CLIP = 7,
+  MODE_LAST = MODE_CLIP,
 };
 
 class CPDF_TextState {
@@ -32,8 +35,8 @@ class CPDF_TextState {
 
   void Emplace();
 
-  CPDF_Font* GetFont() const;
-  void SetFont(CPDF_Font* pFont);
+  RetainPtr<CPDF_Font> GetFont() const;
+  void SetFont(const RetainPtr<CPDF_Font>& pFont);
 
   float GetFontSize() const;
   void SetFontSize(float size);
@@ -47,10 +50,7 @@ class CPDF_TextState {
   float GetWordSpace() const;
   void SetWordSpace(float sp);
 
-  float GetFontSizeV() const;
   float GetFontSizeH() const;
-  float GetBaselineAngle() const;
-  float GetShearAngle() const;
 
   TextRenderingMode GetTextMode() const;
   void SetTextMode(TextRenderingMode mode);
@@ -59,19 +59,18 @@ class CPDF_TextState {
   float* GetMutableCTM();
 
  private:
-  class TextData : public Retainable {
+  class TextData final : public Retainable {
    public:
-    TextData();
-    TextData(const TextData& src);
-    ~TextData() override;
+    template <typename T, typename... Args>
+    friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
 
-    void SetFont(CPDF_Font* pFont);
+    RetainPtr<TextData> Clone() const;
+
+    void SetFont(const RetainPtr<CPDF_Font>& pFont);
     float GetFontSizeV() const;
     float GetFontSizeH() const;
-    float GetBaselineAngle() const;
-    float GetShearAngle() const;
 
-    CPDF_Font* m_pFont;
+    RetainPtr<CPDF_Font> m_pFont;
     UnownedPtr<CPDF_Document> m_pDocument;
     float m_FontSize;
     float m_CharSpace;
@@ -81,7 +80,9 @@ class CPDF_TextState {
     float m_CTM[4];
 
    private:
-    void ReleaseFont();
+    TextData();
+    TextData(const TextData& that);
+    ~TextData() override;
   };
 
   SharedCopyOnWrite<TextData> m_Ref;

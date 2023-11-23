@@ -4,14 +4,15 @@
 
 AUTHOR = "dhaddock, Chromium OS"
 NAME = "autoupdate_DataPreserved.full"
-PURPOSE = "Tests user data is not altered by updating."
+PURPOSE = "Tests user data is not reset by updating."
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+ATTRIBUTES = "suite:au-perbuild"
 DOC = """
-This tests that users timezone, input methods, and Downloads file are kept
-during and update.
+This tests that user's timezone, input methods, and downloaded files remain
+unchanged after an update.
 
 test_that <hostname>.cros autoupdate_DataPreserved.full --args="job_repo_url='http://<IP>:<port>/static/<board>-release/RXX-XXXX.X.X/autotest/packages'"
 """

@@ -60,7 +60,7 @@ class CfmBaseTest(test.test):
             # running in test_only mode.
             self.cfm_facade.restart_chrome_for_cfm()
         else:
-            logging.info('Clearing TPM')
+            logging.info('Clearing TPM & rebooting afterwards...')
             tpm_utils.ClearTPMOwnerRequest(self._host)
             logging.info('Enrolling device')
             self.cfm_facade.enroll_device()
@@ -95,8 +95,14 @@ class CfmBaseTest(test.test):
         self.save_callgrok_logs()
         self.save_packaged_app_logs()
         if not self._run_test_only:
-            tpm_utils.ClearTPMOwnerRequest(self._host)
+            logging.info('[CLEAN UP] Clearing TPM (without reboot)...')
+            self._only_clear_tpm()
         super(CfmBaseTest, self).cleanup()
+
+    def _only_clear_tpm(self):
+        if not self._host.run('crossystem clear_tpm_owner_request=1',
+                              ignore_status=True).exit_status == 0:
+            raise error.TestFail('Unable to clear TPM.')
 
     def take_screenshot(self, screenshot_name):
         """

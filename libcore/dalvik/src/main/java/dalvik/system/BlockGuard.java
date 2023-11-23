@@ -16,10 +16,10 @@
 
 package dalvik.system;
 
-import libcore.util.NonNull;
+import android.compat.annotation.UnsupportedAppUsage;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.util.Objects;
+import libcore.util.NonNull;
 
 /**
  * Interface that enables {@code StrictMode} to install callbacks to implement

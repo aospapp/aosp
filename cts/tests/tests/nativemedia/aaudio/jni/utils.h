@@ -16,7 +16,9 @@
 #ifndef CTS_MEDIA_TEST_AAUDIO_UTILS_H
 #define CTS_MEDIA_TEST_AAUDIO_UTILS_H
 
+#include <dlfcn.h>
 #include <map>
+#include <sys/system_properties.h>
 
 #include <aaudio/AAudio.h>
 
@@ -88,19 +90,108 @@ class InputStreamBuilderHelper : public StreamBuilderHelper {
   public:
     InputStreamBuilderHelper(
             aaudio_sharing_mode_t requestedSharingMode,
-            aaudio_performance_mode_t requestedPerfMode);
+            aaudio_performance_mode_t requestedPerfMode,
+            aaudio_format_t requestedFormat = AAUDIO_FORMAT_PCM_FLOAT);
 };
 
 class OutputStreamBuilderHelper : public StreamBuilderHelper {
   public:
     OutputStreamBuilderHelper(
             aaudio_sharing_mode_t requestedSharingMode,
-            aaudio_performance_mode_t requestedPerfMode);
+            aaudio_performance_mode_t requestedPerfMode,
+            aaudio_format_t requestedFormat = AAUDIO_FORMAT_PCM_I16);
     void initBuilder();
     void createAndVerifyStream(bool *success);
 
   private:
     const int32_t kBufferCapacityFrames = 2000;
+};
+
+
+#define LIB_AAUDIO_NAME          "libaaudio.so"
+#define FUNCTION_IS_MMAP         "AAudioStream_isMMapUsed"
+#define FUNCTION_SET_MMAP_POLICY "AAudio_setMMapPolicy"
+#define FUNCTION_GET_MMAP_POLICY "AAudio_getMMapPolicy"
+
+enum {
+    AAUDIO_POLICY_UNSPECIFIED = 0,
+/* These definitions are from aaudio/AAudioTesting.h */
+    AAUDIO_POLICY_NEVER = 1,
+    AAUDIO_POLICY_AUTO = 2,
+    AAUDIO_POLICY_ALWAYS = 3
+};
+typedef int32_t aaudio_policy_t;
+
+/**
+ * Call some AAudio test routines that are not part of the normal API.
+ */
+class AAudioExtensions {
+public:
+    AAudioExtensions();
+
+    static bool isPolicyEnabled(int32_t policy) {
+        return (policy == AAUDIO_POLICY_AUTO || policy == AAUDIO_POLICY_ALWAYS);
+    }
+
+    static AAudioExtensions &getInstance() {
+        static AAudioExtensions instance;
+        return instance;
+    }
+
+    static int getMMapPolicyProperty() {
+        return getIntegerProperty("aaudio.mmap_policy", AAUDIO_POLICY_UNSPECIFIED);
+    }
+
+    aaudio_policy_t getMMapPolicy() {
+        if (!mFunctionsLoaded) return -1;
+        return mAAudio_getMMapPolicy();
+    }
+
+    int32_t setMMapPolicy(aaudio_policy_t policy) {
+        if (!mFunctionsLoaded) return -1;
+        return mAAudio_setMMapPolicy(policy);
+    }
+
+    bool isMMapUsed(AAudioStream *aaudioStream) {
+        if (!mFunctionsLoaded) return false;
+        return mAAudioStream_isMMap(aaudioStream);
+    }
+
+    int32_t setMMapEnabled(bool enabled) {
+        return setMMapPolicy(enabled ? AAUDIO_POLICY_AUTO : AAUDIO_POLICY_NEVER);
+    }
+
+    bool isMMapEnabled() {
+        return isPolicyEnabled(mAAudio_getMMapPolicy());
+    }
+
+    bool isMMapSupported() const {
+        return mMMapSupported;
+    }
+
+    bool isMMapExclusiveSupported() const {
+        return mMMapExclusiveSupported;
+    }
+
+private:
+
+    static int getIntegerProperty(const char *name, int defaultValue);
+
+    /**
+     * Load some AAudio test functions.
+     * This should only be called once from the constructor.
+     * @return true if it succeeds
+     */
+    bool loadLibrary();
+
+    bool      mFunctionsLoaded = false;
+    void     *mLibHandle = nullptr;
+    bool    (*mAAudioStream_isMMap)(AAudioStream *stream) = nullptr;
+    int32_t (*mAAudio_setMMapPolicy)(aaudio_policy_t policy) = nullptr;
+    aaudio_policy_t (*mAAudio_getMMapPolicy)() = nullptr;
+
+    const bool   mMMapSupported;
+    const bool   mMMapExclusiveSupported;
 };
 
 #endif  // CTS_MEDIA_TEST_AAUDIO_UTILS_H

@@ -31,6 +31,7 @@
 
 #include <dlfcn.h>
 #include <inttypes.h>
+#include <gps_extended_c.h>
 #include <LocApiBase.h>
 #include <LocAdapterBase.h>
 #include <log_util.h>
@@ -95,7 +96,10 @@ struct LocSsrMsg : public LocMsg {
     }
     inline virtual void proc() const {
         mLocApi->close();
-        mLocApi->open(mLocApi->getEvtMask());
+        if (LOC_API_ADAPTER_ERR_SUCCESS == mLocApi->open(mLocApi->getEvtMask())) {
+            // Notify adapters that engine up after SSR
+            mLocApi->handleEngineUpEvent();
+        }
     }
     inline void locallog() const {
         LOC_LOGV("LocSsrMsg");
@@ -107,13 +111,17 @@ struct LocSsrMsg : public LocMsg {
 
 struct LocOpenMsg : public LocMsg {
     LocApiBase* mLocApi;
-    inline LocOpenMsg(LocApiBase* locApi) :
-            LocMsg(), mLocApi(locApi)
+    LocAdapterBase* mAdapter;
+    inline LocOpenMsg(LocApiBase* locApi, LocAdapterBase* adapter = nullptr) :
+            LocMsg(), mLocApi(locApi), mAdapter(adapter)
     {
         locallog();
     }
     inline virtual void proc() const {
-        mLocApi->open(mLocApi->getEvtMask());
+        if (LOC_API_ADAPTER_ERR_SUCCESS == mLocApi->open(mLocApi->getEvtMask()) &&
+            nullptr != mAdapter) {
+            mLocApi->handleEngineUpEvent();
+        }
     }
     inline void locallog() const {
         LOC_LOGv("LocOpen Mask: %" PRIx64 "\n", mLocApi->getEvtMask());
@@ -201,7 +209,7 @@ void LocApiBase::addAdapter(LocAdapterBase* adapter)
     for (int i = 0; i < MAX_ADAPTERS && mLocAdapters[i] != adapter; i++) {
         if (mLocAdapters[i] == NULL) {
             mLocAdapters[i] = adapter;
-            mMsgTask->sendMsg(new LocOpenMsg(this));
+            mMsgTask->sendMsg(new LocOpenMsg(this, adapter));
             break;
         }
     }
@@ -250,17 +258,15 @@ void LocApiBase::updateEvtMask()
 
 void LocApiBase::handleEngineUpEvent()
 {
-    // This will take care of renegotiating the loc handle
-    mMsgTask->sendMsg(new LocSsrMsg(this));
-
-    LocDualContext::injectFeatureConfig(mContext);
-
     // loop through adapters, and deliver to all adapters.
     TO_ALL_LOCADAPTERS(mLocAdapters[i]->handleEngineUpEvent());
 }
 
 void LocApiBase::handleEngineDownEvent()
 {
+    // This will take care of renegotiating the loc handle
+    mMsgTask->sendMsg(new LocSsrMsg(this));
+
     // loop through adapters, and deliver to all adapters.
     TO_ALL_LOCADAPTERS(mLocAdapters[i]->handleEngineDownEvent());
 }

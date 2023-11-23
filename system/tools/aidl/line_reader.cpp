@@ -87,5 +87,5 @@ unique_ptr<LineReader> LineReader::ReadFromMemory(const string& contents) {
   return unique_ptr<LineReader>(new MemoryLineReader(contents));
 }
 
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

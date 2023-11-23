@@ -21,6 +21,7 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SubscriptionInfo;
@@ -233,32 +234,45 @@ public class SpecialCharSequenceMgr {
         // if a dialstring is an MMI code.
         if ((input.startsWith("**04") || input.startsWith("**05"))
                 && input.endsWith("#")) {
-            PhoneGlobals app = PhoneGlobals.getInstance();
-            Phone phone;
-            int subId;
-            if (input.startsWith("**04")) {
-                subId = getNextSubIdForState(IccCardConstants.State.PIN_REQUIRED, context);
-            } else {
-                subId = getNextSubIdForState(IccCardConstants.State.PUK_REQUIRED, context);
-            }
-            if (SubscriptionManager.isValidSubscriptionId(subId)) {
-                log("get phone with subId: " + subId);
-                phone = PhoneGlobals.getPhone(subId);
-            } else {
-                log("get default phone");
-                phone = PhoneGlobals.getPhone();
-            }
-            boolean isMMIHandled = phone.handlePinMmi(input);
+            UserManager userManager = (UserManager) pukInputActivity
+                       .getSystemService(Context.USER_SERVICE);
+            if (userManager.isSystemUser()) {
+                PhoneGlobals app = PhoneGlobals.getInstance();
+                Phone phone;
+                int subId;
+                if (input.startsWith("**04")) {
+                    subId = getNextSubIdForState(IccCardConstants.State.PIN_REQUIRED, context);
+                } else {
+                    subId = getNextSubIdForState(IccCardConstants.State.PUK_REQUIRED, context);
+                }
+                if (SubscriptionManager.isValidSubscriptionId(subId)) {
+                    log("get phone with subId: " + subId);
+                    phone = PhoneGlobals.getPhone(subId);
+                } else {
+                    log("get default phone");
+                    phone = PhoneGlobals.getPhone();
+                }
+                boolean isMMIHandled = phone.handlePinMmi(input);
 
-            // if the PUK code is recognized then indicate to the
-            // phone app that an attempt to unPUK the device was
-            // made with this activity.  The PUK code may still
-            // fail though, but we won't know until the MMI code
-            // returns a result.
-            if (isMMIHandled && input.startsWith("**05")) {
-                app.setPukEntryActivity(pukInputActivity);
+                // if the PUK code is recognized then indicate to the
+                // phone app that an attempt to unPUK the device was
+                // made with this activity.  The PUK code may still
+                // fail though, but we won't know until the MMI code
+                // returns a result.
+                if (isMMIHandled && input.startsWith("**05")) {
+                    app.setPukEntryActivity(pukInputActivity);
+                }
+                return isMMIHandled;
+            } else {
+                AlertDialog dialog = new AlertDialog.Builder(context)
+                        .setMessage(R.string.pin_puk_system_user_only)
+                        .setPositiveButton(R.string.ok, null)
+                        .setCancelable(true).create();
+                dialog.show();
+                dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+                dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+                return true;
             }
-            return isMMIHandled;
         }
         return false;
     }

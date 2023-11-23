@@ -18,4 +18,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"Tài xế"</string>
+    <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"chỉ truy cập thông tin vị trí gần đúng khi ứng dụng mở trên màn hình"</string>
 </resources>

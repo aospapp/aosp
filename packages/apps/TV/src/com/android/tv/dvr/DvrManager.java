@@ -37,12 +37,13 @@ import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.util.Log;
 import android.util.Range;
+
 import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.common.util.CommonUtils;
-import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.DvrDataManager.OnRecordedProgramLoadFinishedListener;
 import com.android.tv.dvr.DvrDataManager.RecordedProgramListener;
 import com.android.tv.dvr.DvrScheduleManager.OnInitializeListener;
@@ -51,6 +52,7 @@ import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.util.AsyncDbTask;
 import com.android.tv.util.Utils;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -161,6 +163,18 @@ public class DvrManager {
 
     /** Schedules a recording for {@code program}. */
     public ScheduledRecording addSchedule(Program program) {
+        return addSchedule(program, 0, 0);
+    }
+
+    /**
+     * Schedules a recording for {@code program} with a early start time and late end time.
+     *
+     *@param startOffsetMs The extra time in milliseconds to start recording before the program
+     *                     starts.
+     *@param endOffsetMs The extra time in milliseconds to end recording after the program ends.
+     */
+    public ScheduledRecording addSchedule(Program program,
+                                          long startOffsetMs, long endOffsetMs) {
         if (!SoftPreconditions.checkState(mDataManager.isDvrScheduleLoadFinished())) {
             return null;
         }
@@ -169,7 +183,9 @@ public class DvrManager {
                 program,
                 seriesRecording == null
                         ? mScheduleManager.suggestNewPriority()
-                        : seriesRecording.getPriority());
+                        : seriesRecording.getPriority(),
+                startOffsetMs,
+                endOffsetMs);
     }
 
     /**
@@ -187,13 +203,16 @@ public class DvrManager {
                         ? mScheduleManager.suggestNewPriority()
                         : mScheduleManager.suggestHighestPriority(
                                 seriesRecording.getInputId(),
-                                new Range(
+                                Range.create(
                                         program.getStartTimeUtcMillis(),
                                         program.getEndTimeUtcMillis()),
-                                seriesRecording.getPriority()));
+                                seriesRecording.getPriority()),
+                0,
+                0);
     }
 
-    private ScheduledRecording addSchedule(Program program, long priority) {
+    private ScheduledRecording addSchedule(Program program, long priority,
+                                           long startOffsetMs, long endOffsetMs) {
         TvInputInfo input = Utils.getTvInputInfoForProgram(mAppContext, program);
         if (input == null) {
             Log.e(TAG, "Can't find input for program: " + program);
@@ -208,6 +227,8 @@ public class DvrManager {
                                 seriesRecording == null
                                         ? SeriesRecording.ID_NOT_SET
                                         : seriesRecording.getId())
+                        .setStartOffsetMs(startOffsetMs)
+                        .setEndOffsetMs(endOffsetMs)
                         .build();
         mDataManager.addScheduledRecording(schedule);
         return schedule;

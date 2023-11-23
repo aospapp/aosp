@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_CAST_H
-#define FRAMEWORKS_ML_NN_CAST_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_CAST_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_CAST_H
 
 #include "CpuOperationUtils.h"
 
@@ -32,4 +32,4 @@ bool eval(const uint8_t* inputData, const Shape& inputShape, uint8_t* outputData
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_CAST_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_CAST_H

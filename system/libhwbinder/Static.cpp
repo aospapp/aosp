@@ -46,30 +46,8 @@ protected:
     }
 };
 
-class FdTextOutput : public BufferedTextOutput
-{
-public:
-    explicit FdTextOutput(int fd) : BufferedTextOutput(MULTITHREADED), mFD(fd) { }
-    virtual ~FdTextOutput() { };
-
-protected:
-    virtual status_t writeLines(const struct iovec& vec, size_t N)
-    {
-        writev(mFD, &vec, N);
-        return NO_ERROR;
-    }
-
-private:
-    int mFD;
-};
-
 static LogTextOutput gLogTextOutput;
-static FdTextOutput gStdoutTextOutput(STDOUT_FILENO);
-static FdTextOutput gStderrTextOutput(STDERR_FILENO);
-
 TextOutput& alog(gLogTextOutput);
-TextOutput& aout(gStdoutTextOutput);
-TextOutput& aerr(gStderrTextOutput);
 
 // ------------ ProcessState.cpp
 

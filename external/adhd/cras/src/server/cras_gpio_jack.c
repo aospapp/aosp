@@ -44,15 +44,15 @@ int gpio_switch_eviocgsw(int fd, void *bits, size_t n_bytes)
 char *sys_input_get_device_name(const char *path)
 {
 	char name[256];
-	int  fd = open(path, O_RDONLY);
+	int fd = open(path, O_RDONLY);
 
 	if (fd >= 0) {
 		gpio_switch_eviocgname(fd, name, sizeof(name));
 		close(fd);
 		return strdup(name);
 	} else {
-		syslog(LOG_WARNING, "Could not open '%s': %s",
-		       path, strerror(errno));
+		syslog(LOG_WARNING, "Could not open '%s': %s", path,
+		       strerror(errno));
 		return NULL;
 	}
 }
@@ -74,10 +74,11 @@ void gpio_switch_list_for_each(gpio_switch_list_callback callback, void *arg)
 	udev_enumerate_scan_devices(enumerate);
 	dl = udev_enumerate_get_list_entry(enumerate);
 
-	udev_list_entry_foreach(dev_list_entry, dl) {
+	udev_list_entry_foreach(dev_list_entry, dl)
+	{
 		const char *path = udev_list_entry_get_name(dev_list_entry);
-		struct udev_device *dev = udev_device_new_from_syspath(udev,
-								       path);
+		struct udev_device *dev =
+			udev_device_new_from_syspath(udev, path);
 		const char *devnode = udev_device_get_devnode(dev);
 		char *ioctl_name;
 

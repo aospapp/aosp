@@ -6,6 +6,7 @@
 #include <common.h>
 #include <command.h>
 #include <dm.h>
+#include <env.h>
 #include <asm/unaligned.h>
 #include <linux/string.h>
 #include <tpm-common.h>
@@ -264,21 +265,49 @@ int do_tpm_info(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 
 int do_tpm_init(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
+	struct udevice *dev;
+	int rc;
+
 	if (argc != 1)
 		return CMD_RET_USAGE;
+	rc = get_tpm(&dev);
+	if (rc)
+		return rc;
 
-	return report_return_code(tpm_init());
+	return report_return_code(tpm_init(dev));
 }
 
 int do_tpm(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	cmd_tbl_t *tpm_commands, *cmd;
+	struct tpm_chip_priv *priv;
+	struct udevice *dev;
 	unsigned int size;
+	int ret;
 
 	if (argc < 2)
 		return CMD_RET_USAGE;
 
-	tpm_commands = get_tpm_commands(&size);
+	ret = get_tpm(&dev);
+	if (ret)
+		return ret;
+
+	priv = dev_get_uclass_priv(dev);
+
+	/* Below getters return NULL if the desired stack is not built */
+	switch (priv->version) {
+	case TPM_V1:
+		tpm_commands = get_tpm1_commands(&size);
+		break;
+	case TPM_V2:
+		tpm_commands = get_tpm2_commands(&size);
+		break;
+	default:
+		tpm_commands = NULL;
+	}
+
+	if (!tpm_commands)
+		return CMD_RET_USAGE;
 
 	cmd = find_cmd_tbl(argv[1], tpm_commands, size);
 	if (!cmd)

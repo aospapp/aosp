@@ -1,4 +1,4 @@
-# Trade Federation (TF / tradefed)
+# Trade Federation (TF / Tradefed)
 
 TF is a test harness used to drive Android automated testing. It runs on test hosts
 and monitors the connected devices, handling test scheduling & execution and device
@@ -15,3 +15,8 @@ Building TF:
 More information at:
 https://source.android.com/devices/tech/test_infra/tradefed/
 
+See more details about Tradefed Architecture at:
+https://source.android.com/devices/tech/test_infra/tradefed/architecture
+
+If you are a tests writer you should start looking in the test_framework/
+component which contains everything needed to write a tests in Tradefed.

@@ -25,6 +25,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -42,8 +43,10 @@ public class MenuTest {
     public void setUp() {
         mMenuView = Mockito.mock(IMenuView.class);
         MenuRowFactory factory = Mockito.mock(MenuRowFactory.class);
-        Mockito.when(factory.createMenuRow(Mockito.any(Menu.class), Mockito.any(Class.class)))
-                .thenReturn(null);
+    Mockito.when(
+            factory.createMenuRow(
+                ArgumentMatchers.any(Menu.class), ArgumentMatchers.any(Class.class)))
+        .thenReturn(null);
         mVisibilityChangeListener = Mockito.mock(OnMenuVisibilityChangeListener.class);
         mMenu = new Menu(getTargetContext(), mMenuView, factory, mVisibilityChangeListener);
         mMenu.disableAnimationForTest();

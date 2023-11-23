@@ -48,6 +48,7 @@ import androidx.preference.Preference;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.widget.EntityHeaderController;
+import com.android.settingslib.widget.FooterPreference;
 
 import com.google.android.collect.Lists;
 
@@ -458,8 +459,8 @@ public class AccountSyncSettings extends AccountPreferenceBase {
             syncPref.setChecked(oneTimeSyncMode || syncEnabled);
         }
         if (syncIsFailing) {
-            mFooterPreferenceMixin.createFooterPreference()
-                    .setTitle(R.string.sync_is_failing);
+            getPreferenceScreen().addPreference(new FooterPreference.Builder(
+                    getActivity()).setTitle(R.string.sync_is_failing).build());
         }
     }
 

@@ -70,9 +70,9 @@ class ClatdControllerTest : public IptablesBaseTest {
   protected:
     ClatdController mClatdCtrl;
     bool isEbpfDisabled() { return mClatdCtrl.getEbpfMode() == ClatdController::ClatEbpfDisabled; }
-    void maybeSetIptablesDropRule(bool a, const char* b, const char* c) {
+    void setIptablesDropRule(bool a, const char* b, const char* c, const char* d) {
         std::lock_guard guard(mClatdCtrl.mutex);
-        return mClatdCtrl.maybeSetIptablesDropRule(a, b, c);
+        return mClatdCtrl.setIptablesDropRule(a, b, c, d);
     }
     void setIpv4AddressFreeFunc(bool (*func)(in_addr_t)) {
         ClatdController::isIpv4AddressFreeFunc = func;
@@ -187,26 +187,22 @@ TEST_F(ClatdControllerTest, MakeChecksumNeutral) {
     EXPECT_GE(3210000, onebits);
 }
 
-TEST_F(ClatdControllerTest, AddRemoveIptablesRule) {
-    if (isEbpfDisabled()) return;
-
-    ExpectedIptablesCommands expected = {
+TEST_F(ClatdControllerTest, AddIptablesRule) {
+    setIptablesDropRule(true, "wlan0", "64:ff9b::", "2001:db8::1:2:3:4");
+    expectIptablesRestoreCommands((ExpectedIptablesCommands){
             {V6,
              "*raw\n"
-             "-A clat_raw_PREROUTING -s 64:ff9b::/96 -d 2001:db8::1:2:3:4 -j DROP\n"
-             "COMMIT\n"},
-    };
-    maybeSetIptablesDropRule(true, "64:ff9b::", "2001:db8::1:2:3:4");
-    expectIptablesRestoreCommands(expected);
+             "-A clat_raw_PREROUTING -i wlan0 -s 64:ff9b::/96 -d 2001:db8::1:2:3:4 -j DROP\n"
+             "COMMIT\n"}});
+}
 
-    expected = {
+TEST_F(ClatdControllerTest, RemoveIptablesRule) {
+    setIptablesDropRule(false, "wlan0", "64:ff9b::", "2001:db8::a:b:c:d");
+    expectIptablesRestoreCommands((ExpectedIptablesCommands){
             {V6,
              "*raw\n"
-             "-D clat_raw_PREROUTING -s 64:ff9b::/96 -d 2001:db8::a:b:c:d -j DROP\n"
-             "COMMIT\n"},
-    };
-    maybeSetIptablesDropRule(false, "64:ff9b::", "2001:db8::a:b:c:d");
-    expectIptablesRestoreCommands(expected);
+             "-D clat_raw_PREROUTING -i wlan0 -s 64:ff9b::/96 -d 2001:db8::a:b:c:d -j DROP\n"
+             "COMMIT\n"}});
 }
 
 }  // namespace net

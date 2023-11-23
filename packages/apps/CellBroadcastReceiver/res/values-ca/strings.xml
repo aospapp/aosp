@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Alertes d\'emergència"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Alertes d\'emergència"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"La configuració de difusió mòbil no està disponible per a aquest usuari."</string>
+    <string name="app_label" msgid="2008319089248760277">"Alertes d\'emergència sense fil"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Alertes d\'emergència sense fil"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"La configuració de les alertes d\'emergència sense fil no estan disponibles per a aquest usuari"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"D\'acord"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"No hi ha cap alerta anterior"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Suprimeix les difusions"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Mostra els detalls"</string>
     <string name="menu_delete" msgid="128380070910799366">"Suprimeix la difusió"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Detalls de l\'alerta"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Detalls d\'alerta per depurar"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Vols suprimir aquesta missatge de difusió?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Vols suprimir tots els missatges de difusió rebuts?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Suprimeix"</string>
@@ -51,13 +52,13 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Alertes"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Missatges de difusió"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Alertes d\'emergència"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Alertes d\'emergència durant les trucades de veu"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Permet les alertes"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Vull rebre notificacions d\'emergència"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"So de recordatori d\'alerta"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Enuncia el missatge d\'alerta"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utilitza text a parla per enunciar els missatges d\'alertes d\'emergència"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Rep notificacions d\'alertes d\'emergència sense fil"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Recordatori d\'alertes"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Un so de recordatori es reproduirà a un volum normal"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Historial d\'alertes d\'emergència"</string>
-    <string name="alert_preferences_title" msgid="6001469026393248468">"Preferències de les alertes"</string>
+    <string name="alert_preferences_title" msgid="6001469026393248468">"Preferències d\'alertes"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Difusions de prova de l\'ETWS"</string>
     <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"Difusions de prova del sistema d\'avís de terratrèmols i tsunamis"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="5416260219062637770">"Amenaces extremes"</string>
@@ -65,7 +66,7 @@
     <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"Amenaces greus"</string>
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"Amenaces greus per a la vida i la propietat"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"Alertes AMBER"</string>
-    <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"Avisos d\'emergència per segrest de menors"</string>
+    <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"Butlletins d\'emergència per segrest de menors"</string>
     <string name="enable_alert_message_title" msgid="2939830587633599352">"Missatges d\'alerta"</string>
     <string name="enable_alert_message_summary" msgid="6525664541696985610">"Avisa\'m quan hi hagi amenaces de seguretat imminents"</string>
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Missatges de seguretat pública"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Vull rebre missatges de prova de les autoritats locals i estatals"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Alertes d\'emergència"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Avisa\'m quan hi hagi esdeveniments potencialment mortals"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Prova mensual obligatòria"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Vull rebre missatges de prova del sistema d\'alertes de seguretat"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Alertes de prova"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Vull rebre proves de l\'operador i proves mensuals del sistema d\'alertes de seguretat"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Vibració"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Utilitza el volum màxim"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Ignora altres preferències de volum i el mode No molestis"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Alerta sempre al volum màxim"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Ignora el mode No molestis i altres opcions de configuració del volum"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Difusions d\'informació actualitzada de la zona"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Mostra informació actualitzada a l\'estat de la targeta SIM"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Opcions per a desenvolupadors"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Categoria de l\'alerta:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofísiques"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorològiques"</string>
@@ -114,11 +114,11 @@
     <string name="cmas_certainty_observed" msgid="3668549749352106472">"Complerta"</string>
     <string name="cmas_certainty_likely" msgid="4254497828943291749">"Probable"</string>
     <string name="delivery_time_heading" msgid="5980836543433619329">"Rebut:"</string>
-    <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> alertes sense llegir."</string>
+    <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> alertes no llegides."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Alertes noves"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Mostra un quadre de diàleg de desactivació després de la primera alerta (tret d\'alerta presidencial)."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Mostra el diàleg de desactivació"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Actualment reps Alertes d\'emergència. Vols continuar rebent-ne?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Actualment reps alertes d\'emergència sense fil. Vols continuar rebent-ne?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Sí"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"No"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Historial d\'alertes d\'emergència"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Cada 2 minuts"</item>
     <item msgid="5718214950343391480">"Cada 5 minuts"</item>
     <item msgid="3863339891188103437">"Cada 15 minuts"</item>
-    <item msgid="6868848414437854609">"Desactivat"</item>
+    <item msgid="7388573183644474611">"Mai"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Alertes d\'emergència sense fil"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Alertes presidencials"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Missatges d\'advertiment nacionals emesos pel president. No es poden desactivar."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"El mode de prova de difusió mòbil està activat."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"El mode de prova de difusió mòbil està desactivat."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Mostra tots els missatges"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Mostra els missatges normals"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Identificador:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Número de sèrie:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Esquema de programació de dades:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Contingut del missatge:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Hora de comprovació de la ubicació:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Es mostra un missatge:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Coordenades:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Temps màxim d\'espera:"</string>
+    <string name="seconds" msgid="141450721520515025">"segons"</string>
+    <string name="message_copied" msgid="6922953753733166675">"El missatge s\'ha copiat"</string>
 </resources>

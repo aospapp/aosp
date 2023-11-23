@@ -1,10 +1,10 @@
 from acts import asserts
 from acts.signals import TestPass
 from acts.test_utils.audio_analysis_lib import audio_analysis
-from acts.test_utils.bt.A2dpCodecBaseTest import A2dpCodecBaseTest
+from acts.test_utils.bt.A2dpBaseTest import A2dpBaseTest
 
 
-class SineWaveQualityTest(A2dpCodecBaseTest):
+class SineWaveQualityTest(A2dpBaseTest):
 
     def setup_class(self):
         super().setup_class()

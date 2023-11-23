@@ -199,13 +199,16 @@ public:
 										SurfaceKHR		(VkInstance, const VkXlibSurfaceCreateInfoKHR*)		{}
 										SurfaceKHR		(VkInstance, const VkXcbSurfaceCreateInfoKHR*)		{}
 										SurfaceKHR		(VkInstance, const VkWaylandSurfaceCreateInfoKHR*)	{}
-										SurfaceKHR		(VkInstance, const VkMirSurfaceCreateInfoKHR*)		{}
 										SurfaceKHR		(VkInstance, const VkAndroidSurfaceCreateInfoKHR*)	{}
 										SurfaceKHR		(VkInstance, const VkWin32SurfaceCreateInfoKHR*)	{}
 										SurfaceKHR		(VkInstance, const VkDisplaySurfaceCreateInfoKHR*)	{}
 										SurfaceKHR		(VkInstance, const VkViSurfaceCreateInfoNN*)		{}
 										SurfaceKHR		(VkInstance, const VkIOSSurfaceCreateInfoMVK*)		{}
 										SurfaceKHR		(VkInstance, const VkMacOSSurfaceCreateInfoMVK*)	{}
+										SurfaceKHR		(VkInstance, const VkImagePipeSurfaceCreateInfoFUCHSIA*)	{}
+										SurfaceKHR		(VkInstance, const VkHeadlessSurfaceCreateInfoEXT*)	{}
+										SurfaceKHR		(VkInstance, const VkStreamDescriptorSurfaceCreateInfoGGP*)	{}
+										SurfaceKHR		(VkInstance, const VkMetalSurfaceCreateInfoEXT*)	{}
 										~SurfaceKHR		(void)												{}
 };
 
@@ -240,13 +243,14 @@ class Pipeline
 public:
 	Pipeline (VkDevice, const VkGraphicsPipelineCreateInfo*) {}
 	Pipeline (VkDevice, const VkComputePipelineCreateInfo*) {}
+	Pipeline (VkDevice, const VkRayTracingPipelineCreateInfoNV*) {}
 };
 
 class RenderPass
 {
 public:
 	RenderPass (VkDevice, const VkRenderPassCreateInfo*)		{}
-	RenderPass (VkDevice, const VkRenderPassCreateInfo2KHR*)	{}
+	RenderPass (VkDevice, const VkRenderPassCreateInfo2*)		{}
 };
 
 class SwapchainKHR
@@ -487,6 +491,20 @@ public:
 						{}
 };
 
+class DebugUtilsMessengerEXT
+{
+public:
+						DebugUtilsMessengerEXT		(VkInstance, const VkDebugUtilsMessengerCreateInfoEXT*)
+						{}
+};
+
+class AccelerationStructureNV
+{
+public:
+						AccelerationStructureNV		(VkDevice, const VkAccelerationStructureCreateInfoNV*)
+						{}
+};
+
 class ValidationCacheEXT
 {
 public:
@@ -679,6 +697,32 @@ VKAPI_ATTR VkResult VKAPI_CALL createGraphicsPipelines (VkDevice device, VkPipel
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL createComputePipelines (VkDevice device, VkPipelineCache, deUint32 count, const VkComputePipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+{
+	deUint32 allocNdx;
+	try
+	{
+		for (allocNdx = 0; allocNdx < count; allocNdx++)
+			pPipelines[allocNdx] = allocateNonDispHandle<Pipeline, VkPipeline>(device, pCreateInfos+allocNdx, pAllocator);
+
+		return VK_SUCCESS;
+	}
+	catch (const std::bad_alloc&)
+	{
+		for (deUint32 freeNdx = 0; freeNdx < allocNdx; freeNdx++)
+			freeNonDispHandle<Pipeline, VkPipeline>(pPipelines[freeNdx], pAllocator);
+
+		return VK_ERROR_OUT_OF_HOST_MEMORY;
+	}
+	catch (VkResult err)
+	{
+		for (deUint32 freeNdx = 0; freeNdx < allocNdx; freeNdx++)
+			freeNonDispHandle<Pipeline, VkPipeline>(pPipelines[freeNdx], pAllocator);
+
+		return err;
+	}
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL createRayTracingPipelinesNV (VkDevice device, VkPipelineCache, deUint32 count, const VkRayTracingPipelineCreateInfoNV* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
 {
 	deUint32 allocNdx;
 	try
@@ -1092,12 +1136,10 @@ VkDeviceSize getYCbCrImageDataSize (VkFormat format, VkExtent3D extent)
 
 	for (deUint32 planeNdx = 0; planeNdx < desc.numPlanes; ++planeNdx)
 	{
-		const deUint32		planeW		= extent.width / desc.planes[planeNdx].widthDivisor;
-		const deUint32		planeH		= extent.height / desc.planes[planeNdx].heightDivisor;
-		const deUint32		elementSize	= desc.planes[planeNdx].elementSizeBytes;
+		const deUint32	elementSize	= desc.planes[planeNdx].elementSizeBytes;
 
 		totalSize = (VkDeviceSize)deAlign64((deInt64)totalSize, elementSize);
-		totalSize += planeW * planeH * elementSize;
+		totalSize += getPlaneSizeInBytes(desc, extent, planeNdx, 0, BUFFER_IMAGE_COPY_OFFSET_GRANULARITY);
 	}
 
 	return totalSize;

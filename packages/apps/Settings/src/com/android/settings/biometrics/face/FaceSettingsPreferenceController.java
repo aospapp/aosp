@@ -16,9 +16,12 @@
 
 package com.android.settings.biometrics.face;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 
 import com.android.settings.core.TogglePreferenceController;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 
 /**
  * Abstract base class for all face settings toggles.
@@ -37,5 +40,10 @@ public abstract class FaceSettingsPreferenceController extends TogglePreferenceC
 
     protected int getUserId() {
         return mUserId;
+    }
+
+    protected EnforcedAdmin getRestrictingAdmin() {
+        return RestrictedLockUtilsInternal.checkIfKeyguardFeaturesDisabled(
+                mContext, DevicePolicyManager.KEYGUARD_DISABLE_FACE, mUserId);
     }
 }

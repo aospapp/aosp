@@ -35,36 +35,52 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.opengl.GLES20;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
+import android.platform.test.annotations.RequiresDevice;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.heifwriter.HeifWriter;
+import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.util.Arrays;
 
+@Presubmit
+@SmallTest
+@RequiresDevice
 @AppModeFull(reason = "Instant apps cannot access the SD card")
 public class HeifWriterTest extends AndroidTestCase {
     private static final String TAG = HeifWriterTest.class.getSimpleName();
     private static final boolean DEBUG = false;
+    private static final boolean DUMP_OUTPUT = false;
     private static final boolean DUMP_YUV_INPUT = false;
     private static final int GRID_WIDTH = 512;
     private static final int GRID_HEIGHT = 512;
+    private static final boolean IS_BEFORE_R = ApiLevelUtil.isBefore(Build.VERSION_CODES.R);
 
     private static byte[][] TEST_YUV_COLORS = {
             {(byte) 255, (byte) 0, (byte) 0},
@@ -220,6 +236,7 @@ public class HeifWriterTest extends AndroidTestCase {
      * could be implemented for image resolutions that's not supported by the
      * {@link MediaFormat#MIMETYPE_IMAGE_ANDROID_HEIC} encoder.
      */
+    @CddTest(requirement="5.1.4/C-1-1")
     public void testHeicFallbackAvailable() throws Throwable {
         if (!MediaUtils.hasEncoder(MediaFormat.MIMETYPE_IMAGE_ANDROID_HEIC)) {
             MediaUtils.skipTest("HEIC full-frame image encoder is not supported on this device");
@@ -349,8 +366,13 @@ public class HeifWriterTest extends AndroidTestCase {
                 mHeight = 1080;
                 mRotation = 0;
                 mQuality = 100;
-                mOutputPath = new File(Environment.getExternalStorageDirectory(),
-                        OUTPUT_FILENAME).getAbsolutePath();
+                // use memfd by default
+                if (DUMP_OUTPUT || IS_BEFORE_R) {
+                    mOutputPath = new File(Environment.getExternalStorageDirectory(),
+                            OUTPUT_FILENAME).getAbsolutePath();
+                } else {
+                    mOutputPath = null;
+                }
             }
 
             Builder setInputPath(String inputPath) {
@@ -395,9 +417,11 @@ public class HeifWriterTest extends AndroidTestCase {
             }
 
             private void cleanupStaleOutputs() {
-                File outputFile = new File(mOutputPath);
-                if (outputFile.exists()) {
-                    outputFile.delete();
+                if (mOutputPath != null) {
+                    File outputFile = new File(mOutputPath);
+                    if (outputFile.exists()) {
+                        outputFile.delete();
+                    }
                 }
             }
 
@@ -434,13 +458,22 @@ public class HeifWriterTest extends AndroidTestCase {
 
         mInputIndex = 0;
         HeifWriter heifWriter = null;
-        FileInputStream inputStream = null;
-        FileOutputStream outputStream = null;
+        FileInputStream inputYuvStream = null;
+        FileOutputStream outputYuvStream = null;
+        FileDescriptor outputFd = null;
+        RandomAccessFile outputFile = null;
         try {
             if (DEBUG) Log.d(TAG, "started: " + config);
+            if (config.mOutputPath != null) {
+                outputFile = new RandomAccessFile(config.mOutputPath, "rws");
+                outputFile.setLength(0);
+                outputFd = outputFile.getFD();
+            } else {
+                outputFd = Os.memfd_create("temp", OsConstants.MFD_CLOEXEC);
+            }
 
             heifWriter = new HeifWriter.Builder(
-                    config.mOutputPath, width, height, config.mInputMode)
+                    outputFd, width, height, config.mInputMode)
                     .setRotation(config.mRotation)
                     .setGridEnabled(config.mUseGrid)
                     .setMaxImages(config.mMaxNumImages)
@@ -459,27 +492,27 @@ public class HeifWriterTest extends AndroidTestCase {
                 byte[] data = new byte[width * height * 3 / 2];
 
                 if (config.mInputPath != null) {
-                    inputStream = new FileInputStream(config.mInputPath);
+                    inputYuvStream = new FileInputStream(config.mInputPath);
                 }
 
                 if (DUMP_YUV_INPUT) {
-                    File outputFile = new File("/sdcard/input.yuv");
-                    outputFile.createNewFile();
-                    outputStream = new FileOutputStream(outputFile);
+                    File outputYuvFile = new File("/sdcard/input.yuv");
+                    outputYuvFile.createNewFile();
+                    outputYuvStream = new FileOutputStream(outputYuvFile);
                 }
 
                 for (int i = 0; i < actualNumImages; i++) {
                     if (DEBUG) Log.d(TAG, "fillYuvBuffer: " + i);
-                    fillYuvBuffer(i, data, width, height, inputStream);
+                    fillYuvBuffer(i, data, width, height, inputYuvStream);
                     if (DUMP_YUV_INPUT) {
                         Log.d(TAG, "@@@ dumping input YUV");
-                        outputStream.write(data);
+                        outputYuvStream.write(data);
                     }
                     heifWriter.addYuvBuffer(ImageFormat.YUV_420_888, data);
                 }
             } else if (config.mInputMode == INPUT_MODE_SURFACE) {
                 // The input surface is a surface texture using single buffer mode, draws will be
-                // blocked until onFrameAvailable is done with the buffer, which is dependant on
+                // blocked until onFrameAvailable is done with the buffer, which is dependent on
                 // how fast MediaCodec processes them, which is further dependent on how fast the
                 // MediaCodec callbacks are handled. We can't put draws on the same looper that
                 // handles MediaCodec callback, it will cause deadlock.
@@ -508,19 +541,25 @@ public class HeifWriterTest extends AndroidTestCase {
                 expectedPrimary = 0;
                 expectedImageCount = actualNumImages;
             }
-            verifyResult(config.mOutputPath, width, height, config.mRotation,
+            verifyResult(outputFd, width, height, config.mRotation,
                     expectedImageCount, expectedPrimary, config.mUseGrid,
                     config.mInputMode == INPUT_MODE_SURFACE);
             if (DEBUG) Log.d(TAG, "finished: PASS");
         } finally {
             try {
-                if (outputStream != null) {
-                    outputStream.close();
+                if (outputYuvStream != null) {
+                    outputYuvStream.close();
                 }
-                if (inputStream != null) {
-                    inputStream.close();
+                if (inputYuvStream != null) {
+                    inputYuvStream.close();
                 }
-            } catch (IOException e) {}
+                if (outputFile != null) {
+                    outputFile.close();
+                }
+                if (outputFd != null) {
+                    Os.close(outputFd);
+                }
+            } catch (IOException|ErrnoException e) {}
 
             if (heifWriter != null) {
                 heifWriter.close();
@@ -608,14 +647,14 @@ public class HeifWriterTest extends AndroidTestCase {
     }
 
     private void verifyResult(
-            String filename, int width, int height, int rotation,
+            FileDescriptor fd, int width, int height, int rotation,
             int imageCount, int primary, boolean useGrid, boolean checkColor)
             throws Exception {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        retriever.setDataSource(filename);
+        retriever.setDataSource(fd);
         String hasImage = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_IMAGE);
         if (!"yes".equals(hasImage)) {
-            throw new Exception("No images found in file " + filename);
+            throw new Exception("No images found in file descriptor");
         }
         assertEquals("Wrong width", width,
                 Integer.parseInt(retriever.extractMetadata(
@@ -636,7 +675,7 @@ public class HeifWriterTest extends AndroidTestCase {
 
         if (useGrid) {
             MediaExtractor extractor = new MediaExtractor();
-            extractor.setDataSource(filename);
+            extractor.setDataSource(fd);
             MediaFormat format = extractor.getTrackFormat(0);
             int tileWidth = format.getInteger(MediaFormat.KEY_TILE_WIDTH);
             int tileHeight = format.getInteger(MediaFormat.KEY_TILE_HEIGHT);
@@ -650,7 +689,8 @@ public class HeifWriterTest extends AndroidTestCase {
         }
 
         if (checkColor) {
-            Bitmap bitmap = BitmapFactory.decodeFile(filename);
+            Os.lseek(fd, 0, OsConstants.SEEK_SET);
+            Bitmap bitmap = BitmapFactory.decodeFileDescriptor(fd);
 
             for (int i = 0; i < COLOR_BARS.length; i++) {
                 Rect r = getColorBarRect(i, width, height);

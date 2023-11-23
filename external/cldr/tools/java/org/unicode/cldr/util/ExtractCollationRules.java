@@ -4,13 +4,6 @@
  * others. All Rights Reserved.                                               *
  ******************************************************************************
  *
- * in shell:  (such as .cldrrc)
- *   export CWDEBUG="-DCLDR_DTD_CACHE=/tmp/cldrdtd/"
- *   export CWDEFS="-DCLDR_DTD_CACHE_DEBUG=y ${CWDEBUG}"
- *
- *
- * in code:
- *   docBuilder.setEntityResolver(new CachingEntityResolver());
  *
  */
 package org.unicode.cldr.util;
@@ -25,7 +18,6 @@ import com.ibm.icu.text.UnicodeSet;
 
 public class ExtractCollationRules {
     Map<String, String> type_rules = new TreeMap<String, String>();
-    XPathParts parts = new XPathParts();
     StringBuffer rules = new StringBuffer();
 
     public ExtractCollationRules set(CLDRFile file) {
@@ -42,7 +34,7 @@ public class ExtractCollationRules {
 
             String path = (String) it.next();
             String value = file.getStringValue(path);
-            parts.set(path);
+            XPathParts parts = XPathParts.getFrozenInstance(path);
             String type = parts.findAttributeValue("collation", "type");
             if (!type.equals(lastType)) {
                 lastType = type;

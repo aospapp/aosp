@@ -1,41 +1,66 @@
 package org.unicode.cldr.unittest;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 
 import org.unicode.cldr.test.CheckCLDR;
 import org.unicode.cldr.test.CheckCLDR.CheckStatus;
 import org.unicode.cldr.test.CheckCLDR.CheckStatus.Subtype;
+import org.unicode.cldr.test.CheckCLDR.InputMethod;
 import org.unicode.cldr.test.CheckCLDR.Options;
+import org.unicode.cldr.test.CheckCLDR.Phase;
+import org.unicode.cldr.test.CheckCLDR.StatusAction;
 import org.unicode.cldr.test.CheckConsistentCasing;
 import org.unicode.cldr.test.CheckDates;
 import org.unicode.cldr.test.CheckForExemplars;
 import org.unicode.cldr.test.CheckNames;
 import org.unicode.cldr.test.CheckNew;
+import org.unicode.cldr.test.SubmissionLocales;
+import org.unicode.cldr.test.TestCache;
+import org.unicode.cldr.test.TestCache.TestResultBundle;
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
+import org.unicode.cldr.util.CLDRInfo.CandidateInfo;
+import org.unicode.cldr.util.CLDRInfo.PathValueInfo;
+import org.unicode.cldr.util.CLDRInfo.UserInfo;
+import org.unicode.cldr.util.CLDRLocale;
+import org.unicode.cldr.util.CLDRPaths;
+import org.unicode.cldr.util.Counter;
 import org.unicode.cldr.util.DayPeriodInfo;
 import org.unicode.cldr.util.DayPeriodInfo.DayPeriod;
 import org.unicode.cldr.util.DayPeriodInfo.Type;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.LanguageTagParser;
+import org.unicode.cldr.util.Level;
+import org.unicode.cldr.util.Organization;
+import org.unicode.cldr.util.Pair;
 import org.unicode.cldr.util.PathHeader;
+import org.unicode.cldr.util.PathHeader.SurveyToolStatus;
 import org.unicode.cldr.util.PatternCache;
 import org.unicode.cldr.util.PatternPlaceholders;
 import org.unicode.cldr.util.PatternPlaceholders.PlaceholderInfo;
 import org.unicode.cldr.util.PatternPlaceholders.PlaceholderStatus;
+import org.unicode.cldr.util.SimpleFactory;
 import org.unicode.cldr.util.SimpleXMLSource;
 import org.unicode.cldr.util.StringId;
+import org.unicode.cldr.util.VoteResolver.VoterInfo;
 
 import com.ibm.icu.dev.test.TestFmwk;
+import com.ibm.icu.impl.Row.R2;
+import com.ibm.icu.impl.Row.R5;
 import com.ibm.icu.text.UnicodeSet;
 
 public class TestCheckCLDR extends TestFmwk {
@@ -87,6 +112,56 @@ public class TestCheckCLDR extends TestFmwk {
         for (String path : english) {
             c.check(path, english.getFullXPath(path),
                 english.getStringValue(path), options, possibleErrors);
+        }
+    }
+
+    /**
+     * Test the TestCache and TestResultBundle objects
+     */
+    public void TestTestCache() {
+        String localeString = "en";
+        CLDRLocale locale = CLDRLocale.getInstance(localeString);
+        CheckCLDR.Options checkCldrOptions = new Options(locale, Phase.SUBMISSION, "default", "basic");
+        TestCache testCache = new TestCache();
+        testCache.setFactory(testInfo.getCldrFactory(), ".*"); 
+        TestResultBundle bundle = testCache.getBundle(checkCldrOptions);
+        final CLDRFile cldrFile = testInfo.getCLDRFile(localeString, true);
+        /*
+         * Loop through the set of paths twice. The second time should be much faster.
+         * Measured times for the two passes, without pathCache in TestResultBundle,
+         * 4017 and 3293 milliseconds. With pathCache, 4125 and 46 milliseconds.
+         * That's with locale "en", all 19698 paths. Results for "fr" were similar.
+         * To save time, limit the number of paths if getInclusion() is small.
+         * A thousand paths take about half a second to loop through twice.
+         */
+        int maxPathCount = (getInclusion() < 5) ? 1000 : 100000;
+        double[] deltaTime = {0, 0};
+        for (int i = 0; i < 2; i++) {
+            List<CheckStatus> possibleErrors = new ArrayList<CheckStatus>();
+            int pathCount = 0;
+            double startTime = System.currentTimeMillis();
+            for (String path : cldrFile) {
+                String fullPath = cldrFile.getFullXPath(path);
+                String value = cldrFile.getStringValue(path);
+                bundle.check(fullPath, possibleErrors, value);
+                if (++pathCount == maxPathCount) {
+                    break;
+                }
+            }
+            deltaTime[i] = System.currentTimeMillis() - startTime;
+            /*
+             * Expect possibleErrors to have size zero.
+             * A future enhancement of this test could modify some values to force errors,
+             * and confirm that the errors are returned identically the first and second times. 
+             */
+            assertEquals("possibleErrors, loop index " + i, possibleErrors.size(), 0);
+        }
+        /*
+         * Expect second time to be about a hundredth of first time; error if more than a tenth.
+         * On one occasion, smoketest had times 171.0 and 5.0.
+         */
+        if (deltaTime[1] > deltaTime[0] / 10) {
+            errln("TestResultBundle cache should yield more benefit: times " + deltaTime[0] +  " and " + deltaTime[1]);
         }
     }
 
@@ -267,29 +342,29 @@ public class TestCheckCLDR extends TestFmwk {
         for (PathHeader pathHeader : sorted) {
             String path = pathHeader.getOriginalPath();
             // override.overridePath = path;
-            final String resolvedValue = dummyValue == null ? patched
-                .getStringValue(path) : dummyValue;
-            test.handleCheck(path, patched.getFullXPath(path), resolvedValue,
-                options, result);
-            if (result.size() != 0) {
-                for (CheckStatus item : result) {
-                    addExemplars(item, missingCurrencyExemplars,
-                        missingExemplars);
-                    final String mainMessage = StringId.getId(path) + "\t"
-                        + pathHeader + "\t" + english.getStringValue(path)
-                        + "\t" + item.getType() + "\t" + item.getSubtype();
-                    if (unique != null) {
-                        if (unique.contains(mainMessage)) {
-                            continue;
-                        } else {
-                            unique.add(mainMessage);
+            final String resolvedValue = dummyValue == null ? patched.getStringValueWithBailey(path)
+                : dummyValue;
+                test.handleCheck(path, patched.getFullXPath(path), resolvedValue,
+                    options, result);
+                if (result.size() != 0) {
+                    for (CheckStatus item : result) {
+                        addExemplars(item, missingCurrencyExemplars,
+                            missingExemplars);
+                        final String mainMessage = StringId.getId(path) + "\t"
+                            + pathHeader + "\t" + english.getStringValue(path)
+                            + "\t" + item.getType() + "\t" + item.getSubtype();
+                        if (unique != null) {
+                            if (unique.contains(mainMessage)) {
+                                continue;
+                            } else {
+                                unique.add(mainMessage);
+                            }
                         }
+                        logln(localeID + "\t" + mainMessage + "\t" + resolvedValue
+                            + "\t" + item.getMessage() + "\t"
+                            + pathHeader.getOriginalPath());
                     }
-                    logln(localeID + "\t" + mainMessage + "\t" + resolvedValue
-                        + "\t" + item.getMessage() + "\t"
-                        + pathHeader.getOriginalPath());
                 }
-            }
         }
         if (missingCurrencyExemplars.size() != 0) {
             logln(localeID + "\tMissing Exemplars (Currency):\t"
@@ -340,12 +415,23 @@ public class TestCheckCLDR extends TestFmwk {
     }
 
     public void TestCheckNew() {
-        String path = "//ldml/dates/timeZoneNames/zone[@type=\"Europe/Dublin\"]/long/daylight";
-        CheckCLDR c = new CheckNew(testInfo.getCldrFactory());
+        // this needs to be a <locale,path> that is currently outdated (birth older than English's)
+        // if the test fails with "no failure message"
+        // * run GenerateBirths (if you haven't done so)
+        // * look at readable results in the log file in CLDRPaths.TMP_DIRECTORY + "dropbox/births/"
+        // * for fr.txt (or may change locale)
+        // * find a path that is outdated. 
+        //   * To work on both limited and full submissions, choose one with English = trunk
+        //   * Sometimes the English change is suppressed in a limited release if the change is small. Pick another in that case.
+        // * check the data files to ensure that it is in fact outdated.
+        // * change the path to that value
+        
+        String locale = "fr";
+        String path = "//ldml/localeDisplayNames/territories/territory[@type=\"MO\"][@alt=\"short\"]";
+        CheckCLDR c = new CheckNew(testInfo.getCommonAndSeedAndMainAndAnnotationsFactory());
         List<CheckStatus> result = new ArrayList<CheckStatus>();
         Map<String, String> options = new HashMap<String, String>();
-        c.setCldrFileToCheck(testInfo.getCLDRFile("fr", true),
-            options, result);
+        c.setCldrFileToCheck(testInfo.getCLDRFile(locale, true), options, result);
         c.check(path, path, "foobar", options, result);
         for (CheckStatus status : result) {
             if (status.getSubtype() != Subtype.modifiedEnglishValue) {
@@ -353,7 +439,7 @@ public class TestCheckCLDR extends TestFmwk {
             }
             assertEquals(
                 null,
-                "The English value for this field changed from “Irish Summer Time” to “Irish Standard Time’, but the corresponding value for your locale didn't change.",
+                "The English value for this field changed from “Macau” to “Macao’, but the corresponding value for your locale didn't change.",
                 status.getMessage());
             return;
         }
@@ -528,6 +614,239 @@ public class TestCheckCLDR extends TestFmwk {
 
             testFile.remove(path1);
             testFile.remove(path2);
+        }
+    }
+
+    public void TestShowRowAction() {
+        Map<Key,Pair<Boolean,String>> actionToExamplePath = new TreeMap<>();
+        Counter<Key> counter = new Counter<>();
+
+        for (String locale : Arrays.asList("jv", "fr", "vo")) {
+            DummyPathValueInfo dummyPathValueInfo = new DummyPathValueInfo();
+            dummyPathValueInfo.locale = CLDRLocale.getInstance(locale);
+            CLDRFile cldrFile = testInfo.getCldrFactory().make(locale, true);
+            CLDRFile cldrFileUnresolved = testInfo.getCldrFactory().make(locale, false);
+
+            Set<PathHeader> sorted = new TreeSet<>();
+            for (String path : cldrFile) {
+                PathHeader ph = pathHeaderFactory.fromPath(path);
+                sorted.add(ph);
+            }
+
+            for (Phase phase : Arrays.asList(Phase.SUBMISSION, Phase.VETTING)) {
+                for (CheckStatus.Type status : Arrays.asList(CheckStatus.warningType, CheckStatus.errorType)) {
+                    dummyPathValueInfo.checkStatusType = status;
+
+                    for (PathHeader ph : sorted) {
+                        String path = ph.getOriginalPath();
+
+                        //String phString = ph.toString();
+                        SurveyToolStatus surveyToolStatus = ph.getSurveyToolStatus();
+                        dummyPathValueInfo.xpath = path;
+                        dummyPathValueInfo.baselineValue = cldrFileUnresolved.getStringValue(path);
+                        StatusAction action = phase.getShowRowAction(
+                            dummyPathValueInfo, 
+                            InputMethod.DIRECT, 
+                            surveyToolStatus, 
+                            dummyUserInfo);
+
+                        if (surveyToolStatus == SurveyToolStatus.HIDE) {
+                            assertEquals("HIDE ==> FORBID_READONLY", StatusAction.FORBID_READONLY, action);
+                        } else if (CheckCLDR.LIMITED_SUBMISSION) {
+                            if (status == CheckStatus.Type.Error) {
+                                assertEquals("ERROR ==> ALLOW", StatusAction.ALLOW, action);
+                            } else if (locale.equalsIgnoreCase("vo")) {
+                                assertEquals("vo ==> FORBID_READONLY", StatusAction.FORBID_READONLY, action);
+                            } else if (dummyPathValueInfo.baselineValue == null) {
+                                assertEquals("missing ==> ALLOW", StatusAction.ALLOW, action);
+                            }
+                        }
+
+                        if (isVerbose()) {
+                            Key key = new Key(locale, phase, status, surveyToolStatus, action);
+                            counter.add(key,1);
+
+                            if (!actionToExamplePath.containsKey(key)) {
+                                // for debugging
+                                if (locale.equals("vo") && action == StatusAction.ALLOW) {
+                                    StatusAction action2 = phase.getShowRowAction(
+                                        dummyPathValueInfo, 
+                                        InputMethod.DIRECT, 
+                                        surveyToolStatus, 
+                                        dummyUserInfo);
+                                }
+                                actionToExamplePath.put(key, Pair.of(dummyPathValueInfo.baselineValue != null, path));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (isVerbose()) {
+            for (Entry<Key, Pair<Boolean, String>> entry : actionToExamplePath.entrySet()) {
+                System.out.print("\n" + entry.getKey() + "\t" + entry.getValue().getFirst() + "\t" + entry.getValue().getSecond());
+            }
+            System.out.println();
+            for (R2<Long, Key> entry : counter.getEntrySetSortedByCount(false, null)) {
+                System.out.println(entry.get0() + "\t" + entry.get1());
+            }
+        }
+    }
+
+    static class Key extends R5<Phase, CheckStatus.Type, SurveyToolStatus, StatusAction, String> {
+        public Key(String locale, Phase phase, CheckStatus.Type status, SurveyToolStatus stStatus, StatusAction action) {
+            super(phase, status, stStatus, action, locale);
+        }
+        @Override
+        public String toString() {
+            return  get0() + "\t" + get1() + "\t" + get2() + "\t" + get3() + "\t" + get4();
+        }
+    }
+
+//    private static CLDRURLS URLS = testInfo.urls();
+
+    private static final PathHeader.Factory pathHeaderFactory = PathHeader.getFactory(testInfo.getEnglish());
+
+//    private static final CoverageInfo coverageInfo = new CoverageInfo(testInfo.getSupplementalDataInfo());
+
+    private static final VoterInfo dummyVoterInfo = new VoterInfo(Organization.cldr, 
+        org.unicode.cldr.util.VoteResolver.Level.vetter, 
+        "somename");
+
+    private static final UserInfo dummyUserInfo = new UserInfo() {
+        public VoterInfo getVoterInfo() {
+            return dummyVoterInfo;
+        }
+    };
+
+    private static class DummyPathValueInfo implements PathValueInfo {
+        private CLDRLocale locale;
+        private String xpath;
+        private String baselineValue;
+        private CheckStatus.Type checkStatusType;
+
+        private CandidateInfo candidateInfo = new CandidateInfo() {
+            @Override
+            public String getValue() {
+                return null;
+            }
+            @Override
+            public Collection<UserInfo> getUsersVotingOn() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<CheckStatus> getCheckStatusList() {
+                return checkStatusType == null ? Collections.emptyList()
+                    : Collections.singletonList(new CheckStatus().setMainType(checkStatusType));
+            }
+
+        };
+
+        public Collection<? extends CandidateInfo> getValues() {
+            throw new UnsupportedOperationException();
+        }
+        public CandidateInfo getCurrentItem() {
+            return candidateInfo;
+        }
+        public String getBaselineValue() {
+            return baselineValue;
+        }
+        public Level getCoverageLevel() {
+            return Level.MODERN;
+        }
+        public boolean hadVotesSometimeThisRelease() {
+            throw new UnsupportedOperationException();
+        }
+        public CLDRLocale getLocale() {
+            return locale;
+        }
+        public String getXpath() {
+            return xpath;
+        }
+    }
+    
+    public void TestSubmissionLocales() {
+        
+        // will need to change this for new releases!!
+        
+        String pathNotSameValue = "//ldml/listPatterns/listPattern[@type=\"standard\"]";
+        String pathSameValue = "//ldml/listPatterns/listPattern[@type=\"or\"]";
+        
+        // outside of cldr, skip all except isError
+        assertTrue("vo, engSame, isError, !isMissing", SubmissionLocales.allowEvenIfLimited("vo", pathSameValue, true, false));
+        assertFalse("vo, engSame, !isError, isMissing", SubmissionLocales.allowEvenIfLimited("vo", pathSameValue, false, true));
+        assertFalse("vo, !engSame, !isError, !isMissing", SubmissionLocales.allowEvenIfLimited("vo", pathNotSameValue, false, false));
+        assertFalse("vo, engSame, !isError, !isMissing", SubmissionLocales.allowEvenIfLimited("vo", pathSameValue, false, false));
+        // new cldr locale, allow all
+        assertTrue("jv, engSame, isError, !isMissing", SubmissionLocales.allowEvenIfLimited("jv", pathSameValue, true, false));
+        assertTrue("jv, engSame, !isError, isMissing", SubmissionLocales.allowEvenIfLimited("jv", pathSameValue, false, true));
+        assertTrue("jv, !engSame, !isError, !isMissing", SubmissionLocales.allowEvenIfLimited("jv", pathNotSameValue, false, false));
+        assertTrue("jv, engSame, !isError, !isMissing", SubmissionLocales.allowEvenIfLimited("jv", pathSameValue, false, false));
+        // old cldr locale, allow isError, or missing in last release, or EnglishChanged
+        assertTrue("fr, engSame, isError, !isMissing", SubmissionLocales.allowEvenIfLimited("fr", pathSameValue, true, false));
+        assertTrue("fr, engSame, !isError, isMissing", SubmissionLocales.allowEvenIfLimited("fr", pathSameValue, false, true));
+        assertTrue("fr, !engSame, !isError, !isMissing", SubmissionLocales.allowEvenIfLimited("fr", pathNotSameValue, false, false));
+        assertFalse("fr, engSame, !isError, !isMissing", SubmissionLocales.allowEvenIfLimited("fr", pathSameValue, false, false));
+    }
+    /**
+     * Check that the English changes are captured
+     */
+    public void TestALLOWED_IN_LIMITED_PATHS() {
+        if (logKnownIssue("cldrbug:11583", "Comment out test until last release data is available for unit tests")) {
+            return;
+        }
+        
+        CLDRConfig conf = testInfo;
+        Factory factory = conf.getMainAndAnnotationsFactory();
+        File[] paths = {
+            new File(CLDRPaths.LAST_COMMON_DIRECTORY + "main/"),
+            new File(CLDRPaths.LAST_COMMON_DIRECTORY + "annotations/"),
+        };
+        Factory factoryOld = SimpleFactory.make(paths, ".*");
+
+        CLDRFile english = factory.make("en", true);
+        CLDRFile oldEnglish = factoryOld.make("en", true);
+        Set<String> newPaths = new TreeSet<>();
+        Set<String> diffValues = new TreeSet<>();
+        boolean firstFail = true;
+        
+        UnicodeSet okAnnotations = new UnicodeSet("[🤖 😺 😸 😹 😻-😽 🙀 😿 😾 🐺 🦊 🦁 🦄 🐹 🐻 🐼 🐸 🧩 ⭕]").freeze();
+        
+        for (String path : english) {
+            if (path.contains("/alias")) {
+                continue;
+            }
+            String value = english.getStringValue(path);
+            String valueOld = oldEnglish.getStringValue(path);
+            boolean isDiff = false;
+            if (valueOld == null) {
+                newPaths.add(path);
+            } else if (value != null 
+                && !value.equalsIgnoreCase(valueOld)
+                && !path.startsWith("//ldml/localeDisplayNames/types/type[@key=\"m0\"]")) {
+                diffValues.add(path);
+                isDiff = true;
+            }
+            boolean regexMatch = SubmissionLocales.pathAllowedInLimitedSubmission(path);
+            if (isDiff && !regexMatch) {
+                errln((firstFail ? "Add these to regex in SubmissionLocales OR filter from this test if unimportant:\n\t\t\t" : "")
+                    + "Match fails with " + path + ", old: " + valueOld + ", new: " + value);
+                firstFail = false;
+            } else if (!isDiff && regexMatch) {
+                
+                // will need to change this for new releases!!
+
+                if (path.endsWith("/listPatternPart[@type=\"start\"]") 
+                    || path.endsWith("/listPatternPart[@type=\"middle\"]") 
+                    || path.endsWith("[@type=\"tts\"]") 
+                    || okAnnotations.containsSome(path)
+                    ) {
+                    continue;
+                }
+                errln("Match overshoots with " + path 
+                    + (firstFail ? "\nAdd these to regex in SubmissionLocales or filter from this test if unimportant" : ""));
+            }
         }
     }
 }

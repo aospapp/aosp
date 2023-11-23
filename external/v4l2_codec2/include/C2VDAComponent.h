@@ -5,13 +5,12 @@
 #ifndef ANDROID_C2_VDA_COMPONENT_H
 #define ANDROID_C2_VDA_COMPONENT_H
 
-#include <C2VDACommon.h>
-#include <VideoDecodeAcceleratorAdaptor.h>
-
-#include <rect.h>
-#include <size.h>
-#include <video_codecs.h>
-#include <video_decode_accelerator.h>
+#include <atomic>
+#include <deque>
+#include <map>
+#include <mutex>
+#include <queue>
+#include <unordered_map>
 
 #include <C2Component.h>
 #include <C2Config.h>
@@ -27,12 +26,12 @@
 #include <base/synchronization/waitable_event.h>
 #include <base/threading/thread.h>
 
-#include <atomic>
-#include <deque>
-#include <map>
-#include <mutex>
-#include <queue>
-#include <unordered_map>
+#include <VideoDecodeAcceleratorAdaptor.h>
+#include <rect.h>
+#include <size.h>
+#include <video_codecs.h>
+#include <video_decode_accelerator.h>
+#include <v4l2_codec2/common/Common.h>
 
 namespace android {
 
@@ -66,6 +65,8 @@ public:
 
         // The input format kind; should be C2FormatCompressed.
         std::shared_ptr<C2StreamBufferTypeSetting::input> mInputFormat;
+        // The memory usage flag of input buffer; should be BufferUsage::VIDEO_DECODER.
+        std::shared_ptr<C2StreamUsageTuning::input> mInputMemoryUsage;
         // The output format kind; should be C2FormatVideo.
         std::shared_ptr<C2StreamBufferTypeSetting::output> mOutputFormat;
         // The MIME type of input port.
@@ -163,8 +164,6 @@ private:
         // onStop() is called. VDA is shutting down. State will change to UNINITIALIZED after
         // onStopDone().
         STOPPING,
-        // onError() is called.
-        ERROR,
     };
 
     // This constant is used to tell apart from drain_mode_t enumerations in C2Component.h, which
@@ -197,8 +196,8 @@ private:
         std::shared_ptr<C2GraphicBlock> mGraphicBlock;
         // HAL pixel format used while importing to VDA.
         HalPixelFormat mPixelFormat;
-        // The handle dupped from graphic block for importing to VDA.
-        ::base::ScopedFD mHandle;
+        // The dmabuf fds dupped from graphic block for importing to VDA.
+        std::vector<::base::ScopedFD> mHandles;
         // VideoFramePlane information for importing to VDA.
         std::vector<VideoFramePlane> mPlanes;
     };
@@ -269,19 +268,26 @@ private:
     // Dequeue |mPendingBuffersToWork| to put output buffer to corresponding work and report if
     // finished as many as possible. If |dropIfUnavailable|, drop all pending existing frames
     // without blocking.
-    void sendOutputBufferToWorkIfAny(bool dropIfUnavailable);
+    c2_status_t sendOutputBufferToWorkIfAny(bool dropIfUnavailable);
     // Update |mUndequeuedBlockIds| FIFO by pushing |blockId|.
     void updateUndequeuedBlockIds(int32_t blockId);
 
+    // Specific to VP8/VP9, since for no-show frame cases VDA will not call PictureReady to return
+    // output buffer which the corresponding work is waiting for, this function detects these works
+    // by comparing timestamps. If there are works with no-show frame, call reportWorkIfFinished()
+    // to report to listener if finished.
+    void detectNoShowFrameWorksAndReportIfFinished(const C2WorkOrdinalStruct* currOrdinal);
     // Check if the corresponding work is finished by |bitstreamId|. If yes, make onWorkDone call to
     // listener and erase the work from |mPendingWorks|.
     void reportWorkIfFinished(int32_t bitstreamId);
     // Make onWorkDone call to listener for reporting EOS work in |mPendingWorks|.
-    void reportEOSWork();
+    c2_status_t reportEOSWork();
     // Abandon all works in |mPendingWorks| and |mAbandonedWorks|.
     void reportAbandonedWorks();
     // Make onError call to listener for reporting errors.
     void reportError(c2_status_t error);
+    // Helper function to determine if the work indicates no-show output frame.
+    bool isNoShowFrameWork(const C2Work* work, const C2WorkOrdinalStruct* currOrdinal) const;
     // Helper function to determine if the work is finished.
     bool isWorkDone(const C2Work* work) const;
 
@@ -336,6 +342,7 @@ private:
     std::queue<WorkEntry> mQueue;
     // Store all pending works. The dequeued works are placed here until they are finished and then
     // sent out by onWorkDone call to listener.
+    // TODO: maybe use priority_queue instead.
     std::deque<std::unique_ptr<C2Work>> mPendingWorks;
     // Store all abandoned works. When component gets flushed/stopped, remaining works in queue are
     // dumped here and sent out by onWorkDone call to listener after flush/stop is finished.
@@ -364,6 +371,8 @@ private:
     // A FIFO queue to record the block IDs which are currently undequequed for display. The size
     // of this queue will be equal to the minimum number of undequeued buffers.
     std::deque<int32_t> mUndequeuedBlockIds;
+    // The error state indicator which sets to true when an error is occured.
+    bool mHasError = false;
 
     // The indicator of whether component is in secure mode.
     bool mSecureMode;

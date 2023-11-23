@@ -27,6 +27,7 @@
 #include "tcuApp.hpp"
 #include "tcuResource.hpp"
 #include "tcuTestLog.hpp"
+#include "tcuTestSessionExecutor.hpp"
 #include "deUniquePtr.hpp"
 
 #include <cstdio>
@@ -36,6 +37,8 @@ tcu::Platform* createPlatform (void);
 
 int main (int argc, char** argv)
 {
+    int exitStatus = EXIT_SUCCESS;
+
 #if (DE_OS != DE_OS_WIN32)
 	// Set stdout to line-buffered mode (will be fully buffered by default if stdout is pipe).
 	setvbuf(stdout, DE_NULL, _IOLBF, 4*1024);
@@ -44,8 +47,8 @@ int main (int argc, char** argv)
 	try
 	{
 		tcu::CommandLine				cmdLine		(argc, argv);
-		tcu::DirArchive					archive		(".");
-		tcu::TestLog					log			(cmdLine.getLogFileName(), cmdLine.getLogFlags());
+		tcu::DirArchive					archive		(cmdLine.getArchiveDir());
+		tcu::TestLog					log			(cmdLine.getLogFileName(), argc-1, argv+1, cmdLine.getLogFlags());
 		de::UniquePtr<tcu::Platform>	platform	(createPlatform());
 		de::UniquePtr<tcu::App>			app			(new tcu::App(*platform, archive, log, cmdLine));
 
@@ -53,7 +56,15 @@ int main (int argc, char** argv)
 		for (;;)
 		{
 			if (!app->iterate())
+			{
+				if (cmdLine.getRunMode() == tcu::RUNMODE_EXECUTE &&
+					(!app->getResult().isComplete || app->getResult().numFailed))
+				{
+					exitStatus = EXIT_FAILURE;
+				}
+
 				break;
+			}
 		}
 	}
 	catch (const std::exception& e)
@@ -61,5 +72,5 @@ int main (int argc, char** argv)
 		tcu::die("%s", e.what());
 	}
 
-	return 0;
+	return exitStatus;
 }

@@ -31,7 +31,7 @@ namespace binder {
 
 // These protos are part of the iorapd binder ABI, alias them for easier usage.
 using IntentProto = ::android::content::IntentProto;
-using ActivityRecordProto = ::com::android::server::am::ActivityRecordProto;
+using ActivityRecordProto = ::com::android::server::wm::ActivityRecordProto;
 
 struct AppLaunchEvent : public ::android::Parcelable {
   // Index position matters: Keep up-to-date with AppLaunchEvent.java sTypes field.
@@ -42,6 +42,7 @@ struct AppLaunchEvent : public ::android::Parcelable {
     kActivityLaunched = 2,
     kActivityLaunchFinished = 3,
     kActivityLaunchCancelled = 4,
+    kReportFullyDrawn = 5,
   };
 
   enum class Temperature : int32_t {
@@ -59,18 +60,45 @@ struct AppLaunchEvent : public ::android::Parcelable {
   Temperature temperature{Temperature::kUninitialized};
   // kActivityLaunch*. Can be null in kActivityLaunchCancelled.
   std::unique_ptr<ActivityRecordProto> activity_record_proto;
+  // kIntentStarted, kActivityLaunchFinished and kReportFullyDrawn only.
+  int64_t timestamp_nanos{-1};
 
   AppLaunchEvent() = default;
   AppLaunchEvent(Type type,
                  int64_t sequence_id,
                  std::unique_ptr<IntentProto> intent_proto = nullptr,
                  Temperature temperature = Temperature::kUninitialized,
-                 std::unique_ptr<ActivityRecordProto> activity_record_proto = nullptr)
+                 std::unique_ptr<ActivityRecordProto> activity_record_proto = nullptr,
+                 int64_t timestamp_nanos = -1)
     : type(type),
       sequence_id(sequence_id),
       intent_proto(std::move(intent_proto)),
       temperature(temperature),
-      activity_record_proto(std::move(activity_record_proto)) {
+      activity_record_proto(std::move(activity_record_proto)),
+      timestamp_nanos(timestamp_nanos) {
+  }
+
+  AppLaunchEvent(const AppLaunchEvent& other) {
+    *this = other;
+  }
+
+  AppLaunchEvent& operator=(const AppLaunchEvent& other) {
+    if (&other == this) {
+      return *this;
+    }
+
+    type = other.type;
+    sequence_id = other.sequence_id;
+    if (other.intent_proto != nullptr) {
+      intent_proto.reset(new IntentProto(*other.intent_proto));
+    }
+    temperature = other.temperature;
+    if (other.activity_record_proto != nullptr) {
+      activity_record_proto.reset(new ActivityRecordProto(*other.activity_record_proto));
+    }
+    timestamp_nanos = other.timestamp_nanos;
+
+    return *this;
   }
 
   ::android::status_t readFromParcel(const android::Parcel* parcel) override {
@@ -92,6 +120,7 @@ struct AppLaunchEvent : public ::android::Parcelable {
     switch (type) {
       case Type::kIntentStarted:
         PARCEL_READ_OR_RETURN(readIntent, parcel);
+        PARCEL_READ_OR_RETURN(parcel->readInt64, &timestamp_nanos);
         break;
       case Type::kIntentFailed:
         // No extra arguments.
@@ -105,9 +134,14 @@ struct AppLaunchEvent : public ::android::Parcelable {
       }
       case Type::kActivityLaunchFinished:
         PARCEL_READ_OR_RETURN(readActivityRecordProto, parcel);
+        PARCEL_READ_OR_RETURN(parcel->readInt64, &timestamp_nanos);
         break;
       case Type::kActivityLaunchCancelled:
         PARCEL_READ_OR_RETURN(readActivityRecordProtoNullable, parcel);
+        break;
+      case Type::kReportFullyDrawn:
+        PARCEL_READ_OR_RETURN(readActivityRecordProto, parcel);
+        PARCEL_READ_OR_RETURN(parcel->readInt64, &timestamp_nanos);
         break;
       default:
         return android::BAD_VALUE;
@@ -131,6 +165,7 @@ struct AppLaunchEvent : public ::android::Parcelable {
     switch (type) {
       case Type::kIntentStarted:
         PARCEL_WRITE_OR_RETURN(writeIntent, parcel);
+        PARCEL_WRITE_OR_RETURN(parcel->writeInt64, timestamp_nanos);
         break;
       case Type::kIntentFailed:
         // No extra arguments.
@@ -141,9 +176,14 @@ struct AppLaunchEvent : public ::android::Parcelable {
         break;
       case Type::kActivityLaunchFinished:
         PARCEL_WRITE_OR_RETURN(writeActivityRecordProto, parcel);
+        PARCEL_WRITE_OR_RETURN(parcel->writeInt64, timestamp_nanos);
         break;
       case Type::kActivityLaunchCancelled:
         PARCEL_WRITE_OR_RETURN(writeActivityRecordProtoNullable, parcel);
+        break;
+      case Type::kReportFullyDrawn:
+        PARCEL_WRITE_OR_RETURN(writeActivityRecordProtoNullable, parcel);
+        PARCEL_WRITE_OR_RETURN(parcel->writeInt64, timestamp_nanos);
         break;
       default:
         DCHECK(false) << "attempted to write an uninitialized AppLaunchEvent to Parcel";
@@ -320,6 +360,9 @@ inline std::ostream& operator<<(std::ostream& os, const AppLaunchEvent::Type& ty
     case AppLaunchEvent::Type::kActivityLaunchFinished:
       os << "kActivityLaunchFinished";
       break;
+    case AppLaunchEvent::Type::kReportFullyDrawn:
+      os << "kReportFullyDrawn";
+      break;
     default:
       os << "(unknown)";
   }
@@ -378,6 +421,11 @@ inline std::ostream& operator<<(std::ostream& os, const AppLaunchEvent& e) {
     // title or component name.
     os << "'" << e.activity_record_proto->identifier().title() << "'";
   }
+  os << ",";
+
+  os << "timestamp_nanos=" << e.timestamp_nanos << ",";
+  os << ",";
+
   os << "}";
 
   return os;

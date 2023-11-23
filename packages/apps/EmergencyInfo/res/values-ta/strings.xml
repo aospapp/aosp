@@ -89,7 +89,7 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"அவசரகாலத் தொடர்புகள்"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"தொடர்பைச் சேர்"</string>
-    <string name="fail_load_contact_picker" msgid="817205483833876726">"தொடர்புத் தேர்வியைக் கண்டறிய முடியவில்லை"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"தொடர்பு தேர்வுக் கருவியைக் கண்டறிய முடியவில்லை"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"தொடர்பைக் காட்ட முடியவில்லை"</string>
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g>ஐ அவசரகாலத் தொடர்புகளிலிருந்து அகற்றவா?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"தொடர்பை அகற்று"</string>

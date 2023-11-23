@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Set threshold to 100 to math the iterations done in the test.
+# Set threshold to 1000 to match the iterations done in the test.
 # Pass --verbose-methods to only generate the CFG of these methods.
-exec ${RUN} --jit --runtime-option -Xjitthreshold:100 -Xcompiler-option --verbose-methods=inlineMonomorphic,knownReceiverType,stringEquals $@
+# The test is for JIT, but we run in "optimizing" (AOT) mode, so that the Checker
+# stanzas in test/638-checker-inline-cache-intrinsic/src/Main.java will be checked.
+# Also pass a large JIT code cache size to avoid getting the inline caches GCed.
+exec ${RUN} --jit --runtime-option -Xjitinitialsize:32M --runtime-option -Xjitthreshold:1000 -Xcompiler-option --verbose-methods=inlineMonomorphic,knownReceiverType,stringEquals $@

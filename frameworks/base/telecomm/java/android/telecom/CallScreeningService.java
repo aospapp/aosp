@@ -16,12 +16,14 @@
 
 package android.telecom;
 
-import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.SdkConstant;
+import android.annotation.SystemApi;
+import android.annotation.TestApi;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.IBinder;
@@ -32,9 +34,6 @@ import android.os.RemoteException;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.telecom.ICallScreeningAdapter;
 import com.android.internal.telecom.ICallScreeningService;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 
 /**
  * This service can be implemented by the default dialer (see
@@ -75,7 +74,7 @@ import java.lang.annotation.RetentionPolicy;
  *
  * public void requestRole() {
  *     RoleManager roleManager = (RoleManager) getSystemService(ROLE_SERVICE);
- *     Intent intent = roleManager.createRequestRoleIntent("android.app.role.CALL_SCREENING");
+ *     Intent intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING);
  *     startActivityForResult(intent, REQUEST_ID);
  * }
  *
@@ -108,8 +107,14 @@ public abstract class CallScreeningService extends Service {
                     SomeArgs args = (SomeArgs) msg.obj;
                     try {
                         mCallScreeningAdapter = (ICallScreeningAdapter) args.arg1;
-                        onScreenCall(
-                                Call.Details.createFromParcelableCall((ParcelableCall) args.arg2));
+                        Call.Details callDetails = Call.Details
+                                .createFromParcelableCall((ParcelableCall) args.arg2);
+                        onScreenCall(callDetails);
+                        if (callDetails.getCallDirection() == Call.Details.DIRECTION_OUTGOING) {
+                            mCallScreeningAdapter.allowCall(callDetails.getTelecomCallId());
+                        }
+                    } catch (RemoteException e) {
+                        Log.w(this, "Exception when screening call: " + e);
                     } finally {
                         args.recycle();
                     }
@@ -140,15 +145,21 @@ public abstract class CallScreeningService extends Service {
         private final boolean mShouldSilenceCall;
         private final boolean mShouldSkipCallLog;
         private final boolean mShouldSkipNotification;
+        private final boolean mShouldScreenCallViaAudioProcessing;
 
         private CallResponse(
                 boolean shouldDisallowCall,
                 boolean shouldRejectCall,
                 boolean shouldSilenceCall,
                 boolean shouldSkipCallLog,
-                boolean shouldSkipNotification) {
+                boolean shouldSkipNotification,
+                boolean shouldScreenCallViaAudioProcessing) {
             if (!shouldDisallowCall
                     && (shouldRejectCall || shouldSkipCallLog || shouldSkipNotification)) {
+                throw new IllegalStateException("Invalid response state for allowed call.");
+            }
+
+            if (shouldDisallowCall && shouldScreenCallViaAudioProcessing) {
                 throw new IllegalStateException("Invalid response state for allowed call.");
             }
 
@@ -157,6 +168,7 @@ public abstract class CallScreeningService extends Service {
             mShouldSkipCallLog = shouldSkipCallLog;
             mShouldSkipNotification = shouldSkipNotification;
             mShouldSilenceCall = shouldSilenceCall;
+            mShouldScreenCallViaAudioProcessing = shouldScreenCallViaAudioProcessing;
         }
 
         /*
@@ -195,12 +207,22 @@ public abstract class CallScreeningService extends Service {
             return mShouldSkipNotification;
         }
 
+        /**
+         * @return Whether we should enter the {@link Call#STATE_AUDIO_PROCESSING} state to allow
+         * for further screening of the call.
+         * @hide
+         */
+        public boolean getShouldScreenCallViaAudioProcessing() {
+            return mShouldScreenCallViaAudioProcessing;
+        }
+
         public static class Builder {
             private boolean mShouldDisallowCall;
             private boolean mShouldRejectCall;
             private boolean mShouldSilenceCall;
             private boolean mShouldSkipCallLog;
             private boolean mShouldSkipNotification;
+            private boolean mShouldScreenCallViaAudioProcessing;
 
             /**
              * Sets whether the incoming call should be blocked.
@@ -256,13 +278,44 @@ public abstract class CallScreeningService extends Service {
                 return this;
             }
 
+            /**
+             * Sets whether to request background audio processing so that the in-call service can
+             * screen the call further. If set to {@code true}, {@link #setDisallowCall} should be
+             * called with {@code false}, and all other parameters in this builder will be ignored.
+             * <p>
+             * This request will only be honored if the {@link CallScreeningService} shares the same
+             * uid as the default dialer app. Otherwise, the call will go through as usual.
+             * <p>
+             * Apps built with SDK version {@link android.os.Build.VERSION_CODES#R} or later which
+             * are using the microphone as part of audio processing should specify the
+             * foreground service type using the attribute
+             * {@link android.R.attr#foregroundServiceType} in the {@link CallScreeningService}
+             * service element of the app's manifest file.
+             * The {@link ServiceInfo#FOREGROUND_SERVICE_TYPE_MICROPHONE} attribute should be
+             * specified.
+             * @see
+             * <a href="https://developer.android.com/preview/privacy/foreground-service-types">
+             *     the Android Developer Site</a> for more information.
+             *
+             * @param shouldScreenCallViaAudioProcessing Whether to request further call screening.
+             * @hide
+             */
+            @SystemApi
+            @TestApi
+            public @NonNull Builder setShouldScreenCallViaAudioProcessing(
+                    boolean shouldScreenCallViaAudioProcessing) {
+                mShouldScreenCallViaAudioProcessing = shouldScreenCallViaAudioProcessing;
+                return this;
+            }
+
             public CallResponse build() {
                 return new CallResponse(
                         mShouldDisallowCall,
                         mShouldRejectCall,
                         mShouldSilenceCall,
                         mShouldSkipCallLog,
-                        mShouldSkipNotification);
+                        mShouldSkipNotification,
+                        mShouldScreenCallViaAudioProcessing);
             }
        }
     }
@@ -340,6 +393,8 @@ public abstract class CallScreeningService extends Service {
                         new ComponentName(getPackageName(), getClass().getName()));
             } else if (response.getSilenceCall()) {
                 mCallScreeningAdapter.silenceCall(callDetails.getTelecomCallId());
+            } else if (response.getShouldScreenCallViaAudioProcessing()) {
+                mCallScreeningAdapter.screenCallFurther(callDetails.getTelecomCallId());
             } else {
                 mCallScreeningAdapter.allowCall(callDetails.getTelecomCallId());
             }

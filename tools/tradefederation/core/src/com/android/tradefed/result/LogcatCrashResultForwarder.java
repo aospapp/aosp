@@ -21,6 +21,8 @@ import com.android.loganalysis.parser.LogcatParser;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.util.StreamUtil;
 
 import java.io.IOException;
@@ -38,6 +40,7 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
 
     /** Special error message from the instrumentation when something goes wrong on device side. */
     public static final String ERROR_MESSAGE = "Process crashed.";
+    public static final String SYSTEM_CRASH_MESSAGE = "System has crashed.";
 
     public static final int MAX_NUMBER_CRASH = 3;
 
@@ -51,6 +54,10 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
         mDevice = device;
     }
 
+    public ITestDevice getDevice() {
+        return mDevice;
+    }
+
     @Override
     public void testStarted(TestDescription test, long startTime) {
         mStartTime = startTime;
@@ -59,9 +66,17 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
 
     @Override
     public void testFailed(TestDescription test, String trace) {
-        // If the test case was detected as crashing the instrumentation, we had the crash to it.
+        // If the test case was detected as crashing the instrumentation, we add the crash to it.
         trace = extractCrashAndAddToMessage(trace, mStartTime);
         super.testFailed(test, trace);
+    }
+
+    @Override
+    public void testFailed(TestDescription test, FailureDescription failure) {
+        // If the test case was detected as crashing the instrumentation, we add the crash to it.
+        String trace = extractCrashAndAddToMessage(failure.getErrorMessage(), mStartTime);
+        failure.setErrorMessage(trace);
+        super.testFailed(test, failure);
     }
 
     @Override
@@ -73,17 +88,26 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
 
     @Override
     public void testRunFailed(String errorMessage) {
+        testRunFailed(FailureDescription.create(errorMessage, FailureStatus.TEST_FAILURE));
+    }
+
+    @Override
+    public void testRunFailed(FailureDescription error) {
         // Also add the failure to the run failure if the testFailed generated it.
         // A Process crash would end the instrumentation, so a testRunFailed is probably going to
         // be raised for the same reason.
+        String errorMessage = error.getErrorMessage();
         if (mLogcatItem != null) {
-            super.testRunFailed(addJavaCrashToString(mLogcatItem, errorMessage));
+            errorMessage = addJavaCrashToString(mLogcatItem, errorMessage);
             mLogcatItem = null;
-            return;
+        } else {
+            errorMessage = extractCrashAndAddToMessage(errorMessage, mLastStartTime);
         }
-        errorMessage = extractCrashAndAddToMessage(errorMessage, mLastStartTime);
-        super.testRunFailed(errorMessage);
-        mLogcatItem = null;
+        error.setErrorMessage(errorMessage);
+        if (isCrash(errorMessage)) {
+            error.setErrorIdentifier(DeviceErrorIdentifier.INSTRUMENATION_CRASH);
+        }
+        super.testRunFailed(error);
     }
 
     @Override
@@ -94,11 +118,15 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
 
     /** Attempt to extract the crash from the logcat if the test was seen as started. */
     private String extractCrashAndAddToMessage(String errorMessage, Long startTime) {
-        if (errorMessage.contains(ERROR_MESSAGE) && startTime != null) {
+        if (isCrash(errorMessage) && startTime != null) {
             mLogcatItem = extractLogcat(mDevice, startTime);
             errorMessage = addJavaCrashToString(mLogcatItem, errorMessage);
         }
         return errorMessage;
+    }
+
+    private boolean isCrash(String errorMessage) {
+        return errorMessage.contains(ERROR_MESSAGE) || errorMessage.contains(SYSTEM_CRASH_MESSAGE);
     }
 
     /**

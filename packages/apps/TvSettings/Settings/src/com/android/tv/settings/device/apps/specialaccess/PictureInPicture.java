@@ -17,6 +17,7 @@
 package com.android.tv.settings.device.apps.specialaccess;
 
 import android.app.AppOpsManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -63,7 +64,7 @@ public class PictureInPicture extends SettingsPreferenceFragment
                                     info.info.uid,
                                     info.info.packageName) == AppOpsManager.MODE_ALLOWED;
                             return !ManageAppOp.shouldIgnorePackage(
-                                    getContext(), info.info.packageName)
+                                    getContext(), info.info.packageName, 0)
                                     && checkPackageHasPipActivities(info.info.packageName);
                         }
                     });
@@ -122,9 +123,8 @@ public class PictureInPicture extends SettingsPreferenceFragment
                     (Boolean) newValue ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED);
             return true;
         });
-        switchPref.setSummary((Boolean) entry.extraInfo
-                ? R.string.app_permission_summary_allowed
-                : R.string.app_permission_summary_not_allowed);
+        switchPref.setSummaryOn(R.string.app_permission_summary_allowed);
+        switchPref.setSummaryOff(R.string.app_permission_summary_not_allowed);
         return switchPref;
     }
 
@@ -153,5 +153,10 @@ public class PictureInPicture extends SettingsPreferenceFragment
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.SETTINGS_MANAGE_PICTURE_IN_PICTURE;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SPECIAL_APP_ACCESS_PICTURE_IN_PICTURE;
     }
 }

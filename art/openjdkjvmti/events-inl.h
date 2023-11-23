@@ -90,40 +90,42 @@ class ScopedEventDispatchEnvironment final : public art::ValueObject {
 
 // Infrastructure to achieve type safety for event dispatch.
 
-#define FORALL_EVENT_TYPES(fn)                                                       \
-  fn(VMInit,                  ArtJvmtiEvent::kVmInit)                                \
-  fn(VMDeath,                 ArtJvmtiEvent::kVmDeath)                               \
-  fn(ThreadStart,             ArtJvmtiEvent::kThreadStart)                           \
-  fn(ThreadEnd,               ArtJvmtiEvent::kThreadEnd)                             \
-  fn(ClassFileLoadHook,       ArtJvmtiEvent::kClassFileLoadHookRetransformable)      \
-  fn(ClassFileLoadHook,       ArtJvmtiEvent::kClassFileLoadHookNonRetransformable)   \
-  fn(ClassLoad,               ArtJvmtiEvent::kClassLoad)                             \
-  fn(ClassPrepare,            ArtJvmtiEvent::kClassPrepare)                          \
-  fn(VMStart,                 ArtJvmtiEvent::kVmStart)                               \
-  fn(Exception,               ArtJvmtiEvent::kException)                             \
-  fn(ExceptionCatch,          ArtJvmtiEvent::kExceptionCatch)                        \
-  fn(SingleStep,              ArtJvmtiEvent::kSingleStep)                            \
-  fn(FramePop,                ArtJvmtiEvent::kFramePop)                              \
-  fn(Breakpoint,              ArtJvmtiEvent::kBreakpoint)                            \
-  fn(FieldAccess,             ArtJvmtiEvent::kFieldAccess)                           \
-  fn(FieldModification,       ArtJvmtiEvent::kFieldModification)                     \
-  fn(MethodEntry,             ArtJvmtiEvent::kMethodEntry)                           \
-  fn(MethodExit,              ArtJvmtiEvent::kMethodExit)                            \
-  fn(NativeMethodBind,        ArtJvmtiEvent::kNativeMethodBind)                      \
-  fn(CompiledMethodLoad,      ArtJvmtiEvent::kCompiledMethodLoad)                    \
-  fn(CompiledMethodUnload,    ArtJvmtiEvent::kCompiledMethodUnload)                  \
-  fn(DynamicCodeGenerated,    ArtJvmtiEvent::kDynamicCodeGenerated)                  \
-  fn(DataDumpRequest,         ArtJvmtiEvent::kDataDumpRequest)                       \
-  fn(MonitorWait,             ArtJvmtiEvent::kMonitorWait)                           \
-  fn(MonitorWaited,           ArtJvmtiEvent::kMonitorWaited)                         \
-  fn(MonitorContendedEnter,   ArtJvmtiEvent::kMonitorContendedEnter)                 \
-  fn(MonitorContendedEntered, ArtJvmtiEvent::kMonitorContendedEntered)               \
-  fn(ResourceExhausted,       ArtJvmtiEvent::kResourceExhausted)                     \
-  fn(GarbageCollectionStart,  ArtJvmtiEvent::kGarbageCollectionStart)                \
-  fn(GarbageCollectionFinish, ArtJvmtiEvent::kGarbageCollectionFinish)               \
-  fn(ObjectFree,              ArtJvmtiEvent::kObjectFree)                            \
-  fn(VMObjectAlloc,           ArtJvmtiEvent::kVmObjectAlloc)                         \
-  fn(DdmPublishChunk,         ArtJvmtiEvent::kDdmPublishChunk)
+#define FORALL_EVENT_TYPES(fn)                                                         \
+  fn(VMInit,                    ArtJvmtiEvent::kVmInit)                                \
+  fn(VMDeath,                   ArtJvmtiEvent::kVmDeath)                               \
+  fn(ThreadStart,               ArtJvmtiEvent::kThreadStart)                           \
+  fn(ThreadEnd,                 ArtJvmtiEvent::kThreadEnd)                             \
+  fn(ClassFileLoadHook,         ArtJvmtiEvent::kClassFileLoadHookRetransformable)      \
+  fn(ClassFileLoadHook,         ArtJvmtiEvent::kClassFileLoadHookNonRetransformable)   \
+  fn(ClassLoad,                 ArtJvmtiEvent::kClassLoad)                             \
+  fn(ClassPrepare,              ArtJvmtiEvent::kClassPrepare)                          \
+  fn(VMStart,                   ArtJvmtiEvent::kVmStart)                               \
+  fn(Exception,                 ArtJvmtiEvent::kException)                             \
+  fn(ExceptionCatch,            ArtJvmtiEvent::kExceptionCatch)                        \
+  fn(SingleStep,                ArtJvmtiEvent::kSingleStep)                            \
+  fn(FramePop,                  ArtJvmtiEvent::kFramePop)                              \
+  fn(Breakpoint,                ArtJvmtiEvent::kBreakpoint)                            \
+  fn(FieldAccess,               ArtJvmtiEvent::kFieldAccess)                           \
+  fn(FieldModification,         ArtJvmtiEvent::kFieldModification)                     \
+  fn(MethodEntry,               ArtJvmtiEvent::kMethodEntry)                           \
+  fn(MethodExit,                ArtJvmtiEvent::kMethodExit)                            \
+  fn(NativeMethodBind,          ArtJvmtiEvent::kNativeMethodBind)                      \
+  fn(CompiledMethodLoad,        ArtJvmtiEvent::kCompiledMethodLoad)                    \
+  fn(CompiledMethodUnload,      ArtJvmtiEvent::kCompiledMethodUnload)                  \
+  fn(DynamicCodeGenerated,      ArtJvmtiEvent::kDynamicCodeGenerated)                  \
+  fn(DataDumpRequest,           ArtJvmtiEvent::kDataDumpRequest)                       \
+  fn(MonitorWait,               ArtJvmtiEvent::kMonitorWait)                           \
+  fn(MonitorWaited,             ArtJvmtiEvent::kMonitorWaited)                         \
+  fn(MonitorContendedEnter,     ArtJvmtiEvent::kMonitorContendedEnter)                 \
+  fn(MonitorContendedEntered,   ArtJvmtiEvent::kMonitorContendedEntered)               \
+  fn(ResourceExhausted,         ArtJvmtiEvent::kResourceExhausted)                     \
+  fn(GarbageCollectionStart,    ArtJvmtiEvent::kGarbageCollectionStart)                \
+  fn(GarbageCollectionFinish,   ArtJvmtiEvent::kGarbageCollectionFinish)               \
+  fn(ObjectFree,                ArtJvmtiEvent::kObjectFree)                            \
+  fn(VMObjectAlloc,             ArtJvmtiEvent::kVmObjectAlloc)                         \
+  fn(DdmPublishChunk,           ArtJvmtiEvent::kDdmPublishChunk)                       \
+  fn(ObsoleteObjectCreated,     ArtJvmtiEvent::kObsoleteObjectCreated)                 \
+  fn(StructuralDexFileLoadHook, ArtJvmtiEvent::kStructuralDexFileLoadHook)
 
 template <ArtJvmtiEvent kEvent>
 struct EventFnType {
@@ -216,7 +218,8 @@ inline void EventHandler::DispatchClassFileLoadHookEvent(art::Thread* thread,
                                                          unsigned char** new_class_data) const {
   art::ScopedThreadStateChange stsc(thread, art::ThreadState::kNative);
   static_assert(kEvent == ArtJvmtiEvent::kClassFileLoadHookRetransformable ||
-                kEvent == ArtJvmtiEvent::kClassFileLoadHookNonRetransformable, "Unsupported event");
+                kEvent == ArtJvmtiEvent::kClassFileLoadHookNonRetransformable ||
+                kEvent == ArtJvmtiEvent::kStructuralDexFileLoadHook, "Unsupported event");
   DCHECK(*new_class_data == nullptr);
   jint current_len = class_data_len;
   unsigned char* current_class_data = const_cast<unsigned char*>(class_data);
@@ -318,6 +321,24 @@ inline void EventHandler::DispatchEventOnEnv(
   }
 }
 
+template <>
+inline void EventHandler::DispatchEventOnEnv<ArtJvmtiEvent::kObsoleteObjectCreated>(
+    ArtJvmTiEnv* env, art::Thread* thread, jlong* obsolete_tag, jlong* new_tag) const {
+  static constexpr ArtJvmtiEvent kEvent = ArtJvmtiEvent::kObsoleteObjectCreated;
+  DCHECK(env != nullptr);
+  if (ShouldDispatch<kEvent>(env, thread, obsolete_tag, new_tag)) {
+    art::ScopedThreadStateChange stsc(thread, art::ThreadState::kNative);
+    impl::EventHandlerFunc<kEvent> func(env);
+    ExecuteCallback<kEvent>(func, obsolete_tag, new_tag);
+  } else {
+    // Unlike most others this has a default action to make sure that agents without knowledge of
+    // this extension get reasonable behavior.
+    jlong temp = *obsolete_tag;
+    *obsolete_tag = *new_tag;
+    *new_tag = temp;
+  }
+}
+
 template <ArtJvmtiEvent kEvent, typename ...Args>
 inline void EventHandler::ExecuteCallback(impl::EventHandlerFunc<kEvent> handler, Args... args) {
   handler.ExecuteCallback(args...);
@@ -362,7 +383,7 @@ inline bool EventHandler::ShouldDispatch<ArtJvmtiEvent::kFramePop>(
   // have to deal with use-after-free or the frames being reallocated later.
   art::WriterMutexLock lk(art::Thread::Current(), env->event_info_mutex_);
   return env->notify_frames.erase(frame) != 0 &&
-      !frame->GetForcePopFrame() &&
+      !frame->GetSkipMethodExitEvents() &&
       ShouldDispatchOnThread<ArtJvmtiEvent::kFramePop>(env, thread);
 }
 
@@ -432,8 +453,10 @@ struct ScopedDisablePopFrame {
         thread_, art::StackVisitor::StackWalkKind::kIncludeInlinedFrames);
     old_disable_frame_pop_depth_ = data->disable_pop_frame_depth;
     data->disable_pop_frame_depth = current_top_frame_;
+    // Check that we cleaned up any old disables. This should only increase (or be equals if we do
+    // another ClassLoad/Prepare recursively).
     DCHECK(old_disable_frame_pop_depth_ == JvmtiGlobalTLSData::kNoDisallowedPopFrame ||
-           current_top_frame_ > old_disable_frame_pop_depth_)
+           current_top_frame_ >= old_disable_frame_pop_depth_)
         << "old: " << old_disable_frame_pop_depth_ << " current: " << current_top_frame_;
   }
 
@@ -569,6 +592,31 @@ inline void EventHandler::DispatchEvent<ArtJvmtiEvent::kClassFileLoadHookNonRetr
       new_class_data);
 }
 
+template <>
+inline void EventHandler::DispatchEvent<ArtJvmtiEvent::kStructuralDexFileLoadHook>(
+    art::Thread* thread,
+    JNIEnv* jnienv,
+    jclass class_being_redefined,
+    jobject loader,
+    const char* name,
+    jobject protection_domain,
+    jint class_data_len,
+    const unsigned char* class_data,
+    jint* new_class_data_len,
+    unsigned char** new_class_data) const {
+  return DispatchClassFileLoadHookEvent<ArtJvmtiEvent::kStructuralDexFileLoadHook>(
+      thread,
+      jnienv,
+      class_being_redefined,
+      loader,
+      name,
+      protection_domain,
+      class_data_len,
+      class_data,
+      new_class_data_len,
+      new_class_data);
+}
+
 template <ArtJvmtiEvent kEvent>
 inline bool EventHandler::ShouldDispatchOnThread(ArtJvmTiEnv* env, art::Thread* thread) const {
   bool dispatch = env->event_masks.global_event_mask.Test(kEvent);
@@ -619,6 +667,7 @@ inline bool EventHandler::NeedsEventUpdate(ArtJvmTiEnv* env,
   return (added && caps.can_access_local_variables == 1) ||
       caps.can_generate_breakpoint_events == 1 ||
       caps.can_pop_frame == 1 ||
+      caps.can_force_early_return == 1 ||
       (caps.can_retransform_classes == 1 &&
        IsEventEnabledAnywhere(event) &&
        env->event_masks.IsEnabledAnywhere(event));
@@ -639,7 +688,7 @@ inline void EventHandler::HandleChangedCapabilities(ArtJvmTiEnv* env,
     if (caps.can_generate_breakpoint_events == 1) {
       HandleBreakpointEventsChanged(added);
     }
-    if (caps.can_pop_frame == 1 && added) {
+    if ((caps.can_pop_frame == 1 || caps.can_force_early_return == 1) && added) {
       // TODO We should keep track of how many of these have been enabled and remove it if there are
       // no more possible users. This isn't expected to be too common.
       art::Runtime::Current()->SetNonStandardExitsEnabled();

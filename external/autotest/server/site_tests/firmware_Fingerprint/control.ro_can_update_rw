@@ -20,6 +20,9 @@ TEST_TYPE = "server"
 DEPENDENCIES = "servo, fingerprint"
 JOB_RETRIES = 0
 
+# This test uses futility and dev keys from autotest/files/server/cros/faft.
+REQUIRE_SSP = True
+
 DOC = """
 Flashes RW firmware with a version string that ends in '.rb0'
 (has rollback ID '0') and validates that it is running. Then flashes RW

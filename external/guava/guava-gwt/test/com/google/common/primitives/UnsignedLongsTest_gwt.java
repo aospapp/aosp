@@ -73,6 +73,16 @@ public void testParseLong() throws Exception {
   testCase.testParseLong();
 }
 
+public void testParseLongEmptyString() throws Exception {
+  com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
+  testCase.testParseLongEmptyString();
+}
+
+public void testParseLongFails() throws Exception {
+  com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
+  testCase.testParseLongFails();
+}
+
 public void testParseLongThrowsExceptionForInvalidRadix() throws Exception {
   com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
   testCase.testParseLongThrowsExceptionForInvalidRadix();
@@ -83,9 +93,34 @@ public void testParseLongWithRadix() throws Exception {
   testCase.testParseLongWithRadix();
 }
 
+public void testParseLongWithRadixLimits() throws Exception {
+  com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
+  testCase.testParseLongWithRadixLimits();
+}
+
 public void testRemainder() throws Exception {
   com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
   testCase.testRemainder();
+}
+
+public void testSort() throws Exception {
+  com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
+  testCase.testSort();
+}
+
+public void testSortDescending() throws Exception {
+  com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
+  testCase.testSortDescending();
+}
+
+public void testSortDescendingIndexed() throws Exception {
+  com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
+  testCase.testSortDescendingIndexed();
+}
+
+public void testSortIndexed() throws Exception {
+  com.google.common.primitives.UnsignedLongsTest testCase = new com.google.common.primitives.UnsignedLongsTest();
+  testCase.testSortIndexed();
 }
 
 public void testToString() throws Exception {

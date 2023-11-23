@@ -96,4 +96,14 @@ public interface PerformanceMonitor {
      * @return true if the activity is available to start
      */
     boolean startPerformanceMonitorEventDebugActivity(Context context);
+
+    /**
+     * Initialize crash monitoring for an app by wrapping the default {@link
+     * Thread.UncaughtExceptionHandler} with a handler that can report crashes to the performance
+     * montitor and then delegate the handling of the UncaughtException to the original default
+     * {@link Thread.UncaughtExceptionHandler}.
+     *
+     * <p>Note: This will override the current {@link Thread.UncaughtExceptionHandler}.
+     */
+    void startCrashMonitor();
 }

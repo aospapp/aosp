@@ -19,12 +19,19 @@ package com.android.phone.testapps.telephonymanagertestapp;
 import android.content.Context;
 import android.telephony.NumberVerificationCallback;
 import android.telephony.PhoneNumberRange;
+import android.telephony.RadioAccessSpecifier;
+import android.text.TextUtils;
 import android.widget.Toast;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 class ParameterParser {
     private static ParameterParser sInstance;
@@ -42,6 +49,9 @@ class ParameterParser {
                 put(PhoneNumberRange.class, ParameterParser::parsePhoneNumberRange);
                 put(Executor.class, s -> parseExecutor(s));
                 put(NumberVerificationCallback.class, s -> parseNumberVerificationCallback(s));
+                put(Consumer.class, s -> parseConsumer(s));
+                put(List.class, s -> parseList(s));
+                put(RadioAccessSpecifier.class, s -> parseRadioAccessSpecifier(s));
             }};
 
     private ParameterParser(Context context) {
@@ -49,6 +59,7 @@ class ParameterParser {
     }
 
     Object executeParser(Class type, String input) {
+        if ("null".equals(input)) return null;
         return mParsers.getOrDefault(type, s -> null).apply(input);
     }
 
@@ -62,6 +73,57 @@ class ParameterParser {
 
     private Executor parseExecutor(String input) {
         return mContext.getMainExecutor();
+    }
+
+    private Consumer parseConsumer(String input) {
+        return o -> Toast.makeText(mContext, "Consumer: " + String.valueOf(o), Toast.LENGTH_SHORT)
+                .show();
+    }
+
+    /**
+     * input format: (ran)/(band1)+(band2)+.../(chan1)+(chan2)+...
+     * @return
+     */
+    private RadioAccessSpecifier parseRadioAccessSpecifier(String input) {
+        String[] parts = input.split("/");
+        int ran = Integer.parseInt(parts[0]);
+        String[] bandStrings = parts[1].split("\\+");
+        int[] bands = new int[bandStrings.length];
+        String[] chanStrings = parts[2].split("\\+");
+        int[] chans = new int[chanStrings.length];
+
+        for (int i = 0; i < bands.length; i++) {
+            bands[i] = Integer.parseInt(bandStrings[i]);
+        }
+
+        for (int i = 0; i < chans.length; i++) {
+            chans[i] = Integer.parseInt(chanStrings[i]);
+        }
+        return new RadioAccessSpecifier(ran, bands, chans);
+    }
+
+    private List parseList(String input) {
+        if (TextUtils.isEmpty(input)) {
+            return Collections.emptyList();
+        }
+        String[] components = input.split(" ");
+        String className = components[0];
+        Class c;
+        try {
+            c = mContext.getClassLoader().loadClass(className);
+        } catch (ClassNotFoundException e) {
+            Toast.makeText(mContext, "Invalid class " + className,
+                    Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        if (!mParsers.containsKey(c)) {
+            Toast.makeText(mContext, "Cannot parse " + className,
+                    Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        return Arrays.stream(components).skip(1)
+                .map(mParsers.get(c))
+                .collect(Collectors.toList());
     }
 
     private NumberVerificationCallback parseNumberVerificationCallback(String input) {

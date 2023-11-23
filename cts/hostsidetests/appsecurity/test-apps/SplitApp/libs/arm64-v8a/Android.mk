@@ -24,7 +24,7 @@ LOCAL_SDK_VERSION := current
 LOCAL_JAVA_RESOURCE_DIRS := raw
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
 LOCAL_AAPT_FLAGS := --version-code 100 --replace-version

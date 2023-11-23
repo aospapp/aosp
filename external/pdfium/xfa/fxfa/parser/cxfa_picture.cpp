@@ -6,20 +6,18 @@
 
 #include "xfa/fxfa/parser/cxfa_picture.h"
 
-#include "fxjs/xfa/cjx_picture.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kPictureAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Desc, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Lock, XFA_AttributeType::Integer, (void*)0},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"picture";
+};
 
 }  // namespace
 
@@ -30,9 +28,8 @@ CXFA_Picture::CXFA_Picture(CXFA_Document* doc, XFA_PacketType packet)
           (XFA_XDPPACKET_Config | XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
           XFA_ObjectType::ContentNode,
           XFA_Element::Picture,
-          nullptr,
-          kAttributeData,
-          kName,
-          pdfium::MakeUnique<CJX_Picture>(this)) {}
+          {},
+          kPictureAttributeData,
+          pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Picture::~CXFA_Picture() {}
+CXFA_Picture::~CXFA_Picture() = default;

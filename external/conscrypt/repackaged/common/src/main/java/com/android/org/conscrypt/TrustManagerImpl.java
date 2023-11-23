@@ -35,6 +35,10 @@
 
 package com.android.org.conscrypt;
 
+import com.android.org.conscrypt.ct.CTLogStore;
+import com.android.org.conscrypt.ct.CTPolicy;
+import com.android.org.conscrypt.ct.CTVerificationResult;
+import com.android.org.conscrypt.ct.CTVerifier;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.Socket;
@@ -70,10 +74,6 @@ import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.X509ExtendedTrustManager;
-import com.android.org.conscrypt.ct.CTLogStore;
-import com.android.org.conscrypt.ct.CTPolicy;
-import com.android.org.conscrypt.ct.CTVerificationResult;
-import com.android.org.conscrypt.ct.CTVerifier;
 
 /**
  *
@@ -152,9 +152,10 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
      *
      * @param keyStore
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
-    public TrustManagerImpl(KeyStore keyStore) {
+    @android.compat.annotation
+            .UnsupportedAppUsage
+            @libcore.api.CorePlatformApi
+            public TrustManagerImpl(KeyStore keyStore) {
         this(keyStore, null);
     }
 
@@ -328,10 +329,11 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
     /**
      * For backward compatibility with older Android API that used String for the hostname only.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
-    public List<X509Certificate> checkServerTrusted(X509Certificate[] chain, String authType,
-            String hostname) throws CertificateException {
+    @android.compat.annotation
+            .UnsupportedAppUsage
+            @libcore.api.CorePlatformApi
+            public List<X509Certificate> checkServerTrusted(X509Certificate[] chain,
+                    String authType, String hostname) throws CertificateException {
         return checkTrusted(chain, null /* ocspData */, null /* tlsSctData */, authType, hostname,
                 false);
     }
@@ -426,6 +428,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         return checkTrusted(certs, ocspData, tlsSctData, authType, hostname, clientAuth);
     }
 
+    @SuppressWarnings("unchecked")
     private byte[] getOcspDataFromSession(SSLSession session) {
         List<byte[]> ocspResponses = null;
         if (session instanceof ConscryptSession) {

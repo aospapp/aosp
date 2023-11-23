@@ -27,6 +27,6 @@ for f in ./*.s; do
   as "$f" -o "${f%.s}.o"
 done
 
-ld -shared -lc -lm -soname test ./*.o -o libtest.so
+ld -shared -lc -lm --enable-new-dtags -rpath /runpath1:/runpath2 -soname test ./*.o -o libtest.so
 
 rm ./*.o

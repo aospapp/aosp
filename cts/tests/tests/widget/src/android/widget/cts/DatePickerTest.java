@@ -31,17 +31,22 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.Context;
 import android.os.Parcelable;
 import android.util.SparseArray;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.autofill.AutofillValue;
 import android.widget.DatePicker;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CtsKeyEventUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -61,6 +66,7 @@ public class DatePickerTest {
     private Activity mActivity;
     private DatePicker mDatePickerSpinnerMode;
     private DatePicker mDatePickerCalendarMode;
+    private Instrumentation mInstrumentation;
 
     @Rule
     public ActivityTestRule<DatePickerCtsActivity> mActivityRule =
@@ -68,6 +74,7 @@ public class DatePickerTest {
 
     @Before
     public void setUp() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
         mDatePickerSpinnerMode = (DatePicker) mActivity.findViewById(R.id.date_picker_spinner_mode);
         mDatePickerCalendarMode =
@@ -346,6 +353,41 @@ public class DatePickerTest {
         assertEquals(2000, calendar.get(Calendar.YEAR));
         assertEquals(Calendar.JANUARY, calendar.get(Calendar.MONTH));
         assertEquals(1, calendar.get(Calendar.DAY_OF_MONTH));
+    }
+
+    @Test
+    public void testEnterKey() throws Throwable {
+        mActivityRule.runOnUiThread(() -> mDatePickerCalendarMode.updateDate(
+                2015, Calendar.DECEMBER, 15));
+        mActivityRule.runOnUiThread(() -> mDatePickerCalendarMode.requestFocus());
+        mInstrumentation.waitForIdleSync();
+
+        // Move focus to calendar and verify the requested date.
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_TAB);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_TAB);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_TAB);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_ENTER);
+        assertValues(mDatePickerCalendarMode, 2015, Calendar.DECEMBER, 15);
+
+        // Move focus to previous week and select previous week by pressing ENTER
+        // key.
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_DPAD_UP);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_ENTER);
+        assertValues(mDatePickerCalendarMode, 2015, Calendar.DECEMBER, 8);
+
+        // Move focus to previous week and this time select the previous week by
+        // pressing NUMPAD_ENTER key.
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_DPAD_UP);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+                KeyEvent.KEYCODE_NUMPAD_ENTER);
+        assertValues(mDatePickerCalendarMode, 2015, Calendar.DECEMBER, 1);
     }
 
     private void assertValues(DatePicker datePicker, int year, int month, int dayOfMonth) {

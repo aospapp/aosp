@@ -35,9 +35,6 @@ class RangeSoftApTest(RttBaseTest):
     # Number of RTT iterations
     NUM_ITER = 10
 
-    def __init__(self, controllers):
-        RttBaseTest.__init__(self, controllers)
-
     #########################################################################
 
     @test_tracker_info(uuid="578f0725-31e3-4e60-ad62-0212d93cf5b8")

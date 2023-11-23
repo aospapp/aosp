@@ -121,6 +121,10 @@ public class NumberParserTest {
                 { 3, "𝟱.𝟭𝟰𝟮E𝟯", "0", 12, 5142. },
                 { 3, "𝟱.𝟭𝟰𝟮E-𝟯", "0", 13, 0.005142 },
                 { 3, "𝟱.𝟭𝟰𝟮e-𝟯", "0", 13, 0.005142 },
+                { 3, "5.142e+3", "0", 8, 5142.0 },
+                { 3, "5.142\u200Ee+3", "0", 9, 5142.0 },
+                { 3, "5.142e\u200E+3", "0", 9, 5142.0 },
+                { 3, "5.142e+\u200E3", "0", 9, 5142.0 },
                 { 7, "5,142.50 Canadian dollars", "#,##,##0 ¤¤¤", 25, 5142.5 },
                 { 3, "a$ b5", "a ¤ b0", 5, 5.0 },
                 { 3, "📺1.23", "📺0;📻0", 6, 1.23 },
@@ -213,9 +217,9 @@ public class NumberParserTest {
         SeriesMatcher series = new SeriesMatcher();
         series.addMatcher(PlusSignMatcher.getInstance(symbols, false));
         series.addMatcher(MinusSignMatcher.getInstance(symbols, false));
-        series.addMatcher(IgnorablesMatcher.DEFAULT);
+        series.addMatcher(IgnorablesMatcher.getInstance(0));
         series.addMatcher(PercentMatcher.getInstance(symbols));
-        series.addMatcher(IgnorablesMatcher.DEFAULT);
+        series.addMatcher(IgnorablesMatcher.getInstance(0));
         series.freeze();
 
         assertFalse(series.smokeTest(new StringSegment("x", false)));
@@ -308,7 +312,7 @@ public class NumberParserTest {
         AffixTokenMatcherFactory factory = new AffixTokenMatcherFactory();
         factory.currency = Currency.getInstance("EUR");
         factory.symbols = DecimalFormatSymbols.getInstance(ULocale.ENGLISH);
-        factory.ignorables = IgnorablesMatcher.DEFAULT;
+        factory.ignorables = IgnorablesMatcher.getInstance(0);
         factory.locale = ULocale.ENGLISH;
         factory.parseFlags = 0;
 
@@ -391,5 +395,53 @@ public class NumberParserTest {
                     expectedCaseFoldingChars,
                     result.charEnd);
         }
+    }
+
+    @Test
+    public void test20360_BidiOverflow() {
+        StringBuilder inputString = new StringBuilder();
+        inputString.append('-');
+        for (int i=0; i<100000; i++) {
+            inputString.append('\u061C');
+        }
+        inputString.append('5');
+
+        NumberParserImpl parser = NumberParserImpl.createSimpleParser(ULocale.ENGLISH, "0", 0);
+
+        ParsedNumber resultObject = new ParsedNumber();
+        parser.parse(inputString.toString(), true, resultObject);
+        assertTrue("Greedy Parse, success", resultObject.success());
+        assertEquals("Greedy Parse, chars consumed", 100002, resultObject.charEnd);
+        assertEquals("Greedy Parse, expected double", -5, resultObject.getNumber().intValue());
+
+        resultObject.clear();
+        parser.parse(inputString.toString(), false, resultObject);
+        assertFalse("Non-Greedy Parse, success", resultObject.success());
+        assertEquals("Non-Greedy Parse, chars consumed", 1, resultObject.charEnd);
+    }
+
+    @Test
+    public void testInfiniteRecursion() {
+        StringBuilder inputString = new StringBuilder();
+        inputString.append('-');
+        for (int i=0; i<200; i++) {
+            inputString.append('\u061C');
+        }
+        inputString.append('5');
+
+        NumberParserImpl parser = NumberParserImpl.createSimpleParser(ULocale.ENGLISH, "0", 0);
+
+        ParsedNumber resultObject = new ParsedNumber();
+        parser.parse(inputString.toString(), false, resultObject);
+        assertFalse("Default recursion limit, success", resultObject.success());
+        assertEquals("Default recursion limit, chars consumed", 1, resultObject.charEnd);
+
+        parser = NumberParserImpl.createSimpleParser(
+                ULocale.ENGLISH, "0", ParsingUtils.PARSE_FLAG_ALLOW_INFINITE_RECURSION);
+        resultObject.clear();
+        parser.parse(inputString.toString(), false, resultObject);
+        assertTrue("Unlimited recursion, success", resultObject.success());
+        assertEquals("Unlimited recursion, chars consumed", 202, resultObject.charEnd);
+        assertEquals("Unlimited recursion, expected double", -5, resultObject.getNumber().intValue());
     }
 }

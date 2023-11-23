@@ -9,7 +9,10 @@
 #include <algorithm>
 
 #include "core/fpdfapi/font/cpdf_font.h"
+#include "core/fpdfapi/page/cpdf_docpagedata.h"
+#include "core/fpdfapi/parser/cpdf_dictionary.h"
 #include "core/fpdfapi/parser/cpdf_document.h"
+#include "core/fxge/fx_font.h"
 #include "xfa/fgas/font/cfgas_fontmgr.h"
 #include "xfa/fgas/font/cfgas_gefont.h"
 
@@ -35,7 +38,6 @@ CFGAS_PDFFontMgr::~CFGAS_PDFFontMgr() {}
 RetainPtr<CFGAS_GEFont> CFGAS_PDFFontMgr::FindFont(const ByteString& strPsName,
                                                    bool bBold,
                                                    bool bItalic,
-                                                   CPDF_Font** pDstPDFFont,
                                                    bool bStrictMatch) {
   CPDF_Dictionary* pFontSetDict =
       m_pDoc->GetRoot()->GetDictFor("AcroForm")->GetDictFor("DR");
@@ -48,9 +50,12 @@ RetainPtr<CFGAS_GEFont> CFGAS_PDFFontMgr::FindFont(const ByteString& strPsName,
 
   ByteString name = strPsName;
   name.Remove(' ');
-  for (const auto& it : *pFontSetDict) {
+
+  auto* pData = CPDF_DocPageData::FromDocument(m_pDoc.Get());
+  CPDF_DictionaryLocker locker(pFontSetDict);
+  for (const auto& it : locker) {
     const ByteString& key = it.first;
-    CPDF_Object* pObj = it.second.get();
+    CPDF_Object* pObj = it.second.Get();
     if (!PsNameMatchDRFontName(name.AsStringView(), bBold, bItalic, key,
                                bStrictMatch)) {
       continue;
@@ -59,36 +64,30 @@ RetainPtr<CFGAS_GEFont> CFGAS_PDFFontMgr::FindFont(const ByteString& strPsName,
     if (!pFontDict || pFontDict->GetStringFor("Type") != "Font")
       return nullptr;
 
-    CPDF_Font* pPDFFont = m_pDoc->LoadFont(pFontDict);
-    if (!pPDFFont)
+    RetainPtr<CPDF_Font> pPDFFont = pData->GetFont(pFontDict);
+    if (!pPDFFont || !pPDFFont->IsEmbedded())
       return nullptr;
 
-    if (!pPDFFont->IsEmbedded()) {
-      *pDstPDFFont = pPDFFont;
-      return nullptr;
-    }
-    return CFGAS_GEFont::LoadFont(pPDFFont->GetFont(), m_pFontMgr.Get());
+    return CFGAS_GEFont::LoadFont(pPDFFont, m_pFontMgr.Get());
   }
   return nullptr;
 }
 
-RetainPtr<CFGAS_GEFont> CFGAS_PDFFontMgr::GetFont(
-    const WideStringView& wsFontFamily,
-    uint32_t dwFontStyles,
-    CPDF_Font** pPDFFont,
-    bool bStrictMatch) {
+RetainPtr<CFGAS_GEFont> CFGAS_PDFFontMgr::GetFont(WideStringView wsFontFamily,
+                                                  uint32_t dwFontStyles,
+                                                  bool bStrictMatch) {
   uint32_t dwHashCode = FX_HashCode_GetW(wsFontFamily, false);
   ByteString strKey = ByteString::Format("%u%u", dwHashCode, dwFontStyles);
   auto it = m_FontMap.find(strKey);
   if (it != m_FontMap.end())
     return it->second;
 
-  ByteString bsPsName = ByteString::FromUnicode(WideString(wsFontFamily));
-  bool bBold = FontStyleIsBold(dwFontStyles);
+  ByteString bsPsName = WideString(wsFontFamily).ToDefANSI();
+  bool bBold = FontStyleIsForceBold(dwFontStyles);
   bool bItalic = FontStyleIsItalic(dwFontStyles);
   ByteString strFontName = PsNameToFontName(bsPsName, bBold, bItalic);
   RetainPtr<CFGAS_GEFont> pFont =
-      FindFont(strFontName, bBold, bItalic, pPDFFont, bStrictMatch);
+      FindFont(strFontName, bBold, bItalic, bStrictMatch);
   if (pFont)
     m_FontMap[strKey] = pFont;
 
@@ -111,7 +110,7 @@ ByteString CFGAS_PDFFontMgr::PsNameToFontName(const ByteString& strPsName,
   return strPsName;
 }
 
-bool CFGAS_PDFFontMgr::PsNameMatchDRFontName(const ByteStringView& bsPsName,
+bool CFGAS_PDFFontMgr::PsNameMatchDRFontName(ByteStringView bsPsName,
                                              bool bBold,
                                              bool bItalic,
                                              const ByteString& bsDRFontName,
@@ -150,7 +149,7 @@ bool CFGAS_PDFFontMgr::PsNameMatchDRFontName(const ByteStringView& bsPsName,
       return false;
 
     if (iDifferLength > 1) {
-      ByteString bsDRTailer = bsDRName.Right(iDifferLength);
+      ByteString bsDRTailer = bsDRName.Last(iDifferLength);
       if (bsDRTailer == "MT" || bsDRTailer == "PSMT" ||
           bsDRTailer == "Regular" || bsDRTailer == "Reg") {
         return true;
@@ -161,17 +160,17 @@ bool CFGAS_PDFFontMgr::PsNameMatchDRFontName(const ByteStringView& bsPsName,
       bool bMatch = false;
       switch (bsPsName[iPsLen - 1]) {
         case 'L':
-          if (bsDRName.Right(5) == "Light")
+          if (bsDRName.Last(5) == "Light")
             bMatch = true;
 
           break;
         case 'R':
-          if (bsDRName.Right(7) == "Regular" || bsDRName.Right(3) == "Reg")
+          if (bsDRName.Last(7) == "Regular" || bsDRName.Last(3) == "Reg")
             bMatch = true;
 
           break;
         case 'M':
-          if (bsDRName.Right(5) == "Medium")
+          if (bsDRName.Last(5) == "Medium")
             bMatch = true;
           break;
         default:
@@ -181,24 +180,4 @@ bool CFGAS_PDFFontMgr::PsNameMatchDRFontName(const ByteStringView& bsPsName,
     }
   }
   return true;
-}
-
-bool CFGAS_PDFFontMgr::GetCharWidth(const RetainPtr<CFGAS_GEFont>& pFont,
-                                    wchar_t wUnicode,
-                                    int32_t* pWidth) {
-  if (wUnicode != 0x20)
-    return false;
-
-  auto it = m_FDE2PDFFont.find(pFont);
-  if (it == m_FDE2PDFFont.end())
-    return false;
-
-  CPDF_Font* pPDFFont = it->second;
-  *pWidth = pPDFFont->GetCharWidthF(pPDFFont->CharCodeFromUnicode(wUnicode));
-  return true;
-}
-
-void CFGAS_PDFFontMgr::SetFont(const RetainPtr<CFGAS_GEFont>& pFont,
-                               CPDF_Font* pPDFFont) {
-  m_FDE2PDFFont[pFont] = pPDFFont;
 }

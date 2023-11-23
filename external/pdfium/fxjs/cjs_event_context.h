@@ -14,17 +14,18 @@
 #include "core/fxcrt/unowned_ptr.h"
 #include "fxjs/ijs_event_context.h"
 
-class CJS_EventHandler;
+class CJS_EventRecorder;
+class CJS_Field;
 class CJS_Runtime;
 class CPDFSDK_FormFillEnvironment;
 
-class CJS_EventContext : public IJS_EventContext {
+class CJS_EventContext final : public IJS_EventContext {
  public:
   explicit CJS_EventContext(CJS_Runtime* pRuntime);
   ~CJS_EventContext() override;
 
   // IJS_EventContext
-  bool RunScript(const WideString& script, WideString* info) override;
+  Optional<IJS_Runtime::JS_Error> RunScript(const WideString& script) override;
   void OnApp_Init() override;
   void OnDoc_Open(CPDFSDK_FormFillEnvironment* pFormFillEnv,
                   const WideString& strTargetName) override;
@@ -52,38 +53,36 @@ class CJS_EventContext : public IJS_EventContext {
   void OnField_Focus(bool bModifier,
                      bool bShift,
                      CPDF_FormField* pTarget,
-                     const WideString& Value) override;
+                     WideString* Value) override;
   void OnField_Blur(bool bModifier,
                     bool bShift,
                     CPDF_FormField* pTarget,
-                    const WideString& Value) override;
+                    WideString* Value) override;
   void OnField_Calculate(CPDF_FormField* pSource,
                          CPDF_FormField* pTarget,
-                         WideString& Value,
-                         bool& bRc) override;
-  void OnField_Format(CPDF_FormField* pTarget,
-                      WideString& Value,
-                      bool bWillCommit) override;
-  void OnField_Keystroke(WideString& strChange,
+                         WideString* pValue,
+                         bool* pRc) override;
+  void OnField_Format(CPDF_FormField* pTarget, WideString* Value) override;
+  void OnField_Keystroke(WideString* strChange,
                          const WideString& strChangeEx,
                          bool bKeyDown,
                          bool bModifier,
-                         int& nSelEnd,
-                         int& nSelStart,
+                         int* nSelEnd,
+                         int* nSelStart,
                          bool bShift,
                          CPDF_FormField* pTarget,
-                         WideString& Value,
+                         WideString* Value,
                          bool bWillCommit,
                          bool bFieldFull,
-                         bool& bRc) override;
-  void OnField_Validate(WideString& strChange,
+                         bool* bRc) override;
+  void OnField_Validate(WideString* strChange,
                         const WideString& strChangeEx,
                         bool bKeyDown,
                         bool bModifier,
                         bool bShift,
                         CPDF_FormField* pTarget,
-                        WideString& Value,
-                        bool& bRc) override;
+                        WideString* Value,
+                        bool* bRc) override;
   void OnScreen_Focus(bool bModifier,
                       bool bShift,
                       CPDFSDK_Annot* pScreen) override;
@@ -123,14 +122,15 @@ class CJS_EventContext : public IJS_EventContext {
   void OnExternal_Exec() override;
 
   CJS_Runtime* GetJSRuntime() const { return m_pRuntime.Get(); }
-  CJS_EventHandler* GetEventHandler() const { return m_pEventHandler.get(); }
-
+  CJS_EventRecorder* GetEventRecorder() const { return m_pEventRecorder.get(); }
   CPDFSDK_FormFillEnvironment* GetFormFillEnv();
+  CJS_Field* SourceField();
+  CJS_Field* TargetField();
 
  private:
   UnownedPtr<CJS_Runtime> const m_pRuntime;
-  std::unique_ptr<CJS_EventHandler> m_pEventHandler;
-  bool m_bBusy;
+  std::unique_ptr<CJS_EventRecorder> m_pEventRecorder;
+  bool m_bBusy = false;
 };
 
 #endif  // FXJS_CJS_EVENT_CONTEXT_H_

@@ -53,20 +53,20 @@ class SocketClient {
     /**
      * Called when the socket is successfully (re-)connected.
      */
-    virtual void onConnected() {};
+    virtual void onConnected(){};
 
     /**
      * Called when we have failed to (re-)connect the socket after many attempts
      * and are giving up.
      */
-    virtual void onConnectionAborted() {};
+    virtual void onConnectionAborted(){};
 
     /**
      * Invoked when the socket is disconnected, and this connection loss was not
      * the result of an explicit call to disconnect(), i.e. the connection was
      * terminated on the remote end.
      */
-    virtual void onDisconnected() {};
+    virtual void onDisconnected(){};
   };
 
   /**
@@ -81,7 +81,7 @@ class SocketClient {
    * @return true if the connection was successful
    */
   bool connect(const char *socketName,
-               const ::android::sp<ICallbacks>& callbacks);
+               const ::android::sp<ICallbacks> &callbacks);
 
   /**
    * Starts up the receive thread and attempts to connect to the socket in the
@@ -97,7 +97,7 @@ class SocketClient {
    *         the socket asynchronously
    */
   bool connectInBackground(const char *socketName,
-                           const ::android::sp<ICallbacks>& callbacks);
+                           const ::android::sp<ICallbacks> &callbacks);
 
   /**
    * Performs graceful teardown of the socket. After this function returns, this
@@ -139,7 +139,7 @@ class SocketClient {
   std::mutex mShutdownMutex;
 
   bool doConnect(const char *socketName,
-                 const ::android::sp<ICallbacks>& callbacks,
+                 const ::android::sp<ICallbacks> &callbacks,
                  bool connectInBackground);
   bool inReceiveThread() const;
   void receiveThread();

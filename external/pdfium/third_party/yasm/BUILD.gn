@@ -41,7 +41,11 @@ if (is_debug) {
 
     # Don't define _DEBUG. Modest savings, but good for consistency.
     "//build/config:debug",
+
+    # Don't enable sanitizers for build tools. They slow down the overall build.
+    "//build/config/sanitizers:default_sanitizer_flags",
   ]
+
   configs_to_add += [
     "//build/config:release",
     "//build/config/compiler:optimize_max",
@@ -51,6 +55,12 @@ if (is_debug) {
     # highbd_sad4d_sse2.asm on Windows this saves about 15 s.
     configs_to_delete += [ "//build/config/win:default_crt" ]
     configs_to_add += [ "//build/config/win:release_crt" ]
+
+    # Without no_default_deps, an implicit dependency on libc++ is added.
+    # libc++ may have been built referencing the debug CRT, but since we're
+    # explicitly using the release CRT, this would result in undefined symbol
+    # errors when linking, so we need to remove the implicit libc++ dependency.
+    no_default_deps = true
   }
 }
 
@@ -66,45 +76,38 @@ if (current_toolchain == host_toolchain) {
   import("//build/compiled_action.gni")
 
   config("yasm_config") {
+    configs = [ "//build/config/sanitizers:cfi_icall_generalize_pointers" ]
     include_dirs = [
       "source/config/$host_os",
       "source/patched-yasm",
     ]
     defines = [ "HAVE_CONFIG_H" ]
-    if (is_posix) {
+    if (is_posix || is_fuchsia) {
       cflags = [ "-std=gnu99" ]
     }
   }
 
   executable("genmacro") {
-    sources = [
-      "source/patched-yasm/tools/genmacro/genmacro.c",
-    ]
+    sources = [ "source/patched-yasm/tools/genmacro/genmacro.c" ]
     configs -= [ "//build/config/compiler:chromium_code" ]
     configs += [
       ":yasm_config",
       "//build/config/compiler:no_chromium_code",
     ]
     deps = [
-      "//build/config:exe_and_shlib_deps",
-
       # Default manifest on Windows (a no-op elsewhere).
       "//build/win:default_exe_manifest",
     ]
   }
 
   executable("genmodule") {
-    sources = [
-      "source/patched-yasm/libyasm/genmodule.c",
-    ]
+    sources = [ "source/patched-yasm/libyasm/genmodule.c" ]
     configs -= [ "//build/config/compiler:chromium_code" ]
     configs += [
       ":yasm_config",
       "//build/config/compiler:no_chromium_code",
     ]
     deps = [
-      "//build/config:exe_and_shlib_deps",
-
       # Default manifest on Windows (a no-op elsewhere).
       "//build/win:default_exe_manifest",
     ]
@@ -128,7 +131,6 @@ if (current_toolchain == host_toolchain) {
 
     deps = [
       ":yasm_utils",
-      "//build/config:exe_and_shlib_deps",
 
       # Default manifest on Windows (a no-op elsewhere).
       "//build/win:default_exe_manifest",
@@ -155,34 +157,26 @@ if (current_toolchain == host_toolchain) {
   }
 
   executable("genstring") {
-    sources = [
-      "source/patched-yasm/genstring.c",
-    ]
+    sources = [ "source/patched-yasm/genstring.c" ]
     configs -= [ "//build/config/compiler:chromium_code" ]
     configs += [
       ":yasm_config",
       "//build/config/compiler:no_chromium_code",
     ]
     deps = [
-      "//build/config:exe_and_shlib_deps",
-
       # Default manifest on Windows (a no-op elsewhere).
       "//build/win:default_exe_manifest",
     ]
   }
 
   executable("genversion") {
-    sources = [
-      "source/patched-yasm/modules/preprocs/nasm/genversion.c",
-    ]
+    sources = [ "source/patched-yasm/modules/preprocs/nasm/genversion.c" ]
     configs -= [ "//build/config/compiler:chromium_code" ]
     configs += [
       ":yasm_config",
       "//build/config/compiler:no_chromium_code",
     ]
     deps = [
-      "//build/config:exe_and_shlib_deps",
-
       # Default manifest on Windows (a no-op elsewhere).
       "//build/win:default_exe_manifest",
     ]
@@ -225,8 +219,6 @@ if (current_toolchain == host_toolchain) {
       ":re2c_warnings",
     ]
     deps = [
-      "//build/config:exe_and_shlib_deps",
-
       # Default manifest on Windows (a no-op elsewhere).
       "//build/win:default_exe_manifest",
     ]
@@ -378,7 +370,6 @@ if (current_toolchain == host_toolchain) {
       ":generate_module",
       ":generate_version",
       ":yasm_utils",
-      "//build/config:exe_and_shlib_deps",
 
       # Default manifest on Windows (a no-op elsewhere).
       "//build/win:default_exe_manifest",
@@ -392,9 +383,7 @@ if (current_toolchain == host_toolchain) {
       "source/patched-yasm/modules/arch/x86/x86regtmod.gperf",
     ]
 
-    outputs = [
-      "$target_gen_dir/{{source_name_part}}.c",
-    ]
+    outputs = [ "$target_gen_dir/{{source_name_part}}.c" ]
     args = [
       "{{source}}",
       rebase_path(target_gen_dir, root_build_dir) + "/{{source_name_part}}.c",
@@ -415,9 +404,7 @@ if (current_toolchain == host_toolchain) {
       "source/patched-yasm/x86insn_nasm.gperf",
     ]
 
-    outputs = [
-      "$yasm_gen_include_dir/{{source_name_part}}.c",
-    ]
+    outputs = [ "$yasm_gen_include_dir/{{source_name_part}}.c" ]
     args = [
       "{{source}}",
       rebase_path(yasm_gen_include_dir, root_build_dir) +
@@ -446,49 +433,31 @@ if (current_toolchain == host_toolchain) {
   compile_macro("compile_nasm_macros") {
     # Output #included by
     #   source/patched-yasm/modules/preprocs/nasm/nasm-parser.c
-    sources = [
-      "source/patched-yasm/modules/parsers/nasm/nasm-std.mac",
-    ]
-    outputs = [
-      "$yasm_gen_include_dir/nasm-macros.c",
-    ]
+    sources = [ "source/patched-yasm/modules/parsers/nasm/nasm-std.mac" ]
+    outputs = [ "$yasm_gen_include_dir/nasm-macros.c" ]
     macro_varname = "nasm_standard_mac"
   }
 
   compile_macro("compile_nasm_version") {
     # Output #included by
     #   source/patched-yasm/modules/preprocs/nasm/nasm-preproc.c
-    sources = [
-      "$target_gen_dir/$version_file",
-    ]
-    outputs = [
-      "$yasm_gen_include_dir/nasm-version.c",
-    ]
+    sources = [ "$target_gen_dir/$version_file" ]
+    outputs = [ "$yasm_gen_include_dir/nasm-version.c" ]
     macro_varname = "nasm_version_mac"
-    deps = [
-      ":generate_version",
-    ]
+    deps = [ ":generate_version" ]
   }
 
   compile_macro("compile_win64_gas") {
     # Output #included by source/patched-yasm/frontends/yasm/yasm.c.
-    sources = [
-      "source/patched-yasm/modules/objfmts/coff/win64-gas.mac",
-    ]
-    outputs = [
-      "$yasm_gen_include_dir/win64-gas.c",
-    ]
+    sources = [ "source/patched-yasm/modules/objfmts/coff/win64-gas.mac" ]
+    outputs = [ "$yasm_gen_include_dir/win64-gas.c" ]
     macro_varname = "win64_gas_stdmac"
   }
 
   compile_macro("compile_win64_nasm") {
     # Output #included by source/patched-yasm/frontends/yasm/yasm.c.
-    sources = [
-      "source/patched-yasm/modules/objfmts/coff/win64-nasm.mac",
-    ]
-    outputs = [
-      "$yasm_gen_include_dir/win64-nasm.c",
-    ]
+    sources = [ "source/patched-yasm/modules/objfmts/coff/win64-nasm.mac" ]
+    outputs = [ "$yasm_gen_include_dir/win64-nasm.c" ]
     macro_varname = "win64_nasm_stdmac"
   }
 
@@ -498,9 +467,7 @@ if (current_toolchain == host_toolchain) {
       "source/patched-yasm/modules/parsers/gas/gas-token.re",
       "source/patched-yasm/modules/parsers/nasm/nasm-token.re",
     ]
-    outputs = [
-      "$target_gen_dir/{{source_name_part}}.c",
-    ]
+    outputs = [ "$target_gen_dir/{{source_name_part}}.c" ]
     args = [
       "-b",
       "-o",
@@ -512,12 +479,8 @@ if (current_toolchain == host_toolchain) {
   # This call doesn't fit into the re2c template above.
   compiled_action("compile_re2c_lc3b") {
     tool = ":re2c"
-    inputs = [
-      "source/patched-yasm/modules/arch/lc3b/lc3bid.re",
-    ]
-    outputs = [
-      "$target_gen_dir/lc3bid.c",
-    ]
+    inputs = [ "source/patched-yasm/modules/arch/lc3b/lc3bid.re" ]
+    outputs = [ "$target_gen_dir/lc3bid.c" ]
     args = [
       "-s",
       "-o",
@@ -530,12 +493,8 @@ if (current_toolchain == host_toolchain) {
     tool = ":genstring"
 
     # Output #included by source/patched-yasm/frontends/yasm/yasm.c.
-    inputs = [
-      "source/patched-yasm/COPYING",
-    ]
-    outputs = [
-      "$yasm_gen_include_dir/license.c",
-    ]
+    inputs = [ "source/patched-yasm/COPYING" ]
+    outputs = [ "$yasm_gen_include_dir/license.c" ]
     args = [
       "license_msg",
       rebase_path(outputs[0], root_build_dir),
@@ -549,9 +508,7 @@ if (current_toolchain == host_toolchain) {
       "source/patched-yasm/libyasm/module.in",
       config_makefile,
     ]
-    outputs = [
-      "$target_gen_dir/module.c",
-    ]
+    outputs = [ "$target_gen_dir/module.c" ]
     args = [
       rebase_path(inputs[0], root_build_dir),
       rebase_path(config_makefile, root_build_dir),
@@ -561,9 +518,7 @@ if (current_toolchain == host_toolchain) {
 
   compiled_action("generate_version") {
     tool = ":genversion"
-    outputs = [
-      "$target_gen_dir/$version_file",
-    ]
+    outputs = [ "$target_gen_dir/$version_file" ]
     args = [ rebase_path(outputs[0], root_build_dir) ]
   }
 }

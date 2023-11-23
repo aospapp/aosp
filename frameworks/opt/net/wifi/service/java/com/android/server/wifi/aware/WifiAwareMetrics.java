@@ -25,7 +25,7 @@ import android.util.SparseIntArray;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.wifi.Clock;
-import com.android.server.wifi.nano.WifiMetricsProto;
+import com.android.server.wifi.proto.nano.WifiMetricsProto;
 import com.android.server.wifi.util.MetricsUtils;
 
 import java.io.FileDescriptor;
@@ -41,8 +41,6 @@ import java.util.Set;
  */
 public class WifiAwareMetrics {
     private static final String TAG = "WifiAwareMetrics";
-    private static final boolean VDBG = false;
-    /* package */ boolean mDbg = false;
 
     // Histogram: 8 buckets (i=0, ..., 7) of 9 slots in range 10^i -> 10^(i+1)
     // Buckets:
@@ -234,7 +232,7 @@ public class WifiAwareMetrics {
      */
     public void recordAttachStatus(int status) {
         synchronized (mLock) {
-            mAttachStatusData.put(status, mAttachStatusData.get(status) + 1);
+            addNanHalStatusToHistogram(status, mAttachStatusData);
         }
     }
 
@@ -354,9 +352,9 @@ public class WifiAwareMetrics {
     public void recordDiscoveryStatus(int uid, int status, boolean isPublish) {
         synchronized (mLock) {
             if (isPublish) {
-                mPublishStatusData.put(status, mPublishStatusData.get(status) + 1);
+                addNanHalStatusToHistogram(status, mPublishStatusData);
             } else {
-                mSubscribeStatusData.put(status, mSubscribeStatusData.get(status) + 1);
+                addNanHalStatusToHistogram(status, mSubscribeStatusData);
             }
 
             if (status == NanStatusType.NO_RESOURCES_AVAILABLE) {
@@ -392,7 +390,7 @@ public class WifiAwareMetrics {
     /**
      * Record NDP (and by extension NDI) usage - on successful creation of an NDP.
      */
-    public void recordNdpCreation(int uid,
+    public void recordNdpCreation(int uid, String packageName,
             Map<WifiAwareNetworkSpecifier, WifiAwareDataPathStateManager
                     .AwareNetworkRequestInformation> networkRequestCache) {
         int numNdpInApp = 0;
@@ -412,12 +410,12 @@ public class WifiAwareMetrics {
                 continue; // only count completed (up-and-running) NDPs
             }
 
-            boolean sameUid = anri.uid == uid;
+            boolean sameApp = (anri.uid == uid) && TextUtils.equals(anri.packageName, packageName);
             boolean isSecure = !TextUtils.isEmpty(anri.networkSpecifier.passphrase) || (
                     anri.networkSpecifier.pmk != null && anri.networkSpecifier.pmk.length != 0);
 
             // in-app stats
-            if (sameUid) {
+            if (sameApp) {
                 numNdpInApp += 1;
                 if (isSecure) {
                     numSecureNdpInApp += 1;
@@ -463,9 +461,9 @@ public class WifiAwareMetrics {
     public void recordNdpStatus(int status, boolean isOutOfBand, long startTimestamp) {
         synchronized (mLock) {
             if (isOutOfBand) {
-                mOutOfBandNdpStatusData.put(status, mOutOfBandNdpStatusData.get(status) + 1);
+                addNanHalStatusToHistogram(status, mOutOfBandNdpStatusData);
             } else {
-                mInBandNdpStatusData.put(status, mOutOfBandNdpStatusData.get(status) + 1);
+                addNanHalStatusToHistogram(status, mInBandNdpStatusData);
             }
 
             if (status == NanStatusType.SUCCESS) {

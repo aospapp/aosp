@@ -17,25 +17,29 @@
 package com.android.tv.data.epg;
 
 import android.support.annotation.Nullable;
-import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.common.BuildConfig;
-import com.android.tv.common.experiments.Experiments;
+
+import com.google.common.collect.ImmutableSet;
+
 import com.android.tv.common.flags.CloudEpgFlags;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
+import com.android.tv.common.flags.LegacyFlags;
+
 import java.util.List;
-import java.util.Set;
+
+import javax.inject.Inject;
 
 /** Checks if a package or a input is white listed. */
 public final class EpgInputWhiteList {
     private static final boolean DEBUG = false;
     private static final String TAG = "EpgInputWhiteList";
-    private static final String QA_DEV_INPUTS =
-            "com.example.partnersupportsampletvinput/.SampleTvInputService,"
-                    + "com.android.tv.tuner.sample.dvb/.tvinput.SampleDvbTunerTvInputService";
+    private static final ImmutableSet<String> QA_DEV_INPUTS =
+            ImmutableSet.of(
+                    "com.example.partnersupportsampletvinput/.SampleTvInputService",
+                    "com.android.tv.tuner.sample.dvb/.tvinput.SampleDvbTunerTvInputService");
+    private final LegacyFlags mLegacyFlags;
 
     /** Returns the package portion of a inputId */
     @Nullable
@@ -43,10 +47,12 @@ public final class EpgInputWhiteList {
         return inputId == null ? null : inputId.substring(0, inputId.indexOf("/"));
     }
 
-    private final CloudEpgFlags cloudEpgFlags;
+    private final CloudEpgFlags mCloudEpgFlags;
 
-    public EpgInputWhiteList(CloudEpgFlags cloudEpgFlags) {
-        this.cloudEpgFlags = cloudEpgFlags;
+    @Inject
+    public EpgInputWhiteList(CloudEpgFlags cloudEpgFlags, LegacyFlags legacyFlags) {
+        mCloudEpgFlags = cloudEpgFlags;
+        mLegacyFlags = legacyFlags;
     }
 
     public boolean isInputWhiteListed(String inputId) {
@@ -55,7 +61,7 @@ public final class EpgInputWhiteList {
 
     public boolean isPackageWhiteListed(String packageName) {
         if (DEBUG) Log.d(TAG, "isPackageWhiteListed " + packageName);
-        Set<String> whiteList = getWhiteListedInputs();
+        ImmutableSet<String> whiteList = getWhiteListedInputs();
         for (String good : whiteList) {
             try {
                 String goodPackage = getPackageFromInput(good);
@@ -70,33 +76,32 @@ public final class EpgInputWhiteList {
         return false;
     }
 
-    private Set<String> getWhiteListedInputs() {
-        Set<String> result = toInputSet(cloudEpgFlags.thirdPartyEpgInputsCsv());
-        if (BuildConfig.ENG || Experiments.ENABLE_QA_FEATURES.get()) {
-            HashSet<String> moreInputs = new HashSet<>(toInputSet(QA_DEV_INPUTS));
+    private ImmutableSet<String> getWhiteListedInputs() {
+        ImmutableSet<String> result =
+                toInputSet(mCloudEpgFlags.thirdPartyEpgInputs().getElementList());
+        if (BuildConfig.ENG || mLegacyFlags.enableQaFeatures()) {
             if (result.isEmpty()) {
-                result = moreInputs;
+                result = QA_DEV_INPUTS;
             } else {
-                result.addAll(moreInputs);
+                result =
+                        ImmutableSet.<String>builder().addAll(result).addAll(QA_DEV_INPUTS).build();
             }
         }
         if (DEBUG) Log.d(TAG, "getWhiteListedInputs " + result);
         return result;
     }
 
-    @VisibleForTesting
-    static Set<String> toInputSet(String value) {
-        if (TextUtils.isEmpty(value)) {
-            return Collections.emptySet();
+    private static ImmutableSet<String> toInputSet(List<String> strings) {
+        if (strings.isEmpty()) {
+            return ImmutableSet.of();
         }
-        List<String> strings = Arrays.asList(value.split(","));
-        Set<String> result = new HashSet<>(strings.size());
+        ImmutableSet.Builder<String> result = ImmutableSet.builder();
         for (String s : strings) {
             String trimmed = s.trim();
             if (!TextUtils.isEmpty(trimmed)) {
                 result.add(trimmed);
             }
         }
-        return result;
+        return result.build();
     }
 }

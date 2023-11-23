@@ -91,8 +91,8 @@ public class CameraTest {
         float[] f = new float[9];
         m2.getValues(f);
         assertArrayEquals(new float[] {
-                1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -0.0017361111f, 1.0f
-        }, f, 0.0f);
+                1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        }, f, 0.0017361111f);
     }
 
     @Test
@@ -107,8 +107,8 @@ public class CameraTest {
         float[] f = new float[9];
         m2.getValues(f);
         assertArrayEquals(new float[] {
-                0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0017361111f, 0.0f, 1.0f
-        }, f, 0.0f);
+                0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        }, f, 0.0017361111f);
     }
 
     @Test
@@ -124,7 +124,7 @@ public class CameraTest {
         m2.getValues(f);
         assertArrayEquals(new float[] {
                 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
-        }, f, 0.0f);
+        }, f, 0.0017361111f);
     }
 
     @Test

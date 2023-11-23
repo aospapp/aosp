@@ -16,7 +16,6 @@
 
 package libcore.icu;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -24,7 +23,6 @@ import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import libcore.util.BasicLruCache;
-import libcore.timezone.ZoneInfoDB;
 
 /**
  * Provides access to ICU's time zone name data.
@@ -36,17 +34,16 @@ public final class TimeZoneNames {
     /*
      * Offsets into the arrays returned by DateFormatSymbols.getZoneStrings.
      */
-    public static final int OLSON_NAME = 0;
-    public static final int LONG_NAME = 1;
-    public static final int SHORT_NAME = 2;
-    public static final int LONG_NAME_DST = 3;
-    public static final int SHORT_NAME_DST = 4;
-    public static final int NAME_COUNT = 5;
+    private static final int OLSON_NAME = 0;
+    private static final int LONG_NAME = 1;
+    private static final int SHORT_NAME = 2;
+    private static final int LONG_NAME_DST = 3;
+    private static final int SHORT_NAME_DST = 4;
+    private static final int NAME_COUNT = 5;
 
     private static final ZoneStringsCache cachedZoneStrings = new ZoneStringsCache();
 
-    /** @hide */
-    public static class ZoneStringsCache extends BasicLruCache<Locale, String[][]> {
+    private static class ZoneStringsCache extends BasicLruCache<Locale, String[][]> {
         public ZoneStringsCache() {
             super(5); // Room for a handful of locales.
         }

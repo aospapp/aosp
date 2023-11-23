@@ -43,10 +43,6 @@ class AwareDiscoveryWithRangingTest(AwareBaseTest, RttBaseTest):
     # for both Initiators and Responders. Only the first mode works.
     RANGING_INITIATOR_RESPONDER_CONCURRENCY_LIMITATION = True
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-        RttBaseTest.__init__(self, controllers)
-
     def setup_test(self):
         """Manual setup here due to multiple inheritance: explicitly execute the
     setup method from both parents."""
@@ -1048,7 +1044,7 @@ class AwareDiscoveryWithRangingTest(AwareBaseTest, RttBaseTest):
             s_config=None,  # no updates
             expect_discovery=False)
 
-    @test_tracker_info(uuid="ec6ca57b-f115-4516-813a-4572b930c8d3")
+    @test_tracker_info(uuid="3938a3dc-8032-4096-b184-b528e4564b5e")
     def test_ranged_updated_discovery_solicited_active_multi_step(self):
         """Verify discovery with ranging operation with updated configuration:
     - Unsolicited Publish/Passive Subscribe

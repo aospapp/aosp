@@ -27,6 +27,8 @@ import android.os.SystemClock;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import com.android.testutils.SkipPresubmit;
+
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -68,6 +70,7 @@ public class DnsTest extends AndroidTestCase {
      * Perf - measure size of first and second tier caches and their effect
      * Assert requires network permission
      */
+    @SkipPresubmit(reason = "IPv6 support may be missing on presubmit virtual hardware")
     public void testDnsWorks() throws Exception {
         ensureIpv6Connectivity();
 

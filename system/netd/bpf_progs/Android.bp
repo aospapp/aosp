@@ -14,6 +14,11 @@
 // limitations under the License.
 //
 
+cc_library_headers {
+    name: "netd_bpf_progs_headers",
+    export_include_dirs: ["."],
+}
+
 //
 // bpf kernel programs
 //
@@ -33,6 +38,19 @@ bpf {
 bpf {
     name: "netd.o",
     srcs: ["netd.c"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    include_dirs: [
+        "system/netd/libnetdbpf/include",
+        "system/netd/libnetdutils/include",
+    ],
+}
+
+bpf {
+    name: "offload.o",
+    srcs: ["offload.c"],
     cflags: [
         "-Wall",
         "-Werror",

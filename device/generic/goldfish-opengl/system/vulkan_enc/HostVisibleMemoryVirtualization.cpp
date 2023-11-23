@@ -14,16 +14,18 @@
 // limitations under the License.
 #include "HostVisibleMemoryVirtualization.h"
 
-#include "android/base/SubAllocator.h"
+#include "android/base/AndroidSubAllocator.h"
 
 #include "Resources.h"
 #include "VkEncoder.h"
+
+#include "../OpenglSystemCommon/EmulatorFeatureInfo.h"
 
 #include <log/log.h>
 
 #include <set>
 
-using android::base::SubAllocator;
+using android::base::guest::SubAllocator;
 
 namespace goldfish_vk {
 
@@ -62,7 +64,7 @@ bool canFitVirtualHostVisibleMemoryInfo(
 void initHostVisibleMemoryVirtualizationInfo(
     VkPhysicalDevice physicalDevice,
     const VkPhysicalDeviceMemoryProperties* memoryProperties,
-    bool hasDirectMem,
+    const EmulatorFeatureInfo* featureInfo,
     HostVisibleMemoryVirtualizationInfo* info_out) {
 
     if (info_out->initialized) return;
@@ -73,10 +75,12 @@ void initHostVisibleMemoryVirtualizationInfo(
     info_out->memoryPropertiesSupported =
         canFitVirtualHostVisibleMemoryInfo(memoryProperties);
 
-    info_out->directMemSupported = hasDirectMem;
+    info_out->directMemSupported = featureInfo->hasDirectMem;
+    info_out->virtioGpuNextSupported = featureInfo->hasVirtioGpuNext;
 
     if (!info_out->memoryPropertiesSupported ||
-        !info_out->directMemSupported) {
+        (!info_out->directMemSupported &&
+         !info_out->virtioGpuNextSupported)) {
         info_out->virtualizationSupported = false;
         return;
     }
@@ -158,7 +162,8 @@ void initHostVisibleMemoryVirtualizationInfo(
             // Was the original memory type also a device local type? If so,
             // advertise both types in resulting type bits.
             info_out->memoryTypeBitsShouldAdvertiseBoth[i] =
-                type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+                type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ||
+                type.propertyFlags == 0;
 
             ++firstFreeTypeIndex;
 
@@ -200,16 +205,6 @@ bool isDeviceLocalMemoryTypeIndexForGuest(
     return props.memoryTypes[index].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 }
 
-bool isNoFlagsMemoryTypeIndexForGuest(
-    const HostVisibleMemoryVirtualizationInfo* info,
-    uint32_t index) {
-    const auto& props =
-        info->virtualizationSupported ?
-        info->guestMemoryProperties :
-        info->hostMemoryProperties;
-    return props.memoryTypes[index].propertyFlags == 0;
-}
-
 VkResult finishHostMemAllocInit(
     VkEncoder*,
     VkDevice device,
@@ -230,7 +225,12 @@ VkResult finishHostMemAllocInit(
     // because it's not just nonCoherentAtomSize granularity,
     // people will also use it for uniform buffers, images, etc.
     // that need some bigger alignment
-#define HIGHEST_BUFFER_OR_IMAGE_ALIGNMENT 1024
+// #define HIGHEST_BUFFER_OR_IMAGE_ALIGNMENT 1024
+// bug: 145153816
+// HACK: Make it 65k so yuv images are happy on vk cts 1.2.1
+// TODO: Use a munmap/mmap MAP_FIXED scheme to realign memories
+// if it's found that the buffer or image bind alignment will be violated
+#define HIGHEST_BUFFER_OR_IMAGE_ALIGNMENT 65536
 
     uint64_t neededPageSize = out->nonCoherentAtomSize;
     if (HIGHEST_BUFFER_OR_IMAGE_ALIGNMENT >
@@ -250,6 +250,7 @@ VkResult finishHostMemAllocInit(
 }
 
 void destroyHostMemAlloc(
+    bool freeMemorySyncSupported,
     VkEncoder* enc,
     VkDevice device,
     HostMemAlloc* toDestroy) {
@@ -257,7 +258,12 @@ void destroyHostMemAlloc(
     if (toDestroy->initResult != VK_SUCCESS) return;
     if (!toDestroy->initialized) return;
 
-    enc->vkFreeMemory(device, toDestroy->memory, nullptr);
+    if (freeMemorySyncSupported) {
+        enc->vkFreeMemorySyncGOOGLE(device, toDestroy->memory, nullptr);
+    } else {
+        enc->vkFreeMemory(device, toDestroy->memory, nullptr);
+    }
+
     delete toDestroy->subAlloc;
 }
 
@@ -296,11 +302,22 @@ void subFreeHostMemory(SubAlloc* toFree) {
     memset(toFree, 0x0, sizeof(SubAlloc));
 }
 
-bool canSubAlloc(android::base::SubAllocator* subAlloc, VkDeviceSize size) {
+bool canSubAlloc(android::base::guest::SubAllocator* subAlloc, VkDeviceSize size) {
     auto ptr = subAlloc->alloc(size);
     if (!ptr) return false;
     subAlloc->free(ptr);
     return true;
 }
+
+bool isNoFlagsMemoryTypeIndexForGuest(
+    const HostVisibleMemoryVirtualizationInfo* info,
+    uint32_t index) {
+    const auto& props =
+        info->virtualizationSupported ?
+        info->guestMemoryProperties :
+        info->hostMemoryProperties;
+    return props.memoryTypes[index].propertyFlags == 0;
+}
+
 
 } // namespace goldfish_vk

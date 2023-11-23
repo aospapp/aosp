@@ -38,7 +38,8 @@ public class ShadowPermissionControllerManager {
 
     @Implementation
     protected void getAppPermissions(String packageName,
-            PermissionControllerManager.OnGetAppPermissionResultCallback callback, Handler handler) {
+            PermissionControllerManager.OnGetAppPermissionResultCallback callback,
+            Handler handler) {
     }
 
     @Implementation

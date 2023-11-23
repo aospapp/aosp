@@ -18,5 +18,4 @@
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
         package="android.car.encryptionrunner" >
     <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
-    <application />
 </manifest>

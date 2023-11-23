@@ -23,8 +23,6 @@ import com.android.ide.common.rendering.api.ResourceReference;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.rendering.api.SessionParams.Key;
 
-import org.xmlpull.v1.XmlPullParser;
-
 import java.nio.file.Path;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
@@ -33,12 +31,8 @@ import java.rmi.RemoteException;
  * Remote version of the {@link LayoutlibCallback} class
  */
 public interface RemoteLayoutlibCallback extends Remote {
-    boolean supports(int ideFeature) throws RemoteException;
-
     Object loadView(String name, Class[] constructorSignature, Object[] constructorArgs)
             throws Exception;
-
-    String getNamespace() throws RemoteException;
 
     ResourceReference resolveResourceId(int id) throws RemoteException;
 

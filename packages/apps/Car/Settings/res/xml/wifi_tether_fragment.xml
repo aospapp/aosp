@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/tether_settings_title_all" >
+                  android:title="@string/tether_settings_title_all"
+                  android:key="@string/psk_wifi_tether">
     <com.android.car.settings.common.ValidatedEditTextPreference
         android:key="@string/pk_wifi_tether_name"
         android:title="@string/wifi_hotspot_name_title"

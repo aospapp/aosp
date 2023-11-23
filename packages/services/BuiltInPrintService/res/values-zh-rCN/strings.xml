@@ -57,9 +57,14 @@
     <string name="failed_printer_connection" msgid="4196305972749960362">"无法连接到打印机"</string>
     <string name="failed_connection" msgid="8068661997318286575">"无法连接到“<xliff:g id="PRINTER">%1$s</xliff:g>”"</string>
     <string name="saved_printers" msgid="4567534965213125526">"已保存的打印机"</string>
-    <string name="forget" msgid="892068061425802502">"忽略"</string>
+    <string name="forget" msgid="892068061425802502">"取消保存"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"通过 WLAN 直连连接"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"在 <xliff:g id="IP_ADDRESS">%1$s</xliff:g> 通过当前网络连接"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"默认打印服务会提供基本选项。这个打印机的其他选项可能由其他打印服务提供。"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"推荐的服务"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"选择以安装"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"选择以启用"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"管理服务"</string>
     <string name="security" msgid="2279008326210305401">"安全"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"此打印机提供了新的安全证书，或其他设备正在冒充此打印机。要接受新证书吗？"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"此打印机不再接受加密的作业。要继续打印吗？"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"连接"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"默认打印服务需要位置信息获取权才能寻找附近的设备。"</string>
     <string name="fix" msgid="7784394272611365393">"查看权限"</string>
+    <string name="print" msgid="7851318072404916362">"打印"</string>
 </resources>

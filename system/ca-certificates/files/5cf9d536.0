@@ -36,7 +36,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 985026699 (0x3ab6508b)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=BM, O=QuoVadis Limited, OU=Root Certification Authority, CN=QuoVadis Root Certification Authority
         Validity
             Not Before: Mar 19 18:33:33 2001 GMT
@@ -44,7 +44,7 @@ Certificate:
         Subject: C=BM, O=QuoVadis Limited, OU=Root Certification Authority, CN=QuoVadis Root Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:bf:61:b5:95:53:ba:57:fc:fa:f2:67:0b:3a:1a:
                     df:11:80:64:95:b4:d1:bc:cd:7a:cf:f6:29:96:2e:

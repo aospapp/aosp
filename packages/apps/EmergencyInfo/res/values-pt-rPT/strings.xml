@@ -91,7 +91,7 @@
     <string name="add_emergency_contact" msgid="4063577069613981029">"Adicionar contacto"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Não foi possível localizar um selecionador de contactos"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Não é possível apresentar o contacto"</string>
-    <string name="remove_contact" msgid="6934983445723096759">"Pretende remover <xliff:g id="CONTACT_NAME">%1$s</xliff:g> dos contactos de emergência?"</string>
+    <string name="remove_contact" msgid="6934983445723096759">"Remover <xliff:g id="CONTACT_NAME">%1$s</xliff:g> dos contactos de emergência?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Remover o contacto"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"Não é possível ler as informações de contacto corretamente"</string>
     <string name="remove" msgid="1243949503772376064">"Remover"</string>

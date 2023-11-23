@@ -5,8 +5,8 @@ LOCAL_MODULE := CppMultipleRSFiles
 
 LOCAL_SRC_FILES := \
 	MultipleRSFiles.cpp \
-	first.rs \
-	second.rs
+	first.rscript \
+	second.rscript
 
 include frameworks/rs/tests/lldb/cpp/common.mk
 include $(BUILD_EXECUTABLE)

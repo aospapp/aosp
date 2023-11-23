@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,22 +11,17 @@
  *******************************************************************************/
 package org.jacoco.core.internal.analysis.filter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
-
 import org.jacoco.core.internal.instr.InstrSupport;
 import org.junit.Test;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-public class SyntheticFilterTest implements IFilterOutput {
+/**
+ * Unit tests for {@link SyntheticFilter}.
+ */
+public class SyntheticFilterTest extends FilterTestBase {
 
 	private final SyntheticFilter filter = new SyntheticFilter();
-
-	private AbstractInsnNode fromInclusive;
-	private AbstractInsnNode toInclusive;
 
 	@Test
 	public void testNonSynthetic() {
@@ -34,10 +29,9 @@ public class SyntheticFilterTest implements IFilterOutput {
 				"name", "()V", null, null);
 		m.visitInsn(Opcodes.NOP);
 
-		filter.filter("Foo", "java/lang/Object", m, this);
+		filter.filter(m, context, output);
 
-		assertNull(fromInclusive);
-		assertNull(toInclusive);
+		assertIgnored();
 	}
 
 	@Test
@@ -46,10 +40,9 @@ public class SyntheticFilterTest implements IFilterOutput {
 				Opcodes.ACC_SYNTHETIC, "name", "()V", null, null);
 		m.visitInsn(Opcodes.NOP);
 
-		filter.filter("Foo", "java/lang/Object", m, this);
+		filter.filter(m, context, output);
 
-		assertEquals(m.instructions.getFirst(), fromInclusive);
-		assertEquals(m.instructions.getLast(), toInclusive);
+		assertMethodIgnored(m);
 	}
 
 	@Test
@@ -58,21 +51,50 @@ public class SyntheticFilterTest implements IFilterOutput {
 				Opcodes.ACC_SYNTHETIC, "lambda$1", "()V", null, null);
 		m.visitInsn(Opcodes.NOP);
 
-		filter.filter("Foo", "java/lang/Object", m, this);
+		filter.filter(m, context, output);
 
-		assertNull(fromInclusive);
-		assertNull(toInclusive);
+		assertIgnored();
 	}
 
-	public void ignore(final AbstractInsnNode fromInclusive,
-			final AbstractInsnNode toInclusive) {
-		assertNull(this.fromInclusive);
-		this.fromInclusive = fromInclusive;
-		this.toInclusive = toInclusive;
+	@Test
+	public void should_not_filter_method_with_suffix_default_in_kotlin_classes() {
+		final MethodNode m = new MethodNode(InstrSupport.ASM_API_VERSION,
+				Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE, "example$default",
+				"(LTarget;Ljava/lang/String;Ijava/lang/Object;)V", null, null);
+		context.classAnnotations
+				.add(KotlinGeneratedFilter.KOTLIN_METADATA_DESC);
+		m.visitInsn(Opcodes.NOP);
+
+		filter.filter(m, context, output);
+
+		assertIgnored();
 	}
 
-	public void merge(final AbstractInsnNode i1, final AbstractInsnNode i2) {
-		fail();
+	@Test
+	public void should_filter_synthetic_method_with_suffix_default_in_non_kotlin_classes() {
+		final MethodNode m = new MethodNode(InstrSupport.ASM_API_VERSION,
+				Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE, "example$default",
+				"(LTarget;Ljava/lang/String;Ijava/lang/Object;)V", null, null);
+		m.visitInsn(Opcodes.NOP);
+
+		filter.filter(m, context, output);
+
+		assertMethodIgnored(m);
+	}
+
+	@Test
+	public void should_not_filter_synthetic_methods_whose_last_argument_is_kotlin_coroutine_continuation() {
+		final MethodNode m = new MethodNode(InstrSupport.ASM_API_VERSION,
+				Opcodes.ACC_SYNTHETIC | Opcodes.ACC_STATIC, "example",
+				"(Lkotlin/coroutines/Continuation;)Ljava/lang/Object;", null,
+				null);
+		context.classAnnotations
+				.add(KotlinGeneratedFilter.KOTLIN_METADATA_DESC);
+		m.visitInsn(Opcodes.NOP);
+
+		filter.filter(m, context, output);
+
+		assertIgnored();
 	}
 
 }

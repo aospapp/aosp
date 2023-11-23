@@ -22,6 +22,7 @@
 
 #include "chre/core/nanoapp.h"
 #include "chre/util/non_copyable.h"
+#include "chre/util/system/debug_dump.h"
 
 // This default value can be overridden in the variant-specific makefile.
 #ifndef CHRE_MAX_ALLOCATION_BYTES
@@ -94,12 +95,10 @@ class MemoryManager : public NonCopyable {
    * Prints state in a string buffer. Must only be called from the context of
    * the main CHRE thread.
    *
-   * @param buffer Pointer to the start of the buffer.
-   * @param bufferPos Pointer to buffer position to start the print (in-out).
-   * @param size Size of the buffer in bytes.
+   * @param debugDump The debug dump wrapper where a string can be printed into
+   *    one of the buffers.
    */
-  void logStateToBuffer(char *buffer, size_t *bufferPos,
-                        size_t bufferSize) const;
+  void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
  private:
   /**

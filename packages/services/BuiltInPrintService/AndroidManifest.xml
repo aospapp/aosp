@@ -26,6 +26,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.READ_PRINT_SERVICES" />
     <uses-permission android:name="android.permission.READ_PRINT_SERVICE_RECOMMENDATIONS" />
+    <uses-permission android:name="android.permission.SUBSTITUTE_SHARE_TARGET_APP_NAME_AND_ICON" />
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
@@ -53,6 +54,13 @@
         </service>
 
         <activity
+            android:name="com.android.bips.ui.MoreOptionsActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Settings"
+            android:configChanges="orientation|screenSize"
+            android:exported="true"
+            android:permission="android.permission.START_PRINT_SERVICE_CONFIG_ACTIVITY" />
+
+        <activity
             android:name="com.android.bips.ui.AddPrintersActivity"
             android:label="@string/title_activity_add_printer"
             android:theme="@android:style/Theme.DeviceDefault.Settings"
@@ -60,5 +68,29 @@
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:permission="android.permission.START_PRINT_SERVICE_CONFIG_ACTIVITY" />
+
+        <activity
+            android:name="com.android.bips.ImagePrintActivity"
+            android:label="@string/print"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="keyboardHidden|orientation|screenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.android.bips.PdfPrintActivity"
+            android:label="@string/print"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="keyboardHidden|orientation|screenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

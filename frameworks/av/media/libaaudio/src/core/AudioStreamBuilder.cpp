@@ -27,6 +27,7 @@
 #include "binding/AAudioBinderClient.h"
 #include "client/AudioStreamInternalCapture.h"
 #include "client/AudioStreamInternalPlay.h"
+#include "core/AudioGlobal.h"
 #include "core/AudioStream.h"
 #include "core/AudioStreamBuilder.h"
 #include "legacy/AudioStreamRecord.h"
@@ -112,7 +113,7 @@ aaudio_result_t AudioStreamBuilder::build(AudioStream** streamPtr) {
     }
 
     // The API setting is the highest priority.
-    aaudio_policy_t mmapPolicy = AAudio_getMMapPolicy();
+    aaudio_policy_t mmapPolicy = AudioGlobal_getMMapPolicy();
     // If not specified then get from a system property.
     if (mmapPolicy == AAUDIO_UNSPECIFIED) {
         mmapPolicy = AAudioProperty_getMMapPolicy();
@@ -141,20 +142,33 @@ aaudio_result_t AudioStreamBuilder::build(AudioStream** streamPtr) {
     // TODO Support other performance settings in MMAP mode.
     // Disable MMAP if low latency not requested.
     if (getPerformanceMode() != AAUDIO_PERFORMANCE_MODE_LOW_LATENCY) {
-        ALOGD("%s() MMAP not available because AAUDIO_PERFORMANCE_MODE_LOW_LATENCY not used.",
+        ALOGD("%s() MMAP not used because AAUDIO_PERFORMANCE_MODE_LOW_LATENCY not requested.",
               __func__);
         allowMMap = false;
     }
 
     // SessionID and Effects are only supported in Legacy mode.
     if (getSessionId() != AAUDIO_SESSION_ID_NONE) {
-        ALOGD("%s() MMAP not available because sessionId used.", __func__);
+        ALOGD("%s() MMAP not used because sessionId specified.", __func__);
         allowMMap = false;
     }
 
     if (!allowMMap && !allowLegacy) {
         ALOGE("%s() no backend available: neither MMAP nor legacy path are allowed", __func__);
         return AAUDIO_ERROR_ILLEGAL_ARGUMENT;
+    }
+
+    setPrivacySensitive(false);
+    if (mPrivacySensitiveReq == PRIVACY_SENSITIVE_DEFAULT) {
+        // When not explicitly requested, set privacy sensitive mode according to input preset:
+        // communication and camcorder captures are considered privacy sensitive by default.
+        aaudio_input_preset_t preset = getInputPreset();
+        if (preset == AAUDIO_INPUT_PRESET_CAMCORDER
+                || preset == AAUDIO_INPUT_PRESET_VOICE_COMMUNICATION) {
+            setPrivacySensitive(true);
+        }
+    } else if (mPrivacySensitiveReq == PRIVACY_SENSITIVE_ENABLED) {
+        setPrivacySensitive(true);
     }
 
     result = builder_createStream(getDirection(), sharingMode, allowMMap, &audioStream);
@@ -179,9 +193,13 @@ aaudio_result_t AudioStreamBuilder::build(AudioStream** streamPtr) {
                         *streamPtr = audioStream;
                     } else {
                         delete audioStream;
+                        audioStream = nullptr;
                     }
                 }
             }
+        }
+        if (audioStream != nullptr) {
+            audioStream->logOpen();
         }
     }
 
@@ -256,4 +274,5 @@ void AudioStreamBuilder::logParameters() const {
           mFramesPerDataCallback);
     ALOGI("usage  = %6d, contentType = %d, inputPreset = %d, allowedCapturePolicy = %d",
           getUsage(), getContentType(), getInputPreset(), getAllowedCapturePolicy());
+    ALOGI("privacy sensitive = %s", isPrivacySensitive() ? "true" : "false");
 }

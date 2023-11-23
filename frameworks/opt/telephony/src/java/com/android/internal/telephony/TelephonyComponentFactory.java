@@ -22,15 +22,12 @@ import android.content.Context;
 import android.content.res.XmlResourceParser;
 import android.database.Cursor;
 import android.os.Handler;
-import android.os.IDeviceIdleController;
 import android.os.Looper;
-import android.os.ServiceManager;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
 import android.telephony.AccessNetworkConstants.TransportType;
-import android.telephony.Rlog;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
@@ -42,9 +39,11 @@ import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
 import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.imsphone.ImsPhoneCallTracker;
+import com.android.internal.telephony.nitz.NitzStateMachineImpl;
 import com.android.internal.telephony.uicc.IccCardStatus;
 import com.android.internal.telephony.uicc.UiccCard;
 import com.android.internal.telephony.uicc.UiccProfile;
+import com.android.telephony.Rlog;
 
 import dalvik.system.PathClassLoader;
 
@@ -58,8 +57,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
-
 
 /**
  * This class has one-line methods to instantiate objects only. The purpose is to make code
@@ -292,19 +289,13 @@ public class TelephonyComponentFactory {
         return new EmergencyNumberTracker(phone, ci);
     }
 
-    /**
-     * Sets the NitzStateMachine implementation to use during implementation. This boolean
-     * should be removed once the new implementation is stable.
-     */
-    static final boolean USE_NEW_NITZ_STATE_MACHINE = true;
+    private static final boolean USE_NEW_NITZ_STATE_MACHINE = true;
 
     /**
      * Returns a new {@link NitzStateMachine} instance.
      */
     public NitzStateMachine makeNitzStateMachine(GsmCdmaPhone phone) {
-        return USE_NEW_NITZ_STATE_MACHINE
-                ? new NewNitzStateMachine(phone)
-                : new OldNitzStateMachine(phone);
+        return NitzStateMachineImpl.createInstance(phone);
     }
 
     public SimActivationTracker makeSimActivationTracker(Phone phone) {
@@ -354,30 +345,31 @@ public class TelephonyComponentFactory {
     /**
      * Create a tracker for a single-part SMS.
      */
-    public InboundSmsTracker makeInboundSmsTracker(byte[] pdu, long timestamp, int destPort,
-            boolean is3gpp2, boolean is3gpp2WapPdu, String address, String displayAddr,
-            String messageBody, boolean isClass0) {
-        return new InboundSmsTracker(pdu, timestamp, destPort, is3gpp2, is3gpp2WapPdu, address,
-                displayAddr, messageBody, isClass0);
+    public InboundSmsTracker makeInboundSmsTracker(Context context, byte[] pdu, long timestamp,
+            int destPort, boolean is3gpp2, boolean is3gpp2WapPdu, String address,
+            String displayAddr, String messageBody, boolean isClass0, int subId) {
+        return new InboundSmsTracker(context, pdu, timestamp, destPort, is3gpp2, is3gpp2WapPdu,
+                address, displayAddr, messageBody, isClass0, subId);
     }
 
     /**
      * Create a tracker for a multi-part SMS.
      */
-    public InboundSmsTracker makeInboundSmsTracker(byte[] pdu, long timestamp, int destPort,
-            boolean is3gpp2, String address, String displayAddr, int referenceNumber,
+    public InboundSmsTracker makeInboundSmsTracker(Context context, byte[] pdu, long timestamp,
+            int destPort, boolean is3gpp2, String address, String displayAddr, int referenceNumber,
             int sequenceNumber, int messageCount, boolean is3gpp2WapPdu, String messageBody,
-            boolean isClass0) {
-        return new InboundSmsTracker(pdu, timestamp, destPort, is3gpp2, address, displayAddr,
-                referenceNumber, sequenceNumber, messageCount, is3gpp2WapPdu, messageBody,
-                isClass0);
+            boolean isClass0, int subId) {
+        return new InboundSmsTracker(context, pdu, timestamp, destPort, is3gpp2, address,
+                displayAddr, referenceNumber, sequenceNumber, messageCount, is3gpp2WapPdu,
+                messageBody, isClass0, subId);
     }
 
     /**
      * Create a tracker from a row of raw table
      */
-    public InboundSmsTracker makeInboundSmsTracker(Cursor cursor, boolean isCurrentFormat3gpp2) {
-        return new InboundSmsTracker(cursor, isCurrentFormat3gpp2);
+    public InboundSmsTracker makeInboundSmsTracker(Context context, Cursor cursor,
+            boolean isCurrentFormat3gpp2) {
+        return new InboundSmsTracker(context, cursor, isCurrentFormat3gpp2);
     }
 
     public ImsPhoneCallTracker makeImsPhoneCallTracker(ImsPhone imsPhone) {
@@ -410,11 +402,6 @@ public class TelephonyComponentFactory {
         return CdmaSubscriptionSourceManager.getInstance(context, ci, h, what, obj);
     }
 
-    public IDeviceIdleController getIDeviceIdleController() {
-        return IDeviceIdleController.Stub.asInterface(
-                ServiceManager.getService(Context.DEVICE_IDLE_CONTROLLER));
-    }
-
     public LocaleTracker makeLocaleTracker(Phone phone, NitzStateMachine nitzStateMachine,
                                            Looper looper) {
         return new LocaleTracker(phone, nitzStateMachine, looper);
@@ -422,5 +409,38 @@ public class TelephonyComponentFactory {
 
     public DataEnabledSettings makeDataEnabledSettings(Phone phone) {
         return new DataEnabledSettings(phone);
+    }
+
+    public Phone makePhone(Context context, CommandsInterface ci, PhoneNotifier notifier,
+            int phoneId, int precisePhoneType,
+            TelephonyComponentFactory telephonyComponentFactory) {
+        return new GsmCdmaPhone(context, ci, notifier, phoneId, precisePhoneType,
+                telephonyComponentFactory);
+    }
+
+    public SubscriptionController initSubscriptionController(Context c) {
+        return SubscriptionController.init(c);
+    }
+
+    public PhoneSwitcher makePhoneSwitcher(int maxDataAttachModemCount, Context context,
+            Looper looper) {
+        return PhoneSwitcher.make(maxDataAttachModemCount, context, looper);
+    }
+
+    /**
+     * Create a new DisplayInfoController.
+     */
+    public DisplayInfoController makeDisplayInfoController(Phone phone) {
+        return new DisplayInfoController(phone);
+    }
+
+    public MultiSimSettingController initMultiSimSettingController(Context c,
+            SubscriptionController sc) {
+        return MultiSimSettingController.init(c, sc);
+    }
+
+    public SubscriptionInfoUpdater makeSubscriptionInfoUpdater(Looper looper, Context context,
+            CommandsInterface[] ci) {
+        return new SubscriptionInfoUpdater(looper, context, ci);
     }
 }

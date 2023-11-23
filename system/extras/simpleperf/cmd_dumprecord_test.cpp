@@ -44,3 +44,15 @@ TEST(cmd_dump, dump_callchain_of_sample_records) {
   ASSERT_NE(data.find("[kernel.kallsyms][+ffffffc000086b4a]"), std::string::npos);
   ASSERT_NE(data.find("__ioctl (/system/lib64/libc.so[+70b6c])"), std::string::npos);
 }
+
+TEST(cmd_dump, etm_data) {
+  CaptureStdout capture;
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DumpCmd()->Run({"--dump-etm", "raw,packet,element", "--symdir",
+                              GetTestDataDir() + "etm", GetTestData(PERF_DATA_ETM_TEST_LOOP)}));
+  std::string data = capture.Finish();
+  ASSERT_NE(data.find("record aux:"), std::string::npos);
+  ASSERT_NE(data.find("feature section for auxtrace:"), std::string::npos);
+  // Check if we can decode etm data into instruction range elements.
+  ASSERT_NE(data.find("OCSD_GEN_TRC_ELEM_INSTR_RANGE"), std::string::npos);
+}

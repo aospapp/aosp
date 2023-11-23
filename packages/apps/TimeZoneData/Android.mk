@@ -12,18 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-LOCAL_PATH:= $(call my-dir)
-
-# A static library containing all the source needed by a Time Zone Data app.
-include $(CLEAR_VARS)
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE := time_zone_distro_provider
-LOCAL_MODULE_TAGS := optional
-LOCAL_SRC_FILES := $(call all-java-files-under, src/main)
-LOCAL_PROGUARD_FLAG_FILES := $(LOCAL_PATH)/proguard.cfg
-LOCAL_STATIC_JAVA_LIBRARIES := time_zone_distro_unbundled androidx.annotation_annotation
-LOCAL_SDK_VERSION := system_current
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-include $(call all-makefiles-under,$(LOCAL_PATH))
+# Intentionally left empty to hide oem_template/*/Android.mk

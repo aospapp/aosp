@@ -107,8 +107,15 @@ class table__g_v_a_r(DefaultTable.DefaultTable):
 			glyph = ttFont["glyf"][glyphName]
 			numPointsInGlyph = self.getNumPoints_(glyph)
 			gvarData = data[offsetToData + offsets[i] : offsetToData + offsets[i + 1]]
-			self.variations[glyphName] = decompileGlyph_(
-				numPointsInGlyph, sharedCoords, axisTags, gvarData)
+			try:
+				self.variations[glyphName] = decompileGlyph_(
+					numPointsInGlyph, sharedCoords, axisTags, gvarData)
+			except Exception:
+				log.error(
+					"Failed to decompile deltas for glyph '%s' (%d points)",
+					glyphName, numPointsInGlyph,
+				)
+				raise
 
 	@staticmethod
 	def decompileOffsets_(data, tableFormat, glyphCount):
@@ -210,8 +217,9 @@ def compileGlyph_(variations, pointCount, axisTags, sharedCoordIndices):
 		variations, pointCount, axisTags, sharedCoordIndices)
 	if tupleVariationCount == 0:
 		return b""
-	result = (struct.pack(">HH", tupleVariationCount, 4 + len(tuples)) +
-	          tuples + data)
+	result = (
+		struct.pack(">HH", tupleVariationCount, 4 + len(tuples)) + tuples + data
+	)
 	if len(result) % 2 != 0:
 		result = result + b"\0"  # padding
 	return result
@@ -222,6 +230,8 @@ def decompileGlyph_(pointCount, sharedTuples, axisTags, data):
 		return []
 	tupleVariationCount, offsetToData = struct.unpack(">HH", data[:4])
 	dataPos = offsetToData
-	return tv.decompileTupleVariationStore("gvar", axisTags,
-                                           tupleVariationCount, pointCount,
-                                           sharedTuples, data, 4, offsetToData)
+	return tv.decompileTupleVariationStore(
+		"gvar", axisTags,
+		tupleVariationCount, pointCount,
+		sharedTuples, data, 4, offsetToData
+	)

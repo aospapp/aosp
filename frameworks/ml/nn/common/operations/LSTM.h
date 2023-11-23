@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_LSTMCELL_H
-#define FRAMEWORKS_ML_NN_LSTMCELL_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_LSTM_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_LSTM_H
 
-#include "ActivationFunctor.h"
-#include "HalOperation.h"
-#include "tensorflow/lite/kernels/internal/tensor_utils.h"
+#include <tensorflow/lite/kernels/internal/tensor_utils.h>
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
+
+#include "ActivationFunctor.h"
+#include "HalInterfaces.h"
 
 namespace android {
 namespace nn {
@@ -38,6 +40,7 @@ struct LSTMParams {
     bool use_projection_bias;
     bool merge_outputs;
     bool time_major;
+    bool output_state;
 };
 
 struct RunTimeOperandInfo;
@@ -45,11 +48,10 @@ struct Shape;
 
 class LSTMCell {
    public:
-    LSTMCell(const Operation& operation, std::vector<RunTimeOperandInfo>& operands);
+    LSTMCell(const hal::Operation& operation, RunTimeOperandInfo* operands);
 
-    bool Prepare(const Operation& operation, std::vector<RunTimeOperandInfo>& operands,
-                 Shape* scratchShape, Shape* outputStateShape, Shape* cellStateShape,
-                 Shape* outputShape);
+    bool Prepare(const hal::Operation& operation, RunTimeOperandInfo* operands, Shape* scratchShape,
+                 Shape* outputStateShape, Shape* cellStateShape, Shape* outputShape);
     bool Eval();
 
     // Input Tensors of size {n_batch, n_input}
@@ -101,8 +103,6 @@ class LSTMCell {
     static constexpr int kOutputStateOutTensor = 1;
     static constexpr int kCellStateOutTensor = 2;
     static constexpr int kOutputTensor = 3;
-
-    static constexpr float kLayerNormEpsilon = 1e-8;
 
     static bool LSTMEvalFloat32(
             const LSTMParams& params, const float* input_buffer, const Shape& input_shape,
@@ -246,4 +246,4 @@ class LSTMCell {
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_LSTMCELL_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_LSTM_H

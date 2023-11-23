@@ -18,18 +18,27 @@
 
 #define LOG_TAG "Operations"
 
-#include "CpuOperationUtils.h"
-#include "OperationResolver.h"
-
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
-#include "tensorflow/lite/kernels/internal/reference/legacy_reference_ops.h"
-
-#include "Tracing.h"
+#include <tensorflow/lite/kernels/internal/optimized/integer_ops/add.h>
+#include <tensorflow/lite/kernels/internal/optimized/integer_ops/mul.h>
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/integer_ops/add.h>
+#include <tensorflow/lite/kernels/internal/reference/integer_ops/mul.h>
+#include <tensorflow/lite/kernels/internal/types.h>
 
 #include <algorithm>
+#include <vector>
+
+#include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
+#include "IndexedShapeWrapper.h"
+#include "OperationResolver.h"
+#include "Tracing.h"
 
 namespace android {
 namespace nn {
+
+using namespace hal;
+
 namespace broadcast {
 
 constexpr uint32_t kNumInputs = 3;
@@ -114,10 +123,11 @@ bool addFloat16(const _Float16* in1, const Shape& shape1, const _Float16* in2, c
     return binaryOperationFloat16(in1, shape1, in2, shape2, activation, out, shapeOut, &addFloat32);
 }
 
-bool addQuant8(const uint8_t* in1, const Shape& shape1, const uint8_t* in2, const Shape& shape2,
-               int32_t activation, uint8_t* out, const Shape& shapeOut) {
+template <typename T>
+bool addQuant8(const T* in1, const Shape& shape1, const T* in2, const Shape& shape2,
+               int32_t activation, T* out, const Shape& shapeOut) {
     NNTRACE_TRANS("addQuant8");
-    bool needBroadcast = !SameShape(shape1, shape2);
+    const bool needBroadcast = !SameShape(shape1, shape2);
 
     const int32_t input1_offset = -shape1.offset;
     const int32_t input2_offset = -shape2.offset;
@@ -131,51 +141,91 @@ bool addQuant8(const uint8_t* in1, const Shape& shape1, const uint8_t* in2, cons
 
     int32_t input1_multiplier;
     int32_t input1_shift;
-    if (!QuantizeMultiplierSmallerThanOne(real_input1_multiplier, &input1_multiplier,
-                                          &input1_shift)) {
-        return false;
-    }
+    NN_RET_CHECK(QuantizeMultiplierSmallerThanOneExp(real_input1_multiplier, &input1_multiplier,
+                                                     &input1_shift));
     int32_t input2_multiplier;
     int32_t input2_shift;
-    if (!QuantizeMultiplierSmallerThanOne(real_input2_multiplier, &input2_multiplier,
-                                          &input2_shift)) {
-        return false;
-    }
+    NN_RET_CHECK(QuantizeMultiplierSmallerThanOneExp(real_input2_multiplier, &input2_multiplier,
+                                                     &input2_shift));
     int32_t output_multiplier;
     int32_t output_shift;
-    if (!QuantizeMultiplierSmallerThanOne(real_output_multiplier, &output_multiplier,
-                                          &output_shift)) {
-        return false;
-    }
+    NN_RET_CHECK(QuantizeMultiplierSmallerThanOneExp(real_output_multiplier, &output_multiplier,
+                                                     &output_shift));
+
     int32_t output_activation_min;
     int32_t output_activation_max;
-    CalculateActivationRangeUint8(activation, shapeOut, &output_activation_min,
-                                  &output_activation_max);
-
-    if (needBroadcast) {
-        NNTRACE_COMP_SWITCH("optimized_ops::BroadcastAdd");
-#define ANDROID_NN_BROADCAST_ADD(activation)                                                     \
-    tflite::optimized_ops::BroadcastAdd<tflite::FusedActivationFunctionType::activation>(        \
-            left_shift, in1, convertShapeToDims(shape1), input1_offset, input1_multiplier,       \
-            input1_shift, in2, convertShapeToDims(shape2), input2_offset, input2_multiplier,     \
-            input2_shift, output_offset, output_multiplier, output_shift, output_activation_min, \
-            output_activation_max, out, convertShapeToDims(shapeOut))
-
-        ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_BROADCAST_ADD)
-#undef ANDROID_NN_BROADCAST_ADD
+    constexpr bool isSignedOp = std::is_same<T, int8_t>::value;
+    if constexpr (isSignedOp) {
+        CalculateActivationRangeInt8(activation, shapeOut, &output_activation_min,
+                                     &output_activation_max);
     } else {
-        NNTRACE_COMP_SWITCH("optimized_ops::Add");
-#define ANDROID_NN_NORMAL_ADD(activation)                                                        \
-    tflite::optimized_ops::Add<tflite::FusedActivationFunctionType::activation>(                 \
-            left_shift, in1, convertShapeToDims(shape1), input1_offset, input1_multiplier,       \
-            input1_shift, in2, convertShapeToDims(shape2), input2_offset, input2_multiplier,     \
-            input2_shift, output_offset, output_multiplier, output_shift, output_activation_min, \
-            output_activation_max, out, convertShapeToDims(shapeOut))
-
-        ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_NORMAL_ADD)
-#undef ANDROID_NN_NORMAL_ADD
+        CalculateActivationRangeUint8(activation, shapeOut, &output_activation_min,
+                                      &output_activation_max);
     }
 
+    tflite::ArithmeticParams op_params;
+    op_params.left_shift = left_shift;
+    op_params.input1_offset = input1_offset;
+    op_params.input1_multiplier = input1_multiplier;
+    op_params.input1_shift = input1_shift;
+    op_params.input2_offset = input2_offset;
+    op_params.input2_multiplier = input2_multiplier;
+    op_params.input2_shift = input2_shift;
+    op_params.output_offset = output_offset;
+    op_params.output_multiplier = output_multiplier;
+    op_params.output_shift = output_shift;
+    tflite::SetActivationParams(output_activation_min, output_activation_max, &op_params);
+
+    if (needBroadcast) {
+        if constexpr (isSignedOp) {
+            NNTRACE_COMP_SWITCH("reference_integer_ops::BroadcastAdd4DSlow");
+            tflite::reference_integer_ops::BroadcastAdd4DSlow(
+                    op_params, convertShapeToTflshape(shape1), in1, convertShapeToTflshape(shape2),
+                    in2, convertShapeToTflshape(shapeOut), out);
+        } else {
+            NNTRACE_COMP_SWITCH("reference_ops::BroadcastAdd4DSlow");
+            tflite::reference_ops::BroadcastAdd4DSlow(op_params, convertShapeToTflshape(shape1),
+                                                      in1, convertShapeToTflshape(shape2), in2,
+                                                      convertShapeToTflshape(shapeOut), out);
+        }
+    } else {
+        if constexpr (isSignedOp) {
+            NNTRACE_COMP_SWITCH("optimized_integer_ops::Add");
+            tflite::optimized_integer_ops::Add(op_params, convertShapeToTflshape(shape1), in1,
+                                               convertShapeToTflshape(shape2), in2,
+                                               convertShapeToTflshape(shapeOut), out);
+        } else {
+            NNTRACE_COMP_SWITCH("optimized_ops::Add");
+            tflite::optimized_ops::Add(op_params, convertShapeToTflshape(shape1), in1,
+                                       convertShapeToTflshape(shape2), in2,
+                                       convertShapeToTflshape(shapeOut), out);
+        }
+    }
+
+    return true;
+}
+
+bool executeInt32(const int32_t* aData, const Shape& aShape, const int32_t* bData,
+                  const Shape& bShape, int32_t activation, int32_t* outputData,
+                  const Shape& outputShape, int32_t func(int32_t, int32_t)) {
+    NN_RET_CHECK_EQ(activation, ANEURALNETWORKS_FUSED_NONE);
+    IndexedShapeWrapper aShapeIndexed(aShape);
+    IndexedShapeWrapper bShapeIndexed(bShape);
+    IndexedShapeWrapper outputShapeIndexed(outputShape);
+    std::vector<uint32_t> curIndex(outputShape.dimensions.size(), 0);
+    bool lastIndex = false;
+    do {
+        uint32_t outputFlatIndex;
+        NN_RET_CHECK(outputShapeIndexed.indexToFlatIndex(curIndex, &outputFlatIndex));
+        uint32_t aFlatIndex;
+        NN_RET_CHECK(aShapeIndexed.broadcastedIndexToFlatIndex(curIndex, &aFlatIndex));
+        uint32_t bFlatIndex;
+        NN_RET_CHECK(bShapeIndexed.broadcastedIndexToFlatIndex(curIndex, &bFlatIndex));
+
+        outputData[outputFlatIndex] = func(aData[aFlatIndex], bData[bFlatIndex]);
+
+        NN_RET_CHECK(outputShapeIndexed.nextIndexInplace(&curIndex, &lastIndex));
+    } while (!lastIndex);
     return true;
 }
 
@@ -212,8 +262,9 @@ bool mulFloat16(const _Float16* in1, const Shape& shape1, const _Float16* in2, c
     return binaryOperationFloat16(in1, shape1, in2, shape2, activation, out, shapeOut, &mulFloat32);
 }
 
-bool mulQuant8(const uint8_t* in1, const Shape& shape1, const uint8_t* in2, const Shape& shape2,
-               int32_t activation, uint8_t* out, const Shape& shapeOut) {
+template <typename T>
+bool mulQuant8(const T* in1, const Shape& shape1, const T* in2, const Shape& shape2,
+               int32_t activation, T* out, const Shape& shapeOut) {
     NNTRACE_TRANS("mulQuant8");
     const int32_t input1_offset = -shape1.offset;
     const int32_t input2_offset = -shape2.offset;
@@ -222,20 +273,39 @@ bool mulQuant8(const uint8_t* in1, const Shape& shape1, const uint8_t* in2, cons
     const double real_multiplier = input_product_scale / shapeOut.scale;
     int32 output_multiplier;
     int output_shift;
-    if (!QuantizeMultiplierSmallerThanOne(real_multiplier, &output_multiplier, &output_shift)) {
-        return false;
-    }
+    NN_RET_CHECK(QuantizeMultiplierSmallerThanOneExp(real_multiplier, &output_multiplier,
+                                                     &output_shift));
+
+    constexpr bool isSignedOp = std::is_same<T, int8_t>::value;
     int32_t output_activation_min;
     int32_t output_activation_max;
-    CalculateActivationRangeUint8(activation, shapeOut, &output_activation_min,
-                                  &output_activation_max);
+    if constexpr (isSignedOp) {
+        CalculateActivationRangeInt8(activation, shapeOut, &output_activation_min,
+                                     &output_activation_max);
+    } else {
+        CalculateActivationRangeUint8(activation, shapeOut, &output_activation_min,
+                                      &output_activation_max);
+    }
 
-    // Use BROADCAST version to handle the normal case.
-    NNTRACE_COMP_SWITCH("optimized_ops::BroadcastMul");
-    tflite::optimized_ops::BroadcastMul(in1, convertShapeToDims(shape1), input1_offset, in2,
-                                        convertShapeToDims(shape2), input2_offset, output_offset,
-                                        output_multiplier, output_shift, output_activation_min,
-                                        output_activation_max, out, convertShapeToDims(shapeOut));
+    tflite::ArithmeticParams op_params;
+    op_params.input1_offset = input1_offset;
+    op_params.input2_offset = input2_offset;
+    op_params.output_offset = output_offset;
+    op_params.output_multiplier = output_multiplier;
+    op_params.output_shift = output_shift;
+    tflite::SetActivationParams(output_activation_min, output_activation_max, &op_params);
+
+    if constexpr (isSignedOp) {
+        NNTRACE_COMP_SWITCH("reference_integer_ops::BroadcastMul4DSlow");
+        tflite::reference_integer_ops::BroadcastMul4DSlow(op_params, convertShapeToTflshape(shape1),
+                                                          in1, convertShapeToTflshape(shape2), in2,
+                                                          convertShapeToTflshape(shapeOut), out);
+    } else {
+        NNTRACE_COMP_SWITCH("reference_ops::BroadcastMul4DSlow");
+        tflite::reference_ops::BroadcastMul4DSlow(op_params, convertShapeToTflshape(shape1), in1,
+                                                  convertShapeToTflshape(shape2), in2,
+                                                  convertShapeToTflshape(shapeOut), out);
+    }
 
     return true;
 }
@@ -263,8 +333,9 @@ bool subFloat16(const _Float16* in1, const Shape& shape1, const _Float16* in2, c
     return binaryOperationFloat16(in1, shape1, in2, shape2, activation, out, shapeOut, &subFloat32);
 }
 
-bool subQuant8(const uint8_t* in1, const Shape& shape1, const uint8_t* in2, const Shape& shape2,
-               int32_t activation, uint8_t* out, const Shape& shapeOut) {
+template <typename T>
+bool subQuant8(const T* in1, const Shape& shape1, const T* in2, const Shape& shape2,
+               int32_t activation, T* out, const Shape& shapeOut) {
     NNTRACE_TRANS("subQuant8");
 
     const int32_t input1_offset = -shape1.offset;
@@ -279,41 +350,58 @@ bool subQuant8(const uint8_t* in1, const Shape& shape1, const uint8_t* in2, cons
 
     int32_t input1_multiplier;
     int32_t input1_shift;
-    if (!QuantizeMultiplierSmallerThanOne(real_input1_multiplier, &input1_multiplier,
-                                          &input1_shift)) {
-        return false;
-    }
+    NN_RET_CHECK(QuantizeMultiplierSmallerThanOneExp(real_input1_multiplier, &input1_multiplier,
+                                                     &input1_shift));
     int32_t input2_multiplier;
     int32_t input2_shift;
-    if (!QuantizeMultiplierSmallerThanOne(real_input2_multiplier, &input2_multiplier,
-                                          &input2_shift)) {
-        return false;
-    }
+    NN_RET_CHECK(QuantizeMultiplierSmallerThanOneExp(real_input2_multiplier, &input2_multiplier,
+                                                     &input2_shift));
+    // Negate multiplier of the second input, so that we can use Add kernels.
     input2_multiplier *= -1;
+
     int32_t output_multiplier;
     int32_t output_shift;
-    if (!QuantizeMultiplierSmallerThanOne(real_output_multiplier, &output_multiplier,
-                                          &output_shift)) {
-        return false;
-    }
+    NN_RET_CHECK(QuantizeMultiplierSmallerThanOneExp(real_output_multiplier, &output_multiplier,
+                                                     &output_shift));
+
+    constexpr bool isSignedOp = std::is_same<T, int8_t>::value;
     int32_t output_activation_min;
     int32_t output_activation_max;
-    CalculateActivationRangeUint8(activation, shapeOut, &output_activation_min,
-                                  &output_activation_max);
+    if constexpr (isSignedOp) {
+        CalculateActivationRangeInt8(activation, shapeOut, &output_activation_min,
+                                     &output_activation_max);
+    } else {
+        CalculateActivationRangeUint8(activation, shapeOut, &output_activation_min,
+                                      &output_activation_max);
+    }
+
+    tflite::ArithmeticParams op_params;
+    op_params.left_shift = left_shift;
+    op_params.input1_offset = input1_offset;
+    op_params.input1_multiplier = input1_multiplier;
+    op_params.input1_shift = input1_shift;
+    op_params.input2_offset = input2_offset;
+    op_params.input2_multiplier = input2_multiplier;
+    op_params.input2_shift = input2_shift;
+    op_params.output_offset = output_offset;
+    op_params.output_multiplier = output_multiplier;
+    op_params.output_shift = output_shift;
+    tflite::SetActivationParams(output_activation_min, output_activation_max, &op_params);
 
     // We are using tflite::optimized_ops::BroadcastAdd unconditionally here
     // because tflite::optimized_ops::Add fails to pass some of the
     // sub_quantized_different_scales tests.
-    NNTRACE_COMP_SWITCH("optimized_ops::BroadcastAdd");
-#define ANDROID_NN_BROADCAST_ADD(activation)                                                     \
-    tflite::optimized_ops::BroadcastAdd<tflite::FusedActivationFunctionType::activation>(        \
-            left_shift, in1, convertShapeToDims(shape1), input1_offset, input1_multiplier,       \
-            input1_shift, in2, convertShapeToDims(shape2), input2_offset, input2_multiplier,     \
-            input2_shift, output_offset, output_multiplier, output_shift, output_activation_min, \
-            output_activation_max, out, convertShapeToDims(shapeOut))
-
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_BROADCAST_ADD)
-#undef ANDROID_NN_BROADCAST_ADD
+    if constexpr (isSignedOp) {
+        NNTRACE_COMP_SWITCH("reference_integer_ops::BroadcastAdd4DSlow");
+        tflite::reference_integer_ops::BroadcastAdd4DSlow(op_params, convertShapeToTflshape(shape1),
+                                                          in1, convertShapeToTflshape(shape2), in2,
+                                                          convertShapeToTflshape(shapeOut), out);
+    } else {
+        NNTRACE_COMP_SWITCH("reference_ops::BroadcastAdd4DSlow");
+        tflite::reference_ops::BroadcastAdd4DSlow(op_params, convertShapeToTflshape(shape1), in1,
+                                                  convertShapeToTflshape(shape2), in2,
+                                                  convertShapeToTflshape(shapeOut), out);
+    }
 
     return true;
 }
@@ -372,8 +460,17 @@ bool validate(OperationType opType, const IOperationValidationContext* context) 
         } else {
             NN_RET_CHECK(validateHalVersion(context, std::max(HalVersion::V1_0, opIntroducedAt)));
         }
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED ||
+               inputType == OperandType::TENSOR_INT32) {
+        NN_RET_CHECK(validateHalVersion(context, std::max(HalVersion::V1_3, opIntroducedAt)));
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << getOperationName(opType);
+    }
+    const Shape& input1 = context->getInputShape(kInputTensor1);
+    const Shape& input2 = context->getInputShape(kInputTensor2);
+    if (hasKnownRank(input1) && hasKnownRank(input2)) {
+        NN_RET_CHECK_LE(getNumberOfDimensions(input1), 4);
+        NN_RET_CHECK_LE(getNumberOfDimensions(input2), 4);
     }
     return validateInputTypes(context, {inputType, inputType, OperandType::INT32}) &&
            validateOutputTypes(context, {inputType});
@@ -417,6 +514,23 @@ bool executeAdd(IOperationExecutionContext* context) {
                              context->getInputValue<int32_t>(kActivationScalar),
                              context->getOutputBuffer<uint8_t>(kOutputTensor),
                              context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return addQuant8(context->getInputBuffer<int8_t>(kInputTensor1),
+                             context->getInputShape(kInputTensor1),
+                             context->getInputBuffer<int8_t>(kInputTensor2),
+                             context->getInputShape(kInputTensor2),
+                             context->getInputValue<int32_t>(kActivationScalar),
+                             context->getOutputBuffer<int8_t>(kOutputTensor),
+                             context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_INT32:
+            return executeInt32(context->getInputBuffer<int32_t>(kInputTensor1),
+                                context->getInputShape(kInputTensor1),
+                                context->getInputBuffer<int32_t>(kInputTensor2),
+                                context->getInputShape(kInputTensor2),
+                                context->getInputValue<int32_t>(kActivationScalar),
+                                context->getOutputBuffer<int32_t>(kOutputTensor),
+                                context->getOutputShape(kOutputTensor),
+                                [](int32_t a, int32_t b) { return a + b; });
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation ADD";
     }
@@ -450,6 +564,23 @@ bool executeMul(IOperationExecutionContext* context) {
                              context->getInputValue<int32_t>(kActivationScalar),
                              context->getOutputBuffer<uint8_t>(kOutputTensor),
                              context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return mulQuant8(context->getInputBuffer<int8_t>(kInputTensor1),
+                             context->getInputShape(kInputTensor1),
+                             context->getInputBuffer<int8_t>(kInputTensor2),
+                             context->getInputShape(kInputTensor2),
+                             context->getInputValue<int32_t>(kActivationScalar),
+                             context->getOutputBuffer<int8_t>(kOutputTensor),
+                             context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_INT32:
+            return executeInt32(context->getInputBuffer<int32_t>(kInputTensor1),
+                                context->getInputShape(kInputTensor1),
+                                context->getInputBuffer<int32_t>(kInputTensor2),
+                                context->getInputShape(kInputTensor2),
+                                context->getInputValue<int32_t>(kActivationScalar),
+                                context->getOutputBuffer<int32_t>(kOutputTensor),
+                                context->getOutputShape(kOutputTensor),
+                                [](int32_t a, int32_t b) { return a * b; });
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation MUL";
     }
@@ -483,6 +614,23 @@ bool executeSub(IOperationExecutionContext* context) {
                              context->getInputValue<int32_t>(kActivationScalar),
                              context->getOutputBuffer<uint8_t>(kOutputTensor),
                              context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return subQuant8(context->getInputBuffer<int8_t>(kInputTensor1),
+                             context->getInputShape(kInputTensor1),
+                             context->getInputBuffer<int8_t>(kInputTensor2),
+                             context->getInputShape(kInputTensor2),
+                             context->getInputValue<int32_t>(kActivationScalar),
+                             context->getOutputBuffer<int8_t>(kOutputTensor),
+                             context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_INT32:
+            return executeInt32(context->getInputBuffer<int32_t>(kInputTensor1),
+                                context->getInputShape(kInputTensor1),
+                                context->getInputBuffer<int32_t>(kInputTensor2),
+                                context->getInputShape(kInputTensor2),
+                                context->getInputValue<int32_t>(kActivationScalar),
+                                context->getOutputBuffer<int32_t>(kOutputTensor),
+                                context->getOutputShape(kOutputTensor),
+                                [](int32_t a, int32_t b) { return a - b; });
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation SUB";
     }
@@ -508,6 +656,23 @@ bool executeDiv(IOperationExecutionContext* context) {
                               context->getInputValue<int32_t>(kActivationScalar),
                               context->getOutputBuffer<float>(kOutputTensor),
                               context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_INT32:
+            return executeInt32(context->getInputBuffer<int32_t>(kInputTensor1),
+                                context->getInputShape(kInputTensor1),
+                                context->getInputBuffer<int32_t>(kInputTensor2),
+                                context->getInputShape(kInputTensor2),
+                                context->getInputValue<int32_t>(kActivationScalar),
+                                context->getOutputBuffer<int32_t>(kOutputTensor),
+                                context->getOutputShape(kOutputTensor), [](int32_t a, int32_t b) {
+                                    // In NNAPI, DIV by zero is undefined, but should not crash.
+                                    if (b == 0) return 0;
+                                    int32_t result = a / b;
+                                    if (a % b != 0 && ((a < 0) != (b < 0))) {
+                                        // Implement "floor division".
+                                        --result;
+                                    }
+                                    return result;
+                                });
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation DIV";
     }

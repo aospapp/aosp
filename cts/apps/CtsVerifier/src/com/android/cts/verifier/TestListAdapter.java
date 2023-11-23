@@ -17,6 +17,7 @@
 package com.android.cts.verifier;
 
 import com.android.compatibility.common.util.ReportLog;
+import com.android.compatibility.common.util.TestResultHistory;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -73,6 +74,9 @@ public abstract class TestListAdapter extends BaseAdapter {
 
     /** Map from test name to {@link ReportLog}. */
     private final Map<String, ReportLog> mReportLogs = new HashMap<String, ReportLog>();
+
+    /** Map from test name to {@link TestResultHistory}. */
+    private final Map<String, TestResultHistoryCollection> mHistories = new HashMap<>();
 
     private final LayoutInflater mLayoutInflater;
 
@@ -192,8 +196,14 @@ public abstract class TestListAdapter extends BaseAdapter {
     }
 
     public void setTestResult(TestResult testResult) {
-        new SetTestResultTask(testResult.getName(), testResult.getResult(),
-                testResult.getDetails(), testResult.getReportLog()).execute();
+        String name = testResult.getName();
+
+        // Append existing history
+        TestResultHistoryCollection histories = testResult.getHistoryCollection();
+        histories.merge(null, mHistories.get(name));
+
+        new SetTestResultTask(name, testResult.getResult(),
+                testResult.getDetails(), testResult.getReportLog(), histories).execute();
     }
 
     class RefreshTestResultsTask extends AsyncTask<Void, Void, RefreshResult> {
@@ -214,6 +224,8 @@ public abstract class TestListAdapter extends BaseAdapter {
             mTestDetails.putAll(result.mDetails);
             mReportLogs.clear();
             mReportLogs.putAll(result.mReportLogs);
+            mHistories.clear();
+            mHistories.putAll(result.mHistories);
             notifyDataSetChanged();
         }
     }
@@ -223,16 +235,19 @@ public abstract class TestListAdapter extends BaseAdapter {
         Map<String, Integer> mResults;
         Map<String, String> mDetails;
         Map<String, ReportLog> mReportLogs;
+        Map<String, TestResultHistoryCollection> mHistories;
 
         RefreshResult(
                 List<TestListItem> items,
                 Map<String, Integer> results,
                 Map<String, String> details,
-                Map<String, ReportLog> reportLogs) {
+                Map<String, ReportLog> reportLogs,
+                Map<String, TestResultHistoryCollection> histories) {
             mItems = items;
             mResults = results;
             mDetails = details;
             mReportLogs = reportLogs;
+            mHistories = histories;
         }
     }
 
@@ -244,12 +259,14 @@ public abstract class TestListAdapter extends BaseAdapter {
         TestResultsProvider.COLUMN_TEST_RESULT,
         TestResultsProvider.COLUMN_TEST_DETAILS,
         TestResultsProvider.COLUMN_TEST_METRICS,
+        TestResultsProvider.COLUMN_TEST_RESULT_HISTORY,
     };
 
     RefreshResult getRefreshResults(List<TestListItem> items) {
         Map<String, Integer> results = new HashMap<String, Integer>();
         Map<String, String> details = new HashMap<String, String>();
         Map<String, ReportLog> reportLogs = new HashMap<String, ReportLog>();
+        Map<String, TestResultHistoryCollection> histories = new HashMap<>();
         ContentResolver resolver = mContext.getContentResolver();
         Cursor cursor = null;
         try {
@@ -261,9 +278,12 @@ public abstract class TestListAdapter extends BaseAdapter {
                     int testResult = cursor.getInt(2);
                     String testDetails = cursor.getString(3);
                     ReportLog reportLog = (ReportLog) deserialize(cursor.getBlob(4));
+                    TestResultHistoryCollection historyCollection =
+                        (TestResultHistoryCollection) deserialize(cursor.getBlob(5));
                     results.put(testName, testResult);
                     details.put(testName, testDetails);
                     reportLogs.put(testName, reportLog);
+                    histories.put(testName, historyCollection);
                 } while (cursor.moveToNext());
             }
         } finally {
@@ -271,7 +291,7 @@ public abstract class TestListAdapter extends BaseAdapter {
                 cursor.close();
             }
         }
-        return new RefreshResult(items, results, details, reportLogs);
+        return new RefreshResult(items, results, details, reportLogs, histories);
     }
 
     class ClearTestResultsTask extends AsyncTask<Void, Void, Void> {
@@ -287,27 +307,28 @@ public abstract class TestListAdapter extends BaseAdapter {
     class SetTestResultTask extends AsyncTask<Void, Void, Void> {
 
         private final String mTestName;
-
         private final int mResult;
-
         private final String mDetails;
-
         private final ReportLog mReportLog;
+        private final TestResultHistoryCollection mHistoryCollection;
 
         SetTestResultTask(
                 String testName,
                 int result,
                 String details,
-                ReportLog reportLog) {
+                ReportLog reportLog,
+                TestResultHistoryCollection historyCollection) {
             mTestName = testName;
             mResult = result;
             mDetails = details;
             mReportLog = reportLog;
+            mHistoryCollection = historyCollection;
         }
 
         @Override
         protected Void doInBackground(Void... params) {
-            TestResultsProvider.setTestResult(mContext, mTestName, mResult, mDetails, mReportLog);
+            TestResultsProvider.setTestResult(
+                mContext, mTestName, mResult, mDetails, mReportLog, mHistoryCollection);
             return null;
         }
     }
@@ -382,6 +403,19 @@ public abstract class TestListAdapter extends BaseAdapter {
                 : null;
     }
 
+    /**
+     * Get test result histories.
+     *
+     * @param position The position of test.
+     * @return A {@link TestResultHistoryCollection} object containing test result histories of tests.
+     */
+    public TestResultHistoryCollection getHistoryCollection(int position) {
+        TestListItem item = getItem(position);
+        return mHistories.containsKey(item.testName)
+            ? mHistories.get(item.testName)
+            : null;
+    }
+
     public boolean allTestsPassed() {
         for (TestListItem item : mRows) {
             if (item.isTest() && (!mTestResults.containsKey(item.testName)
@@ -451,7 +485,7 @@ public abstract class TestListAdapter extends BaseAdapter {
         }
     }
 
-    private static Object deserialize(byte[] bytes) {
+    public static Object deserialize(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
             return null;
         }

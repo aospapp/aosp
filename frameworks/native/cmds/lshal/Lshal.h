@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORK_NATIVE_CMDS_LSHAL_LSHAL_H_
-#define FRAMEWORK_NATIVE_CMDS_LSHAL_LSHAL_H_
+#pragma once
 
 #include <iostream>
 #include <string>
@@ -25,7 +24,6 @@
 #include <utils/StrongPointer.h>
 
 #include "Command.h"
-#include "HelpCommand.h"
 #include "NullableOStream.h"
 #include "utils.h"
 
@@ -76,5 +74,3 @@ private:
 
 }  // namespace lshal
 }  // namespace android
-
-#endif  // FRAMEWORK_NATIVE_CMDS_LSHAL_LSHAL_H_

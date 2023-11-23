@@ -22,7 +22,6 @@ import re
 import time
 
 from acts import signals
-from acts import utils
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.tel_defines import CAPABILITY_VOLTE
 from acts.test_utils.tel.tel_defines import CAPABILITY_VT
@@ -37,6 +36,7 @@ from acts.test_utils.tel.tel_test_utils import fastboot_wipe
 from acts.test_utils.tel.tel_test_utils import get_device_epoch_time
 from acts.test_utils.tel.tel_test_utils import get_model_name
 from acts.test_utils.tel.tel_test_utils import get_operator_name
+from acts.test_utils.tel.tel_test_utils import get_outgoing_voice_sub_id
 from acts.test_utils.tel.tel_test_utils import hangup_call
 from acts.test_utils.tel.tel_test_utils import last_call_drop_reason
 from acts.test_utils.tel.tel_test_utils import reboot_device
@@ -115,21 +115,21 @@ IGNORED_CALL_DROP_TRIGGERS = ["toggle_apm", "toggle_wifi"]
 
 
 class TelLiveConnectivityMonitorBaseTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        TelephonyBaseTest.setup_class(self)
         self.user_params["enable_connectivity_metrics"] = False
         self.user_params["telephony_auto_rerun"] = 0
         self.consecutive_failure_limit = 5
 
-    def setup_class(self):
-        TelephonyBaseTest.setup_class(self)
         self.dut = self.android_devices[0]
         self.ad_reference = self.android_devices[1]
         self.dut_model = get_model_name(self.dut)
         self.dut_operator = get_operator_name(self.log, self.dut)
-        self.dut_capabilities = self.dut.telephony.get("capabilities", [])
-        self.dut_wfc_modes = self.dut.telephony.get("wfc_modes", [])
-        self.reference_capabilities = self.ad_reference.telephony.get(
+        self.dut_subID = get_outgoing_voice_sub_id(self.dut)
+        self.dut_capabilities = self.dut.telephony["subscription"][self.dut_subID].get("capabilities", [])
+        self.dut_wfc_modes = self.dut.telephony["subscription"][self.dut_subID].get("wfc_modes", [])
+        self.ad_reference_subID = get_outgoing_voice_sub_id(self.ad_reference)
+        self.reference_capabilities = self.ad_reference.telephony["subscription"][self.ad_reference_subID].get(
             "capabilities", [])
         self.dut.log.info("DUT capabilities: %s", self.dut_capabilities)
         self.skip_reset_between_cases = False
@@ -149,7 +149,7 @@ class TelLiveConnectivityMonitorBaseTest(TelephonyBaseTest):
         self.dut.log.info("Pulling %s", CALL_DATA_LOGS)
         log_path = os.path.join(self.dut.log_path, test_name,
                                 "ConnectivityMonitorLogs_%s" % self.dut.serial)
-        utils.create_dir(log_path)
+        os.makedirs(log_path, exist_ok=True)
         self.dut.pull_files([CALL_DATA_LOGS], log_path)
 
         self._take_bug_report(test_name, begin_time)

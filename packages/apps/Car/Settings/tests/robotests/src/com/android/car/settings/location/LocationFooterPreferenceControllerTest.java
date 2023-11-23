@@ -34,7 +34,6 @@ import android.os.Bundle;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 
@@ -43,13 +42,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.shadows.ShadowApplication;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class LocationFooterPreferenceControllerTest {
     private static final String TEST_TEXT = "sample text";
     private static final int TEST_RES_ID = 1024;
@@ -60,7 +59,6 @@ public class LocationFooterPreferenceControllerTest {
     private Resources mResources;
 
     private PreferenceControllerTestHelper<LocationFooterPreferenceController> mControllerHelper;
-    private LocationFooterPreferenceController mController;
     private PreferenceGroup mGroup;
     private List<ResolveInfo> mResolveInfos;
 
@@ -71,8 +69,7 @@ public class LocationFooterPreferenceControllerTest {
         mGroup = new LogicalPreferenceGroup(context);
         mControllerHelper = new PreferenceControllerTestHelper<>(context,
                 LocationFooterPreferenceController.class, mGroup);
-        mController = mControllerHelper.getController();
-        mController.setPackageManager(mPackageManager);
+        mControllerHelper.getController().setPackageManager(mPackageManager);
 
         mResolveInfos = new ArrayList<>();
         when(mPackageManager.queryBroadcastReceivers(any(Intent.class), anyInt()))
@@ -132,45 +129,13 @@ public class LocationFooterPreferenceControllerTest {
         assertThat(mGroup.getPreference(0).getSummary()).isEqualTo(TEST_TEXT);
     }
 
-    // Broadcast Tests.
     @Test
-    public void onCreate_broadcastsFooterDisplayedIntentForValidInjections() {
-        ResolveInfo testResolveInfo =
-                getTestResolveInfo(/* isSystemApp= */ true, /* hasRequiredMetadata= */ true);
-        mResolveInfos.add(testResolveInfo);
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-
-        List<Intent> intentsFired = ShadowApplication.getInstance().getBroadcastIntents();
-        assertThat(intentsFired).hasSize(1);
-        Intent intentFired = intentsFired.get(0);
-        assertThat(intentFired.getAction()).isEqualTo(
-                LocationManager.SETTINGS_FOOTER_DISPLAYED_ACTION);
-        assertThat(intentFired.getComponent()).isEqualTo(testResolveInfo
-                .getComponentInfo().getComponentName());
-    }
-
-    @Test
-    public void onCreate_doesNotBroadcastFooterDisplayedIntentIfNoValidInjections() {
-        mResolveInfos.add(
-                getTestResolveInfo(/* isSystemApp= */ false, /* hasRequiredMetadata= */ true));
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-
-        List<Intent> intentsFired = ShadowApplication.getInstance().getBroadcastIntents();
-        assertThat(intentsFired).isEmpty();
-    }
-
-    @Test
-    public void onStop_broadcastsFooterRemovedIntent() {
+    public void onCreate_injectedFooterIsNotSelectable() {
         mResolveInfos.add(
                 getTestResolveInfo(/* isSystemApp= */ true, /* hasRequiredMetadata= */ true));
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_STOP);
+        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
 
-        List<Intent> intentsFired = ShadowApplication.getInstance().getBroadcastIntents();
-        assertThat(intentsFired).hasSize(2);
-        Intent intentFired = intentsFired.get(1);
-        assertThat(intentFired.getAction()).isEqualTo(
-                LocationManager.SETTINGS_FOOTER_REMOVED_ACTION);
+        assertThat(mGroup.getPreference(0).isSelectable()).isFalse();
     }
 
     /**

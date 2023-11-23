@@ -15,8 +15,8 @@ limitations under the License.
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="@dimen/control_bar_button_slot_size"
-    android:layout_height="@dimen/control_bar_button_slot_size"
+    android:layout_width="@dimen/control_bar_button_slot_width"
+    android:layout_height="@dimen/control_bar_button_slot_height"
     android:layout_gravity="center_vertical"
     android:visibility="visible"
     android:foregroundGravity="center"

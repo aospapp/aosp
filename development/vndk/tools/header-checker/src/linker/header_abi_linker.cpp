@@ -17,8 +17,10 @@
 #include "repr/ir_reader.h"
 #include "repr/symbol/so_file_parser.h"
 #include "repr/symbol/version_script_parser.h"
+#include "utils/command_line_utils.h"
 #include "utils/header_abi_util.h"
 
+#include <llvm/ADT/Optional.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -37,6 +39,7 @@
 using namespace header_checker;
 using header_checker::repr::TextFormatIR;
 using header_checker::utils::CollectAllExportedHeaders;
+using header_checker::utils::HideIrrelevantCommandLineOptions;
 
 
 static constexpr std::size_t kSourcesPerBatchThread = 7;
@@ -45,8 +48,8 @@ static llvm::cl::OptionCategory header_linker_category(
     "header-abi-linker options");
 
 static llvm::cl::list<std::string> dump_files(
-    llvm::cl::Positional, llvm::cl::desc("<dump-files>"), llvm::cl::Required,
-    llvm::cl::cat(header_linker_category), llvm::cl::OneOrMore);
+    llvm::cl::Positional, llvm::cl::desc("<dump-files>"), llvm::cl::ZeroOrMore,
+    llvm::cl::cat(header_linker_category));
 
 static llvm::cl::opt<std::string> linked_dump(
     "o", llvm::cl::desc("<linked dump>"), llvm::cl::Required,
@@ -399,7 +402,7 @@ bool HeaderAbiLinker::ReadExportedSymbols() {
 }
 
 bool HeaderAbiLinker::ReadExportedSymbolsFromVersionScript() {
-  std::optional<utils::ApiLevel> api_level = utils::ParseApiLevel(api_);
+  llvm::Optional<utils::ApiLevel> api_level = utils::ParseApiLevel(api_);
   if (!api_level) {
     llvm::errs() << "-api must be either \"current\" or an integer (e.g. 21)\n";
     return false;
@@ -413,7 +416,7 @@ bool HeaderAbiLinker::ReadExportedSymbolsFromVersionScript() {
 
   repr::VersionScriptParser parser;
   parser.SetArch(arch_);
-  parser.SetApiLevel(api_level.value());
+  parser.SetApiLevel(api_level.getValue());
   for (auto &&version : excluded_symbol_versions_) {
     parser.AddExcludedSymbolVersion(version);
   }
@@ -446,22 +449,8 @@ bool HeaderAbiLinker::ReadExportedSymbolsFromSharedObjectFile() {
   return true;
 }
 
-// Hide irrelevant command line options defined in LLVM libraries.
-static void HideIrrelevantCommandLineOptions() {
-  llvm::StringMap<llvm::cl::Option *> &map = llvm::cl::getRegisteredOptions();
-  for (llvm::StringMapEntry<llvm::cl::Option *> &p : map) {
-    if (p.second->Category == &header_linker_category) {
-      continue;
-    }
-    if (p.first().startswith("help")) {
-      continue;
-    }
-    p.second->setHiddenFlag(llvm::cl::Hidden);
-  }
-}
-
 int main(int argc, const char **argv) {
-  HideIrrelevantCommandLineOptions();
+  HideIrrelevantCommandLineOptions(header_linker_category);
   llvm::cl::ParseCommandLineOptions(argc, argv, "header-linker");
 
   if (so_file.empty() && version_script.empty()) {

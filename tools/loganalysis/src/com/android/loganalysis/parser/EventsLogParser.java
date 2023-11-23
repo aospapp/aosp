@@ -132,7 +132,7 @@ public class EventsLogParser implements IParser {
         String line;
         while ((line = input.readLine()) != null) {
             Matcher match = null;
-            if (((match = matches(ACTION_LATENCY, line))) != null) {
+            if ((match = matches(ACTION_LATENCY, line)) != null) {
                 LatencyItem latencyItem = new LatencyItem();
                 latencyItem.setActionId(Integer.parseInt(match.group("action")));
                 latencyItem.setDelay(Long.parseLong(match.group("delay")));

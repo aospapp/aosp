@@ -28,7 +28,7 @@ function RunConfigure() {
   export CFLAGS="-fPIE -fPIC"
   export LDFLAGS="-pie"
 
-  ./configure --host=${HOST}
+  ./configure --host=${HOST} --without-zlib
 
   mkdir -p configs/${ARCH}/MagickCore
   mv MagickCore/version.h configs/${ARCH}/MagickCore/

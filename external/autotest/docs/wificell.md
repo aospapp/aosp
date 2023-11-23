@@ -46,11 +46,12 @@ automatically by the lab team for most Chrome OS lab WiFi setups.
 
 For custom/local testing without modifying your DNS server, one can accomplish
 this by adding entries to your `/etc/hosts` file. Alternatively, you can supply
-the `router_addr=` arguments to autotest. For example:
+the `router_addr=` and `pcap_addr=` arguments to autotest. For example:
 
 ```bash
-# DUT at 'my-host' and AP at 'my-other-router'
-test_that --args=router_addr=my-other-router my-host suite:wifi_matfunc
+# DUT at 'my-host', AP at 'my-other-router', and PCAP at 'my-other-pcap'
+test_that --args="router_addr=my-other-router pcap_addr=my-other-pcap" \
+        my-host suite:wifi_matfunc
 ```
 
 Also, note that if a pcap device isn't found at `${HOST}-pcap`, then we often

@@ -20,11 +20,10 @@
 #include <binder/Parcel.h>
 #include <binder/Parcelable.h>
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 class RadioChainInfo : public ::android::Parcelable {
  public:
@@ -42,10 +41,9 @@ class RadioChainInfo : public ::android::Parcelable {
   int32_t level;
 };
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com
 
 #endif  // WIFICOND_SCANNING_RADIO_CHAIN_INFO_H_

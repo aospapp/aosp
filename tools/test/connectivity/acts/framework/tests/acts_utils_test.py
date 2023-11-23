@@ -14,6 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import logging
 import time
 import unittest
 
@@ -246,6 +247,74 @@ class ConcurrentActionsTest(unittest.TestCase):
                 lambda: self.function_raises_passed_in_exception_type(KeyError),
                 failure_exceptions=KeyError
             )
+
+
+class SuppressLogOutputTest(unittest.TestCase):
+    """Tests SuppressLogOutput"""
+
+    def test_suppress_log_output(self):
+        """Tests that the SuppressLogOutput context manager removes handlers
+        of the specified levels upon entry and re-adds handlers upon exit.
+        """
+        handlers = [logging.NullHandler(level=lvl) for lvl in
+                    (logging.DEBUG, logging.INFO, logging.ERROR)]
+        log = logging.getLogger('test_log')
+        for handler in handlers:
+            log.addHandler(handler)
+        with utils.SuppressLogOutput(log, [logging.INFO, logging.ERROR]):
+            self.assertTrue(
+                any(handler.level == logging.DEBUG for handler in log.handlers))
+            self.assertFalse(
+                any(handler.level in (logging.INFO, logging.ERROR)
+                    for handler in log.handlers))
+        self.assertCountEqual(handlers, log.handlers)
+
+
+class IpAddressUtilTest(unittest.TestCase):
+
+    def test_positive_ipv4_normal_address(self):
+        ip_address = "192.168.1.123"
+        self.assertTrue(utils.is_valid_ipv4_address(ip_address))
+
+    def test_positive_ipv4_any_address(self):
+        ip_address = "0.0.0.0"
+        self.assertTrue(utils.is_valid_ipv4_address(ip_address))
+
+    def test_positive_ipv4_broadcast(self):
+        ip_address = "255.255.255.0"
+        self.assertTrue(utils.is_valid_ipv4_address(ip_address))
+
+    def test_negative_ipv4_with_ipv6_address(self):
+        ip_address = "fe80::f693:9fff:fef4:1ac"
+        self.assertFalse(utils.is_valid_ipv4_address(ip_address))
+
+    def test_negative_ipv4_with_invalid_string(self):
+        ip_address = "fdsafdsafdsafdsf"
+        self.assertFalse(utils.is_valid_ipv4_address(ip_address))
+
+    def test_negative_ipv4_with_invalid_number(self):
+        ip_address = "192.168.500.123"
+        self.assertFalse(utils.is_valid_ipv4_address(ip_address))
+
+    def test_positive_ipv6(self):
+        ip_address = 'fe80::f693:9fff:fef4:1ac'
+        self.assertTrue(utils.is_valid_ipv6_address(ip_address))
+
+    def test_positive_ipv6_link_local(self):
+        ip_address = 'fe80::'
+        self.assertTrue(utils.is_valid_ipv6_address(ip_address))
+
+    def test_negative_ipv6_with_ipv4_address(self):
+        ip_address = '192.168.1.123'
+        self.assertFalse(utils.is_valid_ipv6_address(ip_address))
+
+    def test_negative_ipv6_invalid_characters(self):
+        ip_address = 'fe80:jkyr:f693:9fff:fef4:1ac'
+        self.assertFalse(utils.is_valid_ipv6_address(ip_address))
+
+    def test_negative_ipv6_invalid_string(self):
+        ip_address = 'fdsafdsafdsafdsf'
+        self.assertFalse(utils.is_valid_ipv6_address(ip_address))
 
 
 if __name__ == '__main__':

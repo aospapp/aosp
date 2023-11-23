@@ -15,6 +15,10 @@
  */
 package com.android.cts.devicepolicy;
 
+import android.platform.test.annotations.FlakyTest;
+
+import org.junit.Test;
+
 public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
     private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
     private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
@@ -23,7 +27,7 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
     private int mParentUserId;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         // We need multi user to be supported in order to create a profile of the user owner.
@@ -39,7 +43,7 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             if (mProfileUserId != 0) {
                 removeUser(mProfileUserId);
@@ -49,7 +53,8 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
         }
         super.tearDown();
     }
-
+    @FlakyTest(bugId = 141747631)
+    @Test
     public void testManagedProfileProvisioning() throws Exception {
         if (!mHasFeature) {
             return;
@@ -61,6 +66,8 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
                 "testIsManagedProfile", mProfileUserId);
     }
 
+    @FlakyTest(bugId = 127275983)
+    @Test
     public void testEXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE() throws Exception {
         if (!mHasFeature) {
             return;
@@ -72,6 +79,8 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
                 "testVerifyAdminExtraBundle", mProfileUserId);
     }
 
+    @FlakyTest(bugId = 141747631)
+    @Test
     public void testVerifySuccessfulIntentWasReceived() throws Exception {
         if (!mHasFeature) {
             return;
@@ -83,6 +92,8 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
                 "testVerifySuccessfulIntentWasReceived", mProfileUserId);
     }
 
+    @FlakyTest(bugId = 141747631)
+    @Test
     public void testAccountMigration() throws Exception {
         if (!mHasFeature) {
             return;
@@ -97,6 +108,8 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
                 "testAccountNotExist", mParentUserId);
     }
 
+    @FlakyTest(bugId = 141747631)
+    @Test
     public void testAccountCopy() throws Exception {
         if (!mHasFeature) {
             return;
@@ -111,6 +124,8 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
                 "testAccountExist", mParentUserId);
     }
 
+    @FlakyTest(bugId = 141747631)
+    @Test
     public void testWebview() throws Exception {
         if (!mHasFeature) {
             return;

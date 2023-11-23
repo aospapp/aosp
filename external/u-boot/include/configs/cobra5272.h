@@ -92,14 +92,6 @@
  * ---
  */
 
-#ifndef CONFIG_MONITOR_IS_IN_RAM
-#define CONFIG_ENV_OFFSET		0x4000
-#define CONFIG_ENV_SECT_SIZE	0x2000
-#else
-#define CONFIG_ENV_ADDR		0xffe04000
-#define CONFIG_ENV_SECT_SIZE	0x2000
-#endif
-
 #define LDS_BOARD_TEXT \
 	. = DEFINED(env_offset) ? env_offset : .; \
 	env/embedded.o(.text);
@@ -114,7 +106,6 @@
  */
 
 #ifdef CONFIG_MCFFEC
-#	define CONFIG_MII		1
 #	define CONFIG_MII_INIT		1
 #	define CONFIG_SYS_DISCOVER_PHY
 #	define CONFIG_SYS_RX_ETH_BUFFER	8

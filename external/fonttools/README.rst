@@ -17,10 +17,10 @@ Installation
 FontTools requires `Python <http://www.python.org/download/>`__ 2.7, 3.4
 or later.
 
-**NOTE** After January 1 2019, until no later than June 30 2019, the support
-for *Python 2.7* will be limited to only bug fixes, and no new features will
-be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
-*Python 3.5* or above. You can read more `here <https://python3statement.org>`__
+**NOTE** From August 2019, until no later than January 1 2020, the support
+for *Python 2.7* will be limited to only critical bug fixes, and no new features
+will be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
+*Python 3.6* or above. You can read more `here <https://python3statement.org>`__
 and `here <https://github.com/fonttools/fonttools/issues/765>`__ for the
 reasons behind this decision.
 
@@ -228,8 +228,8 @@ are required to unlock the extra features named "ufo", etc.
   To use the latest available data, you can install:
 
   * `unicodedata2 <https://pypi.python.org/pypi/unicodedata2>`__:
-    ``unicodedata`` backport for Python 2.7 and 3.5 updated to the latest
-    Unicode version 9.0. Note this is not necessary if you use Python 3.6
+    ``unicodedata`` backport for Python 2.7 and 3.x updated to the latest
+    Unicode version 12.0. Note this is not necessary if you use Python 3.8
     as the latter already comes with an up-to-date ``unicodedata``.
 
   *Extra:* ``unicode``
@@ -363,15 +363,15 @@ In alphabetical order:
 
 Olivier Berten, Samyak Bhuta, Erik van Blokland, Petr van Blokland,
 Jelle Bosma, Sascha Brawer, Tom Byrer, Frédéric Coiffier, Vincent
-Connare, Dave Crossland, Simon Daniels, Behdad Esfahbod, Behnam
-Esfahbod, Hannes Famira, Sam Fishman, Matt Fontaine, Yannis Haralambous,
-Greg Hitchcock, Jeremie Hornus, Khaled Hosny, John Hudson, Denis Moyogo
-Jacquerye, Jack Jansen, Tom Kacvinsky, Jens Kutilek, Antoine Leca,
-Werner Lemberg, Tal Leming, Peter Lofting, Cosimo Lupo, Masaya Nakamura,
-Dave Opstad, Laurence Penney, Roozbeh Pournader, Garret Rieger, Read
-Roberts, Guido van Rossum, Just van Rossum, Andreas Seidel, Georg
-Seifert, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov, Paul
-Wise.
+Connare, Dave Crossland, Simon Daniels, Peter Dekkers, Behdad Esfahbod,
+Behnam Esfahbod, Hannes Famira, Sam Fishman, Matt Fontaine, Yannis
+Haralambous, Greg Hitchcock, Jeremie Hornus, Khaled Hosny, John Hudson,
+Denis Moyogo Jacquerye, Jack Jansen, Tom Kacvinsky, Jens Kutilek,
+Antoine Leca, Werner Lemberg, Tal Leming, Peter Lofting, Cosimo Lupo,
+Masaya Nakamura, Dave Opstad, Laurence Penney, Roozbeh Pournader, Garret
+Rieger, Read Roberts, Guido van Rossum, Just van Rossum, Andreas Seidel,
+Georg Seifert, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov,
+Paul Wise.
 
 Copyrights
 ~~~~~~~~~~

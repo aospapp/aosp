@@ -15,6 +15,9 @@
  */
 package com.android.tradefed.targetprep;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -30,8 +33,6 @@ import org.junit.runners.JUnit4;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
-
-import static org.junit.Assert.*;
 
 /**
  * Unit tests for {@link InstallApkSetup}
@@ -55,6 +56,7 @@ public class InstallApkSetupTest {
         mMockTestDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockTestDevice.getSerialNumber()).andStubReturn(SERIAL);
         EasyMock.expect(mMockTestDevice.getDeviceDescriptor()).andStubReturn(null);
+        EasyMock.expect(mMockTestDevice.isAppEnumerationSupported()).andStubReturn(false);
 
         testDir = FileUtil.createTempDir("TestApkDir");
         testFile = FileUtil.createTempFile("File", ".apk", testDir);
@@ -82,6 +84,24 @@ public class InstallApkSetupTest {
     }
 
     /**
+     * Test {@link InstallApkSetupTest#setUp()} by successfully installing 2 Apk files
+     */
+    @Test
+    public void testSetupForceQueryable()
+            throws DeviceNotAvailableException, BuildError, TargetSetupError {
+        EasyMock.expect(mMockTestDevice.isAppEnumerationSupported()).andReturn(true);
+
+        testCollectionFiles.add(testFile);
+        testCollectionFiles.add(testFile);
+        mInstallApkSetup.setApkPaths(testCollectionFiles);
+        EasyMock.expect(mMockTestDevice.installPackage((File) EasyMock.anyObject(),
+                EasyMock.eq(true), EasyMock.eq("--force-queryable"))).andReturn(null).times(2);
+        EasyMock.replay(mMockBuildInfo, mMockTestDevice);
+        mInstallApkSetup.setUp(mMockTestDevice, mMockBuildInfo);
+        EasyMock.verify(mMockBuildInfo, mMockTestDevice);
+    }
+
+    /**
      * Test {@link InstallApkSetupTest#setUp()} by installing a non-existing Apk
      */
     @Test
@@ -94,7 +114,7 @@ public class InstallApkSetupTest {
             mInstallApkSetup.setUp(mMockTestDevice, mMockBuildInfo);
             fail("should have failed due to missing APK file");
         } catch (TargetSetupError expected) {
-            String refMessage = String.format("%s does not exist null", testFile.getAbsolutePath());
+            String refMessage = String.format("%s does not exist", testFile.getAbsolutePath());
             assertEquals(refMessage, expected.getMessage());
         }
         EasyMock.verify(mMockBuildInfo, mMockTestDevice);
@@ -136,9 +156,11 @@ public class InstallApkSetupTest {
             mInstallApkSetup.setUp(mMockTestDevice, mMockBuildInfo);
             fail("should have failed due to installation failure");
         } catch (TargetSetupError expected) {
-            String refMessage = String.format("Stopping test: failed to install %s on device %s. " +
-                    "Reason: %s (Permission denied) null", testFile.getAbsolutePath(),
-                    SERIAL, testFile.getAbsolutePath());
+            String refMessage =
+                    String.format(
+                            "Stopping test: failed to install %s on device %s. "
+                                    + "Reason: %s (Permission denied)",
+                            testFile.getAbsolutePath(), SERIAL, testFile.getAbsolutePath());
             assertEquals(refMessage, expected.getMessage());
         }
         EasyMock.verify(mMockBuildInfo, mMockTestDevice);

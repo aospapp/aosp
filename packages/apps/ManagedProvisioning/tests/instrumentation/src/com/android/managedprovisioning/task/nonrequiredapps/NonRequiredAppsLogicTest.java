@@ -98,33 +98,31 @@ public class NonRequiredAppsLogicTest {
     }
 
     @Test
-    public void testGetSystemAppsToRemove_NewDelete() throws Exception {
-        // GIVEN that a new profile is being created and that system apps should be deleted
+    public void testGetSystemAppsToRemove_newProfile_returnsBlacklistedApps() throws Exception {
+        // GIVEN that a new profile is being created and that non desired apps should be deleted
         mParamsBuilder.setLeaveAllSystemAppsEnabled(false);
-        final NonRequiredAppsLogic logic = createLogic(true);
+        final NonRequiredAppsLogic logic = createLogic(/*newProfile= */true);
         // GIVEN that a combination of apps is present
         initializeApps();
 
-        // THEN getSystemAppsToRemove should return a non-empty list with the only app to removed
-        // being the one that is a current system app and non required
-        assertEquals(getAppsSet(Arrays.asList(0, 4)),
+        // THEN getSystemAppsToRemove should return a non-empty list with apps to be removed
+        assertEquals(getAppsSet(Arrays.asList(0, 2, 4, 6)),
                 logic.getSystemAppsToRemove(TEST_USER_ID));
     }
 
     @Test
-    public void testGetSystemAppsToRemove_deviceAdminComponentIsNotGiven() throws Exception {
+    public void testGetSystemAppsToRemove_deviceAdminComponentIsNotGiven_newProfile_returnsBlacklistedApps() throws Exception {
         // GIVEN that only device admin package name is given.
         mParamsBuilder.setDeviceAdminComponentName(null);
         mParamsBuilder.setDeviceAdminPackageName(TEST_DPC_PACKAGE_NAME);
-        // GIVEN that a new profile is being created and that system apps should be deleted
+        // GIVEN that a new profile is being created and that non desired apps should be deleted
         mParamsBuilder.setLeaveAllSystemAppsEnabled(false);
-        final NonRequiredAppsLogic logic = createLogic(true);
+        final NonRequiredAppsLogic logic = createLogic(/*newProfile= */true);
         // GIVEN that a combination of apps is present
         initializeApps();
 
-        // THEN getSystemAppsToRemove should return a non-empty list with the only app to removed
-        // being the one that is a current system app and non required
-        assertEquals(getAppsSet(Arrays.asList(0, 4)),
+        // THEN getSystemAppsToRemove should return a non-empty list with apps to be removed
+        assertEquals(getAppsSet(Arrays.asList(0, 2, 4, 6)),
                 logic.getSystemAppsToRemove(TEST_USER_ID));
     }
 

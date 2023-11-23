@@ -16,8 +16,6 @@
 
 package com.android.services.telephony;
 
-import android.content.Context;
-
 /**
  * Manages logging for the entire module.
  */
@@ -39,72 +37,80 @@ final public class Log {
         return FORCE_LOGGING || android.util.Log.isLoggable(TAG, level);
     }
 
-    public static void initLogging(Context context) {
-        // Register Telephony with the Telecom Logger.
-        android.telecom.Log.setTag(TAG);
-        android.telecom.Log.setSessionContext(context);
-    }
-
     // Relay log messages to Telecom
     // TODO: Redo namespace of Telephony to use these methods directly.
 
     public static void d(String prefix, String format, Object... args) {
-        android.telecom.Log.d(prefix, format, args);
+        android.util.Log.d(TAG, (args == null || args.length == 0) ? format :
+                String.format(prefix + ": " + format, args));
     }
 
     public static void d(Object objectPrefix, String format, Object... args) {
-        android.telecom.Log.d(objectPrefix, format, args);
+        android.util.Log.d(TAG, (args == null || args.length == 0) ? format :
+                String.format(getPrefixFromObject(objectPrefix) + ": " + format, args));
     }
 
     public static void i(String prefix, String format, Object... args) {
-        android.telecom.Log.i(prefix, format, args);
+        android.util.Log.i(TAG, (args == null || args.length == 0) ? format :
+                String.format(prefix + ": " + format, args));
     }
 
     public static void i(Object objectPrefix, String format, Object... args) {
-        android.telecom.Log.i(objectPrefix, format, args);
+        android.util.Log.i(TAG, (args == null || args.length == 0) ? format :
+                String.format(getPrefixFromObject(objectPrefix) + ": " + format, args));
     }
 
     public static void v(String prefix, String format, Object... args) {
-        android.telecom.Log.v(prefix, format, args);
+        android.util.Log.v(TAG, (args == null || args.length == 0) ? format :
+                String.format(prefix + ": " + format, args));
     }
 
     public static void v(Object objectPrefix, String format, Object... args) {
-        android.telecom.Log.v(objectPrefix, format, args);
+        android.util.Log.v(TAG, (args == null || args.length == 0) ? format :
+                String.format(getPrefixFromObject(objectPrefix) + ": " + format, args));
     }
 
     public static void w(String prefix, String format, Object... args) {
-        android.telecom.Log.w(prefix, format, args);
+        android.util.Log.w(TAG, (args == null || args.length == 0) ? format :
+                String.format(prefix + ": " + format, args));
     }
 
     public static void w(Object objectPrefix, String format, Object... args) {
-        android.telecom.Log.w(objectPrefix, format, args);
+        android.util.Log.w(TAG, (args == null || args.length == 0) ? format :
+                String.format(getPrefixFromObject(objectPrefix) + ": " + format, args));
     }
 
     public static void e(String prefix, Throwable tr, String format, Object... args) {
-        android.telecom.Log.e(prefix, tr, format, args);
+        android.util.Log.e(TAG, (args == null || args.length == 0) ? format :
+                String.format(prefix + ": " + format, args), tr);
     }
 
     public static void e(Object objectPrefix, Throwable tr, String format, Object... args) {
-        android.telecom.Log.e(objectPrefix, tr, format, args);
+        android.util.Log.e(TAG, (args == null || args.length == 0) ? format :
+                String.format(getPrefixFromObject(objectPrefix) + ": " + format, args), tr);
     }
 
     public static void wtf(String prefix, Throwable tr, String format, Object... args) {
-        android.telecom.Log.wtf(prefix, tr, format, args);
+        android.util.Log.wtf(TAG, (args == null || args.length == 0) ? format :
+                String.format(prefix + ": " + format, args), tr);
     }
 
     public static void wtf(Object objectPrefix, Throwable tr, String format, Object... args) {
-        android.telecom.Log.wtf(objectPrefix, tr, format, args);
+        android.util.Log.wtf(TAG, (args == null || args.length == 0) ? format :
+                String.format(getPrefixFromObject(objectPrefix) + ": " + format, args), tr);
     }
 
     public static void wtf(String prefix, String format, Object... args) {
-        android.telecom.Log.wtf(prefix, format, args);
+        android.util.Log.wtf(TAG, (args == null || args.length == 0) ? format :
+                String.format(prefix + ": " + format, args));
     }
 
     public static void wtf(Object objectPrefix, String format, Object... args) {
-        android.telecom.Log.wtf(objectPrefix, format, args);
+        android.util.Log.wtf(TAG, (args == null || args.length == 0) ? format :
+                String.format(getPrefixFromObject(objectPrefix) + ": " + format, args));
     }
 
-    public static String pii(Object pii) {
-        return android.telecom.Log.pii(pii);
+    private static String getPrefixFromObject(Object obj) {
+        return obj == null ? "<null>" : obj.getClass().getSimpleName();
     }
 }

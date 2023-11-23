@@ -5,22 +5,17 @@
 #ifndef ANDROID_VIDEO_DECODE_ACCELERATOR_ADAPTOR_H
 #define ANDROID_VIDEO_DECODE_ACCELERATOR_ADAPTOR_H
 
-#include <C2VDACommon.h>
+#include <vector>
+
+#include <base/files/scoped_file.h>
 
 #include <rect.h>
 #include <size.h>
 #include <video_codecs.h>
 #include <video_pixel_format.h>
-
-#include <vector>
+#include <v4l2_codec2/common/Common.h>
 
 namespace android {
-
-// The offset and stride of a video frame plane.
-struct VideoFramePlane {
-    uint32_t mOffset;
-    uint32_t mStride;
-};
 
 // Video decoder accelerator adaptor interface.
 // The adaptor plays the role of providing unified adaptor API functions and client callback to
@@ -78,11 +73,11 @@ public:
     virtual void decode(int32_t bitstreamId, int handleFd, off_t offset, uint32_t bytesUsed) = 0;
 
     // Assigns a specified number of picture buffer set to the video decoder.
-    virtual void assignPictureBuffers(uint32_t numOutputBuffers) = 0;
+    virtual void assignPictureBuffers(uint32_t numOutputBuffers, const media::Size& size) = 0;
 
     // Imports planes as backing memory for picture buffer with specified ID.
     virtual void importBufferForPicture(int32_t pictureBufferId, HalPixelFormat format,
-                                        int handleFd,
+                                        std::vector<::base::ScopedFD> handleFds,
                                         const std::vector<VideoFramePlane>& planes) = 0;
 
     // Sends picture buffer to be reused by the decoder by its piture ID.

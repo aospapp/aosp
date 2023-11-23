@@ -17,7 +17,7 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -781,11 +781,13 @@ static MagickBooleanType GetMagickModulePath(const char *filename,
 
     home=GetEnvironmentValue("XDG_CONFIG_HOME");
     if (home == (char *) NULL)
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__MINGW32__)
       home=GetEnvironmentValue("LOCALAPPDATA");
     if (home == (char *) NULL)
       home=GetEnvironmentValue("APPDATA");
     if (home == (char *) NULL)
       home=GetEnvironmentValue("USERPROFILE");
+#endif
     if (home != (char *) NULL)
       {
         /*
@@ -1220,7 +1222,6 @@ MagickPrivate MagickBooleanType OpenModule(const char *module,
   ExceptionInfo *exception)
 {
   char
-    filename[MagickPathExtent],
     module_name[MagickPathExtent],
     name[MagickPathExtent],
     path[MagickPathExtent];
@@ -1268,11 +1269,11 @@ MagickPrivate MagickBooleanType OpenModule(const char *module,
     Locate module.
   */
   handle=(ModuleHandle) NULL;
-  TagToCoderModuleName(module_name,filename);
+  TagToCoderModuleName(module_name,name);
   (void) LogMagickEvent(ModuleEvent,GetMagickModule(),
-    "Searching for module \"%s\" using filename \"%s\"",module_name,filename);
+    "Searching for module \"%s\" using filename \"%s\"",module_name,name);
   *path='\0';
-  status=GetMagickModulePath(filename,MagickImageCoderModule,path,exception);
+  status=GetMagickModulePath(name,MagickImageCoderModule,path,exception);
   if (status == MagickFalse)
     return(MagickFalse);
   /*

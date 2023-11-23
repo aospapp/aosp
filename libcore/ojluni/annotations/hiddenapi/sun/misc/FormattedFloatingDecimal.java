@@ -79,7 +79,7 @@ public class FormattedFloatingDecimal {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private static boolean $assertionsDisabled;
+    @android.compat.annotation.UnsupportedAppUsage private static boolean $assertionsDisabled;
 
     private int decExponentRounded;
 
@@ -95,11 +95,11 @@ public class FormattedFloatingDecimal {
 
     @SuppressWarnings({"unchecked", "deprecation", "all"})
     public static enum Form {
-        @dalvik.annotation.compat.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage
         SCIENTIFIC,
-        @dalvik.annotation.compat.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage
         COMPATIBLE,
-        @dalvik.annotation.compat.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage
         DECIMAL_FLOAT,
         GENERAL;
 

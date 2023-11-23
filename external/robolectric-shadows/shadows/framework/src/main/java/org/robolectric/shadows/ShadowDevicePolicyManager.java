@@ -9,6 +9,7 @@ import static android.os.Build.VERSION_CODES.N_MR1;
 import static android.os.Build.VERSION_CODES.O;
 // BEGIN-INTERNAL
 import static android.os.Build.VERSION_CODES.Q;
+import static android.os.Build.VERSION_CODES.R;
 // END-INTERNAL
 import static org.robolectric.shadow.api.Shadow.invokeConstructor;
 import static org.robolectric.util.ReflectionHelpers.ClassParameter.from;
@@ -32,6 +33,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Process;
 import android.text.TextUtils;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -91,6 +93,7 @@ public class ShadowDevicePolicyManager {
   private final Map<PackageAndPermission, Integer> appPermissionGrantStateMap = new HashMap<>();
   private final Map<ComponentName, byte[]> passwordResetTokens = new HashMap<>();
   private final Set<ComponentName> componentsWithActivatedTokens = new HashSet<>();
+  private Set<String> defaultCrossProfilePackages = new HashSet<>();
   private Collection<String> packagesToFailForSetApplicationHidden = Collections.emptySet();
   private Set<String> crossProfileCalendarPackages = Collections.emptySet();
   private Context context;
@@ -868,6 +871,18 @@ public class ShadowDevicePolicyManager {
   public void setCrossProfileCalendarPackages(ComponentName admin, Set<String> packageNames) {
     enforceProfileOwner(admin);
     crossProfileCalendarPackages = packageNames;
+  }
+
+  @Implementation(minSdk = R)
+  protected Set<String> getDefaultCrossProfilePackages() {
+    return new HashSet<>(defaultCrossProfilePackages);
+  }
+
+  public void addDefaultCrossProfilePackage(String packageName) {
+    defaultCrossProfilePackages.add(packageName);
+  }
+  public void setDefaultCrossProfilePackages(Set<String> defaultCrossProfilePackages) {
+    this.defaultCrossProfilePackages = new HashSet<>(defaultCrossProfilePackages);
   }
   // END-INTERNAL
 }

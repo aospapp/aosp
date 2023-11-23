@@ -19,8 +19,13 @@
 #include <dirent.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <ftw.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <cstdio>
+#include <filesystem>
+#include "android-base/file.h"
+#include "android-base/logging.h"
 #include "nativehelper/scoped_local_ref.h"
 
 #include "android-base/stringprintf.h"
@@ -46,6 +51,29 @@
 namespace art {
 
 using android::base::StringPrintf;
+
+ScratchDir::ScratchDir() {
+  // ANDROID_DATA needs to be set
+  CHECK_NE(static_cast<char*>(nullptr), getenv("ANDROID_DATA")) <<
+      "Are you subclassing RuntimeTest?";
+  path_ = getenv("ANDROID_DATA");
+  path_ += "/tmp-XXXXXX";
+  bool ok = (mkdtemp(&path_[0]) != nullptr);
+  CHECK(ok) << strerror(errno) << " for " << path_;
+  path_ += "/";
+}
+
+ScratchDir::~ScratchDir() {
+  // Recursively delete the directory and all its content.
+  nftw(path_.c_str(), [](const char* name, const struct stat*, int type, struct FTW *) {
+    if (type == FTW_F) {
+      unlink(name);
+    } else if (type == FTW_DP) {
+      rmdir(name);
+    }
+    return 0;
+  }, 256 /* max open file descriptors */, FTW_DEPTH);
+}
 
 ScratchFile::ScratchFile() {
   // ANDROID_DATA needs to be set
@@ -126,11 +154,33 @@ void CommonArtTestImpl::SetUpAndroidRootEnvVars() {
     if (android_host_out_from_env == nullptr) {
       // Not set by build server, so default to the usual value of
       // ANDROID_HOST_OUT.
-      std::string android_host_out = android_build_top_from_env;
+      std::string android_host_out;
 #if defined(__linux__)
-      android_host_out += "/out/host/linux-x86";
+      // Fallback
+      android_host_out = std::string(android_build_top_from_env) + "/out/host/linux-x86";
+      // Look at how we were invoked
+      std::string argv;
+      if (android::base::ReadFileToString("/proc/self/cmdline", &argv)) {
+        // /proc/self/cmdline is the programs 'argv' with elements delimited by '\0'.
+        std::string cmdpath(argv.substr(0, argv.find('\0')));
+        std::filesystem::path path(cmdpath);
+        // If the path is relative then prepend the android_build_top_from_env to it
+        if (path.is_relative()) {
+          path = std::filesystem::path(android_build_top_from_env).append(cmdpath);
+          DCHECK(path.is_absolute()) << path;
+        }
+        // Walk up until we find the linux-x86 directory or we hit the root directory.
+        while (path.has_parent_path() && path.parent_path() != path &&
+               path.filename() != std::filesystem::path("linux-x86")) {
+          path = path.parent_path();
+        }
+        // If we found a linux-x86 directory path is now android_host_out
+        if (path.filename() == std::filesystem::path("linux-x86")) {
+          android_host_out = path.string();
+        }
+      }
 #elif defined(__APPLE__)
-      android_host_out += "/out/host/darwin-x86";
+      android_host_out = std::string(android_build_top_from_env) + "/out/host/darwin-x86";
 #else
 #error unsupported OS
 #endif
@@ -147,20 +197,31 @@ void CommonArtTestImpl::SetUpAndroidRootEnvVars() {
       android_root_from_env = getenv("ANDROID_ROOT");
     }
 
-    // Environment variable ANDROID_RUNTIME_ROOT is set on the device, but not
+    // Environment variable ANDROID_I18N_ROOT is set on the device, but not
     // necessarily on the host. It needs to be set so that various libraries
-    // like icu4c can find their data files.
-    const char* android_runtime_root_from_env = getenv("ANDROID_RUNTIME_ROOT");
-    if (android_runtime_root_from_env == nullptr) {
-      // Use ${ANDROID_HOST_OUT}/com.android.runtime for ANDROID_RUNTIME_ROOT.
-      std::string android_runtime_root = android_host_out_from_env;
-      android_runtime_root += "/com.android.runtime";
-      setenv("ANDROID_RUNTIME_ROOT", android_runtime_root.c_str(), 1);
+    // like libcore / icu4j / icu4c can find their data files.
+    const char* android_i18n_root_from_env = getenv("ANDROID_I18N_ROOT");
+    if (android_i18n_root_from_env == nullptr) {
+      // Use ${ANDROID_I18N_OUT}/com.android.i18n for ANDROID_I18N_ROOT.
+      std::string android_i18n_root = android_host_out_from_env;
+      android_i18n_root += "/com.android.i18n";
+      setenv("ANDROID_I18N_ROOT", android_i18n_root.c_str(), 1);
+    }
+
+    // Environment variable ANDROID_ART_ROOT is set on the device, but not
+    // necessarily on the host. It needs to be set so that various libraries
+    // like libcore / icu4j / icu4c can find their data files.
+    const char* android_art_root_from_env = getenv("ANDROID_ART_ROOT");
+    if (android_art_root_from_env == nullptr) {
+      // Use ${ANDROID_HOST_OUT}/com.android.art for ANDROID_ART_ROOT.
+      std::string android_art_root = android_host_out_from_env;
+      android_art_root += "/com.android.art";
+      setenv("ANDROID_ART_ROOT", android_art_root.c_str(), 1);
     }
 
     // Environment variable ANDROID_TZDATA_ROOT is set on the device, but not
     // necessarily on the host. It needs to be set so that various libraries
-    // like icu4c can find their data files.
+    // like libcore / icu4j / icu4c can find their data files.
     const char* android_tzdata_root_from_env = getenv("ANDROID_TZDATA_ROOT");
     if (android_tzdata_root_from_env == nullptr) {
       // Use ${ANDROID_HOST_OUT}/com.android.tzdata for ANDROID_TZDATA_ROOT.
@@ -199,6 +260,11 @@ void CommonArtTestImpl::SetUp() {
   dalvik_cache_.append("/dalvik-cache");
   int mkdir_result = mkdir(dalvik_cache_.c_str(), 0700);
   ASSERT_EQ(mkdir_result, 0);
+
+  static bool gSlowDebugTestFlag = false;
+  RegisterRuntimeDebugFlag(&gSlowDebugTestFlag);
+  SetRuntimeDebugFlagsEnabled(true);
+  CHECK(gSlowDebugTestFlag);
 }
 
 void CommonArtTestImpl::TearDownAndroidDataDir(const std::string& android_data,
@@ -322,20 +388,13 @@ void CommonArtTestImpl::TearDown() {
 }
 
 static std::string GetDexFileName(const std::string& jar_prefix, bool host) {
-  std::string path;
   if (host) {
-    const char* host_dir = getenv("ANDROID_HOST_OUT");
-    CHECK(host_dir != nullptr);
-    path = host_dir;
+    std::string path = GetAndroidRoot();
+    return StringPrintf("%s/framework/%s-hostdex.jar", path.c_str(), jar_prefix.c_str());
   } else {
-    path = GetAndroidRoot();
+    const char* apex = (jar_prefix == "conscrypt") ? "com.android.conscrypt" : "com.android.art";
+    return StringPrintf("/apex/%s/javalib/%s.jar", apex, jar_prefix.c_str());
   }
-
-  std::string suffix = host
-      ? "-hostdex"                 // The host version.
-      : "-testdex";                // The unstripped target version.
-
-  return StringPrintf("%s/framework/%s%s.jar", path.c_str(), jar_prefix.c_str(), suffix.c_str());
 }
 
 std::vector<std::string> CommonArtTestImpl::GetLibCoreModuleNames() const {
@@ -346,6 +405,7 @@ std::vector<std::string> CommonArtTestImpl::GetLibCoreModuleNames() const {
       // CORE_IMG_JARS modules.
       "core-oj",
       "core-libart",
+      "core-icu4j",
       "okhttp",
       "bouncycastle",
       "apache-xml",
@@ -400,15 +460,6 @@ std::string CommonArtTestImpl::GetClassPathOption(const char* option,
   return option + android::base::Join(class_path, ':');
 }
 
-std::string CommonArtTestImpl::GetTestAndroidRoot() {
-  if (IsHost()) {
-    const char* host_dir = getenv("ANDROID_HOST_OUT");
-    CHECK(host_dir != nullptr);
-    return host_dir;
-  }
-  return GetAndroidRoot();
-}
-
 // Check that for target builds we have ART_TARGET_NATIVETEST_DIR set.
 #ifdef ART_TARGET
 #ifndef ART_TARGET_NATIVETEST_DIR
@@ -424,8 +475,7 @@ std::string CommonArtTestImpl::GetTestDexFileName(const char* name) const {
   CHECK(name != nullptr);
   std::string filename;
   if (IsHost()) {
-    filename += getenv("ANDROID_HOST_OUT");
-    filename += "/framework/";
+    filename += GetAndroidRoot() + "/framework/";
   } else {
     filename += ART_TARGET_NATIVETEST_DIR_STRING;
   }
@@ -475,11 +525,10 @@ std::string CommonArtTestImpl::GetCoreFileLocation(const char* suffix) {
 
   std::string location;
   if (IsHost()) {
-    const char* host_dir = getenv("ANDROID_HOST_OUT");
-    CHECK(host_dir != nullptr);
-    location = StringPrintf("%s/framework/core.%s", host_dir, suffix);
+    std::string host_dir = GetAndroidRoot();
+    location = StringPrintf("%s/framework/core.%s", host_dir.c_str(), suffix);
   } else {
-    location = StringPrintf("/data/art-test/core.%s", suffix);
+    location = StringPrintf("/apex/com.android.art/javalib/boot.%s", suffix);
   }
 
   return location;

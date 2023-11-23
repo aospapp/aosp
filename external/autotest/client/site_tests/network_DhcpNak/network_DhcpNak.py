@@ -77,9 +77,8 @@ class network_DhcpNak(dhcp_test_base.DhcpTestBase):
         """
         Force a DHCP renewal.
 
-        Ask shill to Refresh the configuration for the IPConfig object
-        associated with our virtual Ethernet link. This causes shill
-        to ask dhcpcd to renew its DHCP lease.
+        Ask shill to renew the DHCP lease associated with our
+        virtual Ethernet link.
         """
         rules = [
             # Reject REQUEST from renewal attempt.
@@ -94,7 +93,7 @@ class network_DhcpNak(dhcp_test_base.DhcpTestBase):
         rules[-1].is_final_handler = True
         self.server.start_test(
             rules, dhcp_test_base.DHCP_NEGOTIATION_TIMEOUT_SECONDS)
-        self.get_interface_ipconfig_objects(self.interface_name)[0].Refresh()
+        self.get_device(self.interface_name).RenewDHCPLease()
 
     def send_ack_then_nak(self):
         """

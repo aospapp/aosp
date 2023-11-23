@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"주요 비상사태 경보"</string>
+    <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"위급 재난 문자"</string>
 </resources>

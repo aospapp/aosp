@@ -108,10 +108,6 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
     @Override
     protected List<InteractiveTestCase> createTestItems() {
         List<InteractiveTestCase> tests = new ArrayList<>();
-        if (supportsConditionProviders()) {
-            tests.add(new PassTest());
-            return tests;
-        }
         tests.add(new SetModeAllTest());
         tests.add(new SetModePriorityTest());
         tests.add(new TestAccessRingerModeDndOn());
@@ -134,12 +130,6 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
         tests.add(new EnableSoundEffects());
         tests.add(new TestSoundEffects());
         return tests;
-    }
-
-    private boolean supportsConditionProviders() {
-        ActivityManager am = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
-        return !am.isLowRamDevice()
-                || mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 
     private int getVolumeDelta(int volume) {
@@ -256,8 +246,17 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
 
         @Override
         protected void test() {
+            boolean touchSoundEnabled =
+                Settings.System.getInt(mContext.getContentResolver(),
+                    Settings.System.SOUND_EFFECTS_ENABLED, 1) == 1;
             if (mUserVerified) {
-                status = PASS;
+                if (touchSoundEnabled) {
+                    status = PASS;
+                    return;
+                } else {
+                    setFailed();
+                    return;
+                }
             } else {
                 status = WAIT_FOR_USER;
             }

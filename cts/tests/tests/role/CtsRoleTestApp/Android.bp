@@ -19,10 +19,4 @@ android_test {
     srcs: [
         "src/**/*.java"
     ],
-
-    test_suites: [
-        "cts",
-        "vts",
-        "general-tests",
-    ]
 }

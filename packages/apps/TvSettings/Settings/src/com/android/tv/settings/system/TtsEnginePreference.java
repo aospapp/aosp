@@ -16,7 +16,10 @@
 
 package com.android.tv.settings.system;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.AlertDialog;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.speech.tts.TextToSpeech;
@@ -104,6 +107,7 @@ public class TtsEnginePreference extends Preference {
 
     private void onRadioButtonClicked(final Checkable buttonView,
             boolean isChecked) {
+        logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_TTS_ENGINE_SELECT);
         if (mSharedState.getCurrentChecked() == buttonView) {
             return;
         }

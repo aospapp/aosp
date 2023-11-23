@@ -15,6 +15,9 @@
  */
 package android.cts.statsd.atom;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import com.android.internal.os.StatsdConfigProto.FieldValueMatcher;
 import com.android.internal.os.StatsdConfigProto.MessageMatcher;
 import com.android.internal.os.StatsdConfigProto.Position;
@@ -33,6 +36,7 @@ public class DeviceAtomTestCase extends AtomTestCase {
     public static final String DEVICE_SIDE_TEST_APK = "CtsStatsdApp.apk";
     public static final String DEVICE_SIDE_TEST_PACKAGE =
             "com.android.server.cts.device.statsd";
+    public static final long DEVICE_SIDE_TEST_PACKAGE_VERSION = 10;
     public static final String DEVICE_SIDE_TEST_FOREGROUND_SERVICE_NAME =
             "com.android.server.cts.device.statsd.StatsdCtsForegroundService";
     private static final String DEVICE_SIDE_BG_SERVICE_COMPONENT =
@@ -80,9 +84,9 @@ public class DeviceAtomTestCase extends AtomTestCase {
         List<EventMetricData> data = doDeviceMethod(methodName, conf);
 
         if (demandExactlyTwo) {
-            assertEquals(2, data.size());
+            assertThat(data).hasSize(2);
         } else {
-            assertTrue("data.size() [" + data.size() + "] should be >= 2", data.size() >= 2);
+            assertThat(data.size()).isAtLeast(2);
         }
         assertTimeDiffBetween(data.get(0), data.get(1), minTimeDiffMs, maxTimeDiffMs);
         return data;
@@ -131,7 +135,8 @@ public class DeviceAtomTestCase extends AtomTestCase {
      * Adds an event to the config for an atom that matches the app's uid.
      * @param conf configuration
      * @param atomTag atom tag (from atoms.proto)
-     * @param useAttribution if the atom has a uid or AttributionNode
+     * @param useAttribution If true, the atom has a uid within an attribution node. Else, the atom
+     * has a uid but not in an attribution node.
      */
     protected void addAtomEvent(StatsdConfig.Builder conf, int atomTag,
             boolean useAttribution) throws Exception {
@@ -140,7 +145,7 @@ public class DeviceAtomTestCase extends AtomTestCase {
         if (useAttribution) {
             fvmUid = createAttributionFvm(UID_KEY);
         } else {
-            fvmUid = createFvm(UID_KEY).setEqInt(getUid());
+            fvmUid = createFvm(UID_KEY).setEqString(DEVICE_SIDE_TEST_PACKAGE);
         }
         addAtomEvent(conf, atomTag, Arrays.asList(fvmUid));
     }
@@ -165,9 +170,9 @@ public class DeviceAtomTestCase extends AtomTestCase {
                 + currentUser + " " + DEVICE_SIDE_TEST_PACKAGE);
         String[] uidLineParts = uidLine.split(":");
         // 3rd entry is package uid
-        assertTrue(uidLineParts.length > 2);
+        assertThat(uidLineParts.length).isGreaterThan(2);
         int uid = Integer.parseInt(uidLineParts[2].trim());
-        assertTrue(uid > 10000);
+        assertThat(uid).isGreaterThan(10000);
         return uid;
     }
 
@@ -287,8 +292,10 @@ public class DeviceAtomTestCase extends AtomTestCase {
     protected void rebootDeviceAndWaitUntilReady() throws Exception {
         rebootDevice();
         // Wait for 2 mins.
-        assertTrue("Device failed to boot", getDevice().waitForBootComplete(120_000));
-        assertTrue("Stats service failed to start", waitForStatsServiceStart(60_000));
+        assertWithMessage("Device failed to boot")
+            .that(getDevice().waitForBootComplete(120_000)).isTrue();
+        assertWithMessage("Stats service failed to start")
+            .that(waitForStatsServiceStart(60_000)).isTrue();
         Thread.sleep(2_000);
     }
 
@@ -305,5 +312,11 @@ public class DeviceAtomTestCase extends AtomTestCase {
         }
         LogUtil.CLog.w("Stats service did not start after %d ms", waitTime);
         return false;
+    }
+
+    boolean getNetworkStatsCombinedSubTypeEnabled() throws Exception {
+        final String output = getDevice().executeShellCommand(
+                "settings get global netstats_combine_subtype_enabled").trim();
+        return output.equals("1");
     }
 }

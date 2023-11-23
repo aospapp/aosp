@@ -24,17 +24,17 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiPreference;
 
 /**
  * Preference which shows a progress bar. The progress bar layout shown can be changed by setting
  * the xml layout attribute. The canonical example can be seen in
  * {@link R.layout#progress_bar_preference}.
  */
-public class ProgressBarPreference extends Preference {
+public class ProgressBarPreference extends CarUiPreference {
 
     private CharSequence mMinLabel;
     private CharSequence mMaxLabel;

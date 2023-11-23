@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Сертификатты алып чыгуу"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Чыгарылууда…"</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"%s ичинен чыгарып алуу"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Тастыктамага ат коюу"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Тастыктаманын аталышы:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Тастыктаманы атаңыз"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Тастыктаманын аталышы"</string>
     <string name="credential_password" msgid="3520176519550993326">"Сертификаттарды чыгаруу үчүн сырсөз териңиз."</string>
     <string name="credential_info" msgid="2436768402308470397">"Топтомдо төмөнкүлөр камтылган:"</string>
     <string name="p12_description" msgid="4128352087331630024">"PKCS12 ачкыч кампасындагы тастыктамалар."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Тастыктама жараксыз."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Тастыктаманы орнотуу үчүн купуя ачкыч талап кылынат"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Купуя ачкыкты орнотуу үчүн тастыктама талап кылынат"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> орнотулду."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Тастыктаманын түрүн тандоо"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Жөндөөлөргө өтүп, Тастыктоочу борбордун (ТБ) тастыктамаларын орнотуңуз"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Жөндөөлөргө өтүп, бул <xliff:g id="REQUESTING_APP">%1$s</xliff:g> тастыктамасын орнотушуңуз керек. Ишенимдүү уюмдардын Тастыктоочу борборлорунун (ТБ) тастыктамаларын гана колдонуңуз."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Жабуу"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Бул файлды колдонууга болбойт"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Жабуу"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Бул файлды <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> катары колдонууга болбойт"</string>
+    <string name="certificate" msgid="8790577925509962529">"Тастыктама"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"Тастыктоочу борбордун (ТБ) тастыктамасы"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN жана колдонуучунун тастыктамасы"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi тастыктамасы"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Тастыктоочу борбордун (ТБ) тастыктамасы орнотулду"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Колдонуучунун тастыктамасы орнотулду"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Wi‑Fi тастыктамасы орнотулду"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Орнотуу мүмкүн болгон жок, анткени сертификат өтө чоң."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Орнотуу мүмкүн болгон жок, анткени сертификат файлы табылбады."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Орнотуу мүмкүн болгон жок, анткени сертификат файлын окуу мүмкүн эмес."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Убактылуу бузулуу. Бир аздан кийин кайталап көрүңүз."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Сертификаттарды бул түзмөктүн ээси гана орното алат."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Тастыктама төмөнкү менен колдонулат:"</string>
   <string-array name="credential_usage">
@@ -73,5 +87,5 @@
     <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi эсептик дайындары орнотулбай калды. Файлды кайра жүктөп көрүңүз."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Орнотуу жокко чыгарылды"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Орнотулбай жатат"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Wi-Fi күйгүзүп, кайра аракет кылыңыз."</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Wi-Fi күйгүзүп, кайталап көрүңүз."</string>
 </resources>

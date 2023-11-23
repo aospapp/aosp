@@ -42,7 +42,7 @@ public class P2pBroadcastReceiverTest extends BroadcastReceiver
     private WifiP2pManager mP2pMgr;
     private Channel mChannel;
 
-    private WifiP2pDeviceList mPeers;
+    private WifiP2pDeviceList mPeers = new WifiP2pDeviceList();
     private WifiP2pInfo mP2pInfo;
     private WifiP2pGroup mP2pGroup;
 
@@ -79,12 +79,9 @@ public class P2pBroadcastReceiverTest extends BroadcastReceiver
 
         Timeout t = new Timeout(msec);
         while (!t.isTimeout()) {
-            if (mPeers != null) {
-                for (WifiP2pDevice dev: mPeers.getDeviceList()) {
-                    if (dev.deviceAddress.equals(targetAddr)) {
-                        return dev;
-                    }
-                }
+            WifiP2pDevice dev = mPeers.get(targetAddr);
+            if (dev != null) {
+                return dev;
             }
             wait(t.getRemainTime());
         }
@@ -125,14 +122,9 @@ public class P2pBroadcastReceiverTest extends BroadcastReceiver
 
         Timeout t = new Timeout(msec);
         while (!t.isTimeout()) {
-            if (mPeers != null) {
-                for (WifiP2pDevice dev: mPeers.getDeviceList()) {
-                    if (dev.deviceAddress.equals(targetAddr)) {
-                        if (dev.status == WifiP2pDevice.CONNECTED) {
-                            return true;
-                        }
-                    }
-                }
+            WifiP2pDevice dev = mPeers.get(targetAddr);
+            if (dev != null && dev.status == WifiP2pDevice.CONNECTED) {
+                return true;
             }
             wait(t.getRemainTime());
         }
@@ -152,21 +144,14 @@ public class P2pBroadcastReceiverTest extends BroadcastReceiver
 
         Timeout t = new Timeout(msec);
 
-        boolean devicePresent;
-
         while (!t.isTimeout()) {
-            devicePresent = false;
-            if (mPeers != null) {
-                for (WifiP2pDevice dev: mPeers.getDeviceList()) {
-                    if (dev.deviceAddress.equals(targetAddr)) {
-                        if (dev.status != WifiP2pDevice.CONNECTED) {
-                            return true;
-                        }
-                        devicePresent = true;
-                    }
-                }
+            WifiP2pDevice dev = mPeers.get(targetAddr);
+
+            if (dev == null ) return true;
+
+            if (dev.status != WifiP2pDevice.CONNECTED) {
+                return true;
             }
-            if (!devicePresent) return true;
             wait(t.getRemainTime());
         }
         Log.e(TAG, "Appropriate WIFI_P2P_PEERS_CHANGED_ACTION didn't occur");
@@ -217,7 +202,7 @@ public class P2pBroadcastReceiverTest extends BroadcastReceiver
     @Override
     public synchronized void onPeersAvailable(WifiP2pDeviceList peers) {
         Log.d(TAG, "onPeersAvailable()");
-        mPeers = peers;
+        mPeers = new WifiP2pDeviceList(peers);
         notifyAll();
     }
 

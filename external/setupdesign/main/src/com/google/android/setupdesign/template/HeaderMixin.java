@@ -16,28 +16,20 @@
 
 package com.google.android.setupdesign.template;
 
-import static android.content.res.ColorStateList.valueOf;
-
-import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
-import android.graphics.Typeface;
 import androidx.annotation.AttrRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import android.util.AttributeSet;
-import android.util.TypedValue;
-import android.view.Gravity;
 import android.view.ViewParent;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import com.google.android.setupcompat.R;
 import com.google.android.setupcompat.internal.TemplateLayout;
-import com.google.android.setupcompat.partnerconfig.PartnerConfig;
-import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
 import com.google.android.setupcompat.template.Mixin;
-import com.google.android.setupdesign.GlifLayout;
-import java.util.Locale;
+import com.google.android.setupdesign.R;
+import com.google.android.setupdesign.util.HeaderAreaStyler;
+import com.google.android.setupdesign.util.PartnerStyleHelper;
 
 /**
  * A {@link com.google.android.setupcompat.template.Mixin} for setting and getting the header text.
@@ -75,64 +67,22 @@ public class HeaderMixin implements Mixin {
     a.recycle();
   }
 
-  /** See {@link #applyPartnerCustomizationStyle(Context, TextView)}. */
-  public void applyPartnerCustomizationStyle() {
-    final Context context = templateLayout.getContext();
-    TextView header = templateLayout.findManagedViewById(R.id.suc_layout_title);
-    applyPartnerCustomizationStyle(context, header);
-  }
-
   /**
-   * Use the given {@code header} to apply heavy theme. If {@link
-   * com.google.android.setupdesign.GlifLayout#shouldApplyPartnerHeavyThemeResource()} is true,
-   * {@code header} can be customized style from partner configuration.
-   *
-   * @param context The context of client activity.
-   * @param header The icon image to use for apply heavy theme.
+   * Tries to apply the partner customizations to the header text and background if the layout of
+   * this {@link HeaderMixin} is set to apply partner heavy theme resource.
    */
-  private void applyPartnerCustomizationStyle(Context context, @Nullable TextView header) {
-    if (header != null
-        && (templateLayout instanceof GlifLayout)
-        && ((GlifLayout) templateLayout).shouldApplyPartnerHeavyThemeResource()) {
-      int textColor =
-          PartnerConfigHelper.get(context)
-              .getColor(context, PartnerConfig.CONFIG_HEADER_TEXT_COLOR);
-      if (textColor != 0) {
-        setTextColor(valueOf(textColor));
-      }
+  public void tryApplyPartnerCustomizationStyle() {
+    if (!PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout)) {
+      return;
+    }
 
-      float textSize =
-          PartnerConfigHelper.get(context)
-              .getDimension(context, PartnerConfig.CONFIG_HEADER_TEXT_SIZE);
-      if (textSize != 0) {
-        setTextSize(textSize);
-      }
-
-      String fontFamily =
-          PartnerConfigHelper.get(context)
-              .getString(context, PartnerConfig.CONFIG_HEADER_FONT_FAMILY);
-      if (fontFamily != null) {
-        setFontFamily(Typeface.create(fontFamily, Typeface.NORMAL));
-      }
-
-      String gravity =
-          PartnerConfigHelper.get(context).getString(context, PartnerConfig.CONFIG_LAYOUT_GRAVITY);
-      if (gravity != null) {
-        switch (gravity.toLowerCase(Locale.ROOT)) {
-          case "center":
-            setGravity(header, Gravity.CENTER);
-            break;
-          case "start":
-            setGravity(header, Gravity.START);
-            break;
-          default: // fall out
-        }
-      }
-
-      int color =
-          PartnerConfigHelper.get(context)
-              .getColor(context, PartnerConfig.CONFIG_HEADER_AREA_BACKGROUND_COLOR);
-      setBackgroundColor(color);
+    TextView header = templateLayout.findManagedViewById(R.id.suc_layout_title);
+    if (header != null) {
+      HeaderAreaStyler.applyPartnerCustomizationHeaderStyle(header);
+    }
+    LinearLayout headerLayout = templateLayout.findManagedViewById(R.id.sud_layout_header);
+    if (headerLayout != null) {
+      HeaderAreaStyler.applyPartnerCustomizationHeaderAreaStyle(headerLayout);
     }
   }
 
@@ -171,10 +121,11 @@ public class HeaderMixin implements Mixin {
     return titleView != null ? titleView.getText() : null;
   }
 
-  private void setTextSize(float sizePx) {
+  /** Sets the visibility of header text */
+  public void setVisibility(int visibility) {
     final TextView titleView = getTextView();
     if (titleView != null) {
-      titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, sizePx);
+      titleView.setVisibility(visibility);
     }
   }
 
@@ -202,20 +153,9 @@ public class HeaderMixin implements Mixin {
     }
   }
 
-  private void setFontFamily(Typeface fontFamily) {
-    final TextView titleView = getTextView();
-    if (titleView != null) {
-      titleView.setTypeface(fontFamily);
-    }
-  }
-
   /** Returns the current text color of the header. */
   public ColorStateList getTextColor() {
     final TextView titleView = getTextView();
     return titleView != null ? titleView.getTextColors() : null;
-  }
-
-  private void setGravity(TextView header, int gravity) {
-    header.setGravity(gravity);
   }
 }

@@ -36,21 +36,25 @@
 // The split SEPolicy is loaded as described below:
 // 1) There is a precompiled SEPolicy located at either /vendor/etc/selinux/precompiled_sepolicy or
 //    /odm/etc/selinux/precompiled_sepolicy if odm parition is present.  Stored along with this file
-//    are the sha256 hashes of the parts of the SEPolicy on /system and /product that were used to
-//    compile this precompiled policy.  The system partition contains a similar sha256 of the parts
-//    of the SEPolicy that it currently contains.  Symmetrically, product paritition contains a
-//    sha256 of its SEPolicy.  System loads this precompiled_sepolicy directly if and only if hashes
-//    for system policy match and hashes for product policy match.
-// 2) If these hashes do not match, then either /system or /product (or both) have been updated out
-//    of sync with /vendor and the init needs to compile the SEPolicy.  /system contains the
-//    SEPolicy compiler, secilc, and it is used by the LoadSplitPolicy() function below to compile
-//    the SEPolicy to a temp directory and load it.  That function contains even more documentation
-//    with the specific implementation details of how the SEPolicy is compiled if needed.
+//    are the sha256 hashes of the parts of the SEPolicy on /system, /system_ext and /product that
+//    were used to compile this precompiled policy.  The system partition contains a similar sha256
+//    of the parts of the SEPolicy that it currently contains.  Symmetrically, system_ext and
+//    product paritition contain sha256 hashes of their SEPolicy.  The init loads this
+//    precompiled_sepolicy directly if and only if the hashes along with the precompiled SEPolicy on
+//    /vendor or /odm match the hashes for system, system_ext and product SEPolicy, respectively.
+// 2) If these hashes do not match, then either /system or /system_ext or /product (or some of them)
+//    have been updated out of sync with /vendor (or /odm if it is present) and the init needs to
+//    compile the SEPolicy.  /system contains the SEPolicy compiler, secilc, and it is used by the
+//    LoadSplitPolicy() function below to compile the SEPolicy to a temp directory and load it.
+//    That function contains even more documentation with the specific implementation details of how
+//    the SEPolicy is compiled if needed.
 
 #include "selinux.h"
 
 #include <android/api-level.h>
 #include <fcntl.h>
+#include <linux/audit.h>
+#include <linux/netlink.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -59,10 +63,15 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
+#include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <fs_avb/fs_avb.h>
+#include <fs_mgr.h>
+#include <libgsi/libgsi.h>
+#include <libsnapshot/snapshot.h>
 #include <selinux/android.h>
 
+#include "block_dev_initializer.h"
 #include "debug_ramdisk.h"
 #include "reboot_utils.h"
 #include "util.h"
@@ -73,25 +82,23 @@ using android::base::ParseInt;
 using android::base::Timer;
 using android::base::unique_fd;
 using android::fs_mgr::AvbHandle;
+using android::snapshot::SnapshotManager;
 
 namespace android {
 namespace init {
 
 namespace {
 
-selabel_handle* sehandle = nullptr;
-
 enum EnforcingStatus { SELINUX_PERMISSIVE, SELINUX_ENFORCING };
 
 EnforcingStatus StatusFromCmdline() {
     EnforcingStatus status = SELINUX_ENFORCING;
 
-    import_kernel_cmdline(false,
-                          [&](const std::string& key, const std::string& value, bool in_qemu) {
-                              if (key == "androidboot.selinux" && value == "permissive") {
-                                  status = SELINUX_PERMISSIVE;
-                              }
-                          });
+    ImportKernelCmdline([&](const std::string& key, const std::string& value) {
+        if (key == "androidboot.selinux" && value == "permissive") {
+            status = SELINUX_PERMISSIVE;
+        }
+    });
 
     return status;
 }
@@ -228,6 +235,13 @@ bool FindPrecompiledSplitPolicy(std::string* file) {
                       "/system/etc/selinux/plat_sepolicy_and_mapping.sha256";
         return false;
     }
+    std::string actual_system_ext_id;
+    if (!ReadFirstLine("/system_ext/etc/selinux/system_ext_sepolicy_and_mapping.sha256",
+                       &actual_system_ext_id)) {
+        PLOG(INFO) << "Failed to read "
+                      "/system_ext/etc/selinux/system_ext_sepolicy_and_mapping.sha256";
+        return false;
+    }
     std::string actual_product_id;
     if (!ReadFirstLine("/product/etc/selinux/product_sepolicy_and_mapping.sha256",
                        &actual_product_id)) {
@@ -243,6 +257,13 @@ bool FindPrecompiledSplitPolicy(std::string* file) {
         file->clear();
         return false;
     }
+    std::string precompiled_system_ext_id;
+    std::string precompiled_system_ext_sha256 = *file + ".system_ext_sepolicy_and_mapping.sha256";
+    if (!ReadFirstLine(precompiled_system_ext_sha256.c_str(), &precompiled_system_ext_id)) {
+        PLOG(INFO) << "Failed to read " << precompiled_system_ext_sha256;
+        file->clear();
+        return false;
+    }
     std::string precompiled_product_id;
     std::string precompiled_product_sha256 = *file + ".product_sepolicy_and_mapping.sha256";
     if (!ReadFirstLine(precompiled_product_sha256.c_str(), &precompiled_product_id)) {
@@ -251,6 +272,7 @@ bool FindPrecompiledSplitPolicy(std::string* file) {
         return false;
     }
     if (actual_plat_id.empty() || actual_plat_id != precompiled_plat_id ||
+        actual_system_ext_id.empty() || actual_system_ext_id != precompiled_system_ext_id ||
         actual_product_id.empty() || actual_product_id != precompiled_product_id) {
         file->clear();
         return false;
@@ -330,6 +352,23 @@ bool LoadSplitPolicy() {
     }
     std::string plat_mapping_file("/system/etc/selinux/mapping/" + vend_plat_vers + ".cil");
 
+    std::string plat_compat_cil_file("/system/etc/selinux/mapping/" + vend_plat_vers +
+                                     ".compat.cil");
+    if (access(plat_compat_cil_file.c_str(), F_OK) == -1) {
+        plat_compat_cil_file.clear();
+    }
+
+    std::string system_ext_policy_cil_file("/system_ext/etc/selinux/system_ext_sepolicy.cil");
+    if (access(system_ext_policy_cil_file.c_str(), F_OK) == -1) {
+        system_ext_policy_cil_file.clear();
+    }
+
+    std::string system_ext_mapping_file("/system_ext/etc/selinux/mapping/" + vend_plat_vers +
+                                        ".cil");
+    if (access(system_ext_mapping_file.c_str(), F_OK) == -1) {
+        system_ext_mapping_file.clear();
+    }
+
     std::string product_policy_cil_file("/product/etc/selinux/product_sepolicy.cil");
     if (access(product_policy_cil_file.c_str(), F_OK) == -1) {
         product_policy_cil_file.clear();
@@ -375,6 +414,15 @@ bool LoadSplitPolicy() {
     };
     // clang-format on
 
+    if (!plat_compat_cil_file.empty()) {
+        compile_args.push_back(plat_compat_cil_file.c_str());
+    }
+    if (!system_ext_policy_cil_file.empty()) {
+        compile_args.push_back(system_ext_policy_cil_file.c_str());
+    }
+    if (!system_ext_mapping_file.empty()) {
+        compile_args.push_back(system_ext_mapping_file.c_str());
+    }
     if (!product_policy_cil_file.empty()) {
         compile_args.push_back(product_policy_cil_file.c_str());
     }
@@ -421,8 +469,6 @@ bool LoadPolicy() {
 }
 
 void SelinuxInitialize() {
-    Timer t;
-
     LOG(INFO) << "Loading SELinux policy";
     if (!LoadPolicy()) {
         LOG(FATAL) << "Unable to load SELinux policy";
@@ -432,23 +478,47 @@ void SelinuxInitialize() {
     bool is_enforcing = IsEnforcing();
     if (kernel_enforcing != is_enforcing) {
         if (security_setenforce(is_enforcing)) {
-            PLOG(FATAL) << "security_setenforce(%s) failed" << (is_enforcing ? "true" : "false");
+            PLOG(FATAL) << "security_setenforce(" << (is_enforcing ? "true" : "false")
+                        << ") failed";
         }
     }
 
-    if (auto result = WriteFile("/sys/fs/selinux/checkreqprot", "0"); !result) {
+    if (auto result = WriteFile("/sys/fs/selinux/checkreqprot", "0"); !result.ok()) {
         LOG(FATAL) << "Unable to write to /sys/fs/selinux/checkreqprot: " << result.error();
     }
+}
 
-    // init's first stage can't set properties, so pass the time to the second stage.
-    setenv("INIT_SELINUX_TOOK", std::to_string(t.duration().count()).c_str(), 1);
+constexpr size_t kKlogMessageSize = 1024;
+
+void SelinuxAvcLog(char* buf, size_t buf_len) {
+    CHECK_GT(buf_len, 0u);
+
+    size_t str_len = strnlen(buf, buf_len);
+    // trim newline at end of string
+    if (buf[str_len - 1] == '\n') {
+        buf[str_len - 1] = '\0';
+    }
+
+    struct NetlinkMessage {
+        nlmsghdr hdr;
+        char buf[kKlogMessageSize];
+    } request = {};
+
+    request.hdr.nlmsg_flags = NLM_F_REQUEST;
+    request.hdr.nlmsg_type = AUDIT_USER_AVC;
+    request.hdr.nlmsg_len = sizeof(request);
+    strlcpy(request.buf, buf, sizeof(request.buf));
+
+    auto fd = unique_fd{socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_AUDIT)};
+    if (!fd.ok()) {
+        return;
+    }
+
+    TEMP_FAILURE_RETRY(send(fd, &request, sizeof(request), 0));
 }
 
 }  // namespace
 
-// The files and directories that were created before initial sepolicy load or
-// files on ramdisk need to have their security context restored to the proper
-// value. This must happen before /dev is populated by ueventd.
 void SelinuxRestoreContext() {
     LOG(INFO) << "Running restorecon...";
     selinux_android_restorecon("/dev", 0);
@@ -467,6 +537,14 @@ void SelinuxRestoreContext() {
     selinux_android_restorecon("/dev/device-mapper", 0);
 
     selinux_android_restorecon("/apex", 0);
+
+    selinux_android_restorecon("/linkerconfig", 0);
+
+    // adb remount, snapshot-based updates, and DSUs all create files during
+    // first-stage init.
+    selinux_android_restorecon(SnapshotManager::GetGlobalRollbackIndicatorPath().c_str(), 0);
+    selinux_android_restorecon("/metadata/gsi", SELINUX_ANDROID_RESTORECON_RECURSE |
+                                                        SELINUX_ANDROID_RESTORECON_SKIP_SEHASH);
 }
 
 int SelinuxKlogCallback(int type, const char* fmt, ...) {
@@ -476,52 +554,132 @@ int SelinuxKlogCallback(int type, const char* fmt, ...) {
     } else if (type == SELINUX_INFO) {
         severity = android::base::INFO;
     }
-    char buf[1024];
+    char buf[kKlogMessageSize];
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
+    int length_written = vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
-    android::base::KernelLogger(android::base::MAIN, severity, "selinux", nullptr, 0, buf);
+    if (length_written <= 0) {
+        return 0;
+    }
+    if (type == SELINUX_AVC) {
+        SelinuxAvcLog(buf, sizeof(buf));
+    } else {
+        android::base::KernelLogger(android::base::MAIN, severity, "selinux", nullptr, 0, buf);
+    }
     return 0;
 }
 
-// This function sets up SELinux logging to be written to kmsg, to match init's logging.
 void SelinuxSetupKernelLogging() {
     selinux_callback cb;
     cb.func_log = SelinuxKlogCallback;
     selinux_set_callback(SELINUX_CB_LOG, cb);
 }
 
-// This function returns the Android version with which the vendor SEPolicy was compiled.
-// It is used for version checks such as whether or not vendor_init should be used
 int SelinuxGetVendorAndroidVersion() {
-    if (!IsSplitPolicyDevice()) {
-        // If this device does not split sepolicy files, it's not a Treble device and therefore,
-        // we assume it's always on the latest platform.
-        return __ANDROID_API_FUTURE__;
-    }
+    static int vendor_android_version = [] {
+        if (!IsSplitPolicyDevice()) {
+            // If this device does not split sepolicy files, it's not a Treble device and therefore,
+            // we assume it's always on the latest platform.
+            return __ANDROID_API_FUTURE__;
+        }
 
-    std::string version;
-    if (!GetVendorMappingVersion(&version)) {
-        LOG(FATAL) << "Could not read vendor SELinux version";
-    }
+        std::string version;
+        if (!GetVendorMappingVersion(&version)) {
+            LOG(FATAL) << "Could not read vendor SELinux version";
+        }
 
-    int major_version;
-    std::string major_version_str(version, 0, version.find('.'));
-    if (!ParseInt(major_version_str, &major_version)) {
-        PLOG(FATAL) << "Failed to parse the vendor sepolicy major version " << major_version_str;
-    }
+        int major_version;
+        std::string major_version_str(version, 0, version.find('.'));
+        if (!ParseInt(major_version_str, &major_version)) {
+            PLOG(FATAL) << "Failed to parse the vendor sepolicy major version "
+                        << major_version_str;
+        }
 
-    return major_version;
+        return major_version;
+    }();
+    return vendor_android_version;
 }
 
-// This function initializes SELinux then execs init to run in the init SELinux context.
+// This is for R system.img/system_ext.img to work on old vendor.img as system_ext.img
+// is introduced in R. We mount system_ext in second stage init because the first-stage
+// init in boot.img won't be updated in the system-only OTA scenario.
+void MountMissingSystemPartitions() {
+    android::fs_mgr::Fstab fstab;
+    if (!ReadDefaultFstab(&fstab)) {
+        LOG(ERROR) << "Could not read default fstab";
+    }
+
+    android::fs_mgr::Fstab mounts;
+    if (!ReadFstabFromFile("/proc/mounts", &mounts)) {
+        LOG(ERROR) << "Could not read /proc/mounts";
+    }
+
+    static const std::vector<std::string> kPartitionNames = {"system_ext", "product"};
+
+    android::fs_mgr::Fstab extra_fstab;
+    for (const auto& name : kPartitionNames) {
+        if (GetEntryForMountPoint(&mounts, "/"s + name)) {
+            // The partition is already mounted.
+            continue;
+        }
+
+        auto system_entry = GetEntryForMountPoint(&fstab, "/system");
+        if (!system_entry) {
+            LOG(ERROR) << "Could not find mount entry for /system";
+            break;
+        }
+        if (!system_entry->fs_mgr_flags.logical) {
+            LOG(INFO) << "Skipping mount of " << name << ", system is not dynamic.";
+            break;
+        }
+
+        auto entry = *system_entry;
+        auto partition_name = name + fs_mgr_get_slot_suffix();
+        auto replace_name = "system"s + fs_mgr_get_slot_suffix();
+
+        entry.mount_point = "/"s + name;
+        entry.blk_device =
+                android::base::StringReplace(entry.blk_device, replace_name, partition_name, false);
+        if (!fs_mgr_update_logical_partition(&entry)) {
+            LOG(ERROR) << "Could not update logical partition";
+            continue;
+        }
+
+        extra_fstab.emplace_back(std::move(entry));
+    }
+
+    SkipMountingPartitions(&extra_fstab);
+    if (extra_fstab.empty()) {
+        return;
+    }
+
+    BlockDevInitializer block_dev_init;
+    for (auto& entry : extra_fstab) {
+        if (access(entry.blk_device.c_str(), F_OK) != 0) {
+            auto block_dev = android::base::Basename(entry.blk_device);
+            if (!block_dev_init.InitDmDevice(block_dev)) {
+                LOG(ERROR) << "Failed to find device-mapper node: " << block_dev;
+                continue;
+            }
+        }
+        if (fs_mgr_do_mount_one(entry)) {
+            LOG(ERROR) << "Could not mount " << entry.mount_point;
+        }
+    }
+}
+
 int SetupSelinux(char** argv) {
+    SetStdioToDevNull(argv);
     InitKernelLogging(argv);
 
     if (REBOOT_BOOTLOADER_ON_PANIC) {
         InstallRebootSignalHandlers();
     }
+
+    boot_clock::time_point start_time = boot_clock::now();
+
+    MountMissingSystemPartitions();
 
     // Set up SELinux, loading the SELinux policy.
     SelinuxSetupKernelLogging();
@@ -535,6 +693,8 @@ int SetupSelinux(char** argv) {
         PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
     }
 
+    setenv(kEnvSelinuxStartedAt, std::to_string(start_time.time_since_epoch().count()).c_str(), 1);
+
     const char* path = "/system/bin/init";
     const char* args[] = {path, "second_stage", nullptr};
     execv(path, const_cast<char**>(args));
@@ -544,55 +704,6 @@ int SetupSelinux(char** argv) {
     PLOG(FATAL) << "execv(\"" << path << "\") failed";
 
     return 1;
-}
-
-// selinux_android_file_context_handle() takes on the order of 10+ms to run, so we want to cache
-// its value.  selinux_android_restorecon() also needs an sehandle for file context look up.  It
-// will create and store its own copy, but selinux_android_set_sehandle() can be used to provide
-// one, thus eliminating an extra call to selinux_android_file_context_handle().
-void SelabelInitialize() {
-    sehandle = selinux_android_file_context_handle();
-    selinux_android_set_sehandle(sehandle);
-}
-
-// A C++ wrapper around selabel_lookup() using the cached sehandle.
-// If sehandle is null, this returns success with an empty context.
-bool SelabelLookupFileContext(const std::string& key, int type, std::string* result) {
-    result->clear();
-
-    if (!sehandle) return true;
-
-    char* context;
-    if (selabel_lookup(sehandle, &context, key.c_str(), type) != 0) {
-        return false;
-    }
-    *result = context;
-    free(context);
-    return true;
-}
-
-// A C++ wrapper around selabel_lookup_best_match() using the cached sehandle.
-// If sehandle is null, this returns success with an empty context.
-bool SelabelLookupFileContextBestMatch(const std::string& key,
-                                       const std::vector<std::string>& aliases, int type,
-                                       std::string* result) {
-    result->clear();
-
-    if (!sehandle) return true;
-
-    std::vector<const char*> c_aliases;
-    for (const auto& alias : aliases) {
-        c_aliases.emplace_back(alias.c_str());
-    }
-    c_aliases.emplace_back(nullptr);
-
-    char* context;
-    if (selabel_lookup_best_match(sehandle, &context, key.c_str(), &c_aliases[0], type) != 0) {
-        return false;
-    }
-    *result = context;
-    free(context);
-    return true;
 }
 
 }  // namespace init

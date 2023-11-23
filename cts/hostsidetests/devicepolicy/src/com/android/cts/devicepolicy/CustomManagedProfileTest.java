@@ -17,19 +17,22 @@ package com.android.cts.devicepolicy;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 
+import org.junit.Test;
+
 public class CustomManagedProfileTest extends BaseDevicePolicyTest {
 
     private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
     private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         // We need multi user to be supported in order to create a profile of the user owner.
         mHasFeature = mHasFeature && hasDeviceFeature("android.software.managed_users");
     }
 
+    @Test
     public void testIsProvisioningAllowed() throws Exception {
         final int primaryUserId = getPrimaryUser();
         // Must install the apk since the test runs in the ManagedProfile apk.

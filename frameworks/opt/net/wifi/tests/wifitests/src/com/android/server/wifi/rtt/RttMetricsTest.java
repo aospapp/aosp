@@ -19,10 +19,9 @@ package com.android.server.wifi.rtt;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.Mockito.when;
 
-import android.hardware.wifi.V1_0.RttResult;
-import android.hardware.wifi.V1_0.RttStatus;
 import android.net.MacAddress;
 import android.net.wifi.rtt.RangingRequest;
+import android.net.wifi.rtt.RangingResult;
 import android.net.wifi.rtt.ResponderConfig;
 import android.os.WorkSource;
 import android.util.Log;
@@ -30,7 +29,8 @@ import android.util.Log;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.Clock;
-import com.android.server.wifi.nano.WifiMetricsProto;
+import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.proto.nano.WifiMetricsProto;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -48,7 +48,7 @@ import java.util.List;
  * Unit test harness for RttMetrics
  */
 @SmallTest
-public class RttMetricsTest {
+public class RttMetricsTest extends WifiBaseTest {
     private RttMetrics mDut;
 
     @Mock
@@ -77,7 +77,7 @@ public class RttMetricsTest {
 
         // no requests
         log = mDut.consolidateProto();
-        checkMainStats("No requests", log, 0, 0);
+        checkMainStats("No requests", log, 0, 0, 0, 0);
         checkPeerStats("No requests: AP", log.rttToAp, 0, 0, 0, 0, 0, 0, 0, 0);
         checkPeerStats("No requests: Aware", log.rttToAware, 0, 0, 0, 0, 0, 0, 0, 0);
 
@@ -110,7 +110,7 @@ public class RttMetricsTest {
         mDut.recordRequest(ws2, requestAp5);
 
         log = mDut.consolidateProto();
-        checkMainStats("Sequence AP-only", log, 10, 0);
+        checkMainStats("Sequence AP-only", log, 10, 0, 0, 0);
 
         checkPeerStats("Sequence AP-only: AP", log.rttToAp, 10, 41, 2, 2, 4, 0, 0, 5);
 
@@ -162,7 +162,7 @@ public class RttMetricsTest {
         mDut.recordRequest(ws3, requestMixed08);
 
         log = mDut.consolidateProto();
-        checkMainStats("Sequence Mixed AP/Aware", log, 4, 0);
+        checkMainStats("Sequence Mixed AP/Aware", log, 4, 0, 0, 0);
 
         checkPeerStats("Sequence Mixed AP/Aware: AP", log.rttToAp, 2, 7, 3, 1, 2, 0, 0, 1);
 
@@ -205,7 +205,7 @@ public class RttMetricsTest {
 
         // no requests
         log = mDut.consolidateProto();
-        checkMainStats("No requests", log, 0, 0);
+        checkMainStats("No requests", log, 0, 0, 0, 0);
         checkPeerStats("No requests: AP", log.rttToAp, 0, 0, 0, 0, 0, 0, 0, 0);
         checkPeerStats("No requests: Aware", log.rttToAware, 0, 0, 0, 0, 0, 0, 0, 0);
 
@@ -216,15 +216,23 @@ public class RttMetricsTest {
         RangingRequest requestAp6 = getDummyRangingRequest(6, 0);
 
         mDut.clear();
-        mDut.recordResult(requestAp1, getDummyRangingResults(requestAp1, 5, 0));
-        mDut.recordResult(requestAp2, getDummyRangingResults(requestAp2, 10, 30));
-        mDut.recordResult(requestAp5, getDummyRangingResults(requestAp5, 0.3, -0.2));
-        mDut.recordResult(requestAp6, getDummyRangingResults(requestAp6, 40, 30));
+        mDut.recordResult(requestAp1, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+                requestAp1, 5, 0), 500);
+        mDut.recordResult(requestAp2, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+                requestAp2, 10, 30), 1500);
+        mDut.recordResult(requestAp5, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+                requestAp5, 0.3, -0.2), 700);
+        mDut.recordResult(requestAp6, getDummyRangingResults(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS,
+                requestAp6, 40, 30), 1800);
         log = mDut.consolidateProto();
 
-        checkMainStats("Sequence AP-only", log, 0, 0);
-
+        checkMainStats("Sequence AP-only", log, 0, 0, 2, 0);
         checkPeerStats("Sequence AP-only: AP", log.rttToAp, 0, 0, 0, 0, 0, 1, 6, 0);
+
+        validateProtoHistBucket("Sequence AP-only: histogramMeasurementDurationApOnly[0]",
+                log.histogramMeasurementDurationApOnly[0], Integer.MIN_VALUE, 1 * 1000, 2);
+        validateProtoHistBucket("Sequence AP-only: histogramMeasurementDurationApOnly[1]",
+                log.histogramMeasurementDurationApOnly[1], 1 * 1000, 2 * 1000, 2);
 
         validateProtoIndividualStatusHistBucket(
                 "Sequence AP-only: rttToAp.histogramIndividualStatus[0]",
@@ -252,15 +260,26 @@ public class RttMetricsTest {
         RangingRequest requestMixed08 = getDummyRangingRequest(0, 8);
 
         mDut.clear();
-        mDut.recordResult(requestMixed03, getDummyRangingResults(requestMixed03, 5, 0));
-        mDut.recordResult(requestMixed25, getDummyRangingResults(requestMixed25, 10, 30));
-        mDut.recordResult(requestMixed50, getDummyRangingResults(requestMixed50, 0.3, -0.2));
-        mDut.recordResult(requestMixed08, getDummyRangingResults(requestMixed08, 40, 30));
+        mDut.recordResult(requestMixed03, getDummyRangingResults(
+                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed03, 5, 0), 6400);
+        mDut.recordResult(requestMixed25, getDummyRangingResults(
+                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed25, 10, 30), 7800);
+        mDut.recordResult(requestMixed50, getDummyRangingResults(
+                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed50, 0.3, -0.2), 3100);
+        mDut.recordResult(requestMixed08, getDummyRangingResults(
+                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed08, 40, 30), 9500);
         log = mDut.consolidateProto();
 
-        checkMainStats("Sequence Mixed AP/Aware", log, 0, 0);
+        checkMainStats("Sequence Mixed AP/Aware", log, 0, 0, 1, 2);
 
         checkPeerStats("Sequence Mixed AP/Aware: AP", log.rttToAp, 0, 0, 0, 0, 0, 1, 4, 0);
+
+        validateProtoHistBucket("Sequence Mixed AP/Aware: histogramMeasurementDurationApOnly[0]",
+                log.histogramMeasurementDurationApOnly[0], 3 * 1000, 4 * 1000, 1);
+        validateProtoHistBucket("Sequence Mixed AP/Aware: histogramMeasurementDurationWithAware[0]",
+                log.histogramMeasurementDurationWithAware[0], 6 * 1000, 8 * 1000, 2);
+        validateProtoHistBucket("Sequence Mixed AP/Aware: histogramMeasurementDurationWithAware[1]",
+                log.histogramMeasurementDurationWithAware[1], 8 * 1000, Integer.MAX_VALUE, 1);
 
         validateProtoIndividualStatusHistBucket(
                 "Sequence Mixed AP/Aware: rttToAp.histogramIndividualStatus[0]",
@@ -301,16 +320,17 @@ public class RttMetricsTest {
 
         mDut.clear();
         RangingRequest requestMixed25 = getDummyRangingRequest(2, 5);
-        List<RttResult> resultMixed25 = getDummyRangingResults(requestMixed25, 10, 30);
+        List<RangingResult> resultMixed25 = getDummyRangingResults(
+                RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, requestMixed25, 10, 30);
         // remove some results
         resultMixed25.remove(3); // Second Aware result: distance = 100
         resultMixed25.remove(0); // First AP result: distance = 10
         resultMixed25.add(null);
-        mDut.recordResult(requestMixed25, resultMixed25);
+        mDut.recordResult(requestMixed25, resultMixed25, 0);
 
         log = mDut.consolidateProto();
 
-        checkMainStats("Sequence Mixed AP/Aware", log, 0, 0);
+        checkMainStats("Sequence Mixed AP/Aware", log, 0, 0, 0, 1);
 
         checkPeerStats("Sequence Mixed AP/Aware: AP", log.rttToAp, 0, 0, 0, 0, 0, 2, 1, 0);
 
@@ -351,11 +371,11 @@ public class RttMetricsTest {
 
         mDut.clear();
         RangingRequest requestMixed25 = getDummyRangingRequest(2, 5);
-        mDut.recordResult(requestMixed25, null);
+        mDut.recordResult(requestMixed25, null, 0);
 
         log = mDut.consolidateProto();
 
-        checkMainStats("Sequence Mixed AP/Aware", log, 0, 0);
+        checkMainStats("Sequence Mixed AP/Aware", log, 0, 0, 0, 0);
 
         checkPeerStats("Sequence Mixed AP/Aware: AP", log.rttToAp, 0, 0, 0, 0, 0, 1, 0, 0);
 
@@ -381,22 +401,22 @@ public class RttMetricsTest {
 
         mDut.clear();
 
-        recordResultNTimes(RttStatus.SUCCESS, 5);
-        recordResultNTimes(RttStatus.FAILURE, 6);
-        recordResultNTimes(RttStatus.FAIL_NO_RSP, 7);
-        recordResultNTimes(RttStatus.FAIL_REJECTED, 8);
-        recordResultNTimes(RttStatus.FAIL_NOT_SCHEDULED_YET, 9);
-        recordResultNTimes(RttStatus.FAIL_TM_TIMEOUT, 10);
-        recordResultNTimes(RttStatus.FAIL_AP_ON_DIFF_CHANNEL, 11);
-        recordResultNTimes(RttStatus.FAIL_NO_CAPABILITY, 12);
-        recordResultNTimes(RttStatus.ABORTED, 13);
-        recordResultNTimes(RttStatus.FAIL_INVALID_TS, 14);
-        recordResultNTimes(RttStatus.FAIL_PROTOCOL, 15);
-        recordResultNTimes(RttStatus.FAIL_SCHEDULE, 16);
-        recordResultNTimes(RttStatus.FAIL_BUSY_TRY_LATER, 17);
-        recordResultNTimes(RttStatus.INVALID_REQ, 18);
-        recordResultNTimes(RttStatus.NO_WIFI, 19);
-        recordResultNTimes(RttStatus.FAIL_FTM_PARAM_OVERRIDE, 20);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS, 5);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAILURE, 6);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_NO_RSP, 7);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_REJECTED, 8);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_NOT_SCHEDULED_YET, 9);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_TM_TIMEOUT, 10);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_AP_ON_DIFF_CHANNEL, 11);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_NO_CAPABILITY, 12);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_ABORTED, 13);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_INVALID_TS, 14);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_PROTOCOL, 15);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_SCHEDULE, 16);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_BUSY_TRY_LATER, 17);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_INVALID_REQ, 18);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_NO_WIFI, 19);
+        recordResultNTimes(RttNative.FRAMEWORK_RTT_STATUS_FAIL_FTM_PARAM_OVERRIDE, 20);
 
         log = mDut.consolidateProto();
 
@@ -529,11 +549,18 @@ public class RttMetricsTest {
     }
 
     private void checkMainStats(String msgPrefix, WifiMetricsProto.WifiRttLog log, int numRequests,
-            int histogramOverallStatusLength) {
+            int histogramOverallStatusLength, int histogramMeasurementDurationApOnlyLength,
+            int histogramMeasurementDurationWithAwareLength) {
         collector.checkThat(msgPrefix + ": numRequests", log.numRequests, equalTo(numRequests));
         collector.checkThat(msgPrefix + ": histogramOverallStatus.length",
                 log.histogramOverallStatus.length,
                 equalTo(histogramOverallStatusLength));
+        collector.checkThat(msgPrefix + ": histogramMeasurementDurationApOnly.length",
+                log.histogramMeasurementDurationApOnly.length,
+                equalTo(histogramMeasurementDurationApOnlyLength));
+        collector.checkThat(msgPrefix + ": histogramMeasurementDurationWithAware.length",
+                log.histogramMeasurementDurationWithAware.length,
+                equalTo(histogramMeasurementDurationWithAwareLength));
     }
 
     private void checkPeerStats(String msgPrefix, WifiMetricsProto.WifiRttLog.RttToPeerLog log,
@@ -575,31 +602,28 @@ public class RttMetricsTest {
         return builder.build();
     }
 
-    private List<RttResult> getDummyRangingResults(RangingRequest request, double baseDistanceM,
-            double incrDistanceM) {
-        List<RttResult> halResults = new ArrayList<>();
+    private List<RangingResult> getDummyRangingResults(int status, RangingRequest request,
+            double baseDistanceM, double incrDistanceM) {
+        List<RangingResult> rangingResults = new ArrayList<>();
         double distance = baseDistanceM;
 
         for (ResponderConfig peer : request.mRttPeers) {
-            RttResult rttResult = new RttResult();
-            rttResult.status = RttStatus.SUCCESS;
-            System.arraycopy(peer.macAddress.toByteArray(), 0, rttResult.addr, 0, 6);
-            rttResult.distanceInMm = (int) (distance * 1000);
+
+            RangingResult rttResult = new RangingResult(status, peer.macAddress,
+                    (int) (distance * 1000), 0, 0, 8, 8, null, null, null, 0);
             distance += incrDistanceM;
-            halResults.add(rttResult);
+            rangingResults.add(rttResult);
         }
 
-        return halResults;
+        return rangingResults;
     }
 
     private void recordResultNTimes(int status, int n) {
         RangingRequest request = getDummyRangingRequest(1, 0);
-        List<RttResult> results = getDummyRangingResults(request, 0, 0);
-        RttResult result = results.get(0);
-        result.status = status;
+        List<RangingResult> results = getDummyRangingResults(status, request, 0, 0);
 
         for (int i = 0; i < n; ++i) {
-            mDut.recordResult(request, results);
+            mDut.recordResult(request, results, 0);
         }
     }
 

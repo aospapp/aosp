@@ -1,10 +1,25 @@
-#ifndef FRAMEWORKS_ML_NN_QUANTIZEDLSTM_H
-#define FRAMEWORKS_ML_NN_QUANTIZEDLSTM_H
+/*
+ * Copyright (C) 2018 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-#include "HalOperation.h"
-#include "OperationsUtils.h"
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_QUANTIZED_LSTM_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_QUANTIZED_LSTM_H
 
 #include <vector>
+
+#include "OperationsUtils.h"
 
 namespace android {
 namespace nn {
@@ -13,12 +28,10 @@ struct RunTimeOperandInfo;
 
 class QuantizedLSTMCell {
    public:
-    QuantizedLSTMCell(const android::hardware::neuralnetworks::V1_2::Operation& operation,
-                      std::vector<RunTimeOperandInfo>& operands);
+    QuantizedLSTMCell(const hal::Operation& operation, RunTimeOperandInfo* operands);
 
-    static bool prepare(const android::hardware::neuralnetworks::V1_2::Operation& operation,
-                        std::vector<RunTimeOperandInfo>& operands, Shape* cellStateShape,
-                        Shape* outputShape);
+    static bool prepare(const hal::Operation& operation, RunTimeOperandInfo* operands,
+                        Shape* cellStateShape, Shape* outputShape);
     bool eval();
 
     // Inputs:
@@ -79,4 +92,4 @@ class QuantizedLSTMCell {
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_QUANTIZEDLSTM_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_QUANTIZED_LSTM_H

@@ -7,47 +7,53 @@
 #ifndef FPDFSDK_PWL_CPWL_EDIT_H_
 #define FPDFSDK_PWL_CPWL_EDIT_H_
 
+#include <memory>
 #include <utility>
 
 #include "core/fpdfdoc/cpvt_wordrange.h"
 #include "core/fxcrt/unowned_ptr.h"
 #include "fpdfsdk/pwl/cpwl_edit_ctrl.h"
+#include "fpdfsdk/pwl/ipwl_systemhandler.h"
 
-#define PWL_CLASSNAME_EDIT "CPWL_Edit"
+class CPDF_Font;
 
 class IPWL_Filler_Notify {
  public:
-  virtual ~IPWL_Filler_Notify() {}
+  virtual ~IPWL_Filler_Notify() = default;
 
   // Must write to |bBottom| and |fPopupRet|.
-  virtual void QueryWherePopup(CPWL_Wnd::PrivateData* pAttached,
-                               float fPopupMin,
-                               float fPopupMax,
-                               bool* bBottom,
-                               float* fPopupRet) = 0;
+  virtual void QueryWherePopup(
+      const IPWL_SystemHandler::PerWindowData* pAttached,
+      float fPopupMin,
+      float fPopupMax,
+      bool* bBottom,
+      float* fPopupRet) = 0;
+
   virtual std::pair<bool, bool> OnBeforeKeyStroke(
-      CPWL_Wnd::PrivateData* pAttached,
+      const IPWL_SystemHandler::PerWindowData* pAttached,
       WideString& strChange,
       const WideString& strChangeEx,
       int nSelStart,
       int nSelEnd,
       bool bKeyDown,
       uint32_t nFlag) = 0;
-#ifdef PDF_ENABLE_XFA
-  virtual bool OnPopupPreOpen(CPWL_Wnd::PrivateData* pAttached,
-                              uint32_t nFlag) = 0;
-  virtual bool OnPopupPostOpen(CPWL_Wnd::PrivateData* pAttached,
-                               uint32_t nFlag) = 0;
-#endif  // PDF_ENABLE_XFA
+
+  virtual bool OnPopupPreOpen(
+      const IPWL_SystemHandler::PerWindowData* pAttached,
+      uint32_t nFlag) = 0;
+
+  virtual bool OnPopupPostOpen(
+      const IPWL_SystemHandler::PerWindowData* pAttached,
+      uint32_t nFlag) = 0;
 };
 
-class CPWL_Edit : public CPWL_EditCtrl {
+class CPWL_Edit final : public CPWL_EditCtrl {
  public:
-  CPWL_Edit();
+  CPWL_Edit(const CreateParams& cp,
+            std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData);
   ~CPWL_Edit() override;
 
   // CPWL_EditCtrl
-  ByteString GetClassName() const override;
   void OnCreated() override;
   bool RePosChildWnd() override;
   CFX_FloatRect GetClientRect() const override;
@@ -65,12 +71,9 @@ class CPWL_Edit : public CPWL_EditCtrl {
   void OnSetFocus() override;
   void OnKillFocus() override;
 
-  void SetAlignFormatV(PWL_EDIT_ALIGNFORMAT_V nFormat = PEAV_TOP,
-                       bool bPaint = true);  // 0:top 1:bottom 2:center
-
+  void SetAlignFormatVerticalCenter();
   void SetCharArray(int32_t nCharArray);
   void SetLimitChar(int32_t nLimitChar);
-
   void SetCharSpace(float fCharSpace);
 
   bool CanSelectAll() const;
@@ -80,11 +83,10 @@ class CPWL_Edit : public CPWL_EditCtrl {
   void CutText();
 
   void SetText(const WideString& csText);
-  void ReplaceSel(const WideString& csText);
 
   bool IsTextFull() const;
 
-  static float GetCharArrayAutoFontSize(CPDF_Font* pFont,
+  static float GetCharArrayAutoFontSize(const CPDF_Font* pFont,
                                         const CFX_FloatRect& rcPlate,
                                         int32_t nCharArray);
 
@@ -114,7 +116,6 @@ class CPWL_Edit : public CPWL_EditCtrl {
   bool IsVScrollBarVisible() const;
   void SetParamByFlag();
 
-  float GetCharArrayAutoFontSize(int32_t nCharArray);
   CFX_PointF GetWordRightBottomPoint(const CPVT_WordPlace& wpWord);
 
   CPVT_WordRange CombineWordRange(const CPVT_WordRange& wr1,
@@ -125,7 +126,7 @@ class CPWL_Edit : public CPWL_EditCtrl {
                                    bool bLatin,
                                    bool bArabic) const;
 
-  bool m_bFocus;
+  bool m_bFocus = false;
   CFX_FloatRect m_rcOldWindow;
   UnownedPtr<IPWL_Filler_Notify> m_pFillerNotify;
   UnownedPtr<CFFL_FormFiller> m_pFormFiller;

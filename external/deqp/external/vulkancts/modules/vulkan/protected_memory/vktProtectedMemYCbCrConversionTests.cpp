@@ -34,6 +34,7 @@
 #include "vkTypeUtil.hpp"
 #include "vkYCbCrImageWithMemory.hpp"
 #include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "vktProtectedMemContext.hpp"
 #include "vktProtectedMemUtils.hpp"
@@ -149,6 +150,10 @@ struct TestConfig
 	vk::VkComponentMapping					componentMapping;
 };
 
+void checkSupport (Context& context, const TestConfig)
+{
+	checkProtectedQueueSupport(context);
+}
 
 void validateFormatSupport (ProtectedContext& context, TestConfig& config)
 {
@@ -994,13 +999,13 @@ void generateYCbCrImage (ProtectedContext&				ctx,
 						std::vector<tcu::Vec4>&			ycbcrMinBounds,
 						std::vector<tcu::Vec4>&			ycbcrMaxBounds)
 {
-	tcu::TestLog&							log						(ctx.getTestContext().getLog());
-	const tcu::FloatFormat					filteringPrecision		(ycbcr::getYCbCrFilteringPrecision(config.format));
-	const tcu::FloatFormat					conversionPrecision		(ycbcr::getYCbCrConversionPrecision(config.format));
-	const tcu::UVec4						bitDepth				(ycbcr::getYCbCrBitDepth(config.format));
-	bool									explicitReconstruction	= config.explicitReconstruction;
-	const deUint32							subTexelPrecisionBits	(vk::getPhysicalDeviceProperties(ctx.getInstanceDriver(),
-																									 ctx.getPhysicalDevice()).limits.subTexelPrecisionBits);
+	tcu::TestLog&						log						(ctx.getTestContext().getLog());
+	const std::vector<tcu::FloatFormat>	filteringPrecision		(ycbcr::getPrecision(config.format));
+	const std::vector<tcu::FloatFormat>	conversionPrecision		(ycbcr::getPrecision(config.format));
+	const tcu::UVec4					bitDepth				(ycbcr::getYCbCrBitDepth(config.format));
+	bool								explicitReconstruction	= config.explicitReconstruction;
+	const deUint32						subTexelPrecisionBits	(vk::getPhysicalDeviceProperties(ctx.getInstanceDriver(),
+																								 ctx.getPhysicalDevice()).limits.subTexelPrecisionBits);
 
 
 	const vk::PlanarFormatDescription	planeInfo				(vk::getPlanarFormatDescription(config.format));
@@ -1454,6 +1459,7 @@ tcu::TestCaseGroup*	createYCbCrConversionTests (tcu::TestContext& testCtx)
 							addFunctionCaseWithPrograms(colorRangeGroup.get(),
 														std::string(tilingName) + "_" + chromaOffsetName + (disjoint ? "_disjoint" : ""),
 														"",
+														checkSupport,
 														testShaders,
 														conversionTest,
 														config);

@@ -32,7 +32,7 @@ import sun.security.x509.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class PKCS8Key implements java.security.PrivateKey {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS8Key() {
         throw new RuntimeException("Stub!");
     }
@@ -115,11 +115,11 @@ public class PKCS8Key implements java.security.PrivateKey {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected sun.security.x509.AlgorithmId algid;
+    @android.compat.annotation.UnsupportedAppUsage protected sun.security.x509.AlgorithmId algid;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected byte[] encodedKey;
+    @android.compat.annotation.UnsupportedAppUsage protected byte[] encodedKey;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected byte[] key;
+    @android.compat.annotation.UnsupportedAppUsage protected byte[] key;
 
     private static final long serialVersionUID = -3836890099307167124L; // 0xcac0a0c88c95426cL
 

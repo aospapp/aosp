@@ -206,6 +206,8 @@ public class BluetoothOppSendFileInfo {
                 }
             } catch (FileNotFoundException e) {
                 // Ignore
+            } catch (SecurityException e) {
+                return SEND_FILE_INFO_ERROR;
             }
         }
 

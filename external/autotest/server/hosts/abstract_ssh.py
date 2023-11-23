@@ -1,3 +1,7 @@
+# Copyright (c) 2008 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 import os, time, socket, shutil, glob, logging, tempfile, re
 import shlex
 import subprocess
@@ -384,7 +388,8 @@ class AbstractSSHHost(remote.RemoteHost):
 
 
     def get_file(self, source, dest, delete_dest=False, preserve_perm=True,
-                 preserve_symlinks=False, retry=True, safe_symlinks=False):
+                 preserve_symlinks=False, retry=True, safe_symlinks=False,
+                 try_rsync=True):
         """
         Copy files from the remote host to a local path.
 
@@ -411,6 +416,7 @@ class AbstractSSHHost(remote.RemoteHost):
                                    transforming them into files/dirs on copy
                 safe_symlinks: same as preserve_symlinks, but discard links
                                that may point outside the copied tree
+                try_rsync: set to False to skip directly to using scp
         Raises:
                 AutoservRunError: the scp command failed
         """
@@ -427,7 +433,7 @@ class AbstractSSHHost(remote.RemoteHost):
 
         # If rsync is disabled or fails, try scp.
         try_scp = True
-        if self.use_rsync():
+        if try_rsync and self.use_rsync():
             logging.debug('Using Rsync.')
             try:
                 remote_source = self._encode_remote_paths(source)
@@ -944,21 +950,21 @@ class AbstractSSHHost(remote.RemoteHost):
         # Using a shell leaves a dangling ssh process, because we deliver
         # signals to the shell wrapping ssh, not the ssh process itself.
         args = shlex.split(tunnel_cmd)
-        tunnel_proc = subprocess.Popen(args, close_fds=True)
+        with open('/dev/null', 'w') as devnull:
+            tunnel_proc = subprocess.Popen(args, stdout=devnull, stderr=devnull,
+                                           close_fds=True)
         logging.debug('Started ssh tunnel, local = %d'
                       ' remote = %d, pid = %d',
                       local_port, port, tunnel_proc.pid)
         return tunnel_proc
 
 
-    def disconnect_ssh_tunnel(self, tunnel_proc, port):
+    def disconnect_ssh_tunnel(self, tunnel_proc):
         """
         Disconnects a previously forwarded port from the server to the DUT for
         RPC server connection.
 
         @param tunnel_proc: a tunnel process returned from |create_ssh_tunnel|.
-        @param port: remote port on the DUT, used in ADBHost.
-
         """
         if tunnel_proc.poll() is None:
             tunnel_proc.terminate()

@@ -19,10 +19,12 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.compatibility.common.tradefed.targetprep.FilePusher;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.targetprep.PushFilePreparer;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.InstrumentationTest;
@@ -83,15 +85,48 @@ public class ApkPackageNameCheck {
             IConfiguration c = ConfigurationFactory.getInstance()
                     .createConfigurationFromArgs(new String[] {config.getAbsolutePath()});
             // For each config, we check all the apk it's going to install
-            List<String> apkNames = new ArrayList<>();
+            List<File> apkNames = new ArrayList<>();
             List<String> packageListNames = new ArrayList<>();
             for (ITargetPreparer prep : c.getTargetPreparers()) {
                 if (prep instanceof TestAppInstallSetup) {
                     apkNames.addAll(((TestAppInstallSetup) prep).getTestsFileName());
                 }
+                // Ensure the files requested to be pushed exist.
+                if (prep instanceof FilePusher && ((FilePusher) prep).shouldAppendBitness()) {
+                    for (File f : ((PushFilePreparer) prep).getPushSpecs(null).values()) {
+                        String path = f.getPath();
+                        if (!new File(testcases, path + "32").exists()
+                                || !new File(testcases, path + "64").exists()) {
+                            // TODO: Enforce should abort on failure is True in CTS
+                            if (((FilePusher) prep).shouldAbortOnFailure()) {
+                                fail(
+                                        String.format(
+                                                "File %s[32/64] wasn't found in testcases/ while "
+                                                        + "it's expected to be pushed as part of "
+                                                        + "%s",
+                                                path, config.getName()));
+                            }
+                        }
+                    }
+                } else if (prep instanceof PushFilePreparer) {
+                    for (File f : ((PushFilePreparer) prep).getPushSpecs(null).values()) {
+                        String path = f.getPath();
+                        if (!new File(testcases, path).exists()) {
+                            // TODO: Enforce should abort on failure is True in CTS
+                            if (((PushFilePreparer) prep).shouldAbortOnFailure()) {
+                                fail(
+                                        String.format(
+                                                "File %s wasn't found in testcases/ while it's "
+                                                        + "expected to be pushed as part of %s",
+                                                path, config.getName()));
+                            }
+                        }
+                    }
+                }
             }
 
-            for (String apkName : apkNames) {
+            for (File apk : apkNames) {
+                String apkName = apk.getName();
                 File apkFile = new File(testcases, apkName);
                 if (!apkFile.exists()) {
                     fail(String.format("Module %s is trying to install %s which does not "

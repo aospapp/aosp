@@ -19,6 +19,9 @@
     <!-- Margin between edge of BugReportActivity dialog and content -->
     <dimen name="bug_report_padding">30dp</dimen>
 
+    <dimen name="bug_report_default_text_size">28dp</dimen>
+    <dimen name="bug_report_small_text_size">24dp</dimen>
+
     <!-- VoiceRecordingView dimensions -->
     <dimen name="bug_report_voice_recording_margin_top">20dp</dimen>
     <dimen name="bug_report_voice_recording_height">40dp</dimen>
@@ -34,4 +37,6 @@
     <!-- ProgressBar dimensions -->
     <dimen name="bug_report_progress_bar_margin_top">32dp</dimen>
 
+    <!-- Horizontal layout children margins. -->
+    <dimen name="bug_report_horizontal_layout_children_margin">12dp</dimen>
 </resources>

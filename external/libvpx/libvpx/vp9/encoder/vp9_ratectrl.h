@@ -197,6 +197,12 @@ typedef struct {
   int ext_use_post_encode_drop;
 
   int damped_adjustment[RATE_FACTOR_LEVELS];
+  double arf_active_best_quality_adjustment_factor;
+  int arf_increase_active_best_quality;
+
+  int preserve_arf_as_gld;
+  int preserve_next_arf_as_gld;
+  int show_arf_as_gld;
 } RATE_CONTROL;
 
 struct VP9_COMP;
@@ -260,6 +266,8 @@ void vp9_rc_update_rate_correction_factors(struct VP9_COMP *cpi);
 
 // Post encode drop for CBR mode.
 int post_encode_drop_cbr(struct VP9_COMP *cpi, size_t *size);
+
+int vp9_test_drop(struct VP9_COMP *cpi);
 
 // Decide if we should drop this frame: For 1-pass CBR.
 // Changes only the decimation count in the rate control structure

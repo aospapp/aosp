@@ -19,6 +19,6 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="hint_time_zone_search" msgid="804776560897143016">"நாட்டின் பெயரை உள்ளிடவும்"</string>
     <string name="searchview_description_clear" msgid="1603860069305867810">"வினவலை அழி"</string>
-    <string name="no_results_found" msgid="5475293015394772651">"முடிவுகள் ஏதும் கிடைக்கவில்லை"</string>
+    <string name="no_results_found" msgid="5475293015394772651">"முடிவுகள் ஏதுமில்லை"</string>
     <string name="palestine_display_name" msgid="3485026339977302148">"பாலஸ்தீனம்"</string>
 </resources>

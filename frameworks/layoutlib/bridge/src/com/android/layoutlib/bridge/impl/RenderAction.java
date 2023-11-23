@@ -23,6 +23,7 @@ import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.Result;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.BridgeContext;
+import com.android.layoutlib.bridge.android.RenderParamsFlags;
 import com.android.resources.Density;
 import com.android.resources.ScreenOrientation;
 import com.android.resources.ScreenRound;
@@ -30,6 +31,7 @@ import com.android.resources.ScreenSize;
 import com.android.tools.layoutlib.annotations.VisibleForTesting;
 
 import android.animation.PropertyValuesHolder_Accessor;
+import android.animation.PropertyValuesHolder_Delegate;
 import android.content.res.Configuration;
 import android.os.HandlerThread_Delegate;
 import android.util.DisplayMetrics;
@@ -127,7 +129,9 @@ public abstract class RenderAction<T extends RenderParams> {
         // build the context
         mContext = new BridgeContext(mParams.getProjectKey(), metrics, resources,
                 mParams.getAssets(), mParams.getLayoutlibCallback(), getConfiguration(mParams),
-                mParams.getTargetSdkVersion(), mParams.isRtlSupported());
+                mParams.getTargetSdkVersion(), mParams.isRtlSupported(),
+                Boolean.TRUE.equals(mParams.getFlag(RenderParamsFlags.FLAG_ENABLE_SHADOW)),
+                Boolean.TRUE.equals(mParams.getFlag(RenderParamsFlags.FLAG_RENDER_HIGH_QUALITY_SHADOW)));
 
         setUp();
 
@@ -403,6 +407,8 @@ public abstract class RenderAction<T extends RenderParams> {
         }
         String locale = params.getLocale();
         if (locale != null && !locale.isEmpty()) config.locale = new Locale(locale);
+
+        config.fontScale = params.getFontScale();
 
         // TODO: fill in more config info.
 

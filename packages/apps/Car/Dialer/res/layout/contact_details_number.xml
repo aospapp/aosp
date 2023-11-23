@@ -35,14 +35,15 @@
 
         <TextView
             android:id="@+id/title"
-            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:theme="@style/Theme.Dialer.BidiText"
+            android:textAppearance="@style/TextAppearance.ContactDetailsListTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:singleLine="true"/>
 
         <TextView
             android:id="@id/text"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textAppearance="@style/TextAppearance.ContactDetailsListSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:singleLine="true"/>

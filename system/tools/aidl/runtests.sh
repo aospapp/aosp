@@ -20,22 +20,16 @@ if [ -z $ANDROID_BUILD_TOP ]; then
 fi
 
 echo "Running tests"
-set -e # fail early
+set -ex
 
-# NOTE We can't actually run these commands, since they rely on functions added
-#      by build/envsetup.sh to the bash shell environment.
-echo "+ mmma $ANDROID_BUILD_TOP/system/tools/aidl"
 $ANDROID_BUILD_TOP/build/soong/soong_ui.bash --make-mode \
     MODULES-IN-system-tools-aidl
 
-set -x # print commands
 
 ${ANDROID_HOST_OUT}/nativetest64/aidl_unittests/aidl_unittests
 
 adb root
-adb wait-for-device
-adb remount
-adb sync
+adb sync data
 adb install -r \
     ${ANDROID_PRODUCT_OUT}/system/app/aidl_test_services/aidl_test_services.apk
 ${ANDROID_BUILD_TOP}/system/tools/aidl/tests/integration-test.py

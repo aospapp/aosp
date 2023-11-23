@@ -24,8 +24,9 @@
 #include <utils/Log.h>
 
 #include <VtsHalHidlTargetCallbackBase.h>
-#include <VtsHalHidlTargetTestBase.h>
-#include <VtsHalHidlTargetTestEnvBase.h>
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 
 #include <chrono>
 #include <queue>
@@ -137,30 +138,12 @@ class ThroughputLogger {
   std::chrono::steady_clock::time_point start_time_;
 };
 
-// Test environment for Bluetooth HIDL HAL.
-class BluetoothHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
- public:
-  // get the test environment singleton
-  static BluetoothHidlEnvironment* Instance() {
-    static BluetoothHidlEnvironment* instance = new BluetoothHidlEnvironment;
-    return instance;
-  }
-
-  virtual void registerTestServices() override {
-    registerTestService<IBluetoothHci>();
-  }
-
- private:
-  BluetoothHidlEnvironment() {}
-};
-
 // The main test class for Bluetooth HIDL HAL.
-class BluetoothHidlTest : public ::testing::VtsHalHidlTargetTestBase {
+class BluetoothHidlTest : public ::testing::TestWithParam<std::string> {
  public:
   virtual void SetUp() override {
     // currently test passthrough mode only
-    bluetooth =
-        ::testing::VtsHalHidlTargetTestBase::getService<IBluetoothHci>();
+    bluetooth = IBluetoothHci::getService(GetParam());
     ASSERT_NE(bluetooth, nullptr);
     ALOGI("%s: getService() for bluetooth is %s", __func__,
           bluetooth->isRemote() ? "remote" : "local");
@@ -617,10 +600,10 @@ void BluetoothHidlTest::enterLoopbackMode(std::vector<uint16_t>& sco_handles,
 }
 
 // Empty test: Initialize()/Close() are called in SetUp()/TearDown().
-TEST_F(BluetoothHidlTest, InitializeAndClose) {}
+TEST_P(BluetoothHidlTest, InitializeAndClose) {}
 
 // Send an HCI Reset with sendHciCommand and wait for a command complete event.
-TEST_F(BluetoothHidlTest, HciReset) {
+TEST_P(BluetoothHidlTest, HciReset) {
   hidl_vec<uint8_t> cmd = COMMAND_HCI_RESET;
   bluetooth->sendHciCommand(cmd);
 
@@ -628,7 +611,7 @@ TEST_F(BluetoothHidlTest, HciReset) {
 }
 
 // Read and check the HCI version of the controller.
-TEST_F(BluetoothHidlTest, HciVersionTest) {
+TEST_P(BluetoothHidlTest, HciVersionTest) {
   hidl_vec<uint8_t> cmd = COMMAND_HCI_READ_LOCAL_VERSION_INFORMATION;
   bluetooth->sendHciCommand(cmd);
 
@@ -649,7 +632,7 @@ TEST_F(BluetoothHidlTest, HciVersionTest) {
 }
 
 // Send an unknown HCI command and wait for the error message.
-TEST_F(BluetoothHidlTest, HciUnknownCommand) {
+TEST_P(BluetoothHidlTest, HciUnknownCommand) {
   hidl_vec<uint8_t> cmd = COMMAND_HCI_SHOULD_BE_UNKNOWN;
   bluetooth->sendHciCommand(cmd);
 
@@ -676,14 +659,14 @@ TEST_F(BluetoothHidlTest, HciUnknownCommand) {
 }
 
 // Enter loopback mode, but don't send any packets.
-TEST_F(BluetoothHidlTest, WriteLoopbackMode) {
+TEST_P(BluetoothHidlTest, WriteLoopbackMode) {
   std::vector<uint16_t> sco_connection_handles;
   std::vector<uint16_t> acl_connection_handles;
   enterLoopbackMode(sco_connection_handles, acl_connection_handles);
 }
 
 // Enter loopback mode and send single packets.
-TEST_F(BluetoothHidlTest, LoopbackModeSinglePackets) {
+TEST_P(BluetoothHidlTest, LoopbackModeSinglePackets) {
   setBufferSizes();
 
   std::vector<uint16_t> sco_connection_handles;
@@ -720,7 +703,7 @@ TEST_F(BluetoothHidlTest, LoopbackModeSinglePackets) {
 }
 
 // Enter loopback mode and send packets for bandwidth measurements.
-TEST_F(BluetoothHidlTest, LoopbackModeBandwidth) {
+TEST_P(BluetoothHidlTest, LoopbackModeBandwidth) {
   setBufferSizes();
 
   std::vector<uint16_t> sco_connection_handles;
@@ -758,11 +741,8 @@ TEST_F(BluetoothHidlTest, LoopbackModeBandwidth) {
   }
 }
 
-int main(int argc, char** argv) {
-  ::testing::AddGlobalTestEnvironment(BluetoothHidlEnvironment::Instance());
-  ::testing::InitGoogleTest(&argc, argv);
-  BluetoothHidlEnvironment::Instance()->init(&argc, argv);
-  int status = RUN_ALL_TESTS();
-  ALOGI("Test result = %d", status);
-  return status;
-}
+INSTANTIATE_TEST_SUITE_P(
+    PerInstance, BluetoothHidlTest,
+    testing::ValuesIn(
+        android::hardware::getAllHalInstanceNames(IBluetoothHci::descriptor)),
+    android::hardware::PrintInstanceNameToString);

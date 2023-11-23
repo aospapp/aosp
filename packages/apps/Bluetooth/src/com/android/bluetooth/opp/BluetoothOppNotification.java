@@ -40,6 +40,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
@@ -557,12 +558,14 @@ class BluetoothOppNotification {
                     .setClassName(Constants.THIS_PACKAGE_NAME,
                             BluetoothOppReceiver.class.getName());
             Notification.Action actionDecline =
-                    new Notification.Action.Builder(R.drawable.ic_decline,
+                    new Notification.Action.Builder(Icon.createWithResource(mContext,
+                            R.drawable.ic_decline),
                             mContext.getText(R.string.incoming_file_confirm_cancel),
                             PendingIntent.getBroadcast(mContext, 0,
                                     new Intent(baseIntent).setAction(Constants.ACTION_DECLINE),
                                     0)).build();
-            Notification.Action actionAccept = new Notification.Action.Builder(R.drawable.ic_accept,
+            Notification.Action actionAccept = new Notification.Action.Builder(
+                    Icon.createWithResource(mContext,R.drawable.ic_accept),
                     mContext.getText(R.string.incoming_file_confirm_ok),
                     PendingIntent.getBroadcast(mContext, 0,
                             new Intent(baseIntent).setAction(Constants.ACTION_ACCEPT), 0)).build();
@@ -589,7 +592,7 @@ class BluetoothOppNotification {
                             .setStyle(new Notification.BigTextStyle().bigText(mContext.getString(
                                     R.string.incoming_file_confirm_Notification_content,
                                     info.mDeviceName, info.mFileName)))
-                            .setContentInfo(Formatter.formatFileSize(mContext, info.mTotalBytes))
+                            .setSubText(Formatter.formatFileSize(mContext, info.mTotalBytes))
                             .setSmallIcon(R.drawable.bt_incomming_file_notification)
                             .setLocalOnly(true)
                             .build();

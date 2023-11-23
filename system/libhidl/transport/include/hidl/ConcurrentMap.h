@@ -66,8 +66,8 @@ public:
 
     std::unique_lock<std::mutex> lock() { return std::unique_lock<std::mutex>(mMutex); }
 
-    void setLocked(K&& k, V&& v) { mMap[std::forward<K>(k)] = std::forward<V>(v); }
-    void setLocked(K&& k, const V& v) { mMap[std::forward<K>(k)] = v; }
+    void setLocked(const K& k, V&& v) { mMap[k] = std::forward<V>(v); }
+    void setLocked(const K& k, const V& v) { mMap[k] = v; }
 
     const V& getLocked(const K& k, const V& def) const {
         const_iterator iter = mMap.find(k);

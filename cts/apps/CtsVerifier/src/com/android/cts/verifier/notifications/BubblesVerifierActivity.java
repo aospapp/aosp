@@ -16,20 +16,28 @@
 package com.android.cts.verifier.notifications;
 
 import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
+import static android.content.Intent.ACTION_VIEW;
 import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
 import android.annotation.NonNull;
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.Person;
+import android.app.RemoteInput;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.Settings;
+import android.util.ArraySet;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
@@ -38,6 +46,8 @@ import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Set;
 
 /**
  * Bubble notification tests: This test checks the behaviour of notifications that have a bubble.
@@ -46,8 +56,12 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
 
     private static final String CHANNEL_ID = "BubblesVerifierChannel";
     private static final int NOTIFICATION_ID = 1;
+    private static final String SHORTCUT_ID = "BubblesVerifierShortcut";
+    private static final String SHORTCUT_CATEGORY =
+            "com.android.cts.verifier.notifications.SHORTCUT_CATEGORY";
 
     private NotificationManager mNotificationManager;
+    private ShortcutManager mShortcutManager;
 
     private TextView mTestTitle;
     private TextView mTestDescription;
@@ -101,16 +115,24 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
             runNextTestOrShowSummary();
         });
 
+        // Make sure they're enabled
         mTests.add(new EnableBubbleTest());
-        mTests.add(new SendBubbleTest());
-        mTests.add(new SuppressNotifTest());
-        mTests.add(new AddNotifTest());
-        mTests.add(new RemoveMetadataTest());
-        mTests.add(new AddMetadataTest());
-        mTests.add(new ExpandBubbleTest());
-        mTests.add(new DismissBubbleTest());
-        mTests.add(new DismissNotificationTest());
-        mTests.add(new AutoExpandBubbleTest());
+
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (am.isLowRamDevice()) {
+            // Bubbles don't occur on low ram, instead they just show as notifs so test that
+            mTests.add(new LowRamBubbleTest());
+        } else {
+            mTests.add(new SendBubbleTest());
+            mTests.add(new SuppressNotifTest());
+            mTests.add(new AddNotifTest());
+            mTests.add(new RemoveMetadataTest());
+            mTests.add(new AddMetadataTest());
+            mTests.add(new ExpandBubbleTest());
+            mTests.add(new DismissBubbleTest());
+            mTests.add(new DismissNotificationTest());
+            mTests.add(new AutoExpandBubbleTest());
+        }
 
         setPassFailButtonClickListeners();
 
@@ -124,6 +146,9 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         mNotificationManager.createNotificationChannel(
                 new NotificationChannel(CHANNEL_ID, CHANNEL_ID, IMPORTANCE_DEFAULT));
+
+        createShortcut();
+
         runNextTestOrShowSummary();
     }
 
@@ -180,6 +205,32 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         }
     }
 
+    /** Creates a shortcut to use for the notifications to be considered conversations */
+    private void createShortcut() {
+        Context context = getApplicationContext();
+        Intent intent = new Intent(context, BubbleActivity.class);
+        intent.setAction(ACTION_VIEW);
+        Person person = new Person.Builder()
+                .setBot(false)
+                .setIcon(Icon.createWithResource(context, R.drawable.ic_android))
+                .setName("BubbleBot")
+                .setImportant(true)
+                .build();
+        Set<String> categorySet = new ArraySet<>();
+        categorySet.add(SHORTCUT_CATEGORY);
+        ShortcutInfo shortcut = new ShortcutInfo.Builder(context, SHORTCUT_ID)
+                .setShortLabel("BubbleChat")
+                .setLongLived(true)
+                .setPerson(person)
+                .setCategories(categorySet)
+                .setIcon(Icon.createWithResource(context, R.drawable.ic_android))
+                .setIntent(intent)
+                .build();
+        ShortcutManager shortcutManager = (ShortcutManager) getSystemService(
+                Context.SHORTCUT_SERVICE);
+        shortcutManager.addDynamicShortcuts(Arrays.asList(shortcut));
+    }
+
     private class EnableBubbleTest extends BubblesTestStep {
 
         @Override
@@ -232,8 +283,8 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification", "1: SendBubbleTest");
-            builder.setBubbleMetadata(getBasicBubbleBuilder().build());
+                    getConversationNotif("Bubble notification", "1: SendBubbleTest");
+            builder.setBubbleMetadata(getIntentBubble().build());
 
             mNotificationManager.notify(NOTIFICATION_ID, builder.build());
         }
@@ -259,9 +310,9 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification", "2: SuppressNotifTest");
+                    getConversationNotif("Bubble notification", "2: SuppressNotifTest");
 
-            Notification.BubbleMetadata metadata = getBasicBubbleBuilder()
+            Notification.BubbleMetadata metadata = getIntentBubble()
                     .setSuppressNotification(true)
                     .build();
             builder.setBubbleMetadata(metadata);
@@ -290,9 +341,9 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification", "3: AddNotifTest");
+                    getConversationNotif("Bubble notification", "3: AddNotifTest");
 
-            Notification.BubbleMetadata metadata = getBasicBubbleBuilder()
+            Notification.BubbleMetadata metadata = getIntentBubble()
                     .setSuppressNotification(false)
                     .build();
             builder.setBubbleMetadata(metadata);
@@ -321,7 +372,7 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification", "4: RemoveMetadataTest");
+                    getConversationNotif("Bubble notification", "4: RemoveMetadataTest");
             mNotificationManager.notify(NOTIFICATION_ID, builder.build());
         }
     }
@@ -346,9 +397,9 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification", "5: AddMetadataTest");
+                    getConversationNotif("Bubble notification", "5: AddMetadataTest");
 
-            Notification.BubbleMetadata metadata = getBasicBubbleBuilder().build();
+            Notification.BubbleMetadata metadata = getIntentBubble().build();
             builder.setBubbleMetadata(metadata);
 
             mNotificationManager.notify(NOTIFICATION_ID, builder.build());
@@ -386,9 +437,9 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification", "7: DismissBubbleTest");
+                    getConversationNotif("Bubble notification", "7: DismissBubbleTest");
 
-            Notification.BubbleMetadata metadata = getBasicBubbleBuilder().build();
+            Notification.BubbleMetadata metadata = getIntentBubble().build();
             builder.setBubbleMetadata(metadata);
 
             mNotificationManager.notify(NOTIFICATION_ID, builder.build());
@@ -414,10 +465,10 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification",
+                    getConversationNotif("Bubble notification",
                             "8: DismissNotificationTest: Dismiss me!!");
 
-            Notification.BubbleMetadata metadata = getBasicBubbleBuilder().build();
+            Notification.BubbleMetadata metadata = getIntentBubble().build();
             builder.setBubbleMetadata(metadata);
 
             mNotificationManager.notify(NOTIFICATION_ID, builder.build());
@@ -443,41 +494,85 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
         @Override
         public void performTestAction() {
             Notification.Builder builder =
-                    getBasicNotifBuilder("Bubble notification", "9: Auto expanded bubble");
+                    getConversationNotif("Bubble notification", "9: Auto expanded bubble");
 
             Notification.BubbleMetadata metadata =
-                    getBasicBubbleBuilder().setAutoExpandBubble(true).build();
+                    getIntentBubble().setAutoExpandBubble(true).build();
             builder.setBubbleMetadata(metadata);
 
             mNotificationManager.notify(NOTIFICATION_ID, builder.build());
         }
     }
 
+    private class LowRamBubbleTest extends BubblesTestStep {
+        @Override
+        public int getButtonText() {
+            return R.string.bubbles_notification_test_button_10;
+        }
+
+        @Override
+        public int getTestTitle() {
+            return R.string.bubbles_notification_test_title_10;
+        }
+
+        @Override
+        public int getTestDescription() {
+            return R.string.bubbles_notification_test_verify_10;
+        }
+
+        @Override
+        public void performTestAction() {
+            Notification.Builder builder =
+                    getConversationNotif("Bubble notification", "Low ram test");
+            builder.setBubbleMetadata(getIntentBubble().build());
+
+            mNotificationManager.notify(NOTIFICATION_ID, builder.build());
+        }
+    }
 
     /** Creates a minimally filled out {@link android.app.Notification.BubbleMetadata.Builder} */
-    private Notification.BubbleMetadata.Builder getBasicBubbleBuilder() {
+    private Notification.BubbleMetadata.Builder getIntentBubble() {
         Context context = getApplicationContext();
         Intent intent = new Intent(context, BubbleActivity.class);
         final PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
 
-        return new Notification.BubbleMetadata.Builder()
-                .setIcon(Icon.createWithResource(getApplicationContext(),
-                        R.drawable.ic_android))
-                .setIntent(pendingIntent);
+        return new Notification.BubbleMetadata.Builder(pendingIntent,
+                Icon.createWithResource(getApplicationContext(),
+                        R.drawable.ic_android));
     }
 
-    /** Creates a minimally filled out {@link Notification.Builder} with provided text. */
-    private Notification.Builder getBasicNotifBuilder(@NonNull CharSequence title,
+    /** Creates a {@link Notification.Builder} that is a conversation. */
+    private Notification.Builder getConversationNotif(@NonNull CharSequence title,
             @NonNull CharSequence content) {
         Context context = getApplicationContext();
         Intent intent = new Intent(context, BubbleActivity.class);
         final PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
+
+        Person person = new Person.Builder()
+                .setName("bubblebot")
+                .build();
+        RemoteInput remoteInput = new RemoteInput.Builder("reply_key").setLabel("reply").build();
+        PendingIntent inputIntent = PendingIntent.getActivity(getApplicationContext(), 0,
+                new Intent(), 0);
+        Icon icon = Icon.createWithResource(getApplicationContext(), R.drawable.ic_android);
+        Notification.Action replyAction = new Notification.Action.Builder(icon, "Reply",
+                inputIntent).addRemoteInput(remoteInput)
+                .build();
 
         return new Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_android)
                 .setContentTitle(title)
                 .setContentText(content)
                 .setColor(Color.GREEN)
-                .setContentIntent(pendingIntent);
+                .setShortcutId(SHORTCUT_ID)
+                .setContentIntent(pendingIntent)
+                .setActions(replyAction)
+                .setStyle(new Notification.MessagingStyle(person)
+                        .setConversationTitle("Bubble Chat")
+                        .addMessage("Hello?",
+                                SystemClock.currentThreadTimeMillis() - 300000, person)
+                        .addMessage("Is it me you're looking for?",
+                                SystemClock.currentThreadTimeMillis(), person)
+                );
     }
 }

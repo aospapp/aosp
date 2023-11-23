@@ -38,8 +38,9 @@ namespace wifilogd {
 namespace {
 
 using ::testing::_;
-using ::testing::Invoke;
+using ::testing::DoAll;
 using ::testing::InSequence;
+using ::testing::Invoke;
 using ::testing::Matcher;
 using ::testing::MatcherInterface;
 using ::testing::MatchResultListener;
@@ -48,8 +49,8 @@ using ::testing::Pointee;
 using ::testing::Return;
 using ::testing::SetArgumentPointee;
 using ::testing::SetErrnoAndReturn;
-using ::testing::StrictMock;
 using ::testing::StrEq;
+using ::testing::StrictMock;
 
 using local_utils::GetMaxVal;
 

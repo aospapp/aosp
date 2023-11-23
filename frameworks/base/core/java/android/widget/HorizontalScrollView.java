@@ -18,7 +18,7 @@ package android.widget;
 
 import android.annotation.ColorInt;
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
@@ -951,8 +951,6 @@ public class HorizontalScrollView extends FrameLayout {
     public void onInitializeAccessibilityEventInternal(AccessibilityEvent event) {
         super.onInitializeAccessibilityEventInternal(event);
         event.setScrollable(getScrollRange() > 0);
-        event.setScrollX(mScrollX);
-        event.setScrollY(mScrollY);
         event.setMaxScrollX(getScrollRange());
         event.setMaxScrollY(mScrollY);
     }

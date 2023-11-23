@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"ಸಂಯೋಜಿತ ಸಾಧನ"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"ಸಂಯೋಜಿತ ಸಾಧನವನ್ನು ಸೇರಿಸಿ"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"ಕಂಪ್ಯಾನಿಯನ್ ಸಾಧನ ಒಂದನ್ನು ಕನೆಕ್ಟ್ ಮಾಡಿ"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"ನಿಮ್ಮ ಚಾಲನಾ ಅನುಭವವನ್ನು ನಿರ್ವಹಿಸಲು ಸಹಾಯವಾಗಲು ನಿಮ್ಮ ಫೋನ್‌ ಅನ್ನು ಕಂಪ್ಯಾನಿಯನ್ ಸಾಧನವಾಗಿ ನೀವು ಬಳಸಬಹುದು"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ "<b>"ಕಂಪ್ಯಾನಿಯನ್ ಆ್ಯಪ್"</b>" ಇನ್‌ಸ್ಟಾಲ್ ಆಗಿರಬೇಕು"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"ಫೋನ್‌ನಲ್ಲಿ ಕೋಡ್ ಅನ್ನು ದೃಢೀಕರಿಸಿ"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ತೋರಿಸಲಾಗುವ ಕೋಡ್‌ಗೆ ಇದು ಹೊಂದಾಣಿಕೆಯಾಗುತ್ತಿರುವುದೇ ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"ಸಾಧನವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಸಂಯೋಜಿಸಲಾಗಿದೆ"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"ಆ್ಯಪ್ ತೆರೆಯಿರಿ ಹಾಗೂ &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt; ಗೆ ಸಂಪರ್ಕಿಸಿ"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt; ಅನ್ನು ತೆಗೆದುಹಾಕುವುದೇ?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"ಈ ಕಾರ್ ಅನ್ನು ಇನ್ನು ಮುಂದೆ ಈ ಸಾಧನದ ಜೊತೆಗೆ ಜೋಡಿಸಲಾಗುವುದಿಲ್ಲ. ಹೆಚ್ಚುವರಿಯಾಗಿ, ಈ ಕಾರ್ ಅನ್ನು ಕಂಪ್ಯಾನಿಯನ್ ಆ್ಯಪ್‌ನಿಂದ ನೀವು ತೆಗೆದುಹಾಕಬೇಕಾಗುತ್ತದೆ."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> ಅನ್ನು ತೆಗೆದುಹಾಕಲಾಗಿದೆ"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> ಅನ್ನು ತೆಗೆದುಹಾಕಲು ವಿಫಲವಾಗಿದೆ"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಸೆಟಪ್ ಮಾಡುವುದನ್ನು ಮುಂದುವರೆಸಿ"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"ಏನೋ ತಪ್ಪಾಗಿದೆ"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"ದುರದೃಷ್ಟವಶಾತ್ ಈ ಸ್ಕ್ರೀನ್‌ಗೆ ಸರಿಯಾಗಿ ಡಿಸ್‌ಪ್ಲೇ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಪುನಃ ಪ್ರಯತ್ನಿಸಿ."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"ಬ್ಲೂಟೂತ್ ಆನ್ ಮಾಡಿ"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ಕಂಪ್ಯಾನಿಯನ್ ಸಾಧನವಾಗಿ ಹೊಂದಿಸಲು, ನಿಮ್ಮ ಕಾರ್‌ಗೆ ಬ್ಲೂಟೂತ್‌ನ ಅಗತ್ಯವಿದೆ."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"ಬ್ಲೂಟೂತ್ ಆನ್ ಮಾಡುವುದೇ?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"ನಿಮ್ಮ ಕಂಪ್ಯಾನಿಯನ್ ಸಾಧನಕ್ಕೆ ಕನೆಕ್ಟ್ ಮಾಡಲು, ನಿಮ್ಮ ಕಾರ್‌ಗೆ ಬ್ಲೂಟೂತ್‌ನ ಅಗತ್ಯವಿದೆ."</string>
+    <string name="accept" msgid="1454710793329618813">"ಸಮ್ಮತಿಸಿ"</string>
+    <string name="reject" msgid="4315432282758892890">"ತಿರಸ್ಕರಿಸಿ"</string>
+    <string name="confirm" msgid="3748997214719276945">"ಖಚಿತಪಡಿಸಿ"</string>
+    <string name="cancel" msgid="4306609731174629323">"ರದ್ದುಗೊಳಿಸಿ"</string>
+    <string name="remove" msgid="5513398257088729188">"ತೆಗೆದುಹಾಕಿ"</string>
+    <string name="ok" msgid="2825038997730899083">"ಸರಿ"</string>
+    <string name="connection" msgid="2798490936433656846">"ಸಂಪರ್ಕ"</string>
+    <string name="forget_title" msgid="3027608547243824729">"ಈ ಸಾಧನವನ್ನು ತೆಗೆದುಹಾಕಿ"</string>
+    <string name="forget" msgid="2069897665699141222">"ತೆಗೆದುಹಾಕಿ"</string>
+    <string name="disable" msgid="4619854429066283970">"ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="enable" msgid="7656386199154111316">"ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="continue_button" msgid="2748318968566159950">"ಮುಂದುವರಿಯಿರಿ"</string>
+    <string name="retry" msgid="3783419451480721367">"ಪುನಃ ಪ್ರಯತ್ನಿಸಿ"</string>
+    <string name="turn_on" msgid="4288754850470994812">"ಆನ್ ಮಾಡಿ"</string>
+    <string name="not_now" msgid="8764692269093707622">"ಈಗ ಬೇಡ"</string>
+    <string name="connected" msgid="8051190714042020471">"ಕನೆಕ್ಟ್ ಮಾಡಲಾಗಿದೆ"</string>
+    <string name="notDetected" msgid="4115229772085594506">"ಪತ್ತೆಯಾಗಲಿಲ್ಲ"</string>
+    <string name="disconnected" msgid="8526513868622591894">"ಸಂಪರ್ಕ ಕಡಿತಮಾಡಲಾಗಿದೆ"</string>
+    <string name="unknown" msgid="555736316465118024">"ಅಪರಿಚಿತ"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"ಫೋನ್ ಪಠ್ಯ ಸಂದೇಶ ಸೇವೆಯು ಚಾಲನೆಯಲ್ಲಿದೆ"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"ಫೋನ್ ಪಠ್ಯ ಸಂದೇಶ ಕಳುಹಿಸುವಿಕೆ ಸೇವೆಯು ಸಕ್ರಿಯವಾಗಿದೆ"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"ಕಂಪ್ಯಾನಿಯನ್ ಸಾಧನದ ಮೂಲಕ ಪಠ್ಯ ಸಂದೇಶಗಳನ್ನು ಸ್ವೀಕರಿಸಲಾಗುತ್ತಿದೆ"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"ಫೋನ್‌ನ ಮೂಲಕ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅನ್‌ಲಾಕ್ ಮಾಡಿ"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"ಅನ್‌ಲಾಕ್ ಮಾಡುವ ಆಯ್ಕೆಗಳನ್ನು ಹೊಂದಿಸಲು ನಿಮ್ಮ ಕಂಪ್ಯಾನಿಯನ್ ಆ್ಯಪ್ ಅನ್ನು ಪರಿಶೀಲಿಸಿ"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;; ಗೆ ನನ್ನ ಪ್ರೊಫೈಲ್ ಅನ್‌ಲಾಕ್ ಮಾಡಲು ಅನುಮತಿಸಿ"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"ನಿಮ್ಮ ಫೋನ್ ಸಕ್ರಿಯವಾಗಿ ಕನೆಕ್ಟ್ ಆಗಿರಬೇಕು"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"ಈ ವೈಶಿಷ್ಟ್ಯವನ್ನು ಆನ್ ಮಾಡಲು, ನಿಮ್ಮ ಕಾರ್ ಮತ್ತು ಫೋನ್‌ನಲ್ಲಿ ಬ್ಲೂಟೂತ್ ಆನ್ ಆಗಿರುವುದನ್ನು ಮತ್ತು ಅವರೆಡೂ ಪರಸ್ಪರ ಹತ್ತಿರದಲ್ಲಿರುವುದನ್ನು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;, ಈಗ ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅನ್‌ಲಾಕ್ ಮಾಡಬಹುದು"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"ಪ್ರಾಥಮಿಕ ಪ್ರೊಫೈಲ್ ಲಾಕ್ ಒಂದನ್ನು ರಚಿಸಿ"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅನ್‌ಲಾಕ್ ಮಾಡುವುದಕ್ಕಾಗಿ ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ಬಳಸಲು, ಬ್ಯಾಕಪ್ ಆಗಿ ನಿಮಗೆ ಪ್ರಾಥಮಿಕ ಪ್ರೊಫೈಲ್ ಲಾಕ್‌ನ ಅಗತ್ಯವಿದೆ"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"ಪೂರ್ಣಗೊಳಿಸಲು ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅನ್‌ಲಾಕ್ ಮಾಡಿ"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"ನೀವು ಹೊಸ ಪ್ರೊಫೈಲ್ ಲಾಕ್ ರಚಿಸಿದ್ದೀರಿ. ಮುಂದೆ, ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಅನ್ನು ನಿಮ್ಮ ಫೋನ್ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಅನ್‌ಲಾಕ್ ಮಾಡಬಹುದು ಎಂದು ಖಚಿತಪಡಿಸಲು ಅದನ್ನು ಮತ್ತೊಮ್ಮೆ ನಮೂದಿಸಿ"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"ಈ ಸಾಧನದ ಸಂಪರ್ಕ ಕಡಿತಗೊಳಿಸಿ"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"ಈ ಸಾಧನವನ್ನು ಮರುಸಂಪರ್ಕಗೊಳಿಸಿ"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"ಫೋನ್ ಮೂಲಕ ಅನ್‌ಲಾಕ್ ಮಾಡಿ"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಅನ್‌ಲಾಕ್ ಮಾಡಲು ನಿಮ್ಮ ಫೋನ್‌ಗೆ ಅನುಮತಿಸಿ"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"ಈ ವೈಶಿಷ್ಟ್ಯವನ್ನು ಅನುಮತಿಸಲು ಇಲ್ಲಿ ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"ಏನೋ ತಪ್ಪಾಗಿದೆ"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"ದುರದೃಷ್ಟವಶಾತ್, ಈ ಸಮಯದಲ್ಲಿ ಈ ವೈಶಿಷ್ಟ್ಯವನ್ನು ಆನ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಪುನಃ ಪ್ರಯತ್ನಿಸಿ."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಒಂದನ್ನು ರಚಿಸಿ"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಸ್ಕ್ರೀನ್‌ ಲಾಕ್ ಅನ್ನು ಸೆಟ್ ಮಾಡಿಲ್ಲ. ನಿಮ್ಮ ಫೋನ್‌ನಿಂದ ನಿಮ್ಮ ಕಾರ್‌ನ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅನ್‌ಲಾಕ್ ಮಾಡಲು, ಮೊದಲು ನಿಮ್ಮ ಫೋನ್‌ನ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಸ್ಕ್ರೀನ್ ಲಾಕ್ (ಪಾಸ್‌ಕೋಡ್ ಎಂದೂ ಸಹ ಕರೆಯಲಾಗುತ್ತದೆ) ಒಂದನ್ನು ರಚಿಸಿ."</string>
+</resources>

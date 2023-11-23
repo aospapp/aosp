@@ -24,6 +24,7 @@
 #include <chrono>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <android-base/file.h>
@@ -31,6 +32,7 @@
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 
+#include "cmd_stat_impl.h"
 #include "command.h"
 #include "environment.h"
 #include "event_attr.h"
@@ -41,7 +43,9 @@
 #include "utils.h"
 #include "workload.h"
 
-namespace {
+using namespace simpleperf;
+
+namespace simpleperf {
 
 static std::vector<std::string> default_measured_event_types{
     "cpu-cycles",   "stalled-cycles-frontend", "stalled-cycles-backend",
@@ -49,245 +53,285 @@ static std::vector<std::string> default_measured_event_types{
     "task-clock",   "context-switches",        "page-faults",
 };
 
-struct CounterSum {
-  uint64_t value = 0;
-  uint64_t time_enabled = 0;
-  uint64_t time_running = 0;
+static const std::unordered_map<std::string_view, std::pair<std::string_view, std::string_view>>
+    COMMON_EVENT_RATE_MAP = {
+        {"cache-misses", {"cache-references", "miss rate"}},
+        {"branch-misses", {"branch-instructions", "miss rate"}},
 };
 
-struct CounterSummary {
-  std::string type_name;
-  std::string modifier;
-  uint32_t group_id;
-  uint64_t count;
-  double scale;
-  std::string readable_count;
-  std::string comment;
-  bool auto_generated;
-
-  CounterSummary(const std::string& type_name, const std::string& modifier,
-                 uint32_t group_id, uint64_t count, double scale,
-                 bool auto_generated, bool csv)
-      : type_name(type_name),
-        modifier(modifier),
-        group_id(group_id),
-        count(count),
-        scale(scale),
-        auto_generated(auto_generated) {
-    readable_count = ReadableCountValue(csv);
-  }
-
-  bool IsMonitoredAtTheSameTime(const CounterSummary& other) const {
-    // Two summaries are monitored at the same time if they are in the same
-    // group or are monitored all the time.
-    if (group_id == other.group_id) {
-      return true;
-    }
-    return IsMonitoredAllTheTime() && other.IsMonitoredAllTheTime();
-  }
-
-  std::string Name() const {
-    if (modifier.empty()) {
-      return type_name;
-    }
-    return type_name + ":" + modifier;
-  }
-
- private:
-  std::string ReadableCountValue(bool csv) {
-    if (type_name == "cpu-clock" || type_name == "task-clock") {
-      // Convert nanoseconds to milliseconds.
-      double value = count / 1e6;
-      return android::base::StringPrintf("%lf(ms)", value);
-    } else {
-      // Convert big numbers to human friendly mode. For example,
-      // 1000000 will be converted to 1,000,000.
-      std::string s = android::base::StringPrintf("%" PRIu64, count);
-      if (csv) {
-        return s;
-      } else {
-        for (size_t i = s.size() - 1, j = 1; i > 0; --i, ++j) {
-          if (j == 3) {
-            s.insert(s.begin() + i, ',');
-            j = 0;
-          }
-        }
-        return s;
-      }
-    }
-  }
-
-  bool IsMonitoredAllTheTime() const {
-    // If an event runs all the time it is enabled (by not sharing hardware
-    // counters with other events), the scale of its summary is usually within
-    // [1, 1 + 1e-5]. By setting SCALE_ERROR_LIMIT to 1e-5, We can identify
-    // events monitored all the time in most cases while keeping the report
-    // error rate <= 1e-5.
-    constexpr double SCALE_ERROR_LIMIT = 1e-5;
-    return (fabs(scale - 1.0) < SCALE_ERROR_LIMIT);
-  }
+static const std::unordered_map<std::string_view, std::pair<std::string_view, std::string_view>>
+    ARM_EVENT_RATE_MAP = {
+        // Refer to "D6.10.5 Meaningful ratios between common microarchitectural events" in ARMv8
+        // specification.
+        {"raw-l1i-cache-refill", {"raw-l1i-cache", "level 1 instruction cache refill rate"}},
+        {"raw-l1i-tlb-refill", {"raw-l1i-tlb", "level 1 instruction TLB refill rate"}},
+        {"raw-l1d-cache-refill", {"raw-l1d-cache", "level 1 data or unified cache refill rate"}},
+        {"raw-l1d-tlb-refill", {"raw-l1d-tlb", "level 1 data or unified TLB refill rate"}},
+        {"raw-l2d-cache-refill", {"raw-l2d-cache", "level 2 data or unified cache refill rate"}},
+        {"raw-l2i-cache-refill", {"raw-l2i-cache", "level 2 instruction cache refill rate"}},
+        {"raw-l3d-cache-refill", {"raw-l3d-cache", "level 3 data or unified cache refill rate"}},
+        {"raw-l2d-tlb-refill", {"raw-l2d-tlb", "level 2 data or unified TLB refill rate"}},
+        {"raw-l2i-tlb-refill", {"raw-l2i-tlb", "level 2 instruction TLB refill rate"}},
+        {"raw-bus-access", {"raw-bus-cycles", "bus accesses per cycle"}},
+        {"raw-ll-cache-miss", {"raw-ll-cache", "last level data or unified cache refill rate"}},
+        {"raw-dtlb-walk", {"raw-l1d-tlb", "data TLB miss rate"}},
+        {"raw-itlb-walk", {"raw-l1i-tlb", "instruction TLB miss rate"}},
+        {"raw-ll-cache-miss-rd", {"raw-ll-cache-rd", "memory read operation miss rate"}},
+        {"raw-remote-access-rd",
+         {"raw-remote-access", "read accesses to another socket in a multi-socket system"}},
+        // Refer to "Table K3-2 Relationship between REFILL events and associated access events" in
+        // ARMv8 specification.
+        {"raw-l1d-cache-refill-rd", {"raw-l1d-cache-rd", "level 1 cache refill rate, read"}},
+        {"raw-l1d-cache-refill-wr", {"raw-l1d-cache-wr", "level 1 cache refill rate, write"}},
+        {"raw-l1d-tlb-refill-rd", {"raw-l1d-tlb-rd", "level 1 TLB refill rate, read"}},
+        {"raw-l1d-tlb-refill-wr", {"raw-l1d-tlb-wr", "level 1 TLB refill rate, write"}},
+        {"raw-l2d-cache-refill-rd", {"raw-l2d-cache-rd", "level 2 data cache refill rate, read"}},
+        {"raw-l2d-cache-refill-wr", {"raw-l2d-cache-wr", "level 2 data cache refill rate, write"}},
+        {"raw-l2d-tlb-refill-rd", {"raw-l2d-tlb-rd", "level 2 data TLB refill rate, read"}},
 };
 
-class CounterSummaries {
- public:
-  explicit CounterSummaries(bool csv) : csv_(csv) {}
-  void AddSummary(const CounterSummary& summary) {
-    summaries_.push_back(summary);
-  }
-
-  const CounterSummary* FindSummary(const std::string& type_name,
-                                    const std::string& modifier) {
-    for (const auto& s : summaries_) {
-      if (s.type_name == type_name && s.modifier == modifier) {
-        return &s;
-      }
-    }
-    return nullptr;
-  }
-
-  // If we have two summaries monitoring the same event type at the same time,
-  // that one is for user space only, and the other is for kernel space only;
-  // then we can automatically generate a summary combining the two results.
-  // For example, a summary of branch-misses:u and a summary for branch-misses:k
-  // can generate a summary of branch-misses.
-  void AutoGenerateSummaries() {
-    for (size_t i = 0; i < summaries_.size(); ++i) {
-      const CounterSummary& s = summaries_[i];
-      if (s.modifier == "u") {
-        const CounterSummary* other = FindSummary(s.type_name, "k");
-        if (other != nullptr && other->IsMonitoredAtTheSameTime(s)) {
-          if (FindSummary(s.type_name, "") == nullptr) {
-            AddSummary(CounterSummary(s.type_name, "", s.group_id,
-                                      s.count + other->count, s.scale, true,
-                                      csv_));
-          }
-        }
-      }
+const CounterSummary* CounterSummaries::FindSummary(const std::string& type_name,
+                                                    const std::string& modifier,
+                                                    const ThreadInfo* thread, int cpu) {
+  for (const auto& s : summaries_) {
+    if (s.type_name == type_name && s.modifier == modifier && s.thread == thread && s.cpu == cpu) {
+      return &s;
     }
   }
+  return nullptr;
+}
 
-  void GenerateComments(double duration_in_sec) {
-    for (auto& s : summaries_) {
-      s.comment = GetCommentForSummary(s, duration_in_sec);
-    }
-  }
-
-  void Show(FILE* fp) {
-    size_t count_column_width = 0;
-    size_t name_column_width = 0;
-    size_t comment_column_width = 0;
-    for (auto& s : summaries_) {
-      count_column_width =
-          std::max(count_column_width, s.readable_count.size());
-      name_column_width = std::max(name_column_width, s.Name().size());
-      comment_column_width = std::max(comment_column_width, s.comment.size());
-    }
-
-    for (auto& s : summaries_) {
-      if (csv_) {
-        fprintf(fp, "%s,%s,%s,(%.0lf%%)%s\n", s.readable_count.c_str(),
-                s.Name().c_str(), s.comment.c_str(), 1.0 / s.scale * 100,
-                (s.auto_generated ? " (generated)," : ","));
-      } else {
-        fprintf(fp, "  %*s  %-*s   # %-*s  (%.0lf%%)%s\n",
-                static_cast<int>(count_column_width), s.readable_count.c_str(),
-                static_cast<int>(name_column_width), s.Name().c_str(),
-                static_cast<int>(comment_column_width), s.comment.c_str(),
-                1.0 / s.scale * 100, (s.auto_generated ? " (generated)" : ""));
-      }
-    }
-  }
-
- private:
-  std::string GetCommentForSummary(const CounterSummary& s,
-                                   double duration_in_sec) {
-    char sap_mid;
-    if (csv_) {
-      sap_mid = ',';
-    } else {
-      sap_mid = ' ';
-    }
-    if (s.type_name == "task-clock") {
-      double run_sec = s.count / 1e9;
-      double used_cpus = run_sec / (duration_in_sec / s.scale);
-      return android::base::StringPrintf("%lf%ccpus used", used_cpus, sap_mid);
-    }
-    if (s.type_name == "cpu-clock") {
-      return "";
-    }
-    if (s.type_name == "cpu-cycles") {
-      double running_time_in_sec;
-      if (!FindRunningTimeForSummary(s, &running_time_in_sec)) {
-        return "";
-      }
-      double hz = s.count / (running_time_in_sec / s.scale);
-      return android::base::StringPrintf("%lf%cGHz", hz / 1e9, sap_mid);
-    }
-    if (s.type_name == "instructions" && s.count != 0) {
-      const CounterSummary* other = FindSummary("cpu-cycles", s.modifier);
+void CounterSummaries::AutoGenerateSummaries() {
+  for (size_t i = 0; i < summaries_.size(); ++i) {
+    const CounterSummary& s = summaries_[i];
+    if (s.modifier == "u") {
+      const CounterSummary* other = FindSummary(s.type_name, "k", s.thread, s.cpu);
       if (other != nullptr && other->IsMonitoredAtTheSameTime(s)) {
-        double cpi = static_cast<double>(other->count) / s.count;
-        return android::base::StringPrintf("%lf%ccycles per instruction", cpi,
-                                           sap_mid);
+        if (FindSummary(s.type_name, "", s.thread, s.cpu) == nullptr) {
+          summaries_.emplace_back(s.type_name, "", s.group_id, s.thread, s.cpu,
+                                  s.count + other->count, s.runtime_in_ns, s.scale, true, csv_);
+        }
       }
     }
-    if (android::base::EndsWith(s.type_name, "-misses")) {
-      std::string other_name;
-      if (s.type_name == "cache-misses") {
-        other_name = "cache-references";
-      } else if (s.type_name == "branch-misses") {
-        other_name = "branch-instructions";
-      } else {
-        other_name =
-            s.type_name.substr(0, s.type_name.size() - strlen("-misses")) + "s";
-      }
-      const CounterSummary* other = FindSummary(other_name, s.modifier);
-      if (other != nullptr && other->IsMonitoredAtTheSameTime(s) &&
-          other->count != 0) {
-        double miss_rate = static_cast<double>(s.count) / other->count;
-        return android::base::StringPrintf("%lf%%%cmiss rate", miss_rate * 100,
-                                           sap_mid);
-      }
+  }
+}
+
+void CounterSummaries::GenerateComments(double duration_in_sec) {
+  for (auto& s : summaries_) {
+    s.comment = GetCommentForSummary(s, duration_in_sec);
+  }
+}
+
+void CounterSummaries::Show(FILE* fp) {
+  if (csv_) {
+    ShowCSV(fp);
+  } else {
+    ShowText(fp);
+  }
+}
+
+void CounterSummaries::ShowCSV(FILE* fp) {
+  for (auto& s : summaries_) {
+    if (s.thread != nullptr) {
+      fprintf(fp, "%s,%d,%d,", s.thread->name.c_str(), s.thread->pid, s.thread->tid);
     }
-    if (android::base::EndsWith(s.type_name, "-refill")) {
-      std::string other_name = s.type_name.substr(0, s.type_name.size() - strlen("-refill"));
-      const CounterSummary* other = FindSummary(other_name, s.modifier);
-      if (other != nullptr && other->IsMonitoredAtTheSameTime(s) && other->count != 0) {
-        double miss_rate = static_cast<double>(s.count) / other->count;
-        return android::base::StringPrintf("%f%%%cmiss rate", miss_rate * 100, sap_mid);
-      }
-    }
-    double running_time_in_sec;
-    if (!FindRunningTimeForSummary(s, &running_time_in_sec)) {
-      return "";
-    }
-    double rate = s.count / (running_time_in_sec / s.scale);
-    if (rate > 1e9) {
-      return android::base::StringPrintf("%.3lf%cG/sec", rate / 1e9, sap_mid);
-    }
-    if (rate > 1e6) {
-      return android::base::StringPrintf("%.3lf%cM/sec", rate / 1e6, sap_mid);
-    }
-    if (rate > 1e3) {
-      return android::base::StringPrintf("%.3lf%cK/sec", rate / 1e3, sap_mid);
-    }
-    return android::base::StringPrintf("%.3lf%c/sec", rate, sap_mid);
+    fprintf(fp, "%s,%s,%s,(%.0f%%)%s\n", s.readable_count.c_str(), s.Name().c_str(),
+            s.comment.c_str(), 1.0 / s.scale * 100, (s.auto_generated ? " (generated)," : ","));
+  }
+}
+
+void CounterSummaries::ShowText(FILE* fp) {
+  bool show_thread = !summaries_.empty() && summaries_[0].thread != nullptr;
+  bool show_cpu = !summaries_.empty() && summaries_[0].cpu != -1;
+  std::vector<std::string> titles;
+
+  if (show_thread) {
+    titles = {"thread_name", "pid", "tid"};
+  }
+  if (show_cpu) {
+    titles.emplace_back("cpu");
+  }
+  titles.emplace_back("count");
+  titles.emplace_back("event_name");
+  titles.emplace_back(" # count / runtime,  runtime / enabled_time");
+
+  std::vector<size_t> width(titles.size(), 0);
+
+  auto adjust_width = [](size_t& w, size_t size) { w = std::max(w, size); };
+
+  // The last title is too long. Don't include it for width adjustment.
+  for (size_t i = 0; i + 1 < titles.size(); i++) {
+    adjust_width(width[i], titles[i].size());
   }
 
-  bool FindRunningTimeForSummary(const CounterSummary& summary, double* running_time_in_sec) {
-    for (auto& s : summaries_) {
-      if ((s.type_name == "task-clock" || s.type_name == "cpu-clock") &&
-          s.IsMonitoredAtTheSameTime(summary) && s.count != 0u) {
-        *running_time_in_sec = s.count / 1e9;
-        return true;
+  for (auto& s : summaries_) {
+    size_t i = 0;
+    if (show_thread) {
+      adjust_width(width[i++], s.thread->name.size());
+      adjust_width(width[i++], std::to_string(s.thread->pid).size());
+      adjust_width(width[i++], std::to_string(s.thread->tid).size());
+    }
+    if (show_cpu) {
+      adjust_width(width[i++], std::to_string(s.cpu).size());
+    }
+    adjust_width(width[i++], s.readable_count.size());
+    adjust_width(width[i++], s.Name().size());
+    adjust_width(width[i++], s.comment.size());
+  }
+
+  fprintf(fp, "# ");
+  for (size_t i = 0; i < titles.size(); i++) {
+    if (titles[i] == "count") {
+      fprintf(fp, "%*s", static_cast<int>(width[i]), titles[i].c_str());
+    } else {
+      fprintf(fp, "%-*s", static_cast<int>(width[i]), titles[i].c_str());
+    }
+    if (i + 1 < titles.size()) {
+      fprintf(fp, "  ");
+    }
+  }
+  fprintf(fp, "\n");
+
+  for (auto& s : summaries_) {
+    size_t i = 0;
+    if (show_thread) {
+      fprintf(fp, "  %-*s", static_cast<int>(width[i++]), s.thread->name.c_str());
+      fprintf(fp, "  %-*d", static_cast<int>(width[i++]), s.thread->pid);
+      fprintf(fp, "  %-*d", static_cast<int>(width[i++]), s.thread->tid);
+    }
+    if (show_cpu) {
+      fprintf(fp, "  %-*d", static_cast<int>(width[i++]), s.cpu);
+    }
+    fprintf(fp, "  %*s  %-*s   # %-*s  (%.0f%%)%s\n", static_cast<int>(width[i]),
+            s.readable_count.c_str(), static_cast<int>(width[i + 1]), s.Name().c_str(),
+            static_cast<int>(width[i + 2]), s.comment.c_str(), 1.0 / s.scale * 100,
+            (s.auto_generated ? " (generated)" : ""));
+  }
+}
+
+std::string CounterSummaries::GetCommentForSummary(const CounterSummary& s,
+                                                   double duration_in_sec) {
+  char sap_mid;
+  if (csv_) {
+    sap_mid = ',';
+  } else {
+    sap_mid = ' ';
+  }
+  if (s.type_name == "task-clock") {
+    double run_sec = s.count / 1e9;
+    double used_cpus = run_sec / duration_in_sec;
+    return android::base::StringPrintf("%f%ccpus used", used_cpus, sap_mid);
+  }
+  if (s.type_name == "cpu-clock") {
+    return "";
+  }
+  if (s.type_name == "cpu-cycles") {
+    if (s.runtime_in_ns == 0) {
+      return "";
+    }
+    double ghz = static_cast<double>(s.count) / s.runtime_in_ns;
+    return android::base::StringPrintf("%f%cGHz", ghz, sap_mid);
+  }
+  if (s.type_name == "instructions" && s.count != 0) {
+    const CounterSummary* other = FindSummary("cpu-cycles", s.modifier, s.thread, s.cpu);
+    if (other != nullptr && other->IsMonitoredAtTheSameTime(s)) {
+      double cpi = static_cast<double>(other->count) / s.count;
+      return android::base::StringPrintf("%f%ccycles per instruction", cpi, sap_mid);
+    }
+  }
+  std::string rate_comment = GetRateComment(s, sap_mid);
+  if (!rate_comment.empty()) {
+    return rate_comment;
+  }
+  if (s.runtime_in_ns == 0) {
+    return "";
+  }
+  double runtime_in_sec = static_cast<double>(s.runtime_in_ns) / 1e9;
+  double rate = s.count / runtime_in_sec;
+  if (rate >= 1e9 - 1e5) {
+    return android::base::StringPrintf("%.3f%cG/sec", rate / 1e9, sap_mid);
+  }
+  if (rate >= 1e6 - 1e2) {
+    return android::base::StringPrintf("%.3f%cM/sec", rate / 1e6, sap_mid);
+  }
+  if (rate >= 1e3) {
+    return android::base::StringPrintf("%.3f%cK/sec", rate / 1e3, sap_mid);
+  }
+  return android::base::StringPrintf("%.3f%c/sec", rate, sap_mid);
+}
+
+std::string CounterSummaries::GetRateComment(const CounterSummary& s, char sep) {
+  std::string_view miss_event_name = s.type_name;
+  std::string event_name;
+  std::string rate_desc;
+  if (auto it = COMMON_EVENT_RATE_MAP.find(miss_event_name); it != COMMON_EVENT_RATE_MAP.end()) {
+    event_name = it->second.first;
+    rate_desc = it->second.second;
+  }
+  if (event_name.empty() && (GetBuildArch() == ARCH_ARM || GetBuildArch() == ARCH_ARM64)) {
+    if (auto it = ARM_EVENT_RATE_MAP.find(miss_event_name); it != ARM_EVENT_RATE_MAP.end()) {
+      event_name = it->second.first;
+      rate_desc = it->second.second;
+    }
+  }
+  if (event_name.empty() && android::base::ConsumeSuffix(&miss_event_name, "-misses")) {
+    event_name = std::string(miss_event_name) + "s";
+    rate_desc = "miss rate";
+  }
+  if (!event_name.empty()) {
+    const CounterSummary* other = FindSummary(event_name, s.modifier, s.thread, s.cpu);
+    if (other != nullptr && other->IsMonitoredAtTheSameTime(s) && other->count != 0) {
+      double miss_rate = static_cast<double>(s.count) / other->count;
+      return android::base::StringPrintf("%f%%%c%s", miss_rate * 100, sep, rate_desc.c_str());
+    }
+  }
+  return "";
+}
+
+}  // namespace simpleperf
+
+namespace {
+
+// devfreq may use performance counters to calculate memory latency (as in
+// drivers/devfreq/arm-memlat-mon.c). Hopefully we can get more available counters by asking devfreq
+// to not use the memory latency governor temporarily.
+class DevfreqCounters {
+ public:
+  bool Use() {
+    if (!IsRoot()) {
+      LOG(ERROR) << "--use-devfreq-counters needs root permission to set devfreq governors";
+      return false;
+    }
+    std::string devfreq_dir = "/sys/class/devfreq/";
+    for (auto& name : GetSubDirs(devfreq_dir)) {
+      std::string governor_path = devfreq_dir + name + "/governor";
+      if (IsRegularFile(governor_path)) {
+        std::string governor;
+        if (!android::base::ReadFileToString(governor_path, &governor)) {
+          LOG(ERROR) << "failed to read " << governor_path;
+          return false;
+        }
+        governor = android::base::Trim(governor);
+        if (governor == "mem_latency") {
+          if (!android::base::WriteStringToFile("performance", governor_path)) {
+            PLOG(ERROR) << "failed to write " << governor_path;
+            return false;
+          }
+          mem_latency_governor_paths_.emplace_back(std::move(governor_path));
+        }
       }
     }
-    return false;
+    return true;
+  }
+
+  ~DevfreqCounters() {
+    for (auto& path : mem_latency_governor_paths_) {
+      android::base::WriteStringToFile("mem_latency", path);
+    }
   }
 
  private:
-  std::vector<CounterSummary> summaries_;
-  bool csv_;
+  std::vector<std::string> mem_latency_governor_paths_;
 };
 
 class StatCommand : public Command {
@@ -332,8 +376,18 @@ class StatCommand : public Command {
 "             same time.\n"
 "--no-inherit     Don't stat created child threads/processes.\n"
 "-o output_filename  Write report to output_filename instead of standard output.\n"
+"--per-core       Print counters for each cpu core.\n"
+"--per-thread     Print counters for each thread.\n"
 "-p pid1,pid2,... Stat events on existing processes. Mutually exclusive with -a.\n"
 "-t tid1,tid2,... Stat events on existing threads. Mutually exclusive with -a.\n"
+#if defined(__ANDROID__)
+"--use-devfreq-counters    On devices with Qualcomm SOCs, some hardware counters may be used\n"
+"                          to monitor memory latency (in drivers/devfreq/arm-memlat-mon.c),\n"
+"                          making fewer counters available to users. This option asks devfreq\n"
+"                          to temporarily release counters by replacing memory-latency governor\n"
+"                          with performance governor. It affects memory latency during profiling,\n"
+"                          and may cause wedged power if simpleperf is killed in between.\n"
+#endif
 "--verbose        Show result in verbose mode.\n"
 #if 0
 // Below options are only used internally and shouldn't be visible to the public.
@@ -364,6 +418,8 @@ class StatCommand : public Command {
                     std::vector<std::string>* non_option_args);
   bool AddDefaultMeasuredEventTypes();
   void SetEventSelectionFlags();
+  void MonitorEachThread();
+  void AdjustToIntervalOnlyValues(std::vector<CountersInfo>& counters);
   bool ShowCounters(const std::vector<CountersInfo>& counters,
                     double duration_in_sec, FILE* fp);
 
@@ -373,7 +429,7 @@ class StatCommand : public Command {
   double duration_in_sec_;
   double interval_in_ms_;
   bool interval_only_values_;
-  std::vector<CounterSum> last_sum_values_;
+  std::vector<std::vector<CounterSum>> last_sum_values_;
   std::vector<int> cpus_;
   EventSelectionSet event_selection_set_;
   std::string output_filename_;
@@ -382,12 +438,19 @@ class StatCommand : public Command {
   std::string app_package_name_;
   bool in_app_context_;
   android::base::unique_fd stop_signal_fd_;
+  bool use_devfreq_counters_ = false;
+
+  bool report_per_core_ = false;
+  bool report_per_thread_ = false;
+  // used to report event count for each thread
+  std::unordered_map<pid_t, ThreadInfo> thread_info_;
 };
 
 bool StatCommand::Run(const std::vector<std::string>& args) {
   if (!CheckPerfEventLimit()) {
     return false;
   }
+  AllowMoreOpenedFiles();
 
   // 1. Parse options, and use default measured event types if not given.
   std::vector<std::string> workload_args;
@@ -398,6 +461,12 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
     if (!IsRoot()) {
       return RunInAppContext(app_package_name_, "stat", args, workload_args.size(),
                              output_filename_, !event_selection_set_.GetTracepointEvents().empty());
+    }
+  }
+  DevfreqCounters devfreq_counters;
+  if (use_devfreq_counters_) {
+    if (!devfreq_counters.Use()) {
+      return false;
     }
   }
   if (event_selection_set_.empty()) {
@@ -417,7 +486,11 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
   }
   bool need_to_check_targets = false;
   if (system_wide_collection_) {
-    event_selection_set_.AddMonitoredThreads({-1});
+    if (report_per_thread_) {
+      event_selection_set_.AddMonitoredProcesses(GetAllProcesses());
+    } else {
+      event_selection_set_.AddMonitoredThreads({-1});
+    }
   } else if (!event_selection_set_.HasMonitoredTarget()) {
     if (workload != nullptr) {
       event_selection_set_.AddMonitoredProcesses({workload->GetPid()});
@@ -434,9 +507,13 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
     need_to_check_targets = true;
   }
 
+  if (report_per_thread_) {
+    MonitorEachThread();
+  }
+
   // 3. Open perf_event_files and output file if defined.
-  if (!system_wide_collection_ && cpus_.empty()) {
-    cpus_.push_back(-1);  // Monitor on all cpus.
+  if (cpus_.empty() && !report_per_core_ && (report_per_thread_ || !system_wide_collection_)) {
+    cpus_.push_back(-1);  // Get event count for each thread on all cpus.
   }
   if (!event_selection_set_.OpenEventFiles(cpus_)) {
     return false;
@@ -466,11 +543,6 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
   }
   std::chrono::time_point<std::chrono::steady_clock> start_time;
   std::vector<CountersInfo> counters;
-  if (system_wide_collection_ || (!cpus_.empty() && cpus_[0] != -1)) {
-    if (!event_selection_set_.HandleCpuHotplugEvents(cpus_)) {
-      return false;
-    }
-  }
   if (need_to_check_targets && !event_selection_set_.StopWhenNoMoreTargets()) {
     return false;
   }
@@ -499,6 +571,9 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
       std::chrono::duration_cast<std::chrono::duration<double>>(end_time -
                                                                 start_time)
       .count();
+      if (interval_only_values_) {
+        AdjustToIntervalOnlyValues(counters);
+      }
       if (!ShowCounters(counters, duration_in_sec, fp)) {
         return false;
       }
@@ -590,6 +665,10 @@ bool StatCommand::ParseOptions(const std::vector<std::string>& args,
         return false;
       }
       out_fd_.reset(fd);
+    } else if (args[i] == "--per-core") {
+      report_per_core_ = true;
+    } else if (args[i] == "--per-thread") {
+      report_per_thread_ = true;
     } else if (args[i] == "-p") {
       if (!NextArgumentOrError(args, &i)) {
         return false;
@@ -621,6 +700,10 @@ bool StatCommand::ParseOptions(const std::vector<std::string>& args,
       if (!SetTracepointEventsFilePath(args[i])) {
         return false;
       }
+#if defined(__ANDROID__)
+    } else if (args[i] == "--use-devfreq-counters") {
+      use_devfreq_counters_ = true;
+#endif
     } else if (args[i] == "--verbose") {
       verbose_mode_ = true;
     } else {
@@ -652,7 +735,7 @@ bool StatCommand::AddDefaultMeasuredEventTypes() {
     // supported by the kernel.
     const EventType* type = FindEventTypeByName(name);
     if (type != nullptr &&
-        IsEventAttrSupported(CreateDefaultPerfEventAttr(*type))) {
+        IsEventAttrSupported(CreateDefaultPerfEventAttr(*type), name)) {
       if (!event_selection_set_.AddEventType(name)) {
         return false;
       }
@@ -667,6 +750,53 @@ bool StatCommand::AddDefaultMeasuredEventTypes() {
 
 void StatCommand::SetEventSelectionFlags() {
   event_selection_set_.SetInherit(child_inherit_);
+}
+
+void StatCommand::MonitorEachThread() {
+  std::vector<pid_t> threads;
+  for (auto pid : event_selection_set_.GetMonitoredProcesses()) {
+    for (auto tid : GetThreadsInProcess(pid)) {
+      ThreadInfo info;
+      if (GetThreadName(tid, &info.name)) {
+        info.tid = tid;
+        info.pid = pid;
+        thread_info_[tid] = std::move(info);
+        threads.push_back(tid);
+      }
+    }
+  }
+  for (auto tid : event_selection_set_.GetMonitoredThreads()) {
+    ThreadInfo info;
+    if (ReadThreadNameAndPid(tid, &info.name, &info.pid)) {
+      info.tid = tid;
+      thread_info_[tid] = std::move(info);
+      threads.push_back(tid);
+    }
+  }
+  event_selection_set_.ClearMonitoredTargets();
+  event_selection_set_.AddMonitoredThreads(threads);
+}
+
+void StatCommand::AdjustToIntervalOnlyValues(std::vector<CountersInfo>& counters) {
+  if (last_sum_values_.size() < counters.size()) {
+    last_sum_values_.resize(counters.size());
+  }
+  for (size_t i = 0; i < counters.size(); i++) {
+    std::vector<CounterInfo>& counters_per_event = counters[i].counters;
+    std::vector<CounterSum>& last_sum = last_sum_values_[i];
+
+    if (last_sum.size() < counters_per_event.size()) {
+      last_sum.resize(counters_per_event.size());
+    }
+    for (size_t j = 0; j < counters_per_event.size(); j++) {
+      PerfCounter& counter = counters_per_event[j].counter;
+      CounterSum new_sum;
+      new_sum.FromCounter(counter);
+      CounterSum delta = new_sum - last_sum[j];
+      delta.ToCounter(counter);
+      last_sum[j] = new_sum;
+    }
+  }
 }
 
 bool StatCommand::ShowCounters(const std::vector<CountersInfo>& counters,
@@ -700,34 +830,11 @@ bool StatCommand::ShowCounters(const std::vector<CountersInfo>& counters,
     }
   }
 
-  CounterSummaries summaries(csv_);
-  for (size_t i = 0; i < counters.size(); ++i) {
-    const CountersInfo& counters_info = counters[i];
-    CounterSum sum;
-    for (auto& counter_info : counters_info.counters) {
-      sum.value += counter_info.counter.value;
-      sum.time_enabled += counter_info.counter.time_enabled;
-      sum.time_running += counter_info.counter.time_running;
-    }
-    if (interval_only_values_) {
-      if (last_sum_values_.size() < counters.size()) {
-        last_sum_values_.resize(counters.size());
-      }
-      CounterSum tmp = sum;
-      sum.value -= last_sum_values_[i].value;
-      sum.time_enabled -= last_sum_values_[i].time_enabled;
-      sum.time_running -= last_sum_values_[i].time_running;
-      last_sum_values_[i] = tmp;
-    }
-
-    double scale = 1.0;
-    if (sum.time_running < sum.time_enabled && sum.time_running != 0) {
-      scale = static_cast<double>(sum.time_enabled) / sum.time_running;
-    }
-    summaries.AddSummary(
-        CounterSummary(counters_info.event_name, counters_info.event_modifier,
-                       counters_info.group_id, sum.value, scale, false, csv_));
+  CounterSummaryBuilder builder(report_per_thread_, report_per_core_, csv_, thread_info_);
+  for (const auto& info : counters) {
+    builder.AddCountersForOneEventType(info);
   }
+  CounterSummaries summaries(builder.Build(), csv_);
   summaries.AutoGenerateSummaries();
   summaries.GenerateComments(duration_in_sec);
   summaries.Show(fp);
@@ -736,6 +843,37 @@ bool StatCommand::ShowCounters(const std::vector<CountersInfo>& counters,
     fprintf(fp, "Total test time,%lf,seconds,\n", duration_in_sec);
   else
     fprintf(fp, "\nTotal test time: %lf seconds.\n", duration_in_sec);
+
+  const char* COUNTER_MULTIPLEX_INFO =
+      "probably caused by hardware counter multiplexing (less counters than events).\n"
+      "Try --use-devfreq-counters if on a rooted device.";
+
+  if (cpus_ == std::vector<int>(1, -1) ||
+      event_selection_set_.GetMonitoredThreads() == std::set<pid_t>({-1})) {
+    // We either monitor a thread on all cpus, or monitor all threads on a cpu. In both cases,
+    // if percentages < 100%, probably it is caused by hardware counter multiplexing.
+    bool counters_always_available = true;
+    for (const auto& summary : summaries.Summaries()) {
+      if (!summary.IsMonitoredAllTheTime()) {
+        counters_always_available = false;
+        break;
+      }
+    }
+    if (!counters_always_available) {
+      LOG(WARNING) << "Percentages < 100% means some events only run a subset of enabled time,\n"
+                   << COUNTER_MULTIPLEX_INFO;
+    }
+  } else if (report_per_thread_) {
+    // We monitor each thread on each cpu.
+    LOG(INFO) << "A percentage represents runtime_on_a_cpu / runtime_on_all_cpus for each thread.\n"
+              << "If percentage sum of a thread < 99%, or report for a running thread is missing,\n"
+              << COUNTER_MULTIPLEX_INFO;
+  } else {
+    // We monitor some threads on each cpu.
+    LOG(INFO) << "A percentage represents runtime_on_a_cpu / runtime_on_all_cpus for monitored\n"
+              << "threads. If percentage sum < 99%, or report for an event is missing,\n"
+              << COUNTER_MULTIPLEX_INFO;
+  }
   return true;
 }
 

@@ -15,40 +15,107 @@
 #ifndef VK_IMAGE_VIEW_HPP_
 #define VK_IMAGE_VIEW_HPP_
 
-#include "VkDebug.hpp"
-#include "VkObject.hpp"
+#include "VkFormat.h"
 #include "VkImage.hpp"
+#include "VkObject.hpp"
 
-namespace vk
-{
+#include "System/Debug.hpp"
+
+#include <atomic>
+
+namespace vk {
+
+class SamplerYcbcrConversion;
 
 class ImageView : public Object<ImageView, VkImageView>
 {
 public:
-	ImageView(const VkImageViewCreateInfo* pCreateInfo, void* mem);
-	~ImageView() = delete;
-	void destroy(const VkAllocationCallbacks* pAllocator);
+	// Image usage:
+	// RAW: Use the base image as is
+	// SAMPLING: Image used for texture sampling
+	enum Usage
+	{
+		RAW,
+		SAMPLING
+	};
 
-	static size_t ComputeRequiredAllocationSize(const VkImageViewCreateInfo* pCreateInfo);
+	ImageView(const VkImageViewCreateInfo *pCreateInfo, void *mem, const vk::SamplerYcbcrConversion *ycbcrConversion);
+	void destroy(const VkAllocationCallbacks *pAllocator);
 
-	void clear(const VkClearValue& clearValues, const VkImageAspectFlags aspectMask, const VkRect2D& renderArea);
-	void clear(const VkClearValue& clearValue, const VkImageAspectFlags aspectMask, const VkClearRect& renderArea);
+	static size_t ComputeRequiredAllocationSize(const VkImageViewCreateInfo *pCreateInfo);
+
+	void clear(const VkClearValue &clearValues, VkImageAspectFlags aspectMask, const VkRect2D &renderArea);
+	void clear(const VkClearValue &clearValue, VkImageAspectFlags aspectMask, const VkClearRect &renderArea);
+	void clearWithLayerMask(const VkClearValue &clearValue, VkImageAspectFlags aspectMask, const VkRect2D &renderArea, uint32_t layerMask);
+	void resolve(ImageView *resolveAttachment);
+	void resolve(ImageView *resolveAttachment, int layer);
+	void resolveWithLayerMask(ImageView *resolveAttachment, uint32_t layerMask);
+
+	VkImageViewType getType() const { return viewType; }
+	Format getFormat(Usage usage = RAW) const;
+	Format getFormat(VkImageAspectFlagBits aspect) const { return image->getFormat(aspect); }
+	int rowPitchBytes(VkImageAspectFlagBits aspect, uint32_t mipLevel, Usage usage = RAW) const;
+	int slicePitchBytes(VkImageAspectFlagBits aspect, uint32_t mipLevel, Usage usage = RAW) const;
+	int getMipLevelSize(VkImageAspectFlagBits aspect, uint32_t mipLevel, Usage usage = RAW) const;
+	int layerPitchBytes(VkImageAspectFlagBits aspect, Usage usage = RAW) const;
+	VkExtent3D getMipLevelExtent(uint32_t mipLevel) const;
+
+	int getSampleCount() const
+	{
+		switch(image->getSampleCountFlagBits())
+		{
+			case VK_SAMPLE_COUNT_1_BIT: return 1;
+			case VK_SAMPLE_COUNT_4_BIT: return 4;
+			default:
+				UNSUPPORTED("Sample count flags %d", image->getSampleCountFlagBits());
+				return 1;
+		}
+	}
+
+	void *getOffsetPointer(const VkOffset3D &offset, VkImageAspectFlagBits aspect, uint32_t mipLevel, uint32_t layer, Usage usage = RAW) const;
+	bool hasDepthAspect() const { return (subresourceRange.aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != 0; }
+	bool hasStencilAspect() const { return (subresourceRange.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != 0; }
+
+	void prepareForSampling() const { image->prepareForSampling(subresourceRange); }
+
+	const VkComponentMapping &getComponentMapping() const { return components; }
+	const VkImageSubresourceRange &getSubresourceRange() const { return subresourceRange; }
+	size_t getImageSizeInBytes() const { return image->getMemoryRequirements().size; }
+
+	const uint32_t id = nextID++;
 
 private:
-	bool                       imageTypesMatch(VkImageType imageType) const;
+	static std::atomic<uint32_t> nextID;
+	friend class BufferView;  // ImageView/BufferView share the ID space above.
 
-	Image*                     image = nullptr;
-	VkImageViewType            viewType = VK_IMAGE_VIEW_TYPE_2D;
-	VkFormat                   format = VK_FORMAT_UNDEFINED;
-	VkComponentMapping         components = {};
-	VkImageSubresourceRange    subresourceRange = {};
+	bool imageTypesMatch(VkImageType imageType) const;
+	const Image *getImage(Usage usage) const;
+
+	Image *const image = nullptr;
+	const VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D;
+	const Format format;
+	const VkComponentMapping components = {};
+	const VkImageSubresourceRange subresourceRange = {};
+
+	const vk::SamplerYcbcrConversion *ycbcrConversion = nullptr;
 };
 
-static inline ImageView* Cast(VkImageView object)
+// TODO(b/132437008): Also used by SamplerYcbcrConversion. Move somewhere centrally?
+inline VkComponentMapping ResolveIdentityMapping(VkComponentMapping m)
 {
-	return reinterpret_cast<ImageView*>(object);
+	return {
+		(m.r == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_R : m.r,
+		(m.g == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_G : m.g,
+		(m.b == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_B : m.b,
+		(m.a == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_A : m.a,
+	};
 }
 
-} // namespace vk
+static inline ImageView *Cast(VkImageView object)
+{
+	return ImageView::Cast(object);
+}
 
-#endif // VK_IMAGE_VIEW_HPP_
+}  // namespace vk
+
+#endif  // VK_IMAGE_VIEW_HPP_

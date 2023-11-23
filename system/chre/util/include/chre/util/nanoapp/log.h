@@ -29,11 +29,15 @@
 #include <chre/re.h>
 
 #include "chre/util/log_common.h"
-#include "chre/util/toolchain.h"
 
 #ifndef NANOAPP_MINIMUM_LOG_LEVEL
 #error "NANOAPP_MINIMUM_LOG_LEVEL must be defined"
 #endif  // NANOAPP_MINIMUM_LOG_LEVEL
+
+/**
+ * Logs an out of memory error with file and line number.
+ */
+#define LOG_OOM() LOGE("OOM at %s:%d", CHRE_FILENAME, __LINE__)
 
 /*
  * Supply a stub implementation of the LOGx macros when the build is
@@ -41,39 +45,65 @@
  * Otherwise just map into the chreLog function with the appropriate level.
  */
 
-#define CHRE_LOG(level, fmt, ...) \
-    do { \
-      CHRE_LOG_PREAMBLE \
-      chreLog(level, LOG_TAG " " fmt, ##__VA_ARGS__); \
-      CHRE_LOG_EPILOGUE \
-    } while (0)
+#define CHRE_LOG_TAG(level, tag, fmt, ...)         \
+  do {                                             \
+    CHRE_LOG_PREAMBLE                              \
+    chreLog(level, "%s " fmt, tag, ##__VA_ARGS__); \
+    CHRE_LOG_EPILOGUE                              \
+  } while (0)
 
 #if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_ERROR
-#define LOGE(fmt, ...) CHRE_LOG(CHRE_LOG_ERROR, fmt, ##__VA_ARGS__)
+#define LOGE_TAG(tag, fmt, ...) \
+  CHRE_LOG_TAG(CHRE_LOG_ERROR, tag, fmt, ##__VA_ARGS__)
 #else
-#define LOGE(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGE_TAG(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
+#define LOGE(fmt, ...) LOGE_TAG(LOG_TAG, fmt, ##__VA_ARGS__)
 
 #if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_WARN
-#define LOGW(fmt, ...) CHRE_LOG(CHRE_LOG_WARN, fmt, ##__VA_ARGS__)
+#define LOGW_TAG(tag, fmt, ...) \
+  CHRE_LOG_TAG(CHRE_LOG_WARN, tag, fmt, ##__VA_ARGS__)
 #else
-#define LOGW(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGW_TAG(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
+#define LOGW(fmt, ...) LOGW_TAG(LOG_TAG, fmt, ##__VA_ARGS__)
 
 #if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_INFO
-#define LOGI(fmt, ...) CHRE_LOG(CHRE_LOG_INFO, fmt, ##__VA_ARGS__)
+#define LOGI_TAG(tag, fmt, ...) \
+  CHRE_LOG_TAG(CHRE_LOG_INFO, tag, fmt, ##__VA_ARGS__)
 #else
-#define LOGI(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGI_TAG(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
+#define LOGI(fmt, ...) LOGI_TAG(LOG_TAG, fmt, ##__VA_ARGS__)
 
 #if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_DEBUG
-#define LOGD(fmt, ...) CHRE_LOG(CHRE_LOG_DEBUG, fmt, ##__VA_ARGS__)
+#define LOGD_TAG(tag, fmt, ...) \
+  CHRE_LOG_TAG(CHRE_LOG_DEBUG, tag, fmt, ##__VA_ARGS__)
 #else
-#define LOGD(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGD_TAG(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
+#define LOGD(fmt, ...) LOGD_TAG(LOG_TAG, fmt, ##__VA_ARGS__)
 
-// Apply printf-style compiler warnings to chreLog calls
-CHRE_PRINTF_ATTR(2, 3)
-void chreLog(enum chreLogLevel level, const char *formatStr, ...);
+// Use this macro when including privacy-sensitive information like the user's
+// location.
+#ifdef LOG_INCLUDE_SENSITIVE_INFO
+#define LOGE_SENSITIVE_INFO LOGE
+#define LOGE_TAG_SENSITIVE_INFO LOGE_TAG
+#define LOGW_SENSITIVE_INFO LOGW
+#define LOGW_TAG_SENSITIVE_INFO LOGW_TAG
+#define LOGI_SENSITIVE_INFO LOGI
+#define LOGI_TAG_SENSITIVE_INFO LOGI_TAG
+#define LOGD_SENSITIVE_INFO LOGD
+#define LOGD_TAG_SENSITIVE_INFO LOGD_TAG
+#else
+#define LOGE_SENSITIVE_INFO(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGE_TAG_SENSITIVE_INFO(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGW_SENSITIVE_INFO(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGW_TAG_SENSITIVE_INFO(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGI_SENSITIVE_INFO(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGI_TAG_SENSITIVE_INFO(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGD_SENSITIVE_INFO(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#define LOGD_TAG_SENSITIVE_INFO(tag, fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
+#endif
 
 #endif  // CHRE_UTIL_NANOAPP_LOG_H_

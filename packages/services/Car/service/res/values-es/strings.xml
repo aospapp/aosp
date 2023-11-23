@@ -16,12 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_permission_label" msgid="741004755205554376">"acceder a la información del coche"</string>
-    <string name="car_permission_desc" msgid="162499818870052725">"Acceder a la información del coche."</string>
+    <string name="car_permission_label" msgid="741004755205554376">"acceder a los datos del coche"</string>
+    <string name="car_permission_desc" msgid="162499818870052725">"Acceder a los datos del coche."</string>
     <string name="car_permission_label_camera" msgid="3725702064841827180">"acceder a la cámara del coche"</string>
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Acceder a las cámaras del coche."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"acceder a la información sobre el nivel de energía del coche"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Acceder a la información sobre el nivel de energía del coche."</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"Ajuste de la distancia que se puede recorrer con el combustible actual"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Valor del ajuste de la distancia que se puede recorrer con el combustible actual."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"acceder al sistema de CVAA del coche"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"Acceder al sistema de CVAA del coche."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"acceder a la información del kilometraje del coche"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Configurar restricciones de la experiencia de usuario"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"Comunicarse con un dispositivo USB en modo AOAP"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"Permite que una aplicación se comunique con un dispositivo en modo AOAP"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Consultar el sistema de detección de ocupantes"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Permite leer el estado y los datos de detección del sistema de detección de ocupantes"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Controlar el gráfico del sistema de detección de ocupantes"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Permite configurar el inicio y las pausas del gráfico de detección del sistema de detección de ocupantes"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Servicio de entrada del coche"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Gestionar eventos de entrada"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"Fallo de bus CAN"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"El bus CAN no responde. Desconecta el cabezal, conéctalo de nuevo y reinicia el coche"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"Por tu seguridad, esta actividad no está disponible mientras conduces.\nPuedes continuar cuando hayas aparcado."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"No puedes utilizar esta función mientras conduces"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"Para volver a empezar con funciones de aplicaciones seguras, selecciona <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="5829638404777671253">"Atrás"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"Cerrar aplicación"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"Atrás"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"consultar datos de diagnóstico"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Consultar los datos de diagnóstico del coche."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"borrar los datos de diagnóstico"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"Acceder a información detallada sobre el motor del coche."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"acceder al puerto de carga y al depósito de combustible"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"Acceder al puerto de carga y al depósito de combustible."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"controlar el puerto de carga y el depósito de combustible"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"Controlar el puerto de carga y el depósito de combustible."</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"consultar la identificación del coche"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"Acceder a la identificación del coche."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"controlar las puertas del coche"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Controlar los asientos del coche."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"acceder a la información básica del coche"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Acceder a la información básica del coche."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"acceder a la información de permisos del proveedor del coche"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Acceder a la información de permisos del proveedor del coche."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"consultar el estado de las luces exteriores del coche"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Acceder al estado de las luces exteriores del coche."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"controlar las luces exteriores del coche"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"Acceder al estado de la potencia del coche."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"Registrar dispositivo de confianza"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"Permitir registro de dispositivos de confianza"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"Controlar modo de prueba del coche"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"Controlar modo de prueba del coche"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"Habilitar o inhabilitar las funciones de un coche"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"Habilitar o inhabilitar las funciones de un coche."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"usar watchdog del coche"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"Usar watchdog del coche."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Mi dispositivo"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"Invitado"</string>
 </resources>

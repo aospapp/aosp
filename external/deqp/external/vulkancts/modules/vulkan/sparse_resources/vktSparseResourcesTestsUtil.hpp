@@ -24,6 +24,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "vkDefs.hpp"
+#include "vkObjUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
@@ -66,9 +67,22 @@ typedef deUint32 FeatureFlags;
 
 enum
 {
-	BUFFER_IMAGE_COPY_OFFSET_GRANULARITY	= 4u,
 	NO_MATCH_FOUND							= ~((deUint32)0),	//!< no matching index
 };
+
+struct TestFormat
+{
+	vk::VkFormat	format;
+};
+
+struct TestImageParameters
+{
+	ImageType				imageType;
+	std::vector<tcu::UVec3>	imageSizes;
+	std::vector<TestFormat>	formats;
+};
+
+std::vector<TestFormat>			getTestFormats						(const ImageType& imageType);
 
 vk::VkImageType					mapImageType						(const ImageType					imageType);
 
@@ -79,9 +93,18 @@ std::string						getImageTypeName					(const ImageType					imageType);
 std::string						getShaderImageType					(const tcu::TextureFormat&			format,
 																	 const ImageType					imageType);
 
+std::string						getShaderImageType					(const vk::PlanarFormatDescription& description,
+																	 const ImageType imageType);
+
 std::string						getShaderImageDataType				(const tcu::TextureFormat&			format);
 
+std::string						getShaderImageDataType				(const vk::PlanarFormatDescription& description);
+
 std::string						getShaderImageFormatQualifier		(const tcu::TextureFormat&			format);
+
+std::string						getShaderImageFormatQualifier		(vk::VkFormat						format);
+
+std::string						getImageFormatID					(vk::VkFormat						format);
 
 std::string						getShaderImageCoordinates			(const ImageType					imageType,
 																	 const std::string&					x,
@@ -117,9 +140,6 @@ bool							isImageSizeSupported				(const vk::InstanceInterface&		instance,
 																	 const ImageType					imageType,
 																	 const tcu::UVec3&					imageSize);
 
-deUint32						getImageMaxMipLevels				(const vk::VkImageFormatProperties& imageFormatProperties,
-																	 const vk::VkExtent3D&				extent);
-
 deUint32						getImageMipLevelSizeInBytes			(const vk::VkExtent3D&				baseExtents,
 																	 const deUint32						layersCount,
 																	 const tcu::TextureFormat&			format,
@@ -132,62 +152,25 @@ deUint32						getImageSizeInBytes					(const vk::VkExtent3D&				baseExtents,
 																	 const deUint32						mipmapLevelsCount		= 1u,
 																	 const deUint32						mipmapMemoryAlignment	= 1u);
 
-vk::Move<vk::VkCommandPool>		makeCommandPool						(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 const deUint32						queueFamilyIndex);
+deUint32						getImageMipLevelSizeInBytes			(const vk::VkExtent3D&				baseExtents,
+																	 const deUint32						layersCount,
+																	 const vk::PlanarFormatDescription&	formatDescription,
+																	 const deUint32						planeNdx,
+																	 const deUint32						mipmapLevel,
+																	 const deUint32						mipmapMemoryAlignment	= 1u);
 
-vk::Move<vk::VkPipelineLayout>	makePipelineLayout					(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 const vk::VkDescriptorSetLayout	descriptorSetLayout = DE_NULL);
+deUint32						getImageSizeInBytes					(const vk::VkExtent3D&				baseExtents,
+																	 const deUint32						layersCount,
+																	 const vk::PlanarFormatDescription&	formatDescription,
+																	 const deUint32						planeNdx,
+																	 const deUint32						mipmapLevelsCount		=1u,
+																	 const deUint32						mipmapMemoryAlignment	=1u);
 
 vk::Move<vk::VkPipeline>		makeComputePipeline					(const vk::DeviceInterface&			vk,
 																	 const vk::VkDevice					device,
 																	 const vk::VkPipelineLayout			pipelineLayout,
 																	 const vk::VkShaderModule			shaderModule,
 																	 const vk::VkSpecializationInfo*	specializationInfo	= 0);
-
-vk::Move<vk::VkBufferView>		makeBufferView						(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 const vk::VkBuffer					buffer,
-																	 const vk::VkFormat					format,
-																	 const vk::VkDeviceSize				offset,
-																	 const vk::VkDeviceSize				size);
-
-vk::Move<vk::VkImageView>		makeImageView						(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 const vk::VkImage					image,
-																	 const vk::VkImageViewType			imageViewType,
-																	 const vk::VkFormat					format,
-																	 const vk::VkImageSubresourceRange	subresourceRange);
-
-vk::Move<vk::VkDescriptorSet>	makeDescriptorSet					(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 const vk::VkDescriptorPool			descriptorPool,
-																	 const vk::VkDescriptorSetLayout	setLayout);
-
-vk::Move<vk::VkFramebuffer>		makeFramebuffer						(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 const vk::VkRenderPass				renderPass,
-																	 const deUint32						attachmentCount,
-																	 const vk::VkImageView*				pAttachments,
-																	 const deUint32						width,
-																	 const deUint32						height,
-																	 const deUint32						layers = 1u);
-
-de::MovePtr<vk::Allocation>		bindImage							(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 vk::Allocator&						allocator,
-																	 const vk::VkImage					image,
-																	 const vk::MemoryRequirement		requirement);
-
-de::MovePtr<vk::Allocation>		bindBuffer							(const vk::DeviceInterface&			vk,
-																	 const vk::VkDevice					device,
-																	 vk::Allocator&						allocator,
-																	 const vk::VkBuffer					buffer,
-																	 const vk::MemoryRequirement		requirement);
-
-vk::VkBufferCreateInfo			makeBufferCreateInfo				(const vk::VkDeviceSize				bufferSize,
-																	 const vk::VkBufferUsageFlags		usage);
 
 vk::VkBufferImageCopy			makeBufferImageCopy					(const vk::VkExtent3D				extent,
 																	 const deUint32						layersCount,
@@ -259,15 +242,8 @@ bool							checkImageFormatFeatureSupport		(const vk::InstanceInterface&		instan
 deUint32						getSparseAspectRequirementsIndex	(const std::vector<vk::VkSparseImageMemoryRequirements>&	requirements,
 																	 const vk::VkImageAspectFlags								aspectFlags);
 
-inline vk::Move<vk::VkBuffer> makeBuffer (const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkBufferCreateInfo& createInfo)
-{
-	return createBuffer(vk, device, &createInfo);
-}
-
-inline vk::Move<vk::VkImage> makeImage (const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkImageCreateInfo& createInfo)
-{
-	return createImage(vk, device, &createInfo);
-}
+vk::VkFormat					getPlaneCompatibleFormatForWriting	(const vk::PlanarFormatDescription&	formatInfo,
+																	 deUint32							planeNdx);
 
 template<typename T>
 inline de::SharedPtr<vk::Unique<T> > makeVkSharedPtr (vk::Move<T> vkMove)

@@ -150,8 +150,8 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
     # 0x7fffffff, need to discard this value when calculating unique_id
     INVALID_VALUE = 0x7fffffff
 
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad = self.android_devices[0]
         self.ad.sim_card = getattr(self.ad, "sim_card", None)
         self.md8475a_ip_address = self.user_params[
@@ -169,19 +169,18 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         if "gsm_rssi_offset" in self.user_params:
             self._GSM_RSSI_OFFSET = int(self.user_params["gsm_rssi_offset"])
 
-    def setup_class(self):
         self.md8475a = None
         self.mg3710a = None
         try:
-            self.md8475a = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option, self.md8475_version)
+            self.md8475a = MD8475A(self.md8475a_ip_address, self.wlan_option,
+                                   self.md8475_version)
         except AnritsuError as e:
             self.log.error("Error in connecting to Anritsu MD8475A:{}".format(
                 e))
             return False
 
         try:
-            self.mg3710a = MG3710A(self.mg3710a_ip_address, self.log)
+            self.mg3710a = MG3710A(self.mg3710a_ip_address)
         except AnritsuError as e:
             self.log.error("Error in connecting to Anritsu MG3710A :{}".format(
                 e))

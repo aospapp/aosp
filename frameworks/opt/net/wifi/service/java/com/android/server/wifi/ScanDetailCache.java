@@ -20,6 +20,8 @@ import android.annotation.NonNull;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 
+import com.android.server.wifi.hotspot2.NetworkDetail;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -195,6 +197,11 @@ public class ScanDetailCache {
                 if (ageSec > 0 || ageMilli > 0) {
                     sbuf.append(String.format(",%4d.%02d.%02d.%02d.%03dms", ageDay,
                             ageHour, ageMin, ageSec, ageMilli));
+                }
+                NetworkDetail networkDetail = scanDetail.getNetworkDetail();
+                if (networkDetail != null && networkDetail.isInterworking()) {
+                    sbuf.append(",Ant=").append(networkDetail.getAnt()).append(",Internet=")
+                            .append(networkDetail.isInternet());
                 }
                 sbuf.append("} ");
             }

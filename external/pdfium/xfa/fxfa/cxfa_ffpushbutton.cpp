@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "core/fxge/render_defines.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fwl/cfwl_notedriver.h"
 #include "xfa/fwl/cfwl_pushbutton.h"
@@ -19,80 +20,72 @@
 #include "xfa/fxfa/cxfa_textlayout.h"
 #include "xfa/fxfa/cxfa_textprovider.h"
 #include "xfa/fxfa/parser/cxfa_border.h"
+#include "xfa/fxfa/parser/cxfa_button.h"
 #include "xfa/fxfa/parser/cxfa_caption.h"
 #include "xfa/fxfa/parser/cxfa_edge.h"
 #include "xfa/fxgraphics/cxfa_gecolor.h"
 #include "xfa/fxgraphics/cxfa_gepath.h"
 
-CXFA_FFPushButton::CXFA_FFPushButton(CXFA_Node* pNode)
-    : CXFA_FFField(pNode), m_pOldDelegate(nullptr) {}
+CXFA_FFPushButton::CXFA_FFPushButton(CXFA_Node* pNode, CXFA_Button* button)
+    : CXFA_FFField(pNode), button_(button) {}
 
-CXFA_FFPushButton::~CXFA_FFPushButton() {
-  CXFA_FFPushButton::UnloadWidget();
-}
+CXFA_FFPushButton::~CXFA_FFPushButton() = default;
 
 void CXFA_FFPushButton::RenderWidget(CXFA_Graphics* pGS,
                                      const CFX_Matrix& matrix,
-                                     uint32_t dwStatus) {
-  if (!IsMatchVisibleStatus(dwStatus))
+                                     HighlightOption highlight) {
+  if (!HasVisibleStatus())
     return;
 
   CFX_Matrix mtRotate = GetRotateMatrix();
   mtRotate.Concat(matrix);
 
-  CXFA_FFWidget::RenderWidget(pGS, mtRotate, dwStatus);
+  CXFA_FFWidget::RenderWidget(pGS, mtRotate, highlight);
   RenderHighlightCaption(pGS, &mtRotate);
 
   CFX_RectF rtWidget = GetRectWithoutRotate();
   CFX_Matrix mt(1, 0, 0, 1, rtWidget.left, rtWidget.top);
   mt.Concat(mtRotate);
-  GetApp()->GetFWLWidgetMgr()->OnDrawWidget(m_pNormalWidget.get(), pGS, mt);
+  GetApp()->GetFWLWidgetMgr()->OnDrawWidget(GetNormalWidget(), pGS, mt);
 }
 
 bool CXFA_FFPushButton::LoadWidget() {
-  ASSERT(!m_pNormalWidget);
+  ASSERT(!IsLoaded());
   auto pNew = pdfium::MakeUnique<CFWL_PushButton>(GetFWLApp());
   CFWL_PushButton* pPushButton = pNew.get();
   m_pOldDelegate = pPushButton->GetDelegate();
   pPushButton->SetDelegate(this);
-  m_pNormalWidget = std::move(pNew);
-  m_pNormalWidget->SetLayoutItem(this);
+  SetNormalWidget(std::move(pNew));
+  pPushButton->SetAdapterIface(this);
 
-  CFWL_NoteDriver* pNoteDriver =
-      m_pNormalWidget->GetOwnerApp()->GetNoteDriver();
-  pNoteDriver->RegisterEventTarget(m_pNormalWidget.get(),
-                                   m_pNormalWidget.get());
-  m_pNormalWidget->LockUpdate();
-  UpdateWidgetProperty();
-  LoadHighlightCaption();
-  m_pNormalWidget->UnlockUpdate();
+  CFWL_NoteDriver* pNoteDriver = pPushButton->GetOwnerApp()->GetNoteDriver();
+  pNoteDriver->RegisterEventTarget(pPushButton, pPushButton);
+
+  {
+    CFWL_Widget::ScopedUpdateLock update_lock(pPushButton);
+    UpdateWidgetProperty();
+    LoadHighlightCaption();
+  }
+
   return CXFA_FFField::LoadWidget();
 }
 
 void CXFA_FFPushButton::UpdateWidgetProperty() {
   uint32_t dwStyleEx = 0;
-  switch (m_pNode->GetWidgetAcc()->GetButtonHighlight()) {
-    case XFA_AttributeEnum::Inverted:
+  switch (button_->GetHighlight()) {
+    case XFA_AttributeValue::Inverted:
       dwStyleEx = XFA_FWL_PSBSTYLEEXT_HiliteInverted;
       break;
-    case XFA_AttributeEnum::Outline:
+    case XFA_AttributeValue::Outline:
       dwStyleEx = XFA_FWL_PSBSTYLEEXT_HiliteOutLine;
       break;
-    case XFA_AttributeEnum::Push:
+    case XFA_AttributeValue::Push:
       dwStyleEx = XFA_FWL_PSBSTYLEEXT_HilitePush;
       break;
     default:
       break;
   }
-  m_pNormalWidget->ModifyStylesEx(dwStyleEx, 0xFFFFFFFF);
-}
-
-void CXFA_FFPushButton::UnloadWidget() {
-  m_pRolloverTextLayout.reset();
-  m_pDownTextLayout.reset();
-  m_pRollProvider.reset();
-  m_pDownProvider.reset();
-  CXFA_FFField::UnloadWidget();
+  GetNormalWidget()->ModifyStylesEx(dwStyleEx, 0xFFFFFFFF);
 }
 
 bool CXFA_FFPushButton::PerformLayout() {
@@ -101,27 +94,25 @@ bool CXFA_FFPushButton::PerformLayout() {
 
   m_rtUI = rtWidget;
   CXFA_Margin* margin = m_pNode->GetMarginIfExists();
-  if (margin)
-    XFA_RectWithoutMargin(rtWidget, margin);
+  XFA_RectWithoutMargin(&rtWidget, margin);
 
   m_rtCaption = rtWidget;
 
   CXFA_Caption* caption = m_pNode->GetCaptionIfExists();
   CXFA_Margin* captionMargin = caption ? caption->GetMarginIfExists() : nullptr;
-  if (captionMargin)
-    XFA_RectWithoutMargin(m_rtCaption, captionMargin);
+  XFA_RectWithoutMargin(&m_rtCaption, captionMargin);
 
   LayoutHighlightCaption();
   SetFWLRect();
-  if (m_pNormalWidget)
-    m_pNormalWidget->Update();
+  if (GetNormalWidget())
+    GetNormalWidget()->Update();
 
   return true;
 }
 
 float CXFA_FFPushButton::GetLineWidth() {
   CXFA_Border* border = m_pNode->GetBorderIfExists();
-  if (border && border->GetPresence() == XFA_AttributeEnum::Visible) {
+  if (border && border->GetPresence() == XFA_AttributeValue::Visible) {
     CXFA_Edge* edge = border->GetEdgeIfExists(0);
     return edge ? edge->GetThickness() : 0;
   }
@@ -141,19 +132,19 @@ void CXFA_FFPushButton::LoadHighlightCaption() {
   if (!caption || caption->IsHidden())
     return;
 
-  if (m_pNode->GetWidgetAcc()->HasButtonRollover()) {
+  if (m_pNode->HasButtonRollover()) {
     if (!m_pRollProvider) {
       m_pRollProvider = pdfium::MakeUnique<CXFA_TextProvider>(
-          m_pNode->GetWidgetAcc(), XFA_TEXTPROVIDERTYPE_Rollover);
+          m_pNode.Get(), XFA_TEXTPROVIDERTYPE_Rollover);
     }
     m_pRolloverTextLayout =
         pdfium::MakeUnique<CXFA_TextLayout>(GetDoc(), m_pRollProvider.get());
   }
 
-  if (m_pNode->GetWidgetAcc()->HasButtonDown()) {
+  if (m_pNode->HasButtonDown()) {
     if (!m_pDownProvider) {
       m_pDownProvider = pdfium::MakeUnique<CXFA_TextProvider>(
-          m_pNode->GetWidgetAcc(), XFA_TEXTPROVIDERTYPE_Down);
+          m_pNode.Get(), XFA_TEXTPROVIDERTYPE_Down);
     }
     m_pDownTextLayout =
         pdfium::MakeUnique<CXFA_TextLayout>(GetDoc(), m_pDownProvider.get());
@@ -171,8 +162,7 @@ void CXFA_FFPushButton::LayoutHighlightCaption() {
 
 void CXFA_FFPushButton::RenderHighlightCaption(CXFA_Graphics* pGS,
                                                CFX_Matrix* pMatrix) {
-  CXFA_TextLayout* pCapTextLayout =
-      m_pNode->GetWidgetAcc()->GetCaptionTextLayout();
+  CXFA_TextLayout* pCapTextLayout = m_pNode->GetCaptionTextLayout();
   CXFA_Caption* caption = m_pNode->GetCaptionIfExists();
   if (!caption || !caption->IsVisible())
     return;
@@ -186,7 +176,7 @@ void CXFA_FFPushButton::RenderHighlightCaption(CXFA_Graphics* pGS,
     mt.Concat(*pMatrix);
   }
 
-  uint32_t dwState = m_pNormalWidget->GetStates();
+  uint32_t dwState = GetNormalWidget()->GetStates();
   if (m_pDownTextLayout && (dwState & FWL_STATE_PSB_Pressed) &&
       (dwState & FWL_STATE_PSB_Hovered)) {
     if (m_pDownTextLayout->DrawString(pRenderDevice, mt, rtClip, 0))
@@ -211,29 +201,30 @@ void CXFA_FFPushButton::OnProcessEvent(CFWL_Event* pEvent) {
 
 void CXFA_FFPushButton::OnDrawWidget(CXFA_Graphics* pGraphics,
                                      const CFX_Matrix& matrix) {
-  if (m_pNormalWidget->GetStylesEx() & XFA_FWL_PSBSTYLEEXT_HiliteInverted) {
-    if ((m_pNormalWidget->GetStates() & FWL_STATE_PSB_Pressed) &&
-        (m_pNormalWidget->GetStates() & FWL_STATE_PSB_Hovered)) {
-      CFX_RectF rtFill(0, 0, m_pNormalWidget->GetWidgetRect().Size());
+  auto* pWidget = GetNormalWidget();
+  if (pWidget->GetStylesEx() & XFA_FWL_PSBSTYLEEXT_HiliteInverted) {
+    if ((pWidget->GetStates() & FWL_STATE_PSB_Pressed) &&
+        (pWidget->GetStates() & FWL_STATE_PSB_Hovered)) {
+      CFX_RectF rtFill(0, 0, pWidget->GetWidgetRect().Size());
       float fLineWith = GetLineWidth();
       rtFill.Deflate(fLineWith, fLineWith);
       CXFA_GEPath path;
       path.AddRectangle(rtFill.left, rtFill.top, rtFill.width, rtFill.height);
-      pGraphics->SetFillColor(CXFA_GEColor(FXARGB_MAKE(128, 128, 255, 255)));
+      pGraphics->SetFillColor(CXFA_GEColor(ArgbEncode(128, 128, 255, 255)));
       pGraphics->FillPath(&path, FXFILL_WINDING, &matrix);
     }
     return;
   }
 
-  if (m_pNormalWidget->GetStylesEx() & XFA_FWL_PSBSTYLEEXT_HiliteOutLine) {
-    if ((m_pNormalWidget->GetStates() & FWL_STATE_PSB_Pressed) &&
-        (m_pNormalWidget->GetStates() & FWL_STATE_PSB_Hovered)) {
+  if (pWidget->GetStylesEx() & XFA_FWL_PSBSTYLEEXT_HiliteOutLine) {
+    if ((pWidget->GetStates() & FWL_STATE_PSB_Pressed) &&
+        (pWidget->GetStates() & FWL_STATE_PSB_Hovered)) {
       float fLineWidth = GetLineWidth();
-      pGraphics->SetStrokeColor(CXFA_GEColor(FXARGB_MAKE(255, 128, 255, 255)));
+      pGraphics->SetStrokeColor(CXFA_GEColor(ArgbEncode(255, 128, 255, 255)));
       pGraphics->SetLineWidth(fLineWidth);
 
       CXFA_GEPath path;
-      CFX_RectF rect = m_pNormalWidget->GetWidgetRect();
+      CFX_RectF rect = pWidget->GetWidgetRect();
       path.AddRectangle(0, 0, rect.width, rect.height);
       pGraphics->StrokePath(&path, &matrix);
     }

@@ -21,6 +21,7 @@ import android.app.ActionBar;
 import android.app.Activity;
 import android.content.AsyncQueryHandler;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.database.Cursor;
@@ -30,6 +31,7 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.view.KeyEvent;
@@ -61,6 +63,7 @@ public class MovieActivity extends Activity {
     private boolean mFinishOnCompletion;
     private Uri mUri;
     private boolean mTreatUpAsBack;
+    private PowerManager.WakeLock mWakeLock = null;
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private void setSystemUiVisibility(View rootView) {
@@ -216,6 +219,11 @@ public class MovieActivity extends Activity {
                 .requestAudioFocus(null, AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
         super.onStart();
+
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        mWakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK,"Gallery_WAKE_LOCK");
+        mWakeLock.acquire();
+
     }
 
     @Override
@@ -223,6 +231,9 @@ public class MovieActivity extends Activity {
         ((AudioManager) getSystemService(AUDIO_SERVICE))
                 .abandonAudioFocus(null);
         super.onStop();
+
+        mWakeLock.release();
+
     }
 
     @Override

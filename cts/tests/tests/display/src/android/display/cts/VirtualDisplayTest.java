@@ -128,8 +128,7 @@ public class VirtualDisplayTest extends AndroidTestCase {
 
             // Show a private presentation on the display.
             assertDisplayCanShowPresentation("private presentation window",
-                    display, BLUEISH,
-                    WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION, 0);
+                    display, BLUEISH, 0);
         } finally {
             virtualDisplay.release();
         }
@@ -153,8 +152,7 @@ public class VirtualDisplayTest extends AndroidTestCase {
 
             // Show a private presentation on the display.
             assertDisplayCanShowPresentation("private presentation window",
-                    display, BLUEISH,
-                    WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION, 0);
+                    display, BLUEISH, 0);
         } finally {
             virtualDisplay.release();
         }
@@ -181,8 +179,7 @@ public class VirtualDisplayTest extends AndroidTestCase {
 
             // Show a private presentation on the display.
             assertDisplayCanShowPresentation("private presentation window",
-                    display, BLUEISH,
-                    WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION, 0);
+                    display, BLUEISH, 0);
 
             // Detach the surface.
             virtualDisplay.setSurface(null);
@@ -227,7 +224,7 @@ public class VirtualDisplayTest extends AndroidTestCase {
     }
 
     private void assertDisplayCanShowPresentation(String message, final Display display,
-            final int color, final int windowType, final int windowFlags) {
+            final int color, final int windowFlags) {
         // At this point, we should not have seen any blue.
         assertTrue(message + ": display should not show content before window is shown",
                 mImageListener.getColor() != color);
@@ -239,7 +236,7 @@ public class VirtualDisplayTest extends AndroidTestCase {
                 @Override
                 public void run() {
                     presentation[0] = new TestPresentation(getContext(), display,
-                            color, windowType, windowFlags);
+                            color, windowFlags);
                     presentation[0].show();
                 }
             });
@@ -289,14 +286,12 @@ public class VirtualDisplayTest extends AndroidTestCase {
 
     private final class TestPresentation extends Presentation {
         private final int mColor;
-        private final int mWindowType;
         private final int mWindowFlags;
 
         public TestPresentation(Context context, Display display,
-                int color, int windowType, int windowFlags) {
+                int color, int windowFlags) {
             super(context, display);
             mColor = color;
-            mWindowType = windowType;
             mWindowFlags = windowFlags;
         }
 
@@ -305,7 +300,6 @@ public class VirtualDisplayTest extends AndroidTestCase {
             super.onCreate(savedInstanceState);
 
             setTitle(TAG);
-            getWindow().setType(mWindowType);
             getWindow().addFlags(mWindowFlags);
 
             // Create a solid color image to use as the content of the presentation.

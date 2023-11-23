@@ -57,16 +57,17 @@ cc_library_static {
     ],
 }
 
-cc_defaults {
-    name: "libremote-processor-defaults",
+cc_library {
+    name: "libremote-processor",
     defaults: ["pfw_defaults"],
-
-    cflags: ["-Wno-implicit-fallthrough"],
     export_include_dirs: [
         "upstream/remote-processor",
         "support/android/remote-processor",
     ],
-
+    local_include_dirs: [
+        "asio/include",
+        "support/android/asio",
+    ],
     srcs: [
         "upstream/remote-processor/RequestMessage.cpp",
         "upstream/remote-processor/Message.cpp",
@@ -74,22 +75,15 @@ cc_defaults {
         "upstream/remote-processor/RemoteProcessorServer.cpp",
         "upstream/remote-processor/BackgroundRemoteProcessorServer.cpp",
     ],
+    cflags: [
+        "-Wno-unused-local-typedef",
+        "-Wno-implicit-fallthrough"
+    ],
     static_libs: ["libpfw_utility"],
 }
 
-cc_library_shared {
-    name: "libremote-processor",
-    defaults: ["libremote-processor-defaults"],
-
-    local_include_dirs: [
-        "asio/include",
-        "support/android/asio",
-    ],
-    cflags: ["-Wno-unused-local-typedef"],
-}
-
-cc_defaults {
-    name: "libparameter-defaults",
+cc_library {
+    name: "libparameter",
     defaults: ["pfw_defaults"],
     vendor_available: true,
 
@@ -107,6 +101,7 @@ cc_defaults {
     ],
     shared_libs: [
         "libxml2",
+        "libremote-processor",
     ],
     static_libs: [
         "libpfw_utility",
@@ -196,14 +191,6 @@ cc_defaults {
     ],
 }
 
-cc_library_shared {
-    name: "libparameter",
-    defaults: ["libparameter-defaults"],
-    shared_libs: [
-        "libremote-processor",
-    ],
-}
-
 // Userdebug only, should not be used in a user build device image.
 cc_binary {
     name: "test-platform",
@@ -240,8 +227,25 @@ cc_binary_host {
 }
 
 // Resources are not compiled so the prebuild mechanism is used to export them.
-// Schemas are only used by host, in order to validate xml files
 //////////////////////////////////////////////////
+
+filegroup {
+    name: "parameter_frameworks_configuration_schemas",
+    srcs: [
+        "upstream/schemas/ParameterFrameworkConfiguration.xsd",
+        "upstream/schemas/ConfigurableDomain.xsd",
+        "upstream/schemas/ConfigurableDomains.xsd",
+        "upstream/schemas/SystemClass.xsd",
+        "upstream/schemas/ParameterSettings.xsd",
+        "upstream/schemas/FileIncluder.xsd",
+        "upstream/schemas/Subsystem.xsd",
+        "upstream/schemas/ComponentLibrary.xsd",
+        "upstream/schemas/ComponentTypeSet.xsd",
+        "upstream/schemas/W3cXmlAttributes.xsd",
+        "upstream/schemas/Parameter.xsd",
+    ],
+    path: "upstream/",
+}
 
 prebuilt_etc_host {
     name: "ParameterFrameworkConfiguration.xsd",
@@ -349,10 +353,10 @@ python_library_host {
     srcs: [":EddParser.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -371,10 +375,10 @@ python_library_host {
     srcs: [":PfwBaseTranslator.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -397,21 +401,20 @@ python_library_host {
     ],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
 
-cc_prebuilt_binary {
+sh_binary {
     name: "updateRoutageDomains.sh",
-    defaults: ["pfw_defaults"],
     owner: "intel",
 
     host_supported: true,
-    srcs: ["upstream/tools/xmlGenerator/updateRoutageDomains.sh"],
+    src: "upstream/tools/xmlGenerator/updateRoutageDomains.sh",
 }
 
 filegroup {
@@ -428,10 +431,10 @@ python_library_host {
     srcs: [":hostConfig.py-srcs"],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
 }
@@ -450,10 +453,10 @@ python_binary_host {
     ],
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
         },
     },
     required: [

@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include "egldefines.h"
 #include "egldisplay.h"
 #include "egldriver.h"
 #include "eglcontext.h"
@@ -44,6 +45,7 @@
 #include "egllog.h"
 #include "eglsurface.h"
 
+#include "util/macros.h"
 
 /**
  * Parse the list of surface attributes and return the proper error code.
@@ -51,7 +53,7 @@
 static EGLint
 _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
 {
-   _EGLDisplay *dpy = surf->Resource.Display;
+   _EGLDisplay *disp = surf->Resource.Display;
    EGLint type = surf->Type;
    EGLint texture_type = EGL_PBUFFER_BIT;
    EGLint i, err = EGL_SUCCESS;
@@ -61,7 +63,7 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
    if (!attrib_list)
       return EGL_SUCCESS;
 
-   if (dpy->Extensions.NOK_texture_from_pixmap)
+   if (disp->Extensions.NOK_texture_from_pixmap)
       texture_type |= EGL_PIXMAP_BIT;
 
    for (i = 0; attrib_list[i] != EGL_NONE; i++) {
@@ -71,7 +73,7 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
       switch (attr) {
       /* common attributes */
       case EGL_GL_COLORSPACE_KHR:
-         if (!dpy->Extensions.KHR_gl_colorspace) {
+         if (!disp->Extensions.KHR_gl_colorspace) {
             err = EGL_BAD_ATTRIBUTE;
             break;
          }
@@ -85,6 +87,90 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
          if (err != EGL_SUCCESS)
             break;
          surf->GLColorspace = val;
+         break;
+      case EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.display_primary_r.x = val;
+         break;
+      case EGL_SMPTE2086_DISPLAY_PRIMARY_RY_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.display_primary_r.y = val;
+         break;
+      case EGL_SMPTE2086_DISPLAY_PRIMARY_GX_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.display_primary_g.x = val;
+         break;
+      case EGL_SMPTE2086_DISPLAY_PRIMARY_GY_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.display_primary_g.y = val;
+         break;
+      case EGL_SMPTE2086_DISPLAY_PRIMARY_BX_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.display_primary_b.x = val;
+         break;
+      case EGL_SMPTE2086_DISPLAY_PRIMARY_BY_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.display_primary_b.y = val;
+         break;
+      case EGL_SMPTE2086_WHITE_POINT_X_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.white_point.x = val;
+         break;
+      case EGL_SMPTE2086_WHITE_POINT_Y_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.white_point.y = val;
+         break;
+      case EGL_SMPTE2086_MAX_LUMINANCE_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.max_luminance = val;
+         break;
+      case EGL_SMPTE2086_MIN_LUMINANCE_EXT:
+         if (!disp->Extensions.EXT_surface_SMPTE2086_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.min_luminance = val;
+         break;
+      case EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT:
+         if (!disp->Extensions.EXT_surface_CTA861_3_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.max_cll = val;
+         break;
+      case EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT:
+         if (!disp->Extensions.EXT_surface_CTA861_3_metadata) {
+            err = EGL_BAD_ATTRIBUTE;
+            break;
+         }
+         surf->HdrMetadata.max_fall = val;
          break;
       case EGL_VG_COLORSPACE:
          switch (val) {
@@ -122,10 +208,16 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
             err = EGL_BAD_ATTRIBUTE;
             break;
          }
-         surf->RenderBuffer = val;
+         surf->RequestedRenderBuffer = val;
+         if (surf->Config->SurfaceType & EGL_MUTABLE_RENDER_BUFFER_BIT_KHR) {
+            /* Unlike normal EGLSurfaces, one with a mutable render buffer
+             * uses the application-chosen render buffer.
+             */
+            surf->ActiveRenderBuffer = val;
+         }
          break;
       case EGL_POST_SUB_BUFFER_SUPPORTED_NV:
-         if (!dpy->Extensions.NV_post_sub_buffer ||
+         if (!disp->Extensions.NV_post_sub_buffer ||
              type != EGL_WINDOW_BIT) {
             err = EGL_BAD_ATTRIBUTE;
             break;
@@ -241,7 +333,7 @@ _eglParseSurfaceAttribList(_EGLSurface *surf, const EGLint *attrib_list)
  * \return EGL_TRUE if no errors, EGL_FALSE otherwise.
  */
 EGLBoolean
-_eglInitSurface(_EGLSurface *surf, _EGLDisplay *dpy, EGLint type,
+_eglInitSurface(_EGLSurface *surf, _EGLDisplay *disp, EGLint type,
                 _EGLConfig *conf, const EGLint *attrib_list)
 {
    const char *func;
@@ -274,7 +366,7 @@ _eglInitSurface(_EGLSurface *surf, _EGLDisplay *dpy, EGLint type,
       /* The config can't be used to create a surface of this type */
       return _eglError(EGL_BAD_MATCH, func);
 
-   _eglInitResource(&surf->Resource, sizeof(*surf), dpy);
+   _eglInitResource(&surf->Resource, sizeof(*surf), disp);
    surf->Type = type;
    surf->Config = conf;
    surf->Lost = EGL_FALSE;
@@ -285,7 +377,8 @@ _eglInitSurface(_EGLSurface *surf, _EGLDisplay *dpy, EGLint type,
    surf->TextureTarget = EGL_NO_TEXTURE;
    surf->MipmapTexture = EGL_FALSE;
    surf->LargestPbuffer = EGL_FALSE;
-   surf->RenderBuffer = renderBuffer;
+   surf->RequestedRenderBuffer = renderBuffer;
+   surf->ActiveRenderBuffer = renderBuffer;
    surf->VGAlphaFormat = EGL_VG_ALPHA_FORMAT_NONPRE;
    surf->VGColorspace = EGL_VG_COLORSPACE_sRGB;
    surf->GLColorspace = EGL_GL_COLORSPACE_LINEAR_KHR;
@@ -305,6 +398,19 @@ _eglInitSurface(_EGLSurface *surf, _EGLDisplay *dpy, EGLint type,
    /* the default swap interval is 1 */
    surf->SwapInterval = 1;
 
+   surf->HdrMetadata.display_primary_r.x = EGL_DONT_CARE;
+   surf->HdrMetadata.display_primary_r.y = EGL_DONT_CARE;
+   surf->HdrMetadata.display_primary_g.x = EGL_DONT_CARE;
+   surf->HdrMetadata.display_primary_g.y = EGL_DONT_CARE;
+   surf->HdrMetadata.display_primary_b.x = EGL_DONT_CARE;
+   surf->HdrMetadata.display_primary_b.y = EGL_DONT_CARE;
+   surf->HdrMetadata.white_point.x = EGL_DONT_CARE;
+   surf->HdrMetadata.white_point.y = EGL_DONT_CARE;
+   surf->HdrMetadata.max_luminance = EGL_DONT_CARE;
+   surf->HdrMetadata.min_luminance = EGL_DONT_CARE;
+   surf->HdrMetadata.max_cll = EGL_DONT_CARE;
+   surf->HdrMetadata.max_fall = EGL_DONT_CARE;
+
    err = _eglParseSurfaceAttribList(surf, attrib_list);
    if (err != EGL_SUCCESS)
       return _eglError(err, func);
@@ -320,7 +426,7 @@ _eglInitSurface(_EGLSurface *surf, _EGLDisplay *dpy, EGLint type,
 
 
 EGLBoolean
-_eglQuerySurface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
+_eglQuerySurface(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surface,
                  EGLint attribute, EGLint *value)
 {
    switch (attribute) {
@@ -358,7 +464,35 @@ _eglQuerySurface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
       *value = surface->SwapBehavior;
       break;
    case EGL_RENDER_BUFFER:
-      *value = surface->RenderBuffer;
+      /* From the EGL_KHR_mutable_render_buffer spec (v12):
+       *
+       *    Querying EGL_RENDER_BUFFER returns the buffer which client API
+       *    rendering is requested to use. For a window surface, this is the
+       *    attribute value specified when the surface was created or last set
+       *    via eglSurfaceAttrib.
+       *
+       * In other words, querying a window surface returns the value most
+       * recently *requested* by the user.
+       *
+       * The paragraph continues in the EGL 1.5 spec (2014.08.27):
+       *
+       *    For a pbuffer surface, it is always EGL_BACK_BUFFER . For a pixmap
+       *    surface, it is always EGL_SINGLE_BUFFER . To determine the actual
+       *    buffer being rendered to by a context, call eglQueryContext.
+       */
+      switch (surface->Type) {
+      default:
+         unreachable("bad EGLSurface type");
+      case EGL_WINDOW_BIT:
+         *value = surface->RequestedRenderBuffer;
+         break;
+      case EGL_PBUFFER_BIT:
+         *value = EGL_BACK_BUFFER;
+         break;
+      case EGL_PIXMAP_BIT:
+         *value = EGL_SINGLE_BUFFER;
+         break;
+      }
       break;
    case EGL_PIXEL_ASPECT_RATIO:
       *value = surface->AspectRatio;
@@ -379,7 +513,7 @@ _eglQuerySurface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
       *value = surface->VGColorspace;
       break;
    case EGL_GL_COLORSPACE_KHR:
-      if (!dpy->Extensions.KHR_gl_colorspace)
+      if (!disp->Extensions.KHR_gl_colorspace)
          return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
 
       *value = surface->GLColorspace;
@@ -388,11 +522,16 @@ _eglQuerySurface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
       *value = surface->PostSubBufferSupportedNV;
       break;
    case EGL_BUFFER_AGE_EXT:
-      if (!dpy->Extensions.EXT_buffer_age)
+      /* Both EXT_buffer_age and KHR_partial_update accept EGL_BUFFER_AGE_EXT.
+       * To be precise, the KHR one accepts EGL_BUFFER_AGE_KHR which is an
+       * alias with the same numeric value.
+       */
+      if (!disp->Extensions.EXT_buffer_age &&
+          !disp->Extensions.KHR_partial_update)
          return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
 
       _EGLContext *ctx = _eglGetCurrentContext();
-      EGLint result = drv->API.QueryBufferAge(drv, dpy, surface);
+      EGLint result = drv->API.QueryBufferAge(drv, disp, surface);
       /* error happened */
       if (result < 0)
          return EGL_FALSE;
@@ -402,6 +541,42 @@ _eglQuerySurface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
 
       *value = result;
       surface->BufferAgeRead = EGL_TRUE;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT:
+      *value = surface->HdrMetadata.display_primary_r.x;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_RY_EXT:
+      *value = surface->HdrMetadata.display_primary_r.y;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_GX_EXT:
+      *value = surface->HdrMetadata.display_primary_g.x;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_GY_EXT:
+      *value = surface->HdrMetadata.display_primary_g.y;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_BX_EXT:
+      *value = surface->HdrMetadata.display_primary_b.x;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_BY_EXT:
+      *value = surface->HdrMetadata.display_primary_b.y;
+      break;
+   case EGL_SMPTE2086_WHITE_POINT_X_EXT:
+      *value = surface->HdrMetadata.white_point.x;
+      break;
+   case EGL_SMPTE2086_WHITE_POINT_Y_EXT:
+      *value = surface->HdrMetadata.white_point.y;
+      break;
+   case EGL_SMPTE2086_MAX_LUMINANCE_EXT:
+      *value = surface->HdrMetadata.max_luminance;
+      break;
+   case EGL_SMPTE2086_MIN_LUMINANCE_EXT:
+      *value = surface->HdrMetadata.min_luminance;
+      break;
+   case EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT:
+      *value = surface->HdrMetadata.max_cll;
+      break;
+   case EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT:
+      *value = surface->HdrMetadata.max_fall;
       break;
    default:
       return _eglError(EGL_BAD_ATTRIBUTE, "eglQuerySurface");
@@ -415,7 +590,7 @@ _eglQuerySurface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
  * Default fallback routine - drivers might override this.
  */
 EGLBoolean
-_eglSurfaceAttrib(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
+_eglSurfaceAttrib(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surface,
                   EGLint attribute, EGLint value)
 {
    EGLint confval;
@@ -450,6 +625,31 @@ _eglSurfaceAttrib(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
          break;
       surface->MultisampleResolve = value;
       break;
+   case EGL_RENDER_BUFFER:
+      if (!disp->Extensions.KHR_mutable_render_buffer) {
+         err = EGL_BAD_ATTRIBUTE;
+         break;
+      }
+
+      if (value != EGL_BACK_BUFFER && value != EGL_SINGLE_BUFFER) {
+         err = EGL_BAD_PARAMETER;
+         break;
+      }
+
+      /* From the EGL_KHR_mutable_render_buffer spec (v12):
+       *
+       *    If attribute is EGL_RENDER_BUFFER, and the EGL_SURFACE_TYPE
+       *    attribute of the EGLConfig used to create surface does not contain
+       *    EGL_MUTABLE_RENDER_BUFFER_BIT_KHR, [...] an EGL_BAD_MATCH error is
+       *    generated [...].
+       */
+      if (!(surface->Config->SurfaceType & EGL_MUTABLE_RENDER_BUFFER_BIT_KHR)) {
+         err = EGL_BAD_MATCH;
+         break;
+      }
+
+      surface->RequestedRenderBuffer = value;
+      break;
    case EGL_SWAP_BEHAVIOR:
       switch (value) {
       case EGL_BUFFER_DESTROYED:
@@ -467,6 +667,42 @@ _eglSurfaceAttrib(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
          break;
       surface->SwapBehavior = value;
       break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT:
+      surface->HdrMetadata.display_primary_r.x = value;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_RY_EXT:
+      surface->HdrMetadata.display_primary_r.y = value;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_GX_EXT:
+      surface->HdrMetadata.display_primary_g.x = value;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_GY_EXT:
+      surface->HdrMetadata.display_primary_g.y = value;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_BX_EXT:
+      surface->HdrMetadata.display_primary_b.x = value;
+      break;
+   case EGL_SMPTE2086_DISPLAY_PRIMARY_BY_EXT:
+      surface->HdrMetadata.display_primary_b.y = value;
+      break;
+   case EGL_SMPTE2086_WHITE_POINT_X_EXT:
+      surface->HdrMetadata.white_point.x = value;
+      break;
+   case EGL_SMPTE2086_WHITE_POINT_Y_EXT:
+      surface->HdrMetadata.white_point.y = value;
+      break;
+   case EGL_SMPTE2086_MAX_LUMINANCE_EXT:
+      surface->HdrMetadata.max_luminance = value;
+      break;
+   case EGL_SMPTE2086_MIN_LUMINANCE_EXT:
+      surface->HdrMetadata.min_luminance = value;
+      break;
+   case EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT:
+      surface->HdrMetadata.max_cll = value;
+      break;
+   case EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT:
+      surface->HdrMetadata.max_fall = value;
+      break;
    default:
       err = EGL_BAD_ATTRIBUTE;
       break;
@@ -479,7 +715,7 @@ _eglSurfaceAttrib(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
 
 
 EGLBoolean
-_eglBindTexImage(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
+_eglBindTexImage(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surface,
                  EGLint buffer)
 {
    EGLint texture_type = EGL_PBUFFER_BIT;
@@ -488,7 +724,7 @@ _eglBindTexImage(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
     * Drivers must implement the real stuff.
     */
 
-   if (dpy->Extensions.NOK_texture_from_pixmap)
+   if (disp->Extensions.NOK_texture_from_pixmap)
       texture_type |= EGL_PIXMAP_BIT;
 
    if (!(surface->Type & texture_type))
@@ -509,7 +745,7 @@ _eglBindTexImage(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surface,
 }
 
 EGLBoolean
-_eglReleaseTexImage(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf,
+_eglReleaseTexImage(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
                     EGLint buffer)
 {
    /* Just do basic error checking and return success/fail.
@@ -533,7 +769,7 @@ _eglReleaseTexImage(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf,
    if (buffer != EGL_BACK_BUFFER)
       return _eglError(EGL_BAD_PARAMETER, "eglReleaseTexImage");
 
-   if (dpy->Extensions.NOK_texture_from_pixmap)
+   if (disp->Extensions.NOK_texture_from_pixmap)
       texture_type |= EGL_PIXMAP_BIT;
 
    if (!(surf->Type & texture_type))
@@ -546,8 +782,23 @@ _eglReleaseTexImage(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf,
 
 
 EGLBoolean
-_eglSwapInterval(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf,
+_eglSwapInterval(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
                  EGLint interval)
 {
    return EGL_TRUE;
+}
+
+EGLBoolean
+_eglSurfaceHasMutableRenderBuffer(_EGLSurface *surf)
+{
+   return surf->Type == EGL_WINDOW_BIT &&
+          surf->Config &&
+          (surf->Config->SurfaceType & EGL_MUTABLE_RENDER_BUFFER_BIT_KHR);
+}
+
+EGLBoolean
+_eglSurfaceInSharedBufferMode(_EGLSurface *surf)
+{
+   return _eglSurfaceHasMutableRenderBuffer(surf) &&
+          surf->ActiveRenderBuffer == EGL_SINGLE_BUFFER;
 }

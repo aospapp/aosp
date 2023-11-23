@@ -31,7 +31,13 @@ public class TestNotificationAssistant extends NotificationAssistantService {
 
     private static TestNotificationAssistant sNotificationAssistantInstance = null;
     boolean isConnected;
+    boolean isPanelOpen = false;
     public List<String> currentCapabilities;
+    int notificationVisibleCount = 0;
+    int notificationSeenCount = 0;
+    int notificationHiddenCount = 0;
+    String snoozedKey;
+    String snoozedUntilContext;
     private NotificationManager mNotificationManager;
 
     public static String getId() {
@@ -69,6 +75,8 @@ public class TestNotificationAssistant extends NotificationAssistantService {
     @Override
     public void onNotificationSnoozedUntilContext(StatusBarNotification statusBarNotification,
             String s) {
+        snoozedKey = statusBarNotification.getKey();
+        snoozedUntilContext = s;
     }
 
     @Override
@@ -82,5 +90,35 @@ public class TestNotificationAssistant extends NotificationAssistantService {
     @Override
     public void onAllowedAdjustmentsChanged() {
         currentCapabilities = mNotificationManager.getAllowedAssistantAdjustments();
+    }
+
+    void resetNotificationVisibilityCounts() {
+        notificationHiddenCount = 0;
+        notificationVisibleCount = 0;
+        notificationSeenCount = 0;
+    }
+
+    @Override
+    public void onNotificationVisibilityChanged(String key, boolean isVisible) {
+        if (isVisible) {
+            notificationVisibleCount++;
+        } else {
+            notificationHiddenCount++;
+        }
+    }
+
+    @Override
+    public void onNotificationsSeen(List<String> keys) {
+        notificationSeenCount += keys.size();
+    }
+
+    @Override
+    public void onPanelHidden() {
+        isPanelOpen = false;
+    }
+
+    @Override
+    public void onPanelRevealed(int items) {
+        isPanelOpen = true;
     }
 }

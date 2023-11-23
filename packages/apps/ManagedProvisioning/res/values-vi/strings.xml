@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Đặt lại"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Không thể thiết lập hồ sơ"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Không thể thiết lập thiết bị"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Đã xảy ra lỗi"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Không thể thiết lập thiết bị. Hãy liên hệ với quản trị viên CNTT của bạn để được trợ giúp."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Hãy liên hệ với quản trị viên CNTT của bạn để được trợ giúp"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Hãy đặt lại thiết bị này và thử thiết lập lại"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Thiết bị đã được thiết lập"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Không thể kết nối với Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Thiết bị của bạn đã bật chế độ chống đặt lại. Hãy liên hệ với quản trị viên CNTT để được trợ giúp."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Đang chuẩn bị thiết lập thiết bị làm việc…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Thiết lập ứng dụng quản trị"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Thiết lập các tính năng khác"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Bây giờ, chúng ta hãy cùng thiết lập các tính năng khác"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Thêm tài khoản cá nhân để làm việc hiệu quả hơn với thiết bị của bạn"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Vì hồ sơ công việc của bạn đã sẵn sàng, nên bạn cũng có thể thêm một Tài khoản Google cá nhân để truy cập vào ứng dụng và nội dung của mình."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Thiết bị này thuộc sở hữu của tổ chức bạn"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Ứng dụng sau đây sẽ được dùng để quản lý và giám sát điện thoại này"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Đang chuẩn bị thiết lập thiết bị làm việc…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Trước hết, chúng ta hãy cùng thiết lập hồ sơ công việc của bạn"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Hãy cùng thiết lập hồ sơ công việc của bạn"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Các ứng dụng công việc được lưu giữ trong hồ sơ công việc của bạn"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Tạm dừng ứng dụng công việc khi bạn hoàn thành mọi việc trong ngày"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Quản trị viên CNTT chỉ có thể xem dữ liệu trong hồ sơ công việc của bạn"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Quản trị viên CNTT của bạn có thể xem dữ liệu trong hồ sơ công việc của bạn"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Đang thiết lập hồ sơ công việc…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Các ứng dụng công việc được lưu giữ trong hồ sơ công việc của bạn. Bạn có thể tạm dừng ứng dụng công việc khi hoàn thành mọi việc trong ngày. Quản trị viên CNTT chỉ có thể xem dữ liệu trong hồ sơ công việc của bạn."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Các ứng dụng công việc được lưu giữ trong hồ sơ công việc của bạn. Bạn có thể tạm dừng ứng dụng công việc khi hoàn thành mọi việc trong ngày. Quản trị viên CNTT có thể xem dữ liệu trong hồ sơ công việc của bạn."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Hãy cùng thiết lập thiết bị công việc của bạn"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Truy cập vào ứng dụng công việc của bạn mọi lúc, mọi nơi"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Đây không phải là thiết bị riêng tư"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Quản trị viên CNTT có thể xem được dữ liệu và hoạt động của bạn trên thiết bị này."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Đang thiết lập thiết bị của bạn..."</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Hãy sử dụng thiết bị này để dễ dàng truy cập vào ứng dụng công việc của bạn. Đây không phải là thiết bị riêng tư nên quản trị viên CNTT có thể xem được dữ liệu và hoạt động của bạn. Hãy liên hệ với quản trị viên CNTT để tìm hiểu thêm."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Ứng dụng công việc được lưu giữ trong hồ sơ công việc và do quản trị viên CNTT quản lý"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Ứng ứng dụng cá nhân được lưu giữ riêng biệt và ẩn khỏi ứng dụng công việc"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Quản trị viên CNTT có thể kiểm soát thiết bị này và chặn một số ứng dụng"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Các ứng dụng công việc được lưu giữ trong hồ sơ công việc của bạn và do quản trị viên CNTT quản lý. Những ứng dụng cá nhân được lưu giữ riêng biệt và ẩn khỏi các ứng dụng công việc. Quản trị viên CNTT có thể kiểm soát thiết bị này và chặn một số ứng dụng."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Hãy đợi giây lát…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Lời nhắc về quyền riêng tư"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Quản trị viên CNTT có thể sẽ xem được dữ liệu và hoạt động của bạn trên thiết bị này"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Bạn đã có thể dùng thiết bị của mình!"</string>
     <string name="done" msgid="7755227776955952318">"Xong"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Bạn đã mua thiết bị này của <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> bằng phương thức mua trước trả sau"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> có thể:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Cài đặt ứng dụng của <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> để bạn có thể thanh toán cho thiết bị này"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Hạn chế quyền truy cập vào thiết bị này nếu bạn không thanh toán"</string>
 </resources>

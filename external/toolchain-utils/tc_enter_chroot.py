@@ -1,6 +1,9 @@
-#!/usr/bin/env python2
-#
-# Copyright 2010 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2010 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Script to enter the ChromeOS chroot with mounted sources.
 
 This script enters the chroot with mounted sources.
@@ -191,10 +194,10 @@ def Main(argv, return_output=False):
         '%s/../../../third_party' % os.path.dirname(__file__))
 
   if os.path.isdir(third_party_dir):
-    mount_point = MountPoint(third_party_dir,
-                             ('%s/%s' % (full_mounted_tc_root,
-                                         os.path.basename(third_party_dir))),
-                             getpass.getuser())
+    mount_point = MountPoint(
+        third_party_dir,
+        ('%s/%s' % (full_mounted_tc_root, os.path.basename(third_party_dir))),
+        getpass.getuser())
     mount_points.append(mount_point)
 
   output = options.output
@@ -243,16 +246,15 @@ def Main(argv, return_output=False):
       inner_command = inner_command[3:]
     command_file = 'tc_enter_chroot.cmd'
     command_file_path = chromeos_root + '/src/scripts/' + command_file
-    retv = command_executer.GetCommandExecuter().RunCommand(
-        'sudo rm -f ' + command_file_path)
+    retv = command_executer.GetCommandExecuter().RunCommand('sudo rm -f ' +
+                                                            command_file_path)
     if retv != 0:
       return retv
-    f = open(command_file_path, 'w')
-    f.write(inner_command)
-    f.close()
+    with open(command_file_path, 'w', encoding='utf-8') as f:
+      f.write(inner_command)
     logger.GetLogger().LogCmd(inner_command)
-    retv = command_executer.GetCommandExecuter().RunCommand(
-        'chmod +x ' + command_file_path)
+    retv = command_executer.GetCommandExecuter().RunCommand('chmod +x ' +
+                                                            command_file_path)
     if retv != 0:
       return retv
 

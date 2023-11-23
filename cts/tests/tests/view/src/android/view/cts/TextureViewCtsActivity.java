@@ -19,6 +19,7 @@ package android.view.cts;
 import static android.opengl.GLES20.GL_COLOR_BUFFER_BIT;
 import static android.opengl.GLES20.glClear;
 import static android.opengl.GLES20.glClearColor;
+import static android.opengl.GLES20.glFinish;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
@@ -258,6 +259,7 @@ public class TextureViewCtsActivity extends Activity implements SurfaceTextureLi
         int surfaceUpdateCount = mSurfaceUpdatedCount;
         runOnGLThread(() -> {
             callback.drawFrame(mSurfaceWidth, mSurfaceHeight);
+            glFinish();
             if (!mEgl.eglSwapBuffers(mEglDisplay, mEglSurface)) {
                 throw new RuntimeException("Cannot swap buffers");
             }

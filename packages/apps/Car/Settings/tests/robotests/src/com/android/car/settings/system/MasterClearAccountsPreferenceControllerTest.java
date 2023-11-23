@@ -18,46 +18,38 @@ package com.android.car.settings.system;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
-
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AuthenticatorDescription;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.os.UserHandle;
 import android.os.UserManager;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowAccountManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
-import com.android.car.settings.testutils.ShadowUserManager;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowUserManager;
 
 /** Unit test for {@link MasterClearAccountsPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowUserManager.class,
-        ShadowAccountManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowAccountManager.class})
 public class MasterClearAccountsPreferenceControllerTest {
 
-    private static final int USER_ID = 111;
-
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
     private PreferenceGroup mPreferenceGroup;
@@ -68,20 +60,14 @@ public class MasterClearAccountsPreferenceControllerTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(USER_ID);
-
         mContext = RuntimeEnvironment.application;
+        getShadowUserManager().addProfile(mUserId, mUserId,
+                String.valueOf(mUserId), /* profileFlags= */ 0);
+
         mPreferenceGroup = new PreferenceCategory(mContext);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 MasterClearAccountsPreferenceController.class, mPreferenceGroup);
         mController = mControllerHelper.getController();
-    }
-
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
-        ShadowUserManager.reset();
     }
 
     @Test
@@ -96,9 +82,7 @@ public class MasterClearAccountsPreferenceControllerTest {
     @Test
     public void refreshUi_accountsPresent_showsGroup() {
         mControllerHelper.markState(Lifecycle.State.STARTED);
-        getShadowUserManager().addProfile(USER_ID, USER_ID,
-                String.valueOf(USER_ID), /* profileFlags= */ 0);
-        addAccountAndDescription(USER_ID, "accountName");
+        addAccountAndDescription(mUserId, "accountName");
 
         mController.refreshUi();
 
@@ -108,8 +92,6 @@ public class MasterClearAccountsPreferenceControllerTest {
     @Test
     public void refreshUi_noAccountsPresent_hidesGroup() {
         mControllerHelper.markState(Lifecycle.State.STARTED);
-        getShadowUserManager().addProfile(USER_ID, USER_ID,
-                String.valueOf(USER_ID), /* profileFlags= */ 0);
 
         mController.refreshUi();
 
@@ -121,13 +103,13 @@ public class MasterClearAccountsPreferenceControllerTest {
         mControllerHelper.markState(Lifecycle.State.STARTED);
 
         int profileId1 = 112;
-        getShadowUserManager().addProfile(USER_ID, profileId1,
+        getShadowUserManager().addProfile(mUserId, profileId1,
                 String.valueOf(profileId1), /* profileFlags= */ 0);
         String accountName1 = "accountName1";
         addAccountAndDescription(profileId1, accountName1);
 
         int profileId2 = 113;
-        getShadowUserManager().addProfile(USER_ID, profileId2,
+        getShadowUserManager().addProfile(mUserId, profileId2,
                 String.valueOf(profileId2), /* profileFlags= */ 0);
         String accountName2 = "accountName2";
         addAccountAndDescription(profileId2, accountName2);
@@ -143,11 +125,9 @@ public class MasterClearAccountsPreferenceControllerTest {
     @Test
     public void refreshUi_missingAccountDescription_skipsAccount() {
         mControllerHelper.markState(Lifecycle.State.STARTED);
-        getShadowUserManager().addProfile(USER_ID, USER_ID,
-                String.valueOf(USER_ID), /* profileFlags= */ 0);
-        addAccountAndDescription(USER_ID, "account name with desc");
+        addAccountAndDescription(mUserId, "account name with desc");
         String accountNameNoDesc = "account name no desc";
-        getShadowAccountManager().addAccountAsUser(USER_ID,
+        getShadowAccountManager().addAccountAsUser(mUserId,
                 new Account(accountNameNoDesc, accountNameNoDesc + "_type"));
 
         mController.refreshUi();
@@ -159,14 +139,12 @@ public class MasterClearAccountsPreferenceControllerTest {
 
     @Test
     public void refreshUi_accountAdded_addsPreferenceToGroup() {
-        getShadowUserManager().addProfile(USER_ID, USER_ID,
-                String.valueOf(USER_ID), /* profileFlags= */ 0);
-        addAccountAndDescription(USER_ID, "accountName");
+        addAccountAndDescription(mUserId, "accountName");
         mControllerHelper.markState(Lifecycle.State.STARTED);
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(2);
 
         String addedAccountName = "added account name";
-        addAccountAndDescription(USER_ID, addedAccountName);
+        addAccountAndDescription(mUserId, addedAccountName);
         mController.refreshUi();
 
         // Title + one already present account + one newly added account.
@@ -176,10 +154,8 @@ public class MasterClearAccountsPreferenceControllerTest {
 
     @Test
     public void refreshUi_accountRemoved_removesPreferenceFromGroup() {
-        getShadowUserManager().addProfile(USER_ID, USER_ID,
-                String.valueOf(USER_ID), /* profileFlags= */ 0);
         String accountNameToRemove = "account name to remove";
-        addAccountAndDescription(USER_ID, accountNameToRemove);
+        addAccountAndDescription(mUserId, accountNameToRemove);
         mControllerHelper.markState(Lifecycle.State.STARTED);
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(2);
 
@@ -200,7 +176,7 @@ public class MasterClearAccountsPreferenceControllerTest {
     }
 
     private ShadowUserManager getShadowUserManager() {
-        return Shadow.extract(UserManager.get(mContext));
+        return Shadows.shadowOf(UserManager.get(mContext));
     }
 
     private ShadowAccountManager getShadowAccountManager() {

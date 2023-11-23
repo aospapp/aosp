@@ -36,11 +36,10 @@ class BtCarBasicFunctionalityTest(BluetoothBaseTest):
     default_timeout = 10
     scan_discovery_time = 5
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.car_ad = self.android_devices[0]
 
-    def setup_class(self):
         return setup_multiple_devices_for_bt_test(self.android_devices)
 
     @test_tracker_info(uuid='b52a032a-3438-4b84-863f-c46a969882a4')

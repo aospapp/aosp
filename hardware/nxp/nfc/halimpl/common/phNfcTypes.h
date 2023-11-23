@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 NXP Semiconductors
+ * Copyright (C) 2010-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,14 +41,6 @@ typedef uint16_t NFCSTATUS; /* Return values */
 #define PHNFC_MAX_ATR_LENGTH 0x30U
 #define PHNFC_NFCID_LENGTH 0x0AU /* Maximum length of NFCID 1.3*/
 #define PHNFC_ATQA_LENGTH 0x02U  /* ATQA length */
-
-/*
- * NFC Data structure
- */
-typedef struct phNfc_sData {
-  uint8_t* buffer; /* Buffer to store data */
-  uint32_t length; /* Buffer length */
-} phNfc_sData_t;
 
 /*
  * Possible Hardware Configuration exposed to upper layer.
@@ -128,193 +120,8 @@ typedef struct phLibNfc_DeferredCall {
 } phLibNfc_DeferredCall_t;
 
 /*
- * Definitions for supported protocol
- */
-typedef struct phNfc_sSupProtocol {
-  unsigned int MifareUL : 1;    /* Protocol Mifare Ultra Light or any NFC Forum
-                                   Type-2 tags */
-  unsigned int MifareStd : 1;   /* Protocol Mifare Standard. */
-  unsigned int ISO14443_4A : 1; /* Protocol ISO14443-4 Type A.  */
-  unsigned int ISO14443_4B : 1; /* Protocol ISO14443-4 Type B.  */
-  unsigned int ISO15693 : 1;    /* Protocol ISO15693 HiTag.  */
-  unsigned int Felica : 1;      /* Protocol Felica. */
-  unsigned int NFC : 1;         /* Protocol NFC. */
-  unsigned int Jewel : 1;       /* Protocol Innovision Jewel Tag. or Any T1T*/
-  unsigned int
-      Desfire : 1;          /*TRUE indicates specified feature (mapping
-                            or formatting)for DESFire tag supported else not supported.*/
-  unsigned int Kovio : 1;   /* Protocol Kovio Tag*/
-  unsigned int HID : 1;     /* Protocol HID(Picopass) Tag*/
-  unsigned int Bprime : 1;  /* Protocol BPrime Tag*/
-  unsigned int EPCGEN2 : 1; /* Protocol EPCGEN2 Tag*/
-} phNfc_sSupProtocol_t;
-
-/*
  *  Enumerated MIFARE Commands
  */
-
-typedef enum phNfc_eMifareCmdList {
-  phNfc_eMifareRaw = 0x00U,      /* This command performs raw transcations */
-  phNfc_eMifareAuthentA = 0x60U, /* This command performs an authentication with
-                                    KEY A for a sector. */
-  phNfc_eMifareAuthentB = 0x61U, /* This command performs an authentication with
-                                    KEY B for a sector. */
-  phNfc_eMifareRead16 = 0x30U,  /* Read 16 Bytes from a Mifare Standard block */
-  phNfc_eMifareRead = 0x30U,    /* Read Mifare Standard */
-  phNfc_eMifareWrite16 = 0xA0U, /* Write 16 Bytes to a Mifare Standard block */
-  phNfc_eMifareWrite4 = 0xA2U,  /* Write 4 bytes. */
-  phNfc_eMifareInc = 0xC1U,     /* Increment */
-  phNfc_eMifareDec = 0xC0U,     /* Decrement */
-  phNfc_eMifareTransfer = 0xB0U,    /* Transfer */
-  phNfc_eMifareRestore = 0xC2U,     /* Restore.   */
-  phNfc_eMifareReadSector = 0x38U,  /* Read Sector.   */
-  phNfc_eMifareWriteSector = 0xA8U, /* Write Sector.   */
-  /* Above commands could be used for preparing raw command but below one can
-     not be */
-  phNfc_eMifareReadN = 0x01,      /* Proprietary Command */
-  phNfc_eMifareWriteN = 0x02,     /* Proprietary Command */
-  phNfc_eMifareSectorSel = 0x03,  /* Proprietary Command */
-  phNfc_eMifareAuth = 0x04,       /* Proprietary Command */
-  phNfc_eMifareProxCheck = 0x05,  /* Proprietary Command */
-  phNfc_eMifareInvalidCmd = 0xFFU /* Invalid Command */
-} phNfc_eMifareCmdList_t;
-
-/*
- * Information about ISO14443A
- */
-typedef struct phNfc_sIso14443AInfo {
-  uint8_t Uid[PHNFC_MAX_UID_LENGTH]; /* UID information of the TYPE A
-                                      * Tag Discovered */
-  uint8_t UidLength;                 /* UID information length */
-  uint8_t
-      AppData[PHNFC_MAX_ATR_LENGTH]; /* Application data information of the
-               1                      * tag discovered (= Historical bytes for
-                                      * type A) */
-  uint8_t AppDataLength;             /* Application data length */
-  uint8_t Sak;                       /* SAK information of the TYPE A
-                                      * Tag Discovered */
-  uint8_t AtqA[PHNFC_ATQA_LENGTH];   /* ATQA informationof the TYPE A
-                                      * Tag Discovered */
-  uint8_t MaxDataRate;               /* Maximum data rate supported
-                                      * by the tag Discovered */
-  uint8_t Fwi_Sfgt;                  /* Frame waiting time and start up
-                                      * frame guard */
-} phNfc_sIso14443AInfo_t;
-
-/* Remote device information structure */
-typedef union phNfc_uRemoteDevInfo {
-  phNfc_sIso14443AInfo_t Iso14443A_Info; /* ISO1443A Remote device info */
-} phNfc_uRemoteDevInfo_t;
-
-/*
-*
-*  The RF Device Type List is used to identify the type of
-*  remote device that is discovered and connected.
-*
-*/
-
-typedef enum phNfc_eRFDevType {
-  phNfc_eUnknown_DevType = 0x00U,
-
-  phNfc_eISO14443_A_PCD,
-  phNfc_eISO14443_B_PCD,
-  phNfc_eISO14443_BPrime_PCD,
-  phNfc_eFelica_PCD,
-  phNfc_eJewel_PCD,
-  phNfc_eISO15693_PCD,
-  phNfc_eEpcGen2_PCD,
-  phNfc_ePCD_DevType,
-
-  phNfc_ePICC_DevType,
-  phNfc_eISO14443_A_PICC,
-  phNfc_eISO14443_4A_PICC,
-  phNfc_eISO14443_3A_PICC,
-  phNfc_eMifare_PICC,
-  phNfc_eISO14443_B_PICC,
-  phNfc_eISO14443_4B_PICC,
-  phNfc_eISO14443_BPrime_PICC,
-  phNfc_eFelica_PICC,
-  phNfc_eJewel_PICC,
-  phNfc_eISO15693_PICC,
-  phNfc_eEpcGen2_PICC,
-
-  phNfc_eNfcIP1_Target,
-  phNfc_eNfcIP1_Initiator,
-
-  phNfc_eInvalid_DevType
-
-} phNfc_eRFDevType_t;
-
-/*
- * The Remote Device Type List is used to identify the type of
- * remote device that is discovered/connected
- */
-typedef phNfc_eRFDevType_t phNfc_eRemDevType_t;
-typedef phNfc_eRemDevType_t phHal_eRemDevType_t;
-
-/*
- *   Union for each available type of Commands.
- */
-
-typedef union phNfc_uCommand {
-  phNfc_eMifareCmdList_t MfCmd; /* Mifare command structure.  */
-} phNfc_uCmdList_t;
-
-/*
- *  The Remote Device Information Structure holds information about one single
- * Remote
- *  Device detected.
- */
-typedef struct phNfc_sRemoteDevInformation {
-  uint8_t SessionOpened;                /* Flag indicating the validity of
-                                         * the handle of the remote device.
-                                         * 1 = Device is not activer (Only discovered), 2 =
-                                         * Device is active and ready for use*/
-  phNfc_eRemDevType_t RemDevType;       /* Remote device type */
-  phNfc_uRemoteDevInfo_t RemoteDevInfo; /* Union of available Remote Device */
-} phNfc_sRemoteDevInformation_t;
-
-/*
- * Transceive Information Data Structure for sending commands/response to the
- * remote device
- */
-
-typedef struct phNfc_sTransceiveInfo {
-  phNfc_uCmdList_t cmd; /* Command for transceive */
-  uint8_t addr;         /* Start Block Number */
-  uint8_t NumBlock;     /* Number of Blocks to perform operation */
-  /* For Felica only*/
-  uint16_t* ServiceCodeList; /* 2 Byte service Code List */
-  uint16_t* Blocklist;       /* 2 Byte Block list */
-  phNfc_sData_t sSendData;   /* Send data */
-  phNfc_sData_t sRecvData;   /* Recv data */
-  /* For EPC-GEN */
-  uint32_t dwWordPtr;  /* Word address for the memory write */
-  uint8_t bWordPtrLen; /* Specifies the length of word pointer
-                       00: 8  bits
-                       01: 16 bits
-                       10: 24 bits
-                       11: 32 bits
-                       */
-  uint8_t bWordCount;  /* Number of words to be read or written */
-} phNfc_sTransceiveInfo_t;
-
-typedef enum p61_access_state {
-  P61_STATE_INVALID = 0x0000,
-  P61_STATE_IDLE = 0x0100,         /* p61 is free to use */
-  P61_STATE_WIRED = 0x0200,        /* p61 is being accessed by DWP (NFCC)*/
-  P61_STATE_SPI = 0x0400,          /* P61 is being accessed by SPI */
-  P61_STATE_DWNLD = 0x0800,        /* NFCC fw download is in progress */
-  P61_STATE_SPI_PRIO = 0x1000,     /*Start of p61 access by SPI on priority*/
-  P61_STATE_SPI_PRIO_END = 0x2000, /*End of p61 access by SPI on priority*/
-  P61_STATE_SPI_END = 0x4000,
-  P61_STATE_JCP_DWNLD = 0x8000,           /* JCOP downlad in progress */
-  P61_STATE_SECURE_MODE = 0x100000,       /* secure mode state*/
-  P61_STATE_SPI_SVDD_SYNC_START = 0x0001, /*ESE_VDD Low req by SPI*/
-  P61_STATE_SPI_SVDD_SYNC_END = 0x0002,   /*ESE_VDD is Low by SPI*/
-  P61_STATE_DWP_SVDD_SYNC_START = 0x0004, /*ESE_VDD  Low req by Nfc*/
-  P61_STATE_DWP_SVDD_SYNC_END = 0x0008    /*ESE_VDD is Low by Nfc*/
-} p61_access_state_t;
 
 #define UNUSED(X) (void)(X);
 

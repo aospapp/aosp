@@ -82,7 +82,7 @@ public class Camera2SurfaceViewCtsActivity extends Activity implements SurfaceHo
                         return true;
                     } else {
                         Log.i(TAG, "Wait for surface changed to " + expectWidth + "x" +
-                                "expectHeight. Got " + currentWidth + "x" + currentHeight +
+                                expectHeight + ". Got " + currentWidth + "x" + currentHeight +
                                 ". Keep waiting");
                     }
                 }

@@ -15,20 +15,81 @@
 package android
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
+
+	"github.com/google/blueprint"
 )
 
 var neverallowTests = []struct {
-	name          string
-	fs            map[string][]byte
-	expectedError string
+	// The name of the test.
+	name string
+
+	// Optional test specific rules. If specified then they are used instead of the default rules.
+	rules []Rule
+
+	// Additional contents to add to the virtual filesystem used by the tests.
+	fs map[string][]byte
+
+	// The expected error patterns. If empty then no errors are expected, otherwise each error
+	// reported must be matched by at least one of these patterns. A pattern matches if the error
+	// message contains the pattern. A pattern does not have to match the whole error message.
+	expectedErrors []string
 }{
+	// Test General Functionality
+
+	// in direct deps tests
+	{
+		name: "not_allowed_in_direct_deps",
+		rules: []Rule{
+			NeverAllow().InDirectDeps("not_allowed_in_direct_deps"),
+		},
+		fs: map[string][]byte{
+			"top/Android.bp": []byte(`
+				cc_library {
+					name: "not_allowed_in_direct_deps",
+				}`),
+			"other/Android.bp": []byte(`
+				cc_library {
+					name: "libother",
+					static_libs: ["not_allowed_in_direct_deps"],
+				}`),
+		},
+		expectedErrors: []string{
+			`module "libother": violates neverallow deps:not_allowed_in_direct_deps`,
+		},
+	},
+
+	// Test android specific rules
+
+	// include_dir rule tests
+	{
+		name: "include_dir not allowed to reference art",
+		fs: map[string][]byte{
+			"other/Android.bp": []byte(`
+				cc_library {
+					name: "libother",
+					include_dirs: ["art/libdexfile/include"],
+				}`),
+		},
+		expectedErrors: []string{
+			"all usages of 'art' have been migrated",
+		},
+	},
+	{
+		name: "include_dir can reference another location",
+		fs: map[string][]byte{
+			"other/Android.bp": []byte(`
+				cc_library {
+					name: "libother",
+					include_dirs: ["another/include"],
+				}`),
+		},
+	},
+	// Treble rule tests
 	{
 		name: "no vndk.enabled under vendor directory",
 		fs: map[string][]byte{
-			"vendor/Blueprints": []byte(`
+			"vendor/Android.bp": []byte(`
 				cc_library {
 					name: "libvndk",
 					vendor_available: true,
@@ -37,12 +98,14 @@ var neverallowTests = []struct {
 					},
 				}`),
 		},
-		expectedError: "VNDK can never contain a library that is device dependent",
+		expectedErrors: []string{
+			"VNDK can never contain a library that is device dependent",
+		},
 	},
 	{
 		name: "no vndk.enabled under device directory",
 		fs: map[string][]byte{
-			"device/Blueprints": []byte(`
+			"device/Android.bp": []byte(`
 				cc_library {
 					name: "libvndk",
 					vendor_available: true,
@@ -51,12 +114,14 @@ var neverallowTests = []struct {
 					},
 				}`),
 		},
-		expectedError: "VNDK can never contain a library that is device dependent",
+		expectedErrors: []string{
+			"VNDK can never contain a library that is device dependent",
+		},
 	},
 	{
 		name: "vndk-ext under vendor or device directory",
 		fs: map[string][]byte{
-			"device/Blueprints": []byte(`
+			"device/Android.bp": []byte(`
 				cc_library {
 					name: "libvndk1_ext",
 					vendor: true,
@@ -64,7 +129,7 @@ var neverallowTests = []struct {
 						enabled: true,
 					},
 				}`),
-			"vendor/Blueprints": []byte(`
+			"vendor/Android.bp": []byte(`
 				cc_library {
 					name: "libvndk2_ext",
 					vendor: true,
@@ -73,13 +138,12 @@ var neverallowTests = []struct {
 					},
 				}`),
 		},
-		expectedError: "",
 	},
 
 	{
 		name: "no enforce_vintf_manifest.cflags",
 		fs: map[string][]byte{
-			"Blueprints": []byte(`
+			"Android.bp": []byte(`
 				cc_library {
 					name: "libexample",
 					product_variables: {
@@ -89,13 +153,15 @@ var neverallowTests = []struct {
 					},
 				}`),
 		},
-		expectedError: "manifest enforcement should be independent",
+		expectedErrors: []string{
+			"manifest enforcement should be independent",
+		},
 	},
 
 	{
 		name: "no treble_linker_namespaces.cflags",
 		fs: map[string][]byte{
-			"Blueprints": []byte(`
+			"Android.bp": []byte(`
 				cc_library {
 					name: "libexample",
 					product_variables: {
@@ -105,12 +171,14 @@ var neverallowTests = []struct {
 					},
 				}`),
 		},
-		expectedError: "nothing should care if linker namespaces are enabled or not",
+		expectedErrors: []string{
+			"nothing should care if linker namespaces are enabled or not",
+		},
 	},
 	{
 		name: "libc_bionic_ndk treble_linker_namespaces.cflags",
 		fs: map[string][]byte{
-			"Blueprints": []byte(`
+			"Android.bp": []byte(`
 				cc_library {
 					name: "libc_bionic_ndk",
 					product_variables: {
@@ -120,76 +188,172 @@ var neverallowTests = []struct {
 					},
 				}`),
 		},
-		expectedError: "",
-	},
-	{
-		name: "dependency on core-libart",
-		fs: map[string][]byte{
-			"Blueprints": []byte(`
-				java_library {
-					name: "needs_core_libart",
-					libs: ["core-libart"],
-				}`),
-		},
-		expectedError: "Only core libraries projects can depend on core-libart",
 	},
 	{
 		name: "dependency on updatable-media",
 		fs: map[string][]byte{
-			"Blueprints": []byte(`
+			"Android.bp": []byte(`
 				java_library {
 					name: "needs_updatable_media",
 					libs: ["updatable-media"],
 				}`),
 		},
-		expectedError: "updatable-media includes private APIs. Use updatable_media_stubs instead.",
+		expectedErrors: []string{
+			"updatable-media includes private APIs. Use updatable_media_stubs instead.",
+		},
 	},
 	{
 		name: "java_device_for_host",
 		fs: map[string][]byte{
-			"Blueprints": []byte(`
+			"Android.bp": []byte(`
 				java_device_for_host {
 					name: "device_for_host",
 					libs: ["core-libart"],
 				}`),
 		},
-		expectedError: "java_device_for_host can only be used in whitelisted projects",
+		expectedErrors: []string{
+			"java_device_for_host can only be used in allowed projects",
+		},
+	},
+	// Libcore rule tests
+	{
+		name: "sdk_version: \"none\" inside core libraries",
+		fs: map[string][]byte{
+			"libcore/Android.bp": []byte(`
+				java_library {
+					name: "inside_core_libraries",
+					sdk_version: "none",
+				}`),
+		},
+	},
+	{
+		name: "sdk_version: \"none\" on android_*stubs_current stub",
+		fs: map[string][]byte{
+			"frameworks/base/Android.bp": []byte(`
+				java_library {
+					name: "android_stubs_current",
+					sdk_version: "none",
+				}`),
+		},
+	},
+	{
+		name: "sdk_version: \"none\" outside core libraries",
+		fs: map[string][]byte{
+			"Android.bp": []byte(`
+				java_library {
+					name: "outside_core_libraries",
+					sdk_version: "none",
+				}`),
+		},
+		expectedErrors: []string{
+			"module \"outside_core_libraries\": violates neverallow",
+		},
+	},
+	{
+		name: "sdk_version: \"current\"",
+		fs: map[string][]byte{
+			"Android.bp": []byte(`
+				java_library {
+					name: "outside_core_libraries",
+					sdk_version: "current",
+				}`),
+		},
+	},
+	// CC sdk rule tests
+	{
+		name: `"sdk_variant_only" outside allowed list`,
+		fs: map[string][]byte{
+			"Android.bp": []byte(`
+				cc_library {
+					name: "outside_allowed_list",
+					sdk_version: "current",
+					sdk_variant_only: true,
+				}`),
+		},
+		expectedErrors: []string{
+			`module "outside_allowed_list": violates neverallow`,
+		},
+	},
+	{
+		name: `"sdk_variant_only: false" outside allowed list`,
+		fs: map[string][]byte{
+			"Android.bp": []byte(`
+				cc_library {
+					name: "outside_allowed_list",
+					sdk_version: "current",
+					sdk_variant_only: false,
+				}`),
+		},
+		expectedErrors: []string{
+			`module "outside_allowed_list": violates neverallow`,
+		},
+	},
+	{
+		name: `"platform" outside allowed list`,
+		fs: map[string][]byte{
+			"Android.bp": []byte(`
+				cc_library {
+					name: "outside_allowed_list",
+					platform: {
+						shared_libs: ["libfoo"],
+					},
+				}`),
+		},
+		expectedErrors: []string{
+			`module "outside_allowed_list": violates neverallow`,
+		},
+	},
+	{
+		name: "uncompress_dex inside art",
+		fs: map[string][]byte{
+			"art/Android.bp": []byte(`
+				java_library {
+					name: "inside_art_libraries",
+					uncompress_dex: true,
+				}`),
+		},
+	},
+	{
+		name: "uncompress_dex outside art",
+		fs: map[string][]byte{
+			"other/Android.bp": []byte(`
+				java_library {
+					name: "outside_art_libraries",
+					uncompress_dex: true,
+				}`),
+		},
+		expectedErrors: []string{
+			"module \"outside_art_libraries\": violates neverallow",
+		},
 	},
 }
 
 func TestNeverallow(t *testing.T) {
-	buildDir, err := ioutil.TempDir("", "soong_neverallow_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(buildDir)
-
-	config := TestConfig(buildDir, nil)
-
 	for _, test := range neverallowTests {
-		t.Run(test.name, func(t *testing.T) {
-			_, errs := testNeverallow(t, config, test.fs)
+		// Create a test per config to allow for test specific config, e.g. test rules.
+		config := TestConfig(buildDir, nil, "", test.fs)
 
-			if test.expectedError == "" {
-				FailIfErrored(t, errs)
-			} else {
-				FailIfNoMatchingErrors(t, test.expectedError, errs)
+		t.Run(test.name, func(t *testing.T) {
+			// If the test has its own rules then use them instead of the default ones.
+			if test.rules != nil {
+				SetTestNeverallowRules(config, test.rules)
 			}
+			_, errs := testNeverallow(config)
+			CheckErrorsAgainstExpectations(t, errs, test.expectedErrors)
 		})
 	}
 }
 
-func testNeverallow(t *testing.T, config Config, fs map[string][]byte) (*TestContext, []error) {
+func testNeverallow(config Config) (*TestContext, []error) {
 	ctx := NewTestContext()
-	ctx.RegisterModuleType("cc_library", ModuleFactoryAdaptor(newMockCcLibraryModule))
-	ctx.RegisterModuleType("java_library", ModuleFactoryAdaptor(newMockJavaLibraryModule))
-	ctx.RegisterModuleType("java_device_for_host", ModuleFactoryAdaptor(newMockJavaLibraryModule))
-	ctx.PostDepsMutators(registerNeverallowMutator)
-	ctx.Register()
+	ctx.RegisterModuleType("cc_library", newMockCcLibraryModule)
+	ctx.RegisterModuleType("java_library", newMockJavaLibraryModule)
+	ctx.RegisterModuleType("java_library_host", newMockJavaLibraryModule)
+	ctx.RegisterModuleType("java_device_for_host", newMockJavaLibraryModule)
+	ctx.PostDepsMutators(RegisterNeverallowMutator)
+	ctx.Register(config)
 
-	ctx.MockFileSystem(fs)
-
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints")
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
 	if len(errs) > 0 {
 		return ctx, errs
 	}
@@ -199,7 +363,11 @@ func testNeverallow(t *testing.T, config Config, fs map[string][]byte) (*TestCon
 }
 
 type mockCcLibraryProperties struct {
+	Include_dirs     []string
 	Vendor_available *bool
+	Static_libs      []string
+	Sdk_version      *string
+	Sdk_variant_only *bool
 
 	Vndk struct {
 		Enabled                *bool
@@ -216,6 +384,10 @@ type mockCcLibraryProperties struct {
 			Cflags []string
 		}
 	}
+
+	Platform struct {
+		Shared_libs []string
+	}
 }
 
 type mockCcLibraryModule struct {
@@ -230,11 +402,26 @@ func newMockCcLibraryModule() Module {
 	return m
 }
 
+type neverallowTestDependencyTag struct {
+	blueprint.BaseDependencyTag
+	name string
+}
+
+var staticDepTag = neverallowTestDependencyTag{name: "static"}
+
+func (c *mockCcLibraryModule) DepsMutator(ctx BottomUpMutatorContext) {
+	for _, lib := range c.properties.Static_libs {
+		ctx.AddDependency(ctx.Module(), staticDepTag, lib)
+	}
+}
+
 func (p *mockCcLibraryModule) GenerateAndroidBuildActions(ModuleContext) {
 }
 
 type mockJavaLibraryProperties struct {
-	Libs []string
+	Libs           []string
+	Sdk_version    *string
+	Uncompress_dex *bool
 }
 
 type mockJavaLibraryModule struct {

@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "core/fxge/dib/cfx_dibitmap.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fwl/cfwl_app.h"
 #include "xfa/fwl/cfwl_messagemouse.h"
@@ -23,65 +24,57 @@
 #include "xfa/fxfa/parser/cxfa_para.h"
 #include "xfa/fxfa/parser/cxfa_value.h"
 
-CXFA_FFImageEdit::CXFA_FFImageEdit(CXFA_Node* pNode)
-    : CXFA_FFField(pNode), m_pOldDelegate(nullptr) {}
+CXFA_FFImageEdit::CXFA_FFImageEdit(CXFA_Node* pNode) : CXFA_FFField(pNode) {}
 
 CXFA_FFImageEdit::~CXFA_FFImageEdit() {
-  CXFA_FFImageEdit::UnloadWidget();
+  m_pNode->SetImageEditImage(nullptr);
 }
 
 bool CXFA_FFImageEdit::LoadWidget() {
+  ASSERT(!IsLoaded());
   auto pNew = pdfium::MakeUnique<CFWL_PictureBox>(GetFWLApp());
   CFWL_PictureBox* pPictureBox = pNew.get();
-  m_pNormalWidget = std::move(pNew);
-  m_pNormalWidget->SetLayoutItem(this);
+  SetNormalWidget(std::move(pNew));
+  pPictureBox->SetAdapterIface(this);
 
-  CFWL_NoteDriver* pNoteDriver =
-      m_pNormalWidget->GetOwnerApp()->GetNoteDriver();
-  pNoteDriver->RegisterEventTarget(m_pNormalWidget.get(),
-                                   m_pNormalWidget.get());
+  CFWL_NoteDriver* pNoteDriver = pPictureBox->GetOwnerApp()->GetNoteDriver();
+  pNoteDriver->RegisterEventTarget(pPictureBox, pPictureBox);
   m_pOldDelegate = pPictureBox->GetDelegate();
   pPictureBox->SetDelegate(this);
 
   CXFA_FFField::LoadWidget();
-  if (!m_pNode->GetWidgetAcc()->GetImageEditImage())
+  if (!m_pNode->GetImageEditImage())
     UpdateFWLData();
 
   return true;
 }
 
-void CXFA_FFImageEdit::UnloadWidget() {
-  m_pNode->GetWidgetAcc()->SetImageEditImage(nullptr);
-  CXFA_FFField::UnloadWidget();
-}
-
 void CXFA_FFImageEdit::RenderWidget(CXFA_Graphics* pGS,
                                     const CFX_Matrix& matrix,
-                                    uint32_t dwStatus) {
-  if (!IsMatchVisibleStatus(dwStatus))
+                                    HighlightOption highlight) {
+  if (!HasVisibleStatus())
     return;
 
   CFX_Matrix mtRotate = GetRotateMatrix();
   mtRotate.Concat(matrix);
 
-  CXFA_FFWidget::RenderWidget(pGS, mtRotate, dwStatus);
-  DrawBorder(pGS, m_pNode->GetWidgetAcc()->GetUIBorder(), m_rtUI, mtRotate);
+  CXFA_FFWidget::RenderWidget(pGS, mtRotate, highlight);
+  DrawBorder(pGS, m_pNode->GetUIBorder(), m_rtUI, mtRotate);
   RenderCaption(pGS, &mtRotate);
-  RetainPtr<CFX_DIBitmap> pDIBitmap =
-      m_pNode->GetWidgetAcc()->GetImageEditImage();
+  RetainPtr<CFX_DIBitmap> pDIBitmap = m_pNode->GetImageEditImage();
   if (!pDIBitmap)
     return;
 
-  CFX_RectF rtImage = m_pNormalWidget->GetWidgetRect();
-  XFA_AttributeEnum iHorzAlign = XFA_AttributeEnum::Left;
-  XFA_AttributeEnum iVertAlign = XFA_AttributeEnum::Top;
+  CFX_RectF rtImage = GetNormalWidget()->GetWidgetRect();
+  XFA_AttributeValue iHorzAlign = XFA_AttributeValue::Left;
+  XFA_AttributeValue iVertAlign = XFA_AttributeValue::Top;
   CXFA_Para* para = m_pNode->GetParaIfExists();
   if (para) {
     iHorzAlign = para->GetHorizontalAlign();
     iVertAlign = para->GetVerticalAlign();
   }
 
-  XFA_AttributeEnum iAspect = XFA_AttributeEnum::Fit;
+  XFA_AttributeValue iAspect = XFA_AttributeValue::Fit;
   CXFA_Value* value = m_pNode->GetFormValueIfExists();
   if (value) {
     CXFA_Image* image = value->GetImageIfExists();
@@ -89,39 +82,44 @@ void CXFA_FFImageEdit::RenderWidget(CXFA_Graphics* pGS,
       iAspect = image->GetAspect();
   }
 
-  int32_t iImageXDpi = 0;
-  int32_t iImageYDpi = 0;
-  m_pNode->GetWidgetAcc()->GetImageEditDpi(iImageXDpi, iImageYDpi);
-  XFA_DrawImage(pGS, rtImage, mtRotate, pDIBitmap, iAspect, iImageXDpi,
-                iImageYDpi, iHorzAlign, iVertAlign);
+  XFA_DrawImage(pGS, rtImage, mtRotate, pDIBitmap, iAspect,
+                m_pNode->GetImageEditDpi(), iHorzAlign, iVertAlign);
 }
 
-bool CXFA_FFImageEdit::OnLButtonDown(uint32_t dwFlags,
-                                     const CFX_PointF& point) {
+bool CXFA_FFImageEdit::AcceptsFocusOnButtonDown(uint32_t dwFlags,
+                                                const CFX_PointF& point,
+                                                FWL_MouseCommand command) {
+  if (command != FWL_MouseCommand::LeftButtonDown)
+    return CXFA_FFField::AcceptsFocusOnButtonDown(dwFlags, point, command);
+
   if (!m_pNode->IsOpenAccess())
     return false;
   if (!PtInActiveRect(point))
     return false;
 
-  SetButtonDown(true);
-
-  CFWL_MessageMouse ms(nullptr, m_pNormalWidget.get());
-  ms.m_dwCmd = FWL_MouseCommand::LeftButtonDown;
-  ms.m_dwFlags = dwFlags;
-  ms.m_pos = FWLToClient(point);
-  TranslateFWLMessage(&ms);
   return true;
 }
 
+bool CXFA_FFImageEdit::OnLButtonDown(uint32_t dwFlags,
+                                     const CFX_PointF& point) {
+  ObservedPtr<CXFA_FFImageEdit> pWatched(this);
+  SetButtonDown(true);
+  SendMessageToFWLWidget(pdfium::MakeUnique<CFWL_MessageMouse>(
+      GetNormalWidget(), FWL_MouseCommand::LeftButtonDown, dwFlags,
+      FWLToClient(point)));
+
+  return !!pWatched;
+}
+
 void CXFA_FFImageEdit::SetFWLRect() {
-  if (!m_pNormalWidget)
+  if (!GetNormalWidget())
     return;
 
-  CFX_RectF rtUIMargin = m_pNode->GetWidgetAcc()->GetUIMargin();
+  CFX_RectF rtUIMargin = m_pNode->GetUIMargin();
   CFX_RectF rtImage(m_rtUI);
   rtImage.Deflate(rtUIMargin.left, rtUIMargin.top, rtUIMargin.width,
                   rtUIMargin.height);
-  m_pNormalWidget->SetWidgetRect(rtImage);
+  GetNormalWidget()->SetWidgetRect(rtImage);
 }
 
 bool CXFA_FFImageEdit::CommitData() {
@@ -129,8 +127,8 @@ bool CXFA_FFImageEdit::CommitData() {
 }
 
 bool CXFA_FFImageEdit::UpdateFWLData() {
-  m_pNode->GetWidgetAcc()->SetImageEditImage(nullptr);
-  m_pNode->GetWidgetAcc()->LoadImageEditImage(GetDoc());
+  m_pNode->SetImageEditImage(nullptr);
+  m_pNode->LoadImageEditImage(GetDoc());
   return true;
 }
 

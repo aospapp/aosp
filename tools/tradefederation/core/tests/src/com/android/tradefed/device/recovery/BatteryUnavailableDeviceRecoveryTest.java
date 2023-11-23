@@ -18,8 +18,8 @@ package com.android.tradefed.device.recovery;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.android.ddmlib.IDevice;
 import com.android.tradefed.device.IManagedTestDevice;
-import com.android.tradefed.device.TestDeviceState;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -32,16 +32,19 @@ import org.junit.runners.JUnit4;
 public class BatteryUnavailableDeviceRecoveryTest {
     private BatteryUnavailableDeviceRecovery mRecoverer;
     private IManagedTestDevice mMockDevice;
+    private IDevice mMockIDevice;
 
     @Before
     public void setUp() {
         mRecoverer = new BatteryUnavailableDeviceRecovery();
         mMockDevice = EasyMock.createMock(IManagedTestDevice.class);
+        mMockIDevice = EasyMock.createMock(IDevice.class);
+        EasyMock.expect(mMockDevice.getIDevice()).andStubReturn(mMockIDevice);
     }
 
     @Test
     public void testShouldSkip() {
-        EasyMock.expect(mMockDevice.getDeviceState()).andReturn(TestDeviceState.ONLINE);
+        EasyMock.expect(mMockDevice.isStateBootloaderOrFastbootd()).andReturn(false);
         EasyMock.expect(mMockDevice.getBattery()).andReturn(50);
         EasyMock.replay(mMockDevice);
         assertTrue(mRecoverer.shouldSkip(mMockDevice));
@@ -50,7 +53,7 @@ public class BatteryUnavailableDeviceRecoveryTest {
 
     @Test
     public void testShouldSkip_fastboot() {
-        EasyMock.expect(mMockDevice.getDeviceState()).andReturn(TestDeviceState.FASTBOOT);
+        EasyMock.expect(mMockDevice.isStateBootloaderOrFastbootd()).andReturn(true);
         EasyMock.replay(mMockDevice);
         assertTrue(mRecoverer.shouldSkip(mMockDevice));
         EasyMock.verify(mMockDevice);
@@ -58,7 +61,7 @@ public class BatteryUnavailableDeviceRecoveryTest {
 
     @Test
     public void testShouldSkip_recovery() {
-        EasyMock.expect(mMockDevice.getDeviceState()).andReturn(TestDeviceState.ONLINE);
+        EasyMock.expect(mMockDevice.isStateBootloaderOrFastbootd()).andReturn(false);
         EasyMock.expect(mMockDevice.getBattery()).andReturn(null);
         EasyMock.replay(mMockDevice);
         // Recovery is needed, we don't skip

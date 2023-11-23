@@ -22,12 +22,14 @@ import android.annotation.Nullable;
 import android.app.Notification;
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.drawable.Drawable;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.metrics.LogMaker;
 import android.os.Handler;
+import android.service.notification.StatusBarNotification;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -39,10 +41,15 @@ import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.widget.MediaNotificationView;
 import com.android.systemui.Dependency;
+import com.android.systemui.qs.QSPanel;
+import com.android.systemui.qs.QuickQSPanel;
 import com.android.systemui.statusbar.NotificationMediaManager;
 import com.android.systemui.statusbar.TransformableView;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
+import com.android.systemui.statusbar.phone.NotificationShadeWindowController;
+import com.android.systemui.util.Utils;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -67,6 +74,7 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
     private View mSeekBarView;
     private Context mContext;
     private MetricsLogger mMetricsLogger;
+    private boolean mIsViewVisible;
 
     @VisibleForTesting
     protected SeekBar.OnSeekBarChangeListener mSeekListener =
@@ -88,11 +96,46 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
         }
     };
 
+    private MediaNotificationView.VisibilityChangeListener mVisibilityListener =
+            new MediaNotificationView.VisibilityChangeListener() {
+        @Override
+        public void onAggregatedVisibilityChanged(boolean isVisible) {
+            mIsViewVisible = isVisible;
+            if (isVisible && mMediaController != null) {
+                // Restart timer if we're currently playing and didn't already have one going
+                PlaybackState state = mMediaController.getPlaybackState();
+                if (state != null && state.getState() == PlaybackState.STATE_PLAYING
+                        && mSeekBarTimer == null && mSeekBarView != null
+                        && mSeekBarView.getVisibility() != View.GONE) {
+                    startTimer();
+                }
+            } else {
+                clearTimer();
+            }
+        }
+    };
+
+    private View.OnAttachStateChangeListener mAttachStateListener =
+            new View.OnAttachStateChangeListener() {
+        @Override
+        public void onViewAttachedToWindow(View v) {
+        }
+
+        @Override
+        public void onViewDetachedFromWindow(View v) {
+            mIsViewVisible = false;
+        }
+    };
+
     private MediaController.Callback mMediaCallback = new MediaController.Callback() {
         @Override
         public void onSessionDestroyed() {
             clearTimer();
             mMediaController.unregisterCallback(this);
+            if (mView instanceof MediaNotificationView) {
+                ((MediaNotificationView) mView).removeVisibilityListener(mVisibilityListener);
+                mView.removeOnAttachStateChangeListener(mAttachStateListener);
+            }
         }
 
         @Override
@@ -130,8 +173,9 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
 
     private void resolveViews() {
         mActions = mView.findViewById(com.android.internal.R.id.media_actions);
+        mIsViewVisible = mView.isShown();
 
-        final MediaSession.Token token = mRow.getEntry().notification.getNotification().extras
+        final MediaSession.Token token = mRow.getEntry().getSbn().getNotification().extras
                 .getParcelable(Notification.EXTRA_MEDIA_SESSION);
 
         boolean showCompactSeekbar = mMediaManager.getShowCompactMediaSeekbar();
@@ -143,13 +187,13 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
         }
 
         // Check for existing media controller and clean up / create as necessary
-        boolean controllerUpdated = false;
+        boolean shouldUpdateListeners = false;
         if (mMediaController == null || !mMediaController.getSessionToken().equals(token)) {
             if (mMediaController != null) {
                 mMediaController.unregisterCallback(mMediaCallback);
             }
             mMediaController = new MediaController(mContext, token);
-            controllerUpdated = true;
+            shouldUpdateListeners = true;
         }
 
         mMediaMetadata = mMediaController.getMetadata();
@@ -161,7 +205,7 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
                     mSeekBarView.setVisibility(View.GONE);
                     mMetricsLogger.write(newLog(MetricsEvent.TYPE_CLOSE));
                     clearTimer();
-                } else if (mSeekBarView == null && controllerUpdated) {
+                } else if (mSeekBarView == null && shouldUpdateListeners) {
                     // Only log if the controller changed, otherwise we would log multiple times for
                     // the same notification when user pauses/resumes
                     mMetricsLogger.write(newLog(MetricsEvent.TYPE_CLOSE));
@@ -191,6 +235,16 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
             mSeekBarElapsedTime = mSeekBarView.findViewById(R.id.notification_media_elapsed_time);
             mSeekBarTotalTime = mSeekBarView.findViewById(R.id.notification_media_total_time);
 
+            shouldUpdateListeners = true;
+        }
+
+        if (shouldUpdateListeners) {
+            if (mView instanceof MediaNotificationView) {
+                MediaNotificationView mediaView = (MediaNotificationView) mView;
+                mediaView.addVisibilityListener(mVisibilityListener);
+                mView.addOnAttachStateChangeListener(mAttachStateListener);
+            }
+
             if (mSeekBarTimer == null) {
                 if (mMediaController != null && canSeekMedia(mMediaController.getPlaybackState())) {
                     // Log initial state, since it will not be updated
@@ -208,21 +262,34 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
 
     private void startTimer() {
         clearTimer();
-        mSeekBarTimer = new Timer(true /* isDaemon */);
-        mSeekBarTimer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                mHandler.post(mOnUpdateTimerTick);
-            }
-        }, 0, PROGRESS_UPDATE_INTERVAL);
+        if (mIsViewVisible) {
+            mSeekBarTimer = new Timer(true /* isDaemon */);
+            mSeekBarTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    mHandler.post(mOnUpdateTimerTick);
+                }
+            }, 0, PROGRESS_UPDATE_INTERVAL);
+        }
     }
 
     private void clearTimer() {
         if (mSeekBarTimer != null) {
-            // TODO: also trigger this when the notification panel is collapsed
             mSeekBarTimer.cancel();
             mSeekBarTimer.purge();
             mSeekBarTimer = null;
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        clearTimer();
+        if (mMediaController != null) {
+            mMediaController.unregisterCallback(mMediaCallback);
+        }
+        if (mView instanceof MediaNotificationView) {
+            ((MediaNotificationView) mView).removeVisibilityListener(mVisibilityListener);
+            mView.removeOnAttachStateChangeListener(mAttachStateListener);
         }
     }
 
@@ -261,7 +328,6 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
         public void run() {
             if (mMediaController != null && mSeekBar != null) {
                 PlaybackState playbackState = mMediaController.getPlaybackState();
-
                 if (playbackState != null) {
                     updatePlaybackUi(playbackState);
                 } else {
@@ -274,6 +340,10 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
     };
 
     private void updatePlaybackUi(PlaybackState state) {
+        if (mSeekBar == null || mSeekBarElapsedTime == null) {
+            return;
+        }
+
         long position = state.getPosition();
         mSeekBar.setProgress((int) position);
 
@@ -344,7 +414,7 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
      * @return new LogMaker
      */
     private LogMaker newLog(int event) {
-        String packageName = mRow.getEntry().notification.getPackageName();
+        String packageName = mRow.getEntry().getSbn().getPackageName();
 
         return new LogMaker(MetricsEvent.MEDIA_NOTIFICATION_SEEKBAR)
                 .setType(event)
@@ -356,7 +426,7 @@ public class NotificationMediaTemplateViewWrapper extends NotificationTemplateVi
      * @return new LogMaker
      */
     private LogMaker newLog(int event, int subtype) {
-        String packageName = mRow.getEntry().notification.getPackageName();
+        String packageName = mRow.getEntry().getSbn().getPackageName();
         return new LogMaker(MetricsEvent.MEDIA_NOTIFICATION_SEEKBAR)
                 .setType(event)
                 .setSubtype(subtype)

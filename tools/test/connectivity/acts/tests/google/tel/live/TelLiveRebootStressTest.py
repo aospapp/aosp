@@ -81,8 +81,8 @@ from acts.utils import rand_ascii_str
 
 
 class TelLiveRebootStressTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        TelephonyBaseTest.setup_class(self)
 
         self.stress_test_number = int(
             self.user_params.get("stress_test_number", 10))
@@ -95,14 +95,11 @@ class TelLiveRebootStressTest(TelephonyBaseTest):
         self.user_params["check_crash"] = False
         self.skip_reset_between_cases = False
 
-    def setup_class(self):
-        TelephonyBaseTest.setup_class(self)
-        self.dut_capabilities = self.dut.telephony.get("capabilities", [])
-        self.dut_wfc_modes = self.dut.telephony.get("wfc_modes", [])
+        self.dut_subID = get_outgoing_voice_sub_id(self.dut)
+        self.dut_capabilities = self.dut.telephony["subscription"][self.dut_subID].get("capabilities", [])
+        self.dut_wfc_modes = self.dut.telephony["subscription"][self.dut_subID].get("wfc_modes", [])
         self.default_testing_func_names = []
-        for method in ("_check_volte", "_check_vt", "_check_csfb",
-                       "_check_tethering", "_check_wfc_apm",
-                       "_check_wfc_nonapm", "_check_3g"):
+        for method in ("_check_volte", "_check_3g"):
             func = getattr(self, method)
             try:
                 check_result = func()
@@ -120,9 +117,8 @@ class TelLiveRebootStressTest(TelephonyBaseTest):
 
     def feature_validator(self, *args):
         failed_tests = []
-        for method in ("_check_subscription", "_check_data", "_check_mms_mt",
-                       "_check_sms_mt", "_check_call_setup_teardown",
-                       "_check_sms", "_check_mms"):
+        for method in ("_check_subscription", "_check_data",
+                       "_check_call_setup_teardown", "_check_sms"):
             func = getattr(self, method)
             if not func():
                 self.log.error("%s failed", method)
@@ -923,6 +919,24 @@ class TelLiveRebootStressTest(TelephonyBaseTest):
             True is pass, False if fail.
         """
         return self._crash_recovery_test("netmgrd",
+                                         *self.default_testing_func_names)
+
+    @test_tracker_info(uuid="6d6908b7-7eca-42e3-b165-2621714f1822")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_crash_recovery_qtidataservice(self):
+        """Crash Recovery Test
+
+        Steps:
+            1. Crash qtidataservice
+            2. Post crash recovery, verify Voice, Data, SMS, VoLTE, VT
+
+        Expected Results:
+            No crash happens in functional test, features work fine.
+
+        Returns:
+            True is pass, False if fail.
+        """
+        return self._crash_recovery_test("qtidataservice",
                                          *self.default_testing_func_names)
 
     @test_tracker_info(uuid="fa34f994-bc49-4444-9187-87691c94b4f4")

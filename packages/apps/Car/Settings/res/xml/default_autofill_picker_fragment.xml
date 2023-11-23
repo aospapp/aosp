@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/autofill_settings_title">
+    android:title="@string/autofill_settings_title"
+    android:key="@string/psk_default_autofill_picker">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_default_autofill_options"
         settings:controller="com.android.car.settings.applications.defaultapps.DefaultAutofillPickerPreferenceController"/>

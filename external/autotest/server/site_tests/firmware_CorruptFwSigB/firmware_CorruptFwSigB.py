@@ -29,6 +29,7 @@ class firmware_CorruptFwSigB(FirmwareTest):
         super(firmware_CorruptFwSigB, self).cleanup()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Expected firmware A boot and corrupt "
                      "firmware signature B.")
         self.check_state((self.checkers.fw_tries_checker, 'A'))

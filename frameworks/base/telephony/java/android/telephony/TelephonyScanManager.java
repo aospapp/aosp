@@ -18,7 +18,7 @@ package android.telephony;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.content.Context;
+import android.annotation.Nullable;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
@@ -28,10 +28,10 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcelable;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.ITelephony;
+import com.android.telephony.Rlog;
 
 import java.util.Arrays;
 import java.util.List;
@@ -104,7 +104,7 @@ public final class TelephonyScanManager {
 
     private final Looper mLooper;
     private final Messenger mMessenger;
-    private SparseArray<NetworkScanInfo> mScanInfo = new SparseArray<NetworkScanInfo>();
+    private final SparseArray<NetworkScanInfo> mScanInfo = new SparseArray<NetworkScanInfo>();
 
     public TelephonyScanManager() {
         HandlerThread thread = new HandlerThread(TAG);
@@ -195,23 +195,28 @@ public final class TelephonyScanManager {
      *
      * @param request Contains all the RAT with bands/channels that need to be scanned.
      * @param callback Returns network scan results or errors.
+     * @param callingPackage The package name of the caller
+     * @param callingFeatureId The feature id inside of the calling package
      * @return A NetworkScan obj which contains a callback which can stop the scan.
      * @hide
      */
     public NetworkScan requestNetworkScan(int subId,
             NetworkScanRequest request, Executor executor, NetworkScanCallback callback,
-            String callingPackage) {
+            String callingPackage, @Nullable String callingFeatureId) {
         try {
             ITelephony telephony = getITelephony();
             if (telephony != null) {
-                int scanId = telephony.requestNetworkScan(
-                        subId, request, mMessenger, new Binder(), callingPackage);
-                if (scanId == INVALID_SCAN_ID) {
-                    Rlog.e(TAG, "Failed to initiate network scan");
-                    return null;
+                synchronized (mScanInfo) {
+                    int scanId = telephony.requestNetworkScan(
+                            subId, request, mMessenger, new Binder(), callingPackage,
+                            callingFeatureId);
+                    if (scanId == INVALID_SCAN_ID) {
+                        Rlog.e(TAG, "Failed to initiate network scan");
+                        return null;
+                    }
+                    saveScanInfo(scanId, request, executor, callback);
+                    return new NetworkScan(scanId, subId);
                 }
-                saveScanInfo(scanId, request, executor, callback);
-                return new NetworkScan(scanId, subId);
             }
         } catch (RemoteException ex) {
             Rlog.e(TAG, "requestNetworkScan RemoteException", ex);
@@ -223,13 +228,14 @@ public final class TelephonyScanManager {
 
     private void saveScanInfo(
             int id, NetworkScanRequest request, Executor executor, NetworkScanCallback callback) {
-        synchronized (mScanInfo) {
-            mScanInfo.put(id, new NetworkScanInfo(request, executor, callback));
-        }
+        mScanInfo.put(id, new NetworkScanInfo(request, executor, callback));
     }
 
     private ITelephony getITelephony() {
         return ITelephony.Stub.asInterface(
-            ServiceManager.getService(Context.TELEPHONY_SERVICE));
+            TelephonyFrameworkInitializer
+                    .getTelephonyServiceManager()
+                    .getTelephonyServiceRegisterer()
+                    .get());
     }
 }

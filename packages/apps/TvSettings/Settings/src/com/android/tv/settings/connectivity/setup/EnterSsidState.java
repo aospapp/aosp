@@ -18,7 +18,6 @@ package com.android.tv.settings.connectivity.setup;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -30,7 +29,6 @@ import androidx.leanback.widget.GuidedActionsStylist;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.WifiConfigHelper;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
 
@@ -129,12 +127,6 @@ public class EnterSsidState implements State {
         @Override
         public long onGuidedActionEditedAndProceed(GuidedAction action) {
             mUserChoiceInfo.put(UserChoiceInfo.SSID, action.getTitle().toString());
-            CharSequence ssid = action.getTitle();
-            if (!TextUtils.equals(
-                    mUserChoiceInfo.getWifiConfiguration().getPrintableSsid(), ssid)) {
-                mUserChoiceInfo.removePageSummary(UserChoiceInfo.PASSWORD);
-            }
-            WifiConfigHelper.setConfigSsid(mUserChoiceInfo.getWifiConfiguration(), ssid.toString());
             mStateMachine.getListener().onComplete(StateMachine.CONTINUE);
             return action.getId();
         }

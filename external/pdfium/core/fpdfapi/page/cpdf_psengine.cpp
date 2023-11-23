@@ -7,6 +7,8 @@
 #include "core/fpdfapi/page/cpdf_psengine.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <utility>
 
 #include "core/fpdfapi/parser/cpdf_simple_parser.h"
@@ -66,6 +68,16 @@ constexpr PDF_PSOpName kPsOpNames[] = {
     {"truncate", PSOP_TRUNCATE},
     {"xor", PSOP_XOR},
 };
+
+// Round half up is a nearest integer round with half-way numbers always rounded
+// up. Example: -5.5 rounds to -5.
+float RoundHalfUp(float f) {
+  if (std::isnan(f))
+    return 0;
+  if (f > std::numeric_limits<float>::max() - 0.5f)
+    return std::numeric_limits<float>::max();
+  return floor(f + 0.5f);
+}
 
 }  // namespace
 
@@ -157,25 +169,25 @@ bool CPDF_PSProc::Execute(CPDF_PSEngine* pEngine) {
   return true;
 }
 
-void CPDF_PSProc::AddOperatorForTesting(const ByteStringView& word) {
+void CPDF_PSProc::AddOperatorForTesting(ByteStringView word) {
   AddOperator(word);
 }
 
-void CPDF_PSProc::AddOperator(const ByteStringView& word) {
-  const auto* pFound = std::lower_bound(
-      std::begin(kPsOpNames), std::end(kPsOpNames), word,
-      [](const PDF_PSOpName& name, const ByteStringView& word) {
-        return name.name < word;
-      });
+void CPDF_PSProc::AddOperator(ByteStringView word) {
+  const auto* pFound =
+      std::lower_bound(std::begin(kPsOpNames), std::end(kPsOpNames), word,
+                       [](const PDF_PSOpName& name, ByteStringView word) {
+                         return name.name < word;
+                       });
   if (pFound != std::end(kPsOpNames) && pFound->name == word)
     m_Operators.push_back(pdfium::MakeUnique<CPDF_PSOP>(pFound->op));
   else
-    m_Operators.push_back(pdfium::MakeUnique<CPDF_PSOP>(FX_atof(word)));
+    m_Operators.push_back(pdfium::MakeUnique<CPDF_PSOP>(StringToFloat(word)));
 }
 
-CPDF_PSEngine::CPDF_PSEngine() : m_StackCount(0) {}
+CPDF_PSEngine::CPDF_PSEngine() = default;
 
-CPDF_PSEngine::~CPDF_PSEngine() {}
+CPDF_PSEngine::~CPDF_PSEngine() = default;
 
 void CPDF_PSEngine::Push(float v) {
   if (m_StackCount < kPSEngineStackSize)
@@ -190,10 +202,9 @@ int CPDF_PSEngine::PopInt() {
   return static_cast<int>(Pop());
 }
 
-bool CPDF_PSEngine::Parse(const char* str, int size) {
-  CPDF_SimpleParser parser(reinterpret_cast<const uint8_t*>(str), size);
-  ByteStringView word = parser.GetWord();
-  return word == "{" ? m_MainProc.Parse(&parser, 0) : false;
+bool CPDF_PSEngine::Parse(pdfium::span<const uint8_t> input) {
+  CPDF_SimpleParser parser(input);
+  return parser.GetWord() == "{" && m_MainProc.Parse(&parser, 0);
 }
 
 bool CPDF_PSEngine::DoOperator(PDF_PSOP op) {
@@ -263,7 +274,7 @@ bool CPDF_PSEngine::DoOperator(PDF_PSOP op) {
       break;
     case PSOP_ROUND:
       d1 = Pop();
-      Push(FXSYS_round(d1));
+      Push(RoundHalfUp(d1));
       break;
     case PSOP_TRUNCATE:
       i1 = PopInt();

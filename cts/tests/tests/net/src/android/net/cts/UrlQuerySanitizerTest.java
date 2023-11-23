@@ -16,15 +16,38 @@
 
 package android.net.cts;
 
-import java.util.List;
-import java.util.Set;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.net.UrlQuerySanitizer;
 import android.net.UrlQuerySanitizer.IllegalCharacterValueSanitizer;
 import android.net.UrlQuerySanitizer.ParameterValuePair;
 import android.net.UrlQuerySanitizer.ValueSanitizer;
-import android.test.AndroidTestCase;
+import android.os.Build;
 
-public class UrlQuerySanitizerTest extends AndroidTestCase {
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+
+import com.android.testutils.DevSdkIgnoreRule;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.List;
+import java.util.Set;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class UrlQuerySanitizerTest {
+    @Rule
+    public final DevSdkIgnoreRule mIgnoreRule = new DevSdkIgnoreRule();
+
     private static final int ALL_OK = IllegalCharacterValueSanitizer.ALL_OK;
 
     // URL for test.
@@ -41,6 +64,7 @@ public class UrlQuerySanitizerTest extends AndroidTestCase {
     private static final String AGE = "age";
     private static final String HEIGHT = "height";
 
+    @Test
     public void testUrlQuerySanitizer() {
         MockUrlQuerySanitizer uqs = new MockUrlQuerySanitizer();
         assertFalse(uqs.getAllowUnregisteredParamaters());
@@ -207,6 +231,19 @@ public class UrlQuerySanitizerTest extends AndroidTestCase {
         uq.parseQuery("http://www.google.com/question?answer=13&answer=42");
         assertEquals("42", uq.getValue(PARA_ANSWER));
 
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.Q) // Only fixed in R
+    public void testScriptUrlOk_73822755() {
+        ValueSanitizer sanitizer = new UrlQuerySanitizer.IllegalCharacterValueSanitizer(
+                UrlQuerySanitizer.IllegalCharacterValueSanitizer.SCRIPT_URL_OK);
+        assertEquals("javascript:alert()", sanitizer.sanitize("javascript:alert()"));
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.Q) // Only fixed in R
+    public void testScriptUrlBlocked_73822755() {
+        ValueSanitizer sanitizer = UrlQuerySanitizer.getUrlAndSpaceLegal();
+        assertEquals("", sanitizer.sanitize("javascript:alert()"));
     }
 
     private static class MockValueSanitizer implements ValueSanitizer{

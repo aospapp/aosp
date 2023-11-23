@@ -5,7 +5,12 @@
       "host": true
     },
     {
-      "name": "suite/stub1"
+      "name": "suite/stub1",
+      "options": [
+        {
+          "include-filter": "some-filter"
+        }
+      ]
     },
     {
       "name": "suite/stub2",

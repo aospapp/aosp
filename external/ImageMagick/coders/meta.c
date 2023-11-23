@@ -17,7 +17,7 @@
 %                                 July 2001                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -141,17 +141,15 @@ static MagickBooleanType IsMETA(const unsigned char *magick,const size_t length)
 %
 */
 
-typedef struct _html_code
+static const struct
 {
-  const short int
+  const unsigned char
     len;
 
   const char
-    *code,
+    code[7],
     val;
-} html_code;
-
-static const html_code html_codes[] = {
+} html_codes[] = {
 #ifdef HANDLE_GT_LT
   { 4,"&lt;",'<' },
   { 4,"&gt;",'>' },
@@ -231,7 +229,7 @@ static size_t convertHTMLcodes(char *s)
       *s=value;
       return(o);
     }
-  for (i=0; i < (ssize_t) (sizeof(html_codes)/sizeof(html_code)); i++)
+  for (i=0; i < (ssize_t) (sizeof(html_codes)/sizeof(html_codes[0])); i++)
   {
     if (html_codes[i].len <= (ssize_t) length)
       if (stringnicmp(s,html_codes[i].code,(size_t) (html_codes[i].len)) == 0)
@@ -1148,6 +1146,7 @@ static inline void CopyBlob(Image *source,Image *destination)
     sizeof(*buffer));
   if (buffer != (unsigned char *) NULL)
     {
+      (void) memset(buffer,0,MagickMaxBufferExtent*sizeof(*buffer));
       i=0;
       while ((length=ReadBlob(source,MagickMaxBufferExtent,buffer)) != 0)
       {
@@ -1392,7 +1391,7 @@ static Image *ReadMETAImage(const ImageInfo *image_info,
           buff=DestroyImage(buff);
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         }
-      (void) SetImageProfile(image,"8bim",profile,exception);
+      (void) SetImageProfile(image,"iptc",profile,exception);
       profile=DestroyStringInfo(profile);
       blob=DetachBlob(buff->blob);
       blob=(unsigned char *) RelinquishMagickMemory(blob);
@@ -1911,7 +1910,7 @@ static int formatIPTC(Image *ifile, Image *ofile)
 
   int
     i,
-    tagcount = (int) (sizeof(tags) / sizeof(tag_spec));
+    tagcount = (int) (sizeof(tags) / sizeof(tags[0]));
 
   int
     c;
@@ -2051,7 +2050,7 @@ static int formatIPTCfromBuffer(Image *ofile, char *s, ssize_t len)
 
   int
     i,
-    tagcount = (int) (sizeof(tags) / sizeof(tag_spec));
+    tagcount = (int) (sizeof(tags) / sizeof(tags[0]));
 
   int
     c;

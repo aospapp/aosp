@@ -20,11 +20,11 @@ import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.platform.test.annotations.GlobalPresubmit;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.runner.RunWith;
 import org.junit.Test;
 
 /*

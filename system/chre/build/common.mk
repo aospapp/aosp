@@ -49,3 +49,6 @@ include $(CHRE_PREFIX)/build/tools_config.mk
 
 # NanoPB Source Generation
 include $(CHRE_PREFIX)/build/nanopb.mk
+
+# TFLM Sources
+include $(CHRE_PREFIX)/build/tflm.mk

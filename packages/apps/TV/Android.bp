@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-version_name = "1.20-asop"
-version_code = "417000328"
+version_name = "1.24-asop"
+version_code = "417000452"
 
 android_app {
     name: "LiveTv",
@@ -29,6 +29,7 @@ android_app {
 
     // It is required for com.android.providers.tv.permission.ALL_EPG_DATA
     privileged: true,
+    product_specific: true,
 
     sdk_version: "system_current",
     min_sdk_version: "23", // M
@@ -39,21 +40,20 @@ android_app {
 
     ],
 
+    required: ["com.android.tv.xml"],
+
     libs: ["tv-guava-android-jar"],
 
     static_libs: [
         "android-support-annotations",
         "android-support-compat",
-        "android-support-core-ui",
-        "androidx.tvprovider_tvprovider",
-        "android-support-v4",
-        "android-support-v7-appcompat",
-        "android-support-v7-palette",
-        "android-support-v7-preference",
         "android-support-v7-recyclerview",
-        "android-support-v14-preference",
-        "android-support-v17-leanback",
-        "android-support-v17-preference-leanback",
+        "androidx.legacy_legacy-support-core-ui",
+        "androidx.leanback_leanback",
+        "androidx.leanback_leanback-preference",
+        "androidx.palette_palette",
+        "androidx.preference_preference",
+        "androidx.tvprovider_tvprovider",
         "jsr330",
         "live-channels-partner-support",
         "live-tv-tuner-proto",
@@ -62,6 +62,8 @@ android_app {
         "tv-auto-factory-jar",
         "tv-common",
         "tv-error-prone-annotations-jar",
+        "tv-ratings-resources",
+        "tv-javax-annotations-jar",
         "tv-lib-dagger",
         "tv-lib-exoplayer",
         "tv-lib-exoplayer-v2-core",
@@ -93,4 +95,11 @@ android_app {
         "--extra-packages",
         "com.android.tv.common",
     ],
+}
+
+prebuilt_etc {
+    name: "com.android.tv.xml",
+    sub_dir: "permissions",
+    src: "com.android.tv.xml",
+    product_specific: true,
 }

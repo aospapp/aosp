@@ -19,6 +19,8 @@ package android.assist.cts;
 import android.assist.common.Utils;
 import android.util.Log;
 
+import org.junit.Test;
+
 /** Test we receive proper assist data when context is disabled or enabled */
 public class DisableContextTest extends AssistTestBase {
     static final String TAG = "DisableContextTest";
@@ -26,18 +28,17 @@ public class DisableContextTest extends AssistTestBase {
     private static final String TEST_CASE_TYPE = Utils.DISABLE_CONTEXT;
 
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         startTestActivity(TEST_CASE_TYPE);
     }
 
     @Override
-    public void tearDown() throws Exception {
+    public void customTearDown() throws Exception {
         setFeaturesEnabled(StructureEnabled.TRUE, ScreenshotEnabled.TRUE);
         logContextAndScreenshotSetting();
-        super.tearDown();
     }
 
+    @Test
     public void testContextAndScreenshotOff() throws Exception {
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
@@ -53,6 +54,7 @@ public class DisableContextTest extends AssistTestBase {
         verifyAssistDataNullness(true, true, true, true);
     }
 
+    @Test
     public void testContextOff() throws Exception {
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
@@ -68,6 +70,7 @@ public class DisableContextTest extends AssistTestBase {
         verifyAssistDataNullness(false, false, false, true);
     }
 
+    @Test
     public void testScreenshotOff() throws Exception {
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");

@@ -16,7 +16,10 @@
 
 package android.aidl.tests;
 
+import android.aidl.tests.ByteEnum;
 import android.aidl.tests.INamedCallback;
+import android.aidl.tests.IntEnum;
+import android.aidl.tests.LongEnum;
 import android.aidl.tests.SimpleParcelable;
 import android.aidl.tests.StructuredParcelable;
 import android.os.PersistableBundle;
@@ -50,21 +53,26 @@ interface ITestService {
   float RepeatFloat(float token);
   double RepeatDouble(double token);
   String RepeatString(String token);
-  Map RepeatMap(in Map token);
+  ByteEnum RepeatByteEnum(ByteEnum token);
+  IntEnum RepeatIntEnum(IntEnum token);
+  LongEnum RepeatLongEnum(LongEnum token);
 
   SimpleParcelable RepeatSimpleParcelable(in SimpleParcelable input,
                                           out SimpleParcelable repeat);
   PersistableBundle RepeatPersistableBundle(in PersistableBundle input);
 
   // Test that arrays work as parameters and return types.
-  boolean[] ReverseBoolean(in boolean[] input, out boolean[] repeated);
-  byte[]    ReverseByte   (in byte[]    input, out byte[]    repeated);
-  char[]    ReverseChar   (in char[]    input, out char[]    repeated);
-  int[]     ReverseInt    (in int[]     input, out int[]     repeated);
-  long[]    ReverseLong   (in long[]    input, out long[]    repeated);
-  float[]   ReverseFloat  (in float[]   input, out float[]   repeated);
-  double[]  ReverseDouble (in double[]  input, out double[]  repeated);
-  String[]  ReverseString (in String[]  input, out String[]  repeated);
+  boolean[]   ReverseBoolean  (in boolean[]   input, out boolean[]   repeated);
+  byte[]      ReverseByte     (in byte[]      input, out byte[]      repeated);
+  char[]      ReverseChar     (in char[]      input, out char[]      repeated);
+  int[]       ReverseInt      (in int[]       input, out int[]       repeated);
+  long[]      ReverseLong     (in long[]      input, out long[]      repeated);
+  float[]     ReverseFloat    (in float[]     input, out float[]     repeated);
+  double[]    ReverseDouble   (in double[]    input, out double[]    repeated);
+  String[]    ReverseString   (in String[]    input, out String[]    repeated);
+  ByteEnum[]  ReverseByteEnum (in ByteEnum[]  input, out ByteEnum[]  repeated);
+  IntEnum[]   ReverseIntEnum  (in IntEnum[]   input, out IntEnum[]   repeated);
+  LongEnum[]  ReverseLongEnum (in LongEnum[]  input, out LongEnum[]  repeated);
 
   SimpleParcelable[]  ReverseSimpleParcelables(in SimpleParcelable[] input,
                                                out SimpleParcelable[] repeated);
@@ -94,6 +102,9 @@ interface ITestService {
 
   // Test nullability
   @nullable int[] RepeatNullableIntArray(in @nullable int[] input);
+  @nullable ByteEnum[] RepeatNullableByteEnumArray(in @nullable ByteEnum[] input);
+  @nullable IntEnum[] RepeatNullableIntEnumArray(in @nullable IntEnum[] input);
+  @nullable LongEnum[] RepeatNullableLongEnumArray(in @nullable LongEnum[] input);
   @nullable String RepeatNullableString(in @nullable String input);
   @nullable List<String> RepeatNullableStringList(in @nullable List<String> input);
   @nullable SimpleParcelable RepeatNullableParcelable(in @nullable SimpleParcelable input);
@@ -132,4 +143,63 @@ interface ITestService {
   // to actually implement this, but intercept the dispatch to the method
   // inside onTransact().
   int UnimplementedMethod(int arg);
+
+  // All these constant expressions should be equal to 1
+  const int A1 = (~(-1)) == 0;
+  const int A2 = -(1 << 31) == (1 << 31);
+  const int A3 = -0x7fffffff < 0;
+  const int A4 = -0x80000000 < 0;
+  const int A5 = (1 + 0x7fffffff) == -2147483648;
+  const int A6 = (1 << 31) == 0x80000000;
+  const int A7 = (1 + 2) == 3;
+  const int A8 = (8 - 9) == -1;
+  const int A9 = (9 * 9) == 81;
+  const int A10 = (29 / 3) == 9;
+  const int A11 = (29 % 3) == 2;
+  const int A12 = (0xC0010000 | 0xF00D) == (0xC001F00D);
+  const int A13 = (10 | 6) == 14;
+  const int A14 = (10 & 6) == 2;
+  const int A15 = (10 ^ 6) == 12;
+  const int A16 = 6 < 10;
+  const int A17 = (10 < 10) == 0;
+  const int A18 = (6 > 10) == 0;
+  const int A19 = (10 > 10) == 0;
+  const int A20 = 19 >= 10;
+  const int A21 = 10 >= 10;
+  const int A22 = 5 <= 10;
+  const int A23 = (19 <= 10) == 0;
+  const int A24 = 19 != 10;
+  const int A25 = (10 != 10) == 0;
+  const int A26 = (22 << 1) == 44;
+  const int A27 = (11 >> 1) == 5;
+  const int A28 = (1 || 0) == 1;
+  const int A29 = (1 || 1) == 1;
+  const int A30 = (0 || 0) == 0;
+  const int A31 = (0 || 1) == 1;
+  const int A32 = (1 && 0) == 0;
+  const int A33 = (1 && 1) == 1;
+  const int A34 = (0 && 0) == 0;
+  const int A35 = (0 && 1) == 0;
+  const int A36 = 4 == 4;
+  const int A37 = -4 < 0;
+  const int A38 = 0xffffffff == -1;
+  const int A39 = 4 + 1 == 5;
+  const int A40 = 2 + 3 - 4;
+  const int A41 = 2 - 3 + 4 == 3;
+  const int A42 = 1 == 4 == 0;
+  const int A43 = 1 && 1;
+  const int A44 = 1 || 1 && 0;  // && higher than ||
+  const int A45 = 1 < 2;
+  const int A46 = !!((3 != 4 || (2 < 3 <= 3 > 4)) >= 0);
+  const int A47 = !(1 == 7) && ((3 != 4 || (2 < 3 <= 3 > 4)) >= 0);
+  const int A48 = (1 << 2) >= 0;
+  const int A49 = (4 >> 1) == 2;
+  const int A50 = (8 << -1) == 4;
+  const int A51 = (1 << 31 >> 31) == -1;
+  const int A52 = (1 | 16 >> 2) == 5;
+  const int A53 = (0x0f ^ 0x33 & 0x99) == 0x1e; // & higher than ^
+  const int A54 = (~42 & (1 << 3 | 16 >> 2) ^ 7) == 3;
+  const int A55 = (2 + 3 - 4 * -7 / (10 % 3)) - 33 == 0;
+  const int A56 = (2 + (-3&4 / 7)) == 2;
+  const int A57 = (((((1 + 0)))));
 }

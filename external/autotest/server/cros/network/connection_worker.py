@@ -211,7 +211,7 @@ class ConnectionSuspend(ConnectionWorker):
 
         # Wait for WAIT_FOR_CONNECTION time before trying to ping.
         success, state, elapsed_time = client.wait_for_service_states(
-                self.ssid, ('ready', 'portal', 'online'), WAIT_FOR_CONNECTION)
+                self.ssid, client.CONNECTED_STATES, WAIT_FOR_CONNECTION)
         if not success:
             raise error.TestFail('DUT failed to connect to AP (%s state) after'
                                  'resume in %d seconds' %

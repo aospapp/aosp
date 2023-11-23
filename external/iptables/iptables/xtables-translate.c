@@ -6,12 +6,7 @@
  * by the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <iptables.h>
+#include "config.h"
 #include <time.h>
 #include "xtables-multi.h"
 #include "nft.h"
@@ -48,7 +43,7 @@ void xlate_ifname(struct xt_xlate *xl, const char *nftmeta, const char *ifname,
 	if (iface[ifaclen - 1] == '+')
 		iface[ifaclen - 1] = '*';
 
-	xt_xlate_add(xl, "%s %s%s ", nftmeta, invert ? "!= " : "", iface);
+	xt_xlate_add(xl, "%s %s\"%s\" ", nftmeta, invert ? "!= " : "", iface);
 }
 
 int xlate_action(const struct iptables_command_state *cs, bool goto_set,
@@ -60,12 +55,13 @@ int xlate_action(const struct iptables_command_state *cs, bool goto_set,
 	if (cs->target != NULL) {
 		/* Standard target? */
 		if (strcmp(cs->jumpto, XTC_LABEL_ACCEPT) == 0)
-			xt_xlate_add(xl, "accept");
+			xt_xlate_add(xl, " accept");
 		else if (strcmp(cs->jumpto, XTC_LABEL_DROP) == 0)
-			xt_xlate_add(xl, "drop");
+			xt_xlate_add(xl, " drop");
 		else if (strcmp(cs->jumpto, XTC_LABEL_RETURN) == 0)
-			xt_xlate_add(xl, "return");
+			xt_xlate_add(xl, " return");
 		else if (cs->target->xlate) {
+			xt_xlate_add(xl, " ");
 			struct xt_xlate_tg_params params = {
 				.ip		= (const void *)&cs->fw,
 				.target		= cs->target->t,
@@ -79,9 +75,9 @@ int xlate_action(const struct iptables_command_state *cs, bool goto_set,
 	} else if (strlen(cs->jumpto) > 0) {
 		/* Not standard, then it's a go / jump to chain */
 		if (goto_set)
-			xt_xlate_add(xl, "goto %s", cs->jumpto);
+			xt_xlate_add(xl, " goto %s", cs->jumpto);
 		else
-			xt_xlate_add(xl, "jump %s", cs->jumpto);
+			xt_xlate_add(xl, " jump %s", cs->jumpto);
 	}
 
 	return ret;
@@ -195,6 +191,8 @@ static int xlate(struct nft_handle *h, struct nft_xt_cmd_parse *p,
 			}
 			break;
 		}
+		if (!cs->restore && i < args->s.naddrs - 1)
+			printf("nft ");
 	}
 
 	return ret;
@@ -218,6 +216,7 @@ static int do_command_xlate(struct nft_handle *h, int argc, char *argv[],
 	struct nft_xt_cmd_parse p = {
 		.table		= *table,
 		.restore	= restore,
+		.xlate		= true,
 	};
 	struct iptables_command_state cs;
 	struct xtables_args args = {
@@ -234,9 +233,8 @@ static int do_command_xlate(struct nft_handle *h, int argc, char *argv[],
 	switch (p.command) {
 	case CMD_APPEND:
 		ret = 1;
-		if (!xlate(h, &p, &cs, &args, true, nft_rule_xlate_add)) {
+		if (!xlate(h, &p, &cs, &args, true, nft_rule_xlate_add))
 			print_ipt_cmd(argc, argv);
-		}
 		break;
 	case CMD_DELETE:
 		break;
@@ -248,9 +246,8 @@ static int do_command_xlate(struct nft_handle *h, int argc, char *argv[],
 		break;
 	case CMD_INSERT:
 		ret = 1;
-		if (!xlate(h, &p, &cs, &args, false, nft_rule_xlate_add)) {
+		if (!xlate(h, &p, &cs, &args, false, nft_rule_xlate_add))
 			print_ipt_cmd(argc, argv);
-		}
 		break;
 	case CMD_FLUSH:
 		if (p.chain) {
@@ -328,11 +325,12 @@ static void print_usage(const char *name, const char *version)
 static const struct option options[] = {
 	{ .name = "help",	.has_arg = false,	.val = 'h' },
 	{ .name = "file",	.has_arg = true,	.val = 'f' },
+	{ .name = "version",	.has_arg = false,	.val = 'V' },
 	{ NULL },
 };
 
-static int xlate_chain_user_add(struct nft_handle *h, const char *chain,
-				const char *table)
+static int xlate_chain_user_restore(struct nft_handle *h, const char *chain,
+				    const char *table)
 {
 	printf("add chain %s %s %s\n", family2str[h->family], table, chain);
 	return 0;
@@ -348,27 +346,55 @@ static void xlate_table_new(struct nft_handle *h, const char *table)
 	printf("add table %s %s\n", family2str[h->family], table);
 }
 
+static int get_hook_prio(const char *table, const char *chain)
+{
+	int prio = 0;
+
+	if (strcmp("nat", table) == 0) {
+		if (strcmp(chain, "PREROUTING") == 0)
+			prio = NF_IP_PRI_NAT_DST;
+		if (strcmp(chain, "INPUT") == 0)
+			prio = NF_IP_PRI_NAT_SRC;
+		if (strcmp(chain, "OUTPUT") == 0)
+			prio = NF_IP_PRI_NAT_DST;
+		if (strcmp(chain, "POSTROUTING") == 0)
+			prio = NF_IP_PRI_NAT_SRC;
+	} else if (strcmp("mangle", table) == 0) {
+		prio = NF_IP_PRI_MANGLE;
+	} else if (strcmp("raw", table) == 0) {
+		prio = NF_IP_PRI_RAW;
+	} else if (strcmp(chain, "security") == 0) {
+		prio = NF_IP_PRI_SECURITY;
+	}
+
+	return prio;
+}
+
 static int xlate_chain_set(struct nft_handle *h, const char *table,
 			   const char *chain, const char *policy,
 			   const struct xt_counters *counters)
 {
 	const char *type = "filter";
+	int prio;
 
 	if (strcmp(table, "nat") == 0)
 		type = "nat";
+	else if (strcmp(table, "mangle") == 0 && strcmp(chain, "OUTPUT") == 0)
+		type = "route";
 
 	printf("add chain %s %s %s { type %s ",
 	       family2str[h->family], table, chain, type);
+	prio = get_hook_prio(table, chain);
 	if (strcmp(chain, "PREROUTING") == 0)
-		printf("hook prerouting priority 0; ");
+		printf("hook prerouting priority %d; ", prio);
 	else if (strcmp(chain, "INPUT") == 0)
-		printf("hook input priority 0; ");
+		printf("hook input priority %d; ", prio);
 	else if (strcmp(chain, "FORWARD") == 0)
-		printf("hook forward priority 0; ");
+		printf("hook forward priority %d; ", prio);
 	else if (strcmp(chain, "OUTPUT") == 0)
-		printf("hook output priority 0; ");
+		printf("hook output priority %d; ", prio);
 	else if (strcmp(chain, "POSTROUTING") == 0)
-		printf("hook postrouting priority 0; ");
+		printf("hook postrouting priority %d; ", prio);
 
 	if (strcmp(policy, "ACCEPT") == 0)
 		printf("policy accept; ");
@@ -379,14 +405,69 @@ static int xlate_chain_set(struct nft_handle *h, const char *table,
 	return 1;
 }
 
-static struct nft_xt_restore_cb cb_xlate = {
+static int dummy_compat_rev(const char *name, uint8_t rev, int opt)
+{
+	/* Avoid querying the kernel - it's not needed when just translating
+	 * rules and not even possible when running as unprivileged user.
+	 */
+	return 1;
+}
+
+static const struct nft_xt_restore_cb cb_xlate = {
 	.table_new	= xlate_table_new,
 	.chain_set	= xlate_chain_set,
-	.chain_user_add	= xlate_chain_user_add,
+	.chain_restore	= xlate_chain_user_restore,
 	.do_command	= do_command_xlate,
 	.commit		= commit,
 	.abort		= commit,
 };
+
+static int xtables_xlate_main_common(struct nft_handle *h,
+				     int family,
+				     const char *progname)
+{
+	const struct builtin_table *tables;
+	int ret;
+
+	xtables_globals.program_name = progname;
+	xtables_globals.compat_rev = dummy_compat_rev;
+	ret = xtables_init_all(&xtables_globals, family);
+	if (ret < 0) {
+		fprintf(stderr, "%s/%s Failed to initialize xtables\n",
+			xtables_globals.program_name,
+			xtables_globals.program_version);
+		return 1;
+	}
+	switch (family) {
+	case NFPROTO_IPV4:
+	case NFPROTO_IPV6: /* fallthrough: same table */
+#if defined(ALL_INCLUSIVE) || defined(NO_SHARED_LIBS)
+	init_extensions();
+	init_extensions4();
+#endif
+		tables = xtables_ipv4;
+		break;
+	case NFPROTO_ARP:
+		tables = xtables_arp;
+		break;
+	case NFPROTO_BRIDGE:
+		tables = xtables_bridge;
+		break;
+	default:
+		fprintf(stderr, "Unknown family %d\n", family);
+		return 1;
+	}
+
+	if (nft_init(h, tables) < 0) {
+		fprintf(stderr, "%s/%s Failed to initialize nft: %s\n",
+				xtables_globals.program_name,
+				xtables_globals.program_version,
+				strerror(errno));
+		return 1;
+	}
+
+	return 0;
+}
 
 static int xtables_xlate_main(int family, const char *progname, int argc,
 			      char *argv[])
@@ -397,27 +478,9 @@ static int xtables_xlate_main(int family, const char *progname, int argc,
 		.family = family,
 	};
 
-	xtables_globals.program_name = progname;
-	ret = xtables_init_all(&xtables_globals, family);
-	if (ret < 0) {
-		fprintf(stderr, "%s/%s Failed to initialize xtables\n",
-				xtables_globals.program_name,
-				xtables_globals.program_version);
-				exit(1);
-	}
-#if defined(ALL_INCLUSIVE) || defined(NO_SHARED_LIBS)
-	init_extensions();
-	init_extensions4();
-#endif
-
-	if (nft_init(&h, xtables_ipv4) < 0) {
-		fprintf(stderr, "%s/%s Failed to initialize nft: %s\n",
-				xtables_globals.program_name,
-				xtables_globals.program_version,
-				strerror(errno));
-		nft_fini(&h);
+	ret = xtables_xlate_main_common(&h, family, progname);
+	if (ret < 0)
 		exit(EXIT_FAILURE);
-	}
 
 	ret = do_command_xlate(&h, argc, argv, &table, false);
 	if (!ret)
@@ -435,47 +498,34 @@ static int xtables_restore_xlate_main(int family, const char *progname,
 		.family = family,
 	};
 	const char *file = NULL;
-	struct nft_xt_restore_parse p = {};
+	struct nft_xt_restore_parse p = {
+		.cb = &cb_xlate,
+	};
 	time_t now = time(NULL);
 	int c;
 
-	xtables_globals.program_name = progname;
-	ret = xtables_init_all(&xtables_globals, family);
-	if (ret < 0) {
-		fprintf(stderr, "%s/%s Failed to initialize xtables\n",
-				xtables_globals.program_name,
-				xtables_globals.program_version);
-				exit(1);
-	}
-#if defined(ALL_INCLUSIVE) || defined(NO_SHARED_LIBS)
-	init_extensions();
-	init_extensions4();
-#endif
-
-	if (nft_init(&h, xtables_ipv4) < 0) {
-		fprintf(stderr, "%s/%s Failed to initialize nft: %s\n",
-				xtables_globals.program_name,
-				xtables_globals.program_version,
-				strerror(errno));
-		nft_fini(&h);
+	ret = xtables_xlate_main_common(&h, family, progname);
+	if (ret < 0)
 		exit(EXIT_FAILURE);
-	}
 
 	opterr = 0;
-	while ((c = getopt_long(argc, argv, "hf:", options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hf:V", options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			print_usage(argv[0], IPTABLES_VERSION);
+			print_usage(argv[0], PACKAGE_VERSION);
 			exit(0);
 		case 'f':
 			file = optarg;
 			break;
+		case 'V':
+			printf("%s v%s\n", argv[0], PACKAGE_VERSION);
+			exit(0);
 		}
 	}
 
 	if (file == NULL) {
 		fprintf(stderr, "ERROR: missing file name\n");
-		print_usage(argv[0], IPTABLES_VERSION);
+		print_usage(argv[0], PACKAGE_VERSION);
 		exit(0);
 	}
 
@@ -486,8 +536,8 @@ static int xtables_restore_xlate_main(int family, const char *progname,
 	}
 
 	printf("# Translated by %s v%s on %s",
-	       argv[0], IPTABLES_VERSION, ctime(&now));
-	xtables_restore_parse(&h, &p, &cb_xlate, argc, argv);
+	       argv[0], PACKAGE_VERSION, ctime(&now));
+	xtables_restore_parse(&h, &p);
 	printf("# Completed on %s", ctime(&now));
 
 	nft_fini(&h);

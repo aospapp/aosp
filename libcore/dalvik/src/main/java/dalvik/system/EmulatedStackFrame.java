@@ -346,18 +346,27 @@ public class EmulatedStackFrame {
             return this;
         }
 
-        protected void checkType(Class<?> type) {
+        private Class<?> getCurrentArgumentType() {
             if (argumentIdx >= numArgs || argumentIdx == (RETURN_VALUE_IDX + 1)) {
                 throw new IllegalArgumentException("Invalid argument index: " + argumentIdx);
             }
-
-            final Class<?> expectedType = (argumentIdx == RETURN_VALUE_IDX) ?
+            return (argumentIdx == RETURN_VALUE_IDX) ?
                     frame.type.rtype() : frame.type.ptypes()[argumentIdx];
+        }
 
-            if (expectedType != type) {
-                throw new IllegalArgumentException("Incorrect type: " + type +
-                        ", expected: " + expectedType);
+        private static void checkAssignable(Class<?> expectedType, Class<?> actualType) {
+            if (!expectedType.isAssignableFrom(actualType)) {
+                throw new IllegalArgumentException("Incorrect type: " + actualType
+                                                   + ", expected: " + expectedType);
             }
+        }
+
+        protected void checkWriteType(Class<?> type) {
+            checkAssignable(getCurrentArgumentType(), type);
+        }
+
+        protected void checkReadType(Class<?> expectedType) {
+            checkAssignable(expectedType, getCurrentArgumentType());
         }
 
         /**
@@ -408,55 +417,55 @@ public class EmulatedStackFrame {
      */
     public static class StackFrameWriter extends StackFrameAccessor {
         public void putNextByte(byte value) {
-            checkType(byte.class);
+            checkWriteType(byte.class);
             argumentIdx++;
             frameBuf.putInt(value);
         }
 
         public void putNextInt(int value) {
-            checkType(int.class);
+            checkWriteType(int.class);
             argumentIdx++;
             frameBuf.putInt(value);
         }
 
         public void putNextLong(long value) {
-            checkType(long.class);
+            checkWriteType(long.class);
             argumentIdx++;
             frameBuf.putLong(value);
         }
 
         public void putNextChar(char value) {
-            checkType(char.class);
+            checkWriteType(char.class);
             argumentIdx++;
             frameBuf.putInt((int) value);
         }
 
         public void putNextBoolean(boolean value) {
-            checkType(boolean.class);
+            checkWriteType(boolean.class);
             argumentIdx++;
             frameBuf.putInt(value ? 1 : 0);
         }
 
         public void putNextShort(short value) {
-            checkType(short.class);
+            checkWriteType(short.class);
             argumentIdx++;
             frameBuf.putInt((int) value);
         }
 
         public void putNextFloat(float value) {
-            checkType(float.class);
+            checkWriteType(float.class);
             argumentIdx++;
             frameBuf.putFloat(value);
         }
 
         public void putNextDouble(double value) {
-            checkType(double.class);
+            checkWriteType(double.class);
             argumentIdx++;
             frameBuf.putDouble(value);
         }
 
         public void putNextReference(Object value, Class<?> expectedType) {
-            checkType(expectedType);
+            checkWriteType(expectedType);
             argumentIdx++;
             frame.references[referencesOffset++] = value;
         }
@@ -468,55 +477,55 @@ public class EmulatedStackFrame {
      */
     public static class StackFrameReader extends StackFrameAccessor {
         public byte nextByte() {
-            checkType(byte.class);
+            checkReadType(byte.class);
             argumentIdx++;
             return (byte) frameBuf.getInt();
         }
 
         public int nextInt() {
-            checkType(int.class);
+            checkReadType(int.class);
             argumentIdx++;
             return frameBuf.getInt();
         }
 
         public long nextLong() {
-            checkType(long.class);
+            checkReadType(long.class);
             argumentIdx++;
             return frameBuf.getLong();
         }
 
         public char nextChar() {
-            checkType(char.class);
+            checkReadType(char.class);
             argumentIdx++;
             return (char) frameBuf.getInt();
         }
 
         public boolean nextBoolean() {
-            checkType(boolean.class);
+            checkReadType(boolean.class);
             argumentIdx++;
             return (frameBuf.getInt() != 0);
         }
 
         public short nextShort() {
-            checkType(short.class);
+            checkReadType(short.class);
             argumentIdx++;
             return (short) frameBuf.getInt();
         }
 
         public float nextFloat() {
-            checkType(float.class);
+            checkReadType(float.class);
             argumentIdx++;
             return frameBuf.getFloat();
         }
 
         public double nextDouble() {
-            checkType(double.class);
+            checkReadType(double.class);
             argumentIdx++;
             return frameBuf.getDouble();
         }
 
         public <T> T nextReference(Class<T> expectedType) {
-            checkType(expectedType);
+            checkReadType(expectedType);
             argumentIdx++;
             return (T) frame.references[referencesOffset++];
         }

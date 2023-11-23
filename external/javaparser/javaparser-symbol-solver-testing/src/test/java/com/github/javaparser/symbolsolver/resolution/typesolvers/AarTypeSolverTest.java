@@ -16,20 +16,20 @@
 
 package com.github.javaparser.symbolsolver.resolution.typesolvers;
 
-import com.github.javaparser.symbolsolver.AbstractTest;
-import org.junit.Test;
+import com.github.javaparser.symbolsolver.AbstractSymbolResolutionTest;
+import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class AarTypeSolverTest extends AbstractTest {
+class AarTypeSolverTest extends AbstractSymbolResolutionTest {
 
     @Test
-    public void initial() throws IOException {
-        String pathToJar = adaptPath("src/test/resources/aars/support-compat-24.2.0.aar");
-        AarTypeSolver aarTypeSolver = new AarTypeSolver(new File(pathToJar));
+    void initial() throws IOException {
+        Path pathToJar = adaptPath("src/test/resources/aars/support-compat-24.2.0.aar");
+        AarTypeSolver aarTypeSolver = new AarTypeSolver(pathToJar);
         assertEquals(true, aarTypeSolver.tryToSolveType("android.support.v4.app.ActivityCompat").isSolved());
         assertEquals(true, aarTypeSolver.tryToSolveType("android.support.v4.app.ActivityManagerCompat").isSolved());
         assertEquals(true, aarTypeSolver.tryToSolveType("android.support.v4.app.NotificationCompat").isSolved());

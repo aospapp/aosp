@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 import android.media.MediaDrm;
 import android.os.PersistableBundle;
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import com.google.common.io.BaseEncoding;
@@ -57,6 +58,7 @@ public class MediaDrmMetricsTest extends AndroidTestCase {
         }
     }
 
+    @Presubmit
     public void testGetMetricsEmpty() throws Exception {
         MediaDrm drm = new MediaDrm(CLEARKEY_SCHEME_UUID);
         assertNotNull(drm);
@@ -76,6 +78,7 @@ public class MediaDrmMetricsTest extends AndroidTestCase {
         drm.close();
     }
 
+    @Presubmit
     public void testGetMetricsSession() throws Exception {
         MediaDrm drm = new MediaDrm(CLEARKEY_SCHEME_UUID);
         assertNotNull(drm);
@@ -129,6 +132,7 @@ public class MediaDrmMetricsTest extends AndroidTestCase {
        drm.close();
     }
 
+    @Presubmit
     public void testGetMetricsGetKeyRequest() throws Exception {
         MediaDrm drm = new MediaDrm(CLEARKEY_SCHEME_UUID);
         assertNotNull(drm);

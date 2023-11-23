@@ -84,10 +84,10 @@ Example({
     feature: [1],
 
     # Dummy outputs
-    scoresOut_1: [0],
-    scoresOut_6: [0],
-    roiOut_6: [0],
-    classOut_6: [0],
-    batchOut_6: [0],
+    scoresOut_1: [],
+    scoresOut_6: [],
+    roiOut_6: [],
+    classOut_6: [],
+    batchOut_6: [],
 
 }).AddVariations("relaxed", "float16", quant8)

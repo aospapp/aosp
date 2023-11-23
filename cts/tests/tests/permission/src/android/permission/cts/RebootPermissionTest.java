@@ -16,7 +16,6 @@
 
 package android.permission.cts;
 
-import android.content.Context;
 import android.content.Intent;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;

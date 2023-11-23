@@ -42,9 +42,10 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <syslog.h>
 #include <unistd.h>
-#include <wchar.h>
 #include <vector>
+#include <wchar.h>
 
 #include "clang-fortify-common.h"
 
@@ -254,6 +255,89 @@ static void testMqueue() {
   // expected-error@+1{{needs 4 arguments}}
   mq_open("/", O_CREAT);
 }
+
+static void testFormatStrings() {
+  const auto unsigned_value = std::declval<unsigned long long>();
+  const auto *unknown_string = std::declval<const char *>();
+  const auto va = std::declval<va_list>();
+
+  {
+    auto some_fd = std::declval<int>();
+    // expected-warning@+1{{format specifies type 'int'}}
+    dprintf(some_fd, "%d", unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    dprintf(some_fd, unknown_string, unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    vdprintf(1, unknown_string, va);
+  }
+
+  {
+    auto *retval = std::declval<char *>();
+    // expected-warning@+2{{ignoring return value}}
+    // expected-warning@+1{{format specifies type 'int'}}
+    asprintf(&retval, "%d", unsigned_value);
+    // expected-warning@+2{{ignoring return value}}
+    // expected-warning@+1{{format string is not a string literal}}
+    asprintf(&retval, unknown_string, unsigned_value);
+    // expected-warning@+2{{ignoring return value}}
+    // expected-warning@+1{{format string is not a string literal}}
+    vasprintf(&retval, unknown_string, va);
+  }
+
+  {
+    auto *obs = std::declval<obstack *>();
+    // expected-warning@+1{{format specifies type 'int'}}
+    obstack_printf(obs, "%d", unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    obstack_printf(obs, unknown_string, unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    obstack_vprintf(obs, unknown_string, va);
+  }
+
+  // expected-warning@+1{{format specifies type 'int'}}
+  syslog(0, "%d", unsigned_value);
+  // expected-warning@+1{{format string is not a string literal}}
+  syslog(0, unknown_string, unsigned_value);
+  // expected-warning@+1{{format string is not a string literal}}
+  vsyslog(0, unknown_string, va);
+
+  {
+    auto *file = std::declval<FILE *>();
+    // expected-warning@+1{{format specifies type 'int'}}
+    fprintf(file, "%d", unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    fprintf(file, unknown_string, unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    vfprintf(file, unknown_string, va);
+  }
+
+  // expected-warning@+1{{format specifies type 'int'}}
+  printf("%d", unsigned_value);
+  // expected-warning@+1{{format string is not a string literal}}
+  printf(unknown_string, unsigned_value);
+  // expected-warning@+1{{format string is not a string literal}}
+  vprintf(unknown_string, va);
+
+  {
+    char buf[128];
+    // expected-warning@+1{{format specifies type 'int'}}
+    sprintf(buf, "%d", unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    sprintf(buf, unknown_string, unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    sprintf(buf, unknown_string, va);
+
+    // expected-warning@+1{{format specifies type 'int'}}
+    snprintf(buf, sizeof(buf), "%d", unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    snprintf(buf, sizeof(buf), unknown_string, unsigned_value);
+    // expected-warning@+1{{format string is not a string literal}}
+    vsnprintf(buf, sizeof(buf), unknown_string, va);
+  }
+
+  // Note that glibc doesn't try to specify __format__ attrs for wchar printf
+  // functions, so we don't check for that.
+}
 } // namespace compilation_tests
 #endif
 
@@ -316,6 +400,7 @@ static void TestStdio() {
     EXPECT_DEATH(snprintf(small_buffer, sizeof(small_buffer) + 1, ""));
 
     va_list va;
+    // expected-warning@+2{{format string is empty}}
     // expected-warning@+1{{may overflow the destination buffer}}
     EXPECT_DEATH(vsnprintf(small_buffer, sizeof(small_buffer) + 1, "", va));
   }

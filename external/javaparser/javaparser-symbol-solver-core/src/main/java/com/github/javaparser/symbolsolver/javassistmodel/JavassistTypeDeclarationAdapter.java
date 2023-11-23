@@ -18,6 +18,7 @@ import com.github.javaparser.resolution.declarations.*;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import javassist.CtClass;
 import javassist.NotFoundException;
+import javassist.bytecode.AccessFlag;
 import javassist.bytecode.BadBytecode;
 import javassist.bytecode.SignatureAttribute;
 
@@ -39,11 +40,14 @@ public class JavassistTypeDeclarationAdapter {
 
   public Set<ResolvedMethodDeclaration> getDeclaredMethods() {
     return Arrays.stream(ctClass.getDeclaredMethods())
+        .filter(m -> ((m.getMethodInfo().getAccessFlags() & AccessFlag.BRIDGE) == 0)
+                  && ((m.getMethodInfo().getAccessFlags() & AccessFlag.SYNTHETIC) == 0))
         .map(m -> new JavassistMethodDeclaration(m, typeSolver)).collect(Collectors.toSet());
   }
 
   public List<ResolvedConstructorDeclaration> getConstructors() {
     return Arrays.stream(ctClass.getConstructors())
+        .filter(m -> (m.getMethodInfo().getAccessFlags() & AccessFlag.SYNTHETIC) == 0)
         .map(m -> new JavassistConstructorDeclaration(m, typeSolver)).collect(Collectors.toList());
   }
 

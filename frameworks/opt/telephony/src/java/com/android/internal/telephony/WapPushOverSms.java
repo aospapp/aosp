@@ -20,10 +20,12 @@ import static com.google.android.mms.pdu.PduHeaders.MESSAGE_TYPE_DELIVERY_IND;
 import static com.google.android.mms.pdu.PduHeaders.MESSAGE_TYPE_NOTIFICATION_IND;
 import static com.google.android.mms.pdu.PduHeaders.MESSAGE_TYPE_READ_ORIG_IND;
 
-import android.annotation.UnsupportedAppUsage;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.AppOpsManager;
 import android.app.BroadcastOptions;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentValues;
@@ -31,26 +33,27 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteException;
-import android.database.sqlite.SqliteWrapper;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.IDeviceIdleController;
+import android.os.PowerWhitelistManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Telephony;
 import android.provider.Telephony.Sms.Intents;
-import android.telephony.Rlog;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.telephony.uicc.IccUtils;
+import com.android.telephony.Rlog;
 
 import com.google.android.mms.MmsException;
 import com.google.android.mms.pdu.DeliveryInd;
@@ -62,6 +65,7 @@ import com.google.android.mms.pdu.PduPersister;
 import com.google.android.mms.pdu.ReadOrigInd;
 
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * WAP push handler class.
@@ -74,8 +78,7 @@ public class WapPushOverSms implements ServiceConnection {
 
     @UnsupportedAppUsage
     private final Context mContext;
-    @UnsupportedAppUsage
-    private IDeviceIdleController mDeviceIdleController;
+    PowerWhitelistManager mPowerWhitelistManager;
 
     private String mWapPushManagerPackage;
 
@@ -111,7 +114,7 @@ public class WapPushOverSms implements ServiceConnection {
 
     private void bindWapPushManagerService(Context context) {
         Intent intent = new Intent(IWapPushManager.class.getName());
-        ComponentName comp = intent.resolveSystemService(context.getPackageManager(), 0);
+        ComponentName comp = resolveSystemService(context.getPackageManager(), intent);
         intent.setComponent(comp);
         if (comp == null || !context.bindService(intent, this, Context.BIND_AUTO_CREATE)) {
             Rlog.e(TAG, "bindService() for wappush manager failed");
@@ -121,6 +124,33 @@ public class WapPushOverSms implements ServiceConnection {
             }
             if (DBG) Rlog.v(TAG, "bindService() for wappush manager succeeded");
         }
+    }
+
+    /**
+     * Special function for use by the system to resolve service
+     * intents to system apps.  Throws an exception if there are
+     * multiple potential matches to the Intent.  Returns null if
+     * there are no matches.
+     */
+    private static @Nullable ComponentName resolveSystemService(@NonNull PackageManager pm,
+            @NonNull Intent intent) {
+        List<ResolveInfo> results = pm.queryIntentServices(
+                intent, PackageManager.MATCH_SYSTEM_ONLY);
+        if (results == null) {
+            return null;
+        }
+        ComponentName comp = null;
+        for (int i = 0; i < results.size(); i++) {
+            ResolveInfo ri = results.get(i);
+            ComponentName foundComp = new ComponentName(ri.serviceInfo.applicationInfo.packageName,
+                    ri.serviceInfo.name);
+            if (comp != null) {
+                throw new IllegalStateException("Multiple system services handle " + intent
+                    + ": " + comp + ", " + foundComp);
+            }
+            comp = foundComp;
+        }
+        return comp;
     }
 
     @Override
@@ -137,8 +167,7 @@ public class WapPushOverSms implements ServiceConnection {
 
     public WapPushOverSms(Context context) {
         mContext = context;
-        mDeviceIdleController = TelephonyComponentFactory.getInstance()
-                .inject(IDeviceIdleController.class.getName()).getIDeviceIdleController();
+        mPowerWhitelistManager = mContext.getSystemService(PowerWhitelistManager.class);
 
         UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
 
@@ -326,35 +355,16 @@ public class WapPushOverSms implements ServiceConnection {
      * wap-230-wsp-20010705-a section 8 for details on the WAP PDU format.
      *
      * @param pdu The WAP PDU, made up of one or more SMS PDUs
-     * @return a result code from {@link android.provider.Telephony.Sms.Intents}, or
-     *         {@link Activity#RESULT_OK} if the message has been broadcast
-     *         to applications
-     */
-    @UnsupportedAppUsage
-    public int dispatchWapPdu(byte[] pdu, BroadcastReceiver receiver, InboundSmsHandler handler) {
-        return dispatchWapPdu(pdu, receiver, handler, null);
-    }
-
-    /**
-     * Dispatches inbound messages that are in the WAP PDU format. See
-     * wap-230-wsp-20010705-a section 8 for details on the WAP PDU format.
-     *
-     * @param pdu The WAP PDU, made up of one or more SMS PDUs
      * @param address The originating address
      * @return a result code from {@link android.provider.Telephony.Sms.Intents}, or
      *         {@link Activity#RESULT_OK} if the message has been broadcast
      *         to applications
      */
     public int dispatchWapPdu(byte[] pdu, BroadcastReceiver receiver, InboundSmsHandler handler,
-            String address) {
+            String address, int subId, long messageId) {
         DecodedResult result = decodeWapPdu(pdu, handler);
         if (result.statusCode != Activity.RESULT_OK) {
             return result.statusCode;
-        }
-
-        if (SmsManager.getDefault().getAutoPersisting()) {
-            // Store the wap push data in telephony
-            writeInboxMessage(result.subId, result.parsedPdu);
         }
 
         /**
@@ -371,8 +381,8 @@ public class WapPushOverSms implements ServiceConnection {
                     if (DBG) Rlog.w(TAG, "wap push manager not found!");
                 } else {
                     synchronized (this) {
-                        mDeviceIdleController.addPowerSaveTempWhitelistAppForMms(
-                                mWapPushManagerPackage, 0, "mms-mgr");
+                        mPowerWhitelistManager.whitelistAppTemporarilyForEvent(
+                                mWapPushManagerPackage, PowerWhitelistManager.EVENT_MMS, "mms-mgr");
                     }
 
                     Intent intent = new Intent();
@@ -419,6 +429,9 @@ public class WapPushOverSms implements ServiceConnection {
         if (!TextUtils.isEmpty(address)) {
             intent.putExtra("address", address);
         }
+        if (messageId != 0L) {
+            intent.putExtra("messageId", messageId);
+        }
 
         // Direct the intent to only the default MMS app. If we can't find a default MMS app
         // then sent it to all broadcast receivers.
@@ -429,19 +442,16 @@ public class WapPushOverSms implements ServiceConnection {
             intent.setComponent(componentName);
             if (DBG) Rlog.v(TAG, "Delivering MMS to: " + componentName.getPackageName() +
                     " " + componentName.getClassName());
-            try {
-                long duration = mDeviceIdleController.addPowerSaveTempWhitelistAppForMms(
-                        componentName.getPackageName(), 0, "mms-app");
-                BroadcastOptions bopts = BroadcastOptions.makeBasic();
-                bopts.setTemporaryAppWhitelistDuration(duration);
-                options = bopts.toBundle();
-            } catch (RemoteException e) {
-            }
+            long duration = mPowerWhitelistManager.whitelistAppTemporarilyForEvent(
+                    componentName.getPackageName(), PowerWhitelistManager.EVENT_MMS, "mms-app");
+            BroadcastOptions bopts = BroadcastOptions.makeBasic();
+            bopts.setTemporaryAppWhitelistDuration(duration);
+            options = bopts.toBundle();
         }
 
         handler.dispatchIntent(intent, getPermissionForType(result.mimeType),
-                getAppOpsPermissionForIntent(result.mimeType), options, receiver,
-                UserHandle.SYSTEM);
+                getAppOpsStringPermissionForIntent(result.mimeType), options, receiver,
+                UserHandle.SYSTEM, subId);
         return Activity.RESULT_OK;
     }
 
@@ -492,9 +502,7 @@ public class WapPushOverSms implements ServiceConnection {
                     // Update thread ID for ReadOrigInd & DeliveryInd.
                     final ContentValues values = new ContentValues(1);
                     values.put(Telephony.Mms.THREAD_ID, threadId);
-                    if (SqliteWrapper.update(
-                            mContext,
-                            mContext.getContentResolver(),
+                    if (mContext.getContentResolver().update(
                             uri,
                             values,
                             null/*where*/,
@@ -566,17 +574,15 @@ public class WapPushOverSms implements ServiceConnection {
         }
         Cursor cursor = null;
         try {
-            cursor = SqliteWrapper.query(
-                    context,
-                    context.getContentResolver(),
-                    Telephony.Mms.CONTENT_URI,
-                    new String[]{ Telephony.Mms.THREAD_ID },
-                    THREAD_ID_SELECTION,
-                    new String[]{
-                            DatabaseUtils.sqlEscapeString(messageId),
-                            Integer.toString(PduHeaders.MESSAGE_TYPE_SEND_REQ)
-                    },
-                    null/*sortOrder*/);
+            cursor = context.getContentResolver().query(
+                Telephony.Mms.CONTENT_URI,
+                new String[]{ Telephony.Mms.THREAD_ID },
+                THREAD_ID_SELECTION,
+                new String[]{
+                    DatabaseUtils.sqlEscapeString(messageId),
+                    Integer.toString(PduHeaders.MESSAGE_TYPE_SEND_REQ)
+                },
+                null/*sortOrder*/);
             if (cursor != null && cursor.moveToFirst()) {
                 return cursor.getLong(0);
             }
@@ -601,17 +607,15 @@ public class WapPushOverSms implements ServiceConnection {
             String[] selectionArgs = new String[] { location };
             Cursor cursor = null;
             try {
-                cursor = SqliteWrapper.query(
-                        context,
-                        context.getContentResolver(),
-                        Telephony.Mms.CONTENT_URI,
-                        new String[]{Telephony.Mms._ID},
-                        LOCATION_SELECTION,
-                        new String[]{
-                                Integer.toString(PduHeaders.MESSAGE_TYPE_NOTIFICATION_IND),
-                                new String(rawLocation)
-                        },
-                        null/*sortOrder*/);
+                cursor = context.getContentResolver().query(
+                    Telephony.Mms.CONTENT_URI,
+                    new String[]{ Telephony.Mms._ID },
+                    LOCATION_SELECTION,
+                    new String[]{
+                        Integer.toString(PduHeaders.MESSAGE_TYPE_NOTIFICATION_IND),
+                        new String(rawLocation)
+                    },
+                    null/*sortOrder*/);
                 if (cursor != null && cursor.getCount() > 0) {
                     // We already received the same notification before.
                     return true;
@@ -637,12 +641,17 @@ public class WapPushOverSms implements ServiceConnection {
         return permission;
     }
 
-    public static int getAppOpsPermissionForIntent(String mimeType) {
-        int appOp;
+    /**
+     * Return a appOps String for the given MIME type.
+     * @param mimeType MIME type of the Intent
+     * @return The appOps String
+     */
+    public static String getAppOpsStringPermissionForIntent(String mimeType) {
+        String appOp;
         if (WspTypeDecoder.CONTENT_TYPE_B_MMS.equals(mimeType)) {
-            appOp = AppOpsManager.OP_RECEIVE_MMS;
+            appOp = AppOpsManager.OPSTR_RECEIVE_MMS;
         } else {
-            appOp = AppOpsManager.OP_RECEIVE_WAP_PUSH;
+            appOp = AppOpsManager.OPSTR_RECEIVE_WAP_PUSH;
         }
         return appOp;
     }

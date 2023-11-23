@@ -47,6 +47,7 @@
 
 #include <ash.h>
 #include <chre.h>
+#include <cstdint>
 
 #include "calibration/online_calibration/common_data/calibration_callback.h"
 #include "calibration/online_calibration/common_data/calibration_data.h"
@@ -55,14 +56,6 @@
 #include "common/math/macros.h"
 
 namespace nano_calibration {
-
-// Common log message sensor-specific identifiers.
-constexpr char kAccelTag[] = {"[NanoSensorCal:ACCEL_MPS2]"};
-constexpr char kGyroTag[] = {"[NanoSensorCal:GYRO_RPS]"};
-constexpr char kMagTag[] = {"[NanoSensorCal:MAG_UT]"};
-
-// Limits NanoSensorCal notifications to once every minute.
-constexpr uint64_t kNanoSensorCalMessageIntervalNanos = MIN_TO_NANOS(1);
 
 /*
  * NanoSensorCal is a container class for dynamic runtime calibration sensor
@@ -133,6 +126,8 @@ class NanoSensorCal {
       const online_calibration::CalibrationDataThreeAxis &cal_data,
       online_calibration::CalibrationTypeFlags flags, const char *sensor_tag);
 
+  void HandleGyroLogMessage(uint64_t timestamp_nanos);
+
   // Pointer to the accelerometer runtime calibration object.
   OnlineCalibrationThreeAxis *accel_cal_ = nullptr;
 
@@ -142,6 +137,7 @@ class NanoSensorCal {
   // Limits the log messaging update rate for the gyro calibrations since these
   // can occur frequently with rapid temperature changes.
   uint64_t gyro_notification_time_nanos_ = 0;
+  uint64_t initialization_start_time_nanos_ = 0;
 
   // Pointer to the magnetometer runtime calibration object.
   OnlineCalibrationThreeAxis *mag_cal_ = nullptr;

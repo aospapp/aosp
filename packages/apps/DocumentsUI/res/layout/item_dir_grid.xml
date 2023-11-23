@@ -78,6 +78,14 @@
 
             </FrameLayout>
 
+            <ImageView
+                android:id="@+id/icon_briefcase"
+                android:layout_height="@dimen/briefcase_icon_size"
+                android:layout_width="@dimen/briefcase_icon_size"
+                android:layout_marginEnd="@dimen/briefcase_icon_margin"
+                android:src="@drawable/ic_briefcase"
+                android:contentDescription="@string/a11y_work"/>
+
             <TextView
                 android:id="@android:id/title"
                 android:layout_width="wrap_content"

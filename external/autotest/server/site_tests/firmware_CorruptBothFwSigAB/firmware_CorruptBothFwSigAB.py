@@ -21,12 +21,14 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
     version = 1
 
     def initialize(self, host, cmdline_args, dev_mode=False):
+        """Initialize the test"""
         super(firmware_CorruptBothFwSigAB, self).initialize(host, cmdline_args)
         self.backup_firmware()
         self.switcher.setup_mode('dev' if dev_mode else 'normal')
         self.setup_usbkey(usbkey=True, host=False)
 
     def cleanup(self):
+        """Cleanup the test"""
         try:
             if self.is_firmware_saved():
                 self.restore_firmware()
@@ -35,11 +37,13 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
         super(firmware_CorruptBothFwSigAB, self).cleanup()
 
     def run_once(self, dev_mode=False):
+        """Runs a single iteration of the test."""
         logging.info("Corrupt both firmware signature A and B.")
         self.check_state((self.checkers.crossystem_checker, {
                           'mainfw_type': 'developer' if dev_mode else 'normal',
                           }))
-        self.faft_client.bios.corrupt_sig(('a', 'b'),)
+        self.faft_client.bios.corrupt_sig('a')
+        self.faft_client.bios.corrupt_sig('b')
 
         # Older devices (without BROKEN screen) didn't wait for removal in
         # dev mode. Make sure the USB key is not plugged in so they won't
@@ -70,7 +74,8 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
                               vboot.RECOVERY_REASON['RO_INVALID_RW'],
                               vboot.RECOVERY_REASON['RW_VERIFY_KEYBLOCK']),
                           }))
-        self.faft_client.bios.restore_sig(('a', 'b'),)
+        self.faft_client.bios.restore_sig('a')
+        self.faft_client.bios.restore_sig('b')
         self.switcher.mode_aware_reboot()
 
         logging.info("Expected normal boot, done.")

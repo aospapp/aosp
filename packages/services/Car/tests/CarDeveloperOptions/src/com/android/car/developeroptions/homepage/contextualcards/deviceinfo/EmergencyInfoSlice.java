@@ -27,6 +27,7 @@ import androidx.slice.builders.ListBuilder;
 import androidx.slice.builders.SliceAction;
 
 import com.android.car.developeroptions.R;
+import com.android.car.developeroptions.Utils;
 import com.android.car.developeroptions.accounts.EmergencyInfoPreferenceController;
 import com.android.car.developeroptions.slices.CustomSliceRegistry;
 import com.android.car.developeroptions.slices.CustomSliceable;
@@ -61,7 +62,8 @@ public class EmergencyInfoSlice implements CustomSliceable {
 
     @Override
     public Intent getIntent() {
-        return new Intent(EmergencyInfoPreferenceController.getIntentAction(mContext));
+        return new Intent(EmergencyInfoPreferenceController.getIntentAction(mContext))
+                .setPackage(Utils.SETTINGS_PACKAGE_NAME);
     }
 
     @Override

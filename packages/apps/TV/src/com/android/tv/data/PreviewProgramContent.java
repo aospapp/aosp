@@ -21,10 +21,14 @@ import android.net.Uri;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Pair;
+
 import androidx.tvprovider.media.tv.TvContractCompat;
+
 import com.android.tv.TvSingletons;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.data.RecordedProgram;
+
 import java.util.Objects;
 
 /** A class to store the content of preview programs. */
@@ -41,7 +45,7 @@ public class PreviewProgramContent {
     private Uri mIntentUri;
     private Uri mPreviewVideoUri;
 
-    /** Create preview program content from {@link Program} */
+    /** Create preview program content from {@link ProgramImpl} */
     public static PreviewProgramContent createFromProgram(
             Context context, long previewChannelId, Program program) {
         Channel channel =
@@ -79,7 +83,7 @@ public class PreviewProgramContent {
                 .setIntentUri(channel.getUri())
                 .setPreviewVideoUri(
                         PreviewDataManager.PreviewDataUtils.addQueryParamToUri(
-                                channel.getUri(), new Pair<>(PARAM_INPUT, channel.getInputId())))
+                                channel.getUri(), Pair.create(PARAM_INPUT, channel.getInputId())))
                 .build();
     }
 
@@ -99,7 +103,7 @@ public class PreviewProgramContent {
                 .setPreviewVideoUri(
                         PreviewDataManager.PreviewDataUtils.addQueryParamToUri(
                                 recordedProgramUri,
-                                new Pair<>(PARAM_INPUT, recordedProgram.getInputId())))
+                                Pair.create(PARAM_INPUT, recordedProgram.getInputId())))
                 .build();
     }
 

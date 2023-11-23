@@ -19,10 +19,11 @@
 
 #include "chre/platform/fatal_error.h"
 
-#define CHRE_ASSERT(condition) do {                                     \
-  if (!(condition)) {                                                   \
-    FATAL_ERROR("Assertion failure at %s:%d", CHRE_FILENAME, __LINE__); \
-  }                                                                     \
-} while (0)
+#define CHRE_ASSERT(condition)                                            \
+  do {                                                                    \
+    if (!(condition)) {                                                   \
+      FATAL_ERROR("Assertion failure at %s:%d", CHRE_FILENAME, __LINE__); \
+    }                                                                     \
+  } while (0)
 
 #endif  // CHRE_PLATFORM_SLPI_ASSERT_H_

@@ -25,10 +25,10 @@ using ::android::hardware::configureRpcThreadpool;
 using ::android::hardware::joinRpcThreadpool;
 using ::android::sp;
 
-using android::hardware::drm::V1_2::ICryptoFactory;
-using android::hardware::drm::V1_2::IDrmFactory;
-using android::hardware::drm::V1_2::clearkey::CryptoFactory;
-using android::hardware::drm::V1_2::clearkey::DrmFactory;
+using android::hardware::drm::V1_3::ICryptoFactory;
+using android::hardware::drm::V1_3::IDrmFactory;
+using android::hardware::drm::V1_3::clearkey::CryptoFactory;
+using android::hardware::drm::V1_3::clearkey::DrmFactory;
 using android::hardware::LazyServiceRegistrar;
 
 int main(int /* argc */, char** /* argv */) {
@@ -38,7 +38,7 @@ int main(int /* argc */, char** /* argv */) {
     configureRpcThreadpool(8, true /* callerWillJoin */);
 
     // Setup hwbinder service
-    LazyServiceRegistrar serviceRegistrar;
+    auto serviceRegistrar = LazyServiceRegistrar::getInstance();
 
     // Setup hwbinder service
     CHECK_EQ(serviceRegistrar.registerService(drmFactory, "clearkey"), android::NO_ERROR)

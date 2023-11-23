@@ -1,12 +1,11 @@
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
-PAGE_SCRAPE_CMD = (
-    "document.querySelector('* /deep/ #no-results').outerHTML;")
+HISTORY_PAGE = "['#history-app', '#history', '#no-results']"
 
 
 class policy_SavingBrowserHistoryDisabled(
@@ -39,13 +38,14 @@ class policy_SavingBrowserHistoryDisabled(
         self.navigate_to_url("http://www.google.com")
 
         active_tab = self.navigate_to_url("chrome://history")
-
+        history_page_content = utils.shadowroot_query(
+            HISTORY_PAGE, "outerHTML")
         utils.poll_for_condition(
-            lambda: self.check_page_readiness(active_tab, PAGE_SCRAPE_CMD),
+            lambda: self.check_page_readiness(active_tab, history_page_content),
             exception=error.TestFail('Page is not ready.'),
             timeout=5,
             sleep_interval=1)
-        content = active_tab.EvaluateJavaScript(PAGE_SCRAPE_CMD)
+        content = active_tab.EvaluateJavaScript(history_page_content)
 
         if case_value:
             if "hidden" in content:

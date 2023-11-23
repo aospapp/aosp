@@ -15,7 +15,7 @@
 android_test {
     name: "CtsRollbackManagerTestCases",
     srcs: ["src/**/*.java"],
-    static_libs: ["androidx.test.rules", "cts-rollback-lib"],
+    static_libs: ["androidx.test.rules", "cts-rollback-lib", "cts-install-lib"],
     test_suites: ["general-tests"],
     sdk_version: "test_current",
 }

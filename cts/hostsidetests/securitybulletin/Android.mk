@@ -12,28 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_PATH := $(call my-dir)
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
-LOCAL_JAVA_RESOURCE_DIRS := res
-
-LOCAL_MODULE_TAGS := optional
-
-# tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests sts
-
-# Must match the package name in CtsTestCaseList.mk
-LOCAL_MODULE := CtsSecurityBulletinHostTestCases
-
-LOCAL_MODULE_CLASS := JAVA_LIBRARIES
-
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
-
-LOCAL_CTS_TEST_PACKAGE := android.host.security
-
-include $(BUILD_CTS_HOST_JAVA_LIBRARY)
-
-include $(call all-makefiles-under,$(LOCAL_PATH))
+include $(call all-subdir-makefiles)

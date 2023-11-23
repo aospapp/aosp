@@ -20,9 +20,9 @@
 #include <forward_list>
 #include <memory>
 
-#include "common/address.h"
+#include "hci/address.h"
 
-using bluetooth::common::Address;
+using bluetooth::hci::Address;
 using bluetooth::packet::PacketView;
 using bluetooth::packet::View;
 using std::vector;
@@ -91,6 +91,36 @@ class PacketViewMultiViewTest : public ::testing::Test {
  public:
   PacketViewMultiViewTest() = default;
   ~PacketViewMultiViewTest() = default;
+
+  const PacketView<true> single_view =
+      PacketView<true>({View(std::make_shared<const vector<uint8_t>>(count_all), 0, count_all.size())});
+  const PacketView<true> multi_view = PacketView<true>({
+      View(std::make_shared<const vector<uint8_t>>(count_1), 0, count_1.size()),
+      View(std::make_shared<const vector<uint8_t>>(count_2), 0, count_2.size()),
+      View(std::make_shared<const vector<uint8_t>>(count_3), 0, count_3.size()),
+  });
+};
+
+class PacketViewMultiViewAppendTest : public ::testing::Test {
+ public:
+  PacketViewMultiViewAppendTest() = default;
+  ~PacketViewMultiViewAppendTest() = default;
+
+  class AppendedPacketView : public PacketView<true> {
+   public:
+    AppendedPacketView(PacketView<true> first, std::forward_list<PacketView<true>> to_append)
+        : PacketView<true>(first) {
+      for (const auto& packet_view : to_append) {
+        Append(packet_view);
+      }
+    }
+  };
+  const PacketView<true> single_view =
+      PacketView<true>({View(std::make_shared<const vector<uint8_t>>(count_all), 0, count_all.size())});
+  const PacketView<true> multi_view = AppendedPacketView(
+      PacketView<true>({View(std::make_shared<const vector<uint8_t>>(count_1), 0, count_1.size())}),
+      {PacketView<true>({View(std::make_shared<const vector<uint8_t>>(count_2), 0, count_2.size())}),
+       PacketView<true>({View(std::make_shared<const vector<uint8_t>>(count_3), 0, count_3.size())})});
 };
 
 class ViewTest : public ::testing::Test {
@@ -273,7 +303,7 @@ TYPED_TEST(PacketViewTest, arrayOperatorTest) {
   ASSERT_EQ(0x1f, (*(this->packet))[working_index]);
 }
 
-TYPED_TEST(PacketViewTest, numBytesRemainingTest) {
+TYPED_TEST(IteratorTest, numBytesRemainingTest) {
   auto all = this->packet->begin();
   size_t remaining = all.NumBytesRemaining();
   for (size_t n = remaining; n > 0; n--) {
@@ -286,6 +316,81 @@ TYPED_TEST(PacketViewTest, numBytesRemainingTest) {
   all++;
   ASSERT_EQ(static_cast<size_t>(0), all.NumBytesRemaining());
   ASSERT_DEATH(*(all++), "");
+}
+
+TYPED_TEST(IteratorTest, subrangeTest) {
+  auto empty = this->packet->begin().Subrange(0, 0);
+  ASSERT_EQ(static_cast<size_t>(0), empty.NumBytesRemaining());
+  ASSERT_DEATH(*empty, "");
+
+  empty = this->packet->begin().Subrange(this->packet->size(), 1);
+  ASSERT_EQ(static_cast<size_t>(0), empty.NumBytesRemaining());
+  ASSERT_DEATH(*empty, "");
+
+  auto all = this->packet->begin();
+  auto fullrange = all.Subrange(0, all.NumBytesRemaining());
+  ASSERT_EQ(all.NumBytesRemaining(), fullrange.NumBytesRemaining());
+  ASSERT_EQ(*(all + 1), 1);
+
+  fullrange = all.Subrange(0, all.NumBytesRemaining() + 1);
+  ASSERT_EQ(all.NumBytesRemaining(), fullrange.NumBytesRemaining());
+  ASSERT_EQ(*(all + 1), 1);
+
+  fullrange = all.Subrange(0, all.NumBytesRemaining() + 10);
+  ASSERT_EQ(all.NumBytesRemaining(), fullrange.NumBytesRemaining());
+  ASSERT_EQ(*(all + 1), 1);
+
+  auto subrange = all.Subrange(0, 1);
+  ASSERT_EQ(1, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange), 0);
+
+  subrange = this->packet->begin().Subrange(0, 4);
+  ASSERT_EQ(4, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange + 1), 1);
+
+  subrange = all.Subrange(0, 3);
+  ASSERT_EQ(3, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange + 1), 1);
+
+  subrange = all.Subrange(0, all.NumBytesRemaining() - 1);
+  ASSERT_EQ(all.NumBytesRemaining() - 1, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange + 1), 1);
+
+  subrange = all.Subrange(0, all.NumBytesRemaining() - 2);
+  ASSERT_EQ(all.NumBytesRemaining() - 2, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange + 1), 1);
+
+  subrange = all.Subrange(1, all.NumBytesRemaining());
+  ASSERT_EQ(all.NumBytesRemaining() - 1, subrange.NumBytesRemaining());
+  ASSERT_EQ(*subrange, 1);
+
+  subrange = all.Subrange(2, all.NumBytesRemaining());
+  ASSERT_EQ(all.NumBytesRemaining() - 2, subrange.NumBytesRemaining());
+  ASSERT_EQ(*subrange, 2);
+
+  subrange = all.Subrange(1, all.NumBytesRemaining() - 1);
+  ASSERT_EQ(all.NumBytesRemaining() - 1, subrange.NumBytesRemaining());
+  ASSERT_EQ(*subrange, 1);
+
+  subrange = all.Subrange(2, all.NumBytesRemaining() - 2);
+  ASSERT_EQ(all.NumBytesRemaining() - 2, subrange.NumBytesRemaining());
+  ASSERT_EQ(*subrange, 2);
+
+  subrange = all.Subrange(1, 1);
+  ASSERT_EQ(1, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange), 1);
+
+  subrange = all.Subrange(1, 2);
+  ASSERT_EQ(2, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange), 1);
+
+  subrange = all.Subrange(2, 1);
+  ASSERT_EQ(1, subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange), 2);
+
+  subrange = this->packet->begin().Subrange(this->packet->size() - 1, 2);
+  ASSERT_EQ(static_cast<size_t>(1), subrange.NumBytesRemaining());
+  ASSERT_EQ(*(subrange), this->packet->size() - 1);
 }
 
 using SubviewTestParam = std::pair<size_t, size_t>;
@@ -408,23 +513,11 @@ TEST(SubviewTest, subSubviewTest) {
   }
 }
 
-TEST(PacketViewMultiViewTest, sizeTest) {
-  PacketView<true> single_view({View(std::make_shared<const vector<uint8_t>>(count_all), 0, count_all.size())});
-  PacketView<true> multi_view({
-      View(std::make_shared<const vector<uint8_t>>(count_1), 0, count_1.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_2), 0, count_2.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_3), 0, count_3.size()),
-  });
+TEST_F(PacketViewMultiViewTest, sizeTest) {
   ASSERT_EQ(single_view.size(), multi_view.size());
 }
 
-TEST(PacketViewMultiViewTest, dereferenceTestLittleEndian) {
-  PacketView<true> single_view({View(std::make_shared<const vector<uint8_t>>(count_all), 0, count_all.size())});
-  PacketView<true> multi_view({
-      View(std::make_shared<const vector<uint8_t>>(count_1), 0, count_1.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_2), 0, count_2.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_3), 0, count_3.size()),
-  });
+TEST_F(PacketViewMultiViewTest, dereferenceTestLittleEndian) {
   auto single_itr = single_view.begin();
   auto multi_itr = multi_view.begin();
   for (size_t i = 0; i < single_view.size(); i++) {
@@ -433,13 +526,7 @@ TEST(PacketViewMultiViewTest, dereferenceTestLittleEndian) {
   ASSERT_DEATH(*multi_itr, "");
 }
 
-TEST(PacketViewMultiViewTest, dereferenceTestBigEndian) {
-  PacketView<false> single_view({View(std::make_shared<const vector<uint8_t>>(count_all), 0, count_all.size())});
-  PacketView<false> multi_view({
-      View(std::make_shared<const vector<uint8_t>>(count_1), 0, count_1.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_2), 0, count_2.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_3), 0, count_3.size()),
-  });
+TEST_F(PacketViewMultiViewTest, dereferenceTestBigEndian) {
   auto single_itr = single_view.begin();
   auto multi_itr = multi_view.begin();
   for (size_t i = 0; i < single_view.size(); i++) {
@@ -448,13 +535,36 @@ TEST(PacketViewMultiViewTest, dereferenceTestBigEndian) {
   ASSERT_DEATH(*multi_itr, "");
 }
 
-TEST(PacketViewMultiViewTest, arrayOperatorTest) {
-  PacketView<true> single_view({View(std::make_shared<const vector<uint8_t>>(count_all), 0, count_all.size())});
-  PacketView<true> multi_view({
-      View(std::make_shared<const vector<uint8_t>>(count_1), 0, count_1.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_2), 0, count_2.size()),
-      View(std::make_shared<const vector<uint8_t>>(count_3), 0, count_3.size()),
-  });
+TEST_F(PacketViewMultiViewTest, arrayOperatorTest) {
+  for (size_t i = 0; i < single_view.size(); i++) {
+    ASSERT_EQ(single_view[i], multi_view[i]);
+  }
+  ASSERT_DEATH(multi_view[single_view.size()], "");
+}
+
+TEST_F(PacketViewMultiViewAppendTest, sizeTestAppend) {
+  ASSERT_EQ(single_view.size(), multi_view.size());
+}
+
+TEST_F(PacketViewMultiViewAppendTest, dereferenceTestLittleEndianAppend) {
+  auto single_itr = single_view.begin();
+  auto multi_itr = multi_view.begin();
+  for (size_t i = 0; i < single_view.size(); i++) {
+    ASSERT_EQ(*(single_itr++), *(multi_itr++));
+  }
+  ASSERT_DEATH(*multi_itr, "");
+}
+
+TEST_F(PacketViewMultiViewAppendTest, dereferenceTestBigEndianAppend) {
+  auto single_itr = single_view.begin();
+  auto multi_itr = multi_view.begin();
+  for (size_t i = 0; i < single_view.size(); i++) {
+    ASSERT_EQ(*(single_itr++), *(multi_itr++));
+  }
+  ASSERT_DEATH(*multi_itr, "");
+}
+
+TEST_F(PacketViewMultiViewAppendTest, arrayOperatorTestAppend) {
   for (size_t i = 0; i < single_view.size(); i++) {
     ASSERT_EQ(single_view[i], multi_view[i]);
   }

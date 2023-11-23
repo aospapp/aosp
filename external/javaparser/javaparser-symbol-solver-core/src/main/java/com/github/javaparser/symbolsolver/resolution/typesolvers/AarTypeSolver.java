@@ -20,21 +20,29 @@ import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
 /**
+ * Will let the symbol solver look inside an Android aar file while solving types.
+ * (It will look inside the contained classes.jar)
+ *
  * @author Federico Tomassetti
  */
 public class AarTypeSolver implements TypeSolver {
 
-    private TypeSolver parent;
-    private File aarFile;
     private JarTypeSolver delegate;
 
-    public AarTypeSolver(File aarFile) throws IOException {
-        this.aarFile = aarFile;
+    public AarTypeSolver(String aarFile) throws IOException {
+        this(new File(aarFile));
+    }
 
+    public AarTypeSolver(Path aarFile) throws IOException {
+        this(aarFile.toFile());
+    }
+
+    public AarTypeSolver(File aarFile) throws IOException {
         JarFile jarFile = new JarFile(aarFile);
         ZipEntry classesJarEntry = jarFile.getEntry("classes.jar");
         if (classesJarEntry == null) {
@@ -45,12 +53,12 @@ public class AarTypeSolver implements TypeSolver {
 
     @Override
     public TypeSolver getParent() {
-        return parent;
+        return delegate.getParent();
     }
 
     @Override
     public void setParent(TypeSolver parent) {
-        this.parent = parent;
+        delegate.setParent(parent);
     }
 
     @Override

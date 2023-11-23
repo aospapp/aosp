@@ -15,9 +15,11 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_SIMPLE_MEMORY_ARENA_H_
 #define TENSORFLOW_LITE_SIMPLE_MEMORY_ARENA_H_
 
+#include <cstdint>
 #include <list>
 #include <memory>
-#include "tensorflow/lite/c/c_api_internal.h"
+
+#include "tensorflow/lite/c/common.h"
 
 namespace tflite {
 
@@ -26,10 +28,19 @@ namespace tflite {
 // underlying buffer is set, the alloc can be resolved into an actual memory
 // pointer.
 struct ArenaAlloc {
-  ArenaAlloc() : offset(0), size(0) {}
+  ArenaAlloc() { reset(); }
 
   size_t offset;
   size_t size;
+  int32_t tensor;
+  int32_t node;
+
+  inline void reset() {
+    offset = 0;
+    size = 0;
+    tensor = -1;
+    node = -1;
+  }
 
   inline bool operator<(const ArenaAlloc& other) const {
     return offset < other.offset;
@@ -51,7 +62,7 @@ class SimpleMemoryArena {
         allocs_() {}
 
   TfLiteStatus Allocate(TfLiteContext* context, size_t alignment, size_t size,
-                        ArenaAlloc* new_alloc);
+                        int32_t tensor, int32_t node, ArenaAlloc* new_alloc);
 
   TfLiteStatus Deallocate(TfLiteContext* context, const ArenaAlloc& alloc);
 
@@ -67,10 +78,20 @@ class SimpleMemoryArena {
   TfLiteStatus ResolveAlloc(TfLiteContext* context, const ArenaAlloc& alloc,
                             char** output_ptr);
 
-  TfLiteStatus Clear();
+  // This clears allocation details but does not release the underlying buffer.
+  // New allocations should be committed & resolved before using this arena
+  // again.
+  TfLiteStatus ClearPlan();
 
-  int64_t BasePointer() const {
-    return reinterpret_cast<int64_t>(underlying_buffer_aligned_ptr_);
+  // This releases the underlying buffer but does not clear the allocation plan.
+  // Since all associated pointers are invalidated, the arena cannot be used
+  // again until Commit() is called & tensor allocations are resolved.
+  TfLiteStatus ReleaseBuffer();
+
+  size_t GetBufferSize() { return underlying_buffer_size_; }
+
+  std::intptr_t BasePointer() const {
+    return reinterpret_cast<std::intptr_t>(underlying_buffer_aligned_ptr_);
   }
 
  private:

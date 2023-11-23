@@ -18,7 +18,6 @@ package com.android.car.settings.language;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.widget.TextView;
 
 import androidx.annotation.XmlRes;
 
@@ -70,8 +69,7 @@ public class ChildLocalePickerFragment extends SettingsFragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        TextView titleView = getActivity().findViewById(R.id.title);
-        titleView.setText(mParentLocaleInfo.getFullNameNative());
+        getToolbar().setTitle(mParentLocaleInfo.getFullNameNative());
     }
 
     @Override

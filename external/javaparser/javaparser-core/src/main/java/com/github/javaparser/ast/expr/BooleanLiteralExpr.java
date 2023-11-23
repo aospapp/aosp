@@ -28,10 +28,10 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.BooleanLiteralExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
 import java.util.Optional;
+import com.github.javaparser.ast.Generated;
 
 /**
  * The boolean literals.
@@ -40,7 +40,7 @@ import java.util.Optional;
  *
  * @author Julio Vilmar Gesser
  */
-public final class BooleanLiteralExpr extends LiteralExpr {
+public class BooleanLiteralExpr extends LiteralExpr {
 
     private boolean value;
 

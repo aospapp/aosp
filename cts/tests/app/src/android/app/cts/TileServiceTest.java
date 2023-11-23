@@ -16,118 +16,62 @@
 
 package android.app.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.UiAutomation;
 import android.app.stubs.TestTileService;
-import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Looper;
-import android.os.ParcelFileDescriptor;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.Until;
-import android.test.AndroidTestCase;
 
-import androidx.test.filters.FlakyTest;
-import androidx.test.InstrumentationRegistry;
+import org.junit.Test;
 
-import junit.framework.Assert;
+public class TileServiceTest extends BaseTileServiceTest {
+    private final static String TAG = "TileServiceTest";
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-
-public class TileServiceTest extends AndroidTestCase {
-    final String TAG = TileServiceTest.class.getSimpleName();
-
-    // Time between checks for state we expect.
-    private static final long CHECK_DELAY = 250;
-    // Number of times to check before failing. This is set so the maximum wait time is about 4s,
-    // as some tests were observed to take around 3s.
-    private static final long CHECK_RETRIES = 15;
-    // Timeout to wait for launcher
-    private static final long TIMEOUT = 8000;
-
-    private TileService mTileService;
-    private Intent homeIntent;
-    private String mLauncherPackage;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        homeIntent = new Intent(Intent.ACTION_MAIN);
-        homeIntent.addCategory(Intent.CATEGORY_HOME);
-
-        mLauncherPackage = mContext.getPackageManager().resolveActivity(homeIntent,
-                PackageManager.MATCH_DEFAULT_ONLY).activityInfo.packageName;
-
-        // Wait for home
-        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        device.pressHome();
-        device.wait(Until.hasObject(By.pkg(mLauncherPackage).depth(0)), TIMEOUT);
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        expandSettings(false);
-        toggleServiceAccess(TestTileService.getComponentName().flattenToString(), false);
-        waitForConnected(false);
-        assertNull(TestTileService.getInstance());
-    }
-
+    @Test
     public void testCreateTileService() {
         final TileService tileService = new TileService();
     }
 
+    @Test
     public void testListening() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
     }
 
+    @Test
     public void testListening_stopped() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
         expandSettings(false);
         waitForListening(false);
     }
 
+    @Test
     public void testLocked_deviceNotLocked() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
         assertFalse(mTileService.isLocked());
     }
 
+    @Test
     public void testSecure_deviceNotSecure() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
         assertFalse(mTileService.isSecure());
     }
-    
+
+    @Test
     public void testTile_hasCorrectIcon() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
         Tile tile = mTileService.getQsTile();
         assertEquals(TestTileService.ICON_ID, tile.getIcon().getResId());
     }
 
+    @Test
     public void testTile_hasCorrectSubtitle() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
 
         Tile tile = mTileService.getQsTile();
         tile.setSubtitle("test_subtitle");
@@ -135,13 +79,11 @@ public class TileServiceTest extends AndroidTestCase {
         assertEquals("test_subtitle", tile.getSubtitle());
     }
 
+    @Test
     public void testShowDialog() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
         Looper.prepare();
         Dialog dialog = new AlertDialog.Builder(mContext).create();
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
         clickTile(TestTileService.getComponentName().flattenToString());
         waitForClick();
 
@@ -151,11 +93,9 @@ public class TileServiceTest extends AndroidTestCase {
         dialog.dismiss();
     }
 
+    @Test
     public void testUnlockAndRun_phoneIsUnlockedActivityIsRun() throws Exception {
-        if (!TileService.isQuickSettingsSupported()) return;
-        startTileService();
-        expandSettings(true);
-        waitForListening(true);
+        initializeAndListen();
         assertFalse(mTileService.isLocked());
 
         TestRunnable testRunnable = new TestRunnable();
@@ -165,40 +105,20 @@ public class TileServiceTest extends AndroidTestCase {
         waitForRun(testRunnable);
     }
 
-    private void startTileService() throws Exception {
-        toggleServiceAccess(TestTileService.getComponentName().flattenToString(), true);
-        waitForConnected(true); // wait for service to be bound
-        mTileService = TestTileService.getInstance();
-        assertNotNull(mTileService);
-    }
+    @Test
+    public void testTileInDumpAndHasState() throws Exception {
+        initializeAndListen();
 
-    private void toggleServiceAccess(String componentName, boolean on) throws Exception {
+        final CharSequence tileLabel = mTileService.getQsTile().getLabel();
 
-        String command = " cmd statusbar " + (on ? "add-tile " : "remove-tile ")
-                + componentName;
-
-        runCommand(command);
+        final String[] dumpLines = executeShellCommand(DUMP_COMMAND).split("\n");
+        final String line = findLine(dumpLines, tileLabel);
+        assertNotNull(line);
+        assertTrue(line.trim().startsWith("State")); // Not BooleanState
     }
 
     private void clickTile(String componentName) throws Exception {
-        runCommand(" cmd statusbar click-tile " + componentName);
-    }
-
-    private void runCommand(String command) throws IOException {
-        UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
-        // Execute command
-        try (ParcelFileDescriptor fd = uiAutomation.executeShellCommand(command)) {
-            Assert.assertNotNull("Failed to execute shell command: " + command, fd);
-            // Wait for the command to finish by reading until EOF
-            try (InputStream in = new FileInputStream(fd.getFileDescriptor())) {
-                byte[] buffer = new byte[4096];
-                while (in.read(buffer) > 0) {}
-            } catch (IOException e) {
-                throw new IOException("Could not read stdout of command: " + command, e);
-            }
-        } finally {
-            uiAutomation.destroy();
-        }
+        executeShellCommand(" cmd statusbar click-tile " + componentName);
     }
 
     /**
@@ -225,13 +145,8 @@ public class TileServiceTest extends AndroidTestCase {
         assertTrue(t.hasRan);
     }
 
-    /**
-     * Waits for the TileService to be in the expected listening state. If it times out, it fails
-     * the test
-     * @param state desired listening state
-     * @throws InterruptedException
-     */
-    private void waitForListening(boolean state) throws InterruptedException {
+    @Override
+    protected void waitForListening(boolean state) throws InterruptedException {
         int ct = 0;
         while (TestTileService.isListening() != state && (ct++ < CHECK_RETRIES)) {
             Thread.sleep(CHECK_DELAY);
@@ -245,7 +160,8 @@ public class TileServiceTest extends AndroidTestCase {
      * @param state desired connected state
      * @throws InterruptedException
      */
-    private void waitForConnected(boolean state) throws InterruptedException {
+    @Override
+    protected void waitForConnected(boolean state) throws InterruptedException {
         int ct = 0;
         while (TestTileService.isConnected() != state && (ct++ < CHECK_RETRIES)) {
             Thread.sleep(CHECK_DELAY);
@@ -253,9 +169,19 @@ public class TileServiceTest extends AndroidTestCase {
         assertEquals(state, TestTileService.isConnected());
     }
 
-    private void expandSettings(boolean expand) throws Exception {
-        runCommand(" cmd statusbar " + (expand ? "expand-settings" : "collapse"));
-        Thread.sleep(200); // wait for animation
+    @Override
+    protected String getTag() {
+        return TAG;
+    }
+
+    @Override
+    protected String getComponentName() {
+        return TestTileService.getComponentName().flattenToString();
+    }
+
+    @Override
+    protected TileService getTileServiceInstance() {
+        return TestTileService.getInstance();
     }
 
     class TestRunnable implements Runnable {

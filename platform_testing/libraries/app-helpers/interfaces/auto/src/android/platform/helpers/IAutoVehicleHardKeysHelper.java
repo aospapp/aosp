@@ -18,6 +18,14 @@ package android.platform.helpers;
 
 public interface IAutoVehicleHardKeysHelper extends IAppHelper {
 
+    /** Enum class for volume types */
+    enum VolumeType {
+        Media,
+        Ring,
+        Notification,
+        Navigation,
+    }
+
     /**
      * Setup expectations: incoming call in progress.
      *
@@ -60,19 +68,13 @@ public interface IAutoVehicleHardKeysHelper extends IAppHelper {
      */
     void tuneVolumeDownKey();
 
-    /**
-     * Increase brightness.
-     */
+    /** Increase brightness. */
     void pressBrightnessUpKey();
 
-    /**
-     * Decrease brighness.
-     */
+    /** Decrease brighness. */
     void pressBrightnessDownKey();
 
-    /**
-     * Launch assistant.
-     */
+    /** Launch assistant. */
     void pressAssistantKey();
 
     /**
@@ -82,28 +84,25 @@ public interface IAutoVehicleHardKeysHelper extends IAppHelper {
      */
     void tuneMuteKey();
 
-    /**
-     * Switch off screen.
-     */
+    /** Switch off screen. */
     void pressScreenOffKey();
 
-    /**
-     * Select content.
-     */
+    /** Select content. */
     void tuneKnobKey();
 
-    /**
-     * Open selected content.
-     */
+    /** Open selected content. */
     void pressKnobButtonKey();
 
-    /**
-     * Increase/decrease volume
-     */
+    /** Increase/decrease volume */
     void tuneVolumeKnobKey();
 
-    /**
-     * Mute media by pressing volume knob.
-     */
+    /** Mute media by pressing volume knob. */
     void pressVolumeKnobButtonKey();
+
+    /**
+     * Get current volume level for a specific type of volume. Eg: Media, In-call, Alarm, Navigation
+     *
+     * @param type type of volume to get current volume level from.
+     */
+    int getCurrentVolumeLevel(VolumeType type);
 }

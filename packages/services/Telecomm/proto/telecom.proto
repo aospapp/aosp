@@ -16,6 +16,9 @@ message TelecomLog {
 
   // Hardware revision (EVT, DVT, PVT etc.)
   optional string hardware_revision = 3;
+
+  // Carrier ID that the device is associated to
+  optional int32 carrier_id = 4;
 }
 
 message LogSessionTiming {
@@ -174,6 +177,13 @@ message InCallServiceInfo {
 
   // The type of the in-call service
   optional InCallServiceType in_call_service_type = 2;
+
+  // The number of milliseconds that the in call service remained bound between binding and
+  // disconnection.
+  optional int64 bound_duration_millis = 3;
+
+  // True if the in call service has ever crashed during a call.
+  optional bool is_null_binding = 4;
 }
 
 // Information about each call.

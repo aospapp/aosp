@@ -544,7 +544,7 @@ lp_setup_vbuf_destroy(struct vbuf_render *vbr)
  * increase too should call this from outside streamout code.
  */
 static void
-lp_setup_so_info(struct vbuf_render *vbr, uint primitives, uint prim_generated)
+lp_setup_so_info(struct vbuf_render *vbr, uint stream, uint primitives, uint prim_generated)
 {
    struct lp_setup_context *setup = lp_setup_context(vbr);
    struct llvmpipe_context *lp = llvmpipe_context(setup->pipe);
@@ -571,7 +571,7 @@ lp_setup_pipeline_statistics(
       stats->gs_invocations;
    llvmpipe->pipeline_statistics.gs_primitives +=
       stats->gs_primitives;
-   if (!llvmpipe_rasterization_disabled(llvmpipe)) {
+   if (!setup->rasterizer_discard) {
       llvmpipe->pipeline_statistics.c_invocations +=
          stats->c_invocations;
    } else {

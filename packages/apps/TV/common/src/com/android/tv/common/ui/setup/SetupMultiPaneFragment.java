@@ -112,15 +112,15 @@ public abstract class SetupMultiPaneFragment extends SetupFragment {
     @Override
     protected int[] getParentIdsForDelay() {
         return new int[] {
-            android.support.v17.leanback.R.id.content_fragment,
-            android.support.v17.leanback.R.id.guidedactions_list
+            androidx.leanback.R.id.content_fragment,
+            androidx.leanback.R.id.guidedactions_list
         };
     }
 
     @Override
     public int[] getSharedElementIds() {
         return new int[] {
-            android.support.v17.leanback.R.id.action_fragment_background, R.id.done_button_container
+            androidx.leanback.R.id.action_fragment_background, R.id.done_button_container
         };
     }
 }

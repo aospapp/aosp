@@ -19,6 +19,9 @@ Defines the delete arg parser that holds delete specific args.
 """
 import argparse
 
+from acloud.internal import constants
+
+
 CMD_DELETE = "delete"
 
 
@@ -40,8 +43,8 @@ def GetDeleteArgParser(subparser):
         dest="instance_names",
         nargs="+",
         required=False,
-        help="The names of the remote instances that need to delete, "
-        "separated by spaces, e.g. --instance-names instance-1 instance-2")
+        help="The names of the instances that need to delete, separated by "
+        "spaces, e.g. --instance-names instance-1 local-instance-1")
     delete_group.add_argument(
         "--all",
         action="store_true",
@@ -49,17 +52,40 @@ def GetDeleteArgParser(subparser):
         required=False,
         help="If more than 1 AVD instance is found, delete them all.")
     delete_group.add_argument(
-        "--local-instance",
-        action="store_true",
-        dest="local_instance",
-        required=False,
-        help="Only delete the local instance.")
-    delete_group.add_argument(
         "--adb-port", "-p",
         type=int,
         dest="adb_port",
         required=False,
         help="Delete instance with specified adb-port.")
+    delete_parser.add_argument(
+        "--local-only",
+        action="store_true",
+        dest="local_only",
+        required=False,
+        help="Do not authenticate and query remote instances.")
+    delete_parser.add_argument(
+        "--host",
+        type=str,
+        dest="remote_host",
+        default=None,
+        help="'cuttlefish only' Provide host name to clean up the remote host. "
+        "For example: '--host 1.1.1.1'")
+    delete_parser.add_argument(
+        "--host-user",
+        type=str,
+        dest="host_user",
+        default=constants.GCE_USER,
+        help="'remote host only' Provide host user for logging in to the host. "
+        "The default value is vsoc-01. For example: '--host 1.1.1.1 --host-user "
+        "vsoc-02'")
+    delete_parser.add_argument(
+        "--host-ssh-private-key-path",
+        type=str,
+        dest="host_ssh_private_key_path",
+        default=None,
+        help="'remote host only' Provide host ssh private key path for logging "
+        "in to the host. For exmaple: '--host-ssh-private-key-path "
+        "~/.ssh/acloud_rsa'")
 
     # TODO(b/118439885): Old arg formats to support transition, delete when
     # transistion is done.

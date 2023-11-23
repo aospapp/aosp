@@ -104,7 +104,7 @@ private:
   //    fails with EPERM. Netd can therefore assumes the max valid uid to be const.
   const uid_t mMaxUid;
   FirewallType mFirewallType;
-  android::bpf::BpfLevel mUseBpfOwnerMatch;
+  bool mUseBpfOwnerMatch;
   std::set<std::string> mIfaceRules;
   int attachChain(const char*, const char*);
   int detachChain(const char*, const char*);

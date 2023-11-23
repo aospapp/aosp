@@ -29,6 +29,7 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.os.IBinder;
 import android.util.Slog;
+import android.view.Display;
 import android.view.DisplayInfo;
 import android.view.Surface;
 import android.view.Surface.OutOfResourcesException;
@@ -72,6 +73,9 @@ final class ColorFade {
     // See code for details.
     private static final int DEJANK_FRAMES = 3;
 
+    private static final int EGL_GL_COLORSPACE_KHR = 0x309D;
+    private static final int EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT = 0x3490;
+
     private final int mDisplayId;
 
     // Set to true when the animation context has been fully prepared.
@@ -93,6 +97,7 @@ final class ColorFade {
     private EGLSurface mEglSurface;
     private boolean mSurfaceVisible;
     private float mSurfaceAlpha;
+    private boolean mIsWideColor;
 
     // Texture names.  We only use one texture, which contains the screenshot.
     private final int[] mTexNames = new int[1];
@@ -108,6 +113,8 @@ final class ColorFade {
     // We have 4 2D vertices, so 8 elements.  The vertices form a quad.
     private final FloatBuffer mVertexBuffer = createNativeFloatBuffer(8);
     private final FloatBuffer mTexCoordBuffer = createNativeFloatBuffer(8);
+
+    private final Transaction mTransaction = new Transaction();
 
     /**
      * Animates an color fade warming up.
@@ -482,6 +489,8 @@ final class ColorFade {
                     return false;
                 }
 
+                mIsWideColor = SurfaceControl.getActiveColorMode(token)
+                        == Display.COLOR_MODE_DISPLAY_P3;
                 SurfaceControl.screenshot(token, s);
                 st.updateTexImage();
                 st.getTransformMatrix(mTexMatrix);
@@ -579,8 +588,9 @@ final class ColorFade {
         if (mSurfaceControl == null) {
             Transaction t = new Transaction();
             try {
-                final SurfaceControl.Builder builder =
-                        new SurfaceControl.Builder(mSurfaceSession).setName("ColorFade");
+                final SurfaceControl.Builder builder = new SurfaceControl.Builder(mSurfaceSession)
+                        .setName("ColorFade")
+                        .setCallsite("ColorFade.createSurface");
                 if (mMode == MODE_FADE) {
                     builder.setColorLayer();
                 } else {
@@ -608,8 +618,16 @@ final class ColorFade {
     private boolean createEglSurface() {
         if (mEglSurface == null) {
             int[] eglSurfaceAttribList = new int[] {
+                    EGL14.EGL_NONE,
+                    EGL14.EGL_NONE,
                     EGL14.EGL_NONE
             };
+
+            // If the current display is in wide color, then so is the screenshot.
+            if (mIsWideColor) {
+                eglSurfaceAttribList[0] = EGL_GL_COLORSPACE_KHR;
+                eglSurfaceAttribList[1] = EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT;
+            }
             // turn our SurfaceControl into a Surface
             mEglSurface = EGL14.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface,
                     eglSurfaceAttribList, 0);
@@ -634,13 +652,8 @@ final class ColorFade {
         if (mSurfaceControl != null) {
             mSurfaceLayout.dispose();
             mSurfaceLayout = null;
-            SurfaceControl.openTransaction();
-            try {
-                mSurfaceControl.remove();
-                mSurface.release();
-            } finally {
-                SurfaceControl.closeTransaction();
-            }
+            new Transaction().remove(mSurfaceControl).apply();
+            mSurface.release();
             mSurfaceControl = null;
             mSurfaceVisible = false;
             mSurfaceAlpha = 0f;
@@ -649,14 +662,10 @@ final class ColorFade {
 
     private boolean showSurface(float alpha) {
         if (!mSurfaceVisible || mSurfaceAlpha != alpha) {
-            SurfaceControl.openTransaction();
-            try {
-                mSurfaceControl.setLayer(COLOR_FADE_LAYER);
-                mSurfaceControl.setAlpha(alpha);
-                mSurfaceControl.show();
-            } finally {
-                SurfaceControl.closeTransaction();
-            }
+            mTransaction.setLayer(mSurfaceControl, COLOR_FADE_LAYER)
+                    .setAlpha(mSurfaceControl, alpha)
+                    .show(mSurfaceControl)
+                    .apply();
             mSurfaceVisible = true;
             mSurfaceAlpha = alpha;
         }

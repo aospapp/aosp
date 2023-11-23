@@ -27,10 +27,10 @@ import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
 import com.github.javaparser.metamodel.IntegerLiteralExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
 import java.util.Optional;
+import com.github.javaparser.ast.Generated;
 
 /**
  * All ways to specify an int literal.
@@ -42,7 +42,7 @@ import java.util.Optional;
  *
  * @author Julio Vilmar Gesser
  */
-public final class IntegerLiteralExpr extends LiteralStringValueExpr {
+public class IntegerLiteralExpr extends LiteralStringValueExpr {
 
     public IntegerLiteralExpr() {
         this(null, "0");

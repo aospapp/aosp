@@ -46,6 +46,11 @@
 #include "private.h"
 #include "mls.h"
 
+#define glblub_version ((p->policy_type == POLICY_KERN && \
+		     p->policyvers >= POLICYDB_VERSION_GLBLUB) || \
+		    (p->policy_type == POLICY_BASE && \
+		     p->policyvers >= MOD_POLICYDB_VERSION_GLBLUB))
+
 struct policy_data {
 	struct policy_file *fp;
 	struct policydb *p;
@@ -1034,6 +1039,13 @@ static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 	     p->policyvers >= MOD_POLICYDB_VERSION_NEW_OBJECT_DEFAULTS)) {
 		buf[0] = cpu_to_le32(cladatum->default_user);
 		buf[1] = cpu_to_le32(cladatum->default_role);
+		if (!glblub_version && cladatum->default_range == DEFAULT_GLBLUB) {
+			WARN(fp->handle,
+                             "class %s default_range set to GLBLUB but policy version is %d (%d required), discarding",
+                             p->p_class_val_to_name[cladatum->s.value - 1], p->policyvers,
+                             p->policy_type == POLICY_KERN? POLICYDB_VERSION_GLBLUB:MOD_POLICYDB_VERSION_GLBLUB);
+                        cladatum->default_range = 0;
+                }
 		buf[2] = cpu_to_le32(cladatum->default_range);
 		items = put_entry(buf, sizeof(uint32_t), 3, fp);
 		if (items != 3)
@@ -1282,8 +1294,15 @@ static int ocontext_write_xen(struct policydb_compat_info *info, policydb_t *p,
 	ocontext_t *c;
 	for (i = 0; i < info->ocon_num; i++) {
 		nel = 0;
-		for (c = p->ocontexts[i]; c; c = c->next)
+		for (c = p->ocontexts[i]; c; c = c->next) {
+			if (i == OCON_XEN_ISID && !c->context[0].user) {
+				INFO(fp->handle,
+				     "No context assigned to SID %s, omitting from policy",
+				     c->u.name);
+				continue;
+			}
 			nel++;
+		}
 		buf[0] = cpu_to_le32(nel);
 		items = put_entry(buf, sizeof(uint32_t), 1, fp);
 		if (items != 1)
@@ -1291,6 +1310,8 @@ static int ocontext_write_xen(struct policydb_compat_info *info, policydb_t *p,
 		for (c = p->ocontexts[i]; c; c = c->next) {
 			switch (i) {
 			case OCON_XEN_ISID:
+				if (!c->context[0].user)
+					break;
 				buf[0] = cpu_to_le32(c->sid[0]);
 				items = put_entry(buf, sizeof(uint32_t), 1, fp);
 				if (items != 1)
@@ -1381,8 +1402,15 @@ static int ocontext_write_selinux(struct policydb_compat_info *info,
 	ocontext_t *c;
 	for (i = 0; i < info->ocon_num; i++) {
 		nel = 0;
-		for (c = p->ocontexts[i]; c; c = c->next)
+		for (c = p->ocontexts[i]; c; c = c->next) {
+			if (i == OCON_ISID && !c->context[0].user) {
+				INFO(fp->handle,
+				     "No context assigned to SID %s, omitting from policy",
+				     c->u.name);
+				continue;
+			}
 			nel++;
+		}
 		buf[0] = cpu_to_le32(nel);
 		items = put_entry(buf, sizeof(uint32_t), 1, fp);
 		if (items != 1)
@@ -1390,6 +1418,8 @@ static int ocontext_write_selinux(struct policydb_compat_info *info,
 		for (c = p->ocontexts[i]; c; c = c->next) {
 			switch (i) {
 			case OCON_ISID:
+				if (!c->context[0].user)
+					break;
 				buf[0] = cpu_to_le32(c->sid[0]);
 				items = put_entry(buf, sizeof(uint32_t), 1, fp);
 				if (items != 1)
@@ -1759,9 +1789,8 @@ static int only_process(ebitmap_t *in)
 	unsigned int i;
 	ebitmap_node_t *node;
 
-	ebitmap_for_each_bit(in, node, i) {
-		if (ebitmap_node_get_bit(node, i) &&
-		    i != SECCLASS_PROCESS - 1)
+	ebitmap_for_each_positive_bit(in, node, i) {
+		if (i != SECCLASS_PROCESS - 1)
 			return 0;
 	}
 	return 1;
@@ -2108,6 +2137,8 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 
 	config |= (POLICYDB_CONFIG_UNKNOWN_MASK & p->handle_unknown);
 
+	config |= POLICYDB_CONFIG_ANDROID_NETLINK_ROUTE;
+
 	/* Write the magic number and string identifiers. */
 	items = 0;
 	if (p->policy_type == POLICY_KERN) {
@@ -2183,13 +2214,11 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 	    p->policy_type == POLICY_KERN) {
 		ebitmap_node_t *tnode;
 
-		ebitmap_for_each_bit(&p->permissive_map, tnode, i) {
-			if (ebitmap_node_get_bit(tnode, i)) {
-				WARN(fp->handle, "Warning! Policy version %d cannot "
-				     "support permissive types, but some were defined",
-				     p->policyvers);
-				break;
-			}
+		ebitmap_for_each_positive_bit(&p->permissive_map, tnode, i) {
+			WARN(fp->handle, "Warning! Policy version %d cannot "
+			     "support permissive types, but some were defined",
+			     p->policyvers);
+			break;
 		}
 	}
 

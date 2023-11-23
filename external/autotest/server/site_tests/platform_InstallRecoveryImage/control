@@ -29,7 +29,8 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 def run(machine):
     # Setup the client machine.
     host = hosts.create_host(machine, servo_args=servo_args)
+    job.fast = True
     job.run_test("platform_InstallRecoveryImage", host=host,
-                 disable_sysinfo=True, image=image)
+                 disable_sysinfo=True, image=image, local=False)
 
 parallel_simple(run, machines)

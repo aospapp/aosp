@@ -83,13 +83,13 @@ def main(argv):
 
     # Fail gracefully if clang-format itself aborts/fails.
     try:
-        result = rh.utils.run_command(cmd, capture_output=True)
-    except rh.utils.RunCommandError as e:
+        result = rh.utils.run(cmd, capture_output=True)
+    except rh.utils.CalledProcessError as e:
         print('clang-format failed:\n%s' % (e,), file=sys.stderr)
         print('\nPlease report this to the clang team.', file=sys.stderr)
         return 1
 
-    stdout = result.output
+    stdout = result.stdout
     if stdout.rstrip('\n') == 'no modified files to format':
         # This is always printed when only files that clang-format does not
         # understand were modified.
@@ -102,12 +102,19 @@ def main(argv):
 
     if diff_filenames:
         if opts.fix:
-            rh.utils.run_command(['git', 'apply'], input=stdout)
+            result = rh.utils.run(['git', 'apply'], input=stdout, check=False)
+            if result.returncode:
+                print('Error: Unable to automatically fix things.\n'
+                      '  Make sure your checkout is clean first.\n'
+                      '  If you have multiple commits, you might have to '
+                      'manually rebase your tree first.',
+                      file=sys.stderr)
+                return result.returncode
         else:
             print('The following files have formatting errors:')
             for filename in diff_filenames:
                 print('\t%s' % filename)
-            print('You can run `%s --fix %s` to fix this' %
+            print('You can try to fix this by running:\n%s --fix %s' %
                   (sys.argv[0], rh.shell.cmd_to_str(argv)))
             return 1
 

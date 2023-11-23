@@ -20,19 +20,22 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.media.tv.TvInputInfo;
 import android.os.Build;
-import android.support.v17.leanback.widget.ClassPresenterSelector;
 import android.util.ArrayMap;
 import android.util.Log;
+
+import androidx.leanback.widget.ClassPresenterSelector;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Program;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.list.SchedulesHeaderRow.SeriesRecordingHeaderRow;
 import com.android.tv.util.Utils;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;

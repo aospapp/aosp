@@ -1,6 +1,7 @@
 cc_library_static {
     name: "libhevcdec",
     vendor_available: true,
+    host_supported: true,
 
     cflags: [
         "-D_LIB",
@@ -396,10 +397,17 @@ cc_library_static {
         // cfi: true,
         blacklist: "libhevc_blacklist.txt",
     },
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media.swcodec",
+    ],
+    min_sdk_version: "29",
 }
 
 cc_test {
     name: "hevcdec",
+    host_supported: true,
     cflags: [
         "-DPROFILE_ENABLE",
         "-DARM",
@@ -410,12 +418,17 @@ cc_test {
     ],
     srcs: ["test/decoder/main.c"],
     static_libs: ["libhevcdec"],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
 }
 
 cc_library_static {
     name: "libhevcenc",
     vendor_available: true,
-
+    host_supported: true,
     cflags: [
         "-DENABLE_MAIN_REXT_PROFILE",
         "-fPIC",
@@ -639,7 +652,9 @@ cc_library_static {
             ],
 
             cflags: [
-                "-DENABLE_NEON", "-DARMV8", "-DARM",
+                "-DENABLE_NEON",
+                "-DARMV8",
+                "-DARM",
             ],
         },
 
@@ -736,7 +751,8 @@ cc_library_static {
                 ],
 
                 cflags: [
-                    "-DENABLE_NEON", "-DARM",
+                    "-DENABLE_NEON",
+                    "-DARM",
                 ],
             },
         },
@@ -751,7 +767,7 @@ cc_library_static {
             local_include_dirs: [
                 "common/x86",
             ],
-        }
+        },
 
     },
     sanitize: {
@@ -759,16 +775,19 @@ cc_library_static {
         misc_undefined: ["bounds"],
         // Enable CFI if this becomes a shared library.
         // cfi: true,
-        diag: {
-            integer_overflow: true,
-            misc_undefined: ["bounds"],
-        },
         blacklist: "libhevc_blacklist.txt",
     },
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media.swcodec",
+    ],
+    min_sdk_version: "29",
 }
 
 cc_test {
     name: "hevcenc",
+    host_supported: true,
     cflags: [
         "-DARM",
         "-fPIC",
@@ -780,9 +799,5 @@ cc_test {
     sanitize: {
         integer_overflow: true,
         misc_undefined: ["bounds"],
-        diag: {
-            integer_overflow: true,
-            misc_undefined: ["bounds"],
-        },
     },
 }

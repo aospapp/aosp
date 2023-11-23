@@ -5,6 +5,7 @@
 */
 
 #include <mqueue.h>
+#include <stdlib.h>
 #include "posixtest.h"
 
 void test_mq_send_prototype(void)
@@ -15,6 +16,10 @@ void test_mq_send_prototype(void)
 	int err;
 	unsigned msg_prio;
 
-	err = mq_receive(mqdes, msgp, msg_len, &msg_prio);
+	mqdes = 0;
+	msg_len = 0;
+	msgp = NULL;
 
+	err = mq_receive(mqdes, msgp, msg_len, &msg_prio);
+	(void)err;
 }

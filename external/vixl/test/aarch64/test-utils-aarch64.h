@@ -99,7 +99,7 @@ class RegisterDump {
     return dump_.x_[code];
   }
 
-  // FPRegister accessors.
+  // VRegister accessors.
   inline uint16_t hreg_bits(unsigned code) const {
     VIXL_ASSERT(FPRegAliasesMatch(code));
     return dump_.h_[code];
@@ -171,7 +171,7 @@ class RegisterDump {
   // As RegAliasesMatch, but for floating-point registers.
   bool FPRegAliasesMatch(unsigned code) const {
     VIXL_ASSERT(IsComplete());
-    VIXL_ASSERT(code < kNumberOfFPRegisters);
+    VIXL_ASSERT(code < kNumberOfVRegisters);
     return (((dump_.d_[code] & kSRegMask) == dump_.s_[code]) ||
             ((dump_.s_[code] & kHRegMask) == dump_.h_[code]));
   }
@@ -184,9 +184,9 @@ class RegisterDump {
     uint32_t w_[kNumberOfRegisters];
 
     // Floating-point registers, as raw bits.
-    uint64_t d_[kNumberOfFPRegisters];
-    uint32_t s_[kNumberOfFPRegisters];
-    uint16_t h_[kNumberOfFPRegisters];
+    uint64_t d_[kNumberOfVRegisters];
+    uint32_t s_[kNumberOfVRegisters];
+    uint16_t h_[kNumberOfVRegisters];
 
     // Vector registers.
     vec128_t q_[kNumberOfVRegisters];
@@ -204,34 +204,49 @@ class RegisterDump {
   } dump_;
 };
 
+// Some tests want to check that a value is _not_ equal to a reference value.
+// These enum values can be used to control the error reporting behaviour.
+enum ExpectedResult { kExpectEqual, kExpectNotEqual };
+
+// The Equal* methods return true if the result matches the reference value.
+// They all print an error message to the console if the result is incorrect
+// (according to the ExpectedResult argument, or kExpectEqual if it is absent).
+//
 // Some of these methods don't use the RegisterDump argument, but they have to
 // accept them so that they can overload those that take register arguments.
 bool Equal32(uint32_t expected, const RegisterDump*, uint32_t result);
-bool Equal64(uint64_t expected, const RegisterDump*, uint64_t result);
+bool Equal64(uint64_t reference,
+             const RegisterDump*,
+             uint64_t result,
+             ExpectedResult option = kExpectEqual);
 
 bool EqualFP16(Float16 expected, const RegisterDump*, uint16_t result);
 bool EqualFP32(float expected, const RegisterDump*, float result);
 bool EqualFP64(double expected, const RegisterDump*, double result);
 
 bool Equal32(uint32_t expected, const RegisterDump* core, const Register& reg);
-bool Equal64(uint64_t expected, const RegisterDump* core, const Register& reg);
+bool Equal64(uint64_t reference,
+             const RegisterDump* core,
+             const Register& reg,
+             ExpectedResult option = kExpectEqual);
 bool Equal64(uint64_t expected,
              const RegisterDump* core,
              const VRegister& vreg);
 
 bool EqualFP16(Float16 expected,
                const RegisterDump* core,
-               const FPRegister& fpreg);
+               const VRegister& fpreg);
 bool EqualFP32(float expected,
                const RegisterDump* core,
-               const FPRegister& fpreg);
+               const VRegister& fpreg);
 bool EqualFP64(double expected,
                const RegisterDump* core,
-               const FPRegister& fpreg);
+               const VRegister& fpreg);
 
 bool Equal64(const Register& reg0,
              const RegisterDump* core,
-             const Register& reg1);
+             const Register& reg1,
+             ExpectedResult option = kExpectEqual);
 bool Equal128(uint64_t expected_h,
               uint64_t expected_l,
               const RegisterDump* core,
@@ -240,6 +255,11 @@ bool Equal128(uint64_t expected_h,
 bool EqualNzcv(uint32_t expected, uint32_t result);
 
 bool EqualRegisters(const RegisterDump* a, const RegisterDump* b);
+
+template <typename T0, typename T1>
+bool NotEqual64(T0 reference, const RegisterDump* core, T1 result) {
+  return !Equal64(reference, core, result, kExpectNotEqual);
+}
 
 // Populate the w, x and r arrays with registers from the 'allowed' mask. The
 // r array will be populated with <reg_size>-sized registers,
@@ -259,12 +279,12 @@ RegList PopulateRegisterArray(Register* w,
                               RegList allowed);
 
 // As PopulateRegisterArray, but for floating-point registers.
-RegList PopulateFPRegisterArray(FPRegister* s,
-                                FPRegister* d,
-                                FPRegister* v,
-                                int reg_size,
-                                int reg_count,
-                                RegList allowed);
+RegList PopulateVRegisterArray(VRegister* s,
+                               VRegister* d,
+                               VRegister* v,
+                               int reg_size,
+                               int reg_count,
+                               RegList allowed);
 
 // Ovewrite the contents of the specified registers. This enables tests to
 // check that register contents are written in cases where it's likely that the

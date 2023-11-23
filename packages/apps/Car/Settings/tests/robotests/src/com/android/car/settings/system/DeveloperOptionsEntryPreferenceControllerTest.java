@@ -21,82 +21,92 @@ import static com.android.car.settings.common.PreferenceController.CONDITIONALLY
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
-
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.UserInfo;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 
+import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
+import com.android.car.settings.development.DevelopmentSettingsUtil;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
+import org.robolectric.Shadows;
+import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.shadows.ShadowUserManager;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
 public class DeveloperOptionsEntryPreferenceControllerTest {
 
     private Context mContext;
+    private PreferenceControllerTestHelper<DeveloperOptionsEntryPreferenceController>
+            mControllerHelper;
     private DeveloperOptionsEntryPreferenceController mController;
-    private UserInfo mUserInfo;
-    @Mock
-    private CarUserManagerHelper mShadowCarUserManagerHelper;
+    private Preference mPreference;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mShadowCarUserManagerHelper);
         mContext = RuntimeEnvironment.application;
-        mController = new PreferenceControllerTestHelper<>(mContext,
+        mPreference = new Preference(mContext);
+        mPreference.setIntent(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+        mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 DeveloperOptionsEntryPreferenceController.class,
-                new Preference(mContext)).getController();
+                mPreference);
+        mController = mControllerHelper.getController();
 
         // Setup admin user who is able to enable developer settings.
-        mUserInfo = new UserInfo();
-        when(mShadowCarUserManagerHelper.isCurrentProcessAdminUser()).thenReturn(true);
-        when(mShadowCarUserManagerHelper.isCurrentProcessDemoUser()).thenReturn(false);
-        when(mShadowCarUserManagerHelper.getCurrentProcessUserInfo()).thenReturn(mUserInfo);
-        new CarUserManagerHelper(mContext).setUserRestriction(mUserInfo,
-                UserManager.DISALLOW_DEBUGGING_FEATURES, false);
-    }
-
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
+        getShadowUserManager().addUser(UserHandle.myUserId(), "test name", UserInfo.FLAG_ADMIN);
     }
 
     @Test
     public void testGetAvailabilityStatus_devOptionsEnabled_isAvailable() {
-        Settings.Global.putInt(mContext.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 1);
+        setDeveloperOptionsEnabled(true);
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
     }
 
     @Test
     public void testGetAvailabilityStatus_devOptionsDisabled_isUnavailable() {
-        Settings.Global.putInt(mContext.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0);
+        setDeveloperOptionsEnabled(false);
         assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test
     public void testGetAvailabilityStatus_devOptionsEnabled_hasUserRestriction_isUnavailable() {
-        Settings.Global.putInt(mContext.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 1);
-        new CarUserManagerHelper(mContext).setUserRestriction(mUserInfo,
-                UserManager.DISALLOW_DEBUGGING_FEATURES, true);
+        setDeveloperOptionsEnabled(true);
+        getShadowUserManager().setUserRestriction(
+                UserHandle.of(UserHandle.myUserId()),
+                UserManager.DISALLOW_DEBUGGING_FEATURES,
+                true);
         assertThat(mController.getAvailabilityStatus()).isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void performClick_startsActivity() {
+        setDeveloperOptionsEnabled(true);
+        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        mPreference.performClick();
+
+        Intent actual = ShadowApplication.getInstance().getNextStartedActivity();
+        assertThat(actual.getAction()).isEqualTo(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadows.shadowOf(UserManager.get(mContext));
+    }
+
+    private void setDeveloperOptionsEnabled(boolean enabled) {
+        Settings.Global.putInt(mContext.getContentResolver(),
+                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, enabled ? 1 : 0);
+        DevelopmentSettingsUtil.setDevelopmentSettingsEnabled(mContext, enabled);
     }
 }

@@ -31,7 +31,6 @@ import androidx.annotation.WorkerThread;
 import com.android.pump.util.Clog;
 import com.android.pump.util.Collections;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -317,7 +316,6 @@ class AudioStore extends ContentObserver {
 
         Uri contentUri = MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI;
         String[] projection = {
-            MediaStore.Audio.Albums.ALBUM_ART,
             MediaStore.Audio.Albums.ALBUM,
             MediaStore.Audio.Media.ARTIST_ID // TODO MediaStore.Audio.Albums.ARTIST_ID
         };
@@ -327,8 +325,6 @@ class AudioStore extends ContentObserver {
                 contentUri, projection, selection, selectionArgs, null);
         if (cursor != null) {
             try {
-                int albumArtColumn = cursor.getColumnIndexOrThrow(
-                        MediaStore.Audio.Albums.ALBUM_ART);
                 int albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.ALBUM);
                 int artistIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST_ID); // TODO MediaStore.Audio.Albums.ARTIST_ID
 
@@ -337,16 +333,20 @@ class AudioStore extends ContentObserver {
                         String albumTitle = cursor.getString(albumColumn);
                         updated |= album.setTitle(albumTitle);
                     }
-                    if (!cursor.isNull(albumArtColumn)) {
-                        Uri albumArtUri = Uri.fromFile(new File(cursor.getString(albumArtColumn)));
-                        updated |= album.setAlbumArtUri(albumArtUri);
-                    }
                     if (!cursor.isNull(artistIdColumn)) {
                         long artistId = cursor.getLong(artistIdColumn);
                         Artist artist = mMediaProvider.getArtistById(artistId);
                         updated |= album.setArtist(artist);
                         updated |= loadData(artist); // TODO(b/123707561) Load separate from album
                     }
+
+                    // TODO(b/130363861) No need to store the URI -- generate when requested instead
+                    Uri albumArtUri = new Uri.Builder()
+                            .scheme(ContentResolver.SCHEME_CONTENT)
+                            .authority(MediaStore.AUTHORITY)
+                            .appendPath("external").appendPath("audio").appendPath("albumart")
+                            .appendPath(Long.toString(album.getId())).build();
+                    updated |= album.setAlbumArtUri(albumArtUri);
                 }
             } finally {
                 cursor.close();

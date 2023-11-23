@@ -28,10 +28,8 @@ import com.android.tradefed.util.CommandResult;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -41,14 +39,6 @@ import java.util.Optional;
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class TimezoneDataHostTest extends ApexE2EBaseHostTest {
-    /**
-     * Tests that if Apex package can be staged, activated and uninstalled successfully.
-     */
-    @Test
-    public void testStageActivateUninstallApexPackage()
-                                throws DeviceNotAvailableException, IOException {
-        doTestStageActivateUninstallApexPackage();
-    }
 
     @Override
     public void additionalCheck() {

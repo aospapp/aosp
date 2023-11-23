@@ -1,9 +1,9 @@
 # Introduction
 
-This is `fsverity`, a userspace utility for fs-verity.  fs-verity is
-a Linux kernel feature that does transparent on-demand
+This is `fsverity`, a userspace utility for fs-verity.  fs-verity is a
+Linux kernel feature that does transparent on-demand
 integrity/authenticity verification of the contents of read-only
-files, using a Merkle tree (hash tree) hidden after the end of the
+files, using a hidden Merkle tree (hash tree) associated with the
 file.  The mechanism is similar to dm-verity, but implemented at the
 file level rather than at the block device level.  The `fsverity`
 utility allows you to set up fs-verity protected files.
@@ -35,7 +35,7 @@ Then, to build and install:
 ## Basic use
 
 ```bash
-    mkfs.f2fs -O verity /dev/vdc
+    mkfs.ext4 -O verity /dev/vdc
     mount /dev/vdc /vdc
     cd /vdc
 
@@ -43,18 +43,16 @@ Then, to build and install:
     head -c 1000000 /dev/urandom > file
     md5sum file
 
-    # Append the Merkle tree and other metadata to the file:
-    fsverity setup file
-
-    # Enable fs-verity on the file
+    # Enable verity on the file
     fsverity enable file
 
-    # Should show the same hash that 'fsverity setup' printed.
-    # This hash can be logged, or compared to a trusted value.
+    # Show the verity file measurement
     fsverity measure file
 
-    # Contents are now transparently verified and should match the
-    # original file contents, i.e. the metadata is hidden.
+    # File should still be readable as usual.  However, all data read
+    # is now transparently checked against a hidden Merkle tree, whose
+    # root hash is incorporated into the verity file measurement.
+    # Reads of any corrupted parts of the data will fail.
     md5sum file
 ```
 
@@ -67,7 +65,7 @@ against a trusted value.
 
 With `CONFIG_FS_VERITY_BUILTIN_SIGNATURES=y`, the filesystem supports
 automatically verifying a signed file measurement that has been
-included in the fs-verity metadata.  The signature is verified against
+included in the verity metadata.  The signature is verified against
 the set of X.509 certificates that have been loaded into the
 ".fs-verity" kernel keyring.  Here's an example:
 
@@ -85,24 +83,25 @@ the set of X.509 certificates that have been loaded into the
     # (requires keyctl v1.5.11 or later):
     keyctl restrict_keyring %keyring:.fs-verity
 
-    # Optionally, require that all fs-verity files be signed:
+    # Optionally, require that all verity files be signed:
     sysctl fs.verity.require_signatures=1
 
     # Now set up fs-verity on a test file:
     md5sum file
-    fsverity setup file --signing-key=key.pem --signing-cert=cert.pem
-    fsverity enable file
+    fsverity sign file file.sig --key=key.pem --cert=cert.pem
+    fsverity enable file --signature=file.sig
+    rm -f file.sig
     md5sum file
 ```
 
-By default, it's not required that fs-verity files have a signature.
+By default, it's not required that verity files have a signature.
 This can be changed with `sysctl fs.verity.require_signatures=1`.
-When set, it's guaranteed that the contents of every fs-verity file
-has been signed by one of the certificates in the keyring.
+When set, it's guaranteed that the contents of every verity file has
+been signed by one of the certificates in the keyring.
 
 Note: applications generally still need to check whether the file
-they're accessing really is a fs-verity file, since an attacker could
-replace a fs-verity file with a regular one.
+they're accessing really is a verity file, since an attacker could
+replace a verity file with a regular one.
 
 ## With IMA
 

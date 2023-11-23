@@ -29,9 +29,6 @@ class CapabilitiesTest(AwareBaseTest):
 
     SERVICE_NAME = "GoogleTestXYZ"
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     def create_config(self, dtype, service_name):
         """Create a discovery configuration based on input parameters.
 

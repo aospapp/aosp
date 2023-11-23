@@ -484,7 +484,7 @@ static int wpa_supplicant_wps_cred(void *ctx,
 	case WPS_ENCR_NONE:
 		break;
 	case WPS_ENCR_TKIP:
-		ssid->pairwise_cipher = WPA_CIPHER_TKIP;
+		ssid->pairwise_cipher = WPA_CIPHER_TKIP | WPA_CIPHER_CCMP;
 		break;
 	case WPS_ENCR_AES:
 		ssid->pairwise_cipher = WPA_CIPHER_CCMP;
@@ -525,17 +525,16 @@ static int wpa_supplicant_wps_cred(void *ctx,
 	case WPS_AUTH_WPAPSK:
 		ssid->auth_alg = WPA_AUTH_ALG_OPEN;
 		ssid->key_mgmt = WPA_KEY_MGMT_PSK;
-		ssid->proto = WPA_PROTO_WPA;
+		ssid->proto = WPA_PROTO_WPA | WPA_PROTO_RSN;
 		break;
 	case WPS_AUTH_WPA2PSK:
 		ssid->auth_alg = WPA_AUTH_ALG_OPEN;
 		ssid->key_mgmt = WPA_KEY_MGMT_PSK;
 		if (wpa_s->conf->wps_cred_add_sae &&
 		    cred->key_len != 2 * PMK_LEN) {
+			ssid->auth_alg = 0;
 			ssid->key_mgmt |= WPA_KEY_MGMT_SAE;
-#ifdef CONFIG_IEEE80211W
 			ssid->ieee80211w = MGMT_FRAME_PROTECTION_OPTIONAL;
-#endif /* CONFIG_IEEE80211W */
 		}
 		ssid->proto = WPA_PROTO_RSN;
 		break;
@@ -1180,6 +1179,11 @@ int wpas_wps_start_pbc(struct wpa_supplicant *wpa_s, const u8 *bssid,
 				/* P2P in 60 GHz uses PBSS */
 				ssid->pbss = 1;
 			}
+			if (wpa_s->go_params->edmg &&
+			    wpas_p2p_try_edmg_channel(wpa_s,
+						      wpa_s->go_params) == 0)
+				ssid->enable_edmg = 1;
+
 			wpa_hexdump_ascii(MSG_DEBUG, "WPS: Use specific AP "
 					  "SSID", ssid->ssid, ssid->ssid_len);
 		}
@@ -1263,6 +1267,11 @@ static int wpas_wps_start_dev_pw(struct wpa_supplicant *wpa_s,
 				/* P2P in 60 GHz uses PBSS */
 				ssid->pbss = 1;
 			}
+			if (wpa_s->go_params->edmg &&
+			    wpas_p2p_try_edmg_channel(wpa_s,
+						      wpa_s->go_params) == 0)
+				ssid->enable_edmg = 1;
+
 			wpa_hexdump_ascii(MSG_DEBUG, "WPS: Use specific AP "
 					  "SSID", ssid->ssid, ssid->ssid_len);
 		}
@@ -1286,6 +1295,10 @@ static int wpas_wps_start_dev_pw(struct wpa_supplicant *wpa_s,
 		wpa_printf(MSG_DEBUG, "WPS: Failed to set phase1 '%s'", val);
 		return -1;
 	}
+
+	if (dev_pw_id != DEV_PW_NFC_CONNECTION_HANDOVER)
+		wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_PIN_ACTIVE);
+
 	if (wpa_s->wps_fragment_size)
 		ssid->eap.fragment_size = wpa_s->wps_fragment_size;
 	eloop_register_timeout(WPS_PBC_WALK_TIME, 0, wpas_wps_timeout,
@@ -1351,6 +1364,7 @@ int wpas_wps_cancel(struct wpa_supplicant *wpa_s)
 			wpas_clear_wps(wpa_s);
 	}
 
+	wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_CANCEL);
 	wpa_s->after_wps = 0;
 
 	return 0;
@@ -1604,8 +1618,13 @@ int wpas_wps_init(struct wpa_supplicant *wpa_s)
 	os_memcpy(wps->dev.mac_addr, wpa_s->own_addr, ETH_ALEN);
 	wpas_wps_set_uuid(wpa_s, wps);
 
+#ifdef CONFIG_NO_TKIP
+	wps->auth_types = WPS_AUTH_WPA2PSK;
+	wps->encr_types = WPS_ENCR_AES;
+#else /* CONFIG_NO_TKIP */
 	wps->auth_types = WPS_AUTH_WPA2PSK | WPS_AUTH_WPAPSK;
 	wps->encr_types = WPS_ENCR_AES | WPS_ENCR_TKIP;
+#endif /* CONFIG_NO_TKIP */
 
 	os_memset(&rcfg, 0, sizeof(rcfg));
 	rcfg.new_psk_cb = wpas_wps_new_psk_cb;
@@ -1816,6 +1835,10 @@ int wpas_wps_scan_pbc_overlap(struct wpa_supplicant *wpa_s,
 	wpa_printf(MSG_DEBUG, "WPS: Check whether PBC session overlap is "
 		   "present in scan results; selected BSSID " MACSTR,
 		   MAC2STR(selected->bssid));
+	if (!is_zero_ether_addr(ssid->bssid))
+		wpa_printf(MSG_DEBUG,
+			   "WPS: Network profile limited to accept only a single BSSID " MACSTR,
+			   MAC2STR(ssid->bssid));
 
 	/* Make sure that only one AP is in active PBC mode */
 	wps_ie = wpa_bss_get_vendor_ie_multi(selected, WPS_IE_VENDOR_TYPE);
@@ -1835,6 +1858,14 @@ int wpas_wps_scan_pbc_overlap(struct wpa_supplicant *wpa_s,
 		if (!ap->pbc_active ||
 		    os_memcmp(selected->bssid, ap->bssid, ETH_ALEN) == 0)
 			continue;
+
+		if (!is_zero_ether_addr(ssid->bssid) &&
+		    os_memcmp(ap->bssid, ssid->bssid, ETH_ALEN) != 0) {
+			wpa_printf(MSG_DEBUG, "WPS: Ignore another BSS " MACSTR
+				   " in active PBC mode due to local BSSID limitation",
+				   MAC2STR(ap->bssid));
+			continue;
+		}
 
 		wpa_printf(MSG_DEBUG, "WPS: Another BSS in active PBC mode: "
 			   MACSTR, MAC2STR(ap->bssid));
@@ -2232,6 +2263,16 @@ void wpas_wps_update_config(struct wpa_supplicant *wpa_s)
 		wps->dev.model_number = wpa_s->conf->model_number;
 		wps->dev.serial_number = wpa_s->conf->serial_number;
 	}
+}
+
+
+void wpas_wps_update_mac_addr(struct wpa_supplicant *wpa_s)
+{
+	struct wps_context *wps;
+
+	wps = wpa_s->wps;
+	if (wps)
+		os_memcpy(wps->dev.mac_addr, wpa_s->own_addr, ETH_ALEN);
 }
 
 
@@ -2681,7 +2722,7 @@ static int wpas_wps_nfc_rx_handover_sel(struct wpa_supplicant *wpa_s,
 			 (attr.rf_bands == NULL ||
 			  *attr.rf_bands & WPS_RF_50GHZ))
 			freq = 5000 + 5 * chan;
-		else if (chan >= 1 && chan <= 4 &&
+		else if (chan >= 1 && chan <= 6 &&
 			 (attr.rf_bands == NULL ||
 			  *attr.rf_bands & WPS_RF_60GHZ))
 			freq = 56160 + 2160 * chan;

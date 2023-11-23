@@ -17,8 +17,8 @@
 package com.android.tv.dvr.ui;
 
 import android.support.annotation.VisibleForTesting;
-import android.support.v17.leanback.widget.ArrayObjectAdapter;
-import android.support.v17.leanback.widget.PresenterSelector;
+import androidx.leanback.widget.ArrayObjectAdapter;
+import androidx.leanback.widget.PresenterSelector;
 import com.android.tv.common.SoftPreconditions;
 import java.util.ArrayList;
 import java.util.Collection;

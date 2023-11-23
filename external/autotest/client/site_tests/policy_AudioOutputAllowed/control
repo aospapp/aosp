@@ -8,7 +8,6 @@ TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'
 TEST_TYPE = 'client'
-DEPENDENCIES = 'audio_loopback_dongle'
 CRITERIA = 'Test will fail if RMS difference is not within acceptable limits'
 
 DOC = '''

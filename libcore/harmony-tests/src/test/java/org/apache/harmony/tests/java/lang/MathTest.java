@@ -1165,9 +1165,16 @@ public class MathTest extends junit.framework.TestCase {
             assertEquals("Result should be Math.pow(" + negateDval + "," + 1.0
                     + ")=" + negateDval, negateDval, Math.pow(negateDval, 1.0));
 
+            // The libm implementation of pow() has the following set of special case behaviors:
+            //     If the first argument is 1.0, then the result is 1.0.
+            // i.e. the answer for the following case is not Double.NaN. http://b/11669804
+            {
+                double answer = dval == 1.0d ? 1.0d : Double.NaN;
+                assertEquals("Result should be Math.pow(" + dval + "," + Double.NaN
+                        + ")=" + answer, answer, Math.pow(dval, Double.NaN));
+            }
+
             // If the second argument is NaN, then the result is NaN.
-            assertEquals("Result should be Math.pow(" + dval + "," + Double.NaN
-                    + ")=" + Double.NaN, Double.NaN, Math.pow(dval, Double.NaN));
             assertEquals("Result should be Math.pow(" + negateDval + ","
                     + Double.NaN + ")=" + Double.NaN, Double.NaN, Math.pow(negateDval,
                     Double.NaN));
@@ -1301,21 +1308,23 @@ public class MathTest extends junit.framework.TestCase {
                 }
             }
 
-            // If the absolute value of the first argument equals 1 and the
-            // second argument is infinite, then the result is NaN.
             if (dval == 1) {
+                // The libm implementation of pow() has the following set of special case behaviors:
+                //     1.0 or -1.0 to the power of positive or negative infinity is 1.0.
+                // i.e. the answer for the following cases is not Double.NaN. http://b/11669804
+
                 assertEquals("Result should be Math.pow(" + dval + ","
-                        + Double.POSITIVE_INFINITY + ")=" + Double.NaN, Double.NaN, Math
+                        + Double.POSITIVE_INFINITY + ")=" + 1.0d, 1.0d, Math
                         .pow(dval, Double.POSITIVE_INFINITY));
                 assertEquals("Result should be Math.pow(" + dval + ","
-                        + Double.NEGATIVE_INFINITY + ")=" + Double.NaN, Double.NaN, Math
+                        + Double.NEGATIVE_INFINITY + ")=" + 1.0d, 1.0d, Math
                         .pow(dval, Double.NEGATIVE_INFINITY));
 
                 assertEquals("Result should be Math.pow(" + negateDval + ","
-                        + Double.POSITIVE_INFINITY + ")=" + Double.NaN, Double.NaN, Math
+                        + Double.POSITIVE_INFINITY + ")=" + 1.0d, 1.0d, Math
                         .pow(negateDval, Double.POSITIVE_INFINITY));
                 assertEquals("Result should be Math.pow(" + negateDval + ","
-                        + Double.NEGATIVE_INFINITY + ")=" + Double.NaN, Double.NaN, Math
+                        + Double.NEGATIVE_INFINITY + ")=" + 1.0d, 1.0d, Math
                         .pow(negateDval, Double.NEGATIVE_INFINITY));
             }
 

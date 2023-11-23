@@ -33,6 +33,8 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.internal.telephony.util.ArrayUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -225,8 +227,8 @@ class ShortcutViewUtils {
         PhoneAccountHandle defaultHandle = telecomManager.getDefaultOutgoingPhoneAccount(
                 PhoneAccount.SCHEME_TEL);
         if (defaultHandle != null) {
-            PhoneInfo phone = loadPhoneInfo(defaultHandle, telephonyManager, telecomManager,
-                    promotedLists);
+            PhoneInfo phone = loadPhoneInfo(context, defaultHandle, telephonyManager,
+                    telecomManager, promotedLists);
             if (phone.isSufficientForEmergencyCall(context)) {
                 return phone;
             }
@@ -240,7 +242,7 @@ class ShortcutViewUtils {
         List<PhoneAccountHandle> allHandles = telecomManager.getCallCapablePhoneAccounts();
         if (allHandles != null && !allHandles.isEmpty()) {
             for (PhoneAccountHandle handle : allHandles) {
-                PhoneInfo phone = loadPhoneInfo(handle, telephonyManager, telecomManager,
+                PhoneInfo phone = loadPhoneInfo(context, handle, telephonyManager, telecomManager,
                         promotedLists);
                 if (phone.isSufficientForEmergencyCall(context)) {
                     return phone;
@@ -272,8 +274,11 @@ class ShortcutViewUtils {
         return false;
     }
 
-    private static PhoneInfo loadPhoneInfo(@NonNull PhoneAccountHandle handle,
-            @NonNull TelephonyManager telephonyManager, @NonNull TelecomManager telecomManager,
+    private static PhoneInfo loadPhoneInfo(
+            @NonNull Context context,
+            @NonNull PhoneAccountHandle handle,
+            @NonNull TelephonyManager telephonyManager,
+            @NonNull TelecomManager telecomManager,
             Map<Integer, List<EmergencyNumber>> promotedLists) {
         boolean canPlaceEmergencyCall = false;
         int subId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
@@ -293,10 +298,67 @@ class ShortcutViewUtils {
         }
 
         if (promotedLists != null) {
-            emergencyNumberList = promotedLists.get(subId);
+            emergencyNumberList = removeCarrierSpecificPrefixes(context, subId,
+                    promotedLists.get(subId));
         }
 
         return new PhoneInfo(handle, canPlaceEmergencyCall, subId, countryIso, emergencyNumberList);
+    }
+
+    @Nullable
+    private static String[] getCarrierSpecificPrefixes(@NonNull Context context, int subId) {
+        CarrierConfigManager configMgr = context.getSystemService(CarrierConfigManager.class);
+        if (configMgr == null) {
+            return null;
+        }
+        PersistableBundle b = configMgr.getConfigForSubId(subId);
+        return b == null ? null : b.getStringArray(
+                CarrierConfigManager.KEY_EMERGENCY_NUMBER_PREFIX_STRING_ARRAY);
+    }
+
+    // Removes carrier specific emergency number prefixes (if there is any) from every emergency
+    // number and create a new list without duplications. Returns the original list if there is no
+    // prefixes.
+    @NonNull
+    private static List<EmergencyNumber> removeCarrierSpecificPrefixes(
+            @NonNull Context context,
+            int subId,
+            @NonNull List<EmergencyNumber> emergencyNumberList) {
+        String[] prefixes = getCarrierSpecificPrefixes(context, subId);
+        if (ArrayUtils.isEmpty(prefixes)) {
+            return emergencyNumberList;
+        }
+
+        List<EmergencyNumber> newList = new ArrayList<>(emergencyNumberList.size());
+        for (EmergencyNumber emergencyNumber : emergencyNumberList) {
+            // If no prefix was removed from emergencyNumber, add it to the newList directly.
+            EmergencyNumber newNumber = emergencyNumber;
+            String number = emergencyNumber.getNumber();
+            for (String prefix : prefixes) {
+                // If emergencyNumber starts with this prefix, remove this prefix to retrieve the
+                // actual emergency number.
+                // However, if emergencyNumber is exactly the same with this prefix, it could be
+                // either a real emergency number, or composed with another prefix. It shouldn't be
+                // processed with this prefix whatever.
+                if (!TextUtils.isEmpty(prefix) && number.startsWith(prefix)
+                        && !number.equals(prefix)) {
+                    newNumber = new EmergencyNumber(
+                            number.substring(prefix.length()),
+                            emergencyNumber.getCountryIso(),
+                            emergencyNumber.getMnc(),
+                            emergencyNumber.getEmergencyServiceCategoryBitmask(),
+                            emergencyNumber.getEmergencyUrns(),
+                            emergencyNumber.getEmergencyNumberSourceBitmask(),
+                            emergencyNumber.getEmergencyCallRouting());
+                    // There should not be more than one prefix attached to a number.
+                    break;
+                }
+            }
+            if (!newList.contains(newNumber)) {
+                newList.add(newNumber);
+            }
+        }
+        return newList;
     }
 
     @NonNull

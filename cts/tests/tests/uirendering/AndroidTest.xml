@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="uitoolkit" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsUiRenderingTestCases.apk" />
@@ -26,12 +27,10 @@
         <option name="package" value="android.uirendering.cts" />
         <option name="runtime-hint" value="11m55s" />
         <option name="runner" value="android.uirendering.cts.runner.UiRenderingRunner" />
-        <option name="isolated-storage" value="false" />
     </test>
 
-    <!-- Collect the files in the dump directory for debugging -->
+    <!-- Collect the dumped files for debugging -->
     <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
-        <option name="directory-keys" value="/sdcard/UiRenderingCaptures" />
-        <option name="collect-on-run-ended-only" value="true" />
+        <option name="pull-pattern-keys" value="uirendering_.*" />
     </metrics_collector>
 </configuration>

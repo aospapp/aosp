@@ -102,7 +102,7 @@ class KeymasterPassthroughOperationFactory : public OperationFactory {
 
     // Factory methods
     OperationPtr CreateOperation(Key&& key, const AuthorizationSet& /*begin_params*/,
-                                 keymaster_error_t* error) const override {
+                                 keymaster_error_t* error) override {
         if (!error) return nullptr;
         *error = KM_ERROR_OK;
         OperationPtr op(new (std::nothrow) KeymasterPassthroughOperation<KeymasterDeviceType>(

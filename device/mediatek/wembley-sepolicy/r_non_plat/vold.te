@@ -1,0 +1,46 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# volume manager
+
+# Date : WK16.19
+# Operation : Migration
+# Purpose : unmount /mnt/cd-rom. It causes by unmountAll() when VolumeManager starts
+allow vold iso9660:filesystem unmount;
+
+# Date : WK16.19
+# Operation : Migration
+# Purpose : vold will traverse /proc when remountUid().
+#           It will trigger violation if mtk customize some label in /proc.
+#           However, we should ignore the violation if the processes never access the storage.
+dontaudit vold proc_battery_cmd:dir { read open };
+dontaudit vold proc_mtkcooler:dir { read open };
+dontaudit vold proc_mtktz:dir { read open };
+dontaudit vold proc_thermal:dir { read open };
+
+# Date : WK18.30
+# Operation : Migration
+# Purpose : vold create mdlog folder in data for meta mode.
+allow vold mdlog_data_file:dir { create_dir_perms };
+
+allow vold mtd_device:blk_file rw_file_perms;
+
+# dontaudit for fstrim on 'vendor' folder
+dontaudit vold nvdata_file:dir r_dir_perms;
+dontaudit vold nvcfg_file:dir r_dir_perms;
+dontaudit vold protect_f_data_file:dir r_dir_perms;
+dontaudit vold protect_s_data_file:dir r_dir_perms;
+
+# execute mke2fs when format as internal
+allow vold cache_block_device:blk_file getattr;
+allowxperm vold dm_device:blk_file ioctl {
+  BLKSECDISCARD BLKDISCARD BLKPBSZGET BLKDISCARDZEROES BLKROGET
+};
+allow vold nvcfg_block_device:blk_file getattr;
+allow vold nvdata_device:blk_file getattr;
+allow vold proc_swaps:file r_file_perms;
+allow vold protect1_block_device:blk_file getattr;
+allow vold protect2_block_device:blk_file getattr;
+allow vold proc_swaps:file getattr;
+allow vold swap_block_device:blk_file getattr;

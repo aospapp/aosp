@@ -37,12 +37,14 @@ struct DexCacheOffsets;
 class DexFile;
 union JValue;
 class LinearAlloc;
+class ReflectiveValueVisitor;
 class Thread;
 
 namespace mirror {
 
 class CallSite;
 class Class;
+class ClassLoader;
 class MethodType;
 class String;
 
@@ -476,6 +478,10 @@ class MANAGED DexCache final : public Object {
   // Returns true if we succeeded in adding the pre-resolved string array.
   bool AddPreResolvedStringsArray() REQUIRES_SHARED(Locks::mutator_lock_);
 
+  void VisitReflectiveTargets(ReflectiveValueVisitor* visitor) REQUIRES(Locks::mutator_lock_);
+
+  void SetClassLoader(ObjPtr<ClassLoader> class_loader) REQUIRES_SHARED(Locks::mutator_lock_);
+
  private:
   void Init(const DexFile* dex_file,
             ObjPtr<String> location,
@@ -515,8 +521,8 @@ class MANAGED DexCache final : public Object {
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(Locks::heap_bitmap_lock_);
 
   // Due to lack of 16-byte atomics support, we use hand-crafted routines.
-#if defined(__aarch64__) || defined(__mips__)
-  // 16-byte atomics are supported on aarch64, mips and mips64.
+#if defined(__aarch64__)
+  // 16-byte atomics are supported on aarch64.
   ALWAYS_INLINE static ConversionPair64 AtomicLoadRelaxed16B(
       std::atomic<ConversionPair64>* target) {
     return target->load(std::memory_order_relaxed);
@@ -556,10 +562,8 @@ class MANAGED DexCache final : public Object {
   static void AtomicStoreRelease16B(std::atomic<ConversionPair64>* target, ConversionPair64 value);
 #endif
 
+  HeapReference<ClassLoader> class_loader_;
   HeapReference<String> location_;
-  // Number of elements in the preresolved_strings_ array. Note that this appears here because of
-  // our packing logic for 32 bit fields.
-  uint32_t num_preresolved_strings_;
 
   uint64_t dex_file_;                // const DexFile*
   uint64_t preresolved_strings_;     // GcRoot<mirror::String*> array with num_preresolved_strings
@@ -575,6 +579,7 @@ class MANAGED DexCache final : public Object {
   uint64_t strings_;                 // std::atomic<StringDexCachePair>*, array with num_strings_
                                      // elements.
 
+  uint32_t num_preresolved_strings_;    // Number of elements in the preresolved_strings_ array.
   uint32_t num_resolved_call_sites_;    // Number of elements in the call_sites_ array.
   uint32_t num_resolved_fields_;        // Number of elements in the resolved_fields_ array.
   uint32_t num_resolved_method_types_;  // Number of elements in the resolved_method_types_ array.

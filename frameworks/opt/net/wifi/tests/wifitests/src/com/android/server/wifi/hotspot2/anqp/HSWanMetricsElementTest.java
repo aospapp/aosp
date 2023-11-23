@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -30,7 +32,7 @@ import java.nio.ByteOrder;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.HSWanMetricsElement}.
  */
 @SmallTest
-public class HSWanMetricsElementTest {
+public class HSWanMetricsElementTest extends WifiBaseTest {
     private static final int TEST_LINK_STATUS = HSWanMetricsElement.LINK_STATUS_UP;
     private static final boolean TEST_SYMMETRIC_LINK = true;
     private static final boolean TEST_AT_CAPACITY = true;

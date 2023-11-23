@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "android-base/file.h"
 #include "android-base/strings.h"
 #include "art_method-inl.h"
 #include "base/unix_file/fd_file.h"
@@ -35,77 +36,76 @@ namespace art {
 
 using Hotness = ProfileCompilationInfo::MethodHotness;
 using TypeReferenceSet = std::set<TypeReference, TypeReferenceValueComparator>;
+using ProfileInlineCache = ProfileMethodInfo::ProfileInlineCache;
 
-static constexpr size_t kMaxMethodIds = 65535;
-
+// TODO(calin): These tests share a lot with the ProfileCompilationInfo tests.
+// we should introduce a better abstraction to extract the common parts.
 class ProfileAssistantTest : public CommonRuntimeTest {
  public:
   void PostRuntimeCreate() override {
     allocator_.reset(new ArenaAllocator(Runtime::Current()->GetArenaPool()));
+
+    dex1 = fake_dex_storage.AddFakeDex("location1", /* checksum= */ 1, /* num_method_ids= */ 10001);
+    dex2 = fake_dex_storage.AddFakeDex("location2", /* checksum= */ 2, /* num_method_ids= */ 10002);
+    dex3 = fake_dex_storage.AddFakeDex("location3", /* checksum= */ 3, /* num_method_ids= */ 10003);
+    dex4 = fake_dex_storage.AddFakeDex("location4", /* checksum= */ 4, /* num_method_ids= */ 10004);
+
+    dex1_checksum_missmatch = fake_dex_storage.AddFakeDex(
+        "location1", /* checksum= */ 12, /* num_method_ids= */ 10001);
   }
 
  protected:
-  void SetupProfile(const std::string& id,
-                    uint32_t checksum,
+  bool AddMethod(ProfileCompilationInfo* info,
+                const DexFile* dex,
+                uint16_t method_idx,
+                const std::vector<ProfileInlineCache>& inline_caches,
+                Hotness::Flag flags) {
+    return info->AddMethod(
+        ProfileMethodInfo(MethodReference(dex, method_idx), inline_caches), flags);
+  }
+
+  bool AddMethod(ProfileCompilationInfo* info,
+                 const DexFile* dex,
+                 uint16_t method_idx,
+                 Hotness::Flag flags,
+                 const ProfileCompilationInfo::ProfileSampleAnnotation& annotation
+                    = ProfileCompilationInfo::ProfileSampleAnnotation::kNone) {
+    return info->AddMethod(ProfileMethodInfo(MethodReference(dex, method_idx)),
+                           flags,
+                           annotation);
+  }
+
+  bool AddClass(ProfileCompilationInfo* info,
+                const DexFile* dex,
+                dex::TypeIndex type_index) {
+    std::vector<dex::TypeIndex> classes = {type_index};
+    return info->AddClassesForDex(dex, classes.begin(), classes.end());
+  }
+
+  void SetupProfile(const DexFile* dex_file1,
+                    const DexFile* dex_file2,
                     uint16_t number_of_methods,
                     uint16_t number_of_classes,
                     const ScratchFile& profile,
                     ProfileCompilationInfo* info,
                     uint16_t start_method_index = 0,
                     bool reverse_dex_write_order = false) {
-    std::string dex_location1 = "location1" + id;
-    uint32_t dex_location_checksum1 = checksum;
-    std::string dex_location2 = "location2" + id;
-    uint32_t dex_location_checksum2 = 10 * checksum;
-    SetupProfile(dex_location1,
-                 dex_location_checksum1,
-                 dex_location2,
-                 dex_location_checksum2,
-                 number_of_methods,
-                 number_of_classes,
-                 profile,
-                 info,
-                 start_method_index,
-                 reverse_dex_write_order);
-  }
-
-  void SetupProfile(const std::string& dex_location1,
-                    uint32_t dex_location_checksum1,
-                    const std::string& dex_location2,
-                    uint32_t dex_location_checksum2,
-                    uint16_t number_of_methods,
-                    uint16_t number_of_classes,
-                    const ScratchFile& profile,
-                    ProfileCompilationInfo* info,
-                    uint16_t start_method_index = 0,
-                    bool reverse_dex_write_order = false,
-                    uint32_t number_of_methods1 = kMaxMethodIds,
-                    uint32_t number_of_methods2 = kMaxMethodIds) {
     for (uint16_t i = start_method_index; i < start_method_index + number_of_methods; i++) {
       // reverse_dex_write_order controls the order in which the dex files will be added to
       // the profile and thus written to disk.
-      ProfileCompilationInfo::OfflineProfileMethodInfo pmi =
-          GetOfflineProfileMethodInfo(dex_location1, dex_location_checksum1,
-                                      dex_location2, dex_location_checksum2,
-                                      number_of_methods1, number_of_methods2);
-      Hotness::Flag flags = Hotness::kFlagPostStartup;
+      std::vector<ProfileInlineCache> inline_caches = GetTestInlineCaches(dex_file1 , dex_file2, dex3);
+      Hotness::Flag flags = static_cast<Hotness::Flag>(
+          Hotness::kFlagHot | Hotness::kFlagPostStartup);
       if (reverse_dex_write_order) {
-        ASSERT_TRUE(info->AddMethod(
-            dex_location2, dex_location_checksum2, i, number_of_methods2, pmi, flags));
-        ASSERT_TRUE(info->AddMethod(
-            dex_location1, dex_location_checksum1, i, number_of_methods1, pmi, flags));
+        ASSERT_TRUE(AddMethod(info, dex_file2, i, inline_caches, flags));
+        ASSERT_TRUE(AddMethod(info, dex_file1, i, inline_caches, flags));
       } else {
-        ASSERT_TRUE(info->AddMethod(
-            dex_location1, dex_location_checksum1, i, number_of_methods1, pmi, flags));
-        ASSERT_TRUE(info->AddMethod(
-            dex_location2, dex_location_checksum2, i, number_of_methods2, pmi, flags));
+        ASSERT_TRUE(AddMethod(info, dex_file1, i, inline_caches, flags));
+        ASSERT_TRUE(AddMethod(info, dex_file2, i, inline_caches, flags));
       }
     }
     for (uint16_t i = 0; i < number_of_classes; i++) {
-      ASSERT_TRUE(info->AddClassIndex(ProfileCompilationInfo::GetProfileDexFileKey(dex_location1),
-                                      dex_location_checksum1,
-                                      dex::TypeIndex(i),
-                                      number_of_methods1));
+      ASSERT_TRUE(AddClass(info, dex_file1, dex::TypeIndex(i)));
     }
 
     ASSERT_TRUE(info->Save(GetFd(profile)));
@@ -113,77 +113,61 @@ class ProfileAssistantTest : public CommonRuntimeTest {
     ASSERT_TRUE(profile.GetFile()->ResetOffset());
   }
 
-  void SetupBasicProfile(const std::string& id,
-                         uint32_t checksum,
-                         uint16_t number_of_methods,
+  void SetupBasicProfile(const DexFile* dex,
                          const std::vector<uint32_t>& hot_methods,
                          const std::vector<uint32_t>& startup_methods,
                          const std::vector<uint32_t>& post_startup_methods,
                          const ScratchFile& profile,
                          ProfileCompilationInfo* info) {
-    std::string dex_location = "location1" + id;
     for (uint32_t idx : hot_methods) {
-      info->AddMethodIndex(Hotness::kFlagHot, dex_location, checksum, idx, number_of_methods);
+      AddMethod(info, dex, idx, Hotness::kFlagHot);
     }
     for (uint32_t idx : startup_methods) {
-      info->AddMethodIndex(Hotness::kFlagStartup, dex_location, checksum, idx, number_of_methods);
+      AddMethod(info, dex, idx, Hotness::kFlagStartup);
     }
     for (uint32_t idx : post_startup_methods) {
-      info->AddMethodIndex(Hotness::kFlagPostStartup,
-                           dex_location,
-                           checksum,
-                           idx,
-                           number_of_methods);
+      AddMethod(info, dex, idx, Hotness::kFlagPostStartup);
     }
     ASSERT_TRUE(info->Save(GetFd(profile)));
     ASSERT_EQ(0, profile.GetFile()->Flush());
     ASSERT_TRUE(profile.GetFile()->ResetOffset());
   }
 
-  // Creates an inline cache which will be destructed at the end of the test.
-  ProfileCompilationInfo::InlineCacheMap* CreateInlineCacheMap() {
-    used_inline_caches.emplace_back(new ProfileCompilationInfo::InlineCacheMap(
-        std::less<uint16_t>(), allocator_->Adapter(kArenaAllocProfile)));
-    return used_inline_caches.back().get();
-  }
-
-  ProfileCompilationInfo::OfflineProfileMethodInfo GetOfflineProfileMethodInfo(
-        const std::string& dex_location1, uint32_t dex_checksum1,
-        const std::string& dex_location2, uint32_t dex_checksum2,
-        uint32_t number_of_methods1 = kMaxMethodIds, uint32_t number_of_methods2 = kMaxMethodIds) {
-    ProfileCompilationInfo::InlineCacheMap* ic_map = CreateInlineCacheMap();
-    ProfileCompilationInfo::OfflineProfileMethodInfo pmi(ic_map);
-    pmi.dex_references.emplace_back(dex_location1, dex_checksum1, number_of_methods1);
-    pmi.dex_references.emplace_back(dex_location2, dex_checksum2, number_of_methods2);
-
+  // The dex1_substitute can be used to replace the default dex1 file.
+  std::vector<ProfileInlineCache> GetTestInlineCaches(
+        const DexFile* dex_file1, const DexFile* dex_file2, const DexFile* dex_file3) {
+    std::vector<ProfileInlineCache> inline_caches;
     // Monomorphic
     for (uint16_t dex_pc = 0; dex_pc < 11; dex_pc++) {
-      ProfileCompilationInfo::DexPcData dex_pc_data(allocator_.get());
-      dex_pc_data.AddClass(0, dex::TypeIndex(0));
-      ic_map->Put(dex_pc, dex_pc_data);
+      std::vector<TypeReference> types = {TypeReference(dex_file1, dex::TypeIndex(0))};
+      inline_caches.push_back(ProfileInlineCache(dex_pc, /* missing_types*/ false, types));
     }
     // Polymorphic
     for (uint16_t dex_pc = 11; dex_pc < 22; dex_pc++) {
-      ProfileCompilationInfo::DexPcData dex_pc_data(allocator_.get());
-      dex_pc_data.AddClass(0, dex::TypeIndex(0));
-      dex_pc_data.AddClass(1, dex::TypeIndex(1));
-
-      ic_map->Put(dex_pc, dex_pc_data);
+      std::vector<TypeReference> types = {
+          TypeReference(dex_file1, dex::TypeIndex(0)),
+          TypeReference(dex_file2, dex::TypeIndex(1)),
+          TypeReference(dex_file3, dex::TypeIndex(2))};
+      inline_caches.push_back(ProfileInlineCache(dex_pc, /* missing_types*/ false, types));
     }
     // Megamorphic
     for (uint16_t dex_pc = 22; dex_pc < 33; dex_pc++) {
-      ProfileCompilationInfo::DexPcData dex_pc_data(allocator_.get());
-      dex_pc_data.SetIsMegamorphic();
-      ic_map->Put(dex_pc, dex_pc_data);
+      // we need 5 types to make the cache megamorphic
+      std::vector<TypeReference> types = {
+          TypeReference(dex_file1, dex::TypeIndex(0)),
+          TypeReference(dex_file1, dex::TypeIndex(1)),
+          TypeReference(dex_file1, dex::TypeIndex(2)),
+          TypeReference(dex_file1, dex::TypeIndex(3)),
+          TypeReference(dex_file1, dex::TypeIndex(4))};
+      inline_caches.push_back(ProfileInlineCache(dex_pc, /* missing_types*/ false, types));
     }
     // Missing types
     for (uint16_t dex_pc = 33; dex_pc < 44; dex_pc++) {
-      ProfileCompilationInfo::DexPcData dex_pc_data(allocator_.get());
-      dex_pc_data.SetIsMissingTypes();
-      ic_map->Put(dex_pc, dex_pc_data);
+      std::vector<TypeReference> types;
+      inline_caches.push_back(ProfileInlineCache(dex_pc, /* missing_types*/ true, types));
     }
 
-    return pmi;
+    return inline_caches;
   }
 
   int GetFd(const ScratchFile& file) const {
@@ -198,18 +182,19 @@ class ProfileAssistantTest : public CommonRuntimeTest {
   }
 
   std::string GetProfmanCmd() {
-    std::string file_path = GetTestAndroidRoot();
-    file_path += "/bin/profman";
+    std::string file_path = GetArtBinDir() + "/profman";
     if (kIsDebugBuild) {
       file_path += "d";
     }
-    EXPECT_TRUE(OS::FileExists(file_path.c_str()))
-        << file_path << " should be a valid file path";
+    EXPECT_TRUE(OS::FileExists(file_path.c_str())) << file_path << " should be a valid file path";
     return file_path;
   }
 
   // Runs test with given arguments.
-  int ProcessProfiles(const std::vector<int>& profiles_fd, int reference_profile_fd) {
+  int ProcessProfiles(
+      const std::vector<int>& profiles_fd,
+      int reference_profile_fd,
+      const std::vector<const std::string>& extra_args = std::vector<const std::string>()) {
     std::string profman_cmd = GetProfmanCmd();
     std::vector<std::string> argv_str;
     argv_str.push_back(profman_cmd);
@@ -217,6 +202,7 @@ class ProfileAssistantTest : public CommonRuntimeTest {
       argv_str.push_back("--profile-file-fd=" + std::to_string(profiles_fd[k]));
     }
     argv_str.push_back("--reference-profile-file-fd=" + std::to_string(reference_profile_fd));
+    argv_str.insert(argv_str.end(), extra_args.begin(), extra_args.end());
 
     std::string error;
     return ExecAndReturnCode(argv_str, &error);
@@ -350,9 +336,8 @@ class ProfileAssistantTest : public CommonRuntimeTest {
                           bool is_missing_types)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> pmi =
-        info.GetMethod(method->GetDexFile()->GetLocation(),
-                       method->GetDexFile()->GetLocationChecksum(),
-                       method->GetDexMethodIndex());
+        info.GetHotMethodInfo(MethodReference(
+            method->GetDexFile(), method->GetDexMethodIndex()));
     ASSERT_TRUE(pmi != nullptr);
     ASSERT_EQ(pmi->inline_caches->size(), 1u);
     const ProfileCompilationInfo::DexPcData& dex_pc_data = pmi->inline_caches->begin()->second;
@@ -390,11 +375,10 @@ class ProfileAssistantTest : public CommonRuntimeTest {
       hot_methods_ref.push_back(i);
     }
     ProfileCompilationInfo info1;
-    uint16_t methods_in_profile = std::max(methods_in_cur_profile, methods_in_ref_profile);
-    SetupBasicProfile("p1", 1, methods_in_profile, hot_methods_cur, empty_vector, empty_vector,
+    SetupBasicProfile(dex1, hot_methods_cur, empty_vector, empty_vector,
         profile,  &info1);
     ProfileCompilationInfo info2;
-    SetupBasicProfile("p1", 1, methods_in_profile, hot_methods_ref, empty_vector, empty_vector,
+    SetupBasicProfile(dex1, hot_methods_ref, empty_vector, empty_vector,
         reference_profile,  &info2);
     return ProcessProfiles(profile_fds, reference_profile_fd);
   }
@@ -408,18 +392,20 @@ class ProfileAssistantTest : public CommonRuntimeTest {
     int reference_profile_fd = GetFd(reference_profile);
 
     ProfileCompilationInfo info1;
-    SetupProfile("p1", 1, 0, classes_in_cur_profile, profile,  &info1);
+    SetupProfile(dex1, dex2, 0, classes_in_cur_profile, profile,  &info1);
     ProfileCompilationInfo info2;
-    SetupProfile("p1", 1, 0, classes_in_ref_profile, reference_profile, &info2);
+    SetupProfile(dex1, dex2, 0, classes_in_ref_profile, reference_profile, &info2);
     return ProcessProfiles(profile_fds, reference_profile_fd);
   }
 
   std::unique_ptr<ArenaAllocator> allocator_;
 
-  // Cache of inline caches generated during tests.
-  // This makes it easier to pass data between different utilities and ensure that
-  // caches are destructed at the end of the test.
-  std::vector<std::unique_ptr<ProfileCompilationInfo::InlineCacheMap>> used_inline_caches;
+  const DexFile* dex1;
+  const DexFile* dex2;
+  const DexFile* dex3;
+  const DexFile* dex4;
+  const DexFile* dex1_checksum_missmatch;
+  FakeDexStorage fake_dex_storage;
 };
 
 TEST_F(ProfileAssistantTest, AdviseCompilationEmptyReferences) {
@@ -434,9 +420,9 @@ TEST_F(ProfileAssistantTest, AdviseCompilationEmptyReferences) {
 
   const uint16_t kNumberOfMethodsToEnableCompilation = 100;
   ProfileCompilationInfo info1;
-  SetupProfile("p1", 1, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
+  SetupProfile(dex1, dex2, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
   ProfileCompilationInfo info2;
-  SetupProfile("p2", 2, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
+  SetupProfile(dex3, dex4, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
 
   // We should advise compilation.
   ASSERT_EQ(ProfileAssistant::kCompile,
@@ -467,7 +453,7 @@ TEST_F(ProfileAssistantTest, AdviseCompilationEmptyReferencesBecauseOfClasses) {
 
   const uint16_t kNumberOfClassesToEnableCompilation = 100;
   ProfileCompilationInfo info1;
-  SetupProfile("p1", 1, 0, kNumberOfClassesToEnableCompilation, profile1, &info1);
+  SetupProfile(dex1, dex2, 0, kNumberOfClassesToEnableCompilation, profile1, &info1);
 
   // We should advise compilation.
   ASSERT_EQ(ProfileAssistant::kCompile,
@@ -498,15 +484,15 @@ TEST_F(ProfileAssistantTest, AdviseCompilationNonEmptyReferences) {
   // The new profile info will contain the methods with indices 0-100.
   const uint16_t kNumberOfMethodsToEnableCompilation = 100;
   ProfileCompilationInfo info1;
-  SetupProfile("p1", 1, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
+  SetupProfile(dex1, dex2, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
   ProfileCompilationInfo info2;
-  SetupProfile("p2", 2, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
+  SetupProfile(dex3, dex4, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
 
 
   // The reference profile info will contain the methods with indices 50-150.
   const uint16_t kNumberOfMethodsAlreadyCompiled = 100;
   ProfileCompilationInfo reference_info;
-  SetupProfile("p1", 1, kNumberOfMethodsAlreadyCompiled, 0, reference_profile,
+  SetupProfile(dex1, dex2, kNumberOfMethodsAlreadyCompiled, 0, reference_profile,
       &reference_info, kNumberOfMethodsToEnableCompilation / 2);
 
   // We should advise compilation.
@@ -541,9 +527,9 @@ TEST_F(ProfileAssistantTest, DoNotAdviseCompilation) {
 
   const uint16_t kNumberOfMethodsToSkipCompilation = 24;  // Threshold is 100.
   ProfileCompilationInfo info1;
-  SetupProfile("p1", 1, kNumberOfMethodsToSkipCompilation, 0, profile1, &info1);
+  SetupProfile(dex1, dex2, kNumberOfMethodsToSkipCompilation, 0, profile1, &info1);
   ProfileCompilationInfo info2;
-  SetupProfile("p2", 2, kNumberOfMethodsToSkipCompilation, 0, profile2, &info2);
+  SetupProfile(dex3, dex4, kNumberOfMethodsToSkipCompilation, 0, profile2, &info2);
 
   // We should not advise compilation.
   ASSERT_EQ(ProfileAssistant::kSkipCompilation,
@@ -617,9 +603,10 @@ TEST_F(ProfileAssistantTest, FailProcessingBecauseOfProfiles) {
   const uint16_t kNumberOfMethodsToEnableCompilation = 100;
   // Assign different hashes for the same dex file. This will make merging of information to fail.
   ProfileCompilationInfo info1;
-  SetupProfile("p1", 1, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
+  SetupProfile(dex1, dex2, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
   ProfileCompilationInfo info2;
-  SetupProfile("p1", 2, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
+  SetupProfile(
+      dex1_checksum_missmatch, dex2, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
 
   // We should fail processing.
   ASSERT_EQ(ProfileAssistant::kErrorBadProfiles,
@@ -644,9 +631,10 @@ TEST_F(ProfileAssistantTest, FailProcessingBecauseOfReferenceProfiles) {
   const uint16_t kNumberOfMethodsToEnableCompilation = 100;
   // Assign different hashes for the same dex file. This will make merging of information to fail.
   ProfileCompilationInfo info1;
-  SetupProfile("p1", 1, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
+  SetupProfile(dex1, dex2, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
   ProfileCompilationInfo reference_info;
-  SetupProfile("p1", 2, kNumberOfMethodsToEnableCompilation, 0, reference_profile, &reference_info);
+  SetupProfile(
+      dex1_checksum_missmatch, dex2, kNumberOfMethodsToEnableCompilation, 0, reference_profile, &reference_info);
 
   // We should not advise compilation.
   ASSERT_TRUE(profile1.GetFile()->ResetOffset());
@@ -698,10 +686,23 @@ TEST_F(ProfileAssistantTest, TestProfileCreationAllMatch) {
   ASSERT_EQ(output_file_contents, file_contents);
 }
 
+TEST_F(ProfileAssistantTest, TestArrayClass) {
+  std::vector<std::string> class_names = {
+    "[Ljava/lang/Comparable;",
+  };
+  std::string file_contents;
+  for (std::string& class_name : class_names) {
+    file_contents += class_name + std::string("\n");
+  }
+  std::string output_file_contents;
+  ASSERT_TRUE(CreateAndDump(file_contents, &output_file_contents));
+  ASSERT_EQ(output_file_contents, file_contents);
+}
+
 TEST_F(ProfileAssistantTest, TestProfileCreationGenerateMethods) {
   // Class names put here need to be in sorted order.
   std::vector<std::string> class_names = {
-    "Ljava/lang/Math;->*",
+    "HLjava/lang/Math;->*",
   };
   std::string input_file_contents;
   std::string expected_contents;
@@ -727,13 +728,16 @@ TEST_F(ProfileAssistantTest, TestProfileCreationGenerateMethods) {
     if (!method.IsCopied() && method.GetCodeItem() != nullptr) {
       ++method_count;
       std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> pmi =
-          info.GetMethod(method.GetDexFile()->GetLocation(),
-                         method.GetDexFile()->GetLocationChecksum(),
-                         method.GetDexMethodIndex());
+          info.GetHotMethodInfo(MethodReference(method.GetDexFile(), method.GetDexMethodIndex()));
       ASSERT_TRUE(pmi != nullptr) << method.PrettyMethod();
     }
   }
   EXPECT_GT(method_count, 0u);
+}
+
+static std::string JoinProfileLines(const std::vector<std::string>& lines) {
+  std::string result = android::base::Join(lines, '\n');
+  return result + '\n';
 }
 
 TEST_F(ProfileAssistantTest, TestBootImageProfile) {
@@ -748,102 +752,210 @@ TEST_F(ProfileAssistantTest, TestBootImageProfile) {
   // Not in image becauseof not enough occurrences.
   const std::string kUncommonCleanClass = "Ljava/lang/Process;";
   const std::string kUncommonDirtyClass = "Ljava/lang/Package;";
-  // Method that is hot.
-  // Also adds the class through inference since it is in each dex.
-  const std::string kHotMethod = "Ljava/lang/Comparable;->compareTo(Ljava/lang/Object;)I";
-  // Method that doesn't add the class since its only in one profile. Should still show up in the
-  // boot profile.
-  const std::string kOtherMethod = "Ljava/util/HashMap;-><init>()V";
-  // Method that gets marked as hot since it's in multiple profiles.
-  const std::string kMultiMethod = "Ljava/util/ArrayList;->clear()V";
+  // Method that is common and hot. Should end up in profile.
+  const std::string kCommonHotMethod = "Ljava/lang/Comparable;->compareTo(Ljava/lang/Object;)I";
+  // Uncommon method, should not end up in profile
+  const std::string kUncommonMethod = "Ljava/util/HashMap;-><init>()V";
+  // Method that gets marked as hot since it's in multiple profile and marked as startup.
+  const std::string kStartupMethodForUpgrade = "Ljava/util/ArrayList;->clear()V";
+  // Startup method used by a special package which will get a different threshold;
+  const std::string kSpecialPackageStartupMethod =
+      "Ljava/lang/Object;->toString()Ljava/lang/String;";
+  // Method used by a special package which will get a different threshold;
+  const std::string kUncommonSpecialPackageMethod = "Ljava/lang/Object;->hashCode()I";
+  // Blacklisted class
+  const std::string kPreloadedBlacklistedClass = "Ljava/lang/Thread;";
 
   // Thresholds for this test.
-  static const size_t kDirtyThreshold = 3;
-  static const size_t kCleanThreshold = 2;
-  static const size_t kMethodThreshold = 2;
+  static const size_t kDirtyThreshold = 100;
+  static const size_t kCleanThreshold = 50;
+  static const size_t kPreloadedThreshold = 100;
+  static const size_t kMethodThreshold = 75;
+  static const size_t kSpecialThreshold = 50;
+  const std::string kSpecialPackage = "dex4";
 
-  // Create a bunch of boot profiles.
-  std::string dex1 =
-      kCleanClass + "\n" +
-      kDirtyClass + "\n" +
-      kUncommonCleanClass + "\n" +
-      "H" + kHotMethod + "\n" +
-      kUncommonDirtyClass;
-  profiles.emplace_back(ScratchFile());
-  EXPECT_TRUE(CreateProfile(
-      dex1, profiles.back().GetFilename(), core_dex));
+  // Create boot profile content, attributing the classes and methods to different dex files.
+  std::vector<std::string> input_data = {
+      "{dex1}" + kCleanClass,
+      "{dex1}" + kDirtyClass,
+      "{dex1}" + kUncommonCleanClass,
+      "{dex1}H" + kCommonHotMethod,
+      "{dex1}P" + kStartupMethodForUpgrade,
+      "{dex1}" + kUncommonDirtyClass,
+      "{dex1}" + kPreloadedBlacklistedClass,
 
-  // Create a bunch of boot profiles.
-  std::string dex2 =
-      kCleanClass + "\n" +
-      kDirtyClass + "\n" +
-      "P" + kHotMethod + "\n" +
-      "P" + kMultiMethod + "\n" +
-      kUncommonDirtyClass;
-  profiles.emplace_back(ScratchFile());
-  EXPECT_TRUE(CreateProfile(
-      dex2, profiles.back().GetFilename(), core_dex));
+      "{dex2}" + kCleanClass,
+      "{dex2}" + kDirtyClass,
+      "{dex2}P" + kCommonHotMethod,
+      "{dex2}P" + kStartupMethodForUpgrade,
+      "{dex2}" + kUncommonDirtyClass,
+      "{dex2}" + kPreloadedBlacklistedClass,
 
-  // Create a bunch of boot profiles.
-  std::string dex3 =
-      "S" + kHotMethod + "\n" +
-      "P" + kOtherMethod + "\n" +
-      "P" + kMultiMethod + "\n" +
-      kDirtyClass + "\n";
-  profiles.emplace_back(ScratchFile());
-  EXPECT_TRUE(CreateProfile(
-      dex3, profiles.back().GetFilename(), core_dex));
+      "{dex3}P" + kUncommonMethod,
+      "{dex3}PS" + kStartupMethodForUpgrade,
+      "{dex3}S" + kCommonHotMethod,
+      "{dex3}S" + kSpecialPackageStartupMethod,
+      "{dex3}" + kDirtyClass,
+      "{dex3}" + kPreloadedBlacklistedClass,
+
+      "{dex4}" + kDirtyClass,
+      "{dex4}P" + kCommonHotMethod,
+      "{dex4}S" + kSpecialPackageStartupMethod,
+      "{dex4}P" + kUncommonSpecialPackageMethod,
+      "{dex4}" + kPreloadedBlacklistedClass,
+  };
+  std::string input_file_contents = JoinProfileLines(input_data);
+
+  ScratchFile preloaded_class_blacklist;
+  std::string blacklist_content = DescriptorToDot(kPreloadedBlacklistedClass.c_str());
+  EXPECT_TRUE(preloaded_class_blacklist.GetFile()->WriteFully(
+      blacklist_content.c_str(), blacklist_content.length()));
+
+  EXPECT_EQ(0, preloaded_class_blacklist.GetFile()->Flush());
+  EXPECT_TRUE(preloaded_class_blacklist.GetFile()->ResetOffset());
+  // Expected data
+  std::vector<std::string> expected_data = {
+      kCleanClass,
+      kDirtyClass,
+      kPreloadedBlacklistedClass,
+      "HSP" + kCommonHotMethod,
+      "HS" + kSpecialPackageStartupMethod,
+      "HSP" + kStartupMethodForUpgrade
+  };
+  std::string expected_profile_content = JoinProfileLines(expected_data);
+
+  std::vector<std::string> expected_preloaded_data = {
+       DescriptorToDot(kDirtyClass.c_str())
+  };
+  std::string expected_preloaded_content = JoinProfileLines(expected_preloaded_data);
+
+  ScratchFile profile;
+  EXPECT_TRUE(CreateProfile(input_file_contents, profile.GetFilename(), core_dex));
+
+  ProfileCompilationInfo bootProfile;
+  bootProfile.Load(profile.GetFilename(), /*for_boot_image*/ true);
 
   // Generate the boot profile.
   ScratchFile out_profile;
+  ScratchFile out_preloaded_classes;
+  ASSERT_TRUE(out_profile.GetFile()->ResetOffset());
+  ASSERT_TRUE(out_preloaded_classes.GetFile()->ResetOffset());
   std::vector<std::string> args;
   args.push_back(GetProfmanCmd());
   args.push_back("--generate-boot-image-profile");
-  args.push_back("--boot-image-class-threshold=" + std::to_string(kDirtyThreshold));
-  args.push_back("--boot-image-clean-class-threshold=" + std::to_string(kCleanThreshold));
-  args.push_back("--boot-image-sampled-method-threshold=" + std::to_string(kMethodThreshold));
-  args.push_back("--reference-profile-file=" + out_profile.GetFilename());
+  args.push_back("--class-threshold=" + std::to_string(kDirtyThreshold));
+  args.push_back("--clean-class-threshold=" + std::to_string(kCleanThreshold));
+  args.push_back("--method-threshold=" + std::to_string(kMethodThreshold));
+  args.push_back("--preloaded-class-threshold=" + std::to_string(kPreloadedThreshold));
+  args.push_back(
+      "--special-package=" + kSpecialPackage + ":" + std::to_string(kSpecialThreshold));
+  args.push_back("--profile-file=" + profile.GetFilename());
+  args.push_back("--out-profile-path=" + out_profile.GetFilename());
+  args.push_back("--out-preloaded-classes-path=" + out_preloaded_classes.GetFilename());
   args.push_back("--apk=" + core_dex);
   args.push_back("--dex-location=" + core_dex);
-  for (const ScratchFile& profile : profiles) {
-    args.push_back("--profile-file=" + profile.GetFilename());
-  }
+  args.push_back("--preloaded-classes-blacklist=" + preloaded_class_blacklist.GetFilename());
+
   std::string error;
-  EXPECT_EQ(ExecAndReturnCode(args, &error), 0) << error;
-  ASSERT_EQ(0, out_profile.GetFile()->Flush());
+  ASSERT_EQ(ExecAndReturnCode(args, &error), 0) << error;
   ASSERT_TRUE(out_profile.GetFile()->ResetOffset());
 
   // Verify the boot profile contents.
-  std::string output_file_contents;
-  EXPECT_TRUE(DumpClassesAndMethods(out_profile.GetFilename(), &output_file_contents));
-  // Common classes, should be in the classes of the profile.
-  EXPECT_NE(output_file_contents.find(kCleanClass + "\n"), std::string::npos)
-      << output_file_contents;
-  EXPECT_NE(output_file_contents.find(kDirtyClass + "\n"), std::string::npos)
-      << output_file_contents;
-  // Uncommon classes, should not fit preloaded class criteria and should not be in the profile.
-  EXPECT_EQ(output_file_contents.find(kUncommonCleanClass + "\n"), std::string::npos)
-      << output_file_contents;
-  EXPECT_EQ(output_file_contents.find(kUncommonDirtyClass + "\n"), std::string::npos)
-      << output_file_contents;
-  // Inferred class from a method common to all three profiles.
-  EXPECT_NE(output_file_contents.find("Ljava/lang/Comparable;\n"), std::string::npos)
-      << output_file_contents;
-  // Aggregated methods hotness information.
-  EXPECT_NE(output_file_contents.find("HSP" + kHotMethod), std::string::npos)
-      << output_file_contents;
-  EXPECT_NE(output_file_contents.find("P" + kOtherMethod), std::string::npos)
-      << output_file_contents;
-  // Not inferred class, method is only in one profile.
-  EXPECT_EQ(output_file_contents.find("Ljava/util/HashMap;\n"), std::string::npos)
-      << output_file_contents;
-  // Test the sampled methods that became hot.
-  // Other method is in only one profile, it should not become hot.
-  EXPECT_EQ(output_file_contents.find("HP" + kOtherMethod), std::string::npos)
-      << output_file_contents;
-  // Multi method is in at least two profiles, it should become hot.
-  EXPECT_NE(output_file_contents.find("HP" + kMultiMethod), std::string::npos)
-      << output_file_contents;
+  std::string output_profile_contents;
+  ASSERT_TRUE(android::base::ReadFileToString(
+      out_profile.GetFilename(), &output_profile_contents));
+  ASSERT_EQ(output_profile_contents, expected_profile_content);
+
+    // Verify the preloaded classes content.
+  std::string output_preloaded_contents;
+  ASSERT_TRUE(android::base::ReadFileToString(
+      out_preloaded_classes.GetFilename(), &output_preloaded_contents));
+  ASSERT_EQ(output_preloaded_contents, expected_preloaded_content);
+}
+
+TEST_F(ProfileAssistantTest, TestBootImageProfileWith2RawProfiles) {
+  const std::string core_dex = GetLibCoreDexFileNames()[0];
+
+  std::vector<ScratchFile> profiles;
+
+  const std::string kCommonClassUsedByDex1 = "Ljava/lang/CharSequence;";
+  const std::string kCommonClassUsedByDex1Dex2 = "Ljava/lang/Object;";
+  const std::string kUncommonClass = "Ljava/lang/Process;";
+  const std::string kCommonHotMethodUsedByDex1 =
+      "Ljava/lang/Comparable;->compareTo(Ljava/lang/Object;)I";
+  const std::string kCommonHotMethodUsedByDex1Dex2 = "Ljava/lang/Object;->hashCode()I";
+  const std::string kUncommonHotMethod = "Ljava/util/HashMap;-><init>()V";
+
+
+  // Thresholds for this test.
+  static const size_t kDirtyThreshold = 100;
+  static const size_t kCleanThreshold = 100;
+  static const size_t kMethodThreshold = 100;
+
+    // Create boot profile content, attributing the classes and methods to different dex files.
+  std::vector<std::string> input_data1 = {
+      "{dex1}" + kCommonClassUsedByDex1,
+      "{dex1}" + kCommonClassUsedByDex1Dex2,
+      "{dex1}" + kUncommonClass,
+      "{dex1}H" + kCommonHotMethodUsedByDex1Dex2,
+      "{dex1}" + kCommonHotMethodUsedByDex1,
+  };
+  std::vector<std::string> input_data2 = {
+      "{dex1}" + kCommonClassUsedByDex1,
+      "{dex2}" + kCommonClassUsedByDex1Dex2,
+      "{dex1}H" + kCommonHotMethodUsedByDex1,
+      "{dex2}" + kCommonHotMethodUsedByDex1Dex2,
+      "{dex1}" + kUncommonHotMethod,
+  };
+  std::string input_file_contents1 = JoinProfileLines(input_data1);
+  std::string input_file_contents2 = JoinProfileLines(input_data2);
+
+  // Expected data
+  std::vector<std::string> expected_data = {
+      kCommonClassUsedByDex1,
+      kCommonClassUsedByDex1Dex2,
+      "H" + kCommonHotMethodUsedByDex1,
+      "H" + kCommonHotMethodUsedByDex1Dex2
+  };
+  std::string expected_profile_content = JoinProfileLines(expected_data);
+
+  ScratchFile profile1;
+  ScratchFile profile2;
+  EXPECT_TRUE(CreateProfile(input_file_contents1, profile1.GetFilename(), core_dex));
+  EXPECT_TRUE(CreateProfile(input_file_contents2, profile2.GetFilename(), core_dex));
+
+  ProfileCompilationInfo boot_profile1;
+  ProfileCompilationInfo boot_profile2;
+  boot_profile1.Load(profile1.GetFilename(), /*for_boot_image*/ true);
+  boot_profile2.Load(profile2.GetFilename(), /*for_boot_image*/ true);
+
+  // Generate the boot profile.
+  ScratchFile out_profile;
+  ScratchFile out_preloaded_classes;
+  ASSERT_TRUE(out_profile.GetFile()->ResetOffset());
+  ASSERT_TRUE(out_preloaded_classes.GetFile()->ResetOffset());
+  std::vector<std::string> args;
+  args.push_back(GetProfmanCmd());
+  args.push_back("--generate-boot-image-profile");
+  args.push_back("--class-threshold=" + std::to_string(kDirtyThreshold));
+  args.push_back("--clean-class-threshold=" + std::to_string(kCleanThreshold));
+  args.push_back("--method-threshold=" + std::to_string(kMethodThreshold));
+  args.push_back("--profile-file=" + profile1.GetFilename());
+  args.push_back("--profile-file=" + profile2.GetFilename());
+  args.push_back("--out-profile-path=" + out_profile.GetFilename());
+  args.push_back("--out-preloaded-classes-path=" + out_preloaded_classes.GetFilename());
+  args.push_back("--apk=" + core_dex);
+  args.push_back("--dex-location=" + core_dex);
+
+  std::string error;
+  ASSERT_EQ(ExecAndReturnCode(args, &error), 0) << error;
+  ASSERT_TRUE(out_profile.GetFile()->ResetOffset());
+
+  // Verify the boot profile contents.
+  std::string output_profile_contents;
+  ASSERT_TRUE(android::base::ReadFileToString(
+      out_profile.GetFilename(), &output_profile_contents));
+  ASSERT_EQ(output_profile_contents, expected_profile_content);
 }
 
 TEST_F(ProfileAssistantTest, TestProfileCreationOneNotMatched) {
@@ -885,11 +997,11 @@ TEST_F(ProfileAssistantTest, TestProfileCreationNoneMatched) {
 TEST_F(ProfileAssistantTest, TestProfileCreateInlineCache) {
   // Create the profile content.
   std::vector<std::string> methods = {
-    "LTestInline;->inlineMonomorphic(LSuper;)I+LSubA;",
-    "LTestInline;->inlinePolymorphic(LSuper;)I+LSubA;,LSubB;,LSubC;",
-    "LTestInline;->inlineMegamorphic(LSuper;)I+LSubA;,LSubB;,LSubC;,LSubD;,LSubE;",
-    "LTestInline;->inlineMissingTypes(LSuper;)I+missing_types",
-    "LTestInline;->noInlineCache(LSuper;)I"
+    "HLTestInline;->inlineMonomorphic(LSuper;)I+LSubA;",
+    "HLTestInline;->inlinePolymorphic(LSuper;)I+LSubA;,LSubB;,LSubC;",
+    "HLTestInline;->inlineMegamorphic(LSuper;)I+LSubA;,LSubB;,LSubC;,LSubD;,LSubE;",
+    "HLTestInline;->inlineMissingTypes(LSuper;)I+missing_types",
+    "HLTestInline;->noInlineCache(LSuper;)I"
   };
   std::string input_file_contents;
   for (std::string& m : methods) {
@@ -986,9 +1098,8 @@ TEST_F(ProfileAssistantTest, TestProfileCreateInlineCache) {
     ArtMethod* no_inline_cache = GetVirtualMethod(class_loader, "LTestInline;", "noInlineCache");
     ASSERT_TRUE(no_inline_cache != nullptr);
     std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> pmi_no_inline_cache =
-        info.GetMethod(no_inline_cache->GetDexFile()->GetLocation(),
-                       no_inline_cache->GetDexFile()->GetLocationChecksum(),
-                       no_inline_cache->GetDexMethodIndex());
+        info.GetHotMethodInfo(MethodReference(
+            no_inline_cache->GetDexFile(), no_inline_cache->GetDexMethodIndex()));
     ASSERT_TRUE(pmi_no_inline_cache != nullptr);
     ASSERT_TRUE(pmi_no_inline_cache->inline_caches->empty());
   }
@@ -1004,7 +1115,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithDifferentDexOrder) {
   // The new profile info will contain the methods with indices 0-100.
   const uint16_t kNumberOfMethodsToEnableCompilation = 100;
   ProfileCompilationInfo info1;
-  SetupProfile("p1", 1, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1,
+  SetupProfile(dex1, dex2, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1,
       /*start_method_index=*/0, /*reverse_dex_write_order=*/false);
 
   // The reference profile info will contain the methods with indices 50-150.
@@ -1013,7 +1124,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithDifferentDexOrder) {
   // with a different dex order correctly.
   const uint16_t kNumberOfMethodsAlreadyCompiled = 100;
   ProfileCompilationInfo reference_info;
-  SetupProfile("p1", 1, kNumberOfMethodsAlreadyCompiled, 0, reference_profile,
+  SetupProfile(dex1, dex2, kNumberOfMethodsAlreadyCompiled, 0, reference_profile,
       &reference_info, kNumberOfMethodsToEnableCompilation / 2, /*reverse_dex_write_order=*/true);
 
   // We should advise compilation.
@@ -1037,8 +1148,8 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithDifferentDexOrder) {
 TEST_F(ProfileAssistantTest, TestProfileCreateWithInvalidData) {
   // Create the profile content.
   std::vector<std::string> profile_methods = {
-    "LTestInline;->inlineMonomorphic(LSuper;)I+invalid_class",
-    "LTestInline;->invalid_method",
+    "HLTestInline;->inlineMonomorphic(LSuper;)I+invalid_class",
+    "HLTestInline;->invalid_method",
     "invalid_class"
   };
   std::string input_file_contents;
@@ -1070,9 +1181,7 @@ TEST_F(ProfileAssistantTest, TestProfileCreateWithInvalidData) {
 
   // Verify that the inline cache contains the invalid type.
   std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> pmi =
-      info.GetMethod(dex_file->GetLocation(),
-                     dex_file->GetLocationChecksum(),
-                     inline_monomorphic->GetDexMethodIndex());
+      info.GetHotMethodInfo(MethodReference(dex_file, inline_monomorphic->GetDexMethodIndex()));
   ASSERT_TRUE(pmi != nullptr);
   ASSERT_EQ(pmi->inline_caches->size(), 1u);
   const ProfileCompilationInfo::DexPcData& dex_pc_data = pmi->inline_caches->begin()->second;
@@ -1121,9 +1230,7 @@ TEST_F(ProfileAssistantTest, DumpOnly) {
   EXPECT_GT(startup_methods.size(), 0u);
   EXPECT_GT(post_startup_methods.size(), 0u);
   ProfileCompilationInfo info1;
-  SetupBasicProfile("p1",
-                    1,
-                    kNumberOfMethods,
+  SetupBasicProfile(dex1,
                     hot_methods,
                     startup_methods,
                     post_startup_methods,
@@ -1176,17 +1283,15 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithFilter) {
   // The new profile info will contain the methods with indices 0-100.
   const uint16_t kNumberOfMethodsToEnableCompilation = 100;
   ProfileCompilationInfo info1;
-  SetupProfile(d1.GetLocation(), d1.GetLocationChecksum(), "p1", 1,
-      kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
+  SetupProfile(&d1, dex1, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1);
   ProfileCompilationInfo info2;
-  SetupProfile(d2.GetLocation(), d2.GetLocationChecksum(), "p2", 2,
-      kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
+  SetupProfile(&d2, dex2, kNumberOfMethodsToEnableCompilation, 0, profile2, &info2);
 
 
   // The reference profile info will contain the methods with indices 50-150.
   const uint16_t kNumberOfMethodsAlreadyCompiled = 100;
   ProfileCompilationInfo reference_info;
-  SetupProfile(d1.GetLocation(), d1.GetLocationChecksum(), "p1", 1,
+  SetupProfile(&d1, dex1,
       kNumberOfMethodsAlreadyCompiled, 0, reference_profile,
       &reference_info, kNumberOfMethodsToEnableCompilation / 2);
 
@@ -1204,7 +1309,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithFilter) {
   argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
   std::string error;
 
-  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), 0) << error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfileAssistant::kCompile) << error;
 
   // Verify that we can load the result.
 
@@ -1223,9 +1328,9 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithFilter) {
 
   ProfileCompilationInfo::ProfileLoadFilterFn filter_fn =
       [&d1, &d2](const std::string& dex_location, uint32_t checksum) -> bool {
-          return (dex_location == ProfileCompilationInfo::GetProfileDexFileKey(d1.GetLocation())
+          return (dex_location == ProfileCompilationInfo::GetProfileDexFileBaseKey(d1.GetLocation())
               && checksum == d1.GetLocationChecksum())
-              || (dex_location == ProfileCompilationInfo::GetProfileDexFileKey(d2.GetLocation())
+              || (dex_location == ProfileCompilationInfo::GetProfileDexFileBaseKey(d2.GetLocation())
               && checksum == d2.GetLocationChecksum());
         };
 
@@ -1255,18 +1360,18 @@ TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
 
   ProfileCompilationInfo info1;
   uint16_t num_methods_to_add = std::min(d1.NumMethodIds(), d2.NumMethodIds());
-  SetupProfile("fake-location1",
-               d1.GetLocationChecksum(),
-               "fake-location2",
-               d2.GetLocationChecksum(),
+
+  FakeDexStorage local_storage;
+  const DexFile* dex_to_be_updated1 = local_storage.AddFakeDex(
+      "fake-location1", d1.GetLocationChecksum(), d1.NumMethodIds());
+  const DexFile* dex_to_be_updated2 = local_storage.AddFakeDex(
+      "fake-location2", d2.GetLocationChecksum(), d2.NumMethodIds());
+  SetupProfile(dex_to_be_updated1,
+               dex_to_be_updated2,
                num_methods_to_add,
                /*number_of_classes=*/ 0,
                profile1,
-               &info1,
-               /*start_method_index=*/ 0,
-               /*reverse_dex_write_order=*/ false,
-               /*number_of_methods1=*/ d1.NumMethodIds(),
-               /*number_of_methods2=*/ d2.NumMethodIds());
+               &info1);
 
   // Run profman and pass the dex file with --apk-fd.
   android::base::unique_fd apk_fd(
@@ -1291,66 +1396,186 @@ TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
 
   // Verify that the renaming was done.
   for (uint16_t i = 0; i < num_methods_to_add; i ++) {
-      std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> pmi;
-      ASSERT_TRUE(result.GetMethod(d1.GetLocation(), d1.GetLocationChecksum(), i) != nullptr) << i;
-      ASSERT_TRUE(result.GetMethod(d2.GetLocation(), d2.GetLocationChecksum(), i) != nullptr) << i;
+    std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> pmi;
+    ASSERT_TRUE(result.GetHotMethodInfo(MethodReference(&d1, i)) != nullptr) << i;
+    ASSERT_TRUE(result.GetHotMethodInfo(MethodReference(&d2, i)) != nullptr) << i;
 
-      ASSERT_TRUE(result.GetMethod("fake-location1", d1.GetLocationChecksum(), i) == nullptr);
-      ASSERT_TRUE(result.GetMethod("fake-location2", d2.GetLocationChecksum(), i) == nullptr);
+    ASSERT_TRUE(result.GetHotMethodInfo(MethodReference(dex_to_be_updated1, i)) == nullptr);
+    ASSERT_TRUE(result.GetHotMethodInfo(MethodReference(dex_to_be_updated2, i)) == nullptr);
   }
 }
 
-TEST_F(ProfileAssistantTest, MergeProfilesWithCounters) {
-  ScratchFile profile1;
-  ScratchFile profile2;
+TEST_F(ProfileAssistantTest, BootImageMerge) {
+  ScratchFile profile;
+  ScratchFile reference_profile;
+  std::vector<int> profile_fds({GetFd(profile)});
+  int reference_profile_fd = GetFd(reference_profile);
+  std::vector<uint32_t> hot_methods_cur;
+  std::vector<uint32_t> hot_methods_ref;
+  std::vector<uint32_t> empty_vector;
+  size_t num_methods = 100;
+  for (size_t i = 0; i < num_methods; ++i) {
+    hot_methods_cur.push_back(i);
+  }
+  for (size_t i = 0; i < num_methods; ++i) {
+    hot_methods_ref.push_back(i);
+  }
+  ProfileCompilationInfo info1;
+  SetupBasicProfile(dex1, hot_methods_cur, empty_vector, empty_vector,
+      profile, &info1);
+  ProfileCompilationInfo info2(/*for_boot_image=*/true);
+  SetupBasicProfile(dex1, hot_methods_ref, empty_vector, empty_vector,
+      reference_profile, &info2);
+
+  std::vector<const std::string> extra_args({"--force-merge", "--boot-image-merge"});
+
+  int return_code = ProcessProfiles(profile_fds, reference_profile_fd, extra_args);
+
+  ASSERT_EQ(return_code, ProfileAssistant::kSuccess);
+
+  // Verify the result: it should be equal to info2 since info1 is a regular profile
+  // and should be ignored.
+  ProfileCompilationInfo result;
+  ASSERT_TRUE(reference_profile.GetFile()->ResetOffset());
+  ASSERT_TRUE(result.Load(reference_profile.GetFd()));
+  ASSERT_TRUE(result.Equals(info2));
+}
+
+// Under default behaviour we should not advice compilation
+// and the reference profile should not be updated.
+// However we pass --force-merge to force aggregation and in this case
+// we should see an update.
+TEST_F(ProfileAssistantTest, ForceMerge) {
+  const uint16_t kNumberOfClassesInRefProfile = 6000;
+  const uint16_t kNumberOfClassesInCurProfile = 6110;  // Threshold is 2%.
+
+  ScratchFile profile;
   ScratchFile reference_profile;
 
-  // The new profile info will contain methods with indices 0-100.
-  const uint16_t kNumberOfMethodsToEnableCompilation = 100;
-  const uint16_t kNumberOfClasses = 50;
+  std::vector<int> profile_fds({ GetFd(profile)});
+  int reference_profile_fd = GetFd(reference_profile);
 
+  ProfileCompilationInfo info1;
+  SetupProfile(dex1, dex2, 0, kNumberOfClassesInRefProfile, profile,  &info1);
+  ProfileCompilationInfo info2;
+  SetupProfile(dex1, dex2, 0, kNumberOfClassesInCurProfile, reference_profile, &info2);
+
+  std::vector<const std::string> extra_args({"--force-merge"});
+  int return_code = ProcessProfiles(profile_fds, reference_profile_fd, extra_args);
+
+  ASSERT_EQ(return_code, ProfileAssistant::kSuccess);
+
+  // Check that the result is the aggregation.
+  ProfileCompilationInfo result;
+  ASSERT_TRUE(reference_profile.GetFile()->ResetOffset());
+  ASSERT_TRUE(result.Load(reference_profile.GetFd()));
+  ASSERT_TRUE(info1.MergeWith(info2));
+  ASSERT_TRUE(result.Equals(info1));
+}
+
+// Test that we consider the annations when we merge boot image profiles.
+TEST_F(ProfileAssistantTest, BootImageMergeWithAnnotations) {
+  ScratchFile profile;
+  ScratchFile reference_profile;
+
+  std::vector<int> profile_fds({GetFd(profile)});
+  int reference_profile_fd = GetFd(reference_profile);
+
+  // Use a real dex file to generate profile test data so that we can pass descriptors to profman.
   std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles("ProfileTestMultiDex");
   const DexFile& d1 = *dex_files[0];
   const DexFile& d2 = *dex_files[1];
-  ProfileCompilationInfo info1;
-  SetupProfile(
-      d1.GetLocation(), d1.GetLocationChecksum(),
-      d2.GetLocation(), d2.GetLocationChecksum(),
-      kNumberOfMethodsToEnableCompilation, kNumberOfClasses, profile1, &info1);
-  ProfileCompilationInfo info2;
-  SetupProfile(
-      d1.GetLocation(), d1.GetLocationChecksum(),
-      d2.GetLocation(), d2.GetLocationChecksum(),
-      kNumberOfMethodsToEnableCompilation, kNumberOfClasses, profile2, &info2);
+  // The new profile info will contain the methods with indices 0-100.
+  ProfileCompilationInfo info(/*for_boot_image*/ true);
+  ProfileCompilationInfo::ProfileSampleAnnotation psa1("package1");
+  ProfileCompilationInfo::ProfileSampleAnnotation psa2("package2");
+
+  AddMethod(&info, &d1, 0, Hotness::kFlagHot, psa1);
+  AddMethod(&info, &d2, 0, Hotness::kFlagHot, psa2);
+  info.Save(profile.GetFd());
+  profile.GetFile()->ResetOffset();
+
+  // Run profman and pass the dex file with --apk-fd.
+  android::base::unique_fd apk_fd(
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));  // NOLINT
+  ASSERT_GE(apk_fd.get(), 0);
 
   std::string profman_cmd = GetProfmanCmd();
   std::vector<std::string> argv_str;
   argv_str.push_back(profman_cmd);
-  argv_str.push_back("--profile-file-fd=" + std::to_string(profile1.GetFd()));
-  argv_str.push_back("--profile-file-fd=" + std::to_string(profile2.GetFd()));
+  argv_str.push_back("--profile-file-fd=" + std::to_string(profile.GetFd()));
   argv_str.push_back("--reference-profile-file-fd=" + std::to_string(reference_profile.GetFd()));
-  argv_str.push_back("--store-aggregation-counters");
+  argv_str.push_back("--apk-fd=" + std::to_string(apk_fd.get()));
+  argv_str.push_back("--force-merge");
+  argv_str.push_back("--boot-image-merge");
   std::string error;
 
-  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), 0) << error;
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), ProfileAssistant::kSuccess) << error;
 
-  // Verify that we can load the result and that the counters are in place.
-
+  // Verify that we can load the result and that it equals to what we saved.
   ProfileCompilationInfo result;
-  result.PrepareForAggregationCounters();
   ASSERT_TRUE(reference_profile.GetFile()->ResetOffset());
-  ASSERT_TRUE(result.Load(reference_profile.GetFd()));
-
-  ASSERT_TRUE(result.StoresAggregationCounters());
-  ASSERT_EQ(2, result.GetAggregationCounter());
-
-  for (uint16_t i = 0; i < kNumberOfMethodsToEnableCompilation; i++) {
-    ASSERT_EQ(1, result.GetMethodAggregationCounter(MethodReference(&d1, i)));
-    ASSERT_EQ(1, result.GetMethodAggregationCounter(MethodReference(&d2, i)));
-  }
-  for (uint16_t i = 0; i < kNumberOfClasses; i++) {
-    ASSERT_EQ(1, result.GetClassAggregationCounter(TypeReference(&d1, dex::TypeIndex(i))));
-  }
+  ASSERT_TRUE(result.Load(reference_profile_fd));
+  ASSERT_TRUE(info.Equals(result));
 }
 
+TEST_F(ProfileAssistantTest, DifferentProfileVersions) {
+  ScratchFile profile1;
+  ScratchFile profile2;
+
+  ProfileCompilationInfo info1(/*for_boot_image*/ false);
+  info1.Save(profile1.GetFd());
+  profile1.GetFile()->ResetOffset();
+
+  ProfileCompilationInfo info2(/*for_boot_image*/ true);
+  info2.Save(profile2.GetFd());
+  profile2.GetFile()->ResetOffset();
+
+  std::vector<int> profile_fds({ GetFd(profile1)});
+  int reference_profile_fd = GetFd(profile2);
+  ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd),
+            ProfileAssistant::kErrorDifferentVersions);
+
+  // Reverse the order of the profiles to verify we get the same behaviour.
+  profile_fds[0] = GetFd(profile2);
+  reference_profile_fd = GetFd(profile1);
+  profile1.GetFile()->ResetOffset();
+  profile2.GetFile()->ResetOffset();
+  ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd),
+            ProfileAssistant::kErrorDifferentVersions);
+}
+
+// Under default behaviour we will abort if we cannot load a profile during a merge
+// operation. However, if we pass --force-merge to force aggregation we should
+// ignore files we cannot load
+TEST_F(ProfileAssistantTest, ForceMergeIgnoreProfilesItCannotLoad) {
+  ScratchFile profile1;
+  ScratchFile profile2;
+
+  // Write corrupt data in the first file.
+  std::string content = "giberish";
+  ASSERT_TRUE(profile1.GetFile()->WriteFully(content.c_str(), content.length()));
+  profile1.GetFile()->ResetOffset();
+
+  ProfileCompilationInfo info2(/*for_boot_image*/ true);
+  info2.Save(profile2.GetFd());
+  profile2.GetFile()->ResetOffset();
+
+  std::vector<int> profile_fds({ GetFd(profile1)});
+  int reference_profile_fd = GetFd(profile2);
+
+  // With force-merge we should merge successfully.
+  std::vector<const std::string> extra_args({"--force-merge"});
+  ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd, extra_args),
+            ProfileAssistant::kSuccess);
+
+  ProfileCompilationInfo result;
+  ASSERT_TRUE(profile2.GetFile()->ResetOffset());
+  ASSERT_TRUE(result.Load(reference_profile_fd));
+  ASSERT_TRUE(info2.Equals(result));
+
+  // Without force-merge we should fail.
+  ASSERT_EQ(ProcessProfiles(profile_fds, reference_profile_fd, extra_args),
+            ProfileAssistant::kErrorBadProfiles);
+}
 }  // namespace art

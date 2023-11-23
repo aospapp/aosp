@@ -132,6 +132,32 @@ def _install_package_precheck(packages):
     return True
 
 
+
+def _remove_banned_packages(packages, banned_packages):
+    """Filter out packages.
+
+    @param packages: A set of packages names that have been requested.
+    @param items: A list of package names that are not to be installed.
+
+    @return: A sanatized set of packages names to install.
+    """
+    return {package for package in packages if package not in banned_packages}
+
+
+def _ensure_pip(target_setting):
+    """ Ensure pip is installed, if not install it.
+
+    @param target_setting: target command param specifying the path to where
+                           python packages should be installed.
+    """
+    try:
+        import pip
+    except ImportError:
+        common_utils.run(
+            'wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py')
+        common_utils.run('python /tmp/get-pip.py %s' % target_setting)
+
+
 @metrics.SecondsTimerDecorator(
     '%s/install_packages_duration' % constants.STATS_KEY)
 @retry.retry(error.CmdError, timeout_min=30)
@@ -174,10 +200,17 @@ def install_packages(packages=[], python_packages=[], force_latest=False):
     # Always run apt-get update before installing any container. The base
     # container may have outdated cache.
     common_utils.run('sudo apt-get update')
+
     # Make sure the lists are not None for iteration.
     packages = [] if not packages else packages
-    if python_packages:
-        packages.extend(['python-pip', 'python-dev'])
+    # Remove duplicates.
+    packages = set(packages)
+
+    # Ubuntu distribution of pip is very old, do not use it as it causes
+    # segmentation faults.  Some tests request these packages, ensure they
+    # are not installed.
+    packages = _remove_banned_packages(packages, ['python-pip', 'python-dev'])
+
     if packages:
         common_utils.run(
             'sudo DEBIAN_FRONTEND=noninteractive apt-get install %s -y '
@@ -191,8 +224,11 @@ def install_packages(packages=[], python_packages=[], force_latest=False):
     # Containers created in Moblab does not have autotest/site-packages folder.
     if not os.path.exists('/usr/local/autotest/site-packages'):
         target_setting = '--target="/usr/lib/python2.7/dist-packages/"'
+    # Pip should be installed in the base container, if not install it.
     if python_packages:
-        common_utils.run('sudo pip install %s %s' % (target_setting,
+        _ensure_pip(target_setting)
+        common_utils.run('python -m pip install pip --upgrade')
+        common_utils.run('python -m pip install %s %s' % (target_setting,
                                               ' '.join(python_packages)))
         logging.debug('Python packages are installed: %s.', python_packages)
 

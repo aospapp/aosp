@@ -22,10 +22,8 @@ import android.media.tv.TvInputInfo;
 import android.os.Build;
 import android.util.ArraySet;
 import android.util.Log;
-import com.android.tv.common.BuildConfig;
 import com.android.tv.common.CommonConstants;
 import com.android.tv.common.actions.InputSetupActionUtils;
-import com.android.tv.common.experiments.Experiments;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -53,6 +51,7 @@ public final class CommonUtils {
 
     static {
         BUNDLED_PACKAGE_SET.add("com.android.tv");
+// AOSP_Comment_Out         BUNDLED_PACKAGE_SET.add(CommonConstants.BASE_PACKAGE);
     }
 
     private static Boolean sRunningInTest;
@@ -123,14 +122,9 @@ public final class CommonUtils {
         return false;
     }
 
-    /** Returns true if the application is packaged with Live TV. */
+    /** Returns true if the application is packaged with TV app. */
     public static boolean isPackagedWithLiveChannels(Context context) {
         return (CommonConstants.BASE_PACKAGE.equals(context.getPackageName()));
-    }
-
-    /** Returns true if the current user is a developer. */
-    public static boolean isDeveloper() {
-        return BuildConfig.ENG || Experiments.ENABLE_DEVELOPER_FEATURES.get();
     }
 
     /** Converts time in milliseconds to a ISO 8061 string. */

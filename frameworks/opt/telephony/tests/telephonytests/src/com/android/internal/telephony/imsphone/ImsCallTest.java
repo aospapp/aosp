@@ -16,24 +16,25 @@
 
 package com.android.internal.telephony.imsphone;
 
-import android.os.Bundle;
-import android.telephony.ServiceState;
-import android.test.suitebuilder.annotation.SmallTest;
-
-import com.android.ims.ImsCall;
-import android.telephony.ims.ImsCallProfile;
-
-import com.android.internal.telephony.TelephonyTest;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import static junit.framework.Assert.assertNotNull;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.doReturn;
+
+import android.os.Bundle;
+import android.telephony.ServiceState;
+import android.telephony.TelephonyManager;
+import android.telephony.ims.ImsCallProfile;
+import android.test.suitebuilder.annotation.SmallTest;
+
+import com.android.ims.ImsCall;
+import com.android.internal.telephony.TelephonyTest;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class ImsCallTest extends TelephonyTest {
 
@@ -54,14 +55,46 @@ public class ImsCallTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testSetWifi() {
+    public void testSetWifiDeprecated() {
         ImsCall mTestImsCall = new ImsCall(mContext, mTestCallProfile);
         assertFalse(mTestImsCall.isWifiCall());
-        assertNotEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
+        // use deprecated API
         mBundle.putString(ImsCallProfile.EXTRA_CALL_RAT_TYPE,
                 ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN + "");
         assertTrue(mTestImsCall.isWifiCall());
-        assertNotEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
+    }
+
+    @Test
+    @SmallTest
+    public void testNullCallProfile() {
+        ImsCall imsCall = new ImsCall(mContext, null /* imsCallProfile */);
+        assertNotNull(imsCall);
+        assertFalse(imsCall.wasVideoCall());
+    }
+
+    @Test
+    @SmallTest
+    public void testNonNulllVideoProfile() {
+        ImsCallProfile profile = new ImsCallProfile();
+        profile.mCallType = ImsCallProfile.CALL_TYPE_VT_TX;
+
+        ImsCall imsCall = new ImsCall(mContext, profile);
+        assertNotNull(imsCall);
+        assertTrue(imsCall.wasVideoCall());
+    }
+
+    @Test
+    @SmallTest
+    public void testSetWifi() {
+        ImsCall mTestImsCall = new ImsCall(mContext, mTestCallProfile);
+        assertFalse(mTestImsCall.isWifiCall());
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
+        mBundle.putInt(ImsCallProfile.EXTRA_CALL_NETWORK_TYPE,
+                TelephonyManager.NETWORK_TYPE_IWLAN);
+        assertTrue(mTestImsCall.isWifiCall());
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
     }
 
     @Test
@@ -69,11 +102,23 @@ public class ImsCallTest extends TelephonyTest {
     public void testSetWifiAlt() {
         ImsCall mTestImsCall = new ImsCall(mContext, mTestCallProfile);
         assertFalse(mTestImsCall.isWifiCall());
-        assertNotEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
         mBundle.putString(ImsCallProfile.EXTRA_CALL_RAT_TYPE_ALT,
                 ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN + "");
         assertTrue(mTestImsCall.isWifiCall());
-        assertNotEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
+    }
+
+    @Test
+    @SmallTest
+    public void testSetLteNoWifiDeprecated() {
+        ImsCall mTestImsCall = new ImsCall(mContext, mTestCallProfile);
+        assertFalse(mTestImsCall.isWifiCall());
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
+        mBundle.putString(ImsCallProfile.EXTRA_CALL_RAT_TYPE,
+                ServiceState.RIL_RADIO_TECHNOLOGY_LTE + "");
+        assertFalse(mTestImsCall.isWifiCall());
+        assertEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
     }
 
     @Test
@@ -81,11 +126,11 @@ public class ImsCallTest extends TelephonyTest {
     public void testSetLteNoWifi() {
         ImsCall mTestImsCall = new ImsCall(mContext, mTestCallProfile);
         assertFalse(mTestImsCall.isWifiCall());
-        assertNotEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
-        mBundle.putString(ImsCallProfile.EXTRA_CALL_RAT_TYPE,
-                ServiceState.RIL_RADIO_TECHNOLOGY_LTE + "");
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
+        mBundle.putInt(ImsCallProfile.EXTRA_CALL_NETWORK_TYPE,
+                TelephonyManager.NETWORK_TYPE_LTE);
         assertFalse(mTestImsCall.isWifiCall());
-        assertEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
     }
 
     @Test
@@ -93,10 +138,10 @@ public class ImsCallTest extends TelephonyTest {
     public void testSetLteNoWifiAlt() {
         ImsCall mTestImsCall = new ImsCall(mContext, mTestCallProfile);
         assertFalse(mTestImsCall.isWifiCall());
-        assertNotEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertNotEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
         mBundle.putString(ImsCallProfile.EXTRA_CALL_RAT_TYPE_ALT,
                 ServiceState.RIL_RADIO_TECHNOLOGY_LTE + "");
         assertFalse(mTestImsCall.isWifiCall());
-        assertEquals(mTestImsCall.getRadioTechnology(), ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertEquals(mTestImsCall.getNetworkType(), TelephonyManager.NETWORK_TYPE_LTE);
     }
 }

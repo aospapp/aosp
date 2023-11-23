@@ -6,6 +6,9 @@
  * Copyright (C) 2016, Bin Meng <bmeng.cn@gmail.com>
  */
 
+#ifndef __ASM_ACPI_TABLE_H__
+#define __ASM_ACPI_TABLE_H__
+
 #define RSDP_SIG		"RSD PTR "	/* RSDP pointer signature */
 #define OEM_ID			"U-BOOT"	/* U-Boot */
 #define OEM_TABLE_ID		"U-BOOTBL"	/* U-Boot Table */
@@ -31,7 +34,7 @@ struct acpi_rsdp {
 };
 
 /* Generic ACPI header, provided by (almost) all tables */
-struct acpi_table_header {
+struct __packed acpi_table_header {
 	char signature[4];	/* ACPI signature (4 ASCII characters) */
 	u32 length;		/* Table length in bytes (incl. header) */
 	u8 revision;		/* Table version (not ACPI version!) */
@@ -300,6 +303,88 @@ struct acpi_mcfg_mmconfig {
 /* ACPI global NVS structure */
 struct acpi_global_nvs;
 
+/* CSRT (Core System Resource Table) */
+struct acpi_csrt {
+	struct acpi_table_header header;
+};
+
+struct acpi_csrt_group {
+	u32 length;
+	u32 vendor_id;
+	u32 subvendor_id;
+	u16 device_id;
+	u16 subdevice_id;
+	u16 revision;
+	u16 reserved;
+	u32 shared_info_length;
+};
+
+struct acpi_csrt_shared_info {
+	u16 major_version;
+	u16 minor_version;
+	u32 mmio_base_low;
+	u32 mmio_base_high;
+	u32 gsi_interrupt;
+	u8 interrupt_polarity;
+	u8 interrupt_mode;
+	u8 num_channels;
+	u8 dma_address_width;
+	u16 base_request_line;
+	u16 num_handshake_signals;
+	u32 max_block_size;
+};
+
+/* DBG2 definitions are partially used for SPCR interface_type */
+
+/* Types for port_type field */
+
+#define ACPI_DBG2_SERIAL_PORT		0x8000
+#define ACPI_DBG2_1394_PORT		0x8001
+#define ACPI_DBG2_USB_PORT		0x8002
+#define ACPI_DBG2_NET_PORT		0x8003
+
+/* Subtypes for port_subtype field */
+
+#define ACPI_DBG2_16550_COMPATIBLE	0x0000
+#define ACPI_DBG2_16550_SUBSET		0x0001
+#define ACPI_DBG2_ARM_PL011		0x0003
+#define ACPI_DBG2_ARM_SBSA_32BIT	0x000D
+#define ACPI_DBG2_ARM_SBSA_GENERIC	0x000E
+#define ACPI_DBG2_ARM_DCC		0x000F
+#define ACPI_DBG2_BCM2835		0x0010
+
+#define ACPI_DBG2_1394_STANDARD		0x0000
+
+#define ACPI_DBG2_USB_XHCI		0x0000
+#define ACPI_DBG2_USB_EHCI		0x0001
+
+#define ACPI_DBG2_UNKNOWN		0x00FF
+
+/* SPCR (Serial Port Console Redirection table) */
+struct __packed acpi_spcr {
+	struct acpi_table_header header;
+	u8 interface_type;
+	u8 reserved[3];
+	struct acpi_gen_regaddr serial_port;
+	u8 interrupt_type;
+	u8 pc_interrupt;
+	u32 interrupt;		/* Global system interrupt */
+	u8 baud_rate;
+	u8 parity;
+	u8 stop_bits;
+	u8 flow_control;
+	u8 terminal_type;
+	u8 reserved1;
+	u16 pci_device_id;	/* Must be 0xffff if not PCI device */
+	u16 pci_vendor_id;	/* Must be 0xffff if not PCI device */
+	u8 pci_bus;
+	u8 pci_device;
+	u8 pci_function;
+	u32 pci_flags;
+	u8 pci_segment;
+	u32 reserved2;
+};
+
 /* These can be used by the target port */
 
 void acpi_fill_header(struct acpi_table_header *header, char *signature);
@@ -316,16 +401,8 @@ u32 acpi_fill_madt(u32 current);
 int acpi_create_mcfg_mmconfig(struct acpi_mcfg_mmconfig *mmconfig, u32 base,
 			      u16 seg_nr, u8 start, u8 end);
 u32 acpi_fill_mcfg(u32 current);
+u32 acpi_fill_csrt(u32 current);
 void acpi_create_gnvs(struct acpi_global_nvs *gnvs);
-/**
- * enter_acpi_mode() - enter into ACPI mode
- *
- * This programs the ACPI-defined PM1_CNT register to enable SCI interrupt
- * so that the whole system swiches to ACPI mode.
- *
- * @pm1_cnt:	PM1_CNT register I/O address
- */
-void enter_acpi_mode(int pm1_cnt);
 ulong write_acpi_tables(ulong start);
 
 /**
@@ -337,21 +414,4 @@ ulong write_acpi_tables(ulong start);
  */
 ulong acpi_get_rsdp_addr(void);
 
-/**
- * acpi_find_fadt() - find ACPI FADT table in the sytem memory
- *
- * This routine parses the ACPI table to locate the ACPI FADT table.
- *
- * @return:	a pointer to the ACPI FADT table in the system memory
- */
-struct acpi_fadt *acpi_find_fadt(void);
-
-/**
- * acpi_find_wakeup_vector() - find OS installed wake up vector address
- *
- * This routine parses the ACPI table to locate the wake up vector installed
- * by the OS previously.
- *
- * @return:	wake up vector address installed by the OS
- */
-void *acpi_find_wakeup_vector(struct acpi_fadt *);
+#endif /* __ASM_ACPI_TABLE_H__ */

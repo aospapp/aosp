@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright 2020, The Android Open Source Project
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<resources>
+    <!-- Time interval (in milliseconds) used to decide whether we should accelerate the controller
+    rotation for a rotate event. If the interval between the current rotate event and the previous
+    rotate event is smaller than this value, we'll treat the rotation event as 3 rotations. -->
+    <integer name="rotation_acceleration_3x_ms">20</integer>
+
+    <!-- Time interval (in milliseconds) used to decide whether we should accelerate the controller
+    rotation for a rotate event. If the interval between the current rotate event and the previous
+    rotate event is smaller than this value, we'll treat the rotation event as 2 rotations. -->
+    <integer name="rotation_acceleration_2x_ms">40</integer>
+
+    <!-- Values for FocusHistoryCache, which saves last focused node by FocusArea. -->
+    <!-- Type of FocusHistoryCache. The values are defined in RotaryCache. 1 means the cache
+    is disabled, 2 means entries in the cache will expire after a period of time, and 3 means
+    elements in the cache will never expire as long as RotaryService is alive. -->
+    <integer name="focus_history_cache_type">2</integer>
+    <!-- How many milliseconds before an entry in FocusHistoryCache expires. Must be positive value
+    when focus_history_cache_type is 2. -->
+    <integer name="focus_history_expiration_time_ms">10000</integer>
+    <!-- Size of FocusHistoryCache. -->
+    <integer name="focus_history_cache_size">10</integer>
+
+    <!-- Values for FocusAreaHistoryCache, which saves target FocusArea by source FocusArea and
+    direction. -->
+    <!-- Type of FocusAreaHistoryCache. The values are defined in RotaryCache. 1 means the
+    cache is disabled, 2 means entries in the cache will expire after a period of time, and 3 means
+    elements in the cache will never expire as long as RotaryService is alive. -->
+    <integer name="focus_area_history_cache_type">2</integer>
+    <!-- How many milliseconds before an entry in FocusAreaHistoryCache expires. Must be positive
+    value when focus_history_cache_type is 2. -->
+    <integer name="focus_area_history_expiration_time_ms">10000</integer>
+    <!-- Size of FocusAreaHistoryCache. -->
+    <integer name="focus_area_history_cache_size">5</integer>
+
+    <!-- Values for FocusWindowCache, which saves the last focused node for each window. -->
+    <!-- Type of FocusWindowCache. The values are defined in RotaryCache. 1 means the
+    cache is disabled, 2 means entries in the cache will expire after a period of time, and 3 means
+    elements in the cache will never expire as long as RotaryService is alive. -->
+    <integer name="focus_window_cache_type">2</integer>
+    <!-- How many milliseconds before an entry in FocusWindowCache expires. Must be positive
+    value when focus_window_cache_type is 2. -->
+    <integer name="focus_window_expiration_time_ms">600000</integer>
+    <!-- Size of FocusWindowCache. -->
+    <integer name="focus_window_cache_size">5</integer>
+
+    <!-- How many milliseconds to ignore TYPE_VIEW_CLICKED events after performing ACTION_CLICK or
+    injecting KEYCODE_DPAD_CENTER. -->
+    <integer name="ignore_view_clicked_ms">200</integer>
+    <!-- How many milliseconds to wait for TYPE_VIEW_SCROLLED events after scrolling. -->
+    <integer name="after_scroll_timeout_ms">200</integer>
+</resources>

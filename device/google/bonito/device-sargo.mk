@@ -20,19 +20,41 @@ include device/google/bonito/device-common.mk
 
 DEVICE_PACKAGE_OVERLAYS += device/google/bonito/sargo/overlay
 
+# SKU specific RROs
+PRODUCT_PACKAGES += \
+    SettingsOverlayG020E \
+    SettingsOverlayG020E_VN \
+    SettingsOverlayG020F \
+    SettingsOverlayG020F_VN \
+    SettingsOverlayG020G \
+    SettingsOverlayG020G_VN \
+    SettingsOverlayG020H \
+    SettingsOverlayG020H_VN \
+
+# Setup wizard overlay packages for ActiveEdge
+PRODUCT_PACKAGES += \
+    PixelSetupWizardOverlayActiveEdge \
+
 PRODUCT_COPY_FILES += \
-    device/google/bonito/nfc/libnfc-nxp.sargo.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf
+    device/google/bonito/nfc/libnfc-nxp.sargo.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf \
+    device/google/bonito/nfc/libnfc-nxp.sargo.uicc.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp-G020E.conf \
+    device/google/bonito/nfc/libnfc-nxp.sargo.uicc.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp-G020F.conf \
+    device/google/bonito/nfc/libnfc-nxp.sargo.uicc.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp-G020G.conf \
+    device/google/bonito/nfc/libnfc-nxp.sargo.ese.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp-G020H.conf
 
 PRODUCT_PRODUCT_PROPERTIES += ro.com.google.ime.height_ratio=1.2
 
 # Vibrator HAL
 PRODUCT_PRODUCT_PROPERTIES +=\
+    ro.vibrator.hal.config.dynamic=1 \
     ro.vibrator.hal.click.duration=8 \
     ro.vibrator.hal.tick.duration=5 \
     ro.vibrator.hal.heavyclick.duration=12 \
     ro.vibrator.hal.short.voltage=110 \
     ro.vibrator.hal.long.voltage=80 \
-    ro.vibrator.hal.long.frequency.shift=10
+    ro.vibrator.hal.long.frequency.shift=10 \
+    ro.vibrator.hal.double_click.duration=182
+
 
 # DRV2624 Haptics Waveform
 PRODUCT_COPY_FILES += \

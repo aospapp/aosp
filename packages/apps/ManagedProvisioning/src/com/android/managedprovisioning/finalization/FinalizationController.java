@@ -1,5 +1,5 @@
 /*
- * Copyright 2016, The Android Open Source Project
+ * Copyright 2019, The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,11 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEV
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
-import static com.android.managedprovisioning.finalization.SendDpcBroadcastService.EXTRA_PROVISIONING_PARAMS;
 
+import android.annotation.IntDef;
+import android.app.Activity;
 import android.app.NotificationManager;
-import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.UserHandle;
+import android.os.Bundle;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.analytics.DeferredMetricsReader;
@@ -42,125 +38,91 @@ import com.android.managedprovisioning.provisioning.Constants;
 import java.io.File;
 
 /**
- * Controller for the finalization of managed provisioning.
- *
- * <p>This controller is invoked when the active provisioning is completed via
- * {@link #provisioningInitiallyDone(ProvisioningParams)}. In the case of provisioning during SUW,
- * it is invoked again when provisioning is finalized via {@link #provisioningFinalized()}.</p>
+ * Controller for the finalization of managed provisioning.  This class should be invoked after
+ * {@link PreFinalizationController}.  Provisioning is finalized via calls to
+ * {@link #provisioningFinalized()} and {@link #commitFinalizedState()}.  Different instances of
+ * this class will be tailored to run these two methods at different points in the Setup Wizard user
+ * flows, based on the type of FinalizationControllerLogic they are constructed with.
  */
-public class FinalizationController {
-    private static final String PROVISIONING_PARAMS_FILE_NAME =
-            "finalization_activity_provisioning_params.xml";
+public final class FinalizationController {
 
-    private final Context mContext;
+    static final int PROVISIONING_FINALIZED_RESULT_NO_CHILD_ACTIVITY_LAUNCHED = 1;
+    static final int PROVISIONING_FINALIZED_RESULT_CHILD_ACTIVITY_LAUNCHED = 2;
+    static final int PROVISIONING_FINALIZED_RESULT_SKIPPED = 3;
+    @IntDef({
+            PROVISIONING_FINALIZED_RESULT_NO_CHILD_ACTIVITY_LAUNCHED,
+            PROVISIONING_FINALIZED_RESULT_CHILD_ACTIVITY_LAUNCHED,
+            PROVISIONING_FINALIZED_RESULT_SKIPPED})
+    @interface ProvisioningFinalizedResult {}
+
+    private static final int DPC_SETUP_REQUEST_CODE = 1;
+    private static final int FINAL_SCREEN_REQUEST_CODE = 2;
+
+    private final FinalizationControllerLogic mFinalizationControllerLogic;
+    private final Activity mActivity;
     private final Utils mUtils;
     private final SettingsFacade mSettingsFacade;
     private final UserProvisioningStateHelper mUserProvisioningStateHelper;
     private final ProvisioningIntentProvider mProvisioningIntentProvider;
     private final NotificationHelper mNotificationHelper;
     private final DeferredMetricsReader mDeferredMetricsReader;
+    private @ProvisioningFinalizedResult int mProvisioningFinalizedResult;
+    private ProvisioningParamsUtils mProvisioningParamsUtils;
 
-    public FinalizationController(Context context,
-          UserProvisioningStateHelper userProvisioningStateHelper) {
+    public FinalizationController(Activity activity,
+            FinalizationControllerLogic finalizationControllerLogic,
+            UserProvisioningStateHelper userProvisioningStateHelper) {
         this(
-                context,
+                activity,
+                finalizationControllerLogic,
                 new Utils(),
                 new SettingsFacade(),
                 userProvisioningStateHelper,
-                new NotificationHelper(context),
+                new NotificationHelper(activity),
                 new DeferredMetricsReader(
-                        Constants.getDeferredMetricsFile(context)));
+                        Constants.getDeferredMetricsFile(activity)),
+                new ProvisioningParamsUtils());
     }
 
-    public FinalizationController(Context context) {
+    public FinalizationController(Activity activity,
+            FinalizationControllerLogic finalizationControllerLogic) {
         this(
-                context,
+                activity,
+                finalizationControllerLogic,
                 new Utils(),
                 new SettingsFacade(),
-                new UserProvisioningStateHelper(context),
-                new NotificationHelper(context),
+                new UserProvisioningStateHelper(activity),
+                new NotificationHelper(activity),
                 new DeferredMetricsReader(
-                        Constants.getDeferredMetricsFile(context)));
+                        Constants.getDeferredMetricsFile(activity)),
+                new ProvisioningParamsUtils());
     }
 
     @VisibleForTesting
-    FinalizationController(Context context,
+    FinalizationController(Activity activity,
+            FinalizationControllerLogic finalizationControllerLogic,
             Utils utils,
             SettingsFacade settingsFacade,
             UserProvisioningStateHelper helper,
             NotificationHelper notificationHelper,
-            DeferredMetricsReader deferredMetricsReader) {
-        mContext = checkNotNull(context);
+            DeferredMetricsReader deferredMetricsReader,
+            ProvisioningParamsUtils provisioningParamsUtils) {
+        mActivity = checkNotNull(activity);
+        mFinalizationControllerLogic = checkNotNull(finalizationControllerLogic);
         mUtils = checkNotNull(utils);
         mSettingsFacade = checkNotNull(settingsFacade);
         mUserProvisioningStateHelper = checkNotNull(helper);
         mProvisioningIntentProvider = new ProvisioningIntentProvider();
         mNotificationHelper = checkNotNull(notificationHelper);
         mDeferredMetricsReader = checkNotNull(deferredMetricsReader);
-    }
-
-    /**
-     * This method is invoked when the provisioning process is done.
-     *
-     * <p>If provisioning happens as part of SUW, we rely on {@link #provisioningFinalized()} to be
-     * called at the end of SUW. Otherwise, this method will finalize provisioning. If called after
-     * SUW, this method notifies the DPC about the completed provisioning; otherwise, it stores the
-     * provisioning params for later digestion.</p>
-     *
-     * <p>Note that fully managed device provisioning is only possible during SUW.
-     *
-     * @param params the provisioning params
-     */
-    public void provisioningInitiallyDone(ProvisioningParams params) {
-        if (!mUserProvisioningStateHelper.isStateUnmanagedOrFinalized()) {
-            // In any other state than STATE_USER_UNMANAGED and STATE_USER_SETUP_FINALIZED, we've
-            // already run this method, so don't do anything.
-            // STATE_USER_SETUP_FINALIZED can occur here if a managed profile is provisioned on a
-            // device owner device.
-            ProvisionLogger.logw("provisioningInitiallyDone called, but state is not finalized or "
-                    + "unmanaged");
-            return;
-        }
-
-        mUserProvisioningStateHelper.markUserProvisioningStateInitiallyDone(params);
-        if (ACTION_PROVISION_MANAGED_PROFILE.equals(params.provisioningAction)) {
-            if (params.isOrganizationOwnedProvisioning) {
-                setProfileOwnerCanAccessDeviceIds();
-            }
-            if (!mSettingsFacade.isDuringSetupWizard(mContext)) {
-                // If a managed profile was provisioned after SUW, notify the DPC straight away.
-                notifyDpcManagedProfile(params);
-            }
-        }
-        if (mSettingsFacade.isDuringSetupWizard(mContext)) {
-            // Store the information and wait for provisioningFinalized to be called
-            storeProvisioningParams(params);
-        }
-    }
-
-    private void setProfileOwnerCanAccessDeviceIds() {
-        final DevicePolicyManager dpm = mContext.getSystemService(DevicePolicyManager.class);
-        final int managedProfileUserId = mUtils.getManagedProfile(mContext).getIdentifier();
-        final ComponentName admin = dpm.getProfileOwnerAsUser(managedProfileUserId);
-        if (admin != null) {
-            try {
-                final Context profileContext = mContext.createPackageContextAsUser(
-                        mContext.getPackageName(), 0 /* flags */,
-                        UserHandle.of(managedProfileUserId));
-                final DevicePolicyManager profileDpm =
-                        profileContext.getSystemService(DevicePolicyManager.class);
-                profileDpm.setProfileOwnerCanAccessDeviceIds(admin);
-            } catch (NameNotFoundException e) {
-                ProvisionLogger.logw("Error setting access to Device IDs: " + e.getMessage());
-            }
-        }
+        mProvisioningParamsUtils = provisioningParamsUtils;
     }
 
     @VisibleForTesting
-    PrimaryProfileFinalizationHelper getPrimaryProfileFinalizationHelper(
+    final PrimaryProfileFinalizationHelper getPrimaryProfileFinalizationHelper(
             ProvisioningParams params) {
         return new PrimaryProfileFinalizationHelper(params.accountToMigrate,
-                params.keepAccountMigrated, mUtils.getManagedProfile(mContext),
+                params.keepAccountMigrated, mUtils.getManagedProfile(mActivity),
                 params.inferDeviceAdminPackageName(), mUtils,
                 mUtils.isAdminIntegratedFlow(params));
     }
@@ -168,88 +130,141 @@ public class FinalizationController {
     /**
      * This method is invoked when provisioning is finalized.
      *
-     * <p>This method has to be invoked after {@link #provisioningInitiallyDone(ProvisioningParams)}
-     * was called. It is commonly invoked at the end of SUW if provisioning occurs during SUW. It
-     * loads the provisioning params from the storage, notifies the DPC about the completed
-     * provisioning and sets the right user provisioning states.</p>
+     * <p>This method has to be invoked after
+     * {@link PreFinalizationController#deviceManagementEstablished(ProvisioningParams)}
+     * was called. It is commonly invoked at the end of the setup flow, if provisioning occurs
+     * during the setup flow. It loads the provisioning params from the storage, notifies the DPC
+     * about the completed provisioning and sets the right user provisioning states.
+     *
+     * <p>To retrieve the resulting state of this method, use
+     * {@link #getProvisioningFinalizedResult()}
+     *
+     * <p>This method may be called multiple times.  {@link #commitFinalizedState()} ()} must be
+     * called after the final call to this method.  If this method is called again after that, it
+     * will return immediately without taking any action.
      */
-    void provisioningFinalized() {
-        mDeferredMetricsReader.scheduleDumpMetrics(mContext);
+    final void provisioningFinalized() {
+        mProvisioningFinalizedResult = PROVISIONING_FINALIZED_RESULT_SKIPPED;
 
         if (mUserProvisioningStateHelper.isStateUnmanagedOrFinalized()) {
-            ProvisionLogger.logw("provisioningInitiallyDone called, but state is finalized or "
+            ProvisionLogger.logw("provisioningFinalized called, but state is finalized or "
                     + "unmanaged");
             return;
         }
 
-        final ProvisioningParams params = loadProvisioningParamsAndClearFile();
+        final ProvisioningParams params = loadProvisioningParams();
         if (params == null) {
             ProvisionLogger.logw("FinalizationController invoked, but no stored params");
             return;
         }
 
+        if (!mFinalizationControllerLogic.isReadyForFinalization(params)) {
+            return;
+        }
+
+        mProvisioningFinalizedResult = PROVISIONING_FINALIZED_RESULT_NO_CHILD_ACTIVITY_LAUNCHED;
         if (mUtils.isAdminIntegratedFlow(params)) {
             // Don't send ACTION_PROFILE_PROVISIONING_COMPLETE broadcast to DPC or launch DPC by
             // ACTION_PROVISIONING_SUCCESSFUL intent if it's admin integrated flow.
-            if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
-                getPrimaryProfileFinalizationHelper(params)
-                        .finalizeProvisioningInPrimaryProfile(mContext, null);
-            } else if (ACTION_PROVISION_MANAGED_DEVICE.equals(params.provisioningAction)) {
-                mNotificationHelper.showPrivacyReminderNotification(
-                        mContext, NotificationManager.IMPORTANCE_DEFAULT);
+            if (mUtils.isDeviceOwnerAction(params.provisioningAction)) {
+                mProvisioningIntentProvider.launchFinalizationScreenForResult(mActivity, params,
+                        FINAL_SCREEN_REQUEST_CODE);
+                mProvisioningFinalizedResult =
+                        PROVISIONING_FINALIZED_RESULT_CHILD_ACTIVITY_LAUNCHED;
             }
-            mProvisioningIntentProvider.launchFinalizationScreen(mContext, params);
         } else {
             if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
-                notifyDpcManagedProfile(params);
+                mProvisioningFinalizedResult =
+                        mFinalizationControllerLogic.notifyDpcManagedProfile(
+                                params, DPC_SETUP_REQUEST_CODE);
             } else {
-                // For managed user and device owner, we send the provisioning complete intent and
-                // maybe launch the DPC.
-                final int userId = UserHandle.myUserId();
-                final Intent provisioningCompleteIntent = mProvisioningIntentProvider
-                        .createProvisioningCompleteIntent(params, userId, mUtils, mContext);
-                if (provisioningCompleteIntent == null) {
-                    return;
-                }
-                mContext.sendBroadcast(provisioningCompleteIntent);
-
-                mProvisioningIntentProvider.maybeLaunchDpc(params, userId, mUtils, mContext);
-
-                if (ACTION_PROVISION_MANAGED_DEVICE.equals(params.provisioningAction)) {
-                    mNotificationHelper.showPrivacyReminderNotification(
-                            mContext, NotificationManager.IMPORTANCE_DEFAULT);
-                }
+                mProvisioningFinalizedResult =
+                        mFinalizationControllerLogic.notifyDpcManagedDeviceOrUser(
+                                params, DPC_SETUP_REQUEST_CODE);
             }
         }
-
-        mUserProvisioningStateHelper.markUserProvisioningStateFinalized(params);
     }
 
     /**
-     * Start a service which notifies the DPC on the managed profile that provisioning has
-     * completed. When the DPC has received the intent, send notify the primary instance that the
-     * profile is ready. The service is needed to prevent the managed provisioning process from
-     * getting killed while the user is on the DPC screen.
+     * @throws IllegalStateException if {@link #provisioningFinalized()} was not called before.
      */
-    private void notifyDpcManagedProfile(ProvisioningParams params) {
-        mContext.startService(
-                new Intent(mContext, SendDpcBroadcastService.class)
-                        .putExtra(EXTRA_PROVISIONING_PARAMS, params));
-    }
-
-    private void storeProvisioningParams(ProvisioningParams params) {
-        params.save(getProvisioningParamsFile());
-    }
-
-    private File getProvisioningParamsFile() {
-        return new File(mContext.getFilesDir(), PROVISIONING_PARAMS_FILE_NAME);
+    final @ProvisioningFinalizedResult int getProvisioningFinalizedResult() {
+        if (mProvisioningFinalizedResult == 0) {
+            throw new IllegalStateException("provisioningFinalized() has not been called.");
+        }
+        return mProvisioningFinalizedResult;
     }
 
     @VisibleForTesting
-    ProvisioningParams loadProvisioningParamsAndClearFile() {
-        File file = getProvisioningParamsFile();
-        ProvisioningParams result = ProvisioningParams.load(file);
-        file.delete();
-        return result;
+    final void clearParamsFile() {
+        final File file = mProvisioningParamsUtils.getProvisioningParamsFile(mActivity);
+        if (file != null) {
+            file.delete();
+        }
+    }
+
+    private ProvisioningParams loadProvisioningParams() {
+        final File file = mProvisioningParamsUtils.getProvisioningParamsFile(mActivity);
+        final ProvisioningParams params = ProvisioningParams.load(file);
+        return params;
+    }
+
+    /**
+     * Update the system's provisioning state, and commit any other irreversible changes that
+     * must wait until finalization is 100% completed.
+     */
+    private void commitFinalizedState(ProvisioningParams params) {
+        if (ACTION_PROVISION_MANAGED_DEVICE.equals(params.provisioningAction)) {
+            mNotificationHelper.showPrivacyReminderNotification(
+                    mActivity, NotificationManager.IMPORTANCE_DEFAULT);
+        } else if (ACTION_PROVISION_MANAGED_PROFILE.equals(params.provisioningAction)
+                && mFinalizationControllerLogic.shouldFinalizePrimaryProfile(params)) {
+            getPrimaryProfileFinalizationHelper(params)
+                    .finalizeProvisioningInPrimaryProfile(mActivity, null);
+        }
+
+        mUserProvisioningStateHelper.markUserProvisioningStateFinalized(params);
+
+        mDeferredMetricsReader.scheduleDumpMetrics(mActivity);
+        clearParamsFile();
+    }
+
+    /**
+     * This method is called by the parent activity to force the final commit of all state changes.
+     * After this is called, any further calls to {@link #provisioningFinalized()} will return
+     * immediately without taking any action.
+     */
+    final void commitFinalizedState() {
+        final ProvisioningParams params = loadProvisioningParams();
+        if (params == null) {
+            ProvisionLogger.logw(
+                    "Attempt to commitFinalizedState when params have already been deleted");
+        } else {
+            commitFinalizedState(loadProvisioningParams());
+        }
+    }
+
+    /**
+     * This method is called when onSaveInstanceState() executes on the finalization activity.
+     */
+    final void saveInstanceState(Bundle outState) {
+        mFinalizationControllerLogic.saveInstanceState(outState);
+    }
+
+    /**
+     * When saved instance state is passed to the finalization activity in its onCreate() method,
+     * that state is passed to the FinalizationControllerLogic object here so it can be restored.
+     */
+    final void restoreInstanceState(Bundle savedInstanceState) {
+        mFinalizationControllerLogic.restoreInstanceState(savedInstanceState,
+                loadProvisioningParams());
+    }
+
+    /**
+     * Cleanup that must happen when the finalization activity is destroyed, even if we haven't yet
+     * called {@link #commitFinalizedState()} to finalize the system's provisioning state.
+     */
+    final void activityDestroyed(boolean isFinishing) {
+        mFinalizationControllerLogic.activityDestroyed(isFinishing);
     }
 }

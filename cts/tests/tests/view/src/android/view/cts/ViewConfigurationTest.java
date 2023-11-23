@@ -16,12 +16,16 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.graphics.Point;
 import android.util.TypedValue;
+import android.view.Display;
 import android.view.ViewConfiguration;
+import android.view.WindowManager;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
@@ -126,5 +130,29 @@ public class ViewConfigurationTest {
         ViewConfiguration vc = ViewConfiguration.get(InstrumentationRegistry.getTargetContext());
         final float instanceMultiplier = vc.getAmbiguousGestureMultiplier();
         assertTrue(instanceMultiplier >= 1);
+    }
+
+    @Test
+    public void testGetScaledAmbiguousGestureMultiplier() {
+        ViewConfiguration vc = ViewConfiguration.get(InstrumentationRegistry.getTargetContext());
+        final float instanceMultiplier = vc.getScaledAmbiguousGestureMultiplier();
+        assertTrue(instanceMultiplier >= 1);
+    }
+
+    @Test
+    public void testGetMaximumDrawingCacheSize() {
+        Context context = InstrumentationRegistry.getTargetContext();
+        ViewConfiguration vc = ViewConfiguration.get(context);
+        assertNotNull(vc);
+
+        // Should be at least the size of the screen we're supposed to draw into.
+        final WindowManager win = context.getSystemService(WindowManager.class);
+        final Display display = win.getDefaultDisplay();
+        final Point size = new Point();
+        display.getSize(size);
+        assertTrue(vc.getScaledMaximumDrawingCacheSize() >= size.x * size.y * 4);
+
+        // This deprecated value should just be what it's historically hardcoded to be.
+        assertEquals(480 * 800 * 4, vc.getMaximumDrawingCacheSize());
     }
 }

@@ -16,12 +16,7 @@
 #define CONFIG_MXC_UART_BASE		UART4_BASE
 #define CONSOLE_DEV		"ttymxc3"
 
-#define CONFIG_MISC_INIT_R
-
 /* Watchdog */
-#define CONFIG_HW_WATCHDOG
-#define CONFIG_IMX_WATCHDOG
-#define CONFIG_WATCHDOG_TIMEOUT_MSECS	60000
 
 /* Config on-board RTC */
 #define CONFIG_RTC_DS1337

@@ -11,6 +11,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.drawable.Icon;
 import android.hardware.radio.V1_0.ISap;
 import android.os.Handler;
 import android.os.Handler.Callback;
@@ -252,16 +253,17 @@ public class SapServer extends Thread implements Callback {
             sapDisconnectIntent.putExtra(SapServer.SAP_DISCONNECT_TYPE_EXTRA, type);
             PendingIntent pIntentDisconnect =
                     PendingIntent.getBroadcast(mContext, type, sapDisconnectIntent, flags);
+            Notification.Action actionDisconnect =
+                   new Notification.Action.Builder(Icon.createWithResource(mContext,
+                   android.R.drawable.stat_sys_data_bluetooth), button, pIntentDisconnect).build();
             notification =
                     new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL).setOngoing(true)
-                            .addAction(android.R.drawable.stat_sys_data_bluetooth, button,
-                                    pIntentDisconnect)
+                            .addAction(actionDisconnect)
                             .setContentTitle(title)
                             .setTicker(ticker)
                             .setContentText(text)
                             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                             .setAutoCancel(false)
-                            .setPriority(Notification.PRIORITY_MAX)
                             .setOnlyAlertOnce(true)
                             .setLocalOnly(true)
                             .build();
@@ -277,22 +279,24 @@ public class SapServer extends Thread implements Callback {
             PendingIntent pIntentForceDisconnect =
                     PendingIntent.getBroadcast(mContext, SapMessage.DISC_IMMEDIATE,
                             sapForceDisconnectIntent, flags);
+            Notification.Action actionDisconnect = new Notification.Action.Builder(
+                    Icon.createWithResource(mContext, android.R.drawable.stat_sys_data_bluetooth),
+                    mContext.getString(R.string.bluetooth_sap_notif_disconnect_button),
+                    pIntentDisconnect).build();
+            Notification.Action actionForceDisconnect =
+                    new Notification.Action.Builder(Icon.createWithResource(mContext,
+                    android.R.drawable.stat_sys_data_bluetooth),
+                    mContext.getString(R.string.bluetooth_sap_notif_force_disconnect_button),
+                    pIntentForceDisconnect).build();
             notification =
                     new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL).setOngoing(true)
-                            .addAction(android.R.drawable.stat_sys_data_bluetooth,
-                                    mContext.getString(
-                                            R.string.bluetooth_sap_notif_disconnect_button),
-                                    pIntentDisconnect)
-                            .addAction(android.R.drawable.stat_sys_data_bluetooth,
-                                    mContext.getString(
-                                            R.string.bluetooth_sap_notif_force_disconnect_button),
-                                    pIntentForceDisconnect)
+                            .addAction(actionDisconnect)
+                            .addAction(actionForceDisconnect)
                             .setContentTitle(title)
                             .setTicker(ticker)
                             .setContentText(text)
                             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                             .setAutoCancel(false)
-                            .setPriority(Notification.PRIORITY_MAX)
                             .setOnlyAlertOnce(true)
                             .setLocalOnly(true)
                             .build();

@@ -16,6 +16,7 @@
 
 package com.android.documentsui;
 
+import static com.android.documentsui.base.Shared.LAUNCHER_TARGET_CLASS;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.content.BroadcastReceiver;
@@ -40,7 +41,6 @@ public class PreBootReceiver extends BroadcastReceiver {
     private static final String TAG = "PreBootReceiver";
     private static final String CONFIG_IS_LAUNCHER_ENABLED = "is_launcher_enabled";
     private static final String CONFIG_HANDLE_VIEW_DOWNLOADS = "handle_view_downloads_intent";
-    private static final String LAUNCHER_TARGET_CLASS = "com.android.documentsui.LauncherActivity";
     private static final String DOWNLOADS_TARGET_CLASS =
             "com.android.documentsui.ViewDownloadsActivity";
 

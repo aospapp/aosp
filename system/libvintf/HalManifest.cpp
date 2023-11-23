@@ -26,10 +26,12 @@
 
 #include <android-base/strings.h>
 
+#include "CompatibilityMatrix.h"
+#include "constants-private.h"
+#include "constants.h"
 #include "parse_string.h"
 #include "parse_xml.h"
 #include "utils.h"
-#include "CompatibilityMatrix.h"
 
 namespace android {
 namespace vintf {
@@ -125,34 +127,45 @@ std::set<std::string> HalManifest::getHalNames() const {
 std::set<std::string> HalManifest::getHalNamesAndVersions() const {
     std::set<std::string> names{};
     forEachInstance([&names](const ManifestInstance& e) {
-        names.insert(toFQNameString(e.package(), e.version()));
+        switch (e.format()) {
+            case HalFormat::HIDL:
+                [[fallthrough]];
+            case HalFormat::NATIVE:
+                names.insert(toFQNameString(e.package(), e.version()));
+                break;
+            case HalFormat::AIDL:
+                names.insert(e.package());
+                break;
+        }
         return true;
     });
     return names;
 }
 
-Transport HalManifest::getTransport(const std::string &package, const Version &v,
-            const std::string &interfaceName, const std::string &instanceName) const {
+Transport HalManifest::getHidlTransport(const std::string& package, const Version& v,
+                                        const std::string& interfaceName,
+                                        const std::string& instanceName) const {
     Transport transport{Transport::EMPTY};
-    forEachInstanceOfInterface(package, v, interfaceName, [&](const auto& e) {
+    forEachInstanceOfInterface(HalFormat::HIDL, package, v, interfaceName, [&](const auto& e) {
         if (e.instance() == instanceName) {
             transport = e.transport();
         }
         return transport == Transport::EMPTY;  // if not found, continue
     });
     if (transport == Transport::EMPTY) {
-        LOG(DEBUG) << "HalManifest::getTransport(" << mType << "): Cannot find "
+        LOG(DEBUG) << "HalManifest::getHidlTransport(" << mType << "): Cannot find "
                    << toFQNameString(package, v, interfaceName, instanceName);
     }
     return transport;
 }
 
 bool HalManifest::forEachInstanceOfVersion(
-    const std::string& package, const Version& expectVersion,
+    HalFormat format, const std::string& package, const Version& expectVersion,
     const std::function<bool(const ManifestInstance&)>& func) const {
     for (const ManifestHal* hal : getHals(package)) {
         bool cont = hal->forEachInstance([&](const ManifestInstance& manifestInstance) {
-            if (manifestInstance.version().minorAtLeast(expectVersion)) {
+            if (manifestInstance.format() == format &&
+                manifestInstance.version().minorAtLeast(expectVersion)) {
                 return func(manifestInstance);
             }
             return true;
@@ -186,12 +199,12 @@ std::vector<std::string> HalManifest::checkIncompatibleHals(const CompatibilityM
         }
 
         std::set<FqInstance> manifestInstances;
-        std::set<FqInstance> manifestInstancesNoPackage;
+        std::set<std::string> simpleManifestInstances;
         std::set<Version> versions;
         for (const ManifestHal* manifestHal : getHals(matrixHal.name)) {
             manifestHal->forEachInstance([&](const auto& manifestInstance) {
                 manifestInstances.insert(manifestInstance.getFqInstance());
-                manifestInstancesNoPackage.insert(manifestInstance.getFqInstanceNoPackage());
+                simpleManifestInstances.insert(manifestInstance.getSimpleFqInstance());
                 return true;
             });
             manifestHal->appendAllVersions(&versions);
@@ -205,7 +218,7 @@ std::vector<std::string> HalManifest::checkIncompatibleHals(const CompatibilityM
             if (manifestInstances.empty()) {
                 multilineIndent(oss, 8, versions);
             } else {
-                multilineIndent(oss, 8, manifestInstancesNoPackage);
+                multilineIndent(oss, 8, simpleManifestInstances);
             }
 
             ret.insert(ret.end(), oss.str());
@@ -214,15 +227,44 @@ std::vector<std::string> HalManifest::checkIncompatibleHals(const CompatibilityM
     return ret;
 }
 
-std::set<std::string> HalManifest::checkUnusedHals(const CompatibilityMatrix& mat) const {
+std::set<std::string> HalManifest::checkUnusedHals(
+    const CompatibilityMatrix& mat, const std::vector<HidlInterfaceMetadata>& hidlMetadata) const {
+    std::multimap<std::string, std::string> childrenMap;
+    for (const auto& child : hidlMetadata) {
+        for (const auto& parent : child.inherited) {
+            childrenMap.emplace(parent, child.name);
+        }
+    }
+
     std::set<std::string> ret;
 
-    forEachInstance([&ret, &mat](const auto& manifestInstance) {
-        const auto& fqInstance = manifestInstance.getFqInstance();
-        if (!mat.matchInstance(fqInstance.getPackage(), fqInstance.getVersion(),
-                               fqInstance.getInterface(), fqInstance.getInstance())) {
-            ret.insert(fqInstance.string());
+    forEachInstance([&ret, &mat, &childrenMap](const auto& manifestInstance) {
+        if (mat.matchInstance(manifestInstance.format(), manifestInstance.package(),
+                              manifestInstance.version(), manifestInstance.interface(),
+                              manifestInstance.instance())) {
+            // manifestInstance exactly matches an instance in |mat|.
+            return true;
         }
+        // For HIDL instances, If foo@2.0 inherits from foo@1.0, manifest may contain both, but
+        // matrix may contain only 2.0 if 1.0 is considered deprecated. Hence, if manifestInstance
+        // is 1.0, check all its children in the matrix too.
+        // If there is at least one match, do not consider it unused.
+        if (manifestInstance.format() == HalFormat::HIDL) {
+            auto range =
+                childrenMap.equal_range(manifestInstance.getFqInstance().getFqName().string());
+            for (auto it = range.first; it != range.second; ++it) {
+                FQName fqName;
+                CHECK(fqName.setTo(it->second));
+                if (mat.matchInstance(manifestInstance.format(), fqName.package(),
+                                      fqName.getVersion(), fqName.name(),
+                                      manifestInstance.instance())) {
+                    return true;
+                }
+            }
+        }
+
+        // If no match is found, consider it unused.
+        ret.insert(manifestInstance.description());
         return true;
     });
 
@@ -286,7 +328,8 @@ static bool checkSystemSdkCompatibility(const SystemSdk& matSystemSdk,
     return true;
 }
 
-bool HalManifest::checkCompatibility(const CompatibilityMatrix &mat, std::string *error) const {
+bool HalManifest::checkCompatibility(const CompatibilityMatrix& mat, std::string* error,
+                                     CheckFlags::Type flags) const {
     if (mType == mat.mType) {
         if (error != nullptr) {
             *error = "Wrong type; checking " + to_string(mType) + " manifest against "
@@ -333,12 +376,19 @@ bool HalManifest::checkCompatibility(const CompatibilityMatrix &mat, std::string
             return false;
         }
 
-        if (!!kernel() && !kernel()->matchKernelRequirements(mat.framework.mKernels, error)) {
+        if (flags.isKernelEnabled() && shouldCheckKernelCompatibility() &&
+            kernel()
+                ->getMatchedKernelRequirements(mat.framework.mKernels, kernel()->level(), error)
+                .empty()) {
             return false;
         }
     }
 
     return true;
+}
+
+bool HalManifest::shouldCheckKernelCompatibility() const {
+    return kernel().has_value() && kernel()->version() != KernelVersion{};
 }
 
 CompatibilityMatrix HalManifest::generateCompatibleMatrix() const {
@@ -348,8 +398,8 @@ CompatibilityMatrix HalManifest::generateCompatibleMatrix() const {
         matrix.add(MatrixHal{
             .format = e.format(),
             .name = e.package(),
-            .optional = true,
             .versionRanges = {VersionRange{e.version().majorVer, e.version().minorVer}},
+            .optional = true,
             .interfaces = {{e.interface(), HalInterface{e.interface(), {e.instance()}}}}});
         return true;
     });
@@ -383,7 +433,7 @@ Level HalManifest::level() const {
 }
 
 Version HalManifest::getMetaVersion() const {
-    return mMetaVersion;
+    return kMetaVersion;
 }
 
 const Version &HalManifest::sepolicyVersion() const {
@@ -431,26 +481,49 @@ bool operator==(const HalManifest &lft, const HalManifest &rgt) {
 }
 
 // Alternative to forEachInstance if you just need a set of instance names instead.
-std::set<std::string> HalManifest::getInstances(const std::string& halName, const Version& version,
+std::set<std::string> HalManifest::getInstances(HalFormat format, const std::string& package,
+                                                const Version& version,
                                                 const std::string& interfaceName) const {
     std::set<std::string> ret;
-    (void)forEachInstanceOfInterface(halName, version, interfaceName, [&ret](const auto& e) {
-        ret.insert(e.instance());
-        return true;
-    });
+    (void)forEachInstanceOfInterface(format, package, version, interfaceName,
+                                     [&ret](const auto& e) {
+                                         ret.insert(e.instance());
+                                         return true;
+                                     });
     return ret;
 }
 
 // Return whether instance is in getInstances(...).
-bool HalManifest::hasInstance(const std::string& halName, const Version& version,
+bool HalManifest::hasInstance(HalFormat format, const std::string& package, const Version& version,
                               const std::string& interfaceName, const std::string& instance) const {
     bool found = false;
-    (void)forEachInstanceOfInterface(halName, version, interfaceName,
+    (void)forEachInstanceOfInterface(format, package, version, interfaceName,
                                      [&found, &instance](const auto& e) {
                                          found |= (instance == e.instance());
                                          return !found;  // if not found, continue
                                      });
     return found;
+}
+std::set<std::string> HalManifest::getHidlInstances(const std::string& package,
+                                                    const Version& version,
+                                                    const std::string& interfaceName) const {
+    return getInstances(HalFormat::HIDL, package, version, interfaceName);
+}
+
+std::set<std::string> HalManifest::getAidlInstances(const std::string& package,
+                                                    const std::string& interfaceName) const {
+    return getInstances(HalFormat::AIDL, package, details::kFakeAidlVersion, interfaceName);
+}
+
+bool HalManifest::hasHidlInstance(const std::string& package, const Version& version,
+                                  const std::string& interfaceName,
+                                  const std::string& instance) const {
+    return hasInstance(HalFormat::HIDL, package, version, interfaceName, instance);
+}
+
+bool HalManifest::hasAidlInstance(const std::string& package, const std::string& interface,
+                                  const std::string& instance) const {
+    return hasInstance(HalFormat::AIDL, package, details::kFakeAidlVersion, interface, instance);
 }
 
 bool HalManifest::insertInstance(const FqInstance& fqInstance, Transport transport, Arch arch,
@@ -480,16 +553,24 @@ const std::optional<KernelInfo>& HalManifest::kernel() const {
     return device.mKernel;
 }
 
-bool HalManifest::addAll(HalManifest* other, std::string* error) {
-    if (other->mMetaVersion.majorVer != mMetaVersion.majorVer) {
-        if (error) {
-            *error = "Cannot merge manifest version " + to_string(mMetaVersion) + " and " +
-                     to_string(other->mMetaVersion);
-        }
-        return false;
+bool HalManifest::mergeKernel(std::optional<KernelInfo>* other, std::string* error) {
+    if (!other->has_value()) {
+        return true;
     }
-    mMetaVersion.minorVer = std::max(mMetaVersion.minorVer, other->mMetaVersion.minorVer);
 
+    if (device.mKernel.has_value()) {
+        if (!device.mKernel->merge(&**other, error)) {
+            return false;
+        }
+    } else {
+        device.mKernel = std::move(*other);
+    }
+
+    *other = std::nullopt;
+    return true;
+}
+
+bool HalManifest::addAll(HalManifest* other, std::string* error) {
     if (type() != other->type()) {
         if (error) {
             *error = "Cannot add a " + to_string(other->type()) + " manifest to a " +
@@ -523,12 +604,7 @@ bool HalManifest::addAll(HalManifest* other, std::string* error) {
             return false;
         }
 
-        if (!mergeField(&device.mKernel, &other->device.mKernel)) {
-            // If fails, both have values.
-            if (error) {
-                *error = "Conflicting kernel: " + to_string(device.mKernel->version()) + " vs. " +
-                         to_string(other->device.mKernel->version());
-            }
+        if (!mergeKernel(&other->device.mKernel, error)) {
             return false;
         }
     } else if (type() == SchemaType::FRAMEWORK) {

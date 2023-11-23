@@ -20,19 +20,20 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.testutils.FragmentController;
+import com.android.car.ui.core.testsupport.CarUiInstallerRobolectric;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowDialog;
 import org.robolectric.shadows.ShadowToast;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class NetworkNameRestrictedPasswordEditTextPreferenceTest {
 
     private static final String KEY = "test_key";
@@ -43,6 +44,10 @@ public class NetworkNameRestrictedPasswordEditTextPreferenceTest {
     @Before
     public void setUp() {
         mContext = RuntimeEnvironment.application;
+
+        // Needed to install Install CarUiLib BaseLayouts Toolbar for test activity
+        CarUiInstallerRobolectric.install();
+
         FragmentController<TestSettingsFragment> fragmentController = FragmentController.of(
                 new TestSettingsFragment());
         TestSettingsFragment fragment = fragmentController.get();

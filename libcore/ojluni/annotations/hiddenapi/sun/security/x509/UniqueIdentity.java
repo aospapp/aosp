@@ -25,8 +25,6 @@
 
 package sun.security.x509;
 
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class UniqueIdentity {
 
@@ -38,12 +36,12 @@ public class UniqueIdentity {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public UniqueIdentity(sun.security.util.DerInputStream in) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public UniqueIdentity(sun.security.util.DerValue derVal) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -52,7 +50,7 @@ public class UniqueIdentity {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encode(sun.security.util.DerOutputStream out, byte tag) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

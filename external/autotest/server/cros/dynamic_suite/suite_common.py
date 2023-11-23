@@ -109,13 +109,14 @@ def get_test_source_build(builds, **dargs):
     return test_source_build
 
 
-def stage_build_artifacts(build, hostname=None):
+def stage_build_artifacts(build, hostname=None, artifacts=[]):
     """
     Ensure components of |build| necessary for installing images are staged.
 
     @param build image we want to stage.
     @param hostname hostname of a dut may run test on. This is to help to locate
         a devserver closer to duts if needed. Default is None.
+    @param artifacts A list of string artifact name to be staged.
 
     @raises StageControlFileFailure: if the dev server throws 500 while staging
         suite control files.
@@ -131,7 +132,9 @@ def stage_build_artifacts(build, hostname=None):
     ds_name = ds.hostname
     timings[constants.DOWNLOAD_STARTED_TIME] = _formatted_now()
     try:
-        ds.stage_artifacts(image=build, artifacts=['test_suites'])
+        artifacts_to_stage = ['test_suites', 'control_files']
+        artifacts_to_stage.extend(artifacts if artifacts else [])
+        ds.stage_artifacts(image=build, artifacts=artifacts_to_stage)
     except dev_server.DevServerException as e:
         raise error.StageControlFileFailure(
                 "Failed to stage %s on %s: %s" % (build, ds_name, e))
@@ -396,3 +399,13 @@ def name_in_tag_predicate(name):
             ControlData object's suite member.
     """
     return lambda t: name in t.suite_tag_parts
+
+
+def test_name_in_list_predicate(name_list):
+    """Returns a predicate that matches control files by test name.
+
+    The returned predicate returns True for control files whose test name
+    is present in name_list.
+    """
+    name_set = set(name_list)
+    return lambda t: t.name in name_set

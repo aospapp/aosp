@@ -19,13 +19,13 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.model.WallpaperInfo;
 
 import java.util.List;
-
-import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 
 /**
  * Interface for classes which persist wallpapers to the system.
@@ -128,7 +128,7 @@ public interface WallpaperPersister {
      * Interface for tracking success or failure of set wallpaper operations.
      */
     interface SetWallpaperCallback {
-        void onSuccess();
+        void onSuccess(WallpaperInfo wallpaperInfo);
 
         void onError(@Nullable Throwable throwable);
     }

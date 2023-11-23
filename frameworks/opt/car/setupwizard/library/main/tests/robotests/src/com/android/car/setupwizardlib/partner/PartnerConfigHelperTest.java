@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.robolectric.RuntimeEnvironment.application;
 
+import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
 
 
@@ -88,14 +89,78 @@ public class PartnerConfigHelperTest {
 
     @Test
     public void getColor_shouldReturnExpectedColor() {
+        // Making this a global variable makes the VM crash when tests run.
+        ColorStateList grayColorStateList = ColorStateList.valueOf(android.R.color.darker_gray);
+
         PartnerConfigHelper helper = PartnerConfigHelper.get(application);
         assertThat(helper.mPartnerResourceCache).doesNotContainKey(TEST_COLOR_RESOURCE_NAME);
 
-        int result = helper.getColor(application, TEST_COLOR_RESOURCE_NAME);
-        assertThat(result).isEqualTo(android.R.color.darker_gray);
+        int color = helper.getColor(application, TEST_COLOR_RESOURCE_NAME);
+        assertThat(color).isEqualTo(android.R.color.darker_gray);
         assertThat(helper.mPartnerResourceCache).containsKey(TEST_COLOR_RESOURCE_NAME);
         assertThat(helper.mPartnerResourceCache.get(TEST_COLOR_RESOURCE_NAME))
                 .isEqualTo(android.R.color.darker_gray);
+    }
+
+    @Test
+    public void getColor_whenCacheHasColorStateList_shouldReturnExpectedColor() {
+        // Making this a global variable makes the VM crash when tests run.
+        ColorStateList grayColorStateList = ColorStateList.valueOf(android.R.color.darker_gray);
+
+        PartnerConfigHelper helper = PartnerConfigHelper.get(application);
+        assertThat(helper.mPartnerResourceCache).doesNotContainKey(TEST_COLOR_RESOURCE_NAME);
+
+        // Filling up cache with gray color state list.
+        helper.getColorStateList(application, TEST_COLOR_RESOURCE_NAME);
+
+        // Trying to retrieve the color should return the color state list default darker_gray.
+        int color = helper.getColor(application, TEST_COLOR_RESOURCE_NAME);
+        assertThat(color).isEqualTo(android.R.color.darker_gray);
+        assertThat(helper.mPartnerResourceCache).containsKey(TEST_COLOR_RESOURCE_NAME);
+        assertThat(helper.mPartnerResourceCache.get(TEST_COLOR_RESOURCE_NAME))
+                .isEqualTo(android.R.color.darker_gray);
+    }
+
+    @Test
+    public void getColorStateList_shouldReturnExpectedColorStateList() {
+        // Making this a global variable makes the VM crash when tests run.
+        ColorStateList grayColorStateList = ColorStateList.valueOf(android.R.color.darker_gray);
+
+        PartnerConfigHelper helper = PartnerConfigHelper.get(application);
+        assertThat(helper.mPartnerResourceCache)
+                .doesNotContainKey(TEST_COLOR_RESOURCE_NAME);
+
+        ColorStateList colorStateList = helper.getColorStateList(
+                application, TEST_COLOR_RESOURCE_NAME);
+        assertThat(colorStateList)
+                .isEqualTo(grayColorStateList);
+        assertThat(helper.mPartnerResourceCache)
+                .containsKey(TEST_COLOR_RESOURCE_NAME);
+        assertThat(helper.mPartnerResourceCache.get(TEST_COLOR_RESOURCE_NAME))
+                .isEqualTo(grayColorStateList);
+    }
+
+    @Test
+    public void getColorStateList_whenCacheHasColorValue_shouldReturnExpectedColorStateList() {
+        // Making this a global variable makes the VM crash when tests run.
+        ColorStateList grayColorStateList = ColorStateList.valueOf(android.R.color.darker_gray);
+
+        PartnerConfigHelper helper = PartnerConfigHelper.get(application);
+        assertThat(helper.mPartnerResourceCache)
+                .doesNotContainKey(TEST_COLOR_RESOURCE_NAME);
+
+        // Filling up cache with gray color.
+        helper.getColor(application, TEST_COLOR_RESOURCE_NAME);
+
+        // Trying to retrieve the color state list should return it with a single value.
+        ColorStateList colorStateList = helper.getColorStateList(
+                application, TEST_COLOR_RESOURCE_NAME);
+        assertThat(colorStateList)
+                .isEqualTo(grayColorStateList);
+        assertThat(helper.mPartnerResourceCache)
+                .containsKey(TEST_COLOR_RESOURCE_NAME);
+        assertThat(helper.mPartnerResourceCache.get(TEST_COLOR_RESOURCE_NAME))
+                .isEqualTo(grayColorStateList);
     }
 
     @Test

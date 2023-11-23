@@ -18,8 +18,8 @@ package com.android.tv.common.singletons;
 /**
  * Has TunerInputId.
  *
- * <p>This is used buy both the tuner to get its input id and by the Live TV to get the
- * embedded tuner input id.
+ * <p>This is used buy both the tuner to get its input id and by the TV app to get the embedded
+ * tuner input id.
  */
 public interface HasTvInputId {
 

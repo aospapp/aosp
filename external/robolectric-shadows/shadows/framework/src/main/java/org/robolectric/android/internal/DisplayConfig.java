@@ -126,30 +126,6 @@ public final class DisplayConfig {
   public int logicalHeight;
 
   /**
-   * @hide
-   * Number of overscan pixels on the left side of the display.
-   */
-  public int overscanLeft;
-
-  /**
-   * @hide
-   * Number of overscan pixels on the top side of the display.
-   */
-  public int overscanTop;
-
-  /**
-   * @hide
-   * Number of overscan pixels on the right side of the display.
-   */
-  public int overscanRight;
-
-  /**
-   * @hide
-   * Number of overscan pixels on the bottom side of the display.
-   */
-  public int overscanBottom;
-
-  /**
    * The rotation of the display relative to its natural orientation.
    * May be one of {@link Surface#ROTATION_0},
    * {@link Surface#ROTATION_90}, {@link Surface#ROTATION_180},
@@ -281,12 +257,6 @@ public final class DisplayConfig {
     largestNominalAppHeight = other.largestNominalAppHeight;
     logicalWidth = other.logicalWidth;
     logicalHeight = other.logicalHeight;
-    if (RuntimeEnvironment.getApiLevel() >= JELLY_BEAN_MR2) {
-      overscanLeft = other.overscanLeft;
-      overscanTop = other.overscanTop;
-      overscanRight = other.overscanRight;
-      overscanBottom = other.overscanBottom;
-    }
     rotation = other.rotation;
     if (RuntimeEnvironment.getApiLevel() >= M) {
       modeId = other.modeId;
@@ -339,10 +309,6 @@ public final class DisplayConfig {
         && largestNominalAppHeight == other.largestNominalAppHeight
         && logicalWidth == other.logicalWidth
         && logicalHeight == other.logicalHeight
-        && overscanLeft == other.overscanLeft
-        && overscanTop == other.overscanTop
-        && overscanRight == other.overscanRight
-        && overscanBottom == other.overscanBottom
         && rotation == other.rotation
         && modeId == other.modeId
         && defaultModeId == other.defaultModeId
@@ -380,10 +346,6 @@ public final class DisplayConfig {
     largestNominalAppHeight = other.largestNominalAppHeight;
     logicalWidth = other.logicalWidth;
     logicalHeight = other.logicalHeight;
-    overscanLeft = other.overscanLeft;
-    overscanTop = other.overscanTop;
-    overscanRight = other.overscanRight;
-    overscanBottom = other.overscanBottom;
     rotation = other.rotation;
     modeId = other.modeId;
     defaultModeId = other.defaultModeId;
@@ -422,12 +384,6 @@ public final class DisplayConfig {
     other.largestNominalAppHeight = largestNominalAppHeight;
     other.logicalWidth = logicalWidth;
     other.logicalHeight = logicalHeight;
-    if (RuntimeEnvironment.getApiLevel() >= JELLY_BEAN_MR2) {
-      other.overscanLeft = overscanLeft;
-      other.overscanTop = overscanTop;
-      other.overscanRight = overscanRight;
-      other.overscanBottom = overscanBottom;
-    }
     other.rotation = rotation;
     if (RuntimeEnvironment.getApiLevel() >= M) {
       other.modeId = modeId;
@@ -475,17 +431,6 @@ public final class DisplayConfig {
     sb.append(logicalWidth);
     sb.append(" x ");
     sb.append(logicalHeight);
-    if (overscanLeft != 0 || overscanTop != 0 || overscanRight != 0 || overscanBottom != 0) {
-      sb.append(", overscan (");
-      sb.append(overscanLeft);
-      sb.append(",");
-      sb.append(overscanTop);
-      sb.append(",");
-      sb.append(overscanRight);
-      sb.append(",");
-      sb.append(overscanBottom);
-      sb.append(")");
-    }
     sb.append(", largest app ");
     sb.append(largestNominalAppWidth);
     sb.append(" x ");

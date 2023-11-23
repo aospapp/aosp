@@ -26,28 +26,41 @@
 
 checkPath() {
     if ! type -P "$1" &> /dev/null; then
-        echo "Unable to find $1 in path."
+        >&2 echo "Unable to find $1."
         exit
     fi;
 }
 
 checkFile() {
     if [ ! -f "$1" ]; then
-        echo "Unable to locate $1"
+        >&2 echo "Unable to locate $1"
         exit
     fi;
 }
 
-checkPath java
+# All to specify an alternative Java binary, other than the one on PATH
+TF_JAVA="java"
+if [ ! -z "${TF_JAVA_HOME}" ]; then
+  # following similar convention as JAVA_HOME
+  TF_JAVA=${TF_JAVA_HOME}/bin/java
+fi
+
+checkPath ${TF_JAVA}
 
 # check java version
-java_version_string=$(java -version 2>&1)
-JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(1\.8\|9\).*[ "]')
+java_version_string=$(${TF_JAVA} -version 2>&1)
+JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(1\.8\|9\|11\).*[ "]')
 if [ "${JAVA_VERSION}" == "" ]; then
-    echo "Wrong java version. 1.8 or 9 is required. Found $java_version_string"
-    echo "PATH value:"
-    echo "$PATH"
+    >&2 echo "Wrong java version. 1.8, 9 or 11 is required. Found $java_version_string"
+    >&2 echo "PATH value:"
+    >&2 echo "$PATH"
     exit 8
+fi
+
+# check if java is above 9 and supports add-opens
+JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(9\|11\).*[ "]')
+if [ "${JAVA_VERSION}" != "" ]; then
+    ADD_OPENS_FLAG="--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.reflect.annotation=ALL-UNNAMED"
 fi
 
 # check debug flag and set up remote debugging
@@ -74,7 +87,7 @@ elif [ ! -z "${ANDROID_HOST_OUT}" ]; then
 fi
 
 if [ -z "${TF_PATH}" ]; then
-    echo "ERROR: Could not find tradefed jar files"
+    >&2 echo "ERROR: Could not find tradefed jar files"
     exit
 fi
 

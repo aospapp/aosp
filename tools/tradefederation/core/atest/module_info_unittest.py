@@ -160,10 +160,10 @@ class ModuleInfoUnittests(unittest.TestCase):
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("cts", info))
         info2 = {'compatibility_suites': ["cts"]}
         self.assertTrue(mod_info.is_suite_in_compatibility_suites("cts", info2))
-        self.assertFalse(mod_info.is_suite_in_compatibility_suites("vts", info2))
-        info3 = {'compatibility_suites': ["cts", "vts"]}
+        self.assertFalse(mod_info.is_suite_in_compatibility_suites("vts10", info2))
+        info3 = {'compatibility_suites': ["cts", "vts10"]}
         self.assertTrue(mod_info.is_suite_in_compatibility_suites("cts", info3))
-        self.assertTrue(mod_info.is_suite_in_compatibility_suites("vts", info3))
+        self.assertTrue(mod_info.is_suite_in_compatibility_suites("vts10", info3))
         self.assertFalse(mod_info.is_suite_in_compatibility_suites("ats", info3))
 
     @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')

@@ -59,15 +59,14 @@ class WifiMacRandomizationTest(WifiBaseTest):
     * Several Wi-Fi networks visible to the device.
     """
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         self.dut_client = self.android_devices[1]
         wutils.wifi_test_device_init(self.dut)
         wutils.wifi_test_device_init(self.dut_client)
-        req_params = ["dbs_supported_models"]
+        req_params = ["dbs_supported_models", "roaming_attn"]
         opt_param = [
             "open_network", "reference_networks", "wep_networks"
         ]
@@ -80,8 +79,7 @@ class WifiMacRandomizationTest(WifiBaseTest):
         self.configure_packet_capture()
 
         if "AccessPoint" in self.user_params:
-            if "AccessPoint" in self.user_params:
-                self.legacy_configure_ap_and_start(wep_network=True, ap_count=2)
+            self.legacy_configure_ap_and_start(wep_network=True, ap_count=2)
 
         asserts.assert_true(
             len(self.reference_networks) > 0,
@@ -242,8 +240,9 @@ class WifiMacRandomizationTest(WifiBaseTest):
         for pkt in packets:
             self.log.debug("Packet Summary = %s" % pkt.summary())
             if mac in pkt.summary():
-                raise signals.TestFailure("Caught Factory MAC in packet sniffer."
-                                          "Packet = %s" % pkt.show())
+                raise signals.TestFailure("Caught Factory MAC in packet sniffer"
+                                          "Packet = %s Device = %s"
+                                           % (pkt.show(), self.dut))
 
     def verify_mac_is_found_in_pcap(self, mac, packets):
         for pkt in packets:
@@ -251,7 +250,7 @@ class WifiMacRandomizationTest(WifiBaseTest):
             if mac in pkt.summary():
                 return
         raise signals.TestFailure("Did not find MAC = %s in packet sniffer."
-                                  % mac)
+                                  "for device %s" % (mac, self.dut))
 
     def get_sta_mac_address(self):
         """Gets the current MAC address being used for client mode."""
@@ -272,14 +271,15 @@ class WifiMacRandomizationTest(WifiBaseTest):
     @test_tracker_info(uuid="2dd0a05e-a318-45a6-81cd-962e098fa242")
     def test_set_mac_randomization_to_none(self):
         self.pcap_procs = wutils.start_pcap(
-            self.packet_capture, 'dual', self.log_path, self.test_name)
+            self.packet_capture, 'dual', self.test_name)
         network = self.wpapsk_2g
         # Set macRandomizationSetting to RANDOMIZATION_NONE.
         network["macRand"] = RANDOMIZATION_NONE
         self.connect_to_network_and_verify_mac_randomization(network,
             status=RANDOMIZATION_NONE)
-        pcap_fname = os.path.join(self.log_path, self.test_name,
-                                  (self.test_name + '_2G.pcap'))
+        pcap_fname = '%s_%s.pcap' % \
+            (self.pcap_procs[hostapd_constants.BAND_2G][1],
+             hostapd_constants.BAND_2G.upper())
         time.sleep(SHORT_TIMEOUT)
         wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
         packets = rdpcap(pcap_fname)
@@ -347,7 +347,7 @@ class WifiMacRandomizationTest(WifiBaseTest):
         """
         self.check_mac_persistence(self.wpapsk_2g, TOGGLE)
 
-    @test_tracker_info(uuid="a514f-8562-44e8-bfe0-4ecab9af165b")
+    @test_tracker_info(uuid="b3aa514f-8562-44e8-bfe0-4ecab9af165b")
     def test_persistent_mac_after_device_reboot(self):
         """Check if MAC is persistent after a device reboot.
 
@@ -435,8 +435,8 @@ class WifiMacRandomizationTest(WifiBaseTest):
             7. Verify the factory MAC is not leaked.
 
         """
-        self.dut.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
-        self.dut_client.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+        wutils.set_wifi_country_code(self.dut, wutils.WifiEnums.CountryCode.US)
+        wutils.set_wifi_country_code(self.dut_client, wutils.WifiEnums.CountryCode.US)
         mac_sta = self.connect_to_network_and_verify_mac_randomization(
                 self.wpapsk_2g)
         softap = wutils.start_softap_and_verify(self, WIFI_CONFIG_APBAND_2G)
@@ -461,14 +461,15 @@ class WifiMacRandomizationTest(WifiBaseTest):
         if not result:
             raise ValueError("Failed to configure channel for 2G band")
         self.pcap_procs = wutils.start_pcap(
-            self.packet_capture, 'dual', self.log_path, self.test_name)
+            self.packet_capture, 'dual', self.test_name)
         # re-connect to the softAp network after sniffer is started
         wutils.connect_to_wifi_network(self.dut_client, self.wpapsk_2g)
         wutils.connect_to_wifi_network(self.dut_client, softap)
         time.sleep(SHORT_TIMEOUT)
         wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
-        pcap_fname = os.path.join(self.log_path, self.test_name,
-                                  (self.test_name + '_2G.pcap'))
+        pcap_fname = '%s_%s.pcap' % \
+            (self.pcap_procs[hostapd_constants.BAND_2G][1],
+             hostapd_constants.BAND_2G.upper())
         packets = rdpcap(pcap_fname)
         self.verify_mac_not_found_in_pcap(self.soft_ap_factory_mac, packets)
         self.verify_mac_not_found_in_pcap(self.sta_factory_mac, packets)
@@ -488,18 +489,18 @@ class WifiMacRandomizationTest(WifiBaseTest):
         """
         AP1_network = self.reference_networks[0]["5g"]
         AP2_network = self.reference_networks[1]["5g"]
-        wutils.set_attns(self.attenuators, "AP1_on_AP2_off")
+        wutils.set_attns(self.attenuators, "AP1_on_AP2_off", self.roaming_attn)
         mac_before_roam = self.connect_to_network_and_verify_mac_randomization(
                 AP1_network)
         wutils.trigger_roaming_and_validate(self.dut, self.attenuators,
-                "AP1_off_AP2_on", AP2_network)
+                "AP1_off_AP2_on", AP2_network, self.roaming_attn)
         mac_after_roam = self.get_randomized_mac(AP2_network)
         if mac_after_roam != mac_before_roam:
             raise signals.TestFailure("Randomized MAC address changed after "
                    "roaming from AP1 to AP2.\nMAC before roam = %s\nMAC after "
                    "roam = %s" %(mac_before_roam, mac_after_roam))
         wutils.trigger_roaming_and_validate(self.dut, self.attenuators,
-                "AP1_on_AP2_off", AP1_network)
+                "AP1_on_AP2_off", AP1_network, self.roaming_attn)
         mac_after_roam = self.get_randomized_mac(AP1_network)
         if mac_after_roam != mac_before_roam:
             raise signals.TestFailure("Randomized MAC address changed after "
@@ -520,13 +521,14 @@ class WifiMacRandomizationTest(WifiBaseTest):
 
         """
         self.pcap_procs = wutils.start_pcap(
-            self.packet_capture, 'dual', self.log_path, self.test_name)
+            self.packet_capture, 'dual', self.test_name)
         time.sleep(SHORT_TIMEOUT)
         network = self.wpapsk_5g
         rand_mac = self.connect_to_network_and_verify_mac_randomization(network)
         wutils.send_link_probes(self.dut, 3, 3)
-        pcap_fname = os.path.join(self.log_path, self.test_name,
-                         (self.test_name + '_5G.pcap'))
+        pcap_fname = '%s_%s.pcap' % \
+            (self.pcap_procs[hostapd_constants.BAND_5G][1],
+             hostapd_constants.BAND_5G.upper())
         wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
         time.sleep(SHORT_TIMEOUT)
         packets = rdpcap(pcap_fname)
@@ -546,11 +548,12 @@ class WifiMacRandomizationTest(WifiBaseTest):
 
         """
         self.pcap_procs = wutils.start_pcap(
-            self.packet_capture, 'dual', self.log_path, self.test_name)
+            self.packet_capture, 'dual', self.test_name)
         wutils.start_wifi_connection_scan(self.dut)
         time.sleep(SHORT_TIMEOUT)
         wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
-        pcap_fname = os.path.join(self.log_path, self.test_name,
-                                  (self.test_name + '_2G.pcap'))
+        pcap_fname = '%s_%s.pcap' % \
+            (self.pcap_procs[hostapd_constants.BAND_2G][1],
+             hostapd_constants.BAND_2G.upper())
         packets = rdpcap(pcap_fname)
         self.verify_mac_not_found_in_pcap(self.sta_factory_mac, packets)

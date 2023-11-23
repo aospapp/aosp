@@ -15,6 +15,7 @@ SUSPEND_WAIT_TIME_SECONDS = 5
 LIDOPEN_WAIT_TIME_SECONDS = 2
 POWER_STATE_RETRY_COUNT = 10
 
+
 class platform_S0ixCycle(FirmwareTest):
     '''
     Servo based S0ix cycle test and wake source.
@@ -33,7 +34,7 @@ class platform_S0ixCycle(FirmwareTest):
         """
         resume_sources = ['powerbtn', 'lid', 'kbpress']
         for resume_source in resume_sources:
-            time.sleep(BEFORE_SUSPEND_WAIT_TIME_SECONDS);
+            time.sleep(BEFORE_SUSPEND_WAIT_TIME_SECONDS)
             self.perform_suspend()
             self.perform_resume(resume_source)
 
@@ -45,8 +46,9 @@ class platform_S0ixCycle(FirmwareTest):
         # check S0ix state transition
         if not self.wait_power_state('S0', POWER_STATE_RETRY_COUNT):
             raise error.TestFail('Platform failed to reach S0 state.')
-        self.faft_client.system.run_shell_command('echo freeze > /sys/power/state &')
-        time.sleep(SUSPEND_WAIT_TIME_SECONDS);
+        self.faft_client.system.run_shell_command(
+                'echo freeze > /sys/power/state &')
+        time.sleep(SUSPEND_WAIT_TIME_SECONDS)
         # check S0ix state transition
         if not self.wait_power_state('S0ix', POWER_STATE_RETRY_COUNT):
             raise error.TestFail('Platform failed to reach S0ix state.')
@@ -57,12 +59,12 @@ class platform_S0ixCycle(FirmwareTest):
         @param resume_source(string):resume source option.
         """
         logging.info('== S0ix resume and check the state transition ==')
-        time.sleep(BEFORE_RESUME_WAIT_TIME_SECONDS);
+        time.sleep(BEFORE_RESUME_WAIT_TIME_SECONDS)
         if resume_source == 'powerbtn':
             self.ec.send_command('powerbtn')
         elif resume_source == 'lid':
             self.ec.send_command('lidclose')
-            time.sleep(LIDOPEN_WAIT_TIME_SECONDS);
+            time.sleep(LIDOPEN_WAIT_TIME_SECONDS)
             self.ec.send_command('lidopen')
         elif resume_source == 'kbpress':
             self.ec.key_press('<enter>')
@@ -92,20 +94,30 @@ class platform_S0ixCycle(FirmwareTest):
             return int(output[0]) == 1
 
     def run_once(self):
+        """
+        Main test logic
+        """
         if not self.faft_config.chrome_ec or not self.check_ec_capability():
-            raise error.TestNAError('Chrome EC is not supported on this device.')
+            raise error.TestNAError(
+                    'Chrome EC is not supported on this device.')
 
         if not (self.is_skl_board() and self.is_s0ix_supported()):
-            raise error.TestNAError('Suspend to idle is not supported on this device.')
+            raise error.TestNAError(
+                    'Suspend to idle is not supported on this device.')
 
         for i in xrange(self.faft_iterations):
-            logging.info('== Running FAFT ITERATION %d/%s ==',i+1, self.faft_iterations)
-            logging.info('S0ix suspend/resume back and check state transition.')
+            logging.info('== Running FAFT ITERATION %d/%s ==', i + 1,
+                         self.faft_iterations)
+            logging.info(
+                    'S0ix suspend/resume back and check state transition.')
             # wake the display by key press.
             self.ec.key_press('<enter>')
             self.switcher.mode_aware_reboot('custom', self.perform_s0ix_cycle)
 
     def cleanup(self):
+        """
+        Cleanup after test completes
+        """
         self.ec.set_uart_regexp('None')
         # Test may failed before resume, wake the system.
         self.ec.send_command('powerbtn')

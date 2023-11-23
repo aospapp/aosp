@@ -18,9 +18,11 @@ package com.android.phone.otasp;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.AsyncResult;
+import android.os.Handler;
+import android.os.Message;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
-import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
@@ -32,15 +34,32 @@ public class OtaspSimStateReceiver extends BroadcastReceiver {
     private static final boolean DBG = true;
     private Context mContext;
 
-    private PhoneStateListener mPhoneStateListener = new PhoneStateListener(){
+    private static final int EVENT_OTASP_CHANGED = 1;
+
+    private Handler mOtaspHandler = new Handler() {
         @Override
-        public void onOtaspChanged(int otaspMode) {
-            logd("onOtaspChanged: otaspMode=" + otaspMode);
-            if (otaspMode == TelephonyManager.OTASP_NEEDED) {
-                logd("otasp activation required, start otaspActivationService");
-                mContext.startService(new Intent(mContext, OtaspActivationService.class));
-            } else if (otaspMode == TelephonyManager.OTASP_NOT_NEEDED) {
-                OtaspActivationService.updateActivationState(mContext, true);
+        public void handleMessage(Message msg) {
+            AsyncResult ar;
+            switch (msg.what) {
+                case EVENT_OTASP_CHANGED:
+                    ar = (AsyncResult) msg.obj;
+                    if (ar.exception == null && ar.result != null) {
+                        int otaspMode = (Integer) ar.result;
+                        logd("EVENT_OTASP_CHANGED: otaspMode=" + otaspMode);
+                        if (otaspMode == TelephonyManager.OTASP_NEEDED) {
+                            logd("otasp activation required, start otaspActivationService");
+                            mContext.startService(
+                                    new Intent(mContext, OtaspActivationService.class));
+                        } else if (otaspMode == TelephonyManager.OTASP_NOT_NEEDED) {
+                            OtaspActivationService.updateActivationState(mContext, true);
+                        }
+                    } else {
+                        logd("EVENT_OTASP_CHANGED: exception=" + ar.exception);
+                    }
+                    break;
+                default:
+                    super.handleMessage(msg);
+                    break;
             }
         }
     };
@@ -74,11 +93,15 @@ public class OtaspSimStateReceiver extends BroadcastReceiver {
         if(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(intent.getAction())) {
             if (DBG) logd("Received intent: " + intent.getAction());
             if (PhoneGlobals.getPhone().getIccRecordsLoaded() && isCarrierSupported()) {
-                final TelephonyManager telephonyManager = TelephonyManager.from(context);
-                telephonyManager.listen(mPhoneStateListener,
-                        PhoneStateListener.LISTEN_OTASP_CHANGED);
+                registerOtaspChangedHandler();
             }
         }
+    }
+
+    // It's fine to call mutiple times, as the registrants are de-duped by Handler object.
+    private void registerOtaspChangedHandler() {
+        final Phone phone = PhoneGlobals.getPhone();
+        phone.registerForOtaspChange(mOtaspHandler, EVENT_OTASP_CHANGED, null);
     }
 
     private static void logd(String s) {

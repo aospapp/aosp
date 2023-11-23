@@ -59,7 +59,11 @@ public class StorageMediaCategoryDetailFragment extends AppListFragment {
         VolumeInfo volume = maybeInitializeVolume(sm, getArguments());
         Application application = requireActivity().getApplication();
         mAppListItemManager = new ApplicationListItemManager(volume, getLifecycle(),
-                ApplicationsState.getInstance(application));
+                ApplicationsState.getInstance(application),
+                getContext().getResources().getInteger(
+                        R.integer.millisecond_app_data_update_interval),
+                getContext().getResources().getInteger(
+                        R.integer.millisecond_max_app_load_wait_interval));
         StorageMediaCategoryDetailPreferenceController pc = use(
                 StorageMediaCategoryDetailPreferenceController.class,
                 R.string.pk_storage_music_audio_details);

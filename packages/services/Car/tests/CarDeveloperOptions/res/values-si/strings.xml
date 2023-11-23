@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"තිරය මත පෙළ වඩාත් කුඩා හෝ විශාල කරන්න."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"වඩා කුඩා කරන්න"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"වඩා විශාල කරන්න"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"ආදර්ශ පෙළ"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"The Wonderful Wizard of Oz"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"11වන පරිච්ඡේදය: The Wonderful Emerald City of Oz"</string>
@@ -378,7 +377,7 @@
     <string name="location_settings_loading_app_permission_stats" msgid="7818169326621327628">"පූරණය වේ…"</string>
     <string name="account_settings_title" msgid="7870321267198486578">"ගිණුම්"</string>
     <string name="security_settings_title" msgid="8228075165942416425">"ආරක්ෂාව"</string>
-    <string name="encryption_and_credential_settings_title" msgid="6911729638397745353">"සංකේතනය සහ අක්තපත්‍ර"</string>
+    <string name="encryption_and_credential_settings_title" msgid="6911729638397745353">"සංකේතනය, අක්තපත්‍ර"</string>
     <string name="encryption_and_credential_settings_summary" product="default" msgid="468749700109808546">"දුරකතනය සංකේතනය කර ඇත"</string>
     <string name="decryption_settings_summary" product="default" msgid="7401802133199522441">"දුරකතනය සංකේතනය කර නැත"</string>
     <string name="encryption_and_credential_settings_summary" product="tablet" msgid="8170667308598998791">"උපාංගය සංකේතිතයි"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"ඔබේ ටැබ්ලටය අහිමි වූ හෝ සොරකම් කළ විට කිසිවෙකුට එය භාවිතා කිරීමට නොහැකි වනු ඇති පරිදි තිර අගුළු විකල්පයක් සමඟ ආරක්ෂා කර ගන්න. ඔබට මුහුණ සත්‍යාපනය පිහිටුවීමට තිර අගුළු විකල්පයකුත් අවශ්‍යයි. අවලංගු කරන්න තට්ටු කර, PIN එකක් සකසන්න හෝ වෙනත් තිර අගුළු විකල්පයක් තෝරා ගන්න."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"ඔබේ උපාංගය අහිමි වූ හෝ සොරකම් කළ විට කිසිවෙකුට එය භාවිතා කිරීමට නොහැකි වනු ඇති පරිදි තිර අගුළු විකල්පයක් සමඟ ආරක්ෂා කර ගන්න. ඔබට මුහුණ සත්‍යාපනය පිහිටුවීමට තිර අගුළු විකල්පයකුත් අවශ්‍යයි. අවලංගු කරන්න තට්ටු කර, PIN එකක් සකසන්න හෝ වෙනත් තිර අගුළු විකල්පයක් තෝරා ගන්න."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"ඔබේ දුරකථනය අහිමි වූ හෝ සොරකම් කළ විට කිසිවෙකුට එය භාවිතා කිරීමට නොහැකි වනු ඇති පරිදි තිර අගුළු විකල්පයක් සමඟ ආරක්ෂා කර ගන්න. ඔබට මුහුණ සත්‍යාපනය පිහිටුවීමට තිර අගුළු විකල්පයකුත් අවශ්‍යයි. අවලංගු කරන්න තට්ටු කර, PIN එකක් සකසන්න හෝ වෙනත් තිර අගුළු විකල්පයක් තෝරා ගන්න."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"PIN පිහිටුවීම මඟ හරින්න ද?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"මුරපදය පිහිටුවීම මඟ හරින්න ද?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"රටාව පිහිටුවීම මඟ හරින්න ද?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"තිර අගුළු දැමීම සකසන්න"</string>
@@ -669,7 +667,6 @@
       <item quantity="one">ඉලක්කම් <xliff:g id="NUMBER_1">%d</xliff:g>කට වඩා අඩු විය යුතුය</item>
       <item quantity="other">ඉලක්කම් <xliff:g id="NUMBER_1">%d</xliff:g>කට වඩා අඩු විය යුතුය</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"0-9 දක්වා ඉලක්කම් පමණක් අඩංගු විය යුතුය"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"උපාංග පරිපාලක මෑත PIN එකක් භාවිතා කිරීමට අවසර නොදේ"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"ඔබගේ IT පරිපාලක විසින් සුලබ PIN අවහිර කරනු ලැබේ. වෙනත් PIN එකක් උත්සාහ කරන්න."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"මෙහි වලංගු නොවන අනුලකුණක් ඇතුළත් විය නොහැකිය"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="one">අඩු තරමින් අකුරු නොවන අනුලකුණු <xliff:g id="COUNT">%d</xliff:g>ක් අඩංගු විය යුතුය</item>
       <item quantity="other">අඩු තරමින් අකුරු නොවන අනුලකුණු <xliff:g id="COUNT">%d</xliff:g>ක් අඩංගු විය යුතුය</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="one">අඩු තරමින් සංඛ්‍යාත්මක-නොවන අනුලකුණු <xliff:g id="COUNT">%d</xliff:g>ක් අඩංගු විය යුතුය</item>
+      <item quantity="other">අඩු තරමින් සංඛ්‍යාත්මක-නොවන අනුලකුණු <xliff:g id="COUNT">%d</xliff:g>ක් අඩංගු විය යුතුය</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"උපාංග පරිපාලක මෑත මුරපදයක් භාවිතා කිරීමට අවසර නොදේ."</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"ඔබගේ IT පරිපාලක විසින් සුලබ මුරපද අවහිර කරනු ලැබේ. වෙනත් මුරපදයක් උත්සාහ කරන්න."</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"ජංගම"</item>
+    <item msgid="6007360612667098926">"Wi-Fi පමණයි"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"ජංගම"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"Wi‑Fi නොලැබේ නම්, ජංගම ජාලය භාවිත කරන්න"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"ජංගම ජාලය නොලැබේ නම්, Wi-Fi භාවිත කරන්න"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Wi‑Fi ඔස්සේ ඇමතුම. Wi‑Fi අහිමි වූයේ නම්, ඇමතුම අවසන් වෙයි."</string>
@@ -2569,7 +2576,7 @@
     <string name="sms_access_restriction_enabled" msgid="3006320256764718303">"SMS සහ ඇමතුම් ලොග ප්‍රවේශය සීමා කරන්න"</string>
     <string name="sms_access_restriction_enabled_summary" msgid="9011946580977780063">"පෙරනිමි දුරකථන සහ පණිවිඩකරණ යෙදුම්වලට පමණක් SMS සහ ඇමතුම් ලොග අවසර ඇත"</string>
     <string name="no_trust_agents" msgid="5757792915019113084">"විශ්වාසනීය ඒජන්තවරුන් නැත"</string>
-    <string name="add_device_admin_msg" msgid="3573765823476931173">"උපාංගය පරිපාලක යෙදුම සක්‍රිය කරන්නද?"</string>
+    <string name="add_device_admin_msg" msgid="3573765823476931173">"උපාංග පරිපාලක යෙදුම සක්‍රිය කර.?"</string>
     <string name="add_device_admin" msgid="1621152410207260584">"මෙම උපාංගය පරිපාලක යෙදුම සක්‍රිය කරන්න"</string>
     <string name="device_admin_add_title" msgid="6097881332139146897">"උපාංග පරිපාලක"</string>
     <string name="device_admin_warning" msgid="4421817419326480449">"මෙම පරිපාලකයා සක්‍රිය කිරීමෙන් <xliff:g id="APP_NAME">%1$s</xliff:g> යෙදුමට පහත ක්‍රියාවන් සිදුකිරීමට අවස්තාව ලබාදේ:"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"එය මෙම දුරකථනය මන්දගාමී කරනු ඇත"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"සම්පූර්ණ GNSS මිනුම් බලාත්මක කරන්න"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"කාර්ය චක්‍රය රහිත සියලු GNSS සබැඳි තාරකා ගෝල සහ සංඛ්‍යාත"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"පරිශීලක ස්විචය නිදොස් කරන්න"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"පරිශීලක ස්විචය අතරතුර විස්තරාත්මක තොරතුරු පෙන්වන්න"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"පසුබිම් ක්‍රියාකාරකම් පටන් ගැනීමට ඉඩ දෙන්න"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"පසුබිම් ක්‍රියාකාරකම් සියල්ල පටන් ගැනීමට ඉඩ දෙන්න"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"බිඳ වැටීම් සංවාදය සැම විට පෙන්වන්න"</string>

@@ -17,19 +17,19 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- TODO (santie): replace icons with real ones when available -->
     <item
+        android:id="@+id/nav_wallpaper"
+        android:title="@string/wallpaper_title"
+        android:icon="@drawable/ic_nav_wallpaper" />
+    <item
         android:id="@+id/nav_theme"
         android:title="@string/theme_title"
         android:icon="@drawable/ic_nav_theme" />
-    <item
-        android:id="@+id/nav_clock"
-        android:title="@string/clock_title"
-        android:icon="@drawable/ic_nav_clock" />
     <item
         android:id="@+id/nav_grid"
         android:title="@string/grid_title"
         android:icon="@drawable/ic_nav_grid" />
     <item
-        android:id="@+id/nav_wallpaper"
-        android:title="@string/wallpaper_title"
-        android:icon="@drawable/ic_nav_wallpaper" />
+        android:id="@+id/nav_clock"
+        android:title="@string/clock_title"
+        android:icon="@drawable/ic_nav_clock" />
 </menu>

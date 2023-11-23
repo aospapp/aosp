@@ -30,7 +30,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
@@ -42,9 +41,10 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class BluetoothDeviceProfilePreferenceTest {
 
     @Mock
@@ -103,7 +103,7 @@ public class BluetoothDeviceProfilePreferenceTest {
 
     @Test
     public void onAttached_preferred_setsChecked() {
-        when(mProfile.isPreferred(mDevice)).thenReturn(true);
+        when(mProfile.isEnabled(mDevice)).thenReturn(true);
 
         mPreference.onAttached();
 
@@ -112,7 +112,7 @@ public class BluetoothDeviceProfilePreferenceTest {
 
     @Test
     public void onAttached_notPreferred_setsUnchecked() {
-        when(mProfile.isPreferred(mDevice)).thenReturn(false);
+        when(mProfile.isEnabled(mDevice)).thenReturn(false);
 
         mPreference.onAttached();
 
@@ -147,7 +147,7 @@ public class BluetoothDeviceProfilePreferenceTest {
 
     @Test
     public void onDeviceAttributesChanged_refreshesUi() {
-        when(mProfile.isPreferred(mDevice)).thenReturn(false);
+        when(mProfile.isEnabled(mDevice)).thenReturn(false);
         when(mCachedDevice.isBusy()).thenReturn(false);
         ArgumentCaptor<CachedBluetoothDevice.Callback> callbackCaptor = ArgumentCaptor.forClass(
                 CachedBluetoothDevice.Callback.class);
@@ -157,7 +157,7 @@ public class BluetoothDeviceProfilePreferenceTest {
         assertThat(mPreference.isEnabled()).isTrue();
         assertThat(mPreference.isChecked()).isFalse();
 
-        when(mProfile.isPreferred(mDevice)).thenReturn(true);
+        when(mProfile.isEnabled(mDevice)).thenReturn(true);
         when(mCachedDevice.isBusy()).thenReturn(true);
 
         callbackCaptor.getValue().onDeviceAttributesChanged();

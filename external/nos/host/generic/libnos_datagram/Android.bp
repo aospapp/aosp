@@ -19,3 +19,13 @@ cc_library {
     defaults: ["nos_cc_host_supported_defaults"],
     export_include_dirs: ["include"],
 }
+
+cc_library {
+    name: "libnos_datagram_citadel",
+    srcs: ["citadel.c"],
+    defaults: ["nos_cc_defaults"],
+    shared_libs: [
+        "liblog",
+        "libnos_datagram",
+    ],
+}

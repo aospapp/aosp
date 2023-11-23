@@ -80,6 +80,14 @@ public class TestSensorOperation extends SensorOperation {
     }
 
     /**
+     * An interface that defines an abstraction for a method that allows {@link TestSensorOperation}
+     * to wait for user interaction before continuing.
+     */
+    public interface WaitForUserOperation {
+        void waitForUser() throws InterruptedException;
+    }
+
+    /**
      * Create a {@link TestSensorOperation}.
      */
     public TestSensorOperation(TestSensorEnvironment environment, Executor executor) {
@@ -357,6 +365,30 @@ public class TestSensorOperation extends SensorOperation {
                 try {
                     sensorManager.registerListener(listener);
                     listener.waitForEvents(duration, timeUnit);
+                } finally {
+                    sensorManager.unregisterListener();
+                }
+            }
+        };
+        return new TestSensorOperation(environment, executor);
+    }
+
+    /**
+     * Creates an operation that will wait for user interaction to stop collecting events.
+     *
+     * @param environment The test environment.
+     * @param operation Method that allows waiting for user interaction before continuing execution.
+     */
+    public static TestSensorOperation createOperation(
+            TestSensorEnvironment environment,
+            WaitForUserOperation operation) {
+        Executor executor = new Executor() {
+            @Override
+            public void execute(TestSensorManager sensorManager, TestSensorEventListener listener)
+                    throws InterruptedException {
+                try {
+                    sensorManager.registerListener(listener);
+                    operation.waitForUser();
                 } finally {
                     sensorManager.unregisterListener();
                 }

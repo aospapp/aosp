@@ -484,6 +484,17 @@ typedef struct {
      * disp_buf_id
      */
     UWORD32                                 u4_disp_buf_id;
+
+    /**
+     * reorder_depth
+     */
+    WORD32                                  i4_reorder_depth;
+
+    /**
+     * display index
+     */
+    WORD32                                  i4_display_index;
+
 }ivd_video_decode_op_t;
 
 

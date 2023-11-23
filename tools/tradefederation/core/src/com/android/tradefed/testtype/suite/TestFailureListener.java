@@ -16,6 +16,7 @@
 package com.android.tradefed.testtype.suite;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.DeviceProperties;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -74,7 +75,7 @@ public class TestFailureListener implements ITestInvocationListener {
             try {
                 // Rebooting on all failures can hide legitimate issues and platform instabilities,
                 // therefore only allowed on "user-debug" and "eng" builds.
-                if ("user".equals(device.getProperty("ro.build.type"))) {
+                if ("user".equals(device.getProperty(DeviceProperties.BUILD_TYPE))) {
                     CLog.e("Reboot-on-failure should only be used during development," +
                             " this is a\" user\" build device");
                 } else {

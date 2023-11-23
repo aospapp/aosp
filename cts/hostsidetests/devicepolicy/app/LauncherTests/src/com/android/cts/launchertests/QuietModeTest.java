@@ -19,8 +19,10 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 import android.content.BroadcastReceiver;
@@ -28,6 +30,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.support.test.uiautomator.UiDevice;
@@ -63,6 +66,7 @@ public class QuietModeTest {
             new ComponentName(
                     "com.android.cts.launchertests.support",
                     "com.android.cts.launchertests.support.QuietModeCommandReceiver");
+    private static final String EXTRA_FLAGS = "quiet_mode_flags";
 
     private UserManager mUserManager;
     private UserHandle mTargetUser;
@@ -133,7 +137,66 @@ public class QuietModeTest {
         assertFalse(mUserManager.isQuietModeEnabled(mTargetUser));
     }
 
+    @Test
+    public void testTryEnableQuietMode_noCredentialRequest() throws Exception {
+        setTestAppAsDefaultLauncher();
+        startLauncherActivityInTestApp();
+
+        Intent intent = trySetQuietModeEnabled(true,
+                UserManager.QUIET_MODE_DISABLE_ONLY_IF_CREDENTIAL_NOT_REQUIRED, true);
+        assertNotNull("Failed to receive ACTION_MANAGED_PROFILE_UNAVAILABLE broadcast", intent);
+        assertTrue(mUserManager.isQuietModeEnabled(mTargetUser));
+
+        waitForUserNotRunning(30);
+
+        intent = trySetQuietModeEnabled(false,
+                UserManager.QUIET_MODE_DISABLE_ONLY_IF_CREDENTIAL_NOT_REQUIRED, false);
+        assertNull("Received ACTION_MANAGED_PROFILE_AVAILABLE broadcast", intent);
+        assertTrue(mUserManager.isQuietModeEnabled(mTargetUser));
+    }
+
+    // Note: The timeout is in seconds.
+    private void waitForUserNotRunning(int timeout) {
+        for(int i = 0 ; i < 2 * timeout ; i++) {
+            if (!mUserManager.isUserRunning(mTargetUser)) {
+                break;
+            }
+            SystemClock.sleep(500);
+        }
+        assertFalse("Cannot get the profile stopped.", mUserManager.isUserRunning(mTargetUser));
+    }
+
+    private Intent trySetQuietModeEnabled(boolean enabled, int flags,
+            boolean expectsCredentialsNotNeeded) throws Exception {
+        return trySetQuietModeEnabled(enabled, true, flags, expectsCredentialsNotNeeded);
+    }
+
+    @Test
+    public void testTryEnableQuietMode() throws Exception {
+        setTestAppAsDefaultLauncher();
+        startLauncherActivityInTestApp();
+
+        Intent intent = trySetQuietModeEnabled(true);
+        assertNotNull("Failed to receive ACTION_MANAGED_PROFILE_UNAVAILABLE broadcast", intent);
+        assertTrue(mUserManager.isQuietModeEnabled(mTargetUser));
+    }
+
+    @Test
+    public void testTryDisableQuietMode() throws Exception {
+        setTestAppAsDefaultLauncher();
+        startLauncherActivityInTestApp();
+
+        Intent intent = trySetQuietModeEnabled(false);
+        assertNotNull("Failed to receive ACTION_MANAGED_PROFILE_AVAILABLE broadcast", intent);
+        assertFalse(mUserManager.isQuietModeEnabled(mTargetUser));
+    }
+
     private Intent trySetQuietModeEnabled(boolean enabled) throws Exception {
+        return trySetQuietModeEnabled(enabled, false, 0, true);
+    }
+
+    private Intent trySetQuietModeEnabled(boolean enabled, boolean hasFlags, int flags,
+            boolean expectsCredentialsNotNeeded) throws Exception {
         final String action = enabled
                 ? Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE
                 : Intent.ACTION_MANAGED_PROFILE_AVAILABLE;
@@ -143,9 +206,9 @@ public class QuietModeTest {
         try {
             receiver.register();
 
-            boolean notShowingConfirmCredential = askLauncherSupportAppToSetQuietMode(enabled);
-            assertTrue(notShowingConfirmCredential);
-
+            boolean credentialNotNeeded = askLauncherSupportAppToSetQuietMode(enabled, hasFlags,
+                    flags);
+            assertEquals(credentialNotNeeded, expectsCredentialsNotNeeded);
             return receiver.awaitForBroadcast();
         } finally {
             receiver.unregisterQuietly();
@@ -164,11 +227,14 @@ public class QuietModeTest {
      * All the constants defined here should be aligned with
      * com.android.cts.launchertests.support.QuietModeCommandReceiver.
      */
-    private boolean askLauncherSupportAppToSetQuietMode(boolean enabled) throws Exception {
+    private boolean askLauncherSupportAppToSetQuietMode(boolean enabled, boolean hasFlags, int flags) throws Exception {
         Intent intent = new Intent("toggle_quiet_mode");
         intent.setComponent(COMMAND_RECEIVER);
         intent.putExtra("quiet_mode", enabled);
         intent.putExtra(Intent.EXTRA_USER, mTargetUser);
+        if (hasFlags) {
+            intent.putExtra(EXTRA_FLAGS, flags);
+        }
 
         // Ask launcher support app to set quiet mode by sending broadcast.
         LinkedBlockingQueue<String> blockingQueue = new LinkedBlockingQueue<>();

@@ -1,5 +1,0 @@
-cc_prebuilt_binary {
-    name: "fuzz",
-    srcs: ["fuzz"]
-}
-

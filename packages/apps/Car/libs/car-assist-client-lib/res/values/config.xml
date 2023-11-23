@@ -16,5 +16,5 @@
 -->
 <resources>
     <!-- Whether FallbackAssistant is enabled. -->
-    <bool name="config_enableFallbackAssistant">true</bool>
+    <bool name="config_enableFallbackAssistant">false</bool>
 </resources>

@@ -36,10 +36,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/**
- * Used by NetstatsIncidentTest.  Makes some network requests so "dumpsys netstats" will have
- * something to show.
- */
 @RunWith(AndroidJUnit4.class)
 public class ProcStatsTest {
     private static final String TAG = "ProcStatsTest";

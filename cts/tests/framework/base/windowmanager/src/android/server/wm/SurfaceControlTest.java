@@ -15,6 +15,7 @@
  */
 package android.server.wm;
 
+import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static android.server.wm.UiDeviceUtils.pressHomeButton;
@@ -97,6 +98,16 @@ public class SurfaceControlTest {
         assertFalse(sc.isValid());
     }
 
+    @Test
+    public void testSameSurface() {
+        final SurfaceControl.Builder b = new SurfaceControl.Builder();
+        final SurfaceControl sc = b.setName("CTS").build();
+        SurfaceControl copy = new SurfaceControl(sc, "SurfaceControlTest.testSameSurface");
+        assertTrue(copy.isSameSurface(sc));
+        sc.release();
+        copy.release();
+    }
+
     private SurfaceControl buildDefaultSurface(SurfaceControl parent) {
         return new SurfaceControl.Builder()
             .setBufferSize(DEFAULT_SURFACE_SIZE, DEFAULT_SURFACE_SIZE)
@@ -167,18 +178,23 @@ public class SurfaceControlTest {
      */
     @Test
     public void testReparentOff() throws Throwable {
+        final SurfaceControl sc = buildDefaultRedSurface(null);
         verifyTest(
                 new SurfaceControlTestCase.ParentSurfaceConsumer () {
                     @Override
                     public void addChildren(SurfaceControl parent) {
-                        final SurfaceControl sc = buildDefaultRedSurface(parent);
-
+                        new SurfaceControl.Transaction().reparent(sc, parent).apply();
                         new SurfaceControl.Transaction().reparent(sc, null).apply();
-
-                        sc.release();
                     }
                 },
                 new RectChecker(new Rect(0, 0, 100, 100), PixelColor.WHITE));
+      // Since the SurfaceControl is parented off-screen, if we release our reference
+      // it may completely die. If this occurs while the render thread is still rendering
+      // the RED background we could trigger a crash. For this test defer destroying the
+      // Surface until we have collected our test results.
+      if (sc != null) {
+        sc.release();
+      }
     }
 
     /**

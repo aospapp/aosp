@@ -1,25 +1,9 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) Linux Test Project, 2014-2019
+# Author: Cyril Hrubis <chrubis@suse.cz>
 #
-# Copyright (c) Linux Test Project, 2014-2018
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
-# Written by Cyril Hrubis <chrubis@suse.cz>
-#
-# This is a LTP test library for shell.
-#
+# LTP test library for shell.
 
 [ -n "$TST_LIB_LOADED" ] && return 0
 
@@ -34,6 +18,7 @@ export TST_TMPDIR_RHOST=0
 export TST_LIB_LOADED=1
 
 . tst_ansi_color.sh
+. tst_security.sh
 
 # default trap function
 trap "tst_brk TBROK 'test interrupted'" INT
@@ -43,8 +28,7 @@ _tst_do_exit()
 	local ret=0
 	TST_DO_EXIT=1
 
-	if [ -n "$TST_SETUP_STARTED" -a -n "$TST_CLEANUP" -a \
-	     -z "$TST_NO_CLEANUP" ]; then
+	if [ -n "$TST_CLEANUP" -a -z "$TST_NO_CLEANUP" ]; then
 		$TST_CLEANUP
 	fi
 
@@ -77,8 +61,12 @@ _tst_do_exit()
 		ret=$((ret|4))
 	fi
 
-	if [ $TST_CONF -gt 0 ]; then
+	if [ $TST_CONF -gt 0 -a $TST_PASS -eq 0 ]; then
 		ret=$((ret|32))
+	fi
+
+	if [ $TST_BROK -gt 0 -o $TST_FAIL -gt 0 -o $TST_WARN -gt 0 ]; then
+		_tst_check_security_modules
 	fi
 
 	echo
@@ -150,33 +138,65 @@ ROD()
 	fi
 }
 
-EXPECT_PASS()
+_tst_expect_pass()
 {
+	local fnc="$1"
+	shift
+
 	tst_rod "$@"
 	if [ $? -eq 0 ]; then
 		tst_res TPASS "$@ passed as expected"
+		return 0
 	else
-		tst_res TFAIL "$@ failed unexpectedly"
+		$fnc TFAIL "$@ failed unexpectedly"
+		return 1
 	fi
 }
 
-EXPECT_FAIL()
+_tst_expect_fail()
 {
+	local fnc="$1"
+	shift
+
 	# redirect stderr since we expect the command to fail
 	tst_rod "$@" 2> /dev/null
 	if [ $? -ne 0 ]; then
 		tst_res TPASS "$@ failed as expected"
+		return 0
 	else
-		tst_res TFAIL "$@ passed unexpectedly"
+		$fnc TFAIL "$@ passed unexpectedly"
+		return 1
 	fi
+}
+
+EXPECT_PASS()
+{
+	_tst_expect_pass tst_res "$@"
+}
+
+EXPECT_PASS_BRK()
+{
+	_tst_expect_pass tst_brk "$@"
+}
+
+EXPECT_FAIL()
+{
+	_tst_expect_fail tst_res "$@"
+}
+
+EXPECT_FAIL_BRK()
+{
+	_tst_expect_fail tst_brk "$@"
 }
 
 TST_RETRY_FN_EXP_BACKOFF()
 {
 	local tst_fun="$1"
 	local tst_exp=$2
-	local tst_sec=$(expr $3 \* 1000000)
+	local tst_sec=$(($3 * 1000000))
 	local tst_delay=1
+
+	_tst_multiply_timeout tst_sec
 
 	if [ $# -ne 3 ]; then
 		tst_brk TBROK "TST_RETRY_FN_EXP_BACKOFF expects 3 parameters"
@@ -230,10 +250,34 @@ TST_RTNL_CHK()
 	tst_brk TBROK "$@ failed: $output"
 }
 
+tst_mount()
+{
+	local mnt_opt mnt_err
+
+	if [ -n "$TST_FS_TYPE" ]; then
+		mnt_opt="-t $TST_FS_TYPE"
+		mnt_err=" $TST_FS_TYPE type"
+	fi
+
+	ROD_SILENT mkdir -p $TST_MNTPOINT
+	mount $mnt_opt $TST_DEVICE $TST_MNTPOINT $TST_MNT_PARAMS
+	local ret=$?
+
+	if [ $ret -eq 32 ]; then
+		tst_brk TCONF "Cannot mount${mnt_err}, missing driver?"
+	fi
+
+	if [ $ret -ne 0 ]; then
+		tst_brk TBROK "Failed to mount device${mnt_err}: mount exit = $ret"
+	fi
+}
+
 tst_umount()
 {
-	local device="$1"
+	local device="${1:-$TST_DEVICE}"
 	local i=0
+
+	[ -z "$device" ] && return
 
 	if ! grep -q "$device" /proc/mounts; then
 		tst_res TINFO "The $device is not mounted, skipping umount"
@@ -259,9 +303,10 @@ tst_umount()
 
 tst_mkfs()
 {
-	local fs_type=$1
-	local device=$2
-	shift 2
+	local fs_type=${1:-$TST_FS_TYPE}
+	local device=${2:-$TST_DEVICE}
+	[ $# -ge 1 ] && shift
+	[ $# -ge 1 ] && shift
 	local fs_opts="$@"
 
 	if [ -z "$fs_type" ]; then
@@ -272,8 +317,9 @@ tst_mkfs()
 		tst_brk TBROK "No device specified"
 	fi
 
-	tst_res TINFO "Formatting $device with $fs_type extra opts='$fs_opts'"
+	tst_require_cmds mkfs.$fs_type
 
+	tst_res TINFO "Formatting $device with $fs_type extra opts='$fs_opts'"
 	ROD_SILENT mkfs.$fs_type $fs_opts $device
 }
 
@@ -293,7 +339,7 @@ tst_cmd_available()
 	fi
 }
 
-tst_test_cmds()
+tst_require_cmds()
 {
 	local cmd
 	for cmd in $*; do
@@ -313,7 +359,7 @@ tst_check_cmds()
 	return 0
 }
 
-tst_test_drivers()
+tst_require_drivers()
 {
 	[ $# -eq 0 ] && return 0
 
@@ -329,6 +375,11 @@ tst_is_int()
 {
 	[ "$1" -eq "$1" ] 2>/dev/null
 	return $?
+}
+
+tst_is_num()
+{
+	echo "$1" | grep -Eq '^[-+]?[0-9]+\.?[0-9]*$'
 }
 
 tst_usage()
@@ -358,12 +409,45 @@ _tst_rescmp()
 	fi
 }
 
+_tst_multiply_timeout()
+{
+	[ $# -ne 1 ] && tst_brk TBROK "_tst_multiply_timeout expect 1 parameter"
+	eval "local timeout=\$$1"
+
+	LTP_TIMEOUT_MUL=${LTP_TIMEOUT_MUL:-1}
+
+	local err="LTP_TIMEOUT_MUL must be number >= 1!"
+
+	tst_is_num "$LTP_TIMEOUT_MUL" || tst_brk TBROK "$err ($LTP_TIMEOUT_MUL)"
+
+	if ! tst_is_int "$LTP_TIMEOUT_MUL"; then
+		LTP_TIMEOUT_MUL=$(echo "$LTP_TIMEOUT_MUL" | cut -d. -f1)
+		LTP_TIMEOUT_MUL=$((LTP_TIMEOUT_MUL+1))
+		tst_res TINFO "ceiling LTP_TIMEOUT_MUL to $LTP_TIMEOUT_MUL"
+	fi
+
+	[ "$LTP_TIMEOUT_MUL" -ge 1 ] || tst_brk TBROK "$err ($LTP_TIMEOUT_MUL)"
+	[ "$timeout" -ge 1 ] || tst_brk TBROK "timeout need to be >= 1 ($timeout)"
+
+	eval "$1='$((timeout * LTP_TIMEOUT_MUL))'"
+	return 0
+}
 
 _tst_setup_timer()
 {
-	LTP_TIMEOUT_MUL=${LTP_TIMEOUT_MUL:-1}
+	TST_TIMEOUT=${TST_TIMEOUT:-300}
 
-	local sec=$((300 * LTP_TIMEOUT_MUL))
+	if [ "$TST_TIMEOUT" = -1 ]; then
+		tst_res TINFO "Timeout per run is disabled"
+		return
+	fi
+
+	if ! tst_is_int "$TST_TIMEOUT" || [ "$TST_TIMEOUT" -lt 1 ]; then
+		tst_brk TBROK "TST_TIMEOUT must be int >= 1! ($TST_TIMEOUT)"
+	fi
+
+	local sec=$TST_TIMEOUT
+	_tst_multiply_timeout sec
 	local h=$((sec / 3600))
 	local m=$((sec / 60 % 60))
 	local s=$((sec % 60))
@@ -376,6 +460,13 @@ _tst_setup_timer()
 	_tst_setup_timer_pid=$!
 }
 
+_tst_require_root()
+{
+	if [ "$(id -ru)" != 0 ]; then
+		tst_brk TCONF "Must be super/root for this test!"
+	fi
+}
+
 tst_run()
 {
 	local _tst_i
@@ -384,20 +475,22 @@ tst_run()
 	local _tst_name
 
 	if [ -n "$TST_TEST_PATH" ]; then
-		for _tst_i in $(grep TST_ "$TST_TEST_PATH" | sed 's/.*TST_//; s/[="} \t\/:`].*//'); do
+		for _tst_i in $(grep '^[^#]*\bTST_' "$TST_TEST_PATH" | sed 's/.*TST_//; s/[="} \t\/:`].*//'); do
 			case "$_tst_i" in
+			DISABLE_APPARMOR|DISABLE_SELINUX);;
 			SETUP|CLEANUP|TESTFUNC|ID|CNT|MIN_KVER);;
 			OPTS|USAGE|PARSE_ARGS|POS_ARGS);;
 			NEEDS_ROOT|NEEDS_TMPDIR|TMPDIR|NEEDS_DEVICE|DEVICE);;
 			NEEDS_CMDS|NEEDS_MODULE|MODPATH|DATAROOT);;
-			NEEDS_DRIVERS);;
+			NEEDS_DRIVERS|FS_TYPE|MNTPOINT|MNT_PARAMS);;
 			IPV6|IPVER|TEST_DATA|TEST_DATA_IFS);;
-			RETRY_FUNC|RETRY_FN_EXP_BACKOFF);;
+			RETRY_FUNC|RETRY_FN_EXP_BACKOFF|TIMEOUT);;
+			NET_MAX_PKT);;
 			*) tst_res TWARN "Reserved variable TST_$_tst_i used!";;
 			esac
 		done
 
-		for _tst_i in $(grep _tst_ "$TST_TEST_PATH" | sed 's/.*_tst_//; s/[="} \t\/:`].*//'); do
+		for _tst_i in $(grep '^[^#]*\b_tst_' "$TST_TEST_PATH" | sed 's/.*_tst_//; s/[="} \t\/:`].*//'); do
 			tst_res TWARN "Private variable or function _tst_$_tst_i used!"
 		done
 	fi
@@ -421,14 +514,13 @@ tst_run()
 		tst_brk TBROK "Number of iterations (-i) must be > 0"
 	fi
 
-	if [ "$TST_NEEDS_ROOT" = 1 ]; then
-		if [ "$(id -ru)" != 0 ]; then
-			tst_brk TCONF "Must be super/root for this test!"
-		fi
-	fi
+	[ "$TST_NEEDS_ROOT" = 1 ] && _tst_require_root
 
-	tst_test_cmds $TST_NEEDS_CMDS
-	tst_test_drivers $TST_NEEDS_DRIVERS
+	[ "$TST_DISABLE_APPARMOR" = 1 ] && tst_disable_apparmor
+	[ "$TST_DISABLE_SELINUX" = 1 ] && tst_disable_selinux
+
+	tst_require_cmds $TST_NEEDS_CMDS
+	tst_require_drivers $TST_NEEDS_DRIVERS
 
 	if [ -n "$TST_MIN_KVER" ]; then
 		tst_kvcmp -lt "$TST_MIN_KVER" && \
@@ -436,6 +528,8 @@ tst_run()
 	fi
 
 	_tst_setup_timer
+
+	[ "$TST_NEEDS_DEVICE" = 1 ] && TST_TMPDIR=1
 
 	if [ "$TST_NEEDS_TMPDIR" = 1 ]; then
 		if [ -z "$TMPDIR" ]; then
@@ -451,14 +545,13 @@ tst_run()
 		cd "$TST_TMPDIR"
 	fi
 
+	TST_MNTPOINT="${TST_MNTPOINT:-mntpoint}"
 	if [ "$TST_NEEDS_DEVICE" = 1 ]; then
-		if [ -z ${TST_TMPDIR} ]; then
-			tst_brk TBROK "Use TST_NEEDS_TMPDIR must be set for TST_NEEDS_DEVICE"
-		fi
 
 		TST_DEVICE=$(tst_device acquire)
 
 		if [ ! -b "$TST_DEVICE" -o $? -ne 0 ]; then
+			unset TST_DEVICE
 			tst_brk TBROK "Failed to acquire device"
 		fi
 
@@ -484,14 +577,13 @@ tst_run()
 	fi
 
 	if [ -n "$TST_SETUP" ]; then
-		TST_SETUP_STARTED=1
 		$TST_SETUP
 	fi
 
 	#TODO check that test reports some results for each test function call
 	while [ $TST_ITERATIONS -gt 0 ]; do
 		if [ -n "$TST_TEST_DATA" ]; then
-			tst_test_cmds cut tr wc
+			tst_require_cmds cut tr wc
 			_tst_max=$(( $(echo $TST_TEST_DATA | tr -cd "$TST_TEST_DATA_IFS" | wc -c) +1))
 			for _tst_i in $(seq $_tst_max); do
 				_tst_data="$(echo "$TST_TEST_DATA" | cut -d"$TST_TEST_DATA_IFS" -f$_tst_i)"

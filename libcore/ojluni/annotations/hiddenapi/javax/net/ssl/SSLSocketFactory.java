@@ -26,8 +26,8 @@
 
 package javax.net.ssl;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.system.VersionCodes;
+import android.compat.annotation.UnsupportedAppUsage;
+import dalvik.annotation.compat.VersionCodes;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class SSLSocketFactory extends javax.net.SocketFactory {
@@ -76,7 +76,11 @@ public abstract class SSLSocketFactory extends javax.net.SocketFactory {
      * changes.
      */
     @UnsupportedAppUsage(maxTargetSdk = VersionCodes.P,
-            trackingBug = 118741276)
+            trackingBug = 118741276,
+            publicAlternatives = "Use {@link #getDefault()} to read the current default; from "
+            + "Android API level 21 onwards, apps should have no need to ever write this value "
+            + "because it is automatically recomputed when the set of "
+            + "{@link java.security.Provider} security providers changes.")
     private static javax.net.ssl.SSLSocketFactory defaultSocketFactory;
 
     private static int lastVersion = -1; // 0xffffffff

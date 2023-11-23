@@ -17,6 +17,7 @@
 
 package com.android.org.conscrypt;
 
+import com.android.org.conscrypt.io.IoUtils;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,7 +37,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.security.auth.x500.X500Principal;
-import com.android.org.conscrypt.io.IoUtils;
 
 /**
  * A source for trusted root certificate authority (CA) certificates
@@ -129,9 +129,10 @@ public class TrustedCertificateStore implements ConscryptCertStore {
     private final File addedDir;
     private final File deletedDir;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
-    public TrustedCertificateStore() {
+    @android.compat.annotation
+            .UnsupportedAppUsage
+            @libcore.api.CorePlatformApi
+            public TrustedCertificateStore() {
         this(PreloadHolder.defaultCaCertsSystemDir, PreloadHolder.defaultCaCertsAddedDir,
                 PreloadHolder.defaultCaCertsDeletedDir);
     }
@@ -434,7 +435,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
             }
         };
         X500Principal issuer = c.getIssuerX500Principal();
-        Set<X509Certificate> userAddedCerts = findCert(addedDir, issuer, selector, Set.class);
+        Set<X509Certificate> userAddedCerts = findCertSet(addedDir, issuer, selector);
         if (userAddedCerts != null) {
             issuers = userAddedCerts;
         }
@@ -452,7 +453,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
                 }
             }
         };
-        Set<X509Certificate> systemCerts = findCert(systemDir, issuer, selector, Set.class);
+        Set<X509Certificate> systemCerts = findCertSet(systemDir, issuer, selector);
         if (systemCerts != null) {
             if (issuers != null) {
                 issuers.addAll(systemCerts);
@@ -499,9 +500,10 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      * @throws CertificateException if there was a problem parsing the
      *             certificates
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
-    public List<X509Certificate> getCertificateChain(X509Certificate leaf)
+    @android.compat.annotation
+            .UnsupportedAppUsage
+            @libcore.api.CorePlatformApi
+            public List<X509Certificate> getCertificateChain(X509Certificate leaf)
             throws CertificateException {
         final LinkedHashSet<OpenSSLX509Certificate> chain
                 = new LinkedHashSet<OpenSSLX509Certificate>();
@@ -527,9 +529,15 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         public boolean match(X509Certificate cert);
     }
 
+    @SuppressWarnings("unchecked")
+    private Set<X509Certificate> findCertSet(
+            File dir, X500Principal subject, CertSelector selector) {
+        return (Set<X509Certificate>) findCert(dir, subject, selector, Set.class);
+    }
+
+    @SuppressWarnings("unchecked")
     private <T> T findCert(
             File dir, X500Principal subject, CertSelector selector, Class<T> desiredReturnType) {
-
         Set<X509Certificate> certs = null;
         String hash = hash(subject);
         for (int index = 0; true; index++) {

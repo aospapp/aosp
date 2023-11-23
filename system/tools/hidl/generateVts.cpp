@@ -53,9 +53,7 @@ void AST::generateVts(Formatter& out) const {
     const Interface *iface = AST::getInterface();
 
     out << "component_class: HAL_HIDL\n";
-    out << "component_name: \""
-        << (iface ? iface->localName() : "types")
-        << "\"\n\n";
+    out << "component_name: \"" << (iface ? iface->definedName() : "types") << "\"\n\n";
 
     out << "component_type_version_major: " << mPackage.getPackageMajorVersion() << "\n";
     out << "component_type_version_minor: " << mPackage.getPackageMinorVersion() << "\n";

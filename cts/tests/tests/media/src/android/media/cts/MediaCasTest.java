@@ -24,13 +24,20 @@ import android.media.MediaCasException.UnsupportedCasException;
 import android.media.MediaCasStateException;
 import android.media.MediaCodec;
 import android.media.MediaDescrambler;
+import android.media.cts.R;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import androidx.test.filters.SmallTest;
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.PropertyUtil;
 
 import java.lang.ArrayIndexOutOfBoundsException;
@@ -41,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Presubmit
 @SmallTest
 @RequiresDevice
 public class MediaCasTest extends AndroidTestCase {
@@ -50,6 +58,7 @@ public class MediaCasTest extends AndroidTestCase {
     private static final int sInvalidSystemId = 0;
     private static final int sClearKeySystemId = 0xF6D8;
     private static final int API_LEVEL_BEFORE_CAS_SESSION = 28;
+    private boolean mIsAtLeastR = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
 
     // ClearKey CAS/Descrambler test vectors
     private static final String sProvisionStr =
@@ -144,6 +153,21 @@ public class MediaCasTest extends AndroidTestCase {
             "65 79 69 6e 74 5f 6d 69  6e 3d 32 35 20 73 63 65" +
             "6e 65                                           " ;
 
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        // Need MANAGE_USERS or CREATE_USERS permission to access ActivityManager#getCurrentUser in
+        // MediaCas. It is used by all tests, then adopt it from shell in setup
+        InstrumentationRegistry
+            .getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        InstrumentationRegistry
+            .getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        super.tearDown();
+    }
     /**
      * Test that all enumerated CA systems can be instantiated.
      *
@@ -250,7 +274,12 @@ public class MediaCasTest extends AndroidTestCase {
         MediaDescrambler descrambler = null;
 
         try {
-            mediaCas = new MediaCas(sClearKeySystemId);
+            if (mIsAtLeastR) {
+                mediaCas = new MediaCas(getContext(), sClearKeySystemId, null,
+                    android.media.tv.TvInputService.PRIORITY_HINT_USE_CASE_TYPE_LIVE);
+            } else {
+                mediaCas = new MediaCas(sClearKeySystemId);
+            }
             descrambler = new MediaDescrambler(sClearKeySystemId);
 
             mediaCas.provision(sProvisionStr);
@@ -261,6 +290,10 @@ public class MediaCasTest extends AndroidTestCase {
             Session session = mediaCas.openSession();
             if (session == null) {
                 fail("Can't open session for program");
+            }
+
+            if (mIsAtLeastR) {
+                Log.d(TAG, "Session Id = " + Arrays.toString(session.getSessionId()));
             }
 
             session.setPrivateData(pvtData);
@@ -290,6 +323,9 @@ public class MediaCasTest extends AndroidTestCase {
             Handler handler = new Handler(thread.getLooper());
             testEventEcho(mediaCas, 1, 2, null /* data */, handler);
             testSessionEventEcho(mediaCas, session, 1, 2, null /* data */, handler);
+            if (mIsAtLeastR) {
+                testOpenSessionEcho(mediaCas, 0, 2, handler);
+            }
             thread.interrupt();
 
             String eventDataString = "event data string";
@@ -493,6 +529,45 @@ public class MediaCasTest extends AndroidTestCase {
         }
     }
 
+    /**
+     * Test Resource Lost Event.
+     */
+    public void testResourceLostEvent() throws Exception {
+        MediaCas mediaCas = null;
+        if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
+
+        try {
+            mediaCas = new MediaCas(getContext(), sClearKeySystemId, null,
+                android.media.tv.TvInputService.PRIORITY_HINT_USE_CASE_TYPE_LIVE);
+
+            mediaCas.provision(sProvisionStr);
+
+            byte[] pvtData = new byte[256];
+            mediaCas.setPrivateData(pvtData);
+
+            Session session = mediaCas.openSession();
+            if (session == null) {
+                fail("Can't open session for program");
+            }
+
+            Session streamSession = mediaCas.openSession();
+            if (streamSession == null) {
+                fail("Can't open session for stream");
+            }
+
+            final HandlerThread thread = new HandlerThread("EventListenerHandlerThread");
+            thread.start();
+            Handler handler = new Handler(thread.getLooper());
+            testForceResourceLost(mediaCas, handler);
+            thread.interrupt();
+
+        } finally {
+            if (mediaCas != null) {
+                mediaCas.close();
+            }
+        }
+    }
+
     private class TestEventListener implements MediaCas.EventListener {
         private final CountDownLatch mLatch = new CountDownLatch(1);
         private final MediaCas mMediaCas;
@@ -517,6 +592,22 @@ public class MediaCasTest extends AndroidTestCase {
             mEvent = event;
             mArg = arg;
             mData = data;
+        }
+
+        TestEventListener(MediaCas mediaCas, int intent, int scramblingMode) {
+            mMediaCas = mediaCas;
+            mEvent = intent;
+            mArg = scramblingMode;
+            mData = null;
+            mSession = null;
+        }
+
+        TestEventListener(MediaCas mediaCas) {
+            mMediaCas = mediaCas;
+            mEvent = 0;
+            mArg = 0;
+            mData = null;
+            mSession = null;
         }
 
         boolean waitForResult() {
@@ -555,7 +646,25 @@ public class MediaCasTest extends AndroidTestCase {
             }
             mLatch.countDown();
         }
-     }
+
+        @Override
+        public void onPluginStatusUpdate(MediaCas mediaCas, int statusUpdated, int arg) {
+            Log.d(TAG, "Received MediaCas Status Update event");
+            if (mediaCas == mMediaCas && statusUpdated == mEvent && arg == mArg ) {
+                mIsIdential = true;
+            }
+            mLatch.countDown();
+        }
+
+        @Override
+        public void onResourceLost(MediaCas mediaCas) {
+            Log.d(TAG, "Received MediaCas Resource Lost event");
+            if (mediaCas == mMediaCas) {
+                mIsIdential = true;
+            }
+            mLatch.countDown();
+        }
+    }
 
     // helper to send an event and wait for echo
     private void testEventEcho(MediaCas mediaCas, int event,
@@ -581,6 +690,33 @@ public class MediaCasTest extends AndroidTestCase {
             throw e;
         }
         assertTrue("Didn't receive session event callback for " + event, listener.waitForResult());
+    }
+
+    // helper to open Session with scrambling mode and wait for echo for status change event
+    private void testOpenSessionEcho(MediaCas mediaCas, int intent, int scramblingMode,
+        Handler handler) throws Exception {
+        TestEventListener listener = new TestEventListener(mediaCas, intent, scramblingMode);
+        mediaCas.setEventListener(listener, handler);
+        try {
+            mediaCas.openSession(intent, scramblingMode);
+        } catch (UnsupportedCasException e) {
+            if (!PropertyUtil.isVendorApiLevelNewerThan(API_LEVEL_BEFORE_CAS_SESSION + 1)) {
+                Log.d(TAG,
+                    "Opens Session with scramblingMode isn't supported, Skipped this test case");
+                return;
+            }
+            throw e;
+        }
+        assertTrue("Didn't receive Echo from openSession with scrambling mode: " + scramblingMode,
+            listener.waitForResult());
+    }
+
+    // helper to force to lose resource and wait for Resource Lost event
+    private void testForceResourceLost(MediaCas mediaCas, Handler handler) throws Exception {
+        TestEventListener listener = new TestEventListener(mediaCas);
+        mediaCas.setEventListener(listener, handler);
+        mediaCas.forceResourceLost();
+        assertTrue("Didn't receive Resource Lost event ", listener.waitForResult());
     }
 
     // helper to descramble from the sample input (sInputBufferStr) and get output buffer

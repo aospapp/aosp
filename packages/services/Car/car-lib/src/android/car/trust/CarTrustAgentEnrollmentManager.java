@@ -24,8 +24,8 @@ import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.bluetooth.BluetoothDevice;
+import android.car.Car;
 import android.car.CarManagerBase;
-import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -39,6 +39,7 @@ import com.android.internal.annotations.GuardedBy;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -65,9 +66,13 @@ import java.util.List;
  * </ol>
  *
  * @hide
+ *
+ * @deprecated Enrollment of a trusted device is no longer a supported feature and these APIs will
+ * be removed in the next Android release.
  */
+@Deprecated
 @SystemApi
-public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
+public final class CarTrustAgentEnrollmentManager extends CarManagerBase {
     private static final String TAG = "CarTrustEnrollMgr";
     private static final String KEY_HANDLE = "handle";
     private static final String KEY_ACTIVE = "active";
@@ -81,7 +86,6 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
     private static final int MSG_ENROLL_TOKEN_STATE_CHANGED = 7;
     private static final int MSG_ENROLL_TOKEN_REMOVED = 8;
 
-    private final Context mContext;
     private final ICarTrustAgentEnrollment mEnrollmentService;
     private Object mListenerLock = new Object();
     @GuardedBy("mListenerLock")
@@ -114,10 +118,10 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
 
 
     /** @hide */
-    public CarTrustAgentEnrollmentManager(IBinder service, Context context, Handler handler) {
-        mContext = context;
+    public CarTrustAgentEnrollmentManager(Car car, IBinder service) {
+        super(car);
         mEnrollmentService = ICarTrustAgentEnrollment.Stub.asInterface(service);
-        mEventCallbackHandler = new EventCallbackHandler(this, handler.getLooper());
+        mEventCallbackHandler = new EventCallbackHandler(this, getEventHandler().getLooper());
     }
 
     /** @hide */
@@ -134,7 +138,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.startEnrollmentAdvertising();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -146,7 +150,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.stopEnrollmentAdvertising();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -161,7 +165,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.enrollmentHandshakeAccepted(device);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -173,7 +177,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.terminateEnrollmentHandshake();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -194,7 +198,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             return mEnrollmentService.isEscrowTokenActive(handle, uid);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -209,7 +213,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.removeEscrowToken(handle, uid);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -223,7 +227,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.removeAllTrustedDevices(uid);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -238,7 +242,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.setTrustedDeviceEnrollmentEnabled(isEnabled);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -253,7 +257,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             mEnrollmentService.setTrustedDeviceUnlockEnabled(isEnabled);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -278,7 +282,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
                     mEnrollmentService.registerEnrollmentCallback(mListenerToEnrollmentService);
                     mEnrollmentCallback = callback;
                 } catch (RemoteException e) {
-                    throw e.rethrowFromSystemServer();
+                    handleRemoteExceptionFromCarService(e);
                 }
             }
         }
@@ -290,7 +294,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
                 try {
                     mEnrollmentService.unregisterEnrollmentCallback(mListenerToEnrollmentService);
                 } catch (RemoteException e) {
-                    throw e.rethrowFromSystemServer();
+                    handleRemoteExceptionFromCarService(e);
                 }
                 mEnrollmentCallback = null;
             }
@@ -318,7 +322,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
                     mEnrollmentService.registerBleCallback(mListenerToBleService);
                     mBleCallback = callback;
                 } catch (RemoteException e) {
-                    throw e.rethrowFromSystemServer();
+                    handleRemoteExceptionFromCarService(e);
                 }
             }
         }
@@ -330,7 +334,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
                 try {
                     mEnrollmentService.unregisterBleCallback(mListenerToBleService);
                 } catch (RemoteException e) {
-                    throw e.rethrowFromSystemServer();
+                    handleRemoteExceptionFromCarService(e);
                 }
                 mBleCallback = null;
             }
@@ -351,7 +355,7 @@ public final class CarTrustAgentEnrollmentManager implements CarManagerBase {
         try {
             return mEnrollmentService.getEnrolledDeviceInfosForUser(uid);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, Collections.emptyList());
         }
     }
 

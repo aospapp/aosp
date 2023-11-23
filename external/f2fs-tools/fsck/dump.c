@@ -253,15 +253,22 @@ static void dump_node_blk(struct f2fs_sb_info *sbi, int ntype,
 	struct node_info ni;
 	struct f2fs_node *node_blk;
 	u32 skip = 0;
-	u32 i, idx;
+	u32 i, idx = 0;
+
+	get_node_info(sbi, nid, &ni);
+
+	node_blk = calloc(BLOCK_SZ, 1);
+	ASSERT(node_blk);
+
+	dev_read_block(node_blk, ni.blk_addr);
 
 	switch (ntype) {
 	case TYPE_DIRECT_NODE:
-		skip = idx = ADDRS_PER_BLOCK;
+		skip = idx = ADDRS_PER_BLOCK(&node_blk->i);
 		break;
 	case TYPE_INDIRECT_NODE:
 		idx = NIDS_PER_BLOCK;
-		skip = idx * ADDRS_PER_BLOCK;
+		skip = idx * ADDRS_PER_BLOCK(&node_blk->i);
 		break;
 	case TYPE_DOUBLE_INDIRECT_NODE:
 		skip = 0;
@@ -273,13 +280,6 @@ static void dump_node_blk(struct f2fs_sb_info *sbi, int ntype,
 		*ofs += skip;
 		return;
 	}
-
-	get_node_info(sbi, nid, &ni);
-
-	node_blk = calloc(BLOCK_SZ, 1);
-	ASSERT(node_blk);
-
-	dev_read_block(node_blk, ni.blk_addr);
 
 	for (i = 0; i < idx; i++, (*ofs)++) {
 		switch (ntype) {
@@ -309,6 +309,8 @@ static void dump_xattr(struct f2fs_sb_info *sbi, struct f2fs_node *node_blk)
 	int ret;
 
 	xattr = read_all_xattrs(sbi, node_blk);
+	if (!xattr)
+		return;
 
 	list_for_each_xattr(ent, xattr) {
 		char *name = strndup(ent->e_name, ent->e_name_len);
@@ -486,10 +488,15 @@ void dump_node(struct f2fs_sb_info *sbi, nid_t nid, int force)
 	DBG(1, "nat_entry.version     [0x%x]\n", ni.version);
 	DBG(1, "nat_entry.ino         [0x%x]\n", ni.ino);
 
+	if (!IS_VALID_BLK_ADDR(sbi, ni.blk_addr)) {
+		MSG(force, "Invalid node blkaddr: %u\n\n", ni.blk_addr);
+		goto out;
+	}
+
 	if (ni.blk_addr == 0x0)
 		MSG(force, "Invalid nat entry\n\n");
 	else if (!is_sit_bitmap_set(sbi, ni.blk_addr))
-		MSG(force, "Invalid node blk addr\n\n");
+		MSG(force, "Invalid sit bitmap, %u\n\n", ni.blk_addr);
 
 	DBG(1, "node_blk.footer.ino [0x%x]\n", le32_to_cpu(node_blk->footer.ino));
 	DBG(1, "node_blk.footer.nid [0x%x]\n", le32_to_cpu(node_blk->footer.nid));
@@ -504,7 +511,7 @@ void dump_node(struct f2fs_sb_info *sbi, nid_t nid, int force)
 		print_node_info(sbi, node_blk, force);
 		MSG(force, "Invalid (i)node block\n\n");
 	}
-
+out:
 	free(node_blk);
 }
 
@@ -527,11 +534,32 @@ static void dump_node_from_blkaddr(struct f2fs_sb_info *sbi, u32 blk_addr)
 	free(node_blk);
 }
 
+unsigned int start_bidx_of_node(unsigned int node_ofs,
+					struct f2fs_node *node_blk)
+{
+	unsigned int indirect_blks = 2 * NIDS_PER_BLOCK + 4;
+	unsigned int bidx;
+
+	if (node_ofs == 0)
+		return 0;
+
+	if (node_ofs <= 2) {
+		bidx = node_ofs - 1;
+	} else if (node_ofs <= indirect_blks) {
+		int dec = (node_ofs - 4) / (NIDS_PER_BLOCK + 1);
+		bidx = node_ofs - 2 - dec;
+	} else {
+		int dec = (node_ofs - indirect_blks - 3) / (NIDS_PER_BLOCK + 1);
+		bidx = node_ofs - 5 - dec;
+	}
+	return bidx * ADDRS_PER_BLOCK(&node_blk->i) +
+				ADDRS_PER_INODE(&node_blk->i);
+}
+
 static void dump_data_offset(u32 blk_addr, int ofs_in_node)
 {
 	struct f2fs_node *node_blk;
-	unsigned int indirect_blks = 2 * NIDS_PER_BLOCK + 4;
-	unsigned int bidx = 0;
+	unsigned int bidx;
 	unsigned int node_ofs;
 	int ret;
 
@@ -543,20 +571,7 @@ static void dump_data_offset(u32 blk_addr, int ofs_in_node)
 
 	node_ofs = ofs_of_node(node_blk);
 
-	if (node_ofs == 0)
-		goto got_it;
-
-	if (node_ofs > 0 && node_ofs <= 2) {
-		bidx = node_ofs - 1;
-	} else if (node_ofs <= indirect_blks) {
-		int dec = (node_ofs - 4) / (NIDS_PER_BLOCK + 1);
-		bidx = node_ofs - 2 - dec;
-	} else {
-		int dec = (node_ofs - indirect_blks - 3) / (NIDS_PER_BLOCK + 1);
-		bidx = node_ofs - 5 - dec;
-	}
-	bidx = bidx * ADDRS_PER_BLOCK + ADDRS_PER_INODE(&node_blk->i);
-got_it:
+	bidx = start_bidx_of_node(node_ofs, node_blk);
 	bidx +=  ofs_in_node;
 
 	setlocale(LC_ALL, "");
@@ -627,8 +642,8 @@ static void dump_dirent(u32 blk_addr, int is_inline, int enc_name)
 
 	while (i < d.max) {
 		struct f2fs_dir_entry *de;
-		unsigned char en[F2FS_NAME_LEN + 1];
-		u16 en_len, name_len;
+		char en[F2FS_PRINT_NAMELEN];
+		u16 name_len;
 		int enc;
 
 		if (!test_bit_le(i, d.bitmap)) {
@@ -654,18 +669,16 @@ static void dump_dirent(u32 blk_addr, int is_inline, int enc_name)
 			}
 		}
 
-		en_len = convert_encrypted_name(d.filename[i],
-				le16_to_cpu(de->name_len), en, enc);
-		en[en_len] = '\0';
+		pretty_print_filename(d.filename[i], name_len, en, enc);
 
 		DBG(1, "bitmap pos[0x%x] name[%s] len[0x%x] hash[0x%x] ino[0x%x] type[0x%x]\n",
 				i, en,
-				le16_to_cpu(de->name_len),
+				name_len,
 				le32_to_cpu(de->hash_code),
 				le32_to_cpu(de->ino),
 				de->file_type);
 
-		i += GET_DENTRY_SLOTS(le16_to_cpu(de->name_len));
+		i += GET_DENTRY_SLOTS(name_len);
 	}
 
 	free(blk);

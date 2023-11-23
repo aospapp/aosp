@@ -21,6 +21,9 @@ cc_binary {
         "-Wall",
         "-Wextra",
     ],
+    sanitize: {
+        cfi: true,
+    },
 }
 
 cc_test {

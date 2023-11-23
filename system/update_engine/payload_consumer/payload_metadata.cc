@@ -159,7 +159,7 @@ bool PayloadMetadata::GetManifest(const brillo::Blob& payload,
 ErrorCode PayloadMetadata::ValidateMetadataSignature(
     const brillo::Blob& payload,
     const string& metadata_signature,
-    const string& pem_public_key) const {
+    const PayloadVerifier& payload_verifier) const {
   if (payload.size() < metadata_size_ + metadata_signature_size_)
     return ErrorCode::kDownloadMetadataSignatureError;
 
@@ -202,31 +202,18 @@ ErrorCode PayloadMetadata::ValidateMetadataSignature(
   }
 
   if (!metadata_signature_blob.empty()) {
-    brillo::Blob expected_metadata_hash;
-    if (!PayloadVerifier::GetRawHashFromSignature(
-            metadata_signature_blob, pem_public_key, &expected_metadata_hash)) {
-      LOG(ERROR) << "Unable to compute expected hash from metadata signature";
-      return ErrorCode::kDownloadMetadataSignatureError;
-    }
-
-    brillo::Blob padded_metadata_hash = metadata_hash;
-    if (!PayloadVerifier::PadRSASHA256Hash(&padded_metadata_hash,
-                                           expected_metadata_hash.size())) {
-      LOG(ERROR) << "Failed to pad the SHA256 hash to "
-                 << expected_metadata_hash.size() << " bytes.";
-      return ErrorCode::kDownloadMetadataSignatureVerificationError;
-    }
-
-    if (padded_metadata_hash != expected_metadata_hash) {
-      LOG(ERROR) << "Manifest hash verification failed. Expected hash = ";
-      utils::HexDumpVector(expected_metadata_hash);
-      LOG(ERROR) << "Calculated hash = ";
-      utils::HexDumpVector(padded_metadata_hash);
+    brillo::Blob decrypted_signature;
+    if (!payload_verifier.VerifyRawSignature(
+            metadata_signature_blob, metadata_hash, &decrypted_signature)) {
+      LOG(ERROR) << "Manifest hash verification failed. Decrypted hash = ";
+      utils::HexDumpVector(decrypted_signature);
+      LOG(ERROR) << "Calculated hash before padding = ";
+      utils::HexDumpVector(metadata_hash);
       return ErrorCode::kDownloadMetadataSignatureMismatch;
     }
   } else {
-    if (!PayloadVerifier::VerifySignature(
-            metadata_signature_protobuf, pem_public_key, metadata_hash)) {
+    if (!payload_verifier.VerifySignature(metadata_signature_protobuf,
+                                          metadata_hash)) {
       LOG(ERROR) << "Manifest hash verification failed.";
       return ErrorCode::kDownloadMetadataSignatureMismatch;
     }

@@ -16,11 +16,10 @@
 
 package com.android.server.wifi.util;
 
+import android.net.wifi.util.HexEncoding;
 import android.text.TextUtils;
 
 import com.android.server.wifi.ByteBufferReader;
-
-import libcore.util.HexEncoding;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;

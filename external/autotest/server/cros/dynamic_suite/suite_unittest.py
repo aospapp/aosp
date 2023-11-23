@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -540,11 +540,17 @@ class SuiteTest(mox.MoxTestBase):
         job_keyvals = {
             constants.KEYVAL_CIDB_BUILD_ID: '111',
             constants.KEYVAL_CIDB_BUILD_STAGE_ID: '222',
+            constants.KEYVAL_BRANCH: 'dummy_branch',
+            constants.KEYVAL_BUILDER_NAME: 'model-dummy',
+            constants.KEYVAL_MASTER_BUILDER_NAME: 'master-dummy',
             'your': 'name',
         }
         test_keyvals = {
             constants.KEYVAL_CIDB_BUILD_ID: '111',
             constants.KEYVAL_CIDB_BUILD_STAGE_ID: '222',
+            constants.KEYVAL_BRANCH: 'dummy_branch',
+            constants.KEYVAL_BUILDER_NAME: 'model-dummy',
+            constants.KEYVAL_MASTER_BUILDER_NAME: 'master-dummy',
         }
 
         self.mock_control_file_parsing()

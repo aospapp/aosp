@@ -15,7 +15,8 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-                  xmlns:settings="http://schemas.android.com/apk/res-auto">
+                  xmlns:settings="http://schemas.android.com/apk/res-auto"
+                  android:key="@string/psk_user_details">
     <com.android.car.settings.common.ButtonPreference
         android:key="@string/pk_edit_user_name_entry"
         android:selectable="false"

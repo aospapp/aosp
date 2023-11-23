@@ -24,6 +24,17 @@
     <string name="bass_boost_strength">Bass boost</string>
     <string name="virtualizer_strength">Surround sound</string>
     <string name="setup">Setup</string>
+    <!-- Equalizer preset names -->
+    <string name="normal">Normal</string>
+    <string name="classical">Classical</string>
+    <string name="dance">Dance</string>
+    <string name="flat">Flat</string>
+    <string name="folk">Folk</string>
+    <string name="heavy_metal">Heavy Metal</string>
+    <string name="hip_hop">Hip Hop</string>
+    <string name="jazz">Jazz</string>
+    <string name="pop">Pop</string>
+    <string name="rock">Rock</string>
     <string name="ci_extreme">FX booster</string>
     <string name="user">User</string>
 

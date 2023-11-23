@@ -21,12 +21,14 @@ import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.app.PendingIntent;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
-import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -49,14 +51,17 @@ import com.android.documentsui.base.BooleanConsumer;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Lookup;
+import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.AnimationView;
 import com.android.documentsui.dirlist.AnimationView.AnimationType;
 import com.android.documentsui.dirlist.FocusHandler;
 import com.android.documentsui.files.LauncherActivity;
+import com.android.documentsui.files.QuickViewIntentBuilder;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.GetRootDocumentTask;
 import com.android.documentsui.roots.LoadFirstRootTask;
@@ -64,6 +69,7 @@ import com.android.documentsui.roots.LoadRootTask;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.sidebar.EjectRootTask;
 import com.android.documentsui.sorting.SortListFragment;
+import com.android.documentsui.ui.DialogController;
 import com.android.documentsui.ui.Snackbars;
 
 import java.util.ArrayList;
@@ -81,7 +87,6 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         implements ActionHandler {
 
     @VisibleForTesting
-    public static final int CODE_FORWARD = 42;
     public static final int CODE_AUTHENTICATION = 43;
 
     @VisibleForTesting
@@ -98,6 +103,8 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
     protected final SelectionTracker<String> mSelectionMgr;
     protected final SearchViewManager mSearchMgr;
     protected final Lookup<String, Executor> mExecutors;
+    protected final DialogController mDialogs;
+    protected final Model mModel;
     protected final Injector<?> mInjector;
 
     private final LoaderBindings mBindings;
@@ -141,6 +148,8 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         mSelectionMgr = injector.selectionMgr;
         mSearchMgr = searchMgr;
         mExecutors = executors;
+        mDialogs = injector.dialogs;
+        mModel = injector.getModel();
         mInjector = injector;
 
         mBindings = new LoaderBindings();
@@ -163,6 +172,11 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         } catch (IntentSender.SendIntentException cancelled) {
             Log.d(TAG, "Authentication Pending Intent either canceled or ignored.");
         }
+    }
+
+    @Override
+    public void requestQuietModeDisabled(RootInfo info, UserId userId) {
+        new RequestQuietModeDisabledTask(mActivity, userId).execute();
     }
 
     @Override
@@ -249,12 +263,12 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
     }
 
     @Override
-    public void openRoot(ResolveInfo app) {
+    public void openRoot(ResolveInfo app, UserId userId) {
         throw new UnsupportedOperationException("Can't open an app.");
     }
 
     @Override
-    public void showAppDetails(ResolveInfo info) {
+    public void showAppDetails(ResolveInfo info, UserId userId) {
         throw new UnsupportedOperationException("Can't show app details.");
     }
 
@@ -302,6 +316,11 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
     }
 
     @Override
+    public void deselectAllFiles() {
+        mSelectionMgr.clearSelection();
+    }
+
+    @Override
     public void showCreateDirectoryDialog() {
         Metrics.logUserAction(MetricConsts.USER_ACTION_CREATE_DIR);
 
@@ -343,10 +362,203 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         if (mSearchMgr.isSearching()) {
             loadDocument(
                     doc.derivedUri,
+                    doc.userId,
                     (@Nullable DocumentStack stack) -> openFolderInSearchResult(stack, doc));
         } else {
             openChildContainer(doc);
         }
+    }
+
+    // TODO: Make this private and make tests call interface method instead.
+    /**
+     * Behavior when a document is opened.
+     */
+    @VisibleForTesting
+    public void onDocumentOpened(DocumentInfo doc, @ViewType int type, @ViewType int fallback,
+            boolean fromPicker) {
+        // In picker mode, don't access archive container to avoid pick file in archive files.
+        if (doc.isContainer() && !fromPicker) {
+            openContainerDocument(doc);
+            return;
+        }
+
+        if (manageDocument(doc)) {
+            return;
+        }
+
+        // For APKs, even if the type is preview, we send an ACTION_VIEW intent to allow
+        // PackageManager to install it.  This allows users to install APKs from any root.
+        // The Downloads special case is handled above in #manageDocument.
+        if (MimeTypes.isApkType(doc.mimeType)) {
+            viewDocument(doc);
+            return;
+        }
+
+        switch (type) {
+            case VIEW_TYPE_REGULAR:
+                if (viewDocument(doc)) {
+                    return;
+                }
+                break;
+
+            case VIEW_TYPE_PREVIEW:
+                if (previewDocument(doc, fromPicker)) {
+                    return;
+                }
+                break;
+
+            default:
+                throw new IllegalArgumentException("Illegal view type.");
+        }
+
+        switch (fallback) {
+            case VIEW_TYPE_REGULAR:
+                if (viewDocument(doc)) {
+                    return;
+                }
+                break;
+
+            case VIEW_TYPE_PREVIEW:
+                if (previewDocument(doc, fromPicker)) {
+                    return;
+                }
+                break;
+
+            case VIEW_TYPE_NONE:
+                break;
+
+            default:
+                throw new IllegalArgumentException("Illegal fallback view type.");
+        }
+
+        // Failed to view including fallback, and it's in an archive.
+        if (type != VIEW_TYPE_NONE && fallback != VIEW_TYPE_NONE && doc.isInArchive()) {
+            mDialogs.showViewInArchivesUnsupported();
+        }
+    }
+
+    private boolean viewDocument(DocumentInfo doc) {
+        if (doc.isPartial()) {
+            Log.w(TAG, "Can't view partial file.");
+            return false;
+        }
+
+        if (doc.isInArchive()) {
+            Log.w(TAG, "Can't view files in archives.");
+            return false;
+        }
+
+        if (doc.isDirectory()) {
+            Log.w(TAG, "Can't view directories.");
+            return true;
+        }
+
+        Intent intent = buildViewIntent(doc);
+        if (DEBUG && intent.getClipData() != null) {
+            Log.d(TAG, "Starting intent w/ clip data: " + intent.getClipData());
+        }
+
+        try {
+            doc.userId.startActivityAsUser(mActivity, intent);
+            return true;
+        } catch (ActivityNotFoundException e) {
+            mDialogs.showNoApplicationFound();
+        }
+        return false;
+    }
+
+    private boolean previewDocument(DocumentInfo doc, boolean fromPicker) {
+        if (doc.isPartial()) {
+            Log.w(TAG, "Can't view partial file.");
+            return false;
+        }
+
+        Intent intent = new QuickViewIntentBuilder(
+                mActivity,
+                mActivity.getResources(),
+                doc,
+                mModel,
+                fromPicker).build();
+
+        if (intent != null) {
+            // TODO: un-work around issue b/24963914. Should be fixed soon.
+            try {
+                doc.userId.startActivityAsUser(mActivity, intent);
+                return true;
+            } catch (SecurityException e) {
+                // Carry on to regular view mode.
+                Log.e(TAG, "Caught security error: " + e.getLocalizedMessage());
+            }
+        }
+
+        return false;
+    }
+
+
+    protected boolean manageDocument(DocumentInfo doc) {
+        if (isManagedDownload(doc)) {
+            // First try managing the document; we expect manager to filter
+            // based on authority, so we don't grant.
+            Intent manage = new Intent(DocumentsContract.ACTION_MANAGE_DOCUMENT);
+            manage.setData(doc.getDocumentUri());
+            try {
+                doc.userId.startActivityAsUser(mActivity, manage);
+                return true;
+            } catch (ActivityNotFoundException ex) {
+                // Fall back to regular handling.
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isManagedDownload(DocumentInfo doc) {
+        // Anything on downloads goes through the back through downloads manager
+        // (that's the MANAGE_DOCUMENT bit).
+        // This is done for two reasons:
+        // 1) The file in question might be a failed/queued or otherwise have some
+        //    specialized download handling.
+        // 2) For APKs, the download manager will add on some important security stuff
+        //    like origin URL.
+        // 3) For partial files, the download manager will offer to restart/retry downloads.
+
+        // All other files not on downloads, event APKs, would get no benefit from this
+        // treatment, thusly the "isDownloads" check.
+
+        // Launch MANAGE_DOCUMENTS only for the root level files, so it's not called for
+        // files in archives or in child folders. Also, if the activity is already browsing
+        // a ZIP from downloads, then skip MANAGE_DOCUMENTS.
+        if (Intent.ACTION_VIEW.equals(mActivity.getIntent().getAction())
+                && mState.stack.size() > 1) {
+            // viewing the contents of an archive.
+            return false;
+        }
+
+        // management is only supported in Downloads root or downloaded files show in Recent root.
+        if (Providers.AUTHORITY_DOWNLOADS.equals(doc.authority)) {
+            // only on APKs or partial files.
+            return MimeTypes.isApkType(doc.mimeType) || doc.isPartial();
+        }
+
+        return false;
+    }
+
+    protected Intent buildViewIntent(DocumentInfo doc) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(doc.getDocumentUri(), doc.mimeType);
+
+        // Downloads has traditionally added the WRITE permission
+        // in the TrampolineActivity. Since this behavior is long
+        // established, we set the same permission for non-managed files
+        // This ensures consistent behavior between the Downloads root
+        // and other roots.
+        int flags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_SINGLE_TOP;
+        if (doc.isWriteSupported()) {
+            flags |= Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+        }
+        intent.setFlags(flags);
+
+        return intent;
     }
 
     @Override
@@ -366,6 +578,7 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
             mState.stack.push(doc);
         } else {
             if (!Objects.equals(mState.stack.getRoot(), stack.getRoot())) {
+                // It is now possible when opening cross-profile folder.
                 Log.w(TAG, "Provider returns " + stack.getRoot() + " rather than expected "
                         + mState.stack.getRoot());
             }
@@ -374,7 +587,7 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
             if (top.isArchive()) {
                 // Swap the zip file in original provider and the one provided by ArchiveProvider.
                 stack.pop();
-                stack.push(mDocs.getArchiveDocument(top.derivedUri));
+                stack.push(mDocs.getArchiveDocument(top.derivedUri, top.userId));
             }
 
             mState.stack.reset();
@@ -402,10 +615,15 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
             currentDoc = doc;
         } else if (doc.isArchive()) {
             // Archive.
-            currentDoc = mDocs.getArchiveDocument(doc.derivedUri);
+            currentDoc = mDocs.getArchiveDocument(doc.derivedUri, doc.userId);
         }
 
         assert(currentDoc != null);
+        if (currentDoc.equals(mState.stack.peek())) {
+            Log.w(TAG, "This DocumentInfo is already in current DocumentsStack");
+            return;
+        }
+
         mActivity.notifyDirectoryNavigated(currentDoc.derivedUri);
 
         mState.stack.push(currentDoc);
@@ -431,10 +649,8 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         if (enabled) {
             showDebugMessage();
         } else {
-            mActivity.getActionBar().setBackgroundDrawable(new ColorDrawable(
-                    mActivity.getResources().getColor(R.color.primary)));
             mActivity.getWindow().setStatusBarColor(
-                    mActivity.getResources().getColor(android.R.color.background_dark));
+                    mActivity.getResources().getColor(R.color.app_background_color));
         }
     }
 
@@ -447,8 +663,21 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
 
         Snackbars.showCustomTextWithImage(mActivity, messagePair.first, messagePair.second);
 
-        mActivity.getActionBar().setBackgroundDrawable(new ColorDrawable(colors[0]));
         mActivity.getWindow().setStatusBarColor(colors[1]);
+    }
+
+    @Override
+    public void switchLauncherIcon() {
+        PackageManager pm = mActivity.getPackageManager();
+        if (pm != null) {
+            final boolean enalbled = Shared.isLauncherEnabled(mActivity);
+            ComponentName component = new ComponentName(
+                    mActivity.getPackageName(), Shared.LAUNCHER_TARGET_CLASS);
+            pm.setComponentEnabledSetting(component, enalbled
+                    ? PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    : PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+        }
     }
 
     @Override
@@ -462,7 +691,12 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
     }
 
     @Override
-    public void deleteSelectedDocuments() {
+    public void showDeleteDialog() {
+        throw new UnsupportedOperationException("Delete not supported!");
+    }
+
+    @Override
+    public void deleteSelectedDocuments(List<DocumentInfo> docs, DocumentInfo srcParent) {
         throw new UnsupportedOperationException("Delete not supported!");
     }
 
@@ -471,39 +705,67 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         throw new UnsupportedOperationException("Share not supported!");
     }
 
-    protected final void loadDocument(Uri uri, LoadDocStackCallback callback) {
+    protected final void loadDocument(Uri uri, UserId userId, LoadDocStackCallback callback) {
         new LoadDocStackTask(
                 mActivity,
                 mProviders,
                 mDocs,
+                userId,
                 callback
                 ).executeOnExecutor(mExecutors.lookup(uri.getAuthority()), uri);
     }
 
     @Override
-    public final void loadRoot(Uri uri) {
-        new LoadRootTask<>(mActivity, mProviders, mState, uri)
+    public final void loadRoot(Uri uri, UserId userId) {
+        new LoadRootTask<>(mActivity, mProviders, uri, userId, this::onRootLoaded)
                 .executeOnExecutor(mExecutors.lookup(uri.getAuthority()));
     }
 
     @Override
+    public final void loadCrossProfileRoot(RootInfo info, UserId selectedUser) {
+        if (info.isRecents()) {
+            openRoot(mProviders.getRecentsRoot(selectedUser));
+            return;
+        }
+        new LoadRootTask<>(mActivity, mProviders, info.getUri(), selectedUser,
+                new LoadCrossProfileRootCallback(info, selectedUser))
+                .executeOnExecutor(mExecutors.lookup(info.getUri().getAuthority()));
+    }
+
+    private class LoadCrossProfileRootCallback implements LoadRootTask.LoadRootCallback {
+        private final RootInfo mOriginalRoot;
+        private final UserId mSelectedUserId;
+
+        LoadCrossProfileRootCallback(RootInfo rootInfo, UserId selectedUser) {
+            mOriginalRoot = rootInfo;
+            mSelectedUserId = selectedUser;
+        }
+
+        @Override
+        public void onRootLoaded(@Nullable RootInfo root) {
+            if (root == null) {
+                // There is no such root in the other profile. Maybe the provider is missing on
+                // the other profile. Create a dummy root and open it to show error message.
+                root = RootInfo.copyRootInfo(mOriginalRoot);
+                root.userId = mSelectedUserId;
+            }
+            openRoot(root);
+        }
+    }
+
+    @Override
     public final void loadFirstRoot(Uri uri) {
-        new LoadFirstRootTask<>(mActivity, mProviders, mState, uri)
+        new LoadFirstRootTask<>(mActivity, mProviders, uri, this::onRootLoaded)
                 .executeOnExecutor(mExecutors.lookup(uri.getAuthority()));
     }
 
     @Override
     public void loadDocumentsForCurrentStack() {
-        DocumentStack stack = mState.stack;
-        if (!stack.isRecents() && stack.isEmpty()) {
-            DirectoryResult result = new DirectoryResult();
-
-            // TODO (b/35996595): Consider plumbing through the actual exception, though it might
-            // not be very useful (always pointing to DatabaseUtils#readExceptionFromParcel()).
-            result.exception = new IllegalStateException("Failed to load root document.");
-            mInjector.getModel().update(result);
-            return;
-        }
+        // mState.stack may be empty when we cannot load the root document.
+        // However, we still want to restart loader because we may need to perform search in a
+        // cross-profile scenario.
+        // For RecentsLoader and GlobalSearchLoader, they do not require rootDoc so it is no-op.
+        // For DirectoryLoader, the loader needs to handle the case when stack.peek() returns null.
 
         mActivity.getSupportLoaderManager().restartLoader(LOADER_ID, null, mBindings);
     }
@@ -511,7 +773,7 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
     protected final boolean launchToDocument(Uri uri) {
         // We don't support launching to a document in an archive.
         if (!Providers.isArchiveUri(uri)) {
-            loadDocument(uri, this::onStackLoaded);
+            loadDocument(uri, UserId.DEFAULT_USER, this::onStackLoaded);
             return true;
         }
 
@@ -537,6 +799,21 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         }
     }
 
+    private void onRootLoaded(@Nullable RootInfo root) {
+        boolean invalidRootForAction =
+                (root != null
+                && !root.supportsChildren()
+                && mState.action == State.ACTION_OPEN_TREE);
+
+        if (invalidRootForAction) {
+            loadDeviceRoot();
+        } else if (root != null) {
+            mActivity.onRootPicked(root);
+        } else {
+            launchToDefaultLocation();
+        }
+    }
+
     protected abstract void launchToDefaultLocation();
 
     protected void restoreRootAndDirectory() {
@@ -547,12 +824,17 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         }
     }
 
+    protected final void loadDeviceRoot() {
+        loadRoot(DocumentsContract.buildRootUri(Providers.AUTHORITY_STORAGE,
+                Providers.ROOT_ID_DEVICE), UserId.DEFAULT_USER);
+    }
+
     protected final void loadHomeDir() {
-        loadRoot(Shared.getDefaultRootUri(mActivity));
+        loadRoot(Shared.getDefaultRootUri(mActivity), UserId.DEFAULT_USER);
     }
 
     protected final void loadRecent() {
-        mState.stack.changeRoot(mProviders.getRecentsRoot());
+        mState.stack.changeRoot(mProviders.getRecentsRoot(UserId.DEFAULT_USER));
         mActivity.refreshCurrentRootAndDirectory(AnimationView.ANIM_NONE);
     }
 
@@ -576,37 +858,55 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
             Context context = mActivity;
 
             if (mState.stack.isRecents()) {
+                final LockingContentObserver observer = new LockingContentObserver(
+                        mContentLock, AbstractActionHandler.this::loadDocumentsForCurrentStack);
+                MultiRootDocumentsLoader loader;
+
                 if (mSearchMgr.isSearching()) {
                     if (DEBUG) {
                         Log.d(TAG, "Creating new GlobalSearchLoader.");
                     }
-                    return new GlobalSearchLoader(
+                    loader = new GlobalSearchLoader(
                             context,
                             mProviders,
                             mState,
                             mExecutors,
                             mInjector.fileTypeLookup,
-                            mSearchMgr.buildQueryArgs());
+                            mSearchMgr.buildQueryArgs(),
+                            mState.stack.getRoot().userId);
                 } else {
                     if (DEBUG) {
                         Log.d(TAG, "Creating new loader recents.");
                     }
-                    return new RecentsLoader(
+                    loader = new RecentsLoader(
                             context,
                             mProviders,
                             mState,
                             mExecutors,
-                            mInjector.fileTypeLookup);
+                            mInjector.fileTypeLookup,
+                            mState.stack.getRoot().userId);
                 }
+                loader.setObserver(observer);
+                return loader;
             } else {
+                // There maybe no root docInfo
+                DocumentInfo rootDoc = mState.stack.peek();
+
+                String authority = rootDoc == null
+                        ? mState.stack.getRoot().authority
+                        : rootDoc.authority;
+                String documentId = rootDoc == null
+                        ? mState.stack.getRoot().documentId
+                        : rootDoc.documentId;
+
                 Uri contentsUri = mSearchMgr.isSearching()
                         ? DocumentsContract.buildSearchDocumentsUri(
-                            mState.stack.getRoot().authority,
-                            mState.stack.getRoot().rootId,
-                            mSearchMgr.getCurrentSearch())
+                        mState.stack.getRoot().authority,
+                        mState.stack.getRoot().rootId,
+                        mSearchMgr.getCurrentSearch())
                         : DocumentsContract.buildChildDocumentsUri(
-                                mState.stack.peek().authority,
-                                mState.stack.peek().documentId);
+                                authority,
+                                documentId);
 
                 final Bundle queryArgs = mSearchMgr.isSearching()
                         ? mSearchMgr.buildQueryArgs()
@@ -660,11 +960,17 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         void onDocumentPicked(DocumentInfo doc);
         RootInfo getCurrentRoot();
         DocumentInfo getCurrentDirectory();
+        UserId getSelectedUser();
         /**
          * Check whether current directory is root of recent.
          */
         boolean isInRecents();
         void setRootsDrawerOpen(boolean open);
+
+        /**
+         * Set the locked status of the DrawerController.
+         */
+        void setRootsDrawerLocked(boolean locked);
 
         // TODO: Let navigator listens to State
         void updateNavigator();

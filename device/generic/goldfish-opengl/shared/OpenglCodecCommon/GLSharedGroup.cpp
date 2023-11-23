@@ -25,17 +25,18 @@ BufferData::BufferData() : m_size(0), m_usage(0), m_mapped(false) {};
 BufferData::BufferData(GLsizeiptr size, const void* data) :
     m_size(size), m_usage(0), m_mapped(false) {
 
-    void * buffer = NULL;
+    if (size > 0) {
+        m_fixedBuffer.resize(size);
+    }
 
-    if (size>0) buffer = m_fixedBuffer.alloc(size);
-
-    if (data) memcpy(buffer, data, size);
+    if (data) {
+        memcpy(m_fixedBuffer.data(), data, size);
+    }
 }
 
 /**** ProgramData ****/
 ProgramData::ProgramData() : m_numIndexes(0),
-                             m_initialized(false),
-                             m_locShiftWAR(false) {
+                             m_initialized(false) {
     m_Indexes = NULL;
 }
 
@@ -46,7 +47,6 @@ void ProgramData::initProgramData(GLuint numIndexes) {
     delete [] m_Indexes;
 
     m_Indexes = new IndexInfo[numIndexes];
-    m_locShiftWAR = false;
 }
 
 bool ProgramData::isInitialized() {
@@ -68,14 +68,6 @@ void ProgramData::setIndexInfo(
     m_Indexes[index].base = base;
     m_Indexes[index].size = size;
     m_Indexes[index].type = type;
-
-    if (index > 0) {
-        m_Indexes[index].appBase = m_Indexes[index-1].appBase +
-                                   m_Indexes[index-1].size;
-    } else {
-        m_Indexes[index].appBase = 0;
-    }
-
     m_Indexes[index].hostLocsPerElement = 1;
     m_Indexes[index].flags = 0;
     m_Indexes[index].samplerValue = 0;
@@ -112,52 +104,6 @@ GLenum ProgramData::getTypeForLocation(GLint location) {
     return 0;
 }
 
-void ProgramData::setupLocationShiftWAR() {
-    m_locShiftWAR = false;
-    for (GLuint  i= 0; i < m_numIndexes; i++) {
-        if (0 != (m_Indexes[i].base & 0xffff)) {
-            return;
-        }
-    }
-
-    // if we have one uniform at location 0, we do not need the WAR.
-    if (m_numIndexes > 1) m_locShiftWAR = true;
-}
-
-GLint ProgramData::locationWARHostToApp(GLint hostLoc, GLint arrIndex) {
-
-    if (!m_locShiftWAR) return hostLoc;
-
-    GLuint index = getIndexForLocation(hostLoc);
-
-    if (index < m_numIndexes) {
-        if (arrIndex > 0) {
-            m_Indexes[index].hostLocsPerElement =
-                (hostLoc - m_Indexes[index].base) / arrIndex;
-        }
-        return m_Indexes[index].appBase + arrIndex;
-    }
-
-    return -1;
-}
-
-GLint ProgramData::locationWARAppToHost(GLint appLoc) {
-
-    if (!m_locShiftWAR) return appLoc;
-
-    for (GLuint i = 0; i < m_numIndexes; i++) {
-        GLint elemIndex =
-            appLoc - m_Indexes[i].appBase;
-
-        if (elemIndex >= 0 && elemIndex < m_Indexes[i].size) {
-            return m_Indexes[i].base +
-                   elemIndex * m_Indexes[i].hostLocsPerElement;
-        }
-    }
-
-    return -1;
-}
-
 GLint ProgramData::getNextSamplerUniform(
     GLint index, GLint* val, GLenum* target) {
 
@@ -187,7 +133,7 @@ bool ProgramData::setSamplerUniform(GLint appLoc, GLint val, GLenum* target) {
 
     for (GLuint i = 0; i < m_numIndexes; i++) {
 
-        GLint elemIndex = appLoc - m_Indexes[i].appBase;
+        GLint elemIndex = appLoc - m_Indexes[i].base;
 
         if (elemIndex >= 0 && elemIndex < m_Indexes[i].size) {
             if (m_Indexes[i].type == GL_SAMPLER_2D) {
@@ -327,7 +273,7 @@ GLenum GLSharedGroup::subUpdateBufferData(GLuint bufferId, GLintptr offset, GLsi
         return GL_INVALID_VALUE;
     }
 
-    memcpy((char*)buf->m_fixedBuffer.ptr() + offset, data, size);
+    memcpy(&buf->m_fixedBuffer[offset], data, size);
 
     buf->m_indexRangeCache.invalidateRange((size_t)offset, (size_t)size);
     return GL_NO_ERROR;
@@ -516,77 +462,6 @@ bool GLSharedGroup::isProgram(GLuint program) {
         findObjectOrDefault(m_shaderPrograms, m_shaderProgramIdMap[program]);
 
     if (spData) return true;
-
-    return false;
-}
-
-void GLSharedGroup::setupLocationShiftWAR(GLuint program) {
-
-    android::AutoMutex _lock(m_lock);
-
-    ProgramData* pData =
-        findObjectOrDefault(m_programs, program);
-
-    if (pData) pData->setupLocationShiftWAR();
-}
-
-GLint GLSharedGroup::locationWARHostToApp(
-    GLuint program, GLint hostLoc, GLint arrIndex) {
-
-    android::AutoMutex _lock(m_lock);
-
-    ProgramData* pData = findObjectOrDefault(m_programs, program);
-
-    if (pData) return pData->locationWARHostToApp(hostLoc, arrIndex);
-
-    if (m_shaderProgramIdMap.find(program) ==
-        m_shaderProgramIdMap.end()) return hostLoc;
-
-    ShaderProgramData* spData =
-        findObjectOrDefault(m_shaderPrograms, m_shaderProgramIdMap[program]);
-
-    if (spData) return spData->programData.locationWARHostToApp(hostLoc, arrIndex);
-
-    return hostLoc;
-}
-
-GLint GLSharedGroup::locationWARAppToHost(GLuint program, GLint appLoc) {
-
-    android::AutoMutex _lock(m_lock);
-
-    ProgramData* pData =
-        findObjectOrDefault(m_programs, program);
-
-    if (pData) return pData->locationWARAppToHost(appLoc);
-
-    if (m_shaderProgramIdMap.find(program) ==
-        m_shaderProgramIdMap.end()) return appLoc;
-
-    ShaderProgramData* spData =
-        findObjectOrDefault(
-            m_shaderPrograms, m_shaderProgramIdMap[program]);
-
-    if (spData) return spData->programData.locationWARAppToHost(appLoc);
-
-    return appLoc;
-}
-
-bool GLSharedGroup::needUniformLocationWAR(GLuint program) {
-
-    android::AutoMutex _lock(m_lock);
-
-    ProgramData* pData =
-        findObjectOrDefault(m_programs, program);
-
-    if (pData) return pData->needUniformLocationWAR();
-
-    if (m_shaderProgramIdMap.find(program) ==
-        m_shaderProgramIdMap.end()) return false;
-
-    ShaderProgramData* spData =
-        findObjectOrDefault(m_shaderPrograms, m_shaderProgramIdMap[program]);
-
-    if (spData) return spData->programData.needUniformLocationWAR();
 
     return false;
 }
@@ -786,9 +661,4 @@ void GLSharedGroup::setShaderProgramIndexInfo(
             ++nameIter;
         }
     }
-}
-
-void GLSharedGroup::setupShaderProgramLocationShiftWAR(GLuint shaderProgram) {
-    ShaderProgramData* spData = getShaderProgramData(shaderProgram);
-    spData->programData.setupLocationShiftWAR();
 }

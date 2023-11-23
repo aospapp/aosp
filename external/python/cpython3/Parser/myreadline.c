@@ -10,7 +10,7 @@
 */
 
 #include "Python.h"
-#include "internal/pystate.h"
+#include "pycore_pystate.h"
 #ifdef MS_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include "windows.h"
@@ -324,7 +324,7 @@ PyOS_Readline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     char *rv, *res;
     size_t len;
 
-    if (_PyOS_ReadlineTState == PyThreadState_GET()) {
+    if (_PyOS_ReadlineTState == _PyThreadState_GET()) {
         PyErr_SetString(PyExc_RuntimeError,
                         "can't re-enter readline");
         return NULL;
@@ -343,7 +343,7 @@ PyOS_Readline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
         }
     }
 
-    _PyOS_ReadlineTState = PyThreadState_GET();
+    _PyOS_ReadlineTState = _PyThreadState_GET();
     Py_BEGIN_ALLOW_THREADS
     PyThread_acquire_lock(_PyOS_ReadlineLock, 1);
 

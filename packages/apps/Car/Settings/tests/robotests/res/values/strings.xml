@@ -18,7 +18,7 @@
     <string name="test_volume_call" translatable="false">Call Volume</string>
     <string name="test_volume_music" translatable="false">Music Volume</string>
 
-    <!-- AccountListPreferenceControllerTest and AddAccountPreferenceControllerTest -->
+    <!-- AccountListPreferenceControllerTest, AddAccountPreferenceControllerTest, and AccountSettingsFragmentTest -->
     <string name="account_type1_label" translatable="false">Type 1</string>
     <string name="account_type2_label" translatable="false">Type 2</string>
     <string name="account_type3_label" translatable="false">Type 3</string>
@@ -28,6 +28,7 @@
 
     <string name="test_positive_button_label" translatable="false">Positive Button</string>
     <string name="test_negative_button_label" translatable="false">Negative Button</string>
+    <string name="test_neutral_button_label" translatable="false">Neutral Button</string>
 
     <string name="fake_title" translatable="false">fake_title</string>
     <string name="fake_summary" translatable="false">fake_summary</string>

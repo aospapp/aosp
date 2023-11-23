@@ -20,6 +20,7 @@ import static androidx.test.InstrumentationRegistry.getContext;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.content.Context;
@@ -29,16 +30,20 @@ import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
-import java.util.List;
-
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.List;
 
 public class CellInfoTest {
     private static final String TAG = "CellInfoTest";
 
     private static final int MAX_WAIT_SECONDS = 15;
     private static final int POLL_INTERVAL_MILLIS = 1000;
+
+    private static final String[] sPermissions = new String[] {
+            android.Manifest.permission.READ_PHONE_STATE,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION};
 
     private TelephonyManager mTm;
     private PackageManager mPm;
@@ -54,6 +59,12 @@ public class CellInfoTest {
     public void setUp() throws Exception {
         mTm = (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
         mPm = getContext().getPackageManager();
+
+        for (String permission : sPermissions) {
+            assertTrue("Something (not this test) has denied needed permission=" + permission,
+                    getContext().checkSelfPermission(permission)
+                            == android.content.pm.PackageManager.PERMISSION_GRANTED);
+        }
     }
 
     @Test

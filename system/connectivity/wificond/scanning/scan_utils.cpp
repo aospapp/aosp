@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "android/net/wifi/IWifiScannerImpl.h"
+#include "android/net/wifi/nl80211/IWifiScannerImpl.h"
 #include "wificond/scanning/scan_utils.h"
 
 #include <array>
@@ -30,9 +30,9 @@
 #include "wificond/net/nl80211_packet.h"
 #include "wificond/scanning/scan_result.h"
 
-using android::net::wifi::IWifiScannerImpl;
-using com::android::server::wifi::wificond::NativeScanResult;
-using com::android::server::wifi::wificond::RadioChainInfo;
+using android::net::wifi::nl80211::IWifiScannerImpl;
+using android::net::wifi::nl80211::NativeScanResult;
+using android::net::wifi::nl80211::RadioChainInfo;
 using std::array;
 using std::unique_ptr;
 using std::vector;
@@ -132,7 +132,7 @@ bool ScanUtils::GetScanResult(uint32_t interface_index,
 bool ScanUtils::ParseScanResult(unique_ptr<const NL80211Packet> packet,
                                 NativeScanResult* scan_result) {
   if (packet->GetCommand() != NL80211_CMD_NEW_SCAN_RESULTS) {
-    LOG(ERROR) << "Wrong command command for new scan result message";
+    LOG(ERROR) << "Wrong command for new scan result message";
     return false;
   }
   NL80211NestedAttr bss(0);
@@ -405,6 +405,7 @@ bool ScanUtils::StartScheduledScan(
     const SchedScanIntervalSetting& interval_setting,
     int32_t rssi_threshold_2g,
     int32_t rssi_threshold_5g,
+    int32_t rssi_threshold_6g,
     const SchedScanReqFlags& req_flags,
     const std::vector<std::vector<uint8_t>>& scan_ssids,
     const std::vector<std::vector<uint8_t>>& match_ssids,
@@ -455,6 +456,9 @@ bool ScanUtils::StartScheduledScan(
               reinterpret_cast<uint8_t*>(&rssi_adjust) + sizeof(rssi_adjust)));
       start_sched_scan.AddAttribute(rssi_adjust_attr);
   }
+
+  //TODO: No adjustment is possible now for 6GHz due to lack of definition in
+  //nl80211.h for NL80211_BAND_6GHZ attribute
 
   // Append all attributes to the NL80211_CMD_START_SCHED_SCAN packet.
   start_sched_scan.AddAttribute(

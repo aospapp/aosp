@@ -22,8 +22,10 @@
 #include <sys/_system_properties.h>
 
 #include <android-base/properties.h>
+#include <android-base/scopeguard.h>
 #include <gtest/gtest.h>
 
+using android::base::GetProperty;
 using android::base::SetProperty;
 
 namespace android {
@@ -56,6 +58,11 @@ TEST(property_service, very_long_name_35166374) {
 }
 
 TEST(property_service, non_utf8_value) {
+    if (getuid() != 0) {
+        GTEST_SKIP() << "Skipping test, must be run as root.";
+        return;
+    }
+
     ASSERT_TRUE(SetProperty("property_service_utf8_test", "base_success"));
     EXPECT_FALSE(SetProperty("property_service_utf8_test", "\x80"));
     EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xC2\x01"));
@@ -67,6 +74,20 @@ TEST(property_service, non_utf8_value) {
     EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xF0\x90\x80"));
     EXPECT_FALSE(SetProperty("property_service_utf8_test", "ab\xF0\x90\x80\x80qe\xF0\x90\x80"));
     EXPECT_TRUE(SetProperty("property_service_utf8_test", "\xF0\x90\x80\x80"));
+}
+
+TEST(property_service, userspace_reboot_not_supported) {
+    if (getuid() != 0) {
+        GTEST_SKIP() << "Skipping test, must be run as root.";
+        return;
+    }
+    const std::string original_value = GetProperty("init.userspace_reboot.is_supported", "");
+    auto guard = android::base::make_scope_guard([&original_value]() {
+        SetProperty("init.userspace_reboot.is_supported", original_value);
+    });
+
+    ASSERT_TRUE(SetProperty("init.userspace_reboot.is_supported", "false"));
+    EXPECT_FALSE(SetProperty("sys.powerctl", "reboot,userspace"));
 }
 
 }  // namespace init

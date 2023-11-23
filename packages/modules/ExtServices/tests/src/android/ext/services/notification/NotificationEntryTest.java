@@ -25,6 +25,7 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -32,9 +33,8 @@ import static org.mockito.Mockito.when;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.Person;
-import android.content.ComponentName;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.IPackageManager;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Icon;
 import android.media.AudioAttributes;
@@ -43,6 +43,9 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.service.notification.StatusBarNotification;
 import android.testing.TestableContext;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -53,15 +56,12 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 
-import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
-
 @RunWith(AndroidJUnit4.class)
 public class NotificationEntryTest {
     private String mPkg = "pkg";
     private int mUid = 2018;
     @Mock
-    private IPackageManager mPackageManager;
+    private PackageManager mPackageManager;
     @Mock
     private ApplicationInfo mAppInfo;
     @Mock
@@ -101,11 +101,10 @@ public class NotificationEntryTest {
         MockitoAnnotations.initMocks(this);
         mPkg = mContext.getPackageName();
         mUid = Process.myUid();
-        when(mPackageManager.getApplicationInfo(anyString(), anyInt(), anyInt()))
+        when(mPackageManager.getApplicationInfoAsUser(anyString(), anyInt(), any()))
                 .thenReturn(mAppInfo);
         mAppInfo.targetSdkVersion = Build.VERSION_CODES.P;
-        when(mSmsHelper.getDefaultSmsApplication())
-                .thenReturn(new ComponentName(DEFAULT_SMS_PACKAGE_NAME, "bar"));
+        when(mSmsHelper.getDefaultSmsPackage()).thenReturn(DEFAULT_SMS_PACKAGE_NAME);
     }
 
     @Test

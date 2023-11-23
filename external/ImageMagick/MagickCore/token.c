@@ -17,7 +17,7 @@
 %                              January 1993                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -151,12 +151,14 @@ MagickExport TokenInfo *DestroyTokenInfo(TokenInfo *token_info)
 %  a sequence of characters delimited by whitespace (e.g. clip-path), a
 %  sequence delimited with quotes (.e.g "Quote me"), or a sequence enclosed in
 %  parenthesis (e.g. rgb(0,0,0)).  GetNextToken() also recognizes these
-%  separator characters: ':', '=', ',', and ';'.
+%  separator characters: ':', '=', ',', and ';'.  GetNextToken() returns the
+%  length of the consumed token.
 %
 %  The format of the GetNextToken method is:
 %
-%      void GetNextToken(const char *start,const char **end,
-%        const size_t extent,char *token)
+%      size_t GetNextToken(const char *magick_restrict start,
+%        const char **magick_restrict end,const size_t extent,
+%        char *magick_restrict token)
 %
 %  A description of each parameter follows:
 %
@@ -169,17 +171,18 @@ MagickExport TokenInfo *DestroyTokenInfo(TokenInfo *token_info)
 %    o token: copy the token to this buffer.
 %
 */
-MagickExport void GetNextToken(const char *start,const char **end,
-  const size_t extent,char *token)
+MagickExport magick_hot_spot size_t GetNextToken(
+  const char *magick_restrict start,const char **magick_restrict end,
+  const size_t extent,char *magick_restrict token)
 {
   double
     value;
 
   register char
-    *q;
+    *magick_restrict q;
 
   register const char
-    *p;
+    *magick_restrict p;
 
   register ssize_t
     i;
@@ -304,16 +307,20 @@ MagickExport void GetNextToken(const char *start,const char **end,
     }
   }
   token[i]='\0';
-  q=strrchr(token,')');
-  if ((LocaleNCompare(token,"url(#",5) == 0) && (q != (char *) NULL))
+  if (LocaleNCompare(token,"url(#",5) == 0)
     {
-      *q='\0';
-      (void) memmove(token,token+5,(size_t) (q-token-4));
+      q=strrchr(token,')');
+      if (q != (char *) NULL)
+        {
+          *q='\0';
+          (void) memmove(token,token+5,(size_t) (q-token-4));
+        }
     }
   while (isspace((int) ((unsigned char) *p)) != 0)
     p++;
   if (end != (const char **) NULL)
     *end=(const char *) p;
+  return(p-start+1);
 }
 
 /*
@@ -331,8 +338,9 @@ MagickExport void GetNextToken(const char *start,const char **end,
 %
 %  The format of the GlobExpression function is:
 %
-%      MagickBooleanType GlobExpression(const char *expression,
-%        const char *pattern,const MagickBooleanType case_insensitive)
+%      MagickBooleanType GlobExpression(const char *magick_restrict expression,
+%        const char *magick_restrict pattern,
+%        const MagickBooleanType case_insensitive)
 %
 %  A description of each parameter follows:
 %
@@ -344,15 +352,16 @@ MagickExport void GetNextToken(const char *start,const char **end,
 %      an expression.
 %
 */
-MagickExport MagickBooleanType GlobExpression(const char *expression,
-  const char *pattern,const MagickBooleanType case_insensitive)
+MagickExport MagickBooleanType GlobExpression(
+  const char *magick_restrict expression,const char *magick_restrict pattern,
+  const MagickBooleanType case_insensitive)
 {
   MagickBooleanType
     done,
     match;
 
   register const char
-    *p;
+    *magick_restrict p;
 
   /*
     Return on empty pattern or '*'.

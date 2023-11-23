@@ -16,7 +16,9 @@
 
 #include "calibration/online_calibration/accelerometer/accel_offset_cal/accel_offset_cal.h"
 
+#ifdef ACCEL_CAL_DBG_ENABLED
 #include "calibration/util/cal_log.h"
+#endif  // ACCEL_CAL_DBG_ENABLED
 
 namespace online_calibration {
 
@@ -71,8 +73,10 @@ bool AccelOffsetCal::SetInitialCalibration(
     const CalibrationDataThreeAxis& input_cal_data) {
   // Checks that the input calibration type matches the algorithm type.
   if (input_cal_data.type != get_sensor_type()) {
+#ifdef ACCEL_CAL_DBG_ENABLED
     CAL_DEBUG_LOG("[AccelOffsetCal]",
                   "SetInitialCalibration failed due to wrong sensor type.");
+#endif  // ACCEL_CAL_DBG_ENABLED
     return false;
   }
 

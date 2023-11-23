@@ -94,6 +94,7 @@
             <Limit name="measured-frame-rate-1280x720" range="126-145" />
             <!-- 3 runs, min 48 max 51 gmean 49 -->
             <Limit name="measured-frame-rate-1920x1080" range="48-51" />
+            <Limit name="measured-frame-rate-2160x2160" range="31-34" />
         </MediaCodec>
         <MediaCodec name="OMX.google.vp9.decoder" type="video/x-vnd.on2.vp9" update="true">
             <!-- 2 runs, min 968 max 1101 gmean 1044 -->
@@ -104,6 +105,7 @@
             <Limit name="measured-frame-rate-1280x720" range="280-400" />
             <!-- Buildbot gets ~180 if it is in the first run, ~230 if it is the second run -->
             <Limit name="measured-frame-rate-1920x1080" range="178-240" />
+            <Limit name="measured-frame-rate-2560x1440" range="31-34" />
         </MediaCodec>
     </Decoders>
 </MediaCodecs>

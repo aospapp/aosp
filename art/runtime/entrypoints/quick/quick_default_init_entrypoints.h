@@ -29,6 +29,7 @@ namespace art {
 static void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   // JNI
   jpoints->pDlsymLookup = art_jni_dlsym_lookup_stub;
+  jpoints->pDlsymLookupCritical = art_jni_dlsym_lookup_critical_stub;
 
   // Alloc
   ResetQuickAllocEntryPoints(qpoints, /* is_marking= */ true);
@@ -121,6 +122,13 @@ static void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qp
 
   // Deoptimize
   qpoints->pDeoptimize = art_quick_deoptimize_from_compiled_code;
+
+  // StringBuilder append
+  qpoints->pStringBuilderAppend = art_quick_string_builder_append;
+
+  // Tiered JIT support
+  qpoints->pUpdateInlineCache = art_quick_update_inline_cache;
+  qpoints->pCompileOptimized = art_quick_compile_optimized;
 }
 
 }  // namespace art

@@ -16,15 +16,6 @@ class policy_WiFiPrecedenceServer(wifi_cell_test_base.WiFiCellTestBase):
     version = 1
 
 
-    def clear_tpm_if_owned(self):
-        """Clear the TPM only if device is already owned."""
-        tpm_status = tpm_utils.TPMStatus(self.host)
-        logging.info('TPM status: %s', tpm_status)
-        if tpm_status['Owned']:
-            logging.info('Clearing TPM because this device is owned.')
-            tpm_utils.ClearTPMOwnerRequest(self.host)
-
-
     def cleanup(self):
         """Cleanup for this test."""
         try:
@@ -36,7 +27,7 @@ class policy_WiFiPrecedenceServer(wifi_cell_test_base.WiFiCellTestBase):
             logging.info(e)
 
         if self.test == 'device_vs_user':
-            self.clear_tpm_if_owned()
+            tpm_utils.ClearTPMIfOwned(self.host)
             self.host.reboot()
 
 
@@ -68,7 +59,7 @@ class policy_WiFiPrecedenceServer(wifi_cell_test_base.WiFiCellTestBase):
 
         # Clear TPM to ensure that client test can enroll device.
         if self.test == 'device_vs_user':
-            self.clear_tpm_if_owned()
+            tpm_utils.ClearTPMIfOwned(self.host)
 
         client_at = autotest.Autotest(self.host)
 

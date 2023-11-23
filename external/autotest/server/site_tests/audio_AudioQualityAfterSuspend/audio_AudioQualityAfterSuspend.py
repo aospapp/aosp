@@ -29,7 +29,7 @@ class audio_AudioQualityAfterSuspend(audio_test.AudioTest):
     RECORD_SECONDS = 10
     RESUME_TIMEOUT_SECS = 60
     SHORT_WAIT = 4
-    SUSPEND_SECONDS = 30
+    SUSPEND_SECONDS = 40
 
 
     def action_suspend(self, suspend_time=SUSPEND_SECONDS):
@@ -50,7 +50,7 @@ class audio_AudioQualityAfterSuspend(audio_test.AudioTest):
         thread.start()
 
         logging.info('Suspend start....')
-        self.host.test_wait_for_sleep(self.SUSPEND_SECONDS / 3)
+        self.host.test_wait_for_sleep(3 * self.SUSPEND_SECONDS / 4)
         logging.info('Waiting for resume....')
         self.host.test_wait_for_resume(boot_id, self.RESUME_TIMEOUT_SECS)
         logging.info('Resume complete....')

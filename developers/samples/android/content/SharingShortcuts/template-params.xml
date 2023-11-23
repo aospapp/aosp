@@ -40,7 +40,7 @@ some options directly in the list of share intent candidates and launcher shortc
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
-        <status>DRAFT</status>
+        <status>PUBLISHED</status>
         <categories>Content</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

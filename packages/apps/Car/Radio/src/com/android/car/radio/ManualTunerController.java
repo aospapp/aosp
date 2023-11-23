@@ -24,7 +24,7 @@ import androidx.annotation.NonNull;
 
 import com.android.car.radio.bands.ProgramType;
 import com.android.car.radio.bands.RegionConfig;
-import com.android.car.radio.widget.BandSelector;
+import com.android.car.radio.widget.BandSelectorFlat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +36,7 @@ public class ManualTunerController {
     private final List<View> mDigitButtons = new ArrayList<>();
     private final View mEnterButton;
     private final TextView mChannelDisplay;
-    private BandSelector mBandSelector;
+    private BandSelectorFlat mBandSelector;
 
     private ProgramType mProgramType;
     private final RegionConfig mRegionConfig;

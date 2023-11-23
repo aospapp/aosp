@@ -376,9 +376,16 @@ protected:
   void emitSandboxedReturn() {
     dispatchToConcrete(&Traits::ConcreteTarget::emitSandboxedReturn);
   }
+
+  void emitStackProbe(size_t StackSizeBytes) {
+    dispatchToConcrete(&Traits::ConcreteTarget::emitStackProbe,
+                       std::move(StackSizeBytes));
+  }
+
   /// Emit just the call instruction (without argument or return variable
   /// processing), sandboxing if needed.
-  virtual Inst *emitCallToTarget(Operand *CallTarget, Variable *ReturnReg) = 0;
+  virtual Inst *emitCallToTarget(Operand *CallTarget, Variable *ReturnReg,
+                                 size_t NumVariadicFpArgs = 0) = 0;
   /// Materialize the moves needed to return a value of the specified type.
   virtual Variable *moveReturnValueToRegister(Operand *Value,
                                               Type ReturnType) = 0;
@@ -693,8 +700,11 @@ protected:
     Context.insert<typename Traits::Insts::Lea>(Dest, Src0);
   }
   void _link_bp() { dispatchToConcrete(&Traits::ConcreteTarget::_link_bp); }
-  void _push_reg(Variable *Reg) {
-    dispatchToConcrete(&Traits::ConcreteTarget::_push_reg, std::move(Reg));
+  void _push_reg(RegNumT RegNum) {
+    dispatchToConcrete(&Traits::ConcreteTarget::_push_reg, std::move(RegNum));
+  }
+  void _pop_reg(RegNumT RegNum) {
+    dispatchToConcrete(&Traits::ConcreteTarget::_pop_reg, std::move(RegNum));
   }
   void _mfence() { Context.insert<typename Traits::Insts::Mfence>(); }
   /// Moves can be used to redefine registers, creating "partial kills" for
@@ -1234,7 +1244,7 @@ public:
 private:
   ENABLE_MAKE_UNIQUE;
 
-  explicit TargetDataX86(GlobalContext *Ctx) : TargetDataLowering(Ctx){};
+  explicit TargetDataX86(GlobalContext *Ctx) : TargetDataLowering(Ctx){}
   template <typename T> static void emitConstantPool(GlobalContext *Ctx);
 };
 

@@ -33,6 +33,7 @@
 #ifndef ANDROID_NATIVE_WINDOW_H
 #define ANDROID_NATIVE_WINDOW_H
 
+#include <stdint.h>
 #include <sys/cdefs.h>
 
 #include <android/data_space.h>
@@ -189,6 +190,8 @@ int32_t ANativeWindow_unlockAndPost(ANativeWindow* window);
 /**
  * Set a transform that will be applied to future buffers posted to the window.
  *
+ * Available since API level 26.
+ *
  * \param transform combination of {@link ANativeWindowTransform} flags
  * \return 0 for success, or -EINVAL if \p transform is invalid
  */
@@ -208,6 +211,8 @@ int32_t ANativeWindow_setBuffersTransform(ANativeWindow* window, int32_t transfo
  * measurement data instead of color images. The default dataSpace is 0,
  * ADATASPACE_UNKNOWN, unless it has been overridden by the producer.
  *
+ * Available since API level 28.
+ *
  * \param dataSpace data space of all buffers queued after this call.
  * \return 0 for success, -EINVAL if window is invalid or the dataspace is not
  * supported.
@@ -216,12 +221,87 @@ int32_t ANativeWindow_setBuffersDataSpace(ANativeWindow* window, int32_t dataSpa
 
 /**
  * Get the dataspace of the buffers in window.
+ *
+ * Available since API level 28.
+ *
  * \return the dataspace of buffers in window, ADATASPACE_UNKNOWN is returned if
  * dataspace is unknown, or -EINVAL if window is invalid.
  */
 int32_t ANativeWindow_getBuffersDataSpace(ANativeWindow* window) __INTRODUCED_IN(28);
 
 #endif // __ANDROID_API__ >= 28
+
+#if __ANDROID_API__ >= 30
+
+/** Compatibility value for ANativeWindow_setFrameRate. */
+enum ANativeWindow_FrameRateCompatibility {
+    /**
+     * There are no inherent restrictions on the frame rate of this window. When
+     * the system selects a frame rate other than what the app requested, the
+     * app will be able to run at the system frame rate without requiring pull
+     * down. This value should be used when displaying game content, UIs, and
+     * anything that isn't video.
+     */
+    ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT = 0,
+    /**
+     * This window is being used to display content with an inherently fixed
+     * frame rate, e.g.\ a video that has a specific frame rate. When the system
+     * selects a frame rate other than what the app requested, the app will need
+     * to do pull down or use some other technique to adapt to the system's
+     * frame rate. The user experience is likely to be worse (e.g. more frame
+     * stuttering) than it would be if the system had chosen the app's requested
+     * frame rate. This value should be used for video content.
+     */
+    ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_FIXED_SOURCE = 1
+};
+
+/**
+ * Sets the intended frame rate for this window.
+ *
+ * On devices that are capable of running the display at different refresh
+ * rates, the system may choose a display refresh rate to better match this
+ * window's frame rate. Usage of this API won't introduce frame rate throttling,
+ * or affect other aspects of the application's frame production
+ * pipeline. However, because the system may change the display refresh rate,
+ * calls to this function may result in changes to Choreographer callback
+ * timings, and changes to the time interval at which the system releases
+ * buffers back to the application.
+ *
+ * Note that this only has an effect for windows presented on the display. If
+ * this ANativeWindow is consumed by something other than the system compositor,
+ * e.g. a media codec, this call has no effect.
+ *
+ * Available since API level 30.
+ *
+ * \param frameRate The intended frame rate of this window, in frames per
+ * second. 0 is a special value that indicates the app will accept the system's
+ * choice for the display frame rate, which is the default behavior if this
+ * function isn't called. The frameRate param does <em>not</em> need to be a
+ * valid refresh rate for this device's display - e.g., it's fine to pass 30fps
+ * to a device that can only run the display at 60fps.
+ *
+ * \param compatibility The frame rate compatibility of this window. The
+ * compatibility value may influence the system's choice of display refresh
+ * rate. See the ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_* values for more info.
+ *
+ * \return 0 for success, -EINVAL if the window, frame rate, or compatibility
+ * value are invalid.
+ */
+int32_t ANativeWindow_setFrameRate(ANativeWindow* window, float frameRate, int8_t compatibility)
+        __INTRODUCED_IN(30);
+
+/**
+ * Provides a hint to the window that buffers should be preallocated ahead of
+ * time. Note that the window implementation is not guaranteed to preallocate
+ * any buffers, for instance if an implementation disallows allocation of new
+ * buffers, or if there is insufficient memory in the system to preallocate
+ * additional buffers
+ *
+ * Available since API level 30.
+ */
+void ANativeWindow_tryAllocateBuffers(ANativeWindow* window);
+
+#endif // __ANDROID_API__ >= 30
 
 #ifdef __cplusplus
 };

@@ -54,7 +54,12 @@ public class FileUtils {
     public static final int S_IXOTH = 00001;
 
     static {
-        System.loadLibrary("cts_jni");
+        try {
+            // Required only for the native methods.
+            System.loadLibrary("cts_jni");
+        } catch (UnsatisfiedLinkError e) {
+            System.out.println("JNI not loaded");
+        }
     }
 
     public static class FileStatus {
@@ -93,13 +98,18 @@ public class FileUtils {
      * @param status object to set the fields on
      * @param statLinks or don't stat links (lstat vs stat)
      * @return whether or not we were able to stat the file
+     *
+     * If you call this method, make sure to link in the libcts_jni library.
      */
     public native static boolean getFileStatus(String path, FileStatus status, boolean statLinks);
 
+    /** If you call this method, make sure to link in the libcts_jni library. */
     public native static String getUserName(int uid);
 
+    /** If you call this method, make sure to link in the libcts_jni library. */
     public native static String getGroupName(int gid);
 
+    /** If you call this method, make sure to link in the libcts_jni library. */
     public native static int setPermissions(String file, int mode);
 
     /**

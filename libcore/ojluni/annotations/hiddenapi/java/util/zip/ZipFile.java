@@ -26,7 +26,7 @@
 
 package java.util.zip;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ZipFile implements java.util.zip.ZipConstants, java.io.Closeable {

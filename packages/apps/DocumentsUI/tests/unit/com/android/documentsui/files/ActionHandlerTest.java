@@ -53,6 +53,7 @@ import com.android.documentsui.ModelId;
 import com.android.documentsui.R;
 import com.android.documentsui.TestActionModeAddons;
 import com.android.documentsui.archives.ArchivesProvider;
+import com.android.documentsui.base.DebugFlags;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
@@ -67,13 +68,16 @@ import com.android.documentsui.testing.TestDragAndDropManager;
 import com.android.documentsui.testing.TestEnv;
 import com.android.documentsui.testing.TestFeatures;
 import com.android.documentsui.testing.TestProvidersAccess;
+import com.android.documentsui.testing.UserManagers;
 import com.android.documentsui.ui.TestDialogController;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 @MediumTest
@@ -94,6 +98,7 @@ public class ActionHandlerTest {
         mFeatures = new TestFeatures();
         mEnv = TestEnv.create(mFeatures);
         mActivity = TestActivity.create(mEnv);
+        mActivity.userManager = UserManagers.create();
         mActionModeAddons = new TestActionModeAddons();
         mDialogs = new TestDialogController();
         mClipper = new TestDocumentClipper();
@@ -104,8 +109,6 @@ public class ActionHandlerTest {
         mEnv.injector.dialogs = mDialogs;
 
         mHandler = createHandler();
-
-        mDialogs.confirmNext();
 
         mEnv.selectDocument(TestEnv.FILE_GIF);
     }
@@ -160,36 +163,28 @@ public class ActionHandlerTest {
     }
 
     @Test
-    public void testDeleteSelectedDocuments_NoSelection() {
+    public void testShowDeleteDialog_NoSelection() {
         mEnv.populateStack();
 
         mEnv.selectionMgr.clearSelection();
-        mHandler.deleteSelectedDocuments();
-        mDialogs.assertNoFileFailures();
+        mHandler.showDeleteDialog();
         mActivity.startService.assertNotCalled();
-        mActionModeAddons.finishOnConfirmed.assertNeverCalled();
+        assertFalse(mActionModeAddons.finishActionModeCalled);
     }
 
     @Test
-    public void testDeleteSelectedDocuments_Cancelable() {
+    public void testDeleteSelectedDocuments() {
         mEnv.populateStack();
 
-        mDialogs.rejectNext();
-        mHandler.deleteSelectedDocuments();
-        mDialogs.assertNoFileFailures();
-        mActivity.startService.assertNotCalled();
-        mActionModeAddons.finishOnConfirmed.assertRejected();
-    }
+        mEnv.selectionMgr.clearSelection();
+        mEnv.selectDocument(TestEnv.FILE_PNG);
 
-    // Recents root means when deleting the srcParent will be null.
-    @Test
-    public void testDeleteSelectedDocuments_RecentsRoot() {
-        mEnv.state.stack.changeRoot(TestProvidersAccess.RECENTS);
+        List<DocumentInfo> docs = new ArrayList<>();
+        docs.add(TestEnv.FILE_PNG);
+        mHandler.deleteSelectedDocuments(docs, mEnv.state.stack.peek());
 
-        mHandler.deleteSelectedDocuments();
-        mDialogs.assertNoFileFailures();
         mActivity.startService.assertCalled();
-        mActionModeAddons.finishOnConfirmed.assertCalled();
+        assertTrue(mActionModeAddons.finishActionModeCalled);
     }
 
     @Test
@@ -237,6 +232,17 @@ public class ActionHandlerTest {
         assertFalse(intent.hasCategory(Intent.CATEGORY_TYPED_OPENABLE));
         assertFalse(intent.hasCategory(Intent.CATEGORY_OPENABLE));
         assertHasExtraList(intent, Intent.EXTRA_STREAM, 2);
+    }
+
+    @Test
+    public void testShareSelectedDocuments_overShareLimit() {
+        mActivity.resources.strings.put(R.string.share_via, "Sharezilla!");
+        mEnv.selectMultipleFiles(500);
+        mHandler.shareSelectedDocuments();
+
+        Intent intent = mActivity.startActivity.getLastValue();
+        assertNull(intent);
+        mDialogs.assertShareOverLimitShown();
     }
 
     @Test
@@ -331,6 +337,27 @@ public class ActionHandlerTest {
     @Test
     public void testDocumentPicked_Downloads_ManagesApks() throws Exception {
         mActivity.currentRoot = TestProvidersAccess.DOWNLOADS;
+        TestEnv.FILE_APK.authority = TestProvidersAccess.DOWNLOADS.authority;
+
+        mHandler.openDocument(TestEnv.FILE_APK, ActionHandler.VIEW_TYPE_PREVIEW,
+                ActionHandler.VIEW_TYPE_REGULAR);
+        mActivity.assertActivityStarted(DocumentsContract.ACTION_MANAGE_DOCUMENT);
+    }
+
+    @Test
+    public void testDocumentPicked_Downloads_ManagesPartialFiles() throws Exception {
+        mActivity.currentRoot = TestProvidersAccess.DOWNLOADS;
+        TestEnv.FILE_PARTIAL.authority = TestProvidersAccess.DOWNLOADS.authority;
+
+        mHandler.openDocument(TestEnv.FILE_PARTIAL, ActionHandler.VIEW_TYPE_PREVIEW,
+                ActionHandler.VIEW_TYPE_REGULAR);
+        mActivity.assertActivityStarted(DocumentsContract.ACTION_MANAGE_DOCUMENT);
+    }
+
+    @Test
+    public void testDocumentPicked_Recent_ManagesApks() throws Exception {
+        mActivity.currentRoot = TestProvidersAccess.RECENTS;
+        TestEnv.FILE_APK.authority = TestProvidersAccess.DOWNLOADS.authority;
 
         mHandler.openDocument(TestEnv.FILE_APK, ActionHandler.VIEW_TYPE_PREVIEW,
                 ActionHandler.VIEW_TYPE_REGULAR);
@@ -344,15 +371,6 @@ public class ActionHandlerTest {
         mHandler.openDocument(TestEnv.FILE_APK, ActionHandler.VIEW_TYPE_PREVIEW,
                 ActionHandler.VIEW_TYPE_REGULAR);
         mActivity.assertActivityStarted(Intent.ACTION_VIEW);
-    }
-
-    @Test
-    public void testDocumentPicked_Downloads_ManagesPartialFiles() throws Exception {
-        mActivity.currentRoot = TestProvidersAccess.DOWNLOADS;
-
-        mHandler.openDocument(TestEnv.FILE_PARTIAL, ActionHandler.VIEW_TYPE_PREVIEW,
-                ActionHandler.VIEW_TYPE_REGULAR);
-        mActivity.assertActivityStarted(DocumentsContract.ACTION_MANAGE_DOCUMENT);
     }
 
     @Test
@@ -413,34 +431,12 @@ public class ActionHandlerTest {
     }
 
     @Test
-    public void testInitLocation_DefaultsToRecent() throws Exception {
-        mActivity.resources.bools.put(R.bool.show_documents_root, false);
-        mFeatures.forceDefaultRoot = false;
-
-        mHandler.initLocation(mActivity.getIntent());
-        assertRecentPicked();
-    }
-
-    @Test
     public void testInitLocation_forceDefaultsToRoot() throws Exception {
-        mActivity.resources.bools.put(R.bool.show_documents_root, false);
-        mFeatures.forceDefaultRoot = true;
         mActivity.resources.strings.put(R.string.default_root_uri,
                 TestProvidersAccess.DOWNLOADS.getUri().toString());
 
         mHandler.initLocation(mActivity.getIntent());
         assertRootPicked(TestProvidersAccess.DOWNLOADS.getUri());
-    }
-
-    @Test
-    public void testInitLocation_DocumentsRootEnabled() throws Exception {
-        mActivity.resources.bools.put(R.bool.show_documents_root, true);
-        mFeatures.forceDefaultRoot = true;
-        mActivity.resources.strings.put(R.string.default_root_uri,
-                TestProvidersAccess.HOME.getUri().toString());
-
-        mHandler.initLocation(mActivity.getIntent());
-        assertRootPicked(TestProvidersAccess.HOME.getUri());
     }
 
     @Test
@@ -460,10 +456,9 @@ public class ActionHandlerTest {
         intent.setData(DocumentsContract.buildRootsUri("com.test.wrongauthority"));
         mActivity.resources.strings.put(R.string.default_root_uri,
                 TestProvidersAccess.HOME.getUri().toString());
-        mFeatures.forceDefaultRoot = false;
 
         mHandler.initLocation(intent);
-        assertRecentPicked();
+        assertRootPicked(TestProvidersAccess.HOME.getUri());
     }
 
     @Test
@@ -574,9 +569,10 @@ public class ActionHandlerTest {
         refreshAnswer = false;
         mEnv.populateStack();
         mHandler.refreshDocument(mEnv.model.getDocument(
-                ModelId.build(TestProvidersAccess.HOME.authority, "1")), (boolean answer) -> {
-            refreshAnswer = answer;
-        });
+                ModelId.build(mEnv.model.mUserId, TestProvidersAccess.HOME.authority, "1")),
+                (boolean answer) -> {
+                    refreshAnswer = answer;
+                });
 
         mEnv.beforeAsserts();
         if (mEnv.features.isContentRefreshEnabled()) {
@@ -642,12 +638,14 @@ public class ActionHandlerTest {
     @Test
     public void testShowInspector_DebugEnabled() throws Exception {
         mFeatures.debugSupport = true;
+        DebugFlags.setDocumentDetailsEnabled(true);
 
         mHandler.showInspector(TestEnv.FILE_GIF);
         Intent intent = mActivity.startActivity.getLastValue();
 
         assertHasExtra(intent, Shared.EXTRA_SHOW_DEBUG);
         assertTrue(intent.getExtras().getBoolean(Shared.EXTRA_SHOW_DEBUG));
+        DebugFlags.setDocumentDetailsEnabled(false);
     }
 
     @Test
@@ -694,12 +692,6 @@ public class ActionHandlerTest {
         RootInfo root = mActivity.rootPicked.getLastValue();
         assertNotNull(root);
         assertEquals(expectedUri, root.getUri());
-    }
-
-    private void assertRecentPicked() throws Exception{
-        mEnv.beforeAsserts();
-        assertEquals(TestProvidersAccess.RECENTS, mEnv.state.stack.getRoot());
-        mActivity.refreshCurrentRootAndDirectory.assertCalled();
     }
 
     private ActionHandler<TestActivity> createHandler() {

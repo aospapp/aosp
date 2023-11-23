@@ -5,11 +5,11 @@ third_party {
     type: GIT
     value: "https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/fsverity-utils.git"
   }
-  version: "23a20ab7e8371cc29015d7d5787daa73f2ddd374"
+  version: "2151209ce1dae61c4ee7480e2c39ada1d912fcb2"
   license_type: RESTRICTED
   last_upgrade_date {
     year: 2019
-    month: 2
-    day: 11
+    month: 7
+    day: 24
   }
 }

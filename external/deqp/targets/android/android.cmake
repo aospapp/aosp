@@ -30,7 +30,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
 # GLESv1 lib
 if (IS_DIRECTORY ${ANGLE_LIBS})
 	find_library(GLES1_LIBRARY NAMES GLESv1_CM_angle PATHS ${ANGLE_LIBS} NO_DEFAULT_PATH)
-
 else()
 	find_library(GLES1_LIBRARY GLESv1_CM PATHS /usr/lib)
 endif()
@@ -48,7 +47,8 @@ set(DEQP_GLES2_LIBRARIES ${GLES2_LIBRARY})
 if (IS_DIRECTORY ${ANGLE_LIBS})
 	find_library(EGL_LIBRARY NAMES EGL_angle PATHS ${ANGLE_LIBS} NO_DEFAULT_PATH)
 else()
-	find_library(EGL_LIBRARY EGL PATHS /usr/lib)
+	# Disable static linking by clearing EGL_LIBRARY
+	set(EGL_LIBRARY   )
 endif()
 set(DEQP_EGL_LIBRARIES ${EGL_LIBRARY})
 

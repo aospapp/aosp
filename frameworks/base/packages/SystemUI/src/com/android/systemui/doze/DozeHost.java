@@ -50,8 +50,29 @@ public interface DozeHost {
      */
     void onSlpiTap(float x, float y);
 
+    /**
+     * Artificially dim down the the display by changing scrim opacities.
+     * @param scrimOpacity opacity from 0 to 1.
+     */
     default void setAodDimmingScrim(float scrimOpacity) {}
+
+    /**
+     * Sets the actual display brightness.
+     * @param value from 0 to 255.
+     */
     void setDozeScreenBrightness(int value);
+
+    /**
+     * Fade out screen before switching off the display power mode.
+     * @param onDisplayOffCallback Executed when the display is black.
+     */
+    void prepareForGentleSleep(Runnable onDisplayOffCallback);
+
+    /**
+     * Cancel pending {@code onDisplayOffCallback} callback.
+     * @see #prepareForGentleSleep(Runnable)
+     */
+    void cancelGentleSleep();
 
     void onIgnoreTouchWhilePulsing(boolean ignore);
 
@@ -60,17 +81,25 @@ public interface DozeHost {
      */
     void stopPulsing();
 
+    /** Returns whether doze is suppressed. */
+    boolean isDozeSuppressed();
+
     interface Callback {
         /**
          * Called when a high priority notification is added.
+         * @param onPulseSuppressedListener A listener that is invoked if the pulse is being
+         *                                  supressed.
          */
-        default void onNotificationAlerted() {}
+        default void onNotificationAlerted(Runnable onPulseSuppressedListener) {}
 
         /**
          * Called when battery state or power save mode changes.
          * @param active whether power save is active or not
          */
         default void onPowerSaveChanged(boolean active) {}
+
+        /** Called when the doze suppression state changes. */
+        default void onDozeSuppressedChanged(boolean suppressed) {}
     }
 
     interface PulseCallback {

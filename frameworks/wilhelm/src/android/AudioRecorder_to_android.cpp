@@ -703,6 +703,9 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
                                    // transfer type
             policy);               // audio_input_flags_t
 
+    // Set it here so it can be logged by the destructor if the open failed.
+    ar->mAudioRecord->setCallerName(ANDROID_OPENSLES_CALLER_NAME);
+
     android::status_t status = ar->mAudioRecord->initCheck();
     if (android::NO_ERROR != status) {
         SL_LOGE("android_audioRecorder_realize(%p) error creating AudioRecord object; status %d",

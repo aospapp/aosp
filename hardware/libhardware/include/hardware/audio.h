@@ -56,7 +56,8 @@ __BEGIN_DECLS
 #define AUDIO_DEVICE_API_VERSION_1_0 HARDWARE_DEVICE_API_VERSION(1, 0)
 #define AUDIO_DEVICE_API_VERSION_2_0 HARDWARE_DEVICE_API_VERSION(2, 0)
 #define AUDIO_DEVICE_API_VERSION_3_0 HARDWARE_DEVICE_API_VERSION(3, 0)
-#define AUDIO_DEVICE_API_VERSION_CURRENT AUDIO_DEVICE_API_VERSION_3_0
+#define AUDIO_DEVICE_API_VERSION_3_1 HARDWARE_DEVICE_API_VERSION(3, 1)
+#define AUDIO_DEVICE_API_VERSION_CURRENT AUDIO_DEVICE_API_VERSION_3_1
 /* Minimal audio HAL version supported by the audio framework */
 #define AUDIO_DEVICE_API_VERSION_MIN AUDIO_DEVICE_API_VERSION_2_0
 
@@ -202,7 +203,14 @@ typedef enum {
     STREAM_CBK_EVENT_ERROR, /* stream hit some error, let AF take action */
 } stream_callback_event_t;
 
+typedef enum {
+    STREAM_EVENT_CBK_TYPE_CODEC_FORMAT_CHANGED, /* codec format of the stream changed */
+} stream_event_callback_type_t;
+
 typedef int (*stream_callback_t)(stream_callback_event_t event, void *param, void *cookie);
+
+typedef int (*stream_event_callback_t)(stream_event_callback_type_t event,
+                                       void *param, void *cookie);
 
 /* type of drain requested to audio_stream_out->drain(). Mutually exclusive */
 typedef enum {
@@ -421,6 +429,13 @@ struct audio_stream_out {
      */
     void (*update_source_metadata)(struct audio_stream_out *stream,
                                    const struct source_metadata* source_metadata);
+
+    /**
+     * Set the callback function for notifying events for an output stream.
+     */
+    int (*set_event_callback)(struct audio_stream_out *stream,
+                              stream_event_callback_t callback,
+                              void *cookie);
 };
 typedef struct audio_stream_out audio_stream_out_t;
 
@@ -825,6 +840,31 @@ struct audio_hw_device {
     int (*set_audio_port_config)(struct audio_hw_device *dev,
                          const struct audio_port_config *config);
 
+    /**
+     * Applies an audio effect to an audio device.
+     *
+     * @param dev the audio HAL device context.
+     * @param device identifies the sink or source device the effect must be applied to.
+     *               "device" is the audio_port_handle_t indicated for the device when
+     *               the audio patch connecting that device was created.
+     * @param effect effect interface handle corresponding to the effect being added.
+     * @return retval operation completion status.
+     */
+    int (*add_device_effect)(struct audio_hw_device *dev,
+                        audio_port_handle_t device, effect_handle_t effect);
+
+    /**
+     * Stops applying an audio effect to an audio device.
+     *
+     * @param dev the audio HAL device context.
+     * @param device identifies the sink or source device this effect was applied to.
+     *               "device" is the audio_port_handle_t indicated for the device when
+     *               the audio patch is created.
+     * @param effect effect interface handle corresponding to the effect being removed.
+     * @return retval operation completion status.
+     */
+    int (*remove_device_effect)(struct audio_hw_device *dev,
+                        audio_port_handle_t device, effect_handle_t effect);
 };
 typedef struct audio_hw_device audio_hw_device_t;
 

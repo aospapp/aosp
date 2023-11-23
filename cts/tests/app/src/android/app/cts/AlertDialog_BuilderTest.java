@@ -18,10 +18,9 @@ package android.app.cts;
 
 import static androidx.test.internal.runner.junit4.statement.UiThreadStatement.runOnUiThread;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 import android.app.Activity;
@@ -49,20 +48,18 @@ import android.widget.Button;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 
+import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+
+import com.android.compatibility.common.util.PollingCheck;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
-
-import com.android.compatibility.common.util.PollingCheck;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
-
-import androidx.test.filters.FlakyTest;
 
 @SmallTest
 @RunWith(JUnit4.class)
@@ -123,7 +120,6 @@ public class AlertDialog_BuilderTest  {
         assertEquals(20, ta.getInt(0, 0));
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetIconWithParamInt() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -137,7 +133,6 @@ public class AlertDialog_BuilderTest  {
         mInstrumentation.waitForIdleSync();
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetIconWithParamDrawable() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -151,7 +146,6 @@ public class AlertDialog_BuilderTest  {
         mInstrumentation.waitForIdleSync();
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetIconAttribute() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -165,7 +159,6 @@ public class AlertDialog_BuilderTest  {
         mInstrumentation.waitForIdleSync();
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetPositiveButtonWithParamInt() throws Throwable {
        runOnUiThread(new Runnable() {
@@ -188,7 +181,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnDismissListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetPositiveButtonWithParamCharSequence() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -210,7 +202,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnDismissListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetNegativeButtonWithParamCharSequence() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -232,7 +223,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnDismissListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetNegativeButtonWithParamInt() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -254,7 +244,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnDismissListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetNeutralButtonWithParamInt() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -276,7 +265,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnDismissListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetNeutralButtonWithParamCharSequence() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -337,7 +325,6 @@ public class AlertDialog_BuilderTest  {
         testCancelable(false);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetOnCancelListener() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -353,7 +340,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnCancelListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetOnDismissListener() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -431,7 +417,6 @@ public class AlertDialog_BuilderTest  {
         assertEquals(expect[0], mListView.getItemAtPosition(0));
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetAdapter() throws Throwable {
         final ListAdapter adapter = new AdapterTest();
@@ -497,7 +482,6 @@ public class AlertDialog_BuilderTest  {
         assertEquals(items[0], mListView.getItemAtPosition(0));
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetSingleChoiceItemsWithParamInt() throws Throwable {
         final CharSequence[] items = mContext.getResources().getTextArray(
@@ -521,7 +505,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnClickListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetSingleChoiceItemsWithParamCharSequence() throws Throwable {
         final CharSequence[] items = mContext.getResources().getTextArray(
@@ -568,7 +551,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnClickListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetOnItemSelectedListener() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -587,7 +569,6 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnItemSelectedListener);
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetView() throws Throwable {
         final View view = new View(mContext);
@@ -621,7 +602,6 @@ public class AlertDialog_BuilderTest  {
         assertNotNull(mView.findViewById(R.id.username_edit));
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetViewById() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -638,7 +618,6 @@ public class AlertDialog_BuilderTest  {
         assertNotNull(mView.findViewById(R.id.username_edit));
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetCustomTitle() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -652,7 +631,6 @@ public class AlertDialog_BuilderTest  {
         mInstrumentation.waitForIdleSync();
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testSetInverseBackgroundForced() throws Throwable {
         runOnUiThread(new Runnable() {
@@ -680,7 +658,6 @@ public class AlertDialog_BuilderTest  {
         assertTrue(mDialog.isShowing());
     }
 
-    @FlakyTest(bugId = 133760851)
     @Test
     public void testShow() throws Throwable {
         runOnUiThread(new Runnable() {

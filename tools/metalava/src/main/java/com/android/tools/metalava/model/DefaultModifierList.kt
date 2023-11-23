@@ -17,11 +17,10 @@
 package com.android.tools.metalava.model
 
 import com.android.tools.metalava.compatibility
-import com.android.tools.metalava.model.psi.PsiModifierItem
 
 open class DefaultModifierList(
     override val codebase: Codebase,
-    protected var flags: Int = 0,
+    protected var flags: Int = PACKAGE_PRIVATE,
     protected open var annotations: MutableList<AnnotationItem>? = null
 ) : MutableModifierList {
     private lateinit var owner: Item
@@ -50,16 +49,26 @@ open class DefaultModifierList(
         this.owner = owner
     }
 
+    override fun getVisibilityLevel(): VisibilityLevel {
+        val visibilityFlags = flags and VISIBILITY_MASK
+        val levels = VISIBILITY_LEVEL_ENUMS
+        if (visibilityFlags >= levels.size) {
+            throw IllegalStateException(
+                "Visibility flags are invalid, expected value in range [0, " + levels.size + ") got " + visibilityFlags)
+        }
+        return levels[visibilityFlags]
+    }
+
     override fun isPublic(): Boolean {
-        return isSet(PUBLIC)
+        return getVisibilityLevel() == VisibilityLevel.PUBLIC
     }
 
     override fun isProtected(): Boolean {
-        return isSet(PROTECTED)
+        return getVisibilityLevel() == VisibilityLevel.PROTECTED
     }
 
     override fun isPrivate(): Boolean {
-        return isSet(PRIVATE)
+        return getVisibilityLevel() == VisibilityLevel.PRIVATE
     }
 
     override fun isStatic(): Boolean {
@@ -110,16 +119,20 @@ open class DefaultModifierList(
         return isSet(SEALED)
     }
 
-    override fun isInternal(): Boolean {
-        return isSet(INTERNAL)
-    }
-
     override fun isInfix(): Boolean {
         return isSet(INFIX)
     }
 
+    override fun isConst(): Boolean {
+        return isSet(CONST)
+    }
+
     override fun isSuspend(): Boolean {
         return isSet(SUSPEND)
+    }
+
+    override fun isCompanion(): Boolean {
+        return isSet(COMPANION)
     }
 
     override fun isOperator(): Boolean {
@@ -130,16 +143,8 @@ open class DefaultModifierList(
         return isSet(INLINE)
     }
 
-    override fun setPublic(public: Boolean) {
-        set(PUBLIC, public)
-    }
-
-    override fun setProtected(protected: Boolean) {
-        set(PROTECTED, protected)
-    }
-
-    override fun setPrivate(private: Boolean) {
-        set(PRIVATE, private)
+    override fun setVisibilityLevel(level: VisibilityLevel) {
+        flags = (flags and VISIBILITY_MASK.inv()) or level.visibilityFlagValue
     }
 
     override fun setStatic(static: Boolean) {
@@ -178,10 +183,6 @@ open class DefaultModifierList(
         set(DEFAULT, default)
     }
 
-    override fun setInternal(internal: Boolean) {
-        set(INTERNAL, internal)
-    }
-
     override fun setSealed(sealed: Boolean) {
         set(SEALED, sealed)
     }
@@ -210,6 +211,10 @@ open class DefaultModifierList(
         set(SUSPEND, suspend)
     }
 
+    fun setCompanion(companion: Boolean) {
+        set(COMPANION, companion)
+    }
+
     override fun addAnnotation(annotation: AnnotationItem) {
         if (annotations == null) {
             annotations = mutableListOf()
@@ -230,21 +235,12 @@ open class DefaultModifierList(
     }
 
     override fun isPackagePrivate(): Boolean {
-        return flags and (PUBLIC or PROTECTED or PRIVATE or INTERNAL) == 0
-    }
-
-    fun getAccessFlags(): Int {
-        return flags and (PUBLIC or PROTECTED or PRIVATE or INTERNAL)
-    }
-
-    /** Sets the given modifier */
-    fun set(modifier: String) {
-        set(bit(modifier), true)
+        return flags and VISIBILITY_MASK == PACKAGE_PRIVATE
     }
 
     // Rename? It's not a full equality, it's whether an override's modifier set is significant
     override fun equivalentTo(other: ModifierList): Boolean {
-        if (other is PsiModifierItem) {
+        if (other is DefaultModifierList) {
             val flags2 = other.flags
             val mask = if (compatibility.includeSynchronized) COMPAT_EQUIVALENCE_MASK else EQUIVALENCE_MASK
 
@@ -269,9 +265,37 @@ open class DefaultModifierList(
     }
 
     companion object {
-        const val PUBLIC = 1 shl 0
-        const val PROTECTED = 1 shl 1
-        const val PRIVATE = 1 shl 2
+        const val PRIVATE = 0
+        const val INTERNAL = 1
+        const val PACKAGE_PRIVATE = 2
+        const val PROTECTED = 3
+        const val PUBLIC = 4
+        const val VISIBILITY_MASK = 0b111
+
+        /**
+         * An internal copy of VisibilityLevel.values() to avoid paying the cost of duplicating the array on every
+         * call.
+         */
+        private val VISIBILITY_LEVEL_ENUMS = VisibilityLevel.values()
+
+        // Check that the constants above are consistent with the VisibilityLevel enum, i.e. the mask is large enough
+        // to include all allowable values and that each visibility level value is the same as the corresponding enum
+        // constant's ordinal.
+        init {
+            check(PRIVATE == VisibilityLevel.PRIVATE.ordinal)
+            check(INTERNAL == VisibilityLevel.INTERNAL.ordinal)
+            check(PACKAGE_PRIVATE == VisibilityLevel.PACKAGE_PRIVATE.ordinal)
+            check(PROTECTED == VisibilityLevel.PROTECTED.ordinal)
+            check(PUBLIC == VisibilityLevel.PUBLIC.ordinal)
+            // Calculate the mask required to hold as many different values as there are VisibilityLevel values.
+            // Given N visibility levels, the required mask is constructed by determining the MSB in the number N - 1
+            // and then setting all bits to the right.
+            // e.g. when N is 5 then N - 1 is 4, the MSB is bit 2, and so the mask is what you get when you set bits 2,
+            // 1 and 0, i.e. 0b111.
+            val expectedMask = (1 shl (32 - Integer.numberOfLeadingZeros(VISIBILITY_LEVEL_ENUMS.size - 1))) - 1
+            check(VISIBILITY_MASK == expectedMask)
+        }
+
         const val STATIC = 1 shl 3
         const val ABSTRACT = 1 shl 4
         const val FINAL = 1 shl 5
@@ -284,45 +308,21 @@ open class DefaultModifierList(
         const val DEPRECATED = 1 shl 12
         const val VARARG = 1 shl 13
         const val SEALED = 1 shl 14
-        const val INTERNAL = 1 shl 15
+        // 15 currently unused
         const val INFIX = 1 shl 16
         const val OPERATOR = 1 shl 17
         const val INLINE = 1 shl 18
         const val SUSPEND = 1 shl 19
-
-        private fun bit(modifier: String): Int {
-            return when (modifier) {
-                "public" -> PUBLIC
-                "protected" -> PROTECTED
-                "private" -> PRIVATE
-                "static" -> STATIC
-                "abstract" -> ABSTRACT
-                "final" -> FINAL
-                "native" -> NATIVE
-                "synchronized" -> SYNCHRONIZED
-                "strictfp" -> STRICT_FP
-                "transient" -> TRANSIENT
-                "volatile" -> VOLATILE
-                "default" -> DEFAULT
-                "deprecated" -> DEPRECATED
-                "vararg" -> VARARG
-                "sealed" -> SEALED
-                "internal" -> INTERNAL
-                "infix" -> INFIX
-                "operator" -> OPERATOR
-                "inline" -> INLINE
-                "suspend" -> SUSPEND
-                else -> error("Unsupported modifier $modifier")
-            }
-        }
+        const val COMPANION = 1 shl 20
+        const val CONST = 1 shl 21
 
         /**
          * Modifiers considered significant to include signature files (and similarly
          * to consider whether an override of a method is different from its super implementation
          */
-        private const val EQUIVALENCE_MASK = PUBLIC or PROTECTED or PRIVATE or STATIC or ABSTRACT or
+        private const val EQUIVALENCE_MASK = VISIBILITY_MASK or STATIC or ABSTRACT or
             FINAL or TRANSIENT or VOLATILE or DEPRECATED or VARARG or
-            SEALED or INTERNAL or INFIX or OPERATOR or SUSPEND
+            SEALED or INFIX or OPERATOR or SUSPEND or COMPANION
 
         private const val COMPAT_EQUIVALENCE_MASK = EQUIVALENCE_MASK or SYNCHRONIZED
     }

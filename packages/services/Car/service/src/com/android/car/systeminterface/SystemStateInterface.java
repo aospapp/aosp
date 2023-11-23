@@ -20,17 +20,20 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
 import android.util.Pair;
 
 import com.android.car.procfsinspector.ProcessInfo;
 import com.android.car.procfsinspector.ProcfsInspector;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.car.ICarServiceHelper;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -69,11 +72,17 @@ public interface SystemStateInterface {
         // Do nothing
     }
 
+    /**
+     * Default implementation that is used internally.
+     */
+    @VisibleForTesting
     class DefaultImpl implements SystemStateInterface {
-        private final static Duration MIN_BOOT_COMPLETE_ACTION_DELAY = Duration.ofSeconds(10);
-        private final static int SUSPEND_TRY_TIMEOUT_MS = 1000;
+        private static final int MAX_WAIT_FOR_HELPER_SEC = 10;
+        private static final Duration MIN_BOOT_COMPLETE_ACTION_DELAY = Duration.ofSeconds(10);
+        private static final int SUSPEND_TRY_TIMEOUT_MS = 1_000;
 
-        private ICarServiceHelper mICarServiceHelper;
+        private ICarServiceHelper mICarServiceHelper; // mHelperLatch becomes 0 when this is set
+        private final CountDownLatch mHelperLatch = new CountDownLatch(1);
         private final Context mContext;
         private final PowerManager mPowerManager;
         private List<Pair<Runnable, Duration>> mActionsList = new ArrayList<>();
@@ -90,7 +99,8 @@ public interface SystemStateInterface {
             }
         };
 
-        DefaultImpl(Context context) {
+        @VisibleForTesting
+        public DefaultImpl(Context context) {
             mContext = context;
             mPowerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         }
@@ -102,18 +112,46 @@ public interface SystemStateInterface {
 
         @Override
         public boolean enterDeepSleep() {
-            boolean deviceEnteredSleep;
-            //TODO set wake up time via VHAL, bug: 32061842
-            try {
-                int retVal;
-                retVal = mICarServiceHelper.forceSuspend(SUSPEND_TRY_TIMEOUT_MS);
-                deviceEnteredSleep = retVal == 0;
+            // TODO(b/32061842) Set wake up time via VHAL
+            if (!canInvokeHelper()) {
+                return false;
+            }
 
+            boolean deviceEnteredSleep = false;
+            try {
+                int retVal = mICarServiceHelper.forceSuspend(SUSPEND_TRY_TIMEOUT_MS);
+                deviceEnteredSleep = retVal == 0;
             } catch (Exception e) {
                 Log.e(TAG, "Unable to enter deep sleep", e);
-                deviceEnteredSleep = false;
             }
             return deviceEnteredSleep;
+        }
+
+        // Checks if mICarServiceHelper is available. (It might be unavailable if
+        // we are asked to shut down before we're completely up and running.)
+        // If the helper is null, wait for it to be set.
+        // Returns true if the helper is available.
+        private boolean canInvokeHelper() {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                // We should not be called from the main thread!
+                throw new IllegalStateException("SystemStateInterface.enterDeepSleep() "
+                        + "was called from the main thread");
+            }
+            if (mICarServiceHelper != null) {
+                return true;
+            }
+            // We have no helper. If we wait, maybe we will get a helper.
+            try {
+                mHelperLatch.await(MAX_WAIT_FOR_HELPER_SEC, TimeUnit.SECONDS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt(); // Restore interrupted status
+            }
+            if (mICarServiceHelper != null) {
+                return true;
+            }
+            Log.e(TAG, "Unable to enter deep sleep: ICarServiceHelper is still null "
+                    + "after waiting " + MAX_WAIT_FOR_HELPER_SEC + " seconds");
+            return false;
         }
 
         @Override
@@ -134,6 +172,7 @@ public interface SystemStateInterface {
         @Override
         public void setCarServiceHelper(ICarServiceHelper helper) {
             mICarServiceHelper = helper;
+            mHelperLatch.countDown();
         }
     }
 }

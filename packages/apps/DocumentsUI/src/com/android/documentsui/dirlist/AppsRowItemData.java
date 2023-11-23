@@ -17,12 +17,14 @@
 package com.android.documentsui.dirlist;
 
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.sidebar.AppItem;
 import com.android.documentsui.sidebar.Item;
 import com.android.documentsui.sidebar.RootItem;
@@ -34,44 +36,57 @@ import com.android.documentsui.sidebar.RootItem;
  */
 public abstract class AppsRowItemData {
 
+    protected final UserId mUserId;
     private final String mTitle;
+    private final @Nullable String mSummary;
     protected final ActionHandler mActionHandler;
+    protected final boolean mMaybeShowBadge;
 
-    public AppsRowItemData(Item item, ActionHandler actionHandler) {
+    public AppsRowItemData(Item item, ActionHandler actionHandler, boolean shouldShowSummary,
+            boolean maybeShowBadge) {
+        mUserId = item.userId;
         mTitle = item.title;
+        mSummary = shouldShowSummary ? item.getSummary() : null;
         mActionHandler = actionHandler;
+        mMaybeShowBadge = maybeShowBadge;
     }
 
     public final String getTitle() {
         return mTitle;
     }
 
+    public final UserId getUserId() {
+        return mUserId;
+    }
+
+    /**
+     * Get the summary from {@link Item}.
+     */
+    public final @Nullable String getSummary() {
+        return mSummary;
+    }
+
     protected abstract Drawable getIconDrawable(Context context);
     protected abstract void onClicked();
-    protected abstract boolean showExitIcon();
 
     public static class AppData extends AppsRowItemData {
 
         private final ResolveInfo mResolveInfo;
 
-        public AppData(AppItem item, ActionHandler actionHandler) {
-            super(item, actionHandler);
+        public AppData(AppItem item, ActionHandler actionHandler, boolean shouldShowSummary,
+                boolean maybeShowBadge) {
+            super(item, actionHandler, shouldShowSummary, maybeShowBadge);
             mResolveInfo = item.info;
         }
 
         @Override
         protected Drawable getIconDrawable(Context context) {
-            return mResolveInfo.loadIcon(context.getPackageManager());
+            return mResolveInfo.loadIcon(mUserId.getPackageManager(context));
         }
 
         @Override
         protected void onClicked() {
-            mActionHandler.openRoot(mResolveInfo);
-        }
-
-        @Override
-        protected boolean showExitIcon() {
-            return true;
+            mActionHandler.openRoot(mResolveInfo, mUserId);
         }
     }
 
@@ -79,24 +94,20 @@ public abstract class AppsRowItemData {
 
         private final RootInfo mRootInfo;
 
-        public RootData(RootItem item, ActionHandler actionHandler) {
-            super(item, actionHandler);
+        public RootData(RootItem item, ActionHandler actionHandler, boolean shouldShowSummary,
+                boolean maybeShowBadge) {
+            super(item, actionHandler, shouldShowSummary, maybeShowBadge);
             mRootInfo = item.root;
         }
 
         @Override
         protected Drawable getIconDrawable(Context context) {
-            return mRootInfo.loadIcon(context);
+            return mRootInfo.loadIcon(context, mMaybeShowBadge);
         }
 
         @Override
         protected void onClicked() {
             mActionHandler.openRoot(mRootInfo);
-        }
-
-        @Override
-        protected boolean showExitIcon() {
-            return false;
         }
     }
 }

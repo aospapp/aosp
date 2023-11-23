@@ -27,13 +27,10 @@ import androidx.annotation.StringRes;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.asset.BuiltInWallpaperAsset;
 import com.android.wallpaper.asset.CurrentWallpaperAssetVN;
-import com.android.wallpaper.asset.FileAsset;
 import com.android.wallpaper.compat.WallpaperManagerCompat;
 import com.android.wallpaper.compat.WallpaperManagerCompat.WallpaperLocation;
 import com.android.wallpaper.module.InjectorProvider;
-import com.android.wallpaper.module.NoBackupImageWallpaper;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -142,17 +139,6 @@ public class CurrentWallpaperInfoVN extends WallpaperInfo {
      * Constructs and returns an Asset instance representing the currently-set wallpaper asset.
      */
     private Asset createCurrentWallpaperAssetVN(Context context) {
-        // If the live wallpaper for rotating wallpapers is set, then provide a file asset
-        // representing that wallpaper.
-        boolean isNoBackupImageWallpaperSet = InjectorProvider.getInjector()
-                .getLiveWallpaperStatusChecker(context).isNoBackupImageWallpaperSet();
-        if (mWallpaperManagerFlag == WallpaperManagerCompat.FLAG_SYSTEM
-                && isNoBackupImageWallpaperSet) {
-            Context deviceProtectedContext = context.createDeviceProtectedStorageContext();
-            return new FileAsset(new File(deviceProtectedContext.getFilesDir(),
-                    NoBackupImageWallpaper.ROTATING_WALLPAPER_FILE_PATH));
-        }
-
         WallpaperManagerCompat wallpaperManagerCompat = InjectorProvider.getInjector()
                 .getWallpaperManagerCompat(context);
 

@@ -27,6 +27,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -2472,7 +2473,7 @@ public class ZFile implements Closeable {
             return;
         }
 
-        for (File f : Files.fileTreeTraverser().preOrderTraversal(file).skip(1)) {
+        for (File f : Iterables.skip(Files.fileTraverser().depthFirstPreOrder(file), 1)) {
             String path = file.toURI().relativize(f.toURI()).getPath();
 
             InputStream stream;

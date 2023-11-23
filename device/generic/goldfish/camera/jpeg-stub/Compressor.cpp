@@ -33,7 +33,6 @@ bool Compressor::compress(const unsigned char* data,
         // provide here so just return.
         return false;
     }
-
     return compressData(data, exifData);
 }
 
@@ -80,37 +79,18 @@ bool Compressor::configureCompressor(int width, int height, int quality) {
     return true;
 }
 
-static void deinterleave(const uint8_t* vuPlanar, std::vector<uint8_t>& uRows,
-                         std::vector<uint8_t>& vRows, int rowIndex, int width,
-                         int height, int stride) {
-    int numRows = (height - rowIndex) / 2;
-    if (numRows > 8) numRows = 8;
-    for (int row = 0; row < numRows; ++row) {
-        int offset = ((rowIndex >> 1) + row) * stride;
-        const uint8_t* vu = vuPlanar + offset;
-        for (int i = 0; i < (width >> 1); ++i) {
-            int index = row * (width >> 1) + i;
-            uRows[index] = vu[1];
-            vRows[index] = vu[0];
-            vu += 2;
-        }
-    }
-}
-
-
 bool Compressor::compressData(const unsigned char* data, ExifData* exifData) {
     const uint8_t* y[16];
     const uint8_t* cb[8];
     const uint8_t* cr[8];
     const uint8_t** planes[3] = { y, cb, cr };
 
-    int i, offset;
+    int i;
     int width = mCompressInfo.image_width;
     int height = mCompressInfo.image_height;
     const uint8_t* yPlanar = data;
-    const uint8_t* vuPlanar = data + (width * height);
-    std::vector<uint8_t> uRows(8 * (width >> 1));
-    std::vector<uint8_t> vRows(8 * (width >> 1));
+    const uint8_t* uPlanar = yPlanar + width * height;
+    const uint8_t* vPlanar = uPlanar + width * height / 4;
 
     // NOTE! DANGER! Do not construct any non-trivial objects below setjmp!
     // The compiler will not generate code to destroy them during the return
@@ -128,10 +108,6 @@ bool Compressor::compressData(const unsigned char* data, ExifData* exifData) {
 
     // process 16 lines of Y and 8 lines of U/V each time.
     while (mCompressInfo.next_scanline < mCompressInfo.image_height) {
-        //deinterleave u and v
-        deinterleave(vuPlanar, uRows, vRows, mCompressInfo.next_scanline,
-                     width, height, width);
-
         // Jpeg library ignores the rows whose indices are greater than height.
         for (i = 0; i < 16; i++) {
             // y row
@@ -140,11 +116,10 @@ bool Compressor::compressData(const unsigned char* data, ExifData* exifData) {
             // construct u row and v row
             if ((i & 1) == 0) {
                 // height and width are both halved because of downsampling
-                offset = (i >> 1) * (width >> 1);
-                cb[i/2] = &uRows[offset];
-                cr[i/2] = &vRows[offset];
+                cb[i/2] = uPlanar + (mCompressInfo.next_scanline + i) * width / 4;
+                cr[i/2] = vPlanar + (mCompressInfo.next_scanline + i) * width / 4;
             }
-          }
+        }
         jpeg_write_raw_data(&mCompressInfo, const_cast<JSAMPIMAGE>(planes), 16);
     }
 

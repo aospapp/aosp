@@ -29,6 +29,7 @@
 #include "dex/dex_file_types.h"
 #include "dex/invoke_type.h"
 #include "dex/primitive.h"
+#include "dex/signature.h"
 #include "gc_root-inl.h"
 #include "imtable-inl.h"
 #include "intrinsics_enum.h"
@@ -38,7 +39,6 @@
 #include "mirror/object-inl.h"
 #include "mirror/object_array.h"
 #include "mirror/string.h"
-#include "oat.h"
 #include "obj_ptr-inl.h"
 #include "quick/quick_method_frame_info.h"
 #include "read_barrier-inl.h"
@@ -375,15 +375,6 @@ void ArtMethod::VisitRoots(RootVisitorType& visitor, PointerSize pointer_size) {
 }
 
 template <typename Visitor>
-inline void ArtMethod::UpdateObjectsForImageRelocation(const Visitor& visitor) {
-  ObjPtr<mirror::Class> old_class = GetDeclaringClassUnchecked<kWithoutReadBarrier>();
-  ObjPtr<mirror::Class> new_class = visitor(old_class.Ptr());
-  if (old_class != new_class) {
-    SetDeclaringClass(new_class);
-  }
-}
-
-template <typename Visitor>
 inline void ArtMethod::UpdateEntrypoints(const Visitor& visitor, PointerSize pointer_size) {
   if (IsNative()) {
     const void* old_native_code = GetEntryPointFromJniPtrSize(pointer_size);
@@ -413,7 +404,7 @@ inline CodeItemDebugInfoAccessor ArtMethod::DexInstructionDebugInfo() {
   return CodeItemDebugInfoAccessor(*GetDexFile(), GetCodeItem(), GetDexMethodIndex());
 }
 
-inline void ArtMethod::SetCounter(int16_t hotness_count) {
+inline void ArtMethod::SetCounter(uint16_t hotness_count) {
   DCHECK(!IsAbstract()) << PrettyMethod();
   hotness_count_ = hotness_count;
 }

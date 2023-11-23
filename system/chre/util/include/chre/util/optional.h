@@ -25,7 +25,7 @@ namespace chre {
  * This container keeps track of an optional object. The container is similar to
  * std::optional introduced in C++17.
  */
-template<typename ObjectType>
+template <typename ObjectType>
 class Optional {
  public:
   // Per the standard, a program that instantiates template optional for a
@@ -43,28 +43,28 @@ class Optional {
    *
    * @param object The object to copy construct from.
    */
-  Optional(const Optional<ObjectType>& object) = default;
+  Optional(const Optional<ObjectType> &object) = default;
 
   /**
    * Default copy constructor.
    *
    * @param object The object to copy construct from.
    */
-  Optional(Optional<ObjectType>& object) = default;
+  Optional(Optional<ObjectType> &object) = default;
 
   /**
    * Constructs an optional instance with an initial value.
    *
    * @param object The initial value of the object.
    */
-  Optional(const ObjectType& object);
+  Optional(const ObjectType &object);
 
   /**
    * Constructs an optional instance with an initial value by moving it.
    *
    * @param object The instance of the initial object to take ownership of.
    */
-  Optional(ObjectType&& object);
+  Optional(ObjectType &&object);
 
   /**
    * Destructs the object. Calls through reset() to destroy the contained
@@ -88,8 +88,8 @@ class Optional {
    * contains a value, so this object will be uninitialized if has_value() is
    * false.
    */
-  ObjectType& value();
-  const ObjectType& value() const;
+  ObjectType &value();
+  const ObjectType &value() const;
 
   /**
    * Performs a move assignment operation to the underlying object managed by
@@ -98,7 +98,7 @@ class Optional {
    * @param other The other object to move from.
    * @return Returns a reference to this object.
    */
-  Optional<ObjectType>& operator=(ObjectType&& other);
+  Optional<ObjectType> &operator=(ObjectType &&other);
 
   /**
    * Performs a move assignment from one optional to another. Note that the
@@ -108,7 +108,7 @@ class Optional {
    * @param other The other object to move.
    * @return Returns a reference to this object.
    */
-  Optional<ObjectType>& operator=(Optional<ObjectType>&& other);
+  Optional<ObjectType> &operator=(Optional<ObjectType> &&other);
 
   /**
    * Performs a copy assignment operation to the underlying object managed by
@@ -117,7 +117,7 @@ class Optional {
    * @param other The other object to copy from.
    * @return Returns a reference to this object.
    */
-  Optional<ObjectType>& operator=(const ObjectType& other);
+  Optional<ObjectType> &operator=(const ObjectType &other);
 
   /**
    * Performs a copy assignment from one optional to another.
@@ -125,7 +125,7 @@ class Optional {
    * @param other The other object to copy.
    * @return Returns a reference to this object.
    */
-  Optional<ObjectType>& operator=(const Optional<ObjectType>& other);
+  Optional<ObjectType> &operator=(const Optional<ObjectType> &other);
 
   /**
    * Obtains a reference to the underlying object managed by this container.
@@ -134,7 +134,7 @@ class Optional {
    * @return Returns a reference to the underlying object tracked by this
    *         container.
    */
-  ObjectType& operator*();
+  ObjectType &operator*();
 
   /**
    * Obtains a const reference to the underlying object managed by this
@@ -143,7 +143,7 @@ class Optional {
    * @return Returns a const reference to the underlying object tracked by this
    *         container.
    */
-  const ObjectType& operator*() const;
+  const ObjectType &operator*() const;
 
   /**
    * Obtains a pointer to the underlying object managed by this container. The
@@ -171,8 +171,8 @@ class Optional {
   //! Whether or not the object is set.
   bool mHasValue = false;
 
-  ObjectType& object();
-  const ObjectType& object() const;
+  ObjectType &object();
+  const ObjectType &object() const;
 
   ObjectType *objectAddr();
   const ObjectType *objectAddr() const;

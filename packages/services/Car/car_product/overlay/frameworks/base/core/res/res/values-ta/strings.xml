@@ -18,4 +18,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"கார் உரிமையாளர்"</string>
+    <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"முன்புலத்தில் இயங்கும்போது மட்டும் தோராயமான இருப்பிடத்தைக் கண்டறிதல்"</string>
 </resources>

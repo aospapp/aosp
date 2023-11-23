@@ -30,11 +30,6 @@
             android:summary="@string/summary_placeholder"
             android:fragment="com.android.car.developeroptions.applications.ProcessStatsSummary" />
 
-        <com.android.car.developeroptions.BugreportPreference
-            android:key="bugreport"
-            android:title="@*android:string/bugreport_title"
-            android:dialogTitle="@*android:string/bugreport_title" />
-
         <Preference
             android:key="system_server_heap_dump"
             android:title="@string/capture_system_heap_dump_title" />
@@ -151,11 +146,6 @@
             android:summary="@string/enable_terminal_summary" />
 
         <SwitchPreference
-            android:key="bugreport_in_power"
-            android:title="@string/bugreport_in_power"
-            android:summary="@string/bugreport_in_power_summary" />
-
-        <SwitchPreference
             android:key="automatic_system_server_heap_dumps"
             android:title="@string/automatic_system_heap_dump_title"
             android:summary="@string/automatic_system_heap_dump_summary" />
@@ -167,6 +157,11 @@
             android:key="enable_gnss_raw_meas_full_tracking"
             android:title="@string/enable_gnss_raw_meas_full_tracking"
             android:summary="@string/enable_gnss_raw_meas_full_tracking_summary" />
+
+        <SwitchPreference
+            android:key="enable_user_switch_message"
+            android:title="@string/enable_user_switch_message"
+            android:summary="@string/enable_user_switch_message_summary" />
 
         <SwitchPreference
             android:key="debug_view_attributes"

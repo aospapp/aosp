@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef HARDWARE_INTERFACES_KEYMASTER_40_VTS_FUNCTIONAL_KEYMASTER_HIDL_TEST_H_
-#define HARDWARE_INTERFACES_KEYMASTER_40_VTS_FUNCTIONAL_KEYMASTER_HIDL_TEST_H_
+#pragma once
 
 #include <android/hardware/keymaster/4.0/IKeymasterDevice.h>
 #include <android/hardware/keymaster/4.0/types.h>
-
-#include <VtsHalHidlTargetTestBase.h>
-
-#include <keymaster/keymaster_configuration.h>
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 
 #include <keymasterV4_0/authorization_set.h>
 
@@ -36,15 +34,18 @@ namespace V4_0 {
 namespace test {
 
 using ::android::sp;
+using hidl::base::V1_0::DebugInfo;
 using ::std::string;
 
 class HidlBuf : public hidl_vec<uint8_t> {
-    typedef hidl_vec<uint8_t> super;
+    using super = hidl_vec<uint8_t>;
 
-   public:
+  public:
     HidlBuf() {}
     HidlBuf(const super& other) : super(other) {}
-    HidlBuf(super&& other) : super(std::move(other)) {}
+    HidlBuf(super&& other) : super(std::move(other)) { other = {}; }
+    HidlBuf(const HidlBuf& other) : super(other) {}
+    HidlBuf(HidlBuf&& other) : super(std::move(other)) { other = HidlBuf(); }
     explicit HidlBuf(const std::string& other) : HidlBuf() { *this = other; }
 
     HidlBuf& operator=(const super& other) {
@@ -54,6 +55,18 @@ class HidlBuf : public hidl_vec<uint8_t> {
 
     HidlBuf& operator=(super&& other) {
         super::operator=(std::move(other));
+        other = {};
+        return *this;
+    }
+
+    HidlBuf& operator=(const HidlBuf& other) {
+        super::operator=(other);
+        return *this;
+    }
+
+    HidlBuf& operator=(HidlBuf&& other) {
+        super::operator=(std::move(other));
+        other.super::operator=({});
         return *this;
     }
 
@@ -68,24 +81,9 @@ class HidlBuf : public hidl_vec<uint8_t> {
 
 constexpr uint64_t kOpHandleSentinel = 0xFFFFFFFFFFFFFFFF;
 
-class KeymasterHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
-   public:
-    // get the test environment singleton
-    static KeymasterHidlEnvironment* Instance() {
-        static KeymasterHidlEnvironment* instance = new KeymasterHidlEnvironment;
-        return instance;
-    }
-
-    void registerTestServices() override { registerTestService<IKeymasterDevice>(); }
-
-   private:
-    KeymasterHidlEnvironment(){};
-
-    GTEST_DISALLOW_COPY_AND_ASSIGN_(KeymasterHidlEnvironment);
-};
-
-class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
-   public:
+class KeymasterHidlTest : public ::testing::TestWithParam<std::string> {
+  public:
+    void SetUp() override;
     void TearDown() override {
         if (key_blob_.size()) {
             CheckedDeleteKey();
@@ -93,17 +91,10 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
         AbortIfNeeded();
     }
 
-    // SetUpTestCase runs only once per test case, not once per test.
-    static void SetUpTestCase();
-    static void TearDownTestCase() {
-        keymaster_.clear();
-        all_keymasters_.clear();
-    }
-
-    static IKeymasterDevice& keymaster() { return *keymaster_; }
-    static const std::vector<sp<IKeymasterDevice>>& all_keymasters() { return all_keymasters_; }
-    static uint32_t os_version() { return os_version_; }
-    static uint32_t os_patch_level() { return os_patch_level_; }
+    void InitializeKeymaster(sp<IKeymasterDevice> keymaster);
+    IKeymasterDevice& keymaster() { return *keymaster_; }
+    uint32_t os_version() { return os_version_; }
+    uint32_t os_patch_level() { return os_patch_level_; }
 
     ErrorCode GenerateKey(const AuthorizationSet& key_desc, HidlBuf* key_blob,
                           KeyCharacteristics* key_characteristics);
@@ -131,14 +122,13 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
     void CheckedDeleteKey(HidlBuf* key_blob, bool keep_key_blob = false);
     void CheckedDeleteKey();
 
-    static void CheckCreationDateTime(const AuthorizationSet& sw_enforced,
-                                      std::chrono::time_point<std::chrono::system_clock> creation);
-
     void CheckGetCharacteristics(const HidlBuf& key_blob, const HidlBuf& client_id,
                                  const HidlBuf& app_data, KeyCharacteristics* key_characteristics);
     ErrorCode GetCharacteristics(const HidlBuf& key_blob, const HidlBuf& client_id,
                                  const HidlBuf& app_data, KeyCharacteristics* key_characteristics);
     ErrorCode GetCharacteristics(const HidlBuf& key_blob, KeyCharacteristics* key_characteristics);
+
+    ErrorCode GetDebugInfo(DebugInfo* debug_info);
 
     ErrorCode Begin(KeyPurpose purpose, const HidlBuf& key_blob, const AuthorizationSet& in_params,
                     AuthorizationSet* out_params, OperationHandle* op_handle);
@@ -201,6 +191,8 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
                           HidlBuf* iv_out);
     string EncryptMessage(const string& message, BlockMode block_mode, PaddingMode padding,
                           const HidlBuf& iv_in);
+    string EncryptMessage(const string& message, BlockMode block_mode, PaddingMode padding,
+                          uint8_t mac_length_bits, const HidlBuf& iv_in);
 
     string DecryptMessage(const HidlBuf& key_blob, const string& ciphertext,
                           const AuthorizationSet& params);
@@ -210,8 +202,8 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
 
     std::pair<ErrorCode, HidlBuf> UpgradeKey(const HidlBuf& key_blob);
 
-    static bool IsSecure() { return securityLevel_ != SecurityLevel::SOFTWARE; }
-    static SecurityLevel SecLevel() { return securityLevel_; }
+    bool IsSecure() { return securityLevel_ != SecurityLevel::SOFTWARE; }
+    SecurityLevel SecLevel() { return securityLevel_; }
 
     std::vector<uint32_t> ValidKeySizes(Algorithm algorithm);
     std::vector<uint32_t> InvalidKeySizes(Algorithm algorithm);
@@ -226,21 +218,28 @@ class KeymasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
     KeyCharacteristics key_characteristics_;
     OperationHandle op_handle_ = kOpHandleSentinel;
 
-   private:
-    static sp<IKeymasterDevice> keymaster_;
-    static std::vector<sp<IKeymasterDevice>> all_keymasters_;
-    static uint32_t os_version_;
-    static uint32_t os_patch_level_;
+    static std::vector<std::string> build_params() {
+        auto params = android::hardware::getAllHalInstanceNames(IKeymasterDevice::descriptor);
+        return params;
+    }
 
-    static SecurityLevel securityLevel_;
-    static hidl_string name_;
-    static hidl_string author_;
+  private:
+    sp<IKeymasterDevice> keymaster_;
+    uint32_t os_version_;
+    uint32_t os_patch_level_;
+
+    SecurityLevel securityLevel_;
+    hidl_string name_;
+    hidl_string author_;
 };
+
+#define INSTANTIATE_KEYMASTER_HIDL_TEST(name)                                      \
+    INSTANTIATE_TEST_SUITE_P(PerInstance, name,                                    \
+                             testing::ValuesIn(KeymasterHidlTest::build_params()), \
+                             android::hardware::PrintInstanceNameToString)
 
 }  // namespace test
 }  // namespace V4_0
 }  // namespace keymaster
 }  // namespace hardware
 }  // namespace android
-
-#endif  // HARDWARE_INTERFACES_KEYMASTER_40_VTS_FUNCTIONAL_KEYMASTER_HIDL_TEST_H_

@@ -16,7 +16,6 @@ method:android.icu.util.TimeZoneTransition#getTo()
 type:android.icu.impl.CalendarAstronomer
 type:android.icu.impl.TimeZoneAdapter
 type:android.icu.text.StringPrep
-type:android.icu.text.StringPrepParseException
 type:android.icu.util.BasicTimeZone
 type:android.icu.util.Region
 type:android.icu.util.Region$RegionType

@@ -61,8 +61,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import vogar.ExpectationStore;
-import vogar.ModeId;
+import vogar.expect.ExpectationStore;
+import vogar.expect.ModeId;
 
 /**
  * A wrapper to run tests against Dalvik.

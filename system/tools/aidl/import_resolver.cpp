@@ -17,6 +17,8 @@
 #include "import_resolver.h"
 #include "aidl_language.h"
 
+#include <algorithm>
+
 #include <android-base/file.h>
 #include <android-base/strings.h>
 #include <unistd.h>
@@ -65,16 +67,13 @@ string ImportResolver::FindImportFile(const string& canonical_name) const {
       found_paths.emplace_back(path);
     }
   }
+  // remove duplicates
+  std::sort(found_paths.begin(), found_paths.end());
+  auto last = std::unique(found_paths.begin(), found_paths.end());
+  found_paths.erase(last, found_paths.end());
 
   int num_found = found_paths.size();
   if (num_found == 0) {
-    // If not found from the import paths, try to find from the input files
-    relative_path.insert(0, 1, OS_PATH_SEPARATOR);
-    for (string input_file : input_files_) {
-      if (android::base::EndsWith(input_file, relative_path)) {
-        return input_file;
-      }
-    }
     return "";
   } else if (num_found == 1) {
     return found_paths.front();
@@ -86,5 +85,5 @@ string ImportResolver::FindImportFile(const string& canonical_name) const {
   }
 }
 
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

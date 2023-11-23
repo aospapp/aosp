@@ -107,4 +107,6 @@ cc_test {
         "libufdt_verify",
     ],
     required: ["dtc"],
+    test_suites: ["vts"],
+    auto_gen_config: false,
 }

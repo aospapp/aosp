@@ -18,6 +18,7 @@ package android.server.wm.app;
 
 import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
 import android.app.Activity;
@@ -28,11 +29,21 @@ import android.graphics.Rect;
 public class AlwaysFocusablePipActivity extends Activity {
 
     static void launchAlwaysFocusablePipActivity(Activity caller, boolean newTask) {
+        launchAlwaysFocusablePipActivity(caller, newTask, false /* multiTask */);
+    }
+
+    static void launchAlwaysFocusablePipActivity(Activity caller, boolean newTask,
+            boolean multiTask) {
         final Intent intent = new Intent(caller, AlwaysFocusablePipActivity.class);
 
-        intent.setFlags(FLAG_ACTIVITY_CLEAR_TASK);
+        intent.setFlags(0);
         if (newTask) {
             intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
+        }
+        if (multiTask) {
+            intent.addFlags(FLAG_ACTIVITY_MULTIPLE_TASK);
+        } else {
+            intent.addFlags(FLAG_ACTIVITY_CLEAR_TASK);
         }
 
         final ActivityOptions options = ActivityOptions.makeBasic();

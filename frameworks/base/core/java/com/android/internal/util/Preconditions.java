@@ -18,10 +18,12 @@ package com.android.internal.util;
 
 import android.annotation.IntRange;
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.text.TextUtils;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 
 /**
  * Simple static methods to be called at the start of your own methods to verify
@@ -102,13 +104,33 @@ public class Preconditions {
     }
 
     /**
+     * Ensures that an string reference passed as a parameter to the calling method is not empty.
+     *
+     * @param string an string reference
+     * @param messageTemplate a printf-style message template to use if the check fails; will be
+     *     converted to a string using {@link String#format(String, Object...)}
+     * @param messageArgs arguments for {@code messageTemplate}
+     * @return the string reference that was validated
+     * @throws IllegalArgumentException if {@code string} is empty
+     */
+    public static @NonNull <T extends CharSequence> T checkStringNotEmpty(
+            final T string, final String messageTemplate, final Object... messageArgs) {
+        if (TextUtils.isEmpty(string)) {
+            throw new IllegalArgumentException(String.format(messageTemplate, messageArgs));
+        }
+        return string;
+    }
+
+    /**
      * Ensures that an object reference passed as a parameter to the calling
      * method is not null.
      *
      * @param reference an object reference
      * @return the non-null reference that was validated
      * @throws NullPointerException if {@code reference} is null
+     * @deprecated - use {@link java.util.Objects.requireNonNull} instead.
      */
+    @Deprecated
     @UnsupportedAppUsage
     public static @NonNull <T> T checkNotNull(final T reference) {
         if (reference == null) {
@@ -126,31 +148,13 @@ public class Preconditions {
      *     be converted to a string using {@link String#valueOf(Object)}
      * @return the non-null reference that was validated
      * @throws NullPointerException if {@code reference} is null
+     * @deprecated - use {@link java.util.Objects.requireNonNull} instead.
      */
+    @Deprecated
     @UnsupportedAppUsage
     public static @NonNull <T> T checkNotNull(final T reference, final Object errorMessage) {
         if (reference == null) {
             throw new NullPointerException(String.valueOf(errorMessage));
-        }
-        return reference;
-    }
-
-    /**
-     * Ensures that an object reference passed as a parameter to the calling
-     * method is not null.
-     *
-     * @param reference an object reference
-     * @param messageTemplate a printf-style message template to use if the check fails; will
-     *     be converted to a string using {@link String#format(String, Object...)}
-     * @param messageArgs arguments for {@code messageTemplate}
-     * @return the non-null reference that was validated
-     * @throws NullPointerException if {@code reference} is null
-     */
-    public static @NonNull <T> T checkNotNull(final T reference,
-            final String messageTemplate,
-            final Object... messageArgs) {
-        if (reference == null) {
-            throw new NullPointerException(String.format(messageTemplate, messageArgs));
         }
         return reference;
     }
@@ -492,6 +496,64 @@ public class Preconditions {
             throw new IllegalArgumentException(valueName + " is empty");
         }
         return value;
+    }
+
+    /**
+     * Ensures that the given byte array is not {@code null}, and contains at least one element.
+     *
+     * @param value an array of elements.
+     * @param valueName the name of the argument to use if the check fails.
+
+     * @return the validated array
+     *
+     * @throws NullPointerException if the {@code value} was {@code null}
+     * @throws IllegalArgumentException if the {@code value} was empty
+     */
+    @NonNull
+    public static byte[] checkByteArrayNotEmpty(final byte[] value, final String valueName) {
+        if (value == null) {
+            throw new NullPointerException(valueName + " must not be null");
+        }
+        if (value.length == 0) {
+            throw new IllegalArgumentException(valueName + " is empty");
+        }
+        return value;
+    }
+
+    /**
+     * Ensures that argument {@code value} is one of {@code supportedValues}.
+     *
+     * @param supportedValues an array of string values
+     * @param value a string value
+     *
+     * @return the validated value
+     *
+     * @throws NullPointerException if either {@code value} or {@code supportedValues} is null
+     * @throws IllegalArgumentException if the {@code value} is not in {@code supportedValues}
+     */
+    @NonNull
+    public static String checkArgumentIsSupported(final String[] supportedValues,
+            final String value) {
+        checkNotNull(value);
+        checkNotNull(supportedValues);
+
+        if (!contains(supportedValues, value)) {
+            throw new IllegalArgumentException(value + "is not supported "
+                    + Arrays.toString(supportedValues));
+        }
+        return value;
+    }
+
+    private static boolean contains(String[] values, String value) {
+        if (values == null) {
+            return false;
+        }
+        for (int i = 0; i < values.length; ++i) {
+            if (Objects.equals(value, values[i])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

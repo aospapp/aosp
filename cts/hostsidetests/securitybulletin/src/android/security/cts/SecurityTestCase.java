@@ -16,34 +16,45 @@
 
 package android.security.cts;
 
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.NativeDevice;
-import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.ddmlib.Log;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.runner.RunWith;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import com.android.ddmlib.Log;
 import java.util.concurrent.Callable;
 import java.math.BigInteger;
 
-public class SecurityTestCase extends DeviceTestCase {
+import static org.junit.Assert.*;
+import static org.junit.Assume.*;
+
+public class SecurityTestCase extends BaseHostJUnit4Test {
 
     private static final String LOG_TAG = "SecurityTestCase";
     private static final int RADIX_HEX = 16;
 
+    protected static final int TIMEOUT_DEFAULT = 60;
+    // account for the poc timer of 5 minutes (+15 seconds for safety)
+    protected static final int TIMEOUT_NONDETERMINISTIC = 315;
+
     private long kernelStartTime;
 
     private HostsideOomCatcher oomCatcher = new HostsideOomCatcher(this);
+    private HostsideMainlineModuleDetector mainlineModuleDetector = new HostsideMainlineModuleDetector(this);
 
     /**
      * Waits for device to be online, marks the most recent boottime of the device
      */
-    @Override
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
-
         getDevice().waitForDeviceAvailable();
         getDevice().disableAdbRoot();
         updateKernelStartTime();
@@ -57,7 +68,7 @@ public class SecurityTestCase extends DeviceTestCase {
      * Makes sure the phone is online, and the ensure the current boottime is within 2 seconds
      * (due to rounding) of the previous boottime to check if The phone has crashed.
      */
-    @Override
+    @After
     public void tearDown() throws Exception {
         oomCatcher.stop(getDevice().getSerialNumber());
 
@@ -177,15 +188,9 @@ public class SecurityTestCase extends DeviceTestCase {
 
     /**
      * Check if a driver is present on a machine.
-     * deprecated: use AdbUtils.stat() instead!
      */
-    @Deprecated
-    protected boolean containsDriver(ITestDevice mDevice, String driver) throws Exception {
-        String result = mDevice.executeShellCommand("ls -Zl " + driver);
-        if(result.contains("No such file or directory")) {
-            return false;
-        }
-        return true;
+    protected boolean containsDriver(ITestDevice device, String driver) throws Exception {
+        return AdbUtils.runCommandGetExitCode("test -r " + driver, device) == 0;
     }
 
     private long getDeviceUptime() throws DeviceNotAvailableException {
@@ -209,5 +214,22 @@ public class SecurityTestCase extends DeviceTestCase {
 
     public HostsideOomCatcher getOomCatcher() {
         return oomCatcher;
+    }
+
+    /**
+     * Return true if a module is play managed.
+     *
+     * Example of skipping a test based on mainline modules:
+     *  <pre>
+     *  @Test
+     *  public void testPocCVE_1234_5678() throws Exception {
+     *      // This will skip the test if MODULE_METADATA mainline module is play managed.
+     *      assumeFalse(moduleIsPlayManaged("com.google.android.captiveportallogin"));
+     *      // Do testing...
+     *  }
+     *  * </pre>
+     */
+    boolean moduleIsPlayManaged(String modulePackageName) throws Exception {
+        return mainlineModuleDetector.getPlayManagedModules().contains(modulePackageName);
     }
 }

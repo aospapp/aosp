@@ -240,6 +240,7 @@ class ReportLib(object):
         self._SetKallsymsFileFunc = self._lib.SetKallsymsFile
         self._ShowIpForUnknownSymbolFunc = self._lib.ShowIpForUnknownSymbol
         self._ShowArtFramesFunc = self._lib.ShowArtFrames
+        self._MergeJavaMethodsFunc = self._lib.MergeJavaMethods
         self._GetNextSampleFunc = self._lib.GetNextSample
         self._GetNextSampleFunc.restype = ct.POINTER(SampleStruct)
         self._GetEventOfCurrentSampleFunc = self._lib.GetEventOfCurrentSample
@@ -293,6 +294,17 @@ class ReportLib(object):
     def ShowArtFrames(self, show=True):
         """ Show frames of internal methods of the Java interpreter. """
         self._ShowArtFramesFunc(self.getInstance(), show)
+
+    def MergeJavaMethods(self, merge=True):
+        """ This option merges jitted java methods with the same name but in different jit
+            symfiles. If possible, it also merges jitted methods with interpreted methods,
+            by mapping jitted methods to their corresponding dex files.
+            Side effects:
+              It only works at method level, not instruction level.
+              It makes symbol.vaddr_in_file and symbol.mapping not accurate for jitted methods.
+            Java methods are merged by default.
+        """
+        self._MergeJavaMethodsFunc(self.getInstance(), merge)
 
     def SetKallsymsFile(self, kallsym_file):
         """ Set the file path to a copy of the /proc/kallsyms file (for off device decoding) """

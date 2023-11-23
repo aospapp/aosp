@@ -183,11 +183,11 @@ ar_XB{
         MF{"؜‮St‬؜. ؜‮Martin‬؜"}
         MG{"؜‮Madagascar‬؜"}
         MH{"؜‮Marshall‬؜ ؜‮Islands‬؜"}
-        MK{"؜‮Macedonia‬؜ (؜‮FYROM‬؜)"}
+        MK{"؜‮North‬؜ ؜‮Macedonia‬؜"}
         ML{"؜‮Mali‬؜"}
         MM{"؜‮Myanmar‬؜ (؜‮Burma‬؜)"}
         MN{"؜‮Mongolia‬؜"}
-        MO{"؜‮Macau‬؜"}
+        MO{"؜‮Macao‬؜"}
         MP{"؜‮Northern‬؜ ؜‮Mariana‬؜ ؜‮Islands‬؜"}
         MQ{"؜‮Martinique‬؜"}
         MR{"؜‮Mauritania‬؜"}
@@ -253,7 +253,7 @@ ar_XB{
         SV{"؜‮El‬؜ ؜‮Salvador‬؜"}
         SX{"؜‮Sint‬؜ ؜‮Maarten‬؜"}
         SY{"؜‮Syria‬؜"}
-        SZ{"؜‮Swaziland‬؜"}
+        SZ{"؜‮Eswatini‬؜"}
         TA{"؜‮Tristan‬؜ ؜‮da‬؜ ؜‮Cunha‬؜"}
         TC{"؜‮Turks‬؜ & ؜‮Caicos‬؜ ؜‮Islands‬؜"}
         TD{"؜‮Chad‬؜"}
@@ -309,7 +309,8 @@ ar_XB{
         CG{"؜‮Congo‬؜ (؜‮Republic‬؜)"}
         CI{"؜‮Ivory‬؜ ؜‮Coast‬؜"}
         CZ{"؜‮Czech‬؜ ؜‮Republic‬؜"}
+        SZ{"؜‮Swaziland‬؜"}
         TL{"؜‮East‬؜ ؜‮Timor‬؜"}
     }
-    Version{"2.0"}
+    Version{"36.1"}
 }

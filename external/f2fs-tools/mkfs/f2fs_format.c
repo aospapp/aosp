@@ -38,40 +38,56 @@ struct f2fs_checkpoint *cp;
 static unsigned int quotatype_bits = 0;
 
 const char *media_ext_lists[] = {
-	"jpg",
-	"gif",
-	"png",
+	/* common prefix */
+	"mp", // Covers mp3, mp4, mpeg, mpg
+	"wm", // Covers wma, wmb, wmv
+	"og", // Covers oga, ogg, ogm, ogv
+	"jp", // Covers jpg, jpeg, jp2
+
+	/* video */
 	"avi",
-	"divx",
-	"m4a",
 	"m4v",
 	"m4p",
-	"mp4",
-	"mp3",
-	"3gp",
-	"wmv",
-	"wma",
-	"mpeg",
 	"mkv",
 	"mov",
-	"asx",
-	"asf",
-	"wmx",
-	"svi",
-	"wvx",
-	"wv",
-	"wm",
-	"mpg",
-	"mpe",
-	"rm",
-	"ogg",
+	"webm",
+
+	/* audio */
+	"wav",
+	"m4a",
+	"3gp",
 	"opus",
 	"flac",
-	"jpeg",
-	"video",
-	"apk",	/* for android system */
-	"so",	/* for android system */
+
+	/* image */
+	"gif",
+	"png",
+	"svg",
+	"webp",
+
+	/* archives */
+	"jar",
+	"deb",
+	"iso",
+	"gz",
+	"xz",
+	"zst",
+
+	/* others */
+	"pdf",
+	"pyc", // Python bytecode
+	"ttc",
+	"ttf",
 	"exe",
+
+	/* android */
+	"apk",
+	"cnt", // Image alias
+	"exo", // YouTube
+	"odex", // Android RunTime
+	"vdex", // Android RunTime
+	"so",
+
 	NULL
 };
 
@@ -130,7 +146,7 @@ static void cure_extension_list(void)
 		ue = strtok(ext_str, ", ");
 		while (ue != NULL) {
 			name_len = strlen(ue);
-			if (name_len >= 8) {
+			if (name_len >= F2FS_EXTENSION_LEN) {
 				MSG(0, "\tWarn: Extension name (%s) is too long\n", ue);
 				goto next;
 			}
@@ -342,13 +358,11 @@ static int f2fs_prepare_super_block(void)
 		 * It requires more pages for cp.
 		 */
 		if (max_sit_bitmap_size > MAX_SIT_BITMAP_SIZE_IN_CKPT) {
-			max_nat_bitmap_size = CP_CHKSUM_OFFSET -
-					sizeof(struct f2fs_checkpoint) + 1;
+			max_nat_bitmap_size = MAX_BITMAP_SIZE_IN_CKPT;
 			set_sb(cp_payload, F2FS_BLK_ALIGN(max_sit_bitmap_size));
 	        } else {
-			max_nat_bitmap_size =
-				CP_CHKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1
-				- max_sit_bitmap_size;
+			max_nat_bitmap_size = MAX_BITMAP_SIZE_IN_CKPT -
+							max_sit_bitmap_size;
 			set_sb(cp_payload, 0);
 		}
 		max_nat_segments = (max_nat_bitmap_size * 8) >> log_blks_per_seg;
@@ -501,6 +515,11 @@ static int f2fs_prepare_super_block(void)
 
 	memcpy(sb->version, c.version, VERSION_LEN);
 	memcpy(sb->init_version, c.version, VERSION_LEN);
+
+	if (c.feature & cpu_to_le32(F2FS_FEATURE_CASEFOLD)) {
+		set_sb(s_encoding, c.s_encoding);
+		set_sb(s_encoding_flags, c.s_encoding_flags);
+	}
 
 	sb->feature = c.feature;
 
@@ -692,10 +711,13 @@ static int f2fs_write_check_point_pack(void)
 	set_cp(nat_ver_bitmap_bytesize, ((get_sb(segment_count_nat) / 2) <<
 			 get_sb(log_blocks_per_seg)) / 8);
 
-	set_cp(checksum_offset, CP_CHKSUM_OFFSET);
+	if (c.large_nat_bitmap)
+		set_cp(checksum_offset, CP_MIN_CHKSUM_OFFSET);
+	else
+		set_cp(checksum_offset, CP_CHKSUM_OFFSET);
 
-	crc = f2fs_cal_crc32(F2FS_SUPER_MAGIC, cp, CP_CHKSUM_OFFSET);
-	*((__le32 *)((unsigned char *)cp + CP_CHKSUM_OFFSET)) =
+	crc = f2fs_checkpoint_chksum(cp);
+	*((__le32 *)((unsigned char *)cp + get_cp(checksum_offset))) =
 							cpu_to_le32(crc);
 
 	blk_size_bytes = 1 << get_sb(log_blocksize);
@@ -940,8 +962,8 @@ static int f2fs_write_check_point_pack(void)
 	 */
 	cp->checkpoint_ver = 0;
 
-	crc = f2fs_cal_crc32(F2FS_SUPER_MAGIC, cp, CP_CHKSUM_OFFSET);
-	*((__le32 *)((unsigned char *)cp + CP_CHKSUM_OFFSET)) =
+	crc = f2fs_checkpoint_chksum(cp);
+	*((__le32 *)((unsigned char *)cp + get_cp(checksum_offset))) =
 							cpu_to_le32(crc);
 	cp_seg_blk = get_sb(segment0_blkaddr) + c.blks_per_seg;
 	DBG(1, "\tWriting cp page 1 of checkpoint pack 2, at offset 0x%08"PRIx64"\n",
@@ -1113,8 +1135,7 @@ static int f2fs_write_root_inode(void)
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR)) {
 		raw_node->i.i_inline = F2FS_EXTRA_ATTR;
-		raw_node->i.i_extra_isize =
-				cpu_to_le16(F2FS_TOTAL_EXTRA_ATTR_SIZE);
+		raw_node->i.i_extra_isize = cpu_to_le16(calc_extra_isize());
 	}
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_PRJQUOTA))
@@ -1125,6 +1146,12 @@ static int f2fs_write_root_inode(void)
 		raw_node->i.i_crtime_nsec = 0;
 	}
 
+	if (c.feature & cpu_to_le32(F2FS_FEATURE_COMPRESSION)) {
+		raw_node->i.i_compress_algrithm = 0;
+		raw_node->i.i_log_cluster_size = 0;
+		raw_node->i.i_padding = 0;
+	}
+
 	data_blk_nor = get_sb(main_blkaddr) +
 		c.cur_seg[CURSEG_HOT_DATA] * c.blks_per_seg;
 	raw_node->i.i_addr[get_extra_isize(raw_node)] = cpu_to_le32(data_blk_nor);
@@ -1132,10 +1159,6 @@ static int f2fs_write_root_inode(void)
 	raw_node->i.i_ext.fofs = 0;
 	raw_node->i.i_ext.blk_addr = 0;
 	raw_node->i.i_ext.len = 0;
-
-	if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CHKSUM))
-		raw_node->i.i_inode_checksum =
-			cpu_to_le32(f2fs_inode_chksum(raw_node));
 
 	main_area_node_seg_blk_offset = get_sb(main_blkaddr);
 	main_area_node_seg_blk_offset += c.cur_seg[CURSEG_HOT_NODE] *
@@ -1145,7 +1168,7 @@ static int f2fs_write_root_inode(void)
 			get_sb(main_blkaddr),
 			c.cur_seg[CURSEG_HOT_NODE],
 			c.blks_per_seg, main_area_node_seg_blk_offset);
-	if (dev_write_block(raw_node, main_area_node_seg_blk_offset)) {
+	if (write_inode(raw_node, main_area_node_seg_blk_offset) < 0) {
 		MSG(1, "\tError: While writing the raw_node to disk!!!\n");
 		free(raw_node);
 		return -1;
@@ -1270,8 +1293,7 @@ static int f2fs_write_qf_inode(int qtype)
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR)) {
 		raw_node->i.i_inline = F2FS_EXTRA_ATTR;
-		raw_node->i.i_extra_isize =
-				cpu_to_le16(F2FS_TOTAL_EXTRA_ATTR_SIZE);
+		raw_node->i.i_extra_isize = cpu_to_le16(calc_extra_isize());
 	}
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_PRJQUOTA))
@@ -1305,10 +1327,6 @@ static int f2fs_write_qf_inode(int qtype)
 	raw_node->i.i_ext.blk_addr = 0;
 	raw_node->i.i_ext.len = 0;
 
-	if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CHKSUM))
-		raw_node->i.i_inode_checksum =
-			cpu_to_le32(f2fs_inode_chksum(raw_node));
-
 	main_area_node_seg_blk_offset = get_sb(main_blkaddr);
 	main_area_node_seg_blk_offset += c.cur_seg[CURSEG_HOT_NODE] *
 					c.blks_per_seg + qtype + 1;
@@ -1317,7 +1335,7 @@ static int f2fs_write_qf_inode(int qtype)
 			get_sb(main_blkaddr),
 			c.cur_seg[CURSEG_HOT_NODE],
 			c.blks_per_seg, main_area_node_seg_blk_offset);
-	if (dev_write_block(raw_node, main_area_node_seg_blk_offset)) {
+	if (write_inode(raw_node, main_area_node_seg_blk_offset) < 0) {
 		MSG(1, "\tError: While writing the raw_node to disk!!!\n");
 		free(raw_node);
 		return -1;
@@ -1473,8 +1491,7 @@ static int f2fs_write_lpf_inode(void)
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR)) {
 		raw_node->i.i_inline = F2FS_EXTRA_ATTR;
-		raw_node->i.i_extra_isize =
-			cpu_to_le16(F2FS_TOTAL_EXTRA_ATTR_SIZE);
+		raw_node->i.i_extra_isize = cpu_to_le16(calc_extra_isize());
 	}
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_PRJQUOTA))
@@ -1485,6 +1502,12 @@ static int f2fs_write_lpf_inode(void)
 		raw_node->i.i_crtime_nsec = 0;
 	}
 
+	if (c.feature & cpu_to_le32(F2FS_FEATURE_COMPRESSION)) {
+		raw_node->i.i_compress_algrithm = 0;
+		raw_node->i.i_log_cluster_size = 0;
+		raw_node->i.i_padding = 0;
+	}
+
 	data_blk_nor = f2fs_add_default_dentry_lpf();
 	if (data_blk_nor == 0) {
 		MSG(1, "\tError: Failed to add default dentries for lost+found!!!\n");
@@ -1492,10 +1515,6 @@ static int f2fs_write_lpf_inode(void)
 		goto exit;
 	}
 	raw_node->i.i_addr[get_extra_isize(raw_node)] = cpu_to_le32(data_blk_nor);
-
-	if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CHKSUM))
-		raw_node->i.i_inode_checksum =
-			cpu_to_le32(f2fs_inode_chksum(raw_node));
 
 	main_area_node_seg_blk_offset = get_sb(main_blkaddr);
 	main_area_node_seg_blk_offset += c.cur_seg[CURSEG_HOT_NODE] *
@@ -1505,7 +1524,7 @@ static int f2fs_write_lpf_inode(void)
 			get_sb(main_blkaddr),
 			c.cur_seg[CURSEG_HOT_NODE],
 			c.blks_per_seg, main_area_node_seg_blk_offset);
-	if (dev_write_block(raw_node, main_area_node_seg_blk_offset)) {
+	if (write_inode(raw_node, main_area_node_seg_blk_offset) < 0) {
 		MSG(1, "\tError: While writing the raw_node to disk!!!\n");
 		err = -1;
 		goto exit;
@@ -1546,7 +1565,7 @@ static int f2fs_add_default_dentry_root(void)
 
 	if (c.lpf_ino) {
 		int len = strlen(LPF);
-		f2fs_hash_t hash = f2fs_dentry_hash((unsigned char *)LPF, len);
+		f2fs_hash_t hash = f2fs_dentry_hash(0, 0, (unsigned char *)LPF, len);
 
 		dent_blk->dentry[2].hash_code = cpu_to_le32(hash);
 		dent_blk->dentry[2].ino = cpu_to_le32(c.lpf_ino);

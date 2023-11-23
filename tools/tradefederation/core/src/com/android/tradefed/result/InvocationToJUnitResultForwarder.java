@@ -18,6 +18,7 @@ package com.android.tradefed.result;
 import com.android.ddmlib.Log;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.util.TimeUtil;
 
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
@@ -58,6 +59,9 @@ import java.util.HashMap;
         Test test = new TestIdentifierResult(testId);
         // TODO: is it accurate to represent the trace as AssertionFailedError?
         mJUnitListener.addFailure(test, new AssertionFailedError(trace));
+        Log.w(
+                LOG_TAG,
+                String.format("\nTest %s failed with stack:\n %s", testId.toString(), trace));
     }
 
     @Override
@@ -70,9 +74,9 @@ import java.util.HashMap;
     /** {@inheritDoc} */
     @Override
     public void testRunEnded(long elapsedTime, HashMap<String, Metric> runMetrics) {
-       // TODO: no run ended method on TestListener - would be good to propagate the elaspedTime
-       // info up
-       Log.i(LOG_TAG, String.format("run ended %d ms", elapsedTime));
+        // TODO: no run ended method on TestListener - would be good to propagate the elapsedTime
+        // info up
+        Log.i(LOG_TAG, String.format("Run ended in %s", TimeUtil.formatElapsedTime(elapsedTime)));
     }
 
     /**
@@ -81,7 +85,7 @@ import java.util.HashMap;
     @Override
     public void testRunFailed(String errorMessage) {
         // TODO: no run failed method on TestListener - would be good to propagate this up
-        Log.e(LOG_TAG, String.format("run failed: %s", errorMessage));
+        Log.e(LOG_TAG, String.format("Run failed: %s", errorMessage));
     }
 
     /**
@@ -90,7 +94,7 @@ import java.util.HashMap;
     @Override
     public void testRunStarted(String runName, int testCount) {
         // TODO: no run started method on TestResult - would be good to propagate this up
-        Log.i(LOG_TAG, String.format("run %s started: %d tests", runName, testCount));
+        Log.i(LOG_TAG, String.format("Running %s: %d tests", runName, testCount));
     }
 
     /**
@@ -98,13 +102,15 @@ import java.util.HashMap;
      */
     @Override
     public void testRunStopped(long elapsedTime) {
-        Log.i(LOG_TAG, String.format("run stopped: %d ms", elapsedTime));
+        Log.i(
+                LOG_TAG,
+                String.format("run stopped after %s", TimeUtil.formatElapsedTime(elapsedTime)));
     }
 
     /** {@inheritDoc} */
     @Override
     public void testStarted(TestDescription test) {
-        Log.d(LOG_TAG, test.toString());
+        Log.d(LOG_TAG, String.format("Starting test: %s", test.toString()));
         mJUnitListener.startTest(new TestIdentifierResult(test));
     }
 
@@ -159,8 +165,7 @@ import java.util.HashMap;
          */
         @Override
         public String toString() {
-            // TODO: use ':' or '#' as separator? The eternal debate rages on!
-            return String.format("%s:%s", mTestId.getClassName(), mTestId.getTestName());
+            return mTestId.toString();
         }
     }
 

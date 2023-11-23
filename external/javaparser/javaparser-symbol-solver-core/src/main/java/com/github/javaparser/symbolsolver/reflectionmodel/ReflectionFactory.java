@@ -19,9 +19,7 @@ package com.github.javaparser.symbolsolver.reflectionmodel;
 import com.github.javaparser.ast.AccessSpecifier;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedTypeParameterDeclaration;
-import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.resolution.types.*;
-import com.github.javaparser.resolution.types.ResolvedTypeVariable;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.model.typesystem.*;
 
@@ -43,6 +41,8 @@ public class ReflectionFactory {
             throw new IllegalArgumentException("No type declaration available for an Array");
         } else if (clazz.isPrimitive()) {
             throw new IllegalArgumentException();
+        } else if (clazz.isAnnotation()) {
+            return new ReflectionAnnotationDeclaration(clazz, typeSolver);
         } else if (clazz.isInterface()) {
             return new ReflectionInterfaceDeclaration(clazz, typeSolver);
         } else if (clazz.isEnum()) {
@@ -115,7 +115,7 @@ public class ReflectionFactory {
         } else if (Modifier.isPrivate(modifiers)) {
             return AccessSpecifier.PRIVATE;
         } else {
-            return AccessSpecifier.DEFAULT;
+            return AccessSpecifier.PACKAGE_PRIVATE;
         }
     }
 }

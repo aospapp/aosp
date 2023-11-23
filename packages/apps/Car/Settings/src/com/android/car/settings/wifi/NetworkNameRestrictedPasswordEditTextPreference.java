@@ -28,7 +28,8 @@ import com.android.car.settings.common.PasswordEditTextPreference;
  * Custom {@link PasswordEditTextPreference} which doesn't open the password dialog unless the
  * network name is provided.
  */
-public class NetworkNameRestrictedPasswordEditTextPreference extends PasswordEditTextPreference {
+public class NetworkNameRestrictedPasswordEditTextPreference extends
+        PasswordEditTextPreference {
 
     private String mNetworkName;
 

@@ -18,8 +18,8 @@ package com.android.car.settings.system;
 
 import android.content.Context;
 
+import com.android.car.settings.common.AsyncLoader;
 import com.android.car.settings.common.Logger;
-import com.android.car.settingslib.loader.AsyncLoader;
 
 import java.io.File;
 import java.util.ArrayList;

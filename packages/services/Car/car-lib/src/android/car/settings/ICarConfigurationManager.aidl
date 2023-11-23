@@ -22,6 +22,7 @@ import android.car.settings.SpeedBumpConfiguration;
  * Binder interface for {@link android.car.settings.CarConfigurationManager}.
  *
  * @hide
+ * @deprecated Configuration of speed bump is no longer a supported feature.
  */
 interface ICarConfigurationManager {
     /**

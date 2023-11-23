@@ -10,11 +10,7 @@
 #define MCLD_SCRIPT_SCRIPTSCANNER_H_
 
 #ifndef __FLEX_LEXER_H
-#ifdef ANDROID
-#include "mcld/Script/FlexLexer.h"
-#else
 #include <FlexLexer.h>
-#endif
 #endif
 
 #ifndef YY_DECL

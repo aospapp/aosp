@@ -80,13 +80,13 @@ public class CarNotificationCenterActivity extends Activity {
         Intent intent = new Intent(this, CarNotificationListener.class);
         intent.setAction(CarNotificationListener.ACTION_LOCAL_BINDING);
         bindService(intent, mNotificationListenerConnectionListener, Context.BIND_AUTO_CREATE);
-        mNotificationViewController.setIsInForeground(true);
+        mNotificationViewController.onVisibilityChanged(true);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        mNotificationViewController.setIsInForeground(false);
+        mNotificationViewController.onVisibilityChanged(false);
         // Unbind notification listener
         if (mNotificationListenerBound) {
             mNotificationViewController.disable();

@@ -24,6 +24,8 @@ import static junit.framework.Assert.assertTrue;
 
 import static org.junit.Assert.assertEquals;
 
+import android.os.Parcel;
+
 import org.junit.Test;
 
 public class ChannelImpressionsTest {
@@ -157,5 +159,34 @@ public class ChannelImpressionsTest {
 
         assertFalse(ci.shouldTriggerBlock());
         assertTrue(ci2.shouldTriggerBlock());
+    }
+
+    @Test
+    public void testDescribeContents() {
+        ChannelImpressions ci = new ChannelImpressions();
+        assertEquals(0, ci.describeContents());
+    }
+
+    @Test
+    public void testParceling() {
+        ChannelImpressions ci = new ChannelImpressions();
+        ci.incrementViews();
+        ci.incrementDismissals();
+        ci.incrementViews();
+        ci.incrementDismissals();
+        ci.incrementViews();
+        ci.incrementViews();
+
+        Parcel parcel = Parcel.obtain();
+        ci.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        ChannelImpressions ciActual = ChannelImpressions.CREATOR.createFromParcel(parcel);
+        assertEquals(ci, ciActual);
+    }
+
+    @Test
+    public void testCreatorArray() {
+        ChannelImpressions[] cis = ChannelImpressions.CREATOR.newArray(4);
+        assertEquals(4, cis.length);
     }
 }

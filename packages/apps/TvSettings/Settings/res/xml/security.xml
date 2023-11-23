@@ -22,14 +22,9 @@
         android:title="@string/security_unknown_sources_title"
         android:summary="@string/security_unknown_sources_desc"
         android:fragment="com.android.tv.settings.device.apps.specialaccess.ExternalSources" />
-    <SwitchPreference
-        android:key="verify_apps"
-        android:title="@string/security_verify_apps_title"
-        android:summary="@string/security_verify_apps_desc" />
     <PreferenceCategory
         android:key="restricted_profile_group"
-        android:title="@string/user_new_profile_name"
-        android:layout="@layout/preference_category_compact_layout" >
+        android:title="@string/user_new_profile_name">
         <Preference
             android:key="restricted_profile_enter"
             android:title="@string/restricted_profile_switch_to" />

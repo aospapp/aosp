@@ -12,13 +12,12 @@ set_prop(carservice_app, system_prop)
 # Allow Car Service to register/access itself with ServiceManager
 add_service(carservice_app, carservice_service)
 
-allow carservice_app wifi_service:service_manager find;
-
 # Allow Car Service to access certain system services.
 # Keep alphabetically sorted.
 allow carservice_app {
     accessibility_service
     activity_service
+    activity_task_service
     audio_service
     audioserver_service
     autofill_service
@@ -31,15 +30,20 @@ allow carservice_app {
     input_method_service
     input_service
     location_service
+    lock_settings_service
     media_session_service
     network_management_service
     power_service
     procfsinspector_service
     sensorservice_service
+    statsmanager_service
     surfaceflinger_service
     telecom_service
+    thermal_service
     uimode_service
     voiceinteraction_service
+    wifi_service
+    wifiscanner_service
 }:service_manager find;
 
 # Read and write /data/data subdirectory.
@@ -49,6 +53,8 @@ allow carservice_app system_app_data_file:{ file lnk_file } create_file_perms;
 allow carservice_app system_car_data_file:dir create_dir_perms;
 allow carservice_app system_car_data_file:{ file lnk_file } create_file_perms;
 
+net_domain(carservice_app)
+
 allow carservice_app cgroup:file rw_file_perms;
 
 # For I/O stats tracker
@@ -56,8 +62,24 @@ allow carservice_app proc_uid_io_stats:file { read open getattr };
 
 allow carservice_app procfsinspector:binder call;
 
+# Allow binder calls with statsd
+allow carservice_app statsd:binder call;
+
 # To access /sys/fs/<type>/<partition>/lifetime_write_kbytes
-allow carservice_app sysfs_fs_lifetime_write:file { getattr open read };
+r_dir_file(carservice_app, sysfs_fs_ext4)
+r_dir_file(carservice_app, sysfs_fs_f2fs)
 
 set_prop(carservice_app, ctl_start_prop)
+set_prop(carservice_app, ctl_stop_prop)
 unix_socket_connect(carservice_app, dumpstate, dumpstate)
+
+# Allow reading vehicle-specific configuration
+get_prop(carservice_app, vehicle_hal_prop)
+
+carwatchdog_client_domain(carservice_app)
+
+# For ActivityBlockingActiviy
+allow carservice_app gpu_device:chr_file rw_file_perms;
+allow carservice_app gpu_device:dir r_dir_perms;
+allow carservice_app gpu_service:service_manager find;
+binder_call(carservice_app, gpuservice)

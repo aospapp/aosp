@@ -201,4 +201,27 @@ public interface IChromeHelper extends IAppHelper {
     public default void openBookmark(String bookmarkName, boolean waitForPageLoad) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
+
+    /**
+     * Setup expectations: Chrome is open on a page.
+     *
+     * <p>Selects the link with specific text.
+     *
+     * @param linkText The text of the link to select.
+     */
+    public default void selectLink(String linkText) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Chrome is open on a page.
+     *
+     * <p>Performs a scroll gesture on the page.
+     *
+     * @param dir The direction on the page to scroll.
+     * @param percent The distance to scroll as a percentage of the page's visible size.
+     */
+    public default void scrollPage(Direction dir, float percent) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

@@ -19,15 +19,16 @@
 #ifndef _UAPI_LINUX_TIME_H
 #define _UAPI_LINUX_TIME_H
 #include <linux/types.h>
+#include <linux/time_types.h>
 #ifndef _STRUCT_TIMESPEC
 #define _STRUCT_TIMESPEC
 struct timespec {
-  __kernel_time_t tv_sec;
+  __kernel_old_time_t tv_sec;
   long tv_nsec;
 };
 #endif
 struct timeval {
-  __kernel_time_t tv_sec;
+  __kernel_old_time_t tv_sec;
   __kernel_suseconds_t tv_usec;
 };
 struct timezone {
@@ -44,22 +45,6 @@ struct itimerspec {
 struct itimerval {
   struct timeval it_interval;
   struct timeval it_value;
-};
-#ifndef __kernel_timespec
-struct __kernel_timespec {
-  __kernel_time64_t tv_sec;
-  long long tv_nsec;
-};
-#endif
-#ifndef __kernel_itimerspec
-struct __kernel_itimerspec {
-  struct __kernel_timespec it_interval;
-  struct __kernel_timespec it_value;
-};
-#endif
-struct __kernel_old_timeval {
-  __kernel_long_t tv_sec;
-  __kernel_long_t tv_usec;
 };
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 1

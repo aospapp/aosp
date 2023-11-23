@@ -126,7 +126,7 @@ public final class SipAccountRegistry {
      * @param context The context.
      */
     void verifyAndPurgeInvalidPhoneAccounts(Context context) {
-        TelecomManager telecomManager = TelecomManager.from(context);
+        TelecomManager telecomManager = context.getSystemService(TelecomManager.class);
         SipProfileDb profileDb = new SipProfileDb(context);
         List<PhoneAccountHandle> accountHandles = telecomManager.getPhoneAccountsSupportingScheme(
                 PhoneAccount.SCHEME_SIP);
@@ -188,7 +188,8 @@ public final class SipAccountRegistry {
 
         // Un-register its PhoneAccount.
         PhoneAccountHandle handle = SipUtil.createAccountHandle(context, sipProfileName);
-        TelecomManager.from(context).unregisterPhoneAccount(handle);
+        TelecomManager tm = context.getSystemService(TelecomManager.class);
+        tm.unregisterPhoneAccount(handle);
     }
 
     /**
@@ -235,7 +236,7 @@ public final class SipAccountRegistry {
     private void startSipProfiles(Context context, String sipProfileName, boolean enableProfile) {
         final SipPreferences sipPreferences = new SipPreferences(context);
         boolean isReceivingCalls = sipPreferences.isReceivingCallsEnabled();
-        TelecomManager telecomManager = TelecomManager.from(context);
+        TelecomManager telecomManager = context.getSystemService(TelecomManager.class);
         SipManager sipManager = SipManager.newInstance(context);
         SipProfileDb profileDb = new SipProfileDb(context);
         List<SipProfile> sipProfileList = profileDb.retrieveSipProfileList();

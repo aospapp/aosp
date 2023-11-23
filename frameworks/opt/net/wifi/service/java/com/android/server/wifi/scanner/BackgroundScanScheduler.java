@@ -23,9 +23,9 @@ import android.net.wifi.WifiScanner;
 import android.net.wifi.WifiScanner.ScanData;
 import android.net.wifi.WifiScanner.ScanSettings;
 import android.util.ArraySet;
+import android.util.Log;
 import android.util.Pair;
 import android.util.Rational;
-import android.util.Slog;
 
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.scanner.ChannelHelper.ChannelCollection;
@@ -425,7 +425,7 @@ public class BackgroundScanScheduler {
         if (maxScheduledBucket != null) {
             return maxScheduledBucket.bucketId;
         } else {
-            Slog.wtf(TAG, "No bucket found for settings");
+            Log.wtf(TAG, "No bucket found for settings");
             return -1;
         }
     }
@@ -474,7 +474,7 @@ public class BackgroundScanScheduler {
             }
 
             if (gcd < PERIOD_MIN_GCD_MS) {
-                Slog.wtf(TAG, "found gcd less than min gcd");
+                Log.wtf(TAG, "found gcd less than min gcd");
                 gcd = PERIOD_MIN_GCD_MS;
             }
 
@@ -517,7 +517,7 @@ public class BackgroundScanScheduler {
             }
         }
         if (index == -1) {
-            Slog.wtf(TAG, "Could not find best bucket for period " + requestedPeriod + " in "
+            Log.wtf(TAG, "Could not find best bucket for period " + requestedPeriod + " in "
                      + maxNumBuckets + " buckets");
         }
         return index;

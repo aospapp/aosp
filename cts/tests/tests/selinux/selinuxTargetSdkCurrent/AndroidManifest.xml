@@ -21,7 +21,8 @@
     <!-- This app tests that apps with current targetSdkValue are placed in the
          untrusted_app selinux domain -->
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="10000" />
-
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application>
         <uses-library android:name="android.test.runner" />
     </application>

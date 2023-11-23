@@ -16,40 +16,36 @@
 
 package android.hardware.biometrics.cts;
 
-import android.content.pm.PackageManager;
+import static org.junit.Assert.assertNotEquals;
+
 import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricManager.Authenticators;
 import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 
 /**
- * Basic test cases for BiometricManager
+ * Basic test cases for BiometricManager. See the manual biometric tests in CtsVerifier for a more
+ * comprehensive test suite.
  */
 public class BiometricManagerTest extends AndroidTestCase {
 
     private BiometricManager mBiometricManager;
-    private boolean mHasBiometric;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        PackageManager pm = getContext().getPackageManager();
-
-        mHasBiometric |= pm.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT);
-        mHasBiometric |= pm.hasSystemFeature(PackageManager.FEATURE_FACE);
-        mHasBiometric |= pm.hasSystemFeature(PackageManager.FEATURE_IRIS);
-
         mBiometricManager = getContext().getSystemService(BiometricManager.class);
     }
 
     @Presubmit
     public void test_canAuthenticate() {
-        if (!mHasBiometric) {
-            assertTrue(mBiometricManager.canAuthenticate()
-                    == BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE);
-        } else {
-            // No biometrics are enrolled. CTSVerifier should test the other error cases.
-            assertTrue(mBiometricManager.canAuthenticate()
-                    == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED);
-        }
+
+        assertNotEquals("Device should not have any biometrics enrolled",
+                mBiometricManager.canAuthenticate(), BiometricManager.BIOMETRIC_SUCCESS);
+
+        assertNotEquals("Device should not have any biometrics enrolled",
+                mBiometricManager.canAuthenticate(
+                        Authenticators.DEVICE_CREDENTIAL | Authenticators.BIOMETRIC_WEAK),
+                BiometricManager.BIOMETRIC_SUCCESS);
     }
 }

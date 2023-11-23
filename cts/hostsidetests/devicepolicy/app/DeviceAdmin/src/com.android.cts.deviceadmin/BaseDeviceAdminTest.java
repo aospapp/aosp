@@ -87,13 +87,4 @@ public class BaseDeviceAdminTest extends AndroidTestCase {
         dpm.setPasswordMinimumSymbols(mAdminComponent, 0);
         dpm.setPasswordMinimumNonLetter(mAdminComponent, 0);
     }
-
-    protected void clearPassword() {
-        assertDeviceOwner();
-
-        resetComplexPasswordRestrictions();
-
-        dpm.setPasswordQuality(mAdminComponent, DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED);
-        assertTrue(dpm.resetPassword("", /* flags =*/ 0));
-    }
 }

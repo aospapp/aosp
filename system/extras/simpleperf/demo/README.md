@@ -2,10 +2,13 @@
 
 ## Table of Contents
 
-- [Introduction](#introduction)
-- [Profiling Java application](#profiling-java-application)
-- [Profiling Java/C++ application](#profiling-javac-application)
-- [Profiling Kotlin application](#profiling-kotlin-application)
+- [Examples of using simpleperf to profile Android applications](#examples-of-using-simpleperf-to-profile-android-applications)
+  - [Table of Contents](#table-of-contents)
+  - [Introduction](#introduction)
+  - [Profile a Java application](#profile-a-java-application)
+  - [Profile a Java/C++ application](#profile-a-javac-application)
+  - [Profile a Kotlin application](#profile-a-kotlin-application)
+- [Profile via app_api](#profile-via-appapi)
 
 ## Introduction
 
@@ -19,6 +22,8 @@ meaning of each directory is as below:
     SimpleperfExamplePureJava/   -- contains an Android Studio project using only Java code.
     SimpleperfExampleWithNative/ -- contains an Android Studio project using both Java and C++ code.
     SimpleperfExampleOfKotlin/   -- contains an Android Studio project using Kotlin code.
+    CppApi/                      -- contains an Android Studio project using c++ app_api to record.
+    JavaApi/                     -- contains an Android Studio project using Java app_api to record.
 
 It can be downloaded as below:
 
@@ -130,4 +135,48 @@ $ python app_profiler.py -p com.example.simpleperf.simpleperfexampleofkotlin
 ```sh
 # report_html.py generates profiling result in report.html.
 $ python report_html.py --add_source_code --source_dirs ../demo --add_disassembly
+```
+
+# Profile via app_api
+
+Android Studio project: CppApi and JavaApi
+
+steps:
+1. Build and install the application:
+
+```sh
+# Open CppApi project with Android Studio,
+# and build this project sucessfully, otherwise the `./gradlew` command below will fail.
+$ cd CppApi
+
+# On windows, use "gradlew" instead.
+$ ./gradlew clean assemble
+$ adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+2. Prepare recording environment.
+
+```sh
+$ cd ../../scripts/
+$ python api_profiler.py prepare
+```
+
+3. Run the CppApi app.
+
+```sh
+# launch the app via cmdline, can also launch it on device.
+# A profiling file is generated each time running the app.
+$ adb shell am start simpleperf.demo.cpp_api/.MainActivity
+```
+
+4. Collect profiling data.
+
+```sh
+$ python api_profiler.py collect -p simpleperf.demo.cpp_api
+```
+
+5. Report profiling data.
+
+```sh
+$ python report_html.py -i simpleperf_data/* --aggregate-by-thread-name
 ```

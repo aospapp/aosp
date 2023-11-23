@@ -17,29 +17,107 @@
 
 #include "VkObject.hpp"
 
-namespace vk
+#include "marl/event.h"
+#include "marl/waitgroup.h"
+
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+
+namespace vk {
+
+class Query
 {
+public:
+	static auto constexpr INVALID_TYPE = VK_QUERY_TYPE_MAX_ENUM;
+
+	Query();
+
+	enum State
+	{
+		UNAVAILABLE,
+		ACTIVE,
+		FINISHED
+	};
+
+	struct Data
+	{
+		State state;    // The current query state.
+		int64_t value;  // The current query value.
+	};
+
+	// reset() sets the state of the Query to UNAVAILABLE, sets the type to
+	// INVALID_TYPE and clears the query value.
+	// reset() must not be called while the query is in the ACTIVE state.
+	void reset();
+
+	// prepare() sets the Query type to ty, and sets the state to ACTIVE.
+	// prepare() must not be called when the query is already ACTIVE.
+	void prepare(VkQueryType ty);
+
+	// start() begins a query task which is closed with a call to finish().
+	// Query tasks can be nested.
+	// start() must only be called when in the ACTIVE state.
+	void start();
+
+	// finish() ends a query task begun with a call to start().
+	// Once all query tasks are complete the query will transition to the
+	// FINISHED state.
+	// finish() must only be called when in the ACTIVE state.
+	void finish();
+
+	// wait() blocks until the query reaches the FINISHED state.
+	void wait();
+
+	// getData() returns the current query state and value.
+	Data getData() const;
+
+	// getType() returns the type of query.
+	VkQueryType getType() const;
+
+	// set() replaces the current query value with val.
+	void set(int64_t val);
+
+	// add() adds val to the current query value.
+	void add(int64_t val);
+
+private:
+	marl::WaitGroup wg;
+	marl::Event finished;
+	std::atomic<State> state;
+	std::atomic<VkQueryType> type;
+	std::atomic<int64_t> value;
+};
 
 class QueryPool : public Object<QueryPool, VkQueryPool>
 {
 public:
-	QueryPool(const VkQueryPoolCreateInfo* pCreateInfo, void* mem);
-	~QueryPool() = delete;
+	QueryPool(const VkQueryPoolCreateInfo *pCreateInfo, void *mem);
+	void destroy(const VkAllocationCallbacks *pAllocator);
 
-	static size_t ComputeRequiredAllocationSize(const VkQueryPoolCreateInfo* pCreateInfo);
+	static size_t ComputeRequiredAllocationSize(const VkQueryPoolCreateInfo *pCreateInfo);
 
-	void getResults(uint32_t pFirstQuery, uint32_t pQueryCount, size_t pDataSize,
-		            void* pData, VkDeviceSize pStride, VkQueryResultFlags pFlags) const;
+	VkResult getResults(uint32_t firstQuery, uint32_t queryCount, size_t dataSize,
+	                    void *pData, VkDeviceSize stride, VkQueryResultFlags flags) const;
+	void begin(uint32_t query, VkQueryControlFlags flags);
+	void end(uint32_t query);
+	void reset(uint32_t firstQuery, uint32_t queryCount);
+
+	void writeTimestamp(uint32_t query);
+
+	inline Query *getQuery(uint32_t query) const { return &(pool[query]); }
 
 private:
-	uint32_t queryCount;
+	Query *pool;
+	VkQueryType type;
+	uint32_t count;
 };
 
-static inline QueryPool* Cast(VkQueryPool object)
+static inline QueryPool *Cast(VkQueryPool object)
 {
-	return reinterpret_cast<QueryPool*>(object);
+	return QueryPool::Cast(object);
 }
 
-} // namespace vk
+}  // namespace vk
 
-#endif // VK_QUERY_POOL_HPP_
+#endif  // VK_QUERY_POOL_HPP_

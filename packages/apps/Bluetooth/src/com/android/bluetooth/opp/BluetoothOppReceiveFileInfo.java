@@ -38,15 +38,10 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
-import android.os.StatFs;
-import android.os.SystemClock;
+import android.provider.MediaStore;
 import android.util.Log;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Random;
 
 /**
  * This class stores information about a single receiving file. It will only be
@@ -67,11 +62,11 @@ public class BluetoothOppReceiveFileInfo {
 
     public long mLength;
 
-    public FileOutputStream mOutputStream;
-
     public int mStatus;
 
     public String mData;
+
+    public Uri mInsertUri;
 
     public BluetoothOppReceiveFileInfo(String data, long length, int status) {
         mData = data;
@@ -79,11 +74,10 @@ public class BluetoothOppReceiveFileInfo {
         mLength = length;
     }
 
-    public BluetoothOppReceiveFileInfo(String filename, long length, FileOutputStream outputStream,
-            int status) {
+    public BluetoothOppReceiveFileInfo(String filename, long length, Uri insertUri, int status) {
         mFileName = filename;
-        mOutputStream = outputStream;
         mStatus = status;
+        mInsertUri = insertUri;
         mLength = length;
     }
 
@@ -113,37 +107,11 @@ public class BluetoothOppReceiveFileInfo {
             }
         }
 
-        File base = null;
-        StatFs stat = null;
-
-        if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-            String root = Environment.getExternalStorageDirectory().getPath();
-            base = new File(root + Constants.DEFAULT_STORE_SUBDIR);
-            if (!base.isDirectory() && !base.mkdir()) {
-                if (D) {
-                    Log.d(Constants.TAG,
-                            "Receive File aborted - can't create base directory " + base.getPath());
-                }
-                return new BluetoothOppReceiveFileInfo(BluetoothShare.STATUS_FILE_ERROR);
-            }
-            stat = new StatFs(base.getPath());
-        } else {
+        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
             if (D) {
                 Log.d(Constants.TAG, "Receive File aborted - no external storage");
             }
             return new BluetoothOppReceiveFileInfo(BluetoothShare.STATUS_ERROR_NO_SDCARD);
-        }
-
-        /*
-         * Check whether there's enough space on the target filesystem to save
-         * the file. Put a bit of margin (in case creating the file grows the
-         * system by a few blocks).
-         */
-        if (stat.getBlockSizeLong() * (stat.getAvailableBlocksLong() - 4) < length) {
-            if (D) {
-                Log.d(Constants.TAG, "Receive File aborted - not enough free space");
-            }
-            return new BluetoothOppReceiveFileInfo(BluetoothShare.STATUS_ERROR_SDCARD_FULL);
         }
 
         filename = choosefilename(hint);
@@ -192,100 +160,31 @@ public class BluetoothOppReceiveFileInfo {
             }
         }
 
-        filename = base.getPath() + File.separator + filename;
-        // Generate a unique filename, create the file, return it.
-        String fullfilename = chooseUniquefilename(filename, extension);
+        String fullfilename = filename + extension;
 
-        if (!safeCanonicalPath(fullfilename)) {
-            // If this second check fails, then we better reject the transfer
-            return new BluetoothOppReceiveFileInfo(BluetoothShare.STATUS_FILE_ERROR);
-        }
         if (V) {
             Log.v(Constants.TAG, "Generated received filename " + fullfilename);
         }
 
-        if (fullfilename != null) {
-            try {
-                new FileOutputStream(fullfilename).close();
-                int index = fullfilename.lastIndexOf('/') + 1;
-                // update display name
-                if (index > 0) {
-                    String displayName = fullfilename.substring(index);
-                    if (V) {
-                        Log.v(Constants.TAG, "New display name " + displayName);
-                    }
-                    ContentValues updateValues = new ContentValues();
-                    updateValues.put(BluetoothShare.FILENAME_HINT, displayName);
-                    context.getContentResolver().update(contentUri, updateValues, null, null);
+        Uri insertUri = null;
+        ContentValues mediaContentValues = new ContentValues();
+        mediaContentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fullfilename);
+        mediaContentValues.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+        mediaContentValues.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                Environment.DIRECTORY_DOWNLOADS);
+        insertUri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                mediaContentValues);
 
-                }
-                return new BluetoothOppReceiveFileInfo(fullfilename, length,
-                        new FileOutputStream(fullfilename), 0);
-            } catch (IOException e) {
-                if (D) {
-                    Log.e(Constants.TAG, "Error when creating file " + fullfilename);
-                }
-                return new BluetoothOppReceiveFileInfo(BluetoothShare.STATUS_FILE_ERROR);
+        if (insertUri == null) {
+            if (D) {
+                Log.e(Constants.TAG, "Error when creating file " + fullfilename);
             }
-        } else {
             return new BluetoothOppReceiveFileInfo(BluetoothShare.STATUS_FILE_ERROR);
         }
 
-    }
+        Log.d(Constants.TAG, "file crated, insertUri:" + insertUri.toString());
 
-    private static boolean safeCanonicalPath(String uniqueFileName) {
-        try {
-            File receiveFile = new File(uniqueFileName);
-            if (sDesiredStoragePath == null) {
-                sDesiredStoragePath = Environment.getExternalStorageDirectory().getPath()
-                        + Constants.DEFAULT_STORE_SUBDIR;
-            }
-            String canonicalPath = receiveFile.getCanonicalPath();
-
-            // Check if canonical path is complete - case sensitive-wise
-            if (!canonicalPath.startsWith(sDesiredStoragePath)) {
-                return false;
-            }
-
-            return true;
-        } catch (IOException ioe) {
-            // If an exception is thrown, there might be something wrong with the file.
-            return false;
-        }
-    }
-
-    private static String chooseUniquefilename(String filename, String extension) {
-        String fullfilename = filename + extension;
-        if (!new File(fullfilename).exists()) {
-            return fullfilename;
-        }
-        filename = filename + Constants.FILENAME_SEQUENCE_SEPARATOR;
-        /*
-         * This number is used to generate partially randomized filenames to
-         * avoid collisions. It starts at 1. The next 9 iterations increment it
-         * by 1 at a time (up to 10). The next 9 iterations increment it by 1 to
-         * 10 (random) at a time. The next 9 iterations increment it by 1 to 100
-         * (random) at a time. ... Up to the point where it increases by
-         * 100000000 at a time. (the maximum value that can be reached is
-         * 1000000000) As soon as a number is reached that generates a filename
-         * that doesn't exist, that filename is used. If the filename coming in
-         * is [base].[ext], the generated filenames are [base]-[sequence].[ext].
-         */
-        Random rnd = new Random(SystemClock.uptimeMillis());
-        int sequence = 1;
-        for (int magnitude = 1; magnitude < 1000000000; magnitude *= 10) {
-            for (int iteration = 0; iteration < 9; ++iteration) {
-                fullfilename = filename + sequence + extension;
-                if (!new File(fullfilename).exists()) {
-                    return fullfilename;
-                }
-                if (V) {
-                    Log.v(Constants.TAG, "file with sequence number " + sequence + " exists");
-                }
-                sequence += rnd.nextInt(magnitude) + 1;
-            }
-        }
-        return null;
+        return new BluetoothOppReceiveFileInfo(fullfilename, length, insertUri, 0);
     }
 
     private static String choosefilename(String hint) {

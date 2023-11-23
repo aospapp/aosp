@@ -12,21 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
+android_test_helper_app {
     name: "CtsPermissionDeclareApp",
     defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
     sdk_version: "current",
     static_libs: ["androidx.test.rules"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
+        "sts",
     ],
     // sign this app with a different cert than CtsUsePermissionDiffCert
     certificate: ":cts-testkey1",
-    dex_preopt: {
-        enabled: false,
-    },
+}
+
+java_library {
+    name: "CtsPermissionDeclareUtilLib",
+    srcs: ["src/com/android/cts/permissiondeclareapp/UtilsProvider.java"],
+    sdk_version: "current",
 }

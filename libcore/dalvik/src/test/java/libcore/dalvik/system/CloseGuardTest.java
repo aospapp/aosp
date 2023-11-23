@@ -64,10 +64,27 @@ public class CloseGuardTest {
     }
 
     @Test
+    public void testEnabled_OpenWithCallsiteNotClosed() throws Throwable {
+        CloseGuard.setEnabled(true);
+        ResourceOwner owner = new ResourceOwner();
+        owner.openWithCallsite("testEnabled_OpoenWIthCallsiteNotClosed");
+        assertUnreleasedResources(owner, 1);
+    }
+
+    @Test
     public void testEnabled_OpenThenClosed() throws Throwable {
         CloseGuard.setEnabled(true);
         ResourceOwner owner = new ResourceOwner();
         owner.open();
+        owner.close();
+        assertUnreleasedResources(owner, 0);
+    }
+
+    @Test
+    public void testEnabled_OpenWithCallsiteThenClosed() throws Throwable {
+        CloseGuard.setEnabled(true);
+        ResourceOwner owner = new ResourceOwner();
+        owner.openWithCallsite("testEnabled_OpenWithCallsiteThenClosed");
         owner.close();
         assertUnreleasedResources(owner, 0);
     }
@@ -111,10 +128,27 @@ public class CloseGuardTest {
     }
 
     @Test
+    public void testDisabled_OpenWithCallsiteNotClosed() throws Throwable {
+        CloseGuard.setEnabled(false);
+        ResourceOwner owner = new ResourceOwner();
+        owner.openWithCallsite("testDisabled_OpenWithCallsiteNotClosed");
+        assertUnreleasedResources(owner, 0);
+    }
+
+    @Test
     public void testDisabled_OpenThenClosed() throws Throwable {
         CloseGuard.setEnabled(false);
         ResourceOwner owner = new ResourceOwner();
         owner.open();
+        owner.close();
+        assertUnreleasedResources(owner, 0);
+    }
+
+    @Test
+    public void testDisabled_OpenWithCallsiteThenClosed() throws Throwable {
+        CloseGuard.setEnabled(false);
+        ResourceOwner owner = new ResourceOwner();
+        owner.openWithCallsite("testDisabled_OpenWithCallsiteThenClosed");
         owner.close();
         assertUnreleasedResources(owner, 0);
     }
@@ -154,6 +188,10 @@ public class CloseGuardTest {
 
         public void open() {
             closeGuard.open("close");
+        }
+
+        public void openWithCallsite(String callsite) {
+            closeGuard.openWithCallSite("close", callsite);
         }
 
         public void close() {

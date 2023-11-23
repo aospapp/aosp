@@ -19,12 +19,12 @@ package android.platform.helpers.exceptions;
 /**
  * An AccountException is an exception specific to UI-driven app helpers. This should be thrown
  * under two circumstances:
- * <p>
- * 1. When an account is explicitly required to complete an action, but one is not logged in.
- * <p>
- * 2. When no account is explicitly required to complete an action, but one is logged in.
+ *
+ * <p>1. When an account is explicitly required to complete an action, but one is not logged in.
+ *
+ * <p>2. When no account is explicitly required to complete an action, but one is logged in.
  */
-public class AccountException extends RuntimeException {
+public class AccountException extends TestHelperException {
     public AccountException(String msg) {
         super(msg);
     }

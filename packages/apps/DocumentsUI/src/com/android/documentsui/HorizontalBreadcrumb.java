@@ -24,25 +24,21 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.documentsui.NavigationViewManager.Breadcrumb;
 import com.android.documentsui.NavigationViewManager.Environment;
-import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.dirlist.AccessibilityEventRouter;
 
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 /**
- * Horizontal implementation of breadcrumb used for tablet / desktop device layouts
+ * Horizontal breadcrumb
  */
-public final class HorizontalBreadcrumb extends RecyclerView
-        implements Breadcrumb, ItemDragListener.DragHost {
+public final class HorizontalBreadcrumb extends RecyclerView implements Breadcrumb {
 
     private static final int USER_NO_SCROLL_OFFSET_THRESHOLD = 5;
 
@@ -68,14 +64,14 @@ public final class HorizontalBreadcrumb extends RecyclerView
             IntConsumer listener) {
 
         mClickListener = listener;
-        mLayoutManager = new LinearLayoutManager(
+        mLayoutManager = new HorizontalBreadcrumbLinearLayoutManager(
                 getContext(), LinearLayoutManager.HORIZONTAL, false);
-        mAdapter = new BreadcrumbAdapter(
-                state, env, new ItemDragListener<>(this), this::onKey);
-        // Since we are using GestureDetector to detect click events, a11y services don't know which views
-        // are clickable because we aren't using View.OnClickListener. Thus, we need to use a custom
-        // accessibility delegate to route click events correctly. See AccessibilityClickEventRouter
-        // for more details on how we are routing these a11y events.
+        mAdapter = new BreadcrumbAdapter(state, env, this::onKey);
+        // Since we are using GestureDetector to detect click events, a11y services don't know which
+        // views are clickable because we aren't using View.OnClickListener. Thus, we need to use a
+        // custom accessibility delegate to route click events correctly.
+        // See AccessibilityClickEventRouter for more details on how we are routing these a11y
+        // events.
         setAccessibilityDelegateCompat(
                 new AccessibilityEventRouter(this,
                         (View child) -> onAccessibilityClick(child), null));
@@ -101,6 +97,8 @@ public final class HorizontalBreadcrumb extends RecyclerView
                 } else if (currentItemCount < lastItemCount) {
                     mAdapter.notifyItemRangeRemoved(currentItemCount,
                             lastItemCount - currentItemCount);
+                    mAdapter.notifyItemChanged(currentItemCount - 1);
+                } else {
                     mAdapter.notifyItemChanged(currentItemCount - 1);
                 }
             }
@@ -141,46 +139,10 @@ public final class HorizontalBreadcrumb extends RecyclerView
     public void postUpdate() {
     }
 
-    @Override
-    public void runOnUiThread(Runnable runnable) {
-        post(runnable);
-    }
-
-    @Override
-    public void setDropTargetHighlight(View v, boolean highlight) {
-        RecyclerView.ViewHolder vh = getChildViewHolder(v);
-        if (vh instanceof BreadcrumbHolder) {
-            ((BreadcrumbHolder) vh).setHighlighted(highlight);
-        }
-    }
-
-    @Override
-    public void onDragEntered(View v) {
-        // do nothing
-    }
-
-    @Override
-    public void onDragExited(View v) {
-        // do nothing
-    }
-
-    @Override
-    public void onViewHovered(View v) {
-        int pos = getChildAdapterPosition(v);
-        if (pos != mAdapter.getItemCount() - 1) {
-            mClickListener.accept(pos);
-        }
-    }
-
-    @Override
-    public void onDragEnded() {
-        // do nothing
-    }
-
     private void onSingleTapUp(MotionEvent e) {
         View itemView = findChildViewUnder(e.getX(), e.getY());
         int pos = getChildAdapterPosition(itemView);
-        if (pos != mAdapter.getItemCount() - 1) {
+        if (pos != mAdapter.getItemCount() - 1 && pos != -1) {
             mClickListener.accept(pos);
         }
     }
@@ -190,20 +152,17 @@ public final class HorizontalBreadcrumb extends RecyclerView
 
         private final Environment mEnv;
         private final com.android.documentsui.base.State mState;
-        private final OnDragListener mDragListener;
         private final View.OnKeyListener mClickListener;
         // We keep the old item size so the breadcrumb will only re-render views that are necessary
         private int mLastItemSize;
 
         public BreadcrumbAdapter(com.android.documentsui.base.State state,
                 Environment env,
-                OnDragListener dragListener,
                 View.OnKeyListener clickListener) {
             mState = state;
             mEnv = env;
-            mDragListener = dragListener;
             mClickListener = clickListener;
-            mLastItemSize = mState.stack.size();
+            mLastItemSize = getItemCount();
         }
 
         @Override
@@ -215,34 +174,38 @@ public final class HorizontalBreadcrumb extends RecyclerView
 
         @Override
         public void onBindViewHolder(BreadcrumbHolder holder, int position) {
-            final DocumentInfo doc = getItem(position);
-            final int horizontalPadding = (int) holder.itemView.getResources()
+            final int padding = (int) holder.itemView.getResources()
                     .getDimension(R.dimen.breadcrumb_item_padding);
+            final int enableColor = holder.itemView.getContext().getColor(R.color.primary);
+            final boolean isFirst = position == 0;
+            // Note that when isFirst is true, there might not be a DocumentInfo on the stack as it
+            // could be an error state screen accessible from the root info.
+            final boolean isLast = position == getItemCount() - 1;
 
-            if (position == 0) {
-                final RootInfo root = mEnv.getCurrentRoot();
-                holder.title.setText(root.title);
-                holder.title.setPadding(0, 0, horizontalPadding, 0);
-            } else {
-                holder.title.setText(doc.displayName);
-                holder.title.setPadding(horizontalPadding, 0, horizontalPadding, 0);
-            }
+            holder.mTitle.setText(
+                    isFirst ? mEnv.getCurrentRoot().title : mState.stack.get(position).displayName);
+            holder.mTitle.setTextColor(isLast ? enableColor : holder.mDefaultTextColor);
+            holder.mTitle.setPadding(isFirst ? padding * 3 : padding,
+                    padding, isLast ? padding * 2 : padding, padding);
+            holder.mArrow.setVisibility(isLast ? View.GONE : View.VISIBLE);
 
-            if (position == getItemCount() - 1) {
-                holder.arrow.setVisibility(View.GONE);
-            } else {
-                holder.arrow.setVisibility(View.VISIBLE);
-            }
-            holder.itemView.setOnDragListener(mDragListener);
             holder.itemView.setOnKeyListener(mClickListener);
-        }
-
-        private DocumentInfo getItem(int position) {
-            return mState.stack.get(position);
+            holder.setLast(isLast);
         }
 
         @Override
         public int getItemCount() {
+            // Don't show recents in the breadcrumb.
+            if (mState.stack.isRecents()) {
+                return 0;
+            }
+            // Continue showing the root title in the breadcrumb for cross-profile error screens.
+            if (mState.supportsCrossProfile()
+                    && mState.stack.size() == 0
+                    && mState.stack.getRoot() != null
+                    && mState.stack.getRoot().supportsCrossProfile()) {
+                return 1;
+            }
             return mState.stack.size();
         }
 
@@ -251,27 +214,7 @@ public final class HorizontalBreadcrumb extends RecyclerView
         }
 
         public void updateLastItemSize() {
-            mLastItemSize = mState.stack.size();
-        }
-    }
-
-    private static class BreadcrumbHolder extends RecyclerView.ViewHolder {
-
-        protected DragOverTextView title;
-        protected ImageView arrow;
-
-        public BreadcrumbHolder(View itemView) {
-            super(itemView);
-            title = (DragOverTextView) itemView.findViewById(R.id.breadcrumb_text);
-            arrow = (ImageView) itemView.findViewById(R.id.breadcrumb_arrow);
-        }
-
-        /**
-         * Highlights the associated item view.
-         * @param highlighted
-         */
-        public void setHighlighted(boolean highlighted) {
-            title.setHighlight(highlighted);
+            mLastItemSize = getItemCount();
         }
     }
 
@@ -301,6 +244,24 @@ public final class HorizontalBreadcrumb extends RecyclerView
 
         @Override
         public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+        }
+    }
+
+    private static class HorizontalBreadcrumbLinearLayoutManager extends LinearLayoutManager {
+
+        /**
+         * Disable predictive animations. There is a bug in RecyclerView which causes views that
+         * are being reloaded to pull invalid view holders from the internal recycler stack if the
+         * adapter size has decreased since the ViewHolder was recycled.
+         */
+        @Override
+        public boolean supportsPredictiveItemAnimations() {
+            return false;
+        }
+
+        HorizontalBreadcrumbLinearLayoutManager(
+                Context context, int orientation, boolean reverseLayout) {
+            super(context, orientation, reverseLayout);
         }
     }
 }

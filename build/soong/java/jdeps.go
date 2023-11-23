@@ -17,7 +17,6 @@ package java
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"android/soong/android"
 )
@@ -35,7 +34,10 @@ func jDepsGeneratorSingleton() android.Singleton {
 }
 
 type jdepsGeneratorSingleton struct {
+	outputPath android.Path
 }
+
+var _ android.SingletonMakeVarsProvider = (*jdepsGeneratorSingleton)(nil)
 
 const (
 	// Environment variables used to modify behavior of this singleton.
@@ -72,6 +74,7 @@ func (j *jdepsGeneratorSingleton) GenerateBuildActions(ctx android.SingletonCont
 		dpInfo.Aidl_include_dirs = android.FirstUniqueStrings(dpInfo.Aidl_include_dirs)
 		dpInfo.Jarjar_rules = android.FirstUniqueStrings(dpInfo.Jarjar_rules)
 		dpInfo.Jars = android.FirstUniqueStrings(dpInfo.Jars)
+		dpInfo.SrcJars = android.FirstUniqueStrings(dpInfo.SrcJars)
 		moduleInfos[name] = dpInfo
 
 		mkProvider, ok := module.(android.AndroidMkDataProvider)
@@ -91,23 +94,36 @@ func (j *jdepsGeneratorSingleton) GenerateBuildActions(ctx android.SingletonCont
 		moduleInfos[name] = dpInfo
 	})
 
-	jfpath := android.PathForOutput(ctx, jdepsJsonFileName).String()
+	jfpath := android.PathForOutput(ctx, jdepsJsonFileName)
 	err := createJsonFile(moduleInfos, jfpath)
 	if err != nil {
 		ctx.Errorf(err.Error())
 	}
+	j.outputPath = jfpath
+
+	// This is necessary to satisfy the dangling rules check as this file is written by Soong rather than a rule.
+	ctx.Build(pctx, android.BuildParams{
+		Rule:   android.Touch,
+		Output: jfpath,
+	})
 }
 
-func createJsonFile(moduleInfos map[string]android.IdeInfo, jfpath string) error {
-	file, err := os.Create(jfpath)
-	if err != nil {
-		return fmt.Errorf("Failed to create file: %s, relative: %v", jdepsJsonFileName, err)
+func (j *jdepsGeneratorSingleton) MakeVars(ctx android.MakeVarsContext) {
+	if j.outputPath == nil {
+		return
 	}
-	defer file.Close()
+
+	ctx.DistForGoal("general-tests", j.outputPath)
+}
+
+func createJsonFile(moduleInfos map[string]android.IdeInfo, jfpath android.WritablePath) error {
 	buf, err := json.MarshalIndent(moduleInfos, "", "\t")
 	if err != nil {
-		return fmt.Errorf("Write file failed: %s, relative: %v", jdepsJsonFileName, err)
+		return fmt.Errorf("JSON marshal of java deps failed: %s", err)
 	}
-	fmt.Fprintf(file, string(buf))
+	err = android.WriteFileToOutputDir(jfpath, buf, 0666)
+	if err != nil {
+		return fmt.Errorf("Writing java deps to %s failed: %s", jfpath.String(), err)
+	}
 	return nil
 }

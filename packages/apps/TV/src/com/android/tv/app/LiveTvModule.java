@@ -16,18 +16,49 @@
 package com.android.tv.app;
 
 import com.android.tv.common.flags.impl.DefaultFlagsModule;
+import com.android.tv.data.epg.EpgReader;
+import com.android.tv.data.epg.StubEpgReader;
 import com.android.tv.modules.TvApplicationModule;
+import com.android.tv.perf.PerformanceMonitor;
+import com.android.tv.perf.stub.StubPerformanceMonitor;
 import com.android.tv.tunerinputcontroller.BuiltInTunerManager;
+import com.android.tv.ui.sidepanel.DeveloperOptionFragment;
+import com.android.tv.util.account.AccountHelper;
+import com.android.tv.util.account.AccountHelperImpl;
 import com.google.common.base.Optional;
 import dagger.Module;
 import dagger.Provides;
+import javax.inject.Singleton;
 
 /** Dagger module for {@link LiveTvApplication}. */
 @Module(includes = {DefaultFlagsModule.class, TvApplicationModule.class})
 class LiveTvModule {
 
     @Provides
+    static AccountHelper providesAccountHelper(AccountHelperImpl impl) {
+        return impl;
+    }
+
+    @Provides
+    static Optional<DeveloperOptionFragment.AdditionalDeveloperItemsFactory>
+            providesAdditionalDeveloperItemsFactory() {
+        return Optional.absent();
+    }
+
+    @Provides
     Optional<BuiltInTunerManager> providesBuiltInTunerManager() {
         return Optional.absent();
+    }
+
+    @Provides
+    @Singleton
+    PerformanceMonitor providesPerformanceMonitor() {
+        return new StubPerformanceMonitor();
+    }
+
+    @Provides
+    @Singleton
+    static EpgReader providesEpgReader(StubEpgReader impl) {
+        return impl;
     }
 }

@@ -144,10 +144,10 @@ class OatFileAssistant {
   // the oat location. Returns a negative status code if the status refers to
   // the oat file in the odex location.
   int GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
+                      ClassLoaderContext* context,
+                      const std::vector<int>& context_fds,
                       bool profile_changed = false,
-                      bool downgrade = false,
-                      ClassLoaderContext* context = nullptr,
-                      const std::vector<int>& context_fds = std::vector<int>());
+                      bool downgrade = false);
 
   // Returns true if there is up-to-date code for this dex location,
   // irrespective of the compiler filter of the up-to-date code.
@@ -292,10 +292,10 @@ class OatFileAssistant {
     // downgrade should be true if the purpose of dexopt is to downgrade the
     // compiler filter.
     DexOptNeeded GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
-                                 bool profile_changed,
-                                 bool downgrade,
                                  ClassLoaderContext* context,
-                                 const std::vector<int>& context_fds);
+                                 const std::vector<int>& context_fds,
+                                 bool profile_changed,
+                                 bool downgrade);
 
     // Returns the loaded file.
     // Loads the file if needed. Returns null if the file failed to load.
@@ -439,7 +439,7 @@ class OatFileAssistant {
   // File descriptor corresponding to apk, dex file, or zip.
   int zip_fd_;
 
-  size_t cached_boot_class_path_checksum_component_count_ = 0u;
+  std::string cached_boot_class_path_;
   std::string cached_boot_class_path_checksums_;
 
   friend class OatFileAssistantTest;

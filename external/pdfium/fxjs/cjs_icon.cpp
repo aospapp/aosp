@@ -10,6 +10,7 @@ const JSPropertySpec CJS_Icon::PropertySpecs[] = {
     {"name", get_name_static, set_name_static}};
 
 int CJS_Icon::ObjDefnID = -1;
+const char CJS_Icon::kName[] = "Icon";
 
 // static
 int CJS_Icon::GetObjDefnID() {
@@ -18,21 +19,20 @@ int CJS_Icon::GetObjDefnID() {
 
 // static
 void CJS_Icon::DefineJSObjects(CFXJS_Engine* pEngine) {
-  ObjDefnID =
-      pEngine->DefineObj("Icon", FXJSOBJTYPE_DYNAMIC,
-                         JSConstructor<CJS_Icon, Icon>, JSDestructor<CJS_Icon>);
-  DefineProps(pEngine, ObjDefnID, PropertySpecs, FX_ArraySize(PropertySpecs));
+  ObjDefnID = pEngine->DefineObj(CJS_Icon::kName, FXJSOBJTYPE_DYNAMIC,
+                                 JSConstructor<CJS_Icon>, JSDestructor);
+  DefineProps(pEngine, ObjDefnID, PropertySpecs);
 }
 
-Icon::Icon(CJS_Object* pJSObject)
-    : CJS_EmbedObj(pJSObject), m_swIconName(L"") {}
+CJS_Icon::CJS_Icon(v8::Local<v8::Object> pObject, CJS_Runtime* pRuntime)
+    : CJS_Object(pObject, pRuntime) {}
 
-Icon::~Icon() {}
+CJS_Icon::~CJS_Icon() = default;
 
-CJS_Return Icon::get_name(CJS_Runtime* pRuntime) {
-  return CJS_Return(pRuntime->NewString(m_swIconName.c_str()));
+CJS_Result CJS_Icon::get_name(CJS_Runtime* pRuntime) {
+  return CJS_Result::Success(pRuntime->NewString(m_swIconName.AsStringView()));
 }
 
-CJS_Return Icon::set_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp) {
-  return CJS_Return(false);
+CJS_Result CJS_Icon::set_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp) {
+  return CJS_Result::Failure(JSMessage::kReadOnlyError);
 }

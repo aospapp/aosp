@@ -16,13 +16,13 @@
 
 #define LOG_TAG "Operations"
 
+#include <cmath>
+#include <vector>
+
 #include "CpuOperationUtils.h"
 #include "HalInterfaces.h"
 #include "OperationResolver.h"
 #include "Tracing.h"
-
-#include <cmath>
-#include <vector>
 
 namespace android {
 namespace nn {
@@ -42,6 +42,8 @@ constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
+using namespace hal;
+
 template <typename T>
 inline bool instanceNormNhwc(const T* inputData, const Shape& inputShape, T gamma, T beta,
                              T epsilon, T* outputData, const Shape& outputShape) {
@@ -53,20 +55,31 @@ inline bool instanceNormNhwc(const T* inputData, const Shape& inputShape, T gamm
     for (uint32_t b = 0; b < numBatches; b++) {
         for (uint32_t d = 0; d < depth; d++) {
             uint32_t indexBase = b * height * width * depth + d;
-            T mean = 0, var = 0;
+            T mean = 0, sigma = 0;
+
+            // Compute the mean of a single layer.
             for (uint32_t h = 0; h < height; h++) {
                 for (uint32_t w = 0; w < width; w++) {
                     T val = inputData[indexBase + (h * width + w) * depth];
                     mean += val;
-                    var += val * val;
                 }
             }
             mean /= static_cast<T>(height * width);
-            var = std::sqrt(static_cast<float>(var / static_cast<T>(height * width)) + epsilon);
+
+            // Compute the standard deviation (sigma) of a single layer.
+            for (uint32_t h = 0; h < height; h++) {
+                for (uint32_t w = 0; w < width; w++) {
+                    T val = inputData[indexBase + (h * width + w) * depth] - mean;
+                    sigma += val * val;
+                }
+            }
+            sigma = std::sqrt(static_cast<float>(sigma / static_cast<T>(height * width)) + epsilon);
+
+            // Apply instance normalization.
             for (uint32_t h = 0; h < height; h++) {
                 for (uint32_t w = 0; w < width; w++) {
                     uint32_t ind = indexBase + (h * width + w) * depth;
-                    outputData[ind] = (inputData[ind] - mean) * gamma / var + beta;
+                    outputData[ind] = (inputData[ind] - mean) * gamma / sigma + beta;
                 }
             }
         }

@@ -206,7 +206,7 @@ IDEINT_ERROR_T ideint_process(void *pv_ctxt,
 
     for(i = 0; i < num_comp; i++)
     {
-        UWORD8 *pu1_prv, *pu1_out;
+        UWORD8 *pu1_prv = NULL, *pu1_out;
         UWORD8 *pu1_top, *pu1_bot, *pu1_dst;
         WORD32 cur_strd, out_strd, dst_strd;
 
@@ -255,14 +255,16 @@ IDEINT_ERROR_T ideint_process(void *pv_ctxt,
         {
             disable_cac_sad = 1;
         }
-
         for(row = comp_row_start; row < comp_row_end; row++)
         {
             pu1_out = ps_out_frm->apu1_buf[i];
             pu1_out += (ps_out_frm->ai4_strd[i] * row << 3);
 
-            pu1_prv = ps_prv_fld->apu1_buf[i];
-            pu1_prv += (ps_prv_fld->ai4_strd[i] * row << 2);
+            if(0 == disable_cac_sad)
+            {
+                pu1_prv = ps_prv_fld->apu1_buf[i];
+                pu1_prv += (ps_prv_fld->ai4_strd[i] * row << 2);
+            }
 
             if(ps_ctxt->s_params.i4_cur_fld_top)
             {
@@ -408,7 +410,10 @@ IDEINT_ERROR_T ideint_process(void *pv_ctxt,
                         memcpy(pu1_out + j * out_strd, au1_dst + j * BLK_WD, blk_wd);
                     }
                 }
-                pu1_prv += 8;
+                if(NULL != pu1_prv)
+                {
+                    pu1_prv += 8;
+                }
                 pu1_top += 8;
                 pu1_bot += 8;
                 pu1_out += 8;

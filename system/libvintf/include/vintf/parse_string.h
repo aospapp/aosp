@@ -121,6 +121,11 @@ std::string toFQNameString(const std::string& package, const VersionRange& range
 std::string toFQNameString(const VersionRange& range, const std::string& interface,
                            const std::string& instance);
 
+std::string toFQNameString(const std::string& interface, const std::string& instance);
+
+std::string toAidlFqnameString(const std::string& package, const std::string& interface,
+                               const std::string& instance = "");
+
 } // namespace vintf
 } // namespace android
 

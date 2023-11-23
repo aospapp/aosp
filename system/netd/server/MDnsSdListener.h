@@ -21,6 +21,7 @@
 #include <dns_sd.h>
 #include <sysutils/FrameworkListener.h>
 #include <mutex>
+#include <string>
 
 #include "NetdCommand.h"
 
@@ -79,6 +80,7 @@ private:
         int stopService();
         void run();
         void deallocateServiceRef(DNSServiceRef* ref);
+        std::string threadName() { return std::string("MDnsSdMonitor"); }
 
       private:
         int rescan(); // returns the number of elements in the poll

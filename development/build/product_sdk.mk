@@ -25,9 +25,6 @@
 # packaged in the SDK.
 #
 
-PRODUCT_PACKAGES += \
-	deployagent
-
 # Host tools and java libraries that are parts of the SDK.
 PRODUCT_HOST_PACKAGES += \
 	aapt \
@@ -42,10 +39,11 @@ PRODUCT_HOST_PACKAGES += \
 	dx \
 	etc1tool \
 	hprof-conv \
-	layoutlib-legacy \
 	libaapt2_jni \
 	llvm-rs-cc \
 	sqlite3 \
 	vgabios-cirrus.bin \
 	split-select \
 	zipalign
+
+#end

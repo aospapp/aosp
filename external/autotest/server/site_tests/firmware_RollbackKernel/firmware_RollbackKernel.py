@@ -56,7 +56,8 @@ class firmware_RollbackKernel(FirmwareTest):
     def run_once(self, dev_mode=False):
         """Main test logic"""
         recovery_reason = (vboot.RECOVERY_REASON['DEP_RW_NO_DISK'],
-                           vboot.RECOVERY_REASON['RW_NO_KERNEL'])
+                           vboot.RECOVERY_REASON['RW_NO_KERNEL'],
+                           vboot.RECOVERY_REASON['RW_INVALID_OS'])
 
         if dev_mode:
             logging.info("Rollbacks kernel A.")
@@ -86,7 +87,8 @@ class firmware_RollbackKernel(FirmwareTest):
                                   'mainfw_type': 'recovery',
                                   'recovery_reason': recovery_reason,
                                   }))
-            self.faft_client.kernel.move_version_forward(('a', 'b'))
+            self.faft_client.kernel.move_version_forward('a')
+            self.faft_client.kernel.move_version_forward('b')
             self.switcher.mode_aware_reboot()
 
             logging.info("Expected kernel A boot and done.")

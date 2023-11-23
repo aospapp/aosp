@@ -20,10 +20,12 @@ import static com.android.server.wifi.WifiMetricsTestUtil.assertHistogramBuckets
 import static com.android.server.wifi.WifiMetricsTestUtil.buildHistogramBucketInt32;
 
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.server.wifi.nano.WifiMetricsProto.HistogramBucketInt32;
+import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.HistogramBucketInt32;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -36,7 +38,7 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for IntHistogram.
  */
 @SmallTest
-public class IntHistogramTest {
+public class IntHistogramTest extends WifiBaseTest {
 
     @Rule
     public ErrorCollector collector = new ErrorCollector();
@@ -261,5 +263,45 @@ public class IntHistogramTest {
     @Test(expected = IllegalArgumentException.class)
     public void testNonMonotonicBucketBoundaries() {
         new IntHistogram(new int[] {1, 2, 3, 3});
+    }
+
+    @Test
+    public void testEmptyQuantile() {
+        mHistogram = new IntHistogram(TEST_BUCKET_BOUNDARIES);
+        double q = mHistogram.quantileFunction(0.2, 0, 50);
+        assertEquals(q, 10.0, 0.01);
+    }
+
+    @Test
+    public void testQuantileUniformDistribution() {
+        mHistogram = new IntHistogram(TEST_BUCKET_BOUNDARIES);
+        for (int i = 0; i < 111; i++) {
+            mHistogram.increment(i);
+        }
+        String diagnose = mHistogram.toString();
+        double q;
+
+        for (double i = 0.0; i <= 111.0; i++) {
+            q = mHistogram.quantileFunction(i / 111.0, 0,  111);
+            assertEquals(diagnose, i, q, 0.01);
+        }
+
+        q = mHistogram.quantileFunction(.8, 0, 42);
+        assertEquals(42.0, q, 0.01);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void backwardsBoundsShouldFail() {
+        new IntHistogram(TEST_BUCKET_BOUNDARIES).quantileFunction(0.5, 80, 40);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void negativeProbablilityShouldFail() {
+        new IntHistogram(TEST_BUCKET_BOUNDARIES).quantileFunction(-0.1, 0, 50);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void largerThanUnityProbablilityShouldFail() {
+        new IntHistogram(TEST_BUCKET_BOUNDARIES).quantileFunction(1.1, 0, 50);
     }
 }

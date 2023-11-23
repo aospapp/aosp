@@ -32,13 +32,13 @@
             android:layout_height="wrap_content"
             android:layout_width="wrap_content"
             android:text="@string/bugreport_info_quit"
-            style="?android:attr/borderlessButtonStyle" />
+            style="@style/android:Widget.DeviceDefault.Button.Borderless.Colored" />
         <Button
             android:id="@+id/start_bug_report_button"
             android:layout_height="wrap_content"
             android:layout_width="wrap_content"
             android:text="@string/bugreport_info_start"
-            style="?android:attr/borderlessButtonStyle" />
+            style="@style/android:Widget.DeviceDefault.Button.Borderless.Colored" />
         <TextView
             android:id="@+id/version_text_view"
             android:layout_height="wrap_content"
@@ -46,7 +46,8 @@
             android:layout_weight="1"
             android:textSize="14sp"
             android:gravity="right"
-            android:text="" />
+            android:text=""
+            style="@style/android:TextAppearance.DeviceDefault" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

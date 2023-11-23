@@ -23,10 +23,8 @@ import android.provider.SearchIndexableResource;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.dashboard.DashboardFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
-import com.android.settingslib.core.AbstractPreferenceController;
-import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
@@ -55,29 +53,11 @@ public class FeatureFlagsDashboard extends DashboardFragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        use(FeatureFlagFooterPreferenceController.class).setFooterMixin(mFooterPreferenceMixin);
     }
 
     @Override
     public int getHelpResource() {
         return 0;
-    }
-
-    @Override
-    protected List<AbstractPreferenceController> createPreferenceControllers(Context context) {
-        return buildPrefControllers(context, getSettingsLifecycle());
-    }
-
-    private static List<AbstractPreferenceController> buildPrefControllers(Context context,
-            Lifecycle lifecycle) {
-        final List<AbstractPreferenceController> controllers = new ArrayList<>();
-        final FeatureFlagFooterPreferenceController footerController =
-                new FeatureFlagFooterPreferenceController(context);
-        if (lifecycle != null) {
-            lifecycle.addObserver(footerController);
-        }
-        controllers.add(footerController);
-        return controllers;
     }
 
     public static final Indexable.SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
@@ -96,12 +76,6 @@ public class FeatureFlagsDashboard extends DashboardFragment {
                 @Override
                 protected boolean isPageSearchEnabled(Context context) {
                     return DevelopmentSettingsEnabler.isDevelopmentSettingsEnabled(context);
-                }
-
-                @Override
-                public List<AbstractPreferenceController> createPreferenceControllers(
-                        Context context) {
-                    return buildPrefControllers(context, null /* lifecycle */);
                 }
             };
 }

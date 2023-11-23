@@ -220,38 +220,25 @@ public class ICUTest extends junit.framework.TestCase {
     assertTrue(c.compare("AF", "af") < 0);
   }
 
-  // Test for the behavior of currency symbol lookup when an unrecognized locale has been set as the
-  // default.
-  public void testIcuDefaultAffectsCurrencySymbol() {
-    // A locale that is not going to be recognized by ICU and should fallback to "root" for the
-    // currency symbol.
-    final Locale unrecognizedLocale = new Locale("xy", "KR");
+  public void testSetDefault() {
+      String current = ICU.getDefaultLocale();
 
-    // A known locale with a relatively stable representation for its currency symbol.
-    final Locale enUsLocale = new Locale("en", "US");
-    final String usDollar = "USD";
-
-    String initialDefaultLocale = ICU.getDefaultLocale();
-    try {
-      // Confirm the "$" symbol for USD in en-US.
-      assertEquals("$", ICU.getCurrencySymbol(enUsLocale, usDollar));
-
-      // Set the default so this will be used as fallback for the unrecognized locale symbol lookup.
-      ICU.setDefaultLocale(enUsLocale.toLanguageTag());
-
-      // Demonstrate the USD symbol is reported as "$" for the unrecognized locale (which is using
-      // the default).
-      assertEquals("$", ICU.getCurrencySymbol(unrecognizedLocale, usDollar));
-
-      // Change the default.
-      ICU.setDefaultLocale(unrecognizedLocale.toLanguageTag());
-
-      String currencySymbolAfterDefaultChange = ICU.getCurrencySymbol(unrecognizedLocale, usDollar);
-      // "$US" is the value from root. With an unrecognized locale argument, and an unrecognized
-      // locale as the default, ICU has returns the value in root.
-      assertEquals("US$", currencySymbolAfterDefaultChange);
-    } finally {
-      ICU.setDefaultLocale(initialDefaultLocale);
-    }
+      try {
+        assertGetDefault("", "");
+        assertGetDefault("und", "");
+        assertGetDefault("en-US", "en_US");
+        assertGetDefault("uz-CYRL-UZ", "uz_Cyrl_UZ");
+        assertGetDefault("ca-ES-PREEURO", "ca_ES_PREEURO");
+        assertGetDefault("es-ES-PREEURO-u-ca-japanese", "es_ES_PREEURO@calendar=japanese");
+        assertGetDefault("es-ES-PREEURO-u-ca-Japanese", "es_ES_PREEURO@calendar=japanese");
+      } finally {
+          ICU.setDefaultLocale(current);
+      }
   }
+
+  private static void assertGetDefault(String inputLangaugeTag, String expectedLanguageTag) {
+    ICU.setDefaultLocale(inputLangaugeTag);
+    assertEquals(expectedLanguageTag, ICU.getDefaultLocale());
+  }
+
 }

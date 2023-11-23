@@ -62,6 +62,10 @@ NAMEID_STYLE = 2
 NAMEID_FULLNAME = 4
 NAMEID_VERSION = 5
 
+NAMEID_LIST = [NAMEID_FAMILY, NAMEID_STYLE, NAMEID_FULLNAME, NAMEID_VERSION]
+NAMEID_LIST_MIN = min(NAMEID_LIST)
+NAMEID_LIST_MAX = max(NAMEID_LIST)
+
 # A list of extensions to process.
 EXTENSIONS = ['.ttf', '.ttc', '.otf', '.xml']
 
@@ -87,7 +91,7 @@ def convert_font(input_path, dest_path):
   try:
     # run ttx to generate an xml file in the output folder which represents all
     # its info
-    ttx_args = ['-q', '-o', ttx_path, input_path]
+    ttx_args = ['--no-recalc-timestamp', '-q', '-o', ttx_path, input_path]
     ttx.main(ttx_args)
     # now parse the xml file to change its PS name.
     tree = etree.parse(ttx_path)
@@ -99,9 +103,9 @@ def convert_font(input_path, dest_path):
     ttx_args = ['-q', '-o', dest_path, ttx_path]
     ttx.main(ttx_args)
   except InvalidFontException:
-    # In case of invalid fonts, we exit.
-    print filename + ' is not a valid font'
-    raise
+    # assume, like for .ttc and .otf that font might be valid, but warn.
+    print 'Family and/or Style nameIDs not found in '+ filename
+    shutil.copy(input_path, dest_path)
   except Exception as e:
     print 'Error converting font: ' + filename
     print e
@@ -124,6 +128,9 @@ def get_font_info(tag):
   for namerecord in tag.iter('namerecord'):
     if 'nameID' in namerecord.attrib:
       name_id = int(namerecord.attrib['nameID'])
+      # skip irrelevant records
+      if name_id < NAMEID_LIST_MIN or name_id > NAMEID_LIST_MAX:
+        continue
       # A new font should be created for each platform, encoding and language
       # id. But, since the nameIDs are sorted, we use the easy approach of
       # creating a new one when the nameIDs reset.
@@ -154,6 +161,9 @@ def update_tag(tag, fonts):
   for namerecord in tag.iter('namerecord'):
     if 'nameID' in namerecord.attrib:
       name_id = int(namerecord.attrib['nameID'])
+      # skip irrelevant records
+      if name_id < NAMEID_LIST_MIN or name_id > NAMEID_LIST_MAX:
+        continue
       if name_id <= last_name_id:
         font = fonts_iterator.next()
         font = update_font_name(font)

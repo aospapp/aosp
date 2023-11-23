@@ -7,6 +7,7 @@ import os
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import cr50_utils
+from autotest_lib.server.cros import filesystem_util
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -34,25 +35,22 @@ class firmware_Cr50Update(Cr50Test):
 
 
     def initialize(self, host, cmdline_args, release_path="", release_ver="",
-                   old_release_path="", old_release_ver="", dev_path="",
-                   test="", full_args={}):
+                   old_release_path="", old_release_ver="", test="",
+                   full_args={}):
         """Initialize servo and process the given images"""
         super(firmware_Cr50Update, self).initialize(host, cmdline_args,
                                                     full_args,
-                                                    restore_cr50_state=True,
-                                                    cr50_dev_path=dev_path)
+                                                    restore_cr50_image=True)
         self.test_post_install = test.lower() == self.POST_INSTALL
 
         if not release_ver and not os.path.isfile(release_path):
             release_path = self.get_saved_cr50_original_path()
             logging.info('Using device image as release')
 
-        self.devid = self.servo.get('cr50_devid')
-
         # Make sure ccd is disabled so it won't interfere with the update
         self.cr50.ccd_disable()
 
-        self.rootfs_verification_disable()
+        filesystem_util.make_rootfs_writable(self.host)
 
         self.host = host
 
@@ -67,21 +65,10 @@ class firmware_Cr50Update(Cr50Test):
                                            old_release_path, old_release_ver)
         self.add_image_to_update_order(self.RELEASE_NAME, release_path,
                                        release_ver)
-        self.add_image_to_update_order(self.DEV_NAME, dev_path)
+        self.add_image_to_update_order(self.DEV_NAME,
+                                       self.get_saved_dbg_image_path())
         self.verify_update_order()
         logging.info("Update %s", self.update_order)
-
-        self.chip_bid = None
-        self.chip_flags = None
-        chip_bid_info = cr50_utils.GetChipBoardId(self.host)
-        if chip_bid_info != cr50_utils.ERASED_CHIP_BID:
-            self.chip_bid, _, self.chip_flags = chip_bid_info
-            logging.info('chip board id will be erased during rollback. %x:%x '
-                'will be restored after rollback.',  self.chip_bid,
-                self.chip_flags)
-        else:
-            logging.info('No chip board id is set. This test will not attempt '
-                'to restore anything during rollback.')
 
         self.device_update_path = cr50_utils.GetActiveCr50ImagePath(self.host)
         # Update to the dev image
@@ -123,8 +110,7 @@ class firmware_Cr50Update(Cr50Test):
         # If a rollback is needed, flash the image into the inactive partition,
         # on or use usb_update to update to the new image if it is requested.
         if use_usb_update or rollback:
-            self.cr50_update(image_path, rollback=rollback,
-                chip_bid=self.chip_bid, chip_flags=self.chip_flags)
+            self.cr50_update(image_path, rollback=rollback)
             self.check_state((self.checkers.crossystem_checker,
                               {'mainfw_type': 'normal'}))
 
@@ -184,7 +170,7 @@ class firmware_Cr50Update(Cr50Test):
             if '/' in ver:
                 ver, bid = ver.split('/', 1)
             return self.download_cr50_release_image(ver, bid)
-        return self.download_cr50_debug_image(self.devid)
+        return self.download_cr50_debug_image()
 
 
     def add_image_to_update_order(self, image_name, image_path, ver=None):

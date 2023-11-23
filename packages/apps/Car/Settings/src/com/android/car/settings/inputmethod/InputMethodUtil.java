@@ -16,6 +16,7 @@
 
 package com.android.car.settings.inputmethod;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -35,6 +36,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.settingslib.inputmethod.InputMethodAndSubtypeUtil;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Keyboard utility class. */
 public final class InputMethodUtil {
@@ -42,6 +44,10 @@ public final class InputMethodUtil {
      * Delimiter for Enabled Input Methods' concatenated string.
      */
     public static final char INPUT_METHOD_DELIMITER = ':';
+    /**
+     * Google Voice Typing package name.
+     */
+    public static final String GOOGLE_VOICE_TYPING = "com.google.android.carassistant";
     /**
      * Splitter for Enabled Input Methods' concatenated string.
      */
@@ -51,6 +57,26 @@ public final class InputMethodUtil {
     static final Drawable NO_ICON = new ColorDrawable(Color.TRANSPARENT);
 
     private InputMethodUtil() {
+    }
+
+    /** Returns permitted list of enabled input methods. */
+    public static List<InputMethodInfo> getPermittedAndEnabledInputMethodList(
+            InputMethodManager imm, DevicePolicyManager dpm) {
+        List<InputMethodInfo> inputMethodInfos = imm.getEnabledInputMethodList();
+        if (inputMethodInfos != null) {
+            // permittedList == null means all input methods are allowed.
+            List<String> permittedList = dpm.getPermittedInputMethodsForCurrentUser();
+
+            inputMethodInfos = inputMethodInfos.stream().filter(info -> {
+                boolean isAllowedByOrganization = permittedList == null
+                        || permittedList.contains(info.getPackageName());
+                // Hide "Google voice typing" IME.
+                boolean isGoogleVoiceTyping =
+                        info.getPackageName().equals(InputMethodUtil.GOOGLE_VOICE_TYPING);
+                return isAllowedByOrganization && !isGoogleVoiceTyping;
+            }).collect(Collectors.toList());
+        }
+        return inputMethodInfos;
     }
 
     /** Returns package icon. */

@@ -44,6 +44,8 @@
                              Description="Transmitted Through Speaker. Plays over speaker only, silent on other devices"/>
             <Component Name="accessibility" Type="Stream" Mapping="Name:AUDIO_STREAM_ACCESSIBILITY"
                              Description="For accessibility talk back prompts"/>
+            <Component Name="assistant" Type="Stream" Mapping="Name:AUDIO_STREAM_ASSISTANT"
+                             Description="used by a virtual assistant like Google Assistant, Bixby, etc."/>
             <Component Name="rerouting" Type="Stream" Mapping="Name:AUDIO_STREAM_REROUTING"
                              Description="For dynamic policy output mixes"/>
             <Component Name="patch" Type="Stream" Mapping="Name:AUDIO_STREAM_PATCH"
@@ -73,10 +75,13 @@
                                             Mapping="Name:AUDIO_SOURCE_REMOTE_SUBMIX"/>
             <Component Name="unprocessed" Type="InputSource"
                                             Mapping="Name:AUDIO_SOURCE_UNPROCESSED"/>
+            <Component Name="voice_performance" Type="InputSource"
+                                            Mapping="Name:AUDIO_SOURCE_VOICE_PERFORMANCE"/>
+            <Component Name="echo_reference" Type="InputSource"
+                                            Mapping="Name:AUDIO_SOURCE_ECHO_REFERENCE"/>
             <Component Name="fm_tuner" Type="InputSource" Mapping="Name:AUDIO_SOURCE_FM_TUNER"/>
             <Component Name="hotword" Type="InputSource" Mapping="Name:AUDIO_SOURCE_HOTWORD"/>
         </ComponentType>
-
         <!--#################### INPUT SOURCE END ####################-->
     </ComponentLibrary>
 

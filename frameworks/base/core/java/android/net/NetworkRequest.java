@@ -17,9 +17,10 @@
 package android.net;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.net.NetworkCapabilities.NetCapability;
 import android.net.NetworkCapabilities.Transport;
 import android.os.Build;
@@ -246,9 +247,8 @@ public class NetworkRequest implements Parcelable {
          * removing even the capabilities that are set by default when the object is constructed.
          *
          * @return The builder to facilitate chaining.
-         * @hide
          */
-        @UnsupportedAppUsage
+        @NonNull
         public Builder clearCapabilities() {
             mNetworkCapabilities.clearAll();
             return this;
@@ -300,22 +300,34 @@ public class NetworkRequest implements Parcelable {
          * this without a single transport set will generate an exception, as will
          * subsequently adding or removing transports after this is set.
          * </p>
-         * The interpretation of this {@code String} is bearer specific and bearers that use
-         * it should document their particulars.  For example, Bluetooth may use some sort of
-         * device id while WiFi could used ssid and/or bssid.  Cellular may use carrier spn.
+         * If the {@code networkSpecifier} is provided, it shall be interpreted as follows:
+         * <ul>
+         * <li>If the specifier can be parsed as an integer, it will be treated as a
+         * {@link android.net TelephonyNetworkSpecifier}, and the provided integer will be
+         * interpreted as a SubscriptionId.
+         * <li>If the value is an ethernet interface name, it will be treated as such.
+         * <li>For all other cases, the behavior is undefined.
+         * </ul>
          *
-         * @param networkSpecifier An {@code String} of opaque format used to specify the bearer
-         *                         specific network specifier where the bearer has a choice of
-         *                         networks.
+         * @param networkSpecifier A {@code String} of either a SubscriptionId in cellular
+         *                         network request or an ethernet interface name in ethernet
+         *                         network request.
+         *
+         * @deprecated Use {@link #setNetworkSpecifier(NetworkSpecifier)} instead.
          */
+        @Deprecated
         public Builder setNetworkSpecifier(String networkSpecifier) {
-            /*
-             * A StringNetworkSpecifier does not accept null or empty ("") strings. When network
-             * specifiers were strings a null string and an empty string were considered equivalent.
-             * Hence no meaning is attached to a null or empty ("") string.
-             */
-            return setNetworkSpecifier(TextUtils.isEmpty(networkSpecifier) ? null
-                    : new StringNetworkSpecifier(networkSpecifier));
+            try {
+                int subId = Integer.parseInt(networkSpecifier);
+                return setNetworkSpecifier(new TelephonyNetworkSpecifier.Builder()
+                        .setSubscriptionId(subId).build());
+            } catch (NumberFormatException nfe) {
+                // A StringNetworkSpecifier does not accept null or empty ("") strings. When network
+                // specifiers were strings a null string and an empty string were considered
+                // equivalent. Hence no meaning is attached to a null or empty ("") string.
+                return setNetworkSpecifier(TextUtils.isEmpty(networkSpecifier) ? null
+                        : new StringNetworkSpecifier(networkSpecifier));
+            }
         }
 
         /**
@@ -368,6 +380,7 @@ public class NetworkRequest implements Parcelable {
         dest.writeInt(requestId);
         dest.writeString(type.name());
     }
+
     public static final @android.annotation.NonNull Creator<NetworkRequest> CREATOR =
         new Creator<NetworkRequest>() {
             public NetworkRequest createFromParcel(Parcel in) {
@@ -455,10 +468,54 @@ public class NetworkRequest implements Parcelable {
     }
 
     /**
+     * Returns true if and only if the capabilities requested in this NetworkRequest are satisfied
+     * by the provided {@link NetworkCapabilities}.
+     *
+     * @param nc Capabilities that should satisfy this NetworkRequest. null capabilities do not
+     *           satisfy any request.
+     */
+    public boolean canBeSatisfiedBy(@Nullable NetworkCapabilities nc) {
+        return networkCapabilities.satisfiedByNetworkCapabilities(nc);
+    }
+
+    /**
      * @see Builder#addTransportType(int)
      */
     public boolean hasTransport(@Transport int transportType) {
         return networkCapabilities.hasTransport(transportType);
+    }
+
+    /**
+     * @see Builder#setNetworkSpecifier(NetworkSpecifier)
+     */
+    @Nullable
+    public NetworkSpecifier getNetworkSpecifier() {
+        return networkCapabilities.getNetworkSpecifier();
+    }
+
+    /**
+     * @return the uid of the app making the request.
+     *
+     * Note: This could return {@link Process#INVALID_UID} if the {@link NetworkRequest} object was
+     * not obtained from {@link ConnectivityManager}.
+     * @hide
+     */
+    @SystemApi
+    public int getRequestorUid() {
+        return networkCapabilities.getRequestorUid();
+    }
+
+    /**
+     * @return the package name of the app making the request.
+     *
+     * Note: This could return {@code null} if the {@link NetworkRequest} object was not obtained
+     * from {@link ConnectivityManager}.
+     * @hide
+     */
+    @SystemApi
+    @Nullable
+    public String getRequestorPackageName() {
+        return networkCapabilities.getRequestorPackageName();
     }
 
     public String toString() {
@@ -485,13 +542,13 @@ public class NetworkRequest implements Parcelable {
     }
 
     /** @hide */
-    public void writeToProto(ProtoOutputStream proto, long fieldId) {
+    public void dumpDebug(ProtoOutputStream proto, long fieldId) {
         final long token = proto.start(fieldId);
 
         proto.write(NetworkRequestProto.TYPE, typeToProtoEnum(type));
         proto.write(NetworkRequestProto.REQUEST_ID, requestId);
         proto.write(NetworkRequestProto.LEGACY_TYPE, legacyType);
-        networkCapabilities.writeToProto(proto, NetworkRequestProto.NETWORK_CAPABILITIES);
+        networkCapabilities.dumpDebug(proto, NetworkRequestProto.NETWORK_CAPABILITIES);
 
         proto.end(token);
     }

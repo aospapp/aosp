@@ -8,44 +8,35 @@
 #define XFA_FXFA_CXFA_FFAPP_H_
 
 #include <memory>
-#include <vector>
 
-#include "core/fpdfapi/parser/cpdf_stream.h"
-#include "core/fpdfapi/parser/cpdf_stream_acc.h"
-#include "core/fxcrt/retain_ptr.h"
 #include "core/fxcrt/unowned_ptr.h"
 #include "xfa/fwl/cfwl_app.h"
+#include "xfa/fxfa/cxfa_fontmgr.h"
 #include "xfa/fxfa/fxfa.h"
 
-class CFGAS_DefaultFontManager;
 class CFGAS_FontMgr;
 class CFWL_WidgetMgr;
-class CPDF_Document;
-class CXFA_FFDocHandler;
-class CXFA_FontMgr;
 class CXFA_FWLAdapterWidgetMgr;
 class CXFA_FWLTheme;
-class IFWL_AdapterTimerMgr;
 
-class CXFA_FFApp {
+class CXFA_FFApp : public CFWL_App::AdapterIface {
  public:
+  static void SkipFontLoadForTesting(bool skip);
+
   explicit CXFA_FFApp(IXFA_AppProvider* pProvider);
-  ~CXFA_FFApp();
+  ~CXFA_FFApp() override;
 
-  std::unique_ptr<CXFA_FFDoc> CreateDoc(IXFA_DocEnvironment* pDocEnvironment,
-                                        CPDF_Document* pPDFDoc);
-  void SetDefaultFontMgr(std::unique_ptr<CFGAS_DefaultFontManager> pFontMgr);
+  // CFWL_App::AdapterIface:
+  CFWL_WidgetMgr::AdapterIface* GetWidgetMgrAdapter() override;
+  TimerHandlerIface* GetTimerHandler() override;
 
-  CXFA_FWLAdapterWidgetMgr* GetFWLAdapterWidgetMgr();
   CFWL_WidgetMgr* GetFWLWidgetMgr() const { return m_pFWLApp->GetWidgetMgr(); }
-
   CFGAS_FontMgr* GetFDEFontMgr();
-  CXFA_FWLTheme* GetFWLTheme();
+  CXFA_FWLTheme* GetFWLTheme(CXFA_FFDoc* doc);
 
   IXFA_AppProvider* GetAppProvider() const { return m_pProvider.Get(); }
   const CFWL_App* GetFWLApp() const { return m_pFWLApp.get(); }
-  IFWL_AdapterTimerMgr* GetTimerMgr() const;
-  CXFA_FontMgr* GetXFAFontMgr() const;
+  CXFA_FontMgr* GetXFAFontMgr() { return &m_pFontMgr; }
 
   void ClearEventTargets();
 
@@ -56,14 +47,14 @@ class CXFA_FFApp {
   // font manager. The GEFont::LoadFont call takes the manager as a param and
   // stores it internally. When you destroy the GEFont it tries to unregister
   // from the font manager and if the default font manager was destroyed first
-  // get get a use-after-free. The m_pFWLTheme can try to cleanup a GEFont
+  // you get a use-after-free. The m_pFWLTheme can try to cleanup a GEFont
   // when it frees, so make sure it gets cleaned up first. That requires
   // m_pFWLApp to be cleaned up as well.
   //
   // TODO(dsinclair): The GEFont should have the FontMgr as the pointer instead
   // of the DEFFontMgr so this goes away. Bug 561.
   std::unique_ptr<CFGAS_FontMgr> m_pFDEFontMgr;
-  std::unique_ptr<CXFA_FontMgr> m_pFontMgr;
+  CXFA_FontMgr m_pFontMgr;
 
   std::unique_ptr<CXFA_FWLAdapterWidgetMgr> m_pAdapterWidgetMgr;
 

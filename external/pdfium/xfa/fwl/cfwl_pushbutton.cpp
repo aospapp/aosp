@@ -18,11 +18,11 @@
 #include "xfa/fwl/cfwl_notedriver.h"
 #include "xfa/fwl/cfwl_themebackground.h"
 #include "xfa/fwl/cfwl_themetext.h"
+#include "xfa/fwl/fwl_widgetdef.h"
 #include "xfa/fwl/ifwl_themeprovider.h"
 
 CFWL_PushButton::CFWL_PushButton(const CFWL_App* app)
-    : CFWL_Widget(app, pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr),
-      m_bBtnDown(false) {}
+    : CFWL_Widget(app, pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr) {}
 
 CFWL_PushButton::~CFWL_PushButton() {}
 
@@ -52,14 +52,14 @@ void CFWL_PushButton::DrawWidget(CXFA_Graphics* pGraphics,
                                  const CFX_Matrix& matrix) {
   if (!pGraphics)
     return;
-  if (!m_pProperties->m_pThemeProvider)
+
+  IFWL_ThemeProvider* pTheme = m_pProperties->m_pThemeProvider.Get();
+  if (!pTheme)
     return;
 
-  if (HasBorder()) {
-    DrawBorder(pGraphics, CFWL_Part::Border, m_pProperties->m_pThemeProvider,
-               matrix);
-  }
-  DrawBkground(pGraphics, m_pProperties->m_pThemeProvider, &matrix);
+  if (HasBorder())
+    DrawBorder(pGraphics, CFWL_Part::Border, pTheme, matrix);
+  DrawBkground(pGraphics, pTheme, &matrix);
 }
 
 void CFWL_PushButton::DrawBkground(CXFA_Graphics* pGraphics,
@@ -74,8 +74,8 @@ void CFWL_PushButton::DrawBkground(CXFA_Graphics* pGraphics,
     param.m_matrix.Concat(*pMatrix);
   param.m_rtPart = m_rtClient;
   if (m_pProperties->m_dwStates & FWL_WGTSTATE_Focused)
-    param.m_pData = &m_rtCaption;
-  pTheme->DrawBackground(&param);
+    param.m_pRtData = &m_rtCaption;
+  pTheme->DrawBackground(param);
 }
 
 uint32_t CFWL_PushButton::GetPartStates() {
@@ -133,7 +133,9 @@ void CFWL_PushButton::OnProcessMessage(CFWL_Message* pMessage) {
     default:
       break;
   }
-  CFWL_Widget::OnProcessMessage(pMessage);
+  // Dst target could be |this|, continue only if not destroyed by above.
+  if (pMessage->GetDstTarget())
+    CFWL_Widget::OnProcessMessage(pMessage);
 }
 
 void CFWL_PushButton::OnDrawWidget(CXFA_Graphics* pGraphics,
@@ -151,9 +153,6 @@ void CFWL_PushButton::OnFocusChanged(CFWL_Message* pMsg, bool bSet) {
 }
 
 void CFWL_PushButton::OnLButtonDown(CFWL_MessageMouse* pMsg) {
-  if ((m_pProperties->m_dwStates & FWL_WGTSTATE_Focused) == 0)
-    SetFocus(true);
-
   m_bBtnDown = true;
   m_pProperties->m_dwStates |= FWL_STATE_PSB_Hovered;
   m_pProperties->m_dwStates |= FWL_STATE_PSB_Pressed;
@@ -218,12 +217,14 @@ void CFWL_PushButton::OnMouseLeave(CFWL_MessageMouse* pMsg) {
 }
 
 void CFWL_PushButton::OnKeyDown(CFWL_MessageKey* pMsg) {
-  if (pMsg->m_dwKeyCode != FWL_VKEY_Return)
+  if (pMsg->m_dwKeyCode != XFA_FWL_VKEY_Return)
     return;
 
   CFWL_EventMouse wmMouse(this);
   wmMouse.m_dwCmd = FWL_MouseCommand::LeftButtonUp;
   DispatchEvent(&wmMouse);
+  if (!wmMouse.GetSrcTarget())
+    return;
 
   CFWL_Event wmClick(CFWL_Event::Type::Click, this);
   DispatchEvent(&wmClick);

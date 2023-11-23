@@ -37,6 +37,7 @@ import android.view.View;
 import com.android.internal.util.Preconditions;
 import com.android.server.wm.WindowManagerInternal.IDragDropCallback;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -74,7 +75,7 @@ class DragDropController {
     }
 
     void registerCallback(IDragDropCallback callback) {
-        Preconditions.checkNotNull(callback);
+        Objects.requireNonNull(callback);
         mCallback.set(callback);
     }
 
@@ -113,7 +114,7 @@ class DragDropController {
 
                     final WindowState callingWin = mService.windowForClientLocked(
                             null, window, false);
-                    if (callingWin == null) {
+                    if (callingWin == null || callingWin.cantReceiveTouchInput()) {
                         Slog.w(TAG_WM, "Bad requesting window " + window);
                         return null;  // !!! TODO: throw here?
                     }
@@ -167,8 +168,7 @@ class DragDropController {
                     final SurfaceControl surfaceControl = mDragState.mSurfaceControl;
                     if (SHOW_LIGHT_TRANSACTIONS) Slog.i(TAG_WM, ">>> OPEN TRANSACTION performDrag");
 
-                    final SurfaceControl.Transaction transaction =
-                            callingWin.getPendingTransaction();
+                    final SurfaceControl.Transaction transaction = mDragState.mTransaction;
                     transaction.setAlpha(surfaceControl, mDragState.mOriginalAlpha);
                     transaction.setPosition(
                             surfaceControl, touchX - thumbCenterX, touchY - thumbCenterY);

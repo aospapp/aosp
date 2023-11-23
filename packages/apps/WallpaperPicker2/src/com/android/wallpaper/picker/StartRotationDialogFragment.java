@@ -29,8 +29,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.fragment.app.DialogFragment;
 
 import com.android.wallpaper.R;
@@ -42,28 +40,13 @@ import com.android.wallpaper.module.InjectorProvider;
  */
 public class StartRotationDialogFragment extends DialogFragment {
     private static final String KEY_IS_WIFI_ONLY_CHECKED = "key_is_wifi_only_checked";
-    private static final String KEY_IS_LIVE_WALLPAPER_PREVIEW_NEEDED = "key_is_live_wallpaper_needed";
     private static final boolean DEFAULT_IS_WIFI_ONLY = true;
 
     private boolean mIsWifiOnlyChecked;
-    private boolean mIsLiveWallpaperPreviewNeeded;
-
-    public static StartRotationDialogFragment newInstance(boolean isLiveWallpaperPreviewNeeded) {
-        StartRotationDialogFragment dialogFragment = new StartRotationDialogFragment();
-        Bundle args = new Bundle();
-        args.putBoolean(KEY_IS_LIVE_WALLPAPER_PREVIEW_NEEDED, isLiveWallpaperPreviewNeeded);
-        dialogFragment.setArguments(args);
-        return dialogFragment;
-    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        Bundle args = getArguments();
-        if (args != null) {
-            mIsLiveWallpaperPreviewNeeded = args.getBoolean(KEY_IS_LIVE_WALLPAPER_PREVIEW_NEEDED);
-        }
 
         if (savedInstanceState == null) {
             mIsWifiOnlyChecked = DEFAULT_IS_WIFI_ONLY;
@@ -117,14 +100,10 @@ public class StartRotationDialogFragment extends DialogFragment {
     }
 
     private int getBodyTextResourceId() {
-        return mIsLiveWallpaperPreviewNeeded
-                ? R.string.start_rotation_dialog_body_live_wallpaper_needed
-                : R.string.start_rotation_dialog_body;
+        return R.string.start_rotation_dialog_body;
     }
 
     private int getPositiveButtonTextResourceId() {
-        return mIsLiveWallpaperPreviewNeeded
-                ? R.string.start_rotation_dialog_continue
-                : android.R.string.ok;
+        return android.R.string.ok;
     }
 }

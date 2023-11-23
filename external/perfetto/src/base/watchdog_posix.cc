@@ -14,16 +14,9 @@
  * limitations under the License.
  */
 
-#include "perfetto/base/build_config.h"
+#include "perfetto/ext/base/watchdog.h"
 
-// Watchdog is currently not supported on Mac. This ifdef-based exclusion is
-// here only for the Mac build in AOSP. The standalone and chromium builds
-// exclude this file at the GN level. However, propagating the per-os exclusion
-// through our GN -> BP build file translator is not worth the effort for a
-// one-off case.
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX)
-
-#include "perfetto/base/watchdog_posix.h"
+#if PERFETTO_BUILDFLAG(PERFETTO_WATCHDOG)
 
 #include <fcntl.h>
 #include <inttypes.h>
@@ -35,12 +28,8 @@
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
-#include "perfetto/base/scoped_file.h"
 #include "perfetto/base/thread_utils.h"
-
-#if PERFETTO_BUILDFLAG(PERFETTO_EMBEDDER_BUILD)
-#error perfetto::base::Watchdog should not be used in Chromium or embedders
-#endif
+#include "perfetto/ext/base/scoped_file.h"
 
 namespace perfetto {
 namespace base {
@@ -58,10 +47,37 @@ double MeanForArray(const uint64_t array[], size_t size) {
   for (size_t i = 0; i < size; i++) {
     total += array[i];
   }
-  return total / size;
+  return static_cast<double>(total / size);
+
 }
 
 }  //  namespace
+
+bool ReadProcStat(int fd, ProcStat* out) {
+  char c[512];
+  size_t c_pos = 0;
+  while (c_pos < sizeof(c) - 1) {
+    ssize_t rd = PERFETTO_EINTR(read(fd, c + c_pos, sizeof(c) - c_pos));
+    if (rd < 0) {
+      PERFETTO_ELOG("Failed to read stat file to enforce resource limits.");
+      return false;
+    }
+    if (rd == 0)
+      break;
+    c_pos += static_cast<size_t>(rd);
+  }
+  PERFETTO_CHECK(c_pos < sizeof(c));
+  c[c_pos] = '\0';
+
+  if (sscanf(c,
+             "%*d %*s %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu"
+             "%lu %*d %*d %*d %*d %*d %*d %*u %*u %ld",
+             &out->utime, &out->stime, &out->rss_pages) != 3) {
+    PERFETTO_ELOG("Invalid stat format: %s", c);
+    return false;
+  }
+  return true;
+}
 
 Watchdog::Watchdog(uint32_t polling_interval_ms)
     : polling_interval_ms_(polling_interval_ms) {}
@@ -144,24 +160,14 @@ void Watchdog::ThreadMain() {
 
     lseek(stat_fd.get(), 0, SEEK_SET);
 
-    char c[512];
-    if (read(stat_fd.get(), c, sizeof(c)) < 0) {
-      PERFETTO_ELOG("Failed to read stat file to enforce resource limits.");
+    ProcStat stat;
+    if (!ReadProcStat(stat_fd.get(), &stat)) {
       return;
     }
-    c[sizeof(c) - 1] = '\0';
 
-    unsigned long int utime = 0l;
-    unsigned long int stime = 0l;
-    long int rss_pages = -1l;
-    PERFETTO_CHECK(
-        sscanf(c,
-               "%*d %*s %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu"
-               "%lu %*d %*d %*d %*d %*d %*d %*u %*u %ld",
-               &utime, &stime, &rss_pages) == 3);
-
-    uint64_t cpu_time = utime + stime;
-    uint64_t rss_bytes = static_cast<uint64_t>(rss_pages) * base::kPageSize;
+    uint64_t cpu_time = stat.utime + stat.stime;
+    uint64_t rss_bytes =
+        static_cast<uint64_t>(stat.rss_pages) * base::kPageSize;
 
     CheckMemory(rss_bytes);
     CheckCpu(cpu_time);
@@ -175,7 +181,7 @@ void Watchdog::CheckMemory(uint64_t rss_bytes) {
   // Add the current stat value to the ring buffer and check that the mean
   // remains under our threshold.
   if (memory_window_bytes_.Push(rss_bytes)) {
-    if (memory_window_bytes_.Mean() > memory_limit_bytes_) {
+    if (memory_window_bytes_.Mean() > static_cast<double>(memory_limit_bytes_)) {
       PERFETTO_ELOG(
           "Memory watchdog trigger. Memory window of %f bytes is above the "
           "%" PRIu64 " bytes limit.",
@@ -198,7 +204,7 @@ void Watchdog::CheckCpu(uint64_t cpu_time) {
     double window_interval_ticks =
         (static_cast<double>(WindowTimeForRingBuffer(cpu_window_time_ticks_)) /
          1000.0) *
-        sysconf(_SC_CLK_TCK);
+        static_cast<double>(sysconf(_SC_CLK_TCK));
     double percentage = static_cast<double>(difference_ticks) /
                         static_cast<double>(window_interval_ticks) * 100;
     if (percentage > cpu_limit_percentage_) {
@@ -270,4 +276,4 @@ Watchdog::Timer::Timer(Timer&& other) noexcept {
 }  // namespace base
 }  // namespace perfetto
 
-#endif  // PERFETTO_OS_MACOSX
+#endif  // PERFETTO_BUILDFLAG(PERFETTO_WATCHDOG)

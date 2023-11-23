@@ -16,7 +16,6 @@
 -->
 <com.android.car.setupwizardlib.CarSetupWizardCompatLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:custom="http://schemas.android.com/apk/res-auto"
     android:id="@+id/car_setup_wizard_layout"
     android:orientation="vertical"
     android:layout_width="match_parent"

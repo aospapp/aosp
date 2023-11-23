@@ -68,6 +68,7 @@ public class SurfacePixelValidator2 {
             boolean success = mPixelChecker.validatePlane(plane, mBoundsToCheck, mWidth, mHeight);
 
             synchronized (mResultLock) {
+                mResultLock.notifyAll();
                 if (success) {
                     mResultSuccessFrames++;
                 } else {
@@ -89,6 +90,18 @@ public class SurfacePixelValidator2 {
             image.close();
         }
     };
+
+    void waitForFrame(int timeoutMs) {
+        synchronized (mResultLock) {
+            if (mResultSuccessFrames != 0 || mResultFailureFrames != 0) {
+                return;
+            }
+            try {
+                mResultLock.wait(timeoutMs);
+            } catch (Exception e) {
+            }
+        }
+    }
 
     private static void getPixels(Image image, int[] dest, Rect bounds) {
         Bitmap hwBitmap = Bitmap.wrapHardwareBuffer(image.getHardwareBuffer(), null);

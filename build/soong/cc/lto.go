@@ -80,6 +80,12 @@ func (lto *lto) useClangLld(ctx BaseModuleContext) bool {
 }
 
 func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
+	// TODO(b/131771163): Disable LTO when using explicit fuzzing configurations.
+	// LTO breaks fuzzer builds.
+	if inList("-fsanitize=fuzzer-no-link", flags.Local.CFlags) {
+		return flags
+	}
+
 	if lto.LTO() {
 		var ltoFlag string
 		if Bool(lto.Properties.Lto.Thin) {
@@ -88,27 +94,28 @@ func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 			ltoFlag = "-flto"
 		}
 
-		flags.CFlags = append(flags.CFlags, ltoFlag)
-		flags.LdFlags = append(flags.LdFlags, ltoFlag)
+		flags.Local.CFlags = append(flags.Local.CFlags, ltoFlag)
+		flags.Local.LdFlags = append(flags.Local.LdFlags, ltoFlag)
 
 		if ctx.Config().IsEnvTrue("USE_THINLTO_CACHE") && Bool(lto.Properties.Lto.Thin) && lto.useClangLld(ctx) {
 			// Set appropriate ThinLTO cache policy
 			cacheDirFormat := "-Wl,--thinlto-cache-dir="
 			cacheDir := android.PathForOutput(ctx, "thinlto-cache").String()
-			flags.LdFlags = append(flags.LdFlags, cacheDirFormat+cacheDir)
+			flags.Local.LdFlags = append(flags.Local.LdFlags, cacheDirFormat+cacheDir)
 
 			// Limit the size of the ThinLTO cache to the lesser of 10% of available
 			// disk space and 10GB.
 			cachePolicyFormat := "-Wl,--thinlto-cache-policy="
 			policy := "cache_size=10%:cache_size_bytes=10g"
-			flags.LdFlags = append(flags.LdFlags, cachePolicyFormat+policy)
+			flags.Local.LdFlags = append(flags.Local.LdFlags, cachePolicyFormat+policy)
 		}
 
 		// If the module does not have a profile, be conservative and do not inline
 		// or unroll loops during LTO, in order to prevent significant size bloat.
 		if !ctx.isPgoCompile() {
-			flags.LdFlags = append(flags.LdFlags, "-Wl,-plugin-opt,-inline-threshold=0")
-			flags.LdFlags = append(flags.LdFlags, "-Wl,-plugin-opt,-unroll-threshold=0")
+			flags.Local.LdFlags = append(flags.Local.LdFlags,
+				"-Wl,-plugin-opt,-inline-threshold=0",
+				"-Wl,-plugin-opt,-unroll-threshold=0")
 		}
 	}
 	return flags
@@ -142,7 +149,7 @@ func ltoDepsMutator(mctx android.TopDownMutatorContext) {
 		mctx.WalkDeps(func(dep android.Module, parent android.Module) bool {
 			tag := mctx.OtherModuleDependencyTag(dep)
 			switch tag {
-			case staticDepTag, staticExportDepTag, lateStaticDepTag, wholeStaticDepTag, objDepTag, reuseObjTag:
+			case StaticDepTag, staticExportDepTag, lateStaticDepTag, wholeStaticDepTag, objDepTag, reuseObjTag:
 				if dep, ok := dep.(*Module); ok && dep.lto != nil &&
 					!dep.lto.Disabled() {
 					if full && !Bool(dep.lto.Properties.Lto.Full) {

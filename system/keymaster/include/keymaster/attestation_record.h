@@ -25,6 +25,8 @@
 
 namespace keymaster {
 
+constexpr uint kCurrentKeymasterVersion = 41;
+
 struct stack_st_ASN1_TYPE_Delete {
     void operator()(stack_st_ASN1_TYPE* p) { sk_ASN1_TYPE_free(p); }
 };
@@ -41,14 +43,16 @@ struct ASN1_TYPE_Delete {
 
 typedef struct km_root_of_trust {
     ASN1_OCTET_STRING* verified_boot_key;
-    ASN1_BOOLEAN* device_locked;
+    ASN1_BOOLEAN device_locked;
     ASN1_ENUMERATED* verified_boot_state;
+    ASN1_OCTET_STRING* verified_boot_hash;
 } KM_ROOT_OF_TRUST;
 
 ASN1_SEQUENCE(KM_ROOT_OF_TRUST) = {
     ASN1_SIMPLE(KM_ROOT_OF_TRUST, verified_boot_key, ASN1_OCTET_STRING),
     ASN1_SIMPLE(KM_ROOT_OF_TRUST, device_locked, ASN1_BOOLEAN),
     ASN1_SIMPLE(KM_ROOT_OF_TRUST, verified_boot_state, ASN1_ENUMERATED),
+    ASN1_SIMPLE(KM_ROOT_OF_TRUST, verified_boot_hash, ASN1_OCTET_STRING),
 } ASN1_SEQUENCE_END(KM_ROOT_OF_TRUST);
 DECLARE_ASN1_FUNCTIONS(KM_ROOT_OF_TRUST);
 
@@ -77,6 +81,7 @@ typedef struct km_auth_list {
     ASN1_OCTET_STRING* application_id;
     ASN1_INTEGER* creation_date_time;
     ASN1_INTEGER* origin;
+    ASN1_NULL* rollback_resistance;
     ASN1_NULL* rollback_resistant;
     KM_ROOT_OF_TRUST* root_of_trust;
     ASN1_INTEGER* os_version;
@@ -90,6 +95,9 @@ typedef struct km_auth_list {
     ASN1_OCTET_STRING* attestation_id_meid;
     ASN1_OCTET_STRING* attestation_id_manufacturer;
     ASN1_OCTET_STRING* attestation_id_model;
+    ASN1_NULL* early_boot_only;
+    ASN1_NULL* device_unique_attestation;
+    ASN1_NULL* identity_credential_key;
 } KM_AUTH_LIST;
 
 ASN1_SEQUENCE(KM_AUTH_LIST) = {
@@ -122,6 +130,8 @@ ASN1_SEQUENCE(KM_AUTH_LIST) = {
     ASN1_EXP_OPT(KM_AUTH_LIST, creation_date_time, ASN1_INTEGER,
                  TAG_CREATION_DATETIME.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, origin, ASN1_INTEGER, TAG_ORIGIN.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, rollback_resistance, ASN1_NULL,
+                 TAG_ROLLBACK_RESISTANCE.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, rollback_resistant, ASN1_NULL, TAG_ROLLBACK_RESISTANT.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, root_of_trust, KM_ROOT_OF_TRUST, TAG_ROOT_OF_TRUST.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, os_version, ASN1_INTEGER, TAG_OS_VERSION.masked_tag()),
@@ -144,6 +154,11 @@ ASN1_SEQUENCE(KM_AUTH_LIST) = {
                  TAG_ATTESTATION_ID_MANUFACTURER.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_model, ASN1_OCTET_STRING,
                  TAG_ATTESTATION_ID_MODEL.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, early_boot_only, ASN1_NULL, TAG_EARLY_BOOT_ONLY.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, device_unique_attestation, ASN1_NULL,
+                 TAG_DEVICE_UNIQUE_ATTESTATION.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, identity_credential_key, ASN1_NULL,
+                 TAG_IDENTITY_CREDENTIAL_KEY.masked_tag()),
 } ASN1_SEQUENCE_END(KM_AUTH_LIST);
 DECLARE_ASN1_FUNCTIONS(KM_AUTH_LIST);
 
@@ -213,6 +228,7 @@ class AttestationRecordContext {
      */
     virtual keymaster_error_t
     GetVerifiedBootParams(keymaster_blob_t* /* verified_boot_key */,
+                          keymaster_blob_t* /* verified_boot_hash */,
                           keymaster_verified_boot_t* /* verified_boot_state */,
                           bool* /* device_locked */) const {
         return KM_ERROR_UNIMPLEMENTED;
@@ -235,12 +251,22 @@ class AttestationRecordContext {
  */
 static const char kAttestionRecordOid[] = "1.3.6.1.4.1.11129.2.1.17";
 
+// This build_attestation_record sets the keymaster version to the default
+// value.
 keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_params,
                                            AuthorizationSet software_enforced,
                                            AuthorizationSet tee_enforced,
                                            const AttestationRecordContext& context,
                                            UniquePtr<uint8_t[]>* asn1_key_desc,
                                            size_t* asn1_key_desc_len);
+
+// Builds attestation record, same as above, except this allows the keymaster
+// version to be set to different value than the default.
+keymaster_error_t
+build_attestation_record(const AuthorizationSet& attestation_params, AuthorizationSet sw_enforced,
+                         AuthorizationSet tee_enforced, const AttestationRecordContext& context,
+                         const uint keymaster_version, UniquePtr<uint8_t[]>* asn1_key_desc,
+                         size_t* asn1_key_desc_len);
 
 /**
  * Helper functions for attestation record tests. Caller takes ownership of

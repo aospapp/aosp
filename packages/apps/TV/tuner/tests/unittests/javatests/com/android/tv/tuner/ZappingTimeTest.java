@@ -21,24 +21,36 @@ import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.support.annotation.Nullable;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 import android.view.Surface;
+
 import androidx.test.filters.LargeTest;
-import com.android.tv.common.flags.impl.DefaultConcurrentDvrPlaybackFlags;
+
 import com.android.tv.tuner.data.Cea708Data;
+import com.android.tv.tuner.data.Channel.AudioStreamType;
+import com.android.tv.tuner.data.Channel.VideoStreamType;
 import com.android.tv.tuner.data.PsiData;
 import com.android.tv.tuner.data.PsipData;
 import com.android.tv.tuner.data.TunerChannel;
-import com.android.tv.tuner.data.nano.Channel;
 import com.android.tv.tuner.exoplayer.MpegTsPlayer;
 import com.android.tv.tuner.exoplayer.MpegTsRendererBuilder;
+import com.android.tv.tuner.exoplayer.MpegTsSampleExtractor;
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
 import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
 import com.android.tv.tuner.exoplayer.buffer.TrickplayStorageManager;
 import com.android.tv.tuner.source.TsDataSourceManager;
+import com.android.tv.tuner.source.TsDataSourceManager.Factory;
+import com.android.tv.tuner.source.TunerTsStreamerManager;
 import com.android.tv.tuner.ts.EventDetector.EventListener;
+
 import com.google.android.exoplayer.ExoPlayer;
+import com.google.android.exoplayer2.upstream.DataSource;
+
+import javax.inject.Provider;
+import org.junit.Ignore;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -49,7 +61,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.junit.Ignore;
 
 /** This class use {@link FileTunerHal} to simulate tunerhal's actions to test zapping time. */
 @LargeTest
@@ -88,8 +99,6 @@ public class ZappingTimeTest extends InstrumentationTestCase {
     private MockMpegTsPlayerListener mMpegTsPlayerListener = new MockMpegTsPlayerListener();
     private MockPlaybackBufferListener mPlaybackBufferListener = new MockPlaybackBufferListener();
     private MockChannelScanListener mEventListener = new MockChannelScanListener();
-    private DefaultConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags =
-            new DefaultConcurrentDvrPlaybackFlags();
 
     @Override
     protected void setUp() throws Exception {
@@ -99,10 +108,10 @@ public class ZappingTimeTest extends InstrumentationTestCase {
         HandlerThread handlerThread = new HandlerThread(TAG);
         handlerThread.start();
         List<PsiData.PmtItem> pmtItems = new ArrayList<>();
-        pmtItems.add(new PsiData.PmtItem(Channel.VideoStreamType.MPEG2, VIDEO_PID, null, null));
+        pmtItems.add(new PsiData.PmtItem(VideoStreamType.MPEG2_VALUE, VIDEO_PID, null, null));
         for (int audioPid : AUDIO_PIDS) {
             pmtItems.add(
-                    new PsiData.PmtItem(Channel.AudioStreamType.A52AC3AUDIO, audioPid, null, null));
+                    new PsiData.PmtItem(AudioStreamType.A52AC3AUDIO_VALUE, audioPid, null, null));
         }
 
         Context context = getInstrumentation().getContext();
@@ -117,8 +126,31 @@ public class ZappingTimeTest extends InstrumentationTestCase {
         mChannel.setModulation(MODULATION);
         mTunerHal = new FileTunerHal(context, tsCacheFile);
         mTunerHal.openFirstAvailable();
-        mSourceManager = TsDataSourceManager.createSourceManager(false);
+        Provider<TunerTsStreamerManager> tsStreamerManagerProvider =
+                () -> new TunerTsStreamerManager(null);
+        TsDataSourceManager.Factory tsFactory = new Factory(tsStreamerManagerProvider);
+        mSourceManager = tsFactory.create(false);
         mSourceManager.addTunerHalForTest(mTunerHal);
+        MpegTsSampleExtractor.Factory mpegTsSampleExtractorFactory =
+                new MpegTsSampleExtractor.Factory() {
+                    @Override
+                    public MpegTsSampleExtractor create(
+                            BufferManager bufferManager, PlaybackBufferListener bufferListener) {
+                        return null;
+                    }
+
+                    @Override
+                    public MpegTsSampleExtractor create(
+                            DataSource source,
+                            @Nullable BufferManager bufferManager,
+                            PlaybackBufferListener bufferListener) {
+                        return new MpegTsSampleExtractor(
+                                source,
+                                bufferManager,
+                                bufferListener,
+                                (uri, source1, manager, listener, isRecording) -> null);
+                    }
+                };
         mHandler =
                 new Handler(
                         handlerThread.getLooper(),
@@ -150,13 +182,14 @@ public class ZappingTimeTest extends InstrumentationTestCase {
                                             }
                                             mChannel.setFrequency(frequency);
                                             mSourceManager.setKeepTuneStatus(true);
+
                                             mPlayer =
                                                     new MpegTsPlayer(
                                                             new MpegTsRendererBuilder(
                                                                     mTargetContext,
                                                                     bufferManager,
                                                                     mPlaybackBufferListener,
-                                                                    mConcurrentDvrPlaybackFlags),
+                                                                    mpegTsSampleExtractorFactory),
                                                             mHandler,
                                                             mSourceManager,
                                                             null,

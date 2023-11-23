@@ -104,8 +104,12 @@ class EventDispatcher:
                 # dispatcher. Stop execution on this polling thread.
                 return
             if event_name in self._handlers:
+                self.log.debug(
+                    'Using handler %s for event: %r' %
+                    (self._handlers[event_name].__name__, event_obj))
                 self.handle_subscribed_event(event_obj, event_name)
             else:
+                self.log.debug('Queuing event: %r' % event_obj)
                 self._lock.acquire()
                 if event_name in self._event_dict:  # otherwise, cache event
                     self._event_dict[event_name].put(event_obj)
@@ -251,7 +255,10 @@ class EventDispatcher:
             event = None
             try:
                 event = self.pop_event(event_name, 1)
-                if not consume_events:
+                if consume_events:
+                    self.log.debug('Consuming event: %r' % event)
+                else:
+                    self.log.debug('Peeking at event: %r' % event)
                     ignored_events.append(event)
             except queue.Empty:
                 pass
@@ -259,6 +266,8 @@ class EventDispatcher:
             if event and predicate(event, *args, **kwargs):
                 for ignored_event in ignored_events:
                     self.get_event_q(event_name).put(ignored_event)
+                self.log.debug('Matched event: %r with %s' %
+                               (event, predicate.__name__))
                 return event
 
             if time.time() > deadline:

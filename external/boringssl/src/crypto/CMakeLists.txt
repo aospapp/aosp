@@ -87,7 +87,7 @@ endfunction()
 add_subdirectory(fipsmodule)
 add_subdirectory(test)
 
-if(FIPS_DELOCATE)
+if(FIPS_DELOCATE OR FIPS_SHARED)
   SET_SOURCE_FILES_PROPERTIES(fipsmodule/bcm.o PROPERTIES EXTERNAL_OBJECT true)
   SET_SOURCE_FILES_PROPERTIES(fipsmodule/bcm.o PROPERTIES GENERATED true)
 
@@ -264,6 +264,7 @@ add_library(
   ecdh_extra/ecdh_extra.c
   ecdsa_extra/ecdsa_asn1.c
   ec_extra/ec_asn1.c
+  ec_extra/ec_derive.c
   err/err.c
   err_data.c
   engine/engine.c
@@ -278,6 +279,8 @@ add_library(
   evp/p_ed25519_asn1.c
   evp/p_rsa.c
   evp/p_rsa_asn1.c
+  evp/p_x25519.c
+  evp/p_x25519_asn1.c
   evp/pbkdf.c
   evp/print.c
   evp/scrypt.c
@@ -317,6 +320,7 @@ add_library(
   rsa_extra/rsa_asn1.c
   rsa_extra/rsa_print.c
   stack/stack.c
+  siphash/siphash.c
   thread.c
   thread_none.c
   thread_pthread.c
@@ -411,9 +415,29 @@ add_library(
   ${CRYPTO_FIPS_OBJECTS}
 )
 
+if(FIPS_SHARED)
+  set(EXTRA_INJECT_HASH_ARGS)
+  if(ANDROID)
+    set(EXTRA_INJECT_HASH_ARGS "-sha256")
+  endif()
+  # Rewrite libcrypto.so to inject the correct module hash value. This assumes
+  # UNIX-style library naming, but we only support FIPS mode on Linux anyway.
+  add_custom_command(
+    TARGET crypto POST_BUILD
+    COMMAND ${GO_EXECUTABLE} run
+    ${CMAKE_CURRENT_SOURCE_DIR}/../util/fipstools/inject_hash/inject_hash.go
+    -o libcrypto.so -in-object libcrypto.so ${EXTRA_INJECT_HASH_ARGS}
+    # The DEPENDS argument to a POST_BUILD rule appears to be ignored. Thus
+    # go_executable isn't used (as it doesn't get built), but we list this
+    # dependency anyway in case it starts working in some CMake version.
+    DEPENDS ../util/fipstools/inject_hash/inject_hash.go
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+endif()
+
 add_dependencies(crypto global_target)
 
-if(FIPS_DELOCATE)
+if(FIPS_DELOCATE OR FIPS_SHARED)
   add_dependencies(crypto bcm_o_target)
 endif()
 
@@ -428,6 +452,20 @@ endif()
 if(USE_CUSTOM_LIBCXX)
   target_link_libraries(crypto libcxx)
 endif()
+
+# urandom_test is a separate binary because it needs to be able to observe the
+# PRNG initialisation, which means that it can't have other tests running before
+# it does.
+add_executable(
+  urandom_test
+
+  fipsmodule/rand/urandom_test.cc
+)
+
+target_link_libraries(urandom_test test_support_lib boringssl_gtest crypto)
+
+add_dependencies(urandom_test global_target)
+add_dependencies(all_tests urandom_test)
 
 add_executable(
   crypto_test
@@ -483,6 +521,7 @@ add_executable(
   rsa_extra/rsa_test.cc
   self_test.cc
   stack/stack_test.cc
+  siphash/siphash_test.cc
   test/file_test_gtest.cc
   thread_test.cc
   x509/x509_test.cc

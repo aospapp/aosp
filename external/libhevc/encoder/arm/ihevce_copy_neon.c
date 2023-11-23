@@ -122,51 +122,33 @@ static void copy_2d_neon(
 
     if(blk_wd == 4)
     {
-        assert((blk_ht & 1) == 0);
-        for(; blk_ht > 0; blk_ht -= 2)
+        for(; blk_ht > 0; blk_ht--)
         {
-            // row 0
-            *(uint32_t *)pu1_dst = *(const uint32_t *)pu1_src;
-            pu1_src += src_strd;
-            pu1_dst += dst_strd;
-            // row 1
-            *(uint32_t *)pu1_dst = *(const uint32_t *)pu1_src;
+            memcpy(pu1_dst, pu1_src, 4);
             pu1_src += src_strd;
             pu1_dst += dst_strd;
         }
     }
     else if(blk_wd == 8)
     {
-        assert((blk_ht & 1) == 0);
-        for(; blk_ht > 0; blk_ht -= 2)
+        for(; blk_ht > 0; blk_ht--)
         {
-            uint8x8_t src_0, src_1;
+            uint8x8_t src = vld1_u8(pu1_src);
 
-            // row 0
-            src_0 = vld1_u8(pu1_src);
-            vst1_u8(pu1_dst, src_0);
-            // row 1
-            src_1 = vld1_u8(pu1_src + src_strd);
-            vst1_u8(pu1_dst + dst_strd, src_1);
-            pu1_src += 2 * src_strd;
-            pu1_dst += 2 * dst_strd;
+            vst1_u8(pu1_dst, src);
+            pu1_src += src_strd;
+            pu1_dst += dst_strd;
         }
     }
     else if(blk_wd == 16)
     {
-        assert((blk_ht & 1) == 0);
-        for(; blk_ht > 0; blk_ht -= 2)
+        for(; blk_ht > 0; blk_ht--)
         {
-            uint8x16_t src_0, src_1;
+            uint8x16_t src = vld1q_u8(pu1_src);
 
-            // row 0
-            src_0 = vld1q_u8(pu1_src);
-            vst1q_u8(pu1_dst, src_0);
-            // row 1
-            src_1 = vld1q_u8(pu1_src + src_strd);
-            vst1q_u8(pu1_dst + dst_strd, src_1);
-            pu1_src += 2 * src_strd;
-            pu1_dst += 2 * dst_strd;
+            vst1q_u8(pu1_dst, src);
+            pu1_src += src_strd;
+            pu1_dst += dst_strd;
         }
     }
     else if(blk_wd == 32)

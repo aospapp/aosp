@@ -3,31 +3,34 @@
 # found in the LICENSE file.
 
 import logging
-import os
 import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import chromedriver
+from autotest_lib.client.common_lib import ui_utils
+from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.graphics import graphics_utils
 from autotest_lib.client.cros.bluetooth import bluetooth_device_xmlrpc_server
 
 
 class bluetooth_TurnOnOffUI(graphics_utils.GraphicsTest):
 
-    """Go to settings and turn on BT On/Off"""
+    """Go to Status Tray and turn BT On/Off"""
     version = 1
-    SETTINGS_UI_TAG = "settings-ui"
-    SHADOW_ROOT_JS = 'return arguments[0].shadowRoot'
-    SETTINGS_MAIN_CSS = 'settings-main#main'
-    SETTINGS_BASE_PAGE_CSS = 'settings-basic-page'
-    SETTINGS_BT_PAGE = "settings-bluetooth-page"
-    SETTINGS_URL = "chrome://settings"
-    ENABLE_BT_CSS = 'cr-toggle#enableBluetooth'
+
+    # Node roles
+    BUTTON_ROLE = "button"
+    SWITCH_ROLE = "switch"
+
+    # Node names
+    STATUS_TRAY_REGEXP = "/Status tray, /i"
+    SHOW_BLUETOOTH_SETTINGS = "/Show Bluetooth settings./i"
+    BLUETOOTH = "Bluetooth"
     DELAY_BW_TOGGLE_ON_OFF = 5
 
     def initialize(self):
         """Autotest initialize function"""
-        self.xmlrpc_delegate = bluetooth_device_xmlrpc_server.BluetoothDeviceXmlRpcDelegate()
+        self.xmlrpc_delegate = \
+            bluetooth_device_xmlrpc_server.BluetoothDeviceXmlRpcDelegate()
         super(bluetooth_TurnOnOffUI, self).initialize(raise_error_on_hang=True)
 
     def cleanup(self):
@@ -42,91 +45,58 @@ class bluetooth_TurnOnOffUI(graphics_utils.GraphicsTest):
                     higher_is_better=False)
             self.write_perf_keyval(keyvals)
         super(bluetooth_TurnOnOffUI, self).cleanup()
-        # If test fails then script will collect the screen shot to know at
-        # which instance failure occurred.
-        if not self.success:
-            graphics_utils.take_screenshot(os.path.join(self.debugdir),
-                                           "chrome")
 
-    def open_settings(self, driver):
-        """Open Settings
+    def open_status_tray(self, ui):
+        """Open status tray
 
-        @param driver: chrome driver object
-        @return: Returns settings page web element
+        @param ui: ui object
         """
-        logging.info("Opening settings.")
-        driver.get(self.SETTINGS_URL)
-        logging.debug("Current tab is %s", driver.title)
-        return self.settings_frame(driver)
+        logging.info("Opening status tray")
+        ui.doDefault_on_obj(self.STATUS_TRAY_REGEXP, True, self.BUTTON_ROLE)
+        ui.wait_for_ui_obj(self.SHOW_BLUETOOTH_SETTINGS, True,
+                           role=self.BUTTON_ROLE)
 
-    def settings_frame(self, driver):
-        """Finds basic settings page web element
+    def open_bluetooth_page(self, ui):
+        """Opens bluetooth settings in tray
 
-        @param driver: chrome driver object
-        @return: Returns settings page web element
+        @param ui: ui object
         """
-        settings_ui = driver.find_element_by_tag_name(self.SETTINGS_UI_TAG)
-        settings_ui_shroot = driver.execute_script(self.SHADOW_ROOT_JS,
-                                                   settings_ui)
-        settings_main = settings_ui_shroot.find_element_by_css_selector(
-            self.SETTINGS_MAIN_CSS)
-        settings_basic_page = driver.execute_script(self.SHADOW_ROOT_JS,
-                                                    settings_main). \
-            find_element_by_css_selector(self.SETTINGS_BASE_PAGE_CSS)
-        return driver.execute_script(self.SHADOW_ROOT_JS, settings_basic_page)
-
-    def bluetooth_page(self, driver):
-        """BT settings page
-
-        @param driver: chrome driver object
-        @return: Bluetooth page web element
-        """
-        settings = self.open_settings(driver)
-        basic_page = settings.find_element_by_id('basicPage')
-        bt_device_page = basic_page.find_element_by_tag_name(
-            self.SETTINGS_BT_PAGE)
-        driver.execute_script('return arguments[0].scrollIntoView()',
-                              bt_device_page)
-        return driver.execute_script(self.SHADOW_ROOT_JS, bt_device_page)
+        logging.info("Opening bluetooth settings in tray")
+        ui.doDefault_on_obj(self.SHOW_BLUETOOTH_SETTINGS, True,
+                            self.BUTTON_ROLE)
+        ui.wait_for_ui_obj(self.BLUETOOTH, False, role=self.SWITCH_ROLE)
 
     def is_bluetooth_enabled(self):
         """Returns True if bluetoothd is powered on, otherwise False"""
 
         return self.xmlrpc_delegate._is_powered_on()
 
-    def click_bluetooth_button(self, driver, bt_page):
-        """Click on the bluetooth on/off button using javascript
+    def turn_on_bluetooth(self, ui):
+        """Turn on BT in status tray
 
-        @param: driver:Chromedriver object
-        @param: bt_page:Bluetooth page web element
-        """
-        button = bt_page.find_element_by_css_selector(self.ENABLE_BT_CSS)
-        driver.execute_script("arguments[0].click();", button)
-
-    def turn_on_bluetooth(self, bt_page, driver):
-        """Turn on BT through UI
-
-        @param: bt_page:Bluetooth page web element
+        @param ui: ui object
         """
         if self.is_bluetooth_enabled():
             logging.info('Bluetooth is turned on already..')
         else:
-            self.click_bluetooth_button(driver, bt_page)
+            logging.info("Turning on bluetooth")
+            ui.doDefault_on_obj(self.BLUETOOTH, False, self.SWITCH_ROLE)
             time.sleep(self.DELAY_BW_TOGGLE_ON_OFF)
             if self.is_bluetooth_enabled():
                 logging.info('Turned on BT successfully..')
             else:
                 raise error.TestFail('BT is not turned on..')
 
-    def turn_off_bluetooth(self, bt_page, driver):
-        """Turn off BT through UI
+    def turn_off_bluetooth(self, ui):
+        """Turn off BT in status tray
 
-        @param: bt_page:Bluetooth page web element
+        @param ui: ui object
         """
         if not self.is_bluetooth_enabled():
-            logging.info('Bluetooth is turned off already within time.')
+            logging.info('Bluetooth is turned off already')
         else:
-            self.click_bluetooth_button(driver, bt_page)
+            logging.info("Turning off bluetooth")
+            ui.doDefault_on_obj(self.BLUETOOTH, False, self.SWITCH_ROLE)
             time.sleep(self.DELAY_BW_TOGGLE_ON_OFF)
             if not self.is_bluetooth_enabled():
                 logging.info('Turned off BT successfully..')
@@ -134,19 +104,27 @@ class bluetooth_TurnOnOffUI(graphics_utils.GraphicsTest):
                 raise error.TestFail('Bluetooth is not turned off within time')
 
     def run_once(self, iteration_count=3):
-        """Turn on/off bluetooth through UI
+        """Turn on/off bluetooth in status tray
 
         @param iteration_count: Number of iterations to toggle on/off
 
         """
-        self.success = False
-        with chromedriver.chromedriver() as chromedriver_instance:
-            driver = chromedriver_instance.driver
-            bt_page = self.bluetooth_page(driver)
-            self.turn_off_bluetooth(bt_page, driver)
-            for iteration in xrange(1, iteration_count + 1):
-                logging.info("**** Turn on/off BT iteration: %d ****",
-                             iteration)
-                self.turn_on_bluetooth(bt_page, driver)
-                self.turn_off_bluetooth(bt_page, driver)
-        self.success = True
+        try:
+            with chrome.Chrome(autotest_ext=True) as cr:
+                ui = ui_utils.UI_Handler()
+                ui.start_ui_root(cr)
+                self.open_status_tray(ui)
+                self.open_bluetooth_page(ui)
+                logging.info("Turning off bluetooth before start test")
+                self.turn_off_bluetooth(ui)
+                for iteration in range(1, iteration_count + 1):
+                    logging.info("Iteration: %d", iteration)
+                    self.turn_on_bluetooth(ui)
+                    self.turn_off_bluetooth(ui)
+        except error.TestFail:
+            raise
+        except Exception as e:
+            logging.error('Exception "%s" seen during test', e)
+            raise error.TestFail('Exception "%s" seen during test' % e)
+        finally:
+            self.xmlrpc_delegate.reset_on()

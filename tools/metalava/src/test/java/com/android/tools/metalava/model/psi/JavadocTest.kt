@@ -27,22 +27,20 @@ class JavadocTest : DriverTest() {
         @Language("JAVA") source: String,
         compatibilityMode: Boolean = true,
         warnings: String? = "",
-        checkDoclava1: Boolean = false,
         api: String? = null,
         extraArguments: Array<String> = emptyArray(),
         docStubs: Boolean = false,
         showAnnotations: Array<String> = emptyArray(),
         includeSourceRetentionAnnotations: Boolean = true,
         skipEmitPackages: List<String> = listOf("java.lang", "java.util", "java.io"),
-        vararg sourceFiles: TestFile
+        sourceFiles: Array<TestFile>
     ) {
         check(
-            sourceFiles = *sourceFiles,
+            sourceFiles = sourceFiles,
             showAnnotations = showAnnotations,
             stubs = arrayOf(source),
             compatibilityMode = compatibilityMode,
-            warnings = warnings,
-            checkDoclava1 = checkDoclava1,
+            expectedIssues = warnings,
             checkCompilation = true,
             api = api,
             extraArguments = extraArguments,
@@ -86,9 +84,7 @@ class JavadocTest : DriverTest() {
     fun `Relative documentation links in stubs`() {
         checkStubs(
             docStubs = false,
-            checkDoclava1 = false,
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -187,9 +183,7 @@ class JavadocTest : DriverTest() {
     fun `Rewrite relative documentation links in doc-stubs`() {
         checkStubs(
             docStubs = true,
-            checkDoclava1 = false,
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -289,9 +283,7 @@ class JavadocTest : DriverTest() {
         // Properly handle links to inherited methods
         checkStubs(
             docStubs = true,
-            checkDoclava1 = false,
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -370,9 +362,7 @@ class JavadocTest : DriverTest() {
     fun `Rewrite relative documentation links in doc-stubs 3`() {
         checkStubs(
             docStubs = true,
-            checkDoclava1 = false,
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package android.accessibilityservice;
@@ -437,9 +427,7 @@ class JavadocTest : DriverTest() {
     fun `Rewrite relative documentation links in doc-stubs 4`() {
         checkStubs(
             docStubs = true,
-            checkDoclava1 = false,
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package android.content;
@@ -567,9 +555,7 @@ class JavadocTest : DriverTest() {
         // Properly handle links to inherited methods
         checkStubs(
             docStubs = true,
-            checkDoclava1 = false,
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package org.xmlpull.v1;
@@ -613,10 +599,8 @@ class JavadocTest : DriverTest() {
         checkStubs(
             docStubs = true,
             compatibilityMode = false,
-            checkDoclava1 = false,
             warnings = "",
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -711,10 +695,8 @@ class JavadocTest : DriverTest() {
         checkStubs(
             docStubs = true,
             compatibilityMode = false,
-            checkDoclava1 = false,
             warnings = "",
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -758,10 +740,8 @@ class JavadocTest : DriverTest() {
         checkStubs(
             docStubs = true,
             compatibilityMode = false,
-            checkDoclava1 = false,
             warnings = "",
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -824,10 +804,8 @@ class JavadocTest : DriverTest() {
         checkStubs(
             docStubs = true,
             compatibilityMode = false,
-            checkDoclava1 = false,
             warnings = "",
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -876,7 +854,6 @@ class JavadocTest : DriverTest() {
         checkStubs(
             docStubs = true,
             compatibilityMode = false,
-            checkDoclava1 = false,
             warnings =
             if (REPORT_UNRESOLVED_SYMBOLS) {
                 """
@@ -886,8 +863,7 @@ class JavadocTest : DriverTest() {
             } else {
                 ""
             },
-            sourceFiles =
-            *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package test.pkg1;
@@ -925,11 +901,8 @@ class JavadocTest : DriverTest() {
 
     @Test
     fun `Javadoc link to innerclass constructor`() {
-        // Regression test for
-        //  119190588: Javadoc link tag to constructor of static inner class not working
-        // See also https://bugs.openjdk.java.net/browse/JDK-8031625
         check(
-            sourceFiles = *arrayOf(
+            sourceFiles = arrayOf(
                 java(
                     """
                     package android.view;
@@ -969,16 +942,7 @@ class JavadocTest : DriverTest() {
                     """
                 )
             ),
-            checkDoclava1 = false,
             docStubs = true,
-            // You would *think* the right link to the constructor inner class would be
-            //   {@link android.view.WindowInsets.Builder#Builder(android.view.WindowInsets)
-            // but that does not work; per https://bugs.openjdk.java.net/browse/JDK-8031625
-            // we instead have to use
-            //   {@link android.view.WindowInsets.Builder#android.view.WindowInsets.Builder(android.view.WindowInsets)
-            // to get javadoc to turn it into a valid link. (In the platform builds there's
-            // also doclava's LinkReference class which does some validation; it's unclear
-            // whether it works.)
             stubs = arrayOf(
                 """
                 package android.view;
@@ -994,7 +958,7 @@ class JavadocTest : DriverTest() {
                  * @param right New right inset in pixels
                  * @param bottom New bottom inset in pixels
                  * @return A modified copy of this WindowInsets
-                 * @deprecated use {@link android.view.WindowInsets.Builder#WindowInsets.Builder(android.view.WindowInsets) Builder#Builder(WindowInsets)} with
+                 * @deprecated use {@link android.view.WindowInsets.Builder#Builder(android.view.WindowInsets) Builder#Builder(WindowInsets)} with
                  *             {@link android.view.WindowInsets.Builder#setSystemWindowInsets(Insets) Builder#setSystemWindowInsets(Insets)} instead.
                  */
                 @Deprecated
@@ -1005,6 +969,90 @@ class JavadocTest : DriverTest() {
                 public Builder(android.view.WindowInsets insets) { throw new RuntimeException("Stub!"); }
                 public android.view.WindowInsets.Builder setSystemWindowInsets(Insets systemWindowInsets) { throw new RuntimeException("Stub!"); }
                 }
+                }
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `Ensure references to classes in JavaDoc of hidden members do not affect imports`() {
+        check(
+            compatibilityMode = false,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+                    import test.pkg.bar.Bar;
+                    import test.pkg.baz.Baz;
+                    public class Foo {
+                        /**
+                         * This method is hidden so the reference to {@link Baz} in this comment
+                         * should not cause test.pkg.baz.Baz import to be added even though Baz is
+                         * part of the API.
+                         * @hide
+                         */
+                        public void baz() {}
+
+                        /**
+                         * @see Bar
+                         */
+                        public void bar() {}
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg.bar;
+                    import test.pkg.Foo;
+                    import test.pkg.baz.Baz;
+                    public class Bar {
+                        /** @see Baz */
+                        public void baz(Baz baz) {}
+                        /** @see Foo */
+                        public void foo(Foo foo) {}
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg.baz;
+                    public class Baz {
+                    }
+                    """
+                )
+            ),
+            stubs = arrayOf(
+                """
+                package test.pkg;
+                import test.pkg.bar.Bar;
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class Foo {
+                public Foo() { throw new RuntimeException("Stub!"); }
+                /**
+                 * @see Bar
+                 */
+                public void bar() { throw new RuntimeException("Stub!"); }
+                }
+                """,
+                """
+                package test.pkg.bar;
+                import test.pkg.baz.Baz;
+                import test.pkg.Foo;
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class Bar {
+                public Bar() { throw new RuntimeException("Stub!"); }
+                /** @see Baz */
+                public void baz(test.pkg.baz.Baz baz) { throw new RuntimeException("Stub!"); }
+                /** @see Foo */
+                public void foo(test.pkg.Foo foo) { throw new RuntimeException("Stub!"); }
+                }
+                """,
+                """
+                package test.pkg.baz;
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class Baz {
+                public Baz() { throw new RuntimeException("Stub!"); }
                 }
                 """
             )

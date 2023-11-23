@@ -58,4 +58,10 @@ public class Clock {
         return SystemClock.uptimeMillis();
     }
 
+    /**
+     * Waits a given number of milliseconds (of uptimeMillis) before returning.
+     */
+    public void sleep(long ms) {
+        SystemClock.sleep(ms);
+    }
 }

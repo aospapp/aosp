@@ -74,11 +74,11 @@ public boolean replace(@libcore.util.NullFromTypeParam K key, @libcore.util.Null
 
 @libcore.util.Nullable public V computeIfAbsent(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull java.util.function.Function<? super @libcore.util.NullFromTypeParam K,? extends @libcore.util.Nullable V> mappingFunction) { throw new RuntimeException("Stub!"); }
 
-@libcore.util.Nullable public V computeIfPresent(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull java.util.function.BiFunction<? super @libcore.util.NullFromTypeParam K,? super @libcore.util.NonNull V,? extends Nu V> remappingFunction) { throw new RuntimeException("Stub!"); }
+@libcore.util.Nullable public V computeIfPresent(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull java.util.function.BiFunction<? super @libcore.util.NullFromTypeParam K,? super @libcore.util.NonNull V,? extends @libcore.util.Nullable V> remappingFunction) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.Nullable public V compute(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull java.util.function.BiFunction<? super @libcore.util.NullFromTypeParam K,? super @libcore.util.Nullable V,? extends @libcore.util.Nullable V> remappingFunction) { throw new RuntimeException("Stub!"); }
 
-@libcore.util.Nullable public V merge(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull V value, @libcore.util.NonNull java.util.function.BiFunction<? super Nn V,? super @libcore.util.NonNull V,? extends @libcore.util.Nullable V> remappingFunction) { throw new RuntimeException("Stub!"); }
+@libcore.util.Nullable public V merge(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull V value, @libcore.util.NonNull java.util.function.BiFunction<? super @libcore.util.NonNull V,? super @libcore.util.NonNull V,? extends @libcore.util.Nullable V> remappingFunction) { throw new RuntimeException("Stub!"); }
 
 public void forEach(@libcore.util.NonNull java.util.function.BiConsumer<? super @libcore.util.NullFromTypeParam K,? super @libcore.util.NullFromTypeParam V> action) { throw new RuntimeException("Stub!"); }
 

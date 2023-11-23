@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.system;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -337,8 +340,12 @@ public class TtsEngineSettingsFragment extends SettingsPreferenceFragment implem
     @Override
     public boolean onPreferenceClick(Preference preference) {
         if (preference == mInstallVoicesPreference) {
+            logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_TTS_ENGINE_CONFIG_INSTALL_VOICE_DATA);
             installVoiceData();
             return true;
+        } else if (preference == mEngineSettingsPreference) {
+            logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_TTS_ENGINE_CONFIG_SETTINGS_GTTS_ENGINE);
+            return false;
         }
 
         return false;
@@ -347,6 +354,8 @@ public class TtsEngineSettingsFragment extends SettingsPreferenceFragment implem
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         if (preference == mLocalePreference) {
+            logEntrySelected(
+                    TvSettingsEnums.SYSTEM_A11Y_TTS_ENGINE_CONFIG_LANGUAGE_CHOOSE_LANGUAGE);
             String localeString = (String) newValue;
             updateLanguageTo((!TextUtils.isEmpty(localeString) ?
                     mEnginesHelper.parseLocaleString(localeString) : null));
@@ -391,5 +400,10 @@ public class TtsEngineSettingsFragment extends SettingsPreferenceFragment implem
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.TTS_ENGINE_SETTINGS;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_A11Y_TTS_ENGINE_CONFIG;
     }
 }

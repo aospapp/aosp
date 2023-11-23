@@ -16,19 +16,19 @@
 
 #include "CpuExecutor.h"
 
-#include <algorithm>
 #include <gtest/gtest.h>
-#include <memory>
 #include <omp.h>
+#include <unistd.h>
+#include <algorithm>
+#include <memory>
 #include <random>
 #include <thread>
-#include <unistd.h>
 #include <vector>
 
 namespace {
 
 class OpenmpSettingsTest : public ::testing::Test {
-protected:
+   protected:
     virtual void SetUp() override {
         const int blocktimeInitial = kmp_get_blocktime();
         ASSERT_EQ(blocktimeInitial, kOpenmpDefaultBlockTime);
@@ -86,9 +86,7 @@ TEST_F(OpenmpSettingsTest, TestThreaded) {
             ASSERT_EQ(blocktimeSet2, kPreferredBlockTime);
         }));
     }
-    std::for_each(threads.begin(), threads.end(), [](std::thread& t) {
-        t.join();
-    });
+    std::for_each(threads.begin(), threads.end(), [](std::thread& t) { t.join(); });
 }
 
 }  // end namespace

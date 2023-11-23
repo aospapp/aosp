@@ -38,11 +38,6 @@ int drm_tegra_bo_new(struct drm_tegra_bo **bop, struct drm_tegra *drm,
 		     uint32_t flags, uint32_t size);
 int drm_tegra_bo_wrap(struct drm_tegra_bo **bop, struct drm_tegra *drm,
 		      uint32_t handle, uint32_t flags, uint32_t size);
-
-int drm_tegra_bo_name_ref(struct drm_tegra *drm, uint32_t name, uint32_t size,
-			 struct drm_tegra_bo **bop);
-int drm_tegra_bo_name_get(struct drm_tegra_bo *bo, uint32_t *name);
-
 struct drm_tegra_bo *drm_tegra_bo_ref(struct drm_tegra_bo *bo);
 void drm_tegra_bo_unref(struct drm_tegra_bo *bo);
 int drm_tegra_bo_get_handle(struct drm_tegra_bo *bo, uint32_t *handle);

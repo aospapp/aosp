@@ -648,6 +648,7 @@ public abstract class IDNA {
      * @deprecated ICU 55 Use UTS 46 instead via {@link #getUTS46Instance(int)}.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static StringBuffer convertIDNToASCII(String src,int options)
             throws StringPrepParseException{
@@ -843,6 +844,7 @@ public abstract class IDNA {
      * @deprecated ICU 55 Use UTS 46 instead via {@link #getUTS46Instance(int)}.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static StringBuffer convertIDNToUnicode(String src, int options)
             throws StringPrepParseException{

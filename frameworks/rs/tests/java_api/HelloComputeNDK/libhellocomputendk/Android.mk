@@ -21,7 +21,7 @@ LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_MODULE := libhellocomputendk
 LOCAL_MODULE_TAGS := tests
-LOCAL_SRC_FILES := helloComputeNDK.cpp mono.rs
+LOCAL_SRC_FILES := helloComputeNDK.cpp mono.rscript
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 

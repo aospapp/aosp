@@ -10,7 +10,8 @@ hidl_interface {
         "types.hal",
     ],
     interfaces: [
+        "android.hidl.base@1.0",
         "android.hidl.memory.token@1.0",
     ],
-    gen_java: false,
+    gen_java: true,
 }

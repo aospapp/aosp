@@ -47,17 +47,22 @@ class WifiStressTest(WifiBaseTest):
       network.
     """
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
-        self.dut_client = self.android_devices[1]
+        # Note that test_stress_softAP_startup_and_stop_5g will always fail
+        # when testing with a single device.
+        if len(self.android_devices) > 1:
+            self.dut_client = self.android_devices[1]
+        else:
+            self.dut_client = None
         wutils.wifi_test_device_init(self.dut)
         req_params = []
         opt_param = [
             "open_network", "reference_networks", "iperf_server_address",
-            "stress_count", "stress_hours", "attn_vals", "pno_interval"]
+            "stress_count", "stress_hours", "attn_vals", "pno_interval",
+            "iperf_server_port"]
         self.unpack_userparams(
             req_param_names=req_params, opt_param_names=opt_param)
 
@@ -72,12 +77,6 @@ class WifiStressTest(WifiBaseTest):
         self.open_2g = self.open_network[0]["2g"]
         self.open_5g = self.open_network[0]["5g"]
         self.networks = [self.wpa_2g, self.wpa_5g, self.open_2g, self.open_5g]
-        if "iperf_server_address" in self.user_params:
-            self.iperf_server = self.iperf_servers[0]
-        if hasattr(self, 'iperf_server'):
-            self.iperf_server.start()
-            if(len(self.iperf_servers) > 1):
-                self.iperf_servers[1].start()
 
     def setup_test(self):
         self.dut.droid.wakeLockAcquireBright()
@@ -99,10 +98,6 @@ class WifiStressTest(WifiBaseTest):
         if "AccessPoint" in self.user_params:
             del self.user_params["reference_networks"]
             del self.user_params["open_network"]
-        if hasattr(self, 'iperf_server'):
-            self.iperf_server.stop()
-            if(len(self.iperf_servers) > 1):
-                self.iperf_servers[1].stop()
 
     """Helper Functions"""
 
@@ -203,8 +198,8 @@ class WifiStressTest(WifiBaseTest):
         else:
             # force start a single scan so we don't have to wait for the scheduled scan.
             wutils.start_wifi_connection_scan_and_return_status(self.dut)
-            self.log.info("Wait 20s for network selection.")
-            time.sleep(20)
+            self.log.info("Wait 60s for network selection.")
+            time.sleep(60)
         try:
             self.log.info("Connected to %s network after network selection"
                           % self.dut.droid.wifiGetConnectionInfo())
@@ -291,7 +286,7 @@ class WifiStressTest(WifiBaseTest):
                 self.scan_and_connect_by_id(self.wpa_5g, net_id)
                 # Start IPerf traffic from phone to server.
                 # Upload data for 10s.
-                args = "-p {} -t {}".format(self.iperf_server.port, 10)
+                args = "-p {} -t {}".format(self.iperf_server_port, 10)
                 self.log.info("Running iperf client {}".format(args))
                 result, data = self.dut.run_iperf_client(self.iperf_server_address, args)
                 if not result:
@@ -324,17 +319,10 @@ class WifiStressTest(WifiBaseTest):
         sec = self.stress_hours * 60 * 60
         start_time = time.time()
 
-        dl_args = "-p {} -t {} -R".format(self.iperf_server.port, sec)
+        dl_args = "-p {} -t {} -R".format(self.iperf_server_port, sec)
         dl = threading.Thread(target=self.run_long_traffic, args=(sec, dl_args, q))
         dl.start()
-        if(len(self.iperf_servers) > 1):
-            ul_args = "-p {} -t {}".format(self.iperf_servers[1].port, sec)
-            ul = threading.Thread(target=self.run_long_traffic, args=(sec, ul_args, q))
-            ul.start()
-
         dl.join()
-        if(len(self.iperf_servers) > 1):
-            ul.join()
 
         total_time = time.time() - start_time
         self.log.debug("WiFi state = %d" %self.dut.droid.wifiCheckState())
@@ -436,17 +424,14 @@ class WifiStressTest(WifiBaseTest):
             4. Verify softAP is turned down and WiFi is up.
 
         """
-        # Set country code explicitly to "US".
-        self.dut.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
-        self.dut_client.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
         ap_ssid = "softap_" + utils.rand_ascii_str(8)
         ap_password = utils.rand_ascii_str(8)
         self.dut.log.info("softap setup: %s %s", ap_ssid, ap_password)
         config = {wutils.WifiEnums.SSID_KEY: ap_ssid}
         config[wutils.WifiEnums.PWD_KEY] = ap_password
         # Set country code explicitly to "US".
-        self.dut.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
-        self.dut_client.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+        wutils.set_wifi_country_code(self.dut, wutils.WifiEnums.CountryCode.US)
+        wutils.set_wifi_country_code(self.dut_client, wutils.WifiEnums.CountryCode.US)
         for count in range(self.stress_count):
             initial_wifi_state = self.dut.droid.wifiCheckState()
             wutils.start_wifi_tethering(self.dut,
@@ -536,9 +521,12 @@ class WifiStressTest(WifiBaseTest):
         self.dut.droid.goToSleepNow()
         for count in range(self.stress_count):
             self.connect_and_verify_connected_ssid(self.reference_networks[0]['2g'], is_pno=True)
+            wutils.wifi_forget_network(
+                    self.dut, networks[0][WifiEnums.SSID_KEY])
             # move the DUT out of range
             self.attenuators[0].set_atten(95)
             time.sleep(10)
+            self.add_networks(self.dut, networks)
         wutils.set_attns(self.attenuators, "default")
         raise signals.TestPass(details="", extras={"Iterations":"%d" %
             self.stress_count, "Pass":"%d" %(count+1)})

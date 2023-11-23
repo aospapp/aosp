@@ -18,6 +18,7 @@ package com.android.tradefed.result;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
@@ -291,8 +292,10 @@ public class TestRunResultTest {
         assertEquals(TestStatus.FAILURE, test3Result.getStatus());
 
         assertEquals(null, test1Result.getStackTrace());
-        assertEquals("flaky 1\n\nflaky 2", test2Result.getStackTrace());
-        assertEquals("bad_code1\n\nbad_code2\n\nbad_code3", test3Result.getStackTrace());
+        assertEquals("There were 2 failures:\n  flaky 1\n  flaky 2", test2Result.getStackTrace());
+        assertEquals(
+                "There were 3 failures:\n  bad_code1\n  bad_code2\n  bad_code3",
+                test3Result.getStackTrace());
     }
 
     /** Ensure that the merging logic among multiple testRunResults for the same test is correct. */
@@ -342,7 +345,9 @@ public class TestRunResultTest {
         TestResult testResult = testRunResult.get(testcase);
         assertEquals(TestStatus.PASSED, testResult.getStatus());
 
-        assertEquals("Second run failed.\n\nFourth run failed.", testResult.getStackTrace());
+        assertEquals(
+                "There were 2 failures:\n  Second run failed.\n  Fourth run failed.",
+                testResult.getStackTrace());
     }
 
     /** Ensure that merge will raise exceptions if merge TestRunResult for different test. */
@@ -412,7 +417,11 @@ public class TestRunResultTest {
         assertTrue(runMetrics.get("metric2").equals("5000"));
 
         assertTrue(result.getRunLoggedFiles().containsKey("run log"));
-        assertEquals("path2", result.getRunLoggedFiles().get("run log").getPath());
+        assertEquals("path1", result.getRunLoggedFiles().get("run log").get(0).getPath());
+        assertEquals("path2", result.getRunLoggedFiles().get("run log").get(1).getPath());
+        assertFalse(result.isRunFailure());
+        assertNull(result.getRunFailureMessage());
+        assertNull(result.getRunFailureDescription());
     }
 
     /** Ensure that the merging logic among multiple testRunResults for run failures is correct. */
@@ -452,7 +461,9 @@ public class TestRunResultTest {
         assertEquals("fake run", result.getName());
         assertTrue(result.isRunFailure());
         assertTrue(result.isRunComplete());
-        assertEquals("Second run failed.\n\nThird run failed.", result.getRunFailureMessage());
+        assertEquals(
+                "There were 2 failures:\n  Second run failed.\n  Third run failed.",
+                result.getRunFailureMessage());
     }
 
     /** Ensure that the merging logic among multiple testRunResults for one incomplete run. */
@@ -600,6 +611,8 @@ public class TestRunResultTest {
         TestResult testResult = testRunResult.get(testcase);
         assertEquals(TestStatus.PASSED, testResult.getStatus());
 
-        assertEquals("Second run failed.\n\nthird run failed.", testResult.getStackTrace());
+        assertEquals(
+                "There were 2 failures:\n  Second run failed.\n  third run failed.",
+                testResult.getStackTrace());
     }
 }

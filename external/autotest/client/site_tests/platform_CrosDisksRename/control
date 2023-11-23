@@ -24,3 +24,5 @@ job.run_test('platform_CrosDisksRename', timeout_s=10,
              config_file='exfat_tests', tag='exfat')
 job.run_test('platform_CrosDisksRename', timeout_s=10,
              config_file='ntfs_tests', tag='ntfs')
+job.run_test('platform_CrosDisksRename', timeout_s=10,
+             config_file='ext4_tests', tag='ext4')

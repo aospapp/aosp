@@ -13,6 +13,10 @@ party packages should be imported with deps_load().  The reason for this
 is to present a clear API for these unsafe imports, making it easier to
 identify which imports are currently unsafe.  Eventually, everything
 should be moved to virtualenv, but that will not be in the near future.
+
+As an alternative to calling monkeypatch and load in a small scope wherever
+an external module is needed, chromite and autotest imports may also be done at
+the top level of a module using deferred_load() and deferred_chromite_load().
 """
 
 from __future__ import absolute_import
@@ -28,6 +32,7 @@ import os
 import site
 import subprocess
 import sys
+import types
 
 import autotest_lib
 
@@ -102,10 +107,6 @@ Could not find chromite; adding system packages and retrying \
             'django.contrib.sessions',
             'django.contrib.sites',
     )
-
-    # drone_utility uses this.
-    common = importlib.import_module('autotest_lib.scheduler.common')
-    common.autotest_dir = AUTOTEST_DIR
 
 
 def _system_site_packages():
@@ -196,3 +197,48 @@ def _load(name):
     if not _setup_done:
         raise ImportError('cannot load chromite modules before monkeypatching')
     return importlib.import_module(name)
+
+
+def deferred_load(name):
+    """Eventually import module from autotest.
+
+    This function returns a dummy module that will load the given autotest
+    module upon its first use (if monkeypatch() has is called first; else
+    its use will fail).
+
+    @param name: name of module as string, e.g., 'frontend.afe.models'
+    """
+    return _DeferredModule('autotest_lib.%s' % name)
+
+
+def deferred_chromite_load(name):
+    """Eventually import module from chromite.lib.
+
+    This function returns a dummy module that will load the given chromite
+    module upon its first use (if monkeypatch() has is called first; else
+    its use will fail).
+
+    @param name: name of module as string, e.g., 'metrics'
+    """
+    return _DeferredModule('chromite.lib.%s' % name)
+
+
+_UNLOADED_MODULE = object()
+
+
+class _DeferredModule(types.ModuleType):
+    """Module that is loaded upon first usage."""
+
+    def __init__(self, name):
+        super(_DeferredModule, self).__init__(name)
+        self._name = name
+        self._module = _UNLOADED_MODULE
+
+    def __getattribute__(self, name):
+        module = object.__getattribute__(self, "_module")
+        if module is _UNLOADED_MODULE:
+            module_name = object.__getattribute__(self, "_name")
+            module = _load(module_name)
+            self._module = module
+
+        return getattr(module, name)

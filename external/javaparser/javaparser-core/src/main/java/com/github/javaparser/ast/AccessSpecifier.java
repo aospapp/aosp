@@ -33,7 +33,7 @@ public enum AccessSpecifier {
     PUBLIC("public"),
     PRIVATE("private"),
     PROTECTED("protected"),
-    DEFAULT("");
+    PACKAGE_PRIVATE("");
 
     private String codeRepresenation;
 

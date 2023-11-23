@@ -22,21 +22,22 @@ import android.util.AttributeSet;
 import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiPreference;
 
 /**
  * A Preference to be used on the storage size application details page where the summary is
  * displayed towards the right.
  */
-public class StorageAppDetailPreference extends Preference {
+public class StorageAppDetailPreference extends CarUiPreference {
     private String mDetailText;
 
     public StorageAppDetailPreference(Context context, AttributeSet attributeSet) {
         super(context, attributeSet);
         setWidgetLayoutResource(R.layout.summary_preference_widget);
+        setShowChevron(false);
     }
 
     @Override

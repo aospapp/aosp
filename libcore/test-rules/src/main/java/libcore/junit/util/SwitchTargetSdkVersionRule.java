@@ -135,8 +135,8 @@ public abstract class SwitchTargetSdkVersionRule implements TestRule {
         public void evaluate() throws Throwable {
           Object runtime = runtimeInstanceGetter.invoke(null);
           int oldTargetSdkVersion = (int) targetSdkVersionGetter.invoke(runtime);
+          targetSdkVersionSetter.invoke(runtime, targetSdkVersion);
           try {
-            targetSdkVersionSetter.invoke(runtime, targetSdkVersion);
             statement.evaluate();
           } finally {
             targetSdkVersionSetter.invoke(runtime, oldTargetSdkVersion);

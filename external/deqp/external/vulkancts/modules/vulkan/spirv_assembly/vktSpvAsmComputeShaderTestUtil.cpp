@@ -60,15 +60,20 @@ bool verifyOutputWithEpsilon (const std::vector<AllocationSp>& outputAllocs, con
 }
 }
 
-std::string getComputeAsmShaderPreamble (const std::string& capabilities, const std::string& extensions, const std::string& exeModes)
+std::string getComputeAsmShaderPreamble (const std::string& capabilities,
+										 const std::string& extensions,
+										 const std::string& exeModes,
+										 const std::string& extraEntryPoints,
+										 const std::string& extraEntryPointsArguments)
 {
 	return
 		std::string("OpCapability Shader\n") +
 		capabilities +
 		extensions +
 		"OpMemoryModel Logical GLSL450\n"
-		"OpEntryPoint GLCompute %main \"main\" %id\n"
-		"OpExecutionMode %main LocalSize 1 1 1\n"+
+		"OpEntryPoint GLCompute %main \"main\" %id " + extraEntryPointsArguments + "\n" +
+		extraEntryPoints +
+		"OpExecutionMode %main LocalSize 1 1 1\n" +
 		exeModes;
 }
 
@@ -106,19 +111,19 @@ const char* getComputeAsmCommonInt64Types (void)
 		"%i64arr    = OpTypeRuntimeArray %i64\n";
 }
 
-const char* getComputeAsmInputOutputBuffer (void)
-{
-	return
+std::string getComputeAsmInputOutputBuffer (std::string blockStorageClass)
+{	// Uniform | StorageBuffer
+	return std::string() +
 		"%buf     = OpTypeStruct %f32arr\n"
-		"%bufptr  = OpTypePointer Uniform %buf\n"
-		"%indata    = OpVariable %bufptr Uniform\n"
-		"%outdata   = OpVariable %bufptr Uniform\n";
+		"%bufptr  = OpTypePointer " + blockStorageClass + " %buf\n"
+		"%indata    = OpVariable %bufptr " + blockStorageClass + "\n"
+		"%outdata   = OpVariable %bufptr " + blockStorageClass + "\n";
 }
 
-const char* getComputeAsmInputOutputBufferTraits (void)
-{
-	return
-		"OpDecorate %buf BufferBlock\n"
+std::string getComputeAsmInputOutputBufferTraits (std::string blockStorageClass)
+{	// BufferBlock | Block
+	return std::string() +
+		"OpDecorate %buf " + blockStorageClass + "\n"
 		"OpDecorate %indata DescriptorSet 0\n"
 		"OpDecorate %indata Binding 0\n"
 		"OpDecorate %outdata DescriptorSet 0\n"
@@ -167,7 +172,7 @@ std::string makeComputeShaderAssembly(const std::map<std::string, std::string>& 
 
 		"${pre_main:opt}\n"
 
-		"%BP_main   = OpFunction %void None %fun\n"
+		"%BP_main   = OpFunction %void None %voidf\n"
 		"%BP_label  = OpLabel\n"
 		"%BP_id3ul  = OpLoad %v3u32 %BP_id3u\n"
 		"%BP_id4u   = OpCompositeConstruct %v4u32 %BP_id3ul %c_u32_0\n"

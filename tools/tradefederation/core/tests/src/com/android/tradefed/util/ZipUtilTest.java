@@ -15,13 +15,24 @@
  */
 package com.android.tradefed.util;
 
+import com.android.tradefed.util.zip.CentralDirectoryInfo;
+import com.android.tradefed.util.zip.EndCentralDirectoryInfo;
+import com.android.tradefed.util.zip.LocalFileHeader;
+
 import junit.framework.TestCase;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipFile;
 
@@ -188,6 +199,321 @@ public class ZipUtilTest extends TestCase {
             // expected
         } finally {
             FileUtil.deleteFile(tmpFile);
+        }
+    }
+
+    public void testPartipUnzip() throws Exception {
+        File partialZipFile = null;
+        File tmpDir = null;
+        Set<PosixFilePermission> permissions;
+        try {
+            // The zip file is small, read the whole file and assume it's partial.
+            // This does not affect testing the behavior of partial unzipping.
+            partialZipFile = getTestDataFile("partial_zip");
+            EndCentralDirectoryInfo endCentralDirInfo = new EndCentralDirectoryInfo(partialZipFile);
+            List<CentralDirectoryInfo> zipEntries =
+                    ZipUtil.getZipCentralDirectoryInfos(
+                            partialZipFile,
+                            endCentralDirInfo,
+                            endCentralDirInfo.getCentralDirOffset());
+            // The zip file has 3 folders, 4 files.
+            assertEquals(7, zipEntries.size());
+
+            CentralDirectoryInfo zipEntry;
+            LocalFileHeader localFileHeader;
+            File targetFile;
+            tmpDir = FileUtil.createTempDir("partial_unzip");
+
+            // Unzip empty file
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("empty_file"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            // Verify file permissions - readonly - 644 rw-r--r--
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rw-r--r--"), permissions);
+
+            // Unzip text file
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("large_text/file.txt"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            // Verify CRC
+            long crc = FileUtil.calculateCrc32(targetFile);
+            assertEquals(4146093769L, crc);
+            try (BufferedReader br = new BufferedReader(new FileReader(targetFile))) {
+                String line = br.readLine();
+                assertTrue(line.endsWith("this is a text file."));
+            } catch (IOException e) {
+                // fail if the file is corrupt in any way
+                throw new RuntimeException(
+                        String.format("failed reading text file, msg: %s", e.getMessage()));
+            }
+            // Verify file permissions - read/write - 666 rw-rw-rw-
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rw-rw-rw-"), permissions);
+
+            // Verify file permissions - executable - 755 rwxr-xr-x
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("executable/executable_file"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rwxr-xr-x"), permissions);
+
+            // Verify file permissions - readonly - 444 r--r--r--
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("read_only/readonly_file"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("r--r--r--"), permissions);
+
+            // Verify folder permissions - readonly - 744 rwxr--r--
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("read_only/"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rwxr--r--"), permissions);
+
+            // Verify folder permissions - read/write - 755 rwxr-xr-x
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("large_text/"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rwxr-xr-x"), permissions);
+        } finally {
+            FileUtil.deleteFile(partialZipFile);
+            FileUtil.recursiveDelete(tmpDir);
+        }
+    }
+
+    /**
+     * Test partial unzip a small zip file successfully with use-zip64-in-partial-download is set.
+     *
+     * @throws IOException
+     */
+    public void testPartialUnzipWithUseZip64() throws Exception {
+        File partialZipFile = null;
+        File tmpDir = null;
+        Set<PosixFilePermission> permissions;
+        try {
+            // The zip file is small, read the whole file and assume it's partial.
+            // This does not affect testing the behavior of partial unzipping.
+            partialZipFile = getTestDataFile("partial_zip");
+            EndCentralDirectoryInfo endCentralDirInfo =
+                    new EndCentralDirectoryInfo(partialZipFile, true);
+            List<CentralDirectoryInfo> zipEntries =
+                    ZipUtil.getZipCentralDirectoryInfos(
+                            partialZipFile,
+                            endCentralDirInfo,
+                            endCentralDirInfo.getCentralDirOffset(),
+                            true);
+            // The zip file has 3 folders, 4 files.
+            assertEquals(7, zipEntries.size());
+
+            CentralDirectoryInfo zipEntry;
+            LocalFileHeader localFileHeader;
+            File targetFile;
+            tmpDir = FileUtil.createTempDir("partial_unzip");
+
+            // Unzip empty file
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("empty_file"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            // Verify file permissions - readonly - 644 rw-r--r--
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rw-r--r--"), permissions);
+
+            // Unzip text file
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("large_text/file.txt"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            // Verify CRC
+            long crc = FileUtil.calculateCrc32(targetFile);
+            assertEquals(4146093769L, crc);
+            try (BufferedReader br = new BufferedReader(new FileReader(targetFile))) {
+                String line = br.readLine();
+                assertTrue(line.endsWith("this is a text file."));
+            } catch (IOException e) {
+                // fail if the file is corrupt in any way
+                throw new RuntimeException(
+                        String.format("failed reading text file, msg: %s", e.getMessage()));
+            }
+            // Verify file permissions - read/write - 666 rw-rw-rw-
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rw-rw-rw-"), permissions);
+
+            // Verify file permissions - executable - 755 rwxr-xr-x
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("executable/executable_file"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rwxr-xr-x"), permissions);
+
+            // Verify file permissions - readonly - 444 r--r--r--
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("read_only/readonly_file"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("r--r--r--"), permissions);
+
+            // Verify folder permissions - readonly - 744 rwxr--r--
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("read_only/"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rwxr--r--"), permissions);
+
+            // Verify folder permissions - read/write - 755 rwxr-xr-x
+            zipEntry =
+                    zipEntries
+                            .stream()
+                            .filter(e -> e.getFileName().equals("large_text/"))
+                            .findFirst()
+                            .get();
+            targetFile = new File(Paths.get(tmpDir.toString(), zipEntry.getFileName()).toString());
+            localFileHeader =
+                    new LocalFileHeader(partialZipFile, (int) zipEntry.getLocalHeaderOffset());
+            ZipUtil.unzipPartialZipFile(
+                    partialZipFile,
+                    targetFile,
+                    zipEntry,
+                    localFileHeader,
+                    zipEntry.getLocalHeaderOffset());
+            permissions = Files.getPosixFilePermissions(targetFile.toPath());
+            assertEquals(PosixFilePermissions.fromString("rwxr-xr-x"), permissions);
+        } finally {
+            FileUtil.deleteFile(partialZipFile);
+            FileUtil.recursiveDelete(tmpDir);
         }
     }
 

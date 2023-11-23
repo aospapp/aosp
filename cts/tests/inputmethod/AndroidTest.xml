@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="component" value="inputmethod" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <!--
         TODO(yukawa): come up with a proper way to take care of devices that do not support
         installable IMEs.  Ideally target_preparer should have an option to annotate required
@@ -41,6 +42,12 @@
         features, e.g. android.software.input_methods so that we can conditionally install APKs
         based on the feature supported in the target device.
     -->
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
+        <option name="run-command" value="wm dismiss-keyguard" />
+    </target_preparer>
+
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsInputMethodTestCases.apk" />

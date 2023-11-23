@@ -83,6 +83,7 @@ class HWCDisplayPrimary : public HWCDisplay {
   virtual HWC2::Error GetReadbackBufferFence(int32_t *release_fence);
   virtual HWC2::Error PostCommitLayerStack(int32_t *out_retire_fence);
   virtual HWC2::Error ControlIdlePowerCollapse(bool enable, bool synchronous);
+  virtual DisplayError TeardownConcurrentWriteback(void);
 
   virtual HWC2::Error SetDisplayedContentSamplingEnabledVndService(bool enabled);
   virtual HWC2::Error SetDisplayedContentSamplingEnabled(int32_t enabled, uint8_t component_mask, uint64_t max_frames) override;
@@ -93,7 +94,6 @@ class HWCDisplayPrimary : public HWCDisplay {
                                                 int32_t samples_size[NUM_HISTOGRAM_COLOR_COMPONENTS],
                                                 uint64_t* samples[NUM_HISTOGRAM_COLOR_COMPONENTS]) override;
   std::string Dump() override;
-  virtual DisplayError TeardownConcurrentWriteback(void);
 
  private:
   HWCDisplayPrimary(CoreInterface *core_intf, BufferAllocator *buffer_allocator,

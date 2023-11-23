@@ -301,7 +301,7 @@ def test_bench(bench, setting_no, iterations, serials, remote, mode):
   logging.info('Start running benchmark on device...')
 
   # Run benchmark and tests on DUT
-  for i in xrange(iterations):
+  for i in range(iterations):
     logging.info('Iteration No.%d:', i)
     test_cmd = [
         os.path.join(
@@ -463,7 +463,7 @@ def main(argv):
   for bench in bench_list:
     logging.info('Start building and running benchmark: [%s]', bench)
     # Run script for each toolchain settings
-    for setting_no in xrange(setting_count):
+    for setting_no in range(setting_count):
       build_bench(setting_no, bench, compiler, llvm_version, build_os, cflags,
                   ldflags)
 

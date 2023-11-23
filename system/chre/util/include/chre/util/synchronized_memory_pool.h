@@ -25,7 +25,7 @@ namespace chre {
 /**
  * This is a thread-safe version of the MemoryPool.
  */
-template<typename ElementType, size_t kSize>
+template <typename ElementType, size_t kSize>
 class SynchronizedMemoryPool : public NonCopyable {
  public:
   /**
@@ -37,8 +37,8 @@ class SynchronizedMemoryPool : public NonCopyable {
    * @return A pointer to a constructed object or nullptr if the allocation
    *         fails.
    */
-  template<typename... Args>
-  ElementType *allocate(Args&&... args);
+  template <typename... Args>
+  ElementType *allocate(Args &&... args);
 
   /**
    * Releases the memory of a previously allocated element. The pointer provided

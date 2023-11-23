@@ -849,9 +849,13 @@ class RegionSpecializedBase<ArtMethod> : public RegionCommon<ArtMethod> {
     std::vector<const OatFile*> boot_oat_files = oat_file_manager.GetBootOatFiles();
     for (const OatFile* oat_file : boot_oat_files) {
       const OatHeader& oat_header = oat_file->GetOatHeader();
-      const void* jdl = oat_header.GetJniDlsymLookup();
+      const void* jdl = oat_header.GetJniDlsymLookupTrampoline();
       if (jdl != nullptr) {
-        entry_point_names_[jdl] = "JniDlsymLookup (from boot oat file)";
+        entry_point_names_[jdl] = "JniDlsymLookupTrampoline (from boot oat file)";
+      }
+      const void* jdlc = oat_header.GetJniDlsymLookupCriticalTrampoline();
+      if (jdlc != nullptr) {
+        entry_point_names_[jdlc] = "JniDlsymLookupCriticalTrampoline (from boot oat file)";
       }
       const void* qgjt = oat_header.GetQuickGenericJniTrampoline();
       if (qgjt != nullptr) {
@@ -897,6 +901,8 @@ class RegionSpecializedBase<ArtMethod> : public RegionCommon<ArtMethod> {
           return "QuickResolutionStub";
         } else if (class_linker_->IsJniDlsymLookupStub(addr)) {
           return "JniDlsymLookupStub";
+        } else if (class_linker_->IsJniDlsymLookupCriticalStub(addr)) {
+          return "JniDlsymLookupCriticalStub";
         }
         // Match the address against those that we saved from the boot OAT files.
         if (entry_point_names_.find(addr) != entry_point_names_.end()) {
@@ -1442,7 +1448,10 @@ class ImgDiagDumper {
         -> std::optional<backtrace_map_t> {
       // Find the memory map for the current boot image component.
       for (const backtrace_map_t* map : maps) {
-        if (EndsWith(map->name, image_location_base_name)) {
+        // The map name ends with ']' if it's an anonymous memmap. We need to special case that
+        // to find the boot image map in some cases.
+        if (EndsWith(map->name, image_location_base_name) ||
+            EndsWith(map->name, image_location_base_name + "]")) {
           if ((map->flags & PROT_WRITE) != 0) {
             return *map;
           }
@@ -1464,6 +1473,10 @@ class ImgDiagDumper {
     backtrace_map_t boot_map = maybe_boot_map.value_or(backtrace_map_t{});
     // Sanity check boot_map_.
     CHECK(boot_map.end >= boot_map.start);
+
+    // Adjust the `end` of the mapping. Some other mappings may have been
+    // inserted within the image.
+    boot_map.end = RoundUp(boot_map.start + image_header.GetImageSize(), kPageSize);
     // The size of the boot image mapping.
     size_t boot_map_size = boot_map.end - boot_map.start;
 
@@ -1475,7 +1488,10 @@ class ImgDiagDumper {
         return false;
       }
       backtrace_map_t zygote_boot_map = maybe_zygote_boot_map.value_or(backtrace_map_t{});
-      if (zygote_boot_map.start != boot_map.start || zygote_boot_map.end != boot_map.end) {
+      // Adjust the `end` of the mapping. Some other mappings may have been
+      // inserted within the image.
+      zygote_boot_map.end = RoundUp(zygote_boot_map.start + image_header.GetImageSize(), kPageSize);
+      if (zygote_boot_map.start != boot_map.start) {
         os << "Zygote boot map does not match image boot map: "
            << "zygote begin " << reinterpret_cast<const void*>(zygote_boot_map.start)
            << ", zygote end " << reinterpret_cast<const void*>(zygote_boot_map.end)
@@ -1740,7 +1756,7 @@ class ImgDiagDumper {
       }
     }
 
-    return page_frame_number != page_frame_number_clean;
+    return (page_frame_number != page_frame_number_clean) ? 1 : 0;
   }
 
   void PrintPidLine(const std::string& kind, pid_t pid) {

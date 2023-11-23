@@ -17,16 +17,22 @@
 package com.android.settings.network.telephony;
 
 import android.content.Context;
+import android.os.PersistableBundle;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 
 import com.android.settings.core.BasePreferenceController;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * {@link BasePreferenceController} that used by all preferences that requires subscription id.
  */
 public abstract class TelephonyBasePreferenceController extends BasePreferenceController
-        implements TelephonyAvailabilityCallback {
+        implements TelephonyAvailabilityCallback, TelephonyAvailabilityHandler {
     protected int mSubId;
+    private AtomicInteger mAvailabilityStatus = new AtomicInteger(0);
+    private AtomicInteger mSetSessionCount = new AtomicInteger(0);
 
     public TelephonyBasePreferenceController(Context context, String preferenceKey) {
         super(context, preferenceKey);
@@ -35,6 +41,37 @@ public abstract class TelephonyBasePreferenceController extends BasePreferenceCo
 
     @Override
     public int getAvailabilityStatus() {
-        return MobileNetworkUtils.getAvailability(mContext, mSubId, this::getAvailabilityStatus);
+        if (mSetSessionCount.get() <= 0) {
+            mAvailabilityStatus.set(MobileNetworkUtils
+                    .getAvailability(mContext, mSubId, this::getAvailabilityStatus));
+        }
+        return mAvailabilityStatus.get();
+    }
+
+    @Override
+    public void setAvailabilityStatus(int status) {
+        mAvailabilityStatus.set(status);
+        mSetSessionCount.getAndIncrement();
+    }
+
+    @Override
+    public void unsetAvailabilityStatus() {
+        mSetSessionCount.getAndDecrement();
+    }
+
+    /**
+     * Get carrier config based on specific subscription id.
+     *
+     * @param subId is the subscription id
+     * @return {@link PersistableBundle} of carrier config, or {@code null} when carrier config
+     * is not available.
+     */
+    public PersistableBundle getCarrierConfigForSubId(int subId) {
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            return null;
+        }
+        final CarrierConfigManager carrierConfigMgr =
+                mContext.getSystemService(CarrierConfigManager.class);
+        return carrierConfigMgr.getConfigForSubId(subId);
     }
 }

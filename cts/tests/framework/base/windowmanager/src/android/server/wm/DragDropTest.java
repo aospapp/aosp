@@ -21,15 +21,18 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
+import android.platform.test.annotations.Presubmit;
 import android.server.wm.cts.R;
 import android.view.DragEvent;
 import android.view.InputDevice;
@@ -38,12 +41,10 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -53,16 +54,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+@Presubmit
 @RunWith(AndroidJUnit4.class)
-public class DragDropTest {
+public class DragDropTest extends WindowManagerTestBase {
     static final String TAG = "DragDropTest";
 
     final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
     final UiAutomation mAutomation = mInstrumentation.getUiAutomation();
-
-    @Rule
-    public ActivityTestRule<DragDropActivity> mActivityRule =
-            new ActivityTestRule<>(DragDropActivity.class);
 
     private DragDropActivity mActivity;
 
@@ -307,22 +305,19 @@ public class DragDropTest {
         });
     }
 
-    private boolean init() {
-        // Only run for non-watch devices
-        if (mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-            return false;
-        }
-        return true;
+    /** Checks if device type is watch. */
+    private boolean isWatchDevice() {
+        return mInstrumentation.getTargetContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 
     @Before
-    public void setUp() {
-        mActivity = mActivityRule.getActivity();
+    public void setUp() throws InterruptedException {
+        assumeFalse(isWatchDevice());
+        mActivity = startActivity(DragDropActivity.class);
+
         mStartReceived = new CountDownLatch(1);
         mEndReceived = new CountDownLatch(1);
-
-        // Wait for idle
-        mInstrumentation.waitForIdleSync();
     }
 
     @After
@@ -387,10 +382,6 @@ public class DragDropTest {
      */
     @Test
     public void testNoExtraEvents() throws Exception {
-        if (!init()) {
-            return;
-        }
-
         runOnMain(() -> {
             // Tell all views in layout to return false to all events, and log them.
             setRejectingHandlersOnTree(mActivity.findViewById(R.id.drag_drop_activity_main));
@@ -435,10 +426,6 @@ public class DragDropTest {
      */
     @Test
     public void testBlackHole() throws Exception {
-        if (!init()) {
-            return;
-        }
-
         runOnMain(() -> {
             // Accepting child.
             mActivity.findViewById(R.id.inner).setOnDragListener((v, ev) -> {
@@ -483,10 +470,6 @@ public class DragDropTest {
      */
     @Test
     public void testEnterExit() throws Exception {
-        if (!init()) {
-            return;
-        }
-
         runOnMain(() -> {
             // The setup is same as for testBlackHole.
 
@@ -546,10 +529,6 @@ public class DragDropTest {
      */
     @Test
     public void testOverNowhere() throws Exception {
-        if (!init()) {
-            return;
-        }
-
         runOnMain(() -> {
             // Accepting child.
             mActivity.findViewById(R.id.inner).setOnDragListener((v, ev) -> {
@@ -589,10 +568,6 @@ public class DragDropTest {
      */
     @Test
     public void testAcceptingGroupInTheMiddle() throws Exception {
-        if (!init()) {
-            return;
-        }
-
         runOnMain(() -> {
             // Set accepting handlers to the inner view and its 2 ancestors.
             mActivity.findViewById(R.id.inner).setOnDragListener((v, ev) -> {
@@ -645,10 +620,6 @@ public class DragDropTest {
      */
     @Test
     public void testDrawableState() throws Exception {
-        if (!init()) {
-            return;
-        }
-
         runOnMain(() -> {
             // Set accepting handler for the inner view.
             mActivity.findViewById(R.id.inner).setOnDragListener((v, ev) -> {
@@ -688,5 +659,47 @@ public class DragDropTest {
         runOnMain(() -> {
             assertFalse(drawableStateContains(R.id.inner, android.R.attr.state_drag_hovered));
         });
+    }
+
+    /**
+     * Tests if window is removing, it should not perform drag.
+     */
+    @Test
+    public void testNoDragIfWindowCantReceiveInput() throws InterruptedException {
+        injectMouse5(R.id.draggable, MotionEvent.ACTION_DOWN);
+
+        runOnMain(() -> {
+            // finish activity and start drag drop.
+            View v = mActivity.findViewById(R.id.draggable);
+            mActivity.finish();
+            assertFalse("Shouldn't start drag",
+                    v.startDragAndDrop(sClipData, new View.DragShadowBuilder(v), sLocalState, 0));
+        });
+
+        injectMouse5(R.id.draggable, MotionEvent.ACTION_UP);
+    }
+
+    /**
+     * Tests if there is no touch down, it should not perform drag.
+     */
+    @Test
+    public void testNoDragIfNoTouchDown() throws InterruptedException {
+        // perform a click.
+        injectMouse5(R.id.draggable, MotionEvent.ACTION_DOWN);
+        injectMouse5(R.id.draggable, MotionEvent.ACTION_UP);
+
+        runOnMain(() -> {
+            View v = mActivity.findViewById(R.id.draggable);
+            assertFalse("Shouldn't start drag",
+                v.startDragAndDrop(sClipData, new View.DragShadowBuilder(v), sLocalState, 0));
+        });
+    }
+
+    public static class DragDropActivity extends FocusableActivity {
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setContentView(R.layout.drag_drop_layout);
+        }
     }
 }

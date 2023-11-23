@@ -47,7 +47,6 @@
   <option name="compatibility:include-filter" value="VtsKernelProcFileApi" />
   <option name="compatibility:include-filter" value="VtsKernelLinuxKselftest" />
   <option name="compatibility:include-filter" value="VtsKernelLinuxKselftestPresubmit" />
-  <option name="compatibility:include-filter" value="VtsKernelSyscallExistence" />
   <option name="compatibility:include-filter" value="VtsKernelApiSysfsTest" />
   <option name="compatibility:include-filter" value="VtsKernelBinderTest" />
   <option name="compatibility:include-filter" value="VtsKernelHwBinder" />

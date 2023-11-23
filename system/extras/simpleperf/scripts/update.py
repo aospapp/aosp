@@ -22,7 +22,6 @@ import shutil
 import stat
 import textwrap
 
-
 THIS_DIR = os.path.realpath(os.path.dirname(__file__))
 
 
@@ -34,41 +33,57 @@ class InstallEntry(object):
         self.need_strip = need_strip
 
 
+MINGW = 'local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8/x86_64-w64-mingw32/'
 INSTALL_LIST = [
-    # simpleperf on device
-    InstallEntry('sdk_arm64-sdk', 'simpleperf', 'android/arm64/simpleperf'),
-    InstallEntry('sdk_arm64-sdk', 'simpleperf32', 'android/arm/simpleperf'),
-    InstallEntry('sdk_x86_64-sdk', 'simpleperf', 'android/x86_64/simpleperf'),
-    InstallEntry('sdk_x86_64-sdk', 'simpleperf32', 'android/x86/simpleperf'),
+    # simpleperf on device.
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/android/arm64/simpleperf_ndk64',
+                 'android/arm64/simpleperf'),
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/android/arm/simpleperf_ndk',
+                 'android/arm/simpleperf'),
+    InstallEntry('MODULES-IN-system-extras-simpleperf_x86',
+                 'simpleperf/android/x86_64/simpleperf_ndk64',
+                 'android/x86_64/simpleperf'),
+    InstallEntry('MODULES-IN-system-extras-simpleperf_x86',
+                 'simpleperf/android/x86/simpleperf_ndk',
+                 'android/x86/simpleperf'),
 
-    # simpleperf on host
-    InstallEntry('sdk_arm64-sdk', 'simpleperf_host', 'linux/x86_64/simpleperf', True),
-    InstallEntry('sdk_arm64-sdk', 'simpleperf_host32', 'linux/x86/simpleperf', True),
-    InstallEntry('sdk_mac', 'simpleperf_host', 'darwin/x86_64/simpleperf'),
-    InstallEntry('sdk_mac', 'simpleperf_host32', 'darwin/x86/simpleperf'),
-    # simpleperf.exe on x86_64 windows doesn't work, use simpleperf32.exe instead.
-    InstallEntry('sdk', 'simpleperf32.exe', 'windows/x86_64/simpleperf.exe', True),
-    InstallEntry('sdk', 'simpleperf32.exe', 'windows/x86/simpleperf.exe', True),
+    # simpleperf on host. Linux and macOS are 64-bit only these days.
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/linux/x86_64/simpleperf_ndk64',
+                 'linux/x86_64/simpleperf', True),
+    InstallEntry('MODULES-IN-system-extras-simpleperf_mac',
+                 'simpleperf/darwin/x86_64/simpleperf_ndk64',
+                 'darwin/x86_64/simpleperf'),
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/windows/x86_64/simpleperf_ndk64.exe',
+                 'windows/x86_64/simpleperf.exe', True),
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/windows/x86/simpleperf_ndk.exe',
+                 'windows/x86/simpleperf.exe', True),
 
     # libsimpleperf_report.so on host
-    InstallEntry('sdk_arm64-sdk', 'libsimpleperf_report.so', 'linux/x86_64/libsimpleperf_report.so',
-                 True),
-    InstallEntry('sdk_arm64-sdk', 'libsimpleperf_report32.so', 'linux/x86/libsimpleperf_report.so',
-                 True),
-    InstallEntry('sdk_mac', 'libsimpleperf_report.dylib',
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/linux/x86_64/libsimpleperf_report.so',
+                 'linux/x86_64/libsimpleperf_report.so', True),
+    InstallEntry('MODULES-IN-system-extras-simpleperf_mac',
+                 'simpleperf/darwin/x86_64/libsimpleperf_report.dylib',
                  'darwin/x86_64/libsimpleperf_report.dylib'),
-    InstallEntry('sdk_mac', 'libsimpleperf_report32.so', 'darwin/x86/libsimpleperf_report.dylib'),
-    InstallEntry('sdk', 'libsimpleperf_report.dll', 'windows/x86_64/libsimpleperf_report.dll',
-                 True),
-    InstallEntry('sdk', 'libsimpleperf_report32.dll', 'windows/x86/libsimpleperf_report.dll', True),
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/windows/x86_64/libsimpleperf_report.dll',
+                 'windows/x86_64/libsimpleperf_report.dll', True),
+    InstallEntry('MODULES-IN-system-extras-simpleperf',
+                 'simpleperf/windows/x86/libsimpleperf_report.dll',
+                 'windows/x86/libsimpleperf_report.dll', True),
 
     # libwinpthread-1.dll on windows host
-    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8' +
-                 '/x86_64-w64-mingw32/bin/libwinpthread-1.dll', 'libwinpthread-1.dll',
+    InstallEntry(MINGW + '/bin/libwinpthread-1.dll', 'libwinpthread-1.dll',
                  'windows/x86_64/libwinpthread-1.dll', False),
-    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8' +
-                 '/x86_64-w64-mingw32/lib32/libwinpthread-1.dll', 'libwinpthread-1_32.dll',
-                 'windows/x86/libwinpthread-1.dll', False),
+    InstallEntry(MINGW + '/lib32/libwinpthread-1.dll',
+                 'libwinpthread-1_32.dll',
+                 'windows/x86/libwinpthread-1.dll',
+                 False),
 ]
 
 
@@ -141,6 +156,7 @@ def install_entry(branch, build, install_dir, entry):
     need_strip = entry.need_strip
 
     fetch_artifact(branch, build, target, name)
+    name = os.path.basename(name)
     exe_stat = os.stat(name)
     os.chmod(name, exe_stat.st_mode | stat.S_IEXEC)
     if need_strip:
@@ -156,7 +172,7 @@ def get_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '-b', '--branch', default='aosp-master',
+        '-b', '--branch', default='aosp-simpleperf-release',
         help='Branch to pull build from.')
     parser.add_argument('--build', required=True, help='Build number to pull.')
     parser.add_argument(

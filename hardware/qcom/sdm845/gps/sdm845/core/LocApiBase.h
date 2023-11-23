@@ -80,12 +80,12 @@ class LocApiBase {
     friend struct LocOpenMsg;
     friend class ContextBase;
     const MsgTask* mMsgTask;
-    ContextBase *mContext;
     LocAdapterBase* mLocAdapters[MAX_ADAPTERS];
     uint64_t mSupportedMsg;
     uint8_t mFeaturesSupported[MAX_FEATURE_LENGTH];
 
 protected:
+    ContextBase *mContext;
     virtual enum loc_api_adapter_err
         open(LOC_API_ADAPTER_EVENT_MASK_T mask);
     virtual enum loc_api_adapter_err

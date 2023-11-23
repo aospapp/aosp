@@ -17,23 +17,27 @@
 package com.android.car.settings.network;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
-import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
 import com.android.internal.util.CollectionUtils;
+import com.android.settingslib.search.SearchIndexable;
 
 import com.google.android.collect.Lists;
 
 import java.util.List;
 
 /** Mobile network settings homepage. */
+@SearchIndexable
 public class MobileNetworkFragment extends SettingsFragment implements
         MobileNetworkUpdateManager.MobileNetworkUpdateListener {
 
@@ -89,8 +93,7 @@ public class MobileNetworkFragment extends SettingsFragment implements
         super.onActivityCreated(savedInstanceState);
 
         if (mTitle != null) {
-            TextView titleView = requireActivity().findViewById(R.id.title);
-            titleView.setText(mTitle);
+            getToolbar().setTitle(mTitle);
         }
     }
 
@@ -113,14 +116,22 @@ public class MobileNetworkFragment extends SettingsFragment implements
         }
 
         if (info != null) {
-            TextView titleView = requireActivity().findViewById(R.id.title);
-
             // It is possible for this to be called before the activity is fully created. If so,
             // cache the value so that it can be constructed onActivityCreated.
             mTitle = info.getDisplayName();
-            if (titleView != null) {
-                titleView.setText(mTitle);
+            if (getToolbar() != null) {
+                getToolbar().setTitle(mTitle);
             }
         }
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.mobile_network_fragment,
+                    Settings.ACTION_NETWORK_OPERATOR_SETTINGS) {
+                @Override
+                protected boolean isPageSearchEnabled(Context context) {
+                    return NetworkUtils.hasMobileNetwork(
+                            context.getSystemService(ConnectivityManager.class));
+                }
+            };
 }

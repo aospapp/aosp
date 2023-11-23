@@ -22,14 +22,16 @@ import java.nio.ByteBuffer;
 /**
  * This class implements the DHCP-DECLINE packet.
  */
-class DhcpDeclinePacket extends DhcpPacket {
+public class DhcpDeclinePacket extends DhcpPacket {
     /**
      * Generates a DECLINE packet with the specified parameters.
      */
     DhcpDeclinePacket(int transId, short secs, Inet4Address clientIp, Inet4Address yourIp,
-                      Inet4Address nextIp, Inet4Address relayIp,
-                      byte[] clientMac) {
+                      Inet4Address nextIp, Inet4Address relayIp, byte[] clientMac,
+                      Inet4Address requestedIpAddress, Inet4Address serverIdentifier) {
         super(transId, secs, clientIp, yourIp, nextIp, relayIp, clientMac, false);
+        mRequestedIp = requestedIpAddress;
+        mServerIdentifier = serverIdentifier;
     }
 
     public String toString() {
@@ -55,6 +57,8 @@ class DhcpDeclinePacket extends DhcpPacket {
     void finishPacket(ByteBuffer buffer) {
         addTlv(buffer, DHCP_MESSAGE_TYPE, DHCP_MESSAGE_TYPE_DECLINE);
         addTlv(buffer, DHCP_CLIENT_IDENTIFIER, getClientId());
+        addTlv(buffer, DHCP_REQUESTED_IP, mRequestedIp);
+        addTlv(buffer, DHCP_SERVER_IDENTIFIER, mServerIdentifier);
         // RFC 2131 says we MUST NOT include our common client TLVs or the parameter request list.
         addTlvEnd(buffer);
     }

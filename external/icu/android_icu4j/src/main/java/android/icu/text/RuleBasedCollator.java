@@ -1800,7 +1800,7 @@ public final class RuleBasedCollator extends Collator {
      * {@inheritDoc}
      * @hide draft / provisional / internal are hidden on Android
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @Override
     public ULocale getLocale(ULocale.Type type) {
         if (type == ULocale.ACTUAL_LOCALE) {

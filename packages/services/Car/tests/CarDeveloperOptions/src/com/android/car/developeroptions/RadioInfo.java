@@ -170,6 +170,7 @@ public class RadioInfo extends Activity {
     private static final int EVENT_SET_PREFERRED_TYPE_DONE = 1001;
     private static final int EVENT_QUERY_SMSC_DONE = 1005;
     private static final int EVENT_UPDATE_SMSC_DONE = 1006;
+    private static final int EVENT_PHYSICAL_CHANNEL_CONFIG_CHANGED = 1007;
 
     private static final int MENU_ITEM_SELECT_BAND  = 0;
     private static final int MENU_ITEM_VIEW_ADN     = 1;
@@ -313,12 +314,6 @@ public class RadioInfo extends Activity {
             updateImsProvisionedState();
         }
 
-        @Override
-        public void onPhysicalChannelConfigurationChanged(
-                List<PhysicalChannelConfig> configs) {
-            updatePhysicalChannelConfiguration(configs);
-        }
-
     };
 
     private void updatePhysicalChannelConfiguration(List<PhysicalChannelConfig> configs) {
@@ -380,6 +375,13 @@ public class RadioInfo extends Activity {
                     if (ar.exception != null) {
                         smsc.setText("update error");
                     }
+                    break;
+                case EVENT_PHYSICAL_CHANNEL_CONFIG_CHANGED:
+                    ar = (AsyncResult) msg.obj;
+                    if (ar.exception != null) {
+                        mPhyChanConfig.setText(("update error"));
+                    }
+                    updatePhysicalChannelConfiguration((List<PhysicalChannelConfig>) ar.result);
                     break;
                 default:
                     super.handleMessage(msg);
@@ -574,8 +576,9 @@ public class RadioInfo extends Activity {
                 | PhoneStateListener.LISTEN_CALL_FORWARDING_INDICATOR
                 | PhoneStateListener.LISTEN_CELL_INFO
                 | PhoneStateListener.LISTEN_SERVICE_STATE
-                | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
-                | PhoneStateListener.LISTEN_PHYSICAL_CHANNEL_CONFIGURATION);
+                | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+        phone.registerForPhysicalChannelConfig(mHandler,
+            EVENT_PHYSICAL_CHANNEL_CONFIG_CHANGED, null);
 
         mConnectivityManager.registerNetworkCallback(
                 mDefaultNetworkRequest, mNetworkCallback, mHandler);
@@ -592,7 +595,7 @@ public class RadioInfo extends Activity {
         mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
         mTelephonyManager.setCellInfoListRate(CELL_INFO_LIST_RATE_DISABLED);
         mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
-
+        phone.unregisterForPhysicalChannelConfig(mHandler);
     }
 
     private void restoreFromBundle(Bundle b) {
@@ -1526,8 +1529,10 @@ public class RadioInfo extends Activity {
     };
 
     boolean isCbrsSupported() {
-        return getResources().getBoolean(
-              com.android.internal.R.bool.config_cbrs_supported);
+        // No longer possible to access com.android.internal.R.bool.config_cbrs_supported, so
+        // returning false for now.
+        // TODO: This needs to be cleaned up in future CL.
+        return false;
     }
 
     void updateCbrsDataState(boolean state) {

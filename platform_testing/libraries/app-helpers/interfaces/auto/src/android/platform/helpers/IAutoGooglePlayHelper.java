@@ -16,40 +16,48 @@
 
 package android.platform.helpers;
 
-public interface IAutoGooglePlayHelper extends IAppHelper {
+public interface IAutoGooglePlayHelper extends IAppHelper, Scrollable {
 
     /**
      * Setup expectations: Google Play app is open.
      *
-     * This method is used to search a app on Google Play.
+     * <p>This method is used to search an app and click it in Google Play.
+     */
+    void searchAndClick(String appName);
+
+    /**
+     * Setup expectations: Google Play app is open.
+     *
+     * <p>This method is used to search an app.
      */
     void searchApp(String appName);
 
     /**
      * Setup expectations: Google Play app is open.
      *
-     * This method is used to install a app.
+     * <p>This method is used to install a app.
      */
     void installApp();
 
     /**
      * Setup expectations: Google Play app is open.
      *
-     * This method is used to cancel a download.
+     * <p>This method is used to cancel a download.
      */
     void cancelDownload();
 
     /**
      * Setup expectations: Google Play app is open.
      *
-     * This method is used to open a installed app.
+     * <p>This method is used to return back to Google Play main page
      */
-    void openApp();
+    void returnToMainPage();
 
     /**
      * Setup expectations: Google Play app is open.
      *
-     * This method is used to return back to Google Play main page
+     * <p>This method is used to open a installed app.
      */
-    void returnToMainPage();
+    @Deprecated
+    void openApp();
 }

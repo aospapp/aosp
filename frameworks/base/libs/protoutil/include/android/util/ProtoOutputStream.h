@@ -90,6 +90,7 @@ class ProtoOutputStream
 {
 public:
     ProtoOutputStream();
+    ProtoOutputStream(sp<EncodedBuffer> buffer);
     ~ProtoOutputStream();
 
     /**
@@ -98,6 +99,7 @@ public:
     bool write(uint64_t fieldId, double val);
     bool write(uint64_t fieldId, float val);
     bool write(uint64_t fieldId, int val);
+    bool write(uint64_t fieldId, long val);
     bool write(uint64_t fieldId, long long val);
     bool write(uint64_t fieldId, bool val);
     bool write(uint64_t fieldId, std::string val);

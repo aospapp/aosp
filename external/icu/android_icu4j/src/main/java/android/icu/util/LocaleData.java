@@ -20,6 +20,7 @@ import android.icu.util.ULocale.Category;
  * A class for accessing miscellaneous data in the locale bundles
  * @author ram
  */
+@libcore.api.IntraCoreApi
 public final class LocaleData {
 
     //    private static final String EXEMPLAR_CHARS      = "ExemplarCharacters";
@@ -39,6 +40,7 @@ public final class LocaleData {
      *   http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements</a>.
      * @hide unsupported on Android
      */
+    @libcore.api.IntraCoreApi
     public static final int ES_STANDARD = 0;
 
     /**
@@ -57,6 +59,7 @@ public final class LocaleData {
      *   http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements</a>.
      * @hide unsupported on Android
      */
+    @libcore.api.IntraCoreApi
     public static final int ES_INDEX = 2;
 
     /**
@@ -160,6 +163,7 @@ public final class LocaleData {
      * @return          The set of exemplar characters for the given locale.
      * @hide unsupported on Android
      */
+    @libcore.api.IntraCoreApi
     public static UnicodeSet getExemplarSet(ULocale locale, int options, int extype) {
         return LocaleData.getInstance(locale).getExemplarSet(options, extype);
     }
@@ -184,6 +188,7 @@ public final class LocaleData {
      * @exception       RuntimeException if the extype is invalid.
      * @hide unsupported on Android
      */
+    @libcore.api.IntraCoreApi
     public UnicodeSet getExemplarSet(int options, int extype) {
         String [] exemplarSetTypes = {
                 "ExemplarCharacters",

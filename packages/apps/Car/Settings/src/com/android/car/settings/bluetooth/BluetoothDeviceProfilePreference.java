@@ -77,7 +77,7 @@ public class BluetoothDeviceProfilePreference extends SwitchPreference {
             setChecked(
                     mProfile.getConnectionStatus(mCachedDevice.getDevice()) == STATE_CONNECTED);
         } else {
-            setChecked(mProfile.isPreferred(mCachedDevice.getDevice()));
+            setChecked(mProfile.isEnabled(mCachedDevice.getDevice()));
         }
     }
 }

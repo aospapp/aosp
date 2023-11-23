@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 
+#include "tensorflow/lite/kernels/internal/types.h"
+#define LOG_TAG "Operations"
+
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/integer_ops/fully_connected.h>
+#include <tensorflow/lite/kernels/internal/reference/reference_ops.h>
+
+#include <vector>
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
-
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
-#include "tensorflow/lite/kernels/internal/reference/reference_ops.h"
-
 #include "Tracing.h"
 
 namespace android {
@@ -38,6 +44,8 @@ constexpr uint32_t kNumOutputs = 1;
 constexpr uint32_t kOutputTensor = 0;
 
 namespace {
+
+using namespace hal;
 
 // executionMutex is used to protect concurrent access of non-threadsafe resources
 // like gemmlowp::GemmContext.
@@ -136,6 +144,80 @@ bool fullyConnectedQuant8(const uint8_t* inputData, const Shape& inputShape,
     return true;
 }
 
+bool fullyConnectedQuant8(const int8_t* inputData, const Shape& inputShape,
+                          const int8_t* weightsData, const Shape& weightsShape,
+                          const int32_t* biasData, const Shape& biasShape, int32_t activation,
+                          int8_t* outputData, const Shape& outputShape) {
+    NNTRACE_TRANS("fullyConnectedQuant8Signed");
+
+    double realMultiplier = 0.0;
+    int32_t outputMultiplier = 0;
+    int32_t outputShift = 0;
+    int32_t outputActivationMin = 0;
+    int32_t outputActivationMax = 0;
+
+    NN_RET_CHECK(GetQuantizedConvolutionMultipler(inputShape, weightsShape, biasShape, outputShape,
+                                                  &realMultiplier));
+    NN_RET_CHECK(QuantizeMultiplier(realMultiplier, &outputMultiplier, &outputShift));
+    CalculateActivationRangeInt8(activation, outputShape, &outputActivationMin,
+                                 &outputActivationMax);
+
+    tflite::FullyConnectedParams params;
+    params.input_offset = -inputShape.offset;
+    params.weights_offset = -weightsShape.offset;
+    params.output_offset = outputShape.offset;
+    params.output_multiplier = outputMultiplier;
+    params.output_shift = outputShift;
+    params.quantized_activation_min = outputActivationMin;
+    params.quantized_activation_max = outputActivationMax;
+
+    NNTRACE_COMP_SWITCH("reference_integer_ops::FullyConnected");
+    tflite::reference_integer_ops::FullyConnected(
+            params, convertShapeToTflshape(inputShape), inputData,
+            convertShapeToTflshape(weightsShape), weightsData, convertShapeToTflshape(biasShape),
+            biasData, convertShapeToTflshape(outputShape), outputData);
+
+    return true;
+}
+
+bool validateShapes(const Shape& input, const Shape& weights, const Shape& bias,
+                    Shape* output = nullptr) {
+    // Check all the parameters of tensor match within themselves and match the
+    // input configuration.
+    NN_RET_CHECK(weights.type == input.type);
+    if (input.type == OperandType::TENSOR_QUANT8_ASYMM ||
+        input.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(bias.type == OperandType::TENSOR_INT32);
+    } else {
+        NN_RET_CHECK(bias.type == input.type);
+    }
+    // The Tensorflow fully connected layer specification says that input should
+    // be of at least rank 2, so we check. Tflite doesn't check.
+    NN_RET_CHECK_GE(getNumberOfDimensions(input), 2);
+    NN_RET_CHECK_LE(getNumberOfDimensions(input), 4);
+    NN_RET_CHECK_EQ(getNumberOfDimensions(weights), 2);
+    NN_RET_CHECK_EQ(getNumberOfDimensions(bias), 1);
+    uint32_t input_n_elements = getNumberOfElements(input);
+    uint32_t num_units = getSizeOfDimension(weights, 0);
+    uint32_t input_size = getSizeOfDimension(weights, 1);
+    uint32_t bias_len = getSizeOfDimension(bias, 0);
+    uint32_t batch_size = input_size == 0 ? 0 : input_n_elements / input_size;
+    if (batch_size != 0) {
+        NN_RET_CHECK_EQ(input_size * batch_size, input_n_elements);
+    }
+    if (num_units != 0 && bias_len != 0) {
+        NN_RET_CHECK_EQ(bias_len, num_units);
+    }
+    if (output != nullptr) {
+        // Only batch_size can be 0.
+        NN_RET_CHECK_GT(num_units, 0);
+        NN_RET_CHECK_GT(input_size, 0);
+        output->type = input.type;
+        output->dimensions = {batch_size, num_units};
+    }
+    return true;
+}
+
 }  // namespace
 
 bool validate(const IOperationValidationContext* context) {
@@ -181,12 +263,29 @@ bool validate(const IOperationValidationContext* context) {
                 OperandType::TENSOR_INT32,
                 OperandType::INT32,
         };
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
+
+        inExpectedTypes = {
+                OperandType::TENSOR_QUANT8_ASYMM_SIGNED,
+                OperandType::TENSOR_QUANT8_ASYMM_SIGNED,
+                OperandType::TENSOR_INT32,
+                OperandType::INT32,
+        };
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported input tensor type for operation " << kOperationName;
         return false;
     }
     NN_RET_CHECK(validateInputTypes(context, inExpectedTypes));
     NN_RET_CHECK(validateOutputTypes(context, {inputType}));
+
+    Shape input = context->getInputShape(kInputTensor);
+    Shape weights = context->getInputShape(kWeightsTensor);
+    Shape bias = context->getInputShape(kBiasTensor);
+    if (hasKnownRank(input) && hasKnownRank(weights) && hasKnownRank(bias)) {
+        NN_RET_CHECK(validateShapes(input, weights, bias));
+    }
+
     return true;
 }
 
@@ -194,32 +293,8 @@ bool prepare(IOperationExecutionContext* context) {
     Shape input = context->getInputShape(kInputTensor);
     Shape weights = context->getInputShape(kWeightsTensor);
     Shape bias = context->getInputShape(kBiasTensor);
-
-    // Check all the parameters of tensor match within themselves and match the
-    // input configuration.
-    NN_RET_CHECK(input.type == weights.type);
-    if (input.type == OperandType::TENSOR_QUANT8_ASYMM) {
-        NN_RET_CHECK(bias.type == OperandType::TENSOR_INT32);
-    } else {
-        NN_RET_CHECK(input.type == bias.type);
-    }
-    // The Tensorflow fully connected layer specification says that input should
-    // be of at least rank 2, so we check. Tflite doesn't check.
-    NN_RET_CHECK_GE(getNumberOfDimensions(input), 2);
-    NN_RET_CHECK_EQ(getNumberOfDimensions(weights), 2);
-    uint32_t input_n_elements = getNumberOfElements(input);
-    uint32_t num_units = getSizeOfDimension(weights, 0);
-    uint32_t input_size = getSizeOfDimension(weights, 1);
-    // Only batch_size can be 0.
-    NN_RET_CHECK_GT(num_units, 0);
-    NN_RET_CHECK_GT(input_size, 0);
-    uint32_t batch_size = input_n_elements / input_size;
-    NN_RET_CHECK_EQ(getSizeOfDimension(bias, 0), num_units);
-    NN_RET_CHECK_EQ(input_size * batch_size, input_n_elements);
-
     Shape output = context->getOutputShape(kOutputTensor);
-    output.type = input.type;
-    output.dimensions = {batch_size, num_units};
+    NN_RET_CHECK(validateShapes(input, weights, bias, &output));
     return context->setOutputShape(kOutputTensor, output);
 }
 
@@ -256,6 +331,16 @@ bool execute(IOperationExecutionContext* context) {
                                         context->getInputShape(kBiasTensor),
                                         context->getInputValue<int32_t>(kActivationScalar),
                                         context->getOutputBuffer<uint8_t>(kOutputTensor),
+                                        context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return fullyConnectedQuant8(context->getInputBuffer<int8_t>(kInputTensor),
+                                        context->getInputShape(kInputTensor),
+                                        context->getInputBuffer<int8_t>(kWeightsTensor),
+                                        context->getInputShape(kWeightsTensor),
+                                        context->getInputBuffer<int32_t>(kBiasTensor),
+                                        context->getInputShape(kBiasTensor),
+                                        context->getInputValue<int32_t>(kActivationScalar),
+                                        context->getOutputBuffer<int8_t>(kOutputTensor),
                                         context->getOutputShape(kOutputTensor));
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;

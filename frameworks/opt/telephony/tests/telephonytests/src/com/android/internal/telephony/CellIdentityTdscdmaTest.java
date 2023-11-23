@@ -24,7 +24,10 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 /** Unit tests for {@link CellIdentityTdscdma}. */
 
+import java.util.Collections;
+
 public class CellIdentityTdscdmaTest extends AndroidTestCase {
+    private static final String LOG_TAG = "CellIdentityTdscdmaTest";
 
     // Cell identity ranges from 0 to 268435456.
     private static final int CI = 268435456;
@@ -61,13 +64,15 @@ public class CellIdentityTdscdmaTest extends AndroidTestCase {
         assertEquals(CellInfo.UNAVAILABLE, ci.getUarfcn());
         assertNull(ci.getOperatorAlphaLong());
         assertNull(ci.getOperatorAlphaShort());
+        assertNull(ci.getGlobalCellId());
     }
 
     @SmallTest
     public void testConstructor() {
         CellIdentityTdscdma ci =
                 new CellIdentityTdscdma(
-                        MCC_STR, MNC_STR, LAC, CID, CPID, UARFCN, ALPHA_LONG, ALPHA_SHORT);
+                        MCC_STR, MNC_STR, LAC, CID, CPID, UARFCN, ALPHA_LONG, ALPHA_SHORT,
+                        Collections.emptyList(), null);
 
         assertEquals(MCC_STR, ci.getMccString());
         assertEquals(MNC_STR, ci.getMncString());
@@ -78,27 +83,33 @@ public class CellIdentityTdscdmaTest extends AndroidTestCase {
         assertEquals(UARFCN, ci.getUarfcn());
         assertEquals(ALPHA_LONG, ci.getOperatorAlphaLong());
         assertEquals(ALPHA_SHORT, ci.getOperatorAlphaShort());
+
+        String globalCi = MCC_STR + MNC_STR + Integer.toString(LAC, 16) + Integer.toString(CID, 16);
+        assertEquals(globalCi, ci.getGlobalCellId());
     }
 
     @SmallTest
     public void testConstructorWithEmptyMccMnc() {
         CellIdentityTdscdma ci = new CellIdentityTdscdma(
-                null, null, LAC, CID, CPID, UARFCN, "", "");
+                null, null, LAC, CID, CPID, UARFCN, "", "", Collections.emptyList(), null);
 
         assertNull(ci.getMccString());
         assertNull(ci.getMncString());
 
-        ci = new CellIdentityTdscdma(MCC_STR, null, LAC, CID, CPID, UARFCN, "", "");
+        ci = new CellIdentityTdscdma(MCC_STR, null, LAC, CID, CPID, UARFCN, "", "",
+                Collections.emptyList(), null);
 
         assertEquals(MCC_STR, ci.getMccString());
         assertNull(ci.getMncString());
 
-        ci = new CellIdentityTdscdma(null, MNC_STR, LAC, CID, CPID, UARFCN, "", "");
+        ci = new CellIdentityTdscdma(null, MNC_STR, LAC, CID, CPID, UARFCN, "", "",
+                Collections.emptyList(), null);
 
         assertEquals(MNC_STR, ci.getMncString());
         assertNull(ci.getMccString());
 
-        ci = new CellIdentityTdscdma("", "", LAC, CID, CPID, UARFCN, "", "");
+        ci = new CellIdentityTdscdma("", "", LAC, CID, CPID, UARFCN, "", "",
+                Collections.emptyList(), null);
 
         assertNull(ci.getMccString());
         assertNull(ci.getMncString());
@@ -107,7 +118,8 @@ public class CellIdentityTdscdmaTest extends AndroidTestCase {
     @SmallTest
     public void testParcel() {
         CellIdentityTdscdma ci = new CellIdentityTdscdma(
-                MCC_STR, MNC_STR, LAC, CID, UARFCN, CPID, ALPHA_LONG, ALPHA_SHORT);
+                MCC_STR, MNC_STR, LAC, CID, UARFCN, CPID, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
 
         Parcel p = Parcel.obtain();
         ci.writeToParcel(p, 0);
@@ -121,7 +133,8 @@ public class CellIdentityTdscdmaTest extends AndroidTestCase {
     public void testParcelWithUnknowMccMnc() {
         CellIdentityTdscdma ci =
                 new CellIdentityTdscdma(
-                        null, null, LAC, CID, CPID, UARFCN, ALPHA_LONG, ALPHA_SHORT);
+                        null, null, LAC, CID, CPID, UARFCN, ALPHA_LONG, ALPHA_SHORT,
+                        Collections.emptyList(), null);
 
         Parcel p = Parcel.obtain();
         p.writeInt(CellInfo.TYPE_TDSCDMA);
@@ -145,7 +158,8 @@ public class CellIdentityTdscdmaTest extends AndroidTestCase {
         final String invalidMnc = "randomStuff";
         CellIdentityTdscdma ci =
                 new CellIdentityTdscdma(
-                        null, null, LAC, CID, CPID, UARFCN, ALPHA_LONG, ALPHA_SHORT);
+                        null, null, LAC, CID, CPID, UARFCN, ALPHA_LONG, ALPHA_SHORT,
+                        Collections.emptyList(), null);
 
         Parcel p = Parcel.obtain();
         p.writeInt(CellInfo.TYPE_TDSCDMA);

@@ -28,7 +28,7 @@
 
 package java.nio;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class ByteBuffer extends java.nio.Buffer

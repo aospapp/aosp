@@ -16,7 +16,8 @@
 
 package org.json;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;

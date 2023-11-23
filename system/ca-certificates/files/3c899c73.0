@@ -18,7 +18,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             21:2a:56:0c:ae:da:0c:ab:40:45:bf:2b:a2:2d:3a:ea
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=CH, O=WISeKey, OU=OISTE Foundation Endorsed, CN=OISTE WISeKey Global Root GC CA
         Validity
             Not Before: May  9 09:48:34 2017 GMT

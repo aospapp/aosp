@@ -68,7 +68,6 @@
 
     <style name="BlockedNumbersButton" parent="BlockedNumbersTextPrimary2">
         <item name="android:textColor">@color/theme_color</item>
-        <item name="android:textAllCaps">true</item>
     </style>
 
     <style name="BlockedNumbersTextHead1"
@@ -83,6 +82,7 @@
         <item name="android:textSize">@dimen/blocked_numbers_primary2_font_size</item>
         <item name="android:fontFamily">sans-serif-regular</item>
         <item name="android:lineSpacingExtra">@dimen/blocked_numbers_line_spacing</item>
+        <item name="android:capitalize">sentences</item>
     </style>
 
     <style name="BlockedNumbersTextSecondary">
@@ -90,5 +90,6 @@
         <item name="android:textSize">@dimen/blocked_numbers_secondary_font_size</item>
         <item name="android:fontFamily">sans-serif-regular</item>
         <item name="android:lineSpacingExtra">@dimen/blocked_numbers_secondary_line_spacing</item>
+        <item name="android:capitalize">sentences</item>
     </style>
 </resources>

@@ -20,7 +20,7 @@
 #include "pollable.h"
 #include "result.h"
 
-const char* interfaceStateToStr(InterfaceState state);
+#include <unordered_set>
 
 /** Monitor network interfaces and provide notifications of changes to those
  *  interfaces.
@@ -46,10 +46,12 @@ public:
 
 private:
     Result openSocket();
+    Result requestInterfaces();
     void closeSocket();
     void handleNewLink(const struct nlmsghdr* hdr);
 
     int mSocketFd;
     OnInterfaceStateCallback mOnInterfaceStateCallback;
+    std::unordered_set<unsigned int> mUpInterfaces;
 };
 

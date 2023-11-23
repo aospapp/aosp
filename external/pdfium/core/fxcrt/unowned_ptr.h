@@ -19,7 +19,7 @@
 //    an unowned ptr will fail to compile rather than silently succeeding,
 //    since it is a class and not a raw pointer.
 //
-// 2. When built for a memory tool like ASAN, the class provides a destructor
+// 2. When built using the memory tool ASAN, the class provides a destructor
 //    which checks that the object being pointed to is still alive.
 //
 // Hence, when using UnownedPtr, no dangling pointers are ever permitted,
@@ -32,35 +32,56 @@
 //
 // The array indexing operation [] is not supported on an unowned ptr,
 // because an unowned ptr expresses a one to one relationship with some
-// other heap object.
+// other heap object. Use pdfium::span<> for the cases where indexing
+// into an unowned array is desired, which performs the same checks.
+
+namespace pdfium {
+
+template <typename T>
+class span;
+
+}  // namespace pdfium
 
 namespace fxcrt {
 
 template <class T>
 class UnownedPtr {
  public:
-  UnownedPtr() = default;
-  UnownedPtr(const UnownedPtr& that) : UnownedPtr(that.Get()) {}
+  constexpr UnownedPtr() noexcept = default;
+  constexpr UnownedPtr(const UnownedPtr& that) noexcept = default;
+
+  // Move-construct an UnownedPtr. After construction, |that| will be NULL.
+  constexpr UnownedPtr(UnownedPtr&& that) noexcept : m_pObj(that.Release()) {}
 
   template <typename U>
-  explicit UnownedPtr(U* pObj) : m_pObj(pObj) {}
+  explicit constexpr UnownedPtr(U* pObj) noexcept : m_pObj(pObj) {}
 
   // Deliberately implicit to allow returning nullptrs.
   // NOLINTNEXTLINE(runtime/explicit)
-  UnownedPtr(std::nullptr_t ptr) {}
+  constexpr UnownedPtr(std::nullptr_t ptr) noexcept {}
 
   ~UnownedPtr() { ProbeForLowSeverityLifetimeIssue(); }
 
-  UnownedPtr& operator=(T* that) {
+  void Reset(T* obj = nullptr) {
     ProbeForLowSeverityLifetimeIssue();
-    m_pObj = that;
+    m_pObj = obj;
+  }
+
+  UnownedPtr& operator=(T* that) noexcept {
+    Reset(that);
     return *this;
   }
 
-  UnownedPtr& operator=(const UnownedPtr& that) {
-    ProbeForLowSeverityLifetimeIssue();
+  UnownedPtr& operator=(const UnownedPtr& that) noexcept {
     if (*this != that)
-      m_pObj = that.Get();
+      Reset(that.Get());
+    return *this;
+  }
+
+  // Move-assign an UnownedPtr. After assignment, |that| will be NULL.
+  UnownedPtr& operator=(UnownedPtr&& that) noexcept {
+    if (*this != that)
+      Reset(that.Release());
     return *this;
   }
 
@@ -80,7 +101,7 @@ class UnownedPtr {
     return !(*this == that);
   }
 
-  T* Get() const { return m_pObj; }
+  T* Get() const noexcept { return m_pObj; }
 
   T* Release() {
     ProbeForLowSeverityLifetimeIssue();
@@ -94,10 +115,18 @@ class UnownedPtr {
   T* operator->() const { return m_pObj; }
 
  private:
+  friend class pdfium::span<T>;
+
   inline void ProbeForLowSeverityLifetimeIssue() {
-#if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+#if defined(ADDRESS_SANITIZER)
     if (m_pObj)
       reinterpret_cast<const volatile uint8_t*>(m_pObj)[0];
+#endif
+  }
+
+  inline void ReleaseBadPointer() {
+#if defined(ADDRESS_SANITIZER)
+    m_pObj = nullptr;
 #endif
   }
 

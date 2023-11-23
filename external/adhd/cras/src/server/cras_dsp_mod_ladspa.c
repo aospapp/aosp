@@ -13,9 +13,9 @@
 #define PLUGIN_PATH_MAX 256
 
 struct ladspa_data {
-	void *dlopen_handle;  /* the handle returned by dlopen() */
+	void *dlopen_handle; /* the handle returned by dlopen() */
 	const LADSPA_Descriptor *descriptor;
-	LADSPA_Handle *handle;	/* returned by instantiate() */
+	LADSPA_Handle *handle; /* returned by instantiate() */
 	int activated;
 };
 
@@ -65,7 +65,7 @@ static void deinstantiate(struct dsp_module *module)
 }
 
 static void connect_port(struct dsp_module *module, unsigned long port,
-			     float *data_location)
+			 float *data_location)
 {
 	struct ladspa_data *data = module->data;
 	const LADSPA_Descriptor *desc = data->descriptor;
@@ -134,7 +134,7 @@ static int verify_plugin_descriptor(struct plugin *plugin,
 		return -1;
 	}
 
-	FOR_ARRAY_ELEMENT(&plugin->ports, i, port) {
+	ARRAY_ELEMENT_FOREACH (&plugin->ports, i, port) {
 		LADSPA_PortDescriptor port_desc = desc->PortDescriptors[i];
 		if ((port->direction == PORT_INPUT) !=
 		    !!(port_desc & LADSPA_PORT_INPUT)) {
@@ -181,7 +181,7 @@ struct dsp_module *cras_dsp_module_load_ladspa(struct plugin *plugin)
 		goto bail;
 	}
 
-	for (index = 0; ; index++) {
+	for (index = 0;; index++) {
 		const LADSPA_Descriptor *desc = desc_func(index);
 		if (desc == NULL) {
 			syslog(LOG_ERR, "cannot find label %s from %s",

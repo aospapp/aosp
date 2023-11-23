@@ -19,11 +19,11 @@ import android.annotation.ColorInt;
 import android.app.Notification;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
-import android.service.notification.StatusBarNotification;
 import android.view.View;
 
 import androidx.cardview.widget.CardView;
 
+import com.android.car.notification.AlertEntry;
 import com.android.car.notification.NotificationClickHandlerFactory;
 import com.android.car.notification.R;
 
@@ -56,18 +56,18 @@ public class EmergencyNotificationViewHolder extends CarNotificationBaseViewHold
     }
 
     /**
-     * Binds a {@link StatusBarNotification} to a car emergency notification template.
+     * Binds a {@link AlertEntry} to a car emergency notification template.
      */
     @Override
-    public void bind(StatusBarNotification statusBarNotification, boolean isInGroup,
+    public void bind(AlertEntry alertEntry, boolean isInGroup,
             boolean isHeadsUp) {
-        super.bind(statusBarNotification, isInGroup, isHeadsUp);
+        super.bind(alertEntry, isInGroup, isHeadsUp);
 
-        Notification notification = statusBarNotification.getNotification();
+        Notification notification = alertEntry.getNotification();
 
         mCardView.setCardBackgroundColor(mEmergencyBackgroundColor);
-        mHeaderView.bind(statusBarNotification, isInGroup);
-        mActionsView.bind(mClickHandlerFactory, statusBarNotification);
+        mHeaderView.bind(alertEntry, isInGroup);
+        mActionsView.bind(mClickHandlerFactory, alertEntry);
 
         Bundle extraData = notification.extras;
         CharSequence title = extraData.getCharSequence(Notification.EXTRA_TITLE);

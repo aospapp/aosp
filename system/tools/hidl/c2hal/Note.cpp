@@ -34,7 +34,7 @@ Note::~Note() {
 }
 
 void Note::generateSource(Formatter &out) const {
-    out.setLinePrefix("//");
+    out.pushLinePrefix("//");
     out << "NOTE:\n";
 
     out.indent();
@@ -45,7 +45,7 @@ void Note::generateSource(Formatter &out) const {
     }
     out.unindent();
 
-    out.unsetLinePrefix();
+    out.popLinePrefix();
     out << "\n";
 }
 

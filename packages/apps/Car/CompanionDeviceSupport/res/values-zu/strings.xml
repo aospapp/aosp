@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Idivayisi ehlobene"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Engeza Idivayisi ehlobene"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Xhuma idivayisi engumngane"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Ungasebenzisa ifoni yakho njengedivayisi engumgane ukukusiza uphathe ukuzizwela kwakho kokushayela"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Qiniseka ukuthi "<b>"Unohlelo lokusebenza olungumngane"</b>" olufakwe kwifoni yakho"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Qinisekisa ikhodi kufoni"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Qinisekisa ukuthi lokhu kufana nekhodi eboniswe kufoni yakho"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"Idivayisi ihlotshaniswe ngokuphumelelayo"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Vula uhlelo lokusebenza bese uxhuma ku-&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"Khohlwa i-&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"Le moto ngeke isabhangqwa nale divayisi. Ngaphezu kwalokho kuzodingeka ukuthi ususe le moto kuhlelo lokusebenza Elingumngane."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"I-<xliff:g id="PHONE_NAME">%1$s</xliff:g> ikhohliwe"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"Yehlulekile ukukhohlwa i-<xliff:g id="PHONE_NAME">%1$s</xliff:g>"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Qhubeka nokusetha ifoni yakho"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Okuthile akuhambanga kahle"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Ngeshwa, lesi sikrini asikwazanga ukubonisa kahle. Sicela uzame futhi."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Vula i-Bluetooth"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"Ukusetha ifoni yakho njengedivayisi engumngane, imoto yakho idinga i-Bluetooth."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Vula i-Bluetooth?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"Ukuxhuma kudivayisi yakho engumngane, imoto yakho idinga i-Bluetooth."</string>
+    <string name="accept" msgid="1454710793329618813">"Yamukela"</string>
+    <string name="reject" msgid="4315432282758892890">"Nqaba"</string>
+    <string name="confirm" msgid="3748997214719276945">"Qinisekisa"</string>
+    <string name="cancel" msgid="4306609731174629323">"Khansela"</string>
+    <string name="remove" msgid="5513398257088729188">"Susa"</string>
+    <string name="ok" msgid="2825038997730899083">"KULUNGILE"</string>
+    <string name="connection" msgid="2798490936433656846">"Uxhumo"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Khohlwa le divayisi"</string>
+    <string name="forget" msgid="2069897665699141222">"Khohlwa"</string>
+    <string name="disable" msgid="4619854429066283970">"Khubaza"</string>
+    <string name="enable" msgid="7656386199154111316">"Nika amandla"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Qhubeka"</string>
+    <string name="retry" msgid="3783419451480721367">"Zama futhi"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Vula"</string>
+    <string name="not_now" msgid="8764692269093707622">"Hhayi manje"</string>
+    <string name="connected" msgid="8051190714042020471">"Ixhunyiwe"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Ayitholiwe"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Inqamukile"</string>
+    <string name="unknown" msgid="555736316465118024">"Akwaziwa"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Isevisi yomyalezo obhaliwe wefoni iyasebenza"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Isevisi yomlayezo obhaliwe wefoni iyasebenza"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"Ithola imiyalezo ebhaliwe ngohlelo lokusebenza lomngane"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Vula iphrofayela ngefoni"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Hlola Uhlelo lwakho lokusebenza elingumngane ukusetha izinketho zokuvula"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"Vumela i-&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;b&gt; ukuvula iphrofayela yami"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"Ifoni yakho kufanele ixhunywe ngokusebenzayo"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Ukuvula lesi sici, qiniseka ukuthi imoto nefoni yakho kuvulwe i-bluetooth futhi kuseduzane"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"I-&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;b&gt; manje isingakwazi ukuvula iphrofayela yakho"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Dala ukhiye wephrofayela oyinhloko"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Ukusebenzisa ifoni yakho ukuvula iphrofayela yakho, udinga ukukhiya iphrofayela okuyinhloko njengekhophi yasenqolobaneni"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Vula iphrofayela yakho ukuqeda"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Udale ukhiye wephrofayela omusha. Okulandelayo, ufake futhi ukuqinisekisa ukuthi ifoni yakho ingakwazi ukuvula iphrofayela ngokuzenzekelayo"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Nqamula le divayisi"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Xhuma kabusha le divayisi"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Vula ngefoni"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Vumela ifoni yakho ukuvula iphrofayela yakho"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Thepha lapha ukugunyaza lesi sici"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Okuthile akuhambanga kahle"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"Ngeshwa, lesi sici asikwazanga ukuvulwa okwamanje. Sicela uzame futhi."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Dala ukukhiya isikrini kufoni yakho"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"Ifoni yakho ayinakho ukukhiya isikrini okusethiwe. Ukuvula iphrofayela yakho yemoto ngefoni yakho, dala kuqala ukukhiya isikrini (okwaziwa futhi ngokuthi ikhodi yokudlula) kumasethingi wefoni yakho"</string>
+</resources>

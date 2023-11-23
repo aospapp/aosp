@@ -37,10 +37,12 @@ class HostInfoTest(unittest.TestCase):
         """Tests that the most complicated infos are correctly stated equal."""
         info1 = host_info.HostInfo(
                 labels=['label1', 'label2', 'label1'],
-                attributes={'attrib1': None, 'attrib2': 'val2'})
+                attributes={'attrib1': None, 'attrib2': 'val2'},
+                stable_versions={"cros": "xxx-cros", "faft": "xxx-faft", "firmware": "xxx-firmware"},)
         info2 = host_info.HostInfo(
                 labels=['label1', 'label2', 'label1'],
-                attributes={'attrib1': None, 'attrib2': 'val2'})
+                attributes={'attrib1': None, 'attrib2': 'val2'},
+                stable_versions={"cros": "xxx-cros", "faft": "xxx-faft", "firmware": "xxx-firmware"},)
         self.assertEqual(info1, info2)
         # equality and non-equality are unrelated by the data model.
         self.assertFalse(info1 != info2)
@@ -131,7 +133,7 @@ class HostInfoTest(unittest.TestCase):
         """Sanity checks the __str__ implementation."""
         info = host_info.HostInfo(labels=['a'], attributes={'b': 2})
         self.assertEqual(str(info),
-                         "HostInfo[Labels: ['a'], Attributes: {'b': 2}]")
+                         "HostInfo[Labels: ['a'], Attributes: {'b': 2}, StableVersions: {}]")
 
 
     def test_clear_version_labels_no_labels(self):
@@ -364,6 +366,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
                 'serializer_version': self.CURRENT_SERIALIZATION_VERSION,
                 'attributes' : {},
                 'labels': [],
+                'stable_versions': {},
         }
         self.assertEqual(json.load(file_obj), expected_dict)
 
@@ -371,7 +374,8 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
     def test_serialize_non_empty(self):
         """Serializing a populated HostInfo results in expected json."""
         info = host_info.HostInfo(labels=['label1'],
-                                  attributes={'attrib': 'val'})
+                                  attributes={'attrib': 'val'},
+                                  stable_versions={'cros': 'xxx-cros'})
         file_obj = cStringIO.StringIO()
         host_info.json_serialize(info, file_obj)
         file_obj.seek(0)
@@ -379,6 +383,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
                 'serializer_version': self.CURRENT_SERIALIZATION_VERSION,
                 'attributes' : {'attrib': 'val'},
                 'labels': ['label1'],
+                'stable_versions': {'cros': 'xxx-cros'},
         }
         self.assertEqual(json.load(file_obj), expected_dict)
 
@@ -411,22 +416,6 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
             host_info.json_deserialize(cStringIO.StringIO('{labels:['))
 
 
-    def test_deserialize_no_version_raises(self):
-        """Deserializing a string with no serializer version raises."""
-        info = host_info.HostInfo()
-        serialized_fp = cStringIO.StringIO()
-        host_info.json_serialize(info, serialized_fp)
-        serialized_fp.seek(0)
-
-        serialized_dict = json.load(serialized_fp)
-        del serialized_dict['serializer_version']
-        serialized_no_version_str = json.dumps(serialized_dict)
-
-        with self.assertRaises(host_info.DeserializationError):
-            host_info.json_deserialize(
-                    cStringIO.StringIO(serialized_no_version_str))
-
-
     def test_deserialize_malformed_host_info_raises(self):
         """Deserializing a malformed host_info raises."""
         info = host_info.HostInfo()
@@ -443,7 +432,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
                     cStringIO.StringIO(serialized_no_version_str))
 
 
-    def test_enforce_compatibility_version_1(self):
+    def test_enforce_compatibility_version_2(self):
         """Tests that required fields are never dropped.
 
         Never change this test. If you must break compatibility, uprev the
@@ -455,7 +444,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
         field to be mandatory. This breaks forwards compatibility.
         """
         compat_dict = {
-                'serializer_version': 1,
+                'serializer_version': 2,
                 'attributes': {},
                 'labels': []
         }
@@ -477,7 +466,8 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
             "labels": [
                 "label1"
             ],
-            "serializer_version": %d
+            "serializer_version": %d,
+            "stable_versions": {}
         }""" % self.CURRENT_SERIALIZATION_VERSION
         self.assertEqual(serialized_fp.getvalue(), inspect.cleandoc(expected))
 

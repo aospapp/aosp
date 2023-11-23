@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote fetch=".." name="aosp" review="https://android-review.googlesource.com/"/>
+  
+  <default remote="aosp" revision="master" sync-j="4"/>
+  
+  <manifest-server url="http://android-smartsync.corp.google.com/android.googlesource.com/manifestserver"/>
+  
+  <project groups="pdk" name="platform/external/adhd" path="external/adhd" revision="2e5b55c9a2bf11058945639ff8ddd513871c9a97" upstream="master"/>
+  <project groups="pdk" name="platform/external/crosvm" path="platform/crosvm" revision="75113cccf457a4458ea9fd99ffdacceb2f31f84c" upstream="master"/>
+  <project groups="pdk" name="platform/external/libepoxy" path="third_party/libepoxy" revision="199985a9b74aa5610a2ce75be2997e7a272dd9fe" upstream="crosvm-master"/>
+  <project groups="pdk" name="platform/external/minigbm" path="third_party/minigbm" revision="82e37a6c196d089140bf71a83dc0f6042d22ffd2" upstream="crosvm-master"/>
+  <project groups="pdk" name="platform/external/minijail" path="external/minijail" revision="2f2c20780cf7bbfe92657829cdae5a76cc4cb0c0" upstream="master"/>
+  <project groups="pdk" name="platform/external/virglrenderer" path="third_party/virglrenderer" revision="be6ae27bc7901566619edb05ab1fb34a76ebf44f" upstream="crosvm-master"/>
+  <project groups="adt-infra,cts,developers,motodev,pdk,tools,tradefed" name="platform/tools/repohooks" path="tools/repohooks" revision="8eb7cd76622697f630a52cfcaf14a4971be21e38" upstream="crosvm-master"/>
+  
+  <repo-hooks enabled-list="pre-upload" in-project="platform/tools/repohooks"/>
+</manifest>

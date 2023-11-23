@@ -1,0 +1,2 @@
+allow init boot_block_device:lnk_file relabelto;
+allow init custom_ab_block_device:lnk_file relabelto;

@@ -933,12 +933,8 @@ static int context_struct_compute_av(context_struct_t * scontext,
 	avkey.specified = AVTAB_AV;
 	sattr = &policydb->type_attr_map[scontext->type - 1];
 	tattr = &policydb->type_attr_map[tcontext->type - 1];
-	ebitmap_for_each_bit(sattr, snode, i) {
-		if (!ebitmap_node_get_bit(snode, i))
-			continue;
-		ebitmap_for_each_bit(tattr, tnode, j) {
-			if (!ebitmap_node_get_bit(tnode, j))
-				continue;
+	ebitmap_for_each_positive_bit(sattr, snode, i) {
+		ebitmap_for_each_positive_bit(tattr, tnode, j) {
 			avkey.source_type = i + 1;
 			avkey.target_type = j + 1;
 			for (node =
@@ -1138,13 +1134,13 @@ int hidden sepol_compute_av_reason(sepol_security_id_t ssid,
 
 	scontext = sepol_sidtab_search(sidtab, ssid);
 	if (!scontext) {
-		ERR(NULL, "unrecognized SID %d", ssid);
+		ERR(NULL, "unrecognized source SID %d", ssid);
 		rc = -EINVAL;
 		goto out;
 	}
 	tcontext = sepol_sidtab_search(sidtab, tsid);
 	if (!tcontext) {
-		ERR(NULL, "unrecognized SID %d", tsid);
+		ERR(NULL, "unrecognized target SID %d", tsid);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -1174,13 +1170,13 @@ int hidden sepol_compute_av_reason_buffer(sepol_security_id_t ssid,
 
 	scontext = sepol_sidtab_search(sidtab, ssid);
 	if (!scontext) {
-		ERR(NULL, "unrecognized SID %d", ssid);
+		ERR(NULL, "unrecognized source SID %d", ssid);
 		rc = -EINVAL;
 		goto out;
 	}
 	tcontext = sepol_sidtab_search(sidtab, tsid);
 	if (!tcontext) {
-		ERR(NULL, "unrecognized SID %d", tsid);
+		ERR(NULL, "unrecognized target SID %d", tsid);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -2194,14 +2190,10 @@ int hidden sepol_get_user_sids(sepol_security_id_t fromsid,
 	}
 	memset(mysids, 0, maxnel * sizeof(sepol_security_id_t));
 
-	ebitmap_for_each_bit(&user->roles.roles, rnode, i) {
-		if (!ebitmap_node_get_bit(rnode, i))
-			continue;
+	ebitmap_for_each_positive_bit(&user->roles.roles, rnode, i) {
 		role = policydb->role_val_to_struct[i];
 		usercon.role = i + 1;
-		ebitmap_for_each_bit(&role->types.types, tnode, j) {
-			if (!ebitmap_node_get_bit(tnode, j))
-				continue;
+		ebitmap_for_each_positive_bit(&role->types.types, tnode, j) {
 			usercon.type = j + 1;
 			if (usercon.type == fromcon->type)
 				continue;

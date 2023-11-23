@@ -30,12 +30,12 @@ import sun.security.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CertificateSerialNumber implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateSerialNumber(java.math.BigInteger num) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateSerialNumber(int num) {
         throw new RuntimeException("Stub!");
     }

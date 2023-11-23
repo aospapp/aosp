@@ -24,6 +24,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IManagedTestDevice;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -110,12 +111,13 @@ public class FastbootTest implements IRemoteTest, IDeviceTest, IBuildReceiver {
 
     /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         long start = System.currentTimeMillis();
         listener.testRunStarted(FASTBOOT_TEST, 1);
         String originalFastbootpath = ((IManagedTestDevice) mDevice).getFastbootPath();
         try {
-            testFastboot(listener);
+            testFastboot(testInfo, listener);
         } finally {
             // reset fastboot path
             ((IManagedTestDevice) mDevice).setFastbootPath(originalFastbootpath);
@@ -130,7 +132,8 @@ public class FastbootTest implements IRemoteTest, IDeviceTest, IBuildReceiver {
      * @param listener
      * @throws DeviceNotAvailableException
      */
-    private void testFastboot(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    private void testFastboot(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         HashMap<String, Metric> result = new HashMap<>();
         TestDescription firstBootTestId =
                 new TestDescription(
@@ -177,7 +180,7 @@ public class FastbootTest implements IRemoteTest, IDeviceTest, IBuildReceiver {
             // flash it!
             CLog.v("Flashing device %s", mDevice.getSerialNumber());
             try {
-                flasher.setUp(mDevice, mBuildInfo);
+                flasher.setUp(testInfo);
                 // we are skipping post boot setup so this is the start of boot process
                 bootStart = System.currentTimeMillis();
             } catch (TargetSetupError | BuildError e) {

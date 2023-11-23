@@ -93,6 +93,7 @@ public class AudioPlayer {
     private final Context mContext;
     private final int mResourceId;
     private final AudioAttributes mAttrib;
+    private final AudioDeviceInfo mPreferredDeviceInfo;
 
     private final AtomicBoolean mPlaying = new AtomicBoolean(false);
 
@@ -101,15 +102,17 @@ public class AudioPlayer {
 
     private PlayStateListener mListener;
 
+
     public AudioPlayer(Context context, int resourceId, AudioAttributes attrib) {
+        this(context, resourceId, attrib, /* deviceInfo= */ null);
+    }
+
+    public AudioPlayer(Context context, int resourceId, AudioAttributes attrib,
+            @Nullable AudioDeviceInfo preferredDeviceInfo) {
         mContext = context;
         mResourceId = resourceId;
         mAttrib = attrib;
-    }
-
-    public void start(boolean handleFocus, boolean repeat, int focusRequest) {
-        String nullDeviceAddress = null;
-        start(handleFocus, repeat, focusRequest, nullDeviceAddress);
+        mPreferredDeviceInfo = preferredDeviceInfo;
     }
 
     /**
@@ -117,10 +120,8 @@ public class AudioPlayer {
      * @param handleFocus true to handle focus
      * @param repeat true to repeat track
      * @param focusRequest type of focus to request
-     * @param deviceAddress preferred device to attached to audio
      */
-    public void start(boolean handleFocus, boolean repeat, int focusRequest,
-            @Nullable String deviceAddress) {
+    public void start(boolean handleFocus, boolean repeat, int focusRequest) {
         mHandleFocus = handleFocus;
         mRepeat = repeat;
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
@@ -130,12 +131,11 @@ public class AudioPlayer {
             // exercise the framework's focus logic when faced with a (sloppy) application which
             // might do this.
             Log.i(TAG, "Asking for focus for usage " + mAttrib.getUsage());
-            ret = mAudioManager.requestAudioFocus(mFocusListener, mAttrib,
-                    focusRequest, 0);
+            ret = mAudioManager.requestAudioFocus(mFocusListener, mAttrib, focusRequest, 0);
         }
         if (ret == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             Log.i(TAG, "MediaPlayer got focus for usage " + mAttrib.getUsage());
-            doStart(deviceAddress);
+            doStart();
         } else {
             Log.i(TAG, "MediaPlayer denied focus for usage " + mAttrib.getUsage());
         }
@@ -147,7 +147,7 @@ public class AudioPlayer {
         start(handleFocus, repeat, focusRequest);
     }
 
-    private void doStart(String deviceAddress) {
+    private void doStart() {
         if (mPlaying.getAndSet(true)) {
             Log.i(TAG, "already playing");
             return;
@@ -203,14 +203,10 @@ public class AudioPlayer {
         }
 
         // Search for preferred device
-        if (deviceAddress != null) {
-            AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
-            for (AudioDeviceInfo deviceInfo : devices) {
-                if (deviceInfo.getAddress().equals(deviceAddress)) {
-                    mPlayer.setPreferredDevice(deviceInfo);
-                    break;
-                }
-            }
+        if (mPreferredDeviceInfo != null) {
+            mPlayer.setPreferredDevice(mPreferredDeviceInfo);
+            Log.d(TAG, "doStart preferred device address: " + mPreferredDeviceInfo.getAddress());
+
         }
 
         mPlayer.start();

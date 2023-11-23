@@ -35,8 +35,8 @@
  */
 
 using android::sp;
-using android::chre::getStringFromByteVector;
 using android::chre::FragmentedLoadTransaction;
+using android::chre::getStringFromByteVector;
 using android::chre::HostProtocolHost;
 using android::chre::IChreMessageHandlers;
 using android::chre::SocketClient;
@@ -69,14 +69,14 @@ class SocketCallbacks : public SocketClient::ICallbacks,
     LOGI("Socket disconnected");
   }
 
-  void handleLoadNanoappResponse(const fbs::LoadNanoappResponseT& response)
-      override {
+  void handleLoadNanoappResponse(
+      const fbs::LoadNanoappResponseT &response) override {
     LOGI("Got load nanoapp response, transaction ID 0x%" PRIx32 " result %d",
          response.transaction_id, response.success);
   }
 };
 
-void sendLoadNanoappRequest(SocketClient& client, const char *filename,
+void sendLoadNanoappRequest(SocketClient &client, const char *filename,
                             uint64_t appId, uint32_t appVersion) {
   std::ifstream file(filename, std::ios::binary | std::ios::ate);
   if (!file) {
@@ -94,15 +94,16 @@ void sendLoadNanoappRequest(SocketClient& client, const char *filename,
 
   // Perform loading with 1 fragment for simplicity
   FlatBufferBuilder builder(size + 128);
-  FragmentedLoadTransaction transaction = FragmentedLoadTransaction(
-      1 /* transactionId */, appId, appVersion,
-      0x01000000 /* targetApiVersion */, buffer,
-      buffer.size() /* fragmentSize */);
+  FragmentedLoadTransaction transaction =
+      FragmentedLoadTransaction(1 /* transactionId */, appId, appVersion,
+                                0x01000000 /* targetApiVersion */, buffer,
+                                buffer.size() /* fragmentSize */);
   HostProtocolHost::encodeFragmentedLoadNanoappRequest(
       builder, transaction.getNextRequest());
 
-  LOGI("Sending load nanoapp request (%" PRIu32 " bytes total w/%zu bytes of "
-       "payload)", builder.GetSize(), buffer.size());
+  LOGI("Sending load nanoapp request (%" PRIu32
+       " bytes total w/%zu bytes of payload)",
+       builder.GetSize(), buffer.size());
   if (!client.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
     LOGE("Failed to send message");
   }
@@ -118,8 +119,7 @@ int main() {
     LOGE("Couldn't connect to socket");
   } else {
     sendLoadNanoappRequest(client, "/data/audio_stress_test.so",
-                           chre::kAudioStressTestAppId,
-                           1 /* appVersion */);
+                           chre::kAudioStressTestAppId, 1 /* appVersion */);
   }
 
   return 0;

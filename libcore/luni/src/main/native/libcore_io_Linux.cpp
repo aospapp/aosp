@@ -418,7 +418,7 @@ static jobject makeSocketAddress(JNIEnv* env, const sockaddr_storage& ss, const 
     } else if (ss.ss_family == AF_PACKET) {
         const struct sockaddr_ll* sll = reinterpret_cast<const struct sockaddr_ll*>(&ss);
         static jmethodID ctor = env->GetMethodID(JniConstants::GetPacketSocketAddressClass(env),
-                "<init>", "(SISB[B)V");
+                "<init>", "(IIII[B)V");
         if (ctor == NULL) {
             return NULL;
         }
@@ -429,10 +429,10 @@ static jobject makeSocketAddress(JNIEnv* env, const sockaddr_storage& ss, const 
         env->SetByteArrayRegion(byteArray.get(), 0, sll->sll_halen,
                 reinterpret_cast<const jbyte*>(sll->sll_addr));
         jobject packetSocketAddress = env->NewObject(JniConstants::GetPacketSocketAddressClass(env), ctor,
-                static_cast<jshort>(ntohs(sll->sll_protocol)),
+                static_cast<jint>(ntohs(sll->sll_protocol)),
                 static_cast<jint>(sll->sll_ifindex),
-                static_cast<jshort>(sll->sll_hatype),
-                static_cast<jbyte>(sll->sll_pkttype),
+                static_cast<jint>(sll->sll_hatype),
+                static_cast<jint>(sll->sll_pkttype),
                 byteArray.get());
         return packetSocketAddress;
     }
@@ -686,22 +686,22 @@ static bool javaUnixSocketAddressToSockaddr(
 static bool javaPacketSocketAddressToSockaddr(
         JNIEnv* env, jobject javaSocketAddress, sockaddr_storage& ss, socklen_t& sa_len) {
     static jfieldID protocolFid = env->GetFieldID(
-            JniConstants::GetPacketSocketAddressClass(env), "sll_protocol", "S");
+            JniConstants::GetPacketSocketAddressClass(env), "sll_protocol", "I");
     static jfieldID ifindexFid = env->GetFieldID(
             JniConstants::GetPacketSocketAddressClass(env), "sll_ifindex", "I");
     static jfieldID hatypeFid = env->GetFieldID(
-            JniConstants::GetPacketSocketAddressClass(env), "sll_hatype", "S");
+            JniConstants::GetPacketSocketAddressClass(env), "sll_hatype", "I");
     static jfieldID pkttypeFid = env->GetFieldID(
-            JniConstants::GetPacketSocketAddressClass(env), "sll_pkttype", "B");
+            JniConstants::GetPacketSocketAddressClass(env), "sll_pkttype", "I");
     static jfieldID addrFid = env->GetFieldID(
             JniConstants::GetPacketSocketAddressClass(env), "sll_addr", "[B");
 
     sockaddr_ll *sll = reinterpret_cast<sockaddr_ll *>(&ss);
     sll->sll_family = AF_PACKET;
-    sll->sll_protocol = htons(env->GetShortField(javaSocketAddress, protocolFid));
+    sll->sll_protocol = htons(env->GetIntField(javaSocketAddress, protocolFid));
     sll->sll_ifindex = env->GetIntField(javaSocketAddress, ifindexFid);
-    sll->sll_hatype = env->GetShortField(javaSocketAddress, hatypeFid);
-    sll->sll_pkttype = env->GetByteField(javaSocketAddress, pkttypeFid);
+    sll->sll_hatype = env->GetIntField(javaSocketAddress, hatypeFid);
+    sll->sll_pkttype = env->GetIntField(javaSocketAddress, pkttypeFid);
 
     jbyteArray sllAddr = (jbyteArray) env->GetObjectField(javaSocketAddress, addrFid);
     if (sllAddr == NULL) {
@@ -1240,32 +1240,6 @@ static void Linux_fchmod(JNIEnv* env, jobject, jobject javaFd, jint mode) {
 static void Linux_fchown(JNIEnv* env, jobject, jobject javaFd, jint uid, jint gid) {
     int fd = jniGetFDFromFileDescriptor(env, javaFd);
     throwIfMinusOne(env, "fchown", TEMP_FAILURE_RETRY(fchown(fd, uid, gid)));
-}
-
-static jint Linux_fcntlFlock(JNIEnv* env, jobject, jobject javaFd, jint cmd, jobject javaFlock) {
-    static jfieldID typeFid = env->GetFieldID(JniConstants::GetStructFlockClass(env), "l_type", "S");
-    static jfieldID whenceFid = env->GetFieldID(JniConstants::GetStructFlockClass(env), "l_whence", "S");
-    static jfieldID startFid = env->GetFieldID(JniConstants::GetStructFlockClass(env), "l_start", "J");
-    static jfieldID lenFid = env->GetFieldID(JniConstants::GetStructFlockClass(env), "l_len", "J");
-    static jfieldID pidFid = env->GetFieldID(JniConstants::GetStructFlockClass(env), "l_pid", "I");
-
-    struct flock64 lock;
-    memset(&lock, 0, sizeof(lock));
-    lock.l_type = env->GetShortField(javaFlock, typeFid);
-    lock.l_whence = env->GetShortField(javaFlock, whenceFid);
-    lock.l_start = env->GetLongField(javaFlock, startFid);
-    lock.l_len = env->GetLongField(javaFlock, lenFid);
-    lock.l_pid = env->GetIntField(javaFlock, pidFid);
-
-    int rc = IO_FAILURE_RETRY(env, int, fcntl, javaFd, cmd, &lock);
-    if (rc != -1) {
-        env->SetShortField(javaFlock, typeFid, lock.l_type);
-        env->SetShortField(javaFlock, whenceFid, lock.l_whence);
-        env->SetLongField(javaFlock, startFid, lock.l_start);
-        env->SetLongField(javaFlock, lenFid, lock.l_len);
-        env->SetIntField(javaFlock, pidFid, lock.l_pid);
-    }
-    return rc;
 }
 
 static jint Linux_fcntlInt(JNIEnv* env, jobject, jobject javaFd, jint cmd, jint arg) {
@@ -1861,6 +1835,21 @@ static jlong Linux_lseek(JNIEnv* env, jobject, jobject javaFd, jlong offset, jin
 
 static jobject Linux_lstat(JNIEnv* env, jobject, jstring javaPath) {
     return doStat(env, javaPath, true);
+}
+
+static jobject Linux_memfd_create(JNIEnv* env, jobject, jstring javaName, jint flags) {
+#if defined(__BIONIC__)
+    ScopedUtfChars name(env, javaName);
+    if (name.c_str() == NULL) {
+        return NULL;
+    }
+
+    int fd = throwIfMinusOne(env, "memfd_create", memfd_create(name.c_str(), flags));
+    return fd != -1 ? jniCreateFileDescriptor(env, fd) : NULL;
+#else
+    UNUSED(env, javaName, flags);
+    return NULL;
+#endif
 }
 
 static void Linux_mincore(JNIEnv* env, jobject, jlong address, jlong byteCount, jbyteArray javaVector) {
@@ -2603,7 +2592,6 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, execve, "(Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;)V"),
     NATIVE_METHOD(Linux, fchmod, "(Ljava/io/FileDescriptor;I)V"),
     NATIVE_METHOD(Linux, fchown, "(Ljava/io/FileDescriptor;II)V"),
-    NATIVE_METHOD(Linux, fcntlFlock, "(Ljava/io/FileDescriptor;ILandroid/system/StructFlock;)I"),
     NATIVE_METHOD(Linux, fcntlInt, "(Ljava/io/FileDescriptor;II)I"),
     NATIVE_METHOD(Linux, fcntlVoid, "(Ljava/io/FileDescriptor;I)I"),
     NATIVE_METHOD(Linux, fdatasync, "(Ljava/io/FileDescriptor;)V"),
@@ -2650,6 +2638,7 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, listxattr, "(Ljava/lang/String;)[Ljava/lang/String;"),
     NATIVE_METHOD(Linux, lseek, "(Ljava/io/FileDescriptor;JI)J"),
     NATIVE_METHOD(Linux, lstat, "(Ljava/lang/String;)Landroid/system/StructStat;"),
+    NATIVE_METHOD(Linux, memfd_create, "(Ljava/lang/String;I)Ljava/io/FileDescriptor;"),
     NATIVE_METHOD(Linux, mincore, "(JJ[B)V"),
     NATIVE_METHOD(Linux, mkdir, "(Ljava/lang/String;I)V"),
     NATIVE_METHOD(Linux, mkfifo, "(Ljava/lang/String;I)V"),

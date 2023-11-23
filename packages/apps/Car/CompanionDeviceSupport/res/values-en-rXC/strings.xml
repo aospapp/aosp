@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‎‏‏‏‎‏‏‎‏‎‎‎‎‎‏‎‎‏‏‎‏‎‏‎‎‏‏‏‎‏‎‏‏‏‎‏‎‎‎‎‏‎‎‏‏‏‏‏‎‎‎‏‏‏‎‏‏‎‏‏‎‏‎Associated Device‎‏‎‎‏‎"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‏‎‏‎‏‏‎‎‏‎‎‏‎‎‎‎‎‏‎‏‏‏‎‎‏‎‏‎‏‏‏‎‎‏‏‎‏‎‏‎‎‏‎‏‎‏‎‏‏‎‏‎‎‏‎‎‏‎‏‏‏‎Add Associated Device‎‏‎‎‏‎"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‏‏‎‏‎‏‏‏‎‏‎‏‎‏‎‎‎‎‎‏‎‏‎‏‎‎‎‏‏‏‏‏‏‎‏‎‎‎‏‎‎‎‎‎‎‎‏‏‏‏‏‎‎‏‎‎‎‏‎‏‎Connect a companion device‎‏‎‎‏‎"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‎‏‏‏‎‎‎‎‏‎‏‏‏‎‏‏‏‎‎‏‏‎‏‎‎‎‎‎‏‎‎‏‎‎‏‏‎‏‏‎‏‏‎‎‎‏‎‏‎‏‏‏‎‎‏‎‏‏‎‏‏‎You can use your phone as a companion device to help manage your driving experience‎‏‎‎‏‎"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‎‏‏‎‏‏‎‎‏‏‏‏‏‏‎‎‏‎‎‎‏‏‏‎‎‏‏‏‎‏‏‎‎‏‏‏‎‎‎‏‏‎‏‎‎‏‏‏‏‎‏‎‎‎‏‎‎‎‎‎‎‎Make sure you have ‎‏‎‎‏‏‎"<b>"‎‏‎‎‏‏‏‎Companion App‎‏‎‎‏‏‎"</b>"‎‏‎‎‏‏‏‎ installed on your phone‎‏‎‎‏‎"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‎‏‏‏‎‎‎‎‏‎‎‏‏‏‎‏‏‎‎‏‏‏‎‎‎‏‏‏‎‏‎‎‎‎‏‏‎‏‏‏‏‏‏‎‎‎‎‏‏‎‎‏‏‏‏‏‎‏‎‏‎Confirm code on phone‎‏‎‎‏‎"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‎‏‎‏‏‎‎‏‎‎‏‏‎‎‏‏‎‎‏‎‏‎‎‏‎‎‏‏‎‎‎‎‎‎‏‎‏‎‏‏‎‏‏‎‏‎‏‏‏‎‏‎‏‏‏‎‎‏‎‏‎Confirm that this matches the code shown on your phone‎‏‎‎‏‎"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‎‏‎‎‎‎‎‎‏‏‏‎‏‎‏‏‏‏‏‎‎‎‎‏‎‏‏‏‎‎‏‏‏‏‎‏‎‏‎‏‏‎‎‏‎‎‎‏‎‏‏‏‏‎‏‏‏‎‎‎‎‎Device has been associated successfully‎‏‎‎‏‎"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‏‏‏‎‏‎‏‏‎‎‏‏‏‏‎‏‏‎‎‎‎‎‏‎‏‎‏‎‎‏‏‎‎‎‎‎‎‎‏‎‏‎‎‎‎‏‏‏‎‏‎‎‏‎‏‏‏‏‏‎‏‎‎Open the app and connect to &lt;b&gt;‎‏‎‎‏‏‎<xliff:g id="CAR_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎&lt;b&gt;‎‏‎‎‏‎"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‎‎‎‎‏‎‏‏‎‏‎‏‏‏‎‎‎‏‎‎‏‏‎‏‏‏‏‎‏‏‎‎‎‎‎‏‎‏‏‎‎‎‏‏‎‎‏‏‏‏‎‏‎‎‏‎‏‏‏‎Forget &lt;b&gt;‎‏‎‎‏‏‎<xliff:g id="CAR_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎&lt;/b&gt;?‎‏‎‎‏‎"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‎‏‏‏‎‏‏‎‎‏‎‎‎‎‎‏‎‎‎‎‏‏‎‎‎‎‏‎‏‎‏‎‎‏‎‏‏‏‏‏‏‎‏‎‏‎‎‎‏‏‎‏‏‏‏‏‎‏‎‎‎This car will no longer be paired with this device. You will additionally need to remove this car from the Companion app.‎‏‎‎‏‎"</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‏‏‎‏‎‎‎‎‎‎‎‎‏‏‎‏‏‎‏‎‏‎‏‎‏‎‏‎‎‏‎‎‎‎‎‏‏‏‎‏‏‎‎‏‎‏‏‏‏‎‎‏‎‎‎‎‎‎‎‎‎‎‏‎‎‏‏‎<xliff:g id="PHONE_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎ forgotten‎‏‎‎‏‎"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‎‏‎‎‎‎‏‎‎‎‏‎‎‎‏‏‎‏‏‏‎‏‏‎‎‏‎‎‎‏‏‎‏‏‏‎‎‎‏‎‏‎‏‎‏‏‏‏‏‎‎‏‎‏‏‏‏‎‏‏‎Failed to forget ‎‏‎‎‏‏‎<xliff:g id="PHONE_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎‎‏‎‎‏‎"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‎‏‎‏‏‏‎‎‏‎‎‎‏‎‎‎‏‏‎‎‎‏‏‎‎‎‏‎‏‎‏‎‎‎‏‏‎‎‎‏‏‏‏‎‎‎‎‎‎‏‏‎‏‏‏‎‎‏‎‏‎Continue setup on your phone‎‏‎‎‏‎"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‎‏‏‏‎‎‏‏‎‎‏‏‏‏‎‎‏‎‎‏‎‎‏‏‏‎‎‎‏‏‏‎‎‎‎‏‏‏‏‏‏‏‏‎‏‎‏‎‏‎‏‎‏‎‎‏‎‏‏‏‎Something went wrong‎‏‎‎‏‎"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‏‏‎‎‎‎‏‏‏‎‎‏‎‎‎‏‎‏‏‏‎‏‎‏‎‏‏‏‏‎‏‏‏‏‎‏‎‎‎‏‎‏‎‏‎‎‏‎‎‎‏‎‏‏‏‏‎‏‎‎‎‎‎Unfortunately, this screen couldn\'t display properly. Please try again.‎‏‎‎‏‎"</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‎‏‏‏‏‏‏‎‏‏‏‏‏‏‎‏‎‎‏‎‎‏‎‎‎‎‏‎‎‏‎‎‏‏‎‎‏‏‏‏‎‏‏‎‏‎‎‏‎‎‎‏‎‏‎‏‎‏‏‏‎Turn on Bluetooth‎‏‎‎‏‎"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‎‏‏‎‏‎‎‏‏‎‎‎‏‎‏‎‏‏‎‏‎‎‎‏‏‎‏‎‏‎‎‎‏‏‏‎‎‏‏‏‎‎‎‏‏‎‏‏‏‎‎‏‎‎‎‎‏‏‎‎‎To set up your phone as a companion device, your car needs Bluetooth.‎‏‎‎‏‎"</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‏‎‎‎‏‎‏‎‎‏‏‎‎‏‎‎‎‏‎‏‎‎‎‏‎‎‎‏‏‏‏‎‎‎‎‏‏‏‎‏‏‏‎‎‏‏‎‏‏‏‏‏‎‎‏‏‏‏‎‏‎Turn on Bluetooth?‎‏‎‎‏‎"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‏‎‏‎‎‎‏‏‎‏‎‎‏‏‏‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‎‏‎‎‏‏‏‎‏‎‏‏‎‎‏‏‎‎‏‏‏‎‎‏‏‏‏‎‎‎‎To connect to your companion device, your car needs Bluetooth.‎‏‎‎‏‎"</string>
+    <string name="accept" msgid="1454710793329618813">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‏‏‎‏‎‎‎‎‏‏‎‎‎‎‎‎‏‎‏‎‏‏‏‏‎‎‎‎‏‎‎‏‎‏‎‏‏‏‎‏‎‏‎‏‏‎‏‎‏‎‏‏‏‏‎‏‏‏‏‏‎‏‎Accept‎‏‎‎‏‎"</string>
+    <string name="reject" msgid="4315432282758892890">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‎‏‏‏‏‏‎‎‎‏‏‎‏‏‏‏‏‏‎‏‏‎‎‏‏‎‎‎‎‎‎‏‎‏‎‎‎‎‏‏‎‎‎‏‏‎‎‏‏‎‏‎‏‎‏‏‎‏‎‎Reject‎‏‎‎‏‎"</string>
+    <string name="confirm" msgid="3748997214719276945">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‎‏‎‎‎‎‎‎‎‏‏‏‎‎‎‏‏‏‎‏‎‎‎‏‏‎‏‎‏‎‎‎‏‏‏‏‎‏‎‎‎‏‎‏‎‏‏‏‎‏‏‏‏‎‎‏‎‎‎‏‎Confirm‎‏‎‎‏‎"</string>
+    <string name="cancel" msgid="4306609731174629323">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‎‏‏‏‏‎‎‎‏‎‎‎‎‏‎‎‏‏‎‏‎‏‏‏‎‏‏‏‎‏‎‏‏‎‎‏‏‏‎‎‏‏‏‎‏‏‏‏‏‏‏‏‏‎‎‏‎‏‏‎Cancel‎‏‎‎‏‎"</string>
+    <string name="remove" msgid="5513398257088729188">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‏‏‎‎‏‎‎‎‎‎‏‏‏‎‎‎‎‏‏‎‏‎‎‎‎‎‎‎‏‏‏‎‏‎‏‏‎‎‎‎‏‎‎‎‎‎‎‏‎‎‎‎‎‏‏‎‎‏‎‎‎Remove‎‏‎‎‏‎"</string>
+    <string name="ok" msgid="2825038997730899083">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‎‏‏‏‎‎‏‏‎‏‎‎‏‎‎‎‏‏‏‎‎‎‎‎‎‎‎‎‎‎‏‏‎‎‎‎‎‏‏‎‎‎‎‎‎‎‏‏‎‏‎‎‏‎‎‎‏‎‏‏‎OK‎‏‎‎‏‎"</string>
+    <string name="connection" msgid="2798490936433656846">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‎‏‏‎‏‏‎‏‎‏‏‎‎‎‏‏‏‏‎‎‏‎‏‎‏‏‎‏‏‏‏‏‏‏‎‏‎‏‎‎‎‏‏‏‎‏‎‎‎‏‎‎‎‎‎‎‏‏‏‎‎Connection‎‏‎‎‏‎"</string>
+    <string name="forget_title" msgid="3027608547243824729">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‏‎‏‎‎‎‎‎‎‏‎‎‎‎‏‏‏‎‎‏‏‏‏‎‏‏‏‎‏‏‎‎‏‎‎‏‎‏‏‎‎‏‏‏‏‎‎‏‎‏‏‎‎‏‎‏‏‎‎‏‎Forget this device‎‏‎‎‏‎"</string>
+    <string name="forget" msgid="2069897665699141222">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‏‏‏‏‎‎‏‎‏‏‏‎‎‏‏‏‎‎‎‎‎‎‏‏‏‏‎‏‎‏‏‏‎‎‏‏‎‏‎‏‏‎‏‎‎‎‎‏‎‏‎‏‏‎‎‏‏‎‎‏‏‎‎Forget‎‏‎‎‏‎"</string>
+    <string name="disable" msgid="4619854429066283970">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‎‎‎‎‎‎‎‏‏‏‎‏‎‎‎‎‎‏‎‏‎‎‏‎‎‎‎‎‎‏‎‎‏‏‏‎‏‎‎‎‎‎‏‎‏‏‎‎‏‎‏‏‏‏‎‎‎‎‏‎‎Disable‎‏‎‎‏‎"</string>
+    <string name="enable" msgid="7656386199154111316">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‏‎‏‎‎‏‎‎‎‎‎‎‏‏‏‏‎‎‏‎‏‎‏‎‏‏‏‎‏‏‎‎‏‏‏‏‏‏‎‎‏‎‎‎‏‎‏‏‎‎‏‏‎‏‎‏‎‏‎‎‎Enable‎‏‎‎‏‎"</string>
+    <string name="continue_button" msgid="2748318968566159950">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‎‏‏‎‎‎‏‎‎‎‏‏‏‏‏‏‏‏‎‏‏‎‎‎‏‎‏‎‎‏‏‎‏‎‏‎‏‏‎‏‏‎‏‎‏‎‎‏‏‎‏‎‎‏‎‎‏‏‏‎‎Continue‎‏‎‎‏‎"</string>
+    <string name="retry" msgid="3783419451480721367">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‎‏‎‎‏‎‎‎‎‎‎‏‎‏‏‎‎‏‏‏‏‏‏‏‎‎‏‎‎‎‎‏‏‎‎‏‏‏‎‎‏‏‏‏‏‏‎‎‎‏‏‏‏‏‎‏‎‏‏‏‎Try again‎‏‎‎‏‎"</string>
+    <string name="turn_on" msgid="4288754850470994812">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‎‏‏‏‎‎‎‎‏‎‎‏‎‏‏‎‏‏‏‏‏‎‏‎‎‎‎‎‏‎‎‏‏‏‏‎‎‎‎‏‏‏‎‏‎‏‎‎‎‏‏‎‏‏‏‏‏‎‎‎Turn on‎‏‎‎‏‎"</string>
+    <string name="not_now" msgid="8764692269093707622">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‏‎‎‏‏‎‏‎‎‎‏‎‎‏‏‏‎‎‎‏‎‎‏‎‏‏‏‎‎‏‏‏‎‎‎‎‏‏‏‏‎‎‎‏‎‏‎‏‏‏‏‏‎‏‏‎‎‏‏‎‎Not now‎‏‎‎‏‎"</string>
+    <string name="connected" msgid="8051190714042020471">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‏‏‏‏‏‎‏‏‏‎‏‏‏‎‎‏‎‎‏‏‎‏‎‎‏‏‎‎‎‎‏‎‎‎‎‏‎‏‏‎‎‏‎‏‏‏‏‏‎‎‏‎‎‏‏‏‎‏‏‏‎Connected‎‏‎‎‏‎"</string>
+    <string name="notDetected" msgid="4115229772085594506">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‎‎‏‎‎‎‏‏‏‎‎‎‎‏‏‏‎‏‏‏‎‏‎‏‏‎‎‏‎‎‏‏‏‏‎‎‏‎‎‎‏‏‎‎‎‎‎‏‎‎‏‏‎‎‎‏‎‏‎‎Not detected‎‏‎‎‏‎"</string>
+    <string name="disconnected" msgid="8526513868622591894">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‎‏‏‎‎‏‎‏‎‏‎‎‎‏‎‎‎‎‏‏‎‎‏‏‎‎‎‎‎‎‏‎‎‏‏‏‏‎‏‏‎‎‎‎‏‏‏‏‎‏‏‏‏‎‎‏‎‏‏‎‎Disconnected‎‏‎‎‏‎"</string>
+    <string name="unknown" msgid="555736316465118024">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‎‏‏‏‏‏‏‎‏‏‎‏‏‎‎‏‎‏‏‏‏‏‎‎‏‏‏‏‎‎‎‏‎‎‎‎‏‏‏‎‏‎‏‏‏‏‏‏‏‏‏‎‏‏‎‏‎‎‏‎‎‎‎Unknown‎‏‎‎‏‎"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‎‎‏‏‎‎‏‏‎‏‎‏‎‎‏‎‎‎‎‎‏‏‎‎‎‎‎‏‎‏‏‏‎‏‏‎‎‎‎‎‎‏‏‏‎‎‎‏‎‎‏‎‏‏‎‏‏‏‎‏‎Phone text message service running‎‏‎‎‏‎"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‎‏‏‏‎‏‎‏‏‎‎‏‎‏‏‎‏‎‏‏‎‏‎‎‎‎‎‏‎‏‎‎‎‏‏‎‏‏‏‎‎‏‏‎‏‎‏‏‏‎‏‎‎‏‏‏‎‏‎‏‎‎‎Phone text messaging service is active‎‏‎‎‏‎"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‏‏‏‏‏‎‏‏‏‏‎‏‎‎‎‎‏‎‎‏‏‎‏‎‎‎‎‏‏‏‎‎‏‏‎‎‎‏‎‏‏‏‏‎‎‏‎‏‎‏‎‎‎‎‎‏‎‎‏‎Receiving text messages via companion device‎‏‎‎‏‎"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‎‏‎‏‎‏‎‏‎‏‏‎‏‏‎‏‎‎‎‏‏‎‏‏‎‏‏‏‏‎‏‏‏‏‎‏‏‏‎‎‎‎‏‎‎‎‎‏‎‏‏‎‏‎‎‎‎‎‎‏‎Unlock profile with phone‎‏‎‎‏‎"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‎‎‎‏‏‎‏‎‏‎‏‏‎‏‏‎‎‎‏‎‏‏‎‎‎‎‏‏‎‎‎‎‏‎‏‎‎‎‎‏‎‎‏‎‎‏‎‎‏‏‎‏‎‏‏‎‏‎‎‏‎‎Check your Companion App to set unlocking options‎‏‎‎‏‎"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‏‎‎‏‏‏‎‏‏‏‎‎‏‏‏‎‎‏‎‎‏‎‏‎‎‎‏‏‎‎‏‎‎‏‎‎‏‏‎‏‎‏‏‎‏‎‎‎‏‏‎‏‏‎‏‎‎‎‏‎Let &lt;b&gt;‎‏‎‎‏‏‎<xliff:g id="PHONE_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎&lt;/b&gt; unlock my profile‎‏‎‎‏‎"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‏‏‎‎‎‎‎‎‎‎‏‏‏‏‎‎‎‎‏‎‏‏‎‎‏‎‏‏‏‎‎‏‎‎‏‏‎‏‎‏‏‎‏‎‏‎‏‏‏‎‎‎‏‏‏‎‎‎‎‎‏‎‎Your phone must be actively connected‎‏‎‎‏‎"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‎‏‎‏‎‎‏‏‎‏‏‎‏‏‎‏‏‎‎‏‎‏‏‎‎‎‏‏‎‎‎‎‎‏‏‎‏‎‏‏‏‎‎‏‎‏‏‎‎‎‏‎‎‏‎‎‏‏‎‎‎To turn on this feature, make sure your car and phone have bluetooth turned on and are near each other‎‏‎‎‏‎"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‎‏‏‏‏‎‎‏‏‎‏‏‏‏‏‏‎‏‏‎‎‏‏‎‏‏‎‎‎‎‎‏‎‎‎‎‎‎‏‏‎‏‎‏‏‎‏‎‎‏‏‎‏‎‎‏‏‎‎‏‎‏‏‎&lt;b&gt;‎‏‎‎‏‏‎<xliff:g id="PHONE_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎&lt;/b&gt; can now unlock your profile‎‏‎‎‏‎"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‏‏‎‏‎‎‏‎‎‏‏‎‏‏‏‎‎‏‎‏‎‎‎‏‏‎‎‏‏‏‏‎‎‎‏‏‎‎‎‎‏‏‎‏‏‎‏‎‎‎‎‏‎‏‎‎‎‏‎‏‎Create a primary profile lock‎‏‎‎‏‎"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‎‎‏‏‎‎‏‏‏‏‎‏‏‏‏‏‏‏‎‏‏‎‏‎‏‎‎‎‎‎‎‎‎‎‏‎‏‎‎‏‏‏‎‏‎‏‎‎‎‏‏‏‎‏‏‏‎‏‎‎‎‎To use your phone to unlock your profile, you need a primary profile lock as a backup‎‏‎‎‏‎"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‏‏‎‏‎‏‏‎‎‏‎‎‏‏‏‏‏‎‏‎‎‎‎‎‏‎‏‏‏‏‎‎‏‏‏‎‏‏‎‎‎‎‎‏‏‎‎‎‎‏‎‏‏‎‏‏‎‏‏‏‎‎Unlock your profile to finish‎‏‎‎‏‎"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‎‏‏‏‏‎‎‏‎‎‏‎‏‎‎‎‎‏‎‎‎‎‎‎‏‎‏‎‏‎‎‏‏‎‏‏‎‎‏‏‎‎‏‏‎‏‏‎‏‎‎‏‎‎‎‎‏‏‏‎‎You\'ve created a new profile lock. Next, enter it again to confirm that your phone can unlock your profile automatically‎‏‎‎‏‎"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‏‎‎‏‎‎‎‏‎‎‎‎‎‏‏‎‏‎‏‏‏‏‏‎‎‎‏‏‏‎‏‏‏‎‎‏‎‏‎‏‎‏‏‏‏‎‏‎‎‎‏‏‏‎‏‎‏‎‎‎Disconnect this device‎‏‎‎‏‎"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‏‎‏‏‎‏‏‏‎‎‏‏‎‎‎‏‎‎‎‎‏‎‎‎‏‏‏‏‎‏‏‎‏‎‏‏‏‎‏‎‏‏‎‏‏‏‎‏‎‎‎‏‎‏‏‎‎‏‏‏‎Reconnect this device‎‏‎‎‏‎"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‎‏‏‏‎‏‎‎‏‏‏‎‎‎‎‎‏‏‎‎‏‎‏‎‏‎‏‏‏‎‏‏‎‏‎‎‎‎‎‎‏‏‎‎‏‎‎‏‎‎‏‏‎‎‎‎‏‏‎‎‎‏‎Unlock with phone‎‏‎‎‏‎"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‎‏‎‏‏‎‏‏‏‎‏‏‏‏‏‎‏‏‏‏‎‏‏‏‏‎‎‏‎‏‏‎‏‏‏‏‏‏‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‏‎‏‎‎‏‎Let your phone unlock your profile‎‏‎‎‏‎"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‏‎‎‎‏‎‎‏‎‏‏‎‎‏‏‎‎‏‎‎‎‎‎‏‎‏‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‎‎‎‏‏‏‎‏‏‎‎‎‏‎‎‎‎Tap here to authorize this feature‎‏‎‎‏‎"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‎‎‎‎‏‎‏‏‎‎‎‏‎‎‎‎‏‎‏‏‏‎‎‎‎‏‏‎‎‏‏‏‏‏‎‎‏‏‏‎‎‎‏‎‏‎‎‎‎‏‏‎‏‏‏‎‏‏‏‎‎Something went wrong‎‏‎‎‏‎"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‎‎‎‏‏‏‏‏‏‏‏‎‏‎‏‏‎‏‏‏‎‏‎‏‏‏‏‏‏‏‎‏‎‎‏‏‎‏‎‏‏‏‎‏‎‏‎‏‎‎‏‎‏‏‎‎‎‏‏‎‏‎Unfortunately, this feature could not be turned on at this time. Please try again.‎‏‎‎‏‎"</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‏‏‏‏‎‎‎‏‏‏‏‏‎‏‎‏‏‏‎‏‎‎‏‎‎‎‏‎‎‏‏‎‏‏‎‏‎‎‎‎‏‎‏‎‏‎‏‏‏‏‎‏‎‏‎‏‏‏‎‎‎Create a screen lock on your phone‎‏‎‎‏‎"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‏‎‎‏‎‎‏‎‎‎‎‎‏‏‏‏‏‏‏‏‏‎‎‎‏‏‏‏‎‏‏‎‏‏‏‎‏‏‏‎‎‏‏‏‏‎‎‎‎‏‎‏‏‎‎‎‏‎‎‎‎‏‏‎‎‎‏‏‎‎‎‎‎‏‎‏‏‏‎‏‏‎Your phone doesn\'t have a screen lock set. To unlock your car profile with your phone, first create a screen lock (also known as passcode) in your phones settings.‎‏‎‎‏‎"</string>
+</resources>

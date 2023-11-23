@@ -31,9 +31,11 @@
 namespace android {
 
 namespace {
-
+constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
 constexpr char COMPONENT_NAME[] = "c2.android.avc.decoder";
-
+constexpr uint32_t kDefaultOutputDelay = 8;
+constexpr uint32_t kMaxOutputDelay = 16;
+constexpr uint32_t kMinInputBytes = 4;
 }  // namespace
 
 class C2SoftAvcDec::IntfImpl : public SimpleInterface<void>::BaseParams {
@@ -54,7 +56,9 @@ public:
         // TODO: Proper support for reorder depth.
         addParameter(
                 DefineParam(mActualOutputDelay, C2_PARAMKEY_OUTPUT_DELAY)
-                .withConstValue(new C2PortActualDelayTuning::output(8u))
+                .withDefault(new C2PortActualDelayTuning::output(kDefaultOutputDelay))
+                .withFields({C2F(mActualOutputDelay, value).inRange(0, kMaxOutputDelay)})
+                .withSetter(Setter<decltype(*mActualOutputDelay)>::StrictValueWithNoDeps)
                 .build());
 
         // TODO: output latency and reordering
@@ -111,7 +115,7 @@ public:
 
         addParameter(
                 DefineParam(mMaxInputSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
-                .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, 320 * 240 * 3 / 4))
+                .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, kMinInputBufferSize))
                 .withFields({
                     C2F(mMaxInputSize, value).any(),
                 })
@@ -196,7 +200,6 @@ public:
                                      0u, HAL_PIXEL_FORMAT_YCBCR_420_888))
                 .build());
     }
-
     static C2R SizeSetter(bool mayBlock, const C2P<C2StreamPictureSizeInfo::output> &oldMe,
                           C2P<C2StreamPictureSizeInfo::output> &me) {
         (void)mayBlock;
@@ -225,7 +228,8 @@ public:
                                   const C2P<C2StreamMaxPictureSizeTuning::output> &maxSize) {
         (void)mayBlock;
         // assume compression ratio of 2
-        me.set().value = (((maxSize.v.width + 15) / 16) * ((maxSize.v.height + 15) / 16) * 192);
+        me.set().value = c2_max((((maxSize.v.width + 15) / 16)
+                * ((maxSize.v.height + 15) / 16) * 192), kMinInputBufferSize);
         return C2R::Ok();
     }
 
@@ -333,6 +337,7 @@ C2SoftAvcDec::C2SoftAvcDec(
       mDecHandle(nullptr),
       mOutBufferFlush(nullptr),
       mIvColorFormat(IV_YUV_420P),
+      mOutputDelay(kDefaultOutputDelay),
       mWidth(320),
       mHeight(240),
       mHeaderDecoded(false),
@@ -497,7 +502,7 @@ void C2SoftAvcDec::getVersion() {
 status_t C2SoftAvcDec::initDecoder() {
     if (OK != createDecoder()) return UNKNOWN_ERROR;
     mNumCores = MIN(getCpuCoreCount(), MAX_NUM_CORES);
-    mStride = ALIGN64(mWidth);
+    mStride = ALIGN32(mWidth);
     mSignalledError = false;
     resetPlugin();
     (void) setNumCores();
@@ -515,9 +520,19 @@ bool C2SoftAvcDec::setDecodeArgs(ivd_video_decode_ip_t *ps_decode_ip,
                                  size_t inSize,
                                  uint32_t tsMarker) {
     uint32_t displayStride = mStride;
+    if (outBuffer) {
+        C2PlanarLayout layout;
+        layout = outBuffer->layout();
+        displayStride = layout.planes[C2PlanarLayout::PLANE_Y].rowInc;
+    }
     uint32_t displayHeight = mHeight;
     size_t lumaSize = displayStride * displayHeight;
     size_t chromaSize = lumaSize >> 2;
+
+    if (mStride != displayStride) {
+        mStride = displayStride;
+        if (OK != setParams(mStride, IVD_DECODE_FRAME)) return false;
+    }
 
     ps_decode_ip->u4_size = sizeof(ivd_video_decode_ip_t);
     ps_decode_ip->e_cmd = IVD_CMD_VIDEO_DECODE;
@@ -534,7 +549,7 @@ bool C2SoftAvcDec::setDecodeArgs(ivd_video_decode_ip_t *ps_decode_ip,
     ps_decode_ip->s_out_buffer.u4_min_out_buf_size[1] = chromaSize;
     ps_decode_ip->s_out_buffer.u4_min_out_buf_size[2] = chromaSize;
     if (outBuffer) {
-        if (outBuffer->width() < displayStride || outBuffer->height() < displayHeight) {
+        if (outBuffer->height() < displayHeight) {
             ALOGE("Output buffer too small: provided (%dx%d) required (%ux%u)",
                   outBuffer->width(), outBuffer->height(), displayStride, displayHeight);
             return false;
@@ -752,24 +767,21 @@ c2_status_t C2SoftAvcDec::ensureDecoderState(const std::shared_ptr<C2BlockPool> 
         ALOGE("not supposed to be here, invalid decoder context");
         return C2_CORRUPTED;
     }
-    if (mStride != ALIGN64(mWidth)) {
-        mStride = ALIGN64(mWidth);
-        if (OK != setParams(mStride, IVD_DECODE_FRAME)) return C2_CORRUPTED;
-    }
     if (mOutBlock &&
-            (mOutBlock->width() != mStride || mOutBlock->height() != mHeight)) {
+            (mOutBlock->width() != ALIGN32(mWidth) || mOutBlock->height() != mHeight)) {
         mOutBlock.reset();
     }
     if (!mOutBlock) {
         uint32_t format = HAL_PIXEL_FORMAT_YV12;
         C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
-        c2_status_t err = pool->fetchGraphicBlock(mStride, mHeight, format, usage, &mOutBlock);
+        c2_status_t err =
+            pool->fetchGraphicBlock(ALIGN32(mWidth), mHeight, format, usage, &mOutBlock);
         if (err != C2_OK) {
             ALOGE("fetchGraphicBlock for Output failed with status %d", err);
             return err;
         }
         ALOGV("provided (%dx%d) required (%dx%d)",
-              mOutBlock->width(), mOutBlock->height(), mStride, mHeight);
+              mOutBlock->width(), mOutBlock->height(), ALIGN32(mWidth), mHeight);
     }
 
     return C2_OK;
@@ -813,7 +825,7 @@ void C2SoftAvcDec::process(
           inSize, (int)work->input.ordinal.timestamp.peeku(),
           (int)work->input.ordinal.frameIndex.peeku(), work->input.flags);
     size_t inPos = 0;
-    while (inPos < inSize) {
+    while (inPos < inSize && inSize - inPos >= kMinInputBytes) {
         if (C2_OK != ensureDecoderState(pool)) {
             mSignalledError = true;
             work->workletsProcessed = 1u;
@@ -882,10 +894,30 @@ void C2SoftAvcDec::process(
             work->result = C2_CORRUPTED;
             return;
         }
+        if (s_decode_op.i4_reorder_depth >= 0 && mOutputDelay != s_decode_op.i4_reorder_depth) {
+            mOutputDelay = s_decode_op.i4_reorder_depth;
+            ALOGV("New Output delay %d ", mOutputDelay);
+
+            C2PortActualDelayTuning::output outputDelay(mOutputDelay);
+            std::vector<std::unique_ptr<C2SettingResult>> failures;
+            c2_status_t err =
+                mIntf->config({&outputDelay}, C2_MAY_BLOCK, &failures);
+            if (err == OK) {
+                work->worklets.front()->output.configUpdate.push_back(
+                    C2Param::Copy(outputDelay));
+            } else {
+                ALOGE("Cannot set output delay");
+                mSignalledError = true;
+                work->workletsProcessed = 1u;
+                work->result = C2_CORRUPTED;
+                return;
+            }
+        }
         if (0 < s_decode_op.u4_pic_wd && 0 < s_decode_op.u4_pic_ht) {
             if (mHeaderDecoded == false) {
                 mHeaderDecoded = true;
-                setParams(ALIGN64(s_decode_op.u4_pic_wd), IVD_DECODE_FRAME);
+                mStride = ALIGN32(s_decode_op.u4_pic_wd);
+                setParams(mStride, IVD_DECODE_FRAME);
             }
             if (s_decode_op.u4_pic_wd != mWidth || s_decode_op.u4_pic_ht != mHeight) {
                 mWidth = s_decode_op.u4_pic_wd;
@@ -913,16 +945,7 @@ void C2SoftAvcDec::process(
         if (s_decode_op.u4_output_present) {
             finishWork(s_decode_op.u4_ts, work);
         }
-        if (0 == s_decode_op.u4_num_bytes_consumed) {
-            ALOGD("Bytes consumed is zero. Ignoring remaining bytes");
-            break;
-        }
         inPos += s_decode_op.u4_num_bytes_consumed;
-        if (hasPicture && (inSize - inPos)) {
-            ALOGD("decoded frame in current access nal, ignoring further trailing bytes %d",
-                  (int)inSize - (int)inPos);
-            break;
-        }
     }
     if (eos) {
         drainInternal(DRAIN_COMPONENT_WITH_EOS, pool, work);

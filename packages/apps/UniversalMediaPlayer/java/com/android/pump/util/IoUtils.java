@@ -16,6 +16,8 @@
 
 package com.android.pump.util;
 
+import android.content.res.AssetFileDescriptor;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
@@ -36,6 +38,16 @@ public final class IoUtils {
 
     public static @NonNull byte[] readFromFile(@NonNull File file) throws IOException  {
         InputStream inputStream = new FileInputStream(file);
+        try {
+            return readFromStream(inputStream);
+        } finally {
+            close(inputStream);
+        }
+    }
+
+    public static @NonNull byte[] readFromAssetFileDescriptor(
+            @NonNull AssetFileDescriptor assetFileDescriptor) throws IOException {
+        InputStream inputStream = assetFileDescriptor.createInputStream();
         try {
             return readFromStream(inputStream);
         } finally {

@@ -17,6 +17,7 @@ package android
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 func init() {
@@ -26,6 +27,8 @@ func init() {
 type vtsConfigProperties struct {
 	// Override the default (AndroidTest.xml) test manifest file name.
 	Test_config *string
+	// Additional test suites to add the test to.
+	Test_suites []string `android:"arch_variant"`
 }
 
 type VtsConfig struct {
@@ -41,16 +44,18 @@ func (me *VtsConfig) GenerateAndroidBuildActions(ctx ModuleContext) {
 func (me *VtsConfig) AndroidMk() AndroidMkData {
 	androidMkData := AndroidMkData{
 		Class:      "FAKE",
-		Include:    "$(BUILD_SYSTEM)/android_vts_host_config.mk",
+		Include:    "$(BUILD_SYSTEM)/suite_host_config.mk",
 		OutputFile: OptionalPathForPath(me.OutputFilePath),
 	}
-	if me.properties.Test_config != nil {
-		androidMkData.Extra = []AndroidMkExtraFunc{
-			func(w io.Writer, outputFile Path) {
+	androidMkData.Extra = []AndroidMkExtraFunc{
+		func(w io.Writer, outputFile Path) {
+			if me.properties.Test_config != nil {
 				fmt.Fprintf(w, "LOCAL_TEST_CONFIG := %s\n",
 					*me.properties.Test_config)
-			},
-		}
+			}
+			fmt.Fprintf(w, "LOCAL_COMPATIBILITY_SUITE := vts10 %s\n",
+				strings.Join(me.properties.Test_suites, " "))
+		},
 	}
 	return androidMkData
 }
@@ -59,7 +64,7 @@ func InitVtsConfigModule(me *VtsConfig) {
 	me.AddProperties(&me.properties)
 }
 
-// vts_config generates a Vendor Test Suite (VTS) configuration file from the
+// vts_config generates a Vendor Test Suite (VTS10) configuration file from the
 // <test_config> xml file and stores it in a subdirectory of $(HOST_OUT).
 func VtsConfigFactory() Module {
 	module := &VtsConfig{}

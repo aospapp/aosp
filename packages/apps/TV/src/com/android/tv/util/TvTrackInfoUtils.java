@@ -17,9 +17,16 @@ package com.android.tv.util;
 
 import android.content.Context;
 import android.media.tv.TvTrackInfo;
+import android.os.Build;
+import android.os.LocaleList;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.R;
+
+import com.google.common.collect.Iterables;
+
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -38,17 +45,19 @@ public class TvTrackInfoUtils {
     private static final int AUDIO_CHANNEL_SURROUND_8 = 8;
 
     /**
-     * Compares how closely two {@link android.media.tv.TvTrackInfo}s match {@code language}, {@code
-     * channelCount} and {@code id} in that precedence.
+     * Compares how closely two {@link android.media.tv.TvTrackInfo}s match {@code languages},
+     * {@code channelCount} and {@code id} in that precedence. A listed sorted with this comparator
+     * has the worst matches first.
      *
      * @param id The track id to match.
-     * @param language The language to match.
+     * @param languages The prioritized list of languages. Languages earlier in the list are a
+     *     better match.
      * @param channelCount The channel count to match.
      * @return -1 if lhs is a worse match, 0 if lhs and rhs match equally and 1 if lhs is a better
      *     match.
      */
     public static Comparator<TvTrackInfo> createComparator(
-            final String id, final String language, final int channelCount) {
+            final String id, final List<String> languages, final int channelCount) {
         return (TvTrackInfo lhs, TvTrackInfo rhs) -> {
             if (Objects.equals(lhs, rhs)) {
                 return 0;
@@ -59,26 +68,35 @@ public class TvTrackInfoUtils {
             if (rhs == null) {
                 return 1;
             }
-            // Assumes {@code null} language matches to any language since it means user hasn't
-            // selected any track before or selected a track without language information.
-            boolean lhsLangMatch =
-                    language == null || Utils.isEqualLanguage(lhs.getLanguage(), language);
-            boolean rhsLangMatch =
-                    language == null || Utils.isEqualLanguage(rhs.getLanguage(), language);
-            if (lhsLangMatch && rhsLangMatch) {
-                boolean lhsCountMatch =
-                        lhs.getType() != TvTrackInfo.TYPE_AUDIO
-                                || lhs.getAudioChannelCount() == channelCount;
-                boolean rhsCountMatch =
-                        rhs.getType() != TvTrackInfo.TYPE_AUDIO
-                                || rhs.getAudioChannelCount() == channelCount;
-                if (lhsCountMatch && rhsCountMatch) {
-                    return Boolean.compare(lhs.getId().equals(id), rhs.getId().equals(id));
-                } else {
-                    return Boolean.compare(lhsCountMatch, rhsCountMatch);
-                }
+            // Find the first language that matches the lhs and rhs tracks. The  earlier match is
+            // better. If there is no match set the index to the size of the language list since
+            // its the worst match.
+            int lhsLangIndex =
+                    Iterables.indexOf(languages, s -> Utils.isEqualLanguage(lhs.getLanguage(), s));
+            if (lhsLangIndex == -1) {
+                lhsLangIndex = languages.size();
+            }
+            int rhsLangIndex =
+                    Iterables.indexOf(languages, s -> Utils.isEqualLanguage(rhs.getLanguage(), s));
+            if (rhsLangIndex == -1) {
+                rhsLangIndex = languages.size();
+            }
+            if (lhsLangIndex != rhsLangIndex) {
+                // Return the track with lower index as best
+                return Integer.compare(rhsLangIndex, lhsLangIndex);
+            }
+            boolean lhsCountMatch =
+                    lhs.getType() != TvTrackInfo.TYPE_AUDIO
+                            || lhs.getAudioChannelCount() == channelCount;
+            boolean rhsCountMatch =
+                    rhs.getType() != TvTrackInfo.TYPE_AUDIO
+                            || rhs.getAudioChannelCount() == channelCount;
+            if (lhsCountMatch && rhsCountMatch) {
+                return Boolean.compare(lhs.getId().equals(id), rhs.getId().equals(id));
+            } else if (lhsCountMatch || rhsCountMatch) {
+                return Boolean.compare(lhsCountMatch, rhsCountMatch);
             } else {
-                return Boolean.compare(lhsLangMatch, rhsLangMatch);
+                return Integer.compare(lhs.getAudioChannelCount(), rhs.getAudioChannelCount());
             }
         };
     }
@@ -97,7 +115,20 @@ public class TvTrackInfoUtils {
         if (tracks == null) {
             return null;
         }
-        Comparator<TvTrackInfo> comparator = createComparator(id, language, channelCount);
+        List<String> languages = new ArrayList<>();
+        if (language == null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                LocaleList locales = LocaleList.getDefault();
+                for (int i = 0; i < locales.size(); i++) {
+                    languages.add(locales.get(i).getLanguage());
+                }
+            } else {
+                languages.add(Locale.getDefault().getLanguage());
+            }
+        } else {
+            languages.add(language);
+        }
+        Comparator<TvTrackInfo> comparator = createComparator(id, languages, channelCount);
         TvTrackInfo best = null;
         for (TvTrackInfo track : tracks) {
             if (comparator.compare(track, best) > 0) {
@@ -128,11 +159,7 @@ public class TvTrackInfoUtils {
         if (!TextUtils.isEmpty(track.getLanguage())) {
             language = new Locale(track.getLanguage()).getDisplayName();
         } else {
-            Log.d(
-                TAG,
-                "No language information found for the audio track: "
-                + toString(track)
-            );
+            Log.d(TAG, "No language information found for the audio track: " + toString(track));
         }
 
         StringBuilder metadata = new StringBuilder();
@@ -207,31 +234,31 @@ public class TvTrackInfoUtils {
     public static String toString(TvTrackInfo info) {
         int trackType = info.getType();
         return "TvTrackInfo{"
-            + "type="
-            + trackTypeToString(trackType)
-            + ", id="
-            + info.getId()
-            + ", language="
-            + info.getLanguage()
-            + ", description="
-            + info.getDescription()
-            + (trackType == TvTrackInfo.TYPE_AUDIO
-                ?
-                (", audioChannelCount="
-                + info.getAudioChannelCount()
-                + ", audioSampleRate="
-                + info.getAudioSampleRate()) : "")
-            + (trackType == TvTrackInfo.TYPE_VIDEO
-                ?
-                (", videoWidth="
-                + info.getVideoWidth()
-                + ", videoHeight="
-                + info.getVideoHeight()
-                + ", videoFrameRate="
-                + info.getVideoFrameRate()
-                + ", videoPixelAspectRatio="
-                + info.getVideoPixelAspectRatio()) : "")
-            + "}";
+                + "type="
+                + trackTypeToString(trackType)
+                + ", id="
+                + info.getId()
+                + ", language="
+                + info.getLanguage()
+                + ", description="
+                + info.getDescription()
+                + (trackType == TvTrackInfo.TYPE_AUDIO
+                        ? (", audioChannelCount="
+                                + info.getAudioChannelCount()
+                                + ", audioSampleRate="
+                                + info.getAudioSampleRate())
+                        : "")
+                + (trackType == TvTrackInfo.TYPE_VIDEO
+                        ? (", videoWidth="
+                                + info.getVideoWidth()
+                                + ", videoHeight="
+                                + info.getVideoHeight()
+                                + ", videoFrameRate="
+                                + info.getVideoFrameRate()
+                                + ", videoPixelAspectRatio="
+                                + info.getVideoPixelAspectRatio())
+                        : "")
+                + "}";
     }
 
     private TvTrackInfoUtils() {}

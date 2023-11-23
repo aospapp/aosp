@@ -300,4 +300,34 @@
 
     <!-- Label for a checkbox which lets user preview the displayed image as wallpaper. [CHAR LIMIT=30] -->
     <string name="preview">Preview</string>
+
+    <!-- Label for the 'Info' tab of view pager in wallpaper preview activity. [CHAR_LIMIT=25] -->
+    <string name="tab_info">Info</string>
+    <!-- Label for the 'Customize' tab of view pager in wallpaper preview activity.
+         [CHAR_LIMIT=25] -->
+    <string name="tab_customize">Customize</string>
+
+    <!-- List item for configuring the current wallpaper [CHAR LIMIT=30] -->
+    <string name="configure_wallpaper">Settings…</string>
+
+    <!-- List item for deleting the current wallpaper [CHAR LIMIT=30] -->
+    <string name="delete_live_wallpaper">Delete</string>
+
+    <!-- Confirmation dialog. Shown after user selects to delete one wallpaper. [CHAR LIMIT=NONE] -->
+    <string name="delete_wallpaper_confirmation">Delete this wallpaper from your phone?</string>
+
+    <!-- The class name for the ScaleBehavior -->
+    <string name="scalable_container_behavior" translatable="false">com.android.wallpaper.picker.ScaleBehavior</string>
+
+    <!-- Accessibility label for paging indicator in theme picker preview [CHAR LIMIT=NONE] -->
+    <string name="accessibility_preview_pager" msgid="3548503287402185430">Page <xliff:g name="current_page" example="1">%1$d</xliff:g> of <xliff:g name="num_pages" example="2">%2$d</xliff:g></string>
+    <!-- Content description of the next button to bring user to the next preview page.[CHAR LIMIT=NONE] -->
+    <string name="next_page_content_description" msgid="5290226604542300962">Next</string>
+    <!-- Content description of the previous button to bring user to the previous preview page. [CHAR LIMIT=NONE] -->
+    <string name="previous_page_content_description" msgid="6025726405430262788">Previous</string>
+
+    <!--Name of metadata in the main launcher Activity which values contains the authority
+    corresponding to a ContentProvider in launcher to provide available grids and
+    allow for changing them -->
+    <string name="grid_control_metadata_name" translatable="false">com.android.launcher3.grid.control</string>
 </resources>

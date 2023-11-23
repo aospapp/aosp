@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2019 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14488 $"/>
+		<version number="$Revision$"/>
 		<language type="se"/>
 		<territory type="FI"/>
 	</identity>
@@ -44,6 +44,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<language type="th">thaigiella</language>
 			<language type="vi">vietnamagiella</language>
 			<language type="zh_Hans">álkes kiinnágiella</language>
+			<language type="zh_Hant">árbevirolaš kiinnágiella</language>
 		</languages>
 		<scripts>
 			<script type="Arab">arábalaš</script>
@@ -68,7 +69,18 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<territory type="018">Lulli-Afrihká</territory>
 			<territory type="019">Amerihka</territory>
 			<territory type="021">Davvi-Amerihká</territory>
+			<territory type="029">Karibia</territory>
+			<territory type="030">nuorta-Ásia</territory>
+			<territory type="034">mátta-Ásia</territory>
+			<territory type="035">mátta-nuorta-Ásia</territory>
+			<territory type="039">mátta-Eurohpá</territory>
 			<territory type="057">Mikronesia guovlu</territory>
+			<territory type="143">gaska-Ásia</territory>
+			<territory type="145">oarji-Ásia</territory>
+			<territory type="150">Eurohpá</territory>
+			<territory type="151">nuorta-Eurohpá</territory>
+			<territory type="154">davvi-Eurohpá</territory>
+			<territory type="155">oarji-Eurohpá</territory>
 			<territory type="419">Latiinnalaš Amerihká</territory>
 			<territory type="BA">Bosnia ja Hercegovina</territory>
 			<territory type="CI" alt="variant">Côte d’Ivoire</territory>
@@ -388,9 +400,9 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 						<dateFormatItem id="MMMd">d MMM</dateFormatItem>
 						<dateFormatItem id="MMMEd">E d MMM</dateFormatItem>
 						<dateFormatItem id="MMMMd">d MMMM</dateFormatItem>
-						<dateFormatItem id="MMMMW" count="one">MMMM':a vahkku' W</dateFormatItem>
-						<dateFormatItem id="MMMMW" count="two">MMMM':a vahkku' W</dateFormatItem>
-						<dateFormatItem id="MMMMW" count="other">MMMM':a vahkku' W</dateFormatItem>
+						<dateFormatItem id="MMMMW" count="one">MMMM:'a' 'vahkku' W</dateFormatItem>
+						<dateFormatItem id="MMMMW" count="two">MMMM:'a' 'vahkku' W</dateFormatItem>
+						<dateFormatItem id="MMMMW" count="other">MMMM:'a' 'vahkku' W</dateFormatItem>
 						<dateFormatItem id="yM">MM.y</dateFormatItem>
 						<dateFormatItem id="yMd">dd.MM.y</dateFormatItem>
 						<dateFormatItem id="yMEd">E dd.MM.y</dateFormatItem>

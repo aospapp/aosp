@@ -25,6 +25,7 @@ cc_test {
     ],
     static_libs: [
         "libdm",
+        "libext2_uuid",
         "libtestUtil",
     ],
     cflags: [
@@ -33,4 +34,9 @@ cc_test {
         "-Werror",
         "-Wno-unused-variable",
     ],
+    test_suites: [
+        "vts",
+    ],
+    require_root: true,
+    auto_gen_config: true,
 }

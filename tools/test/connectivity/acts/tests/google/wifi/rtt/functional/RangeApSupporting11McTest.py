@@ -44,9 +44,6 @@ class RangeApSupporting11McTest(RttBaseTest):
     # Time to wait before configuration changes
     WAIT_FOR_CONFIG_CHANGES_SEC = 1
 
-    def __init__(self, controllers):
-        RttBaseTest.__init__(self, controllers)
-
     def run_test_rtt_80211mc_supporting_aps(self, dut, accuracy_evaluation=False):
         """Scan for APs and perform RTT only to those which support 802.11mc
         Args:

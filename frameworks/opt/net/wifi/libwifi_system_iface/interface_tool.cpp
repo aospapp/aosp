@@ -138,7 +138,12 @@ bool InterfaceTool::SetMacAddress(const char* if_name,
 std::array<uint8_t, ETH_ALEN> InterfaceTool::GetFactoryMacAddress(const char* if_name) {
   std::array<uint8_t, ETH_ALEN> paddr = {};
   struct ifreq ifr;
-  struct ethtool_perm_addr *epaddr;
+  struct {
+    // Allocate ETH_ALEN bytes after ethtool_perm_addr.
+    struct ethtool_perm_addr epaddr;
+    uint8_t data[ETH_ALEN];
+  } epaddr_buf;
+  struct ethtool_perm_addr* epaddr = &epaddr_buf.epaddr;
 
   base::unique_fd sock(socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0));
   if (sock.get() < 0) {
@@ -149,13 +154,6 @@ std::array<uint8_t, ETH_ALEN> InterfaceTool::GetFactoryMacAddress(const char* if
 
   if (!GetIfState(if_name, sock.get(), &ifr)) {
     return paddr;  // logging done internally
-  }
-
-  epaddr = (ethtool_perm_addr*) malloc(sizeof(struct ethtool_perm_addr) + ETH_ALEN);
-  if (!epaddr) {
-    LOG(ERROR) << "Failed to set memory for mac address ("
-               << strerror(errno) << ")";
-    return paddr;
   }
 
   epaddr->cmd = ETHTOOL_GPERMADDR;

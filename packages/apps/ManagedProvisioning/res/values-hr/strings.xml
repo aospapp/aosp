@@ -21,13 +21,13 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1527793174155125990">"Postavka za posao"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Ups!"</string>
-    <string name="setup_work_profile" msgid="1468934631731845267">"Postavljanje radnog profila"</string>
+    <string name="setup_work_profile" msgid="1468934631731845267">"Postavljanje poslovnog profila"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Vaša organizacija kontrolira i štiti ovaj profil. Vi kontrolirate sve ostalo na svojem uređaju."</string>
     <string name="company_controls_device" msgid="8230957518758871390">"Vaša će organizacija kontrolirati i štititi ovaj uređaj."</string>
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Sljedeća aplikacija morat će pristupiti ovom profilu:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Vašim će uređajem upravljati sljedeća aplikacija:"</string>
     <string name="next" msgid="1004321437324424398">"Dalje"</string>
-    <string name="setting_up_workspace" msgid="7862472373642601041">"Postavljanje radnog profila…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Postavljanje poslovnog profila…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Vaš IT administrator može nadzirati postavke, korporacijski pristup, aplikacije, dopuštenja i podatke povezane s ovim profilom, uključujući vašu aktivnost na mreži i lokaciju uređaja, povijest poziva i povijest pretraživanja kontakata te upravljati njima.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Više informacija, uključujući pravila o privatnosti u organizaciji, možete saznati od IT administratora."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Vaš IT administrator može nadzirati postavke, korporacijski pristup, aplikacije, dopuštenja i podatke o uređaju, uključujući vašu aktivnost na mreži i lokaciju uređaja, povijest poziva i povijest pretraživanja kontakata te upravljati njima.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Više informacija, uključujući pravila o privatnosti u organizaciji, možete saznati od IT administratora."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Da biste upotrebljavali značajke za zaštitu od krađe, na uređaju morate postaviti zaporku za otključavanje zaslona."</string>
@@ -40,7 +40,7 @@
     <string name="terms" msgid="8295436105384703903">"Uvjeti"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Informacije o radnom profilu"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informacije o upravljanom uređaju"</string>
-    <string name="default_managed_profile_name" msgid="5370257687074907055">"Radni profil"</string>
+    <string name="default_managed_profile_name" msgid="5370257687074907055">"Poslovni profil"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Primarni korisnik"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Izbrisati postojeći profil?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Već imate radni profil. Njime se upravlja pomoću sljedeće aplikacije:"</string>
@@ -53,7 +53,7 @@
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Kriptirati uređaj?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Kriptiraj"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Enkripcija je dovršena"</string>
-    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Dodirnite da biste nastavili postavljati radni profil"</string>
+    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Dodirnite da biste nastavili postavljati poslovni profil"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Postavljanje vašeg radnog profila nije uspjelo. Obratite se IT odjelu ili pokušajte ponovno kasnije."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Nije moguće dodati radni profil"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Radni se profil ne može zamijeniti niti ukloniti"</string>
@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Vrati na zadano"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Postavljanje profila nije uspjelo"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Postavljanje uređaja nije uspjelo"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Nešto nije u redu"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Postavljanje uređaja nije uspjelo. Ako vam je potrebna pomoć, obratite se IT administratoru."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Pomoć zatražite od svojeg IT administratora"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Vratite uređaj na zadano i pokušajte ga ponovo postaviti"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Uređaj je već postavljen"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Povezivanje s Wi-Fijem nije uspjelo"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Na vašem je uređaju uključena zaštita od vraćanja na zadano. Ako vam je potrebna pomoć, obratite se IT administratoru."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Priprema za postavljanje poslovnog uređaja…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Postavljanje administratorske aplikacije"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Postavljanje svega ostalog"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Postavimo sada sve ostalo"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Dodavanje osobnog računa da biste bolje iskoristili prednosti uređaja"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Sad kad je vaš poslovni profil spreman, možete dodati i osobni Google račun kako biste pristupili svojim aplikacijama i sadržaju."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Ovaj uređaj pripada vašoj organizaciji"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Za upravljanje telefonom i njegovo praćenje koristit će se sljedeća aplikacija"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Priprema za postavljanje radnog profila…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Postavimo najprije vaš radni profil"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Postavimo vaš radni profil"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Radne aplikacije nalaze se na vašem radnom profilu"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pauzirajte radne aplikacije kad završite s poslom za taj dan"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Vašem IT administratoru vidljivi su samo podaci na vašem radnom profilu"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Postavljanje radnog profila…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Radne aplikacije nalaze se na vašem radnom profilu. Radne aplikacije možete pauzirati kad završite s poslom za taj dan. Vašem IT administratoru vidljivi su samo podaci na vašem radnom profilu."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Podaci na vašem poslovnom profilu vidljivi su vašem IT administratoru"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Postavljanje poslovnog profila…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Poslovne aplikacije nalaze se na vašem poslovnom profilu. Poslovne aplikacije možete pauzirati kad završite s poslom za taj dan. Podaci na vašem poslovnom profilu vidljivi su vašem IT administratoru."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Postavimo vaš radni uređaj"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Zadržite radne aplikacije nadohvat ruke"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Ovaj uređaj nije privatan"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Vaš IT administrator možda može vidjeti vaše podatke i aktivnosti na ovom uređaju."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Postavljanje uređaja…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Na ovom uređaju možete lako pristupati radnim aplikacijama. Ovaj uređaj nije privatan, pa vaš IT administrator možda može vidjeti vaše podatke i aktivnosti. Da biste saznali više, obratite se IT administratoru."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Poslovne aplikacije nalaze se na vašem poslovnom profilu i njima upravlja IT administrator"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Osobne aplikacije su odvojene i skrivene od poslovnih"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Administrator može upravljati uređajem i blokirati neke aplikacije"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Poslovne aplikacije nalaze se na vašem poslovnom profilu i njima upravlja vaš IT administrator. Osobne aplikacije su odvojene i skrivene od poslovnih aplikacija. Vaš IT administrator može upravljati ovim uređajem i blokirati određene aplikacije."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Samo tren…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Podsjetnik o privatnosti"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Vaš IT administrator možda može vidjeti vaše podatke i aktivnosti na ovom uređaju"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Vaš je uređaj spreman za upotrebu!"</string>
     <string name="done" msgid="7755227776955952318">"Gotovo"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Ovaj je uređaj kupljen na kredit od tvrtke <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> može:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"instalirati aplikaciju <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kako biste mogli otplaćivati ovaj uređaj"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"ograničiti pristup ovom uređaju ako ga ne otplaćujete"</string>
 </resources>

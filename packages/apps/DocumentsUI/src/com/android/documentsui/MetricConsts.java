@@ -40,6 +40,7 @@ public class MetricConsts {
     public static final int ROOT_VIDEOS = 9;
     public static final int ROOT_MTP = 10;
     public static final int ROOT_THIRD_PARTY_APP = 11;
+    public static final int ROOT_DOCUMENTS = 12;
 
     @IntDef(flag = true, value = {
             ROOT_UNKNOWN,
@@ -53,7 +54,8 @@ public class MetricConsts {
             ROOT_RECENTS,
             ROOT_VIDEOS,
             ROOT_MTP,
-            ROOT_THIRD_PARTY_APP
+            ROOT_THIRD_PARTY_APP,
+            ROOT_DOCUMENTS
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface Root {
@@ -240,6 +242,8 @@ public class MetricConsts {
     public static final int USER_ACTION_INSPECTOR = 31;
     public static final int USER_ACTION_SEARCH_CHIP = 32;
     public static final int USER_ACTION_SEARCH_HISTORY = 33;
+    public static final int USER_ACTION_SHOW_HIDDEN_FILES = 34;
+    public static final int USER_ACTION_HIDE_HIDDEN_FILES = 35;
 
     @IntDef(flag = false, value = {
             USER_ACTION_UNKNOWN,
@@ -275,7 +279,9 @@ public class MetricConsts {
             USER_ACTION_VIEW_IN_APPLICATION,
             USER_ACTION_INSPECTOR,
             USER_ACTION_SEARCH_CHIP,
-            USER_ACTION_SEARCH_HISTORY
+            USER_ACTION_SEARCH_HISTORY,
+            USER_ACTION_SHOW_HIDDEN_FILES,
+            USER_ACTION_HIDE_HIDDEN_FILES
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface UserAction {
@@ -363,6 +369,8 @@ public class MetricConsts {
     public static final int TYPE_CHIP_DOCS = 4;
     public static final int TYPE_SEARCH_HISTORY = 5;
     public static final int TYPE_SEARCH_STRING = 6;
+    public static final int TYPE_CHIP_LARGE_FILES = 7;
+    public static final int TYPE_CHIP_FROM_THIS_WEEK = 8;
 
     @IntDef(flag = true, value = {
             TYPE_UNKNOWN,
@@ -371,7 +379,9 @@ public class MetricConsts {
             TYPE_CHIP_VIDEOS,
             TYPE_CHIP_DOCS,
             TYPE_SEARCH_HISTORY,
-            TYPE_SEARCH_STRING
+            TYPE_SEARCH_STRING,
+            TYPE_CHIP_LARGE_FILES,
+            TYPE_CHIP_FROM_THIS_WEEK
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SearchType {}

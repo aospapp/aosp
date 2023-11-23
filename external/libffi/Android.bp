@@ -22,19 +22,24 @@ genrule {
 
 cc_library_static {
     name: "libffi",
+    host_supported: true,
     vendor_available: true,
     cflags: [
         "-Wall",
         "-Werror",
         "-Wno-error=incompatible-pointer-types",
+        "-Wno-incompatible-pointer-types",
+        "-Wno-null-pointer-arithmetic",
         "-Wno-pointer-arith",
         "-Wno-sign-compare",
         "-Wno-unused-parameter",
+        "-Wno-unused-result",
     ],
     local_include_dirs: ["include"],
     generated_headers: ["ffi_header"],
     export_generated_headers: ["ffi_header"],
     srcs: [
+        "src/closures.c",
         "src/debug.c",
         "src/java_raw_api.c",
         "src/prep_cif.c",
@@ -78,6 +83,15 @@ cc_library_static {
                 "-DHAVE_AS_ASCII_PSEUDO_OP",
             ],
             export_include_dirs: ["linux-x86_64"],
+        },
+    },
+    target: {
+        darwin_x86_64: {
+            exclude_srcs: ["src/x86/unix64.S"],
+            srcs: [
+                "src/x86/darwin.S",
+                "src/x86/darwin64.S",
+            ],
         },
     },
 }

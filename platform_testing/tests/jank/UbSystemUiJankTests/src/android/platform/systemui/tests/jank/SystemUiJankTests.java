@@ -66,7 +66,7 @@ public class SystemUiJankTests extends JankTestBase {
     private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
     private static final String SETTINGS_PACKAGE = "com.android.settings";
     private static final int SWIPE_MARGIN = 5;
-    private static final int DEFAULT_SCROLL_STEPS = 15;
+    private static final int DEFAULT_SCROLL_STEPS = 130;
     private static final int BRIGHTNESS_SCROLL_STEPS = 30;
 
     // short transitions should be repeated within the test function, otherwise frame stats
@@ -626,11 +626,13 @@ public class SystemUiJankTests extends JankTestBase {
     }
 
     public void beforeChangeBrightness() throws Exception {
-        mDevice.openQuickSettings();
+        prepareNotifications(GROUP_MODE_UNGROUPED);
+        mDevice.openNotification();
 
         // Wait until animation is starting.
         SystemClock.sleep(200);
         mDevice.waitForIdle();
+
         TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
                 getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
     }
@@ -653,6 +655,8 @@ public class SystemUiJankTests extends JankTestBase {
             afterTest = "afterChangeBrightness")
     @GfxMonitor(processName = SYSTEMUI_PACKAGE)
     public void testChangeBrightness() throws Exception {
+        swipeDown();
+        mDevice.waitForIdle();
         UiObject2 brightness = mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "slider"));
         Rect bounds = brightness.getVisibleBounds();
         for (int i = 0; i < INNER_LOOP; i++) {

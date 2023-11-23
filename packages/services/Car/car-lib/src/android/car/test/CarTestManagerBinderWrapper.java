@@ -15,6 +15,7 @@
  */
 package android.car.test;
 
+import android.car.Car;
 import android.car.CarManagerBase;
 import android.os.IBinder;
 
@@ -22,10 +23,17 @@ import android.os.IBinder;
  * Only for system testing
  * @hide
  */
-public class CarTestManagerBinderWrapper implements CarManagerBase {
+public class CarTestManagerBinderWrapper extends CarManagerBase {
     public final IBinder binder;
 
     public CarTestManagerBinderWrapper(IBinder binder) {
+        super(null); // This will not work safely but is only for keeping API.
+        this.binder = binder;
+    }
+
+    /** @hide */
+    public CarTestManagerBinderWrapper(Car car, IBinder binder) {
+        super(car);
         this.binder = binder;
     }
 

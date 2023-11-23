@@ -38,7 +38,7 @@ LOCAL_SDK_VERSION := 25
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts
+LOCAL_COMPATIBILITY_SUITE := cts vts10
 
 include $(BUILD_CTS_PACKAGE)
 

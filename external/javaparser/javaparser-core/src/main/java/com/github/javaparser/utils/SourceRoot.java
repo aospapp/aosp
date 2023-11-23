@@ -8,6 +8,7 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.printer.PrettyPrinter;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,16 +26,14 @@ import java.util.stream.Collectors;
 
 import static com.github.javaparser.ParseStart.COMPILATION_UNIT;
 import static com.github.javaparser.Providers.provider;
-import static com.github.javaparser.utils.CodeGenerationUtils.fileInPackageRelativePath;
-import static com.github.javaparser.utils.CodeGenerationUtils.packageAbsolutePath;
-import static com.github.javaparser.utils.SourceRoot.Callback.Result.SAVE;
+import static com.github.javaparser.utils.CodeGenerationUtils.*;
 import static com.github.javaparser.utils.Utils.assertNotNull;
-import static java.nio.file.FileVisitResult.CONTINUE;
-import static java.nio.file.FileVisitResult.SKIP_SUBTREE;
+import static java.nio.file.FileVisitResult.*;
 
 /**
- * A collection of Java source files located in one directory and its subdirectories on the file system. Files can be
- * parsed and written back one by one or all together. <b>Note that</b> the internal cache used is thread-safe.
+ * A collection of Java source files located in one directory and its subdirectories on the file system. The root directory
+ * corresponds to the root of the package structure of the source files within. Files can be parsed and written back one
+ * by one or all together. <b>Note that</b> the internal cache used is thread-safe.
  * <ul>
  * <li>methods called "tryToParse..." will return their result inside a "ParseResult", which supports parse successes and failures.</li>
  * <li>methods called "parse..." will return "CompilationUnit"s. If a file fails to parse, an exception is thrown.</li>
@@ -45,7 +44,7 @@ public class SourceRoot {
     @FunctionalInterface
     public interface Callback {
         enum Result {
-            SAVE, DONT_SAVE
+            SAVE, DONT_SAVE, TERMINATE
         }
 
         /**
@@ -62,33 +61,26 @@ public class SourceRoot {
     private Function<CompilationUnit, String> printer = new PrettyPrinter()::print;
     private static final Pattern JAVA_IDENTIFIER = Pattern.compile("\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*");
 
+    /**
+     * @param root the root directory of a set of source files. It corresponds to the root of the package structure of the
+     * source files within, like "javaparser/javaparser-core/src/main/java"
+     */
     public SourceRoot(Path root) {
         assertNotNull(root);
         if (!Files.isDirectory(root)) {
-            throw new IllegalArgumentException("Only directories are allowed as root path!");
+            throw new IllegalArgumentException("Only directories are allowed as root path: " + root);
         }
         this.root = root.normalize();
-        Log.info("New source root at \"%s\"", this.root);
-    }
-
-    public SourceRoot(Path root, ParserConfiguration parserConfiguration) {
-        this(root);
-        setParserConfiguration(parserConfiguration);
+        Log.info("New source root at \"%s\"", () -> this.root);
     }
 
     /**
-     * Tries to parse a .java files under the source root and returns the ParseResult. It keeps track of the parsed file
-     * so you can write it out with the saveAll() call. Note that the cache grows with every file parsed, so if you
-     * don't need saveAll(), or you don't ask SourceRoot to parse files multiple times (where the cache is useful) you
-     * might want to use the parse method with a callback.
-     *
-     * @param startPackage files in this package and deeper are parsed. Pass "" to parse all files.
-     * @deprecated pass ParserConfiguration instead of JavaParser
+     * @param root the root directory of a set of source files. It corresponds to the root of the package structure of the
+     * source files within, like "javaparser/javaparser-core/src/main/java"
      */
-    @Deprecated
-    public ParseResult<CompilationUnit> tryToParse(String startPackage, String filename, JavaParser javaParser)
-            throws IOException {
-        return tryToParse(startPackage, filename, javaParser.getParserConfiguration());
+    public SourceRoot(Path root, ParserConfiguration parserConfiguration) {
+        this(root);
+        setParserConfiguration(parserConfiguration);
     }
 
     /**
@@ -104,14 +96,14 @@ public class SourceRoot {
         assertNotNull(filename);
         final Path relativePath = fileInPackageRelativePath(startPackage, filename);
         if (cache.containsKey(relativePath)) {
-            Log.trace("Retrieving cached %s", relativePath);
+            Log.trace("Retrieving cached %s", () -> relativePath);
             return cache.get(relativePath);
         }
         final Path path = root.resolve(relativePath);
-        Log.trace("Parsing %s", path);
+        Log.trace("Parsing %s", () -> path);
         final ParseResult<CompilationUnit> result = new JavaParser(configuration)
-                .parse(COMPILATION_UNIT, provider(path));
-        result.getResult().ifPresent(cu -> cu.setStorage(path));
+                .parse(COMPILATION_UNIT, provider(path, configuration.getCharacterEncoding()));
+        result.getResult().ifPresent(cu -> cu.setStorage(path, configuration.getCharacterEncoding()));
         cache.put(relativePath, result);
         return result;
     }
@@ -160,9 +152,11 @@ public class SourceRoot {
 
     private static boolean isSensibleDirectoryToEnter(Path dir) throws IOException {
         final String dirToEnter = dir.getFileName().toString();
+        // Don't enter directories that cannot be packages.
         final boolean directoryIsAValidJavaIdentifier = JAVA_IDENTIFIER.matcher(dirToEnter).matches();
+        // Don't enter directories that are hidden, assuming that people don't store source files in hidden directories.
         if (Files.isHidden(dir) || !directoryIsAValidJavaIdentifier) {
-            Log.trace("Not processing directory \"%s\"", dirToEnter);
+            Log.trace("Not processing directory \"%s\"", () -> dirToEnter);
             return false;
         }
         return true;
@@ -182,8 +176,9 @@ public class SourceRoot {
      * Tries to parse all .java files in a package recursively using multiple threads, and returns all files ever parsed
      * with this source root. A new thread is forked each time a new directory is visited and is responsible for parsing
      * all .java files in that directory. <b>Note that</b> to ensure thread safety, a new parser instance is created for
-     * every file with the internal parser's (i.e. {@link #setJavaParser}) configuration. It keeps track of all parsed
-     * files so you can write them out with a single saveAll() call. Note that the cache grows with every file parsed,
+     * every file with the internal parser's (i.e. {@link #setParserConfiguration(ParserConfiguration)}) configuration.
+     * It keeps track of all parsed files so you can write them out with a single saveAll() call.
+     * Note that the cache grows with every file parsed,
      * so if you don't need saveAll(), or you don't ask SourceRoot to parse files multiple times (where the cache is
      * useful) you might want to use the parse method with a callback.
      *
@@ -216,12 +211,12 @@ public class SourceRoot {
      * Tries to parse all .java files under the source root recursively using multiple threads, and returns all files
      * ever parsed with this source root. A new thread is forked each time a new directory is visited and is responsible
      * for parsing all .java files in that directory. <b>Note that</b> to ensure thread safety, a new parser instance is
-     * created for every file with the internal parser's (i.e. {@link #setJavaParser}) configuration. It keeps track of
+     * created for every file with the internal (i.e. {@link #setParserConfiguration(ParserConfiguration)}) configuration. It keeps track of
      * all parsed files so you can write them out with a single saveAll() call. Note that the cache grows with every
      * file parsed, so if you don't need saveAll(), or you don't ask SourceRoot to parse files multiple times (where the
      * cache is useful) you might want to use the parse method with a callback.
      */
-    public List<ParseResult<CompilationUnit>> tryToParseParallelized() throws IOException {
+    public List<ParseResult<CompilationUnit>> tryToParseParallelized() {
         return tryToParseParallelized("");
     }
 
@@ -248,16 +243,47 @@ public class SourceRoot {
         }
     }
 
+    private FileVisitResult callback(Path absolutePath, ParserConfiguration configuration, Callback callback) throws IOException {
+        Path localPath = root.relativize(absolutePath);
+        Log.trace("Parsing %s", () -> localPath);
+        ParseResult<CompilationUnit> result = new JavaParser(configuration).parse(COMPILATION_UNIT, provider(absolutePath));
+        result.getResult().ifPresent(cu -> cu.setStorage(absolutePath, configuration.getCharacterEncoding()));
+        switch (callback.process(localPath, absolutePath, result)) {
+            case SAVE:
+                result.getResult().ifPresent(cu -> save(cu, absolutePath));
+            case DONT_SAVE:
+                return CONTINUE;
+            case TERMINATE:
+                return TERMINATE;
+            default:
+                throw new AssertionError("Return an enum defined in SourceRoot.Callback.Result");
+        }
+    }
+
     /**
-     * Tries to parse all .java files in a package recursively and passes them one by one to the callback. In comparison
-     * to the other parse methods, this is much more memory efficient, but saveAll() won't work.
+     * Locates the .java file with the provided package and file name, parses it and passes it to the
+     * callback. In comparison to the other parse methods, this is much more memory efficient, but saveAll() won't work.
      *
-     * @param startPackage files in this package and deeper are parsed. Pass "" to parse all files.
-     * @deprecated pass ParserConfiguration instead of JavaParser
+     * @param startPackage The package containing the file
+     * @param filename The name of the file
      */
-    @Deprecated
-    public SourceRoot parse(String startPackage, JavaParser javaParser, Callback callback) throws IOException {
-        return parse(startPackage, javaParser.getParserConfiguration(), callback);
+    public SourceRoot parse(String startPackage, String filename, ParserConfiguration configuration, Callback
+            callback) throws IOException {
+        assertNotNull(startPackage);
+        assertNotNull(filename);
+        assertNotNull(configuration);
+        assertNotNull(callback);
+        callback(fileInPackageAbsolutePath(root, startPackage, filename), configuration, callback);
+        return this;
+    }
+
+    /**
+     * Parses the provided .java file and passes it to the callback. In comparison to the other parse methods, this
+     * makes is much more memory efficient., but saveAll() won't work.
+     */
+    public SourceRoot parse(String startPackage, String filename, Callback callback) throws IOException {
+        parse(startPackage, filename, parserConfiguration, callback);
+        return this;
     }
 
     /**
@@ -271,31 +297,28 @@ public class SourceRoot {
         assertNotNull(configuration);
         assertNotNull(callback);
         logPackage(startPackage);
-        final JavaParser javaParser = new JavaParser(configuration);
         final Path path = packageAbsolutePath(root, startPackage);
-        Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path absolutePath, BasicFileAttributes attrs) throws IOException {
-                if (!attrs.isDirectory() && absolutePath.toString().endsWith(".java")) {
-                    Path localPath = root.relativize(absolutePath);
-                    Log.trace("Parsing %s", localPath);
-                    final ParseResult<CompilationUnit> result = javaParser.parse(COMPILATION_UNIT,
-                            provider(absolutePath));
-                    result.getResult().ifPresent(cu -> cu.setStorage(absolutePath));
-                    if (callback.process(localPath, absolutePath, result) == SAVE) {
-                        if (result.getResult().isPresent()) {
-                            save(result.getResult().get(), path);
-                        }
+        if (Files.exists(path)) {
+            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path absolutePath, BasicFileAttributes attrs) throws IOException {
+                    if (!attrs.isDirectory() && absolutePath.toString().endsWith(".java")) {
+                        return callback(absolutePath, configuration, callback);
                     }
+                    return CONTINUE;
                 }
-                return CONTINUE;
-            }
 
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                return isSensibleDirectoryToEnter(dir) ? CONTINUE : SKIP_SUBTREE;
-            }
-        });
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    return isSensibleDirectoryToEnter(dir) ? CONTINUE : SKIP_SUBTREE;
+                }
+            });
+        }
+        return this;
+    }
+
+    public SourceRoot parse(String startPackage, Callback callback) throws IOException {
+        parse(startPackage, parserConfiguration, callback);
         return this;
     }
 
@@ -303,7 +326,7 @@ public class SourceRoot {
         if (startPackage.isEmpty()) {
             return;
         }
-        Log.info("Parsing package \"%s\"", startPackage);
+        Log.info("Parsing package \"%s\"", () -> startPackage);
     }
 
     /**
@@ -322,27 +345,20 @@ public class SourceRoot {
         assertNotNull(callback);
         logPackage(startPackage);
         final Path path = packageAbsolutePath(root, startPackage);
-        ParallelParse parse = new ParallelParse(path, (file, attrs) -> {
-            if (!attrs.isDirectory() && file.toString().endsWith(".java")) {
-                Path localPath = root.relativize(file);
-                Log.trace("Parsing %s", localPath);
-                try {
-                    ParseResult<CompilationUnit> result = new JavaParser(configuration)
-                            .parse(COMPILATION_UNIT, provider(file));
-                    result.getResult().ifPresent(cu -> cu.setStorage(file));
-                    if (callback.process(localPath, file, result) == SAVE) {
-                        if (result.getResult().isPresent()) {
-                            save(result.getResult().get(), path);
-                        }
+        if (Files.exists(path)) {
+            ParallelParse parse = new ParallelParse(path, (absolutePath, attrs) -> {
+                if (!attrs.isDirectory() && absolutePath.toString().endsWith(".java")) {
+                    try {
+                        return callback(absolutePath, configuration, callback);
+                    } catch (IOException e) {
+                        Log.error(e);
                     }
-                } catch (IOException e) {
-                    Log.error(e);
                 }
-            }
-            return CONTINUE;
-        });
-        ForkJoinPool pool = new ForkJoinPool();
-        pool.invoke(parse);
+                return CONTINUE;
+            });
+            ForkJoinPool pool = new ForkJoinPool();
+            pool.invoke(parse);
+        }
         return this;
     }
 
@@ -379,12 +395,11 @@ public class SourceRoot {
         assertNotNull(startPackage);
         assertNotNull(filename);
         assertNotNull(compilationUnit);
-        Log.trace("Adding new file %s.%s", startPackage, filename);
+        Log.trace("Adding new file %s.%s", () -> startPackage, () -> filename);
         final Path path = fileInPackageRelativePath(startPackage, filename);
         final ParseResult<CompilationUnit> parseResult = new ParseResult<>(
                 compilationUnit,
                 new ArrayList<>(),
-                null,
                 null);
         cache.put(path, parseResult);
         return this;
@@ -398,11 +413,10 @@ public class SourceRoot {
         assertNotNull(compilationUnit);
         if (compilationUnit.getStorage().isPresent()) {
             final Path path = compilationUnit.getStorage().get().getPath();
-            Log.trace("Adding new file %s", path);
+            Log.trace("Adding new file %s", () -> path);
             final ParseResult<CompilationUnit> parseResult = new ParseResult<>(
                     compilationUnit,
                     new ArrayList<>(),
-                    null,
                     null);
             cache.put(path, parseResult);
         } else {
@@ -413,29 +427,51 @@ public class SourceRoot {
 
     /**
      * Save the given compilation unit to the given path.
+     * @param cu the compilation unit
+     * @param path the path of the java file
      */
     private SourceRoot save(CompilationUnit cu, Path path) {
+        return save(cu, path, parserConfiguration.getCharacterEncoding());
+    }
+
+    /**
+     * Save the given compilation unit to the given path.
+     * @param cu the compilation unit
+     * @param path the path of the java file
+     * @param encoding  the encoding to use while saving the file
+     */
+    private SourceRoot save(CompilationUnit cu, Path path, Charset encoding) {
         assertNotNull(cu);
         assertNotNull(path);
-        cu.setStorage(path);
+        cu.setStorage(path, encoding);
         cu.getStorage().get().save(printer);
         return this;
     }
 
     /**
      * Save all previously parsed files back to a new path.
+     * @param root the root of the java packages
+     * @param encoding the encoding to use while saving the file
      */
-    public SourceRoot saveAll(Path root) {
+    public SourceRoot saveAll(Path root, Charset encoding) {
         assertNotNull(root);
-        Log.info("Saving all files (%s) to %s", cache.size(), root);
+        Log.info("Saving all files (%s) to %s", cache::size, () -> root);
         for (Map.Entry<Path, ParseResult<CompilationUnit>> cu : cache.entrySet()) {
             final Path path = root.resolve(cu.getKey());
             if (cu.getValue().getResult().isPresent()) {
-                Log.trace("Saving %s", path);
-                save(cu.getValue().getResult().get(), path);
+                Log.trace("Saving %s", () -> path);
+                save(cu.getValue().getResult().get(), path, encoding);
             }
         }
         return this;
+    }
+
+    /**
+     * Save all previously parsed files back to a new path.
+     * @param root the root of the java packages
+     */
+    public SourceRoot saveAll(Path root) {
+        return saveAll(root, parserConfiguration.getCharacterEncoding());
     }
 
     /**
@@ -443,6 +479,14 @@ public class SourceRoot {
      */
     public SourceRoot saveAll() {
         return saveAll(root);
+    }
+
+    /**
+     * Save all previously parsed files back to where they were found, with the given encoding.
+     * @param encoding the encoding to use.
+     */
+    public SourceRoot saveAll(Charset encoding) {
+        return saveAll(root, encoding);
     }
 
     /**
@@ -468,26 +512,6 @@ public class SourceRoot {
      */
     public Path getRoot() {
         return root;
-    }
-
-    /**
-     * @deprecated store ParserConfiguration now
-     */
-    @Deprecated
-    public JavaParser getJavaParser() {
-        return new JavaParser(parserConfiguration);
-    }
-
-    /**
-     * Set the parser that is used for parsing by default.
-     *
-     * @deprecated store ParserConfiguration now
-     */
-    @Deprecated
-    public SourceRoot setJavaParser(JavaParser javaParser) {
-        assertNotNull(javaParser);
-        this.parserConfiguration = javaParser.getParserConfiguration();
-        return this;
     }
 
     public ParserConfiguration getParserConfiguration() {
@@ -573,5 +597,10 @@ public class SourceRoot {
         interface VisitFileCallback {
             FileVisitResult process(Path file, BasicFileAttributes attrs);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "SourceRoot at " + root;
     }
 }

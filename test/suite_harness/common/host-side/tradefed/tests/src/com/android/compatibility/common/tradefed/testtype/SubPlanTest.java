@@ -130,7 +130,7 @@ public class SubPlanTest extends TestCase {
 
     // Helper for generating Entry XML tags
     private String generateEntryXml(String abi, String name, String filter, boolean include) {
-        String filterType = (include) ? "include" : "exclude";
+        String filterType = include ? "include" : "exclude";
         Set<String> attributes = new HashSet<String>();
         if (filter != null) {
             attributes.add(String.format(XML_ATTR, filterType, filter));

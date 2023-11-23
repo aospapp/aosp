@@ -20,6 +20,8 @@ import static com.android.org.conscrypt.TestUtils.UTF_8;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import javax.net.ssl.SSLSession;
+
 /**
  * Utility class for constructing mock sessions.
  */
@@ -81,6 +83,7 @@ final class MockSessionBuilder {
         when(session.getPeerPort()).thenReturn(port);
         when(session.getCipherSuite()).thenReturn(cipherSuite);
         when(session.toBytes()).thenReturn(encodedBytes);
+        when(session.toSSLSession()).thenReturn(mock(SSLSession.class));
         return session;
     }
 }

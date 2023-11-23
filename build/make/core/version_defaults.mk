@@ -39,9 +39,9 @@ ifdef INTERNAL_BUILD_ID_MAKEFILE
   include $(INTERNAL_BUILD_ID_MAKEFILE)
 endif
 
-DEFAULT_PLATFORM_VERSION := QP1A
-MIN_PLATFORM_VERSION := QP1A
-MAX_PLATFORM_VERSION := QP1A
+DEFAULT_PLATFORM_VERSION := RP1A
+MIN_PLATFORM_VERSION := RP1A
+MAX_PLATFORM_VERSION := RP1A
 
 ALLOWED_VERSIONS := $(call allowed-platform-versions,\
   $(MIN_PLATFORM_VERSION),\
@@ -84,17 +84,56 @@ MAX_PLATFORM_VERSION :=
 # generate the range of allowed SDK versions, so it must have an entry for every
 # unreleased API level targetable by this branch, not just those that are valid
 # lunch targets for this branch.
-PLATFORM_VERSION.QP1A := 10
+
+# The last stable version name of the platform that was released.  During
+# development, this stays at that previous version, while the codename indicates
+# further work based on the previous version.
+PLATFORM_VERSION_LAST_STABLE := 11
+.KATI_READONLY := PLATFORM_VERSION_LAST_STABLE
 
 # These are the current development codenames, if the build is not a final
 # release build.  If this is a final release build, it is simply "REL".
-PLATFORM_VERSION_CODENAME.QP1A := REL
+PLATFORM_VERSION_CODENAME.RP1A := REL
+
+ifndef PLATFORM_VERSION_CODENAME
+  PLATFORM_VERSION_CODENAME := $(PLATFORM_VERSION_CODENAME.$(TARGET_PLATFORM_VERSION))
+  ifndef PLATFORM_VERSION_CODENAME
+    # PLATFORM_VERSION_CODENAME falls back to TARGET_PLATFORM_VERSION
+    PLATFORM_VERSION_CODENAME := $(TARGET_PLATFORM_VERSION)
+  endif
+
+  # This is all of the *active* development codenames.
+  # This confusing name is needed because
+  # all_codenames has been baked into build.prop for ages.
+  #
+  # Should be either the same as PLATFORM_VERSION_CODENAME or a comma-separated
+  # list of additional codenames after PLATFORM_VERSION_CODENAME.
+  PLATFORM_VERSION_ALL_CODENAMES :=
+
+  # Build a list of all active code names. Avoid duplicates, and stop when we
+  # reach a codename that matches PLATFORM_VERSION_CODENAME (anything beyond
+  # that is not included in our build).
+  _versions_in_target := \
+    $(call find_and_earlier,$(ALL_VERSIONS),$(TARGET_PLATFORM_VERSION))
+  $(foreach version,$(_versions_in_target),\
+    $(eval _codename := $(PLATFORM_VERSION_CODENAME.$(version)))\
+    $(if $(filter $(_codename),$(PLATFORM_VERSION_ALL_CODENAMES)),,\
+      $(eval PLATFORM_VERSION_ALL_CODENAMES += $(_codename))))
+
+  # And convert from space separated to comma separated.
+  PLATFORM_VERSION_ALL_CODENAMES := \
+    $(subst $(space),$(comma),$(strip $(PLATFORM_VERSION_ALL_CODENAMES)))
+
+endif
+.KATI_READONLY := \
+  PLATFORM_VERSION_CODENAME \
+  PLATFORM_VERSION_ALL_CODENAMES
 
 ifndef PLATFORM_VERSION
-  PLATFORM_VERSION := $(PLATFORM_VERSION.$(TARGET_PLATFORM_VERSION))
-  ifndef PLATFORM_VERSION
-    # PLATFORM_VERSION falls back to TARGET_PLATFORM_VERSION
-    PLATFORM_VERSION := $(TARGET_PLATFORM_VERSION)
+  ifeq (REL,$(PLATFORM_VERSION_CODENAME))
+      PLATFORM_VERSION := $(PLATFORM_VERSION_LAST_STABLE)
+  else
+      PLATFORM_VERSION := $(PLATFORM_VERSION_CODENAME)
   endif
 endif
 .KATI_READONLY := PLATFORM_VERSION
@@ -112,58 +151,9 @@ ifndef PLATFORM_SDK_VERSION
   # When you increment the PLATFORM_SDK_VERSION please ensure you also
   # clear out the following text file of all older PLATFORM_VERSION's:
   # cts/tests/tests/os/assets/platform_versions.txt
-  PLATFORM_SDK_VERSION := 29
+  PLATFORM_SDK_VERSION := 30
 endif
 .KATI_READONLY := PLATFORM_SDK_VERSION
-
-ifndef PLATFORM_VERSION_CODENAME
-  PLATFORM_VERSION_CODENAME := $(PLATFORM_VERSION_CODENAME.$(TARGET_PLATFORM_VERSION))
-  ifndef PLATFORM_VERSION_CODENAME
-    # PLATFORM_VERSION_CODENAME falls back to TARGET_PLATFORM_VERSION
-    PLATFORM_VERSION_CODENAME := $(TARGET_PLATFORM_VERSION)
-  endif
-
-  # This is all of the *active* development codenames. There are future
-  # codenames not included in this list. This confusing name is needed because
-  # all_codenames has been baked into build.prop for ages.
-  #
-  # Should be either the same as PLATFORM_VERSION_CODENAME or a comma-separated
-  # list of additional codenames after PLATFORM_VERSION_CODENAME.
-  PLATFORM_VERSION_ALL_CODENAMES :=
-
-  # Build a list of all active code names. Avoid duplicates, and stop when we
-  # reach a codename that matches PLATFORM_VERSION_CODENAME (anything beyond
-  # that is not included in our build).
-  _versions_in_target := \
-    $(call find_and_earlier,$(ALL_VERSIONS),$(TARGET_PLATFORM_VERSION))
-  $(foreach version,$(_versions_in_target),\
-    $(eval _codename := $(PLATFORM_VERSION_CODENAME.$(version)))\
-    $(if $(filter $(_codename),$(PLATFORM_VERSION_ALL_CODENAMES)),,\
-      $(eval PLATFORM_VERSION_ALL_CODENAMES += $(_codename))))
-
-  # This is all of the inactive development codenames. Available to be targeted
-  # in this branch but in the future relative to our current target.
-  PLATFORM_VERSION_FUTURE_CODENAMES :=
-
-  # Build a list of all untargeted code names. Avoid duplicates.
-  _versions_not_in_target := \
-    $(filter-out $(PLATFORM_VERSION_ALL_CODENAMES),$(ALL_VERSIONS))
-  $(foreach version,$(_versions_not_in_target),\
-    $(eval _codename := $(PLATFORM_VERSION_CODENAME.$(version)))\
-    $(if $(filter $(_codename),$(PLATFORM_VERSION_FUTURE_CODENAMES)),,\
-      $(eval PLATFORM_VERSION_FUTURE_CODENAMES += $(_codename))))
-
-  # And convert from space separated to comma separated.
-  PLATFORM_VERSION_ALL_CODENAMES := \
-    $(subst $(space),$(comma),$(strip $(PLATFORM_VERSION_ALL_CODENAMES)))
-  PLATFORM_VERSION_FUTURE_CODENAMES := \
-    $(subst $(space),$(comma),$(strip $(PLATFORM_VERSION_FUTURE_CODENAMES)))
-
-endif
-.KATI_READONLY := \
-  PLATFORM_VERSION_CODENAME \
-  PLATFORM_VERSION_ALL_CODENAMES \
-  PLATFORM_VERSION_FUTURE_CODENAMES
 
 ifeq (REL,$(PLATFORM_VERSION_CODENAME))
   PLATFORM_PREVIEW_SDK_VERSION := 0
@@ -250,17 +240,13 @@ ifndef PLATFORM_SECURITY_PATCH
     #  It must be of the form "YYYY-MM-DD" on production devices.
     #  It must match one of the Android Security Patch Level strings of the Public Security Bulletins.
     #  If there is no $PLATFORM_SECURITY_PATCH set, keep it empty.
-      PLATFORM_SECURITY_PATCH := 2019-09-05
+      PLATFORM_SECURITY_PATCH := 2020-09-05
 endif
 .KATI_READONLY := PLATFORM_SECURITY_PATCH
 
 ifndef PLATFORM_SECURITY_PATCH_TIMESTAMP
   # Used to indicate the matching timestamp for the security patch string in PLATFORM_SECURITY_PATCH.
-  ifneq (,$(findstring Darwin,$(UNAME)))
-    PLATFORM_SECURITY_PATCH_TIMESTAMP := $(shell date -jf '%Y-%m-%d %T %Z' '$(PLATFORM_SECURITY_PATCH) 00:00:00 GMT' +%s)
-  else
-    PLATFORM_SECURITY_PATCH_TIMESTAMP := $(shell date -d 'TZ="GMT" $(PLATFORM_SECURITY_PATCH)' +%s)
-  endif
+  PLATFORM_SECURITY_PATCH_TIMESTAMP := $(shell date -d 'TZ="GMT" $(PLATFORM_SECURITY_PATCH)' +%s)
 endif
 .KATI_READONLY := PLATFORM_SECURITY_PATCH_TIMESTAMP
 
@@ -289,11 +275,7 @@ ifndef BUILD_DATETIME
   BUILD_DATETIME := $(shell date +%s)
 endif
 
-ifneq (,$(findstring Darwin,$(UNAME)))
-DATE := date -r $(BUILD_DATETIME)
-else
 DATE := date -d @$(BUILD_DATETIME)
-endif
 .KATI_READONLY := DATE
 
 # Everything should be using BUILD_DATETIME_FROM_FILE instead.

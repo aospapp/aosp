@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_visibility: ["//visibility:private"],
+}
+
 java_defaults {
     name: "icu4j-defaults",
     host_supported: true,
@@ -26,6 +30,14 @@ java_defaults {
 
 java_library {
     name: "icu4j",
+    visibility: [
+        "//bootable/recovery/tools/image_generator",
+        "//external/icu/tools/srcgen",
+        "//external/robolectric-shadows/robolectric",
+        "//external/robolectric-shadows/shadows/framework",
+        "//system/timezone/input_tools/android/telephonylookup_generator",
+        "//system/timezone/input_tools/android/tzlookup_generator",
+    ],
     defaults: ["icu4j-defaults"],
 
     srcs: ["main/classes/**/*.java"],
@@ -48,7 +60,10 @@ java_test {
     name: "icu4j-tests",
     defaults: ["icu4j-defaults"],
 
-    srcs: ["main/tests/**/*.java"],
+    srcs: [
+        "main/tests/**/*.java",
+        "tools/misc/src/com/ibm/icu/dev/tool/locale/*.java",
+    ],
     java_resource_dirs: ["main/tests/*/src"],
 
     exclude_srcs: ["main/tests/localespi/**/*.java"],
@@ -79,23 +94,34 @@ java_import {
     jars: ["main/shared/data/testdata.jar"],
 }
 
-// LayoutLib (frameworks/layoutlib) needs JarJar'd versions of the
-// icudata and icutzdata, so add rules for it.
-java_library_static {
+// LayoutLib (frameworks/layoutlib) and robolectric need JarJar'd versions of
+// the icudata and icutzdata, so add rules for it.
+java_library {
     name: "icu4j-icudata-jarjar",
+    visibility: [
+        "//external/robolectric-shadows",
+        "//frameworks/layoutlib",
+    ],
     defaults: ["icu4j-defaults"],
     static_libs: ["icu4j-icudata"],
     jarjar_rules: "liblayout-jarjar-rules.txt",
 }
 
-java_library_static {
+java_library {
     name: "icu4j-icutzdata-jarjar",
+    visibility: [
+        "//external/robolectric-shadows",
+        "//frameworks/layoutlib",
+    ],
     defaults: ["icu4j-defaults"],
     static_libs: ["icu4j-icutzdata"],
     jarjar_rules: "liblayout-jarjar-rules.txt",
 }
 
 // Compatibility alias until references to icu4j-host are removed
+//
+// When converting .mk files to .bp files do not change the visibility of this
+// module, instead replace usages of this with icu4j
 java_library_host {
     name: "icu4j-host",
     static_libs: ["icu4j"],

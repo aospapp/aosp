@@ -21,6 +21,8 @@ import static org.junit.Assert.assertNull;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -33,7 +35,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.CellularNetwork}.
  */
 @SmallTest
-public class CellularNetworkTest {
+public class CellularNetworkTest extends WifiBaseTest {
     private static final byte[] TEST_PLMN_BYTES_1 = new byte[] {0x12, 0x34, 0x56};
     private static final String TEST_PLMN_STRING_1 = "214653";
     private static final byte[] TEST_PLMN_BYTES_2 = new byte[] {0x13, (byte) 0xF9, 0x32};

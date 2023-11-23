@@ -7,7 +7,7 @@ For terms of use, see http://www.unicode.org/copyright.html
 Originally prepared by Waris Abdukerim Janbaz <oyghan@gmail.com> of the Uyghur Computer Science Association http://ukij.org
 -->
 <supplementalData>
-	<version number="$Revision: 11914 $"/>
+	<version number="$Revision$"/>
     <transforms>
         <transform source="ug" target="Latin" direction="both" draft="provisional">
             <comment># Follows the Latin-Script Uyghur alphabet 2001-todate rules defined at ←http://ukij.org/html/ , https://en.wikipedia.org/wiki/Uyghur_Latin_alphabet, 			         			http://www.uyghurdictionary.org/excerpts/An%20Introduction%20to%20LSU.pdf

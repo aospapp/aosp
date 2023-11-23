@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "perfetto/base/scoped_file.h"
+#include "perfetto/ext/base/scoped_file.h"
 #include "perfetto/base/build_config.h"
 
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
@@ -29,7 +29,7 @@
 #define TEST_INVALID_CLOSE
 #endif
 
-#include "gtest/gtest.h"
+#include "test/gtest_and_gmock.h"
 
 namespace perfetto {
 namespace base {
@@ -170,7 +170,7 @@ TEST(ScopedFileTest, MoveAssignment) {
 #ifdef TEST_INVALID_CLOSE
 TEST(ScopedFileTest, CloseFailureIsFatal) {
   int raw_fd = open(kNullFilename, O_RDONLY);
-  ASSERT_DEATH(
+  ASSERT_DEATH_IF_SUPPORTED(
       {
         ScopedFile scoped_file(raw_fd);
         ASSERT_EQ(0, close(raw_fd));

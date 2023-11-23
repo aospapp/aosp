@@ -103,22 +103,58 @@ static void CheckSimpleperfArguments(const char* cmdname, char** args) {
     error(1, 0, "cmd isn't allowed: %s", cmdname);
   }
   std::set<std::string> zero_arg_options = {
-      "-b", "--csv", "--exit-with-parent", "-g", "--in-app", "--interval-only-values",
-      "--no-callchain-joiner", "--no-dump-kernel-symbols", "--no-dump-symbols", "--no-inherit",
-      "--post-unwind=no", "--post-unwind=yes", "--trace-offcpu", "--verbose",
+      "-b",
+      "--csv",
+      "--exclude-perf",
+      "--exit-with-parent",
+      "-g",
+      "--in-app",
+      "--interval-only-values",
+      "--log-to-android-buffer",
+      "--no-callchain-joiner",
+      "--no-cut-samples",
+      "--no-dump-kernel-symbols",
+      "--no-dump-symbols",
+      "--no-inherit",
+      "--no-unwind",
+      "--per-core",
+      "--per-thread",
+      "--post-unwind=no",
+      "--post-unwind=yes",
+      "--trace-offcpu",
+      "--verbose",
   };
   std::set<std::string> one_arg_options = {
-      "-c", "--call-graph", "--callchain-joiner-min-matching-nodes", "--clockid", "--cpu",
-      "--cpu-percent", "--duration", "-e", "-f", "--group", "--interval", "-j", "--log", "-m",
-      "-p", "--size-limit", "-t",
+      "--aux-buffer-size",
+      "-c",
+      "--call-graph",
+      "--callchain-joiner-min-matching-nodes",
+      "--clockid",
+      "--cpu",
+      "--cpu-percent",
+      "--duration",
+      "-e",
+      "-f",
+      "--group",
+      "--include-filter",
+      "--interval",
+      "-j",
+      "--log",
+      "-m",
+      "-p",
+      "--size-limit",
+      "-t",
   };
   // options with a file descriptor
   std::set<std::string> fd_options = {
-      "--start_profiling_fd", "--stop-signal-fd", "--out-fd",
+      "--start_profiling_fd",
+      "--stop-signal-fd",
+      "--out-fd",
   };
   // options with path from /data/local/tmp/
   std::set<std::string> path_options = {
-      "--symfs", "--tracepoint-events",
+      "--symfs",
+      "--tracepoint-events",
   };
   one_arg_options.insert(fd_options.begin(), fd_options.end());
   one_arg_options.insert(path_options.begin(), path_options.end());

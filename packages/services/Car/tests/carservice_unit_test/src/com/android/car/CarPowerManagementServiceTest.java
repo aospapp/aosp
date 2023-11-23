@@ -16,21 +16,42 @@
 
 package com.android.car;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static android.car.test.mocks.CarArgumentMatchers.isUserInfo;
+import static android.car.test.util.UserTestingHelper.newGuestUser;
 
-import android.car.hardware.power.CarPowerManager.CarPowerStateListener;
-import android.car.hardware.power.ICarPowerStateListener;
-import android.car.userlib.CarUserManagerHelper;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.notNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import android.app.ActivityManager;
+import android.car.test.mocks.AbstractExtendedMockitoTestCase;
+import android.car.test.util.Visitor;
+import android.car.userlib.HalCallback;
+import android.car.userlib.InitialUserSetter;
+import android.content.Context;
+import android.content.pm.UserInfo;
+import android.content.res.Resources;
+import android.hardware.automotive.vehicle.V2_0.InitialUserInfoRequestType;
+import android.hardware.automotive.vehicle.V2_0.InitialUserInfoResponse;
+import android.hardware.automotive.vehicle.V2_0.InitialUserInfoResponseAction;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateShutdownParam;
-import android.os.RemoteException;
-import android.test.AndroidTestCase;
+import android.os.UserManager;
+import android.sysprop.CarProperties;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.car.hal.PowerHalService;
 import com.android.car.hal.PowerHalService.PowerState;
@@ -40,95 +61,144 @@ import com.android.car.systeminterface.SystemInterface;
 import com.android.car.systeminterface.SystemStateInterface;
 import com.android.car.systeminterface.WakeLockInterface;
 import com.android.car.test.utils.TemporaryDirectory;
+import com.android.car.user.CarUserService;
+import com.android.internal.app.IVoiceInteractionManagerService;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
 
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 @SmallTest
-public class CarPowerManagementServiceTest extends AndroidTestCase {
+public class CarPowerManagementServiceTest extends AbstractExtendedMockitoTestCase {
     private static final String TAG = CarPowerManagementServiceTest.class.getSimpleName();
     private static final long WAIT_TIMEOUT_MS = 2000;
     private static final long WAIT_TIMEOUT_LONG_MS = 5000;
+    private static final int WAKE_UP_DELAY = 100;
+
+    private static final int CURRENT_USER_ID = 42;
+    private static final int CURRENT_GUEST_ID = 108; // must be different than CURRENT_USER_ID;
+    private static final int NEW_GUEST_ID = 666;
 
     private final MockDisplayInterface mDisplayInterface = new MockDisplayInterface();
     private final MockSystemStateInterface mSystemStateInterface = new MockSystemStateInterface();
     private final MockWakeLockInterface mWakeLockInterface = new MockWakeLockInterface();
     private final MockIOInterface mIOInterface = new MockIOInterface();
     private final PowerSignalListener mPowerSignalListener = new PowerSignalListener();
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private final Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
 
     private MockedPowerHalService mPowerHal;
     private SystemInterface mSystemInterface;
     private CarPowerManagementService mService;
     private CompletableFuture<Void> mFuture;
 
+    @Mock
+    private UserManager mUserManager;
+    @Mock
+    private Resources mResources;
+    @Mock
+    private CarUserService mUserService;
+    @Mock
+    private InitialUserSetter mInitialUserSetter;
+    @Mock
+    private IVoiceInteractionManagerService mVoiceInteractionManagerService;
+
+
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    protected void onSessionBuilder(CustomMockitoSessionBuilder session) {
+        session
+            .spyStatic(ActivityManager.class)
+            .spyStatic(CarProperties.class);
+    }
+
+    @Before
+    public void setUp() throws Exception {
         mPowerHal = new MockedPowerHalService(true /*isPowerStateSupported*/,
                 true /*isDeepSleepAllowed*/, true /*isTimedWakeupAllowed*/);
-        mSystemInterface = SystemInterface.Builder.defaultSystemInterface(getContext())
+        mSystemInterface = SystemInterface.Builder.defaultSystemInterface(mContext)
             .withDisplayInterface(mDisplayInterface)
             .withSystemStateInterface(mSystemStateInterface)
             .withWakeLockInterface(mWakeLockInterface)
             .withIOInterface(mIOInterface).build();
-        mCarUserManagerHelper = mock(CarUserManagerHelper.class);
-        doReturn(true).when(mCarUserManagerHelper).switchToUserId(anyInt());
-        doReturn(10).when(mCarUserManagerHelper).getInitialUser();
-        doReturn(10).when(mCarUserManagerHelper).getCurrentForegroundUserId();
+
+        setCurrentUser(CURRENT_USER_ID, /* isGuest= */ false);
+        setService();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
         if (mService != null) {
             mService.release();
         }
+        CarServiceUtils.finishAllHandlerTasks();
         mIOInterface.tearDown();
     }
 
     /**
      * Helper method to create mService and initialize a test case
      */
-    private void initTest(int wakeupTime) throws Exception {
-        mService = new CarPowerManagementService(getContext(), mPowerHal, mSystemInterface,
-                mCarUserManagerHelper);
+    private void setService() throws Exception {
+        when(mResources.getInteger(R.integer.maxGarageModeRunningDurationInSecs))
+                .thenReturn(900);
+        Log.i(TAG, "setService(): overridden overlay properties: "
+                + "config_disableUserSwitchDuringResume="
+                + mResources.getBoolean(R.bool.config_disableUserSwitchDuringResume)
+                + ", maxGarageModeRunningDurationInSecs="
+                + mResources.getInteger(R.integer.maxGarageModeRunningDurationInSecs));
+        mService = new CarPowerManagementService(mContext, mResources, mPowerHal,
+                mSystemInterface, mUserManager, mUserService, mInitialUserSetter,
+                mVoiceInteractionManagerService);
         mService.init();
-        CarPowerManagementService.setShutdownPrepareTimeout(0);
+        mService.setShutdownTimersForTest(0, 0);
         mPowerHal.setSignalListener(mPowerSignalListener);
-        if (wakeupTime > 0) {
-            registerListenerToService();
-            mService.scheduleNextWakeupTime(wakeupTime);
-        }
+        mService.scheduleNextWakeupTime(WAKE_UP_DELAY);
         assertStateReceived(MockedPowerHalService.SET_WAIT_FOR_VHAL, 0);
     }
 
-    public void testBootComplete() throws Exception {
-        initTest(0);
-    }
-
+    @Test
     public void testDisplayOn() throws Exception {
         // start with display off
         mSystemInterface.setDisplayState(false);
         mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS);
-        initTest(0);
         // Transition to ON state
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
 
         // display should be turned on as it started with off state.
-        assertTrue(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS));
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
     }
 
+    @Test
     public void testShutdown() throws Exception {
-        initTest(0);
-
         // Transition to ON state
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
-        assertTrue(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS));
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
+
+        mPowerHal.setCurrentPowerState(
+                new PowerState(
+                        VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                        VehicleApPowerStateShutdownParam.SHUTDOWN_ONLY));
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_SHUTDOWN_START);
+        assertThat(mService.garageModeShouldExitImmediately()).isFalse();
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isFalse();
+        mPowerSignalListener.waitForShutdown(WAIT_TIMEOUT_MS);
+        // Send the finished signal
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
+        mSystemStateInterface.waitForShutdown(WAIT_TIMEOUT_MS);
+    }
+
+    @Test
+    public void testShutdownImmediately() throws Exception {
+        // Transition to ON state
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
 
         mPowerHal.setCurrentPowerState(
                 new PowerState(
@@ -136,31 +206,119 @@ public class CarPowerManagementServiceTest extends AndroidTestCase {
                         VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY));
         // Since modules have to manually schedule next wakeup, we should not schedule next wakeup
         // To test module behavior, we need to actually implement mock listener module.
-        assertStateReceived(PowerHalService.SET_SHUTDOWN_START, 0);
-        assertFalse(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS));
-        mPowerSignalListener.waitForShutdown(WAIT_TIMEOUT_MS);
-        mSystemStateInterface.waitForShutdown(WAIT_TIMEOUT_MS);
-    }
-
-    public void testShutdownWithProcessing() throws Exception {
-        final int wakeupTime = 100;
-        initTest(wakeupTime);
-        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.SHUTDOWN_PREPARE, 0));
-        assertStateReceivedForShutdownOrSleepWithPostpone(
-                PowerHalService.SET_SHUTDOWN_START, WAIT_TIMEOUT_LONG_MS, wakeupTime);
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_SHUTDOWN_START, 0);
+        assertThat(mService.garageModeShouldExitImmediately()).isTrue();
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isFalse();
         mPowerSignalListener.waitForShutdown(WAIT_TIMEOUT_MS);
         // Send the finished signal
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
         mSystemStateInterface.waitForShutdown(WAIT_TIMEOUT_MS);
     }
 
+    @Test
+    public void testSuspend() throws Exception {
+        // Start in the ON state
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
+        // Request suspend
+        mPowerHal.setCurrentPowerState(
+                new PowerState(
+                        VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                        VehicleApPowerStateShutdownParam.CAN_SLEEP));
+        // Verify suspend
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_DEEP_SLEEP_ENTRY);
+        assertThat(mService.garageModeShouldExitImmediately()).isFalse();
+    }
+
+    @Test
+    public void testShutdownOnSuspend() throws Exception {
+        // Start in the ON state
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
+        // Tell it to shutdown
+        mService.requestShutdownOnNextSuspend();
+        // Request suspend
+        mPowerHal.setCurrentPowerState(
+                new PowerState(
+                        VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                        VehicleApPowerStateShutdownParam.CAN_SLEEP));
+        // Verify shutdown
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_SHUTDOWN_START);
+        mPowerSignalListener.waitForShutdown(WAIT_TIMEOUT_MS);
+        // Send the finished signal
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
+        mSystemStateInterface.waitForShutdown(WAIT_TIMEOUT_MS);
+        // Cancel the shutdown
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0));
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_SHUTDOWN_CANCELLED);
+
+        // Request suspend again
+        mPowerHal.setCurrentPowerState(
+                new PowerState(
+                        VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                        VehicleApPowerStateShutdownParam.CAN_SLEEP));
+        // Verify suspend
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_DEEP_SLEEP_ENTRY);
+    }
+
+    @Test
+    public void testShutdownCancel() throws Exception {
+        // Start in the ON state
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
+        // Start shutting down
+        mPowerHal.setCurrentPowerState(
+                new PowerState(
+                        VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                        VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY));
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_SHUTDOWN_START, 0);
+        // Cancel the shutdown
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0));
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_SHUTDOWN_CANCELLED);
+        // Go to suspend
+        mPowerHal.setCurrentPowerState(
+                new PowerState(
+                        VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                        VehicleApPowerStateShutdownParam.CAN_SLEEP));
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_DEEP_SLEEP_ENTRY);
+    }
+
+    @Test
+    public void testSleepImmediately() throws Exception {
+        // Transition to ON state
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
+
+        mPowerHal.setCurrentPowerState(
+                new PowerState(
+                        VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                        VehicleApPowerStateShutdownParam.SLEEP_IMMEDIATELY));
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_DEEP_SLEEP_ENTRY, 0);
+        assertThat(mService.garageModeShouldExitImmediately()).isTrue();
+        mPowerSignalListener.waitForSleepEntry(WAIT_TIMEOUT_MS);
+
+        // Send the finished signal from HAL to CPMS
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
+        mSystemStateInterface.waitForSleepEntryAndWakeup(WAIT_TIMEOUT_MS);
+        assertStateReceived(PowerHalService.SET_DEEP_SLEEP_EXIT, 0);
+        mPowerSignalListener.waitForSleepExit(WAIT_TIMEOUT_MS);
+    }
+
+    @Test
+    public void testShutdownWithProcessing() throws Exception {
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.SHUTDOWN_PREPARE, 0));
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_SHUTDOWN_START);
+        mPowerSignalListener.waitForShutdown(WAIT_TIMEOUT_MS);
+        // Send the finished signal
+        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
+        mSystemStateInterface.waitForShutdown(WAIT_TIMEOUT_MS);
+    }
+
+    @Test
     public void testSleepEntryAndWakeup() throws Exception {
-        final int wakeupTime = 100;
-        initTest(wakeupTime);
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.CAN_SLEEP));
-        assertStateReceivedForShutdownOrSleepWithPostpone(
-                PowerHalService.SET_DEEP_SLEEP_ENTRY, WAIT_TIMEOUT_LONG_MS, wakeupTime);
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_DEEP_SLEEP_ENTRY);
         mPowerSignalListener.waitForSleepEntry(WAIT_TIMEOUT_MS);
         // Send the finished signal from HAL to CPMS
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
@@ -169,94 +327,265 @@ public class CarPowerManagementServiceTest extends AndroidTestCase {
         mPowerSignalListener.waitForSleepExit(WAIT_TIMEOUT_MS);
     }
 
+    /**
+     * This test case tests the same scenario as {@link #testUserSwitchingOnResume_differentUser()},
+     * but indirectly triggering {@code switchUserOnResumeIfNecessary()} through HAL events.
+     */
+    @Test
     public void testSleepEntryAndWakeUpForProcessing() throws Exception {
-        final int wakeupTime = 100;
-        initTest(wakeupTime);
 
-        // set up for user switching after display on
-        final int currentUserId = 10;
-        final int newUserId = 11;
-        doReturn(newUserId).when(mCarUserManagerHelper).getInitialUser();
-        doReturn(currentUserId).when(mCarUserManagerHelper).getCurrentForegroundUserId();
+        // Speed up the polling for power state transitions
+        mService.setShutdownTimersForTest(10, 40);
 
-        mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
-        assertTrue(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS));
+        suspendAndResume();
+
+        verifyDefaultInitialUserBehaviorCalled();
+    }
+
+    @Test
+    public void testUserSwitchingOnResume_noHal() throws Exception {
+        suspendAndResumeForUserSwitchingTests();
+
+        verifyDefaultInitialUserBehaviorCalled();
+    }
+
+    @Test
+    public void testUserSwitchingOnResume_disabledByOEM_nonGuest() throws Exception {
+        UserInfo currentUser = setCurrentUser(CURRENT_USER_ID, /* isGuest= */ false);
+        expectNewGuestCreated(CURRENT_USER_ID, currentUser);
+
+        suspendAndResumeForUserSwitchingTestsWhileDisabledByOem();
+
+        verifyUserNotSwitched();
+    }
+
+    @Test
+    public void testUserSwitchingOnResume_disabledByOEM_guest() throws Exception {
+        setCurrentUser(CURRENT_GUEST_ID, /* isGuest= */ true);
+        UserInfo newGuest = newGuestUser(NEW_GUEST_ID, /* ephemeral= */ true);
+        expectNewGuestCreated(CURRENT_GUEST_ID, newGuest);
+
+        suspendAndResumeForUserSwitchingTestsWhileDisabledByOem();
+
+        verifyUserSwitched(NEW_GUEST_ID);
+    }
+
+    @Test
+    public void testUserSwitchingOnResume_disabledByOEM_guestReplacementFails() throws Exception {
+        setCurrentUser(CURRENT_GUEST_ID, /* isGuest= */ true);
+        expectNewGuestCreated(CURRENT_GUEST_ID, /* newGuest= */ null);
+
+        suspendAndResumeForUserSwitchingTestsWhileDisabledByOem();
+
+        verifyUserNotSwitched();
+        verifyDefaultInitialUserBehaviorCalled();
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_failure_setTimeout() throws Exception {
+        userSwitchingWhenHalFailsTest(HalCallback.STATUS_HAL_SET_TIMEOUT);
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_failure_responseTimeout() throws Exception {
+        userSwitchingWhenHalFailsTest(HalCallback.STATUS_HAL_RESPONSE_TIMEOUT);
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_failure_concurrentOperation() throws Exception {
+        userSwitchingWhenHalFailsTest(HalCallback.STATUS_CONCURRENT_OPERATION);
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_failure_wrongResponse() throws Exception {
+        userSwitchingWhenHalFailsTest(HalCallback.STATUS_WRONG_HAL_RESPONSE);
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_failure_invalidResponse() throws Exception {
+        userSwitchingWhenHalFailsTest(-666);
+    }
+
+    /**
+     * Tests all scenarios where the HAL.getInitialUserInfo() call failed - the outcome is the
+     * same, it should use the default behavior.
+     */
+    private void userSwitchingWhenHalFailsTest(int status) throws Exception {
+        enableUserHal();
+
+        setGetUserInfoResponse((c) -> c.onResponse(status, /* response= */ null));
+
+        suspendAndResumeForUserSwitchingTests();
+
+        verifyDefaultInitialUserBehaviorCalled();
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_invalidAction() throws Exception {
+        enableUserHal();
+
+        InitialUserInfoResponse response = new InitialUserInfoResponse();
+        response.action = -666;
+        setGetUserInfoResponse((c) -> c.onResponse(HalCallback.STATUS_OK, response));
+
+        suspendAndResumeForUserSwitchingTests();
+
+        verifyDefaultInitialUserBehaviorCalled();
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_default_nullResponse() throws Exception {
+        enableUserHal();
+
+        setGetUserInfoResponse((c) -> c.onResponse(HalCallback.STATUS_OK, /* response= */ null));
+        suspendAndResumeForUserSwitchingTests();
+
+        verifyDefaultInitialUserBehaviorCalled();
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_default_ok() throws Exception {
+        enableUserHal();
+
+        InitialUserInfoResponse response = new InitialUserInfoResponse();
+        response.action = InitialUserInfoResponseAction.DEFAULT;
+        setGetUserInfoResponse((c) -> c.onResponse(HalCallback.STATUS_OK, response));
+
+        suspendAndResumeForUserSwitchingTests();
+
+        verifyDefaultInitialUserBehaviorCalled();
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_switch() throws Exception {
+        enableUserHal();
+
+        InitialUserInfoResponse response = new InitialUserInfoResponse();
+        response.action = InitialUserInfoResponseAction.SWITCH;
+        response.userToSwitchOrCreate.userId = 10;
+        setGetUserInfoResponse((c) -> c.onResponse(HalCallback.STATUS_OK, response));
+
+        suspendAndResumeForUserSwitchingTests();
+
+        verifyUserSwitched(10);
+        verifyDefaultInitilUserBehaviorNeverCalled();
+    }
+
+    @Test
+    public void testUserSwitchingUsingHal_create() throws Exception {
+        enableUserHal();
+
+        InitialUserInfoResponse response = new InitialUserInfoResponse();
+        response.action = InitialUserInfoResponseAction.CREATE;
+        response.userToSwitchOrCreate.flags = 42;
+        response.userNameToCreate = "Duffman";
+        setGetUserInfoResponse((c) -> c.onResponse(HalCallback.STATUS_OK, response));
+
+        suspendAndResumeForUserSwitchingTests();
+
+        verifyUserCreated("Duffman", 42);
+        verifyDefaultInitilUserBehaviorNeverCalled();
+    }
+
+    private void setGetUserInfoResponse(Visitor<HalCallback<InitialUserInfoResponse>> visitor) {
+        doAnswer((invocation) -> {
+            HalCallback<InitialUserInfoResponse> callback = invocation.getArgument(1);
+            visitor.visit(callback);
+            return null;
+        }).when(mUserService).getInitialUserInfo(eq(InitialUserInfoRequestType.RESUME), notNull());
+    }
+
+    private void enableUserHal() {
+        doReturn(Optional.of(true)).when(() -> CarProperties.user_hal_enabled());
+        when(mUserService.isUserHalSupported()).thenReturn(true);
+    }
+
+    private void suspendAndResume() throws Exception {
+        Log.d(TAG, "suspend()");
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.CAN_SLEEP));
-        assertFalse(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS));
-        assertStateReceivedForShutdownOrSleepWithPostpone(
-                PowerHalService.SET_DEEP_SLEEP_ENTRY, WAIT_TIMEOUT_LONG_MS, wakeupTime);
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isFalse();
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_DEEP_SLEEP_ENTRY);
+        assertVoiceInteractionDisabled();
         mPowerSignalListener.waitForSleepEntry(WAIT_TIMEOUT_MS);
+
         // Send the finished signal
+        Log.d(TAG, "resume()");
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
         mSystemStateInterface.setWakeupCausedByTimer(true);
         mSystemStateInterface.waitForSleepEntryAndWakeup(WAIT_TIMEOUT_MS);
         assertStateReceived(PowerHalService.SET_DEEP_SLEEP_EXIT, 0);
         mPowerSignalListener.waitForSleepExit(WAIT_TIMEOUT_MS);
-        mService.scheduleNextWakeupTime(wakeupTime);
+        mService.scheduleNextWakeupTime(WAKE_UP_DELAY);
         // second processing after wakeup
-        assertFalse(mDisplayInterface.getDisplayState());
-        // do not skip user switching part.
-        mService.clearIsBooting();
+        assertThat(mDisplayInterface.getDisplayState()).isFalse();
+
+        mService.setStateForTesting(/* isBooting= */ false, /* isResuming= */ true);
+
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.ON, 0));
-        assertTrue(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS));
-        // user switching should have been requested.
-        verify(mCarUserManagerHelper, times(1)).switchToUserId(newUserId);
+        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
+        // Should wait until Handler has finished ON processing.
+        CarServiceUtils.runOnLooperSync(mService.getHandlerThread().getLooper(), () -> { });
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.CAN_SLEEP));
-        assertStateReceivedForShutdownOrSleepWithPostpone(
-                PowerHalService.SET_DEEP_SLEEP_ENTRY, WAIT_TIMEOUT_LONG_MS, wakeupTime);
+        assertStateReceivedForShutdownOrSleepWithPostpone(PowerHalService.SET_DEEP_SLEEP_ENTRY);
         mPowerSignalListener.waitForSleepEntry(WAIT_TIMEOUT_MS);
         mPowerHal.setCurrentPowerState(new PowerState(VehicleApPowerStateReq.FINISHED, 0));
-        // PM will shutdown system as it was not woken-up due to timer and it is not power on.
+        // PM will shutdown system as it was not woken-up due timer and it is not power on.
         mSystemStateInterface.setWakeupCausedByTimer(false);
         mSystemStateInterface.waitForSleepEntryAndWakeup(WAIT_TIMEOUT_MS);
         // Since we just woke up from shutdown, wake up time will be 0
         assertStateReceived(PowerHalService.SET_DEEP_SLEEP_EXIT, 0);
-        assertFalse(mDisplayInterface.getDisplayState());
+        assertVoiceInteractionEnabled();
+        assertThat(mDisplayInterface.getDisplayState()).isFalse();
     }
 
-    private void registerListenerToService() {
-        ICarPowerStateListener listenerToService = new ICarPowerStateListener.Stub() {
-            @Override
-            public void onStateChanged(int state) throws RemoteException {
-                if (state == CarPowerStateListener.SHUTDOWN_ENTER
-                        || state == CarPowerStateListener.SUSPEND_ENTER) {
-                    mFuture = new CompletableFuture<>();
-                    mFuture.whenComplete((res, ex) -> {
-                        if (ex == null) {
-                            mService.finished(this);
-                        }
-                    });
-                } else {
-                    mFuture = null;
-                }
-            }
-        };
-        mService.registerListener(listenerToService);
+    private void suspendAndResumeForUserSwitchingTests() throws Exception {
+        mService.switchUserOnResumeIfNecessary(/* allowSwitching= */ true);
+    }
+
+    private void suspendAndResumeForUserSwitchingTestsWhileDisabledByOem() throws Exception {
+        mService.switchUserOnResumeIfNecessary(/* allowSwitching= */ false);
     }
 
     private void assertStateReceived(int expectedState, int expectedParam) throws Exception {
         int[] state = mPowerHal.waitForSend(WAIT_TIMEOUT_MS);
-        assertEquals(expectedState, state[0]);
-        assertEquals(expectedParam, state[1]);
+        assertThat(state[0]).isEqualTo(expectedState);
+        assertThat(state[1]).isEqualTo(expectedParam);
     }
 
-    private void assertStateReceivedForShutdownOrSleepWithPostpone(
-            int lastState, long timeoutMs, int expectedParamForShutdownOrSuspend) throws Exception {
+    private void assertStateReceivedForShutdownOrSleepWithPostpone(int lastState,
+            int expectedSecondParameter)
+            throws Exception {
         while (true) {
             if (mFuture != null && !mFuture.isDone()) {
                 mFuture.complete(null);
             }
-            int[] state = mPowerHal.waitForSend(timeoutMs);
+            int[] state = mPowerHal.waitForSend(WAIT_TIMEOUT_LONG_MS);
             if (state[0] == PowerHalService.SET_SHUTDOWN_POSTPONE) {
                 continue;
             }
             if (state[0] == lastState) {
-                assertEquals(expectedParamForShutdownOrSuspend, state[1]);
+                assertThat(state[1]).isEqualTo(expectedSecondParameter);
                 return;
             }
         }
+    }
+
+    private void assertStateReceivedForShutdownOrSleepWithPostpone(int lastState) throws Exception {
+        int expectedSecondParameter =
+                (lastState == MockedPowerHalService.SET_DEEP_SLEEP_ENTRY
+                        || lastState == MockedPowerHalService.SET_SHUTDOWN_START)
+                        ? WAKE_UP_DELAY : 0;
+        assertStateReceivedForShutdownOrSleepWithPostpone(lastState, expectedSecondParameter);
+    }
+
+    private void assertVoiceInteractionEnabled() throws Exception {
+        verify(mVoiceInteractionManagerService).setDisabled(false);
+    }
+
+    private void assertVoiceInteractionDisabled() throws Exception {
+        verify(mVoiceInteractionManagerService).setDisabled(true);
     }
 
     private static void waitForSemaphore(Semaphore semaphore, long timeoutMs)
@@ -264,6 +593,60 @@ public class CarPowerManagementServiceTest extends AndroidTestCase {
         if (!semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS)) {
             throw new IllegalStateException("timeout");
         }
+    }
+
+    private UserInfo setCurrentUser(int userId, boolean isGuest) {
+        mockGetCurrentUser(userId);
+        final UserInfo userInfo = new UserInfo();
+        userInfo.id = userId;
+        userInfo.userType = isGuest
+                ? UserManager.USER_TYPE_FULL_GUEST
+                : UserManager.USER_TYPE_FULL_SECONDARY;
+        Log.v(TAG, "UM.getUserInfo("  + userId + ") will return " + userInfo.toFullString());
+        when(mUserManager.getUserInfo(userId)).thenReturn(userInfo);
+        return userInfo;
+    }
+
+    private void verifyUserNotSwitched() {
+        verify(mInitialUserSetter, never()).set(argThat((info) -> {
+            return info.type == InitialUserSetter.TYPE_SWITCH;
+        }));
+    }
+
+    private void verifyUserSwitched(int userId) {
+        // TODO(b/153679319): pass proper value for replaceGuest
+        verify(mInitialUserSetter).set(argThat((info) -> {
+            return info.type == InitialUserSetter.TYPE_SWITCH
+                    && info.switchUserId == userId
+                    && info.replaceGuest;
+        }));
+    }
+
+    private void expectNewGuestCreated(int existingGuestId, UserInfo newGuest) {
+        when(mInitialUserSetter.replaceGuestIfNeeded(isUserInfo(existingGuestId)))
+                .thenReturn(newGuest);
+    }
+
+    private void verifyDefaultInitialUserBehaviorCalled() {
+        // TODO(b/153679319): pass proper value for replaceGuest
+        verify(mInitialUserSetter).set(argThat((info) -> {
+            return info.type == InitialUserSetter.TYPE_DEFAULT_BEHAVIOR
+                    && info.replaceGuest;
+        }));
+    }
+
+    private void verifyDefaultInitilUserBehaviorNeverCalled() {
+        verify(mInitialUserSetter, never()).set(argThat((info) -> {
+            return info.type == InitialUserSetter.TYPE_DEFAULT_BEHAVIOR;
+        }));
+    }
+
+    private void verifyUserCreated(String name, int halFlags) {
+        verify(mInitialUserSetter).set(argThat((info) -> {
+            return info.type == InitialUserSetter.TYPE_CREATE
+                    && info.newUserName == name
+                    && info.newUserFlags == halFlags;
+        }));
     }
 
     private static final class MockDisplayInterface implements DisplayInterface {
@@ -296,9 +679,6 @@ public class CarPowerManagementServiceTest extends AndroidTestCase {
 
         @Override
         public void refreshDisplayBrightness() {}
-
-        @Override
-        public void reconfigureSecondaryDisplays() {}
     }
 
     private static final class MockSystemStateInterface implements SystemStateInterface {

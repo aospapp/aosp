@@ -258,6 +258,18 @@ def close_server_socket(ad, socket):
     status = ad.droid.closeTcpServerSocket(socket)
     asserts.assert_true(status, "Failed to socket")
 
+def shutdown_socket(ad, socket):
+    """ Shutdown socket
+
+    Args:
+      1. ad - androidandroid device object
+      2. socket - socket key
+    """
+    fd = ad.droid.getFileDescriptorOfSocket(socket)
+    asserts.assert_true(fd, "Failed to get FileDescriptor key")
+    status = ad.droid.shutdownFileDescriptor(fd)
+    asserts.assert_true(status, "Failed to shutdown socket")
+
 def send_recv_data_sockets(client, server, client_sock, server_sock):
     """ Send data over TCP socket from client to server.
         Verify that server received the data

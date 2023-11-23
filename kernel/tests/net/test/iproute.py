@@ -47,6 +47,7 @@ RTM_GETNEIGH = 30
 RTM_NEWRULE = 32
 RTM_DELRULE = 33
 RTM_GETRULE = 34
+RTM_NEWNDUSEROPT = 68
 
 # Routing message type values (rtm_type).
 RTN_UNSPEC = 0
@@ -84,6 +85,8 @@ RTA_UID = 25
 
 # Netlink groups.
 RTMGRP_IPV6_IFADDR = 0x100
+RTNLGRP_ND_USEROPT = 20
+RTMGRP_ND_USEROPT = (1 << (RTNLGRP_ND_USEROPT - 1))  # Not a kernel constant
 
 # Route metric attributes.
 RTAX_MTU = 2
@@ -97,7 +100,8 @@ RTMsg = cstruct.Struct(
     "family dst_len src_len tos table protocol scope type flags")
 RTACacheinfo = cstruct.Struct(
     "RTACacheinfo", "=IIiiI", "clntref lastuse expires error used")
-
+NdUseroptMsg = cstruct.Struct("nduseroptmsg", "=BxHiBBxxxxxx",
+                              "family opts_len ifindex icmp_type icmp_code")
 
 ### Interface address constants. See include/uapi/linux/if_addr.h.
 # Interface address attributes.
@@ -535,8 +539,7 @@ class IPRoute(netlink.NetlinkSocket):
     flags = IFA_F_PERMANENT
     if version == 6:
       flags |= IFA_F_NODAD
-      sock = self._OpenNetlinkSocket(netlink.NETLINK_ROUTE,
-                                     groups=RTMGRP_IPV6_IFADDR)
+      sock = self._OpenNetlinkSocket(netlink.NETLINK_ROUTE, RTMGRP_IPV6_IFADDR)
 
     self._Address(version, RTM_NEWADDR, address, prefixlen, flags,
                   RT_SCOPE_UNIVERSE, ifindex)

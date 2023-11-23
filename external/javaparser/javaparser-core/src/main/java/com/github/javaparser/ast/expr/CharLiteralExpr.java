@@ -29,10 +29,10 @@ import com.github.javaparser.metamodel.CharLiteralExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.utils.StringEscapeUtils;
 import com.github.javaparser.utils.Utils;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
 import java.util.Optional;
+import com.github.javaparser.ast.Generated;
 
 /**
  * A literal character.
@@ -44,7 +44,7 @@ import java.util.Optional;
  *
  * @author Julio Vilmar Gesser
  */
-public final class CharLiteralExpr extends LiteralStringValueExpr {
+public class CharLiteralExpr extends LiteralStringValueExpr {
 
     public CharLiteralExpr() {
         this(null, "?");

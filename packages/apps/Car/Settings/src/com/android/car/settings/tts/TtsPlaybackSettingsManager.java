@@ -27,6 +27,7 @@ import androidx.annotation.Nullable;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
+import com.android.car.ui.AlertDialogBuilder;
 
 import java.util.Locale;
 
@@ -158,7 +159,7 @@ class TtsPlaybackSettingsManager {
     }
 
     private void displayNetworkAlert() {
-        AlertDialog dialog = new AlertDialog.Builder(mContext)
+        AlertDialog dialog = new AlertDialogBuilder(mContext)
                 .setTitle(android.R.string.dialog_alert_title)
                 .setMessage(R.string.tts_engine_network_required)
                 .setCancelable(false)

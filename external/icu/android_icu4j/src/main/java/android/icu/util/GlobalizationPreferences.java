@@ -181,7 +181,7 @@ public class GlobalizationPreferences implements Freezable<GlobalizationPreferen
         if (locales == null) {
             result = guessLocales();
         } else {
-            result = new ArrayList<ULocale>();
+            result = new ArrayList<>();
             result.addAll(locales);
         }
         return result;
@@ -573,7 +573,7 @@ public class GlobalizationPreferences implements Freezable<GlobalizationPreferen
                 Currency temp = new Currency(id);
                 result =temp.getName(locale, type==ID_CURRENCY
                                      ? Currency.LONG_NAME
-                                     : Currency.SYMBOL_NAME, new boolean[1]);
+                                     : Currency.SYMBOL_NAME, null /* isChoiceFormat */);
                 // TODO: have method that doesn't take parameter. Add
                 // function to determine whether string is choice
                 // format.
@@ -784,7 +784,7 @@ public class GlobalizationPreferences implements Freezable<GlobalizationPreferen
      * @hide draft / provisional / internal are hidden on Android
      */
     protected List<ULocale> processLocales(List<ULocale> inputLocales) {
-        List<ULocale> result = new ArrayList<ULocale>();
+        List<ULocale> result = new ArrayList<>();
         /*
          * Step 1: Relocate later occurrence of more specific locale
          * before earlier occurrence of less specific locale.
@@ -1017,7 +1017,7 @@ public class GlobalizationPreferences implements Freezable<GlobalizationPreferen
      */
     protected List<ULocale> guessLocales() {
         if (implicitLocales == null) {
-            List<ULocale> result = new ArrayList<ULocale>(1);
+            List<ULocale> result = new ArrayList<>(1);
             result.add(ULocale.getDefault());
             implicitLocales = processLocales(result);
         }
@@ -1165,7 +1165,7 @@ public class GlobalizationPreferences implements Freezable<GlobalizationPreferen
     /*
      * Available locales for service types
      */
-    private static final HashMap<ULocale, BitSet> available_locales = new HashMap<ULocale, BitSet>();
+    private static final HashMap<ULocale, BitSet> available_locales = new HashMap<>();
     private static final int
         TYPE_GENERIC = 0,
         TYPE_CALENDAR = 1,
@@ -1234,7 +1234,7 @@ public class GlobalizationPreferences implements Freezable<GlobalizationPreferen
     /** WARNING: All of this data is temporary, until we start importing from CLDR!!!
      *
      */
-    private static final Map<String, String> language_territory_hack_map = new HashMap<String, String>();
+    private static final Map<String, String> language_territory_hack_map = new HashMap<>();
     private static final String[][] language_territory_hack = {
         {"af", "ZA"},
         {"am", "ET"},
@@ -1396,7 +1396,7 @@ public class GlobalizationPreferences implements Freezable<GlobalizationPreferen
         }
     }
 
-    static final Map<String, String> territory_tzid_hack_map = new HashMap<String, String>();
+    static final Map<String, String> territory_tzid_hack_map = new HashMap<>();
     static final String[][] territory_tzid_hack = {
         {"AQ", "Antarctica/McMurdo"},
         {"AR", "America/Buenos_Aires"},

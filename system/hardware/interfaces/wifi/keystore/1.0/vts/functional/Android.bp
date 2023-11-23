@@ -16,6 +16,7 @@
 
 cc_test {
     name: "VtsHalWifiKeystoreV1_0TargetTest",
+    defaults: ["VtsHalTargetTestDefaults"],
     srcs: [
         "VtsHalWifiKeystoreV1_0TargetTest.cpp",
     ],
@@ -24,7 +25,6 @@ cc_test {
         "liblog",
         "libcutils",
         "libhidlbase",
-        "libhidltransport",
         "libnativehelper",
         "libutils",
         "libkeystore_binder",
@@ -32,8 +32,6 @@ cc_test {
         "libkeystore_aidl",
         "libkeystore_parcelables",
         "libkeymaster4support",
-        "libbinderthreadstate",
-        "libhwbinder",
     ],
     static_libs: [
         "VtsHalHidlTargetTestBase",
@@ -45,4 +43,10 @@ cc_test {
         "-Wall",
         "-Werror",
     ],
+    test_suites: ["general-tests", "vts"],
+}
+
+vts_config {
+    name: "VtsHalWifiKeystoreV1_0Target",
+    test_config: "wifi_keystore_target.xml",
 }

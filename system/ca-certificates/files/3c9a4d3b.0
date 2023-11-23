@@ -46,7 +46,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 6828503384748696800 (0x5ec3b7a6437fa4e0)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: CN=ACCVRAIZ1, OU=PKIACCV, O=ACCV, C=ES
         Validity
             Not Before: May  5 09:37:37 2011 GMT
@@ -54,7 +54,7 @@ Certificate:
         Subject: CN=ACCVRAIZ1, OU=PKIACCV, O=ACCV, C=ES
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:9b:a9:ab:bf:61:4a:97:af:2f:97:66:9a:74:5f:
                     d0:d9:96:fd:cf:e2:e4:66:ef:1f:1f:47:33:c2:44:

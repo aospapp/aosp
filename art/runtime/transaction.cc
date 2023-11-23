@@ -18,15 +18,19 @@
 
 #include <android-base/logging.h>
 
+#include "aot_class_linker.h"
 #include "base/mutex-inl.h"
 #include "base/stl_util.h"
 #include "gc/accounting/card_table-inl.h"
+#include "gc/heap.h"
 #include "gc_root-inl.h"
 #include "intern_table.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
+#include "obj_ptr-inl.h"
+#include "runtime.h"
 
 #include <list>
 
@@ -35,17 +39,15 @@ namespace art {
 // TODO: remove (only used for debugging purpose).
 static constexpr bool kEnableTransactionStats = false;
 
-Transaction::Transaction()
-  : log_lock_("transaction log lock", kTransactionLogLock),
-    aborted_(false),
-    rolling_back_(false),
-    strict_(false) {
-  CHECK(Runtime::Current()->IsAotCompiler());
-}
-
-Transaction::Transaction(bool strict, mirror::Class* root) : Transaction() {
-  strict_ = strict;
-  root_ = root;
+Transaction::Transaction(bool strict, mirror::Class* root)
+    : log_lock_("transaction log lock", kTransactionLogLock),
+      aborted_(false),
+      rolling_back_(false),
+      heap_(Runtime::Current()->GetHeap()),
+      strict_(strict),
+      root_(root),
+      assert_no_new_records_reason_(nullptr) {
+  DCHECK(Runtime::Current()->IsAotCompiler());
 }
 
 Transaction::~Transaction() {
@@ -111,35 +113,56 @@ bool Transaction::IsRollingBack() {
   return rolling_back_;
 }
 
-bool Transaction::IsStrict() {
-  MutexLock mu(Thread::Current(), log_lock_);
-  return strict_;
-}
-
 const std::string& Transaction::GetAbortMessage() {
   MutexLock mu(Thread::Current(), log_lock_);
   return abort_message_;
 }
 
-bool Transaction::WriteConstraint(mirror::Object* obj, ArtField* field) {
-  MutexLock mu(Thread::Current(), log_lock_);
-  if (strict_  // no constraint for boot image
-      && field->IsStatic()  // no constraint instance updating
-      && obj != root_) {  // modifying other classes' static field, fail
+bool Transaction::WriteConstraint(Thread* self, ObjPtr<mirror::Object> obj) {
+  DCHECK(obj != nullptr);
+  MutexLock mu(self, log_lock_);
+
+  // Prevent changes in boot image spaces for app or boot image extension.
+  // For boot image there are no boot image spaces and this condition evaluates to false.
+  if (heap_->ObjectIsInBootImageSpace(obj)) {
     return true;
   }
-  return false;
+
+  // For apps, also prevent writing to other classes.
+  return IsStrict() &&
+         obj->IsClass() &&  // no constraint updating instances or arrays
+         obj != root_;  // modifying other classes' static field, fail
 }
 
-bool Transaction::ReadConstraint(mirror::Object* obj, ArtField* field) {
-  DCHECK(field->IsStatic());
+bool Transaction::WriteValueConstraint(Thread* self, ObjPtr<mirror::Object> value) {
+  if (value == nullptr) {
+    return false;  // We can always store null values.
+  }
+  gc::Heap* heap = Runtime::Current()->GetHeap();
+  MutexLock mu(self, log_lock_);
+  if (IsStrict()) {
+    // TODO: Should we restrict writes the same way as for boot image extension?
+    return false;
+  } else if (heap->GetBootImageSpaces().empty()) {
+    return false;  // No constraints for boot image.
+  } else {
+    // Boot image extension.
+    ObjPtr<mirror::Class> klass = value->IsClass() ? value->AsClass() : value->GetClass();
+    return !AotClassLinker::CanReferenceInBootImageExtension(klass, heap);
+  }
+}
+
+bool Transaction::ReadConstraint(Thread* self, ObjPtr<mirror::Object> obj) {
+  // Read constraints are checked only for static field reads as there are
+  // no constraints on reading instance fields and array elements.
   DCHECK(obj->IsClass());
-  MutexLock mu(Thread::Current(), log_lock_);
-  if (!strict_ ||   // no constraint for boot image
-      obj == root_) {  // self-updating, pass
+  MutexLock mu(self, log_lock_);
+  if (IsStrict()) {
+    return obj != root_;  // fail if not self-updating
+  } else {
+    // For boot image and boot image extension, allow reading any field.
     return false;
   }
-  return true;
 }
 
 void Transaction::RecordWriteFieldBoolean(mirror::Object* obj,
@@ -148,6 +171,7 @@ void Transaction::RecordWriteFieldBoolean(mirror::Object* obj,
                                           bool is_volatile) {
   DCHECK(obj != nullptr);
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   ObjectLog& object_log = object_logs_[obj];
   object_log.LogBooleanValue(field_offset, value, is_volatile);
 }
@@ -158,6 +182,7 @@ void Transaction::RecordWriteFieldByte(mirror::Object* obj,
                                        bool is_volatile) {
   DCHECK(obj != nullptr);
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   ObjectLog& object_log = object_logs_[obj];
   object_log.LogByteValue(field_offset, value, is_volatile);
 }
@@ -168,6 +193,7 @@ void Transaction::RecordWriteFieldChar(mirror::Object* obj,
                                        bool is_volatile) {
   DCHECK(obj != nullptr);
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   ObjectLog& object_log = object_logs_[obj];
   object_log.LogCharValue(field_offset, value, is_volatile);
 }
@@ -179,6 +205,7 @@ void Transaction::RecordWriteFieldShort(mirror::Object* obj,
                                         bool is_volatile) {
   DCHECK(obj != nullptr);
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   ObjectLog& object_log = object_logs_[obj];
   object_log.LogShortValue(field_offset, value, is_volatile);
 }
@@ -190,6 +217,7 @@ void Transaction::RecordWriteField32(mirror::Object* obj,
                                      bool is_volatile) {
   DCHECK(obj != nullptr);
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   ObjectLog& object_log = object_logs_[obj];
   object_log.Log32BitsValue(field_offset, value, is_volatile);
 }
@@ -200,6 +228,7 @@ void Transaction::RecordWriteField64(mirror::Object* obj,
                                      bool is_volatile) {
   DCHECK(obj != nullptr);
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   ObjectLog& object_log = object_logs_[obj];
   object_log.Log64BitsValue(field_offset, value, is_volatile);
 }
@@ -210,6 +239,7 @@ void Transaction::RecordWriteFieldReference(mirror::Object* obj,
                                             bool is_volatile) {
   DCHECK(obj != nullptr);
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   ObjectLog& object_log = object_logs_[obj];
   object_log.LogReferenceValue(field_offset, value, is_volatile);
 }
@@ -219,6 +249,7 @@ void Transaction::RecordWriteArray(mirror::Array* array, size_t index, uint64_t 
   DCHECK(array->IsArrayInstance());
   DCHECK(!array->IsObjectArray());
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   auto it = array_logs_.find(array);
   if (it == array_logs_.end()) {
     ArrayLog log;
@@ -232,6 +263,7 @@ void Transaction::RecordResolveString(ObjPtr<mirror::DexCache> dex_cache,
   DCHECK(dex_cache != nullptr);
   DCHECK_LT(string_idx.index_, dex_cache->GetDexFile()->NumStringIds());
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   resolve_string_logs_.emplace_back(dex_cache, string_idx);
 }
 
@@ -258,6 +290,7 @@ void Transaction::RecordWeakStringRemoval(ObjPtr<mirror::String> s) {
 void Transaction::LogInternedString(InternStringLog&& log) {
   Locks::intern_table_lock_->AssertExclusiveHeld(Thread::Current());
   MutexLock mu(Thread::Current(), log_lock_);
+  DCHECK(assert_no_new_records_reason_ == nullptr) << assert_no_new_records_reason_;
   intern_string_logs_.push_front(std::move(log));
 }
 
@@ -460,11 +493,11 @@ void Transaction::ObjectLog::UndoFieldWrite(mirror::Object* obj,
       if (UNLIKELY(field_value.is_volatile)) {
         obj->SetFieldBooleanVolatile<false, kCheckTransaction>(
             field_offset,
-            static_cast<bool>(field_value.value));
+            field_value.value);
       } else {
         obj->SetFieldBoolean<false, kCheckTransaction>(
             field_offset,
-            static_cast<bool>(field_value.value));
+            field_value.value);
       }
       break;
     case kByte:
@@ -673,6 +706,29 @@ void Transaction::ArrayLog::UndoArrayWrite(mirror::Array* array,
     default:
       LOG(FATAL) << "Unsupported type " << array_type;
       UNREACHABLE();
+  }
+}
+
+Transaction* ScopedAssertNoNewTransactionRecords::InstallAssertion(const char* reason) {
+  Transaction* transaction = nullptr;
+  if (kIsDebugBuild && Runtime::Current()->IsActiveTransaction()) {
+    transaction = Runtime::Current()->GetTransaction().get();
+    if (transaction != nullptr) {
+      MutexLock mu(Thread::Current(), transaction->log_lock_);
+      CHECK(transaction->assert_no_new_records_reason_ == nullptr)
+          << "old: " << transaction->assert_no_new_records_reason_ << " new: " << reason;
+      transaction->assert_no_new_records_reason_ = reason;
+    }
+  }
+  return transaction;
+}
+
+void ScopedAssertNoNewTransactionRecords::RemoveAssertion(Transaction* transaction) {
+  if (kIsDebugBuild) {
+    CHECK(Runtime::Current()->GetTransaction().get() == transaction);
+    MutexLock mu(Thread::Current(), transaction->log_lock_);
+    CHECK(transaction->assert_no_new_records_reason_ != nullptr);
+    transaction->assert_no_new_records_reason_ = nullptr;
   }
 }
 

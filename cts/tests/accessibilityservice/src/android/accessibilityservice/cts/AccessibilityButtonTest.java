@@ -14,18 +14,25 @@
 
 package android.accessibilityservice.cts;
 
-import static android.accessibilityservice.cts.utils.CtsTestUtils.runIfNotNull;
+import static android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
+import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
 import android.accessibilityservice.AccessibilityButtonController;
-import android.app.Instrumentation;
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
+import android.view.Display;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 /**
@@ -36,6 +43,17 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public class AccessibilityButtonTest {
+
+    private InstrumentedAccessibilityServiceTestRule<StubAccessibilityButtonService> mServiceRule =
+            new InstrumentedAccessibilityServiceTestRule<>(StubAccessibilityButtonService.class);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mServiceRule)
+            .around(mDumpOnFailureRule);
 
     private StubAccessibilityButtonService mService;
     private AccessibilityButtonController mButtonController;
@@ -55,14 +73,8 @@ public class AccessibilityButtonTest {
 
     @Before
     public void setUp() {
-        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        mService = StubAccessibilityButtonService.enableSelf(instrumentation);
+        mService = mServiceRule.getService();
         mButtonController = mService.getAccessibilityButtonController();
-    }
-
-    @After
-    public void tearDown() {
-        runIfNotNull(mService, service -> service.runOnServiceSync(service::disableSelf));
     }
 
     @Test
@@ -70,5 +82,29 @@ public class AccessibilityButtonTest {
     public void testCallbackRegistrationUnregistration_serviceDoesNotCrash() {
         mButtonController.registerAccessibilityButtonCallback(mStubCallback);
         mButtonController.unregisterAccessibilityButtonCallback(mStubCallback);
+    }
+
+    @Test
+    @AppModeFull
+    public void testGetAccessibilityButtonControllerByDisplayId_NotReturnNull() {
+        final AccessibilityButtonController buttonController =
+                mService.getAccessibilityButtonController(
+                        Display.DEFAULT_DISPLAY);
+        assertNotNull(buttonController);
+    }
+
+    @Test
+    @AppModeFull
+    public void testUpdateRequestAccessibilityButtonFlag_targetSdkGreaterThanQ_ignoresUpdate() {
+        final AccessibilityServiceInfo serviceInfo = mService.getServiceInfo();
+        assertTrue((serviceInfo.flags & FLAG_REQUEST_ACCESSIBILITY_BUTTON)
+                == FLAG_REQUEST_ACCESSIBILITY_BUTTON);
+        assertTrue(mService.getApplicationInfo().targetSdkVersion > Build.VERSION_CODES.Q);
+
+        serviceInfo.flags &= ~FLAG_REQUEST_ACCESSIBILITY_BUTTON;
+        mService.setServiceInfo(serviceInfo);
+        assertTrue("Update flagRequestAccessibilityButton should fail",
+                (mService.getServiceInfo().flags & FLAG_REQUEST_ACCESSIBILITY_BUTTON)
+                        == FLAG_REQUEST_ACCESSIBILITY_BUTTON);
     }
 }

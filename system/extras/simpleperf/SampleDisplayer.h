@@ -66,12 +66,12 @@ BUILD_DISPLAY_UINT64_FUNCTION(DisplaySampleCount, sample_count);
 
 template <typename EntryT>
 std::string DisplayPid(const EntryT* sample) {
-  return android::base::StringPrintf("%d", sample->thread->pid);
+  return android::base::StringPrintf("%d", static_cast<int>(sample->pid));
 }
 
 template <typename EntryT>
 std::string DisplayTid(const EntryT* sample) {
-  return android::base::StringPrintf("%d", sample->thread->tid);
+  return android::base::StringPrintf("%d", static_cast<int>(sample->tid));
 }
 
 template <typename EntryT>

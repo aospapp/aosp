@@ -31,4 +31,6 @@ interface ICarPower {
     void scheduleNextWakeupTime(int seconds) = 4;
 
     void registerListenerWithCompletion(in ICarPowerStateListener listener) = 5;
+
+    int getPowerState() = 6;
 }

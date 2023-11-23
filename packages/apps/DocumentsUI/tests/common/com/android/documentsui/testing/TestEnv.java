@@ -16,6 +16,7 @@
 package com.android.documentsui.testing;
 
 import android.content.Context;
+import android.os.UserHandle;
 import android.provider.DocumentsContract.Document;
 import android.test.mock.MockContentResolver;
 
@@ -31,6 +32,7 @@ import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.TestFocusHandler;
 import com.android.documentsui.sorting.SortModel;
 import com.android.documentsui.ui.TestDialogController;
@@ -59,6 +61,11 @@ public class TestEnv {
     public static DocumentInfo FILE_VIRTUAL;
     public static DocumentInfo FILE_READ_ONLY;
 
+    public static class OtherUser {
+        public static DocumentInfo FOLDER_0;
+        public static DocumentInfo FILE_PNG;
+    }
+
     public final TestScheduledExecutorService mExecutor;
     public final State state = new State();
     public final TestProvidersAccess providers = new TestProvidersAccess();
@@ -66,27 +73,32 @@ public class TestEnv {
     public final TestFocusHandler focusHandler = new TestFocusHandler();
     public final TestDialogController dialogs = new TestDialogController();
     public final TestModel model;
+    public final TestModel modelOtherUser;
     public final TestModel archiveModel;
     public final DocsSelectionHelper selectionMgr;
     public final TestSearchViewManager searchViewManager;
     public final Injector<?> injector;
     public final Features features;
+    public final UserId userId;
+    public final UserHandle userHandle;
 
     public final MockContentResolver contentResolver;
     public final Map<String, TestDocumentsProvider> mockProviders;
 
     private TestEnv(Context context, Features features, String authority) {
         this.features = features;
+        this.userId = TestProvidersAccess.USER_ID;
+        userHandle = UserHandle.of(userId.getIdentifier());
         state.sortModel = SortModel.createModel();
         mExecutor = new TestScheduledExecutorService();
-        model = new TestModel(authority, features);
-        archiveModel = new TestModel(ArchivesProvider.AUTHORITY, features);
+        model = new TestModel(userId, authority, features);
+        modelOtherUser = new TestModel(TestProvidersAccess.OtherUser.USER_ID, authority, features);
+        archiveModel = new TestModel(userId, ArchivesProvider.AUTHORITY, features);
         selectionMgr = SelectionHelpers.createTestInstance();
         searchViewManager = new TestSearchViewManager();
         injector = new Injector(
                 features,
                 new TestActivityConfig(),
-                null,       // ScopedPreferences are not currently required for tests
                 null,       // MessageBuilder is not currently required for tests
                 dialogs,
                 new TestFileTypeLookup(),
@@ -169,13 +181,16 @@ public class TestEnv {
                         | Document.FLAG_SUPPORTS_DELETE
                         | Document.FLAG_SUPPORTS_RENAME);
 
+        OtherUser.FOLDER_0 = modelOtherUser.createFolder("folder 0");
+        OtherUser.FILE_PNG = modelOtherUser.createFile("work.png");
+
         archiveModel.update();
         model.update();
     }
 
     public void populateStack() {
         DocumentInfo rootDoc = model.getDocument(
-                ModelId.build(TestProvidersAccess.HOME.authority, "1"));
+                ModelId.build(model.mUserId, TestProvidersAccess.HOME.authority, "1"));
 
         // These are test setup sanity checks, not test assertions.
         assert rootDoc != null;
@@ -196,7 +211,16 @@ public class TestEnv {
 
     public void selectDocument(DocumentInfo info) {
         List<String> ids = new ArrayList<>(1);
-        ids.add(ModelId.build(info.authority, info.documentId));
+        ids.add(ModelId.build(info.userId, info.authority, info.documentId));
+        selectionMgr.setItemsSelected(ids, true);
+    }
+
+    public void selectMultipleFiles(int count) {
+        List<String> ids = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            DocumentInfo info = model.createFile(String.valueOf(i));
+            ids.add(ModelId.build(info.userId, info.authority, info.documentId));
+        }
         selectionMgr.setItemsSelected(ids, true);
     }
 

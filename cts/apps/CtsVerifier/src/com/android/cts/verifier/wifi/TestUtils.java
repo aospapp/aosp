@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.wifi;
 
+import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.BroadcastReceiver;
@@ -31,7 +32,10 @@ import android.util.Log;
 
 import com.android.cts.verifier.R;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -93,8 +97,20 @@ public class TestUtils {
         return true;
     }
 
-    // Helper to check if the scan result corresponds to an open network.
-    private static boolean isScanResultForOpenNetwork(@NonNull ScanResult scanResult) {
+    public static final int SCAN_RESULT_TYPE_OPEN = 0;
+    public static final int SCAN_RESULT_TYPE_PSK = 1;
+
+    @IntDef(prefix = { "SCAN_RESULT_TYPE_" }, value = {
+            SCAN_RESULT_TYPE_OPEN,
+            SCAN_RESULT_TYPE_PSK,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ScanResultType {}
+
+    /**
+     * Helper to check if the scan result corresponds to an open network.
+     */
+    public static boolean isScanResultForOpenNetwork(@NonNull ScanResult scanResult) {
         String capabilities = scanResult.capabilities;
         return !capabilities.contains("PSK") && !capabilities.contains("EAP")
                 && !capabilities.contains("WEP") && !capabilities.contains("SAE")
@@ -102,12 +118,42 @@ public class TestUtils {
     }
 
     /**
-     * Helper method to start a scan and find any open networks in the scan results returned by the
-     * device.
-     * @return ScanResult instance corresponding to an open network if one exists, null if the
-     * scan failed or if there are no open networks found.
+     * Helper to check if the scan result corresponds to a WPA2 PSK network.
      */
-    public @Nullable ScanResult startScanAndFindAnyOpenNetworkInResults()
+    public static boolean isScanResultForWpa2Network(@NonNull ScanResult scanResult) {
+        String capabilities = scanResult.capabilities;
+        return capabilities.contains("PSK");
+    }
+
+    /**
+     * Helper to check if the scan result corresponds to a WPA3 PSK network.
+     */
+    public static boolean isScanResultForWpa3Network(@NonNull ScanResult scanResult) {
+        String capabilities = scanResult.capabilities;
+        return capabilities.contains("SAE");
+    }
+
+    private static boolean doesScanResultMatchType(
+            ScanResult scanResult, @ScanResultType int type) {
+        switch(type) {
+            case SCAN_RESULT_TYPE_OPEN:
+                return isScanResultForOpenNetwork(scanResult);
+            case SCAN_RESULT_TYPE_PSK:
+                return isScanResultForWpa2Network(scanResult)
+                        || isScanResultForWpa3Network(scanResult);
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Helper method to start a scan and find any type of networks in the scan results returned by
+     * the device.
+     * @return ScanResult instance corresponding to an network of type if one exists, null if the
+     * scan failed or if there are networks found.
+     */
+    public @Nullable ScanResult startScanAndFindAnyMatchingNetworkInResults(
+            String ssid, @ScanResultType int type)
             throws InterruptedException {
         // Start scan and wait for new results.
         if (!startScanAndWaitForResults()) {
@@ -116,14 +162,14 @@ public class TestUtils {
         // Filter results to find an open network.
         List<ScanResult> scanResults = mWifiManager.getScanResults();
         for (ScanResult scanResult : scanResults) {
-            if (!TextUtils.isEmpty(scanResult.SSID)
+            if (TextUtils.equals(ssid, scanResult.SSID)
                     && !TextUtils.isEmpty(scanResult.BSSID)
-                    && isScanResultForOpenNetwork(scanResult)) {
-                if (DBG) Log.v(TAG, "Found open network " + scanResult);
+                    && doesScanResultMatchType(scanResult, type)) {
+                if (DBG) Log.v(TAG, "Found network " + scanResult);
                 return scanResult;
             }
         }
-        Log.e(TAG, "No open networks found in scan results");
+        Log.e(TAG, "No matching network found in scan results");
         return null;
     }
 
@@ -169,5 +215,14 @@ public class TestUtils {
         return true;
     }
 
-
+    /**
+     * Generate random passphrase to use for tests.
+     * @return
+     */
+    public String generateRandomPassphrase() {
+        return new Random().ints('a', 'z' + 1)
+                .limit(45)
+                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                .toString();
+    }
 }

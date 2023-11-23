@@ -15,21 +15,25 @@
  */
 package android.device.collectors;
 
+import android.content.Context;
 import android.device.collectors.annotations.OptionClass;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
-
-import org.junit.runner.Description;
-import org.junit.runner.Result;
-
 import com.android.helpers.PerfettoHelper;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
+import org.junit.runner.Description;
+import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
 
 /**
  * A {@link PerfettoListener} that captures the perfetto trace during each test method
@@ -45,6 +49,8 @@ public class PerfettoListener extends BaseMetricListener {
     private static final String DEFAULT_WAIT_TIME_MSECS = "3000";
     // Default output folder to store the perfetto output traces.
     private static final String DEFAULT_OUTPUT_ROOT = "/sdcard/test_results";
+    // Argument to indicate the perfetto config file is text proto file.
+    public static final String PERFETTO_CONFIG_TEXT_PROTO = "perfetto_config_text_proto";
     // Argument to get custom config file name for collecting the trace.
     private static final String PERFETTO_CONFIG_FILE_ARG = "perfetto_config_file";
     // Argument to get custom time in millisecs to wait before dumping the trace.
@@ -58,6 +64,13 @@ public class PerfettoListener extends BaseMetricListener {
     // Collect per run if it is set to true otherwise collect per test.
     public static final String COLLECT_PER_RUN = "per_run";
     public static final String PERFETTO_PREFIX = "perfetto_";
+    // Skip failure metrics collection if this flag is set to true.
+    public static final String SKIP_TEST_FAILURE_METRICS = "skip_test_failure_metrics";
+
+    private final WakeLockContext mWakeLockContext;
+    private final Supplier<WakeLock> mWakelockSupplier;
+    private final WakeLockAcquirer mWakeLockAcquirer;
+    private final WakeLockReleaser mWakeLockReleaser;
 
     // Trace config file name to use while collecting the trace which is defaulted to
     // trace_config.pb. It can be changed via the perfetto_config_file arg.
@@ -69,12 +82,26 @@ public class PerfettoListener extends BaseMetricListener {
     // Store the method name and invocation count to create unique file name for each trace.
     private Map<String, Integer> mTestIdInvocationCount = new HashMap<>();
     private boolean mPerfettoStartSuccess = false;
+    private boolean mIsConfigTextProto = false;
     private boolean mIsCollectPerRun;
+    private boolean mSkipTestFailureMetrics;
+    private boolean mIsTestFailed = false;
 
     private PerfettoHelper mPerfettoHelper = new PerfettoHelper();
 
+    // For USB disconnected cases you may want this option to be true. This option makes sure
+    // the device does not go to sleep while collecting.
+    @VisibleForTesting
+    static final String HOLD_WAKELOCK_WHILE_COLLECTING = "hold_wakelock_while_collecting";
+
+    private boolean mHoldWakelockWhileCollecting;
+
     public PerfettoListener() {
         super();
+        mWakeLockContext = this::runWithWakeLock;
+        mWakelockSupplier = this::getWakeLock;
+        mWakeLockAcquirer = this::acquireWakelock;
+        mWakeLockReleaser = this::releaseWakelock;
     }
 
     /**
@@ -82,10 +109,21 @@ public class PerfettoListener extends BaseMetricListener {
      * for testing.
      */
     @VisibleForTesting
-    PerfettoListener(Bundle args, PerfettoHelper helper, Map invocationMap) {
+    PerfettoListener(
+            Bundle args,
+            PerfettoHelper helper,
+            Map invocationMap,
+            WakeLockContext wakeLockContext,
+            Supplier<WakeLock> wakelockSupplier,
+            WakeLockAcquirer wakeLockAcquirer,
+            WakeLockReleaser wakeLockReleaser) {
         super(args);
         mPerfettoHelper = helper;
         mTestIdInvocationCount = invocationMap;
+        mWakeLockContext = wakeLockContext;
+        mWakeLockAcquirer = wakeLockAcquirer;
+        mWakeLockReleaser = wakeLockReleaser;
+        mWakelockSupplier = wakelockSupplier;
     }
 
     @Override
@@ -93,77 +131,231 @@ public class PerfettoListener extends BaseMetricListener {
         Bundle args = getArgsBundle();
 
         // Whether to collect the for the entire test run or per test.
-        mIsCollectPerRun = "true".equals(args.getString(COLLECT_PER_RUN));
+        mIsCollectPerRun = Boolean.parseBoolean(args.getString(COLLECT_PER_RUN));
+
+        // Whether the config is text proto or not. By default set to false.
+        mIsConfigTextProto = Boolean.parseBoolean(args.getString(PERFETTO_CONFIG_TEXT_PROTO));
 
         // Perfetto config file has to be under /data/misc/perfetto-traces/
         // defaulted to trace_config.pb is perfetto_config_file is not passed.
         mConfigFileName = args.getString(PERFETTO_CONFIG_FILE_ARG, DEFAULT_CONFIG_FILE);
 
+
+        // Whether to hold wakelocks on all Prefetto tracing functions. You may want to enable
+        // this if your device is not USB connected. This option prevents the device from
+        // going into suspend mode while this listener is running intensive tasks.
+        mHoldWakelockWhileCollecting =
+                Boolean.parseBoolean(args.getString(HOLD_WAKELOCK_WHILE_COLLECTING));
+
         // Wait time before stopping the perfetto trace collection after the test
         // is completed. Defaulted to 3000 msecs if perfetto_wait_time_ms is not passed.
         // TODO: b/118122395 for parsing failures.
-        mWaitTimeInMs = Long.parseLong(args.getString(PERFETTO_WAIT_TIME_ARG,
-                DEFAULT_WAIT_TIME_MSECS));
+        mWaitTimeInMs =
+                Long.parseLong(args.getString(PERFETTO_WAIT_TIME_ARG, DEFAULT_WAIT_TIME_MSECS));
 
         // Destination folder in the device to save all the trace files.
         // Defaulted to /sdcard/test_results if test_output_root is not passed.
         mTestOutputRoot = args.getString(TEST_OUTPUT_ROOT, DEFAULT_OUTPUT_ROOT);
 
-        if (mIsCollectPerRun) {
-            Log.i(getTag(), "Starting perfetto before test run started.");
-            startPerfettoTracing();
+        // By default this flag is set to false to collect the metrics on test failure.
+        mSkipTestFailureMetrics = "true".equals(args.getString(SKIP_TEST_FAILURE_METRICS));
+
+        if (!mIsCollectPerRun) {
+            return;
         }
 
+        Runnable task =
+                () -> {
+                    Log.i(getTag(), "Starting perfetto before test run started.");
+                    startPerfettoTracing();
+                };
+
+        if (mHoldWakelockWhileCollecting) {
+            Log.d(getTag(), "Holding a wakelock at onTestRunSTart.");
+            mWakeLockContext.run(task);
+        } else {
+            task.run();
+        }
     }
 
     @Override
     public void onTestStart(DataRecord testData, Description description) {
-        if (!mIsCollectPerRun) {
-            // Increment method invocation count by 1 whenever there is a new invocation of the test
-            // method.
-            mTestIdInvocationCount.compute(getTestFileName(description),
-                    (key, value) -> (value == null) ? 1 : value + 1);
-            Log.i(getTag(), "Starting perfetto before test started.");
-            startPerfettoTracing();
+        mIsTestFailed = false;
+        if (mIsCollectPerRun) {
+            return;
+        }
+
+        Runnable task =
+                () -> {
+                    mTestIdInvocationCount.compute(
+                            getTestFileName(description),
+                            (key, value) -> (value == null) ? 1 : value + 1);
+                    Log.i(getTag(), "Starting perfetto before test started.");
+                    startPerfettoTracing();
+                };
+
+        if (mHoldWakelockWhileCollecting) {
+            Log.d(getTag(), "Holding a wakelock at onTestStart.");
+            mWakeLockContext.run(task);
+        } else {
+            task.run();
         }
     }
 
     @Override
-    public void onTestEnd(DataRecord testData, Description description) {
-        if (!mIsCollectPerRun && mPerfettoStartSuccess) {
-            Log.i(getTag(), "Stopping perfetto after test ended.");
-            // Construct test output directory in the below format
-            // <root_folder>/<test_display_name>/PerfettoListener/<test_display_name>-<count>.pb
-            Path path = Paths.get(mTestOutputRoot, getTestFileName(description), this.getClass()
-                    .getSimpleName(),
-                    String.format("%s%s-%d.pb", PERFETTO_PREFIX, getTestFileName(description),
-                            mTestIdInvocationCount.get(getTestFileName(description))));
-            stopPerfettoTracing(path, testData);
+    public void onTestFail(DataRecord testData, Description description, Failure failure) {
+        mIsTestFailed = true;
+    }
 
+    @Override
+    public void onTestEnd(DataRecord testData, Description description) {
+        if (mIsCollectPerRun) {
+            return;
+        }
+
+        if (!mPerfettoStartSuccess) {
+            Log.i(
+                    getTag(),
+                    "Skipping perfetto stop attempt onTestEnd because perfetto did not "
+                            + "start successfully.");
+            return;
+        }
+
+        Runnable task = null;
+        if (mSkipTestFailureMetrics && mIsTestFailed) {
+            Log.i(getTag(), "Skipping the metric collection due to test failure.");
+            // Stop the existing perfetto trace collection.
+            try {
+                if (!mPerfettoHelper.stopPerfetto()) {
+                    Log.e(getTag(), "Failed to stop the perfetto process.");
+                }
+            } catch (IOException e) {
+                Log.e(getTag(), "Failed to stop the perfetto.", e);
+            }
         } else {
-            Log.i(getTag(),
-                    "Skipping perfetto stop attempt because perfetto did not start successfully.");
+            task =
+                    () -> {
+                        Log.i(getTag(), "Stopping perfetto after test ended.");
+                        // Construct test output directory in the below format
+                        // <root_folder>/<test_name>/PerfettoListener/<test_name>-<count>.pb
+                        Path path =
+                                Paths.get(
+                                        mTestOutputRoot,
+                                        getTestFileName(description),
+                                        this.getClass().getSimpleName(),
+                                        String.format(
+                                                "%s%s-%d.pb",
+                                                PERFETTO_PREFIX,
+                                                getTestFileName(description),
+                                                mTestIdInvocationCount.get(
+                                                        getTestFileName(description))));
+                        stopPerfettoTracing(path, testData);
+                    };
+            if (mHoldWakelockWhileCollecting) {
+                Log.d(getTag(), "Holding a wakelock at onTestEnd.");
+                mWakeLockContext.run(task);
+            } else {
+                task.run();
+            }
         }
     }
 
     @Override
     public void onTestRunEnd(DataRecord runData, Result result) {
-        if (mIsCollectPerRun && mPerfettoStartSuccess) {
-            Log.i(getTag(), "Stopping perfetto after test run ended.");
-            // Construct test output directory in the below format
-            // <root_folder>/PerfettoListener/<randomUUID>.pb
-            Path path = Paths.get(mTestOutputRoot, this.getClass()
-                    .getSimpleName(),
-                    String.format("%s%d.pb", PERFETTO_PREFIX, UUID.randomUUID().hashCode()));
-            stopPerfettoTracing(path, runData);
+        if (!mIsCollectPerRun) {
+            return;
         }
+        if (!mPerfettoStartSuccess) {
+            Log.i(
+                    getTag(),
+                    "Skipping perfetto stop attempt because perfetto did not "
+                            + "start successfully.");
+            return;
+        }
+
+        Runnable task =
+                () -> {
+                    Log.i(getTag(), "Stopping perfetto after test run ended.");
+                    // Construct test output directory in the below format
+                    // <root_folder>/PerfettoListener/<randomUUID>.pb
+                    Path path =
+                            Paths.get(
+                                    mTestOutputRoot,
+                                    this.getClass().getSimpleName(),
+                                    String.format(
+                                            "%s%d.pb",
+                                            PERFETTO_PREFIX, UUID.randomUUID().hashCode()));
+                    stopPerfettoTracing(path, runData);
+                };
+
+        if (mHoldWakelockWhileCollecting) {
+            Log.d(getTag(), "Holding a wakelock at onTestRunEnd.");
+            mWakeLockContext.run(task);
+        } else {
+            task.run();
+        }
+    }
+
+    @VisibleForTesting
+    void runWithWakeLock(Runnable runnable) {
+        WakeLock wakelock = null;
+        try {
+            wakelock = mWakelockSupplier.get();
+            mWakeLockAcquirer.acquire(wakelock);
+            runnable.run();
+        } finally {
+            mWakeLockReleaser.release(wakelock);
+        }
+    }
+
+    interface WakeLockContext {
+        void run(Runnable runnable);
+    }
+
+    interface WakeLockAcquirer {
+        void acquire(WakeLock wakelock);
+    }
+
+    interface WakeLockReleaser {
+        void release(WakeLock wakelock);
+    }
+
+    @VisibleForTesting
+    public void acquireWakelock(WakeLock wakelock) {
+        if (wakelock != null) {
+            Log.d(getTag(), "wakelock.isHeld: " + wakelock.isHeld());
+            Log.d(getTag(), "acquiring wakelock.");
+            wakelock.acquire();
+            Log.d(getTag(), "wakelock acquired.");
+            Log.d(getTag(), "wakelock.isHeld: " + wakelock.isHeld());
+        }
+    }
+
+    @VisibleForTesting
+    public void releaseWakelock(WakeLock wakelock) {
+        if (wakelock != null) {
+            Log.d(getTag(), "wakelock.isHeld: " + wakelock.isHeld());
+            Log.d(getTag(), "releasing wakelock.");
+            wakelock.release();
+            Log.d(getTag(), "wakelock released.");
+            Log.d(getTag(), "wakelock.isHeld: " + wakelock.isHeld());
+        }
+    }
+
+    private WakeLock getWakeLock() {
+        PowerManager pm =
+                (PowerManager)
+                        getInstrumentation().getContext().getSystemService(Context.POWER_SERVICE);
+
+        return pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PerfettoListener.class.getName());
     }
 
     /**
      * Start perfetto tracing using the given config file.
      */
     private void startPerfettoTracing() {
-        mPerfettoStartSuccess = mPerfettoHelper.startCollecting(mConfigFileName);
+        mPerfettoStartSuccess = mPerfettoHelper.startCollecting(mConfigFileName,
+                mIsConfigTextProto);
         if (!mPerfettoStartSuccess) {
             Log.e(getTag(), "Perfetto did not start successfully.");
         }

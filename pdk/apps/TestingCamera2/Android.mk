@@ -21,6 +21,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 19
 
 LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2
 

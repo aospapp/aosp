@@ -40,7 +40,7 @@ public class DeviceConfigurationHolder implements IDeviceConfiguration {
     private final boolean mIsFake;
 
     private IBuildProvider mBuildProvider = new StubBuildProvider();
-    private List<ITargetPreparer> mListTargetPreparer = new ArrayList<ITargetPreparer>();
+    private List<ITargetPreparer> mListTargetPreparer = new ArrayList<>();
     private IDeviceRecovery mDeviceRecovery = new WaitDeviceRecovery();
     private IDeviceSelection mDeviceSelection = new DeviceSelectionOptions();
     private TestDeviceOptions mTestDeviceOption = new TestDeviceOptions();
@@ -96,6 +96,24 @@ public class DeviceConfigurationHolder implements IDeviceConfiguration {
         } else {
             throw new ConfigurationException(String.format("Cannot add %s class "
                     + "to a device specific definition", config.getClass()));
+        }
+    }
+
+    @Override
+    public void removeObjectType(String type) throws ConfigurationException {
+        if (Configuration.BUILD_PROVIDER_TYPE_NAME.equals(type)) {
+            mBuildProvider = null;
+        } else if (Configuration.TARGET_PREPARER_TYPE_NAME.equals(type)) {
+            mListTargetPreparer.clear();
+        } else if (Configuration.DEVICE_RECOVERY_TYPE_NAME.equals(type)) {
+            mDeviceRecovery = null;
+        } else if (Configuration.DEVICE_REQUIREMENTS_TYPE_NAME.equals(type)) {
+            mDeviceSelection = null;
+        } else if (Configuration.DEVICE_OPTIONS_TYPE_NAME.equals(type)) {
+            mTestDeviceOption = null;
+        } else {
+            throw new ConfigurationException(
+                    String.format("'%s' type is not supported by DeviceConfigurationHolder", type));
         }
     }
 
@@ -194,7 +212,12 @@ public class DeviceConfigurationHolder implements IDeviceConfiguration {
      */
     @Override
     public IDeviceConfiguration clone() {
-        IDeviceConfiguration newDeviceConfig = new DeviceConfigurationHolder(getDeviceName());
+        return clone(getDeviceName());
+    }
+
+    @Override
+    public IDeviceConfiguration clone(String newName) {
+        IDeviceConfiguration newDeviceConfig = new DeviceConfigurationHolder(newName);
         for (Object obj : getAllObjects()) {
             try {
                 newDeviceConfig.addSpecificConfig(obj);

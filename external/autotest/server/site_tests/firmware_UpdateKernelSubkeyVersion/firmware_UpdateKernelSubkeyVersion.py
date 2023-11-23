@@ -16,10 +16,12 @@ class firmware_UpdateKernelSubkeyVersion(FirmwareTest):
     chromeos-firmwareupdate. On runtime, this test modifies shellball and runs
     autoupdate. Check kernel subkey version after boot with firmware B, and
     then recover firmware A and B to original shellball.
+
     """
     version = 1
 
     def resign_kernel_subkey_version(self, host):
+        """Resigns the kernel subkey version."""
         host.send_file(os.path.join(self.bindir,
                                     'files/common.sh'),
                        os.path.join(self.faft_client.updater.get_temp_path(),
@@ -35,6 +37,7 @@ class firmware_UpdateKernelSubkeyVersion(FirmwareTest):
             self._update_version))
 
     def check_kernel_subkey_version(self, expected_ver):
+        """Checks the kernel subkey version."""
         actual_ver = self.faft_client.bios.get_kernel_subkey_version(
                 'b' if self.fw_vboot2 else 'a')
         if actual_ver != expected_ver:
@@ -48,6 +51,7 @@ class firmware_UpdateKernelSubkeyVersion(FirmwareTest):
 
 
     def initialize(self, host, cmdline_args, dev_mode=True):
+        """Initialize the test"""
         dict_args = utils.args_to_dict(cmdline_args)
         shellball_path = dict_args.get('shellball', None)
         super(firmware_UpdateKernelSubkeyVersion, self).initialize(
@@ -62,7 +66,7 @@ class firmware_UpdateKernelSubkeyVersion(FirmwareTest):
             self.faft_client.updater.run_factory_install()
             self.switcher.mode_aware_reboot()
 
-        self._fwid = self.faft_client.updater.get_fwid()
+        self._fwid = self.faft_client.updater.get_section_fwid()
 
         ver = self.faft_client.bios.get_kernel_subkey_version('a')
         logging.info('Origin version is %s', ver)
@@ -75,6 +79,7 @@ class firmware_UpdateKernelSubkeyVersion(FirmwareTest):
         self.faft_client.updater.repack_shellball('test')
 
     def cleanup(self):
+        """Cleanup after the test"""
         try:
             self.restore_firmware()
             self.invalidate_firmware_setup()
@@ -83,6 +88,7 @@ class firmware_UpdateKernelSubkeyVersion(FirmwareTest):
         super(firmware_UpdateKernelSubkeyVersion, self).cleanup()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Update firmware with new kernel subkey version.")
         self.check_state((self.checkers.crossystem_checker, {
                           'fwid': self._fwid

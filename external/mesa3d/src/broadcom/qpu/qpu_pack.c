@@ -492,7 +492,8 @@ static const struct opcode_desc add_ops[] = {
         { 186, 186, 1 << 1, ANYMUX, V3D_QPU_A_NEG },
         { 186, 186, 1 << 2, ANYMUX, V3D_QPU_A_FLAPUSH },
         { 186, 186, 1 << 3, ANYMUX, V3D_QPU_A_FLBPUSH },
-        { 186, 186, 1 << 4, ANYMUX, V3D_QPU_A_FLBPOP },
+        { 186, 186, 1 << 4, ANYMUX, V3D_QPU_A_FLPOP },
+        { 186, 186, 1 << 5, ANYMUX, V3D_QPU_A_RECIP },
         { 186, 186, 1 << 6, ANYMUX, V3D_QPU_A_SETMSF },
         { 186, 186, 1 << 7, ANYMUX, V3D_QPU_A_SETREVF },
         { 187, 187, 1 << 0, 1 << 0, V3D_QPU_A_NOP, 0 },
@@ -514,7 +515,7 @@ static const struct opcode_desc add_ops[] = {
         { 187, 187, 1 << 2, 1 << 2, V3D_QPU_A_VDWWT, 33 },
         { 187, 187, 1 << 2, 1 << 2, V3D_QPU_A_IID, 40 },
         { 187, 187, 1 << 2, 1 << 3, V3D_QPU_A_SAMPID, 40 },
-        { 187, 187, 1 << 2, 1 << 4, V3D_QPU_A_PATCHID, 40 },
+        { 187, 187, 1 << 2, 1 << 4, V3D_QPU_A_BARRIERID, 40 },
         { 187, 187, 1 << 2, 1 << 5, V3D_QPU_A_TMUWT },
         { 187, 187, 1 << 2, 1 << 6, V3D_QPU_A_VPMWT },
 
@@ -522,6 +523,11 @@ static const struct opcode_desc add_ops[] = {
         { 188, 188, 1 << 0, ANYMUX, V3D_QPU_A_LDVPMV_IN, 40 },
         { 188, 188, 1 << 1, ANYMUX, V3D_QPU_A_LDVPMD_IN, 40 },
         { 188, 188, 1 << 2, ANYMUX, V3D_QPU_A_LDVPMP, 40 },
+        { 188, 188, 1 << 3, ANYMUX, V3D_QPU_A_RSQRT, 41 },
+        { 188, 188, 1 << 4, ANYMUX, V3D_QPU_A_EXP, 41 },
+        { 188, 188, 1 << 5, ANYMUX, V3D_QPU_A_LOG, 41 },
+        { 188, 188, 1 << 6, ANYMUX, V3D_QPU_A_SIN, 41 },
+        { 188, 188, 1 << 7, ANYMUX, V3D_QPU_A_RSQRT2, 41 },
         { 189, 189, ANYMUX, ANYMUX, V3D_QPU_A_LDVPMG_IN, 40 },
 
         /* FIXME: MORE COMPLICATED */
@@ -770,7 +776,11 @@ v3d_qpu_add_unpack(const struct v3d_device_info *devinfo, uint64_t packed_inst,
         case V3D_QPU_A_FMIN:
         case V3D_QPU_A_FMAX:
         case V3D_QPU_A_FCMP:
-                instr->alu.add.output_pack = (op >> 4) & 0x3;
+        case V3D_QPU_A_VFPACK:
+                if (instr->alu.add.op != V3D_QPU_A_VFPACK)
+                        instr->alu.add.output_pack = (op >> 4) & 0x3;
+                else
+                        instr->alu.add.output_pack = V3D_QPU_PACK_NONE;
 
                 if (!v3d_qpu_float32_unpack_unpack((op >> 2) & 0x3,
                                                    &instr->alu.add.a_unpack)) {
@@ -1036,6 +1046,32 @@ v3d_qpu_add_pack(const struct v3d_device_info *devinfo,
 
                 opcode |= a_unpack << 2;
                 opcode |= b_unpack << 0;
+
+                break;
+        }
+
+        case V3D_QPU_A_VFPACK: {
+                uint32_t a_unpack;
+                uint32_t b_unpack;
+
+                if (instr->alu.add.a_unpack == V3D_QPU_UNPACK_ABS ||
+                    instr->alu.add.b_unpack == V3D_QPU_UNPACK_ABS) {
+                        return false;
+                }
+
+                if (!v3d_qpu_float32_unpack_pack(instr->alu.add.a_unpack,
+                                                 &a_unpack)) {
+                        return false;
+                }
+
+                if (!v3d_qpu_float32_unpack_pack(instr->alu.add.b_unpack,
+                                                 &b_unpack)) {
+                        return false;
+                }
+
+                opcode = (opcode & ~(1 << 2)) | (a_unpack << 2);
+                opcode = (opcode & ~(1 << 0)) | (b_unpack << 0);
+
                 break;
         }
 
@@ -1059,7 +1095,7 @@ v3d_qpu_add_pack(const struct v3d_device_info *devinfo,
                 }
                 if (packed == 0)
                         return false;
-                opcode |= packed << 2;
+                opcode = (opcode & ~(1 << 2)) | packed << 2;
                 break;
         }
 

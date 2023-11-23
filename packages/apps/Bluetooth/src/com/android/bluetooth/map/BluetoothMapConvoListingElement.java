@@ -17,8 +17,8 @@ package com.android.bluetooth.map;
 import android.util.Log;
 
 import com.android.bluetooth.SignedLongLong;
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
-import com.android.internal.util.XmlUtils;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -341,7 +341,7 @@ public class BluetoothMapConvoListingElement
                 if (D) {
                     Log.i(TAG, "Unknown XML tag: " + name);
                 }
-                XmlUtils.skipCurrentTag(parser);
+                Utils.skipCurrentTag(parser);
                 continue;
             }
         }

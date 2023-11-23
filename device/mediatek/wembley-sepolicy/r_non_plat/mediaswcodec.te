@@ -1,0 +1,11 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Date : WK19.25
+# Operation : Migration
+# Purpose : [ALPS04669482] DRTS failed due to avc denied
+allow mediaswcodec debugfs_ion:dir rw_dir_perms;
+allow mediaswcodec gpu_device:dir rw_dir_perms;
+allow mediaswcodec dri_device:chr_file rw_file_perms;
+allow mediaswcodec gpu_device:chr_file rw_file_perms;

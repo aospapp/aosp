@@ -4,6 +4,8 @@
  * Written by Simon Glass <sjg@chromium.org>
  */
 
+#define LOG_CATEGORY UCLASS_SYSRESET
+
 #include <common.h>
 #include <sysreset.h>
 #include <dm.h>
@@ -22,6 +24,26 @@ int sysreset_request(struct udevice *dev, enum sysreset_t type)
 		return -ENOSYS;
 
 	return ops->request(dev, type);
+}
+
+int sysreset_get_status(struct udevice *dev, char *buf, int size)
+{
+	struct sysreset_ops *ops = sysreset_get_ops(dev);
+
+	if (!ops->get_status)
+		return -ENOSYS;
+
+	return ops->get_status(dev, buf, size);
+}
+
+int sysreset_get_last(struct udevice *dev)
+{
+	struct sysreset_ops *ops = sysreset_get_ops(dev);
+
+	if (!ops->get_last)
+		return -ENOSYS;
+
+	return ops->get_last(dev);
 }
 
 int sysreset_walk(enum sysreset_t type)
@@ -43,6 +65,26 @@ int sysreset_walk(enum sysreset_t type)
 	return ret;
 }
 
+int sysreset_get_last_walk(void)
+{
+	struct udevice *dev;
+	int value = -ENOENT;
+
+	for (uclass_first_device(UCLASS_SYSRESET, &dev);
+	     dev;
+	     uclass_next_device(&dev)) {
+		int ret;
+
+		ret = sysreset_get_last(dev);
+		if (ret >= 0) {
+			value = ret;
+			break;
+		}
+	}
+
+	return value;
+}
+
 void sysreset_walk_halt(enum sysreset_t type)
 {
 	int ret;
@@ -54,7 +96,7 @@ void sysreset_walk_halt(enum sysreset_t type)
 		mdelay(100);
 
 	/* Still no reset? Give up */
-	debug("System reset not supported on this platform\n");
+	log_err("System reset not supported on this platform\n");
 	hang();
 }
 
@@ -69,12 +111,48 @@ void reset_cpu(ulong addr)
 
 int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
+	printf("resetting ...\n");
+
 	sysreset_walk_halt(SYSRESET_COLD);
 
+	return 0;
+}
+
+#if IS_ENABLED(CONFIG_SYSRESET_CMD_POWEROFF)
+int do_poweroff(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	int ret;
+
+	puts("poweroff ...\n");
+	mdelay(100);
+
+	ret = sysreset_walk(SYSRESET_POWER_OFF);
+
+	if (ret == -EINPROGRESS)
+		mdelay(1000);
+
+	/*NOTREACHED when power off*/
+	return CMD_RET_FAILURE;
+}
+#endif
+
+static int sysreset_post_bind(struct udevice *dev)
+{
+#if defined(CONFIG_NEEDS_MANUAL_RELOC)
+	struct sysreset_ops *ops = sysreset_get_ops(dev);
+	static int reloc_done;
+
+	if (!reloc_done) {
+		if (ops->request)
+			ops->request += gd->reloc_off;
+		reloc_done++;
+	}
+#endif
 	return 0;
 }
 
 UCLASS_DRIVER(sysreset) = {
 	.id		= UCLASS_SYSRESET,
 	.name		= "sysreset",
+	.post_bind	= sysreset_post_bind,
 };

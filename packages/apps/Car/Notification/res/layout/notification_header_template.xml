@@ -26,21 +26,23 @@
         android:id="@+id/notification_header_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
         android:layout_marginStart="@dimen/notification_card_margin_horizontal"
         android:paddingBottom="@dimen/notification_header_text_padding_bottom"
         android:paddingTop="@dimen/notification_header_text_padding_top"
         android:text="@string/notification_header"
-        android:textAppearance="?android:attr/textAppearanceLarge"/>
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/clear_all_button"
         style="@style/ClearAllButtonHeader"
         android:layout_width="wrap_content"
         android:layout_height="@dimen/clear_all_button_height"
-        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
         android:layout_marginEnd="@dimen/notification_card_margin_horizontal"
-        android:text="@string/clear_all"/>
+        android:text="@string/clear_all"
+        android:visibility="gone"/>
 
     <TextView
         android:id="@+id/empty_notification_header_text"
@@ -50,5 +52,6 @@
         android:paddingBottom="@dimen/no_notification_header_text_padding_bottom"
         android:paddingTop="@dimen/no_notification_header_text_padding_top"
         android:text="@string/empty_notification_header"
-        android:textAppearance="?android:attr/textAppearanceLarge"/>
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:visibility="gone"/>
 </RelativeLayout>

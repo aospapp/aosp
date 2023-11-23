@@ -12,7 +12,7 @@
         </content>
 
         <orderEntry type="sourceFolder" forTests="false" />
-        <orderEntry type="module" module-name="dependencies-android_project" />
+        <orderEntry type="module" module-name="dependencies" />
         <orderEntry type="inheritedJdk" />
     </component>
 </module>

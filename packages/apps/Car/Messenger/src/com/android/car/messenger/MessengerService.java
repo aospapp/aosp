@@ -1,8 +1,13 @@
 package com.android.car.messenger;
 
 
+import static com.android.car.messenger.common.BaseNotificationDelegate.ACTION_DISMISS_NOTIFICATION;
+import static com.android.car.messenger.common.BaseNotificationDelegate.ACTION_MARK_AS_READ;
+import static com.android.car.messenger.common.BaseNotificationDelegate.ACTION_REPLY;
+import static com.android.car.messenger.common.BaseNotificationDelegate.EXTRA_CONVERSATION_KEY;
+import static com.android.car.messenger.common.BaseNotificationDelegate.EXTRA_REMOTE_INPUT_KEY;
+
 import android.app.Notification;
-import android.app.Notification.Action;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
@@ -18,8 +23,9 @@ import android.text.TextUtils;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.RemoteInput;
 
-import com.android.car.messenger.MessengerDelegate.SenderKey;
 import com.android.car.messenger.bluetooth.BluetoothMonitor;
+import com.android.car.messenger.common.BaseNotificationDelegate;
+import com.android.car.messenger.common.ConversationKey;
 import com.android.car.messenger.log.L;
 
 /** Service responsible for handling SMS messaging events from paired Bluetooth devices. */
@@ -30,17 +36,6 @@ public class MessengerService extends Service {
     /** Used to start this service at boot-complete. Takes no arguments. */
     public static final String ACTION_START = "com.android.car.messenger.ACTION_START";
 
-    /** Used to reply to message with voice input; triggered by an assistant. */
-    public static final String ACTION_VOICE_REPLY = "com.android.car.messenger.ACTION_VOICE_REPLY";
-
-    /** Used to clear notification state when user dismisses notification. */
-    public static final String ACTION_CLEAR_NOTIFICATION_STATE =
-            "com.android.car.messenger.ACTION_CLEAR_NOTIFICATION_STATE";
-
-    /** Used to mark a notification as read **/
-    public static final String ACTION_MARK_AS_READ =
-            "com.android.car.messenger.ACTION_MARK_AS_READ";
-
     /** Used to notify when a sms is received. Takes no arguments. */
     public static final String ACTION_RECEIVED_SMS =
             "com.android.car.messenger.ACTION_RECEIVED_SMS";
@@ -50,21 +45,15 @@ public class MessengerService extends Service {
             "com.android.car.messenger.ACTION_RECEIVED_MMS";
 
     /* EXTRAS */
-    /** Key under which the {@link SenderKey} is provided. */
-    public static final String EXTRA_SENDER_KEY = "com.android.car.messenger.EXTRA_SENDER_KEY";
-
-    /**
-     * The resultKey of the {@link RemoteInput} which is sent in the reply callback {@link Action}.
-     */
-    public static final String REMOTE_INPUT_KEY = "REMOTE_INPUT_KEY";
 
     /* NOTIFICATIONS */
     static final String SMS_CHANNEL_ID = "SMS_CHANNEL_ID";
+    static final String SILENT_SMS_CHANNEL_ID = "SILENT_SMS_CHANNEL_ID";
     private static final String APP_RUNNING_CHANNEL_ID = "APP_RUNNING_CHANNEL_ID";
     private static final int SERVICE_STARTED_NOTIFICATION_ID = Integer.MAX_VALUE;
 
     /** Delegate class used to handle this services' actions */
-    private MessengerDelegate mMessengerDelegate;
+    private MessageNotificationDelegate mMessengerDelegate;
 
     /** Notifies this service of new bluetooth actions */
     private BluetoothMonitor mBluetoothMonitor;
@@ -88,7 +77,7 @@ public class MessengerService extends Service {
         super.onCreate();
         L.d(TAG, "onCreate");
 
-        mMessengerDelegate = new MessengerDelegate(this);
+        mMessengerDelegate = new MessageNotificationDelegate(this);
         mBluetoothMonitor = new BluetoothMonitor(this);
         mBluetoothMonitor.registerListener(mMessengerDelegate);
         sendServiceRunningNotification();
@@ -110,6 +99,16 @@ public class MessengerService extends Service {
                             getString(R.string.app_running_msg_channel_name),
                             NotificationManager.IMPORTANCE_MIN);
             notificationManager.createNotificationChannel(appRunningNotificationChannel);
+        }
+
+        // Create notification channel for notifications that should be posted silently in the
+        // notification center, without a heads up notification.
+        {
+            NotificationChannel silentNotificationChannel =
+                    new NotificationChannel(SILENT_SMS_CHANNEL_ID,
+                            getString(R.string.sms_channel_description),
+                            NotificationManager.IMPORTANCE_LOW);
+            notificationManager.createNotificationChannel(silentNotificationChannel);
         }
 
         {
@@ -137,8 +136,8 @@ public class MessengerService extends Service {
     public void onDestroy() {
         super.onDestroy();
         L.d(TAG, "onDestroy");
-        mMessengerDelegate.cleanup();
-        mBluetoothMonitor.cleanup();
+        mMessengerDelegate.onDestroy();
+        mBluetoothMonitor.onDestroy();
     }
 
     @Override
@@ -148,7 +147,6 @@ public class MessengerService extends Service {
         if (intent == null || intent.getAction() == null) return result;
 
         final String action = intent.getAction();
-
         if (!hasRequiredArgs(intent)) {
             L.e(TAG, "Dropping command: %s. Reason: Missing required argument.", action);
             return result;
@@ -158,10 +156,10 @@ public class MessengerService extends Service {
             case ACTION_START:
                 // NO-OP
                 break;
-            case ACTION_VOICE_REPLY:
+            case ACTION_REPLY:
                 voiceReply(intent);
                 break;
-            case ACTION_CLEAR_NOTIFICATION_STATE:
+            case ACTION_DISMISS_NOTIFICATION:
                 clearNotificationState(intent);
                 break;
             case ACTION_MARK_AS_READ:
@@ -191,11 +189,11 @@ public class MessengerService extends Service {
      */
     private static boolean hasRequiredArgs(Intent intent) {
         switch (intent.getAction()) {
-            case ACTION_VOICE_REPLY:
-            case ACTION_CLEAR_NOTIFICATION_STATE:
+            case ACTION_REPLY:
+            case ACTION_DISMISS_NOTIFICATION:
             case ACTION_MARK_AS_READ:
-                if (!intent.hasExtra(EXTRA_SENDER_KEY)) {
-                    L.w(TAG, "Intent %s missing sender-key extra.", intent.getAction());
+                if (!intent.hasExtra(EXTRA_CONVERSATION_KEY)) {
+                    L.w(TAG, "Intent %s missing conversation-key extra.", intent.getAction());
                     return false;
                 }
                 return true;
@@ -208,43 +206,44 @@ public class MessengerService extends Service {
     /**
      * Sends a reply, meant to be used from a caller originating from voice input.
      *
-     * @param intent intent containing {@link MessengerService#EXTRA_SENDER_KEY} and
-     *               a {@link RemoteInput} with {@link MessengerService#REMOTE_INPUT_KEY} resultKey
+     * @param intent intent containing {@link BaseNotificationDelegate#EXTRA_CONVERSATION_KEY} and
+     *               a {@link RemoteInput} with
+     *               {@link BaseNotificationDelegate#EXTRA_REMOTE_INPUT_KEY} resultKey
      */
     public void voiceReply(Intent intent) {
-        final SenderKey senderKey = intent.getParcelableExtra(EXTRA_SENDER_KEY);
+        final ConversationKey conversationKey = intent.getParcelableExtra(EXTRA_CONVERSATION_KEY);
         final Bundle bundle = RemoteInput.getResultsFromIntent(intent);
         if (bundle == null) {
             L.e(TAG, "Dropping voice reply. Received null RemoteInput result!");
             return;
         }
-        final CharSequence message = bundle.getCharSequence(REMOTE_INPUT_KEY);
+        final CharSequence message = bundle.getCharSequence(EXTRA_REMOTE_INPUT_KEY);
         L.d(TAG, "voiceReply");
         if (!TextUtils.isEmpty(message)) {
-            mMessengerDelegate.sendMessage(senderKey, message.toString());
+            mMessengerDelegate.sendMessage(conversationKey, message.toString());
         }
     }
 
     /**
      * Clears notification(s) associated with a given sender key.
      *
-     * @param intent intent containing {@link MessengerService#EXTRA_SENDER_KEY} bundle argument
+     * @param intent intent containing {@link BaseNotificationDelegate#EXTRA_CONVERSATION_KEY} bundle argument
      */
     public void clearNotificationState(Intent intent) {
-        final SenderKey senderKey = intent.getParcelableExtra(EXTRA_SENDER_KEY);
+        final ConversationKey conversationKey = intent.getParcelableExtra(EXTRA_CONVERSATION_KEY);
         L.d(TAG, "clearNotificationState");
-        mMessengerDelegate.clearNotifications(key -> key.equals(senderKey));
+        mMessengerDelegate.clearNotifications(key -> key.equals(conversationKey));
     }
 
     /**
      * Mark a conversation associated with a given sender key as read.
      *
-     * @param intent intent containing {@link MessengerService#EXTRA_SENDER_KEY} bundle argument
+     * @param intent intent containing {@link BaseNotificationDelegate#EXTRA_CONVERSATION_KEY} bundle argument
      */
     public void markAsRead(Intent intent) {
-        final SenderKey senderKey = intent.getParcelableExtra(EXTRA_SENDER_KEY);
+        final ConversationKey conversationKey = intent.getParcelableExtra(EXTRA_CONVERSATION_KEY);
         L.d(TAG, "markAsRead");
-        mMessengerDelegate.markAsRead(senderKey);
+        mMessengerDelegate.markAsRead(conversationKey);
     }
 
     /**
@@ -259,6 +258,6 @@ public class MessengerService extends Service {
             return;
         }
 
-        // TODO: get senderKey from the recipient's address, and sendMessage() to it.
+        // TODO: get conversationKey from the recipient's address, and sendMessage() to it.
     }
 }

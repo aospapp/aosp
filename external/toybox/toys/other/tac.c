@@ -13,37 +13,28 @@ config TAC
     Output lines in reverse order.
 */
 
+#define FOR_tac
 #include "toys.h"
 
-static void do_tac(int fd, char *name)
+GLOBALS(
+  struct double_list *dl;
+)
+
+static void do_tac(char **pline, long len)
 {
-  struct arg_list *list = NULL;
-  char *c;
+  if (pline) {
+    dlist_add(&TT.dl, *pline);
+    *pline = 0;
+  } else while (TT.dl) {
+    struct double_list *dl = dlist_lpop(&TT.dl);
 
-  // Read in lines
-  for (;;) {
-    struct arg_list *temp;
-    long len;
-
-    if (!(c = get_rawline(fd, &len, '\n'))) break;
-
-    temp = xmalloc(sizeof(struct arg_list));
-    temp->next = list;
-    temp->arg = c;
-    list = temp;
-  }
-
-  // Play them back.
-  while (list) {
-    struct arg_list *temp = list->next;
-    xprintf("%s", list->arg);
-    free(list->arg);
-    free(list);
-    list = temp;
+    xprintf("%s", dl->data);
+    free(dl->data);
+    free(dl);
   }
 }
 
 void tac_main(void)
 {
-  loopfiles(toys.optargs, do_tac);
+  loopfiles_lines(toys.optargs, do_tac);
 }

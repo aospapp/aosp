@@ -21,16 +21,10 @@ package android.view.shadow;
  * Model for spot shadow rendering. Assumes single light, single object.
  */
 class SpotShadowConfig {
-    private final int mWidth;
-    private final int mHeight;
 
     // No need to be final but making it immutable for now.
     private final int mLightRadius;
-    private final int mLightSourcePoints;
 
-    // No need to be final but making it immutable for now.
-    private final int mRays;
-    private final int mLayers;
 
     // No need to be final but making it immutable for now.
     private final float[] mPoly;
@@ -41,12 +35,7 @@ class SpotShadowConfig {
     private final float mShadowStrength;
 
     private SpotShadowConfig(SpotShadowConfig.Builder builder) {
-        mWidth = builder.mWidth;
-        mHeight = builder.mHeight;
         mLightRadius = builder.mLightRadius;
-        mLightSourcePoints = builder.mLightSourcePoints;
-        mRays = builder.mRays;
-        mLayers = builder.mLayers;
         mPoly = builder.mPoly;
         mPolyLength = builder.mPolyLength;
 
@@ -55,24 +44,6 @@ class SpotShadowConfig {
         mLightCoord[1] = builder.mLightY;
         mLightCoord[2] = builder.mLightHeight;
         mShadowStrength = builder.mShadowStrength;
-    }
-
-    /**
-     * World width / height
-     */
-    public int getWidth() {
-        return mWidth;
-    }
-
-    public int getHeight() {
-        return mHeight;
-    }
-
-    /**
-     * @return number of light source points to ray trace
-     */
-    public int getLightSourcePoints() {
-        return mLightSourcePoints;
     }
 
     /**
@@ -97,24 +68,9 @@ class SpotShadowConfig {
     }
 
     /**
-     * @return number of rays to use in raytracing. It determines the accuracy of outline (bounds) of
-     * the shadow.
-     */
-    public int getRays() {
-        return mRays;
-    }
-
-    /**
-     * @return number of layers. It determines the intensity of pen-umbra
-     */
-    public int getLayers() {
-        return mLayers;
-    }
-
-    /**
      * Update the light source coord.
-     * @param x - x in {@link #getWidth()} coordinate
-     * @param y - y in {@link #getHeight()} coordinate
+     * @param x - horizontal coordinate
+     * @param y - vertical coordinate
      */
     public void setLightCoord(float x, float y) {
         mLightCoord[0] = x;
@@ -134,16 +90,8 @@ class SpotShadowConfig {
 
     public static class Builder {
 
-        private int mWidth;
-        private int mHeight;
-
         // No need to be final but making it immutable for now.
         private int mLightRadius;
-        private int mLightSourcePoints;
-
-        // No need to be final but making it immutable for now.
-        private int mRays;
-        private int mLayers;
 
         // No need to be final but making it immutable for now.
         private float[] mPoly;
@@ -163,29 +111,8 @@ class SpotShadowConfig {
             return this;
         }
 
-        public Builder setSize(int width, int height) {
-            mWidth = width;
-            mHeight = height;
-            return this;
-        }
-
         public Builder setLightRadius(int mLightRadius) {
             this.mLightRadius = mLightRadius;
-            return this;
-        }
-
-        public Builder setLightSourcePoints(int mLightSourcePoints) {
-            this.mLightSourcePoints = mLightSourcePoints;
-            return this;
-        }
-
-        public Builder setRays(int mRays) {
-            this.mRays = mRays;
-            return this;
-        }
-
-        public Builder setLayers(int mLayers) {
-            this.mLayers = mLayers;
             return this;
         }
 

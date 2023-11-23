@@ -19,8 +19,8 @@ package com.android.car.setupwizardlib.partner;
 /** Resources that can be customized by partner overlay APK. */
 public enum PartnerConfig {
 
-    CONFIG_IS_IMMERSIVE(
-            PartnerConfigKey.KEY_IS_IMMERSIVE, ResourceType.BOOLEAN),
+    CONFIG_IMMERSIVE_MODE(
+        PartnerConfigKey.KEY_IMMERSIVE_MODE, ResourceType.STRING),
 
     CONFIG_TOOLBAR_BG_COLOR(
             PartnerConfigKey.KEY_TOOLBAR_BG_COLOR, ResourceType.COLOR),
@@ -64,8 +64,17 @@ public enum PartnerConfig {
     CONFIG_TOOLBAR_SECONDARY_BUTTON_TEXT_COLOR(
             PartnerConfigKey.KEY_TOOLBAR_SECONDARY_BUTTON_TEXT_COLOR, ResourceType.COLOR),
 
+    CONFIG_TOOLBAR_DIVIDER_BG(
+            PartnerConfigKey.KEY_TOOLBAR_DIVIDER_BG, ResourceType.DRAWABLE),
+
+    CONFIG_TOOLBAR_DIVIDER_LINE_WEIGHT(
+            PartnerConfigKey.KEY_TOOLBAR_DIVIDER_LINE_WEIGHT, ResourceType.DIMENSION),
+
     CONFIG_LOADING_INDICATOR_COLOR(
             PartnerConfigKey.KEY_LOADING_INDICATOR_COLOR, ResourceType.COLOR),
+
+    CONFIG_LOADING_INDICATOR_LINE_WEIGHT(
+            PartnerConfigKey.KEY_LOADING_INDICATOR_LINE_WEIGHT, ResourceType.DIMENSION),
 
     CONFIG_LAYOUT_BG_COLOR(
             PartnerConfigKey.KEY_LAYOUT_BG_COLOR, ResourceType.COLOR);

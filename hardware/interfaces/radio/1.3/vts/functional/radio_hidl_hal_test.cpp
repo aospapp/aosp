@@ -17,18 +17,10 @@
 #include <radio_hidl_hal_utils_v1_3.h>
 
 void RadioHidlTest_v1_3::SetUp() {
-    radio_v1_3 = ::testing::VtsHalHidlTargetTestBase::getService<
-            ::android::hardware::radio::V1_3::IRadio>(
-            RadioHidlEnvironment::Instance()
-                    ->getServiceName<::android::hardware::radio::V1_3::IRadio>(
-                            hidl_string(RADIO_SERVICE_NAME)));
+    radio_v1_3 = ::android::hardware::radio::V1_3::IRadio::getService(GetParam());
     if (radio_v1_3 == NULL) {
         sleep(60);
-        radio_v1_3 = ::testing::VtsHalHidlTargetTestBase::getService<
-                ::android::hardware::radio::V1_3::IRadio>(
-                RadioHidlEnvironment::Instance()
-                        ->getServiceName<::android::hardware::radio::V1_3::IRadio>(
-                                hidl_string(RADIO_SERVICE_NAME)));
+        radio_v1_3 = ::android::hardware::radio::V1_3::IRadio::getService(GetParam());
     }
     ASSERT_NE(nullptr, radio_v1_3.get());
 
@@ -46,9 +38,6 @@ void RadioHidlTest_v1_3::SetUp() {
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_v1_3->rspInfo.type);
     EXPECT_EQ(serial, radioRsp_v1_3->rspInfo.serial);
     EXPECT_EQ(RadioError::NONE, radioRsp_v1_3->rspInfo.error);
-
-    /* Enforce Vts Testing with Sim Status Present only. */
-    EXPECT_EQ(CardState::PRESENT, cardStatus.base.cardState);
 }
 
 /*

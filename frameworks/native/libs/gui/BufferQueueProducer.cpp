@@ -44,7 +44,30 @@
 
 namespace android {
 
+// Macros for include BufferQueueCore information in log messages
+#define BQ_LOGV(x, ...)                                                                           \
+    ALOGV("[%s](id:%" PRIx64 ",api:%d,p:%d,c:%" PRIu64 ") " x, mConsumerName.string(),            \
+          mCore->mUniqueId, mCore->mConnectedApi, mCore->mConnectedPid, (mCore->mUniqueId) >> 32, \
+          ##__VA_ARGS__)
+#define BQ_LOGD(x, ...)                                                                           \
+    ALOGD("[%s](id:%" PRIx64 ",api:%d,p:%d,c:%" PRIu64 ") " x, mConsumerName.string(),            \
+          mCore->mUniqueId, mCore->mConnectedApi, mCore->mConnectedPid, (mCore->mUniqueId) >> 32, \
+          ##__VA_ARGS__)
+#define BQ_LOGI(x, ...)                                                                           \
+    ALOGI("[%s](id:%" PRIx64 ",api:%d,p:%d,c:%" PRIu64 ") " x, mConsumerName.string(),            \
+          mCore->mUniqueId, mCore->mConnectedApi, mCore->mConnectedPid, (mCore->mUniqueId) >> 32, \
+          ##__VA_ARGS__)
+#define BQ_LOGW(x, ...)                                                                           \
+    ALOGW("[%s](id:%" PRIx64 ",api:%d,p:%d,c:%" PRIu64 ") " x, mConsumerName.string(),            \
+          mCore->mUniqueId, mCore->mConnectedApi, mCore->mConnectedPid, (mCore->mUniqueId) >> 32, \
+          ##__VA_ARGS__)
+#define BQ_LOGE(x, ...)                                                                           \
+    ALOGE("[%s](id:%" PRIx64 ",api:%d,p:%d,c:%" PRIu64 ") " x, mConsumerName.string(),            \
+          mCore->mUniqueId, mCore->mConnectedApi, mCore->mConnectedPid, (mCore->mUniqueId) >> 32, \
+          ##__VA_ARGS__)
+
 static constexpr uint32_t BQ_LAYER_COUNT = 1;
+ProducerListener::~ProducerListener() = default;
 
 BufferQueueProducer::BufferQueueProducer(const sp<BufferQueueCore>& core,
         bool consumerIsSurfaceFlinger) :
@@ -408,6 +431,10 @@ status_t BufferQueueProducer::dequeueBuffer(int* outSlot, sp<android::Fence>* ou
         if (useDefaultSize) {
             width = mCore->mDefaultWidth;
             height = mCore->mDefaultHeight;
+            if (mCore->mAutoPrerotation &&
+                (mCore->mTransformHintInUse & NATIVE_WINDOW_TRANSFORM_ROT_90)) {
+                std::swap(width, height);
+            }
         }
 
         int found = BufferItem::INVALID_BUFFER_SLOT;
@@ -508,6 +535,12 @@ status_t BufferQueueProducer::dequeueBuffer(int* outSlot, sp<android::Fence>* ou
             mCore->mSharedBufferSlot = found;
             mSlots[found].mBufferState.mShared = true;
         }
+
+        if (!(returnFlags & BUFFER_NEEDS_REALLOCATION)) {
+            if (mCore->mConsumerListener != nullptr) {
+                mCore->mConsumerListener->onFrameDequeued(mSlots[*outSlot].mGraphicBuffer->getId());
+            }
+        }
     } // Autolock scope
 
     if (returnFlags & BUFFER_NEEDS_REALLOCATION) {
@@ -524,6 +557,10 @@ status_t BufferQueueProducer::dequeueBuffer(int* outSlot, sp<android::Fence>* ou
             if (error == NO_ERROR && !mCore->mIsAbandoned) {
                 graphicBuffer->setGenerationNumber(mCore->mGenerationNumber);
                 mSlots[*outSlot].mGraphicBuffer = graphicBuffer;
+                if (mCore->mConsumerListener != nullptr) {
+                    mCore->mConsumerListener->onFrameDequeued(
+                            mSlots[*outSlot].mGraphicBuffer->getId());
+                }
             }
 
             mCore->mIsAllocating = false;
@@ -617,13 +654,17 @@ status_t BufferQueueProducer::detachBuffer(int slot) {
             return BAD_VALUE;
         }
 
+        listener = mCore->mConsumerListener;
+        auto gb = mSlots[slot].mGraphicBuffer;
+        if (listener != nullptr && gb != nullptr) {
+            listener->onFrameDetached(gb->getId());
+        }
         mSlots[slot].mBufferState.detachProducer();
         mCore->mActiveBuffers.erase(slot);
         mCore->mFreeSlots.insert(slot);
         mCore->clearBufferSlotLocked(slot);
         mCore->mDequeueCondition.notify_all();
         VALIDATE_CONSISTENCY();
-        listener = mCore->mConsumerListener;
     }
 
     if (listener != nullptr) {
@@ -936,6 +977,15 @@ status_t BufferQueueProducer::queueBuffer(int slot,
                     }
                 }
 
+                // Make sure to merge the damage rect from the frame we're about
+                // to drop into the new frame's damage rect.
+                if (last.mSurfaceDamage.bounds() == Rect::INVALID_RECT ||
+                    item.mSurfaceDamage.bounds() == Rect::INVALID_RECT) {
+                    item.mSurfaceDamage = Region::INVALID_REGION;
+                } else {
+                    item.mSurfaceDamage |= last.mSurfaceDamage;
+                }
+
                 // Overwrite the droppable buffer with the incoming one
                 mCore->mQueue.editItemAt(mCore->mQueue.size() - 1) = item;
                 frameReplacedListener = mCore->mConsumerListener;
@@ -951,14 +1001,15 @@ status_t BufferQueueProducer::queueBuffer(int slot,
 
         output->width = mCore->mDefaultWidth;
         output->height = mCore->mDefaultHeight;
-        output->transformHint = mCore->mTransformHint;
+        output->transformHint = mCore->mTransformHintInUse = mCore->mTransformHint;
         output->numPendingBuffers = static_cast<uint32_t>(mCore->mQueue.size());
         output->nextFrameNumber = mCore->mFrameCounter + 1;
 
         ATRACE_INT(mCore->mConsumerName.string(),
                 static_cast<int32_t>(mCore->mQueue.size()));
+#ifndef NO_BINDER
         mCore->mOccupancyTracker.registerOccupancyChange(mCore->mQueue.size());
-
+#endif
         // Take a ticket for the callback functions
         callbackTicket = mNextCallbackTicket++;
 
@@ -971,6 +1022,17 @@ status_t BufferQueueProducer::queueBuffer(int slot,
     if (!mConsumerIsSurfaceFlinger) {
         item.mGraphicBuffer.clear();
     }
+
+    // Update and get FrameEventHistory.
+    nsecs_t postedTime = systemTime(SYSTEM_TIME_MONOTONIC);
+    NewFrameEventsEntry newFrameEventsEntry = {
+        currentFrameNumber,
+        postedTime,
+        requestedPresentTimestamp,
+        std::move(acquireFenceTime)
+    };
+    addAndGetFrameTimestamps(&newFrameEventsEntry,
+            getFrameTimestamps ? &output->frameTimestamps : nullptr);
 
     // Call back without the main BufferQueue lock held, but with the callback
     // lock held so we can ensure that callbacks occur in order
@@ -1000,17 +1062,6 @@ status_t BufferQueueProducer::queueBuffer(int slot,
         ++mCurrentCallbackTicket;
         mCallbackCondition.notify_all();
     }
-
-    // Update and get FrameEventHistory.
-    nsecs_t postedTime = systemTime(SYSTEM_TIME_MONOTONIC);
-    NewFrameEventsEntry newFrameEventsEntry = {
-        currentFrameNumber,
-        postedTime,
-        requestedPresentTimestamp,
-        std::move(acquireFenceTime)
-    };
-    addAndGetFrameTimestamps(&newFrameEventsEntry,
-            getFrameTimestamps ? &output->frameTimestamps : nullptr);
 
     // Wait without lock held
     if (connectedApi == NATIVE_WINDOW_API_EGL) {
@@ -1070,6 +1121,10 @@ status_t BufferQueueProducer::cancelBuffer(int slot, const sp<Fence>& fence) {
         mCore->mFreeBuffers.push_back(slot);
     }
 
+    auto gb = mSlots[slot].mGraphicBuffer;
+    if (mCore->mConsumerListener != nullptr && gb != nullptr) {
+        mCore->mConsumerListener->onFrameCancelled(gb->getId());
+    }
     mSlots[slot].mFence = fence;
     mCore->mDequeueCondition.notify_all();
     VALIDATE_CONSISTENCY();
@@ -1132,9 +1187,6 @@ int BufferQueueProducer::query(int what, int *outValue) {
         case NATIVE_WINDOW_CONSUMER_IS_PROTECTED:
             value = static_cast<int32_t>(mCore->mConsumerIsProtected);
             break;
-        case NATIVE_WINDOW_MAX_BUFFER_COUNT:
-            value = static_cast<int32_t>(mCore->mMaxBufferCount);
-            break;
         default:
             return BAD_VALUE;
     }
@@ -1194,15 +1246,17 @@ status_t BufferQueueProducer::connect(const sp<IProducerListener>& listener,
 
             output->width = mCore->mDefaultWidth;
             output->height = mCore->mDefaultHeight;
-            output->transformHint = mCore->mTransformHint;
+            output->transformHint = mCore->mTransformHintInUse = mCore->mTransformHint;
             output->numPendingBuffers =
                     static_cast<uint32_t>(mCore->mQueue.size());
             output->nextFrameNumber = mCore->mFrameCounter + 1;
             output->bufferReplaced = false;
+            output->maxBufferCount = mCore->mMaxBufferCount;
 
             if (listener != nullptr) {
                 // Set up a death notification so that we can disconnect
                 // automatically if the remote producer dies
+#ifndef NO_BINDER
                 if (IInterface::asBinder(listener)->remoteBinder() != nullptr) {
                     status = IInterface::asBinder(listener)->linkToDeath(
                             static_cast<IBinder::DeathRecipient*>(this));
@@ -1212,9 +1266,9 @@ status_t BufferQueueProducer::connect(const sp<IProducerListener>& listener,
                     }
                     mCore->mLinkedToDeath = listener;
                 }
-                if (listener->needsReleaseNotify()) {
-                    mCore->mConnectedProducerListener = listener;
-                }
+#endif
+                mCore->mConnectedProducerListener = listener;
+                mCore->mBufferReleasedCbEnabled = listener->needsReleaseNotify();
             }
             break;
         default:
@@ -1281,6 +1335,7 @@ status_t BufferQueueProducer::disconnect(int api, DisconnectMode mode) {
                 if (mCore->mConnectedApi == api) {
                     mCore->freeAllBuffersLocked();
 
+#ifndef NO_BINDER
                     // Remove our death notification callback if we have one
                     if (mCore->mLinkedToDeath != nullptr) {
                         sp<IBinder> token =
@@ -1290,6 +1345,7 @@ status_t BufferQueueProducer::disconnect(int api, DisconnectMode mode) {
                         token->unlinkToDeath(
                                 static_cast<IBinder::DeathRecipient*>(this));
                     }
+#endif
                     mCore->mSharedBufferSlot =
                             BufferQueueCore::INVALID_BUFFER_SLOT;
                     mCore->mLinkedToDeath = nullptr;
@@ -1298,6 +1354,7 @@ status_t BufferQueueProducer::disconnect(int api, DisconnectMode mode) {
                     mCore->mConnectedPid = -1;
                     mCore->mSidebandStream.clear();
                     mCore->mDequeueCondition.notify_all();
+                    mCore->mAutoPrerotation = false;
                     listener = mCore->mConsumerListener;
                 } else if (mCore->mConnectedApi == BufferQueueCore::NO_CONNECTED_API) {
                     BQ_LOGE("disconnect: not connected (req=%d)", api);
@@ -1341,6 +1398,8 @@ status_t BufferQueueProducer::setSidebandStream(const sp<NativeHandle>& stream) 
 void BufferQueueProducer::allocateBuffers(uint32_t width, uint32_t height,
         PixelFormat format, uint64_t usage) {
     ATRACE_CALL();
+
+    const bool useDefaultSize = !width && !height;
     while (true) {
         size_t newBufferCount = 0;
         uint32_t allocWidth = 0;
@@ -1367,6 +1426,11 @@ void BufferQueueProducer::allocateBuffers(uint32_t width, uint32_t height,
 
             allocWidth = width > 0 ? width : mCore->mDefaultWidth;
             allocHeight = height > 0 ? height : mCore->mDefaultHeight;
+            if (useDefaultSize && mCore->mAutoPrerotation &&
+                (mCore->mTransformHintInUse & NATIVE_WINDOW_TRANSFORM_ROT_90)) {
+                std::swap(allocWidth, allocHeight);
+            }
+
             allocFormat = format != 0 ? format : mCore->mDefaultBufferFormat;
             allocUsage = usage | mCore->mConsumerUsageBits;
             allocName.assign(mCore->mConsumerName.string(), mCore->mConsumerName.size());
@@ -1397,6 +1461,11 @@ void BufferQueueProducer::allocateBuffers(uint32_t width, uint32_t height,
             std::unique_lock<std::mutex> lock(mCore->mMutex);
             uint32_t checkWidth = width > 0 ? width : mCore->mDefaultWidth;
             uint32_t checkHeight = height > 0 ? height : mCore->mDefaultHeight;
+            if (useDefaultSize && mCore->mAutoPrerotation &&
+                (mCore->mTransformHintInUse & NATIVE_WINDOW_TRANSFORM_ROT_90)) {
+                std::swap(checkWidth, checkHeight);
+            }
+
             PixelFormat checkFormat = format != 0 ?
                     format : mCore->mDefaultBufferFormat;
             uint64_t checkUsage = usage | mCore->mConsumerUsageBits;
@@ -1596,6 +1665,16 @@ status_t BufferQueueProducer::getConsumerUsage(uint64_t* outUsage) const {
 
     std::lock_guard<std::mutex> lock(mCore->mMutex);
     *outUsage = mCore->mConsumerUsageBits;
+    return NO_ERROR;
+}
+
+status_t BufferQueueProducer::setAutoPrerotation(bool autoPrerotation) {
+    ATRACE_CALL();
+    BQ_LOGV("setAutoPrerotation: %d", autoPrerotation);
+
+    std::lock_guard<std::mutex> lock(mCore->mMutex);
+
+    mCore->mAutoPrerotation = autoPrerotation;
     return NO_ERROR;
 }
 

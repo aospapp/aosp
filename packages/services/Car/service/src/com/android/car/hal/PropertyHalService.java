@@ -16,30 +16,37 @@
 package com.android.car.hal;
 
 import static com.android.car.hal.CarPropertyUtils.toCarPropertyValue;
+import static com.android.car.hal.CarPropertyUtils.toMixedCarPropertyValue;
+import static com.android.car.hal.CarPropertyUtils.toMixedVehiclePropValue;
 import static com.android.car.hal.CarPropertyUtils.toVehiclePropValue;
 
 import static java.lang.Integer.toHexString;
 
 import android.annotation.Nullable;
+import android.car.VehiclePropertyIds;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyEvent;
+import android.car.hardware.property.CarPropertyManager;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
+import android.os.Build;
 import android.util.Log;
 import android.util.SparseArray;
 
-import com.android.car.CarLog;
+import com.android.car.CarServiceUtils;
 import com.android.internal.annotations.GuardedBy;
 
 import java.io.PrintWriter;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Common interface for HAL services that send Vehicle Properties back and forth via ICarProperty.
@@ -49,42 +56,47 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PropertyHalService extends HalServiceBase {
     private final boolean mDbg = true;
     private final LinkedList<CarPropertyEvent> mEventsToDispatch = new LinkedList<>();
-    private final Map<Integer, CarPropertyConfig<?>> mProps =
-            new ConcurrentHashMap<>();
-    private final SparseArray<Float> mRates = new SparseArray<Float>();
+    @GuardedBy("mLock")
+    private final Map<Integer, CarPropertyConfig<?>> mMgrPropIdToCarPropConfig = new HashMap<>();
+    @GuardedBy("mLock")
+    private final SparseArray<VehiclePropConfig> mHalPropIdToVehiclePropConfig =
+            new SparseArray<>();
+    // Only contains propId if the property Id is different in HAL and manager
+    private static final Map<Integer, Integer> PROPERTY_ID_HAL_TO_MANAGER = Map.of(
+            VehicleProperty.VEHICLE_SPEED_DISPLAY_UNITS,
+            VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS);
+    // Only contains propId if the property Id is different in HAL and manager
+    private static final Map<Integer, Integer> PROPERTY_ID_MANAGER_TO_HAL = Map.of(
+            VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS,
+            VehicleProperty.VEHICLE_SPEED_DISPLAY_UNITS);
     private static final String TAG = "PropertyHalService";
     private final VehicleHal mVehicleHal;
     private final PropertyHalServiceIds mPropIds;
 
     @GuardedBy("mLock")
     private PropertyHalListener mListener;
-
-    private Set<Integer> mSubscribedPropIds;
+    @GuardedBy("mLock")
+    private Set<Integer> mSubscribedHalPropIds;
 
     private final Object mLock = new Object();
 
     /**
      * Converts manager property ID to Vehicle HAL property ID.
-     * If property is not supported, it will return {@link #NOT_SUPPORTED_PROPERTY}.
      */
-    private int managerToHalPropId(int propId) {
-        if (mProps.containsKey(propId)) {
-            return propId;
-        } else {
-            return NOT_SUPPORTED_PROPERTY;
-        }
+    private int managerToHalPropId(int mgrPropId) {
+        return PROPERTY_ID_MANAGER_TO_HAL.getOrDefault(mgrPropId, mgrPropId);
     }
 
     /**
      * Converts Vehicle HAL property ID to manager property ID.
-     * If property is not supported, it will return {@link #NOT_SUPPORTED_PROPERTY}.
      */
     private int halToManagerPropId(int halPropId) {
-        if (mProps.containsKey(halPropId)) {
-            return halPropId;
-        } else {
-            return NOT_SUPPORTED_PROPERTY;
-        }
+        return PROPERTY_ID_HAL_TO_MANAGER.getOrDefault(halPropId, halPropId);
+    }
+
+    // Checks if the property exists in this VHAL before calling methods in IVehicle.
+    private boolean isPropertySupportedInVehicle(int halPropId) {
+        return mHalPropIdToVehiclePropConfig.contains(halPropId);
     }
 
     /**
@@ -93,7 +105,7 @@ public class PropertyHalService extends HalServiceBase {
     public interface PropertyHalListener {
         /**
          * This event is sent whenever the property value is updated
-         * @param event
+         * @param events
          */
         void onPropertyChange(List<CarPropertyEvent> events);
         /**
@@ -101,12 +113,14 @@ public class PropertyHalService extends HalServiceBase {
          * @param property
          * @param area
          */
-        void onPropertySetError(int property, int area);
+        void onPropertySetError(int property, int area,
+                @CarPropertyManager.CarSetPropertyErrorCode int errorCode);
+
     }
 
     public PropertyHalService(VehicleHal vehicleHal) {
         mPropIds = new PropertyHalServiceIds();
-        mSubscribedPropIds = new HashSet<Integer>();
+        mSubscribedHalPropIds = new HashSet<Integer>();
         mVehicleHal = vehicleHal;
         if (mDbg) {
             Log.d(TAG, "started PropertyHalService");
@@ -131,7 +145,17 @@ public class PropertyHalService extends HalServiceBase {
         if (mDbg) {
             Log.d(TAG, "getPropertyList");
         }
-        return mProps;
+        synchronized (mLock) {
+            if (mMgrPropIdToCarPropConfig.size() == 0) {
+                for (int i = 0; i < mHalPropIdToVehiclePropConfig.size(); i++) {
+                    VehiclePropConfig p = mHalPropIdToVehiclePropConfig.valueAt(i);
+                    int mgrPropId = halToManagerPropId(p.prop);
+                    CarPropertyConfig config = CarPropertyUtils.toCarPropertyConfig(p, mgrPropId);
+                    mMgrPropIdToCarPropConfig.put(mgrPropId, config);
+                }
+            }
+        }
+        return mMgrPropIdToCarPropConfig;
     }
 
     /**
@@ -142,44 +166,63 @@ public class PropertyHalService extends HalServiceBase {
     @Nullable
     public CarPropertyValue getProperty(int mgrPropId, int areaId) {
         int halPropId = managerToHalPropId(mgrPropId);
-        if (halPropId == NOT_SUPPORTED_PROPERTY) {
+        if (!isPropertySupportedInVehicle(halPropId)) {
             throw new IllegalArgumentException("Invalid property Id : 0x" + toHexString(mgrPropId));
         }
 
-        VehiclePropValue value = null;
-        try {
-            value = mVehicleHal.get(halPropId, areaId);
-        } catch (PropertyTimeoutException e) {
-            Log.e(CarLog.TAG_PROPERTY, "get, property not ready 0x" + toHexString(halPropId), e);
+        // CarPropertyManager catches and rethrows exception, no need to handle here.
+        VehiclePropValue value = mVehicleHal.get(halPropId, areaId);
+        if (isMixedTypeProperty(halPropId)) {
+            VehiclePropConfig propConfig;
+            synchronized (mLock) {
+                propConfig = mHalPropIdToVehiclePropConfig.get(halPropId);
+            }
+            boolean containBooleanType = propConfig.configArray.get(1) == 1;
+            return value == null ? null : toMixedCarPropertyValue(value,
+                    mgrPropId, containBooleanType);
         }
-
         return value == null ? null : toCarPropertyValue(value, mgrPropId);
     }
 
     /**
      * Returns sample rate for the property
-     * @param propId
+     * @param mgrPropId
      */
-    public float getSampleRate(int propId) {
-        return mVehicleHal.getSampleRate(propId);
+    public float getSampleRate(int mgrPropId) {
+        int halPropId = managerToHalPropId(mgrPropId);
+        if (!isPropertySupportedInVehicle(halPropId)) {
+            throw new IllegalArgumentException("Invalid property Id : 0x" + toHexString(mgrPropId));
+        }
+        return mVehicleHal.getSampleRate(halPropId);
     }
 
     /**
      * Get the read permission string for the property.
-     * @param propId
+     * @param mgrPropId
      */
     @Nullable
-    public String getReadPermission(int propId) {
-        return mPropIds.getReadPermission(propId);
+    public String getReadPermission(int mgrPropId) {
+        int halPropId = managerToHalPropId(mgrPropId);
+        return mPropIds.getReadPermission(halPropId);
     }
 
     /**
      * Get the write permission string for the property.
-     * @param propId
+     * @param mgrPropId
      */
     @Nullable
-    public String getWritePermission(int propId) {
-        return mPropIds.getWritePermission(propId);
+    public String getWritePermission(int mgrPropId) {
+        int halPropId = managerToHalPropId(mgrPropId);
+        return mPropIds.getWritePermission(halPropId);
+    }
+
+    /**
+     * Return true if property is a display_units property
+     * @param mgrPropId
+     */
+    public boolean isDisplayUnitsProperty(int mgrPropId) {
+        int halPropId = managerToHalPropId(mgrPropId);
+        return mPropIds.isPropertyToChangeUnits(halPropId);
     }
 
     /**
@@ -188,62 +231,70 @@ public class PropertyHalService extends HalServiceBase {
      */
     public void setProperty(CarPropertyValue prop) {
         int halPropId = managerToHalPropId(prop.getPropertyId());
-        if (halPropId == NOT_SUPPORTED_PROPERTY) {
+        if (!isPropertySupportedInVehicle(halPropId)) {
             throw new IllegalArgumentException("Invalid property Id : 0x"
                     + toHexString(prop.getPropertyId()));
         }
-        VehiclePropValue halProp = toVehiclePropValue(prop, halPropId);
-        try {
-            mVehicleHal.set(halProp);
-        } catch (PropertyTimeoutException e) {
-            Log.e(CarLog.TAG_PROPERTY, "set, property not ready 0x" + toHexString(halPropId), e);
-            throw new RuntimeException(e);
+
+        VehiclePropValue halProp;
+        if (isMixedTypeProperty(halPropId)) {
+            // parse mixed type property value.
+            VehiclePropConfig propConfig;
+            synchronized (mLock) {
+                propConfig = mHalPropIdToVehiclePropConfig.get(prop.getPropertyId());
+            }
+            int[] configArray = propConfig.configArray.stream().mapToInt(i->i).toArray();
+            halProp = toMixedVehiclePropValue(prop, halPropId, configArray);
+        } else {
+            halProp = toVehiclePropValue(prop, halPropId);
         }
+        // CarPropertyManager catches and rethrows exception, no need to handle here.
+        mVehicleHal.set(halProp);
     }
 
     /**
      * Subscribe to this property at the specified update rate.
-     * @param propId
+     * @param mgrPropId
      * @param rate
      */
-    public void subscribeProperty(int propId, float rate) {
+    public void subscribeProperty(int mgrPropId, float rate) {
         if (mDbg) {
-            Log.d(TAG, "subscribeProperty propId=0x" + toHexString(propId) + ", rate=" + rate);
+            Log.d(TAG, "subscribeProperty propId=0x" + toHexString(mgrPropId) + ", rate=" + rate);
         }
-        int halPropId = managerToHalPropId(propId);
-        if (halPropId == NOT_SUPPORTED_PROPERTY) {
+        int halPropId = managerToHalPropId(mgrPropId);
+        if (!isPropertySupportedInVehicle(halPropId)) {
             throw new IllegalArgumentException("Invalid property Id : 0x"
-                    + toHexString(propId));
+                    + toHexString(mgrPropId));
         }
-        // Validate the min/max rate
-        CarPropertyConfig cfg = mProps.get(propId);
-        if (rate > cfg.getMaxSampleRate()) {
-            rate = cfg.getMaxSampleRate();
-        } else if (rate < cfg.getMinSampleRate()) {
-            rate = cfg.getMinSampleRate();
+        synchronized (mLock) {
+            VehiclePropConfig cfg = mHalPropIdToVehiclePropConfig.get(halPropId);
+            if (rate > cfg.maxSampleRate) {
+                rate = cfg.maxSampleRate;
+            } else if (rate < cfg.minSampleRate) {
+                rate = cfg.minSampleRate;
+            }
+            mSubscribedHalPropIds.add(halPropId);
         }
-        synchronized (mSubscribedPropIds) {
-            mSubscribedPropIds.add(halPropId);
-        }
+
         mVehicleHal.subscribeProperty(this, halPropId, rate);
     }
 
     /**
      * Unsubscribe the property and turn off update events for it.
-     * @param propId
+     * @param mgrPropId
      */
-    public void unsubscribeProperty(int propId) {
+    public void unsubscribeProperty(int mgrPropId) {
         if (mDbg) {
-            Log.d(TAG, "unsubscribeProperty propId=0x" + toHexString(propId));
+            Log.d(TAG, "unsubscribeProperty propId=0x" + toHexString(mgrPropId));
         }
-        int halPropId = managerToHalPropId(propId);
-        if (halPropId == NOT_SUPPORTED_PROPERTY) {
+        int halPropId = managerToHalPropId(mgrPropId);
+        if (!isPropertySupportedInVehicle(halPropId)) {
             throw new IllegalArgumentException("Invalid property Id : 0x"
-                    + toHexString(propId));
+                    + toHexString(mgrPropId));
         }
-        synchronized (mSubscribedPropIds) {
-            if (mSubscribedPropIds.contains(halPropId)) {
-                mSubscribedPropIds.remove(halPropId);
+        synchronized (mLock) {
+            if (mSubscribedHalPropIds.contains(halPropId)) {
+                mSubscribedHalPropIds.remove(halPropId);
                 mVehicleHal.unsubscribeProperty(this, halPropId);
             }
         }
@@ -261,42 +312,56 @@ public class PropertyHalService extends HalServiceBase {
         if (mDbg) {
             Log.d(TAG, "release()");
         }
-        synchronized (mSubscribedPropIds) {
-            for (Integer prop : mSubscribedPropIds) {
-                mVehicleHal.unsubscribeProperty(this, prop);
-            }
-            mSubscribedPropIds.clear();
-        }
-        mProps.clear();
-
         synchronized (mLock) {
+            for (Integer halProp : mSubscribedHalPropIds) {
+                mVehicleHal.unsubscribeProperty(this, halProp);
+            }
+            mSubscribedHalPropIds.clear();
+            mHalPropIdToVehiclePropConfig.clear();
+            mMgrPropIdToCarPropConfig.clear();
             mListener = null;
         }
     }
 
     @Override
-    public Collection<VehiclePropConfig> takeSupportedProperties(
-            Collection<VehiclePropConfig> allProperties) {
-        List<VehiclePropConfig> taken = new LinkedList<>();
+    public boolean isSupportedProperty(int propId) {
+        return mPropIds.isSupportedProperty(propId);
+    }
 
+    @Override
+    public int[] getAllSupportedProperties() {
+        return CarServiceUtils.EMPTY_INT_ARRAY;
+    }
+
+    @Override
+    public void takeProperties(Collection<VehiclePropConfig> allProperties) {
         for (VehiclePropConfig p : allProperties) {
             if (mPropIds.isSupportedProperty(p.prop)) {
-                CarPropertyConfig config = CarPropertyUtils.toCarPropertyConfig(p, p.prop);
-                taken.add(p);
-                mProps.put(p.prop, config);
+                synchronized (mLock) {
+                    mHalPropIdToVehiclePropConfig.put(p.prop, p);
+                }
                 if (mDbg) {
                     Log.d(TAG, "takeSupportedProperties: " + toHexString(p.prop));
                 }
             }
         }
         if (mDbg) {
-            Log.d(TAG, "takeSupportedProperties() took " + taken.size() + " properties");
+            Log.d(TAG, "takeSupportedProperties() took " + allProperties.size()
+                    + " properties");
         }
-        return taken;
+        // If vehicle hal support to select permission for vendor properties.
+        VehiclePropConfig customizePermission;
+        synchronized (mLock) {
+            customizePermission = mHalPropIdToVehiclePropConfig.get(
+                    VehicleProperty.SUPPORT_CUSTOMIZE_VENDOR_PERMISSION);
+        }
+        if (customizePermission != null) {
+            mPropIds.customizeVendorPermission(customizePermission.configArray);
+        }
     }
 
     @Override
-    public void handleHalEvents(List<VehiclePropValue> values) {
+    public void onHalEvents(List<VehiclePropValue> values) {
         PropertyHalListener listener;
         synchronized (mLock) {
             listener = mListener;
@@ -306,17 +371,32 @@ public class PropertyHalService extends HalServiceBase {
                 if (v == null) {
                     continue;
                 }
-                int mgrPropId = halToManagerPropId(v.prop);
-                if (mgrPropId == NOT_SUPPORTED_PROPERTY) {
+                if (!isPropertySupportedInVehicle(v.prop)) {
                     Log.e(TAG, "Property is not supported: 0x" + toHexString(v.prop));
                     continue;
                 }
-                CarPropertyValue<?> propVal = toCarPropertyValue(v, mgrPropId);
+                // Check payload if it is a userdebug build.
+                if (Build.IS_DEBUGGABLE && !mPropIds.checkPayload(v)) {
+                    Log.e(TAG, "Drop event for property: " + v + " because it is failed "
+                            + "in payload checking.");
+                    continue;
+                }
+                int mgrPropId = halToManagerPropId(v.prop);
+                CarPropertyValue<?> propVal;
+                if (isMixedTypeProperty(v.prop)) {
+                    // parse mixed type property value.
+                    VehiclePropConfig propConfig;
+                    synchronized (mLock) {
+                        propConfig = mHalPropIdToVehiclePropConfig.get(v.prop);
+                    }
+                    boolean containBooleanType = propConfig.configArray.get(1) == 1;
+                    propVal = toMixedCarPropertyValue(v, mgrPropId, containBooleanType);
+                } else {
+                    propVal = toCarPropertyValue(v, mgrPropId);
+                }
                 CarPropertyEvent event = new CarPropertyEvent(
                         CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE, propVal);
-                if (event != null) {
-                    mEventsToDispatch.add(event);
-                }
+                mEventsToDispatch.add(event);
             }
             listener.onPropertyChange(mEventsToDispatch);
             mEventsToDispatch.clear();
@@ -324,13 +404,15 @@ public class PropertyHalService extends HalServiceBase {
     }
 
     @Override
-    public void handlePropertySetError(int property, int area) {
+    public void onPropertySetError(int halPropId, int area,
+            @CarPropertyManager.CarSetPropertyErrorCode int errorCode) {
         PropertyHalListener listener;
         synchronized (mLock) {
             listener = mListener;
         }
         if (listener != null) {
-            listener.onPropertySetError(property, area);
+            int mgrPropId = halToManagerPropId(halPropId);
+            listener.onPropertySetError(mgrPropId, area, errorCode);
         }
     }
 
@@ -338,8 +420,15 @@ public class PropertyHalService extends HalServiceBase {
     public void dump(PrintWriter writer) {
         writer.println(TAG);
         writer.println("  Properties available:");
-        for (CarPropertyConfig prop : mProps.values()) {
-            writer.println("    " + prop.toString());
+        synchronized (mLock) {
+            for (int i = 0; i < mHalPropIdToVehiclePropConfig.size(); i++) {
+                VehiclePropConfig p = mHalPropIdToVehiclePropConfig.valueAt(i);
+                writer.println("    " + p);
+            }
         }
+    }
+
+    private static boolean isMixedTypeProperty(int halPropId) {
+        return (halPropId & VehiclePropertyType.MASK) == VehiclePropertyType.MIXED;
     }
 }

@@ -22,6 +22,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.io.File;
@@ -59,18 +60,17 @@ public class DeviceFileCollector extends PreconditionPreparer {
 
     private File mResultFile;
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestDevice device, IBuildInfo buildInfo) {
+    public void run(TestInformation testInfo) {
         if (mSkipDeviceInfo)
             return;
 
+        ITestDevice device = testInfo.getDevice();
         if (!matchProperties(device))
             return;
 
-        createResultDir(buildInfo);
+        createResultDir(testInfo.getBuildInfo());
         if (mResultFile != null && !mResultFile.isDirectory() &&
             mSrcFile != null && !mSrcFile.isEmpty()) {
 

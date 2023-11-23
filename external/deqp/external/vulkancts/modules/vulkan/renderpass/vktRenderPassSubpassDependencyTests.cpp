@@ -19,7 +19,7 @@
  *
  *//*!
  * \file
- * \brief Tests sparse render target.
+ * \brief Tests for subpass dependency
  *//*--------------------------------------------------------------------*/
 
 #include "vktRenderPassSubpassDependencyTests.hpp"
@@ -32,6 +32,7 @@
 #include "vkRefUtil.hpp"
 #include "vkCmdUtil.hpp"
 #include "vkObjUtil.hpp"
+#include "vkBuilderUtil.hpp"
 
 #include "tcuImageCompare.hpp"
 #include "tcuResultCollector.hpp"
@@ -82,6 +83,65 @@ inline SharedPtr<Unique<T> > makeSharedPtr(Move<T> move)
 	return SharedPtr<Unique<T> >(new Unique<T>(move));
 }
 
+tcu::TextureLevel getRepresentableDepthChannel (const ConstPixelBufferAccess& access)
+{
+	tcu::TextureLevel depthChannel (mapVkFormat(VK_FORMAT_R8G8B8_UNORM), access.getWidth(), access.getHeight());
+
+	for (int y = 0; y < access.getHeight(); y++)
+	for (int x = 0; x < access.getWidth(); x++)
+		depthChannel.getAccess().setPixel(tcu::Vec4(access.getPixDepth(x, y)), x, y);
+
+	return depthChannel;
+}
+
+bool verifyDepth (Context&						context,
+				  const ConstPixelBufferAccess&	reference,
+				  const ConstPixelBufferAccess&	result,
+				  const float					threshold)
+{
+	tcu::TestLog& log (context.getTestContext().getLog());
+
+	return tcu::floatThresholdCompare(log,										// log
+									  "Depth channel",							// imageSetName
+									  "Depth compare",							// imageSetDesc
+									  getRepresentableDepthChannel(reference),	// reference
+									  getRepresentableDepthChannel(result),		// result
+									  Vec4(threshold),							// threshold
+									  tcu::COMPARE_LOG_RESULT);					// logMode
+}
+
+bool verifyStencil (Context&						context,
+					const ConstPixelBufferAccess&	reference,
+					const ConstPixelBufferAccess&	result)
+{
+	tcu::TextureLevel	stencilErrorImage	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), result.getWidth(), result.getHeight());
+	tcu::TestLog&		log					(context.getTestContext().getLog());
+	bool				stencilOk			(DE_TRUE);
+
+	for (int y = 0; y < result.getHeight(); y++)
+	for (int x = 0; x < result.getWidth(); x++)
+	{
+		if (result.getPixStencil(x, y) != reference.getPixStencil(x, y))
+		{
+			stencilErrorImage.getAccess().setPixel(Vec4(1.0f, 0.0f, 0.0f, 1.0f), x, y);
+			stencilOk = DE_FALSE;
+		}
+		else
+			stencilErrorImage.getAccess().setPixel(Vec4(0.0f, 1.0f, 0.0f, 1.0f), x, y);
+	}
+
+	log << tcu::TestLog::ImageSet("Stencil compare", "Stencil compare")
+		<< tcu::TestLog::Image("Result stencil channel", "Result stencil channel", result)
+		<< tcu::TestLog::Image("Reference stencil channel", "Reference stencil channel", reference);
+
+	if (!stencilOk)
+		log << tcu::TestLog::Image("Stencil error mask", "Stencil error mask", stencilErrorImage);
+
+	log << tcu::TestLog::EndImageSet;
+
+	return stencilOk;
+}
+
 // Reference renderer shaders
 class DepthVertShader : public rr::VertexShader
 {
@@ -130,6 +190,45 @@ public:
 				rr::writeFragmentDepth(context, packetNdx, fragNdx, 0, vtxPosition.z());
 			}
 		}
+	}
+};
+
+class SelfDependencyBackwardsVertShader : public rr::VertexShader
+{
+public:
+	SelfDependencyBackwardsVertShader (void)
+	: rr::VertexShader (1, 0)
+	{
+		m_inputs[0].type	= rr::GENERICVECTYPE_FLOAT;
+	}
+
+	void shadeVertices (const rr::VertexAttrib* inputs, rr::VertexPacket* const* packets, const int numPackets) const
+	{
+		for (int packetNdx = 0; packetNdx < numPackets; ++packetNdx)
+		{
+			packets[packetNdx]->position	= rr::readVertexAttribFloat(inputs[0],
+																		packets[packetNdx]->instanceNdx,
+																		packets[packetNdx]->vertexNdx);
+		}
+	}
+};
+
+class SelfDependencyBackwardsFragShader : public rr::FragmentShader
+{
+public:
+	SelfDependencyBackwardsFragShader (void)
+	: rr::FragmentShader(0, 1)
+	{
+		m_outputs[0].type	= rr::GENERICVECTYPE_FLOAT;
+	}
+
+	void shadeFragments (rr::FragmentPacket* packets, const int numPackets, const rr::FragmentShadingContext& context) const
+	{
+		DE_UNREF(packets);
+
+		for (int packetNdx = 0; packetNdx < numPackets; ++packetNdx)
+			for (deUint32 fragNdx = 0; fragNdx < rr::NUM_FRAGMENTS_PER_PACKET; ++fragNdx)
+				rr::writeFragmentOutput<tcu::Vec4>(context, packetNdx, fragNdx, 0, tcu::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
 	}
 };
 
@@ -392,7 +491,7 @@ private:
 
 ExternalDependencyTestInstance::ExternalDependencyTestInstance (Context& context, ExternalTestConfig testConfig)
 	: TestInstance					(context)
-	, m_extensionSupported			((testConfig.renderPassType == RENDERPASS_TYPE_RENDERPASS2) && context.requireDeviceExtension("VK_KHR_create_renderpass2"))
+	, m_extensionSupported			((testConfig.renderPassType == RENDERPASS_TYPE_RENDERPASS2) && context.requireDeviceFunctionality("VK_KHR_create_renderpass2"))
 	, m_renderPassType				(testConfig.renderPassType)
 	, m_width						(testConfig.imageSize.x())
 	, m_height						(testConfig.imageSize.y())
@@ -948,15 +1047,6 @@ public:
 																		 vector<SharedPtrVkDescriptorLayout>&	layouts,
 																		 vector<SharedPtrVkImageView>&			imageViews);
 
-	tcu::TextureLevel					getRepresentableDepthChannel	(const ConstPixelBufferAccess&			access);
-
-	bool								verifyDepth						(const ConstPixelBufferAccess&			reference,
-																		 const ConstPixelBufferAccess&			result,
-																		 const float							threshold);
-
-	bool								verifyStencil					(const ConstPixelBufferAccess&			reference,
-																		 const ConstPixelBufferAccess&			result);
-
 	tcu::TestStatus						iterate							(void);
 
 	template<typename RenderpassSubpass>
@@ -996,7 +1086,7 @@ private:
 
 SubpassDependencyTestInstance::SubpassDependencyTestInstance (Context& context, SubpassTestConfig testConfig)
 	: TestInstance					(context)
-	, m_extensionSupported			((testConfig.renderPassType == RENDERPASS_TYPE_RENDERPASS2) && context.requireDeviceExtension("VK_KHR_create_renderpass2"))
+	, m_extensionSupported			((testConfig.renderPassType == RENDERPASS_TYPE_RENDERPASS2) && context.requireDeviceFunctionality("VK_KHR_create_renderpass2"))
 	, m_renderPassInfo				(testConfig.renderPass)
 	, m_renderPassType				(testConfig.renderPassType)
 	, m_width						(testConfig.imageSize.x())
@@ -1337,63 +1427,6 @@ vector<SharedPtrVkDescriptorSet> SubpassDependencyTestInstance::createDescriptor
 	return descriptorSets;
 }
 
-tcu::TextureLevel SubpassDependencyTestInstance::getRepresentableDepthChannel (const ConstPixelBufferAccess& access)
-{
-	tcu::TextureLevel depthChannel (mapVkFormat(VK_FORMAT_R8G8B8_UNORM), access.getWidth(), access.getHeight());
-
-	for (int y = 0; y < access.getHeight(); y++)
-	for (int x = 0; x < access.getWidth(); x++)
-		depthChannel.getAccess().setPixel(tcu::Vec4(access.getPixDepth(x, y)), x, y);
-
-	return depthChannel;
-}
-
-bool SubpassDependencyTestInstance::verifyDepth (const ConstPixelBufferAccess&	reference,
-												 const ConstPixelBufferAccess&	result,
-												 const float					threshold)
-{
-	tcu::TestLog& log (m_context.getTestContext().getLog());
-
-	return tcu::floatThresholdCompare(log,										// log
-									  "Depth channel",							// imageSetName
-									  "Depth compare",							// imageSetDesc
-									  getRepresentableDepthChannel(reference),	// reference
-									  getRepresentableDepthChannel(result),		// result
-									  Vec4(threshold),							// threshold
-									  tcu::COMPARE_LOG_RESULT);					// logMode
-}
-
-bool SubpassDependencyTestInstance::verifyStencil (const ConstPixelBufferAccess&	reference,
-												   const ConstPixelBufferAccess&	result)
-{
-	tcu::TextureLevel	stencilErrorImage	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), result.getWidth(), result.getHeight());
-	tcu::TestLog&		log					(m_context.getTestContext().getLog());
-	bool				stencilOk			(DE_TRUE);
-
-	for (int y = 0; y < result.getHeight(); y++)
-	for (int x = 0; x < result.getWidth(); x++)
-	{
-		if (result.getPixStencil(x, y) != reference.getPixStencil(x, y))
-		{
-			stencilErrorImage.getAccess().setPixel(Vec4(1.0f, 0.0f, 0.0f, 1.0f), x, y);
-			stencilOk = DE_FALSE;
-		}
-		else
-			stencilErrorImage.getAccess().setPixel(Vec4(0.0f, 1.0f, 0.0f, 1.0f), x, y);
-	}
-
-	log << tcu::TestLog::ImageSet("Stencil compare", "Stencil compare")
-		<< tcu::TestLog::Image("Result stencil channel", "Result stencil channel", result)
-		<< tcu::TestLog::Image("Reference stencil channel", "Reference stencil channel", reference);
-
-	if (!stencilOk)
-		log << tcu::TestLog::Image("Stencil error mask", "Stencil error mask", stencilErrorImage);
-
-	log << tcu::TestLog::EndImageSet;
-
-	return stencilOk;
-}
-
 tcu::TestStatus SubpassDependencyTestInstance::iterate (void)
 {
 	switch (m_renderPassType)
@@ -1405,14 +1438,6 @@ tcu::TestStatus SubpassDependencyTestInstance::iterate (void)
 		default:
 			TCU_THROW(InternalError, "Impossible");
 	}
-}
-
-static float truncateCoord(int dim, int subPixelBits, float f)
-{
-	const float scale = (float)(dim << subPixelBits);
-	const float coord = deFloatFloor(f * scale) / scale;
-
-	return coord;
 }
 
 template<typename RenderpassSubpass>
@@ -1462,10 +1487,8 @@ tcu::TestStatus SubpassDependencyTestInstance::iterateInternal (void)
 
 		for (int vertexNdx = 0; vertexNdx < 3; vertexNdx++)
 		{
-			const int subPixelBits = m_context.getDeviceProperties().limits.subPixelPrecisionBits;
-
-			float x = 2.0f * truncateCoord(m_width,  subPixelBits, rand.getFloat()) - 1.0f;
-			float y = 2.0f * truncateCoord(m_height, subPixelBits, rand.getFloat()) - 1.0f;
+			float x = 2.0f * rand.getFloat() - 1.0f;
+			float y = 2.0f * rand.getFloat() - 1.0f;
 
 			vertexData.push_back(Vec4(x, y, primitiveDepth, 1.0f));
 		}
@@ -1701,7 +1724,7 @@ tcu::TestStatus SubpassDependencyTestInstance::iterateInternal (void)
 				const rr::RenderTarget					renderTarget		(rr::MultisamplePixelBufferAccess(colorBufferAccess), depthBuffer, rr::MultisamplePixelBufferAccess());
 				const rr::PrimitiveType					primitiveType		(rr::PRIMITIVETYPE_TRIANGLES);
 				const rr::PrimitiveList					primitiveList		(rr::PrimitiveList(primitiveType, (deUint32)vertexData.size(), 0));
-				rr::RenderState							renderState			((rr::ViewportState(depthBuffer)));
+				rr::RenderState							renderState			((rr::ViewportState(depthBuffer)), m_context.getDeviceProperties().limits.subPixelPrecisionBits);
 
 				const rr::VertexAttrib vertices			= rr::VertexAttrib(rr::VERTEXATTRIBTYPE_FLOAT, 4, sizeof(tcu::Vec4), 0, &vertexData[0]);
 
@@ -1727,14 +1750,1054 @@ tcu::TestStatus SubpassDependencyTestInstance::iterateInternal (void)
 			const float							depthThreshold			((float)subpassCount * (1.0f / ((UVec4(1u) << tcu::getTextureFormatMantissaBitDepth(
 																			resultDepthAccess.getFormat()).cast<deUint32>()) - 1u).cast<float>().x()));
 
-			if (!verifyDepth(reference.getAccess(), resultDepthAccess, depthThreshold))
+			if (!verifyDepth(m_context, reference.getAccess(), resultDepthAccess, depthThreshold))
 				m_resultCollector.fail("Depth compare failed.");
 
-			if (!verifyStencil(referenceStencilAccess, resultStencilAccess))
+			if (!verifyStencil(m_context, referenceStencilAccess, resultStencilAccess))
 				m_resultCollector.fail("Stencil compare failed.");
 		}
 		else
 			DE_FATAL("Not implemented");
+	}
+
+	return tcu::TestStatus(m_resultCollector.getResult(), m_resultCollector.getMessage());
+}
+
+struct SubpassSelfDependencyBackwardsTestConfig
+{
+		SubpassSelfDependencyBackwardsTestConfig	(VkFormat		format_,
+													 UVec2			imageSize_,
+													 RenderPassType	renderPassType_)
+		: format			(format_)
+		, imageSize			(imageSize_)
+		, renderPassType	(renderPassType_)
+	{
+	}
+
+	VkFormat		format;
+	UVec2			imageSize;
+	RenderPassType	renderPassType;
+};
+
+class SubpassSelfDependencyBackwardsTestInstance : public TestInstance
+{
+public:
+							SubpassSelfDependencyBackwardsTestInstance	(Context&									context,
+																		 SubpassSelfDependencyBackwardsTestConfig	testConfig);
+
+							~SubpassSelfDependencyBackwardsTestInstance	(void);
+
+	tcu::TestStatus			iterate										(void);
+
+	template<typename RenderpassSubpass>
+	tcu::TestStatus			iterateInternal								(void);
+
+private:
+	const bool				m_extensionSupported;
+	const bool				m_featuresSupported;
+	const RenderPassType	m_renderPassType;
+
+	const deUint32			m_width;
+	const deUint32			m_height;
+	const VkFormat			m_format;
+	tcu::ResultCollector	m_resultCollector;
+};
+
+SubpassSelfDependencyBackwardsTestInstance::SubpassSelfDependencyBackwardsTestInstance (Context& context, SubpassSelfDependencyBackwardsTestConfig testConfig)
+	: TestInstance			(context)
+	, m_extensionSupported	((testConfig.renderPassType == RENDERPASS_TYPE_RENDERPASS2) && context.requireDeviceFunctionality("VK_KHR_create_renderpass2"))
+	, m_featuresSupported	(context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER))
+	, m_renderPassType		(testConfig.renderPassType)
+	, m_width				(testConfig.imageSize.x())
+	, m_height				(testConfig.imageSize.y())
+	, m_format				(testConfig.format)
+{
+}
+
+SubpassSelfDependencyBackwardsTestInstance::~SubpassSelfDependencyBackwardsTestInstance (void)
+{
+}
+
+tcu::TestStatus SubpassSelfDependencyBackwardsTestInstance::iterate (void)
+{
+	switch (m_renderPassType)
+	{
+		case RENDERPASS_TYPE_LEGACY:
+			return iterateInternal<RenderpassSubpass1>();
+		case RENDERPASS_TYPE_RENDERPASS2:
+			return iterateInternal<RenderpassSubpass2>();
+		default:
+			TCU_THROW(InternalError, "Impossible");
+	}
+}
+
+template<typename RenderpassSubpass>
+tcu::TestStatus SubpassSelfDependencyBackwardsTestInstance::iterateInternal (void)
+{
+	de::Random											rand					(5);
+	const DeviceInterface&								vkd						(m_context.getDeviceInterface());
+	const VkDevice										device					= m_context.getDevice();
+	const deUint32										queueFamilyIndex		= m_context.getUniversalQueueFamilyIndex();
+	const Unique<VkCommandPool>							commandPool				(createCommandPool(vkd, m_context.getDevice(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex));
+	const Unique<VkCommandBuffer>						commandBuffer			(allocateCommandBuffer(vkd, m_context.getDevice(), *commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+	const typename RenderpassSubpass::SubpassBeginInfo	subpassBeginInfo		(DE_NULL, VK_SUBPASS_CONTENTS_INLINE);
+	const typename RenderpassSubpass::SubpassEndInfo	subpassEndInfo			(DE_NULL);
+	vector<Vec4>										vertexData;
+	Move<VkImage>										outputImage;
+	de::MovePtr<Allocation>								outputImageAllocation;
+	Move<VkImageView>									outputImageView;
+	Move<VkPipelineLayout>								pipelineLayout;
+	Move<VkPipeline>									renderPipeline;
+	Move<VkFramebuffer>									framebuffer;
+	Move<VkRenderPass>									renderPass;
+	Move<VkBuffer>										indirectBuffer;
+	de::MovePtr<Allocation>								indirectBufferMemory;
+	Move<VkBuffer>										resultBuffer;
+	de::MovePtr<Allocation>								resultBufferMemory;
+	const VkDeviceSize									indirectBufferSize		= 4 * sizeof(deUint32);
+	Move<VkBuffer>										vertexBuffer;
+	de::MovePtr<Allocation>								vertexBufferMemory;
+
+	// Create output image.
+	{
+		const VkExtent3D		imageExtent		=
+		{
+			m_width,	// uint32_t	width
+			m_height,	// uint32_t	height
+			1u			// uint32_t	depth
+		};
+
+		VkImageUsageFlags		usage			= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+		const VkImageCreateInfo	imageCreateInfo	=
+		{
+			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,								// const void*				pNext
+			0u,										// VkImageCreateFlags		flags
+			VK_IMAGE_TYPE_2D,						// VkImageType				imageType
+			m_format,								// VkFormat					format
+			imageExtent,							// VkExtent3D				extent
+			1u,										// uint32_t					mipLevels
+			1u,										// uint32_t					arrayLayers
+			VK_SAMPLE_COUNT_1_BIT,					// VkSampleCountFlagBits	samples
+			VK_IMAGE_TILING_OPTIMAL,				// VkImageTiling			tiling
+			usage,									// VkImageUsageFlags		usage
+			VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode			sharingMode
+			1u,										// uint32_t					queueFamilyIndexCount
+			&queueFamilyIndex,						// const uint32_t*			pQueueFamilyIndices
+			VK_IMAGE_LAYOUT_UNDEFINED				// VkImageLayout			initialLayout
+		};
+
+		outputImage = createImage(vkd, device, &imageCreateInfo, DE_NULL);
+		outputImageAllocation = m_context.getDefaultAllocator().allocate(getImageMemoryRequirements(vkd, device, *outputImage), MemoryRequirement::Any);
+		VK_CHECK(vkd.bindImageMemory(device, *outputImage, outputImageAllocation->getMemory(), outputImageAllocation->getOffset()));
+	}
+
+	// Create indirect buffer and initialize.
+	{
+		const VkBufferUsageFlags	bufferUsage	(VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		const VkBufferCreateInfo	bufferCreateInfo	=
+		{
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType
+			DE_NULL,								// const void*			pNext
+			0u,										// VkBufferCreateFlags	flags
+			indirectBufferSize,						// VkDeviceSize			size
+			bufferUsage,							// VkBufferUsageFlags	usage
+			VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode
+			0u,										// uint32_t				queueFamilyIndexCount
+			DE_NULL									// const uint32_t*		pQueueFamilyIndices
+		};
+
+		indirectBuffer			= createBuffer(vkd, device, &bufferCreateInfo);
+		indirectBufferMemory	= createBufferMemory(vkd, device, m_context.getDefaultAllocator(), *indirectBuffer);
+
+		VkDrawIndirectCommand	drawIndirectCommand	=
+		{
+			64u,	// deUint32	vertexCount
+			1u,		// deUint32	instanceCount
+			0u,		// deUint32	firstVertex
+			0u,		// deUint32	firstInstance
+		};
+
+		deMemcpy(indirectBufferMemory->getHostPtr(), (void*)&drawIndirectCommand, sizeof(VkDrawIndirectCommand));
+		flushAlloc(vkd, device, *indirectBufferMemory);
+	}
+
+	// Create result buffer.
+	{
+		resultBuffer		= createBuffer(vkd, device, m_format, m_width, m_height);
+		resultBufferMemory	= createBufferMemory(vkd, device, m_context.getDefaultAllocator(), *resultBuffer);
+	}
+
+	// Create descriptor set layout.
+	Unique<VkDescriptorSetLayout>	descriptorSetLayout	(DescriptorSetLayoutBuilder()
+			.addSingleBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_GEOMETRY_BIT)
+			.build(vkd, device));
+	// Create descriptor pool.
+	Unique<VkDescriptorPool>		descriptorPool		(DescriptorPoolBuilder()
+			.addType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1u)
+			.build(vkd, device, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u));
+	// Create descriptor set.
+	Unique<VkDescriptorSet>			descriptorSet		(makeDescriptorSet(vkd, device, *descriptorPool, *descriptorSetLayout));
+
+	// Update descriptor set information.
+	{
+		VkDescriptorBufferInfo descIndirectBuffer = makeDescriptorBufferInfo(*indirectBuffer, 0, indirectBufferSize);
+
+		DescriptorSetUpdateBuilder()
+			.writeSingle(*descriptorSet, DescriptorSetUpdateBuilder::Location::binding(0u), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descIndirectBuffer)
+			.update(vkd, device);
+	}
+
+	// Create render pipeline layout.
+	{
+		const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,	// VkStructureType				sType
+			DE_NULL,										// const void*					pNext
+			(vk::VkPipelineLayoutCreateFlags)0,				// VkPipelineLayoutCreateFlags	flags
+			1u,												// deUint32						setLayoutCount
+			&*descriptorSetLayout,							// const VkDescriptorSetLayout*	pSetLayouts
+			0u,												// deUint32						pushConstantRangeCount
+			DE_NULL											// const VkPushConstantRange*	pPushConstantRanges
+		};
+
+		pipelineLayout = createPipelineLayout(vkd, device, &pipelineLayoutCreateInfo);
+	}
+
+	// Create render pass.
+	{
+		vector<Attachment>			attachments;
+		vector<AttachmentReference>	colorAttachmentReferences;
+
+		attachments.push_back(Attachment(m_format, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
+		colorAttachmentReferences.push_back(AttachmentReference(0u, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
+
+		const vector<Subpass>		subpasses	(1, Subpass(VK_PIPELINE_BIND_POINT_GRAPHICS, 0u, vector<AttachmentReference>(), colorAttachmentReferences, vector<AttachmentReference>(), AttachmentReference(VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_GENERAL), vector<deUint32>()));
+		vector<SubpassDependency>	deps;
+
+		deps.push_back(SubpassDependency(0u,									// deUint32				srcPass
+										 0u,									// deUint32				dstPass
+										 VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT,	// VkPipelineStageFlags	srcStageMask
+										 VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,	// VkPipelineStageFlags	dstStageMask
+										 VK_ACCESS_SHADER_WRITE_BIT,			// VkAccessFlags		srcAccessMask
+										 VK_ACCESS_INDIRECT_COMMAND_READ_BIT,	// VkAccessFlags		dstAccessMask
+										 0));									// VkDependencyFlags	flags
+
+		renderPass = createRenderPass(vkd, device, RenderPass(attachments, subpasses, deps), m_renderPassType);
+	}
+
+	// Create render pipeline.
+	{
+		const Unique<VkShaderModule>				vertexShaderModule			(createShaderModule(vkd, device, m_context.getBinaryCollection().get("vert"), 0u));
+		const Unique<VkShaderModule>				geometryShaderModule		(createShaderModule(vkd, device, m_context.getBinaryCollection().get("geom"), 0u));
+		const Unique<VkShaderModule>				fragmentShaderModule		(createShaderModule(vkd, device, m_context.getBinaryCollection().get("frag"), 0u));
+
+		const VkVertexInputBindingDescription		vertexBinding0				=
+		{
+			0u,							// deUint32					binding;
+			sizeof(Vec4),				// deUint32					strideInBytes;
+			VK_VERTEX_INPUT_RATE_VERTEX	// VkVertexInputStepRate	stepRate;
+		};
+
+		VkVertexInputAttributeDescription			attr0						=
+		{
+			0u,								// deUint32	location;
+			0u,								// deUint32	binding;
+			VK_FORMAT_R32G32B32A32_SFLOAT,	// VkFormat	format;
+			0u								// deUint32	offsetInBytes;
+		};
+
+		const VkPipelineVertexInputStateCreateInfo	vertexInputState			=
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,	// VkStructureType							sType
+			DE_NULL,													// const void*								pNext
+			(VkPipelineVertexInputStateCreateFlags)0u,					// VkPipelineVertexInputStateCreateFlags	flags
+			1u,															// uint32_t									vertexBindingDescriptionCount
+			&vertexBinding0,											// const VkVertexInputBindingDescription*	pVertexBindingDescriptions
+			1u,															// uint32_t									vertexAttributeDescriptionCount
+			&attr0														// const VkVertexInputAttributeDescription*	pVertexAttributeDescriptions
+		};
+
+		const std::vector<VkViewport>				viewports					(1, makeViewport(tcu::UVec2(m_width, m_height)));
+		const std::vector<VkRect2D>					scissors					(1, makeRect2D(tcu::UVec2(m_width, m_height)));
+
+		renderPipeline = makeGraphicsPipeline(vkd,	// const DeviceInterface&						vk
+				device,								// const VkDevice								device
+				*pipelineLayout,					// const VkPipelineLayout						pipelineLayout
+				*vertexShaderModule,				// const VkShaderModule							vertexShaderModule
+				DE_NULL,							// const VkShaderModule							tessellationControlShaderModule
+				DE_NULL,							// const VkShaderModule							tessellationEvalShaderModule
+				*geometryShaderModule,				// const VkShaderModule							geometryShaderModule
+				*fragmentShaderModule,				// const VkShaderModule							fragmentShaderModule
+				*renderPass,						// const VkRenderPass							renderPass
+				viewports,							// const std::vector<VkViewport>&				viewports
+				scissors,							// const std::vector<VkRect2D>&					scissors
+				VK_PRIMITIVE_TOPOLOGY_POINT_LIST,	// const VkPrimitiveTopology					topology
+				0u,									// const deUint32								subpass
+				0u,									// const deUint32								patchControlPoints
+				&vertexInputState);					// const VkPipelineVertexInputStateCreateInfo*	vertexInputStateCreateInfo
+	}
+
+	// Create framebuffer.
+	{
+		const VkImageViewCreateInfo imageViewCreateInfo =
+		{
+			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,									// const void*				pNext
+			0u,											// VkImageViewCreateFlags	flags
+			*outputImage,								// VkImage					image
+			VK_IMAGE_VIEW_TYPE_2D,						// VkImageViewType			viewType
+			m_format,									// VkFormat					format
+			makeComponentMappingRGBA(),					// VkComponentMapping		components
+			{											// VkImageSubresourceRange	subresourceRange
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				0u,
+				1u,
+				0u,
+				1u
+			}
+		};
+		outputImageView	= createImageView(vkd, device, &imageViewCreateInfo);
+
+		const VkFramebufferCreateInfo framebufferCreateInfo =
+		{
+			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,									// const void*				pNext
+			0u,											// VkFramebufferCreateFlags	flags
+			*renderPass,								// VkRenderPass				renderPass
+			1u,											// uint32_t					attachmentCount
+			&*outputImageView,							// const VkImageView*		pAttachments
+			m_width,									// uint32_t					width
+			m_height,									// uint32_t					height
+			1u											// uint32_t					layers
+		};
+
+		framebuffer = vk::createFramebuffer(vkd, device, &framebufferCreateInfo);
+	}
+
+	// Generate random point locations (pixel centered to make reference comparison easier).
+	for (int primitiveNdx = 0; primitiveNdx < 128; primitiveNdx++)
+	{
+		vertexData.push_back(Vec4((float)((rand.getUint32() % m_width) * 2) / (float)m_width - 1.0f,
+				(float)((rand.getUint32() % m_height) * 2) / (float)m_height - 1.0f,
+				1.0f, 1.0f));
+	}
+
+	// Upload vertex data.
+	{
+		const size_t				vertexDataSize		= vertexData.size() * sizeof(Vec4);
+
+		const VkBufferCreateInfo	vertexBufferParams	=
+		{
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	//	VkStructureType		sType;
+			DE_NULL,								//	const void*			pNext;
+			0u,										//	VkBufferCreateFlags	flags;
+			(VkDeviceSize)vertexDataSize,			//	VkDeviceSize		size;
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,		//	VkBufferUsageFlags	usage;
+			VK_SHARING_MODE_EXCLUSIVE,				//	VkSharingMode		sharingMode;
+			1u,										//	deUint32			queueFamilyCount;
+			&queueFamilyIndex,						//	const deUint32*		pQueueFamilyIndices;
+		};
+
+		vertexBuffer		= createBuffer(vkd, m_context.getDevice(), &vertexBufferParams);
+		vertexBufferMemory	= createBufferMemory(vkd, device, m_context.getDefaultAllocator(), *vertexBuffer);
+
+		deMemcpy(vertexBufferMemory->getHostPtr(), vertexData.data(), vertexDataSize);
+		flushAlloc(vkd, device, *vertexBufferMemory);
+	}
+
+	beginCommandBuffer(vkd, *commandBuffer);
+	vkd.cmdBindPipeline(*commandBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *renderPipeline);
+	vkd.cmdBindDescriptorSets(*commandBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
+
+	// Begin render pass.
+	{
+		VkRect2D					renderArea	=
+		{
+			{ 0u, 0u },				// VkOffset2D	offset
+			{ m_width, m_height }	// VkExtent2D	extent
+		};
+
+		VkClearValue				clearValue	= makeClearValueColor(Vec4(0.0f, 1.0f, 0.0f, 1.0f));
+
+		const VkRenderPassBeginInfo	beginInfo	=
+		{
+			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,	// VkStructureType		sType
+			DE_NULL,									// const void*			pNext
+			*renderPass,								// VkRenderPass			renderPass
+			*framebuffer,								// VkFramebuffer		framebuffer
+			renderArea,									// VkRect2D				renderArea
+			1u,											// uint32_t				clearValueCount
+			&clearValue									// const VkClearValue*	pClearValues
+		};
+
+		RenderpassSubpass::cmdBeginRenderPass(vkd, *commandBuffer, &beginInfo, &subpassBeginInfo);
+	}
+
+	const VkDeviceSize bindingOffset = 0;
+	vkd.cmdBindVertexBuffers(*commandBuffer, 0u, 1u, &vertexBuffer.get(), &bindingOffset);
+
+	vkd.cmdBindPipeline(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *renderPipeline);
+
+	// The first indirect draw: Draw the first 64 items.
+	vkd.cmdDrawIndirect(*commandBuffer, *indirectBuffer, 0u, 1u, 0u);
+
+	// Barrier for indirect buffer.
+	{
+		const VkMemoryBarrier barrier =
+		{
+			VK_STRUCTURE_TYPE_MEMORY_BARRIER,	// VkStructureType	sType
+			DE_NULL,							// const void*		pNext
+			VK_ACCESS_SHADER_WRITE_BIT,			// VkAccessFlags	srcAccessMask
+			VK_ACCESS_INDIRECT_COMMAND_READ_BIT	// VkAccessFlags	dstAccessMask
+		};
+
+		vkd.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0u, 1u, &barrier, 0u, DE_NULL, 0u, DE_NULL);
+	}
+
+	// The second indirect draw: Draw the last 64 items.
+	vkd.cmdDrawIndirect(*commandBuffer, *indirectBuffer, 0u, 1u, 0u);
+
+	RenderpassSubpass::cmdEndRenderPass(vkd, *commandBuffer, &subpassEndInfo);
+
+	// Copy results to a buffer.
+	copyImageToBuffer(vkd, *commandBuffer, *outputImage, *resultBuffer, tcu::IVec2(m_width, m_height));
+
+	endCommandBuffer(vkd, *commandBuffer);
+	submitCommandsAndWait(vkd, m_context.getDevice(), m_context.getUniversalQueue(), *commandBuffer);
+	invalidateMappedMemoryRange(vkd, m_context.getDevice(), resultBufferMemory->getMemory(), resultBufferMemory->getOffset(), VK_WHOLE_SIZE);
+
+	// Verify result.
+	{
+		const tcu::TextureFormat format (mapVkFormat(m_format));
+
+		const void* const					ptrResult		(resultBufferMemory->getHostPtr());
+		tcu::TextureLevel					reference		(format, m_width, m_height);
+		const tcu::ConstPixelBufferAccess	resultAccess	(format, m_width, m_height, 1, ptrResult);
+		const PixelBufferAccess				referenceAccess	(reference.getAccess());
+
+
+		// Setup and run reference renderer.
+		{
+			vector<Vec4>							triangles;
+			const float								offset			= 0.03f;
+
+			// Convert points into triangles to have quads similar to what GPU is producing from geometry shader.
+			for (size_t vtxIdx = 0; vtxIdx < vertexData.size(); vtxIdx++)
+			{
+				triangles.push_back(vertexData[vtxIdx] + tcu::Vec4(-offset, offset, 0.0f, 0.0f));
+				triangles.push_back(vertexData[vtxIdx] + tcu::Vec4(-offset, -offset, 0.0f, 0.0f));
+				triangles.push_back(vertexData[vtxIdx] + tcu::Vec4(offset, offset, 0.0f, 0.0f));
+
+				triangles.push_back(vertexData[vtxIdx] + tcu::Vec4(-offset, -offset, 0.0f, 0.0f));
+				triangles.push_back(vertexData[vtxIdx] + tcu::Vec4(offset, offset, 0.0f, 0.0f));
+				triangles.push_back(vertexData[vtxIdx] + tcu::Vec4(offset, -offset, 0.0f, 0.0f));
+			}
+
+			const SelfDependencyBackwardsVertShader	vertShader;
+			const SelfDependencyBackwardsFragShader	fragShader;
+			const rr::Renderer						renderer;
+			const rr::Program						program			(&vertShader, &fragShader);
+			const rr::MultisamplePixelBufferAccess	msAccess		(rr::MultisamplePixelBufferAccess::fromSinglesampleAccess(referenceAccess));
+			const rr::RenderTarget					renderTarget	(msAccess);
+			const rr::PrimitiveType					primitiveType	(rr::PRIMITIVETYPE_TRIANGLES);
+			const rr::PrimitiveList					primitiveList	(rr::PrimitiveList(primitiveType, (deUint32)triangles.size(), 0));
+			const rr::ViewportState					viewportState	(msAccess);
+			const rr::RenderState					renderState		(viewportState, m_context.getDeviceProperties().limits.subPixelPrecisionBits);
+			const rr::VertexAttrib					vertices		= rr::VertexAttrib(rr::VERTEXATTRIBTYPE_FLOAT, 4, sizeof(tcu::Vec4), 0, &triangles[0]);
+
+			tcu::clear(referenceAccess, tcu::UVec4(0, 255, 0, 255));
+			renderer.draw(rr::DrawCommand(renderState, renderTarget, program, 1u, &vertices, primitiveList));
+		}
+
+		if (!tcu::floatThresholdCompare(m_context.getTestContext().getLog(),	// log
+										"Color buffer",							// imageSetName
+										"",										// imageSetDesc
+										referenceAccess,						// reference
+										resultAccess,							// result
+										Vec4(0.01f),							// threshold
+										tcu::COMPARE_LOG_RESULT))				// logMode
+		{
+			m_resultCollector.fail("Image compare failed.");
+		}
+	}
+
+	return tcu::TestStatus(m_resultCollector.getResult(), m_resultCollector.getMessage());
+}
+
+struct SeparateChannelsTestConfig
+{
+		SeparateChannelsTestConfig	(VkFormat		format_,
+									 RenderPassType	renderPassType_)
+		: format			(format_)
+		, renderPassType	(renderPassType_)
+	{
+	}
+
+	VkFormat		format;
+	RenderPassType	renderPassType;
+};
+
+class SeparateChannelsTestInstance : public TestInstance
+{
+public:
+							SeparateChannelsTestInstance	(Context&					context,
+															 SeparateChannelsTestConfig	testConfig);
+
+							~SeparateChannelsTestInstance	(void);
+
+	tcu::TestStatus			iterate							(void);
+
+	template<typename RenderpassSubpass>
+	tcu::TestStatus			iterateInternal					(void);
+
+private:
+	const bool				m_extensionSupported;
+	const RenderPassType	m_renderPassType;
+
+	const deUint32			m_width;
+	const deUint32			m_height;
+	const VkFormat			m_format;
+	tcu::ResultCollector	m_resultCollector;
+};
+
+SeparateChannelsTestInstance::SeparateChannelsTestInstance (Context& context, SeparateChannelsTestConfig testConfig)
+	: TestInstance			(context)
+	, m_extensionSupported	((testConfig.renderPassType == RENDERPASS_TYPE_RENDERPASS2) && context.requireDeviceFunctionality("VK_KHR_create_renderpass2"))
+	, m_renderPassType		(testConfig.renderPassType)
+	, m_width				(256u)
+	, m_height				(256u)
+	, m_format				(testConfig.format)
+{
+}
+
+SeparateChannelsTestInstance::~SeparateChannelsTestInstance (void)
+{
+}
+
+tcu::TestStatus SeparateChannelsTestInstance::iterate (void)
+{
+	switch (m_renderPassType)
+	{
+		case RENDERPASS_TYPE_LEGACY:
+			return iterateInternal<RenderpassSubpass1>();
+		case RENDERPASS_TYPE_RENDERPASS2:
+			return iterateInternal<RenderpassSubpass2>();
+		default:
+			TCU_THROW(InternalError, "Impossible");
+	}
+}
+
+template<typename RenderpassSubpass>
+tcu::TestStatus SeparateChannelsTestInstance::iterateInternal (void)
+{
+	const DeviceInterface&								vkd						(m_context.getDeviceInterface());
+	const VkDevice										device					= m_context.getDevice();
+	const VkQueue										queue					= m_context.getUniversalQueue();
+	const deUint32										queueFamilyIndex		= m_context.getUniversalQueueFamilyIndex();
+	const Unique<VkCommandPool>							commandPool				(createCommandPool(vkd, m_context.getDevice(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex));
+	const Unique<VkCommandBuffer>						commandBuffer			(allocateCommandBuffer(vkd, m_context.getDevice(), *commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+	const typename RenderpassSubpass::SubpassBeginInfo	subpassBeginInfo		(DE_NULL, VK_SUBPASS_CONTENTS_INLINE);
+	const typename RenderpassSubpass::SubpassEndInfo	subpassEndInfo			(DE_NULL);
+	const bool											isDSFormat				= isDepthStencilFormat(m_format);
+	const VkFormat										colorFormat				= isDSFormat ? VK_FORMAT_R8G8B8A8_UNORM : m_format;
+	const tcu::Vec4										colorInitValues[2]		= { tcu::Vec4(0.2f, 0.4f, 0.1f, 1.0f), tcu::Vec4(0.5f, 0.4f, 0.7f, 1.0f) };
+	const float											depthInitValues[2]		= { 0.3f, 0.7f };
+	const deUint32										stencilInitValues[2]	= { 2u, 100u };
+	const deUint32										stencilRefValue			= 200u;
+	const deUint32										tileSize				= 32u;
+	vector<Vec4>										vertexData;
+	Move<VkImage>										colorImage;
+	de::MovePtr<Allocation>								colorImageAllocation;
+	// When testing color formats the same attachment is used as input and output. This requires general layout to be used.
+	const VkImageLayout									colorImageLayout		= isDSFormat ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+	Move<VkImage>										dsImage;
+	de::MovePtr<Allocation>								dsImageAllocation;
+	Move<VkImageView>									outputImageView;
+	Move<VkImageView>									inputImageView;
+	Move<VkImageView>									dsImageView;
+	Move<VkPipelineLayout>								pipelineLayout;
+	Move<VkPipeline>									renderPipeline;
+	Move<VkFramebuffer>									framebuffer;
+	Move<VkRenderPass>									renderPass;
+	Move<VkBuffer>										resultBuffer0;
+	de::MovePtr<Allocation>								resultBuffer0Memory;
+	Move<VkBuffer>										resultBuffer1;
+	de::MovePtr<Allocation>								resultBuffer1Memory;
+	Move<VkBuffer>										vertexBuffer;
+	de::MovePtr<Allocation>								vertexBufferMemory;
+
+	const VkExtent3D		imageExtent		=
+	{
+		m_width,	// deUint32	width
+		m_height,	// deUint32	height
+		1u			// deUint32	depth
+	};
+
+	// Create image used for both input and output in case of color test, and as a color output in depth/stencil test.
+	{
+		VkImageUsageFlags		usage			= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+		const VkImageCreateInfo	imageCreateInfo	=
+		{
+			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,								// const void*				pNext
+			0u,										// VkImageCreateFlags		flags
+			VK_IMAGE_TYPE_2D,						// VkImageType				imageType
+			colorFormat,							// VkFormat					format
+			imageExtent,							// VkExtent3D				extent
+			1u,										// uint32_t					mipLevels
+			1u,										// uint32_t					arrayLayers
+			VK_SAMPLE_COUNT_1_BIT,					// VkSampleCountFlagBits	samples
+			VK_IMAGE_TILING_OPTIMAL,				// VkImageTiling			tiling
+			usage,									// VkImageUsageFlags		usage
+			VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode			sharingMode
+			1u,										// uint32_t					queueFamilyIndexCount
+			&queueFamilyIndex,						// const uint32_t*			pQueueFamilyIndices
+			VK_IMAGE_LAYOUT_UNDEFINED				// VkImageLayout			initialLayout
+		};
+
+		checkImageSupport(m_context.getInstanceInterface(), m_context.getPhysicalDevice(), imageCreateInfo);
+
+		colorImage = createImage(vkd, device, &imageCreateInfo, DE_NULL);
+		colorImageAllocation = m_context.getDefaultAllocator().allocate(getImageMemoryRequirements(vkd, device, *colorImage), MemoryRequirement::Any);
+		VK_CHECK(vkd.bindImageMemory(device, *colorImage, colorImageAllocation->getMemory(), colorImageAllocation->getOffset()));
+	}
+
+	// Create depth/stencil image
+	if (isDSFormat)
+	{
+		VkImageUsageFlags		usage			= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+		const VkImageCreateInfo	imageCreateInfo	=
+		{
+			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,								// const void*				pNext
+			0u,										// VkImageCreateFlags		flags
+			VK_IMAGE_TYPE_2D,						// VkImageType				imageType
+			m_format,								// VkFormat					format
+			imageExtent,							// VkExtent3D				extent
+			1u,										// uint32_t					mipLevels
+			1u,										// uint32_t					arrayLayers
+			VK_SAMPLE_COUNT_1_BIT,					// VkSampleCountFlagBits	samples
+			VK_IMAGE_TILING_OPTIMAL,				// VkImageTiling			tiling
+			usage,									// VkImageUsageFlags		usage
+			VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode			sharingMode
+			1u,										// uint32_t					queueFamilyIndexCount
+			&queueFamilyIndex,						// const uint32_t*			pQueueFamilyIndices
+			VK_IMAGE_LAYOUT_UNDEFINED				// VkImageLayout			initialLayout
+		};
+
+		checkImageSupport(m_context.getInstanceInterface(), m_context.getPhysicalDevice(), imageCreateInfo);
+
+		dsImage = createImage(vkd, device, &imageCreateInfo, DE_NULL);
+		dsImageAllocation = m_context.getDefaultAllocator().allocate(getImageMemoryRequirements(vkd, device, *dsImage), MemoryRequirement::Any);
+		VK_CHECK(vkd.bindImageMemory(device, *dsImage, dsImageAllocation->getMemory(), dsImageAllocation->getOffset()));
+
+		// Initialize depth / stencil image
+		initDepthStencilImageChessboardPattern(vkd, device, queue, queueFamilyIndex, m_context.getDefaultAllocator(), *dsImage, m_format, depthInitValues[0], depthInitValues[1], stencilInitValues[0], stencilInitValues[1], m_width, m_height, tileSize, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	}
+
+	// Initialize color image
+	initColorImageChessboardPattern(vkd, device, queue, queueFamilyIndex, m_context.getDefaultAllocator(), *colorImage, colorFormat, colorInitValues[0], colorInitValues[1], m_width, m_height, tileSize, VK_IMAGE_LAYOUT_UNDEFINED, colorImageLayout, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+	// Create color image views
+	{
+		const VkImageViewCreateInfo imageViewCreateInfo =
+		{
+			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,									// const void*				pNext
+			0u,											// VkImageViewCreateFlags	flags
+			*colorImage,								// VkImage					image
+			VK_IMAGE_VIEW_TYPE_2D,						// VkImageViewType			viewType
+			colorFormat,								// VkFormat					format
+			makeComponentMappingRGBA(),					// VkComponentMapping		components
+			{											// VkImageSubresourceRange	subresourceRange
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				0u,
+				1u,
+				0u,
+				1u
+			}
+		};
+
+		if (!isDSFormat) inputImageView	= createImageView(vkd, device, &imageViewCreateInfo);
+		outputImageView	= createImageView(vkd, device, &imageViewCreateInfo);
+	}
+
+	// Create depth/stencil image view
+	if (isDSFormat)
+	{
+		const VkImageViewCreateInfo imageViewCreateInfo =
+		{
+			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,									// const void*				pNext
+			0u,											// VkImageViewCreateFlags	flags
+			*dsImage,									// VkImage					image
+			VK_IMAGE_VIEW_TYPE_2D,						// VkImageViewType			viewType
+			m_format,									// VkFormat					format
+			makeComponentMappingRGBA(),					// VkComponentMapping		components
+			{											// VkImageSubresourceRange	subresourceRange
+				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+				0u,
+				1u,
+				0u,
+				1u
+			}
+		};
+
+		dsImageView	= createImageView(vkd, device, &imageViewCreateInfo);
+	}
+
+	// Create result buffers.
+	{
+		resultBuffer0		= createBuffer(vkd, device, m_format, m_width, m_height);
+		resultBuffer0Memory	= createBufferMemory(vkd, device, m_context.getDefaultAllocator(), *resultBuffer0);
+		resultBuffer1		= createBuffer(vkd, device, m_format, m_width, m_height);
+		resultBuffer1Memory	= createBufferMemory(vkd, device, m_context.getDefaultAllocator(), *resultBuffer1);
+	}
+
+	// Create descriptor set layout.
+	Unique<VkDescriptorSetLayout>	descriptorSetLayout	(DescriptorSetLayoutBuilder()
+			.addSingleBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.build(vkd, device));
+	// Create descriptor pool.
+	Unique<VkDescriptorPool>		descriptorPool		(DescriptorPoolBuilder()
+			.addType(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1u)
+			.build(vkd, device, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u));
+	// Create descriptor set.
+	Unique<VkDescriptorSet>			descriptorSet		(makeDescriptorSet(vkd, device, *descriptorPool, *descriptorSetLayout));
+
+	// Update descriptor set information.
+	if (!isDSFormat)
+	{
+		VkDescriptorImageInfo descInputAttachment = makeDescriptorImageInfo(DE_NULL, *inputImageView, VK_IMAGE_LAYOUT_GENERAL);
+
+		DescriptorSetUpdateBuilder()
+			.writeSingle(*descriptorSet, DescriptorSetUpdateBuilder::Location::binding(0u), VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, &descInputAttachment)
+			.update(vkd, device);
+	}
+
+	// Create render pipeline layout.
+	{
+		const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,	// VkStructureType				sType
+			DE_NULL,										// const void*					pNext
+			(vk::VkPipelineLayoutCreateFlags)0,				// VkPipelineLayoutCreateFlags	flags
+			1u,												// deUint32						setLayoutCount
+			&*descriptorSetLayout,							// const VkDescriptorSetLayout*	pSetLayouts
+			0u,												// deUint32						pushConstantRangeCount
+			DE_NULL											// const VkPushConstantRange*	pPushConstantRanges
+		};
+
+		pipelineLayout = createPipelineLayout(vkd, device, &pipelineLayoutCreateInfo);
+	}
+
+	// Create render pass.
+	{
+		vector<Attachment>			attachments;
+		vector<AttachmentReference>	colorAttachmentReferences;
+		vector<AttachmentReference>	inputAttachmentReferences;
+		AttachmentReference			dsAttachmentReference		(1u, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+
+		const VkImageAspectFlags	inputAttachmentAspectMask	((m_renderPassType == RENDERPASS_TYPE_RENDERPASS2)
+																? static_cast<VkImageAspectFlags>(VK_IMAGE_ASPECT_COLOR_BIT)
+																: static_cast<VkImageAspectFlags>(0));
+
+		attachments.push_back(Attachment(colorFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE, VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE, colorImageLayout, colorImageLayout));
+		colorAttachmentReferences.push_back(AttachmentReference(0u, colorImageLayout));
+
+		if (isDSFormat)
+		{
+			attachments.push_back(Attachment(m_format, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE, VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL));
+		}
+		else
+		{
+			attachments.push_back(Attachment(colorFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL));
+			inputAttachmentReferences.push_back(AttachmentReference(1u, VK_IMAGE_LAYOUT_GENERAL, inputAttachmentAspectMask));
+		}
+
+		const vector<Subpass>		subpasses	(1, Subpass(VK_PIPELINE_BIND_POINT_GRAPHICS, 0u, inputAttachmentReferences, colorAttachmentReferences, vector<AttachmentReference>(), isDSFormat ? dsAttachmentReference : AttachmentReference(VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_GENERAL), vector<deUint32>()));
+
+		renderPass = createRenderPass(vkd, device, RenderPass(attachments, subpasses, vector<SubpassDependency>()), m_renderPassType);
+	}
+
+	// Create render pipeline.
+	{
+		const Unique<VkShaderModule>				vertexShaderModule			(createShaderModule(vkd, device, m_context.getBinaryCollection().get("vert"), 0u));
+		const Unique<VkShaderModule>				fragmentShaderModule		(createShaderModule(vkd, device, m_context.getBinaryCollection().get("frag"), 0u));
+
+		const VkVertexInputBindingDescription		vertexBinding0				=
+		{
+			0u,							// deUint32					binding
+			sizeof(Vec4),				// deUint32					strideInBytes
+			VK_VERTEX_INPUT_RATE_VERTEX	// VkVertexInputStepRate	stepRate
+		};
+
+		const VkVertexInputAttributeDescription		attr0						=
+		{
+			0u,								// deUint32	location
+			0u,								// deUint32	binding
+			VK_FORMAT_R32G32B32A32_SFLOAT,	// VkFormat	format
+			0u								// deUint32	offsetInBytes
+		};
+
+		const VkPipelineVertexInputStateCreateInfo	vertexInputState			=
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,	// VkStructureType							sType
+			DE_NULL,													// const void*								pNext
+			(VkPipelineVertexInputStateCreateFlags)0u,					// VkPipelineVertexInputStateCreateFlags	flags
+			1u,															// deUint32									vertexBindingDescriptionCount
+			&vertexBinding0,											// const VkVertexInputBindingDescription*	pVertexBindingDescriptions
+			1u,															// deUint32									vertexAttributeDescriptionCount
+			&attr0														// const VkVertexInputAttributeDescription*	pVertexAttributeDescriptions
+		};
+
+		// Use write mask to enable only B and A channels to prevent self dependency (reads are done for channels R and G).
+		const VkPipelineColorBlendAttachmentState	colorBlendAttachmentState	=
+		{
+			VK_FALSE,					// VkBool32					blendEnable
+			VK_BLEND_FACTOR_ZERO,		// VkBlendFactor			srcColorBlendFactor
+			VK_BLEND_FACTOR_ZERO,		// VkBlendFactor			dstColorBlendFactor
+			VK_BLEND_OP_ADD,			// VkBlendOp				colorBlendOp
+			VK_BLEND_FACTOR_ZERO,		// VkBlendFactor			srcAlphaBlendFactor
+			VK_BLEND_FACTOR_ZERO,		// VkBlendFactor			dstAlphaBlendFactor
+			VK_BLEND_OP_ADD,			// VkBlendOp				alphaBlendOp
+			VK_COLOR_COMPONENT_B_BIT
+			| VK_COLOR_COMPONENT_A_BIT	// VkColorComponentFlags	colorWriteMask
+		};
+
+		const VkPipelineColorBlendStateCreateInfo	colorBlendState				=
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,	// VkStructureType								sType
+			DE_NULL,													// const void*									pNext
+			0u,															// VkPipelineColorBlendStateCreateFlags			flags
+			VK_FALSE,													// VkBool32										logicOpEnable
+			VK_LOGIC_OP_CLEAR,											// VkLogicOp									logicOp
+			1u,															// deUint32										attachmentCount
+			&colorBlendAttachmentState,									// const VkPipelineColorBlendAttachmentState*	pAttachments
+			{ 0.0f, 0.0f, 0.0f, 0.0f }									// float										blendConstants[4]
+		};
+
+		const VkStencilOpState						stencilOpState				=
+		{
+			VK_STENCIL_OP_REPLACE,	// VkStencilOp	failOp
+			VK_STENCIL_OP_REPLACE,	// VkStencilOp	passOp
+			VK_STENCIL_OP_ZERO,		// VkStencilOp	depthFailOp
+			VK_COMPARE_OP_ALWAYS,	// VkCompareOp	compareOp
+			0xff,					// deUint32		compareMask
+			0xff,					// deUint32		writeMask
+			stencilRefValue			// deUint32		reference
+		};
+
+		const VkPipelineDepthStencilStateCreateInfo	depthStencilState			=
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,	// VkStructureType							sType
+			DE_NULL,													// const void*								pNext
+			0u,															// VkPipelineDepthStencilStateCreateFlags	flags
+			VK_TRUE,													// VkBool32									depthTestEnable
+			VK_FALSE,													// VkBool32									depthWriteEnable
+			VK_COMPARE_OP_LESS,											// VkCompareOp								depthCompareOp
+			VK_FALSE,													// VkBool32									depthBoundsTestEnable
+			VK_TRUE,													// VkBool32									stencilTestEnable
+			stencilOpState,												// VkStencilOpState							front
+			stencilOpState,												// VkStencilOpState							back
+			0.0f,														// float									minDepthBounds
+			1.0f														// float									maxDepthBounds
+		};
+
+		const std::vector<VkViewport>				viewports					(1, makeViewport(tcu::UVec2(m_width, m_height)));
+		const std::vector<VkRect2D>					scissors					(1, makeRect2D(tcu::UVec2(m_width, m_height)));
+
+		renderPipeline = makeGraphicsPipeline(vkd,			// const DeviceInterface&							vk
+				device,										// const VkDevice									device
+				*pipelineLayout,							// const VkPipelineLayout							pipelineLayout
+				*vertexShaderModule,						// const VkShaderModule								vertexShaderModule
+				DE_NULL,									// const VkShaderModule								tessellationControlShaderModule
+				DE_NULL,									// const VkShaderModule								tessellationEvalShaderModule
+				DE_NULL,									// const VkShaderModule								geometryShaderModule
+				*fragmentShaderModule,						// const VkShaderModule								fragmentShaderModule
+				*renderPass,								// const VkRenderPass								renderPass
+				viewports,									// const std::vector<VkViewport>&					viewports
+				scissors,									// const std::vector<VkRect2D>&						scissors
+				VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,		// const VkPrimitiveTopology						topology
+				0u,											// const deUint32									subpass
+				0u,											// const deUint32									patchControlPoints
+				&vertexInputState,							// const VkPipelineVertexInputStateCreateInfo*		vertexInputStateCreateInfo
+				DE_NULL,									// const VkPipelineRasterizationStateCreateInfo*	rasterizationStateCreateInfo
+				DE_NULL,									// const VkPipelineMultisampleStateCreateInfo*		multisampleStateCreateInfo
+				isDSFormat ? &depthStencilState : DE_NULL,	// const VkPipelineDepthStencilStateCreateInfo*		depthStencilStateCreateInfo
+				isDSFormat ? DE_NULL : &colorBlendState);	// const VkPipelineColorBlendStateCreateInfo*		colorBlendStateCreateInfo
+	}
+
+	// Create framebuffer.
+	{
+		const VkImageView				attachments[]			=
+		{
+			*outputImageView,
+			isDSFormat ? *dsImageView : *inputImageView
+		};
+
+		const VkFramebufferCreateInfo	framebufferCreateInfo	=
+		{
+			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,	// VkStructureType			sType
+			DE_NULL,									// const void*				pNext
+			0u,											// VkFramebufferCreateFlags	flags
+			*renderPass,								// VkRenderPass				renderPass
+			2u,											// uint32_t					attachmentCount
+			attachments,								// const VkImageView*		pAttachments
+			m_width,									// uint32_t					width
+			m_height,									// uint32_t					height
+			1u											// uint32_t					layers
+		};
+
+		framebuffer = vk::createFramebuffer(vkd, device, &framebufferCreateInfo);
+	}
+
+	// Generate quad vertices
+	{
+		const tcu::Vec4	lowerLeftVertex		(-1.0f, -1.0f, 0.5f, 1.0f);
+		const tcu::Vec4	lowerRightVertex	(1.0f, -1.0f, 0.5f, 1.0f);
+		const tcu::Vec4	upperLeftVertex		(-1.0f, 1.0f, 0.5f, 1.0f);
+		const tcu::Vec4	upperRightVertex	(1.0f, 1.0f, 0.5f, 1.0f);
+
+		vertexData.push_back(lowerLeftVertex);
+		vertexData.push_back(upperLeftVertex);
+		vertexData.push_back(lowerRightVertex);
+		vertexData.push_back(upperRightVertex);
+	}
+
+	// Upload vertex data.
+	{
+		const size_t				vertexDataSize		= vertexData.size() * sizeof(Vec4);
+
+		const VkBufferCreateInfo	vertexBufferParams	=
+		{
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	//	VkStructureType		sType
+			DE_NULL,								//	const void*			pNext
+			0u,										//	VkBufferCreateFlags	flags
+			(VkDeviceSize)vertexDataSize,			//	VkDeviceSize		size
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,		//	VkBufferUsageFlags	usage
+			VK_SHARING_MODE_EXCLUSIVE,				//	VkSharingMode		sharingMode
+			1u,										//	deUint32			queueFamilyCount
+			&queueFamilyIndex,						//	const deUint32*		pQueueFamilyIndices
+		};
+
+		vertexBuffer		= createBuffer(vkd, m_context.getDevice(), &vertexBufferParams);
+		vertexBufferMemory	= createBufferMemory(vkd, device, m_context.getDefaultAllocator(), *vertexBuffer);
+
+		deMemcpy(vertexBufferMemory->getHostPtr(), vertexData.data(), vertexDataSize);
+		flushAlloc(vkd, device, *vertexBufferMemory);
+	}
+
+	beginCommandBuffer(vkd, *commandBuffer);
+	vkd.cmdBindPipeline(*commandBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *renderPipeline);
+
+	if (!isDSFormat)
+		vkd.cmdBindDescriptorSets(*commandBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
+
+	// Begin render pass.
+	{
+		VkRect2D					renderArea	=
+		{
+			{ 0u, 0u },				// VkOffset2D	offset
+			{ m_width, m_height }	// VkExtent2D	extent
+		};
+
+		const VkRenderPassBeginInfo	beginInfo	=
+		{
+			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,	// VkStructureType		sType
+			DE_NULL,									// const void*			pNext
+			*renderPass,								// VkRenderPass			renderPass
+			*framebuffer,								// VkFramebuffer		framebuffer
+			renderArea,									// VkRect2D				renderArea
+			0u,											// uint32_t				clearValueCount
+			DE_NULL										// const VkClearValue*	pClearValues
+		};
+
+		RenderpassSubpass::cmdBeginRenderPass(vkd, *commandBuffer, &beginInfo, &subpassBeginInfo);
+	}
+
+	const VkDeviceSize bindingOffset = 0;
+
+	vkd.cmdBindVertexBuffers(*commandBuffer, 0u, 1u, &vertexBuffer.get(), &bindingOffset);
+	vkd.cmdBindPipeline(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *renderPipeline);
+	vkd.cmdDraw(*commandBuffer, 4u, 1u, 0u, 0u);
+	RenderpassSubpass::cmdEndRenderPass(vkd, *commandBuffer, &subpassEndInfo);
+
+	// Copy results to a buffer.
+	if (isDSFormat)
+	{
+		copyDepthStencilImageToBuffers(vkd, *commandBuffer, *dsImage, *resultBuffer0, *resultBuffer1, tcu::IVec2(m_width, m_height), VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	}
+	else
+	{
+		copyImageToBuffer(vkd, *commandBuffer, *colorImage, *resultBuffer0, tcu::IVec2(m_width, m_height), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+	}
+
+	endCommandBuffer(vkd, *commandBuffer);
+	submitCommandsAndWait(vkd, m_context.getDevice(), m_context.getUniversalQueue(), *commandBuffer);
+	invalidateMappedMemoryRange(vkd, m_context.getDevice(), resultBuffer0Memory->getMemory(), resultBuffer0Memory->getOffset(), VK_WHOLE_SIZE);
+	invalidateMappedMemoryRange(vkd, m_context.getDevice(), resultBuffer1Memory->getMemory(), resultBuffer1Memory->getOffset(), VK_WHOLE_SIZE);
+
+	// Verify result.
+	{
+		const tcu::TextureFormat	format		(mapVkFormat(m_format));
+		tcu::TextureLevel			reference	(format, m_width, m_height);
+
+		if (isDSFormat)
+		{
+			const void* const					ptrDepth				(resultBuffer0Memory->getHostPtr());
+			const void* const					ptrStencil				(resultBuffer1Memory->getHostPtr());
+			const tcu::ConstPixelBufferAccess	resultDepthAccess		(getDepthCopyFormat(m_format), m_width, m_height, 1, ptrDepth);
+			const tcu::ConstPixelBufferAccess	resultStencilAccess		(getStencilCopyFormat(m_format), m_width, m_height, 1, ptrStencil);
+			const PixelBufferAccess				referenceDepthAccess	(tcu::getEffectiveDepthStencilAccess(reference.getAccess(), tcu::Sampler::MODE_DEPTH));
+			const PixelBufferAccess				referenceStencilAccess	(tcu::getEffectiveDepthStencilAccess(reference.getAccess(), tcu::Sampler::MODE_STENCIL));
+			const float							depthThreshold			(1.0f / ((UVec4(1u) << tcu::getTextureFormatMantissaBitDepth(resultDepthAccess.getFormat()).cast<deUint32>()) - 1u).cast<float>().x());
+
+			for (deUint32 x = 0; x < m_width; x++)
+				for (deUint32 y = 0; y < m_height; y++)
+				{
+					float depthValue = ((x / tileSize) % 2 != (y / tileSize) % 2) ? depthInitValues[0] : depthInitValues[1];
+					referenceDepthAccess.setPixDepth(depthValue, x, y, 0);
+					referenceStencilAccess.setPixel(tcu::IVec4(0.5f < depthValue ? stencilRefValue : 0), x, y, 0);
+				}
+
+			if (!verifyDepth(m_context, reference.getAccess(), resultDepthAccess, depthThreshold))
+				m_resultCollector.fail("Depth compare failed.");
+
+			if (!verifyStencil(m_context, referenceStencilAccess, resultStencilAccess))
+				m_resultCollector.fail("Stencil compare failed.");
+		}
+		else
+		{
+			const void* const					ptrResult		(resultBuffer0Memory->getHostPtr());
+			const tcu::ConstPixelBufferAccess	resultAccess	(format, m_width, m_height, 1, ptrResult);
+			const PixelBufferAccess				referenceAccess	(reference.getAccess());
+
+			for (deUint32 x = 0; x < m_width; x++)
+				for (deUint32 y = 0; y < m_height; y++)
+				{
+					const tcu::Vec4	initValue	= ((x / tileSize) % 2 != (y / tileSize) % 2) ? colorInitValues[0] : colorInitValues[1];
+					const tcu::Vec4	refValue	= tcu::Vec4(initValue.x(), initValue.y(), initValue.x() + initValue.y(), 1.0f);
+
+					referenceAccess.setPixel(refValue, x, y, 0);
+				}
+
+			if (!tcu::floatThresholdCompare(m_context.getTestContext().getLog(),	// log
+											"Rendered result",						// imageSetName
+											"",										// imageSetDesc
+											referenceAccess,						// reference
+											resultAccess,							// result
+											Vec4(0.01f),							// threshold
+											tcu::COMPARE_LOG_RESULT))				// logMode
+			{
+				m_resultCollector.fail("Image compare failed.");
+			}
+		}
+
 	}
 
 	return tcu::TestStatus(m_resultCollector.getResult(), m_resultCollector.getMessage());
@@ -1891,6 +2954,106 @@ struct SubpassPrograms
 			}
 			else
 				DE_FATAL("Unimplemented");
+		}
+	}
+};
+
+// Shader programs for testing backwards subpass self dependency from geometry stage to indirect draw
+struct SubpassSelfDependencyBackwardsPrograms
+{
+	void init (vk::SourceCollections& dst, SubpassSelfDependencyBackwardsTestConfig testConfig) const
+	{
+		DE_UNREF(testConfig);
+
+		dst.glslSources.add("vert") << glu::VertexSource(
+				"#version 450\n"
+				"layout(location = 0) in highp vec4 position;\n"
+				"void main (void)\n"
+				"{\n"
+				"    gl_Position = position;\n"
+				"}\n");
+
+		dst.glslSources.add("geom") << glu::GeometrySource(
+				"#version 450\n"
+				"layout(points) in;\n"
+				"layout(triangle_strip, max_vertices = 4) out;\n"
+				"\n"
+				"in gl_PerVertex {\n"
+				"    vec4 gl_Position;\n"
+				"} gl_in[];\n"
+				"\n"
+				"out gl_PerVertex {\n"
+				"    vec4 gl_Position;\n"
+				"};\n"
+				"layout (binding = 0) buffer IndirectBuffer\n"
+				"{\n"
+				"    uint vertexCount;\n"
+				"    uint instanceCount;\n"
+				"    uint firstVertex;\n"
+				"    uint firstInstance;\n"
+				"} indirectBuffer;\n"
+				"\n"
+				"void main (void) {\n"
+				"    vec4 p = gl_in[0].gl_Position;\n"
+				"    float offset = 0.03f;\n"
+				"    gl_Position = p + vec4(-offset, offset, 0, 0);\n"
+				"    EmitVertex();\n"
+				"    gl_Position = p + vec4(-offset, -offset, 0, 0);\n"
+				"    EmitVertex();\n"
+				"    gl_Position = p + vec4(offset, offset, 0, 0);\n"
+				"    EmitVertex();\n"
+				"    gl_Position = p + vec4(offset, -offset, 0, 0);\n"
+				"    EmitVertex();\n"
+				"    EndPrimitive();\n"
+				"    indirectBuffer.vertexCount = 64;\n"
+				"    indirectBuffer.instanceCount = 1;\n"
+				"    indirectBuffer.firstVertex = 64;\n"
+				"    indirectBuffer.firstInstance = 0;\n"
+				"}\n");
+
+		dst.glslSources.add("frag") << glu::FragmentSource(
+				"#version 450\n"
+				"layout(location = 0) out highp vec4 fragColor;\n"
+				"void main (void)\n"
+				"{\n"
+				"    fragColor = vec4(1, 0, 0, 1);\n"
+				"}\n");
+	}
+};
+
+struct SeparateChannelsPrograms
+{
+	void init (vk::SourceCollections& dst, SeparateChannelsTestConfig testConfig) const
+	{
+		dst.glslSources.add("vert") << glu::VertexSource(
+				"#version 450\n"
+				"layout(location = 0) in highp vec4 position;\n"
+				"void main (void)\n"
+				"{\n"
+				"    gl_Position = position;\n"
+				"}\n");
+
+		if (isDepthStencilFormat(testConfig.format))
+		{
+			dst.glslSources.add("frag") << glu::FragmentSource(
+					"#version 450\n"
+					"layout(location = 0) out highp vec4 fragColor;\n"
+					"void main (void)\n"
+					"{\n"
+					"    fragColor = vec4(1);\n"
+					"}\n");
+		}
+		else
+		{
+			dst.glslSources.add("frag") << glu::FragmentSource(
+					"#version 450\n"
+					"layout(set = 0, binding = 0, input_attachment_index = 0) uniform subpassInput inputAtt;\n"
+					"layout(location = 0) out highp vec4 fragColor;\n"
+					"void main (void)\n"
+					"{\n"
+					"    vec4 inputColor = subpassLoad(inputAtt);\n"
+					"    fragColor = vec4(1, 1, inputColor.r + inputColor.g, 1);\n"
+					"}\n");
 		}
 	}
 };
@@ -2152,6 +3315,57 @@ void initTests (tcu::TestCaseGroup* group, const RenderPassType renderPassType)
 		}
 
 		group->addChild(lateFragmentTestsGroup.release());
+	}
+
+	// Test subpass self dependency
+	{
+		const UVec2		renderSizes[]		=
+		{
+			UVec2(64, 64),
+			UVec2(128, 128),
+			UVec2(512, 512)
+		};
+
+		de::MovePtr<tcu::TestCaseGroup>	selfDependencyGroup	(new tcu::TestCaseGroup(testCtx, "self_dependency", "self_dependency"));
+
+		for (size_t renderSizeNdx = 0; renderSizeNdx < DE_LENGTH_OF_ARRAY(renderSizes); renderSizeNdx++)
+		{
+			string groupName	("render_size_" + de::toString(renderSizes[renderSizeNdx].x()) + "_" + de::toString(renderSizes[renderSizeNdx].y()));
+			de::MovePtr<tcu::TestCaseGroup>	renderSizeGroup	(new tcu::TestCaseGroup(testCtx, groupName.c_str(), groupName.c_str()));
+
+			const SubpassSelfDependencyBackwardsTestConfig	testConfig	(VK_FORMAT_R8G8B8A8_UNORM, renderSizes[renderSizeNdx], renderPassType);
+			renderSizeGroup->addChild(new InstanceFactory1<SubpassSelfDependencyBackwardsTestInstance, SubpassSelfDependencyBackwardsTestConfig, SubpassSelfDependencyBackwardsPrograms>(testCtx, tcu::NODETYPE_SELF_VALIDATE, "geometry_to_indirectdraw", "", testConfig));
+
+			selfDependencyGroup->addChild(renderSizeGroup.release());
+		}
+
+		group->addChild(selfDependencyGroup.release());
+	}
+
+	// Test using a single attachment with reads and writes using separate channels. This should work without subpass self-dependency.
+	{
+		de::MovePtr<tcu::TestCaseGroup>	separateChannelsGroup	(new tcu::TestCaseGroup(testCtx, "separate_channels", "separate_channels"));
+
+		struct TestConfig
+		{
+			string		name;
+			VkFormat	format;
+		} configs[] =
+		{
+			{	"r8g8b8a8_unorm",		VK_FORMAT_R8G8B8A8_UNORM		},
+			{	"r16g16b16a16_sfloat",	VK_FORMAT_R16G16B16A16_SFLOAT	},
+			{	"d24_unorm_s8_uint",	VK_FORMAT_D24_UNORM_S8_UINT		},
+			{	"d32_sfloat_s8_uint",	VK_FORMAT_D32_SFLOAT_S8_UINT	}
+		};
+
+		for (deUint32 configIdx = 0; configIdx < DE_LENGTH_OF_ARRAY(configs); configIdx++)
+		{
+			const SeparateChannelsTestConfig testConfig(configs[configIdx].format, renderPassType);
+
+			separateChannelsGroup->addChild(new InstanceFactory1<SeparateChannelsTestInstance, SeparateChannelsTestConfig, SeparateChannelsPrograms>(testCtx, tcu::NODETYPE_SELF_VALIDATE, configs[configIdx].name, "", testConfig));
+		}
+
+		group->addChild(separateChannelsGroup.release());
 	}
 }
 } // anonymous

@@ -30,7 +30,10 @@
 #include "vktRenderPassSparseRenderTargetTests.hpp"
 #include "vktRenderPassSubpassDependencyTests.hpp"
 #include "vktRenderPassUnusedAttachmentTests.hpp"
+#include "vktRenderPassUnusedClearAttachmentTests.hpp"
 #include "vktRenderPassDepthStencilResolveTests.hpp"
+#include "vktRenderPassUnusedAttachmentSparseFillingTests.hpp"
+#include "vktRenderPassFragmentDensityMapTests.hpp"
 
 #include "vktTestCaseUtil.hpp"
 #include "vktTestGroupUtil.hpp"
@@ -99,6 +102,10 @@ namespace vkt
 namespace
 {
 using namespace renderpass;
+
+typedef vector<deUint8>	DepthValuesArray;
+
+static const deUint8	DEPTH_VALUES[]	= { 0u, 255u, 1u };
 
 enum AllocationKind
 {
@@ -242,6 +249,39 @@ BoolOp boolOpFromIndex (size_t index)
 	};
 
 	return ops[index % DE_LENGTH_OF_ARRAY(ops)];
+}
+
+static float requiredDepthEpsilon(VkFormat format)
+{
+	// Possible precision loss in the unorm depth pipeline means that we need to check depths
+	// that go in and back out of the depth buffer with an epsilon rather than an exact match
+	deUint32 unormBits = 0;
+
+	switch (format)
+	{
+	case VK_FORMAT_D16_UNORM:
+		unormBits = 16;
+		break;
+	case VK_FORMAT_X8_D24_UNORM_PACK32:
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+		unormBits = 24;
+		break;
+	case VK_FORMAT_D32_SFLOAT:
+	case VK_FORMAT_D32_SFLOAT_S8_UINT:
+	default:
+		unormBits = 0;
+		break;
+	}
+
+	if (unormBits > 0)
+		return 1.0f / (float)((1 << unormBits) - 1);
+
+	return 0.0f; // Require exact match
+}
+
+static bool depthsEqual(float a, float b, float epsilon)
+{
+	return fabs(a - b) <= epsilon;
 }
 
 Move<VkFramebuffer> createFramebuffer (const DeviceInterface&	vk,
@@ -731,18 +771,19 @@ struct TestConfig
 		IMAGEMEMORY_LAZY		= (1<<1)
 	};
 
-						TestConfig (const RenderPass&	renderPass_,
-									RenderTypes			renderTypes_,
-									CommandBufferTypes	commandBufferTypes_,
-									ImageMemory			imageMemory_,
-									const UVec2&		targetSize_,
-									const UVec2&		renderPos_,
-									const UVec2&		renderSize_,
-									deBool				useFormatCompCount_,
-									deUint32			seed_,
-									deUint32			drawStartNdx_,
-									AllocationKind		allocationKind_,
-									RenderPassType		renderPassType_)
+						TestConfig (const RenderPass&			renderPass_,
+									RenderTypes					renderTypes_,
+									CommandBufferTypes			commandBufferTypes_,
+									ImageMemory					imageMemory_,
+									const UVec2&				targetSize_,
+									const UVec2&				renderPos_,
+									const UVec2&				renderSize_,
+									deBool						useFormatCompCount_,
+									deUint32					seed_,
+									deUint32					drawStartNdx_,
+									AllocationKind				allocationKind_,
+									RenderPassType				renderPassType_,
+									vector<DeviceCoreFeature>	requiredFeatures_ = vector<DeviceCoreFeature>())
 		: renderPass			(renderPass_)
 		, renderTypes			(renderTypes_)
 		, commandBufferTypes	(commandBufferTypes_)
@@ -755,21 +796,31 @@ struct TestConfig
 		, drawStartNdx			(drawStartNdx_)
 		, allocationKind		(allocationKind_)
 		, renderPassType		(renderPassType_)
+		, requiredFeatures		(requiredFeatures_)
 	{
+		DepthValuesArray	shuffledDepthValues	(&DEPTH_VALUES[0], &DEPTH_VALUES[DE_LENGTH_OF_ARRAY(DEPTH_VALUES)]);
+		de::Random			rng					(seed + 1);
+
+		rng.shuffle(shuffledDepthValues.begin(), shuffledDepthValues.end());
+
+		depthValues.push_back(shuffledDepthValues[0]);
+		depthValues.push_back(shuffledDepthValues[1]);
 	}
 
-	RenderPass			renderPass;
-	RenderTypes			renderTypes;
-	CommandBufferTypes	commandBufferTypes;
-	ImageMemory			imageMemory;
-	UVec2				targetSize;
-	UVec2				renderPos;
-	UVec2				renderSize;
-	deBool				useFormatCompCount;
-	deUint32			seed;
-	deUint32			drawStartNdx;
-	AllocationKind		allocationKind;
-	RenderPassType		renderPassType;
+	RenderPass					renderPass;
+	RenderTypes					renderTypes;
+	CommandBufferTypes			commandBufferTypes;
+	ImageMemory					imageMemory;
+	UVec2						targetSize;
+	UVec2						renderPos;
+	UVec2						renderSize;
+	deBool						useFormatCompCount;
+	deUint32					seed;
+	deUint32					drawStartNdx;
+	AllocationKind				allocationKind;
+	RenderPassType				renderPassType;
+	vector<DeviceCoreFeature>	requiredFeatures;
+	DepthValuesArray			depthValues;
 };
 
 TestConfig::RenderTypes operator| (TestConfig::RenderTypes a, TestConfig::RenderTypes b)
@@ -785,6 +836,12 @@ TestConfig::CommandBufferTypes operator| (TestConfig::CommandBufferTypes a, Test
 TestConfig::ImageMemory operator| (TestConfig::ImageMemory a, TestConfig::ImageMemory b)
 {
 	return (TestConfig::ImageMemory)(((deUint32)a) | ((deUint32)b));
+}
+
+void checkSupport (Context& context, TestConfig config)
+{
+	for (size_t featureNdx = 0; featureNdx < config.requiredFeatures.size(); featureNdx++)
+		context.requireDeviceCoreFeature(config.requiredFeatures[featureNdx]);
 }
 
 void logRenderPassInfo (TestLog&			log,
@@ -1345,7 +1402,7 @@ Move<VkImageView> createImageAttachmentView (const DeviceInterface&	vk,
 	return createImageView(vk, device, 0u, image, VK_IMAGE_VIEW_TYPE_2D, format, makeComponentMappingRGBA(), range);
 }
 
-VkClearValue randomClearValue (const Attachment& attachment, de::Random& rng, deBool useFormatCompCount)
+VkClearValue randomClearValue (const Attachment& attachment, de::Random& rng, deBool useFormatCompCount, const DepthValuesArray& depthValues)
 {
 	const float					clearNan	= tcu::Float32::nan().asFloat();
 	const tcu::TextureFormat	format		= mapVkFormat(attachment.getFormat());
@@ -1363,9 +1420,7 @@ VkClearValue randomClearValue (const Attachment& attachment, de::Random& rng, de
 											: 0x0u;
 
 		if (tcu::hasDepthComponent(format.order))
-			clearValue.depthStencil.depth	= rng.getBool()
-											? 1.0f
-											: 0.0f;
+			clearValue.depthStencil.depth	= float(depthValues[rng.getBool() ? 1 : 0]) / 255.0f;
 
 		return clearValue;
 	}
@@ -2922,7 +2977,8 @@ void markUndefined (vector<PixelValue>&	values,
 }
 
 PixelValue clearValueToPixelValue (const VkClearValue&			value,
-								   const tcu::TextureFormat&	format)
+								   const tcu::TextureFormat&	format,
+								   const DepthValuesArray&		depthValues)
 {
 	const bool	isDepthAttachment			= hasDepthComponent(format.order);
 	const bool	isStencilAttachment			= hasStencilComponent(format.order);
@@ -2933,9 +2989,9 @@ PixelValue clearValueToPixelValue (const VkClearValue&			value,
 	{
 		if (isDepthAttachment)
 		{
-			if (value.depthStencil.depth == 1.0f)
+			if (value.depthStencil.depth == float(depthValues[1]) / 255.0f)
 				pixelValue.setValue(0, true);
-			else if (value.depthStencil.depth == 0.0f)
+			else if (value.depthStencil.depth == float(depthValues[0]) / 255.0f)
 				pixelValue.setValue(0, false);
 			else
 				DE_FATAL("Unknown depth value");
@@ -3021,7 +3077,8 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 							const vector<SubpassRenderInfo>&	subpassRenderInfo,
 							const UVec2&						renderPos,
 							const UVec2&						renderSize,
-							const deUint32						drawStartNdx)
+							const deUint32						drawStartNdx,
+							const DepthValuesArray&				depthValues)
 {
 	const vector<Subpass>&	subpasses		= renderPassInfo.getSubpasses();
 	vector<bool>			attachmentUsed	(renderPassInfo.getAttachments().size(), false);
@@ -3037,7 +3094,7 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 		reference.resize(targetSize.x() * targetSize.y());
 
 		if (imageClearValues[attachmentNdx])
-			clearReferenceValues(reference, targetSize, UVec2(0, 0), targetSize, BVec4(true), clearValueToPixelValue(*imageClearValues[attachmentNdx], format));
+			clearReferenceValues(reference, targetSize, UVec2(0, 0), targetSize, BVec4(true), clearValueToPixelValue(*imageClearValues[attachmentNdx], format, depthValues));
 	}
 
 	for (size_t subpassNdx = 0; subpassNdx < subpasses.size(); subpassNdx++)
@@ -3061,7 +3118,7 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 				DE_ASSERT(!tcu::hasStencilComponent(format.order));
 
 				if (attachment.getLoadOp() == VK_ATTACHMENT_LOAD_OP_CLEAR)
-					clearReferenceValues(reference, targetSize, renderPos, renderSize, BVec4(true), clearValueToPixelValue(*renderPassClearValues[attachmentIndex], format));
+					clearReferenceValues(reference, targetSize, renderPos, renderSize, BVec4(true), clearValueToPixelValue(*renderPassClearValues[attachmentIndex], format, depthValues));
 				else if (attachment.getLoadOp() == VK_ATTACHMENT_LOAD_OP_DONT_CARE)
 					markUndefined(reference, BVec4(true), targetSize, renderPos, renderSize);
 
@@ -3084,7 +3141,7 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 				if (tcu::hasDepthComponent(format.order))
 				{
 					if (attachment.getLoadOp() == VK_ATTACHMENT_LOAD_OP_CLEAR)
-						clearReferenceValues(reference, targetSize, renderPos, renderSize, BVec4(true, false, false, false), clearValueToPixelValue(*renderPassClearValues[attachmentIndex], format));
+						clearReferenceValues(reference, targetSize, renderPos, renderSize, BVec4(true, false, false, false), clearValueToPixelValue(*renderPassClearValues[attachmentIndex], format, depthValues));
 					else if (attachment.getLoadOp() == VK_ATTACHMENT_LOAD_OP_DONT_CARE)
 						markUndefined(reference, BVec4(true, false, false, false), targetSize, renderPos, renderSize);
 				}
@@ -3092,7 +3149,7 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 				if (tcu::hasStencilComponent(format.order))
 				{
 					if (attachment.getStencilLoadOp() == VK_ATTACHMENT_LOAD_OP_CLEAR)
-						clearReferenceValues(reference, targetSize, renderPos, renderSize, BVec4(false, true, false, false), clearValueToPixelValue(*renderPassClearValues[attachmentIndex], format));
+						clearReferenceValues(reference, targetSize, renderPos, renderSize, BVec4(false, true, false, false), clearValueToPixelValue(*renderPassClearValues[attachmentIndex], format, depthValues));
 					else if (attachment.getStencilLoadOp() == VK_ATTACHMENT_LOAD_OP_DONT_CARE)
 						markUndefined(reference, BVec4(false, true, false, false), targetSize, renderPos, renderSize);
 				}
@@ -3114,7 +3171,7 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 
 			value.color = colorClear.getColor();
 
-			clearReferenceValues(reference, targetSize, offset, size, BVec4(true), clearValueToPixelValue(value, format));
+			clearReferenceValues(reference, targetSize, offset, size, BVec4(true), clearValueToPixelValue(value, format, depthValues));
 		}
 
 		if (renderInfo.getDepthStencilClear())
@@ -3136,7 +3193,7 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 			value.depthStencil.depth = dsClear.getDepth();
 			value.depthStencil.stencil = dsClear.getStencil();
 
-			clearReferenceValues(reference, targetSize, offset, size, BVec4(hasDepth, hasStencil, false, false), clearValueToPixelValue(value, format));
+			clearReferenceValues(reference, targetSize, offset, size, BVec4(hasDepth, hasStencil, false, false), clearValueToPixelValue(value, format, depthValues));
 		}
 
 		if (renderInfo.getRenderQuad())
@@ -3391,7 +3448,8 @@ void renderReferenceValues (vector<vector<PixelValue> >&		referenceAttachments,
 void renderReferenceImagesFromValues (vector<tcu::TextureLevel>&			referenceImages,
 									  const vector<vector<PixelValue> >&	referenceValues,
 									  const UVec2&							targetSize,
-									  const RenderPass&						renderPassInfo)
+									  const RenderPass&						renderPassInfo,
+									  const DepthValuesArray&				depthValues)
 {
 	referenceImages.resize(referenceValues.size());
 
@@ -3419,9 +3477,9 @@ void renderReferenceImagesFromValues (vector<tcu::TextureLevel>&			referenceImag
 					if (reference[x + y * targetSize.x()].getValue(0))
 					{
 						if (*reference[x + y * targetSize.x()].getValue(0))
-							depthAccess.setPixDepth(1.0f, x, y);
+							depthAccess.setPixDepth(float(depthValues[1]) / 255.0f, x, y);
 						else
-							depthAccess.setPixDepth(0.0f, x, y);
+							depthAccess.setPixDepth(float(depthValues[0]) / 255.0f, x, y);
 					}
 					else // Fill with 3x3 grid
 						depthAccess.setPixDepth(((x / 3) % 2) == ((y / 3) % 2) ? 0.33f : 0.66f, x, y);
@@ -3522,7 +3580,9 @@ bool verifyColorAttachment (const vector<PixelValue>&		reference,
 
 bool verifyDepthAttachment (const vector<PixelValue>&		reference,
 							const ConstPixelBufferAccess&	result,
-							const PixelBufferAccess&		errorImage)
+							const PixelBufferAccess&		errorImage,
+							const DepthValuesArray&			depthValues,
+							float							epsilon)
 {
 	const Vec4	red		(1.0f, 0.0f, 0.0f, 1.0f);
 	const Vec4	green	(0.0f, 1.0f, 0.0f, 1.0f);
@@ -3545,8 +3605,8 @@ bool verifyDepthAttachment (const vector<PixelValue>&		reference,
 		{
 			const bool value = *maybeValue;
 
-			if ((value && (resultDepth != 1.0f))
-				|| (!value && resultDepth != 0.0f))
+			if ((value && !depthsEqual(resultDepth, float(depthValues[1]) / 255.0f, epsilon))
+				|| (!value && !depthsEqual(resultDepth, float(depthValues[0]) / 255.0f, epsilon)))
 				pixelOk = false;
 		}
 
@@ -3622,8 +3682,8 @@ bool logAndVerifyImages (TestLog&											log,
 
 	log << TestLog::Message << "Reference images fill undefined pixels with 3x3 grid pattern." << TestLog::EndMessage;
 
-	renderReferenceValues(referenceValues, renderPassInfo, targetSize, imageClearValues, renderPassClearValues, subpassRenderInfo, config.renderPos, config.renderSize, config.drawStartNdx);
-	renderReferenceImagesFromValues(referenceAttachments, referenceValues, targetSize, renderPassInfo);
+	renderReferenceValues(referenceValues, renderPassInfo, targetSize, imageClearValues, renderPassClearValues, subpassRenderInfo, config.renderPos, config.renderSize, config.drawStartNdx, config.depthValues);
+	renderReferenceImagesFromValues(referenceAttachments, referenceValues, targetSize, renderPassInfo, config.depthValues);
 
 	for (size_t attachmentNdx = 0; attachmentNdx < renderPassInfo.getAttachments().size(); attachmentNdx++)
 	{
@@ -3655,7 +3715,7 @@ bool logAndVerifyImages (TestLog&											log,
 					log << TestLog::Image("AttachmentReference" + de::toString(attachmentNdx), "Attachment reference " + de::toString(attachmentNdx), referenceAttachments[attachmentNdx].getAccess());
 
 					if (renderPassInfo.getAttachments()[attachmentNdx].getStoreOp() == VK_ATTACHMENT_STORE_OP_STORE
-						&& !verifyDepthAttachment(referenceValues[attachmentNdx], depthAccess, depthErrorImage.getAccess()))
+						&& !verifyDepthAttachment(referenceValues[attachmentNdx], depthAccess, depthErrorImage.getAccess(), config.depthValues, requiredDepthEpsilon(attachment.getFormat())))
 					{
 						log << TestLog::Image("DepthAttachmentError" + de::toString(attachmentNdx), "Depth Attachment Error " + de::toString(attachmentNdx), depthErrorImage.getAccess());
 						isOk = false;
@@ -3675,16 +3735,16 @@ bool logAndVerifyImages (TestLog&											log,
 
 				invalidateAlloc(vk, device, attachmentResources[attachmentNdx]->getResultMemory());
 
+				const ConstPixelBufferAccess	access		(format, targetSize.x(), targetSize.y(), 1, ptr);
+				tcu::TextureLevel errorImage	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), targetSize.x(), targetSize.y());
+
+				log << TestLog::Image("Attachment" + de::toString(attachmentNdx), "Attachment " + de::toString(attachmentNdx), access);
+				log << TestLog::Image("AttachmentReference" + de::toString(attachmentNdx), "Attachment reference " + de::toString(attachmentNdx), referenceAttachments[attachmentNdx].getAccess());
+
 				if (tcu::hasDepthComponent(format.order))
 				{
-					const ConstPixelBufferAccess	access		(format, targetSize.x(), targetSize.y(), 1, ptr);
-					tcu::TextureLevel				errorImage	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), targetSize.x(), targetSize.y());
-
-					log << TestLog::Image("Attachment" + de::toString(attachmentNdx), "Attachment " + de::toString(attachmentNdx), access);
-					log << TestLog::Image("AttachmentReference" + de::toString(attachmentNdx), "Attachment reference " + de::toString(attachmentNdx), referenceAttachments[attachmentNdx].getAccess());
-
 					if ((renderPassInfo.getAttachments()[attachmentNdx].getStoreOp() == VK_ATTACHMENT_STORE_OP_STORE || renderPassInfo.getAttachments()[attachmentNdx].getStencilStoreOp() == VK_ATTACHMENT_STORE_OP_STORE)
-						&& !verifyDepthAttachment(referenceValues[attachmentNdx], access, errorImage.getAccess()))
+						&& !verifyDepthAttachment(referenceValues[attachmentNdx], access, errorImage.getAccess(), config.depthValues, requiredDepthEpsilon(attachment.getFormat())))
 					{
 						log << TestLog::Image("AttachmentError" + de::toString(attachmentNdx), "Attachment Error " + de::toString(attachmentNdx), errorImage.getAccess());
 						isOk = false;
@@ -3692,12 +3752,6 @@ bool logAndVerifyImages (TestLog&											log,
 				}
 				else if (tcu::hasStencilComponent(format.order))
 				{
-					const ConstPixelBufferAccess	access		(format, targetSize.x(), targetSize.y(), 1, ptr);
-					tcu::TextureLevel				errorImage	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), targetSize.x(), targetSize.y());
-
-					log << TestLog::Image("Attachment" + de::toString(attachmentNdx), "Attachment " + de::toString(attachmentNdx), access);
-					log << TestLog::Image("AttachmentReference" + de::toString(attachmentNdx), "Attachment reference " + de::toString(attachmentNdx), referenceAttachments[attachmentNdx].getAccess());
-
 					if ((renderPassInfo.getAttachments()[attachmentNdx].getStoreOp() == VK_ATTACHMENT_STORE_OP_STORE || renderPassInfo.getAttachments()[attachmentNdx].getStencilStoreOp() == VK_ATTACHMENT_STORE_OP_STORE)
 						&& !verifyStencilAttachment(referenceValues[attachmentNdx], access, errorImage.getAccess()))
 					{
@@ -3707,12 +3761,6 @@ bool logAndVerifyImages (TestLog&											log,
 				}
 				else
 				{
-					const ConstPixelBufferAccess	access		(format, targetSize.x(), targetSize.y(), 1, ptr);
-					tcu::TextureLevel				errorImage	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), targetSize.x(), targetSize.y());
-
-					log << TestLog::Image("Attachment" + de::toString(attachmentNdx), "Attachment " + de::toString(attachmentNdx), access);
-					log << TestLog::Image("AttachmentReference" + de::toString(attachmentNdx), "Attachment reference " + de::toString(attachmentNdx), referenceAttachments[attachmentNdx].getAccess());
-
 					if ((renderPassInfo.getAttachments()[attachmentNdx].getStoreOp() == VK_ATTACHMENT_STORE_OP_STORE || renderPassInfo.getAttachments()[attachmentNdx].getStencilStoreOp() == VK_ATTACHMENT_STORE_OP_STORE)
 						&& !verifyColorAttachment(referenceValues[attachmentNdx], access, errorImage.getAccess(), config.useFormatCompCount))
 					{
@@ -3807,6 +3855,8 @@ void createTestShaders (SourceCollections& dst, TestConfig config)
 			fragmentShader << "#version 310 es\n"
 						   << "precision highp float;\n";
 
+			bool hasAnyDepthFormats = false;
+
 			for (size_t attachmentNdx = config.drawStartNdx; attachmentNdx < subpass.getInputAttachments().size(); attachmentNdx++)
 			{
 				const deUint32				attachmentIndex	= subpass.getInputAttachments()[attachmentNdx].getAttachment();
@@ -3820,6 +3870,7 @@ void createTestShaders (SourceCollections& dst, TestConfig config)
 				{
 					if (isDepthFormat && layout != VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL)
 					{
+						hasAnyDepthFormats = true;
 						fragmentShader << "layout(input_attachment_index = " << attachmentNdx << ", set=0, binding=" << inputAttachmentBinding << ") uniform highp subpassInput i_depth" << attachmentNdx << ";\n";
 						inputAttachmentBinding++;
 					}
@@ -3844,6 +3895,10 @@ void createTestShaders (SourceCollections& dst, TestConfig config)
 				const std::string attachmentType = getAttachmentType(config.renderPass.getAttachments()[getAttachmentNdx(subpass.getColorAttachments(), attachmentNdx)].getFormat(), config.useFormatCompCount);
 				fragmentShader << "layout(location = " << attachmentNdx << ") out highp " << attachmentType << " o_color" << attachmentNdx << ";\n";
 			}
+
+			if (hasAnyDepthFormats)
+				fragmentShader << "\nbool depthsEqual(float a, float b, float epsilon) {\n"
+								<< "\treturn abs(a - b) <= epsilon;\n}\n\n";
 
 			fragmentShader << "void main (void) {\n";
 
@@ -3890,7 +3945,7 @@ void createTestShaders (SourceCollections& dst, TestConfig config)
 					fragmentShader	<< "\tgl_FragDepth = ((int(gl_FragCoord.x) % 2 == " << (index % 2)
 									<< ") " << boolOpToString(op) << " ("
 									<< "int(gl_FragCoord.y) % 2 == " << ((index / 2) % 2)
-									<< ") ? 1.0 : 0.0);\n";
+									<< ") ? " << deUint32(config.depthValues[1]) << ".0f/255.0f : " << deUint32(config.depthValues[0]) << ".0f/255.0f);\n";
 				}
 			}
 			else
@@ -3963,7 +4018,9 @@ void createTestShaders (SourceCollections& dst, TestConfig config)
 						{
 							if (isDepthFormat && layout != VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL)
 							{
-								fragmentShader << "\tinputs[" << inputValueNdx << "] = 1.0 == float(subpassLoad(i_depth" << attachmentNdx << ").x);\n";
+								fragmentShader << "\tinputs[" << inputValueNdx << "] = depthsEqual(" << deUint32(config.depthValues[1]) <<
+									".0f/255.0f, float(subpassLoad(i_depth" << attachmentNdx << ").x), " <<
+									std::fixed << std::setprecision(12) << requiredDepthEpsilon(attachment.getFormat()) << ");\n";
 								inputValueNdx++;
 							}
 
@@ -4043,7 +4100,7 @@ void createTestShaders (SourceCollections& dst, TestConfig config)
 						for (size_t i = 0; i < inputsPerOutput; i++)
 							fragmentShader << "\toutputs[" << outputValueNdx << "] = outputs[" << outputValueNdx << "] == inputs[" <<  (outputValueNdx * inputsPerOutput + i) %  inputComponentCount << "];\n";
 
-						fragmentShader << "\tgl_FragDepth = outputs[" << outputValueNdx << "] ? 1.0 : 0.0;";
+						fragmentShader << "\tgl_FragDepth = outputs[" << outputValueNdx << "] ? " << deUint32(config.depthValues[1]) << ".0f/255.0f : " << deUint32(config.depthValues[0]) << ".0f/255.0f;\n";
 					}
 				}
 			}
@@ -4235,48 +4292,28 @@ void initializeSubpassIsSecondary (vector<bool>& subpassIsSecondary, const vecto
 	}
 }
 
-void initializeImageClearValues (de::Random& rng, vector<Maybe<VkClearValue> >& clearValues, const vector<Attachment>& attachments, const vector<bool>& isLazy, deBool useFormatCompCount)
+void initializeImageClearValues (de::Random& rng, vector<Maybe<VkClearValue> >& clearValues, const vector<Attachment>& attachments, const vector<bool>& isLazy, deBool useFormatCompCount, const DepthValuesArray& depthValues)
 {
 	for (size_t attachmentNdx = 0; attachmentNdx < attachments.size(); attachmentNdx++)
 	{
 		if (!isLazy[attachmentNdx])
-			clearValues.push_back(just(randomClearValue(attachments[attachmentNdx], rng, useFormatCompCount)));
+			clearValues.push_back(just(randomClearValue(attachments[attachmentNdx], rng, useFormatCompCount, depthValues)));
 		else
 			clearValues.push_back(nothing<VkClearValue>());
 	}
 }
 
-void initializeRenderPassClearValues (de::Random& rng, vector<Maybe<VkClearValue> >& clearValues, const vector<Attachment>& attachments, deBool useFormatCompCount)
+void initializeRenderPassClearValues (de::Random& rng, vector<Maybe<VkClearValue> >& clearValues, const vector<Attachment>& attachments, deBool useFormatCompCount, const DepthValuesArray& depthValues)
 {
 	for (size_t attachmentNdx = 0; attachmentNdx < attachments.size(); attachmentNdx++)
 	{
 		if (attachments[attachmentNdx].getLoadOp() == VK_ATTACHMENT_LOAD_OP_CLEAR
 			|| attachments[attachmentNdx].getStencilLoadOp() == VK_ATTACHMENT_LOAD_OP_CLEAR)
 		{
-			clearValues.push_back(just(randomClearValue(attachments[attachmentNdx], rng, useFormatCompCount)));
+			clearValues.push_back(just(randomClearValue(attachments[attachmentNdx], rng, useFormatCompCount, depthValues)));
 		}
 		else
 			clearValues.push_back(nothing<VkClearValue>());
-	}
-}
-
-void initializeSubpassClearValues (de::Random& rng, vector<vector<VkClearColorValue> >& clearValues, const RenderPass& renderPass, deBool useFormatCompCount)
-{
-	clearValues.resize(renderPass.getSubpasses().size());
-
-	for (size_t subpassNdx = 0; subpassNdx < renderPass.getSubpasses().size(); subpassNdx++)
-	{
-		const Subpass&						subpass				= renderPass.getSubpasses()[subpassNdx];
-		const vector<AttachmentReference>&	colorAttachments	= subpass.getColorAttachments();
-
-		clearValues[subpassNdx].resize(colorAttachments.size());
-
-		for (size_t attachmentRefNdx = 0; attachmentRefNdx < colorAttachments.size(); attachmentRefNdx++)
-		{
-			const Attachment& attachment = renderPass.getAttachments()[getAttachmentNdx(colorAttachments, attachmentRefNdx)];
-
-			clearValues[subpassNdx][attachmentRefNdx] = randomColorClearValue(attachment, rng, useFormatCompCount);
-		}
 	}
 }
 
@@ -4413,7 +4450,7 @@ void initializeSubpassRenderInfo (vector<SubpassRenderInfo>& renderInfos, de::Ra
 				const UVec2			size		((viewportSize * UVec2(2)) / UVec2(3));
 				const UVec2			offset		(viewportOffset.x() + ((deUint32)colorAttachments.size() % 2u) * (viewportSize.x() / 3u),
 												 viewportOffset.y() + (((deUint32)colorAttachments.size() / 2u) % 2u) * (viewportSize.y() / 3u));
-				const VkClearValue	value		= randomClearValue(attachment, rng, config.useFormatCompCount);
+				const VkClearValue	value		= randomClearValue(attachment, rng, config.useFormatCompCount, config.depthValues);
 
 				depthStencilClear = tcu::just(DepthStencilClear(offset, size, value.depthStencil.depth, value.depthStencil.stencil));
 			}
@@ -4482,20 +4519,19 @@ tcu::TestStatus renderPassTest (Context& context, TestConfig config)
 
 	vector<bool>						subpassIsSecondary;
 	vector<SubpassRenderInfo>			subpassRenderInfo;
-	vector<vector<VkClearColorValue> >	subpassColorClearValues;
 
 	if (config.renderPassType == RENDERPASS_TYPE_RENDERPASS2)
-		context.requireDeviceExtension("VK_KHR_create_renderpass2");
+		context.requireDeviceFunctionality("VK_KHR_create_renderpass2");
 
 	if (config.allocationKind == ALLOCATION_KIND_DEDICATED)
 	{
-		if (!isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_dedicated_allocation"))
+		if (!context.isDeviceFunctionalitySupported("VK_KHR_dedicated_allocation"))
 			TCU_THROW(NotSupportedError, "VK_KHR_dedicated_allocation is not supported");
 	}
 
 	if (!renderPassInfo.getInputAspects().empty())
 	{
-		if (!isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_maintenance2"))
+		if (!context.isDeviceFunctionalitySupported("VK_KHR_maintenance2"))
 			TCU_THROW(NotSupportedError, "Extension VK_KHR_maintenance2 not supported.");
 	}
 
@@ -4556,17 +4592,16 @@ tcu::TestStatus renderPassTest (Context& context, TestConfig config)
 			}
 		}
 
-		if (requireDepthStencilLayout && !isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_maintenance2"))
+		if (requireDepthStencilLayout && !context.isDeviceFunctionalitySupported("VK_KHR_maintenance2"))
 			TCU_THROW(NotSupportedError, "VK_KHR_maintenance2 is not supported");
 	}
 
 	initializeAttachmentIsLazy(attachmentIsLazy, renderPassInfo.getAttachments(), config.imageMemory);
-	initializeImageClearValues(rng, imageClearValues, renderPassInfo.getAttachments(), attachmentIsLazy, config.useFormatCompCount);
+	initializeImageClearValues(rng, imageClearValues, renderPassInfo.getAttachments(), attachmentIsLazy, config.useFormatCompCount, config.depthValues);
 	initializeAttachmentImageUsage(context, attachmentImageUsage, renderPassInfo, attachmentIsLazy, imageClearValues);
-	initializeRenderPassClearValues(rng, renderPassClearValues, renderPassInfo.getAttachments(), config.useFormatCompCount);
+	initializeRenderPassClearValues(rng, renderPassClearValues, renderPassInfo.getAttachments(), config.useFormatCompCount, config.depthValues);
 
 	initializeSubpassIsSecondary(subpassIsSecondary, renderPassInfo.getSubpasses(), config.commandBufferTypes);
-	initializeSubpassClearValues(rng, subpassColorClearValues, renderPassInfo, config.useFormatCompCount);
 	initializeSubpassRenderInfo(subpassRenderInfo, rng, renderPassInfo, config);
 
 	logTestCaseInfo(log, config, attachmentIsLazy, imageClearValues, renderPassClearValues, subpassRenderInfo);
@@ -4595,7 +4630,7 @@ tcu::TestStatus renderPassTest (Context& context, TestConfig config)
 		Allocator&									allocator							= context.getDefaultAllocator();
 
 		const Unique<VkRenderPass>					renderPass							(createRenderPass(vk, device, renderPassInfo, config.renderPassType));
-		const Unique<VkCommandPool>					commandBufferPool					(createCommandPool(vk, device, queueIndex, 0));
+		const Unique<VkCommandPool>					commandBufferPool					(createCommandPool(vk, device, 0, queueIndex));
 		const Unique<VkCommandBuffer>				initializeImagesCommandBuffer		(allocateCommandBuffer(vk, device, *commandBufferPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 		const Unique<VkCommandBuffer>				renderCommandBuffer					(allocateCommandBuffer(vk, device, *commandBufferPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 		const Unique<VkCommandBuffer>				readImagesToBuffersCommandBuffer	(allocateCommandBuffer(vk, device, *commandBufferPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
@@ -4743,6 +4778,13 @@ void addAttachmentTests (tcu::TestCaseGroup* group, const TestConfigExternal tes
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 	};
 
+	const VkImageLayout initialAndFinalColorLayoutsLazy[] =
+	{
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+	};
+
 	const VkImageLayout initialAndFinalDepthStencilLayouts[] =
 	{
 		VK_IMAGE_LAYOUT_GENERAL,
@@ -4751,6 +4793,14 @@ void addAttachmentTests (tcu::TestCaseGroup* group, const TestConfigExternal tes
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+	};
+
+	const VkImageLayout initialAndFinalDepthStencilLayoutsLazy[] =
+	{
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	};
 
 	const VkImageLayout subpassLayouts[] =
@@ -4816,10 +4866,11 @@ void addAttachmentTests (tcu::TestCaseGroup* group, const TestConfigExternal tes
 
 		for (size_t testCaseNdx = 0; testCaseNdx < testCaseCount; testCaseNdx++)
 		{
-			const bool					useDepthStencil		= rng.getBool();
-			VkImageLayout				depthStencilLayout	= VK_IMAGE_LAYOUT_GENERAL;
-			vector<Attachment>			attachments;
-			vector<AttachmentReference>	colorAttachmentReferences;
+			const bool						useDepthStencil		= rng.getBool();
+			const TestConfig::ImageMemory	imageMemory			= rng.choose<TestConfig::ImageMemory>(DE_ARRAY_BEGIN(imageMemories), DE_ARRAY_END(imageMemories));
+			VkImageLayout					depthStencilLayout	= VK_IMAGE_LAYOUT_GENERAL;
+			vector<Attachment>				attachments;
+			vector<AttachmentReference>		colorAttachmentReferences;
 
 			for (size_t attachmentNdx = 0; attachmentNdx < attachmentCount; attachmentNdx++)
 			{
@@ -4828,8 +4879,12 @@ void addAttachmentTests (tcu::TestCaseGroup* group, const TestConfigExternal tes
 				const VkAttachmentLoadOp	loadOp			= rng.choose<VkAttachmentLoadOp>(DE_ARRAY_BEGIN(loadOps), DE_ARRAY_END(loadOps));
 				const VkAttachmentStoreOp	storeOp			= rng.choose<VkAttachmentStoreOp>(DE_ARRAY_BEGIN(storeOps), DE_ARRAY_END(storeOps));
 
-				const VkImageLayout			initialLayout	= rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalColorLayouts), DE_ARRAY_END(initialAndFinalColorLayouts));
-				const VkImageLayout			finalizeLayout	= rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalColorLayouts), DE_ARRAY_END(initialAndFinalColorLayouts));
+				const VkImageLayout			initialLayout	= (imageMemory == TestConfig::IMAGEMEMORY_STRICT)
+															? rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalColorLayouts), DE_ARRAY_END(initialAndFinalColorLayouts))
+															: rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalColorLayoutsLazy), DE_ARRAY_END(initialAndFinalColorLayoutsLazy));
+				const VkImageLayout			finalizeLayout	= (imageMemory == TestConfig::IMAGEMEMORY_STRICT)
+															? rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalColorLayouts), DE_ARRAY_END(initialAndFinalColorLayouts))
+															: rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalColorLayoutsLazy), DE_ARRAY_END(initialAndFinalColorLayoutsLazy));
 				const VkImageLayout			subpassLayout	= rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(subpassLayouts), DE_ARRAY_END(subpassLayouts));
 
 				const VkAttachmentLoadOp	stencilLoadOp	= rng.choose<VkAttachmentLoadOp>(DE_ARRAY_BEGIN(loadOps), DE_ARRAY_END(loadOps));
@@ -4846,8 +4901,12 @@ void addAttachmentTests (tcu::TestCaseGroup* group, const TestConfigExternal tes
 				const VkAttachmentLoadOp	loadOp			= rng.choose<VkAttachmentLoadOp>(DE_ARRAY_BEGIN(loadOps), DE_ARRAY_END(loadOps));
 				const VkAttachmentStoreOp	storeOp			= rng.choose<VkAttachmentStoreOp>(DE_ARRAY_BEGIN(storeOps), DE_ARRAY_END(storeOps));
 
-				const VkImageLayout			initialLayout	= rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalDepthStencilLayouts), DE_ARRAY_END(initialAndFinalDepthStencilLayouts));
-				const VkImageLayout			finalizeLayout	= rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalDepthStencilLayouts), DE_ARRAY_END(initialAndFinalDepthStencilLayouts));
+				const VkImageLayout			initialLayout	= (imageMemory == TestConfig::IMAGEMEMORY_STRICT)
+															? rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalDepthStencilLayouts), DE_ARRAY_END(initialAndFinalDepthStencilLayouts))
+															: rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalDepthStencilLayoutsLazy), DE_ARRAY_END(initialAndFinalDepthStencilLayoutsLazy));
+				const VkImageLayout			finalizeLayout	= (imageMemory == TestConfig::IMAGEMEMORY_STRICT)
+															? rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalDepthStencilLayouts), DE_ARRAY_END(initialAndFinalDepthStencilLayouts))
+															: rng.choose<VkImageLayout>(DE_ARRAY_BEGIN(initialAndFinalDepthStencilLayoutsLazy), DE_ARRAY_END(initialAndFinalDepthStencilLayoutsLazy));
 
 				const VkAttachmentLoadOp	stencilLoadOp	= rng.choose<VkAttachmentLoadOp>(DE_ARRAY_BEGIN(loadOps), DE_ARRAY_END(loadOps));
 				const VkAttachmentStoreOp	stencilStoreOp	= rng.choose<VkAttachmentStoreOp>(DE_ARRAY_BEGIN(storeOps), DE_ARRAY_END(storeOps));
@@ -4859,7 +4918,6 @@ void addAttachmentTests (tcu::TestCaseGroup* group, const TestConfigExternal tes
 			{
 				const TestConfig::RenderTypes			render			= rng.choose<TestConfig::RenderTypes>(DE_ARRAY_BEGIN(renderCommands), DE_ARRAY_END(renderCommands));
 				const TestConfig::CommandBufferTypes	commandBuffer	= rng.choose<TestConfig::CommandBufferTypes>(DE_ARRAY_BEGIN(commandBuffers), DE_ARRAY_END(commandBuffers));
-				const TestConfig::ImageMemory			imageMemory		= rng.choose<TestConfig::ImageMemory>(DE_ARRAY_BEGIN(imageMemories), DE_ARRAY_END(imageMemories));
 				const vector<Subpass>					subpasses		(1, Subpass(VK_PIPELINE_BIND_POINT_GRAPHICS, 0u, vector<AttachmentReference>(), colorAttachmentReferences, vector<AttachmentReference>(), AttachmentReference((useDepthStencil ? (deUint32)(attachments.size() - 1) : VK_ATTACHMENT_UNUSED), depthStencilLayout), vector<deUint32>()));
 				const vector<SubpassDependency>			deps;
 
@@ -4889,7 +4947,7 @@ void addAttachmentTests (tcu::TestCaseGroup* group, const TestConfigExternal tes
 	}
 }
 
-void addAttachmentWriteMaskTests(tcu::TestCaseGroup* group, const TestConfigExternal testConfigExternal)
+void addAttachmentWriteMaskTests (tcu::TestCaseGroup* group, const TestConfigExternal testConfigExternal)
 {
 	const deUint32 attachmentCounts[]	= { 1, 2, 3, 4, 8 };
 
@@ -4950,6 +5008,7 @@ void addAttachmentWriteMaskTests(tcu::TestCaseGroup* group, const TestConfigExte
 				const UVec2								renderPos			= UVec2(0, 0);
 				const UVec2								renderSize			= UVec2(64, 64);
 				const deBool							useFormatCompCount	= DE_TRUE;
+				const vector<DeviceCoreFeature>			requiredFeatures	= {DEVICE_CORE_FEATURE_INDEPENDENT_BLEND};
 				const TestConfig						testConfig			(renderPass,
 																			 render,
 																			 commandBuffer,
@@ -4961,9 +5020,10 @@ void addAttachmentWriteMaskTests(tcu::TestCaseGroup* group, const TestConfigExte
 																			 1293809,
 																			 drawStartNdx,
 																			 testConfigExternal.allocationKind,
-																			 testConfigExternal.renderPassType);
+																			 testConfigExternal.renderPassType,
+																			 requiredFeatures);
 
-				addFunctionCaseWithPrograms<TestConfig>(attachmentCountGroup.get(), testCaseName.c_str(), testCaseName.c_str(), createTestShaders, renderPassTest, testConfig);
+				addFunctionCaseWithPrograms<TestConfig>(attachmentCountGroup.get(), testCaseName.c_str(), testCaseName.c_str(), checkSupport, createTestShaders, renderPassTest, testConfig);
 			}
 		}
 
@@ -5243,44 +5303,23 @@ void addAttachmentAllocationTests (tcu::TestCaseGroup* group, const TestConfigEx
 
 							if(lastUseOfAttachment[inputAttachmentIndex])
 							{
-								if(*lastUseOfAttachment[inputAttachmentIndex] == subpassIndex)
-								{
-									deps.push_back(SubpassDependency(subpassIndex, subpassIndex,
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+								const bool byRegion = (*lastUseOfAttachment[inputAttachmentIndex] == subpassIndex) || rng.getBool();
 
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+								deps.push_back(SubpassDependency(*lastUseOfAttachment[inputAttachmentIndex], subpassIndex,
+																 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+																	| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+																	| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+																	| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 
-																	 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-																	 VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+																 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+																	| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+																	| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+																	| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 
-																	 VK_DEPENDENCY_BY_REGION_BIT));
-								}
-								else
-								{
-									const bool byRegion = rng.getBool();
+																 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+																 VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 
-									deps.push_back(SubpassDependency(*lastUseOfAttachment[inputAttachmentIndex], subpassIndex,
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-
-																	 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-																	 VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-
-																	 byRegion ? (VkDependencyFlags)VK_DEPENDENCY_BY_REGION_BIT : 0u));
-								}
+																 byRegion ? (VkDependencyFlags)VK_DEPENDENCY_BY_REGION_BIT : 0u));
 
 								lastUseOfAttachment[inputAttachmentIndex] = just(subpassIndex);
 
@@ -5298,44 +5337,23 @@ void addAttachmentAllocationTests (tcu::TestCaseGroup* group, const TestConfigEx
 						{
 							if (lastUseOfAttachment[*depthStencilAttachment])
 							{
-								if(*lastUseOfAttachment[*depthStencilAttachment] == subpassIndex)
-								{
-									deps.push_back(SubpassDependency(subpassIndex, subpassIndex,
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+								const bool byRegion = (*lastUseOfAttachment[*depthStencilAttachment] == subpassIndex) || rng.getBool();
 
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+								deps.push_back(SubpassDependency(*lastUseOfAttachment[*depthStencilAttachment], subpassIndex,
+																 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+																	| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+																	| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+																	| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 
-																	 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-																	 VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+																 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+																	| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+																	| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+																	| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 
-																	 VK_DEPENDENCY_BY_REGION_BIT));
-								}
-								else
-								{
-									const bool byRegion = rng.getBool();
+																 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+																 VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 
-									deps.push_back(SubpassDependency(*lastUseOfAttachment[*depthStencilAttachment], subpassIndex,
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-
-																	 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-																		| VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-																		| VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-																		| VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-
-																	 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-																	 VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-
-																	 byRegion ? (VkDependencyFlags)VK_DEPENDENCY_BY_REGION_BIT : 0u));
-								}
+																 byRegion ? (VkDependencyFlags)VK_DEPENDENCY_BY_REGION_BIT : 0u));
 							}
 
 							lastUseOfAttachment[*depthStencilAttachment] = just(subpassIndex);
@@ -5823,10 +5841,10 @@ void addSimpleTests (tcu::TestCaseGroup* group, const TestConfigExternal testCon
 					   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
 			Attachment(VK_FORMAT_S8_UINT,
 					   VK_SAMPLE_COUNT_1_BIT,
-					   VK_ATTACHMENT_LOAD_OP_CLEAR,
-					   VK_ATTACHMENT_STORE_OP_STORE,
 					   VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 					   VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					   VK_ATTACHMENT_LOAD_OP_CLEAR,
+					   VK_ATTACHMENT_STORE_OP_STORE,
 					   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 					   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
 		};
@@ -6972,6 +6990,8 @@ tcu::TestCaseGroup* createRenderPassTestsInternal (tcu::TestContext& testCtx, Re
 	suballocationTestGroup->addChild((renderPassType == RENDERPASS_TYPE_LEGACY) ? createRenderPassSampleReadTests(testCtx)			: createRenderPass2SampleReadTests(testCtx));
 	suballocationTestGroup->addChild((renderPassType == RENDERPASS_TYPE_LEGACY) ? createRenderPassSparseRenderTargetTests(testCtx)	: createRenderPass2SparseRenderTargetTests(testCtx));
 	suballocationTestGroup->addChild(createRenderPassUnusedAttachmentTests(testCtx, renderPassType));
+	suballocationTestGroup->addChild(createRenderPassUnusedClearAttachmentTests(testCtx, renderPassType));
+	suballocationTestGroup->addChild(createRenderPassUnusedAttachmentSparseFillingTests(testCtx, renderPassType));
 
 	renderpassTests->addChild(suballocationTestGroup.release());
 	renderpassTests->addChild(dedicatedAllocationTestGroup.release());
@@ -6979,6 +6999,7 @@ tcu::TestCaseGroup* createRenderPassTestsInternal (tcu::TestContext& testCtx, Re
 	if (renderPassType != RENDERPASS_TYPE_LEGACY)
 	{
 		renderpassTests->addChild(createRenderPass2DepthStencilResolveTests(testCtx));
+		renderpassTests->addChild(createFragmentDensityMapTests(testCtx));
 	}
 
 	return renderpassTests.release();

@@ -15,7 +15,6 @@
  */
 package com.android.car.dialer.telecom;
 
-import android.annotation.Nullable;
 import android.bluetooth.BluetoothDevice;
 import android.car.Car;
 import android.car.CarProjectionManager;
@@ -29,8 +28,10 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.dialer.log.L;
-import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.Collections;
 import java.util.List;
@@ -45,30 +46,47 @@ class ProjectionCallHandler implements InCallServiceImpl.ActiveCallListChangedCa
     @VisibleForTesting static final String PROJECTION_STATUS_EXTRA_DEVICE_STATE =
             "android.car.projection.DEVICE_STATE";
 
-    private final CarProjectionManager mCarProjectionManager;
+    private final Context mContext;
     private final TelecomManager mTelecomManager;
+    private final CarProjectionManagerProvider mCarProjectionManagerProvider;
+    private Car mCar;
+    private CarProjectionManager mCarProjectionManager;
 
     private int mProjectionState = ProjectionStatus.PROJECTION_STATE_INACTIVE;
     private List<ProjectionStatus> mProjectionDetails = Collections.emptyList();
 
     ProjectionCallHandler(Context context) {
-        this(context.getSystemService(TelecomManager.class),
-                (CarProjectionManager)
-                        Car.createCar(context).getCarManager(Car.PROJECTION_SERVICE));
+        this(context, context.getSystemService(TelecomManager.class),
+                car -> (CarProjectionManager) car.getCarManager(Car.PROJECTION_SERVICE));
     }
 
     @VisibleForTesting
-    ProjectionCallHandler(TelecomManager telecomManager, CarProjectionManager projectionManager) {
+    ProjectionCallHandler(Context context, TelecomManager telecomManager,
+            CarProjectionManagerProvider projectionManagerProvider) {
+        mContext = context;
         mTelecomManager = telecomManager;
-        mCarProjectionManager = projectionManager;
+        mCarProjectionManagerProvider = projectionManagerProvider;
     }
 
     void start() {
-        mCarProjectionManager.registerProjectionStatusListener(this);
+        if (mCar == null) {
+            mCar = Car.createCar(mContext);
+        }
+        if (mCarProjectionManager == null) {
+            mCarProjectionManager = mCarProjectionManagerProvider.getCarProjectionManager(mCar);
+            mCarProjectionManager.registerProjectionStatusListener(this);
+        }
     }
 
     void stop() {
-        mCarProjectionManager.unregisterProjectionStatusListener(this);
+        if (mCarProjectionManager != null) {
+            mCarProjectionManager.unregisterProjectionStatusListener(this);
+            mCarProjectionManager = null;
+        }
+        if (mCar != null) {
+            mCar.disconnect();
+            mCar = null;
+        }
     }
 
     @Override
@@ -181,5 +199,9 @@ class ProjectionCallHandler implements InCallServiceImpl.ActiveCallListChangedCa
 
         // No projecting apps want to suppress this device, so let it through.
         return false;
+    }
+
+    interface CarProjectionManagerProvider {
+        CarProjectionManager getCarProjectionManager(Car car);
     }
 }

@@ -33,12 +33,12 @@ namespace conditional
 
 void checkConditionalRenderingCapabilities (vkt::Context& context, const ConditionalData& data)
 {
-	if (!vk::isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_EXT_conditional_rendering"))
+	if (!context.isDeviceFunctionalitySupported("VK_EXT_conditional_rendering"))
 		TCU_THROW(NotSupportedError, "Missing extension: VK_EXT_conditional_rendering");
 
-	if (data.useSecondaryBuffer)
+	if (data.conditionInherited)
 	{
-		const vk::VkPhysicalDeviceConditionalRenderingFeaturesEXT& conditionalRenderingFeatures = context.getConditionalRenderingFeatures();
+		const vk::VkPhysicalDeviceConditionalRenderingFeaturesEXT& conditionalRenderingFeatures = context.getConditionalRenderingFeaturesEXT();
 		if (!conditionalRenderingFeatures.inheritedConditionalRendering)
 		{
 			TCU_THROW(NotSupportedError, "Device does not support inherited conditional rendering");
@@ -80,11 +80,16 @@ void beginConditionalRendering (const vk::DeviceInterface& vk, vk::VkCommandBuff
 
 std::ostream& operator<< (std::ostream& str, ConditionalData const& c)
 {
-	str << (c.conditionEnabled ? "condition" : "no_condition");
+	const bool conditionEnabled = c.conditionInPrimaryCommandBuffer || c.conditionInSecondaryCommandBuffer;
+	str << (conditionEnabled ? "condition" : "no_condition");
 
-	if (c.useSecondaryBuffer)
+	if (c.conditionInSecondaryCommandBuffer || !conditionEnabled)
 	{
 		str << "_secondary_buffer";
+	}
+	else if (c.conditionInherited)
+	{
+		str << "_inherited";
 	}
 
 	str << "_" << (c.expectCommandExecution ? "expect_execution" : "expect_noop");

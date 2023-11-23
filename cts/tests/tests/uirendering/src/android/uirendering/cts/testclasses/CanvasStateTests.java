@@ -20,9 +20,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Path;
+import android.graphics.RectF;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.util.DisplayMetrics;
@@ -83,10 +83,60 @@ public class CanvasStateTests extends ActivityTestBase {
                     canvas.clipRect(0, 0, 20, 20);
 
                     // not rejected!
-                    assertFalse(canvas.quickReject(0, 0, 20, 20, Canvas.EdgeType.BW));
+                    assertFalse(canvas.quickReject(0, 0, 20, 20));
+                    {
+                        // Now it will be, due to a translation
+                        canvas.save();
+                        canvas.translate(0, -30);
+                        assertTrue(canvas.quickReject(0, 0, 20, 20));
+                        canvas.restore();
+                    }
 
                     // rejected!
-                    assertTrue(canvas.quickReject(0, 40, 20, 60, Canvas.EdgeType.BW));
+                    assertTrue(canvas.quickReject(0, 40, 20, 60));
+                    {
+                        // Now it won't be, due to a translation
+                        canvas.save();
+                        canvas.translate(0, -30);
+                        assertFalse(canvas.quickReject(0, 40, 20, 60));
+                        canvas.restore();
+                    }
+
+                    // empty path is always rejected
+                    Path path = new Path();
+                    assertTrue(canvas.quickReject(path));
+
+                    // path intesecting the clip - not rejected!
+                    path.moveTo(30, 0);
+                    path.lineTo(10, 20);
+                    path.lineTo(40, 20);
+                    path.close();
+                    assertFalse(canvas.quickReject(path));
+                    {
+                        // Now it will be, due to a scale
+                        canvas.save();
+                        canvas.scale(3, 3);
+                        assertTrue(canvas.quickReject(path));
+                        canvas.restore();
+                    }
+
+                    // path well outside the clip - rejected!
+                    path.reset();
+                    path.addCircle(-100, -100, 50, Path.Direction.CW);
+                    assertTrue(canvas.quickReject(path));
+                    {
+                        // Now it won't be, due to a translate
+                        canvas.save();
+                        canvas.translate(75, 75);
+                        assertFalse(canvas.quickReject(path));
+                        canvas.restore();
+                    }
+
+                    RectF rect = new RectF(-1, -1, 1, 1);
+                    assertFalse(canvas.quickReject(rect));
+                    rect.offset(25, 25);
+                    assertTrue(canvas.quickReject(rect));
+
                     canvas.restore();
                 })
                 .runWithoutVerification();

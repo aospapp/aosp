@@ -8,7 +8,7 @@ en_XA{
     NumberElements{
         default{"latn"}
     }
-    Version{"2.0"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -102,6 +102,15 @@ en_XA{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"[h B – h B]"}
+                    h{"[h – h B]"}
+                }
+                Bhm{
+                    B{"[h:mm B – h:mm B]"}
+                    h{"[h:mm – h:mm B]"}
+                    m{"[h:mm – h:mm B]"}
+                }
                 H{
                     H{"[HH – HH]"}
                 }
@@ -302,6 +311,15 @@ en_XA{
                 yyyyQQQQ{"[QQQQ y G]"}
             }
             intervalFormats{
+                Bh{
+                    B{"[h B – h B]"}
+                    h{"[h – h B]"}
+                }
+                Bhm{
+                    B{"[h:mm B – h:mm B]"}
+                    h{"[h:mm – h:mm B]"}
+                    m{"[h:mm – h:mm B]"}
+                }
                 Gy{
                     G{"[y G – y G]"}
                     y{"[y – y G]"}
@@ -630,6 +648,15 @@ en_XA{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"[h B – h B]"}
+                    h{"[h – h B]"}
+                }
+                Bhm{
+                    B{"[h:mm B – h:mm B]"}
+                    h{"[h:mm – h:mm B]"}
+                    m{"[h:mm – h:mm B]"}
+                }
                 Gy{
                     G{"[y G – y G]"}
                     y{"[y – y G]"}
@@ -1596,6 +1623,12 @@ en_XA{
         standard{
             2{"[{0} åñð {1} one]"}
             end{"[{0}، åñð {1} one]"}
+            middle{"[{0}، {1} one]"}
+            start{"[{0}، {1} one]"}
+        }
+        standard-short{
+            2{"[{0} ⅋ {1} one]"}
+            end{"[{0}، ⅋ {1} one]"}
             middle{"[{0}، {1} one]"}
             start{"[{0}، {1} one]"}
         }

@@ -23,8 +23,8 @@
     <string name="deny" msgid="3998166389989144025">"Refuzo"</string>
     <string name="device_info_default" msgid="1548919563979154348">"I panjohur"</string>
     <plurals name="show_dev_countdown" formatted="false" msgid="3953785659137161981">
-      <item quantity="other">Tani je <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> hapa larg të qenët programues.</item>
-      <item quantity="one">Tani je <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> hap larg të qenët programues.</item>
+      <item quantity="other">Tani të duhen edhe <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> hapa për t\'u bërë zhvillues.</item>
+      <item quantity="one">Tani të duhet edhe <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> hap për t\'u bërë zhvillues.</item>
     </plurals>
     <string name="show_dev_on" msgid="9075712234786224065">"Tani je zhvillues!"</string>
     <string name="show_dev_already" msgid="7665948832405148689">"Nuk ka nevojë, ti je programues tashmë!"</string>
@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Bëje tekstin në ekran më të vogël ose më të madh."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Zvogëlo"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Zmadho"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Teksti shembull"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Magjistari i mrekullueshëm i Ozit"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"Kapitulli 11: Qyteti i mrekullueshëm i smeraldtë i Ozit"</string>
@@ -294,7 +293,7 @@
     <string name="okay" msgid="5838476766924989056">"Në rregull"</string>
     <string name="forget" msgid="7735525146062672874">"Harro"</string>
     <string name="save" msgid="3418211178410498517">"Ruaj"</string>
-    <string name="done" msgid="5143229467535372339">"U krye!"</string>
+    <string name="done" msgid="5143229467535372339">"U krye"</string>
     <string name="apply" msgid="951230399613164126">"Zbato"</string>
     <string name="share" msgid="3567029787293158575">"Ndaj"</string>
     <string name="add" msgid="903114118076816060">"Shto"</string>
@@ -419,7 +418,7 @@
     <string name="security_settings_face_enroll_done" msgid="5409739233373490971">"U krye"</string>
     <string name="security_settings_face_settings_use_face_category" msgid="1586532139528115416">"Përdor fytyrën për"</string>
     <string name="security_settings_face_settings_use_face_unlock_phone" msgid="318274519126401671">"Shkyçja e pajisjes"</string>
-    <string name="security_settings_face_settings_use_face_for_apps" msgid="5479369083370664351">"Identifikimi dhe pagesat e aplikacionit"</string>
+    <string name="security_settings_face_settings_use_face_for_apps" msgid="5479369083370664351">"Identifikim në aplikacion dhe pagesa"</string>
     <string name="security_settings_face_settings_require_attention" msgid="2755140150841557225">"Hap sytë për të shkyçur"</string>
     <string name="security_settings_face_settings_require_attention_details" msgid="2557060433599942587">"Kur përdor vërtetimin me fytyrë, sytë duhet të jenë të hapur"</string>
     <string name="security_settings_face_settings_require_confirmation" msgid="7312024271060416438">"Kërko gjithmonë konfirmimin"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Mbroje tabletin tënd me një opsion për kyçjen e ekranit në mënyrë që askush të mos jetë në gjendje ta përdorë nëse të humb ose vidhet. Të duhet gjithashtu edhe një opsion për kyçjen e ekranit për të konfiguruar vërtetimin me fytyrë. Trokit tek \"Anulo\", më pas vendos një kod PIN ose zgjidh një tjetër opsion për kyçjen e ekranit."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Mbroje pajisjen tënde me një opsion për kyçjen e ekranit në mënyrë që askush të mos jetë në gjendje ta përdorë nëse të humb ose vidhet. Të duhet gjithashtu edhe një opsion për kyçjen e ekranit për të konfiguruar vërtetimin me fytyrë. Trokit tek \"Anulo\", më pas vendos një kod PIN ose zgjidh një tjetër opsion për kyçjen e ekranit."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Mbroje telefonin tënd me një opsion për kyçjen e ekranit në mënyrë që askush të mos jetë në gjendje ta përdorë nëse të humb ose vidhet. Të duhet gjithashtu edhe një opsion për kyçjen e ekranit për të konfiguruar vërtetimin me fytyrë. Trokit tek \"Anulo\", më pas vendos një kod PIN ose zgjidh një tjetër opsion për kyçjen e ekranit."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"Dëshiron ta kapërcesh konfigurimin e kodit PIN?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Dëshiron të kapërcesh konfigurimin e fjalëkalimit?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Dëshiron të kapërcesh konfigurimin e motivit?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Konfiguro kyçjen e ekranit"</string>
@@ -597,7 +595,7 @@
     <string name="unlock_disable_lock_title" msgid="3508492427073600294">"Çakt. kyçjen e ekranit"</string>
     <string name="unlock_disable_frp_warning_title" msgid="5858589970505254193">"Të hiqet mbrojtja e pajisjes?"</string>
     <string name="unlock_disable_frp_warning_title_profile" msgid="3814123014295965266">"Të hiqet mbrojtja e profilit?"</string>
-    <string name="unlock_disable_frp_warning_content_pattern" msgid="1843950215687159135">"Funksionet e mbrojtjes së pajisjes nuk do të funksionojnë pa motivin tënd."</string>
+    <string name="unlock_disable_frp_warning_content_pattern" msgid="1843950215687159135">"Veçoritë e mbrojtjes së pajisjes nuk do të funksionojnë pa motivin tënd."</string>
     <string name="unlock_disable_frp_warning_content_pattern_fingerprint" msgid="8846957650251741548">"Funksionet e mbrojtjes së pajisjes nuk do të funksionojnë pa motivin tënd.<xliff:g id="EMPTY_LINE">
 
 </xliff:g>Gjurmët e gishtave të ruajtura do të hiqen nga kjo pajisje dhe nuk do të jesh në gjendje të shkyçësh telefonin, të autorizosh blerjet apo të identifikohesh në aplikacione me to."</string>
@@ -669,7 +667,6 @@
       <item quantity="other">Duhet të ketë më pak se <xliff:g id="NUMBER_1">%d</xliff:g> shifra</item>
       <item quantity="one">Duhet të ketë më pak se <xliff:g id="NUMBER_0">%d</xliff:g> shifër</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Duhet të përmbajë vetëm shifrat 0-9"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Administratori i pajisjes nuk e lejon përdorimin e një kodi PIN të përdorur së fundi"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"Kodet e zakonshme PIN janë bllokuar nga administratori i TI-së. Provo një kod tjetër PIN."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"Kjo nuk mund të përfshijë një karakter të pavlefshëm"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="other">Duhet të përmbajë të paktën <xliff:g id="COUNT">%d</xliff:g> karaktere që nuk janë shkronja</item>
       <item quantity="one">Duhet të përmbajë të paktën 1 karakter që nuk është shkronjë</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="other">Duhet të përmbajë të paktën <xliff:g id="COUNT">%d</xliff:g> karaktere jonumerike</item>
+      <item quantity="one">Duhet të përmbajë të paktën 1 karakter jonumerik</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Administratori i pajisjes nuk e lejon përdorimin e një fjalëkalimi të përdorur së fundi"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Fjalëkalimet e zakonshme janë bllokuar nga administratori i TI-së. Provo një fjalëkalim tjetër."</string>
@@ -807,7 +808,7 @@
     <string name="wifi_display_details" msgid="6379855523460749126">"Shfaq cilësimet"</string>
     <string name="wifi_display_options_title" msgid="4587264519668872213">"Opsionet e shfaqjes së Wi-Fi"</string>
     <string name="wifi_display_options_forget" msgid="7882982544626742073">"Harro"</string>
-    <string name="wifi_display_options_done" msgid="5922060890309265817">"U krye!"</string>
+    <string name="wifi_display_options_done" msgid="5922060890309265817">"U krye"</string>
     <string name="wifi_display_options_name" msgid="8477627781133827607">"Emri"</string>
     <string name="wifi_band_24ghz" msgid="2973143764653628618">"2,4 GHz"</string>
     <string name="wifi_band_5ghz" msgid="6469832209748522207">"5 GHz"</string>
@@ -848,7 +849,7 @@
     <string name="wifi_notify_open_networks" msgid="4782239203624619655">"Hap njoftimin e rrjetit"</string>
     <string name="wifi_notify_open_networks_summary" msgid="1383681260705466715">"Njofto kur ofrohet një rrjet publik me cilësi të lartë"</string>
     <string name="wifi_wakeup" msgid="4963732992164721548">"Aktivizo automatikisht Wi‑Fi"</string>
-    <string name="wifi_wakeup_summary" msgid="1152699417411690">"Wi-Fi do të aktivizohet përsëri në afërsi të rrjeteve të ruajtura me cilësi të lartë, si p.sh. rrjetin e shtëpisë"</string>
+    <string name="wifi_wakeup_summary" msgid="1152699417411690">"Wi-Fi do të aktivizohet përsëri në afërsi të rrjeteve të ruajtura me cilësi të lartë, si p.sh. rrjeti i shtëpisë"</string>
     <string name="wifi_wakeup_summary_no_location" msgid="3007457288587966962">"Nuk ofrohet sepse vendndodhja është e çaktivizuar. Aktivizo "<annotation id="link">"vendndodhjen"</annotation>"."</string>
     <string name="wifi_wakeup_summary_scanning_disabled" msgid="6820040651529910914">"Nuk ofrohet sepse skanimi i Wi-Fi është çaktivizuar"</string>
     <string name="wifi_wakeup_summary_scoring_disabled" msgid="7067018832237903151">"Për ta përdorur, zgjidh një ofrues të vlerësimit të rrjetit"</string>
@@ -904,7 +905,7 @@
     <string name="wifi_ssid_hint" msgid="5010024648106585165">"Fut SSID-në"</string>
     <string name="wifi_security" msgid="9136702039496152831">"Siguria"</string>
     <string name="wifi_hidden_network" msgid="6647772204699776833">"Rrjet i fshehur"</string>
-    <string name="wifi_hidden_network_warning" msgid="8182333050353796473">"Nëse rrugëzuesi nuk po transmeton një ID rrjeti, por dëshiron të lidhesh me të në të ardhmen, mund ta caktosh rrjetin si të fshehur.\n\nKjo mund të krijojë një rrezik për sigurinë pasi telefoni yt do të transmetojë rregullisht sinjalin e tij për të gjetur rrjetin.\n\nCaktimi i rrjetit si të fshehur nuk do të ndryshojë cilësimet e router-it."</string>
+    <string name="wifi_hidden_network_warning" msgid="8182333050353796473">"Nëse router-i nuk po transmeton një ID rrjeti, por dëshiron të lidhesh me të në të ardhmen, mund ta caktosh rrjetin si të fshehur.\n\nKjo mund të krijojë një rrezik për sigurinë pasi telefoni yt do të transmetojë rregullisht sinjalin e tij për të gjetur rrjetin.\n\nCaktimi i rrjetit si të fshehur nuk do të ndryshojë cilësimet e router-it."</string>
     <string name="wifi_signal" msgid="696548364467704808">"Fuqia e sinjalit"</string>
     <string name="wifi_status" msgid="3439931558930689940">"Statusi"</string>
     <string name="tx_wifi_speed" msgid="2571810085003261073">"Shpejtësia e lidhjes së transmetimit"</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"Celular"</item>
+    <item msgid="6007360612667098926">"Vetëm Wi-Fi"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"Celular"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"Nëse Wi‑Fi nuk ofrohet, përdor rrjetin celular"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"Nëse rrjeti celular nuk ofrohet, përdor Wi‑Fi"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Telefono nëpërmjet Wi-Fi. Nëse humb Wi‑Fi, telefonata do të mbyllet."</string>
@@ -1118,7 +1125,7 @@
     <string name="musicfx_title" msgid="6456079041566773649">"Efektet e muzikës"</string>
     <string name="ring_volume_title" msgid="5874791723449821646">"Volumi i ziles"</string>
     <string name="vibrate_in_silent_title" msgid="2314667015729841220">"Dridhje kur është \"në heshtje\""</string>
-    <string name="notification_sound_title" msgid="6812164482799723931">"Zëri i parazgjedhur i njoftimit"</string>
+    <string name="notification_sound_title" msgid="6812164482799723931">"Tingulli i parazgjedhur i njoftimit"</string>
     <string name="incoming_call_volume_title" msgid="4736570528754310450">"Toni i ziles"</string>
     <string name="notification_volume_title" msgid="6022562909288085275">"Njoftimi"</string>
     <string name="checkbox_notification_same_as_incoming_call" msgid="7312942422655861175">"Përdor volumin e telefonatës hyrëse për njoftime"</string>
@@ -1302,7 +1309,7 @@
     <string name="pin_failed" msgid="4877356137480446727">"Operac. kodit PIN të kartës SIM dështoi!"</string>
     <string name="system_update_settings_list_item_title" msgid="1907497454722790033">"Përditësimet e sistemit"</string>
     <string name="system_update_settings_list_item_summary" msgid="3497456690691907873"></string>
-    <string name="firmware_version" msgid="547095584029938749">"Versioni i Android-it"</string>
+    <string name="firmware_version" msgid="547095584029938749">"Versioni i Android"</string>
     <string name="security_patch" msgid="483709031051932208">"Niveli i korrigjimit të sigurisë së Android"</string>
     <string name="model_info" msgid="1729765474260797594">"Modeli"</string>
     <string name="model_summary" msgid="8781425868254352168">"Modeli: %1$s"</string>
@@ -1937,9 +1944,9 @@
     <string name="language_input_gesture_summary_on_with_assist" msgid="315262339899294132"></string>
     <string name="language_input_gesture_summary_on_non_assist" msgid="6054599939153669225"></string>
     <string name="language_input_gesture_summary_off" msgid="4108509077072348546"></string>
-    <string name="language_settings" msgid="3551012802762495835">"Gjuhët dhe të dhënat"</string>
+    <string name="language_settings" msgid="3551012802762495835">"Gjuhët dhe metodat e hyrjes"</string>
     <string name="language_empty_list_user_restricted" msgid="3837176532474949716">"Nuk ke leje të ndryshosh gjuhën e pajisjes."</string>
-    <string name="language_keyboard_settings_title" msgid="2672573191605298938">"Gjuhët dhe të dhënat"</string>
+    <string name="language_keyboard_settings_title" msgid="2672573191605298938">"Gjuhët dhe metodat e hyrjes"</string>
     <string name="input_assistance" msgid="6442646949054057707">"Veglat"</string>
     <string name="keyboard_settings_category" msgid="5857591390023852850">"Tastiera dhe metodat e hyrjes"</string>
     <string name="phone_language" msgid="8471728119195198790">"Gjuhët"</string>
@@ -2031,7 +2038,7 @@
     <string name="accessibility_settings_title" msgid="1687226556576913576">"Cilësimet e qasjes"</string>
     <string name="accessibility_settings_summary" msgid="5742379519336396561">"Lexues ekrani, ekran, kontrolle ndërveprimi"</string>
     <string name="vision_settings_title" msgid="7315352351051423944">"Cilësimet e shikimit"</string>
-    <string name="vision_settings_description" msgid="3476589459009287332">"Mund ta personalizosh këtë pajisje për t\'iu përshtatur nevojave të tua. Këto funksione të qasjes mund të ndryshohen më vonë te \"Cilësimet\"."</string>
+    <string name="vision_settings_description" msgid="3476589459009287332">"Mund ta personalizosh këtë pajisje për t\'iu përshtatur nevojave të tua. Këto veçori të qasshmërisë mund të ndryshohen më vonë te \"Cilësimet\"."</string>
     <string name="vision_settings_suggestion_title" msgid="7268661419110951128">"Ndrysho madhësinë e shkrimit"</string>
     <string name="screen_reader_category_title" msgid="6300714148519645544">"Lexuesit e ekranit"</string>
     <string name="audio_and_captions_category_title" msgid="6140472938769619212">"Audioja dhe teksti në ekran"</string>
@@ -2273,7 +2280,7 @@
     <string name="battery_tip_early_heads_up_title" msgid="707163785378746813">"Aktivizo \"Kursyesin e baterisë\""</string>
     <string name="battery_tip_early_heads_up_summary" msgid="4231489566422395156">"Bateria mund të mbarojë më herët se zakonisht"</string>
     <string name="battery_tip_early_heads_up_done_title" msgid="112550885882648429">"\"Kursyesi i baterisë\" është i aktivizuar"</string>
-    <string name="battery_tip_early_heads_up_done_summary" msgid="8692257022962771181">"Disa funksione mund të jenë të kufizuara"</string>
+    <string name="battery_tip_early_heads_up_done_summary" msgid="8692257022962771181">"Disa veçori mund të jenë të kufizuara"</string>
     <string name="battery_tip_high_usage_title" product="default" msgid="4103005178310487352">"Telefoni është përdorur më shumë se zakonisht"</string>
     <string name="battery_tip_high_usage_title" product="tablet" msgid="1019583260005768965">"Tableti është përdorur më shumë se zakonisht"</string>
     <string name="battery_tip_high_usage_title" product="device" msgid="8304138287288309490">"Pajisja është përdorur më shumë se zakonisht"</string>
@@ -2659,7 +2666,7 @@
     <string name="data_usage_menu_show_ethernet" msgid="2130574690318410238">"Shfaq përdorimin e Eternetit"</string>
     <string name="data_usage_menu_hide_ethernet" msgid="1191233197312414533">"Fshih përdorimin e eternetit"</string>
     <string name="data_usage_menu_metered" msgid="3087525150259956831">"Kufizimet e rrjetit"</string>
-    <string name="data_usage_menu_auto_sync" msgid="3350154877737572146">"Të dhënat e autosinkronizimit"</string>
+    <string name="data_usage_menu_auto_sync" msgid="3350154877737572146">"Të dhënat e sinkronizimit automatik"</string>
     <string name="data_usage_menu_sim_cards" msgid="8508154611676507088">"Kartat SIM"</string>
     <string name="data_usage_cellular_data_summary" msgid="9162777397135709280">"U ndërpre në kufi"</string>
     <string name="account_settings_menu_auto_sync" msgid="2673669556006027506">"Auto-sinkronizo të dhënat"</string>
@@ -2822,7 +2829,7 @@
     <string name="backup_pw_cancel_button_text" msgid="6170984655621611957">"Anulo"</string>
     <string name="additional_system_update_settings_list_item_title" msgid="8674710454802166341">"Përditësime të sistemit"</string>
     <string name="ssl_ca_cert_warning" msgid="7794291734272626026">"Rrjeti mund të jetë i monitoruar"</string>
-    <string name="done_button" msgid="7652373284597307008">"U krye!"</string>
+    <string name="done_button" msgid="7652373284597307008">"U krye"</string>
     <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="7323708984446517980">
       <item quantity="other">Besoji ose hiqi certifikatat</item>
       <item quantity="one">Besoje ose hiqe certifikatën</item>
@@ -2914,11 +2921,11 @@
     <string name="nfc_payment_default_not_set" msgid="955804193510335338">"Nuk është caktuar"</string>
     <string name="nfc_payment_app_and_desc" msgid="102312684211458190">"<xliff:g id="APP">%1$s</xliff:g> - <xliff:g id="DESCRIPTION">%2$s</xliff:g>"</string>
     <string name="nfc_payment_use_default" msgid="3098724195746409476">"Përdor opsionin e parazgjedhur"</string>
-    <string name="nfc_payment_favor_default" msgid="7555356982142464260">"Gjithmonë!"</string>
+    <string name="nfc_payment_favor_default" msgid="7555356982142464260">"Gjithmonë"</string>
     <string name="nfc_payment_favor_open" msgid="3739055715000436749">"Përveçse kur është i hapur një aplikacion tjetër pagese"</string>
     <string name="nfc_payment_pay_with" msgid="8412558374792061266">"Në terminalin \"Prek dhe paguaj\", paguaj me:"</string>
     <string name="nfc_how_it_works_title" msgid="6531433737926327904">"Pagesa në terminal"</string>
-    <string name="nfc_how_it_works_content" msgid="9174575836302449343">"Konfiguro një aplikacion pagese. Më pas thjesht mbaj shtypur pjesën e pasme të telefonit me një terminal me simbolin e pagesave pa kontakt."</string>
+    <string name="nfc_how_it_works_content" msgid="9174575836302449343">"Konfiguro një aplikacion pagese. Më pas thjesht mbaje pjesën e pasme të telefonit te një terminal me simbolin e pagesave pa kontakt."</string>
     <string name="nfc_how_it_works_got_it" msgid="2432535672153247411">"E kuptova!"</string>
     <string name="nfc_more_title" msgid="2825856411836382264">"Më shumë..."</string>
     <string name="nfc_payment_set_default_label" msgid="3997927342761454042">"Të caktohet si preferencë?"</string>
@@ -3000,7 +3007,7 @@
     <string name="sim_editor_number" msgid="1757338150165234970">"Numri"</string>
     <string name="sim_editor_color" msgid="373059962306191123">"Ngjyra e kartës SIM"</string>
     <string name="sim_card_select_title" msgid="4925862525985187946">"Zgjidh kartën SIM"</string>
-    <string name="color_orange" msgid="3159707916066563431">"portokalli"</string>
+    <string name="color_orange" msgid="3159707916066563431">"Portokalli"</string>
     <string name="color_purple" msgid="4391440966734810713">"Vjollcë"</string>
     <string name="sim_no_inserted_msg" msgid="1197884607569714609">"Nuk janë futur karta SIM"</string>
     <string name="sim_status_title" msgid="4483653750844520871">"Statusi i kartës SIM"</string>
@@ -3037,7 +3044,7 @@
     <string name="app_and_notification_dashboard_summary" msgid="4165181440955038145">"Asistenti, aplikacionet së fundi, aplikacionet e parazgjedhura"</string>
     <string name="notification_settings_work_profile" msgid="7190550347842400029">"Qasja te njoftimet nuk ofrohet për aplikacionet në profilin e punës."</string>
     <string name="account_dashboard_title" msgid="4734300939532555885">"Llogaritë"</string>
-    <string name="account_dashboard_default_summary" msgid="6822549669771936206">"Nuk u shtua asnjë llogari"</string>
+    <string name="account_dashboard_default_summary" msgid="6822549669771936206">"Nuk është shtuar asnjë llogari"</string>
     <string name="app_default_dashboard_title" msgid="6575301028225232193">"Apl. e parazgjedhura"</string>
     <string name="system_dashboard_summary" msgid="6582464466735779394">"Gjuhët, gjestet, koha, rezervimi"</string>
     <string name="search_results_title" msgid="4160717656435503940">"Cilësimet"</string>
@@ -3121,7 +3128,7 @@
     <string name="keywords_ring_vibration" msgid="4210509151866460210">"prekje, dridhje, telefon, telefonatë, ndjeshmëri, zile"</string>
     <string name="keywords_notification_vibration" msgid="1077515502086745166">"prekje, dridhje, ndjeshmëri"</string>
     <string name="keywords_battery_saver_sticky" msgid="8733804259716284872">"kursyesi i baterisë, i ngjitur, vazhdoj, kursyesi i energjisë, bateria"</string>
-    <string name="default_sound" msgid="6675629744816442953">"Zëri i parazgjedhur"</string>
+    <string name="default_sound" msgid="6675629744816442953">"Tingulli i parazgjedhur"</string>
     <string name="sound_settings_summary" msgid="8467549670633195109">"Volumi i ziles në <xliff:g id="PERCENTAGE">%1$s</xliff:g>"</string>
     <string name="sound_dashboard_summary" msgid="5187301919242823508">"Volum, dridhje, \"Mos shqetëso\""</string>
     <string name="sound_settings_summary_vibrate" msgid="2194491116884798590">"Zilja u caktua me dridhje"</string>
@@ -3134,7 +3141,7 @@
     <string name="ring_volume_option_title" msgid="2038924918468372264">"Volumi i ziles"</string>
     <string name="notification_volume_option_title" msgid="1358512611511348260">"Volumi i njoftimit"</string>
     <string name="ringtone_title" msgid="1409086028485922583">"Zilja e telefonit"</string>
-    <string name="notification_ringtone_title" msgid="2932960620843976285">"Zëri i parazgjedhur i njoftimit"</string>
+    <string name="notification_ringtone_title" msgid="2932960620843976285">"Tingulli i parazgjedhur i njoftimit"</string>
     <string name="notification_unknown_sound_title" msgid="8043718667804838398">"Tingulli i dhënë nga aplikacioni"</string>
     <string name="notification_sound_default" msgid="2664544380802426260">"Tingulli i parazgjedhur i njoftimit"</string>
     <string name="alarm_ringtone_title" msgid="6411326147408635902">"Tingulli i parazgjedhur i alarmit"</string>
@@ -3154,7 +3161,7 @@
     <string name="emergency_tone_alert" msgid="907868135091891015">"Tonet"</string>
     <string name="emergency_tone_vibrate" msgid="5020068066905681181">"Dridhjet"</string>
     <string name="boot_sounds_title" msgid="7583926202411353620">"Aktivizo tingujt"</string>
-    <string name="live_caption_title" msgid="7926591158657997051">"Titra automatike"</string>
+    <string name="live_caption_title" msgid="7926591158657997051">"Titra në çast"</string>
     <string name="live_caption_summary" msgid="9064771862352393125">"Media me titra automatike"</string>
     <string name="zen_mode_settings_summary_off" msgid="6929319200478424962">"Asnjëherë"</string>
     <plurals name="zen_mode_settings_summary_on" formatted="false" msgid="6061723291126091396">
@@ -3421,7 +3428,7 @@
     <string name="app_notification_row_banned" msgid="2079325338122151677">"I bllokuar"</string>
     <string name="app_notification_row_priority" msgid="432299064888787236">"Me prioritet"</string>
     <string name="app_notification_row_sensitive" msgid="4919671519227722958">"Delikate"</string>
-    <string name="app_notifications_dialog_done" msgid="5395611029779655968">"U krye!"</string>
+    <string name="app_notifications_dialog_done" msgid="5395611029779655968">"U krye"</string>
     <string name="app_notification_importance_title" msgid="1902794400671001142">"Rëndësia"</string>
     <string name="notification_show_lights_title" msgid="5381920725933228542">"Drita me pulsim"</string>
     <string name="notification_vibrate_title" msgid="8221718258793835282">"Dridhje"</string>
@@ -3548,7 +3555,7 @@
     <string name="switch_on_text" msgid="7100491749799298324">"Aktivizuar"</string>
     <string name="switch_off_text" msgid="3539551289454353555">"Joaktiv"</string>
     <string name="screen_pinning_title" msgid="578020318289781102">"Gozhdimi i ekranit"</string>
-    <string name="screen_pinning_description" msgid="3814537379086412278">"Kur ky funksion është i aktivizuar, mund të përdorësh gozhdimin e ekranit për të mbajtur pamjen aktuale të ekranit deri sa ta anulosh gozhdimin.\n\nPër të përdorur gozhdimin e ekranit:\n\n1. Sigurohu që gozhdimi i ekranit është i aktivizuar\n\n2. Hap \"Përmbledhja\"\n\n3. Trokit tek ikona e aplikacionit në krye të ekranit dhe më pas trokit te \"Gozhdo\""</string>
+    <string name="screen_pinning_description" msgid="3814537379086412278">"Kur ky cilësim është i aktivizuar, mund të përdorësh gozhdimin e ekranit për të mbajtur pamjen aktuale të ekranit deri sa ta anulosh gozhdimin.\n\nPër të përdorur gozhdimin e ekranit:\n\n1. Sigurohu që gozhdimi i ekranit është i aktivizuar\n\n2. Hap \"Përmbledhja\"\n\n3. Trokit tek ikona e aplikacionit në krye të ekranit dhe më pas trokit te \"Gozhdo\""</string>
     <string name="screen_pinning_unlock_pattern" msgid="1060334707088339444">"Kërko motivin e shkyçjes para anulimit të mbërthimit"</string>
     <string name="screen_pinning_unlock_pin" msgid="1441705536015645023">"Zhgozhdimi kërkon PIN-in"</string>
     <string name="screen_pinning_unlock_password" msgid="1017776884000170841">"Kërko fjalëkalim para heqjes nga gozhdimi"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"Ai do ta ngadalësojë këtë telefon"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Matjet GNSS me fuqi të plotë"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Gjurmo të gjitha koleksionet dhe frekuencat e GNSS pa ciklim të detyruar"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Ndryshimi i përdoruesit për korrigjimin"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Shfaq informacione të detajuara gjatë ndryshimit të përdoruesit"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Lejo nisjet e aktiviteteve në sfond"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Lejon të gjitha nisjet e aktiviteteve në sfond"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Gjithmonë shfaq dialogun e ndërprerjes aksidentale"</string>

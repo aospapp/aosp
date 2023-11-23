@@ -168,6 +168,15 @@ public class BluetoothSL4AAudioSrcMBS extends MediaBrowserService {
                 .build();
         mMediaSession.setPlaybackState(state);
         mMediaSession.setActive(true);
+
+        // Sets the PlaybackState to STOPPED now that we are able to receive MediaSession callbacks.
+        state = new PlaybackState.Builder()
+                .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE
+                        | PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS
+                        | PlaybackState.ACTION_STOP)
+                .setState(PlaybackState.STATE_STOPPED, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1)
+                .build();
+        mMediaSession.setPlaybackState(state);
     }
 
     @Override

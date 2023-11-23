@@ -24,4 +24,8 @@
     <string name="enable_public_safety_messages_title" translatable="false">@string/enable_alert_message_title</string>
     <!-- Preference summary for enable public safety messages checkbox. -->
     <string name="enable_public_safety_messages_summary" translatable="false">@string/enable_alert_message_summary</string>
+    <!-- Preference title for required monthly test alert checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_cmas_test_alerts_title">Required monthly test</string>
+    <!-- Preference summary for enable required monthly test alerts checkbox. [CHAR LIMIT=100] -->
+    <string name="enable_cmas_test_alerts_summary">Receive test messages for the safety alert system</string>
 </resources>

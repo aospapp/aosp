@@ -33,8 +33,8 @@ class BtStressTest(BluetoothBaseTest):
     default_timeout = 20
     iterations = 100
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
 
     def teardown_test(self):
         super(BluetoothBaseTest, self).teardown_test()

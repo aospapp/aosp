@@ -45,9 +45,12 @@ import com.googlecode.android_scripting.facade.media.MediaScannerFacade;
 import com.googlecode.android_scripting.facade.media.MediaSessionFacade;
 import com.googlecode.android_scripting.facade.net.IpSecManagerFacade;
 import com.googlecode.android_scripting.facade.net.SocketFacade;
+import com.googlecode.android_scripting.facade.net.SocketKeepaliveFacade;
 import com.googlecode.android_scripting.facade.net.nsd.NsdManagerFacade;
 import com.googlecode.android_scripting.facade.telephony.CarrierConfigFacade;
 import com.googlecode.android_scripting.facade.telephony.ImsManagerFacade;
+import com.googlecode.android_scripting.facade.telephony.ImsMmTelManagerFacade;
+import com.googlecode.android_scripting.facade.telephony.ProvisioningManagerFacade;
 import com.googlecode.android_scripting.facade.telephony.SmsFacade;
 import com.googlecode.android_scripting.facade.telephony.SubscriptionManagerFacade;
 import com.googlecode.android_scripting.facade.telephony.TelecomCallFacade;
@@ -104,8 +107,10 @@ public class FacadeConfiguration {
         sFacadeClassList.add(ContactsFacade.class);
         sFacadeClassList.add(EventFacade.class);
         sFacadeClassList.add(ImsManagerFacade.class);
+        sFacadeClassList.add(ImsMmTelManagerFacade.class);
         sFacadeClassList.add(LocationFacade.class);
         sFacadeClassList.add(TelephonyManagerFacade.class);
+        sFacadeClassList.add(ProvisioningManagerFacade.class);
         sFacadeClassList.add(PreferencesFacade.class);
         sFacadeClassList.add(MediaPlayerFacade.class);
         sFacadeClassList.add(MediaRecorderFacade.class);
@@ -165,6 +170,10 @@ public class FacadeConfiguration {
 
         if (sSdkLevel >= 27) {
             sFacadeClassList.add(WifiRtt2ManagerFacade.class);
+        }
+
+        if (sSdkLevel >= 29) {
+            sFacadeClassList.add(SocketKeepaliveFacade.class);
         }
 
         for (Class<? extends RpcReceiver> recieverClass : sFacadeClassList) {

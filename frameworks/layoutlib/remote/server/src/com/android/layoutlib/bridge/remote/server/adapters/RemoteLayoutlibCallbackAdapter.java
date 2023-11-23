@@ -157,15 +157,6 @@ public class RemoteLayoutlibCallbackAdapter extends LayoutlibCallback {
     }
 
     @Override
-    public String getNamespace() {
-        try {
-            return mDelegate.getNamespace();
-        } catch (RemoteException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
     public ResourceReference resolveResourceId(int id) {
         try {
             return mDelegate.resolveResourceId(id);
@@ -219,15 +210,6 @@ public class RemoteLayoutlibCallbackAdapter extends LayoutlibCallback {
     public Object loadClass(String name, Class[] constructorSignature, Object[] constructorArgs)
             throws ClassNotFoundException {
         return super.loadClass(name, constructorSignature, constructorArgs);
-    }
-
-    @Override
-    public boolean supports(int ideFeature) {
-        try {
-            return mDelegate.supports(ideFeature);
-        } catch (RemoteException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override

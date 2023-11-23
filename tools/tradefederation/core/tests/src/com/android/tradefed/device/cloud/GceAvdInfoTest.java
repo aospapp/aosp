@@ -21,11 +21,17 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.tradefed.invoker.logger.InvocationMetricLogger;
+import com.android.tradefed.invoker.logger.InvocationMetricLogger.InvocationMetricKey;
 import com.android.tradefed.targetprep.TargetSetupError;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.json.JSONObject;
+import org.json.JSONArray;
+
+import java.util.Map;
 
 /** Unit tests for {@link GceAvdInfo} */
 @RunWith(JUnit4.class)
@@ -49,7 +55,7 @@ public class GceAvdInfoTest {
                         + "  }";
         GceAvdInfo avd = GceAvdInfo.parseGceInfoFromString(valid, null, 5555);
         assertNotNull(avd);
-        assertEquals(avd.hostAndPort().getHostText(), "104.154.62.236");
+        assertEquals(avd.hostAndPort().getHost(), "104.154.62.236");
         assertEquals(avd.instanceName(), "gce-x86-phone-userdebug-2299773-22cf");
         assertTrue(avd.getBuildVars().isEmpty());
     }
@@ -62,7 +68,7 @@ public class GceAvdInfoTest {
                         + "      \"devices\": [\n"
                         + "        {\n"
                         + "          \"ip\": \"104.154.62.236\",\n"
-                        + "          \"branch\": \"git_master\",\n"
+                        + "          \"branch\": \"git_main\",\n"
                         + "          \"build_id\": \"5230832\",\n"
                         + "          \"build_target\": \"cf_x86_phone-userdebug\",\n"
                         + "          \"instance_name\": \"gce-x86-phone-userdebug-2299773-22cf\"\n"
@@ -75,9 +81,9 @@ public class GceAvdInfoTest {
                         + "  }";
         GceAvdInfo avd = GceAvdInfo.parseGceInfoFromString(valid, null, 5555);
         assertNotNull(avd);
-        assertEquals(avd.hostAndPort().getHostText(), "104.154.62.236");
+        assertEquals(avd.hostAndPort().getHost(), "104.154.62.236");
         assertEquals(avd.instanceName(), "gce-x86-phone-userdebug-2299773-22cf");
-        assertEquals(avd.getBuildVars().get("branch"), "git_master");
+        assertEquals(avd.getBuildVars().get("branch"), "git_main");
         assertEquals(avd.getBuildVars().get("build_id"), "5230832");
         assertEquals(avd.getBuildVars().get("build_target"), "cf_x86_phone-userdebug");
     }
@@ -90,7 +96,7 @@ public class GceAvdInfoTest {
                         + "      \"devices\": [\n"
                         + "        {\n"
                         + "          \"ip\": \"1.1.1.1\",\n"
-                        + "          \"branch\": \"git_master\",\n"
+                        + "          \"branch\": \"git_main\",\n"
                         + "          \"build_id\": \"1111111\",\n"
                         + "          \"build_target\": \"cf_x86_phone-userdebug\",\n"
                         + "          \"instance_name\": \"gce-x86-phone-userdebug-1111111-22cf\"\n"
@@ -107,7 +113,7 @@ public class GceAvdInfoTest {
                         + "      \"devices\": [\n"
                         + "        {\n"
                         + "          \"ip\": \"2.2.2.2\",\n"
-                        + "          \"branch\": \"git_master-release\",\n"
+                        + "          \"branch\": \"git_main-release\",\n"
                         + "          \"build_id\": \"2222222\",\n"
                         + "          \"build_target\": \"cf_x86_phone-userdebug\",\n"
                         + "          \"instance_name\": \"gce-x86-phone-userdebug-2222222-22cf\"\n"
@@ -121,15 +127,15 @@ public class GceAvdInfoTest {
         GceAvdInfo avd1 = GceAvdInfo.parseGceInfoFromString(json1, null, 1111);
         GceAvdInfo avd2 = GceAvdInfo.parseGceInfoFromString(json2, null, 2222);
         assertNotNull(avd1);
-        assertEquals(avd1.hostAndPort().getHostText(), "1.1.1.1");
+        assertEquals(avd1.hostAndPort().getHost(), "1.1.1.1");
         assertEquals(avd1.instanceName(), "gce-x86-phone-userdebug-1111111-22cf");
-        assertEquals(avd1.getBuildVars().get("branch"), "git_master");
+        assertEquals(avd1.getBuildVars().get("branch"), "git_main");
         assertEquals(avd1.getBuildVars().get("build_id"), "1111111");
         assertEquals(avd1.getBuildVars().get("build_target"), "cf_x86_phone-userdebug");
         assertNotNull(avd2);
-        assertEquals(avd2.hostAndPort().getHostText(), "2.2.2.2");
+        assertEquals(avd2.hostAndPort().getHost(), "2.2.2.2");
         assertEquals(avd2.instanceName(), "gce-x86-phone-userdebug-2222222-22cf");
-        assertEquals(avd2.getBuildVars().get("branch"), "git_master-release");
+        assertEquals(avd2.getBuildVars().get("branch"), "git_main-release");
         assertEquals(avd2.getBuildVars().get("build_id"), "2222222");
         assertEquals(avd2.getBuildVars().get("build_target"), "cf_x86_phone-userdebug");
     }
@@ -228,7 +234,7 @@ public class GceAvdInfoTest {
                         + "  }";
         GceAvdInfo avd = GceAvdInfo.parseGceInfoFromString(validFail, null, 5555);
         assertNotNull(avd);
-        assertEquals(avd.hostAndPort().getHostText(), "104.154.62.236");
+        assertEquals(avd.hostAndPort().getHost(), "104.154.62.236");
         assertEquals(avd.instanceName(), "gce-x86-phone-userdebug-2299773-22ecc");
     }
 
@@ -281,7 +287,7 @@ public class GceAvdInfoTest {
                         + "  }";
         GceAvdInfo avd = GceAvdInfo.parseGceInfoFromString(validFail, null, 5555);
         assertNotNull(avd);
-        assertEquals(avd.hostAndPort().getHostText(), "104.154.62.236");
+        assertEquals(avd.hostAndPort().getHost(), "104.154.62.236");
         assertEquals(avd.instanceName(), "gce-x86-phone-userdebug-2299773-22ec");
         assertEquals(GceAvdInfo.GceStatus.BOOT_FAIL, avd.getStatus());
     }
@@ -305,5 +311,34 @@ public class GceAvdInfoTest {
         } catch (TargetSetupError e) {
             // expected
         }
+    }
+
+    /** Test CF start time metrics are added. */
+    @Test
+    public void testCfStartTimeMetricsAdded() throws Exception {
+        String cuttlefish =
+                " {\n"
+                        + "    \"command\": \"create_cf\",\n"
+                        + "    \"data\": {\n"
+                        + "      \"devices\": [\n"
+                        + "        {\n"
+                        + "          \"ip\": \"34.71.83.182\",\n"
+                        + "          \"instance_name\": \"ins-cf-x86-phone-userdebug\",\n"
+                        + "          \"fetch_artifact_time\": 63.22,\n"
+                        + "          \"gce_create_time\": 23.5,\n"
+                        + "          \"launch_cvd_time\": 226.5\n"
+                        + "        },\n"
+                        + "      ]\n"
+                        + "    },\n"
+                        + "    \"errors\": [],\n"
+                        + "    \"status\": \"SUCCESS\"\n"
+                        + "  }";
+        JSONObject res = new JSONObject(cuttlefish);
+        JSONArray devices = res.getJSONObject("data").getJSONArray("devices");
+        GceAvdInfo.addCfStartTimeMetrics((JSONObject) devices.get(0));
+        Map<String, String> metrics = InvocationMetricLogger.getInvocationMetrics();
+        assertEquals("63220", metrics.get(InvocationMetricKey.CF_FETCH_ARTIFACT_TIME.toString()));
+        assertEquals("23500", metrics.get(InvocationMetricKey.CF_GCE_CREATE_TIME.toString()));
+        assertEquals("226500", metrics.get(InvocationMetricKey.CF_LAUNCH_CVD_TIME.toString()));
     }
 }

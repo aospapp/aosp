@@ -37,7 +37,8 @@ public class InCallServiceImpl extends InCallService {
     /** An action which indicates a bind is from local component. */
     public static final String ACTION_LOCAL_BIND = "local_bind";
 
-    private CopyOnWriteArrayList<Callback> mCallbacks = new CopyOnWriteArrayList<>();
+    private CopyOnWriteArrayList<CallAudioStateCallback> mCallAudioStateCallbacks =
+            new CopyOnWriteArrayList<>();
 
     private InCallRouter mInCallRouter;
 
@@ -59,6 +60,14 @@ public class InCallServiceImpl extends InCallService {
         boolean onTelecomCallRemoved(Call telecomCall);
     }
 
+    /** Listens to call audio state changes. Callbacks will be called on the main thread. */
+    public interface CallAudioStateCallback {
+        /**
+         * Called when the call audio state has changed.
+         */
+        void onCallAudioStateChanged(CallAudioState callAudioState);
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -76,21 +85,12 @@ public class InCallServiceImpl extends InCallService {
     @Override
     public void onCallAdded(Call telecomCall) {
         L.d(TAG, "onCallAdded: %s", telecomCall);
-
-        for (Callback callback : mCallbacks) {
-            callback.onTelecomCallAdded(telecomCall);
-        }
-
         mInCallRouter.onCallAdded(telecomCall);
     }
 
     @Override
     public void onCallRemoved(Call telecomCall) {
         L.d(TAG, "onCallRemoved: %s", telecomCall);
-        for (Callback callback : mCallbacks) {
-            callback.onTelecomCallRemoved(telecomCall);
-        }
-
         mInCallRouter.onCallRemoved(telecomCall);
     }
 
@@ -113,17 +113,23 @@ public class InCallServiceImpl extends InCallService {
 
     @Override
     public void onCallAudioStateChanged(CallAudioState audioState) {
-        for (Callback callback : mCallbacks) {
+        for (CallAudioStateCallback callback : mCallAudioStateCallbacks) {
             callback.onCallAudioStateChanged(audioState);
         }
     }
 
-    public void registerCallback(Callback callback) {
-        mCallbacks.add(callback);
+    @Override
+    public void onBringToForeground(boolean showDialpad) {
+        L.d(TAG, "onBringToForeground: %s", showDialpad);
+        mInCallRouter.routeToInCallPage(showDialpad);
     }
 
-    public void unregisterCallback(Callback callback) {
-        mCallbacks.remove(callback);
+    public void addCallAudioStateChangedCallback(CallAudioStateCallback callback) {
+        mCallAudioStateCallbacks.add(callback);
+    }
+
+    public void removeCallAudioStateChangedCallback(CallAudioStateCallback callback) {
+        mCallAudioStateCallbacks.remove(callback);
     }
 
     public void addActiveCallListChangedCallback(ActiveCallListChangedCallback callback) {
@@ -132,15 +138,6 @@ public class InCallServiceImpl extends InCallService {
 
     public void removeActiveCallListChangedCallback(ActiveCallListChangedCallback callback) {
         mInCallRouter.unregisterActiveCallHandler(callback);
-    }
-
-    @Deprecated
-    interface Callback {
-        void onTelecomCallAdded(Call telecomCall);
-
-        void onTelecomCallRemoved(Call telecomCall);
-
-        void onCallAudioStateChanged(CallAudioState audioState);
     }
 
     /**

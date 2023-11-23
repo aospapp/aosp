@@ -28,43 +28,9 @@
 #include "test_aaudio.h"
 #include "utils.h"
 
-/* These definitions are from aaudio/AAudioTesting.h */
-enum {
-    AAUDIO_POLICY_NEVER = 1,
-    AAUDIO_POLICY_AUTO,
-    AAUDIO_POLICY_ALWAYS
-};
-typedef int32_t aaudio_policy_t;
-
-static aaudio_result_t (*s_setMMapPolicy)(aaudio_policy_t policy) = nullptr;
-static aaudio_policy_t (*s_getMMapPolicy)() = nullptr;
-
-/**
- * @return integer value or -1 on error
- */
-static int getSystemPropertyInt(const char *propName, int defaultValue) {
-    char valueText[PROP_VALUE_MAX] = {'\0'};
-    if (__system_property_get(propName, valueText) <= 0) {
-        return defaultValue;
-    }
-    char *endptr = nullptr;
-    int value = strtol(valueText, &endptr, 10);
-    if (endptr == nullptr || *endptr != '\0') {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
-                "getSystemPropertyInt() - non-integer value = %s", valueText);
-        return -1;
-    } else {
-        return value;
-    }
-}
-
-static int getSystemMMapPolicy() {
-    return getSystemPropertyInt("aaudio.mmap_policy", AAUDIO_UNSPECIFIED);
-}
-
 // Test allowed values of policy.
 TEST(test_aaudio_mmap, testCurrentPolicy) {
-    aaudio_policy_t policy = getSystemMMapPolicy();
+    aaudio_policy_t policy = (aaudio_policy_t) AAudioExtensions::getMMapPolicyProperty();
 
     // It must be one of these defined enum values.
     EXPECT_TRUE(policy == AAUDIO_UNSPECIFIED
@@ -78,19 +44,6 @@ TEST(test_aaudio_mmap, testCurrentPolicy) {
     EXPECT_NE(AAUDIO_POLICY_ALWAYS, policy);
 }
 
-// Link to test functions in shared library.
-static void loadMMapTestFunctions() {
-    if (s_setMMapPolicy != nullptr) return; // already loaded
-
-    void *handle;
-    handle = dlopen("libaaudio.so", RTLD_NOW);
-    EXPECT_NE(nullptr, handle);
-    s_setMMapPolicy = (int (*)(int)) dlsym(handle, "AAudio_setMMapPolicy");
-    EXPECT_NE(nullptr, s_setMMapPolicy);
-    s_getMMapPolicy = (int (*)()) dlsym(handle, "AAudio_getMMapPolicy");
-    EXPECT_NE(nullptr, s_getMMapPolicy);
-}
-
 // An application should not be able to create an MMAP stream
 // by enabling MMAP when the system "aaudio.mmap_policy" says not to.
 TEST(test_aaudio_mmap, testElevatingMMapPolicy) {
@@ -98,12 +51,8 @@ TEST(test_aaudio_mmap, testElevatingMMapPolicy) {
     AAudioStreamBuilder *builder = nullptr;
     AAudioStream *stream = nullptr;
 
-    aaudio_policy_t policy = getSystemMMapPolicy();
-    bool mmapAllowed = (policy == AAUDIO_POLICY_AUTO || policy == AAUDIO_POLICY_ALWAYS);
+    bool mmapAllowed = AAudioExtensions::getInstance().isMMapSupported();
     if (mmapAllowed) return;
-    // Try to enable MMAP when not allowed.
-
-    loadMMapTestFunctions();
 
     EXPECT_EQ(AAUDIO_OK, AAudio_createStreamBuilder(&builder));
 
@@ -111,10 +60,10 @@ TEST(test_aaudio_mmap, testElevatingMMapPolicy) {
     AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 
     // Force policy to create an MMAP stream or fail.
-    aaudio_policy_t originalPolicy = s_getMMapPolicy();
-    s_setMMapPolicy(AAUDIO_POLICY_ALWAYS); // try to enable MMAP mode
+    aaudio_policy_t originalPolicy = AAudioExtensions::getInstance().getMMapPolicy();
+    AAudioExtensions::getInstance().setMMapPolicy(AAUDIO_POLICY_ALWAYS); // try to enable MMAP mode
     result = AAudioStreamBuilder_openStream(builder, &stream);
-    s_setMMapPolicy(originalPolicy);
+    AAudioExtensions::getInstance().setMMapPolicy(originalPolicy);
 
     // openStream should have failed.
     EXPECT_NE(AAUDIO_OK, result);

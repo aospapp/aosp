@@ -21,16 +21,13 @@ import android.content.Intent;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
-import android.os.BatteryStats;
+import android.os.BatteryStatsManager;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Parcelable;
-import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
-import android.util.Slog;
 
-import com.android.internal.app.IBatteryStats;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
@@ -49,7 +46,7 @@ public class SupplicantStateTracker extends StateMachine {
     private static boolean DBG = false;
     private final WifiConfigManager mWifiConfigManager;
     private FrameworkFacade mFacade;
-    private final IBatteryStats mBatteryStats;
+    private final BatteryStatsManager mBatteryStatsManager;
     /* Indicates authentication failure in supplicant broadcast.
      * TODO: enhance auth failure reporting to include notification
      * for all type of failures: EAP, WPS & WPA networks */
@@ -68,9 +65,6 @@ public class SupplicantStateTracker extends StateMachine {
 
     /* Maximum retries on assoc rejection events */
     private static final int MAX_RETRIES_ON_ASSOCIATION_REJECT = 16;
-
-    /* Tracks if networks have been disabled during a connection */
-    private boolean mNetworksDisabledDuringConnect = false;
 
     private final Context mContext;
 
@@ -97,13 +91,12 @@ public class SupplicantStateTracker extends StateMachine {
     }
 
     public SupplicantStateTracker(Context c, WifiConfigManager wcs,
-            FrameworkFacade facade, Handler t) {
+            BatteryStatsManager batteryStatsManager, Handler t) {
         super(TAG, t.getLooper());
 
         mContext = c;
         mWifiConfigManager = wcs;
-        mFacade = facade;
-        mBatteryStats = mFacade.getBatteryService();
+        mBatteryStatsManager = batteryStatsManager;
         // CHECKSTYLE:OFF IndentationCheck
         addState(mDefaultState);
             addState(mUninitializedState, mDefaultState);
@@ -126,13 +119,9 @@ public class SupplicantStateTracker extends StateMachine {
     private void handleNetworkConnectionFailure(int netId, int disableReason) {
         if (DBG) {
             Log.d(TAG, "handleNetworkConnectionFailure netId=" + Integer.toString(netId)
-                    + " reason " + Integer.toString(disableReason)
-                    + " mNetworksDisabledDuringConnect=" + mNetworksDisabledDuringConnect);
+                    + " reason " + Integer.toString(disableReason));
         }
 
-        /* If other networks disabled during connection, enable them */
-        if (mNetworksDisabledDuringConnect) {
-            mNetworksDisabledDuringConnect = false; }
         /* update network status */
         mWifiConfigManager.updateNetworkSelectionStatus(netId, disableReason);
     }
@@ -186,31 +175,51 @@ public class SupplicantStateTracker extends StateMachine {
             int reasonCode) {
         int supplState;
         switch (state) {
-            case DISCONNECTED: supplState = BatteryStats.WIFI_SUPPL_STATE_DISCONNECTED; break;
+            case DISCONNECTED:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_DISCONNECTED;
+                break;
             case INTERFACE_DISABLED:
-                supplState = BatteryStats.WIFI_SUPPL_STATE_INTERFACE_DISABLED; break;
-            case INACTIVE: supplState = BatteryStats.WIFI_SUPPL_STATE_INACTIVE; break;
-            case SCANNING: supplState = BatteryStats.WIFI_SUPPL_STATE_SCANNING; break;
-            case AUTHENTICATING: supplState = BatteryStats.WIFI_SUPPL_STATE_AUTHENTICATING; break;
-            case ASSOCIATING: supplState = BatteryStats.WIFI_SUPPL_STATE_ASSOCIATING; break;
-            case ASSOCIATED: supplState = BatteryStats.WIFI_SUPPL_STATE_ASSOCIATED; break;
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_INTERFACE_DISABLED;
+                break;
+            case INACTIVE:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_INACTIVE;
+                break;
+            case SCANNING:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_SCANNING;
+                break;
+            case AUTHENTICATING:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_AUTHENTICATING;
+                break;
+            case ASSOCIATING:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_ASSOCIATING;
+                break;
+            case ASSOCIATED:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_ASSOCIATED;
+                break;
             case FOUR_WAY_HANDSHAKE:
-                supplState = BatteryStats.WIFI_SUPPL_STATE_FOUR_WAY_HANDSHAKE; break;
-            case GROUP_HANDSHAKE: supplState = BatteryStats.WIFI_SUPPL_STATE_GROUP_HANDSHAKE; break;
-            case COMPLETED: supplState = BatteryStats.WIFI_SUPPL_STATE_COMPLETED; break;
-            case DORMANT: supplState = BatteryStats.WIFI_SUPPL_STATE_DORMANT; break;
-            case UNINITIALIZED: supplState = BatteryStats.WIFI_SUPPL_STATE_UNINITIALIZED; break;
-            case INVALID: supplState = BatteryStats.WIFI_SUPPL_STATE_INVALID; break;
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_FOUR_WAY_HANDSHAKE;
+                break;
+            case GROUP_HANDSHAKE:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_GROUP_HANDSHAKE;
+                break;
+            case COMPLETED:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_COMPLETED;
+                break;
+            case DORMANT:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_DORMANT;
+                break;
+            case UNINITIALIZED:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_UNINITIALIZED;
+                break;
+            case INVALID:
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_INVALID;
+                break;
             default:
-                Slog.w(TAG, "Unknown supplicant state " + state);
-                supplState = BatteryStats.WIFI_SUPPL_STATE_INVALID;
+                Log.w(TAG, "Unknown supplicant state " + state);
+                supplState = BatteryStatsManager.WIFI_SUPPL_STATE_INVALID;
                 break;
         }
-        try {
-            mBatteryStats.noteWifiSupplicantStateChanged(supplState, failedAuth);
-        } catch (RemoteException e) {
-            // Won't happen.
-        }
+        mBatteryStatsManager.reportWifiSupplicantStateChanged(supplState, failedAuth);
         Intent intent = new Intent(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
                 | Intent.FLAG_RECEIVER_REPLACE_PENDING);
@@ -254,9 +263,6 @@ public class SupplicantStateTracker extends StateMachine {
                     break;
                 case ClientModeImpl.CMD_RESET_SUPPLICANT_STATE:
                     transitionTo(mUninitializedState);
-                    break;
-                case WifiManager.CONNECT_NETWORK:
-                    mNetworksDisabledDuringConnect = true;
                     break;
                 case WifiMonitor.ASSOCIATION_REJECTION_EVENT:
                 default:
@@ -368,10 +374,6 @@ public class SupplicantStateTracker extends StateMachine {
         @Override
          public void enter() {
              if (DBG) Log.d(TAG, getName() + "\n");
-             /* Reset authentication failure count */
-             if (mNetworksDisabledDuringConnect) {
-                 mNetworksDisabledDuringConnect = false;
-             }
         }
         @Override
         public boolean processMessage(Message message) {
@@ -411,7 +413,6 @@ public class SupplicantStateTracker extends StateMachine {
         super.dump(fd, pw, args);
         pw.println("mAuthFailureInSupplicantBroadcast " + mAuthFailureInSupplicantBroadcast);
         pw.println("mAuthFailureReason " + mAuthFailureReason);
-        pw.println("mNetworksDisabledDuringConnect " + mNetworksDisabledDuringConnect);
         pw.println();
     }
 }

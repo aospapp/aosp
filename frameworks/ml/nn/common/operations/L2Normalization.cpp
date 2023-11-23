@@ -14,11 +14,17 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
+#include <tensorflow/lite/kernels/internal/optimized/optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/integer_ops/l2normalization.h>
+
+#include <algorithm>
+#include <vector>
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
-
-#include "tensorflow/lite/kernels/internal/optimized/optimized_ops.h"
-
 #include "Tracing.h"
 
 namespace android {
@@ -36,9 +42,12 @@ constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
+using namespace hal;
+
 inline bool l2normFloat32Impl(const float* inputData, const Shape& inputShape, int32_t axis,
                               float* outputData, const Shape& outputShape) {
     NNTRACE_TRANS("l2normFloat32");
+    constexpr float kEpsilon = 1e-6f;
     const uint32_t outerSize = getNumberOfElements(inputShape, 0, axis);
     const uint32_t axisSize = getSizeOfDimension(inputShape, axis);
     const uint32_t innerSize =
@@ -53,7 +62,7 @@ inline bool l2normFloat32Impl(const float* inputData, const Shape& inputShape, i
                 float val = *p;
                 sum += val * val;
             }
-            float l2_norm = std::sqrt(sum);
+            float l2_norm = std::max(std::sqrt(sum), kEpsilon);
             float* pOut = outputBeg;
             for (const float* p = inputBeg; p < inputEnd; p += innerSize, pOut += innerSize) {
                 *pOut = *p / l2_norm;
@@ -89,6 +98,37 @@ inline bool l2normQuant8Impl(const uint8_t* inputData, const Shape& inputShape, 
                                             val * 128, invMultiplier, invShift) +
                                     128;
                 *pOut = static_cast<uint8_t>(std::min(std::max(scaledVal, 0), 255));
+            }
+        }
+    }
+    return true;
+}
+
+inline bool l2normQuant8SignedImpl(const int8_t* inputData, const Shape& inputShape, int32_t axis,
+                                   int8_t* outputData, const Shape& outputShape) {
+    NNTRACE_TRANS("l2normQuant8Signed");
+    const uint32_t outerSize = getNumberOfElements(inputShape, 0, axis);
+    const uint32_t axisSize = getSizeOfDimension(inputShape, axis);
+    const uint32_t innerSize =
+            getNumberOfElements(inputShape, axis + 1, getNumberOfDimensions(inputShape));
+    for (uint32_t outer = 0; outer < outerSize; ++outer) {
+        const int8_t* inputBeg = inputData + outer * axisSize * innerSize;
+        const int8_t* inputEnd = inputBeg + axisSize * innerSize;
+        int8_t* outputBeg = outputData + outer * axisSize * innerSize;
+        for (uint32_t inner = 0; inner < innerSize; ++inner, ++inputBeg, ++inputEnd, ++outputBeg) {
+            int32_t sum = 0;
+            for (const int8_t* p = inputBeg; p < inputEnd; p += innerSize) {
+                int32_t val = static_cast<int32_t>(*p) - inputShape.offset;
+                sum += val * val;
+            }
+            int32_t invMultiplier, invShift;
+            tflite::GetInvSqrtQuantizedMultiplierExp(sum, -1, &invMultiplier, &invShift);
+            int8_t* pOut = outputBeg;
+            for (const int8_t* p = inputBeg; p < inputEnd; p += innerSize, pOut += innerSize) {
+                int32_t val = static_cast<int32_t>(*p) - inputShape.offset;
+                int32_t scaledVal = tflite::MultiplyByQuantizedMultiplierSmallerThanOneExp(
+                        val * 128, invMultiplier, invShift);
+                *pOut = static_cast<int8_t>(std::min(std::max(scaledVal, -128), 127));
             }
         }
     }
@@ -140,6 +180,23 @@ bool l2normQuant8(const uint8_t* inputData, const Shape& inputShape, int32_t axi
     }
 }
 
+bool l2normQuant8Signed(const int8_t* inputData, const Shape& inputShape, int32_t axis,
+                        int8_t* outputData, const Shape& outputShape) {
+    int32_t ndim = getNumberOfDimensions(inputShape);
+    NN_CHECK(handleNegativeAxis(inputShape, &axis));
+    // TFLite implementation only supports computation along the last axis
+    if (axis == ndim - 1) {
+        NNTRACE_COMP("reference_integer_ops::L2Normalization");
+        const int32_t outerSize = getNumberOfElements(inputShape, 0, axis);
+        const int32_t axisSize = getSizeOfDimension(inputShape, axis);
+        tflite::reference_integer_ops::L2Normalization(inputShape.offset, outerSize, axisSize,
+                                                       inputData, outputData);
+        return true;
+    } else {
+        return l2normQuant8SignedImpl(inputData, inputShape, axis, outputData, outputShape);
+    }
+}
+
 }  // namespace
 
 bool validate(const IOperationValidationContext* context) {
@@ -153,6 +210,8 @@ bool validate(const IOperationValidationContext* context) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
     } else if (inputType == OperandType::TENSOR_FLOAT32) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_0));
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;
     }
@@ -161,6 +220,10 @@ bool validate(const IOperationValidationContext* context) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
     } else if (context->getInputShape(kInputTensor).dimensions.size() != 4) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
+    }
+    const Shape& input = context->getInputShape(kInputTensor);
+    if (hasKnownRank(input)) {
+        NN_RET_CHECK_LE(getNumberOfDimensions(input), 4);
     }
     return validateInputTypes(context, inExpectedTypes) &&
            validateOutputTypes(context, {inputType});
@@ -172,6 +235,7 @@ bool prepare(IOperationExecutionContext* context) {
     int32_t axis = context->getNumInputs() == kNumInputs
                            ? context->getInputValue<int32_t>(kAxisScalar)
                            : -1;
+    NN_RET_CHECK_LE(numDimensions, 4);
     NN_RET_CHECK_GE(axis, -numDimensions);
     NN_RET_CHECK_LT(axis, numDimensions);
     Shape output = context->getOutputShape(kOutputTensor);
@@ -180,6 +244,9 @@ bool prepare(IOperationExecutionContext* context) {
     if (output.type == OperandType::TENSOR_QUANT8_ASYMM) {
         output.scale = 1.0f / 128.0f;
         output.offset = 128;
+    } else if (output.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        output.scale = 1.0f / 128.0f;
+        output.offset = 0;
     } else {
         output.scale = 0;
         output.offset = 0;
@@ -208,6 +275,11 @@ bool execute(IOperationExecutionContext* context) {
                                 context->getInputShape(kInputTensor), axis,
                                 context->getOutputBuffer<uint8_t>(kOutputTensor),
                                 context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return l2normQuant8Signed(context->getInputBuffer<int8_t>(kInputTensor),
+                                      context->getInputShape(kInputTensor), axis,
+                                      context->getOutputBuffer<int8_t>(kOutputTensor),
+                                      context->getOutputShape(kOutputTensor));
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;
     }

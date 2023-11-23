@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"연결된 기기"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"연결된 기기 추가"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"컴패니언 기기 연결"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"운전 환경을 관리하는 데 도움이 되도록 휴대전화를 컴패니언 기기로 사용하세요."</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"휴대전화에 "<b>"컴패니언 앱"</b>"이 설치되어 있어야 합니다."</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"휴대전화의 코드 확인"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"이 코드가 휴대전화에 표시된 코드와 일치하는지 확인하세요."</string>
+    <string name="associated_device_success" msgid="584760065696870256">"기기가 연결되었습니다."</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"앱을 열고 &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;에 연결"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"&lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt; 차량을 삭제하시겠습니까?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"차량이 더 이상 이 기기와 페어링되지 않습니다. 컴패니언 앱에서도 차량을 삭제해야 합니다."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> 휴대전화가 삭제됨"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> 휴대전화를 삭제할 수 없음"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"휴대전화에서 설정 계속"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"문제 발생"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"이 화면을 올바르게 표시할 수 없습니다. 다시 시도해 보세요."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"블루투스 사용 설정"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"휴대전화를 컴패니언 기기로 설정하려면 차량에 블루투스가 필요합니다."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"블루투스를 사용 설정하시겠습니까?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"컴패니언 기기에 연결하려면 차량에 블루투스가 필요합니다."</string>
+    <string name="accept" msgid="1454710793329618813">"동의"</string>
+    <string name="reject" msgid="4315432282758892890">"거부"</string>
+    <string name="confirm" msgid="3748997214719276945">"확인"</string>
+    <string name="cancel" msgid="4306609731174629323">"취소"</string>
+    <string name="remove" msgid="5513398257088729188">"삭제"</string>
+    <string name="ok" msgid="2825038997730899083">"확인"</string>
+    <string name="connection" msgid="2798490936433656846">"연결"</string>
+    <string name="forget_title" msgid="3027608547243824729">"기기 삭제"</string>
+    <string name="forget" msgid="2069897665699141222">"삭제"</string>
+    <string name="disable" msgid="4619854429066283970">"사용 중지"</string>
+    <string name="enable" msgid="7656386199154111316">"사용 설정"</string>
+    <string name="continue_button" msgid="2748318968566159950">"계속"</string>
+    <string name="retry" msgid="3783419451480721367">"다시 시도"</string>
+    <string name="turn_on" msgid="4288754850470994812">"사용 설정"</string>
+    <string name="not_now" msgid="8764692269093707622">"나중에"</string>
+    <string name="connected" msgid="8051190714042020471">"연결됨"</string>
+    <string name="notDetected" msgid="4115229772085594506">"감지되지 않음"</string>
+    <string name="disconnected" msgid="8526513868622591894">"연결 해제됨"</string>
+    <string name="unknown" msgid="555736316465118024">"알 수 없음"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"휴대전화 SMS 서비스 실행 중"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"휴대전화 SMS 서비스가 활성화됨"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"컴패니언 기기를 통해 SMS 수신 중"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"휴대전화로 프로필 잠금 해제"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"컴패니언 앱을 확인하여 잠금 해제 옵션을 설정하세요."</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;에서 프로필을 잠금 해제하도록 허용"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"휴대전화가 현재 연결되어 있어야 함"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"이 기능을 사용 설정하려면 차량과 휴대전화에서 블루투스가 사용 설정되어 있으며 서로 가까이 있어야 합니다."</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"이제 &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt;에서 프로필을 잠금 해제할 수 있습니다."</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"기본 프로필 잠금 생성"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"휴대전화를 사용하여 프로필을 잠금 해제하려면 백업으로 기본 프로필 잠금이 필요합니다."</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"프로필을 잠금 해제하여 완료"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"새 프로필 잠금을 생성했습니다. 비밀번호를 다시 입력하여 휴대전화에서 프로필을 자동으로 잠금 해제하도록 할지 확인하세요."</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"기기 연결 해제"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"기기 다시 연결"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"휴대전화로 잠금 해제"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"휴대전화에서 프로필을 잠금 해제하도록 허용"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"이 기능을 허용하려면 여기를 탭하세요."</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"문제 발생"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"현재 이 기능을 사용 설정할 수 없습니다. 다시 시도해 보세요."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"휴대전화에서 화면 잠금 생성"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"휴대전화에 화면 잠금이 설정되어 있지 않습니다. 휴대전화로 차량 프로필을 잠금 해제하려면 휴대전화 설정에서 화면 잠금(비밀번호라고도 함)을 생성하세요."</string>
+</resources>

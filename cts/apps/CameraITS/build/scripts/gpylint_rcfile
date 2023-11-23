@@ -318,7 +318,7 @@ logging-modules=logging,google3.pyglib.logging
 
 [MASTER]
 
-# Add files or directories to the blacklist. They should be base names, not
+# Add files or directories to the ignorelist. They should be base names, not
 # paths.
 ignore=CVS
 

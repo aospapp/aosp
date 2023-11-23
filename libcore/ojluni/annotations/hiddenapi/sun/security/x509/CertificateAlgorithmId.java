@@ -30,7 +30,7 @@ import sun.security.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CertificateAlgorithmId implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateAlgorithmId(sun.security.x509.AlgorithmId algId) {
         throw new RuntimeException("Stub!");
     }

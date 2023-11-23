@@ -3,6 +3,11 @@
  * found in the LICENSE file.
  */
 
+#ifndef SYSCALL_FILTER_UNITTEST_MACROS_H
+#define SYSCALL_FILTER_UNITTEST_MACROS_H
+
+#include "bpf.h"
+
 /* BPF testing macros. */
 #define EXPECT_EQ_BLOCK(_block, _code, _k, _jt, _jf)	\
 do {	\
@@ -76,6 +81,13 @@ do {	\
 			BPF_RET+BPF_K, SECCOMP_RET_TRAP);	\
 } while (0)
 
+#define EXPECT_LOG(_block) \
+do {	\
+	EXPECT_EQ((_block)->len, 1U);				\
+	EXPECT_EQ_STMT((_block)->instrs,			\
+			BPF_RET+BPF_K, SECCOMP_RET_LOG);	\
+} while (0)
+
 #define EXPECT_ALLOW(_block) \
 do {	\
 	EXPECT_EQ((_block)->len, 2U);				\
@@ -84,13 +96,15 @@ do {	\
 			BPF_RET+BPF_K, SECCOMP_RET_ALLOW);	\
 } while (0)
 
-#define EXPECT_ARCH_VALIDATION(_filter) \
-do {	\
-	EXPECT_EQ_STMT(&(_filter)[0], BPF_LD+BPF_W+BPF_ABS, arch_nr);	\
-	EXPECT_EQ_BLOCK(&(_filter)[1],					\
-			BPF_JMP+BPF_JEQ+BPF_K, ARCH_NR, SKIP, NEXT);	\
-	EXPECT_EQ_STMT(&(_filter)[2], BPF_RET+BPF_K, SECCOMP_RET_KILL);	\
-} while (0)
+#define EXPECT_ARCH_VALIDATION(_filter)                                        \
+	do {                                                                   \
+		EXPECT_EQ_STMT(&(_filter)[0], BPF_LD + BPF_W + BPF_ABS,        \
+			       arch_nr);                                       \
+		EXPECT_EQ_BLOCK(&(_filter)[1], BPF_JMP + BPF_JEQ + BPF_K,      \
+				MINIJAIL_ARCH_NR, SKIP, NEXT);                 \
+		EXPECT_EQ_STMT(&(_filter)[2], BPF_RET + BPF_K,                 \
+			       SECCOMP_RET_KILL);                              \
+	} while (0)
 
 #define EXPECT_ALLOW_SYSCALL(_filter, _nr) \
 do {	\
@@ -107,3 +121,5 @@ do {	\
 	EXPECT_EQ_BLOCK(&(_filter)[1],					\
 			BPF_JMP+BPF_JA, (_id), (_jt), (_jf));		\
 } while (0)
+
+#endif	// SYSCALL_FILTER_UNITTEST_MACROS_H

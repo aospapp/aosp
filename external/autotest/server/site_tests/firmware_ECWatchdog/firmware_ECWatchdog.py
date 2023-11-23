@@ -39,6 +39,7 @@ class firmware_ECWatchdog(FirmwareTest):
 
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.check_ec_capability():
             raise error.TestNAError("Nothing needs to be tested on this device")
 

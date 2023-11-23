@@ -21,7 +21,6 @@ java_library_static {
     name: "mockito",
     host_supported: true,
     hostdex: true,
-    no_framework_libs: true,
     srcs: ["src/main/java/**/*.java"],
 
     libs: [
@@ -64,7 +63,6 @@ java_library_host {
 java_library_static {
     name: "mockito-api",
     hostdex: true,
-    no_framework_libs: true,
     static_libs: ["mockito"],
     sdk_version: "core_current",
 }

@@ -19,14 +19,14 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-equal"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
-#include "perfetto/base/optional.h"
+#include "perfetto/ext/base/optional.h"
+#include "perfetto/ext/base/utils.h"
+#include "test/gtest_and_gmock.h"
 
 using ::testing::ElementsAre;
 

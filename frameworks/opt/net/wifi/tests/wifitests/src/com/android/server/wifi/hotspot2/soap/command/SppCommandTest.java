@@ -22,6 +22,8 @@ import static org.mockito.MockitoAnnotations.initMocks;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.ksoap2.serialization.PropertyInfo;
@@ -31,7 +33,7 @@ import org.ksoap2.serialization.SoapObject;
  * Unit tests for {@link SppCommand}.
  */
 @SmallTest
-public class SppCommandTest {
+public class SppCommandTest extends WifiBaseTest {
     private static final String EXEC = "exec";
     private static final String BROWSER_COMMAND = "launchBrowserToURI";
     private static final String GET_CERT_COMMAND = "getCertificate";

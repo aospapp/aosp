@@ -2360,7 +2360,9 @@ static struct super_block *alloc_super(struct file_system_type *type, int flags)
 		return ERR_PTR(err);
 	}
 
+#ifndef __UBOOT__
 	INIT_HLIST_NODE(&s->s_instances);
+#endif
 	INIT_LIST_HEAD(&s->s_inodes);
 	s->s_time_gran = 1000000000;
 	s->s_flags = flags;
@@ -2429,14 +2431,12 @@ retry:
 #ifndef __UBOOT__
 	strlcpy(s->s_id, type->name, sizeof(s->s_id));
 	list_add_tail(&s->s_list, &super_blocks);
-#else
-	strncpy(s->s_id, type->name, sizeof(s->s_id));
-#endif
 	hlist_add_head(&s->s_instances, &type->fs_supers);
-#ifndef __UBOOT__
 	spin_unlock(&sb_lock);
 	get_filesystem(type);
 	register_shrinker(&s->s_shrink);
+#else
+	strncpy(s->s_id, type->name, sizeof(s->s_id));
 #endif
 	return s;
 }
@@ -2461,7 +2461,7 @@ static struct dentry *ubifs_mount(struct file_system_type *fs_type, int flags,
 	 */
 	ubi = open_ubi(name, UBI_READONLY);
 	if (IS_ERR(ubi)) {
-		pr_err("UBIFS error (pid: %d): cannot open \"%s\", error %d",
+		pr_err("UBIFS error (pid: %d): cannot open \"%s\", error %d\n",
 		       current->pid, name, (int)PTR_ERR(ubi));
 		return ERR_CAST(ubi);
 	}
@@ -2603,7 +2603,7 @@ int ubifs_init(void)
 	 * UBIFS_BLOCK_SIZE. It is assumed that both are powers of 2.
 	 */
 	if (PAGE_CACHE_SIZE < UBIFS_BLOCK_SIZE) {
-		pr_err("UBIFS error (pid %d): VFS page cache size is %u bytes, but UBIFS requires at least 4096 bytes",
+		pr_err("UBIFS error (pid %d): VFS page cache size is %u bytes, but UBIFS requires at least 4096 bytes\n",
 		       current->pid, (unsigned int)PAGE_CACHE_SIZE);
 		return -EINVAL;
 	}
@@ -2632,7 +2632,7 @@ int ubifs_init(void)
 
 	err = register_filesystem(&ubifs_fs_type);
 	if (err) {
-		pr_err("UBIFS error (pid %d): cannot register file system, error %d",
+		pr_err("UBIFS error (pid %d): cannot register file system, error %d\n",
 		       current->pid, err);
 		goto out_dbg;
 	}

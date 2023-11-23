@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library_headers {
-  name: "cuttlefish_kernel_headers",
-  vendor: true,
-  export_include_dirs: ["."],
-  host_supported: true,
-}
-
 cc_prebuilt_binary {
     name: "extract-vmlinux",
     srcs: ["scripts/extract-vmlinux"],

@@ -37,7 +37,10 @@ cc_defaults {
     defaults: ["ml_nn_cache_libs_defaults"],
     target: {
         host: {
-            cflags: [ "-O0", "-g" ],
+            cflags: [
+                "-O0",
+                "-g",
+            ],
         },
     },
 }

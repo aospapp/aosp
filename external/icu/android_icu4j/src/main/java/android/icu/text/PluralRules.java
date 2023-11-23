@@ -30,6 +30,8 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import android.icu.impl.PluralRulesLoader;
+import android.icu.number.FormattedNumber;
+import android.icu.number.NumberFormatter;
 import android.icu.util.Output;
 import android.icu.util.ULocale;
 
@@ -925,7 +927,7 @@ public class PluralRules implements Serializable {
         @Deprecated
         @Override
         public String toString() {
-            return String.format("%." + visibleDecimalDigitCount + "f", source);
+            return String.format(Locale.ROOT, "%." + visibleDecimalDigitCount + "f", source);
         }
 
         /**
@@ -2089,15 +2091,32 @@ public class PluralRules implements Serializable {
     public int hashCode() {
         return rules.hashCode();
     }
+
     /**
-     * Given a number, returns the keyword of the first rule that applies to
-     * the number.
+     * Given a floating-point number, returns the keyword of the first rule
+     * that applies to the number.
      *
      * @param number The number for which the rule has to be determined.
      * @return The keyword of the selected rule.
      */
     public String select(double number) {
         return rules.select(new FixedDecimal(number));
+    }
+
+    /**
+     * Given a formatted number, returns the keyword of the first rule that
+     * applies to the number.
+     *
+     * A FormattedNumber allows you to specify an exponent or trailing zeros,
+     * which can affect the plural category. To get a FormattedNumber, see
+     * {@link NumberFormatter}.
+     *
+     * @param number The number for which the rule has to be determined.
+     * @return The keyword of the selected rule.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public String select(FormattedNumber number) {
+        return rules.select(number.getFixedDecimal());
     }
 
     /**

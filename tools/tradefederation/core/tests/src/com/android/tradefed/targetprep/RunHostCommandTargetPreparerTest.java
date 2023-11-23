@@ -16,42 +16,50 @@
 
 package com.android.tradefed.targetprep;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 
-import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 /** Unit test for {@link RunHostCommandTargetPreparer}. */
-@RunWith(JUnit4.class)
+@RunWith(MockitoJUnitRunner.class)
 public final class RunHostCommandTargetPreparerTest {
 
-    private static final String DEVICE_SERIAL_PLACEHOLDER = "$SERIAL";
     private static final String DEVICE_SERIAL = "123456";
+    private static final String FULL_COMMAND = "command    \t\t\t  \t  argument $SERIAL";
 
-    private ITestDevice mDevice;
-    private RunHostCommandTargetPreparer.BgCommandLog mBgCommandLog;
+    @Mock private ITestDevice mDevice;
+    @Mock private RunHostCommandTargetPreparer.BgCommandLog mBgCommandLog;
+    @Mock private IRunUtil mRunUtil;
     private RunHostCommandTargetPreparer mPreparer;
-    private IRunUtil mRunUtil;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
-        mDevice = EasyMock.createMock(ITestDevice.class);
-        mRunUtil = EasyMock.createMock(IRunUtil.class);
-        mBgCommandLog = EasyMock.createMock(RunHostCommandTargetPreparer.BgCommandLog.class);
+        when(mDevice.getSerialNumber()).thenReturn(DEVICE_SERIAL);
         mPreparer =
                 new RunHostCommandTargetPreparer() {
                     @Override
@@ -64,127 +72,92 @@ public final class RunHostCommandTargetPreparerTest {
                         return Collections.singletonList(mBgCommandLog);
                     }
                 };
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mDevice);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @Test
     public void testSetUp() throws Exception {
-        final String command = "command    \t\t\t  \t  argument " + DEVICE_SERIAL_PLACEHOLDER;
-        final String[] commandArray = new String[] {"command", "argument", DEVICE_SERIAL};
-
-        final OptionSetter optionSetter = new OptionSetter(mPreparer);
-        optionSetter.setOptionValue("host-setup-command", command);
+        OptionSetter optionSetter = new OptionSetter(mPreparer);
+        optionSetter.setOptionValue("host-setup-command", FULL_COMMAND);
         optionSetter.setOptionValue("host-cmd-timeout", "10");
 
         CommandResult result = new CommandResult(CommandStatus.SUCCESS);
-        result.setStdout("");
-        result.setStderr("");
+        when(mRunUtil.runTimedCmd(anyLong(), any())).thenReturn(result);
 
-        EasyMock.expect(mRunUtil.runTimedCmd(10L, commandArray)).andReturn(result);
-        EasyMock.expect(mDevice.getSerialNumber()).andReturn(DEVICE_SERIAL);
-
-        EasyMock.replay(mRunUtil, mDevice);
-        mPreparer.setUp(mDevice, null);
-        EasyMock.verify(mRunUtil, mDevice);
+        // Verify timeout and command (split, removed whitespace, and device serial)
+        mPreparer.setUp(mTestInfo);
+        verify(mRunUtil).runTimedCmd(eq(10L), eq("command"), eq("argument"), eq(DEVICE_SERIAL));
     }
 
     @Test
     public void testSetUp_withWorkDir() throws Exception {
-        final String workDir = "/foo/bar/zzz";
-        final String command = "command    \t\t\t  \t  argument " + DEVICE_SERIAL_PLACEHOLDER;
-        final String[] commandArray = new String[] {"command", "argument", DEVICE_SERIAL};
-
         final OptionSetter optionSetter = new OptionSetter(mPreparer);
-        optionSetter.setOptionValue("work-dir", workDir);
-        optionSetter.setOptionValue("host-setup-command", command);
+        optionSetter.setOptionValue("work-dir", "/working/directory");
+        optionSetter.setOptionValue("host-setup-command", "command");
         optionSetter.setOptionValue("host-cmd-timeout", "10");
 
         CommandResult result = new CommandResult(CommandStatus.SUCCESS);
-        result.setStdout("");
-        result.setStderr("");
+        when(mRunUtil.runTimedCmd(anyLong(), any())).thenReturn(result);
 
-        mRunUtil.setWorkingDir(EasyMock.anyObject());
-        EasyMock.expect(mRunUtil.runTimedCmd(10L, commandArray)).andReturn(result);
-        EasyMock.expect(mDevice.getSerialNumber()).andReturn(DEVICE_SERIAL);
+        // Verify working directory and command execution
+        mPreparer.setUp(mTestInfo);
+        verify(mRunUtil).setWorkingDir(any());
+        verify(mRunUtil).runTimedCmd(eq(10L), eq("command"));
+    }
 
-        EasyMock.replay(mRunUtil, mDevice);
-        mPreparer.setUp(mDevice, null);
-        EasyMock.verify(mRunUtil, mDevice);
+    @Test(expected = TargetSetupError.class)
+    public void testSetUp_withErrors() throws Exception {
+        OptionSetter optionSetter = new OptionSetter(mPreparer);
+        optionSetter.setOptionValue("host-setup-command", "command");
+        optionSetter.setOptionValue("host-cmd-timeout", "10");
+
+        // Verify that failed commands will throw exception during setup
+        CommandResult result = new CommandResult(CommandStatus.FAILED);
+        when(mRunUtil.runTimedCmd(anyLong(), any())).thenReturn(result);
+        mPreparer.setUp(mTestInfo);
     }
 
     @Test
     public void testTearDown() throws Exception {
-        final String command = "command    \t\t\t  \t  argument " + DEVICE_SERIAL_PLACEHOLDER;
-        final String[] commandArray = new String[] {"command", "argument", DEVICE_SERIAL};
-
-        final OptionSetter optionSetter = new OptionSetter(mPreparer);
-        optionSetter.setOptionValue("host-teardown-command", command);
+        OptionSetter optionSetter = new OptionSetter(mPreparer);
+        optionSetter.setOptionValue("host-teardown-command", FULL_COMMAND);
         optionSetter.setOptionValue("host-cmd-timeout", "10");
 
         CommandResult result = new CommandResult(CommandStatus.SUCCESS);
-        result.setStdout("");
-        result.setStderr("");
+        when(mRunUtil.runTimedCmd(anyLong(), any())).thenReturn(result);
 
-        EasyMock.expect(mRunUtil.runTimedCmd(10L, commandArray)).andReturn(result);
-        EasyMock.expect(mDevice.getSerialNumber()).andReturn(DEVICE_SERIAL);
+        // Verify timeout and command (split, removed whitespace, and device serial)
+        mPreparer.tearDown(mTestInfo, null);
+        verify(mRunUtil).runTimedCmd(eq(10L), eq("command"), eq("argument"), eq(DEVICE_SERIAL));
+    }
 
-        EasyMock.replay(mRunUtil, mDevice);
-        mPreparer.tearDown(mDevice, null, null);
-        EasyMock.verify(mRunUtil, mDevice);
+    @Test
+    public void testTearDown_withError() throws Exception {
+        OptionSetter optionSetter = new OptionSetter(mPreparer);
+        optionSetter.setOptionValue("host-teardown-command", "command");
+        optionSetter.setOptionValue("host-cmd-timeout", "10");
+
+        // Verify that failed commands will NOT throw exception during teardown
+        CommandResult result = new CommandResult(CommandStatus.FAILED);
+        when(mRunUtil.runTimedCmd(anyLong(), any())).thenReturn(result);
+        mPreparer.tearDown(mTestInfo, null);
     }
 
     @Test
     public void testBgCommand() throws Exception {
-        final String command = "command    \t\t\t  \t  argument " + DEVICE_SERIAL;
-        final String[] commandArray = new String[] {"command", "argument", DEVICE_SERIAL};
+        OptionSetter optionSetter = new OptionSetter(mPreparer);
+        optionSetter.setOptionValue("host-background-command", FULL_COMMAND);
 
-        final OptionSetter optionSetter = new OptionSetter(mPreparer);
-        optionSetter.setOptionValue("host-background-command", command);
+        when(mRunUtil.runCmdInBackground(anyList(), any())).thenReturn(mock(Process.class));
+        OutputStream os = mock(OutputStream.class);
+        when(mBgCommandLog.getOutputStream()).thenReturn(os);
 
-        OutputStream mockOut =
-                new OutputStream() {
-                    @Override
-                    public void write(int i) throws IOException {}
-                };
-
-        EasyMock.expect(mRunUtil.runCmdInBackground(Arrays.asList(commandArray), mockOut))
-                .andReturn(getMockProcess());
-        EasyMock.expect(mDevice.getSerialNumber()).andReturn(DEVICE_SERIAL);
-        EasyMock.expect(mBgCommandLog.getOutputStream()).andReturn(mockOut);
-
-        EasyMock.replay(mRunUtil, mDevice, mBgCommandLog);
-        mPreparer.setUp(mDevice, null);
-        EasyMock.verify(mRunUtil, mDevice, mBgCommandLog);
-    }
-
-    private Process getMockProcess() {
-        return new Process() {
-            @Override
-            public void destroy() {}
-
-            @Override
-            public int exitValue() {
-                return 0;
-            }
-
-            @Override
-            public InputStream getErrorStream() {
-                return null;
-            }
-
-            @Override
-            public InputStream getInputStream() {
-                return null;
-            }
-
-            @Override
-            public OutputStream getOutputStream() {
-                return null;
-            }
-
-            @Override
-            public int waitFor() throws InterruptedException {
-                return 0;
-            }
-        };
+        // Verify command (split, removed whitespace, and device serial) and output stream
+        mPreparer.setUp(mTestInfo);
+        verify(mRunUtil)
+                .runCmdInBackground(
+                        eq(Arrays.asList("command", "argument", DEVICE_SERIAL)), eq(os));
     }
 }

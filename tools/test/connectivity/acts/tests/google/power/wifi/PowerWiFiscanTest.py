@@ -20,6 +20,7 @@ from acts.test_utils.power import PowerWiFiBaseTest as PWBT
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
 UNLOCK_SCREEN = 'input keyevent 82'
+LOCATION_ON = 'settings put secure location_mode 3'
 
 
 class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
@@ -27,36 +28,23 @@ class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
         super().setup_class()
         # Setup scan command
         SINGLE_SHOT_SCAN = (
-            'am instrument -w -r  -e min_scan_count \"700\"'
+            'nohup am instrument -w -r  -e min_scan_count \"700\"'
             ' -e WifiScanTest-testWifiSingleShotScan %d'
             ' -e class com.google.android.platform.powertests.'
             'WifiScanTest#testWifiSingleShotScan'
             ' com.google.android.platform.powertests/'
             'androidx.test.runner.AndroidJUnitRunner > /dev/null &' %
             (self.mon_duration + self.mon_offset + 10))
-        BACKGROUND_SCAN = ('am instrument -w -r -e min_scan_count \"1\" -e '
-                           'WifiScanTest-testWifiBackgroundScan %d -e class '
-                           'com.google.android.platform.powertests.WifiScan'
-                           'Test#testWifiBackgroundScan com.google.android.'
-                           'platform.powertests/androidx.test.runner.'
-                           'AndroidJUnitRunner > /dev/null &' %
-                           (self.mon_duration + self.mon_offset + 10))
-        WIFI_SCAN = ('am instrument -w -r -e min_scan_count \"1\" -e '
-                     'WifiScanTest-testWifiScan %d -e class '
-                     'com.google.android.platform.powertests.WifiScanTest#'
-                     'testWifiScan com.google.android.platform.powertests/'
-                     'androidx.test.runner.AndroidJUnitRunner > /dev/null &' %
-                     (self.mon_duration + self.mon_offset + 10))
         self.APK_SCAN_CMDS = {
-            'singleshot': SINGLE_SHOT_SCAN,
-            'background': BACKGROUND_SCAN,
-            'wifi': WIFI_SCAN
+            'singleshot': SINGLE_SHOT_SCAN
         }
 
     def setup_test(self):
         super().setup_test()
         # Reset attenuation to minimum
         self.set_attenuation([0, 0, 0, 0])
+        # Turn on location for WiFi Scans
+        self.dut.adb.shell(LOCATION_ON)
 
     def scan_setup(self):
         """Setup for scan based on the type of scan.
@@ -107,7 +95,7 @@ class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
         self.measure_power_and_validate()
 
     # Test cases
-    # Power.apk triggered scans
+    # Power.apk triggered singleshot scans
     @test_tracker_info(uuid='e5539b01-e208-43c6-bebf-6f1e73d8d8cb')
     def test_screen_OFF_WiFi_Disconnected_band_2g_RSSI_high_scan_apk_singleshot(
             self):
@@ -135,16 +123,6 @@ class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
 
     @test_tracker_info(uuid='288b3add-8925-4803-81c0-53debf157ffc')
     def test_screen_OFF_WiFi_Disconnected_band_5g_RSSI_none_scan_apk_singleshot(
-            self):
-        self.wifi_scan_test_func()
-
-    @test_tracker_info(uuid='fe38c1c7-937c-42c0-9381-98356639df8f')
-    def test_screen_OFF_WiFi_Disconnected_band_2g_RSSI_high_scan_apk_wifi(
-            self):
-        self.wifi_scan_test_func()
-
-    @test_tracker_info(uuid='8eedefd1-3a08-4ac2-ba55-5eb438def3d4')
-    def test_screen_OFF_WiFi_Disconnected_band_5g_RSSI_high_scan_apk_wifi(
             self):
         self.wifi_scan_test_func()
 

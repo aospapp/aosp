@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Išskleisti sertifikatą"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Išarchyvuojama..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Ištrauka iš %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Sukurti sertifikato pavadinimą"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Sertifikato pavadinimas:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Suteikite šiam sertifikatui pavadinimą"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Sertifikato pavadinimas"</string>
     <string name="credential_password" msgid="3520176519550993326">"Įveskite slaptažodį, kad išarchyvuotumėte sertifikatus."</string>
     <string name="credential_info" msgid="2436768402308470397">"Pakete yra:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Sertifikatai PKCS12 raktų saugykloje."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Sertifikatas negalioja."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Norint įdiegti sertifikatą būtinas privatus raktas"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Norint įdiegti privatų raktą būtinas sertifikatas"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> įdiegtas."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Pasirinkite sertifikato tipą"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"CA sertifikatus diegimas skiltyje „Nustatymai“"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Šis „<xliff:g id="REQUESTING_APP">%1$s</xliff:g>“ sertifikatas turi būti įdiegtas skiltyje „Nustatymai“. CA sertifikatus įdiekite tik iš patikimų organizacijų."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Uždaryti"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Šio failo naudoti negalima"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Uždaryti"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Šio failo negalima naudoti kaip: <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Sertifikatas"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA sertifikatas"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN ir programos naudotojo sertifikatas"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"„Wi‑Fi“ sertifikatas"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA sertifikatas įdiegtas"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Naudotojo sertifikatas įdiegtas"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"„Wi‑Fi“ sertifikatas įdiegtas"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Nepavyko įdiegti, nes sertifikatas per didelis."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Nepavyko įdiegti, nes nepavyko rasti sertifikato failo."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Nepavyko įdiegti, nes nepavyko nuskaityti sertifikato failo."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Laikina klaida. Vėliau bandykite dar kartą."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Tik įrenginio savininkas gali įdiegti sertifikatus."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Kredencialų naudojimas:"</string>
   <string-array name="credential_usage">

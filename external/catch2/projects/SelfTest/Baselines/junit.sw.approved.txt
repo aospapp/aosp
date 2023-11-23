@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <properties>
-    <property name="random-seed" value="1"/>
-  </properties>
-loose text artifact
-  <testsuite name="<exe-name>" errors="17" failures="122" tests="1410" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+<testsuitesloose text artifact
+>
+  <testsuite name="<exe-name>" errors="17" failures="125" tests="1446" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+    <properties>
+      <property name="filters" value="~[!nonportable]~[!benchmark]~[approvals]"/>
+      <property name="random-seed" value="1"/>
+    </properties>
     <testcase classname="<exe-name>.global" name="# A test name that starts with a #" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="#1005: Comparing pointer to int and long (NULL can be either on various systems)" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="#1027" time="{duration}"/>
@@ -13,6 +14,7 @@ loose text artifact
     <testcase classname="<exe-name>.global" name="#1238" time="{duration}"/>
     <testcase classname="<exe-name>.(Fixture_1245&lt;int, int>)" name="#1245" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="#1403" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="#1455 - INFO and WARN can start with a linebreak" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="#1514: stderr/stdout is not captured in tests aborted by an exception" time="{duration}">
       <failure type="FAIL">
 1514
@@ -360,6 +362,7 @@ Message.tests.cpp:<line number>
     <testcase classname="<exe-name>.global" name="Generators -- adapters/Shortening a range" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators -- adapters/Transforming elements/Same type" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators -- adapters/Transforming elements/Different type" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Generators -- adapters/Transforming elements/Different deduced type" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators -- adapters/Repeating a generator" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators -- adapters/Chunking a generator into sized pieces/Number of elements in source is divisible by chunk size" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators -- adapters/Chunking a generator into sized pieces/Number of elements in source is not divisible by chunk size" time="{duration}"/>
@@ -373,7 +376,8 @@ Message.tests.cpp:<line number>
     <testcase classname="<exe-name>.global" name="Generators internals/Filter generator" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators internals/Take generator/Take less" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators internals/Take generator/Take more" time="{duration}"/>
-    <testcase classname="<exe-name>.global" name="Generators internals/Map" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Generators internals/Map with explicit return type" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Generators internals/Map with deduced return type" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators internals/Repeat/Singular repeat" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators internals/Repeat/Actual repeat" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Generators internals/Range/Positive auto step/Integer" time="{duration}"/>
@@ -452,6 +456,7 @@ Matchers.tests.cpp:<line number>
 Exception.tests.cpp:<line number>
       </failure>
     </testcase>
+    <testcase classname="<exe-name>.global" name="Nested generators and captured variables" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Nice descriptive name" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Non-std exceptions can be translated" time="{duration}">
       <error type="TEST_CASE">
@@ -736,6 +741,20 @@ Exception.tests.cpp:<line number>
     </testcase>
     <testcase classname="<exe-name>.global" name="Use a custom approx" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Variadic macros/Section with one argument" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Vector Approx matcher/Empty vector is roughly equal to an empty vector" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Vector Approx matcher/Vectors with elements/A vector is approx equal to itself" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Vector Approx matcher/Vectors with elements/Different length" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Vector Approx matcher/Vectors with elements/Same length, different elements" time="{duration}"/>
+    <testcase classname="<exe-name>.global" name="Vector Approx matcher -- failing/Empty and non empty vectors are not approx equal" time="{duration}">
+      <failure message="{  } is approx: { 1.0, 2.0 }" type="CHECK_THAT">
+Matchers.tests.cpp:<line number>
+      </failure>
+    </testcase>
+    <testcase classname="<exe-name>.global" name="Vector Approx matcher -- failing/Just different vectors" time="{duration}">
+      <failure message="{ 2.0, 4.0, 6.0 } is approx: { 1.0, 3.0, 5.0 }" type="CHECK_THAT">
+Matchers.tests.cpp:<line number>
+      </failure>
+    </testcase>
     <testcase classname="<exe-name>.global" name="Vector matchers/Contains (element)" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Vector matchers/Contains (vector)" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="Vector matchers/Contains (element), composed" time="{duration}"/>
@@ -978,6 +997,7 @@ i := 7
 Message.tests.cpp:<line number>
       </failure>
     </testcase>
+    <testcase classname="<exe-name>.global" name="shortened hide tags are split apart" time="{duration}"/>
     <testcase classname="<exe-name>.global" name="stacks unscoped info in loops" time="{duration}">
       <failure message="false" type="CHECK">
 Count 1 to 3...

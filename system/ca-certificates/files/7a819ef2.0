@@ -35,7 +35,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1289 (0x509)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 2
         Validity
             Not Before: Nov 24 18:27:00 2006 GMT
@@ -43,7 +43,7 @@ Certificate:
         Subject: C=BM, O=QuoVadis Limited, CN=QuoVadis Root CA 2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:9a:18:ca:4b:94:0d:00:2d:af:03:29:8a:f0:0f:
                     81:c8:ae:4c:19:85:1d:08:9f:ab:29:44:85:f3:2f:

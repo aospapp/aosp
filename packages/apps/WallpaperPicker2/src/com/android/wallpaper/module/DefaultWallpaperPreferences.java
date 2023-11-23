@@ -24,6 +24,8 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.android.wallpaper.module.WallpaperPreferenceKeys.NoBackupKeys;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 
@@ -39,10 +41,12 @@ import java.util.List;
  */
 public class DefaultWallpaperPreferences implements WallpaperPreferences {
     public static final String PREFS_NAME = "wallpaper";
+    public static final String NO_BACKUP_PREFS_NAME = "wallpaper-nobackup";
 
     private static final String TAG = "DefaultWPPreferences";
 
     protected SharedPreferences mSharedPrefs;
+    protected SharedPreferences mNoBackupPrefs;
     protected Context mContext;
 
     // Keep a strong reference to this OnSharedPreferenceChangeListener to prevent the listener from
@@ -51,17 +55,104 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
 
     public DefaultWallpaperPreferences(Context context) {
         mSharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        mNoBackupPrefs = context.getSharedPreferences(NO_BACKUP_PREFS_NAME, Context.MODE_PRIVATE);
+        if (mNoBackupPrefs.getAll().isEmpty() && !mSharedPrefs.getAll().isEmpty()) {
+            upgradePrefs();
+        }
         mContext = context.getApplicationContext();
 
         // Register a prefs changed listener so that all prefs changes trigger a backup event.
         final BackupManager backupManager = new BackupManager(context);
-        mSharedPrefsChangedListener = new OnSharedPreferenceChangeListener() {
-            @Override
-            public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-                backupManager.dataChanged();
-            }
-        };
+        mSharedPrefsChangedListener = (sharedPreferences, key) -> backupManager.dataChanged();
         mSharedPrefs.registerOnSharedPreferenceChangeListener(mSharedPrefsChangedListener);
+    }
+
+    /**
+     * Move {@link NoBackupKeys} preferences that might have been in mSharedPrefs from previous
+     * versions of the app into mNoBackupPrefs.
+     */
+    private void upgradePrefs() {
+        SharedPreferences.Editor editor = mNoBackupPrefs.edit();
+        if (mSharedPrefs.contains(
+                NoBackupKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL)) {
+            editor.putString(NoBackupKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL,
+                    mSharedPrefs.getString(NoBackupKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL, null));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_HOME_WALLPAPER_MANAGER_ID)) {
+            editor.putInt(NoBackupKeys.KEY_HOME_WALLPAPER_MANAGER_ID,
+                    mSharedPrefs.getInt(NoBackupKeys.KEY_HOME_WALLPAPER_MANAGER_ID, 0));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID)) {
+            editor.putString(NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID,
+                    mSharedPrefs.getString(NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID, null));
+        }
+        if (mSharedPrefs.contains(
+                NoBackupKeys.KEY_HOME_WALLPAPER_BACKING_FILE)) {
+            editor.putString(NoBackupKeys.KEY_HOME_WALLPAPER_BACKING_FILE,
+                    mSharedPrefs.getString(NoBackupKeys.KEY_HOME_WALLPAPER_BACKING_FILE, null));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_LOCK_WALLPAPER_MANAGER_ID)) {
+            editor.putInt(NoBackupKeys.KEY_LOCK_WALLPAPER_MANAGER_ID,
+                    mSharedPrefs.getInt(NoBackupKeys.KEY_LOCK_WALLPAPER_MANAGER_ID, 0));
+        }
+        if (mSharedPrefs.contains(
+                NoBackupKeys.KEY_LOCK_WALLPAPER_BACKING_FILE)) {
+            editor.putString(NoBackupKeys.KEY_LOCK_WALLPAPER_BACKING_FILE,
+                    mSharedPrefs.getString(NoBackupKeys.KEY_LOCK_WALLPAPER_BACKING_FILE, null));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS)) {
+            editor.putString(NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS,
+                    mSharedPrefs.getString(NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS, null));
+        }
+        if (mSharedPrefs.contains(
+                NoBackupKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP)) {
+            editor.putLong(NoBackupKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP,
+                    mSharedPrefs.getLong(NoBackupKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP, -1));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_LAST_DAILY_LOG_TIMESTAMP)) {
+            editor.putLong(NoBackupKeys.KEY_LAST_DAILY_LOG_TIMESTAMP,
+                    mSharedPrefs.getLong(NoBackupKeys.KEY_LAST_DAILY_LOG_TIMESTAMP, 0));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_LAST_APP_ACTIVE_TIMESTAMP)) {
+            editor.putLong(NoBackupKeys.KEY_LAST_APP_ACTIVE_TIMESTAMP,
+                    mSharedPrefs.getLong(NoBackupKeys.KEY_LAST_APP_ACTIVE_TIMESTAMP, 0));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_LAST_ROTATION_STATUS)) {
+            editor.putInt(NoBackupKeys.KEY_LAST_ROTATION_STATUS,
+                    mSharedPrefs.getInt(NoBackupKeys.KEY_LAST_ROTATION_STATUS, -1));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_LAST_ROTATION_STATUS_TIMESTAMP)) {
+            editor.putLong(NoBackupKeys.KEY_LAST_ROTATION_STATUS_TIMESTAMP,
+                    mSharedPrefs.getLong(NoBackupKeys.KEY_LAST_ROTATION_STATUS_TIMESTAMP, 0));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_LAST_SYNC_TIMESTAMP)) {
+            editor.putLong(NoBackupKeys.KEY_LAST_SYNC_TIMESTAMP,
+                    mSharedPrefs.getLong(NoBackupKeys.KEY_LAST_SYNC_TIMESTAMP, 0));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_PENDING_WALLPAPER_SET_STATUS)) {
+            editor.putInt(NoBackupKeys.KEY_PENDING_WALLPAPER_SET_STATUS,
+                    mSharedPrefs.getInt(NoBackupKeys.KEY_PENDING_WALLPAPER_SET_STATUS,
+                            WALLPAPER_SET_NOT_PENDING));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS)) {
+            editor.putInt(NoBackupKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS,
+                    mSharedPrefs.getInt(NoBackupKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS,
+                            DAILY_WALLPAPER_UPDATE_NOT_PENDING));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED)) {
+            editor.putInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED,
+                    mSharedPrefs.getInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED, 0));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED)) {
+            editor.putInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED,
+                    mSharedPrefs.getInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED, 0));
+        }
+        if (mSharedPrefs.contains(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME)) {
+            editor.putString(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME,
+                    mSharedPrefs.getString(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME, null));
+        }
+
+        editor.apply();
     }
 
     private int getResIdPersistedByName(String key, String type) {
@@ -106,13 +197,16 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
     public void setHomeWallpaperAttributions(List<String> attributions) {
         SharedPreferences.Editor editor = mSharedPrefs.edit();
         if (attributions.size() > 0) {
-            editor.putString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ATTRIB_1, attributions.get(0));
+            editor.putString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ATTRIB_1,
+                    attributions.get(0));
         }
         if (attributions.size() > 1) {
-            editor.putString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ATTRIB_2, attributions.get(1));
+            editor.putString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ATTRIB_2,
+                    attributions.get(1));
         }
         if (attributions.size() > 2) {
-            editor.putString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ATTRIB_3, attributions.get(2));
+            editor.putString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ATTRIB_3,
+                    attributions.get(2));
         }
         editor.apply();
     }
@@ -155,19 +249,22 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
 
     @Override
     public String getHomeWallpaperBaseImageUrl() {
-        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL, null);
+        return mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL, null);
     }
 
     @Override
     public void setHomeWallpaperBaseImageUrl(String baseImageUrl) {
-        mSharedPrefs.edit().putString(
-                WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL, baseImageUrl).apply();
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL, baseImageUrl)
+                .apply();
     }
 
     @Override
     @Nullable
     public String getHomeWallpaperCollectionId() {
-        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_COLLECTION_ID, null);
+        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_COLLECTION_ID,
+                null);
     }
 
     @Override
@@ -179,14 +276,14 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
     @Override
     @Nullable
     public String getHomeWallpaperBackingFileName() {
-        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_BACKING_FILE,
-                null);
+        return mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_BACKING_FILE, null);
     }
 
     @Override
     public void setHomeWallpaperBackingFileName(String fileName) {
-        mSharedPrefs.edit().putString(
-                WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_BACKING_FILE, fileName).apply();
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_BACKING_FILE, fileName).apply();
     }
 
     @Override
@@ -213,47 +310,56 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
                 .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ACTION_URL)
                 .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ACTION_LABEL_RES)
                 .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_ACTION_ICON_RES)
-                .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL)
                 .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_HASH_CODE)
-                .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_MANAGER_ID)
-                .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME)
-                .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_REMOTE_ID)
-                .remove(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_BACKING_FILE)
+                .apply();
+
+        mNoBackupPrefs.edit()
+                .remove(NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME)
+                .remove(NoBackupKeys.KEY_HOME_WALLPAPER_MANAGER_ID)
+                .remove(NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID)
+                .remove(NoBackupKeys.KEY_HOME_WALLPAPER_BASE_IMAGE_URL)
+                .remove(NoBackupKeys.KEY_HOME_WALLPAPER_BACKING_FILE)
                 .apply();
     }
 
     @Override
     public String getHomeWallpaperPackageName() {
-        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME, null);
+        return mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME, null);
     }
 
     @Override
     public void setHomeWallpaperPackageName(String packageName) {
-        mSharedPrefs.edit().putString(
-                WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME, packageName).apply();
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_PACKAGE_NAME, packageName)
+                .apply();
     }
 
     @Override
     public int getHomeWallpaperManagerId() {
-        return mSharedPrefs.getInt(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_MANAGER_ID, 0);
+        return mNoBackupPrefs.getInt(
+                NoBackupKeys.KEY_HOME_WALLPAPER_MANAGER_ID, 0);
     }
 
     @Override
     public void setHomeWallpaperManagerId(int homeWallpaperId) {
-        mSharedPrefs.edit().putInt(
-                WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_MANAGER_ID, homeWallpaperId).apply();
+        mNoBackupPrefs.edit().putInt(
+                NoBackupKeys.KEY_HOME_WALLPAPER_MANAGER_ID, homeWallpaperId)
+                .apply();
     }
 
     @Nullable
     @Override
     public String getHomeWallpaperRemoteId() {
-        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_REMOTE_ID, null);
+        return mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID, null);
     }
 
     @Override
     public void setHomeWallpaperRemoteId(@Nullable String wallpaperRemoteId) {
-        mSharedPrefs.edit().putString(
-                WallpaperPreferenceKeys.KEY_HOME_WALLPAPER_REMOTE_ID, wallpaperRemoteId).apply();
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_HOME_WALLPAPER_REMOTE_ID, wallpaperRemoteId)
+                .apply();
     }
 
     @Override
@@ -269,13 +375,16 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
     public void setLockWallpaperAttributions(List<String> attributions) {
         SharedPreferences.Editor editor = mSharedPrefs.edit();
         if (attributions.size() > 0) {
-            editor.putString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ATTRIB_1, attributions.get(0));
+            editor.putString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ATTRIB_1,
+                    attributions.get(0));
         }
         if (attributions.size() > 1) {
-            editor.putString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ATTRIB_2, attributions.get(1));
+            editor.putString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ATTRIB_2,
+                    attributions.get(1));
         }
         if (attributions.size() > 2) {
-            editor.putString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ATTRIB_3, attributions.get(2));
+            editor.putString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ATTRIB_3,
+                    attributions.get(2));
         }
         editor.apply();
     }
@@ -319,7 +428,8 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
     @Override
     @Nullable
     public String getLockWallpaperCollectionId() {
-        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_COLLECTION_ID, null);
+        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_COLLECTION_ID,
+                null);
     }
 
     @Override
@@ -331,25 +441,27 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
     @Override
     @Nullable
     public String getLockWallpaperBackingFileName() {
-        return mSharedPrefs.getString(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_BACKING_FILE,
-                null);
+        return mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_LOCK_WALLPAPER_BACKING_FILE, null);
     }
 
     @Override
     public void setLockWallpaperBackingFileName(String fileName) {
-        mSharedPrefs.edit().putString(
-                WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_BACKING_FILE, fileName).apply();
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_LOCK_WALLPAPER_BACKING_FILE, fileName).apply();
     }
 
     @Override
     public int getLockWallpaperId() {
-        return mSharedPrefs.getInt(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_MANAGER_ID, 0);
+        return mNoBackupPrefs.getInt(
+                NoBackupKeys.KEY_LOCK_WALLPAPER_MANAGER_ID, 0);
     }
 
     @Override
     public void setLockWallpaperId(int lockWallpaperId) {
-        mSharedPrefs.edit().putInt(
-                WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_MANAGER_ID, lockWallpaperId).apply();
+        mNoBackupPrefs.edit().putInt(
+                NoBackupKeys.KEY_LOCK_WALLPAPER_MANAGER_ID, lockWallpaperId)
+                .apply();
     }
 
     @Override
@@ -378,21 +490,25 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
                 .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ACTION_LABEL_RES)
                 .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_ACTION_ICON_RES)
                 .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_HASH_CODE)
-                .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_MANAGER_ID)
-                .remove(WallpaperPreferenceKeys.KEY_LOCK_WALLPAPER_BACKING_FILE)
+                .apply();
+
+        mNoBackupPrefs.edit()
+                .remove(NoBackupKeys.KEY_LOCK_WALLPAPER_MANAGER_ID)
+                .remove(NoBackupKeys.KEY_LOCK_WALLPAPER_BACKING_FILE)
                 .apply();
     }
 
     @Override
     public void addDailyRotation(long timestamp) {
-        String jsonString = mSharedPrefs.getString(
-                WallpaperPreferenceKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
+        String jsonString = mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
         try {
             JSONArray jsonArray = new JSONArray(jsonString);
             jsonArray.put(timestamp);
 
-            mSharedPrefs.edit()
-                    .putString(WallpaperPreferenceKeys.KEY_DAILY_ROTATION_TIMESTAMPS, jsonArray.toString())
+            mNoBackupPrefs.edit()
+                    .putString(NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS,
+                            jsonArray.toString())
                     .apply();
         } catch (JSONException e) {
             Log.e(TAG, "Failed to add a daily rotation timestamp due to a JSON parse exception");
@@ -401,8 +517,8 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
 
     @Override
     public long getLastDailyRotationTimestamp() {
-        String jsonString = mSharedPrefs.getString(
-                WallpaperPreferenceKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
+        String jsonString = mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
 
         try {
             JSONArray jsonArray = new JSONArray(jsonString);
@@ -428,15 +544,15 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
         oneWeekAgo.add(Calendar.WEEK_OF_YEAR, -1);
         long oneWeekAgoTimestamp = oneWeekAgo.getTimeInMillis();
 
-        // Return null if daily rotation wasn't enabled (timestamp value of -1) or was enabled earlier
-        // than one week ago.
+        // Return null if daily rotation wasn't enabled (timestamp value of -1) or was enabled
+        // less than one week ago.
         if (enabledTimestamp == -1 || enabledTimestamp > oneWeekAgoTimestamp) {
             return null;
         }
 
         List<Long> timestamps = new ArrayList<>();
-        String jsonString = mSharedPrefs.getString(
-                WallpaperPreferenceKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
+        String jsonString = mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
 
         try {
             JSONArray jsonArray = new JSONArray(jsonString);
@@ -451,8 +567,9 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
             }
 
             jsonArray = new JSONArray(timestamps);
-            mSharedPrefs.edit()
-                    .putString(WallpaperPreferenceKeys.KEY_DAILY_ROTATION_TIMESTAMPS, jsonArray.toString())
+            mNoBackupPrefs.edit()
+                    .putString(NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS,
+                            jsonArray.toString())
                     .apply();
         } catch (JSONException e) {
             Log.e(TAG, "Failed to get daily rotation timestamps due to a JSON parse exception");
@@ -479,21 +596,21 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
         midnightToday.set(Calendar.MINUTE, 0);
         long midnightTodayTimestamp = midnightToday.getTimeInMillis();
 
-        // Return null if daily rotation wasn't enabled (timestamp value of -1) or was enabled earlier
-        // than midnight yesterday.
+        // Return null if daily rotation wasn't enabled (timestamp value of -1) or was enabled
+        // less than midnight yesterday.
         if (enabledTimestamp == -1 || enabledTimestamp > midnightYesterdayTimestamp) {
             return null;
         }
 
         List<Long> timestamps = new ArrayList<>();
-        String jsonString = mSharedPrefs.getString(
-                WallpaperPreferenceKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
+        String jsonString = mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS, "[]");
 
         try {
             JSONArray jsonArray = new JSONArray(jsonString);
 
-            // Filter the timestamps (which cover up to one week of data) to only include those between
-            // midnight yesterday and midnight today.
+            // Filter the timestamps (which cover up to one week of data) to only include those
+            // between midnight yesterday and midnight today.
             for (int i = 0; i < jsonArray.length(); i++) {
                 long timestamp = jsonArray.getLong(i);
                 if (timestamp >= midnightYesterdayTimestamp && timestamp < midnightTodayTimestamp) {
@@ -510,160 +627,175 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
 
     @Override
     public long getDailyWallpaperEnabledTimestamp() {
-        return mSharedPrefs.getLong(WallpaperPreferenceKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP, -1);
+        return mNoBackupPrefs.getLong(
+                NoBackupKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP, -1);
     }
 
     @Override
     public void setDailyWallpaperEnabledTimestamp(long timestamp) {
-        mSharedPrefs.edit()
-                .putLong(WallpaperPreferenceKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP, timestamp)
+        mNoBackupPrefs.edit()
+                .putLong(NoBackupKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP,
+                        timestamp)
                 .apply();
     }
 
     @Override
     public void clearDailyRotations() {
-        mSharedPrefs.edit()
-                .remove(WallpaperPreferenceKeys.KEY_DAILY_ROTATION_TIMESTAMPS)
-                .remove(WallpaperPreferenceKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP)
+        mNoBackupPrefs.edit()
+                .remove(NoBackupKeys.KEY_DAILY_ROTATION_TIMESTAMPS)
+                .remove(NoBackupKeys.KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP)
                 .apply();
     }
 
     @Override
     public long getLastDailyLogTimestamp() {
-        return mSharedPrefs.getLong(WallpaperPreferenceKeys.KEY_LAST_DAILY_LOG_TIMESTAMP, 0);
+        return mNoBackupPrefs.getLong(
+                NoBackupKeys.KEY_LAST_DAILY_LOG_TIMESTAMP, 0);
     }
 
     @Override
     public void setLastDailyLogTimestamp(long timestamp) {
-        mSharedPrefs.edit()
-                .putLong(WallpaperPreferenceKeys.KEY_LAST_DAILY_LOG_TIMESTAMP, timestamp)
+        mNoBackupPrefs.edit()
+                .putLong(NoBackupKeys.KEY_LAST_DAILY_LOG_TIMESTAMP, timestamp)
                 .apply();
     }
 
     @Override
     public long getLastAppActiveTimestamp() {
-        return mSharedPrefs.getLong(WallpaperPreferenceKeys.KEY_LAST_APP_ACTIVE_TIMESTAMP, 0);
+        return mNoBackupPrefs.getLong(
+                NoBackupKeys.KEY_LAST_APP_ACTIVE_TIMESTAMP, 0);
     }
 
     @Override
     public void setLastAppActiveTimestamp(long timestamp) {
-        mSharedPrefs.edit()
-                .putLong(WallpaperPreferenceKeys.KEY_LAST_APP_ACTIVE_TIMESTAMP, timestamp)
+        mNoBackupPrefs.edit()
+                .putLong(NoBackupKeys.KEY_LAST_APP_ACTIVE_TIMESTAMP, timestamp)
                 .apply();
     }
 
     @Override
     public void setDailyWallpaperRotationStatus(int status, long timestamp) {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_LAST_ROTATION_STATUS, status)
-                .putLong(WallpaperPreferenceKeys.KEY_LAST_ROTATION_STATUS_TIMESTAMP, timestamp)
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_LAST_ROTATION_STATUS, status)
+                .putLong(NoBackupKeys.KEY_LAST_ROTATION_STATUS_TIMESTAMP,
+                        timestamp)
                 .apply();
     }
 
     @Override
     public int getDailyWallpaperLastRotationStatus() {
-        return mSharedPrefs.getInt(WallpaperPreferenceKeys.KEY_LAST_ROTATION_STATUS, -1);
+        return mNoBackupPrefs.getInt(NoBackupKeys.KEY_LAST_ROTATION_STATUS, -1);
     }
 
     @Override
     public long getDailyWallpaperLastRotationStatusTimestamp() {
-        return mSharedPrefs.getLong(WallpaperPreferenceKeys.KEY_LAST_ROTATION_STATUS_TIMESTAMP, 0);
+        return mNoBackupPrefs.getLong(
+                NoBackupKeys.KEY_LAST_ROTATION_STATUS_TIMESTAMP, 0);
     }
 
     @Override
     public long getLastSyncTimestamp() {
-        return mSharedPrefs.getLong(WallpaperPreferenceKeys.KEY_LAST_SYNC_TIMESTAMP, 0);
+        return mNoBackupPrefs.getLong(NoBackupKeys.KEY_LAST_SYNC_TIMESTAMP, 0);
     }
 
     @Override
     public void setLastSyncTimestamp(long timestamp) {
-        // Write synchronously via commit() to ensure this timetsamp gets written to disk immediately.
-        mSharedPrefs.edit()
-                .putLong(WallpaperPreferenceKeys.KEY_LAST_SYNC_TIMESTAMP, timestamp)
+        // Write synchronously via commit() to ensure this timetsamp gets written to disk
+        // immediately.
+        mNoBackupPrefs.edit()
+                .putLong(NoBackupKeys.KEY_LAST_SYNC_TIMESTAMP, timestamp)
                 .commit();
     }
 
     @Override
     public void setPendingWallpaperSetStatusSync(@PendingWallpaperSetStatus int setStatus) {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_PENDING_WALLPAPER_SET_STATUS, setStatus)
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_PENDING_WALLPAPER_SET_STATUS,
+                        setStatus)
                 .commit();
     }
 
     @Override
     public int getPendingWallpaperSetStatus() {
         //noinspection ResourceType
-        return mSharedPrefs.getInt(
-                WallpaperPreferenceKeys.KEY_PENDING_WALLPAPER_SET_STATUS, WALLPAPER_SET_NOT_PENDING);
+        return mNoBackupPrefs.getInt(
+                NoBackupKeys.KEY_PENDING_WALLPAPER_SET_STATUS,
+                WALLPAPER_SET_NOT_PENDING);
     }
 
     @Override
     public void setPendingWallpaperSetStatus(@PendingWallpaperSetStatus int setStatus) {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_PENDING_WALLPAPER_SET_STATUS, setStatus)
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_PENDING_WALLPAPER_SET_STATUS,
+                        setStatus)
                 .apply();
     }
 
     @Override
     public void setPendingDailyWallpaperUpdateStatusSync(
             @PendingDailyWallpaperUpdateStatus int updateStatus) {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS, updateStatus)
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS,
+                        updateStatus)
                 .commit();
     }
 
     @Override
     public int getPendingDailyWallpaperUpdateStatus() {
         //noinspection ResourceType
-        return mSharedPrefs.getInt(WallpaperPreferenceKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS,
+        return mNoBackupPrefs.getInt(
+                NoBackupKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS,
                 DAILY_WALLPAPER_UPDATE_NOT_PENDING);
     }
 
     @Override
     public void setPendingDailyWallpaperUpdateStatus(
             @PendingDailyWallpaperUpdateStatus int updateStatus) {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS, updateStatus)
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_PENDING_DAILY_WALLPAPER_UPDATE_STATUS,
+                        updateStatus)
                 .apply();
     }
 
     @Override
     public void incrementNumDaysDailyRotationFailed() {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED,
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED,
                         getNumDaysDailyRotationFailed() + 1)
                 .apply();
     }
 
     @Override
     public int getNumDaysDailyRotationFailed() {
-        return mSharedPrefs.getInt(WallpaperPreferenceKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED, 0);
+        return mNoBackupPrefs.getInt(
+                NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED, 0);
     }
 
     @Override
     public void resetNumDaysDailyRotationFailed() {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED, 0)
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_FAILED, 0)
                 .apply();
     }
 
     @Override
     public void incrementNumDaysDailyRotationNotAttempted() {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED,
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED,
                         getNumDaysDailyRotationNotAttempted() + 1)
                 .apply();
     }
 
     @Override
     public int getNumDaysDailyRotationNotAttempted() {
-        return mSharedPrefs.getInt(WallpaperPreferenceKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED, 0);
+        return mNoBackupPrefs.getInt(
+                NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED, 0);
     }
 
     @Override
     public void resetNumDaysDailyRotationNotAttempted() {
-        mSharedPrefs.edit()
-                .putInt(WallpaperPreferenceKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED, 0)
+        mNoBackupPrefs.edit()
+                .putInt(NoBackupKeys.KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED, 0)
                 .apply();
     }
 }

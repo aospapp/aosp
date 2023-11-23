@@ -16,12 +16,13 @@
 
 package android.app.stubs;
 
+import android.app.ActivityManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.ServiceInfo;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -40,14 +41,32 @@ public class CommandReceiver extends BroadcastReceiver {
     public static final int COMMAND_STOP_FOREGROUND_SERVICE = 4;
     public static final int COMMAND_START_FOREGROUND_SERVICE_LOCATION = 5;
     public static final int COMMAND_STOP_FOREGROUND_SERVICE_LOCATION = 6;
+    public static final int COMMAND_START_ALERT_SERVICE = 7;
+    public static final int COMMAND_STOP_ALERT_SERVICE = 8;
+    public static final int COMMAND_SELF_INDUCED_ANR = 9;
+    public static final int COMMAND_START_ACTIVITY = 10;
+    public static final int COMMAND_STOP_ACTIVITY = 11;
+    public static final int COMMAND_CREATE_FGSL_PENDING_INTENT = 12;
+    public static final int COMMAND_SEND_FGSL_PENDING_INTENT = 13;
 
     public static final String EXTRA_COMMAND = "android.app.stubs.extra.COMMAND";
     public static final String EXTRA_TARGET_PACKAGE = "android.app.stubs.extra.TARGET_PACKAGE";
     public static final String EXTRA_FLAGS = "android.app.stubs.extra.FLAGS";
 
     public static final String SERVICE_NAME = "android.app.stubs.LocalService";
+    public static final String FG_SERVICE_NAME = "android.app.stubs.LocalForegroundService";
+    public static final String FG_LOCATION_SERVICE_NAME =
+            "android.app.stubs.LocalForegroundServiceLocation";
+
+    public static final String ACTIVITY_NAME = "android.app.stubs.SimpleActivity";
 
     private static ArrayMap<String,ServiceConnection> sServiceMap = new ArrayMap<>();
+
+    // Map a packageName to a Intent that starts an Activity.
+    private static ArrayMap<String, Intent> sActivityIntent = new ArrayMap<>();
+
+    // Map a packageName to a PendingIntent.
+    private static ArrayMap<String, PendingIntent> sPendingIntent = new ArrayMap<>();
 
     /**
      * Handle the different types of binding/unbinding requests.
@@ -56,6 +75,8 @@ public class CommandReceiver extends BroadcastReceiver {
      */
     @Override
     public void onReceive(Context context, Intent intent) {
+        // Use the application context as the receiver context could be restricted.
+        context = context.getApplicationContext();
         int command = intent.getIntExtra(EXTRA_COMMAND, -1);
         Log.d(TAG + "_" + context.getPackageName(), "Got command " + command + ", intent="
                 + intent);
@@ -67,30 +88,42 @@ public class CommandReceiver extends BroadcastReceiver {
                 doUnbindService(context, intent);
                 break;
             case COMMAND_START_FOREGROUND_SERVICE:
-                doStartForegroundService(context, LocalForegroundService.class);
+                doStartForegroundService(context, intent);
                 break;
             case COMMAND_STOP_FOREGROUND_SERVICE:
-                doStopForegroundService(context, LocalForegroundService.class);
+                doStopForegroundService(context, intent, FG_SERVICE_NAME);
                 break;
             case COMMAND_START_FOREGROUND_SERVICE_LOCATION:
-                int type = intent.getIntExtra(
-                        LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST);
-                doStartForegroundServiceWithType(context, LocalForegroundServiceLocation.class,
-                        type);
+                doStartForegroundServiceWithType(context, intent);
                 break;
             case COMMAND_STOP_FOREGROUND_SERVICE_LOCATION:
-                doStopForegroundService(context, LocalForegroundServiceLocation.class);
+                doStopForegroundService(context, intent, FG_LOCATION_SERVICE_NAME);
+                break;
+            case COMMAND_START_ALERT_SERVICE:
+                doStartAlertService(context);
+                break;
+            case COMMAND_STOP_ALERT_SERVICE:
+                doStopAlertService(context);
+                break;
+            case COMMAND_SELF_INDUCED_ANR:
+                doSelfInducedAnr(context);
+                break;
+            case COMMAND_START_ACTIVITY:
+                doStartActivity(context, intent);
+                break;
+            case COMMAND_STOP_ACTIVITY:
+                doStopActivity(context, intent);
+                break;
+            case COMMAND_CREATE_FGSL_PENDING_INTENT:
+                doCreateFgslPendingIntent(context, intent);
+                break;
+            case COMMAND_SEND_FGSL_PENDING_INTENT:
+                doSendFgslPendingIntent(context, intent);
                 break;
         }
     }
 
     private void doBindService(Context context, Intent commandIntent) {
-        context = context.getApplicationContext();
-        if (LocalService.sServiceContext != null) {
-            context = LocalService.sServiceContext;
-        }
-
         String targetPackage = getTargetPackage(commandIntent);
         int flags = getFlags(commandIntent);
 
@@ -107,24 +140,84 @@ public class CommandReceiver extends BroadcastReceiver {
         context.unbindService(sServiceMap.remove(targetPackage));
     }
 
-    private void doStartForegroundService(Context context, Class cls) {
-        Intent fgsIntent = new Intent(context, cls);
+    private void doStartForegroundService(Context context, Intent commandIntent) {
+        String targetPackage = getTargetPackage(commandIntent);
+        Intent fgsIntent = new Intent();
+        fgsIntent.setComponent(new ComponentName(targetPackage, FG_SERVICE_NAME));
         int command = LocalForegroundService.COMMAND_START_FOREGROUND;
         fgsIntent.putExtras(LocalForegroundService.newCommand(new Binder(), command));
         context.startForegroundService(fgsIntent);
     }
 
-    private void doStartForegroundServiceWithType(Context context, Class cls, int type) {
-        Intent fgsIntent = new Intent(context, cls);
+    private void doStartForegroundServiceWithType(Context context, Intent commandIntent) {
+        String targetPackage = getTargetPackage(commandIntent);
+        Intent fgsIntent = new Intent();
+        fgsIntent.putExtras(commandIntent); // include the fg service type if any.
+        fgsIntent.setComponent(new ComponentName(targetPackage, FG_LOCATION_SERVICE_NAME));
         int command = LocalForegroundServiceLocation.COMMAND_START_FOREGROUND_WITH_TYPE;
         fgsIntent.putExtras(LocalForegroundService.newCommand(new Binder(), command));
-        fgsIntent.putExtra(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE, type);
         context.startForegroundService(fgsIntent);
     }
 
-    private void doStopForegroundService(Context context, Class cls) {
-        Intent fgsIntent = new Intent(context, cls);
+    private void doStopForegroundService(Context context, Intent commandIntent,
+            String serviceName) {
+        String targetPackage = getTargetPackage(commandIntent);
+        Intent fgsIntent = new Intent();
+        fgsIntent.setComponent(new ComponentName(targetPackage, serviceName));
         context.stopService(fgsIntent);
+    }
+
+    private void doStartAlertService(Context context) {
+        Intent intent = new Intent(context, LocalAlertService.class);
+        intent.setAction(LocalAlertService.COMMAND_SHOW_ALERT);
+        context.startService(intent);
+    }
+
+    private void doStopAlertService(Context context) {
+        Intent intent = new Intent(context, LocalAlertService.class);
+        intent.setAction(LocalAlertService.COMMAND_HIDE_ALERT);
+        context.startService(intent);
+    }
+
+    private void doSelfInducedAnr(Context context) {
+        ActivityManager am = context.getSystemService(ActivityManager.class);
+        am.appNotResponding("CTS - self induced");
+    }
+    private void doStartActivity(Context context, Intent commandIntent) {
+        String targetPackage = getTargetPackage(commandIntent);
+        Intent activityIntent = new Intent(Intent.ACTION_MAIN);
+        sActivityIntent.put(targetPackage, activityIntent);
+        activityIntent.setComponent(new ComponentName(targetPackage, ACTIVITY_NAME));
+        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(activityIntent);
+    }
+
+    private void doStopActivity(Context context, Intent commandIntent) {
+        String targetPackage = getTargetPackage(commandIntent);
+        Intent activityIntent = sActivityIntent.remove(targetPackage);
+        activityIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        activityIntent.putExtra("finish", true);
+        context.startActivity(activityIntent);
+    }
+
+    private void doCreateFgslPendingIntent(Context context, Intent commandIntent) {
+        final String targetPackage = getTargetPackage(commandIntent);
+        final Intent intent = new Intent().setComponent(
+                new ComponentName(targetPackage, FG_LOCATION_SERVICE_NAME));
+        int command = LocalForegroundServiceLocation.COMMAND_START_FOREGROUND_WITH_TYPE;
+        intent.putExtras(LocalForegroundService.newCommand(new Binder(), command));
+        final PendingIntent pendingIntent = PendingIntent.getForegroundService(context, 0,
+                intent, 0);
+        sPendingIntent.put(targetPackage, pendingIntent);
+    }
+
+    private void doSendFgslPendingIntent(Context context, Intent commandIntent) {
+        final String targetPackage = getTargetPackage(commandIntent);
+        try {
+            ((PendingIntent) sPendingIntent.remove(targetPackage)).send();
+        } catch (PendingIntent.CanceledException e) {
+            Log.e(TAG, "Caugtht exception:", e);
+        }
     }
 
     private String getTargetPackage(Intent intent) {

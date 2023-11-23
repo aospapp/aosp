@@ -45,6 +45,11 @@
 #define FORCE_IDR_TEST 1
 #define MAX_NUM_ENC_NODES 8
 #define MAX_QUEUE_LENGTH (MAX_LAP_WINDOW_SIZE + MAX_SUB_GOP_SIZE + 2)
+#define MAX_SUBGOP_IN_ENCODE_QUEUE 4
+
+#if(MAX_SUBGOP_IN_ENCODE_QUEUE) & (MAX_SUBGOP_IN_ENCODE_QUEUE - 1)
+#error max_subgop_in_encode_queue must be a power of 2
+#endif
 
 /*****************************************************************************/
 /* Enums                                                                     */
@@ -103,6 +108,9 @@ typedef struct
     /** Array of nodes in encode order*/
     ihevce_lap_enc_buf_t *api4_encode_order_array[MAX_NUM_ENC_NODES];
 
+    /** Array of lap output in lap encode array*/
+    ihevce_lap_enc_buf_t *api4_lap_out_buf[MAX_SUBGOP_IN_ENCODE_QUEUE][MAX_NUM_ENC_NODES];
+
     /** Array of nodes in capture order*/
     ihevce_lap_enc_buf_t *api4_capture_order_array[MAX_NUM_ENC_NODES];
 
@@ -119,6 +127,8 @@ typedef struct
     WORD32 *pi4_capture_poc_ptr;
 
     WORD32 ai4_pic_type_to_be_removed[NUM_LAP2_LOOK_AHEAD];
+
+    WORD32 ai4_num_buffer[MAX_SUBGOP_IN_ENCODE_QUEUE];
 
     void *pv_prev_inp_buf;
 
@@ -147,7 +157,6 @@ typedef struct
     WORD32 i4_idr_gop_num;
     WORD32 i4_curr_ref_pics;
     WORD32 i4_display_num;
-    WORD32 i4_num_frames_after_force_idr;
     WORD32 i4_num_frm_type_decided;
     WORD32 i4_frm_gop_idx;
     WORD32 i4_is_all_i_pic_in_seq;
@@ -169,6 +178,12 @@ typedef struct
     WORD32 i4_rc_lap_period;
     WORD32 i4_gop_period;
     WORD32 i4_no_back_to_back_i_avoidance;
+    WORD32 i4_sub_gop_pic_idx;
+    WORD32 i4_force_idr_pos;
+    WORD32 i4_num_dummy_pic;
+    WORD32 i4_sub_gop_end;
+    WORD32 i4_lap_encode_idx;
+    WORD32 i4_deq_lap_buf;
 } lap_struct_t;
 
 void ihevce_populate_tree_nodes(

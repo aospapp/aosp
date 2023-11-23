@@ -38,11 +38,16 @@ public class CallIntentProcessor {
     }
 
     public static class AdapterImpl implements Adapter {
+        private final DefaultDialerCache mDefaultDialerCache;
+        public AdapterImpl(DefaultDialerCache cache) {
+            mDefaultDialerCache = cache;
+        }
+
         @Override
         public void processOutgoingCallIntent(Context context, CallsManager callsManager,
                 Intent intent, String callingPackage) {
             CallIntentProcessor.processOutgoingCallIntent(context, callsManager, intent,
-                    callingPackage);
+                    callingPackage, mDefaultDialerCache);
         }
 
         @Override
@@ -58,11 +63,6 @@ public class CallIntentProcessor {
 
     public static final String KEY_IS_UNKNOWN_CALL = "is_unknown_call";
     public static final String KEY_IS_INCOMING_CALL = "is_incoming_call";
-    /*
-     *  Whether or not the dialer initiating this outgoing call is the default dialer, or system
-     *  dialer and thus allowed to make emergency calls.
-     */
-    public static final String KEY_IS_PRIVILEGED_DIALER = "is_privileged_dialer";
 
     /**
      * The user initiating the outgoing call.
@@ -72,10 +72,13 @@ public class CallIntentProcessor {
 
     private final Context mContext;
     private final CallsManager mCallsManager;
+    private final DefaultDialerCache mDefaultDialerCache;
 
-    public CallIntentProcessor(Context context, CallsManager callsManager) {
+    public CallIntentProcessor(Context context, CallsManager callsManager,
+            DefaultDialerCache defaultDialerCache) {
         this.mContext = context;
         this.mCallsManager = callsManager;
+        this.mDefaultDialerCache = defaultDialerCache;
     }
 
     public void processIntent(Intent intent, String callingPackage) {
@@ -86,7 +89,8 @@ public class CallIntentProcessor {
         if (isUnknownCall) {
             processUnknownCallIntent(mCallsManager, intent);
         } else {
-            processOutgoingCallIntent(mContext, mCallsManager, intent, callingPackage);
+            processOutgoingCallIntent(mContext, mCallsManager, intent, callingPackage,
+                    mDefaultDialerCache);
         }
         Trace.endSection();
     }
@@ -102,7 +106,8 @@ public class CallIntentProcessor {
             Context context,
             CallsManager callsManager,
             Intent intent,
-            String callingPackage) {
+            String callingPackage,
+            DefaultDialerCache defaultDialerCache) {
 
         Uri handle = intent.getData();
         String scheme = handle.getScheme();
@@ -157,6 +162,20 @@ public class CallIntentProcessor {
 
         UserHandle initiatingUser = intent.getParcelableExtra(KEY_INITIATING_USER);
 
+        boolean isPrivilegedDialer = defaultDialerCache.isDefaultOrSystemDialer(callingPackage,
+                initiatingUser.getIdentifier());
+
+        NewOutgoingCallIntentBroadcaster broadcaster = new NewOutgoingCallIntentBroadcaster(
+                context, callsManager, intent, callsManager.getPhoneNumberUtilsAdapter(),
+                isPrivilegedDialer, defaultDialerCache);
+
+        // If the broadcaster comes back with an immediate error, disconnect and show a dialog.
+        NewOutgoingCallIntentBroadcaster.CallDisposition disposition = broadcaster.evaluateCall();
+        if (disposition.disconnectCause != DisconnectCause.NOT_DISCONNECTED) {
+            showErrorDialog(context, disposition.disconnectCause);
+            return;
+        }
+
         // Send to CallsManager to ensure the InCallUI gets kicked off before the broadcast returns
         CompletableFuture<Call> callFuture = callsManager
                 .startOutgoingCall(handle, phoneAccountHandle, clientExtras, initiatingUser,
@@ -167,35 +186,12 @@ public class CallIntentProcessor {
             if (call != null) {
                 Log.continueSession(logSubsession, "CIP.sNOCI");
                 try {
-                    sendNewOutgoingCallIntent(context, call, callsManager, intent);
+                    broadcaster.processCall(call, disposition);
                 } finally {
                     Log.endSession();
                 }
             }
         });
-    }
-
-    static void sendNewOutgoingCallIntent(Context context, Call call, CallsManager callsManager,
-            Intent intent) {
-        // Asynchronous calls should not usually be made inside a BroadcastReceiver because once
-        // onReceive is complete, the BroadcastReceiver's process runs the risk of getting
-        // killed if memory is scarce. However, this is OK here because the entire Telecom
-        // process will be running throughout the duration of the phone call and should never
-        // be killed.
-        final boolean isPrivilegedDialer = intent.getBooleanExtra(KEY_IS_PRIVILEGED_DIALER, false);
-
-        NewOutgoingCallIntentBroadcaster broadcaster = new NewOutgoingCallIntentBroadcaster(
-                context, callsManager, call, intent, callsManager.getPhoneNumberUtilsAdapter(),
-                isPrivilegedDialer);
-
-        // If the broadcaster comes back with an immediate error, disconnect and show a dialog.
-        NewOutgoingCallIntentBroadcaster.CallDisposition disposition = broadcaster.evaluateCall();
-        if (disposition.disconnectCause != DisconnectCause.NOT_DISCONNECTED) {
-            disconnectCallAndShowErrorDialog(context, call, disposition.disconnectCause);
-            return;
-        }
-
-        broadcaster.processCall(disposition);
     }
 
     /**
@@ -269,9 +265,7 @@ public class CallIntentProcessor {
         callsManager.addNewUnknownCall(phoneAccountHandle, intent.getExtras());
     }
 
-    private static void disconnectCallAndShowErrorDialog(
-            Context context, Call call, int errorCode) {
-        call.disconnect();
+    private static void showErrorDialog(Context context, int errorCode) {
         final Intent errorIntent = new Intent(context, ErrorDialogActivity.class);
         int errorMessageId = -1;
         switch (errorCode) {

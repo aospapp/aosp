@@ -19,6 +19,7 @@ cc_defaults {
     cflags: [
         "-Werror",
         "-Wextra",
+        "-D_FILE_OFFSET_BITS=64",
     ],
     target: {
         linux_bionic: {
@@ -94,10 +95,9 @@ cc_binary {
     },
 }
 
-cc_binary {
+cc_binary_host {
     name: "lpmake",
     defaults: ["lp_defaults"],
-    host_supported: true,
     shared_libs: [
         "libbase",
         "liblog",
@@ -105,6 +105,20 @@ cc_binary {
     ],
     srcs: [
         "lpmake.cc",
+    ],
+}
+
+cc_binary_host {
+    name: "lpadd",
+    defaults: ["lp_defaults"],
+    shared_libs: [
+        "libbase",
+        "liblog",
+        "liblp",
+        "libsparse",
+    ],
+    srcs: [
+        "lpadd.cc",
     ],
 }
 
@@ -140,11 +154,9 @@ cc_binary {
     ],
 }
 
-cc_binary {
+cc_binary_host {
     name: "lpunpack",
     defaults: ["lp_defaults"],
-    device_supported: false,
-    host_supported: true,
     shared_libs: [
         "libbase",
         "liblog",

@@ -33,9 +33,6 @@ class LatencyTest(AwareBaseTest):
     # take some time
     WAIT_FOR_CLUSTER = 5
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     def start_discovery_session(self, dut, session_id, is_publish, dtype):
         """Start a discovery session
 

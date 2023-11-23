@@ -40,8 +40,7 @@ public:
     Result bringUp();
     Result bringDown();
     Result setMtu(uint16_t mtu);
-    Result setAddress(in_addr_t address);
-    Result setSubnetMask(in_addr_t subnetMask);
+    Result setAddress(in_addr_t address, in_addr_t subnetMask);
 
 private:
     struct ifreq createRequest() const;

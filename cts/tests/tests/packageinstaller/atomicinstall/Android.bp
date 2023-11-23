@@ -18,20 +18,19 @@ android_test {
     srcs:  ["src/**/*.java"],
 
     java_resources:  [
-        ":AtomicInstallTestAppAv1",
-        ":AtomicInstallTestAppAv2",
-        ":AtomicInstallTestAppBv1",
         ":AtomicInstallCorrupt"
     ],
     static_libs: [
         "androidx.test.runner",
         "truth-prebuilt",
+	"cts-install-lib",
     ],
     sdk_version: "test_current",
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
+        "mts",
     ],
 }
 
@@ -40,28 +39,3 @@ filegroup {
     srcs: ["testdata/apk/prebuilt/corrupt.apk"],
     path: "testdata/apk/prebuilt"
 }
-
-android_test_helper_app {
-    name: "AtomicInstallTestAppAv1",
-
-    srcs:   ["testdata/apk/src/**/*java"],
-
-    manifest:   "testdata/apk/Av1.xml",
-}
-
-android_test_helper_app {
-    name: "AtomicInstallTestAppAv2",
-
-    srcs:   ["testdata/apk/src/**/*java"],
-
-    manifest:   "testdata/apk/Av2.xml",
-}
-
-android_test_helper_app {
-    name: "AtomicInstallTestAppBv1",
-
-    srcs:   ["testdata/apk/src/**/*java"],
-
-    manifest:   "testdata/apk/Bv1.xml",
-}
-

@@ -33,7 +33,7 @@
          and compensate the same space with padding.
 
          The accurate layout height is set in MenuRowView.onBind(). -->
-    <android.support.v17.leanback.widget.HorizontalGridView
+    <androidx.leanback.widget.HorizontalGridView
         android:id="@+id/list_view"
         style="@style/menu_row_contents_view"
         android:clipChildren="false"

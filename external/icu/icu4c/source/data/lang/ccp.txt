@@ -564,7 +564,7 @@ ccp{
         Brai{"𑄝𑄳𑄢𑄳𑄆𑄬𑄣𑄴"}
         Bugi{"𑄝𑄪𑄉𑄨"}
         Buhd{"𑄝𑄪𑄦𑄨𑄓𑄴"}
-        Cakm{"𑄌𑄋𑄴𑄟𑄳𑄦"}
+        Cakm{"𑄌𑄇𑄴𑄟"}
         Cans{"𑄎𑄧𑄙 𑄇𑄚𑄓𑄨𑄠𑄚𑄴 𑄃𑄳𑄠𑄝𑄳𑄢𑄮𑄎𑄨𑄚𑄨𑄠𑄚𑄴 𑄥𑄨𑄣𑄬𑄝𑄨𑄇𑄴𑄥𑄧"}
         Cari{"𑄇𑄳𑄠𑄢𑄨𑄠𑄚𑄴"}
         Cham{"𑄌𑄳𑄠𑄟𑄴"}
@@ -833,7 +833,7 @@ ccp{
             vaii{"𑄞𑄭 𑄚𑄘"}
         }
     }
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — 𑄗𑄪𑄟𑄴"}
         category-list{"{0}: {1}"}

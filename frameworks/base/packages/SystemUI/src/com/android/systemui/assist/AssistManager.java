@@ -1,5 +1,10 @@
 package com.android.systemui.assist;
 
+import static android.view.Display.DEFAULT_DISPLAY;
+
+import static com.android.systemui.DejankUtils.whitelistIpcs;
+import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_ASSIST_GESTURE_CONSTRAINED;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
@@ -39,19 +44,24 @@ import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.settingslib.applications.InterestingConfigChanges;
-import com.android.systemui.ConfigurationChangedReceiver;
-import com.android.systemui.Dependency;
 import com.android.systemui.R;
-import com.android.systemui.SysUiServiceProvider;
 import com.android.systemui.assist.ui.DefaultUiController;
+import com.android.systemui.model.SysUiState;
 import com.android.systemui.recents.OverviewProxyService;
 import com.android.systemui.statusbar.CommandQueue;
+import com.android.systemui.statusbar.policy.ConfigurationController;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+import dagger.Lazy;
 
 /**
  * Class to manage everything related to assist in SystemUI.
  */
-public class AssistManager implements ConfigurationChangedReceiver {
+@Singleton
+public class AssistManager {
 
     /**
      * Controls the UI for showing Assistant invocation progress.
@@ -77,12 +87,7 @@ public class AssistManager implements ConfigurationChangedReceiver {
         void onGestureCompletion(float velocity);
 
         /**
-         * Called with the Bundle from VoiceInteractionSessionListener.onSetUiHints.
-         */
-        void processBundle(Bundle hints);
-
-        /**
-         * Hides the UI.
+         * Hides any SysUI for the assistant, but _does not_ close the assistant itself.
          */
         void hide();
     }
@@ -97,9 +102,14 @@ public class AssistManager implements ConfigurationChangedReceiver {
     private static final String INVOCATION_TIME_MS_KEY = "invocation_time_ms";
     private static final String INVOCATION_PHONE_STATE_KEY = "invocation_phone_state";
     public static final String INVOCATION_TYPE_KEY = "invocation_type";
+    protected static final String ACTION_KEY = "action";
+    protected static final String SHOW_ASSIST_HANDLES_ACTION = "show_assist_handles";
+    protected static final String SET_ASSIST_GESTURE_CONSTRAINED_ACTION =
+            "set_assist_gesture_constrained";
+    protected static final String CONSTRAINED_KEY = "should_constrain";
 
     public static final int INVOCATION_TYPE_GESTURE = 1;
-    public static final int INVOCATION_TYPE_ACTIVE_EDGE = 2;
+    public static final int INVOCATION_TYPE_OTHER = 2;
     public static final int INVOCATION_TYPE_VOICE = 3;
     public static final int INVOCATION_TYPE_QUICK_SEARCH_BAR = 4;
     public static final int INVOCATION_HOME_BUTTON_LONG_PRESS = 5;
@@ -119,9 +129,12 @@ public class AssistManager implements ConfigurationChangedReceiver {
     private final PhoneStateMonitor mPhoneStateMonitor;
     private final AssistHandleBehaviorController mHandleController;
     private final UiController mUiController;
+    protected final Lazy<SysUiState> mSysUiState;
+    protected final AssistLogger mAssistLogger;
 
     private AssistOrbContainer mView;
     private final DeviceProvisionedController mDeviceProvisionedController;
+    private final CommandQueue mCommandQueue;
     protected final AssistUtils mAssistUtils;
     private final boolean mShouldEnableOrb;
 
@@ -147,27 +160,70 @@ public class AssistManager implements ConfigurationChangedReceiver {
         }
     };
 
-    public AssistManager(DeviceProvisionedController controller, Context context) {
+    private ConfigurationController.ConfigurationListener mConfigurationListener =
+            new ConfigurationController.ConfigurationListener() {
+                @Override
+                public void onConfigChanged(Configuration newConfig) {
+                    if (!mInterestingConfigChanges.applyNewConfig(mContext.getResources())) {
+                        return;
+                    }
+                    boolean visible = false;
+                    if (mView != null) {
+                        visible = mView.isShowing();
+                        mWindowManager.removeView(mView);
+                    }
+
+                    mView = (AssistOrbContainer) LayoutInflater.from(mContext).inflate(
+                            R.layout.assist_orb, null);
+                    mView.setVisibility(View.GONE);
+                    mView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+                    WindowManager.LayoutParams lp = getLayoutParams();
+                    mWindowManager.addView(mView, lp);
+                    if (visible) {
+                        mView.show(true /* show */, false /* animate */);
+                    }
+                }
+            };
+
+    @Inject
+    public AssistManager(
+            DeviceProvisionedController controller,
+            Context context,
+            AssistUtils assistUtils,
+            AssistHandleBehaviorController handleController,
+            CommandQueue commandQueue,
+            PhoneStateMonitor phoneStateMonitor,
+            OverviewProxyService overviewProxyService,
+            ConfigurationController configurationController,
+            Lazy<SysUiState> sysUiState,
+            DefaultUiController defaultUiController,
+            AssistLogger assistLogger) {
         mContext = context;
         mDeviceProvisionedController = controller;
+        mCommandQueue = commandQueue;
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
-        mAssistUtils = new AssistUtils(context);
+        mAssistUtils = assistUtils;
         mAssistDisclosure = new AssistDisclosure(context, new Handler());
-        mPhoneStateMonitor = new PhoneStateMonitor(context);
-        mHandleController =
-                new AssistHandleBehaviorController(context, mAssistUtils, new Handler());
+        mPhoneStateMonitor = phoneStateMonitor;
+        mHandleController = handleController;
+        mAssistLogger = assistLogger;
+
+        configurationController.addCallback(mConfigurationListener);
 
         registerVoiceInteractionSessionListener();
         mInterestingConfigChanges = new InterestingConfigChanges(ActivityInfo.CONFIG_ORIENTATION
                 | ActivityInfo.CONFIG_LOCALE | ActivityInfo.CONFIG_UI_MODE
                 | ActivityInfo.CONFIG_SCREEN_LAYOUT | ActivityInfo.CONFIG_ASSETS_PATHS);
-        onConfigurationChanged(context.getResources().getConfiguration());
+        mConfigurationListener.onConfigChanged(context.getResources().getConfiguration());
         mShouldEnableOrb = !ActivityManager.isLowRamDeviceStatic();
 
-        mUiController = new DefaultUiController(mContext);
+        mUiController = defaultUiController;
 
-        OverviewProxyService overviewProxy = Dependency.get(OverviewProxyService.class);
-        overviewProxy.addCallback(new OverviewProxyService.OverviewProxyListener() {
+        mSysUiState = sysUiState;
+
+        overviewProxyService.addCallback(new OverviewProxyService.OverviewProxyListener() {
             @Override
             public void onAssistantProgress(float progress) {
                 // Progress goes from 0 to 1 to indicate how close the assist gesture is to
@@ -190,6 +246,8 @@ public class AssistManager implements ConfigurationChangedReceiver {
                         if (VERBOSE) {
                             Log.v(TAG, "Voice open");
                         }
+                        mAssistLogger.reportAssistantSessionEvent(
+                                AssistantSessionEvent.ASSISTANT_SESSION_UPDATE);
                     }
 
                     @Override
@@ -197,6 +255,8 @@ public class AssistManager implements ConfigurationChangedReceiver {
                         if (VERBOSE) {
                             Log.v(TAG, "Voice closed");
                         }
+                        mAssistLogger.reportAssistantSessionEvent(
+                                AssistantSessionEvent.ASSISTANT_SESSION_CLOSE);
                     }
 
                     @Override
@@ -204,31 +264,19 @@ public class AssistManager implements ConfigurationChangedReceiver {
                         if (VERBOSE) {
                             Log.v(TAG, "UI hints received");
                         }
+
+                        String action = hints.getString(ACTION_KEY);
+                        if (SHOW_ASSIST_HANDLES_ACTION.equals(action)) {
+                            requestAssistHandles();
+                        } else if (SET_ASSIST_GESTURE_CONSTRAINED_ACTION.equals(action)) {
+                            mSysUiState.get()
+                                    .setFlag(
+                                            SYSUI_STATE_ASSIST_GESTURE_CONSTRAINED,
+                                            hints.getBoolean(CONSTRAINED_KEY, false))
+                                    .commitUpdate(DEFAULT_DISPLAY);
+                        }
                     }
                 });
-    }
-
-    public void onConfigurationChanged(Configuration newConfiguration) {
-        if (!mInterestingConfigChanges.applyNewConfig(mContext.getResources())) {
-            return;
-        }
-        boolean visible = false;
-        if (mView != null) {
-            visible = mView.isShowing();
-            mWindowManager.removeView(mView);
-        }
-
-        mView = (AssistOrbContainer) LayoutInflater.from(mContext).inflate(
-                R.layout.assist_orb, null);
-        mView.setVisibility(View.GONE);
-        mView.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-        WindowManager.LayoutParams lp = getLayoutParams();
-        mWindowManager.addView(mView, lp);
-        if (visible) {
-            mView.show(true /* show */, false /* animate */);
-        }
     }
 
     protected boolean shouldShowOrb() {
@@ -252,18 +300,19 @@ public class AssistManager implements ConfigurationChangedReceiver {
         if (args == null) {
             args = new Bundle();
         }
-        int invocationType = args.getInt(INVOCATION_TYPE_KEY, 0);
-        if (invocationType == INVOCATION_TYPE_GESTURE) {
+        int legacyInvocationType = args.getInt(INVOCATION_TYPE_KEY, 0);
+        if (legacyInvocationType == INVOCATION_TYPE_GESTURE) {
             mHandleController.onAssistantGesturePerformed();
         }
-        int phoneState = mPhoneStateMonitor.getPhoneState();
-        args.putInt(INVOCATION_PHONE_STATE_KEY, phoneState);
-        args.putLong(INVOCATION_TIME_MS_KEY, SystemClock.uptimeMillis());
-        // Logs assistant start with invocation type.
-        MetricsLogger.action(
-                new LogMaker(MetricsEvent.ASSISTANT)
-                        .setType(MetricsEvent.TYPE_OPEN)
-                        .setSubtype(toLoggingSubType(invocationType, phoneState)));
+        int legacyDeviceState = mPhoneStateMonitor.getPhoneState();
+        args.putInt(INVOCATION_PHONE_STATE_KEY, legacyDeviceState);
+        args.putLong(INVOCATION_TIME_MS_KEY, SystemClock.elapsedRealtime());
+        mAssistLogger.reportAssistantInvocationEventFromLegacy(
+                legacyInvocationType,
+                /* isInvocationComplete = */ true,
+                assistComponent,
+                legacyDeviceState);
+        logStartAssistLegacy(legacyInvocationType, legacyDeviceState);
         startAssistInternal(args, assistComponent, isService);
     }
 
@@ -279,6 +328,10 @@ public class AssistManager implements ConfigurationChangedReceiver {
      */
     public void onGestureCompletion(float velocity) {
         mUiController.onGestureCompletion(velocity);
+    }
+
+    protected void requestAssistHandles() {
+        mHandleController.onAssistHandlesRequested();
     }
 
     public void hideAssist() {
@@ -324,7 +377,7 @@ public class AssistManager implements ConfigurationChangedReceiver {
         }
 
         // Close Recent Apps if needed
-        SysUiServiceProvider.getComponent(mContext, CommandQueue.class).animateCollapsePanels(
+        mCommandQueue.animateCollapsePanels(
                 CommandQueue.FLAG_EXCLUDE_SEARCH_PANEL | CommandQueue.FLAG_EXCLUDE_RECENTS_PANEL,
                 false /* force */);
 
@@ -343,7 +396,7 @@ public class AssistManager implements ConfigurationChangedReceiver {
         intent.setComponent(assistComponent);
         intent.putExtras(args);
 
-        if (structureEnabled) {
+        if (structureEnabled && AssistUtils.isDisclosureEnabled(mContext)) {
             showDisclosure();
         }
 
@@ -373,7 +426,8 @@ public class AssistManager implements ConfigurationChangedReceiver {
     }
 
     public boolean canVoiceAssistBeLaunchedFromKeyguard() {
-        return mAssistUtils.activeServiceSupportsLaunchFromKeyguard();
+        // TODO(b/140051519)
+        return whitelistIpcs(() -> mAssistUtils.activeServiceSupportsLaunchFromKeyguard());
     }
 
     public ComponentName getVoiceInteractorComponentName() {
@@ -441,7 +495,16 @@ public class AssistManager implements ConfigurationChangedReceiver {
     }
 
     public void onLockscreenShown() {
-        mAssistUtils.onLockscreenShown();
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                mAssistUtils.onLockscreenShown();
+            }
+        });
+    }
+
+    public long getAssistHandleShowAndGoRemainingDurationMs() {
+        return mHandleController.getShowAndGoRemainingTimeMs();
     }
 
     /** Returns the logging flags for the given Assistant invocation type. */
@@ -449,7 +512,14 @@ public class AssistManager implements ConfigurationChangedReceiver {
         return toLoggingSubType(invocationType, mPhoneStateMonitor.getPhoneState());
     }
 
-    private int toLoggingSubType(int invocationType, int phoneState) {
+    protected void logStartAssistLegacy(int invocationType, int phoneState) {
+        MetricsLogger.action(
+                new LogMaker(MetricsEvent.ASSISTANT)
+                        .setType(MetricsEvent.TYPE_OPEN)
+                        .setSubtype(toLoggingSubType(invocationType, phoneState)));
+    }
+
+    protected final int toLoggingSubType(int invocationType, int phoneState) {
         // Note that this logic will break if the number of Assistant invocation types exceeds 7.
         // There are currently 5 invocation types, but we will be migrating to the new logging
         // framework in the next update.

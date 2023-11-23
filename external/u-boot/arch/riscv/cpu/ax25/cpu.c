@@ -6,8 +6,8 @@
 
 /* CPU specific code */
 #include <common.h>
-#include <command.h>
-#include <watchdog.h>
+#include <cpu_func.h>
+#include <irq_func.h>
 #include <asm/cache.h>
 
 /*
@@ -21,12 +21,9 @@ int cleanup_before_linux(void)
 	disable_interrupts();
 
 	/* turn off I/D-cache */
+	cache_flush();
+	icache_disable();
+	dcache_disable();
 
 	return 0;
-}
-
-int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
-{
-	disable_interrupts();
-	panic("ax25-ae350 wdt not support yet.\n");
 }

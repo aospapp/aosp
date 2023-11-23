@@ -421,13 +421,76 @@ static inline binder_status_t AParcel_readVector(
 }
 
 /**
+ * Convenience API for writing a non-null parcelable.
+ */
+template <typename P>
+static inline binder_status_t AParcel_writeParcelable(AParcel* parcel, const P& p) {
+    binder_status_t status = AParcel_writeInt32(parcel, 1);  // non-null
+    if (status != STATUS_OK) {
+        return status;
+    }
+    return p.writeToParcel(parcel);
+}
+
+/**
+ * Convenience API for reading a non-null parcelable.
+ */
+template <typename P>
+static inline binder_status_t AParcel_readParcelable(const AParcel* parcel, P* p) {
+    int32_t null;
+    binder_status_t status = AParcel_readInt32(parcel, &null);
+    if (status != STATUS_OK) {
+        return status;
+    }
+    if (null == 0) {
+        return STATUS_UNEXPECTED_NULL;
+    }
+    return p->readFromParcel(parcel);
+}
+
+/**
+ * Convenience API for writing a nullable parcelable.
+ */
+template <typename P>
+static inline binder_status_t AParcel_writeNullableParcelable(AParcel* parcel,
+                                                              const std::optional<P>& p) {
+    if (p == std::nullopt) {
+        return AParcel_writeInt32(parcel, 0);  // null
+    }
+    binder_status_t status = AParcel_writeInt32(parcel, 1);  // non-null
+    if (status != STATUS_OK) {
+        return status;
+    }
+    return p->writeToParcel(parcel);
+}
+
+/**
+ * Convenience API for reading a nullable parcelable.
+ */
+template <typename P>
+static inline binder_status_t AParcel_readNullableParcelable(const AParcel* parcel,
+                                                             std::optional<P>* p) {
+    int32_t null;
+    binder_status_t status = AParcel_readInt32(parcel, &null);
+    if (status != STATUS_OK) {
+        return status;
+    }
+    if (null == 0) {
+        *p = std::nullopt;
+        return STATUS_OK;
+    }
+    *p = std::optional<P>(P{});
+    return (*p)->readFromParcel(parcel);
+}
+
+/**
  * Writes a parcelable object of type P inside a std::vector<P> at index 'index' to 'parcel'.
  */
 template <typename P>
 binder_status_t AParcel_writeStdVectorParcelableElement(AParcel* parcel, const void* vectorData,
                                                         size_t index) {
     const std::vector<P>* vector = static_cast<const std::vector<P>*>(vectorData);
-    return vector->at(index).writeToParcel(parcel);
+    return AParcel_writeParcelable(parcel, vector->at(index));
 }
 
 /**
@@ -437,7 +500,43 @@ template <typename P>
 binder_status_t AParcel_readStdVectorParcelableElement(const AParcel* parcel, void* vectorData,
                                                        size_t index) {
     std::vector<P>* vector = static_cast<std::vector<P>*>(vectorData);
-    return vector->at(index).readFromParcel(parcel);
+    return AParcel_readParcelable(parcel, &vector->at(index));
+}
+
+/**
+ * Writes a ScopedFileDescriptor object inside a std::vector<ScopedFileDescriptor> at index 'index'
+ * to 'parcel'.
+ */
+template <>
+inline binder_status_t AParcel_writeStdVectorParcelableElement<ScopedFileDescriptor>(
+        AParcel* parcel, const void* vectorData, size_t index) {
+    const std::vector<ScopedFileDescriptor>* vector =
+            static_cast<const std::vector<ScopedFileDescriptor>*>(vectorData);
+    int writeFd = vector->at(index).get();
+    if (writeFd < 0) {
+        return STATUS_UNEXPECTED_NULL;
+    }
+    return AParcel_writeParcelFileDescriptor(parcel, writeFd);
+}
+
+/**
+ * Reads a ScopedFileDescriptor object inside a std::vector<ScopedFileDescriptor> at index 'index'
+ * from 'parcel'.
+ */
+template <>
+inline binder_status_t AParcel_readStdVectorParcelableElement<ScopedFileDescriptor>(
+        const AParcel* parcel, void* vectorData, size_t index) {
+    std::vector<ScopedFileDescriptor>* vector =
+            static_cast<std::vector<ScopedFileDescriptor>*>(vectorData);
+    int readFd;
+    binder_status_t status = AParcel_readParcelFileDescriptor(parcel, &readFd);
+    if (status == STATUS_OK) {
+        if (readFd < 0) {
+            return STATUS_UNEXPECTED_NULL;
+        }
+        vector->at(index).set(readFd);
+    }
+    return status;
 }
 
 /**

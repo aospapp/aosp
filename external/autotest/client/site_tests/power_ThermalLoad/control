@@ -1,4 +1,4 @@
-AUTHOR = "Chrome OS Team"
+AUTHOR = "puthik"
 NAME = "power_ThermalLoad"
 PURPOSE = "Run thermal workload and log temperature."
 CRITERIA = "This test is a benchmark."
@@ -9,7 +9,7 @@ TEST_TYPE = "client"
 
 DOC = """
 This test records power and temperature related statistics while open WebGL
-heavy page.
+heavy page, WebGL Aquarium with 3000 fish.
 """
 
 args_dict = utils.args_to_dict(args)

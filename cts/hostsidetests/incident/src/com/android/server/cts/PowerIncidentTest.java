@@ -67,13 +67,13 @@ public class PowerIncidentTest extends ProtoDumpTestCase {
         assertTrue(settingsAndConfiguration.getUserActivityTimeoutOverrideFromWindowManagerMs() >= -1);
         final PowerServiceSettingsAndConfigurationDumpProto.ScreenBrightnessSettingLimitsProto
                 brightnessLimits = settingsAndConfiguration.getScreenBrightnessSettingLimits();
-        int settingMax = brightnessLimits.getSettingMaximum();
-        int settingMin = brightnessLimits.getSettingMinimum();
+        float settingMax = brightnessLimits.getSettingMaximumFloat();
+        float settingMin = brightnessLimits.getSettingMinimumFloat();
         assertTrue(settingMin >= 0);
         assertTrue(settingMax > 0);
         assertTrue("Brightness limit max setting (" + settingMax + ") is less than min setting (" + settingMin + ")",
                 settingMax >= settingMin);
-        assertTrue(brightnessLimits.getSettingDefault() > 0);
+        assertTrue(brightnessLimits.getSettingDefaultFloat() > 0);
 
         final PowerManagerServiceDumpProto.UidStateProto uid = dump.getUidStates(0);
         assertEquals(uid.getUid(), SYSTEM_UID);

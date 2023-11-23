@@ -81,4 +81,23 @@ cc_library_static {
     export_generated_headers: ["wayland_extension_client_protocol_headers"],
 }
 
+// Generate a library with the protocol files, configured to export the server
+// header files
+cc_library_static {
+    name: "libwayland_extension_server_protocols",
+    vendor_available: true,
+    host_supported: true,
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-g",
+        "-fvisibility=hidden"
+    ],
+    static_libs: ["libwayland_server"],
+    generated_sources: ["wayland_extension_protocol_sources"],
+    generated_headers: ["wayland_extension_server_protocol_headers"],
+    export_generated_headers: ["wayland_extension_server_protocol_headers"],
+}
+
 subdirs = ["flinger_headers"]

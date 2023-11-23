@@ -46,14 +46,19 @@ class ApiPredicate(
     private val matchRemoved: Boolean = false,
 
     /** Whether we allow matching items loaded from jar files instead of sources */
-    private val allowFromJar: Boolean = true,
+    private val allowClassesFromClasspath: Boolean = options.allowClassesFromClasspath,
 
     /** Whether we should include doc-only items */
     private val includeDocOnly: Boolean = false
 ) : Predicate<Item> {
 
     override fun test(member: Item): Boolean {
-        if (!allowFromJar && member.isFromClassPath()) {
+        // Type Parameter references (e.g. T) aren't actual types, skip all visibility checks
+        if (member is ClassItem && member.isTypeParameter) {
+            return true
+        }
+
+        if (!allowClassesFromClasspath && member.isFromClassPath()) {
             return false
         }
 

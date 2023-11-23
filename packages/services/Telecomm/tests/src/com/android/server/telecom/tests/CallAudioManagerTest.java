@@ -19,20 +19,25 @@ package com.android.server.telecom.tests;
 import android.media.ToneGenerator;
 import android.telecom.DisconnectCause;
 import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.SparseArray;
 
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallAudioModeStateMachine;
+import com.android.server.telecom.CallAudioModeStateMachine.MessageArgs;
 import com.android.server.telecom.CallAudioRouteStateMachine;
 import com.android.server.telecom.CallState;
 import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.CallAudioManager;
 import com.android.server.telecom.DtmfLocalTonePlayer;
 import com.android.server.telecom.InCallTonePlayer;
+import com.android.server.telecom.CallAudioModeStateMachine.MessageArgs.Builder;
 import com.android.server.telecom.RingbackPlayer;
 import com.android.server.telecom.Ringer;
+import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.bluetooth.BluetoothStateReceiver;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,13 +50,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,6 +74,7 @@ public class CallAudioManagerTest extends TelecomTestCase {
     @Mock private RingbackPlayer mRingbackPlayer;
     @Mock private DtmfLocalTonePlayer mDtmfLocalTonePlayer;
     @Mock private BluetoothStateReceiver mBluetoothStateReceiver;
+    @Mock private TelecomSystem.SyncRoot mLock;
 
     private CallAudioManager mCallAudioManager;
 
@@ -81,6 +90,7 @@ public class CallAudioManagerTest extends TelecomTestCase {
             }).when(mockInCallTonePlayer).startTone();
             return mockInCallTonePlayer;
         }).when(mPlayerFactory).createPlayer(anyInt());
+        when(mCallsManager.getLock()).thenReturn(mLock);
         mCallAudioManager = new CallAudioManager(
                 mCallAudioRouteStateMachine,
                 mCallsManager,
@@ -92,17 +102,22 @@ public class CallAudioManagerTest extends TelecomTestCase {
                 mDtmfLocalTonePlayer);
     }
 
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
     @MediumTest
     @Test
     public void testUnmuteOfSecondIncomingCall() {
         // Start with a single incoming call.
         Call call = createIncomingCall();
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
         when(call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO))
                 .thenReturn(false);
         when(call.getId()).thenReturn("1");
 
-        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor =
-                ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
         // Answer the incoming call
         mCallAudioManager.onIncomingCallAnswered(call);
         when(call.getState()).thenReturn(CallState.ACTIVE);
@@ -110,14 +125,15 @@ public class CallAudioManagerTest extends TelecomTestCase {
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
         CallAudioModeStateMachine.MessageArgs correctArgs =
-                new CallAudioModeStateMachine.MessageArgs(
-                        true, // hasActiveOrDialingCalls
-                        false, // hasRingingCalls
-                        false, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                );
+                new Builder()
+                        .setHasActiveOrDialingCalls(true)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setHasAudioProcessingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
         assertMessageArgEquality(correctArgs, captor.getValue());
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
@@ -160,11 +176,10 @@ public class CallAudioManagerTest extends TelecomTestCase {
     @Test
     public void testSingleIncomingCallFlowWithoutMTSpeedUp() {
         Call call = createIncomingCall();
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
         when(call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO))
                 .thenReturn(false);
 
-        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor =
-                ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
         // Answer the incoming call
         mCallAudioManager.onIncomingCallAnswered(call);
         when(call.getState()).thenReturn(CallState.ACTIVE);
@@ -172,14 +187,15 @@ public class CallAudioManagerTest extends TelecomTestCase {
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
         CallAudioModeStateMachine.MessageArgs correctArgs =
-                new CallAudioModeStateMachine.MessageArgs(
-                        true, // hasActiveOrDialingCalls
-                        false, // hasRingingCalls
-                        false, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                );
+                new Builder()
+                        .setHasActiveOrDialingCalls(true)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setHasAudioProcessingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
         assertMessageArgEquality(correctArgs, captor.getValue());
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
@@ -196,12 +212,11 @@ public class CallAudioManagerTest extends TelecomTestCase {
     @Test
     public void testSingleIncomingCallFlowWithMTSpeedUp() {
         Call call = createIncomingCall();
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
         when(call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO))
                 .thenReturn(true);
         when(call.getState()).thenReturn(CallState.ANSWERED);
 
-        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor =
-                ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
         // Answer the incoming call
         mCallAudioManager.onCallStateChanged(call, CallState.RINGING, CallState.ANSWERED);
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
@@ -209,14 +224,15 @@ public class CallAudioManagerTest extends TelecomTestCase {
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
         CallAudioModeStateMachine.MessageArgs correctArgs =
-                new CallAudioModeStateMachine.MessageArgs(
-                        true, // hasActiveOrDialingCalls
-                        false, // hasRingingCalls
-                        false, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                );
+                new Builder()
+                        .setHasActiveOrDialingCalls(true)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setHasAudioProcessingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
         assertMessageArgEquality(correctArgs, captor.getValue());
         assertMessageArgEquality(correctArgs, captor.getValue());
         when(call.getState()).thenReturn(CallState.ACTIVE);
@@ -233,25 +249,25 @@ public class CallAudioManagerTest extends TelecomTestCase {
     @Test
     public void testSingleOutgoingCall() {
         Call call = mock(Call.class);
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
         when(call.getState()).thenReturn(CallState.CONNECTING);
 
         mCallAudioManager.onCallAdded(call);
         assertEquals(call, mCallAudioManager.getForegroundCall());
-        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor =
-                ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
         verify(mCallAudioRouteStateMachine).sendMessageWithSessionInfo(
                 CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
         CallAudioModeStateMachine.MessageArgs expectedArgs =
-                new CallAudioModeStateMachine.MessageArgs(
-                        true, // hasActiveOrDialingCalls
-                        false, // hasRingingCalls
-                        false, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                );
+                new Builder()
+                        .setHasActiveOrDialingCalls(true)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
         assertMessageArgEquality(expectedArgs, captor.getValue());
 
         when(call.getState()).thenReturn(CallState.DIALING);
@@ -278,6 +294,347 @@ public class CallAudioManagerTest extends TelecomTestCase {
         verifyProperCleanup();
     }
 
+    @SmallTest
+    @Test
+    public void testNewCallGoesToAudioProcessing() {
+        Call call = mock(Call.class);
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+        when(call.getState()).thenReturn(CallState.NEW);
+
+        // Make sure nothing happens when we add the NEW call
+        mCallAudioManager.onCallAdded(call);
+
+        verify(mCallAudioRouteStateMachine, never()).sendMessageWithSessionInfo(anyInt());
+        verify(mCallAudioModeStateMachine, never()).sendMessageWithArgs(
+                anyInt(), nullable(MessageArgs.class));
+
+        // Transition the call to AUDIO_PROCESSING and see what happens
+        when(call.getState()).thenReturn(CallState.AUDIO_PROCESSING);
+        mCallAudioManager.onCallStateChanged(call, CallState.NEW, CallState.AUDIO_PROCESSING);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_AUDIO_PROCESSING_CALL), captor.capture());
+
+        CallAudioModeStateMachine.MessageArgs expectedArgs =
+                new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(true)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+    }
+
+    @SmallTest
+    @Test
+    public void testRingingCallGoesToAudioProcessing() {
+        Call call = mock(Call.class);
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+        when(call.getState()).thenReturn(CallState.RINGING);
+
+        // Make sure appropriate messages are sent when we add a RINGING call
+        mCallAudioManager.onCallAdded(call);
+
+        assertEquals(call, mCallAudioManager.getForegroundCall());
+        verify(mCallAudioRouteStateMachine).sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_RINGING_CALL), captor.capture());
+        CallAudioModeStateMachine.MessageArgs expectedArgs =
+                new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(true)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+
+        // Transition the call to AUDIO_PROCESSING and see what happens
+        when(call.getState()).thenReturn(CallState.AUDIO_PROCESSING);
+        mCallAudioManager.onCallStateChanged(call, CallState.RINGING, CallState.AUDIO_PROCESSING);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_AUDIO_PROCESSING_CALL), captor.capture());
+
+        CallAudioModeStateMachine.MessageArgs expectedArgs2 =
+                new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(true)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
+        assertMessageArgEquality(expectedArgs2, captor.getValue());
+
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
+        assertMessageArgEquality(expectedArgs2, captor.getValue());
+    }
+
+    @SmallTest
+    @Test
+    public void testActiveCallGoesToAudioProcessing() {
+        Call call = mock(Call.class);
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+        when(call.getState()).thenReturn(CallState.ACTIVE);
+
+        // Make sure appropriate messages are sent when we add an active call
+        mCallAudioManager.onCallAdded(call);
+
+        assertEquals(call, mCallAudioManager.getForegroundCall());
+        verify(mCallAudioRouteStateMachine).sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
+        CallAudioModeStateMachine.MessageArgs expectedArgs =
+                new Builder()
+                        .setHasActiveOrDialingCalls(true)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+
+        // Transition the call to AUDIO_PROCESSING and see what happens
+        when(call.getState()).thenReturn(CallState.AUDIO_PROCESSING);
+        mCallAudioManager.onCallStateChanged(call, CallState.ACTIVE, CallState.AUDIO_PROCESSING);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_AUDIO_PROCESSING_CALL), captor.capture());
+
+        CallAudioModeStateMachine.MessageArgs expectedArgs2 =
+                new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(true)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
+        assertMessageArgEquality(expectedArgs2, captor.getValue());
+
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_ACTIVE_OR_DIALING_CALLS), captor.capture());
+        assertMessageArgEquality(expectedArgs2, captor.getValue());
+    }
+
+    @SmallTest
+    @Test
+    public void testAudioProcessingCallDisconnects() {
+        Call call = createAudioProcessingCall();
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        when(call.getState()).thenReturn(CallState.DISCONNECTED);
+        when(call.getDisconnectCause()).thenReturn(new DisconnectCause(DisconnectCause.LOCAL,
+                "", "", "", ToneGenerator.TONE_UNKNOWN));
+
+        mCallAudioManager.onCallStateChanged(call, CallState.AUDIO_PROCESSING,
+                CallState.DISCONNECTED);
+        verify(mPlayerFactory, never()).createPlayer(anyInt());
+        CallAudioModeStateMachine.MessageArgs expectedArgs2 = new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(false)
+                .setHasAudioProcessingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build();
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_AUDIO_PROCESSING_CALLS), captor.capture());
+        assertMessageArgEquality(expectedArgs2, captor.getValue());
+        verify(mCallAudioModeStateMachine, never()).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.TONE_STARTED_PLAYING), nullable(MessageArgs.class));
+
+        mCallAudioManager.onCallRemoved(call);
+        verifyProperCleanup();
+    }
+
+    @SmallTest
+    @Test
+    public void testAudioProcessingCallDoesSimulatedRing() {
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        Call call = createAudioProcessingCall();
+
+        when(call.getState()).thenReturn(CallState.SIMULATED_RINGING);
+
+        mCallAudioManager.onCallStateChanged(call, CallState.AUDIO_PROCESSING,
+                CallState.SIMULATED_RINGING);
+        verify(mPlayerFactory, never()).createPlayer(anyInt());
+        CallAudioModeStateMachine.MessageArgs expectedArgs = new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(true)
+                .setHasHoldingCalls(false)
+                .setHasAudioProcessingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build();
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_AUDIO_PROCESSING_CALLS), captor.capture());
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_RINGING_CALL), captor.capture());
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+    }
+
+    @SmallTest
+    @Test
+    public void testAudioProcessingCallGoesActive() {
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        Call call = createAudioProcessingCall();
+
+        when(call.getState()).thenReturn(CallState.ACTIVE);
+
+        mCallAudioManager.onCallStateChanged(call, CallState.AUDIO_PROCESSING,
+                CallState.ACTIVE);
+        verify(mPlayerFactory, never()).createPlayer(anyInt());
+        CallAudioModeStateMachine.MessageArgs expectedArgs = new Builder()
+                .setHasActiveOrDialingCalls(true)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(false)
+                .setHasAudioProcessingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build();
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_AUDIO_PROCESSING_CALLS), captor.capture());
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+    }
+
+    @SmallTest
+    @Test
+    public void testSimulatedRingingCallGoesActive() {
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        Call call = createSimulatedRingingCall();
+
+        when(call.getState()).thenReturn(CallState.ACTIVE);
+
+        mCallAudioManager.onCallStateChanged(call, CallState.SIMULATED_RINGING,
+                CallState.ACTIVE);
+        verify(mPlayerFactory, never()).createPlayer(anyInt());
+        CallAudioModeStateMachine.MessageArgs expectedArgs = new Builder()
+                .setHasActiveOrDialingCalls(true)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(false)
+                .setHasAudioProcessingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build();
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+    }
+
+    private Call createAudioProcessingCall() {
+        Call call = mock(Call.class);
+        when(call.getState()).thenReturn(CallState.AUDIO_PROCESSING);
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        // Set up an AUDIO_PROCESSING call
+        mCallAudioManager.onCallAdded(call);
+
+        assertNull(mCallAudioManager.getForegroundCall());
+
+        verify(mCallAudioRouteStateMachine, never()).sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_AUDIO_PROCESSING_CALL), captor.capture());
+        CallAudioModeStateMachine.MessageArgs expectedArgs =
+                new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(true)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+
+        return call;
+    }
+
+    @SmallTest
+    @Test
+    public void testSimulatedRingingCallDisconnects() {
+        Call call = createSimulatedRingingCall();
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        when(call.getState()).thenReturn(CallState.DISCONNECTED);
+        when(call.getDisconnectCause()).thenReturn(new DisconnectCause(DisconnectCause.LOCAL,
+                "", "", "", ToneGenerator.TONE_UNKNOWN));
+
+        mCallAudioManager.onCallStateChanged(call, CallState.SIMULATED_RINGING,
+                CallState.DISCONNECTED);
+        verify(mPlayerFactory, never()).createPlayer(anyInt());
+        CallAudioModeStateMachine.MessageArgs expectedArgs2 = new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(false)
+                .setHasAudioProcessingCalls(false)
+                .setIsTonePlaying(false)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build();
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
+        assertMessageArgEquality(expectedArgs2, captor.getValue());
+        verify(mCallAudioModeStateMachine, never()).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.TONE_STARTED_PLAYING), nullable(MessageArgs.class));
+
+        mCallAudioManager.onCallRemoved(call);
+        verifyProperCleanup();
+    }
+
+    private Call createSimulatedRingingCall() {
+        Call call = mock(Call.class);
+        when(call.getState()).thenReturn(CallState.SIMULATED_RINGING);
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor = makeNewCaptor();
+
+        mCallAudioManager.onCallAdded(call);
+
+        assertEquals(call, mCallAudioManager.getForegroundCall());
+
+        verify(mCallAudioRouteStateMachine).sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_RINGING_CALL), captor.capture());
+        CallAudioModeStateMachine.MessageArgs expectedArgs =
+                new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(true)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setHasAudioProcessingCalls(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
+        assertMessageArgEquality(expectedArgs, captor.getValue());
+
+        return call;
+    }
+
     private Call createIncomingCall() {
         Call call = mock(Call.class);
         when(call.getState()).thenReturn(CallState.RINGING);
@@ -290,14 +647,15 @@ public class CallAudioManagerTest extends TelecomTestCase {
                 CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NEW_RINGING_CALL), captor.capture());
-        assertMessageArgEquality(new CallAudioModeStateMachine.MessageArgs(
-                false, // hasActiveOrDialingCalls
-                true, // hasRingingCalls
-                false, // hasHoldingCalls
-                false, // isTonePlaying
-                false, // foregroundCallIsVoip
-                null // session
-        ), captor.getValue());
+        assertMessageArgEquality(new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(true)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build(),
+                captor.getValue());
 
         return call;
     }
@@ -313,14 +671,14 @@ public class CallAudioManagerTest extends TelecomTestCase {
 
         mCallAudioManager.onCallStateChanged(call, CallState.ACTIVE, CallState.DISCONNECTED);
         verify(mPlayerFactory).createPlayer(InCallTonePlayer.TONE_CALL_ENDED);
-        correctArgs = new CallAudioModeStateMachine.MessageArgs(
-                false, // hasActiveOrDialingCalls
-                false, // hasRingingCalls
-                false, // hasHoldingCalls
-                true, // isTonePlaying
-                false, // foregroundCallIsVoip
-                null // session
-        );
+        correctArgs = new Builder()
+                .setHasActiveOrDialingCalls(false)
+                .setHasRingingCalls(false)
+                .setHasHoldingCalls(false)
+                .setIsTonePlaying(true)
+                .setForegroundCallIsVoip(false)
+                .setSession(null)
+                .build();
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.NO_MORE_ACTIVE_OR_DIALING_CALLS), captor.capture());
         assertMessageArgEquality(correctArgs, captor.getValue());
@@ -333,15 +691,14 @@ public class CallAudioManagerTest extends TelecomTestCase {
         ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor =
                 ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
         mCallAudioManager.setIsTonePlaying(false);
-        CallAudioModeStateMachine.MessageArgs correctArgs =
-                new CallAudioModeStateMachine.MessageArgs(
-                        false, // hasActiveOrDialingCalls
-                        false, // hasRingingCalls
-                        false, // hasHoldingCalls
-                        false, // isTonePlaying
-                        false, // foregroundCallIsVoip
-                        null // session
-                );
+        CallAudioModeStateMachine.MessageArgs correctArgs = new Builder()
+                        .setHasActiveOrDialingCalls(false)
+                        .setHasRingingCalls(false)
+                        .setHasHoldingCalls(false)
+                        .setIsTonePlaying(false)
+                        .setForegroundCallIsVoip(false)
+                        .setSession(null)
+                        .build();
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
                 eq(CallAudioModeStateMachine.TONE_STOPPED_PLAYING), captor.capture());
         assertMessageArgEquality(correctArgs, captor.getValue());
@@ -353,6 +710,10 @@ public class CallAudioManagerTest extends TelecomTestCase {
         for (int i = 0; i < callStateToCalls.size(); i++) {
             assertEquals(0, callStateToCalls.valueAt(i).size());
         }
+    }
+
+    private ArgumentCaptor<MessageArgs> makeNewCaptor() {
+        return ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
     }
 
     private void assertMessageArgEquality(CallAudioModeStateMachine.MessageArgs expected,

@@ -1174,12 +1174,12 @@ namespace sw
 		Int4 linear = CmpLT(c, Float4(0.04045f));
 
 		Float4 s = c;
-		s.xyz = As<Float4>((linear & As<Int4>(lc)) | (~linear & As<Int4>(ec)));   // FIXME: IfThenElse()
+		s.xyz = As<Float4>((linear & As<Int4>(lc)) | (~linear & As<Int4>(ec)));   // TODO: IfThenElse()
 
 		return s;
 	}
 
-	Routine *Blitter::generate(const State &state)
+	std::shared_ptr<Routine> Blitter::generate(const State &state)
 	{
 		Function<Void(Pointer<Byte>)> function;
 		{
@@ -1420,7 +1420,7 @@ namespace sw
 		state.destSamples = dest->getSamples();
 
 		criticalSection.lock();
-		Routine *blitRoutine = blitCache->query(state);
+		auto blitRoutine = blitCache->query(state);
 
 		if(!blitRoutine)
 		{

@@ -68,7 +68,7 @@ class network_DhcpRenewWithOptionSubset(dhcp_test_base.DhcpTestBase):
 
         # Trigger lease renewal on the client.
         interface_name = self.ethernet_pair.peer_interface_name
-        self.get_interface_ipconfig_objects(interface_name)[0].Refresh()
+        self.get_device(interface_name).RenewDHCPLease()
 
         self.server.wait_for_test_to_finish()
         if not self.server.last_test_passed:

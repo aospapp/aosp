@@ -16,8 +16,6 @@
 
 package android.media.cts;
 
-import android.app.ActivityManager;
-import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
@@ -63,7 +61,7 @@ public class RingtoneTest extends InstrumentationTestCase {
         } else if (mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_NORMAL) {
             mAudioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume / 2,
                     AudioManager.FLAG_ALLOW_RINGER_MODES);
-        } else if (!ActivityManager.isLowRamDeviceStatic()) {
+        } else {
             try {
                 Utils.toggleNotificationPolicyAccess(
                         mContext.getPackageName(), getInstrumentation(), true);
@@ -101,7 +99,7 @@ public class RingtoneTest extends InstrumentationTestCase {
             if (mRingtone.isPlaying()) mRingtone.stop();
             mRingtone.setStreamType(mOriginalStreamType);
         }
-        if (mAudioManager != null && !ActivityManager.isLowRamDeviceStatic()) {
+        if (mAudioManager != null) {
             try {
                 Utils.toggleNotificationPolicyAccess(
                         mContext.getPackageName(), getInstrumentation(), true);

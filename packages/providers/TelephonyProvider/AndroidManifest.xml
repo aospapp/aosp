@@ -26,11 +26,17 @@
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.USE_RESERVED_DISK" />
 
+    <!-- Used to access PlatformCompat for security fix enforcement -->
+    <uses-permission android:name="android.permission.READ_COMPAT_CHANGE_CONFIG" />
+    <uses-permission android:name="android.permission.LOG_COMPAT_CHANGE" />
+
     <protected-broadcast android:name="android.provider.action.EXTERNAL_PROVIDER_CHANGE" />
     <protected-broadcast android:name="android.intent.action.CONTENT_CHANGED" />
 
     <!-- This permission is only used to send the ACTION_EXTERNAL_PROVIDER_CHANGE intent. -->
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+    <!-- Allows accessing the messages on ICC -->
+    <uses-permission android:name="android.permission.ACCESS_MESSAGES_ON_ICC" />
 
     <application android:process="com.android.phone"
                  android:allowClearUserData="false"
@@ -41,6 +47,7 @@
                  android:label="@string/app_label"
                  android:icon="@mipmap/ic_launcher_phone"
                  android:usesCleartextTraffic="true"
+                 android:forceQueryable="true"
                  android:defaultToDeviceProtectedStorage="true"
                  android:directBootAware="true">
 
@@ -48,13 +55,6 @@
                   android:authorities="telephony"
                   android:exported="true"
                   android:singleUser="true"
-                  android:multiprocess="false" />
-
-        <provider android:name="ServiceStateProvider"
-                  android:authorities="service-state"
-                  android:exported="true"
-                  android:singleUser="true"
-                  android:writePermission="android.permission.MODIFY_PHONE_STATE"
                   android:multiprocess="false" />
 
         <!-- This is a singleton provider that is used by all users.
@@ -119,12 +119,6 @@
                   android:exported="true"
                   android:singleUser="true"
                   android:multiprocess="false" />
-
-        <provider android:name="RcsProvider"
-                  android:authorities="rcs"
-                  android:multiprocess="false"
-                  android:exported="false"
-                  android:singleUser="true" />
 
         <service
             android:name=".TelephonyBackupAgent$DeferredSmsMmsRestoreService"

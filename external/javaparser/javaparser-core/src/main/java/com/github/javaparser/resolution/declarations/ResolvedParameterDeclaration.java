@@ -33,6 +33,13 @@ public interface ResolvedParameterDeclaration extends ResolvedValueDeclaration {
         return true;
     }
 
+    /**
+     * Necessary because parameters obtained through reflection could not have a name.
+     */
+    default boolean hasName() {
+        return true;
+    }
+
     @Override
     default ResolvedParameterDeclaration asParameter() {
         return this;
@@ -45,7 +52,7 @@ public interface ResolvedParameterDeclaration extends ResolvedValueDeclaration {
 
     /**
      * Describe the type of the parameter. In practice add three dots to the type name
-     * is the parameter is variadic.
+     * if the parameter is variadic.
      */
     default String describeType() {
         if (isVariadic()) {

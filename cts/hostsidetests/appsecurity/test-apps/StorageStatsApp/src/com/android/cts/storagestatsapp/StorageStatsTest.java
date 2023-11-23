@@ -50,6 +50,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
+import android.provider.MediaStore;
 import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
@@ -196,6 +197,8 @@ public class StorageStatsTest extends InstrumentationTestCase {
         // Rename to ensure that stats are updated
         video.renameTo(new File(dir, System.nanoTime() + ".PnG"));
 
+        MediaStore.waitForIdle(getContext().getContentResolver());
+
         final ExternalStorageStats afterRename = stats.queryExternalStatsForUser(UUID_DEFAULT, user);
 
         assertMostlyEquals(17 * MB_IN_BYTES, afterRename.getTotalBytes() - before.getTotalBytes());
@@ -212,6 +215,20 @@ public class StorageStatsTest extends InstrumentationTestCase {
     public void testVerifyStatsExternalConsistent() throws Exception {
         final StorageStatsManager stats = getContext().getSystemService(StorageStatsManager.class);
         final UserHandle user = android.os.Process.myUserHandle();
+
+        // Since scoped storage, apps can't access the package-specific Android/
+        // directories anymore. So we compute the current size, and assume the
+        // delta is in Android/*, which unfortunately may have data from
+        // test APKs that aren't cleaned up properly.
+        //
+        // Then, when we compute the new size and compare it with the stats,
+        // we expect the same delta
+        final long manualSizeBefore = getSizeManual(
+                Environment.getExternalStorageDirectory(), true);
+        final long statsSizeBefore = stats.queryExternalStatsForUser(
+                UUID_DEFAULT, user).getTotalBytes();
+
+        final long deltaBefore = statsSizeBefore - manualSizeBefore;
 
         useSpace(getContext());
 
@@ -230,10 +247,15 @@ public class StorageStatsTest extends InstrumentationTestCase {
         // TODO: remove this once 34723223 is fixed
         logCommand("sync");
 
-        final long manualSize = getSizeManual(Environment.getExternalStorageDirectory(), true);
+        long manualSize = getSizeManual(Environment.getExternalStorageDirectory(), true);
+        // Since scoped storage, we can't walk the Android/ tree anymore; so pass in this
+        // app's files and cache dirs directly.
+        manualSize += getSizeManual(getContext().getExternalFilesDir(null), true);
+        manualSize += getSizeManual(getContext().getExternalCacheDir(), true);
         final long statsSize = stats.queryExternalStatsForUser(UUID_DEFAULT, user).getTotalBytes();
 
-        assertMostlyEquals(manualSize, statsSize);
+        final long deltaAfter = statsSize - manualSize;
+        assertMostlyEquals(deltaBefore, deltaAfter);
     }
 
     public void testVerifyCategory() throws Exception {

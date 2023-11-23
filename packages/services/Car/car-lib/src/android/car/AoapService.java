@@ -16,8 +16,6 @@
 
 package android.car;
 
-import static com.android.internal.util.Preconditions.checkNotNull;
-
 import android.annotation.IntDef;
 import android.annotation.MainThread;
 import android.annotation.NonNull;
@@ -39,6 +37,7 @@ import java.io.PrintWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
+import java.util.Objects;
 
 /**
  * The service that must be implemented by USB AOAP handler system apps. The app must hold the
@@ -203,7 +202,7 @@ public abstract class AoapService extends Service {
             switch (msg.what) {
                 case MSG_NEW_DEVICE_ATTACHED: {
                     int res = service.isDeviceSupported(
-                            checkNotNull(data.getParcelable(KEY_DEVICE)));
+                            Objects.requireNonNull(data.getParcelable(KEY_DEVICE)));
                     if (res != RESULT_OK && res != RESULT_DEVICE_NOT_SUPPORTED) {
                         throw new IllegalArgumentException("Result can not be " + res);
                     }
@@ -213,7 +212,7 @@ public abstract class AoapService extends Service {
 
                 case MSG_CAN_SWITCH_TO_AOAP: {
                     int res = service.canSwitchToAoap(
-                            checkNotNull(data.getParcelable(KEY_DEVICE)));
+                            Objects.requireNonNull(data.getParcelable(KEY_DEVICE)));
                     if (res != RESULT_OK && res != RESULT_DEVICE_NOT_SUPPORTED
                             && res != RESULT_DO_NOT_SWITCH_TO_AOAP) {
                         throw new IllegalArgumentException("Result can not be " + res);

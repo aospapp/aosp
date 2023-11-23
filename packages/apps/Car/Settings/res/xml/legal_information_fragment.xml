@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/legal_information">
+    android:title="@string/legal_information"
+    android:key="@string/psk_legal_information">
 
     <!-- Terms and conditions -->
     <Preference

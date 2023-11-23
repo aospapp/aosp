@@ -15,7 +15,7 @@
 module: "android.sysprop.SurfaceFlingerProperties"
 owner: Platform
 
-# The following two propertiess define (respectively):
+# The following two properties define (respectively):
 #
 # - The phase offset between hardware vsync and when apps are woken up by the
 #   Choreographer callback
@@ -36,7 +36,7 @@ owner: Platform
 prop {
     api_name: "vsync_event_phase_offset_ns"
     type: Long
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.vsync_event_phase_offset_ns"
 }
@@ -44,7 +44,7 @@ prop {
 prop {
     api_name: "vsync_sf_event_phase_offset_ns"
     type: Long
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.vsync_sf_event_phase_offset_ns"
 }
@@ -53,7 +53,7 @@ prop {
 prop {
     api_name: "use_context_priority"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.use_context_priority"
 }
@@ -62,9 +62,29 @@ prop {
 prop {
     api_name: "max_frame_buffer_acquired_buffers"
     type: Long
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.max_frame_buffer_acquired_buffers"
+}
+
+# Controls the maximum width in pixels that the graphics pipeline can support for GPU fallback
+# composition. For example, 8k displays with 4k GPUs, or 4k displays with 2k GPUs.
+prop {
+    api_name: "max_graphics_width"
+    type: Integer
+    scope: System
+    access: Readonly
+    prop_name: "ro.surface_flinger.max_graphics_width"
+}
+
+# Controls the maximum height in pixels that the graphics pipeline can support for GPU fallback
+# composition. For example, 8k displays with 4k GPUs, or 4k displays with 2k GPUs.
+prop {
+    api_name: "max_graphics_height"
+    type: Integer
+    scope: System
+    access: Readonly
+    prop_name: "ro.surface_flinger.max_graphics_height"
 }
 
 # hasWideColorDisplay indicates that the device has
@@ -80,7 +100,7 @@ prop {
 prop {
     api_name: "has_wide_color_display"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.has_wide_color_display"
 }
@@ -90,7 +110,7 @@ prop {
 prop {
     api_name: "running_without_sync_framework"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.running_without_sync_framework"
 }
@@ -108,7 +128,7 @@ prop {
 prop {
     api_name: "has_HDR_display"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.has_HDR_display"
 }
@@ -117,7 +137,7 @@ prop {
 prop {
     api_name: "present_time_offset_from_vsync_ns"
     type: Long
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.present_time_offset_from_vsync_ns"
 }
@@ -129,7 +149,7 @@ prop {
 prop {
     api_name: "force_hwc_copy_for_virtual_displays"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.force_hwc_copy_for_virtual_displays"
 }
@@ -139,7 +159,7 @@ prop {
 prop {
     api_name: "max_virtual_display_dimension"
     type: Long
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.max_virtual_display_dimension"
 }
@@ -151,7 +171,7 @@ prop {
 prop {
     api_name: "use_vr_flinger"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.use_vr_flinger"
 }
@@ -161,7 +181,7 @@ prop {
 prop {
     api_name: "start_graphics_allocator_service"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.start_graphics_allocator_service"
 }
@@ -171,7 +191,7 @@ prop {
     api_name: "primary_display_orientation"
     type: Enum
     enum_values: "ORIENTATION_0|ORIENTATION_90|ORIENTATION_180|ORIENTATION_270"
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.primary_display_orientation"
 }
@@ -182,7 +202,7 @@ prop {
 prop {
     api_name: "use_color_management"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.use_color_management"
 }
@@ -209,7 +229,7 @@ prop {
 prop {
     api_name: "default_composition_dataspace"
     type: Long
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.default_composition_dataspace"
 }
@@ -220,7 +240,7 @@ prop {
 prop {
     api_name: "default_composition_pixel_format"
     type: Integer
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.default_composition_pixel_format"
 }
@@ -235,7 +255,7 @@ prop {
 prop {
     api_name: "wcg_composition_dataspace"
     type: Long
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.wcg_composition_dataspace"
 }
@@ -246,9 +266,23 @@ prop {
 prop {
     api_name: "wcg_composition_pixel_format"
     type: Integer
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.wcg_composition_pixel_format"
+}
+
+# colorSpaceAgnosticDataspace specifies the data space that
+# SurfaceFlinger expects for surfaces which are color space agnostic.
+# The variable works only when useColorManagement is specified. If
+# unspecified, the data space follows what SurfaceFlinger expects for
+# surfaces when useColorManagement is specified.
+
+prop {
+    api_name: "color_space_agnostic_dataspace"
+    type: Long
+    scope: Public
+    access: Readonly
+    prop_name: "ro.surface_flinger.color_space_agnostic_dataspace"
 }
 
 # Return the native panel primary data. The data includes red, green,
@@ -258,7 +292,7 @@ prop {
 prop {
     api_name: "display_primary_red"
     type: DoubleList
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.display_primary_red"
 }
@@ -266,7 +300,7 @@ prop {
 prop {
     api_name: "display_primary_green"
     type: DoubleList
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.display_primary_green"
 }
@@ -274,7 +308,7 @@ prop {
 prop {
     api_name: "display_primary_blue"
     type: DoubleList
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.display_primary_blue"
 }
@@ -282,18 +316,28 @@ prop {
 prop {
     api_name: "display_primary_white"
     type: DoubleList
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.display_primary_white"
 }
 
-# setIdleTimerMs indicates what is considered a timeout in milliseconds for Scheduler. This value is
-# used by the Scheduler to trigger inactivity callbacks that will switch the display to a lower
-# refresh rate. Setting this property to 0 means there is no timer.
+# refreshRateSwitching indicates whether SurfaceFlinger should use refresh rate
+# switching on the device, e.g. to switch between 60 and 90 Hz. The settings
+# below that are related to refresh rate switching will only have an effect if
+# refresh_rate_switching is enabled.
+prop {
+    api_name: "refresh_rate_switching"
+    type: Boolean
+    scope: System
+    access: Readonly
+    prop_name: "ro.surface_flinger.refresh_rate_switching"
+    deprecated: true
+}
+
 prop {
     api_name: "set_idle_timer_ms"
     type: Integer
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.set_idle_timer_ms"
 }
@@ -304,25 +348,49 @@ prop {
 prop {
     api_name: "set_touch_timer_ms"
     type: Integer
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.set_touch_timer_ms"
 }
 
+# setDisplayPowerTimerMs indicates what is considered a timeout in milliseconds for Scheduler.
+# This value is used by the Scheduler to trigger display power inactivity callbacks that will
+# keep the display in peak refresh rate as long as display power is not in normal mode.
+# Setting this property to 0 means there is no timer.
+prop {
+    api_name: "set_display_power_timer_ms"
+    type: Integer
+    scope: Public
+    access: Readonly
+    prop_name: "ro.surface_flinger.set_display_power_timer_ms"
+}
+
+# useContentDetectionForRefreshRate indicates whether Scheduler should detect content FPS, and try
+# to adjust the screen refresh rate based on that.
+prop {
+    api_name: "use_content_detection_for_refresh_rate"
+    type: Boolean
+    scope: Public
+    access: Readonly
+    prop_name: "ro.surface_flinger.use_content_detection_for_refresh_rate"
+}
+
 # useSmart90ForVideo indicates whether Scheduler should detect content FPS, and try to adjust the
 # screen refresh rate based on that.
+# Replaced by useContentDetectionForRefreshRate
 prop {
     api_name: "use_smart_90_for_video"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.use_smart_90_for_video"
+    deprecated: true
 }
 
 prop {
     api_name: "enable_protected_contents"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.protected_contents"
 }
@@ -332,7 +400,38 @@ prop {
 prop {
     api_name: "support_kernel_idle_timer"
     type: Boolean
-    scope: System
+    scope: Public
     access: Readonly
     prop_name: "ro.surface_flinger.support_kernel_idle_timer"
+}
+
+# Indicates whether background blurs are supported.
+prop {
+    api_name: "supports_background_blur"
+    type: Boolean
+    scope: Public
+    access: Readonly
+    prop_name: "ro.surface_flinger.supports_background_blur"
+}
+
+# Indicates whether Scheduler should use frame rate API when adjusting the
+# display refresh rate.
+prop {
+    api_name: "use_frame_rate_api"
+    type: Boolean
+    scope: Public
+    access: Readonly
+    prop_name: "ro.surface_flinger.use_frame_rate_api"
+}
+
+# Sets the timeout used to rate limit DISPLAY_UPDATE_IMMINENT Power HAL notifications.
+# SurfaceFlinger wakeups will trigger this boost whenever they are separated by more than this
+# duration (specified in milliseconds). A value of 0 disables the rate limit, and will result in
+# Power HAL notifications every time SF wakes up.
+prop {
+    api_name: "display_update_imminent_timeout_ms"
+    type: Integer
+    scope: Public
+    access: Readonly
+    prop_name: "ro.surface_flinger.display_update_imminent_timeout_ms"
 }

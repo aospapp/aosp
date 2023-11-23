@@ -23,7 +23,7 @@ import android.text.format.DateUtils;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 
-import com.android.car.telephony.common.TelecomUtils;
+import com.android.car.telephony.common.TelecomUtils.PhoneNumberInfo;
 
 /**
  * Emits the description for the body in {@link PhoneFragmentViewModel}.
@@ -39,7 +39,7 @@ import com.android.car.telephony.common.TelecomUtils;
  */
 public class SelfRefreshDescriptionLiveData extends MediatorLiveData<String> {
     private final LiveData<Long> mConnectTimeLiveData;
-    private final LiveData<String> mNumberLiveData;
+    private final LiveData<PhoneNumberInfo> mNumberLiveData;
     private final LiveData<Integer> mStateLiveData;
     private final Context mContext;
 
@@ -50,7 +50,7 @@ public class SelfRefreshDescriptionLiveData extends MediatorLiveData<String> {
      */
     public SelfRefreshDescriptionLiveData(Context context,
             LiveData<Integer> stateLiveData,
-            LiveData<String> numberLiveData,
+            LiveData<PhoneNumberInfo> numberLiveData,
             LiveData<Long> connectTimeLiveData) {
         mContext = context;
         mNumberLiveData = numberLiveData;
@@ -66,7 +66,7 @@ public class SelfRefreshDescriptionLiveData extends MediatorLiveData<String> {
     }
 
     private void updateDescription() {
-        String number = mNumberLiveData.getValue();
+        PhoneNumberInfo number = mNumberLiveData.getValue();
         Integer callState = mStateLiveData.getValue();
         Long connectTime = mConnectTimeLiveData.getValue();
         if (callState != null) {
@@ -88,9 +88,9 @@ public class SelfRefreshDescriptionLiveData extends MediatorLiveData<String> {
      * "Mobile · Dialing"
      * "Mobile · 1:05"
      */
-    private String getCallInfoText(Context context, Integer callState, String number,
+    private String getCallInfoText(Context context, Integer callState, PhoneNumberInfo number,
             Long connectTime) {
-        CharSequence label = TelecomUtils.getTypeFromNumber(context, number);
+        String label = number != null ? number.getTypeLabel() : null;
         String text = "";
         if (callState == TelephonyManager.CALL_STATE_OFFHOOK) {
             long duration = connectTime > 0 ? System.currentTimeMillis()
@@ -102,7 +102,7 @@ public class SelfRefreshDescriptionLiveData extends MediatorLiveData<String> {
             } else if (!TextUtils.isEmpty(durationString)) {
                 text = durationString;
             } else if (!TextUtils.isEmpty(label)) {
-                text = (String) label;
+                text = label;
             }
         } else {
             String state = callStateToUiString(context, callState);

@@ -16,6 +16,8 @@
 
 package com.android.settings.panel;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import static com.android.settings.panel.SettingsPanelActivity.KEY_MEDIA_PACKAGE_NAME;
 import static com.android.settings.panel.SettingsPanelActivity.KEY_PANEL_TYPE_ARGUMENT;
 
@@ -28,17 +30,24 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.app.settings.SettingsEnums;
 import android.content.Intent;
-import android.view.MotionEvent;
+import android.content.res.Configuration;
+import android.os.Build;
+import android.view.Window;
+import android.view.WindowManager;
 
+import com.android.settings.core.HideNonSystemOverlayMixin;
 import com.android.settings.testutils.FakeFeatureFactory;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.android.controller.ActivityController;
+import org.robolectric.util.ReflectionHelpers;
 
 @RunWith(RobolectricTestRunner.class)
 public class SettingsPanelActivityTest {
@@ -50,13 +59,14 @@ public class SettingsPanelActivityTest {
 
     @Before
     public void setUp() {
+        MockitoAnnotations.initMocks(this);
         mFakeFeatureFactory = FakeFeatureFactory.setupForTest();
         mSettingsPanelActivity = spy(
                 Robolectric.buildActivity(FakeSettingsPanelActivity.class).create().get());
         mPanelFeatureProvider = spy(new PanelFeatureProviderImpl());
         mFakeFeatureFactory.panelFeatureProvider = mPanelFeatureProvider;
         mFakePanelContent = new FakePanelContent();
-        doReturn(mFakePanelContent).when(mPanelFeatureProvider).getPanel(any(), any(), any());
+        doReturn(mFakePanelContent).when(mPanelFeatureProvider).getPanel(any(), any());
     }
 
     @Test
@@ -86,5 +96,56 @@ public class SettingsPanelActivityTest {
         assertThat(activity.mBundle.containsKey(KEY_MEDIA_PACKAGE_NAME)).isTrue();
         assertThat(activity.mBundle.getString(KEY_PANEL_TYPE_ARGUMENT))
                 .isEqualTo("com.android.settings.panel.action.MEDIA_OUTPUT");
+    }
+
+    @Test
+    public void onStart_isNotDebuggable_shouldHideSystemOverlay() {
+        ReflectionHelpers.setStaticField(Build.class, "IS_DEBUGGABLE", false);
+
+        final ActivityController<SettingsPanelActivity> activityController =
+                Robolectric.buildActivity(SettingsPanelActivity.class).create();
+        final SettingsPanelActivity activity = spy(activityController.get());
+        final Window window = mock(Window.class);
+        when(activity.getWindow()).thenReturn(window);
+        activity.getLifecycle().addObserver(new HideNonSystemOverlayMixin(activity));
+
+        activityController.start();
+
+        verify(window).addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
+    }
+
+    @Test
+    public void onStop_isNotDebuggable_shouldRemoveHideSystemOverlay() {
+        ReflectionHelpers.setStaticField(Build.class, "IS_DEBUGGABLE", false);
+
+        final ActivityController<SettingsPanelActivity> activityController =
+                Robolectric.buildActivity(SettingsPanelActivity.class).create();
+        final SettingsPanelActivity activity = spy(activityController.get());
+        final Window window = mock(Window.class);
+        when(activity.getWindow()).thenReturn(window);
+        activity.getLifecycle().addObserver(new HideNonSystemOverlayMixin(activity));
+
+        activityController.start();
+
+        verify(window).addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
+
+        final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+        when(window.getAttributes()).thenReturn(layoutParams);
+
+        activityController.stop();
+        final ArgumentCaptor<WindowManager.LayoutParams> paramCaptor = ArgumentCaptor.forClass(
+                WindowManager.LayoutParams.class);
+
+        verify(window).setAttributes(paramCaptor.capture());
+        assertThat(paramCaptor.getValue().privateFlags
+                & SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS).isEqualTo(0);
+    }
+
+    @Test
+    public void onConfigurationChanged_shouldForceUpdate() {
+        mSettingsPanelActivity.mForceCreation = false;
+        mSettingsPanelActivity.onConfigurationChanged(new Configuration());
+
+        assertThat(mSettingsPanelActivity.mForceCreation).isTrue();
     }
 }

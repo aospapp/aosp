@@ -16,17 +16,28 @@
 
 #define LOG_TAG "LibHidlTest"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic fatal "-Wpadded"
+#include <hidl/HidlInternal.h>
+#include <hidl/HidlSupport.h>
+#pragma clang diagnostic pop
+
 #include <android-base/logging.h>
 #include <android/hidl/memory/1.0/IMemory.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <hidl/HidlSupport.h>
 #include <hidl/ServiceManagement.h>
 #include <hidl/Status.h>
 #include <hidl/TaskRunner.h>
 #include <condition_variable>
 #include <fstream>
 #include <vector>
+
+#ifdef __ANDROID__
+static bool kAndroid = true;
+#else
+static bool kAndroid = false;
+#endif
 
 #define EXPECT_ARRAYEQ(__a1__, __a2__, __size__) EXPECT_TRUE(isArrayEqual(__a1__, __a2__, __size__))
 #define EXPECT_2DARRAYEQ(__a1__, __a2__, __size1__, __size2__) \
@@ -319,6 +330,72 @@ TEST_F(LibHidlTest, VecRangeCtorTest) {
     EXPECT_EQ(sum, 1 + 2 + 3);
 }
 
+struct FailsIfCopied {
+    FailsIfCopied() {}
+
+    // add failure if copied since in general this can be expensive
+    FailsIfCopied(const FailsIfCopied& o) { *this = o; }
+    FailsIfCopied& operator=(const FailsIfCopied&) {
+        ADD_FAILURE() << "FailsIfCopied copied";
+        return *this;
+    }
+
+    // fine to move this type since in general this is cheaper
+    FailsIfCopied(FailsIfCopied&& o) = default;
+    FailsIfCopied& operator=(FailsIfCopied&&) = default;
+};
+
+TEST_F(LibHidlTest, VecResizeNoCopy) {
+    using android::hardware::hidl_vec;
+
+    hidl_vec<FailsIfCopied> noCopies;
+    noCopies.resize(3);  // instantiates three elements
+
+    FailsIfCopied* oldPointer = noCopies.data();
+
+    noCopies.resize(6);  // should move three elements, not copy
+
+    // oldPointer should be invalidated at this point.
+    // hidl_vec doesn't currently try to realloc but if it ever switches
+    // to an implementation that does, this test wouldn't do anything.
+    EXPECT_NE(oldPointer, noCopies.data());
+}
+
+TEST_F(LibHidlTest, VecFindTest) {
+    using android::hardware::hidl_vec;
+    hidl_vec<int32_t> hv1 = {10, 20, 30, 40};
+    const hidl_vec<int32_t> hv2 = {1, 2, 3, 4};
+
+    auto it = hv1.find(20);
+    EXPECT_EQ(20, *it);
+    *it = 21;
+    EXPECT_EQ(21, *it);
+    it = hv1.find(20);
+    EXPECT_EQ(hv1.end(), it);
+    it = hv1.find(21);
+    EXPECT_EQ(21, *it);
+
+    auto cit = hv2.find(4);
+    EXPECT_EQ(4, *cit);
+}
+
+TEST_F(LibHidlTest, VecContainsTest) {
+    using android::hardware::hidl_vec;
+    hidl_vec<int32_t> hv1 = {10, 20, 30, 40};
+    const hidl_vec<int32_t> hv2 = {0, 1, 2, 3, 4};
+
+    EXPECT_TRUE(hv1.contains(10));
+    EXPECT_TRUE(hv1.contains(40));
+    EXPECT_FALSE(hv1.contains(1));
+    EXPECT_FALSE(hv1.contains(0));
+    EXPECT_TRUE(hv2.contains(0));
+    EXPECT_FALSE(hv2.contains(10));
+
+    hv1[0] = 11;
+    EXPECT_FALSE(hv1.contains(10));
+    EXPECT_TRUE(hv1.contains(11));
+}
+
 TEST_F(LibHidlTest, ArrayTest) {
     using android::hardware::hidl_array;
     int32_t array[] = {5, 6, 7};
@@ -453,6 +530,52 @@ TEST_F(LibHidlTest, ReturnTest) {
     EXPECT_EQ(three, ret.withDefault(three));
 }
 
+TEST_F(LibHidlTest, ReturnDies) {
+    using ::android::hardware::Return;
+    using ::android::hardware::Status;
+
+    EXPECT_DEATH({ Return<void>(Status::fromStatusT(-EBUSY)); }, "");
+    EXPECT_DEATH({ Return<void>(Status::fromStatusT(-EBUSY)).isDeadObject(); }, "");
+    EXPECT_DEATH(
+            {
+                Return<int> ret = Return<int>(Status::fromStatusT(-EBUSY));
+                int foo = ret;  // should crash here
+                (void)foo;
+                ret.isOk();
+            },
+            "");
+}
+
+TEST_F(LibHidlTest, DetectUncheckedReturn) {
+    using ::android::hardware::HidlReturnRestriction;
+    using ::android::hardware::Return;
+    using ::android::hardware::setProcessHidlReturnRestriction;
+    using ::android::hardware::Status;
+
+    setProcessHidlReturnRestriction(HidlReturnRestriction::FATAL_IF_UNCHECKED);
+
+    EXPECT_DEATH(
+            {
+                auto ret = Return<void>(Status::ok());
+                (void)ret;
+            },
+            "");
+    EXPECT_DEATH(
+            {
+                auto ret = Return<void>(Status::ok());
+                ret = Return<void>(Status::ok());
+                ret.isOk();
+            },
+            "");
+
+    auto ret = Return<void>(Status::ok());
+    (void)ret.isOk();
+    ret = Return<void>(Status::ok());
+    (void)ret.isOk();
+
+    setProcessHidlReturnRestriction(HidlReturnRestriction::NONE);
+}
+
 std::string toString(const ::android::hardware::Status &s) {
     using ::android::hardware::operator<<;
     std::ostringstream oss;
@@ -476,6 +599,10 @@ TEST_F(LibHidlTest, StatusStringTest) {
 }
 
 TEST_F(LibHidlTest, PreloadTest) {
+    // HIDL doesn't have support to load passthrough implementations on host, but we
+    // could do this by loading implementations from the output directory
+    if (!kAndroid) GTEST_SKIP();
+
     using ::android::hardware::preloadPassthroughService;
     using ::android::hidl::memory::V1_0::IMemory;
 
@@ -486,6 +613,51 @@ TEST_F(LibHidlTest, PreloadTest) {
     EXPECT_FALSE(isLibraryOpen(kLib));
     preloadPassthroughService<IMemory>();
     EXPECT_TRUE(isLibraryOpen(kLib));
+}
+
+template <typename T, size_t start, size_t end>
+static void assertZeroInRange(const T* t) {
+    static_assert(start < sizeof(T));
+    static_assert(end <= sizeof(T));
+
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>(t);
+
+    for (size_t i = start; i < end; i++) {
+        EXPECT_EQ(0, ptr[i]);
+    }
+}
+
+template <typename T, size_t start, size_t end>
+static void uninitTest() {
+    uint8_t buf[sizeof(T)];
+    memset(buf, 0xFF, sizeof(T));
+
+    T* type = new (buf) T;
+    assertZeroInRange<T, start, end>(type);
+    type->~T();
+}
+
+TEST_F(LibHidlTest, HidlVecUninit) {
+    using ::android::hardware::hidl_vec;
+    struct SomeType {};
+    static_assert(sizeof(hidl_vec<SomeType>) == 16);
+
+    // padding after mOwnsBuffer
+    uninitTest<hidl_vec<SomeType>, 13, 16>();
+}
+TEST_F(LibHidlTest, HidlHandleUninit) {
+    using ::android::hardware::hidl_handle;
+    static_assert(sizeof(hidl_handle) == 16);
+
+    // padding after mOwnsHandle
+    uninitTest<hidl_handle, 9, 16>();
+}
+TEST_F(LibHidlTest, HidlStringUninit) {
+    using ::android::hardware::hidl_string;
+    static_assert(sizeof(hidl_string) == 16);
+
+    // padding after mOwnsBuffer
+    uninitTest<hidl_string, 13, 16>();
 }
 
 int main(int argc, char **argv) {

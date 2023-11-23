@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <stdio.h>
 #include <gtest/gtest.h>
+#include <stdio.h>
 
 extern "C" {
 #include "polled_interval_checker.h"
@@ -14,15 +14,15 @@ static const int INTERVAL_DURATION = 5;
 static struct timespec time_now;
 
 static struct polled_interval* create_interval() {
-  struct polled_interval *interval =
-    pic_polled_interval_create(INTERVAL_DURATION);
+  struct polled_interval* interval =
+      pic_polled_interval_create(INTERVAL_DURATION);
   EXPECT_NE(interval, static_cast<struct polled_interval*>(NULL));
   return interval;
 }
 
 TEST(PolledIntervalCheckerTest, CreateDestroy) {
   // Create an interval, checks it is non-null.
-  struct polled_interval *interval = create_interval();
+  struct polled_interval* interval = create_interval();
 
   pic_polled_interval_destroy(&interval);
 
@@ -37,7 +37,7 @@ TEST(PolledIntervalCheckerTest, BasicFlow) {
   pic_update_current_time();
 
   // Create interval starting at initial time.
-  struct polled_interval *interval = create_interval();
+  struct polled_interval* interval = create_interval();
 
   // Check it hasn't elapsed.
   EXPECT_FALSE(pic_interval_elapsed(interval));
@@ -68,7 +68,7 @@ TEST(PolledIntervalCheckerTest, DoesNotResetAutomatically) {
   time_now.tv_nsec = 0;
   pic_update_current_time();
 
-  struct polled_interval *interval = create_interval();
+  struct polled_interval* interval = create_interval();
 
   // Sanity check.
   EXPECT_FALSE(pic_interval_elapsed(interval));
@@ -98,7 +98,7 @@ TEST(PolledIntervalCheckerTest, Reset) {
   time_now.tv_nsec = 0;
   pic_update_current_time();
 
-  struct polled_interval *interval = create_interval();
+  struct polled_interval* interval = create_interval();
 
   // Sanity check.
   EXPECT_FALSE(pic_interval_elapsed(interval));
@@ -142,14 +142,14 @@ TEST(PolledIntervalCheckerTest, Reset) {
 /* Stubs */
 extern "C" {
 
-int clock_gettime(clockid_t clk_id, struct timespec *tp) {
+int clock_gettime(clockid_t clk_id, struct timespec* tp) {
   *tp = time_now;
   return 0;
 }
 
 }  // extern "C"
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

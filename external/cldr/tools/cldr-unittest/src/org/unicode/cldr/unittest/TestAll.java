@@ -31,7 +31,7 @@ public class TestAll extends TestGroup {
     private static class NullFormatableDate implements FormattableDate {
 
         @Override
-        public String format(Date d) {
+        public String format(@SuppressWarnings("unused") Date d) {
             return null;
         }
     }
@@ -186,6 +186,7 @@ public class TestAll extends TestGroup {
             "org.unicode.cldr.unittest.NumberingSystemsTest",
             "org.unicode.cldr.unittest.StandardCodesTest",
             "org.unicode.cldr.unittest.TestAnnotations",
+            "org.unicode.cldr.unittest.TestAttributeValues",
             "org.unicode.cldr.unittest.TestBasic",
             "org.unicode.cldr.unittest.TestCLDRFile",
             "org.unicode.cldr.unittest.TestCLDRUtils",
@@ -225,6 +226,7 @@ public class TestAll extends TestGroup {
             "org.unicode.cldr.unittest.TestCldrFactory",
             "org.unicode.cldr.unittest.TestUnContainment",
             //            "org.unicode.cldr.unittest.TestCollators" See Ticket #8288
+            "org.unicode.cldr.api.AllTests",
         },
             "All tests in CLDR");
     }

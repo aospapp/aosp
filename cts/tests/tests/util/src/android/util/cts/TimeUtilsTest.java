@@ -15,6 +15,8 @@
  */
 package android.util.cts;
 
+import static android.util.TimeUtils.isTimeBetween;
+import static junit.framework.TestCase.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -28,6 +30,7 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.time.LocalTime;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.List;
@@ -182,6 +185,37 @@ public class TimeUtilsTest {
         } catch (NullPointerException expected) {
         }
     }
+
+    @Test
+    public void testTimeClockBetweenTwoOff_refStartEnd() {
+        LocalTime now = LocalTime.of(10, 0);
+        assertFalse(isTimeBetween(now, now.plusHours(1), now.plusHours(2)));
+    }
+
+    @Test
+    public void testTimeClockBetweenTwoOn_startRefEnd() {
+        LocalTime now = LocalTime.of(10, 0);
+        assertTrue(isTimeBetween(now, now.minusHours(1), now.plusHours(1)));
+    }
+
+    @Test
+    public void testTimeClockBetweenTwoOn_startRefEndOvernight() {
+        LocalTime now = LocalTime.of(0, 0);
+        assertTrue(isTimeBetween(now, now.minusHours(1), now.plusHours(1)));
+    }
+
+    @Test
+    public void testTimeClockBetweenTwoOff_endRefStart() {
+        LocalTime now = LocalTime.of(23, 0);
+        assertFalse(isTimeBetween(now, now.plusHours(2), now.minusHours(2)));
+    }
+
+    @Test
+    public void testTimeClockBetweenTwoOff_startEndRef() {
+        LocalTime now = LocalTime.of(10, 0);
+        assertFalse(isTimeBetween(now, now.minusHours(2), now.minusHours(1)));
+    }
+
 
     private static <T> void assertCollectionContains(Collection<? super T> collection, T value) {
         assertTrue(collection + " should contain " + value, collection.contains(value));

@@ -16,7 +16,7 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
  * Object returned by the RIL upon successful completion of sendSMS.
@@ -24,6 +24,8 @@ import android.annotation.UnsupportedAppUsage;
  *
  */
 public class SmsResponse {
+    public static final int NO_ERROR_CODE = -1;
+
     /** Message reference of the just-sent SMS. */
     @UnsupportedAppUsage
     int mMessageRef;

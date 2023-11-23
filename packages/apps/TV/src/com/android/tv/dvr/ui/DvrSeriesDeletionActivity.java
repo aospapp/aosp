@@ -20,15 +20,13 @@ import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepFragment;
 import android.util.Log;
 import android.widget.Toast;
-
 import com.android.tv.R;
 import com.android.tv.Starter;
 import com.android.tv.TvSingletons;
 import com.android.tv.dvr.DvrManager;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,7 +68,7 @@ public class DvrSeriesDeletionActivity extends Activity {
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     deleteSelectedIds(true);
                 } else {
-                    // NOTE: If Live TV ever supports both embedded and separate DVR inputs
+                    // NOTE: If TV app ever supports both embedded and separate DVR inputs
                     // then we should try to do the delete regardless.
                     Log.i(
                             TAG,
@@ -93,14 +91,14 @@ public class DvrSeriesDeletionActivity extends Activity {
             dvrManager.removeRecordedPrograms(mIdsToDelete, deleteFiles);
         }
         Toast.makeText(
-                this,
-                getResources()
-                        .getQuantityString(
-                                R.plurals.dvr_msg_episodes_deleted,
-                                mIdsToDelete.size(),
-                                mIdsToDelete.size(),
-                                recordingSize),
-                Toast.LENGTH_LONG)
+                        this,
+                        getResources()
+                                .getQuantityString(
+                                        R.plurals.dvr_msg_episodes_deleted,
+                                        mIdsToDelete.size(),
+                                        mIdsToDelete.size(),
+                                        recordingSize),
+                        Toast.LENGTH_LONG)
                 .show();
         finish();
     }

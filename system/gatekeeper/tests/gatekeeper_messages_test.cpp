@@ -21,6 +21,8 @@
 
 #include <gatekeeper/gatekeeper_messages.h>
 
+#include <vector>
+
 using ::gatekeeper::SizedBuffer;
 using ::testing::Test;
 using ::gatekeeper::EnrollRequest;
@@ -32,9 +34,7 @@ using std::endl;
 
 static const uint32_t USER_ID = 3857;
 
-static SizedBuffer *make_buffer(uint32_t size) {
-    SizedBuffer *result = new SizedBuffer;
-    result->length = size;
+static SizedBuffer make_buffer(uint32_t size) {
     uint8_t *buffer = new uint8_t[size];
     srand(size);
 
@@ -42,82 +42,72 @@ static SizedBuffer *make_buffer(uint32_t size) {
         buffer[i] = rand();
     }
 
-    result->buffer.reset(buffer);
-    return result;
+    return { buffer, size };
 }
 
 TEST(RoundTripTest, EnrollRequestNullEnrolledNullHandle) {
     const uint32_t password_size = 512;
-    SizedBuffer *provided_password = make_buffer(password_size);
     const SizedBuffer *deserialized_password;
     // create request, serialize, deserialize, and validate
-    EnrollRequest msg(USER_ID, NULL, provided_password, NULL);
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    EnrollRequest msg(USER_ID, {}, make_buffer(password_size), {});
+
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     EnrollRequest deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get()
-            + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
             deserialized_msg.error);
 
     deserialized_password = &deserialized_msg.provided_password;
     ASSERT_EQ(USER_ID, deserialized_msg.user_id);
-    ASSERT_EQ((uint32_t) password_size, deserialized_password->length);
-    ASSERT_EQ(0, memcmp(msg.provided_password.buffer.get(), deserialized_password->buffer.get(), password_size));
-    ASSERT_EQ((uint32_t) 0, deserialized_msg.enrolled_password.length);
-    ASSERT_EQ(NULL, deserialized_msg.enrolled_password.buffer.get());
-    ASSERT_EQ((uint32_t) 0, deserialized_msg.password_handle.length);
-    ASSERT_EQ(NULL, deserialized_msg.password_handle.buffer.get());
-    delete provided_password;
+    ASSERT_EQ((uint32_t) password_size, deserialized_password->size());
+    ASSERT_EQ(0, memcmp(msg.provided_password.Data<uint8_t>(), deserialized_password->Data<uint8_t>(), password_size));
+    ASSERT_FALSE(deserialized_msg.enrolled_password);
+    ASSERT_FALSE(deserialized_msg.password_handle);
 }
 
 TEST(RoundTripTest, EnrollRequestEmptyEnrolledEmptyHandle) {
     const uint32_t password_size = 512;
-    SizedBuffer *provided_password = make_buffer(password_size);
-    SizedBuffer enrolled;
-    SizedBuffer handle;
     const SizedBuffer *deserialized_password;
     // create request, serialize, deserialize, and validate
-    EnrollRequest msg(USER_ID, &handle, provided_password, &enrolled);
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    EnrollRequest msg(USER_ID, {}, make_buffer(password_size), {});
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     EnrollRequest deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get()
-            + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
             deserialized_msg.error);
 
     deserialized_password = &deserialized_msg.provided_password;
     ASSERT_EQ(USER_ID, deserialized_msg.user_id);
-    ASSERT_EQ((uint32_t) password_size, deserialized_password->length);
-    ASSERT_EQ(0, memcmp(msg.provided_password.buffer.get(), deserialized_password->buffer.get(), password_size));
-    ASSERT_EQ((uint32_t) 0, deserialized_msg.enrolled_password.length);
-    ASSERT_EQ(NULL, deserialized_msg.enrolled_password.buffer.get());
-    ASSERT_EQ((uint32_t) 0, deserialized_msg.password_handle.length);
-    ASSERT_EQ(NULL, deserialized_msg.password_handle.buffer.get());
-    delete provided_password;
+    ASSERT_EQ((uint32_t) password_size, deserialized_password->size());
+    ASSERT_EQ(0, memcmp(msg.provided_password.Data<uint8_t>(), deserialized_password->Data<uint8_t>(), password_size));
+    ASSERT_FALSE(deserialized_msg.enrolled_password);
+    ASSERT_FALSE(deserialized_msg.password_handle);
 }
 
 TEST(RoundTripTest, EnrollRequestNonNullEnrolledOrHandle) {
     const uint32_t password_size = 512;
-    SizedBuffer *provided_password = make_buffer(password_size);
-    SizedBuffer *enrolled_password = make_buffer(password_size);
-    SizedBuffer *password_handle = make_buffer(password_size);
+    SizedBuffer provided_password = make_buffer(password_size);
+    SizedBuffer enrolled_password = make_buffer(password_size);
+    SizedBuffer password_handle = make_buffer(password_size);
     const SizedBuffer *deserialized_password;
     const SizedBuffer *deserialized_enrolled;
     const SizedBuffer *deserialized_handle;
     // create request, serialize, deserialize, and validate
-    EnrollRequest msg(USER_ID, password_handle, provided_password, enrolled_password);
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    EnrollRequest msg(USER_ID, move(password_handle), move(provided_password), move(enrolled_password));
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     EnrollRequest deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get()
-            + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
             deserialized_msg.error);
@@ -126,54 +116,48 @@ TEST(RoundTripTest, EnrollRequestNonNullEnrolledOrHandle) {
     deserialized_enrolled = &deserialized_msg.enrolled_password;
     deserialized_handle = &deserialized_msg.password_handle;
     ASSERT_EQ(USER_ID, deserialized_msg.user_id);
-    ASSERT_EQ((uint32_t) password_size, deserialized_password->length);
-    ASSERT_EQ(0, memcmp(msg.provided_password.buffer.get(), deserialized_password->buffer.get(), password_size));
-    ASSERT_EQ((uint32_t) password_size, deserialized_enrolled->length);
-    ASSERT_EQ(0, memcmp(msg.enrolled_password.buffer.get(), deserialized_enrolled->buffer.get(), password_size));
-    ASSERT_EQ((uint32_t) password_size, deserialized_handle->length);
-    ASSERT_EQ(0, memcmp(msg.password_handle.buffer.get(), deserialized_handle->buffer.get(), password_size));
-    delete provided_password;
-    delete enrolled_password;
-    delete password_handle;
+    ASSERT_EQ((uint32_t) password_size, deserialized_password->size());
+    ASSERT_EQ(0, memcmp(msg.provided_password.Data<uint8_t>(), deserialized_password->Data<uint8_t>(), password_size));
+    ASSERT_EQ((uint32_t) password_size, deserialized_enrolled->size());
+    ASSERT_EQ(0, memcmp(msg.enrolled_password.Data<uint8_t>(), deserialized_enrolled->Data<uint8_t>(), password_size));
+    ASSERT_EQ((uint32_t) password_size, deserialized_handle->size());
+    ASSERT_EQ(0, memcmp(msg.password_handle.Data<uint8_t>(), deserialized_handle->Data<uint8_t>(), password_size));
 }
 
 
 TEST(RoundTripTest, EnrollResponse) {
     const uint32_t password_size = 512;
-    SizedBuffer *enrolled_password = make_buffer(password_size);
     const SizedBuffer *deserialized_password;
     // create request, serialize, deserialize, and validate
-    EnrollResponse msg(USER_ID, enrolled_password);
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    EnrollResponse msg(USER_ID, make_buffer(password_size));
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     EnrollResponse deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get()
-            + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
             deserialized_msg.error);
 
     deserialized_password = &deserialized_msg.enrolled_password_handle;
     ASSERT_EQ(USER_ID, deserialized_msg.user_id);
-    ASSERT_EQ((uint32_t) password_size, deserialized_password->length);
-    ASSERT_EQ(0, memcmp(msg.enrolled_password_handle.buffer.get(),
-                deserialized_password->buffer.get(), password_size));
+    ASSERT_EQ((uint32_t) password_size, deserialized_password->size());
+    ASSERT_EQ(0, memcmp(msg.enrolled_password_handle.Data<uint8_t>(),
+                deserialized_password->Data<uint8_t>(), password_size));
 }
 
 TEST(RoundTripTest, VerifyRequest) {
     const uint32_t password_size = 512;
-    SizedBuffer *provided_password = make_buffer(password_size),
-          *password_handle = make_buffer(password_size);
     const SizedBuffer *deserialized_password;
     // create request, serialize, deserialize, and validate
-    VerifyRequest msg(USER_ID, 1, password_handle, provided_password);
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    VerifyRequest msg(USER_ID, 1, make_buffer(password_size), make_buffer(password_size));
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     VerifyRequest deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get()
-            + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
             deserialized_msg.error);
@@ -181,46 +165,46 @@ TEST(RoundTripTest, VerifyRequest) {
     ASSERT_EQ(USER_ID, deserialized_msg.user_id);
     ASSERT_EQ((uint64_t) 1, deserialized_msg.challenge);
     deserialized_password = &deserialized_msg.password_handle;
-    ASSERT_EQ((uint32_t) password_size, deserialized_password->length);
-    ASSERT_EQ(0, memcmp(msg.provided_password.buffer.get(), deserialized_password->buffer.get(),
+    ASSERT_EQ((uint32_t) password_size, deserialized_password->size());
+    ASSERT_EQ(0, memcmp(msg.provided_password.Data<uint8_t>(), deserialized_password->Data<uint8_t>(),
                 password_size));
 
     deserialized_password = &deserialized_msg.password_handle;
-    ASSERT_EQ((uint32_t) password_size, deserialized_password->length);
-    ASSERT_EQ(0, memcmp(msg.password_handle.buffer.get(), deserialized_password->buffer.get(),
+    ASSERT_EQ((uint32_t) password_size, deserialized_password->size());
+    ASSERT_EQ(0, memcmp(msg.password_handle.Data<uint8_t>(), deserialized_password->Data<uint8_t>(),
                 password_size));
 }
 
 TEST(RoundTripTest, VerifyResponse) {
     const uint32_t password_size = 512;
-    SizedBuffer *auth_token = make_buffer(password_size);
     const SizedBuffer *deserialized_password;
     // create request, serialize, deserialize, and validate
-    VerifyResponse msg(USER_ID, auth_token);
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    VerifyResponse msg(USER_ID, make_buffer(password_size));
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     VerifyResponse deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get()
-            + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
 
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
             deserialized_msg.error);
 
     ASSERT_EQ(USER_ID, deserialized_msg.user_id);
     deserialized_password = &deserialized_msg.auth_token;
-    ASSERT_EQ((uint32_t) password_size, deserialized_password->length);
-    ASSERT_EQ(0, memcmp(msg.auth_token.buffer.get(), deserialized_password->buffer.get(),
+    ASSERT_EQ((uint32_t) password_size, deserialized_password->size());
+    ASSERT_EQ(0, memcmp(msg.auth_token.Data<uint8_t>(), deserialized_password->Data<uint8_t>(),
                 password_size));
 }
 
 TEST(RoundTripTest, VerifyResponseError) {
     VerifyResponse msg;
     msg.error = gatekeeper::gatekeeper_error_t::ERROR_INVALID;
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     VerifyResponse deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_INVALID,
             deserialized_msg.error);
 }
@@ -228,10 +212,11 @@ TEST(RoundTripTest, VerifyResponseError) {
 TEST(RoundTripTest, VerifyRequestError) {
     VerifyRequest msg;
     msg.error = gatekeeper::gatekeeper_error_t::ERROR_INVALID;
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     VerifyRequest deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_INVALID,
             deserialized_msg.error);
 }
@@ -239,10 +224,11 @@ TEST(RoundTripTest, VerifyRequestError) {
 TEST(RoundTripTest, EnrollResponseError) {
     EnrollResponse msg;
     msg.error = gatekeeper::gatekeeper_error_t::ERROR_INVALID;
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     EnrollResponse deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_INVALID,
             deserialized_msg.error);
 }
@@ -250,10 +236,11 @@ TEST(RoundTripTest, EnrollResponseError) {
 TEST(RoundTripTest, EnrollRequestError) {
     EnrollRequest msg;
     msg.error = gatekeeper::gatekeeper_error_t::ERROR_INVALID;
-    SizedBuffer serialized_msg(msg.GetSerializedSize());
-    msg.Serialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    std::vector<uint8_t> serialized_msg(msg.GetSerializedSize());
+    ASSERT_EQ(serialized_msg.size(), msg.Serialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     EnrollRequest deserialized_msg;
-    deserialized_msg.Deserialize(serialized_msg.buffer.get(), serialized_msg.buffer.get() + serialized_msg.length);
+    ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_NONE,
+            deserialized_msg.Deserialize(&*serialized_msg.begin(), &*serialized_msg.end()));
     ASSERT_EQ(gatekeeper::gatekeeper_error_t::ERROR_INVALID,
             deserialized_msg.error);
 }

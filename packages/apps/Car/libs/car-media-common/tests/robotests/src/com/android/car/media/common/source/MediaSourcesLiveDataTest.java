@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.RuntimeEnvironment.application;
 import static org.robolectric.Shadows.shadowOf;
 
-import android.annotation.NonNull;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -31,9 +30,10 @@ import android.content.pm.ServiceInfo;
 import android.os.Bundle;
 import android.service.media.MediaBrowserService;
 
+import androidx.annotation.NonNull;
+
 import com.android.car.arch.common.testing.InstantTaskExecutorRule;
 import com.android.car.arch.common.testing.TestLifecycleOwner;
-import com.android.car.media.common.TestConfig;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -42,7 +42,6 @@ import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowPackageManager;
 
@@ -51,7 +50,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class MediaSourcesLiveDataTest {
 
     @Rule
@@ -111,8 +109,7 @@ public class MediaSourcesLiveDataTest {
         assertThat(
                 observedValue.stream().map(source -> source.getPackageName())
                         .collect(Collectors.toList()))
-                .containsExactly(TEST_ACTIVITY_PACKAGE_1, TEST_SERVICE_PACKAGE_1,
-                        TEST_SERVICE_PACKAGE_WITH_METADATA);
+                .containsExactly(TEST_SERVICE_PACKAGE_1, TEST_SERVICE_PACKAGE_WITH_METADATA);
     }
 
     @Test
@@ -135,8 +132,7 @@ public class MediaSourcesLiveDataTest {
         assertThat(
                 observedValue.stream().map(source -> source.getPackageName())
                         .collect(Collectors.toList()))
-                .containsExactly(TEST_ACTIVITY_PACKAGE_1, TEST_ACTIVITY_PACKAGE_2,
-                        TEST_SERVICE_PACKAGE_1, TEST_SERVICE_PACKAGE_2,
+                .containsExactly(TEST_SERVICE_PACKAGE_1, TEST_SERVICE_PACKAGE_2,
                         TEST_SERVICE_PACKAGE_WITH_METADATA);
     }
 
@@ -159,7 +155,7 @@ public class MediaSourcesLiveDataTest {
         assertThat(
                 observedValue.stream().map(source -> source.getPackageName())
                         .collect(Collectors.toList()))
-                .containsExactly(TEST_ACTIVITY_PACKAGE_1, TEST_SERVICE_PACKAGE_WITH_METADATA);
+                .containsExactly(TEST_SERVICE_PACKAGE_WITH_METADATA);
     }
 
     @NonNull

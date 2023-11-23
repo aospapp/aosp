@@ -90,22 +90,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_weight="1">
-                <LinearLayout
+                <CheckBox
+                    style="@style/Checkbox"
+                    android:id="@+id/requireIdlenessCheckbox"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_weight="1">
-                    <TextView
-                        style="@style/SpinnerLabel"
-                        android:text="@string/spinner_label_network_type"/>
-                    <LinearLayout
-                        style="@style/SectionContainer"
-                        android:layout_width="wrap_content"
-                        android:layout_height="match_parent">
-                        <Spinner
-                            style="@style/Spinner"
-                            android:id="@+id/networkType"/>
-                    </LinearLayout>
-                </LinearLayout>
+                    android:layout_weight="1"
+                    android:checked="true"
+                    android:text="@string/checkbox_require_idleness"/>
                 <CheckBox
                     style="@style/Checkbox"
                     android:id="@+id/requirePersistedCheckbox"
@@ -121,18 +113,27 @@
                 android:weightSum="2">
                 <CheckBox
                     style="@style/Checkbox"
-                    android:id="@+id/requireIdlenessCheckbox"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:text="@string/checkbox_require_idleness"/>
-                <CheckBox
-                    style="@style/Checkbox"
                     android:id="@+id/requireChargingCheckbox"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:text="@string/checkbox_require_charging"/>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1">
+                <TextView
+                    style="@style/SpinnerLabel"
+                    android:text="@string/spinner_label_network_type"/>
+                <LinearLayout
+                    style="@style/SectionContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent">
+                    <Spinner
+                        style="@style/Spinner"
+                        android:id="@+id/networkType"/>
+                </LinearLayout>
             </LinearLayout>
             <LinearLayout
                 android:layout_width="match_parent"

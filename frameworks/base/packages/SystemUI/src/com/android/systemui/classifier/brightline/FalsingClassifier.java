@@ -16,10 +16,10 @@
 
 package com.android.systemui.classifier.brightline;
 
-import android.hardware.SensorEvent;
 import android.view.MotionEvent;
 
 import com.android.systemui.classifier.Classifier;
+import com.android.systemui.util.sensors.ProximitySensor;
 
 import java.util.List;
 
@@ -85,10 +85,6 @@ abstract class FalsingClassifier {
         return mDataProvider.getInteractionType();
     }
 
-    final void setInteractionType(@Classifier.InteractionType int interactionType) {
-        mDataProvider.setInteractionType(interactionType);
-    }
-
     /**
      * Called whenever a MotionEvent occurs.
      *
@@ -98,9 +94,9 @@ abstract class FalsingClassifier {
     void onTouchEvent(MotionEvent motionEvent) {};
 
     /**
-     * Called whenever a SensorEvent occurs, specifically the ProximitySensor.
+     * Called when a ProximityEvent occurs (change in near/far).
      */
-    void onSensorEvent(SensorEvent sensorEvent) {};
+    void onProximityEvent(ProximitySensor.ProximityEvent proximityEvent) {};
 
     /**
      * The phone screen has turned on and we need to begin falsing detection.
@@ -116,6 +112,14 @@ abstract class FalsingClassifier {
      * Returns true if the data captured so far looks like a false touch.
      */
     abstract boolean isFalseTouch();
+
+    /**
+     * Give the classifier a chance to log more details about why it triggered.
+     *
+     * This should only be called after a call to {@link #isFalseTouch()}, and only if
+     * {@link #isFalseTouch()} returns true;
+     */
+    abstract String getReason();
 
     static void logDebug(String msg) {
         BrightLineFalsingManager.logDebug(msg);

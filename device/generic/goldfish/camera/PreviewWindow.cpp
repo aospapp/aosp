@@ -22,14 +22,15 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Preview"
 #include <log/log.h>
+#include <ui/GraphicBuffer.h>
 #include "EmulatedCameraDevice.h"
 #include "PreviewWindow.h"
-#include "GrallocModule.h"
 
 namespace android {
 
-PreviewWindow::PreviewWindow()
+PreviewWindow::PreviewWindow(GraphicBufferMapper* gbm)
     : mPreviewWindow(NULL),
+      mGBM(gbm),
       mPreviewFrameWidth(0),
       mPreviewFrameHeight(0),
       mPreviewEnabled(false)
@@ -149,10 +150,12 @@ void PreviewWindow::onNextFrameAvailable(nsecs_t timestamp,
     /* Now let the graphics framework to lock the buffer, and provide
      * us with the framebuffer data address. */
     void* img = NULL;
-    res = GrallocModule::getInstance().lock(
-        *buffer, GRALLOC_USAGE_SW_WRITE_OFTEN,
-        0, 0, mPreviewFrameWidth, mPreviewFrameHeight, &img);
-    if (res != NO_ERROR) {
+
+    status_t status = mGBM->lock(*buffer,
+                                 GraphicBuffer::USAGE_SW_WRITE_OFTEN,
+                                 Rect(0, 0, mPreviewFrameWidth, mPreviewFrameHeight),
+                                 &img);
+    if (status != OK) {
         ALOGE("%s: gralloc.lock failure: %d -> %s",
              __FUNCTION__, res, strerror(res));
         mPreviewWindow->cancel_buffer(mPreviewWindow, buffer);
@@ -172,7 +175,7 @@ void PreviewWindow::onNextFrameAvailable(nsecs_t timestamp,
         ALOGE("%s: Unable to obtain preview frame: %d", __FUNCTION__, res);
         mPreviewWindow->cancel_buffer(mPreviewWindow, buffer);
     }
-    GrallocModule::getInstance().unlock(*buffer);
+    mGBM->unlock(*buffer);
 }
 
 /***************************************************************************

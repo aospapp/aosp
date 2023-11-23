@@ -29,7 +29,7 @@
 #include "impeg2d.h"
 
 namespace android {
-
+constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
 constexpr char COMPONENT_NAME[] = "c2.android.mpeg2.decoder";
 
 class C2SoftMpeg2Dec::IntfImpl : public SimpleInterface<void>::BaseParams {
@@ -46,6 +46,12 @@ public:
         noOutputReferences();
         noInputLatency();
         noTimeStretch();
+
+        // TODO: Proper support for reorder depth.
+        addParameter(
+                DefineParam(mActualOutputDelay, C2_PARAMKEY_OUTPUT_DELAY)
+                .withConstValue(new C2PortActualDelayTuning::output(3u))
+                .build());
 
         // TODO: output latency and reordering
 
@@ -93,7 +99,7 @@ public:
 
         addParameter(
                 DefineParam(mMaxInputSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
-                .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, 320 * 240 * 3 / 2))
+                .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, kMinInputBufferSize))
                 .withFields({
                     C2F(mMaxInputSize, value).any(),
                 })
@@ -207,7 +213,8 @@ public:
                                   const C2P<C2StreamMaxPictureSizeTuning::output> &maxSize) {
         (void)mayBlock;
         // assume compression ratio of 1
-        me.set().value = (((maxSize.v.width + 15) / 16) * ((maxSize.v.height + 15) / 16) * 384);
+        me.set().value = c2_max((((maxSize.v.width + 15) / 16)
+                * ((maxSize.v.height + 15) / 16) * 384), kMinInputBufferSize);
         return C2R::Ok();
     }
 
@@ -564,7 +571,7 @@ status_t C2SoftMpeg2Dec::initDecoder() {
     if (OK != createDecoder()) return UNKNOWN_ERROR;
 
     mNumCores = MIN(getCpuCoreCount(), MAX_NUM_CORES);
-    mStride = ALIGN64(mWidth);
+    mStride = ALIGN32(mWidth);
     mSignalledError = false;
     resetPlugin();
     (void) setNumCores();
@@ -582,9 +589,19 @@ bool C2SoftMpeg2Dec::setDecodeArgs(ivd_video_decode_ip_t *ps_decode_ip,
                                    size_t inSize,
                                    uint32_t tsMarker) {
     uint32_t displayStride = mStride;
+    if (outBuffer) {
+        C2PlanarLayout layout;
+        layout = outBuffer->layout();
+        displayStride = layout.planes[C2PlanarLayout::PLANE_Y].rowInc;
+    }
     uint32_t displayHeight = mHeight;
     size_t lumaSize = displayStride * displayHeight;
     size_t chromaSize = lumaSize >> 2;
+
+    if (mStride != displayStride) {
+        mStride = displayStride;
+        if (OK != setParams(mStride)) return false;
+    }
 
     ps_decode_ip->u4_size = sizeof(ivd_video_decode_ip_t);
     ps_decode_ip->e_cmd = IVD_CMD_VIDEO_DECODE;
@@ -601,7 +618,7 @@ bool C2SoftMpeg2Dec::setDecodeArgs(ivd_video_decode_ip_t *ps_decode_ip,
     ps_decode_ip->s_out_buffer.u4_min_out_buf_size[1] = chromaSize;
     ps_decode_ip->s_out_buffer.u4_min_out_buf_size[2] = chromaSize;
     if (outBuffer) {
-        if (outBuffer->width() < displayStride || outBuffer->height() < displayHeight) {
+        if (outBuffer->height() < displayHeight) {
             ALOGE("Output buffer too small: provided (%dx%d) required (%ux%u)",
                   outBuffer->width(), outBuffer->height(), displayStride, displayHeight);
             return false;
@@ -826,24 +843,21 @@ c2_status_t C2SoftMpeg2Dec::ensureDecoderState(const std::shared_ptr<C2BlockPool
         ALOGE("not supposed to be here, invalid decoder context");
         return C2_CORRUPTED;
     }
-    if (mStride != ALIGN64(mWidth)) {
-        mStride = ALIGN64(mWidth);
-        if (OK != setParams(mStride)) return C2_CORRUPTED;
-    }
     if (mOutBlock &&
-            (mOutBlock->width() != mStride || mOutBlock->height() != mHeight)) {
+            (mOutBlock->width() != ALIGN32(mWidth) || mOutBlock->height() != mHeight)) {
         mOutBlock.reset();
     }
     if (!mOutBlock) {
         uint32_t format = HAL_PIXEL_FORMAT_YV12;
         C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
-        c2_status_t err = pool->fetchGraphicBlock(mStride, mHeight, format, usage, &mOutBlock);
+        c2_status_t err =
+            pool->fetchGraphicBlock(ALIGN32(mWidth), mHeight, format, usage, &mOutBlock);
         if (err != C2_OK) {
             ALOGE("fetchGraphicBlock for Output failed with status %d", err);
             return err;
         }
         ALOGV("provided (%dx%d) required (%dx%d)",
-              mOutBlock->width(), mOutBlock->height(), mStride, mHeight);
+              mOutBlock->width(), mOutBlock->height(), ALIGN32(mWidth), mHeight);
     }
 
     return C2_OK;

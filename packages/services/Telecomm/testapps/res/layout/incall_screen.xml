@@ -71,6 +71,21 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/handoverButton"/>
+        <Button
+            android:id="@+id/exit_audio_processing_ring_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/exit_audio_processing_ring_button"/>
+        <Button
+            android:id="@+id/exit_audio_processing_noring_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/exit_audio_processing_noring_button"/>
+        <Button
+            android:id="@+id/reject_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/reject_button"/>
     </GridLayout>
     <LinearLayout
         android:layout_width="wrap_content"
@@ -116,4 +131,14 @@
             android:layout_height="wrap_content"
             android:layout_marginLeft="10dp"/>
     </LinearLayout>
+    <Button
+        android:id="@+id/disable_incallservice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Disable InCallService" />
+    <Button
+        android:id="@+id/enable_incallservice"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:text="Enable InCallService" />
 </LinearLayout>

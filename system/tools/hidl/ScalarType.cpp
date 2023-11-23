@@ -20,7 +20,12 @@
 
 namespace android {
 
-ScalarType::ScalarType(Kind kind, Scope* parent) : Type(parent), mKind(kind) {}
+static const char* const hidlIdentifiers[] = {"bool",     "int8_t",  "uint8_t",  "int16_t",
+                                              "uint16_t", "int32_t", "uint32_t", "int64_t",
+                                              "uint64_t", "float",   "double"};
+
+ScalarType::ScalarType(Kind kind, Scope* parent)
+    : Type(parent, hidlIdentifiers[kind]), mKind(kind) {}
 
 const ScalarType *ScalarType::resolveToScalarType() const {
     return this;
@@ -139,6 +144,32 @@ std::string ScalarType::getVtsScalarType() const {
     };
 
     return kName[mKind];
+}
+
+void ScalarType::emitJavaFieldInitializer(Formatter& out, const std::string& fieldName) const {
+    const std::string typeName = getJavaType(false /* forInitializer */);
+    const std::string fieldDeclaration = typeName + " " + fieldName;
+
+    emitJavaFieldDefaultInitialValue(out, fieldDeclaration);
+}
+
+void ScalarType::emitJavaFieldDefaultInitialValue(Formatter& out,
+                                                  const std::string& declaredFieldName) const {
+    static const char* const kInitialValue[] = {
+            "false",  // boolean
+            "0",      // byte
+            "0",      // byte
+            "0",      // short
+            "0",      // short
+            "0",      // int
+            "0",      // int
+            "0L",     // long
+            "0L",     // long
+            "0.0f",   // float
+            "0.0d"    // double
+    };
+
+    out << declaredFieldName << " = " << kInitialValue[mKind] << ";\n";
 }
 
 void ScalarType::emitReaderWriter(

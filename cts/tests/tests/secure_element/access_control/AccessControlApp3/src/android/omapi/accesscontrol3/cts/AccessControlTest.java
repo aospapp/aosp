@@ -168,13 +168,31 @@ public class AccessControlTest {
     private boolean supportsHardware() {
         final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
         boolean lowRamDevice = PropertyUtil.propertyEquals("ro.config.low_ram", "true");
-        return !lowRamDevice || (lowRamDevice && pm.hasSystemFeature("android.hardware.type.watch"));
+        return !lowRamDevice || pm.hasSystemFeature("android.hardware.type.watch")
+                || hasSecureElementPackage(pm);
+    }
+
+    private boolean hasSecureElementPackage(PackageManager pm) {
+        try {
+            pm.getPackageInfo("com.android.se", 0 /* flags*/);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private boolean supportOMAPIReaders() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        return (pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_UICC)
+            || pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_ESE)
+            || pm.hasSystemFeature(PackageManager.FEATURE_SE_OMAPI_SD));
     }
 
     @Before
     public void setUp() throws Exception {
         assumeTrue(PropertyUtil.getFirstApiLevel() > Build.VERSION_CODES.O_MR1);
         assumeTrue(supportsHardware());
+        assumeTrue(supportOMAPIReaders());
         seService = new SEService(InstrumentationRegistry.getContext(), new SynchronousExecutor(), mListener);
         connectionTimer = new Timer();
         connectionTimer.schedule(mTimerTask, SERVICE_CONNECTION_TIME_OUT);

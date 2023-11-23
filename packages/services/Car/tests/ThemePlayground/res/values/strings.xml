@@ -22,7 +22,8 @@
     <string name="toggle_theme" translatable="false">Change configuration(Day/Night)</string>
     <string name="apply" translatable="false">Apply</string>
     <string name="widgets" translatable="false">Widgets</string>
-    <string name="recycler_view" translatable="false">Recycler List View</string>
+    <string name="recycler_view" translatable="false">Recycler View</string>
+    <string name="car_ui_recycler_view" translatable="false">Car UI Recycler View</string>
     <string name="widget_checkbox" translatable="false">Checkbox</string>
     <string name="toggle_switch" translatable="false">Toggle Switch</string>
     <string name="reset" translatable="false">Reset</string>

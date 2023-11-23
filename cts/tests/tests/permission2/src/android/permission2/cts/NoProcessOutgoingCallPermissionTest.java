@@ -25,7 +25,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 
 /**

@@ -16,12 +16,15 @@
 
 package android.autofillservice.cts.augmented;
 
+import static android.autofillservice.cts.Timeouts.FILL_EVENTS_TIMEOUT;
 import static android.autofillservice.cts.augmented.AugmentedHelper.await;
 import static android.autofillservice.cts.augmented.AugmentedHelper.getActivityName;
 import static android.autofillservice.cts.augmented.AugmentedTimeouts.AUGMENTED_CONNECTION_TIMEOUT;
 import static android.autofillservice.cts.augmented.AugmentedTimeouts.AUGMENTED_FILL_TIMEOUT;
 import static android.autofillservice.cts.augmented.CannedAugmentedFillResponse.AugmentedResponseType.NULL;
 import static android.autofillservice.cts.augmented.CannedAugmentedFillResponse.AugmentedResponseType.TIMEOUT;
+
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.autofillservice.cts.Helper;
 import android.content.ComponentName;
@@ -30,6 +33,8 @@ import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
+import android.service.autofill.FillEventHistory;
+import android.service.autofill.FillEventHistory.Event;
 import android.service.autofill.augmented.AugmentedAutofillService;
 import android.service.autofill.augmented.FillCallback;
 import android.service.autofill.augmented.FillController;
@@ -168,6 +173,25 @@ public class CtsAugmentedAutofillService extends AugmentedAutofillService {
         sServiceWatcher.mDestroyed.countDown();
         sServiceWatcher.mService = null;
         sServiceWatcher = null;
+    }
+
+    public FillEventHistory getFillEventHistory(int expectedSize) throws Exception {
+        return FILL_EVENTS_TIMEOUT.run("getFillEvents(" + expectedSize + ")", () -> {
+            final FillEventHistory history = getFillEventHistory();
+            if (history == null) {
+                return null;
+            }
+            final List<Event> events = history.getEvents();
+            if (events != null) {
+                assertWithMessage("Didn't get " + expectedSize + " events yet: " + events).that(
+                        events.size()).isEqualTo(expectedSize);
+            } else {
+                assertWithMessage("Events is null (expecting " + expectedSize + ")").that(
+                        expectedSize).isEqualTo(0);
+                return null;
+            }
+            return history;
+        });
     }
 
     /**

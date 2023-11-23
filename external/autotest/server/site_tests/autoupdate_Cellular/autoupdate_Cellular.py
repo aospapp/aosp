@@ -19,29 +19,25 @@ class autoupdate_Cellular(update_engine_test.UpdateEngineTest):
 
 
     def cleanup(self):
+        """Clean up the tests"""
         self._change_cellular_setting_in_update_engine(False)
         self._host.reboot()
 
 
     def run_once(self, job_repo_url=None, full_payload=True):
+        """
+        Runs the autoupdate test over cellular once.
+
+        @param job_repo_url: The URL of the current build.
+        @param full_payload: Whether the payload should be full or delta.
+
+        """
         update_url = self.get_update_url_for_test(job_repo_url,
                                                   full_payload=full_payload,
                                                   public=True)
 
-        # gs://chromeos-image-archive does not contain a handy .json file
-        # with the payloads size and SHA256 info like we have for payloads in
-        # gs://chromeos-releases. So in order to get this information we need
-        # to use a devserver to stage the payloads and then call the fileinfo
-        # API with the staged file URL. This will return the fields we need.
-        payload = self._get_payload_url(full_payload=full_payload)
-        staged_url = self._stage_payload_by_uri(payload)
-        file_info = self._get_staged_file_info(staged_url)
-
         self._change_cellular_setting_in_update_engine(True)
         self._run_client_test_and_check_result('autoupdate_CannedOmahaUpdate',
                                                image_url=update_url,
-                                               image_size=file_info['size'],
-                                               image_sha256=file_info['sha256'],
-                                               use_cellular=True,
-                                               is_delta=not full_payload)
+                                               use_cellular=True)
         self._check_for_cellular_entries_in_update_log()

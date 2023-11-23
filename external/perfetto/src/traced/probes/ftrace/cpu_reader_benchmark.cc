@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "benchmark/benchmark.h"
+#include <benchmark/benchmark.h>
 
-#include "src/traced/probes/ftrace/cpu_reader.h"
-#include "src/traced/probes/ftrace/proto_translation_table.h"
-
-#include "perfetto/base/utils.h"
+#include "perfetto/ext/base/utils.h"
 #include "perfetto/protozero/scattered_stream_null_delegate.h"
 #include "perfetto/protozero/scattered_stream_writer.h"
-
-#include "perfetto/trace/ftrace/ftrace_event_bundle.pbzero.h"
-#include "test/cpu_reader_support.h"
+#include "protos/perfetto/trace/ftrace/ftrace_event_bundle.pbzero.h"
+#include "src/traced/probes/ftrace/cpu_reader.h"
+#include "src/traced/probes/ftrace/ftrace_config_muxer.h"
+#include "src/traced/probes/ftrace/proto_translation_table.h"
+#include "src/traced/probes/ftrace/test/cpu_reader_support.h"
 
 namespace {
 
@@ -39,7 +38,7 @@ perfetto::ExamplePage g_full_page_sched_switch{
 00000070: 6561 6400 6572 0000 7002 0000 6100 0000  ead.er..p...a...
 00000080: 0100 0000 0000 0000 4a69 7420 7468 7265  ........Jit thre
 00000090: 6164 2070 6f6f 6c00 140d 0000 8100 0000  ad pool.........
-000000a0: 50c2 0910 2f00 0103 140d 0000 4a69 7420  P.../.......Jit 
+000000a0: 50c2 0910 2f00 0103 140d 0000 4a69 7420  P.../.......Jit
 000000b0: 7468 7265 6164 2070 6f6f 6c00 140d 0000  thread pool.....
 000000c0: 8100 0000 0100 0000 0000 0000 7377 6170  ............swap
 000000d0: 7065 722f 3000 0000 0000 0000 0000 0000  per/0...........
@@ -290,18 +289,22 @@ perfetto::ExamplePage g_full_page_sched_switch{
 
 }  // namespace
 
-using perfetto::ExamplePage;
-using perfetto::EventFilter;
-using perfetto::ProtoTranslationTable;
-using protozero::ScatteredStreamWriterNullDelegate;
-using protozero::ScatteredStreamWriter;
-using perfetto::GetTable;
-using perfetto::PageFromXxd;
-using perfetto::protos::pbzero::FtraceEventBundle;
+using perfetto::CompactSchedBuffer;
 using perfetto::CpuReader;
+using perfetto::DisabledCompactSchedConfigForTesting;
+using perfetto::EventFilter;
+using perfetto::ExamplePage;
+using perfetto::FtraceDataSourceConfig;
 using perfetto::FtraceMetadata;
+using perfetto::GetTable;
 using perfetto::GroupAndName;
+using perfetto::PageFromXxd;
+using perfetto::ProtoTranslationTable;
+using perfetto::protos::pbzero::FtraceEventBundle;
+using protozero::ScatteredStreamWriter;
+using protozero::ScatteredStreamWriterNullDelegate;
 
+// Benchmark for the core logic of the ftrace binary format decoding.
 static void BM_ParsePageFullOfSchedSwitch(benchmark::State& state) {
   const ExamplePage* test_case = &g_full_page_sched_switch;
 
@@ -312,14 +315,27 @@ static void BM_ParsePageFullOfSchedSwitch(benchmark::State& state) {
   ProtoTranslationTable* table = GetTable(test_case->name);
   auto page = PageFromXxd(test_case->data);
 
-  EventFilter filter;
-  filter.AddEnabledEvent(
+  FtraceDataSourceConfig ds_config{
+      EventFilter{}, DisabledCompactSchedConfigForTesting(), {}, {}};
+  ds_config.event_filter.AddEnabledEvent(
       table->EventToFtraceId(GroupAndName("sched", "sched_switch")));
 
   FtraceMetadata metadata{};
   while (state.KeepRunning()) {
     writer.Reset(&stream);
-    CpuReader::ParsePage(page.get(), &filter, &writer, table, &metadata);
+
+    CompactSchedBuffer compact_buffer;
+    const uint8_t* parse_pos = page.get();
+    perfetto::base::Optional<CpuReader::PageHeader> page_header =
+        CpuReader::ParsePageHeader(&parse_pos, table->page_header_size_len());
+
+    if (!page_header.has_value())
+      return;
+
+    CpuReader::ParsePagePayload(parse_pos, &page_header.value(), table,
+                                &ds_config, &compact_buffer, &writer,
+                                &metadata);
+
     metadata.Clear();
   }
 }

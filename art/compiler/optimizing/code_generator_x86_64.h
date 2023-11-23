@@ -177,6 +177,8 @@ class LocationsBuilderX86_64 : public HGraphVisitor {
   void HandleShift(HBinaryOperation* operation);
   void HandleFieldSet(HInstruction* instruction, const FieldInfo& field_info);
   void HandleFieldGet(HInstruction* instruction);
+  bool CpuHasAvxFeatureFlag();
+  bool CpuHasAvx2FeatureFlag();
 
   CodeGeneratorX86_64* const codegen_;
   InvokeDexCallingConventionVisitorX86_64 parameter_visitor_;
@@ -287,6 +289,9 @@ class InstructionCodeGeneratorX86_64 : public InstructionCodeGenerator {
 
   void HandleGoto(HInstruction* got, HBasicBlock* successor);
 
+  bool CpuHasAvxFeatureFlag();
+  bool CpuHasAvx2FeatureFlag();
+
   X86_64Assembler* const assembler_;
   CodeGeneratorX86_64* const codegen_;
 
@@ -333,10 +338,14 @@ class CodeGeneratorX86_64 : public CodeGenerator {
     return kX86_64WordSize;
   }
 
-  size_t GetFloatingPointSpillSlotSize() const override {
+  size_t GetSlowPathFPWidth() const override {
     return GetGraph()->HasSIMD()
         ? 2 * kX86_64WordSize   // 16 bytes == 2 x86_64 words for each spill
         : 1 * kX86_64WordSize;  //  8 bytes == 1 x86_64 words for each spill
+  }
+
+  size_t GetCalleePreservedFPWidth() const override {
+    return 1 * kX86_64WordSize;
   }
 
   HGraphVisitor* GetLocationBuilder() override {
@@ -591,6 +600,10 @@ class CodeGeneratorX86_64 : public CodeGenerator {
   void GenerateNop() override;
   void GenerateImplicitNullCheck(HNullCheck* instruction) override;
   void GenerateExplicitNullCheck(HNullCheck* instruction) override;
+  void MaybeGenerateInlineCacheCheck(HInstruction* instruction, CpuRegister cls);
+
+
+  void MaybeIncrementHotness(bool is_frame_entry);
 
   // When we don't know the proper offset for the value, we use kDummy32BitOffset.
   // We will fix this up in the linker later to have the right value.
@@ -613,8 +626,7 @@ class CodeGeneratorX86_64 : public CodeGenerator {
   // Used for fixups to the constant area.
   int constant_area_start_;
 
-  // PC-relative method patch info for kBootImageLinkTimePcRelative/kBootImageRelRo.
-  // Also used for type/string patches for kBootImageRelRo (same linker patch as for methods).
+  // PC-relative method patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<PatchInfo<Label>> boot_image_method_patches_;
   // PC-relative method patch info for kBssEntry.
   ArenaDeque<PatchInfo<Label>> method_bss_entry_patches_;
@@ -626,8 +638,9 @@ class CodeGeneratorX86_64 : public CodeGenerator {
   ArenaDeque<PatchInfo<Label>> boot_image_string_patches_;
   // PC-relative String patch info for kBssEntry.
   ArenaDeque<PatchInfo<Label>> string_bss_entry_patches_;
-  // PC-relative patch info for IntrinsicObjects.
-  ArenaDeque<PatchInfo<Label>> boot_image_intrinsic_patches_;
+  // PC-relative patch info for IntrinsicObjects for the boot image,
+  // and for method/type/string patches for kBootImageRelRo otherwise.
+  ArenaDeque<PatchInfo<Label>> boot_image_other_patches_;
 
   // Patches for string literals in JIT compiled code.
   ArenaDeque<PatchInfo<Label>> jit_string_patches_;

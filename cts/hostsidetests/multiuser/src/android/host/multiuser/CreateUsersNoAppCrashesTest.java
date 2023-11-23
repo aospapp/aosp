@@ -81,7 +81,7 @@ public class CreateUsersNoAppCrashesTest extends BaseMultiUserTest {
     private void assertSwitchToNewUser(int toUserId) throws Exception {
         final String exitString = "Finished processing BOOT_COMPLETED for u" + toUserId;
         final Set<String> appErrors = new LinkedHashSet<>();
-        getDevice().executeAdbCommand("logcat", "-c"); // Reset log
+        getDevice().executeAdbCommand("logcat", "-b", "all", "-c"); // Reset log
         assertTrue("Couldn't switch to user " + toUserId, getDevice().switchUser(toUserId));
         final boolean result = waitForUserSwitchComplete(appErrors, toUserId, exitString);
         assertTrue("Didn't receive BOOT_COMPLETED delivered notification. appErrors="
@@ -92,10 +92,9 @@ public class CreateUsersNoAppCrashesTest extends BaseMultiUserTest {
     }
 
     private void assertSwitchToUser(int fromUserId, int toUserId) throws Exception {
-        final String exitString = "Continue user switch oldUser #" + fromUserId + ", newUser #"
-                + toUserId;
+        final String exitString = "uc_continue_user_switch: [" + fromUserId + "," + toUserId + "]";
         final Set<String> appErrors = new LinkedHashSet<>();
-        getDevice().executeAdbCommand("logcat", "-c"); // Reset log
+        getDevice().executeAdbCommand("logcat", "-b", "all", "-c"); // Reset log
         assertTrue("Couldn't switch to user " + toUserId, getDevice().switchUser(toUserId));
         final boolean result = waitForUserSwitchComplete(appErrors, toUserId, exitString);
         assertTrue("Didn't reach \"Continue user switch\" stage. appErrors=" + appErrors, result);
@@ -109,8 +108,8 @@ public class CreateUsersNoAppCrashesTest extends BaseMultiUserTest {
         boolean mExitFound = false;
         long ti = System.currentTimeMillis();
         while (System.currentTimeMillis() - ti < USER_SWITCH_COMPLETE_TIMEOUT_MS) {
-            String logs = getDevice().executeAdbCommand("logcat", "-v", "brief", "-d",
-                    "ActivityManager:D", "AndroidRuntime:E", "*:S");
+            String logs = getDevice().executeAdbCommand("logcat", "-b", "all", "-d",
+                    "ActivityManager:D", "AndroidRuntime:E", "*:I");
             Scanner in = new Scanner(logs);
             while (in.hasNextLine()) {
                 String line = in.nextLine();

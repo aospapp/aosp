@@ -20,6 +20,7 @@ import android.app.Instrumentation;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
+import android.hardware.cts.helpers.CameraUtils;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -30,40 +31,50 @@ import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Arrays;
 
 /**
  * Measure and report legacy camera device performance.
  */
-public class LegacyCameraPerformanceTest extends CameraTestCase {
+@RunWith(JUnit4.class)
+public class LegacyCameraPerformanceTest {
     private static final String TAG = "CameraPerformanceTest";
     private static final String REPORT_LOG_NAME = "CtsCamera1TestCases";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
     private Instrumentation mInstrumentation;
+    private CameraPerformanceTestHelper mHelper;
+    private int[] mCameraIds;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mHelper = new CameraPerformanceTestHelper();
+        mCameraIds = CameraUtils.deriveCameraIdsUnderTest();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        if (mCamera != null) {
-            mCamera.release();
-            mCamera = null;
+    @After
+    public void tearDown() throws Exception {
+        if (mHelper.getCamera() != null) {
+            mHelper.getCamera().release();
         }
     }
 
+    @Test
     public void testLegacyApiPerformance() throws Exception {
         final int NUM_TEST_LOOPS = 10;
+        if (mCameraIds.length == 0) return;
 
-        int nCameras = Camera.getNumberOfCameras();
-        double[] avgCameraTakePictureTimes = new double[nCameras];
+        double[] avgCameraTakePictureTimes = new double[mCameraIds.length];
 
-        for (int id = 0; id < nCameras; id++) {
+        int count = 0;
+        for (int id : mCameraIds) {
             DeviceReportLog reportLog = new DeviceReportLog(REPORT_LOG_NAME,
                     "test_camera_takePicture");
             reportLog.addValue("camera_id", id, ResultType.NEUTRAL, ResultUnit.NONE);
@@ -75,14 +86,14 @@ public class LegacyCameraPerformanceTest extends CameraTestCase {
             double[] cameraAutoFocusTimes = new double[NUM_TEST_LOOPS];
             boolean afSupported = false;
             long openTimeMs, startPreviewTimeMs, stopPreviewTimeMs, closeTimeMs, takePictureTimeMs,
-                 autofocusTimeMs;
+                    autofocusTimeMs;
 
             for (int i = 0; i < NUM_TEST_LOOPS; i++) {
                 openTimeMs = SystemClock.elapsedRealtime();
-                initializeMessageLooper(id);
+                mHelper.initializeMessageLooper(id);
                 cameraOpenTimes[i] = SystemClock.elapsedRealtime() - openTimeMs;
 
-                Parameters parameters = mCamera.getParameters();
+                Parameters parameters = mHelper.getCamera().getParameters();
                 if (i == 0) {
                     for (String focusMode: parameters.getSupportedFocusModes()) {
                         if (Parameters.FOCUS_MODE_AUTO.equals(focusMode)) {
@@ -94,18 +105,18 @@ public class LegacyCameraPerformanceTest extends CameraTestCase {
 
                 if (afSupported) {
                     parameters.setFocusMode(Parameters.FOCUS_MODE_AUTO);
-                    mCamera.setParameters(parameters);
+                    mHelper.getCamera().setParameters(parameters);
                 }
 
                 SurfaceTexture previewTexture = new SurfaceTexture(/*random int*/ 1);
-                mCamera.setPreviewTexture(previewTexture);
+                mHelper.getCamera().setPreviewTexture(previewTexture);
                 startPreviewTimeMs = SystemClock.elapsedRealtime();
-                startPreview();
+                mHelper.startPreview();
                 startPreviewTimes[i] = SystemClock.elapsedRealtime() - startPreviewTimeMs;
 
                 if (afSupported) {
                     autofocusTimeMs = SystemClock.elapsedRealtime();
-                    autoFocus();
+                    mHelper.autoFocus();
                     cameraAutoFocusTimes[i] = SystemClock.elapsedRealtime() - autofocusTimeMs;
                 }
 
@@ -113,18 +124,18 @@ public class LegacyCameraPerformanceTest extends CameraTestCase {
                 Thread.sleep(1000);
 
                 takePictureTimeMs = SystemClock.elapsedRealtime();
-                takePicture();
+                mHelper.takePicture();
                 cameraTakePictureTimes[i] = SystemClock.elapsedRealtime() - takePictureTimeMs;
 
                 //Resume preview after image capture
-                startPreview();
+                mHelper.startPreview();
 
                 stopPreviewTimeMs = SystemClock.elapsedRealtime();
-                mCamera.stopPreview();
+                mHelper.getCamera().stopPreview();
                 closeTimeMs = SystemClock.elapsedRealtime();
                 stopPreviewTimes[i] = closeTimeMs - stopPreviewTimeMs;
 
-                terminateMessageLooper();
+                mHelper.terminateMessageLooper();
                 cameraCloseTimes[i] = SystemClock.elapsedRealtime() - closeTimeMs;
                 previewTexture.release();
             }
@@ -164,7 +175,7 @@ public class LegacyCameraPerformanceTest extends CameraTestCase {
                         + ". Max(ms): " + Stat.getMax(cameraTakePictureTimes));
             }
 
-            avgCameraTakePictureTimes[id] = Stat.getAverage(cameraTakePictureTimes);
+            avgCameraTakePictureTimes[count++] = Stat.getAverage(cameraTakePictureTimes);
             reportLog.addValues("camera_open_time", cameraOpenTimes, ResultType.LOWER_BETTER,
                     ResultUnit.MS);
             reportLog.addValues("camera_start_preview_time", startPreviewTimes,
@@ -183,7 +194,7 @@ public class LegacyCameraPerformanceTest extends CameraTestCase {
             reportLog.submit(mInstrumentation);
         }
 
-        if (nCameras != 0) {
+        if (mCameraIds.length != 0) {
             DeviceReportLog reportLog = new DeviceReportLog(REPORT_LOG_NAME,
                     "test_camera_takepicture_average");
             reportLog.setSummary("camera_takepicture_average_time_for_all_cameras",

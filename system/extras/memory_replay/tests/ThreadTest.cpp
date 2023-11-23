@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <pthread.h>
 #include <unistd.h>
 
 #include <utility>
 
-#include "Action.h"
+#include <gtest/gtest.h>
+
 #include "Pointers.h"
 #include "Thread.h"
 
@@ -98,17 +98,4 @@ TEST(ThreadTest, pointers) {
   ASSERT_TRUE(thread.pointers() == nullptr);
   thread.set_pointers(&pointers);
   ASSERT_TRUE(thread.pointers() == &pointers);
-}
-
-TEST(ThreadTest, action) {
-  Thread thread;
-
-  Action* action = thread.CreateAction(0x1234, "thread_done", "");
-  ASSERT_EQ(action, thread.GetAction());
-
-  // Verify the action object is not garbage.
-  action->Execute(nullptr);
-
-  ASSERT_TRUE(action->EndThread());
-  ASSERT_FALSE(action->DoesFree());
 }

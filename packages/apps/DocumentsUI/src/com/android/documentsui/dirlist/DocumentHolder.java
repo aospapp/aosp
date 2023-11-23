@@ -107,6 +107,8 @@ public abstract class DocumentHolder
 
     public void bindPreviewIcon(boolean show, Function<View, Boolean> clickCallback) {}
 
+    public void bindBriefcaseIcon(boolean show) {}
+
     @Override
     public boolean onKey(View v, int keyCode, KeyEvent event) {
         assert(mKeyEventListener != null);

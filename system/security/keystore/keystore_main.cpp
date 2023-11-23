@@ -17,16 +17,13 @@
 #define LOG_TAG "keystore"
 
 #include <android-base/logging.h>
-#include <android/hidl/manager/1.1/IServiceManager.h>
+#include <android/hidl/manager/1.2/IServiceManager.h>
 #include <android/security/keystore/IKeystoreService.h>
-#include <android/system/wifi/keystore/1.0/IKeystore.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
-#include <hidl/HidlTransportSupport.h>
-#include <keymasterV4_0/Keymaster3.h>
-#include <keymasterV4_0/Keymaster4.h>
+#include <keymasterV4_1/Keymaster3.h>
+#include <keymasterV4_1/Keymaster4.h>
 #include <utils/StrongPointer.h>
-#include <wifikeystorehal/keystore.h>
 
 #include <keystore/keystore_hidl_support.h>
 #include <keystore/keystore_return_types.h>
@@ -43,15 +40,12 @@
  * the maximum space we needed, so boundary checks on buffers are omitted. */
 
 using ::android::sp;
-using ::android::hardware::configureRpcThreadpool;
-using ::android::system::wifi::keystore::V1_0::IKeystore;
-using ::android::system::wifi::keystore::V1_0::implementation::Keystore;
-using ::android::hidl::manager::V1_1::IServiceManager;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
-using ::android::hardware::keymaster::V4_0::SecurityLevel;
-using ::android::hardware::keymaster::V4_0::HmacSharingParameters;
 using ::android::hardware::keymaster::V4_0::ErrorCode;
+using ::android::hardware::keymaster::V4_0::HmacSharingParameters;
+using ::android::hardware::keymaster::V4_0::SecurityLevel;
+using ::android::hidl::manager::V1_2::IServiceManager;
 
 using ::keystore::keymaster::support::Keymaster;
 using ::keystore::keymaster::support::Keymaster3;
@@ -62,7 +56,7 @@ using keystore::KeymasterDevices;
 template <typename Wrapper>
 KeymasterDevices enumerateKeymasterDevices(IServiceManager* serviceManager) {
     KeymasterDevices result;
-    serviceManager->listByInterface(
+    serviceManager->listManifestByInterface(
         Wrapper::WrappedIKeymasterDevice::descriptor, [&](const hidl_vec<hidl_string>& names) {
             auto try_get_device = [&](const auto& name, bool fail_silent) {
                 auto device = Wrapper::WrappedIKeymasterDevice::getService(name);
@@ -108,7 +102,7 @@ KeymasterDevices enumerateKeymasterDevices(IServiceManager* serviceManager) {
 }
 
 KeymasterDevices initializeKeymasters() {
-    auto serviceManager = android::hidl::manager::V1_1::IServiceManager::getService();
+    auto serviceManager = IServiceManager::getService();
     CHECK(serviceManager.get()) << "Failed to get ServiceManager";
     auto result = enumerateKeymasterDevices<Keymaster4>(serviceManager.get());
     auto softKeymaster = result[SecurityLevel::SOFTWARE];
@@ -159,16 +153,6 @@ int main(int argc, char* argv[]) {
     service->setRequestingSid(true);
     android::status_t ret = sm->addService(android::String16("android.security.keystore"), service);
     CHECK(ret == android::OK) << "Couldn't register binder service!";
-
-    /**
-     * Register the wifi keystore HAL service to run in passthrough mode.
-     * This will spawn off a new thread which will service the HIDL
-     * transactions.
-     */
-    configureRpcThreadpool(1, false /* callerWillJoin */);
-    android::sp<IKeystore> wifiKeystoreHalService = new Keystore();
-    android::status_t err = wifiKeystoreHalService->registerAsService();
-    CHECK(ret == android::OK) << "Cannot register wifi keystore HAL service: " << err;
 
     /*
      * This thread is just going to process Binder transactions.

@@ -5,6 +5,12 @@
     },
     {
       "name": "StagedRollbackTest"
+    },
+    {
+      "name": "NetworkStagedRollbackTest"
+    },
+    {
+      "name": "MultiUserRollbackTest"
     }
   ]
 }

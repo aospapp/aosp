@@ -229,6 +229,7 @@ public final class Normalizer implements Cloneable {
      * @hide Only a subset of ICU is exposed in Android
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static abstract class Mode {
         /**
@@ -305,6 +306,7 @@ public final class Normalizer implements Cloneable {
      * @deprecated ICU 56 Use {@link Normalizer2} instead.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static final Mode NFD = new NFDMode();
 
@@ -314,6 +316,7 @@ public final class Normalizer implements Cloneable {
      * @deprecated ICU 56 Use {@link Normalizer2} instead.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static final Mode NFKD = new NFKDMode();
 
@@ -323,6 +326,7 @@ public final class Normalizer implements Cloneable {
      * @deprecated ICU 56 Use {@link Normalizer2} instead.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static final Mode NFC = new NFCMode();
 
@@ -341,6 +345,7 @@ public final class Normalizer implements Cloneable {
      * @deprecated ICU 56 Use {@link Normalizer2} instead.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static final Mode NFKC =new NFKCMode();
 
@@ -876,6 +881,7 @@ public final class Normalizer implements Cloneable {
      * @deprecated ICU 56 Use {@link Normalizer2} instead.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static String normalize(String src,Mode mode) {
         return normalize(src, mode, 0);
@@ -1108,6 +1114,7 @@ public final class Normalizer implements Cloneable {
      * @deprecated ICU 56 Use {@link Normalizer2} instead.
      * @hide original deprecated declaration
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static boolean isNormalized(String str, Mode mode, int options) {
         return mode.getNormalizer2(options).isNormalized(str);

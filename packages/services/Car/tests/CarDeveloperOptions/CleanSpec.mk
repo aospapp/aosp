@@ -47,6 +47,8 @@
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/APPS/Settings_intermediates)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/APPS/Settings_intermediates)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/Settings)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/product/priv-app/CarDeveloperOptions)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/product/priv-app/CarDeveloperOptions)
 
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST

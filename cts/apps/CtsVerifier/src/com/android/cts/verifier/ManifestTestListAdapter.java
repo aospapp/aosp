@@ -27,13 +27,17 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.ListView;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * {@link TestListAdapter} that populates the {@link TestListActivity}'s {@link ListView} by
@@ -89,6 +93,7 @@ import java.util.Map;
  * </ol>
  */
 public class ManifestTestListAdapter extends TestListAdapter {
+    private static final String LOG_TAG = "ManifestTestListAdapter";
 
     private static final String TEST_CATEGORY_META_DATA = "test_category";
 
@@ -105,6 +110,8 @@ public class ManifestTestListAdapter extends TestListAdapter {
     private static final String CONFIG_VOICE_CAPABLE = "config_voice_capable";
 
     private static final String CONFIG_HAS_RECENTS = "config_has_recents";
+
+    private static final String CONFIG_HDMI_SOURCE = "config_hdmi_source";
 
     private final HashSet<String> mDisabledTests;
 
@@ -146,12 +153,7 @@ public class ManifestTestListAdapter extends TestListAdapter {
             List<TestListItem> tests = filterTests(testsByCategory.get(testCategory));
             if (!tests.isEmpty()) {
                 allRows.add(TestListItem.newCategory(testCategory));
-                Collections.sort(tests, new Comparator<TestListItem>() {
-                    @Override
-                    public int compare(TestListItem item, TestListItem otherItem) {
-                        return item.title.compareTo(otherItem.title);
-                    }
-                });
+                Collections.sort(tests, Comparator.comparing(item -> item.title));
                 allRows.addAll(tests);
             }
         }
@@ -168,7 +170,7 @@ public class ManifestTestListAdapter extends TestListAdapter {
                 PackageManager.GET_ACTIVITIES | PackageManager.GET_META_DATA);
         int size = list.size();
 
-        List<ResolveInfo> matchingList = new ArrayList<ResolveInfo>();
+        List<ResolveInfo> matchingList = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             ResolveInfo info = list.get(i);
             String parent = getTestParent(info.activityInfo.metaData);
@@ -181,14 +183,13 @@ public class ManifestTestListAdapter extends TestListAdapter {
     }
 
     Map<String, List<TestListItem>> getTestsByCategory(List<ResolveInfo> list) {
-        Map<String, List<TestListItem>> testsByCategory =
-                new HashMap<String, List<TestListItem>>();
+        Map<String, List<TestListItem>> testsByCategory = new HashMap<>();
 
         int size = list.size();
         for (int i = 0; i < size; i++) {
             ResolveInfo info = list.get(i);
             if (info.activityInfo == null || mDisabledTests.contains(info.activityInfo.name)) {
-                Log.w("CtsVerifier", "ignoring disabled test: " + info.activityInfo.name);
+                Log.w(LOG_TAG, "ignoring disabled test: " + info.activityInfo.name);
                 continue;
             }
             String title = getTitle(mContext, info.activityInfo);
@@ -345,6 +346,19 @@ public class ManifestTestListAdapter extends TestListAdapter {
                             return false;
                         }
                         break;
+                    case CONFIG_HDMI_SOURCE:
+                        final int DEVICE_TYPE_HDMI_SOURCE = 4;
+                        try {
+                            if (!getHdmiDeviceType().contains(DEVICE_TYPE_HDMI_SOURCE)) {
+                                return false;
+                            }
+                        } catch (Exception exception) {
+                            Log.e(
+                                    LOG_TAG,
+                                    "Exception while looking up HDMI device type.",
+                                    exception);
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -353,8 +367,24 @@ public class ManifestTestListAdapter extends TestListAdapter {
         return true;
     }
 
+    private static List<Integer> getHdmiDeviceType()
+            throws InvocationTargetException, IllegalAccessException, ClassNotFoundException,
+                    NoSuchMethodException {
+        Method getStringMethod =
+                ClassLoader.getSystemClassLoader()
+                        .loadClass("android.os.SystemProperties")
+                        .getMethod("get", String.class);
+        String deviceTypesStr = (String) getStringMethod.invoke(null, "ro.hdmi.device_type");
+        if (deviceTypesStr.equals("")) {
+            return new ArrayList<>();
+        }
+        return Arrays.stream(deviceTypesStr.split(","))
+                .map(Integer::parseInt)
+                .collect(Collectors.toList());
+    }
+
     List<TestListItem> filterTests(List<TestListItem> tests) {
-        List<TestListItem> filteredTests = new ArrayList<TestListItem>();
+        List<TestListItem> filteredTests = new ArrayList<>();
         for (TestListItem test : tests) {
             if (!hasAnyFeature(test.excludedFeatures) && hasAllFeatures(test.requiredFeatures)
                     && matchAllConfigs(test.requiredConfigs)) {

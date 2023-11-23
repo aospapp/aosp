@@ -20,6 +20,11 @@ java_library_static {
     hostdex: true,
     srcs: ["main/src/main/java/**/*.java"],
     sdk_version: "core_current",
+
+    // Pin to Java language level 8. It is loaded by an OpenJDK 8 runtime from
+    // prebuilts/studio/jdk in frameworks/layoutlib/bridge/tests/run_tests.sh.
+    // See b/141970724.
+    java_version: "1.8",
 }
 
 // Compatibility library for old name of host target
@@ -33,8 +38,7 @@ java_library_host {
 
 java_library_static {
     name: "objenesis-tck",
-    no_framework_libs: true,
-    sdk_version: "current",
+    sdk_version: "core_current",
 
     static_libs: ["objenesis"],
     srcs: ["tck/src/main/java/**/*.java"],

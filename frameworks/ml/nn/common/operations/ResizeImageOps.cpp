@@ -16,18 +16,21 @@
 
 #define LOG_TAG "Operations"
 
+#include <tensorflow/lite/kernels/internal/reference/reference_ops.h>
+
+#include <algorithm>
+#include <functional>
+#include <vector>
+
 #include "CpuOperationUtils.h"
 #include "HalInterfaces.h"
 #include "OperationResolver.h"
 #include "Tracing.h"
 
-#include "tensorflow/lite/kernels/internal/reference/reference_ops.h"
-
-#include <functional>
-#include <vector>
-
 namespace android {
 namespace nn {
+
+using namespace hal;
 
 namespace resize_image {
 
@@ -37,15 +40,75 @@ constexpr uint32_t kInputTensor = 0;
 constexpr uint32_t kOutputWidthParamScalar = 1;
 constexpr uint32_t kOutputHeightParamScalar = 2;
 constexpr uint32_t kLayoutScalar = 3;
+constexpr uint32_t kNumOptionalInputs = 2;
+constexpr uint32_t kAlignCornersScalar = 4;
+constexpr uint32_t kHalfPixelCentersScalar = 5;
 
 constexpr uint32_t kNumOutputs = 1;
 constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
+inline float scaleHalfPixel(const int x, const float scale) {
+    return (static_cast<float>(x) + 0.5f) * scale;
+}
+
+inline float scaleLegacy(const int x, const float scale) {
+    return static_cast<float>(x) * scale;
+}
+
+inline float calculateResizeScale(int32_t inSize, int32_t outSize, bool alignCorners) {
+    return (alignCorners && outSize > 1) ? (inSize - 1) / static_cast<float>(outSize - 1)
+                                         : inSize / static_cast<float>(outSize);
+}
+
+template <typename T>
+bool resizeNearestNeighbor(const T* inputData, const Shape& inputShape, bool alignCorners,
+                           bool halfPixelCenters, T* outputData, const Shape& outputShape) {
+    const int batchSize = getSizeOfDimension(inputShape, 0);
+    const int inHeight = getSizeOfDimension(inputShape, 1);
+    const int inWidth = getSizeOfDimension(inputShape, 2);
+    const int channels = getSizeOfDimension(inputShape, 3);
+    const int outHeight = getSizeOfDimension(outputShape, 1);
+    const int outWidth = getSizeOfDimension(outputShape, 2);
+
+    const float heightScale = calculateResizeScale(inHeight, outHeight, alignCorners);
+    const float widthScale = calculateResizeScale(inWidth, outWidth, alignCorners);
+
+    const std::function<float(const int, const float)> scaler =
+            halfPixelCenters ? scaleHalfPixel : scaleLegacy;
+
+    for (int b = 0; b < batchSize; ++b) {
+        for (int y = 0; y < outHeight; ++y) {
+            int inY = std::min((alignCorners) ? static_cast<int>(roundf(scaler(y, heightScale)))
+                                              : static_cast<int>(floorf(scaler(y, heightScale))),
+                               inHeight - 1);
+            if (halfPixelCenters) {
+                inY = std::max(static_cast<int>(0), inY);
+            }
+            for (int x = 0; x < outWidth; ++x) {
+                int inX = std::min((alignCorners) ? static_cast<int>(roundf(scaler(x, widthScale)))
+                                                  : static_cast<int>(floorf(scaler(x, widthScale))),
+                                   inWidth - 1);
+                if (halfPixelCenters) {
+                    inX = std::max(static_cast<int>(0), inX);
+                }
+                std::copy_n(inputData + b * inHeight * inWidth * channels +
+                                    inY * inWidth * channels + inX * channels,
+                            channels,
+                            outputData + b * outHeight * outWidth * channels +
+                                    y * outWidth * channels + x * channels);
+            }
+        }
+    }
+
+    return true;
+}
+
 template <typename T>
 bool resizeImageOpNhwc(OperationType opType, const T* inputData, const Shape& inputShape,
-                       T* outputData, const Shape& outputShape) {
+                       bool alignCorners, bool halfPixelCenters, T* outputData,
+                       const Shape& outputShape) {
     NNTRACE_TRANS("resizeImageOpNhwc");
     int32_t height = static_cast<int32_t>(getSizeOfDimension(outputShape, 1));
     int32_t width = static_cast<int32_t>(getSizeOfDimension(outputShape, 2));
@@ -56,56 +119,64 @@ bool resizeImageOpNhwc(OperationType opType, const T* inputData, const Shape& in
 
     if (opType == OperationType::RESIZE_BILINEAR) {
         NNTRACE_COMP_SWITCH("optimized_ops::ResizeBilinear");
-        tflite::reference_ops::ResizeBilinear({.align_corners = false},
-                                              convertShapeToTflshape(inputShape), inputData,
-                                              convertShapeToTflshape(outDimShape), outDimData,
-                                              convertShapeToTflshape(outputShape), outputData);
+        tflite::reference_ops::ResizeBilinear(
+                {.align_corners = alignCorners, .half_pixel_centers = halfPixelCenters},
+                convertShapeToTflshape(inputShape), inputData, convertShapeToTflshape(outDimShape),
+                outDimData, convertShapeToTflshape(outputShape), outputData);
     } else if (opType == OperationType::RESIZE_NEAREST_NEIGHBOR) {
         // Align corners = true is not supported.
-        NNTRACE_COMP_SWITCH("optimized_ops::ResizeNearestNeighbor");
-        tflite::reference_ops::ResizeNearestNeighbor(
-                {.align_corners = false}, convertShapeToTflshape(inputShape), inputData,
-                convertShapeToTflshape(outDimShape), outDimData,
-                convertShapeToTflshape(outputShape), outputData);
+        NNTRACE_COMP_SWITCH("ResizeNearestNeighbor");
+        resizeNearestNeighbor(inputData, inputShape, alignCorners, halfPixelCenters, outputData,
+                              outputShape);
     }
     return true;
 }
 
 template <>
 bool resizeImageOpNhwc<_Float16>(OperationType opType, const _Float16* inputData,
-                                 const Shape& inputShape, _Float16* outputData,
-                                 const Shape& outputShape) {
+                                 const Shape& inputShape, bool alignCorners, bool halfPixelCenters,
+                                 _Float16* outputData, const Shape& outputShape) {
     NNTRACE_TRANS("resizeImageOpNhwcFloat16");
     std::vector<float> inputData_float32(getNumberOfElements(inputShape));
     convertFloat16ToFloat32(inputData, &inputData_float32);
     std::vector<float> outputData_float32(getNumberOfElements(outputShape));
-    NN_RET_CHECK(resizeImageOpNhwc(opType, inputData_float32.data(), inputShape,
-                                   outputData_float32.data(), outputShape));
+    NN_RET_CHECK(resizeImageOpNhwc(opType, inputData_float32.data(), inputShape, alignCorners,
+                                   halfPixelCenters, outputData_float32.data(), outputShape));
     convertFloat32ToFloat16(outputData_float32, outputData);
     return true;
 }
 
 template <typename T>
 bool resizeImageOp(OperationType opType, const T* inputData, const Shape& inputShape, bool useNchw,
-                   T* outputData, const Shape& outputShape) {
+                   bool alignCorners, bool halfPixelCenters, T* outputData,
+                   const Shape& outputShape) {
     InputWithLayout<T> input(useNchw);
     OutputWithLayout<T> output(useNchw);
     NN_RET_CHECK(input.initialize(inputData, inputShape));
     NN_RET_CHECK(output.initialize(outputData, outputShape));
     NN_RET_CHECK(resizeImageOpNhwc(opType, input.getNhwcBuffer(), input.getNhwcShape(),
-                                   output.getNhwcBuffer(), output.getNhwcShape()));
+                                   alignCorners, halfPixelCenters, output.getNhwcBuffer(),
+                                   output.getNhwcShape()));
     NN_RET_CHECK(output.commit());
     return true;
+}
+
+inline bool getOptionalScalar(const IOperationExecutionContext* context, uint32_t scalarIndex) {
+    bool scalarValue = false;
+    if (context->getNumInputs() > scalarIndex) {
+        scalarValue = context->getInputValue<bool>(scalarIndex);
+    }
+    return scalarValue;
 }
 
 }  // namespace
 
 bool validate(OperationType opType, const IOperationValidationContext* context) {
+    const auto numInputs = context->getNumInputs();
     if (opType == OperationType::RESIZE_BILINEAR) {
-        NN_RET_CHECK(context->getNumInputs() == kNumInputs ||
-                     context->getNumInputs() == kNumInputs - 1);
+        NN_RET_CHECK(numInputs >= kNumInputs - 1 && numInputs <= kNumInputs + kNumOptionalInputs);
     } else if (opType == OperationType::RESIZE_NEAREST_NEIGHBOR) {
-        NN_RET_CHECK_EQ(context->getNumInputs(), kNumInputs);
+        NN_RET_CHECK(numInputs >= kNumInputs && numInputs <= kNumInputs + kNumOptionalInputs);
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported operation " << getOperationName(opType);
     }
@@ -115,10 +186,14 @@ bool validate(OperationType opType, const IOperationValidationContext* context) 
     std::vector<OperandType> inExpectedTypes = {inputType, scalarType, scalarType};
     NN_RET_CHECK(inputType == OperandType::TENSOR_FLOAT16 ||
                  inputType == OperandType::TENSOR_FLOAT32 ||
-                 inputType == OperandType::TENSOR_QUANT8_ASYMM)
+                 inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+                 inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
             << "Unsupported tensor type for operation " << getOperationName(opType);
     if (inputType == OperandType::TENSOR_FLOAT16 || inputType == OperandType::TENSOR_QUANT8_ASYMM) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
+    }
+    if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
     }
     if (scalarType != OperandType::INT32) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
@@ -126,15 +201,21 @@ bool validate(OperationType opType, const IOperationValidationContext* context) 
             NN_RET_CHECK(scalarType == OperandType::FLOAT32);
         } else if (inputType == OperandType::TENSOR_FLOAT16) {
             NN_RET_CHECK(scalarType == OperandType::FLOAT16);
-        } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM) {
+        } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+                   inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
             NN_RET_CHECK(scalarType == OperandType::FLOAT32);
         }
     }
-    if (context->getNumInputs() == kNumInputs) {
+    if (numInputs < kNumInputs) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_0));
+    } else if (numInputs == kNumInputs) {
         inExpectedTypes.push_back(OperandType::BOOL);
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
     } else {
-        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_0));
+        while (inExpectedTypes.size() < numInputs) {
+            inExpectedTypes.push_back(OperandType::BOOL);
+        }
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
     }
     return validateInputTypes(context, inExpectedTypes) &&
            validateOutputTypes(context, {inputType});
@@ -143,10 +224,12 @@ bool validate(OperationType opType, const IOperationValidationContext* context) 
 bool prepare(OperationType opType, IOperationExecutionContext* context) {
     Shape input = context->getInputShape(kInputTensor);
     NN_RET_CHECK_EQ(getNumberOfDimensions(input), 4);
-    bool useNchw = false;
-    if (context->getNumInputs() > kLayoutScalar) {
-        useNchw = context->getInputValue<bool>(kLayoutScalar);
-    }
+    const auto numInputs = context->getNumInputs();
+    const bool useNchw = getOptionalScalar(context, kLayoutScalar);
+    const bool alignCorners = getOptionalScalar(context, kAlignCornersScalar);
+    const bool halfPixelCenters = getOptionalScalar(context, kHalfPixelCentersScalar);
+
+    NN_RET_CHECK(!halfPixelCenters || (halfPixelCenters && !alignCorners));
 
     // Only batches can be zero.
     uint32_t batches = getSizeOfDimension(input, 0);
@@ -192,26 +275,34 @@ bool prepare(OperationType opType, IOperationExecutionContext* context) {
 bool execute(OperationType opType, IOperationExecutionContext* context) {
     // Bypass execution in the case of zero-sized input.
     if (getNumberOfElements(context->getOutputShape(kOutputTensor)) == 0) return true;
-    bool useNchw = false;
-    if (context->getNumInputs() > kLayoutScalar) {
-        useNchw = context->getInputValue<bool>(kLayoutScalar);
-    }
+
+    const bool useNchw = getOptionalScalar(context, kLayoutScalar);
+    const bool alignCorners = getOptionalScalar(context, kAlignCornersScalar);
+    const bool halfPixelCenters = getOptionalScalar(context, kHalfPixelCentersScalar);
+
     switch (context->getInputType(kInputTensor)) {
         case OperandType::TENSOR_FLOAT16:
             return resizeImageOp(opType, context->getInputBuffer<_Float16>(kInputTensor),
-                                 context->getInputShape(kInputTensor), useNchw,
+                                 context->getInputShape(kInputTensor), useNchw, alignCorners,
+                                 halfPixelCenters,
                                  context->getOutputBuffer<_Float16>(kOutputTensor),
                                  context->getOutputShape(kOutputTensor));
         case OperandType::TENSOR_FLOAT32:
             return resizeImageOp(opType, context->getInputBuffer<float>(kInputTensor),
-                                 context->getInputShape(kInputTensor), useNchw,
-                                 context->getOutputBuffer<float>(kOutputTensor),
+                                 context->getInputShape(kInputTensor), useNchw, alignCorners,
+                                 halfPixelCenters, context->getOutputBuffer<float>(kOutputTensor),
                                  context->getOutputShape(kOutputTensor));
         case OperandType::TENSOR_QUANT8_ASYMM:
             return resizeImageOp(opType, context->getInputBuffer<uint8_t>(kInputTensor),
-                                 context->getInputShape(kInputTensor), useNchw,
-                                 context->getOutputBuffer<uint8_t>(kOutputTensor),
+                                 context->getInputShape(kInputTensor), useNchw, alignCorners,
+                                 halfPixelCenters, context->getOutputBuffer<uint8_t>(kOutputTensor),
                                  context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return resizeImageOp(opType, context->getInputBuffer<int8_t>(kInputTensor),
+                                 context->getInputShape(kInputTensor), useNchw, alignCorners,
+                                 halfPixelCenters, context->getOutputBuffer<int8_t>(kOutputTensor),
+                                 context->getOutputShape(kOutputTensor));
+
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation "
                                 << getOperationName(opType);

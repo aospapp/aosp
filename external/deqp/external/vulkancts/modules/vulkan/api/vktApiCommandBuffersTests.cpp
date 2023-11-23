@@ -962,7 +962,7 @@ bool executeSecondaryCmdBuffer (Context&						context,
 
 tcu::TestStatus trimCommandPoolTest (Context& context, const VkCommandBufferLevel cmdBufferLevel)
 {
-	if (!isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_maintenance1"))
+	if (!context.isDeviceFunctionalitySupported("VK_KHR_maintenance1"))
 		TCU_THROW(NotSupportedError, "Extension VK_KHR_maintenance1 not supported");
 
 	const VkDevice							vkDevice				= context.getDevice();
@@ -1923,9 +1923,9 @@ tcu::TestStatus simultaneousUseSecondaryBufferTest(Context& context)
 	// check if secondary buffer has been executed
 	VkResult result = vk.getEventStatus(vkDevice,*eventTwo);
 	if (result == VK_EVENT_SET)
-		return tcu::TestStatus::pass("Simulatous Secondary Command Buffer Execution succeeded");
+		return tcu::TestStatus::pass("Simultaneous Secondary Command Buffer Execution succeeded");
 	else
-		return tcu::TestStatus::fail("Simulatous Secondary Command Buffer Execution FAILED");
+		return tcu::TestStatus::fail("Simultaneous Secondary Command Buffer Execution FAILED");
 }
 
 tcu::TestStatus simultaneousUseSecondaryBufferOnePrimaryBufferTest(Context& context)
@@ -2035,6 +2035,19 @@ tcu::TestStatus simultaneousUseSecondaryBufferOnePrimaryBufferTest(Context& cont
 		0u,															// basePipelineIndex
 	};
 
+	const VkBufferMemoryBarrier				bufferBarrier =
+	{
+		VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,					// sType
+		DE_NULL,													// pNext
+		VK_ACCESS_SHADER_WRITE_BIT,									// srcAccessMask
+		VK_ACCESS_HOST_READ_BIT,									// dstAccessMask
+		VK_QUEUE_FAMILY_IGNORED,									// srcQueueFamilyIndex
+		VK_QUEUE_FAMILY_IGNORED,									// destQueueFamilyIndex
+		*buffer,													// buffer
+		(VkDeviceSize)0u,											// offset
+		(VkDeviceSize)VK_WHOLE_SIZE,								// size
+	};
+
 	const Unique<VkPipeline>				pipeline(createComputePipeline(vk, vkDevice, (VkPipelineCache)0u, &pipelineCreateInfo));
 
 	// record secondary command buffer
@@ -2043,6 +2056,10 @@ tcu::TestStatus simultaneousUseSecondaryBufferOnePrimaryBufferTest(Context& cont
 		vk.cmdBindPipeline(*secCmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
 		vk.cmdBindDescriptorSets(*secCmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0, numDescriptorSets, descriptorSets, 0, 0);
 		vk.cmdDispatch(*secCmdBuf, 1u, 1u, 1u);
+		vk.cmdPipelineBarrier(*secCmdBuf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  1, &bufferBarrier,
+						  0, (const VkImageMemoryBarrier*)DE_NULL);
 	}
 	// end recording of secondary buffer
 	endCommandBuffer(vk, *secCmdBuf);
@@ -2062,9 +2079,9 @@ tcu::TestStatus simultaneousUseSecondaryBufferOnePrimaryBufferTest(Context& cont
 	result.readResultContentsTo(&resultCount);
 	// check if secondary buffer has been executed
 	if (resultCount == 2)
-		return tcu::TestStatus::pass("Simulatous Secondary Command Buffer Execution succeeded");
+		return tcu::TestStatus::pass("Simultaneous Secondary Command Buffer Execution succeeded");
 	else
-		return tcu::TestStatus::fail("Simulatous Secondary Command Buffer Execution FAILED");
+		return tcu::TestStatus::fail("Simultaneous Secondary Command Buffer Execution FAILED");
 }
 
 tcu::TestStatus simultaneousUseSecondaryBufferTwoPrimaryBuffersTest(Context& context)
@@ -2240,9 +2257,9 @@ tcu::TestStatus simultaneousUseSecondaryBufferTwoPrimaryBuffersTest(Context& con
 	result.readResultContentsTo(&resultCount);
 	// check if secondary buffer has been executed
 	if (resultCount == 2)
-		return tcu::TestStatus::pass("Simulatous Secondary Command Buffer Execution succeeded");
+		return tcu::TestStatus::pass("Simultaneous Secondary Command Buffer Execution succeeded");
 	else
-		return tcu::TestStatus::fail("Simulatous Secondary Command Buffer Execution FAILED");
+		return tcu::TestStatus::fail("Simultaneous Secondary Command Buffer Execution FAILED");
 }
 
 tcu::TestStatus recordBufferQueryPreciseWithFlagTest(Context& context)

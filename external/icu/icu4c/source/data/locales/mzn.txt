@@ -15,13 +15,18 @@ mzn{
         "س ش ص ض ط ظ ع غ ف ق ک گ ل م ن ه و ی]"
     }
     ExemplarCharactersIndex{"[آ ا ب پ ت ث ج چ ح خ د ذ ر ز ژ س ش ص ض ط ظ ع غ ف ق ک گ ل م ن ه و ی]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ ، ٫ ٬ ؛ \\: ! ؟ . … ‹ › « » ( ) \\[ \\] * / \\\\]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ ، ٫ ٬ ؛ \\: ! ؟ . … ‹ › « » ( ) \\[ \\] * / \\\\]"}
     MoreInformation{"؟"}
     NumberElements{
+        arabext{
+            symbols{
+                timeSeparator{":"}
+            }
+        }
         default{"arabext"}
         native{"arabext"}
     }
-    Version{"2.1.41.34"}
+    Version{"36.1"}
     calendar{
         gregorian{
             eras{

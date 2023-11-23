@@ -81,6 +81,29 @@ def is_vm():
         return False
 
 
+def destroy(path, name,
+            force=True, snapshots=False, ignore_status=False, timeout=-1):
+  """
+  Destroy an LXC container.
+
+  @param force: Destroy even if running. Default true.
+  @param snapshots: Destroy all snapshots based on the container. Default false.
+  @param ignore_status: Ignore return code of command. Default false.
+  @param timeout: Seconds to wait for completion. No timeout imposed if the
+    value is negative. Default -1 (no timeout).
+
+  @returns: CmdResult object from the shell command
+  """
+  cmd = 'sudo lxc-destroy -P %s -n %s' % (path, name)
+  if force:
+    cmd += ' -f'
+  if snapshots:
+    cmd += ' -s'
+  if timeout >= 0:
+    return utils.run(cmd, ignore_status=ignore_status, timeout=timeout)
+  else:
+    return utils.run(cmd, ignore_status=ignore_status)
+
 def clone(lxc_path, src_name, new_path, dst_name, snapshot):
     """Clones a container.
 
@@ -262,7 +285,6 @@ def get_lxc_version():
     else:
         logging.error("Unable to determine LXC version.")
         return None
-
 
 class LXCTests(unittest.TestCase):
     """Thin wrapper to call correct setup for LXC tests."""

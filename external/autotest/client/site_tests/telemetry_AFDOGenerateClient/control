@@ -6,6 +6,7 @@ AUTHOR = "llozano@chromium.org cmtice@chromium.org bjanakiraman@chromium.org"
 NAME = "telemetry_AFDOGenerateClient"
 PURPOSE = "Navigate a set of pages so that a Chrome profile can be captured"
 ATTRIBUTES = "suite:AFDO_page_replay"
+MAX_RESULT_SIZE_KB = 512000
 TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "Chrome AFDO"

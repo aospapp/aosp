@@ -27,13 +27,13 @@ import android.os.Registrant;
 import android.os.RegistrantList;
 import android.provider.Settings;
 import android.provider.Telephony;
-import android.telephony.Rlog;
 import android.telephony.TelephonyManager;
 import android.util.LocalLog;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -89,7 +89,7 @@ public class CarrierActionAgent extends Handler {
             final String action = intent.getAction();
             final String iccState = intent.getStringExtra(IccCardConstants.INTENT_KEY_ICC_STATE);
             if (TelephonyIntents.ACTION_SIM_STATE_CHANGED.equals(action)){
-                if (intent.getBooleanExtra(TelephonyIntents.EXTRA_REBROADCAST_ON_UNLOCK, false)) {
+                if (intent.getBooleanExtra(Intent.EXTRA_REBROADCAST_ON_UNLOCK, false)) {
                     // ignore rebroadcast since carrier apps are direct boot aware.
                     return;
                 }
@@ -227,7 +227,7 @@ public class CarrierActionAgent extends Handler {
         carrierActionSetRadioEnabled(true);
         // notify configured carrier apps for reset
         mPhone.getCarrierSignalAgent().notifyCarrierSignalReceivers(
-                new Intent(TelephonyIntents.ACTION_CARRIER_SIGNAL_RESET));
+                new Intent(TelephonyManager.ACTION_CARRIER_SIGNAL_RESET));
     }
 
     private RegistrantList getRegistrantsFromAction(int action) {

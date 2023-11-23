@@ -23,8 +23,6 @@ import android.os.Bundle;
 import android.os.Process;
 import android.util.Log;
 
-import com.android.cts.managedprofile.BaseManagedProfileTest;
-
 /**
  * Simple activity that adds or clears a user restriction depending on the value of the extras.
  */
@@ -52,14 +50,6 @@ public class SetPolicyActivity extends Activity {
     public void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         handleIntent(intent);
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        // Calling finish() here because doing it in onCreate(), onStart() or onResume() makes
-        // "adb shell am start" timeout if using the -W option.
-        finish();
     }
 
     private void handleIntent(Intent intent) {

@@ -119,6 +119,17 @@ BOARD_VENDOR_KERNEL_MODULES += \
     device/google/wahoo-kernel/debug_api/synaptics_dsx_fw_update_htc.ko \
     device/google/wahoo-kernel/debug_api/htc_battery.ko \
     device/google/wahoo-kernel/debug_api/wlan.ko
+else ifneq (,$(TARGET_PREBUILT_KERNEL))
+    # If TARGET_PREBUILT_KERNEL is set, check whether there are modules packaged with that kernel
+    # image. If so, use them, otherwise fall back to the default directory.
+    TARGET_PREBUILT_KERNEL_PREBUILT_VENDOR_KERNEL_MODULES := \
+        $(wildcard $(dir $(TARGET_PREBUILT_KERNEL))/*.ko)
+    ifneq (,$(TARGET_PREBUILT_KERNEL_PREBUILT_VENDOR_KERNEL_MODULES))
+        BOARD_VENDOR_KERNEL_MODULES += $(TARGET_PREBUILT_KERNEL_PREBUILT_VENDOR_KERNEL_MODULES)
+    else
+        BOARD_VENDOR_KERNEL_MODULES += $(wildcard device/google/wahoo-kernel/*.ko)
+    endif
+    # Do NOT delete TARGET_PREBUILT..., it will lead to empty BOARD_VENDOR_KERNEL_MODULES.
 else
 BOARD_VENDOR_KERNEL_MODULES += \
     device/google/wahoo-kernel/synaptics_dsx_core_htc.ko \

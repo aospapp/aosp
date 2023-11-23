@@ -152,6 +152,9 @@ static void fuzz_setDynamicMainState(run_t* run) {
         return;
     }
 
+    LOG_I("Entering phase 2/3: Switching to Dynamic Main (Feedback Driven Mode)");
+    ATOMIC_SET(run->global->feedback.state, _HF_STATE_DYNAMIC_SWITCH_TO_MAIN);
+
     for (;;) {
         /* Check if all threads have already reported in for changing state */
         if (ATOMIC_GET(cnt) == run->global->threads.threadsMax) {
@@ -160,10 +163,10 @@ static void fuzz_setDynamicMainState(run_t* run) {
         if (fuzz_isTerminating()) {
             return;
         }
-        usleep(1000 * 10); /* Check every 10ms */
+        util_sleepForMSec(10); /* Check every 10ms */
     }
 
-    LOG_I("Entering phase 2/2: Dynamic Main");
+    LOG_I("Entering phase 3/3: Dynamic Main (Feedback Driven Mode)");
     snprintf(run->origFileName, sizeof(run->origFileName), "[DYNAMIC]");
     ATOMIC_SET(run->global->feedback.state, _HF_STATE_DYNAMIC_MAIN);
 
@@ -307,13 +310,16 @@ static bool fuzz_runVerifier(run_t* run) {
 }
 
 static bool fuzz_fetchInput(run_t* run) {
-    if (fuzz_getState(run->global) == _HF_STATE_DYNAMIC_DRY_RUN) {
-        run->mutationsPerRun = 0U;
-        if (input_prepareStaticFile(run, /* rewind= */ false)) {
-            return true;
+    {
+        fuzzState_t st = fuzz_getState(run->global);
+        if (st == _HF_STATE_DYNAMIC_DRY_RUN || st == _HF_STATE_DYNAMIC_SWITCH_TO_MAIN) {
+            run->mutationsPerRun = 0U;
+            if (input_prepareStaticFile(run, /* rewind= */ false, true)) {
+                return true;
+            }
+            fuzz_setDynamicMainState(run);
+            run->mutationsPerRun = run->global->mutate.mutationsPerRun;
         }
-        fuzz_setDynamicMainState(run);
-        run->mutationsPerRun = run->global->mutate.mutationsPerRun;
     }
 
     if (fuzz_getState(run->global) == _HF_STATE_DYNAMIC_MAIN) {
@@ -322,7 +328,12 @@ static bool fuzz_fetchInput(run_t* run) {
                 LOG_E("input_prepareFileExternally() failed");
                 return false;
             }
-        } else if (!input_prepareDynamicInput(run)) {
+        } else if (run->global->exe.feedbackMutateCommand) {
+            if (!input_prepareDynamicInput(run, false)) {
+                LOG_E("input_prepareFileDynamically() failed");
+                return false;
+            }
+        } else if (!input_prepareDynamicInput(run, true)) {
             LOG_E("input_prepareFileDynamically() failed");
             return false;
         }
@@ -334,7 +345,12 @@ static bool fuzz_fetchInput(run_t* run) {
                 LOG_E("input_prepareFileExternally() failed");
                 return false;
             }
-        } else if (!input_prepareStaticFile(run, true /* rewind */)) {
+        } else if (run->global->exe.feedbackMutateCommand) {
+            if (!input_prepareStaticFile(run, true, false)) {
+                LOG_E("input_prepareFileDynamically() failed");
+                return false;
+            }
+        } else if (!input_prepareStaticFile(run, true /* rewind */, true)) {
             LOG_E("input_prepareFile() failed");
             return false;
         }
@@ -342,6 +358,11 @@ static bool fuzz_fetchInput(run_t* run) {
 
     if (run->global->exe.postExternalCommand && !input_postProcessFile(run)) {
         LOG_E("input_postProcessFile() failed");
+        return false;
+    }
+
+    if (run->global->exe.feedbackMutateCommand && !input_feedbackMutateFile(run)) {
+        LOG_E("input_feedbackMutateFile() failed");
         return false;
     }
 
@@ -527,7 +548,7 @@ void fuzz_threadsStart(honggfuzz_t* hfuzz) {
         LOG_I("Entering phase - Feedback Driven Mode (SocketFuzzer)");
         hfuzz->feedback.state = _HF_STATE_DYNAMIC_MAIN;
     } else if (hfuzz->feedback.dynFileMethod != _HF_DYNFILE_NONE) {
-        LOG_I("Entering phase 1/2: Dry Run");
+        LOG_I("Entering phase 1/3: Dry Run");
         hfuzz->feedback.state = _HF_STATE_DYNAMIC_DRY_RUN;
     } else {
         LOG_I("Entering phase: Static");
@@ -535,7 +556,8 @@ void fuzz_threadsStart(honggfuzz_t* hfuzz) {
     }
 
     for (size_t i = 0; i < hfuzz->threads.threadsMax; i++) {
-        if (!subproc_runThread(hfuzz, &hfuzz->threads.threads[i], fuzz_threadNew)) {
+        if (!subproc_runThread(
+                hfuzz, &hfuzz->threads.threads[i], fuzz_threadNew, /* joinable= */ true)) {
             PLOG_F("Couldn't run a thread #%zu", i);
         }
     }

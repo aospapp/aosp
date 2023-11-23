@@ -121,7 +121,7 @@ public class EuiccUiDispatcherActivityTest {
         }
 
         @Override
-        protected void grantDefaultPermissionsToActiveLuiApp(ActivityInfo activityInfo) {}
+        protected void grantDefaultPermissionsToLuiApp(ActivityInfo activityInfo) {}
 
         @Override
         protected void revokePermissionFromLuiApps(Intent intent) {}

@@ -9,18 +9,18 @@
 #include <memory>
 #include <utility>
 
+#include "core/fxge/cfx_face.h"
 #include "core/fxge/cfx_fontmapper.h"
 #include "core/fxge/cfx_substfont.h"
-#include "core/fxge/cttfontdesc.h"
 #include "core/fxge/fontdata/chromefontdata/chromefontdata.h"
 #include "core/fxge/fx_font.h"
-#include "core/fxge/ifx_systemfontinfo.h"
+#include "core/fxge/systemfontinfo_iface.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
 struct BuiltinFont {
-  const uint8_t* m_pFontData;
+  const uint8_t* m_pFontData;  // Raw, POD struct.
   uint32_t m_dwSize;
 };
 
@@ -60,186 +60,124 @@ ByteString KeyNameFromSize(int ttc_size, uint32_t checksum) {
   return ByteString::Format("%d:%d", ttc_size, checksum);
 }
 
-int GetTTCIndex(const uint8_t* pFontData,
-                uint32_t ttc_size,
-                uint32_t font_offset) {
-  const uint8_t* p = pFontData + 8;
-  uint32_t nfont = GET_TT_LONG(p);
-  uint32_t index;
-  for (index = 0; index < nfont; index++) {
-    p = pFontData + 12 + index * 4;
-    if (GET_TT_LONG(p) == font_offset)
-      break;
-  }
-  return index < nfont ? index : 0;
+FXFT_LibraryRec* FTLibraryInitHelper() {
+  FXFT_LibraryRec* pLibrary = nullptr;
+  FT_Init_FreeType(&pLibrary);
+  return pLibrary;
 }
 
 }  // namespace
 
+CFX_FontMgr::FontDesc::FontDesc(std::unique_ptr<uint8_t, FxFreeDeleter> pData,
+                                size_t size)
+    : m_Size(size), m_pFontData(std::move(pData)) {}
+
+CFX_FontMgr::FontDesc::~FontDesc() = default;
+
+void CFX_FontMgr::FontDesc::SetFace(size_t index, CFX_Face* face) {
+  ASSERT(index < FX_ArraySize(m_TTCFaces));
+  m_TTCFaces[index].Reset(face);
+}
+
+CFX_Face* CFX_FontMgr::FontDesc::GetFace(size_t index) const {
+  ASSERT(index < FX_ArraySize(m_TTCFaces));
+  return m_TTCFaces[index].Get();
+}
+
 CFX_FontMgr::CFX_FontMgr()
-    : m_FTLibrary(nullptr), m_FTLibrarySupportsHinting(false) {
-  m_pBuiltinMapper = pdfium::MakeUnique<CFX_FontMapper>(this);
-}
+    : m_FTLibrary(FTLibraryInitHelper()),
+      m_pBuiltinMapper(pdfium::MakeUnique<CFX_FontMapper>(this)),
+      m_FTLibrarySupportsHinting(SetLcdFilterMode() ||
+                                 FreeTypeVersionSupportsHinting()) {}
 
-CFX_FontMgr::~CFX_FontMgr() {
-  // |m_FaceMap| and |m_pBuiltinMapper| reference |m_FTLibrary|, so they must
-  // be destroyed first.
-  m_FaceMap.clear();
-  m_pBuiltinMapper.reset();
-  FXFT_Done_FreeType(m_FTLibrary);
-}
-
-void CFX_FontMgr::InitFTLibrary() {
-  if (m_FTLibrary)
-    return;
-
-  FXFT_Init_FreeType(&m_FTLibrary);
-  m_FTLibrarySupportsHinting =
-      SetLcdFilterMode() || FreeTypeVersionSupportsHinting();
-}
+CFX_FontMgr::~CFX_FontMgr() = default;
 
 void CFX_FontMgr::SetSystemFontInfo(
-    std::unique_ptr<IFX_SystemFontInfo> pFontInfo) {
+    std::unique_ptr<SystemFontInfoIface> pFontInfo) {
   m_pBuiltinMapper->SetSystemFontInfo(std::move(pFontInfo));
 }
 
-FXFT_Face CFX_FontMgr::FindSubstFont(const ByteString& face_name,
-                                     bool bTrueType,
-                                     uint32_t flags,
-                                     int weight,
-                                     int italic_angle,
-                                     int CharsetCP,
-                                     CFX_SubstFont* pSubstFont) {
-  InitFTLibrary();
+RetainPtr<CFX_Face> CFX_FontMgr::FindSubstFont(const ByteString& face_name,
+                                               bool bTrueType,
+                                               uint32_t flags,
+                                               int weight,
+                                               int italic_angle,
+                                               int CharsetCP,
+                                               CFX_SubstFont* pSubstFont) {
   return m_pBuiltinMapper->FindSubstFont(face_name, bTrueType, flags, weight,
                                          italic_angle, CharsetCP, pSubstFont);
 }
 
-FXFT_Face CFX_FontMgr::GetCachedFace(const ByteString& face_name,
-                                     int weight,
-                                     bool bItalic,
-                                     uint8_t** pFontData) {
+RetainPtr<CFX_FontMgr::FontDesc> CFX_FontMgr::GetCachedFontDesc(
+    const ByteString& face_name,
+    int weight,
+    bool bItalic) {
   auto it = m_FaceMap.find(KeyNameFromFace(face_name, weight, bItalic));
-  if (it == m_FaceMap.end())
-    return nullptr;
-
-  CTTFontDesc* pFontDesc = it->second.get();
-  *pFontData = pFontDesc->FontData();
-  pFontDesc->AddRef();
-  return pFontDesc->SingleFace();
+  return it != m_FaceMap.end() ? pdfium::WrapRetain(it->second.Get()) : nullptr;
 }
 
-FXFT_Face CFX_FontMgr::AddCachedFace(const ByteString& face_name,
-                                     int weight,
-                                     bool bItalic,
-                                     uint8_t* pData,
-                                     uint32_t size,
-                                     int face_index) {
-  InitFTLibrary();
-
-  FXFT_Face face = nullptr;
-  int ret = FXFT_New_Memory_Face(m_FTLibrary, pData, size, face_index, &face);
-  if (ret)
-    return nullptr;
-
-  ret = FXFT_Set_Pixel_Sizes(face, 64, 64);
-  if (ret)
-    return nullptr;
-
-  auto pFontDesc = pdfium::MakeUnique<CTTFontDesc>(pData, face);
-  CTTFontDesc* pResult = pFontDesc.get();
-  m_FaceMap[KeyNameFromFace(face_name, weight, bItalic)] = std::move(pFontDesc);
-  return pResult->SingleFace();
+RetainPtr<CFX_FontMgr::FontDesc> CFX_FontMgr::AddCachedFontDesc(
+    const ByteString& face_name,
+    int weight,
+    bool bItalic,
+    std::unique_ptr<uint8_t, FxFreeDeleter> pData,
+    uint32_t size) {
+  auto pFontDesc = pdfium::MakeRetain<FontDesc>(std::move(pData), size);
+  m_FaceMap[KeyNameFromFace(face_name, weight, bItalic)].Reset(pFontDesc.Get());
+  return pFontDesc;
 }
 
-FXFT_Face CFX_FontMgr::GetCachedTTCFace(int ttc_size,
-                                        uint32_t checksum,
-                                        int font_offset,
-                                        uint8_t** pFontData) {
+RetainPtr<CFX_FontMgr::FontDesc> CFX_FontMgr::GetCachedTTCFontDesc(
+    int ttc_size,
+    uint32_t checksum) {
   auto it = m_FaceMap.find(KeyNameFromSize(ttc_size, checksum));
-  if (it == m_FaceMap.end())
-    return nullptr;
-
-  CTTFontDesc* pFontDesc = it->second.get();
-  *pFontData = pFontDesc->FontData();
-  int face_index = GetTTCIndex(pFontDesc->FontData(), ttc_size, font_offset);
-  if (!pFontDesc->TTCFace(face_index)) {
-    pFontDesc->SetTTCFace(
-        face_index, GetFixedFace(pFontDesc->FontData(), ttc_size, face_index));
-  }
-  pFontDesc->AddRef();
-  return pFontDesc->TTCFace(face_index);
+  return it != m_FaceMap.end() ? pdfium::WrapRetain(it->second.Get()) : nullptr;
 }
 
-FXFT_Face CFX_FontMgr::AddCachedTTCFace(int ttc_size,
-                                        uint32_t checksum,
-                                        uint8_t* pData,
-                                        uint32_t size,
-                                        int font_offset) {
-  int face_index = GetTTCIndex(pData, ttc_size, font_offset);
-  FXFT_Face face = GetFixedFace(pData, ttc_size, face_index);
-  auto pFontDesc = pdfium::MakeUnique<CTTFontDesc>(pData, face_index, face);
-  m_FaceMap[KeyNameFromSize(ttc_size, checksum)] = std::move(pFontDesc);
+RetainPtr<CFX_FontMgr::FontDesc> CFX_FontMgr::AddCachedTTCFontDesc(
+    int ttc_size,
+    uint32_t checksum,
+    std::unique_ptr<uint8_t, FxFreeDeleter> pData,
+    uint32_t size) {
+  auto pNewDesc = pdfium::MakeRetain<FontDesc>(std::move(pData), size);
+  m_FaceMap[KeyNameFromSize(ttc_size, checksum)].Reset(pNewDesc.Get());
+  return pNewDesc;
+}
+
+RetainPtr<CFX_Face> CFX_FontMgr::NewFixedFace(const RetainPtr<FontDesc>& pDesc,
+                                              pdfium::span<const uint8_t> span,
+                                              int face_index) {
+  RetainPtr<CFX_Face> face =
+      CFX_Face::New(m_FTLibrary.get(), pDesc, span, face_index);
+  if (!face)
+    return nullptr;
+
+  if (FT_Set_Pixel_Sizes(face->GetRec(), 64, 64) != 0)
+    return nullptr;
+
   return face;
 }
 
-FXFT_Face CFX_FontMgr::GetFixedFace(const uint8_t* pData,
-                                    uint32_t size,
-                                    int face_index) {
-  InitFTLibrary();
-  FXFT_Face face = nullptr;
-  if (FXFT_New_Memory_Face(m_FTLibrary, pData, size, face_index, &face))
-    return nullptr;
-  return FXFT_Set_Pixel_Sizes(face, 64, 64) ? nullptr : face;
-}
-
-FXFT_Face CFX_FontMgr::GetFileFace(const char* filename, int face_index) {
-  InitFTLibrary();
-  FXFT_Face face = nullptr;
-  if (FXFT_New_Face(m_FTLibrary, filename, face_index, &face))
-    return nullptr;
-  return FXFT_Set_Pixel_Sizes(face, 64, 64) ? nullptr : face;
-}
-
-void CFX_FontMgr::ReleaseFace(FXFT_Face face) {
-  if (!face)
-    return;
-  bool bNeedFaceDone = true;
-  for (auto it = m_FaceMap.begin(); it != m_FaceMap.end(); ++it) {
-    CTTFontDesc::ReleaseStatus nRet = it->second->ReleaseFace(face);
-    if (nRet == CTTFontDesc::kNotAppropriate)
-      continue;
-    bNeedFaceDone = false;
-    if (nRet == CTTFontDesc::kReleased)
-      m_FaceMap.erase(it);
-    break;
-  }
-  if (bNeedFaceDone && !m_pBuiltinMapper->IsBuiltinFace(face))
-    FXFT_Done_Face(face);
-}
-
-bool CFX_FontMgr::GetBuiltinFont(size_t index,
-                                 const uint8_t** pFontData,
-                                 uint32_t* size) {
+// static
+Optional<pdfium::span<const uint8_t>> CFX_FontMgr::GetBuiltinFont(
+    size_t index) {
   if (index < FX_ArraySize(g_FoxitFonts)) {
-    *pFontData = g_FoxitFonts[index].m_pFontData;
-    *size = g_FoxitFonts[index].m_dwSize;
-    return true;
+    return pdfium::make_span(g_FoxitFonts[index].m_pFontData,
+                             g_FoxitFonts[index].m_dwSize);
   }
   size_t mm_index = index - FX_ArraySize(g_FoxitFonts);
   if (mm_index < FX_ArraySize(g_MMFonts)) {
-    *pFontData = g_MMFonts[mm_index].m_pFontData;
-    *size = g_MMFonts[mm_index].m_dwSize;
-    return true;
+    return pdfium::make_span(g_MMFonts[mm_index].m_pFontData,
+                             g_MMFonts[mm_index].m_dwSize);
   }
-  return false;
+  return {};
 }
 
 bool CFX_FontMgr::FreeTypeVersionSupportsHinting() const {
   FT_Int major;
   FT_Int minor;
   FT_Int patch;
-  FXFT_Library_Version(m_FTLibrary, &major, &minor, &patch);
+  FT_Library_Version(m_FTLibrary.get(), &major, &minor, &patch);
   // Freetype versions >= 2.8.1 support hinting even if subpixel rendering is
   // disabled. https://sourceforge.net/projects/freetype/files/freetype2/2.8.1/
   return major > 2 || (major == 2 && minor > 8) ||
@@ -247,6 +185,6 @@ bool CFX_FontMgr::FreeTypeVersionSupportsHinting() const {
 }
 
 bool CFX_FontMgr::SetLcdFilterMode() const {
-  return FXFT_Library_SetLcdFilter(m_FTLibrary, FT_LCD_FILTER_DEFAULT) !=
+  return FT_Library_SetLcdFilter(m_FTLibrary.get(), FT_LCD_FILTER_DEFAULT) !=
          FT_Err_Unimplemented_Feature;
 }

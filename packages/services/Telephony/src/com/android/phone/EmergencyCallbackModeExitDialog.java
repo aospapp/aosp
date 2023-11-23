@@ -35,6 +35,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.internal.telephony.Phone;
@@ -68,6 +69,7 @@ public class EmergencyCallbackModeExitDialog extends Activity implements OnCance
     private boolean mInEmergencyCall = false;
     private static final int ECM_TIMER_RESET = 1;
     private Phone mPhone = null;
+    private boolean mIsResumed = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -97,6 +99,18 @@ public class EmergencyCallbackModeExitDialog extends Activity implements OnCance
         IntentFilter filter = new IntentFilter();
         filter.addAction(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED);
         registerReceiver(mEcmExitReceiver, filter);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mIsResumed = true;
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mIsResumed = false;
     }
 
     @Override
@@ -176,7 +190,7 @@ public class EmergencyCallbackModeExitDialog extends Activity implements OnCance
      * Shows Emergency Callback Mode dialog and starts countdown timer
      */
     private void showEmergencyCallbackModeExitDialog() {
-        if (!this.isResumed()) {
+        if (isDestroyed()) {
             Log.w(TAG, "Tried to show dialog, but activity was already finished");
             return;
         }
@@ -287,8 +301,14 @@ public class EmergencyCallbackModeExitDialog extends Activity implements OnCance
             return String.format(getResources().getQuantityText(
                     R.plurals.alert_dialog_not_avaialble_in_ecm, minutes).toString(), time);
         case EXIT_ECM_DIALOG:
-            return String.format(getResources().getQuantityText(R.plurals.alert_dialog_exit_ecm,
-                    minutes).toString(), time);
+                boolean shouldRestrictData = mPhone.getImsPhone() != null
+                        && mPhone.getImsPhone().isInImsEcm();
+                return String.format(getResources().getQuantityText(
+                        // During IMS ECM, data restriction hint should be removed.
+                        shouldRestrictData
+                        ? R.plurals.alert_dialog_exit_ecm_without_data_restriction_hint
+                        : R.plurals.alert_dialog_exit_ecm,
+                        minutes).toString(), time);
         }
         return null;
     }
@@ -311,7 +331,8 @@ public class EmergencyCallbackModeExitDialog extends Activity implements OnCance
             // Received exit Emergency Callback Mode notification close all dialogs
             if (intent.getAction().equals(
                     TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED)) {
-                if (intent.getBooleanExtra("phoneinECMState", false) == false) {
+                // Cancel if the sticky broadcast extra for whether or not we are in ECM is false.
+                if (!intent.getBooleanExtra(TelephonyManager.EXTRA_PHONE_IN_ECM_STATE, false)) {
                     if (mAlertDialog != null)
                         mAlertDialog.dismiss();
                     if (mProgressDialog != null)

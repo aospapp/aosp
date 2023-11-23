@@ -16,39 +16,38 @@
 
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 
+#include "driver.h"
+
+#include <dlfcn.h>
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/prctl.h>
 
-#include <dlfcn.h>
-#include <algorithm>
-#include <array>
-#include <new>
-
-#include <log/log.h>
-
+#include <SurfaceFlingerProperties.h>
+#include <android-base/properties.h>
 #include <android/dlext.h>
 #include <android/hardware/configstore/1.0/ISurfaceFlingerConfigs.h>
 #include <configstore/Utils.h>
 #include <cutils/properties.h>
 #include <graphicsenv/GraphicsEnv.h>
+#include <log/log.h>
+#include <nativeloader/dlext_namespaces.h>
+#include <sys/prctl.h>
 #include <utils/Timers.h>
 #include <utils/Trace.h>
-#include <utils/Vector.h>
 
-#include "android-base/properties.h"
+#include <algorithm>
+#include <array>
+#include <climits>
+#include <new>
+#include <string_view>
+#include <sstream>
+#include <vector>
 
-#include "driver.h"
 #include "stubhal.h"
 
 using namespace android::hardware::configstore;
 using namespace android::hardware::configstore::V1_0;
-
-// TODO(b/37049319) Get this from a header once one exists
-extern "C" {
-android_namespace_t* android_get_exported_namespace(const char*);
-}
 
 // #define ENABLE_ALLOC_CALLSTACKS 1
 #if ENABLE_ALLOC_CALLSTACKS
@@ -104,6 +103,7 @@ class CreateInfoWrapper {
 
     VkResult Validate();
     void DowngradeApiVersion();
+    void UpgradeDeviceCoreApiVersion(uint32_t api_version);
 
     const std::bitset<ProcHook::EXTENSION_COUNT>& GetHookExtensions() const;
     const std::bitset<ProcHook::EXTENSION_COUNT>& GetHalExtensions() const;
@@ -152,15 +152,12 @@ class CreateInfoWrapper {
 Hal Hal::hal_;
 
 void* LoadLibrary(const android_dlextinfo& dlextinfo,
-                  const char* subname,
-                  int subname_len) {
+                  const std::string_view subname) {
     ATRACE_CALL();
 
-    const char kLibFormat[] = "vulkan.%*s.so";
-    char* name = static_cast<char*>(
-        alloca(sizeof(kLibFormat) + static_cast<size_t>(subname_len)));
-    sprintf(name, kLibFormat, subname_len, subname);
-    return android_dlopen_ext(name, RTLD_LOCAL | RTLD_NOW, &dlextinfo);
+    std::stringstream ss;
+    ss << "vulkan." << subname << ".so";
+    return android_dlopen_ext(ss.str().c_str(), RTLD_LOCAL | RTLD_NOW, &dlextinfo);
 }
 
 const std::array<const char*, 2> HAL_SUBNAME_KEY_PROPERTIES = {{
@@ -168,6 +165,11 @@ const std::array<const char*, 2> HAL_SUBNAME_KEY_PROPERTIES = {{
     "ro.board.platform",
 }};
 
+// LoadDriver returns:
+// * 0 when succeed, or
+// * -ENOENT when fail to open binary libraries, or
+// * -EINVAL when fail to find HAL_MODULE_INFO_SYM_AS_STR or
+//   HWVULKAN_HARDWARE_MODULE_ID in the library.
 int LoadDriver(android_namespace_t* library_namespace,
                const hwvulkan_module_t** module) {
     ATRACE_CALL();
@@ -180,8 +182,9 @@ int LoadDriver(android_namespace_t* library_namespace,
     char prop[PROPERTY_VALUE_MAX];
     for (auto key : HAL_SUBNAME_KEY_PROPERTIES) {
         int prop_len = property_get(key, prop, nullptr);
-        if (prop_len > 0) {
-            so = LoadLibrary(dlextinfo, prop, prop_len);
+        if (prop_len > 0 && prop_len <= UINT_MAX) {
+            std::string_view lib_name(prop, static_cast<unsigned int>(prop_len));
+            so = LoadLibrary(dlextinfo, lib_name);
             if (so)
                 break;
         }
@@ -212,7 +215,7 @@ int LoadBuiltinDriver(const hwvulkan_module_t** module) {
     if (!ns)
         return -ENOENT;
     android::GraphicsEnv::getInstance().setDriverToLoad(
-        android::GraphicsEnv::Driver::VULKAN);
+        android::GpuStatsInfo::Driver::VULKAN);
     return LoadDriver(ns, module);
 }
 
@@ -223,8 +226,14 @@ int LoadUpdatedDriver(const hwvulkan_module_t** module) {
     if (!ns)
         return -ENOENT;
     android::GraphicsEnv::getInstance().setDriverToLoad(
-        android::GraphicsEnv::Driver::VULKAN_UPDATED);
-    return LoadDriver(ns, module);
+        android::GpuStatsInfo::Driver::VULKAN_UPDATED);
+    int result = LoadDriver(ns, module);
+    if (result != 0) {
+        LOG_ALWAYS_FATAL(
+            "couldn't find an updated Vulkan implementation from %s",
+            android::GraphicsEnv::getInstance().getDriverPath().c_str());
+    }
+    return result;
 }
 
 bool Hal::Open() {
@@ -243,22 +252,10 @@ bool Hal::Open() {
     result = LoadUpdatedDriver(&module);
     if (result == -ENOENT) {
         result = LoadBuiltinDriver(&module);
-        if (result != 0) {
-            // -ENOENT means the sphal namespace doesn't exist, not that there
-            // is a problem with the driver.
-            ALOGW_IF(
-                result != -ENOENT,
-                "Failed to load Vulkan driver into sphal namespace. This "
-                "usually means the driver has forbidden library dependencies."
-                "Please fix, this will soon stop working.");
-            result =
-                hw_get_module(HWVULKAN_HARDWARE_MODULE_ID,
-                              reinterpret_cast<const hw_module_t**>(&module));
-        }
     }
     if (result != 0) {
         android::GraphicsEnv::getInstance().setDriverLoaded(
-            android::GraphicsEnv::Api::API_VK, false, systemTime() - openTime);
+            android::GpuStatsInfo::Api::API_VK, false, systemTime() - openTime);
         ALOGV("unable to load Vulkan HAL, using stub HAL (result=%d)", result);
         return true;
     }
@@ -272,7 +269,7 @@ bool Hal::Open() {
     ATRACE_END();
     if (result != 0) {
         android::GraphicsEnv::getInstance().setDriverLoaded(
-            android::GraphicsEnv::Api::API_VK, false, systemTime() - openTime);
+            android::GpuStatsInfo::Api::API_VK, false, systemTime() - openTime);
         // Any device with a Vulkan HAL should be able to open the device.
         ALOGE("failed to open Vulkan HAL device: %s (%d)", strerror(-result),
               result);
@@ -284,7 +281,7 @@ bool Hal::Open() {
     hal_.InitDebugReportIndex();
 
     android::GraphicsEnv::getInstance().setDriverLoaded(
-        android::GraphicsEnv::Api::API_VK, true, systemTime() - openTime);
+        android::GpuStatsInfo::Api::API_VK, true, systemTime() - openTime);
 
     return true;
 }
@@ -333,8 +330,12 @@ CreateInfoWrapper::CreateInfoWrapper(const VkInstanceCreateInfo& create_info,
       physical_dev_(VK_NULL_HANDLE),
       instance_info_(create_info),
       extension_filter_() {
-    hook_extensions_.set(ProcHook::EXTENSION_CORE);
-    hal_extensions_.set(ProcHook::EXTENSION_CORE);
+    // instance core versions need to match the loader api version
+    for (uint32_t i = ProcHook::EXTENSION_CORE_1_0;
+         i != ProcHook::EXTENSION_COUNT; ++i) {
+        hook_extensions_.set(i);
+        hal_extensions_.set(i);
+    }
 }
 
 CreateInfoWrapper::CreateInfoWrapper(VkPhysicalDevice physical_dev,
@@ -345,8 +346,9 @@ CreateInfoWrapper::CreateInfoWrapper(VkPhysicalDevice physical_dev,
       physical_dev_(physical_dev),
       dev_info_(create_info),
       extension_filter_() {
-    hook_extensions_.set(ProcHook::EXTENSION_CORE);
-    hal_extensions_.set(ProcHook::EXTENSION_CORE);
+    // initialize with baseline core API version
+    hook_extensions_.set(ProcHook::EXTENSION_CORE_1_0);
+    hal_extensions_.set(ProcHook::EXTENSION_CORE_1_0);
 }
 
 CreateInfoWrapper::~CreateInfoWrapper() {
@@ -545,7 +547,8 @@ void CreateInfoWrapper::FilterExtension(const char* name) {
             case ProcHook::ANDROID_external_memory_android_hardware_buffer:
             case ProcHook::ANDROID_native_buffer:
             case ProcHook::GOOGLE_display_timing:
-            case ProcHook::EXTENSION_CORE:
+            case ProcHook::EXTENSION_CORE_1_0:
+            case ProcHook::EXTENSION_CORE_1_1:
             case ProcHook::EXTENSION_COUNT:
                 // Device and meta extensions. If we ever get here it's a bug in
                 // our code. But enumerating them lets us avoid having a default
@@ -593,7 +596,8 @@ void CreateInfoWrapper::FilterExtension(const char* name) {
             case ProcHook::EXT_debug_report:
             case ProcHook::EXT_swapchain_colorspace:
             case ProcHook::ANDROID_native_buffer:
-            case ProcHook::EXTENSION_CORE:
+            case ProcHook::EXTENSION_CORE_1_0:
+            case ProcHook::EXTENSION_CORE_1_1:
             case ProcHook::EXTENSION_COUNT:
                 // Instance and meta extensions. If we ever get here it's a bug
                 // in our code. But enumerating them lets us avoid having a
@@ -641,6 +645,31 @@ void CreateInfoWrapper::DowngradeApiVersion() {
     }
 }
 
+void CreateInfoWrapper::UpgradeDeviceCoreApiVersion(uint32_t api_version) {
+    ALOG_ASSERT(!is_instance_, "Device only API called by instance wrapper.");
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
+    api_version ^= VK_VERSION_PATCH(api_version);
+#pragma clang diagnostic pop
+
+    // cap the API version to the loader supported highest version
+    if (api_version > VK_API_VERSION_1_1)
+        api_version = VK_API_VERSION_1_1;
+
+    switch (api_version) {
+        case VK_API_VERSION_1_1:
+            hook_extensions_.set(ProcHook::EXTENSION_CORE_1_1);
+            hal_extensions_.set(ProcHook::EXTENSION_CORE_1_1);
+            [[clang::fallthrough]];
+        case VK_API_VERSION_1_0:
+            break;
+        default:
+            ALOGD("Unknown upgrade API version[%u]", api_version);
+            break;
+    }
+}
+
 VKAPI_ATTR void* DefaultAllocate(void*,
                                  size_t size,
                                  size_t alignment,
@@ -664,7 +693,7 @@ VKAPI_ATTR void* DefaultReallocate(void*,
         return nullptr;
     }
 
-    // TODO(jessehall): Right now we never shrink allocations; if the new
+    // TODO(b/143295633): Right now we never shrink allocations; if the new
     // request is smaller than the existing chunk, we just continue using it.
     // Right now the loader never reallocs, so this doesn't matter. If that
     // changes, or if this code is copied into some other project, this should
@@ -724,10 +753,6 @@ void FreeDeviceData(DeviceData* data, const VkAllocationCallbacks& allocator) {
 
 }  // anonymous namespace
 
-bool Debuggable() {
-    return (prctl(PR_GET_DUMPABLE, 0, 0, 0, 0) >= 0);
-}
-
 bool OpenHAL() {
     return Hal::Open();
 }
@@ -776,7 +801,7 @@ PFN_vkVoidFunction GetInstanceProcAddr(VkInstance instance, const char* pName) {
                        : nullptr;
             break;
         case ProcHook::DEVICE:
-            proc = (hook->extension == ProcHook::EXTENSION_CORE)
+            proc = (hook->extension == ProcHook::EXTENSION_CORE_1_0)
                        ? hook->proc
                        : hook->checked_proc;
             break;
@@ -809,8 +834,7 @@ VkResult EnumerateInstanceExtensionProperties(
     const char* pLayerName,
     uint32_t* pPropertyCount,
     VkExtensionProperties* pProperties) {
-
-    android::Vector<VkExtensionProperties> loader_extensions;
+    std::vector<VkExtensionProperties> loader_extensions;
     loader_extensions.push_back({
         VK_KHR_SURFACE_EXTENSION_NAME,
         VK_KHR_SURFACE_SPEC_VERSION});
@@ -833,7 +857,7 @@ VkResult EnumerateInstanceExtensionProperties(
         uint32_t count = std::min(
             *pPropertyCount, static_cast<uint32_t>(loader_extensions.size()));
 
-        std::copy_n(loader_extensions.begin(), count, pProperties);
+        std::copy_n(loader_extensions.data(), count, pProperties);
 
         if (count < loader_extensions.size()) {
             *pPropertyCount = count;
@@ -879,8 +903,7 @@ VkResult EnumerateInstanceExtensionProperties(
 
 bool QueryPresentationProperties(
     VkPhysicalDevice physicalDevice,
-    VkPhysicalDevicePresentationPropertiesANDROID *presentation_properties)
-{
+    VkPhysicalDevicePresentationPropertiesANDROID *presentation_properties) {
     const InstanceData& data = GetData(physicalDevice);
 
     // GPDP2 must be present and enabled on the instance.
@@ -920,14 +943,12 @@ VkResult EnumerateDeviceExtensionProperties(
     VkExtensionProperties* pProperties) {
     const InstanceData& data = GetData(physicalDevice);
     // extensions that are unconditionally exposed by the loader
-    android::Vector<VkExtensionProperties> loader_extensions;
+    std::vector<VkExtensionProperties> loader_extensions;
     loader_extensions.push_back({
         VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME,
         VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION});
 
-    bool hdrBoardConfig =
-        getBool<ISurfaceFlingerConfigs, &ISurfaceFlingerConfigs::hasHDRDisplay>(
-            false);
+    bool hdrBoardConfig = android::sysprop::has_HDR_display(false);
     if (hdrBoardConfig) {
         loader_extensions.push_back({VK_EXT_HDR_METADATA_EXTENSION_NAME,
                                      VK_EXT_HDR_METADATA_SPEC_VERSION});
@@ -956,7 +977,7 @@ VkResult EnumerateDeviceExtensionProperties(
         uint32_t count = std::min(
             *pPropertyCount, static_cast<uint32_t>(loader_extensions.size()));
 
-        std::copy_n(loader_extensions.begin(), count, pProperties);
+        std::copy_n(loader_extensions.data(), count, pProperties);
 
         if (count < loader_extensions.size()) {
             *pPropertyCount = count;
@@ -1124,6 +1145,13 @@ VkResult CreateDevice(VkPhysicalDevice physicalDevice,
     if (!data)
         return VK_ERROR_OUT_OF_HOST_MEMORY;
 
+    VkPhysicalDeviceProperties properties;
+    ATRACE_BEGIN("driver.GetPhysicalDeviceProperties");
+    instance_data.driver.GetPhysicalDeviceProperties(physicalDevice,
+                                                     &properties);
+    ATRACE_END();
+
+    wrapper.UpgradeDeviceCoreApiVersion(properties.apiVersion);
     data->hook_extensions |= wrapper.GetHookExtensions();
 
     // call into the driver
@@ -1168,19 +1196,13 @@ VkResult CreateDevice(VkPhysicalDevice physicalDevice,
         return VK_ERROR_INCOMPATIBLE_DRIVER;
     }
 
-    VkPhysicalDeviceProperties properties;
-    ATRACE_BEGIN("driver.GetPhysicalDeviceProperties");
-    instance_data.driver.GetPhysicalDeviceProperties(physicalDevice,
-                                                     &properties);
-    ATRACE_END();
-
     if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) {
         // Log that the app is hitting software Vulkan implementation
-        android::GraphicsEnv::getInstance().setCpuVulkanInUse();
+        android::GraphicsEnv::getInstance().setTargetStats(
+            android::GpuStatsInfo::Stats::CPU_VULKAN_IN_USE);
     }
 
     data->driver_device = dev;
-    data->driver_version = properties.driverVersion;
 
     *pDevice = dev;
 
@@ -1245,11 +1267,10 @@ VkResult EnumeratePhysicalDeviceGroups(
         if (!device_count)
             return VK_INCOMPLETE;
 
-        android::Vector<VkPhysicalDevice> devices;
-        devices.resize(device_count);
+        std::vector<VkPhysicalDevice> devices(device_count);
         *pPhysicalDeviceGroupCount = device_count;
-        result = EnumeratePhysicalDevices(instance, &device_count,
-                                          devices.editArray());
+        result =
+            EnumeratePhysicalDevices(instance, &device_count, devices.data());
         if (result < 0)
             return result;
 
@@ -1318,6 +1339,17 @@ AllocateCommandBuffers(VkDevice device,
     }
 
     return result;
+}
+
+VKAPI_ATTR VkResult QueueSubmit(VkQueue queue,
+                                uint32_t submitCount,
+                                const VkSubmitInfo* pSubmits,
+                                VkFence fence) {
+    ATRACE_CALL();
+
+    const auto& data = GetData(queue);
+
+    return data.driver.QueueSubmit(queue, submitCount, pSubmits, fence);
 }
 
 }  // namespace driver

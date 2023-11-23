@@ -17,6 +17,7 @@ package com.android.tradefed.testtype;
 
 import static org.easymock.EasyMock.anyLong;
 import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.endsWith;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.getCurrentArguments;
 import static org.junit.Assert.assertEquals;
@@ -25,6 +26,7 @@ import static org.junit.Assert.fail;
 
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.sandbox.SandboxConfigDump;
@@ -56,6 +58,7 @@ public class NoisyDryRunTestTest {
     private File mFile;
     private ITestInvocationListener mMockListener;
     private IRunUtil mMockRunUtil;
+    private TestInformation mTestInfo;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
@@ -72,6 +75,7 @@ public class NoisyDryRunTestTest {
         mFile = FileUtil.createTempFile("NoisyDryRunTestTest", "tmpFile");
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
         mMockRunUtil = EasyMock.createMock(IRunUtil.class);
+        mTestInfo = TestInformation.newBuilder().build();
     }
 
     @After
@@ -100,7 +104,7 @@ public class NoisyDryRunTestTest {
         NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest();
         OptionSetter setter = new OptionSetter(noisyDryRunTest);
         setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
-        noisyDryRunTest.run(mMockListener);
+        noisyDryRunTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 
@@ -127,7 +131,7 @@ public class NoisyDryRunTestTest {
         NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest();
         OptionSetter setter = new OptionSetter(noisyDryRunTest);
         setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
-        noisyDryRunTest.run(mMockListener);
+        noisyDryRunTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 
@@ -137,14 +141,14 @@ public class NoisyDryRunTestTest {
         mMockListener.testRunStarted("com.android.tradefed.testtype.NoisyDryRunTest_parseFile", 1);
         mMockListener.testStarted(anyObject());
         mMockListener.testEnded(anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
-        mMockListener.testFailed(anyObject(), anyObject());
+        mMockListener.testFailed(anyObject(), (String) anyObject());
         mMockListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
         replayMocks();
 
         NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest();
         OptionSetter setter = new OptionSetter(noisyDryRunTest);
         setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
-        noisyDryRunTest.run(mMockListener);
+        noisyDryRunTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 
@@ -162,7 +166,7 @@ public class NoisyDryRunTestTest {
         mMockListener.testStarted(anyObject());
         mMockListener.testEnded(anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
         mMockListener.testStarted(anyObject());
-        mMockListener.testFailed(anyObject(), anyObject());
+        mMockListener.testFailed(anyObject(), (String) anyObject());
         mMockListener.testEnded(anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
         mMockListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
         replayMocks();
@@ -170,7 +174,7 @@ public class NoisyDryRunTestTest {
         NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest();
         OptionSetter setter = new OptionSetter(noisyDryRunTest);
         setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
-        noisyDryRunTest.run(mMockListener);
+        noisyDryRunTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 
@@ -260,7 +264,7 @@ public class NoisyDryRunTestTest {
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
                                 anyLong(),
-                                eq("java"),
+                                endsWith("/java"),
                                 eq("-cp"),
                                 anyObject(),
                                 eq(SandboxConfigDump.class.getCanonicalName()),
@@ -303,7 +307,7 @@ public class NoisyDryRunTestTest {
                 };
         OptionSetter setter = new OptionSetter(noisyDryRunTest);
         setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
-        noisyDryRunTest.run(mMockListener);
+        noisyDryRunTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 
@@ -321,7 +325,7 @@ public class NoisyDryRunTestTest {
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
                                 anyLong(),
-                                eq("java"),
+                                endsWith("/java"),
                                 eq("-cp"),
                                 anyObject(),
                                 eq(SandboxConfigDump.class.getCanonicalName()),
@@ -358,7 +362,7 @@ public class NoisyDryRunTestTest {
                 };
         OptionSetter setter = new OptionSetter(noisyDryRunTest);
         setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
-        noisyDryRunTest.run(mMockListener);
+        noisyDryRunTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 

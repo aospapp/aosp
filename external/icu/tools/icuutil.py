@@ -82,7 +82,7 @@ def PrepareIcuBuild(icu_build_dir):
 
   # Build the ICU tools.
   print('Configuring ICU tools...')
-  subprocess.check_call(['%s/runConfigureICU' % icu4cDir(), 'Linux'])
+  subprocess.check_call(['env', 'ICU_DATA_BUILDTOOL_OPTS=--include_uni_core_data', '%s/runConfigureICU' % icu4cDir(), 'Linux'])
 
   os.chdir(original_working_dir)
 
@@ -130,7 +130,7 @@ def MakeAndCopyIcuDataFiles(icu_build_dir):
 
   # Regenerate the .dat file.
   os.chdir(icu_build_dir)
-  subprocess.check_call(['make', 'INCLUDE_UNI_CORE_DATA=1', '-j32'])
+  subprocess.check_call(['make', '-j32'])
 
   # Copy the .dat file to its ultimate destination.
   icu_dat_data_dir = '%s/stubdata' % icu4cDir()
@@ -172,7 +172,7 @@ def MakeAndCopyOverlayTzIcuData(icu_build_dir, dest_file):
 
   # Regenerate the .res files.
   os.chdir(icu_build_dir)
-  subprocess.check_call(['make', 'INCLUDE_UNI_CORE_DATA=1', '-j32'])
+  subprocess.check_call(['make', '-j32'])
 
   # The list of ICU resources needed for time zone data overlays.
   tz_res_names = [

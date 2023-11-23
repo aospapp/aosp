@@ -17,8 +17,7 @@
 #ifndef ANDROID_APEXD_APEXD_LOOP_H_
 #define ANDROID_APEXD_APEXD_LOOP_H_
 
-#include "status_or.h"
-
+#include <android-base/result.h>
 #include <android-base/unique_fd.h>
 
 #include <functional>
@@ -56,13 +55,13 @@ struct LoopbackDeviceUniqueFd {
   int get() { return device_fd.get(); }
 };
 
-Status configureReadAhead(const std::string& device_path);
+android::base::Result<void> configureReadAhead(const std::string& device_path);
 
-Status preAllocateLoopDevices(size_t num);
+android::base::Result<void> preAllocateLoopDevices(size_t num);
 
-StatusOr<LoopbackDeviceUniqueFd> createLoopDevice(const std::string& target,
-                                                  const int32_t imageOffset,
-                                                  const size_t imageSize);
+android::base::Result<LoopbackDeviceUniqueFd> createLoopDevice(
+    const std::string& target, const int32_t imageOffset,
+    const size_t imageSize);
 
 using DestroyLoopFn =
     std::function<void(const std::string&, const std::string&)>;

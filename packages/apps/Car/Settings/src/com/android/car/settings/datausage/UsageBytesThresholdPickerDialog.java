@@ -27,13 +27,12 @@ import android.widget.NumberPicker;
 
 import androidx.annotation.IntegerRes;
 import androidx.annotation.VisibleForTesting;
-import androidx.fragment.app.DialogFragment;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiDialogFragment;
 
 /** Dialog that is used to pick the data usage warning/limit threshold bytes. */
-public class UsageBytesThresholdPickerDialog extends DialogFragment implements
-        DialogInterface.OnClickListener {
+public class UsageBytesThresholdPickerDialog extends CarUiDialogFragment {
 
     /** Tag used to identify dialog in {@link androidx.fragment.app.FragmentManager}. */
     public static final String TAG = "UsageBytesThresholdPickerDialog";
@@ -112,6 +111,10 @@ public class UsageBytesThresholdPickerDialog extends DialogFragment implements
                 .setPositiveButton(R.string.usage_bytes_threshold_picker_positive_button,
                         /* onClickListener= */ this)
                 .create();
+    }
+
+    @Override
+    protected void onDialogClosed(boolean positiveResult) {
     }
 
     @Override

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -18,7 +18,6 @@ import sys
 
 import common
 from autotest_lib.frontend import database_settings_helper
-from autotest_lib.scheduler import email_manager
 from autotest_lib.server import utils
 
 # Format Appears as: [Date] [Time] - [Msg Level] - [Message]
@@ -72,11 +71,8 @@ def main():
         main_without_exception_handling()
     except Exception as e:
         message = 'Uncaught exception; terminating db_optimize.'
-        email_manager.manager.log_stacktrace(message)
         logging.exception(message)
         raise
-    finally:
-        email_manager.manager.send_queued_emails()
     logging.info('db_optimize completed.')
 
 

@@ -32,13 +32,16 @@ public class CallDetail {
     private final CharSequence mDisconnectCause;
     private final Uri mGatewayInfoOriginalAddress;
     private final long mConnectTimeMillis;
+    private final boolean mIsConference;
 
     private CallDetail(String number, CharSequence disconnectCause,
-                       Uri gatewayInfoOriginalAddress, long connectTimeMillis) {
+                       Uri gatewayInfoOriginalAddress, long connectTimeMillis,
+                       boolean isConference) {
         mNumber = number;
         mDisconnectCause = disconnectCause;
         mGatewayInfoOriginalAddress = gatewayInfoOriginalAddress;
         this.mConnectTimeMillis = connectTimeMillis;
+        mIsConference = isConference;
     }
 
     /**
@@ -46,7 +49,8 @@ public class CallDetail {
      */
     public static CallDetail fromTelecomCallDetail(@Nullable Call.Details callDetail) {
         return new CallDetail(getNumber(callDetail), getDisconnectCause(callDetail),
-                getGatewayInfoOriginalAddress(callDetail), getConnectTimeMillis(callDetail));
+                getGatewayInfoOriginalAddress(callDetail), getConnectTimeMillis(callDetail),
+                callDetail.hasProperty(Call.Details.PROPERTY_CONFERENCE));
     }
 
     /**
@@ -78,6 +82,13 @@ public class CallDetail {
      */
     public long getConnectTimeMillis() {
         return mConnectTimeMillis;
+    }
+
+    /**
+     * Returns whether the call is a conference.
+     */
+    public boolean isConference() {
+        return mIsConference;
     }
 
     private static String getNumber(Call.Details callDetail) {

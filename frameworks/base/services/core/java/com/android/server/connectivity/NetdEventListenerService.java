@@ -35,11 +35,11 @@ import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.SparseArray;
-import android.util.StatsLog;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.BitUtils;
+import com.android.internal.util.FrameworkStatsLog;
 import com.android.internal.util.RingBuffer;
 import com.android.internal.util.TokenBucket;
 import com.android.server.connectivity.metrics.nano.IpConnectivityLogClass.IpConnectivityEvent;
@@ -278,7 +278,7 @@ public class NetdEventListenerService extends INetdEventListener.Stub {
         addWakeupEvent(event);
 
         String dstMac = event.dstHwAddr.toString();
-        StatsLog.write(StatsLog.PACKET_WAKEUP_OCCURRED,
+        FrameworkStatsLog.write(FrameworkStatsLog.PACKET_WAKEUP_OCCURRED,
                 uid, iface, ethertype, dstMac, srcIp, dstIp, ipNextHeader, srcPort, dstPort);
     }
 
@@ -308,6 +308,11 @@ public class NetdEventListenerService extends INetdEventListener.Stub {
     @Override
     public int getInterfaceVersion() throws RemoteException {
         return this.VERSION;
+    }
+
+    @Override
+    public String getInterfaceHash() {
+        return this.HASH;
     }
 
     private void addWakeupEvent(WakeupEvent event) {
@@ -366,16 +371,21 @@ public class NetdEventListenerService extends INetdEventListener.Stub {
         }
     }
 
-    public synchronized void listAsProtos(PrintWriter pw) {
+    /**
+     * Convert events in the buffer to a list of IpConnectivityEvent protos
+     */
+    public synchronized List<IpConnectivityEvent> listAsProtos() {
+        List<IpConnectivityEvent> list = new ArrayList<>();
         for (int i = 0; i < mNetworkMetrics.size(); i++) {
-            pw.print(IpConnectivityEventBuilder.toProto(mNetworkMetrics.valueAt(i).connectMetrics));
+            list.add(IpConnectivityEventBuilder.toProto(mNetworkMetrics.valueAt(i).connectMetrics));
         }
         for (int i = 0; i < mNetworkMetrics.size(); i++) {
-            pw.print(IpConnectivityEventBuilder.toProto(mNetworkMetrics.valueAt(i).dnsMetrics));
+            list.add(IpConnectivityEventBuilder.toProto(mNetworkMetrics.valueAt(i).dnsMetrics));
         }
         for (int i = 0; i < mWakeupStats.size(); i++) {
-            pw.print(IpConnectivityEventBuilder.toProto(mWakeupStats.valueAt(i)));
+            list.add(IpConnectivityEventBuilder.toProto(mWakeupStats.valueAt(i)));
         }
+        return list;
     }
 
     private long getTransports(int netId) {

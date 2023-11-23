@@ -16,17 +16,15 @@
 
 import collections
 import ipaddress
-import logging
 import os
-import time
 
 from acts import logger
 from acts.controllers.ap_lib import ap_get_interface
+from acts.controllers.ap_lib import ap_iwconfig
 from acts.controllers.ap_lib import bridge_interface
 from acts.controllers.ap_lib import dhcp_config
 from acts.controllers.ap_lib import dhcp_server
 from acts.controllers.ap_lib import hostapd
-from acts.controllers.ap_lib import hostapd_config
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.utils_lib.commands import ip
 from acts.controllers.utils_lib.commands import route
@@ -108,15 +106,14 @@ class AccessPoint(object):
         ssh_settings: The ssh settings being used by the ssh connection.
         dhcp_settings: The dhcp server settings being used.
     """
-
     def __init__(self, configs):
         """
         Args:
             configs: configs for the access point from config file.
         """
         self.ssh_settings = settings.from_config(configs['ssh_config'])
-        self.log = logger.create_logger(lambda msg: '[Access Point|%s] %s' % (
-            self.ssh_settings.hostname, msg))
+        self.log = logger.create_logger(lambda msg: '[Access Point|%s] %s' %
+                                        (self.ssh_settings.hostname, msg))
 
         if 'ap_subnet' in configs:
             self._AP_2G_SUBNET_STR = configs['ap_subnet']['2g']
@@ -139,8 +136,11 @@ class AccessPoint(object):
         # A map from network interface name to _ApInstance objects representing
         # the hostapd instance running against the interface.
         self._aps = dict()
+        self._dhcp = None
+        self._dhcp_bss = dict()
         self.bridge = bridge_interface.BridgeInterface(self)
         self.interfaces = ap_get_interface.ApInterfaces(self)
+        self.iwconfig = ap_iwconfig.ApIwconfig(self)
 
         # Get needed interface names and initialize the unneccessary ones.
         self.wan = self.interfaces.get_wan_interface()
@@ -150,6 +150,7 @@ class AccessPoint(object):
         self.lan = self.interfaces.get_lan_interface()
         self.__initial_ap()
         self.scapy_install_path = None
+        self.setup_bridge = False
 
     def __initial_ap(self):
         """Initial AP interfaces.
@@ -179,7 +180,10 @@ class AccessPoint(object):
                 self.ssh.run(BRIDGE_DOWN)
                 self.ssh.run(BRIDGE_DEL)
 
-    def start_ap(self, hostapd_config, additional_parameters=None):
+    def start_ap(self,
+                 hostapd_config,
+                 setup_bridge=False,
+                 additional_parameters=None):
         """Starts as an ap using a set of configurations.
 
         This will start an ap on this host. To start an ap the controller
@@ -190,20 +194,21 @@ class AccessPoint(object):
 
         Args:
             hostapd_config: hostapd_config.HostapdConfig, The configurations
-                            to use when starting up the ap.
+                to use when starting up the ap.
+            setup_bridge: Whether to bridge the LAN interface WLAN interface.
+                Only one WLAN interface can be bridged with the LAN interface
+                and none of the guest networks can be bridged.
             additional_parameters: A dictionary of parameters that can sent
-                                   directly into the hostapd config file.  This
-                                   can be used for debugging and or adding one
-                                   off parameters into the config.
+                directly into the hostapd config file.  This can be used for
+                debugging and or adding one off parameters into the config.
 
         Returns:
-            An identifier for the ap being run. This identifier can be used
-            later by this controller to control the ap.
+            An identifier for each ssid being started. These identifiers can be
+            used later by this controller to control the ap.
 
         Raises:
             Error: When the ap can't be brought up.
         """
-
         if hostapd_config.frequency < 5000:
             interface = self.wlan_2g
             subnet = self._AP_2G_SUBNET
@@ -218,15 +223,17 @@ class AccessPoint(object):
 
         # For multi bssid configurations the mac address
         # of the wireless interface needs to have enough space to mask out
-        # up to 8 different mac addresses.  The easiest way to do this
-        # is to set the last byte to 0.  While technically this could
-        # cause a duplicate mac address it is unlikely and will allow for
-        # one radio to have up to 8 APs on the interface.
+        # up to 8 different mac addresses. So in for one interface the range is
+        # hex 0-7 and for the other the range is hex 8-f.
         interface_mac_orig = None
         cmd = "ifconfig %s|grep ether|awk -F' ' '{print $2}'" % interface
         interface_mac_orig = self.ssh.run(cmd)
-        hostapd_config.bssid = interface_mac_orig.stdout[:-1] + '0'
-
+        if interface == self.wlan_5g:
+            hostapd_config.bssid = interface_mac_orig.stdout[:-1] + '0'
+            last_octet = 1
+        if interface == self.wlan_2g:
+            hostapd_config.bssid = interface_mac_orig.stdout[:-1] + '8'
+            last_octet = 9
         if interface in self._aps:
             raise ValueError('No WiFi interface available for AP on '
                              'channel %d' % hostapd_config.channel)
@@ -236,12 +243,12 @@ class AccessPoint(object):
         self._aps[interface] = new_instance
 
         # Turn off the DHCP server, we're going to change its settings.
-        self._dhcp.stop()
+        self.stop_dhcp()
         # Clear all routes to prevent old routes from interfering.
         self._route_cmd.clear_routes(net_interface=interface)
 
         if hostapd_config.bss_lookup:
-            # The dhcp_bss dictionary is created to hold the key/value
+            # The self._dhcp_bss dictionary is created to hold the key/value
             # pair of the interface name and the ip scope that will be
             # used for the particular interface.  The a, b, c, d
             # variables below are the octets for the ip address.  The
@@ -249,23 +256,23 @@ class AccessPoint(object):
             # is requested.  This part is designed to bring up the
             # hostapd interfaces and not the DHCP servers for each
             # interface.
-            dhcp_bss = {}
+            self._dhcp_bss = dict()
             counter = 1
             for bss in hostapd_config.bss_lookup:
                 if interface_mac_orig:
-                    hostapd_config.bss_lookup[
-                        bss].bssid = interface_mac_orig.stdout[:-1] + str(
-                            counter)
+                    hostapd_config.bss_lookup[bss].bssid = (
+                        interface_mac_orig.stdout[:-1] + hex(last_octet)[-1:])
                 self._route_cmd.clear_routes(net_interface=str(bss))
                 if interface is self.wlan_2g:
                     starting_ip_range = self._AP_2G_SUBNET_STR
                 else:
                     starting_ip_range = self._AP_5G_SUBNET_STR
                 a, b, c, d = starting_ip_range.split('.')
-                dhcp_bss[bss] = dhcp_config.Subnet(
+                self._dhcp_bss[bss] = dhcp_config.Subnet(
                     ipaddress.ip_network('%s.%s.%s.%s' %
                                          (a, b, str(int(c) + counter), d)))
                 counter = counter + 1
+                last_octet = last_octet + 1
 
         apd.start(hostapd_config, additional_parameters=additional_parameters)
 
@@ -273,36 +280,125 @@ class AccessPoint(object):
         # the server will come up.
         interface_ip = ipaddress.ip_interface(
             '%s/%s' % (subnet.router, subnet.network.netmask))
-        self._ip_cmd.set_ipv4_address(interface, interface_ip)
+        if setup_bridge is True:
+            bridge_interface_name = 'br_lan'
+            self.create_bridge(bridge_interface_name, [interface, self.lan])
+            self._ip_cmd.set_ipv4_address(bridge_interface_name, interface_ip)
+        else:
+            self._ip_cmd.set_ipv4_address(interface, interface_ip)
         if hostapd_config.bss_lookup:
             # This loop goes through each interface that was setup for
             # hostapd and assigns the DHCP scopes that were defined but
             # not used during the hostapd loop above.  The k and v
             # variables represent the interface name, k, and dhcp info, v.
-            for k, v in dhcp_bss.items():
+            for k, v in self._dhcp_bss.items():
                 bss_interface_ip = ipaddress.ip_interface(
-                    '%s/%s' % (dhcp_bss[k].router,
-                               dhcp_bss[k].network.netmask))
+                    '%s/%s' % (self._dhcp_bss[k].router,
+                               self._dhcp_bss[k].network.netmask))
                 self._ip_cmd.set_ipv4_address(str(k), bss_interface_ip)
 
         # Restart the DHCP server with our updated list of subnets.
         configured_subnets = [x.subnet for x in self._aps.values()]
         if hostapd_config.bss_lookup:
-            for k, v in dhcp_bss.items():
+            for k, v in self._dhcp_bss.items():
                 configured_subnets.append(v)
 
-        self._dhcp.start(config=dhcp_config.DhcpConfig(configured_subnets))
+        self.start_dhcp(subnets=configured_subnets)
+        self.start_nat()
 
-        # The following three commands are needed to enable bridging between
+        bss_interfaces = [bss for bss in hostapd_config.bss_lookup]
+        bss_interfaces.append(interface)
+
+        return bss_interfaces
+
+    def start_dhcp(self, subnets):
+        """Start a DHCP server for the specified subnets.
+
+        This allows consumers of the access point objects to control DHCP.
+
+        Args:
+            subnets: A list of Subnets.
+        """
+        return self._dhcp.start(config=dhcp_config.DhcpConfig(subnets))
+
+    def stop_dhcp(self):
+        """Stop DHCP for this AP object.
+
+        This allows consumers of the access point objects to control DHCP.
+        """
+        return self._dhcp.stop()
+
+    def start_nat(self):
+        """Start NAT on the AP.
+
+        This allows consumers of the access point objects to enable NAT
+        on the AP.
+
+        Note that this is currently a global setting, since we don't
+        have per-interface masquerade rules.
+        """
+        # The following three commands are needed to enable NAT between
         # the WAN and LAN/WLAN ports.  This means anyone connecting to the
         # WLAN/LAN ports will be able to access the internet if the WAN port
         # is connected to the internet.
         self.ssh.run('iptables -t nat -F')
-        self.ssh.run(
-            'iptables -t nat -A POSTROUTING -o %s -j MASQUERADE' % self.wan)
+        self.ssh.run('iptables -t nat -A POSTROUTING -o %s -j MASQUERADE' %
+                     self.wan)
         self.ssh.run('echo 1 > /proc/sys/net/ipv4/ip_forward')
+        self.ssh.run('echo 1 > /proc/sys/net/ipv6/conf/all/forwarding')
 
-        return interface
+    def stop_nat(self):
+        """Stop NAT on the AP.
+
+        This allows consumers of the access point objects to disable NAT on the
+        AP.
+
+        Note that this is currently a global setting, since we don't have
+        per-interface masquerade rules.
+        """
+        self.ssh.run('iptables -t nat -F')
+        self.ssh.run('echo 0 > /proc/sys/net/ipv4/ip_forward')
+        self.ssh.run('echo 0 > /proc/sys/net/ipv6/conf/all/forwarding')
+
+    def create_bridge(self, bridge_name, interfaces):
+        """Create the specified bridge and bridge the specified interfaces.
+
+        Args:
+            bridge_name: The name of the bridge to create.
+            interfaces: A list of interfaces to add to the bridge.
+        """
+
+        # Create the bridge interface
+        self.ssh.run(
+            'brctl addbr {bridge_name}'.format(bridge_name=bridge_name))
+
+        for interface in interfaces:
+            self.ssh.run('brctl addif {bridge_name} {interface}'.format(
+                bridge_name=bridge_name, interface=interface))
+
+    def remove_bridge(self, bridge_name):
+        """Removes the specified bridge
+
+        Args:
+            bridge_name: The name of the bridge to remove.
+        """
+        # Check if the bridge exists.
+        #
+        # Cases where it may not are if we failed to initialize properly
+        #
+        # Or if we're doing 2.4Ghz and 5Ghz SSIDs and we've already torn
+        # down the bridge once, but we got called for each band.
+        result = self.ssh.run(
+            'brctl show {bridge_name}'.format(bridge_name=bridge_name),
+            ignore_status=True)
+
+        # If the bridge exists, we'll get an exit_status of 0, indicating
+        # success, so we can continue and remove the bridge.
+        if result.exit_status == 0:
+            self.ssh.run('ip link set {bridge_name} down'.format(
+                bridge_name=bridge_name))
+            self.ssh.run(
+                'brctl delbr {bridge_name}'.format(bridge_name=bridge_name))
 
     def get_bssid_from_ssid(self, ssid, band):
         """Gets the BSSID from a provided SSID
@@ -347,7 +443,7 @@ class AccessPoint(object):
         instance = self._aps.get(identifier)
 
         instance.hostapd.stop()
-        self._dhcp.stop()
+        self.stop_dhcp()
         self._ip_cmd.clear_ipv4_addresses(identifier)
 
         # DHCP server needs to refresh in order to tear down the subnet no
@@ -357,7 +453,14 @@ class AccessPoint(object):
         configured_subnets = [x.subnet for x in self._aps.values()]
         del self._aps[identifier]
         if configured_subnets:
-            self._dhcp.start(dhcp_config.DhcpConfig(configured_subnets))
+            self.start_dhcp(subnets=configured_subnets)
+        bridge_interfaces = self.interfaces.get_bridge_interface()
+        if bridge_interfaces:
+            for iface in bridge_interfaces:
+                BRIDGE_DOWN = 'ifconfig {} down'.format(iface)
+                BRIDGE_DEL = 'brctl delbr {}'.format(iface)
+                self.ssh.run(BRIDGE_DOWN)
+                self.ssh.run(BRIDGE_DEL)
 
     def stop_all_aps(self):
         """Stops all running aps on this device."""
@@ -365,7 +468,7 @@ class AccessPoint(object):
         for ap in list(self._aps.keys()):
             try:
                 self.stop_ap(ap)
-            except dhcp_server.NoInterfaceError as e:
+            except dhcp_server.NoInterfaceError:
                 pass
 
     def close(self):
@@ -398,7 +501,7 @@ class AccessPoint(object):
 
         iface_lan = self.lan
 
-        a, b, c, d = subnet_str.strip('/24').split('.')
+        a, b, c, _ = subnet_str.strip('/24').split('.')
         bridge_ip = "%s.%s.%s.%s" % (a, b, c, BRIDGE_IP_LAST)
 
         configs = (iface_wlan, iface_lan, bridge_ip)
@@ -417,10 +520,11 @@ class AccessPoint(object):
         self.ssh.send_file(scapy_path, self.scapy_install_path)
         self.ssh.send_file(send_ra_path, self.scapy_install_path)
 
-        scapy = os.path.join(self.scapy_install_path, scapy_path.split('/')[-1])
+        scapy = os.path.join(self.scapy_install_path,
+                             scapy_path.split('/')[-1])
 
-        untar_res = self.ssh.run(
-            'tar -xvf %s -C %s' % (scapy, self.scapy_install_path))
+        untar_res = self.ssh.run('tar -xvf %s -C %s' %
+                                 (scapy, self.scapy_install_path))
 
         instl_res = self.ssh.run(
             'cd %s; %s' % (self.scapy_install_path, SCAPY_INSTALL_COMMAND))
@@ -433,8 +537,13 @@ class AccessPoint(object):
             output = self.ssh.run(cmd)
             self.scapy_install_path = None
 
-    def send_ra(self, iface, mac=RA_MULTICAST_ADDR, interval=1, count=None,
-                lifetime=LIFETIME, rtt=0):
+    def send_ra(self,
+                iface,
+                mac=RA_MULTICAST_ADDR,
+                interval=1,
+                count=None,
+                lifetime=LIFETIME,
+                rtt=0):
         """Invoke scapy and send RA to the device.
 
         Args:

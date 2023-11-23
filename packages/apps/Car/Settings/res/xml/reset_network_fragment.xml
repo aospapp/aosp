@@ -18,13 +18,15 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/reset_network_title">
-    <Preference
+    android:title="@string/reset_network_title"
+    android:key="@string/psk_reset_network">
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_reset_network_items"
         android:selectable="false"
         android:title="@string/reset_network_desc"
         settings:controller="com.android.car.settings.system.ResetNetworkItemsPreferenceController"
-        settings:singleLineTitle="false"/>
+        settings:singleLineTitle="false"
+        settings:showChevron="false"/>
     <CheckBoxPreference
         android:key="@string/pk_reset_esim"
         android:summary="@string/reset_esim_desc"

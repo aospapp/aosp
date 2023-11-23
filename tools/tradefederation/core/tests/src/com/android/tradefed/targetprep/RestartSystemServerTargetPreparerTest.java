@@ -70,7 +70,7 @@ public class RestartSystemServerTargetPreparerTest {
                 .andReturn(null)
                 .once();
         mMockDevice.waitForDeviceAvailable();
-        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException());
+        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException("test", "serial"));
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
         mRestartSystemServerTargetPreparer.setUp(mMockDevice, mMockBuildInfo);

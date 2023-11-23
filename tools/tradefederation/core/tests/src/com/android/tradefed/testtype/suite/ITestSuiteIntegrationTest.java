@@ -27,6 +27,7 @@ import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
+import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -35,6 +36,7 @@ import com.android.tradefed.device.metric.IMetricCollectorReceiver;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.shard.StrictShardHelper;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileSystemLogSaver;
@@ -57,6 +59,7 @@ import com.android.tradefed.util.RunUtil;
 import org.easymock.EasyMock;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -98,6 +101,7 @@ public class ITestSuiteIntegrationTest {
     private ITestDevice mMockDevice;
     private IBuildInfo mMockBuildInfo;
     private SuiteResultReporter mListener;
+    private TestInformation mTestInfo;
     private IInvocationContext mContext;
     private IConfiguration mStubMainConfiguration;
     private ILogSaver mMockLogSaver;
@@ -145,6 +149,15 @@ public class ITestSuiteIntegrationTest {
                 config);
     }
 
+    @BeforeClass
+    public static void setUpClass() throws Exception {
+        try {
+            GlobalConfiguration.createGlobalConfiguration(new String[] {"empty"});
+        } catch (IllegalStateException e) {
+            // Ignore
+        }
+    }
+
     @Before
     public void setUp() throws IOException {
         mTestConfigFolder = FileUtil.createTempDir("suite-integration");
@@ -154,6 +167,7 @@ public class ITestSuiteIntegrationTest {
         mContext = new InvocationContext();
         mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
         mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(mContext).build();
 
         mMockLogSaver = EasyMock.createMock(ILogSaver.class);
         mStubMainConfiguration = new Configuration("stub", "stub");
@@ -226,7 +240,7 @@ public class ITestSuiteIntegrationTest {
         suite.setInvocationContext(mContext);
         suite.setConfiguration(mStubMainConfiguration);
         mListener.invocationStarted(mContext);
-        suite.run(mListener);
+        suite.run(mTestInfo, mListener);
         mListener.invocationEnded(System.currentTimeMillis());
         // check results
         assertEquals(2, mListener.getTotalModules());
@@ -267,7 +281,7 @@ public class ITestSuiteIntegrationTest {
             suite.setConfiguration(mStubMainConfiguration);
             // Fake invocation start
             mainInvocationForwarder.invocationStarted(mContext);
-            suite.run(mainInvocationForwarder);
+            suite.run(mTestInfo, mainInvocationForwarder);
             mainInvocationForwarder.invocationEnded(System.currentTimeMillis());
             // Fake invocation end
             // check results
@@ -322,7 +336,7 @@ public class ITestSuiteIntegrationTest {
         suite.setInvocationContext(mContext);
         suite.setConfiguration(mStubMainConfiguration);
         mListener.invocationStarted(mContext);
-        suite.run(mListener);
+        suite.run(mTestInfo, mListener);
         mListener.invocationEnded(System.currentTimeMillis());
         // check results
         assertEquals(2, mListener.getTotalModules());
@@ -350,7 +364,7 @@ public class ITestSuiteIntegrationTest {
         suite.setInvocationContext(mContext);
         suite.setConfiguration(mStubMainConfiguration);
         mListener.invocationStarted(mContext);
-        suite.run(mListener);
+        suite.run(mTestInfo, mListener);
         mListener.invocationEnded(System.currentTimeMillis());
         // check results
         assertEquals(2, mListener.getTotalModules());
@@ -378,7 +392,7 @@ public class ITestSuiteIntegrationTest {
         suite.setConfiguration(mStubMainConfiguration);
         mListener.invocationStarted(mContext);
         try {
-            suite.run(mListener);
+            suite.run(mTestInfo, mListener);
             fail("Should have thrown an exception");
         } catch (DeviceNotAvailableException expected) {
             // expected
@@ -410,8 +424,10 @@ public class ITestSuiteIntegrationTest {
                 if (test instanceof IMetricCollectorReceiver) {
                     ((IMetricCollectorReceiver) test).setMetricCollectors(new ArrayList<>());
                 }
+                TestInformation info =
+                        TestInformation.newBuilder().setInvocationContext(mContext).build();
                 try {
-                    test.run(new ResultForwarder(config.getTestInvocationListeners()));
+                    test.run(info, new ResultForwarder(config.getTestInvocationListeners()));
                 } catch (DeviceNotAvailableException e) {
                     throw new RuntimeException(e);
                 }
@@ -454,8 +470,13 @@ public class ITestSuiteIntegrationTest {
                                             ((IMetricCollectorReceiver) test)
                                                     .setMetricCollectors(new ArrayList<>());
                                         }
+                                        TestInformation info =
+                                                TestInformation.newBuilder()
+                                                        .setInvocationContext(mContext)
+                                                        .build();
                                         try {
                                             test.run(
+                                                    info,
                                                     new ResultForwarder(
                                                             config.getTestInvocationListeners()));
                                         } catch (DeviceNotAvailableException e) {
@@ -502,9 +523,11 @@ public class ITestSuiteIntegrationTest {
         mContext = new InvocationContext();
         mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
         mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockBuildInfo);
+        TestInformation testInfo =
+                TestInformation.newBuilder().setInvocationContext(mContext).build();
 
         StrictShardHelper helper = new StrictShardHelper();
-        helper.shardConfig(config, mContext, new TestShardRescheduler());
+        helper.shardConfig(config, testInfo, new TestShardRescheduler(), null);
 
         assertEquals(2, mListener.getTotalModules());
         assertEquals(2, mListener.getCompleteModules());
@@ -542,10 +565,12 @@ public class ITestSuiteIntegrationTest {
         mContext = new InvocationContext();
         mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
         mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockBuildInfo);
+        TestInformation testInfo =
+                TestInformation.newBuilder().setInvocationContext(mContext).build();
 
         StrictShardHelper helper = new StrictShardHelper();
         TestParallelShardRescheduler rescheduler = new TestParallelShardRescheduler();
-        helper.shardConfig(config, mContext, rescheduler);
+        helper.shardConfig(config, testInfo, rescheduler, null);
         // Wait until all results are received, we expect 2 modules.
         while (mListener.getTotalModules() < 2) {
             for (Thread t : rescheduler.mRunning) {
@@ -589,9 +614,10 @@ public class ITestSuiteIntegrationTest {
         mContext = new InvocationContext();
         mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
         mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(mContext).build();
 
         StrictShardHelper helper = new StrictShardHelper();
-        helper.shardConfig(config, mContext, null);
+        helper.shardConfig(config, mTestInfo, null, null);
         // rescheduler is not called, execution is in the same invocation.
         new ResultForwarder(config.getTestInvocationListeners()).invocationStarted(mContext);
         for (IRemoteTest test : config.getTests()) {
@@ -602,7 +628,7 @@ public class ITestSuiteIntegrationTest {
             if (test instanceof IInvocationContextReceiver) {
                 ((IInvocationContextReceiver) test).setInvocationContext(mContext);
             }
-            test.run(new ResultForwarder(config.getTestInvocationListeners()));
+            test.run(mTestInfo, new ResultForwarder(config.getTestInvocationListeners()));
         }
         new ResultForwarder(config.getTestInvocationListeners()).invocationEnded(500);
         // Only the first module is ran, which is passing.
@@ -668,9 +694,10 @@ public class ITestSuiteIntegrationTest {
         mContext = new InvocationContext();
         mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
         mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(mContext).build();
 
         StrictShardHelper helper = new StrictShardHelper();
-        helper.shardConfig(config, mContext, null);
+        helper.shardConfig(config, mTestInfo, null, null);
         // rescheduler is not called, execution is in the same invocation.
         new ResultForwarder(config.getTestInvocationListeners()).invocationStarted(mContext);
         for (IRemoteTest test : config.getTests()) {
@@ -681,7 +708,7 @@ public class ITestSuiteIntegrationTest {
             if (test instanceof IInvocationContextReceiver) {
                 ((IInvocationContextReceiver) test).setInvocationContext(mContext);
             }
-            test.run(new ResultForwarder(config.getTestInvocationListeners()));
+            test.run(mTestInfo, new ResultForwarder(config.getTestInvocationListeners()));
         }
         new ResultForwarder(config.getTestInvocationListeners()).invocationEnded(500);
     }

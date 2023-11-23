@@ -29,7 +29,9 @@
 
 static char		*tls_keypath = NULL;
 					/* Server cert keychain path */
-static int		tls_options = -1;/* Options for TLS connections */
+static int		tls_options = -1,/* Options for TLS connections */
+  tls_min_version = _HTTP_TLS_1_0,
+  tls_max_version = _HTTP_TLS_MAX;
 
 
 /*
@@ -309,9 +311,11 @@ _httpTLSRead(http_t *http,		/* I - Connection to server */
  */
 
 void
-_httpTLSSetOptions(int options)		/* I - Options */
+_httpTLSSetOptions(int options, int min_version, int max_version)		/* I - Options */
 {
   tls_options = options;
+  tls_min_version = min_version;
+  tls_max_version = max_version;
 }
 
 
@@ -349,8 +353,8 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
   }
 
   context = SSL_CTX_new(TLS_method());
-  if (tls_options & _HTTP_TLS_DENY_TLS10)
-    SSL_CTX_set_min_proto_version(context, TLS1_1_VERSION);
+  SSL_CTX_set_min_proto_version(context, tls_min_version);
+  SSL_CTX_set_max_proto_version(context, tls_max_version);
 
   bio = BIO_new(_httpBIOMethods());
   BIO_ctrl(bio, BIO_C_SET_FILE_PTR, 0, (char *)http);
@@ -439,6 +443,8 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
 
     if (error != 0)
     {
+      SSL_free(http->tls);
+      http->tls = NULL;
       http->error  = errno = EINVAL;
       http->status = HTTP_STATUS_ERROR;
       _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Client rejected the server certificate."), 1);

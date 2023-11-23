@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <memory>
 #include <string>
 
 #include "core/fxcrt/fx_memory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "testing/test_support.h"
 
 #ifdef PDF_ENABLE_V8
+#include "testing/v8_initializer.h"
 #include "v8/include/v8-platform.h"
 #include "v8/include/v8.h"
 #endif  // PDF_ENABLE_v8
@@ -20,7 +21,6 @@ const char* g_exe_path = nullptr;
 
 #ifdef PDF_ENABLE_V8
 #ifdef V8_USE_EXTERNAL_STARTUP_DATA
-v8::StartupData* g_v8_natives = nullptr;
 v8::StartupData* g_v8_snapshot = nullptr;
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA
 #endif  // PDF_ENABLE_V8
@@ -28,22 +28,21 @@ v8::StartupData* g_v8_snapshot = nullptr;
 // The loading time of the CFGAS_FontMgr is linear in the number of times it is
 // loaded. So, if a test suite has a lot of tests that need a font manager they
 // can end up executing very, very slowly.
-class Environment : public testing::Environment {
+class Environment final : public testing::Environment {
  public:
   void SetUp() override {
 #ifdef PDF_ENABLE_V8
 #ifdef V8_USE_EXTERNAL_STARTUP_DATA
-    if (g_v8_natives && g_v8_snapshot) {
-      InitializeV8ForPDFium(g_exe_path, std::string(), nullptr, nullptr,
-                            &platform_);
+    if (g_v8_snapshot) {
+      platform_ = InitializeV8ForPDFiumWithStartupData(g_exe_path,
+                                                       std::string(), nullptr);
     } else {
-      g_v8_natives = new v8::StartupData;
       g_v8_snapshot = new v8::StartupData;
-      InitializeV8ForPDFium(g_exe_path, std::string(), g_v8_natives,
-                            g_v8_snapshot, &platform_);
+      platform_ = InitializeV8ForPDFiumWithStartupData(
+          g_exe_path, std::string(), g_v8_snapshot);
     }
 #else
-    InitializeV8ForPDFium(g_exe_path, &platform_);
+    platform_ = InitializeV8ForPDFium(g_exe_path);
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA
 #endif  // FPDF_ENABLE_V8
   }
@@ -51,13 +50,12 @@ class Environment : public testing::Environment {
   void TearDown() override {
 #ifdef PDF_ENABLE_V8
     v8::V8::ShutdownPlatform();
-    delete platform_;
 #endif  // PDF_ENABLE_V8
   }
 
  private:
 #ifdef PDF_ENABLE_V8
-  v8::Platform* platform_;
+  std::unique_ptr<v8::Platform> platform_;
 #endif  // PDF_ENABLE_V8
 };
 
@@ -83,8 +81,6 @@ int main(int argc, char** argv) {
 
 #ifdef PDF_ENABLE_V8
 #ifdef V8_USE_EXTERNAL_STARTUP_DATA
-  if (g_v8_natives)
-    free(const_cast<char*>(g_v8_natives->data));
   if (g_v8_snapshot)
     free(const_cast<char*>(g_v8_snapshot->data));
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA

@@ -27,6 +27,7 @@ import android.car.projection.ProjectionOptions;
 import android.car.projection.ProjectionStatus;
 import android.car.projection.ProjectionStatus.ProjectionState;
 import android.content.Intent;
+import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiConfiguration;
 import android.os.Binder;
 import android.os.Bundle;
@@ -56,6 +57,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -69,7 +71,7 @@ import java.util.concurrent.Executor;
  * @hide
  */
 @SystemApi
-public final class CarProjectionManager implements CarManagerBase {
+public final class CarProjectionManager extends CarManagerBase {
     private static final String TAG = CarProjectionManager.class.getSimpleName();
 
     private final Binder mToken = new Binder();
@@ -194,7 +196,6 @@ public final class CarProjectionManager implements CarManagerBase {
     public static final int PROJECTION_AP_FAILED = 2;
 
     private final ICarProjection mService;
-    private final Handler mHandler;
     private final Executor mHandlerExecutor;
 
     @GuardedBy("mLock")
@@ -241,9 +242,10 @@ public final class CarProjectionManager implements CarManagerBase {
     /**
      * @hide
      */
-    public CarProjectionManager(IBinder service, Handler handler) {
+    public CarProjectionManager(Car car, IBinder service) {
+        super(car);
         mService = ICarProjection.Stub.asInterface(service);
-        mHandler = handler;
+        Handler handler = getEventHandler();
         mHandlerExecutor = handler::post;
     }
 
@@ -264,7 +266,7 @@ public final class CarProjectionManager implements CarManagerBase {
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     public void registerProjectionListener(@NonNull CarProjectionListener listener,
             int voiceSearchFilter) {
-        Preconditions.checkNotNull(listener, "listener cannot be null");
+        Objects.requireNonNull(listener, "listener cannot be null");
         synchronized (mLock) {
             if (mListener == null || mVoiceSearchFilter != voiceSearchFilter) {
                 addKeyEventHandler(
@@ -281,7 +283,7 @@ public final class CarProjectionManager implements CarManagerBase {
      * @hide
      */
     public void unregsiterProjectionListener() {
-       unregisterProjectionListener();
+        unregisterProjectionListener();
     }
 
     /**
@@ -448,7 +450,8 @@ public final class CarProjectionManager implements CarManagerBase {
                 mService.unregisterKeyEventHandler(mBinderHandler);
             }
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
+            return;
         }
 
         mHandledEvents = events;
@@ -461,12 +464,12 @@ public final class CarProjectionManager implements CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     public void registerProjectionRunner(@NonNull Intent serviceIntent) {
-        Preconditions.checkNotNull("serviceIntent cannot be null");
+        Objects.requireNonNull("serviceIntent cannot be null");
         synchronized (mLock) {
             try {
                 mService.registerProjectionRunner(serviceIntent);
             } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
+                handleRemoteExceptionFromCarService(e);
             }
         }
     }
@@ -478,12 +481,12 @@ public final class CarProjectionManager implements CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     public void unregisterProjectionRunner(@NonNull Intent serviceIntent) {
-        Preconditions.checkNotNull("serviceIntent cannot be null");
+        Objects.requireNonNull("serviceIntent cannot be null");
         synchronized (mLock) {
             try {
                 mService.unregisterProjectionRunner(serviceIntent);
             } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
+                handleRemoteExceptionFromCarService(e);
             }
         }
     }
@@ -505,16 +508,16 @@ public final class CarProjectionManager implements CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     public void startProjectionAccessPoint(@NonNull ProjectionAccessPointCallback callback) {
-        Preconditions.checkNotNull(callback, "callback cannot be null");
+        Objects.requireNonNull(callback, "callback cannot be null");
         synchronized (mLock) {
-            Looper looper = mHandler.getLooper();
+            Looper looper = getEventHandler().getLooper();
             ProjectionAccessPointCallbackProxy proxy =
                     new ProjectionAccessPointCallbackProxy(this, looper, callback);
             try {
                 mService.startProjectionAccessPoint(proxy.getMessenger(), mAccessPointProxyToken);
                 mProjectionAccessPointCallbackProxy = proxy;
             } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
+                handleRemoteExceptionFromCarService(e);
             }
         }
     }
@@ -535,7 +538,7 @@ public final class CarProjectionManager implements CarManagerBase {
             }
             return channelList;
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, Collections.emptyList());
         }
     }
 
@@ -556,7 +559,7 @@ public final class CarProjectionManager implements CarManagerBase {
         try {
             mService.stopProjectionAccessPoint(mAccessPointProxyToken);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -571,11 +574,11 @@ public final class CarProjectionManager implements CarManagerBase {
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     public boolean requestBluetoothProfileInhibit(
             @NonNull BluetoothDevice device, int profile) {
-        Preconditions.checkNotNull(device, "device cannot be null");
+        Objects.requireNonNull(device, "device cannot be null");
         try {
             return mService.requestBluetoothProfileInhibit(device, profile, mToken);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -589,11 +592,11 @@ public final class CarProjectionManager implements CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     public boolean releaseBluetoothProfileInhibit(@NonNull BluetoothDevice device, int profile) {
-        Preconditions.checkNotNull(device, "device cannot be null");
+        Objects.requireNonNull(device, "device cannot be null");
         try {
             return mService.releaseBluetoothProfileInhibit(device, profile, mToken);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, false);
         }
     }
 
@@ -607,11 +610,11 @@ public final class CarProjectionManager implements CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION)
     public void updateProjectionStatus(@NonNull ProjectionStatus status) {
-        Preconditions.checkNotNull(status, "status cannot be null");
+        Objects.requireNonNull(status, "status cannot be null");
         try {
             mService.updateProjectionStatus(status, mToken);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -625,7 +628,7 @@ public final class CarProjectionManager implements CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION_STATUS)
     public void registerProjectionStatusListener(@NonNull ProjectionStatusListener listener) {
-        Preconditions.checkNotNull(listener, "listener cannot be null");
+        Objects.requireNonNull(listener, "listener cannot be null");
         synchronized (mLock) {
             mProjectionStatusListeners.add(listener);
 
@@ -634,12 +637,12 @@ public final class CarProjectionManager implements CarManagerBase {
                 try {
                     mService.registerProjectionStatusListener(mCarProjectionStatusListener);
                 } catch (RemoteException e) {
-                    throw e.rethrowFromSystemServer();
+                    handleRemoteExceptionFromCarService(e);
                 }
             } else {
                 // Already subscribed to Car Service, immediately notify listener with the current
                 // projection status in the event handler thread.
-                mHandler.post(() ->
+                getEventHandler().post(() ->
                         listener.onProjectionStatusChanged(
                                 mCarProjectionStatusListener.mCurrentState,
                                 mCarProjectionStatusListener.mCurrentPackageName,
@@ -656,7 +659,7 @@ public final class CarProjectionManager implements CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_CAR_PROJECTION_STATUS)
     public void unregisterProjectionStatusListener(@NonNull ProjectionStatusListener listener) {
-        Preconditions.checkNotNull(listener, "listener cannot be null");
+        Objects.requireNonNull(listener, "listener cannot be null");
         synchronized (mLock) {
             if (!mProjectionStatusListeners.remove(listener)
                     || !mProjectionStatusListeners.isEmpty()) {
@@ -671,7 +674,7 @@ public final class CarProjectionManager implements CarManagerBase {
             mService.unregisterProjectionStatusListener(mCarProjectionStatusListener);
             mCarProjectionStatusListener = null;
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -695,7 +698,7 @@ public final class CarProjectionManager implements CarManagerBase {
         try {
             return mService.getProjectionOptions();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return handleRemoteExceptionFromCarService(e, Bundle.EMPTY);
         }
     }
 
@@ -708,8 +711,33 @@ public final class CarProjectionManager implements CarManagerBase {
         public static final int ERROR_INCOMPATIBLE_MODE = 3;
         public static final int ERROR_TETHERING_DISALLOWED = 4;
 
-        /** Called when access point started successfully. */
-        public void onStarted(WifiConfiguration wifiConfiguration) {}
+        /**
+         * Called when access point started successfully.
+         * <p>
+         * Note that AP detail may contain configuration which is cannot be represented
+         * by the legacy WifiConfiguration, in such cases a null will be returned.
+         * For example:
+         * <li> SoftAp band in {@link WifiConfiguration.apBand} only supports
+         * 2GHz, 5GHz, 2GHz+5GHz bands, so conversion is limited to these bands. </li>
+         * <li> SoftAp security type in {@link WifiConfiguration.KeyMgmt} only supports
+         * NONE, WPA2_PSK, so conversion is limited to these security type.</li>
+         *
+         * @param wifiConfiguration  the {@link WifiConfiguration} of the current hotspot.
+         * @deprecated This callback is deprecated. Use {@link #onStarted(SoftApConfiguration))}
+         * instead.
+         */
+        @Deprecated
+        public void onStarted(@Nullable WifiConfiguration wifiConfiguration) {}
+
+        /**
+         * Called when access point started successfully.
+         *
+         * @param softApConfiguration the {@link SoftApConfiguration} of the current hotspot.
+         */
+        public void onStarted(@NonNull SoftApConfiguration softApConfiguration) {
+            onStarted(softApConfiguration.toWifiConfiguration());
+        }
+
         /** Called when access point is stopped. No events will be sent after that. */
         public void onStopped() {}
         /** Called when access point failed to start. No events will be sent after that. */
@@ -744,7 +772,7 @@ public final class CarProjectionManager implements CarManagerBase {
 
                     switch (msg.what) {
                         case PROJECTION_AP_STARTED:
-                            WifiConfiguration config = (WifiConfiguration) msg.obj;
+                            SoftApConfiguration config = (SoftApConfiguration) msg.obj;
                             if (config == null) {
                                 Log.e(TAG, LOG_PREFIX + "config cannot be null.");
                                 callback.onFailed(ProjectionAccessPointCallback.ERROR_GENERIC);
@@ -838,7 +866,7 @@ public final class CarProjectionManager implements CarManagerBase {
                 List<ProjectionStatus> details) {
             CarProjectionManager mgr = mManagerRef.get();
             if (mgr != null) {
-                mgr.mHandler.post(() -> {
+                mgr.getEventHandler().post(() -> {
                     mCurrentState = projectionState;
                     mCurrentPackageName = packageName;
                     mDetails = Collections.unmodifiableList(details);

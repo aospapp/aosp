@@ -18,7 +18,6 @@ package com.android.stk;
 
 import com.android.internal.telephony.cat.CatLog;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.TelephonyProperties;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -32,7 +31,8 @@ import android.os.SystemProperties;
  */
 abstract class StkAppInstaller {
     private static final String STK_MAIN_ACTIVITY = "com.android.stk.StkMain";
-    private static final String LOG_TAG = "StkAppInstaller";
+    private static final String LOG_TAG =
+            new Object(){}.getClass().getEnclosingClass().getSimpleName();
 
     private StkAppInstaller() {
         CatLog.d(LOG_TAG, "init");

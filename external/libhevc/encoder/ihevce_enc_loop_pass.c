@@ -141,6 +141,8 @@ extern UWORD8 gau1_num_parts_in_part_type[MAX_PART_TYPES];
 /* Constant Macros                                                           */
 /*****************************************************************************/
 #define UPDATE_QP_AT_CTB 6
+#define INTRAPRED_SIMD_LEFT_PADDING 16
+#define INTRAPRED_SIMD_RIGHT_PADDING 8
 
 /*****************************************************************************/
 /* Function Definitions                                                      */
@@ -622,6 +624,11 @@ LWORD64 ihevce_cu_mode_decide(
                     ps_ctxt->i4_tile_col_idx, /* Col Tile No. */
                     ps_ctxt->thrd_id);
             }
+        }
+
+        if(ps_ctxt->i1_cu_qp_delta_enable)
+        {
+            ihevce_update_cu_level_qp_lamda(ps_ctxt, ps_cu_analyse, 4, 0);
         }
 
         s_prms.i4_ctb_nbr_map_stride = ps_ctxt->i4_nbr_map_strd;
@@ -1728,9 +1735,11 @@ void ihevce_enc_loop_process_row(
     WORD32 last_ctb_col_flag;
     WORD32 last_hz_ctb_wd;
     WORD32 last_vt_ctb_ht;
-    void *pv_dep_mngr_enc_loop_dblk;
-    void *pv_dep_mngr_enc_loop_cu_top_right;
+    void *pv_dep_mngr_enc_loop_dblk = ps_ctxt->pv_dep_mngr_enc_loop_dblk;
+    void *pv_dep_mngr_enc_loop_sao = ps_ctxt->pv_dep_mngr_enc_loop_sao;
+    void *pv_dep_mngr_enc_loop_cu_top_right = ps_ctxt->pv_dep_mngr_enc_loop_cu_top_right;
     WORD32 dblk_offset, dblk_check_dep_pos;
+    WORD32 sao_offset, sao_check_dep_pos;
     WORD32 aux_offset, aux_check_dep_pos;
     void *pv_dep_mngr_me_dep_encloop;
     ctb_enc_loop_out_t *ps_ctb_out_sao;
@@ -1746,10 +1755,6 @@ void ihevce_enc_loop_process_row(
     ps_ctxt->s_sao_ctxt_t.u4_num_ctbs_horz = ps_frm_ctb_prms->i4_num_ctbs_horz;
     ps_ctxt->s_sao_ctxt_t.u4_num_ctbs_vert = ps_frm_ctb_prms->i4_num_ctbs_vert;
 
-    /* Get the EncLoop Deblock Dep Mngr */
-    pv_dep_mngr_enc_loop_dblk = ps_ctxt->pv_dep_mngr_enc_loop_dblk;
-    /* Get the EncLoop Top-Right CU Dep Mngr */
-    pv_dep_mngr_enc_loop_cu_top_right = ps_ctxt->pv_dep_mngr_enc_loop_cu_top_right;
     /* Set Variables for Dep. Checking and Setting */
     aux_check_dep_pos = vert_ctr;
     aux_offset = 2; /* Should be there for 0th row also */
@@ -1763,6 +1768,19 @@ void ihevce_enc_loop_process_row(
         /* First row should run without waiting */
         dblk_check_dep_pos = 0;
         dblk_offset = -(ps_tile_params->i4_first_sample_x + 1);
+    }
+
+    /* Set sao_offset and sao_check_dep_pos */
+    if(vert_ctr > 1)
+    {
+        sao_check_dep_pos = vert_ctr - 2;
+        sao_offset = 2;
+    }
+    else
+    {
+        /* First row should run without waiting */
+        sao_check_dep_pos = 0;
+        sao_offset = -(ps_tile_params->i4_first_sample_x + 1);
     }
 
     /* check if the current row processed in last CTb row */
@@ -2037,11 +2055,6 @@ void ihevce_enc_loop_process_row(
             ps_ctb_ipe_analyse->nodes_created_in_cu_tree = 1;
             ps_ctxt->ps_enc_out_ctxt = &ps_ctxt->as_enc_cu_ctxt[0];
             ps_ctxt->pu1_ecd_data = pu1_row_ecd_data;
-            if(ps_ctxt->i4_use_ctb_level_lamda)
-            {
-                ihevce_compute_cu_level_QP(
-                    ps_ctxt, -1, ps_ctb_ipe_analyse->i4_64x64_act_factor[3][1], 0);
-            }
 
             s_cu_update_prms.ppu1_row_ecd_data = &pu1_row_ecd_data;
             s_cu_update_prms.pi4_last_cu_pos_in_ctb = &last_cu_pos_in_ctb;
@@ -2436,17 +2449,19 @@ void ihevce_enc_loop_process_row(
 
             if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
             {
-                /* Wait till top neighbour CTB has done it's deblocking*/
-                if(ctb_ctr < (ctb_end)-1)
+                /* for last ctb of a row check top instead of top right */
+                if(((ctb_ctr + 1) == ctb_end) && (vert_ctr > 0))
                 {
-                    ihevce_dmgr_chk_row_row_sync(
-                        pv_dep_mngr_enc_loop_dblk,
-                        ctb_ctr,
-                        dblk_offset,
-                        dblk_check_dep_pos,
-                        ps_ctxt->i4_tile_col_idx, /* Col Tile No. */
-                        ps_ctxt->thrd_id);
+                    dblk_offset = 1;
                 }
+                /* Wait till top neighbour CTB has done it's deblocking*/
+                ihevce_dmgr_chk_row_row_sync(
+                    pv_dep_mngr_enc_loop_dblk,
+                    ctb_ctr,
+                    dblk_offset,
+                    dblk_check_dep_pos,
+                    ps_ctxt->i4_tile_col_idx, /* Col Tile No. */
+                    ps_ctxt->thrd_id);
 
                 if((0 == ps_ctxt->i4_deblock_type))
                 {
@@ -2487,30 +2502,52 @@ void ihevce_enc_loop_process_row(
                         (ctb_size >> 3);  //one horizontal edge per 8x8 block
                     s_deblk_ctb_row_params.pi1_ctb_row_qp +=
                         (ctb_size >> 2);  //one qp per 4x4 block.
-
-                }  //end of if((0 == ps_ctxt->i4_deblock_type)
+                }
             }  // end of if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
 
-            /* Apply SAO over the previous CTB-row */
+            /* update the number of ctbs deblocked for this row */
+            ihevce_dmgr_set_row_row_sync(
+                pv_dep_mngr_enc_loop_dblk,
+                (ctb_ctr + 1),
+                vert_ctr,
+                ps_ctxt->i4_tile_col_idx /* Col Tile No. */);
+
+        }  //end of loop over CTBs in current CTB-row
+
+        /* Apply SAO over the previous CTB-row */
+        for(ctb_ctr = ctb_start; ctb_ctr < ctb_end; ctb_ctr++)
+        {
             if(ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_luma_flag ||
                ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_chroma_flag)
             {
                 sao_ctxt_t *ps_sao_ctxt = &ps_ctxt->s_sao_ctxt_t;
 
-                if((vert_ctr > ps_tile_params->i4_first_ctb_y) &&
-                   (ctb_ctr > ctb_start))  //if((vert_ctr > 0) && (ctb_ctr > 0))
+                if(vert_ctr > ps_tile_params->i4_first_ctb_y)
                 {
+                    /*For last ctb check top dep only*/
+                    if((vert_ctr > 1) && ((ctb_ctr + 1) == ctb_end))
+                    {
+                        sao_offset = 1;
+                    }
+
+                    ihevce_dmgr_chk_row_row_sync(
+                        pv_dep_mngr_enc_loop_sao,
+                        ctb_ctr,
+                        sao_offset,
+                        sao_check_dep_pos,
+                        ps_ctxt->i4_tile_col_idx, /* Col Tile No. */
+                        ps_ctxt->thrd_id);
+
                     /* Call the sao function to do sao for the current ctb*/
 
                     /* Register the curr ctb's x pos in sao context*/
-                    ps_sao_ctxt->i4_ctb_x = ctb_ctr - 1;
+                    ps_sao_ctxt->i4_ctb_x = ctb_ctr;
 
                     /* Register the curr ctb's y pos in sao context*/
                     ps_sao_ctxt->i4_ctb_y = vert_ctr - 1;
 
                     ps_ctb_out_sao = ps_sao_ctxt->ps_ctb_out +
-                                     (vert_ctr - 1) * ps_frm_ctb_prms->i4_num_ctbs_horz +
-                                     (ctb_ctr - 1);
+                                     (vert_ctr - 1) * ps_frm_ctb_prms->i4_num_ctbs_horz + ctb_ctr;
                     ps_sao_ctxt->ps_sao = &ps_ctb_out_sao->s_sao;
                     ps_sao_ctxt->i4_sao_blk_wd = ctb_size;
                     ps_sao_ctxt->i4_sao_blk_ht = ctb_size;
@@ -2518,6 +2555,14 @@ void ihevce_enc_loop_process_row(
                     ps_sao_ctxt->i4_is_last_ctb_row = 0;
                     ps_sao_ctxt->i4_is_last_ctb_col = 0;
 
+                    if((ctb_ctr + 1) == ctb_end)
+                    {
+                        ps_sao_ctxt->i4_is_last_ctb_col = 1;
+                        ps_sao_ctxt->i4_sao_blk_wd =
+                            ctb_size - ((ps_tile_params->i4_curr_tile_wd_in_ctb_unit * ctb_size) -
+                                        ps_tile_params->i4_curr_tile_width);
+                    }
+
                     /* Calculate the recon buf pointer and stride for teh current ctb */
                     ps_sao_ctxt->pu1_cur_luma_recon_buf =
                         ps_sao_ctxt->pu1_frm_luma_recon_buf +
@@ -2594,47 +2639,78 @@ void ihevce_enc_loop_process_row(
                                                      [ps_ctxt->i4_bitrate_instance_num]
                             ->u4_frame_rdopt_bits += u4_ctb_sao_bits;
                     }
-                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic &
-                       0x1) /** Subpel generation not done for non-ref picture **/
+                    /** Subpel generation not done for non-ref picture **/
+                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
                     {
-                        /* Padding and Subpel Plane Generation */
-                        ihevce_pad_interp_recon_ctb(
+                        /* Recon Padding */
+                        ihevce_recon_padding(
                             ps_pad_interp_recon,
-                            ctb_ctr - 1,
+                            ctb_ctr,
                             vert_ctr - 1,
-                            ps_ctxt->i4_quality_preset,
                             ps_frm_ctb_prms,
-                            ps_ctxt->ai2_scratch,
-                            ps_ctxt->i4_bitrate_instance_num,
                             ps_ctxt->ps_func_selector);
                     }
+                    /* update the number of SAO ctbs for this row */
+                    ihevce_dmgr_set_row_row_sync(
+                        pv_dep_mngr_enc_loop_sao,
+                        ctb_ctr + 1,
+                        vert_ctr - 1,
+                        ps_ctxt->i4_tile_col_idx /* Col Tile No. */);
                 }
+            }
+            else  //SAO Disabled
+            {
+                if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
+                {
+                    /* Recon Padding */
+                    ihevce_recon_padding(
+                        ps_pad_interp_recon,
+                        ctb_ctr,
+                        vert_ctr,
+                        ps_frm_ctb_prms,
+                        ps_ctxt->ps_func_selector);
+                }
+            }
+        }  // end of SAO for loop
 
-                /* Call the sao function again for the last ctb of the previous row*/
-                if(((ctb_ctr + 1) == (ctb_end)) &&
-                   (vert_ctr >
-                    ps_tile_params
-                        ->i4_first_ctb_y))  //( ((ctb_ctr+1) == ps_frm_ctb_prms->i4_num_ctbs_horz) && (vert_ctr > 0) )
+        /* Call the sao function again for the last ctb row of frame */
+        if(ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_luma_flag ||
+           ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_chroma_flag)
+        {
+            sao_ctxt_t *ps_sao_ctxt = &ps_ctxt->s_sao_ctxt_t;
+
+            if(vert_ctr ==
+               (ps_tile_params->i4_first_ctb_y + ps_tile_params->i4_curr_tile_ht_in_ctb_unit - 1))
+            {
+                for(ctb_ctr = ctb_start; ctb_ctr < ctb_end; ctb_ctr++)
                 {
                     /* Register the curr ctb's x pos in sao context*/
                     ps_ctxt->s_sao_ctxt_t.i4_ctb_x = ctb_ctr;
 
                     /* Register the curr ctb's y pos in sao context*/
-                    ps_ctxt->s_sao_ctxt_t.i4_ctb_y = vert_ctr - 1;
+                    ps_ctxt->s_sao_ctxt_t.i4_ctb_y = vert_ctr;
 
                     ps_ctb_out_sao = ps_ctxt->s_sao_ctxt_t.ps_ctb_out +
-                                     (vert_ctr - 1) * ps_frm_ctb_prms->i4_num_ctbs_horz + (ctb_ctr);
+                                     vert_ctr * ps_frm_ctb_prms->i4_num_ctbs_horz + ctb_ctr;
 
                     ps_ctxt->s_sao_ctxt_t.ps_sao = &ps_ctb_out_sao->s_sao;
 
-                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_wd =
-                        ctb_size - ((ps_tile_params->i4_curr_tile_wd_in_ctb_unit * ctb_size) -
-                                    ps_tile_params->i4_curr_tile_width);
+                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_wd = ps_ctxt->s_sao_ctxt_t.i4_ctb_size;
+                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_col = 0;
 
-                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_ht = ps_ctxt->s_sao_ctxt_t.i4_ctb_size;
+                    if((ctb_ctr + 1) == ctb_end)
+                    {
+                        ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_col = 1;
+                        ps_ctxt->s_sao_ctxt_t.i4_sao_blk_wd =
+                            ctb_size - ((ps_tile_params->i4_curr_tile_wd_in_ctb_unit * ctb_size) -
+                                        ps_tile_params->i4_curr_tile_width);
+                    }
 
-                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_row = 0;
-                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_col = 1;
+                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_ht =
+                        ctb_size - ((ps_tile_params->i4_curr_tile_ht_in_ctb_unit * ctb_size) -
+                                    ps_tile_params->i4_curr_tile_height);
+
+                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_row = 1;
 
                     /* Calculate the recon buf pointer and stride for teh current ctb */
                     ps_sao_ctxt->pu1_cur_luma_recon_buf =
@@ -2697,7 +2773,6 @@ void ihevce_enc_loop_process_row(
 
                     {
                         UWORD32 u4_ctb_sao_bits;
-
                         ihevce_sao_analyse(
                             &ps_ctxt->s_sao_ctxt_t,
                             ps_ctb_out_sao,
@@ -2712,8 +2787,31 @@ void ihevce_enc_loop_process_row(
                                                      [ps_ctxt->i4_bitrate_instance_num]
                             ->u4_frame_rdopt_bits += u4_ctb_sao_bits;
                     }
-                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic &
-                       0x1) /** Subpel generation not done for non-ref picture **/
+                    /** Subpel generation not done for non-ref picture **/
+                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
+                    {
+                        /* Recon Padding */
+                        ihevce_recon_padding(
+                            ps_pad_interp_recon,
+                            ctb_ctr,
+                            vert_ctr,
+                            ps_frm_ctb_prms,
+                            ps_ctxt->ps_func_selector);
+                    }
+                }
+            }  //end of loop over CTBs in current CTB-row
+        }
+
+        /* Subpel Plane Generation*/
+        for(ctb_ctr = ctb_start; ctb_ctr < ctb_end; ctb_ctr++)
+        {
+            if(ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_luma_flag ||
+               ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_chroma_flag)
+            {
+                if(0 != vert_ctr)
+                {
+                    /** Subpel generation not done for non-ref picture **/
+                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
                     {
                         /* Padding and Subpel Plane Generation */
                         ihevce_pad_interp_recon_ctb(
@@ -2728,9 +2826,9 @@ void ihevce_enc_loop_process_row(
                     }
                 }
             }
-            else  //SAO Disabled
-            {
-                if(1 == ps_ctxt->i4_deblk_pad_hpel_cur_pic)
+            else
+            {  // SAO Disabled
+                if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
                 {
                     /* Padding and Subpel Plane Generation */
                     ihevce_pad_interp_recon_ctb(
@@ -2744,14 +2842,8 @@ void ihevce_enc_loop_process_row(
                         ps_ctxt->ps_func_selector);
                 }
             }
+        }
 
-            /* update the number of ctbs deblocked for this row */
-            ihevce_dmgr_set_row_row_sync(
-                pv_dep_mngr_enc_loop_dblk,
-                (ctb_ctr + 1),
-                vert_ctr,
-                ps_ctxt->i4_tile_col_idx /* Col Tile No. */);
-        }  //end of loop over CTBs in current CTB-row
         {
             if(!ps_ctxt->i4_bitrate_instance_num)
             {
@@ -2793,235 +2885,18 @@ void ihevce_enc_loop_process_row(
             }
         }
 
-        /* Call the sao function again for the last ctb row of frame */
+        /*process last ctb row*/
         if(ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_luma_flag ||
            ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_chroma_flag)
         {
             sao_ctxt_t *ps_sao_ctxt = &ps_ctxt->s_sao_ctxt_t;
 
-            for(ctb_ctr = ctb_start; ctb_ctr < ctb_end; ctb_ctr++)
+            if(vert_ctr ==
+               (ps_tile_params->i4_first_ctb_y + ps_tile_params->i4_curr_tile_ht_in_ctb_unit - 1))
             {
-                if((vert_ctr == (ps_tile_params->i4_first_ctb_y +
-                                 ps_tile_params->i4_curr_tile_ht_in_ctb_unit - 1)) &&
-                   (ctb_ctr >
-                    ctb_start))  //((vert_ctr == (ps_frm_ctb_prms->i4_num_ctbs_vert - 1)) && (ctb_ctr > 0))
+                for(ctb_ctr = ctb_start; ctb_ctr < ctb_end; ctb_ctr++)
                 {
-                    /* Register the curr ctb's x pos in sao context*/
-                    ps_ctxt->s_sao_ctxt_t.i4_ctb_x = ctb_ctr - 1;
-
-                    /* Register the curr ctb's y pos in sao context*/
-                    ps_ctxt->s_sao_ctxt_t.i4_ctb_y = vert_ctr;
-
-                    ps_ctb_out_sao = ps_ctxt->s_sao_ctxt_t.ps_ctb_out +
-                                     (vert_ctr)*ps_frm_ctb_prms->i4_num_ctbs_horz + (ctb_ctr - 1);
-
-                    ps_ctxt->s_sao_ctxt_t.ps_sao = &ps_ctb_out_sao->s_sao;
-
-                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_wd = ps_ctxt->s_sao_ctxt_t.i4_ctb_size;
-                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_col = 0;
-
-                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_ht =
-                        ctb_size - ((ps_tile_params->i4_curr_tile_ht_in_ctb_unit * ctb_size) -
-                                    ps_tile_params->i4_curr_tile_height);
-
-                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_row = 1;
-
-                    /* Calculate the recon buf pointer and stride for teh current ctb */
-                    ps_sao_ctxt->pu1_cur_luma_recon_buf =
-                        ps_sao_ctxt->pu1_frm_luma_recon_buf +
-                        (ps_sao_ctxt->i4_frm_luma_recon_stride * ps_sao_ctxt->i4_ctb_y * ctb_size) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_luma_recon_stride = ps_sao_ctxt->i4_frm_luma_recon_stride;
-
-                    ps_sao_ctxt->pu1_cur_chroma_recon_buf =
-                        ps_sao_ctxt->pu1_frm_chroma_recon_buf +
-                        (ps_sao_ctxt->i4_frm_chroma_recon_stride * ps_sao_ctxt->i4_ctb_y *
-                         (ctb_size >> (ps_ctxt->u1_chroma_array_type == 1))) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_chroma_recon_stride =
-                        ps_sao_ctxt->i4_frm_chroma_recon_stride;
-
-                    ps_sao_ctxt->pu1_cur_luma_src_buf =
-                        ps_sao_ctxt->pu1_frm_luma_src_buf +
-                        (ps_sao_ctxt->i4_frm_luma_src_stride * ps_sao_ctxt->i4_ctb_y * ctb_size) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_luma_src_stride = ps_sao_ctxt->i4_frm_luma_src_stride;
-
-                    ps_sao_ctxt->pu1_cur_chroma_src_buf =
-                        ps_sao_ctxt->pu1_frm_chroma_src_buf +
-                        (ps_sao_ctxt->i4_frm_chroma_src_stride * ps_sao_ctxt->i4_ctb_y *
-                         (ctb_size >> (ps_ctxt->u1_chroma_array_type == 1))) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_chroma_src_stride = ps_sao_ctxt->i4_frm_chroma_src_stride;
-
-                    /* Calculate the pointer to buff to store the (x,y)th sao
-                    * for the top merge of (x,y+1)th ctb
-                    */
-                    ps_sao_ctxt->ps_top_ctb_sao =
-                        &ps_sao_ctxt->aps_frm_top_ctb_sao[ps_ctxt->i4_enc_frm_id]
-                                                         [ps_sao_ctxt->i4_ctb_x +
-                                                          (ps_sao_ctxt->i4_ctb_y) *
-                                                              ps_frm_ctb_prms->i4_num_ctbs_horz +
-                                                          (ps_ctxt->i4_bitrate_instance_num *
-                                                           ps_sao_ctxt->i4_num_ctb_units)];
-
-                    /* Calculate the pointer to buff to store the top pixels of curr ctb*/
-                    ps_sao_ctxt->pu1_curr_sao_src_top_luma =
-                        ps_sao_ctxt->apu1_sao_src_frm_top_luma[ps_ctxt->i4_enc_frm_id] +
-                        (ps_sao_ctxt->i4_ctb_y - 1) * ps_sao_ctxt->i4_frm_top_luma_buf_stride +
-                        ps_sao_ctxt->i4_ctb_x * ctb_size +
-                        ps_ctxt->i4_bitrate_instance_num * (ps_sao_ctxt->i4_top_luma_buf_size +
-                                                            ps_sao_ctxt->i4_top_chroma_buf_size);
-
-                    /* Calculate the pointer to buff to store the top pixels of curr ctb*/
-                    ps_sao_ctxt->pu1_curr_sao_src_top_chroma =
-                        ps_sao_ctxt->apu1_sao_src_frm_top_chroma[ps_ctxt->i4_enc_frm_id] +
-                        (ps_sao_ctxt->i4_ctb_y - 1) * ps_sao_ctxt->i4_frm_top_chroma_buf_stride +
-                        ps_sao_ctxt->i4_ctb_x * ctb_size +
-                        ps_ctxt->i4_bitrate_instance_num * (ps_sao_ctxt->i4_top_luma_buf_size +
-                                                            ps_sao_ctxt->i4_top_chroma_buf_size);
-
-                    {
-                        UWORD32 u4_ctb_sao_bits;
-                        ihevce_sao_analyse(
-                            &ps_ctxt->s_sao_ctxt_t,
-                            ps_ctb_out_sao,
-                            &u4_ctb_sao_bits,
-                            ps_tile_params);
-                        ps_ctxt
-                            ->aaps_enc_loop_rc_params[ps_ctxt->i4_enc_frm_id]
-                                                     [ps_ctxt->i4_bitrate_instance_num]
-                            ->u4_frame_rdopt_header_bits += u4_ctb_sao_bits;
-                        ps_ctxt
-                            ->aaps_enc_loop_rc_params[ps_ctxt->i4_enc_frm_id]
-                                                     [ps_ctxt->i4_bitrate_instance_num]
-                            ->u4_frame_rdopt_bits += u4_ctb_sao_bits;
-                    }
-                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic &
-                       0x1) /** Subpel generation not done for non-ref picture **/
-                    {
-                        /* Padding and Subpel Plane Generation */
-                        ihevce_pad_interp_recon_ctb(
-                            ps_pad_interp_recon,
-                            ctb_ctr - 1,
-                            vert_ctr,
-                            ps_ctxt->i4_quality_preset,
-                            ps_frm_ctb_prms,
-                            ps_ctxt->ai2_scratch,
-                            ps_ctxt->i4_bitrate_instance_num,
-                            ps_ctxt->ps_func_selector);
-                    }
-                }
-                /* Call the sao function again for the last ctb of the last ctb row of frame */
-                if((vert_ctr == (ps_tile_params->i4_first_ctb_y +
-                                 ps_tile_params->i4_curr_tile_ht_in_ctb_unit - 1)) &&
-                   ((ctb_ctr + 1) ==
-                    (ctb_end)))  //( ((ctb_ctr+1) == ps_frm_ctb_prms->i4_num_ctbs_horz))
-                {
-                    /* Register the curr ctb's x pos in sao context*/
-                    ps_ctxt->s_sao_ctxt_t.i4_ctb_x = ctb_ctr;
-
-                    /* Register the curr ctb's y pos in sao context*/
-                    ps_ctxt->s_sao_ctxt_t.i4_ctb_y = vert_ctr;
-
-                    ps_ctb_out_sao = ps_ctxt->s_sao_ctxt_t.ps_ctb_out +
-                                     (vert_ctr)*ps_frm_ctb_prms->i4_num_ctbs_horz + (ctb_ctr);
-
-                    ps_ctxt->s_sao_ctxt_t.ps_sao = &ps_ctb_out_sao->s_sao;
-
-                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_wd =
-                        ctb_size - ((ps_tile_params->i4_curr_tile_wd_in_ctb_unit * ctb_size) -
-                                    ps_tile_params->i4_curr_tile_width);
-
-                    ps_ctxt->s_sao_ctxt_t.i4_sao_blk_ht =
-                        ctb_size - ((ps_tile_params->i4_curr_tile_ht_in_ctb_unit * ctb_size) -
-                                    ps_tile_params->i4_curr_tile_height);
-
-                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_row = 1;
-                    ps_ctxt->s_sao_ctxt_t.i4_is_last_ctb_col = 1;
-
-                    /* Calculate the recon buf pointer and stride for teh current ctb */
-                    ps_sao_ctxt->pu1_cur_luma_recon_buf =
-                        ps_sao_ctxt->pu1_frm_luma_recon_buf +
-                        (ps_sao_ctxt->i4_frm_luma_recon_stride * ps_sao_ctxt->i4_ctb_y * ctb_size) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_luma_recon_stride = ps_sao_ctxt->i4_frm_luma_recon_stride;
-
-                    ps_sao_ctxt->pu1_cur_chroma_recon_buf =
-                        ps_sao_ctxt->pu1_frm_chroma_recon_buf +
-                        (ps_sao_ctxt->i4_frm_chroma_recon_stride * ps_sao_ctxt->i4_ctb_y *
-                         (ctb_size >> (ps_ctxt->u1_chroma_array_type == 1))) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_chroma_recon_stride =
-                        ps_sao_ctxt->i4_frm_chroma_recon_stride;
-
-                    ps_sao_ctxt->pu1_cur_luma_src_buf =
-                        ps_sao_ctxt->pu1_frm_luma_src_buf +
-                        (ps_sao_ctxt->i4_frm_luma_src_stride * ps_sao_ctxt->i4_ctb_y * ctb_size) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_luma_src_stride = ps_sao_ctxt->i4_frm_luma_src_stride;
-
-                    ps_sao_ctxt->pu1_cur_chroma_src_buf =
-                        ps_sao_ctxt->pu1_frm_chroma_src_buf +
-                        (ps_sao_ctxt->i4_frm_chroma_src_stride * ps_sao_ctxt->i4_ctb_y *
-                         (ctb_size >> (ps_ctxt->u1_chroma_array_type == 1))) +
-                        (ps_sao_ctxt->i4_ctb_x * ctb_size);
-
-                    ps_sao_ctxt->i4_cur_chroma_src_stride = ps_sao_ctxt->i4_frm_chroma_src_stride;
-
-                    /* Calculate the pointer to buff to store the (x,y)th sao
-                    * for the top merge of (x,y+1)th ctb
-                    */
-                    ps_sao_ctxt->ps_top_ctb_sao =
-                        &ps_sao_ctxt->aps_frm_top_ctb_sao[ps_ctxt->i4_enc_frm_id]
-                                                         [ps_sao_ctxt->i4_ctb_x +
-                                                          ps_sao_ctxt->i4_ctb_y *
-                                                              ps_frm_ctb_prms->i4_num_ctbs_horz +
-                                                          (ps_ctxt->i4_bitrate_instance_num *
-                                                           ps_sao_ctxt->i4_num_ctb_units)];
-
-                    /* Calculate the pointer to buff to store the top pixels of curr ctb*/
-                    ps_sao_ctxt->pu1_curr_sao_src_top_luma =
-                        ps_sao_ctxt->apu1_sao_src_frm_top_luma[ps_ctxt->i4_enc_frm_id] +
-                        (ps_sao_ctxt->i4_ctb_y - 1) * ps_sao_ctxt->i4_frm_top_luma_buf_stride +
-                        ps_sao_ctxt->i4_ctb_x * ctb_size +
-                        ps_ctxt->i4_bitrate_instance_num * (ps_sao_ctxt->i4_top_luma_buf_size +
-                                                            ps_sao_ctxt->i4_top_chroma_buf_size);
-
-                    /* Calculate the pointer to buff to store the top pixels of curr ctb*/
-                    ps_sao_ctxt->pu1_curr_sao_src_top_chroma =
-                        ps_sao_ctxt->apu1_sao_src_frm_top_chroma[ps_ctxt->i4_enc_frm_id] +
-                        (ps_sao_ctxt->i4_ctb_y - 1) * ps_sao_ctxt->i4_frm_top_chroma_buf_stride +
-                        ps_sao_ctxt->i4_ctb_x * ctb_size +
-                        ps_ctxt->i4_bitrate_instance_num * (ps_sao_ctxt->i4_top_luma_buf_size +
-                                                            ps_sao_ctxt->i4_top_chroma_buf_size);
-
-                    {
-                        UWORD32 u4_ctb_sao_bits;
-
-                        ihevce_sao_analyse(
-                            &ps_ctxt->s_sao_ctxt_t,
-                            ps_ctb_out_sao,
-                            &u4_ctb_sao_bits,
-                            ps_tile_params);
-                        ps_ctxt
-                            ->aaps_enc_loop_rc_params[ps_ctxt->i4_enc_frm_id]
-                                                     [ps_ctxt->i4_bitrate_instance_num]
-                            ->u4_frame_rdopt_header_bits += u4_ctb_sao_bits;
-                        ps_ctxt
-                            ->aaps_enc_loop_rc_params[ps_ctxt->i4_enc_frm_id]
-                                                     [ps_ctxt->i4_bitrate_instance_num]
-                            ->u4_frame_rdopt_bits += u4_ctb_sao_bits;
-                    }
-                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic &
-                       0x1) /** Subpel generation not done for non-ref picture **/
+                    if(ps_ctxt->i4_deblk_pad_hpel_cur_pic)
                     {
                         /* Padding and Subpel Plane Generation */
                         ihevce_pad_interp_recon_ctb(
@@ -3035,8 +2910,7 @@ void ihevce_enc_loop_process_row(
                             ps_ctxt->ps_func_selector);
                     }
                 }
-            }  //end of loop over CTBs in current CTB-row
-
+            }
             /* If SAO is on, then signal completion of the last CTB row of frame */
             {
                 if(vert_ctr == (ps_frm_ctb_prms->i4_num_ctbs_vert - 1))
@@ -3397,6 +3271,10 @@ void ihevce_enc_loop_process(
             ps_ctxt->pv_dep_mngr_enc_loop_dblk =
                 ps_master_ctxt
                     ->aapv_dep_mngr_enc_loop_dblk[ps_ctxt->i4_enc_frm_id][i4_bitrate_instance_num];
+            /* Get the EncLoop Sao Dep Mngr */
+            ps_ctxt->pv_dep_mngr_enc_loop_sao =
+                ps_master_ctxt
+                    ->aapv_dep_mngr_enc_loop_sao[ps_ctxt->i4_enc_frm_id][i4_bitrate_instance_num];
 
             ps_ctxt->pu1_curr_row_cabac_state = &ps_master_ctxt->au1_ctxt_models[vert_ctr][0];
 
@@ -3555,13 +3433,15 @@ WORD32
     WORD32 enc_loop_mem_recs = NUM_ENC_LOOP_MEM_RECS;
     WORD32 enc_loop_dblk_dep_mngr_mem_recs =
         i4_num_enc_loop_frm_pllel * i4_num_bitrate_inst * ihevce_dmgr_get_num_mem_recs();
+    WORD32 enc_loop_sao_dep_mngr_mem_recs =
+        i4_num_enc_loop_frm_pllel * i4_num_bitrate_inst * ihevce_dmgr_get_num_mem_recs();
     WORD32 enc_loop_cu_top_right_dep_mngr_mem_recs =
         i4_num_enc_loop_frm_pllel * i4_num_bitrate_inst * ihevce_dmgr_get_num_mem_recs();
     WORD32 enc_loop_aux_br_dep_mngr_mem_recs =
         i4_num_enc_loop_frm_pllel * (i4_num_bitrate_inst - 1) * ihevce_dmgr_get_num_mem_recs();
 
     return (
-        (enc_loop_mem_recs + enc_loop_dblk_dep_mngr_mem_recs +
+        (enc_loop_mem_recs + enc_loop_dblk_dep_mngr_mem_recs + enc_loop_sao_dep_mngr_mem_recs +
          enc_loop_cu_top_right_dep_mngr_mem_recs + enc_loop_aux_br_dep_mngr_mem_recs));
 }
 /*!
@@ -3853,8 +3733,12 @@ WORD32 ihevce_enc_loop_get_mem_recs(
     ps_mem_tab[ENC_LOOP_CHROMA_PRED_INTRA].i4_mem_alignment = 8;
 
     /* Memory required to store pred for reference substitution output */
+    /* While (MAX_TU_SIZE * 2 * 2) + 1 is the actual size needed,
+       allocate 16 bytes to the left and 7 bytes to the right to facilitate
+       SIMD access */
     ps_mem_tab[ENC_LOOP_REF_SUB_OUT].i4_mem_size =
-        i4_num_proc_thrds * ((MAX_TU_SIZE * 2 * 2) + 4) *
+        i4_num_proc_thrds * (((MAX_TU_SIZE * 2 * 2) + INTRAPRED_SIMD_RIGHT_PADDING)
+        + INTRAPRED_SIMD_LEFT_PADDING)*
         ((ps_init_prms->s_tgt_lyr_prms.i4_internal_bit_depth > 8) ? 2 : 1) * sizeof(UWORD8);
 
     ps_mem_tab[ENC_LOOP_REF_SUB_OUT].e_mem_type = (IV_MEM_TYPE_T)i4_mem_space;
@@ -3862,8 +3746,12 @@ WORD32 ihevce_enc_loop_get_mem_recs(
     ps_mem_tab[ENC_LOOP_REF_SUB_OUT].i4_mem_alignment = 8;
 
     /* Memory required to store pred for reference filtering output */
+    /* While (MAX_TU_SIZE * 2 * 2) + 1 is the actual size needed,
+       allocate 16 bytes to the left and 7 bytes to the right to facilitate
+       SIMD access */
     ps_mem_tab[ENC_LOOP_REF_FILT_OUT].i4_mem_size =
-        i4_num_proc_thrds * ((MAX_TU_SIZE * 2 * 2) + 4) *
+        i4_num_proc_thrds * (((MAX_TU_SIZE * 2 * 2) + INTRAPRED_SIMD_RIGHT_PADDING)
+        + INTRAPRED_SIMD_LEFT_PADDING)*
         ((ps_init_prms->s_tgt_lyr_prms.i4_internal_bit_depth > 8) ? 2 : 1) * sizeof(UWORD8);
 
     ps_mem_tab[ENC_LOOP_REF_FILT_OUT].e_mem_type = (IV_MEM_TYPE_T)i4_mem_space;
@@ -4274,7 +4162,7 @@ WORD32 ihevce_enc_loop_get_mem_recs(
     n_tabs = NUM_ENC_LOOP_MEM_RECS;
 
     /*************************************************************************/
-    /* --- EncLoop Deblock sync Dep Mngr Mem requests --                     */
+    /* --- EncLoop Deblock and SAO sync Dep Mngr Mem requests --                     */
     /*************************************************************************/
 
     /* Fill the memtabs for  EncLoop Deblock Dep Mngr */
@@ -4285,6 +4173,21 @@ WORD32 ihevce_enc_loop_get_mem_recs(
 
         ihevce_enc_loop_dblk_get_prms_dep_mngr(ht, &num_vert_units);
         ASSERT(num_vert_units > 0);
+        for(count = 0; count < i4_num_enc_loop_frm_pllel; count++)
+        {
+            for(ctr = 0; ctr < i4_num_bitrate_inst; ctr++)
+            {
+                n_tabs += ihevce_dmgr_get_mem_recs(
+                    &ps_mem_tab[n_tabs],
+                    DEP_MNGR_ROW_ROW_SYNC,
+                    num_vert_units,
+                    ps_init_prms->s_app_tile_params.i4_num_tile_cols,
+                    i4_num_proc_thrds,
+                    i4_mem_space);
+            }
+        }
+
+        /* Fill the memtabs for  EncLoop SAO Dep Mngr */
         for(count = 0; count < i4_num_enc_loop_frm_pllel; count++)
         {
             for(ctr = 0; ctr < i4_num_bitrate_inst; ctr++)
@@ -4777,22 +4680,24 @@ void *ihevce_enc_loop_init(
 
             /* Memory assignments for reference substitution output */
             {
-                WORD32 pred_buf_size = ((MAX_TU_SIZE * 2 * 2) + 4);
+                WORD32 pred_buf_size = ((MAX_TU_SIZE * 2 * 2) + INTRAPRED_SIMD_RIGHT_PADDING
+                                       + INTRAPRED_SIMD_LEFT_PADDING);
                 WORD32 pred_buf_size_per_thread = pred_buf_size;
                 UWORD8 *pu1_base = (UWORD8 *)ps_mem_tab[ENC_LOOP_REF_SUB_OUT].pv_base +
                                    (ctr * pred_buf_size_per_thread);
 
-                ps_ctxt->pv_ref_sub_out = pu1_base;
+                ps_ctxt->pv_ref_sub_out = pu1_base + INTRAPRED_SIMD_LEFT_PADDING;
             }
 
             /* Memory assignments for reference filtering output */
             {
-                WORD32 pred_buf_size = ((MAX_TU_SIZE * 2 * 2) + 4);
+                WORD32 pred_buf_size = ((MAX_TU_SIZE * 2 * 2) + INTRAPRED_SIMD_RIGHT_PADDING
+                                       + INTRAPRED_SIMD_LEFT_PADDING);
                 WORD32 pred_buf_size_per_thread = pred_buf_size;
                 UWORD8 *pu1_base = (UWORD8 *)ps_mem_tab[ENC_LOOP_REF_FILT_OUT].pv_base +
                                    (ctr * pred_buf_size_per_thread);
 
-                ps_ctxt->pv_ref_filt_out = pu1_base;
+                ps_ctxt->pv_ref_filt_out = pu1_base + INTRAPRED_SIMD_LEFT_PADDING;
             }
 
             /* Memory assignments for recon storage during CU Recursion */
@@ -5648,7 +5553,7 @@ void *ihevce_enc_loop_init(
     ps_master_ctxt->i4_num_bitrates = i4_num_bitrate_inst;
     ps_master_ctxt->i4_num_enc_loop_frm_pllel = i4_num_enc_loop_frm_pllel;
     /*************************************************************************/
-    /* --- EncLoop Deblock sync Dep Mngr Mem init --                         */
+    /* --- EncLoop Deblock and SAO sync Dep Mngr Mem init --                         */
     /*************************************************************************/
     {
         WORD32 count;
@@ -5666,6 +5571,25 @@ void *ihevce_enc_loop_init(
             for(i = 0; i < i4_num_bitrate_inst; i++)
             {
                 ps_master_ctxt->aapv_dep_mngr_enc_loop_dblk[count][i] = ihevce_dmgr_init(
+                    &ps_mem_tab[n_tabs],
+                    pv_osal_handle,
+                    DEP_MNGR_ROW_ROW_SYNC,
+                    num_vert_units,
+                    num_blks_in_row,
+                    i4_num_tile_cols, /* Number of Col Tiles */
+                    i4_num_proc_thrds,
+                    0 /*Sem Disabled*/
+                );
+
+                n_tabs += ihevce_dmgr_get_num_mem_recs();
+            }
+        }
+
+        for(count = 0; count < i4_num_enc_loop_frm_pllel; count++)
+        {
+            for(i = 0; i < i4_num_bitrate_inst; i++)
+            {
+                ps_master_ctxt->aapv_dep_mngr_enc_loop_sao[count][i] = ihevce_dmgr_init(
                     &ps_mem_tab[n_tabs],
                     pv_osal_handle,
                     DEP_MNGR_ROW_ROW_SYNC,
@@ -5770,7 +5694,7 @@ void ihevce_enc_loop_reg_sem_hdls(
     ps_master_ctxt = (ihevce_enc_loop_master_ctxt_t *)pv_enc_loop_ctxt;
 
     /*************************************************************************/
-    /* --- EncLoop Deblock sync Dep Mngr reg Semaphores --                   */
+    /* --- EncLoop Deblock and SAO sync Dep Mngr reg Semaphores --                   */
     /*************************************************************************/
     for(enc_frm_id = 0; enc_frm_id < ps_master_ctxt->i4_num_enc_loop_frm_pllel; enc_frm_id++)
     {
@@ -5778,6 +5702,17 @@ void ihevce_enc_loop_reg_sem_hdls(
         {
             ihevce_dmgr_reg_sem_hdls(
                 ps_master_ctxt->aapv_dep_mngr_enc_loop_dblk[enc_frm_id][i],
+                ppv_sem_hdls,
+                i4_num_proc_thrds);
+        }
+    }
+
+    for(enc_frm_id = 0; enc_frm_id < ps_master_ctxt->i4_num_enc_loop_frm_pllel; enc_frm_id++)
+    {
+        for(i = 0; i < ps_master_ctxt->i4_num_bitrates; i++)
+        {
+            ihevce_dmgr_reg_sem_hdls(
+                ps_master_ctxt->aapv_dep_mngr_enc_loop_sao[enc_frm_id][i],
                 ppv_sem_hdls,
                 i4_num_proc_thrds);
         }
@@ -5832,6 +5767,8 @@ void ihevce_enc_loop_delete(void *pv_enc_loop_ctxt)
         {
             /* --- EncLoop Deblock sync Dep Mngr Delete --*/
             ihevce_dmgr_del(ps_enc_loop_ctxt->aapv_dep_mngr_enc_loop_dblk[enc_frm_id][ctr]);
+            /* --- EncLoop Sao sync Dep Mngr Delete --*/
+            ihevce_dmgr_del(ps_enc_loop_ctxt->aapv_dep_mngr_enc_loop_sao[enc_frm_id][ctr]);
             /* --- EncLoop Top-Right CU sync Dep Mngr Delete --*/
             ihevce_dmgr_del(ps_enc_loop_ctxt->aapv_dep_mngr_enc_loop_cu_top_right[enc_frm_id][ctr]);
         }
@@ -5876,6 +5813,9 @@ void ihevce_enc_loop_dep_mngr_frame_reset(void *pv_enc_loop_ctxt, WORD32 enc_frm
     {
         /* Dep. Mngr : Reset the num ctb Deblocked in every row  for ENC sync */
         ihevce_dmgr_rst_row_row_sync(ps_master_ctxt->aapv_dep_mngr_enc_loop_dblk[frame_id][ctr]);
+
+        /* Dep. Mngr : Reset the num SAO ctb in every row  for ENC sync */
+        ihevce_dmgr_rst_row_row_sync(ps_master_ctxt->aapv_dep_mngr_enc_loop_sao[frame_id][ctr]);
 
         /* Dep. Mngr : Reset the TopRight CU Processed in every row  for ENC sync */
         ihevce_dmgr_rst_row_row_sync(

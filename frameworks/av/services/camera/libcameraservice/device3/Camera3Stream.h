@@ -167,6 +167,9 @@ class Camera3Stream :
     android_dataspace getOriginalDataSpace() const;
     const String8&    physicalCameraId() const;
 
+    void              setOfflineProcessingSupport(bool) override;
+    bool              getOfflineProcessingSupport() const override;
+
     camera3_stream*   asHalStream() override {
         return this;
     }
@@ -588,10 +591,12 @@ class Camera3Stream :
 
     //Keep track of original dataSpace in case it gets overridden
     bool mDataSpaceOverridden;
-    android_dataspace mOriginalDataSpace;
+    const android_dataspace mOriginalDataSpace;
 
     String8 mPhysicalCameraId;
     nsecs_t mLastTimestamp;
+
+    bool mSupportOfflineProcessing = false;
 }; // class Camera3Stream
 
 }; // namespace camera3

@@ -17,7 +17,7 @@
 static pthread_mutex_t malloc_disabled_lock = PTHREAD_MUTEX_INITIALIZER;
 static bool malloc_disabled_tcache;
 
-int je_iterate(uintptr_t base, size_t size,
+int je_malloc_iterate(uintptr_t base, size_t size,
     void (*callback)(uintptr_t ptr, size_t size, void* arg), void* arg) {
   size_t pagesize = getpagesize();
   tsd_t* tsd = tsd_fetch_min();

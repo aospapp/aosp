@@ -17,6 +17,7 @@
 #include "Location.h"
 
 #include <android-base/logging.h>
+#include <tuple>
 
 namespace android {
 
@@ -40,11 +41,7 @@ bool Position::inSameFile(const Position& lhs, const Position& rhs) {
 }
 
 bool Position::operator<(const Position& pos) const {
-    CHECK(inSameFile(*this, pos)) << "Cannot compare positions in different files";
-    if (mLine == pos.mLine) {
-        return mColumn < pos.mColumn;
-    }
-    return mLine < pos.mLine;
+    return std::tie(mFilename, mLine, mColumn) < std::tie(pos.mFilename, pos.mLine, pos.mColumn);
 }
 
 std::ostream& operator<<(std::ostream& ostr, const Position& pos) {
@@ -91,9 +88,7 @@ bool Location::intersect(const Location& lhs, const Location& rhs) {
 }
 
 bool Location::operator<(const Location& loc) const {
-    CHECK(inSameFile(*this, loc)) << "Cannot compare locations in different files";
-    CHECK(!intersect(*this, loc));
-    return mEnd < loc.mBegin;
+    return std::tie(mBegin, mEnd) < std::tie(loc.mBegin, loc.mEnd);
 }
 
 std::ostream& operator<<(std::ostream& ostr, const Location& loc) {

@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "Regex.h"
+#include "parse_string.h"
 
 namespace android {
 namespace vintf {
@@ -33,16 +34,21 @@ MatrixInstance& MatrixInstance::operator=(const MatrixInstance&) = default;
 
 MatrixInstance& MatrixInstance::operator=(MatrixInstance&&) noexcept = default;
 
-MatrixInstance::MatrixInstance(FqInstance&& fqInstance, VersionRange&& range, bool optional,
-                               bool isRegex)
-    : mFqInstance(std::move(fqInstance)),
+MatrixInstance::MatrixInstance(HalFormat format, FqInstance&& fqInstance, VersionRange&& range,
+                               bool optional, bool isRegex)
+    : mFormat(format),
+      mFqInstance(std::move(fqInstance)),
       mRange(std::move(range)),
       mOptional(optional),
       mIsRegex(isRegex) {}
 
-MatrixInstance::MatrixInstance(const FqInstance fqInstance, const VersionRange& range,
-                               bool optional, bool isRegex)
-    : mFqInstance(fqInstance), mRange(range), mOptional(optional), mIsRegex(isRegex) {}
+MatrixInstance::MatrixInstance(HalFormat format, const FqInstance fqInstance,
+                               const VersionRange& range, bool optional, bool isRegex)
+    : mFormat(format),
+      mFqInstance(fqInstance),
+      mRange(range),
+      mOptional(optional),
+      mIsRegex(isRegex) {}
 
 const std::string& MatrixInstance::package() const {
     return mFqInstance.getPackage();
@@ -54,6 +60,10 @@ const VersionRange& MatrixInstance::versionRange() const {
 
 const std::string& MatrixInstance::interface() const {
     return mFqInstance.getInterface();
+}
+
+HalFormat MatrixInstance::format() const {
+    return mFormat;
 }
 
 bool MatrixInstance::optional() const {
@@ -89,6 +99,33 @@ const std::string& MatrixInstance::exactInstance() const {
 
 bool MatrixInstance::isRegex() const {
     return mIsRegex;
+}
+
+std::string MatrixInstance::interfaceDescription(Version replaceVersion) const {
+    switch (format()) {
+        case HalFormat::HIDL:
+            [[fallthrough]];
+        case HalFormat::NATIVE: {
+            return toFQNameString(package(), replaceVersion, interface());
+        } break;
+        case HalFormat::AIDL: {
+            return toAidlFqnameString(package(), interface());
+        } break;
+    }
+}
+
+std::string MatrixInstance::description(Version replaceVersion) const {
+    std::string instanceDescription = isRegex() ? regexPattern() : exactInstance();
+    switch (format()) {
+        case HalFormat::HIDL:
+            [[fallthrough]];
+        case HalFormat::NATIVE: {
+            return toFQNameString(package(), replaceVersion, interface(), instanceDescription);
+        } break;
+        case HalFormat::AIDL: {
+            return toAidlFqnameString(package(), interface(), instanceDescription);
+        } break;
+    }
 }
 
 }  // namespace vintf

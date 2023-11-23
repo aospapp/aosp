@@ -43,6 +43,7 @@ private:
     NetworkController* const mNetworkController;
     EventReporter* mEventReporter;
     TrafficController* mTrafficCtrl;
+    bool mRedirectSocketCalls;
 };
 
 }  // namespace net

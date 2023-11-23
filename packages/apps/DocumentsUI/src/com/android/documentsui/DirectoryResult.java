@@ -17,13 +17,11 @@
 package com.android.documentsui;
 
 import android.content.ContentProviderClient;
-import android.content.ContentResolver;
 import android.database.Cursor;
+import android.os.FileUtils;
 
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.DocumentInfo;
-
-import android.os.FileUtils;
 
 public class DirectoryResult implements AutoCloseable {
 
@@ -38,6 +36,7 @@ public class DirectoryResult implements AutoCloseable {
         if (client != null && doc.isInArchive()) {
             ArchivesProvider.releaseArchive(client, doc.derivedUri);
         }
+        FileUtils.closeQuietly(client);
         cursor = null;
         client = null;
         doc = null;

@@ -40,12 +40,11 @@ import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.Settings;
 import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 import com.android.settingslib.utils.ThreadUtils;
 
@@ -77,12 +76,12 @@ public final class PhysicalKeyboardFragment extends SettingsPreferenceFragment
 
     @Override
     public void onCreatePreferences(Bundle bundle, String s) {
-        Activity activity = Preconditions.checkNotNull(getActivity());
+        Activity activity = Objects.requireNonNull(getActivity());
         addPreferencesFromResource(R.xml.physical_keyboard_settings);
-        mIm = Preconditions.checkNotNull(activity.getSystemService(InputManager.class));
-        mKeyboardAssistanceCategory = Preconditions.checkNotNull(
+        mIm = Objects.requireNonNull(activity.getSystemService(InputManager.class));
+        mKeyboardAssistanceCategory = Objects.requireNonNull(
                 (PreferenceCategory) findPreference(KEYBOARD_ASSISTANCE_CATEGORY));
-        mShowVirtualKeyboardSwitch = Preconditions.checkNotNull(
+        mShowVirtualKeyboardSwitch = Objects.requireNonNull(
                 (SwitchPreference) mKeyboardAssistanceCategory.findPreference(
                         SHOW_VIRTUAL_KEYBOARD_SWITCH));
         findPreference(KEYBOARD_SHORTCUTS_HELPER).setOnPreferenceClickListener(

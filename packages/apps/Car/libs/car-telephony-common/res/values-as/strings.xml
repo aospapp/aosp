@@ -21,8 +21,8 @@
     <string name="phone_label_with_info" msgid="4652109530699808645">"<xliff:g id="LABEL">%1$s</xliff:g>  ·  <xliff:g id="DURATION">%2$s</xliff:g>"</string>
     <string name="call_state_connecting" msgid="5930724746375294866">"সংযোগ কৰি থকা হৈছে…"</string>
     <string name="call_state_dialing" msgid="1534599871716648114">"ডায়েল কৰি থকা হৈছে…"</string>
-    <string name="call_state_hold" msgid="6834028102796624100">"হ’ল্ডত আছে"</string>
-    <string name="call_state_call_ended" msgid="4159349597599886429">"কল শেষ হৈছে"</string>
+    <string name="call_state_hold" msgid="8063542005458186874">"হ’ল্ডত আছে"</string>
+    <string name="call_state_call_ended" msgid="1432127342949555464">"কলটো সমাপ্ত হ’ল"</string>
     <string name="call_state_call_active" msgid="2769644783657864202">"সংযোগ কৰা হ’ল"</string>
     <string name="call_state_call_ringing" msgid="4618803402954375017">"ৰিং কৰি আছে…"</string>
     <string name="call_state_call_ending" msgid="5037498349965472247">"সংযোগ ছেদ হৈ আছে…"</string>

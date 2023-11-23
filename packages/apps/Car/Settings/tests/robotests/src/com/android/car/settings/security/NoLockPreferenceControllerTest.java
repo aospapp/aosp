@@ -21,46 +21,43 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import android.car.userlib.CarUserManagerHelper;
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
+import android.os.UserHandle;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
+import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowLockPatternUtils;
+import com.android.internal.widget.LockscreenCredential;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowLockPatternUtils.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowLockPatternUtils.class})
 public class NoLockPreferenceControllerTest {
 
-    private static final byte[] TEST_CURRENT_PASSWORD = "test_password".getBytes();
-    private static final int TEST_USER = 10;
+    private static final LockscreenCredential TEST_CURRENT_PASSWORD =
+            LockscreenCredential.createPassword("test_password");
 
     private Context mContext;
     private PreferenceControllerTestHelper<NoLockPreferenceController> mPreferenceControllerHelper;
     private NoLockPreferenceController mController;
     private Preference mPreference;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
         mContext = RuntimeEnvironment.application;
         mPreference = new Preference(mContext);
         mPreferenceControllerHelper = new PreferenceControllerTestHelper<>(mContext,
@@ -71,7 +68,6 @@ public class NoLockPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowLockPatternUtils.reset();
     }
 
@@ -81,27 +77,41 @@ public class NoLockPreferenceControllerTest {
     }
 
     @Test
-    public void testHandlePreferenceClicked_goesToNextFragment() {
+    public void testHandlePreferenceClicked_ifNotSelectedAsLock_goesToNextFragment() {
+        mController.setCurrentPasswordQuality(DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
+
         mPreference.performClick();
+
         verify(mPreferenceControllerHelper.getMockFragmentController()).showDialog(
-                any(ConfirmRemoveScreenLockDialog.class), anyString());
+                any(ConfirmationDialogFragment.class), anyString());
+    }
+
+    @Test
+    public void testHandlePreferenceClicked_ifSelectedAsLock_goesBack() {
+        mController.setCurrentPasswordQuality(DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED);
+
+        mPreference.performClick();
+
+        verify(mPreferenceControllerHelper.getMockFragmentController()).goBack();
     }
 
     @Test
     public void testConfirmRemoveScreenLockListener_removesLock() {
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(TEST_USER);
         mController.setCurrentPassword(TEST_CURRENT_PASSWORD);
-        mController.mRemoveLockListener.onConfirmRemoveScreenLock();
+
+        mController.mConfirmListener.onConfirm(/* arguments= */ null);
+
         assertThat(ShadowLockPatternUtils.getClearLockCredential()).isEqualTo(
                 TEST_CURRENT_PASSWORD);
-        assertThat(ShadowLockPatternUtils.getClearLockUser()).isEqualTo(TEST_USER);
+        assertThat(ShadowLockPatternUtils.getClearLockUser()).isEqualTo(UserHandle.myUserId());
     }
 
     @Test
     public void testConfirmRemoveScreenLockListener_goesBack() {
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(TEST_USER);
         mController.setCurrentPassword(TEST_CURRENT_PASSWORD);
-        mController.mRemoveLockListener.onConfirmRemoveScreenLock();
+
+        mController.mConfirmListener.onConfirm(/* arguments= */ null);
+
         verify(mPreferenceControllerHelper.getMockFragmentController()).goBack();
     }
 }

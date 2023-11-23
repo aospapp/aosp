@@ -47,6 +47,7 @@ public class StackEvent {
     public static final int EVENT_TYPE_SUBSCRIBER_INFO = 18;
     public static final int EVENT_TYPE_IN_BAND_RINGTONE = 19;
     public static final int EVENT_TYPE_RING_INDICATION = 21;
+    public static final int EVENT_TYPE_UNKNOWN_EVENT = 22;
 
     public int type = EVENT_TYPE_NONE;
     public int valueInt = 0;

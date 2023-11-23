@@ -31,11 +31,14 @@
 #define STANDALONE_SCAFFOLDING_H
 
 #include <assert.h>
-#include "main/mtypes.h"
+#include "main/menums.h"
 #include "program/prog_statevars.h"
 
 extern "C" void
 _mesa_warning(struct gl_context *ctx, const char *fmtString, ... );
+
+extern "C" void
+_mesa_problem(struct gl_context *ctx, const char *fmtString, ... );
 
 extern "C" void
 _mesa_reference_shader_program_data(struct gl_context *ctx,
@@ -69,11 +72,11 @@ _mesa_shader_debug(struct gl_context *ctx, GLenum type, GLuint *id,
                    const char *msg);
 
 extern "C" GLbitfield
-_mesa_program_state_flags(const gl_state_index state[STATE_LENGTH]);
+_mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH]);
 
 
 extern "C" char *
-_mesa_program_state_string(const gl_state_index state[STATE_LENGTH]);
+_mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH]);
 
 static inline gl_shader_stage
 _mesa_shader_enum_to_shader_stage(GLenum v)

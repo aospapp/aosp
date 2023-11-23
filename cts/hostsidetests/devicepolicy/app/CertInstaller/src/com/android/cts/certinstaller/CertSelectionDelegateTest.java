@@ -18,6 +18,8 @@ package com.android.cts.certinstaller;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertNull;
+
 import android.app.Activity;
 import android.app.admin.DelegatedAdminReceiver;
 import android.app.admin.DevicePolicyManager;
@@ -112,6 +114,16 @@ public class CertSelectionDelegateTest extends InstrumentationTestCase {
             // Delete regardless of whether the test succeeded.
             assertThat(mDpm.removeKeyPair(null, alias)).isTrue();
         }
+    }
+
+    // Tests that if the delegated app returns {@link
+    // android.security.KeyChain.KEY_ALIAS_SELECTION_DENIED}
+    // the caller of {@link android.app.admin.DelegatedAdminReceiver#onChoosePrivateKeyAlias}
+    // receives {@code null}.
+    public void testNotChosenAnyAlias() throws Exception {
+        assertThat(mDpm.getDelegatedScopes(null, mContext.getPackageName())).contains(
+                DevicePolicyManager.DELEGATION_CERT_SELECTION);
+        assertNull(new KeyChainAliasFuture(KeyChain.KEY_ALIAS_SELECTION_DENIED).get());
     }
 
     private class KeyChainAliasFuture implements KeyChainAliasCallback {

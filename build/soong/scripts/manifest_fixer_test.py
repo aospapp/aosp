@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Unit tests for manifest_fixer_test.py."""
+"""Unit tests for manifest_fixer.py."""
 
 import StringIO
 import sys
@@ -226,12 +226,53 @@ class RaiseMinSdkVersionTest(unittest.TestCase):
     self.assertEqual(output, expected)
 
 
+class AddLoggingParentTest(unittest.TestCase):
+  """Unit tests for add_logging_parent function."""
+
+  def add_logging_parent_test(self, input_manifest, logging_parent=None):
+    doc = minidom.parseString(input_manifest)
+    if logging_parent:
+      manifest_fixer.add_logging_parent(doc, logging_parent)
+    output = StringIO.StringIO()
+    manifest_fixer.write_xml(output, doc)
+    return output.getvalue()
+
+  manifest_tmpl = (
+      '<?xml version="1.0" encoding="utf-8"?>\n'
+      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
+      '%s'
+      '</manifest>\n')
+
+  def uses_logging_parent(self, logging_parent=None):
+    attrs = ''
+    if logging_parent:
+      meta_text = ('<meta-data android:name="android.content.pm.LOGGING_PARENT" '
+                   'android:value="%s"/>\n') % (logging_parent)
+      attrs += '    <application>\n        %s    </application>\n' % (meta_text)
+
+    return attrs
+
+  def test_no_logging_parent(self):
+    """Tests manifest_fixer with no logging_parent."""
+    manifest_input = self.manifest_tmpl % ''
+    expected = self.manifest_tmpl % self.uses_logging_parent()
+    output = self.add_logging_parent_test(manifest_input)
+    self.assertEqual(output, expected)
+
+  def test_logging_parent(self):
+    """Tests manifest_fixer with no logging_parent."""
+    manifest_input = self.manifest_tmpl % ''
+    expected = self.manifest_tmpl % self.uses_logging_parent('FOO')
+    output = self.add_logging_parent_test(manifest_input, 'FOO')
+    self.assertEqual(output, expected)
+
+
 class AddUsesLibrariesTest(unittest.TestCase):
   """Unit tests for add_uses_libraries function."""
 
   def run_test(self, input_manifest, new_uses_libraries):
     doc = minidom.parseString(input_manifest)
-    manifest_fixer.add_uses_libraries(doc, new_uses_libraries)
+    manifest_fixer.add_uses_libraries(doc, new_uses_libraries, True)
     output = StringIO.StringIO()
     manifest_fixer.write_xml(output, doc)
     return output.getvalue()
@@ -393,10 +434,10 @@ class AddExtractNativeLibsTest(unittest.TestCase):
     return output.getvalue()
 
   manifest_tmpl = (
-    '<?xml version="1.0" encoding="utf-8"?>\n'
-    '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
-    '    <application%s/>\n'
-    '</manifest>\n')
+      '<?xml version="1.0" encoding="utf-8"?>\n'
+      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
+      '    <application%s/>\n'
+      '</manifest>\n')
 
   def extract_native_libs(self, value):
     return ' android:extractNativeLibs="%s"' % value
@@ -424,5 +465,47 @@ class AddExtractNativeLibsTest(unittest.TestCase):
     self.assertRaises(RuntimeError, self.run_test, manifest_input, False)
 
 
+class AddNoCodeApplicationTest(unittest.TestCase):
+  """Unit tests for set_has_code_to_false function."""
+
+  def run_test(self, input_manifest):
+    doc = minidom.parseString(input_manifest)
+    manifest_fixer.set_has_code_to_false(doc)
+    output = StringIO.StringIO()
+    manifest_fixer.write_xml(output, doc)
+    return output.getvalue()
+
+  manifest_tmpl = (
+      '<?xml version="1.0" encoding="utf-8"?>\n'
+      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
+      '%s'
+      '</manifest>\n')
+
+  def test_no_application(self):
+    manifest_input = self.manifest_tmpl % ''
+    expected = self.manifest_tmpl % '    <application android:hasCode="false"/>\n'
+    output = self.run_test(manifest_input)
+    self.assertEqual(output, expected)
+
+  def test_has_application_no_has_code(self):
+    manifest_input = self.manifest_tmpl % '    <application/>\n'
+    expected = self.manifest_tmpl % '    <application android:hasCode="false"/>\n'
+    output = self.run_test(manifest_input)
+    self.assertEqual(output, expected)
+
+  def test_has_application_has_code_false(self):
+    """ Do nothing if there's already an application elemeent. """
+    manifest_input = self.manifest_tmpl % '    <application android:hasCode="false"/>\n'
+    output = self.run_test(manifest_input)
+    self.assertEqual(output, manifest_input)
+
+  def test_has_application_has_code_true(self):
+    """ Do nothing if there's already an application elemeent even if its
+     hasCode attribute is true. """
+    manifest_input = self.manifest_tmpl % '    <application android:hasCode="true"/>\n'
+    output = self.run_test(manifest_input)
+    self.assertEqual(output, manifest_input)
+
+
 if __name__ == '__main__':
-  unittest.main()
+  unittest.main(verbosity=2)

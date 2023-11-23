@@ -29,7 +29,7 @@ class network_ChromeWifiConfigure(test.test):
 
     def _create_wifi(self, ssid, security):
         logging.info('create_wifi')
-        shared = 'true'
+        shared = 'false'
         properties = {
             'Type': 'WiFi',
             'WiFi': {
@@ -61,6 +61,9 @@ class network_ChromeWifiConfigure(test.test):
 
 
     def run_once(self):
+        """
+        Entry point of the test.
+        """
         with cntc.ChromeNetworkingTestContext() as testing_context:
             self._chrome_testing = testing_context
             self._run_once_internal()

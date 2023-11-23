@@ -20,6 +20,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,8 +113,9 @@ class InterfaceChecker {
     }
 
     private boolean findMethod(JDiffClassDescription classDescription, Method method) {
+        Map<Method, String> matchNameNotSignature = new LinkedHashMap<>();
         for (JDiffClassDescription.JDiffMethod jdiffMethod : classDescription.getMethods()) {
-            if (ReflectionHelper.matches(jdiffMethod, method)) {
+            if (ReflectionHelper.matchesSignature(jdiffMethod, method, matchNameNotSignature)) {
                 return true;
             }
         }

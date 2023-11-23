@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef NETD_SERVER_LOCAL_NETWORK_H
-#define NETD_SERVER_LOCAL_NETWORK_H
+#pragma once
 
 #include "Network.h"
 
-namespace android {
-namespace net {
+namespace android::net {
 
 class LocalNetwork : public Network {
 public:
@@ -29,11 +27,8 @@ public:
 
 private:
     Type getType() const override;
-    int addInterface(const std::string& interface) override WARN_UNUSED_RESULT;
-    int removeInterface(const std::string& interface) override WARN_UNUSED_RESULT;
+    [[nodiscard]] int addInterface(const std::string& interface) override;
+    [[nodiscard]] int removeInterface(const std::string& interface) override;
 };
 
-}  // namespace net
-}  // namespace android
-
-#endif  // NETD_SERVER_LOCAL_NETWORK_H
+}  // namespace android::net

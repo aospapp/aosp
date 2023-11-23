@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <gtest/gtest.h>
 
 #include "cras_dsp_ini.h"
 
@@ -15,7 +15,7 @@ namespace {
 class DspIniTestSuite : public testing::Test {
  protected:
   virtual void SetUp() {
-    strcpy(filename,  FILENAME_TEMPLATE);
+    strcpy(filename, FILENAME_TEMPLATE);
     int fd = mkstemp(filename);
     fp = fdopen(fd, "w");
   }
@@ -33,11 +33,11 @@ class DspIniTestSuite : public testing::Test {
   }
 
   char filename[sizeof(FILENAME_TEMPLATE) + 1];
-  FILE *fp;
+  FILE* fp;
 };
 
 TEST_F(DspIniTestSuite, EmptyIni) {
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   EXPECT_EQ(0, ARRAY_COUNT(&ini->plugins));
   EXPECT_EQ(0, ARRAY_COUNT(&ini->flows));
   cras_dsp_ini_free(ini);
@@ -47,7 +47,7 @@ TEST_F(DspIniTestSuite, NoLibraryOrLabel) {
   fprintf(fp, "[Test]\n");
   CloseFile();
 
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   /* NULL because a plugin doesn't have library or label */
   EXPECT_EQ(NULL, ini);
 }
@@ -59,11 +59,11 @@ TEST_F(DspIniTestSuite, OneSimplePlugin) {
   fprintf(fp, "disable=\"#f\"\n");
   CloseFile();
 
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   EXPECT_EQ(1, ARRAY_COUNT(&ini->plugins));
   EXPECT_EQ(0, ARRAY_COUNT(&ini->flows));
 
-  struct plugin *plugin = ARRAY_ELEMENT(&ini->plugins, 0);
+  struct plugin* plugin = ARRAY_ELEMENT(&ini->plugins, 0);
   EXPECT_STREQ("test", plugin->title);
   EXPECT_STREQ("foo.so", plugin->library);
   EXPECT_STREQ("bar", plugin->label);
@@ -84,7 +84,7 @@ TEST_F(DspIniTestSuite, BuiltinPlugin) {
   fprintf(fp, "purpose=capture\n");
   CloseFile();
 
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   EXPECT_EQ(2, ARRAY_COUNT(&ini->plugins));
   EXPECT_EQ(0, ARRAY_COUNT(&ini->flows));
   EXPECT_STREQ(ARRAY_ELEMENT(&ini->plugins, 0)->purpose, "playback");
@@ -99,12 +99,12 @@ TEST_F(DspIniTestSuite, Ports) {
   fprintf(fp, "input_0=10\n");
   CloseFile();
 
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   EXPECT_EQ(1, ARRAY_COUNT(&ini->plugins));
   EXPECT_EQ(0, ARRAY_COUNT(&ini->flows));
-  struct plugin *plugin = ARRAY_ELEMENT(&ini->plugins, 0);
+  struct plugin* plugin = ARRAY_ELEMENT(&ini->plugins, 0);
   EXPECT_EQ(1, ARRAY_COUNT(&plugin->ports));
-  struct port *port = ARRAY_ELEMENT(&plugin->ports, 0);
+  struct port* port = ARRAY_ELEMENT(&plugin->ports, 0);
   EXPECT_EQ(PORT_INPUT, port->direction);
   EXPECT_EQ(PORT_CONTROL, port->type);
   EXPECT_EQ(INVALID_FLOW_ID, port->flow_id);
@@ -126,15 +126,15 @@ TEST_F(DspIniTestSuite, Flows) {
 
   CloseFile();
 
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   EXPECT_EQ(2, ARRAY_COUNT(&ini->plugins));
-  struct plugin *foo = ARRAY_ELEMENT(&ini->plugins, 0);
-  struct plugin *bar = ARRAY_ELEMENT(&ini->plugins, 1);
+  struct plugin* foo = ARRAY_ELEMENT(&ini->plugins, 0);
+  struct plugin* bar = ARRAY_ELEMENT(&ini->plugins, 1);
   EXPECT_EQ(2, ARRAY_COUNT(&foo->ports));
   EXPECT_EQ(2, ARRAY_COUNT(&bar->ports));
 
-  struct port *foo0 = ARRAY_ELEMENT(&foo->ports, 0);
-  struct port *foo1 = ARRAY_ELEMENT(&foo->ports, 1);
+  struct port* foo0 = ARRAY_ELEMENT(&foo->ports, 0);
+  struct port* foo1 = ARRAY_ELEMENT(&foo->ports, 1);
   EXPECT_EQ(PORT_OUTPUT, foo0->direction);
   EXPECT_EQ(PORT_CONTROL, foo0->type);
   EXPECT_EQ(PORT_OUTPUT, foo1->direction);
@@ -142,8 +142,8 @@ TEST_F(DspIniTestSuite, Flows) {
   EXPECT_EQ(0, foo0->flow_id);
   EXPECT_EQ(1, foo1->flow_id);
 
-  struct port *bar0 = ARRAY_ELEMENT(&bar->ports, 0);
-  struct port *bar1 = ARRAY_ELEMENT(&bar->ports, 1);
+  struct port* bar0 = ARRAY_ELEMENT(&bar->ports, 0);
+  struct port* bar1 = ARRAY_ELEMENT(&bar->ports, 1);
   EXPECT_EQ(PORT_INPUT, bar0->direction);
   EXPECT_EQ(PORT_AUDIO, bar0->type);
   EXPECT_EQ(PORT_INPUT, bar1->direction);
@@ -152,8 +152,8 @@ TEST_F(DspIniTestSuite, Flows) {
   EXPECT_EQ(0, bar1->flow_id);
 
   EXPECT_EQ(2, ARRAY_COUNT(&ini->flows));
-  struct flow *flow0 = ARRAY_ELEMENT(&ini->flows, 0);
-  struct flow *flow1 = ARRAY_ELEMENT(&ini->flows, 1);
+  struct flow* flow0 = ARRAY_ELEMENT(&ini->flows, 0);
+  struct flow* flow1 = ARRAY_ELEMENT(&ini->flows, 1);
 
   EXPECT_EQ(PORT_CONTROL, flow0->type);
   EXPECT_STREQ("<control>", flow0->name);
@@ -175,7 +175,6 @@ TEST_F(DspIniTestSuite, Flows) {
 }
 
 TEST_F(DspIniTestSuite, TwoChannelWithSwap) {
-
   /*
    *  Stated in ini:
    *
@@ -187,7 +186,7 @@ TEST_F(DspIniTestSuite, TwoChannelWithSwap) {
    *
    */
 
-  const char *content =
+  const char* content =
       "[M0]\n"
       "library=builtin\n"
       "label=source\n"
@@ -211,33 +210,33 @@ TEST_F(DspIniTestSuite, TwoChannelWithSwap) {
   fprintf(fp, "%s", content);
   CloseFile();
 
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
 
   /* 3 plugins and 1 swap_lr plugin. */
   EXPECT_EQ(4, ARRAY_COUNT(&ini->plugins));
 
-  struct plugin *m0= ARRAY_ELEMENT(&ini->plugins, 0);
-  struct plugin *m1 = ARRAY_ELEMENT(&ini->plugins, 1);
-  struct plugin *m2 = ARRAY_ELEMENT(&ini->plugins, 2);
-  struct plugin *m_swap_lr = ARRAY_ELEMENT(&ini->plugins, 3);
+  struct plugin* m0 = ARRAY_ELEMENT(&ini->plugins, 0);
+  struct plugin* m1 = ARRAY_ELEMENT(&ini->plugins, 1);
+  struct plugin* m2 = ARRAY_ELEMENT(&ini->plugins, 2);
+  struct plugin* m_swap_lr = ARRAY_ELEMENT(&ini->plugins, 3);
 
   EXPECT_EQ(2, ARRAY_COUNT(&m0->ports));
   EXPECT_EQ(4, ARRAY_COUNT(&m1->ports));
   EXPECT_EQ(4, ARRAY_COUNT(&m_swap_lr->ports));
   EXPECT_EQ(2, ARRAY_COUNT(&m2->ports));
 
-  struct port *m0_0 = ARRAY_ELEMENT(&m0->ports, 0);
-  struct port *m0_1 = ARRAY_ELEMENT(&m0->ports, 1);
-  struct port *m1_0 = ARRAY_ELEMENT(&m1->ports, 0);
-  struct port *m1_1 = ARRAY_ELEMENT(&m1->ports, 1);
-  struct port *m1_2 = ARRAY_ELEMENT(&m1->ports, 2);
-  struct port *m1_3 = ARRAY_ELEMENT(&m1->ports, 3);
-  struct port *m_swap_lr_0 = ARRAY_ELEMENT(&m_swap_lr->ports, 0);
-  struct port *m_swap_lr_1 = ARRAY_ELEMENT(&m_swap_lr->ports, 1);
-  struct port *m_swap_lr_2 = ARRAY_ELEMENT(&m_swap_lr->ports, 2);
-  struct port *m_swap_lr_3 = ARRAY_ELEMENT(&m_swap_lr->ports, 3);
-  struct port *m2_0 = ARRAY_ELEMENT(&m2->ports, 0);
-  struct port *m2_1 = ARRAY_ELEMENT(&m2->ports, 1);
+  struct port* m0_0 = ARRAY_ELEMENT(&m0->ports, 0);
+  struct port* m0_1 = ARRAY_ELEMENT(&m0->ports, 1);
+  struct port* m1_0 = ARRAY_ELEMENT(&m1->ports, 0);
+  struct port* m1_1 = ARRAY_ELEMENT(&m1->ports, 1);
+  struct port* m1_2 = ARRAY_ELEMENT(&m1->ports, 2);
+  struct port* m1_3 = ARRAY_ELEMENT(&m1->ports, 3);
+  struct port* m_swap_lr_0 = ARRAY_ELEMENT(&m_swap_lr->ports, 0);
+  struct port* m_swap_lr_1 = ARRAY_ELEMENT(&m_swap_lr->ports, 1);
+  struct port* m_swap_lr_2 = ARRAY_ELEMENT(&m_swap_lr->ports, 2);
+  struct port* m_swap_lr_3 = ARRAY_ELEMENT(&m_swap_lr->ports, 3);
+  struct port* m2_0 = ARRAY_ELEMENT(&m2->ports, 0);
+  struct port* m2_1 = ARRAY_ELEMENT(&m2->ports, 1);
 
   /* flow       flow_id       from port       to port
    * ------------------------------------------------------------
@@ -261,12 +260,12 @@ TEST_F(DspIniTestSuite, TwoChannelWithSwap) {
   EXPECT_EQ(4, m2_0->flow_id);
   EXPECT_EQ(5, m2_1->flow_id);
 
-  struct flow *flow_a0 = ARRAY_ELEMENT(&ini->flows, 0);
-  struct flow *flow_a1 = ARRAY_ELEMENT(&ini->flows, 1);
-  struct flow *flow_b0 = ARRAY_ELEMENT(&ini->flows, 2);
-  struct flow *flow_b1 = ARRAY_ELEMENT(&ini->flows, 3);
-  struct flow *flow_swap_lr_0 = ARRAY_ELEMENT(&ini->flows, 4);
-  struct flow *flow_swap_lr_1 = ARRAY_ELEMENT(&ini->flows, 5);
+  struct flow* flow_a0 = ARRAY_ELEMENT(&ini->flows, 0);
+  struct flow* flow_a1 = ARRAY_ELEMENT(&ini->flows, 1);
+  struct flow* flow_b0 = ARRAY_ELEMENT(&ini->flows, 2);
+  struct flow* flow_b1 = ARRAY_ELEMENT(&ini->flows, 3);
+  struct flow* flow_swap_lr_0 = ARRAY_ELEMENT(&ini->flows, 4);
+  struct flow* flow_swap_lr_1 = ARRAY_ELEMENT(&ini->flows, 5);
 
   EXPECT_EQ(flow_a0->from, m0);
   EXPECT_EQ(flow_a0->from_port, 0);
@@ -303,7 +302,7 @@ TEST_F(DspIniTestSuite, TwoChannelWithSwap) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

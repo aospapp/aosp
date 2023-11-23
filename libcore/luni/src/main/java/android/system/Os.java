@@ -16,11 +16,7 @@
 
 package android.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
-
-import libcore.io.Libcore;
-import libcore.util.NonNull;
-import libcore.util.Nullable;
+import android.compat.annotation.UnsupportedAppUsage;
 
 import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
@@ -29,6 +25,9 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import libcore.io.Libcore;
+import libcore.util.NonNull;
+import libcore.util.Nullable;
 
 /**
  * Access to low-level system functionality. Most of these are system calls. Most users will want
@@ -152,12 +151,10 @@ public final class Os {
      */
     public static void fchown(FileDescriptor fd, int uid, int gid) throws ErrnoException { Libcore.os.fchown(fd, uid, gid); }
 
-    /** @hide */
-    public static int fcntlFlock(FileDescriptor fd, int cmd, StructFlock arg) throws ErrnoException, InterruptedIOException { return Libcore.os.fcntlFlock(fd, cmd, arg); }
-
-    /** @hide */
-    @libcore.api.CorePlatformApi
-    public static int fcntlInt(FileDescriptor fd, int cmd, int arg) throws ErrnoException { return Libcore.os.fcntlInt(fd, cmd, arg); }
+    /**
+     * See <a href="http://man7.org/linux/man-pages/man2/fcntl.2.html">fcntl(2)</a>.
+     */
+    public static int fcntlInt(@NonNull FileDescriptor fd, int cmd, int arg) throws ErrnoException { return Libcore.os.fcntlInt(fd, cmd, arg); }
 
     /** @hide */
     public static int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException { return Libcore.os.fcntlVoid(fd, cmd); }
@@ -363,6 +360,11 @@ public final class Os {
      * See <a href="http://man7.org/linux/man-pages/man2/lstat.2.html">lstat(2)</a>.
      */
     public static StructStat lstat(String path) throws ErrnoException { return Libcore.os.lstat(path); }
+
+    /**
+     * See <a href="http://man7.org/linux/man-pages/man2/memfd_create.2.html">memfd_create(2)</a>.
+     */
+    public static @NonNull FileDescriptor memfd_create(@NonNull String name, int flags) throws ErrnoException { return Libcore.os.memfd_create(name, flags); }
 
     /**
      * See <a href="http://man7.org/linux/man-pages/man2/mincore.2.html">mincore(2)</a>.

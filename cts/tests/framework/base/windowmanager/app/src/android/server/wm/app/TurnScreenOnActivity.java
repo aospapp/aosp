@@ -16,17 +16,29 @@
 
 package android.server.wm.app;
 
-import android.app.Activity;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.WindowManager;
 
-public class TurnScreenOnActivity extends Activity {
+public class TurnScreenOnActivity extends AbstractLifecycleLogActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
-                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         super.onCreate(savedInstanceState);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (getIntent().getBooleanExtra(Components.TurnScreenOnActivity.EXTRA_USE_WINDOW_FLAGS,
+                false /* defaultValue */)) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                  | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        } else {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        }
+
+        final long sleepMs = getIntent().getLongExtra(
+                Components.TurnScreenOnActivity.EXTRA_SLEEP_MS_IN_ON_CREATE, 0);
+        if (sleepMs > 0) {
+            SystemClock.sleep(sleepMs);
+        }
     }
 }

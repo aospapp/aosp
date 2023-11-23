@@ -18,14 +18,8 @@ package com.android.settings.privacy;
 
 import android.app.settings.SettingsEnums;
 import android.content.Context;
-import android.os.Bundle;
-import android.provider.SearchIndexableResource;
-import android.view.View;
-
-import androidx.annotation.VisibleForTesting;
 
 import com.android.settings.R;
-import com.android.settings.Utils;
 import com.android.settings.dashboard.DashboardFragment;
 import com.android.settings.notification.LockScreenNotificationPreferenceController;
 import com.android.settings.search.BaseSearchIndexProvider;
@@ -44,11 +38,6 @@ public class PrivacyDashboardFragment extends DashboardFragment {
             "privacy_work_profile_notifications_category";
     private static final String KEY_NOTIFICATION_WORK_PROFILE_NOTIFICATIONS =
             "privacy_lock_screen_work_profile_notifications";
-
-    @VisibleForTesting
-    View mProgressHeader;
-    @VisibleForTesting
-    View mProgressAnimation;
 
     @Override
     public int getMetricsCategory() {
@@ -75,34 +64,6 @@ public class PrivacyDashboardFragment extends DashboardFragment {
         return buildPreferenceControllers(context, getSettingsLifecycle());
     }
 
-    @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-        use(PermissionBarChartPreferenceController.class).setFragment(this /* fragment */);
-    }
-
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        Utils.setActionBarShadowAnimation(getActivity(), getSettingsLifecycle(), getListView());
-        initLoadingBar();
-    }
-
-    @VisibleForTesting
-    void initLoadingBar() {
-        mProgressHeader = setPinnedHeaderView(R.layout.progress_header);
-        mProgressAnimation = mProgressHeader.findViewById(R.id.progress_bar_animation);
-        setLoadingEnabled(false);
-    }
-
-    @VisibleForTesting
-    void setLoadingEnabled(boolean enabled) {
-        if (mProgressHeader != null && mProgressAnimation != null) {
-            mProgressHeader.setVisibility(enabled ? View.VISIBLE : View.INVISIBLE);
-            mProgressAnimation.setVisibility(enabled ? View.VISIBLE : View.INVISIBLE);
-        }
-    }
-
     private static List<AbstractPreferenceController> buildPreferenceControllers(
             Context context, Lifecycle lifecycle) {
         final List<AbstractPreferenceController> controllers = new ArrayList<>();
@@ -120,18 +81,8 @@ public class PrivacyDashboardFragment extends DashboardFragment {
 
     }
 
-    public static final SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
-            new BaseSearchIndexProvider() {
-                @Override
-                public List<SearchIndexableResource> getXmlResourcesToIndex(Context context,
-                        boolean enabled) {
-                    final ArrayList<SearchIndexableResource> result = new ArrayList<>();
-
-                    final SearchIndexableResource sir = new SearchIndexableResource(context);
-                    sir.xmlResId = R.xml.privacy_dashboard_settings;
-                    result.add(sir);
-                    return result;
-                }
+    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider(R.xml.privacy_dashboard_settings) {
 
                 @Override
                 public List<AbstractPreferenceController> createPreferenceControllers(

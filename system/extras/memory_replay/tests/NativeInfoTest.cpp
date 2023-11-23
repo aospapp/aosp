@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <stdint.h>
 
 #include <string>
 
 #include <android-base/file.h>
+#include <gtest/gtest.h>
 
 #include "NativeInfo.h"
 
@@ -41,8 +41,8 @@ TEST_F(NativeInfoTest, no_matching) {
   std::string smaps_data =
       "b6f1a000-b6f1c000 rw-p 00000000 00:00 0          [anon:thread signal stack]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   12 kB\n"
+      "Rss:                   12 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -59,10 +59,10 @@ TEST_F(NativeInfoTest, no_matching) {
       write(tmp_file_->fd, smaps_data.c_str(), smaps_data.size())) != -1);
   ASSERT_TRUE(lseek(tmp_file_->fd, 0, SEEK_SET) != off_t(-1));
 
-  size_t pss_bytes = 1;
+  size_t rss_bytes = 1;
   size_t va_bytes = 1;
-  GetNativeInfo(tmp_file_->fd, &pss_bytes, &va_bytes);
-  ASSERT_EQ(0U, pss_bytes);
+  NativeGetInfo(tmp_file_->fd, &rss_bytes, &va_bytes);
+  ASSERT_EQ(0U, rss_bytes);
   ASSERT_EQ(0U, va_bytes);
 }
 
@@ -70,8 +70,8 @@ TEST_F(NativeInfoTest, multiple_anons) {
   std::string smaps_data =
       "b6f1a000-b6f1c000 rw-p 00000000 00:00 0          [anon:libc_malloc]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   12 kB\n"
+      "Rss:                   12 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -86,8 +86,8 @@ TEST_F(NativeInfoTest, multiple_anons) {
       "Name:           [anon:libc_malloc]\n"
       "b6f1e000-b6f1f000 rw-p 00000000 00:00 0          [anon:libc_malloc]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   20 kB\n"
+      "Rss:                   20 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -102,8 +102,8 @@ TEST_F(NativeInfoTest, multiple_anons) {
       "Name:           [anon:libc_malloc]\n"
       "b6f2e000-b6f2f000 rw-p 00000000 00:00 0\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   24 kB\n"
+      "Rss:                   24 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -120,10 +120,10 @@ TEST_F(NativeInfoTest, multiple_anons) {
       write(tmp_file_->fd, smaps_data.c_str(), smaps_data.size())) != -1);
   ASSERT_TRUE(lseek(tmp_file_->fd, 0, SEEK_SET) != off_t(-1));
 
-  size_t pss_bytes = 1;
+  size_t rss_bytes = 1;
   size_t va_bytes = 1;
-  GetNativeInfo(tmp_file_->fd, &pss_bytes, &va_bytes);
-  ASSERT_EQ(32768U, pss_bytes);
+  NativeGetInfo(tmp_file_->fd, &rss_bytes, &va_bytes);
+  ASSERT_EQ(32768U, rss_bytes);
   ASSERT_EQ(12288U, va_bytes);
 }
 
@@ -131,8 +131,8 @@ TEST_F(NativeInfoTest, multiple_heaps) {
   std::string smaps_data =
       "b6f1a000-b6f1c000 rw-p 00000000 00:00 0          [heap]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   24 kB\n"
+      "Rss:                   24 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -147,8 +147,8 @@ TEST_F(NativeInfoTest, multiple_heaps) {
       "Name:           [heap]\n"
       "b6f1e000-b6f1f000 rw-p 00000000 00:00 0          [heap]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   20 kB\n"
+      "Rss:                   20 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -163,8 +163,8 @@ TEST_F(NativeInfoTest, multiple_heaps) {
       "Name:           [heap]\n"
       "b6f2e000-b6f2f000 rw-p 00000000 00:00 0\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   24 kB\n"
+      "Rss:                   24 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -181,10 +181,10 @@ TEST_F(NativeInfoTest, multiple_heaps) {
       write(tmp_file_->fd, smaps_data.c_str(), smaps_data.size())) != -1);
   ASSERT_TRUE(lseek(tmp_file_->fd, 0, SEEK_SET) != off_t(-1));
 
-  size_t pss_bytes = 1;
+  size_t rss_bytes = 1;
   size_t va_bytes = 1;
-  GetNativeInfo(tmp_file_->fd, &pss_bytes, &va_bytes);
-  ASSERT_EQ(45056U, pss_bytes);
+  NativeGetInfo(tmp_file_->fd, &rss_bytes, &va_bytes);
+  ASSERT_EQ(45056U, rss_bytes);
   ASSERT_EQ(12288U, va_bytes);
 }
 
@@ -192,8 +192,8 @@ TEST_F(NativeInfoTest, mix_heap_anon) {
   std::string smaps_data =
       "b6f1a000-b6f1c000 rw-p 00000000 00:00 0          [heap]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   32 kB\n"
+      "Rss:                   32 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -208,8 +208,8 @@ TEST_F(NativeInfoTest, mix_heap_anon) {
       "Name:           [heap]\n"
       "b6f1e000-b6f1f000 rw-p 00000000 00:00 0          [anon:skip]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   32 kB\n"
+      "Rss:                   32 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -224,8 +224,8 @@ TEST_F(NativeInfoTest, mix_heap_anon) {
       "Name:           [anon:skip]\n"
       "b6f2e000-b6f2f000 rw-p 00000000 00:00 0          [anon:libc_malloc]\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   40 kB\n"
+      "Rss:                   40 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -240,8 +240,8 @@ TEST_F(NativeInfoTest, mix_heap_anon) {
       "Name:           [anon:libc_malloc]\n"
       "b6f3e000-b6f3f000 rw-p 00000000 00:00 0\n"
       "Size:                  8 kB\n"
-      "Rss:                   0 kB\n"
-      "Pss:                   24 kB\n"
+      "Rss:                   24 kB\n"
+      "Pss:                   0 kB\n"
       "Shared_Clean:          0 kB\n"
       "Shared_Dirty:          0 kB\n"
       "Private_Clean:         0 kB\n"
@@ -253,14 +253,79 @@ TEST_F(NativeInfoTest, mix_heap_anon) {
       "KernelPageSize:        4 kB\n"
       "MMUPageSize:           4 kB\n"
       "Locked:                0 kB\n"
-      "Name:\n";
+      "Name:\n"
+      "b6f4e000-b6f6f000 rw-p 00000000 00:00 0          [anon:scudo:test]\n"
+      "Size:                  8 kB\n"
+      "Rss:                   52 kB\n"
+      "Pss:                   0 kB\n"
+      "Shared_Clean:          0 kB\n"
+      "Shared_Dirty:          0 kB\n"
+      "Private_Clean:         0 kB\n"
+      "Private_Dirty:         0 kB\n"
+      "Referenced:            0 kB\n"
+      "Anonymous:             0 kB\n"
+      "AnonHugePages:         0 kB\n"
+      "Swap:                  0 kB\n"
+      "KernelPageSize:        4 kB\n"
+      "MMUPageSize:           4 kB\n"
+      "Locked:                0 kB\n"
+      "Name:           [anon:scudo:test]\n"
+      "b8f4c000-b8f4d000 rw-p 00000000 00:00 0          [anon:GWP-ASan Guard Page]\n"
+      "Size:                  4 kB\n"
+      "Rss:                   0 kB\n"
+      "Pss:                   0 kB\n"
+      "Shared_Clean:          0 kB\n"
+      "Shared_Dirty:          0 kB\n"
+      "Private_Clean:         0 kB\n"
+      "Private_Dirty:         0 kB\n"
+      "Referenced:            0 kB\n"
+      "Anonymous:             0 kB\n"
+      "AnonHugePages:         0 kB\n"
+      "Swap:                  0 kB\n"
+      "KernelPageSize:        4 kB\n"
+      "MMUPageSize:           4 kB\n"
+      "Locked:                0 kB\n"
+      "Name:           [anon:GWP-ASan Guard Page]\n"
+      "b8f4d000-b8f4e000 rw-p 00000000 00:00 0          [anon:GWP-ASan Alive Slot]\n"
+      "Size:                  4 kB\n"
+      "Rss:                   4 kB\n"
+      "Pss:                   0 kB\n"
+      "Shared_Clean:          0 kB\n"
+      "Shared_Dirty:          0 kB\n"
+      "Private_Clean:         0 kB\n"
+      "Private_Dirty:         0 kB\n"
+      "Referenced:            0 kB\n"
+      "Anonymous:             0 kB\n"
+      "AnonHugePages:         0 kB\n"
+      "Swap:                  0 kB\n"
+      "KernelPageSize:        4 kB\n"
+      "MMUPageSize:           4 kB\n"
+      "Locked:                0 kB\n"
+      "Name:           [anon:GWP-ASan Alive Slot]\n"
+      "b8f4e000-b8f4f000 rw-p 00000000 00:00 0          [anon:GWP-ASan Guard Page]\n"
+      "Size:                  4 kB\n"
+      "Rss:                   0 kB\n"
+      "Pss:                   0 kB\n"
+      "Shared_Clean:          0 kB\n"
+      "Shared_Dirty:          0 kB\n"
+      "Private_Clean:         0 kB\n"
+      "Private_Dirty:         0 kB\n"
+      "Referenced:            0 kB\n"
+      "Anonymous:             0 kB\n"
+      "AnonHugePages:         0 kB\n"
+      "Swap:                  0 kB\n"
+      "KernelPageSize:        4 kB\n"
+      "MMUPageSize:           4 kB\n"
+      "Locked:                0 kB\n"
+      "Name:           [anon:GWP-ASan Guard Page]\n";
+
   ASSERT_TRUE(TEMP_FAILURE_RETRY(
       write(tmp_file_->fd, smaps_data.c_str(), smaps_data.size())) != -1);
   ASSERT_TRUE(lseek(tmp_file_->fd, 0, SEEK_SET) != off_t(-1));
 
-  size_t pss_bytes = 1;
+  size_t rss_bytes = 1;
   size_t va_bytes = 1;
-  GetNativeInfo(tmp_file_->fd, &pss_bytes, &va_bytes);
-  ASSERT_EQ(73728U, pss_bytes);
-  ASSERT_EQ(12288U, va_bytes);
+  NativeGetInfo(tmp_file_->fd, &rss_bytes, &va_bytes);
+  EXPECT_EQ(131072U, rss_bytes);
+  EXPECT_EQ(159744U, va_bytes);
 }

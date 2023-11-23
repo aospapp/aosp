@@ -18,6 +18,10 @@
     <option name="config-descriptor:metadata" key="component" value="bionic" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
+    <target_preparer class="com.android.tradefed.targetprep.SwitchUserTargetPreparer">
+        <option name="user-type" value="system" />
+    </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsSimpleperfTestCases->/data/local/tmp/CtsSimpleperfTestCases" />
@@ -33,6 +37,8 @@
         <option name="test-file-name" value="CtsSimpleperfProfileableApp.apk" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
+        <option name="run-command" value="wm dismiss-keyguard" />
         <option name="run-command" value="am start com.android.simpleperf.debuggable/.MainActivity" />
         <option name="run-command" value="am start com.android.simpleperf.profileable/.MainActivity" />
     </target_preparer>

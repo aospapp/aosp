@@ -35,7 +35,7 @@
 
 package java.util.concurrent.atomic;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class AtomicInteger extends java.lang.Number implements java.io.Serializable {

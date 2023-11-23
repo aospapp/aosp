@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "inode2filename/inode.h"
 #include "inode2filename/search_directories.h"
 #include "inode2filename/system_call.h"
 
@@ -27,6 +28,10 @@
 #include <optional>
 
 #include <sys/sysmacros.h>
+
+#ifdef makedev
+#undef makedev
+#endif
 
 
 // Set this to 1 when debugging by hand to get more output.
@@ -2446,9 +2451,9 @@ class FakeSystemCall : public SystemCall {
     memset(statbuf, 0, sizeof(*statbuf));
 
     Inode inode = maybe_path_entry->inode;
-    statbuf->st_dev = makedev(static_cast<int>(inode.device_major),
-                              static_cast<int>(inode.device_minor));
-    statbuf->st_ino = static_cast<ino_t>(inode.inode);
+    statbuf->st_dev = iorap::inode2filename::makedev(static_cast<int>(inode.device_major),
+                                                     static_cast<int>(inode.device_minor));
+    statbuf->st_ino = static_cast<iorap::inode2filename::ino_t>(inode.inode);
 
     return 0;
   }
@@ -2813,7 +2818,7 @@ auto MakeAllPassInodes(std::vector<std::string> root_dirs, std::vector<std::stri
 INSTANTIATE_TEST_CASE_P(AllResultsAreSuccess,
                         SearchDirectoriesTest,
                         ::testing::Values(
-                            MakeAllPassInodes(/*root_dirs*/{"/"}, {"66323@1127133"}, {"/data"})
+                            MakeAllPassInodes(/*root_dirs*/{"/"}, {"66323@1127133"}, {"//data"})  // TODO: why is it adding an extra '/' ?
                         ));
 
 #endif

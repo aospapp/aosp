@@ -87,7 +87,7 @@ public final class HeaderView extends RelativeLayout implements HeaderDisplay {
                 }
             };
             // load the thumbnail async.
-            final ThumbnailLoader task = new ThumbnailLoader(doc.derivedUri, mThumbnail,
+            final ThumbnailLoader task = new ThumbnailLoader(doc.derivedUri, doc.userId, mThumbnail,
                     mImageDimensions, doc.lastModified, callback, false);
             task.executeOnExecutor(ProviderExecutor.forAuthority(doc.derivedUri.getAuthority()),
                     doc.derivedUri);

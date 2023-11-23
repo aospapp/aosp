@@ -28,7 +28,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             60:01:97:b7:46:a7:ea:b4:b4:9a:d6:4b:2f:f7:90:fb
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, O=thawte, Inc., OU=Certification Services Division, OU=(c) 2008 thawte, Inc. - For authorized use only, CN=thawte Primary Root CA - G3
         Validity
             Not Before: Apr  2 00:00:00 2008 GMT
@@ -36,7 +36,7 @@ Certificate:
         Subject: C=US, O=thawte, Inc., OU=Certification Services Division, OU=(c) 2008 thawte, Inc. - For authorized use only, CN=thawte Primary Root CA - G3
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:b2:bf:27:2c:fb:db:d8:5b:dd:78:7b:1b:9e:77:
                     66:81:cb:3e:bc:7c:ae:f3:a6:27:9a:34:a3:68:31:

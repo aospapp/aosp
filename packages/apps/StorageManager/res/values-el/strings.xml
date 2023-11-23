@@ -35,9 +35,9 @@
     <skip />
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
-    <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Ελευθερώστε χώρο"</string>
+    <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Απελευθερώστε χώρο"</string>
     <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> του περιεχομένου θα καταργηθεί από τη συσκευή σας"</string>
-    <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Ελευθερώστε χώρο"</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Απελευθερώστε χώρο"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Ενεργοποίηση αυτόματης διαχείρισης αποθηκευτικού χώρου;"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> είναι πλέον διαθέσιμα. Να επιτρέπεται στη Διαχείριση αποθηκευτικού χώρου να απελευθερώνει αυτόματα χώρο καταργώντας από τη συσκευή σας περιεχόμενο για το οποίο έχουν δημιουργηθεί αντίγραφα ασφαλείας;"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Όχι, ευχαριστώ"</string>

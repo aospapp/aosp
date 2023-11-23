@@ -29,21 +29,22 @@ static void lr42_set(struct lr42 *lr42, enum biquad_type type, float freq)
 #if defined(__ARM_NEON__)
 #include <arm_neon.h>
 static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
-		       float *data0L, float *data0R,
-		       float *data1L, float *data1R)
+		       float *data0L, float *data0R, float *data1L,
+		       float *data1R)
 {
-	float32x4_t x1 = {lp->x1L, hp->x1L, lp->x1R, hp->x1R};
-	float32x4_t x2 = {lp->x2L, hp->x2L, lp->x2R, hp->x2R};
-	float32x4_t y1 = {lp->y1L, hp->y1L, lp->y1R, hp->y1R};
-	float32x4_t y2 = {lp->y2L, hp->y2L, lp->y2R, hp->y2R};
-	float32x4_t z1 = {lp->z1L, hp->z1L, lp->z1R, hp->z1R};
-	float32x4_t z2 = {lp->z2L, hp->z2L, lp->z2R, hp->z2R};
-	float32x4_t b0 = {lp->b0, hp->b0, lp->b0, hp->b0};
-	float32x4_t b1 = {lp->b1, hp->b1, lp->b1, hp->b1};
-	float32x4_t b2 = {lp->b2, hp->b2, lp->b2, hp->b2};
-	float32x4_t a1 = {lp->a1, hp->a1, lp->a1, hp->a1};
-	float32x4_t a2 = {lp->a2, hp->a2, lp->a2, hp->a2};
+	float32x4_t x1 = { lp->x1L, hp->x1L, lp->x1R, hp->x1R };
+	float32x4_t x2 = { lp->x2L, hp->x2L, lp->x2R, hp->x2R };
+	float32x4_t y1 = { lp->y1L, hp->y1L, lp->y1R, hp->y1R };
+	float32x4_t y2 = { lp->y2L, hp->y2L, lp->y2R, hp->y2R };
+	float32x4_t z1 = { lp->z1L, hp->z1L, lp->z1R, hp->z1R };
+	float32x4_t z2 = { lp->z2L, hp->z2L, lp->z2R, hp->z2R };
+	float32x4_t b0 = { lp->b0, hp->b0, lp->b0, hp->b0 };
+	float32x4_t b1 = { lp->b1, hp->b1, lp->b1, hp->b1 };
+	float32x4_t b2 = { lp->b2, hp->b2, lp->b2, hp->b2 };
+	float32x4_t a1 = { lp->a1, hp->a1, lp->a1, hp->a1 };
+	float32x4_t a2 = { lp->a2, hp->a2, lp->a2, hp->a2 };
 
+	// clang-format off
 	__asm__ __volatile__(
 		/* q0 = x, q1 = y, q2 = z */
 		"1:                                     \n"
@@ -95,41 +96,54 @@ static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
 		  [a1]"w"(a1),
 		  [a2]"w"(a2)
 		: /* clobber */
-		  "q0", "q1", "q2", "memory", "cc"
-		);
+		  "q0", "q1", "q2", "memory", "cc");
+	// clang-format on
 
-	lp->x1L = x1[0]; lp->x1R = x1[2];
-	lp->x2L = x2[0]; lp->x2R = x2[2];
-	lp->y1L = y1[0]; lp->y1R = y1[2];
-	lp->y2L = y2[0]; lp->y2R = y2[2];
-	lp->z1L = z1[0]; lp->z1R = z1[2];
-	lp->z2L = z2[0]; lp->z2R = z2[2];
+	lp->x1L = x1[0];
+	lp->x1R = x1[2];
+	lp->x2L = x2[0];
+	lp->x2R = x2[2];
+	lp->y1L = y1[0];
+	lp->y1R = y1[2];
+	lp->y2L = y2[0];
+	lp->y2R = y2[2];
+	lp->z1L = z1[0];
+	lp->z1R = z1[2];
+	lp->z2L = z2[0];
+	lp->z2R = z2[2];
 
-	hp->x1L = x1[1]; hp->x1R = x1[3];
-	hp->x2L = x2[1]; hp->x2R = x2[3];
-	hp->y1L = y1[1]; hp->y1R = y1[3];
-	hp->y2L = y2[1]; hp->y2R = y2[3];
-	hp->z1L = z1[1]; hp->z1R = z1[3];
-	hp->z2L = z2[1]; hp->z2R = z2[3];
+	hp->x1L = x1[1];
+	hp->x1R = x1[3];
+	hp->x2L = x2[1];
+	hp->x2R = x2[3];
+	hp->y1L = y1[1];
+	hp->y1R = y1[3];
+	hp->y2L = y2[1];
+	hp->y2R = y2[3];
+	hp->z1L = z1[1];
+	hp->z1R = z1[3];
+	hp->z2L = z2[1];
+	hp->z2R = z2[3];
 }
 #elif defined(__SSE3__) && defined(__x86_64__)
 #include <emmintrin.h>
 static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
-		       float *data0L, float *data0R,
-		       float *data1L, float *data1R)
+		       float *data0L, float *data0R, float *data1L,
+		       float *data1R)
 {
-	__m128 x1 = {lp->x1L, hp->x1L, lp->x1R, hp->x1R};
-	__m128 x2 = {lp->x2L, hp->x2L, lp->x2R, hp->x2R};
-	__m128 y1 = {lp->y1L, hp->y1L, lp->y1R, hp->y1R};
-	__m128 y2 = {lp->y2L, hp->y2L, lp->y2R, hp->y2R};
-	__m128 z1 = {lp->z1L, hp->z1L, lp->z1R, hp->z1R};
-	__m128 z2 = {lp->z2L, hp->z2L, lp->z2R, hp->z2R};
-	__m128 b0 = {lp->b0, hp->b0, lp->b0, hp->b0};
-	__m128 b1 = {lp->b1, hp->b1, lp->b1, hp->b1};
-	__m128 b2 = {lp->b2, hp->b2, lp->b2, hp->b2};
-	__m128 a1 = {lp->a1, hp->a1, lp->a1, hp->a1};
-	__m128 a2 = {lp->a2, hp->a2, lp->a2, hp->a2};
+	__m128 x1 = { lp->x1L, hp->x1L, lp->x1R, hp->x1R };
+	__m128 x2 = { lp->x2L, hp->x2L, lp->x2R, hp->x2R };
+	__m128 y1 = { lp->y1L, hp->y1L, lp->y1R, hp->y1R };
+	__m128 y2 = { lp->y2L, hp->y2L, lp->y2R, hp->y2R };
+	__m128 z1 = { lp->z1L, hp->z1L, lp->z1R, hp->z1R };
+	__m128 z2 = { lp->z2L, hp->z2L, lp->z2R, hp->z2R };
+	__m128 b0 = { lp->b0, hp->b0, lp->b0, hp->b0 };
+	__m128 b1 = { lp->b1, hp->b1, lp->b1, hp->b1 };
+	__m128 b2 = { lp->b2, hp->b2, lp->b2, hp->b2 };
+	__m128 a1 = { lp->a1, hp->a1, lp->a1, hp->a1 };
+	__m128 a2 = { lp->a2, hp->a2, lp->a2, hp->a2 };
 
+	// clang-format off
 	__asm__ __volatile__(
 		"1:                                     \n"
 		"movss (%[data0L]), %%xmm2              \n"
@@ -198,27 +212,39 @@ static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
 		  [a1]"x"(a1),
 		  [a2]"x"(a2)
 		: /* clobber */
-		  "xmm0", "xmm1", "xmm2", "memory", "cc"
-		);
+		  "xmm0", "xmm1", "xmm2", "memory", "cc");
+	// clang-format on
 
-	lp->x1L = x1[0]; lp->x1R = x1[2];
-	lp->x2L = x2[0]; lp->x2R = x2[2];
-	lp->y1L = y1[0]; lp->y1R = y1[2];
-	lp->y2L = y2[0]; lp->y2R = y2[2];
-	lp->z1L = z1[0]; lp->z1R = z1[2];
-	lp->z2L = z2[0]; lp->z2R = z2[2];
+	lp->x1L = x1[0];
+	lp->x1R = x1[2];
+	lp->x2L = x2[0];
+	lp->x2R = x2[2];
+	lp->y1L = y1[0];
+	lp->y1R = y1[2];
+	lp->y2L = y2[0];
+	lp->y2R = y2[2];
+	lp->z1L = z1[0];
+	lp->z1R = z1[2];
+	lp->z2L = z2[0];
+	lp->z2R = z2[2];
 
-	hp->x1L = x1[1]; hp->x1R = x1[3];
-	hp->x2L = x2[1]; hp->x2R = x2[3];
-	hp->y1L = y1[1]; hp->y1R = y1[3];
-	hp->y2L = y2[1]; hp->y2R = y2[3];
-	hp->z1L = z1[1]; hp->z1R = z1[3];
-	hp->z2L = z2[1]; hp->z2R = z2[3];
+	hp->x1L = x1[1];
+	hp->x1R = x1[3];
+	hp->x2L = x2[1];
+	hp->x2R = x2[3];
+	hp->y1L = y1[1];
+	hp->y1R = y1[3];
+	hp->y2L = y2[1];
+	hp->y2R = y2[3];
+	hp->z1L = z1[1];
+	hp->z1R = z1[3];
+	hp->z2L = z2[1];
+	hp->z2R = z2[3];
 }
 #else
 static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
-		       float *data0L, float *data0R,
-		       float *data1L, float *data1R)
+		       float *data0L, float *data0R, float *data1L,
+		       float *data1R)
 {
 	float lx1L = lp->x1L, lx1R = lp->x1R;
 	float lx2L = lp->x2L, lx2R = lp->x2R;
@@ -249,10 +275,14 @@ static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
 		float xL, yL, zL, xR, yR, zR;
 		xL = data0L[i];
 		xR = data0R[i];
-		yL = lb0*xL + lb1*lx1L + lb2*lx2L - la1*ly1L - la2*ly2L;
-		yR = lb0*xR + lb1*lx1R + lb2*lx2R - la1*ly1R - la2*ly2R;
-		zL = lb0*yL + lb1*ly1L + lb2*ly2L - la1*lz1L - la2*lz2L;
-		zR = lb0*yR + lb1*ly1R + lb2*ly2R - la1*lz1R - la2*lz2R;
+		yL = lb0 * xL + lb1 * lx1L + lb2 * lx2L - la1 * ly1L -
+		     la2 * ly2L;
+		yR = lb0 * xR + lb1 * lx1R + lb2 * lx2R - la1 * ly1R -
+		     la2 * ly2R;
+		zL = lb0 * yL + lb1 * ly1L + lb2 * ly2L - la1 * lz1L -
+		     la2 * lz2L;
+		zR = lb0 * yR + lb1 * ly1R + lb2 * ly2R - la1 * lz1R -
+		     la2 * lz2R;
 		lx2L = lx1L;
 		lx2R = lx1R;
 		lx1L = xL;
@@ -268,10 +298,14 @@ static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
 		data0L[i] = zL;
 		data0R[i] = zR;
 
-		yL = hb0*xL + hb1*hx1L + hb2*hx2L - ha1*hy1L - ha2*hy2L;
-		yR = hb0*xR + hb1*hx1R + hb2*hx2R - ha1*hy1R - ha2*hy2R;
-		zL = hb0*yL + hb1*hy1L + hb2*hy2L - ha1*hz1L - ha2*hz2L;
-		zR = hb0*yR + hb1*hy1R + hb2*hy2R - ha1*hz1R - ha2*hz2R;
+		yL = hb0 * xL + hb1 * hx1L + hb2 * hx2L - ha1 * hy1L -
+		     ha2 * hy2L;
+		yR = hb0 * xR + hb1 * hx1R + hb2 * hx2R - ha1 * hy1R -
+		     ha2 * hy2R;
+		zL = hb0 * yL + hb1 * hy1L + hb2 * hy2L - ha1 * hz1L -
+		     ha2 * hz2L;
+		zR = hb0 * yR + hb1 * hy1R + hb2 * hy2R - ha1 * hz1R -
+		     ha2 * hz2R;
 		hx2L = hx1L;
 		hx2R = hx1R;
 		hx1L = xL;
@@ -288,19 +322,31 @@ static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
 		data1R[i] = zR;
 	}
 
-	lp->x1L = lx1L; lp->x1R = lx1R;
-	lp->x2L = lx2L;	lp->x2R = lx2R;
-	lp->y1L = ly1L;	lp->y1R = ly1R;
-	lp->y2L = ly2L;	lp->y2R = ly2R;
-	lp->z1L = lz1L;	lp->z1R = lz1R;
-	lp->z2L = lz2L;	lp->z2R = lz2R;
+	lp->x1L = lx1L;
+	lp->x1R = lx1R;
+	lp->x2L = lx2L;
+	lp->x2R = lx2R;
+	lp->y1L = ly1L;
+	lp->y1R = ly1R;
+	lp->y2L = ly2L;
+	lp->y2R = ly2R;
+	lp->z1L = lz1L;
+	lp->z1R = lz1R;
+	lp->z2L = lz2L;
+	lp->z2R = lz2R;
 
-	hp->x1L = hx1L; hp->x1R = hx1R;
-	hp->x2L = hx2L;	hp->x2R = hx2R;
-	hp->y1L = hy1L;	hp->y1R = hy1R;
-	hp->y2L = hy2L;	hp->y2R = hy2R;
-	hp->z1L = hz1L;	hp->z1R = hz1R;
-	hp->z2L = hz2L;	hp->z2R = hz2R;
+	hp->x1L = hx1L;
+	hp->x1R = hx1R;
+	hp->x2L = hx2L;
+	hp->x2R = hx2R;
+	hp->y1L = hy1L;
+	hp->y1R = hy1R;
+	hp->y2L = hy2L;
+	hp->y2R = hy2R;
+	hp->z1L = hz1L;
+	hp->z1R = hz1R;
+	hp->z2L = hz2L;
+	hp->z2R = hz2R;
 }
 #endif
 
@@ -316,18 +362,19 @@ static void lr42_split(struct lr42 *lp, struct lr42 *hp, int count,
 static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
 		       float *dataL, float *dataR)
 {
-	float32x4_t x1 = {lp->x1L, hp->x1L, lp->x1R, hp->x1R};
-	float32x4_t x2 = {lp->x2L, hp->x2L, lp->x2R, hp->x2R};
-	float32x4_t y1 = {lp->y1L, hp->y1L, lp->y1R, hp->y1R};
-	float32x4_t y2 = {lp->y2L, hp->y2L, lp->y2R, hp->y2R};
-	float32x4_t z1 = {lp->z1L, hp->z1L, lp->z1R, hp->z1R};
-	float32x4_t z2 = {lp->z2L, hp->z2L, lp->z2R, hp->z2R};
-	float32x4_t b0 = {lp->b0, hp->b0, lp->b0, hp->b0};
-	float32x4_t b1 = {lp->b1, hp->b1, lp->b1, hp->b1};
-	float32x4_t b2 = {lp->b2, hp->b2, lp->b2, hp->b2};
-	float32x4_t a1 = {lp->a1, hp->a1, lp->a1, hp->a1};
-	float32x4_t a2 = {lp->a2, hp->a2, lp->a2, hp->a2};
+	float32x4_t x1 = { lp->x1L, hp->x1L, lp->x1R, hp->x1R };
+	float32x4_t x2 = { lp->x2L, hp->x2L, lp->x2R, hp->x2R };
+	float32x4_t y1 = { lp->y1L, hp->y1L, lp->y1R, hp->y1R };
+	float32x4_t y2 = { lp->y2L, hp->y2L, lp->y2R, hp->y2R };
+	float32x4_t z1 = { lp->z1L, hp->z1L, lp->z1R, hp->z1R };
+	float32x4_t z2 = { lp->z2L, hp->z2L, lp->z2R, hp->z2R };
+	float32x4_t b0 = { lp->b0, hp->b0, lp->b0, hp->b0 };
+	float32x4_t b1 = { lp->b1, hp->b1, lp->b1, hp->b1 };
+	float32x4_t b2 = { lp->b2, hp->b2, lp->b2, hp->b2 };
+	float32x4_t a1 = { lp->a1, hp->a1, lp->a1, hp->a1 };
+	float32x4_t a2 = { lp->a2, hp->a2, lp->a2, hp->a2 };
 
+	// clang-format off
 	__asm__ __volatile__(
 		/* q0 = x, q1 = y, q2 = z */
 		"1:                                     \n"
@@ -374,40 +421,53 @@ static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
 		  [a1]"w"(a1),
 		  [a2]"w"(a2)
 		: /* clobber */
-		  "q0", "q1", "q2", "memory", "cc"
-		);
+		  "q0", "q1", "q2", "memory", "cc");
+	// clang-format on
 
-	lp->x1L = x1[0]; lp->x1R = x1[2];
-	lp->x2L = x2[0]; lp->x2R = x2[2];
-	lp->y1L = y1[0]; lp->y1R = y1[2];
-	lp->y2L = y2[0]; lp->y2R = y2[2];
-	lp->z1L = z1[0]; lp->z1R = z1[2];
-	lp->z2L = z2[0]; lp->z2R = z2[2];
+	lp->x1L = x1[0];
+	lp->x1R = x1[2];
+	lp->x2L = x2[0];
+	lp->x2R = x2[2];
+	lp->y1L = y1[0];
+	lp->y1R = y1[2];
+	lp->y2L = y2[0];
+	lp->y2R = y2[2];
+	lp->z1L = z1[0];
+	lp->z1R = z1[2];
+	lp->z2L = z2[0];
+	lp->z2R = z2[2];
 
-	hp->x1L = x1[1]; hp->x1R = x1[3];
-	hp->x2L = x2[1]; hp->x2R = x2[3];
-	hp->y1L = y1[1]; hp->y1R = y1[3];
-	hp->y2L = y2[1]; hp->y2R = y2[3];
-	hp->z1L = z1[1]; hp->z1R = z1[3];
-	hp->z2L = z2[1]; hp->z2R = z2[3];
+	hp->x1L = x1[1];
+	hp->x1R = x1[3];
+	hp->x2L = x2[1];
+	hp->x2R = x2[3];
+	hp->y1L = y1[1];
+	hp->y1R = y1[3];
+	hp->y2L = y2[1];
+	hp->y2R = y2[3];
+	hp->z1L = z1[1];
+	hp->z1R = z1[3];
+	hp->z2L = z2[1];
+	hp->z2R = z2[3];
 }
 #elif defined(__SSE3__) && defined(__x86_64__)
 #include <emmintrin.h>
 static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
 		       float *dataL, float *dataR)
 {
-	__m128 x1 = {lp->x1L, hp->x1L, lp->x1R, hp->x1R};
-	__m128 x2 = {lp->x2L, hp->x2L, lp->x2R, hp->x2R};
-	__m128 y1 = {lp->y1L, hp->y1L, lp->y1R, hp->y1R};
-	__m128 y2 = {lp->y2L, hp->y2L, lp->y2R, hp->y2R};
-	__m128 z1 = {lp->z1L, hp->z1L, lp->z1R, hp->z1R};
-	__m128 z2 = {lp->z2L, hp->z2L, lp->z2R, hp->z2R};
-	__m128 b0 = {lp->b0, hp->b0, lp->b0, hp->b0};
-	__m128 b1 = {lp->b1, hp->b1, lp->b1, hp->b1};
-	__m128 b2 = {lp->b2, hp->b2, lp->b2, hp->b2};
-	__m128 a1 = {lp->a1, hp->a1, lp->a1, hp->a1};
-	__m128 a2 = {lp->a2, hp->a2, lp->a2, hp->a2};
+	__m128 x1 = { lp->x1L, hp->x1L, lp->x1R, hp->x1R };
+	__m128 x2 = { lp->x2L, hp->x2L, lp->x2R, hp->x2R };
+	__m128 y1 = { lp->y1L, hp->y1L, lp->y1R, hp->y1R };
+	__m128 y2 = { lp->y2L, hp->y2L, lp->y2R, hp->y2R };
+	__m128 z1 = { lp->z1L, hp->z1L, lp->z1R, hp->z1R };
+	__m128 z2 = { lp->z2L, hp->z2L, lp->z2R, hp->z2R };
+	__m128 b0 = { lp->b0, hp->b0, lp->b0, hp->b0 };
+	__m128 b1 = { lp->b1, hp->b1, lp->b1, hp->b1 };
+	__m128 b2 = { lp->b2, hp->b2, lp->b2, hp->b2 };
+	__m128 a1 = { lp->a1, hp->a1, lp->a1, hp->a1 };
+	__m128 a2 = { lp->a2, hp->a2, lp->a2, hp->a2 };
 
+	// clang-format off
 	__asm__ __volatile__(
 		"1:                                     \n"
 		"movss (%[dataL]), %%xmm2               \n"
@@ -469,22 +529,34 @@ static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
 		  [a1]"x"(a1),
 		  [a2]"x"(a2)
 		: /* clobber */
-		  "xmm0", "xmm1", "xmm2", "memory", "cc"
-		);
+		  "xmm0", "xmm1", "xmm2", "memory", "cc");
+	// clang-format on
 
-	lp->x1L = x1[0]; lp->x1R = x1[2];
-	lp->x2L = x2[0]; lp->x2R = x2[2];
-	lp->y1L = y1[0]; lp->y1R = y1[2];
-	lp->y2L = y2[0]; lp->y2R = y2[2];
-	lp->z1L = z1[0]; lp->z1R = z1[2];
-	lp->z2L = z2[0]; lp->z2R = z2[2];
+	lp->x1L = x1[0];
+	lp->x1R = x1[2];
+	lp->x2L = x2[0];
+	lp->x2R = x2[2];
+	lp->y1L = y1[0];
+	lp->y1R = y1[2];
+	lp->y2L = y2[0];
+	lp->y2R = y2[2];
+	lp->z1L = z1[0];
+	lp->z1R = z1[2];
+	lp->z2L = z2[0];
+	lp->z2R = z2[2];
 
-	hp->x1L = x1[1]; hp->x1R = x1[3];
-	hp->x2L = x2[1]; hp->x2R = x2[3];
-	hp->y1L = y1[1]; hp->y1R = y1[3];
-	hp->y2L = y2[1]; hp->y2R = y2[3];
-	hp->z1L = z1[1]; hp->z1R = z1[3];
-	hp->z2L = z2[1]; hp->z2R = z2[3];
+	hp->x1L = x1[1];
+	hp->x1R = x1[3];
+	hp->x2L = x2[1];
+	hp->x2R = x2[3];
+	hp->y1L = y1[1];
+	hp->y1R = y1[3];
+	hp->y2L = y2[1];
+	hp->y2R = y2[3];
+	hp->z1L = z1[1];
+	hp->z1R = z1[3];
+	hp->z2L = z2[1];
+	hp->z2R = z2[3];
 }
 #else
 static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
@@ -519,10 +591,14 @@ static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
 		float xL, yL, zL, xR, yR, zR;
 		xL = dataL[i];
 		xR = dataR[i];
-		yL = lb0*xL + lb1*lx1L + lb2*lx2L - la1*ly1L - la2*ly2L;
-		yR = lb0*xR + lb1*lx1R + lb2*lx2R - la1*ly1R - la2*ly2R;
-		zL = lb0*yL + lb1*ly1L + lb2*ly2L - la1*lz1L - la2*lz2L;
-		zR = lb0*yR + lb1*ly1R + lb2*ly2R - la1*lz1R - la2*lz2R;
+		yL = lb0 * xL + lb1 * lx1L + lb2 * lx2L - la1 * ly1L -
+		     la2 * ly2L;
+		yR = lb0 * xR + lb1 * lx1R + lb2 * lx2R - la1 * ly1R -
+		     la2 * ly2R;
+		zL = lb0 * yL + lb1 * ly1L + lb2 * ly2L - la1 * lz1L -
+		     la2 * lz2L;
+		zR = lb0 * yR + lb1 * ly1R + lb2 * ly2R - la1 * lz1R -
+		     la2 * lz2R;
 		lx2L = lx1L;
 		lx2R = lx1R;
 		lx1L = xL;
@@ -536,10 +612,14 @@ static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
 		lz1L = zL;
 		lz1R = zR;
 
-		yL = hb0*xL + hb1*hx1L + hb2*hx2L - ha1*hy1L - ha2*hy2L;
-		yR = hb0*xR + hb1*hx1R + hb2*hx2R - ha1*hy1R - ha2*hy2R;
-		zL = hb0*yL + hb1*hy1L + hb2*hy2L - ha1*hz1L - ha2*hz2L;
-		zR = hb0*yR + hb1*hy1R + hb2*hy2R - ha1*hz1R - ha2*hz2R;
+		yL = hb0 * xL + hb1 * hx1L + hb2 * hx2L - ha1 * hy1L -
+		     ha2 * hy2L;
+		yR = hb0 * xR + hb1 * hx1R + hb2 * hx2R - ha1 * hy1R -
+		     ha2 * hy2R;
+		zL = hb0 * yL + hb1 * hy1L + hb2 * hy2L - ha1 * hz1L -
+		     ha2 * hz2L;
+		zR = hb0 * yR + hb1 * hy1R + hb2 * hy2R - ha1 * hz1R -
+		     ha2 * hz2R;
 		hx2L = hx1L;
 		hx2R = hx1R;
 		hx1L = xL;
@@ -556,19 +636,31 @@ static void lr42_merge(struct lr42 *lp, struct lr42 *hp, int count,
 		dataR[i] = zR + lz1R;
 	}
 
-	lp->x1L = lx1L; lp->x1R = lx1R;
-	lp->x2L = lx2L;	lp->x2R = lx2R;
-	lp->y1L = ly1L;	lp->y1R = ly1R;
-	lp->y2L = ly2L;	lp->y2R = ly2R;
-	lp->z1L = lz1L;	lp->z1R = lz1R;
-	lp->z2L = lz2L;	lp->z2R = lz2R;
+	lp->x1L = lx1L;
+	lp->x1R = lx1R;
+	lp->x2L = lx2L;
+	lp->x2R = lx2R;
+	lp->y1L = ly1L;
+	lp->y1R = ly1R;
+	lp->y2L = ly2L;
+	lp->y2R = ly2R;
+	lp->z1L = lz1L;
+	lp->z1R = lz1R;
+	lp->z2L = lz2L;
+	lp->z2R = lz2R;
 
-	hp->x1L = hx1L; hp->x1R = hx1R;
-	hp->x2L = hx2L;	hp->x2R = hx2R;
-	hp->y1L = hy1L;	hp->y1R = hy1R;
-	hp->y2L = hy2L;	hp->y2R = hy2R;
-	hp->z1L = hz1L;	hp->z1R = hz1R;
-	hp->z2L = hz2L;	hp->z2R = hz2R;
+	hp->x1L = hx1L;
+	hp->x1R = hx1R;
+	hp->x2L = hx2L;
+	hp->x2R = hx2R;
+	hp->y1L = hy1L;
+	hp->y1R = hy1R;
+	hp->y2L = hy2L;
+	hp->y2R = hy2R;
+	hp->z1L = hz1L;
+	hp->z1R = hz1R;
+	hp->z2L = hz2L;
+	hp->z2R = hz2R;
 }
 #endif
 
@@ -582,17 +674,16 @@ void crossover2_init(struct crossover2 *xo2, float freq1, float freq2)
 	}
 }
 
-void crossover2_process(struct crossover2 *xo2, int count,
-			float *data0L, float *data0R,
-			float *data1L, float *data1R,
+void crossover2_process(struct crossover2 *xo2, int count, float *data0L,
+			float *data0R, float *data1L, float *data1R,
 			float *data2L, float *data2R)
 {
 	if (!count)
 		return;
 
-	lr42_split(&xo2->lp[0], &xo2->hp[0], count, data0L, data0R,
-		   data1L, data1R);
+	lr42_split(&xo2->lp[0], &xo2->hp[0], count, data0L, data0R, data1L,
+		   data1R);
 	lr42_merge(&xo2->lp[1], &xo2->hp[1], count, data0L, data0R);
-	lr42_split(&xo2->lp[2], &xo2->hp[2], count, data1L, data1R,
-		   data2L, data2R);
+	lr42_split(&xo2->lp[2], &xo2->hp[2], count, data1L, data1R, data2L,
+		   data2R);
 }

@@ -19,13 +19,13 @@
 #include <cinttypes>
 
 #include "chre/core/event_loop_manager.h"
-#include "chre/platform/shared/pal_system_api.h"
 #include "chre/platform/log.h"
+#include "chre/platform/shared/pal_system_api.h"
 
 namespace chre {
 
 const chrePalWwanCallbacks PlatformWwanBase::sWwanCallbacks = {
-  PlatformWwanBase::cellInfoResultCallback,
+    PlatformWwanBase::cellInfoResultCallback,
 };
 
 PlatformWwan::~PlatformWwan() {
@@ -44,7 +44,7 @@ void PlatformWwan::init() {
     if (!mWwanApi->open(&gChrePalSystemApi, &sWwanCallbacks)) {
       LOGE("WWAN PAL open returned false");
       mWwanApi = nullptr;
-    }  else {
+    } else {
       LOGD("Opened WWAN PAL version 0x%08" PRIx32, mWwanApi->moduleVersion);
     }
   } else {
@@ -80,7 +80,8 @@ void PlatformWwan::releaseCellInfoResult(chreWwanCellInfoResult *result) {
 
 void PlatformWwanBase::cellInfoResultCallback(
     struct chreWwanCellInfoResult *result) {
-  EventLoopManagerSingleton::get()->getWwanRequestManager()
+  EventLoopManagerSingleton::get()
+      ->getWwanRequestManager()
       .handleCellInfoResult(result);
 }
 

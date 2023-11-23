@@ -31,6 +31,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -62,7 +63,8 @@ public class WifiConfigCreator {
 
     public WifiConfigCreator(Context context) {
         mContext = context;
-        mWifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        mWifiManager = (WifiManager)
+                context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
     }
 
     /**
@@ -93,32 +95,14 @@ public class WifiConfigCreator {
      */
     public String addHttpProxyNetworkVerifyAndRemove(String ssid, String pacProxyUrl)
             throws IllegalStateException {
-        String retrievedPacProxyUrl = null;
         int netId = -1;
+        String retrievedPacProxyUrl;
+
         try {
-            WifiConfiguration conf = createConfig(ssid, false, SECURITY_TYPE_NONE, null);
-            if (pacProxyUrl != null) {
-                conf.setHttpProxy(ProxyInfo.buildPacProxy(Uri.parse(pacProxyUrl)));
-            }
-            netId = mWifiManager.addNetwork(conf);
-            if (netId == -1) {
-                throw new IllegalStateException("Failed to addNetwork: " + ssid);
-            }
-            for (final WifiConfiguration w : mWifiManager.getConfiguredNetworks()) {
-                if (w.SSID.equals(ssid)) {
-                    conf = w;
-                    break;
-                }
-            }
-            if (conf == null) {
-                throw new IllegalStateException("Failed to get WifiConfiguration for: " + ssid);
-            }
-            Uri pacProxyFileUri = null;
-            ProxyInfo httpProxy = conf.getHttpProxy();
-            if (httpProxy != null) pacProxyFileUri = httpProxy.getPacFileUrl();
-            if (pacProxyFileUri != null) {
-                retrievedPacProxyUrl = conf.getHttpProxy().getPacFileUrl().toString();
-            }
+            netId = addNetworkWithProxy(ssid, pacProxyUrl);
+            WifiConfiguration conf = getWifiConfigurationBySsid(ssid);
+            retrievedPacProxyUrl = getPacProxyUrl(conf);
+
             if (!mWifiManager.removeNetwork(netId)) {
                 throw new IllegalStateException("Failed to remove WifiConfiguration: " + ssid);
             }
@@ -126,6 +110,44 @@ public class WifiConfigCreator {
             mWifiManager.removeNetwork(netId);
         }
         return retrievedPacProxyUrl;
+    }
+
+    private String getPacProxyUrl(WifiConfiguration conf) {
+        return Optional.of(conf)
+                .map(WifiConfiguration::getHttpProxy)
+                .map(ProxyInfo::getPacFileUrl)
+                .map(Object::toString)
+                .orElse(null);
+    }
+
+    private int addNetworkWithProxy(String ssid, String pacProxyUrl) {
+        WifiConfiguration conf = createConfig(ssid, false, SECURITY_TYPE_NONE, null);
+
+        if (pacProxyUrl != null) {
+            conf.setHttpProxy(ProxyInfo.buildPacProxy(Uri.parse(pacProxyUrl)));
+        }
+
+        int netId = mWifiManager.addNetwork(conf);
+        if (netId == -1) {
+            throw new IllegalStateException("Failed to addNetwork: " + ssid);
+        }
+        return netId;
+    }
+
+    private WifiConfiguration getWifiConfigurationBySsid(String ssid) {
+        WifiConfiguration wifiConfiguration = null;
+        String expectedSsid = wrapInQuotes(ssid);
+
+        for (final WifiConfiguration w : mWifiManager.getConfiguredNetworks()) {
+            if (w.SSID.equals(expectedSsid)) {
+                wifiConfiguration = w;
+                break;
+            }
+        }
+        if (wifiConfiguration == null) {
+            throw new IllegalStateException("Failed to get WifiConfiguration for: " + ssid);
+        }
+        return wifiConfiguration;
     }
 
     /**
@@ -189,7 +211,7 @@ public class WifiConfigCreator {
             String password) {
         WifiConfiguration wifiConf = new WifiConfiguration();
         if (!TextUtils.isEmpty(ssid)) {
-            wifiConf.SSID = '"' + ssid + '"';
+            wifiConf.SSID = wrapInQuotes(ssid);
         }
         wifiConf.status = WifiConfiguration.Status.ENABLED;
         wifiConf.hiddenSSID = hidden;
@@ -210,7 +232,7 @@ public class WifiConfigCreator {
     private void updateForWPAConfiguration(WifiConfiguration wifiConf, String wifiPassword) {
         wifiConf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
         if (!TextUtils.isEmpty(wifiPassword)) {
-            wifiConf.preSharedKey = '"' + wifiPassword + '"';
+            wifiConf.preSharedKey = wrapInQuotes(wifiPassword);
         }
     }
 
@@ -224,7 +246,7 @@ public class WifiConfigCreator {
                     || length == 58) && password.matches("[0-9A-Fa-f]*")) {
                 wifiConf.wepKeys[0] = password;
             } else {
-                wifiConf.wepKeys[0] = '"' + password + '"';
+                wifiConf.wepKeys[0] = wrapInQuotes(password);
             }
             wifiConf.wepTxKeyIndex = 0;
         }
@@ -253,6 +275,10 @@ public class WifiConfigCreator {
         } finally {
             mContext.unregisterReceiver(watcher);
         }
+    }
+
+    private String wrapInQuotes(String ssid) {
+        return '"' + ssid + '"';
     }
 }
 

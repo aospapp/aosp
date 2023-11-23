@@ -19,10 +19,10 @@
 #define LOG_TAG "MemoryLeackTrackUtil"
 #include <utils/Log.h>
 
-#include "media/MemoryLeakTrackUtil.h"
+#include <mediautils/MemoryLeakTrackUtil.h>
 #include <sstream>
 
-#include <bionic_malloc.h>
+#include <bionic/malloc.h>
 
 /*
  * The code here originally resided in MediaPlayerService.cpp

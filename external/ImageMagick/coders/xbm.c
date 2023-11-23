@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -158,7 +158,7 @@ static int XBMInteger(Image *image,short int *hex_digits)
       {
         value*=16;
         c&=0xff;
-        if (value <= (unsigned int) (INT_MAX-hex_digits[c]))
+        if (value <= (unsigned int) ((INT_MAX-1)-hex_digits[c]))
           value+=hex_digits[c];
       }
     c=ReadBlobByte(image);
@@ -573,7 +573,7 @@ static MagickBooleanType WriteXBMImage(const ImageInfo *image_info,Image *image,
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       byte>>=1;
-      if (GetPixelLuma(image,p) < (QuantumRange/2))
+      if (GetPixelLuma(image,p) > (QuantumRange/2))
         byte|=0x80;
       bit++;
       if (bit == 8)
@@ -594,8 +594,8 @@ static MagickBooleanType WriteXBMImage(const ImageInfo *image_info,Image *image,
           bit=0;
           byte=0;
         }
-        p+=GetPixelChannels(image);
-      }
+      p+=GetPixelChannels(image);
+    }
     if (bit != 0)
       {
         /*

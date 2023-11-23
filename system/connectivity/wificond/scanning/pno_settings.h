@@ -24,11 +24,10 @@
 
 #include "wificond/scanning/pno_network.h"
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 class PnoSettings : public ::android::Parcelable {
  public:
@@ -38,25 +37,27 @@ class PnoSettings : public ::android::Parcelable {
   PnoSettings()
       : interval_ms_(0),
         min_2g_rssi_(0),
-        min_5g_rssi_(0) {}
+        min_5g_rssi_(0),
+        min_6g_rssi_(0) {}
   bool operator==(const PnoSettings& rhs) const {
     return (pno_networks_ == rhs.pno_networks_ &&
             min_2g_rssi_ == rhs.min_2g_rssi_ &&
-            min_5g_rssi_ == rhs.min_5g_rssi_);
+            min_5g_rssi_ == rhs.min_5g_rssi_ &&
+            min_6g_rssi_ == rhs.min_6g_rssi_);
   }
   ::android::status_t writeToParcel(::android::Parcel* parcel) const override;
   ::android::status_t readFromParcel(const ::android::Parcel* parcel) override;
 
-  int32_t interval_ms_;
+  int64_t interval_ms_;
   int32_t min_2g_rssi_;
   int32_t min_5g_rssi_;
+  int32_t min_6g_rssi_;
   std::vector<PnoNetwork> pno_networks_;
 };
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com
 
 #endif  // WIFICOND_SCANNING_PNO_SETTINGS_H_

@@ -16,14 +16,13 @@
 
 package com.android.internal.telephony.uicc;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Registrant;
 import android.os.RegistrantList;
-import android.telephony.Rlog;
 
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.PhoneConstants;
@@ -31,6 +30,7 @@ import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
 import com.android.internal.telephony.uicc.IccCardStatus.PinState;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -95,6 +95,7 @@ public class UiccCardApplication {
     private boolean mDestroyed;//set to true once this App is commanded to be disposed of.
 
     private RegistrantList mReadyRegistrants = new RegistrantList();
+    private RegistrantList mDetectedRegistrants = new RegistrantList();
     private RegistrantList mPinLockedRegistrants = new RegistrantList();
     private RegistrantList mNetworkLockedRegistrants = new RegistrantList();
 
@@ -141,6 +142,7 @@ public class UiccCardApplication {
             AppType oldAppType = mAppType;
             AppState oldAppState = mAppState;
             PersoSubState oldPersoSubState = mPersoSubState;
+            PinState oldPin1State = mPin1State;
             mAppType = as.app_type;
             mAuthContext = getAuthContext(mAppType);
             mAppState = as.app_state;
@@ -159,7 +161,7 @@ public class UiccCardApplication {
             }
 
             if (mPersoSubState != oldPersoSubState &&
-                    mPersoSubState == PersoSubState.PERSOSUBSTATE_SIM_NETWORK) {
+                    PersoSubState.isPersoLocked(mPersoSubState)) {
                 notifyNetworkLockedRegistrantsIfNeeded(null);
             }
 
@@ -173,6 +175,10 @@ public class UiccCardApplication {
                 }
                 notifyPinLockedRegistrantsIfNeeded(null);
                 notifyReadyRegistrantsIfNeeded(null);
+                notifyDetectedRegistrantsIfNeeded(null);
+            } else {
+                if (mPin1State != oldPin1State)
+                    queryPin1State();
             }
         }
     }
@@ -441,6 +447,20 @@ public class UiccCardApplication {
         }
     }
 
+    public void registerForDetected(Handler h, int what, Object obj) {
+        synchronized (mLock) {
+            Registrant r = new Registrant(h, what, obj);
+            mDetectedRegistrants.add(r);
+            notifyDetectedRegistrantsIfNeeded(r);
+        }
+    }
+
+    public void unregisterForDetected(Handler h) {
+        synchronized (mLock) {
+            mDetectedRegistrants.remove(h);
+        }
+    }
+
     /**
      * Notifies handler of any transition into State.isPinLocked()
      */
@@ -507,6 +527,26 @@ public class UiccCardApplication {
      *
      * @param r Registrant to be notified. If null - all registrants will be notified
      */
+    private void notifyDetectedRegistrantsIfNeeded(Registrant r) {
+        if (mDestroyed) {
+            return;
+        }
+        if (mAppState == AppState.APPSTATE_DETECTED) {
+            if (r == null) {
+                if (DBG) log("Notifying registrants: DETECTED");
+                mDetectedRegistrants.notifyRegistrants();
+            } else {
+                if (DBG) log("Notifying 1 registrant: DETECTED");
+                r.notifyRegistrant(new AsyncResult(null, null, null));
+            }
+        }
+    }
+
+    /**
+     * Notifies specified registrant, assume mLock is held.
+     *
+     * @param r Registrant to be notified. If null - all registrants will be notified
+     */
     private void notifyPinLockedRegistrantsIfNeeded(Registrant r) {
         if (mDestroyed) {
             return;
@@ -541,13 +581,14 @@ public class UiccCardApplication {
         }
 
         if (mAppState == AppState.APPSTATE_SUBSCRIPTION_PERSO &&
-                mPersoSubState == PersoSubState.PERSOSUBSTATE_SIM_NETWORK) {
+                PersoSubState.isPersoLocked(mPersoSubState)) {
+            AsyncResult ar = new AsyncResult(null, mPersoSubState.ordinal(), null);
             if (r == null) {
-                if (DBG) log("Notifying registrants: NETWORK_LOCKED");
-                mNetworkLockedRegistrants.notifyRegistrants();
+                if (DBG) log("Notifying registrants: NETWORK_LOCKED with mPersoSubState" + mPersoSubState);
+                mNetworkLockedRegistrants.notifyRegistrants(ar);
             } else {
-                if (DBG) log("Notifying 1 registrant: NETWORK_LOCED");
-                r.notifyRegistrant(new AsyncResult(null, null, null));
+                if (DBG) log("Notifying 1 registrant: NETWORK_LOCKED with mPersoSubState" + mPersoSubState);
+                r.notifyRegistrant(ar);
             }
         }
     }
@@ -715,6 +756,14 @@ public class UiccCardApplication {
         synchronized (mLock) {
             if (DBG) log("supplyNetworkDepersonalization");
             mCi.supplyNetworkDepersonalization(pin, onComplete);
+        }
+    }
+
+    public void supplySimDepersonalization(PersoSubState persoType,
+                                           String pin, Message onComplete) {
+        synchronized (mLock) {
+            if (DBG) log("supplySimDepersonalization");
+            mCi.supplySimDepersonalization(persoType, pin, onComplete);
         }
     }
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<mixer>
+	<!-- FIXME: This should be moved to the appropriate path -->
+
+	<!-- Enable HDMITX Control from TDM B -->
+	<ctl name="TOHDMITX Switch" value="1" />
+	<ctl name="TOHDMITX I2S SRC" value="I2S B" />
+
+	<!-- PCM0 to TDMB -->
+	<ctl name="TDMOUT_B SRC SEL" value="IN 0" />
+	<ctl name="FRDDR_A SINK 1 SEL" value="OUT 1" />
+	<ctl name="FRDDR_A SRC 1 EN Switch" value="1" />
+
+	<!-- PDM to PCM3 -->
+	<ctl name="TODDR_A SRC SEL" value="IN 4" />
+
+	<!-- PDM to PCM1 (internal speaker) -->
+	<ctl name="FRDDR_B SINK 1 SEL" value="OUT 0" />
+	<ctl name="FRDDR_B SRC 1 EN Switch" value="1" />
+	<ctl name="TDMOUT_A SRC SEL" value="IN 1" />
+</mixer>

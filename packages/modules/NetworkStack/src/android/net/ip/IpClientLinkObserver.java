@@ -16,12 +16,29 @@
 
 package android.net.ip;
 
+import static android.system.OsConstants.AF_INET6;
+
+import static com.android.server.util.NetworkStackConstants.ICMPV6_ROUTER_ADVERTISEMENT;
+
+import android.app.AlarmManager;
+import android.content.Context;
 import android.net.InetAddresses;
+import android.net.IpPrefix;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.RouteInfo;
+import android.net.netlink.NduseroptMessage;
+import android.net.netlink.NetlinkConstants;
+import android.net.netlink.NetlinkMessage;
+import android.net.netlink.StructNdOptPref64;
+import android.net.util.InterfaceParams;
+import android.net.util.SharedLog;
+import android.os.Handler;
+import android.system.OsConstants;
 import android.util.Log;
 
+import com.android.networkstack.apishim.NetworkInformationShimImpl;
+import com.android.networkstack.apishim.common.NetworkInformationShim;
 import com.android.server.NetworkObserver;
 
 import java.net.InetAddress;
@@ -31,6 +48,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Keeps track of link configuration received from Netd.
@@ -56,6 +74,10 @@ import java.util.Set;
  * - All accesses to mLinkProperties must be synchronized(this). All the other
  *   member variables are immutable once the object is constructed.
  *
+ * TODO: Now that all the methods are called on the handler thread, remove synchronization and
+ *       pass the LinkProperties to the update() callback.
+ * TODO: Stop extending NetworkObserver and get events from netlink directly.
+ *
  * @hide
  */
 public class IpClientLinkObserver implements NetworkObserver {
@@ -67,24 +89,49 @@ public class IpClientLinkObserver implements NetworkObserver {
     public interface Callback {
         /**
          * Called when some properties of the link were updated.
+         *
+         * @param linkState Whether the interface link state is up as per the latest
+         *                  {@link #onInterfaceLinkStateChanged(String, boolean)} callback. This
+         *                  should only be used for metrics purposes, as it could be inconsistent
+         *                  with {@link #getLinkProperties()} in particular.
          */
-        void update();
+        void update(boolean linkState);
+    }
+
+    /** Configuration parameters for IpClientLinkObserver. */
+    public static class Configuration {
+        public final int minRdnssLifetime;
+
+        public Configuration(int minRdnssLifetime) {
+            this.minRdnssLifetime = minRdnssLifetime;
+        }
     }
 
     private final String mInterfaceName;
     private final Callback mCallback;
     private final LinkProperties mLinkProperties;
+    private boolean mInterfaceLinkState;
     private DnsServerRepository mDnsServerRepository;
+    private final AlarmManager mAlarmManager;
+    private final Configuration mConfig;
+
+    private final MyNetlinkMonitor mNetlinkMonitor;
 
     private static final boolean DBG = false;
 
-    public IpClientLinkObserver(String iface, Callback callback) {
-        mTag = "NetlinkTracker/" + iface;
+    public IpClientLinkObserver(Context context, Handler h, String iface, Callback callback,
+            Configuration config, SharedLog log) {
         mInterfaceName = iface;
+        mTag = "NetlinkTracker/" + mInterfaceName;
         mCallback = callback;
         mLinkProperties = new LinkProperties();
         mLinkProperties.setInterfaceName(mInterfaceName);
-        mDnsServerRepository = new DnsServerRepository();
+        mConfig = config;
+        mInterfaceLinkState = true; // Assume up by default
+        mDnsServerRepository = new DnsServerRepository(config.minRdnssLifetime);
+        mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        mNetlinkMonitor = new MyNetlinkMonitor(h, log, mTag);
+        h.post(mNetlinkMonitor::start);
     }
 
     private void maybeLog(String operation, String iface, LinkAddress address) {
@@ -108,8 +155,22 @@ public class IpClientLinkObserver implements NetworkObserver {
             // now empty. Note that from the moment that the interface is removed, any further
             // interface-specific messages (e.g., RTM_DELADDR) will not reach us, because the netd
             // code that parses them will not be able to resolve the ifindex to an interface name.
-            clearLinkProperties();
-            mCallback.update();
+            final boolean linkState;
+            synchronized (this) {
+                clearLinkProperties();
+                linkState = getInterfaceLinkStateLocked();
+            }
+            mCallback.update(linkState);
+        }
+    }
+
+    @Override
+    public void onInterfaceLinkStateChanged(String iface, boolean state) {
+        if (mInterfaceName.equals(iface)) {
+            maybeLog("interfaceLinkStateChanged", iface + (state ? " up" : " down"));
+            synchronized (this) {
+                setInterfaceLinkStateLocked(state);
+            }
         }
     }
 
@@ -117,12 +178,14 @@ public class IpClientLinkObserver implements NetworkObserver {
     public void onInterfaceAddressUpdated(LinkAddress address, String iface) {
         if (mInterfaceName.equals(iface)) {
             maybeLog("addressUpdated", iface, address);
-            boolean changed;
+            final boolean changed;
+            final boolean linkState;
             synchronized (this) {
                 changed = mLinkProperties.addLinkAddress(address);
+                linkState = getInterfaceLinkStateLocked();
             }
             if (changed) {
-                mCallback.update();
+                mCallback.update(linkState);
             }
         }
     }
@@ -131,12 +194,14 @@ public class IpClientLinkObserver implements NetworkObserver {
     public void onInterfaceAddressRemoved(LinkAddress address, String iface) {
         if (mInterfaceName.equals(iface)) {
             maybeLog("addressRemoved", iface, address);
-            boolean changed;
+            final boolean changed;
+            final boolean linkState;
             synchronized (this) {
                 changed = mLinkProperties.removeLinkAddress(address);
+                linkState = getInterfaceLinkStateLocked();
             }
             if (changed) {
-                mCallback.update();
+                mCallback.update(linkState);
             }
         }
     }
@@ -145,12 +210,14 @@ public class IpClientLinkObserver implements NetworkObserver {
     public void onRouteUpdated(RouteInfo route) {
         if (mInterfaceName.equals(route.getInterface())) {
             maybeLog("routeUpdated", route);
-            boolean changed;
+            final boolean changed;
+            final boolean linkState;
             synchronized (this) {
                 changed = mLinkProperties.addRoute(route);
+                linkState = getInterfaceLinkStateLocked();
             }
             if (changed) {
-                mCallback.update();
+                mCallback.update(linkState);
             }
         }
     }
@@ -159,12 +226,14 @@ public class IpClientLinkObserver implements NetworkObserver {
     public void onRouteRemoved(RouteInfo route) {
         if (mInterfaceName.equals(route.getInterface())) {
             maybeLog("routeRemoved", route);
-            boolean changed;
+            final boolean changed;
+            final boolean linkState;
             synchronized (this) {
                 changed = mLinkProperties.removeRoute(route);
+                linkState = getInterfaceLinkStateLocked();
             }
             if (changed) {
-                mCallback.update();
+                mCallback.update(linkState);
             }
         }
     }
@@ -173,12 +242,14 @@ public class IpClientLinkObserver implements NetworkObserver {
     public void onInterfaceDnsServerInfo(String iface, long lifetime, String[] addresses) {
         if (mInterfaceName.equals(iface)) {
             maybeLog("interfaceDnsServerInfo", Arrays.toString(addresses));
-            boolean changed = mDnsServerRepository.addServers(lifetime, addresses);
+            final boolean changed = mDnsServerRepository.addServers(lifetime, addresses);
+            final boolean linkState;
             if (changed) {
                 synchronized (this) {
                     mDnsServerRepository.setDnsServersOn(mLinkProperties);
+                    linkState = getInterfaceLinkStateLocked();
                 }
-                mCallback.update();
+                mCallback.update(linkState);
             }
         }
     }
@@ -197,9 +268,160 @@ public class IpClientLinkObserver implements NetworkObserver {
         // Clear the repository before clearing mLinkProperties. That way, if a clear() happens
         // while interfaceDnsServerInfo() is being called, we'll end up with no DNS servers in
         // mLinkProperties, as desired.
-        mDnsServerRepository = new DnsServerRepository();
+        mDnsServerRepository = new DnsServerRepository(mConfig.minRdnssLifetime);
+        mNetlinkMonitor.clearAlarms();
         mLinkProperties.clear();
         mLinkProperties.setInterfaceName(mInterfaceName);
+    }
+
+    private boolean getInterfaceLinkStateLocked() {
+        return mInterfaceLinkState;
+    }
+
+    private void setInterfaceLinkStateLocked(boolean state) {
+        mInterfaceLinkState = state;
+    }
+
+    /** Notifies this object of new interface parameters. */
+    public void setInterfaceParams(InterfaceParams params) {
+        mNetlinkMonitor.setIfindex(params.index);
+    }
+
+    /** Notifies this object not to listen on any interface. */
+    public void clearInterfaceParams() {
+        mNetlinkMonitor.setIfindex(0);  // 0 is never a valid ifindex.
+    }
+
+    /**
+     * Simple NetlinkMonitor. Currently only listens for PREF64 events.
+     * All methods except the constructor must be called on the handler thread.
+     */
+    private class MyNetlinkMonitor extends NetlinkMonitor {
+        private final Handler mHandler;
+
+        MyNetlinkMonitor(Handler h, SharedLog log, String tag) {
+            super(h, log, tag, OsConstants.NETLINK_ROUTE, NetlinkConstants.RTMGRP_ND_USEROPT);
+            mHandler = h;
+        }
+
+        private final NetworkInformationShim mShim = NetworkInformationShimImpl.newInstance();
+
+        private long mNat64PrefixExpiry;
+
+        /**
+         * Current interface index. Most of this class (and of IpClient), only uses interface names,
+         * not interface indices. This means that the interface index can in theory change, and that
+         * it's not necessarily correct to get the interface name at object creation time (and in
+         * fact, when the object is created, the interface might not even exist).
+         * TODO: once all netlink events pass through this class, stop depending on interface names.
+         */
+        private int mIfindex;
+
+        void setIfindex(int ifindex) {
+            mIfindex = ifindex;
+        }
+
+        void clearAlarms() {
+            cancelPref64Alarm();
+        }
+
+        private final AlarmManager.OnAlarmListener mExpirePref64Alarm = () -> {
+            // Ignore the alarm if cancelPref64Alarm has already been called.
+            //
+            // TODO: in the rare case where the alarm fires and posts the lambda to the handler
+            // thread while we are processing an RA that changes the lifetime of the same prefix,
+            // this code will run anyway even if the alarm is rescheduled or cancelled. If the
+            // lifetime in the RA is zero this code will correctly do nothing, but if the lifetime
+            // is nonzero then the prefix will be added and immediately removed by this code.
+            if (mNat64PrefixExpiry == 0) return;
+            updatePref64(mShim.getNat64Prefix(mLinkProperties),
+                    mNat64PrefixExpiry, mNat64PrefixExpiry);
+        };
+
+        private void cancelPref64Alarm() {
+            // Clear the expiry in case the alarm just fired and has not been processed yet.
+            if (mNat64PrefixExpiry == 0) return;
+            mNat64PrefixExpiry = 0;
+            mAlarmManager.cancel(mExpirePref64Alarm);
+        }
+
+        private void schedulePref64Alarm() {
+            // There is no need to cancel any existing alarms, because we are using the same
+            // OnAlarmListener object, and each such listener can only have at most one alarm.
+            final String tag = mTag + ".PREF64";
+            mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, mNat64PrefixExpiry, tag,
+                    mExpirePref64Alarm, mHandler);
+        }
+
+        /**
+         * Processes a PREF64 ND option.
+         *
+         * @param prefix The NAT64 prefix.
+         * @param now The time (as determined by SystemClock.elapsedRealtime) when the event
+         *            that triggered this method was received.
+         * @param expiry The time (as determined by SystemClock.elapsedRealtime) when the option
+         *               expires.
+         */
+        private synchronized void updatePref64(IpPrefix prefix, final long now,
+                final long expiry) {
+            final IpPrefix currentPrefix = mShim.getNat64Prefix(mLinkProperties);
+
+            // If the prefix matches the current prefix, refresh its lifetime.
+            if (prefix.equals(currentPrefix)) {
+                mNat64PrefixExpiry = expiry;
+                if (expiry > now) {
+                    schedulePref64Alarm();
+                }
+            }
+
+            // If we already have a prefix, continue using it and ignore the new one. Stopping and
+            // restarting clatd is disruptive because it will break existing IPv4 connections.
+            // Note: this means that if we receive an RA that adds a new prefix and deletes the old
+            // prefix, we might receive and ignore the new prefix, then delete the old prefix, and
+            // have no prefix until the next RA is received. This is because the kernel returns ND
+            // user options one at a time even if they are in the same RA.
+            // TODO: keep track of the last few prefixes seen, like DnsServerRepository does.
+            if (mNat64PrefixExpiry > now) return;
+
+            // The current prefix has expired. Either replace it with the new one or delete it.
+            if (expiry > now) {
+                // If expiry > now, then prefix != currentPrefix (due to the return statement above)
+                mShim.setNat64Prefix(mLinkProperties, prefix);
+                mNat64PrefixExpiry = expiry;
+                schedulePref64Alarm();
+            } else {
+                mShim.setNat64Prefix(mLinkProperties, null);
+                cancelPref64Alarm();
+            }
+
+            mCallback.update(getInterfaceLinkStateLocked());
+        }
+
+        private void processPref64Option(StructNdOptPref64 opt, final long now) {
+            final long expiry = now + TimeUnit.SECONDS.toMillis(opt.lifetime);
+            updatePref64(opt.prefix, now, expiry);
+        }
+
+        private void processNduseroptMessage(NduseroptMessage msg, final long whenMs) {
+            if (msg.family != AF_INET6 || msg.option == null || msg.ifindex != mIfindex) return;
+            if (msg.icmp_type != (byte) ICMPV6_ROUTER_ADVERTISEMENT) return;
+
+            switch (msg.option.type) {
+                case StructNdOptPref64.TYPE:
+                    processPref64Option((StructNdOptPref64) msg.option, whenMs);
+                    break;
+
+                default:
+                    // TODO: implement RDNSS and DNSSL.
+                    break;
+            }
+        }
+
+        @Override
+        protected void processNetlinkMessage(NetlinkMessage nlMsg, long whenMs) {
+            if (!(nlMsg instanceof NduseroptMessage)) return;
+            processNduseroptMessage((NduseroptMessage) nlMsg, whenMs);
+        }
     }
 
     /**
@@ -260,10 +482,16 @@ public class IpClientLinkObserver implements NetworkObserver {
          */
         private HashMap<InetAddress, DnsServerEntry> mIndex;
 
-        DnsServerRepository() {
+        /**
+         * Minimum (non-zero) RDNSS lifetime to accept.
+         */
+        private final int mMinLifetime;
+
+        DnsServerRepository(int minLifetime) {
             mCurrentServers = new HashSet<>();
             mAllServers = new ArrayList<>(NUM_SERVERS);
             mIndex = new HashMap<>(NUM_SERVERS);
+            mMinLifetime = minLifetime;
         }
 
         /** Sets the DNS servers of the provided LinkProperties object to the current servers. */
@@ -277,6 +505,9 @@ public class IpClientLinkObserver implements NetworkObserver {
          * @param addresses the string representations of the IP addresses of DNS servers to use.
          */
         public synchronized boolean addServers(long lifetime, String[] addresses) {
+            // If the servers are below the minimum lifetime, don't change anything.
+            if (lifetime != 0 && lifetime < mMinLifetime) return false;
+
             // The lifetime is actually an unsigned 32-bit number, but Java doesn't have unsigned.
             // Technically 0xffffffff (the maximum) is special and means "forever", but 2^32 seconds
             // (136 years) is close enough.
@@ -326,7 +557,7 @@ public class IpClientLinkObserver implements NetworkObserver {
 
             // Prune excess or expired entries.
             for (int i = mAllServers.size() - 1; i >= 0; i--) {
-                if (i >= NUM_SERVERS || mAllServers.get(i).expiry < now) {
+                if (i >= NUM_SERVERS || mAllServers.get(i).expiry <= now) {
                     DnsServerEntry removed = mAllServers.remove(i);
                     mIndex.remove(removed.address);
                     changed |= mCurrentServers.remove(removed.address);

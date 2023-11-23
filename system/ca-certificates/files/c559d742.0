@@ -34,7 +34,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             6e:47:a9:c6:5a:b3:e7:20:c5:30:9a:3f:68:52:f2:6f
-    Signature Algorithm: sha384WithRSAEncryption
+        Signature Algorithm: sha384WithRSAEncryption
         Issuer: C=US, O=Google Trust Services LLC, CN=GTS Root R2
         Validity
             Not Before: Jun 22 00:00:00 2016 GMT
@@ -42,7 +42,7 @@ Certificate:
         Subject: C=US, O=Google Trust Services LLC, CN=GTS Root R2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:ce:de:fd:a6:fb:ec:ec:14:34:3c:07:06:5a:6c:
                     59:f7:19:35:dd:f7:c1:9d:55:aa:d3:cd:3b:a4:93:

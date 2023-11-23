@@ -19,6 +19,7 @@
 #include <inttypes.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+#include <sys/user.h>
 
 #include <algorithm>
 #include <unordered_map>
@@ -49,7 +50,7 @@ static constexpr size_t MAX_JIT_SYMFILE_SIZE = 1024 * 1024u;
 // avoid spending all time checking, wait 100 ms between any two checks.
 static constexpr size_t kUpdateJITDebugInfoIntervalInMs = 100;
 
-// Match the format of JITDescriptor in art/runtime/jit/debugger_itnerface.cc.
+// Match the format of JITDescriptor in art/runtime/jit/debugger_interface.cc.
 template <typename ADDRT>
 struct JITDescriptor {
   uint32_t version;
@@ -63,12 +64,15 @@ struct JITDescriptor {
   uint32_t action_seqlock;  // incremented before and after any modification
   uint64_t action_timestamp;  // CLOCK_MONOTONIC time of last action
 
-  bool Valid() const {
-    return version == 1 && strncmp(reinterpret_cast<const char*>(magic), "Android1", 8) == 0;
+  bool Valid() const;
+
+  int AndroidVersion() const {
+    return magic[7] - '0';
   }
 };
 
-// Match the format of JITCodeEntry in art/runtime/jit/debugger_itnerface.cc.
+// Match the format of JITCodeEntry in art/runtime/jit/debugger_interface.cc
+// with JITDescriptor.magic == "Android1".
 template <typename ADDRT>
 struct JITCodeEntry {
   ADDRT next_addr;
@@ -82,7 +86,8 @@ struct JITCodeEntry {
   }
 };
 
-// Match the format of JITCodeEntry in art/runtime/jit/debugger_interface.cc.
+// Match the format of JITCodeEntry in art/runtime/jit/debugger_interface.cc
+// with JITDescriptor.magic == "Android1".
 template <typename ADDRT>
 struct __attribute__((packed)) PackedJITCodeEntry {
   ADDRT next_addr;
@@ -96,28 +101,110 @@ struct __attribute__((packed)) PackedJITCodeEntry {
   }
 };
 
+// Match the format of JITCodeEntry in art/runtime/jit/debugger_interface.cc
+// with JITDescriptor.magic == "Android2".
+template <typename ADDRT>
+struct JITCodeEntryV2 {
+  ADDRT next_addr;
+  ADDRT prev_addr;
+  ADDRT symfile_addr;
+  uint64_t symfile_size;
+  uint64_t register_timestamp;  // CLOCK_MONOTONIC time of entry registration
+  uint32_t seqlock;  // even value if valid
+
+  bool Valid() const {
+    return (seqlock & 1) == 0;
+  }
+};
+
+// Match the format of JITCodeEntry in art/runtime/jit/debugger_interface.cc
+// with JITDescriptor.magic == "Android2".
+template <typename ADDRT>
+struct __attribute__((packed)) PackedJITCodeEntryV2 {
+  ADDRT next_addr;
+  ADDRT prev_addr;
+  ADDRT symfile_addr;
+  uint64_t symfile_size;
+  uint64_t register_timestamp;
+  uint32_t seqlock;
+
+  bool Valid() const {
+    return (seqlock & 1) == 0;
+  }
+};
+
+// Match the format of JITCodeEntry in art/runtime/jit/debugger_interface.cc
+// with JITDescriptor.magic == "Android2".
+template <typename ADDRT>
+struct __attribute__((packed)) PaddedJITCodeEntryV2 {
+  ADDRT next_addr;
+  ADDRT prev_addr;
+  ADDRT symfile_addr;
+  uint64_t symfile_size;
+  uint64_t register_timestamp;
+  uint32_t seqlock;
+  uint32_t pad;
+
+  bool Valid() const {
+    return (seqlock & 1) == 0;
+  }
+};
+
 using JITDescriptor32 = JITDescriptor<uint32_t>;
 using JITDescriptor64 = JITDescriptor<uint64_t>;
 
 #if defined(__x86_64__)
 // Make sure simpleperf built for i386 and x86_64 see the correct JITCodeEntry layout of i386.
 using JITCodeEntry32 = PackedJITCodeEntry<uint32_t>;
+using JITCodeEntry32V2 = PackedJITCodeEntryV2<uint32_t>;
 #else
 using JITCodeEntry32 = JITCodeEntry<uint32_t>;
+using JITCodeEntry32V2 = JITCodeEntryV2<uint32_t>;
 #endif
+
 using JITCodeEntry64 = JITCodeEntry<uint64_t>;
+#if defined(__i386__)
+// Make sure simpleperf built for i386 and x86_64 see the correct JITCodeEntry layout of x86_64.
+using JITCodeEntry64V2 = PaddedJITCodeEntryV2<uint64_t>;
+#else
+using JITCodeEntry64V2 = JITCodeEntryV2<uint64_t>;
+#endif
+
+template <typename ADDRT>
+bool JITDescriptor<ADDRT>::Valid() const {
+  const char* magic_str = reinterpret_cast<const char*>(magic);
+  if (version != 1 ||
+      !(strncmp(magic_str, "Android1", 8) == 0 || strncmp(magic_str, "Android2", 8) == 0)) {
+    return false;
+  }
+  if (sizeof(*this) != sizeof_descriptor) {
+    return false;
+  }
+  if (sizeof(ADDRT) == 4) {
+    return sizeof_entry == (AndroidVersion() == 1) ? sizeof(JITCodeEntry32)
+                                                   : sizeof(JITCodeEntry32V2);
+  }
+  return sizeof_entry == (AndroidVersion() == 1) ? sizeof(JITCodeEntry64)
+                                                 : sizeof(JITCodeEntry64V2);
+}
 
 // We want to support both 64-bit and 32-bit simpleperf when profiling either 64-bit or 32-bit
 // apps. So using static_asserts to make sure that simpleperf on arm and aarch64 having the same
 // view of structures, and simpleperf on i386 and x86_64 having the same view of structures.
 static_assert(sizeof(JITDescriptor32) == 48, "");
 static_assert(sizeof(JITDescriptor64) == 56, "");
+
 #if defined(__i386__) or defined(__x86_64__)
 static_assert(sizeof(JITCodeEntry32) == 28, "");
+static_assert(sizeof(JITCodeEntry32V2) == 32, "");
+static_assert(sizeof(JITCodeEntry64) == 40, "");
+static_assert(sizeof(JITCodeEntry64V2) == 48, "");
 #else
 static_assert(sizeof(JITCodeEntry32) == 32, "");
-#endif
+static_assert(sizeof(JITCodeEntry32V2) == 40, "");
 static_assert(sizeof(JITCodeEntry64) == 40, "");
+static_assert(sizeof(JITCodeEntry64V2) == 48, "");
+#endif
 
 bool JITDebugReader::RegisterDebugInfoCallback(IOEventLoop* loop,
                                              const debug_info_callback_t& callback) {
@@ -346,6 +433,9 @@ const JITDebugReader::DescriptorsLocation* JITDebugReader::GetDescriptorsLocatio
     LOG(ERROR) << "ReadMinExecutableVirtualAddress failed, status = " << status;
     return nullptr;
   }
+  // min_vaddr_in_file is the min vaddr of executable segments. It may not be page aligned.
+  // And dynamic linker will create map mapping to (segment.p_vaddr & PAGE_MASK).
+  uint64_t aligned_segment_vaddr = min_vaddr_in_file & PAGE_MASK;
   const char* jit_str = "__jit_debug_descriptor";
   const char* dex_str = "__dex_debug_descriptor";
   uint64_t jit_addr = 0u;
@@ -353,9 +443,9 @@ const JITDebugReader::DescriptorsLocation* JITDebugReader::GetDescriptorsLocatio
 
   auto callback = [&](const ElfFileSymbol& symbol) {
     if (symbol.name == jit_str) {
-      jit_addr = symbol.vaddr - min_vaddr_in_file;
+      jit_addr = symbol.vaddr - aligned_segment_vaddr;
     } else if (symbol.name == dex_str) {
-      dex_addr = symbol.vaddr - min_vaddr_in_file;
+      dex_addr = symbol.vaddr - aligned_segment_vaddr;
     }
   };
   if (ParseDynamicSymbolsFromElfFile(art_lib_path, callback) != ElfStatus::NO_ERROR) {
@@ -410,22 +500,22 @@ bool JITDebugReader::ReadDescriptors(Process& process, Descriptor* jit_descripto
 
 bool JITDebugReader::LoadDescriptor(bool is_64bit, const char* data, Descriptor* descriptor) {
   if (is_64bit) {
-    return LoadDescriptorImpl<JITDescriptor64, JITCodeEntry64>(data, descriptor);
+    return LoadDescriptorImpl<JITDescriptor64>(data, descriptor);
   }
-  return LoadDescriptorImpl<JITDescriptor32, JITCodeEntry32>(data, descriptor);
+  return LoadDescriptorImpl<JITDescriptor32>(data, descriptor);
 }
 
-template <typename DescriptorT, typename CodeEntryT>
+template <typename DescriptorT>
 bool JITDebugReader::LoadDescriptorImpl(const char* data, Descriptor* descriptor) {
   DescriptorT raw_descriptor;
   MoveFromBinaryFormat(raw_descriptor, data);
-  if (!raw_descriptor.Valid() || sizeof(raw_descriptor) != raw_descriptor.sizeof_descriptor ||
-      sizeof(CodeEntryT) != raw_descriptor.sizeof_entry) {
+  if (!raw_descriptor.Valid()) {
     return false;
   }
   descriptor->action_seqlock = raw_descriptor.action_seqlock;
   descriptor->action_timestamp = raw_descriptor.action_timestamp;
   descriptor->first_entry_addr = raw_descriptor.first_entry_addr;
+  descriptor->version = raw_descriptor.AndroidVersion();
   return true;
 }
 
@@ -435,15 +525,26 @@ bool JITDebugReader::LoadDescriptorImpl(const char* data, Descriptor* descriptor
 bool JITDebugReader::ReadNewCodeEntries(Process& process, const Descriptor& descriptor,
                                         uint64_t last_action_timestamp, uint32_t read_entry_limit,
                                         std::vector<CodeEntry>* new_code_entries) {
-  if (process.is_64bit) {
-    return ReadNewCodeEntriesImpl<JITDescriptor64, JITCodeEntry64>(
+  if (descriptor.version == 1) {
+    if (process.is_64bit) {
+      return ReadNewCodeEntriesImpl<JITCodeEntry64>(
+          process, descriptor, last_action_timestamp, read_entry_limit, new_code_entries);
+    }
+    return ReadNewCodeEntriesImpl<JITCodeEntry32>(
         process, descriptor, last_action_timestamp, read_entry_limit, new_code_entries);
   }
-  return ReadNewCodeEntriesImpl<JITDescriptor32, JITCodeEntry32>(
-      process, descriptor, last_action_timestamp, read_entry_limit, new_code_entries);
+  if (descriptor.version == 2) {
+    if (process.is_64bit) {
+      return ReadNewCodeEntriesImplV2<JITCodeEntry64V2>(
+          process, descriptor, last_action_timestamp, read_entry_limit, new_code_entries);
+    }
+    return ReadNewCodeEntriesImplV2<JITCodeEntry32V2>(
+        process, descriptor, last_action_timestamp, read_entry_limit, new_code_entries);
+  }
+  return false;
 }
 
-template <typename DescriptorT, typename CodeEntryT>
+template <typename CodeEntryT>
 bool JITDebugReader::ReadNewCodeEntriesImpl(Process& process, const Descriptor& descriptor,
                                             uint64_t last_action_timestamp,
                                             uint32_t read_entry_limit,
@@ -451,6 +552,7 @@ bool JITDebugReader::ReadNewCodeEntriesImpl(Process& process, const Descriptor& 
   uint64_t current_entry_addr = descriptor.first_entry_addr;
   uint64_t prev_entry_addr = 0u;
   std::unordered_set<uint64_t> entry_addr_set;
+
   for (size_t i = 0u; i < read_entry_limit && current_entry_addr != 0u; ++i) {
     if (entry_addr_set.find(current_entry_addr) != entry_addr_set.end()) {
       // We enter a loop, which means a broken linked list.
@@ -469,12 +571,54 @@ bool JITDebugReader::ReadNewCodeEntriesImpl(Process& process, const Descriptor& 
       // once we hit an entry with timestamp <= last_action_timestmap.
       break;
     }
-    CodeEntry code_entry;
-    code_entry.addr = current_entry_addr;
-    code_entry.symfile_addr = entry.symfile_addr;
-    code_entry.symfile_size = entry.symfile_size;
-    code_entry.timestamp = entry.register_timestamp;
-    new_code_entries->push_back(code_entry);
+    if (entry.symfile_size > 0) {
+      CodeEntry code_entry;
+      code_entry.addr = current_entry_addr;
+      code_entry.symfile_addr = entry.symfile_addr;
+      code_entry.symfile_size = entry.symfile_size;
+      code_entry.timestamp = entry.register_timestamp;
+      new_code_entries->push_back(code_entry);
+    }
+    entry_addr_set.insert(current_entry_addr);
+    prev_entry_addr = current_entry_addr;
+    current_entry_addr = entry.next_addr;
+  }
+  return true;
+}
+
+// Temporary work around for patch "JIT mini-debug-info: Append packed entries towards end.", which
+// adds new entries at the end of the list and forces simpleperf to read the whole list.
+template <typename CodeEntryT>
+bool JITDebugReader::ReadNewCodeEntriesImplV2(Process& process, const Descriptor& descriptor,
+                                              uint64_t last_action_timestamp,
+                                              uint32_t /* read_entry_limit */,
+                                              std::vector<CodeEntry>* new_code_entries) {
+  uint64_t current_entry_addr = descriptor.first_entry_addr;
+  uint64_t prev_entry_addr = 0u;
+  std::unordered_set<uint64_t> entry_addr_set;
+  const size_t READ_ENTRY_LIMIT = 10000;  // to avoid endless loop
+
+  for (size_t i = 0u; i < READ_ENTRY_LIMIT && current_entry_addr != 0u; ++i) {
+    if (entry_addr_set.find(current_entry_addr) != entry_addr_set.end()) {
+      // We enter a loop, which means a broken linked list.
+      return false;
+    }
+    CodeEntryT entry;
+    if (!ReadRemoteMem(process, current_entry_addr, sizeof(entry), &entry)) {
+      return false;
+    }
+    if (entry.prev_addr != prev_entry_addr || !entry.Valid()) {
+      // A broken linked list
+      return false;
+    }
+    if (entry.symfile_size > 0 && entry.register_timestamp > last_action_timestamp) {
+      CodeEntry code_entry;
+      code_entry.addr = current_entry_addr;
+      code_entry.symfile_addr = entry.symfile_addr;
+      code_entry.symfile_size = entry.symfile_size;
+      code_entry.timestamp = entry.register_timestamp;
+      new_code_entries->push_back(code_entry);
+    }
     entry_addr_set.insert(current_entry_addr);
     prev_entry_addr = current_entry_addr;
     current_entry_addr = entry.next_addr;
@@ -499,18 +643,6 @@ void JITDebugReader::ReadJITCodeDebugInfo(Process& process,
     if (!IsValidElfFileMagic(data.data(), jit_entry.symfile_size)) {
       continue;
     }
-    uint64_t min_addr = UINT64_MAX;
-    uint64_t max_addr = 0;
-    auto callback = [&](const ElfFileSymbol& symbol) {
-      min_addr = std::min(min_addr, symbol.vaddr);
-      max_addr = std::max(max_addr, symbol.vaddr + symbol.len);
-      LOG(VERBOSE) << "JITSymbol " << symbol.name << " at [" << std::hex << symbol.vaddr
-                   << " - " << (symbol.vaddr + symbol.len) << " with size " << symbol.len;
-    };
-    if (ParseSymbolsFromElfFileInMemory(data.data(), jit_entry.symfile_size, callback) !=
-        ElfStatus::NO_ERROR || min_addr >= max_addr) {
-      continue;
-    }
     std::unique_ptr<TemporaryFile> tmp_file = ScopedTempFiles::CreateTempFile(!keep_symfiles_);
     if (tmp_file == nullptr || !android::base::WriteFully(tmp_file->fd, data.data(),
                                                           jit_entry.symfile_size)) {
@@ -519,8 +651,16 @@ void JITDebugReader::ReadJITCodeDebugInfo(Process& process,
     if (keep_symfiles_) {
       tmp_file->DoNotRemove();
     }
-    debug_info->emplace_back(process.pid, jit_entry.timestamp, min_addr, max_addr - min_addr,
-                             tmp_file->path);
+    auto callback = [&](const ElfFileSymbol& symbol) {
+      if (symbol.len == 0) {  // Some arm labels can have zero length.
+        return;
+      }
+      LOG(VERBOSE) << "JITSymbol " << symbol.name << " at [" << std::hex << symbol.vaddr
+                   << " - " << (symbol.vaddr + symbol.len) << " with size " << symbol.len;
+      debug_info->emplace_back(process.pid, jit_entry.timestamp, symbol.vaddr, symbol.len,
+                               tmp_file->path);
+    };
+    ParseSymbolsFromElfFileInMemory(data.data(), jit_entry.symfile_size, callback);
   }
 }
 
@@ -548,8 +688,10 @@ void JITDebugReader::ReadDexFileDebugInfo(Process& process,
     std::string file_path;
     std::string zip_path;
     std::string entry_path;
+    std::shared_ptr<ThreadMmap> extracted_dex_file_map;
     if (ParseExtractedInMemoryPath(it->name, &zip_path, &entry_path)) {
       file_path = GetUrlInApk(zip_path, entry_path);
+      extracted_dex_file_map = std::make_shared<ThreadMmap>(*it);
     } else {
       if (!IsRegularFile(it->name)) {
         // TODO: read dex file only exist in memory?
@@ -559,7 +701,8 @@ void JITDebugReader::ReadDexFileDebugInfo(Process& process,
     }
     // Offset of dex file in .vdex file or .apk file.
     uint64_t dex_file_offset = dex_entry.symfile_addr - it->start_addr + it->pgoff;
-    debug_info->emplace_back(process.pid, dex_entry.timestamp, dex_file_offset, file_path);
+    debug_info->emplace_back(process.pid, dex_entry.timestamp, dex_file_offset, file_path,
+                             extracted_dex_file_map);
     LOG(VERBOSE) << "DexFile " << file_path << "+" << std::hex << dex_file_offset
                  << " in map [" << it->start_addr << " - " << (it->start_addr + it->len)
                  << "] with size " << dex_entry.symfile_size;

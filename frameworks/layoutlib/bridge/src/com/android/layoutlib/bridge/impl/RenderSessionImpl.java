@@ -27,6 +27,7 @@ import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.rendering.api.Result;
 import com.android.ide.common.rendering.api.SessionParams;
 import com.android.ide.common.rendering.api.SessionParams.RenderingMode;
+import com.android.ide.common.rendering.api.SessionParams.RenderingMode.SizeAction;
 import com.android.ide.common.rendering.api.ViewInfo;
 import com.android.ide.common.rendering.api.ViewType;
 import com.android.internal.view.menu.ActionMenuItemView;
@@ -46,6 +47,10 @@ import com.android.layoutlib.bridge.android.support.SupportPreferencesUtil;
 import com.android.layoutlib.bridge.impl.binding.FakeAdapter;
 import com.android.layoutlib.bridge.impl.binding.FakeExpandableAdapter;
 import com.android.tools.layoutlib.java.System_Delegate;
+import com.android.tools.idea.validator.ValidatorResult;
+import com.android.tools.idea.validator.LayoutValidator;
+import com.android.tools.idea.validator.ValidatorResult;
+import com.android.tools.idea.validator.ValidatorResult.Builder;
 import com.android.util.Pair;
 
 import android.annotation.NonNull;
@@ -126,6 +131,7 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
     private List<ViewInfo> mSystemViewInfoList;
     private Layout.Builder mLayoutBuilder;
     private boolean mNewRenderSize;
+    @Nullable private ValidatorResult mValidatorResult = null;
 
     private static final class PostInflateException extends Exception {
         private static final long serialVersionUID = 1L;
@@ -236,19 +242,19 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             // now measure the content only using UNSPECIFIED (where applicable, based on
             // the rendering mode). This will give us the size the content needs.
             @SuppressWarnings("deprecation")
-            Pair<Integer, Integer> result = measureView(
+            Pair<Integer, Integer> neededMeasure = measureView(
                     mContentRoot, mContentRoot.getChildAt(0),
                     mMeasuredScreenWidth, widthMeasureSpecMode,
                     mMeasuredScreenHeight, heightMeasureSpecMode);
+            int neededWidth = neededMeasure.getFirst();
+            int neededHeight = neededMeasure.getSecond();
 
             // If measuredView is not null, exactMeasure nor result will be null.
-            assert exactMeasure != null;
-            assert result != null;
+            assert (exactMeasure != null && neededMeasure != null) || measuredView == null;
 
             // now look at the difference and add what is needed.
-            if (renderingMode.isHorizExpand()) {
+            if (renderingMode.getHorizAction() == SizeAction.EXPAND) {
                 int measuredWidth = exactMeasure.getFirst();
-                int neededWidth = result.getFirst();
                 if (neededWidth > measuredWidth) {
                     mMeasuredScreenWidth += neededWidth - measuredWidth;
                 }
@@ -257,11 +263,12 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                     // expand to match.
                     mMeasuredScreenWidth = measuredWidth;
                 }
+            } else if (renderingMode.getHorizAction() == SizeAction.SHRINK) {
+                mMeasuredScreenWidth = neededWidth;
             }
 
-            if (renderingMode.isVertExpand()) {
+            if (renderingMode.getVertAction() == SizeAction.EXPAND) {
                 int measuredHeight = exactMeasure.getSecond();
-                int neededHeight = result.getSecond();
                 if (neededHeight > measuredHeight) {
                     mMeasuredScreenHeight += neededHeight - measuredHeight;
                 }
@@ -270,6 +277,8 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                     // expand to match.
                     mMeasuredScreenHeight = measuredHeight;
                 }
+            } else if (renderingMode.getVertAction() == SizeAction.SHRINK) {
+                mMeasuredScreenHeight = neededHeight;
             }
         }
     }
@@ -296,20 +305,16 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                 if (!params.isRtlSupported()) {
                     Bridge.getLog().warning(LayoutLog.TAG_RTL_NOT_ENABLED,
                             "You are using a right-to-left " +
-                                    "(RTL) locale but RTL is not enabled", null);
+                                    "(RTL) locale but RTL is not enabled", null, null);
                 } else if (params.getSimulatedPlatformVersion() !=0 &&
                         params.getSimulatedPlatformVersion() < 17) {
                     // This will render ok because we are using the latest layoutlib but at least
                     // warn the user that this might fail in a real device.
                     Bridge.getLog().warning(LayoutLog.TAG_RTL_NOT_SUPPORTED, "You are using a " +
                             "right-to-left " +
-                            "(RTL) locale but RTL is not supported for API level < 17", null);
+                            "(RTL) locale but RTL is not supported for API level < 17", null, null);
                 }
             }
-
-            // Sets the project callback (custom view loader) to the fragment delegate so that
-            // it can instantiate the custom Fragment.
-            Fragment_Delegate.setLayoutlibCallback(params.getLayoutlibCallback());
 
             String rootTag = params.getFlag(RenderParamsFlags.FLAG_KEY_ROOT_TAG);
             boolean isPreference = "PreferenceScreen".equals(rootTag) ||
@@ -318,10 +323,10 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             if (isPreference) {
                 // First try to use the support library inflater. If something fails, fallback
                 // to the system preference inflater.
-                view = SupportPreferencesUtil.inflatePreference(getContext(), mBlockParser,
+                view = SupportPreferencesUtil.inflatePreference(context, mBlockParser,
                         mContentRoot);
                 if (view == null) {
-                    view = Preference_Delegate.inflatePreference(getContext(), mBlockParser,
+                    view = Preference_Delegate.inflatePreference(context, mBlockParser,
                             mContentRoot);
                 }
             } else {
@@ -330,8 +335,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
 
             // done with the parser, pop it.
             context.popParser();
-
-            Fragment_Delegate.setLayoutlibCallback(null);
 
             // set the AttachInfo on the root view.
             AttachInfo_Accessor.setAttachInfo(mViewRoot);
@@ -570,6 +573,24 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             mSystemViewInfoList =
                     visitAllChildren(mViewRoot, 0, 0, params.getExtendedViewInfoMode(),
                     false);
+
+            try {
+                boolean enableLayoutValidation = Boolean.TRUE.equals(params.getFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR));
+                boolean enableLayoutValidationImageCheck = Boolean.TRUE.equals(
+                         params.getFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR_IMAGE_CHECK));
+
+                if (enableLayoutValidation && !getViewInfos().isEmpty()) {
+                    BufferedImage imageToPass =
+                            enableLayoutValidationImageCheck ? getImage() : null;
+                    ValidatorResult validatorResult =
+                            LayoutValidator.validate(((View) getViewInfos().get(0).getViewObject()), imageToPass);
+                    setValidatorResult(validatorResult);
+                }
+            } catch (Throwable e) {
+                ValidatorResult.Builder builder = new Builder();
+                builder.mMetric.mErrorMessage = e.getMessage();
+                setValidatorResult(builder.build());
+            }
 
             // success!
             return renderResult;
@@ -1132,6 +1153,15 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         return getContext().getDefaultNamespacedStyles();
     }
 
+    @Nullable
+    public ValidatorResult getValidatorResult() {
+        return mValidatorResult;
+    }
+
+    public void setValidatorResult(ValidatorResult result) {
+        mValidatorResult = result;
+    }
+
     public void setScene(RenderSession session) {
         mScene = session;
     }
@@ -1141,33 +1171,37 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
     }
 
     public void dispose() {
-        boolean createdLooper = false;
-        if (Looper.myLooper() == null) {
-            // Detaching the root view from the window will try to stop any running animations.
-            // The stop method checks that it can run in the looper so, if there is no current
-            // looper, we create a temporary one to complete the shutdown.
-            Bridge.prepareThread();
-            createdLooper = true;
-        }
-        AttachInfo_Accessor.detachFromWindow(mViewRoot);
-        if (mCanvas != null) {
-            mCanvas.release();
-            mCanvas = null;
-        }
-        if (mViewInfoList != null) {
-            mViewInfoList.clear();
-        }
-        if (mSystemViewInfoList != null) {
-            mSystemViewInfoList.clear();
-        }
-        mImage = null;
-        mViewRoot = null;
-        mContentRoot = null;
-        NinePatch_Delegate.clearCache();
+        try {
+            boolean createdLooper = false;
+            if (Looper.myLooper() == null) {
+                // Detaching the root view from the window will try to stop any running animations.
+                // The stop method checks that it can run in the looper so, if there is no current
+                // looper, we create a temporary one to complete the shutdown.
+                Bridge.prepareThread();
+                createdLooper = true;
+            }
+            AttachInfo_Accessor.detachFromWindow(mViewRoot);
+            if (mCanvas != null) {
+                mCanvas.release();
+                mCanvas = null;
+            }
+            if (mViewInfoList != null) {
+                mViewInfoList.clear();
+            }
+            if (mSystemViewInfoList != null) {
+                mSystemViewInfoList.clear();
+            }
+            mImage = null;
+            mViewRoot = null;
+            mContentRoot = null;
+            NinePatch_Delegate.clearCache();
 
-        if (createdLooper) {
-            Choreographer_Delegate.dispose();
-            Bridge.cleanupThread();
+            if (createdLooper) {
+                Choreographer_Delegate.dispose();
+                Bridge.cleanupThread();
+            }
+        } catch (Throwable t) {
+            getContext().error("Error while disposing a RenderSession", t);
         }
     }
 }

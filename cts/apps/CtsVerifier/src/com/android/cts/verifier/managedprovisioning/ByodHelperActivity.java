@@ -27,7 +27,6 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -64,8 +63,6 @@ public class ByodHelperActivity extends LocationListenerActivity
     public static final String ACTION_PROFILE_OWNER_STATUS = "com.android.cts.verifier.managedprovisioning.BYOD_STATUS";
     // Primary -> managed intent: request to delete the current profile
     public static final String ACTION_REMOVE_MANAGED_PROFILE = "com.android.cts.verifier.managedprovisioning.BYOD_REMOVE";
-    // Managed -> managed intent: provisioning completed successfully
-    public static final String ACTION_PROFILE_PROVISIONED = "com.android.cts.verifier.managedprovisioning.BYOD_PROVISIONED";
     // Primary -> managed intent: request to capture and check an image
     public static final String ACTION_CAPTURE_AND_CHECK_IMAGE = "com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_IMAGE";
     // Primary -> managed intent: request to capture and check a video with custom output path
@@ -226,14 +223,8 @@ public class ByodHelperActivity extends LocationListenerActivity
                 NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_ID,
                 NotificationManager.IMPORTANCE_DEFAULT));
 
-        // we are explicitly started by {@link DeviceAdminTestReceiver} after a successful provisioning.
-        if (action.equals(ACTION_PROFILE_PROVISIONED)) {
-            // Jump back to CTS verifier with result.
-            Intent response = new Intent(ACTION_PROFILE_OWNER_STATUS);
-            response.putExtra(EXTRA_PROVISIONED, isProfileOwner());
-            new ByodFlowTestHelper(this).startActivityInPrimary(response);
-            // Queried by CtsVerifier in the primary side using startActivityForResult.
-        } else if (action.equals(ACTION_QUERY_PROFILE_OWNER)) {
+        // Queried by CtsVerifier in the primary side using startActivityForResult.
+        if (action.equals(ACTION_QUERY_PROFILE_OWNER)) {
             Intent response = new Intent();
             response.putExtra(EXTRA_PROVISIONED, isProfileOwner());
             setResult(RESULT_OK, response);
@@ -375,7 +366,6 @@ public class ByodHelperActivity extends LocationListenerActivity
         } else if (ACTION_CLEAR_NOTIFICATION.equals(action)) {
             mNotificationManager.cancel(NOTIFICATION_ID);
         } else if (ACTION_TEST_SELECT_WORK_CHALLENGE.equals(action)) {
-            mDevicePolicyManager.setOrganizationColor(mAdminReceiverComponent, Color.BLUE);
             mDevicePolicyManager.setOrganizationName(mAdminReceiverComponent, getResources()
                     .getString(R.string.provisioning_byod_confirm_work_credentials_header));
             startActivity(new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD));
@@ -397,10 +387,6 @@ public class ByodHelperActivity extends LocationListenerActivity
                         .getStringExtra(OrganizationInfoTestActivity.EXTRA_ORGANIZATION_NAME);
                 mDevicePolicyManager.setOrganizationName(mAdminReceiverComponent, organizationName);
             }
-            final int organizationColor = intent.getIntExtra(
-                    OrganizationInfoTestActivity.EXTRA_ORGANIZATION_COLOR,
-                    mDevicePolicyManager.getOrganizationColor(mAdminReceiverComponent));
-            mDevicePolicyManager.setOrganizationColor(mAdminReceiverComponent, organizationColor);
         } else if (ACTION_TEST_PARENT_PROFILE_PASSWORD.equals(action)) {
             startActivity(new Intent(DevicePolicyManager.ACTION_SET_NEW_PARENT_PROFILE_PASSWORD));
         }

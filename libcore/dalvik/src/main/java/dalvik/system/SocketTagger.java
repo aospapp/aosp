@@ -16,7 +16,7 @@
 
 package dalvik.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import java.io.FileDescriptor;
 import java.net.DatagramSocket;
 import java.net.Socket;

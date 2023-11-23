@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import android.app.Notification;
@@ -32,6 +33,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.media.session.MediaSession;
 import android.os.Build;
+import android.os.Process;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.service.notification.StatusBarNotification;
@@ -68,6 +70,7 @@ public class NotificationComparatorTest extends UiServiceTestCase {
     private final int uid2 = 1111111;
     private static final String TEST_CHANNEL_ID = "test_channel_id";
 
+    private NotificationRecord mRecordMinCallNonInterruptive;
     private NotificationRecord mRecordMinCall;
     private NotificationRecord mRecordHighCall;
     private NotificationRecord mRecordDefaultMedia;
@@ -105,6 +108,18 @@ public class NotificationComparatorTest extends UiServiceTestCase {
         smsPkg = Settings.Secure.getString(mContext.getContentResolver(),
                 Settings.Secure.SMS_DEFAULT_APPLICATION);
 
+        Notification nonInterruptiveNotif = new Notification.Builder(mContext, TEST_CHANNEL_ID)
+                .setCategory(Notification.CATEGORY_CALL)
+                .setFlag(Notification.FLAG_FOREGROUND_SERVICE, true)
+                .build();
+        mRecordMinCallNonInterruptive = new NotificationRecord(mContext,
+                new StatusBarNotification(callPkg,
+                        callPkg, 1, "mRecordMinCallNonInterruptive", callUid, callUid,
+                        nonInterruptiveNotif,
+                        new UserHandle(userId), "", 2000), getDefaultChannel());
+        mRecordMinCallNonInterruptive.setSystemImportance(NotificationManager.IMPORTANCE_MIN);
+        mRecordMinCallNonInterruptive.setInterruptive(false);
+
         Notification n1 = new Notification.Builder(mContext, TEST_CHANNEL_ID)
                 .setCategory(Notification.CATEGORY_CALL)
                 .setFlag(Notification.FLAG_FOREGROUND_SERVICE, true)
@@ -113,6 +128,7 @@ public class NotificationComparatorTest extends UiServiceTestCase {
                 callPkg, 1, "minCall", callUid, callUid, n1,
                 new UserHandle(userId), "", 2000), getDefaultChannel());
         mRecordMinCall.setSystemImportance(NotificationManager.IMPORTANCE_MIN);
+        mRecordMinCall.setInterruptive(true);
 
         Notification n2 = new Notification.Builder(mContext, TEST_CHANNEL_ID)
                 .setCategory(Notification.CATEGORY_CALL)
@@ -125,7 +141,7 @@ public class NotificationComparatorTest extends UiServiceTestCase {
 
         Notification n3 = new Notification.Builder(mContext, TEST_CHANNEL_ID)
                 .setStyle(new Notification.MediaStyle()
-                        .setMediaSession(new MediaSession.Token(null)))
+                        .setMediaSession(new MediaSession.Token(Process.myUid(), null)))
                 .build();
         mRecordDefaultMedia = new NotificationRecord(mContext, new StatusBarNotification(pkg2,
                 pkg2, 1, "media", uid2, uid2, n3, new UserHandle(userId),
@@ -245,6 +261,7 @@ public class NotificationComparatorTest extends UiServiceTestCase {
         expected.add(mRecordCheater);
         expected.add(mRecordCheaterColorized);
         expected.add(mRecordMinCall);
+        expected.add(mRecordMinCallNonInterruptive);
 
         List<NotificationRecord> actual = new ArrayList<>();
         actual.addAll(expected);
@@ -253,6 +270,18 @@ public class NotificationComparatorTest extends UiServiceTestCase {
         Collections.sort(actual, new NotificationComparator(mContext));
 
         assertThat(actual, contains(expected.toArray()));
+    }
+
+    @Test
+    public void testRankingScoreOverrides() {
+        NotificationComparator comp = new NotificationComparator(mContext);
+        NotificationRecord recordMinCallNonInterruptive = spy(mRecordMinCallNonInterruptive);
+        assertTrue(comp.compare(mRecordMinCall, recordMinCallNonInterruptive) < 0);
+
+        when(recordMinCallNonInterruptive.getRankingScore()).thenReturn(1f);
+        assertTrue(comp.compare(mRecordMinCall, recordMinCallNonInterruptive) > 0);
+        assertTrue(comp.compare(mRecordCheater, recordMinCallNonInterruptive) > 0);
+        assertTrue(comp.compare(mRecordColorizedCall, recordMinCallNonInterruptive) < 0);
     }
 
     @Test

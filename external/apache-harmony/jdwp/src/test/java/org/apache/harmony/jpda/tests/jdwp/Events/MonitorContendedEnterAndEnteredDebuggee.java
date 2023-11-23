@@ -51,6 +51,10 @@ public class MonitorContendedEnterAndEnteredDebuggee extends SyncDebuggee {
                 logWriter.println("main thread: Waiting for second thread to attempt to lock a monitor");
             }
             
+            // We think the monitor is contended.
+            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+            // Make sure we're good to finish.
+            synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
             logWriter.println("--> main thread: finish test");
         }
     }
@@ -66,7 +70,6 @@ public class MonitorContendedEnterAndEnteredDebuggee extends SyncDebuggee {
         @Override
         public void run() {
             logWriter.println("--> BlockedThread: start to run");
-            
             synchronized (lock) {
                 this.getName().trim();
                 logWriter.println("--> BlockedThread: get lock");

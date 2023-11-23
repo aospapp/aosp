@@ -27,9 +27,9 @@ import android.telephony.TelephonyManager;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 
+import com.android.car.developeroptions.R;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.car.developeroptions.R;
 
 /**
  * Preference controller for "Preferred network mode"
@@ -103,9 +103,7 @@ public class PreferredNetworkModePreferenceController extends TelephonyBasePrefe
         final PersistableBundle carrierConfig = mCarrierConfigManager.getConfigForSubId(mSubId);
         mTelephonyManager = TelephonyManager.from(mContext).createForSubscriptionId(mSubId);
 
-        final boolean isLteOnCdma =
-                mTelephonyManager.getLteOnCdmaMode() == PhoneConstants.LTE_ON_CDMA_TRUE;
-        mIsGlobalCdma = isLteOnCdma
+        mIsGlobalCdma = mTelephonyManager.isLteCdmaEvdoGsmWcdmaEnabled()
                 && carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_CDMA_CHOICES_BOOL);
     }
 
@@ -132,12 +130,9 @@ public class PreferredNetworkModePreferenceController extends TelephonyBasePrefe
             case TelephonyManager.NETWORK_MODE_GSM_UMTS:
                 return R.string.preferred_network_mode_gsm_wcdma_summary;
             case TelephonyManager.NETWORK_MODE_CDMA_EVDO:
-                switch (mTelephonyManager.getLteOnCdmaMode()) {
-                    case PhoneConstants.LTE_ON_CDMA_TRUE:
-                        return R.string.preferred_network_mode_cdma_summary;
-                    default:
-                        return R.string.preferred_network_mode_cdma_evdo_summary;
-                }
+                return mTelephonyManager.isLteCdmaEvdoGsmWcdmaEnabled()
+                        ? R.string.preferred_network_mode_cdma_summary
+                        : R.string.preferred_network_mode_cdma_evdo_summary;
             case TelephonyManager.NETWORK_MODE_CDMA_NO_EVDO:
                 return R.string.preferred_network_mode_cdma_only_summary;
             case TelephonyManager.NETWORK_MODE_EVDO_NO_CDMA:

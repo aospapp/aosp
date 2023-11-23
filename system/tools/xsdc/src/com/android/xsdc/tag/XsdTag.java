@@ -22,11 +22,15 @@ public abstract class XsdTag {
     final private String name;
     final private QName ref;
     private boolean deprecated;
+    private boolean finalValue;
+    private Nullability nullability;
 
     XsdTag(String name, QName ref) {
         this.name = name;
         this.ref = ref;
         this.deprecated = false;
+        this.finalValue = false;
+        this.nullability = Nullability.UNKNOWN;
     }
 
     public String getName() {
@@ -37,11 +41,27 @@ public abstract class XsdTag {
         return ref;
     }
 
+    public boolean isFinalValue() {
+        return finalValue;
+    }
+
+    public void setFinalValue(boolean finalValue) {
+        this.finalValue = finalValue;
+    }
+
     public boolean isDeprecated() {
         return deprecated;
     }
 
     public void setDeprecated(boolean deprecated) {
         this.deprecated = deprecated;
+    }
+
+    public Nullability getNullability() {
+        return nullability;
+    }
+
+    public void setNullability(Nullability nullability) {
+        this.nullability = nullability;
     }
 }

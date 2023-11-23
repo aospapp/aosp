@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_TOOLS_SYSPROP_JAVAGEN_H_
-#define SYSTEM_TOOLS_SYSPROP_JAVAGEN_H_
+#pragma once
 
+#include <android-base/result.h>
 #include <string>
 
-bool GenerateJavaLibrary(const std::string& input_file_path,
-                         const std::string& java_output_dir, std::string* err);
+#include "sysprop.pb.h"
 
-#endif  // SYSTEM_TOOLS_SYSPROP_JAVAGEN_H_
+android::base::Result<void> GenerateJavaLibrary(
+    const std::string& input_file_path, sysprop::Scope scope,
+    const std::string& java_output_dir);

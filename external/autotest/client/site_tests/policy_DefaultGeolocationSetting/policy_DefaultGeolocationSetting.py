@@ -33,14 +33,13 @@ class policy_DefaultGeolocationSetting(
 
         """
         tab = self.navigate_to_url('chrome://policy')
+        f = """new Promise(function(resolve, reject) {
+                navigator.permissions.query({name:"geolocation"})
+                    .then(function(geoloc) {
+                        resolve(geoloc.state)});
+            })"""
 
-        geo_status = """navigator.permissions.query({name:'geolocation'})
-                          .then(function(permissionStatus) {
-                            geo_result = permissionStatus.state;
-                           });"""
-
-        tab.EvaluateJavaScript(geo_status)
-        content = tab.EvaluateJavaScript('geo_result')
+        content = tab.EvaluateJavaScript(f, promise=True)
 
         # prompt is the default setting
         if case == 'not_set':

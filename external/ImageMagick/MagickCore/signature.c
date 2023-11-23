@@ -16,7 +16,7 @@
 %                              December 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -53,6 +53,7 @@
 #include "MagickCore/signature.h"
 #include "MagickCore/signature-private.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/timer-private.h"
 /*
   Define declarations.
 */
@@ -138,7 +139,7 @@ MagickPrivate SignatureInfo *AcquireSignatureInfo(void)
   lsb_first=1;
   signature_info->lsb_first=(int) (*(char *) &lsb_first) == 1 ? MagickTrue :
     MagickFalse;
-  signature_info->timestamp=(ssize_t) time((time_t *) NULL);
+  signature_info->timestamp=(ssize_t) GetMagickTime();
   signature_info->signature=MagickCoreSignature;
   InitializeSignature(signature_info);
   return(signature_info);
@@ -475,7 +476,7 @@ MagickExport MagickBooleanType SignatureImage(Image *image,
   char
     *hex_signature;
 
-  double
+  float
     pixel;
 
   register const Quantum
@@ -536,9 +537,9 @@ MagickExport MagickBooleanType SignatureImage(Image *image,
 
         PixelChannel channel = GetPixelChannelChannel(image,i);
         PixelTrait traits = GetPixelChannelTraits(image,channel);
-        if (traits == UndefinedPixelTrait)
+        if ((traits & UpdatePixelTrait) == 0)
           continue;
-        pixel=QuantumScale*p[i];
+        pixel=(float) QuantumScale*p[i];
         if (signature_info->lsb_first == MagickFalse)
           for (j=(ssize_t) sizeof(pixel)-1; j >= 0; j--)
             *q++=(unsigned char) ((unsigned char *) &pixel)[j];

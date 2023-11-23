@@ -26,7 +26,7 @@
 
 package java.io;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class File implements java.io.Serializable, java.lang.Comparable<java.io.File> {

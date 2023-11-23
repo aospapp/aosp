@@ -103,17 +103,9 @@ public class WebViewRenderProcessTest extends ActivityInstrumentationTestCase2<W
         return future;
     }
 
-    // TODO(tobiasjs) enable after webview drop
-    public void disabled_testGetWebViewRenderProcess() throws Throwable {
+    public void testGetWebViewRenderProcess() throws Throwable {
         final WebView webView = mOnUiThread.getWebView();
         final WebViewRenderProcess preStartRenderProcess = getRenderProcessOnUiThread(webView);
-
-        if (!getActivity().isMultiprocessMode()) {
-            assertNull(
-                    "getWebViewRenderProcess should return null is multiprocess is off.",
-                    preStartRenderProcess);
-            return;
-        }
 
         assertNotNull(
                 "Should be possible to obtain a renderer handle before the renderer has started.",

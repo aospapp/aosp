@@ -48,8 +48,9 @@ static int amdgpu_cs_reset_sem(amdgpu_semaphore_handle sem);
  *
  * \return  0 on success otherwise POSIX Error code
 */
-int amdgpu_cs_ctx_create2(amdgpu_device_handle dev, uint32_t priority,
-							amdgpu_context_handle *context)
+drm_public int amdgpu_cs_ctx_create2(amdgpu_device_handle dev,
+				     uint32_t priority,
+				     amdgpu_context_handle *context)
 {
 	struct amdgpu_context *gpu_context;
 	union drm_amdgpu_ctx args;
@@ -93,8 +94,8 @@ error:
 	return r;
 }
 
-int amdgpu_cs_ctx_create(amdgpu_device_handle dev,
-			 amdgpu_context_handle *context)
+drm_public int amdgpu_cs_ctx_create(amdgpu_device_handle dev,
+				    amdgpu_context_handle *context)
 {
 	return amdgpu_cs_ctx_create2(dev, AMDGPU_CTX_PRIORITY_NORMAL, context);
 }
@@ -107,7 +108,7 @@ int amdgpu_cs_ctx_create(amdgpu_device_handle dev,
  *
  * \return  0 on success otherwise POSIX Error code
 */
-int amdgpu_cs_ctx_free(amdgpu_context_handle context)
+drm_public int amdgpu_cs_ctx_free(amdgpu_context_handle context)
 {
 	union drm_amdgpu_ctx args;
 	int i, j, k;
@@ -141,8 +142,33 @@ int amdgpu_cs_ctx_free(amdgpu_context_handle context)
 	return r;
 }
 
-int amdgpu_cs_query_reset_state(amdgpu_context_handle context,
-				uint32_t *state, uint32_t *hangs)
+drm_public int amdgpu_cs_ctx_override_priority(amdgpu_device_handle dev,
+                                               amdgpu_context_handle context,
+                                               int master_fd,
+                                               unsigned priority)
+{
+	union drm_amdgpu_sched args;
+	int r;
+
+	if (!dev || !context || master_fd < 0)
+		return -EINVAL;
+
+	memset(&args, 0, sizeof(args));
+
+	args.in.op = AMDGPU_SCHED_OP_CONTEXT_PRIORITY_OVERRIDE;
+	args.in.fd = dev->fd;
+	args.in.priority = priority;
+	args.in.ctx_id = context->id;
+
+	r = drmCommandWrite(master_fd, DRM_AMDGPU_SCHED, &args, sizeof(args));
+	if (r)
+		return r;
+
+	return 0;
+}
+
+drm_public int amdgpu_cs_query_reset_state(amdgpu_context_handle context,
+					   uint32_t *state, uint32_t *hangs)
 {
 	union drm_amdgpu_ctx args;
 	int r;
@@ -323,10 +349,10 @@ error_unlock:
 	return r;
 }
 
-int amdgpu_cs_submit(amdgpu_context_handle context,
-		     uint64_t flags,
-		     struct amdgpu_cs_request *ibs_request,
-		     uint32_t number_of_requests)
+drm_public int amdgpu_cs_submit(amdgpu_context_handle context,
+				uint64_t flags,
+				struct amdgpu_cs_request *ibs_request,
+				uint32_t number_of_requests)
 {
 	uint32_t i;
 	int r;
@@ -407,10 +433,10 @@ static int amdgpu_ioctl_wait_cs(amdgpu_context_handle context,
 	return 0;
 }
 
-int amdgpu_cs_query_fence_status(struct amdgpu_cs_fence *fence,
-				 uint64_t timeout_ns,
-				 uint64_t flags,
-				 uint32_t *expired)
+drm_public int amdgpu_cs_query_fence_status(struct amdgpu_cs_fence *fence,
+					    uint64_t timeout_ns,
+					    uint64_t flags,
+					    uint32_t *expired)
 {
 	bool busy = true;
 	int r;
@@ -478,12 +504,12 @@ static int amdgpu_ioctl_wait_fences(struct amdgpu_cs_fence *fences,
 	return 0;
 }
 
-int amdgpu_cs_wait_fences(struct amdgpu_cs_fence *fences,
-			  uint32_t fence_count,
-			  bool wait_all,
-			  uint64_t timeout_ns,
-			  uint32_t *status,
-			  uint32_t *first)
+drm_public int amdgpu_cs_wait_fences(struct amdgpu_cs_fence *fences,
+				     uint32_t fence_count,
+				     bool wait_all,
+				     uint64_t timeout_ns,
+				     uint32_t *status,
+				     uint32_t *first)
 {
 	uint32_t i;
 
@@ -506,7 +532,7 @@ int amdgpu_cs_wait_fences(struct amdgpu_cs_fence *fences,
 					timeout_ns, status, first);
 }
 
-int amdgpu_cs_create_semaphore(amdgpu_semaphore_handle *sem)
+drm_public int amdgpu_cs_create_semaphore(amdgpu_semaphore_handle *sem)
 {
 	struct amdgpu_semaphore *gpu_semaphore;
 
@@ -523,8 +549,8 @@ int amdgpu_cs_create_semaphore(amdgpu_semaphore_handle *sem)
 	return 0;
 }
 
-int amdgpu_cs_signal_semaphore(amdgpu_context_handle ctx,
-			       uint32_t ip_type,
+drm_public int amdgpu_cs_signal_semaphore(amdgpu_context_handle ctx,
+					  uint32_t ip_type,
 			       uint32_t ip_instance,
 			       uint32_t ring,
 			       amdgpu_semaphore_handle sem)
@@ -549,8 +575,8 @@ int amdgpu_cs_signal_semaphore(amdgpu_context_handle ctx,
 	return 0;
 }
 
-int amdgpu_cs_wait_semaphore(amdgpu_context_handle ctx,
-			     uint32_t ip_type,
+drm_public int amdgpu_cs_wait_semaphore(amdgpu_context_handle ctx,
+					uint32_t ip_type,
 			     uint32_t ip_instance,
 			     uint32_t ring,
 			     amdgpu_semaphore_handle sem)
@@ -595,14 +621,14 @@ static int amdgpu_cs_unreference_sem(amdgpu_semaphore_handle sem)
 	return 0;
 }
 
-int amdgpu_cs_destroy_semaphore(amdgpu_semaphore_handle sem)
+drm_public int amdgpu_cs_destroy_semaphore(amdgpu_semaphore_handle sem)
 {
 	return amdgpu_cs_unreference_sem(sem);
 }
 
-int amdgpu_cs_create_syncobj2(amdgpu_device_handle dev,
-			      uint32_t  flags,
-			      uint32_t *handle)
+drm_public int amdgpu_cs_create_syncobj2(amdgpu_device_handle dev,
+					 uint32_t  flags,
+					 uint32_t *handle)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -610,8 +636,8 @@ int amdgpu_cs_create_syncobj2(amdgpu_device_handle dev,
 	return drmSyncobjCreate(dev->fd, flags, handle);
 }
 
-int amdgpu_cs_create_syncobj(amdgpu_device_handle dev,
-			     uint32_t *handle)
+drm_public int amdgpu_cs_create_syncobj(amdgpu_device_handle dev,
+					uint32_t *handle)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -619,8 +645,8 @@ int amdgpu_cs_create_syncobj(amdgpu_device_handle dev,
 	return drmSyncobjCreate(dev->fd, 0, handle);
 }
 
-int amdgpu_cs_destroy_syncobj(amdgpu_device_handle dev,
-			      uint32_t handle)
+drm_public int amdgpu_cs_destroy_syncobj(amdgpu_device_handle dev,
+					 uint32_t handle)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -628,8 +654,9 @@ int amdgpu_cs_destroy_syncobj(amdgpu_device_handle dev,
 	return drmSyncobjDestroy(dev->fd, handle);
 }
 
-int amdgpu_cs_syncobj_reset(amdgpu_device_handle dev,
-			    const uint32_t *syncobjs, uint32_t syncobj_count)
+drm_public int amdgpu_cs_syncobj_reset(amdgpu_device_handle dev,
+				       const uint32_t *syncobjs,
+				       uint32_t syncobj_count)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -637,8 +664,9 @@ int amdgpu_cs_syncobj_reset(amdgpu_device_handle dev,
 	return drmSyncobjReset(dev->fd, syncobjs, syncobj_count);
 }
 
-int amdgpu_cs_syncobj_signal(amdgpu_device_handle dev,
-			     const uint32_t *syncobjs, uint32_t syncobj_count)
+drm_public int amdgpu_cs_syncobj_signal(amdgpu_device_handle dev,
+					const uint32_t *syncobjs,
+					uint32_t syncobj_count)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -646,10 +674,22 @@ int amdgpu_cs_syncobj_signal(amdgpu_device_handle dev,
 	return drmSyncobjSignal(dev->fd, syncobjs, syncobj_count);
 }
 
-int amdgpu_cs_syncobj_wait(amdgpu_device_handle dev,
-			   uint32_t *handles, unsigned num_handles,
-			   int64_t timeout_nsec, unsigned flags,
-			   uint32_t *first_signaled)
+drm_public int amdgpu_cs_syncobj_timeline_signal(amdgpu_device_handle dev,
+						 const uint32_t *syncobjs,
+						 uint64_t *points,
+						 uint32_t syncobj_count)
+{
+	if (NULL == dev)
+		return -EINVAL;
+
+	return drmSyncobjTimelineSignal(dev->fd, syncobjs,
+					points, syncobj_count);
+}
+
+drm_public int amdgpu_cs_syncobj_wait(amdgpu_device_handle dev,
+				      uint32_t *handles, unsigned num_handles,
+				      int64_t timeout_nsec, unsigned flags,
+				      uint32_t *first_signaled)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -658,9 +698,32 @@ int amdgpu_cs_syncobj_wait(amdgpu_device_handle dev,
 			      flags, first_signaled);
 }
 
-int amdgpu_cs_export_syncobj(amdgpu_device_handle dev,
-			     uint32_t handle,
-			     int *shared_fd)
+drm_public int amdgpu_cs_syncobj_timeline_wait(amdgpu_device_handle dev,
+					       uint32_t *handles, uint64_t *points,
+					       unsigned num_handles,
+					       int64_t timeout_nsec, unsigned flags,
+					       uint32_t *first_signaled)
+{
+	if (NULL == dev)
+		return -EINVAL;
+
+	return drmSyncobjTimelineWait(dev->fd, handles, points, num_handles,
+				      timeout_nsec, flags, first_signaled);
+}
+
+drm_public int amdgpu_cs_syncobj_query(amdgpu_device_handle dev,
+				       uint32_t *handles, uint64_t *points,
+				       unsigned num_handles)
+{
+	if (NULL == dev)
+		return -EINVAL;
+
+	return drmSyncobjQuery(dev->fd, handles, points, num_handles);
+}
+
+drm_public int amdgpu_cs_export_syncobj(amdgpu_device_handle dev,
+					uint32_t handle,
+					int *shared_fd)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -668,9 +731,9 @@ int amdgpu_cs_export_syncobj(amdgpu_device_handle dev,
 	return drmSyncobjHandleToFD(dev->fd, handle, shared_fd);
 }
 
-int amdgpu_cs_import_syncobj(amdgpu_device_handle dev,
-			     int shared_fd,
-			     uint32_t *handle)
+drm_public int amdgpu_cs_import_syncobj(amdgpu_device_handle dev,
+					int shared_fd,
+					uint32_t *handle)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -678,9 +741,9 @@ int amdgpu_cs_import_syncobj(amdgpu_device_handle dev,
 	return drmSyncobjFDToHandle(dev->fd, shared_fd, handle);
 }
 
-int amdgpu_cs_syncobj_export_sync_file(amdgpu_device_handle dev,
-				       uint32_t syncobj,
-				       int *sync_file_fd)
+drm_public int amdgpu_cs_syncobj_export_sync_file(amdgpu_device_handle dev,
+						  uint32_t syncobj,
+						  int *sync_file_fd)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -688,9 +751,9 @@ int amdgpu_cs_syncobj_export_sync_file(amdgpu_device_handle dev,
 	return drmSyncobjExportSyncFile(dev->fd, syncobj, sync_file_fd);
 }
 
-int amdgpu_cs_syncobj_import_sync_file(amdgpu_device_handle dev,
-				       uint32_t syncobj,
-				       int sync_file_fd)
+drm_public int amdgpu_cs_syncobj_import_sync_file(amdgpu_device_handle dev,
+						  uint32_t syncobj,
+						  int sync_file_fd)
 {
 	if (NULL == dev)
 		return -EINVAL;
@@ -698,12 +761,84 @@ int amdgpu_cs_syncobj_import_sync_file(amdgpu_device_handle dev,
 	return drmSyncobjImportSyncFile(dev->fd, syncobj, sync_file_fd);
 }
 
-int amdgpu_cs_submit_raw(amdgpu_device_handle dev,
-			 amdgpu_context_handle context,
-			 amdgpu_bo_list_handle bo_list_handle,
-			 int num_chunks,
-			 struct drm_amdgpu_cs_chunk *chunks,
-			 uint64_t *seq_no)
+drm_public int amdgpu_cs_syncobj_export_sync_file2(amdgpu_device_handle dev,
+						   uint32_t syncobj,
+						   uint64_t point,
+						   uint32_t flags,
+						   int *sync_file_fd)
+{
+	uint32_t binary_handle;
+	int ret;
+
+	if (NULL == dev)
+		return -EINVAL;
+
+	if (!point)
+		return drmSyncobjExportSyncFile(dev->fd, syncobj, sync_file_fd);
+
+	ret = drmSyncobjCreate(dev->fd, 0, &binary_handle);
+	if (ret)
+		return ret;
+
+	ret = drmSyncobjTransfer(dev->fd, binary_handle, 0,
+				 syncobj, point, flags);
+	if (ret)
+		goto out;
+	ret = drmSyncobjExportSyncFile(dev->fd, binary_handle, sync_file_fd);
+out:
+	drmSyncobjDestroy(dev->fd, binary_handle);
+	return ret;
+}
+
+drm_public int amdgpu_cs_syncobj_import_sync_file2(amdgpu_device_handle dev,
+						   uint32_t syncobj,
+						   uint64_t point,
+						   int sync_file_fd)
+{
+	uint32_t binary_handle;
+	int ret;
+
+	if (NULL == dev)
+		return -EINVAL;
+
+	if (!point)
+		return drmSyncobjImportSyncFile(dev->fd, syncobj, sync_file_fd);
+
+	ret = drmSyncobjCreate(dev->fd, 0, &binary_handle);
+	if (ret)
+		return ret;
+	ret = drmSyncobjImportSyncFile(dev->fd, binary_handle, sync_file_fd);
+	if (ret)
+		goto out;
+	ret = drmSyncobjTransfer(dev->fd, syncobj, point,
+				 binary_handle, 0, 0);
+out:
+	drmSyncobjDestroy(dev->fd, binary_handle);
+	return ret;
+}
+
+drm_public int amdgpu_cs_syncobj_transfer(amdgpu_device_handle dev,
+					  uint32_t dst_handle,
+					  uint64_t dst_point,
+					  uint32_t src_handle,
+					  uint64_t src_point,
+					  uint32_t flags)
+{
+	if (NULL == dev)
+		return -EINVAL;
+
+	return drmSyncobjTransfer(dev->fd,
+				  dst_handle, dst_point,
+				  src_handle, src_point,
+				  flags);
+}
+
+drm_public int amdgpu_cs_submit_raw(amdgpu_device_handle dev,
+				    amdgpu_context_handle context,
+				    amdgpu_bo_list_handle bo_list_handle,
+				    int num_chunks,
+				    struct drm_amdgpu_cs_chunk *chunks,
+				    uint64_t *seq_no)
 {
 	union drm_amdgpu_cs cs;
 	uint64_t *chunk_array;
@@ -729,15 +864,41 @@ int amdgpu_cs_submit_raw(amdgpu_device_handle dev,
 	return 0;
 }
 
-void amdgpu_cs_chunk_fence_info_to_data(struct amdgpu_cs_fence_info *fence_info,
+drm_public int amdgpu_cs_submit_raw2(amdgpu_device_handle dev,
+				     amdgpu_context_handle context,
+				     uint32_t bo_list_handle,
+				     int num_chunks,
+				     struct drm_amdgpu_cs_chunk *chunks,
+				     uint64_t *seq_no)
+{
+	union drm_amdgpu_cs cs;
+	uint64_t *chunk_array;
+	int i, r;
+
+	memset(&cs, 0, sizeof(cs));
+	chunk_array = alloca(sizeof(uint64_t) * num_chunks);
+	for (i = 0; i < num_chunks; i++)
+		chunk_array[i] = (uint64_t)(uintptr_t)&chunks[i];
+	cs.in.chunks = (uint64_t)(uintptr_t)chunk_array;
+	cs.in.ctx_id = context->id;
+	cs.in.bo_list_handle = bo_list_handle;
+	cs.in.num_chunks = num_chunks;
+	r = drmCommandWriteRead(dev->fd, DRM_AMDGPU_CS,
+				&cs, sizeof(cs));
+	if (!r && seq_no)
+		*seq_no = cs.out.handle;
+	return r;
+}
+
+drm_public void amdgpu_cs_chunk_fence_info_to_data(struct amdgpu_cs_fence_info *fence_info,
 					struct drm_amdgpu_cs_chunk_data *data)
 {
 	data->fence_data.handle = fence_info->handle->handle;
 	data->fence_data.offset = fence_info->offset * sizeof(uint64_t);
 }
 
-void amdgpu_cs_chunk_fence_to_dep(struct amdgpu_cs_fence *fence,
-				  struct drm_amdgpu_cs_chunk_dep *dep)
+drm_public void amdgpu_cs_chunk_fence_to_dep(struct amdgpu_cs_fence *fence,
+					struct drm_amdgpu_cs_chunk_dep *dep)
 {
 	dep->ip_type = fence->ip_type;
 	dep->ip_instance = fence->ip_instance;
@@ -746,10 +907,10 @@ void amdgpu_cs_chunk_fence_to_dep(struct amdgpu_cs_fence *fence,
 	dep->handle = fence->fence;
 }
 
-int amdgpu_cs_fence_to_handle(amdgpu_device_handle dev,
-			      struct amdgpu_cs_fence *fence,
-			      uint32_t what,
-			      uint32_t *out_handle)
+drm_public int amdgpu_cs_fence_to_handle(amdgpu_device_handle dev,
+					 struct amdgpu_cs_fence *fence,
+					 uint32_t what,
+					 uint32_t *out_handle)
 {
 	union drm_amdgpu_fence_to_handle fth;
 	int r;

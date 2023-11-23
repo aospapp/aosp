@@ -44,7 +44,7 @@
     <!-- Dark variant of the action bar color.  Ensure this stays in sync with Dialer version. -->
     <color name="actionbar_background_color_dark">#ffffff</color>
     <!-- Color for icons in the actionbar. Ensure this stays in sync with Dialer version. -->
-    <color name="actionbar_icon_color">#ffffff</color>
+    <color name="actionbar_icon_color">#5f6368</color>
 
     <!-- Color for the setting text. -->
     <color name="setting_primary_color">#333333</color>
@@ -54,8 +54,6 @@
 
     <color name="dialer_dialpad_touch_tint">#330288d1</color>
     <color name="floating_action_button_touch_tint">#80ffffff</color>
-    <color name="emergency_shortcut_button_background_color">#40FFFFFF</color>
-    <color name="emergency_shortcut_confirm_button_background_color">#E25142</color>
 
     <!-- Color matches dialer settings light M2 theme.-->
     <color name="dialer_background_color">#ffffff</color>
@@ -63,4 +61,14 @@
     <color name="dialer_primary_text_color">#202124</color>
     <color name="dialer_secondary_text_color">#5f6368</color>
 
+    <!-- Colors for shortcut view -->
+    <color name="emergency_info_btn_bolder">#40ffffff</color>
+    <color name="emergency_info_btn_background_color">@android:color/transparent</color>
+    <color name="emergency_shortcut_button_background_color">#eae8e9</color>
+    <color name="emergency_shortcut_phone_type_icon_color">#e25142</color>
+    <color name="emergency_shortcut_confirm_button_background_color">#e25142</color>
+    <color name="emergency_shortcut_confirm_phone_type_icon_color">#e25142</color>
+    <color name="emergency_call_icon_color">#3c4043</color>
+    <color name="emergency_dialpad_fab_tint_color">@null</color>
+    <color name="white_70_percent">#b3ffffff</color>
 </resources>

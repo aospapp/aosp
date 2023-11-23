@@ -2828,7 +2828,7 @@ TLayoutQualifier TParseContext::parseLayoutQualifier(const TString &qualifierTyp
 	return qualifier;
 }
 
-TLayoutQualifier TParseContext::parseLayoutQualifier(const TString &qualifierType, const TSourceLoc& qualifierTypeLine, const TString &intValueString, int intValue, const TSourceLoc& intValueLine)
+TLayoutQualifier TParseContext::parseLayoutQualifier(const TString &qualifierType, const TSourceLoc& qualifierTypeLine, int intValue, const TSourceLoc& intValueLine)
 {
 	TLayoutQualifier qualifier;
 
@@ -2846,7 +2846,7 @@ TLayoutQualifier TParseContext::parseLayoutQualifier(const TString &qualifierTyp
 		// must check that location is non-negative
 		if (intValue < 0)
 		{
-			error(intValueLine, "out of range:", intValueString.c_str(), "location must be non-negative");
+			error(intValueLine, "out of range:", "", "location must be non-negative");
 			recover();
 		}
 		else
@@ -3667,6 +3667,16 @@ TIntermTyped *TParseContext::addFunctionCallOrMethod(TFunction *fnCall, TIntermN
 								if(typedReturnNode)
 								{
 									callNode = typedReturnNode;
+								}
+							}
+							else if (op == EOpMax || op == EOpMin)
+							{
+								TIntermSymbol *leftSymbol = left->getAsSymbolNode();
+								TIntermSymbol *rightSymbol = right->getAsSymbolNode();
+
+								if (leftSymbol && rightSymbol && leftSymbol->getId() == rightSymbol->getId())
+								{
+									callNode = left;
 								}
 							}
 						}

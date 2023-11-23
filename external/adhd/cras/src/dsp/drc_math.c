@@ -10,5 +10,5 @@ void drc_math_init()
 {
 	int i;
 	for (i = -100; i <= 100; i++)
-		db_to_linear[i + 100] = pow(10, i/20.0);
+		db_to_linear[i + 100] = pow(10, i / 20.0);
 }

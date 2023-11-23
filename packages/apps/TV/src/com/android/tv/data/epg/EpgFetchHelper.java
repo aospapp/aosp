@@ -28,12 +28,15 @@ import android.preference.PreferenceManager;
 import android.support.annotation.WorkerThread;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.common.CommonConstants;
 import com.android.tv.common.util.Clock;
-import com.android.tv.data.Program;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.features.TvFeatures;
 import com.android.tv.util.TvProviderUtils;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -106,7 +109,7 @@ class EpgFetchHelper {
                     ops.add(
                             ContentProviderOperation.newUpdate(
                                             TvContract.buildProgramUri(oldProgram.getId()))
-                                    .withValues(Program.toContentValues(newProgram, context))
+                                    .withValues(ProgramImpl.toContentValues(newProgram, context))
                                     .build());
                     oldProgramsIndex++;
                     newProgramsIndex++;
@@ -132,7 +135,7 @@ class EpgFetchHelper {
             if (addNewProgram) {
                 ops.add(
                         ContentProviderOperation.newInsert(Programs.CONTENT_URI)
-                                .withValues(Program.toContentValues(newProgram, context))
+                                .withValues(ProgramImpl.toContentValues(newProgram, context))
                                 .build());
             }
             // Throttle the batch operation not to cause TransactionTooLargeException.
@@ -199,7 +202,7 @@ class EpgFetchHelper {
     @WorkerThread
     private static List<Program> queryPrograms(
             Context context, long channelId, long startTimeMs, long endTimeMs) {
-        String[] projection = Program.PROJECTION;
+        String[] projection = ProgramImpl.PROJECTION;
         if (TvProviderUtils.checkSeriesIdColumn(context, Programs.CONTENT_URI)) {
             projection =
                     TvProviderUtils.addExtraColumnsToProjection(
@@ -219,7 +222,7 @@ class EpgFetchHelper {
             }
             ArrayList<Program> programs = new ArrayList<>();
             while (c.moveToNext()) {
-                programs.add(Program.fromCursor(c));
+                programs.add(ProgramImpl.fromCursor(c));
             }
             return programs;
         }

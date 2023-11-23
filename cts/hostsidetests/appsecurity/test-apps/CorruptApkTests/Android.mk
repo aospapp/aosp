@@ -1,4 +1,4 @@
-# Copyright (C) 2018 The Android Open Source Project
+# Copyright (C) 2020 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,26 +14,5 @@
 
 LOCAL_PATH := $(call my-dir)
 
-include $(CLEAR_VARS)
-LOCAL_MODULE := CtsCorruptApkTests_b71360999
-LOCAL_MODULE_CLASS := APPS
-LOCAL_SRC_FILES := b71360999.apk
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-LOCAL_CERTIFICATE := PRESIGNED
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := CtsCorruptApkTests_b71361168
-LOCAL_MODULE_CLASS := APPS
-LOCAL_SRC_FILES := b71361168.apk
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-LOCAL_CERTIFICATE := PRESIGNED
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := CtsCorruptApkTests_b79488511
-LOCAL_MODULE_CLASS := APPS
-LOCAL_SRC_FILES := b79488511.apk
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-LOCAL_CERTIFICATE := PRESIGNED
-include $(BUILD_PREBUILT)
+# Build the test APKs using their own makefiles
+include $(call all-makefiles-under,$(LOCAL_PATH))

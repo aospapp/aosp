@@ -16,8 +16,11 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.Activity;
 import android.app.Application;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -61,6 +64,12 @@ public class AppsFragment extends PreferenceControllerFragment {
         final Preference permissionPreference = findPreference(KEY_PERMISSIONS);
         final String volumeUuid = getArguments().getString(AppsActivity.EXTRA_VOLUME_UUID);
         permissionPreference.setVisible(TextUtils.isEmpty(volumeUuid));
+        permissionPreference.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.APPS_APP_PERMISSIONS);
+                    return false;
+                }
+        );
     }
 
     @Override
@@ -80,5 +89,10 @@ public class AppsFragment extends PreferenceControllerFragment {
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.SETTINGS_APP_NOTIF_CATEGORY;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS;
     }
 }

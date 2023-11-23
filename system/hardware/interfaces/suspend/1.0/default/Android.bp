@@ -19,8 +19,6 @@ cc_defaults {
         "libbinder",
         "libcutils",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "liblog",
         "libutils",
     ],
@@ -33,26 +31,6 @@ cc_defaults {
 
 cc_defaults {
     name: "system_suspend_stats_defaults",
-    shared_libs: [
-        "libprotobuf-cpp-full",
-    ],
-    static_libs: ["SystemSuspendStatsProto"],
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wno-unused-parameter",
-    ],
-}
-
-cc_library {
-    name: "SystemSuspendStatsProto",
-    srcs: [
-        "SystemSuspendStats.proto",
-    ],
-    proto: {
-        export_proto_headers: true,
-        type: "full",
-    },
     cflags: [
         "-Wall",
         "-Werror",
@@ -73,11 +51,11 @@ cc_binary {
         "android.system.suspend@1.0",
         "suspend_control_aidl_interface-cpp",
     ],
-    static_libs: ["SystemSuspendStatsProto"],
     srcs: [
         "main.cpp",
         "SuspendControlService.cpp",
         "SystemSuspend.cpp",
+        "WakeLockEntryList.cpp",
     ],
 }
 
@@ -97,8 +75,23 @@ cc_test {
     srcs: [
         "SuspendControlService.cpp",
         "SystemSuspend.cpp",
-        "SystemSuspendUnitTest.cpp"
+        "SystemSuspendUnitTest.cpp",
+        "WakeLockEntryList.cpp",
     ],
     test_suites: ["device-tests"],
+    require_root: true,
 }
 
+cc_benchmark {
+    name: "SystemSuspendBenchmark",
+    defaults: [
+        "system_suspend_defaults",
+    ],
+    shared_libs: [
+        "android.system.suspend@1.0",
+        "suspend_control_aidl_interface-cpp",
+    ],
+    srcs: [
+        "SystemSuspendBenchmark.cpp",
+    ],
+}

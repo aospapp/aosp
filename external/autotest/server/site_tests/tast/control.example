@@ -23,6 +23,6 @@ This test runs all example Tast tests.
 def run(machine):
     job.run_test('tast',
                  host=hosts.create_host(machine),
-                 test_exprs=['example.*'])
+                 test_exprs=['example.*'], command_args=args)
 
 parallel_simple(run, machines)

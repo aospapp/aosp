@@ -18,19 +18,28 @@ java_defaults {
     name: "CaptivePortalLoginDefaults",
     srcs: ["src/**/*.java"],
     sdk_version: "system_current",
-    min_sdk_version: "28",
     static_libs: [
+        "androidx.annotation_annotation",
         "androidx.legacy_legacy-support-v4",
         "metrics-constants-protos",
         "captiveportal-lib",
     ],
     manifest: "AndroidManifest.xml",
+    plugins: ["java_api_finder"],
 }
 
 android_app {
     name: "CaptivePortalLogin",
     defaults: ["CaptivePortalLoginDefaults"],
     certificate: "networkstack",
+    min_sdk_version: "29",
+    target_sdk_version: "30",
+    updatable: true,
+}
+
+android_library {
+    name: "CaptivePortalLoginTestLib",
+    defaults: ["CaptivePortalLoginDefaults"],
 }
 
 // Alternative CaptivePortalLogin signed with the platform cert, to use

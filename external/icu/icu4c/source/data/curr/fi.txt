@@ -1034,6 +1034,10 @@ fi{
             "UYU",
             "Uruguayn peso",
         }
+        UYW{
+            "UYW",
+            "Uruguayn nimellinen palkkaindeksiyksikkö",
+        }
         UZS{
             "UZS",
             "Uzbekistanin som",
@@ -2347,6 +2351,10 @@ fi{
             one{"Uruguayn peso"}
             other{"Uruguayn pesoa"}
         }
+        UYW{
+            one{"Uruguayn nimellinen palkkaindeksiyksikkö"}
+            other{"Uruguayn nimellistä palkkaindeksiyksikköä"}
+        }
         UZS{
             one{"Uzbekistanin som"}
             other{"Uzbekistanin somia"}
@@ -2528,5 +2536,5 @@ fi{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

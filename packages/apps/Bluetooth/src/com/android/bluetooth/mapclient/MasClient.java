@@ -26,7 +26,7 @@ import android.os.Message;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothObexTransport;
-import com.android.internal.util.StateMachine;
+import com.android.bluetooth.statemachine.StateMachine;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -64,10 +64,16 @@ public class MasClient {
             0x66
     };
     private static final byte OAP_TAGID_MAP_SUPPORTED_FEATURES = 0x29;
+    private static final int L2CAP_INVALID_PSM = -1;
     private static final int MAP_FEATURE_NOTIFICATION_REGISTRATION = 0x00000001;
     private static final int MAP_FEATURE_NOTIFICATION = 0x00000002;
+    private static final int MAP_FEATURE_BROWSING = 0x00000004;
+    private static final int MAP_FEATURE_UPLOADING = 0x00000008;
+    private static final int MAP_FEATURE_EXTENDED_EVENT_REPORT_1_1 = 0x00000040;
     static final int MAP_SUPPORTED_FEATURES =
-            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION;
+            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION
+            | MAP_FEATURE_BROWSING | MAP_FEATURE_UPLOADING
+            | MAP_FEATURE_EXTENDED_EVENT_REPORT_1_1;
 
     private final StateMachine mCallback;
     private Handler mHandler;
@@ -99,11 +105,20 @@ public class MasClient {
 
     private void connect() {
         try {
-            if (DBG) {
-                Log.d(TAG, "Connecting to OBEX on RFCOM channel "
-                        + mSdpMasRecord.getRfcommCannelNumber());
+            int l2capSocket = mSdpMasRecord.getL2capPsm();
+
+            if (l2capSocket != L2CAP_INVALID_PSM) {
+                if (DBG) {
+                    Log.d(TAG, "Connecting to OBEX on L2CAP channel " + l2capSocket);
+                }
+                mSocket = mRemoteDevice.createL2capSocket(l2capSocket);
+            } else {
+                if (DBG) {
+                    Log.d(TAG, "Connecting to OBEX on RFCOM channel "
+                            + mSdpMasRecord.getRfcommCannelNumber());
+                }
+                mSocket = mRemoteDevice.createRfcommSocket(mSdpMasRecord.getRfcommCannelNumber());
             }
-            mSocket = mRemoteDevice.createRfcommSocket(mSdpMasRecord.getRfcommCannelNumber());
             if (DBG) Log.d(TAG, mRemoteDevice.toString() + "Socket: " + mSocket.toString());
             mSocket.connect();
             mTransport = new BluetoothObexTransport(mSocket);

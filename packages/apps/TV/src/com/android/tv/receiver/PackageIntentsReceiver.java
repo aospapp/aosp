@@ -23,9 +23,7 @@ import android.net.Uri;
 import android.util.Log;
 import com.android.tv.Starter;
 import com.android.tv.TvSingletons;
-import com.android.tv.features.TvFeatures;
 import com.android.tv.util.Partner;
-import com.google.android.tv.partner.support.EpgContract;
 
 /** A class for handling the broadcast intents from PackageManager. */
 public class PackageIntentsReceiver extends BroadcastReceiver {

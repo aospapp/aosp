@@ -25,7 +25,9 @@ import java.util.Objects;
  * A configuration struct that holds information for tweaking SpeedBump settings.
  *
  * @see androidx.car.moderator.SpeedBumpView
+ * @deprecated Speed bump configuration is no longer a support feature.
  */
+@Deprecated
 public final class SpeedBumpConfiguration implements Parcelable {
     private final double mAcquiredPermitsPerSecond;
     private final double mMaxPermitPool;

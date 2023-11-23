@@ -18,14 +18,13 @@ package com.android.server.wifi;
 
 import android.annotation.NonNull;
 import android.content.Context;
-import android.database.ContentObserver;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
-import android.os.Handler;
-import android.provider.Settings;
-import android.util.KeyValueListParser;
 import android.util.Log;
 
-import com.android.internal.R;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.wifi.util.KeyValueListParser;
+import com.android.wifi.resources.R;
 
 /**
  * Holds parameters used for scoring networks.
@@ -35,8 +34,7 @@ import com.android.internal.R;
  *
  */
 public class ScoringParams {
-    // A long name that describes itself pretty well
-    public static final int MINIMUM_5GHZ_BAND_FREQUENCY_IN_MEGAHERTZ = 5000;
+    private final Context mContext;
 
     private static final String TAG = "WifiScoringParams";
     private static final int EXIT = 0;
@@ -44,6 +42,8 @@ public class ScoringParams {
     private static final int SUFFICIENT = 2;
     private static final int GOOD = 3;
 
+    private static final int ACTIVE_TRAFFIC = 1;
+    private static final int HIGH_TRAFFIC = 2;
     /**
      * Parameter values are stored in a separate container so that a new collection of values can
      * be checked for consistency before activating them.
@@ -57,7 +57,11 @@ public class ScoringParams {
         public static final String KEY_RSSI5 = "rssi5";
         public final int[] rssi5 = {-80, -77, -70, -57};
 
-        /** Guidelines based on packet rates (packets/sec) */
+        /** RSSI thresholds for 6 GHz band (dBm) */
+        public static final String KEY_RSSI6 = "rssi6";
+        public final int[] rssi6 = {-80, -77, -70, -57};
+
+       /** Guidelines based on packet rates (packets/sec) */
         public static final String KEY_PPS = "pps";
         public final int[] pps = {0, 1, 100};
 
@@ -79,6 +83,19 @@ public class ScoringParams {
         public static final int MAX_EXPID = Integer.MAX_VALUE;
         public int expid = 0;
 
+        /** CandidateScorer parameters */
+        public int throughputBonusNumerator = 120;
+        public int throughputBonusDenominator = 433;
+        public int throughputBonusLimit = 200;
+        public int savedNetworkBonus = 500;
+        public int unmeteredNetworkBonus = 1000;
+        public int currentNetworkBonusMin = 20;
+        public int currentNetworkBonusPercent = 20;
+        public int secureNetworkBonus = 40;
+        public int lastSelectionMinutes = 480;
+        public static final int MIN_MINUTES = 1;
+        public static final int MAX_MINUTES = Integer.MAX_VALUE / (60 * 1000);
+
         Values() {
         }
 
@@ -88,6 +105,9 @@ public class ScoringParams {
             }
             for (int i = 0; i < rssi5.length; i++) {
                 rssi5[i] = source.rssi5[i];
+            }
+            for (int i = 0; i < rssi6.length; i++) {
+                rssi6[i] = source.rssi6[i];
             }
             for (int i = 0; i < pps.length; i++) {
                 pps[i] = source.pps[i];
@@ -100,10 +120,12 @@ public class ScoringParams {
         public void validate() throws IllegalArgumentException {
             validateRssiArray(rssi2);
             validateRssiArray(rssi5);
+            validateRssiArray(rssi6);
             validateOrderedNonNegativeArray(pps);
             validateRange(horizon, MIN_HORIZON, MAX_HORIZON);
             validateRange(nud, MIN_NUD, MAX_NUD);
             validateRange(expid, MIN_EXPID, MAX_EXPID);
+            validateRange(lastSelectionMinutes, MIN_MINUTES, MAX_MINUTES);
         }
 
         private void validateRssiArray(int[] rssi) throws IllegalArgumentException {
@@ -139,6 +161,7 @@ public class ScoringParams {
             }
             updateIntArray(rssi2, parser, KEY_RSSI2);
             updateIntArray(rssi5, parser, KEY_RSSI5);
+            updateIntArray(rssi6, parser, KEY_RSSI6);
             updateIntArray(pps, parser, KEY_PPS);
             horizon = updateInt(parser, KEY_HORIZON, horizon);
             nud = updateInt(parser, KEY_NUD, nud);
@@ -174,6 +197,8 @@ public class ScoringParams {
             appendInts(sb, rssi2);
             appendKey(sb, KEY_RSSI5);
             appendInts(sb, rssi5);
+            appendKey(sb, KEY_RSSI6);
+            appendInts(sb, rssi6);
             appendKey(sb, KEY_PPS);
             appendInts(sb, pps);
             appendKey(sb, KEY_HORIZON);
@@ -199,21 +224,21 @@ public class ScoringParams {
         }
     }
 
-    @NonNull private Values mVal = new Values();
+    @NonNull private Values mVal = null;
 
+    @VisibleForTesting
     public ScoringParams() {
+        mContext = null;
+        mVal = new Values();
     }
 
     public ScoringParams(Context context) {
-        loadResources(context);
-    }
-
-    public ScoringParams(Context context, FrameworkFacade facade, Handler handler) {
-        loadResources(context);
-        setupContentObserver(context, facade, handler);
+        mContext = context;
     }
 
     private void loadResources(Context context) {
+        if (mVal != null) return;
+        mVal = new Values();
         mVal.rssi2[EXIT] = context.getResources().getInteger(
                 R.integer.config_wifi_framework_wifi_score_bad_rssi_threshold_24GHz);
         mVal.rssi2[ENTRY] = context.getResources().getInteger(
@@ -230,34 +255,41 @@ public class ScoringParams {
                 R.integer.config_wifi_framework_wifi_score_low_rssi_threshold_5GHz);
         mVal.rssi5[GOOD] = context.getResources().getInteger(
                 R.integer.config_wifi_framework_wifi_score_good_rssi_threshold_5GHz);
+        mVal.rssi6[EXIT] = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkScoreBadRssiThreshold6ghz);
+        mVal.rssi6[ENTRY] = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkScoreEntryRssiThreshold6ghz);
+        mVal.rssi6[SUFFICIENT] = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkScoreLowRssiThreshold6ghz);
+        mVal.rssi6[GOOD] = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkScoreGoodRssiThreshold6ghz);
+        mVal.throughputBonusNumerator = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkThroughputBonusNumerator);
+        mVal.throughputBonusDenominator = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkThroughputBonusDenominator);
+        mVal.throughputBonusLimit = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkThroughputBonusLimit);
+        mVal.savedNetworkBonus = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkSavedNetworkBonus);
+        mVal.unmeteredNetworkBonus = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkUnmeteredNetworkBonus);
+        mVal.currentNetworkBonusMin = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkCurrentNetworkBonusMin);
+        mVal.currentNetworkBonusPercent = context.getResources().getInteger(
+            R.integer.config_wifiFrameworkCurrentNetworkBonusPercent);
+        mVal.secureNetworkBonus = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkSecureNetworkBonus);
+        mVal.lastSelectionMinutes = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkLastSelectionMinutes);
+        mVal.pps[ACTIVE_TRAFFIC] = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkMinPacketPerSecondActiveTraffic);
+        mVal.pps[HIGH_TRAFFIC] = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkMinPacketPerSecondHighTraffic);
         try {
             mVal.validate();
         } catch (IllegalArgumentException e) {
             Log.wtf(TAG, "Inconsistent config_wifi_framework_ resources: " + this, e);
         }
-    }
-
-    private void setupContentObserver(Context context, FrameworkFacade facade, Handler handler) {
-        final ScoringParams self = this;
-        String defaults = self.toString();
-        ContentObserver observer = new ContentObserver(handler) {
-            @Override
-            public void onChange(boolean selfChange) {
-                String params = facade.getStringSetting(
-                        context, Settings.Global.WIFI_SCORE_PARAMS);
-                self.update(defaults);
-                if (!self.update(params)) {
-                    Log.e(TAG, "Error in " + Settings.Global.WIFI_SCORE_PARAMS + ": "
-                            + sanitize(params));
-                }
-                Log.i(TAG, self.toString());
-            }
-        };
-        facade.registerContentObserver(context,
-                Settings.Global.getUriFor(Settings.Global.WIFI_SCORE_PARAMS),
-                true,
-                observer);
-        observer.onChange(false);
     }
 
     private static final String COMMA_KEY_VAL_STAR = "^(,[A-Za-z_][A-Za-z0-9_]*=[0-9.:+-]+)*$";
@@ -268,6 +300,7 @@ public class ScoringParams {
      * @param kvList is a comma-separated key=value list.
      * @return true for success
      */
+    @VisibleForTesting
     public boolean update(String kvList) {
         if (kvList == null || "".equals(kvList)) {
             return true;
@@ -275,6 +308,7 @@ public class ScoringParams {
         if (!("," + kvList).matches(COMMA_KEY_VAL_STAR)) {
             return false;
         }
+        loadResources(mContext);
         Values v = new Values(mVal);
         try {
             v.parseString(kvList);
@@ -299,12 +333,6 @@ public class ScoringParams {
         }
         return printable;
     }
-
-    /** Constant to denote someplace in the 2.4 GHz band */
-    public static final int BAND2 = 2400;
-
-    /** Constant to denote someplace in the 5 GHz band */
-    public static final int BAND5 = 5000;
 
     /**
      * Returns the RSSI value at which the connection is deemed to be unusable,
@@ -340,6 +368,7 @@ public class ScoringParams {
      * Returns the number of seconds to use for rssi forecast.
      */
     public int getHorizonSeconds() {
+        loadResources(mContext);
         return mVal.horizon;
     }
 
@@ -348,7 +377,16 @@ public class ScoringParams {
      * no matter how bad the RSSI gets (packets per second).
      */
     public int getYippeeSkippyPacketsPerSecond() {
-        return mVal.pps[2];
+        loadResources(mContext);
+        return mVal.pps[HIGH_TRAFFIC];
+    }
+
+    /**
+     * Returns a packet rate that should be considered acceptable to skip scan or network selection
+     */
+    public int getActiveTrafficPacketsPerSecond() {
+        loadResources(mContext);
+        return mVal.pps[ACTIVE_TRAFFIC];
     }
 
     /**
@@ -363,7 +401,77 @@ public class ScoringParams {
      *
      */
     public int getNudKnob() {
+        loadResources(mContext);
         return mVal.nud;
+    }
+
+    /**
+     */
+    public int getThroughputBonusNumerator() {
+        return mVal.throughputBonusNumerator;
+    }
+
+    /**
+     */
+    public int getThroughputBonusDenominator() {
+        return mVal.throughputBonusDenominator;
+    }
+
+    /*
+     * Returns the maximum bonus for the network selection candidate score
+     * for the contribution of the selected score.
+     */
+    public int getThroughputBonusLimit() {
+        return mVal.throughputBonusLimit;
+    }
+
+    /*
+     * Returns the bonus for the network selection candidate score
+     * for a saved network (i.e., not a suggestion).
+     */
+    public int getSavedNetworkBonus() {
+        return mVal.savedNetworkBonus;
+    }
+
+    /*
+     * Returns the bonus for the network selection candidate score
+     * for an unmetered network.
+     */
+    public int getUnmeteredNetworkBonus() {
+        return mVal.unmeteredNetworkBonus;
+    }
+
+    /*
+     * Returns the minimum bonus for the network selection candidate score
+     * for the currently connected network.
+     */
+    public int getCurrentNetworkBonusMin() {
+        return mVal.currentNetworkBonusMin;
+    }
+
+    /*
+     * Returns the percentage bonus for the network selection candidate score
+     * for the currently connected network. The percent value is applied to rssi score and
+     * throughput score;
+     */
+    public int getCurrentNetworkBonusPercent() {
+        return mVal.currentNetworkBonusPercent;
+    }
+
+    /*
+     * Returns the bonus for the network selection candidate score
+     * for a secure network.
+     */
+    public int getSecureNetworkBonus() {
+        return mVal.secureNetworkBonus;
+    }
+
+    /*
+     * Returns the duration in minutes for a recently selected network
+     * to be strongly favored.
+     */
+    public int getLastSelectionMinutes() {
+        return mVal.lastSelectionMinutes;
     }
 
     /**
@@ -372,19 +480,27 @@ public class ScoringParams {
      * This value may be used to tag a set of experimental settings.
      */
     public int getExperimentIdentifier() {
+        loadResources(mContext);
         return mVal.expid;
     }
 
     private int[] getRssiArray(int frequency) {
-        if (frequency < MINIMUM_5GHZ_BAND_FREQUENCY_IN_MEGAHERTZ) {
+        loadResources(mContext);
+        if (ScanResult.is24GHz(frequency)) {
             return mVal.rssi2;
-        } else {
+        } else if (ScanResult.is5GHz(frequency)) {
             return mVal.rssi5;
+        } else if (ScanResult.is6GHz(frequency)) {
+            return mVal.rssi6;
         }
+        // Invalid frequency use
+        Log.e(TAG, "Invalid frequency(" + frequency + "), using 5G as default rssi array");
+        return mVal.rssi5;
     }
 
     @Override
     public String toString() {
+        loadResources(mContext);
         return mVal.toString();
     }
 }

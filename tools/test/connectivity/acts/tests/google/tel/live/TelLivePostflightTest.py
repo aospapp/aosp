@@ -17,7 +17,6 @@
     Test Script for Telephony Post Flight check.
 """
 import os
-from acts import utils
 from acts.asserts import fail
 from acts.base_test import BaseTestClass
 from acts.test_decorators import test_tracker_info
@@ -25,10 +24,9 @@ from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 
 
 class TelLivePostflightTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.user_params["telephony_auto_rerun"] = 0
 
     def teardown_class(self):
@@ -57,7 +55,7 @@ class TelLivePostflightTest(TelephonyBaseTest):
                 ad.log.error("Find new crash reports %s", crash_diff)
                 crash_path = os.path.join(ad.log_path, self.test_name,
                                           "Crashes")
-                utils.create_dir(crash_path)
+                os.makedirs(crash_path, exist_ok=True)
                 ad.pull_files(crash_diff, crash_path)
                 self._ad_take_bugreport(ad, self.test_name, self.begin_time)
         if msg:
@@ -78,7 +76,7 @@ class TelLivePostflightTest(TelephonyBaseTest):
                     msg += message
                     crash_path = os.path.join(ad.log_path, self.test_name,
                                               "Crashes")
-                    utils.create_dir(crash_path)
+                    os.makedirs(crash_path, exist_ok=True)
                     ad.pull_files([tombstone], crash_path)
         if msg:
             fail(msg)

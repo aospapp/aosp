@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "perfetto/tracing/core/consumer.h"
-#include "perfetto/tracing/core/producer.h"
-#include "perfetto/tracing/core/shared_memory.h"
-#include "perfetto/tracing/core/shared_memory_arbiter.h"
-#include "perfetto/tracing/core/tracing_service.h"
+#include "perfetto/ext/tracing/core/consumer.h"
+#include "perfetto/ext/tracing/core/producer.h"
+#include "perfetto/ext/tracing/core/shared_memory.h"
+#include "perfetto/ext/tracing/core/shared_memory_arbiter.h"
+#include "perfetto/ext/tracing/core/tracing_service.h"
 
 // This translation unit contains the definitions for the destructor of pure
 // virtual interfaces for the current build target. The alternative would be
@@ -30,8 +30,8 @@ namespace perfetto {
 Consumer::~Consumer() = default;
 Producer::~Producer() = default;
 TracingService::~TracingService() = default;
-TracingService::ConsumerEndpoint::~ConsumerEndpoint() = default;
-TracingService::ProducerEndpoint::~ProducerEndpoint() = default;
+ConsumerEndpoint::~ConsumerEndpoint() = default;
+ProducerEndpoint::~ProducerEndpoint() = default;
 SharedMemory::~SharedMemory() = default;
 SharedMemory::Factory::~Factory() = default;
 SharedMemoryArbiter::~SharedMemoryArbiter() = default;

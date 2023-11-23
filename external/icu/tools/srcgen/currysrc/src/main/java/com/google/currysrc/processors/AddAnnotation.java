@@ -105,7 +105,7 @@ public class AddAnnotation implements Processor {
    * {@code String.class}.</li>
    * <li>{@code <placeholder>} is a quoted JSON string that is inserted into the source as if it
    * was a constant expression. It is used to reference constants in annotation values, e.g. {@code
-   * dalvik.annotation.compat.UnsupportedAppUsage.VERSION_CODES.P}. It can be used for any property
+   * android.compat.annotation.UnsupportedAppUsage.VERSION_CODES.P}. It can be used for any property
    * type and will be type checked when the generated code is compiled.</li>
    * </ul>
    *

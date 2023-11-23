@@ -28,9 +28,6 @@ LOCAL_SRC_FILES := \
     ../common/com/android/car/keventreader/IEventCallback.aidl \
     ../common/com/android/car/keventreader/IEventProvider.aidl \
 
-LOCAL_C_INCLUDES += \
-    frameworks/base/include
-
 LOCAL_SHARED_LIBRARIES := \
     libbinder \
     liblog \

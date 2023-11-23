@@ -18,6 +18,7 @@ package android.app;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.UserIdInt;
 import android.content.ComponentName;
 import android.content.IIntentReceiver;
 import android.content.IIntentSender;
@@ -26,13 +27,14 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ActivityPresentationInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.UserInfo;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.TransactionTooLargeException;
-import android.view.RemoteAnimationAdapter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Activity manager local system service interface.
@@ -44,13 +46,30 @@ public abstract class ActivityManagerInternal {
 
     // Access modes for handleIncomingUser.
     public static final int ALLOW_NON_FULL = 0;
+    /**
+     * Allows access to a caller with {@link android.Manifest.permission#INTERACT_ACROSS_USERS}
+     * if in the same profile group.
+     * Otherwise, {@link android.Manifest.permission#INTERACT_ACROSS_USERS_FULL} is required.
+     */
     public static final int ALLOW_NON_FULL_IN_PROFILE = 1;
     public static final int ALLOW_FULL_ONLY = 2;
+    /**
+     * Allows access to a caller with {@link android.Manifest.permission#INTERACT_ACROSS_PROFILES}
+     * or {@link android.Manifest.permission#INTERACT_ACROSS_USERS} if in the same profile group.
+     * Otherwise, {@link android.Manifest.permission#INTERACT_ACROSS_USERS_FULL} is required.
+     */
+    public static final int ALLOW_ALL_PROFILE_PERMISSIONS_IN_PROFILE = 3;
 
     /**
      * Verify that calling app has access to the given provider.
      */
-    public abstract String checkContentProviderAccess(String authority, int userId);
+    public abstract String checkContentProviderAccess(String authority, @UserIdInt int userId);
+
+    /**
+     * Verify that calling UID has access to the given provider.
+     */
+    public abstract int checkContentProviderUriPermission(Uri uri, @UserIdInt int userId,
+            int callingUid, int modeFlags);
 
     // Called by the power manager.
     public abstract void onWakefulnessChanged(int wakefulness);
@@ -62,9 +81,18 @@ public abstract class ActivityManagerInternal {
             String processName, String abiOverride, int uid, Runnable crashHandler);
 
     /**
+     * Called when a user has been deleted. This can happen during normal device usage
+     * or just at startup, when partially removed users are purged. Any state persisted by the
+     * ActivityManager should be purged now.
+     *
+     * @param userId The user being cleaned up.
+     */
+    public abstract void onUserRemoved(@UserIdInt int userId);
+
+    /**
      * Kill foreground apps from the specified user.
      */
-    public abstract void killForegroundAppsForUser(int userHandle);
+    public abstract void killForegroundAppsForUser(@UserIdInt int userId);
 
     /**
      *  Sets how long a {@link PendingIntent} can be temporarily whitelist to by bypass restrictions
@@ -106,6 +134,12 @@ public abstract class ActivityManagerInternal {
     public abstract int getUidProcessState(int uid);
 
     /**
+     * Get a map of pid and package name that process of that pid Android/data and Android/obb
+     * directory is not mounted to lowerfs.
+     */
+    public abstract Map<Integer, String> getProcessesWithPendingBindMounts(int userId);
+
+    /**
      * @return {@code true} if system is ready, {@code false} otherwise.
      */
     public abstract boolean isSystemReady();
@@ -118,17 +152,6 @@ public abstract class ActivityManagerInternal {
      * @see android.view.WindowManager.LayoutParams#TYPE_APPLICATION_OVERLAY
      */
     public abstract void setHasOverlayUi(int pid, boolean hasOverlayUi);
-
-    /**
-     * Sets if the given pid is currently running a remote animation, which is taken a signal for
-     * determining oom adjustment and scheduling behavior.
-     *
-     * @param pid The pid we are setting overlay UI for.
-     * @param runningRemoteAnimation True if the process is running a remote animation, false
-     *                               otherwise.
-     * @see RemoteAnimationAdapter
-     */
-    public abstract void setRunningRemoteAnimation(int pid, boolean runningRemoteAnimation);
 
     /**
      * Called after the network policy rules are updated by
@@ -178,7 +201,7 @@ public abstract class ActivityManagerInternal {
      * Checks to see if the calling pid is allowed to handle the user. Returns adjusted user id as
      * needed.
      */
-    public abstract int handleIncomingUser(int callingPid, int callingUid, int userId,
+    public abstract int handleIncomingUser(int callingPid, int callingUid, @UserIdInt int userId,
             boolean allowAll, int allowMode, String name, String callerPackage);
 
     /** Checks if the calling binder pid as the permission. */
@@ -188,7 +211,7 @@ public abstract class ActivityManagerInternal {
     public abstract int getCurrentUserId();
 
     /** Returns true if the user is running. */
-    public abstract boolean isUserRunning(int userId, int flags);
+    public abstract boolean isUserRunning(@UserIdInt int userId, int flags);
 
     /** Trims memory usage in the system by removing/stopping unused application processes. */
     public abstract void trimApplications();
@@ -215,7 +238,7 @@ public abstract class ActivityManagerInternal {
      * @param started
      */
     public abstract void updateBatteryStats(
-            ComponentName activity, int uid, int userId, boolean resumed);
+            ComponentName activity, int uid, @UserIdInt int userId, boolean resumed);
 
     /**
      * Update UsageStats of the activity.
@@ -223,26 +246,27 @@ public abstract class ActivityManagerInternal {
      * @param userId
      * @param event
      * @param appToken ActivityRecord's appToken.
-     * @param taskRoot TaskRecord's root
+     * @param taskRoot Task's root
      */
     public abstract void updateActivityUsageStats(
-            ComponentName activity, int userId, int event, IBinder appToken,
+            ComponentName activity, @UserIdInt int userId, int event, IBinder appToken,
             ComponentName taskRoot);
     public abstract void updateForegroundTimeIfOnBattery(
             String packageName, int uid, long cpuTimeDiff);
-    public abstract void sendForegroundProfileChanged(int userId);
+    public abstract void sendForegroundProfileChanged(@UserIdInt int userId);
 
     /**
      * Returns whether the given user requires credential entry at this time. This is used to
-     * intercept activity launches for work apps when the Work Challenge is present.
+     * intercept activity launches for locked work apps due to work challenge being triggered or
+     * when the profile user is yet to be unlocked.
      */
-    public abstract boolean shouldConfirmCredentials(int userId);
+    public abstract boolean shouldConfirmCredentials(@UserIdInt int userId);
 
     public abstract int[] getCurrentProfileIds();
     public abstract UserInfo getCurrentUser();
-    public abstract void ensureNotSpecialUser(int userId);
-    public abstract boolean isCurrentProfile(int userId);
-    public abstract boolean hasStartedUserState(int userId);
+    public abstract void ensureNotSpecialUser(@UserIdInt int userId);
+    public abstract boolean isCurrentProfile(@UserIdInt int userId);
+    public abstract boolean hasStartedUserState(@UserIdInt int userId);
     public abstract void finishUserSwitch(Object uss);
 
     /** Schedule the execution of all pending app GCs. */
@@ -262,24 +286,31 @@ public abstract class ActivityManagerInternal {
 
     public abstract void tempWhitelistForPendingIntent(int callerPid, int callerUid, int targetUid,
             long duration, String tag);
-    public abstract int broadcastIntentInPackage(String packageName, int uid, int realCallingUid,
-            int realCallingPid, Intent intent, String resolvedType, IIntentReceiver resultTo,
-            int resultCode, String resultData, Bundle resultExtras, String requiredPermission,
-            Bundle bOptions, boolean serialized, boolean sticky, int userId,
-            boolean allowBackgroundActivityStarts);
+
+    public abstract int broadcastIntentInPackage(String packageName, @Nullable String featureId,
+            int uid, int realCallingUid, int realCallingPid, Intent intent, String resolvedType,
+            IIntentReceiver resultTo, int resultCode, String resultData, Bundle resultExtras,
+            String requiredPermission, Bundle bOptions, boolean serialized, boolean sticky,
+            @UserIdInt int userId, boolean allowBackgroundActivityStarts);
+
     public abstract ComponentName startServiceInPackage(int uid, Intent service,
-            String resolvedType, boolean fgRequired, String callingPackage, int userId,
+            String resolvedType, boolean fgRequired, String callingPackage,
+            @Nullable String callingFeatureId, @UserIdInt int userId,
             boolean allowBackgroundActivityStarts) throws TransactionTooLargeException;
 
-    public abstract void disconnectActivityFromServices(Object connectionHolder, Object conns);
-    public abstract void cleanUpServices(int userId, ComponentName component, Intent baseIntent);
-    public abstract ActivityInfo getActivityInfoForUser(ActivityInfo aInfo, int userId);
+    public abstract void disconnectActivityFromServices(Object connectionHolder);
+    public abstract void cleanUpServices(@UserIdInt int userId, ComponentName component,
+            Intent baseIntent);
+    public abstract ActivityInfo getActivityInfoForUser(ActivityInfo aInfo, @UserIdInt int userId);
     public abstract void ensureBootCompleted();
     public abstract void updateOomLevelsForDisplay(int displayId);
     public abstract boolean isActivityStartsLoggingEnabled();
     /** Returns true if the background activity starts is enabled. */
     public abstract boolean isBackgroundActivityStartsEnabled();
     public abstract void reportCurKeyguardUsageEvent(boolean keyguardShowing);
+
+    /** @see com.android.server.am.ActivityManagerService#monitor */
+    public abstract void monitor();
 
     /** Input dispatch timeout to a window, start the ANR process. */
     public abstract long inputDispatchingTimedOut(int pid, boolean aboveSystem, String reason);
@@ -311,7 +342,7 @@ public abstract class ActivityManagerInternal {
 
     /** Starts a given process. */
     public abstract void startProcess(String processName, ApplicationInfo info,
-            boolean knownToBeDead, String hostingType, ComponentName hostingName);
+            boolean knownToBeDead, boolean isTop, String hostingType, ComponentName hostingName);
 
     /** Starts up the starting activity process for debugging if needed.
      * This function needs to be called synchronously from WindowManager context so the caller
@@ -332,7 +363,7 @@ public abstract class ActivityManagerInternal {
     public abstract boolean isAppBad(ApplicationInfo info);
 
     /** Remove pending backup for the given userId. */
-    public abstract void clearPendingBackup(int userId);
+    public abstract void clearPendingBackup(@UserIdInt int userId);
 
     /**
      * When power button is very long pressed, call this interface to do some pre-shutdown work
@@ -356,4 +387,57 @@ public abstract class ActivityManagerInternal {
      * Unregisters the specified {@code processObserver}.
      */
     public abstract void unregisterProcessObserver(IProcessObserver processObserver);
+
+    /**
+     * Checks if there is an unfinished instrumentation that targets the given uid.
+     *
+     * @param uid The uid to be checked for
+     *
+     * @return True, if there is an instrumentation whose target application uid matches the given
+     * uid, false otherwise
+     */
+    public abstract boolean isUidCurrentlyInstrumented(int uid);
+
+    /** Is this a device owner app? */
+    public abstract boolean isDeviceOwner(int uid);
+
+    /**
+     * Called by DevicePolicyManagerService to set the uid of the device owner.
+     */
+    public abstract void setDeviceOwnerUid(int uid);
+
+    /**
+     * Sends a broadcast, assuming the caller to be the system and allowing the inclusion of an
+     * approved whitelist of app Ids >= {@link android.os.Process#FIRST_APPLICATION_UID} that the
+     * broadcast my be sent to; any app Ids < {@link android.os.Process#FIRST_APPLICATION_UID} are
+     * automatically whitelisted.
+     *
+     * @see com.android.server.am.ActivityManagerService#broadcastIntentWithFeature(
+     *      IApplicationThread, String, Intent, String, IIntentReceiver, int, String, Bundle,
+     *      String[], int, Bundle, boolean, boolean, int)
+     */
+    public abstract int broadcastIntent(Intent intent,
+            IIntentReceiver resultTo,
+            String[] requiredPermissions, boolean serialized,
+            int userId, int[] appIdWhitelist);
+
+    /**
+     * Add uid to the ActivityManagerService PendingStartActivityUids list.
+     * @param uid uid
+     * @param pid pid of the ProcessRecord that is pending top.
+     */
+    public abstract void addPendingTopUid(int uid, int pid);
+
+    /**
+     * Delete uid from the ActivityManagerService PendingStartActivityUids list.
+     * @param uid uid
+     */
+    public abstract void deletePendingTopUid(int uid);
+
+    /**
+     * Is the uid in ActivityManagerService PendingStartActivityUids list?
+     * @param uid
+     * @return true if exists, false otherwise.
+     */
+    public abstract boolean isPendingTopUid(int uid);
 }

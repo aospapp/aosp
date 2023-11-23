@@ -30,6 +30,7 @@ import com.android.server.telecom.Timeouts;
 import com.android.server.telecom.bluetooth.BluetoothDeviceManager;
 import com.android.server.telecom.bluetooth.BluetoothRouteManager;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -246,6 +247,12 @@ public class BluetoothRouteTransitionTests extends TelecomTestCase {
         super.setUp();
     }
 
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
     public BluetoothRouteTransitionTests(BluetoothRouteTestParameters params) {
         mParams = params;
     }
@@ -339,6 +346,8 @@ public class BluetoothRouteTransitionTests extends TelecomTestCase {
         when(mDeviceManager.getConnectedDevices()).thenReturn(Arrays.asList(devices));
         when(mHeadsetProxy.getConnectedDevices()).thenReturn(Arrays.asList(devices));
         when(mHeadsetProxy.getActiveDevice()).thenReturn(activeDevice);
+        when(mHeadsetProxy.getAudioState(nullable(BluetoothDevice.class)))
+                .thenReturn(BluetoothHeadset.STATE_AUDIO_DISCONNECTED);
         if (audioOnDevice != null) {
             when(mHeadsetProxy.getActiveDevice()).thenReturn(audioOnDevice);
             when(mHeadsetProxy.getAudioState(audioOnDevice))
@@ -627,6 +636,22 @@ public class BluetoothRouteTransitionTests extends TelecomTestCase {
                 .setExpectedBluetoothInteraction(NONE)
                 .setExpectedFinalStateName(BluetoothRouteManager.AUDIO_OFF_STATE_NAME)
                 .build());
+
+        result.add(new BluetoothRouteTestParametersBuilder()
+                .setName("connect BT to an already active device when in audio off.")
+                .setInitialBluetoothState(BluetoothRouteManager.AUDIO_OFF_STATE_NAME)
+                .setAudioOnDevice(DEVICE2)
+                .setActiveDevice(DEVICE2)
+                .setConnectedDevices(DEVICE2, DEVICE3)
+                .setHearingAidBtDevices(Collections.singletonList(DEVICE2))
+                .setMessageType(BluetoothRouteManager.CONNECT_HFP)
+                .setMessageDevice(DEVICE2)
+                .setExpectedListenerUpdates(ListenerUpdate.AUDIO_CONNECTED)
+                .setExpectedBluetoothInteraction(NONE)
+                .setExpectedFinalStateName(BluetoothRouteManager.AUDIO_CONNECTED_STATE_NAME_PREFIX
+                        + ":" + DEVICE2)
+                .build());
+
         return result;
     }
 }

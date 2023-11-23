@@ -5,10 +5,20 @@ package android.icu.dev.test.number;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import org.junit.Test;
 
+import android.icu.dev.test.format.FormattedValueTest;
+import android.icu.impl.ICUData;
+import android.icu.impl.ICUResourceBundle;
+import android.icu.impl.UResource;
+import android.icu.number.FormattedNumberRange;
 import android.icu.number.LocalizedNumberFormatter;
 import android.icu.number.LocalizedNumberRangeFormatter;
 import android.icu.number.Notation;
@@ -20,9 +30,12 @@ import android.icu.number.NumberRangeFormatter.RangeIdentityFallback;
 import android.icu.number.Precision;
 import android.icu.number.UnlocalizedNumberFormatter;
 import android.icu.number.UnlocalizedNumberRangeFormatter;
+import android.icu.text.NumberFormat;
+import android.icu.text.NumberingSystem;
 import android.icu.util.Currency;
 import android.icu.util.MeasureUnit;
 import android.icu.util.ULocale;
+import android.icu.util.UResourceBundle;
 import android.icu.testsharding.MainTestShard;
 
 /**
@@ -639,7 +652,7 @@ public class NumberRangeFormatterTest {
             "Different rounding rules",
             NumberRangeFormatter.with()
                 .numberFormatterFirst(NumberFormatter.with().precision(Precision.integer()))
-                .numberFormatterSecond(NumberFormatter.with().precision(Precision.fixedDigits(2))),
+                .numberFormatterSecond(NumberFormatter.with().precision(Precision.fixedSignificantDigits(2))),
             new ULocale("en-us"),
             "1–5.0",
             "5–5.0",
@@ -709,6 +722,117 @@ public class NumberRangeFormatterTest {
         }
     }
 
+    @Test
+    public void testFieldPositions() {
+        {
+            String message = "Field position test 1";
+            String expectedString = "3K – 5K m";
+            FormattedNumberRange fmtd = assertFormattedRangeEquals(
+                    message,
+                    NumberRangeFormatter.with()
+                        .numberFormatterBoth(NumberFormatter.with()
+                            .unit(MeasureUnit.METER)
+                            .notation(Notation.compactShort()))
+                        .locale(ULocale.US),
+                    3000,
+                    5000,
+                    expectedString);
+            Object[][] expectedFieldPositions = new Object[][]{
+                    {NumberFormat.Field.INTEGER, 0, 1},
+                    {NumberFormat.Field.COMPACT, 1, 2},
+                    {NumberFormat.Field.INTEGER, 5, 6},
+                    {NumberFormat.Field.COMPACT, 6, 7},
+                    {NumberFormat.Field.MEASURE_UNIT, 8, 9}};
+            FormattedValueTest.checkFormattedValue(message, fmtd, expectedString, expectedFieldPositions);
+        }
+
+        {
+            String message = "Field position test 2";
+            String expectedString = "87,654,321–98,765,432";
+            FormattedNumberRange fmtd = assertFormattedRangeEquals(
+                    message,
+                    NumberRangeFormatter.withLocale(ULocale.US),
+                    87654321,
+                    98765432,
+                    expectedString);
+            Object[][] expectedFieldPositions = new Object[][]{
+                    {NumberFormat.Field.GROUPING_SEPARATOR, 2, 3},
+                    {NumberFormat.Field.GROUPING_SEPARATOR, 6, 7},
+                    {NumberFormat.Field.INTEGER, 0, 10},
+                    {NumberFormat.Field.GROUPING_SEPARATOR, 13, 14},
+                    {NumberFormat.Field.GROUPING_SEPARATOR, 17, 18},
+                    {NumberFormat.Field.INTEGER, 11, 21}};
+            FormattedValueTest.checkFormattedValue(message, fmtd, expectedString, expectedFieldPositions);
+        }
+    }
+
+    static final String[] allNSNames = NumberingSystem.getAvailableNames();
+
+    private class RangePatternSink extends UResource.Sink {
+        Map<String,String> rangePatterns = new HashMap<>();
+        Map<String,String> approxPatterns = new HashMap<>();
+
+        // NumberElements{ latn{ miscPatterns{ range{"{0}-{1}"} } } }
+        @Override
+        public void put(UResource.Key key, UResource.Value value, boolean noFallback) {
+            UResource.Table numberElementsTable = value.getTable();
+            for (int i = 0; numberElementsTable.getKeyAndValue(i, key, value); ++i) {
+                String nsName = key.toString();
+                if (Arrays.binarySearch(allNSNames, nsName) < 0) {
+                    continue;
+                }
+                UResource.Table nsTable = value.getTable();
+                for (int j = 0; nsTable.getKeyAndValue(j, key, value); ++j) {
+                    if (!key.contentEquals("miscPatterns")) {
+                        continue;
+                    }
+                    UResource.Table miscTable = value.getTable();
+                    for (int k = 0; miscTable.getKeyAndValue(k, key, value); ++k) {
+                        if (key.contentEquals("range") && !rangePatterns.containsKey(nsName)) {
+                            rangePatterns.put(nsName, value.getString());
+                        }
+                        if (key.contentEquals("approximately") && !approxPatterns.containsKey(nsName)) {
+                            approxPatterns.put(nsName, value.getString());
+                        }
+                    }
+                }
+            }
+        }
+
+        public void checkAndReset(ULocale locale) {
+            // NOTE: If this test ever starts failing, there might not need to
+            // be any changes made to NumberRangeFormatter.  Please add a new
+            // test demonstrating how different numbering systems in the same
+            // locale produce different results in NumberRangeFormatter, and
+            // then you can disable or delete this test.
+            // Additional context: ICU-20144
+
+            Set<String> allRangePatterns = new HashSet<>();
+            allRangePatterns.addAll(rangePatterns.values());
+            assertEquals("Should have only one unique range pattern: " + locale + ": " + rangePatterns,
+                    1, allRangePatterns.size());
+
+            Set<String> allApproxPatterns = new HashSet<>();
+            allApproxPatterns.addAll(approxPatterns.values());
+            assertEquals("Should have only one unique approximately pattern: " + locale + ": " + approxPatterns,
+                    1, allApproxPatterns.size());
+
+            rangePatterns.clear();
+            approxPatterns.clear();
+        }
+    }
+
+    @Test
+    public void testNumberingSystemRangeData() {
+        RangePatternSink sink = new RangePatternSink();
+        for (ULocale locale : ULocale.getAvailableLocales()) {
+            ICUResourceBundle resource = (ICUResourceBundle)
+                    UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME, locale);
+            resource.getAllItemsWithFallback("NumberElements", sink);
+            sink.checkAndReset(locale);
+        }
+    }
+
     static void assertFormatRange(
             String message,
             UnlocalizedNumberRangeFormatter f,
@@ -736,10 +860,12 @@ public class NumberRangeFormatterTest {
         assertFormattedRangeEquals(message, l, 5e3, 5e6, expected_50K_50M);
     }
 
-    private static void assertFormattedRangeEquals(String message, LocalizedNumberRangeFormatter l, Number first,
+    private static FormattedNumberRange assertFormattedRangeEquals(String message, LocalizedNumberRangeFormatter l, Number first,
             Number second, String expected) {
-        String actual = l.formatRange(first, second).toString();
+        FormattedNumberRange fnr = l.formatRange(first, second);
+        String actual = fnr.toString();
         assertEquals(message + ": " + first + ", " + second, expected, actual);
+        return fnr;
     }
 
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 import common
 import sys, os, shutil, optparse, logging
 from autotest_lib.client.common_lib import error, utils

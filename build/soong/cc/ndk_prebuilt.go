@@ -23,9 +23,9 @@ import (
 )
 
 func init() {
-	android.RegisterModuleType("ndk_prebuilt_object", ndkPrebuiltObjectFactory)
-	android.RegisterModuleType("ndk_prebuilt_static_stl", ndkPrebuiltStaticStlFactory)
-	android.RegisterModuleType("ndk_prebuilt_shared_stl", ndkPrebuiltSharedStlFactory)
+	android.RegisterModuleType("ndk_prebuilt_object", NdkPrebuiltObjectFactory)
+	android.RegisterModuleType("ndk_prebuilt_static_stl", NdkPrebuiltStaticStlFactory)
+	android.RegisterModuleType("ndk_prebuilt_shared_stl", NdkPrebuiltSharedStlFactory)
 }
 
 // NDK prebuilt libraries.
@@ -64,13 +64,20 @@ func (*ndkPrebuiltObjectLinker) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	return deps
 }
 
-func ndkPrebuiltObjectFactory() android.Module {
+// ndk_prebuilt_object exports a precompiled ndk object file for linking
+// operations. Soong's module name format is ndk_<NAME>.o.<sdk_version> where
+// the object is located under
+// ./prebuilts/ndk/current/platforms/android-<sdk_version>/arch-$(HOST_ARCH)/usr/lib/<NAME>.o.
+func NdkPrebuiltObjectFactory() android.Module {
 	module := newBaseModule(android.DeviceSupported, android.MultilibBoth)
+	module.ModuleBase.EnableNativeBridgeSupportByDefault()
 	module.linker = &ndkPrebuiltObjectLinker{
 		objectLinker: objectLinker{
 			baseLinker: NewBaseLinker(nil),
 		},
 	}
+	module.Properties.AlwaysSdk = true
+	module.Properties.Sdk_version = StringPtr("current")
 	module.Properties.HideFromMake = true
 	return module.Init()
 }
@@ -83,6 +90,11 @@ func (c *ndkPrebuiltObjectLinker) link(ctx ModuleContext, flags Flags,
 	}
 
 	return ndkPrebuiltModuleToPath(ctx, flags.Toolchain, objectExtension, ctx.sdkVersion())
+}
+
+func (*ndkPrebuiltObjectLinker) availableFor(what string) bool {
+	// ndk prebuilt objects are available to everywhere
+	return true
 }
 
 type ndkPrebuiltStlLinker struct {
@@ -98,7 +110,16 @@ func (*ndkPrebuiltStlLinker) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	return deps
 }
 
-func ndkPrebuiltSharedStlFactory() android.Module {
+func (*ndkPrebuiltStlLinker) availableFor(what string) bool {
+	// ndk prebuilt objects are available to everywhere
+	return true
+}
+
+// ndk_prebuilt_shared_stl exports a precompiled ndk shared standard template
+// library (stl) library for linking operation. The soong's module name format
+// is ndk_<NAME>.so where the library is located under
+// ./prebuilts/ndk/current/sources/cxx-stl/llvm-libc++/libs/$(HOST_ARCH)/<NAME>.so.
+func NdkPrebuiltSharedStlFactory() android.Module {
 	module, library := NewLibrary(android.DeviceSupported)
 	library.BuildOnlyShared()
 	module.compiler = nil
@@ -106,14 +127,17 @@ func ndkPrebuiltSharedStlFactory() android.Module {
 		libraryDecorator: library,
 	}
 	module.installer = nil
-	minVersionString := "minimum"
-	noStlString := "none"
-	module.Properties.Sdk_version = &minVersionString
-	module.stl.Properties.Stl = &noStlString
+	module.Properties.Sdk_version = StringPtr("minimum")
+	module.Properties.AlwaysSdk = true
+	module.stl.Properties.Stl = StringPtr("none")
 	return module.Init()
 }
 
-func ndkPrebuiltStaticStlFactory() android.Module {
+// ndk_prebuilt_static_stl exports a precompiled ndk static standard template
+// library (stl) library for linking operation. The soong's module name format
+// is ndk_<NAME>.a where the library is located under
+// ./prebuilts/ndk/current/sources/cxx-stl/llvm-libc++/libs/$(HOST_ARCH)/<NAME>.a.
+func NdkPrebuiltStaticStlFactory() android.Module {
 	module, library := NewLibrary(android.DeviceSupported)
 	library.BuildOnlyStatic()
 	module.compiler = nil
@@ -122,6 +146,10 @@ func ndkPrebuiltStaticStlFactory() android.Module {
 	}
 	module.installer = nil
 	module.Properties.HideFromMake = true
+	module.Properties.AlwaysSdk = true
+	module.Properties.Sdk_version = StringPtr("current")
+	module.stl.Properties.Stl = StringPtr("none")
+	module.ModuleBase.EnableNativeBridgeSupportByDefault()
 	return module.Init()
 }
 
@@ -137,7 +165,7 @@ func (ndk *ndkPrebuiltStlLinker) link(ctx ModuleContext, flags Flags,
 		ctx.ModuleErrorf("NDK prebuilt libraries must have an ndk_lib prefixed name")
 	}
 
-	ndk.exportIncludes(ctx, "-isystem ")
+	ndk.exportIncludesAsSystem(ctx)
 
 	libName := strings.TrimPrefix(ctx.ModuleName(), "ndk_")
 	libExt := flags.Toolchain.ShlibSuffix()

@@ -36,6 +36,7 @@
 #include "vkPrograms.hpp"
 #include "vkImageUtil.hpp"
 #include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuTextureUtil.hpp"
 #include "tcuTestLog.hpp"
@@ -479,12 +480,6 @@ Move<VkSampler> makeSampler (const DeviceInterface& vk, const VkDevice device)
 	return createSampler(vk, device, &samplerParams);
 }
 
-inline Move<VkBuffer> makeBuffer (const DeviceInterface& vk, const VkDevice device, const VkDeviceSize bufferSize, const VkBufferUsageFlags usage)
-{
-	const VkBufferCreateInfo bufferCreateInfo = makeBufferCreateInfo(bufferSize, usage);
-	return createBuffer(vk, device, &bufferCreateInfo);
-}
-
 inline VkImageSubresourceRange makeColorSubresourceRange (const int baseArrayLayer, const int layerCount)
 {
 	return makeImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, static_cast<deUint32>(baseArrayLayer), static_cast<deUint32>(layerCount));
@@ -516,12 +511,6 @@ void checkImageFormatRequirements (const InstanceInterface&		vki,
 
 	if ((imageFormatProperties.sampleCounts & sampleCount) != sampleCount)
 		TCU_THROW(NotSupportedError, "Requested sample count is not supported");
-}
-
-void zeroBuffer (const DeviceInterface& vk, const VkDevice device, const Allocation& alloc, const VkDeviceSize bufferSize)
-{
-	deMemset(alloc.getHostPtr(), 0, static_cast<std::size_t>(bufferSize));
-	flushAlloc(vk, device, alloc);
 }
 
 //! The default foreground color.
@@ -870,50 +859,58 @@ void initPrograms (SourceCollections& programCollection, const CaseDef caseDef)
 		std::ostringstream src;
 		src << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450) << "\n"
 			<< "\n"
-			<< "layout(location = 0) out int o_status;\n"
+			<< "layout(location = 0) out uvec2 o_status;\n"
 			<< "\n"
 			<< "layout(set = 0, binding = 0) uniform " << samplerTypeStr << " colorTexture;\n"
 			<< "\n"
 			<< "void main(void)\n"
 			<< "{\n"
-			<< "    int checksum = 0;\n"
+			<< "    uint clearColorCount = 0;\n"
+			<< "    uint primitiveColorCount = 0;\n"
 			<< "\n";
 
 		if (caseDef.numLayers == 1)
 			src << "    for (int sampleNdx = 0; sampleNdx < " << caseDef.numSamples << "; ++sampleNdx) {\n"
 				<< "        " << texelFormatStr << " color = texelFetch(colorTexture, ivec2(gl_FragCoord.xy), sampleNdx);\n"
-				<< "        if (color == " << refClearColor << " || color == " << refPrimitiveColor << ")\n"
-				<< "            ++checksum;\n"
+				<< "        if (color == " << refClearColor << ")\n"
+				<< "            ++clearColorCount;\n"
+				<< "        else if (color == " << refPrimitiveColor << ")\n"
+				<< "            ++primitiveColorCount;\n"
 				<< "    }\n";
 		else
 			src << "    for (int layerNdx = 0; layerNdx < " << caseDef.numLayers << "; ++layerNdx)\n"
 				<< "    for (int sampleNdx = 0; sampleNdx < " << caseDef.numSamples << "; ++sampleNdx) {\n"
 				<< "        " << texelFormatStr << " color = texelFetch(colorTexture, ivec3(gl_FragCoord.xy, layerNdx), sampleNdx);\n"
-				<< "        if (color == " << refClearColor << " || color == " << refPrimitiveColor << ")\n"
-				<< "            ++checksum;\n"
+				<< "        if (color == " << refClearColor << ")\n"
+				<< "            ++clearColorCount;\n"
+				<< "        else if (color == " << refPrimitiveColor << ")\n"
+				<< "            ++primitiveColorCount;\n"
 				<< "    }\n";
 
 		src << "\n"
-			<< "    o_status = checksum;\n"
+			<< "    o_status = uvec2(clearColorCount, primitiveColorCount);\n"
 			<< "}\n";
 
 		programCollection.glslSources.add("sample_frag") << glu::FragmentSource(src.str());
 	}
 }
 
+void checkSupport (Context& context, const CaseDef caseDef)
+{
+	const VkImageUsageFlags colorImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+	checkImageFormatRequirements(context.getInstanceInterface(), context.getPhysicalDevice(), caseDef.numSamples, caseDef.colorFormat, colorImageUsage);
+}
+
 tcu::TestStatus test (Context& context, const CaseDef caseDef)
 {
 	const DeviceInterface&		vk					= context.getDeviceInterface();
-	const InstanceInterface&	vki					= context.getInstanceInterface();
 	const VkDevice				device				= context.getDevice();
-	const VkPhysicalDevice		physDevice			= context.getPhysicalDevice();
 	const VkQueue				queue				= context.getUniversalQueue();
 	const deUint32				queueFamilyIndex	= context.getUniversalQueueFamilyIndex();
 	Allocator&					allocator			= context.getDefaultAllocator();
 
 	const VkImageUsageFlags		colorImageUsage		= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-	checkImageFormatRequirements(vki, physDevice, caseDef.numSamples, caseDef.colorFormat, colorImageUsage);
 
 	{
 		tcu::TestLog& log = context.getTestContext().getLog();
@@ -943,7 +940,7 @@ tcu::TestStatus test (Context& context, const CaseDef caseDef)
 		const Unique<VkSampler>			colorSampler		(makeSampler(vk, device));
 
 		// Checksum image
-		const VkFormat					checksumFormat		= VK_FORMAT_R32_SINT;
+		const VkFormat					checksumFormat		= VK_FORMAT_R8G8_UINT;
 		const Unique<VkImage>			checksumImage		(makeImage(vk, device, checksumFormat, caseDef.renderSize, 1u, VK_SAMPLE_COUNT_1_BIT,
 																	   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
 		const UniquePtr<Allocation>		checksumImageAlloc	(bindImage(vk, device, allocator, *checksumImage, MemoryRequirement::Any));
@@ -1040,15 +1037,26 @@ tcu::TestStatus test (Context& context, const CaseDef caseDef)
 		{
 			invalidateAlloc(vk, device, *checksumBufferAlloc);
 
-			const tcu::ConstPixelBufferAccess access(mapVkFormat(checksumFormat), caseDef.renderSize.x(), caseDef.renderSize.y(), 1, checksumBufferAlloc->getHostPtr());
-			const int numExpectedChecksum = getNumSamples(caseDef.numSamples) * caseDef.numLayers;
+			const tcu::ConstPixelBufferAccess	access						(mapVkFormat(checksumFormat), caseDef.renderSize.x(), caseDef.renderSize.y(), 1, checksumBufferAlloc->getHostPtr());
+			const deUint32						numExpectedChecksum			= getNumSamples(caseDef.numSamples) * caseDef.numLayers;
+			bool								multipleColorsPerTexelFound	= false;
 
 			for (int y = 0; y < caseDef.renderSize.y(); ++y)
 			for (int x = 0; x < caseDef.renderSize.x(); ++x)
 			{
-				if (access.getPixelInt(x, y).x() != numExpectedChecksum)
+				deUint32 clearColorCount		= access.getPixelUint(x, y).x();
+				deUint32 primitiveColorCount	= access.getPixelUint(x, y).y();
+
+				if ((clearColorCount + primitiveColorCount) != numExpectedChecksum)
 					return tcu::TestStatus::fail("Some samples have incorrect color");
+
+				if ((clearColorCount > 0) && (primitiveColorCount > 0))
+					multipleColorsPerTexelFound = true;
 			}
+
+			// For a multisampled image, we are expecting some texels to have samples of both clear color and primitive color
+			if (!multipleColorsPerTexelFound)
+				return tcu::TestStatus::fail("Could not find texels with samples of both clear color and primitive color");
 		}
 	}
 
@@ -1317,15 +1325,18 @@ bool compareImages (tcu::TestLog& log, const CaseDef& caseDef, const tcu::ConstP
 	}
 }
 
+void checkSupport (Context& context, const CaseDef caseDef)
+{
+	const VkImageUsageFlags colorImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+
+	checkImageFormatRequirements(context.getInstanceInterface(), context.getPhysicalDevice(), caseDef.numSamples, caseDef.colorFormat, colorImageUsage);
+}
+
 tcu::TestStatus test (Context& context, const CaseDef caseDef)
 {
 	const DeviceInterface&		vk					= context.getDeviceInterface();
-	const InstanceInterface&	vki					= context.getInstanceInterface();
 	const VkDevice				device				= context.getDevice();
-	const VkPhysicalDevice		physDevice			= context.getPhysicalDevice();
 	Allocator&					allocator			= context.getDefaultAllocator();
-
-	checkImageFormatRequirements(vki, physDevice, caseDef.numSamples, caseDef.colorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
 	{
 		tcu::TestLog& log = context.getTestContext().getLog();
@@ -1383,6 +1394,7 @@ std::string getFormatString (const VkFormat format)
 }
 
 void addTestCasesWithFunctions (tcu::TestCaseGroup*						group,
+								FunctionSupport1<CaseDef>::Function		checkSupport,
 								FunctionPrograms1<CaseDef>::Function	initPrograms,
 								FunctionInstance1<CaseDef>::Function	testFunc)
 {
@@ -1432,7 +1444,7 @@ void addTestCasesWithFunctions (tcu::TestCaseGroup*						group,
 					samples[samplesNdx],	// VkSampleCountFlagBits	numSamples;
 				};
 
-				addFunctionCaseWithPrograms(formatGroup.get(), caseName.str(), "", initPrograms, testFunc, caseDef);
+				addFunctionCaseWithPrograms(formatGroup.get(), caseName.str(), "", checkSupport, initPrograms, testFunc, caseDef);
 			}
 			sizeLayerGroup->addChild(formatGroup.release());
 		}
@@ -1442,12 +1454,12 @@ void addTestCasesWithFunctions (tcu::TestCaseGroup*						group,
 
 void createSampledImageTestsInGroup (tcu::TestCaseGroup* group)
 {
-	addTestCasesWithFunctions(group, SampledImage::initPrograms, SampledImage::test);
+	addTestCasesWithFunctions(group, SampledImage::checkSupport, SampledImage::initPrograms, SampledImage::test);
 }
 
 void createStorageImageTestsInGroup (tcu::TestCaseGroup* group)
 {
-	addTestCasesWithFunctions(group, StorageImage::initPrograms, StorageImage::test);
+	addTestCasesWithFunctions(group, StorageImage::checkSupport, StorageImage::initPrograms, StorageImage::test);
 }
 
 } // anonymous ns

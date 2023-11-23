@@ -16,15 +16,10 @@
 package com.android.documentsui.ui;
 
 import android.app.Activity;
-import android.content.DialogInterface;
-import android.widget.Button;
-import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.FragmentManager;
 
 import com.android.documentsui.R;
-import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.picker.ConfirmFragment;
@@ -34,15 +29,11 @@ import com.android.documentsui.services.FileOperationService.OpType;
 import com.android.documentsui.services.FileOperations;
 import com.android.documentsui.services.FileOperations.Callback.Status;
 
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
-
-import java.util.List;
 
 public interface DialogController {
 
     // Dialogs used in FilesActivity
-    void confirmDelete(List<DocumentInfo> docs, ConfirmationCallback callback);
     void showFileOperationStatus(int status, int opType, int docCount);
 
     /**
@@ -55,6 +46,12 @@ public interface DialogController {
     void showOperationUnsupported();
     void showViewInArchivesUnsupported();
     void showDocumentsClipped(int size);
+    void showActionNotAllowed();
+
+    /**
+     * Dialogs used when share file count over limit
+     */
+    void showShareOverLimit(int size);
 
     // Dialogs used in PickActivity
     void confirmAction(FragmentManager fm, DocumentInfo pickTarget, int type);
@@ -63,50 +60,12 @@ public interface DialogController {
     public static final class RuntimeDialogController implements DialogController {
 
         private final Activity mActivity;
-        private final MessageBuilder mMessages;
         private final Features mFeatures;
         private OperationProgressDialog mCurrentProgressDialog = null;
 
-        public RuntimeDialogController(Features features, Activity activity, MessageBuilder messages) {
+        public RuntimeDialogController(Features features, Activity activity) {
             mFeatures = features;
             mActivity = activity;
-            mMessages = messages;
-        }
-
-        @Override
-        public void confirmDelete(List<DocumentInfo> docs, ConfirmationCallback callback) {
-            assert(!docs.isEmpty());
-
-            TextView message =
-                    (TextView) mActivity.getLayoutInflater().inflate(
-                            R.layout.dialog_delete_confirmation, null);
-            message.setText(mMessages.generateDeleteMessage(docs));
-
-            // For now, we implement this dialog NOT
-            // as a fragment (which can survive rotation and have its own state),
-            // but as a simple runtime dialog. So rotating a device with an
-            // active delete dialog...results in that dialog disappearing.
-            // We can do better, but don't have cycles for it now.
-            final AlertDialog alertDialog = new MaterialAlertDialogBuilder(mActivity)
-                    .setView(message)
-                    .setPositiveButton(
-                            android.R.string.ok,
-                            new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int id) {
-                                    callback.accept(ConfirmationCallback.CONFIRM);
-                                }
-                            })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .create();
-
-            alertDialog.setOnShowListener(
-                    (DialogInterface) -> {
-                        Button positive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
-                        positive.setFocusable(true);
-                        positive.requestFocus();
-                    });
-            alertDialog.show();
         }
 
         @Override
@@ -178,9 +137,16 @@ public interface DialogController {
         }
 
         @Override
+        public void showActionNotAllowed() {
+            // Shows as a last resort when a document is not allowed to share across users
+            Snackbars.makeSnackbar(
+                    mActivity, R.string.toast_action_not_allowed, Snackbar.LENGTH_LONG).show();
+        }
+
+        @Override
         public void showNoApplicationFound() {
             Snackbars.makeSnackbar(
-                    mActivity, R.string.toast_no_application, Snackbar.LENGTH_SHORT).show();
+                    mActivity, R.string.toast_no_application, Snackbar.LENGTH_LONG).show();
         }
 
         @Override
@@ -191,7 +157,7 @@ public interface DialogController {
         @Override
         public void showViewInArchivesUnsupported() {
             Snackbars.makeSnackbar(mActivity, R.string.toast_view_in_archives_unsupported,
-                    Snackbar.LENGTH_SHORT).show();
+                    Snackbar.LENGTH_LONG).show();
         }
 
         @Override
@@ -200,12 +166,21 @@ public interface DialogController {
         }
 
         @Override
+        public void showShareOverLimit(int size) {
+            String message = mActivity.getString(R.string.toast_share_over_limit, size);
+            Snackbars.makeSnackbar(mActivity, message, Snackbar.LENGTH_LONG).show();
+        }
+
+        @Override
         public void confirmAction(FragmentManager fm, DocumentInfo pickTarget, int type) {
             ConfirmFragment.show(fm, pickTarget, type);
         }
     }
 
-    static DialogController create(Features features, Activity activity, MessageBuilder messages) {
-        return new RuntimeDialogController(features, activity, messages);
+    /**
+     * Create DialogController Impl.
+     */
+    static DialogController create(Features features, Activity activity) {
+        return new RuntimeDialogController(features, activity);
     }
 }

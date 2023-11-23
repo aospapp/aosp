@@ -13,6 +13,8 @@
 #   limitations under the License.
 
 import time
+from retry import retry
+
 from acts.controllers.utils_lib.commands import shell
 
 _ROUTER_DNS = '8.8.8.8, 4.4.4.4'
@@ -51,8 +53,15 @@ class DhcpServer(object):
         self._log_file = 'dhcpd_%s.log' % interface
         self._config_file = 'dhcpd_%s.conf' % interface
         self._lease_file = 'dhcpd_%s.leases' % interface
+        self._pid_file = 'dhcpd_%s.pid' % interface
         self._identifier = '%s.*%s' % (self.PROGRAM_FILE, self._config_file)
 
+    # There is a slight timing issue where if the proc filesystem in Linux
+    # doesn't get updated in time as when this is called, the NoInterfaceError
+    # will happening.  By adding this retry, the error appears to have gone away
+    # but will still show a warning if the problem occurs.  The error seems to
+    # happen more with bridge interfaces than standard interfaces.
+    @retry(exceptions=NoInterfaceError, tries=3, delay=1)
     def start(self, config, timeout=60):
         """Starts the dhcp server.
 
@@ -76,9 +85,9 @@ class DhcpServer(object):
         self._shell.delete_file(self._log_file)
         self._shell.touch_file(self._lease_file)
 
-        dhcpd_command = '%s -cf "%s" -lf %s -f""' % (self.PROGRAM_FILE,
-                                                     self._config_file,
-                                                     self._lease_file)
+        dhcpd_command = '%s -cf "%s" -lf %s -f -pf "%s"' % (
+            self.PROGRAM_FILE, self._config_file, self._lease_file,
+            self._pid_file)
         base_command = 'cd "%s"; %s' % (self._working_dir, dhcpd_command)
         job_str = '%s > "%s" 2>&1' % (base_command, self._log_file)
         self._runner.run_async(job_str)
@@ -92,7 +101,8 @@ class DhcpServer(object):
 
     def stop(self):
         """Kills the daemon if it is running."""
-        self._shell.kill(self._identifier)
+        if self.is_alive():
+            self._shell.kill(self._identifier)
 
     def is_alive(self):
         """

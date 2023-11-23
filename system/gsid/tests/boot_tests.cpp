@@ -29,15 +29,25 @@ using android::hardware::weaver::V1_0::WeaverStatus;
 
 TEST(MetadataPartition, FirstStageMount) {
     Fstab fstab;
+    if (ReadFstabFromDt(&fstab)) {
+        auto entry = GetEntryForMountPoint(&fstab, "/metadata");
+        ASSERT_NE(entry, nullptr);
+    } else {
+        ASSERT_TRUE(ReadDefaultFstab(&fstab));
+        auto entry = GetEntryForMountPoint(&fstab, "/metadata");
+        ASSERT_NE(entry, nullptr);
+        EXPECT_TRUE(entry->fs_mgr_flags.first_stage_mount);
+    }
+}
+
+TEST(MetadataPartition, MinimumSize) {
+    Fstab fstab;
     ASSERT_TRUE(ReadDefaultFstab(&fstab));
 
     auto entry = GetEntryForMountPoint(&fstab, "/metadata");
     ASSERT_NE(entry, nullptr);
-    EXPECT_TRUE(entry->fs_mgr_flags.first_stage_mount);
-}
 
-TEST(MetadataPartition, MinimumSize) {
-    unique_fd fd(open("/dev/block/by-name/metadata", O_RDONLY | O_CLOEXEC));
+    unique_fd fd(open(entry->blk_device.c_str(), O_RDONLY | O_CLOEXEC));
     ASSERT_GE(fd, 0);
 
     uint64_t size = get_block_device_size(fd);

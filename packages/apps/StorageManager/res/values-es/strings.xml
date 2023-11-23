@@ -47,7 +47,7 @@
     <skip />
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"Automáticamente"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Manualmente"</string>
-    <string name="deletion_helper_preference_title" msgid="803484286872745892">"Liberar espacio"</string>
+    <string name="deletion_helper_preference_title" msgid="803484286872745892">"Liberar espacio ahora"</string>
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Serv. Gestión Almacenamiento Automático"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"Queda poco espacio en el teléfono"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"Queda poco espacio en el tablet"</string>

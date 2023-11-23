@@ -20,13 +20,15 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.leanback.app.GuidedStepFragment;
+
 import com.android.tv.MainActivity;
 import com.android.tv.R;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrChannelWatchConflictFragment;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrProgramConflictFragment;
@@ -36,7 +38,7 @@ import com.android.tv.ui.DetailsActivity;
 public class DvrHalfSizedDialogFragment extends HalfSizedDialogFragment {
     /** Key for input ID. Type: String. */
     public static final String KEY_INPUT_ID = "DvrHalfSizedDialogFragment.input_id";
-    /** Key for the program. Type: {@link com.android.tv.data.Program}. */
+    /** Key for the program. Type: {@link ProgramImpl}. */
     public static final String KEY_PROGRAM = "DvrHalfSizedDialogFragment.program";
     /** Key for the channel ID. Type: long. */
     public static final String KEY_CHANNEL_ID = "DvrHalfSizedDialogFragment.channel_id";

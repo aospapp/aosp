@@ -16,6 +16,7 @@
  * main.c - main function
  */
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -24,14 +25,13 @@
 #include <sys/capability.h>
 #include <unistd.h>
 
-#include "resolv_netid.h"
+#include <netid_client.h>  // For MARK_UNSET.
 
 #include "clatd.h"
 #include "common.h"
 #include "config.h"
 #include "logging.h"
 #include "setif.h"
-#include "tun.h"
 
 #define DEVICEPREFIX "v4-"
 
@@ -44,7 +44,6 @@ void print_help() {
   printf("-p [plat prefix]\n");
   printf("-4 [IPv4 address]\n");
   printf("-6 [IPv6 address]\n");
-  printf("-n [NetId]\n");
   printf("-m [socket mark]\n");
   printf("-t [tun file descriptor number]\n");
 }
@@ -55,13 +54,12 @@ void print_help() {
 int main(int argc, char **argv) {
   struct tun_data tunnel;
   int opt;
-  char *uplink_interface = NULL, *plat_prefix = NULL, *net_id_str = NULL, *mark_str = NULL;
+  char *uplink_interface = NULL, *plat_prefix = NULL, *mark_str = NULL;
   char *v4_addr = NULL, *v6_addr = NULL, *tunfd_str = NULL;
-  unsigned net_id = NETID_UNSET;
   uint32_t mark   = MARK_UNSET;
   unsigned len;
 
-  while ((opt = getopt(argc, argv, "i:p:4:6:n:m:t:h")) != -1) {
+  while ((opt = getopt(argc, argv, "i:p:4:6:m:t:h")) != -1) {
     switch (opt) {
       case 'i':
         uplink_interface = optarg;
@@ -74,9 +72,6 @@ int main(int argc, char **argv) {
         break;
       case '6':
         v6_addr = optarg;
-        break;
-      case 'n':
-        net_id_str = optarg;
         break;
       case 'm':
         mark_str = optarg;
@@ -95,11 +90,6 @@ int main(int argc, char **argv) {
 
   if (uplink_interface == NULL) {
     logmsg(ANDROID_LOG_FATAL, "clatd called without an interface");
-    exit(1);
-  }
-
-  if (net_id_str != NULL && !parse_unsigned(net_id_str, &net_id)) {
-    logmsg(ANDROID_LOG_FATAL, "invalid NetID %s", net_id_str);
     exit(1);
   }
 
@@ -123,10 +113,10 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  logmsg(ANDROID_LOG_INFO, "Starting clat version %s on %s netid=%s mark=%s plat=%s v4=%s v6=%s",
-         CLATD_VERSION, uplink_interface, net_id_str ? net_id_str : "(none)",
-         mark_str ? mark_str : "(none)", plat_prefix ? plat_prefix : "(none)",
-         v4_addr ? v4_addr : "(none)", v6_addr ? v6_addr : "(none)");
+  logmsg(ANDROID_LOG_INFO, "Starting clat version %s on %s mark=%s plat=%s v4=%s v6=%s",
+         CLATD_VERSION, uplink_interface, mark_str ? mark_str : "(none)",
+         plat_prefix ? plat_prefix : "(none)", v4_addr ? v4_addr : "(none)",
+         v6_addr ? v6_addr : "(none)");
 
   // run under a regular user but keep needed capabilities
   drop_root_but_keep_caps();
@@ -137,12 +127,7 @@ int main(int argc, char **argv) {
   // keeps only admin capability
   set_capability(1 << CAP_NET_ADMIN);
 
-  // When run from netd, the environment variable ANDROID_DNS_MODE is set to
-  // "local", but that only works for the netd process itself. Removing the
-  // following line causes XLAT failure in permissive mode.
-  unsetenv("ANDROID_DNS_MODE");
-
-  configure_interface(uplink_interface, plat_prefix, v4_addr, v6_addr, &tunnel, net_id);
+  configure_interface(uplink_interface, plat_prefix, v4_addr, v6_addr, &tunnel, mark);
 
   // Drop all remaining capabilities.
   set_capability(0);

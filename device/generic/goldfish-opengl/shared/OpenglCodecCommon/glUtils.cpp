@@ -417,8 +417,7 @@ size_t glUtilsParamSize(GLenum param)
         s = 16;
     break;
     default:
-        ERR("glUtilsParamSize: unknow param 0x%08x\n", param);
-        s = 1; // assume 1
+        s = 1; // assume 1 for everything else
     }
     return s;
 }

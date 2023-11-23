@@ -22,20 +22,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/car_card_dark">
+    android:background="@*android:color/car_card_dark">
 
-    <Toolbar
-        android:id="@+id/toolbar"
-        android:title="@string/terms"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/car_app_bar_height"
-        android:minHeight="@dimen/car_app_bar_height"
-        style="@style/CarToolbar"/>
-
-    <androidx.car.widget.PagedListView
+    <com.android.car.ui.recyclerview.CarUiRecyclerView
         android:id="@+id/terms_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:showPagedListViewDivider="true"/>
+        app:enableDivider="true"/>
 
 </LinearLayout>

@@ -33,16 +33,15 @@ class WifiCrashStressTest(WifiBaseTest):
     * One Wi-Fi network visible to the device.
     """
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         self.dut_client = self.android_devices[1]
         wutils.wifi_test_device_init(self.dut)
         wutils.wifi_test_device_init(self.dut_client)
         if not self.dut.is_apk_installed("com.google.mdstest"):
-            raise signals.TestSkipClass("mdstest is not installed")
+            raise signals.TestAbortClass("mdstest is not installed")
         req_params = ["dbs_supported_models", "stress_count"]
         opt_param = ["reference_networks"]
         self.unpack_userparams(
@@ -55,6 +54,9 @@ class WifiCrashStressTest(WifiBaseTest):
             len(self.reference_networks) > 0,
             "Need at least one reference network with psk.")
         self.network = self.reference_networks[0]["2g"]
+        self.ap_iface = 'wlan0'
+        if self.dut.model in self.dbs_supported_models:
+            self.ap_iface = 'wlan1'
 
     def setup_test(self):
         self.dut.droid.wakeLockAcquireBright()
@@ -149,7 +151,8 @@ class WifiCrashStressTest(WifiBaseTest):
         wutils.wifi_toggle_state(self.dut_client, True)
         wutils.connect_to_wifi_network(self.dut_client, config, check_connectivity=False)
         # Ping the DUT
-        dut_addr = self.dut.droid.connectivityGetIPv4Addresses("wlan0")[0]
+        dut_addr = self.dut.droid.connectivityGetIPv4Addresses(
+                self.ap_iface)[0]
         asserts.assert_true(
             utils.adb_shell_ping(self.dut_client, count=10, dest_ip=dut_addr, timeout=20),
             "%s ping %s failed" % (self.dut_client.serial, dut_addr))
@@ -162,10 +165,15 @@ class WifiCrashStressTest(WifiBaseTest):
             # Connect DUT to Network
             wutils.connect_to_wifi_network(self.dut_client, config, check_connectivity=False)
             # Ping the DUT
-            server_addr = self.dut.droid.connectivityGetIPv4Addresses("wlan0")[0]
+            server_addr = self.dut.droid.connectivityGetIPv4Addresses(
+                    self.ap_iface)[0]
             asserts.assert_true(
-                utils.adb_shell_ping(self.dut_client, count=10, dest_ip=dut_addr, timeout=20),
-                "%s ping %s failed" % (self.dut_client.serial, dut_addr))
+                utils.adb_shell_ping(
+                        self.dut_client,
+                        count=10,
+                        dest_ip=server_addr,
+                        timeout=20),
+                "%s ping %s failed" % (self.dut_client.serial, server_addr))
         wutils.stop_wifi_tethering(self.dut)
 
     @test_tracker_info(uuid="4b7f2d89-82be-41de-9277-e938cc1c318b")

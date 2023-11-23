@@ -16,10 +16,11 @@ class power_WifiIdle(power_test.power_Test):
     version = 1
 
 
-    def initialize(self, pdash_note=''):
+    def initialize(self, pdash_note='', force_discharge=False):
         """Perform necessary initialization prior to test run."""
         super(power_WifiIdle, self).initialize(seconds_period=10.,
-                                               pdash_note=pdash_note)
+                                               pdash_note=pdash_note,
+                                               force_discharge=force_discharge)
 
     def _is_wifi_on(self):
         """Return whether wifi is enabled."""

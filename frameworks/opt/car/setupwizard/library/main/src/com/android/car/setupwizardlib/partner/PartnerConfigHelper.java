@@ -19,6 +19,7 @@ package com.android.car.setupwizardlib.partner;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.drawable.Drawable;
@@ -78,7 +79,10 @@ public class PartnerConfigHelper {
         }
 
         if (mPartnerResourceCache.containsKey(partnerConfig)) {
-            return (int) mPartnerResourceCache.get(partnerConfig);
+            Object cacheValue = mPartnerResourceCache.get(partnerConfig);
+            if (cacheValue instanceof Integer) {
+                return (int) cacheValue;
+            }
         }
 
         int result = 0;
@@ -92,6 +96,53 @@ public class PartnerConfigHelper {
 
             Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
             result = resource.getColor(resourceEntry.getResourceId(), null);
+            mPartnerResourceCache.put(partnerConfig, result);
+        } catch (PackageManager.NameNotFoundException exception) {
+            Log.e(TAG, exception.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * Returns the {@link android.content.res.ColorStateList} of given {@link PartnerConfig}, or
+     * {@code null} if the given {@code partnerConfig} is not found. If the {@code ResourceType} of
+     * the given {@link PartnerConfig} is not a color, IllegalArgumentException will be thrown.
+     *
+     * @param context The context of client activity
+     * @param partnerConfig The {@link PartnerConfig} of target resource
+     */
+    @Nullable
+    public ColorStateList getColorStateList(@NonNull Context context, PartnerConfig partnerConfig) {
+        if (partnerConfig.getResourceType() != PartnerConfig.ResourceType.COLOR) {
+            throw new IllegalArgumentException("Not a color resource");
+        }
+
+        if (mPartnerResourceCache.containsKey(partnerConfig)) {
+            Object cacheValue = mPartnerResourceCache.get(partnerConfig);
+            if (cacheValue instanceof ColorStateList) {
+                return (ColorStateList) cacheValue;
+            }
+        }
+
+        ColorStateList result = null;
+        try {
+            String resourceName = partnerConfig.getResourceName();
+            ResourceEntry resourceEntry = getResourceEntryFromKey(resourceName);
+            if (resourceEntry == null) {
+                Log.w(TAG, "Resource not found: " + resourceName);
+                return null;
+            }
+
+            Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
+
+            // In case the resource is {@code null} it's simply returned as it is.
+            TypedValue outValue = new TypedValue();
+            resource.getValue(resourceEntry.getResourceId(), outValue, true);
+            if (outValue.type == TypedValue.TYPE_REFERENCE && outValue.data == 0) {
+                return result;
+            }
+
+            result = resource.getColorStateList(resourceEntry.getResourceId(), null);
             mPartnerResourceCache.put(partnerConfig, result);
         } catch (PackageManager.NameNotFoundException exception) {
             Log.e(TAG, exception.getMessage());

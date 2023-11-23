@@ -113,7 +113,7 @@ public class BluetoothPbapClientFacade extends RpcReceiver {
         BluetoothDevice device =
                 BluetoothFacade.getDevice(mBluetoothAdapter.getBondedDevices(),
                 deviceStr);
-        Log.d("Changing priority of device " + device.getAliasName()
+        Log.d("Changing priority of device " + device.getAlias()
                 + " p: " + priority);
         sPbapClientProfile.setPriority(device, priority);
     }
@@ -151,7 +151,7 @@ public class BluetoothPbapClientFacade extends RpcReceiver {
             BluetoothDevice device =
                     BluetoothFacade.getDevice(
                             mBluetoothAdapter.getBondedDevices(), deviceStr);
-            Log.d("Connecting to device " + device.getAliasName());
+            Log.d("Connecting to device " + device.getAlias());
             return pbapClientConnect(device);
         } catch (Exception e) {
             Log.e("bluetoothPbapClientConnect failed on getDevice "

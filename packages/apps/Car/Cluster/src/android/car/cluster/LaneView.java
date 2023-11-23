@@ -70,7 +70,7 @@ public class LaneView extends LinearLayout {
 
     public void setLanes(ImageReference imageReference, ImageResolver imageResolver) {
         imageResolver
-                .getBitmap(imageReference, 0, getHeight())
+                .getBitmap(imageReference, 0, getHeight(), 0.5f)
                 .thenAccept(bitmap -> {
                     mHandler.post(() -> {
                         removeAllViews();

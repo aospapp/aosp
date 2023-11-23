@@ -25,6 +25,8 @@
 #include "vkRefUtil.hpp"
 #include "vkImageUtil.hpp"
 #include "vkObjUtil.hpp"
+#include "vkTypeUtil.hpp"
+
 #include "tcuVector.hpp"
 
 namespace vk
@@ -453,18 +455,186 @@ Move<VkRenderPass> makeRenderPass (const DeviceInterface&				vk,
 
 	const VkRenderPassCreateInfo			renderPassInfo						=
 	{
-		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,	// VkStructureType                   sType
-		DE_NULL,									// const void*                       pNext
-		(VkRenderPassCreateFlags)0,					// VkRenderPassCreateFlags           flags
-		(deUint32)attachmentDescriptions.size(),	// deUint32                          attachmentCount
-		&attachmentDescriptions[0],					// const VkAttachmentDescription*    pAttachments
-		1u,											// deUint32                          subpassCount
-		&subpassDescription,						// const VkSubpassDescription*       pSubpasses
-		0u,											// deUint32                          dependencyCount
-		DE_NULL										// const VkSubpassDependency*        pDependencies
+		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,									// VkStructureType                   sType
+		DE_NULL,																	// const void*                       pNext
+		(VkRenderPassCreateFlags)0,													// VkRenderPassCreateFlags           flags
+		(deUint32)attachmentDescriptions.size(),									// deUint32                          attachmentCount
+		attachmentDescriptions.size() > 0 ? &attachmentDescriptions[0] : DE_NULL,	// const VkAttachmentDescription*    pAttachments
+		1u,																			// deUint32                          subpassCount
+		&subpassDescription,														// const VkSubpassDescription*       pSubpasses
+		0u,																			// deUint32                          dependencyCount
+		DE_NULL																		// const VkSubpassDependency*        pDependencies
 	};
 
 	return createRenderPass(vk, device, &renderPassInfo, allocationCallbacks);
+}
+
+Move<VkImageView> makeImageView (const DeviceInterface&				vk,
+								 const VkDevice						vkDevice,
+								 const VkImage						image,
+								 const VkImageViewType				imageViewType,
+								 const VkFormat						format,
+								 const VkImageSubresourceRange		subresourceRange,
+								 const VkImageViewUsageCreateInfo*	imageUsageCreateInfo)
+{
+	const VkImageViewCreateInfo imageViewParams =
+	{
+		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,		// VkStructureType			sType;
+		imageUsageCreateInfo,							// const void*				pNext;
+		0u,												// VkImageViewCreateFlags	flags;
+		image,											// VkImage					image;
+		imageViewType,									// VkImageViewType			viewType;
+		format,											// VkFormat					format;
+		makeComponentMappingRGBA(),						// VkComponentMapping		components;
+		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
+	};
+	return createImageView(vk, vkDevice, &imageViewParams);
+}
+
+Move<VkBufferView> makeBufferView (const DeviceInterface&	vk,
+								   const VkDevice			vkDevice,
+								   const VkBuffer			buffer,
+								   const VkFormat			format,
+								   const VkDeviceSize		offset,
+								   const VkDeviceSize		size)
+{
+	const VkBufferViewCreateInfo bufferViewParams =
+	{
+		VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,	// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		0u,											// VkBufferViewCreateFlags	flags;
+		buffer,										// VkBuffer					buffer;
+		format,										// VkFormat					format;
+		offset,										// VkDeviceSize				offset;
+		size,										// VkDeviceSize				range;
+	};
+	return createBufferView(vk, vkDevice, &bufferViewParams);
+}
+
+Move<VkDescriptorSet> makeDescriptorSet (const DeviceInterface&			vk,
+										 const VkDevice					device,
+										 const VkDescriptorPool			descriptorPool,
+										 const VkDescriptorSetLayout	setLayout,
+										 const void*					pNext)
+{
+	const VkDescriptorSetAllocateInfo allocateParams =
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,	// VkStructureType				sType;
+		pNext,											// const void*					pNext;
+		descriptorPool,									// VkDescriptorPool				descriptorPool;
+		1u,												// deUint32						setLayoutCount;
+		&setLayout,										// const VkDescriptorSetLayout*	pSetLayouts;
+	};
+	return allocateDescriptorSet(vk, device, &allocateParams);
+}
+
+VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			size,
+										 const VkBufferUsageFlags	usage)
+{
+	const VkBufferCreateInfo bufferCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
+		DE_NULL,								// const void*			pNext;
+		(VkBufferCreateFlags)0,					// VkBufferCreateFlags	flags;
+		size,									// VkDeviceSize			size;
+		usage,									// VkBufferUsageFlags	usage;
+		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
+		0u,										// deUint32				queueFamilyIndexCount;
+		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
+	};
+	return bufferCreateInfo;
+}
+
+Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
+										   const VkDevice				device,
+										   const VkDescriptorSetLayout	descriptorSetLayout)
+{
+	return makePipelineLayout(vk, device, (descriptorSetLayout == DE_NULL) ? 0u : 1u, &descriptorSetLayout);
+}
+
+Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
+										   const VkDevice				device,
+										   const deUint32				setLayoutCount,
+										   const VkDescriptorSetLayout*	descriptorSetLayout)
+{
+	const VkPipelineLayoutCreateInfo pipelineLayoutParams =
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType					sType;
+		DE_NULL,											// const void*						pNext;
+		0u,													// VkPipelineLayoutCreateFlags		flags;
+		setLayoutCount,										// deUint32							setLayoutCount;
+		descriptorSetLayout,								// const VkDescriptorSetLayout*		pSetLayouts;
+		0u,													// deUint32							pushConstantRangeCount;
+		DE_NULL,											// const VkPushConstantRange*		pPushConstantRanges;
+	};
+
+	return createPipelineLayout(vk, device, &pipelineLayoutParams);
+}
+
+Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
+									 const VkDevice			device,
+									 const VkRenderPass		renderPass,
+									 const VkImageView		colorAttachment,
+									 const deUint32			width,
+									 const deUint32			height,
+									 const deUint32			layers)
+{
+	return makeFramebuffer(vk, device, renderPass, 1u, &colorAttachment, width, height, layers);
+}
+
+Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
+									 const VkDevice			device,
+									 const VkRenderPass		renderPass,
+									 const deUint32			attachmentCount,
+									 const VkImageView*		colorAttachments,
+									 const deUint32			width,
+									 const deUint32			height,
+									 const deUint32			layers)
+{
+	const VkFramebufferCreateInfo framebufferInfo =
+	{
+		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,	// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		(VkFramebufferCreateFlags)0,				// VkFramebufferCreateFlags	flags;
+		renderPass,									// VkRenderPass				renderPass;
+		attachmentCount,							// uint32_t					attachmentCount;
+		colorAttachments,							// const VkImageView*		pAttachments;
+		width,										// uint32_t					width;
+		height,										// uint32_t					height;
+		layers,										// uint32_t					layers;
+	};
+
+	return createFramebuffer(vk, device, &framebufferInfo);
+}
+
+Move<VkCommandPool> makeCommandPool (const DeviceInterface& vk,
+									 const VkDevice			device,
+									 const deUint32			queueFamilyIndex)
+{
+	const VkCommandPoolCreateInfo commandPoolParams =
+	{
+		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,			// VkStructureType			sType;
+		DE_NULL,											// const void*				pNext;
+		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,	// VkCommandPoolCreateFlags	flags;
+		queueFamilyIndex,									// deUint32					queueFamilyIndex;
+	};
+
+	return createCommandPool(vk, device, &commandPoolParams);
+}
+
+VkBufferImageCopy makeBufferImageCopy (const VkExtent3D					extent,
+									   const VkImageSubresourceLayers	subresourceLayers)
+{
+	const VkBufferImageCopy copyParams =
+	{
+		0ull,					//	VkDeviceSize				bufferOffset;
+		0u,						//	deUint32					bufferRowLength;
+		0u,						//	deUint32					bufferImageHeight;
+		subresourceLayers,		//	VkImageSubresourceLayers	imageSubresource;
+		makeOffset3D(0, 0, 0),	//	VkOffset3D					imageOffset;
+		extent,					//	VkExtent3D					imageExtent;
+	};
+	return copyParams;
 }
 
 } // vk

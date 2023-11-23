@@ -17,7 +17,9 @@ package android.car.cluster;
 
 import static org.junit.Assert.assertEquals;
 
+import android.graphics.Bitmap;
 import android.graphics.Point;
+import android.net.Uri;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -32,7 +34,17 @@ public class ImageResolverTest {
 
     @Before
     public void setup() {
-        mImageResolver = new ImageResolver((uri, w, h) -> null);
+        mImageResolver = new ImageResolver(new ImageResolver.BitmapFetcher() {
+            @Override
+            public Bitmap getBitmap(Uri uri, int width, int height) {
+                return null;
+            }
+
+            @Override
+            public Bitmap getBitmap(Uri uri, int width, int height, float offLanesAlpha) {
+                return null;
+            }
+        });
     }
 
     @Test

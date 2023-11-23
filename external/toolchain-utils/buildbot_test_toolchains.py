@@ -1,8 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 #
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Script for running nightly compiler tests on ChromeOS.
 
 This script launches a buildbot to build ChromeOS with the latest compiler on
@@ -32,11 +34,12 @@ from cros_utils import buildbot_utils
 USE_LLVM_NEXT_PATCH = '513590'
 
 CROSTC_ROOT = '/usr/local/google/crostc'
+NIGHTLY_TESTS_DIR = os.path.join(CROSTC_ROOT, 'nightly-tests')
 ROLE_ACCOUNT = 'mobiletc-prebuild'
 TOOLCHAIN_DIR = os.path.dirname(os.path.realpath(__file__))
 MAIL_PROGRAM = '~/var/bin/mail-sheriff'
 PENDING_ARCHIVES_DIR = os.path.join(CROSTC_ROOT, 'pending_archives')
-NIGHTLY_TESTS_DIR = os.path.join(CROSTC_ROOT, 'nightly_test_reports')
+NIGHTLY_TESTS_RESULTS = os.path.join(CROSTC_ROOT, 'nightly_test_reports')
 
 IMAGE_DIR = '{board}-{image_type}'
 IMAGE_VERSION_STR = r'{chrome_version}-{tip}\.{branch}\.{branch_branch}'
@@ -53,6 +56,8 @@ IMAGE_RE_GROUPS = {
     'build_id': r'(?P<build_id>b\d+)'
 }
 TRYBOT_IMAGE_RE = TRYBOT_IMAGE_FS.format(**IMAGE_RE_GROUPS)
+
+TELEMETRY_AQUARIUM_UNSUPPORTED = ['bob', 'elm', 'veyron_minnie']
 
 
 class ToolchainComparator(object):
@@ -83,7 +88,7 @@ class ToolchainComparator(object):
     timestamp = datetime.datetime.strftime(datetime.datetime.now(),
                                            '%Y-%m-%d_%H:%M:%S')
     self._reports_dir = os.path.join(
-        NIGHTLY_TESTS_DIR,
+        NIGHTLY_TESTS_RESULTS,
         '%s.%s' % (timestamp, board),
     )
 
@@ -92,7 +97,7 @@ class ToolchainComparator(object):
 
     Args:
       trybot_image: artifact name such as
-          'daisy-release-tryjob/R40-6394.0.0-b1389'
+        'daisy-release-tryjob/R40-6394.0.0-b1389'
 
     Returns:
       Latest official image name, e.g. 'daisy-release/R57-9089.0.0'.
@@ -117,7 +122,7 @@ class ToolchainComparator(object):
 
     Args:
       trybot_image: artifact name such as
-          'daisy-release-tryjob/R40-6394.0.0-b1389'
+        'daisy-release-tryjob/R40-6394.0.0-b1389'
 
     Returns:
       Corresponding chrome PFQ image name, e.g.
@@ -128,7 +133,7 @@ class ToolchainComparator(object):
     assert mo
     image_dict = mo.groupdict()
     image_dict['image_type'] = 'chrome-pfq'
-    for _ in xrange(2):
+    for _ in range(2):
       image_dict['tip'] = str(int(image_dict['tip']) - 1)
       nonafdo_image = PFQ_IMAGE_FS.replace('\\', '').format(**image_dict)
       if buildbot_utils.DoesImageExist(self._chromeos_root, nonafdo_image):
@@ -141,7 +146,7 @@ class ToolchainComparator(object):
     Given the names of the trybot, vanilla and non-AFDO images, create the
     appropriate crosperf experiment file and launch crosperf on it.
     """
-    experiment_file_dir = os.path.join(self._chromeos_root, '..', self._weekday)
+    experiment_file_dir = os.path.join(NIGHTLY_TESTS_DIR, self._weekday)
     experiment_file_name = '%s_toolchain_experiment.txt' % self._board
 
     compiler_string = 'llvm'
@@ -154,25 +159,48 @@ class ToolchainComparator(object):
     board: %s
     remote: %s
     retries: 1
+    cooldown_temp: 40
+    cooldown_time: 10
+    cpu_freq_pct: 95
+    top_interval: 1
     """ % (self._board, self._remotes)
     experiment_tests = """
     benchmark: all_toolchain_perf {
       suite: telemetry_Crosperf
-      iterations: 0
+      iterations: 5
       run_local: False
     }
 
-    benchmark: page_cycler_v2.typical_25 {
+    benchmark: loading.desktop {
       suite: telemetry_Crosperf
-      iterations: 0
+      test_args: --story-tag-filter=typical
+      iterations: 3
       run_local: False
       retries: 0
     }
     """
+    telemetry_aquarium_tests = """
+    benchmark: rendering.desktop {
+      run_local: False
+      suite: telemetry_Crosperf
+      test_args: --story-filter=aquarium$
+      iterations: 5
+    }
 
-    with open(experiment_file, 'w') as f:
+    benchmark: rendering.desktop {
+      run_local: False
+      suite: telemetry_Crosperf
+      test_args: --story-filter=aquarium_20k$
+      iterations: 3
+    }
+    """
+
+    with open(experiment_file, 'w', encoding='utf-8') as f:
       f.write(experiment_header)
       f.write(experiment_tests)
+
+      if self._board not in TELEMETRY_AQUARIUM_UNSUPPORTED:
+        f.write(telemetry_aquarium_tests)
 
       # Now add vanilla to test file.
       official_image = """
@@ -213,6 +241,7 @@ class ToolchainComparator(object):
     crosperf = os.path.join(TOOLCHAIN_DIR, 'crosperf', 'crosperf')
     noschedv2_opts = '--noschedv2' if self._noschedv2 else ''
     command = ('{crosperf} --no_email=True --results_dir={r_dir} '
+               '--intel_pstate=no_hwp '
                '--json_report=True {noschedv2_opts} {exp_file}').format(
                    crosperf=crosperf,
                    r_dir=self._reports_dir,
@@ -222,11 +251,10 @@ class ToolchainComparator(object):
     ret = self._ce.RunCommand(command)
     if ret != 0:
       raise RuntimeError('Crosperf execution error!')
-    else:
-      # Copy json report to pending archives directory.
-      command = 'cp %s/*.json %s/.' % (self._reports_dir, PENDING_ARCHIVES_DIR)
-      ret = self._ce.RunCommand(command)
-    return
+
+    # Copy json report to pending archives directory.
+    command = 'cp %s/*.json %s/.' % (self._reports_dir, PENDING_ARCHIVES_DIR)
+    ret = self._ce.RunCommand(command)
 
   def _SendEmail(self):
     """Find email message generated by crosperf and send it."""
@@ -256,7 +284,7 @@ class ToolchainComparator(object):
     print('trybot_url: \
           http://cros-goldeneye/chromeos/healthmonitoring/buildDetails?buildbucketId=%s'
           % buildbucket_id)
-    if len(trybot_image) == 0:
+    if not trybot_image:
       self._l.LogError('Unable to find trybot_image!')
       return 2
 

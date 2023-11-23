@@ -26,11 +26,6 @@ public class DefaultTunerFlags implements TunerFlags {
     }
 
     @Override
-    public boolean tuneUsingRecording() {
-        return false;
-    }
-
-    @Override
     public boolean useExoplayerV2() {
         return false;
     }

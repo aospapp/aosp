@@ -31,14 +31,14 @@ LOCAL_SRC_FILES := \
     rs_jni_object.cpp
 
 LOCAL_SRC_FILES += \
-    setelementat.rs \
-    primitives.rs \
-    instance.rs \
-    clear_object.rs \
-    foreach.rs \
-    fe_all.rs \
-    noroot.rs \
-    vector.rs
+    setelementat.rscript \
+    primitives.rscript \
+    instance.rscript \
+    clear_object.rscript \
+    foreach.rscript \
+    fe_all.rscript \
+    noroot.rscript \
+    vector.rscript
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_C_INCLUDES += frameworks/rs/cpp

@@ -28,6 +28,7 @@ import android.os.Build;
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
+@NonMediaMainlineTest
 public class AudioNativeTest extends CtsAndroidTestCase {
     public static final int MAX_CHANNEL_COUNT = 2;
     public static final int MAX_INDEX_MASK = (1 << MAX_CHANNEL_COUNT) - 1;

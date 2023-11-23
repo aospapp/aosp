@@ -28,6 +28,10 @@ import com.android.systemui.statusbar.notification.stack.StackStateAnimator;
 public class CrossFadeHelper {
     public static final long ANIMATION_DURATION_LENGTH = 210;
 
+    public static void fadeOut(final View view) {
+        fadeOut(view, null);
+    }
+
     public static void fadeOut(final View view, final Runnable endRunnable) {
         fadeOut(view, ANIMATION_DURATION_LENGTH, 0, endRunnable);
     }
@@ -46,7 +50,9 @@ public class CrossFadeHelper {
                         if (endRunnable != null) {
                             endRunnable.run();
                         }
-                        view.setVisibility(View.INVISIBLE);
+                        if (view.getVisibility() != View.GONE) {
+                            view.setVisibility(View.INVISIBLE);
+                        }
                     }
                 });
         if (view.hasOverlappingRendering()) {
@@ -71,7 +77,7 @@ public class CrossFadeHelper {
      */
     public static void fadeOut(View view, float fadeOutAmount, boolean remap) {
         view.animate().cancel();
-        if (fadeOutAmount == 1.0f) {
+        if (fadeOutAmount == 1.0f && view.getVisibility() != View.GONE) {
             view.setVisibility(View.INVISIBLE);
         } else if (view.getVisibility() == View.INVISIBLE) {
             view.setVisibility(View.VISIBLE);
@@ -127,7 +133,7 @@ public class CrossFadeHelper {
     }
 
     public static void fadeIn(View view, float fadeInAmount) {
-        fadeIn(view, fadeInAmount, true /* remap */);
+        fadeIn(view, fadeInAmount, false /* remap */);
     }
 
     /**

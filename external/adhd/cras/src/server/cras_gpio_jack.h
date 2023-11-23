@@ -34,8 +34,7 @@ char *sys_input_get_device_name(const char *path);
  *    0 to continue searching, non-zero otherwise.
  */
 typedef int (*gpio_switch_list_callback)(const char *dev_path,
-				         const char *dev_name,
-				         void *arg);
+					 const char *dev_name, void *arg);
 
 /* Execute the given callback on each GPIO device.
  *

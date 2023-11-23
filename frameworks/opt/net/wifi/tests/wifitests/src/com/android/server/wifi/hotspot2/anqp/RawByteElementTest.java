@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -28,7 +30,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.RawByteElement}.
  */
 @SmallTest
-public class RawByteElementTest {
+public class RawByteElementTest extends WifiBaseTest {
     private static final Constants.ANQPElementType TEST_ELEMENT_ID =
             Constants.ANQPElementType.HSOSUProviders;
 

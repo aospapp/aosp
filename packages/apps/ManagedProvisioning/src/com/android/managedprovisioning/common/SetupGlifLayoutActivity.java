@@ -21,6 +21,9 @@ import android.content.res.ColorStateList;
 import android.content.res.Resources.Theme;
 import android.os.Bundle;
 import android.sysprop.SetupWizardProperties;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
 
@@ -34,6 +37,12 @@ import com.google.android.setupdesign.util.ThemeResolver;
  * Base class for setting up the layout.
  */
 public abstract class SetupGlifLayoutActivity extends SetupLayoutActivity {
+
+    /**
+     * Number of characters in the header needed before adding an extra line of text.
+     */
+    private static final int CHAR_THRESHOLD_FOR_ADDITIONAL_LINE = 70;
+
     public SetupGlifLayoutActivity() {
         super();
     }
@@ -74,7 +83,38 @@ public abstract class SetupGlifLayoutActivity extends SetupLayoutActivity {
                     getResources().getColorStateList(R.color.header_text_color, getTheme()));
         }
 
+        TextView header = findViewById(R.id.suc_layout_title);
+        if (header != null) {
+            header.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                }
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                    adjustHeaderMaxLines();
+                }
+            });
+
+            adjustHeaderMaxLines();
+        }
+
         layout.setIcon(LogoUtils.getOrganisationLogo(this, params.mainColor));
+    }
+
+    private void adjustHeaderMaxLines() {
+        TextView header = findViewById(R.id.suc_layout_title);
+        int maxLines = 3;
+        if (header.getText().length() > CHAR_THRESHOLD_FOR_ADDITIONAL_LINE) {
+            maxLines++;
+        }
+        if (header.getMaxLines() != maxLines) {
+            header.setMaxLines(maxLines);
+        }
     }
 
     private void setDefaultTheme() {

@@ -23,12 +23,6 @@
 #ifdef ART_ENABLE_CODEGEN_arm64
 #include "linker/arm64/relative_patcher_arm64.h"
 #endif
-#ifdef ART_ENABLE_CODEGEN_mips
-#include "linker/mips/relative_patcher_mips.h"
-#endif
-#ifdef ART_ENABLE_CODEGEN_mips64
-#include "linker/mips64/relative_patcher_mips64.h"
-#endif
 #ifdef ART_ENABLE_CODEGEN_x86
 #include "linker/x86/relative_patcher_x86.h"
 #endif
@@ -77,6 +71,12 @@ std::unique_ptr<RelativePatcher> RelativePatcher::Create(
       LOG(FATAL) << "Unexpected relative dex cache array patch.";
     }
 
+    void PatchEntrypointCall(std::vector<uint8_t>* code ATTRIBUTE_UNUSED,
+                             const LinkerPatch& patch ATTRIBUTE_UNUSED,
+                             uint32_t patch_offset ATTRIBUTE_UNUSED) override {
+      LOG(FATAL) << "Unexpected entrypoint call patch.";
+    }
+
     void PatchBakerReadBarrierBranch(std::vector<uint8_t>* code ATTRIBUTE_UNUSED,
                                      const LinkerPatch& patch ATTRIBUTE_UNUSED,
                                      uint32_t patch_offset ATTRIBUTE_UNUSED) override {
@@ -117,15 +117,6 @@ std::unique_ptr<RelativePatcher> RelativePatcher::Create(
           new Arm64RelativePatcher(thunk_provider,
                                    target_provider,
                                    features->AsArm64InstructionSetFeatures()));
-#endif
-#ifdef ART_ENABLE_CODEGEN_mips
-    case InstructionSet::kMips:
-      return std::unique_ptr<RelativePatcher>(
-          new MipsRelativePatcher(features->AsMipsInstructionSetFeatures()));
-#endif
-#ifdef ART_ENABLE_CODEGEN_mips64
-    case InstructionSet::kMips64:
-      return std::unique_ptr<RelativePatcher>(new Mips64RelativePatcher());
 #endif
     default:
       return std::unique_ptr<RelativePatcher>(new RelativePatcherNone);

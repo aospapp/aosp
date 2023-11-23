@@ -78,6 +78,7 @@ public class CameraGLTest {
     private Looper mLooper = null;
     private final ConditionVariable mSurfaceTextureDone = new ConditionVariable();
     private final ConditionVariable mPreviewDone = new ConditionVariable();
+    private int[] mCameraIds;
 
     Camera mCamera;
     boolean mIsExternalCamera;
@@ -105,6 +106,8 @@ public class CameraGLTest {
         GLSurfaceViewCtsActivity ctsActivity = mActivityRule.getActivity();
         // Store a link to the view so we can redraw it when needed
         mGLView = ctsActivity.getView();
+
+        mCameraIds = CameraUtils.deriveCameraIdsUnderTest();
     }
 
     @After
@@ -324,8 +327,7 @@ public class CameraGLTest {
         wl.acquire();
         try {
             /* Run the requested test per camera */
-            int nCameras = Camera.getNumberOfCameras();
-            for (int id = 0; id < nCameras; id++) {
+            for (int id : mCameraIds) {
                 Log.v(TAG, "Camera id=" + id);
                 test.run(id);
             }

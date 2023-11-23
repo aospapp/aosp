@@ -30,13 +30,13 @@ import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.applications.AppStateBaseBridge.Callback;
 import com.android.car.developeroptions.datausage.DataSaverBackend.Listener;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.SwitchBar;
 import com.android.car.developeroptions.widget.SwitchBar.OnSwitchChangeListener;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 import com.android.settingslib.applications.ApplicationsState.Callbacks;
 import com.android.settingslib.applications.ApplicationsState.Session;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
@@ -63,8 +63,6 @@ public class DataSaverSummary extends SettingsPreferenceFragment
         super.onCreate(icicle);
 
         addPreferencesFromResource(R.xml.data_saver);
-        mFooterPreferenceMixin.createFooterPreference()
-                .setTitle(com.android.internal.R.string.data_saver_description);
         mUnrestrictedAccess = findPreference(KEY_UNRESTRICTED_ACCESS);
         mApplicationsState = ApplicationsState.getInstance(
                 (Application) getContext().getApplicationContext());

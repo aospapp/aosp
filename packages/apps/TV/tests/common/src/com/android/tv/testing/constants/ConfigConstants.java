@@ -23,6 +23,8 @@ public final class ConfigConstants {
 
     public static final String MANIFEST = "vendor/unbundled_google/packages/TV/AndroidManifest.xml";
     public static final int SDK = Build.VERSION_CODES.M;
+    public static final int MIN_SDK = Build.VERSION_CODES.M;
+    public static final int MAX_SDK = Build.VERSION_CODES.P;
 
     private ConfigConstants() {}
 }

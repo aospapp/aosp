@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "chre/core/timer_pool.h"
 #include "chre/core/event_loop.h"
 #include "chre/core/event_loop_manager.h"
-#include "chre/core/timer_pool.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/system_time.h"
 #include "chre/util/lock_guard.h"
@@ -29,12 +29,13 @@ TimerPool::TimerPool() {
   }
 }
 
-TimerHandle TimerPool::setSystemTimer(
-    Nanoseconds duration, SystemCallbackFunction *callback,
-    SystemCallbackType callbackType, const void *cookie) {
-  TimerHandle timerHandle = setTimer(
-      kSystemInstanceId, duration, callback,
-      static_cast<uint16_t>(callbackType), cookie, true /* isOneShot */);
+TimerHandle TimerPool::setSystemTimer(Nanoseconds duration,
+                                      SystemCallbackFunction *callback,
+                                      SystemCallbackType callbackType,
+                                      const void *cookie) {
+  TimerHandle timerHandle = setTimer(kSystemInstanceId, duration, callback,
+                                     static_cast<uint16_t>(callbackType),
+                                     cookie, true /* isOneShot */);
 
   if (timerHandle == CHRE_TIMER_INVALID) {
     FATAL_ERROR("Failed to set system timer");
@@ -43,10 +44,10 @@ TimerHandle TimerPool::setSystemTimer(
   return timerHandle;
 }
 
-TimerHandle TimerPool::setTimer(
-    uint32_t instanceId, Nanoseconds duration,
-    SystemCallbackFunction *callback, uint16_t eventType,
-    const void *cookie, bool isOneShot) {
+TimerHandle TimerPool::setTimer(uint32_t instanceId, Nanoseconds duration,
+                                SystemCallbackFunction *callback,
+                                uint16_t eventType, const void *cookie,
+                                bool isOneShot) {
   LockGuard<Mutex> lock(mMutex);
 
   TimerRequest timerRequest;
@@ -75,13 +76,12 @@ TimerHandle TimerPool::setTimer(
   return success ? timerRequest.timerHandle : CHRE_TIMER_INVALID;
 }
 
-bool TimerPool::cancelTimer(
-    uint32_t instanceId, TimerHandle timerHandle) {
+bool TimerPool::cancelTimer(uint32_t instanceId, TimerHandle timerHandle) {
   LockGuard<Mutex> lock(mMutex);
   size_t index;
   bool success = false;
-  TimerRequest *timerRequest = getTimerRequestByTimerHandleLocked(timerHandle,
-      &index);
+  TimerRequest *timerRequest =
+      getTimerRequestByTimerHandleLocked(timerHandle, &index);
 
   if (timerRequest == nullptr) {
     LOGW("Failed to cancel timer ID %" PRIu32 ": not found", timerHandle);
@@ -116,7 +116,7 @@ TimerPool::TimerRequest *TimerPool::getTimerRequestByTimerHandleLocked(
   return nullptr;
 }
 
-bool TimerPool::TimerRequest::operator>(const TimerRequest& request) const {
+bool TimerPool::TimerRequest::operator>(const TimerRequest &request) const {
   return (expirationTime > request.expirationTime);
 }
 
@@ -161,7 +161,7 @@ bool TimerPool::isNewTimerAllowedLocked(bool isNanoappTimer) const {
   bool allowed;
   if (isNanoappTimer) {
     allowed = (mNumNanoappTimers < kMaxNanoappTimers);
-  } else { // System timer
+  } else {  // System timer
     // We must not allow more system timers than the required amount of reserved
     // timers for nanoapps.
     constexpr size_t kMaxSystemTimers =
@@ -173,10 +173,10 @@ bool TimerPool::isNewTimerAllowedLocked(bool isNanoappTimer) const {
   return allowed;
 }
 
-bool TimerPool::insertTimerRequestLocked(const TimerRequest& timerRequest) {
+bool TimerPool::insertTimerRequestLocked(const TimerRequest &timerRequest) {
   bool isNanoappTimer = (timerRequest.instanceId != kSystemInstanceId);
   bool success = isNewTimerAllowedLocked(isNanoappTimer) &&
-      mTimerRequests.push(timerRequest);
+                 mTimerRequests.push(timerRequest);
 
   if (!success) {
     LOG_OOM();
@@ -220,14 +220,13 @@ bool TimerPool::handleExpiredTimersAndScheduleNextLocked() {
   bool success = false;
   while (!mTimerRequests.empty()) {
     Nanoseconds currentTime = SystemTime::getMonotonicTime();
-    TimerRequest& currentTimerRequest = mTimerRequests.top();
+    TimerRequest &currentTimerRequest = mTimerRequests.top();
     if (currentTime >= currentTimerRequest.expirationTime) {
       // Post an event for an expired timer.
-      success = EventLoopManagerSingleton::get()->getEventLoop().postEvent(
+      success = EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
           currentTimerRequest.eventType,
           const_cast<void *>(currentTimerRequest.cookie),
-          currentTimerRequest.callback, kSystemInstanceId,
-          currentTimerRequest.instanceId);
+          currentTimerRequest.callback, currentTimerRequest.instanceId);
 
       // Reschedule the timer if needed, and release the current request.
       if (!currentTimerRequest.isOneShot) {
@@ -235,8 +234,8 @@ bool TimerPool::handleExpiredTimersAndScheduleNextLocked() {
         // because it's a reference to memory that may get moved during the
         // insert operation (thereby invalidating it).
         TimerRequest cyclicTimerRequest = currentTimerRequest;
-        cyclicTimerRequest.expirationTime = currentTime
-            + currentTimerRequest.duration;
+        cyclicTimerRequest.expirationTime =
+            currentTime + currentTimerRequest.duration;
         popTimerRequestLocked();
         CHRE_ASSERT(insertTimerRequestLocked(cyclicTimerRequest));
       } else {

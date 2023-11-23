@@ -16,7 +16,6 @@
 package com.android.car.settings.accounts;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.os.UserHandle;
@@ -58,8 +57,7 @@ public class AccountAutoSyncPreferenceController extends PreferenceController<Tw
     public AccountAutoSyncPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        CarUserManagerHelper carUserManagerHelper = new CarUserManagerHelper(context);
-        mUserHandle = carUserManagerHelper.getCurrentProcessUserInfo().getUserHandle();
+        mUserHandle = UserHandle.of(UserHandle.myUserId());
     }
 
     @Override
@@ -80,8 +78,11 @@ public class AccountAutoSyncPreferenceController extends PreferenceController<Tw
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
                         ConfirmationDialogFragment.TAG);
 
-        ConfirmationDialogFragment.resetListeners(dialog, mConfirmListener, /* rejectListener= */
-                null);
+        ConfirmationDialogFragment.resetListeners(
+                dialog,
+                mConfirmListener,
+                /* rejectListener= */ null,
+                /* neutralListener= */ null);
     }
 
     @Override

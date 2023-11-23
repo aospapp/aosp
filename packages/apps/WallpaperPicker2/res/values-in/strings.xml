@@ -42,8 +42,8 @@
     <string name="permission_needed_allow_access_button_label" msgid="1943133660612924306">"Izinkan akses"</string>
     <string name="no_backup_image_wallpaper_description" msgid="8303268619408738057">"Layanan wallpaper animasi untuk memutar wallpaper"</string>
     <string name="daily_refresh_tile_title" msgid="3270456074558525091">"Wallpaper harian"</string>
-    <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"Tap untuk mengaktifkan"</string>
-    <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"Wallpaper akan otomatis berubah setiap hari. Untuk menyelesaikan penyiapan, tap &lt;strong&gt;Setel wallpaper&lt;/strong&gt; di layar selanjutnya."</string>
+    <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"Ketuk untuk mengaktifkan"</string>
+    <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"Wallpaper akan otomatis berubah setiap hari. Untuk menyelesaikan penyiapan, ketuk &lt;strong&gt;Setel wallpaper&lt;/strong&gt; di layar selanjutnya."</string>
     <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Download wallpaper mendatang hanya melalui Wi-Fi"</string>
     <string name="start_rotation_dialog_continue" msgid="276678987852274872">"Lanjutkan"</string>
     <string name="start_rotation_progress_message" msgid="7872623873682262083">"Mendownload wallpaper pertama…"</string>

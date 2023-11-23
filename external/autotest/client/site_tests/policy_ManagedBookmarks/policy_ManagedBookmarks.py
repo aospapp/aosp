@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
-
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
@@ -28,11 +26,11 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
 
     POLICY_NAME = 'ManagedBookmarks'
     BOOKMARKS = [{'name': 'Google',
-                   'url': 'https://google.com/'},
+                  'url': 'https://google.com/'},
                  {'name': 'YouTube',
-                   'url': 'https://youtube.com/'},
+                  'url': 'https://youtube.com/'},
                  {'name': 'Chromium',
-                   'url': 'https://chromium.org/'}]
+                  'url': 'https://chromium.org/'}]
 
     # Dictionary of test case names and policy values.
     TEST_CASES = {
@@ -41,31 +39,15 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
         'MultipleBookmarks_Shown': BOOKMARKS
     }
 
+    def _get_set(self, arr):
+        """Return the set of key names from an array of dicts."""
+        return set([item['name'] for item in arr])
 
     def _get_managed_bookmarks(self):
-        """
-        Return a list of the managed bookmarks.
-
-        @returns displayed_bookmarks: a list containing dictionaries of the
-            managed bookmarks.
-        """
-        # Open Bookmark Manager.
-        tab = self.navigate_to_url('chrome://bookmarks')
-
-        # Nodes are all bookmarks and directories.
-        nodes = tab.EvaluateJavaScript(
-                    'bookmarks.StoreClient[1].getState().nodes')
-
-        displayed_bookmarks = []
-        for node in nodes.values():
-            # The node with parentId 0 is the managed bookmarks directory.
-            if (node.get('unmodifiable') == 'managed' and
-                    node['parentId'] != '0'):
-                bookmark = {'name': node['title'], 'url': node['url']}
-                displayed_bookmarks.append(bookmark)
-
-        return displayed_bookmarks
-
+        """Return a set of screen difference after the bookmark is clicked."""
+        prior_ui = set(self.ui.list_screen_items())
+        self.ui.doDefault_on_obj('/managedchrome.com bookmarks/', isRegex=True)
+        return set(self.ui.list_screen_items()) - prior_ui
 
     def _test_managed_bookmarks(self, policy_value):
         """
@@ -81,17 +63,30 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
             the policy value.
 
         """
-        managed = self._get_managed_bookmarks()
+        if not policy_value:
+            if self.ui.item_present('/managedchrome.com bookmarks/',
+                                    isRegex=True):
+                raise error.TestError(
+                    'Managed bookmarks present when should not be')
 
-        if policy_value is None:
-            if managed:
-                raise error.TestFail('Managed bookmarks should not be set.')
         else:
-            if sorted(managed) != sorted(policy_value):
-                raise error.TestFail('Managed bookmarks (%s) '
-                                     'do not match policy value (%s).'
-                                     % (sorted(managed), sorted(policy_value)))
+            screen_items = self._get_managed_bookmarks()
+            pol_set = self._get_set(policy_value)
+            if pol_set:
+                if not pol_set.issubset(screen_items):
+                    raise error.TestError(
+                        'Managed Boomarks not present when should be'
+                        'Items on screen {} expected to find {}'
+                        .format(screen_items, pol_set))
 
+            full_set = self._get_set(self.BOOKMARKS)
+            dont_want = full_set - pol_set
+            if dont_want:
+                if dont_want.issubset(screen_items):
+                    raise error.TestError(
+                        'Managed Boomarks present when should not be'
+                        'Items on screen {} expected not to find {}'
+                        .format(screen_items, dont_want))
 
     def run_once(self, case):
         """
@@ -102,4 +97,5 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
         """
         case_value = self.TEST_CASES[case]
         self.setup_case(user_policies={self.POLICY_NAME: case_value})
+        self.ui.start_ui_root(self.cr)
         self._test_managed_bookmarks(case_value)

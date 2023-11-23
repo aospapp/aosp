@@ -263,6 +263,9 @@ dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
          case PIPE_FORMAT_B10G10R10A2_UNORM:
             internal_format = PIPE_FORMAT_B10G10R10X2_UNORM;
             break;
+         case PIPE_FORMAT_R10G10B10A2_UNORM:
+            internal_format = PIPE_FORMAT_R10G10B10X2_UNORM;
+            break;
          case PIPE_FORMAT_BGRA8888_UNORM:
             internal_format = PIPE_FORMAT_BGRX8888_UNORM;
             break;
@@ -521,13 +524,6 @@ dri_flush(__DRIcontext *cPriv,
 
       dri_postprocessing(ctx, drawable, ST_ATTACHMENT_BACK_LEFT);
 
-      if (ctx->hud) {
-         hud_run(ctx->hud, ctx->st->cso_context,
-                 drawable->textures[ST_ATTACHMENT_BACK_LEFT]);
-      }
-
-      pipe->flush_resource(pipe, drawable->textures[ST_ATTACHMENT_BACK_LEFT]);
-
       if (pipe->invalidate_resource &&
           (flags & __DRI2_FLUSH_INVALIDATE_ANCILLARY)) {
          if (drawable->textures[ST_ATTACHMENT_DEPTH_STENCIL])
@@ -535,6 +531,13 @@ dri_flush(__DRIcontext *cPriv,
          if (drawable->msaa_textures[ST_ATTACHMENT_DEPTH_STENCIL])
             pipe->invalidate_resource(pipe, drawable->msaa_textures[ST_ATTACHMENT_DEPTH_STENCIL]);
       }
+
+      if (ctx->hud) {
+         hud_run(ctx->hud, ctx->st->cso_context,
+                 drawable->textures[ST_ATTACHMENT_BACK_LEFT]);
+      }
+
+      pipe->flush_resource(pipe, drawable->textures[ST_ATTACHMENT_BACK_LEFT]);
    }
 
    flush_flags = 0;
@@ -544,7 +547,7 @@ dri_flush(__DRIcontext *cPriv,
       flush_flags |= ST_FLUSH_END_OF_FRAME;
 
    /* Flush the context and throttle if needed. */
-   if (dri_screen(ctx->sPriv)->throttling_enabled &&
+   if (dri_screen(ctx->sPriv)->default_throttle_frames &&
        drawable &&
        (reason == __DRI2_THROTTLE_SWAPBUFFER ||
         reason == __DRI2_THROTTLE_FLUSHFRONT)) {
@@ -559,19 +562,19 @@ dri_flush(__DRIcontext *cPriv,
        * flush method returns a fence even if there are no commands to flush.
        */
       struct pipe_screen *screen = drawable->screen->base.screen;
-      struct pipe_fence_handle *fence;
+      struct pipe_fence_handle *oldest_fence, *new_fence = NULL;
 
-      fence = swap_fences_pop_front(drawable);
-      if (fence) {
-         (void) screen->fence_finish(screen, NULL, fence, PIPE_TIMEOUT_INFINITE);
-         screen->fence_reference(screen, &fence, NULL);
+      st->flush(st, flush_flags, &new_fence);
+
+      oldest_fence = swap_fences_pop_front(drawable);
+      if (oldest_fence) {
+         screen->fence_finish(screen, NULL, oldest_fence, PIPE_TIMEOUT_INFINITE);
+         screen->fence_reference(screen, &oldest_fence, NULL);
       }
 
-      st->flush(st, flush_flags, &fence);
-
-      if (fence) {
-         swap_fences_push_back(drawable, fence);
-         screen->fence_reference(screen, &fence, NULL);
+      if (new_fence) {
+         swap_fences_push_back(drawable, new_fence);
+         screen->fence_reference(screen, &new_fence, NULL);
       }
    }
    else if (flags & (__DRI2_FLUSH_DRAWABLE | __DRI2_FLUSH_CONTEXT)) {

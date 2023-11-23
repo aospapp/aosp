@@ -218,6 +218,17 @@ static const struct dm_serial_ops atmel_serial_ops = {
 	.setbrg = atmel_serial_setbrg,
 };
 
+#if defined(CONFIG_SPL_BUILD) && !defined(CONFIG_SPL_CLK)
+static int atmel_serial_enable_clk(struct udevice *dev)
+{
+	struct atmel_serial_priv *priv = dev_get_priv(dev);
+
+	/* Use fixed clock value in SPL */
+	priv->usart_clk_rate = CONFIG_SPL_UART_CLOCK;
+
+	return 0;
+}
+#else
 static int atmel_serial_enable_clk(struct udevice *dev)
 {
 	struct atmel_serial_priv *priv = dev_get_priv(dev);
@@ -245,6 +256,7 @@ static int atmel_serial_enable_clk(struct udevice *dev)
 
 	return 0;
 }
+#endif
 
 static int atmel_serial_probe(struct udevice *dev)
 {
@@ -294,7 +306,9 @@ U_BOOT_DRIVER(serial_atmel) = {
 #endif
 	.probe = atmel_serial_probe,
 	.ops	= &atmel_serial_ops,
+#if !CONFIG_IS_ENABLED(OF_CONTROL)
 	.flags = DM_FLAG_PRE_RELOC,
+#endif
 	.priv_auto_alloc_size	= sizeof(struct atmel_serial_priv),
 };
 #endif

@@ -16,26 +16,25 @@
 
 package com.android.car.settings.storage;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
-import android.os.Build;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-import com.android.car.settings.R;
+import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.common.ProgressBarPreference;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.shadows.ShadowAlertDialog;
-import org.robolectric.shadows.ShadowApplication;
 
 /** Unit test for {@link StorageSystemCategoryPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class StorageSystemCategoryPreferenceControllerTest {
 
     @Test
@@ -48,10 +47,7 @@ public class StorageSystemCategoryPreferenceControllerTest {
         preferenceControllerHelper.markState(Lifecycle.State.CREATED);
         progressBarPreference.performClick();
 
-        ShadowAlertDialog dialog = ShadowApplication.getInstance().getLatestAlertDialog();
-
-        assertThat(dialog.getMessage().toString()).contains(
-                context.getResources().getString(R.string.storage_detail_dialog_system,
-                        Build.VERSION.RELEASE));
+        verify(preferenceControllerHelper.getMockFragmentController()).showDialog(
+                any(ConfirmationDialogFragment.class), anyString());
     }
 }

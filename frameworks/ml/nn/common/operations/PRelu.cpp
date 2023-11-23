@@ -16,16 +16,22 @@
 
 #define LOG_TAG "Operations"
 
+#include <algorithm>
+#include <vector>
+
 #include "HalInterfaces.h"
 #include "IndexedShapeWrapper.h"
 #include "OperationResolver.h"
 #include "OperationsUtils.h"
 #include "Tracing.h"
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
+
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
 
 namespace android {
 namespace nn {
 namespace prelu {
+
+using namespace hal;
 
 constexpr char kOperationName[] = "PRELU";
 
@@ -60,8 +66,9 @@ inline bool eval(const std::function<T(const T&, const T&)>& func, const T* aDat
     return true;
 }
 
-bool evalQuant8(const uint8_t* aData, const Shape& aShape, const uint8_t* bData,
-                const Shape& bShape, uint8_t* outputData, const Shape& outputShape) {
+template <typename T>
+bool evalQuant8(const T* aData, const Shape& aShape, const T* bData, const Shape& bShape,
+                T* outputData, const Shape& outputShape) {
     const int32_t input_offset = -aShape.offset;
     const int32_t alpha_offset = -bShape.offset;
     const int32_t output_offset = outputShape.offset;
@@ -72,8 +79,8 @@ bool evalQuant8(const uint8_t* aData, const Shape& aShape, const uint8_t* bData,
     int32_t output_multiplier_neg, output_shift_neg;
     tflite::QuantizeMultiplier(real_multiplier_pos, &output_multiplier_pos, &output_shift_pos);
     tflite::QuantizeMultiplier(real_multiplier_neg, &output_multiplier_neg, &output_shift_neg);
-    return eval<uint8_t>(
-            [&](const uint8_t& val1, const uint8_t& val2) -> uint8_t {
+    return eval<T>(
+            [&](const T& val1, const T& val2) -> uint8_t {
                 const int32_t input = input_offset + static_cast<int32_t>(val1);
                 int32_t output_val;
                 if (input >= 0) {
@@ -86,8 +93,7 @@ bool evalQuant8(const uint8_t* aData, const Shape& aShape, const uint8_t* bData,
                                  tflite::MultiplyByQuantizedMultiplier(
                                          input * alpha, output_multiplier_neg, output_shift_neg);
                 }
-                output_val = std::max(0, std::min(255, output_val));
-                return static_cast<uint8_t>(output_val);
+                return saturateCast<T>(output_val);
             },
             aData, aShape, bData, bShape, outputData, outputShape);
 }
@@ -98,11 +104,16 @@ bool validate(const IOperationValidationContext* context) {
     auto inputType = context->getInputType(kInputTensor);
     NN_RET_CHECK(inputType == OperandType::TENSOR_FLOAT16 ||
                  inputType == OperandType::TENSOR_FLOAT32 ||
-                 inputType == OperandType::TENSOR_QUANT8_ASYMM)
+                 inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+                 inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
             << "Unsupported tensor type for operation " << kOperationName;
     NN_RET_CHECK(validateInputTypes(context, {inputType, inputType}));
     NN_RET_CHECK(validateOutputTypes(context, {inputType}));
-    return validateHalVersion(context, HalVersion::V1_2);
+    if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        return validateHalVersion(context, HalVersion::V1_3);
+    } else {
+        return validateHalVersion(context, HalVersion::V1_2);
+    }
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -144,6 +155,14 @@ bool execute(IOperationExecutionContext* context) {
                               context->getInputBuffer<uint8_t>(kAlphaTensor),
                               context->getInputShape(kAlphaTensor),
                               context->getOutputBuffer<uint8_t>(kOutputTensor),
+                              context->getOutputShape(kOutputTensor));
+        }
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED: {
+            return evalQuant8(context->getInputBuffer<int8_t>(kInputTensor),
+                              context->getInputShape(kInputTensor),
+                              context->getInputBuffer<int8_t>(kAlphaTensor),
+                              context->getInputShape(kAlphaTensor),
+                              context->getOutputBuffer<int8_t>(kOutputTensor),
                               context->getOutputShape(kOutputTensor));
         }
         default:

@@ -66,8 +66,10 @@ abstract class RadioDatabase extends RoomDatabase {
     protected abstract FavoriteDao favoriteDao();
 
     public static RadioDatabase buildInstance(Context context) {
-        return Room.databaseBuilder(context.getApplicationContext(),
-                RadioDatabase.class, RadioDatabase.class.getSimpleName()).build();
+        return Room.databaseBuilder(context.getApplicationContext(), RadioDatabase.class,
+                RadioDatabase.class.getSimpleName())
+                .enableMultiInstanceInvalidation()
+                .build();
     }
 
     /**

@@ -16,13 +16,14 @@
 
 #include "ProtoFuzzerUtils.h"
 
+#include <android-base/strings.h>
 #include <dirent.h>
 #include <getopt.h>
 #include <algorithm>
-#include <sstream>
 
 #include "utils/InterfaceSpecUtil.h"
 
+using android::base::Split;
 using std::cerr;
 using std::cout;
 using std::string;
@@ -46,8 +47,9 @@ static void usage() {
          "LLVMFuzzerTestOneInput.\n"
          "\tvts_spec_dir: \":\"-separated list of directories on the target "
          "containing .vts spec files.\n"
-         "\tvts_target_iface: name of interface targeted for fuzz, e.g. "
-         "\"INfc\".\n"
+         "\tvts_target_fq_name: fully-qualified name of interface targeted for "
+         "fuzz version, e.g. "
+         "\"android.hardware.nfc@1.1::INfc\".\n"
          "\tvts_seed: optional integral argument used to initalize the random "
          "number generator.\n"
          "\n"
@@ -62,7 +64,7 @@ static struct option long_options[] = {
     {"vts_spec_dir", required_argument, 0, 'd'},
     {"vts_exec_size", required_argument, 0, 'e'},
     {"vts_seed", required_argument, 0, 's'},
-    {"vts_target_iface", required_argument, 0, 't'}};
+    {"vts_target_fq_name", required_argument, 0, 't'}};
 
 // Removes information from CompSpec not needed by fuzzer.
 static void TrimCompSpec(CompSpec *comp_spec) {
@@ -78,12 +80,10 @@ static void TrimCompSpec(CompSpec *comp_spec) {
   }
 }
 
-static vector<CompSpec> ExtractCompSpecs(string arg) {
+vector<CompSpec> ExtractCompSpecs(const vector<string> &dirs) {
   vector<CompSpec> result{};
-  string dir_path;
-  std::istringstream iss(arg);
 
-  while (std::getline(iss, dir_path, ':')) {
+  for (const auto &dir_path : dirs) {
     DIR *dir;
     struct dirent *ent;
     if (!(dir = opendir(dir_path.c_str()))) {
@@ -131,7 +131,8 @@ ProtoFuzzerParams ExtractProtoFuzzerParams(int argc, char **argv) {
         params.binder_mode_ = true;
         break;
       case 'd':
-        params.comp_specs_ = ExtractCompSpecs(optarg);
+        // optarg is a column-separated list of directories
+        params.comp_specs_ = ExtractCompSpecs(Split(optarg, ":"));
         break;
       case 'e':
         params.exec_size_ = std::stoul(optarg);
@@ -139,9 +140,13 @@ ProtoFuzzerParams ExtractProtoFuzzerParams(int argc, char **argv) {
       case 's':
         params.seed_ = std::stoull(optarg);
         break;
-      case 't':
-        params.target_iface_ = optarg;
+      case 't': {
+        if (!FQName::parse(optarg, &params.target_fq_name_)) {
+          usage();
+          std::abort();
+        }
         break;
+      }
       default:
         // Ignore. This option will be handled by libfuzzer.
         break;
@@ -153,7 +158,7 @@ ProtoFuzzerParams ExtractProtoFuzzerParams(int argc, char **argv) {
 string ProtoFuzzerParams::DebugString() const {
   std::stringstream ss;
   ss << "Execution size: " << exec_size_ << endl;
-  ss << "Target interface: " << target_iface_ << endl;
+  ss << "Target FQ name: " << target_fq_name_.string() << endl;
   ss << "Binder mode: " << binder_mode_ << endl;
   ss << "Seed: " << seed_ << endl;
   ss << "Loaded specs: " << endl;

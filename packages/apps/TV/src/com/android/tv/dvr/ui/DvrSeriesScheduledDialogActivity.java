@@ -18,7 +18,7 @@ package com.android.tv.dvr.ui;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepFragment;
 import com.android.tv.R;
 
 public class DvrSeriesScheduledDialogActivity extends Activity {

@@ -22,6 +22,7 @@ import android.util.Log;
 import android.view.View;
 
 import com.android.documentsui.R;
+import com.android.documentsui.base.UserId;
 
 /**
  * Dummy {@link Item} for dividers between different types of {@link Item}s.
@@ -33,7 +34,7 @@ class SpacerItem extends Item {
 
     public SpacerItem() {
         // Multiple spacer items can share the same string id as they're identical.
-        super(R.layout.item_root_spacer, "" /* title */, STRING_ID);
+        super(R.layout.item_root_spacer, "" /* title */, STRING_ID, UserId.UNSPECIFIED_USER);
     }
 
     @Override

@@ -395,8 +395,13 @@ public class VideoMultimeterTest implements IDeviceTest, IRemoteTest {
                 }
                 if (lastDropFrame.equals(totalDropFrame)) {
                     if (consecutiveDropFrame > 0) {
-                      freezingPenalty += MISSING_FRAME_WEIGHT[(int) (Math.min(consecutiveDropFrame,
-                              MISSING_FRAME_CEILING))] * consecutiveDropFrame;
+                        freezingPenalty +=
+                                MISSING_FRAME_WEIGHT[
+                                                (int)
+                                                        Math.min(
+                                                                consecutiveDropFrame,
+                                                                MISSING_FRAME_CEILING)]
+                                        * consecutiveDropFrame;
                       consecutiveDropFrame = 0;
                     }
                 } else {

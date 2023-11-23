@@ -151,7 +151,7 @@ public class PrintDocumentInfoTest extends BasePrintTest {
         waitForWriteAdapterCallback(1);
 
         // Click the print button.
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);

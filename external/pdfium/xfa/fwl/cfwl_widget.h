@@ -11,13 +11,22 @@
 
 #include "core/fxcrt/fx_coordinates.h"
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/observed_ptr.h"
 #include "core/fxcrt/unowned_ptr.h"
 #include "xfa/fde/cfde_data.h"
-#include "xfa/fwl/cfwl_event.h"
 #include "xfa/fwl/cfwl_themepart.h"
 #include "xfa/fwl/cfwl_widgetmgr.h"
+#include "xfa/fwl/cfwl_widgetproperties.h"
 #include "xfa/fwl/fwl_widgethit.h"
 #include "xfa/fwl/ifwl_widgetdelegate.h"
+
+class CFWL_App;
+class CFWL_AppImp;
+class CFWL_Event;
+class CFWL_MessageKey;
+class CFWL_Widget;
+class CFWL_WidgetMgr;
+class IFWL_ThemeProvider;
 
 enum class FWL_Type {
   Unknown = 0,
@@ -39,21 +48,30 @@ enum class FWL_Type {
   ToolTip
 };
 
-class CFWL_App;
-class CFWL_AppImp;
-class CFWL_MessageKey;
-class CFWL_Widget;
-class CFWL_WidgetMgr;
-class CFWL_WidgetProperties;
-class CXFA_FFWidget;
-class IFWL_ThemeProvider;
-
-class CFWL_Widget : public IFWL_WidgetDelegate {
+// NOTE: CFWL_Widget serves as its own delegate until replaced at runtime.
+class CFWL_Widget : public Observable, public IFWL_WidgetDelegate {
  public:
+  class AdapterIface {
+   public:
+    virtual ~AdapterIface() {}
+    virtual CFX_Matrix GetRotateMatrix() = 0;
+    virtual void DisplayCaret(bool bVisible, const CFX_RectF* pRtAnchor) = 0;
+    virtual void GetBorderColorAndThickness(FX_ARGB* cr, float* fWidth) = 0;
+  };
+
+  class ScopedUpdateLock {
+   public:
+    explicit ScopedUpdateLock(CFWL_Widget* widget);
+    ~ScopedUpdateLock();
+
+   private:
+    UnownedPtr<CFWL_Widget> const widget_;
+  };
+
   ~CFWL_Widget() override;
 
   virtual FWL_Type GetClassID() const = 0;
-  virtual bool IsInstance(const WideStringView& wsClass) const;
+  virtual bool IsForm() const;
   virtual CFX_RectF GetAutosizedWidgetRect();
   virtual CFX_RectF GetWidgetRect();
   virtual CFX_RectF GetClientRect();
@@ -78,23 +96,24 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
 
   void SetParent(CFWL_Widget* pParent);
 
+  bool IsVisible() const;
+  bool IsOverLapper() const;
+  bool IsPopup() const;
+  bool IsChild() const;
+
   CFWL_Widget* GetOwner() { return m_pWidgetMgr->GetOwnerWidget(this); }
   CFWL_Widget* GetOuter() const { return m_pOuter; }
+  CFWL_Widget* GetOutmost() const;
 
-  uint32_t GetStyles() const;
   void ModifyStyles(uint32_t dwStylesAdded, uint32_t dwStylesRemoved);
   uint32_t GetStylesEx() const;
   uint32_t GetStates() const;
 
-  void LockUpdate() { m_iLock++; }
-  void UnlockUpdate() {
-    if (IsLocked())
-      m_iLock--;
-  }
-
   CFX_PointF TransformTo(CFWL_Widget* pWidget, const CFX_PointF& point);
-  CFX_Matrix GetMatrix();
-  IFWL_ThemeProvider* GetThemeProvider() const;
+  CFX_Matrix GetMatrix() const;
+  IFWL_ThemeProvider* GetThemeProvider() const {
+    return m_pProperties->m_pThemeProvider.Get();
+  }
 
   void SetDelegate(IFWL_WidgetDelegate* delegate) { m_pDelegate = delegate; }
   IFWL_WidgetDelegate* GetDelegate() {
@@ -108,12 +127,9 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   uint32_t GetEventKey() const { return m_nEventKey; }
   void SetEventKey(uint32_t key) { m_nEventKey = key; }
 
-  CXFA_FFWidget* GetLayoutItem() const { return m_pLayoutItem; }
-  void SetLayoutItem(CXFA_FFWidget* pItem) { m_pLayoutItem = pItem; }
-
-  void SetFocus(bool bFocus);
+  AdapterIface* GetAdapterIface() const { return m_pAdapterIface; }
+  void SetAdapterIface(AdapterIface* pItem) { m_pAdapterIface = pItem; }
   void RepaintRect(const CFX_RectF& pRect);
-  void Repaint();
 
  protected:
   CFWL_Widget(const CFWL_App* app,
@@ -123,10 +139,11 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   bool IsEnabled() const;
   bool IsLocked() const { return m_iLock > 0; }
   bool HasBorder() const;
-  CFX_RectF GetEdgeRect();
-  float GetBorderSize(bool bCX);
-  CFX_RectF GetRelativeRect();
-  IFWL_ThemeProvider* GetAvailableTheme();
+  CFX_RectF GetEdgeRect() const;
+  float GetCXBorderSize() const;
+  float GetCYBorderSize() const;
+  CFX_RectF GetRelativeRect() const;
+  IFWL_ThemeProvider* GetAvailableTheme() const;
   CFX_SizeF CalcTextSize(const WideString& wsText,
                          IFWL_ThemeProvider* pTheme,
                          bool bMultiLine);
@@ -134,12 +151,8 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
                     IFWL_ThemeProvider* pTheme,
                     const FDE_TextStyle& dwTTOStyles,
                     FDE_TextAlignment iTTOAlign,
-                    CFX_RectF& rect);
+                    CFX_RectF* pRect);
   void SetGrab(bool bSet);
-  void GetPopupPos(float fMinHeight,
-                   float fMaxHeight,
-                   const CFX_RectF& rtAnchor,
-                   CFX_RectF& rtPopup);
   void RegisterEventTarget(CFWL_Widget* pEventSource);
   void UnregisterEventTarget();
   void DispatchEvent(CFWL_Event* pEvent);
@@ -152,29 +165,17 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   UnownedPtr<CFWL_WidgetMgr> const m_pWidgetMgr;
   std::unique_ptr<CFWL_WidgetProperties> m_pProperties;
   CFWL_Widget* m_pOuter;
-  int32_t m_iLock;
+  int32_t m_iLock = 0;
 
  private:
-  CFWL_Widget* GetParent() { return m_pWidgetMgr->GetParentWidget(this); }
-  CFX_SizeF GetOffsetFromParent(CFWL_Widget* pParent);
+  void LockUpdate() { m_iLock++; }
+  void UnlockUpdate() {
+    if (IsLocked())
+      m_iLock--;
+  }
 
-  bool IsVisible() const;
-  bool IsOverLapper() const;
-  bool IsPopup() const;
-  bool IsChild() const;
-  CFWL_Widget* GetRootOuter();
-  bool GetPopupPosMenu(float fMinHeight,
-                       float fMaxHeight,
-                       const CFX_RectF& rtAnchor,
-                       CFX_RectF& rtPopup);
-  bool GetPopupPosComboBox(float fMinHeight,
-                           float fMaxHeight,
-                           const CFX_RectF& rtAnchor,
-                           CFX_RectF& rtPopup);
-  bool GetPopupPosGeneral(float fMinHeight,
-                          float fMaxHeight,
-                          const CFX_RectF& rtAnchor,
-                          CFX_RectF& rtPopup);
+  CFWL_Widget* GetParent() const { return m_pWidgetMgr->GetParentWidget(this); }
+  CFX_SizeF GetOffsetFromParent(CFWL_Widget* pParent);
   void DrawBackground(CXFA_Graphics* pGraphics,
                       CFWL_Part iPartBk,
                       IFWL_ThemeProvider* pTheme,
@@ -182,8 +183,8 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   void NotifyDriver();
   bool IsParent(CFWL_Widget* pParent);
 
-  CXFA_FFWidget* m_pLayoutItem;
-  uint32_t m_nEventKey;
+  uint32_t m_nEventKey = 0;
+  AdapterIface* m_pAdapterIface = nullptr;
   UnownedPtr<IFWL_WidgetDelegate> m_pDelegate;
 };
 

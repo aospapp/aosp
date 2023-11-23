@@ -139,3 +139,29 @@ cc_library_shared {
         },
     },
 }
+
+prebuilt_usr_share {
+    name: "RFFspeed_501.bmd",
+
+    //disable build in PDK
+    product_variables: {
+        pdk: {
+            enabled: false,
+        },
+    },
+    src: "Embedded/common/data/APIEm/Modules/RFFspeed_501.bmd",
+    sub_dir: "bmd",
+}
+
+prebuilt_usr_share {
+    name: "RFFstd_501.bmd",
+
+    //disable build in PDK
+    product_variables: {
+        pdk: {
+            enabled: false,
+        },
+    },
+    src: "Embedded/common/data/APIEm/Modules/RFFstd_501.bmd",
+    sub_dir: "bmd",
+}

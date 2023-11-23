@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="bn"/>
 	</identity>
 	<annotations>
@@ -21,54 +21,184 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏽" type="tts">মাঝারি ত্বকের রঙ</annotation>
 		<annotation cp="🏾">ত্বকের ধরন-5 | ত্বকের রঙ | ধরন 5 | মাঝারি-কালো ত্বক | মাঝারি-কালো ত্বকের রঙ</annotation>
 		<annotation cp="🏾" type="tts">মাঝারি-কালো ত্বকের রঙ</annotation>
-		<annotation cp="🏿">ইমোজি পরিবর্তনকারী | কালো ত্বকের রঙ | টোন | ত্বক | ত্বকের ধরন-6 | ফিটজপ্যাট্রিক</annotation>
+		<annotation cp="🏿">কালো ত্বকের রঙ | টোন | ত্বক | ত্বকের ধরন-6</annotation>
 		<annotation cp="🏿" type="tts">কালো ত্বকের রঙ</annotation>
+		<annotation cp="⚧">রূপান্তরিত লিঙ্গ | রূপান্তরিত লিঙ্গ চিহ্ন</annotation>
+		<annotation cp="⚧" type="tts">রূপান্তরিত লিঙ্গ চিহ্ন</annotation>
+		<annotation cp="🤌">অল্প একটু | আঙ্গুল | চিমটিকাটা | জিজ্ঞেস করা | বিদ্রুপপূর্ণ | হাতের অঙ্গিভঙ্গি</annotation>
+		<annotation cp="🤌" type="tts">অল্প একটু</annotation>
+		<annotation cp="🥲">অশ্রু | আবেগে আপ্লুত | এক চোখে অশ্রু নিয়ে হাসি মুখ | কৃতজ্ঞ | গর্বিত | নিশ্চিন্ত | হাসি</annotation>
+		<annotation cp="🥲" type="tts">এক চোখে অশ্রু নিয়ে হাসি মুখ</annotation>
+		<annotation cp="🥷">গুপ্ত | নিনজা | লড়াকু | লুকোনো</annotation>
+		<annotation cp="🥷" type="tts">নিনজা</annotation>
+		<annotation cp="🥸">চশমা | ছদ্মবেশ | ছদ্মবেশী | নাক | মুখ</annotation>
+		<annotation cp="🥸" type="tts">ছদ্মবেশী</annotation>
+		<annotation cp="🦣">বড় | বিলোপ | লুপ্ত লোমশ হাতি | লোমশ | হাতির দাঁত</annotation>
+		<annotation cp="🦣" type="tts">লুপ্ত লোমশ হাতি</annotation>
+		<annotation cp="🦤">ডোডো | বড় | বিলোপ | মরিশাস</annotation>
+		<annotation cp="🦤" type="tts">ডোডো</annotation>
+		<annotation cp="🦫">বাঁধ | বিভার</annotation>
+		<annotation cp="🦫" type="tts">বিভার</annotation>
+		<annotation cp="🦬">পশুর পাল | বন্য ষাঁড় | বাইসন | বুনো মোষ | মোষ</annotation>
+		<annotation cp="🦬" type="tts">বন্য ষাঁড়</annotation>
+		<annotation cp="🦭">সি লায়ন | সিল</annotation>
+		<annotation cp="🦭" type="tts">সিল</annotation>
+		<annotation cp="🧋">চা | দুধ | পার্ল | বাবল | বাবল টি</annotation>
+		<annotation cp="🧋" type="tts">বাবল টি</annotation>
+		<annotation cp="🩴">চটি | চপ্পল | জোরি | স্যান্ডেল | হাওয়াই চপ্পল</annotation>
+		<annotation cp="🩴" type="tts">চটি</annotation>
+		<annotation cp="🪃">অস্ট্রেলিয়া | প্রতিক্রিয়া | প্রতিক্ষিপ্ত | বুমের‌্যাঙ</annotation>
+		<annotation cp="🪃" type="tts">বুমের‌্যাঙ</annotation>
+		<annotation cp="🪄">জাদু | জাদুকর | জাদুর ছড়ি | ডাইনি</annotation>
+		<annotation cp="🪄" type="tts">জাদুর ছড়ি</annotation>
+		<annotation cp="🪅">অনুষ্ঠান | পার্টি | পিয়াঁতা</annotation>
+		<annotation cp="🪅" type="tts">পিয়াঁতা</annotation>
+		<annotation cp="🪆">ডল | নেস্টিং | রাশিয়া</annotation>
+		<annotation cp="🪆" type="tts">নেস্টিং ডল</annotation>
+		<annotation cp="🪖">মিলিটারি | যোদ্ধা | সেনাবাহিনী | সৈনিক | হেলমেট</annotation>
+		<annotation cp="🪖" type="tts">মিলিটারি হেলমেট</annotation>
+		<annotation cp="🪗">একর্ডিয়ন | একর্ডিয়ান | কনসার্টিনা | স্কুইজ বক্স</annotation>
+		<annotation cp="🪗" type="tts">একর্ডিয়ন</annotation>
+		<annotation cp="🪘">কংগা | ছন্দ | ড্রাম | তাল | লং ড্রাম</annotation>
+		<annotation cp="🪘" type="tts">লং ড্রাম</annotation>
+		<annotation cp="🪙">কয়েন | টাকা | ধন | ধাতু | রুপা | সোনা</annotation>
+		<annotation cp="🪙" type="tts">কয়েন</annotation>
+		<annotation cp="🪚">করাত | করাতি | ছুতারের কাজের করাত | ছুতোর | যন্ত্রপাতি</annotation>
+		<annotation cp="🪚" type="tts">ছুতারের কাজের করাত</annotation>
+		<annotation cp="🪛">যন্ত্রপাতি | স্ক্রু | স্ক্রুড্রাইভার</annotation>
+		<annotation cp="🪛" type="tts">স্ক্রুড্রাইভার</annotation>
+		<annotation cp="🪜">চড়াই করা | পদক্ষেপ | মই | মইয়ের ধাপ</annotation>
+		<annotation cp="🪜" type="tts">মই</annotation>
+		<annotation cp="🪝">ধরা | ফাঁদে ফেলা | বঁড়শি | বাঁক | বাঁকানো | সেলিং পয়েন্ট</annotation>
+		<annotation cp="🪝" type="tts">বঁড়শি</annotation>
+		<annotation cp="🪞">আয়না | দর্পণ | প্রতিবিম্ব</annotation>
+		<annotation cp="🪞" type="tts">আয়না</annotation>
+		<annotation cp="🪟">খোলা | জানালা | তাজা বাতাস | দৃশ্য | ফ্রেম | স্বচ্ছ</annotation>
+		<annotation cp="🪟" type="tts">জানালা</annotation>
+		<annotation cp="🪠">চোষণ | টয়লেট | প্লানজার | প্লামবার | ফোর্স কাপ</annotation>
+		<annotation cp="🪠" type="tts">প্লানজার</annotation>
+		<annotation cp="🪡">এম্ব্রয়ডারি | জোড় | দরজি | সূচ | সূচের ফোঁড় | সেলাই</annotation>
+		<annotation cp="🪡" type="tts">সূচ</annotation>
+		<annotation cp="🪢">গাঁট | টাই | দড়ি | পাকানো | বাঁকানো</annotation>
+		<annotation cp="🪢" type="tts">গাঁট</annotation>
+		<annotation cp="🪣">চৌবাচ্চা | জলপাত্র | পিপা | বালতি</annotation>
+		<annotation cp="🪣" type="tts">বালতি</annotation>
+		<annotation cp="🪤">ইঁদুর ধরার কল | টোপ | ফাঁদ | ফাঁদে ধরা</annotation>
+		<annotation cp="🪤" type="tts">ইঁদুর ধরার কল</annotation>
+		<annotation cp="🪥">দন্ত | দাঁত | পরিষ্কার | বাথরুম | ব্রাশ | স্বাস্থ্যবিধি</annotation>
+		<annotation cp="🪥" type="tts">ব্রাশ</annotation>
+		<annotation cp="🪦">কবর | কবরখানা | কবরস্থান | কবরের শীর্ষদেশের পাথর | কবরের শীর্ষের পাথর | সমাধিপ্রস্তর</annotation>
+		<annotation cp="🪦" type="tts">কবরের শীর্ষদেশের পাথর</annotation>
+		<annotation cp="🪧">চিহ্ন | প্রতিবাদ | প্রদর্শন | প্ল্যাকার্ড | ফাঁড়ি</annotation>
+		<annotation cp="🪧" type="tts">প্ল্যাকার্ড</annotation>
+		<annotation cp="🪨">কঠিন | পাথর | ভারি | শিলা | শিলাখণ্ড</annotation>
+		<annotation cp="🪨" type="tts">পাথর</annotation>
+		<annotation cp="🪰">কীটপতঙ্গ | পচা | মাছি | রোগ | শূককীট</annotation>
+		<annotation cp="🪰" type="tts">মাছি</annotation>
+		<annotation cp="🪱">অঙ্গুরীমাল | কেঁচো | পরজীবী | পোকা</annotation>
+		<annotation cp="🪱" type="tts">পোকা</annotation>
+		<annotation cp="🪲">কীট | গুবরে পোকা | পোকা</annotation>
+		<annotation cp="🪲" type="tts">গুবরে পোকা</annotation>
+		<annotation cp="🪳">আরসোলা | কীট | কীটপতঙ্গ | পোকা</annotation>
+		<annotation cp="🪳" type="tts">আরসোলা</annotation>
+		<annotation cp="🪴">অকেজো | উদ্ভিত | টবে লাগানো গাছ | প্রতিপালন | বাড়ি | বোরিং | লাগানো</annotation>
+		<annotation cp="🪴" type="tts">টবে লাগানো গাছ</annotation>
+		<annotation cp="🪵">কাঠ | গাছের গুঁড়ি | তক্তা | দারু</annotation>
+		<annotation cp="🪵" type="tts">কাঠ</annotation>
+		<annotation cp="🪶">উড্ডয়ন | পাখির পালক | পালক | হালকা</annotation>
+		<annotation cp="🪶" type="tts">পালক</annotation>
+		<annotation cp="🫀">অঙ্গ | কেন্দ্র | পাল্স | হৃৎস্পন্দন | হৃদয় | হৃদিবিজ্ঞান</annotation>
+		<annotation cp="🫀" type="tts">হৃদয়</annotation>
+		<annotation cp="🫁">অঙ্গ | প্রশ্বাস | শ্বাস | শ্বাসত্যাগ | শ্বাসযন্ত্র</annotation>
+		<annotation cp="🫁" type="tts">শ্বাসযন্ত্র</annotation>
+		<annotation cp="🫂">আলিঙ্গন | ধন্যবাদ | বিদায় | হ্যালো</annotation>
+		<annotation cp="🫂" type="tts">আলিঙ্গন</annotation>
+		<annotation cp="🫐">বিলবেরি | বেরি | ব্লু | ব্লুবেরি</annotation>
+		<annotation cp="🫐" type="tts">ব্লুবেরি</annotation>
+		<annotation cp="🫑">ক্যাপসিকাম | বেল পেপার | মরিচ | সবজি</annotation>
+		<annotation cp="🫑" type="tts">ক্যাপসিকাম</annotation>
+		<annotation cp="🫒">অলিভ | খাবার</annotation>
+		<annotation cp="🫒" type="tts">অলিভ</annotation>
+		<annotation cp="🫓">আরিপা | নান | পিতা | ফ্ল্যাটব্রেড | লাভাশ</annotation>
+		<annotation cp="🫓" type="tts">ফ্ল্যাটব্রেড</annotation>
+		<annotation cp="🫔">তামালে | মেক্সিকান | রোল</annotation>
+		<annotation cp="🫔" type="tts">তামালে</annotation>
+		<annotation cp="🫕">গলিত | চকোলেট | চিজ | পাত্র | ফন্ডু | সুইস</annotation>
+		<annotation cp="🫕" type="tts">ফন্ডু</annotation>
+		<annotation cp="🫖">চা | টিপট | পট | পানীয়</annotation>
+		<annotation cp="🫖" type="tts">টিপট</annotation>
+		<annotation cp="🛖">ইউর্ট | কুঁড়ে ঘড় | বাড়ি | রাউন্ডহাউস</annotation>
+		<annotation cp="🛖" type="tts">কুঁড়ে ঘড়</annotation>
+		<annotation cp="🛗">অ্যাকসেসিবিলিটি | এলিভেটর | লিফ্ট | হয়েস্ট</annotation>
+		<annotation cp="🛗" type="tts">এলিভেটর</annotation>
+		<annotation cp="🛻">ট্রাক | পিক-আপ | পিকআপ</annotation>
+		<annotation cp="🛻" type="tts">পিকআপ ট্রাক</annotation>
+		<annotation cp="🛼">রোলার | স্কেট</annotation>
+		<annotation cp="🛼" type="tts">রোলার স্কেট</annotation>
 		<annotation cp="😀">দেঁতো হাসি | মুখ | মুখে দেঁতো হাসি</annotation>
 		<annotation cp="😀" type="tts">মুখে দেঁতো হাসি</annotation>
-		<annotation cp="😁">চোখ | চোখে হাসির সাথে মুখে দেঁতো হাসি | দেঁতো হাসি | মুখ | হাসি</annotation>
-		<annotation cp="😁" type="tts">চোখে হাসির সাথে মুখে দেঁতো হাসি</annotation>
-		<annotation cp="😂">আনন্দ | আনন্দের কান্না ভরা মুখ | কান্না | জোরে হাসা | মুখ</annotation>
-		<annotation cp="😂" type="tts">আনন্দের কান্না ভরা মুখ</annotation>
-		<annotation cp="🤣">গড়াগড়ি | মাটি | মুখ | হাসি | হেসে মাটিতে লুটোপুটি খাওয়া</annotation>
-		<annotation cp="🤣" type="tts">হেসে মাটিতে লুটোপুটি খাওয়া</annotation>
 		<annotation cp="😃">খোলা | ঠোঁট | বড় বড় চোখ করে হাসি মুখ | মুখ | হাসি</annotation>
 		<annotation cp="😃" type="tts">বড় বড় চোখ করে হাসি মুখ</annotation>
 		<annotation cp="😄">খোলা | খোলা মুখে চোখে হাসির সাথে মুখে হাসি | চোখ | ঠোঁট | মুখ | হাসি</annotation>
 		<annotation cp="😄" type="tts">খোলা মুখে চোখে হাসির সাথে মুখে হাসি</annotation>
-		<annotation cp="😅">খোলা | ঘর্মাক্ত অবস্থা | ঠান্ডা | মুখ | মুখ খোলা এবং ঠাণ্ডা ঘামের সাথে মুখে হাসি | হাসি</annotation>
-		<annotation cp="😅" type="tts">মুখ খোলা এবং ঠাণ্ডা ঘামের সাথে মুখে হাসি</annotation>
+		<annotation cp="😁">চোখ | চোখে হাসির সাথে মুখে দেঁতো হাসি | দেঁতো হাসি | মুখ | হাসি</annotation>
+		<annotation cp="😁" type="tts">চোখে হাসির সাথে মুখে দেঁতো হাসি</annotation>
 		<annotation cp="😆">খোলা | জোরে হাসা | ঠোঁট | মুখ | মুখে হাসির সাথে মুখ খোলা এবং এঁটে চোখ বন্ধ করা | সন্তুষ্ট | হাসি</annotation>
 		<annotation cp="😆" type="tts">মুখে হাসির সাথে মুখ খোলা এবং এঁটে চোখ বন্ধ করা</annotation>
+		<annotation cp="😅">খোলা | ঘর্মাক্ত অবস্থা | ঠান্ডা | মুখ | মুখ খোলা এবং ঠাণ্ডা ঘামের সাথে মুখে হাসি | হাসি</annotation>
+		<annotation cp="😅" type="tts">মুখ খোলা এবং ঠাণ্ডা ঘামের সাথে মুখে হাসি</annotation>
+		<annotation cp="🤣">গড়াগড়ি | মাটি | মুখ | হাসি | হেসে মাটিতে লুটোপুটি খাওয়া</annotation>
+		<annotation cp="🤣" type="tts">হেসে মাটিতে লুটোপুটি খাওয়া</annotation>
+		<annotation cp="😂">আনন্দ | আনন্দের কান্না ভরা মুখ | কান্না | জোরে হাসা | মুখ</annotation>
+		<annotation cp="😂" type="tts">আনন্দের কান্না ভরা মুখ</annotation>
+		<annotation cp="🙂">মুখ | মুখে সামান্য হাসি | হাসি</annotation>
+		<annotation cp="🙂" type="tts">মুখে সামান্য হাসি</annotation>
+		<annotation cp="🙃">ওল্টানো চেহারা | মাথাটা নিচে তলাটা উপরে এমন মুখ | মুখ</annotation>
+		<annotation cp="🙃" type="tts">মাথাটা নিচে তলাটা উপরে এমন মুখ</annotation>
 		<annotation cp="😉">চোখ মারা | মুখ</annotation>
 		<annotation cp="😉" type="tts">চোখ মারা</annotation>
 		<annotation cp="😊">গালে লজ্জার গোলাপী আভা | চোখ | চোখে হাসির সাথে মুখে হাসি | মুখ | হাসি</annotation>
 		<annotation cp="😊" type="tts">চোখে হাসির সাথে মুখে হাসি</annotation>
-		<annotation cp="😋">ঘ্রাণ নেওয়া | মুখ | সুস্বাদু | সুস্বাদু খাদ্যের স্বাদ নেওয়ার মত মুখ</annotation>
-		<annotation cp="😋" type="tts">সুস্বাদু খাদ্যের স্বাদ নেওয়ার মত মুখ</annotation>
-		<annotation cp="😎">আবহাওয়া | উজ্জ্বল | চশমা | চোখ | মুখ | শীতল | সানগ্লাস | সানগ্লাস পরিহিত হাসি মুখ | সূর্য | হাসি</annotation>
-		<annotation cp="😎" type="tts">সানগ্লাস পরিহিত হাসি মুখ</annotation>
+		<annotation cp="😇">কল্পনা | জ্যোতির্বলয় | দেবদূত | নিরীহ | মাথায় চক্রের সাথে মুখে হাসি | মুখ | রূপকথা | হাসি</annotation>
+		<annotation cp="😇" type="tts">মাথায় চক্রের সাথে মুখে হাসি</annotation>
+		<annotation cp="🥰">ক্র্যাশ | খুব পছন্দ | প্রেমে | হার্ট সহ হাসি মুখ | হার্ট্স</annotation>
+		<annotation cp="🥰" type="tts">হার্ট সহ হাসি মুখ</annotation>
 		<annotation cp="😍">চোখ | ভালবাসা | মুখ | হার্ট | হার্টের-আকারের চোখের সাথে হাসি মুখ | হাসি</annotation>
 		<annotation cp="😍" type="tts">হার্টের-আকারের চোখের সাথে হাসি মুখ</annotation>
-		<annotation cp="😘">চুম্বন | মুখ | মুখ দিয়ে চুম্বন ছোঁড়া</annotation>
-		<annotation cp="😘" type="tts">মুখ দিয়ে চুম্বন ছোঁড়া</annotation>
-		<annotation cp="🥰">3টি হার্ট সহ হাসি মুখ | ক্র্যাশ | খুব পছন্দ | প্রেমে</annotation>
-		<annotation cp="🥰" type="tts">3টি হার্ট সহ হাসি মুখ</annotation>
-		<annotation cp="😗">চুম্বন | চুম্বনরত মুখ | মুখ</annotation>
-		<annotation cp="😗" type="tts">চুম্বনরত মুখ</annotation>
-		<annotation cp="😙">চুম্বন | চুম্বনরত মুখের সাথে চোখে হাসি | চোখ | মুখ | হাসি</annotation>
-		<annotation cp="😙" type="tts">চুম্বনরত মুখের সাথে চোখে হাসি</annotation>
-		<annotation cp="😚">চুম্বন | চোখ | চোখ বন্ধ থাকা অবস্থায় চুম্বনরত মুখ | বন্ধ | মুখ</annotation>
-		<annotation cp="😚" type="tts">চোখ বন্ধ থাকা অবস্থায় চুম্বনরত মুখ</annotation>
-		<annotation cp="☺">নিশ্চিন্ত | মুখ | রূপরেখা | হাসি</annotation>
-		<annotation cp="☺" type="tts">হাসি মুখ</annotation>
-		<annotation cp="🙂">মুখ | মুখে সামান্য হাসি | হাসি</annotation>
-		<annotation cp="🙂" type="tts">মুখে সামান্য হাসি</annotation>
-		<annotation cp="🤗">আলিঙ্গন | আলিঙ্গন রত | আলিঙ্গনরত মুখ | মুখ</annotation>
-		<annotation cp="🤗" type="tts">আলিঙ্গনরত মুখ</annotation>
 		<annotation cp="🤩">চোখ | তারকা-প্রণয়াভিলাসী | তারা | মুখ | হাস্যরত</annotation>
 		<annotation cp="🤩" type="tts">তারকা-প্রণয়াভিলাসী</annotation>
+		<annotation cp="😘">চুম্বন | মুখ | মুখ দিয়ে চুম্বন ছোঁড়া</annotation>
+		<annotation cp="😘" type="tts">মুখ দিয়ে চুম্বন ছোঁড়া</annotation>
+		<annotation cp="😗">চুম্বন | চুম্বনরত মুখ | মুখ</annotation>
+		<annotation cp="😗" type="tts">চুম্বনরত মুখ</annotation>
+		<annotation cp="☺">নিশ্চিন্ত | মুখ | রূপরেখা | হাসি</annotation>
+		<annotation cp="☺" type="tts">হাসি মুখ</annotation>
+		<annotation cp="😚">চুম্বন | চোখ | চোখ বন্ধ থাকা অবস্থায় চুম্বনরত মুখ | বন্ধ | মুখ</annotation>
+		<annotation cp="😚" type="tts">চোখ বন্ধ থাকা অবস্থায় চুম্বনরত মুখ</annotation>
+		<annotation cp="😙">চুম্বন | চুম্বনরত মুখের সাথে চোখে হাসি | চোখ | মুখ | হাসি</annotation>
+		<annotation cp="😙" type="tts">চুম্বনরত মুখের সাথে চোখে হাসি</annotation>
+		<annotation cp="😋">ঘ্রাণ নেওয়া | মুখ | সুস্বাদু | সুস্বাদু খাদ্যের স্বাদ নেওয়ার মত মুখ</annotation>
+		<annotation cp="😋" type="tts">সুস্বাদু খাদ্যের স্বাদ নেওয়ার মত মুখ</annotation>
+		<annotation cp="😛">জিভ বার করা মুখ | জিভ ভেঙানো | মুখ</annotation>
+		<annotation cp="😛" type="tts">জিভ বার করা মুখ</annotation>
+		<annotation cp="😜">চোখ | চোখ মারা | জিভ বার করা | জিভ বার করে কাটা ও চোখ মারা মুখ | মজা করা | মুখ</annotation>
+		<annotation cp="😜" type="tts">জিভ বার করে কাটা ও চোখ মারা মুখ</annotation>
+		<annotation cp="🤪">চোখ | ছোট | পাগলের মত মুখ | বড়</annotation>
+		<annotation cp="🤪" type="tts">পাগলের মত মুখ</annotation>
+		<annotation cp="😝">চোখ | জিভ বার করা | জিভ বার করে কাটা ও দৃঢ়ভাবে চোখ বন্ধ করা মুখ | ভয়ঙ্কর | মুখ | স্বাদ</annotation>
+		<annotation cp="😝" type="tts">জিভ বার করে কাটা ও দৃঢ়ভাবে চোখ বন্ধ করা মুখ</annotation>
+		<annotation cp="🤑">অর্থের মত মুখ | টাকা | ঠোঁট | মুখ</annotation>
+		<annotation cp="🤑" type="tts">অর্থের মত মুখ</annotation>
+		<annotation cp="🤗">আলিঙ্গন | আলিঙ্গন রত | আলিঙ্গনরত মুখ | মুখ</annotation>
+		<annotation cp="🤗" type="tts">আলিঙ্গনরত মুখ</annotation>
+		<annotation cp="🤭">উল্লসিত মুখ | মুখের ওপর হাত দেওয়া মুখ</annotation>
+		<annotation cp="🤭" type="tts">মুখের ওপর হাত দেওয়া মুখ</annotation>
+		<annotation cp="🤫">চুপ করা | চুপ করা মুখ | শান্ত</annotation>
+		<annotation cp="🤫" type="tts">চুপ করা মুখ</annotation>
 		<annotation cp="🤔">চিন্তা করার মত মুখ | চিন্তিত | মুখ</annotation>
 		<annotation cp="🤔" type="tts">চিন্তা করার মত মুখ</annotation>
+		<annotation cp="🤐">ঠোঁট | মুখ | মুখে কুলুপ আঁটা</annotation>
+		<annotation cp="🤐" type="tts">মুখে কুলুপ আঁটা</annotation>
 		<annotation cp="🤨">অবিশ্বাস | ভ্রু কোচকানো মুখ | সন্দেহভাজন</annotation>
 		<annotation cp="🤨" type="tts">ভ্রু কোচকানো মুখ</annotation>
 		<annotation cp="😐">নিরপেক্ষ | ভাবলেশহীন | মুখ</annotation>
@@ -77,98 +207,26 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😑" type="tts">ভাবলেশহীন মুখ</annotation>
 		<annotation cp="😶">ঠোঁট | নীরব | মুখ | মুখ ছাড়াই মুখমণ্ডল | শান্ত</annotation>
 		<annotation cp="😶" type="tts">মুখ ছাড়াই মুখমণ্ডল</annotation>
-		<annotation cp="🙄">ঘূর্ণায়মান | চোখ | চোখ গোল গোল করা মুখ | মুখ</annotation>
-		<annotation cp="🙄" type="tts">চোখ গোল গোল করা মুখ</annotation>
 		<annotation cp="😏">কৃত্রিম হাসির মুখ | ব্যঙ্গ করে হাসা | মুখ</annotation>
 		<annotation cp="😏" type="tts">কৃত্রিম হাসির মুখ</annotation>
-		<annotation cp="😣">জিদ করা | জেদি মুখ | মুখ</annotation>
-		<annotation cp="😣" type="tts">জেদি মুখ</annotation>
-		<annotation cp="😥">আশ্চর্য হওয়া | মুখ | স্বস্তি পাওয়া | হতাশ | হতাশ তবে স্বস্তি পাওয়া মুখ</annotation>
-		<annotation cp="😥" type="tts">হতাশ তবে স্বস্তি পাওয়া মুখ</annotation>
-		<annotation cp="😮">খোলা | ঠোঁট | মুখ | সহানুভূতি | হাঁ করা মুখ</annotation>
-		<annotation cp="😮" type="tts">হাঁ করা মুখ</annotation>
-		<annotation cp="🤐">ঠোঁট | মুখ | মুখে কুলুপ আঁটা</annotation>
-		<annotation cp="🤐" type="tts">মুখে কুলুপ আঁটা</annotation>
-		<annotation cp="😯">চুপ করার ইঙ্গিত করা | নিস্তব্ধ মুখ | বিস্মিত হওয়া | মুখ | হতভম্ব হওয়া</annotation>
-		<annotation cp="😯" type="tts">নিস্তব্ধ মুখ</annotation>
-		<annotation cp="😪">ঘুম ঘুম ভাব | ঘুমন্ত অবস্থা | মুখ</annotation>
-		<annotation cp="😪" type="tts">ঘুম ঘুম ভাব</annotation>
-		<annotation cp="😫">ক্লান্ত | মুখ</annotation>
-		<annotation cp="😫" type="tts">ক্লান্ত মুখ</annotation>
-		<annotation cp="😴">ঘুমন্ত অবস্থা | ঘুমন্ত মুখ | নাক ডাকা | মুখ</annotation>
-		<annotation cp="😴" type="tts">ঘুমন্ত মুখ</annotation>
-		<annotation cp="😌">চিন্তা মুক্ত মুখ | মুখ | স্বস্তি পাওয়া</annotation>
-		<annotation cp="😌" type="tts">চিন্তা মুক্ত মুখ</annotation>
-		<annotation cp="😛">জিভ বার করা মুখ | জিভ ভেঙানো | মুখ</annotation>
-		<annotation cp="😛" type="tts">জিভ বার করা মুখ</annotation>
-		<annotation cp="😜">চোখ | চোখ মারা | জিভ বার করা | জিভ বার করে কাটা ও চোখ মারা মুখ | মজা করা | মুখ</annotation>
-		<annotation cp="😜" type="tts">জিভ বার করে কাটা ও চোখ মারা মুখ</annotation>
-		<annotation cp="😝">চোখ | জিভ বার করা | জিভ বার করে কাটা ও দৃঢ়ভাবে চোখ বন্ধ করা মুখ | ভয়ঙ্কর | মুখ | স্বাদ</annotation>
-		<annotation cp="😝" type="tts">জিভ বার করে কাটা ও দৃঢ়ভাবে চোখ বন্ধ করা মুখ</annotation>
-		<annotation cp="🤤">মুখ | লোভী</annotation>
-		<annotation cp="🤤" type="tts">লোভী মুখ</annotation>
 		<annotation cp="😒">অসুখী | বিরক্ত | মুখ</annotation>
 		<annotation cp="😒" type="tts">বিরক্ত মুখ</annotation>
-		<annotation cp="😓">ঘর্মাক্ত অবস্থা | ঠান্ডা | মুখ | মুখের মধ্যে ঠাণ্ডা ঘাম লাগা</annotation>
-		<annotation cp="😓" type="tts">মুখের মধ্যে ঠাণ্ডা ঘাম লাগা</annotation>
-		<annotation cp="😔">বিষণ্ণ | মনমরা | মুখ</annotation>
-		<annotation cp="😔" type="tts">বিষণ্ণ মুখ</annotation>
-		<annotation cp="😕">বিভ্রান্ত | মুখ</annotation>
-		<annotation cp="😕" type="tts">বিভ্রান্ত মুখ</annotation>
-		<annotation cp="🙃">ওল্টানো চেহারা | মাথাটা নিচে তলাটা উপরে এমন মুখ | মুখ</annotation>
-		<annotation cp="🙃" type="tts">মাথাটা নিচে তলাটা উপরে এমন মুখ</annotation>
-		<annotation cp="🤑">অর্থের মত মুখ | টাকা | ঠোঁট | মুখ</annotation>
-		<annotation cp="🤑" type="tts">অর্থের মত মুখ</annotation>
-		<annotation cp="😲">অবাক হয়ে যাওয়া মুখ | আশ্চর্য হওয়া | মর্মাহত | মুখ | সম্পূর্ণ</annotation>
-		<annotation cp="😲" type="tts">অবাক হয়ে যাওয়া মুখ</annotation>
-		<annotation cp="☹">ভ্রূ কুচঁকানো | মুখ | রাগান্বিত মুখ</annotation>
-		<annotation cp="☹" type="tts">রাগান্বিত মুখ</annotation>
-		<annotation cp="🙁">ভ্রূ কুচঁকানো | মুখ | সামান্য রাগান্বিত মুখ</annotation>
-		<annotation cp="🙁" type="tts">সামান্য রাগান্বিত মুখ</annotation>
-		<annotation cp="😖">বিস্মিত মুখ | মুখ | হকচকিয়ে যাওয়া</annotation>
-		<annotation cp="😖" type="tts">বিস্মিত মুখ</annotation>
-		<annotation cp="😞">মুখ | হতাশ</annotation>
-		<annotation cp="😞" type="tts">হতাশ মুখ</annotation>
-		<annotation cp="😟">উদ্বিগ্ন | চিন্তিত মুখ | মুখ</annotation>
-		<annotation cp="😟" type="tts">চিন্তিত মুখ</annotation>
-		<annotation cp="😤">জয়জয়কার | নাক থেকে স্টিম বেরোচ্ছে এমন মুখ | বিজয়ী | মুখ</annotation>
-		<annotation cp="😤" type="tts">নাক থেকে স্টিম বেরোচ্ছে এমন মুখ</annotation>
-		<annotation cp="😢">কান্না | কান্নাকাটি করা | ক্রন্দনরত মুখ | দুঃখিত | মুখ</annotation>
-		<annotation cp="😢" type="tts">ক্রন্দনরত মুখ</annotation>
-		<annotation cp="😭">অশ্রুসজল মুখ | কান্না | কান্নাকাটি করা | জোরে ক্রন্দনরত মুখ | দুঃখিত | মুখ</annotation>
-		<annotation cp="😭" type="tts">জোরে ক্রন্দনরত মুখ</annotation>
-		<annotation cp="😦">খোলা | খোলা মুখের সাথে ভ্রুকুটি মুখমণ্ডল | ঠোঁট | ভ্রূ কুচঁকানো | মুখ</annotation>
-		<annotation cp="😦" type="tts">খোলা মুখের সাথে ভ্রুকুটি মুখমণ্ডল</annotation>
-		<annotation cp="😧">উদ্বেগপূর্ণ মুখ | বেদনার্ত | মুখ</annotation>
-		<annotation cp="😧" type="tts">উদ্বেগপূর্ণ মুখ</annotation>
-		<annotation cp="😨">ভয় | ভয়ার্ত মুখ | ভীত | ভীতিজনক | মুখ</annotation>
-		<annotation cp="😨" type="tts">ভয়ার্ত মুখ</annotation>
-		<annotation cp="😩">ক্লান্ত হওয়া | পরিশ্রান্ত | মুখ</annotation>
-		<annotation cp="😩" type="tts">পরিশ্রান্ত মুখ</annotation>
-		<annotation cp="🤯">ফেটে পরা মাথা | মর্মাহত মুখ</annotation>
-		<annotation cp="🤯" type="tts">ফেটে পরা মাথা</annotation>
+		<annotation cp="🙄">ঘূর্ণায়মান | চোখ | চোখ গোল গোল করা মুখ | মুখ</annotation>
+		<annotation cp="🙄" type="tts">চোখ গোল গোল করা মুখ</annotation>
 		<annotation cp="😬">দাঁত বার করা মুখ | ভেংচানো | মুখ</annotation>
 		<annotation cp="😬" type="tts">দাঁত বার করা মুখ</annotation>
-		<annotation cp="😰">আকস্মিকতা | খোলা | খোলা মুখ এবং ঠাণ্ডা ঘামের সাথে মুখমণ্ডল | ঘর্মাক্ত অবস্থা | ঠান্ডা | ঠোঁট | নীল | মুখ</annotation>
-		<annotation cp="😰" type="tts">খোলা মুখ এবং ঠাণ্ডা ঘামের সাথে মুখমণ্ডল</annotation>
-		<annotation cp="😱">খোলা মুখ | চিৎকার করা | ভয় | ভয়ে চিৎকার করা মুখ | ভীত | ভীতিজনক | মুখ</annotation>
-		<annotation cp="😱" type="tts">ভয়ে চিৎকার করা মুখ</annotation>
-		<annotation cp="🥵">গরম | গরমে ঘাম ঝরা লাল মুখ | ঘাম ঝরছে | জ্বর জ্বর | লাল-মুখযুক্ত | হিট স্ট্রোক</annotation>
-		<annotation cp="🥵" type="tts">গরমে ঘাম ঝরা লাল মুখ</annotation>
-		<annotation cp="🥶">জমিয়ে দেওয়া | ঠান্ডা | ঠান্ডায় দাঁত কাঁপা নীল মুখ | তুষারিকা | নীল-মুখযুক্ত | হাড় কাঁপানো ঠান্ডা</annotation>
-		<annotation cp="🥶" type="tts">ঠান্ডায় দাঁত কাঁপা নীল মুখ</annotation>
-		<annotation cp="😳">চমকিত | মুখ | রক্তিম</annotation>
-		<annotation cp="😳" type="tts">রক্তিম মুখ</annotation>
-		<annotation cp="🤪">চোখ | ছোট | পাগলের মত মুখ | বড়</annotation>
-		<annotation cp="🤪" type="tts">পাগলের মত মুখ</annotation>
-		<annotation cp="😵">মুখ | হতবুদ্ধি | হতবুদ্ধি হওয়া মুখ</annotation>
-		<annotation cp="😵" type="tts">হতবুদ্ধি হওয়া মুখ</annotation>
-		<annotation cp="😡">ক্রুদ্ধ | ক্ষিপ্ত | গর্জন | বিস্ফারিত চোখ | বিস্ফুরিত মুখ | মুখ | লাল</annotation>
-		<annotation cp="😡" type="tts">বিস্ফুরিত মুখ</annotation>
-		<annotation cp="😠">ক্রুদ্ধ | ক্ষিপ্ত | মুখ | রাগের মুখ</annotation>
-		<annotation cp="😠" type="tts">রাগের মুখ</annotation>
-		<annotation cp="🤬">ঠোটে চিহ্নযুক্ত মুখ | দিব্যি খাওয়া মুখ</annotation>
-		<annotation cp="🤬" type="tts">ঠোটে চিহ্নযুক্ত মুখ</annotation>
+		<annotation cp="🤥">পিনাকিও | মিথ্যা | মিথ্যুকের নাক লম্বা | মুখ</annotation>
+		<annotation cp="🤥" type="tts">মিথ্যুকের নাক লম্বা</annotation>
+		<annotation cp="😌">চিন্তা মুক্ত মুখ | মুখ | স্বস্তি পাওয়া</annotation>
+		<annotation cp="😌" type="tts">চিন্তা মুক্ত মুখ</annotation>
+		<annotation cp="😔">বিষণ্ণ | মনমরা | মুখ</annotation>
+		<annotation cp="😔" type="tts">বিষণ্ণ মুখ</annotation>
+		<annotation cp="😪">ঘুম ঘুম ভাব | ঘুমন্ত অবস্থা | মুখ</annotation>
+		<annotation cp="😪" type="tts">ঘুম ঘুম ভাব</annotation>
+		<annotation cp="🤤">মুখ | লোভী</annotation>
+		<annotation cp="🤤" type="tts">লোভী মুখ</annotation>
+		<annotation cp="😴">ঘুমন্ত অবস্থা | ঘুমন্ত মুখ | নাক ডাকা | মুখ</annotation>
+		<annotation cp="😴" type="tts">ঘুমন্ত মুখ</annotation>
 		<annotation cp="😷">অসুস্থ | ঠান্ডা লাগা | ডাক্তার | মুখ | মুখের মধ্যে মেডিক্যাল মাস্ক</annotation>
 		<annotation cp="😷" type="tts">মুখের মধ্যে মেডিক্যাল মাস্ক</annotation>
 		<annotation cp="🤒">অসুস্থ | থার্মোমিটার | মুখ | মুখের মধ্যে থার্মোমিটার | রোগগ্রস্ত</annotation>
@@ -181,53 +239,109 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤮" type="tts">বমনরত মুখ</annotation>
 		<annotation cp="🤧">ভাল থাক | মুখ | হাঁচি</annotation>
 		<annotation cp="🤧" type="tts">হাঁচি</annotation>
-		<annotation cp="😇">কল্পনা | জ্যোতির্বলয় | দেবদূত | নিরীহ | মাথায় চক্রের সাথে মুখে হাসি | মুখ | রূপকথা | হাসি</annotation>
-		<annotation cp="😇" type="tts">মাথায় চক্রের সাথে মুখে হাসি</annotation>
+		<annotation cp="🥵">গরম | গরমে ঘাম ঝরা লাল মুখ | ঘাম ঝরছে | জ্বর জ্বর | লাল-মুখযুক্ত | হিট স্ট্রোক</annotation>
+		<annotation cp="🥵" type="tts">গরমে ঘাম ঝরা লাল মুখ</annotation>
+		<annotation cp="🥶">জমিয়ে দেওয়া | ঠান্ডা | ঠান্ডায় দাঁত কাঁপা নীল মুখ | তুষারিকা | নীল-মুখযুক্ত | হাড় কাঁপানো ঠান্ডা</annotation>
+		<annotation cp="🥶" type="tts">ঠান্ডায় দাঁত কাঁপা নীল মুখ</annotation>
+		<annotation cp="🥴">অর্ধেক খোলা চোখ | তরঙ্গায়িত মুখ | প্রায় মাতাল | মত্ত | হতবুদ্ধি | হতবুদ্ধি মুখ</annotation>
+		<annotation cp="🥴" type="tts">হতবুদ্ধি মুখ</annotation>
+		<annotation cp="😵">মুখ | হতবুদ্ধি | হতবুদ্ধি হওয়া মুখ</annotation>
+		<annotation cp="😵" type="tts">হতবুদ্ধি হওয়া মুখ</annotation>
+		<annotation cp="🤯">ফেটে পরা মাথা | মর্মাহত মুখ</annotation>
+		<annotation cp="🤯" type="tts">ফেটে পরা মাথা</annotation>
 		<annotation cp="🤠">কাউগার্ল | কাউবয় | কাউবয় টুপি পরা মুখ | টুপি | মুখ</annotation>
 		<annotation cp="🤠" type="tts">কাউবয় টুপি পরা মুখ</annotation>
 		<annotation cp="🥳">উদযাপন | টুপি | টুপি পরে বাঁশি বাজিয়ে পার্টি উদযাপন করা মুখ | পার্টি | বাঁশি</annotation>
 		<annotation cp="🥳" type="tts">টুপি পরে বাঁশি বাজিয়ে পার্টি উদযাপন করা মুখ</annotation>
-		<annotation cp="🥴">অর্ধেক খোলা চোখ | তরঙ্গায়িত মুখ | প্রায় মাতাল | মত্ত | হতবুদ্ধি | হতবুদ্ধি মুখ</annotation>
-		<annotation cp="🥴" type="tts">হতবুদ্ধি মুখ</annotation>
-		<annotation cp="🥺">অনুনয়কারী মুখ | করুণা | কুকুর ছানার মত চোখ | ভিক্ষা</annotation>
-		<annotation cp="🥺" type="tts">অনুনয়কারী মুখ</annotation>
-		<annotation cp="🤥">পিনাকিও | মিথ্যা | মিথ্যুকের নাক লম্বা | মুখ</annotation>
-		<annotation cp="🤥" type="tts">মিথ্যুকের নাক লম্বা</annotation>
-		<annotation cp="🤫">চুপ করা | চুপ করা মুখ | শান্ত</annotation>
-		<annotation cp="🤫" type="tts">চুপ করা মুখ</annotation>
-		<annotation cp="🤭">উল্লসিত মুখ | মুখের ওপর হাত দেওয়া মুখ</annotation>
-		<annotation cp="🤭" type="tts">মুখের ওপর হাত দেওয়া মুখ</annotation>
-		<annotation cp="🧐">একচোখে চশমা ওয়ালা মুখ | দমবন্ধ করা মুখ</annotation>
-		<annotation cp="🧐" type="tts">একচোখে চশমা ওয়ালা মুখ</annotation>
+		<annotation cp="😎">আবহাওয়া | উজ্জ্বল | চশমা | চোখ | মুখ | শীতল | সানগ্লাস | সানগ্লাস পরিহিত হাসি মুখ | সূর্য | হাসি</annotation>
+		<annotation cp="😎" type="tts">সানগ্লাস পরিহিত হাসি মুখ</annotation>
 		<annotation cp="🤓">গুরু | পড়ুয়া মুখ | বোকা | মুখ</annotation>
 		<annotation cp="🤓" type="tts">পড়ুয়া মুখ</annotation>
+		<annotation cp="🧐">একচোখে চশমা ওয়ালা মুখ | দমবন্ধ করা মুখ</annotation>
+		<annotation cp="🧐" type="tts">একচোখে চশমা ওয়ালা মুখ</annotation>
+		<annotation cp="😕">বিভ্রান্ত | মুখ</annotation>
+		<annotation cp="😕" type="tts">বিভ্রান্ত মুখ</annotation>
+		<annotation cp="😟">উদ্বিগ্ন | চিন্তিত মুখ | মুখ</annotation>
+		<annotation cp="😟" type="tts">চিন্তিত মুখ</annotation>
+		<annotation cp="🙁">ভ্রূ কুচঁকানো | মুখ | সামান্য রাগান্বিত মুখ</annotation>
+		<annotation cp="🙁" type="tts">সামান্য রাগান্বিত মুখ</annotation>
+		<annotation cp="☹">ভ্রূ কুচঁকানো | মুখ | রাগান্বিত মুখ</annotation>
+		<annotation cp="☹" type="tts">রাগান্বিত মুখ</annotation>
+		<annotation cp="😮">খোলা | ঠোঁট | মুখ | সহানুভূতি | হাঁ করা মুখ</annotation>
+		<annotation cp="😮" type="tts">হাঁ করা মুখ</annotation>
+		<annotation cp="😯">চুপ করার ইঙ্গিত করা | নিস্তব্ধ মুখ | বিস্মিত হওয়া | মুখ | হতভম্ব হওয়া</annotation>
+		<annotation cp="😯" type="tts">নিস্তব্ধ মুখ</annotation>
+		<annotation cp="😲">অবাক হয়ে যাওয়া মুখ | আশ্চর্য হওয়া | মর্মাহত | মুখ | সম্পূর্ণ</annotation>
+		<annotation cp="😲" type="tts">অবাক হয়ে যাওয়া মুখ</annotation>
+		<annotation cp="😳">চমকিত | মুখ | রক্তিম</annotation>
+		<annotation cp="😳" type="tts">রক্তিম মুখ</annotation>
+		<annotation cp="🥺">অনুনয়কারী মুখ | করুণা | কুকুর ছানার মত চোখ | ভিক্ষা</annotation>
+		<annotation cp="🥺" type="tts">অনুনয়কারী মুখ</annotation>
+		<annotation cp="😦">খোলা | খোলা মুখের সাথে ভ্রুকুটি মুখমণ্ডল | ঠোঁট | ভ্রূ কুচঁকানো | মুখ</annotation>
+		<annotation cp="😦" type="tts">খোলা মুখের সাথে ভ্রুকুটি মুখমণ্ডল</annotation>
+		<annotation cp="😧">উদ্বেগপূর্ণ মুখ | বেদনার্ত | মুখ</annotation>
+		<annotation cp="😧" type="tts">উদ্বেগপূর্ণ মুখ</annotation>
+		<annotation cp="😨">ভয় | ভয়ার্ত মুখ | ভীত | ভীতিজনক | মুখ</annotation>
+		<annotation cp="😨" type="tts">ভয়ার্ত মুখ</annotation>
+		<annotation cp="😰">আকস্মিকতা | খোলা | খোলা মুখ এবং ঠাণ্ডা ঘামের সাথে মুখমণ্ডল | ঘর্মাক্ত অবস্থা | ঠান্ডা | ঠোঁট | নীল | মুখ</annotation>
+		<annotation cp="😰" type="tts">খোলা মুখ এবং ঠাণ্ডা ঘামের সাথে মুখমণ্ডল</annotation>
+		<annotation cp="😥">আশ্চর্য হওয়া | মুখ | স্বস্তি পাওয়া | হতাশ | হতাশ তবে স্বস্তি পাওয়া মুখ</annotation>
+		<annotation cp="😥" type="tts">হতাশ তবে স্বস্তি পাওয়া মুখ</annotation>
+		<annotation cp="😢">কান্না | কান্নাকাটি করা | ক্রন্দনরত মুখ | দুঃখিত | মুখ</annotation>
+		<annotation cp="😢" type="tts">ক্রন্দনরত মুখ</annotation>
+		<annotation cp="😭">অশ্রুসজল মুখ | কান্না | কান্নাকাটি করা | জোরে ক্রন্দনরত মুখ | দুঃখিত | মুখ</annotation>
+		<annotation cp="😭" type="tts">জোরে ক্রন্দনরত মুখ</annotation>
+		<annotation cp="😱">খোলা মুখ | চিৎকার করা | ভয় | ভয়ে চিৎকার করা মুখ | ভীত | ভীতিজনক | মুখ</annotation>
+		<annotation cp="😱" type="tts">ভয়ে চিৎকার করা মুখ</annotation>
+		<annotation cp="😖">বিস্মিত মুখ | মুখ | হকচকিয়ে যাওয়া</annotation>
+		<annotation cp="😖" type="tts">বিস্মিত মুখ</annotation>
+		<annotation cp="😣">জিদ করা | জেদি মুখ | মুখ</annotation>
+		<annotation cp="😣" type="tts">জেদি মুখ</annotation>
+		<annotation cp="😞">মুখ | হতাশ</annotation>
+		<annotation cp="😞" type="tts">হতাশ মুখ</annotation>
+		<annotation cp="😓">ঘর্মাক্ত অবস্থা | ঠান্ডা | মুখ | মুখের মধ্যে ঠাণ্ডা ঘাম লাগা</annotation>
+		<annotation cp="😓" type="tts">মুখের মধ্যে ঠাণ্ডা ঘাম লাগা</annotation>
+		<annotation cp="😩">ক্লান্ত হওয়া | পরিশ্রান্ত | মুখ</annotation>
+		<annotation cp="😩" type="tts">পরিশ্রান্ত মুখ</annotation>
+		<annotation cp="😫">ক্লান্ত | মুখ</annotation>
+		<annotation cp="😫" type="tts">ক্লান্ত মুখ</annotation>
+		<annotation cp="🥱">উদাস | ক্লান্ত | হাই তোলা | হাই তোলা মুখ</annotation>
+		<annotation cp="🥱" type="tts">হাই তোলা মুখ</annotation>
+		<annotation cp="😤">জয়জয়কার | নাক থেকে স্টিম বেরোচ্ছে এমন মুখ | বিজয়ী | মুখ</annotation>
+		<annotation cp="😤" type="tts">নাক থেকে স্টিম বেরোচ্ছে এমন মুখ</annotation>
+		<annotation cp="😡">ক্রুদ্ধ | ক্ষিপ্ত | গর্জন | বিস্ফারিত চোখ | বিস্ফুরিত মুখ | মুখ | লাল</annotation>
+		<annotation cp="😡" type="tts">বিস্ফুরিত মুখ</annotation>
+		<annotation cp="😠">ক্রুদ্ধ | ক্ষিপ্ত | মুখ | রাগের মুখ</annotation>
+		<annotation cp="😠" type="tts">রাগের মুখ</annotation>
+		<annotation cp="🤬">ঠোটে চিহ্নযুক্ত মুখ | দিব্যি খাওয়া মুখ</annotation>
+		<annotation cp="🤬" type="tts">ঠোটে চিহ্নযুক্ত মুখ</annotation>
 		<annotation cp="😈">কল্পনা | মুখ | রূপকথা | শিং | শিং এর সাথে হাসি মুখ | হাসি</annotation>
 		<annotation cp="😈" type="tts">শিং এর সাথে হাসি মুখ</annotation>
 		<annotation cp="👿">কল্পনা | দৈত্য | মুখ | রূপকথা | শয়তান</annotation>
 		<annotation cp="👿" type="tts">শয়তান</annotation>
+		<annotation cp="💀">খুলি | দানব | মুখ | মৃত্যু | রূপকথা | শরীর</annotation>
+		<annotation cp="💀" type="tts">খুলি</annotation>
+		<annotation cp="☠">আড়াআড়িভাবে থাকা দু‘টি হাড় | খুলি | দানব | মাথার খুলি এবং আড়াআড়িভাবে থাকা দু‘টি হাড় | মুখ | মৃত্যু | শরীর</annotation>
+		<annotation cp="☠" type="tts">মাথার খুলি এবং আড়াআড়িভাবে থাকা দু‘টি হাড়</annotation>
+		<annotation cp="💩">অধৈর্য্য প্রকাশ করা | উল্টান দিক | কমিক | গোবর | দানব | পাইল অফ পো | মুখ</annotation>
+		<annotation cp="💩" type="tts">পাইল অফ পো</annotation>
 		<annotation cp="🤡">জোকার | জোকারের মুখ | মুখ</annotation>
 		<annotation cp="🤡" type="tts">জোকারের মুখ</annotation>
 		<annotation cp="👹">কল্পনা | দানব | মুখ | রাক্ষস | রূপকথা</annotation>
 		<annotation cp="👹" type="tts">রাক্ষস</annotation>
 		<annotation cp="👺">অপদেবতা | কল্পনা | জাপানি | দানব | বুনো জীব | মুখ | রূপকথা</annotation>
 		<annotation cp="👺" type="tts">অপদেবতা</annotation>
-		<annotation cp="💀">খুলি | দানব | মুখ | মৃত্যু | রূপকথা | শরীর</annotation>
-		<annotation cp="💀" type="tts">খুলি</annotation>
-		<annotation cp="☠">আড়াআড়িভাবে থাকা দু‘টি হাড় | খুলি | দানব | মাথার খুলি এবং আড়াআড়িভাবে থাকা দু‘টি হাড় | মুখ | মৃত্যু | শরীর</annotation>
-		<annotation cp="☠" type="tts">মাথার খুলি এবং আড়াআড়িভাবে থাকা দু‘টি হাড়</annotation>
 		<annotation cp="👻">কল্পনা | দানব | বুনো জীব | ভূত | মুখ | রূপকথা</annotation>
 		<annotation cp="👻" type="tts">ভূত</annotation>
 		<annotation cp="👽">আপার্থিব জীব | উড়ন্ত চাকতি | কল্পনা | দানব | বুনো জীব | ভীন গ্রহের প্রাণী | মহাকাশ | মুখ | রূপকথা</annotation>
 		<annotation cp="👽" type="tts">ভীন গ্রহের প্রাণী</annotation>
 		<annotation cp="👾">আপার্থিব জীব | উড়ন্ত চাকতি | এলিয়ান মনস্টার | কল্পনা | দানব | বুনো জীব | ভীন গ্রহের প্রাণী | মহাকাশ | মুখ | রূপকথা</annotation>
 		<annotation cp="👾" type="tts">এলিয়ান মনস্টার</annotation>
-		<annotation cp="🤖">দানব | মুখ | যন্ত্রমানব | রোবোটের মুখ</annotation>
-		<annotation cp="🤖" type="tts">রোবোটের মুখ</annotation>
-		<annotation cp="💩">অধৈর্য্য প্রকাশ করা | উল্টান দিক | কমিক | গোবর | দানব | পাইল অফ পো | মুখ</annotation>
-		<annotation cp="💩" type="tts">পাইল অফ পো</annotation>
-		<annotation cp="😺">খোলা | ঠোঁট | বিড়াল | মুখ | মুখ খোলা অবস্থায় বেড়ালের হাসি মুখ | হাসি</annotation>
+		<annotation cp="🤖">দানব | মুখ | রোবোট</annotation>
+		<annotation cp="🤖" type="tts">রোবোট</annotation>
+		<annotation cp="😺">খোলা | বিড়াল | মুখ | মুখ খোলা অবস্থায় বেড়ালের হাসি মুখ | হাসি</annotation>
 		<annotation cp="😺" type="tts">মুখ খোলা অবস্থায় বেড়ালের হাসি মুখ</annotation>
-		<annotation cp="😸">চোখ | চোখে হাসির সাথে মুখে হাসি বিড়াল | চোচোখে হাসির সাথে মুখে হাসি | দেঁতো হাসি | বিড়াল | মুখ | হাসি</annotation>
+		<annotation cp="😸">চোখ | চোখে হাসির সাথে মুখে হাসি বিড়াল | দেঁতো হাসি | বিড়াল | মুখ | হাসি</annotation>
 		<annotation cp="😸" type="tts">চোখে হাসির সাথে মুখে হাসি বিড়াল</annotation>
 		<annotation cp="😹">আনন্দ | আনন্দের কান্না সহ বেড়ালের মুখ | কান্না | বিড়াল | মুখ</annotation>
 		<annotation cp="😹" type="tts">আনন্দের কান্না সহ বেড়ালের মুখ</annotation>
@@ -239,7 +353,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😽" type="tts">বন্ধ চোখ সহ চুম্বনরত বিড়ালের মুখ</annotation>
 		<annotation cp="🙀">ক্লান্ত বিড়ালের মুখ | পরিশ্রান্ত | বিড়াল | বিস্ময়সূচক মুখ গোল করে ওহঃ করা | বিস্মিত হওয়া | মুখ</annotation>
 		<annotation cp="🙀" type="tts">ক্লান্ত বিড়ালের মুখ</annotation>
-		<annotation cp="😿">কান্না | কান্নাকাটি করা | দুঃখিত | বিড়াল | বিড়ালের মুখে কান্না | মুখ</annotation>
+		<annotation cp="😿">কান্না | দুঃখিত | বিড়াল | বিড়ালের মুখে কান্না | মুখ</annotation>
 		<annotation cp="😿" type="tts">বিড়ালের মুখে কান্না</annotation>
 		<annotation cp="😾">বিড়াল | বিস্ফারিত চোখ | বিস্ফুরিত বিড়ালের মুখ | মুখ</annotation>
 		<annotation cp="😾" type="tts">বিস্ফুরিত বিড়ালের মুখ</annotation>
@@ -249,6 +363,172 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🙉" type="tts">কোনো খারাপ কিছু শুনব না</annotation>
 		<annotation cp="🙊">অঙ্গভঙ্গি | কোনো খারাপ কথা বলব না | কোনো খারাপ কথা বলব না নিষিদ্ধ | বাঁদর | মুখ</annotation>
 		<annotation cp="🙊" type="tts">কোনো খারাপ কথা বলব না</annotation>
+		<annotation cp="💋">চুম্বন | চুম্বনের চিহ্ন | ঠোট</annotation>
+		<annotation cp="💋" type="tts">চুম্বনের চিহ্ন</annotation>
+		<annotation cp="💌">চিঠি | প্রেমের চিঠি | ভালবাসা | মেল | রোমান্স | হৃদয়</annotation>
+		<annotation cp="💌" type="tts">প্রেমের চিঠি</annotation>
+		<annotation cp="💘">কিউপিড | তীর | তীর বিদ্ধ হার্ট</annotation>
+		<annotation cp="💘" type="tts">তীর বিদ্ধ হার্ট</annotation>
+		<annotation cp="💝">ফিতা | ভ্যালেন্টাইন | রিবন বাঁধা হার্ট | হার্ট</annotation>
+		<annotation cp="💝" type="tts">রিবন বাঁধা হার্ট</annotation>
+		<annotation cp="💖">উত্তেজিত | জ্বলজ্বলে হার্ট | ঝকমক করা | হৃদয়</annotation>
+		<annotation cp="💖" type="tts">জ্বলজ্বলে হার্ট</annotation>
+		<annotation cp="💗">উত্তেজিত | ক্রমবর্ধমান | বর্ধনশীল হার্ট | স্নায়ুবৈকল্য | হৃদয় | হৃদয় ধ্বনি</annotation>
+		<annotation cp="💗" type="tts">বর্ধনশীল হার্ট</annotation>
+		<annotation cp="💓">স্পন্দনশীল | স্পন্দিত | স্পন্দিত হৃদয় | হৃদস্পন্দন</annotation>
+		<annotation cp="💓" type="tts">স্পন্দিত হৃদয়</annotation>
+		<annotation cp="💞">ঘুরপাক | ঘূর্ণমান হার্ট | হৃদয়</annotation>
+		<annotation cp="💞" type="tts">ঘূর্ণমান হার্ট</annotation>
+		<annotation cp="💕">দুটি হার্ট | ভালবাসা | হৃদয়</annotation>
+		<annotation cp="💕" type="tts">দুটি হার্ট</annotation>
+		<annotation cp="💟">হার্ট সজ্জা | হৃদয়</annotation>
+		<annotation cp="💟" type="tts">হার্ট সজ্জা</annotation>
+		<annotation cp="❣">চিহ্ন | বিরাম চিহ্ন | বিস্ময়বোধক | হার্টের আকারের বিস্ময়সূচক চিহ্ন</annotation>
+		<annotation cp="❣" type="tts">হার্টের আকারের বিস্ময়সূচক চিহ্ন</annotation>
+		<annotation cp="💔">ভাঙা | ভাঙ্গা হার্ট | ভেঙে যাওয়া | হার্ট</annotation>
+		<annotation cp="💔" type="tts">ভাঙ্গা হার্ট</annotation>
+		<annotation cp="❤">লাল হার্ট | হৃদয়</annotation>
+		<annotation cp="❤" type="tts">লাল হার্ট</annotation>
+		<annotation cp="🧡">কমলা | কমলা হার্ট</annotation>
+		<annotation cp="🧡" type="tts">কমলা হার্ট</annotation>
+		<annotation cp="💛">হলুদ | হলুদ হার্ট</annotation>
+		<annotation cp="💛" type="tts">হলুদ হার্ট</annotation>
+		<annotation cp="💚">সবুজ | সবুজ হার্ট | হৃদয়</annotation>
+		<annotation cp="💚" type="tts">সবুজ হার্ট</annotation>
+		<annotation cp="💙">নীল | নীল হার্ট | হৃদয়</annotation>
+		<annotation cp="💙" type="tts">নীল হার্ট</annotation>
+		<annotation cp="💜">বেগুনি হার্ট | বেগুনী | হার্ট</annotation>
+		<annotation cp="💜" type="tts">বেগুনি হার্ট</annotation>
+		<annotation cp="🤎">খয়েরি হার্ট | বাদামি | হার্ট</annotation>
+		<annotation cp="🤎" type="tts">খয়েরি হার্ট</annotation>
+		<annotation cp="🖤">কালো | দুষ্ট | বাজে | হার্ট</annotation>
+		<annotation cp="🖤" type="tts">কালো হার্ট</annotation>
+		<annotation cp="🤍">সাদা | হার্ট</annotation>
+		<annotation cp="🤍" type="tts">সাদা হার্ট</annotation>
+		<annotation cp="💯">100 | একশো পয়েন্ট | পূর্ণ | শত | স্কোর</annotation>
+		<annotation cp="💯" type="tts">একশো পয়েন্ট</annotation>
+		<annotation cp="💢">কমিক | ক্রুদ্ধ | ক্রোধের প্রতীক | ক্ষিপ্ত</annotation>
+		<annotation cp="💢" type="tts">ক্রোধের প্রতীক</annotation>
+		<annotation cp="💥">কমিক | বুম করে শব্দ হওয়া | সংঘর্ষ</annotation>
+		<annotation cp="💥" type="tts">সংঘর্ষ</annotation>
+		<annotation cp="💫">কমিক | তারা | হতবুদ্ধি</annotation>
+		<annotation cp="💫" type="tts">হতবুদ্ধি</annotation>
+		<annotation cp="💦">কমিক | ঘর্মাক্ত অবস্থা | ঘামের ফোঁটা | জলের ফোটা</annotation>
+		<annotation cp="💦" type="tts">ঘামের ফোঁটা</annotation>
+		<annotation cp="💨">উদ্যমী | কমিক | দৌড়রত | হানাহানি</annotation>
+		<annotation cp="💨" type="tts">উদ্যমী</annotation>
+		<annotation cp="🕳">গর্ত</annotation>
+		<annotation cp="🕳" type="tts">গর্ত</annotation>
+		<annotation cp="💣">কমিক | বোমা</annotation>
+		<annotation cp="💣" type="tts">বোমা</annotation>
+		<annotation cp="💬">কমিক | ডায়ালগ | বক্তব্যের বেলুন | বক্তৃতা | বুদ্বুদ</annotation>
+		<annotation cp="💬" type="tts">বক্তব্যের বেলুন</annotation>
+		<annotation cp="👁‍🗨">চোখ | চোখের মতন স্পিচ বাবল | সাক্ষী | স্পিচ বাবল</annotation>
+		<annotation cp="👁‍🗨" type="tts">চোখের মতন স্পিচ বাবল</annotation>
+		<annotation cp="🗨">কথা বলার বামদিকের বুদবুদ | ডায়ালগ | বক্তৃতা</annotation>
+		<annotation cp="🗨" type="tts">কথা বলার বামদিকের বুদবুদ</annotation>
+		<annotation cp="🗯">ক্রুদ্ধ | ক্ষিপ্ত | ডানে ক্রোধের বুদ্বুদ | বুদ্বুদ | বেলুন</annotation>
+		<annotation cp="🗯" type="tts">ডানে ক্রোধের বুদ্বুদ</annotation>
+		<annotation cp="💭">কমিক | থট বেলুন | বুদ্বুদ | বেলুন | ভাবনা</annotation>
+		<annotation cp="💭" type="tts">থট বেলুন</annotation>
+		<annotation cp="💤">কমিক | ঘুম পাচ্ছে | ঘুমন্ত অবস্থা</annotation>
+		<annotation cp="💤" type="tts">ঘুম পাচ্ছে</annotation>
+		<annotation cp="👋">দোলানো | নাড়ানো | শরীর | হাত</annotation>
+		<annotation cp="👋" type="tts">হাত নাড়ানো</annotation>
+		<annotation cp="🤚">হাত তোলা | হাতের পেছন দিক</annotation>
+		<annotation cp="🤚" type="tts">হাতের পেছন দিক</annotation>
+		<annotation cp="🖐">আঙ্গুল | আঙ্গুল প্রসারিত করে হাত তোলা | প্রসারিত করা | শরীর | হাত</annotation>
+		<annotation cp="🖐" type="tts">আঙ্গুল প্রসারিত করে হাত তোলা</annotation>
+		<annotation cp="✋">অনুগ্রহ করে থামুন | শরীর | হাত</annotation>
+		<annotation cp="✋" type="tts">অনুগ্রহ করে থামুন</annotation>
+		<annotation cp="🖖">আকার ইঙ্গিত | আঙ্গুল | ভালকান | ভ্যালকান স্যালুট | শরীর | হাত</annotation>
+		<annotation cp="🖖" type="tts">ভ্যালকান স্যালুট</annotation>
+		<annotation cp="👌">ঠিক আছে | শরীর | হাত</annotation>
+		<annotation cp="👌" type="tts">ঠিক আছে</annotation>
+		<annotation cp="🤏">একটু খানি | চিমটি কাটা হাত</annotation>
+		<annotation cp="🤏" type="tts">চিমটি কাটা হাত</annotation>
+		<annotation cp="✌">জয় | ভি আকার | শরীর | হাত | হাতে জয়ের চিহ্ন করা</annotation>
+		<annotation cp="✌" type="tts">হাতে জয়ের চিহ্ন করা</annotation>
+		<annotation cp="🤞">আঙ্গুল | আশা করি | আশা করি যেন হয় | ভাগ্য</annotation>
+		<annotation cp="🤞" type="tts">আশা করি যেন হয়</annotation>
+		<annotation cp="🤟">ভালবাসা | ভালবাসার ইঙ্গিত | হাত</annotation>
+		<annotation cp="🤟" type="tts">ভালবাসার ইঙ্গিত</annotation>
+		<annotation cp="🤘">আঙ্গুল | মন মাতান | শরীর | শিং | হর্ণ দেওয়ার চিহ্ন | হাত</annotation>
+		<annotation cp="🤘" type="tts">হর্ণ দেওয়ার চিহ্ন</annotation>
+		<annotation cp="🤙">কল | ফোন কোরো | হাত</annotation>
+		<annotation cp="🤙" type="tts">ফোন কোরো</annotation>
+		<annotation cp="👈">আঙ্গুল | বামে ইশারা করা উল্টো হাতের তর্জনী | ব্যাকহ্যান্ড | সূচক | হাত</annotation>
+		<annotation cp="👈" type="tts">বামে ইশারা করা উল্টো হাতের তর্জনী</annotation>
+		<annotation cp="👉">আঙ্গুল | ডানে ইশারা করা উল্টো হাতের তর্জনী | পয়েন্ট | ব্যাকহ্যান্ড | হাত</annotation>
+		<annotation cp="👉" type="tts">ডানে ইশারা করা উল্টো হাতের তর্জনী</annotation>
+		<annotation cp="👆">আঙুল দিয়ে উপরের দিকে ইশারা করা | আঙ্গুল | আপ | পয়েন্ট | ব্যাকহ্যান্ড | হাত</annotation>
+		<annotation cp="👆" type="tts">আঙুল দিয়ে উপরের দিকে ইশারা করা</annotation>
+		<annotation cp="🖕">আঙ্গুল | মধ্যমা | শরীর | হাত</annotation>
+		<annotation cp="🖕" type="tts">মধ্যমা</annotation>
+		<annotation cp="👇">আঙুল দিয়ে নীচের দিকে ইশারা করা | আঙ্গুল | নিচের দিকে | পয়েন্ট | ব্যাকহ্যান্ড | হাত</annotation>
+		<annotation cp="👇" type="tts">আঙুল দিয়ে নীচের দিকে ইশারা করা</annotation>
+		<annotation cp="☝">আঙ্গুল | আপ | উপরের দিকে ইশারা করা | পয়েন্ট | হাত</annotation>
+		<annotation cp="☝" type="tts">উপরের দিকে ইশারা করা</annotation>
+		<annotation cp="👍">1 | উর্দ্ধমুখী | বুড়ো আঙ্গুল | ভালো করেছো | শরীর | হাত</annotation>
+		<annotation cp="👍" type="tts">ভালো করেছো</annotation>
+		<annotation cp="👎">1 | নিম্নমুখী | বুড়ো আঙ্গুল | ভালো করতে পারোনি | শরীর | হাত</annotation>
+		<annotation cp="👎" type="tts">ভালো করতে পারোনি</annotation>
+		<annotation cp="✊">আঙ্গুল সামনের দিকে করে মুড়ে রাখা | কিল | মুষ্টাঘাত | মুষ্টিবদ্ধ | শরীর | হাত</annotation>
+		<annotation cp="✊" type="tts">আঙ্গুল সামনের দিকে করে মুড়ে রাখা</annotation>
+		<annotation cp="👊">কিল | ঘুঁসি | মুষ্টাঘাত | মুষ্টিবদ্ধ | শরীর | হাত</annotation>
+		<annotation cp="👊" type="tts">ঘুঁসি</annotation>
+		<annotation cp="🤛">ঘুঁষি | বাঁদিকে | বাঁদিকে ঘুঁষি মারা</annotation>
+		<annotation cp="🤛" type="tts">বাঁদিকে ঘুঁষি মারা</annotation>
+		<annotation cp="🤜">ঘুঁষি | ডানদিকে | ডানদিকে ঘঁষি মারা</annotation>
+		<annotation cp="🤜" type="tts">ডানদিকে ঘঁষি মারা</annotation>
+		<annotation cp="👏">শরীর | হাত | হাত জোড় করে তালি বাজানো | হাততালি</annotation>
+		<annotation cp="👏" type="tts">হাত জোড় করে তালি বাজানো</annotation>
+		<annotation cp="🙌">অঙ্গভঙ্গি | আনন্দ ধ্বনি করা | উত্থিত | উদযাপন করা | ব্যক্তি হাত তুলে আছে | শরীর | হাত</annotation>
+		<annotation cp="🙌" type="tts">ব্যক্তি হাত তুলে আছে</annotation>
+		<annotation cp="👐">খোলা | শরীর | হাত</annotation>
+		<annotation cp="👐" type="tts">খোলা হাত</annotation>
+		<annotation cp="🤲">প্রার্থনা | হাতের তালু একসাথে ওপরের দিকে</annotation>
+		<annotation cp="🤲" type="tts">হাতের তালু একসাথে ওপরের দিকে</annotation>
+		<annotation cp="🤝">করমর্দন | মিট করা | রাজি | হাত | হাত মেলানো</annotation>
+		<annotation cp="🤝" type="tts">করমর্দন</annotation>
+		<annotation cp="🙏">অঙ্গভঙ্গি | অনুগ্রহ করে | জানতে চাওয়া | ধন্যবাদ | নমস্কার | ভাঁজ করা | মাথা নত | শরীর | হাত</annotation>
+		<annotation cp="🙏" type="tts">নমস্কার</annotation>
+		<annotation cp="✍">লেখা | লেখার হাত | শরীর | হাত</annotation>
+		<annotation cp="✍" type="tts">লেখার হাত</annotation>
+		<annotation cp="💅">নখ | নেল পলিশ | পালিশ | প্রসাধনী | ম্যানিকিউর | যত্ন | শরীর</annotation>
+		<annotation cp="💅" type="tts">নেল পলিশ</annotation>
+		<annotation cp="🤳">ক্যামেরা | ফোন | সেলফি</annotation>
+		<annotation cp="🤳" type="tts">সেলফি</annotation>
+		<annotation cp="💪">কমিক | পেশী | বাইসেপ | বাঁকানো বাইসেপস | শরীর</annotation>
+		<annotation cp="💪" type="tts">বাঁকানো বাইসেপস</annotation>
+		<annotation cp="🦾">অ্যাক্সেসিবিলিটি | কৃত্রিম | যান্ত্রিক হাত</annotation>
+		<annotation cp="🦾" type="tts">যান্ত্রিক হাত</annotation>
+		<annotation cp="🦿">অ্যাক্সেসিবিলিটি | কৃত্রিম | যান্ত্রিক পা</annotation>
+		<annotation cp="🦿" type="tts">যান্ত্রিক পা</annotation>
+		<annotation cp="🦵">পা | লাথি</annotation>
+		<annotation cp="🦵" type="tts">পা</annotation>
+		<annotation cp="🦶">পায়ের পাতা | পায়ের পাথা | রেগে পা ছোঁড়া | লাথি</annotation>
+		<annotation cp="🦶" type="tts">পায়ের পাথা</annotation>
+		<annotation cp="👂">কান | শরীর</annotation>
+		<annotation cp="👂" type="tts">কান</annotation>
+		<annotation cp="🦻">অ্যাক্সেসিবিলিটি | কানে কালা | শ্রবণযন্ত্র সহ কান</annotation>
+		<annotation cp="🦻" type="tts">শ্রবণযন্ত্র সহ কান</annotation>
+		<annotation cp="👃">নাক | শরীর</annotation>
+		<annotation cp="👃" type="tts">নাক</annotation>
+		<annotation cp="🧠">বুদ্ধিমান | মস্তিষ্ক</annotation>
+		<annotation cp="🧠" type="tts">মস্তিষ্ক</annotation>
+		<annotation cp="🦷">দন্ত-চিকিৎসক | দাঁত</annotation>
+		<annotation cp="🦷" type="tts">দাঁত</annotation>
+		<annotation cp="🦴">কঙ্কাল | হাড়</annotation>
+		<annotation cp="🦴" type="tts">হাড়</annotation>
+		<annotation cp="👀">চোখ | চোখ গুলি | মুখ</annotation>
+		<annotation cp="👀" type="tts">চোখ গুলি</annotation>
+		<annotation cp="👁">চোখ | শরীর</annotation>
+		<annotation cp="👁" type="tts">চোখ</annotation>
+		<annotation cp="👅">জিভ | শরীর</annotation>
+		<annotation cp="👅" type="tts">জিভ</annotation>
+		<annotation cp="👄">ঠোট | মুখ</annotation>
+		<annotation cp="👄" type="tts">মুখ</annotation>
 		<annotation cp="👶">বাচ্চা | শিশু</annotation>
 		<annotation cp="👶" type="tts">শিশু</annotation>
 		<annotation cp="🧒">বাচ্চা | যুবক | লিঙ্গ- নিরপেক্ষ</annotation>
@@ -259,84 +539,184 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👧" type="tts">মেয়ে</annotation>
 		<annotation cp="🧑">প্রাপ্তবয়স্ক | লিঙ্গ-নিরপেক্ষ</annotation>
 		<annotation cp="🧑" type="tts">প্রাপ্তবয়স্ক</annotation>
-		<annotation cp="👱">স্বর্ণকেশী | স্বর্ণকেশী ব্যক্তি</annotation>
-		<annotation cp="👱" type="tts">স্বর্ণকেশী ব্যক্তি</annotation>
+		<annotation cp="👱">চুল | ব্যক্তি: স্বর্ণকেশী চুল | স্বর্ণ-কেশী ব্যক্তি | স্বর্ণকেশী</annotation>
+		<annotation cp="👱" type="tts">ব্যক্তি: স্বর্ণকেশী চুল</annotation>
+		<annotation cp="🧑‍🍼">একজন শিশুকে খাওয়াচ্ছেন | খাওয়ানো | পরিচর্যা | ব্যক্তি | শিশু | শিশুকে একজন খাওয়াচ্ছেন</annotation>
+		<annotation cp="🧑‍🍼" type="tts">শিশুকে একজন খাওয়াচ্ছেন</annotation>
+		<annotation cp="🧑‍🎄">কল্স, ক্রিসমাস | ম্যাক্স ক্লস</annotation>
+		<annotation cp="🧑‍🎄" type="tts">ম্যাক্স ক্লস</annotation>
 		<annotation cp="👨">নর | পুরুষ</annotation>
 		<annotation cp="👨" type="tts">পুরুষ</annotation>
-		<annotation cp="👱‍♂">ছেলে | পুরুষ | স্বর্ণকেশ | স্বর্ণকেশ ওয়ালা পুরুষ</annotation>
-		<annotation cp="👱‍♂" type="tts">স্বর্ণকেশ ওয়ালা পুরুষ</annotation>
-		<annotation cp="🧔">দাড়ি | দাড়িওয়ালা ব্যক্তি</annotation>
+		<annotation cp="🧔">দাড়ি | দাড়িওয়ালা পুরুষ | দাড়িওয়ালা ব্যক্তি</annotation>
 		<annotation cp="🧔" type="tts">দাড়িওয়ালা ব্যক্তি</annotation>
+		<annotation cp="👱‍♂">ছেলে | পুরুষ | পুরুষ: স্বর্ণকেশী চুল | স্বর্ণকেশ | স্বর্ণকেশ ওয়ালা পুরুষ</annotation>
+		<annotation cp="👱‍♂" type="tts">পুরুষ: স্বর্ণকেশী চুল</annotation>
+		<annotation cp="👨‍🍼">খাওয়ানো | পরিচর্যা | পুরুষ | পুরুষ শিশুকে খাওয়াচ্ছেন | শিশু</annotation>
+		<annotation cp="👨‍🍼" type="tts">পুরুষ শিশুকে খাওয়াচ্ছেন</annotation>
 		<annotation cp="👩">নারী | মহিলা</annotation>
 		<annotation cp="👩" type="tts">মহিলা</annotation>
-		<annotation cp="👱‍♀">মহিলা | মেয়ে | স্বর্ণকেশী</annotation>
-		<annotation cp="👱‍♀" type="tts">স্বর্ণকেশী মহিলা</annotation>
+		<annotation cp="👱‍♀">চুল | মহিলা | মহিলা: স্বর্ণকেশী | স্বর্ণকেশী | স্বর্ণকেশী-কেশিক মহিলা</annotation>
+		<annotation cp="👱‍♀" type="tts">মহিলা: স্বর্ণকেশী</annotation>
+		<annotation cp="👩‍🍼">দুগ্ধ | পরিচর্যা | মহিলা | মহিলা দুগ্ধ পান করাচ্ছেন | শিশু</annotation>
+		<annotation cp="👩‍🍼" type="tts">মহিলা দুগ্ধ পান করাচ্ছেন</annotation>
 		<annotation cp="🧓">বড় প্রাপ্তবয়স্ক | বয়স্ক | লিঙ্গ-নিরপেক্ষ</annotation>
 		<annotation cp="🧓" type="tts">বড় প্রাপ্তবয়স্ক</annotation>
 		<annotation cp="👴">পুরুষ | বয়স্ক | বৃদ্ধ পুরুষ</annotation>
 		<annotation cp="👴" type="tts">বৃদ্ধ পুরুষ</annotation>
 		<annotation cp="👵">বয়স্ক নারী | বৃদ্ধ মহিলা</annotation>
 		<annotation cp="👵" type="tts">বৃদ্ধ মহিলা</annotation>
+		<annotation cp="🙍">অঙ্গভঙ্গি | ক্রোধি ব্যক্তি | ভ্রূ কুচঁকানো</annotation>
+		<annotation cp="🙍" type="tts">ক্রোধি ব্যক্তি</annotation>
+		<annotation cp="🙍‍♂">অঙ্গিভঙ্গি | ছেলে | পুরুষ | পুরুষ , ছেলে ভুরু কুঁচকানো | ভুরু কুঁচকানো</annotation>
+		<annotation cp="🙍‍♂" type="tts">পুরুষ , ছেলে ভুরু কুঁচকানো</annotation>
+		<annotation cp="🙍‍♀">অঙ্গিভঙ্গি | ভুরু কুঁচকানো | মহিলা | মহিলা , মেয়ে ভুরু কুঁচকানো | মেয়ে</annotation>
+		<annotation cp="🙍‍♀" type="tts">মহিলা , মেয়ে ভুরু কুঁচকানো</annotation>
+		<annotation cp="🙎">অঙ্গভঙ্গি | বিস্ফারিত চোখ | বিস্ফুরিত ব্যক্তি</annotation>
+		<annotation cp="🙎" type="tts">বিস্ফুরিত ব্যক্তি</annotation>
+		<annotation cp="🙎‍♂">অঙ্গিভঙ্গি | ছেলে | পাউটিং | পুরুষ | পুরুষ , ছেলে পাউটিং</annotation>
+		<annotation cp="🙎‍♂" type="tts">পুরুষ , ছেলে পাউটিং</annotation>
+		<annotation cp="🙎‍♀">অঙ্গিভঙ্গি | পাউটিং | মহিলা | মহিলা , মেয়ে পাউটিং | মেয়ে</annotation>
+		<annotation cp="🙎‍♀" type="tts">মহিলা , মেয়ে পাউটিং</annotation>
+		<annotation cp="🙅">অঙ্গভঙ্গি | না | না এর অঙ্গভঙ্গি | নিষিদ্ধ | হাত</annotation>
+		<annotation cp="🙅" type="tts">না এর অঙ্গভঙ্গি</annotation>
+		<annotation cp="🙅‍♂">অঙ্গিভঙ্গি | নিষিদ্ধ | পুরুষ | পুরুষের দেখানো ঠিক নেই অঙ্গিভঙ্গি | পুরুষের দেখানো না এর অঙ্গিভঙ্গি | হাত</annotation>
+		<annotation cp="🙅‍♂" type="tts">পুরুষের দেখানো ঠিক নেই অঙ্গিভঙ্গি</annotation>
+		<annotation cp="🙅‍♀">অঙ্গিভঙ্গি | ঠিক নেই | নিষিদ্ধ | মহিলা | মহিলার দেখানো ঠিক নেই অঙ্গিভঙ্গি</annotation>
+		<annotation cp="🙅‍♀" type="tts">মহিলার দেখানো ঠিক নেই অঙ্গিভঙ্গি</annotation>
+		<annotation cp="🙆">অঙ্গভঙ্গি | ওকের অঙ্গভঙ্গি | ঠিক আছে | হাত</annotation>
+		<annotation cp="🙆" type="tts">ওকের অঙ্গভঙ্গি</annotation>
+		<annotation cp="🙆‍♂">অঙ্গিভঙ্গি | ঠিক আছে | পুরুষ | পুরুষের দেখানো ঠিক আছে অঙ্গিভঙ্গি | হাত</annotation>
+		<annotation cp="🙆‍♂" type="tts">পুরুষের দেখানো ঠিক আছে অঙ্গিভঙ্গি</annotation>
+		<annotation cp="🙆‍♀">অঙ্গিভঙ্গি | ঠিক আছে | মহিলা | মহিলার দেখানো ঠিক আছে অঙ্গিভঙ্গি | হাত</annotation>
+		<annotation cp="🙆‍♀" type="tts">মহিলার দেখানো ঠিক আছে অঙ্গিভঙ্গি</annotation>
+		<annotation cp="💁">তথ্য | তথ্য ডেস্কের ব্যক্তি | প্রাণবন্ত | সহায়তা | হাত</annotation>
+		<annotation cp="💁" type="tts">তথ্য ডেস্কের ব্যক্তি</annotation>
+		<annotation cp="💁‍♂">ছেলে | ছেলেদের টিপ চাওয়া | টিপ চাওয়া | পুরুষ | মজাদার</annotation>
+		<annotation cp="💁‍♂" type="tts">ছেলেদের টিপ চাওয়া</annotation>
+		<annotation cp="💁‍♀">টিপ চাওয়া | মজাদার | মহিলা | মেয়ে | মেয়েদের টিপ চাওয়া</annotation>
+		<annotation cp="💁‍♀" type="tts">মেয়েদের টিপ চাওয়া</annotation>
+		<annotation cp="🙋">অঙ্গভঙ্গি | উত্থিত | খুশি | সুখি ব্যক্তি যিনি হাত তুলেছেন | হাত</annotation>
+		<annotation cp="🙋" type="tts">সুখি ব্যক্তি যিনি হাত তুলেছেন</annotation>
+		<annotation cp="🙋‍♂">অঙ্গিভঙ্গি | ছেলেদের হাত তোলা | পুরুষ | হাত | হাত তোলা</annotation>
+		<annotation cp="🙋‍♂" type="tts">ছেলেদের হাত তোলা</annotation>
+		<annotation cp="🙋‍♀">অঙ্গিভঙ্গি | মহিলা | মেয়েদের হাত তোলা | হাত | হাত তোলা</annotation>
+		<annotation cp="🙋‍♀" type="tts">মেয়েদের হাত তোলা</annotation>
+		<annotation cp="🧏">অ্যাক্সেসিবিলিটি | কান | কানে কালা | কানে কালা ব্যক্তি | শোনা</annotation>
+		<annotation cp="🧏" type="tts">কানে কালা ব্যক্তি</annotation>
+		<annotation cp="🧏‍♂">কানে কম শোনা ব্যক্তি | কানে কালা | পুরুষ</annotation>
+		<annotation cp="🧏‍♂" type="tts">কানে কম শোনা ব্যক্তি</annotation>
+		<annotation cp="🧏‍♀">কানে কালা | কানে কালা মহিলা | মহিলা</annotation>
+		<annotation cp="🧏‍♀" type="tts">কানে কালা মহিলা</annotation>
+		<annotation cp="🙇">অঙ্গভঙ্গি | ক্ষমা প্রার্থনা | দুঃখিত | ব্যক্তির প্রণাম | মাথা নত</annotation>
+		<annotation cp="🙇" type="tts">ব্যক্তির প্রণাম</annotation>
+		<annotation cp="🙇‍♂">অঙ্গিভঙ্গি | ছেলেদর মাথা নত করা | দুঃখিত | পুরুষ | মাপ চাওয়া</annotation>
+		<annotation cp="🙇‍♂" type="tts">ছেলেদর মাথা নত করা</annotation>
+		<annotation cp="🙇‍♀">অঙ্গিভঙ্গি | দুঃখিত | মহিলা | মাপ চাওয়া | মেয়েদের মাথা নত করা</annotation>
+		<annotation cp="🙇‍♀" type="tts">মেয়েদের মাথা নত করা</annotation>
+		<annotation cp="🤦">অবিশ্বাস | বিরক্তি | মাথায় | হাত</annotation>
+		<annotation cp="🤦" type="tts">মাথায় হাত</annotation>
+		<annotation cp="🤦‍♂">অবিশ্বাস | কপালে হাত | ক্রোধ | ছেলে | ছেলেদের কপালে হাত | পুরুষ | মাথায় হাত</annotation>
+		<annotation cp="🤦‍♂" type="tts">ছেলেদের কপালে হাত</annotation>
+		<annotation cp="🤦‍♀">অবিশ্বাস | কপালে হাত | ক্রোধ | মহিলা | মাথায় হাত | মেয়ে | মেয়েদের কপালে হাত</annotation>
+		<annotation cp="🤦‍♀" type="tts">মেয়েদের কপালে হাত</annotation>
+		<annotation cp="🤷">অজ্ঞান | অনিশ্চিত | উদাসীনতা | কাঁধ নাড়িয়ে উত্তরল দেওয়া | ঠিক জানি না</annotation>
+		<annotation cp="🤷" type="tts">ঠিক জানি না</annotation>
+		<annotation cp="🤷‍♂">অবিশ্বাস | উদাসীনতা | কাঁধ ঝাঁকানো | ছেলে | ছেলেদের কাঁধ ঝাঁকানো | পুরুষ | সন্দেহ</annotation>
+		<annotation cp="🤷‍♂" type="tts">ছেলেদের কাঁধ ঝাঁকানো</annotation>
+		<annotation cp="🤷‍♀">অবিশ্বাস | উদাসীনতা | কাঁধ ঝাঁকানো | মহিলা | মেয়ে | মেয়েদের কাঁধ ঝাঁকানো | সন্দেহ</annotation>
+		<annotation cp="🤷‍♀" type="tts">মেয়েদের কাঁধ ঝাঁকানো</annotation>
+		<annotation cp="🧑‍⚕">ডাক্তার | থেরাপিস্ট | নার্স | স্বাস্থ্যকর্মী | হেল্থকেয়ার</annotation>
+		<annotation cp="🧑‍⚕" type="tts">স্বাস্থ্যকর্মী</annotation>
 		<annotation cp="👨‍⚕">ডাক্তার | থেরাপিস্ট | নার্স | পুরুষ | পুরুষ স্বাস্থ্য কর্মী | স্বাস্থ্য পরিচর্যা</annotation>
 		<annotation cp="👨‍⚕" type="tts">পুরুষ স্বাস্থ্য কর্মী</annotation>
 		<annotation cp="👩‍⚕">ডাক্তার | থেরাপিস্ট | নার্স | মহিলা | মহিলা স্বাস্থ্য কর্মী | স্বাস্থ্য পরিচর্যা</annotation>
 		<annotation cp="👩‍⚕" type="tts">মহিলা স্বাস্থ্য কর্মী</annotation>
+		<annotation cp="🧑‍🎓">ছাত্র ছাত্রি | বিদ্যার্থী | স্নাতক</annotation>
+		<annotation cp="🧑‍🎓" type="tts">ছাত্র ছাত্রি</annotation>
 		<annotation cp="👨‍🎓">ছাত্র | পুরুষ | স্নাতক</annotation>
 		<annotation cp="👨‍🎓" type="tts">ছাত্র</annotation>
 		<annotation cp="👩‍🎓">ছাত্রী | মহিলা | স্নাতক</annotation>
 		<annotation cp="👩‍🎓" type="tts">ছাত্রী</annotation>
+		<annotation cp="🧑‍🏫">অধ্যাপক | উপদেষ্টা | শিক্ষক</annotation>
+		<annotation cp="🧑‍🏫" type="tts">অধ্যাপক</annotation>
 		<annotation cp="👨‍🏫">অধ্যাপক | ইনস্ট্রাকটর | পুরুষ | শিক্ষক</annotation>
 		<annotation cp="👨‍🏫" type="tts">শিক্ষক</annotation>
 		<annotation cp="👩‍🏫">অধ্যাপিকা | ইনস্ট্রাকটর | মহিলা | শিক্ষিকা</annotation>
 		<annotation cp="👩‍🏫" type="tts">শিক্ষিকা</annotation>
+		<annotation cp="🧑‍⚖">তুলাদণ্ড | বিচারক | বিচারপতি</annotation>
+		<annotation cp="🧑‍⚖" type="tts">বিচারপতি</annotation>
 		<annotation cp="👨‍⚖">ছেল | দাঁড়িপাল্লা | পুরুষ | পুরুষ বিচারক | বিচার</annotation>
 		<annotation cp="👨‍⚖" type="tts">পুরুষ বিচারক</annotation>
 		<annotation cp="👩‍⚖">দাঁড়িপাল্লা | বিচার | মহিলা | মহিলা বিচারক | মেয়ে</annotation>
 		<annotation cp="👩‍⚖" type="tts">মহিলা বিচারক</annotation>
+		<annotation cp="🧑‍🌾">কৃষক | খামারের মালিক | মালী</annotation>
+		<annotation cp="🧑‍🌾" type="tts">কৃষক</annotation>
 		<annotation cp="👨‍🌾">কৃষক | চাষী | ছেলে | ছেলে,পুরুষ, চাষী ,কৃষক | পুরুষ | মালি</annotation>
 		<annotation cp="👨‍🌾" type="tts">ছেলে,পুরুষ, চাষী ,কৃষক</annotation>
 		<annotation cp="👩‍🌾">কৃষক | চাষী | মহিলা | মালি | মেয়ে | মেয়ে , মহিলা ,চাষী , কৃষক</annotation>
 		<annotation cp="👩‍🌾" type="tts">মেয়ে , মহিলা ,চাষী , কৃষক</annotation>
+		<annotation cp="🧑‍🍳">রাঁধুনী | শেফ</annotation>
+		<annotation cp="🧑‍🍳" type="tts">রাঁধুনী</annotation>
 		<annotation cp="👨‍🍳">কুক | ছেলে | ছেলে ,পুরুষ , কুক , পাচক , রাঁধুনি | পুরুষ | রাঁধুনি</annotation>
 		<annotation cp="👨‍🍳" type="tts">ছেলে ,পুরুষ , কুক , পাচক , রাঁধুনি</annotation>
 		<annotation cp="👩‍🍳">কুক | পাচক | মহিলা | মেয়ে | মেয়ে , মহিলা , কুক , পাচক , রাঁধুনি | রাঁধুনি</annotation>
 		<annotation cp="👩‍🍳" type="tts">মেয়ে , মহিলা , কুক , পাচক , রাঁধুনি</annotation>
+		<annotation cp="🧑‍🔧">ইলেকট্রিশিয়ান | ছোট ব্যবসাদার | প্লামবার | মেকানিক</annotation>
+		<annotation cp="🧑‍🔧" type="tts">মেকানিক</annotation>
 		<annotation cp="👨‍🔧">ইলেকট্রিশিয়ান | ছেলে | ছেলে , পুরুষ , মেকানিক | ট্রেডপার্সন | পুরুষ | প্লাম্বার | মেকানিক</annotation>
 		<annotation cp="👨‍🔧" type="tts">ছেলে , পুরুষ , মেকানিক</annotation>
 		<annotation cp="👩‍🔧">ইলেকট্রিশিয়ান | ট্রেডপার্সন | প্লাম্বার | মহিলা | মেকানিক | মেয়ে , মহিলা , মেকানিক</annotation>
 		<annotation cp="👩‍🔧" type="tts">মেয়ে , মহিলা , মেকানিক</annotation>
+		<annotation cp="🧑‍🏭">কর্মী | কারখানা | কারখানার কর্মী | শিল্প | সমাগম</annotation>
+		<annotation cp="🧑‍🏭" type="tts">কারখানার কর্মী</annotation>
 		<annotation cp="👨‍🏭">অ্যাসেমব্লি | ইনডাসট্রি | কর্মী | কারখানা | ছেলে | ছেলে , পুরুষ , মিলের কর্মি | পুরুষ</annotation>
 		<annotation cp="👨‍🏭" type="tts">ছেলে , পুরুষ , মিলের কর্মি</annotation>
 		<annotation cp="👩‍🏭">অ্যাসেমব্লি | ইনডাসট্রি | কর্মী | কারখানা | মহিলা | মেয়ে | মেয়ে , মহিলা , মিলের কর্মি</annotation>
 		<annotation cp="👩‍🏭" type="tts">মেয়ে , মহিলা , মিলের কর্মি</annotation>
+		<annotation cp="🧑‍💼">অফিস কর্মী | উচ্চ পদস্থ কর্মকর্তা | ব্যবসা | ম্যানেজার | স্থপতি</annotation>
+		<annotation cp="🧑‍💼" type="tts">অফিস কর্মী</annotation>
 		<annotation cp="👨‍💼">অফিস কর্মি | আর্কিটেক্ট | ছেলে , পুরুষ , অফিস কর্মি | পুরুষ | ম্যানেজার | হোয়াইট - কলার</annotation>
 		<annotation cp="👨‍💼" type="tts">ছেলে , পুরুষ , অফিস কর্মি</annotation>
 		<annotation cp="👩‍💼">অফিস কর্মি | আর্কিটেক্ট | মহিলা | মেয়ে , মহিলা , অফিস কর্মি | ম্যানেজার | হোয়াইট - কলার</annotation>
 		<annotation cp="👩‍💼" type="tts">মেয়ে , মহিলা , অফিস কর্মি</annotation>
+		<annotation cp="🧑‍🔬">ইঞ্জিনিয়ার | কেমিস্ট | ফিজিসিস্ট | বায়োলজিস্ট | বৈজ্ঞানিক</annotation>
+		<annotation cp="🧑‍🔬" type="tts">বৈজ্ঞানিক</annotation>
 		<annotation cp="👨‍🔬">ইঞ্জিনিয়ার | জীববিজ্ঞানী | পুরুষ | প্রকৃতিবিজ্ঞানী | বিজ্ঞানী | রসায়নবিদ</annotation>
 		<annotation cp="👨‍🔬" type="tts">পুরুষ বিজ্ঞানী</annotation>
 		<annotation cp="👩‍🔬">ইঞ্জিনিয়ার | জীববিজ্ঞানী | বিজ্ঞানী | মহিলা | রসায়নবিদ</annotation>
 		<annotation cp="👩‍🔬" type="tts">মহিলা বিজ্ঞানী</annotation>
-		<annotation cp="👨‍💻">ইনভেন্টর | উদ্ভাবক | কোডার | ছেলে | ছেলে , পুরুষ টেকনোলজিস্ট | টেকনোলজিস্ট | ডেভেলপার | পুরুষ | সফ্টওয়্যার</annotation>
+		<annotation cp="🧑‍💻">ইনভেন্টোর | কোডার | টেকনোলজিস্ট | ডেভেলপার | সফ্টওয়্যার</annotation>
+		<annotation cp="🧑‍💻" type="tts">টেকনোলজিস্ট</annotation>
+		<annotation cp="👨‍💻">ইনভেন্টর | কোডার | ছেলে , পুরুষ টেকনোলজিস্ট | টেকনোলজিস্ট | ডেভেলপার | পুরুষ | সফ্টওয়্যার</annotation>
 		<annotation cp="👨‍💻" type="tts">ছেলে , পুরুষ টেকনোলজিস্ট</annotation>
-		<annotation cp="👩‍💻">ইনভেন্টর | উদ্ভাবক | কোডার | টেকনোলজিস্ট | ডেভেলপার | মহিলা | মেয়ে | মেয়ে , মহিলা টেকনোলজিস্ট | সফ্টওয়্যার</annotation>
+		<annotation cp="👩‍💻">ইনভেন্টর | কোডার | টেকনোলজিস্ট | ডেভেলপার | মহিলা | মেয়ে , মহিলা টেকনোলজিস্ট | সফ্টওয়্যার</annotation>
 		<annotation cp="👩‍💻" type="tts">মেয়ে , মহিলা টেকনোলজিস্ট</annotation>
+		<annotation cp="🧑‍🎤">অভিনেতা | এন্টারটেনার | গায়ক | রক | স্টার</annotation>
+		<annotation cp="🧑‍🎤" type="tts">গায়ক</annotation>
 		<annotation cp="👨‍🎤">অভিনেতা | এন্টাটেনার | গায়ক | ছেলে | ছেলে , পুরুষ গায়ক | পুরুষ | রক | স্টার</annotation>
 		<annotation cp="👨‍🎤" type="tts">ছেলে , পুরুষ গায়ক</annotation>
 		<annotation cp="👩‍🎤">অভিনেতা | এন্টাটেনার | গায়ক | মহিলা | মেয়ে | মেয়ে , মহিলা গায়ক | রক | স্টার</annotation>
 		<annotation cp="👩‍🎤" type="tts">মেয়ে , মহিলা গায়ক</annotation>
+		<annotation cp="🧑‍🎨">প্যালেট | শিল্পি</annotation>
+		<annotation cp="🧑‍🎨" type="tts">শিল্পি</annotation>
 		<annotation cp="👨‍🎨">ছেলে | ছেলে , পুরুষ শিল্পী | পুরুষ | প্যালেট | শিল্পী</annotation>
 		<annotation cp="👨‍🎨" type="tts">ছেলে , পুরুষ শিল্পী</annotation>
 		<annotation cp="👩‍🎨">প্যালেট | মহিলা | মেয়ে | মেয়ে , মহিলা শিল্পী | শিল্পী</annotation>
 		<annotation cp="👩‍🎨" type="tts">মেয়ে , মহিলা শিল্পী</annotation>
+		<annotation cp="🧑‍✈">পাইলট | প্লেন</annotation>
+		<annotation cp="🧑‍✈" type="tts">পাইলট</annotation>
 		<annotation cp="👨‍✈">ছেলে | ছেলে , পুরুষ পায়লট | পায়লট | পুরুষ | প্লেন</annotation>
 		<annotation cp="👨‍✈" type="tts">ছেলে , পুরুষ পায়লট</annotation>
 		<annotation cp="👩‍✈">পায়লট | প্লেন | মহিলা | মেয়ে | মেয়ে , মহিলা পায়লট</annotation>
 		<annotation cp="👩‍✈" type="tts">মেয়ে , মহিলা পায়লট</annotation>
+		<annotation cp="🧑‍🚀">মহাকাশচারী | রকেট</annotation>
+		<annotation cp="🧑‍🚀" type="tts">মহাকাশচারী</annotation>
 		<annotation cp="👨‍🚀">ছেলে | ছেলে , পুরুষ মহাকাশ অভিযাত্রী | পুরুষ | মহাকাশ অভিযাত্রী | রকেট | স্পেস</annotation>
 		<annotation cp="👨‍🚀" type="tts">ছেলে , পুরুষ মহাকাশ অভিযাত্রী</annotation>
 		<annotation cp="👩‍🚀">মহাকাশ অভিযাত্রী | মহিলা | মহিলা , মেয়ে মহাকাশ অভিযাত্রী | মেয়ে | রকেট | স্পেস</annotation>
 		<annotation cp="👩‍🚀" type="tts">মহিলা , মেয়ে মহাকাশ অভিযাত্রী</annotation>
+		<annotation cp="🧑‍🚒">দমকল | দমকলকর্মী</annotation>
+		<annotation cp="🧑‍🚒" type="tts">দমকলকর্মী</annotation>
 		<annotation cp="👨‍🚒">ছেলে | ছেলে , পুরুষ ফায়ারফাইটার | পুরুষ | ফায়ারট্রাক | ফায়ারফাইটার</annotation>
 		<annotation cp="👨‍🚒" type="tts">ছেলে , পুরুষ ফায়ারফাইটার</annotation>
 		<annotation cp="👩‍🚒">ফায়ারট্রাক | ফায়ারফাইটার | মহিলা | মেয়ে | মেয়ে , মহিলা ফায়ারফাইটার</annotation>
@@ -379,10 +759,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👲" type="tts">চীনা টুপি মাথায় ব্যক্তি</annotation>
 		<annotation cp="🧕">টেচেল | মাথারস্কার্ফ | ম্যানটিলা | স্কার্ফ পরা মহিলা | হিজাব</annotation>
 		<annotation cp="🧕" type="tts">স্কার্ফ পরা মহিলা</annotation>
-		<annotation cp="🤵">পুরুষ | সুট | সুট বুট পরা | সুসজ্জিত</annotation>
-		<annotation cp="🤵" type="tts">সুট বুট পরা</annotation>
-		<annotation cp="👰">ঘোমটা | ঘোমটা দেওয়া নববধূ | নববধূ | বিবাহ</annotation>
-		<annotation cp="👰" type="tts">ঘোমটা দেওয়া নববধূ</annotation>
+		<annotation cp="🤵">বিবাহের পাত্র | সুট | সুট বুট পরা ব্যক্তি | সুসজ্জিত</annotation>
+		<annotation cp="🤵" type="tts">সুট বুট পরা ব্যক্তি</annotation>
+		<annotation cp="🤵‍♀">টাক্সেডো | টাক্সেডো পরা মহিলা | মহিলা</annotation>
+		<annotation cp="🤵‍♀" type="tts">টাক্সেডো পরা মহিলা</annotation>
+		<annotation cp="🤵‍♂">টাক্সেডো | টাক্সেডো পরা পুরুষ | পুরুষ</annotation>
+		<annotation cp="🤵‍♂" type="tts">টাক্সেডো পরা পুরুষ</annotation>
+		<annotation cp="👰">ঘোমটা | ঘোমটা দেওয়া ব্যক্তি | ঘোমটা পরা ব্যক্তি | বিবাহ | ব্যক্তি</annotation>
+		<annotation cp="👰" type="tts">ঘোমটা পরা ব্যক্তি</annotation>
+		<annotation cp="👰‍♀">আবরণ | আবরণ পরা মহিলা | আবরণে ঢাকা মহিলা | মহিলা</annotation>
+		<annotation cp="👰‍♀" type="tts">আবরণে ঢাকা মহিলা</annotation>
+		<annotation cp="👰‍♂">আবরণ | আবরণ পরা পুরুষ | পুরুষ</annotation>
+		<annotation cp="👰‍♂" type="tts">আবরণ পরা পুরুষ</annotation>
 		<annotation cp="🤰">গর্ভবতী | মহিলা</annotation>
 		<annotation cp="🤰" type="tts">গর্ভবতী মহিলা</annotation>
 		<annotation cp="🤱">শিশু | শুশ্রুষা | স্তন | স্তন্যপান</annotation>
@@ -395,112 +783,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤶" type="tts">মাদার খ্রিষ্টমাস</annotation>
 		<annotation cp="🦸">ভালো | সুপারপাওয়ার | সুপারহিরো | হিরো | হিরোইন</annotation>
 		<annotation cp="🦸" type="tts">সুপারহিরো</annotation>
-		<annotation cp="🦸‍♀">ভালো | মহিলা | মহিলা সুপারহিরো | সুপারপাওয়ার | হিরো | হিরোইন</annotation>
-		<annotation cp="🦸‍♀" type="tts">মহিলা সুপারহিরো</annotation>
 		<annotation cp="🦸‍♂">পুরুষ | পুরুষ সুপারহিরো | ভালো | সুপারপাওয়ার | হিরো</annotation>
 		<annotation cp="🦸‍♂" type="tts">পুরুষ সুপারহিরো</annotation>
+		<annotation cp="🦸‍♀">ভালো | মহিলা | মহিলা সুপারহিরো | সুপারপাওয়ার | হিরো | হিরোইন</annotation>
+		<annotation cp="🦸‍♀" type="tts">মহিলা সুপারহিরো</annotation>
 		<annotation cp="🦹">অসৎ | উৎসুক | ভিলেন | সুপারপাওয়ার | সুপারভিলেন</annotation>
 		<annotation cp="🦹" type="tts">সুপারভিলেন</annotation>
-		<annotation cp="🦹‍♀">অপরাধী | ভিলেন | মন্দ | মহিলা | মহিলা সুপারভিলেন | সুপারপাওয়ার</annotation>
-		<annotation cp="🦹‍♀" type="tts">মহিলা সুপারভিলেন</annotation>
 		<annotation cp="🦹‍♂">অপরাধী | পুরুষ | পুরুষ সুপারভিলেন | ভিলেন | মন্দ | সুপারপাওয়ার</annotation>
 		<annotation cp="🦹‍♂" type="tts">পুরুষ সুপারভিলেন</annotation>
+		<annotation cp="🦹‍♀">অপরাধী | ভিলেন | মন্দ | মহিলা | মহিলা সুপারভিলেন | সুপারপাওয়ার</annotation>
+		<annotation cp="🦹‍♀" type="tts">মহিলা সুপারভিলেন</annotation>
 		<annotation cp="🧙">উইচ | উইজার্ড | জাদুকর | জাদুকরী | মেজ</annotation>
 		<annotation cp="🧙" type="tts">মেজ</annotation>
-		<annotation cp="🧙‍♀">উইচ | জাদুকরী | মহিলা মেজ</annotation>
-		<annotation cp="🧙‍♀" type="tts">মহিলা মেজ</annotation>
 		<annotation cp="🧙‍♂">উইজার্ড | জাদুকর | পুরুষ মেজ</annotation>
 		<annotation cp="🧙‍♂" type="tts">পুরুষ মেজ</annotation>
+		<annotation cp="🧙‍♀">উইচ | জাদুকরী | মহিলা মেজ</annotation>
+		<annotation cp="🧙‍♀" type="tts">মহিলা মেজ</annotation>
 		<annotation cp="🧚">ওবোরন | টাইটেনিয়া | দুষ্টু ছেলে | পরী</annotation>
 		<annotation cp="🧚" type="tts">পরী</annotation>
-		<annotation cp="🧚‍♀">টাইটেনিয়া | মহিলা পরী</annotation>
-		<annotation cp="🧚‍♀" type="tts">মহিলা পরী</annotation>
 		<annotation cp="🧚‍♂">ওবোরন | ছেলে পরী | দুষ্টু ছেলে</annotation>
 		<annotation cp="🧚‍♂" type="tts">ছেলে পরী</annotation>
+		<annotation cp="🧚‍♀">টাইটেনিয়া | মহিলা পরী</annotation>
+		<annotation cp="🧚‍♀" type="tts">মহিলা পরী</annotation>
 		<annotation cp="🧛">আধমরা | ড্রাকুলা | ভ্যাম্পায়ার</annotation>
 		<annotation cp="🧛" type="tts">ভ্যাম্পায়ার</annotation>
-		<annotation cp="🧛‍♀">আধমরা | মহিলা ভ্যাম্পায়ার</annotation>
-		<annotation cp="🧛‍♀" type="tts">মহিলা ভ্যাম্পায়ার</annotation>
 		<annotation cp="🧛‍♂">আধমরা | ড্রাকুলা | পুরুষ ভ্যাম্পায়ার</annotation>
 		<annotation cp="🧛‍♂" type="tts">পুরুষ ভ্যাম্পায়ার</annotation>
+		<annotation cp="🧛‍♀">আধমরা | মহিলা ভ্যাম্পায়ার</annotation>
+		<annotation cp="🧛‍♀" type="tts">মহিলা ভ্যাম্পায়ার</annotation>
 		<annotation cp="🧜">মারউইমেন | মারপার্সেন | মারমেড | মারমেন</annotation>
 		<annotation cp="🧜" type="tts">মারপার্সেন</annotation>
-		<annotation cp="🧜‍♀">মারউইমেন | মারমেড</annotation>
-		<annotation cp="🧜‍♀" type="tts">মারমেড</annotation>
 		<annotation cp="🧜‍♂">ট্রিটন | মারম্যান</annotation>
 		<annotation cp="🧜‍♂" type="tts">মারম্যান</annotation>
+		<annotation cp="🧜‍♀">মারউইমেন | মারমেড</annotation>
+		<annotation cp="🧜‍♀" type="tts">মারমেড</annotation>
 		<annotation cp="🧝">এল্ফ | জাদুকরী</annotation>
 		<annotation cp="🧝" type="tts">এল্ফ</annotation>
-		<annotation cp="🧝‍♀">জাদুকরী | মহিলা এল্ফ</annotation>
-		<annotation cp="🧝‍♀" type="tts">মহিলা এল্ফ</annotation>
 		<annotation cp="🧝‍♂">জাদুকরী | পুরুষ এল্ফ</annotation>
 		<annotation cp="🧝‍♂" type="tts">পুরুষ এল্ফ</annotation>
+		<annotation cp="🧝‍♀">জাদুকরী | মহিলা এল্ফ</annotation>
+		<annotation cp="🧝‍♀" type="tts">মহিলা এল্ফ</annotation>
 		<annotation cp="🧞">জীনি | জ্বীন জাতি</annotation>
 		<annotation cp="🧞" type="tts">জীনি</annotation>
-		<annotation cp="🧞‍♀">জ্বীন জাতি | মহিলা জীনি</annotation>
-		<annotation cp="🧞‍♀" type="tts">মহিলা জীনি</annotation>
 		<annotation cp="🧞‍♂">জ্বীন জাতি | পুরুষ জীনি</annotation>
 		<annotation cp="🧞‍♂" type="tts">পুরুষ জীনি</annotation>
+		<annotation cp="🧞‍♀">জ্বীন জাতি | মহিলা জীনি</annotation>
+		<annotation cp="🧞‍♀" type="tts">মহিলা জীনি</annotation>
 		<annotation cp="🧟">আধমরা | ওয়াকিং ডেড | জম্বি</annotation>
 		<annotation cp="🧟" type="tts">জম্বি</annotation>
-		<annotation cp="🧟‍♀">আধমরা | ওয়াকিং ডেড | মহিলা জম্বি</annotation>
-		<annotation cp="🧟‍♀" type="tts">মহিলা জম্বি</annotation>
 		<annotation cp="🧟‍♂">আধমরা | ওয়াকিং ডেড | পুরুষ জম্বি</annotation>
 		<annotation cp="🧟‍♂" type="tts">পুরুষ জম্বি</annotation>
-		<annotation cp="🙍">অঙ্গভঙ্গি | ক্রোধি ব্যক্তি | ভ্রূ কুচঁকানো</annotation>
-		<annotation cp="🙍" type="tts">ক্রোধি ব্যক্তি</annotation>
-		<annotation cp="🙍‍♂">অঙ্গিভঙ্গি | ছেলে | পুরুষ | পুরুষ , ছেলে ভুরু কুঁচকানো | ভুরু কুঁচকানো</annotation>
-		<annotation cp="🙍‍♂" type="tts">পুরুষ , ছেলে ভুরু কুঁচকানো</annotation>
-		<annotation cp="🙍‍♀">অঙ্গিভঙ্গি | ভুরু কুঁচকানো | মহিলা | মহিলা , মেয়ে ভুরু কুঁচকানো | মেয়ে</annotation>
-		<annotation cp="🙍‍♀" type="tts">মহিলা , মেয়ে ভুরু কুঁচকানো</annotation>
-		<annotation cp="🙎">অঙ্গভঙ্গি | বিস্ফারিত চোখ | বিস্ফুরিত ব্যক্তি</annotation>
-		<annotation cp="🙎" type="tts">বিস্ফুরিত ব্যক্তি</annotation>
-		<annotation cp="🙎‍♂">অঙ্গিভঙ্গি | ছেলে | পাউটিং | পুরুষ | পুরুষ , ছেলে পাউটিং</annotation>
-		<annotation cp="🙎‍♂" type="tts">পুরুষ , ছেলে পাউটিং</annotation>
-		<annotation cp="🙎‍♀">অঙ্গিভঙ্গি | পাউটিং | মহিলা | মহিলা , মেয়ে পাউটিং | মেয়ে</annotation>
-		<annotation cp="🙎‍♀" type="tts">মহিলা , মেয়ে পাউটিং</annotation>
-		<annotation cp="🙅">অঙ্গভঙ্গি | না | না এর অঙ্গভঙ্গি | নিষিদ্ধ | হাত</annotation>
-		<annotation cp="🙅" type="tts">না এর অঙ্গভঙ্গি</annotation>
-		<annotation cp="🙅‍♂">অঙ্গিভঙ্গি | নিষিদ্ধ | পুরুষ | পুরুষের দেখানো ঠিক নেই অঙ্গিভঙ্গি | পুরুষের দেখানো না এর অঙ্গিভঙ্গি | হাত</annotation>
-		<annotation cp="🙅‍♂" type="tts">পুরুষের দেখানো ঠিক নেই অঙ্গিভঙ্গি</annotation>
-		<annotation cp="🙅‍♀">অঙ্গিভঙ্গি | ঠিক নেই | নিষিদ্ধ | মহিলা | মহিলার দেখানো ঠিক নেই অঙ্গিভঙ্গি</annotation>
-		<annotation cp="🙅‍♀" type="tts">মহিলার দেখানো ঠিক নেই অঙ্গিভঙ্গি</annotation>
-		<annotation cp="🙆">অঙ্গভঙ্গি | ওকের অঙ্গভঙ্গি | ঠিক আছে | হাত</annotation>
-		<annotation cp="🙆" type="tts">ওকের অঙ্গভঙ্গি</annotation>
-		<annotation cp="🙆‍♂">অঙ্গিভঙ্গি | ঠিক আছে | পুরুষ | পুরুষের দেখানো ঠিক আছে অঙ্গিভঙ্গি | হাত</annotation>
-		<annotation cp="🙆‍♂" type="tts">পুরুষের দেখানো ঠিক আছে অঙ্গিভঙ্গি</annotation>
-		<annotation cp="🙆‍♀">অঙ্গিভঙ্গি | ঠিক আছে | মহিলা | মহিলার দেখানো ঠিক আছে অঙ্গিভঙ্গি | হাত</annotation>
-		<annotation cp="🙆‍♀" type="tts">মহিলার দেখানো ঠিক আছে অঙ্গিভঙ্গি</annotation>
-		<annotation cp="💁">তথ্য | তথ্য ডেস্কের ব্যক্তি | প্রাণবন্ত | সহায়তা | হাত</annotation>
-		<annotation cp="💁" type="tts">তথ্য ডেস্কের ব্যক্তি</annotation>
-		<annotation cp="💁‍♂">ছেলে | ছেলেদের টিপ চাওয়া | টিপ চাওয়া | পুরুষ | মজাদার</annotation>
-		<annotation cp="💁‍♂" type="tts">ছেলেদের টিপ চাওয়া</annotation>
-		<annotation cp="💁‍♀">টিপ চাওয়া | মজাদার | মহিলা | মেয়ে | মেয়েদের টিপ চাওয়া</annotation>
-		<annotation cp="💁‍♀" type="tts">মেয়েদের টিপ চাওয়া</annotation>
-		<annotation cp="🙋">অঙ্গভঙ্গি | উত্থিত | খুশি | সুখি ব্যক্তি যিনি হাত তুলেছেন | হাত</annotation>
-		<annotation cp="🙋" type="tts">সুখি ব্যক্তি যিনি হাত তুলেছেন</annotation>
-		<annotation cp="🙋‍♂">অঙ্গিভঙ্গি | ছেলেদের হাত তোলা | পুরুষ | হাত | হাত তোলা</annotation>
-		<annotation cp="🙋‍♂" type="tts">ছেলেদের হাত তোলা</annotation>
-		<annotation cp="🙋‍♀">অঙ্গিভঙ্গি | মহিলা | মেয়েদের হাত তোলা | হাত | হাত তোলা</annotation>
-		<annotation cp="🙋‍♀" type="tts">মেয়েদের হাত তোলা</annotation>
-		<annotation cp="🙇">অঙ্গভঙ্গি | ক্ষমা প্রার্থনা | দুঃখিত | ব্যক্তির প্রণাম | মাথা নত</annotation>
-		<annotation cp="🙇" type="tts">ব্যক্তির প্রণাম</annotation>
-		<annotation cp="🙇‍♂">অঙ্গিভঙ্গি | ছেলেদর মাথা নত করা | দুঃখিত | পুরুষ | মাপ চাওয়া</annotation>
-		<annotation cp="🙇‍♂" type="tts">ছেলেদর মাথা নত করা</annotation>
-		<annotation cp="🙇‍♀">অঙ্গিভঙ্গি | দুঃখিত | মহিলা | মাপ চাওয়া | মেয়েদের মাথা নত করা</annotation>
-		<annotation cp="🙇‍♀" type="tts">মেয়েদের মাথা নত করা</annotation>
-		<annotation cp="🤦">অবিশ্বাস | বিরক্তি | মাথায় | হাত</annotation>
-		<annotation cp="🤦" type="tts">মাথায় হাত</annotation>
-		<annotation cp="🤦‍♂">অবিশ্বাস | কপালে হাত | ক্রোধ | ছেলে | ছেলেদের কপালে হাত | পুরুষ | মাথায় হাত</annotation>
-		<annotation cp="🤦‍♂" type="tts">ছেলেদের কপালে হাত</annotation>
-		<annotation cp="🤦‍♀">অবিশ্বাস | কপালে হাত | ক্রোধ | মহিলা | মাথায় হাত | মেয়ে | মেয়েদের কপালে হাত</annotation>
-		<annotation cp="🤦‍♀" type="tts">মেয়েদের কপালে হাত</annotation>
-		<annotation cp="🤷">অজ্ঞান | অনিশ্চিত | উদাসীনতা | কাঁধ নাড়িয়ে উত্তরল দেওয়া | ঠিক জানি না</annotation>
-		<annotation cp="🤷" type="tts">ঠিক জানি না</annotation>
-		<annotation cp="🤷‍♂">অবিশ্বাস | উদাসীনতা | কাঁধ ঝাঁকানো | ছেলে | ছেলেদের কাঁধ ঝাঁকানো | পুরুষ | সন্দেহ | সংশয়</annotation>
-		<annotation cp="🤷‍♂" type="tts">ছেলেদের কাঁধ ঝাঁকানো</annotation>
-		<annotation cp="🤷‍♀">অবিশ্বাস | উদাসীনতা | কাঁধ ঝাঁকানো | মহিলা | মেয়ে | মেয়েদের কাঁধ ঝাঁকানো | সন্দেহ | সংশয়</annotation>
-		<annotation cp="🤷‍♀" type="tts">মেয়েদের কাঁধ ঝাঁকানো</annotation>
+		<annotation cp="🧟‍♀">আধমরা | ওয়াকিং ডেড | মহিলা জম্বি</annotation>
+		<annotation cp="🧟‍♀" type="tts">মহিলা জম্বি</annotation>
 		<annotation cp="💆">ফেস ম্যাসেজ | ম্যাসাজ | সেলুন</annotation>
 		<annotation cp="💆" type="tts">ফেস ম্যাসেজ</annotation>
 		<annotation cp="💆‍♂">ছেলে | ছেলেদের ফেস মাসাজ | পুরুষ | মাসাজ | মুখ</annotation>
@@ -519,6 +853,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">ছেলেদের হাঁটা</annotation>
 		<annotation cp="🚶‍♀">মহিলা | মেয়ে | মেয়েদের হাঁটা | হনটন | হাঁটা</annotation>
 		<annotation cp="🚶‍♀" type="tts">মেয়েদের হাঁটা</annotation>
+		<annotation cp="🧍">এক জন দাঁড়িয়ে আছে | দাঁড়ান | দাঁড়ানো</annotation>
+		<annotation cp="🧍" type="tts">এক জন দাঁড়িয়ে আছে</annotation>
+		<annotation cp="🧍‍♂">দাঁড়িয়ে থাকা | দাঁড়িয়ে থাকা পুরুষ | পুরুষ</annotation>
+		<annotation cp="🧍‍♂" type="tts">দাঁড়িয়ে থাকা পুরুষ</annotation>
+		<annotation cp="🧍‍♀">দাঁড়ানো | দাঁড়িয়ে থাকা মহিলা | মহিলা</annotation>
+		<annotation cp="🧍‍♀" type="tts">দাঁড়িয়ে থাকা মহিলা</annotation>
+		<annotation cp="🧎">হাঁটু গেড়ে | হাঁটু গেড়ে বসা | হাঁটু গেড়ে বসে থাকা মহিলা</annotation>
+		<annotation cp="🧎" type="tts">হাঁটু গেড়ে বসে থাকা মহিলা</annotation>
+		<annotation cp="🧎‍♂">পুরুষ | হাঁটু গেড়ে বসা | হাঁটু গেড়ে বসা পুরুষ</annotation>
+		<annotation cp="🧎‍♂" type="tts">হাঁটু গেড়ে বসা পুরুষ</annotation>
+		<annotation cp="🧎‍♀">মহিলা | হাঁটু গেড়ে বসা | হাঁটু গেড়ে বসা মহিলা</annotation>
+		<annotation cp="🧎‍♀" type="tts">হাঁটু গেড়ে বসা মহিলা</annotation>
+		<annotation cp="🧑‍🦯">অন্ধ | অন্ধের ছড়ি | অ্যাকসেসিবিলিটি</annotation>
+		<annotation cp="🧑‍🦯" type="tts">অন্ধের ছড়ি</annotation>
+		<annotation cp="👨‍🦯">অন্ধ | অ্যাক্সেসিবিলিটি | ছড়ি হাতে পুরুষ | পুরুষ</annotation>
+		<annotation cp="👨‍🦯" type="tts">ছড়ি হাতে পুরুষ</annotation>
+		<annotation cp="👩‍🦯">অন্ধ | অ্যাক্সেসিবিলিটি | ছড়ি হাতে মহিলা | মহিলা</annotation>
+		<annotation cp="👩‍🦯" type="tts">ছড়ি হাতে মহিলা</annotation>
+		<annotation cp="🧑‍🦼">অ্যাকসেসিবিলিটি | মনিটর করা হুইলচেয়ার | হুইলচেয়ার</annotation>
+		<annotation cp="🧑‍🦼" type="tts">মনিটর করা হুইলচেয়ার</annotation>
+		<annotation cp="👨‍🦼">অ্যাক্সেসিবিলিটি | পুরুষ | যান্ত্রিক হুইলচেয়ারে পুরুষ | হুইলচেয়ার</annotation>
+		<annotation cp="👨‍🦼" type="tts">যান্ত্রিক হুইলচেয়ারে পুরুষ</annotation>
+		<annotation cp="👩‍🦼">অ্যাক্সেসিবিলিটি | মহিলা | যান্ত্রিক হুইলচেয়ারে মহিলা | হুইলচেয়ার</annotation>
+		<annotation cp="👩‍🦼" type="tts">যান্ত্রিক হুইলচেয়ারে মহিলা</annotation>
+		<annotation cp="🧑‍🦽">অ্যাকসেসিবিলিটি | ম্যানুয়াল হুইলচেয়ারে বসা ব্যক্তি | হুইলচেয়ার</annotation>
+		<annotation cp="🧑‍🦽" type="tts">ম্যানুয়াল হুইলচেয়ারে বসা ব্যক্তি</annotation>
+		<annotation cp="👨‍🦽">অ্যাক্সেসিবিলিটি | পুরুষ | ম্যানুয়াল হুইলচেয়ারে পুরুষ | হুইলচেয়ার</annotation>
+		<annotation cp="👨‍🦽" type="tts">ম্যানুয়াল হুইলচেয়ারে পুরুষ</annotation>
+		<annotation cp="👩‍🦽">অ্যাক্সেসিবিলিটি | মহিলা | ম্যানুয়াল হুইলচেয়ারে মহিলা | হুইলচেয়ার</annotation>
+		<annotation cp="👩‍🦽" type="tts">ম্যানুয়াল হুইলচেয়ারে মহিলা</annotation>
 		<annotation cp="🏃">দৌড় | দৌড়রত | ম্যারাথন</annotation>
 		<annotation cp="🏃" type="tts">দৌড়</annotation>
 		<annotation cp="🏃‍♂">ছেলে | ছেলেদের দৌড় | দৌড় | পুরুষ | ম্যারাথন | রেসিং</annotation>
@@ -529,6 +893,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💃" type="tts">নৃত্যরত মহিলা</annotation>
 		<annotation cp="🕺">নাচছে | নৃত্যরত পুরুষ | পুরুষ</annotation>
 		<annotation cp="🕺" type="tts">নৃত্যরত পুরুষ</annotation>
+		<annotation cp="🕴">পুরুষ | ব্যবসা | ব্যবসার স্যুট পরিহিত ভাসমান মানুষ | স্যুট</annotation>
+		<annotation cp="🕴" type="tts">ব্যবসার স্যুট পরিহিত ভাসমান মানুষ</annotation>
 		<annotation cp="👯">কান | খরগোশ | ঝোলা কানযুক্ত লোক | নর্তকী | মেয়ে</annotation>
 		<annotation cp="👯" type="tts">ঝোলা কানযুক্ত লোক</annotation>
 		<annotation cp="👯‍♂">ছেলে | ঝোলা কানযুক্ত পুরুষ | ডানসার | পার্টি | বানি ইয়ার</annotation>
@@ -537,34 +903,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👯‍♀" type="tts">ঝোলা কানযুক্ত নারি</annotation>
 		<annotation cp="🧖">বাষ্পীয় রুম | বাষ্পীয় রুমে একজন | সনা</annotation>
 		<annotation cp="🧖" type="tts">বাষ্পীয় রুমে একজন</annotation>
-		<annotation cp="🧖‍♀">বাষ্পীয় রুম | বাষ্পীয় রুমে মহিলা | সনা</annotation>
-		<annotation cp="🧖‍♀" type="tts">বাষ্পীয় রুমে মহিলা</annotation>
 		<annotation cp="🧖‍♂">বাষ্পীয় রুম | বাষ্পীয় রুমে পুরুষ | সনা</annotation>
 		<annotation cp="🧖‍♂" type="tts">বাষ্পীয় রুমে পুরুষ</annotation>
+		<annotation cp="🧖‍♀">বাষ্পীয় রুম | বাষ্পীয় রুমে মহিলা | সনা</annotation>
+		<annotation cp="🧖‍♀" type="tts">বাষ্পীয় রুমে মহিলা</annotation>
 		<annotation cp="🧗">আরোহী | একজন উপরে উঠছে</annotation>
 		<annotation cp="🧗" type="tts">একজন উপরে উঠছে</annotation>
-		<annotation cp="🧗‍♀">আরোহী | মহিলা আরোহী</annotation>
-		<annotation cp="🧗‍♀" type="tts">মহিলা আরোহী</annotation>
 		<annotation cp="🧗‍♂">আরোহী | পুরুষ আরোহী</annotation>
 		<annotation cp="🧗‍♂" type="tts">পুরুষ আরোহী</annotation>
-		<annotation cp="🧘">ধ্যান | পদ্মাসনে বসা ব্যক্তি | যোগা</annotation>
-		<annotation cp="🧘" type="tts">পদ্মাসনে বসা ব্যক্তি</annotation>
-		<annotation cp="🧘‍♀">ধ্যান | পদ্মাসনে বসা মহিলা | যোগা</annotation>
-		<annotation cp="🧘‍♀" type="tts">পদ্মাসনে বসা মহিলা</annotation>
-		<annotation cp="🧘‍♂">ধ্যান | পদ্মাসনে বসা পুরুষ | যোগা</annotation>
-		<annotation cp="🧘‍♂" type="tts">পদ্মাসনে বসা পুরুষ</annotation>
-		<annotation cp="🛀">বাথটব | ব্যক্তি স্নান করছে | স্নান</annotation>
-		<annotation cp="🛀" type="tts">ব্যক্তি স্নান করছে</annotation>
-		<annotation cp="🛌">ব্যক্তি বিছানায় আছেন | শোওয়া | হোটেল</annotation>
-		<annotation cp="🛌" type="tts">ব্যক্তি বিছানায় আছেন</annotation>
-		<annotation cp="🕴">পুরুষ | ব্যবসা | ব্যবসার স্যুট পরিহিত ভাসমান মানুষ | স্যুট</annotation>
-		<annotation cp="🕴" type="tts">ব্যবসার স্যুট পরিহিত ভাসমান মানুষ</annotation>
-		<annotation cp="🗣">কথা বলা | কথা বলা মুখ | কথারত | ছায়া | মুখ</annotation>
-		<annotation cp="🗣" type="tts">কথা বলা মুখ</annotation>
-		<annotation cp="👤">আবক্ষ | ছায়া | সিলুয়েটে আবক্ষ মূর্তি</annotation>
-		<annotation cp="👤" type="tts">সিলুয়েটে আবক্ষ মূর্তি</annotation>
-		<annotation cp="👥">আবক্ষ | ছায়া | সিলুয়েটে আবক্ষ মূর্তিগুলি</annotation>
-		<annotation cp="👥" type="tts">সিলুয়েটে আবক্ষ মূর্তিগুলি</annotation>
+		<annotation cp="🧗‍♀">আরোহী | মহিলা আরোহী</annotation>
+		<annotation cp="🧗‍♀" type="tts">মহিলা আরোহী</annotation>
 		<annotation cp="🤺">খেলা | তলোয়ার | তলোয়ার খেলোয়াড় | ব্যক্তি</annotation>
 		<annotation cp="🤺" type="tts">তলোয়ার খেলোয়াড়</annotation>
 		<annotation cp="🏇">ঘোড়া | ঘোড়া দৌড় | জকি | রেসিং</annotation>
@@ -621,10 +969,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">ছেলেদের পাহাড়ে সাইকেল চালানো</annotation>
 		<annotation cp="🚵‍♀">পাহাড় | বাইসাইকেেল | মহিলা | মেয়েদের পাহাড়ে সাইকেল চালানো | সাইকেল</annotation>
 		<annotation cp="🚵‍♀" type="tts">মেয়েদের পাহাড়ে সাইকেল চালানো</annotation>
-		<annotation cp="🏎">গাড়ি | রেসিং | রেসিং কার</annotation>
-		<annotation cp="🏎" type="tts">রেসিং কার</annotation>
-		<annotation cp="🏍">মটরসাইকেল | রেসিং</annotation>
-		<annotation cp="🏍" type="tts">মটরসাইকেল</annotation>
 		<annotation cp="🤸">কার্টহুইল | খেলা | জিমন্যাস্ট | ব্যক্তি</annotation>
 		<annotation cp="🤸" type="tts">কার্টহুইল</annotation>
 		<annotation cp="🤸‍♂">একজন ছেলে কার্টহুইল করছে | কার্টহুইল | জিমন্যাস্টিক | পুরুষ</annotation>
@@ -655,110 +999,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤹‍♂" type="tts">পুরুষ জাগলিং করছে</annotation>
 		<annotation cp="🤹‍♀">এক সাথা অনেকগুলো কাজ করা | জাগলিং | মহিলা | মহিলা জাগলিং করছে</annotation>
 		<annotation cp="🤹‍♀" type="tts">মহিলা জাগলিং করছে</annotation>
+		<annotation cp="🧘">ধ্যান | পদ্মাসনে বসা ব্যক্তি | যোগা</annotation>
+		<annotation cp="🧘" type="tts">পদ্মাসনে বসা ব্যক্তি</annotation>
+		<annotation cp="🧘‍♂">ধ্যান | পদ্মাসনে বসা পুরুষ | যোগা</annotation>
+		<annotation cp="🧘‍♂" type="tts">পদ্মাসনে বসা পুরুষ</annotation>
+		<annotation cp="🧘‍♀">ধ্যান | পদ্মাসনে বসা মহিলা | যোগা</annotation>
+		<annotation cp="🧘‍♀" type="tts">পদ্মাসনে বসা মহিলা</annotation>
+		<annotation cp="🛀">বাথটব | ব্যক্তি স্নান করছে | স্নান</annotation>
+		<annotation cp="🛀" type="tts">ব্যক্তি স্নান করছে</annotation>
+		<annotation cp="🛌">ব্যক্তি বিছানায় আছেন | শোওয়া | হোটেল</annotation>
+		<annotation cp="🛌" type="tts">ব্যক্তি বিছানায় আছেন</annotation>
+		<annotation cp="🧑‍🤝‍🧑">জোড়া | ধরে থাকা | হাত | হাত ধরে থাকা | হাত ধরে থাকা লোকেরা</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">হাত ধরে থাকা লোকেরা</annotation>
+		<annotation cp="👭">জোড় | দুজন মহিলা হাত ধরে দাড়িয়ে আছে | ধরে রাখা | নারী | হাত</annotation>
+		<annotation cp="👭" type="tts">দুজন মহিলা হাত ধরে দাড়িয়ে আছে</annotation>
 		<annotation cp="👫">জোড় | ধরে রাখা | নারী | পুরুষ | মহিলা ও পুরুষ হাত ধরে দাড়িয়ে আছে | হাত</annotation>
 		<annotation cp="👫" type="tts">মহিলা ও পুরুষ হাত ধরে দাড়িয়ে আছে</annotation>
 		<annotation cp="👬">জোড় | দুজন পুরুষ হার ধরে দাড়িয়ে আছে | ধরে রাখা | পুরুষ | মিথুন | যমজ | রাশিচক্র | হাত</annotation>
 		<annotation cp="👬" type="tts">দুজন পুরুষ হার ধরে দাড়িয়ে আছে</annotation>
-		<annotation cp="👭">জোড় | দুজন মহিলা হাত ধরে দাড়িয়ে আছে | ধরে রাখা | নারী | হাত</annotation>
-		<annotation cp="👭" type="tts">দুজন মহিলা হাত ধরে দাড়িয়ে আছে</annotation>
 		<annotation cp="💏">চুম্বন | জোড় | রোমান্স</annotation>
 		<annotation cp="💏" type="tts">চুম্বন</annotation>
 		<annotation cp="💑">জোড় | ভালবাসা | রোমান্স | হার্ট | হার্ট সহ দম্পতি</annotation>
 		<annotation cp="💑" type="tts">হার্ট সহ দম্পতি</annotation>
 		<annotation cp="👪">পরিবার | বাবা | মা | শিশু</annotation>
 		<annotation cp="👪" type="tts">পরিবার</annotation>
-		<annotation cp="🤳">ক্যামেরা | ফোন | সেলফি</annotation>
-		<annotation cp="🤳" type="tts">সেলফি</annotation>
-		<annotation cp="💪">কমিক | পেশী | বাইসেপ | বাঁকানো বাইসেপস | শরীর</annotation>
-		<annotation cp="💪" type="tts">বাঁকানো বাইসেপস</annotation>
-		<annotation cp="🦵">পা | লাথি</annotation>
-		<annotation cp="🦵" type="tts">পা</annotation>
-		<annotation cp="🦶">পায়ের পাথা | রেগে পা ছোঁড়া | লাথি</annotation>
-		<annotation cp="🦶" type="tts">পায়ের পাথা</annotation>
-		<annotation cp="👈">আঙ্গুল | বামে ইশারা করা উল্টো হাতের তর্জনী | ব্যাকহ্যান্ড | সূচক | হাত</annotation>
-		<annotation cp="👈" type="tts">বামে ইশারা করা উল্টো হাতের তর্জনী</annotation>
-		<annotation cp="👉">আঙ্গুল | ডানে ইশারা করা উল্টো হাতের তর্জনী | পয়েন্ট | ব্যাকহ্যান্ড | হাত</annotation>
-		<annotation cp="👉" type="tts">ডানে ইশারা করা উল্টো হাতের তর্জনী</annotation>
-		<annotation cp="☝">আঙ্গুল | আপ | উপরের দিকে ইশারা করা | পয়েন্ট | হাত</annotation>
-		<annotation cp="☝" type="tts">উপরের দিকে ইশারা করা</annotation>
-		<annotation cp="👆">আঙুল দিয়ে উপরের দিকে ইশারা করা | আঙ্গুল | আপ | পয়েন্ট | ব্যাকহ্যান্ড | শরীর | সূচক | হাত</annotation>
-		<annotation cp="👆" type="tts">আঙুল দিয়ে উপরের দিকে ইশারা করা</annotation>
-		<annotation cp="🖕">আঙ্গুল | মধ্যমা | শরীর | হাত</annotation>
-		<annotation cp="🖕" type="tts">মধ্যমা</annotation>
-		<annotation cp="👇">আঙুল দিয়ে নীচের দিকে ইশারা করা | আঙ্গুল | ইনডেক্স | নিচের দিকে | পয়েন্ট | ব্যাকহ্যান্ড | শরীর | হাত</annotation>
-		<annotation cp="👇" type="tts">আঙুল দিয়ে নীচের দিকে ইশারা করা</annotation>
-		<annotation cp="✌">জয় | ভি আকার | শরীর | হাত | হাতে জয়ের চিহ্ন করা</annotation>
-		<annotation cp="✌" type="tts">হাতে জয়ের চিহ্ন করা</annotation>
-		<annotation cp="🤞">আঙ্গুল | আশা করি | আশা করি যেন হয় | ভাগ্য</annotation>
-		<annotation cp="🤞" type="tts">আশা করি যেন হয়</annotation>
-		<annotation cp="🖖">আকার ইঙ্গিত | আঙ্গুল | ভালকান | ভ্যালকান স্যালুট | শরীর | হাত</annotation>
-		<annotation cp="🖖" type="tts">ভ্যালকান স্যালুট</annotation>
-		<annotation cp="🤘">আঙ্গুল | মন মাতান | শরীর | শিং | হর্ণ দেওয়ার চিহ্ন | হাত</annotation>
-		<annotation cp="🤘" type="tts">হর্ণ দেওয়ার চিহ্ন</annotation>
-		<annotation cp="🤙">কল | ফোন কোরো | হাত</annotation>
-		<annotation cp="🤙" type="tts">ফোন কোরো</annotation>
-		<annotation cp="🖐">আঙ্গুল | আঙ্গুল প্রসারিত করে হাত তোলা | প্রসারিত করা | শরীর | হাত</annotation>
-		<annotation cp="🖐" type="tts">আঙ্গুল প্রসারিত করে হাত তোলা</annotation>
-		<annotation cp="✋">অনুগ্রহ করে থামুন | শরীর | হাত</annotation>
-		<annotation cp="✋" type="tts">অনুগ্রহ করে থামুন</annotation>
-		<annotation cp="👌">ঠিক আছে | শরীর | হাত</annotation>
-		<annotation cp="👌" type="tts">ঠিক আছে</annotation>
-		<annotation cp="👍">1 | উর্দ্ধমুখী | বুড়ো আঙ্গুল | ভালো করেছো | শরীর | হাত</annotation>
-		<annotation cp="👍" type="tts">ভালো করেছো</annotation>
-		<annotation cp="👎">1 | নিম্নমুখী | বুড়ো আঙ্গুল | ভালো করতে পারোনি | শরীর | হাত</annotation>
-		<annotation cp="👎" type="tts">ভালো করতে পারোনি</annotation>
-		<annotation cp="✊">আঙ্গুল সামনের দিকে করে মুড়ে রাখা | কিল | মুষ্টাঘাত | মুষ্টিবদ্ধ | শরীর | হাত</annotation>
-		<annotation cp="✊" type="tts">আঙ্গুল সামনের দিকে করে মুড়ে রাখা</annotation>
-		<annotation cp="👊">কিল | ঘুঁসি | মুষ্টাঘাত | মুষ্টিবদ্ধ | শরীর | হাত</annotation>
-		<annotation cp="👊" type="tts">ঘুঁসি</annotation>
-		<annotation cp="🤛">ঘুঁষি | বাঁদিকে | বাঁদিকে ঘুঁষি মারা</annotation>
-		<annotation cp="🤛" type="tts">বাঁদিকে ঘুঁষি মারা</annotation>
-		<annotation cp="🤜">ঘুঁষি | ডানদিকে | ডানদিকে ঘঁষি মারা</annotation>
-		<annotation cp="🤜" type="tts">ডানদিকে ঘঁষি মারা</annotation>
-		<annotation cp="🤚">হাত তোলা | হাতের পেছন দিক</annotation>
-		<annotation cp="🤚" type="tts">হাতের পেছন দিক</annotation>
-		<annotation cp="👋">দোলানো | নাড়ানো | শরীর | হাত</annotation>
-		<annotation cp="👋" type="tts">হাত নাড়ানো</annotation>
-		<annotation cp="🤟">ভালবাসা | ভালবাসার ইঙ্গিত | হাত</annotation>
-		<annotation cp="🤟" type="tts">ভালবাসার ইঙ্গিত</annotation>
-		<annotation cp="✍">লেখা | লেখার হাত | শরীর | হাত</annotation>
-		<annotation cp="✍" type="tts">লেখার হাত</annotation>
-		<annotation cp="👏">শরীর | হাত | হাত জোড় করে তালি বাজানো | হাততালি</annotation>
-		<annotation cp="👏" type="tts">হাত জোড় করে তালি বাজানো</annotation>
-		<annotation cp="👐">খোলা | শরীর | হাত</annotation>
-		<annotation cp="👐" type="tts">খোলা হাত</annotation>
-		<annotation cp="🙌">অঙ্গভঙ্গি | আনন্দ ধ্বনি করা | উত্থিত | উদযাপন করা | ব্যক্তি হাত তুলে আছে | শরীর | হাত</annotation>
-		<annotation cp="🙌" type="tts">ব্যক্তি হাত তুলে আছে</annotation>
-		<annotation cp="🤲">প্রার্থনা | হাতের তালু একসাথে ওপরের দিকে</annotation>
-		<annotation cp="🤲" type="tts">হাতের তালু একসাথে ওপরের দিকে</annotation>
-		<annotation cp="🙏">অঙ্গভঙ্গি | অনুগ্রহ করে | জানতে চাওয়া | ধন্যবাদ | নমস্কার | ভাঁজ করা | মাথা নত | শরীর | হাত</annotation>
-		<annotation cp="🙏" type="tts">নমস্কার</annotation>
-		<annotation cp="🤝">করমর্দন | মিট করা | রাজি | হাত | হাত মেলানো</annotation>
-		<annotation cp="🤝" type="tts">করমর্দন</annotation>
-		<annotation cp="💅">নখ | নেল পলিশ | পালিশ | প্রসাধনী | ম্যানিকিউর | যত্ন | শরীর</annotation>
-		<annotation cp="💅" type="tts">নেল পলিশ</annotation>
-		<annotation cp="👂">কান | শরীর</annotation>
-		<annotation cp="👂" type="tts">কান</annotation>
-		<annotation cp="👃">নাক | শরীর</annotation>
-		<annotation cp="👃" type="tts">নাক</annotation>
+		<annotation cp="🗣">কথা বলা | কথা বলা মুখ | কথারত | ছায়া | মুখ</annotation>
+		<annotation cp="🗣" type="tts">কথা বলা মুখ</annotation>
+		<annotation cp="👤">আবক্ষ | ছায়া | সিলুয়েটে আবক্ষ মূর্তি</annotation>
+		<annotation cp="👤" type="tts">সিলুয়েটে আবক্ষ মূর্তি</annotation>
+		<annotation cp="👥">আবক্ষ | ছায়া | সিলুয়েটে আবক্ষ মূর্তিগুলি</annotation>
+		<annotation cp="👥" type="tts">সিলুয়েটে আবক্ষ মূর্তিগুলি</annotation>
 		<annotation cp="👣">ছাপ | পায়ের ছাপ | পোশাক | শরীর</annotation>
 		<annotation cp="👣" type="tts">পায়ের ছাপ</annotation>
-		<annotation cp="👀">চোখ | চোখ গুলি | মুখ</annotation>
-		<annotation cp="👀" type="tts">চোখ গুলি</annotation>
-		<annotation cp="👁">চোখ | শরীর</annotation>
-		<annotation cp="👁" type="tts">চোখ</annotation>
-		<annotation cp="👁‍🗨">চোখ | চোখের মতন স্পিচ বাবল | সাক্ষী | স্পিচ বাবল</annotation>
-		<annotation cp="👁‍🗨" type="tts">চোখের মতন স্পিচ বাবল</annotation>
-		<annotation cp="🧠">বুদ্ধিমান | মস্তিষ্ক</annotation>
-		<annotation cp="🧠" type="tts">মস্তিষ্ক</annotation>
-		<annotation cp="🦴">কঙ্কাল | হাড়</annotation>
-		<annotation cp="🦴" type="tts">হাড়</annotation>
-		<annotation cp="🦷">দন্ত-চিকিৎসক | দাঁত</annotation>
-		<annotation cp="🦷" type="tts">দাঁত</annotation>
-		<annotation cp="👅">জিভ | শরীর</annotation>
-		<annotation cp="👅" type="tts">জিভ</annotation>
-		<annotation cp="👄">ঠোট | মুখ</annotation>
-		<annotation cp="👄" type="tts">মুখ</annotation>
 		<annotation cp="🦰">লাল চুত্তয়ালা | লাল চুল | লালচে হলুদ</annotation>
 		<annotation cp="🦰" type="tts">লাল চুল</annotation>
 		<annotation cp="🦱">আফ্রো | কুঞ্চিত | কোঁকড়া | কোঁকড়া চুল</annotation>
@@ -767,157 +1039,27 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">সাদা চুল</annotation>
 		<annotation cp="🦲">কামানো | কেমোথেরাপি | চুল নেই | চুল হীন | নেড়া</annotation>
 		<annotation cp="🦲" type="tts">নেড়া</annotation>
-		<annotation cp="💋">চুম্বন | চুম্বনের চিহ্ন | ঠোট</annotation>
-		<annotation cp="💋" type="tts">চুম্বনের চিহ্ন</annotation>
-		<annotation cp="💘">কিউপিড | তীর | তীর বিদ্ধ হার্ট</annotation>
-		<annotation cp="💘" type="tts">তীর বিদ্ধ হার্ট</annotation>
-		<annotation cp="💝">ফিতা | ভ্যালেন্টাইন | রিবন বাঁধা হার্ট | হার্ট</annotation>
-		<annotation cp="💝" type="tts">রিবন বাঁধা হার্ট</annotation>
-		<annotation cp="💖">উত্তেজিত | জ্বলজ্বলে হার্ট | ঝকমক করা | হৃদয়</annotation>
-		<annotation cp="💖" type="tts">জ্বলজ্বলে হার্ট</annotation>
-		<annotation cp="💗">উত্তেজিত | ক্রমবর্ধমান | বর্ধনশীল হার্ট | স্নায়ুবৈকল্য | হৃদয় | হৃদয় ধ্বনি</annotation>
-		<annotation cp="💗" type="tts">বর্ধনশীল হার্ট</annotation>
-		<annotation cp="💓">স্পন্দনশীল | স্পন্দিত | স্পন্দিত হৃদয় | হৃদস্পন্দন</annotation>
-		<annotation cp="💓" type="tts">স্পন্দিত হৃদয়</annotation>
-		<annotation cp="💞">ঘুরপাক | ঘূর্ণমান হার্ট | হৃদয়</annotation>
-		<annotation cp="💞" type="tts">ঘূর্ণমান হার্ট</annotation>
-		<annotation cp="💕">দুটি হার্ট | ভালবাসা | হৃদয়</annotation>
-		<annotation cp="💕" type="tts">দুটি হার্ট</annotation>
-		<annotation cp="💌">চিঠি | প্রেমের চিঠি | ভালবাসা | মেল | রোমান্স | হৃদয়</annotation>
-		<annotation cp="💌" type="tts">প্রেমের চিঠি</annotation>
-		<annotation cp="❣">চিহ্ন | বড় হার্টের আকারের বিস্ময়সূচক চিহ্ন | বিস্ময়বোধক | ভারী হার্টের আকারের বিস্ময়সূচক চিহ্নের মত গয়না | যতিচিহ্ন | হৃদয়</annotation>
-		<annotation cp="❣" type="tts">বড় হার্টের আকারের বিস্ময়সূচক চিহ্ন</annotation>
-		<annotation cp="💔">ভাঙা | ভাঙ্গা হার্ট | ভেঙে যাওয়া | হার্ট</annotation>
-		<annotation cp="💔" type="tts">ভাঙ্গা হার্ট</annotation>
-		<annotation cp="❤">লাল হার্ট | হৃদয়</annotation>
-		<annotation cp="❤" type="tts">লাল হার্ট</annotation>
-		<annotation cp="🧡">কমলা | কমলা হার্ট</annotation>
-		<annotation cp="🧡" type="tts">কমলা হার্ট</annotation>
-		<annotation cp="💛">হলুদ | হলুদ হার্ট</annotation>
-		<annotation cp="💛" type="tts">হলুদ হার্ট</annotation>
-		<annotation cp="💚">সবুজ | সবুজ হার্ট | হৃদয়</annotation>
-		<annotation cp="💚" type="tts">সবুজ হার্ট</annotation>
-		<annotation cp="💙">নীল | নীল হার্ট | হৃদয়</annotation>
-		<annotation cp="💙" type="tts">নীল হার্ট</annotation>
-		<annotation cp="💜">বেগুনি হার্ট | বেগুনী | হার্ট</annotation>
-		<annotation cp="💜" type="tts">বেগুনি হার্ট</annotation>
-		<annotation cp="🖤">কালো | দুষ্ট | বাজে | হার্ট</annotation>
-		<annotation cp="🖤" type="tts">কালো হার্ট</annotation>
-		<annotation cp="💟">হার্ট সজ্জা | হৃদয়</annotation>
-		<annotation cp="💟" type="tts">হার্ট সজ্জা</annotation>
-		<annotation cp="💤">কমিক | ঘুম পাচ্ছে | ঘুমন্ত অবস্থা</annotation>
-		<annotation cp="💤" type="tts">ঘুম পাচ্ছে</annotation>
-		<annotation cp="💢">কমিক | ক্রুদ্ধ | ক্রোধের প্রতীক | ক্ষিপ্ত</annotation>
-		<annotation cp="💢" type="tts">ক্রোধের প্রতীক</annotation>
-		<annotation cp="💣">কমিক | বোমা</annotation>
-		<annotation cp="💣" type="tts">বোমা</annotation>
-		<annotation cp="💥">কমিক | বুম করে শব্দ হওয়া | সংঘর্ষ</annotation>
-		<annotation cp="💥" type="tts">সংঘর্ষ</annotation>
-		<annotation cp="💦">কমিক | ঘর্মাক্ত অবস্থা | ঘামের ফোঁটা | জলের ফোটা</annotation>
-		<annotation cp="💦" type="tts">ঘামের ফোঁটা</annotation>
-		<annotation cp="💨">উদ্যমী | কমিক | দৌড়রত | হানাহানি</annotation>
-		<annotation cp="💨" type="tts">উদ্যমী</annotation>
-		<annotation cp="💫">কমিক | তারা | হতবুদ্ধি</annotation>
-		<annotation cp="💫" type="tts">হতবুদ্ধি</annotation>
-		<annotation cp="💬">কমিক | ডায়ালগ | বক্তব্যের বেলুন | বক্তৃতা | বুদ্বুদ</annotation>
-		<annotation cp="💬" type="tts">বক্তব্যের বেলুন</annotation>
-		<annotation cp="🗨">কথা বলার বামদিকের বুদবুদ | ডায়ালগ | বক্তৃতা</annotation>
-		<annotation cp="🗨" type="tts">কথা বলার বামদিকের বুদবুদ</annotation>
-		<annotation cp="🗯">ক্রুদ্ধ | ক্ষিপ্ত | ডানে ক্রোধের বুদ্বুদ | বুদ্বুদ | বেলুন</annotation>
-		<annotation cp="🗯" type="tts">ডানে ক্রোধের বুদ্বুদ</annotation>
-		<annotation cp="💭">কমিক | থট বেলুন | বুদ্বুদ | বেলুন | ভাবনা</annotation>
-		<annotation cp="💭" type="tts">থট বেলুন</annotation>
-		<annotation cp="🕳">গর্ত</annotation>
-		<annotation cp="🕳" type="tts">গর্ত</annotation>
-		<annotation cp="👓">চশমা | চোখ | চোখে পরার | পোশাক</annotation>
-		<annotation cp="👓" type="tts">চশমা</annotation>
-		<annotation cp="🕶">গাঢ় | চশমা | চোখ | সানগ্লাস</annotation>
-		<annotation cp="🕶" type="tts">সানগ্লাস</annotation>
-		<annotation cp="🥽">গগলস | চোখের সুরক্ষা | ঝালাই | সাঁতার</annotation>
-		<annotation cp="🥽" type="tts">গগলস</annotation>
-		<annotation cp="🥼">গবেষণা | ডাক্তার | বিজ্ঞানী | ল্যাব কোট</annotation>
-		<annotation cp="🥼" type="tts">ল্যাব কোট</annotation>
-		<annotation cp="👔">গলার টাই | পোশাক</annotation>
-		<annotation cp="👔" type="tts">গলার টাই</annotation>
-		<annotation cp="👕">টি শার্ট | টি-শার্ট | পোশাক | শার্ট</annotation>
-		<annotation cp="👕" type="tts">টি-শার্ট</annotation>
-		<annotation cp="👖">জিনস | ট্রাউজার্স | পোশাক | প্যান্ট</annotation>
-		<annotation cp="👖" type="tts">জিনস</annotation>
-		<annotation cp="🧣">গলাবন্ধ | স্কার্ফ</annotation>
-		<annotation cp="🧣" type="tts">স্কার্ফ</annotation>
-		<annotation cp="🧤">দস্তানা | হাত</annotation>
-		<annotation cp="🧤" type="tts">দস্তানা</annotation>
-		<annotation cp="🧥">কোট | জ্যাকেট</annotation>
-		<annotation cp="🧥" type="tts">কোট</annotation>
-		<annotation cp="🧦">মোজা | স্টকিং</annotation>
-		<annotation cp="🧦" type="tts">মোজা</annotation>
-		<annotation cp="👗">জামা | ফ্রক</annotation>
-		<annotation cp="👗" type="tts">ফ্রক</annotation>
-		<annotation cp="👘">কিমোনো | পোশাক</annotation>
-		<annotation cp="👘" type="tts">কিমোনো</annotation>
-		<annotation cp="👙">পোশাক | বিকিনি | সাঁতার কাটা</annotation>
-		<annotation cp="👙" type="tts">বিকিনি</annotation>
-		<annotation cp="👚">নারী | পোশাক | মহিলাদের পোশাক</annotation>
-		<annotation cp="👚" type="tts">মহিলাদের পোশাক</annotation>
-		<annotation cp="👛">পার্স | পোশাক | মুদ্রা</annotation>
-		<annotation cp="👛" type="tts">পার্স</annotation>
-		<annotation cp="👜">পার্স | পোশাক | ব্যাগ | হাতের ব্যাগ</annotation>
-		<annotation cp="👜" type="tts">হাতের ব্যাগ</annotation>
-		<annotation cp="👝">পাউচ | পোশাক | ব্যাগ</annotation>
-		<annotation cp="👝" type="tts">ব্যাগ</annotation>
-		<annotation cp="🛍">কেনাকাটা | কেনাকাটার ব্যাগ | ব্যাগ | হোটেল</annotation>
-		<annotation cp="🛍" type="tts">কেনাকাটার ব্যাগ</annotation>
-		<annotation cp="🎒">ব্যাগ | স্কুল | স্কুলের পিঠে নেওয়ার ব্যাগ | স্কুলের ব্যাগ</annotation>
-		<annotation cp="🎒" type="tts">স্কুলের পিঠে নেওয়ার ব্যাগ</annotation>
-		<annotation cp="👞">জুতো | পুরুষ | পুরুষের জুতো | পোশাক</annotation>
-		<annotation cp="👞" type="tts">পুরুষের জুতো</annotation>
-		<annotation cp="👟">ক্রীড়াবিষয়ক | জুতো | দৌড়ানোর জুতো | পোশাক | স্নীকার</annotation>
-		<annotation cp="👟" type="tts">দৌড়ানোর জুতো</annotation>
-		<annotation cp="🥾">জুতো | পর্বতারহণের জুতো | পর্বতারোহণ | ব্যাকপ্যাকিং | শিবির</annotation>
-		<annotation cp="🥾" type="tts">পর্বতারহণের জুতো</annotation>
-		<annotation cp="🥿">চটি | ফ্ল্যাট জুতো | ব্যালেট ফ্ল্যাট | স্লিপ-অন</annotation>
-		<annotation cp="🥿" type="tts">ফ্ল্যাট জুতো</annotation>
-		<annotation cp="👠">উচু হিলের জুতো | গোড়ালি | জুতো | নারী | পোশাক</annotation>
-		<annotation cp="👠" type="tts">উচু হিলের জুতো</annotation>
-		<annotation cp="👡">জুতো | নারী | পোশাক | মহিলাদের চটি | স্যান্ডেল</annotation>
-		<annotation cp="👡" type="tts">মহিলাদের চটি</annotation>
-		<annotation cp="👢">জুতো | নারী | পোশাক | বুট | মহিলাদের বুট</annotation>
-		<annotation cp="👢" type="tts">মহিলাদের বুট</annotation>
-		<annotation cp="👑">পোশাক | মুকুট | রাজা | রাণী</annotation>
-		<annotation cp="👑" type="tts">মুকুট</annotation>
-		<annotation cp="👒">টুপি | নারী | পোশাক | মহিলাদের টুপি</annotation>
-		<annotation cp="👒" type="tts">মহিলাদের টুপি</annotation>
-		<annotation cp="🎩">উঁচু টুপি | টপ | টুপি | পোশাক</annotation>
-		<annotation cp="🎩" type="tts">উঁচু টুপি</annotation>
-		<annotation cp="🎓">উদযাপন | গ্রাজুয়েশনের টুপি | টুপি | পোশাক | স্নাতক হওয়া</annotation>
-		<annotation cp="🎓" type="tts">গ্রাজুয়েশনের টুপি</annotation>
-		<annotation cp="🧢">বিল্ড টুপি | বেসবলের টুপি</annotation>
-		<annotation cp="🧢" type="tts">বিল্ড টুপি</annotation>
-		<annotation cp="⛑">উদ্ধারকারী কর্মীর হেলমেট | ক্রস | চিকিৎসা | টুপি | মুখ | হেলমেট</annotation>
-		<annotation cp="⛑" type="tts">উদ্ধারকারী কর্মীর হেলমেট</annotation>
-		<annotation cp="📿">জপমালা | জপের মালা | ধর্ম | পোশাক | প্রার্থনা</annotation>
-		<annotation cp="📿" type="tts">জপের মালা</annotation>
-		<annotation cp="💄">প্রসাধনী | মেকআপ | লিপস্টিক</annotation>
-		<annotation cp="💄" type="tts">লিপস্টিক</annotation>
-		<annotation cp="💍">আংটি | রোমান্স | হীরা</annotation>
-		<annotation cp="💍" type="tts">আংটি</annotation>
-		<annotation cp="💎">মণি | রত্ন | রত্ন পাথর | রোমান্স | হীরা</annotation>
-		<annotation cp="💎" type="tts">রত্ন পাথর</annotation>
 		<annotation cp="🐵">বাঁদরের মুখ | বানর | মুখ</annotation>
 		<annotation cp="🐵" type="tts">বাঁদরের মুখ</annotation>
 		<annotation cp="🐒">বাঁদর | বানর</annotation>
 		<annotation cp="🐒" type="tts">বাঁদর</annotation>
 		<annotation cp="🦍">গোরিলা | পশু</annotation>
 		<annotation cp="🦍" type="tts">গোরিলা</annotation>
+		<annotation cp="🦧">উল্লুক | ওরাংওটান</annotation>
+		<annotation cp="🦧" type="tts">ওরাংওটান</annotation>
 		<annotation cp="🐶">কুকুর | কুকুরের মুখ | পোষ্য | মুখ</annotation>
 		<annotation cp="🐶" type="tts">কুকুরের মুখ</annotation>
 		<annotation cp="🐕">কুকুর | পোষ্য</annotation>
 		<annotation cp="🐕" type="tts">কুকুর</annotation>
+		<annotation cp="🦮">অ্যাক্সেসিবিলিটি | গাইড | পথপ্রদর্শক কুকুর | ব্লাইন্ড</annotation>
+		<annotation cp="🦮" type="tts">পথপ্রদর্শক কুকুর</annotation>
+		<annotation cp="🐕‍🦺">অ্যাক্সেসিবিলিটি | অ্যাসিসটেন্স | কুকুর | সার্ভিস | সার্ভিস ডগ</annotation>
+		<annotation cp="🐕‍🦺" type="tts">সার্ভিস ডগ</annotation>
 		<annotation cp="🐩">কুকুর | পুডল</annotation>
 		<annotation cp="🐩" type="tts">পুডল</annotation>
-		<annotation cp="🐺">নেকড়ে | মুখ | শেয়ালের মুখ</annotation>
-		<annotation cp="🐺" type="tts">শেয়ালের মুখ</annotation>
-		<annotation cp="🦊">পশু | মুখো | শেয়াল</annotation>
+		<annotation cp="🐺">নেকড়ে | নেকড়ের মুখ | শেয়ালের মুখ</annotation>
+		<annotation cp="🐺" type="tts">নেকড়ে</annotation>
+		<annotation cp="🦊">শেয়াল | শেয়ালের মুখ</annotation>
 		<annotation cp="🦊" type="tts">শেয়াল</annotation>
 		<annotation cp="🦝">উৎসুক | ধূর্ত | রেকুন</annotation>
 		<annotation cp="🦝" type="tts">রেকুন</annotation>
@@ -925,7 +1067,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐱" type="tts">বিড়ালের মুখ</annotation>
 		<annotation cp="🐈">পোষ্য | বিড়াল</annotation>
 		<annotation cp="🐈" type="tts">বিড়াল</annotation>
-		<annotation cp="🦁">মুখ | রাশিচক্র | সিংহ | সিংহরাশি | সিংহের মুখ</annotation>
+		<annotation cp="🐈‍⬛">কালো | দুর্ভাগ্য | বেড়াল</annotation>
+		<annotation cp="🐈‍⬛" type="tts">কালো বেড়াল</annotation>
+		<annotation cp="🦁">রাশিচক্র | সিংহ | সিংহরাশি | সিংহের মুখ</annotation>
 		<annotation cp="🦁" type="tts">সিংহের মুখ</annotation>
 		<annotation cp="🐯">বাঘ | বাঘের মুখ | মুখ</annotation>
 		<annotation cp="🐯" type="tts">বাঘের মুখ</annotation>
@@ -937,8 +1081,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐴" type="tts">ঘোড়ার মুখ</annotation>
 		<annotation cp="🐎">ঘোড়দৌড় | ঘোড়দৌড়ের ঘোড়া | ঘোড়া</annotation>
 		<annotation cp="🐎" type="tts">ঘোড়া</annotation>
-		<annotation cp="🦄">ইউনিকর্ন | ইউনিকর্নের মুখ | মুখ</annotation>
-		<annotation cp="🦄" type="tts">ইউনিকর্নের মুখ</annotation>
+		<annotation cp="🦄">ইউনিকর্ন | মুখ</annotation>
+		<annotation cp="🦄" type="tts">ইউনিকর্ন</annotation>
 		<annotation cp="🦓">জেব্রা | ডোরাকাটা</annotation>
 		<annotation cp="🦓" type="tts">জেব্রা</annotation>
 		<annotation cp="🦌">ঙরিণ | পশু | হরিণ</annotation>
@@ -985,8 +1129,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐁" type="tts">ইঁদুর</annotation>
 		<annotation cp="🐀">ইঁদুর | ইঁদুর,মাউস</annotation>
 		<annotation cp="🐀" type="tts">ইঁদুর,মাউস</annotation>
-		<annotation cp="🐹">ধেড়ে ইঁদুরের মতো প্রাণী | পোষ্য | মুখ | হ্যামস্টারের মুখ</annotation>
-		<annotation cp="🐹" type="tts">হ্যামস্টারের মুখ</annotation>
+		<annotation cp="🐹">পোষ্য | মুখ | হ্যামস্টার | হ্যামস্টারের মুখ</annotation>
+		<annotation cp="🐹" type="tts">হ্যামস্টার</annotation>
 		<annotation cp="🐰">খরগোশ | খরগোসের মুখ | পোষ্য | মুখ</annotation>
 		<annotation cp="🐰" type="tts">খরগোসের মুখ</annotation>
 		<annotation cp="🐇">খরগোশ | খরগোস | পোষ্য</annotation>
@@ -997,12 +1141,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦔" type="tts">শজারু</annotation>
 		<annotation cp="🦇">পশু | বাদুর | বাঁদুর | রক্তচোষা</annotation>
 		<annotation cp="🦇" type="tts">বাঁদুর</annotation>
-		<annotation cp="🐻">ভল্লুকের মুখ | ভালুক | মুখ</annotation>
-		<annotation cp="🐻" type="tts">ভল্লুকের মুখ</annotation>
+		<annotation cp="🐻">ভল্লুক | মুখ</annotation>
+		<annotation cp="🐻" type="tts">ভল্লুক</annotation>
+		<annotation cp="🐻‍❄">পোলার বিয়ার | ভল্লুক | মেরু ভল্লুক | সাদা | সুমেরু</annotation>
+		<annotation cp="🐻‍❄" type="tts">পোলার বিয়ার</annotation>
 		<annotation cp="🐨">কোয়ালা | ভালুক</annotation>
 		<annotation cp="🐨" type="tts">কোয়ালা</annotation>
-		<annotation cp="🐼">পান্ডা | পান্ডার মুখ | মুখ</annotation>
-		<annotation cp="🐼" type="tts">পান্ডার মুখ</annotation>
+		<annotation cp="🐼">পান্ডা | মুখ</annotation>
+		<annotation cp="🐼" type="tts">পান্ডা</annotation>
+		<annotation cp="🦥">অলস | কুঁড়ে | স্লথ</annotation>
+		<annotation cp="🦥" type="tts">স্লথ</annotation>
+		<annotation cp="🦦">উদ্বিড়াল | ফিশিং | মাছধরা</annotation>
+		<annotation cp="🦦" type="tts">উদ্বিড়াল</annotation>
+		<annotation cp="🦨">দুর্গন্ধ | স্কাংক</annotation>
+		<annotation cp="🦨" type="tts">স্কাংক</annotation>
 		<annotation cp="🦘">অস্ট্রেলিয়া | ক্যাঙ্গারু | জই | দ্বিগর্ভ | লাফ</annotation>
 		<annotation cp="🦘" type="tts">ক্যাঙ্গারু</annotation>
 		<annotation cp="🦡">বিরক্ত করা | ব্যাজার | হানি ব্যাজার</annotation>
@@ -1035,12 +1187,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">রাজহাঁস</annotation>
 		<annotation cp="🦉">পাখি | পেঁচা | বিজ্ঞ</annotation>
 		<annotation cp="🦉" type="tts">পেঁচা</annotation>
+		<annotation cp="🦩">গ্রীষ্মপ্রধান | জাঁকালো | মরাল</annotation>
+		<annotation cp="🦩" type="tts">মরাল</annotation>
 		<annotation cp="🦚">গর্বিত | জাঁকালো | পাখি | ময়ূর | ময়ূরী</annotation>
 		<annotation cp="🦚" type="tts">ময়ূর</annotation>
 		<annotation cp="🦜">কথা | তোতাপাখি | পাইরেট | পাখি</annotation>
 		<annotation cp="🦜" type="tts">তোতাপাখি</annotation>
-		<annotation cp="🐸">ব্যাং | ব্যাঙের মুখ | মুখ</annotation>
-		<annotation cp="🐸" type="tts">ব্যাঙের মুখ</annotation>
+		<annotation cp="🐸">ব্যাঙ | ব্যাঙের মুখ | মুখ</annotation>
+		<annotation cp="🐸" type="tts">ব্যাঙ</annotation>
 		<annotation cp="🐊">কুমির</annotation>
 		<annotation cp="🐊" type="tts">কুমির</annotation>
 		<annotation cp="🐢">কচ্ছপ</annotation>
@@ -1075,14 +1229,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐙" type="tts">অক্টোপাস</annotation>
 		<annotation cp="🐚">ঝিনুক | ঝিনুকের খোলস | সর্পিল</annotation>
 		<annotation cp="🐚" type="tts">ঝিনুকের খোলস</annotation>
-		<annotation cp="🦀">কর্কট | কাঁকড়া | রাশিচক্র</annotation>
-		<annotation cp="🦀" type="tts">কাঁকড়া</annotation>
-		<annotation cp="🦞">গলদা চিংড়ি | দাড়া | বিস্ক | সীফুড</annotation>
-		<annotation cp="🦞" type="tts">গলদা চিংড়ি</annotation>
-		<annotation cp="🦐">খাবার | খোলাওয়ালা মাছ | চিংড়ি | ছোট</annotation>
-		<annotation cp="🦐" type="tts">চিংড়ি</annotation>
-		<annotation cp="🦑">খাবার | শম্বুক কোমলাঙ্গ জন্তু | স্কুইড</annotation>
-		<annotation cp="🦑" type="tts">স্কুইড</annotation>
 		<annotation cp="🐌">শামুক</annotation>
 		<annotation cp="🐌" type="tts">শামুক</annotation>
 		<annotation cp="🦋">পতঙ্গ | প্রজাপতি | সুন্দর</annotation>
@@ -1121,7 +1267,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥀" type="tts">নেতানো ফুল</annotation>
 		<annotation cp="🌺">গাছ | জবা | ফুল</annotation>
 		<annotation cp="🌺" type="tts">জবা</annotation>
-		<annotation cp="🌻">গাছ | ফুল | সূর্য | সূর্যমুখি</annotation>
+		<annotation cp="🌻">ফুল | সূর্য | সূর্যমুখি</annotation>
 		<annotation cp="🌻" type="tts">সূর্যমুখি</annotation>
 		<annotation cp="🌼">গাছ | ফুল</annotation>
 		<annotation cp="🌼" type="tts">ফুল</annotation>
@@ -1203,6 +1349,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥬" type="tts">সবুজ শাক পাতা</annotation>
 		<annotation cp="🥦">ওয়াইল্ড ক্যাবেজ | ফুলকপি</annotation>
 		<annotation cp="🥦" type="tts">ফুলকপি</annotation>
+		<annotation cp="🧄">রসুন | স্বাদ</annotation>
+		<annotation cp="🧄" type="tts">রসুন</annotation>
+		<annotation cp="🧅">পেঁয়াজ | স্বাদ</annotation>
+		<annotation cp="🧅" type="tts">পেঁয়াজ</annotation>
 		<annotation cp="🍄">গাছ | মাশরুম</annotation>
 		<annotation cp="🍄" type="tts">মাশরুম</annotation>
 		<annotation cp="🥜">খাবার | চিনাবাদাম | বাদাম | সবজি</annotation>
@@ -1221,6 +1371,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥯" type="tts">বেগেল</annotation>
 		<annotation cp="🥞">ক্রেপ | খাবার | প্যানকেক | হটকেক</annotation>
 		<annotation cp="🥞" type="tts">প্যানকেক</annotation>
+		<annotation cp="🧇">ওয়াফেল | দ্বিধান্বিত | লোহা</annotation>
+		<annotation cp="🧇" type="tts">ওয়াফেল</annotation>
 		<annotation cp="🧀">চিজ | চীজ ওয়েজ</annotation>
 		<annotation cp="🧀" type="tts">চীজ ওয়েজ</annotation>
 		<annotation cp="🍖">মাংস | হাড় | হাড়ের উপর মাংস</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">বুরিটো</annotation>
 		<annotation cp="🥙">কাবাব | খাবার | গাইরো | চেপ্টারুটি | পুর ভরা পাউরুটি | ফলাফেল</annotation>
 		<annotation cp="🥙" type="tts">পুর ভরা পাউরুটি</annotation>
+		<annotation cp="🧆">ছোলা | ফলাফেল | মিটবল</annotation>
+		<annotation cp="🧆" type="tts">ফলাফেল</annotation>
 		<annotation cp="🥚">খাবার | ডিম</annotation>
 		<annotation cp="🥚" type="tts">ডিম</annotation>
 		<annotation cp="🍳">চাটু | ডিম | ভাজা | রান্না করা</annotation>
@@ -1261,6 +1415,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">গ্রিন স্যালাদ</annotation>
 		<annotation cp="🍿">পপকর্ণ</annotation>
 		<annotation cp="🍿" type="tts">পপকর্ণ</annotation>
+		<annotation cp="🧈">ডেয়ারি | মাখন</annotation>
+		<annotation cp="🧈" type="tts">মাখন</annotation>
 		<annotation cp="🧂">আচার | লবণ | শেকার</annotation>
 		<annotation cp="🧂" type="tts">লবণ</annotation>
 		<annotation cp="🥫">ক্যান | ক্যানজাত খাদ্য</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">ফরচুন কুকি</annotation>
 		<annotation cp="🥡">ওয়েস্টার পেল | খাবার নিয়ে যাওয়ার বক্স</annotation>
 		<annotation cp="🥡" type="tts">খাবার নিয়ে যাওয়ার বক্স</annotation>
+		<annotation cp="🦀">কর্কট | কাঁকড়া | রাশিচক্র</annotation>
+		<annotation cp="🦀" type="tts">কাঁকড়া</annotation>
+		<annotation cp="🦞">গলদা চিংড়ি | দাড়া | বিস্ক | সীফুড</annotation>
+		<annotation cp="🦞" type="tts">গলদা চিংড়ি</annotation>
+		<annotation cp="🦐">খাবার | খোলাওয়ালা মাছ | চিংড়ি | ছোট</annotation>
+		<annotation cp="🦐" type="tts">চিংড়ি</annotation>
+		<annotation cp="🦑">খাবার | শম্বুক কোমলাঙ্গ জন্তু | স্কুইড</annotation>
+		<annotation cp="🦑" type="tts">স্কুইড</annotation>
+		<annotation cp="🦪">ওয়েস্টার | ডুবুরি | পার্ল</annotation>
+		<annotation cp="🦪" type="tts">ওয়েস্টার</annotation>
 		<annotation cp="🍦">আইসক্রিম | ক্রিম | ডেজার্ট | বরফ | মিষ্টি | সফ্ট আইস ক্রিম</annotation>
 		<annotation cp="🍦" type="tts">সফ্ট আইস ক্রিম</annotation>
 		<annotation cp="🍧">চাঁচা | ডেজার্ট | বরফ | মিষ্টি | শেভড আইস</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">চওড়া গ্লাস</annotation>
 		<annotation cp="🥤">জুস | সোডা | স্ট্র দেওয়া কাপ</annotation>
 		<annotation cp="🥤" type="tts">স্ট্র দেওয়া কাপ</annotation>
+		<annotation cp="🧃">জুস বাক্স | পানীয়</annotation>
+		<annotation cp="🧃" type="tts">পানীয়</annotation>
+		<annotation cp="🧉">পানীয় | মেট</annotation>
+		<annotation cp="🧉" type="tts">মেট</annotation>
+		<annotation cp="🧊">আইস কিউব | আইসবার্গ | ঠান্ডা</annotation>
+		<annotation cp="🧊" type="tts">আইস কিউব</annotation>
 		<annotation cp="🥢">চপস্টিক | হাশি</annotation>
 		<annotation cp="🥢" type="tts">চপস্টিক</annotation>
 		<annotation cp="🍽">কাঁটাচামচ | ছুরি | প্লেট | প্লেটের সঙ্গে কাঁটাচামচ ও ছুরি | রন্ধন</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">চার্চ</annotation>
 		<annotation cp="🕌">ইসলাম | ধর্ম | মসজিদ | মুসলিম</annotation>
 		<annotation cp="🕌" type="tts">মসজিদ</annotation>
+		<annotation cp="🛕">মন্দির | হিন্দু</annotation>
+		<annotation cp="🛕" type="tts">হিন্দু মন্দির</annotation>
 		<annotation cp="🕍">ইহুদি | ইহুদিদের ধর্মস্থান | ধর্ম | মন্দির</annotation>
 		<annotation cp="🕍" type="tts">ইহুদিদের ধর্মস্থান</annotation>
 		<annotation cp="⛩">ধর্ম | মঠ | শিন্টো | শিন্তো মন্দির</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">রাতে সেতু</annotation>
 		<annotation cp="♨">উষ্ণ প্রস্রবণ | গরম | প্রস্রবণ | ভাপানো</annotation>
 		<annotation cp="♨" type="tts">উষ্ণ প্রস্রবণ</annotation>
-		<annotation cp="🌌">আকাশগঙ্গা | আবহাওয়া | মহাকাশ</annotation>
-		<annotation cp="🌌" type="tts">আকাশগঙ্গা</annotation>
 		<annotation cp="🎠">ঘোড়া | নাগরদোলনা</annotation>
 		<annotation cp="🎠" type="tts">নাগরদোলনা ঘোড়া</annotation>
 		<annotation cp="🎡">চাকা | চিত্তবিনোদন পার্ক | ফেরিস | বড়ো নাগরদোলা</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">আর্টিকুলেট লরি</annotation>
 		<annotation cp="🚜">ট্র্যাক্টর | যানবাহন</annotation>
 		<annotation cp="🚜" type="tts">ট্র্যাক্টর</annotation>
+		<annotation cp="🏎">গাড়ি | রেসিং | রেসিং কার</annotation>
+		<annotation cp="🏎" type="tts">রেসিং কার</annotation>
+		<annotation cp="🏍">মটরসাইকেল | রেসিং</annotation>
+		<annotation cp="🏍" type="tts">মটরসাইকেল</annotation>
+		<annotation cp="🛵">মটর | মোটর স্কুটার | স্কুটার</annotation>
+		<annotation cp="🛵" type="tts">মোটর স্কুটার</annotation>
+		<annotation cp="🦽">অ্যাক্সেসিবিলিটি | ম্যানুয়াল হুইলচেয়ার</annotation>
+		<annotation cp="🦽" type="tts">ম্যানুয়াল হুইলচেয়ার</annotation>
+		<annotation cp="🦼">অ্যাক্সেসিবিলিটি | মোটরচালিত হুইলচেয়ার</annotation>
+		<annotation cp="🦼" type="tts">মোটরচালিত হুইলচেয়ার</annotation>
+		<annotation cp="🛺">অটো রিক্সা | টুক টুক</annotation>
+		<annotation cp="🛺" type="tts">অটো রিক্সা</annotation>
 		<annotation cp="🚲">বাইক | বাইসাইকেল | যানবাহন</annotation>
 		<annotation cp="🚲" type="tts">বাইসাইকেল</annotation>
 		<annotation cp="🛴">কিক | স্কুটার</annotation>
 		<annotation cp="🛴" type="tts">কিক স্কুটার</annotation>
 		<annotation cp="🛹">বোর্ড | স্কেটবোর্ড</annotation>
 		<annotation cp="🛹" type="tts">স্কেটবোর্ড</annotation>
-		<annotation cp="🛵">মটর | মোটর স্কুটার | স্কুটার</annotation>
-		<annotation cp="🛵" type="tts">মোটর স্কুটার</annotation>
 		<annotation cp="🚏">থামা | বাস | বাস স্টপ | বাস্টের স্টপ</annotation>
 		<annotation cp="🚏" type="tts">বাস্টের স্টপ</annotation>
 		<annotation cp="🛣">মোটর ওয়ে | রাস্তা | হাইওয়ে</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">বিমান ছাড়া</annotation>
 		<annotation cp="🛬">অবতরণ | আগত | আগমন | বিমান | বিমান আসা | যানবাহন</annotation>
 		<annotation cp="🛬" type="tts">বিমান আসা</annotation>
+		<annotation cp="🪂">প্যারাশুট | প্যারাসেইল | স্কাইডাইভ | হ্যাং-গ্লাইড</annotation>
+		<annotation cp="🪂" type="tts">প্যারাশুট</annotation>
 		<annotation cp="💺">চেয়ার | বসার জায়গা</annotation>
 		<annotation cp="💺" type="tts">বসার জায়গা</annotation>
 		<annotation cp="🚁">যানবাহন | হেলিকপ্টার</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">মুখের সাথে পূর্ণ চাঁদ</annotation>
 		<annotation cp="🌞">আবহাওয়া | উজ্জ্বল | মহাকাশ | মুখ | মুখের সাথে সূর্য | সূর্য</annotation>
 		<annotation cp="🌞" type="tts">মুখের সাথে সূর্য</annotation>
+		<annotation cp="🪐">গম্ভীরস্বভাব | বলয়যুক্ত গ্রহ | শনি</annotation>
+		<annotation cp="🪐" type="tts">বলয়যুক্ত গ্রহ</annotation>
 		<annotation cp="⭐">তারা | সাদা মাঝারি তারা</annotation>
 		<annotation cp="⭐" type="tts">সাদা মাঝারি তারা</annotation>
 		<annotation cp="🌟">উজ্জ্বল তারা | উদ্ভাস | জ্বলজ্বলে | ঝকমক | তারা | দ্যুতি</annotation>
 		<annotation cp="🌟" type="tts">উজ্জ্বল তারা</annotation>
 		<annotation cp="🌠">উল্কা | তারা | পতিত | মহাকাশ | শুটিং</annotation>
 		<annotation cp="🌠" type="tts">উল্কা</annotation>
+		<annotation cp="🌌">আকাশগঙ্গা | আবহাওয়া | মহাকাশ</annotation>
+		<annotation cp="🌌" type="tts">আকাশগঙ্গা</annotation>
 		<annotation cp="☁">আবহাওয়া | মেঘ</annotation>
 		<annotation cp="☁" type="tts">মেঘ</annotation>
 		<annotation cp="⛅">আবহাওয়া | মেঘ | মেঘের পিছনে সূর্য | সূর্য</annotation>
@@ -1781,7 +1969,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎇" type="tts">ফুলঝুড়ি</annotation>
 		<annotation cp="🧨">আতশবাজি | ডাইনামাইট | বাজি | বিস্ফোরক</annotation>
 		<annotation cp="🧨" type="tts">বাজি</annotation>
-		<annotation cp="✨">তারা | দ্যুতি</annotation>
+		<annotation cp="✨">* | ঝিকিমিকি | তারা | দ্যুতি</annotation>
 		<annotation cp="✨" type="tts">দ্যুতি</annotation>
 		<annotation cp="🎈">উদযাপন | বেলুন</annotation>
 		<annotation cp="🎈" type="tts">বেলুন</annotation>
@@ -1869,6 +2057,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">বরফে স্কেট করা</annotation>
 		<annotation cp="🎣">মাছ | মাছ ধরার বর্শি | মেরু</annotation>
 		<annotation cp="🎣" type="tts">মাছ ধরার বর্শি</annotation>
+		<annotation cp="🤿">ডাইভিং | ডুবুরির মুখোশ | স্কুবা | স্নরকেলিং</annotation>
+		<annotation cp="🤿" type="tts">ডুবুরির মুখোশ</annotation>
 		<annotation cp="🎽">উত্তরীয় | চলমান | জামা | দৌড়ানোর জামা</annotation>
 		<annotation cp="🎽" type="tts">দৌড়ানোর জামা</annotation>
 		<annotation cp="🎿">তুষারপাত | স্কি</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">কার্লিং স্টোন</annotation>
 		<annotation cp="🎯">খেলা | ডার্ট | বুল্সআই | সরাসরি হিট করা | হিট</annotation>
 		<annotation cp="🎯" type="tts">সরাসরি হিট করা</annotation>
+		<annotation cp="🪀">খেলনা | ফ্ল্যাকচুয়েট | য়ো-য়ো</annotation>
+		<annotation cp="🪀" type="tts">য়ো-য়ো</annotation>
+		<annotation cp="🪁">ওড়া | ঘুড়ি | মাঝ আকাশে</annotation>
+		<annotation cp="🪁" type="tts">ঘুড়ি</annotation>
 		<annotation cp="🎱">8 পুল বল | 8 বলের পুল | আট | খেলা | বল | বিলিয়ার্ড</annotation>
 		<annotation cp="🎱" type="tts">8 বলের পুল</annotation>
 		<annotation cp="🔮">কল্পনা | ক্রিস্টাল | বল | রূপকথা | সৌভাগ্য</annotation>
@@ -1893,8 +2087,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎰" type="tts">স্লট মেশিন</annotation>
 		<annotation cp="🎲">খেলা | খেলার ছক্কা | ডাই | পাশা</annotation>
 		<annotation cp="🎲" type="tts">খেলার ছক্কা</annotation>
-		<annotation cp="🧩">ইন্টারলকিং | জিগস | টুকরা | ধাঁধা | সূত্র</annotation>
-		<annotation cp="🧩" type="tts">জিগস</annotation>
+		<annotation cp="🧩">ইন্টারলকিং | জিগস | টুকরো | ধাঁধা | পাজেলের টুকরো | সূত্র</annotation>
+		<annotation cp="🧩" type="tts">পাজেলের টুকরো</annotation>
 		<annotation cp="🧸">খেলনা | খেলার জিনিস | খেলার পণ্য | টেডি বিয়ার | প্লাশ</annotation>
 		<annotation cp="🧸" type="tts">টেডি বিয়ার</annotation>
 		<annotation cp="♠">কার্ড | খেলা | স্পেড | স্যুট</annotation>
@@ -1911,7 +2105,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🃏" type="tts">জোকার</annotation>
 		<annotation cp="🀄">খেলা | মাহজঙ্গ | মাহজঙ্গ লাল ড্রাগন | লাল</annotation>
 		<annotation cp="🀄" type="tts">মাহজঙ্গ লাল ড্রাগন</annotation>
-		<annotation cp="🎴">কার্ড | খেলা | জাপানি | তাস | ফুল | ফুল বাজানোর কার্ড</annotation>
+		<annotation cp="🎴">কার্ড | খেলা | জাপানি | তাস | ফুল | ফুল বাজানোর কার্ড | ফুল সজ্জিত তাস</annotation>
 		<annotation cp="🎴" type="tts">ফুল বাজানোর কার্ড</annotation>
 		<annotation cp="🎭">কলা | কলা সম্পাদন | থিয়েটার | পারফর্ম করা | মুখোশ</annotation>
 		<annotation cp="🎭" type="tts">কলা সম্পাদন</annotation>
@@ -1923,6 +2117,92 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">সুতা</annotation>
 		<annotation cp="🧶">ক্রোশেই | বল | বুনা | সুতো</annotation>
 		<annotation cp="🧶" type="tts">সুতো</annotation>
+		<annotation cp="👓">চশমা | চোখ | চোখে পরার | পোশাক</annotation>
+		<annotation cp="👓" type="tts">চশমা</annotation>
+		<annotation cp="🕶">গাঢ় | চশমা | চোখ | সানগ্লাস</annotation>
+		<annotation cp="🕶" type="tts">সানগ্লাস</annotation>
+		<annotation cp="🥽">গগলস | চোখের সুরক্ষা | ঝালাই | সাঁতার</annotation>
+		<annotation cp="🥽" type="tts">গগলস</annotation>
+		<annotation cp="🥼">গবেষণা | ডাক্তার | বিজ্ঞানী | ল্যাব কোট</annotation>
+		<annotation cp="🥼" type="tts">ল্যাব কোট</annotation>
+		<annotation cp="🦺">জরুরী অবস্থা | জ্যাকেট | নিরাপত্তা | সেফ্টি জ্যাকেট</annotation>
+		<annotation cp="🦺" type="tts">সেফ্টি জ্যাকেট</annotation>
+		<annotation cp="👔">গলার টাই | পোশাক</annotation>
+		<annotation cp="👔" type="tts">গলার টাই</annotation>
+		<annotation cp="👕">টি শার্ট | টি-শার্ট | পোশাক | শার্ট</annotation>
+		<annotation cp="👕" type="tts">টি-শার্ট</annotation>
+		<annotation cp="👖">জিনস | ট্রাউজার্স | পোশাক | প্যান্ট</annotation>
+		<annotation cp="👖" type="tts">জিনস</annotation>
+		<annotation cp="🧣">গলাবন্ধ | স্কার্ফ</annotation>
+		<annotation cp="🧣" type="tts">স্কার্ফ</annotation>
+		<annotation cp="🧤">দস্তানা | হাত</annotation>
+		<annotation cp="🧤" type="tts">দস্তানা</annotation>
+		<annotation cp="🧥">কোট | জ্যাকেট</annotation>
+		<annotation cp="🧥" type="tts">কোট</annotation>
+		<annotation cp="🧦">মোজা | স্টকিং</annotation>
+		<annotation cp="🧦" type="tts">মোজা</annotation>
+		<annotation cp="👗">জামা | ফ্রক</annotation>
+		<annotation cp="👗" type="tts">ফ্রক</annotation>
+		<annotation cp="👘">কিমোনো | পোশাক</annotation>
+		<annotation cp="👘" type="tts">কিমোনো</annotation>
+		<annotation cp="🥻">কাপড় | পোশাক | শাড়ি</annotation>
+		<annotation cp="🥻" type="tts">শাড়ি</annotation>
+		<annotation cp="🩱">সাঁতারের পোশাক | সুইমিং কস্টিউম</annotation>
+		<annotation cp="🩱" type="tts">সুইমিং কস্টিউম</annotation>
+		<annotation cp="🩲">এক-পিস | জাঙ্গিয়া | সুইমিং কস্টিউম | স্নারের পোশাক</annotation>
+		<annotation cp="🩲" type="tts">জাঙ্গিয়া</annotation>
+		<annotation cp="🩳">অন্তর্বাস | প্যান্ট | শর্টস | স্নানের পোশাক</annotation>
+		<annotation cp="🩳" type="tts">শর্টস</annotation>
+		<annotation cp="👙">পোশাক | বিকিনি | সাঁতার কাটা</annotation>
+		<annotation cp="👙" type="tts">বিকিনি</annotation>
+		<annotation cp="👚">নারী | পোশাক | মহিলাদের পোশাক</annotation>
+		<annotation cp="👚" type="tts">মহিলাদের পোশাক</annotation>
+		<annotation cp="👛">পার্স | পোশাক | মুদ্রা</annotation>
+		<annotation cp="👛" type="tts">পার্স</annotation>
+		<annotation cp="👜">পার্স | পোশাক | ব্যাগ | হাতের ব্যাগ</annotation>
+		<annotation cp="👜" type="tts">হাতের ব্যাগ</annotation>
+		<annotation cp="👝">পাউচ | পোশাক | ব্যাগ</annotation>
+		<annotation cp="👝" type="tts">ব্যাগ</annotation>
+		<annotation cp="🛍">কেনাকাটা | কেনাকাটার ব্যাগ | ব্যাগ | হোটেল</annotation>
+		<annotation cp="🛍" type="tts">কেনাকাটার ব্যাগ</annotation>
+		<annotation cp="🎒">ব্যাগ | স্কুল | স্কুলের পিঠে নেওয়ার ব্যাগ | স্কুলের ব্যাগ</annotation>
+		<annotation cp="🎒" type="tts">স্কুলের পিঠে নেওয়ার ব্যাগ</annotation>
+		<annotation cp="👞">জুতো | পুরুষ | পুরুষের জুতো | পোশাক</annotation>
+		<annotation cp="👞" type="tts">পুরুষের জুতো</annotation>
+		<annotation cp="👟">ক্রীড়াবিষয়ক | জুতো | দৌড়ানোর জুতো | পোশাক | স্নীকার</annotation>
+		<annotation cp="👟" type="tts">দৌড়ানোর জুতো</annotation>
+		<annotation cp="🥾">জুতো | পর্বতারহণের জুতো | পর্বতারোহণ | ব্যাকপ্যাকিং | শিবির</annotation>
+		<annotation cp="🥾" type="tts">পর্বতারহণের জুতো</annotation>
+		<annotation cp="🥿">চটি | ফ্ল্যাট জুতো | ব্যালেট ফ্ল্যাট | স্লিপ-অন</annotation>
+		<annotation cp="🥿" type="tts">ফ্ল্যাট জুতো</annotation>
+		<annotation cp="👠">উচু হিলের জুতো | গোড়ালি | জুতো | নারী | পোশাক</annotation>
+		<annotation cp="👠" type="tts">উচু হিলের জুতো</annotation>
+		<annotation cp="👡">জুতো | নারী | পোশাক | মহিলাদের চটি | স্যান্ডেল</annotation>
+		<annotation cp="👡" type="tts">মহিলাদের চটি</annotation>
+		<annotation cp="🩰">নাচ | ব্যালে | ব্যালের জুতো</annotation>
+		<annotation cp="🩰" type="tts">ব্যালের জুতো</annotation>
+		<annotation cp="👢">জুতো | নারী | পোশাক | বুট | মহিলাদের বুট</annotation>
+		<annotation cp="👢" type="tts">মহিলাদের বুট</annotation>
+		<annotation cp="👑">পোশাক | মুকুট | রাজা | রাণী</annotation>
+		<annotation cp="👑" type="tts">মুকুট</annotation>
+		<annotation cp="👒">টুপি | নারী | পোশাক | মহিলাদের টুপি</annotation>
+		<annotation cp="👒" type="tts">মহিলাদের টুপি</annotation>
+		<annotation cp="🎩">উঁচু টুপি | টপ | টুপি | পোশাক</annotation>
+		<annotation cp="🎩" type="tts">উঁচু টুপি</annotation>
+		<annotation cp="🎓">উদযাপন | গ্রাজুয়েশনের টুপি | টুপি | পোশাক | স্নাতক হওয়া</annotation>
+		<annotation cp="🎓" type="tts">গ্রাজুয়েশনের টুপি</annotation>
+		<annotation cp="🧢">বিল্ড টুপি | বেসবলের টুপি</annotation>
+		<annotation cp="🧢" type="tts">বিল্ড টুপি</annotation>
+		<annotation cp="⛑">উদ্ধারকারী কর্মীর হেলমেট | ক্রস | চিকিৎসা | টুপি | মুখ | হেলমেট</annotation>
+		<annotation cp="⛑" type="tts">উদ্ধারকারী কর্মীর হেলমেট</annotation>
+		<annotation cp="📿">জপমালা | জপের মালা | ধর্ম | পোশাক | প্রার্থনা</annotation>
+		<annotation cp="📿" type="tts">জপের মালা</annotation>
+		<annotation cp="💄">প্রসাধনী | মেকআপ | লিপস্টিক</annotation>
+		<annotation cp="💄" type="tts">লিপস্টিক</annotation>
+		<annotation cp="💍">আংটি | রোমান্স | হীরা</annotation>
+		<annotation cp="💍" type="tts">আংটি</annotation>
+		<annotation cp="💎">মণি | রত্ন | রত্ন পাথর | রোমান্স | হীরা</annotation>
+		<annotation cp="💎" type="tts">রত্ন পাথর</annotation>
 		<annotation cp="🔇">আওয়াজ | নিঃশব্দ | নীরব | শান্ত | স্পিকার | স্পিকার নিরব</annotation>
 		<annotation cp="🔇" type="tts">স্পিকার নিরব</annotation>
 		<annotation cp="🔈">কম আওয়াজে স্পিকার | নরম</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">ভেঁপু</annotation>
 		<annotation cp="🎻">বেহালা | সঙ্গীত | সঙ্গীত যন্ত্র</annotation>
 		<annotation cp="🎻" type="tts">বেহালা</annotation>
+		<annotation cp="🪕">তারযুক্ত | ব্যাঞ্জো | সঙ্গীত</annotation>
+		<annotation cp="🪕" type="tts">ব্যাঞ্জো</annotation>
 		<annotation cp="🥁">ড্রাম | ড্রামস্টিক | সংগীত</annotation>
 		<annotation cp="🥁" type="tts">ড্রাম</annotation>
 		<annotation cp="📱">টেলিফোন | ফোন | মোবাইল | সেল</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">ফ্ল্যাশ লাইট</annotation>
 		<annotation cp="🏮">আলো | জাপানি | বার | লণ্ঠন | লাল | লাল কাগজের লণ্ঠন</annotation>
 		<annotation cp="🏮" type="tts">লাল কাগজের লণ্ঠন</annotation>
+		<annotation cp="🪔">তেল | প্রদীপ | বাতি</annotation>
+		<annotation cp="🪔" type="tts">প্রদীপ</annotation>
 		<annotation cp="📔">আবরণ | নোটবই | বই | সজ্জিত | সজ্জিত মলাটযুক্ত নোটবই</annotation>
 		<annotation cp="📔" type="tts">সজ্জিত মলাটযুক্ত নোটবই</annotation>
 		<annotation cp="📕">বই | বন্ধ</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">পুরোনো চাবি</annotation>
 		<annotation cp="🔨">সরঞ্জাম | হাতুড়ি</annotation>
 		<annotation cp="🔨" type="tts">হাতুড়ি</annotation>
+		<annotation cp="🪓">কাঠ | কুঠার | ক্ষুদ্র কুঠার | টুকরো করা | ফালি করা</annotation>
+		<annotation cp="🪓" type="tts">কুঠার</annotation>
 		<annotation cp="⛏">কুড়াল | খনন | সরঞ্জাম</annotation>
 		<annotation cp="⛏" type="tts">কুড়াল</annotation>
 		<annotation cp="⚒">গাইতি | সরঞ্জাম | হাতুড়ি | হাতুড়ি এবং কুড়াল</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">ক্ল্যাম্প</annotation>
 		<annotation cp="⚖">ওজন | তুলা | তুলা রাশি | বিচার | ভারসাম্য | ভারসাম্য স্কেল | রাশিচক্র | সরঞ্জাম</annotation>
 		<annotation cp="⚖" type="tts">ভারসাম্য স্কেল</annotation>
+		<annotation cp="🦯">অন্ধ | অ্যাক্সেসিবিলিটি | লাঠি</annotation>
+		<annotation cp="🦯" type="tts">লাঠি</annotation>
 		<annotation cp="🔗">লিংক | লিঙ্ক</annotation>
 		<annotation cp="🔗" type="tts">লিঙ্ক</annotation>
 		<annotation cp="⛓">চেন | শৃঙ্খল</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">স্যাটেলাইট অ্যান্টেনা</annotation>
 		<annotation cp="💉">ইঞ্জেকশন | ওষুধ | ডাক্তার | সিরিঞ্জ</annotation>
 		<annotation cp="💉" type="tts">সিরিঞ্জ</annotation>
+		<annotation cp="🩸">এক ফোঁটা রক্ত | ঔষধ | রক্তদান | রজঃস্রাব</annotation>
+		<annotation cp="🩸" type="tts">এক ফোঁটা রক্ত</annotation>
 		<annotation cp="💊">অসুস্থ | ওষুধ | ডাক্তার | বড়ি</annotation>
 		<annotation cp="💊" type="tts">বড়ি</annotation>
+		<annotation cp="🩹">আঠালো ব্যান্ডেজ | ব্যাণ্ডেজ</annotation>
+		<annotation cp="🩹" type="tts">আঠালো ব্যান্ডেজ</annotation>
+		<annotation cp="🩺">ঔষধ | ডাক্তার | স্টেথোস্কোপ | হার্ট</annotation>
+		<annotation cp="🩺" type="tts">স্টেথোস্কোপ</annotation>
 		<annotation cp="🚪">দরজা</annotation>
 		<annotation cp="🚪" type="tts">দরজা</annotation>
 		<annotation cp="🛏">বিছানা | শোওয়া | হোটেল</annotation>
 		<annotation cp="🛏" type="tts">বিছানা</annotation>
 		<annotation cp="🛋">কাউচ | পালঙ্ক ও বাতি | ল্যাম্প | হোটেল</annotation>
 		<annotation cp="🛋" type="tts">পালঙ্ক ও বাতি</annotation>
+		<annotation cp="🪑">চেয়ার | বসার জায়গা</annotation>
+		<annotation cp="🪑" type="tts">চেয়ার</annotation>
 		<annotation cp="🚽">টয়লেট | শৌচাগার</annotation>
 		<annotation cp="🚽" type="tts">শৌচাগার</annotation>
 		<annotation cp="🚿">জল | শাওয়ার</annotation>
 		<annotation cp="🚿" type="tts">শাওয়ার</annotation>
 		<annotation cp="🛁">বাথটব | স্নান</annotation>
 		<annotation cp="🛁" type="tts">বাথটব</annotation>
+		<annotation cp="🪒">ক্ষুর | দাড়ি কামানো | ধারাল</annotation>
+		<annotation cp="🪒" type="tts">ক্ষুর</annotation>
 		<annotation cp="🧴">ময়শ্চারাইজার | লোশন | লোশন বোতল | শ্যাম্পু | সানস্ক্রিন</annotation>
 		<annotation cp="🧴" type="tts">লোশন বোতল</annotation>
 		<annotation cp="🧷">ডাইপার | পাঙ্ক রক | সেফটি পিন</annotation>
@@ -2337,11 +2635,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☢" type="tts">রেডিওঅ্যাকটিভ</annotation>
 		<annotation cp="☣">চিহ্ন | বায়োহ্যাজার্ড</annotation>
 		<annotation cp="☣" type="tts">বায়োহ্যাজার্ড</annotation>
-		<annotation cp="⬆">উত্তর | উপরে তীর | তীর | দিক | দিগনির্ণয়</annotation>
+		<annotation cp="⬆">উত্তর | উত্তর দিক | উপরে | উপরে তীর | দিকনির্দেশ | পরিমাণবাচক</annotation>
 		<annotation cp="⬆" type="tts">উপরে তীর</annotation>
 		<annotation cp="↗">আন্তঃ দিগনির্ণয় | উত্তর-পূর্ব | উপরে ডানে তীর | তীর | দিক</annotation>
 		<annotation cp="↗" type="tts">উপরে ডানে তীর</annotation>
-		<annotation cp="➡">ডানদিকের তীর | তীর | দিক | দিগনির্ণয় | পূর্ব</annotation>
+		<annotation cp="➡">ডান | ডানদিকের তীর | তীর | দিকনির্দেশ | পরিমাণবাচক | পূর্ব</annotation>
 		<annotation cp="➡" type="tts">ডানদিকের তীর</annotation>
 		<annotation cp="↘">আন্তঃ দিগনির্ণয় | তীর | দক্ষিণ-পূর্ব | দিক | নীচে ডানে তীর</annotation>
 		<annotation cp="↘" type="tts">নীচে ডানে তীর</annotation>
@@ -2349,7 +2647,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⬇" type="tts">নীচের তীর</annotation>
 		<annotation cp="↙">আন্তঃ দিগনির্ণয় | তীর | দক্ষিণ-পশ্চিম | দিক | নীচের বামে তীর</annotation>
 		<annotation cp="↙" type="tts">নীচের বামে তীর</annotation>
-		<annotation cp="⬅">তীর | দিক | দিগনির্ণয় | পশ্চিম | বাম তীর</annotation>
+		<annotation cp="⬅">তীর | দিকনির্দেশ | পরিমাণবাচক | পশ্চিম | বাম তীর</annotation>
 		<annotation cp="⬅" type="tts">বাম তীর</annotation>
 		<annotation cp="↖">আন্তঃ দিগনির্ণয় | উত্তর-পশ্চিম | উপরে বামে তীর | তীর | দিক</annotation>
 		<annotation cp="↖" type="tts">উপরে বামে তীর</annotation>
@@ -2411,8 +2709,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="♊" type="tts">মিথুন</annotation>
 		<annotation cp="♋">কর্কট | কর্কটরাশি | রাশিচক্র</annotation>
 		<annotation cp="♋" type="tts">কর্কট</annotation>
-		<annotation cp="♌">রাশিচক্র | সিংহ</annotation>
-		<annotation cp="♌" type="tts">সিংহ</annotation>
+		<annotation cp="♌">রাশিচক্র | সিংহ | সিংহ রাশি</annotation>
+		<annotation cp="♌" type="tts">সিংহ রাশি</annotation>
 		<annotation cp="♍">কন্যা | কুমারী | রাশিচক্র</annotation>
 		<annotation cp="♍" type="tts">কন্যা</annotation>
 		<annotation cp="♎">তুলা | বিচার | ভারসাম্য | রাশিচক্র</annotation>
@@ -2495,60 +2793,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📛" type="tts">নামের ব্যাজ</annotation>
 		<annotation cp="🔰">জাপানি | পাতা | শিক্ষানবিস | শিক্ষানবিসদের জন্য জাপানী প্রতীক | শেভ্রন | সবুজ | সরঞ্জাম | হলুদ</annotation>
 		<annotation cp="🔰" type="tts">শিক্ষানবিসদের জন্য জাপানী প্রতীক</annotation>
-		<annotation cp="⭕">অনেক বড় বৃত্ত | ইংরাজী ‘ও’ চিহ্ন | বৃত্ত</annotation>
-		<annotation cp="⭕" type="tts">অনেক বড় বৃত্ত</annotation>
-		<annotation cp="✅">খুব বড় সাদা চেক মার্ক | চিহ্ন | টিক</annotation>
-		<annotation cp="✅" type="tts">খুব বড় সাদা চেক মার্ক</annotation>
-		<annotation cp="☑">চেকের সাথে ব্যালট বক্স | টিক | বাক্স | ব্যালট</annotation>
+		<annotation cp="⭕">ইংরাজী ‘ও’ চিহ্ন | ফাঁপা লাল বৃত্ত | বড় | বৃত্ত | লাল</annotation>
+		<annotation cp="⭕" type="tts">ফাঁপা লাল বৃত্ত</annotation>
+		<annotation cp="✅">✓ | খুব বড় সাদা চেক মার্ক | চিহ্ন | টিক চিহ্ন | বোতাম | সাদা চেক মার্ক বোতাম</annotation>
+		<annotation cp="✅" type="tts">সাদা চেক মার্ক বোতাম</annotation>
+		<annotation cp="☑">✓ | চেক বক্সের সাথে টিক চিহ্ন | চেকের সাথে চেক বক্স | চেকের সাথে ব্যালট বক্স | টিক চিহ্ন | বক্স</annotation>
 		<annotation cp="☑" type="tts">চেকের সাথে ব্যালট বক্স</annotation>
-		<annotation cp="✔">অনেক বড় চেক মার্ক | চিহ্ন | টিক</annotation>
-		<annotation cp="✔" type="tts">অনেক বড় চেক মার্ক</annotation>
-		<annotation cp="✖">অনেক বড় গুণ চিহ্ন | এক্স | গুণ | গুন করা | বাতিল</annotation>
-		<annotation cp="✖" type="tts">অনেক বড় গুণ চিহ্ন</annotation>
-		<annotation cp="❌">এক্স | ক্রস মার্ক | গুণ | গুন করা | চিহ্ন | বাতিল</annotation>
+		<annotation cp="✔">✓ | চিহ্ন | চেক মার্ক</annotation>
+		<annotation cp="✔" type="tts">চেক মার্ক</annotation>
+		<annotation cp="✖">× | গুণ | গুণ চিহ্ন | গুন করা | বাতিল</annotation>
+		<annotation cp="✖" type="tts">গুণ</annotation>
+		<annotation cp="❌">× | x | ক্রস মার্ক | গুণ | গুন করা | চিহ্ন | বাতিল</annotation>
 		<annotation cp="❌" type="tts">ক্রস মার্ক</annotation>
-		<annotation cp="❎">ক্রস মার্কের বোতাম | চিহ্ন | বর্গাকার</annotation>
+		<annotation cp="❎">× | x | ক্রস মার্কের বোতাম | চিহ্ন | বর্গাকার</annotation>
 		<annotation cp="❎" type="tts">ক্রস মার্কের বোতাম</annotation>
-		<annotation cp="➕">অনেক বড় যোগ চিহ্ন | গণিত | যোগ</annotation>
-		<annotation cp="➕" type="tts">অনেক বড় যোগ চিহ্ন</annotation>
-		<annotation cp="➖">অনেক বড় বিয়োগ চিহ্ন | গণিত | বিয়োগ</annotation>
-		<annotation cp="➖" type="tts">অনেক বড় বিয়োগ চিহ্ন</annotation>
-		<annotation cp="➗">অনেক বড় ভাগের চিহ্ন | গণিত | বিভাগ</annotation>
-		<annotation cp="➗" type="tts">অনেক বড় ভাগের চিহ্ন</annotation>
+		<annotation cp="➕">+ | গণিত | চিহ্ন | যোগ</annotation>
+		<annotation cp="➕" type="tts">যোগ</annotation>
+		<annotation cp="➖">- | − | গণিত | চিহ্ন | বিয়োগ</annotation>
+		<annotation cp="➖" type="tts">বিয়োগ</annotation>
+		<annotation cp="➗">÷ | গণিত | চিহ্ন | ভাগ</annotation>
+		<annotation cp="➗" type="tts">ভাগ</annotation>
 		<annotation cp="➰">কার্লি লুপ | কুন্ডলী পাকানো | লুপ</annotation>
 		<annotation cp="➰" type="tts">কার্লি লুপ</annotation>
 		<annotation cp="➿">কুন্ডলী পাকানো | দুটি কার্লি লুপ | দ্বিগুণ | লুপ</annotation>
 		<annotation cp="➿" type="tts">দুটি কার্লি লুপ</annotation>
 		<annotation cp="〽">অংশ | অংশ পরিবর্তনের চিহ্ন | চিহ্ন</annotation>
 		<annotation cp="〽" type="tts">অংশ পরিবর্তনের চিহ্ন</annotation>
-		<annotation cp="✳">আটটি -স্পোকের তারকাচিহ্ন | তারকাচিহ্ন</annotation>
+		<annotation cp="✳">* | আটটি -স্পোকের তারকাচিহ্ন | তারকাচিহ্ন</annotation>
 		<annotation cp="✳" type="tts">আটটি -স্পোকের তারকাচিহ্ন</annotation>
-		<annotation cp="✴">আটটি পয়েন্টের তারা | তারা</annotation>
+		<annotation cp="✴">* | আটটি পয়েন্টের তারা | তারা</annotation>
 		<annotation cp="✴" type="tts">আটটি পয়েন্টের তারা</annotation>
-		<annotation cp="❇">জ্বলজ্বল করা | দ্যুতি</annotation>
+		<annotation cp="❇">* | জ্বলজ্বল করা</annotation>
 		<annotation cp="❇" type="tts">জ্বলজ্বল করা</annotation>
 		<annotation cp="‼">চিহ্ন | দুটি বিস্ময়বোধক চিহ্ন | বিস্ময়বোধক | ব্যাং ব্যাং | যতিচিহ্ন</annotation>
 		<annotation cp="‼" type="tts">দুটি বিস্ময়বোধক চিহ্ন</annotation>
-		<annotation cp="⁉">একইসাথে বিস্ময়বোধক এবং প্রশ্নবোধক | প্রশ্ন | বিস্ময়বোধক | বিস্ময়বোধক প্রশ্নবোধক চিহ্ন | যতিচিহ্ন</annotation>
+		<annotation cp="⁉">! | !? | ? | প্রশ্ন | বিস্ময়বোধক | বিস্ময়বোধক এবং প্রশ্নবোধক | বিস্ময়বোধক প্রশ্নবোধক চিহ্ন | যতিচিহ্ন</annotation>
 		<annotation cp="⁉" type="tts">বিস্ময়বোধক প্রশ্নবোধক চিহ্ন</annotation>
-		<annotation cp="❓">চিহ্ন | প্রশ্ন | প্রশ্নবোধক চিহ্ন | যতিচিহ্ন</annotation>
+		<annotation cp="❓">? | চিহ্ন | প্রশ্ন | প্রশ্নবোধক চিহ্ন | যতিচিহ্ন চিহ্ন</annotation>
 		<annotation cp="❓" type="tts">প্রশ্নবোধক চিহ্ন</annotation>
-		<annotation cp="❔">চিহ্ন | প্রশ্ন | যতিচিহ্ন | রূপরেখা | সাদা প্রশ্নবোধক চিহ্ন</annotation>
+		<annotation cp="❔">? | চিহ্ন | প্রশ্ন | যতিচিহ্ন | রূপরেখা | সাদা প্রশ্নবোধক চিহ্ন</annotation>
 		<annotation cp="❔" type="tts">সাদা প্রশ্নবোধক চিহ্ন</annotation>
-		<annotation cp="❕">চিহ্ন | বিস্ময়বোধক | যতিচিহ্ন | রূপরেখা | সাদা বিস্ময়বোধক চিহ্ন</annotation>
+		<annotation cp="❕">! | চিহ্ন | বিস্ময়বোধক | যতিচিহ্ন | রূপরেখা | সাদা বিস্ময়বোধক চিহ্ন</annotation>
 		<annotation cp="❕" type="tts">সাদা বিস্ময়বোধক চিহ্ন</annotation>
-		<annotation cp="❗">চিহ্ন | বিস্ময়বোধক | যতিচিহ্ন</annotation>
+		<annotation cp="❗">! | চিহ্ন | বিস্ময়বোধক | যতিচিহ্ন</annotation>
 		<annotation cp="❗" type="tts">বিস্ময়বোধক চিহ্ন</annotation>
 		<annotation cp="〰">ড্যাশ | তরঙ্গায়িত | যতিচিহ্ন</annotation>
 		<annotation cp="〰" type="tts">তরঙ্গায়িত ড্যাশ</annotation>
-		<annotation cp="©">কপিরাইট</annotation>
+		<annotation cp="©">c | কপিরাইট</annotation>
 		<annotation cp="©" type="tts">কপিরাইট</annotation>
-		<annotation cp="®">নথিভুক্ত | নিবন্ধিত</annotation>
+		<annotation cp="®">r | নিবন্ধিত</annotation>
 		<annotation cp="®" type="tts">নিবন্ধিত</annotation>
 		<annotation cp="™">TM | চিহ্ন | ট্রেড মার্ক | ট্রেডমার্ক</annotation>
 		<annotation cp="™" type="tts">ট্রেড মার্ক</annotation>
-		<annotation cp="💯">100 | একশো পয়েন্ট | পূর্ণ | শত | স্কোর</annotation>
-		<annotation cp="💯" type="tts">একশো পয়েন্ট</annotation>
 		<annotation cp="🔠">অক্ষর | ইনপুট | ইনপুট লাতিন বড় হাতের অক্ষর | বড় হাতের অক্ষর | লাতিন</annotation>
 		<annotation cp="🔠" type="tts">ইনপুট লাতিন বড় হাতের অক্ষর</annotation>
 		<annotation cp="🔡">অক্ষর | ইনপুট | ইনপুট লাতিন ছোট হাতের অক্ষর | এ বি সি ডি | ছোট হাতের অক্ষর | লাতিন</annotation>
@@ -2629,28 +2925,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🈵" type="tts">বর্গাকার পূর্ণতার চিত্রলিপি</annotation>
 		<annotation cp="🔴">জ্যামিতিক | বৃত্ত | লাল</annotation>
 		<annotation cp="🔴" type="tts">লাল বৃত্ত</annotation>
+		<annotation cp="🟠">কমলা | বৃত্ত</annotation>
+		<annotation cp="🟠" type="tts">কমলা বৃত্ত</annotation>
+		<annotation cp="🟡">বৃত্ত | হদুল বৃত্ত | হলুদ</annotation>
+		<annotation cp="🟡" type="tts">হদুল বৃত্ত</annotation>
+		<annotation cp="🟢">বৃত্ত | সবুজ</annotation>
+		<annotation cp="🟢" type="tts">সবুজ বৃত্ত</annotation>
 		<annotation cp="🔵">জ্যামিতিক | নীল | বৃত্ত</annotation>
 		<annotation cp="🔵" type="tts">নীল বৃত্ত</annotation>
-		<annotation cp="⚪">জ্যামিতিক | বৃত্ত | সাদা বৃত্ত</annotation>
-		<annotation cp="⚪" type="tts">সাদা বৃত্ত</annotation>
+		<annotation cp="🟣">বৃত্ত | বেগুনী</annotation>
+		<annotation cp="🟣" type="tts">বেগুনী বৃত্ত</annotation>
+		<annotation cp="🟤">বাদামি | বৃত্ত</annotation>
+		<annotation cp="🟤" type="tts">বাদামি বৃত্ত</annotation>
 		<annotation cp="⚫">কালো বৃত্ত | জ্যামিতিক | বৃত্ত</annotation>
 		<annotation cp="⚫" type="tts">কালো বৃত্ত</annotation>
-		<annotation cp="⬜">জ্যামিতিক | বর্গাকার | সাদা বড় বর্গক্ষেত্র</annotation>
-		<annotation cp="⬜" type="tts">সাদা বড় বর্গক্ষেত্র</annotation>
+		<annotation cp="⚪">জ্যামিতিক | বৃত্ত | সাদা বৃত্ত</annotation>
+		<annotation cp="⚪" type="tts">সাদা বৃত্ত</annotation>
+		<annotation cp="🟥">বর্গক্ষেত্র | লাল</annotation>
+		<annotation cp="🟥" type="tts">লাল বর্গক্ষেত্র</annotation>
+		<annotation cp="🟧">কমলা | বর্গক্ষেত্র</annotation>
+		<annotation cp="🟧" type="tts">কমলা বর্গক্ষেত্র</annotation>
+		<annotation cp="🟨">বর্গক্ষেত্র | হলুদ</annotation>
+		<annotation cp="🟨" type="tts">হলুদ বর্গক্ষেত্র</annotation>
+		<annotation cp="🟩">বর্গক্ষেত্র | সবুজ</annotation>
+		<annotation cp="🟩" type="tts">সবুজ বর্গক্ষেত্র</annotation>
+		<annotation cp="🟦">নীল | বর্গক্ষেত্র</annotation>
+		<annotation cp="🟦" type="tts">নীল বর্গক্ষেত্র</annotation>
+		<annotation cp="🟪">বর্গক্ষেত্র | বেগুনী</annotation>
+		<annotation cp="🟪" type="tts">বেগুনী বর্গক্ষেত্র</annotation>
+		<annotation cp="🟫">খয়েরি বর্গক্ষেত্র | বর্গক্ষেত্র | বাদামি</annotation>
+		<annotation cp="🟫" type="tts">খয়েরি বর্গক্ষেত্র</annotation>
 		<annotation cp="⬛">কালো বড় বর্গক্ষেত্র | জ্যামিতিক | বর্গাকার</annotation>
 		<annotation cp="⬛" type="tts">কালো বড় বর্গক্ষেত্র</annotation>
+		<annotation cp="⬜">জ্যামিতিক | বর্গাকার | সাদা বড় বর্গক্ষেত্র</annotation>
+		<annotation cp="⬜" type="tts">সাদা বড় বর্গক্ষেত্র</annotation>
 		<annotation cp="◼">কালো মাঝারি বর্গক্ষেত্র | জ্যামিতিক | বর্গাকার</annotation>
 		<annotation cp="◼" type="tts">কালো মাঝারি বর্গক্ষেত্র</annotation>
 		<annotation cp="◻">জ্যামিতিক | বর্গাকার | সাদা মাঝারি বর্গক্ষেত্র</annotation>
 		<annotation cp="◻" type="tts">সাদা মাঝারি বর্গক্ষেত্র</annotation>
-		<annotation cp="◽">জ্যামিতিক | বর্গাকার | সাদা মাঝারি ছোট বর্গক্ষেত্র</annotation>
-		<annotation cp="◽" type="tts">সাদা মাঝারি ছোট বর্গক্ষেত্র</annotation>
 		<annotation cp="◾">কালো মাঝারি ছোট বর্গক্ষেত্র | জ্যামিতিক | বর্গাকার</annotation>
 		<annotation cp="◾" type="tts">কালো মাঝারি ছোট বর্গক্ষেত্র</annotation>
-		<annotation cp="▫">জ্যামিতিক | বর্গাকার | সাদা ছোট বর্গক্ষেত্র</annotation>
-		<annotation cp="▫" type="tts">সাদা ছোট বর্গক্ষেত্র</annotation>
+		<annotation cp="◽">জ্যামিতিক | বর্গাকার | সাদা মাঝারি ছোট বর্গক্ষেত্র</annotation>
+		<annotation cp="◽" type="tts">সাদা মাঝারি ছোট বর্গক্ষেত্র</annotation>
 		<annotation cp="▪">কালো ছোট বর্গক্ষেত্র | জ্যামিতিক | বর্গাকার</annotation>
 		<annotation cp="▪" type="tts">কালো ছোট বর্গক্ষেত্র</annotation>
+		<annotation cp="▫">জ্যামিতিক | বর্গাকার | সাদা ছোট বর্গক্ষেত্র</annotation>
+		<annotation cp="▫" type="tts">সাদা ছোট বর্গক্ষেত্র</annotation>
 		<annotation cp="🔶">কমলা | কমলা রঙের বড় হীরে | জ্যামিতিক | ডায়মন্ড</annotation>
 		<annotation cp="🔶" type="tts">কমলা রঙের বড় হীরে</annotation>
 		<annotation cp="🔷">জ্যামিতিক | ডায়মন্ড | নীল | নীল রঙের বড় হীরে</annotation>
@@ -2667,10 +2987,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">একটি ডটের সাথে হীরে</annotation>
 		<annotation cp="🔘">জ্যামিতিক | বোতাম | রেডিও</annotation>
 		<annotation cp="🔘" type="tts">রেডিও বোতাম</annotation>
-		<annotation cp="🔲">কালো বর্গাকার বোতাম | জ্যামিতিক | বর্গাকার | বোতাম</annotation>
-		<annotation cp="🔲" type="tts">কালো বর্গাকার বোতাম</annotation>
 		<annotation cp="🔳">জ্যামিতিক | বর্গাকার | বোতাম | রূপরেখা | সাদা বর্গাকার বোতাম</annotation>
 		<annotation cp="🔳" type="tts">সাদা বর্গাকার বোতাম</annotation>
+		<annotation cp="🔲">কালো বর্গাকার বোতাম | জ্যামিতিক | বর্গাকার | বোতাম</annotation>
+		<annotation cp="🔲" type="tts">কালো বর্গাকার বোতাম</annotation>
 		<annotation cp="🏁">ছক কাটা পতাকা | ছককাটা | রেসিং</annotation>
 		<annotation cp="🏁" type="tts">ছক কাটা পতাকা</annotation>
 		<annotation cp="🚩">ত্রিভুজাকৃতি পতাকা | পোস্ট</annotation>
@@ -2681,6 +3001,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏴" type="tts">কালো পতাকা ওড়ানো</annotation>
 		<annotation cp="🏳">তরঙ্গায়িত | সাদা পতাকা ওড়ানো</annotation>
 		<annotation cp="🏳" type="tts">সাদা পতাকা ওড়ানো</annotation>
+		<annotation cp="🏳‍⚧">গোলাপি | ট্রান্সজেন্ডার | ট্রান্সজেন্ডার ফ্ল্যাগ | নিল | পতাকা | সাদা</annotation>
+		<annotation cp="🏳‍⚧" type="tts">ট্রান্সজেন্ডার ফ্ল্যাগ</annotation>
 		<annotation cp="🏳‍🌈">পাতাক | রামধনু | রামধনু পতাকা</annotation>
 		<annotation cp="🏳‍🌈" type="tts">রামধনু পতাকা</annotation>
 		<annotation cp="🏴‍☠">জলদস্যু | জলদস্যু পতাকা | জলি রজার | ধন | লুণ্ঠন</annotation>

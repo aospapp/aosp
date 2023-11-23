@@ -50,11 +50,17 @@ public class USBAudioPeripheralPlayActivity extends USBAudioPeripheralPlayerActi
 
         setPassFailButtonClickListeners();
         setInfoResources(R.string.usbaudio_play_test, R.string.usbaudio_play_info, -1);
+
+        connectUSBPeripheralUI();
     }
 
     //
     // USBAudioPeripheralActivity
     // Headset not publicly available, violates CTS Verifier additional equipment guidelines.
+    void enableTestUI(boolean enable) {
+        mPlayBtn.setEnabled(enable);
+    }
+
     public void updateConnectStatus() {
         mPlayBtn.setEnabled(mIsPeripheralAttached);
         getPassButton().setEnabled(mIsPeripheralAttached);

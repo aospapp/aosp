@@ -1,0 +1,9 @@
+# ==============================================
+# Policy File of /vendor/bin/MtkCodecService Executable File
+
+# ==============================================
+# Type Declaration
+# ==============================================
+type MtkCodecService_exec , exec_type, file_type, vendor_file_type;
+type MtkCodecService ,domain;
+

@@ -215,11 +215,10 @@ void ihevce_pad_interp_recon_ctb(
     WORD32 i4_bitrate_instance_id,
     func_selector_t *ps_func_selector)
 {
-    UWORD8 *pu1_src, *pu1_src_uv, *pu1_buf_y, *pu1_buf_uv;
+    UWORD8 *pu1_src, *pu1_src_uv;
     WORD32 stride, stride_uv, wd, ht, wd_uv, ht_uv, pad_x, pad_y, pad_subpel_x, pad_subpel_y;
     WORD32 tot_wd, tot_ht, offset, cpy_ht_y, cpy_ht_uv;
     WORD32 i4_chroma_vert_pad_default;
-    WORD32 top_extra_pix = 0, left_extra_pix = 0;
 
     WORD32 ctb_size = ps_frm_ctb_prms->i4_ctb_size;
     UWORD8 *pu1_dst_hxfy = ps_pad_interp_recon->pu1_sbpel_hxfy +
@@ -232,13 +231,6 @@ void ihevce_pad_interp_recon_ctb(
                            (vert_ctr * ctb_size * ps_pad_interp_recon->i4_luma_recon_stride) +
                            (ctb_ctr * ctb_size);
     UWORD8 u1_is_422 = (ps_pad_interp_recon->u1_chroma_array_type == 2);
-
-    ihevc_pad_top_ft *pf_pad_top = ps_func_selector->ihevc_pad_top_fptr;
-    ihevc_pad_bottom_ft *pf_pad_bottom = ps_func_selector->ihevc_pad_bottom_fptr;
-    ihevc_pad_left_luma_ft *pf_pad_left_luma = ps_func_selector->ihevc_pad_left_luma_fptr;
-    ihevc_pad_left_chroma_ft *pf_pad_left_chroma = ps_func_selector->ihevc_pad_left_chroma_fptr;
-    ihevc_pad_right_luma_ft *pf_pad_right_luma = ps_func_selector->ihevc_pad_right_luma_fptr;
-    ihevc_pad_right_chroma_ft *pf_pad_right_chroma = ps_func_selector->ihevc_pad_right_chroma_fptr;
 
     ihevc_inter_pred_ft *pf_inter_pred_luma_horz =
         ps_func_selector->ihevc_inter_pred_luma_horz_fptr;
@@ -292,96 +284,26 @@ void ihevce_pad_interp_recon_ctb(
     }
     tot_ht = ht;
     tot_wd = wd;
-    pu1_buf_y = pu1_src;
-    pu1_buf_uv = pu1_src_uv;
-    cpy_ht_y = ht;
-    cpy_ht_uv = ht_uv;
-    if(vert_ctr > 0)
-    {
-        top_extra_pix = 8;
-    }
-    if(ctb_ctr > 0)
-    {
-        left_extra_pix = 8;
-    }
+
     /*top padding*/
     if(vert_ctr == 0)
     {
-        PAD_BUF_VER(
-            pu1_src - left_extra_pix, stride, wd + left_extra_pix, PAD_HORZ, PAD_VERT, pf_pad_top);
-        PAD_BUF_VER(
-            pu1_src_uv - left_extra_pix,
-            stride_uv,
-            wd_uv + left_extra_pix,
-            PAD_HORZ,
-            i4_chroma_vert_pad_default,
-            pf_pad_top);
         tot_ht = pad_y + ht - 8;
-        /*if curr ctb is 1st ctb in ctb row, update dst pointer for Left padding*/
-        pu1_buf_y = pu1_src - PAD_VERT * stride;
-        pu1_buf_uv = pu1_src_uv - i4_chroma_vert_pad_default * stride_uv;
-        cpy_ht_y += PAD_VERT;
-        cpy_ht_uv += i4_chroma_vert_pad_default;
     }
     /*bottom padding*/
     if(vert_ctr == (ps_frm_ctb_prms->i4_num_ctbs_vert - 1))
     {
-        PAD_BUF_VER(
-            (pu1_src - left_extra_pix + (ht * stride)),
-            stride,
-            wd + left_extra_pix,
-            PAD_HORZ,
-            PAD_VERT,
-            pf_pad_bottom);
-        PAD_BUF_VER(
-            (pu1_src_uv - left_extra_pix + (ht_uv * stride_uv)),
-            stride_uv,
-            wd_uv + left_extra_pix,
-            PAD_HORZ,
-            i4_chroma_vert_pad_default,
-            pf_pad_bottom);
         tot_ht = pad_y + ht + 8;
-        /*if curr ctb is 1st ctb in ctb row, update dst pointer for right padding*/
-        cpy_ht_y += PAD_VERT;
-        cpy_ht_uv += i4_chroma_vert_pad_default;
     }
 
     /*Left padding*/
     if(ctb_ctr == 0)
     {
-        PAD_BUF_HOR(
-            (pu1_buf_y - top_extra_pix * stride),
-            stride,
-            cpy_ht_y + top_extra_pix,
-            PAD_HORZ,
-            PAD_VERT,
-            pf_pad_left_luma);
-        PAD_BUF_HOR(
-            pu1_buf_uv - (top_extra_pix >> 1) * (u1_is_422 + 1) * stride_uv,
-            stride_uv,
-            cpy_ht_uv + (top_extra_pix >> 1) * (u1_is_422 + 1),
-            PAD_HORZ,
-            i4_chroma_vert_pad_default,
-            pf_pad_left_chroma);
         tot_wd = pad_x + wd - 8;
     }
     /*right padding*/
     if(ctb_ctr == (ps_frm_ctb_prms->i4_num_ctbs_horz - 1))
     {
-        PAD_BUF_HOR(
-            (pu1_buf_y - (top_extra_pix * stride) + wd),
-            stride,
-            cpy_ht_y + top_extra_pix,
-            PAD_HORZ,
-            PAD_VERT,
-            pf_pad_right_luma);
-        PAD_BUF_HOR(
-            (pu1_buf_uv - ((top_extra_pix >> 1) * (u1_is_422 + 1) * stride_uv) + wd_uv),
-            stride_uv,
-            cpy_ht_uv + (top_extra_pix >> 1) * (u1_is_422 + 1),
-            PAD_HORZ,
-            i4_chroma_vert_pad_default,
-            pf_pad_right_chroma);
         tot_wd = pad_x + wd + 8;
     }
 
@@ -472,6 +394,155 @@ void ihevce_pad_interp_recon_ctb(
                 ps_frm_ctb_prms->i4_num_ctbs_vert,
                 ps_func_selector);
         }
+    }
+}
+
+void ihevce_recon_padding(
+    pad_interp_recon_frm_t *ps_pad_interp_recon,
+    WORD32 ctb_ctr,
+    WORD32 vert_ctr,
+    frm_ctb_ctxt_t *ps_frm_ctb_prms,
+    func_selector_t *ps_func_selector)
+{
+    UWORD8 *pu1_src, *pu1_src_uv, *pu1_buf_y, *pu1_buf_uv;
+    WORD32 stride, stride_uv, wd, ht, wd_uv, ht_uv;
+    WORD32 cpy_ht_y, cpy_ht_uv;
+    WORD32 i4_chroma_vert_pad_default;
+
+    WORD32 top_extra_pix = 0, left_extra_pix = 0;
+    WORD32 ctb_size = ps_frm_ctb_prms->i4_ctb_size;
+    UWORD8 u1_is_422 = (ps_pad_interp_recon->u1_chroma_array_type == 2);
+
+    ihevc_pad_top_ft *pf_pad_top = ps_func_selector->ihevc_pad_top_fptr;
+    ihevc_pad_bottom_ft *pf_pad_bottom = ps_func_selector->ihevc_pad_bottom_fptr;
+    ihevc_pad_left_luma_ft *pf_pad_left_luma = ps_func_selector->ihevc_pad_left_luma_fptr;
+    ihevc_pad_left_chroma_ft *pf_pad_left_chroma = ps_func_selector->ihevc_pad_left_chroma_fptr;
+    ihevc_pad_right_luma_ft *pf_pad_right_luma = ps_func_selector->ihevc_pad_right_luma_fptr;
+    ihevc_pad_right_chroma_ft *pf_pad_right_chroma = ps_func_selector->ihevc_pad_right_chroma_fptr;
+
+    stride = ps_pad_interp_recon->i4_luma_recon_stride;
+    wd = ps_pad_interp_recon->i4_ctb_size;
+    ht = ps_pad_interp_recon->i4_ctb_size;
+
+    pu1_src = (UWORD8 *)ps_pad_interp_recon->pu1_luma_recon + (vert_ctr * ctb_size * stride) +
+              (ctb_ctr * ctb_size);
+
+    stride_uv = ps_pad_interp_recon->i4_chrm_recon_stride;
+    wd_uv = ps_pad_interp_recon->i4_ctb_size;
+    ht_uv = ps_pad_interp_recon->i4_ctb_size >> (0 == u1_is_422);
+
+    pu1_src_uv = (UWORD8 *)ps_pad_interp_recon->pu1_chrm_recon +
+                 (vert_ctr * (ctb_size >> (0 == u1_is_422)) * stride_uv) + (ctb_ctr * ctb_size);
+
+    i4_chroma_vert_pad_default = PAD_VERT >> (0 == u1_is_422);
+
+    if(ctb_ctr == (ps_frm_ctb_prms->i4_num_ctbs_horz - 1))
+    {
+        WORD32 last_ctb_x =
+            ps_frm_ctb_prms->i4_cu_aligned_pic_wd -
+            ((ps_frm_ctb_prms->i4_num_ctbs_horz - 1) * ps_pad_interp_recon->i4_ctb_size);
+        wd = last_ctb_x;
+        wd_uv = last_ctb_x;
+    }
+    if(vert_ctr == (ps_frm_ctb_prms->i4_num_ctbs_vert - 1))
+    {
+        WORD32 last_ctb_y =
+            ps_frm_ctb_prms->i4_cu_aligned_pic_ht -
+            ((ps_frm_ctb_prms->i4_num_ctbs_vert - 1) * ps_pad_interp_recon->i4_ctb_size);
+        ht = last_ctb_y;
+        ht_uv = last_ctb_y >> (0 == u1_is_422);
+    }
+
+    pu1_buf_y = pu1_src;
+    pu1_buf_uv = pu1_src_uv;
+    cpy_ht_y = ht;
+    cpy_ht_uv = ht_uv;
+    if(vert_ctr > 0)
+    {
+        top_extra_pix = 8;
+    }
+    if(ctb_ctr > 0)
+    {
+        left_extra_pix = 8;
+    }
+
+    /*top padding*/
+    if(vert_ctr == 0)
+    {
+        PAD_BUF_VER(
+            pu1_src - left_extra_pix, stride, wd + left_extra_pix, PAD_HORZ, PAD_VERT, pf_pad_top);
+        PAD_BUF_VER(
+            pu1_src_uv - left_extra_pix,
+            stride_uv,
+            wd_uv + left_extra_pix,
+            PAD_HORZ,
+            i4_chroma_vert_pad_default,
+            pf_pad_top);
+        /*if curr ctb is 1st ctb in ctb row, update dst pointer for Left padding*/
+        pu1_buf_y = pu1_src - PAD_VERT * stride;
+        pu1_buf_uv = pu1_src_uv - i4_chroma_vert_pad_default * stride_uv;
+        cpy_ht_y += PAD_VERT;
+        cpy_ht_uv += i4_chroma_vert_pad_default;
+    }
+
+    /*bottom padding*/
+    if(vert_ctr == (ps_frm_ctb_prms->i4_num_ctbs_vert - 1))
+    {
+        PAD_BUF_VER(
+            ((pu1_src - left_extra_pix) + (ht * stride)),
+            stride,
+            wd + left_extra_pix,
+            PAD_HORZ,
+            PAD_VERT,
+            pf_pad_bottom);
+        PAD_BUF_VER(
+            ((pu1_src_uv - left_extra_pix) + (ht_uv * stride_uv)),
+            stride_uv,
+            wd_uv + left_extra_pix,
+            PAD_HORZ,
+            i4_chroma_vert_pad_default,
+            pf_pad_bottom);
+        /*if curr ctb is 1st ctb in ctb row, update dst pointer for right padding*/
+        cpy_ht_y += PAD_VERT;
+        cpy_ht_uv += i4_chroma_vert_pad_default;
+    }
+
+    /*Left padding*/
+    if(ctb_ctr == 0)
+    {
+        PAD_BUF_HOR(
+            (pu1_buf_y - top_extra_pix * stride),
+            stride,
+            cpy_ht_y + top_extra_pix,
+            PAD_HORZ,
+            PAD_VERT,
+            pf_pad_left_luma);
+        PAD_BUF_HOR(
+            pu1_buf_uv - (top_extra_pix >> 1) * (u1_is_422 + 1) * stride_uv,
+            stride_uv,
+            cpy_ht_uv + (top_extra_pix >> 1) * (u1_is_422 + 1),
+            PAD_HORZ,
+            i4_chroma_vert_pad_default,
+            pf_pad_left_chroma);
+    }
+
+    /*right padding*/
+    if(ctb_ctr == (ps_frm_ctb_prms->i4_num_ctbs_horz - 1))
+    {
+        PAD_BUF_HOR(
+            ((pu1_buf_y - (top_extra_pix * stride)) + wd),
+            stride,
+            cpy_ht_y + top_extra_pix,
+            PAD_HORZ,
+            PAD_VERT,
+            pf_pad_right_luma);
+        PAD_BUF_HOR(
+            ((pu1_buf_uv - ((top_extra_pix >> 1) * (u1_is_422 + 1) * stride_uv)) + wd_uv),
+            stride_uv,
+            cpy_ht_uv + (top_extra_pix >> 1) * (u1_is_422 + 1),
+            PAD_HORZ,
+            i4_chroma_vert_pad_default,
+            pf_pad_right_chroma);
     }
 }
 

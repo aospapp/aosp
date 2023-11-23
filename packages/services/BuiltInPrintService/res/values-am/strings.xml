@@ -60,14 +60,18 @@
     <string name="forget" msgid="892068061425802502">"እርሳ"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"በWi-Fi Direct በኩል ያገናኛል"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"አሁን ባለ አውታረ መረብ በኩል በ<xliff:g id="IP_ADDRESS">%1$s</xliff:g> ላይ ያገናኛል"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"ነባሪው የህትመት አገልግሎት መሠረታዊ አማራጮችን ያቀርባል። ሌሎች የዚህ አታሚ አማራጮች ከሌላ የአታሚ አገልግሎት ሊገኙ ይችላሉ።"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"የሚመከሩ አገልግሎቶች"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ለመጫን ይምረጡ"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"ለማንቃት ይምረጡ"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"አገልግሎቶችን ያቀናብሩ"</string>
     <string name="security" msgid="2279008326210305401">"ደኅንነት"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ይህ አታሚ አዲስ የደህንነት እውቅና ማረጋገጫ አቅርቧል፣ ወይም ሌላ መሣሪያ እያስመሰለው ነው። አዲሱ የእውቅና ማረጋገጫ ይቀበሉ?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ይህ አታሚ ከእንግዲህ የተመሰጠሩ ስራዎችን አይቀበልም። ማተም ይቀጥሉ?"</string>
     <string name="accept" msgid="4426153292469698134">"ተቀበል"</string>
     <string name="reject" msgid="24751635160440693">"አትቀበል"</string>
     <string name="connections" msgid="8895413761760117180">"ግንኙነቶች"</string>
-    <!-- no translation found for wifi_direct_permission_rationale (3599186620970379218) -->
-    <skip />
-    <!-- no translation found for fix (7784394272611365393) -->
-    <skip />
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ነባሪ የህትመት አገልግሎት በአቅራቢያ ያሉ መሣሪያዎችን ለማግኘት የአካባቢ ፈቃድ ያስፈልገዋል።"</string>
+    <string name="fix" msgid="7784394272611365393">"ፈቃድን ይገምግሙ"</string>
+    <string name="print" msgid="7851318072404916362">"አትም"</string>
 </resources>

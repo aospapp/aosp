@@ -27,3 +27,4 @@ DerivePointerAlignment: false
 Language: Java
 # Java format is handled by check_style hook
 DisableFormat: true
+SortIncludes: false

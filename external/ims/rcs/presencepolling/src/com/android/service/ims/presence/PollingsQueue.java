@@ -74,7 +74,7 @@ public class PollingsQueue {
         mPollingTasks.clear();
     }
 
-    public synchronized void add(int type, List<Contacts.Item> list) {
+    public synchronized void add(int type, List<Contacts.Item> list, int associatedSub) {
         if (list.size() <= 0) {
             return;
         }
@@ -127,7 +127,8 @@ public class PollingsQueue {
             return;
         }
 
-        int maxEntriesInRequest = PresenceSetting.getMaxNumberOfEntriesInRequestContainedList();
+        int maxEntriesInRequest =
+                PresenceSetting.getMaxNumberOfEntriesInRequestContainedList(associatedSub);
         logger.print("getMaxNumberOfEntriesInRequestContainedList: " + maxEntriesInRequest);
         if (maxEntriesInRequest == -1) {
             maxEntriesInRequest = 100;
@@ -150,7 +151,7 @@ public class PollingsQueue {
             }
 
             if (cl.size() > 0) {
-                PollingTask task = new PollingTask(type, cl);
+                PollingTask task = new PollingTask(type, cl, associatedSub);
                 logger.debug("One new polling task added: " + task);
 
                 boolean bInserted = false;

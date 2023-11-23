@@ -28,6 +28,8 @@
         <option name="log-level-display" value="WARN" />
     </logger>
     <result_reporter class="com.android.compatibility.common.tradefed.result.ConsoleReporter" />
-    <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CompatibilityProtoResultReporter" />
+    <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CompatibilityProtoResultReporter">
+        <option name="periodic-proto-writing" value="true" />
+    </result_reporter>
     <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CertificationSuiteResultReporter" />
 </configuration>

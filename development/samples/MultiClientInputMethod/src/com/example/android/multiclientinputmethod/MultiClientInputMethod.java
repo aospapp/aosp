@@ -16,29 +16,41 @@
 
 package com.example.android.multiclientinputmethod;
 
+import android.annotation.NonNull;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.hardware.display.DisplayManager;
+import android.hardware.display.DisplayManager.DisplayListener;
 import android.inputmethodservice.MultiClientInputMethodServiceDelegate;
 import android.os.IBinder;
 import android.util.Log;
+import android.util.SparseIntArray;
+import android.view.Display;
 
 /**
  * A {@link Service} that implements multi-client IME protocol.
  */
-public final class MultiClientInputMethod extends Service {
+public final class MultiClientInputMethod extends Service implements DisplayListener {
     private static final String TAG = "MultiClientInputMethod";
     private static final boolean DEBUG = false;
 
-    // last client that had active InputConnection.
-    int mLastClientId = MultiClientInputMethodServiceDelegate.INVALID_CLIENT_ID;
+    // last client that had active InputConnection for a given displayId.
+    final SparseIntArray mDisplayToLastClientId = new SparseIntArray();
+    // Mapping table from the display where IME is attached to the display where IME window will be
+    // shown.  Assumes that missing display will use the same display for the IME window.
+    SparseIntArray mInputDisplayToImeDisplay;
     SoftInputWindowManager mSoftInputWindowManager;
     MultiClientInputMethodServiceDelegate mDelegate;
+
+    private DisplayManager mDisplayManager;
 
     @Override
     public void onCreate() {
         if (DEBUG) {
             Log.v(TAG, "onCreate");
         }
+        mInputDisplayToImeDisplay = buildInputDisplayToImeDisplay();
         mDelegate = MultiClientInputMethodServiceDelegate.create(this,
                 new MultiClientInputMethodServiceDelegate.ServiceCallback() {
                     @Override
@@ -51,13 +63,17 @@ public final class MultiClientInputMethod extends Service {
                     @Override
                     public void addClient(int clientId, int uid, int pid,
                             int selfReportedDisplayId) {
+                        int imeDisplayId = mInputDisplayToImeDisplay.get(selfReportedDisplayId,
+                                selfReportedDisplayId);
                         final ClientCallbackImpl callback = new ClientCallbackImpl(
                                 MultiClientInputMethod.this, mDelegate,
-                                mSoftInputWindowManager, clientId, uid, pid, selfReportedDisplayId);
+                                mSoftInputWindowManager, clientId, uid, pid, imeDisplayId);
                         if (DEBUG) {
                             Log.v(TAG, "addClient clientId=" + clientId + " uid=" + uid
-                                    + " pid=" + pid + " displayId=" + selfReportedDisplayId);
+                                    + " pid=" + pid + " displayId=" + selfReportedDisplayId
+                                    + " imeDisplayId=" + imeDisplayId);
                         }
+
                         mDelegate.acceptClient(clientId, callback, callback.getDispatcherState(),
                                 callback.getLooper());
                     }
@@ -73,10 +89,26 @@ public final class MultiClientInputMethod extends Service {
     }
 
     @Override
+    public void onDisplayAdded(int displayId) {
+        mInputDisplayToImeDisplay = buildInputDisplayToImeDisplay();
+    }
+
+    @Override
+    public void onDisplayRemoved(int displayId) {
+        mDisplayToLastClientId.delete(displayId);
+    }
+
+    @Override
+    public void onDisplayChanged(int displayId) {
+    }
+
+    @Override
     public IBinder onBind(Intent intent) {
         if (DEBUG) {
             Log.v(TAG, "onBind intent=" + intent);
         }
+        mDisplayManager = getApplicationContext().getSystemService(DisplayManager.class);
+        mDisplayManager.registerDisplayListener(this, getMainThreadHandler());
         return mDelegate.onBind(intent);
     }
 
@@ -84,6 +116,9 @@ public final class MultiClientInputMethod extends Service {
     public boolean onUnbind(Intent intent) {
         if (DEBUG) {
             Log.v(TAG, "onUnbind intent=" + intent);
+        }
+        if (mDisplayManager != null) {
+            mDisplayManager.unregisterDisplayListener(this);
         }
         return mDelegate.onUnbind(intent);
     }
@@ -94,5 +129,42 @@ public final class MultiClientInputMethod extends Service {
             Log.v(TAG, "onDestroy");
         }
         mDelegate.onDestroy();
+    }
+
+    @NonNull
+    private SparseIntArray buildInputDisplayToImeDisplay() {
+        Context context = getApplicationContext();
+        String config[] = context.getResources().getStringArray(
+                R.array.config_inputDisplayToImeDisplay);
+
+        SparseIntArray inputDisplayToImeDisplay = new SparseIntArray();
+        Display[] displays = context.getSystemService(DisplayManager.class).getDisplays();
+        for (String item: config) {
+            String[] pair = item.split("/");
+            if (pair.length != 2) {
+                Log.w(TAG, "Skip illegal config: " + item);
+                continue;
+            }
+            int inputDisplay = findDisplayId(displays, pair[0]);
+            int imeDisplay = findDisplayId(displays, pair[1]);
+            if (inputDisplay != Display.INVALID_DISPLAY && imeDisplay != Display.INVALID_DISPLAY) {
+                inputDisplayToImeDisplay.put(inputDisplay, imeDisplay);
+            }
+        }
+        return inputDisplayToImeDisplay;
+    }
+
+    private static int findDisplayId(Display displays[], String regexp) {
+        for (Display display: displays) {
+            if (display.getUniqueId().matches(regexp)) {
+                int displayId = display.getDisplayId();
+                if (DEBUG) {
+                    Log.v(TAG, regexp + " matches displayId=" + displayId);
+                }
+                return displayId;
+            }
+        }
+        Log.w(TAG, "Can't find the display of " + regexp);
+        return Display.INVALID_DISPLAY;
     }
 }

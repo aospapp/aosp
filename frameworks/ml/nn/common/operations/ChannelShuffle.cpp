@@ -25,6 +25,8 @@ namespace android {
 namespace nn {
 namespace channel_shuffle {
 
+using namespace hal;
+
 constexpr char kOperationName[] = "CHANNEL_SHUFFLE";
 
 constexpr uint32_t kNumInputs = 3;
@@ -64,11 +66,20 @@ bool validate(const IOperationValidationContext* context) {
     auto inputType = context->getInputType(kInputTensor);
     NN_RET_CHECK(inputType == OperandType::TENSOR_FLOAT16 ||
                  inputType == OperandType::TENSOR_FLOAT32 ||
-                 inputType == OperandType::TENSOR_QUANT8_ASYMM)
+                 inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+                 inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
             << "Unsupported tensor type for operation " << kOperationName;
+    const Shape& inputShape = context->getInputShape(kInputTensor);
+    if (hasKnownRank(inputShape)) {
+        NN_RET_CHECK_LE(getNumberOfDimensions(inputShape), 4);
+    }
     NN_RET_CHECK(validateInputTypes(context, {inputType, OperandType::INT32, OperandType::INT32}));
     NN_RET_CHECK(validateOutputTypes(context, {inputType}));
-    return validateHalVersion(context, HalVersion::V1_2);
+    if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        return validateHalVersion(context, HalVersion::V1_3);
+    } else {
+        return validateHalVersion(context, HalVersion::V1_2);
+    }
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -98,6 +109,10 @@ bool execute(IOperationExecutionContext* context) {
             return eval(context->getInputBuffer<uint8_t>(kInputTensor),
                         context->getInputShape(kInputTensor), numGroups, axis,
                         context->getOutputBuffer<uint8_t>(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return eval(context->getInputBuffer<int8_t>(kInputTensor),
+                        context->getInputShape(kInputTensor), numGroups, axis,
+                        context->getOutputBuffer<int8_t>(kOutputTensor));
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;
     }

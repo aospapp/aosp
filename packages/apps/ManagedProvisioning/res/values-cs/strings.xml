@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Resetovat"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Profil nelze nastavit"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Zařízení nelze nastavit"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Něco se pokazilo"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Zařízení nelze nastavit. Požádejte o pomoc administrátora IT."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Požádejte o pomoc administrátora IT"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Resetujte toto zařízení a zkuste jej nastavit znovu"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Zařízení je již nastaveno"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Nelze se připojit k Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"V zařízení je zapnuta ochrana před resetováním. Požádejte o pomoc administrátora IT."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Příprava na nastavení pracovního zařízení…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Nastavování aplikace pro správu"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Nastavit všechno ostatní"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Teď nastavíme všechno ostatní"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Chcete-li zařízení využít na maximum, přidejte osobní účet"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Pracovní profil je připraven. Teď si můžete přidat osobní účet Google, abyste mohli používat své aplikace a obsah."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Toto zařízení patří vaší organizaci"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Tento telefon bude spravován a sledován pomocí následující aplikace"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Příprava na nastavení pro práci…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Nejdříve nastavíme váš pracovní profil"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Teď nastavíme váš pracovní profil"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Pracovní aplikace jsou uložené v pracovním profilu"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Až budete mít hotovo, pracovní aplikace pozastavte"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Administrátor IT vidí pouze data v pracovním profilu"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Data v pracovním profilu vidí administrátor IT"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Nastavování pracovního profilu…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Pracovní aplikace jsou uložené v pracovním profilu. Když pro daný den skončíte s prací, můžete je pozastavit. Administrátor IT vidí pouze data v pracovním profilu."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Pracovní aplikace jsou uložené v pracovním profilu. Když pro daný den skončíte s prací, můžete je pozastavit. Data v pracovním profilu vidí administrátor IT."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Nastavíme váš pracovní telefon"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Mějte pracovní aplikace po ruce"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Toto zařízení není soukromé"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Vaše data a aktivitu v tomto zařízení může zobrazit administrátor IT."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Nastavování vašeho zařízení…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Pomocí tohoto zařízení můžete snadno používat pracovní aplikace. Zařízení není soukromé, administrátor IT proto může zobrazit vaše data a aktivitu. Další informace vám poskytne administrátor IT."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Pracovní aplikace jsou v pracovním profilu a spravuje je administrátor IT"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Osobní aplikace jsou oddělené od pracovních a jsou skryté"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Administrátor IT může zařízení ovládat a blokovat konkrétní aplikace"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Pracovní aplikace jsou uložené v pracovním profilu a spravuje je administrátor IT. Osobní aplikace jsou od pracovních aplikací oddělené a jsou skryté. Administrátor IT může ovládat toto zařízení a zablokovat konkrétní aplikace."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Chviličku…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Připomenutí ohledně ochrany soukromí"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Administrátor IT může zobrazit vaše data a aktivitu v tomto zařízení"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Zařízení je připraveno."</string>
     <string name="done" msgid="7755227776955952318">"Hotovo"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Toto zařízení bylo zakoupeno na úvěr od věřitele <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> může:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Nainstalovat aplikaci společnosti <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>, abyste zařízení mohli začít splácet"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Omezit přístup k zařízení, pokud nebudete splácet"</string>
 </resources>

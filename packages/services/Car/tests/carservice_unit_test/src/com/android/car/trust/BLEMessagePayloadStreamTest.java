@@ -18,14 +18,13 @@ package com.android.car.trust;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.test.runner.AndroidJUnit4;
-
 import com.android.car.BLEStreamProtos.BLEMessageProto.BLEMessage;
 import com.android.car.BLEStreamProtos.BLEOperationProto.OperationType;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.List;
@@ -36,14 +35,14 @@ import java.util.List;
  * <p>Run:
  * {@code atest BLEMessagePayloadStreamTest}
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnit4.class)
 public class BLEMessagePayloadStreamTest {
     private static final boolean IS_MESSAGE_ENCRYPTED = false;
     private static final OperationType OPERATION_TYPE = OperationType.CLIENT_MESSAGE;
     private static final byte[] TEST_MESSAGE_PAYLOAD = "testMessage".getBytes();
     private static final int TEST_SINGLE_MESSAGE_SIZE =
             TEST_MESSAGE_PAYLOAD.length + BLEMessageV1Factory.getProtoHeaderSize(
-                    OPERATION_TYPE, IS_MESSAGE_ENCRYPTED);
+                    OPERATION_TYPE, TEST_MESSAGE_PAYLOAD.length, IS_MESSAGE_ENCRYPTED);
 
     private BLEMessagePayloadStream mBLEMessagePayloadStream;
     private List<BLEMessage> mBleMessages;

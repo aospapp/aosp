@@ -16,11 +16,10 @@
 
 package android.car.hardware.power;
 
+import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarManagerBase;
-import android.content.Context;
-import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -35,15 +34,18 @@ import java.util.concurrent.CompletableFuture;
  * @hide
  */
 @SystemApi
-public class CarPowerManager implements CarManagerBase {
-    private final static boolean DBG = false;
-    private final static String TAG = "CarPowerManager";
+public class CarPowerManager extends CarManagerBase {
+    private static final boolean DBG = false;
+    private static final String TAG = CarPowerManager.class.getSimpleName();
 
     private final Object mLock = new Object();
     private final ICarPower mService;
 
+    @GuardedBy("mLock")
     private CarPowerStateListener mListener;
+    @GuardedBy("mLock")
     private CarPowerStateListenerWithCompletion mListenerWithCompletion;
+    @GuardedBy("mLock")
     private CompletableFuture<Void> mFuture;
     @GuardedBy("mLock")
     private ICarPowerStateListener mListenerToService;
@@ -55,9 +57,14 @@ public class CarPowerManager implements CarManagerBase {
     public interface CarPowerStateListener {
         /**
          * onStateChanged() states.  These definitions must match the ones located in the native
-         * CarPowerManager:  packages/services/Car/car-lib/native/CarPowerManager/CarPowerManager.h
+         * CarPowerManager:  packages/services/Car/car-lib/native/include/CarPowerManager.h
          */
 
+        /**
+         * The current power state is unavailable, unknown, or invalid
+         * @hide
+         */
+        int INVALID = 0;
         /**
          * Android is up, but vendor is controlling the audio / display
          * @hide
@@ -131,7 +138,8 @@ public class CarPowerManager implements CarManagerBase {
      * @param handler
      * @hide
      */
-    public CarPowerManager(IBinder service, Context context, Handler handler) {
+    public CarPowerManager(Car car, IBinder service) {
+        super(car);
         mService = ICarPower.Stub.asInterface(service);
     }
 
@@ -143,7 +151,7 @@ public class CarPowerManager implements CarManagerBase {
         try {
             mService.requestShutdownOnNextSuspend();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
@@ -155,7 +163,21 @@ public class CarPowerManager implements CarManagerBase {
         try {
             mService.scheduleNextWakeupTime(seconds);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
+        }
+    }
+
+    /**
+     * Returns the current power state
+     * @return One of the values defined in {@link CarPowerStateListener}
+     * @hide
+     */
+    @RequiresPermission(Car.PERMISSION_CAR_POWER)
+    public int getPowerState() {
+        try {
+            return mService.getPowerState();
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, CarPowerStateListener.INVALID);
         }
     }
 
@@ -193,7 +215,7 @@ public class CarPowerManager implements CarManagerBase {
      * @hide
      */
     public void setListenerWithCompletion(CarPowerStateListenerWithCompletion listener) {
-        synchronized(mLock) {
+        synchronized (mLock) {
             if (mListener != null || mListenerWithCompletion != null) {
                 throw new IllegalStateException("Listener must be cleared first");
             }
@@ -209,13 +231,27 @@ public class CarPowerManager implements CarManagerBase {
                 @Override
                 public void onStateChanged(int state) throws RemoteException {
                     if (useCompletion) {
-                        // Update CompletableFuture. This will recreate it or just clean it up.
-                        updateFuture(state);
+                        CarPowerStateListenerWithCompletion listenerWithCompletion;
+                        CompletableFuture<Void> future;
+                        synchronized (mLock) {
+                            // Update CompletableFuture. This will recreate it or just clean it up.
+                            updateFutureLocked(state);
+                            listenerWithCompletion = mListenerWithCompletion;
+                            future = mFuture;
+                        }
                         // Notify user that the state has changed and supply a future
-                        mListenerWithCompletion.onStateChanged(state, mFuture);
+                        if (listenerWithCompletion != null) {
+                            listenerWithCompletion.onStateChanged(state, future);
+                        }
                     } else {
+                        CarPowerStateListener listener;
+                        synchronized (mLock) {
+                            listener = mListener;
+                        }
                         // Notify the user without supplying a future
-                        mListener.onStateChanged(state);
+                        if (listener != null) {
+                            listener.onStateChanged(state);
+                        }
                     }
                 }
             };
@@ -227,7 +263,7 @@ public class CarPowerManager implements CarManagerBase {
                 }
                 mListenerToService = listenerToService;
             } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
+                handleRemoteExceptionFromCarService(e);
             }
         }
     }
@@ -243,7 +279,7 @@ public class CarPowerManager implements CarManagerBase {
             mListenerToService = null;
             mListener = null;
             mListenerWithCompletion = null;
-            cleanupFuture();
+            cleanupFutureLocked();
         }
 
         if (listenerToService == null) {
@@ -254,12 +290,12 @@ public class CarPowerManager implements CarManagerBase {
         try {
             mService.unregisterListener(listenerToService);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            handleRemoteExceptionFromCarService(e);
         }
     }
 
-    private void updateFuture(int state) {
-        cleanupFuture();
+    private void updateFutureLocked(int state) {
+        cleanupFutureLocked();
         if (state == CarPowerStateListener.SHUTDOWN_PREPARE) {
             // Create a CompletableFuture and pass it to the listener.
             // When the listener completes the future, tell
@@ -269,16 +305,20 @@ public class CarPowerManager implements CarManagerBase {
                 if (exception != null && !(exception instanceof CancellationException)) {
                     Log.e(TAG, "Exception occurred while waiting for future", exception);
                 }
+                ICarPowerStateListener listenerToService;
+                synchronized (mLock) {
+                    listenerToService = mListenerToService;
+                }
                 try {
-                    mService.finished(mListenerToService);
+                    mService.finished(listenerToService);
                 } catch (RemoteException e) {
-                    throw e.rethrowFromSystemServer();
+                    handleRemoteExceptionFromCarService(e);
                 }
             });
         }
     }
 
-    private void cleanupFuture() {
+    private void cleanupFutureLocked() {
         if (mFuture != null) {
             if (!mFuture.isDone()) {
                 mFuture.cancel(false);
@@ -290,13 +330,9 @@ public class CarPowerManager implements CarManagerBase {
     /** @hide */
     @Override
     public void onCarDisconnected() {
-        ICarPowerStateListener listenerToService;
         synchronized (mLock) {
-            listenerToService = mListenerToService;
-        }
-
-        if (listenerToService != null) {
-            clearListener();
+            mListener = null;
+            mListenerWithCompletion = null;
         }
     }
 }

@@ -21,35 +21,19 @@ package android.view.shadow;
  */
 class AmbientShadowConfig {
 
-    private final int mWidth;
-    private final int mHeight;
-
     private final float mEdgeScale;
     private final float mShadowBoundRatio;
     private final float mShadowStrength;
 
     private final float[] mPolygon;
-
-    private final int mRays;
-    private final int mLayers;
+    private float[] mLightSourcePosition;
 
     private AmbientShadowConfig(Builder builder) {
         mEdgeScale = builder.mEdgeScale;
         mShadowBoundRatio = builder.mShadowBoundRatio;
         mShadowStrength = builder.mShadowStrength;
-        mRays = builder.mRays;
-        mLayers = builder.mLayers;
-        mWidth = builder.mWidth;
-        mHeight = builder.mHeight;
         mPolygon = builder.mPolygon;
-    }
-
-    public int getWidth() {
-        return mWidth;
-    }
-
-    public int getHeight() {
-        return mHeight;
+        mLightSourcePosition = builder.mLightSourcePosition;
     }
 
     /**
@@ -81,18 +65,10 @@ class AmbientShadowConfig {
     }
 
     /**
-     * Returns # of rays to use in ray tracing. It determines the accuracy of outline (bounds) of
-     * the shadow.
+     * Returns 2D position of the light source
      */
-    public int getRays() {
-        return mRays;
-    }
-
-    /**
-     * Returns # of layers. It determines the intensity of the pen-umbra.
-     */
-    public int getLayers() {
-        return mLayers;
+    public float[] getLightSourcePosition() {
+        return mLightSourcePosition;
     }
 
     public static class Builder {
@@ -100,13 +76,9 @@ class AmbientShadowConfig {
         private float mEdgeScale;
         private float mShadowBoundRatio;
         private float mShadowStrength;
-        private int mRays;
-        private int mLayers;
 
         private float[] mPolygon;
-
-        private int mWidth;
-        private int mHeight;
+        private float[] mLightSourcePosition;
 
         public Builder setEdgeScale(float edgeScale) {
             mEdgeScale = edgeScale;
@@ -123,24 +95,13 @@ class AmbientShadowConfig {
             return this;
         }
 
-        public Builder setRays(int rays) {
-            mRays = rays;
-            return this;
-        }
-
-        public Builder setLayers(int layers) {
-            mLayers = layers;
-            return this;
-        }
-
-        public Builder setSize(int width, int height) {
-            mWidth = width;
-            mHeight = height;
-            return this;
-        }
-
         public Builder setPolygon(float[] polygon) {
             mPolygon = polygon;
+            return this;
+        }
+
+        public Builder setLightSourcePosition(float x, float y) {
+            mLightSourcePosition = new float[] { x, y };
             return this;
         }
 

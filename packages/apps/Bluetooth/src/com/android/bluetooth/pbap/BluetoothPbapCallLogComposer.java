@@ -23,7 +23,6 @@ import android.net.Uri;
 import android.provider.CallLog;
 import android.provider.CallLog.Calls;
 import android.text.TextUtils;
-import android.text.format.Time;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -32,13 +31,15 @@ import com.android.vcard.VCardConfig;
 import com.android.vcard.VCardConstants;
 import com.android.vcard.VCardUtils;
 
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
 
 /**
  * VCard composer especially for Call Log used in Bluetooth.
  */
 public class BluetoothPbapCallLogComposer {
-    private static final String TAG = "CallLogComposer";
+    private static final String TAG = "PbapCallLogComposer";
 
     private static final String FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO =
             "Failed to get database information";
@@ -85,6 +86,8 @@ public class BluetoothPbapCallLogComposer {
     private boolean mTerminateIsCalled;
 
     private String mErrorReason = NO_ERROR;
+
+    private final String RFC_2455_FORMAT = "yyyyMMdd'T'HHmmss";
 
     public BluetoothPbapCallLogComposer(final Context context) {
         mContext = context;
@@ -198,9 +201,10 @@ public class BluetoothPbapCallLogComposer {
      * The format is: ("%Y%m%dT%H%M%S").
      */
     private String toRfc2455Format(final long millSecs) {
-        Time startDate = new Time();
-        startDate.set(millSecs);
-        return startDate.format2445();
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(millSecs);
+        SimpleDateFormat df = new SimpleDateFormat(RFC_2455_FORMAT);
+        return df.format(cal.getTime());
     }
 
     /**

@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Stækkaðu eða minnkaðu texta á skjá."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Minnka"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Stækka"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Textadæmi"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Galdrakarlinn í Oz"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"11. kafli: Smaragðsborgin dásamlega í Oz"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Verndaðu spjaldtölvuna þína með því að velja skjálás svo enginn geti notað hana ef hún týnist eða ef henni er stolið. Þú þarft einnig að velja skjálás til að setja upp andlitsgreiningu. Ýttu á „Hætta við“, stilltu síðan PIN-númer eða veldu annars konar skjálás."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Verndaðu tækið þitt með því að velja skjálás svo enginn geti notað það ef það týnist eða ef því er stolið. Þú þarft einnig að velja skjálás til að setja upp andlitsgreiningu. Ýttu á „Hætta við“, stilltu síðan PIN-númer eða veldu annars konar skjálás."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Verndaðu símann þinn með því að velja skjálás svo enginn geti notað hann ef hann týnist eða ef honum er stolið. Þú þarft einnig að velja skjálás til að setja upp andlitsgreiningu. Ýttu á „Hætta við“, stilltu síðan PIN-númer eða veldu annars konar skjálás."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"Sleppa uppsetningu PIN-númers?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Sleppa uppsetn. aðgangsorðs?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Sleppa uppsetningu mynsturs?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Setja upp skjálás"</string>
@@ -669,7 +667,6 @@
       <item quantity="one">Má ekki vera lengra en <xliff:g id="NUMBER_1">%d</xliff:g> tölustafur</item>
       <item quantity="other">Má ekki vera lengra en <xliff:g id="NUMBER_1">%d</xliff:g> tölustafir</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Má eingöngu innihalda tölustafi, 0–9"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Tækjastjóri leyfir ekki notkun nýlegs PIN-númers"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"Kerfisstjórinn þinn hefur lokað á algeng PIN-númer. Prófaðu annað PIN-númer."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"Þetta má ekki innihalda ógildan staf"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="one">Verður að innihalda að minnsta kosti <xliff:g id="COUNT">%d</xliff:g> staftákn sem ekki er bókstafur</item>
       <item quantity="other">Verður að innihalda að minsta kosti <xliff:g id="COUNT">%d</xliff:g> staftákn sem ekki eru bókstafir</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="one">Verður að innihalda að minnsta kosti <xliff:g id="COUNT">%d</xliff:g> staftákn sem er ekki tölustafur</item>
+      <item quantity="other">Verður að innihalda að minnsta kosti <xliff:g id="COUNT">%d</xliff:g> staftákn sem eru ekki tölustafir</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Tækjastjóri leyfir ekki notkun nýlegs aðgangsorðs"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Kerfisstjórinn þinn hefur lokað á algeng aðgangsorð. Prófaðu annað aðgangsorð."</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"Farsímakerfi"</item>
+    <item msgid="6007360612667098926">"Wi-Fi eingöngu"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"Farsímakerfi"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"Nota farsímakerfi ef ekki er hægt að nota Wi‑Fi"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"Ef farsímakerfi er ekki tiltækt skaltu nota Wi-Fi"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Hringja í gegnum Wi-Fi. Ef Wi-Fi tenging slitnar lýkur símtalinu."</string>
@@ -1257,7 +1264,7 @@
     <string name="doze_title" msgid="235269029233857546">"Nýjar tilkynningar"</string>
     <string name="doze_summary" msgid="6762274282827831706">"Vekja skjáinn þegar þú færð tilkynningar"</string>
     <string name="doze_always_on_title" msgid="8555184965031789941">"Alltaf kveikt"</string>
-    <string name="doze_always_on_summary" msgid="7654436900436328950">"Sýna tíma, tilkynningartákn og aðrar upplýsingar. Aukin rafhlöðunotkun."</string>
+    <string name="doze_always_on_summary" msgid="7654436900436328950">"Sýna klukku, tilkynningartákn og aðrar upplýsingar. Aukin rafhlöðunotkun."</string>
     <string name="title_font_size" msgid="5021464556860010851">"Leturstærð"</string>
     <string name="short_summary_font_size" msgid="4141077908728522946">"Gera texta stærri eða minni"</string>
     <string name="sim_lock_settings" msgid="1986924650622642189">"Stillingar SIM-kortaláss"</string>
@@ -3452,8 +3459,8 @@
     <string name="zen_mode_event_rule_summary_reply_template" msgid="3917497077674876311">"Þar sem svarið er <xliff:g id="REPLY">%1$s</xliff:g>"</string>
     <string name="zen_mode_event_rule_calendar_any" msgid="155915101132859764">"Öll dagatöl"</string>
     <string name="zen_mode_event_rule_reply" msgid="9100941281268256319">"Þar sem svarið er"</string>
-    <string name="zen_mode_event_rule_reply_any_except_no" msgid="3344044163641764449">"„Já“, „Kannski“ eða „Ekki svarað“"</string>
-    <string name="zen_mode_event_rule_reply_yes_or_maybe" msgid="5042234361937256329">"„Já“ eða „Kannski“"</string>
+    <string name="zen_mode_event_rule_reply_any_except_no" msgid="3344044163641764449">"Já, Kannski eða Ekki svarað"</string>
+    <string name="zen_mode_event_rule_reply_yes_or_maybe" msgid="5042234361937256329">"Já eða Kannski"</string>
     <string name="zen_mode_event_rule_reply_yes" msgid="7039756546321205552">"Já"</string>
     <string name="zen_mode_rule_not_found_text" msgid="6553855397424553685">"Regla fannst ekki."</string>
     <string name="zen_mode_rule_summary_enabled_combination" msgid="8269105393636454359">"Kveikt / <xliff:g id="MODE">%1$s</xliff:g>"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"Hann hægir á símanum"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Full GNSS-mæling"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Rekja öll GNSS söfn og tíðnir með engum vinnulotum"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Kemba notandaskipti"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Sýna ítarlegar upplýsingar við notandaskipti"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Leyfa aðgerðir í bakgrunninum"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Leyfir allar aðgerðir í bakgrunninum"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Sýna alltaf hrunglugga"</string>

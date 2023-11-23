@@ -21,6 +21,8 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -38,7 +40,7 @@ import java.util.Locale;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.VenueNameElement}.
  */
 @SmallTest
-public class VenueNameElementTest {
+public class VenueNameElementTest extends WifiBaseTest {
     private static final String TEST_LANGUAGE = "en";
     private static final Locale TEST_LOCALE = Locale.forLanguageTag(TEST_LANGUAGE);
     private static final String TEST_VENUE_NAME1 = "Venue1";

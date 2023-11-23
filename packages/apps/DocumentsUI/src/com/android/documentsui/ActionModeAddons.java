@@ -19,8 +19,5 @@ package com.android.documentsui;
  * Extra ActionMode functionality required by ActionHandlers.
  */
 public interface ActionModeAddons {
-
     void finishActionMode();
-
-    void finishOnConfirmed(int code);
 }

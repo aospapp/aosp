@@ -11,13 +11,10 @@
 
 #include "xfa/fwl/cfwl_message.h"
 
-class CFWL_MessageSetFocus : public CFWL_Message {
+class CFWL_MessageSetFocus final : public CFWL_Message {
  public:
   CFWL_MessageSetFocus(CFWL_Widget* pSrcTarget, CFWL_Widget* pDstTarget);
   ~CFWL_MessageSetFocus() override;
-
-  // CFWL_Message
-  std::unique_ptr<CFWL_Message> Clone() override;
 };
 
 #endif  // XFA_FWL_CFWL_MESSAGESETFOCUS_H_

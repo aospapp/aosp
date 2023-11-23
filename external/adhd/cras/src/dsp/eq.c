@@ -23,7 +23,7 @@ void eq_free(struct eq *eq)
 }
 
 int eq_append_biquad(struct eq *eq, enum biquad_type type, float freq, float Q,
-		      float gain)
+		     float gain)
 {
 	if (eq->n >= MAX_BIQUADS_PER_EQ)
 		return -1;
@@ -56,9 +56,8 @@ void eq_process1(struct eq *eq, float *data, int count)
 		float a2 = q->a2;
 		for (j = 0; j < count; j++) {
 			float x = data[j];
-			float y = b0*x
-				+ b1*x1 + b2*x2
-				- a1*y1 - a2*y2;
+			float y =
+				b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
 			data[j] = y;
 			x2 = x1;
 			x1 = x;
@@ -91,9 +90,8 @@ void eq_process(struct eq *eq, float *data, int count)
 			float a2 = q->a2;
 			for (j = 0; j < count; j++) {
 				float x = data[j];
-				float y = b0*x
-					+ b1*x1 + b2*x2
-					- a1*y1 - a2*y2;
+				float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 -
+					  a2 * y2;
 				data[j] = y;
 				x2 = x1;
 				x1 = x;
@@ -106,7 +104,7 @@ void eq_process(struct eq *eq, float *data, int count)
 			q->y2 = y2;
 		} else {
 			struct biquad *q = &eq->biquad[i];
-			struct biquad *r = &eq->biquad[i+1];
+			struct biquad *r = &eq->biquad[i + 1];
 			float x1 = q->x1;
 			float x2 = q->x2;
 			float y1 = q->y1;
@@ -127,12 +125,10 @@ void eq_process(struct eq *eq, float *data, int count)
 
 			for (j = 0; j < count; j++) {
 				float x = data[j];
-				float y = qb0*x
-					+ qb1*x1 + qb2*x2
-					- qa1*y1 - qa2*y2;
-				float z = rb0*y
-					+ rb1*y1 + rb2*y2
-					- ra1*z1 - ra2*z2;
+				float y = qb0 * x + qb1 * x1 + qb2 * x2 -
+					  qa1 * y1 - qa2 * y2;
+				float z = rb0 * y + rb1 * y1 + rb2 * y2 -
+					  ra1 * z1 - ra2 * z2;
 				data[j] = z;
 				x2 = x1;
 				x1 = x;

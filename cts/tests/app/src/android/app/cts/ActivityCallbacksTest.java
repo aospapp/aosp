@@ -92,54 +92,63 @@ public class ActivityCallbacksTest {
 
             @Override
             public void onActivityPreCreated(Activity activity, Bundle savedInstanceState) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_PRE_CREATE);
             }
 
             @Override
             public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_CREATE);
             }
 
             @Override
             public void onActivityPostCreated(Activity activity, Bundle savedInstanceState) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_POST_CREATE);
             }
 
             @Override
             public void onActivityPreStarted(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_PRE_START);
             }
 
             @Override
             public void onActivityStarted(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_START);
             }
 
             @Override
             public void onActivityPostStarted(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_POST_START);
             }
 
             @Override
             public void onActivityPreResumed(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_PRE_RESUME);
             }
 
             @Override
             public void onActivityResumed(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_RESUME);
             }
 
             @Override
             public void onActivityPostResumed(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_POST_RESUME);
                 a.finish();
@@ -147,36 +156,42 @@ public class ActivityCallbacksTest {
 
             @Override
             public void onActivityPrePaused(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_PRE_PAUSE);
             }
 
             @Override
             public void onActivityPaused(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_PAUSE);
             }
 
             @Override
             public void onActivityPostPaused(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_POST_PAUSE);
             }
 
             @Override
             public void onActivityPreStopped(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_PRE_STOP);
             }
 
             @Override
             public void onActivityStopped(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_STOP);
             }
 
             @Override
             public void onActivityPostStopped(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_POST_STOP);
             }
@@ -188,18 +203,21 @@ public class ActivityCallbacksTest {
 
             @Override
             public void onActivityPreDestroyed(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_PRE_DESTROY);
             }
 
             @Override
             public void onActivityDestroyed(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_DESTROY);
             }
 
             @Override
             public void onActivityPostDestroyed(Activity activity) {
+                if (!wanted(activity)) return;
                 ActivityCallbacksTestActivity a = (ActivityCallbacksTestActivity) activity;
                 a.collectEvent(Source.APPLICATION_ACTIVITY_CALLBACK, ON_POST_DESTROY);
                 actualEvents.addAll(a.getCollectedEvents());
@@ -255,5 +273,9 @@ public class ActivityCallbacksTest {
             expectedEvents.add(new Pair<>(Source.ACTIVITY_CALLBACK_CREATE_ONLY, postEvent));
         }
         expectedEvents.add(new Pair<>(Source.APPLICATION_ACTIVITY_CALLBACK, postEvent));
+    }
+
+    private boolean wanted(Activity activity) {
+        return activity instanceof ActivityCallbacksTestActivity;
     }
 }

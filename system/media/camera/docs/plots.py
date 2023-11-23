@@ -43,7 +43,7 @@ def doc_coeff(x,y):
 
   coeff_str += "%0.4f ]" % coeffs[-1]
 
-  print coeff_str
+  print(coeff_str)
 
 def doc_map(fig, imgMap, index):
   plt.figure(fig.number)
@@ -75,7 +75,7 @@ doc_plot(lin_fig, x_lin, y_lin)
 
 lin_title = 'Linear tonemapping curve'
 plt.title(lin_title)
-print lin_title
+print(lin_title)
 doc_coeff(x_lin, y_lin)
 
 if args.save_figures:
@@ -91,7 +91,7 @@ doc_plot(inv_fig, x_inv, y_inv)
 
 inv_title = 'Inverting tonemapping curve'
 plt.title(inv_title)
-print inv_title
+print(inv_title)
 doc_coeff(x_inv, y_inv)
 
 if args.save_figures:
@@ -108,7 +108,7 @@ doc_plot(gamma_fig, x_gamma, y_gamma)
 
 gamma_title = r'$\gamma=1/2.2$ tonemapping curve'
 plt.title(gamma_title)
-print gamma_title
+print(gamma_title)
 doc_coeff(x_gamma, y_gamma)
 
 if args.save_figures:
@@ -124,7 +124,7 @@ doc_plot(srgb_fig, x_srgb, y_srgb)
 
 srgb_title = 'sRGB tonemapping curve'
 plt.title(srgb_title)
-print srgb_title
+print(srgb_title)
 doc_coeff(x_srgb, y_srgb)
 
 if args.save_figures:
@@ -199,7 +199,7 @@ doc_plot(rec709_fig, x_rec709, y_rec709)
 
 rec709_title = 'Rec. 709 tonemapping curve'
 plt.title(rec709_title)
-print rec709_title
+print(rec709_title)
 doc_coeff(x_rec709, y_rec709)
 
 if args.save_figures:

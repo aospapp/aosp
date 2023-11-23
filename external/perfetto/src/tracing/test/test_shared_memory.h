@@ -21,8 +21,8 @@
 
 #include <memory>
 
-#include "perfetto/base/paged_memory.h"
-#include "perfetto/tracing/core/shared_memory.h"
+#include "perfetto/ext/base/paged_memory.h"
+#include "perfetto/ext/tracing/core/shared_memory.h"
 
 namespace perfetto {
 
@@ -41,6 +41,7 @@ class TestSharedMemory : public SharedMemory {
 
   void* start() const override { return mem_.Get(); }
   size_t size() const override { return size_; }
+  int fd() const override { return -1; }
 
   base::PagedMemory mem_;
   size_t size_;

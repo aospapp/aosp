@@ -14,35 +14,22 @@
  * limitations under the License.
  */
 
-#ifndef _INIT_INIT_H
-#define _INIT_INIT_H
+#pragma once
 
 #include <sys/types.h>
 
-#include <functional>
 #include <string>
-#include <vector>
 
 #include "action.h"
 #include "action_manager.h"
 #include "parser.h"
-#include "service.h"
+#include "service_list.h"
 
 namespace android {
 namespace init {
 
-// Note: These globals are *only* valid in init, so they should not be used in ueventd
-// or any files that may be included in ueventd, such as devices.cpp and util.cpp.
-// TODO: Have an Init class and remove all globals.
-extern std::string default_console;
-extern std::vector<std::string> late_import_paths;
-
 Parser CreateParser(ActionManager& action_manager, ServiceList& service_list);
-Parser CreateServiceOnlyParser(ServiceList& service_list);
-
-void HandleControlMessage(const std::string& msg, const std::string& arg, pid_t pid);
-
-void property_changed(const std::string& name, const std::string& value);
+Parser CreateServiceOnlyParser(ServiceList& service_list, bool from_apex);
 
 bool start_waiting_for_property(const char *name, const char *value);
 
@@ -50,9 +37,12 @@ void DumpState();
 
 void ResetWaitForProp();
 
+void SendLoadPersistentPropertiesMessage();
+
+void PropertyChanged(const std::string& name, const std::string& value);
+bool QueueControlMessage(const std::string& message, const std::string& name, pid_t pid, int fd);
+
 int SecondStageMain(int argc, char** argv);
 
 }  // namespace init
 }  // namespace android
-
-#endif  /* _INIT_INIT_H */

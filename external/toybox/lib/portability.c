@@ -46,21 +46,47 @@ int xgetrandom(void *buf, unsigned buflen, unsigned flags)
   return 1;
 }
 
-#if defined(__APPLE__)
-extern char **environ;
+// Get list of mounted filesystems, including stat and statvfs info.
+// Returns a reversed list, which is good for finding overmounts and such.
 
-int clearenv(void)
-{
-  *environ = NULL;
-  return 0;
-}
-#endif
-
-// Get a linked list of mount points, with stat information.
 #if defined(__APPLE__) || defined(__FreeBSD__)
 
-// Not implemented for macOS.
-// See <sys/mount.h>'s getmntinfo(3) for the BSD API.
+#include <sys/mount.h>
+
+struct mtab_list *xgetmountlist(char *path)
+{
+  struct mtab_list *mtlist = 0, *mt;
+  struct statfs *entries;
+  int i, count;
+
+  if (path) error_exit("xgetmountlist");
+  if ((count = getmntinfo(&entries, 0)) == 0) perror_exit("getmntinfo");
+
+  // The "test" part of the loop is done before the first time through and
+  // again after each "increment", so putting the actual load there avoids
+  // duplicating it. If the load was NULL, the loop stops.
+
+  for (i = 0; i < count; ++i) {
+    struct statfs *me = &entries[i];
+
+    mt = xzalloc(sizeof(struct mtab_list) + strlen(me->f_fstypename) +
+      strlen(me->f_mntonname) + strlen(me->f_mntfromname) + strlen("") + 4);
+    dlist_add_nomalloc((void *)&mtlist, (void *)mt);
+
+    // Collect details about mounted filesystem.
+    // Don't report errors, just leave data zeroed.
+    stat(me->f_mntonname, &(mt->stat));
+    statvfs(me->f_mntonname, &(mt->statvfs));
+
+    // Remember information from struct statfs.
+    mt->dir = stpcpy(mt->type, me->f_fstypename)+1;
+    mt->device = stpcpy(mt->dir, me->f_mntonname)+1;
+    mt->opts = stpcpy(mt->device, me->f_mntfromname)+1;
+    strcpy(mt->opts, ""); /* TODO: reverse from f_flags? */
+  }
+
+  return mtlist;
+}
 
 #else
 
@@ -120,9 +146,6 @@ int mountlist_istype(struct mtab_list *ml, char *typelist)
   return !skip;
 }
 
-// Get list of mounted filesystems, including stat and statvfs info.
-// Returns a reversed list, which is good for finding overmounts and such.
-
 struct mtab_list *xgetmountlist(char *path)
 {
   struct mtab_list *mtlist = 0, *mt;
@@ -163,3 +186,392 @@ struct mtab_list *xgetmountlist(char *path)
 }
 
 #endif
+
+#ifdef __APPLE__
+
+#include <sys/event.h>
+
+struct xnotify *xnotify_init(int max)
+{
+  struct xnotify *not = xzalloc(sizeof(struct xnotify));
+
+  not->max = max;
+  if ((not->kq = kqueue()) == -1) perror_exit("kqueue");
+  not->paths = xmalloc(max * sizeof(char *));
+  not->fds = xmalloc(max * sizeof(int));
+
+  return not;
+}
+
+int xnotify_add(struct xnotify *not, int fd, char *path)
+{
+  struct kevent event;
+
+  if (not->count == not->max) error_exit("xnotify_add overflow");
+  EV_SET(&event, fd, EVFILT_VNODE, EV_ADD|EV_CLEAR, NOTE_WRITE, 0, NULL);
+  if (kevent(not->kq, &event, 1, NULL, 0, NULL) == -1 || event.flags & EV_ERROR)
+    return -1;
+  not->paths[not->count] = path;
+  not->fds[not->count++] = fd;
+
+  return 0;
+}
+
+int xnotify_wait(struct xnotify *not, char **path)
+{
+  struct kevent event;
+  int i;
+
+  for (;;) {
+    if (kevent(not->kq, NULL, 0, &event, 1, NULL) != -1) {
+      // We get the fd for free, but still have to search for the path.
+      for (i = 0; i<not->count; i++) if (not->fds[i]==event.ident) {
+        *path = not->paths[i];
+
+        return event.ident;
+      }
+    }
+  }
+}
+
+#else
+
+#include <sys/inotify.h>
+
+struct xnotify *xnotify_init(int max)
+{
+  struct xnotify *not = xzalloc(sizeof(struct xnotify));
+
+  not->max = max;
+  if ((not->kq = inotify_init()) < 0) perror_exit("inotify_init");
+  not->paths = xmalloc(max * sizeof(char *));
+  not->fds = xmalloc(max * 2 * sizeof(int));
+
+  return not;
+}
+
+int xnotify_add(struct xnotify *not, int fd, char *path)
+{
+  int i = 2*not->count;
+
+  if (not->max == not->count) error_exit("xnotify_add overflow");
+  if ((not->fds[i] = inotify_add_watch(not->kq, path, IN_MODIFY))==-1)
+    return -1;
+  not->fds[i+1] = fd;
+  not->paths[not->count++] = path;
+
+  return 0;
+}
+
+int xnotify_wait(struct xnotify *not, char **path)
+{
+  struct inotify_event ev;
+  int i;
+
+  for (;;) {
+    if (sizeof(ev)!=read(not->kq, &ev, sizeof(ev))) perror_exit("inotify");
+
+    for (i = 0; i<not->count; i++) if (ev.wd==not->fds[2*i]) {
+      *path = not->paths[i];
+
+      return not->fds[2*i+1];
+    }
+  }
+}
+
+#endif
+
+#ifdef __APPLE__
+
+ssize_t xattr_get(const char *path, const char *name, void *value, size_t size)
+{
+  return getxattr(path, name, value, size, 0, 0);
+}
+
+ssize_t xattr_lget(const char *path, const char *name, void *value, size_t size)
+{
+  return getxattr(path, name, value, size, 0, XATTR_NOFOLLOW);
+}
+
+ssize_t xattr_fget(int fd, const char *name, void *value, size_t size)
+{
+  return fgetxattr(fd, name, value, size, 0, 0);
+}
+
+ssize_t xattr_list(const char *path, char *list, size_t size)
+{
+  return listxattr(path, list, size, 0);
+}
+
+ssize_t xattr_llist(const char *path, char *list, size_t size)
+{
+  return listxattr(path, list, size, XATTR_NOFOLLOW);
+}
+
+ssize_t xattr_flist(int fd, char *list, size_t size)
+{
+  return flistxattr(fd, list, size, 0);
+}
+
+ssize_t xattr_set(const char* path, const char* name,
+                  const void* value, size_t size, int flags)
+{
+  return setxattr(path, name, value, size, 0, flags);
+}
+
+ssize_t xattr_lset(const char* path, const char* name,
+                   const void* value, size_t size, int flags)
+{
+  return setxattr(path, name, value, size, 0, flags | XATTR_NOFOLLOW);
+}
+
+ssize_t xattr_fset(int fd, const char* name,
+                   const void* value, size_t size, int flags)
+{
+  return fsetxattr(fd, name, value, size, 0, flags);
+}
+
+#else
+
+ssize_t xattr_get(const char *path, const char *name, void *value, size_t size)
+{
+  return getxattr(path, name, value, size);
+}
+
+ssize_t xattr_lget(const char *path, const char *name, void *value, size_t size)
+{
+  return lgetxattr(path, name, value, size);
+}
+
+ssize_t xattr_fget(int fd, const char *name, void *value, size_t size)
+{
+  return fgetxattr(fd, name, value, size);
+}
+
+ssize_t xattr_list(const char *path, char *list, size_t size)
+{
+  return listxattr(path, list, size);
+}
+
+ssize_t xattr_llist(const char *path, char *list, size_t size)
+{
+  return llistxattr(path, list, size);
+}
+
+ssize_t xattr_flist(int fd, char *list, size_t size)
+{
+  return flistxattr(fd, list, size);
+}
+
+ssize_t xattr_set(const char* path, const char* name,
+                  const void* value, size_t size, int flags)
+{
+  return setxattr(path, name, value, size, flags);
+}
+
+ssize_t xattr_lset(const char* path, const char* name,
+                   const void* value, size_t size, int flags)
+{
+  return lsetxattr(path, name, value, size, flags);
+}
+
+ssize_t xattr_fset(int fd, const char* name,
+                   const void* value, size_t size, int flags)
+{
+  return fsetxattr(fd, name, value, size, flags);
+}
+
+
+#endif
+
+#ifdef __APPLE__
+// In the absence of a mknodat system call, fchdir to dirfd and back
+// around a regular mknod call...
+int mknodat(int dirfd, const char *path, mode_t mode, dev_t dev)
+{
+  int old_dirfd = open(".", O_RDONLY), result;
+
+  if (old_dirfd == -1 || fchdir(dirfd) == -1) return -1;
+  result = mknod(path, mode, dev);
+  if (fchdir(old_dirfd) == -1) perror_exit("mknodat couldn't return");
+  return result;
+}
+
+// As of 10.15, macOS offers an fcntl F_PREALLOCATE rather than fallocate()
+// or posix_fallocate() calls.
+int posix_fallocate(int fd, off_t offset, off_t length)
+{
+  int e = errno, result;
+  fstore_t f;
+
+  f.fst_flags = F_ALLOCATEALL;
+  f.fst_posmode = F_PEOFPOSMODE;
+  f.fst_offset = offset;
+  f.fst_length = length;
+  if (fcntl(fd, F_PREALLOCATE, &f) == -1) result = errno;
+  else result = ftruncate(fd, length);
+  errno = e;
+  return result;
+}
+#endif
+
+// Signals required by POSIX 2008:
+// http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/signal.h.html
+
+#define SIGNIFY(x) {SIG##x, #x}
+
+static const struct signame signames[] = {
+  // POSIX
+  SIGNIFY(ABRT), SIGNIFY(ALRM), SIGNIFY(BUS),
+  SIGNIFY(FPE), SIGNIFY(HUP), SIGNIFY(ILL), SIGNIFY(INT), SIGNIFY(KILL),
+  SIGNIFY(PIPE), SIGNIFY(QUIT), SIGNIFY(SEGV), SIGNIFY(TERM),
+  SIGNIFY(USR1), SIGNIFY(USR2), SIGNIFY(SYS), SIGNIFY(TRAP),
+  SIGNIFY(VTALRM), SIGNIFY(XCPU), SIGNIFY(XFSZ),
+  // Non-POSIX signals that cause termination
+  SIGNIFY(PROF), SIGNIFY(IO),
+#ifdef __linux__
+  SIGNIFY(STKFLT), SIGNIFY(POLL), SIGNIFY(PWR),
+#elif defined(__APPLE__)
+  SIGNIFY(EMT), SIGNIFY(INFO),
+#endif
+
+  // Note: sigatexit relies on all the signals with a default disposition that
+  // terminates the process coming *before* SIGCHLD.
+
+  // POSIX signals that don't cause termination
+  SIGNIFY(CHLD), SIGNIFY(CONT), SIGNIFY(STOP), SIGNIFY(TSTP),
+  SIGNIFY(TTIN), SIGNIFY(TTOU), SIGNIFY(URG),
+  // Non-POSIX signals that don't cause termination
+  SIGNIFY(WINCH),
+};
+int signames_len = ARRAY_LEN(signames);
+
+#undef SIGNIFY
+
+void xsignal_all_killers(void *handler)
+{
+  int i;
+
+  for (i=0; signames[i].num != SIGCHLD; i++)
+    if (signames[i].num != SIGKILL)
+      xsignal(signames[i].num, handler ? exit_signal : SIG_DFL);
+}
+
+// Convert a string like "9", "KILL", "SIGHUP", or "SIGRTMIN+2" to a number.
+int sig_to_num(char *sigstr)
+{
+  int i, offset;
+  char *s;
+
+  // Numeric?
+  i = estrtol(sigstr, &s, 10);
+  if (!errno && !*s) return i;
+
+  // Skip leading "SIG".
+  strcasestart(&sigstr, "sig");
+
+  // Named signal?
+  for (i=0; i<ARRAY_LEN(signames); i++)
+    if (!strcasecmp(sigstr, signames[i].name)) return signames[i].num;
+
+  // Real-time signal?
+#ifdef SIGRTMIN
+  if (strcasestart(&sigstr, "rtmin")) i = SIGRTMIN;
+  else if (strcasestart(&sigstr, "rtmax")) i = SIGRTMAX;
+  else return -1;
+
+  // No offset?
+  if (!*sigstr) return i;
+
+  // We allow any offset that's still a real-time signal: SIGRTMIN+20 is fine.
+  // Others are more restrictive, only accepting what they show with -l.
+  offset = estrtol(sigstr, &s, 10);
+  if (errno || *s) return -1;
+  i += offset;
+  if (i >= SIGRTMIN && i <= SIGRTMAX) return i;
+#endif
+
+  return -1;
+}
+
+char *num_to_sig(int sig)
+{
+  int i;
+
+  // A named signal?
+  for (i=0; i<signames_len; i++)
+    if (signames[i].num == sig) return signames[i].name;
+
+  // A real-time signal?
+#ifdef SIGRTMIN
+  if (sig == SIGRTMIN) return "RTMIN";
+  if (sig == SIGRTMAX) return "RTMAX";
+  if (sig > SIGRTMIN && sig < SIGRTMAX) {
+    if (sig-SIGRTMIN <= SIGRTMAX-sig) sprintf(libbuf, "RTMIN+%d", sig-SIGRTMIN);
+    else sprintf(libbuf, "RTMAX-%d", SIGRTMAX-sig);
+    return libbuf;
+  }
+#endif
+
+  return NULL;
+}
+
+int dev_minor(int dev)
+{
+#if defined(__linux__)
+  return ((dev&0xfff00000)>>12)|(dev&0xff);
+#elif defined(__APPLE__)
+  return dev&0xffffff;
+#else
+#error
+#endif
+}
+
+int dev_major(int dev)
+{
+#if defined(__linux__)
+  return (dev&0xfff00)>>8;
+#elif defined(__APPLE__)
+  return (dev>>24)&0xff;
+#else
+#error
+#endif
+}
+
+int dev_makedev(int major, int minor)
+{
+#if defined(__linux__)
+  return (minor&0xff)|((major&0xfff)<<8)|((minor&0xfff00)<<12);
+#elif defined(__APPLE__)
+  return (minor&0xffffff)|((major&0xff)<<24);
+#else
+#error
+#endif
+}
+
+char *fs_type_name(struct statfs *statfs)
+{
+#if defined(__APPLE__)
+  // macOS has an `f_type` field, but assigns values dynamically as filesystems
+  // are registered. They do give you the name directly though, so use that.
+  return statfs->f_fstypename;
+#else
+  char *s = NULL;
+  struct {unsigned num; char *name;} nn[] = {
+    {0xADFF, "affs"}, {0x5346544e, "ntfs"}, {0x1Cd1, "devpts"},
+    {0x137D, "ext"}, {0xEF51, "ext2"}, {0xEF53, "ext3"},
+    {0x1BADFACE, "bfs"}, {0x9123683E, "btrfs"}, {0x28cd3d45, "cramfs"},
+    {0x3153464a, "jfs"}, {0x7275, "romfs"}, {0x01021994, "tmpfs"},
+    {0x3434, "nilfs"}, {0x6969, "nfs"}, {0x9fa0, "proc"},
+    {0x534F434B, "sockfs"}, {0x62656572, "sysfs"}, {0x517B, "smb"},
+    {0x4d44, "msdos"}, {0x4006, "fat"}, {0x43415d53, "smackfs"},
+    {0x73717368, "squashfs"}
+  };
+  int i;
+
+  for (i=0; i<ARRAY_LEN(nn); i++)
+    if (nn[i].num == statfs->f_type) s = nn[i].name;
+  if (!s) sprintf(s = libbuf, "0x%x", (unsigned)statfs->f_type);
+  return s;
+#endif
+}

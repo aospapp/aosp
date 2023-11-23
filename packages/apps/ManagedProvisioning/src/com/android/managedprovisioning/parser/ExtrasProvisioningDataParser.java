@@ -16,6 +16,7 @@
 
 package com.android.managedprovisioning.parser;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_FINANCED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
@@ -110,8 +111,9 @@ import java.util.Set;
 @VisibleForTesting
 public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
     private static final Set<String> PROVISIONING_ACTIONS_SUPPORT_ALL_PROVISIONING_DATA =
-            new HashSet<>(Collections.singletonList(
-                    ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE));
+            new HashSet<>(Arrays.asList(
+                    ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE,
+                    ACTION_PROVISION_FINANCED_DEVICE));
 
     private static final Set<String> PROVISIONING_ACTIONS_SUPPORT_MIN_PROVISIONING_DATA =
             new HashSet<>(Arrays.asList(
@@ -509,6 +511,8 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
         final DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
         boolean isProvisionManagedDeviceFromTrustedSourceIntent =
                 ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE.equals(intent.getAction());
+        boolean isFinancedDeviceProvisioning =
+                ACTION_PROVISION_FINANCED_DEVICE.equals(intent.getAction());
         try {
             final long provisioningId = mSharedPreferences.incrementAndGetProvisioningId();
             String provisioningAction = mUtils.mapIntentToDpmAction(intent);
@@ -550,6 +554,8 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                 skipUserSetup = getBooleanExtraFromLongName(
                         intent, EXTRA_PROVISIONING_SKIP_USER_SETUP,
                         ProvisioningParams.DEFAULT_SKIP_USER_SETUP);
+            } else if (isFinancedDeviceProvisioning) {
+                skipUserSetup = false;
             }
 
             // Only current DeviceOwner can specify EXTRA_PROVISIONING_SKIP_USER_CONSENT when
@@ -590,7 +596,7 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
             String organizationName = null;
             String supportUrl = null;
             String deviceAdminIconFilePath = null;
-            if (isProvisionManagedDeviceFromTrustedSourceIntent) {
+            if (isProvisionManagedDeviceFromTrustedSourceIntent || isFinancedDeviceProvisioning) {
                 deviceAdminLabel = getStringExtraFromLongName(intent,
                         EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL);
                 organizationName = getStringExtraFromLongName(
@@ -603,9 +609,10 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
 
             final boolean leaveAllSystemAppsEnabled = isManagedProfileAction
                     ? false
-                    : getBooleanExtraFromLongName(
-                            intent, EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
-                            ProvisioningParams.DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED);
+                    : (isFinancedDeviceProvisioning ||
+                            getBooleanExtraFromLongName(
+                                    intent, EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                                    ProvisioningParams.DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED));
 
             return ProvisioningParams.Builder.builder()
                     .setProvisioningId(provisioningId)
@@ -631,7 +638,7 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                     .setOrganizationName(organizationName)
                     .setSupportUrl(supportUrl)
                     .setDeviceAdminIconFilePath(deviceAdminIconFilePath)
-                    .setIsCloudEnrollment(mUtils.isCloudEnrollment(intent))
+                    .setIsQrProvisioning(mUtils.isQrProvisioning(intent))
                     .setIsOrganizationOwnedProvisioning(
                             mUtils.isOrganizationOwnedProvisioning(intent));
         } catch (ClassCastException e) {

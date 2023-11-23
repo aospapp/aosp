@@ -17,7 +17,7 @@
 package android.os;
 
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.util.ArrayMap;
 import android.util.Size;
 import android.util.SizeF;
@@ -433,6 +433,56 @@ public final class Bundle extends BaseBundle implements Cloneable, Parcelable {
         mFlags |= FLAG_HAS_FDS_KNOWN;
         mFlags &= ~FLAG_HAS_FDS;
         return bundle;
+    }
+
+    /** {@hide} */
+    @Override
+    public void putObject(@Nullable String key, @Nullable Object value) {
+        if (value instanceof Byte) {
+            putByte(key, (Byte) value);
+        } else if (value instanceof Character) {
+            putChar(key, (Character) value);
+        } else if (value instanceof Short) {
+            putShort(key, (Short) value);
+        } else if (value instanceof Float) {
+            putFloat(key, (Float) value);
+        } else if (value instanceof CharSequence) {
+            putCharSequence(key, (CharSequence) value);
+        } else if (value instanceof Parcelable) {
+            putParcelable(key, (Parcelable) value);
+        } else if (value instanceof Size) {
+            putSize(key, (Size) value);
+        } else if (value instanceof SizeF) {
+            putSizeF(key, (SizeF) value);
+        } else if (value instanceof Parcelable[]) {
+            putParcelableArray(key, (Parcelable[]) value);
+        } else if (value instanceof ArrayList) {
+            putParcelableArrayList(key, (ArrayList) value);
+        } else if (value instanceof List) {
+            putParcelableList(key, (List) value);
+        } else if (value instanceof SparseArray) {
+            putSparseParcelableArray(key, (SparseArray) value);
+        } else if (value instanceof Serializable) {
+            putSerializable(key, (Serializable) value);
+        } else if (value instanceof byte[]) {
+            putByteArray(key, (byte[]) value);
+        } else if (value instanceof short[]) {
+            putShortArray(key, (short[]) value);
+        } else if (value instanceof char[]) {
+            putCharArray(key, (char[]) value);
+        } else if (value instanceof float[]) {
+            putFloatArray(key, (float[]) value);
+        } else if (value instanceof CharSequence[]) {
+            putCharSequenceArray(key, (CharSequence[]) value);
+        } else if (value instanceof Bundle) {
+            putBundle(key, (Bundle) value);
+        } else if (value instanceof Binder) {
+            putBinder(key, (Binder) value);
+        } else if (value instanceof IBinder) {
+            putIBinder(key, (IBinder) value);
+        } else {
+            super.putObject(key, value);
+        }
     }
 
     /**
@@ -1295,7 +1345,7 @@ public final class Bundle extends BaseBundle implements Cloneable, Parcelable {
     }
 
     /** @hide */
-    public void writeToProto(ProtoOutputStream proto, long fieldId) {
+    public void dumpDebug(ProtoOutputStream proto, long fieldId) {
         final long token = proto.start(fieldId);
 
         if (mParcelledData != null) {

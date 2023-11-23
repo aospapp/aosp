@@ -16,17 +16,33 @@
 
 package android.view.accessibility.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.platform.test.annotations.Presubmit;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.view.accessibility.AccessibilityNodeProvider;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Class for testing {@link AccessibilityNodeProvider}.
  */
 @Presubmit
-public class AccessibilityNodeProviderTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityNodeProviderTest {
+
+    @Rule
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
     @SmallTest
+    @Test
     public void testDefaultBehavior() {
         AccessibilityNodeProvider p = new AccessibilityNodeProvider() {
             // Class is abstract, but has no abstract methods.

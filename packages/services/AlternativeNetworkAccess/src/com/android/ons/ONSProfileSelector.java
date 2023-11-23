@@ -20,23 +20,21 @@ import static android.telephony.AvailableNetworkInfo.PRIORITY_HIGH;
 import static android.telephony.AvailableNetworkInfo.PRIORITY_LOW;
 
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
+import android.compat.Compatibility;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.telephony.AvailableNetworkInfo;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoLte;
-import android.telephony.Rlog;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyFrameworkInitializer;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
@@ -44,6 +42,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.ISetOpportunisticDataCallback;
 import com.android.internal.telephony.ISub;
 import com.android.internal.telephony.IUpdateAvailableNetworksCallback;
+import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -74,6 +73,9 @@ public class ONSProfileSelector {
     /* message to indicate Subscription switch completion */
     private static final int MSG_SUB_SWITCH_COMPLETE = 3;
 
+    /* message to stop profile selection process */
+    private static final int MSG_STOP_PROFILE_SELECTION = 4;
+
     private boolean mIsEnabled = false;
 
     @VisibleForTesting
@@ -81,7 +83,8 @@ public class ONSProfileSelector {
 
     @VisibleForTesting
     protected TelephonyManager mTelephonyManager;
-    private TelephonyManager mSubscriptionBoundTelephonyManager;
+    @VisibleForTesting
+    protected TelephonyManager mSubscriptionBoundTelephonyManager;
 
     @VisibleForTesting
     protected ONSNetworkScanCtlr mNetworkScanCtlr;
@@ -90,10 +93,13 @@ public class ONSProfileSelector {
     protected SubscriptionManager mSubscriptionManager;
     @VisibleForTesting
     protected List<SubscriptionInfo> mOppSubscriptionInfos;
+    @VisibleForTesting
+    protected List<SubscriptionInfo> mStandaloneOppSubInfos;
     private ONSProfileSelectionCallback mProfileSelectionCallback;
     private int mSequenceId;
     private int mSubId;
-    private int mCurrentDataSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+    @VisibleForTesting
+    protected int mCurrentDataSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     private ArrayList<AvailableNetworkInfo> mAvailableNetworkInfos;
     private IUpdateAvailableNetworksCallback mNetworkScanCallback;
 
@@ -116,7 +122,9 @@ public class ONSProfileSelector {
                     if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
                         sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
                                 TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
-                        mNetworkScanCallback = null;
+                        synchronized (mLock) {
+                            mNetworkScanCallback = null;
+                        }
                         return;
                     }
 
@@ -128,14 +136,31 @@ public class ONSProfileSelector {
                 @Override
                 public void onError(int error) {
                     log("Network scan failed with error " + error);
-                    if (mIsEnabled && mAvailableNetworkInfos != null
+                    synchronized (mLock) {
+                        if (mIsEnabled && mAvailableNetworkInfos != null
                             && mAvailableNetworkInfos.size() > 0) {
-                        handleNetworkScanResult(mAvailableNetworkInfos.get(0).getSubId());
-                    } else {
-                        if (mNetworkScanCallback != null) {
-                            sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
-                                    TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
-                            mNetworkScanCallback = null;
+                            handleNetworkScanResult(mAvailableNetworkInfos.get(0).getSubId());
+                        } else {
+                            if (mNetworkScanCallback != null) {
+                                if (mIsEnabled) {
+                                    sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                                            TelephonyManager
+                                                    .UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+                                } else {
+                                    if (Compatibility.isChangeEnabled(
+                                            OpportunisticNetworkService
+                                                    .CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                                        sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                                                TelephonyManager
+                                                        .UPDATE_AVAILABLE_NETWORKS_SERVICE_IS_DISABLED);
+                                    } else {
+                                        sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                                                TelephonyManager
+                                                        .UPDATE_AVAILABLE_NETWORKS_UNKNOWN_FAILURE);
+                                    }
+                                }
+                                mNetworkScanCallback = null;
+                            }
                         }
                     }
                 }
@@ -147,11 +172,22 @@ public class ONSProfileSelector {
                             sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
                                 TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SUCCESS);
                         } else {
-                            sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
-                                TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+                            if (Compatibility.isChangeEnabled(
+                                    OpportunisticNetworkService
+                                            .CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                                sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                                        TelephonyManager
+                                                .UPDATE_AVAILABLE_NETWORKS_ENABLE_MODEM_FAIL);
+                            } else {
+                                sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+                            }
                         }
                         mProfileSelectionCallback.onProfileSelectionDone();
-                        mNetworkScanCallback = null;
+                        synchronized (mLock) {
+                            mNetworkScanCallback = null;
+                            mAvailableNetworkInfos = null;
+                        }
                     } else {
                         logDebug("switch to sub:" + subId);
                         switchToSubscription(subId);
@@ -165,6 +201,7 @@ public class ONSProfileSelector {
             new SubscriptionManager.OnOpportunisticSubscriptionsChangedListener() {
                 @Override
                 public void onOpportunisticSubscriptionsChanged() {
+                    logDebug("onOpportunisticSubscriptionsChanged.");
                     mHandler.sendEmptyMessage(MSG_PROFILE_UPDATE);
                 }
             };
@@ -245,17 +282,20 @@ public class ONSProfileSelector {
 
     private int getSubIdUsingAvailableNetworks(String mcc, String mnc, int priorityLevel) {
         String mccMnc = mcc + mnc;
-        for (AvailableNetworkInfo availableNetworkInfo : mAvailableNetworkInfos) {
-            if (availableNetworkInfo.getPriority() != priorityLevel) {
-                continue;
-            }
-            for (String availableMccMnc : availableNetworkInfo.getMccMncs()) {
-                if (TextUtils.equals(availableMccMnc, mccMnc)) {
-                    return availableNetworkInfo.getSubId();
+        synchronized (mLock) {
+            if (mAvailableNetworkInfos != null) {
+                for (AvailableNetworkInfo availableNetworkInfo : mAvailableNetworkInfos) {
+                    if (availableNetworkInfo.getPriority() != priorityLevel) {
+                        continue;
+                    }
+                    for (String availableMccMnc : availableNetworkInfo.getMccMncs()) {
+                        if (TextUtils.equals(availableMccMnc, mccMnc)) {
+                            return availableNetworkInfo.getSubId();
+                        }
+                    }
                 }
             }
         }
-
         return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     }
 
@@ -313,8 +353,7 @@ public class ONSProfileSelector {
         callbackIntent.putExtra("subId", subId);
         mSubId = subId;
         PendingIntent replyIntent = PendingIntent.getService(mContext,
-                1, callbackIntent,
-                Intent.FILL_IN_ACTION);
+                1, callbackIntent, PendingIntent.FLAG_ONE_SHOT);
         mSubscriptionManager.switchToSubscription(subId, replyIntent);
     }
 
@@ -340,10 +379,18 @@ public class ONSProfileSelector {
             sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
                 TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SUCCESS);
         } else {
-            sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
-                TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+            if (Compatibility.isChangeEnabled(
+                    OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ENABLE_MODEM_FAIL);
+            } else {
+                sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+            }
         }
         mProfileSelectionCallback.onProfileSelectionDone();
+        mNetworkScanCallback = null;
+        mAvailableNetworkInfos = null;
     }
 
     private void updateToken() {
@@ -437,8 +484,14 @@ public class ONSProfileSelector {
                 (IUpdateAvailableNetworksCallback) objects[1];
         if (mOppSubscriptionInfos == null) {
             logDebug("null subscription infos");
-            sendUpdateNetworksCallbackHelper(callbackStub,
-                    TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+            if (Compatibility.isChangeEnabled(
+                    OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_NO_OPPORTUNISTIC_SUB_AVAILABLE);
+            } else {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+            }
             return;
         }
 
@@ -451,6 +504,13 @@ public class ONSProfileSelector {
         }
 
         if (isSame(availableNetworks, mAvailableNetworkInfos)) {
+            logDebug("received duplicate requests");
+            /* If we receive same request more than once, send abort response for earlier one
+               and send actual response for the latest callback.
+            */
+            sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+            mNetworkScanCallback = callbackStub;
             return;
         }
 
@@ -478,10 +538,17 @@ public class ONSProfileSelector {
                         sendUpdateNetworksCallbackHelper(callbackStub,
                             TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SUCCESS);
                     } else {
-                        sendUpdateNetworksCallbackHelper(callbackStub,
-                            TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+                        if (Compatibility.isChangeEnabled(
+                                OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                            sendUpdateNetworksCallbackHelper(callbackStub,
+                                    TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ENABLE_MODEM_FAIL);
+                        } else {
+                            sendUpdateNetworksCallbackHelper(callbackStub,
+                                    TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+                        }
                     }
                     mProfileSelectionCallback.onProfileSelectionDone();
+                    mAvailableNetworkInfos = null;
                 }
             } else {
                 mNetworkScanCallback = callbackStub;
@@ -489,8 +556,14 @@ public class ONSProfileSelector {
                 mNetworkScanCtlr.startFastNetworkScan(filteredAvailableNetworks);
             }
         } else if (mOppSubscriptionInfos.size() == 0) {
-            sendUpdateNetworksCallbackHelper(callbackStub,
-                    TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+            if (Compatibility.isChangeEnabled(
+                    OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_NO_OPPORTUNISTIC_SUB_AVAILABLE);
+            } else {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+            }
             /* check if no profile */
             logDebug("stopping scan");
             mNetworkScanCtlr.stopNetworkScan();
@@ -513,7 +586,8 @@ public class ONSProfileSelector {
         return false;
     }
 
-    private int retrieveBestSubscription(List<CellInfo> results) {
+    @VisibleForTesting
+    protected int retrieveBestSubscription(List<CellInfo> results) {
         /* sort the results according to signal strength level */
         Collections.sort(results, new Comparator<CellInfo>() {
             @Override
@@ -572,41 +646,70 @@ public class ONSProfileSelector {
     private void disableOpportunisticModem(IUpdateAvailableNetworksCallback callbackStub) {
         int subId = getActiveOpportunisticSubId();
         if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-            sendUpdateNetworksCallbackHelper(callbackStub,
-                TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+            if (Compatibility.isChangeEnabled(
+                    OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_NO_OPPORTUNISTIC_SUB_AVAILABLE);
+            } else {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+            }
             return;
         }
         if (enableModem(subId, false)) {
             sendUpdateNetworksCallbackHelper(callbackStub,
                 TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SUCCESS);
         } else {
-            sendUpdateNetworksCallbackHelper(callbackStub,
-                TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+            if (Compatibility.isChangeEnabled(
+                    OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_DISABLE_MODEM_FAIL);
+            } else {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+            }
         }
     }
 
     private boolean enableModem(int subId, boolean enable) {
-        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+        SubscriptionInfo info = mSubscriptionManager.getActiveSubscriptionInfo(subId);
+        if (info == null) {
+            // Subscription is not active. Do nothing.
             return false;
         }
 
-        int phoneId = SubscriptionManager.getPhoneId(subId);
+        // If disabling modem for opportunistic sub, make sure to switch data back to default sub.
+        if (!enable) {
+            if (mSubscriptionManager.getPreferredDataSubscriptionId() == subId) {
+                selectProfileForData(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, false, null);
+            }
+        }
+        int phoneId = info.getSimSlotIndex();
+        /*  Todo: b/135067156
+         *  Reenable this code once 135067156 is fixed
         if (mSubscriptionBoundTelephonyManager.isModemEnabledForSlot(phoneId) == enable) {
             logDebug("modem is already enabled ");
             return true;
-        }
+        } */
 
         return mSubscriptionBoundTelephonyManager.enableModemForSlot(phoneId, enable);
     }
 
+    private void stopProfileSelectionProcess(IUpdateAvailableNetworksCallback callbackStub) {
+        stopProfileScanningPrecedure();
+        logDebug("stopProfileSelection");
+        disableOpportunisticModem(callbackStub);
+    }
+
     private void stopProfileScanningPrecedure() {
-        if (mNetworkScanCallback != null) {
-            sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
-                    TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
-            mNetworkScanCallback = null;
-        }
-        mNetworkScanCtlr.stopNetworkScan();
         synchronized (mLock) {
+            if (mNetworkScanCallback != null) {
+                sendUpdateNetworksCallbackHelper(mNetworkScanCallback,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_ABORTED);
+                mNetworkScanCallback = null;
+            }
+            mNetworkScanCtlr.stopNetworkScan();
+
             mAvailableNetworkInfos = null;
             mIsEnabled = false;
         }
@@ -631,6 +734,24 @@ public class ONSProfileSelector {
         return false;
     }
 
+    public boolean containStandaloneOppSubs(ArrayList<AvailableNetworkInfo> availableNetworks) {
+        if (mStandaloneOppSubInfos == null) {
+            logDebug("received null subscription infos");
+            return false;
+        }
+        if (mStandaloneOppSubInfos.size() > 0) {
+            logDebug("Standalone opportunistic subInfos size " + mStandaloneOppSubInfos.size());
+            ArrayList<AvailableNetworkInfo> filteredAvailableNetworks =
+                    getFilteredAvailableNetworks(
+                            (ArrayList<AvailableNetworkInfo>) availableNetworks,
+                            mStandaloneOppSubInfos);
+            if (filteredAvailableNetworks.size() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean isOpportunisticSubActive() {
         if (mOppSubscriptionInfos == null) {
             logDebug("received null subscription infos");
@@ -652,6 +773,10 @@ public class ONSProfileSelector {
             IUpdateAvailableNetworksCallback callbackStub) {
         logDebug("startProfileSelection availableNetworks: " + availableNetworks);
         if (availableNetworks == null || availableNetworks.size() == 0) {
+            if (callbackStub != null) {
+                sendUpdateNetworksCallbackHelper(callbackStub,
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_INVALID_ARGUMENTS);
+            }
             return;
         }
         Object[] objects = new Object[]{availableNetworks, callbackStub};
@@ -677,27 +802,53 @@ public class ONSProfileSelector {
             ISetOpportunisticDataCallback callbackStub) {
         if ((subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID)
                 || (isOpprotunisticSub(subId) && mSubscriptionManager.isActiveSubId(subId))) {
-            ISub iSub = ISub.Stub.asInterface(ServiceManager.getService("isub"));
+            ISub iSub = ISub.Stub.asInterface(
+                    TelephonyFrameworkInitializer
+                            .getTelephonyServiceManager()
+                            .getSubscriptionServiceRegisterer()
+                            .get());
             if (iSub == null) {
                 log("Could not get Subscription Service handle");
-                sendSetOpptCallbackHelper(callbackStub,
-                    TelephonyManager.SET_OPPORTUNISTIC_SUB_VALIDATION_FAILED);
+                if (Compatibility.isChangeEnabled(
+                        OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                    sendSetOpptCallbackHelper(callbackStub,
+                            TelephonyManager.SET_OPPORTUNISTIC_SUB_REMOTE_SERVICE_EXCEPTION);
+                } else {
+                    sendSetOpptCallbackHelper(callbackStub,
+                            TelephonyManager.SET_OPPORTUNISTIC_SUB_VALIDATION_FAILED);
+                }
                 return;
             }
             try {
                 iSub.setPreferredDataSubscriptionId(subId, needValidation, callbackStub);
             } catch (RemoteException ex) {
                 log("Could not connect to Subscription Service");
-                sendSetOpptCallbackHelper(callbackStub,
-                        TelephonyManager.SET_OPPORTUNISTIC_SUB_VALIDATION_FAILED);
+                if (Compatibility.isChangeEnabled(
+                        OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                    sendSetOpptCallbackHelper(callbackStub,
+                            TelephonyManager.SET_OPPORTUNISTIC_SUB_REMOTE_SERVICE_EXCEPTION);
+                } else {
+                    sendSetOpptCallbackHelper(callbackStub,
+                            TelephonyManager.SET_OPPORTUNISTIC_SUB_VALIDATION_FAILED);
+                }
                 return;
             }
             mCurrentDataSubId = subId;
-            sendSetOpptCallbackHelper(callbackStub, TelephonyManager.SET_OPPORTUNISTIC_SUB_SUCCESS);
         } else {
             log("Inactive sub passed for preferred data " + subId);
-            sendSetOpptCallbackHelper(callbackStub,
-                    TelephonyManager.SET_OPPORTUNISTIC_SUB_INACTIVE_SUBSCRIPTION);
+            if (Compatibility.isChangeEnabled(
+                    OpportunisticNetworkService.CALLBACK_ON_MORE_ERROR_CODE_CHANGE)) {
+                if (isOpprotunisticSub(subId)) {
+                    sendSetOpptCallbackHelper(callbackStub,
+                            TelephonyManager.SET_OPPORTUNISTIC_SUB_INACTIVE_SUBSCRIPTION);
+                } else {
+                    sendSetOpptCallbackHelper(callbackStub,
+                            TelephonyManager.SET_OPPORTUNISTIC_SUB_NO_OPPORTUNISTIC_SUB_AVAILABLE);
+                }
+            } else {
+                sendSetOpptCallbackHelper(callbackStub,
+                        TelephonyManager.SET_OPPORTUNISTIC_SUB_INACTIVE_SUBSCRIPTION);
+            }
         }
     }
 
@@ -709,18 +860,41 @@ public class ONSProfileSelector {
      * stop profile selection procedure
      */
     public void stopProfileSelection(IUpdateAvailableNetworksCallback callbackStub) {
-        stopProfileScanningPrecedure();
         logDebug("stopProfileSelection");
-        disableOpportunisticModem(callbackStub);
+        Message message = Message.obtain(mHandler, MSG_STOP_PROFILE_SELECTION, callbackStub);
+        message.sendToTarget();
     }
 
     @VisibleForTesting
     protected void updateOpportunisticSubscriptions() {
         synchronized (mLock) {
             mOppSubscriptionInfos = mSubscriptionManager
-                .getOpportunisticSubscriptions().stream()
-                .filter(subInfo -> subInfo.isGroupDisabled() != true)
-                .collect(Collectors.toList());
+                    .getOpportunisticSubscriptions().stream()
+                    .filter(subInfo -> subInfo.isGroupDisabled() != true)
+                    .collect(Collectors.toList());
+            if (mOppSubscriptionInfos != null) {
+                mStandaloneOppSubInfos = mOppSubscriptionInfos.stream()
+                        .filter(subInfo -> subInfo.getGroupUuid() == null)
+                        .collect(Collectors.toList());
+            }
+        }
+    }
+
+    private void enableModemStackForNonOpportunisticSlots() {
+        int phoneCount = mTelephonyManager.getPhoneCount();
+        // Do nothing in single SIM mode.
+        if (phoneCount < 2) return;
+
+        for (int i = 0; i < phoneCount; i++) {
+            boolean hasActiveOpptProfile = false;
+            for (SubscriptionInfo info : mOppSubscriptionInfos) {
+                if (info.getSimSlotIndex() == i) {
+                    hasActiveOpptProfile = true;
+                }
+            }
+            // If the slot doesn't have active opportunistic profile anymore, it's back to
+            // DSDS use-case. Make sure the the modem stack is enabled.
+            if (!hasActiveOpptProfile) mTelephonyManager.enableModemForSlot(i, true);
         }
     }
 
@@ -748,12 +922,19 @@ public class ONSProfileSelector {
                     case MSG_PROFILE_UPDATE:
                         synchronized (mLock) {
                             updateOpportunisticSubscriptions();
+                            enableModemStackForNonOpportunisticSlots();
                         }
                         break;
                     case MSG_START_PROFILE_SELECTION:
                         logDebug("Msg received for profile update");
                         synchronized (mLock) {
                             checkProfileUpdate((Object[]) msg.obj);
+                        }
+                        break;
+                    case MSG_STOP_PROFILE_SELECTION:
+                        logDebug("Msg received to stop profile selection");
+                        synchronized (mLock) {
+                            stopProfileSelectionProcess((IUpdateAvailableNetworksCallback) msg.obj);
                         }
                         break;
                     case MSG_SUB_SWITCH_COMPLETE:

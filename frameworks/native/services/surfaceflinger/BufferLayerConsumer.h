@@ -140,6 +140,9 @@ public:
     // must be called from SF main thread
     const Region& getSurfaceDamage() const;
 
+    // Merge the given damage region into the current damage region value.
+    void mergeSurfaceDamage(const Region& damage);
+
     // getCurrentApi retrieves the API which queues the current buffer.
     int getCurrentApi() const;
 
@@ -220,8 +223,7 @@ private:
     // Utility class for managing GraphicBuffer references into renderengine
     class Image {
     public:
-        Image(sp<GraphicBuffer> graphicBuffer, renderengine::RenderEngine& engine)
-              : mGraphicBuffer(graphicBuffer), mRE(engine) {}
+        Image(const sp<GraphicBuffer>& graphicBuffer, renderengine::RenderEngine& engine);
         virtual ~Image();
         const sp<GraphicBuffer>& graphicBuffer() { return mGraphicBuffer; }
 
@@ -251,11 +253,6 @@ private:
     // to compute this matrix and stores it in mCurrentTransformMatrix.
     // mCurrentTextureImage must not be nullptr.
     void computeCurrentTransformMatrixLocked();
-
-    // doFenceWaitLocked inserts a wait command into the RenderEngine command
-    // stream to ensure that it is safe for future RenderEngine commands to
-    // access the current texture buffer.
-    status_t doFenceWaitLocked() const;
 
     // getCurrentCropLocked returns the cropping rectangle of the current buffer.
     Rect getCurrentCropLocked() const;
@@ -334,8 +331,8 @@ private:
     // construction time.
     const uint32_t mTexName;
 
-    // The layer for this BufferLayerConsumer
-    const wp<Layer> mLayer;
+    // The layer for this BufferLayerConsumer. Always check mAbandoned before accessing.
+    Layer* mLayer GUARDED_BY(mMutex);
 
     wp<ContentsChangedListener> mContentsChangedListener;
 

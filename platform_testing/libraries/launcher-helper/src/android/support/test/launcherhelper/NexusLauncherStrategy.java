@@ -16,7 +16,6 @@
 package android.support.test.launcherhelper;
 
 import android.graphics.Point;
-import android.os.Build;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
@@ -45,14 +44,14 @@ public class NexusLauncherStrategy extends BaseLauncher3Strategy {
         try {
             uiDevice.executeShellCommand(
                     "settings put secure swipe_up_to_switch_apps_enabled "
-                            + (isPixel2OrAbove() ? 1 : 0));
+                            + (isOreoOrAbove() ? 1 : 0));
         } catch (IOException e) {
             Assert.fail("Failed to set swipe_up_to_switch_apps_enabled, caused by: " + e);
         }
         try {
             mLauncher = new LauncherInstrumentation(InstrumentationRegistry.getInstrumentation());
 
-        } catch (IllegalStateException e) {
+        } catch (IllegalStateException | NoClassDefFoundError e) {
             mLauncher =
                     new LauncherInstrumentation(
                             androidx.test.InstrumentationRegistry.getInstrumentation());
@@ -111,7 +110,7 @@ public class NexusLauncherStrategy extends BaseLauncher3Strategy {
             Assert.assertTrue("openAllApps: can't go to home screen",
                     !mDevice.hasObject(getAllAppsSelector()) && !mDevice.hasObject(
                             getLauncherOverviewSelector()));
-            if (isPixel2OrAbove()) {
+            if (isOreoOrAbove()) {
                 int midX = mDevice.getDisplayWidth() / 2;
                 int height = mDevice.getDisplayHeight();
                 // Swipe from 6/7ths down the screen to 1/7th down the screen.
@@ -137,10 +136,6 @@ public class NexusLauncherStrategy extends BaseLauncher3Strategy {
         UiObject2 allAppsContainer = mDevice.wait(Until.findObject(getAllAppsSelector()), 2500);
         Assert.assertNotNull("openAllApps: did not find all apps container", allAppsContainer);
         return allAppsContainer;
-    }
-
-    private boolean isPixel2OrAbove() {
-        return Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.O;
     }
 
     /**

@@ -6,11 +6,18 @@
 TARGET_NO_BOOTLOADER := true
 TARGET_NO_RECOVERY := true
 
+BOARD_EXT4_SHARE_DUP_BLOCKS := true
+
 TARGET_USERIMAGES_USE_EXT4 := true
 
-# Mainline devices must have /vendor and /product partitions.
+# Mainline devices must have /system_ext, /vendor and /product partitions.
+TARGET_COPY_OUT_SYSTEM_EXT := system_ext
 TARGET_COPY_OUT_VENDOR := vendor
 TARGET_COPY_OUT_PRODUCT := product
+
+# Creates metadata partition mount point under root for
+# the devices with metadata parition
+BOARD_USES_METADATA_PARTITION := true
 
 BOARD_VNDK_VERSION := current
 
@@ -36,11 +43,8 @@ BOARD_AVB_ROLLBACK_INDEX := $(PLATFORM_SECURITY_PATCH_TIMESTAMP)
 
 BOARD_CHARGER_ENABLE_SUSPEND := true
 
-# Enable A/B update
-AB_OTA_UPDATER := true
-
 # Enable system property split for Treble
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 
-# Generate an APEX image for experiment b/119800099.
-DEXPREOPT_GENERATE_APEX_IMAGE := true
+# Include stats logging code in LMKD
+TARGET_LMKD_STATS_LOG := true

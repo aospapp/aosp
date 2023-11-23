@@ -35,7 +35,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 6271844772424770508 (0x570a119742c4e3cc)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=IT, L=Milan, O=Actalis S.p.A./03358520967, CN=Actalis Authentication Root CA
         Validity
             Not Before: Sep 22 11:22:02 2011 GMT
@@ -43,7 +43,7 @@ Certificate:
         Subject: C=IT, L=Milan, O=Actalis S.p.A./03358520967, CN=Actalis Authentication Root CA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:a7:c6:c4:a5:29:a4:2c:ef:e5:18:c5:b0:50:a3:
                     6f:51:3b:9f:0a:5a:c9:c2:48:38:0a:c2:1c:a0:18:

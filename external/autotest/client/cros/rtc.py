@@ -42,5 +42,5 @@ def set_wake_alarm(alarm_time, rtc_device='rtc0'):
     except IOError as (errnum, strerror):
         if errnum != errno.EBUSY:
             raise
-        write_wake_alarm('clear', rtc_device)
+        write_wake_alarm('0', rtc_device)
         write_wake_alarm(alarm_time, rtc_device)

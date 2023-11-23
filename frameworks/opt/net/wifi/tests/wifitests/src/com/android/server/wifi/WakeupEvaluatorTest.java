@@ -40,14 +40,14 @@ import java.util.Set;
  * Unit tests for {@link WakeupEvaluator}.
  */
 @SmallTest
-public class WakeupEvaluatorTest {
+public class WakeupEvaluatorTest extends WifiBaseTest {
 
     private static final String SAVED_SSID_1 = "saved ssid 1";
     private static final String SAVED_SSID_2 = "saved ssid 2";
     private static final String UNSAVED_SSID = "unsaved ssid";
 
-    private static final int FREQ_24 = 2402;
-    private static final int FREQ_5 = 5000;
+    private static final int FREQ_24 = 2412;
+    private static final int FREQ_5 = 5200;
 
     private static final int THRESHOLD_24 = -100;
     private static final int THRESHOLD_5 = -90;

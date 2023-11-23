@@ -9,19 +9,13 @@ CONFIG_SYS_BIG_ENDIAN = 1
 endif
 
 ifdef CONFIG_SYS_LITTLE_ENDIAN
-ARC_CROSS_COMPILE := arc-linux-
 PLATFORM_LDFLAGS += -EL
 PLATFORM_CPPFLAGS += -mlittle-endian
 endif
 
 ifdef CONFIG_SYS_BIG_ENDIAN
-ARC_CROSS_COMPILE := arceb-linux-
 PLATFORM_LDFLAGS += -EB
 PLATFORM_CPPFLAGS += -mbig-endian
-endif
-
-ifeq ($(CROSS_COMPILE),)
-CROSS_COMPILE := $(ARC_CROSS_COMPILE)
 endif
 
 ifdef CONFIG_ARC_MMU_VER
@@ -49,7 +43,7 @@ PLATFORM_CPPFLAGS += -mcpu=archs
 endif
 
 PLATFORM_CPPFLAGS += -ffixed-r25 -D__ARC__ -gdwarf-2 -mno-sdata
-PLATFORM_RELFLAGS += -ffunction-sections -fdata-sections
+PLATFORM_RELFLAGS += -ffunction-sections -fdata-sections -fno-common
 
 # Needed for relocation
 LDFLAGS_FINAL += -pie --gc-sections

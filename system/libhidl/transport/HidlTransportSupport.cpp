@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hidl/HidlBinderSupport.h>
 #include <hidl/HidlTransportSupport.h>
-#include <hidl/Static.h>
+
+#include <hidl/HidlBinderSupport.h>
+#include "InternalStatic.h"
 
 #include <android-base/logging.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
+
+#include <linux/sched.h>
 
 namespace android {
 namespace hardware {
@@ -92,6 +95,10 @@ bool setMinSchedulerPolicy(const sp<IBase>& service, int policy, int priority) {
     return true;
 }
 
+SchedPrio getMinSchedulerPolicy(const sp<IBase>& service) {
+    return details::gServicePrioMap->get(service, {SCHED_NORMAL, 0});
+}
+
 bool setRequestingSid(const sp<IBase>& service, bool requesting) {
     if (service->isRemote()) {
         LOG(ERROR) << "Can't set requesting sid on remote service.";
@@ -106,6 +113,10 @@ bool setRequestingSid(const sp<IBase>& service, bool requesting) {
     details::gServiceSidMap->setLocked(service, requesting);
 
     return true;
+}
+
+bool getRequestingSid(const sp<IBase>& service) {
+    return details::gServiceSidMap->get(service.get(), false);
 }
 
 bool interfacesEqual(const sp<IBase>& left, const sp<IBase>& right) {

@@ -83,21 +83,32 @@ public class Constants {
     /** The default user agent used for downloads */
     public static final String DEFAULT_USER_AGENT;
 
+    /**
+     * Job id for the periodic service to clean-up stale and orphan downloads.
+     */
+    public static final int IDLE_JOB_ID = -100;
+
+    /**
+     * Job id for a one-time clean-up job to trigger mediascan on files which should have been
+     * mediascanned earlier when they were downloaded but didn't get scanned.
+     */
+    public static final int MEDIA_SCAN_TRIGGER_JOB_ID = -101;
+
     static {
         final StringBuilder builder = new StringBuilder();
 
-        final boolean validRelease = !TextUtils.isEmpty(Build.VERSION.RELEASE);
+        final boolean validRelease = !TextUtils.isEmpty(Build.VERSION.RELEASE_OR_CODENAME);
         final boolean validId = !TextUtils.isEmpty(Build.ID);
         final boolean includeModel = "REL".equals(Build.VERSION.CODENAME)
                 && !TextUtils.isEmpty(Build.MODEL);
 
         builder.append("AndroidDownloadManager");
         if (validRelease) {
-            builder.append("/").append(Build.VERSION.RELEASE);
+            builder.append("/").append(Build.VERSION.RELEASE_OR_CODENAME);
         }
         builder.append(" (Linux; U; Android");
         if (validRelease) {
-            builder.append(" ").append(Build.VERSION.RELEASE);
+            builder.append(" ").append(Build.VERSION.RELEASE_OR_CODENAME);
         }
         if (includeModel || validId) {
             builder.append(";");

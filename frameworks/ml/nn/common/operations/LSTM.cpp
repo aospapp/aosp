@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
 #include "LSTM.h"
+
+#include <vector>
 
 #include "CpuExecutor.h"
 #include "CpuOperationUtils.h"
 #include "HalInterfaces.h"
 #include "OperationsUtils.h"
-
 #include "Tracing.h"
 #include "Utils.h"
 
@@ -28,6 +31,8 @@ namespace android {
 namespace nn {
 
 namespace {
+
+using namespace hal;
 
 template <typename T>
 inline T* GetBuffer(RunTimeOperandInfo* operand) {
@@ -46,7 +51,7 @@ inline const T* GetOptionalBuffer(const RunTimeOperandInfo* operand) {
 
 }  // anonymous namespace
 
-LSTMCell::LSTMCell(const Operation& operation, std::vector<RunTimeOperandInfo>& operands) {
+LSTMCell::LSTMCell(const Operation& operation, RunTimeOperandInfo* operands) {
     input_ = GetInput(operation, operands, kInputTensor);
 
     input_to_input_weights_ =
@@ -78,16 +83,20 @@ LSTMCell::LSTMCell(const Operation& operation, std::vector<RunTimeOperandInfo>& 
     output_state_in_ = GetInput(operation, operands, kOutputStateInTensor);
     cell_state_in_ = GetInput(operation, operands, kCellStateInTensor);
 
-    params_.activation = static_cast<TfLiteFusedActivation>(
-            getScalarData<int32_t>(*GetInput(operation, operands, kActivationParam)));
+    const auto& activationOperand = *GetInput(operation, operands, kActivationParam);
+    params_.activation = static_cast<TfLiteFusedActivation>(getScalarDataWithDefault<int32_t>(
+            activationOperand, TfLiteFusedActivation::kTfLiteActNone));
+
+    const auto& cellClipOperand = *GetInput(operation, operands, kCellClipParam);
+    const auto& projClipOperand = *GetInput(operation, operands, kProjClipParam);
     if (input_->type == OperandType::TENSOR_FLOAT32) {
-        params_.cell_clip = getScalarData<float>(*GetInput(operation, operands, kCellClipParam));
-        params_.proj_clip = getScalarData<float>(*GetInput(operation, operands, kProjClipParam));
+        params_.cell_clip = getScalarDataWithDefault<float>(cellClipOperand, 0.0f);
+        params_.proj_clip = getScalarDataWithDefault<float>(projClipOperand, 0.0f);
     } else {
-        params_.cell_clip = static_cast<float>(
-                getScalarData<_Float16>(*GetInput(operation, operands, kCellClipParam)));
-        params_.proj_clip = static_cast<float>(
-                getScalarData<_Float16>(*GetInput(operation, operands, kProjClipParam)));
+        params_.cell_clip =
+                static_cast<float>(getScalarDataWithDefault<_Float16>(cellClipOperand, 0.0f));
+        params_.proj_clip =
+                static_cast<float>(getScalarDataWithDefault<_Float16>(projClipOperand, 0.0f));
     }
 
     // We check the version of LSTM by checking the number of the inputs to the
@@ -291,13 +300,47 @@ bool LSTMCell::CheckInputTensorDimensions(
     return true;
 }
 
-bool LSTMCell::Prepare(const Operation& operation, std::vector<RunTimeOperandInfo>& operands,
+bool LSTMCell::Prepare(const Operation& operation, RunTimeOperandInfo* operands,
                        Shape* scratchShape, Shape* outputStateShape, Shape* cellStateShape,
                        Shape* outputShape) {
     // Check we have all the inputs and outputs we need.
     NN_CHECK(NumInputsWithValues(operation, operands) >= 15 &&
              NumInputsWithValues(operation, operands) <= 27);
+    constexpr int requiredInputs[] = {
+            kInputTensor,
+            kInputToForgetWeightsTensor,
+            kInputToCellWeightsTensor,
+            kInputToOutputWeightsTensor,
+            kRecurrentToForgetWeightsTensor,
+            kRecurrentToCellWeightsTensor,
+            kRecurrentToOutputWeightsTensor,
+            kForgetGateBiasTensor,
+            kCellGateBiasTensor,
+            kOutputGateBiasTensor,
+            kOutputStateInTensor,
+            kCellStateInTensor,
+            kActivationParam,
+            kCellClipParam,
+            kProjClipParam,
+    };
+    for (const int requiredInput : requiredInputs) {
+        NN_RET_CHECK(!IsNullInput(GetInput(operation, operands, requiredInput)))
+                << "required input " << requiredInput << " is omitted";
+    }
     NN_CHECK_EQ(NumOutputs(operation), 4);
+
+    // Check that the scalar operands' buffers are large enough.
+    const auto& activationOperand = *GetInput(operation, operands, kActivationParam);
+    NN_RET_CHECK(activationOperand.length >= sizeof(int32_t));
+    const auto& cellClipOperand = *GetInput(operation, operands, kCellClipParam);
+    const auto& projClipOperand = *GetInput(operation, operands, kProjClipParam);
+    if (input_->type == OperandType::TENSOR_FLOAT32) {
+        NN_RET_CHECK(cellClipOperand.length >= sizeof(float));
+        NN_RET_CHECK(projClipOperand.length >= sizeof(float));
+    } else {
+        NN_RET_CHECK(cellClipOperand.length >= sizeof(_Float16));
+        NN_RET_CHECK(projClipOperand.length >= sizeof(_Float16));
+    }
 
     // Inferring batch size, number of outputs and number of cells from the
     // input tensors.
@@ -780,11 +823,11 @@ bool LSTMCell::LSTMStep(
     } else {
         // Initialize scratch buffers with zeroes.
         if (!params.use_cifg) {
-            tflite::tensor_utils::ZeroVector(input_gate_scratch, n_cell * n_batch);
+            std::fill_n(input_gate_scratch, n_cell * n_batch, 0.0f);
         }
-        tflite::tensor_utils::ZeroVector(forget_gate_scratch, n_cell * n_batch);
-        tflite::tensor_utils::ZeroVector(cell_scratch, n_cell * n_batch);
-        tflite::tensor_utils::ZeroVector(output_gate_scratch, n_cell * n_batch);
+        std::fill_n(forget_gate_scratch, n_cell * n_batch, 0.0f);
+        std::fill_n(cell_scratch, n_cell * n_batch, 0.0f);
+        std::fill_n(output_gate_scratch, n_cell * n_batch, 0.0f);
     }
 
     // For each batch and cell: compute input_weight * input.
@@ -849,7 +892,7 @@ bool LSTMCell::LSTMStep(
         }
         if (params.use_layer_norm) {
             tflite::tensor_utils::MeanStddevNormalization(input_gate_scratch, input_gate_scratch,
-                                                          n_cell, n_batch, kLayerNormEpsilon);
+                                                          n_cell, n_batch);
             tflite::tensor_utils::VectorBatchVectorCwiseProduct(input_layer_norm_weights_buffer,
                                                                 n_cell, input_gate_scratch, n_batch,
                                                                 input_gate_scratch);
@@ -868,7 +911,7 @@ bool LSTMCell::LSTMStep(
     }
     if (params.use_layer_norm) {
         tflite::tensor_utils::MeanStddevNormalization(forget_gate_scratch, forget_gate_scratch,
-                                                      n_cell, n_batch, kLayerNormEpsilon);
+                                                      n_cell, n_batch);
         tflite::tensor_utils::VectorBatchVectorCwiseProduct(forget_layer_norm_weights_buffer,
                                                             n_cell, forget_gate_scratch, n_batch,
                                                             forget_gate_scratch);
@@ -880,8 +923,7 @@ bool LSTMCell::LSTMStep(
 
     // For each batch and cell: update the cell.
     if (params.use_layer_norm) {
-        tflite::tensor_utils::MeanStddevNormalization(cell_scratch, cell_scratch, n_cell, n_batch,
-                                                      kLayerNormEpsilon);
+        tflite::tensor_utils::MeanStddevNormalization(cell_scratch, cell_scratch, n_cell, n_batch);
         tflite::tensor_utils::VectorBatchVectorCwiseProduct(cell_layer_norm_weights_buffer, n_cell,
                                                             cell_scratch, n_batch, cell_scratch);
         tflite::tensor_utils::VectorBatchVectorAdd(cell_bias_buffer, n_cell, n_batch, cell_scratch);
@@ -912,7 +954,7 @@ bool LSTMCell::LSTMStep(
     }
     if (params.use_layer_norm) {
         tflite::tensor_utils::MeanStddevNormalization(output_gate_scratch, output_gate_scratch,
-                                                      n_cell, n_batch, kLayerNormEpsilon);
+                                                      n_cell, n_batch);
         tflite::tensor_utils::VectorBatchVectorCwiseProduct(output_layer_norm_weights_buffer,
                                                             n_cell, output_gate_scratch, n_batch,
                                                             output_gate_scratch);
@@ -932,7 +974,7 @@ bool LSTMCell::LSTMStep(
             tflite::tensor_utils::VectorBatchVectorAssign(projection_bias_buffer, n_output, n_batch,
                                                           output_buffer);
         } else {
-            tflite::tensor_utils::ZeroVector(output_buffer, n_batch * n_output);
+            std::fill_n(output_buffer, n_batch * n_output, 0.0f);
         }
         tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
                 projection_weights_buffer, n_output, n_cell, output_gate_scratch, n_batch,
@@ -943,9 +985,9 @@ bool LSTMCell::LSTMStep(
                                              output_buffer);
         }
     } else {
-        tflite::tensor_utils::CopyVector(output_gate_scratch, n_batch * n_output, output_buffer);
+        std::copy_n(output_gate_scratch, n_batch * n_output, output_buffer);
     }
-    tflite::tensor_utils::CopyVector(output_buffer, n_batch * n_output, output_state_out_buffer);
+    std::copy_n(output_buffer, n_batch * n_output, output_state_out_buffer);
     return true;
 }
 

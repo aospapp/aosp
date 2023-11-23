@@ -1,8 +1,12 @@
-#!/usr/bin/env python2
-#
-# Copyright 2010 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Script to lock/unlock machines."""
 
+from __future__ import division
 from __future__ import print_function
 
 __author__ = 'asharif@google.com (Ahmad Sharif)'
@@ -24,8 +28,8 @@ LOCK_SUFFIX = '_check_lock_liveness'
 
 # The locks file directory REQUIRES that 'group' only has read/write
 # privileges and 'world' has no privileges.  So the mask must be
-# '0027': 0777 - 0027 = 0750.
-LOCK_MASK = 0027
+# '0o27': 0o777 - 0o27 = 0o750.
+LOCK_MASK = 0o27
 
 
 def FileCheckName(name):
@@ -37,7 +41,8 @@ def OpenLiveCheck(file_name):
     fd = open(file_name, 'a')
   try:
     fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-  except IOError:
+  except IOError as e:
+    logger.GetLogger().LogError(e)
     raise
   return fd
 
@@ -80,9 +85,12 @@ class LockDescription(object):
 
   def __str__(self):
     return ' '.join([
-        'Owner: %s' % self.owner, 'Exclusive: %s' % self.exclusive,
-        'Counter: %s' % self.counter, 'Time: %s' % self.time,
-        'Reason: %s' % self.reason, 'Auto: %s' % self.auto
+        'Owner: %s' % self.owner,
+        'Exclusive: %s' % self.exclusive,
+        'Counter: %s' % self.counter,
+        'Time: %s' % self.time,
+        'Reason: %s' % self.reason,
+        'Auto: %s' % self.auto,
     ])
 
 
@@ -96,6 +104,12 @@ class FileLock(object):
     assert os.path.isdir(lock_dir), ("Locks dir: %s doesn't exist!" % lock_dir)
     self._file = None
     self._description = None
+
+    self.exclusive = None
+    self.auto = None
+    self.reason = None
+    self.time = None
+    self.owner = None
 
   def getDescription(self):
     return self._description
@@ -118,12 +132,12 @@ class FileLock(object):
           seconds=int(time.time() - file_lock.getDescription().time))
       elapsed_time = '%s ago' % elapsed_time
       lock_strings.append(
-          stringify_fmt %
-          (os.path.basename(file_lock.getFilePath),
-           file_lock.getDescription().owner,
-           file_lock.getDescription().exclusive,
-           file_lock.getDescription().counter, elapsed_time,
-           file_lock.getDescription().reason, file_lock.getDescription().auto))
+          stringify_fmt % (os.path.basename(file_lock.getFilePath),
+                           file_lock.getDescription().owner,
+                           file_lock.getDescription().exclusive,
+                           file_lock.getDescription().counter, elapsed_time,
+                           file_lock.getDescription().reason,
+                           file_lock.getDescription().auto))
     table = '\n'.join(lock_strings)
     return '\n'.join([header, table])
 
@@ -286,7 +300,7 @@ class Machine(object):
     sleep = timeout / 10
     while True:
       locked = self.Lock(exclusive, reason)
-      if locked or not timeout >= 0:
+      if locked or timeout < 0:
         break
       print('Lock not acquired for {0}, wait {1} seconds ...'.format(
           self._name, sleep))

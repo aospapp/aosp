@@ -39,7 +39,7 @@ public class ConsoleReporter implements IShardableListener {
     private static final String UNKNOWN_DEVICE = "unknown_device";
 
     @Option(name = "quiet-output", description = "Mute display of test results.")
-    private boolean mQuietOutput = false;
+    private boolean mQuietOutput = true;
 
     private String mDeviceSerial = UNKNOWN_DEVICE;
     private boolean mTestFailed;
@@ -81,8 +81,12 @@ public class ConsoleReporter implements IShardableListener {
         mFailedTests = 0;
         mNotExecutedTests = 0;
         mTestFailed = false;
-        logMessage("%s %s with %d test%s", (isRepeatModule) ? "Continuing" : "Starting", id,
-                mTotalTestsInModule, (mTotalTestsInModule > 1) ? "s" : "");
+        logMessage(
+                "%s %s with %d test%s",
+                isRepeatModule ? "Continuing" : "Starting",
+                id,
+                mTotalTestsInModule,
+                (mTotalTestsInModule > 1) ? "s" : "");
     }
 
     /**

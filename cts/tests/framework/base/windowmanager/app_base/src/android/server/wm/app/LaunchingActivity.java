@@ -16,6 +16,8 @@
 
 package android.server.wm.app;
 
+import static android.server.wm.app.Components.LaunchingActivity.KEY_FINISH_BEFORE_LAUNCH;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
@@ -31,6 +33,10 @@ public class LaunchingActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         final Intent intent = getIntent();
+        if (intent != null && intent.getExtras() != null
+                && intent.getExtras().getBoolean(KEY_FINISH_BEFORE_LAUNCH)) {
+            finish();
+        }
         if (savedInstanceState == null && intent != null) {
             launchActivityFromExtras(intent.getExtras());
         }

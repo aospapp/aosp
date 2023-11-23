@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -13,7 +13,6 @@ import re
 import sys
 
 import common
-from chromite.lib import commandline
 
 
 # Default keys to skip displaying.
@@ -38,7 +37,7 @@ FILTER_ARGS = [
 
 def get_parser():
     """Creates the argparse parser."""
-    parser = commandline.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('infile', nargs='*', type=argparse.FileType('r'),
                         help='Path to JSON file to read.',
                         default=[sys.stdin])

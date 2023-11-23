@@ -387,9 +387,13 @@ def find_contours(img):
         contour_img = cv2.cvtColor(opening, cv2.COLOR_GRAY2BGR)
     else:
         contour_img = None
-    contours, _ = cv2.findContours(opening,
-                                   cv2.cv.CV_RETR_EXTERNAL,
-                                   cv2.cv.CV_CHAIN_APPROX_NONE)
+    cv2_version = cv2.__version__
+    if cv2_version.startswith('3.'): # OpenCV 3.x
+        _, contours, _ = cv2.findContours(
+                opening, cv2.cv.CV_RETR_EXTERNAL, cv2.cv.CV_CHAIN_APPROX_NONE)
+    else: # OpenCV 2.x and 4.x
+        contours, _ = cv2.findContours(
+                opening, cv2.cv.CV_RETR_EXTERNAL, cv2.cv.CV_CHAIN_APPROX_NONE)
     if DEBUG:
         cv2.drawContours(contour_img, contours, -1, (0, 0, 255), thickness=2)
     return contours, img, contour_img, red_img

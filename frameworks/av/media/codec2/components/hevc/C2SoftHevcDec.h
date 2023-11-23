@@ -37,7 +37,7 @@ namespace android {
 #define ivdext_ctl_set_num_cores_op_t   ihevcd_cxa_ctl_set_num_cores_op_t
 #define ivdext_ctl_get_vui_params_ip_t  ihevcd_cxa_ctl_get_vui_params_ip_t
 #define ivdext_ctl_get_vui_params_op_t  ihevcd_cxa_ctl_get_vui_params_op_t
-#define ALIGN64(x)                      ((((x) + 63) >> 6) << 6)
+#define ALIGN32(x)                      ((((x) + 31) >> 5) << 5)
 #define MAX_NUM_CORES                   4
 #define IVDEXT_CMD_CTL_SET_NUM_CORES    \
         (IVD_CONTROL_API_COMMAND_TYPE_T)IHEVCD_CXA_CMD_CTL_SET_NUM_CORES
@@ -115,7 +115,7 @@ struct C2SoftHevcDec : public SimpleC2Component {
 
     size_t mNumCores;
     IV_COLOR_FORMAT_T mIvColorformat;
-
+    uint32_t mOutputDelay;
     uint32_t mWidth;
     uint32_t mHeight;
     uint32_t mStride;

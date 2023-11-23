@@ -57,8 +57,7 @@ struct dri_screen
 
    /* dri */
    __DRIscreen *sPriv;
-   boolean throttling_enabled;
-   int default_throttle_frames;
+   unsigned default_throttle_frames;
 
    struct st_config_options options;
 
@@ -77,6 +76,8 @@ struct dri_screen
    boolean auto_fake_front;
    boolean has_reset_status_query;
    enum pipe_texture_target target;
+
+   boolean swrast_no_present;
 
    /* hooks filled in by dri2 & drisw */
    __DRIimage * (*lookup_egl_image)(struct dri_screen *ctx, void *handle);
@@ -101,6 +102,7 @@ struct __DRIimageRec {
    unsigned level;
    unsigned layer;
    uint32_t dri_format;
+   uint32_t dri_fourcc;
    uint32_t dri_components;
    unsigned use;
 
@@ -127,7 +129,8 @@ dri_with_format(__DRIscreen * sPriv)
 }
 
 void
-dri_fill_st_visual(struct st_visual *stvis, struct dri_screen *screen,
+dri_fill_st_visual(struct st_visual *stvis,
+                   const struct dri_screen *screen,
                    const struct gl_config *mode);
 
 void

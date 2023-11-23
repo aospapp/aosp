@@ -17,6 +17,7 @@
 
 #include <common.h>
 #include <div64.h>
+#include <time.h>
 #include <asm/io.h>
 #include <asm/arch/imx-regs.h>
 
@@ -126,7 +127,7 @@ unsigned long long get_ticks(void)
 	return timestamp;
 }
 
-ulong get_timer_masked(void)
+static ulong get_timer_masked(void)
 {
 	/*
 	 * get_ticks() returns a long long (64 bit), it wraps in

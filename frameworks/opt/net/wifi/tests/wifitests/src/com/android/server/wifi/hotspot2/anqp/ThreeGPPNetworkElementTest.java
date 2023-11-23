@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -34,7 +36,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.ThreeGPPNetworkElement}.
  */
 @SmallTest
-public class ThreeGPPNetworkElementTest {
+public class ThreeGPPNetworkElementTest extends WifiBaseTest {
     private static final byte[][] TEST_NETWORK1_PLMN_BYTES =
             new byte[][] { new byte[] {0x21, 0x63, 0x54},
                            new byte[] {0x43, (byte) 0x85, 0x76} };

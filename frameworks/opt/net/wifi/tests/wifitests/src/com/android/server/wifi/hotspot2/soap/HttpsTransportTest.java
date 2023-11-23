@@ -25,6 +25,8 @@ import android.net.Network;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -38,7 +40,7 @@ import javax.net.ssl.HttpsURLConnection;
  * Unit tests for {@link HttpsTransport}.
  */
 @SmallTest
-public class HttpsTransportTest {
+public class HttpsTransportTest extends WifiBaseTest {
     private static final String TEST_URL = "https://127.0.0.1:12345/index.htm";
     private URL mUrl;
     private HttpsTransport mHttpsTransport;

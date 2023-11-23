@@ -1,5 +1,3 @@
-/* -*- mode: C; c-file-style: "k&r"; tab-width 4; indent-tabs-mode: t; -*- */
-
 /*
  * Copyright (C) 2014 Rob Clark <robclark@freedesktop.org>
  *
@@ -157,6 +155,9 @@ emit_gmem2mem_surf(struct fd_batch *batch, bool stencil,
 	struct fd_resource_slice *slice;
 	uint32_t offset;
 
+	if (!rsc->valid)
+		return;
+
 	if (stencil) {
 		debug_assert(rsc->stencil);
 		rsc = rsc->stencil;
@@ -182,7 +183,7 @@ emit_gmem2mem_surf(struct fd_batch *batch, bool stencil,
 			A4XX_RB_COPY_DEST_INFO_SWAP(fd4_pipe2swap(pformat)));
 
 	fd4_draw(batch, ring, DI_PT_RECTLIST, IGNORE_VISIBILITY,
-			DI_SRC_SEL_AUTO_INDEX, 2, 1, INDEX_SIZE_IGN, 0, 0, NULL);
+			DI_SRC_SEL_AUTO_INDEX, 2, 1, INDEX4_SIZE_8_BIT, 0, 0, NULL);
 }
 
 static void
@@ -320,7 +321,7 @@ emit_mem2gmem_surf(struct fd_batch *batch, uint32_t *bases,
 	fd4_emit_gmem_restore_tex(ring, nr_bufs, bufs);
 
 	fd4_draw(batch, ring, DI_PT_RECTLIST, IGNORE_VISIBILITY,
-			DI_SRC_SEL_AUTO_INDEX, 2, 1, INDEX_SIZE_IGN, 0, 0, NULL);
+			DI_SRC_SEL_AUTO_INDEX, 2, 1, INDEX4_SIZE_8_BIT, 0, 0, NULL);
 }
 
 static void
@@ -581,7 +582,7 @@ update_vsc_pipe(struct fd_batch *batch)
 		struct fd_vsc_pipe *pipe = &ctx->vsc_pipe[i];
 		if (!pipe->bo) {
 			pipe->bo = fd_bo_new(ctx->dev, 0x40000,
-					DRM_FREEDRENO_GEM_TYPE_KMEM);
+					DRM_FREEDRENO_GEM_TYPE_KMEM, "vsc_pipe[%u]", i);
 		}
 		OUT_RELOCW(ring, pipe->bo, 0, 0, 0);       /* VSC_PIPE_DATA_ADDRESS[i] */
 	}

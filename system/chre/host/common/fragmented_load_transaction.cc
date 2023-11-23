@@ -35,20 +35,20 @@ namespace {
  *
  * @return the vector containing the subarray
  */
-inline std::vector<uint8_t> getSubVector(
-    const std::vector<uint8_t>& source, size_t start, size_t size) {
+inline std::vector<uint8_t> getSubVector(const std::vector<uint8_t> &source,
+                                         size_t start, size_t size) {
   size_t end = std::min(source.size(), start + size);
-  return (source.size() == 0) ?
-      std::vector<uint8_t>() :
-      std::vector<uint8_t>(
-          source.begin() + start, source.begin() + end); // [start, end)
+  return (source.size() == 0)
+             ? std::vector<uint8_t>()
+             : std::vector<uint8_t>(source.begin() + start,
+                                    source.begin() + end);  // [start, end)
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 FragmentedLoadTransaction::FragmentedLoadTransaction(
     uint32_t transactionId, uint64_t appId, uint32_t appVersion,
-    uint32_t targetApiVersion, const std::vector<uint8_t>& appBinary,
+    uint32_t targetApiVersion, const std::vector<uint8_t> &appBinary,
     size_t fragmentSize) {
   mTransactionId = transactionId;
 
@@ -71,7 +71,7 @@ FragmentedLoadTransaction::FragmentedLoadTransaction(
   } while (byteIndex < appBinary.size());
 }
 
-const FragmentedLoadRequest& FragmentedLoadTransaction::getNextRequest() {
+const FragmentedLoadRequest &FragmentedLoadTransaction::getNextRequest() {
   return mFragmentRequests.at(mCurrentRequestIndex++);
 }
 

@@ -16,6 +16,10 @@
 
 package android.app.cts;
 
+import static android.service.notification.NotificationStats.DISMISSAL_PEEK;
+import static android.service.notification.NotificationStats.DISMISS_SENTIMENT_NEGATIVE;
+
+import android.os.Parcel;
 import android.service.notification.NotificationStats;
 import android.test.AndroidTestCase;
 
@@ -43,4 +47,77 @@ public class NotificationStatsTest extends AndroidTestCase {
                 notificationStats.getDismissalSentiment());
     }
 
+    public void testConstructor() {
+        NotificationStats stats = new NotificationStats();
+
+        assertFalse(stats.hasSeen());
+        assertFalse(stats.hasDirectReplied());
+        assertFalse(stats.hasExpanded());
+        assertFalse(stats.hasInteracted());
+        assertFalse(stats.hasViewedSettings());
+        assertFalse(stats.hasSnoozed());
+        assertEquals(NotificationStats.DISMISSAL_NOT_DISMISSED, stats.getDismissalSurface());
+        assertEquals(NotificationStats.DISMISS_SENTIMENT_UNKNOWN, stats.getDismissalSentiment());
+    }
+
+    public void testSeen() {
+        NotificationStats stats = new NotificationStats();
+        stats.setSeen();
+        assertTrue(stats.hasSeen());
+        assertFalse(stats.hasInteracted());
+    }
+
+    public void testDirectReplied() {
+        NotificationStats stats = new NotificationStats();
+        stats.setDirectReplied();
+        assertTrue(stats.hasDirectReplied());
+        assertTrue(stats.hasInteracted());
+    }
+
+    public void testExpanded() {
+        NotificationStats stats = new NotificationStats();
+        stats.setExpanded();
+        assertTrue(stats.hasExpanded());
+        assertTrue(stats.hasInteracted());
+    }
+
+    public void testSnoozed() {
+        NotificationStats stats = new NotificationStats();
+        stats.setSnoozed();
+        assertTrue(stats.hasSnoozed());
+        assertTrue(stats.hasInteracted());
+    }
+
+    public void testViewedSettings() {
+        NotificationStats stats = new NotificationStats();
+        stats.setViewedSettings();
+        assertTrue(stats.hasViewedSettings());
+        assertTrue(stats.hasInteracted());
+    }
+
+    public void testDismissalSurface() {
+        NotificationStats stats = new NotificationStats();
+        stats.setDismissalSurface(DISMISSAL_PEEK);
+        assertEquals(DISMISSAL_PEEK, stats.getDismissalSurface());
+        assertFalse(stats.hasInteracted());
+    }
+
+    public void testDismissalSentiment() {
+        NotificationStats stats = new NotificationStats();
+        stats.setDismissalSentiment(DISMISS_SENTIMENT_NEGATIVE);
+        assertEquals(DISMISS_SENTIMENT_NEGATIVE, stats.getDismissalSentiment());
+        assertFalse(stats.hasInteracted());
+    }
+
+    public void testWriteToParcel() {
+        NotificationStats stats = new NotificationStats();
+        stats.setViewedSettings();
+        stats.setDismissalSurface(NotificationStats.DISMISSAL_AOD);
+        stats.setDismissalSentiment(NotificationStats.DISMISS_SENTIMENT_POSITIVE);
+        Parcel parcel = Parcel.obtain();
+        stats.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        NotificationStats stats1 = NotificationStats.CREATOR.createFromParcel(parcel);
+        assertEquals(stats, stats1);
+    }
 }

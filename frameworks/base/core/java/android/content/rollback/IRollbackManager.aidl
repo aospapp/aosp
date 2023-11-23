@@ -24,7 +24,7 @@ import android.content.IntentSender;
 interface IRollbackManager {
 
     ParceledListSlice getAvailableRollbacks();
-    ParceledListSlice getRecentlyExecutedRollbacks();
+    ParceledListSlice getRecentlyCommittedRollbacks();
 
     void commitRollback(int rollbackId, in ParceledListSlice causePackages,
             String callerPackageName, in IntentSender statusReceiver);
@@ -44,11 +44,15 @@ interface IRollbackManager {
     // Used by the staging manager to notify the RollbackManager that a session is
     // being staged. In the case of multi-package sessions, the specified sessionId
     // is that of the parent session.
+    // Returns the rollback id if rollback was enabled successfully, or -1 if not.
     //
     // NOTE: This call is synchronous.
-    boolean notifyStagedSession(int sessionId);
+    int notifyStagedSession(int sessionId);
 
     // Used by the staging manager to notify the RollbackManager of the apk
     // session for a staged session.
     void notifyStagedApkSession(int originalSessionId, int apkSessionId);
+
+    // For test purposes only.
+    void blockRollbackManager(long millis);
 }

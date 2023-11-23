@@ -33,6 +33,8 @@ import java.math.BigInteger;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyPairGeneratorSpi;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
@@ -61,6 +63,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.security.SecureRandom;
 
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
@@ -72,7 +75,6 @@ abstract class TestUtils extends Assert {
     static final String EXPECTED_PROVIDER_NAME = "AndroidKeyStore";
 
     static final long DAY_IN_MILLIS = 1000 * 60 * 60 * 24;
-
 
     private TestUtils() {}
 
@@ -638,6 +640,46 @@ abstract class TestUtils extends Assert {
         return result;
     }
 
+    static String getKeyAlgorithm(String transformation) {
+        try {
+            return getCipherKeyAlgorithm(transformation);
+        } catch (IllegalArgumentException e) {
+
+        }
+        try {
+            return getSignatureAlgorithmKeyAlgorithm(transformation);
+        } catch (IllegalArgumentException e) {
+
+        }
+        String transformationUpperCase = transformation.toUpperCase(Locale.US);
+        if (transformationUpperCase.equals("EC")) {
+            return KeyProperties.KEY_ALGORITHM_EC;
+        }
+        if (transformationUpperCase.equals("RSA")) {
+            return KeyProperties.KEY_ALGORITHM_RSA;
+        }
+        if (transformationUpperCase.equals("DESEDE")) {
+            return KeyProperties.KEY_ALGORITHM_3DES;
+        }
+        if (transformationUpperCase.equals("AES")) {
+            return KeyProperties.KEY_ALGORITHM_AES;
+        }
+        if (transformationUpperCase.startsWith("HMAC")) {
+            if (transformation.endsWith("SHA1")) {
+                return KeyProperties.KEY_ALGORITHM_HMAC_SHA1;
+            } else if (transformation.endsWith("SHA224")) {
+                return KeyProperties.KEY_ALGORITHM_HMAC_SHA224;
+            } else if (transformation.endsWith("SHA256")) {
+                return KeyProperties.KEY_ALGORITHM_HMAC_SHA256;
+            } else if (transformation.endsWith("SHA384")) {
+                return KeyProperties.KEY_ALGORITHM_HMAC_SHA384;
+            } else if (transformation.endsWith("SHA512")) {
+                return KeyProperties.KEY_ALGORITHM_HMAC_SHA512;
+            }
+        }
+        throw new IllegalArgumentException("Unsupported transformation: " + transformation);
+    }
+
     static String getCipherKeyAlgorithm(String transformation) {
         String transformationUpperCase = transformation.toUpperCase(Locale.US);
         if (transformationUpperCase.startsWith("AES/")) {
@@ -749,13 +791,12 @@ abstract class TestUtils extends Assert {
         }
     }
 
-    static boolean isKeyLongEnoughForSignatureAlgorithm(String algorithm, Key key) {
-        String keyAlgorithm = key.getAlgorithm();
+    static boolean isKeyLongEnoughForSignatureAlgorithm(String algorithm, int keySizeBits) {
+        String keyAlgorithm = getSignatureAlgorithmKeyAlgorithm(algorithm);
         if (KeyProperties.KEY_ALGORITHM_EC.equalsIgnoreCase(keyAlgorithm)) {
             // No length restrictions for ECDSA
             return true;
         } else if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {
-            // No length restrictions for RSA
             String digest = getSignatureAlgorithmDigest(algorithm);
             int digestOutputSizeBits = getDigestOutputSizeBits(digest);
             if (digestOutputSizeBits == -1) {
@@ -774,11 +815,35 @@ abstract class TestUtils extends Assert {
                         "Unsupported signature padding scheme: " + paddingScheme);
             }
             int minKeySizeBytes = paddingOverheadBytes + (digestOutputSizeBits + 7) / 8 + 1;
-            int keySizeBytes = ((RSAKey) key).getModulus().bitLength() / 8;
+            int keySizeBytes = keySizeBits / 8;
             return keySizeBytes >= minKeySizeBytes;
         } else {
             throw new IllegalArgumentException("Unsupported key algorithm: " + keyAlgorithm);
         }
+    }
+
+    static boolean isKeyLongEnoughForSignatureAlgorithm(String algorithm, Key key) {
+        return isKeyLongEnoughForSignatureAlgorithm(algorithm, getKeySizeBits(key));
+    }
+
+    static int getMaxSupportedPlaintextInputSizeBytes(String transformation, int keySizeBits) {
+        String encryptionPadding = getCipherEncryptionPadding(transformation);
+        int modulusSizeBytes = (keySizeBits + 7) / 8;
+        if (KeyProperties.ENCRYPTION_PADDING_NONE.equalsIgnoreCase(encryptionPadding)) {
+            return modulusSizeBytes - 1;
+        } else if (KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1.equalsIgnoreCase(
+                encryptionPadding)) {
+            return modulusSizeBytes - 11;
+        } else if (KeyProperties.ENCRYPTION_PADDING_RSA_OAEP.equalsIgnoreCase(
+                encryptionPadding)) {
+            String digest = getCipherDigest(transformation);
+            int digestOutputSizeBytes = (getDigestOutputSizeBits(digest) + 7) / 8;
+            return modulusSizeBytes - 2 * digestOutputSizeBytes - 2;
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported encryption padding scheme: " + encryptionPadding);
+        }
+
     }
 
     static int getMaxSupportedPlaintextInputSizeBytes(String transformation, Key key) {
@@ -787,22 +852,7 @@ abstract class TestUtils extends Assert {
                 || KeyProperties.KEY_ALGORITHM_3DES.equalsIgnoreCase(keyAlgorithm)) {
             return Integer.MAX_VALUE;
         } else if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {
-            String encryptionPadding = getCipherEncryptionPadding(transformation);
-            int modulusSizeBytes = (getKeySizeBits(key) + 7) / 8;
-            if (KeyProperties.ENCRYPTION_PADDING_NONE.equalsIgnoreCase(encryptionPadding)) {
-                return modulusSizeBytes - 1;
-            } else if (KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1.equalsIgnoreCase(
-                    encryptionPadding)) {
-                return modulusSizeBytes - 11;
-            } else if (KeyProperties.ENCRYPTION_PADDING_RSA_OAEP.equalsIgnoreCase(
-                    encryptionPadding)) {
-                String digest = getCipherDigest(transformation);
-                int digestOutputSizeBytes = (getDigestOutputSizeBits(digest) + 7) / 8;
-                return modulusSizeBytes - 2 * digestOutputSizeBytes - 2;
-            } else {
-                throw new IllegalArgumentException(
-                        "Unsupported encryption padding scheme: " + encryptionPadding);
-            }
+            return getMaxSupportedPlaintextInputSizeBytes(transformation, getKeySizeBits(key));
         } else {
             throw new IllegalArgumentException("Unsupported key algorithm: " + keyAlgorithm);
         }
@@ -945,5 +995,11 @@ abstract class TestUtils extends Assert {
             return value;
         }
         return TestUtils.subarray(value, 1, value.length - 1);
+    }
+
+    static byte[] generateRandomMessage(int messageSize) {
+        byte[] message = new byte[messageSize];
+        new SecureRandom().nextBytes(message);
+        return message;
     }
 }

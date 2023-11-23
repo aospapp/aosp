@@ -43,6 +43,8 @@ class BatchToSpaceNDOpModel : public SingleOpModel {
   std::vector<T> GetOutput() {
     return ExtractVector<T>(output_);
   }
+
+  int32_t GetOutputSize() { return GetTensorSize(output_); }
   std::vector<int> GetOutputShape() { return GetTensorShape(output_); }
 
  protected:
@@ -121,6 +123,28 @@ TEST(BatchToSpaceNDOpTest, SimpleConstTestInt8) {
                   {1, 5, 2, 6, 9, 13, 10, 14, 3, 7, 4, 8, 11, 15, 12, 16}));
 }
 
+TEST(BatchToSpaceNDOpTest, BatchOneConstTest) {
+  BatchToSpaceNDOpConstModel m({1, 2, 2, 1}, {1, 1}, {0, 0, 0, 0});
+  m.SetInput<float>({1, 2, 3, 4});
+  m.Invoke();
+  EXPECT_THAT(m.GetOutputShape(), ElementsAreArray({1, 2, 2, 1}));
+  EXPECT_THAT(m.GetOutput<float>(), ElementsAreArray({1, 2, 3, 4}));
+}
+
+TEST(BatchToSpaceNDOpTest, SimpleConstTestInt8EmptyOutput) {
+  if (SingleOpModel::GetForceUseNnapi()) {
+    // NNAPI doesn't currently support non-zero crop values.
+    return;
+  }
+
+  BatchToSpaceNDOpConstModel m({4, 2, 2, 1}, {2, 2}, {0, 0, 2, 2},
+                               TensorType_INT8);
+  m.SetInput<int8_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16});
+  m.Invoke();
+  EXPECT_THAT(m.GetOutputShape(), ElementsAreArray({1, 4, 0, 1}));
+  EXPECT_THAT(m.GetOutputSize(), 0);
+}
+
 TEST(BatchToSpaceNDOpTest, SimpleDynamicTest) {
   BatchToSpaceNDOpDynamicModel m({4, 2, 2, 1});
   m.SetInput<float>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16});
@@ -145,6 +169,29 @@ TEST(BatchToSpaceNDOpTest, SimpleDynamicTestInt8) {
                   {1, 5, 2, 6, 9, 13, 10, 14, 3, 7, 4, 8, 11, 15, 12, 16}));
 }
 
+TEST(BatchToSpaceNDOpTest, InvalidCropsDynamicTest) {
+  BatchToSpaceNDOpDynamicModel m({4, 2, 2, 1});
+  m.SetInput<float>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16});
+  m.SetBlockShape({2, 2});
+  m.SetCrops({0, 0, -1, 0});
+  ASSERT_NE(m.InvokeUnchecked(), kTfLiteOk) << "crops.2. >= 0 was not true.";
+}
+
+TEST(BatchToSpaceNDOpTest, SimpleDynamicTestInt8EmptyOutput) {
+  if (SingleOpModel::GetForceUseNnapi()) {
+    // NNAPI doesn't currently support non-zero crop values.
+    return;
+  }
+
+  BatchToSpaceNDOpDynamicModel m({4, 2, 2, 1}, TensorType_INT8);
+  m.SetInput<int8_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16});
+  m.SetBlockShape({2, 2});
+  m.SetCrops({2, 2, 0, 0});
+  m.Invoke();
+  EXPECT_THAT(m.GetOutputShape(), ElementsAreArray({1, 0, 4, 1}));
+  EXPECT_THAT(m.GetOutput<int8_t>(), ::testing::IsEmpty());
+}
+
 #ifdef GTEST_HAS_DEATH_TEST
 TEST(BatchToSpaceNDOpTest, InvalidShapeTest) {
   EXPECT_DEATH(BatchToSpaceNDOpConstModel({3, 2, 2, 1}, {2, 2}, {0, 0, 0, 0}),
@@ -155,21 +202,7 @@ TEST(BatchToSpaceNDOpTest, InvalidCropsConstTest) {
   EXPECT_DEATH(BatchToSpaceNDOpConstModel({3, 2, 2, 1}, {2, 2}, {0, 0, 0, -1}),
                "crops.3. >= 0 was not true.");
 }
-
-TEST(BatchToSpaceNDOpTest, InvalidCropsDynamicTest) {
-  BatchToSpaceNDOpDynamicModel m({4, 2, 2, 1});
-  m.SetInput<float>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16});
-  m.SetBlockShape({2, 2});
-  m.SetCrops({0, 0, -1, 0});
-  EXPECT_DEATH(m.Invoke(), "crops.2. >= 0 was not true.");
-}
 #endif
 
 }  // namespace
 }  // namespace tflite
-
-int main(int argc, char** argv) {
-  ::tflite::LogToStderr();
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

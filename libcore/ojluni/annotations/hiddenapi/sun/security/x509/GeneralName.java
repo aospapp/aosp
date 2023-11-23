@@ -30,7 +30,7 @@ import sun.security.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class GeneralName {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public GeneralName(sun.security.x509.GeneralNameInterface name) {
         throw new RuntimeException("Stub!");
     }
@@ -44,12 +44,12 @@ public class GeneralName {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public int getType() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.x509.GeneralNameInterface getName() {
         throw new RuntimeException("Stub!");
     }

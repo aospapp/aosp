@@ -19,7 +19,7 @@
 %                                 July 2009                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -164,6 +164,9 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
   MagickOffsetType
     progress;
 
+  size_t
+    number_channels;
+
   ssize_t
     y;
 
@@ -216,6 +219,10 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
     }
   Cr_image=complex_images;
   Ci_image=complex_images->next;
+  number_channels=MagickMin(MagickMin(MagickMin(
+    Ar_image->number_channels,Ai_image->number_channels),MagickMin(
+    Br_image->number_channels,Bi_image->number_channels)),MagickMin(
+    Cr_image->number_channels,Ci_image->number_channels));
   Ar_view=AcquireVirtualCacheView(Ar_image,exception);
   Ai_view=AcquireVirtualCacheView(Ai_image,exception);
   Br_view=AcquireVirtualCacheView(Br_image,exception);
@@ -226,9 +233,9 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static) shared(progress,status) \
-    magick_number_threads(images,complex_images,images->rows,1L)
+    magick_number_threads(Cr_image,complex_images,Cr_image->rows,1L)
 #endif
-  for (y=0; y < (ssize_t) images->rows; y++)
+  for (y=0; y < (ssize_t) Cr_image->rows; y++)
   {
     register const Quantum
       *magick_restrict Ai,
@@ -245,10 +252,10 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
 
     if (status == MagickFalse)
       continue;
-    Ar=GetCacheViewVirtualPixels(Ar_view,0,y,Ar_image->columns,1,exception);
-    Ai=GetCacheViewVirtualPixels(Ai_view,0,y,Ai_image->columns,1,exception);
-    Br=GetCacheViewVirtualPixels(Br_view,0,y,Br_image->columns,1,exception);
-    Bi=GetCacheViewVirtualPixels(Bi_view,0,y,Bi_image->columns,1,exception);
+    Ar=GetCacheViewVirtualPixels(Ar_view,0,y,Cr_image->columns,1,exception);
+    Ai=GetCacheViewVirtualPixels(Ai_view,0,y,Cr_image->columns,1,exception);
+    Br=GetCacheViewVirtualPixels(Br_view,0,y,Cr_image->columns,1,exception);
+    Bi=GetCacheViewVirtualPixels(Bi_view,0,y,Cr_image->columns,1,exception);
     Cr=QueueCacheViewAuthenticPixels(Cr_view,0,y,Cr_image->columns,1,exception);
     Ci=QueueCacheViewAuthenticPixels(Ci_view,0,y,Ci_image->columns,1,exception);
     if ((Ar == (const Quantum *) NULL) || (Ai == (const Quantum *) NULL) || 
@@ -258,12 +265,12 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
         status=MagickFalse;
         continue;
       }
-    for (x=0; x < (ssize_t) images->columns; x++)
+    for (x=0; x < (ssize_t) Cr_image->columns; x++)
     {
       register ssize_t
         i;
 
-      for (i=0; i < (ssize_t) GetPixelChannels(images); i++)
+      for (i=0; i < (ssize_t) number_channels; i++)
       {
         switch (op)
         {
@@ -285,21 +292,21 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
             double
               gamma;
 
-            gamma=PerceptibleReciprocal(Br[i]*Br[i]+Bi[i]*Bi[i]+snr);
-            Cr[i]=gamma*(Ar[i]*Br[i]+Ai[i]*Bi[i]);
-            Ci[i]=gamma*(Ai[i]*Br[i]-Ar[i]*Bi[i]);
+            gamma=PerceptibleReciprocal((double) Br[i]*Br[i]+Bi[i]*Bi[i]+snr);
+            Cr[i]=gamma*((double) Ar[i]*Br[i]+(double) Ai[i]*Bi[i]);
+            Ci[i]=gamma*((double) Ai[i]*Br[i]-(double) Ar[i]*Bi[i]);
             break;
           }
           case MagnitudePhaseComplexOperator:
           {
-            Cr[i]=sqrt(Ar[i]*Ar[i]+Ai[i]*Ai[i]);
-            Ci[i]=atan2(Ai[i],Ar[i])/(2.0*MagickPI)+0.5;
+            Cr[i]=sqrt((double) Ar[i]*Ar[i]+(double) Ai[i]*Ai[i]);
+            Ci[i]=atan2((double) Ai[i],(double) Ar[i])/(2.0*MagickPI)+0.5;
             break;
           }
           case MultiplyComplexOperator:
           {
-            Cr[i]=QuantumScale*(Ar[i]*Br[i]-Ai[i]*Bi[i]);
-            Ci[i]=QuantumScale*(Ai[i]*Br[i]+Ar[i]*Bi[i]);
+            Cr[i]=QuantumScale*((double) Ar[i]*Br[i]-(double) Ai[i]*Bi[i]);
+            Ci[i]=QuantumScale*((double) Ai[i]*Br[i]+(double) Ar[i]*Bi[i]);
             break;
           }
           case RealImaginaryComplexOperator:

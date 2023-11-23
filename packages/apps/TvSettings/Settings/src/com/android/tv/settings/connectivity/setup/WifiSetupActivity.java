@@ -66,11 +66,8 @@ public class WifiSetupActivity extends FragmentActivity implements State.Fragmen
     private UserChoiceInfo mUserChoiceInfo;
     private StateMachine mStateMachine;
     private State mChooseSecurityState;
-    private State mConnectAuthFailureState;
     private State mConnectFailedState;
-    private State mConnectRejectedByApState;
     private State mConnectState;
-    private State mConnectTimeOutState;
     private State mEnterPasswordState;
     private State mEnterSsidState;
     private State mKnownNetworkState;
@@ -137,10 +134,7 @@ public class WifiSetupActivity extends FragmentActivity implements State.Fragmen
         mChooseSecurityState = new ChooseSecurityState(this);
         mEnterPasswordState = new EnterPasswordState(this);
         mConnectState = new ConnectState(this);
-        mConnectTimeOutState = new ConnectTimeOutState(this);
-        mConnectRejectedByApState = new ConnectRejectedByApState(this);
         mConnectFailedState = new ConnectFailedState(this);
-        mConnectAuthFailureState = new ConnectAuthFailureState(this);
         mSuccessState = new SuccessState(this);
         mOptionsOrConnectState = new OptionsOrConnectState(this);
         mAddPageBasedOnNetworkChoiceState = new AddPageBasedOnNetworkState(this);
@@ -225,24 +219,16 @@ public class WifiSetupActivity extends FragmentActivity implements State.Fragmen
                 StateMachine.CONNECT,
                 mConnectState
         );
+        mStateMachine.addState(
+                mOptionsOrConnectState,
+                StateMachine.RESTART,
+                mEnterSsidState);
 
         /* Connect */
         mStateMachine.addState(
                 mConnectState,
-                StateMachine.RESULT_REJECTED_BY_AP,
-                mConnectRejectedByApState);
-        mStateMachine.addState(
-                mConnectState,
-                StateMachine.RESULT_UNKNOWN_ERROR,
+                StateMachine.RESULT_FAILURE,
                 mConnectFailedState);
-        mStateMachine.addState(
-                mConnectState,
-                StateMachine.RESULT_TIMEOUT,
-                mConnectTimeOutState);
-        mStateMachine.addState(
-                mConnectState,
-                StateMachine.RESULT_BAD_AUTH,
-                mConnectAuthFailureState);
         mStateMachine.addState(
                 mConnectState,
                 StateMachine.RESULT_SUCCESS,
@@ -259,38 +245,6 @@ public class WifiSetupActivity extends FragmentActivity implements State.Fragmen
                 StateMachine.SELECT_WIFI,
                 mSelectWifiState
         );
-
-        /* Connect Timeout */
-        mStateMachine.addState(
-                mConnectTimeOutState,
-                StateMachine.TRY_AGAIN,
-                mOptionsOrConnectState
-        );
-        mStateMachine.addState(
-                mConnectTimeOutState,
-                StateMachine.SELECT_WIFI,
-                mSelectWifiState
-        );
-
-        /* Connect Rejected By AP */
-        mStateMachine.addState(
-                mConnectRejectedByApState,
-                StateMachine.TRY_AGAIN,
-                mOptionsOrConnectState);
-        mStateMachine.addState(
-                mConnectRejectedByApState,
-                StateMachine.SELECT_WIFI,
-                mSelectWifiState);
-
-        /* Connect Authentication failure */
-        mStateMachine.addState(
-                mConnectAuthFailureState,
-                StateMachine.TRY_AGAIN,
-                mAddPageBasedOnNetworkChoiceState);
-        mStateMachine.addState(
-                mConnectAuthFailureState,
-                StateMachine.SELECT_WIFI,
-                mSelectWifiState);
 
         /* Summary Not Connected */
         mStateMachine.addState(
@@ -383,7 +337,7 @@ public class WifiSetupActivity extends FragmentActivity implements State.Fragmen
         if (isConnected) {
             if (currentConnection.getType() == ConnectivityManager.TYPE_WIFI) {
                 WifiInfo currentWifiConnection = mWifiTracker.getManager().getConnectionInfo();
-                String connectedNetwork = WifiInfo.removeDoubleQuotes(
+                String connectedNetwork = WifiInfo.sanitizeSsid(
                         currentWifiConnection.getSSID());
                 if (connectedNetwork == null) {
                     connectedNetwork = getString(R.string.wifi_summary_unknown_network);

@@ -36,9 +36,9 @@ class ApiClass implements Comparable<ApiClass>, HasCoverage {
 
     private final boolean mAbstract;
 
-    private final List<ApiConstructor> mApiConstructors = new ArrayList<ApiConstructor>();
+    private final List<ApiConstructor> mApiConstructors = Collections.synchronizedList(new ArrayList<>());
 
-    private final List<ApiMethod> mApiMethods = new ArrayList<ApiMethod>();
+    private final List<ApiMethod> mApiMethods = Collections.synchronizedList(new ArrayList<>());
 
     private final String mSuperClassName;
 

@@ -100,6 +100,7 @@ public class UiccSlotTest extends TelephonyTest {
     @After
     public void tearDown() throws Exception {
         mTestHandlerThread.quit();
+        mTestHandlerThread.join();
         super.tearDown();
     }
 
@@ -154,7 +155,7 @@ public class UiccSlotTest extends TelephonyTest {
         assertEquals(IccCardStatus.CardState.CARDSTATE_ABSENT, mUiccSlot.getCardState());
         assertEquals(iss.iccid, mUiccSlot.getIccId());
         verify(mSubInfoRecordUpdater).updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId, false);
+                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId);
 
         // update slot to active
         mUiccSlot.update(mSimulatedCommands, iss, 0 /* slotIndex */);
@@ -242,7 +243,7 @@ public class UiccSlotTest extends TelephonyTest {
         mIccCardStatus.mCardState = IccCardStatus.CardState.CARDSTATE_ABSENT;
         mUiccSlot.update(mSimulatedCommands, mIccCardStatus, phoneId, slotIndex);
         verify(mSubInfoRecordUpdater).updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId, false);
+                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId);
         assertEquals(IccCardStatus.CardState.CARDSTATE_ABSENT, mUiccSlot.getCardState());
         assertNull(mUiccSlot.getUiccCard());
     }
@@ -271,10 +272,9 @@ public class UiccSlotTest extends TelephonyTest {
         assertEquals(IccCardStatus.CardState.CARDSTATE_ABSENT, mUiccSlot.getCardState());
 
         // assert that we tried to update subscriptions
-        verify(mSubInfoRecordUpdater).updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, activeIss.logicalSlotIndex, true);
+        verify(mSubInfoRecordUpdater).updateInternalIccStateForInactiveSlot(
+                activeIss.logicalSlotIndex, inactiveIss.iccid);
     }
-
 
     @Test
     @SmallTest
@@ -295,7 +295,7 @@ public class UiccSlotTest extends TelephonyTest {
         mIccCardStatus.mCardState = IccCardStatus.CardState.CARDSTATE_ABSENT;
         mUiccSlot.update(mSimulatedCommands, mIccCardStatus, phoneId, slotIndex);
         verify(mSubInfoRecordUpdater).updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId, false);
+                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId);
         verify(mUiccProfile).dispose();
         assertEquals(IccCardStatus.CardState.CARDSTATE_ABSENT, mUiccSlot.getCardState());
         assertNull(mUiccSlot.getUiccCard());
@@ -320,7 +320,7 @@ public class UiccSlotTest extends TelephonyTest {
 
         // Verify that UNKNOWN state is sent to SubscriptionInfoUpdater in this case.
         verify(mSubInfoRecordUpdater).updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_UNKNOWN, null, phoneId, false);
+                IccCardConstants.INTENT_VALUE_ICC_UNKNOWN, null, phoneId);
         assertEquals(IccCardStatus.CardState.CARDSTATE_ABSENT, mUiccSlot.getCardState());
         assertNull(mUiccSlot.getUiccCard());
 
@@ -330,7 +330,7 @@ public class UiccSlotTest extends TelephonyTest {
 
         // Verify that ABSENT state is sent to SubscriptionInfoUpdater in this case.
         verify(mSubInfoRecordUpdater).updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId, false);
+                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, phoneId);
         assertEquals(IccCardStatus.CardState.CARDSTATE_ABSENT, mUiccSlot.getCardState());
         assertNull(mUiccSlot.getUiccCard());
     }

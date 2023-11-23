@@ -77,7 +77,7 @@ log::
     -MD \
     -I frameworks/base/libs/rs/script_api/include \
     -I external/clang/lib/Headers \
-    frameworks/base/libs/rs/java/Fountain/src/com/android/fountain/fountain.rs
+    frameworks/base/libs/rs/java/Fountain/src/com/android/fountain/fountain.rscript
 
 This command will generate:
 
@@ -90,10 +90,10 @@ This command will generate:
 The **Script\*.java** files above will be documented below.
 
 
-Example Program: fountain.rs
+Example Program: fountain.rscript
 ----------------------------
 
-fountain.rs is in the Renderscript language, which is based on the standard
+fountain.rscript is in the Renderscript language, which is based on the standard
 C99. However, llvm-rs-cc goes beyond "clang -std=c99" and provides the
 following important features:
 
@@ -109,7 +109,7 @@ following important features:
   that llvm-rs-cc knows the package expression and hence the directory
   for outputting ScriptC_[SCRIPT_NAME].java.
 
-  In fountain.rs, we have::
+  In fountain.rscript, we have::
 
     #pragma rs java_package_name(com.android.fountain)
 
@@ -149,7 +149,7 @@ global variables and functions within a script that are not declared
 static will generate get, set, or invoke methods.  This provides a way
 to set the data within a script and call its functions.
 
-Take the addParticles function in fountain.rs as an example::
+Take the addParticles function in fountain.rscript as an example::
 
   void addParticles(int rate, float x, float y, int index, bool newColor) {
     ...
@@ -166,7 +166,7 @@ llvm-rs-cc will genearte ScriptC_fountain.java as follows::
 3. Export User-Defined Structs
 ------------------------------
 
-In fountain.rs, we have::
+In fountain.rscript, we have::
 
   typedef struct __attribute__((packed, aligned(4))) Point {
     float2 delta;

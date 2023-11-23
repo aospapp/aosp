@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"დავიწყება"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"უკავშირდება Wi-Fi Direct-ის მეშვეობით"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"უკავშირდება ამჟამინდელი ქსელით, შემდეგ IP მისამართზე: <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"ბეჭდვის ნაგულისხმევი სერვისი გთავაზობთ ძირითად ვარიანტებს. სხვა ვარიანტები ამ პრინტერისთვის შეიძლება ხელმისაწვდომი იყოს ბეჭდვის სხვა სერვისიდან."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"რეკომენდებული სერვისები"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"აირჩიეთ დასაინსტალირებლად"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"აირჩიეთ ჩასართავად"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"სერვისების მართვა"</string>
     <string name="security" msgid="2279008326210305401">"უსაფრთხოება"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ამ პრინტერმა უზრუნველყო უსაფრთხოების ახალი სერტიფიკატი, ან მის იმიტირებას ახდენს სხვა მოწყობილობა. გსურთ ახალი სერტიფიკატის მიღება?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ეს პრინტერი აღარ იღებს დაშიფრულ დავალებებს. გსურთ ბეჭდვის გაგრძელება?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"კავშირები"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ბეჭდვის ნაგულისხმევ სერვისს სჭირდება მდებარეობის ნებართვა ახლომახლო მოწყობილობების საპოვნელად."</string>
     <string name="fix" msgid="7784394272611365393">"ნებართვის მიმოხილვა"</string>
+    <string name="print" msgid="7851318072404916362">"ბეჭდვა"</string>
 </resources>

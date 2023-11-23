@@ -1,6 +1,7 @@
 /*
  * Driver interaction with Linux MACsec kernel module
  * Copyright (c) 2016, Sabrina Dubroca <sd@queasysnail.net> and Red Hat, Inc.
+ * Copyright (c) 2019, The Linux Foundation
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -22,6 +23,7 @@
 
 #include "utils/common.h"
 #include "utils/eloop.h"
+#include "common/eapol_common.h"
 #include "pae/ieee802_1x_kay.h"
 #include "driver.h"
 #include "driver_wired_common.h"
@@ -52,30 +54,29 @@ struct macsec_drv_data {
 	struct nl_sock *sk;
 	struct macsec_genl_ctx ctx;
 
-	struct netlink_data *netlink;
-	struct nl_handle *nl;
 	char ifname[IFNAMSIZ + 1];
 	int ifi;
 	int parent_ifi;
+	int use_pae_group_addr;
 
-	Boolean created_link;
+	bool created_link;
 
-	Boolean controlled_port_enabled;
-	Boolean controlled_port_enabled_set;
+	bool controlled_port_enabled;
+	bool controlled_port_enabled_set;
 
-	Boolean protect_frames;
-	Boolean protect_frames_set;
+	bool protect_frames;
+	bool protect_frames_set;
 
-	Boolean encrypt;
-	Boolean encrypt_set;
+	bool encrypt;
+	bool encrypt_set;
 
-	Boolean replay_protect;
-	Boolean replay_protect_set;
+	bool replay_protect;
+	bool replay_protect_set;
 
 	u32 replay_window;
 
 	u8 encoding_sa;
-	Boolean encoding_sa_set;
+	bool encoding_sa_set;
 };
 
 
@@ -196,7 +197,7 @@ static int try_commit(struct macsec_drv_data *drv)
 
 		rtnl_link_put(change);
 
-		drv->controlled_port_enabled_set = FALSE;
+		drv->controlled_port_enabled_set = false;
 	}
 
 	if (drv->protect_frames_set) {
@@ -235,9 +236,9 @@ static int try_commit(struct macsec_drv_data *drv)
 	if (err < 0)
 		return err;
 
-	drv->protect_frames_set = FALSE;
-	drv->encrypt_set = FALSE;
-	drv->replay_protect_set = FALSE;
+	drv->protect_frames_set = false;
+	drv->encrypt_set = false;
+	drv->replay_protect_set = false;
 
 	return 0;
 }
@@ -318,14 +319,14 @@ static int macsec_drv_macsec_init(void *priv, struct macsec_init_params *params)
 	if (err < 0) {
 		wpa_printf(MSG_ERROR, DRV_PREFIX
 			   "Unable to connect NETLINK_ROUTE socket: %s",
-			   strerror(errno));
+			   nl_geterror(err));
 		goto sock;
 	}
 
 	err = rtnl_link_alloc_cache(drv->sk, AF_UNSPEC, &drv->link_cache);
 	if (err < 0) {
 		wpa_printf(MSG_ERROR, DRV_PREFIX "Unable to get link cache: %s",
-			   strerror(errno));
+			   nl_geterror(err));
 		goto sock;
 	}
 
@@ -389,17 +390,17 @@ static int macsec_drv_get_capability(void *priv, enum macsec_cap *cap)
 /**
  * macsec_drv_enable_protect_frames - Set protect frames status
  * @priv: Private driver interface data
- * @enabled: TRUE = protect frames enabled
- *           FALSE = protect frames disabled
+ * @enabled: true = protect frames enabled
+ *           false = protect frames disabled
  * Returns: 0 on success, -1 on failure (or if not supported)
  */
-static int macsec_drv_enable_protect_frames(void *priv, Boolean enabled)
+static int macsec_drv_enable_protect_frames(void *priv, bool enabled)
 {
 	struct macsec_drv_data *drv = priv;
 
 	wpa_printf(MSG_DEBUG, "%s -> %s", __func__, enabled ? "TRUE" : "FALSE");
 
-	drv->protect_frames_set = TRUE;
+	drv->protect_frames_set = true;
 	drv->protect_frames = enabled;
 
 	return try_commit(drv);
@@ -409,17 +410,17 @@ static int macsec_drv_enable_protect_frames(void *priv, Boolean enabled)
 /**
  * macsec_drv_enable_encrypt - Set protect frames status
  * @priv: Private driver interface data
- * @enabled: TRUE = protect frames enabled
- *           FALSE = protect frames disabled
+ * @enabled: true = protect frames enabled
+ *           false = protect frames disabled
  * Returns: 0 on success, -1 on failure (or if not supported)
  */
-static int macsec_drv_enable_encrypt(void *priv, Boolean enabled)
+static int macsec_drv_enable_encrypt(void *priv, bool enabled)
 {
 	struct macsec_drv_data *drv = priv;
 
 	wpa_printf(MSG_DEBUG, "%s -> %s", __func__, enabled ? "TRUE" : "FALSE");
 
-	drv->encrypt_set = TRUE;
+	drv->encrypt_set = true;
 	drv->encrypt = enabled;
 
 	return try_commit(drv);
@@ -429,12 +430,12 @@ static int macsec_drv_enable_encrypt(void *priv, Boolean enabled)
 /**
  * macsec_drv_set_replay_protect - Set replay protect status and window size
  * @priv: Private driver interface data
- * @enabled: TRUE = replay protect enabled
- *           FALSE = replay protect disabled
+ * @enabled: true = replay protect enabled
+ *           false = replay protect disabled
  * @window: replay window size, valid only when replay protect enabled
  * Returns: 0 on success, -1 on failure (or if not supported)
  */
-static int macsec_drv_set_replay_protect(void *priv, Boolean enabled,
+static int macsec_drv_set_replay_protect(void *priv, bool enabled,
 					 u32 window)
 {
 	struct macsec_drv_data *drv = priv;
@@ -442,7 +443,7 @@ static int macsec_drv_set_replay_protect(void *priv, Boolean enabled,
 	wpa_printf(MSG_DEBUG, "%s -> %s, %u", __func__,
 		   enabled ? "TRUE" : "FALSE", window);
 
-	drv->replay_protect_set = TRUE;
+	drv->replay_protect_set = true;
 	drv->replay_protect = enabled;
 	if (enabled)
 		drv->replay_window = window;
@@ -467,18 +468,18 @@ static int macsec_drv_set_current_cipher_suite(void *priv, u64 cs)
 /**
  * macsec_drv_enable_controlled_port - Set controlled port status
  * @priv: Private driver interface data
- * @enabled: TRUE = controlled port enabled
- *           FALSE = controlled port disabled
+ * @enabled: true = controlled port enabled
+ *           false = controlled port disabled
  * Returns: 0 on success, -1 on failure (or if not supported)
  */
-static int macsec_drv_enable_controlled_port(void *priv, Boolean enabled)
+static int macsec_drv_enable_controlled_port(void *priv, bool enabled)
 {
 	struct macsec_drv_data *drv = priv;
 
 	wpa_printf(MSG_DEBUG, "%s -> %s", __func__, enabled ? "TRUE" : "FALSE");
 
 	drv->controlled_port_enabled = enabled;
-	drv->controlled_port_enabled_set = TRUE;
+	drv->controlled_port_enabled_set = true;
 
 	return try_commit(drv);
 }
@@ -985,7 +986,7 @@ nla_put_failure:
 
 
 static int set_active_rx_sa(const struct macsec_genl_ctx *ctx, int ifindex,
-			    u64 sci, unsigned char an, Boolean state)
+			    u64 sci, unsigned char an, bool state)
 {
 	struct nl_msg *msg;
 	struct nlattr *nest;
@@ -1035,7 +1036,7 @@ static int macsec_drv_enable_receive_sa(void *priv, struct receive_sa *sa)
 		   SCI2STR(sa->sc->sci.addr, sa->sc->sci.port));
 
 	return set_active_rx_sa(ctx, drv->ifi, mka_sci_u64(&sa->sc->sci),
-				sa->an, TRUE);
+				sa->an, true);
 }
 
 
@@ -1055,7 +1056,7 @@ static int macsec_drv_disable_receive_sa(void *priv, struct receive_sa *sa)
 		   SCI2STR(sa->sc->sci.addr, sa->sc->sci.port));
 
 	return set_active_rx_sa(ctx, drv->ifi, mka_sci_u64(&sa->sc->sci),
-				sa->an, FALSE);
+				sa->an, false);
 }
 
 
@@ -1116,13 +1117,13 @@ static int macsec_drv_create_transmit_sc(
 	sci = mka_sci_u64(&sc->sci);
 	rtnl_link_macsec_set_sci(link, sci);
 
-	drv->created_link = TRUE;
+	drv->created_link = true;
 
 	err = rtnl_link_add(drv->sk, link, NLM_F_CREATE);
 	if (err == -NLE_BUSY) {
 		wpa_printf(MSG_INFO,
 			   DRV_PREFIX "link already exists, using it");
-		drv->created_link = FALSE;
+		drv->created_link = false;
 	} else if (err < 0) {
 		rtnl_link_put(link);
 		wpa_printf(MSG_ERROR, DRV_PREFIX "couldn't create link: err %d",
@@ -1295,7 +1296,7 @@ nla_put_failure:
 
 
 static int set_active_tx_sa(const struct macsec_genl_ctx *ctx, int ifindex,
-			    unsigned char an, Boolean state)
+			    unsigned char an, bool state)
 {
 	struct nl_msg *msg;
 	struct nlattr *nest;
@@ -1343,13 +1344,13 @@ static int macsec_drv_enable_transmit_sa(void *priv, struct transmit_sa *sa)
 		   SCISTR, drv->ifname, sa->an,
 		   SCI2STR(sa->sc->sci.addr, sa->sc->sci.port));
 
-	ret = set_active_tx_sa(ctx, drv->ifi, sa->an, TRUE);
+	ret = set_active_tx_sa(ctx, drv->ifi, sa->an, true);
 	if (ret < 0) {
 		wpa_printf(MSG_ERROR, DRV_PREFIX "failed to enable txsa");
 		return ret;
 	}
 
-	drv->encoding_sa_set = TRUE;
+	drv->encoding_sa_set = true;
 	drv->encoding_sa = sa->an;
 
 	return try_commit(drv);
@@ -1371,7 +1372,7 @@ static int macsec_drv_disable_transmit_sa(void *priv, struct transmit_sa *sa)
 		   SCISTR, drv->ifname, sa->an,
 		   SCI2STR(sa->sc->sci.addr, sa->sc->sci.port));
 
-	return set_active_tx_sa(ctx, drv->ifi, sa->an, FALSE);
+	return set_active_tx_sa(ctx, drv->ifi, sa->an, false);
 }
 
 
@@ -1399,6 +1400,214 @@ static int macsec_drv_status(void *priv, char *buf, size_t buflen)
 }
 
 
+#ifdef __linux__
+
+static void macsec_drv_handle_data(void *ctx, unsigned char *buf, size_t len)
+{
+#ifdef HOSTAPD
+	struct ieee8023_hdr *hdr;
+	u8 *pos, *sa;
+	size_t left;
+	union wpa_event_data event;
+
+	/* must contain at least ieee8023_hdr 6 byte source, 6 byte dest,
+	 * 2 byte ethertype */
+	if (len < 14) {
+		wpa_printf(MSG_MSGDUMP, "%s: too short (%lu)",
+			   __func__, (unsigned long) len);
+		return;
+	}
+
+	hdr = (struct ieee8023_hdr *) buf;
+
+	switch (ntohs(hdr->ethertype)) {
+	case ETH_P_PAE:
+		wpa_printf(MSG_MSGDUMP, "Received EAPOL packet");
+		sa = hdr->src;
+		os_memset(&event, 0, sizeof(event));
+		event.new_sta.addr = sa;
+		wpa_supplicant_event(ctx, EVENT_NEW_STA, &event);
+
+		pos = (u8 *) (hdr + 1);
+		left = len - sizeof(*hdr);
+		drv_event_eapol_rx(ctx, sa, pos, left);
+		break;
+
+	default:
+		wpa_printf(MSG_DEBUG, "Unknown ethertype 0x%04x in data frame",
+			   ntohs(hdr->ethertype));
+		break;
+	}
+#endif /* HOSTAPD */
+}
+
+
+static void macsec_drv_handle_read(int sock, void *eloop_ctx, void *sock_ctx)
+{
+	int len;
+	unsigned char buf[3000];
+
+	len = recv(sock, buf, sizeof(buf), 0);
+	if (len < 0) {
+		wpa_printf(MSG_ERROR, "macsec_linux: recv: %s",
+			   strerror(errno));
+		return;
+	}
+
+	macsec_drv_handle_data(eloop_ctx, buf, len);
+}
+
+#endif /* __linux__ */
+
+
+static int macsec_drv_init_sockets(struct macsec_drv_data *drv, u8 *own_addr)
+{
+#ifdef __linux__
+	struct ifreq ifr;
+	struct sockaddr_ll addr;
+
+	drv->common.sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_PAE));
+	if (drv->common.sock < 0) {
+		wpa_printf(MSG_ERROR, "socket[PF_PACKET,SOCK_RAW]: %s",
+			   strerror(errno));
+		return -1;
+	}
+
+	if (eloop_register_read_sock(drv->common.sock, macsec_drv_handle_read,
+				     drv->common.ctx, NULL)) {
+		wpa_printf(MSG_INFO, "Could not register read socket");
+		return -1;
+	}
+
+	os_memset(&ifr, 0, sizeof(ifr));
+	os_strlcpy(ifr.ifr_name, drv->common.ifname, sizeof(ifr.ifr_name));
+	if (ioctl(drv->common.sock, SIOCGIFINDEX, &ifr) != 0) {
+		wpa_printf(MSG_ERROR, "ioctl(SIOCGIFINDEX): %s",
+			   strerror(errno));
+		return -1;
+	}
+
+	os_memset(&addr, 0, sizeof(addr));
+	addr.sll_family = AF_PACKET;
+	addr.sll_ifindex = ifr.ifr_ifindex;
+	wpa_printf(MSG_DEBUG, "Opening raw packet socket for ifindex %d",
+		   addr.sll_ifindex);
+
+	if (bind(drv->common.sock, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+	{
+		wpa_printf(MSG_ERROR, "bind: %s", strerror(errno));
+		return -1;
+	}
+
+	/* filter multicast address */
+	if (wired_multicast_membership(drv->common.sock, ifr.ifr_ifindex,
+				       pae_group_addr, 1) < 0) {
+		wpa_printf(MSG_ERROR, "wired: Failed to add multicast group "
+			   "membership");
+		return -1;
+	}
+
+	os_memset(&ifr, 0, sizeof(ifr));
+	os_strlcpy(ifr.ifr_name, drv->common.ifname, sizeof(ifr.ifr_name));
+	if (ioctl(drv->common.sock, SIOCGIFHWADDR, &ifr) != 0) {
+		wpa_printf(MSG_ERROR, "ioctl(SIOCGIFHWADDR): %s",
+			   strerror(errno));
+		return -1;
+	}
+
+	if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) {
+		wpa_printf(MSG_INFO, "Invalid HW-addr family 0x%04x",
+			   ifr.ifr_hwaddr.sa_family);
+		return -1;
+	}
+	os_memcpy(own_addr, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+
+	return 0;
+#else /* __linux__ */
+	return -1;
+#endif /* __linux__ */
+}
+
+
+static void * macsec_drv_hapd_init(struct hostapd_data *hapd,
+				   struct wpa_init_params *params)
+{
+	struct macsec_drv_data *drv;
+
+	drv = os_zalloc(sizeof(struct macsec_drv_data));
+	if (drv == NULL) {
+		wpa_printf(MSG_INFO,
+			   "Could not allocate memory for wired driver data");
+		return NULL;
+	}
+
+	drv->common.ctx = hapd;
+	os_strlcpy(drv->common.ifname, params->ifname,
+		   sizeof(drv->common.ifname));
+	drv->use_pae_group_addr = params->use_pae_group_addr;
+
+	if (macsec_drv_init_sockets(drv, params->own_addr)) {
+		os_free(drv);
+		return NULL;
+	}
+
+	return drv;
+}
+
+
+static void macsec_drv_hapd_deinit(void *priv)
+{
+	struct macsec_drv_data *drv = priv;
+
+	if (drv->common.sock >= 0) {
+		eloop_unregister_read_sock(drv->common.sock);
+		close(drv->common.sock);
+	}
+
+	os_free(drv);
+}
+
+
+static int macsec_drv_send_eapol(void *priv, const u8 *addr,
+				 const u8 *data, size_t data_len, int encrypt,
+				 const u8 *own_addr, u32 flags)
+{
+	struct macsec_drv_data *drv = priv;
+	struct ieee8023_hdr *hdr;
+	size_t len;
+	u8 *pos;
+	int res;
+
+	len = sizeof(*hdr) + data_len;
+	hdr = os_zalloc(len);
+	if (hdr == NULL) {
+		wpa_printf(MSG_INFO,
+			   "%s: malloc() failed (len=%lu)",
+			   __func__, (unsigned long) len);
+		return -1;
+	}
+
+	os_memcpy(hdr->dest, drv->use_pae_group_addr ? pae_group_addr : addr,
+		  ETH_ALEN);
+	os_memcpy(hdr->src, own_addr, ETH_ALEN);
+	hdr->ethertype = htons(ETH_P_PAE);
+
+	pos = (u8 *) (hdr + 1);
+	os_memcpy(pos, data, data_len);
+
+	res = send(drv->common.sock, (u8 *) hdr, len, 0);
+	os_free(hdr);
+
+	if (res < 0) {
+		wpa_printf(MSG_ERROR,
+			   "%s: packet len: %lu - failed: send: %s",
+			   __func__, (unsigned long) len, strerror(errno));
+	}
+
+	return res;
+}
+
+
 const struct wpa_driver_ops wpa_driver_macsec_linux_ops = {
 	.name = "macsec_linux",
 	.desc = "MACsec Ethernet driver for Linux",
@@ -1407,6 +1616,9 @@ const struct wpa_driver_ops wpa_driver_macsec_linux_ops = {
 	.get_capa = driver_wired_get_capa,
 	.init = macsec_drv_wpa_init,
 	.deinit = macsec_drv_wpa_deinit,
+	.hapd_init = macsec_drv_hapd_init,
+	.hapd_deinit = macsec_drv_hapd_deinit,
+	.hapd_send_eapol = macsec_drv_send_eapol,
 
 	.macsec_init = macsec_drv_macsec_init,
 	.macsec_deinit = macsec_drv_macsec_deinit,

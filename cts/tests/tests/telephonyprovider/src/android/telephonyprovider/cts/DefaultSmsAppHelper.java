@@ -22,16 +22,23 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.role.RoleManager;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Process;
 import android.os.UserHandle;
 
 import androidx.test.core.app.ApplicationProvider;
+
+import org.junit.Assume;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 
 class DefaultSmsAppHelper {
     static void ensureDefaultSmsApp() {
+        if (!hasTelephony()) {
+            return;
+        }
+
         Context context = ApplicationProvider.getApplicationContext();
 
         String packageName = context.getPackageName();
@@ -58,8 +65,49 @@ class DefaultSmsAppHelper {
         try {
             latch.await();
             assertTrue(success[0]);
-        } catch(InterruptedException ex) {
+        } catch (InterruptedException ex) {
             throw new RuntimeException(ex.getMessage());
         }
+    }
+
+    static void stopBeingDefaultSmsApp() {
+        Context context = ApplicationProvider.getApplicationContext();
+
+        String packageName = context.getPackageName();
+        RoleManager roleManager = context.getSystemService(RoleManager.class);
+        Executor executor = context.getMainExecutor();
+        UserHandle user = Process.myUserHandle();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        boolean[] success = new boolean[1];
+
+        runWithShellPermissionIdentity(() -> {
+            roleManager.removeRoleHolderAsUser(
+                    RoleManager.ROLE_SMS,
+                    packageName,
+                    RoleManager.MANAGE_HOLDERS_FLAG_DONT_KILL_APP,
+                    user,
+                    executor,
+                    successful -> {
+                        success[0] = successful;
+                        latch.countDown();
+                    });
+        });
+
+        try {
+            latch.await();
+            assertTrue(success[0]);
+        } catch (InterruptedException ex) {
+            throw new RuntimeException(ex.getMessage());
+        }
+    }
+
+    static void assumeTelephony() {
+        Assume.assumeTrue(hasTelephony());
+    }
+
+    static boolean hasTelephony() {
+        Context context = ApplicationProvider.getApplicationContext();
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
     }
 }

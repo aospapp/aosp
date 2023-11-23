@@ -35,29 +35,27 @@ public class PrivilegedAppDisableTest extends InstrumentationTestCase {
     private static final String PRIVILEGED_SHIM_PKG = "com.android.cts.priv.ctsshim";
 
     public void testPrivAppAndEnabled() throws Exception {
-        assertEquals((getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP),
-                0);
+        assertEquals(0, (getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP));
         assertPackageEnabledState(PRIVILEGED_SHIM_PKG,
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED);
     }
 
     public void testPrivAppAndDisabled() throws Exception {
-        assertEquals((getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP),
-                0);
+        assertEquals(0, (getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP));
         assertPackageEnabledState(PRIVILEGED_SHIM_PKG,
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER);
     }
 
     public void testUpdatedPrivAppAndEnabled() throws Exception {
-        assertEquals((getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP),
-                ApplicationInfo.FLAG_UPDATED_SYSTEM_APP);
+        assertEquals(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP,
+                (getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP));
         assertPackageEnabledState(PRIVILEGED_SHIM_PKG,
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED);
     }
 
     public void testUpdatedPrivAppAndDisabled() throws Exception {
-        assertEquals((getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP),
-                ApplicationInfo.FLAG_UPDATED_SYSTEM_APP);
+        assertEquals(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP,
+                (getApplicationFlags() & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP));
         assertPackageEnabledState(PRIVILEGED_SHIM_PKG,
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER);
     }

@@ -241,14 +241,7 @@ Return<bool> Gnss::injectLocation(double latitudeDegrees,
 
 Return<bool> Gnss::injectTime(int64_t timeMs, int64_t timeReferenceMs,
                               int32_t uncertaintyMs) {
-    ENTRY_LOG_CALLFLOW();
-    GnssInterface* gnssInterface = getGnssInterface();
-    if (nullptr != gnssInterface) {
-        gnssInterface->injectTime(timeMs, timeReferenceMs, uncertaintyMs);
         return true;
-    } else {
-        return false;
-    }
 }
 
 Return<void> Gnss::deleteAidingData(IGnss::GnssAidingData aidingDataFlags)  {

@@ -73,7 +73,7 @@ public class BluetoothDiscoveryHelper {
                 // Get the BluetoothDevice object from the Intent.
                 BluetoothDevice device = intent.getParcelableExtra(
                         BluetoothDevice.EXTRA_DEVICE);
-                Log.d("Found device " + device.getAliasName());
+                Log.d("Found device " + device.getAlias());
                 // If it's already paired, skip it, because it's been listed already.
                 if (device.getBondState() != BluetoothDevice.BOND_BONDED) {
                     mListener.addDevice(device.getName(), device.getAddress());

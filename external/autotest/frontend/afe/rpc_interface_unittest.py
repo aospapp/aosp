@@ -1474,7 +1474,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
         self.dev_server.hostname = 'mox_url'
         self.dev_server.stage_artifacts(
-                image=self._BUILD, artifacts=['test_suites']).AndRaise(
+                image=self._BUILD,
+                artifacts=['test_suites', 'control_files']).AndRaise(
                 dev_server.DevServerException())
         self.mox.ReplayAll()
         self.assertRaises(error.StageControlFileFailure,
@@ -1491,7 +1492,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
         self.dev_server.hostname = 'mox_url'
         self.dev_server.stage_artifacts(
-                image=self._BUILD, artifacts=['test_suites']).AndReturn(True)
+                image=self._BUILD,
+                artifacts=['test_suites', 'control_files']).AndReturn(True)
 
         self.getter.get_control_file_contents_by_name(
             self._SUITE_NAME).AndReturn(None)
@@ -1510,7 +1512,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
         self.dev_server.hostname = 'mox_url'
         self.dev_server.stage_artifacts(
-                image=self._BUILD, artifacts=['test_suites']).AndReturn(True)
+                image=self._BUILD,
+                artifacts=['test_suites', 'control_files']).AndReturn(True)
 
         self.getter.get_control_file_contents_by_name(
             self._SUITE_NAME).AndRaise(error.NoControlFileList())
@@ -1529,7 +1532,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
         self.dev_server.hostname = 'mox_url'
         self.dev_server.stage_artifacts(
-                image=self._BUILD, artifacts=['test_suites']).AndReturn(True)
+                image=self._BUILD,
+                artifacts=['test_suites', 'control_files']).AndReturn(True)
 
         self.getter.get_control_file_contents_by_name(
             self._SUITE_NAME).AndReturn('f')
@@ -1550,7 +1554,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
         self.dev_server.hostname = 'mox_url'
         self.dev_server.stage_artifacts(
-                image=self._BUILD, artifacts=['test_suites']).AndReturn(True)
+                image=self._BUILD,
+                artifacts=['test_suites', 'control_files']).AndReturn(True)
 
         self.getter.get_control_file_contents_by_name(
             self._SUITE_NAME).AndReturn('f')
@@ -1573,7 +1578,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
         self.dev_server.hostname = 'mox_url'
         self.dev_server.stage_artifacts(
-                image=self._BUILD, artifacts=['test_suites']).AndReturn(True)
+                image=self._BUILD,
+                artifacts=['test_suites', 'control_files']).AndReturn(True)
 
         self.getter.get_control_file_contents_by_name(
             self._SUITE_NAME).AndReturn('f')
@@ -1596,7 +1602,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
 
         self.dev_server.hostname = 'mox_url'
         self.dev_server.stage_artifacts(
-                image=self._BUILD, artifacts=['test_suites']).AndReturn(True)
+                image=self._BUILD,
+                artifacts=['test_suites', 'control_files']).AndReturn(True)
         self.dev_server.url().AndReturn('mox_url')
         job_id = 5
         self._mockRpcUtils(job_id)

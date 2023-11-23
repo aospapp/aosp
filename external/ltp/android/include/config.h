@@ -20,20 +20,11 @@
 /* Define to 1 if you have __builtin___clear_cache */
 #define HAVE_BUILTIN_CLEAR_CACHE 1
 
+/* Define to 1 if you have the `copy_file_range' function. */
+/* #undef HAVE_COPY_FILE_RANGE */
+
 /* Define to 1 if you have the `daemon' function. */
 #define HAVE_DAEMON 1
-
-/* Define to 1 if you have the declaration of `CLOCK_MONOTONIC_COARSE', and to
-   0 if you don't. */
-#define HAVE_DECL_CLOCK_MONOTONIC_COARSE 1
-
-/* Define to 1 if you have the declaration of `CLOCK_MONOTONIC_RAW', and to 0
-   if you don't. */
-#define HAVE_DECL_CLOCK_MONOTONIC_RAW 1
-
-/* Define to 1 if you have the declaration of `CLOCK_REALTIME_COARSE', and to
-   0 if you don't. */
-#define HAVE_DECL_CLOCK_REALTIME_COARSE 1
 
 /* Define to 1 if you have the declaration of `IFLA_NET_NS_PID', and to 0 if
    you don't. */
@@ -81,18 +72,38 @@
 /* Define to 1 if you have the `fork' function. */
 #define HAVE_FORK 1
 
+/* Define to 1 if you have the `fsconfig' function. */
+/* #undef HAVE_FSCONFIG */
+
+/* Define to 1 if you have the `fsmount' function. */
+/* #undef HAVE_FSMOUNT */
+
+/* Define to 1 if you have the `fsopen' function. */
+/* #undef HAVE_FSOPEN */
+
+/* Define to 1 if you have the `fspick' function. */
+/* #undef HAVE_FSPICK */
+
 /* Define to 1 if you have the `fstatat' function. */
 #define HAVE_FSTATAT 1
 
-/* Define to 1 if you have FS_IOC_GETFLAGS and FS_IOC_SETFLAGS in
-   <linux/fs.h>. */
-#define HAVE_FS_IOC_FLAGS 1
+/* Define to 1 if you have the <fts.h> header file. */
+#define HAVE_FTS_H 1
+
+/* Define to 1 if you have the `getdents' function. */
+/* #undef HAVE_GETDENTS */
+
+/* Define to 1 if you have the `getdents64' function. */
+/* #undef HAVE_GETDENTS64 */
 
 /* Define to 1 if you have the <ifaddrs.h> header file. */
 #define HAVE_IFADDRS_H 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
+
+/* Define to 1 if you have the `io_pgetevents' function. */
+/* #undef HAVE_IO_PGETEVENTS */
 
 /* Define to 1 if you have `io_set_eventfd' function. */
 /* #undef HAVE_IO_SET_EVENTFD */
@@ -130,14 +141,23 @@
 /* Define to 1 if you have the <linux/can.h> header file. */
 #define HAVE_LINUX_CAN_H 1
 
+/* Define to 1 if you have the <linux/cgroupstats.h> header file. */
+#define HAVE_LINUX_CGROUPSTATS_H 1
+
 /* Define to 1 if you have the <linux/cryptouser.h> header file. */
 #define HAVE_LINUX_CRYPTOUSER_H 1
 
 /* Define to 1 if you have the <linux/dccp.h> header file. */
 #define HAVE_LINUX_DCCP_H 1
 
+/* Define to 1 if you have the <linux/fs.h> header file. */
+#define HAVE_LINUX_FS_H 1
+
 /* Define to 1 if you have the <linux/genetlink.h> header file. */
 #define HAVE_LINUX_GENETLINK_H 1
+
+/* Define to 1 if you have the <linux/if_alg.h> header file. */
+#define HAVE_LINUX_IF_ALG_H 1
 
 /* Define to 1 if you have the <linux/if_ether.h> header file. */
 #define HAVE_LINUX_IF_ETHER_H 1
@@ -163,6 +183,9 @@
 /* Define to 1 if having a valid linux/random.h */
 #define HAVE_LINUX_RANDOM_H 1
 
+/* Define to 1 if you have the <linux/seccomp.h> header file. */
+#define HAVE_LINUX_SECCOMP_H 1
+
 /* Define to 1 if you have the <linux/securebits.h> header file. */
 #define HAVE_LINUX_SECUREBITS_H 1
 
@@ -175,8 +198,8 @@
 /* Define to 1 if you have the <linux/types.h> header file. */
 #define HAVE_LINUX_TYPES_H 1
 
-/* Define to 1 if you have MADV_MERGEABLE */
-#define HAVE_MADV_MERGEABLE 1
+/* Define to 1 if you have the <linux/userfaultfd.h> header file. */
+#define HAVE_LINUX_USERFAULTFD_H 1
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
@@ -196,14 +219,23 @@
 /* Define to 1 if you have the `modify_ldt' function. */
 /* #undef HAVE_MODIFY_LDT */
 
+/* Define to 1 if you have the `move_mount' function. */
+/* #undef HAVE_MOVE_MOUNT */
+
 /* Define to 1 if you have MREMAP_FIXED in <sys/mman.h>. */
 #define HAVE_MREMAP_FIXED 1
+
+/* Define to 1 if you have the `name_to_handle_at' function. */
+/* #undef HAVE_NAME_TO_HANDLE_AT */
 
 /* Define to 1 if you have the <netconfig.h> header file. */
 /* #undef HAVE_NETCONFIG_H */
 
 /* Define to 1 if you have the <netinet/sctp.h> header file. */
 /* #undef HAVE_NETINET_SCTP_H */
+
+/* Define to 1 if you have newer libcap-2 installed. */
+/* #undef HAVE_NEWER_LIBCAP */
 
 /* Define to 1 if you have the <numaif.h> header file. */
 /* #undef HAVE_NUMAIF_H */
@@ -220,8 +252,20 @@
 /* Define to 1 if you have the <openssl/sha.h> header file. */
 #define HAVE_OPENSSL_SHA_H 1
 
+/* Define to 1 if you have the `open_tree' function. */
+/* #undef HAVE_OPEN_TREE */
+
 /* Define to 1 if you have struct perf_event_attr */
 #define HAVE_PERF_EVENT_ATTR 1
+
+/* Define to 1 if you have the `pidfd_open' function. */
+#define HAVE_PIDFD_OPEN 1
+
+/* Define to 1 if you have the `pidfd_send_signal' function. */
+/* #undef HAVE_PIDFD_SEND_SIGNAL */
+
+/* Define to 1 if you have the `pkey_mprotect' function. */
+/* #undef HAVE_PKEY_MPROTECT */
 
 /* Define to 1 if you have the `preadv' function. */
 #define HAVE_PREADV 1
@@ -238,35 +282,41 @@
 /* Define to 1 if you have the `pwritev' function. */
 #define HAVE_PWRITEV 1
 
-/* Define to 1 if you have quota v1 */
-/* #undef HAVE_QUOTAV1 */
-
-/* Define to 1 if you have quota v2 */
-/* #undef HAVE_QUOTAV2 */
+/* Define to 1 if you have the `pwritev2' function. */
+/* #undef HAVE_PWRITEV2 */
 
 /* Define to 1 if you have the `readlinkat' function. */
 #define HAVE_READLINKAT 1
+
+/* Define to 1 if you have the `recvmmsg' function. */
+#define HAVE_RECVMMSG 1
 
 /* Define to 1 if you have the `renameat' function. */
 #define HAVE_RENAMEAT 1
 
 /* Define to 1 if you have the `renameat2' function. */
-/* #undef HAVE_RENAMEAT2 */
+#define HAVE_RENAMEAT2 1
+
+/* Define to 1 if you have the `sched_getcpu' function. */
+#define HAVE_SCHED_GETCPU 1
 
 /* Define to 1 if you have the <selinux/selinux.h> header file. */
 #define HAVE_SELINUX_SELINUX_H 1
 
+/* Define to 1 if you have the `sendmmsg' function. */
+#define HAVE_SENDMMSG 1
+
 /* Define to 1 if you have the `signalfd' function. */
 #define HAVE_SIGNALFD 1
 
-/* Define to 1 if you have the <signalfd.h> header file. */
-/* #undef HAVE_SIGNALFD_H */
+/* Define to 1 if you have the `sigpending' function. */
+/* #undef HAVE_SIGPENDING */
 
 /* Define to 1 if you have the `splice' function. */
 #define HAVE_SPLICE 1
 
 /* Define to 1 if you have the `statx' function. */
-/* #undef HAVE_STATX */
+#define HAVE_STATX 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -274,14 +324,40 @@
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
 
+/* Define to 1 if you have the `stime' function. */
+/* #undef HAVE_STIME */
+
 /* Define to 1 if you have the <strings.h> header file. */
 #define HAVE_STRINGS_H 1
 
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
+/* Define to 1 if the system has the type `struct acct_v3'. */
+/* #undef HAVE_STRUCT_ACCT_V3 */
+
+/* Define to 1 if the system has the type `struct fanotify_event_info_fid'. */
+#define HAVE_STRUCT_FANOTIFY_EVENT_INFO_FID 1
+
+/* Define to 1 if `fsid.__val' is a member of `struct
+   fanotify_event_info_fid'. */
+/* #undef HAVE_STRUCT_FANOTIFY_EVENT_INFO_FID_FSID___VAL */
+
+/* Define to 1 if the system has the type `struct fanotify_event_info_header'.
+   */
+#define HAVE_STRUCT_FANOTIFY_EVENT_INFO_HEADER 1
+
+/* Define to 1 if the system has the type `struct file_dedupe_range'. */
+#define HAVE_STRUCT_FILE_DEDUPE_RANGE 1
+
+/* Define to 1 if the system has the type `struct fs_quota_statv'. */
+/* #undef HAVE_STRUCT_FS_QUOTA_STATV */
+
 /* Define to 1 if you have struct f_owner_ex */
 #define HAVE_STRUCT_F_OWNER_EX 1
+
+/* Define to 1 if the system has the type `struct if_nextdqblk'. */
+#define HAVE_STRUCT_IF_NEXTDQBLK 1
 
 /* Define to 1 if the system has the type `struct iovec'. */
 #define HAVE_STRUCT_IOVEC 1
@@ -307,9 +383,6 @@
 /* Define to 1 if `sa_sigaction' is a member of `struct sigaction'. */
 #define HAVE_STRUCT_SIGACTION_SA_SIGACTION 1
 
-/* Define to 1 if `signo' is a member of `struct signalfd_siginfo'. */
-#define HAVE_STRUCT_SIGNALFD_SIGINFO_SIGNO 1
-
 /* Define to 1 if `ssi_signo' is a member of `struct signalfd_siginfo'. */
 #define HAVE_STRUCT_SIGNALFD_SIGINFO_SSI_SIGNO 1
 
@@ -327,6 +400,9 @@
 
 /* Define to 1 if `read_bytes' is a member of `struct taskstats'. */
 #define HAVE_STRUCT_TASKSTATS_READ_BYTES 1
+
+/* Define to 1 if the system has the type `struct termio'. */
+#define HAVE_STRUCT_TERMIO 1
 
 /* Define to 1 if the system has the type `struct tpacket_req3'. */
 #define HAVE_STRUCT_TPACKET_REQ3 1
@@ -350,8 +426,14 @@
 /* Define to 1 if the system has the type `struct xt_entry_target'. */
 #define HAVE_STRUCT_XT_ENTRY_TARGET 1
 
+/* Define to 1 if you have the `syncfs' function. */
+#define HAVE_SYNCFS 1
+
 /* Define to 1 if you have __sync_add_and_fetch */
 #define HAVE_SYNC_ADD_AND_FETCH 1
+
+/* Define to 1 if you have the `sync_file_range' function. */
+#define HAVE_SYNC_FILE_RANGE 1
 
 /* Define to 1 if you have the <sys/acl.h> header file. */
 /* #undef HAVE_SYS_ACL_H */
@@ -395,6 +477,9 @@
 /* Define to 1 if you have the <sys/ustat.h> header file. */
 /* #undef HAVE_SYS_USTAT_H */
 
+/* Define to 1 if you have the <sys/utsname.h> header file. */
+#define HAVE_SYS_UTSNAME_H 1
+
 /* Define to 1 if you have the <sys/xattr.h> header file. */
 #define HAVE_SYS_XATTR_H 1
 
@@ -431,8 +516,8 @@
 /* Define to 1 if you have the `vmsplice' function. */
 #define HAVE_VMSPLICE 1
 
-/* Define to 1 if you have xfs quota */
-/* #undef HAVE_XFS_QUOTA */
+/* Define to 1 if you have the <xfs/xqm.h> header file. */
+/* #undef HAVE_XFS_XQM_H */
 
 /* Error message when no NUMA support */
 #define NUMA_ERROR_MSG "test requires libnuma >= 2 and it's development packages"

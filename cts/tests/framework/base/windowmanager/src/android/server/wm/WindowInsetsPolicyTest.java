@@ -21,7 +21,6 @@ import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMAR
 import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_SECONDARY;
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
-import static android.server.wm.app.Components.TEST_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.Surface.ROTATION_0;
 import static android.view.Surface.ROTATION_90;
@@ -31,10 +30,14 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
 import android.content.ComponentName;
+import android.content.pm.PackageManager;
 import android.graphics.Insets;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
@@ -43,7 +46,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
-import android.view.WindowManager;
 import android.view.WindowManager.LayoutParams;
 
 import androidx.test.rule.ActivityTestRule;
@@ -54,7 +56,6 @@ import org.hamcrest.CustomTypeSafeMatcher;
 import org.hamcrest.Matcher;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -63,6 +64,7 @@ import java.util.function.Supplier;
 
 @Presubmit
 public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
+    private static final String TAG = WindowInsetsPolicyTest.class.getSimpleName();
 
     private ComponentName mTestActivityComponentName;
 
@@ -82,6 +84,11 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
     @Rule
     public final ActivityTestRule<FullscreenWmFlagsTestActivity> mFullscreenWmFlagsTestActivity =
             new ActivityTestRule<>(FullscreenWmFlagsTestActivity.class,
+                    false /* initialTouchMode */, false /* launchActivity */);
+
+    @Rule
+    public final ActivityTestRule<ImmersiveFullscreenTestActivity> mImmersiveTestActivity =
+            new ActivityTestRule<>(ImmersiveFullscreenTestActivity.class,
                     false /* initialTouchMode */, false /* launchActivity */);
 
     @Before
@@ -120,44 +127,87 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
         assumeTrue("Skipping test: no split multi-window support",
                 supportsSplitScreenMultiWindow());
 
-        mAmWmState.computeState(new ComponentName[] {});
-        boolean naturalOrientationPortrait =
-                mAmWmState.getWmState().getDisplay(DEFAULT_DISPLAY)
+        mWmState.computeState(new ComponentName[] {});
+        final boolean naturalOrientationPortrait =
+                mWmState.getDisplay(DEFAULT_DISPLAY)
                         .mFullConfiguration.orientation == ORIENTATION_PORTRAIT;
 
-        try (final RotationSession rotationSession = new RotationSession()) {
-            rotationSession.set(naturalOrientationPortrait ? ROTATION_90 : ROTATION_0);
+        final RotationSession rotationSession = createManagedRotationSession();
+        rotationSession.set(naturalOrientationPortrait ? ROTATION_90 : ROTATION_0);
 
-            launchActivityInSplitScreenWithRecents(LAUNCHING_ACTIVITY);
-            final TestActivity activity = launchAndWait(mTestActivity);
-            mAmWmState.computeState(mTestActivityComponentName);
+        launchActivityInSplitScreenWithRecents(LAUNCHING_ACTIVITY);
+        final TestActivity activity = launchAndWait(mTestActivity);
+        mWmState.computeState(mTestActivityComponentName);
 
-            mAmWmState.assertContainsStack("Must contain fullscreen stack.",
-                    WINDOWING_MODE_SPLIT_SCREEN_SECONDARY, ACTIVITY_TYPE_STANDARD);
-            mAmWmState.assertContainsStack("Must contain docked stack.",
-                    WINDOWING_MODE_SPLIT_SCREEN_PRIMARY, ACTIVITY_TYPE_STANDARD);
+        mWmState.assertContainsStack("Must contain fullscreen stack.",
+                WINDOWING_MODE_SPLIT_SCREEN_SECONDARY, ACTIVITY_TYPE_STANDARD);
+        mWmState.assertContainsStack("Must contain docked stack.",
+                WINDOWING_MODE_SPLIT_SCREEN_PRIMARY, ACTIVITY_TYPE_STANDARD);
 
-            mAmWmState.computeState(LAUNCHING_ACTIVITY, mTestActivityComponentName);
+        mWmState.computeState(LAUNCHING_ACTIVITY, mTestActivityComponentName);
 
-            // Ensure that top insets are not consumed for LAYOUT_FULLSCREEN
-            WindowInsets insets = getOnMainSync(activity::getDispatchedInsets);
-            WindowInsets rootInsets = getOnMainSync(activity::getRootInsets);
-            assertEquals("top inset must be dispatched in split screen",
-                    rootInsets.getSystemWindowInsetTop(), insets.getSystemWindowInsetTop());
+        // Ensure that top insets are not consumed for LAYOUT_FULLSCREEN
+        WindowInsets insets = getOnMainSync(activity::getDispatchedInsets);
+        final WindowInsets rootInsets = getOnMainSync(activity::getRootInsets);
+        assertEquals("top inset must be dispatched in split screen",
+                rootInsets.getSystemWindowInsetTop(), insets.getSystemWindowInsetTop());
 
-            // Ensure that top insets are fully consumed for FULLSCREEN
-            final TestActivity fullscreenActivity = launchAndWait(mFullscreenTestActivity);
-            insets = getOnMainSync(fullscreenActivity::getDispatchedInsets);
-            assertEquals("top insets must be consumed if FULLSCREEN is set",
-                    0, insets.getSystemWindowInsetTop());
+        // Ensure that top insets are fully consumed for FULLSCREEN
+        final TestActivity fullscreenActivity = launchAndWait(mFullscreenTestActivity);
+        insets = getOnMainSync(fullscreenActivity::getDispatchedInsets);
+        assertEquals("top insets must be consumed if FULLSCREEN is set",
+                0, insets.getSystemWindowInsetTop());
 
-            // Ensure that top insets are fully consumed for FULLSCREEN when setting it over wm
-            // layout params
-            final TestActivity fullscreenWmFlagsActivity =
-                    launchAndWait(mFullscreenWmFlagsTestActivity);
-            insets = getOnMainSync(fullscreenWmFlagsActivity::getDispatchedInsets);
-            assertEquals("top insets must be consumed if FULLSCREEN is set",
-                    0, insets.getSystemWindowInsetTop());
+        // Ensure that top insets are fully consumed for FULLSCREEN when setting it over wm
+        // layout params
+        final TestActivity fullscreenWmFlagsActivity =
+                launchAndWait(mFullscreenWmFlagsTestActivity);
+        insets = getOnMainSync(fullscreenWmFlagsActivity::getDispatchedInsets);
+        assertEquals("top insets must be consumed if FULLSCREEN is set",
+                0, insets.getSystemWindowInsetTop());
+    }
+
+    @Test
+    public void testNonAutomotiveFullScreenNotBlockedBySystemComponents() {
+        assumeFalse("Skipping test: Automotive is allowed to partially block fullscreen "
+                        + "applications with system bars.", isAutomotive());
+
+        final TestActivity fullscreenActivity = launchAndWait(mFullscreenTestActivity);
+        View decorView = fullscreenActivity.getDecorView();
+        View contentView = decorView.findViewById(android.R.id.content);
+        boolean hasFullWidth = decorView.getMeasuredWidth() == contentView.getMeasuredWidth();
+        boolean hasFullHeight = decorView.getMeasuredHeight() == contentView.getMeasuredHeight();
+
+        assertTrue(hasFullWidth && hasFullHeight);
+    }
+
+    @Test
+    public void testImmersiveFullscreenHidesSystemBars() throws Throwable {
+        // Run the test twice, because the issue that shows system bars even in the immersive mode,
+        // happens at the 2nd try.
+        for (int i = 1; i <= 2; ++i) {
+            Log.d(TAG, "testImmersiveFullscreenHidesSystemBars: try" + i);
+
+            TestActivity immersiveActivity = launchAndWait(mImmersiveTestActivity);
+            WindowInsets insets = getOnMainSync(immersiveActivity::getDispatchedInsets);
+
+            assertFalse(insets.isVisible(WindowInsets.Type.statusBars()));
+            assertFalse(insets.isVisible(WindowInsets.Type.navigationBars()));
+
+            WindowInsets rootInsets = getOnMainSync(immersiveActivity::getRootInsets);
+            assertFalse(rootInsets.isVisible(WindowInsets.Type.statusBars()));
+            assertFalse(rootInsets.isVisible(WindowInsets.Type.navigationBars()));
+
+            View statusBarBgView = getOnMainSync(immersiveActivity::getStatusBarBackgroundView);
+            // The status bar background view can be non-existent or invisible.
+            assertTrue(statusBarBgView == null
+                    || statusBarBgView.getVisibility() == android.view.View.INVISIBLE);
+
+            View navigationBarBgView = getOnMainSync(
+                    immersiveActivity::getNavigationBarBackgroundView);
+            // The navigation bar background view can be non-existent or invisible.
+            assertTrue(navigationBarBgView == null
+                    || navigationBarBgView.getVisibility() == android.view.View.INVISIBLE);
         }
     }
 
@@ -168,7 +218,7 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
                 insets.getMandatorySystemGestureInsets(),
                 insetsLessThanOrEqualTo(insets.getSystemGestureInsets()));
 
-        Insets stableAndSystem = Insets.max(insets.getSystemGestureInsets(),
+        Insets stableAndSystem = Insets.min(insets.getSystemWindowInsets(),
                 insets.getStableInsets());
         assertThat("mandatory system gesture insets must include intersection between "
                         + "stable and system window insets",
@@ -215,6 +265,10 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
         return activity;
     }
 
+    private boolean isAutomotive() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
     private static Matcher<Insets> insetsLessThanOrEqualTo(Insets max) {
         return new CustomTypeSafeMatcher<Insets>("must be smaller on each side than " + max) {
             @Override
@@ -246,13 +300,21 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
             View view = new View(this);
             view.setLayoutParams(new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
             getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
             view.setOnApplyWindowInsetsListener((v, insets) -> mDispatchedInsets = insets);
             setContentView(view);
         }
 
         View getDecorView() {
             return getWindow().getDecorView();
+        }
+
+        View getStatusBarBackgroundView() {
+            return getWindow().getStatusBarBackgroundView();
+        }
+
+        View getNavigationBarBackgroundView() {
+            return getWindow().getNavigationBarBackgroundView();
         }
 
         WindowInsets getRootInsets() {
@@ -283,4 +345,22 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
         }
     }
 
+    public static class ImmersiveFullscreenTestActivity extends TestActivity {
+
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            // See https://developer.android.com/training/system-ui/immersive#EnableFullscreen
+            getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    // Set the content to appear under the system bars so that the
+                    // content doesn't resize when the system bars hide and show.
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    // Hide the nav bar and status bar
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        }
+    }
 }

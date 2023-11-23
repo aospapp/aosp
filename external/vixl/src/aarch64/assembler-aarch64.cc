@@ -546,6 +546,25 @@ void Assembler::sbcs(const Register& rd,
 }
 
 
+void Assembler::rmif(const Register& xn, unsigned rotation, StatusFlags flags) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFlagM));
+  VIXL_ASSERT(xn.Is64Bits());
+  Emit(RMIF | Rn(xn) | ImmRMIFRotation(rotation) | Nzcv(flags));
+}
+
+
+void Assembler::setf8(const Register& rn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFlagM));
+  Emit(SETF8 | Rn(rn));
+}
+
+
+void Assembler::setf16(const Register& rn) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFlagM));
+  Emit(SETF16 | Rn(rn));
+}
+
+
 void Assembler::ngc(const Register& rd, const Operand& operand) {
   Register zr = AppropriateZeroRegFor(rd);
   sbc(rd, zr, operand);
@@ -1324,6 +1343,18 @@ void Assembler::ldursw(const Register& xt,
 }
 
 
+void Assembler::ldraa(const Register& xt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  LoadStorePAC(xt, src, LDRAA);
+}
+
+
+void Assembler::ldrab(const Register& xt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
+  LoadStorePAC(xt, src, LDRAB);
+}
+
+
 void Assembler::ldrsw(const Register& xt, RawLiteral* literal) {
   VIXL_ASSERT(xt.Is64Bits());
   VIXL_ASSERT(literal->GetSize() == kWRegSizeInBytes);
@@ -1491,10 +1522,28 @@ void Assembler::stlrb(const Register& rt, const MemOperand& dst) {
   Emit(STLRB_w | Rs_mask | Rt(rt) | Rt2_mask | RnSP(dst.GetBaseRegister()));
 }
 
+void Assembler::stlurb(const Register& rt, const MemOperand& dst) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(dst.IsImmediateOffset() && IsImmLSUnscaled(dst.GetOffset()));
+
+  Instr base = RnSP(dst.GetBaseRegister());
+  int64_t offset = dst.GetOffset();
+  Emit(STLURB | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
+}
+
 
 void Assembler::stlrh(const Register& rt, const MemOperand& dst) {
   VIXL_ASSERT(dst.IsImmediateOffset() && (dst.GetOffset() == 0));
   Emit(STLRH_w | Rs_mask | Rt(rt) | Rt2_mask | RnSP(dst.GetBaseRegister()));
+}
+
+void Assembler::stlurh(const Register& rt, const MemOperand& dst) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(dst.IsImmediateOffset() && IsImmLSUnscaled(dst.GetOffset()));
+
+  Instr base = RnSP(dst.GetBaseRegister());
+  int64_t offset = dst.GetOffset();
+  Emit(STLURH | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
 }
 
 
@@ -1502,6 +1551,16 @@ void Assembler::stlr(const Register& rt, const MemOperand& dst) {
   VIXL_ASSERT(dst.IsImmediateOffset() && (dst.GetOffset() == 0));
   LoadStoreExclusive op = rt.Is64Bits() ? STLR_x : STLR_w;
   Emit(op | Rs_mask | Rt(rt) | Rt2_mask | RnSP(dst.GetBaseRegister()));
+}
+
+void Assembler::stlur(const Register& rt, const MemOperand& dst) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(dst.IsImmediateOffset() && IsImmLSUnscaled(dst.GetOffset()));
+
+  Instr base = RnSP(dst.GetBaseRegister());
+  int64_t offset = dst.GetOffset();
+  Instr op = rt.Is64Bits() ? STLUR_x : STLUR_w;
+  Emit(op | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
 }
 
 
@@ -1715,6 +1774,25 @@ void Assembler::ldaprb(const Register& rt, const MemOperand& src) {
   Emit(op | Rs(xzr) | Rt(rt) | RnSP(src.GetBaseRegister()));
 }
 
+void Assembler::ldapurb(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(src.IsImmediateOffset() && IsImmLSUnscaled(src.GetOffset()));
+
+  Instr base = RnSP(src.GetBaseRegister());
+  int64_t offset = src.GetOffset();
+  Emit(LDAPURB | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
+}
+
+void Assembler::ldapursb(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(src.IsImmediateOffset() && IsImmLSUnscaled(src.GetOffset()));
+
+  Instr base = RnSP(src.GetBaseRegister());
+  int64_t offset = src.GetOffset();
+  Instr op = rt.Is64Bits() ? LDAPURSB_x : LDAPURSB_w;
+  Emit(op | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
+}
+
 void Assembler::ldaprh(const Register& rt, const MemOperand& src) {
   VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc));
   VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
@@ -1722,11 +1800,50 @@ void Assembler::ldaprh(const Register& rt, const MemOperand& src) {
   Emit(op | Rs(xzr) | Rt(rt) | RnSP(src.GetBaseRegister()));
 }
 
+void Assembler::ldapurh(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(src.IsImmediateOffset() && IsImmLSUnscaled(src.GetOffset()));
+
+  Instr base = RnSP(src.GetBaseRegister());
+  int64_t offset = src.GetOffset();
+  Emit(LDAPURH | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
+}
+
+void Assembler::ldapursh(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(src.IsImmediateOffset() && IsImmLSUnscaled(src.GetOffset()));
+
+  Instr base = RnSP(src.GetBaseRegister());
+  int64_t offset = src.GetOffset();
+  LoadStoreRCpcUnscaledOffsetOp op = rt.Is64Bits() ? LDAPURSH_x : LDAPURSH_w;
+  Emit(op | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
+}
+
 void Assembler::ldapr(const Register& rt, const MemOperand& src) {
   VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc));
   VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));
   AtomicMemoryOp op = rt.Is64Bits() ? LDAPR_x : LDAPR_w;
   Emit(op | Rs(xzr) | Rt(rt) | RnSP(src.GetBaseRegister()));
+}
+
+void Assembler::ldapur(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(src.IsImmediateOffset() && IsImmLSUnscaled(src.GetOffset()));
+
+  Instr base = RnSP(src.GetBaseRegister());
+  int64_t offset = src.GetOffset();
+  LoadStoreRCpcUnscaledOffsetOp op = rt.Is64Bits() ? LDAPUR_x : LDAPUR_w;
+  Emit(op | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
+}
+
+void Assembler::ldapursw(const Register& rt, const MemOperand& src) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm));
+  VIXL_ASSERT(rt.Is64Bits());
+  VIXL_ASSERT(src.IsImmediateOffset() && IsImmLSUnscaled(src.GetOffset()));
+
+  Instr base = RnSP(src.GetBaseRegister());
+  int64_t offset = src.GetOffset();
+  Emit(LDAPURSW | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
 }
 
 void Assembler::prfm(PrefetchOperation op,
@@ -1765,7 +1882,8 @@ void Assembler::sys(int op, const Register& xt) {
 
 
 void Assembler::dc(DataCacheOp op, const Register& rt) {
-  VIXL_ASSERT((op == CVAC) || (op == CVAU) || (op == CIVAC) || (op == ZVA));
+  if (op == CVAP) VIXL_ASSERT(CPUHas(CPUFeatures::kDCPoP));
+  if (op == CVADP) VIXL_ASSERT(CPUHas(CPUFeatures::kDCCVADP));
   sys(op, rt);
 }
 
@@ -2488,6 +2606,12 @@ void Assembler::autibsp() {
   Emit(AUTIBSP);
 }
 
+void Assembler::bti(BranchTargetIdentifier id) {
+  VIXL_ASSERT((id != EmitPACIASP) && (id != EmitPACIBSP));  // Not modes of Bti.
+  VIXL_ASSERT(id != EmitBTI_none);  // Always generate an instruction.
+  VIXL_ASSERT(CPUHas(CPUFeatures::kBTI));
+  hint(static_cast<SystemHint>(id));
+}
 
 void Assembler::mvn(const Register& rd, const Operand& operand) {
   orn(rd, AppropriateZeroRegFor(rd), operand);
@@ -2496,13 +2620,33 @@ void Assembler::mvn(const Register& rd, const Operand& operand) {
 
 void Assembler::mrs(const Register& xt, SystemRegister sysreg) {
   VIXL_ASSERT(xt.Is64Bits());
+  VIXL_ASSERT(CPUHas(sysreg));
   Emit(MRS | ImmSystemRegister(sysreg) | Rt(xt));
 }
 
 
 void Assembler::msr(SystemRegister sysreg, const Register& xt) {
   VIXL_ASSERT(xt.Is64Bits());
+  VIXL_ASSERT(CPUHas(sysreg));
   Emit(MSR | Rt(xt) | ImmSystemRegister(sysreg));
+}
+
+
+void Assembler::cfinv() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kFlagM));
+  Emit(CFINV);
+}
+
+
+void Assembler::axflag() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kAXFlag));
+  Emit(AXFLAG);
+}
+
+
+void Assembler::xaflag() {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kAXFlag));
+  Emit(XAFLAG);
 }
 
 
@@ -3207,6 +3351,30 @@ void Assembler::NEON3SameFP16(const VRegister& vd,
 NEON_FP2REGMISC_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
 
+// clang-format off
+#define NEON_FP2REGMISC_V85_LIST(V)       \
+  V(frint32x,  NEON_FRINT32X,  FRINT32X)  \
+  V(frint32z,  NEON_FRINT32Z,  FRINT32Z)  \
+  V(frint64x,  NEON_FRINT64X,  FRINT64X)  \
+  V(frint64z,  NEON_FRINT64Z,  FRINT64Z)
+// clang-format on
+
+#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP)                                    \
+  void Assembler::FN(const VRegister& vd, const VRegister& vn) {               \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kFrintToFixedSizedInt)); \
+    Instr op;                                                                  \
+    if (vd.IsScalar()) {                                                       \
+      VIXL_ASSERT(vd.Is1S() || vd.Is1D());                                     \
+      op = SCA_OP;                                                             \
+    } else {                                                                   \
+      VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));                                 \
+      VIXL_ASSERT(vd.Is2S() || vd.Is2D() || vd.Is4S());                        \
+      op = VEC_OP;                                                             \
+    }                                                                          \
+    NEONFP2RegMisc(vd, vn, op);                                                \
+  }
+NEON_FP2REGMISC_V85_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
 
 void Assembler::NEONFP2RegMiscFP16(const VRegister& vd,
                                    const VRegister& vn,
@@ -3553,6 +3721,30 @@ NEON_3SAME_LIST(DEFINE_ASM_FUNC)
     }                                                                    \
   }
 NEON_FP3SAME_OP_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
+
+
+// clang-format off
+#define NEON_FHM_LIST(V) \
+  V(fmlal,   NEON_FMLAL)   \
+  V(fmlal2,  NEON_FMLAL2)  \
+  V(fmlsl,   NEON_FMLSL)   \
+  V(fmlsl2,  NEON_FMLSL2)
+// clang-format on
+
+#define DEFINE_ASM_FUNC(FN, VEC_OP)                         \
+  void Assembler::FN(const VRegister& vd,                   \
+                     const VRegister& vn,                   \
+                     const VRegister& vm) {                 \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON,                  \
+                       CPUFeatures::kFP,                    \
+                       CPUFeatures::kNEONHalf,              \
+                       CPUFeatures::kFHM));                 \
+    VIXL_ASSERT((vd.Is2S() && vn.Is2H() && vm.Is2H()) ||    \
+                (vd.Is4S() && vn.Is4H() && vm.Is4H()));     \
+    Emit(FPFormat(vd) | VEC_OP | Rm(vm) | Rn(vn) | Rd(vd)); \
+  }
+NEON_FHM_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
 
 
@@ -4033,6 +4225,35 @@ NEON_FPBYELEMENT_LIST(DEFINE_ASM_FUNC)
 NEON_BYELEMENT_LONG_LIST(DEFINE_ASM_FUNC)
 #undef DEFINE_ASM_FUNC
 
+
+// clang-format off
+#define NEON_BYELEMENT_FHM_LIST(V)    \
+  V(fmlal, NEON_FMLAL_H_byelement)    \
+  V(fmlal2, NEON_FMLAL2_H_byelement)  \
+  V(fmlsl, NEON_FMLSL_H_byelement)    \
+  V(fmlsl2, NEON_FMLSL2_H_byelement)
+// clang-format on
+
+
+#define DEFINE_ASM_FUNC(FN, OP)                                        \
+  void Assembler::FN(const VRegister& vd,                              \
+                     const VRegister& vn,                              \
+                     const VRegister& vm,                              \
+                     int vm_index) {                                   \
+    VIXL_ASSERT(CPUHas(CPUFeatures::kNEON,                             \
+                       CPUFeatures::kFP,                               \
+                       CPUFeatures::kNEONHalf,                         \
+                       CPUFeatures::kFHM));                            \
+    VIXL_ASSERT((vd.Is2S() && vn.Is2H()) || (vd.Is4S() && vn.Is4H())); \
+    VIXL_ASSERT(vm.IsH());                                             \
+    VIXL_ASSERT((vm_index >= 0) && (vm_index < 8));                    \
+    /* Vm itself can only be in the bottom 16 registers. */            \
+    VIXL_ASSERT(vm.GetCode() < 16);                                    \
+    Emit(FPFormat(vd) | OP | Rd(vd) | Rn(vn) | Rm(vm) |                \
+         ImmNEONHLM(vm_index, 3));                                     \
+  }
+NEON_BYELEMENT_FHM_LIST(DEFINE_ASM_FUNC)
+#undef DEFINE_ASM_FUNC
 
 void Assembler::suqadd(const VRegister& vd, const VRegister& vn) {
   VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
@@ -5140,6 +5361,8 @@ void Assembler::brk(int code) {
 
 void Assembler::svc(int code) { Emit(SVC | ImmException(code)); }
 
+void Assembler::udf(int code) { Emit(UDF | ImmUdf(code)); }
+
 
 // TODO(all): The third parameter should be passed by reference but gcc 4.8.2
 // reports a bogus uninitialised warning then.
@@ -5451,6 +5674,23 @@ void Assembler::LoadStore(const CPURegister& rt,
                           LoadStoreScalingOption option) {
   VIXL_ASSERT(CPUHas(rt));
   Emit(op | Rt(rt) | LoadStoreMemOperand(addr, CalcLSDataSize(op), option));
+}
+
+void Assembler::LoadStorePAC(const Register& xt,
+                             const MemOperand& addr,
+                             LoadStorePACOp op) {
+  VIXL_ASSERT(xt.Is64Bits());
+  VIXL_ASSERT(addr.IsImmediateOffset() || addr.IsPreIndex());
+
+  Instr pac_op = op;
+  if (addr.IsPreIndex()) {
+    pac_op |= LoadStorePACPreBit;
+  }
+
+  Instr base = RnSP(addr.GetBaseRegister());
+  int64_t offset = addr.GetOffset();
+
+  Emit(pac_op | Rt(xt) | base | ImmLSPAC(static_cast<int>(offset)));
 }
 
 
@@ -5930,6 +6170,19 @@ bool Assembler::CPUHas(const CPURegister& rt, const CPURegister& rt2) const {
   VIXL_ASSERT(AreSameSizeAndType(rt, rt2));
   USE(rt2);
   return CPUHas(rt);
+}
+
+
+bool Assembler::CPUHas(SystemRegister sysreg) const {
+  switch (sysreg) {
+    case RNDR:
+    case RNDRRS:
+      return CPUHas(CPUFeatures::kRNG);
+    case FPCR:
+    case NZCV:
+      break;
+  }
+  return true;
 }
 
 

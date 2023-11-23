@@ -19,8 +19,7 @@
 -->
 
 <resources>
-    <!-- This must be a fullscreen theme for the alarm to be able to turn the screen on. -->
-    <style name="AlertFullScreenTheme" parent="android:Theme.Material.Wallpaper.NoTitleBar" />
+    <style name="CellBroadcastAlertTheme" parent="android:Theme.DeviceDefault.Light.Dialog" />
 
     <style name="PreferenceTheme" parent="@style/PreferenceThemeOverlay.v14.Material">
         <item name="switchPreferenceStyle">@style/SettingsSwitchPreference</item>

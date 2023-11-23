@@ -321,6 +321,7 @@ class EAPConfig(SecurityConfig):
     SERVICE_PROPERTY_INNER_EAP= 'EAP.InnerEAP'
     SERVICE_PROPERTY_PRIVATE_KEY_ID = 'EAP.KeyID'
     SERVICE_PROPERTY_USE_SYSTEM_CAS = 'EAP.UseSystemCAs'
+    SERVICE_PROPERTY_ALTSUBJECT_MATCH = 'EAP.SubjectAlternativeNameMatch'
 
     last_tpm_id = 8800
 
@@ -338,7 +339,8 @@ class EAPConfig(SecurityConfig):
                  server_eap_users=None,
                  client_ca_cert=None, client_cert=None, client_key=None,
                  client_cert_id=None, client_key_id=None,
-                 eap_identity=None, ft_mode=WPAConfig.FT_MODE_DEFAULT):
+                 eap_identity=None, ft_mode=WPAConfig.FT_MODE_DEFAULT,
+                 altsubject_match=None):
         """Construct an EAPConfig.
 
         @param file_suffix string unique file suffix on DUT.
@@ -354,6 +356,8 @@ class EAPConfig(SecurityConfig):
         @param client_key_id string identifier for client private key in TPM.
         @param eap_identity string user to authenticate as during EAP.
         @param ft_mode int one of the FT_MODE_* in SecurityConfig.
+        @param altsubject_match list of strings in the format of shill
+               EAP.SubjectAlternativeNameMatch property.
 
         """
         super(EAPConfig, self).__init__(security=security)
@@ -385,6 +389,7 @@ class EAPConfig(SecurityConfig):
         self.client_key_slot_id = None
         self.eap_identity = eap_identity or self.DEFAULT_EAP_IDENTITY
         self.ft_mode = ft_mode
+        self.altsubject_match = altsubject_match
 
 
     def install_router_credentials(self, host):
@@ -450,6 +455,8 @@ class EAPConfig(SecurityConfig):
             ret[self.SERVICE_PROPERTY_USE_SYSTEM_CAS] = self.use_system_cas
         if self.ft_mode & WPAConfig.FT_MODE_PURE:
             ret[self.SERVICE_PROPERTY_FT_ENABLED] = True
+        if self.altsubject_match:
+            ret[self.SERVICE_PROPERTY_ALTSUBJECT_MATCH] = self.altsubject_match
         return ret
 
 
@@ -529,8 +536,8 @@ class WPAEAPConfig(EAPConfig):
     def __init__(self, file_suffix=None, use_system_cas=None,
                  server_ca_cert=None, server_cert=None, server_key=None,
                  client_ca_cert=None, client_cert=None, client_key=None,
-                 client_cert_id=None, client_key_id=None,
-                 eap_identity=None, server_eap_users=None,
+                 client_cert_id=None, client_key_id=None, eap_identity=None,
+                 server_eap_users=None, altsubject_match=None,
                  wpa_mode=WPAConfig.MODE_PURE_WPA,
                  ft_mode=WPAConfig.FT_MODE_DEFAULT):
         """Construct a DynamicWEPConfig.
@@ -548,6 +555,8 @@ class WPAEAPConfig(EAPConfig):
         @param eap_identity string user to authenticate as during EAP.
         @param server_eap_users string contents of server EAP users file.
         @param ft_mode int one of the FT_MODE_* in SecurityConfig
+        @param altsubject_match list of strings in the format of shill
+               EAP.SubjectAlternativeNameMatch property.
 
         """
         super(WPAEAPConfig, self).__init__(
@@ -557,7 +566,7 @@ class WPAEAPConfig(EAPConfig):
                 client_cert=client_cert, client_key=client_key,
                 client_cert_id=client_cert_id, client_key_id=client_key_id,
                 eap_identity=eap_identity, server_eap_users=server_eap_users,
-                ft_mode=ft_mode)
+                ft_mode=ft_mode, altsubject_match=altsubject_match)
         self.wpa_mode = wpa_mode
 
 
@@ -604,7 +613,8 @@ class Tunneled1xConfig(WPAEAPConfig):
                  client_ca_cert, eap_identity, password,
                  outer_protocol=LAYER1_TYPE_PEAP,
                  inner_protocol=LAYER2_TYPE_MD5,
-                 client_password=None, file_suffix=None):
+                 client_password=None, file_suffix=None,
+                 altsubject_match=None):
         self.password = password
         if client_password is not None:
             # Override the password used on the client.  This lets us set
@@ -624,7 +634,8 @@ class Tunneled1xConfig(WPAEAPConfig):
                 server_eap_users='\n'.join(eap_users),
                 client_ca_cert=client_ca_cert,
                 eap_identity=eap_identity,
-                file_suffix=file_suffix)
+                file_suffix=file_suffix,
+                altsubject_match=altsubject_match)
 
 
     def get_shill_service_properties(self):

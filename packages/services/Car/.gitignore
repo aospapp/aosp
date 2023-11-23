@@ -7,3 +7,4 @@ gen/
 *.swp
 __pycache__
 .idea
+/bin/

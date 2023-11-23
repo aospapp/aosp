@@ -42,6 +42,8 @@ public class FaceSettingsEnrollButtonPreferenceController extends BasePreference
     private byte[] mToken;
     private SettingsActivity mActivity;
     private Button mButton;
+    private boolean mIsClicked;
+    private Listener mListener;
 
     public FaceSettingsEnrollButtonPreferenceController(Context context) {
         this(context, KEY);
@@ -63,11 +65,16 @@ public class FaceSettingsEnrollButtonPreferenceController extends BasePreference
 
     @Override
     public void onClick(View v) {
+        mIsClicked = true;
         final Intent intent = new Intent();
         intent.setClassName("com.android.settings", FaceEnrollIntroduction.class.getName());
         intent.putExtra(Intent.EXTRA_USER_ID, mUserId);
         intent.putExtra(ChooseLockSettingsHelper.EXTRA_KEY_CHALLENGE_TOKEN, mToken);
-        mContext.startActivity(intent);
+        if (mListener != null) {
+            mListener.onStartEnrolling(intent);
+        } else {
+            mContext.startActivity(intent);
+        }
     }
 
     @Override
@@ -83,7 +90,29 @@ public class FaceSettingsEnrollButtonPreferenceController extends BasePreference
         mToken = token;
     }
 
+    // Return the click state, then clear its state.
+    public boolean isClicked() {
+        final boolean wasClicked = mIsClicked;
+        mIsClicked = false;
+        return wasClicked;
+    }
+
     public void setActivity(SettingsActivity activity) {
         mActivity = activity;
+    }
+
+    public void setListener(Listener listener) {
+        mListener = listener;
+    }
+
+    /**
+     * Interface for registering callbacks related to the face enroll preference button.
+     */
+    public interface Listener {
+        /**
+         * Called when the user has indicated an intent to begin enrolling a new face.
+         * @param intent The Intent that should be used to launch face enrollment.
+         */
+        void onStartEnrolling(Intent intent);
     }
 }

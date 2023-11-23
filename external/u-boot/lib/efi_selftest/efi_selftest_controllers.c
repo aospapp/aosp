@@ -33,7 +33,7 @@ static efi_handle_t handle_driver;
  * Count child controllers
  *
  * @handle	handle on which child controllers are installed
- * @protocol	protocol for which the child controlles where installed
+ * @protocol	protocol for which the child controllers were installed
  * @count	number of child controllers
  * @return	status code
  */
@@ -134,6 +134,8 @@ static efi_status_t EFIAPI start(
 
 	/* Create child controllers */
 	for (i = 0; i < NUMBER_OF_CHILD_CONTROLLERS; ++i) {
+		/* Creating a new handle for the child controller */
+		handle_child_controller[i] = 0;
 		ret = boottime->install_protocol_interface(
 			&handle_child_controller[i], &guid_child_controller,
 			EFI_NATIVE_INTERFACE, NULL);

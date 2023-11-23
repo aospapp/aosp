@@ -31,6 +31,7 @@
 
 #include <android/fdsan.h>
 #include <android/set_abort_message.h>
+#include <bionic/reserved_signals.h>
 
 #include <android-base/cmsg.h>
 #include <android-base/file.h>
@@ -101,7 +102,10 @@ static void tombstoned_intercept(pid_t target_pid, unique_fd* intercept_fd, uniq
     FAIL() << "failed to contact tombstoned: " << strerror(errno);
   }
 
-  InterceptRequest req = {.pid = target_pid, .dump_type = intercept_type};
+  InterceptRequest req = {
+      .dump_type = intercept_type,
+      .pid = target_pid,
+  };
 
   unique_fd output_pipe_write;
   if (!Pipe(output_fd, &output_pipe_write)) {
@@ -176,7 +180,7 @@ CrasherTest::~CrasherTest() {
   if (crasher_pid != -1) {
     kill(crasher_pid, SIGKILL);
     int status;
-    waitpid(crasher_pid, &status, WUNTRACED);
+    TEMP_FAILURE_RETRY(waitpid(crasher_pid, &status, WUNTRACED));
   }
 
   android::base::SetProperty(kWaitForGdbKey, previous_wait_for_gdb ? "1" : "0");
@@ -195,8 +199,7 @@ void CrasherTest::StartIntercept(unique_fd* output_fd, DebuggerdDumpType interce
 void CrasherTest::FinishIntercept(int* result) {
   InterceptResponse response;
 
-  // Timeout for tombstoned intercept is 10 seconds.
-  ssize_t rc = TIMEOUT(20, read(intercept_fd.get(), &response, sizeof(response)));
+  ssize_t rc = TIMEOUT(30, read(intercept_fd.get(), &response, sizeof(response)));
   if (rc == -1) {
     FAIL() << "failed to read response from tombstoned: " << strerror(errno);
   } else if (rc == 0) {
@@ -233,7 +236,7 @@ void CrasherTest::FinishCrasher() {
     FAIL() << "crasher pipe uninitialized";
   }
 
-  ssize_t rc = write(crasher_pipe.get(), "\n", 1);
+  ssize_t rc = TEMP_FAILURE_RETRY(write(crasher_pipe.get(), "\n", 1));
   if (rc == -1) {
     FAIL() << "failed to write to crasher pipe: " << strerror(errno);
   } else if (rc == 0) {
@@ -243,9 +246,10 @@ void CrasherTest::FinishCrasher() {
 
 void CrasherTest::AssertDeath(int signo) {
   int status;
-  pid_t pid = TIMEOUT(5, waitpid(crasher_pid, &status, 0));
+  pid_t pid = TIMEOUT(30, waitpid(crasher_pid, &status, 0));
   if (pid != crasher_pid) {
-    printf("failed to wait for crasher (pid %d)\n", crasher_pid);
+    printf("failed to wait for crasher (expected pid %d, return value %d): %s\n", crasher_pid, pid,
+           strerror(errno));
     sleep(100);
     FAIL() << "failed to wait for crasher: " << strerror(errno);
   }
@@ -395,7 +399,7 @@ TEST_F(CrasherTest, abort_message_backtrace) {
   unique_fd output_fd;
   StartProcess([]() {
     android_set_abort_message("not actually aborting");
-    raise(DEBUGGER_SIGNAL);
+    raise(BIONIC_SIGNAL_DEBUGGER);
     exit(0);
   });
   StartIntercept(&output_fd);
@@ -440,7 +444,7 @@ TEST_F(CrasherTest, wait_for_gdb) {
   FinishCrasher();
 
   int status;
-  ASSERT_EQ(crasher_pid, waitpid(crasher_pid, &status, WUNTRACED));
+  ASSERT_EQ(crasher_pid, TEMP_FAILURE_RETRY(waitpid(crasher_pid, &status, WUNTRACED)));
   ASSERT_TRUE(WIFSTOPPED(status));
   ASSERT_EQ(SIGSTOP, WSTOPSIG(status));
 
@@ -463,7 +467,7 @@ TEST_F(CrasherTest, backtrace) {
 
   sigval val;
   val.sival_int = 1;
-  ASSERT_EQ(0, sigqueue(crasher_pid, DEBUGGER_SIGNAL, val)) << strerror(errno);
+  ASSERT_EQ(0, sigqueue(crasher_pid, BIONIC_SIGNAL_DEBUGGER, val)) << strerror(errno);
   FinishIntercept(&intercept_result);
   ASSERT_EQ(1, intercept_result) << "tombstoned reported failure";
   ConsumeFd(std::move(output_fd), &result);
@@ -602,13 +606,15 @@ static pid_t seccomp_fork_impl(void (*prejail)()) {
   policy += "\nclone: 1";
   policy += "\nsigaltstack: 1";
   policy += "\nnanosleep: 1";
+  policy += "\ngetrlimit: 1";
+  policy += "\nugetrlimit: 1";
 
   FILE* tmp_file = tmpfile();
   if (!tmp_file) {
     PLOG(FATAL) << "tmpfile failed";
   }
 
-  unique_fd tmp_fd(dup(fileno(tmp_file)));
+  unique_fd tmp_fd(TEMP_FAILURE_RETRY(dup(fileno(tmp_file))));
   if (!android::base::WriteStringToFd(policy, tmp_fd.get())) {
     PLOG(FATAL) << "failed to write policy to tmpfile";
   }
@@ -729,7 +735,7 @@ __attribute__((noinline)) extern "C" bool raise_debugger_signal(DebuggerdDumpTyp
 
   siginfo.si_value.sival_int = dump_type == kDebuggerdNativeBacktrace;
 
-  if (syscall(__NR_rt_tgsigqueueinfo, getpid(), gettid(), DEBUGGER_SIGNAL, &siginfo) != 0) {
+  if (syscall(__NR_rt_tgsigqueueinfo, getpid(), gettid(), BIONIC_SIGNAL_DEBUGGER, &siginfo) != 0) {
     PLOG(ERROR) << "libdebuggerd_client: failed to send signal to self";
     return false;
   }
@@ -821,7 +827,7 @@ TEST_F(CrasherTest, competing_tracer) {
   FinishCrasher();
 
   int status;
-  ASSERT_EQ(crasher_pid, waitpid(crasher_pid, &status, 0));
+  ASSERT_EQ(crasher_pid, TEMP_FAILURE_RETRY(waitpid(crasher_pid, &status, 0)));
   ASSERT_TRUE(WIFSTOPPED(status));
   ASSERT_EQ(SIGABRT, WSTOPSIG(status));
 
@@ -836,7 +842,7 @@ TEST_F(CrasherTest, competing_tracer) {
   regex += R"( \(.+debuggerd_test)";
   ASSERT_MATCH(result, regex.c_str());
 
-  ASSERT_EQ(crasher_pid, waitpid(crasher_pid, &status, 0));
+  ASSERT_EQ(crasher_pid, TEMP_FAILURE_RETRY(waitpid(crasher_pid, &status, 0)));
   ASSERT_TRUE(WIFSTOPPED(status));
   ASSERT_EQ(SIGABRT, WSTOPSIG(status));
 
@@ -850,7 +856,7 @@ TEST_F(CrasherTest, fdsan_warning_abort_message) {
 
   StartProcess([]() {
     android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_WARN_ONCE);
-    unique_fd fd(open("/dev/null", O_RDONLY | O_CLOEXEC));
+    unique_fd fd(TEMP_FAILURE_RETRY(open("/dev/null", O_RDONLY | O_CLOEXEC)));
     if (fd == -1) {
       abort();
     }
@@ -882,16 +888,16 @@ TEST(crash_dump, zombie) {
       errx(2, "first waitpid returned %d (%s), expected failure with ECHILD", rc, strerror(errno));
     }
 
-    raise(DEBUGGER_SIGNAL);
+    raise(BIONIC_SIGNAL_DEBUGGER);
 
     errno = 0;
-    rc = waitpid(-1, &status, __WALL | __WNOTHREAD);
+    rc = TEMP_FAILURE_RETRY(waitpid(-1, &status, __WALL | __WNOTHREAD));
     if (rc != -1 || errno != ECHILD) {
       errx(2, "second waitpid returned %d (%s), expected failure with ECHILD", rc, strerror(errno));
     }
     _exit(0);
   } else {
-    rc = waitpid(forkpid, &status, 0);
+    rc = TEMP_FAILURE_RETRY(waitpid(forkpid, &status, 0));
     ASSERT_EQ(forkpid, rc);
     ASSERT_TRUE(WIFEXITED(status));
     ASSERT_EQ(0, WEXITSTATUS(status));
@@ -1097,4 +1103,31 @@ TEST(tombstoned, interceptless_backtrace) {
   // We can't be sure that nothing's crash looping in the background.
   // This should be good enough, though...
   ASSERT_LT(diff, 10) << "too many new tombstones; is something crashing in the background?";
+}
+
+static __attribute__((__noinline__)) void overflow_stack(void* p) {
+  void* buf[1];
+  buf[0] = p;
+  static volatile void* global = buf;
+  if (global) {
+    global = buf;
+    overflow_stack(&buf);
+  }
+}
+
+TEST_F(CrasherTest, stack_overflow) {
+  int intercept_result;
+  unique_fd output_fd;
+  StartProcess([]() { overflow_stack(nullptr); });
+
+  StartIntercept(&output_fd);
+  FinishCrasher();
+  AssertDeath(SIGSEGV);
+  FinishIntercept(&intercept_result);
+
+  ASSERT_EQ(1, intercept_result) << "tombstoned reported failure";
+
+  std::string result;
+  ConsumeFd(std::move(output_fd), &result);
+  ASSERT_MATCH(result, R"(Cause: stack pointer[^\n]*stack overflow.\n)");
 }

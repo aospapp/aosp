@@ -15,55 +15,53 @@
 
 #define CRAS_TELEPHONY_INTERFACE "org.chromium.cras.Telephony"
 #define CRAS_TELEPHONY_OBJECT_PATH "/org/chromium/cras/telephony"
-#define TELEPHONY_INTROSPECT_XML					\
-	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE			\
-	"<node>\n"							\
-	"  <interface name=\"" CRAS_TELEPHONY_INTERFACE "\">\n"		\
-	"    <method name=\"AnswerCall\">\n"				\
-	"    </method>\n"						\
-	"    <method name=\"IncomingCall\">\n"				\
-	"      <arg name=\"value\" type=\"s\" direction=\"in\"/>\n"	\
-	"    </method>\n"						\
-	"    <method name=\"TerminateCall\">\n"				\
-	"    </method>\n"						\
-	"    <method name=\"SetBatteryLevel\">\n"				\
-	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"	\
-	"    </method>\n"						\
-	"    <method name=\"SetSignalStrength\">\n"				\
-	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"	\
-	"    </method>\n"						\
-	"    <method name=\"SetServiceAvailability\">\n"				\
-	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"	\
-	"    </method>\n"						\
-	"    <method name=\"SetDialNumber\">\n"				\
-	"      <arg name=\"value\" type=\"s\" direction=\"in\"/>\n"	\
-	"    </method>\n"						\
-	"    <method name=\"SetCallheld\">\n"				\
-	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"	\
-	"    </method>\n"						\
-	"  </interface>\n"						\
-	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"	\
-	"    <method name=\"Introspect\">\n"				\
-	"      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"	\
-	"    </method>\n"						\
-	"  </interface>\n"						\
+#define TELEPHONY_INTROSPECT_XML                                               \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                              \
+	"<node>\n"                                                             \
+	"  <interface name=\"" CRAS_TELEPHONY_INTERFACE "\">\n"                \
+	"    <method name=\"AnswerCall\">\n"                                   \
+	"    </method>\n"                                                      \
+	"    <method name=\"IncomingCall\">\n"                                 \
+	"      <arg name=\"value\" type=\"s\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
+	"    <method name=\"TerminateCall\">\n"                                \
+	"    </method>\n"                                                      \
+	"    <method name=\"SetBatteryLevel\">\n"                              \
+	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
+	"    <method name=\"SetSignalStrength\">\n"                            \
+	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
+	"    <method name=\"SetServiceAvailability\">\n"                       \
+	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
+	"    <method name=\"SetDialNumber\">\n"                                \
+	"      <arg name=\"value\" type=\"s\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
+	"    <method name=\"SetCallheld\">\n"                                  \
+	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
+	"  </interface>\n"                                                     \
+	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"           \
+	"    <method name=\"Introspect\">\n"                                   \
+	"      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"            \
+	"    </method>\n"                                                      \
+	"  </interface>\n"                                                     \
 	"</node>\n"
 
 static struct cras_telephony_handle telephony_handle;
 
 /* Helper to extract a single argument from a DBus message. */
-static DBusHandlerResult get_single_arg(DBusMessage *message,
-					int dbus_type, void *arg)
+static DBusHandlerResult get_single_arg(DBusMessage *message, int dbus_type,
+					void *arg)
 {
 	DBusError dbus_error;
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   dbus_type, arg,
+	if (!dbus_message_get_args(message, &dbus_error, dbus_type, arg,
 				   DBUS_TYPE_INVALID)) {
-		syslog(LOG_WARNING,
-		       "Bad method received: %s",
+		syslog(LOG_WARNING, "Bad method received: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -88,12 +86,11 @@ static void send_empty_reply(DBusConnection *conn, DBusMessage *message)
 }
 
 static DBusHandlerResult handle_incoming_call(DBusConnection *conn,
-					      DBusMessage *message,
-					      void *arg)
+					      DBusMessage *message, void *arg)
 {
 	struct hfp_slc_handle *handle;
 	DBusHandlerResult rc;
-	const char* number;
+	const char *number;
 
 	rc = get_single_arg(message, DBUS_TYPE_STRING, &number);
 	if (rc != DBUS_HANDLER_RESULT_HANDLED)
@@ -113,8 +110,7 @@ static DBusHandlerResult handle_incoming_call(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_terminate_call(DBusConnection *conn,
-					       DBusMessage *message,
-					       void *arg)
+					       DBusMessage *message, void *arg)
 {
 	cras_telephony_event_terminate_call();
 
@@ -123,8 +119,7 @@ static DBusHandlerResult handle_terminate_call(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_answer_call(DBusConnection *conn,
-					    DBusMessage *message,
-					    void *arg)
+					    DBusMessage *message, void *arg)
 {
 	cras_telephony_event_answer_call();
 
@@ -133,8 +128,7 @@ static DBusHandlerResult handle_answer_call(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_set_dial_number(DBusConnection *conn,
-						DBusMessage *message,
-						void *arg)
+						DBusMessage *message, void *arg)
 {
 	DBusHandlerResult rc;
 	const char *number;
@@ -150,8 +144,7 @@ static DBusHandlerResult handle_set_dial_number(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_set_battery(DBusConnection *conn,
-					    DBusMessage *message,
-					    void *arg)
+					    DBusMessage *message, void *arg)
 {
 	struct hfp_slc_handle *handle;
 	DBusHandlerResult rc;
@@ -170,8 +163,7 @@ static DBusHandlerResult handle_set_battery(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_set_signal(DBusConnection *conn,
-					   DBusMessage *message,
-					   void *arg)
+					   DBusMessage *message, void *arg)
 {
 	struct hfp_slc_handle *handle;
 	DBusHandlerResult rc;
@@ -190,8 +182,7 @@ static DBusHandlerResult handle_set_signal(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_set_service(DBusConnection *conn,
-					    DBusMessage *message,
-					    void *arg)
+					    DBusMessage *message, void *arg)
 {
 	struct hfp_slc_handle *handle;
 	DBusHandlerResult rc;
@@ -210,8 +201,7 @@ static DBusHandlerResult handle_set_service(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_set_callheld(DBusConnection *conn,
-					     DBusMessage *message,
-					     void *arg)
+					     DBusMessage *message, void *arg)
 {
 	struct hfp_slc_handle *handle;
 	DBusHandlerResult rc;
@@ -231,17 +221,15 @@ static DBusHandlerResult handle_set_callheld(DBusConnection *conn,
 }
 
 /* Handle incoming messages. */
-static DBusHandlerResult handle_telephony_message(DBusConnection *conn,
-						  DBusMessage *message,
-						  void *arg)
+static DBusHandlerResult
+handle_telephony_message(DBusConnection *conn, DBusMessage *message, void *arg)
 {
 	syslog(LOG_ERR, "Telephony message: %s %s %s",
-			dbus_message_get_path(message),
-			dbus_message_get_interface(message),
-			dbus_message_get_member(message));
+	       dbus_message_get_path(message),
+	       dbus_message_get_interface(message),
+	       dbus_message_get_member(message));
 
-	if (dbus_message_is_method_call(message,
-					DBUS_INTERFACE_INTROSPECTABLE,
+	if (dbus_message_is_method_call(message, DBUS_INTERFACE_INTROSPECTABLE,
 					"Introspect")) {
 		DBusMessage *reply;
 		const char *xml = TELEPHONY_INTROSPECT_XML;
@@ -249,8 +237,7 @@ static DBusHandlerResult handle_telephony_message(DBusConnection *conn,
 		reply = dbus_message_new_method_return(message);
 		if (!reply)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
-		if (!dbus_message_append_args(reply,
-					      DBUS_TYPE_STRING, &xml,
+		if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &xml,
 					      DBUS_TYPE_INVALID))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		if (!dbus_connection_send(conn, reply, NULL))
@@ -258,17 +245,15 @@ static DBusHandlerResult handle_telephony_message(DBusConnection *conn,
 
 		dbus_message_unref(reply);
 		return DBUS_HANDLER_RESULT_HANDLED;
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_TELEPHONY_INTERFACE,
-					       "IncomingCall")) {
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_TELEPHONY_INTERFACE, "IncomingCall")) {
 		return handle_incoming_call(conn, message, arg);
 	} else if (dbus_message_is_method_call(message,
 					       CRAS_TELEPHONY_INTERFACE,
 					       "TerminateCall")) {
 		return handle_terminate_call(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_TELEPHONY_INTERFACE,
-					       "AnswerCall")) {
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_TELEPHONY_INTERFACE, "AnswerCall")) {
 		return handle_answer_call(conn, message, arg);
 	} else if (dbus_message_is_method_call(message,
 					       CRAS_TELEPHONY_INTERFACE,
@@ -286,9 +271,8 @@ static DBusHandlerResult handle_telephony_message(DBusConnection *conn,
 					       CRAS_TELEPHONY_INTERFACE,
 					       "SetServiceAvailability")) {
 		return handle_set_service(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_TELEPHONY_INTERFACE,
-					       "SetCallheld")) {
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_TELEPHONY_INTERFACE, "SetCallheld")) {
 		return handle_set_callheld(conn, message, arg);
 	}
 
@@ -308,12 +292,10 @@ void cras_telephony_start(DBusConnection *conn)
 	telephony_handle.dbus_conn = conn;
 	dbus_connection_ref(telephony_handle.dbus_conn);
 
-	if (!dbus_connection_register_object_path(conn,
-						  CRAS_TELEPHONY_OBJECT_PATH,
-						  &control_vtable,
-						  &dbus_error)) {
-		syslog(LOG_ERR,
-		       "Couldn't register telephony control: %s: %s",
+	if (!dbus_connection_register_object_path(
+		    conn, CRAS_TELEPHONY_OBJECT_PATH, &control_vtable,
+		    &dbus_error)) {
+		syslog(LOG_ERR, "Couldn't register telephony control: %s: %s",
 		       CRAS_TELEPHONY_OBJECT_PATH, dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return;
@@ -331,7 +313,7 @@ void cras_telephony_stop()
 	telephony_handle.dbus_conn = NULL;
 }
 
-struct cras_telephony_handle* cras_telephony_get()
+struct cras_telephony_handle *cras_telephony_get()
 {
 	return &telephony_handle;
 }
@@ -402,8 +384,7 @@ int cras_telephony_event_terminate_call()
 	return 0;
 }
 
-void cras_telephony_store_dial_number(int len,
-				      const char *number)
+void cras_telephony_store_dial_number(int len, const char *number)
 {
 	if (telephony_handle.dial_number != NULL) {
 		free(telephony_handle.dial_number);
@@ -411,13 +392,12 @@ void cras_telephony_store_dial_number(int len,
 	}
 
 	if (len == 0)
-		return ;
+		return;
 
 	telephony_handle.dial_number =
-			(char *) calloc(len + 1,
-					sizeof(*telephony_handle.dial_number));
+		(char *)calloc(len + 1, sizeof(*telephony_handle.dial_number));
 	strncpy(telephony_handle.dial_number, number, len);
 
-	syslog(LOG_ERR,
-	       "store dial_number: \"%s\"", telephony_handle.dial_number);
+	syslog(LOG_ERR, "store dial_number: \"%s\"",
+	       telephony_handle.dial_number);
 }

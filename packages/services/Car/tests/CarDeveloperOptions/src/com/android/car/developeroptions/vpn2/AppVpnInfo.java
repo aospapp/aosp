@@ -2,8 +2,6 @@ package com.android.car.developeroptions.vpn2;
 
 import android.annotation.NonNull;
 
-import com.android.internal.util.Preconditions;
-
 import java.util.Objects;
 
 /**
@@ -16,7 +14,7 @@ class AppVpnInfo implements Comparable {
 
     public AppVpnInfo(int userId, @NonNull String packageName) {
         this.userId = userId;
-        this.packageName = Preconditions.checkNotNull(packageName);
+        this.packageName = Objects.requireNonNull(packageName);
     }
 
     @Override

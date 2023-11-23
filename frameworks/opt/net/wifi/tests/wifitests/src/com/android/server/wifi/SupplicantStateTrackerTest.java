@@ -26,13 +26,12 @@ import android.content.IntentFilter;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiSsid;
+import android.os.BatteryStatsManager;
 import android.os.Handler;
 import android.os.Message;
 import android.os.test.TestLooper;
 
 import androidx.test.filters.SmallTest;
-
-import com.android.internal.app.IBatteryStats;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -40,10 +39,10 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 /**
- * Unit tests for {@link android.net.wifi.SupplicantStateTracker}.
+ * Unit tests for {@link SupplicantStateTracker}.
  */
 @SmallTest
-public class SupplicantStateTrackerTest {
+public class SupplicantStateTrackerTest extends WifiBaseTest {
 
     private static final String TAG = "SupplicantStateTrackerTest";
     private static final String   sSSID = "\"GoogleGuest\"";
@@ -52,17 +51,10 @@ public class SupplicantStateTrackerTest {
 
     private @Mock WifiConfigManager mWcm;
     private @Mock Context mContext;
+    private @Mock BatteryStatsManager mBatteryStats;
     private Handler mHandler;
     private SupplicantStateTracker mSupplicantStateTracker;
     private TestLooper mLooper;
-    private FrameworkFacade mFacade;
-
-    private FrameworkFacade getFrameworkFacade() {
-        FrameworkFacade facade = mock(FrameworkFacade.class);
-        IBatteryStats batteryStatsService = mock(IBatteryStats.class);
-        when(facade.getBatteryService()).thenReturn(batteryStatsService);
-        return facade;
-    }
 
     private Message getSupplicantStateChangeMessage(int networkId, WifiSsid wifiSsid,
             String bssid, SupplicantState newSupplicantState) {
@@ -76,8 +68,8 @@ public class SupplicantStateTrackerTest {
         mLooper = new TestLooper();
         mHandler = new Handler(mLooper.getLooper());
         MockitoAnnotations.initMocks(this);
-        mFacade = getFrameworkFacade();
-        mSupplicantStateTracker = new SupplicantStateTracker(mContext, mWcm, mFacade, mHandler);
+        mSupplicantStateTracker = new SupplicantStateTracker(mContext, mWcm, mBatteryStats,
+                mHandler);
     }
 
     /**

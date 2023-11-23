@@ -26,6 +26,7 @@ import android.text.format.DateUtils;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.roots.RootCursorWrapper;
 
@@ -43,9 +44,26 @@ public class RecentsLoader extends MultiRootDocumentsLoader {
     /** Maximum documents from a single root. */
     private static final int MAX_DOCS_FROM_ROOT = 64;
 
+    private final UserId mUserId;
+
     public RecentsLoader(Context context, ProvidersAccess providers, State state,
-            Lookup<String, Executor> executors, Lookup<String, String> fileTypeMap) {
+            Lookup<String, Executor> executors, Lookup<String, String> fileTypeMap, UserId userId) {
         super(context, providers, state, executors, fileTypeMap);
+        mUserId = userId;
+    }
+
+    @Override
+    public DirectoryResult loadInBackground() {
+        if (!mState.canInteractWith(mUserId)) {
+            DirectoryResult result = new DirectoryResult();
+            result.exception = new CrossProfileNoPermissionException();
+            return result;
+        } else if (mUserId.isQuietModeEnabled(getContext())) {
+            DirectoryResult result = new DirectoryResult();
+            result.exception = new CrossProfileQuietModeException(mUserId);
+            return result;
+        }
+        return super.loadInBackground();
     }
 
     @Override
@@ -60,8 +78,8 @@ public class RecentsLoader extends MultiRootDocumentsLoader {
 
     @Override
     protected boolean shouldIgnoreRoot(RootInfo root) {
-        // only query the root is local only and support recents
-        return !root.isLocalOnly() || !root.supportsRecents();
+        // only query the root is local only, support recents, and is from the selected user.
+        return !root.isLocalOnly() || !root.supportsRecents() || !mUserId.equals(root.userId);
     }
 
     @Override
@@ -82,7 +100,8 @@ public class RecentsLoader extends MultiRootDocumentsLoader {
 
         @Override
         protected RootCursorWrapper generateResultCursor(RootInfo rootInfo, Cursor oriCursor) {
-            return new RootCursorWrapper(authority, rootInfo.rootId, oriCursor, MAX_DOCS_FROM_ROOT);
+            return new RootCursorWrapper(rootInfo.userId, authority, rootInfo.rootId, oriCursor,
+                    MAX_DOCS_FROM_ROOT);
         }
     }
 }

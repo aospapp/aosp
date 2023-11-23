@@ -55,7 +55,11 @@ class ManagedDeviceList implements Iterable<IManagedTestDevice> {
         @Override
         public boolean matches(IManagedTestDevice element) {
             if (mDeviceSelectionMatcher.matches(element.getIDevice())) {
-                DeviceEventResponse r = element.handleAllocationEvent(DeviceEvent.ALLOCATE_REQUEST);
+                DeviceEvent event = DeviceEvent.ALLOCATE_REQUEST;
+                if (!mDeviceSelectionMatcher.getSerials().isEmpty()) {
+                    event = DeviceEvent.EXPLICIT_ALLOCATE_REQUEST;
+                }
+                DeviceEventResponse r = element.handleAllocationEvent(event);
                 return r.stateChanged && r.allocationState == DeviceAllocationState.Allocated;
             }
             return false;
@@ -127,19 +131,25 @@ class ManagedDeviceList implements Iterable<IManagedTestDevice> {
     /**
      * Update the {@link TestDevice#getDeviceState()} of devices as appropriate.
      *
-     * @param serials the devices currently on fastboot
+     * @param serials The devices currently on fastboot
+     * @param isFastbootD Whether or not the devices serials are in fastbootd
      */
-    public void updateFastbootStates(Set<String> serials) {
+    public void updateFastbootStates(Set<String> serials, boolean isFastbootD) {
         List<IManagedTestDevice> toRemove = new ArrayList<>();
         mListLock.lock();
         try {
+            TestDeviceState state = TestDeviceState.FASTBOOT;
+            if (isFastbootD) {
+                state = TestDeviceState.FASTBOOTD;
+            }
             for (IManagedTestDevice d : mList) {
-                if (serials.contains(d.getSerialNumber())) {
-                    d.setDeviceState(TestDeviceState.FASTBOOT);
-                } else if (d.getDeviceState() == TestDeviceState.FASTBOOT) {
+                String serial = d.getSerialNumber();
+                if (serials.contains(serial)) {
+                    d.setDeviceState(state);
+                } else if (state.equals(d.getDeviceState())) {
                     // device was previously on fastboot, assume its gone now
                     d.setDeviceState(TestDeviceState.NOT_AVAILABLE);
-                    CLog.d("Device %s was in fastboot and not found anymore", d.getSerialNumber());
+                    CLog.d("Device %s was in %s and not found anymore", serial, state);
                     toRemove.add(d);
                 }
             }
@@ -227,6 +237,23 @@ class ManagedDeviceList implements Iterable<IManagedTestDevice> {
                 mList.add(d);
             }
             return d;
+        } finally {
+            mListLock.unlock();
+        }
+    }
+
+    /**
+     * Force allocate a device based on its serial, if the device isn't tracked yet we won't create
+     * its tracking. This is meant for force-allocate known devices, usually for automated recovery.
+     */
+    public IManagedTestDevice forceAllocate(String serial) {
+        if (!isValidDeviceSerial(serial)) {
+            return null;
+        }
+        mListLock.lock();
+        try {
+            // Unlike findOrCreate we don't attempt to create in this case.
+            return find(serial);
         } finally {
             mListLock.unlock();
         }

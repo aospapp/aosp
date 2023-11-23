@@ -6,17 +6,17 @@
 extern "C" {
 #include "polled_interval_checker.h"
 
-struct polled_interval *pic_polled_interval_create(int interval_sec) {
-	return NULL;
+struct polled_interval* pic_polled_interval_create(int interval_sec) {
+  return NULL;
 }
 
-int pic_interval_elapsed(const struct polled_interval *interval) {
-	return 0;
+int pic_interval_elapsed(const struct polled_interval* interval) {
+  return 0;
 }
 
-void pic_interval_reset(struct polled_interval *interval) {}
+void pic_interval_reset(struct polled_interval* interval) {}
 
-void pic_polled_interval_destroy(struct polled_interval **interval) {}
+void pic_polled_interval_destroy(struct polled_interval** interval) {}
 
 void pic_update_current_time() {}
 

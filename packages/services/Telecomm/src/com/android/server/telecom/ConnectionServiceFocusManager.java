@@ -154,7 +154,7 @@ public class ConnectionServiceFocusManager {
     }
 
     private static final int[] PRIORITY_FOCUS_CALL_STATE = new int[] {
-            CallState.ACTIVE, CallState.CONNECTING, CallState.DIALING
+            CallState.ACTIVE, CallState.CONNECTING, CallState.DIALING, CallState.AUDIO_PROCESSING
     };
 
     private static final int MSG_REQUEST_FOCUS = 1;

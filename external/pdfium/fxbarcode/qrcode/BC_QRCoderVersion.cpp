@@ -29,7 +29,6 @@
 #include "fxbarcode/qrcode/BC_QRCoderBitVector.h"
 #include "fxbarcode/qrcode/BC_QRCoderECBlocksData.h"
 #include "fxbarcode/qrcode/BC_QRCoderErrorCorrectionLevel.h"
-#include "fxbarcode/utils.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
@@ -48,8 +47,7 @@ CBC_QRCoderVersion::CBC_QRCoderVersion(int32_t versionNumber,
   m_totalCodeWords = m_ecBlocksArray[0]->GetTotalDataCodeWords();
 }
 
-CBC_QRCoderVersion::~CBC_QRCoderVersion() {
-}
+CBC_QRCoderVersion::~CBC_QRCoderVersion() = default;
 
 // static
 void CBC_QRCoderVersion::Initialize() {
@@ -74,11 +72,6 @@ const CBC_QRCoderVersion* CBC_QRCoderVersion::GetVersionForNumber(
   if (versionNumber < 1 || versionNumber > kMaxVersion)
     return nullptr;
   return (*g_VERSION)[versionNumber - 1].get();
-}
-
-// static
-void CBC_QRCoderVersion::Destroy() {
-  g_VERSION->clear();
 }
 
 int32_t CBC_QRCoderVersion::GetVersionNumber() const {

@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_JIT_DEBUGGER_INTERFACE_H_
 #define ART_RUNTIME_JIT_DEBUGGER_INTERFACE_H_
 
+#include <functional>
 #include <inttypes.h>
 #include <vector>
 
@@ -27,16 +28,18 @@
 namespace art {
 
 class DexFile;
+class Mutex;
 class Thread;
+struct JITCodeEntry;
 
-// This method is declared in the compiler library.
-// We need to pass it by pointer to be able to call it from runtime.
-typedef std::vector<uint8_t> PackElfFileForJITFunction(
-    InstructionSet isa,
-    const InstructionSetFeatures* features,
-    std::vector<ArrayRef<const uint8_t>>& added_elf_files,
-    std::vector<const void*>& removed_symbols,
-    /*out*/ size_t* num_symbols);
+// Must be called before zygote forks.
+// Used to ensure that zygote's mini-debug-info can be shared with apps.
+void NativeDebugInfoPreFork();
+
+// Must be called after zygote forks.
+void NativeDebugInfoPostFork();
+
+ArrayRef<const uint8_t> GetJITCodeEntrySymFile(const JITCodeEntry*);
 
 // Notify native tools (e.g. libunwind) that DEX file has been opened.
 void AddNativeDebugInfoForDex(Thread* self, const DexFile* dexfile);
@@ -44,20 +47,26 @@ void AddNativeDebugInfoForDex(Thread* self, const DexFile* dexfile);
 // Notify native tools (e.g. libunwind) that DEX file has been closed.
 void RemoveNativeDebugInfoForDex(Thread* self, const DexFile* dexfile);
 
-// Notify native tools (e.g. libunwind) that JIT has compiled a new method.
+// Notify native tools (e.g. libunwind) that JIT has compiled a single new method.
 // The method will make copy of the passed ELF file (to shrink it to the minimum size).
-void AddNativeDebugInfoForJit(Thread* self,
-                              const void* code_ptr,
+// If packing is allowed, the ELF file might be merged with others to save space
+// (however, this drops all ELF sections other than symbols names and unwinding info).
+void AddNativeDebugInfoForJit(const void* code_ptr,
                               const std::vector<uint8_t>& symfile,
-                              PackElfFileForJITFunction pack,
-                              InstructionSet isa,
-                              const InstructionSetFeatures* features);
+                              bool allow_packing)
+    REQUIRES_SHARED(Locks::jit_lock_);  // Might need JIT code cache to allocate memory.
 
 // Notify native tools (e.g. libunwind) that JIT code has been garbage collected.
-void RemoveNativeDebugInfoForJit(Thread* self, const void* code_ptr);
+void RemoveNativeDebugInfoForJit(ArrayRef<const void*> removed_code_ptrs)
+    REQUIRES_SHARED(Locks::jit_lock_);  // Might need JIT code cache to allocate memory.
 
 // Returns approximate memory used by debug info for JIT code.
-size_t GetJitMiniDebugInfoMemUsage();
+size_t GetJitMiniDebugInfoMemUsage() REQUIRES_SHARED(Locks::jit_lock_);
+
+// Get the lock which protects the native debug info.
+// Used only in tests to unwind while the JIT thread is running.
+// TODO: Unwinding should be race-free. Remove this.
+Mutex* GetNativeDebugInfoLock();
 
 }  // namespace art
 

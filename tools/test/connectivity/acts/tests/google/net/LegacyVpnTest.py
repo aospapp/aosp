@@ -48,17 +48,15 @@ class LegacyVpnTest(WifiBaseTest):
         """
         self.dut = self.android_devices[0]
         required_params = dir(VPN_PARAMS)
-        required_params = [x for x in required_params if not x.startswith('__')]
-        optional_params = ["reference_networks", "wpa_networks",]
-        self.unpack_userparams(req_param_names=required_params,
-                               opt_param_names=optional_params)
-        if "AccessPoint" in self.user_params:
-            self.legacy_configure_ap_and_start(wpa_network=True)
-        asserts.assert_true(len(self.reference_networks) > 0,
-                            "Need at least one reference network with psk.")
-        self.wifi_network = self.reference_networks[0]["2g"]
+        required_params = [
+            x for x in required_params if not x.startswith('__')
+        ] + ["wifi_network"]
+        self.unpack_userparams(req_param_names=required_params)
+
         wutils.wifi_test_device_init(self.dut)
         wutils.wifi_toggle_state(self.dut, True)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+                self.dut, self.wifi_network["SSID"])
         wutils.wifi_connect(self.dut, self.wifi_network)
         time.sleep(3)
 

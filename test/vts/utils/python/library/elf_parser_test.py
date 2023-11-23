@@ -48,6 +48,8 @@ _RELR_RELOCATIONS = [(0x300000, 0),
 
 _DEPENDENCIES = ['libc.so.6', 'libm.so.6']
 
+_RUNPATHS = ['/runpath1', '/runpath2']
+
 
 class ElfParserTest(unittest.TestCase):
     """Unit tests for ElfParser from elf_parser."""
@@ -145,8 +147,9 @@ class ElfParserTest(unittest.TestCase):
 
     def testListDependencies(self):
         """Tests that ListDependencies lists ELF dependencies correctly."""
-        deps = self.elf_file.ListDependencies()
+        deps, runpaths = self.elf_file.ListDependencies()
         self.assertEqual(deps, _DEPENDENCIES)
+        self.assertEqual(runpaths, _RUNPATHS)
 
     def testListGlobalSymbols(self):
         """Tests that ListGlobalSymbols lists global symbols correctly."""

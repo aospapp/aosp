@@ -90,14 +90,8 @@ static inline const char *d3dsio_to_string(unsigned opcode);
 #define NINE_SWIZZLE4(x,y,z,w) \
    TGSI_SWIZZLE_##x, TGSI_SWIZZLE_##y, TGSI_SWIZZLE_##z, TGSI_SWIZZLE_##w
 
-#define NINE_CONSTANT_SRC(index) \
-   ureg_src_dimension(ureg_src_register(TGSI_FILE_CONSTANT, index), 0)
-
 #define NINE_APPLY_SWIZZLE(src, s) \
    ureg_swizzle(src, NINE_SWIZZLE4(s, s, s, s))
-
-#define NINE_CONSTANT_SRC_SWIZZLE(index, s) \
-   NINE_APPLY_SWIZZLE(NINE_CONSTANT_SRC(index), s)
 
 #define NINED3DSPDM_SATURATE (D3DSPDM_SATURATE >> D3DSP_DSTMOD_SHIFT)
 #define NINED3DSPDM_PARTIALP (D3DSPDM_PARTIALPRECISION >> D3DSP_DSTMOD_SHIFT)
@@ -378,7 +372,7 @@ struct sm1_instruction
     struct sm1_src_param dst_rel[1];
     struct sm1_dst_param dst[1];
 
-    struct sm1_op_info *info;
+    const struct sm1_op_info *info;
 };
 
 static void
@@ -460,6 +454,7 @@ struct shader_translator
     boolean shift_wpos;
     boolean wpos_is_sysval;
     boolean face_is_sysval_integer;
+    boolean mul_zero_wins;
     unsigned texcoord_sn;
 
     struct sm1_instruction insn; /* current instruction */
@@ -481,9 +476,12 @@ struct shader_translator
         struct ureg_dst p;
         struct ureg_dst address;
         struct ureg_dst a0;
+        struct ureg_dst predicate;
+        struct ureg_dst predicate_tmp;
+        struct ureg_dst predicate_dst;
         struct ureg_dst tS[8]; /* texture stage registers */
         struct ureg_dst tdst; /* scratch dst if we need extra modifiers */
-        struct ureg_dst t[5]; /* scratch TEMPs */
+        struct ureg_dst t[8]; /* scratch TEMPs */
         struct ureg_src vC[2]; /* PS color in */
         struct ureg_src vT[8]; /* PS texcoord in */
         struct ureg_dst rL[NINE_MAX_LOOP_DEPTH]; /* loop ctr */
@@ -496,6 +494,7 @@ struct shader_translator
     unsigned loop_labels[NINE_MAX_LOOP_DEPTH];
     unsigned cond_labels[NINE_MAX_COND_DEPTH];
     boolean loop_or_rep[NINE_MAX_LOOP_DEPTH]; /* true: loop, false: rep */
+    boolean predicated_activated;
 
     unsigned *inst_labels; /* LABEL op */
     unsigned num_inst_labels;
@@ -508,6 +507,10 @@ struct shader_translator
     unsigned num_lconsti;
     struct sm1_local_const *lconstb;
     unsigned num_lconstb;
+
+    boolean slots_used[NINE_MAX_CONST_ALL];
+    unsigned *slot_map;
+    unsigned num_slots;
 
     boolean indirect_const_access;
     boolean failure;
@@ -549,6 +552,90 @@ nine_record_outputs(struct shader_translator *tx, BYTE Usage, BYTE UsageIndex,
     tx->output_info[tx->num_outputs].mask = mask;
     tx->output_info[tx->num_outputs].output_index = output_index;
     tx->num_outputs++;
+}
+
+static struct ureg_src nine_float_constant_src(struct shader_translator *tx, int idx)
+{
+    struct ureg_src src;
+
+    if (tx->slot_map)
+        idx = tx->slot_map[idx];
+    /* vswp constant handling: we use two buffers
+     * to fit all the float constants. The special handling
+     * doesn't need to be elsewhere, because all the instructions
+     * accessing the constants directly are VS1, and swvp
+     * is VS >= 2 */
+    if (tx->info->swvp_on && idx >= 4096) {
+        /* TODO: swvp rel is broken if many constants are used */
+        src = ureg_src_register(TGSI_FILE_CONSTANT, idx - 4096);
+        src = ureg_src_dimension(src, 1);
+    } else {
+        src = ureg_src_register(TGSI_FILE_CONSTANT, idx);
+        src = ureg_src_dimension(src, 0);
+    }
+
+    if (!tx->info->swvp_on)
+        tx->slots_used[idx] = TRUE;
+    if (tx->info->const_float_slots < (idx + 1))
+        tx->info->const_float_slots = idx + 1;
+    if (tx->num_slots < (idx + 1))
+        tx->num_slots = idx + 1;
+
+    return src;
+}
+
+static struct ureg_src nine_integer_constant_src(struct shader_translator *tx, int idx)
+{
+    struct ureg_src src;
+
+    if (tx->info->swvp_on) {
+        src = ureg_src_register(TGSI_FILE_CONSTANT, idx);
+        src = ureg_src_dimension(src, 2);
+    } else {
+        unsigned slot_idx = tx->info->const_i_base + idx;
+        if (tx->slot_map)
+            slot_idx = tx->slot_map[slot_idx];
+        src = ureg_src_register(TGSI_FILE_CONSTANT, slot_idx);
+        src = ureg_src_dimension(src, 0);
+        tx->slots_used[slot_idx] = TRUE;
+        tx->info->int_slots_used[idx] = TRUE;
+        if (tx->num_slots < (slot_idx + 1))
+            tx->num_slots = slot_idx + 1;
+    }
+
+    if (tx->info->const_int_slots < (idx + 1))
+        tx->info->const_int_slots = idx + 1;
+
+    return src;
+}
+
+static struct ureg_src nine_boolean_constant_src(struct shader_translator *tx, int idx)
+{
+    struct ureg_src src;
+
+    char r = idx / 4;
+    char s = idx & 3;
+
+    if (tx->info->swvp_on) {
+        src = ureg_src_register(TGSI_FILE_CONSTANT, r);
+        src = ureg_src_dimension(src, 3);
+    } else {
+        unsigned slot_idx = tx->info->const_b_base + r;
+        if (tx->slot_map)
+            slot_idx = tx->slot_map[slot_idx];
+        src = ureg_src_register(TGSI_FILE_CONSTANT, slot_idx);
+        src = ureg_src_dimension(src, 0);
+        tx->slots_used[slot_idx] = TRUE;
+        tx->info->bool_slots_used[idx] = TRUE;
+        if (tx->num_slots < (slot_idx + 1))
+            tx->num_slots = slot_idx + 1;
+    }
+    src = ureg_swizzle(src, s, s, s, s);
+
+    if (tx->info->const_bool_slots < (idx + 1))
+        tx->info->const_bool_slots = idx + 1;
+
+    return src;
 }
 
 static boolean
@@ -766,12 +853,13 @@ TEX_with_ps1x_projection(struct shader_translator *tx, struct ureg_dst dst,
 {
     unsigned dim = 1 + ((tx->info->projected >> (2 * idx)) & 3);
     struct ureg_dst tmp;
+    boolean shadow = !!(tx->info->sampler_mask_shadow & (1 << idx));
 
     /* dim == 1: no projection
      * Looks like must be disabled when it makes no
      * sense according the texture dimensions
      */
-    if (dim == 1 || dim <= target) {
+    if (dim == 1 || (dim <= target && !shadow)) {
         ureg_TEX(tx->ureg, dst, target, src0, src1);
     } else if (dim == 4) {
         ureg_TXP(tx->ureg, dst, target, src0, src1);
@@ -900,16 +988,17 @@ tx_src_param(struct shader_translator *tx, const struct sm1_src_param *param)
     struct ureg_src src;
     struct ureg_dst tmp;
 
+    assert(!param->rel || (IS_VS && param->file == D3DSPR_CONST) ||
+        (D3DSPR_ADDR && tx->version.major == 3));
+
     switch (param->file)
     {
     case D3DSPR_TEMP:
-        assert(!param->rel);
         tx_temp_alloc(tx, param->idx);
         src = ureg_src(tx->regs.r[param->idx]);
         break;
  /* case D3DSPR_TEXTURE: == D3DSPR_ADDR */
     case D3DSPR_ADDR:
-        assert(!param->rel);
         if (IS_VS) {
             assert(param->idx == 0);
             /* the address register (vs only) must be
@@ -937,7 +1026,6 @@ tx_src_param(struct shader_translator *tx, const struct sm1_src_param *param)
             src = ureg_src_register(TGSI_FILE_INPUT, param->idx);
         } else {
             if (tx->version.major < 3) {
-                assert(!param->rel);
                 src = ureg_DECL_fs_input_cyl_centroid(
                     ureg, TGSI_SEMANTIC_COLOR, param->idx,
                     TGSI_INTERPOLATE_COLOR, 0,
@@ -973,43 +1061,29 @@ tx_src_param(struct shader_translator *tx, const struct sm1_src_param *param)
                 }
             }
         }
+        if (param->rel)
+            src = ureg_src_indirect(src, tx_src_param(tx, param->rel));
         break;
     case D3DSPR_PREDICATE:
-        assert(!"D3DSPR_PREDICATE");
+        if (ureg_dst_is_undef(tx->regs.predicate)) {
+            /* Forbidden to use the predicate register before being set */
+            tx->failure = TRUE;
+            tx->regs.predicate = ureg_DECL_temporary(tx->ureg);
+        }
+        src = ureg_src(tx->regs.predicate);
         break;
     case D3DSPR_SAMPLER:
         assert(param->mod == NINED3DSPSM_NONE);
         assert(param->swizzle == NINED3DSP_NOSWIZZLE);
-        assert(!param->rel);
-        src = ureg_src_register(TGSI_FILE_SAMPLER, param->idx);
+        src = ureg_DECL_sampler(ureg, param->idx);
         break;
     case D3DSPR_CONST:
-        assert(!param->rel || IS_VS);
-        if (param->rel)
-            tx->indirect_const_access = TRUE;
         if (param->rel || !tx_lconstf(tx, &src, param->idx)) {
-            if (!param->rel)
-                nine_info_mark_const_f_used(tx->info, param->idx);
-            /* vswp constant handling: we use two buffers
-             * to fit all the float constants. The special handling
-             * doesn't need to be elsewhere, because all the instructions
-             * accessing the constants directly are VS1, and swvp
-             * is VS >= 2 */
-            if (IS_VS && tx->info->swvp_on) {
-                if (!param->rel) {
-                    if (param->idx < 4096) {
-                        src = ureg_src_register(TGSI_FILE_CONSTANT, param->idx);
-                        src = ureg_src_dimension(src, 0);
-                    } else {
-                        src = ureg_src_register(TGSI_FILE_CONSTANT, param->idx - 4096);
-                        src = ureg_src_dimension(src, 1);
-                    }
-                } else {
-                    src = ureg_src_register(TGSI_FILE_CONSTANT, param->idx); /* TODO: swvp rel > 4096 */
-                    src = ureg_src_dimension(src, 0);
-                }
-            } else
-                src = NINE_CONSTANT_SRC(param->idx);
+            src = nine_float_constant_src(tx, param->idx);
+            if (param->rel) {
+                tx->indirect_const_access = TRUE;
+                src = ureg_src_indirect(src, tx_src_param(tx, param->rel));
+            }
         }
         if (!IS_VS && tx->version.major < 2) {
             /* ps 1.X clamps constants */
@@ -1028,29 +1102,12 @@ tx_src_param(struct shader_translator *tx, const struct sm1_src_param *param)
         break;
     case D3DSPR_CONSTINT:
         /* relative adressing only possible for float constants in vs */
-        assert(!param->rel);
-        if (!tx_lconsti(tx, &src, param->idx)) {
-            nine_info_mark_const_i_used(tx->info, param->idx);
-            if (IS_VS && tx->info->swvp_on) {
-                src = ureg_src_register(TGSI_FILE_CONSTANT, param->idx);
-                src = ureg_src_dimension(src, 2);
-            } else
-                src = NINE_CONSTANT_SRC(tx->info->const_i_base + param->idx);
-        }
+        if (!tx_lconsti(tx, &src, param->idx))
+            src = nine_integer_constant_src(tx, param->idx);
         break;
     case D3DSPR_CONSTBOOL:
-        assert(!param->rel);
-        if (!tx_lconstb(tx, &src, param->idx)) {
-           char r = param->idx / 4;
-           char s = param->idx & 3;
-           nine_info_mark_const_b_used(tx->info, param->idx);
-           if (IS_VS && tx->info->swvp_on) {
-               src = ureg_src_register(TGSI_FILE_CONSTANT, r);
-               src = ureg_src_dimension(src, 3);
-           } else
-               src = NINE_CONSTANT_SRC(tx->info->const_b_base + r);
-           src = ureg_swizzle(src, s, s, s, s);
-        }
+        if (!tx_lconstb(tx, &src, param->idx))
+            src = nine_boolean_constant_src(tx, param->idx);
         break;
     case D3DSPR_LOOP:
         if (ureg_dst_is_undef(tx->regs.address))
@@ -1100,15 +1157,12 @@ tx_src_param(struct shader_translator *tx, const struct sm1_src_param *param)
             assert(!"invalid src D3DSMO");
             break;
         }
-        assert(!param->rel);
         break;
     case D3DSPR_TEMPFLOAT16:
         break;
     default:
         assert(!"invalid src D3DSPR");
     }
-    if (param->rel)
-        src = ureg_src_indirect(src, tx_src_param(tx, param->rel));
 
     switch (param->mod) {
     case NINED3DSPSM_DW:
@@ -1157,11 +1211,15 @@ tx_src_param(struct shader_translator *tx, const struct sm1_src_param *param)
         src = ureg_src(tmp);
         break;
     case NINED3DSPSM_NOT:
-        if (tx->native_integers) {
+        if (tx->native_integers && param->file == D3DSPR_CONSTBOOL) {
             tmp = tx_scratch(tx);
             ureg_NOT(ureg, tmp, src);
             src = ureg_src(tmp);
             break;
+        } else { /* predicate */
+            tmp = tx_scratch(tx);
+            ureg_ADD(ureg, tmp, ureg_imm1f(ureg, 1.0f), ureg_negate(src));
+            src = ureg_src(tmp);
         }
         /* fall through */
     case NINED3DSPSM_COMP:
@@ -1241,7 +1299,7 @@ _tx_dst_param(struct shader_translator *tx, const struct sm1_dst_param *param)
         case 1:
             if (ureg_dst_is_undef(tx->regs.oFog))
                 tx->regs.oFog =
-                    ureg_saturate(ureg_DECL_output(tx->ureg, TGSI_SEMANTIC_FOG, 0));
+                    ureg_saturate(ureg_DECL_output(tx->ureg, TGSI_SEMANTIC_GENERIC, 16));
             dst = tx->regs.oFog;
             break;
         case 2:
@@ -1292,7 +1350,9 @@ _tx_dst_param(struct shader_translator *tx, const struct sm1_dst_param *param)
         dst = tx->regs.oDepth; /* XXX: must write .z component */
         break;
     case D3DSPR_PREDICATE:
-        assert(!"D3DSPR_PREDICATE");
+        if (ureg_dst_is_undef(tx->regs.predicate))
+            tx->regs.predicate = ureg_DECL_temporary(tx->ureg);
+        dst = tx->regs.predicate;
         break;
     case D3DSPR_TEMPFLOAT16:
         DBG("unhandled D3DSPR: %u\n", param->file);
@@ -1308,6 +1368,11 @@ _tx_dst_param(struct shader_translator *tx, const struct sm1_dst_param *param)
         dst = ureg_writemask(dst, param->mask);
     if (param->mod & NINED3DSPDM_SATURATE)
         dst = ureg_saturate(dst);
+
+    if (tx->predicated_activated) {
+        tx->regs.predicate_dst = dst;
+        dst = tx->regs.predicate_tmp;
+    }
 
     return dst;
 }
@@ -1785,14 +1850,19 @@ DECL_SPECIAL(SINCOS)
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
     struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]);
+    struct ureg_dst tmp = tx_scratch_scalar(tx);
 
     assert(!(dst.WriteMask & 0xc));
 
+    /* Copying to a temporary register avoids src/dst aliasing.
+     * src is supposed to have replicated swizzle. */
+    ureg_MOV(ureg, tmp, src);
+
     /* z undefined, w untouched */
     ureg_COS(ureg, ureg_writemask(dst, TGSI_WRITEMASK_X),
-             ureg_scalar(src, TGSI_SWIZZLE_X));
+             tx_src_scalar(tmp));
     ureg_SIN(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Y),
-             ureg_scalar(src, TGSI_SWIZZLE_X));
+             tx_src_scalar(tmp));
     return D3D_OK;
 }
 
@@ -1969,15 +2039,16 @@ sm1_declusage_to_tgsi(struct tgsi_declaration_semantic *sem,
      * are close together or low.
      *
      *
-     * POSITION >= 1: 10 * index + 6
-     * COLOR >= 2: 10 * (index-1) + 7
+     * POSITION >= 1: 10 * index + 7
+     * COLOR >= 2: 10 * (index-1) + 8
+     * FOG: 16
      * TEXCOORD[0..15]: index
-     * BLENDWEIGHT: 10 * index + 18
-     * BLENDINDICES: 10 * index + 19
-     * NORMAL: 10 * index + 20
-     * TANGENT: 10 * index + 21
-     * BINORMAL: 10 * index + 22
-     * TESSFACTOR: 10 * index + 23
+     * BLENDWEIGHT: 10 * index + 19
+     * BLENDINDICES: 10 * index + 20
+     * NORMAL: 10 * index + 21
+     * TANGENT: 10 * index + 22
+     * BINORMAL: 10 * index + 23
+     * TESSFACTOR: 10 * index + 24
      */
 
     switch (dcl->usage) {
@@ -1989,7 +2060,7 @@ sm1_declusage_to_tgsi(struct tgsi_declaration_semantic *sem,
             sem->Index = 0;
         } else {
             sem->Name = TGSI_SEMANTIC_GENERIC;
-            sem->Index = 10 * index + 6;
+            sem->Index = 10 * index + 7;
         }
         break;
     case D3DDECLUSAGE_COLOR:
@@ -1998,13 +2069,13 @@ sm1_declusage_to_tgsi(struct tgsi_declaration_semantic *sem,
             sem->Index = index;
         } else {
             sem->Name = TGSI_SEMANTIC_GENERIC;
-            sem->Index = 10 * (index-1) + 7;
+            sem->Index = 10 * (index-1) + 8;
         }
         break;
     case D3DDECLUSAGE_FOG:
         assert(index == 0);
-        sem->Name = TGSI_SEMANTIC_FOG;
-        sem->Index = 0;
+        sem->Name = TGSI_SEMANTIC_GENERIC;
+        sem->Index = 16;
         break;
     case D3DDECLUSAGE_PSIZE:
         assert(index == 0);
@@ -2021,27 +2092,27 @@ sm1_declusage_to_tgsi(struct tgsi_declaration_semantic *sem,
         break;
     case D3DDECLUSAGE_BLENDWEIGHT:
         sem->Name = TGSI_SEMANTIC_GENERIC;
-        sem->Index = 10 * index + 18;
+        sem->Index = 10 * index + 19;
         break;
     case D3DDECLUSAGE_BLENDINDICES:
         sem->Name = TGSI_SEMANTIC_GENERIC;
-        sem->Index = 10 * index + 19;
+        sem->Index = 10 * index + 20;
         break;
     case D3DDECLUSAGE_NORMAL:
         sem->Name = TGSI_SEMANTIC_GENERIC;
-        sem->Index = 10 * index + 20;
+        sem->Index = 10 * index + 21;
         break;
     case D3DDECLUSAGE_TANGENT:
         sem->Name = TGSI_SEMANTIC_GENERIC;
-        sem->Index = 10 * index + 21;
+        sem->Index = 10 * index + 22;
         break;
     case D3DDECLUSAGE_BINORMAL:
         sem->Name = TGSI_SEMANTIC_GENERIC;
-        sem->Index = 10 * index + 22;
+        sem->Index = 10 * index + 23;
         break;
     case D3DDECLUSAGE_TESSFACTOR:
         sem->Name = TGSI_SEMANTIC_GENERIC;
-        sem->Index = 10 * index + 23;
+        sem->Index = 10 * index + 24;
         break;
     case D3DDECLUSAGE_SAMPLE:
         sem->Name = TGSI_SEMANTIC_COUNT;
@@ -2086,9 +2157,10 @@ d3dstt_to_tgsi_tex_shadow(BYTE sampler_type)
 static inline unsigned
 ps1x_sampler_type(const struct nine_shader_info *info, unsigned stage)
 {
+    boolean shadow = !!(info->sampler_mask_shadow & (1 << stage));
     switch ((info->sampler_ps1xtypes >> (stage * 2)) & 0x3) {
-    case 1: return TGSI_TEXTURE_1D;
-    case 0: return TGSI_TEXTURE_2D;
+    case 1: return shadow ? TGSI_TEXTURE_SHADOW1D : TGSI_TEXTURE_1D;
+    case 0: return shadow ? TGSI_TEXTURE_SHADOW2D : TGSI_TEXTURE_2D;
     case 3: return TGSI_TEXTURE_3D;
     default:
         return TGSI_TEXTURE_CUBE;
@@ -2273,14 +2345,59 @@ DECL_SPECIAL(POW)
     return D3D_OK;
 }
 
+/* Tests results on Win 10:
+ * NV (NVIDIA GeForce GT 635M)
+ * AMD (AMD Radeon HD 7730M)
+ * INTEL (Intel(R) HD Graphics 4000)
+ * PS2 and PS3:
+ * RCP and RSQ can generate inf on NV and AMD.
+ * RCP and RSQ are clamped on INTEL (+- FLT_MAX),
+ * NV: log not clamped
+ * AMD: log(0) is -FLT_MAX (but log(inf) is inf)
+ * INTEL: log(0) is -FLT_MAX and log(inf) is 127
+ * All devices have 0*anything = 0
+ *
+ * INTEL VS2 and VS3: same behaviour.
+ * Some differences VS2 and VS3 for constants defined with inf/NaN.
+ * While PS3, VS3 and PS2 keep NaN and Inf shader constants without change,
+ * VS2 seems to clamp to zero (may be test failure).
+ * AMD VS2: unknown, VS3: very likely behaviour of PS3
+ * NV VS2 and VS3: very likely behaviour of PS3
+ * For both, Inf in VS becomes NaN is PS
+ * "Very likely" because the test was less extensive.
+ *
+ * Thus all clamping can be removed for shaders 2 and 3,
+ * as long as 0*anything = 0.
+ * Else clamps to enforce 0*anything = 0 (anything being then
+ * neither inf or NaN, the user being unlikely to pass them
+ * as constant).
+ * The status for VS1 and PS1 is unknown.
+ */
+
+DECL_SPECIAL(RCP)
+{
+    struct ureg_program *ureg = tx->ureg;
+    struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]);
+    struct ureg_dst tmp = tx->mul_zero_wins ? dst : tx_scratch(tx);
+    ureg_RCP(ureg, tmp, src);
+    if (!tx->mul_zero_wins) {
+        /* FLT_MAX has issues with Rayman */
+        ureg_MIN(ureg, tmp, ureg_imm1f(ureg, FLT_MAX/2.f), ureg_src(tmp));
+        ureg_MAX(ureg, dst, ureg_imm1f(ureg, -FLT_MAX/2.f), ureg_src(tmp));
+    }
+    return D3D_OK;
+}
+
 DECL_SPECIAL(RSQ)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
     struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]);
-    struct ureg_dst tmp = tx_scratch(tx);
+    struct ureg_dst tmp = tx->mul_zero_wins ? dst : tx_scratch(tx);
     ureg_RSQ(ureg, tmp, ureg_abs(src));
-    ureg_MIN(ureg, dst, ureg_imm1f(ureg, FLT_MAX), ureg_src(tmp));
+    if (!tx->mul_zero_wins)
+        ureg_MIN(ureg, dst, ureg_imm1f(ureg, FLT_MAX), ureg_src(tmp));
     return D3D_OK;
 }
 
@@ -2291,7 +2408,11 @@ DECL_SPECIAL(LOG)
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
     struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]);
     ureg_LG2(ureg, tmp, ureg_abs(src));
-    ureg_MAX(ureg, dst, ureg_imm1f(ureg, -FLT_MAX), tx_src_scalar(tmp));
+    if (tx->mul_zero_wins) {
+        ureg_MOV(ureg, dst, tx_src_scalar(tmp));
+    } else {
+        ureg_MAX(ureg, dst, ureg_imm1f(ureg, -FLT_MAX), tx_src_scalar(tmp));
+    }
     return D3D_OK;
 }
 
@@ -2321,7 +2442,8 @@ DECL_SPECIAL(NRM)
     struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]);
     ureg_DP3(ureg, tmp, src, src);
     ureg_RSQ(ureg, tmp, nrm);
-    ureg_MIN(ureg, tmp, ureg_imm1f(ureg, FLT_MAX), nrm);
+    if (!tx->mul_zero_wins)
+        ureg_MIN(ureg, tmp, ureg_imm1f(ureg, FLT_MAX), nrm);
     ureg_MUL(ureg, dst, src, nrm);
     return D3D_OK;
 }
@@ -2390,11 +2512,11 @@ DECL_SPECIAL(TEXBEM)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_dst tmp, tmp2, texcoord;
-    struct ureg_src sample, m00, m01, m10, m11;
+    struct ureg_src sample, m00, m01, m10, m11, c8m, c16m2;
     struct ureg_src bumpenvlscale, bumpenvloffset;
     const int m = tx->insn.dst[0].idx;
-    const int n = tx->insn.src[0].idx;
 
     assert(tx->version.major == 1);
 
@@ -2413,37 +2535,39 @@ DECL_SPECIAL(TEXBEM)
      * 10 is Z
      * 11 is W
      */
-    nine_info_mark_const_f_used(tx->info, 8 + 8 + m/2);
-    m00 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, X);
-    m01 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, Y);
-    m10 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, Z);
-    m11 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, W);
+    c8m = nine_float_constant_src(tx, 8+m);
+    c16m2 = nine_float_constant_src(tx, 8+8+m/2);
+
+    m00 = NINE_APPLY_SWIZZLE(c8m, X);
+    m01 = NINE_APPLY_SWIZZLE(c8m, Y);
+    m10 = NINE_APPLY_SWIZZLE(c8m, Z);
+    m11 = NINE_APPLY_SWIZZLE(c8m, W);
 
     /* These two attributes are packed as X=scale0 Y=offset0 Z=scale1 W=offset1 etc */
     if (m % 2 == 0) {
-        bumpenvlscale = NINE_CONSTANT_SRC_SWIZZLE(8 + 8 + m / 2, X);
-        bumpenvloffset = NINE_CONSTANT_SRC_SWIZZLE(8 + 8 + m / 2, Y);
+        bumpenvlscale = NINE_APPLY_SWIZZLE(c16m2, X);
+        bumpenvloffset = NINE_APPLY_SWIZZLE(c16m2, Y);
     } else {
-        bumpenvlscale = NINE_CONSTANT_SRC_SWIZZLE(8 + 8 + m / 2, Z);
-        bumpenvloffset = NINE_CONSTANT_SRC_SWIZZLE(8 + 8 + m / 2, W);
+        bumpenvlscale = NINE_APPLY_SWIZZLE(c16m2, Z);
+        bumpenvloffset = NINE_APPLY_SWIZZLE(c16m2, W);
     }
 
     apply_ps1x_projection(tx, texcoord, tx->regs.vT[m], m);
 
     /* u' = TextureCoordinates(stage m)u + D3DTSS_BUMPENVMAT00(stage m)*t(n)R  */
     ureg_MAD(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_X), m00,
-             NINE_APPLY_SWIZZLE(ureg_src(tx->regs.tS[n]), X), ureg_src(texcoord));
+             NINE_APPLY_SWIZZLE(src, X), ureg_src(texcoord));
     /* u' = u' + D3DTSS_BUMPENVMAT10(stage m)*t(n)G */
     ureg_MAD(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_X), m10,
-             NINE_APPLY_SWIZZLE(ureg_src(tx->regs.tS[n]), Y),
+             NINE_APPLY_SWIZZLE(src, Y),
              NINE_APPLY_SWIZZLE(ureg_src(tmp), X));
 
     /* v' = TextureCoordinates(stage m)v + D3DTSS_BUMPENVMAT01(stage m)*t(n)R */
     ureg_MAD(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_Y), m01,
-             NINE_APPLY_SWIZZLE(ureg_src(tx->regs.tS[n]), X), ureg_src(texcoord));
+             NINE_APPLY_SWIZZLE(src, X), ureg_src(texcoord));
     /* v' = v' + D3DTSS_BUMPENVMAT11(stage m)*t(n)G*/
     ureg_MAD(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_Y), m11,
-             NINE_APPLY_SWIZZLE(ureg_src(tx->regs.tS[n]), Y),
+             NINE_APPLY_SWIZZLE(src, Y),
              NINE_APPLY_SWIZZLE(ureg_src(tmp), Y));
 
     /* Now the texture coordinates are in tmp.xy */
@@ -2453,7 +2577,7 @@ DECL_SPECIAL(TEXBEM)
     } else if (tx->insn.opcode == D3DSIO_TEXBEML) {
         /* t(m)RGBA = t(m)RGBA * [(t(n)B * D3DTSS_BUMPENVLSCALE(stage m)) + D3DTSS_BUMPENVLOFFSET(stage m)] */
         ureg_TEX(ureg, tmp, ps1x_sampler_type(tx->info, m), ureg_src(tmp), sample);
-        ureg_MAD(ureg, tmp2, NINE_APPLY_SWIZZLE(ureg_src(tx->regs.tS[n]), Z),
+        ureg_MAD(ureg, tmp2, NINE_APPLY_SWIZZLE(src, Z),
                  bumpenvlscale, bumpenvloffset);
         ureg_MUL(ureg, dst, ureg_src(tmp), ureg_src(tmp2));
     }
@@ -2467,6 +2591,7 @@ DECL_SPECIAL(TEXREG2AR)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_src sample;
     const int m = tx->insn.dst[0].idx;
     const int n = tx->insn.src[0].idx;
@@ -2474,7 +2599,7 @@ DECL_SPECIAL(TEXREG2AR)
 
     sample = ureg_DECL_sampler(ureg, m);
     tx->info->sampler_mask |= 1 << m;
-    ureg_TEX(ureg, dst, ps1x_sampler_type(tx->info, m), ureg_swizzle(ureg_src(tx->regs.tS[n]), NINE_SWIZZLE4(W,X,X,X)), sample);
+    ureg_TEX(ureg, dst, ps1x_sampler_type(tx->info, m), ureg_swizzle(src, NINE_SWIZZLE4(W,X,X,X)), sample);
 
     return D3D_OK;
 }
@@ -2483,6 +2608,7 @@ DECL_SPECIAL(TEXREG2GB)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_src sample;
     const int m = tx->insn.dst[0].idx;
     const int n = tx->insn.src[0].idx;
@@ -2490,7 +2616,7 @@ DECL_SPECIAL(TEXREG2GB)
 
     sample = ureg_DECL_sampler(ureg, m);
     tx->info->sampler_mask |= 1 << m;
-    ureg_TEX(ureg, dst, ps1x_sampler_type(tx->info, m), ureg_swizzle(ureg_src(tx->regs.tS[n]), NINE_SWIZZLE4(Y,Z,Z,Z)), sample);
+    ureg_TEX(ureg, dst, ps1x_sampler_type(tx->info, m), ureg_swizzle(src, NINE_SWIZZLE4(Y,Z,Z,Z)), sample);
 
     return D3D_OK;
 }
@@ -2504,6 +2630,7 @@ DECL_SPECIAL(TEXM3x2TEX)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_src sample;
     const int m = tx->insn.dst[0].idx - 1;
     const int n = tx->insn.src[0].idx;
@@ -2513,8 +2640,8 @@ DECL_SPECIAL(TEXM3x2TEX)
     tx_texcoord_alloc(tx, m+1);
 
     /* performs the matrix multiplication */
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_X), tx->regs.vT[m], ureg_src(tx->regs.tS[n]));
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], ureg_src(tx->regs.tS[n]));
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_X), tx->regs.vT[m], src);
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], src);
 
     sample = ureg_DECL_sampler(ureg, m + 1);
     tx->info->sampler_mask |= 1 << (m + 1);
@@ -2532,6 +2659,7 @@ DECL_SPECIAL(TEXM3x3SPEC)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_src E = tx_src_param(tx, &tx->insn.src[1]);
     struct ureg_src sample;
     struct ureg_dst tmp;
@@ -2543,9 +2671,9 @@ DECL_SPECIAL(TEXM3x3SPEC)
     tx_texcoord_alloc(tx, m+1);
     tx_texcoord_alloc(tx, m+2);
 
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_X), tx->regs.vT[m], ureg_src(tx->regs.tS[n]));
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], ureg_src(tx->regs.tS[n]));
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Z), tx->regs.vT[m+2], ureg_src(tx->regs.tS[n]));
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_X), tx->regs.vT[m], src);
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], src);
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Z), tx->regs.vT[m+2], src);
 
     sample = ureg_DECL_sampler(ureg, m + 2);
     tx->info->sampler_mask |= 1 << (m + 2);
@@ -2574,6 +2702,7 @@ DECL_SPECIAL(TEXREG2RGB)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_src sample;
     const int m = tx->insn.dst[0].idx;
     const int n = tx->insn.src[0].idx;
@@ -2581,7 +2710,7 @@ DECL_SPECIAL(TEXREG2RGB)
 
     sample = ureg_DECL_sampler(ureg, m);
     tx->info->sampler_mask |= 1 << m;
-    ureg_TEX(ureg, dst, ps1x_sampler_type(tx->info, m), ureg_src(tx->regs.tS[n]), sample);
+    ureg_TEX(ureg, dst, ps1x_sampler_type(tx->info, m), src, sample);
 
     return D3D_OK;
 }
@@ -2590,6 +2719,7 @@ DECL_SPECIAL(TEXDP3TEX)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_dst tmp;
     struct ureg_src sample;
     const int m = tx->insn.dst[0].idx;
@@ -2599,7 +2729,7 @@ DECL_SPECIAL(TEXDP3TEX)
     tx_texcoord_alloc(tx, m);
 
     tmp = tx_scratch(tx);
-    ureg_DP3(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_X), tx->regs.vT[m], ureg_src(tx->regs.tS[n]));
+    ureg_DP3(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_X), tx->regs.vT[m], src);
     ureg_MOV(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_YZ), ureg_imm1f(ureg, 0.0f));
 
     sample = ureg_DECL_sampler(ureg, m);
@@ -2612,6 +2742,7 @@ DECL_SPECIAL(TEXDP3TEX)
 DECL_SPECIAL(TEXM3x2DEPTH)
 {
     struct ureg_program *ureg = tx->ureg;
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_dst tmp;
     const int m = tx->insn.dst[0].idx - 1;
     const int n = tx->insn.src[0].idx;
@@ -2623,8 +2754,8 @@ DECL_SPECIAL(TEXM3x2DEPTH)
     tmp = tx_scratch(tx);
 
     /* performs the matrix multiplication */
-    ureg_DP3(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_X), tx->regs.vT[m], ureg_src(tx->regs.tS[n]));
-    ureg_DP3(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], ureg_src(tx->regs.tS[n]));
+    ureg_DP3(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_X), tx->regs.vT[m], src);
+    ureg_DP3(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], src);
 
     ureg_RCP(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_Z), ureg_scalar(ureg_src(tmp), TGSI_SWIZZLE_Y));
     /* tmp.x = 'z', tmp.y = 'w', tmp.z = 1/'w'. */
@@ -2644,13 +2775,14 @@ DECL_SPECIAL(TEXDP3)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     const int m = tx->insn.dst[0].idx;
     const int n = tx->insn.src[0].idx;
     assert(m >= 0 && m > n);
 
     tx_texcoord_alloc(tx, m);
 
-    ureg_DP3(ureg, dst, tx->regs.vT[m], ureg_src(tx->regs.tS[n]));
+    ureg_DP3(ureg, dst, tx->regs.vT[m], src);
 
     return D3D_OK;
 }
@@ -2659,6 +2791,7 @@ DECL_SPECIAL(TEXM3x3)
 {
     struct ureg_program *ureg = tx->ureg;
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]); /* t[n] */
     struct ureg_src sample;
     struct ureg_dst E, tmp;
     const int m = tx->insn.dst[0].idx - 2;
@@ -2669,9 +2802,9 @@ DECL_SPECIAL(TEXM3x3)
     tx_texcoord_alloc(tx, m+1);
     tx_texcoord_alloc(tx, m+2);
 
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_X), tx->regs.vT[m], ureg_src(tx->regs.tS[n]));
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], ureg_src(tx->regs.tS[n]));
-    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Z), tx->regs.vT[m+2], ureg_src(tx->regs.tS[n]));
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_X), tx->regs.vT[m], src);
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Y), tx->regs.vT[m+1], src);
+    ureg_DP3(ureg, ureg_writemask(dst, TGSI_WRITEMASK_Z), tx->regs.vT[m+2], src);
 
     switch (tx->insn.opcode) {
     case D3DSIO_TEXM3x3:
@@ -2745,7 +2878,7 @@ DECL_SPECIAL(BEM)
     struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
     struct ureg_src src0 = tx_src_param(tx, &tx->insn.src[0]);
     struct ureg_src src1 = tx_src_param(tx, &tx->insn.src[1]);
-    struct ureg_src m00, m01, m10, m11;
+    struct ureg_src m00, m01, m10, m11, c8m;
     const int m = tx->insn.dst[0].idx;
     struct ureg_dst tmp;
     /*
@@ -2755,11 +2888,11 @@ DECL_SPECIAL(BEM)
      * 10 is Z
      * 11 is W
      */
-    nine_info_mark_const_f_used(tx->info, 8 + m);
-    m00 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, X);
-    m01 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, Y);
-    m10 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, Z);
-    m11 = NINE_CONSTANT_SRC_SWIZZLE(8 + m, W);
+    c8m = nine_float_constant_src(tx, 8+m);
+    m00 = NINE_APPLY_SWIZZLE(c8m, X);
+    m01 = NINE_APPLY_SWIZZLE(c8m, Y);
+    m10 = NINE_APPLY_SWIZZLE(c8m, Z);
+    m11 = NINE_APPLY_SWIZZLE(c8m, W);
     /* dest.r = src0.r + D3DTSS_BUMPENVMAT00(stage n) * src1.r  */
     ureg_MAD(ureg, ureg_writemask(tmp, TGSI_WRITEMASK_X), m00,
              NINE_APPLY_SWIZZLE(src1, X), NINE_APPLY_SWIZZLE(src0, X));
@@ -2879,12 +3012,24 @@ DECL_SPECIAL(TEXLDL)
 
 DECL_SPECIAL(SETP)
 {
-    STUB(D3DERR_INVALIDCALL);
+    const unsigned cmp_op = sm1_insn_flags_to_tgsi_setop(tx->insn.flags);
+    struct ureg_dst dst = tx_dst_param(tx, &tx->insn.dst[0]);
+    struct ureg_src src[2] = {
+       tx_src_param(tx, &tx->insn.src[0]),
+       tx_src_param(tx, &tx->insn.src[1])
+    };
+    ureg_insn(tx->ureg, cmp_op, &dst, 1, src, 2, 0);
+    return D3D_OK;
 }
 
 DECL_SPECIAL(BREAKP)
 {
-    STUB(D3DERR_INVALIDCALL);
+    struct ureg_src src = tx_src_param(tx, &tx->insn.src[0]);
+    ureg_IF(tx->ureg, src, tx_cond(tx));
+    ureg_BRK(tx->ureg);
+    tx_endcond(tx);
+    ureg_ENDIF(tx->ureg);
+    return D3D_OK;
 }
 
 DECL_SPECIAL(PHASE)
@@ -2901,7 +3046,7 @@ DECL_SPECIAL(COMMENT)
 #define _OPI(o,t,vv1,vv2,pv1,pv2,d,s,h) \
     { D3DSIO_##o, TGSI_OPCODE_##t, { vv1, vv2 }, { pv1, pv2, }, d, s, h }
 
-struct sm1_op_info inst_table[] =
+static const struct sm1_op_info inst_table[] =
 {
     _OPI(NOP, NOP, V(0,0), V(3,0), V(0,0), V(3,0), 0, 0, SPECIAL(NOP)), /* 0 */
     _OPI(MOV, MOV, V(0,0), V(3,0), V(0,0), V(3,0), 1, 1, NULL),
@@ -2909,7 +3054,7 @@ struct sm1_op_info inst_table[] =
     _OPI(SUB, NOP, V(0,0), V(3,0), V(0,0), V(3,0), 1, 2, SPECIAL(SUB)), /* 3 */
     _OPI(MAD, MAD, V(0,0), V(3,0), V(0,0), V(3,0), 1, 3, NULL), /* 4 */
     _OPI(MUL, MUL, V(0,0), V(3,0), V(0,0), V(3,0), 1, 2, NULL), /* 5 */
-    _OPI(RCP, RCP, V(0,0), V(3,0), V(0,0), V(3,0), 1, 1, NULL), /* 6 */
+    _OPI(RCP, RCP, V(0,0), V(3,0), V(0,0), V(3,0), 1, 1, SPECIAL(RCP)), /* 6 */
     _OPI(RSQ, RSQ, V(0,0), V(3,0), V(0,0), V(3,0), 1, 1, SPECIAL(RSQ)), /* 7 */
     _OPI(DP3, DP3, V(0,0), V(3,0), V(0,0), V(3,0), 1, 2, NULL), /* 8 */
     _OPI(DP4, DP4, V(0,0), V(3,0), V(0,0), V(3,0), 1, 2, NULL), /* 9 */
@@ -3008,10 +3153,10 @@ struct sm1_op_info inst_table[] =
     _OPI(BREAKP, BRK,  V(0,0), V(3,0), V(2,1), V(3,0), 0, 1, SPECIAL(BREAKP))
 };
 
-struct sm1_op_info inst_phase =
+static const struct sm1_op_info inst_phase =
     _OPI(PHASE, NOP, V(0,0), V(0,0), V(1,4), V(1,4), 0, 0, SPECIAL(PHASE));
 
-struct sm1_op_info inst_comment =
+static const struct sm1_op_info inst_comment =
     _OPI(COMMENT, NOP, V(0,0), V(3,0), V(0,0), V(3,0), 0, 0, SPECIAL(COMMENT));
 
 static void
@@ -3279,7 +3424,7 @@ sm1_parse_instruction(struct shader_translator *tx)
     struct sm1_instruction *insn = &tx->insn;
     HRESULT hr;
     DWORD tok;
-    struct sm1_op_info *info = NULL;
+    const struct sm1_op_info *info = NULL;
     unsigned i;
 
     sm1_parse_comments(tx, TRUE);
@@ -3311,8 +3456,6 @@ sm1_parse_instruction(struct shader_translator *tx)
     insn->ndst = info->ndst;
     insn->nsrc = info->nsrc;
 
-    assert(!insn->predicated && "TODO: predicated instructions");
-
     /* check version */
     {
         unsigned min = IS_VS ? info->vert_version.min : info->frag_version.min;
@@ -3341,11 +3484,29 @@ sm1_parse_instruction(struct shader_translator *tx)
     sm1_dump_instruction(insn, tx->cond_depth + tx->loop_depth);
     sm1_instruction_check(insn);
 
+    if (insn->predicated) {
+        tx->predicated_activated = true;
+        if (ureg_dst_is_undef(tx->regs.predicate_tmp)) {
+            tx->regs.predicate_tmp = ureg_DECL_temporary(tx->ureg);
+            tx->regs.predicate_dst = ureg_DECL_temporary(tx->ureg);
+        }
+    }
+
     if (info->handler)
         hr = info->handler(tx);
     else
         hr = NineTranslateInstruction_Generic(tx);
     tx_apply_dst0_modifiers(tx);
+
+    if (insn->predicated) {
+        tx->predicated_activated = false;
+        /* TODO: predicate might be allowed on outputs,
+         * which cannot be src. Workaround it. */
+        ureg_CMP(tx->ureg, tx->regs.predicate_dst,
+                 ureg_negate(tx_src_param(tx, &insn->pred)),
+                 ureg_src(tx->regs.predicate_tmp),
+                 ureg_src(tx->regs.predicate_dst));
+    }
 
     if (hr != D3D_OK)
         tx->failure = TRUE;
@@ -3354,10 +3515,17 @@ sm1_parse_instruction(struct shader_translator *tx)
     TOKEN_JUMP(tx);
 }
 
-static void
-tx_ctor(struct shader_translator *tx, struct nine_shader_info *info)
+#define GET_CAP(n) screen->get_param( \
+      screen, PIPE_CAP_##n)
+#define GET_SHADER_CAP(n) screen->get_shader_param( \
+      screen, info->type, PIPE_SHADER_CAP_##n)
+
+static HRESULT
+tx_ctor(struct shader_translator *tx, struct pipe_screen *screen, struct nine_shader_info *info)
 {
     unsigned i;
+
+    memset(tx, 0, sizeof(*tx));
 
     tx->info = info;
 
@@ -3370,6 +3538,10 @@ tx_ctor(struct shader_translator *tx, struct nine_shader_info *info)
 
     info->position_t = FALSE;
     info->point_size = FALSE;
+
+    memset(tx->slots_used, 0, sizeof(tx->slots_used));
+    memset(info->int_slots_used, 0, sizeof(info->int_slots_used));
+    memset(info->bool_slots_used, 0, sizeof(info->bool_slots_used));
 
     tx->info->const_float_slots = 0;
     tx->info->const_int_slots = 0;
@@ -3408,127 +3580,10 @@ tx_ctor(struct shader_translator *tx, struct nine_shader_info *info)
     tx->num_outputs = 0;
 
     create_op_info_map(tx);
-}
 
-static void
-tx_dtor(struct shader_translator *tx)
-{
-    if (tx->num_inst_labels)
-        FREE(tx->inst_labels);
-    FREE(tx->lconstf);
-    FREE(tx->regs.r);
-    FREE(tx);
-}
-
-/* CONST[0].xyz = width/2, -height/2, zmax-zmin
- * CONST[1].xyz = x+width/2, y+height/2, zmin */
-static void
-shader_add_vs_viewport_transform(struct shader_translator *tx)
-{
-    struct ureg_program *ureg = tx->ureg;
-    struct ureg_src c0 = NINE_CONSTANT_SRC(0);
-    struct ureg_src c1 = NINE_CONSTANT_SRC(1);
-    /* struct ureg_dst pos_tmp = ureg_DECL_temporary(ureg);*/
-
-    c0 = ureg_src_dimension(c0, 4);
-    c1 = ureg_src_dimension(c1, 4);
-    /* TODO: find out when we need to apply the viewport transformation or not.
-     * Likely will be XYZ vs XYZRHW in vdecl_out
-     * ureg_MUL(ureg, ureg_writemask(pos_tmp, TGSI_WRITEMASK_XYZ), ureg_src(tx->regs.oPos), c0);
-     * ureg_ADD(ureg, ureg_writemask(tx->regs.oPos_out, TGSI_WRITEMASK_XYZ), ureg_src(pos_tmp), c1);
-     */
-    ureg_MOV(ureg, ureg_writemask(tx->regs.oPos_out, TGSI_WRITEMASK_XYZ), ureg_src(tx->regs.oPos));
-}
-
-static void
-shader_add_ps_fog_stage(struct shader_translator *tx, struct ureg_src src_col)
-{
-    struct ureg_program *ureg = tx->ureg;
-    struct ureg_dst oCol0 = ureg_DECL_output(ureg, TGSI_SEMANTIC_COLOR, 0);
-    struct ureg_src fog_end, fog_coeff, fog_density;
-    struct ureg_src fog_vs, depth, fog_color;
-    struct ureg_dst fog_factor;
-
-    if (!tx->info->fog_enable) {
-        ureg_MOV(ureg, oCol0, src_col);
-        return;
-    }
-
-    if (tx->info->fog_mode != D3DFOG_NONE) {
-        depth = nine_get_position_input(tx);
-        depth = ureg_scalar(depth, TGSI_SWIZZLE_Z);
-    }
-
-    nine_info_mark_const_f_used(tx->info, 33);
-    fog_color = NINE_CONSTANT_SRC(32);
-    fog_factor = tx_scratch_scalar(tx);
-
-    if (tx->info->fog_mode == D3DFOG_LINEAR) {
-        fog_end = NINE_CONSTANT_SRC_SWIZZLE(33, X);
-        fog_coeff = NINE_CONSTANT_SRC_SWIZZLE(33, Y);
-        ureg_ADD(ureg, fog_factor, fog_end, ureg_negate(depth));
-        ureg_MUL(ureg, ureg_saturate(fog_factor), tx_src_scalar(fog_factor), fog_coeff);
-    } else if (tx->info->fog_mode == D3DFOG_EXP) {
-        fog_density = NINE_CONSTANT_SRC_SWIZZLE(33, X);
-        ureg_MUL(ureg, fog_factor, depth, fog_density);
-        ureg_MUL(ureg, fog_factor, tx_src_scalar(fog_factor), ureg_imm1f(ureg, -1.442695f));
-        ureg_EX2(ureg, fog_factor, tx_src_scalar(fog_factor));
-    } else if (tx->info->fog_mode == D3DFOG_EXP2) {
-        fog_density = NINE_CONSTANT_SRC_SWIZZLE(33, X);
-        ureg_MUL(ureg, fog_factor, depth, fog_density);
-        ureg_MUL(ureg, fog_factor, tx_src_scalar(fog_factor), tx_src_scalar(fog_factor));
-        ureg_MUL(ureg, fog_factor, tx_src_scalar(fog_factor), ureg_imm1f(ureg, -1.442695f));
-        ureg_EX2(ureg, fog_factor, tx_src_scalar(fog_factor));
-    } else {
-        fog_vs = ureg_scalar(ureg_DECL_fs_input(ureg, TGSI_SEMANTIC_FOG, 0,
-                                            TGSI_INTERPOLATE_PERSPECTIVE),
-                                            TGSI_SWIZZLE_X);
-        ureg_MOV(ureg, fog_factor, fog_vs);
-    }
-
-    ureg_LRP(ureg, ureg_writemask(oCol0, TGSI_WRITEMASK_XYZ),
-             tx_src_scalar(fog_factor), src_col, fog_color);
-    ureg_MOV(ureg, ureg_writemask(oCol0, TGSI_WRITEMASK_W), src_col);
-}
-
-#define GET_CAP(n) screen->get_param( \
-      screen, PIPE_CAP_##n)
-#define GET_SHADER_CAP(n) screen->get_shader_param( \
-      screen, info->type, PIPE_SHADER_CAP_##n)
-
-HRESULT
-nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info, struct pipe_context *pipe)
-{
-    struct shader_translator *tx;
-    HRESULT hr = D3D_OK;
-    const unsigned processor = info->type;
-    struct pipe_screen *screen = info->process_vertices ? device->screen_sw : device->screen;
-
-    user_assert(processor != ~0, D3DERR_INVALIDCALL);
-
-    tx = CALLOC_STRUCT(shader_translator);
-    if (!tx)
-        return E_OUTOFMEMORY;
-    tx_ctor(tx, info);
-
-    if (((tx->version.major << 16) | tx->version.minor) > 0x00030000) {
-        hr = D3DERR_INVALIDCALL;
-        DBG("Unsupported shader version: %u.%u !\n",
-            tx->version.major, tx->version.minor);
-        goto out;
-    }
-    if (tx->processor != processor) {
-        hr = D3DERR_INVALIDCALL;
-        DBG("Shader type mismatch: %u / %u !\n", tx->processor, processor);
-        goto out;
-    }
-    DUMP("%s%u.%u\n", processor == PIPE_SHADER_VERTEX ? "VS" : "PS",
-         tx->version.major, tx->version.minor);
-
-    tx->ureg = ureg_create(processor);
+    tx->ureg = ureg_create(info->type);
     if (!tx->ureg) {
-        hr = E_OUTOFMEMORY;
-        goto out;
+        return E_OUTOFMEMORY;
     }
 
     tx->native_integers = GET_SHADER_CAP(INTEGERS);
@@ -3558,7 +3613,7 @@ nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info,
         tx->num_constb_allowed = NINE_MAX_CONST_B;
     }
 
-    if (IS_VS && tx->version.major >= 2 && info->swvp_on) {
+    if (info->swvp_on && tx->version.major >= 2) {
         tx->num_constf_allowed = 8192;
         tx->num_consti_allowed = 2048;
         tx->num_constb_allowed = 2048;
@@ -3575,22 +3630,133 @@ nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info,
             ureg_property(tx->ureg, TGSI_PROPERTY_FS_COORD_PIXEL_CENTER, TGSI_FS_COORD_PIXEL_CENTER_INTEGER);
     }
 
-    if (GET_CAP(TGSI_MUL_ZERO_WINS))
+    tx->mul_zero_wins = GET_CAP(TGSI_MUL_ZERO_WINS);
+    if (tx->mul_zero_wins)
        ureg_property(tx->ureg, TGSI_PROPERTY_MUL_ZERO_WINS, 1);
+
+    /* Add additional definition of constants */
+    if (info->add_constants_defs.c_combination) {
+        unsigned i;
+
+        assert(info->add_constants_defs.int_const_added);
+        assert(info->add_constants_defs.bool_const_added);
+        /* We only add constants that are used by the shader
+         * and that are not defined in the shader */
+        for (i = 0; i < NINE_MAX_CONST_I; ++i) {
+            if ((*info->add_constants_defs.int_const_added)[i]) {
+                DBG("Defining const i%i : { %i %i %i %i }\n", i,
+                    info->add_constants_defs.c_combination->const_i[i][0],
+                    info->add_constants_defs.c_combination->const_i[i][1],
+                    info->add_constants_defs.c_combination->const_i[i][2],
+                    info->add_constants_defs.c_combination->const_i[i][3]);
+                tx_set_lconsti(tx, i, info->add_constants_defs.c_combination->const_i[i]);
+            }
+        }
+        for (i = 0; i < NINE_MAX_CONST_B; ++i) {
+            if ((*info->add_constants_defs.bool_const_added)[i]) {
+                DBG("Defining const b%i : %i\n", i, (int)(info->add_constants_defs.c_combination->const_b[i] != 0));
+                tx_set_lconstb(tx, i, info->add_constants_defs.c_combination->const_b[i]);
+            }
+        }
+    }
+    return D3D_OK;
+}
+
+static void
+tx_dtor(struct shader_translator *tx)
+{
+    if (tx->slot_map)
+        FREE(tx->slot_map);
+    if (tx->num_inst_labels)
+        FREE(tx->inst_labels);
+    FREE(tx->lconstf);
+    FREE(tx->regs.r);
+    FREE(tx);
+}
+
+/* CONST[0].xyz = width/2, -height/2, zmax-zmin
+ * CONST[1].xyz = x+width/2, y+height/2, zmin */
+static void
+shader_add_vs_viewport_transform(struct shader_translator *tx)
+{
+    struct ureg_program *ureg = tx->ureg;
+    struct ureg_src c0 = ureg_src_register(TGSI_FILE_CONSTANT, 0);
+    struct ureg_src c1 = ureg_src_register(TGSI_FILE_CONSTANT, 1);
+    /* struct ureg_dst pos_tmp = ureg_DECL_temporary(ureg);*/
+
+    c0 = ureg_src_dimension(c0, 4);
+    c1 = ureg_src_dimension(c1, 4);
+    /* TODO: find out when we need to apply the viewport transformation or not.
+     * Likely will be XYZ vs XYZRHW in vdecl_out
+     * ureg_MUL(ureg, ureg_writemask(pos_tmp, TGSI_WRITEMASK_XYZ), ureg_src(tx->regs.oPos), c0);
+     * ureg_ADD(ureg, ureg_writemask(tx->regs.oPos_out, TGSI_WRITEMASK_XYZ), ureg_src(pos_tmp), c1);
+     */
+    ureg_MOV(ureg, ureg_writemask(tx->regs.oPos_out, TGSI_WRITEMASK_XYZ), ureg_src(tx->regs.oPos));
+}
+
+static void
+shader_add_ps_fog_stage(struct shader_translator *tx, struct ureg_src src_col)
+{
+    struct ureg_program *ureg = tx->ureg;
+    struct ureg_dst oCol0 = ureg_DECL_output(ureg, TGSI_SEMANTIC_COLOR, 0);
+    struct ureg_src fog_end, fog_coeff, fog_density, fog_params;
+    struct ureg_src fog_vs, fog_color;
+    struct ureg_dst fog_factor, depth;
+
+    if (!tx->info->fog_enable) {
+        ureg_MOV(ureg, oCol0, src_col);
+        return;
+    }
+
+    if (tx->info->fog_mode != D3DFOG_NONE) {
+        depth = tx_scratch_scalar(tx);
+        /* Depth used for fog is perspective interpolated */
+        ureg_RCP(ureg, depth, ureg_scalar(nine_get_position_input(tx), TGSI_SWIZZLE_W));
+        ureg_MUL(ureg, depth, ureg_src(depth), ureg_scalar(nine_get_position_input(tx), TGSI_SWIZZLE_Z));
+    }
+
+    fog_color = nine_float_constant_src(tx, 32);
+    fog_params = nine_float_constant_src(tx, 33);
+    fog_factor = tx_scratch_scalar(tx);
+
+    if (tx->info->fog_mode == D3DFOG_LINEAR) {
+        fog_end = NINE_APPLY_SWIZZLE(fog_params, X);
+        fog_coeff = NINE_APPLY_SWIZZLE(fog_params, Y);
+        ureg_ADD(ureg, fog_factor, fog_end, ureg_negate(ureg_src(depth)));
+        ureg_MUL(ureg, ureg_saturate(fog_factor), tx_src_scalar(fog_factor), fog_coeff);
+    } else if (tx->info->fog_mode == D3DFOG_EXP) {
+        fog_density = NINE_APPLY_SWIZZLE(fog_params, X);
+        ureg_MUL(ureg, fog_factor, ureg_src(depth), fog_density);
+        ureg_MUL(ureg, fog_factor, tx_src_scalar(fog_factor), ureg_imm1f(ureg, -1.442695f));
+        ureg_EX2(ureg, fog_factor, tx_src_scalar(fog_factor));
+    } else if (tx->info->fog_mode == D3DFOG_EXP2) {
+        fog_density = NINE_APPLY_SWIZZLE(fog_params, X);
+        ureg_MUL(ureg, fog_factor, ureg_src(depth), fog_density);
+        ureg_MUL(ureg, fog_factor, tx_src_scalar(fog_factor), tx_src_scalar(fog_factor));
+        ureg_MUL(ureg, fog_factor, tx_src_scalar(fog_factor), ureg_imm1f(ureg, -1.442695f));
+        ureg_EX2(ureg, fog_factor, tx_src_scalar(fog_factor));
+    } else {
+        fog_vs = ureg_scalar(ureg_DECL_fs_input(ureg, TGSI_SEMANTIC_GENERIC, 16,
+                                            TGSI_INTERPOLATE_PERSPECTIVE),
+                                            TGSI_SWIZZLE_X);
+        ureg_MOV(ureg, fog_factor, fog_vs);
+    }
+
+    ureg_LRP(ureg, ureg_writemask(oCol0, TGSI_WRITEMASK_XYZ),
+             tx_src_scalar(fog_factor), src_col, fog_color);
+    ureg_MOV(ureg, ureg_writemask(oCol0, TGSI_WRITEMASK_W), src_col);
+}
+
+static void parse_shader(struct shader_translator *tx)
+{
+    struct nine_shader_info *info = tx->info;
 
     while (!sm1_parse_eof(tx) && !tx->failure)
         sm1_parse_instruction(tx);
     tx->parse++; /* for byte_size */
 
-    if (tx->failure) {
-        /* For VS shaders, we print the warning later,
-         * we first try with swvp. */
-        if (IS_PS)
-            ERR("Encountered buggy shader\n");
-        ureg_destroy(tx->ureg);
-        hr = D3DERR_INVALIDCALL;
-        goto out;
-    }
+    if (tx->failure)
+        return;
 
     if (IS_PS && tx->version.major < 3) {
         if (tx->version.major < 2) {
@@ -3603,7 +3769,7 @@ nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info,
     }
 
     if (IS_VS && tx->version.major < 3 && ureg_dst_is_undef(tx->regs.oFog) && info->fog_enable) {
-        tx->regs.oFog = ureg_DECL_output(tx->ureg, TGSI_SEMANTIC_FOG, 0);
+        tx->regs.oFog = ureg_DECL_output(tx->ureg, TGSI_SEMANTIC_GENERIC, 16);
         ureg_MOV(tx->ureg, ureg_writemask(tx->regs.oFog, TGSI_WRITEMASK_X), ureg_imm1f(tx->ureg, 0.0f));
     }
 
@@ -3621,6 +3787,118 @@ nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info,
         shader_add_vs_viewport_transform(tx);
 
     ureg_END(tx->ureg);
+}
+
+HRESULT
+nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info, struct pipe_context *pipe)
+{
+    struct shader_translator *tx;
+    HRESULT hr = D3D_OK;
+    const unsigned processor = info->type;
+    struct pipe_screen *screen = info->process_vertices ? device->screen_sw : device->screen;
+    unsigned *const_ranges = NULL;
+
+    user_assert(processor != ~0, D3DERR_INVALIDCALL);
+
+    tx = MALLOC_STRUCT(shader_translator);
+    if (!tx)
+        return E_OUTOFMEMORY;
+
+    if (tx_ctor(tx, screen, info) == E_OUTOFMEMORY) {
+        hr = E_OUTOFMEMORY;
+        goto out;
+    }
+
+    assert(IS_VS || !info->swvp_on);
+
+    if (((tx->version.major << 16) | tx->version.minor) > 0x00030000) {
+        hr = D3DERR_INVALIDCALL;
+        DBG("Unsupported shader version: %u.%u !\n",
+            tx->version.major, tx->version.minor);
+        goto out;
+    }
+    if (tx->processor != processor) {
+        hr = D3DERR_INVALIDCALL;
+        DBG("Shader type mismatch: %u / %u !\n", tx->processor, processor);
+        goto out;
+    }
+    DUMP("%s%u.%u\n", processor == PIPE_SHADER_VERTEX ? "VS" : "PS",
+         tx->version.major, tx->version.minor);
+
+    parse_shader(tx);
+
+    if (tx->failure) {
+        /* For VS shaders, we print the warning later,
+         * we first try with swvp. */
+        if (IS_PS)
+            ERR("Encountered buggy shader\n");
+        ureg_destroy(tx->ureg);
+        hr = D3DERR_INVALIDCALL;
+        goto out;
+    }
+
+    /* Recompile after compacting constant slots if possible */
+    if (!tx->indirect_const_access && !info->swvp_on && tx->num_slots > 0) {
+        unsigned *slot_map;
+        unsigned c;
+        int i, j, num_ranges, prev;
+
+        DBG("Recompiling shader for constant compaction\n");
+        ureg_destroy(tx->ureg);
+
+        if (tx->num_inst_labels)
+            FREE(tx->inst_labels);
+        FREE(tx->lconstf);
+        FREE(tx->regs.r);
+
+        num_ranges = 0;
+        prev = -2;
+        for (i = 0; i < NINE_MAX_CONST_ALL; i++) {
+            if (tx->slots_used[i]) {
+                if (prev != i - 1)
+                    num_ranges++;
+                prev = i;
+            }
+        }
+        slot_map = MALLOC(NINE_MAX_CONST_ALL * sizeof(unsigned));
+        const_ranges = CALLOC(num_ranges + 1, 2 * sizeof(unsigned)); /* ranges stop when last is of size 0 */
+        if (!slot_map || !const_ranges) {
+            hr = E_OUTOFMEMORY;
+            goto out;
+        }
+        c = 0;
+        j = -1;
+        prev = -2;
+        for (i = 0; i < NINE_MAX_CONST_ALL; i++) {
+            if (tx->slots_used[i]) {
+                if (prev != i - 1)
+                    j++;
+                /* Initialize first slot of the range */
+                if (!const_ranges[2*j+1])
+                    const_ranges[2*j] = i;
+                const_ranges[2*j+1]++;
+                prev = i;
+                slot_map[i] = c++;
+            }
+        }
+
+        if (tx_ctor(tx, screen, info) == E_OUTOFMEMORY) {
+            hr = E_OUTOFMEMORY;
+            goto out;
+        }
+        tx->slot_map = slot_map;
+        parse_shader(tx);
+        assert(!tx->failure);
+#if !defined(NDEBUG)
+        i = 0;
+        j = 0;
+        while (const_ranges[i*2+1] != 0) {
+            j += const_ranges[i*2+1];
+            i++;
+        }
+        assert(j == tx->num_slots);
+#endif
+    }
 
     /* record local constants */
     if (tx->num_lconstf && tx->indirect_const_access) {
@@ -3683,28 +3961,19 @@ nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info,
     /* r500 */
     if (info->const_float_slots > device->max_vs_const_f &&
         (info->const_int_slots || info->const_bool_slots) &&
-        (!IS_VS || !info->swvp_on))
+        !info->swvp_on)
         ERR("Overlapping constant slots. The shader is likely to be buggy\n");
 
 
-    if (tx->indirect_const_access) /* vs only */
+    if (tx->indirect_const_access) { /* vs only */
         info->const_float_slots = device->max_vs_const_f;
+        tx->num_slots = MAX2(tx->num_slots, device->max_vs_const_f);
+    }
 
-    if (!IS_VS || !info->swvp_on) {
-        unsigned s, slot_max;
-        unsigned max_const_f = IS_VS ? device->max_vs_const_f : device->max_ps_const_f;
-
-        slot_max = info->const_bool_slots > 0 ?
-                       max_const_f + NINE_MAX_CONST_I
-                       + DIV_ROUND_UP(info->const_bool_slots, 4) :
-                           info->const_int_slots > 0 ?
-                               max_const_f + info->const_int_slots :
-                                   info->const_float_slots;
-
-        info->const_used_size = sizeof(float[4]) * slot_max; /* slots start from 1 */
-
-        for (s = 0; s < slot_max; s++)
-            ureg_DECL_constant(tx->ureg, s);
+    if (!info->swvp_on) {
+        info->const_used_size = sizeof(float[4]) * tx->num_slots;
+        if (tx->num_slots)
+            ureg_DECL_constant2D(tx->ureg, 0, tx->num_slots-1, 0);
     } else {
          ureg_DECL_constant2D(tx->ureg, 0, 4095, 0);
          ureg_DECL_constant2D(tx->ureg, 0, 4095, 1);
@@ -3736,8 +4005,12 @@ nine_translate_shader(struct NineDevice9 *device, struct nine_shader_info *info,
         goto out;
     }
 
+    info->const_ranges = const_ranges;
+    const_ranges = NULL;
     info->byte_size = (tx->parse - tx->byte_code) * sizeof(DWORD);
 out:
+    if (const_ranges)
+        FREE(const_ranges);
     tx_dtor(tx);
     return hr;
 }

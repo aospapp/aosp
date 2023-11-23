@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <bootloader_message/bootloader_message.h>
 #include <cutils/properties.h>
 #include <fs_mgr.h>
 
@@ -106,11 +105,20 @@ int boot_info_open_partition(const char *name, uint64_t *out_size, int flags)
 }
 
 // As per struct bootloader_message_ab which is defined in
-// bootable/recovery/bootloader.h we can use the 32 bytes in the
-// bootctrl_suffix field provided that they start with the active slot
-// suffix terminated by NUL. It just so happens that BrilloBootInfo is
-// laid out this way.
-#define BOOTINFO_OFFSET offsetof(struct bootloader_message_ab, slot_suffix)
+// boot/1.1/default.
+// struct bootloader_message_ab {
+//     struct bootloader_message message;
+//     char slot_suffix[32];
+//     char update_channel[128];
+//
+//     // Round up the entire struct to 4096-byte.
+//     char reserved[1888];
+// };
+//
+// We can use the 32 bytes in the bootctrl_suffix field provided that they
+// start with the active slot suffix terminated by NUL. It just so happens
+// that BrilloBootInfo is laid out this way.
+#define BOOTINFO_OFFSET 2048
 
 bool boot_info_load(BrilloBootInfo *out_info)
 {

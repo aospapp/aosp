@@ -6,12 +6,12 @@
 
 #include "xfa/fxfa/parser/cxfa_map.h"
 
-#include "fxjs/xfa/cjx_map.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kMapAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
@@ -20,9 +20,7 @@ const CXFA_Node::AttributeData kAttributeData[] = {
     {XFA_Attribute::Desc, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::From, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Lock, XFA_AttributeType::Integer, (void*)0},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"map";
+};
 
 }  // namespace
 
@@ -32,9 +30,8 @@ CXFA_Map::CXFA_Map(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Config | XFA_XDPPACKET_SourceSet),
                 XFA_ObjectType::Node,
                 XFA_Element::Map,
-                nullptr,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Map>(this)) {}
+                {},
+                kMapAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Map::~CXFA_Map() {}
+CXFA_Map::~CXFA_Map() = default;

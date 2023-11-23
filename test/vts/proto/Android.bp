@@ -18,6 +18,8 @@ cc_library_shared {
 
     name: "libvts_multidevice_proto",
     host_supported: true,
+    // TODO(b/153609531): remove when no longer needed.
+    native_bridge_supported: true,
 
     srcs: [
         "AndroidSystemControlMessage.proto",
@@ -27,7 +29,10 @@ cc_library_shared {
         "VtsResourceControllerMessage.proto",
     ],
 
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 
     proto: {
         export_proto_headers: true,
@@ -65,4 +70,12 @@ cc_library_shared {
         "-Werror",
         "-Wno-unused-parameter",
     ],
+}
+
+java_library_host {
+    name: "libvts_protos_host",
+    srcs: ["**/*.proto"],
+    proto: {
+        type: "full",
+    },
 }

@@ -19,13 +19,11 @@ package com.android.server.wifi.hotspot2;
 import android.annotation.NonNull;
 import android.content.Context;
 import android.os.Build;
-import android.os.SystemProperties;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.server.wifi.WifiNative;
 
 import java.util.Locale;
@@ -117,33 +115,11 @@ public class SystemInfo {
     }
 
     /**
-     * Get the hardware version.
-     *
-     * TODO(b/80092273): need to check if this privacy information is required for Passpoint R2.
-     * @return the version that consists of hardware name and revision number.
-     */
-    public String getHwVersion() {
-        return Build.HARDWARE + "." + SystemProperties.get("ro.revision", "0");
-    }
-
-    /**
      * Get the software version.
      *
      * @return the build release version.
      */
     public String getSoftwareVersion() {
-         return new StringBuffer("Android ").append(Build.VERSION.RELEASE).toString();
-    }
-
-    /**
-     * Get the firmware version.
-     *
-     * @return the version that consists of build id and baseband version.
-     */
-    public String getFirmwareVersion() {
-        return new StringBuffer(Build.ID)
-                .append("/")
-                .append(SystemProperties.get(TelephonyProperties.PROPERTY_BASEBAND_VERSION,
-                        UNKNOWN_INFO)).toString();
+        return String.format("Android %s %s", Build.VERSION.RELEASE, Build.VERSION.INCREMENTAL);
     }
 }

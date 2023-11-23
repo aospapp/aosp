@@ -1,7 +1,7 @@
 /*
  *    Implementation of GPTData class derivative with curses-based text-mode
  *    interaction
- *    Copyright (C) 2011-2013 Roderick W. Smith
+ *    Copyright (C) 2011-2018 Roderick W. Smith
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
  *
  */
 
+#include <clocale>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -332,7 +333,7 @@ void GPTDataCurses::ShowInfo(int partNum) {
           BytesToIeee(partitions[partNum].GetFirstLBA(), blockSize).c_str());
    printw("Last sector: %lld (at %s)\n", partitions[partNum].GetLastLBA(),
           BytesToIeee(partitions[partNum].GetLastLBA(), blockSize).c_str());
-   size = partitions[partNum].GetLastLBA() - partitions[partNum].GetFirstLBA();
+   size = partitions[partNum].GetLastLBA() - partitions[partNum].GetFirstLBA() + 1;
    printw("Partition size: %lld sectors (%s)\n", size, BytesToIeee(size, blockSize).c_str());
    printw("Attribute flags: %016x\n", partitions[partNum].GetAttributes().GetAttributes());
    #ifdef USE_UTF16
@@ -394,6 +395,7 @@ void GPTDataCurses::ChangeType(int partNum) {
 // Sets the partition alignment value
 void GPTDataCurses::SetAlignment(void) {
    int alignment;
+   char conversion_specifier[] = "%d";
 
    move(LINES - 4, 0);
    clrtobot();
@@ -402,7 +404,7 @@ void GPTDataCurses::SetAlignment(void) {
       move(LINES - 3, 0);
       printw("Type new alignment value, in sectors: ");
       echo();
-      scanw("%d", &alignment);
+      scanw(conversion_specifier, &alignment);
       noecho();
    } while ((alignment == 0) || (alignment > MAX_ALIGNMENT));
    GPTData::SetAlignment(alignment);

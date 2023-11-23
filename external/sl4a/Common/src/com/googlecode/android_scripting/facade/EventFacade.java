@@ -196,7 +196,7 @@ public class EventFacade extends RpcReceiver {
                                 Log.v(String.format("Removing observer (%s) got event  (%s)",
                                         this,
                                         event));
-                                removeEventObserver(this);
+                                removeNamedEventObserver(eventName, this);
                             }
                             if (removeEvent)
                                 mEventQueue.remove(event);
@@ -411,8 +411,17 @@ public class EventFacade extends RpcReceiver {
      * @param observer the observer to remove
      */
     public void removeEventObserver(EventObserver observer) {
-        mNamedEventObservers.removeAll(observer);
         mGlobalEventObservers.remove(observer);
+    }
+
+    /**
+     * Removes a named observer from the event listening queue.
+     * @param eventName the name of the event being listened to.
+     * @param observer the observer to remove
+     */
+    public void removeNamedEventObserver(String eventName, EventObserver observer) {
+        mNamedEventObservers.removeAll(eventName);
+        removeEventObserver(observer);
     }
 
     public class BroadcastListener extends android.content.BroadcastReceiver {

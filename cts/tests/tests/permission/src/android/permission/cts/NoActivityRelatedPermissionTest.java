@@ -17,16 +17,11 @@
 package android.permission.cts;
 
 
-import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.suitebuilder.annotation.MediumTest;
-import android.test.suitebuilder.annotation.Suppress;
-import android.view.WindowManager;
-import android.view.WindowManager.BadTokenException;
 
 import java.util.List;
 

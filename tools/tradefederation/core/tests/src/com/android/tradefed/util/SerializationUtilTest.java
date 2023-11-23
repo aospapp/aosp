@@ -15,7 +15,9 @@
  */
 package com.android.tradefed.util;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.BuildSerializedVersion;
@@ -46,6 +48,15 @@ public class SerializationUtilTest {
         public SerialTestClass() {
             mStream = new ByteArrayInputStream("test".getBytes());
         }
+    }
+
+    @Test
+    public void testSerialize_DeserializeString() throws Exception {
+        RuntimeException e = new RuntimeException("test");
+        String serializedException = SerializationUtil.serializeToString(e);
+        Object o = SerializationUtil.deserialize(serializedException);
+        assertTrue(o instanceof RuntimeException);
+        assertEquals("test", ((RuntimeException) o).getMessage());
     }
 
     /** Tests that serialization and deserialization creates a similar object from the original. */

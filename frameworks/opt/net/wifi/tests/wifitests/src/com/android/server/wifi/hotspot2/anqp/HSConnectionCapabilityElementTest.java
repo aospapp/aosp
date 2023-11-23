@@ -21,6 +21,8 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.nio.BufferUnderflowException;
@@ -33,7 +35,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.HSConnectionCapabilityElement}.
  */
 @SmallTest
-public class HSConnectionCapabilityElementTest {
+public class HSConnectionCapabilityElementTest extends WifiBaseTest {
     private static final ProtocolPortTuple TEST_TUPLE1 =
             new ProtocolPortTuple(1, 2, ProtocolPortTuple.PROTO_STATUS_CLOSED);
     private static final ProtocolPortTuple TEST_TUPLE2 =

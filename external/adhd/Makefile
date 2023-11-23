@@ -18,6 +18,8 @@ cras-scripts:
 	$(INSTALL) --mode 755 -d $(DESTDIR)usr/bin/
 	$(INSTALL) --mode 755 -D $(ADHD_DIR)/scripts/audio_diagnostics \
 		$(DESTDIR)usr/bin/
+	$(INSTALL) --mode 755 -D $(ADHD_DIR)/scripts/asoc_dapm_graph \
+		$(DESTDIR)usr/bin/
 
 cras_init_upstart:	$(ADHD_DIR)/init/cras.conf
 	$(ECHO) "Installing upstart file"
@@ -53,6 +55,9 @@ endif
 $(DESTDIR)/etc/cras/device_blacklist:	$(ADHD_DIR)/cras-config/device_blacklist
 	$(ECHO) "Installing '$<' to '$@'"
 	$(INSTALL) --mode 644 -D $< $@
+
+# Note: $(BOARD) usage is deprecated.  Configs should be added in board overlays
+# or via cros_config data for newer unibuild systems.
 
 optional_alsa_conf := $(wildcard $(ADHD_DIR)/alsa-module-config/alsa-$(BOARD).conf)
 

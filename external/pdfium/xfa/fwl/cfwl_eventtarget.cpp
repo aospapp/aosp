@@ -10,7 +10,7 @@
 #include "xfa/fwl/ifwl_widgetdelegate.h"
 
 CFWL_EventTarget::CFWL_EventTarget(CFWL_Widget* pListener)
-    : m_pListener(pListener), m_bValid(true) {}
+    : m_pListener(pListener) {}
 
 CFWL_EventTarget::~CFWL_EventTarget() {}
 
@@ -23,7 +23,7 @@ bool CFWL_EventTarget::ProcessEvent(CFWL_Event* pEvent) {
   IFWL_WidgetDelegate* pDelegate = m_pListener->GetDelegate();
   if (!pDelegate)
     return false;
-  if (!m_widgets.empty() && m_widgets.count(pEvent->m_pSrcTarget) == 0)
+  if (!m_widgets.empty() && m_widgets.count(pEvent->GetSrcTarget()) == 0)
     return false;
 
   pDelegate->OnProcessEvent(pEvent);

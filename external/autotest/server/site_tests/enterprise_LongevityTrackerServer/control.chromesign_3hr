@@ -9,8 +9,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "performance"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:longevity_two"
-DEPENDENCIES = "chromesign"
+ATTRIBUTES = "suite:kiosk_longevity"
 JOB_RETRIES = 3
 
 DOC = """

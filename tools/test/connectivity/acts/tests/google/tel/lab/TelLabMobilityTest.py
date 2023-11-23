@@ -49,6 +49,7 @@ from acts.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
 from acts.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL_FOR_IMS
 from acts.test_utils.tel.tel_test_utils import ensure_network_rat
 from acts.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts.test_utils.tel.tel_test_utils import get_host_ip_address
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts.test_utils.tel.tel_test_utils import toggle_volte
 from acts.test_utils.tel.tel_test_utils import run_multithread_func
@@ -69,8 +70,8 @@ WAITTIME_AFTER_HANDOVER = 20
 
 
 class TelLabMobilityTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad = self.android_devices[0]
         self.ad.sim_card = getattr(self.ad, "sim_card", None)
         self.md8475a_ip_address = self.user_params[
@@ -85,10 +86,9 @@ class TelLabMobilityTest(TelephonyBaseTest):
         if self.ad.sim_card == "VzW12349":
             set_preferred_apn_by_adb(self.ad, "VZWINTERNET")
 
-    def setup_class(self):
         try:
-            self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option, self.md8475_version)
+            self.anritsu = MD8475A(self.md8475a_ip_address, self.wlan_option,
+                                   self.md8475_version)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False
@@ -247,11 +247,7 @@ class TelLabMobilityTest(TelephonyBaseTest):
 
     def iperf_setup(self):
         # Fetch IP address of the host machine
-        cmd = "|".join(("ifconfig", "grep eth0 -A1", "grep inet",
-                        "cut -d ':' -f2", "cut -d ' ' -f 1"))
-        destination_ip = exe_cmd(cmd)
-        destination_ip = (destination_ip.decode("utf-8")).split("\n")[0]
-        self.log.info("Dest IP is %s", destination_ip)
+        destination_ip = get_host_ip_address(self)
 
         if not adb_shell_ping(self.ad, DEFAULT_PING_DURATION, destination_ip):
             self.log.error("Pings failed to Destination.")

@@ -2,28 +2,28 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <stdio.h>
 #include <gtest/gtest.h>
+#include <stdio.h>
 
 extern "C" {
-#include "cras_audio_format.h"
 #include "cras_audio_area.h"
+#include "cras_audio_format.h"
 }
 
 static const int8_t stereo[CRAS_CH_MAX] = {
-  0, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    0, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 };
 static const int8_t mono[CRAS_CH_MAX] = {
-  -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1,
 };
 static const int8_t kb_mic[CRAS_CH_MAX] = {
-  0, 1, -1, -1, 2, -1, -1, -1, -1, -1, -1,
+    0, 1, -1, -1, 2, -1, -1, -1, -1, -1, -1,
 };
 
 static uint16_t buf1[32];
 static uint16_t buf2[32];
-struct cras_audio_area *a1;
-struct cras_audio_area *a2;
+struct cras_audio_area* a1;
+struct cras_audio_area* a2;
 
 namespace {
 
@@ -40,8 +40,8 @@ TEST(AudioArea, CopyAudioArea) {
   a2 = cras_audio_area_create(2);
   cras_audio_area_config_channels(a1, &fmt);
   cras_audio_area_config_channels(a2, &fmt);
-  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t *)buf1);
-  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t*)buf1);
+  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t*)buf2);
   a1->frames = 16;
   a2->frames = 16;
 
@@ -71,8 +71,8 @@ TEST(AudioArea, CopyAudioAreaWithGain) {
   a2 = cras_audio_area_create(2);
   cras_audio_area_config_channels(a1, &fmt);
   cras_audio_area_config_channels(a2, &fmt);
-  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t *)buf1);
-  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t*)buf1);
+  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t*)buf2);
   a1->frames = 16;
   a2->frames = 16;
 
@@ -107,8 +107,8 @@ TEST(AudioArea, CopyAudioAreaOffset) {
   a2 = cras_audio_area_create(2);
   cras_audio_area_config_channels(a1, &fmt);
   cras_audio_area_config_channels(a2, &fmt);
-  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t *)buf1);
-  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t*)buf1);
+  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t*)buf2);
   a1->frames = 16;
   a2->frames = 14;
 
@@ -121,7 +121,7 @@ TEST(AudioArea, CopyAudioAreaOffset) {
   EXPECT_EQ(buf1[2], 0);
   EXPECT_EQ(buf1[3], 0);
   for (i = 4; i < 32; i++)
-    EXPECT_EQ(buf1[i], buf2[i-4]);
+    EXPECT_EQ(buf1[i], buf2[i - 4]);
 
   cras_audio_area_destroy(a1);
   cras_audio_area_destroy(a2);
@@ -140,8 +140,8 @@ TEST(AudioArea, CopyAudioAreaOffsetLimit) {
   a2 = cras_audio_area_create(2);
   cras_audio_area_config_channels(a1, &fmt);
   cras_audio_area_config_channels(a2, &fmt);
-  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t *)buf1);
-  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t*)buf1);
+  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t*)buf2);
   a1->frames = 14;
   a2->frames = 14;
 
@@ -154,7 +154,7 @@ TEST(AudioArea, CopyAudioAreaOffsetLimit) {
   EXPECT_EQ(buf1[2], 0);
   EXPECT_EQ(buf1[3], 0);
   for (i = 4; i < 28; i++)
-    EXPECT_EQ(buf1[i], buf2[i-4]);
+    EXPECT_EQ(buf1[i], buf2[i - 4]);
   EXPECT_EQ(buf1[28], 0);
   EXPECT_EQ(buf1[29], 0);
   EXPECT_EQ(buf1[30], 0);
@@ -176,7 +176,7 @@ TEST(AudioArea, CopyMonoToStereo) {
   a1 = cras_audio_area_create(2);
   a1->frames = 16;
   cras_audio_area_config_channels(a1, &dst_fmt);
-  cras_audio_area_config_buf_pointers(a1, &dst_fmt, (uint8_t *)buf1);
+  cras_audio_area_config_buf_pointers(a1, &dst_fmt, (uint8_t*)buf1);
 
   src_fmt.num_channels = 1;
   src_fmt.format = SND_PCM_FORMAT_S16_LE;
@@ -185,7 +185,7 @@ TEST(AudioArea, CopyMonoToStereo) {
   a2 = cras_audio_area_create(1);
   a2->frames = 16;
   cras_audio_area_config_channels(a2, &src_fmt);
-  cras_audio_area_config_buf_pointers(a2, &src_fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a2, &src_fmt, (uint8_t*)buf2);
 
   memset(buf1, 0, 32 * 2);
   for (i = 0; i < 32; i++)
@@ -211,7 +211,7 @@ TEST(AudioArea, CopyStereoToMono) {
   a1 = cras_audio_area_create(1);
   a1->frames = 16;
   cras_audio_area_config_channels(a1, &fmt);
-  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t *)buf1);
+  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t*)buf1);
 
   fmt.num_channels = 2;
   for (i = 0; i < CRAS_CH_MAX; i++)
@@ -219,7 +219,7 @@ TEST(AudioArea, CopyStereoToMono) {
   a2 = cras_audio_area_create(2);
   a2->frames = 16;
   cras_audio_area_config_channels(a2, &fmt);
-  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t*)buf2);
 
   memset(buf1, 0, 32 * 2);
   for (i = 0; i < 32; i++)
@@ -243,7 +243,7 @@ TEST(AudioArea, KeyboardMicCopyStereo) {
   a1 = cras_audio_area_create(3);
   a1->frames = 10;
   cras_audio_area_config_channels(a1, &fmt);
-  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t *)buf1);
+  cras_audio_area_config_buf_pointers(a1, &fmt, (uint8_t*)buf1);
 
   fmt.num_channels = 2;
   for (i = 0; i < CRAS_CH_MAX; i++)
@@ -251,7 +251,7 @@ TEST(AudioArea, KeyboardMicCopyStereo) {
   a2 = cras_audio_area_create(2);
   a2->frames = 10;
   cras_audio_area_config_channels(a2, &fmt);
-  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a2, &fmt, (uint8_t*)buf2);
 
   memset(buf1, 0, 32 * 2);
   for (i = 0; i < 32; i++)
@@ -279,7 +279,7 @@ TEST(AudioArea, KeyboardMicCopyFrontCenter) {
   a1 = cras_audio_area_create(3);
   a1->frames = 10;
   cras_audio_area_config_channels(a1, &dst_fmt);
-  cras_audio_area_config_buf_pointers(a1, &dst_fmt, (uint8_t *)buf1);
+  cras_audio_area_config_buf_pointers(a1, &dst_fmt, (uint8_t*)buf1);
 
   /* Test 2 channels area with only front center in layout. */
   src_fmt.num_channels = 2;
@@ -290,7 +290,7 @@ TEST(AudioArea, KeyboardMicCopyFrontCenter) {
   a2 = cras_audio_area_create(2);
   a2->frames = 10;
   cras_audio_area_config_channels(a2, &src_fmt);
-  cras_audio_area_config_buf_pointers(a2, &src_fmt, (uint8_t *)buf2);
+  cras_audio_area_config_buf_pointers(a2, &src_fmt, (uint8_t*)buf2);
 
   memset(buf1, 0, 32 * 2);
   for (i = 0; i < 32; i++)
@@ -310,28 +310,31 @@ TEST(AudioArea, KeyboardMicCopyFrontCenter) {
 
 extern "C" {
 
-void cras_mix_add_scale_stride(snd_pcm_format_t fmt, uint8_t *dst, uint8_t *src,
-			 unsigned int count, unsigned int dst_stride,
-			 unsigned int src_stride, float scaler)
-{
-	unsigned int i;
+void cras_mix_add_scale_stride(snd_pcm_format_t fmt,
+                               uint8_t* dst,
+                               uint8_t* src,
+                               unsigned int count,
+                               unsigned int dst_stride,
+                               unsigned int src_stride,
+                               float scaler) {
+  unsigned int i;
 
-	for (i = 0; i < count; i++) {
-		int32_t sum;
-		sum = *(int16_t *)dst + *(int16_t *)src * scaler;
-		if (sum > INT16_MAX)
-			sum = INT16_MAX;
-		else if (sum < INT16_MIN)
-			sum = INT16_MIN;
-		*(int16_t*)dst = sum;
-		dst += dst_stride;
-		src += src_stride;
-	}
+  for (i = 0; i < count; i++) {
+    int32_t sum;
+    sum = *(int16_t*)dst + *(int16_t*)src * scaler;
+    if (sum > INT16_MAX)
+      sum = INT16_MAX;
+    else if (sum < INT16_MIN)
+      sum = INT16_MIN;
+    *(int16_t*)dst = sum;
+    dst += dst_stride;
+    src += src_stride;
+  }
 }
 
 }  //  extern "C"
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -29,9 +29,10 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
+import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
-import android.server.wm.ActivityManagerState.ActivityDisplay;
+import android.server.wm.WindowManagerState.DisplayContent;
 import android.server.wm.settings.SettingsSession;
 
 import com.android.cts.verifier.vr.MockVrListenerService;
@@ -46,6 +47,8 @@ import java.util.List;
  *     atest CtsWindowManagerDeviceTestCases:VrDisplayTests
  */
 @Presubmit
+@FlakyTest
+@android.server.wm.annotation.Group3
 public class VrDisplayTests extends MultiDisplayTestBase {
     private static final int VR_VIRTUAL_DISPLAY_WIDTH = 700;
     private static final int VR_VIRTUAL_DISPLAY_HEIGHT = 900;
@@ -69,14 +72,14 @@ public class VrDisplayTests extends MultiDisplayTestBase {
     private static class VrModeSession implements AutoCloseable {
         private boolean applyVrModeChanges = !ActivityManagerTestBase.isUiModeLockedToVrHeadset();
 
-        void enablePersistentVrMode() throws Exception {
+        void enablePersistentVrMode() {
             if (!applyVrModeChanges) { return; }
             executeShellCommand("setprop vr_virtualdisplay true");
             executeShellCommand("vr set-persistent-vr-mode-enabled true");
         }
 
         @Override
-        public void close() throws Exception {
+        public void close() {
             if (!applyVrModeChanges) { return; }
             executeShellCommand("vr set-persistent-vr-mode-enabled false");
             executeShellCommand("setprop vr_virtualdisplay false");
@@ -95,7 +98,7 @@ public class VrDisplayTests extends MultiDisplayTestBase {
                     Settings.Secure::putString);
         }
 
-        public void enableVrListener(ComponentName targetVrComponent) throws Exception {
+        public void enableVrListener(ComponentName targetVrComponent) {
             ComponentName component = new ComponentName(targetVrComponent.getPackageName(),
                     MockVrListenerService.class.getName());
             set(component.flattenToString());
@@ -106,97 +109,97 @@ public class VrDisplayTests extends MultiDisplayTestBase {
      * Tests that any new activity launch in Vr mode is in Vr display.
      */
     @Test
-    public void testVrActivityLaunch() throws Exception {
+    public void testVrActivityLaunch() {
         assumeTrue(supportsMultiDisplay());
 
-        try (final VrModeSession vrModeSession = new VrModeSession();
-             final EnableVrListenerSession enableVrListenerSession =
-                     new EnableVrListenerSession()) {
-            // Put the device in persistent vr mode.
-            vrModeSession.enablePersistentVrMode();
-            enableVrListenerSession.enableVrListener(VR_TEST_ACTIVITY);
+        final VrModeSession vrModeSession = mObjectTracker.manage(new VrModeSession());
+        final EnableVrListenerSession enableVrListenerSession =
+                mObjectTracker.manage(new EnableVrListenerSession());
 
-            // Launch the VR activity.
-            launchActivity(VR_TEST_ACTIVITY);
-            mAmWmState.computeState(VR_TEST_ACTIVITY);
-            mAmWmState.assertVisibility(VR_TEST_ACTIVITY, true /* visible */);
+        // Put the device in persistent vr mode.
+        vrModeSession.enablePersistentVrMode();
+        enableVrListenerSession.enableVrListener(VR_TEST_ACTIVITY);
 
-            // Launch the non-VR 2D activity and check where it ends up.
-            launchActivity(LAUNCHING_ACTIVITY);
-            mAmWmState.computeState(LAUNCHING_ACTIVITY);
+        // Launch the VR activity.
+        launchActivity(VR_TEST_ACTIVITY);
+        mWmState.computeState(VR_TEST_ACTIVITY);
+        mWmState.assertVisibility(VR_TEST_ACTIVITY, true /* visible */);
 
-            // Ensure that the subsequent activity is visible
-            mAmWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
+        // Launch the non-VR 2D activity and check where it ends up.
+        launchActivity(LAUNCHING_ACTIVITY);
+        mWmState.computeState(LAUNCHING_ACTIVITY);
 
-            // Check that activity is launched in focused stack on primary display.
-            mAmWmState.assertFocusedActivity("Launched activity must be focused",
-                    LAUNCHING_ACTIVITY);
-            final int focusedStackId = mAmWmState.getAmState().getFocusedStackId();
-            final ActivityManagerState.ActivityStack focusedStack
-                    = mAmWmState.getAmState().getStackById(focusedStackId);
-            assertEquals("Launched activity must be resumed in focused stack",
-                    getActivityName(LAUNCHING_ACTIVITY), focusedStack.mResumedActivity);
+        // Ensure that the subsequent activity is visible
+        mWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
 
-            // Check if the launch activity is in Vr virtual display id.
-            final List<ActivityDisplay> reportedDisplays = getDisplaysStates();
-            final ActivityDisplay vrDisplay = getDisplayState(reportedDisplays,
-                    VR_VIRTUAL_DISPLAY_WIDTH, VR_VIRTUAL_DISPLAY_HEIGHT, VR_VIRTUAL_DISPLAY_DPI);
-            assertNotNull("Vr mode should have a virtual display", vrDisplay);
+        // Check that activity is launched in focused stack on primary display.
+        mWmState.assertFocusedActivity("Launched activity must be focused",
+                LAUNCHING_ACTIVITY);
+        final int focusedStackId = mWmState.getFocusedStackId();
+        final WindowManagerState.ActivityTask focusedStack
+                = mWmState.getRootTask(focusedStackId);
+        assertEquals("Launched activity must be resumed in focused stack",
+                getActivityName(LAUNCHING_ACTIVITY), focusedStack.mResumedActivity);
 
-            // Check if the focused activity is on this virtual stack.
-            assertEquals("Launch in Vr mode should be in virtual stack", vrDisplay.mId,
-                    focusedStack.mDisplayId);
-        }
+        // Check if the launch activity is in Vr virtual display id.
+        final List<DisplayContent> reportedDisplays = getDisplaysStates();
+        final DisplayContent vrDisplay = getDisplayState(reportedDisplays,
+                VR_VIRTUAL_DISPLAY_WIDTH, VR_VIRTUAL_DISPLAY_HEIGHT, VR_VIRTUAL_DISPLAY_DPI);
+        assertNotNull("Vr mode should have a virtual display", vrDisplay);
+
+        // Check if the focused activity is on this virtual stack.
+        assertEquals("Launch in Vr mode should be in virtual stack", vrDisplay.mId,
+                focusedStack.mDisplayId);
     }
 
     /**
      * Tests that any activity already present is re-launched in Vr display in vr mode.
      */
     @Test
-    public void testVrActivityReLaunch() throws Exception {
+    public void testVrActivityReLaunch() {
         assumeTrue(supportsMultiDisplay());
 
         // Launch a 2D activity.
         launchActivity(LAUNCHING_ACTIVITY);
 
-        try (final VrModeSession vrModeSession = new VrModeSession();
-             final EnableVrListenerSession enableVrListenerSession =
-                     new EnableVrListenerSession()) {
-            // Put the device in persistent vr mode.
-            vrModeSession.enablePersistentVrMode();
-            enableVrListenerSession.enableVrListener(VR_TEST_ACTIVITY);
+        final VrModeSession vrModeSession = mObjectTracker.manage(new VrModeSession());
+        final EnableVrListenerSession enableVrListenerSession =
+                mObjectTracker.manage(new EnableVrListenerSession());
 
-            // Launch the VR activity.
-            launchActivity(VR_TEST_ACTIVITY);
-            mAmWmState.computeState(VR_TEST_ACTIVITY);
-            mAmWmState.assertVisibility(VR_TEST_ACTIVITY, true /* visible */);
+        // Put the device in persistent vr mode.
+        vrModeSession.enablePersistentVrMode();
+        enableVrListenerSession.enableVrListener(VR_TEST_ACTIVITY);
 
-            // Re-launch the non-VR 2D activity and check where it ends up.
-            launchActivity(LAUNCHING_ACTIVITY);
-            mAmWmState.computeState(LAUNCHING_ACTIVITY);
+        // Launch the VR activity.
+        launchActivity(VR_TEST_ACTIVITY);
+        mWmState.computeState(VR_TEST_ACTIVITY);
+        mWmState.assertVisibility(VR_TEST_ACTIVITY, true /* visible */);
 
-            // Ensure that the subsequent activity is visible
-            mAmWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
+        // Re-launch the non-VR 2D activity and check where it ends up.
+        launchActivity(LAUNCHING_ACTIVITY);
+        mWmState.computeState(LAUNCHING_ACTIVITY);
 
-            // Check that activity is launched in focused stack on primary display.
-            mAmWmState.assertFocusedActivity("Launched activity must be focused",
-                    LAUNCHING_ACTIVITY);
-            final int focusedStackId = mAmWmState.getAmState().getFocusedStackId();
-            final ActivityManagerState.ActivityStack focusedStack
-                    = mAmWmState.getAmState().getStackById(focusedStackId);
-            assertEquals("Launched activity must be resumed in focused stack",
-                    getActivityName(LAUNCHING_ACTIVITY), focusedStack.mResumedActivity);
+        // Ensure that the subsequent activity is visible
+        mWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
 
-            // Check if the launch activity is in Vr virtual display id.
-            final List<ActivityDisplay> reportedDisplays = getDisplaysStates();
-            final ActivityDisplay vrDisplay = getDisplayState(reportedDisplays,
-                    VR_VIRTUAL_DISPLAY_WIDTH, VR_VIRTUAL_DISPLAY_HEIGHT, VR_VIRTUAL_DISPLAY_DPI);
-            assertNotNull("Vr mode should have a virtual display", vrDisplay);
+        // Check that activity is launched in focused stack on primary display.
+        mWmState.assertFocusedActivity("Launched activity must be focused",
+                LAUNCHING_ACTIVITY);
+        final int focusedStackId = mWmState.getFocusedStackId();
+        final WindowManagerState.ActivityTask focusedStack
+                = mWmState.getRootTask(focusedStackId);
+        assertEquals("Launched activity must be resumed in focused stack",
+                getActivityName(LAUNCHING_ACTIVITY), focusedStack.mResumedActivity);
 
-            // Check if the focused activity is on this virtual stack.
-            assertEquals("Launch in Vr mode should be in virtual stack", vrDisplay.mId,
-                    focusedStack.mDisplayId);
-        }
+        // Check if the launch activity is in Vr virtual display id.
+        final List<DisplayContent> reportedDisplays = getDisplaysStates();
+        final DisplayContent vrDisplay = getDisplayState(reportedDisplays,
+                VR_VIRTUAL_DISPLAY_WIDTH, VR_VIRTUAL_DISPLAY_HEIGHT, VR_VIRTUAL_DISPLAY_DPI);
+        assertNotNull("Vr mode should have a virtual display", vrDisplay);
+
+        // Check if the focused activity is on this virtual stack.
+        assertEquals("Launch in Vr mode should be in virtual stack", vrDisplay.mId,
+                focusedStack.mDisplayId);
     }
 
     /**
@@ -218,29 +221,29 @@ public class VrDisplayTests extends MultiDisplayTestBase {
 
             // Launch the VR activity.
             launchActivity(VR_TEST_ACTIVITY);
-            mAmWmState.computeState(VR_TEST_ACTIVITY);
-            mAmWmState.assertVisibility(VR_TEST_ACTIVITY, true /* visible */);
+            mWmState.computeState(VR_TEST_ACTIVITY);
+            mWmState.assertVisibility(VR_TEST_ACTIVITY, true /* visible */);
 
             // Launch the non-VR 2D activity and check where it ends up.
             launchActivity(ALT_LAUNCHING_ACTIVITY);
-            mAmWmState.computeState(ALT_LAUNCHING_ACTIVITY);
+            mWmState.computeState(ALT_LAUNCHING_ACTIVITY);
 
             // Ensure that the subsequent activity is visible
-            mAmWmState.assertVisibility(ALT_LAUNCHING_ACTIVITY, true /* visible */);
+            mWmState.assertVisibility(ALT_LAUNCHING_ACTIVITY, true /* visible */);
 
             // Check that activity is launched in focused stack on primary display.
-            mAmWmState.assertFocusedActivity("Launched activity must be focused",
+            mWmState.assertFocusedActivity("Launched activity must be focused",
                     ALT_LAUNCHING_ACTIVITY);
-            final int focusedStackId = mAmWmState.getAmState().getFocusedStackId();
-            final ActivityManagerState.ActivityStack focusedStack
-                    = mAmWmState.getAmState().getStackById(focusedStackId);
+            final int focusedStackId = mWmState.getFocusedStackId();
+            final WindowManagerState.ActivityTask focusedStack
+                    = mWmState.getRootTask(focusedStackId);
             assertEquals("Launched activity must be resumed in focused stack",
                     getActivityName(ALT_LAUNCHING_ACTIVITY),
                     focusedStack.mResumedActivity);
 
             // Check if the launch activity is in Vr virtual display id.
-            final List<ActivityDisplay> reportedDisplays = getDisplaysStates();
-            final ActivityDisplay vrDisplay = getDisplayState(reportedDisplays,
+            final List<DisplayContent> reportedDisplays = getDisplaysStates();
+            final DisplayContent vrDisplay = getDisplayState(reportedDisplays,
                     VR_VIRTUAL_DISPLAY_WIDTH, VR_VIRTUAL_DISPLAY_HEIGHT,
                     VR_VIRTUAL_DISPLAY_DPI);
             assertNotNull("Vr mode should have a virtual display", vrDisplay);
@@ -262,16 +265,16 @@ public class VrDisplayTests extends MultiDisplayTestBase {
 
         // Launch the non-VR 2D activity and check where it ends up.
         launchActivity(RESIZEABLE_ACTIVITY);
-        mAmWmState.computeState(RESIZEABLE_ACTIVITY);
+        mWmState.computeState(RESIZEABLE_ACTIVITY);
 
         // Ensure that the subsequent activity is visible
-        mAmWmState.assertVisibility(RESIZEABLE_ACTIVITY, true /* visible */);
+        mWmState.assertVisibility(RESIZEABLE_ACTIVITY, true /* visible */);
 
         // Check that activity is launched in focused stack on primary display.
-        mAmWmState.assertFocusedActivity("Launched activity must be focused", RESIZEABLE_ACTIVITY);
-        final int frontStackId = mAmWmState.getAmState().getFrontStackId(DEFAULT_DISPLAY);
-        final ActivityManagerState.ActivityStack frontStack
-                = mAmWmState.getAmState().getStackById(frontStackId);
+        mWmState.assertFocusedActivity("Launched activity must be focused", RESIZEABLE_ACTIVITY);
+        final int frontStackId = mWmState.getFrontRootTaskId(DEFAULT_DISPLAY);
+        final WindowManagerState.ActivityTask frontStack
+                = mWmState.getRootTask(frontStackId);
         assertEquals("Launched activity must be resumed in front stack",
                 getActivityName(RESIZEABLE_ACTIVITY), frontStack.mResumedActivity);
         assertEquals("Front stack must be on primary display",

@@ -28,14 +28,8 @@
 
 package com.android.service.ims;
 
-import java.util.Set;
-import java.util.HashMap;
-import java.util.List;
-import java.util.ArrayList;
-import android.os.RemoteException;
-
 import com.android.ims.internal.Logger;
-import com.android.ims.IRcsPresenceListener;
+import com.android.service.ims.presence.ContactCapabilityResponse;
 
 /**
  * Task
@@ -57,21 +51,6 @@ public class Task{
     // QRCS_PRES_CMD_SETNEWFEATURETAG
     public int mCmdId;
 
-    // filled after IQPresListener_CMDStatus
-    // QRCS_STATUSCODE, possible values are:
-    // QRCS_SUCCESS
-    // QRCS_FAILURE
-    // QRCS_SUCCESS_ASYC_UPDATE
-    // QRCS_INVALID_SERVICE_HANDLE
-    // QRCS_INVALID_LISTENER_HANDLE
-    // QRCS_INVALID_PARAM
-    // QRCS_FETCH_ERROR
-    // QRCS_REQUEST_TIMEOUT
-    // QRCS_INSUFFICIENT_MEMORY
-    // QRCS_LOST_NET
-    // QRCS_NOT_SUPPORTED
-    // QRCS_NOT_FOUND
-    // Note: have converted it to ResultCode.
     public int mCmdStatus;
 
     //filled after IQPresListener_CMDStatus
@@ -83,10 +62,9 @@ public class Task{
     // filled after IQPresListener_SipResponseReceived
     public String mSipReasonPhrase;
 
-    // filled before send the request
-    public IRcsPresenceListener mListener;
+    public ContactCapabilityResponse mListener;
 
-    public Task(int taskId, int cmdId, IRcsPresenceListener listener){
+    public Task(int taskId, int cmdId, ContactCapabilityResponse listener) {
         mTaskId = taskId;
         mCmdId = cmdId;
         mListener = listener;

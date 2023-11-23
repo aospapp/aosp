@@ -70,6 +70,7 @@ class firmware_SelfSignedBoot(FirmwareTest):
         self.faft_client.system.run_shell_command('crossystem dev_boot_usb=0')
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if (self.faft_config.has_keyboard and
                 not self.check_ec_capability(['keyboard'])):
             raise error.TestNAError("TEST IT MANUALLY! This test can't be "

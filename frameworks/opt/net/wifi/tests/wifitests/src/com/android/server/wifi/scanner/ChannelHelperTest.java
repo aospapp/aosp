@@ -30,6 +30,7 @@ import android.net.wifi.WifiScanner;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiNative;
 
 import org.junit.Before;
@@ -41,14 +42,14 @@ import org.junit.runner.RunWith;
  * Unit tests for {@link com.android.server.wifi.scanner.ChannelHelper}.
  */
 @RunWith(Enclosed.class) // WARNING: tests cannot be declared in the outer class
-public class ChannelHelperTest {
+public class ChannelHelperTest extends WifiBaseTest {
 
     /**
      * Unit tests for
      * {@link com.android.server.wifi.scanner.ChannelHelper#toString}.
      */
     @SmallTest
-    public static class ToStringTest {
+    public static class ToStringTest extends WifiBaseTest {
         /**
          * Compute a string representing the channels in a ScanSettings with a band set.
          */
@@ -109,6 +110,8 @@ public class ChannelHelperTest {
                 WifiScanner.WIFI_BAND_BOTH));
         assertEquals("24Ghz & 5Ghz (DFS incl)", ChannelHelper.bandToString(
                 WifiScanner.WIFI_BAND_BOTH_WITH_DFS));
+        assertEquals("24Ghz & 5Ghz (DFS incl) & 6Ghz", ChannelHelper.bandToString(
+                WifiScanner.WIFI_BAND_24_5_WITH_DFS_6_GHZ));
         assertEquals("invalid band", ChannelHelper.bandToString(-235342));
     }
 
@@ -117,7 +120,7 @@ public class ChannelHelperTest {
      * {@link com.android.server.wifi.scanner.ChannelHelper.ChannelCollection}.
      */
     @SmallTest
-    public static class ChannelCollectionTest {
+    public static class ChannelCollectionTest extends WifiBaseTest {
         ChannelHelper.ChannelCollection mChannelCollection;
 
         /**

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -214,8 +214,18 @@ static inline MagickRealType GetPixelInfoChannel(
     case RedPixelChannel: return(pixel_info->red);
     case GreenPixelChannel: return(pixel_info->green);
     case BluePixelChannel: return(pixel_info->blue);
-    case BlackPixelChannel: return(pixel_info->black);
-    case AlphaPixelChannel: return(pixel_info->alpha);
+    case BlackPixelChannel:
+    {
+      if (pixel_info->colorspace != CMYKColorspace)
+        return(0.0);
+      return(pixel_info->black);
+    }
+    case AlphaPixelChannel:
+    {
+      if (pixel_info->alpha_trait == UndefinedPixelTrait)
+        return(OpaqueAlpha);
+      return(pixel_info->alpha);
+    }
     case IndexPixelChannel: return(pixel_info->index);
     default: return((MagickRealType) 0.0);
   }

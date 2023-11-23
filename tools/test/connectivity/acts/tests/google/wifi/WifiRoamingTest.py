@@ -16,6 +16,8 @@
 import pprint
 import random
 import time
+from acts import context
+from scapy.all import *
 
 from acts import asserts
 from acts import base_test
@@ -25,11 +27,13 @@ from acts.test_utils.wifi import wifi_test_utils as wutils
 from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 WifiEnums = wutils.WifiEnums
+DEF_ATTN = 60
+MAX_ATTN = 95
+ROAM_DBM = -75
+WAIT_AFTER_ATTN = 12
+ATTN_STEP = 5
 
 class WifiRoamingTest(WifiBaseTest):
-
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
 
     def setup_class(self):
         """Setup required dependencies from config file and configure
@@ -38,11 +42,13 @@ class WifiRoamingTest(WifiBaseTest):
         Returns:
             True if successfully configured the requirements for testing.
         """
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
-        req_params = ("roaming_attn", "roam_interval", "ping_addr", "max_bugreports")
-        opt_param = [
-            "open_network", "reference_networks", "iperf_server_address"]
+        req_params = ["roaming_attn", "roam_interval", "ping_addr",
+                      "max_bugreports"]
+        opt_param = ["open_network", "reference_networks",]
         self.unpack_userparams(
             req_param_names=req_params, opt_param_names=opt_param)
 
@@ -55,19 +61,18 @@ class WifiRoamingTest(WifiBaseTest):
         asserts.assert_true(
             len(self.open_network) > 1,
             "Need at least two open networks for roaming")
-        wutils.wifi_toggle_state(self.dut, True)
-        if "iperf_server_address" in self.user_params:
-            self.iperf_server = self.iperf_servers[0]
-            self.iperf_server.start()
+
+
+        self.configure_packet_capture()
 
     def teardown_class(self):
         self.dut.ed.clear_all_events()
         if "AccessPoint" in self.user_params:
             del self.user_params["reference_networks"]
             del self.user_params["open_network"]
-        self.iperf_server.stop()
 
     def setup_test(self):
+        self.dut.ed.clear_all_events()
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
 
@@ -75,6 +80,8 @@ class WifiRoamingTest(WifiBaseTest):
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
         wutils.reset_wifi(self.dut)
+        for a in self.attenuators:
+            a.set_atten(0)
 
     def on_fail(self, test_name, begin_time):
         self.dut.cat_adb_log(test_name, begin_time)
@@ -95,10 +102,89 @@ class WifiRoamingTest(WifiBaseTest):
         5. Validate connection information and ping.
         """
         wutils.set_attns(self.attenuators, "AP1_on_AP2_off")
-        wutils.wifi_connect(self.dut, AP1_network)
+        wifi_config = AP1_network.copy()
+        wifi_config.pop("bssid")
+        wutils.connect_to_wifi_network(self.dut, wifi_config)
         self.log.info("Roaming from %s to %s", AP1_network, AP2_network)
-        wutils.trigger_roaming_and_validate(self.dut, self.attenuators,
-            "AP1_off_AP2_on", AP2_network)
+        wutils.trigger_roaming_and_validate(
+            self.dut, self.attenuators, "AP1_off_AP2_on", AP2_network)
+
+    def get_rssi(self, pcap_file, expected_bssid):
+        """Get signal strength of the wifi network attenuated.
+
+        Args:
+            pcap_file: PCAP file path.
+            expected_bssid: BSSID of the wifi network attenuated.
+        """
+        packets = []
+        try:
+            packets = rdpcap(pcap_file)
+        except Scapy_Exception:
+            self.log.error("Failed to read pcap file")
+        if not packets:
+            return 0
+
+        dbm = -100
+        for pkt in packets:
+            if pkt and hasattr(pkt, 'type') and pkt.type == 0 and \
+                pkt.subtype == 8 and hasattr(pkt, 'info'):
+                  bssid = pkt.addr3
+                  if expected_bssid == bssid:
+                      dbm = int(pkt.dBm_AntSignal)
+        self.log.info("RSSI: %s" % dbm)
+        return dbm
+
+    def trigger_roaming_and_verify_attenuation(self, network):
+        """Trigger roaming and verify signal strength is below roaming limit.
+
+        Args:
+            network: Wifi network that is being attenuated.
+        """
+        wutils.set_attns_steps(self.attenuators, "AP1_off_AP2_on")
+        band = '5G' if network['SSID'].startswith('5g_') else '2G'
+        attn = DEF_ATTN + ATTN_STEP
+        while attn <= MAX_ATTN:
+            self.pcap_procs = wutils.start_pcap(
+                self.packet_capture, 'dual', self.test_name)
+            time.sleep(WAIT_AFTER_ATTN/3)
+            wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
+            pcap_file = os.path.join(
+                context.get_current_context().get_full_output_path(),
+                'PacketCapture',
+                '%s_%s.pcap' % (self.test_name, band))
+
+            rssi = self.get_rssi(pcap_file, network["bssid"])
+            if rssi == 0:
+                self.log.error("Failed to verify signal strength")
+                break
+            if self.get_rssi(pcap_file, network["bssid"]) < ROAM_DBM:
+                break
+
+            self.attenuators[0].set_atten(attn)
+            self.attenuators[1].set_atten(attn)
+            time.sleep(WAIT_AFTER_ATTN) # allow some time for attenuation
+            attn += 5
+
+    def validate_roaming(self, expected_con):
+        """Validate roaming.
+
+        Args:
+            expected_con: Expected wifi network after roaming.
+        """
+        expected_con = {
+            WifiEnums.SSID_KEY: expected_con[WifiEnums.SSID_KEY],
+            WifiEnums.BSSID_KEY: expected_con["bssid"],
+        }
+        curr_con = self.dut.droid.wifiGetConnectionInfo()
+        for key in expected_con:
+            if expected_con[key] != curr_con[key]:
+                asserts.fail("Expected '%s' to be %s, actual is %s." %
+                             (key, expected_con[key], curr_con[key]))
+        self.log.info("Roamed to %s successfully",
+                      expected_con[WifiEnums.BSSID_KEY])
+        if not wutils.validate_connection(self.dut):
+            raise signals.TestFailure("Fail to connect to internet on %s" %
+                                      expected_con[WifiEnums.BSSID_KEY])
 
     """ Tests Begin.
 

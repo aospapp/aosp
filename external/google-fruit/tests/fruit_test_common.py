@@ -19,23 +19,49 @@ import unittest
 import textwrap
 import re
 import sys
+import shlex
 
 import itertools
 
 import subprocess
 
-import pytest
+from absl.testing import parameterized
 
 from fruit_test_config import *
 
+from absl.testing import absltest
+
 run_under_valgrind = RUN_TESTS_UNDER_VALGRIND.lower() not in ('false', 'off', 'no', '0', '')
 
-def pretty_print_command(command):
-    return ' '.join('"' + x + '"' for x in command)
+def pretty_print_command(command, env):
+    return 'cd %s; env -i %s %s' % (
+        shlex.quote(env['PWD']),
+        ' '.join('%s=%s' % (var_name, shlex.quote(value)) for var_name, value in env.items() if var_name != 'PWD'),
+        ' '.join(shlex.quote(x) for x in command))
+
+def multiple_parameters(*param_lists):
+    param_lists = [[params if isinstance(params, tuple) else (params,)
+                    for params in param_list]
+                   for param_list in param_lists]
+    result = param_lists[0]
+    for param_list in param_lists[1:]:
+        result = [(*args1, *args2)
+                  for args1 in result
+                  for args2 in param_list]
+    return parameterized.parameters(*result)
+
+def multiple_named_parameters(*param_lists):
+    result = param_lists[0]
+    for param_list in param_lists[1:]:
+        result = [(name1 + ', ' + name2, *args1, *args2)
+                  for name1, *args1 in result
+                  for name2, *args2 in param_list]
+    return parameterized.named_parameters(*result)
 
 class CommandFailedException(Exception):
-    def __init__(self, command, stdout, stderr, error_code):
+    def __init__(self, command, env, stdout, stderr, error_code):
         self.command = command
+        self.env = env
         self.stdout = stdout
         self.stderr = stderr
         self.error_code = error_code
@@ -49,19 +75,19 @@ class CommandFailedException(Exception):
 
         Stderr:
         {stderr}
-        ''').format(command=pretty_print_command(self.command), error_code=self.error_code, stdout=self.stdout, stderr=self.stderr)
+        ''').format(command=pretty_print_command(self.command, self.env), error_code=self.error_code, stdout=self.stdout, stderr=self.stderr)
 
 def run_command(executable, args=[], modify_env=lambda env: env):
     command = [executable] + args
     modified_env = modify_env(os.environ)
-    print('Executing command:', pretty_print_command(command))
+    print('Executing command:', pretty_print_command(command, modified_env))
     try:
         p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, env=modified_env)
         (stdout, stderr) = p.communicate()
     except Exception as e:
         raise Exception("While executing: %s" % command)
     if p.returncode != 0:
-        raise CommandFailedException(command, stdout, stderr, p.returncode)
+        raise CommandFailedException(command, modified_env, stdout, stderr, p.returncode)
     print('Execution successful.')
     print('stdout:')
     print(stdout)
@@ -79,8 +105,9 @@ def run_compiled_executable(executable):
         run_command(executable, modify_env = modify_env_for_compiled_executables)
 
 class CompilationFailedException(Exception):
-    def __init__(self, command, error_message):
+    def __init__(self, command, env, error_message):
         self.command = command
+        self.env = env
         self.error_message = error_message
 
     def __str__(self):
@@ -88,7 +115,7 @@ class CompilationFailedException(Exception):
         Ran command: {command}
         Error message:
         {error_message}
-        ''').format(command=pretty_print_command(self.command), error_message=self.error_message)
+        ''').format(command=pretty_print_command(self.command, self.env), error_message=self.error_message)
 
 class PosixCompiler:
     def __init__(self):
@@ -100,7 +127,7 @@ class PosixCompiler:
             args = args + ['-c', source, '-o', os.path.devnull]
             self._compile(include_dirs, args=args)
         except CommandFailedException as e:
-            raise CompilationFailedException(e.command, e.stderr)
+            raise CompilationFailedException(e.command, e.env, e.stderr)
 
     def compile_and_link(self, source, include_dirs, output_file_name, args=[]):
         self._compile(
@@ -587,6 +614,5 @@ def expect_success(setup_source_code, source_code, test_params={}, ignore_deprec
 
 
 # Note: this is not the main function of this file, it's meant to be used as main function from test_*.py files.
-def main(file):
-    code = pytest.main(args = sys.argv + [os.path.realpath(file)])
-    exit(code)
+def main():
+    absltest.main(*sys.argv)

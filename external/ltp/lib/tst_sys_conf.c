@@ -7,6 +7,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #define TST_NO_DEFAULT_MAIN
 #include "tst_test.h"
@@ -65,6 +66,9 @@ int tst_sys_conf_save(const char *path)
 
 	fp = fopen(path, "r");
 	if (fp == NULL) {
+		if (flag == '?')
+			return 1;
+
 		tst_brk(TBROK | TERRNO, "Failed to open FILE '%s' for reading",
 			path);
 		return 1;
@@ -74,6 +78,9 @@ int tst_sys_conf_save(const char *path)
 	fclose(fp);
 
 	if (ret == NULL) {
+		if (flag == '?')
+			return 1;
+
 		tst_brk(TBROK | TERRNO, "Failed to read anything from '%s'",
 			path);
 	}

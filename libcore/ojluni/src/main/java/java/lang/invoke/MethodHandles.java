@@ -1129,7 +1129,8 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
 
             // Make sure that the special caller is identical to the lookup class or that we have
             // private access.
-            checkSpecialCaller(specialCaller);
+            // Android-changed: Also allow access to any interface methods.
+            checkSpecialCaller(specialCaller, refc);
 
             // Even though constructors are invoked using a "special" invoke, handles to them can't
             // be created using findSpecial. Callers must use findConstructor instead. Similarly,
@@ -1655,7 +1656,9 @@ return mh1;
             }
 
             if (!m.isAccessible()) {
-                checkSpecialCaller(specialCaller);
+                // Android-changed: Match Java language 9 behavior where unreflectSpecial continues
+                // to require exact caller lookupClass match.
+                checkSpecialCaller(specialCaller, null);
             }
 
             final MethodType methodType = MethodType.methodType(m.getReturnType(),
@@ -1937,13 +1940,19 @@ return mh1;
         //
         // private static final boolean ALLOW_NESTMATE_ACCESS = false;
 
-        private void checkSpecialCaller(Class<?> specialCaller) throws IllegalAccessException {
+        // Android-changed: Match java language 9 behavior allowing special access if the reflected
+        // class (called 'refc', the class from which the method is being accessed) is an interface
+        // and is implemented by the caller.
+        private void checkSpecialCaller(Class<?> specialCaller, Class<?> refc) throws IllegalAccessException {
             // Android-changed: No support for TRUSTED lookups. Also construct the
             // IllegalAccessException by hand because the upstream code implicitly assumes
             // that the lookupClass == specialCaller.
             //
             // if (allowedModes == TRUSTED)  return;
-            if (!hasPrivateAccess() || (specialCaller != lookupClass())) {
+            boolean isInterfaceLookup = (refc != null &&
+                                         refc.isInterface() &&
+                                         refc.isAssignableFrom(specialCaller));
+            if (!hasPrivateAccess() || (specialCaller != lookupClass() && !isInterfaceLookup)) {
                 throw new IllegalAccessException("no private access for invokespecial : "
                         + specialCaller + ", from" + this);
             }
@@ -2588,15 +2597,24 @@ return invoker;
         MethodType oldType = target.type();
         if (oldType == newType) return target;
         if (oldType.explicitCastEquivalentToAsType(newType)) {
-            return target.asFixedArity().asType(newType);
+            if (Transformers.Transformer.class.isAssignableFrom(target.getClass())) {
+                // The StackFrameReader and StackFrameWriter used to perform transforms on
+                // EmulatedStackFrames (in Transformers.java) do not how to perform asType()
+                // conversions, but we know here that an explicit cast transform is the same as
+                // having called asType() on the method handle.
+                return new Transformers.ExplicitCastArguments(target.asFixedArity(), newType);
+            } else {
+                // Runtime will perform asType() conversion during invocation.
+                return target.asFixedArity().asType(newType);
+            }
         }
-
         return new Transformers.ExplicitCastArguments(target, newType);
     }
 
     private static void explicitCastArgumentsChecks(MethodHandle target, MethodType newType) {
         if (target.type().parameterCount() != newType.parameterCount()) {
-            throw new WrongMethodTypeException("cannot explicitly cast " + target + " to " + newType);
+            throw new WrongMethodTypeException("cannot explicitly cast " + target +
+                                               " to " + newType);
         }
     }
 

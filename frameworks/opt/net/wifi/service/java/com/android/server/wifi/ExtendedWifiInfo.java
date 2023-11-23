@@ -17,7 +17,10 @@
 package com.android.server.wifi;
 
 import android.annotation.NonNull;
+import android.content.Context;
 import android.net.wifi.WifiInfo;
+
+import com.android.wifi.resources.R;
 
 /**
  * Extends WifiInfo with the methods for computing the averaged packet rates
@@ -29,16 +32,23 @@ public class ExtendedWifiInfo extends WifiInfo {
     private static final int SOURCE_TRAFFIC_COUNTERS = 1;
     private static final int SOURCE_LLSTATS = 2;
 
+    private final Context mContext;
+
     private int mLastSource = SOURCE_UNKNOWN;
     private long mLastPacketCountUpdateTimeStamp = RESET_TIME_STAMP;
-    private boolean mEnableConnectedMacRandomization = false;
+
+    ExtendedWifiInfo(Context context) {
+        super();
+        mContext = context;
+    }
 
     @Override
     public void reset() {
         super.reset();
         mLastSource = SOURCE_UNKNOWN;
         mLastPacketCountUpdateTimeStamp = RESET_TIME_STAMP;
-        if (mEnableConnectedMacRandomization) {
+        if (mContext.getResources().getBoolean(
+                R.bool.config_wifi_connected_mac_randomization_supported)) {
             setMacAddress(DEFAULT_MAC_ADDRESS);
         }
     }
@@ -78,23 +88,23 @@ public class ExtendedWifiInfo extends WifiInfo {
             double lastSampleWeight = Math.exp(-1.0 * timeDelta / FILTER_TIME_CONSTANT);
             double currentSampleWeight = 1.0 - lastSampleWeight;
 
-            txBadRate = txBadRate * lastSampleWeight
+            setLostTxPacketsPerSecond(getLostTxPacketsPerSecond() * lastSampleWeight
                     + (txbad - txBad) * 1000.0 / timeDelta
-                    * currentSampleWeight;
-            txSuccessRate = txSuccessRate * lastSampleWeight
+                    * currentSampleWeight);
+            setSuccessfulTxPacketsPerSecond(getSuccessfulTxPacketsPerSecond() * lastSampleWeight
                     + (txgood - txSuccess) * 1000.0 / timeDelta
-                    * currentSampleWeight;
-            rxSuccessRate = rxSuccessRate * lastSampleWeight
+                    * currentSampleWeight);
+            setSuccessfulRxPacketsPerSecond(getSuccessfulRxPacketsPerSecond() * lastSampleWeight
                     + (rxgood - rxSuccess) * 1000.0 / timeDelta
-                    * currentSampleWeight;
-            txRetriesRate = txRetriesRate * lastSampleWeight
+                    * currentSampleWeight);
+            setRetriedTxPacketsRate(getRetriedTxPacketsPerSecond() * lastSampleWeight
                     + (txretries - txRetries) * 1000.0 / timeDelta
-                    * currentSampleWeight;
+                    * currentSampleWeight);
         } else {
-            txBadRate = 0;
-            txSuccessRate = 0;
-            rxSuccessRate = 0;
-            txRetriesRate = 0;
+            setLostTxPacketsPerSecond(0);
+            setSuccessfulTxPacketsPerSecond(0);
+            setSuccessfulRxPacketsPerSecond(0);
+            setRetriedTxPacketsRate(0);
             mLastSource = source;
         }
         txBad = txbad;
@@ -103,14 +113,4 @@ public class ExtendedWifiInfo extends WifiInfo {
         txRetries = txretries;
         mLastPacketCountUpdateTimeStamp = timeStamp;
     }
-
-    /**
-     * Updates whether Connected MAC Randomization is enabled.
-     *
-     * @hide
-     */
-    public void setEnableConnectedMacRandomization(boolean enableConnectedMacRandomization) {
-        mEnableConnectedMacRandomization = enableConnectedMacRandomization;
-    }
-
 }

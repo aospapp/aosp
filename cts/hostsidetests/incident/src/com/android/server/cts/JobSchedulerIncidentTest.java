@@ -69,7 +69,7 @@ public class JobSchedulerIncidentTest extends ProtoDumpTestCase {
         for (JobSchedulerServiceDumpProto.PendingJob pj : dump.getPendingJobsList()) {
             testJobStatusShortInfoProto(pj.getInfo(), filterLevel);
             testJobStatusDumpProto(pj.getDump());
-            assertTrue(0 <= pj.getEnqueuedDurationMs());
+            assertTrue(0 <= pj.getPendingDurationMs());
         }
 
         for (JobSchedulerServiceDumpProto.ActiveJob aj : dump.getActiveJobsList()) {
@@ -91,13 +91,6 @@ public class JobSchedulerIncidentTest extends ProtoDumpTestCase {
     private static void testConstantsProto(ConstantsProto c) throws Exception {
         assertNotNull(c);
 
-        assertTrue(0 <= c.getMinIdleCount());
-        assertTrue(0 <= c.getMinChargingCount());
-        assertTrue(0 <= c.getMinBatteryNotLowCount());
-        assertTrue(0 <= c.getMinStorageNotLowCount());
-        assertTrue(0 <= c.getMinConnectivityCount());
-        assertTrue(0 <= c.getMinContentCount());
-        assertTrue(0 <= c.getMinReadyJobsCount());
         assertTrue(0 <= c.getHeavyUseFactor());
         assertTrue(0 <= c.getModerateUseFactor());
         assertTrue(0 <= c.getFgJobCount());
@@ -105,14 +98,8 @@ public class JobSchedulerIncidentTest extends ProtoDumpTestCase {
         assertTrue(0 <= c.getBgModerateJobCount());
         assertTrue(0 <= c.getBgLowJobCount());
         assertTrue(0 <= c.getBgCriticalJobCount());
-        assertTrue(0 <= c.getMaxStandardRescheduleCount());
-        assertTrue(0 <= c.getMaxWorkRescheduleCount());
         assertTrue(0 <= c.getMinLinearBackoffTimeMs());
         assertTrue(0 <= c.getMinExpBackoffTimeMs());
-        assertTrue(0 <= c.getStandbyHeartbeatTimeMs());
-        for (int sb : c.getStandbyBeatsList()) {
-            assertTrue(0 <= sb);
-        }
     }
 
     private static void testDataSetProto(DataSetProto ds) throws Exception {
@@ -186,8 +173,8 @@ public class JobSchedulerIncidentTest extends ProtoDumpTestCase {
         assertTrue(0 <= ji.getTriggerContentMaxDelayMs());
         testNetworkRequestProto(ji.getRequiredNetwork());
         // JobInfo.NETWORK_BYTES_UNKNOWN (= -1) is a valid value.
-        assertTrue(-1 <= ji.getTotalNetworkBytes());
-        assertTrue(0 <= ji.getMinLatencyMs());
+        assertTrue(-1 <= ji.getTotalNetworkDownloadBytes());
+        assertTrue(-1 <= ji.getTotalNetworkUploadBytes());
         assertTrue(0 <= ji.getMaxExecutionDelayMs());
         JobStatusDumpProto.JobInfo.Backoff bp = ji.getBackoffPolicy();
         assertTrue(JobStatusDumpProto.JobInfo.Backoff.Policy.getDescriptor().getValues()

@@ -22,10 +22,9 @@ import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RegistrantList;
-import android.os.SystemProperties;
+import android.sysprop.TelephonyProperties;
 import android.telephony.CallQuality;
 import android.telephony.NetworkScanRequest;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.ims.ImsReasonInfo;
@@ -41,9 +40,9 @@ import com.android.internal.telephony.OperatorInfo;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneNotifier;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.dataconnection.DataConnection;
 import com.android.internal.telephony.uicc.IccFileHandler;
+import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -169,11 +168,6 @@ abstract class ImsPhoneBase extends Phone {
     }
 
     @Override
-    public boolean getCallForwardingIndicator() {
-        return false;
-    }
-
-    @Override
     public List<? extends MmiCode> getPendingMmiCodes() {
         return new ArrayList<MmiCode>(0);
     }
@@ -237,10 +231,9 @@ abstract class ImsPhoneBase extends Phone {
         Rlog.v(LOG_TAG, "canDial(): serviceState = " + serviceState);
         if (serviceState == ServiceState.STATE_POWER_OFF) return false;
 
-        String disableCall = SystemProperties.get(
-                TelephonyProperties.PROPERTY_DISABLE_CALL, "false");
+        boolean disableCall = TelephonyProperties.disable_call().orElse(false);
         Rlog.v(LOG_TAG, "canDial(): disableCall = " + disableCall);
-        if (disableCall.equals("true")) return false;
+        if (disableCall) return false;
 
         Rlog.v(LOG_TAG, "canDial(): ringingCall: " + getRingingCall().getState());
         Rlog.v(LOG_TAG, "canDial(): foregndCall: " + getForegroundCall().getState());
@@ -344,11 +337,6 @@ abstract class ImsPhoneBase extends Phone {
     }
 
     @Override
-    public String getLine1Number() {
-        return null;
-    }
-
-    @Override
     public String getLine1AlphaTag() {
         return null;
     }
@@ -372,8 +360,19 @@ abstract class ImsPhoneBase extends Phone {
     }
 
     @Override
+    public void getCallForwardingOption(int commandInterfaceCFReason, int serviceClass,
+            Message onComplete) {
+    }
+
+    @Override
     public void setCallForwardingOption(int commandInterfaceCFAction,
             int commandInterfaceCFReason, String dialingNumber,
+            int timerSeconds, Message onComplete) {
+    }
+
+    @Override
+    public void setCallForwardingOption(int commandInterfaceCFAction,
+            int commandInterfaceCFReason, String dialingNumber, int serviceClass,
             int timerSeconds, Message onComplete) {
     }
 

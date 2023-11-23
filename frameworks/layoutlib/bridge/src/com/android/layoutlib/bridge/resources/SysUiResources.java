@@ -52,7 +52,7 @@ public class SysUiResources {
                 try {
                     XmlPullParser parser = ParserFactory.create(stream, layoutName);
 
-                    // TODO(namespaces): does the namespace matter here?
+                    // TODO(b/156609434): does the namespace matter here?
                     return new BridgeXmlBlockParser(parser, context, PRIVATE_LAYOUTLIB_NAMESPACE);
                 } catch (XmlPullParserException e) {
                     // Should not happen as the resource is bundled with the jar, and  ParserFactory should

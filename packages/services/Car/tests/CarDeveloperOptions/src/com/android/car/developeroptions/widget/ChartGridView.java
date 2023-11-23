@@ -31,8 +31,9 @@ import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.view.View;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.R;
+
+import java.util.Objects;
 
 /**
  * Background of {@link ChartView} that renders grid lines as requested by
@@ -89,8 +90,8 @@ public class ChartGridView extends View {
     }
 
     void init(ChartAxis horiz, ChartAxis vert) {
-        mHoriz = Preconditions.checkNotNull(horiz, "missing horiz");
-        mVert = Preconditions.checkNotNull(vert, "missing vert");
+        mHoriz = Objects.requireNonNull(horiz, "missing horiz");
+        mVert = Objects.requireNonNull(vert, "missing vert");
     }
 
     void setBounds(long start, long end) {

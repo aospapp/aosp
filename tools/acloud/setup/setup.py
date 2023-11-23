@@ -46,15 +46,22 @@ def Run(args):
     _PrintWelcomeMessage()
 
     # 2.Init all subtasks in queue and traverse them.
-    host_runner = host_setup_runner.AvdPkgInstaller()
+    host_base_runner = host_setup_runner.HostBasePkgInstaller()
+    host_avd_runner = host_setup_runner.AvdPkgInstaller()
+    host_cf_common_runner = host_setup_runner.CuttlefishCommonPkgInstaller()
     host_env_runner = host_setup_runner.CuttlefishHostSetup()
     gcp_runner = gcp_setup_runner.GcpTaskRunner(args.config_file)
     task_queue = []
-    # User must explicitly specify --host to install the host packages.
+    # User must explicitly specify --host to install the avd host packages.
     if args.host:
-        task_queue.append(host_runner)
+        task_queue.append(host_base_runner)
+        task_queue.append(host_avd_runner)
+        task_queue.append(host_cf_common_runner)
         task_queue.append(host_env_runner)
-    if args.gcp_init or not args.host:
+    # We should do these setup tasks if specified or if no args were used.
+    if args.host_base or (not args.host and not args.gcp_init):
+        task_queue.append(host_base_runner)
+    if args.gcp_init or (not args.host and not args.host_base):
         task_queue.append(gcp_runner)
 
     for subtask in task_queue:

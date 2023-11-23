@@ -15,29 +15,33 @@
 #include "core/fxcrt/string_pool_template.h"
 #include "core/fxcrt/weak_ptr.h"
 
-class CPDF_String : public CPDF_Object {
+class CPDF_String final : public CPDF_Object {
  public:
-  CPDF_String();
-  CPDF_String(WeakPtr<ByteStringPool> pPool, const ByteString& str, bool bHex);
-  CPDF_String(WeakPtr<ByteStringPool> pPool, const WideString& str);
-  ~CPDF_String() override;
+  template <typename T, typename... Args>
+  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
 
   // CPDF_Object:
   Type GetType() const override;
-  std::unique_ptr<CPDF_Object> Clone() const override;
+  RetainPtr<CPDF_Object> Clone() const override;
   ByteString GetString() const override;
   WideString GetUnicodeText() const override;
   void SetString(const ByteString& str) override;
   bool IsString() const override;
   CPDF_String* AsString() override;
   const CPDF_String* AsString() const override;
-  bool WriteTo(IFX_ArchiveStream* archive) const override;
+  bool WriteTo(IFX_ArchiveStream* archive,
+               const CPDF_Encryptor* encryptor) const override;
 
   bool IsHex() const { return m_bHex; }
 
- protected:
+ private:
+  CPDF_String();
+  CPDF_String(WeakPtr<ByteStringPool> pPool, const ByteString& str, bool bHex);
+  CPDF_String(WeakPtr<ByteStringPool> pPool, const WideString& str);
+  ~CPDF_String() override;
+
   ByteString m_String;
-  bool m_bHex;
+  bool m_bHex = false;
 };
 
 inline CPDF_String* ToString(CPDF_Object* obj) {

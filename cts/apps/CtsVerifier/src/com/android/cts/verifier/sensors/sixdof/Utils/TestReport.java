@@ -99,7 +99,7 @@ public class TestReport {
         xml.attribute(null, "id", Build.ID);
         xml.attribute(null, "model", Build.MODEL);
         xml.attribute(null, "product", Build.PRODUCT);
-        xml.attribute(null, "release", Build.VERSION.RELEASE);
+        xml.attribute(null, "release", Build.VERSION.RELEASE_OR_CODENAME);
         xml.attribute(null, "sdk", Integer.toString(Build.VERSION.SDK_INT));
         xml.endTag(null, BUILD_INFO_TAG);
         xml.endTag(null, DEVICE_INFO_TAG);

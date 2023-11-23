@@ -38,8 +38,8 @@ OPENGL_INC_DIR		= os.path.join(OPENGL_DIR, "wrapper")
 GL_SOURCE			= khr_util.registry_cache.RegistrySource(
 						"https://raw.githubusercontent.com/KhronosGroup/OpenGL-Registry",
 						"xml/gl.xml",
-						"acc85f4b76949b015c0354bd8c20a1076a49b1cf",
-						"443d993e5d905d12b3903e2716d068326af518884988db69af72b6bdb665e6a7")
+						"9d534f9312e56c72df763207e449c6719576fd54",
+						"245e90331c83c4c743a2b9d0dad51e27a699f2040ebd34dd5338637adf276752")
 
 EXTENSIONS			= [
 	'GL_KHR_texture_compression_astc_ldr',
@@ -50,6 +50,7 @@ EXTENSIONS			= [
 	'GL_KHR_robustness',
 	'GL_KHR_no_error',
 	'GL_KHR_parallel_shader_compile',
+	'GL_KHR_shader_subgroup',
 	'GL_EXT_bgra',
 	'GL_EXT_geometry_point_size',
 	'GL_EXT_tessellation_shader',
@@ -61,6 +62,7 @@ EXTENSIONS			= [
 	'GL_EXT_primitive_bounding_box',
 	'GL_EXT_texture_compression_s3tc',
 	'GL_EXT_texture_type_2_10_10_10_REV',
+	'GL_EXT_clip_control',
 	'GL_EXT_copy_image',
 	'GL_EXT_depth_bounds_test',
 	'GL_EXT_direct_state_access',
@@ -134,10 +136,18 @@ EXTENSIONS			= [
 	'GL_NV_deep_texture3D',
 	'GL_NV_gpu_multicast',
 	'GL_NV_internalformat_sample_query',
+	'GL_NV_shader_subgroup_partitioned',
 	'GL_NVX_cross_process_interop',
 	'GL_OES_draw_elements_base_vertex',
 	'GL_OVR_multiview',
 	'GL_OVR_multiview_multisampled_render_to_texture',
+]
+
+ALIASING_EXCEPTIONS = [
+	# registry insists that this aliases glRenderbufferStorageMultisample,
+	# and from a desktop GL / GLX perspective it *must*, but for ES they are
+	# unfortunately separate functions with different semantics.
+	'glRenderbufferStorageMultisampleEXT',
 ]
 
 def getGLRegistry ():
@@ -170,16 +180,24 @@ def getHybridInterface (stripAliasedExtCommands = True):
 		strippedCmds = []
 
 		for command in iface.commands:
-			if command.alias == None:
+			if command.alias == None or command.name in ALIASING_EXCEPTIONS:
 				strippedCmds.append(command)
 
 		iface.commands = strippedCmds
 
 	return iface
 
+def versionCheck(version):
+	if type(version) is bool:
+		if version == False:
+			return True
+	if type(version) is str:
+		return version < "3.2"
+	raise "Version check failed"
+
 def getInterface (registry, api, version=None, profile=None, **kwargs):
 	spec = khr_util.registry.spec(registry, api, version, profile, **kwargs)
-	if api == 'gl' and profile == 'core' and version < "3.2":
+	if api == 'gl' and profile == 'core' and versionCheck(version):
 		gl32 = registry.features['GL_VERSION_3_2']
 		for eRemove in gl32.xpath('remove'):
 			spec.addComponent(eRemove)

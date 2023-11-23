@@ -18,15 +18,17 @@
 -->
 <resources>
     <!-- Text size in ActivityBlockingActivity. -->
-    <dimen name="blocking_text_size">32sp</dimen>
-    <!-- Widget margin. It should be half the height of button. -->
-    <dimen name="common_margin">28dp</dimen>
-    <!-- Minimum height of button in ActivityBlockingActivity. -->
-    <dimen name="button_min_height">56dp</dimen>
-    <!-- Minimum width of button in ActivityBlockingActivity. -->
-    <dimen name="button_min_width">156dp</dimen>
-    <!-- Padding of button in ActivityBlockingActivity. -->
-    <dimen name="button_padding">16dp</dimen>
-    <!-- Radius of button in ActivityBlockingActivity. -->
-    <dimen name="button_radius">4dp</dimen>
+    <dimen name="blocking_text_size">@*android:dimen/car_body1_size</dimen>
+    <dimen name="blocking_text_width">706dp</dimen>
+
+    <dimen name="common_margin">32dp</dimen>
+
+    <!-- Dimensions for the Buttons in ActivityBlockingActivity -->
+    <dimen name="action_button_height">76dp</dimen>
+    <dimen name="action_button_top_margin">48dp</dimen>
+    <dimen name="action_button_corner_radius">38dp</dimen>
+    <dimen name="action_button_max_width">268dp</dimen>
+    <dimen name="action_button_min_width">@*android:dimen/car_button_min_width</dimen>
+    <dimen name="action_button_text_size">@*android:dimen/car_body3_size</dimen>
+    <dimen name="action_button_padding_horizontal">@*android:dimen/car_padding_4</dimen>
 </resources>

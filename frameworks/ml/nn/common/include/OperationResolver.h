@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_COMMON_OPERATION_RESOLVER_H
-#define ANDROID_ML_NN_COMMON_OPERATION_RESOLVER_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATION_RESOLVER_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATION_RESOLVER_H
 
 #include "HalInterfaces.h"
 #include "OperationsUtils.h"
@@ -25,7 +25,7 @@ namespace nn {
 
 // Encapsulates an operation implementation.
 struct OperationRegistration {
-    OperationType type;
+    hal::OperationType type;
     const char* name;
 
     // Validates operand types, shapes, and any values known during graph creation.
@@ -47,7 +47,7 @@ struct OperationRegistration {
         bool allowZeroSizedInput = false;
     } flags;
 
-    OperationRegistration(OperationType type, const char* name,
+    OperationRegistration(hal::OperationType type, const char* name,
                           std::function<bool(const IOperationValidationContext*)> validate,
                           std::function<bool(IOperationExecutionContext*)> prepare,
                           std::function<bool(IOperationExecutionContext*)> execute, Flag flags)
@@ -62,7 +62,7 @@ struct OperationRegistration {
 // A registry of operation implementations.
 class IOperationResolver {
    public:
-    virtual const OperationRegistration* findOperation(OperationType operationType) const = 0;
+    virtual const OperationRegistration* findOperation(hal::OperationType operationType) const = 0;
     virtual ~IOperationResolver() {}
 };
 
@@ -86,7 +86,7 @@ class BuiltinOperationResolver : public IOperationResolver {
         return &instance;
     }
 
-    const OperationRegistration* findOperation(OperationType operationType) const override;
+    const OperationRegistration* findOperation(hal::OperationType operationType) const override;
 
    private:
     BuiltinOperationResolver();
@@ -116,11 +116,11 @@ class BuiltinOperationResolver : public IOperationResolver {
 //                         .allowZeroSizedInput = true);
 //
 #ifdef NN_INCLUDE_CPU_IMPLEMENTATION
-#define NN_REGISTER_OPERATION(identifier, operationName, validate, prepare, execute, ...)     \
-    const OperationRegistration* register_##identifier() {                                    \
-        static OperationRegistration registration(OperationType::identifier, operationName,   \
-                                                  validate, prepare, execute, {__VA_ARGS__}); \
-        return &registration;                                                                 \
+#define NN_REGISTER_OPERATION(identifier, operationName, validate, prepare, execute, ...)        \
+    const OperationRegistration* register_##identifier() {                                       \
+        static OperationRegistration registration(hal::OperationType::identifier, operationName, \
+                                                  validate, prepare, execute, {__VA_ARGS__});    \
+        return &registration;                                                                    \
     }
 #else
 // This version ignores CPU execution logic (prepare and execute).
@@ -129,7 +129,7 @@ class BuiltinOperationResolver : public IOperationResolver {
 #define NN_REGISTER_OPERATION(identifier, operationName, validate, unused_prepare, unused_execute, \
                               ...)                                                                 \
     const OperationRegistration* register_##identifier() {                                         \
-        static OperationRegistration registration(OperationType::identifier, operationName,        \
+        static OperationRegistration registration(hal::OperationType::identifier, operationName,   \
                                                   validate, nullptr, nullptr, {__VA_ARGS__});      \
         return &registration;                                                                      \
     }
@@ -138,4 +138,4 @@ class BuiltinOperationResolver : public IOperationResolver {
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_ML_NN_COMMON_OPERATION_RESOLVER_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATION_RESOLVER_H

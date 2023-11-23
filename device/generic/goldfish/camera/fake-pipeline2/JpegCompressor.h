@@ -31,6 +31,7 @@
 #include "Base.h"
 #include "../JpegCompressor.h"
 #include <CameraMetadata.h>
+#include <ui/GraphicBufferMapper.h>
 
 #include <stdio.h>
 
@@ -45,7 +46,7 @@ namespace android {
 class JpegCompressor: private Thread, public virtual RefBase {
   public:
 
-    JpegCompressor();
+    JpegCompressor(GraphicBufferMapper* gbm);
     ~JpegCompressor();
 
     struct JpegListener {
@@ -77,7 +78,7 @@ class JpegCompressor: private Thread, public virtual RefBase {
     status_t reserve();
 
     // TODO: Measure this
-    static const size_t kMaxJpegSize = 300000;
+    static const size_t kMaxJpegSize = 675000;
 
   private:
     Mutex mBusyMutex;
@@ -89,6 +90,7 @@ class JpegCompressor: private Thread, public virtual RefBase {
 
     Buffers *mBuffers;
     JpegListener *mListener;
+    GraphicBufferMapper *mGBM;
 
     StreamBuffer mJpegBuffer, mAuxBuffer;
     bool mFoundJpeg, mFoundAux;

@@ -16,6 +16,7 @@
 package android.os.cts;
 
 import android.os.Environment;
+import android.os.Process;
 import android.platform.test.annotations.AppModeFull;
 import android.system.Os;
 import android.system.StructStatVfs;
@@ -37,6 +38,7 @@ public class EnvironmentTest extends TestCase {
 
     @AppModeFull(reason = "External directory not accessible by instant apps")
     public void testEnvironmentExternal() {
+        assertTrue(Environment.getStorageDirectory().isDirectory());
         assertTrue(Environment.getExternalStorageDirectory().isDirectory());
     }
 
@@ -110,7 +112,12 @@ public class EnvironmentTest extends TestCase {
         final long maxInodes = maxsize / 4096;
         // Assuming the smallest storage would be 4GB, min # of free inodes
         // in EXT4/F2FS must be larger than 128k for Android to work properly.
-        final long minInodes = 128 * 1024;
+        long minInodes = 128 * 1024;
+        final long size4GB = 4294967296l;
+        //If the storage size is smaller than 4GB, let's consider 32k for 1GB.
+        if (maxsize < size4GB) {
+            minInodes = 32 * 1024;
+        }
 
         if (stat.f_ffree >= minInodes && stat.f_ffree <= maxInodes
             && stat.f_favail <= stat.f_ffree) {

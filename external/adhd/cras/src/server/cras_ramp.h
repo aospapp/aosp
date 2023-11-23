@@ -35,20 +35,23 @@ struct cras_ramp_action {
 	enum CRAS_RAMP_ACTION_TYPE type;
 	float scaler;
 	float increment;
+	float target;
 };
 
 typedef void (*cras_ramp_cb)(void *arg);
 
 /* Creates a ramp. */
-struct cras_ramp* cras_ramp_create();
+struct cras_ramp *cras_ramp_create();
 
 /* Destroys a ramp. */
-void cras_ramp_destroy(struct cras_ramp* ramp);
+void cras_ramp_destroy(struct cras_ramp *ramp);
 
-/* Starts ramping up from 0 to 1 or from 1 to 0 for duration_frames frames.
+/* Ramps the scaler between from and to for duration_frames frames.
  * Args:
  *   ramp[in]: The ramp struct to start.
- *   is_up[in]: 1 to ramp up and 0 to ramp down.
+ *   mute_ramp[in]: Is this ramp a mute->unmute or unmute->mute ramp.
+ *   from[in]: The scaler value to ramp from.
+ *   to[in]: The scaler value to ramp to.
  *   duration_frames[in]: Ramp duration in frames.
  *   cb[in]: The callback function to call after ramping is done. User can set
  *           cb to turn off speaker/headphone switch after ramping down
@@ -57,18 +60,32 @@ void cras_ramp_destroy(struct cras_ramp* ramp);
  * Returns:
  *   0 on success; negative error code on failure.
  */
-int cras_ramp_start(struct cras_ramp *ramp, int is_up, int duration_frames,
-		    cras_ramp_cb cb, void *cb_data);
+int cras_ramp_start(struct cras_ramp *ramp, int mute_ramp, float from, float to,
+		    int duration_frames, cras_ramp_cb cb, void *cb_data);
+
+/* Convenience wrappers for cras_ramp_start */
+static inline int cras_mute_ramp_start(struct cras_ramp *ramp, float from,
+				       float to, int duration_frames,
+				       cras_ramp_cb cb, void *cb_data)
+{
+	return cras_ramp_start(ramp, 1, from, to, duration_frames, cb, cb_data);
+}
+
+static inline int cras_volume_ramp_start(struct cras_ramp *ramp, float from,
+					 float to, int duration_frames,
+					 cras_ramp_cb cb, void *cb_data)
+{
+	return cras_ramp_start(ramp, 0, from, to, duration_frames, cb, cb_data);
+}
 
 /* Resets ramp and cancels current ramping. */
 int cras_ramp_reset(struct cras_ramp *ramp);
 
 /* Gets current ramp action. */
-struct cras_ramp_action cras_ramp_get_current_action(
-		const struct cras_ramp *ramp);
+struct cras_ramp_action
+cras_ramp_get_current_action(const struct cras_ramp *ramp);
 
 /* Updates number of samples that went through ramping. */
-int cras_ramp_update_ramped_frames(
-		struct cras_ramp *ramp, int num_frames);
+int cras_ramp_update_ramped_frames(struct cras_ramp *ramp, int num_frames);
 
 #endif /* CRAS_RAMP_H_ */

@@ -58,11 +58,11 @@ from fontTools import ttLib
 
 ########### UPDATE OR CHECK WHEN A NEW FONT IS BEING GENERATED ###########
 # Last Android SDK Version
-SDK_VERSION = 28
+SDK_VERSION = 29
 # metadata version that will be embedded into font. If there are updates to the font that would
 # cause data/emoji_metadata.txt to change, this integer number should be incremented. This number
 # defines in which EmojiCompat metadata version the emoji is added to the font.
-METADATA_VERSION = 3
+METADATA_VERSION = 5
 
 ####### main directories where output files are created #######
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -173,6 +173,11 @@ def create_test_data(unicode_path):
 
     emojis_set = set()
     for line in lines:
+        # In unicode 12.0, "emoji-sequences.txt" contains "Basic_Emoji" session. We ignore them
+        # here since we are already checking the emoji presentations with
+        # emoji-variation-sequences.txt.
+        if "BASIC_EMOJI" in line:
+            continue
         codepoints = [hex_str_to_int(x) for x in line.split(';')[0].strip().split(' ')]
         emojis_set.add(codepoint_to_string(codepoints).upper())
 
@@ -339,6 +344,11 @@ def read_emoji_sequences(emoji_data_map, file_path, optional=False):
     lines = read_emoji_lines(file_path, optional)
     # 1F1E6 1F1E8 ; Name ; [...]
     for line in lines:
+        # In unicode 12.0, "emoji-sequences.txt" contains "Basic_Emoji" session. We ignore them
+        # here since we are already checking the emoji presentations with
+        # emoji-variation-sequences.txt.
+        if "BASIC_EMOJI" in line:
+            continue
         codepoints = [hex_str_to_int(x) for x in line.split(';')[0].strip().split(' ')]
         codepoints = [x for x in codepoints if x != EMOJI_STYLE_VS]
         key = codepoint_to_string(codepoints)

@@ -171,6 +171,7 @@ static const TracingCategory k_categories[] = {
         { OPT,      "events/clk/clk_disable/enable" },
         { OPT,      "events/clk/clk_enable/enable" },
         { OPT,      "events/power/cpu_frequency_limits/enable" },
+        { OPT,      "events/power/suspend_resume/enable" },
     } },
     { "membus",     "Memory Bus Utilization", 0, {
         { REQ,      "events/memory_bus/enable" },
@@ -232,9 +233,11 @@ static const TracingCategory k_categories[] = {
         { REQ,      "events/filemap/enable" },
     } },
     { "memory",  "Memory", 0, {
+        { OPT,      "events/mm_event/mm_event_record/enable" },
         { OPT,      "events/kmem/rss_stat/enable" },
         { OPT,      "events/kmem/ion_heap_grow/enable" },
         { OPT,      "events/kmem/ion_heap_shrink/enable" },
+        { OPT,      "events/ion/ion_stat/enable" },
     } },
 };
 
@@ -570,81 +573,6 @@ static bool setPrintTgidEnableIfPresent(bool enable)
     return true;
 }
 
-// Poke all the binder-enabled processes in the system to get them to re-read
-// their system properties.
-static bool pokeBinderServices()
-{
-    sp<IServiceManager> sm = defaultServiceManager();
-    Vector<String16> services = sm->listServices();
-    for (size_t i = 0; i < services.size(); i++) {
-        sp<IBinder> obj = sm->checkService(services[i]);
-        if (obj != nullptr) {
-            Parcel data;
-            if (obj->transact(IBinder::SYSPROPS_TRANSACTION, data,
-                    nullptr, 0) != OK) {
-                if (false) {
-                    // XXX: For some reason this fails on tablets trying to
-                    // poke the "phone" service.  It's not clear whether some
-                    // are expected to fail.
-                    String8 svc(services[i]);
-                    fprintf(stderr, "error poking binder service %s\n",
-                        svc.string());
-                    return false;
-                }
-            }
-        }
-    }
-    return true;
-}
-
-// Poke all the HAL processes in the system to get them to re-read
-// their system properties.
-static void pokeHalServices()
-{
-    using ::android::hidl::base::V1_0::IBase;
-    using ::android::hidl::manager::V1_0::IServiceManager;
-    using ::android::hardware::hidl_string;
-    using ::android::hardware::Return;
-
-    sp<IServiceManager> sm = ::android::hardware::defaultServiceManager();
-
-    if (sm == nullptr) {
-        fprintf(stderr, "failed to get IServiceManager to poke hal services\n");
-        return;
-    }
-
-    auto listRet = sm->list([&](const auto &interfaces) {
-        for (size_t i = 0; i < interfaces.size(); i++) {
-            string fqInstanceName = interfaces[i];
-            string::size_type n = fqInstanceName.find('/');
-            if (n == std::string::npos || interfaces[i].size() == n+1)
-                continue;
-            hidl_string fqInterfaceName = fqInstanceName.substr(0, n);
-            hidl_string instanceName = fqInstanceName.substr(n+1, std::string::npos);
-            Return<sp<IBase>> interfaceRet = sm->get(fqInterfaceName, instanceName);
-            if (!interfaceRet.isOk()) {
-                // ignore
-                continue;
-            }
-
-            sp<IBase> interface = interfaceRet;
-            if (interface == nullptr) {
-                // ignore
-                continue;
-            }
-
-            auto notifyRet = interface->notifySyspropsChanged();
-            if (!notifyRet.isOk()) {
-                // ignore
-            }
-        }
-    });
-    if (!listRet.isOk()) {
-        // TODO(b/34242478) fix this when we determine the correct ACL
-        //fprintf(stderr, "failed to list services: %s\n", listRet.description().c_str());
-    }
-}
-
 // Set the trace tags that userland tracing uses, and poke the running
 // processes to pick up the new value.
 static bool setTagsProperty(uint64_t tags)
@@ -853,7 +781,6 @@ static bool setUpUserspaceTracing()
             tags |= c.tags;
         }
     }
-    ok &= setTagsProperty(tags);
 
     bool coreServicesTagEnabled = false;
     for (size_t i = 0; i < arraysize(k_categories); i++) {
@@ -875,9 +802,7 @@ static bool setUpUserspaceTracing()
         packageList += android::base::GetProperty(k_coreServicesProp, "");
     }
     ok &= setAppCmdlineProperty(&packageList[0]);
-    ok &= pokeBinderServices();
-    pokeHalServices();
-
+    ok &= setTagsProperty(tags);
     if (g_tracePdx) {
         ok &= ServiceUtility::PokeServices();
     }
@@ -889,8 +814,6 @@ static void cleanUpUserspaceTracing()
 {
     setTagsProperty(0);
     clearAppProperties();
-    pokeBinderServices();
-    pokeHalServices();
 
     if (g_tracePdx) {
         ServiceUtility::PokeServices();
@@ -1467,10 +1390,11 @@ int main(int argc, char **argv)
 
     // Reset the trace buffer size to 1.
     if (traceStop) {
-        cleanUpVendorTracing();
         cleanUpUserspaceTracing();
-        if (!onlyUserspace)
+        if (!onlyUserspace) {
+            cleanUpVendorTracing();
             cleanUpKernelTracing();
+        }
     }
 
     return g_traceAborted ? 1 : 0;

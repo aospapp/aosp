@@ -35,10 +35,15 @@
 
 package com.android.se.security.ara;
 
+import android.content.Context;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.se.Channel;
+import com.android.se.R;
+import com.android.se.SecureElementService;
 import com.android.se.Terminal;
+import com.android.se.internal.ByteArrayConverter;
 import com.android.se.security.AccessRuleCache;
 import com.android.se.security.ChannelAccess;
 import com.android.se.security.gpac.BerTlv;
@@ -73,14 +78,26 @@ public class AraController {
     private AccessRuleCache mAccessRuleCache = null;
     private Terminal mTerminal = null;
     private AccessRuleApplet mApplet = null;
+    private Context mContext = null;
+    private String[] mAids = new String[0];
+    private byte[] mAccessControlAid = ARA_M_AID;
 
     public AraController(AccessRuleCache cache, Terminal terminal) {
         mAccessRuleCache = cache;
         mTerminal = terminal;
+        mContext = mTerminal.getContext();
+        if (mTerminal.getName().startsWith(SecureElementService.ESE_TERMINAL)) {
+            mAids = mContext.getResources().getStringArray(
+                    R.array.config_ara_aid_candidate_list_ese);
+        }
     }
 
     public static byte[] getAraMAid() {
         return ARA_M_AID;
+    }
+
+    public byte[] getAccessControlAid() {
+        return mAccessControlAid;
     }
 
     /**
@@ -88,12 +105,38 @@ public class AraController {
      * and fetch the access rules
      */
     public synchronized void initialize() throws IOException, NoSuchElementException {
-        Channel channel = mTerminal.openLogicalChannelWithoutChannelAccess(getAraMAid());
-        if (channel == null) {
-            throw new MissingResourceException("could not open channel", "", "");
+        Channel channel = null;
+        byte[] aid = null;
+
+        // try to fetch access rules from ARA Aid list
+        for (String araAid : mAids) {
+            if (!TextUtils.isEmpty(araAid)) {
+                aid = ByteArrayConverter.hexStringToByteArray(araAid);
+            } else {
+                aid = null;
+            }
+            try {
+                channel = mTerminal.openLogicalChannelWithoutChannelAccess(aid);
+                if (channel == null) {
+                    throw new MissingResourceException("could not open channel", "", "");
+                }
+                mAccessControlAid = aid;
+                break;
+            } catch (NoSuchElementException e) {
+                Log.i(mTag, "applet:" + araAid + " is not accessible");
+                continue;
+            }
         }
 
-        // set access conditions to access ARA-M.
+        // try to fetch access rules from ARA-M if all ARA in Aid list is not accessible
+        if (channel == null) {
+            channel = mTerminal.openLogicalChannelWithoutChannelAccess(getAraMAid());
+            if (channel == null) {
+                throw new MissingResourceException("could not open channel", "", "");
+            }
+        }
+
+        // set access conditions to access ARA.
         ChannelAccess araChannelAccess = new ChannelAccess();
         araChannelAccess.setAccess(ChannelAccess.ACCESS.ALLOWED, "");
         araChannelAccess.setApduAccess(ChannelAccess.ACCESS.ALLOWED);
@@ -104,7 +147,7 @@ public class AraController {
             mApplet = new AccessRuleApplet(channel);
             byte[] tag = mApplet.readRefreshTag();
             // if refresh tag is equal to the previous one it is not
-            // neccessary to read all rules again.
+            // necessary to read all rules again.
             if (mAccessRuleCache.isRefreshTagEqual(tag)) {
                 Log.i(mTag, "Refresh tag unchanged. Using access rules from cache.");
                 return;

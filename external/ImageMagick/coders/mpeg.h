@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -24,6 +24,7 @@
   MagickCoderAlias("MPEG", "3GP") \
   MagickCoderAlias("MPEG", "3G2") \
   MagickCoderAlias("MPEG", "AVI") \
+  MagickCoderAlias("MPEG", "FLV") \
   MagickCoderAlias("MPEG", "MKV") \
   MagickCoderAlias("MPEG", "MOV") \
   MagickCoderAlias("MPEG", "MPG") \

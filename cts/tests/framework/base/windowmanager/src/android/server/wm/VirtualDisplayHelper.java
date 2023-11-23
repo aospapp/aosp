@@ -20,22 +20,18 @@ import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_C
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
 import static android.server.wm.ActivityManagerTestBase.isDisplayOn;
+import static android.server.wm.ActivityManagerTestBase.waitForOrFail;
 import static android.server.wm.StateLogger.logAlways;
 import static android.view.Display.DEFAULT_DISPLAY;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
-
-import static org.junit.Assert.fail;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.ImageReader;
-import android.os.SystemClock;
 
 import com.android.compatibility.common.util.SystemUtil;
-
-import java.util.function.Predicate;
 
 /**
  * Helper class to create virtual display.
@@ -78,40 +74,29 @@ class VirtualDisplayHelper {
     int createAndWaitForDisplay() {
         SystemUtil.runWithShellPermissionIdentity(() -> {
             createVirtualDisplay();
-            waitForDisplayState(mVirtualDisplay.getDisplay().getDisplayId() /* default */,
-                    true /* on */);
+            waitForDisplayState(mVirtualDisplay.getDisplay().getDisplayId(), true /* wantOn */);
             mCreated = true;
         });
         return mVirtualDisplay.getDisplay().getDisplayId();
     }
 
     void turnDisplayOff() {
-        SystemUtil.runWithShellPermissionIdentity(() -> {
-            mVirtualDisplay.setSurface(null);
-            waitForDisplayState(mVirtualDisplay.getDisplay().getDisplayId() /* displayId */,
-                    false /* on */);
-        });
+        mVirtualDisplay.setSurface(null);
+        waitForDisplayState(mVirtualDisplay.getDisplay().getDisplayId(), false /* wantOn */);
     }
 
     void turnDisplayOn() {
-        SystemUtil.runWithShellPermissionIdentity(() -> {
-            mVirtualDisplay.setSurface(mReader.getSurface());
-            waitForDisplayState(mVirtualDisplay.getDisplay().getDisplayId() /* displayId */,
-                    true /* on */);
-        });
+        mVirtualDisplay.setSurface(mReader.getSurface());
+        waitForDisplayState(mVirtualDisplay.getDisplay().getDisplayId(), true /* wantOn */);
     }
 
     void releaseDisplay() {
-        SystemUtil.runWithShellPermissionIdentity(() -> {
-            if (mCreated) {
-                mVirtualDisplay.release();
-                mReader.close();
-                waitForDisplayCondition(mVirtualDisplay.getDisplay().getDisplayId() /* displayId */,
-                        onState -> onState != null && onState == false,
-                        "Waiting for virtual display destroy");
-            }
-            mCreated = false;
-        });
+        if (mCreated) {
+            mVirtualDisplay.release();
+            mReader.close();
+            waitForDisplayState(mVirtualDisplay.getDisplay().getDisplayId(), false /* wantOn */);
+        }
+        mCreated = false;
     }
 
     private void createVirtualDisplay() {
@@ -142,25 +127,12 @@ class VirtualDisplayHelper {
     }
 
     static void waitForDefaultDisplayState(boolean wantOn) {
-        waitForDisplayState(DEFAULT_DISPLAY /* default */, wantOn);
+        waitForDisplayState(DEFAULT_DISPLAY, wantOn);
     }
 
     private static void waitForDisplayState(int displayId, boolean wantOn) {
-        waitForDisplayCondition(displayId, state -> state != null && state == wantOn,
-                "Waiting for " + ((displayId == DEFAULT_DISPLAY) ? "default" : "virtual")
-                        + " display "
-                        + (wantOn ? "on" : "off"));
-    }
-
-    private static void waitForDisplayCondition(int displayId,
-            Predicate<Boolean> condition, String message) {
-        for (int retry = 1; retry <= 10; retry++) {
-            if (condition.test(isDisplayOn(displayId))) {
-                return;
-            }
-            logAlways(message + "... retry=" + retry);
-            SystemClock.sleep(500);
-        }
-        fail(message + " failed");
+        final String message = (displayId == DEFAULT_DISPLAY ? "default" : "virtual")
+                + " display " + (wantOn ? "on" : "off");
+        waitForOrFail(message, () -> isDisplayOn(displayId) == wantOn);
     }
 }

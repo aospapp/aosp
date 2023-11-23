@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="component" value="mocking" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -28,6 +29,8 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.inline.mocking.cts" />
         <option name="runtime-hint" value="120s" />
+        <!-- test-timeout unit is ms, value = 10 min -->
+        <option name="test-timeout" value="600000" />
     </test>
 
     <!-- Controller that will skip the module if a native bridge situation is detected -->

@@ -28,18 +28,23 @@ import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 import android.util.Log;
 import android.util.Range;
+
 import com.android.tv.TvSingletons;
 import com.android.tv.common.BuildConfig;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.ChannelImpl;
-import com.android.tv.data.Program;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.data.RecordedProgram;
+
 import com.google.common.base.Predicate;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+
 import javax.inject.Qualifier;
 
 /**
@@ -123,7 +128,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                 return null;
             }
             if (Utils.isProgramsUri(mUri)
-                            && TvProviderUtils.checkSeriesIdColumn(context, Programs.CONTENT_URI)) {
+                    && TvProviderUtils.checkSeriesIdColumn(context, Programs.CONTENT_URI)) {
                 mProjection =
                         TvProviderUtils.addExtraColumnsToProjection(
                                 mProjection, TvProviderUtils.EXTRA_PROGRAM_COLUMN_SERIES_ID);
@@ -323,10 +328,19 @@ public abstract class AsyncDbTask<Params, Progress, Result>
         }
     }
 
-    /** Gets an {@link List} of {@link Program}s from {@link TvContract.Programs#CONTENT_URI}. */
+    /**
+     * Gets an {@link List} of {@link ProgramImpl}s from {@link TvContract.Programs#CONTENT_URI}.
+     */
     public abstract static class AsyncProgramQueryTask extends AsyncQueryListTask<Program> {
         public AsyncProgramQueryTask(Executor executor, Context context) {
-            super(executor, context, Programs.CONTENT_URI, Program.PROJECTION, null, null, null);
+            super(
+                    executor,
+                    context,
+                    Programs.CONTENT_URI,
+                    ProgramImpl.PROJECTION,
+                    null,
+                    null,
+                    null);
         }
 
         public AsyncProgramQueryTask(
@@ -341,7 +355,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                     executor,
                     context,
                     uri,
-                    Program.PROJECTION,
+                    ProgramImpl.PROJECTION,
                     selection,
                     selectionArgs,
                     sortOrder,
@@ -350,7 +364,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
 
         @Override
         protected final Program fromCursor(Cursor c) {
-            return Program.fromCursor(c);
+            return ProgramImpl.fromCursor(c);
         }
     }
 
@@ -376,7 +390,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
     }
 
     /**
-     * Gets an {@link List} of {@link Program}s for a given channel and period {@link
+     * Gets an {@link List} of {@link ProgramImpl}s for a given channel and period {@link
      * TvContract#buildProgramsUriForChannel(long, long, long)}. If the {@code period} is {@code
      * null}, then all the programs is queried.
      */
@@ -410,7 +424,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
         }
     }
 
-    /** Gets a single {@link Program} from {@link TvContract.Programs#CONTENT_URI}. */
+    /** Gets a single {@link ProgramImpl} from {@link TvContract.Programs#CONTENT_URI}. */
     public static class AsyncQueryProgramTask extends AsyncQueryItemTask<Program> {
 
         public AsyncQueryProgramTask(Executor executor, Context context, long programId) {
@@ -418,7 +432,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                     executor,
                     context,
                     TvContract.buildProgramUri(programId),
-                    Program.PROJECTION,
+                    ProgramImpl.PROJECTION,
                     null,
                     null,
                     null);
@@ -426,7 +440,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
 
         @Override
         protected Program fromCursor(Cursor c) {
-            return Program.fromCursor(c);
+            return ProgramImpl.fromCursor(c);
         }
     }
 

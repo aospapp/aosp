@@ -18,10 +18,10 @@
 //#define LOG_NDEBUG 0
 
 #include "EngineConfig.h"
-#include <policy.h>
 #include <cutils/properties.h>
 #include <media/TypeConverter.h>
 #include <media/convert.h>
+#include <system/audio_config.h>
 #include <utils/Log.h>
 #include <libxml/parser.h>
 #include <libxml/xinclude.h>
@@ -32,8 +32,8 @@
 #include <istream>
 
 #include <cstdint>
+#include <stdarg.h>
 #include <string>
-
 
 namespace android {
 
@@ -603,7 +603,39 @@ static status_t deserializeLegacyVolumeCollection(_xmlDoc *doc, const _xmlNode *
     return NO_ERROR;
 }
 
+namespace {
+
+class XmlErrorHandler {
+public:
+    XmlErrorHandler() {
+        xmlSetGenericErrorFunc(this, &xmlErrorHandler);
+    }
+    XmlErrorHandler(const XmlErrorHandler&) = delete;
+    XmlErrorHandler(XmlErrorHandler&&) = delete;
+    XmlErrorHandler& operator=(const XmlErrorHandler&) = delete;
+    XmlErrorHandler& operator=(XmlErrorHandler&&) = delete;
+    ~XmlErrorHandler() {
+        xmlSetGenericErrorFunc(NULL, NULL);
+        if (!mErrorMessage.empty()) {
+            ALOG(LOG_ERROR, "libxml2", "%s", mErrorMessage.c_str());
+        }
+    }
+    static void xmlErrorHandler(void* ctx, const char* msg, ...) {
+        char buffer[256];
+        va_list args;
+        va_start(args, msg);
+        vsnprintf(buffer, sizeof(buffer), msg, args);
+        va_end(args);
+        static_cast<XmlErrorHandler*>(ctx)->mErrorMessage += buffer;
+    }
+private:
+    std::string mErrorMessage;
+};
+
+}  // namespace
+
 ParsingResult parse(const char* path) {
+    XmlErrorHandler errorHandler;
     xmlDocPtr doc;
     doc = xmlParseFile(path);
     if (doc == NULL) {
@@ -641,6 +673,7 @@ ParsingResult parse(const char* path) {
 }
 
 android::status_t parseLegacyVolumeFile(const char* path, VolumeGroups &volumeGroups) {
+    XmlErrorHandler errorHandler;
     xmlDocPtr doc;
     doc = xmlParseFile(path);
     if (doc == NULL) {
@@ -661,9 +694,6 @@ android::status_t parseLegacyVolumeFile(const char* path, VolumeGroups &volumeGr
     return deserializeLegacyVolumeCollection(doc, cur, volumeGroups, nbSkippedElements);
 }
 
-static const char *kConfigLocationList[] = {"/odm/etc", "/vendor/etc", "/system/etc"};
-static const int kConfigLocationListSize =
-        (sizeof(kConfigLocationList) / sizeof(kConfigLocationList[0]));
 static const int gApmXmlConfigFilePathMaxLength = 128;
 
 static constexpr const char *apmXmlConfigFileName = "audio_policy_configuration.xml";
@@ -683,9 +713,9 @@ android::status_t parseLegacyVolumes(VolumeGroups &volumeGroups) {
     fileNames.push_back(apmXmlConfigFileName);
 
     for (const char* fileName : fileNames) {
-        for (int i = 0; i < kConfigLocationListSize; i++) {
+        for (const auto& path : audio_get_configuration_paths()) {
             snprintf(audioPolicyXmlConfigFile, sizeof(audioPolicyXmlConfigFile),
-                     "%s/%s", kConfigLocationList[i], fileName);
+                     "%s/%s", path.c_str(), fileName);
             ret = parseLegacyVolumeFile(audioPolicyXmlConfigFile, volumeGroups);
             if (ret == NO_ERROR) {
                 return ret;

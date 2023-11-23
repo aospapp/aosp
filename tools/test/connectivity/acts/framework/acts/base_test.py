@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import fnmatch
+import functools
 import importlib
 import logging
 import os
@@ -22,11 +23,11 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 from acts import asserts
+from acts import error
 from acts import keys
 from acts import logger
 from acts import records
 from acts import signals
-from acts import error
 from acts import tracelogger
 from acts import utils
 from acts.event import event_bus
@@ -38,7 +39,7 @@ from acts.event.event import TestClassBeginEvent
 from acts.event.event import TestClassEndEvent
 from acts.event.subscription_bundle import SubscriptionBundle
 
-from mobly import controller_manager
+from mobly.base_test import BaseTestClass as MoblyBaseTest
 from mobly.records import ExceptionRecord
 
 # Macro strings for test result reporting
@@ -57,13 +58,13 @@ def _logcat_log_test_begin(event):
                 ad.start_adb_logcat()
             # Write test start token to adb log if android device is attached.
             if not ad.skip_sl4a:
-                ad.droid.logV("%s BEGIN %s" % (TEST_CASE_TOKEN,
-                                               event.test_case_name))
+                ad.droid.logV("%s BEGIN %s" %
+                              (TEST_CASE_TOKEN, event.test_case_name))
 
     except error.ActsError as e:
         test_instance.results.error.append(
-            ExceptionRecord(
-                e, 'Logcat for test begin: %s' % event.test_case_name))
+            ExceptionRecord(e, 'Logcat for test begin: %s' %
+                            event.test_case_name))
         test_instance.log.error('BaseTest setup_test error: %s' % e.message)
 
     except Exception as e:
@@ -80,14 +81,48 @@ def _logcat_log_test_end(event):
         # Write test end token to adb log if android device is attached.
         for ad in getattr(test_instance, 'android_devices', []):
             if not ad.skip_sl4a:
-                ad.droid.logV("%s END %s" % (TEST_CASE_TOKEN,
-                                             event.test_case_name))
+                ad.droid.logV("%s END %s" %
+                              (TEST_CASE_TOKEN, event.test_case_name))
 
     except error.ActsError as e:
         test_instance.results.error.append(
-            ExceptionRecord(
-                e, 'Logcat for test end: %s' % event.test_case_name))
+            ExceptionRecord(e,
+                            'Logcat for test end: %s' % event.test_case_name))
         test_instance.log.error('BaseTest teardown_test error: %s' % e.message)
+
+    except Exception as e:
+        test_instance.log.warning(
+            'Unable to send END log command to all devices.')
+        test_instance.log.warning('Error: %s' % e)
+
+
+@subscribe_static(TestCaseBeginEvent)
+def _syslog_log_test_begin(event):
+    """This adds a BEGIN log message with the test name to the syslog of any
+    Fuchsia device"""
+    test_instance = event.test_class
+    try:
+        for fd in getattr(test_instance, 'fuchsia_devices', []):
+            if not fd.skip_sl4f:
+                fd.logging_lib.logI("%s BEGIN %s" %
+                                    (TEST_CASE_TOKEN, event.test_case_name))
+
+    except Exception as e:
+        test_instance.log.warning(
+            'Unable to send BEGIN log command to all devices.')
+        test_instance.log.warning('Error: %s' % e)
+
+
+@subscribe_static(TestCaseEndEvent)
+def _syslog_log_test_end(event):
+    """This adds a END log message with the test name to the syslog of any
+    Fuchsia device"""
+    test_instance = event.test_class
+    try:
+        for fd in getattr(test_instance, 'fuchsia_devices', []):
+            if not fd.skip_sl4f:
+                fd.logging_lib.logI("%s END %s" %
+                                    (TEST_CASE_TOKEN, event.test_case_name))
 
     except Exception as e:
         test_instance.log.warning(
@@ -97,14 +132,17 @@ def _logcat_log_test_end(event):
 
 event_bus.register_subscription(_logcat_log_test_begin.subscription)
 event_bus.register_subscription(_logcat_log_test_end.subscription)
+event_bus.register_subscription(_syslog_log_test_begin.subscription)
+event_bus.register_subscription(_syslog_log_test_end.subscription)
 
 
 class Error(Exception):
     """Raised for exceptions that occured in BaseTestClass."""
 
 
-class BaseTestClass(object):
-    """Base class for all test classes to inherit from.
+class BaseTestClass(MoblyBaseTest):
+    """Base class for all test classes to inherit from. Inherits some
+    functionality from Mobly's base test class.
 
     This class gets all the controller objects from test_runner and executes
     the test cases requested within itself.
@@ -119,6 +157,8 @@ class BaseTestClass(object):
         log: A logger object used for logging.
         results: A records.TestResult object for aggregating test results from
                  the execution of test cases.
+        controller_configs: A dict of controller configs provided by the user
+                            via the testbed config.
         consecutive_failures: Tracks the number of consecutive test case
                               failures within this class.
         consecutive_failure_limit: Number of consecutive test failures to allow
@@ -134,97 +174,28 @@ class BaseTestClass(object):
     TAG = None
 
     def __init__(self, configs):
+        """Initializes a BaseTestClass given a TestRunConfig, which provides
+        all of the config information for this test class.
+
+        Args:
+            configs: A config_parser.TestRunConfig object.
+        """
+        super().__init__(configs)
+
         self.class_subscriptions = SubscriptionBundle()
         self.class_subscriptions.register()
         self.all_subscriptions = [self.class_subscriptions]
 
-        self.tests = []
-        if not self.TAG:
-            self.TAG = self.__class__.__name__
-        # Set all the controller objects and params.
-        self.user_params = {}
-        self.testbed_configs = {}
-        for name, value in configs.items():
-            setattr(self, name, value)
-        self.results = records.TestResult()
         self.current_test_name = None
-        self.log = tracelogger.TraceLogger(self.log)
+        self.log = tracelogger.TraceLogger(logging.getLogger())
+        # TODO: remove after converging log path definitions with mobly
+        self.log_path = configs.log_path
+
         self.consecutive_failures = 0
         self.consecutive_failure_limit = self.user_params.get(
             'consecutive_failure_limit', -1)
         self.size_limit_reached = False
-
-        # Initialize a controller manager (Mobly)
-        self._controller_manager = controller_manager.ControllerManager(
-            class_name=self.__class__.__name__,
-            controller_configs=self.testbed_configs)
-
-        # Import and register the built-in controller modules specified
-        # in testbed config.
-        for module in self._import_builtin_controllers():
-            self.register_controller(module, builtin=True)
-        if hasattr(self, 'android_devices'):
-            for ad in self.android_devices:
-                if ad.droid:
-                    utils.set_location_service(ad, False)
-                    utils.sync_device_time(ad)
-        self.testbed_name = ''
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self._exec_func(self.clean_up)
-
-    def unpack_userparams(self,
-                          req_param_names=[],
-                          opt_param_names=[],
-                          **kwargs):
-        """An optional function that unpacks user defined parameters into
-        individual variables.
-
-        After unpacking, the params can be directly accessed with self.xxx.
-
-        If a required param is not provided, an exception is raised. If an
-        optional param is not provided, a warning line will be logged.
-
-        To provide a param, add it in the config file or pass it in as a kwarg.
-        If a param appears in both the config file and kwarg, the value in the
-        config file is used.
-
-        User params from the config file can also be directly accessed in
-        self.user_params.
-
-        Args:
-            req_param_names: A list of names of the required user params.
-            opt_param_names: A list of names of the optional user params.
-            **kwargs: Arguments that provide default values.
-                e.g. unpack_userparams(required_list, opt_list, arg_a="hello")
-                     self.arg_a will be "hello" unless it is specified again in
-                     required_list or opt_list.
-
-        Raises:
-            Error is raised if a required user params is not provided.
-        """
-        for k, v in kwargs.items():
-            if k in self.user_params:
-                v = self.user_params[k]
-            setattr(self, k, v)
-        for name in req_param_names:
-            if hasattr(self, name):
-                continue
-            if name not in self.user_params:
-                raise Error(("Missing required user param '%s' in test "
-                             "configuration.") % name)
-            setattr(self, name, self.user_params[name])
-        for name in opt_param_names:
-            if hasattr(self, name):
-                continue
-            if name in self.user_params:
-                setattr(self, name, self.user_params[name])
-            else:
-                self.log.warning(("Missing optional user param '%s' in "
-                                  "configuration, continue."), name)
+        self.retryable_exceptions = signals.TestFailure
 
     def _import_builtin_controllers(self):
         """Import built-in controller modules.
@@ -238,10 +209,10 @@ class BaseTestClass(object):
         """
         builtin_controllers = []
         for ctrl_name in keys.Config.builtin_controller_names.value:
-            if ctrl_name in self.testbed_configs:
+            if ctrl_name in self.controller_configs:
                 module_name = keys.get_module_name(ctrl_name)
-                module = importlib.import_module(
-                    "acts.controllers.%s" % module_name)
+                module = importlib.import_module("acts.controllers.%s" %
+                                                 module_name)
                 builtin_controllers.append(module)
         return builtin_controllers
 
@@ -304,14 +275,6 @@ class BaseTestClass(object):
                     A list of json serializable objects, each represents the
                     info of a controller object. The order of the info object
                     should follow that of the input objects.
-            def get_post_job_info(controller_list):
-                [Optional] Returns information about the controller after the
-                test has run. This info is sent to test_run_summary.json's
-                "Extras" key.
-                Args:
-                    The list of controller objects created by the module
-                Returns:
-                    A (name, data) tuple.
         Registering a controller module declares a test class's dependency the
         controller. If the module config exists and the module matches the
         controller interface, controller objects will be instantiated with
@@ -348,89 +311,37 @@ class BaseTestClass(object):
         if not controllers:
             return None
 
-        # Collect controller information and write to test result.
+        # Log controller information
         # Implementation of "get_info" is optional for a controller module.
         if hasattr(controller_module, "get_info"):
             controller_info = controller_module.get_info(controllers)
             self.log.info("Controller %s: %s", module_config_name,
                           controller_info)
-            self.results.add_controller_info(module_config_name,
-                                             controller_info)
         else:
             self.log.warning("No controller info obtained for %s",
                              module_config_name)
-        self._record_controller_info()
 
         if builtin:
             setattr(self, module_ref_name, controllers)
         return controllers
-
-    def unregister_controllers(self):
-        """Destroy controller objects and clear internal registry. Invokes
-        Mobly's controller manager's unregister_controllers.
-
-        This will be called upon test class teardown.
-        """
-        controller_modules = self._controller_manager._controller_modules
-        controller_objects = self._controller_manager._controller_objects
-        # Record post job info for the controller
-        for name, controller_module in controller_modules.items():
-            if hasattr(controller_module, 'get_post_job_info'):
-                self.log.debug('Getting post job info for %s', name)
-                try:
-                    name, value = controller_module.get_post_job_info(
-                        controller_objects[name])
-                    self.results.set_extra_data(name, value)
-                    self.summary_writer.dump(
-                        {name: value}, records.TestSummaryEntryType.USER_DATA)
-                except:
-                    self.log.error("Fail to get post job info for %s", name)
-        self._controller_manager.unregister_controllers()
-
-    def _record_controller_info(self):
-        """Collect controller information and write to summary file."""
-        try:
-            manager = self._controller_manager
-            for record in manager.get_controller_info_records():
-                self.summary_writer.dump(
-                    record.to_dict(),
-                    records.TestSummaryEntryType.CONTROLLER_INFO)
-        except Exception:
-            self.log.exception('Unable to write controller info records to'
-                               ' summary file')
 
     def _setup_class(self):
         """Proxy function to guarantee the base implementation of setup_class
         is called.
         """
         event_bus.post(TestClassBeginEvent(self))
+        # Import and register the built-in controller modules specified
+        # in testbed config.
+        for module in self._import_builtin_controllers():
+            self.register_controller(module, builtin=True)
         return self.setup_class()
-
-    def setup_class(self):
-        """Setup function that will be called before executing any test case in
-        the test class.
-
-        To signal setup failure, return False or raise an exception. If
-        exceptions were raised, the stack trace would appear in log, but the
-        exceptions would not propagate to upper levels.
-
-        Implementation is optional.
-        """
 
     def _teardown_class(self):
         """Proxy function to guarantee the base implementation of teardown_class
         is called.
         """
-        self.teardown_class()
-        self.unregister_controllers()
+        super()._teardown_class()
         event_bus.post(TestClassEndEvent(self, self.results))
-
-    def teardown_class(self):
-        """Teardown function that will be called after all the selected test
-        cases in the test class have been executed.
-
-        Implementation is optional.
-        """
 
     def _setup_test(self, test_name):
         """Proxy function to guarantee the base implementation of setup_test is
@@ -461,18 +372,7 @@ class BaseTestClass(object):
         is called.
         """
         self.log.debug('Tearing down test %s' % test_name)
-
-        try:
-            self.teardown_test()
-        finally:
-            self.current_test_name = None
-
-    def teardown_test(self):
-        """Teardown function that will be called every time a test case has
-        been executed.
-
-        Implementation is optional.
-        """
+        self.teardown_test()
 
     def _on_fail(self, record):
         """Proxy function to guarantee the base implementation of on_fail is
@@ -497,7 +397,6 @@ class BaseTestClass(object):
             test_name: Name of the test that triggered this function.
             begin_time: Logline format timestamp taken when the test started.
         """
-
     def _on_pass(self, record):
         """Proxy function to guarantee the base implementation of on_pass is
         called.
@@ -522,7 +421,6 @@ class BaseTestClass(object):
             test_name: Name of the test that triggered this function.
             begin_time: Logline format timestamp taken when the test started.
         """
-
     def _on_skip(self, record):
         """Proxy function to guarantee the base implementation of on_skip is
         called.
@@ -544,7 +442,6 @@ class BaseTestClass(object):
             test_name: Name of the test that triggered this function.
             begin_time: Logline format timestamp taken when the test started.
         """
-
     def _on_exception(self, record):
         """Proxy function to guarantee the base implementation of on_exception
         is called.
@@ -566,7 +463,13 @@ class BaseTestClass(object):
             test_name: Name of the test that triggered this function.
             begin_time: Logline format timestamp taken when the test started.
         """
+    def on_retry(self):
+        """Function to run before retrying a test through get_func_with_retry.
 
+        This function runs when a test is automatically retried. The function
+        can be used to modify internal test parameters, for example, to retry
+        a test with slightly different input variables.
+        """
     def _exec_procedure_func(self, func, tr_record):
         """Executes a procedure function like on_pass, on_fail etc.
 
@@ -590,7 +493,7 @@ class BaseTestClass(object):
                                func.__name__, self.current_test_name)
             tr_record.add_error(func.__name__, e)
 
-    def exec_one_testcase(self, test_name, test_func, args, **kwargs):
+    def exec_one_testcase(self, test_name, test_func):
         """Executes one test case and update test results.
 
         Executes one test case, create a records.TestResultRecord object with
@@ -600,8 +503,6 @@ class BaseTestClass(object):
         Args:
             test_name: Name of the test.
             test_func: The test function.
-            args: A tuple of params.
-            kwargs: Extra kwargs.
         """
         class_name = self.__class__.__name__
         tr_record = records.TestResultRecord(test_name, class_name)
@@ -625,11 +526,7 @@ class BaseTestClass(object):
                 ret = self._setup_test(self.test_name)
                 asserts.assert_true(ret is not False,
                                     "Setup for %s failed." % test_name)
-                if args or kwargs:
-                    verdict = test_func(*args, **kwargs)
-                else:
-                    verdict = test_func()
-
+                verdict = test_func()
             finally:
                 try:
                     self._teardown_test(self.test_name)
@@ -665,8 +562,8 @@ class BaseTestClass(object):
         except error.ActsError as e:
             test_signal = e
             tr_record.test_error(e)
-            self.log.error(
-                'BaseTest execute_one_test_case error: %s' % e.message)
+            self.log.error('BaseTest execute_one_test_case error: %s' %
+                           e.message)
         except Exception as e:
             test_signal = e
             self.log.error(traceback.format_exc())
@@ -684,8 +581,8 @@ class BaseTestClass(object):
             self._exec_procedure_func(self._on_fail, tr_record)
         finally:
             self.results.add_record(tr_record)
-            self.summary_writer.dump(
-                tr_record.to_dict(), records.TestSummaryEntryType.RECORD)
+            self.summary_writer.dump(tr_record.to_dict(),
+                                     records.TestSummaryEntryType.RECORD)
             self.current_test_name = None
             event_bus.post(TestCaseEndEvent(self, self.test_name, test_signal))
 
@@ -700,6 +597,8 @@ class BaseTestClass(object):
 
         Returns: result of the test method
         """
+        exceptions = self.retryable_exceptions
+
         def wrapper(*args, **kwargs):
             error_msgs = []
             extras = {}
@@ -709,14 +608,15 @@ class BaseTestClass(object):
                     if retry:
                         self.teardown_test()
                         self.setup_test()
+                        self.on_retry()
                     return func(*args, **kwargs)
-                except signals.TestFailure as e:
+                except exceptions as e:
                     retry = True
-                    msg = 'Failure on attempt %d: %s' % (i+1, e.details)
+                    msg = 'Failure on attempt %d: %s' % (i + 1, e.details)
                     self.log.warning(msg)
                     error_msgs.append(msg)
                     if e.extras:
-                        extras['Attempt %d' % (i+1)] = e.extras
+                        extras['Attempt %d' % (i + 1)] = e.extras
             raise signals.TestFailure('\n'.join(error_msgs), extras)
 
         return wrapper
@@ -779,11 +679,15 @@ class BaseTestClass(object):
             previous_success_cnt = len(self.results.passed)
 
             if format_args:
-                self.exec_one_testcase(test_name, test_func,
-                                       args + (setting,), **kwargs)
+                self.exec_one_testcase(
+                    test_name,
+                    functools.partial(test_func, *(args + (setting, )),
+                                      **kwargs))
             else:
-                self.exec_one_testcase(test_name, test_func,
-                                       (setting,) + args, **kwargs)
+                self.exec_one_testcase(
+                    test_name,
+                    functools.partial(test_func, *((setting, ) + args),
+                                      **kwargs))
 
             if len(self.results.passed) - previous_success_cnt != 1:
                 failed_settings.append(setting)
@@ -812,19 +716,6 @@ class BaseTestClass(object):
             self.log.exception("Exception happened when executing %s in %s.",
                                func.__name__, self.TAG)
             return False
-
-    def _get_all_test_names(self):
-        """Finds all the function names that match the test case naming
-        convention in this class.
-
-        Returns:
-            A list of strings, each is a test case name.
-        """
-        test_names = []
-        for name in dir(self):
-            if name.startswith("test_"):
-                test_names.append(name)
-        return test_names
 
     def _get_test_funcs(self, test_names):
         """Obtain the actual functions of test cases based on test names.
@@ -891,11 +782,11 @@ class BaseTestClass(object):
                 signal.extras = test_func.gather()
             record.test_error(signal)
             self.results.add_record(record)
-            self.summary_writer.dump(
-                record.to_dict(), records.TestSummaryEntryType.RECORD)
+            self.summary_writer.dump(record.to_dict(),
+                                     records.TestSummaryEntryType.RECORD)
             self._on_skip(record)
 
-    def run(self, test_names=None, test_case_iterations=1):
+    def run(self, test_names=None):
         """Runs test cases within a test class by the order they appear in the
         execution list.
 
@@ -922,7 +813,7 @@ class BaseTestClass(object):
             valid_tests = list(self.tests)
         else:
             # No test case specified by user, execute all in the test class
-            valid_tests = self._get_all_test_names()
+            valid_tests = self.get_existing_test_names()
         if test_names:
             # Match test cases with any of the user-specified patterns
             matches = []
@@ -946,28 +837,31 @@ class BaseTestClass(object):
                 self._block_all_test_cases(tests)
                 setup_fail = True
         except signals.TestAbortClass:
-            try:
-                self._exec_func(self._teardown_class)
-            except Exception as e:
-                self.log.warning(e)
+            self.log.exception('Test class %s aborted' % self.TAG)
             setup_fail = True
         except Exception as e:
             self.log.exception("Failed to setup %s.", self.TAG)
             self._block_all_test_cases(tests)
-            self._exec_func(self._teardown_class)
             setup_fail = True
         if setup_fail:
+            self._exec_func(self._teardown_class)
             self.log.info("Summary for test class %s: %s", self.TAG,
                           self.results.summary_str())
             return self.results
 
         # Run tests in order.
+        test_case_iterations = self.user_params.get(
+            keys.Config.key_test_case_iterations.value, 1)
+        if any([substr in self.__class__.__name__ for substr in
+                ['Preflight', 'Postflight']]):
+            test_case_iterations = 1
         try:
             for test_name, test_func in tests:
                 for _ in range(test_case_iterations):
-                    self.exec_one_testcase(test_name, test_func, self.cli_args)
+                    self.exec_one_testcase(test_name, test_func)
             return self.results
         except signals.TestAbortClass:
+            self.log.exception('Test class %s aborted' % self.TAG)
             return self.results
         except signals.TestAbortAll as e:
             # Piggy-back test results on this exception object so we don't lose
@@ -978,14 +872,6 @@ class BaseTestClass(object):
             self._exec_func(self._teardown_class)
             self.log.info("Summary for test class %s: %s", self.TAG,
                           self.results.summary_str())
-
-    def clean_up(self):
-        """A function that is executed upon completion of all tests cases
-        selected in the test class.
-
-        This function should clean up objects initialized in the constructor by
-        user.
-        """
 
     def _ad_take_bugreport(self, ad, test_name, begin_time):
         for i in range(3):
@@ -1018,8 +904,11 @@ class BaseTestClass(object):
             result = False
         return result
 
-    def _skip_bug_report(self):
+    def _skip_bug_report(self, test_name):
         """A function to check whether we should skip creating a bug report.
+
+        Args:
+            test_name: The test case name
 
         Returns: True if bug report is to be skipped.
         """
@@ -1035,7 +924,7 @@ class BaseTestClass(object):
             self.log.info(
                 "Skipping bug report, as directed for this test class.")
             return True
-        full_test_name = '%s.%s' % (class_name, self.test_name)
+        full_test_name = '%s.%s' % (class_name, test_name)
         if full_test_name in quiet_tests:
             self.log.info(
                 "Skipping bug report, as directed for this test case.")
@@ -1062,7 +951,7 @@ class BaseTestClass(object):
         return False
 
     def _take_bug_report(self, test_name, begin_time):
-        if self._skip_bug_report():
+        if self._skip_bug_report(test_name):
             return
 
         executor = ThreadPoolExecutor(max_workers=10)
@@ -1089,7 +978,7 @@ class BaseTestClass(object):
             mylogger.stop(session)
             diag_path = os.path.join(
                 self.log_path, logger.epoch_to_log_line_timestamp(begin_time))
-            utils.create_dir(diag_path)
+            os.makedirs(diag_path, exist_ok=True)
             mylogger.pull(session, diag_path)
 
     def register_test_class_event_subscriptions(self):

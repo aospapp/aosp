@@ -36,15 +36,6 @@ CHART_DISTANCE = 25  # cm
 CM_TO_M = 1/100.0
 
 
-def _check_available_capabilities(props):
-    """Returns True if all required test capabilities are present."""
-    return all([
-            its.caps.read_3a(props),
-            its.caps.per_frame_control(props),
-            its.caps.logical_multi_camera(props),
-            its.caps.sensor_fusion(props)])
-
-
 def _assert_camera_movement(frame_pairs_angles):
     """Assert the angles between each frame pair are sufficiently different.
 
@@ -105,7 +96,7 @@ def _collect_data():
         props = cam.get_camera_properties()
 
         # If capabilities not present, skip.
-        its.caps.skip_unless(_check_available_capabilities(props))
+        its.caps.skip_unless(its.caps.multi_camera_frame_sync_capable(props))
 
         # Determine return parameters
         debug = its.caps.debug_mode()

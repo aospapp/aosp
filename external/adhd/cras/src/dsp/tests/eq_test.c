@@ -13,15 +13,18 @@
 #include "raw.h"
 
 #ifndef min
-#define min(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a < _b ? _a : _b; })
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a < _b ? _a : _b;                                             \
+	})
 #endif
 
 static double tp_diff(struct timespec *tp2, struct timespec *tp1)
 {
-	return (tp2->tv_sec - tp1->tv_sec)
-		+ (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
+	return (tp2->tv_sec - tp1->tv_sec) +
+	       (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
 }
 
 /* Generates impulse response */
@@ -39,12 +42,12 @@ static void test_ir()
 	data[0] = 1;
 
 	eq = eq_new();
-	eq_append_biquad(eq, BQ_PEAKING, 380/NQ, 3, -10);
-	eq_append_biquad(eq, BQ_PEAKING, 720/NQ, 3, -12);
-	eq_append_biquad(eq, BQ_PEAKING, 1705/NQ, 3, -8);
-	eq_append_biquad(eq, BQ_HIGHPASS, 218/NQ, 0.7, -10.2);
-	eq_append_biquad(eq, BQ_PEAKING, 580/NQ, 6, -8);
-	eq_append_biquad(eq, BQ_HIGHSHELF, 8000/NQ, 3, 2);
+	eq_append_biquad(eq, BQ_PEAKING, 380 / NQ, 3, -10);
+	eq_append_biquad(eq, BQ_PEAKING, 720 / NQ, 3, -12);
+	eq_append_biquad(eq, BQ_PEAKING, 1705 / NQ, 3, -8);
+	eq_append_biquad(eq, BQ_HIGHPASS, 218 / NQ, 0.7, -10.2);
+	eq_append_biquad(eq, BQ_PEAKING, 580 / NQ, 6, -8);
+	eq_append_biquad(eq, BQ_HIGHSHELF, 8000 / NQ, 3, 2);
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp1);
 	eq_process(eq, data, N);
@@ -84,12 +87,12 @@ static void test_file(const char *input_filename, const char *output_filename)
 
 	/* Left eq chain */
 	eq = eq_new();
-	eq_append_biquad(eq, BQ_PEAKING, 380/NQ, 3, -10);
-	eq_append_biquad(eq, BQ_PEAKING, 720/NQ, 3, -12);
-	eq_append_biquad(eq, BQ_PEAKING, 1705/NQ, 3, -8);
-	eq_append_biquad(eq, BQ_HIGHPASS, 218/NQ, 0.7, -10.2);
-	eq_append_biquad(eq, BQ_PEAKING, 580/NQ, 6, -8);
-	eq_append_biquad(eq, BQ_HIGHSHELF, 8000/NQ, 3, 2);
+	eq_append_biquad(eq, BQ_PEAKING, 380 / NQ, 3, -10);
+	eq_append_biquad(eq, BQ_PEAKING, 720 / NQ, 3, -12);
+	eq_append_biquad(eq, BQ_PEAKING, 1705 / NQ, 3, -8);
+	eq_append_biquad(eq, BQ_HIGHPASS, 218 / NQ, 0.7, -10.2);
+	eq_append_biquad(eq, BQ_PEAKING, 580 / NQ, 6, -8);
+	eq_append_biquad(eq, BQ_HIGHSHELF, 8000 / NQ, 3, 2);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp1);
 	process(eq, data, frames);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp2);
@@ -99,12 +102,12 @@ static void test_file(const char *input_filename, const char *output_filename)
 
 	/* Right eq chain */
 	eq = eq_new();
-	eq_append_biquad(eq, BQ_PEAKING, 450/NQ, 3, -12);
-	eq_append_biquad(eq, BQ_PEAKING, 721/NQ, 3, -12);
-	eq_append_biquad(eq, BQ_PEAKING, 1800/NQ, 8, -10.2);
-	eq_append_biquad(eq, BQ_PEAKING, 580/NQ, 6, -8);
-	eq_append_biquad(eq, BQ_HIGHPASS, 250/NQ, 0.6578, 0);
-	eq_append_biquad(eq, BQ_HIGHSHELF, 8000/NQ, 0, 2);
+	eq_append_biquad(eq, BQ_PEAKING, 450 / NQ, 3, -12);
+	eq_append_biquad(eq, BQ_PEAKING, 721 / NQ, 3, -12);
+	eq_append_biquad(eq, BQ_PEAKING, 1800 / NQ, 8, -10.2);
+	eq_append_biquad(eq, BQ_PEAKING, 580 / NQ, 6, -8);
+	eq_append_biquad(eq, BQ_HIGHPASS, 250 / NQ, 0.6578, 0);
+	eq_append_biquad(eq, BQ_HIGHSHELF, 8000 / NQ, 0, 2);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp1);
 	process(eq, data + frames, frames);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp2);

@@ -88,6 +88,20 @@ public class PropertyUtil {
     }
 
     /**
+     * Return whether the SDK version of the vendor partiton is same or newer than the
+     * given API level.
+     * If the property is set to non-integer value, this means the vendor partition is using
+     * current API level and true is returned.
+     */
+    public static boolean isVendorApiLevelAtLeast(int apiLevel) {
+        int vendorApiLevel = getPropertyInt(VNDK_VERSION);
+        if (vendorApiLevel == INT_VALUE_IF_UNSET) {
+            return true;
+        }
+        return vendorApiLevel >= apiLevel;
+    }
+
+    /**
      * Return the manufacturer of this product. If unset, return null.
      */
     public static String getManufacturer() {

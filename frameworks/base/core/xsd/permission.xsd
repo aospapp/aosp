@@ -46,6 +46,7 @@
                 <xs:element name="hidden-api-whitelisted-app" type="hidden-api-whitelisted-app"/>
                 <xs:element name="allow-association" type="allow-association"/>
                 <xs:element name="bugreport-whitelisted" type="bugreport-whitelisted"/>
+                <xs:element name="app-data-isolation-whitelisted-app" type="app-data-isolation-whitelisted-app"/>
             </xs:choice>
         </xs:complexType>
     </xs:element>
@@ -126,12 +127,12 @@
     </xs:complexType>
     <xs:complexType name="privapp-permissions">
         <xs:sequence>
-            <xs:element name="permission" maxOccurs="unbounded">
+            <xs:element name="permission" minOccurs="0" maxOccurs="unbounded">
                 <xs:complexType>
                     <xs:attribute name="name" type="xs:string"/>
                 </xs:complexType>
             </xs:element>
-            <xs:element name="deny-permission" maxOccurs="unbounded">
+            <xs:element name="deny-permission" minOccurs="0" maxOccurs="unbounded">
                 <xs:complexType>
                     <xs:attribute name="name" type="xs:string"/>
                 </xs:complexType>
@@ -141,12 +142,12 @@
     </xs:complexType>
     <xs:complexType name="oem-permissions">
         <xs:sequence>
-            <xs:element name="permission" maxOccurs="unbounded">
+            <xs:element name="permission" minOccurs="0" maxOccurs="unbounded">
                 <xs:complexType>
                     <xs:attribute name="name" type="xs:string"/>
                 </xs:complexType>
             </xs:element>
-            <xs:element name="deny-permission" maxOccurs="unbounded">
+            <xs:element name="deny-permission" minOccurs="0" maxOccurs="unbounded">
                 <xs:complexType>
                     <xs:attribute name="name" type="xs:string"/>
                 </xs:complexType>
@@ -160,6 +161,9 @@
     <xs:complexType name="allow-association">
         <xs:attribute name="target" type="xs:string"/>
         <xs:attribute name="allowed" type="xs:string"/>
+    </xs:complexType>
+    <xs:complexType name="app-data-isolation-whitelisted-app">
+        <xs:attribute name="package" type="xs:string"/>
     </xs:complexType>
     <xs:complexType name="bugreport-whitelisted">
         <xs:attribute name="package" type="xs:string"/>

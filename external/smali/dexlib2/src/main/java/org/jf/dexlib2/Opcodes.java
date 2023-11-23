@@ -50,7 +50,7 @@ public class Opcodes {
      */
     public final int api;
     public final int artVersion;
-    @Nonnull private final Opcode[] opcodesByValue = new Opcode[255];
+    @Nonnull private final Opcode[] opcodesByValue = new Opcode[256];
     @Nonnull private final EnumMap<Opcode, Short> opcodeValues;
     @Nonnull private final HashMap<String, Opcode> opcodesByName;
 
@@ -64,6 +64,15 @@ public class Opcodes {
         return new Opcodes(NO_VERSION, artVersion);
     }
 
+    @Nonnull
+    public static Opcodes forDexVersion(int dexVersion) {
+        int api = VersionMap.mapDexVersionToApi(dexVersion);
+        if (api == NO_VERSION) {
+            throw new RuntimeException("Unsupported dex version " + dexVersion);
+        }
+        return new Opcodes(api, NO_VERSION);
+    }
+
     /**
      * @return a default Opcodes instance for when the exact Opcodes to use doesn't matter or isn't known
      */
@@ -74,14 +83,12 @@ public class Opcodes {
     }
 
     private Opcodes(int api, int artVersion) {
-
-
         if (api >= 21) {
-        this.api = api;
+            this.api = api;
             this.artVersion = mapApiToArtVersion(api);
         } else if (artVersion >= 0 && artVersion < 39) {
             this.api = mapArtVersionToApi(artVersion);
-        this.artVersion = artVersion;
+            this.artVersion = artVersion;
         } else {
             this.api = api;
             this.artVersion = artVersion;

@@ -13,12 +13,13 @@
 // limitations under the License.
 
 #include "source/opt/function.h"
-#include "function.h"
-#include "ir_context.h"
 
-#include <source/util/bit_vector.h>
 #include <ostream>
 #include <sstream>
+
+#include "function.h"
+#include "ir_context.h"
+#include "source/util/bit_vector.h"
 
 namespace spvtools {
 namespace opt {
@@ -33,6 +34,11 @@ Function* Function::Clone(IRContext* ctx) const {
       },
       true);
 
+  for (const auto& i : debug_insts_in_header_) {
+    clone->AddDebugInstructionInHeader(
+        std::unique_ptr<Instruction>(i.Clone(ctx)));
+  }
+
   clone->blocks_.reserve(blocks_.size());
   for (const auto& b : blocks_) {
     std::unique_ptr<BasicBlock> bb(b->Clone(ctx));
@@ -46,29 +52,89 @@ Function* Function::Clone(IRContext* ctx) const {
 
 void Function::ForEachInst(const std::function<void(Instruction*)>& f,
                            bool run_on_debug_line_insts) {
-  if (def_inst_) def_inst_->ForEachInst(f, run_on_debug_line_insts);
-  for (auto& param : params_) param->ForEachInst(f, run_on_debug_line_insts);
-  for (auto& bb : blocks_) bb->ForEachInst(f, run_on_debug_line_insts);
-  if (end_inst_) end_inst_->ForEachInst(f, run_on_debug_line_insts);
+  WhileEachInst(
+      [&f](Instruction* inst) {
+        f(inst);
+        return true;
+      },
+      run_on_debug_line_insts);
 }
 
 void Function::ForEachInst(const std::function<void(const Instruction*)>& f,
                            bool run_on_debug_line_insts) const {
-  if (def_inst_)
-    static_cast<const Instruction*>(def_inst_.get())
-        ->ForEachInst(f, run_on_debug_line_insts);
+  WhileEachInst(
+      [&f](const Instruction* inst) {
+        f(inst);
+        return true;
+      },
+      run_on_debug_line_insts);
+}
 
-  for (const auto& param : params_)
-    static_cast<const Instruction*>(param.get())
-        ->ForEachInst(f, run_on_debug_line_insts);
+bool Function::WhileEachInst(const std::function<bool(Instruction*)>& f,
+                             bool run_on_debug_line_insts) {
+  if (def_inst_) {
+    if (!def_inst_->WhileEachInst(f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
 
-  for (const auto& bb : blocks_)
-    static_cast<const BasicBlock*>(bb.get())->ForEachInst(
-        f, run_on_debug_line_insts);
+  for (auto& param : params_) {
+    if (!param->WhileEachInst(f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
+
+  for (auto& di : debug_insts_in_header_) {
+    if (!di.WhileEachInst(f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
+
+  for (auto& bb : blocks_) {
+    if (!bb->WhileEachInst(f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
+
+  if (end_inst_) return end_inst_->WhileEachInst(f, run_on_debug_line_insts);
+
+  return true;
+}
+
+bool Function::WhileEachInst(const std::function<bool(const Instruction*)>& f,
+                             bool run_on_debug_line_insts) const {
+  if (def_inst_) {
+    if (!static_cast<const Instruction*>(def_inst_.get())
+             ->WhileEachInst(f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
+
+  for (const auto& param : params_) {
+    if (!static_cast<const Instruction*>(param.get())
+             ->WhileEachInst(f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
+
+  for (const auto& di : debug_insts_in_header_) {
+    if (!di.WhileEachInst(f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
+
+  for (const auto& bb : blocks_) {
+    if (!static_cast<const BasicBlock*>(bb.get())->WhileEachInst(
+            f, run_on_debug_line_insts)) {
+      return false;
+    }
+  }
 
   if (end_inst_)
-    static_cast<const Instruction*>(end_inst_.get())
-        ->ForEachInst(f, run_on_debug_line_insts);
+    return static_cast<const Instruction*>(end_inst_.get())
+        ->WhileEachInst(f, run_on_debug_line_insts);
+
+  return true;
 }
 
 void Function::ForEachParam(const std::function<void(Instruction*)>& f,
@@ -91,6 +157,19 @@ BasicBlock* Function::InsertBasicBlockAfter(
     if (&*bb_iter == position) {
       new_block->SetParent(this);
       ++bb_iter;
+      bb_iter = bb_iter.InsertBefore(std::move(new_block));
+      return &*bb_iter;
+    }
+  }
+  assert(false && "Could not find insertion point.");
+  return nullptr;
+}
+
+BasicBlock* Function::InsertBasicBlockBefore(
+    std::unique_ptr<BasicBlock>&& new_block, BasicBlock* position) {
+  for (auto bb_iter = begin(); bb_iter != end(); ++bb_iter) {
+    if (&*bb_iter == position) {
+      new_block->SetParent(this);
       bb_iter = bb_iter.InsertBefore(std::move(new_block));
       return &*bb_iter;
     }

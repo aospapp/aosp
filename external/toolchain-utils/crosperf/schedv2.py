@@ -1,18 +1,23 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Module to optimize the scheduling of benchmark_run tasks."""
 
+from __future__ import division
 from __future__ import print_function
 
 import sys
-import test_flag
 import traceback
 
 from collections import defaultdict
-from machine_image_manager import MachineImageManager
 from threading import Lock
 from threading import Thread
+
+import test_flag
+
+from machine_image_manager import MachineImageManager
 from cros_utils import command_executer
 from cros_utils import logger
 
@@ -103,6 +108,11 @@ class DutWorker(Thread):
     if self._terminated:
       return 1
 
+    if self._sched.get_experiment().skylab:
+      self._logger.LogOutput('Skylab mode, do not image before testing.')
+      self._dut.label = label
+      return 0
+
     self._logger.LogOutput('Reimaging {} using {}'.format(self, label))
     self._stat_num_reimage += 1
     self._stat_annotation = 'reimaging using "{}"'.format(label.name)
@@ -164,8 +174,8 @@ class DutWorker(Thread):
         checksum = checksum.strip()
         for l in self._sched.get_labels():
           if l.checksum == checksum:
-            self._logger.LogOutput(
-                "Dut '{}' is pre-installed with '{}'".format(self._dut.name, l))
+            self._logger.LogOutput("Dut '{}' is pre-installed with '{}'".format(
+                self._dut.name, l))
             self._dut.label = l
             return
     except RuntimeError:
@@ -184,9 +194,10 @@ class DutWorker(Thread):
 
     return ('Worker thread "{}", label="{}", benchmark_run={}, '
             'reimage={}, now {}'.format(
-                self._dut.name, 'None' if self._dut.label is None else
-                self._dut.label.name, self._stat_num_br_run,
-                self._stat_num_reimage, self._stat_annotation))
+                self._dut.name,
+                'None' if self._dut.label is None else self._dut.label.name,
+                self._stat_num_br_run, self._stat_num_reimage,
+                self._stat_annotation))
 
 
 class BenchmarkRunCacheReader(Thread):
@@ -283,18 +294,19 @@ class Schedv2(object):
 
     # Split benchmarkruns set into segments. Each segment will be handled by
     # a thread. Note, we use (x+3)/4 to mimic math.ceil(x/4).
-    n_threads = max(2, min(20, (n_benchmarkruns + 3) / 4))
+    n_threads = max(2, min(20, (n_benchmarkruns + 3) // 4))
     self._logger.LogOutput(('Starting {} threads to read cache status for '
                             '{} benchmark runs ...').format(
                                 n_threads, n_benchmarkruns))
-    benchmarkruns_per_thread = (n_benchmarkruns + n_threads - 1) / n_threads
+    benchmarkruns_per_thread = (n_benchmarkruns + n_threads - 1) // n_threads
     benchmarkrun_segments = []
     for i in range(n_threads - 1):
       start = i * benchmarkruns_per_thread
       end = (i + 1) * benchmarkruns_per_thread
       benchmarkrun_segments.append(self._experiment.benchmark_runs[start:end])
-    benchmarkrun_segments.append(self._experiment.benchmark_runs[(
-        n_threads - 1) * benchmarkruns_per_thread:])
+    benchmarkrun_segments.append(
+        self._experiment.benchmark_runs[(n_threads - 1) *
+                                        benchmarkruns_per_thread:])
 
     # Assert: aggregation of benchmarkrun_segments equals to benchmark_runs.
     assert sum(len(x) for x in benchmarkrun_segments) == n_benchmarkruns
@@ -312,8 +324,9 @@ class Schedv2(object):
       x.join()
 
     # Summarize.
-    self._logger.LogOutput('Total {} cache hit out of {} benchmark_runs.'.
-                           format(len(self._cached_br_list), n_benchmarkruns))
+    self._logger.LogOutput(
+        'Total {} cache hit out of {} benchmark_runs.'.format(
+            len(self._cached_br_list), n_benchmarkruns))
 
   def get_cached_run_list(self):
     return self._cached_br_list
@@ -325,7 +338,7 @@ class Schedv2(object):
     return self._experiment
 
   def get_labels(self, i=None):
-    if i == None:
+    if i is None:
       return self._labels
     return self._labels[i]
 

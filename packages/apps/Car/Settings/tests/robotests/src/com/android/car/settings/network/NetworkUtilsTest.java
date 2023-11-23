@@ -26,12 +26,11 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.telephony.TelephonyManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class NetworkUtilsTest {
 
     @Test

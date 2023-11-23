@@ -26,7 +26,7 @@
 
 package sun.security.x509;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class AlgorithmId implements java.io.Serializable, sun.security.util.DerEncoder {

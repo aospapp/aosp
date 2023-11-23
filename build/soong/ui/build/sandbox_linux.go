@@ -90,10 +90,7 @@ func (c *Cmd) sandboxSupported() bool {
 			return
 		}
 
-		c.ctx.Println("Build sandboxing disabled due to nsjail error. This may become fatal in the future.")
-		c.ctx.Println("Please let us know why nsjail doesn't work in your environment at:")
-		c.ctx.Println("  https://groups.google.com/forum/#!forum/android-building")
-		c.ctx.Println("  https://issuetracker.google.com/issues/new?component=381517")
+		c.ctx.Println("Build sandboxing disabled due to nsjail error.")
 
 		for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 			c.ctx.Verboseln(line)
@@ -161,6 +158,10 @@ func (c *Cmd) wrapSandbox() {
 	if c.Sandbox.AllowBuildBrokenUsesNetwork && c.config.BuildBrokenUsesNetwork() {
 		c.ctx.Printf("AllowBuildBrokenUsesNetwork: %v", c.Sandbox.AllowBuildBrokenUsesNetwork)
 		c.ctx.Printf("BuildBrokenUsesNetwork: %v", c.config.BuildBrokenUsesNetwork())
+		sandboxArgs = append(sandboxArgs, "-N")
+	} else if dlv, _ := c.config.Environment().Get("SOONG_DELVE"); dlv != "" {
+		// The debugger is enabled and soong_build will pause until a remote delve process connects, allow
+		// network connections.
 		sandboxArgs = append(sandboxArgs, "-N")
 	}
 

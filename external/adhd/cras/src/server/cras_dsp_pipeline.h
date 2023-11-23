@@ -42,7 +42,7 @@ struct pipeline;
  * Returns:
  *    A pointer to the pipeline, or NULL if the creation fails.
  */
-struct pipeline *cras_dsp_pipeline_create(struct ini* ini,
+struct pipeline *cras_dsp_pipeline_create(struct ini *ini,
 					  struct cras_expr_env *env,
 					  const char *purpose);
 
@@ -118,6 +118,9 @@ int cras_dsp_pipeline_get_peak_audio_buffers(struct pipeline *pipeline);
 /* Returns the sampling rate passed by cras_dsp_pipeline_instantiate(),
  * or 0 if is has not been called */
 int cras_dsp_pipeline_get_sample_rate(struct pipeline *pipeline);
+
+/* Gets the dsp ini that corresponds to the pipeline. */
+struct ini *cras_dsp_pipeline_get_ini(struct pipeline *pipeline);
 
 /* Processes a block of audio samples. sample_count should be no more
  * than DSP_BUFFER_SIZE */

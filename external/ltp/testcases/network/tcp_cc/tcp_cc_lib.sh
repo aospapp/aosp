@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2018 Oracle and/or its affiliates. All Rights Reserved.
+# Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_ROOT=1
@@ -92,12 +93,12 @@ tcp_cc_test01()
 
 	set_cong_alg "$def_alg"
 
-	tst_netload -H $(tst_ipaddr rhost) -A 15000
+	tst_netload -H $(tst_ipaddr rhost) -A $TST_NET_MAX_PKT
 	local res0="$(cat tst_netload.res)"
 
 	set_cong_alg "$alg"
 
-	tst_netload -H $(tst_ipaddr rhost) -A 15000
+	tst_netload -H $(tst_ipaddr rhost) -A $TST_NET_MAX_PKT
 	local res1="$(cat tst_netload.res)"
 
 	local per=$(( $res0 * 100 / $res1 - 100 ))

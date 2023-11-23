@@ -28,6 +28,6 @@ package sun.nio.cs;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public interface HistoricallyNamedCharset {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String historicalName();
 }

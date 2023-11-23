@@ -26,15 +26,18 @@ import android.os.SystemClock;
 import android.support.annotation.MainThread;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.TvSingletons;
 import com.android.tv.data.ChannelDataManager;
-import com.android.tv.data.Program;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.search.LocalSearchProvider.SearchResult;
 import com.android.tv.util.MainThreadExecutor;
 import com.android.tv.util.Utils;
+
 import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;

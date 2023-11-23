@@ -20,7 +20,7 @@ This test will fail if one of the following conditions is met:
 3. Firmware version does not increase after firmware update.
 4. Firmware version does not recover to original version after recovery.
 """
-ATTRIBUTES = "suite:faft, suite:faft_bios, suite:faft_bios_au_1, suite:faft_bios_au_2, suite:faft_bios_au_3, suite:faft_normal, suite:faft_lv5, suite:faft_bios_ec3po, suite:faft_bios_tot"
+ATTRIBUTES = "suite:faft_bios, suite:faft_bios_au_1, suite:faft_bios_au_2, suite:faft_bios_au_3, suite:faft_normal, suite:faft_lv5, suite:faft_bios_ec3po, suite:faft_bios_tot"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"

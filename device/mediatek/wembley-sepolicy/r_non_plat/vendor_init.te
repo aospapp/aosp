@@ -1,0 +1,71 @@
+#allow vendor_init exported3_system_prop:property_service set;
+#allow vendor_init dalvik_prop:property_service set;
+
+#allow vendor_init ffs_prop:property_service set;
+allow vendor_init mediatek_prop:property_service set;
+allow vendor_init mtk_md_version_prop:property_service set;
+allow vendor_init mtk_volte_prop:property_service set;
+allow vendor_init vendor_radio_prop:property_service set;
+allow vendor_init mtk_ril_mode_prop:property_service set;
+allow vendor_init wmt_prop:property_service set;
+allow vendor_init coredump_prop:property_service set;
+allow vendor_init proc_wmtdbg:file w_file_perms;
+#allow vendor_init vold_prop:property_service set;
+
+allow vendor_init proc_bootprof:file write;
+allow vendor_init rootfs:dir { write add_name setattr };
+allow vendor_init self:capability sys_module;
+
+allow vendor_init tmpfs:dir { write create add_name };
+allow vendor_init unlabeled:dir { relabelfrom getattr setattr search };
+allow vendor_init vendor_file:system module_load;
+
+allow vendor_init kmsg_device:chr_file unlink;
+set_prop(vendor_init, persist_mtk_aee_prop)
+set_prop(vendor_init, ro_mtk_aee_prop)
+set_prop(vendor_init, vendor_usb_prop)
+set_prop(vendor_init, mtk_ct_volte_prop)
+set_prop(vendor_init, mtk_gps_support_prop)
+set_prop(vendor_init, mtk_rat_config_prop)
+set_prop(vendor_init, tel_switch_prop)
+set_prop(vendor_init, mtk_aal_ro_prop)
+set_prop(vendor_init, mtk_pq_ro_prop)
+set_prop(vendor_init, mtk_default_prop)
+set_prop(vendor_init, mtk_nn_option_prop)
+
+set_prop(vendor_init, mtk_emmc_support_prop)
+set_prop(vendor_init, mtk_anr_support_prop)
+set_prop(vendor_init, mtk_antutu_prop)
+set_prop(vendor_init, mtk_bt_sap_enable_prop)
+set_prop(vendor_init, coredump_prop)
+
+# allow create symbolic link, /mnt/sdcard, for meta/factory mode
+allow vendor_init tmpfs:lnk_file create;
+
+set_prop(vendor_init, mtk_cxp_vendor_prop)
+
+# Run "ifup lo" to bring up the localhost interface
+allow vendor_init proc_hostname:file w_file_perms;
+allow vendor_init self:udp_socket { create ioctl };
+# in addition to unpriv ioctls granted to all domains, init also needs:
+allowxperm vendor_init self:udp_socket ioctl { SIOCSIFFLAGS };
+allow vendor_init self:global_capability_class_set net_raw;
+
+# enhance boot time
+allow vendor_init proc_perfmgr:file write;
+
+# allow create symbolic link, /mnt/sdcard, for meta/factory mode
+allow vendor_init tmpfs:lnk_file create;
+
+set_prop(vendor_init, mtk_appresolutiontuner_prop)
+
+# fullscreen switch
+set_prop(vendor_init, mtk_fullscreenswitch_prop)
+
+# for kernel module verification support, allow vendor domain to search kernel keyring
+allow vendor_init kernel:key search;
+
+# Purpose: /dev/block/mmcblk0p10
+allow vendor_init expdb_block_device:blk_file rw_file_perms;
+
+set_prop(vendor_init, mtk_wifi_hotspot_prop)

@@ -68,8 +68,8 @@ public final class TestUtils {
     private static final String PROTOCOL_TLS_V1_1 = "TLSv1.1";
     private static final String PROTOCOL_TLS_V1 = "TLSv1";
     private static final String[] DESIRED_PROTOCOLS =
-        new String[] {PROTOCOL_TLS_V1_2, PROTOCOL_TLS_V1_1, /* For Java 6 */ PROTOCOL_TLS_V1};
-    private static final Provider JDK_PROVIDER = getDefaultTlsProvider();
+        new String[] {PROTOCOL_TLS_V1_2, PROTOCOL_TLS_V1_1, PROTOCOL_TLS_V1};
+    private static final Provider JDK_PROVIDER = getNonConscryptTlsProvider();
     private static final byte[] CHARS =
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".getBytes(UTF_8);
     private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocateDirect(0);
@@ -79,15 +79,15 @@ public final class TestUtils {
 
     private TestUtils() {}
 
-    private static Provider getDefaultTlsProvider() {
+    private static Provider getNonConscryptTlsProvider() {
         for (String protocol : DESIRED_PROTOCOLS) {
             for (Provider p : Security.getProviders()) {
-                if (hasProtocol(p, protocol)) {
+                if (!p.getClass().getPackage().getName().contains("conscrypt")
+                        && hasProtocol(p, protocol)) {
                     return p;
                 }
             }
         }
-        // For Java 1.6 testing
         return new BouncyCastleProvider();
     }
 
@@ -189,29 +189,20 @@ public final class TestUtils {
                 .getDeclaredMethod("getDefaultProviderName")
                 .invoke(null);
             Constructor<?> c = conscryptClass("OpenSSLProvider")
-                .getDeclaredConstructor(String.class, Boolean.TYPE);
+                .getDeclaredConstructor(String.class, Boolean.TYPE, String.class);
 
             if (!isClassAvailable("javax.net.ssl.X509ExtendedTrustManager")) {
-                return (Provider) c.newInstance(defaultName, false);
+                return (Provider) c.newInstance(defaultName, false, "TLSv1.3");
             } else {
-                return (Provider) c.newInstance(defaultName, true);
+                return (Provider) c.newInstance(defaultName, true, "TLSv1.3");
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static synchronized boolean installConscryptIfNotPresent() {
-        Provider conscryptProvider = getConscryptProvider();
-        if (Security.getProvider(conscryptProvider.getName()) == null) {
-            Security.insertProviderAt(conscryptProvider, 1);
-            return true;
-        }
-        return false;
-    }
-
     public static synchronized void installConscryptAsDefaultProvider() {
-        final Provider conscryptProvider = getConscryptProvider();
+        Provider conscryptProvider = getConscryptProvider();
         Provider[] providers = Security.getProviders();
         if (providers.length == 0 || !providers[0].equals(conscryptProvider)) {
             Security.insertProviderAt(conscryptProvider, 1);
@@ -698,5 +689,21 @@ public final class TestUtils {
             }
             return output;
         }
+    }
+
+    public static boolean isJavaVersion(int version) {
+        return javaVersion() >= version;
+    }
+
+    private static int javaVersion() {
+        String[] v = System.getProperty("java.specification.version", "1.6").split("\\.", -1);
+        if ("1".equals(v[0])) {
+            return Integer.parseInt(v[1]);
+        }
+        return Integer.parseInt(v[0]);
+    }
+
+    public static void assumeJava8() {
+        Assume.assumeTrue("Require Java 8: " + javaVersion(), isJavaVersion(8));
     }
 }

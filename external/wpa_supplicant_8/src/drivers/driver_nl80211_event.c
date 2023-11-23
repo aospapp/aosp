@@ -136,6 +136,8 @@ static const char * nl80211_command_to_string(enum nl80211_commands cmd)
 	C2S(NL80211_CMD_EXTERNAL_AUTH)
 	C2S(NL80211_CMD_STA_OPMODE_CHANGED)
 	C2S(NL80211_CMD_CONTROL_PORT_FRAME)
+	C2S(NL80211_CMD_UPDATE_OWE_INFO)
+	C2S(NL80211_CMD_UNPROT_BEACON)
 	default:
 		return "NL80211_CMD_UNKNOWN";
 	}
@@ -523,6 +525,10 @@ static int calculate_chan_offset(int width, int freq, int cf1, int cf2)
 		break;
 	case CHAN_WIDTH_UNKNOWN:
 	case CHAN_WIDTH_80P80:
+	case CHAN_WIDTH_2160:
+	case CHAN_WIDTH_4320:
+	case CHAN_WIDTH_6480:
+	case CHAN_WIDTH_8640:
 		/* FIXME: implement this */
 		return 0;
 	}
@@ -534,7 +540,8 @@ static int calculate_chan_offset(int width, int freq, int cf1, int cf2)
 static void mlme_event_ch_switch(struct wpa_driver_nl80211_data *drv,
 				 struct nlattr *ifindex, struct nlattr *freq,
 				 struct nlattr *type, struct nlattr *bw,
-				 struct nlattr *cf1, struct nlattr *cf2)
+				 struct nlattr *cf1, struct nlattr *cf2,
+				 int finished)
 {
 	struct i802_bss *bss;
 	union wpa_event_data data;
@@ -542,7 +549,8 @@ static void mlme_event_ch_switch(struct wpa_driver_nl80211_data *drv,
 	int chan_offset = 0;
 	int ifidx;
 
-	wpa_printf(MSG_DEBUG, "nl80211: Channel switch event");
+	wpa_printf(MSG_DEBUG, "nl80211: Channel switch%s event",
+		   finished ? "" : " started");
 
 	if (!freq)
 		return;
@@ -593,10 +601,12 @@ static void mlme_event_ch_switch(struct wpa_driver_nl80211_data *drv,
 	if (cf2)
 		data.ch_switch.cf2 = nla_get_u32(cf2);
 
-	bss->freq = data.ch_switch.freq;
+	if (finished)
+		bss->freq = data.ch_switch.freq;
 	drv->assoc_freq = data.ch_switch.freq;
 
-	wpa_supplicant_event(bss->ctx, EVENT_CH_SWITCH, &data);
+	wpa_supplicant_event(bss->ctx, finished ?
+			     EVENT_CH_SWITCH : EVENT_CH_SWITCH_STARTED, &data);
 }
 
 
@@ -674,28 +684,41 @@ static void mlme_event_mgmt_tx_status(struct wpa_driver_nl80211_data *drv,
 				      size_t len, struct nlattr *ack)
 {
 	union wpa_event_data event;
-	const struct ieee80211_hdr *hdr;
-	u16 fc;
+	const struct ieee80211_hdr *hdr = (const struct ieee80211_hdr *) frame;
+	u16 fc = le_to_host16(hdr->frame_control);
+	u64 cookie_val = 0;
 
-	wpa_printf(MSG_DEBUG, "nl80211: Frame TX status event");
-	if (!is_ap_interface(drv->nlmode)) {
-		u64 cookie_val;
+	if (cookie)
+		cookie_val = nla_get_u64(cookie);
+	wpa_printf(MSG_DEBUG,
+		   "nl80211: Frame TX status event A1=" MACSTR
+		   " %sstype=%d cookie=0x%llx%s ack=%d",
+		   MAC2STR(hdr->addr1),
+		   WLAN_FC_GET_TYPE(fc) != WLAN_FC_TYPE_MGMT ? "not-mgmt " : "",
+		   WLAN_FC_GET_STYPE(fc), (long long unsigned int) cookie_val,
+		   cookie ? "" : "(N/A)", ack != NULL);
 
+	if (WLAN_FC_GET_TYPE(fc) != WLAN_FC_TYPE_MGMT)
+		return;
+
+	if (!is_ap_interface(drv->nlmode) &&
+	    WLAN_FC_GET_STYPE(fc) == WLAN_FC_STYPE_ACTION) {
 		if (!cookie)
 			return;
 
-		cookie_val = nla_get_u64(cookie);
-		wpa_printf(MSG_DEBUG, "nl80211: Action TX status:"
-			   " cookie=0x%llx%s (ack=%d)",
+		wpa_printf(MSG_DEBUG,
+			   "nl80211: Frame TX status: cookie=0x%llx%s (ack=%d)",
 			   (long long unsigned int) cookie_val,
-			   cookie_val == drv->send_action_cookie ?
+			   cookie_val == drv->send_frame_cookie ?
 			   " (match)" : " (unknown)", ack != NULL);
-		if (cookie_val != drv->send_action_cookie)
+		if (cookie_val != drv->send_frame_cookie)
 			return;
+	} else if (!is_ap_interface(drv->nlmode) &&
+		   WLAN_FC_GET_STYPE(fc) == WLAN_FC_STYPE_AUTH) {
+		wpa_printf(MSG_DEBUG,
+			   "nl80211: Authentication frame TX status: ack=%d",
+			   !!ack);
 	}
-
-	hdr = (const struct ieee80211_hdr *) frame;
-	fc = le_to_host16(hdr->frame_control);
 
 	os_memset(&event, 0, sizeof(event));
 	event.tx_status.type = WLAN_FC_GET_TYPE(fc);
@@ -871,6 +894,23 @@ static void mlme_event_unprot_disconnect(struct wpa_driver_nl80211_data *drv,
 }
 
 
+static void mlme_event_unprot_beacon(struct wpa_driver_nl80211_data *drv,
+				     const u8 *frame, size_t len)
+{
+	const struct ieee80211_mgmt *mgmt;
+	union wpa_event_data event;
+
+	if (len < 24)
+		return;
+
+	mgmt = (const struct ieee80211_mgmt *) frame;
+
+	os_memset(&event, 0, sizeof(event));
+	event.unprot_beacon.sa = mgmt->sa;
+	wpa_supplicant_event(drv->ctx, EVENT_UNPROT_BEACON, &event);
+}
+
+
 static void mlme_event(struct i802_bss *bss,
 		       enum nl80211_commands cmd, struct nlattr *frame,
 		       struct nlattr *addr, struct nlattr *timed_out,
@@ -951,6 +991,9 @@ static void mlme_event(struct i802_bss *bss,
 	case NL80211_CMD_UNPROT_DISASSOCIATE:
 		mlme_event_unprot_disconnect(drv, EVENT_UNPROT_DISASSOC,
 					     nla_data(frame), nla_len(frame));
+		break;
+	case NL80211_CMD_UNPROT_BEACON:
+		mlme_event_unprot_beacon(drv, nla_data(frame), nla_len(frame));
 		break;
 	default:
 		break;
@@ -1098,6 +1141,29 @@ static void mlme_event_ft_event(struct wpa_driver_nl80211_data *drv,
 		   MAC2STR(data.ft_ies.target_ap));
 
 	wpa_supplicant_event(drv->ctx, EVENT_FT_RESPONSE, &data);
+}
+
+
+static void mlme_event_dh_event(struct wpa_driver_nl80211_data *drv,
+				struct i802_bss *bss,
+				struct nlattr *tb[])
+{
+	union wpa_event_data data;
+
+	if (!is_ap_interface(drv->nlmode))
+		return;
+	if (!tb[NL80211_ATTR_MAC] || !tb[NL80211_ATTR_IE])
+		return;
+
+	os_memset(&data, 0, sizeof(data));
+	data.update_dh.peer = nla_data(tb[NL80211_ATTR_MAC]);
+	data.update_dh.ie = nla_data(tb[NL80211_ATTR_IE]);
+	data.update_dh.ie_len = nla_len(tb[NL80211_ATTR_IE]);
+
+	wpa_printf(MSG_DEBUG, "nl80211: DH event - peer " MACSTR,
+		   MAC2STR(data.update_dh.peer));
+
+	wpa_supplicant_event(bss->ctx, EVENT_UPDATE_DH, &data);
 }
 
 
@@ -1708,35 +1774,73 @@ static enum hostapd_hw_mode get_qca_hw_mode(u8 hw_mode)
 }
 
 
+static unsigned int chan_to_freq(struct wpa_driver_nl80211_data *drv,
+				 u8 chan, enum hostapd_hw_mode hw_mode)
+{
+	if (hw_mode == NUM_HOSTAPD_MODES) {
+		/* For drivers that do not report ACS_HW_MODE */
+		u16 num_modes, flags;
+		struct hostapd_hw_modes *modes;
+		u8 dfs_domain;
+		int i;
+
+		modes = nl80211_get_hw_feature_data(drv->first_bss, &num_modes,
+						    &flags, &dfs_domain);
+		if (!modes) {
+			wpa_printf(MSG_DEBUG,
+				   "nl80211: Fetching hardware mode failed");
+			goto try_2_4_or_5;
+		}
+		if (num_modes == 1)
+			hw_mode = modes[0].mode;
+
+		for (i = 0; i < num_modes; i++) {
+			os_free(modes[i].channels);
+			os_free(modes[i].rates);
+		}
+
+		os_free(modes);
+	}
+
+	if (hw_mode == HOSTAPD_MODE_IEEE80211AD) {
+		if (chan >= 1 && chan <= 6)
+			return 56160 + (2160 * chan);
+		return 0;
+	}
+
+try_2_4_or_5:
+	if (chan >= 1 && chan <= 13)
+		return 2407 + 5 * chan;
+	if (chan == 14)
+		return 2484;
+	if (chan >= 36 && chan <= 169)
+		return 5000 + 5 * chan;
+
+	return 0;
+}
+
+
 static void qca_nl80211_acs_select_ch(struct wpa_driver_nl80211_data *drv,
 				   const u8 *data, size_t len)
 {
 	struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_ACS_MAX + 1];
 	union wpa_event_data event;
+	u8 chan;
 
 	wpa_printf(MSG_DEBUG,
 		   "nl80211: ACS channel selection vendor event received");
 
 	if (nla_parse(tb, QCA_WLAN_VENDOR_ATTR_ACS_MAX,
 		      (struct nlattr *) data, len, NULL) ||
-	    !tb[QCA_WLAN_VENDOR_ATTR_ACS_PRIMARY_CHANNEL] ||
-	    !tb[QCA_WLAN_VENDOR_ATTR_ACS_SECONDARY_CHANNEL])
+	    (!tb[QCA_WLAN_VENDOR_ATTR_ACS_PRIMARY_FREQUENCY] &&
+	     !tb[QCA_WLAN_VENDOR_ATTR_ACS_PRIMARY_CHANNEL]) ||
+	    (!tb[QCA_WLAN_VENDOR_ATTR_ACS_SECONDARY_FREQUENCY] &&
+	     !tb[QCA_WLAN_VENDOR_ATTR_ACS_SECONDARY_CHANNEL]))
 		return;
 
 	os_memset(&event, 0, sizeof(event));
-	event.acs_selected_channels.pri_channel =
-		nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_PRIMARY_CHANNEL]);
-	event.acs_selected_channels.sec_channel =
-		nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_SECONDARY_CHANNEL]);
-	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG0_CENTER_CHANNEL])
-		event.acs_selected_channels.vht_seg0_center_ch =
-			nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG0_CENTER_CHANNEL]);
-	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG0_CENTER_CHANNEL])
-		event.acs_selected_channels.vht_seg1_center_ch =
-			nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG1_CENTER_CHANNEL]);
-	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_CHWIDTH])
-		event.acs_selected_channels.ch_width =
-			nla_get_u16(tb[QCA_WLAN_VENDOR_ATTR_ACS_CHWIDTH]);
+	event.acs_selected_channels.hw_mode = NUM_HOSTAPD_MODES;
+
 	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_HW_MODE]) {
 		u8 hw_mode = nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_HW_MODE]);
 
@@ -1751,14 +1855,48 @@ static void qca_nl80211_acs_select_ch(struct wpa_driver_nl80211_data *drv,
 		}
 	}
 
+	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_PRIMARY_FREQUENCY]) {
+		event.acs_selected_channels.pri_freq = nla_get_u32(
+			tb[QCA_WLAN_VENDOR_ATTR_ACS_PRIMARY_FREQUENCY]);
+	} else {
+		chan = nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_PRIMARY_CHANNEL]);
+		event.acs_selected_channels.pri_freq =
+			chan_to_freq(drv, chan,
+				     event.acs_selected_channels.hw_mode);
+	}
+
+	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_SECONDARY_FREQUENCY]) {
+		event.acs_selected_channels.sec_freq = nla_get_u32(
+			tb[QCA_WLAN_VENDOR_ATTR_ACS_SECONDARY_FREQUENCY]);
+	} else {
+		chan = nla_get_u8(
+			tb[QCA_WLAN_VENDOR_ATTR_ACS_SECONDARY_CHANNEL]);
+		event.acs_selected_channels.sec_freq =
+			chan_to_freq(drv, chan,
+				     event.acs_selected_channels.hw_mode);
+	}
+
+	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_EDMG_CHANNEL])
+		event.acs_selected_channels.edmg_channel =
+			nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_EDMG_CHANNEL]);
+	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG0_CENTER_CHANNEL])
+		event.acs_selected_channels.vht_seg0_center_ch =
+			nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG0_CENTER_CHANNEL]);
+	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG1_CENTER_CHANNEL])
+		event.acs_selected_channels.vht_seg1_center_ch =
+			nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_ACS_VHT_SEG1_CENTER_CHANNEL]);
+	if (tb[QCA_WLAN_VENDOR_ATTR_ACS_CHWIDTH])
+		event.acs_selected_channels.ch_width =
+			nla_get_u16(tb[QCA_WLAN_VENDOR_ATTR_ACS_CHWIDTH]);
 	wpa_printf(MSG_INFO,
-		   "nl80211: ACS Results: PCH: %d SCH: %d BW: %d VHT0: %d VHT1: %d HW_MODE: %d",
-		   event.acs_selected_channels.pri_channel,
-		   event.acs_selected_channels.sec_channel,
+		   "nl80211: ACS Results: PFreq: %d SFreq: %d BW: %d VHT0: %d VHT1: %d HW_MODE: %d EDMGCH: %d",
+		   event.acs_selected_channels.pri_freq,
+		   event.acs_selected_channels.sec_freq,
 		   event.acs_selected_channels.ch_width,
 		   event.acs_selected_channels.vht_seg0_center_ch,
 		   event.acs_selected_channels.vht_seg1_center_ch,
-		   event.acs_selected_channels.hw_mode);
+		   event.acs_selected_channels.hw_mode,
+		   event.acs_selected_channels.edmg_channel);
 
 	/* Ignore ACS channel list check for backwards compatibility */
 
@@ -2385,11 +2523,46 @@ static void nl80211_sta_opmode_change_event(struct wpa_driver_nl80211_data *drv,
 }
 
 
+static void nl80211_control_port_frame(struct wpa_driver_nl80211_data *drv,
+				       struct nlattr **tb)
+{
+	u8 *src_addr;
+	u16 ethertype;
+
+	if (!tb[NL80211_ATTR_MAC] ||
+	    !tb[NL80211_ATTR_FRAME] ||
+	    !tb[NL80211_ATTR_CONTROL_PORT_ETHERTYPE])
+		return;
+
+	src_addr = nla_data(tb[NL80211_ATTR_MAC]);
+	ethertype = nla_get_u16(tb[NL80211_ATTR_CONTROL_PORT_ETHERTYPE]);
+
+	switch (ethertype) {
+	case ETH_P_RSN_PREAUTH:
+		wpa_printf(MSG_INFO, "nl80211: Got pre-auth frame from "
+			   MACSTR " over control port unexpectedly",
+			   MAC2STR(src_addr));
+		break;
+	case ETH_P_PAE:
+		drv_event_eapol_rx(drv->ctx, src_addr,
+				   nla_data(tb[NL80211_ATTR_FRAME]),
+				   nla_len(tb[NL80211_ATTR_FRAME]));
+		break;
+	default:
+		wpa_printf(MSG_INFO, "nl80211: Unxpected ethertype 0x%04x from "
+			   MACSTR " over control port",
+			   ethertype, MAC2STR(src_addr));
+		break;
+	}
+}
+
+
 static void do_process_drv_event(struct i802_bss *bss, int cmd,
 				 struct nlattr **tb)
 {
 	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int external_scan_event = 0;
+	struct nlattr *frame = tb[NL80211_ATTR_FRAME];
 
 	wpa_printf(MSG_DEBUG, "nl80211: Drv Event %d (%s) received for %s",
 		   cmd, nl80211_command_to_string(cmd), bss->ifname);
@@ -2508,6 +2681,16 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 				   tb[NL80211_ATTR_PMK],
 				   tb[NL80211_ATTR_PMKID]);
 		break;
+	case NL80211_CMD_CH_SWITCH_STARTED_NOTIFY:
+		mlme_event_ch_switch(drv,
+				     tb[NL80211_ATTR_IFINDEX],
+				     tb[NL80211_ATTR_WIPHY_FREQ],
+				     tb[NL80211_ATTR_WIPHY_CHANNEL_TYPE],
+				     tb[NL80211_ATTR_CHANNEL_WIDTH],
+				     tb[NL80211_ATTR_CENTER_FREQ1],
+				     tb[NL80211_ATTR_CENTER_FREQ2],
+				     0);
+		break;
 	case NL80211_CMD_CH_SWITCH_NOTIFY:
 		mlme_event_ch_switch(drv,
 				     tb[NL80211_ATTR_IFINDEX],
@@ -2515,7 +2698,8 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 				     tb[NL80211_ATTR_WIPHY_CHANNEL_TYPE],
 				     tb[NL80211_ATTR_CHANNEL_WIDTH],
 				     tb[NL80211_ATTR_CENTER_FREQ1],
-				     tb[NL80211_ATTR_CENTER_FREQ2]);
+				     tb[NL80211_ATTR_CENTER_FREQ2],
+				     1);
 		break;
 	case NL80211_CMD_DISCONNECT:
 		mlme_event_disconnect(drv, tb[NL80211_ATTR_REASON_CODE],
@@ -2586,6 +2770,14 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 	case NL80211_CMD_STA_OPMODE_CHANGED:
 		nl80211_sta_opmode_change_event(drv, tb);
 		break;
+	case NL80211_CMD_UPDATE_OWE_INFO:
+		mlme_event_dh_event(drv, bss, tb);
+		break;
+	case NL80211_CMD_UNPROT_BEACON:
+		if (frame)
+			mlme_event_unprot_beacon(drv, nla_data(frame),
+						 nla_len(frame));
+		break;
 	default:
 		wpa_dbg(drv->ctx, MSG_DEBUG, "nl80211: Ignored unknown event "
 			"(cmd=%d)", cmd);
@@ -2634,8 +2826,9 @@ int process_global_event(struct nl_msg *msg, void *arg)
 			}
 		}
 		wpa_printf(MSG_DEBUG,
-			   "nl80211: Ignored event (cmd=%d) for foreign interface (ifindex %d wdev 0x%llx)",
-			   gnlh->cmd, ifidx, (long long unsigned int) wdev_id);
+			   "nl80211: Ignored event %d (%s) for foreign interface (ifindex %d wdev 0x%llx)",
+			   gnlh->cmd, nl80211_command_to_string(gnlh->cmd),
+			   ifidx, (long long unsigned int) wdev_id);
 	}
 
 	return NL_SKIP;
@@ -2673,6 +2866,9 @@ int process_bss_event(struct nl_msg *msg, void *arg)
 		break;
 	case NL80211_CMD_EXTERNAL_AUTH:
 		nl80211_external_auth(bss->drv, tb);
+		break;
+	case NL80211_CMD_CONTROL_PORT_FRAME:
+		nl80211_control_port_frame(bss->drv, tb);
 		break;
 	default:
 		wpa_printf(MSG_DEBUG, "nl80211: Ignored unknown event "

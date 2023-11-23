@@ -18,70 +18,30 @@ of an Android Virtual Device.
 """
 
 from __future__ import print_function
-from distutils.spawn import find_executable
+
 import logging
-import os
 import re
 import subprocess
 
 from acloud import errors
 from acloud.internal import constants
+from acloud.internal.lib import auth
+from acloud.internal.lib import adb_tools
+from acloud.internal.lib import cvd_compute_client_multi_stage
 from acloud.internal.lib import utils
+from acloud.internal.lib import ssh as ssh_object
 from acloud.list import list as list_instances
-from acloud.list import instance as instance_class
 from acloud.public import config
 from acloud.public import device_driver
 from acloud.public import report
 
+
 logger = logging.getLogger(__name__)
 
-_COMMAND_GET_PROCESS_ID = ["pgrep", "launch_cvd"]
+_COMMAND_GET_PROCESS_ID = ["pgrep", "run_cvd"]
 _COMMAND_GET_PROCESS_COMMAND = ["ps", "-o", "command", "-p"]
-_RE_LAUNCH_CVD = re.compile(r"^(?P<launch_cvd>.+launch_cvd)(.*--daemon ).+")
-_SSVNC_VIEWER_PATTERN = "vnc://127.0.0.1:%(vnc_port)d"
-
-
-def _GetStopCvd():
-    """Get stop_cvd path.
-
-    "stop_cvd" and "launch_cvd" are in the same folder(host package folder).
-    Try to get directory of "launch_cvd" by "ps -o command -p <pid>." command.
-    For example: "/tmp/bin/launch_cvd --daemon --cpus 2 ..."
-
-    Raises:
-        errors.NoExecuteCmd: Can't find stop_cvd.
-
-    Returns:
-        String of stop_cvd file path.
-    """
-    process_id = subprocess.check_output(_COMMAND_GET_PROCESS_ID)
-    process_info = subprocess.check_output(
-        _COMMAND_GET_PROCESS_COMMAND + process_id.splitlines())
-    for process in process_info.splitlines():
-        match = _RE_LAUNCH_CVD.match(process)
-        if match:
-            launch_cvd_path = match.group("launch_cvd")
-            stop_cvd_cmd = os.path.join(os.path.dirname(launch_cvd_path),
-                                        constants.CMD_STOP_CVD)
-            if os.path.exists(stop_cvd_cmd):
-                logger.debug("stop_cvd command: %s", stop_cvd_cmd)
-                return stop_cvd_cmd
-
-    default_stop_cvd = find_executable(constants.CMD_STOP_CVD)
-    if default_stop_cvd:
-        return default_stop_cvd
-
-    raise errors.NoExecuteCmd("Cannot find stop_cvd binary.")
-
-
-def CleanupSSVncviewer(vnc_port):
-    """Cleanup the old disconnected ssvnc viewer.
-
-    Args:
-        vnc_port: Integer, port number of vnc.
-    """
-    ssvnc_viewer_pattern = _SSVNC_VIEWER_PATTERN % {"vnc_port":vnc_port}
-    utils.CleanupProcess(ssvnc_viewer_pattern)
+_RE_RUN_CVD = re.compile(r"^(?P<run_cvd>.+run_cvd)")
+_LOCAL_INSTANCE_PREFIX = "local-"
 
 
 def DeleteInstances(cfg, instances_to_delete):
@@ -98,16 +58,23 @@ def DeleteInstances(cfg, instances_to_delete):
         print("No instances to delete")
         return None
 
-    delete_report = None
+    delete_report = report.Report(command="delete")
     remote_instance_list = []
     for instance in instances_to_delete:
         if instance.islocal:
-            delete_report = DeleteLocalInstance()
+            if instance.avd_type == constants.TYPE_GF:
+                DeleteLocalGoldfishInstance(instance, delete_report)
+            elif instance.avd_type == constants.TYPE_CF:
+                DeleteLocalCuttlefishInstance(instance, delete_report)
+            else:
+                delete_report.AddError("Deleting %s is not supported." %
+                                       instance.avd_type)
+                delete_report.SetStatus(report.Status.FAIL)
         else:
             remote_instance_list.append(instance.name)
         # Delete ssvnc viewer
-        if instance.forwarding_vnc_port:
-            CleanupSSVncviewer(instance.forwarding_vnc_port)
+        if instance.vnc_port:
+            utils.CleanupSSVncviewer(instance.vnc_port)
 
     if remote_instance_list:
         # TODO(119283708): We should move DeleteAndroidVirtualDevices into
@@ -131,7 +98,14 @@ def DeleteRemoteInstances(cfg, instances_to_delete, delete_report=None):
 
     Returns:
         Report instance if there are instances to delete, None otherwise.
+
+    Raises:
+        error.ConfigError: when config doesn't support remote instances.
     """
+    if not cfg.SupportRemoteInstance():
+        raise errors.ConfigError("No gcp project info found in config! "
+                                 "The execution of deleting remote instances "
+                                 "has been aborted.")
     utils.PrintColorString("")
     for instance in instances_to_delete:
         utils.PrintColorString(" - %s" % instance, utils.TextColors.WARNING)
@@ -147,34 +121,124 @@ def DeleteRemoteInstances(cfg, instances_to_delete, delete_report=None):
     return delete_report
 
 
-@utils.TimeExecute(function_description="Deleting local instances",
+@utils.TimeExecute(function_description="Deleting local cuttlefish instances",
                    result_evaluator=utils.ReportEvaluator)
-def DeleteLocalInstance():
-    """Delete local instance.
+def DeleteLocalCuttlefishInstance(instance, delete_report):
+    """Delete a local cuttlefish instance.
 
-    Delete local instance with stop_cvd command and write delete instance
+    Delete local instance and write delete instance
     information to report.
+
+    Args:
+        instance: instance.LocalInstance object.
+        delete_report: Report object.
+
+    Returns:
+        delete_report.
+    """
+    try:
+        instance.Delete()
+        delete_report.SetStatus(report.Status.SUCCESS)
+        device_driver.AddDeletionResultToReport(
+            delete_report, [instance.name], failed=[],
+            error_msgs=[],
+            resource_name="instance")
+    except subprocess.CalledProcessError as e:
+        delete_report.AddError(str(e))
+        delete_report.SetStatus(report.Status.FAIL)
+
+    return delete_report
+
+
+@utils.TimeExecute(function_description="Deleting local goldfish instances",
+                   result_evaluator=utils.ReportEvaluator)
+def DeleteLocalGoldfishInstance(instance, delete_report):
+    """Delete a local goldfish instance.
+
+    Args:
+        instance: LocalGoldfishInstance object.
+        delete_report: Report object.
+
+    Returns:
+        delete_report.
+    """
+    adb = adb_tools.AdbTools(adb_port=instance.adb_port,
+                             device_serial=instance.device_serial)
+    if adb.EmuCommand("kill") == 0:
+        delete_report.SetStatus(report.Status.SUCCESS)
+        device_driver.AddDeletionResultToReport(
+            delete_report, [instance.name], failed=[],
+            error_msgs=[],
+            resource_name="instance")
+    else:
+        delete_report.AddError("Cannot kill %s." % instance.device_serial)
+        delete_report.SetStatus(report.Status.FAIL)
+
+    instance.DeleteCreationTimestamp(ignore_errors=True)
+    return delete_report
+
+
+def CleanUpRemoteHost(cfg, remote_host, host_user,
+                      host_ssh_private_key_path=None):
+    """Clean up the remote host.
+
+    Args:
+        cfg: An AcloudConfig instance.
+        remote_host : String, ip address or host name of the remote host.
+        host_user: String of user login into the instance.
+        host_ssh_private_key_path: String of host key for logging in to the
+                                   host.
 
     Returns:
         A Report instance.
     """
     delete_report = report.Report(command="delete")
+    credentials = auth.CreateCredentials(cfg)
+    compute_client = cvd_compute_client_multi_stage.CvdComputeClient(
+        acloud_config=cfg,
+        oauth2_credentials=credentials)
+    ssh = ssh_object.Ssh(
+        ip=ssh_object.IP(ip=remote_host),
+        user=host_user,
+        ssh_private_key_path=(
+            host_ssh_private_key_path or cfg.ssh_private_key_path))
     try:
-        with open(os.devnull, "w") as dev_null:
-            subprocess.check_call(
-                utils.AddUserGroupsToCmd(_GetStopCvd(),
-                                         constants.LIST_CF_USER_GROUPS),
-                stderr=dev_null, stdout=dev_null, shell=True)
-            delete_report.SetStatus(report.Status.SUCCESS)
-            device_driver.AddDeletionResultToReport(
-                delete_report, [constants.LOCAL_INS_NAME], failed=[],
-                error_msgs=[],
-                resource_name="instance")
+        compute_client.InitRemoteHost(ssh, remote_host, host_user)
+        delete_report.SetStatus(report.Status.SUCCESS)
+        device_driver.AddDeletionResultToReport(
+            delete_report, [remote_host], failed=[],
+            error_msgs=[],
+            resource_name="remote host")
     except subprocess.CalledProcessError as e:
         delete_report.AddError(str(e))
         delete_report.SetStatus(report.Status.FAIL)
-    # Only CF supports local instances so assume it's a CF VNC port.
-    CleanupSSVncviewer(constants.CF_VNC_PORT)
+
+    return delete_report
+
+
+def DeleteInstanceByNames(cfg, instances):
+    """Delete instances by the names of these instances.
+
+    Args:
+        cfg: AcloudConfig object.
+        instances: List of instance name.
+
+    Returns:
+        A Report instance.
+    """
+    delete_report = report.Report(command="delete")
+    local_instances = [
+        ins for ins in instances if ins.startswith(_LOCAL_INSTANCE_PREFIX)
+    ]
+    remote_instances = list(set(instances) - set(local_instances))
+    if local_instances:
+        utils.PrintColorString("Deleting local instances")
+        delete_report = DeleteInstances(cfg, list_instances.FilterInstancesByNames(
+            list_instances.GetLocalInstances(), local_instances))
+    if remote_instances:
+        delete_report = DeleteRemoteInstances(cfg,
+                                              remote_instances,
+                                              delete_report)
     return delete_report
 
 
@@ -190,22 +254,26 @@ def Run(args):
     Returns:
         A Report instance.
     """
+    # Prioritize delete instances by names without query all instance info from
+    # GCP project.
     cfg = config.GetAcloudConfig(args)
-    remote_instances_to_delete = args.instance_names
+    if args.instance_names:
+        return DeleteInstanceByNames(cfg,
+                                     args.instance_names)
+    if args.remote_host:
+        return CleanUpRemoteHost(cfg, args.remote_host, args.host_user,
+                                 args.host_ssh_private_key_path)
 
-    if remote_instances_to_delete:
-        return DeleteRemoteInstances(cfg, remote_instances_to_delete)
-
-    if args.local_instance:
-        if instance_class.LocalInstance():
-            return DeleteLocalInstance()
-        print("There is no local instance AVD to delete.")
-        return report.Report(command="delete")
+    instances = list_instances.GetLocalInstances()
+    if not args.local_only and cfg.SupportRemoteInstance():
+        instances.extend(list_instances.GetRemoteInstances(cfg))
 
     if args.adb_port:
-        return DeleteInstances(
-            cfg, list_instances.GetInstanceFromAdbPort(cfg, args.adb_port))
+        instances = list_instances.FilterInstancesByAdbPort(instances,
+                                                            args.adb_port)
+    elif not args.all:
+        # Provide instances list to user and let user choose what to delete if
+        # user didn't specify instances in args.
+        instances = list_instances.ChooseInstancesFromList(instances)
 
-    # Provide instances list to user and let user choose what to delete if user
-    # didn't specific instance name in args.
-    return DeleteInstances(cfg, list_instances.ChooseInstances(cfg, args.all))
+    return DeleteInstances(cfg, instances)

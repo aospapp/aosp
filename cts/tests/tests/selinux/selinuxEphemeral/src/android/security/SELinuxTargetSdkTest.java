@@ -77,4 +77,12 @@ public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
             checkDex2oatAccess(false);
         }
     }
+
+    public void testNoNetlinkRouteGetlink() throws IOException {
+        checkNetlinkRouteGetlink(false);
+    }
+
+    public void testNoNetlinkRouteBind() throws IOException {
+        checkNetlinkRouteBind(false);
+    }
 }

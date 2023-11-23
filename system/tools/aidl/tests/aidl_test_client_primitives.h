@@ -31,6 +31,7 @@ bool ConfirmPrimitiveRepeat(const sp<ITestService>& s);
 bool ConfirmReverseArrays(const android::sp<ITestService>& s);
 bool ConfirmReverseLists(const android::sp<ITestService>& s);
 bool ConfirmReverseBinderLists(const android::sp<ITestService>& s);
+bool ConfirmIntfConstantExpressions(const sp<ITestService>& s);
 
 }  // namespace client
 }  // namespace tests

@@ -49,7 +49,7 @@ public class HidDeviceNativeInterface {
     private HidDeviceNativeInterface() {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mAdapter == null) {
-            Log.wtfStack(TAG, "No Bluetooth Adapter Available");
+            Log.wtf(TAG, "No Bluetooth Adapter Available");
         }
     }
 
@@ -180,7 +180,7 @@ public class HidDeviceNativeInterface {
         if (service != null) {
             service.onApplicationStateChangedFromNative(getDevice(address), registered);
         } else {
-            Log.wtfStack(TAG, "FATAL: onApplicationStateChanged() "
+            Log.wtf(TAG, "FATAL: onApplicationStateChanged() "
                     + "is called from the stack while service is not available.");
         }
     }
@@ -190,7 +190,7 @@ public class HidDeviceNativeInterface {
         if (service != null) {
             service.onConnectStateChangedFromNative(getDevice(address), state);
         } else {
-            Log.wtfStack(TAG, "FATAL: onConnectStateChanged() "
+            Log.wtf(TAG, "FATAL: onConnectStateChanged() "
                     + "is called from the stack while service is not available.");
         }
     }
@@ -200,7 +200,7 @@ public class HidDeviceNativeInterface {
         if (service != null) {
             service.onGetReportFromNative(type, id, bufferSize);
         } else {
-            Log.wtfStack(TAG, "FATAL: onGetReport() "
+            Log.wtf(TAG, "FATAL: onGetReport() "
                     + "is called from the stack while service is not available.");
         }
     }
@@ -210,7 +210,7 @@ public class HidDeviceNativeInterface {
         if (service != null) {
             service.onSetReportFromNative(reportType, reportId, data);
         } else {
-            Log.wtfStack(TAG, "FATAL: onSetReport() "
+            Log.wtf(TAG, "FATAL: onSetReport() "
                     + "is called from the stack while service is not available.");
         }
     }
@@ -220,7 +220,7 @@ public class HidDeviceNativeInterface {
         if (service != null) {
             service.onSetProtocolFromNative(protocol);
         } else {
-            Log.wtfStack(TAG, "FATAL: onSetProtocol() "
+            Log.wtf(TAG, "FATAL: onSetProtocol() "
                     + "is called from the stack while service is not available.");
         }
     }
@@ -230,7 +230,7 @@ public class HidDeviceNativeInterface {
         if (service != null) {
             service.onInterruptDataFromNative(reportId, data);
         } else {
-            Log.wtfStack(TAG, "FATAL: onInterruptData() "
+            Log.wtf(TAG, "FATAL: onInterruptData() "
                     + "is called from the stack while service is not available.");
         }
     }
@@ -240,7 +240,7 @@ public class HidDeviceNativeInterface {
         if (service != null) {
             service.onVirtualCableUnplugFromNative();
         } else {
-            Log.wtfStack(TAG, "FATAL: onVirtualCableUnplug() "
+            Log.wtf(TAG, "FATAL: onVirtualCableUnplug() "
                     + "is called from the stack while service is not available.");
         }
     }

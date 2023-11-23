@@ -16,14 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="more_string" msgid="8495478259330621990">"+<xliff:g id="COUNT">%1$d</xliff:g>"</string>
-    <string name="copy_email" msgid="7869435992461603532">"Kopeeri e-posti aadress"</string>
-    <string name="copy_number" msgid="530057841276106843">"Kopeeri telefoninumber"</string>
-    <string name="action_label" msgid="1318401633653605424">"Tagasi"</string>
-    <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"Kontakti soovitused on avatud"</string>
-    <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"Soovitusi pole"</string>
-    <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"Kontakti <xliff:g id="CONTACT">%s</xliff:g> eemaldamine saajate hulgast"</string>
-    <string name="chips_action_copy" msgid="1929144660075507103">"Kopeeri"</string>
-    <string name="chips_action_cancel" msgid="6077877438943543501">"Tühista"</string>
-    <string name="chips_permission_text" msgid="1978301259208877495">"Luba kontaktide soovitused"</string>
+    <string name="more_string" msgid="643992135011109762">"+<xliff:g id="COUNT">%1$d</xliff:g>"</string>
+    <string name="copy_email" msgid="1084563757174121331">"Kopeeri e-posti aadress"</string>
+    <string name="copy_number" msgid="8860802152973030914">"Kopeeri telefoninumber"</string>
+    <string name="action_label" msgid="7172664623795021857">"Tagasi"</string>
+    <string name="accessbility_suggestion_dropdown_opened" msgid="9015267358421989409">"Kontakti soovitused on avatud"</string>
+    <string name="accessbility_suggestion_dropdown_closed" msgid="91481373431329121">"Soovitusi pole"</string>
+    <string name="dropdown_delete_button_desc" msgid="4359394656487762022">"Kontakti <xliff:g id="CONTACT">%s</xliff:g> eemaldamine saajate hulgast"</string>
+    <string name="chips_action_copy" msgid="6984158516334578792">"Kopeeri"</string>
+    <string name="chips_action_cancel" msgid="2582257014578396781">"Tühista"</string>
+    <string name="chips_permission_text" msgid="5601284803674008863">"Luba kontaktide soovitused"</string>
 </resources>

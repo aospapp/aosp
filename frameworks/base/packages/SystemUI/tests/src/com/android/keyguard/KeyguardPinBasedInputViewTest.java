@@ -28,6 +28,7 @@ import android.view.LayoutInflater;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.systemui.R;
 import com.android.systemui.SysuiTestCase;
 
 import org.junit.Before;
@@ -52,6 +53,7 @@ public class KeyguardPinBasedInputViewTest extends SysuiTestCase {
     @Before
     public void setup() {
         LayoutInflater inflater = LayoutInflater.from(getContext());
+        mDependency.injectMockDependency(KeyguardUpdateMonitor.class);
         mKeyguardPinView =
                 (KeyguardPinBasedInputView) inflater.inflate(R.layout.keyguard_pin_view, null);
         MockitoAnnotations.initMocks(this);

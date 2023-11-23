@@ -14,16 +14,29 @@
 // limitations under the License.
 //
 
+package {
+    default_visibility: ["//visibility:private"],
+}
+
 // The set of files that contribute to APIs.
 // Generally, apache-xml source files are not marked with @hide so we add them
 // one-by-one after having done so.
 filegroup {
     name: "apache-xml_api_files",
+    visibility: ["//libcore"],
     srcs: [],
 }
 
 java_library {
     name: "apache-xml",
+    visibility: [
+        "//art/build/apex",
+        "//libcore",
+    ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
     srcs: ["src/main/java/**/*.java"],
     java_resource_dirs: ["src/main/java"],
 
@@ -33,8 +46,7 @@ java_library {
         javacflags: ["-Xep:MissingOverride:OFF"],
     },
 
-    no_standard_libs: true,
-    libs: ["core-all"],
+    sdk_version: "none",
     system_modules: "core-all-system-modules",
 }
 
@@ -43,6 +55,9 @@ java_library {
 // not be stripped. See b/24535627.
 java_library {
     name: "apache-xml-testdex",
+    visibility: [
+        "//art:__subpackages__",
+    ],
     static_libs: ["apache-xml"],
 
     installable: true,
@@ -50,5 +65,5 @@ java_library {
         enabled: false,
     },
 
-    no_framework_libs: true,
+    sdk_version: "core_platform",
 }

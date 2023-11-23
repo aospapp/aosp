@@ -24,3 +24,6 @@ fun:*PendingPhantomCallback*Invoke*
 fun:*GlobalHandles*PostGarbageCollectionProcessing*
 
 fun:*InvokeAccessorGetterCallback*
+
+# check for type failed during indirect function call
+fun:*MemMove*

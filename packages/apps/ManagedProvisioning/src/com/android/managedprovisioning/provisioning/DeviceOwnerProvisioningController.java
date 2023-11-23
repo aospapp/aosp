@@ -19,9 +19,7 @@ package com.android.managedprovisioning.provisioning;
 import android.content.Context;
 import android.os.UserHandle;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.R;
-import com.android.managedprovisioning.finalization.FinalizationController;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.AddWifiNetworkTask;
@@ -45,17 +43,7 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
             ProvisioningParams params,
             int userId,
             ProvisioningControllerCallback callback) {
-        this(context, params, userId, callback, new FinalizationController(context));
-    }
-
-    @VisibleForTesting
-    DeviceOwnerProvisioningController(
-            Context context,
-            ProvisioningParams params,
-            int userId,
-            ProvisioningControllerCallback callback,
-            FinalizationController finalizationController) {
-        super(context, params, userId, callback, finalizationController);
+        super(context, params, userId, callback);
     }
 
     protected void setUpTasks() {

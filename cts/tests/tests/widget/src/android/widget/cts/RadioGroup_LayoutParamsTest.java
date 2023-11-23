@@ -148,10 +148,10 @@ public class RadioGroup_LayoutParamsTest {
 
         AttributeSet attrs = getAttributeSet(android.widget.cts.R.layout.radiogroup_1);
         TypedArray a = mContext.obtainStyledAttributes(attrs,
-                android.R.styleable.ViewGroup_MarginLayout);
+                android.R.styleable.ViewGroup_Layout);
         layoutParams.setBaseAttributes(a,
-                android.R.styleable.ViewGroup_MarginLayout_layout_width,
-                android.R.styleable.ViewGroup_MarginLayout_layout_height);
+                android.R.styleable.ViewGroup_Layout_layout_width,
+                android.R.styleable.ViewGroup_Layout_layout_height);
         // check the attributes from the layout file
         assertEquals(RadioGroup.LayoutParams.MATCH_PARENT, layoutParams.width);
         assertEquals(RadioGroup.LayoutParams.MATCH_PARENT, layoutParams.height);

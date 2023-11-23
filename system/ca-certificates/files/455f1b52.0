@@ -27,7 +27,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1246989352 (0x4a538c28)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2009 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - G2
         Validity
             Not Before: Jul  7 17:25:54 2009 GMT
@@ -35,7 +35,7 @@ Certificate:
         Subject: C=US, O=Entrust, Inc., OU=See www.entrust.net/legal-terms, OU=(c) 2009 Entrust, Inc. - for authorized use only, CN=Entrust Root Certification Authority - G2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:ba:84:b6:72:db:9e:0c:6b:e2:99:e9:30:01:a7:
                     76:ea:32:b8:95:41:1a:c9:da:61:4e:58:72:cf:fe:

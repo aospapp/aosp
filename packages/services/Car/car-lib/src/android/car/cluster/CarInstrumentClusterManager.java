@@ -17,10 +17,10 @@
 package android.car.cluster;
 
 import android.annotation.SystemApi;
+import android.car.Car;
 import android.car.CarManagerBase;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
 
 /**
@@ -35,12 +35,13 @@ import android.os.IBinder;
  */
 @Deprecated
 @SystemApi
-public class CarInstrumentClusterManager implements CarManagerBase {
+public class CarInstrumentClusterManager extends CarManagerBase {
     /**
      * @deprecated use {@link android.car.Car#CATEGORY_NAVIGATION} instead
      *
      * @hide
      */
+    @Deprecated
     @SystemApi
     public static final String CATEGORY_NAVIGATION = "android.car.cluster.NAVIGATION";
 
@@ -49,10 +50,11 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      * intent's extra thus activity will know information about unobscured area, etc. upon activity
      * creation.
      *
-     * @deprecated use {@link android.car.Car#CATEGORY_NAVIGATION} instead
+     * @deprecated use {@link android.car.Car#CAR_EXTRA_CLUSTER_ACTIVITY_STATE} instead
      *
      * @hide
      */
+    @Deprecated
     @SystemApi
     public static final String KEY_EXTRA_ACTIVITY_STATE =
             "android.car.cluster.ClusterActivityState";
@@ -64,6 +66,7 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @hide
      */
+    @Deprecated
     @SystemApi
     public void startActivity(Intent intent) {
         // No-op
@@ -81,6 +84,7 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @hide
      */
+    @Deprecated
     @SystemApi
     public void registerCallback(String category, Callback callback) {
         // No-op
@@ -95,13 +99,15 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @hide
      */
+    @Deprecated
     @SystemApi
     public void unregisterCallback(Callback callback) {
         // No-op
     }
 
     /** @hide */
-    public CarInstrumentClusterManager(IBinder service, Handler handler) {
+    public CarInstrumentClusterManager(Car car, IBinder service) {
+        super(car);
         // No-op
     }
 

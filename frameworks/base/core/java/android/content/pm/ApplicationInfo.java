@@ -22,7 +22,7 @@ import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
@@ -56,7 +56,6 @@ import java.util.UUID;
  * &lt;application&gt; tag.
  */
 public class ApplicationInfo extends PackageItemInfo implements Parcelable {
-    
     /**
      * Default task affinity of all activities in this application. See 
      * {@link ActivityInfo#taskAffinity} for more information.  This comes 
@@ -131,6 +130,13 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
      */
     @UnsupportedAppUsage
     public int fullBackupContent = 0;
+
+    /**
+     * <code>true</code> if the package is capable of presenting a unified interface representing
+     * multiple profiles.
+     * @hide
+     */
+    public boolean crossProfile;
 
     /**
      * The default extra UI options for activities in this application.
@@ -240,7 +246,11 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
      * accommodate different screen densities.  Corresponds to
      * {@link android.R.styleable#AndroidManifestSupportsScreens_anyDensity
      * android:anyDensity}.
+     *
+     * @deprecated Set by default when targeting API 4 or higher and apps
+     *             should not set this to false.
      */
+    @Deprecated
     public static final int FLAG_SUPPORTS_SCREEN_DENSITIES = 1<<13;
     
     /**
@@ -470,6 +480,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
      *
      * {@hide}
      */
+    @UnsupportedAppUsage
     @TestApi
     public static final int PRIVATE_FLAG_PRIVILEGED = 1<<3;
 
@@ -614,10 +625,10 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
 
     /**
      * Value for {@link #privateFlags}: whether this app is pre-installed on the
-     * google partition of the system image.
+     * system_ext partition of the system image.
      * @hide
      */
-    public static final int PRIVATE_FLAG_PRODUCT_SERVICES = 1 << 21;
+    public static final int PRIVATE_FLAG_SYSTEM_EXT = 1 << 21;
 
     /**
      * Indicates whether this package requires access to non-SDK APIs.
@@ -694,6 +705,13 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
      */
     public static final int PRIVATE_FLAG_ODM = 1 << 30;
 
+    /**
+     * Value for {@link #privateFlags}: If {@code true} this app allows heap tagging.
+     * {@link com.android.server.am.ProcessList#NATIVE_HEAP_POINTER_TAGGING}
+     * @hide
+     */
+    public static final int PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING = 1 << 31;
+
     /** @hide */
     @IntDef(flag = true, prefix = { "PRIVATE_FLAG_" }, value = {
             PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE,
@@ -713,7 +731,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
             PRIVATE_FLAG_USE_EMBEDDED_DEX,
             PRIVATE_FLAG_PRIVILEGED,
             PRIVATE_FLAG_PRODUCT,
-            PRIVATE_FLAG_PRODUCT_SERVICES,
+            PRIVATE_FLAG_SYSTEM_EXT,
             PRIVATE_FLAG_PROFILEABLE_BY_SHELL,
             PRIVATE_FLAG_REQUIRED_FOR_SYSTEM_USER,
             PRIVATE_FLAG_SIGNED_WITH_PLATFORM_KEY,
@@ -725,14 +743,40 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
             PRIVATE_FLAG_ALLOW_AUDIO_PLAYBACK_CAPTURE,
             PRIVATE_FLAG_REQUEST_LEGACY_EXTERNAL_STORAGE,
             PRIVATE_FLAG_ODM,
+            PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ApplicationInfoPrivateFlags {}
 
     /**
+     * Constant corresponding to <code>allowed</code> in the
+     * {@link android.R.attr#autoRevokePermissions} attribute.
+     *
+     * @hide
+     */
+    public static final int AUTO_REVOKE_ALLOWED = 0;
+
+    /**
+     * Constant corresponding to <code>discouraged</code> in the
+     * {@link android.R.attr#autoRevokePermissions} attribute.
+     *
+     * @hide
+     */
+    public static final int AUTO_REVOKE_DISCOURAGED = 1;
+
+    /**
+     * Constant corresponding to <code>disallowed</code> in the
+     * {@link android.R.attr#autoRevokePermissions} attribute.
+     *
+     * @hide
+     */
+    public static final int AUTO_REVOKE_DISALLOWED = 2;
+
+    /**
      * Private/hidden flags. See {@code PRIVATE_FLAG_...} constants.
      * @hide
      */
+    @UnsupportedAppUsage
     @TestApi
     public @ApplicationInfoPrivateFlags int privateFlags;
 
@@ -783,8 +827,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
      */
     public float minAspectRatio;
 
-    /** @removed */
-    @Deprecated
+    /** @hide */
     public String volumeUuid;
 
     /**
@@ -1253,6 +1296,39 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
     public String zygotePreloadName;
 
     /**
+     * Default (unspecified) setting of GWP-ASan.
+     */
+    public static final int GWP_ASAN_DEFAULT = -1;
+
+    /**
+     * Never enable GWP-ASan in this application or process.
+     */
+    public static final int GWP_ASAN_NEVER = 0;
+
+    /**
+     * Always enable GWP-ASan in this application or process.
+     */
+    public static final int GWP_ASAN_ALWAYS = 1;
+
+    /**
+     * These constants need to match the values of gwpAsanMode in application manifest.
+     * @hide
+     */
+    @IntDef(prefix = {"GWP_ASAN_"}, value = {
+            GWP_ASAN_DEFAULT,
+            GWP_ASAN_NEVER,
+            GWP_ASAN_ALWAYS,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface GwpAsanMode {}
+
+    /**
+     * Indicates if the application has requested GWP-ASan to be enabled, disabled, or left
+     * unspecified. Processes can override this setting.
+     */
+    private @GwpAsanMode int gwpAsanMode;
+
+    /**
      * Represents the default policy. The actual policy used will depend on other properties of
      * the application, e.g. the target SDK version.
      * @hide
@@ -1381,6 +1457,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
                 pw.println(prefix + "fullBackupContent="
                         + (fullBackupContent < 0 ? "false" : "true"));
             }
+            pw.println(prefix + "crossProfile=" + (crossProfile ? "true" : "false"));
             if (networkSecurityConfigRes != 0) {
                 pw.println(prefix + "networkSecurityConfigRes=0x"
                         + Integer.toHexString(networkSecurityConfigRes));
@@ -1392,14 +1469,17 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
             pw.println(prefix + "usesNonSdkApi=" + usesNonSdkApi());
             pw.println(prefix + "allowsPlaybackCapture="
                         + (isAudioPlaybackCaptureAllowed() ? "true" : "false"));
+            if (gwpAsanMode != GWP_ASAN_DEFAULT) {
+                pw.println(prefix + "gwpAsanMode=" + gwpAsanMode);
+            }
         }
         super.dumpBack(pw, prefix);
     }
 
     /** {@hide} */
-    public void writeToProto(ProtoOutputStream proto, long fieldId, int dumpFlags) {
+    public void dumpDebug(ProtoOutputStream proto, long fieldId, int dumpFlags) {
         long token = proto.start(fieldId);
-        super.writeToProto(proto, ApplicationInfoProto.PACKAGE, dumpFlags);
+        super.dumpDebug(proto, ApplicationInfoProto.PACKAGE, dumpFlags);
         proto.write(ApplicationInfoProto.PERMISSION, permission);
         proto.write(ApplicationInfoProto.PROCESS_NAME, processName);
         proto.write(ApplicationInfoProto.UID, uid);
@@ -1489,6 +1569,9 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
             }
             if (category != CATEGORY_UNDEFINED) {
                 proto.write(ApplicationInfoProto.Detail.CATEGORY, category);
+            }
+            if (gwpAsanMode != GWP_ASAN_DEFAULT) {
+                proto.write(ApplicationInfoProto.Detail.ENABLE_GWP_ASAN, gwpAsanMode);
             }
             proto.end(detailToken);
         }
@@ -1585,6 +1668,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
         uiOptions = orig.uiOptions;
         backupAgentName = orig.backupAgentName;
         fullBackupContent = orig.fullBackupContent;
+        crossProfile = orig.crossProfile;
         networkSecurityConfigRes = orig.networkSecurityConfigRes;
         category = orig.category;
         targetSandboxVersion = orig.targetSandboxVersion;
@@ -1598,6 +1682,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
         mHiddenApiPolicy = orig.mHiddenApiPolicy;
         hiddenUntilInstalled = orig.hiddenUntilInstalled;
         zygotePreloadName = orig.zygotePreloadName;
+        gwpAsanMode = orig.gwpAsanMode;
     }
 
     public String toString() {
@@ -1612,11 +1697,14 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
 
     @SuppressWarnings("unchecked")
     public void writeToParcel(Parcel dest, int parcelableFlags) {
+        if (dest.maybeWriteSquashed(this)) {
+            return;
+        }
         super.writeToParcel(dest, parcelableFlags);
-        dest.writeString(taskAffinity);
-        dest.writeString(permission);
-        dest.writeString(processName);
-        dest.writeString(className);
+        dest.writeString8(taskAffinity);
+        dest.writeString8(permission);
+        dest.writeString8(processName);
+        dest.writeString8(className);
         dest.writeInt(theme);
         dest.writeInt(flags);
         dest.writeInt(privateFlags);
@@ -1630,28 +1718,28 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
         } else {
             dest.writeInt(0);
         }
-        dest.writeString(scanSourceDir);
-        dest.writeString(scanPublicSourceDir);
-        dest.writeString(sourceDir);
-        dest.writeString(publicSourceDir);
-        dest.writeStringArray(splitNames);
-        dest.writeStringArray(splitSourceDirs);
-        dest.writeStringArray(splitPublicSourceDirs);
+        dest.writeString8(scanSourceDir);
+        dest.writeString8(scanPublicSourceDir);
+        dest.writeString8(sourceDir);
+        dest.writeString8(publicSourceDir);
+        dest.writeString8Array(splitNames);
+        dest.writeString8Array(splitSourceDirs);
+        dest.writeString8Array(splitPublicSourceDirs);
         dest.writeSparseArray((SparseArray) splitDependencies);
-        dest.writeString(nativeLibraryDir);
-        dest.writeString(secondaryNativeLibraryDir);
-        dest.writeString(nativeLibraryRootDir);
+        dest.writeString8(nativeLibraryDir);
+        dest.writeString8(secondaryNativeLibraryDir);
+        dest.writeString8(nativeLibraryRootDir);
         dest.writeInt(nativeLibraryRootRequiresIsa ? 1 : 0);
-        dest.writeString(primaryCpuAbi);
-        dest.writeString(secondaryCpuAbi);
-        dest.writeStringArray(resourceDirs);
-        dest.writeString(seInfo);
-        dest.writeString(seInfoUser);
-        dest.writeStringArray(sharedLibraryFiles);
+        dest.writeString8(primaryCpuAbi);
+        dest.writeString8(secondaryCpuAbi);
+        dest.writeString8Array(resourceDirs);
+        dest.writeString8(seInfo);
+        dest.writeString8(seInfoUser);
+        dest.writeString8Array(sharedLibraryFiles);
         dest.writeTypedList(sharedLibraryInfos);
-        dest.writeString(dataDir);
-        dest.writeString(deviceProtectedDataDir);
-        dest.writeString(credentialProtectedDataDir);
+        dest.writeString8(dataDir);
+        dest.writeString8(deviceProtectedDataDir);
+        dest.writeString8(credentialProtectedDataDir);
         dest.writeInt(uid);
         dest.writeInt(minSdkVersion);
         dest.writeInt(targetSdkVersion);
@@ -1659,31 +1747,36 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
         dest.writeInt(enabled ? 1 : 0);
         dest.writeInt(enabledSetting);
         dest.writeInt(installLocation);
-        dest.writeString(manageSpaceActivityName);
-        dest.writeString(backupAgentName);
+        dest.writeString8(manageSpaceActivityName);
+        dest.writeString8(backupAgentName);
         dest.writeInt(descriptionRes);
         dest.writeInt(uiOptions);
         dest.writeInt(fullBackupContent);
+        dest.writeBoolean(crossProfile);
         dest.writeInt(networkSecurityConfigRes);
         dest.writeInt(category);
         dest.writeInt(targetSandboxVersion);
-        dest.writeString(classLoaderName);
-        dest.writeStringArray(splitClassLoaderNames);
+        dest.writeString8(classLoaderName);
+        dest.writeString8Array(splitClassLoaderNames);
         dest.writeInt(compileSdkVersion);
-        dest.writeString(compileSdkVersionCodename);
-        dest.writeString(appComponentFactory);
+        dest.writeString8(compileSdkVersionCodename);
+        dest.writeString8(appComponentFactory);
         dest.writeInt(iconRes);
         dest.writeInt(roundIconRes);
         dest.writeInt(mHiddenApiPolicy);
         dest.writeInt(hiddenUntilInstalled ? 1 : 0);
-        dest.writeString(zygotePreloadName);
+        dest.writeString8(zygotePreloadName);
+        dest.writeInt(gwpAsanMode);
     }
 
     public static final @android.annotation.NonNull Parcelable.Creator<ApplicationInfo> CREATOR
             = new Parcelable.Creator<ApplicationInfo>() {
+        @Override
         public ApplicationInfo createFromParcel(Parcel source) {
-            return new ApplicationInfo(source);
+            return source.readSquashed(ApplicationInfo::new);
         }
+
+        @Override
         public ApplicationInfo[] newArray(int size) {
             return new ApplicationInfo[size];
         }
@@ -1692,10 +1785,10 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
     @SuppressWarnings("unchecked")
     private ApplicationInfo(Parcel source) {
         super(source);
-        taskAffinity = source.readString();
-        permission = source.readString();
-        processName = source.readString();
-        className = source.readString();
+        taskAffinity = source.readString8();
+        permission = source.readString8();
+        processName = source.readString8();
+        className = source.readString8();
         theme = source.readInt();
         flags = source.readInt();
         privateFlags = source.readInt();
@@ -1706,28 +1799,28 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
             storageUuid = new UUID(source.readLong(), source.readLong());
             volumeUuid = StorageManager.convert(storageUuid);
         }
-        scanSourceDir = source.readString();
-        scanPublicSourceDir = source.readString();
-        sourceDir = source.readString();
-        publicSourceDir = source.readString();
-        splitNames = source.readStringArray();
-        splitSourceDirs = source.readStringArray();
-        splitPublicSourceDirs = source.readStringArray();
+        scanSourceDir = source.readString8();
+        scanPublicSourceDir = source.readString8();
+        sourceDir = source.readString8();
+        publicSourceDir = source.readString8();
+        splitNames = source.createString8Array();
+        splitSourceDirs = source.createString8Array();
+        splitPublicSourceDirs = source.createString8Array();
         splitDependencies = source.readSparseArray(null);
-        nativeLibraryDir = source.readString();
-        secondaryNativeLibraryDir = source.readString();
-        nativeLibraryRootDir = source.readString();
+        nativeLibraryDir = source.readString8();
+        secondaryNativeLibraryDir = source.readString8();
+        nativeLibraryRootDir = source.readString8();
         nativeLibraryRootRequiresIsa = source.readInt() != 0;
-        primaryCpuAbi = source.readString();
-        secondaryCpuAbi = source.readString();
-        resourceDirs = source.readStringArray();
-        seInfo = source.readString();
-        seInfoUser = source.readString();
-        sharedLibraryFiles = source.readStringArray();
+        primaryCpuAbi = source.readString8();
+        secondaryCpuAbi = source.readString8();
+        resourceDirs = source.createString8Array();
+        seInfo = source.readString8();
+        seInfoUser = source.readString8();
+        sharedLibraryFiles = source.createString8Array();
         sharedLibraryInfos = source.createTypedArrayList(SharedLibraryInfo.CREATOR);
-        dataDir = source.readString();
-        deviceProtectedDataDir = source.readString();
-        credentialProtectedDataDir = source.readString();
+        dataDir = source.readString8();
+        deviceProtectedDataDir = source.readString8();
+        credentialProtectedDataDir = source.readString8();
         uid = source.readInt();
         minSdkVersion = source.readInt();
         targetSdkVersion = source.readInt();
@@ -1735,24 +1828,26 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
         enabled = source.readInt() != 0;
         enabledSetting = source.readInt();
         installLocation = source.readInt();
-        manageSpaceActivityName = source.readString();
-        backupAgentName = source.readString();
+        manageSpaceActivityName = source.readString8();
+        backupAgentName = source.readString8();
         descriptionRes = source.readInt();
         uiOptions = source.readInt();
         fullBackupContent = source.readInt();
+        crossProfile = source.readBoolean();
         networkSecurityConfigRes = source.readInt();
         category = source.readInt();
         targetSandboxVersion = source.readInt();
-        classLoaderName = source.readString();
-        splitClassLoaderNames = source.readStringArray();
+        classLoaderName = source.readString8();
+        splitClassLoaderNames = source.createString8Array();
         compileSdkVersion = source.readInt();
-        compileSdkVersionCodename = source.readString();
-        appComponentFactory = source.readString();
+        compileSdkVersionCodename = source.readString8();
+        appComponentFactory = source.readString8();
         iconRes = source.readInt();
         roundIconRes = source.readInt();
         mHiddenApiPolicy = source.readInt();
         hiddenUntilInstalled = source.readInt() != 0;
-        zygotePreloadName = source.readString();
+        zygotePreloadName = source.readString8();
+        gwpAsanMode = source.readInt();
     }
 
     /**
@@ -1864,6 +1959,15 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
      */
     public boolean hasRequestedLegacyExternalStorage() {
         return (privateFlags & PRIVATE_FLAG_REQUEST_LEGACY_EXTERNAL_STORAGE) != 0;
+    }
+
+    /**
+     * If {@code true} this app allows heap pointer tagging.
+     *
+     * @hide
+     */
+    public boolean allowsNativeHeapPointerTagging() {
+        return (privateFlags & PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING) != 0;
     }
 
     private boolean isAllowedToUseHiddenApis() {
@@ -2047,8 +2151,8 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
     }
 
     /** @hide */
-    public boolean isProductServices() {
-        return (privateFlags & ApplicationInfo.PRIVATE_FLAG_PRODUCT_SERVICES) != 0;
+    public boolean isSystemExt() {
+        return (privateFlags & ApplicationInfo.PRIVATE_FLAG_SYSTEM_EXT) != 0;
     }
 
     /** @hide */
@@ -2122,6 +2226,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
     /** {@hide} */ public void setResourcePath(String resourcePath) { scanPublicSourceDir = resourcePath; }
     /** {@hide} */ public void setBaseResourcePath(String baseResourcePath) { publicSourceDir = baseResourcePath; }
     /** {@hide} */ public void setSplitResourcePaths(String[] splitResourcePaths) { splitPublicSourceDirs = splitResourcePaths; }
+    /** {@hide} */ public void setGwpAsanMode(@GwpAsanMode int value) { gwpAsanMode = value; }
 
     /** {@hide} */
     @UnsupportedAppUsage
@@ -2133,4 +2238,6 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
     @UnsupportedAppUsage
     public String getBaseResourcePath() { return publicSourceDir; }
     /** {@hide} */ public String[] getSplitResourcePaths() { return splitPublicSourceDirs; }
+    @GwpAsanMode
+    public int getGwpAsanMode() { return gwpAsanMode; }
 }

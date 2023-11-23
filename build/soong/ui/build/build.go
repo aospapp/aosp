@@ -19,6 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"android/soong/ui/metrics"
 )
 
 // Ensures the out directory exists, and has the proper files to prevent kati
@@ -33,12 +35,24 @@ func SetupOutDir(ctx Context, config Config) {
 	// can be parsed as ninja output.
 	ensureEmptyFileExists(ctx, filepath.Join(config.OutDir(), "ninja_build"))
 	ensureEmptyFileExists(ctx, filepath.Join(config.OutDir(), ".out-dir"))
+
+	if buildDateTimeFile, ok := config.environ.Get("BUILD_DATETIME_FILE"); ok {
+		err := ioutil.WriteFile(buildDateTimeFile, []byte(config.buildDateTime), 0777)
+		if err != nil {
+			ctx.Fatalln("Failed to write BUILD_DATETIME to file:", err)
+		}
+	} else {
+		ctx.Fatalln("Missing BUILD_DATETIME_FILE")
+	}
 }
 
 var combinedBuildNinjaTemplate = template.Must(template.New("combined").Parse(`
 builddir = {{.OutDir}}
-pool local_pool
+{{if .UseRemoteBuild }}pool local_pool
  depth = {{.Parallel}}
+{{end -}}
+pool highmem_pool
+ depth = {{.HighmemParallel}}
 build _kati_always_build_: phony
 {{if .HasKatiSuffix}}subninja {{.KatiBuildNinjaFile}}
 subninja {{.KatiPackageNinjaFile}}
@@ -129,6 +143,29 @@ func Build(ctx Context, config Config, what int) {
 	ctx.Verboseln("Starting build with args:", config.Arguments())
 	ctx.Verboseln("Environment:", config.Environment().Environ())
 
+	if totalRAM := config.TotalRAM(); totalRAM != 0 {
+		ram := float32(totalRAM) / (1024 * 1024 * 1024)
+		ctx.Verbosef("Total RAM: %.3vGB", ram)
+
+		if ram <= 16 {
+			ctx.Println("************************************************************")
+			ctx.Printf("You are building on a machine with %.3vGB of RAM\n", ram)
+			ctx.Println("")
+			ctx.Println("The minimum required amount of free memory is around 16GB,")
+			ctx.Println("and even with that, some configurations may not work.")
+			ctx.Println("")
+			ctx.Println("If you run into segfaults or other errors, try reducing your")
+			ctx.Println("-j value.")
+			ctx.Println("************************************************************")
+		} else if ram <= float32(config.Parallel()) {
+			ctx.Printf("Warning: high -j%d count compared to %.3vGB of RAM", config.Parallel(), ram)
+			ctx.Println("If you run into segfaults or other errors, try a lower -j value")
+		}
+	}
+
+	ctx.BeginTrace(metrics.Total, "total")
+	defer ctx.EndTrace()
+
 	if config.SkipMake() {
 		ctx.Verboseln("Skipping Make/Kati as requested")
 		what = what & (BuildSoong | BuildNinja)
@@ -161,16 +198,23 @@ func Build(ctx Context, config Config, what int) {
 		startGoma(ctx, config)
 	}
 
+	if config.StartRBE() {
+		// Ensure RBE proxy is started
+		startRBE(ctx, config)
+	}
+
 	if what&BuildProductConfig != 0 {
 		// Run make for product config
 		runMakeProductConfig(ctx, config)
 	}
 
-	if inList("installclean", config.Arguments()) {
+	if inList("installclean", config.Arguments()) ||
+		inList("install-clean", config.Arguments()) {
 		installClean(ctx, config, what)
 		ctx.Println("Deleted images and staging directories.")
 		return
-	} else if inList("dataclean", config.Arguments()) {
+	} else if inList("dataclean", config.Arguments()) ||
+		inList("data-clean", config.Arguments()) {
 		dataClean(ctx, config, what)
 		ctx.Println("Deleted data files.")
 		return

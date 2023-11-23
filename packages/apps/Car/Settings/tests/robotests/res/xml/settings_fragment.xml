@@ -25,6 +25,8 @@
     <EditTextPreference
         android:key="@string/tpk_edit_text_preference"/>
     <ListPreference
+        android:title="@string/tpk_list_preference"
+        android:dialogTitle="@string/tpk_list_preference"
         android:entries="@array/entries"
         android:entryValues="@array/entry_values"
         android:key="@string/tpk_list_preference"/>

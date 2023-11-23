@@ -21,6 +21,7 @@
   },
   {
     "description": "ext2 filesystem (write)",
+    "as_root": true,
     "is_write_test": true,
     "block_size": 1024,
     "block_count": 65536,

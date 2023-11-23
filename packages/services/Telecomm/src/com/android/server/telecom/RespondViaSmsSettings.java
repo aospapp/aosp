@@ -18,16 +18,18 @@ package com.android.server.telecom;
 
 import android.app.ActionBar;
 import android.app.Activity;
-import android.content.Context;
+import android.app.AlertDialog;
 import android.content.SharedPreferences;
-import android.telecom.Log;
 import android.os.Bundle;
 import android.preference.EditTextPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
-import android.view.Menu;
+import android.telecom.Log;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.MenuItem;
+import android.widget.Button;
 
 // TODO: This class is newly copied into Telecom (com.android.server.telecom) from it previous
 // location in Telephony (com.android.phone). User's preferences stored in the old location
@@ -103,11 +105,15 @@ public class RespondViaSmsSettings extends PreferenceActivity
         // (Watch out: onPreferenceChange() is called *before* the
         // Preference itself gets updated, so we need to use newValue here
         // rather than pref.getText().)
-        pref.setTitle((String) newValue);
+        // If the newValue is an empty string, skip this to avoid setting an empty response.
+        // TODO: Show a popup to inform user that response didn't set because it's empty.
+        if (((String) newValue).length() != 0) {
+            pref.setTitle((String) newValue);
 
-        // Save the new preference value.
-        SharedPreferences.Editor editor = mPrefs.edit();
-        editor.putString(pref.getKey(), (String) newValue).commit();
+            // Save the new preference value.
+            SharedPreferences.Editor editor = mPrefs.edit();
+            editor.putString(pref.getKey(), (String) newValue).commit();
+        }
 
         // If the user just reset the quick response to its original text, clear the pref.
         QuickResponseUtils.maybeResetQuickResponses(this, mPrefs);
@@ -141,6 +147,33 @@ public class RespondViaSmsSettings extends PreferenceActivity
         EditTextPreference pref = (EditTextPreference) preference;
         pref.setText(mPrefs.getString(pref.getKey(), pref.getText()));
         pref.setTitle(pref.getText());
+        pref.getEditText().addTextChangedListener(new TextWatcher() {
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                try {
+                    Button button = ((AlertDialog) pref.getDialog())
+                            .getButton(AlertDialog.BUTTON_POSITIVE);
+                    if (s.toString().length() == 0) {
+                        button.setEnabled(false);
+                    } else {
+                        button.setEnabled(true);
+                    }
+                } catch (NullPointerException e) {
+                    Log.d(this, e.toString());
+                }
+            }
+        });
         pref.setOnPreferenceChangeListener(this);
     }
 }

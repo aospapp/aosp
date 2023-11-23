@@ -27,14 +27,15 @@ vtf_tradefed_modules := \
   loganalysis \
   tradefed \
   vts-tradefed \
-  vts-tradefed-tests \
+  vts10-tradefed \
+  vts10-tradefed-tests \
 
 vtf_tradefed_copy_pairs := \
   $(foreach f,$(vtf_tradefed_modules),\
     $(HOST_OUT)/framework/$(f).jar:$(VTF_TOOLS_OUT)/$(f).jar)
 
 vtf_tradefed_additional_deps_copy_pairs := \
-  test/vts/tools/vts-tradefed/etc/vts-tradefed:$(VTF_TOOLS_OUT)/vts-tradefed
+  test/vts/tools/vts-tradefed/etc/vts10-tradefed:$(VTF_TOOLS_OUT)/vts10-tradefed
 
 vtf_tradefed_additional_deps_copy_pairs += \
   $(foreach f,$(VTF_COPY_VTF_BINARY),\

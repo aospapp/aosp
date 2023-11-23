@@ -17,10 +17,13 @@
 package com.android.cellbroadcastreceiver;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.graphics.Typeface;
-import android.telephony.CellBroadcastMessage;
+import android.provider.Telephony;
+import android.telephony.SmsCbMessage;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
+import android.text.format.DateUtils;
 import android.text.style.StyleSpan;
 import android.util.AttributeSet;
 import android.view.accessibility.AccessibilityEvent;
@@ -32,7 +35,7 @@ import android.widget.TextView;
  */
 public class CellBroadcastListItem extends RelativeLayout {
 
-    private CellBroadcastMessage mCbMessage;
+    private SmsCbMessage mCbMessage;
 
     private TextView mChannelView;
     private TextView mMessageView;
@@ -44,7 +47,7 @@ public class CellBroadcastListItem extends RelativeLayout {
         mContext = context;
     }
 
-    CellBroadcastMessage getMessage() {
+    SmsCbMessage getMessage() {
         return mCbMessage;
     }
 
@@ -61,30 +64,44 @@ public class CellBroadcastListItem extends RelativeLayout {
      * Only used for header binding.
      * @param message the message contents to bind
      */
-    public void bind(CellBroadcastMessage message) {
+    public void bind(SmsCbMessage message) {
         mCbMessage = message;
         mChannelView.setText(CellBroadcastResources.getDialogTitleResource(mContext, message));
-        mDateView.setText(message.getDateString(getContext()));
-        mMessageView.setText(formatMessage(message));
-    }
+        mDateView.setText(DateUtils.formatDateTime(getContext(), message.getReceivedTime(),
+                DateUtils.FORMAT_NO_NOON_MIDNIGHT | DateUtils.FORMAT_SHOW_TIME
+                        | DateUtils.FORMAT_ABBREV_ALL | DateUtils.FORMAT_SHOW_DATE
+                        | DateUtils.FORMAT_CAP_AMPM));
 
-    private static CharSequence formatMessage(CellBroadcastMessage message) {
-        String body = message.getMessageBody();
-
-        SpannableStringBuilder buf = new SpannableStringBuilder(body);
-
-        // Unread messages are shown in bold
-        if (!message.isRead()) {
-            buf.setSpan(new StyleSpan(Typeface.BOLD), 0, buf.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        SpannableStringBuilder messageText = new SpannableStringBuilder(message.getMessageBody());
+        try (Cursor cursor = mContext.getContentResolver().query(
+                CellBroadcastContentProvider.CONTENT_URI,
+                CellBroadcastDatabaseHelper.QUERY_COLUMNS,
+                Telephony.CellBroadcasts.DELIVERY_TIME + "=?",
+                new String[] {Long.toString(message.getReceivedTime())},
+                null)) {
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    if (cursor.getInt(cursor.getColumnIndexOrThrow(
+                            Telephony.CellBroadcasts.MESSAGE_READ)) != 0) {
+                        messageText.setSpan(new StyleSpan(Typeface.BOLD), 0, messageText.length(),
+                                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        break;
+                    }
+                }
+            }
         }
-        return buf;
+
+        mMessageView.setText(messageText);
     }
 
     @Override
     public boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event) {
         // Speak the date first, then channel name, then message body
-        event.getText().add(mCbMessage.getSpokenDateString(getContext()));
+        int flags = DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_SHOW_DATE;
+        String dateTime = DateUtils.formatDateTime(getContext(), mCbMessage.getReceivedTime(),
+                flags);
+
+        event.getText().add(dateTime);
         mChannelView.dispatchPopulateAccessibilityEvent(event);
         mMessageView.dispatchPopulateAccessibilityEvent(event);
         return true;

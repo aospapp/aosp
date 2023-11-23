@@ -8,7 +8,8 @@
     <string name="action_bar_title" msgid="2566334512545554724">"Ngena ngemvume ku-%1$s"</string>
     <string name="ssl_error_warning" msgid="494203210316238046">"Inethiwekhi ozama ukuyijoyina inezinkinga zokuvikela."</string>
     <string name="ssl_error_example" msgid="4574594291839092653">"Isibonelo, ikhasi lokungena ngemvume kungenzeka lingelenhlangano ebonisiwe."</string>
-    <string name="ssl_error_continue" msgid="1167243324376748637">"Qhubeka noma kunjalo ngesiphequluli"</string>
+    <string name="no_bypass_error_vpnwarning" msgid="5263739853101734851">"Ngokungeziwe, ngeke kwenzeke ukudlula leli phutha ngoba okwamanje idivayisi isebenzisa i-VPN."</string>
+    <string name="error_continue_via_browser" msgid="7091550471744444659">"Qhubeka noma kunjalo ngesiphequluli"</string>
     <string name="ssl_error_untrusted" msgid="5183246242332501768">"Lesi sitifiketi asisuki kusiphathimandla esithembekile."</string>
     <string name="ssl_error_mismatch" msgid="5260665486390938291">"Igama lesayithi alifani negama elikusitifiketi."</string>
     <string name="ssl_error_expired" msgid="9098912817349951268">"Lesi sitifiketi siphelelwe yisikhathi"</string>
@@ -18,7 +19,16 @@
     <string name="ssl_error_unknown" msgid="3751419329218834886">"Iphutha lesitifiketi elingaziwa."</string>
     <string name="ssl_security_warning_title" msgid="7912335118289529802">"Isexwayiso sokuvikeleka"</string>
     <string name="ssl_error_view_certificate" msgid="3447891108083278449">"Buka isitifiketi"</string>
+    <string name="custom_scheme_warning" msgid="1809266150423969087">"Inethiwekhi ozama ukuyijoyina icela ukuvula olunye uhlelo lokusebenza."</string>
+    <string name="custom_scheme_example" msgid="7126568152528588592">"Isibonelo, ikhasi lokungena ngemvume lingadinga uhlelo lokusebenza oluthile ukuze kufakazelwe ubuqiniso"</string>
     <string name="ok" msgid="6584612582120777209">"KULUNGILE"</string>
     <string name="page_info_address" msgid="1290683284404217554">"Ikheli:"</string>
     <string name="page_info" msgid="46593086046896385">"Ulwazi lekhasi"</string>
+    <string name="downloading_paramfile" msgid="685182551665849043">"Ilanda okungu-%1$s"</string>
+    <string name="download_completed" msgid="5430865338124330584">"Ukulanda kuqedile"</string>
+    <string name="error_downloading_paramfile" msgid="2431082160412515409">"Ayikwazanga ukulanda okungu-%1$s"</string>
+    <string name="channel_name_downloads" msgid="8446786286617933444">"Okulandiwe"</string>
+    <string name="channel_description_downloads" msgid="8751992699855833481">"Izaziso zibonisa ukulandwa okuqediwe noma okukhanseliwe"</string>
+    <string name="channel_name_download_progress" msgid="6805362260479605374">"Ukuqhubeka kokulandwa"</string>
+    <string name="channel_description_download_progress" msgid="5788105841492070647">"Izaziso zibonisa ukuqhubeka kokulandwa kwefayela"</string>
 </resources>

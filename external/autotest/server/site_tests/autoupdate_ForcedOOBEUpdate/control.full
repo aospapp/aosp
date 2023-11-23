@@ -9,7 +9,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:au-perbuild"
+ATTRIBUTES = "suite:au-oobe"
 DOC = """
 This tests the forced autoupdate flow at OOBE.
 
@@ -25,28 +25,20 @@ workstation. You can start by going to cautotest and locking a DUT.
 You will need to pass a job_repo_url param to test_that.
 
 The test needs to be able to ssh into devservers. To ssh into lab devservers
-you need to download the chromium key file from:
-chromeos_internal//chromeos-admin/puppet/modules/users/files/chromeos-test/
-ssh/chromium
+Follow these instructions to setup the ssh access to lab devservers:
+https://sites.google.com/a/google.com/chromeos/for-team-members/infrastructure/chromeos-admin/devserver-access
 
-Save the file to ~/.ssh/ and run chmod 600 on it.
-Then add these lines to your ~/.ssh/config
+Use this instruction to find the list of lab devservers:
+atest server list | grep devserver
 
-Host <devserver hostname>
-  GSSAPITrustDns no
-  GSSAPIDelegateCredentials no
-  GSSAPIAuthentication no
-  ForwardAgent no
-  ForwardX11 no
-  PreferredAuthentications publickey
-  StrictHostKeyChecking no
-  User chromeos-test
-  IdentityFile %d/.ssh/chromium
+Get access to "Access To Chrome Lab or Cautotest" from:
+https://sphinx.corp.google.com/sphinx/#accessChangeRequest:systemName=default-mnp-use-cases
 
-Check that you can now ssh into a lab devserver without a password.
-Copy the ssh files to your chroot's .ssh folder to ssh from there.
+Then run the test as follows:
+test_that <hostname>.cros autoupdate_ForcedOOBEUpdate.full --args="job_repo_url='http://<IP>:<PORT>/static/<board>-release/RXX-XXXX.X.X/autotest/packages'"
 
-test_that <hostname>.cros autoupdate_ForcedOOBEUpdate --args="job_repo_url='http://<IP>:<port>/static/<board>-release/RXX-XXXX.X.X/autotest/packages'"
+- IP: The IP of the devserver you are running the test agains:
+- PORT: The port of the devserver, normally 8082
 """
 
 from autotest_lib.client.common_lib import utils

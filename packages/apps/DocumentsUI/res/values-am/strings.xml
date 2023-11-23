@@ -36,6 +36,7 @@
     <string name="menu_share" msgid="4307140947108068356">"አጋራ"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ሰርዝ"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"ሁሉንም ምረጥ"</string>
+    <string name="menu_deselect_all" msgid="7729916068862742979">"ሁሉንም አትምረጥ"</string>
     <string name="menu_select" msgid="1366061076507142387">"ይምረጡ"</string>
     <string name="menu_sort" msgid="3362419226163725275">"ደርድር በ..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"ቅዳ ወደ…"</string>
@@ -44,6 +45,8 @@
     <string name="menu_extract" msgid="8171946945982532262">"አውጣ ወደ…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"ዳግም ሰይም"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"መረጃ አግኝ"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"የተደበቁ ፋይሎችን አሳይ"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"የተደበቁ ፋይሎችን አታሳይ"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"በ<xliff:g id="SOURCE">%1$s</xliff:g> ይመልከቱ"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"አዲሰ መስኮት"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"ቁረጥ"</string>
@@ -61,6 +64,7 @@
     <string name="button_retry" msgid="4011461781916631389">"እንደገና ይሞክሩ"</string>
     <string name="button_clear" msgid="5412304437764369441">"አጽዳ"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"በአቅራቢ ውስጥ አሳይ"</string>
+    <string name="button_back" msgid="1888621708934742182">"ተመለስ"</string>
     <string name="not_sorted" msgid="7813496644889115530">"አልተደረደረም"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"ስም"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"ማጠቃለያ"</string>
@@ -86,6 +90,18 @@
     <string name="save_error" msgid="8631128801982095782">"ሰነድን ማስቀመጥ አልተሳካም"</string>
     <string name="create_error" msgid="3092144450044861994">"አቃፊን መፍጠር አልተሳካም"</string>
     <string name="query_error" msgid="6625421453613879336">"አሁን ይዘትን መጫን አልተቻለም"</string>
+    <string name="quiet_mode_error_title" msgid="9126656325282792843">"የሥራ መገለጫ ባለበት ቆሟል"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"አብራ"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"የሥራ ፋይሎችን መምረጥ አይቻልም"</string>
+    <string name="cant_select_work_files_error_message" msgid="683480676150690641">"የእርስዎ አይቲ አስተዳዳሪ ከግል መተግበሪያ የሥራ ፋይሎችን እንዲደርሱ አይፈቅዱልዎትም"</string>
+    <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"የግል ፋይሎችን መምረጥ አይቻልም"</string>
+    <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"የእርስዎ አይቲ አስተዳዳሪ ከሥራ መተግበሪያ የግል ፋይሎችን እንዲደርሱባቸው አይፈቅዱልዎትም"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"ወደ ሥራ መገለጫ ማስቀመጥ አይቻልም"</string>
+    <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"የእርስዎ አይቲ አስተዳዳሪ ወደ የእርስዎ የግል ፋይሎችን ወደ የእርስዎ የሥራ ፋይሎች እንዲያስቀምጡ አይፈቅዱልዎትም"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"ወደ የግል መገለጫ ማስቀመጥ አይቻልም"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"የእርስዎ አይቲ አስተዳዳሪ ወደ የእርስዎ የግል መገለጫ የሥራ ፋይሎችን እርስዎ እንዲያስቀምጡ አይፈቅዱልዎትም"</string>
+    <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"ይህ እርምጃ አይፈቀድም"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"የበለጠ ለመረዳት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ"</string>
     <string name="root_recent" msgid="1080156975424341623">"የቅርብ ጊዜ"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ነፃ"</string>
     <string name="root_type_service" msgid="6521366147466512289">"የማከማቻ አገልግሎቶች"</string>
@@ -97,6 +113,8 @@
     <string name="toast_no_application" msgid="7555319548595113121">"ፋይሉን መክፈት አይቻልም"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"በማህደሮች ውስጥ ያሉ ፋይሎችን መክፈት አይቻልም"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"አንዳንድ ሰነዶችን መሰረዝ አልተቻለም"</string>
+    <string name="toast_share_over_limit" msgid="5805442886537093015">"ከ <xliff:g id="COUNT">%1$d</xliff:g> በላይ ፋይሎች ማጋራት አይቻልም"</string>
+    <string name="toast_action_not_allowed" msgid="1329382474450572415">"እርምጃ አይፈቀድም"</string>
     <string name="share_via" msgid="8725082736005677161">"በዚህ በኩል ያጋሩ፦"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ፋይሎችን በመቅዳት ላይ"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ፋይሎችን በመጭመቅ ላይ"</string>
@@ -222,29 +240,42 @@
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> ተመርጧል</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ተመርጠዋል</item>
     </plurals>
-    <string name="root_info_header_recent" msgid="8754386597210017725">"በስልክ ላይ የቅርብ ጊዜ ፋይሎች"</string>
-    <string name="root_info_header_global_search" msgid="9099308729787003373">"በስልክ ላይ ያሉ ፋይሎች"</string>
-    <string name="root_info_header_media" msgid="2774453755906260852">"በስልክ ላይ <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_recent" msgid="5654901877295332262">"የቅርብ ጊዜ ፋይሎች"</string>
+    <string name="root_info_header_global_search" msgid="4904078222280496152">"ፋይሎች"</string>
+    <string name="root_info_header_downloads" msgid="8848161246921154115">"በማውረዶች ውስጥ ያሉ ፋይሎች"</string>
     <string name="root_info_header_storage" msgid="2989014130584927442">"በ<xliff:g id="DEVICE">%1$s</xliff:g> ላይ ያሉ ፋይሎች"</string>
+    <string name="root_info_header_folder" msgid="5851172222368049864">"በ <xliff:g id="FOLDER">%1$s</xliff:g> ውስጥ ያሉ ፋይሎች"</string>
     <string name="root_info_header_app" msgid="2125422047558420885">"ከ<xliff:g id="LABEL">%1$s</xliff:g> የመጡ ፋይሎች"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"ከ<xliff:g id="LABEL">%1$s</xliff:g> የመጡ ፋይሎች / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
-    <string name="root_info_header_image_recent" msgid="6252335619444758201">"በስልክ ላይ ያሉ የቅርብ ጊዜ ምስሎች"</string>
-    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"በስልኩ ላይ ያሉ ምስሎች"</string>
+    <string name="root_info_header_image_recent" msgid="7494373563753926014">"የቅርብ ጊዜ ምስሎች"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"ምስሎች"</string>
+    <string name="root_info_header_image_downloads" msgid="7072252612657612307">"በማውረዶች ውስጥ ያሉ ምስሎች"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"በ<xliff:g id="DEVICE">%1$s</xliff:g> ላይ ያሉ ምስሎች"</string>
+    <string name="root_info_header_image_folder" msgid="5980430877636279667">"ምስሎች በ <xliff:g id="FOLDER">%1$s</xliff:g> ውስጥ"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"የ<xliff:g id="LABEL">%1$s</xliff:g> ምስሎች"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"ምስሎች ከ<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"ምስሎች"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"ኦዲዮ"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"ቪዲዮዎች"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"ሰነዶች"</string>
+    <string name="chip_title_large_files" msgid="7740269190493883980">"ትላልቅ ፋይሎች"</string>
+    <string name="chip_title_from_this_week" msgid="4961536405220379672">"በዚህ ሳምንት"</string>
     <string name="input_hint_new_folder" msgid="479672411219725677">"የአቃፊ ስም"</string>
     <string name="input_hint_rename" msgid="8390711744270994452">"አዲስ ስም"</string>
     <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> ፋይሉን በቅድመ እይታ ይመልከቱ"</string>
+    <string name="preview_work_file" msgid="4495643735563487273">"የሥራ ፋይሉን <xliff:g id="FILENAME">%1$s</xliff:g> በቅድመ ዕይታ አሳይ"</string>
     <string name="apps_row_title" msgid="3340490016663092925">"ፋይሎችን በሌሎች መተግበሪያዎች ውስጥ ያስሱ"</string>
     <string name="anonymous_application" msgid="7633027057951625862">"ስም-አልባ"</string>
-    <string name="open_tree_button" msgid="19992834788135845">"የ«<xliff:g id="DIRECTORY">%1$s</xliff:g>» መዳረሻን ፍቀድ"</string>
-    <string name="open_tree_dialog_title" msgid="8429465292253532274">"በ«<xliff:g id="ROOT">%2$s</xliff:g>» ውስጥ የ«<xliff:g id="DIRECTORY">%1$s</xliff:g>» መዳረሻ ይፈቀድ?"</string>
-    <string name="open_tree_dialog_message" msgid="8545093618524340168">"«<xliff:g id="APPNAME">%1$s</xliff:g>» በአሁኑ ጊዜ በዚህ ቦታ ላይ የተከማቹ እና ወደፊት በዚህ ላይ የሚከማቹ ማናቸውም ሁሉም ፋይሎች ሙሉ መዳረሻ እንዲኖረው ያስችላል።"</string>
+    <string name="open_tree_button" msgid="6402871398424497776">"ይህን አቃፊ ተጠቀም"</string>
+    <string name="open_tree_dialog_title" msgid="6339509533852318569">"<xliff:g id="APPNAME">%1$s</xliff:g> በ <xliff:g id="DIRECTORY">%2$s</xliff:g> ውስጥ ፋይሎችን ለመድረስ ይፈቀድለት?"</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"ይህ <xliff:g id="APPNAME">%1$s</xliff:g> በ <xliff:g id="DIRECTORY">%2$s</xliff:g> ውስጥ የተከማቹ አሁን ያሉ እና ወደፊት የሚኖሩ ይዘቶችን መድረስ እንዲችል ያደርገዋል።"</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"ይህን አቃፊ መጠቀም አይቻልም"</string>
+    <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"ግላዊነትዎን ለመጠበቅ ሲባል ሌላ አቃፊ ይምረጡ"</string>
+    <string name="create_new_folder_button" msgid="8859613309559794890">"አዲስ አቃፊ ፍጠር"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"ይህን ስልክ ይፈልጉ"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"የፍለጋ ታሪክ ይሰርዙ <xliff:g id="TEXT">%1$s</xliff:g>"</string>
+    <string name="personal_tab" msgid="3878576287868528503">"የግል"</string>
+    <string name="work_tab" msgid="7265359366883747413">"ሥራ"</string>
+    <string name="a11y_work" msgid="7504431382825242153">"ሥራ"</string>
+    <string name="drag_from_another_app" msgid="8310249276199969905">"ከሌላ መተግበሪያ ፋይሎችን መውሰድ አይችሉም።"</string>
 </resources>

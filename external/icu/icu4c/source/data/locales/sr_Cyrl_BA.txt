@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sr_Cyrl_BA{
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     calendar{
         generic{
             intervalFormats{
@@ -25,9 +25,9 @@ sr_Cyrl_BA{
             }
             availableFormats{
                 MMMMW{
-                    few{"W. 'сједмица' 'у' MMM"}
-                    one{"W. 'сједмица' 'у' MMM"}
-                    other{"W. 'сједмица' 'у' MMM"}
+                    few{"W. 'сједмица' 'у' MMMM"}
+                    one{"W. 'сједмица' 'у' MMMM"}
+                    other{"W. 'сједмица' 'у' MMMM"}
                 }
                 yw{
                     few{"w. 'сједмица' 'у' Y."}
@@ -117,7 +117,7 @@ sr_Cyrl_BA{
                     "нове ере",
                 }
                 wide%variant{
-                    "BCE",
+                    "п. н. е.",
                     "нове ере",
                 }
             }
@@ -145,23 +145,13 @@ sr_Cyrl_BA{
                     y{"y-MM-dd – y-MM-dd"}
                 }
             }
-            monthNames{
-                stand-alone{
-                    abbreviated{
-                        "јан",
-                        "феб",
-                        "март",
-                        "апр",
-                        "мај",
-                        "јун",
-                        "јул",
-                        "авг",
-                        "септ",
-                        "окт",
-                        "нов",
-                        "дец",
-                    }
-                }
+        }
+    }
+    fields{
+        week{
+            relative{
+                "-1"{"претходне недеље"}
+                "1"{"наредне недеље"}
             }
         }
     }

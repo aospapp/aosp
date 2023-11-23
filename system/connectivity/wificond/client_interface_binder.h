@@ -20,15 +20,15 @@
 #include <android-base/macros.h>
 #include <binder/Status.h>
 
-#include "android/net/wifi/BnClientInterface.h"
-#include "android/net/wifi/ISendMgmtFrameEvent.h"
+#include "android/net/wifi/nl80211/BnClientInterface.h"
+#include "android/net/wifi/nl80211/ISendMgmtFrameEvent.h"
 
 namespace android {
 namespace wificond {
 
 class ClientInterfaceImpl;
 
-class ClientInterfaceBinder : public android::net::wifi::BnClientInterface {
+class ClientInterfaceBinder : public android::net::wifi::nl80211::BnClientInterface {
  public:
   explicit ClientInterfaceBinder(ClientInterfaceImpl* impl);
   ~ClientInterfaceBinder() override;
@@ -46,12 +46,10 @@ class ClientInterfaceBinder : public android::net::wifi::BnClientInterface {
       std::vector<uint8_t>* out_mac_address) override;
   ::android::binder::Status getInterfaceName(std::string* out_name) override;
   ::android::binder::Status getWifiScannerImpl(
-      ::android::sp<::android::net::wifi::IWifiScannerImpl>* out_wifi_scanner_impl) override;
-  ::android::binder::Status setMacAddress(
-      const ::std::vector<uint8_t>& mac, bool* success) override;
+      ::android::sp<::android::net::wifi::nl80211::IWifiScannerImpl>* out_wifi_scanner_impl) override;
   ::android::binder::Status SendMgmtFrame(
       const ::std::vector<uint8_t>& frame,
-      const sp<::android::net::wifi::ISendMgmtFrameEvent>& callback,
+      const sp<::android::net::wifi::nl80211::ISendMgmtFrameEvent>& callback,
       int32_t mcs) override;
  private:
   ClientInterfaceImpl* impl_;

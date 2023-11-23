@@ -21,10 +21,10 @@ import android.util.Log;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.car.developeroptions.search.SearchIndexableRaw;
 import com.android.car.developeroptions.slices.SliceData;
 import com.android.car.developeroptions.slices.Sliceable;
 import com.android.settingslib.core.AbstractPreferenceController;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

@@ -75,6 +75,9 @@ typedef enum {
     /* Other hardware-enforced. */
     KM_TAG_BLOB_USAGE_REQUIREMENTS = KM_ENUM | 301, /* keymaster_key_blob_usage_requirements_t */
     KM_TAG_BOOTLOADER_ONLY = KM_BOOL | 302,         /* Usable only by bootloader */
+    KM_TAG_ROLLBACK_RESISTANCE = KM_BOOL | 303,     /* Hardware enforced deletion with deleteKey
+                                                     * or deleteAllKeys is supported */
+    KM_TAG_EARLY_BOOT_ONLY = KM_BOOL | 305,         /* Key can only be used during early boot. */
 
     /*
      * Tags that should be semantically enforced by hardware if possible and will otherwise be
@@ -159,6 +162,10 @@ typedef enum {
                                                             attestation */
     KM_TAG_ATTESTATION_ID_MODEL = KM_BYTES | 717,  /* Used to provide the device's model name to be
                                                       included in attestation */
+    KM_TAG_DEVICE_UNIQUE_ATTESTATION = KM_BOOL | 720,  /* Indicates StrongBox device-unique attestation
+                                                          is requested. */
+    KM_TAG_IDENTITY_CREDENTIAL_KEY = KM_BOOL | 721, /* This is an identity credential key */
+
 
     /* Tags used only to provide data to or receive data from operations */
     KM_TAG_ASSOCIATED_DATA = KM_BYTES | 1000, /* Used to provide associated data for AEAD modes. */
@@ -371,6 +378,7 @@ typedef enum {
 typedef enum {
     KM_SECURITY_LEVEL_SOFTWARE = 0,
     KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT = 1,
+    KM_SECURITY_LEVEL_STRONGBOX = 2,
 } keymaster_security_level_t;
 
 /**
@@ -456,8 +464,12 @@ typedef enum {
     KM_ERROR_KEYMASTER_NOT_CONFIGURED = -64,
     KM_ERROR_ATTESTATION_APPLICATION_ID_MISSING = -65,
     KM_ERROR_CANNOT_ATTEST_IDS = -66,
+    KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE = -67,
     KM_ERROR_NO_USER_CONFIRMATION = -71,
     KM_ERROR_DEVICE_LOCKED = -72,
+    KM_ERROR_EARLY_BOOT_ENDED = -73,
+    KM_ERROR_ATTESTATION_KEYS_NOT_PROVISIONED = -74,
+    KM_ERROR_ATTESTATION_IDS_NOT_PROVISIONED = -75,
 
     KM_ERROR_UNIMPLEMENTED = -100,
     KM_ERROR_VERSION_MISMATCH = -101,

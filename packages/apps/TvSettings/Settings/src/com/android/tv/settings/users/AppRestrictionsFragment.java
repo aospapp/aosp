@@ -18,6 +18,7 @@ package com.android.tv.settings.users;
 
 import android.app.Activity;
 import android.app.AppGlobals;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -851,5 +852,10 @@ public class AppRestrictionsFragment extends SettingsPreferenceFragment implemen
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.USERS_APP_RESTRICTIONS;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SECURITY_RESTRICTIONS_PROFILE_ALLOWED_APPS;
     }
 }

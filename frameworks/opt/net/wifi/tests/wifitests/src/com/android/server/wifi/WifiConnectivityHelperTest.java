@@ -39,7 +39,7 @@ import java.util.ArrayList;
  * Unit tests for {@link com.android.server.wifi.WifiConnectivityHelper}.
  */
 @SmallTest
-public class WifiConnectivityHelperTest {
+public class WifiConnectivityHelperTest extends WifiBaseTest {
     /** Sets up test. */
     @Before
     public void setUp() throws Exception {

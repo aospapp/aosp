@@ -43,14 +43,13 @@
 #include "ir_builder_print_visitor.h"
 #include "builtin_functions.h"
 #include "opt_add_neg_to_sub.h"
+#include "main/mtypes.h"
 
 class dead_variable_visitor : public ir_hierarchical_visitor {
 public:
    dead_variable_visitor()
    {
-      variables = _mesa_set_create(NULL,
-                                   _mesa_hash_pointer,
-                                   _mesa_key_pointer_equal);
+      variables = _mesa_pointer_set_create(NULL);
    }
 
    virtual ~dead_variable_visitor()
@@ -86,8 +85,6 @@ public:
 
    void remove_dead_variables()
    {
-      struct set_entry *entry;
-
       set_foreach(variables, entry) {
          ir_variable *ir = (ir_variable *) entry->key;
 
@@ -135,12 +132,15 @@ static void
 initialize_context(struct gl_context *ctx, gl_api api)
 {
    initialize_context_to_defaults(ctx, api);
+   glsl_type_singleton_init_or_ref();
 
    /* The standalone compiler needs to claim support for almost
     * everything in order to compile the built-in functions.
     */
    ctx->Const.GLSLVersion = options->glsl_version;
    ctx->Extensions.ARB_ES3_compatibility = true;
+   ctx->Extensions.ARB_ES3_1_compatibility = true;
+   ctx->Extensions.ARB_ES3_2_compatibility = true;
    ctx->Const.MaxComputeWorkGroupCount[0] = 65535;
    ctx->Const.MaxComputeWorkGroupCount[1] = 65535;
    ctx->Const.MaxComputeWorkGroupCount[2] = 65535;
@@ -268,6 +268,9 @@ initialize_context(struct gl_context *ctx, gl_api api)
       ctx->Const.MaxUniformBufferBindings = 84;
       ctx->Const.MaxVertexStreams = 4;
       ctx->Const.MaxTransformFeedbackBuffers = 4;
+      ctx->Const.MaxShaderStorageBufferBindings = 4;
+      ctx->Const.MaxShaderStorageBlockSize = 4096;
+      ctx->Const.MaxAtomicBufferBindings = 4;
 
       ctx->Const.Program[MESA_SHADER_VERTEX].MaxAttribs = 16;
       ctx->Const.Program[MESA_SHADER_VERTEX].MaxTextureImageUnits = 16;
@@ -403,11 +406,9 @@ compile_shader(struct gl_context *ctx, struct gl_shader *shader)
 
 extern "C" struct gl_shader_program *
 standalone_compile_shader(const struct standalone_options *_options,
-      unsigned num_files, char* const* files)
+      unsigned num_files, char* const* files, struct gl_context *ctx)
 {
    int status = EXIT_SUCCESS;
-   static struct gl_context local_ctx;
-   struct gl_context *ctx = &local_ctx;
    bool glsl_es = false;
 
    options = _options;
@@ -520,7 +521,7 @@ standalone_compile_shader(const struct standalone_options *_options,
       } else {
          const gl_shader_stage stage = whole_program->Shaders[0]->Stage;
 
-         whole_program->data->LinkStatus = linking_success;
+         whole_program->data->LinkStatus = LINKING_SUCCESS;
          whole_program->_LinkedShaders[stage] =
             link_intrastage_shaders(whole_program /* mem_ctx */,
                                     ctx,
@@ -617,6 +618,6 @@ standalone_compiler_cleanup(struct gl_shader_program *whole_program)
    delete whole_program->FragDataIndexBindings;
 
    ralloc_free(whole_program);
-   _mesa_glsl_release_types();
+   glsl_type_singleton_decref();
    _mesa_glsl_release_builtin_functions();
 }

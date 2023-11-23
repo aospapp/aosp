@@ -130,7 +130,7 @@ If both the user and the
 .B mke2fs.conf
 file do not specify a default filesystem type, mke2fs will use a
 default filesystem type of
-.IR ext3
+.I ext3
 if a journal was requested via a command-line option, or
 .I ext2
 if not.
@@ -508,7 +508,7 @@ huge file number.
 .I zero_hugefiles
 This boolean relation specifies whether or not zero blocks will be
 written to the hugefiles while
-.BR mke2fs(8)
+.BR mke2fs (8)
 is creating them.  By default, zero blocks will be written to the huge
 files to avoid stale data from being made available to potentially
 untrusted user programs, unless the device supports a discard/trim
@@ -518,6 +518,17 @@ to false, this step will always be skipped, which can be useful if it is
 known that the disk has been previously erased, or if the user programs
 that will have access to the huge files are trusted to not reveal stale
 data.
+.TP
+.I encoding
+This relation defines the file name encoding to be used if the casefold
+feature is enabled.   Currently the only valid encoding is utf8-12.1 or
+utf8, which requests the most recent Unicode version; since 12.1 is the only
+available Unicode version, utf8 and utf8-12.1 have the same result.
+.I encoding_flags
+This relation defines encoding-specific flags.  For utf8 encodings, the
+only available flag is strict, which will cause attempts to create file
+names containing invalid Unicode characters to be rejected by the
+kernel.  Strict mode is not enabled by default.
 .SH THE [devices] STANZA
 Each tag in the
 .I [devices]

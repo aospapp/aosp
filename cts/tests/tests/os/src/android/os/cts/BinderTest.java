@@ -331,6 +331,8 @@ public class BinderTest extends ActivityTestsBase {
         assertTrue(mBinder.unlinkToDeath(new MockDeathRecipient(), 0));
 
         assertTrue(mBinder.pingBinder());
+
+        assertTrue(IBinder.getSuggestedMaxIpcSizeBytes() > 0);
     }
 
     public void testFlushPendingCommands() {
@@ -379,6 +381,22 @@ public class BinderTest extends ActivityTestsBase {
         long token = Binder.clearCallingIdentity();
         assertTrue(token > 0);
         Binder.restoreCallingIdentity(token);
+    }
+
+    public void testClearCallingWorkSource() {
+        final long token = Binder.clearCallingWorkSource();
+        Binder.restoreCallingWorkSource(token);
+    }
+
+    public void testSetCallingWorkSourceUid() {
+        final int otherUid = android.os.Process.myUid() + 1;
+        assertFalse(Binder.getCallingWorkSourceUid() == otherUid);
+
+        final long token = Binder.setCallingWorkSourceUid(otherUid);
+        assertTrue(Binder.getCallingWorkSourceUid() == otherUid);
+        Binder.restoreCallingWorkSource(token);
+
+        assertFalse(Binder.getCallingWorkSourceUid() == otherUid);
     }
 
     public void testInterfaceRelatedMethods() {

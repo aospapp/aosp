@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*-coding:utf-8 -*
 
 # Copyright (c) 2011-2014, Intel Corporation
@@ -57,7 +57,7 @@ def configure(infile=sys.stdin, outfile=sys.stdout, serverPort=None, structPath=
 
     outfile.write(dom.toxml())
 
-if __name__ == "__main__" :
+if __name__ == "__main__":
     """ Execute main if the python interpreter is running this module as the main program """
 
     configure(serverPort=sys.argv[1], structPath=sys.argv[2])

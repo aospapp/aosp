@@ -56,6 +56,7 @@ namespace es2
 	bool IsStencilTexture(GLint format);
 	bool IsCubemapTextureTarget(GLenum target);
 	int CubeFaceIndex(GLenum cubeTarget);
+	bool IsTexImageTarget(GLenum target);
 	bool IsTextureTarget(GLenum target);
 	GLenum ValidateTextureFormatType(GLenum format, GLenum type, GLint internalformat, GLenum target);
 	size_t GetTypeSize(GLenum type);
@@ -85,6 +86,8 @@ namespace es2
 	// Parse the base uniform name and array index.  Returns the base name of the uniform. outSubscript is
 	// set to GL_INVALID_INDEX if the provided name is not an array or the array index is invalid.
 	std::string ParseUniformName(const std::string &name, unsigned int *outSubscript);
+
+	bool FloatFitsInInt(float f);
 }
 
 namespace es2sw

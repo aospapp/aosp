@@ -70,10 +70,17 @@ void PostinstallRunnerAction::PerformAction() {
   partition_weight_.resize(install_plan_.partitions.size());
   total_weight_ = 0;
   for (size_t i = 0; i < install_plan_.partitions.size(); ++i) {
+    auto& partition = install_plan_.partitions[i];
+    if (!install_plan_.run_post_install && partition.postinstall_optional) {
+      partition.run_postinstall = false;
+      LOG(INFO) << "Skipping optional post-install for partition "
+                << partition.name << " according to install plan.";
+    }
+
     // TODO(deymo): This code sets the weight to all the postinstall commands,
     // but we could remember how long they took in the past and use those
     // values.
-    partition_weight_[i] = install_plan_.partitions[i].run_postinstall;
+    partition_weight_[i] = partition.run_postinstall;
     total_weight_ += partition_weight_[i];
   }
   accumulated_weight_ = 0;
@@ -83,11 +90,6 @@ void PostinstallRunnerAction::PerformAction() {
 }
 
 void PostinstallRunnerAction::PerformPartitionPostinstall() {
-  if (!install_plan_.run_post_install) {
-    LOG(INFO) << "Skipping post-install according to install plan.";
-    return CompletePostinstall(ErrorCode::kSuccess);
-  }
-
   if (install_plan_.download_url.empty()) {
     LOG(INFO) << "Skipping post-install during rollback";
     return CompletePostinstall(ErrorCode::kSuccess);
@@ -339,8 +341,13 @@ void PostinstallRunnerAction::CompletePostinstall(ErrorCode error_code) {
   // steps succeeded.
   if (error_code == ErrorCode::kSuccess) {
     if (install_plan_.switch_slot_on_reboot) {
-      if (!boot_control_->SetActiveBootSlot(install_plan_.target_slot)) {
+      if (!boot_control_->GetDynamicPartitionControl()->FinishUpdate(
+              install_plan_.powerwash_required) ||
+          !boot_control_->SetActiveBootSlot(install_plan_.target_slot)) {
         error_code = ErrorCode::kPostinstallRunnerError;
+      } else {
+        // Schedules warm reset on next reboot, ignores the error.
+        hardware_->SetWarmReset(true);
       }
     } else {
       error_code = ErrorCode::kUpdatedButNotActive;

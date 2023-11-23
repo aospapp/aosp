@@ -95,7 +95,7 @@ public class LaunchpadActivity extends Activity {
     public static final String LIFECYCLE_SCREEN = "android.app.cts.activity.LIFECYCLE_SCREEN";
     public static final String LIFECYCLE_DIALOG = "android.app.cts.activity.LIFECYCLE_DIALOG";
 
-    public static final String ACTIVITY_PREPARE = "android.app.cts.activity.LIFECYCLE_DIALOG";
+    public static final String ACTIVITY_PREPARE = "android.app.cts.activity.ACTIVITY_PREPARE";
 
     public static final String BROADCAST_REGISTERED = "android.app.cts.activity.BROADCAST_REGISTERED";
     public static final String BROADCAST_LOCAL = "android.app.cts.activity.BROADCAST_LOCAL";

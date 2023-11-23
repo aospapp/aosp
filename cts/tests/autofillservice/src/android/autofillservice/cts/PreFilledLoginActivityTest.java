@@ -20,7 +20,7 @@ import static android.autofillservice.cts.Helper.ID_PASSWORD_LABEL;
 import static android.autofillservice.cts.Helper.ID_USERNAME;
 import static android.autofillservice.cts.Helper.ID_USERNAME_LABEL;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
-import static android.autofillservice.cts.Helper.assertTextFromResouces;
+import static android.autofillservice.cts.Helper.assertTextFromResources;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.assertTextOnly;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
@@ -75,7 +75,7 @@ public class PreFilledLoginActivityTest
         assertTextIsSanitized(fillRequest.structure, ID_USERNAME_LABEL);
 
         // ...password label should be ok because it was set from other resource id
-        assertTextFromResouces(fillRequest.structure, ID_PASSWORD_LABEL, "DA PASSWORD", false,
+        assertTextFromResources(fillRequest.structure, ID_PASSWORD_LABEL, "DA PASSWORD", false,
                 "new_password_label");
 
         // ...username and password should be ok because they were set in the SML
@@ -94,7 +94,7 @@ public class PreFilledLoginActivityTest
 
         // Assert sanitization on save: everything should be available!
         assertTextOnly(findNodeByResourceId(saveRequest.structure, ID_USERNAME_LABEL), "DA USER");
-        assertTextFromResouces(saveRequest.structure, ID_PASSWORD_LABEL, "DA PASSWORD", false,
+        assertTextFromResources(saveRequest.structure, ID_PASSWORD_LABEL, "DA PASSWORD", false,
                 "new_password_label");
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_USERNAME), "malkovich");
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_PASSWORD), "malkovich");

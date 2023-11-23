@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Шинэчлэх"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Профайл тохируулах боломжгүй байна"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Төхөөрөмж тохируулах боломжгүй байна"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Алдаа гарлаа"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Төхөөрөмжийг тохируулж чадсангүй. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Тусламж авахын тулд IT админтайгаа холбогдоно уу"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Энэ төхөөрөмжийг шинэчлээд дахин тохируулж үзнэ үү"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Төхөөрөмжийг аль хэдийн тохируулсан"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi-д холбогдож чадсангүй"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Таны төхөөрөмжийн шинэчлэх хамгаалалт асаалттай байна. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Ажлын төхөөрөмжийг тохируулахаар бэлтгэж байна…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Админ аппыг тохируулж байна"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Бусад зүйлсийг тохируулцгаая"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Одоо бусад зүйлсийг тохируулцгаая"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Төхөөрөмжөөсөө илүү ихийг авахын тулд хувийн бүртгэл нэмээрэй"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Одоо таны ажлын профайл бэлэн болсон тул та апп болон контентдоо хандахын тулд хувийн Google Бүртгэл мөн нэмэх боломжтой."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Энэ төхөөрөмжийг танай байгууллага эзэмшдэг"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Энэ утсыг удирдаж, хянахын тулд дараах аппыг ашиглана"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Ажлын тохируулгад бэлтгэж байна…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Эхлээд таны ажлын профайлыг тохируулцгаая"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Таны ажлын профайлыг тохируулцгаая"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Ажлын аппуудыг таны ажлын профайлд хадгалдаг"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Ажлын аппуудаа тухайн өдөр ашиглаж болсон үедээ түр зогсоогоорой"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Tаны IT админд зөвхөн таны ажлын профайлын өгөгдөл харагдана"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Tаны ажлын профайлын өгөгдөл нь таны мэдээлэл технологийн админд харагдана"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Таны ажлын профайлыг тохируулж байна…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Ажлын аппуудыг таны ажлын профайлд хадгалдаг. Та ажлын аппуудаа тухайн өдөр ашиглахаа болихыг хүсвэл түр зогсоож болно. Таны IT админд зөвхөн таны ажлын профайлын өгөгдөл харагдана."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Ажлын аппуудыг таны ажлын профайлд хадгалдаг. Та ажлын аппуудаа тухайн өдөрт ашиглах дууссан үедээ түр зогсоож болно. Tаны ажлын профайлын өгөгдөл нь таны мэдээлэл технологийн админд харагдана."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Таны ажлын төхөөрөмжийг тохируулцгаая"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Ажлын аппуудаа ашиглахад ойр газар байлгаарай"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Энэ төхөөрөмж хувийнх биш байна"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Таны IT админ таны энэ төхөөрөмж дээрх өгөгдөл болон үйл ажиллагааг харах боломжтой байж магадгүй."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Таны төхөөрөмжийг тохируулж байна…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Ажлын аппууддаа хялбар байдлаар хандахын тулд энэ төхөөрөмжийг ашиглана уу. Энэ төхөөрөмж хувийнх биш тул таны IT админ таны өгөгдөл болон үйл ажиллагааг харах боломжтой байж магадгүй. Нэмэлт мэдээлэл авахын тулд IT админтайгаа холбогдоно уу."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Ажлын аппуудыг ажлын профайлд хадгалдаг ба танай мэдээлэл технологийн админ удирддаг."</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Хувийн аппууд нь тусдаа ба тэднийг ажлын аппуудаас нуудаг"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Танай мэдээлэл технологийн админ энэ төхөөрөмжийг удирдаж, тодорхой аппыг блоклох боломжтой"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Ажлын аппуудыг таны ажлын профайлд хадгалдаг бөгөөд тэднийг таны мэдээлэл технологийн админ удирддаг. Хувийн аппууд нь тусдаа бөгөөд тэднийг ажлын аппуудаас нуудаг. Таны мэдээлэл технологийн админ энэ төхөөрөмжийг удирдаж, тодорхой аппыг блоклох боломжтой."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Түр хүлээнэ үү…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Нууцлалын сануулагч"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Таны IT админ таны энэ төхөөрөмж дээрх өгөгдөл болон үйл ажиллагааг харах боломжтой байж магадгүй"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Таны төхөөрөмж ашиглахад бэлэн боллоо!"</string>
     <string name="done" msgid="7755227776955952318">"Болсон"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Энэ төхөөрөмжийг <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-с нэгжээр авсан"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> дараахыг хийх боломжтой:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Та <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-н аппыг суулгаснаар энэ төхөөрөмжийн төлбөрийг төлөх боломжтой"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Та төлбөрөө төлөөгүй тохиолдолд энэ төхөөрөмжид хандах эрхийг хязгаарлана"</string>
 </resources>

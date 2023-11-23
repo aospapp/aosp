@@ -8,7 +8,6 @@
 #define __CONFIG_H
 
 /* High Level Configuration Options */
-#define CONFIG_MISC_INIT_R		1	/* Call misc_init_r	*/
 
 #define CONFIG_EXTRA_ENV_SETTINGS					\
 	"sdram_type=SDRAM\0"						\
@@ -77,8 +76,6 @@
 
 /* FLASH organization */
 #define CONFIG_SYS_FLASH_BASE		CONFIG_SYS_TEXT_BASE
-#define CONFIG_SYS_FLASH_CFI		1
-#define CONFIG_FLASH_CFI_DRIVER		1
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	35
 #define CONFIG_SYS_FLASH_ERASE_TOUT	120000
@@ -97,8 +94,6 @@
 /* Environment Configuration */
 
 /* environment is in FLASH */
-#define CONFIG_ENV_SECT_SIZE	0x2000
-#define CONFIG_ENV_OFFSET	0x4000
 #define CONFIG_ENV_OVERWRITE	1
 
 /* Ethernet configuration part */

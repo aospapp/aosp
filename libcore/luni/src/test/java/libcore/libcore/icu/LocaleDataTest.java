@@ -16,10 +16,37 @@
 
 package libcore.libcore.icu;
 
-import java.util.Locale;
-import libcore.icu.LocaleData;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-public class LocaleDataTest extends junit.framework.TestCase {
+import android.icu.text.DateTimePatternGenerator;
+
+import java.text.DateFormatSymbols;
+import java.text.DecimalFormatSymbols;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
+
+import libcore.icu.LocaleData;
+import libcore.junit.util.SwitchTargetSdkVersionRule;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+@RunWith(JUnit4.class)
+public class LocaleDataTest {
+  
+  @Rule
+  public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
+
+  @Test
   public void testAll() throws Exception {
     // Test that we can get the locale data for all known locales.
     for (Locale l : Locale.getAvailableLocales()) {
@@ -29,6 +56,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
     }
   }
 
+  @Test
   public void test_en_US() throws Exception {
     LocaleData l = LocaleData.get(Locale.US);
     assertEquals("AM", l.amPm[0]);
@@ -57,6 +85,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
     assertEquals("Tomorrow", l.tomorrow);
   }
 
+  @Test
   public void test_de_DE() throws Exception {
     LocaleData l = LocaleData.get(new Locale("de", "DE"));
 
@@ -65,6 +94,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
     assertEquals("Morgen", l.tomorrow);
   }
 
+  @Test
   public void test_cs_CZ() throws Exception {
     LocaleData l = LocaleData.get(new Locale("cs", "CZ"));
 
@@ -77,6 +107,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
     assertEquals("1", l.tinyStandAloneMonthNames[0]);
   }
 
+  @Test
   public void test_ko_KR() throws Exception {
     LocaleData l = LocaleData.get(new Locale("ko", "KR"));
 
@@ -86,6 +117,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
     assertEquals("내일", l.tomorrow);
   }
 
+  @Test
   public void test_ru_RU() throws Exception {
     LocaleData l = LocaleData.get(new Locale("ru", "RU"));
 
@@ -100,6 +132,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
   }
 
   // http://code.google.com/p/android/issues/detail?id=38844
+  @Test
   public void testDecimalFormatSymbols_es() throws Exception {
     LocaleData es = LocaleData.get(new Locale("es"));
     assertEquals(',', es.decimalSeparator);
@@ -123,6 +156,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
   }
 
   // http://b/7924970
+  @Test
   public void testTimeFormat12And24() throws Exception {
     LocaleData en_US = LocaleData.get(Locale.US);
     assertEquals("h:mm a", en_US.timeFormat_hm);
@@ -134,6 +168,7 @@ public class LocaleDataTest extends junit.framework.TestCase {
   }
 
   // http://b/26397197
+  @Test
   public void testPatternWithOverride() throws Exception {
     LocaleData haw = LocaleData.get(new Locale("haw"));
     assertFalse(haw.shortDateFormat.isEmpty());
@@ -143,7 +178,111 @@ public class LocaleDataTest extends junit.framework.TestCase {
    * Check that LocaleData.get() does not throw when the input locale is invalid.
    * http://b/129070579
    */
+  @Test
   public void testInvalidLocale() {
     LocaleData.get(new Locale("invalidLocale"));
+  }
+
+  // Test for b/159514442 when targetSdkVersion == current
+  @Test
+  public void test_rootLocale_icu4jConsistency() {
+    assertRootDataEqualsToTargetLocaleData(Locale.ROOT);
+  }
+
+  // Test for b/159514442
+  @Test
+  @SwitchTargetSdkVersionRule.TargetSdkVersion(30)
+  public void test_rootLocale_useRealRootLocaleData() {
+    assertRootDataEqualsToTargetLocaleData(Locale.ROOT);
+
+    // Regression test as in b/159514442.
+    SimpleDateFormat df = new SimpleDateFormat("MMM", Locale.ROOT);
+    df.setTimeZone(TimeZone.getTimeZone("GMT"));
+    assertEquals("M07", df.format(new Date(1594255915217L)));
+  }
+
+  // Test for b/159514442
+  @Test
+  @SwitchTargetSdkVersionRule.TargetSdkVersion(29)
+  public void test_rootLocale_notUseRealRootLocaleData() {
+    Locale LOCALE_EN_US_POSIX = new Locale("en", "US", "POSIX");
+    assertRootDataEqualsToTargetLocaleData(LOCALE_EN_US_POSIX);
+
+    // Regression test as in b/159514442.
+    SimpleDateFormat df = new SimpleDateFormat("MMM", Locale.ROOT);
+    df.setTimeZone(TimeZone.getTimeZone("GMT"));
+    assertEquals("Jul", df.format(new Date(1594255915217L)));
+  }
+
+  private static void assertRootDataEqualsToTargetLocaleData(Locale targetLocale) {
+    LocaleData localeData = LocaleData.get(Locale.ROOT);
+    Calendar calendar = Calendar.getInstance(Locale.ROOT);
+    android.icu.util.Calendar icuCalendar = android.icu.util.Calendar.getInstance(targetLocale);
+    DateFormatSymbols dateFormatSymbols = DateFormatSymbols.getInstance(Locale.ROOT);
+    android.icu.text.DateFormatSymbols icuDateFormatSymbols =
+        android.icu.text.DateFormatSymbols.getInstance(targetLocale);
+    DecimalFormatSymbols decimalFormatSymbols = DecimalFormatSymbols.getInstance(Locale.ROOT);
+    android.icu.text.DecimalFormatSymbols icuDecimalFormatSymbols =
+        android.icu.text.DecimalFormatSymbols.getInstance(targetLocale);
+    DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance(Locale.ROOT);
+
+    assertEquals(localeData.firstDayOfWeek, (Integer) icuCalendar.getFirstDayOfWeek());
+    assertEquals(localeData.minimalDaysInFirstWeek,
+        (Integer) icuCalendar.getMinimalDaysInFirstWeek());
+
+    assertArrayEquals(localeData.amPm, icuDateFormatSymbols.getAmPmStrings());
+    assertArrayEquals(localeData.eras, icuDateFormatSymbols.getEras());
+    assertArrayEquals(localeData.longMonthNames, icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.WIDE));
+    assertArrayEquals(localeData.tinyMonthNames, icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.NARROW));
+    assertArrayEquals(localeData.shortMonthNames, icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.ABBREVIATED));
+    assertArrayEquals(localeData.longStandAloneMonthNames, icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.STANDALONE, android.icu.text.DateFormatSymbols.WIDE));
+    assertArrayEquals(localeData.tinyStandAloneMonthNames, icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.STANDALONE, android.icu.text.DateFormatSymbols.NARROW));
+    assertArrayEquals(localeData.shortStandAloneMonthNames, icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.STANDALONE,
+        android.icu.text.DateFormatSymbols.ABBREVIATED));
+    assertArrayEquals(localeData.longWeekdayNames, icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.WIDE));
+    assertArrayEquals(localeData.tinyWeekdayNames, icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.NARROW));
+    assertArrayEquals(localeData.shortWeekdayNames, icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.ABBREVIATED));
+    assertArrayEquals(localeData.longStandAloneWeekdayNames, icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.STANDALONE, android.icu.text.DateFormatSymbols.WIDE));
+    assertArrayEquals(localeData.tinyStandAloneWeekdayNames, icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.STANDALONE, android.icu.text.DateFormatSymbols.NARROW));
+    assertArrayEquals(localeData.shortStandAloneWeekdayNames, icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.STANDALONE,
+        android.icu.text.DateFormatSymbols.ABBREVIATED));
+
+    // ICU DecimalFormatSymbols has data slightly different from LocaleData, but infinity is known
+    // to be the same, but caused the bug b/68318492 in old Android version.
+    assertEquals(localeData.infinity, icuDecimalFormatSymbols.getInfinity());
+    assertEquals(decimalFormatSymbols.getInfinity(), icuDecimalFormatSymbols.getInfinity());
+
+    assertEquals(localeData.timeFormat_Hm, dtpg.getBestPattern("Hm"));
+    assertEquals(localeData.timeFormat_hm, dtpg.getBestPattern("hm"));
+    assertEquals(localeData.timeFormat_Hms, dtpg.getBestPattern("Hms"));
+    assertEquals(localeData.timeFormat_hms, dtpg.getBestPattern("hms"));
+
+    // Explicitly test Calendar and DateFormatSymbols here because they are known to
+    // cache some part of LocaleData.
+    assertEquals(calendar.getFirstDayOfWeek(), icuCalendar.getFirstDayOfWeek());
+    assertEquals(calendar.getMinimalDaysInFirstWeek(), icuCalendar.getMinimalDaysInFirstWeek());
+    assertArrayEquals(dateFormatSymbols.getAmPmStrings(), icuDateFormatSymbols.getAmPmStrings());
+    assertArrayEquals(dateFormatSymbols.getEras(), icuDateFormatSymbols.getEras());
+
+    assertArrayEquals(dateFormatSymbols.getMonths(), icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.WIDE));
+    assertArrayEquals(dateFormatSymbols.getShortMonths(), icuDateFormatSymbols.getMonths(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.ABBREVIATED));
+    assertArrayEquals(dateFormatSymbols.getWeekdays(), icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.WIDE));
+    assertArrayEquals(dateFormatSymbols.getShortWeekdays(), icuDateFormatSymbols.getWeekdays(
+        android.icu.text.DateFormatSymbols.FORMAT, android.icu.text.DateFormatSymbols.ABBREVIATED));
   }
 }

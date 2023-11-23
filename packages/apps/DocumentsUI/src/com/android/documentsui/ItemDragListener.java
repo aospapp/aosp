@@ -23,8 +23,9 @@ import android.view.DragEvent;
 import android.view.View;
 import android.view.View.OnDragListener;
 
-import com.android.documentsui.ItemDragListener.DragHost;
 import androidx.annotation.VisibleForTesting;
+
+import com.android.documentsui.ItemDragListener.DragHost;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -63,13 +64,9 @@ public class ItemDragListener<H extends DragHost> implements OnDragListener {
 
     @Override
     public boolean onDrag(final View v, DragEvent event) {
-        if (!mDragHost.canHandleDragEvent(v)) {
-            return false;
-        }
-
         switch (event.getAction()) {
             case DragEvent.ACTION_DRAG_STARTED:
-                return true;
+                return mDragHost.canHandleDragEvent(v);
             case DragEvent.ACTION_DRAG_ENTERED:
                 handleEnteredEvent(v, event);
                 return true;

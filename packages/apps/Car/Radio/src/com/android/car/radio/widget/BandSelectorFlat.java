@@ -20,8 +20,10 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.widget.Button;
+import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.car.radio.R;
 import com.android.car.radio.bands.ProgramType;
@@ -32,10 +34,23 @@ import java.util.List;
 /**
  * A band selector that shows a flat list of band buttons.
  */
-public class BandSelectorFlat extends BandSelector {
+public class BandSelectorFlat extends LinearLayout {
     private final Object mLock = new Object();
+    @Nullable private Callback mCallback;
 
     private final List<Button> mButtons = new ArrayList<>();
+
+    /**
+     * Widget's onClick event translated to band callback.
+     */
+    public interface Callback {
+        /**
+         * Called when user uses this button to switch the band.
+         *
+         * @param pt ProgramType to switch to
+         */
+        void onSwitchTo(@NonNull ProgramType pt);
+    }
 
     public BandSelectorFlat(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
@@ -45,11 +60,26 @@ public class BandSelectorFlat extends BandSelector {
         super(context, attrs, defStyleAttr);
     }
 
-    @Override
+    private void switchTo(@NonNull ProgramType ptype) {
+        synchronized (mLock) {
+            if (mCallback != null) mCallback.onSwitchTo(ptype);
+        }
+    }
+
+    /**
+     * Sets band selection callback.
+     */
+    public void setCallback(@Nullable Callback callback) {
+        synchronized (mLock) {
+            mCallback = callback;
+        }
+    }
+
+    /**
+     * Updates the list of supported program types.
+     */
     public void setSupportedProgramTypes(@NonNull List<ProgramType> supported) {
         synchronized (mLock) {
-            super.setSupportedProgramTypes(supported);
-
             final LayoutInflater inflater = LayoutInflater.from(getContext());
 
             mButtons.clear();
@@ -65,11 +95,13 @@ public class BandSelectorFlat extends BandSelector {
         }
     }
 
-    @Override
+    /**
+     * Updates the selected button based on the given program type.
+     *
+     * @param ptype The program type that needs to be selected.
+     */
     public void setType(@NonNull ProgramType ptype) {
         synchronized (mLock) {
-            super.setType(ptype);
-
             Context ctx = getContext();
             for (Button btn : mButtons) {
                 boolean active = btn.getTag() == ptype;

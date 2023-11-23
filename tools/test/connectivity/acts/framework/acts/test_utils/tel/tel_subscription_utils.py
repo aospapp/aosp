@@ -20,6 +20,8 @@ from future import standard_library
 standard_library.install_aliases()
 from acts.test_utils.tel.tel_defines import INVALID_SUB_ID
 from acts.test_utils.tel.tel_defines import WAIT_TIME_CHANGE_DATA_SUB_ID
+from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_NW_SELECTION
+
 import time
 
 
@@ -170,6 +172,39 @@ def get_subid_from_slot_index(log, ad, sim_slot_index):
     return INVALID_SUB_ID
 
 
+def get_operatorname_from_slot_index(ad, sim_slot_index):
+    """ Get the operator name for a SIM at a particular slot
+
+    Args:
+        ad: android_device object.
+
+    Returns:
+        result: Operator Name
+    """
+    subInfo = ad.droid.subscriptionGetAllSubInfoList()
+    for info in subInfo:
+        if info['simSlotIndex'] == sim_slot_index:
+            return info['displayName']
+    return None
+
+
+def get_carrierid_from_slot_index(ad, sim_slot_index):
+    """ Get the carrierId for a SIM at a particular slot
+
+    Args:
+        ad: android_device object.
+        sim_slot_index: slot 0 or slot 1
+
+    Returns:
+        result: CarrierId
+    """
+    subInfo = ad.droid.subscriptionGetAllSubInfoList()
+    for info in subInfo:
+        if info['simSlotIndex'] == sim_slot_index:
+            return info['carrierId']
+    return None
+
+
 def set_subid_for_data(ad, sub_id, time_to_sleep=WAIT_TIME_CHANGE_DATA_SUB_ID):
     """Set subId for data
 
@@ -184,6 +219,7 @@ def set_subid_for_data(ad, sub_id, time_to_sleep=WAIT_TIME_CHANGE_DATA_SUB_ID):
     if ad.droid.subscriptionGetDefaultDataSubId() != sub_id:
         ad.droid.subscriptionSetDefaultDataSubId(sub_id)
         time.sleep(time_to_sleep)
+        setattr(ad, "default_data_sub_id", sub_id)
 
 
 def set_subid_for_message(ad, sub_id):
@@ -242,9 +278,114 @@ def set_default_sub_for_all_services(ad, slot_id=0):
         None
     """
     sub_id = get_subid_from_slot_index(ad.log, ad, slot_id)
-    ad.log.info("Subid is %s", sub_id)
+    ad.log.info("Default Subid for all service is %s", sub_id)
     set_subid_for_outgoing_call(ad, sub_id)
     set_incoming_voice_sub_id(ad, sub_id)
     set_subid_for_data(ad, sub_id)
     set_subid_for_message(ad, sub_id)
     ad.droid.telephonyToggleDataConnection(True)
+
+
+def perform_dds_switch(ad):
+    slot_dict = {0: {}, 1: {}}
+    for slot in (0,1):
+        slot_dict[slot]['sub_id'] = get_subid_from_slot_index(ad.log, ad, slot)
+        slot_dict[slot]['operator'] = get_operatorname_from_slot_index(ad, slot)
+    ad.log.debug("%s", slot_dict)
+
+    current_data = get_default_data_sub_id(ad)
+    if slot_dict[0]['sub_id'] == current_data:
+        ad.log.info("DDS Switch from %s to %s", slot_dict[0]['operator'],
+                                                slot_dict[1]['operator'])
+        new_data = slot_dict[1]['sub_id']
+        new_oper = slot_dict[1]['operator']
+    else:
+        ad.log.info("DDS Switch from %s to %s", slot_dict[1]['operator'],
+                                                slot_dict[0]['operator'])
+        new_data = slot_dict[0]['sub_id']
+        new_oper = slot_dict[0]['operator']
+    set_subid_for_data(ad, new_data)
+    ad.droid.telephonyToggleDataConnection(True)
+    if get_default_data_sub_id(ad) == new_data:
+        return new_oper
+    else:
+        ad.log.error("DDS Switch Failed")
+        return False
+
+
+def set_dds_on_slot_0(ad):
+    sub_id = get_subid_from_slot_index(ad.log, ad, 0)
+    operator = get_operatorname_from_slot_index(ad, 0)
+    ad.log.info("Setting DDS on %s", operator)
+    set_subid_for_data(ad, sub_id)
+    ad.droid.telephonyToggleDataConnection(True)
+    time.sleep(WAIT_TIME_CHANGE_DATA_SUB_ID)
+    if get_default_data_sub_id(ad) == sub_id:
+        return True
+    else:
+        return False
+
+
+def set_dds_on_slot_1(ad):
+    sub_id = get_subid_from_slot_index(ad.log, ad, 1)
+    operator = get_operatorname_from_slot_index(ad, 1)
+    ad.log.info("Setting DDS on %s", operator)
+    set_subid_for_data(ad, sub_id)
+    ad.droid.telephonyToggleDataConnection(True)
+    time.sleep(WAIT_TIME_CHANGE_DATA_SUB_ID)
+    if get_default_data_sub_id(ad) == sub_id:
+        return True
+    else:
+        return False
+
+
+def set_slways_allow_mms_data(ad, sub_id, state=True):
+    """Set always allow mms data on sub_id
+
+    Args:
+        ad: android device object.
+        sub_id: subscription id (integer)
+        state: True or False
+
+    Returns:
+        None
+    """
+    if "sdm" in ad.model or "msm" in ad.model:
+        ad.log.info("Always allow MMS Data is not supported on platform")
+    else:
+        ad.log.debug("Setting MMS Data Always ON %s sub_id %s", state, sub_id)
+        try:
+            ad.droid.subscriptionSetAlwaysAllowMmsData(sub_id, state)
+        except Exception as e:
+            ad.log.error(e)
+            ad.droid.telephonySetAlwaysAllowMmsData(sub_id, state)
+    return True
+
+
+def get_cbrs_and_default_sub_id(ad):
+    """Gets CBRS and Default SubId
+
+    Args:
+        ad: android device object.
+
+    Returns:
+        cbrs_subId
+        default_subId
+    """
+    slot_dict = {0: {}, 1: {}}
+    for slot in (0, 1):
+        slot_dict[slot]['sub_id'] = get_subid_from_slot_index(
+            ad.log, ad, slot)
+        slot_dict[slot]['carrier_id'] = get_carrierid_from_slot_index(
+            ad, slot)
+        slot_dict[slot]['operator'] = get_operatorname_from_slot_index(
+            ad, slot)
+        if slot_dict[slot]['carrier_id'] == 2340:
+            cbrs_subid = slot_dict[slot]['sub_id']
+        else:
+            default_subid = slot_dict[slot]['sub_id']
+        ad.log.info("Slot %d - Sub %s - Carrier %d - %s", slot,
+                    slot_dict[slot]['sub_id'],
+                    slot_dict[slot]['carrier_id'],
+                    slot_dict[slot]['operator'])
+    return cbrs_subid, default_subid

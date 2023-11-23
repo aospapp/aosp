@@ -16,11 +16,17 @@
 
 package libcore.icu;
 
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.EnabledAfter;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.compat.Compatibility;
 import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.text.NumberingSystem;
 import android.icu.util.UResourceBundle;
-import dalvik.annotation.compat.UnsupportedAppUsage;
+
+import dalvik.system.VMRuntime;
+
 import java.text.DateFormat;
 import java.util.HashMap;
 import java.util.Locale;
@@ -37,6 +43,44 @@ import libcore.util.Objects;
  */
 @libcore.api.CorePlatformApi
 public final class LocaleData {
+
+    /**
+     * @see #USE_REAL_ROOT_LOCALE
+     */
+    private static final Locale LOCALE_EN_US_POSIX = new Locale("en", "US", "POSIX");
+
+    // In Android Q or before, when this class tries to load {@link Locale#ROOT} data, en_US_POSIX
+    // locale data is incorrectly loaded due to a bug b/159514442 (public bug b/159047832).
+    //
+    // This class used to pass "und" string as BCP47 language tag to our jni code, which then
+    // passes the string as as ICU Locale ID to ICU4C. ICU4C 63 or older version doesn't recognize
+    // "und" as a valid locale id, and fallback the default locale. The default locale is
+    // normally selected in the Locale picker in the Settings app by the user and set via
+    // frameworks. But this class statically cached the ROOT locale data before the
+    // default locale being set by framework, and without initialization, ICU4C uses en_US_POSIX
+    // as default locale. Thus, in Q or before, en_US_POSIX data is loaded.
+    //
+    // ICU version 64.1 resolved inconsistent behavior of
+    // "root", "und" and "" (empty) Locale ID which libcore previously relied on, and they are
+    // recognized correctly as {@link Locale#ROOT} since Android R. This ChangeId gated the change,
+    // and fallback to the old behavior by checking targetSdkVersion version.
+    //
+    // The below javadoc is shown in http://developer.android.com for consumption by app developers.
+    /**
+     * Since Android 11, formatter classes, e.g. java.text.SimpleDateFormat, no longer
+     * provide English data when Locale.ROOT format is requested. Please use
+     * Locale.ENGLISH to format in English.
+     *
+     * Note that Locale.ROOT is used as language/country neutral locale or fallback locale,
+     * and does not guarantee to represent English locale.
+     *
+     * This flag is only for documentation and can't be overridden by app. Please use
+     * {@code targetSdkVersion} to enable the new behavior.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion=29 /* Android Q */)
+    public static final long USE_REAL_ROOT_LOCALE = 159047832L;
+
     // A cache for the locale-specific data.
     private static final HashMap<String, LocaleData> localeDataCache = new HashMap<String, LocaleData>();
     static {
@@ -170,6 +214,25 @@ public final class LocaleData {
     }
 
     /**
+     * Normally, this utility function is used by secondary cache above {@link LocaleData},
+     * because the cache needs a correct key.
+     * @see #USE_REAL_ROOT_LOCALE
+     * @return a compatible locale for the bug b/159514442
+     */
+    public static Locale getCompatibleLocaleForBug159514442(Locale locale) {
+        if (Locale.ROOT.equals(locale)) {
+            int targetSdkVersion = VMRuntime.getRuntime().getTargetSdkVersion();
+            // Don't use Compatibility.isChangeEnabled(USE_REAL_ROOT_LOCALE) because the app compat
+            // framework lives in libcore and can depend on this class via various format methods,
+            // e.g. String.format(). See b/160912695.
+            if (targetSdkVersion <= 29 /* Android Q */) {
+                locale = LOCALE_EN_US_POSIX;
+            }
+        }
+        return locale;
+    }
+
+    /**
      * Returns a shared LocaleData for the given locale.
      */
     @UnsupportedAppUsage
@@ -178,6 +241,8 @@ public final class LocaleData {
         if (locale == null) {
             throw new NullPointerException("locale == null");
         }
+
+        locale = getCompatibleLocaleForBug159514442(locale);
 
         final String languageTag = locale.toLanguageTag();
         synchronized (localeDataCache) {

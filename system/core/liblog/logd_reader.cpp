@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <endian.h>
+#include "logd_reader.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -24,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -31,74 +33,11 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <cutils/sockets.h>
-#include <private/android_filesystem_config.h>
+#include <string>
+
 #include <private/android_logger.h>
 
-#include "config_read.h"
-#include "log_portability.h"
-#include "logd_reader.h"
 #include "logger.h"
-
-/* branchless on many architectures. */
-#define min(x, y) ((y) ^ (((x) ^ (y)) & -((x) < (y))))
-
-static int logdAvailable(log_id_t LogId);
-static int logdVersion(struct android_log_logger* logger,
-                       struct android_log_transport_context* transp);
-static int logdRead(struct android_log_logger_list* logger_list,
-                    struct android_log_transport_context* transp, struct log_msg* log_msg);
-static int logdPoll(struct android_log_logger_list* logger_list,
-                    struct android_log_transport_context* transp);
-static void logdClose(struct android_log_logger_list* logger_list,
-                      struct android_log_transport_context* transp);
-static int logdClear(struct android_log_logger* logger,
-                     struct android_log_transport_context* transp);
-static ssize_t logdSetSize(struct android_log_logger* logger,
-                           struct android_log_transport_context* transp, size_t size);
-static ssize_t logdGetSize(struct android_log_logger* logger,
-                           struct android_log_transport_context* transp);
-static ssize_t logdGetReadableSize(struct android_log_logger* logger,
-                                   struct android_log_transport_context* transp);
-static ssize_t logdGetPrune(struct android_log_logger_list* logger,
-                            struct android_log_transport_context* transp, char* buf, size_t len);
-static ssize_t logdSetPrune(struct android_log_logger_list* logger,
-                            struct android_log_transport_context* transp, char* buf, size_t len);
-static ssize_t logdGetStats(struct android_log_logger_list* logger,
-                            struct android_log_transport_context* transp, char* buf, size_t len);
-
-struct android_log_transport_read logdLoggerRead = {
-    .node = {&logdLoggerRead.node, &logdLoggerRead.node},
-    .name = "logd",
-    .available = logdAvailable,
-    .version = logdVersion,
-    .read = logdRead,
-    .poll = logdPoll,
-    .close = logdClose,
-    .clear = logdClear,
-    .getSize = logdGetSize,
-    .setSize = logdSetSize,
-    .getReadableSize = logdGetReadableSize,
-    .getPrune = logdGetPrune,
-    .setPrune = logdSetPrune,
-    .getStats = logdGetStats,
-};
-
-static int logdAvailable(log_id_t logId) {
-  if (logId >= LOG_ID_MAX) {
-    return -EINVAL;
-  }
-  if (logId == LOG_ID_SECURITY) {
-    uid_t uid = __android_log_uid();
-    if (uid != AID_SYSTEM) {
-      return -EPERM;
-    }
-  }
-  if (access("/dev/socket/logdw", W_OK) == 0) {
-    return 0;
-  }
-  return -EBADF;
-}
 
 // Connects to /dev/socket/<name> and returns the associated fd or returns -1 on error.
 // O_CLOEXEC is always set.
@@ -112,7 +51,7 @@ static int socket_local_client(const std::string& name, int type) {
   strlcpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path));
 
   int fd = socket(AF_LOCAL, type | SOCK_CLOEXEC, 0);
-  if (fd == 0) {
+  if (fd == -1) {
     return -1;
   }
 
@@ -125,8 +64,7 @@ static int socket_local_client(const std::string& name, int type) {
 }
 
 /* worker for sending the command to the logger */
-static ssize_t send_log_msg(struct android_log_logger* logger, const char* msg, char* buf,
-                            size_t buf_size) {
+ssize_t SendLogdControlMessage(char* buf, size_t buf_size) {
   ssize_t ret;
   size_t len;
   char* cp;
@@ -134,10 +72,6 @@ static ssize_t send_log_msg(struct android_log_logger* logger, const char* msg, 
   int sock = socket_local_client("logd", SOCK_STREAM);
   if (sock < 0) {
     return sock;
-  }
-
-  if (msg) {
-    snprintf(buf, buf_size, msg, logger ? logger->logId : (unsigned)-1);
   }
 
   len = strlen(buf) + 1;
@@ -190,10 +124,6 @@ done:
   return ret;
 }
 
-ssize_t __send_log_msg(char* buf, size_t buf_size) {
-  return send_log_msg(NULL, NULL, buf, buf_size);
-}
-
 static int check_log_success(char* buf, ssize_t ret) {
   if (ret < 0) {
     return ret;
@@ -207,19 +137,28 @@ static int check_log_success(char* buf, ssize_t ret) {
   return 0;
 }
 
-static int logdClear(struct android_log_logger* logger,
-                     struct android_log_transport_context* transp __unused) {
+int android_logger_clear(struct logger* logger) {
+  if (!android_logger_is_logd(logger)) {
+    return -EINVAL;
+  }
+  uint32_t log_id = android_logger_get_id(logger);
   char buf[512];
+  snprintf(buf, sizeof(buf), "clear %" PRIu32, log_id);
 
-  return check_log_success(buf, send_log_msg(logger, "clear %d", buf, sizeof(buf)));
+  return check_log_success(buf, SendLogdControlMessage(buf, sizeof(buf)));
 }
 
 /* returns the total size of the log's ring buffer */
-static ssize_t logdGetSize(struct android_log_logger* logger,
-                           struct android_log_transport_context* transp __unused) {
-  char buf[512];
+long android_logger_get_log_size(struct logger* logger) {
+  if (!android_logger_is_logd(logger)) {
+    return -EINVAL;
+  }
 
-  ssize_t ret = send_log_msg(logger, "getLogSize %d", buf, sizeof(buf));
+  uint32_t log_id = android_logger_get_id(logger);
+  char buf[512];
+  snprintf(buf, sizeof(buf), "getLogSize %" PRIu32, log_id);
+
+  ssize_t ret = SendLogdControlMessage(buf, sizeof(buf));
   if (ret < 0) {
     return ret;
   }
@@ -231,24 +170,32 @@ static ssize_t logdGetSize(struct android_log_logger* logger,
   return atol(buf);
 }
 
-static ssize_t logdSetSize(struct android_log_logger* logger,
-                           struct android_log_transport_context* transp __unused, size_t size) {
+int android_logger_set_log_size(struct logger* logger, unsigned long size) {
+  if (!android_logger_is_logd(logger)) {
+    return -EINVAL;
+  }
+
+  uint32_t log_id = android_logger_get_id(logger);
   char buf[512];
+  snprintf(buf, sizeof(buf), "setLogSize %" PRIu32 " %lu", log_id, size);
 
-  snprintf(buf, sizeof(buf), "setLogSize %d %zu", logger->logId, size);
-
-  return check_log_success(buf, send_log_msg(NULL, NULL, buf, sizeof(buf)));
+  return check_log_success(buf, SendLogdControlMessage(buf, sizeof(buf)));
 }
 
 /*
  * returns the readable size of the log's ring buffer (that is, amount of the
  * log consumed)
  */
-static ssize_t logdGetReadableSize(struct android_log_logger* logger,
-                                   struct android_log_transport_context* transp __unused) {
-  char buf[512];
+long android_logger_get_log_readable_size(struct logger* logger) {
+  if (!android_logger_is_logd(logger)) {
+    return -EINVAL;
+  }
 
-  ssize_t ret = send_log_msg(logger, "getLogSizeUsed %d", buf, sizeof(buf));
+  uint32_t log_id = android_logger_get_id(logger);
+  char buf[512];
+  snprintf(buf, sizeof(buf), "getLogSizeUsed %" PRIu32, log_id);
+
+  ssize_t ret = SendLogdControlMessage(buf, sizeof(buf));
   if (ret < 0) {
     return ret;
   }
@@ -260,94 +207,68 @@ static ssize_t logdGetReadableSize(struct android_log_logger* logger,
   return atol(buf);
 }
 
-/*
- * returns the logger version
- */
-static int logdVersion(struct android_log_logger* logger __unused,
-                       struct android_log_transport_context* transp __unused) {
-  uid_t uid = __android_log_uid();
-  return ((uid != AID_ROOT) && (uid != AID_LOG) && (uid != AID_SYSTEM)) ? 3 : 4;
+int android_logger_get_log_version(struct logger*) {
+  return 4;
 }
 
-/*
- * returns statistics
- */
-static ssize_t logdGetStats(struct android_log_logger_list* logger_list,
-                            struct android_log_transport_context* transp __unused, char* buf,
-                            size_t len) {
-  struct android_log_logger* logger;
+ssize_t android_logger_get_statistics(struct logger_list* logger_list, char* buf, size_t len) {
+  if (logger_list->mode & ANDROID_LOG_PSTORE) {
+    return -EINVAL;
+  }
+
   char* cp = buf;
   size_t remaining = len;
   size_t n;
 
   n = snprintf(cp, remaining, "getStatistics");
-  n = min(n, remaining);
+  n = MIN(n, remaining);
   remaining -= n;
   cp += n;
 
-  logger_for_each(logger, logger_list) {
-    n = snprintf(cp, remaining, " %d", logger->logId);
-    n = min(n, remaining);
-    remaining -= n;
-    cp += n;
+  for (size_t log_id = 0; log_id < LOG_ID_MAX; ++log_id) {
+    if ((1 << log_id) & logger_list->log_mask) {
+      n = snprintf(cp, remaining, " %zu", log_id);
+      n = MIN(n, remaining);
+      remaining -= n;
+      cp += n;
+    }
   }
 
   if (logger_list->pid) {
     snprintf(cp, remaining, " pid=%u", logger_list->pid);
   }
 
-  return send_log_msg(NULL, NULL, buf, len);
+  return SendLogdControlMessage(buf, len);
 }
-
-static ssize_t logdGetPrune(struct android_log_logger_list* logger_list __unused,
-                            struct android_log_transport_context* transp __unused, char* buf,
-                            size_t len) {
-  return send_log_msg(NULL, "getPruneList", buf, len);
-}
-
-static ssize_t logdSetPrune(struct android_log_logger_list* logger_list __unused,
-                            struct android_log_transport_context* transp __unused, char* buf,
-                            size_t len) {
-  const char cmd[] = "setPruneList ";
-  const size_t cmdlen = sizeof(cmd) - 1;
-
-  if (strlen(buf) > (len - cmdlen)) {
-    return -ENOMEM; /* KISS */
-  }
-  memmove(buf + cmdlen, buf, len - cmdlen);
-  buf[len - 1] = '\0';
-  memcpy(buf, cmd, cmdlen);
-
-  return check_log_success(buf, send_log_msg(NULL, NULL, buf, len));
-}
-
-static void caught_signal(int signum __unused) {}
-
-static int logdOpen(struct android_log_logger_list* logger_list,
-                    struct android_log_transport_context* transp) {
-  struct android_log_logger* logger;
-  struct sigaction ignore;
-  struct sigaction old_sigaction;
-  unsigned int old_alarm = 0;
-  char buffer[256], *cp, c;
-  int e, ret, remaining, sock;
-
-  if (!logger_list) {
+ssize_t android_logger_get_prune_list(struct logger_list* logger_list, char* buf, size_t len) {
+  if (logger_list->mode & ANDROID_LOG_PSTORE) {
     return -EINVAL;
   }
 
-  sock = atomic_load(&transp->context.sock);
+  snprintf(buf, len, "getPruneList");
+  return SendLogdControlMessage(buf, len);
+}
+
+int android_logger_set_prune_list(struct logger_list* logger_list, const char* buf, size_t len) {
+  if (logger_list->mode & ANDROID_LOG_PSTORE) {
+    return -EINVAL;
+  }
+
+  std::string cmd = "setPruneList " + std::string{buf, len};
+
+  return check_log_success(cmd.data(), SendLogdControlMessage(cmd.data(), cmd.size()));
+}
+
+static int logdOpen(struct logger_list* logger_list) {
+  char buffer[256], *cp, c;
+  int ret, remaining, sock;
+
+  sock = atomic_load(&logger_list->fd);
   if (sock > 0) {
     return sock;
   }
 
   sock = socket_local_client("logdr", SOCK_SEQPACKET);
-  if (sock == 0) {
-    /* Guarantee not file descriptor zero */
-    int newsock = socket_local_client("logdr", SOCK_SEQPACKET);
-    close(sock);
-    sock = newsock;
-  }
   if (sock <= 0) {
     if ((sock == -1) && errno) {
       return -errno;
@@ -362,17 +283,20 @@ static int logdOpen(struct android_log_logger_list* logger_list,
   cp += 5;
   c = '=';
   remaining = sizeof(buffer) - (cp - buffer);
-  logger_for_each(logger, logger_list) {
-    ret = snprintf(cp, remaining, "%c%u", c, logger->logId);
-    ret = min(ret, remaining);
-    remaining -= ret;
-    cp += ret;
-    c = ',';
+
+  for (size_t log_id = 0; log_id < LOG_ID_MAX; ++log_id) {
+    if ((1 << log_id) & logger_list->log_mask) {
+      ret = snprintf(cp, remaining, "%c%zu", c, log_id);
+      ret = MIN(ret, remaining);
+      remaining -= ret;
+      cp += ret;
+      c = ',';
+    }
   }
 
   if (logger_list->tail) {
     ret = snprintf(cp, remaining, " tail=%u", logger_list->tail);
-    ret = min(ret, remaining);
+    ret = MIN(ret, remaining);
     remaining -= ret;
     cp += ret;
   }
@@ -381,46 +305,30 @@ static int logdOpen(struct android_log_logger_list* logger_list,
     if (logger_list->mode & ANDROID_LOG_WRAP) {
       // ToDo: alternate API to allow timeout to be adjusted.
       ret = snprintf(cp, remaining, " timeout=%u", ANDROID_LOG_WRAP_DEFAULT_TIMEOUT);
-      ret = min(ret, remaining);
+      ret = MIN(ret, remaining);
       remaining -= ret;
       cp += ret;
     }
     ret = snprintf(cp, remaining, " start=%" PRIu32 ".%09" PRIu32, logger_list->start.tv_sec,
                    logger_list->start.tv_nsec);
-    ret = min(ret, remaining);
+    ret = MIN(ret, remaining);
     remaining -= ret;
     cp += ret;
   }
 
   if (logger_list->pid) {
     ret = snprintf(cp, remaining, " pid=%u", logger_list->pid);
-    ret = min(ret, remaining);
+    ret = MIN(ret, remaining);
     cp += ret;
   }
 
-  if (logger_list->mode & ANDROID_LOG_NONBLOCK) {
-    /* Deal with an unresponsive logd */
-    memset(&ignore, 0, sizeof(ignore));
-    ignore.sa_handler = caught_signal;
-    sigemptyset(&ignore.sa_mask);
-    /* particularily useful if tombstone is reporting for logd */
-    sigaction(SIGALRM, &ignore, &old_sigaction);
-    old_alarm = alarm(30);
-  }
-  ret = write(sock, buffer, cp - buffer);
-  e = errno;
-  if (logger_list->mode & ANDROID_LOG_NONBLOCK) {
-    if (e == EINTR) {
-      e = ETIMEDOUT;
-    }
-    alarm(old_alarm);
-    sigaction(SIGALRM, &old_sigaction, NULL);
-  }
+  ret = TEMP_FAILURE_RETRY(write(sock, buffer, cp - buffer));
+  int write_errno = errno;
 
   if (ret <= 0) {
     close(sock);
-    if ((ret == -1) && e) {
-      return -e;
+    if (ret == -1) {
+      return -write_errno;
     }
     if (ret == 0) {
       return -EIO;
@@ -428,7 +336,7 @@ static int logdOpen(struct android_log_logger_list* logger_list,
     return ret;
   }
 
-  ret = atomic_exchange(&transp->context.sock, sock);
+  ret = atomic_exchange(&logger_list->fd, sock);
   if ((ret > 0) && (ret != sock)) {
     close(ret);
   }
@@ -436,84 +344,27 @@ static int logdOpen(struct android_log_logger_list* logger_list,
 }
 
 /* Read from the selected logs */
-static int logdRead(struct android_log_logger_list* logger_list,
-                    struct android_log_transport_context* transp, struct log_msg* log_msg) {
-  int ret, e;
-  struct sigaction ignore;
-  struct sigaction old_sigaction;
-  unsigned int old_alarm = 0;
-
-  ret = logdOpen(logger_list, transp);
+int LogdRead(struct logger_list* logger_list, struct log_msg* log_msg) {
+  int ret = logdOpen(logger_list);
   if (ret < 0) {
     return ret;
-  }
-
-  memset(log_msg, 0, sizeof(*log_msg));
-
-  unsigned int new_alarm = 0;
-  if (logger_list->mode & ANDROID_LOG_NONBLOCK) {
-    if ((logger_list->mode & ANDROID_LOG_WRAP) &&
-        (logger_list->start.tv_sec || logger_list->start.tv_nsec)) {
-      /* b/64143705 */
-      new_alarm = (ANDROID_LOG_WRAP_DEFAULT_TIMEOUT * 11) / 10 + 10;
-      logger_list->mode &= ~ANDROID_LOG_WRAP;
-    } else {
-      new_alarm = 30;
-    }
-
-    memset(&ignore, 0, sizeof(ignore));
-    ignore.sa_handler = caught_signal;
-    sigemptyset(&ignore.sa_mask);
-    /* particularily useful if tombstone is reporting for logd */
-    sigaction(SIGALRM, &ignore, &old_sigaction);
-    old_alarm = alarm(new_alarm);
   }
 
   /* NOTE: SOCK_SEQPACKET guarantees we read exactly one full entry */
-  ret = recv(ret, log_msg, LOGGER_ENTRY_MAX_LEN, 0);
-  e = errno;
-
-  if (new_alarm) {
-    if ((ret == 0) || (e == EINTR)) {
-      e = EAGAIN;
-      ret = -1;
-    }
-    alarm(old_alarm);
-    sigaction(SIGALRM, &old_sigaction, NULL);
+  ret = TEMP_FAILURE_RETRY(recv(ret, log_msg, LOGGER_ENTRY_MAX_LEN, 0));
+  if ((logger_list->mode & ANDROID_LOG_NONBLOCK) && ret == 0) {
+    return -EAGAIN;
   }
 
-  if ((ret == -1) && e) {
-    return -e;
-  }
-  return ret;
-}
-
-static int logdPoll(struct android_log_logger_list* logger_list,
-                    struct android_log_transport_context* transp) {
-  struct pollfd p;
-
-  int ret = logdOpen(logger_list, transp);
-  if (ret < 0) {
-    return ret;
-  }
-
-  memset(&p, 0, sizeof(p));
-  p.fd = ret;
-  p.events = POLLIN;
-  ret = poll(&p, 1, 20);
-  if ((ret > 0) && !(p.revents & POLLIN)) {
-    ret = 0;
-  }
-  if ((ret == -1) && errno) {
+  if (ret == -1) {
     return -errno;
   }
   return ret;
 }
 
 /* Close all the logs */
-static void logdClose(struct android_log_logger_list* logger_list __unused,
-                      struct android_log_transport_context* transp) {
-  int sock = atomic_exchange(&transp->context.sock, -1);
+void LogdClose(struct logger_list* logger_list) {
+  int sock = atomic_exchange(&logger_list->fd, -1);
   if (sock > 0) {
     close(sock);
   }

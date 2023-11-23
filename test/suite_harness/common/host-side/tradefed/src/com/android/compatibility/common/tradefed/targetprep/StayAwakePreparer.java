@@ -15,10 +15,9 @@
  */
 package com.android.compatibility.common.tradefed.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
 
@@ -43,8 +42,8 @@ public class StayAwakePreparer extends SettingsPreparer {
     private static final String DEFAULT_VALUE = "7";
 
     @Override
-    public void run(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException {
+    public void run(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
 
         mSettingName = STAY_AWAKE_SETTING;
         mSettingType = SettingsPreparer.SettingType.GLOBAL;
@@ -52,7 +51,7 @@ public class StayAwakePreparer extends SettingsPreparer {
         for (String value : STAY_AWAKE_VALUES) {
             mExpectedSettingValues.add(value);
         }
-        super.run(device, buildInfo);
+        super.run(testInfo);
     }
 
 }

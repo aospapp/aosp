@@ -34,6 +34,7 @@ std::unique_ptr<const ZipFile> ZipFile::Open(const std::string& path) {
   ::ZipArchiveHandle handle;
   int32_t status = ::OpenArchive(path.c_str(), &handle);
   if (status != 0) {
+    ::CloseArchive(handle);
     return nullptr;
   }
   return std::unique_ptr<ZipFile>(new ZipFile(handle));
@@ -45,7 +46,7 @@ ZipFile::~ZipFile() {
 
 std::unique_ptr<const MemoryChunk> ZipFile::Uncompress(const std::string& entryPath) const {
   ::ZipEntry entry;
-  int32_t status = ::FindEntry(handle_, ::ZipString(entryPath.c_str()), &entry);
+  int32_t status = ::FindEntry(handle_, entryPath, &entry);
   if (status != 0) {
     return nullptr;
   }
@@ -59,7 +60,7 @@ std::unique_ptr<const MemoryChunk> ZipFile::Uncompress(const std::string& entryP
 
 Result<uint32_t> ZipFile::Crc(const std::string& entryPath) const {
   ::ZipEntry entry;
-  int32_t status = ::FindEntry(handle_, ::ZipString(entryPath.c_str()), &entry);
+  int32_t status = ::FindEntry(handle_, entryPath, &entry);
   if (status != 0) {
     return Error("failed to find zip entry %s", entryPath.c_str());
   }

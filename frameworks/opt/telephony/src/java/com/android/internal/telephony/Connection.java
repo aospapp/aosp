@@ -16,18 +16,21 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.telecom.ConferenceParticipant;
 import android.telephony.DisconnectCause;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
+import android.telephony.ServiceState.RilRadioTechnology;
 import android.telephony.emergency.EmergencyNumber;
 import android.util.Log;
 
+import com.android.ims.internal.ConferenceParticipant;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.emergency.EmergencyNumberTracker;
+import com.android.internal.telephony.util.TelephonyUtils;
+import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +42,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
  */
 public abstract class Connection {
     private static final String TAG = "Connection";
+
+    public static final String ADHOC_CONFERENCE_ADDRESS = "tel:conf-factory";
 
     public interface PostDialListener {
         void onPostDialWait();
@@ -93,7 +98,7 @@ public abstract class Connection {
     public interface Listener {
         public void onVideoStateChanged(int videoState);
         public void onConnectionCapabilitiesChanged(int capability);
-        public void onCallRadioTechChanged(@ServiceState.RilRadioTechnology int vrat);
+        public void onCallRadioTechChanged(@RilRadioTechnology int vrat);
         public void onVideoProviderChanged(
                 android.telecom.Connection.VideoProvider videoProvider);
         public void onAudioQualityChanged(int audioQuality);
@@ -124,7 +129,7 @@ public abstract class Connection {
         @Override
         public void onConnectionCapabilitiesChanged(int capability) {}
         @Override
-        public void onCallRadioTechChanged(@ServiceState.RilRadioTechnology int vrat) {}
+        public void onCallRadioTechChanged(@RilRadioTechnology int vrat) {}
         @Override
         public void onVideoProviderChanged(
                 android.telecom.Connection.VideoProvider videoProvider) {}
@@ -180,8 +185,14 @@ public abstract class Connection {
     protected int mCnapNamePresentation  = PhoneConstants.PRESENTATION_ALLOWED;
     @UnsupportedAppUsage
     protected String mAddress;     // MAY BE NULL!!!
+    // The VERSTAT number verification status; defaults to not verified.
+    protected @android.telecom.Connection.VerificationStatus int mNumberVerificationStatus =
+            android.telecom.Connection.VERIFICATION_STATUS_NOT_VERIFIED;
+
     @UnsupportedAppUsage
     protected String mDialString;          // outgoing calls only
+    protected String[] mParticipantsToDial;// outgoing calls only
+    protected boolean mIsAdhocConference;
     @UnsupportedAppUsage
     protected int mNumberPresentation = PhoneConstants.PRESENTATION_ALLOWED;
     @UnsupportedAppUsage
@@ -215,6 +226,9 @@ public abstract class Connection {
     protected int mCause = DisconnectCause.NOT_DISCONNECTED;
     protected PostDialState mPostDialState = PostDialState.NOT_STARTED;
 
+    // Store the current audio code
+    protected int mAudioCodec;
+
     @UnsupportedAppUsage
     private static String LOG_TAG = "Connection";
 
@@ -226,7 +240,7 @@ public abstract class Connection {
      *
      * This is used to propagate the call radio technology to upper layer.
      */
-    private @ServiceState.RilRadioTechnology int mCallRadioTech =
+    private @RilRadioTechnology int mCallRadioTech =
             ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN;
     private boolean mAudioModeIsVoip;
     private int mAudioQuality;
@@ -237,6 +251,7 @@ public abstract class Connection {
     private int mPhoneType;
     private boolean mAnsweringDisconnectsActiveCall;
     private boolean mAllowAddCallDuringVideoCall;
+    private boolean mAllowHoldingVideoCall;
 
     private boolean mIsEmergencyCall;
 
@@ -307,6 +322,20 @@ public abstract class Connection {
     }
 
     /**
+     * Gets the participants address (e.g. phone number) associated with connection.
+     *
+     * @return address or null if unavailable
+     */
+    public String[] getParticipantsToDial() {
+        return mParticipantsToDial;
+    }
+
+    // return whether connection is AdhocConference or not
+    public boolean isAdhocConference() {
+        return mIsAdhocConference;
+    }
+
+    /**
      * Gets CNAP name associated with connection.
      * @return cnap name or null if unavailable
      */
@@ -320,6 +349,15 @@ public abstract class Connection {
      */
     public String getOrigDialString(){
         return null;
+    }
+
+    /**
+     * Get the number, as set by {@link #restoreDialedNumberAfterConversion(String)}.
+     * @return The converted number.
+     */
+    @VisibleForTesting
+    public String getConvertedNumber() {
+        return mConvertedNumber;
     }
 
     /**
@@ -631,6 +669,17 @@ public abstract class Connection {
     public abstract void deflect(String number) throws CallStateException;
 
     /**
+     * Transfer individual Connection
+     */
+    public abstract void transfer(String number, boolean isConfirmationRequired)
+            throws CallStateException;
+
+    /**
+     * Transfer individual Connection for consultative transfer
+     */
+    public abstract void consultativeTransfer(Connection other) throws CallStateException;
+
+    /**
      * Hangup individual Connection
      */
     @UnsupportedAppUsage
@@ -892,7 +941,7 @@ public abstract class Connection {
      * @return the RIL Voice Radio Technology used for current connection,
      *         see {@code RIL_RADIO_TECHNOLOGY_*} in {@link android.telephony.ServiceState}.
      */
-    public @ServiceState.RilRadioTechnology int getCallRadioTech() {
+    public @RilRadioTechnology int getCallRadioTech() {
         return mCallRadioTech;
     }
 
@@ -970,7 +1019,7 @@ public abstract class Connection {
      * @param vrat the RIL voice radio technology for current connection,
      *             see {@code RIL_RADIO_TECHNOLOGY_*} in {@link android.telephony.ServiceState}.
      */
-    public void setCallRadioTech(@ServiceState.RilRadioTechnology int vrat) {
+    public void setCallRadioTech(@RilRadioTechnology int vrat) {
         if (mCallRadioTech == vrat) {
             return;
         }
@@ -1014,7 +1063,7 @@ public abstract class Connection {
             int previousCount = mExtras.size();
             // Prevent vendors from passing in extras other than primitive types and android API
             // parcelables.
-            mExtras = mExtras.filterValues();
+            mExtras = TelephonyUtils.filterValues(mExtras);
             int filteredCount = mExtras.size();
             if (filteredCount != previousCount) {
                 Rlog.i(TAG, "setConnectionExtras: filtering " + (previousCount - filteredCount)
@@ -1063,6 +1112,14 @@ public abstract class Connection {
 
     public void setAllowAddCallDuringVideoCall(boolean allowAddCallDuringVideoCall) {
         mAllowAddCallDuringVideoCall = allowAddCallDuringVideoCall;
+    }
+
+    public boolean shouldAllowHoldingVideoCall() {
+        return mAllowHoldingVideoCall;
+    }
+
+    public void setAllowHoldingVideoCall(boolean allowHoldingVideoCall) {
+        mAllowHoldingVideoCall = allowHoldingVideoCall;
     }
 
     /**
@@ -1120,7 +1177,19 @@ public abstract class Connection {
         }
     }
 
-    public void setConverted(String oriNumber) {
+    /**
+     * {@link CallTracker#convertNumberIfNecessary(Phone, String)} can be used to convert a dialed
+     * number to another number based on carrier config.  This is used where a carrier wishes to
+     * redirect certain short codes such as *55 to another number (e.g. a 1-800 service number).
+     * The {@link CallTracker} sub-classes call
+     * {@link CallTracker#convertNumberIfNecessary(Phone, String)} to retrieve the newly converted
+     * number and instantiate the {@link Connection} instance using the converted number so that the
+     * system will dial out the substitution number instead of the originally dialed one.  This gem
+     * of a method is called after the dialing process to restore the originally dialed number and
+     * keep track of the fact that a converted number was used to place the call.
+     * @param oriNumber The original number prior to conversion.
+     */
+    public void restoreDialedNumberAfterConversion(String oriNumber) {
         mNumberConverted = true;
         mConvertedNumber = mAddress;
         mAddress = oriNumber;
@@ -1331,5 +1400,29 @@ public abstract class Connection {
                 .append(" state: " + getState())
                 .append(" post dial state: " + getPostDialState());
         return str.toString();
+    }
+
+    /**
+     * Get current audio codec.
+     * @return current audio codec.
+     */
+    public int getAudioCodec() {
+        return mAudioCodec;
+    }
+
+    /**
+     * @return The number verification status; only applicable for IMS calls.
+     */
+    public @android.telecom.Connection.VerificationStatus int getNumberVerificationStatus() {
+        return mNumberVerificationStatus;
+    }
+
+    /**
+     * Sets the number verification status.
+     * @param verificationStatus The new verification status
+     */
+    public void setNumberVerificationStatus(
+            @android.telecom.Connection.VerificationStatus int verificationStatus) {
+        mNumberVerificationStatus = verificationStatus;
     }
 }

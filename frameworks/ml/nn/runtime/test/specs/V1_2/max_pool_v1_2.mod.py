@@ -138,12 +138,11 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", quant8, "float16")
 
 
@@ -177,10 +176,29 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", quant8, "float16")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "max_pool_v1_2_nhwc",
+                   "max_pool_v1_2_nhwc_2",
+                   "max_pool_v1_2_nhwc_3",
+                   "max_pool_v1_2_nhwc_4",
+                   "max_pool_v1_2_nhwc_all_inputs_as_internal",
+                   "max_pool_v1_2_nhwc_all_inputs_as_internal_2",
+                   "max_pool_v1_2_nhwc_all_inputs_as_internal_3",
+                   "max_pool_v1_2_nhwc_all_inputs_as_internal_4",
+                   "max_pool_v1_2_nhwc_quant8",
+                   "max_pool_v1_2_nhwc_quant8_2",
+                   "max_pool_v1_2_nhwc_quant8_3",
+                   "max_pool_v1_2_nhwc_quant8_4",
+                   "max_pool_v1_2_nhwc_quant8_all_inputs_as_internal",
+                   "max_pool_v1_2_nhwc_quant8_all_inputs_as_internal_2",
+                   "max_pool_v1_2_nhwc_quant8_all_inputs_as_internal_3",
+                   "max_pool_v1_2_nhwc_quant8_all_inputs_as_internal_4")

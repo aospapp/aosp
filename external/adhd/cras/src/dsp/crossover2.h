@@ -64,9 +64,8 @@ void crossover2_init(struct crossover2 *xo2, float freq1, float freq2);
  *    data1L, data1R - The place to store mid band output.
  *    data2L, data2R - The place to store high band output.
  */
-void crossover2_process(struct crossover2 *xo2, int count,
-			float *data0L, float *data0R,
-			float *data1L, float *data1R,
+void crossover2_process(struct crossover2 *xo2, int count, float *data0L,
+			float *data0R, float *data1L, float *data1R,
 			float *data2L, float *data2R);
 
 #ifdef __cplusplus

@@ -49,6 +49,36 @@ uint32_t RGB::abgr8888() const
 	return (a << 24) | (b << 16) | (g << 8) | (r << 0);
 }
 
+uint32_t RGB::rgba8888() const
+{
+	return (r << 24) | (g << 16) | (b << 8) | (a << 0);
+}
+
+uint32_t RGB::bgra8888() const
+{
+	return (b << 24) | (g << 16) | (r << 8) | (a << 0);
+}
+
+uint32_t RGB::argb2101010() const
+{
+	return ((a >> 6) << 30) | (r << 22) | (g << 12) | (b << 2);
+}
+
+uint32_t RGB::abgr2101010() const
+{
+	return ((a >> 6) << 30) | (b << 22) | (g << 12) | (r << 2);
+}
+
+uint32_t RGB::rgba1010102() const
+{
+	return (r << 24) | (g << 14) | (b << 4) | (a >> 6);
+}
+
+uint32_t RGB::bgra1010102() const
+{
+	return (b << 24) | (g << 14) | (r << 4) | (a >> 6);
+}
+
 uint16_t RGB::rgb565() const
 {
 	return ((r >> 3) << 11) | ((g >> 2) << 5) | ((b >> 3) << 0);
@@ -57,6 +87,16 @@ uint16_t RGB::rgb565() const
 uint16_t RGB::bgr565() const
 {
 	return ((b >> 3) << 11) | ((g >> 2) << 5) | ((r >> 3) << 0);
+}
+
+uint16_t RGB::argb4444() const
+{
+	return ((a >> 4) << 12) | ((r >> 4) << 8) | ((g >> 4) << 4) | ((b >> 4) << 0);
+}
+
+uint16_t RGB::argb1555() const
+{
+	return ((!!a) << 15) | ((r >> 3) << 10) | ((g >> 3) << 5) | ((b >> 3) << 0);
 }
 
 YUV RGB::yuv(YUVType type) const

@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/bash
 #
 # Copyright (C) 2019 The Android Open Source Project
 #
@@ -14,32 +14,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Script to run all gtests located under $ART_TEST_CHROOT/data/nativetest{64}
+if [[ $1 = -h ]]; then
+  cat <<EOF
+Script to run gtests located in the ART (Testing) APEX.
 
-ADB="${ADB:-adb}"
-all_tests=()
+If called with arguments, only those tests are run, as specified by their
+absolute paths (starting with /apex). All gtests are run otherwise.
+EOF
+  exit
+fi
+
+if [[ -z "$ART_TEST_CHROOT" ]]; then
+  echo 'ART_TEST_CHROOT environment variable is empty; please set it before running this script.'
+  exit 1
+fi
+
+adb="${ADB:-adb}"
+
+android_i18n_root=/apex/com.android.i18n
+android_art_root=/apex/com.android.art
+android_tzdata_root=/apex/com.android.tzdata
+
+if [[ $1 = -j* ]]; then
+  # TODO(b/129930445): Implement support for parallel execution.
+  shift
+fi
+
+if [ $# -gt 0 ]; then
+  tests="$@"
+else
+  # Search for executables under the `bin/art` directory of the ART APEX.
+  tests=$("$adb" shell chroot "$ART_TEST_CHROOT" \
+    find "$android_art_root/bin/art" -type f -perm /ugo+x | sort)
+fi
+
 failing_tests=()
 
-function add_tests {
-  # Search for *_test and *_tests executables, but skip e.g. libfoo_test.so.
-  all_tests+=$(${ADB} shell "test -d $ART_TEST_CHROOT/$1 && chroot $ART_TEST_CHROOT find $1 -type f -perm /ugo+x -name \*_test\* \! -name \*.so")
-}
-
-function fail {
-  failing_tests+=($1)
-}
-
-add_tests "/data/nativetest"
-add_tests "/data/nativetest64"
-
-for i in $all_tests; do
-  echo $i
-  ${ADB} shell "chroot $ART_TEST_CHROOT env LD_LIBRARY_PATH= ANDROID_ROOT='/system' ANDROID_RUNTIME_ROOT=/system ANDROID_TZDATA_ROOT='/system' $i" || fail $i
+for t in $tests; do
+  echo "$t"
+  "$adb" shell chroot "$ART_TEST_CHROOT" \
+    env ANDROID_ART_ROOT="$android_art_root" \
+        ANDROID_I18N_ROOT="$android_i18n_root" \
+        ANDROID_TZDATA_ROOT="$android_tzdata_root" \
+        $t \
+    || failing_tests+=("$t")
 done
 
 if [ -n "$failing_tests" ]; then
-  for i in "${failing_tests[@]}"; do
-    echo "Failed test: $i"
+  for t in "${failing_tests[@]}"; do
+    echo "Failed test: $t"
   done
   exit 1
 fi

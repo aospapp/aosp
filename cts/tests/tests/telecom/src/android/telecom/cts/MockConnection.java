@@ -82,6 +82,14 @@ public class MockConnection extends Connection {
     }
 
     @Override
+    public void onReject(int rejectReason) {
+        super.onReject(rejectReason);
+        setDisconnected(new DisconnectCause(DisconnectCause.REJECTED,
+                Integer.toString(rejectReason)));
+        destroy();
+    }
+
+    @Override
     public void onReject(String reason) {
         super.onReject();
         setDisconnected(new DisconnectCause(DisconnectCause.REJECTED, reason));
@@ -301,11 +309,11 @@ public class MockConnection extends Connection {
         return mMockVideoProvider;
     }
 
-    public void setPhoneAccountHandle(PhoneAccountHandle handle)  {
+    public void setMockPhoneAccountHandle(PhoneAccountHandle handle)  {
         mPhoneAccountHandle = handle;
     }
 
-    public PhoneAccountHandle getPhoneAccountHandle()  {
+    public PhoneAccountHandle getMockPhoneAccountHandle()  {
         return mPhoneAccountHandle;
     }
 

@@ -89,7 +89,7 @@ public class FormatterTest extends TestCase {
         // normal case
         r.setMessage("msg");
         ResourceBundle rb = ResourceBundle
-                .getBundle("bundles/com/android/java/util/logging/res");
+                .getBundle("bundles/java/util/logging/res");
         r.setResourceBundle(rb);
         assertEquals(rb.getString("msg"), f.formatMessage(r));
 
@@ -107,7 +107,7 @@ public class FormatterTest extends TestCase {
         assertEquals(rb.getString("pattern{0,number}"), f.formatMessage(r));
 
         // another bundle
-        rb = ResourceBundle.getBundle("bundles/com/android/java/util/logging/res",
+        rb = ResourceBundle.getBundle("bundles/java/util/logging/res",
                 Locale.US);
         r.setMessage("msg");
         r.setResourceBundle(rb);
@@ -119,7 +119,7 @@ public class FormatterTest extends TestCase {
 
         // set bundle name but not bundle
         r.setResourceBundle(null);
-        r.setResourceBundleName("bundles/com/android/java/util/logging/res");
+        r.setResourceBundleName("bundles/java/util/logging/res");
         r.setMessage("msg");
         assertEquals("msg", f.formatMessage(r));
     }

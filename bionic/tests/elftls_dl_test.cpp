@@ -28,11 +28,12 @@
 
 #include <dlfcn.h>
 #include <gtest/gtest.h>
+#include <link.h>
 
 #include <thread>
 
 #include "gtest_globals.h"
-#include "private/__get_tls.h"
+#include "platform/bionic/tls.h"
 #include "utils.h"
 
 #if defined(__BIONIC__)
@@ -163,8 +164,9 @@ TEST(elftls_dl, dtv_resize) {
   static_assert(sizeof(TlsDtv) == 3 * sizeof(void*),
                 "This test assumes that the Dtv has a 3-word header");
 
-  // Initially there are 3 modules:
+  // Initially there are 4 modules:
   //  - the main test executable
+  //  - libc
   //  - libtest_elftls_shared_var
   //  - libtest_elftls_tprel
 
@@ -174,7 +176,7 @@ TEST(elftls_dl, dtv_resize) {
   ASSERT_EQ(nullptr, zero_dtv->next);
   ASSERT_EQ(kTlsGenerationNone, zero_dtv->generation);
 
-  // Load the fourth module.
+  // Load the fifth module.
   auto func1 = LOAD_LIB("libtest_elftls_dynamic_filler_1.so");
   ASSERT_EQ(101, func1());
 
@@ -185,17 +187,9 @@ TEST(elftls_dl, dtv_resize) {
   ASSERT_EQ(zero_dtv, initial_dtv->next);
   ASSERT_LT(0u, initial_dtv->generation);
 
-  // Load module 5.
+  // Load module 6.
   auto func2 = LOAD_LIB("libtest_elftls_dynamic_filler_2.so");
   ASSERT_EQ(102, func1());
-  ASSERT_EQ(201, func2());
-  ASSERT_EQ(initial_dtv, dtv());
-  ASSERT_EQ(5u, initial_dtv->count);
-
-  // Load module 6.
-  auto func3 = LOAD_LIB("libtest_elftls_dynamic_filler_3.so");
-  ASSERT_EQ(103, func1());
-  ASSERT_EQ(202, func2());
 
 #if defined(__aarch64__)
   // The arm64 TLSDESC resolver doesn't update the DTV if it is new enough for
@@ -206,12 +200,19 @@ TEST(elftls_dl, dtv_resize) {
   ASSERT_EQ(13u, dtv()->count);
 #endif
 
-  ASSERT_EQ(301, func3());
-
+  ASSERT_EQ(201, func2());
   TlsDtv* new_dtv = dtv();
-  ASSERT_EQ(13u, new_dtv->count);
   ASSERT_NE(initial_dtv, new_dtv);
   ASSERT_EQ(initial_dtv, new_dtv->next);
+  ASSERT_EQ(13u, new_dtv->count);
+
+  // Load module 7.
+  auto func3 = LOAD_LIB("libtest_elftls_dynamic_filler_3.so");
+  ASSERT_EQ(103, func1());
+  ASSERT_EQ(202, func2());
+  ASSERT_EQ(301, func3());
+
+  ASSERT_EQ(new_dtv, dtv());
 
 #undef LOAD_LIB
 #else
@@ -334,4 +335,59 @@ TEST(elftls_dl, dladdr_skip_tls_symbol) {
   ASSERT_STREQ(libpath.c_str(), dli_realpath);
   ASSERT_STREQ(nullptr, info.dli_sname);
   ASSERT_EQ(nullptr, info.dli_saddr);
+}
+
+TEST(elftls_dl, dl_iterate_phdr) {
+  void* lib = dlopen("libtest_elftls_dynamic.so", RTLD_LOCAL | RTLD_NOW);
+
+  auto get_var_addr = reinterpret_cast<void*(*)()>(dlsym(lib, "get_large_tls_var_addr"));
+  ASSERT_NE(nullptr, get_var_addr);
+
+  struct TlsInfo {
+    bool found;
+    size_t modid;
+    void* data;
+    size_t memsz;
+  };
+
+  auto get_tls_info = []() {
+    auto callback = [](dl_phdr_info* info, size_t, void* data) {
+      TlsInfo& tls_info = *static_cast<TlsInfo*>(data);
+
+      // This test is also run with glibc, where dlpi_name may have relative path components, so
+      // examine just the basename when searching for the library.
+      if (strcmp(basename(info->dlpi_name), "libtest_elftls_dynamic.so") != 0) return 0;
+
+      tls_info.found = true;
+      tls_info.modid = info->dlpi_tls_modid;
+      tls_info.data = info->dlpi_tls_data;
+      for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
+        if (info->dlpi_phdr[i].p_type == PT_TLS) {
+          tls_info.memsz = info->dlpi_phdr[i].p_memsz;
+        }
+      }
+      EXPECT_NE(static_cast<size_t>(0), tls_info.memsz);
+      return 1;
+    };
+
+    TlsInfo result {};
+    dl_iterate_phdr(callback, &result);
+    return result;
+  };
+
+  // The executable has a TLS segment, so it will use module ID #1, and the DSO's ID will be larger
+  // than 1. Initially, the data field is nullptr, because this thread's instance hasn't been
+  // allocated yet.
+  TlsInfo tls_info = get_tls_info();
+  ASSERT_TRUE(tls_info.found);
+  ASSERT_GT(tls_info.modid, static_cast<size_t>(1));
+  ASSERT_EQ(nullptr, tls_info.data);
+
+  void* var_addr = get_var_addr();
+
+  // Verify that dl_iterate_phdr returns a range of memory covering the allocated TLS variable.
+  tls_info = get_tls_info();
+  ASSERT_TRUE(tls_info.found);
+  ASSERT_GE(var_addr, tls_info.data);
+  ASSERT_LT(var_addr, static_cast<char*>(tls_info.data) + tls_info.memsz);
 }

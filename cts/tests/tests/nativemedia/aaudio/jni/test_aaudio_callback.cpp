@@ -55,17 +55,48 @@ static int32_t measureLatency(AAudioStream *stream) {
     return latencyMillis;
 }
 
-using CbTestParams = std::tuple<aaudio_sharing_mode_t, int32_t, aaudio_performance_mode_t>;
+using CbTestParams = std::tuple<aaudio_sharing_mode_t, int32_t,
+                                aaudio_performance_mode_t, int32_t, aaudio_format_t>;
 enum {
     PARAM_SHARING_MODE = 0,
     PARAM_FRAMES_PER_CB,
-    PARAM_PERF_MODE
+    PARAM_PERF_MODE,
+    PARAM_ALLOW_MMAP,
+    PARAM_AUDIO_FORMAT
 };
 
+enum {
+    MMAP_NOT_ALLOWED,
+    MMAP_ALLOWED,
+};
+
+static const char* allowMMapToString(int allow) {
+    switch (allow) {
+        case MMAP_NOT_ALLOWED: return "NOTMMAP";
+        case MMAP_ALLOWED:
+        default:
+            return "MMAPOK";
+    }
+}
+
+static const char* audioFormatToString(aaudio_format_t format) {
+    switch (format) {
+        case AAUDIO_FORMAT_UNSPECIFIED: return "UNSP";
+        case AAUDIO_FORMAT_PCM_I16: return "I16";
+        case AAUDIO_FORMAT_PCM_FLOAT: return "FLT";
+        default:
+            return "BAD";
+    }
+}
+
 static std::string getTestName(const ::testing::TestParamInfo<CbTestParams>& info) {
-    return std::string() + sharingModeToString(std::get<PARAM_SHARING_MODE>(info.param)) +
-            "__" + std::to_string(std::get<PARAM_FRAMES_PER_CB>(info.param)) +
-            "__" + performanceModeToString(std::get<PARAM_PERF_MODE>(info.param));
+    return std::string()
+            + sharingModeToString(std::get<PARAM_SHARING_MODE>(info.param))
+            + "__" + std::to_string(std::get<PARAM_FRAMES_PER_CB>(info.param))
+            + "__" + performanceModeToString(std::get<PARAM_PERF_MODE>(info.param))
+            + "__" + allowMMapToString(std::get<PARAM_ALLOW_MMAP>(info.param))
+            + "__" + audioFormatToString(std::get<PARAM_AUDIO_FORMAT>(info.param))
+            ;
 }
 
 template<typename T>
@@ -143,11 +174,15 @@ aaudio_data_callback_result_t AAudioInputStreamCallbackTest::MyDataCallbackProc(
 }
 
 void AAudioInputStreamCallbackTest::SetUp() {
+    aaudio_policy_t originalPolicy = AAUDIO_POLICY_AUTO;
+
     mSetupSuccesful = false;
     if (!deviceSupportsFeature(FEATURE_RECORDING)) return;
     mHelper.reset(new InputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
-                    std::get<PARAM_PERF_MODE>(GetParam())));
+                    std::get<PARAM_PERF_MODE>(GetParam()),
+                    std::get<PARAM_AUDIO_FORMAT>(GetParam()))
+                    );
     mHelper->initBuilder();
 
     int32_t framesPerDataCallback = std::get<PARAM_FRAMES_PER_CB>(GetParam());
@@ -158,7 +193,23 @@ void AAudioInputStreamCallbackTest::SetUp() {
         AAudioStreamBuilder_setFramesPerDataCallback(builder(), framesPerDataCallback);
     }
 
+    // Turn off MMap if requested.
+    int allowMMap = std::get<PARAM_ALLOW_MMAP>(GetParam()) == MMAP_ALLOWED;
+    if (AAudioExtensions::getInstance().isMMapSupported()) {
+        originalPolicy = AAudioExtensions::getInstance().getMMapPolicy();
+        AAudioExtensions::getInstance().setMMapEnabled(allowMMap);
+    }
+
     mHelper->createAndVerifyStream(&mSetupSuccesful);
+
+    // Restore policy for next test.
+    if (AAudioExtensions::getInstance().isMMapSupported()) {
+        AAudioExtensions::getInstance().setMMapPolicy(originalPolicy);
+    }
+    if (!allowMMap) {
+        ASSERT_FALSE(AAudioExtensions::getInstance().isMMapUsed(mHelper->stream()));
+    }
+
 }
 
 // Test Reading from an AAudioStream using a Callback
@@ -166,12 +217,12 @@ TEST_P(AAudioInputStreamCallbackTest, testRecording) {
     if (!mSetupSuccesful) return;
 
     const int32_t framesPerDataCallback = std::get<PARAM_FRAMES_PER_CB>(GetParam());
-    const int32_t actualFramesPerDataCallback = AAudioStream_getFramesPerDataCallback(stream());
+    const int32_t streamFramesPerDataCallback = AAudioStream_getFramesPerDataCallback(stream());
     if (framesPerDataCallback != AAUDIO_UNSPECIFIED) {
-        ASSERT_EQ(framesPerDataCallback, actualFramesPerDataCallback);
+        ASSERT_EQ(framesPerDataCallback, streamFramesPerDataCallback);
     }
 
-    mCbData->reset(actualFramesPerDataCallback);
+    mCbData->reset(streamFramesPerDataCallback);
 
     mHelper->startStream();
     // See b/62090113. For legacy path, the device is only known after
@@ -189,8 +240,8 @@ TEST_P(AAudioInputStreamCallbackTest, testRecording) {
     sleep(1);
     EXPECT_EQ(oldCallbackCount, mCbData->callbackCount); // expect not advancing
 
-    if (framesPerDataCallback != AAUDIO_UNSPECIFIED) {
-        ASSERT_EQ(framesPerDataCallback, mCbData->actualFramesPerCallback);
+    if (streamFramesPerDataCallback != AAUDIO_UNSPECIFIED) {
+        ASSERT_EQ(streamFramesPerDataCallback, mCbData->actualFramesPerCallback);
     }
 
     ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
@@ -201,16 +252,42 @@ INSTANTIATE_TEST_CASE_P(SPM, AAudioInputStreamCallbackTest,
                 std::make_tuple(
                         AAUDIO_SHARING_MODE_SHARED,
                         AAUDIO_UNSPECIFIED,
-                        AAUDIO_PERFORMANCE_MODE_NONE),
-                // cb buffer size: arbitrary prime number < 192
-                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 109, AAUDIO_PERFORMANCE_MODE_NONE),
+                        AAUDIO_PERFORMANCE_MODE_NONE,
+                        MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                // cb buffer size: arbitrary prime number < 96
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67,
+                        AAUDIO_PERFORMANCE_MODE_NONE, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67,
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(AAUDIO_SHARING_MODE_EXCLUSIVE, 67,
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67,
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_NOT_ALLOWED,
+                        AAUDIO_FORMAT_PCM_I16),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67,
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_NOT_ALLOWED,
+                        AAUDIO_FORMAT_PCM_FLOAT),
                 // cb buffer size: arbitrary prime number > 192
-                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 223, AAUDIO_PERFORMANCE_MODE_NONE),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 223,
+                        AAUDIO_PERFORMANCE_MODE_NONE, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
                 // Recording in POWER_SAVING mode isn't supported, b/62291775.
                 std::make_tuple(
                         AAUDIO_SHARING_MODE_SHARED,
                         AAUDIO_UNSPECIFIED,
-                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY)),
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY,
+                        MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(
+                        AAUDIO_SHARING_MODE_EXCLUSIVE,
+                        AAUDIO_UNSPECIFIED,
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY,
+                        MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED)),
         &getTestName);
 
 
@@ -224,7 +301,10 @@ class AAudioOutputStreamCallbackTest : public AAudioStreamCallbackTest<OutputStr
 
 // Callback function that fills the audio output buffer.
 aaudio_data_callback_result_t AAudioOutputStreamCallbackTest::MyDataCallbackProc(
-        AAudioStream *stream, void *userData, void *audioData, int32_t numFrames) {
+        AAudioStream *stream,
+        void *userData,
+        void *audioData,
+        int32_t numFrames) {
     int32_t channelCount = AAudioStream_getChannelCount(stream);
     int32_t numSamples = channelCount * numFrames;
     if (AAudioStream_getFormat(stream) == AAUDIO_FORMAT_PCM_I16) {
@@ -247,7 +327,9 @@ void AAudioOutputStreamCallbackTest::SetUp() {
     if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     mHelper.reset(new OutputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
-                    std::get<PARAM_PERF_MODE>(GetParam())));
+                    std::get<PARAM_PERF_MODE>(GetParam()),
+                    std::get<PARAM_AUDIO_FORMAT>(GetParam()))
+                    );
     mHelper->initBuilder();
 
     int32_t framesPerDataCallback = std::get<PARAM_FRAMES_PER_CB>(GetParam());
@@ -259,6 +341,7 @@ void AAudioOutputStreamCallbackTest::SetUp() {
     }
 
     mHelper->createAndVerifyStream(&mSetupSuccesful);
+
 }
 
 // Test Writing to an AAudioStream using a Callback
@@ -266,15 +349,15 @@ TEST_P(AAudioOutputStreamCallbackTest, testPlayback) {
     if (!mSetupSuccesful) return;
 
     const int32_t framesPerDataCallback = std::get<PARAM_FRAMES_PER_CB>(GetParam());
-    const int32_t actualFramesPerDataCallback = AAudioStream_getFramesPerDataCallback(stream());
+    const int32_t streamFramesPerDataCallback = AAudioStream_getFramesPerDataCallback(stream());
     if (framesPerDataCallback != AAUDIO_UNSPECIFIED) {
-        ASSERT_EQ(framesPerDataCallback, actualFramesPerDataCallback);
+        ASSERT_EQ(framesPerDataCallback, streamFramesPerDataCallback);
     }
 
     // Start/stop more than once to see if it fails after the first time.
     // Write some data and measure the rate to see if the timing is OK.
     for (int loopIndex = 0; loopIndex < 2; loopIndex++) {
-        mCbData->reset(actualFramesPerDataCallback);
+        mCbData->reset(streamFramesPerDataCallback);
 
         mHelper->startStream();
         // See b/62090113. For legacy path, the device is only known after
@@ -297,8 +380,8 @@ TEST_P(AAudioOutputStreamCallbackTest, testPlayback) {
         sleep(1);
         EXPECT_EQ(oldCallbackCount, mCbData->callbackCount); // expect not advancing
 
-        if (framesPerDataCallback != AAUDIO_UNSPECIFIED) {
-            ASSERT_EQ(framesPerDataCallback, mCbData->actualFramesPerCallback);
+        if (streamFramesPerDataCallback != AAUDIO_UNSPECIFIED) {
+            ASSERT_EQ(streamFramesPerDataCallback, mCbData->actualFramesPerCallback);
         }
 
         EXPECT_GE(mCbData->minLatency, 1);   // Absurdly low
@@ -318,17 +401,39 @@ INSTANTIATE_TEST_CASE_P(SPM, AAudioOutputStreamCallbackTest,
                 std::make_tuple(
                         AAUDIO_SHARING_MODE_SHARED,
                         AAUDIO_UNSPECIFIED,
-                        AAUDIO_PERFORMANCE_MODE_NONE),
-                // cb buffer size: arbitrary prime number < 192
-                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 109, AAUDIO_PERFORMANCE_MODE_NONE),
+                        AAUDIO_PERFORMANCE_MODE_NONE,
+                        MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                // cb buffer size: arbitrary prime number < 96
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67, AAUDIO_PERFORMANCE_MODE_NONE, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(AAUDIO_SHARING_MODE_EXCLUSIVE, 67, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_NOT_ALLOWED,
+                        AAUDIO_FORMAT_PCM_I16),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 67, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY, MMAP_NOT_ALLOWED,
+                        AAUDIO_FORMAT_PCM_FLOAT),
                 // cb buffer size: arbitrary prime number > 192
-                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 223, AAUDIO_PERFORMANCE_MODE_NONE),
+                std::make_tuple(AAUDIO_SHARING_MODE_SHARED, 223, AAUDIO_PERFORMANCE_MODE_NONE, MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
                 std::make_tuple(
                         AAUDIO_SHARING_MODE_SHARED,
                         AAUDIO_UNSPECIFIED,
-                        AAUDIO_PERFORMANCE_MODE_POWER_SAVING),
+                        AAUDIO_PERFORMANCE_MODE_POWER_SAVING,
+                        MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
                 std::make_tuple(
                         AAUDIO_SHARING_MODE_SHARED,
                         AAUDIO_UNSPECIFIED,
-                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY)),
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY,
+                        MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED),
+                std::make_tuple(
+                        AAUDIO_SHARING_MODE_EXCLUSIVE,
+                        AAUDIO_UNSPECIFIED,
+                        AAUDIO_PERFORMANCE_MODE_LOW_LATENCY,
+                        MMAP_ALLOWED,
+                        AAUDIO_FORMAT_UNSPECIFIED)),
         &getTestName);

@@ -55,8 +55,6 @@ class UserState {
     void setState(State state);
     State getState() const { return mState; }
 
-    int8_t getRetry() const { return mRetry; }
-
     void zeroizeMasterKeysInMemory();
     bool deleteMasterKey();
 
@@ -75,14 +73,13 @@ class UserState {
     bool operator<(uid_t userId) const;
 
   private:
-    static const int SHA1_DIGEST_SIZE_BYTES = 16;
-    static const int SHA256_DIGEST_SIZE_BYTES = 32;
+    static constexpr int SHA1_DIGEST_SIZE_BYTES = 16;
+    static constexpr int SHA256_DIGEST_SIZE_BYTES = 32;
 
-    static const int MASTER_KEY_SIZE_BYTES = SHA256_DIGEST_SIZE_BYTES;
-    static const int MASTER_KEY_SIZE_BITS = MASTER_KEY_SIZE_BYTES * 8;
+    static constexpr int MASTER_KEY_SIZE_BYTES = kAes256KeySizeBytes;
+    static constexpr int MASTER_KEY_SIZE_BITS = MASTER_KEY_SIZE_BYTES * 8;
 
-    static const int MAX_RETRY = 4;
-    static const size_t SALT_SIZE = 16;
+    static constexpr size_t SALT_SIZE = 16;
 
     void generateKeyFromPassword(std::vector<uint8_t>& key, const android::String8& pw,
                                  uint8_t* salt);
@@ -94,7 +91,6 @@ class UserState {
 
     uid_t mUserId;
     State mState;
-    int8_t mRetry;
 
     std::vector<uint8_t> mMasterKey;
     uint8_t mSalt[SALT_SIZE];

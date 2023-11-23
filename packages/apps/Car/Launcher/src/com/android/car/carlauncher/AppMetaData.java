@@ -17,11 +17,15 @@
 package com.android.car.carlauncher;
 
 import android.annotation.Nullable;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 
+import java.util.function.Consumer;
+
 /**
- * Meta data of an app including the display name, the full package name, the icon drawable, and an
+ * Meta data of an app including the display name, the component name, the icon drawable, and an
  * intent to either open the app or the media center (for media services).
  */
 
@@ -29,36 +33,37 @@ final class AppMetaData {
     // The display name of the app
     @Nullable
     private final String mDisplayName;
-    // The package name of the app
-    private final String mPackageName;
+    // The component name of the app
+    private final ComponentName mComponentName;
     private final Drawable mIcon;
     private final boolean mIsDistractionOptimized;
-    private final Intent mMainLaunchIntent;
-    private final Intent mAlternateLaunchIntent;
+    private final Consumer<Context> mLaunchCallback;
+    private final Consumer<Context> mAlternateLaunchCallback;
 
     /**
      * AppMetaData
-     * @param displayName the name to display in the launcher
-     * @param packageName the application's package
-     * @param icon the application's icon
+     *
+     * @param displayName            the name to display in the launcher
+     * @param componentName          the component name
+     * @param icon                   the application's icon
      * @param isDistractionOptimized whether mainLaunchIntent is safe for driving
-     * @param mainLaunchIntent what to open by default (goes to the media center for media apps)
-     * @param alternateLaunchIntent temporary allowance for media apps that still need to show UI
-     *                              beyond sign in and settings
+     * @param launchCallback         action to execute to launch this app
+     * @param alternateLaunchCallback  temporary alternative action to execute (e.g.: for media apps
+     *                               this allows opening their own UI).
      */
     AppMetaData(
             CharSequence displayName,
-            String packageName,
+            ComponentName componentName,
             Drawable icon,
             boolean isDistractionOptimized,
-            Intent mainLaunchIntent,
-            @Nullable Intent alternateLaunchIntent) {
+            Consumer<Context> launchCallback,
+            Consumer<Context> alternateLaunchCallback) {
         mDisplayName = displayName == null ? "" : displayName.toString();
-        mPackageName = packageName == null ? "" : packageName;
+        mComponentName = componentName;
         mIcon = icon;
         mIsDistractionOptimized = isDistractionOptimized;
-        mMainLaunchIntent = mainLaunchIntent;
-        mAlternateLaunchIntent = alternateLaunchIntent;
+        mLaunchCallback = launchCallback;
+        mAlternateLaunchCallback = alternateLaunchCallback;
     }
 
     public String getDisplayName() {
@@ -66,15 +71,19 @@ final class AppMetaData {
     }
 
     public String getPackageName() {
-        return mPackageName;
+        return getComponentName().getPackageName();
     }
 
-    Intent getMainLaunchIntent() {
-        return mMainLaunchIntent;
+    public ComponentName getComponentName() {
+        return mComponentName;
     }
 
-    Intent getAlternateLaunchIntent() {
-        return mAlternateLaunchIntent;
+    Consumer<Context> getLaunchCallback() {
+        return mLaunchCallback;
+    }
+
+    Consumer<Context> getAlternateLaunchCallback() {
+        return mAlternateLaunchCallback;
     }
 
     public Drawable getIcon() {
@@ -86,22 +95,22 @@ final class AppMetaData {
     }
 
     /**
-     * The equality of two AppMetaData is determined by whether the package names are the same.
+     * The equality of two AppMetaData is determined by whether the component names are the same.
      *
      * @param o Object that this AppMetaData object is compared against
-     * @return {@code true} when two AppMetaData have the same package name
+     * @return {@code true} when two AppMetaData have the same component name
      */
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof AppMetaData)) {
             return false;
         } else {
-            return ((AppMetaData) o).getPackageName().equals(mPackageName);
+            return ((AppMetaData) o).getComponentName().equals(mComponentName);
         }
     }
 
     @Override
     public int hashCode() {
-        return mPackageName.hashCode();
+        return mComponentName.hashCode();
     }
 }

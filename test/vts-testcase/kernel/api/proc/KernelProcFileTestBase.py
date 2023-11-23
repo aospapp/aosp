@@ -137,6 +137,9 @@ class KernelProcFileTestBase(object):
         self.parser = yacc.yacc(module=self, write_tables=False, \
                 errorlog=yacc.PlyLogger(sys.stderr)) #open(os.devnull, 'w')))
 
+    def set_api_level(self, dut):
+        self.api_level = dut.getLaunchApiLevel(strict=False)
+
     def parse_line(self, rule, line, custom={}):
         """Parse a line of text with the parse library.
 

@@ -22,7 +22,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 /**
  * Common code for the various LauncherApps tests.
  */
-public class BaseLauncherAppsTest extends BaseDevicePolicyTest {
+public abstract class BaseLauncherAppsTest extends BaseDevicePolicyTest {
 
     protected static final String SIMPLE_APP_PKG = "com.android.cts.launcherapps.simpleapp";
     protected static final String SIMPLE_APP_APK = "CtsSimpleApp.apk";

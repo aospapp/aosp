@@ -119,7 +119,7 @@ public class ScreenshotOnFailureCollector extends BaseMetricListener {
                         ? fileNameBase
                         : String.join("-", fileNameBase, String.valueOf(iteration));
         // Capture the screenshot first.
-        final String pngFileName = String.format("%s.png", fileName);
+        final String pngFileName = String.format("%s-screenshot-on-failure.png", fileName);
         File img = takeScreenshot(pngFileName);
         if (img != null) {
             testData.addFileMetric(String.format("%s_%s", getTag(), img.getName()), img);

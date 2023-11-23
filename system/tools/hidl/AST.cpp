@@ -22,6 +22,7 @@
 #include "HandleType.h"
 #include "Interface.h"
 #include "Location.h"
+#include "Method.h"
 #include "Scope.h"
 #include "TypeDef.h"
 
@@ -30,19 +31,27 @@
 #include <hidl-util/Formatter.h>
 #include <hidl-util/StringHelper.h>
 #include <stdlib.h>
+
 #include <algorithm>
 #include <iostream>
+#include <map>
+#include <string>
 
 namespace android {
 
 AST::AST(const Coordinator* coordinator, const Hash* fileHash)
     : mCoordinator(coordinator),
       mFileHash(fileHash),
-      mRootScope("(root scope)", FQName(), Location::startOf(fileHash->getPath()),
+      mRootScope("(root scope)", FQName(),
+                 Location::startOf(coordinator->makeRelative(fileHash->getPath())),
                  nullptr /* parent */) {}
 
-Scope* AST::getRootScope() {
+Scope* AST::getMutableRootScope() {
     return &mRootScope;
+}
+
+const Scope& AST::getRootScope() const {
+    return mRootScope;
 }
 
 // used by the parser.
@@ -59,6 +68,10 @@ const std::string& AST::getFilename() const {
 }
 const Hash* AST::getFileHash() const {
     return mFileHash;
+}
+
+const Coordinator& AST::getCoordinator() const {
+    return *mCoordinator;
 }
 
 bool AST::setPackage(const char *package) {
@@ -201,7 +214,8 @@ status_t AST::lookupTypes() {
                 if (nextType == nullptr) {
                     std::cerr << "ERROR: Failed to lookup type '"
                               << nextRef->getLookupFqName().string() << "' at "
-                              << nextRef->location() << "\n";
+                              << nextRef->location()
+                              << " (is it imported and spelled correctly?)\n";
                     return UNKNOWN_ERROR;
                 }
                 nextRef->set(nextType);
@@ -361,44 +375,32 @@ status_t AST::checkForwardReferenceRestrictions() const {
                                     &visited);
 }
 
-bool AST::addImport(const char *import) {
-    FQName fqName;
-    if (!FQName::parse(import, &fqName)) {
-        std::cerr << "ERROR: '" << import << "' is an invalid fully-qualified name." << std::endl;
-        return false;
-    }
-
-    fqName.applyDefaults(mPackage.package(), mPackage.version());
-
+bool AST::importFQName(const FQName& fqName) {
     if (fqName.name().empty()) {
         // import a package
 
         std::vector<FQName> packageInterfaces;
 
-        status_t err =
-            mCoordinator->appendPackageInterfacesToVector(fqName,
-                                                          &packageInterfaces);
+        status_t err = mCoordinator->appendPackageInterfacesToVector(fqName, &packageInterfaces);
 
         if (err != OK) {
             return false;
         }
 
-        for (const auto &subFQName : packageInterfaces) {
-            addToImportedNamesGranular(subFQName);
-
+        for (const auto& subFQName : packageInterfaces) {
             // Do not enforce restrictions on imports.
             AST* ast = mCoordinator->parse(subFQName, &mImportedASTs, Coordinator::Enforce::NONE);
             if (ast == nullptr) {
                 return false;
             }
+            addToImportedNamesGranular(subFQName);
+
             // all previous single type imports are ignored.
             mImportedTypes.erase(ast);
         }
 
         return true;
     }
-
-    addToImportedNamesGranular(fqName);
 
     // cases like android.hardware.foo@1.0::IFoo.Internal
     //            android.hardware.foo@1.0::Abc.Internal
@@ -421,18 +423,20 @@ bool AST::addImport(const char *import) {
             // cases like android.hardware.foo@1.0::IFoo
             //        and android.hardware.foo@1.0::types
             mImportedTypes.erase(importAST);
+            addToImportedNamesGranular(fqName);
             return true;
         }
 
         // import a single type from this file
         // cases like android.hardware.foo@1.0::IFoo.Internal
         FQName matchingName;
-        Type *match = importAST->findDefinedType(fqName, &matchingName);
+        Type* match = importAST->findDefinedType(fqName, &matchingName);
         if (match == nullptr) {
             return false;
         }
         // will automatically create a set if it does not exist
         mImportedTypes[importAST].insert(match);
+        addToImportedNamesGranular(fqName);
         return true;
     }
 
@@ -445,16 +449,47 @@ bool AST::addImport(const char *import) {
     if (importAST != nullptr) {
         // Attempt to find Abc.Internal in types.
         FQName matchingName;
-        Type *match = importAST->findDefinedType(fqName, &matchingName);
+        Type* match = importAST->findDefinedType(fqName, &matchingName);
         if (match == nullptr) {
             return false;
         }
         // will automatically create a set if not exist
         mImportedTypes[importAST].insert(match);
+        addToImportedNamesGranular(fqName);
         return true;
     }
 
     // can't find an appropriate AST for fqName.
+    return false;
+}
+
+bool AST::addImplicitImport(const FQName& fqName) {
+    CHECK(fqName.isFullyQualified());
+
+    if (importFQName(fqName)) {
+        mImplicitImports.push_back(fqName);
+        return true;
+    }
+
+    return false;
+}
+
+bool AST::addImport(const char* import, const Location& location) {
+    FQName fqName;
+    if (!FQName::parse(import, &fqName)) {
+        std::cerr << "ERROR: '" << import << "' is an invalid fully-qualified name." << std::endl;
+        return false;
+    }
+
+    fqName.applyDefaults(mPackage.package(), mPackage.version());
+
+    if (importFQName(fqName)) {
+        mImportStatements.push_back({fqName, location});
+        return true;
+    }
+
+    std::cerr << "while importing " << import << " at " << location << "." << std::endl;
+
     return false;
 }
 
@@ -465,7 +500,7 @@ void AST::addImportedAST(AST *ast) {
 FQName AST::makeFullName(const char* localName, Scope* scope) const {
     std::vector<std::string> pathComponents{{localName}};
     for (; scope != &mRootScope; scope = scope->parent()) {
-        pathComponents.push_back(scope->localName());
+        pathComponents.push_back(scope->definedName());
     }
 
     std::reverse(pathComponents.begin(), pathComponents.end());
@@ -479,7 +514,8 @@ void AST::addScopedType(NamedType* type, Scope* scope) {
     mDefinedTypesByFullName[type->fqName()] = type;
 }
 
-LocalIdentifier* AST::lookupLocalIdentifier(const Reference<LocalIdentifier>& ref, Scope* scope) {
+LocalIdentifier* AST::lookupLocalIdentifier(const Reference<LocalIdentifier>& ref,
+                                            const Scope* scope) {
     const FQName& fqName = ref.getLookupFqName();
 
     if (fqName.isIdentifier()) {
@@ -501,7 +537,7 @@ LocalIdentifier* AST::lookupLocalIdentifier(const Reference<LocalIdentifier>& re
     }
 }
 
-EnumValue* AST::lookupEnumValue(const FQName& fqName, std::string* errorMsg, Scope* scope) {
+EnumValue* AST::lookupEnumValue(const FQName& fqName, std::string* errorMsg, const Scope* scope) {
     FQName enumTypeName = fqName.typeName();
     std::string enumValueName = fqName.valueName();
 
@@ -530,7 +566,7 @@ EnumValue* AST::lookupEnumValue(const FQName& fqName, std::string* errorMsg, Sco
     return v;
 }
 
-Type* AST::lookupType(const FQName& fqName, Scope* scope) {
+Type* AST::lookupType(const FQName& fqName, const Scope* scope) {
     if (fqName.name().empty()) {
         // Given a package and version???
         return nullptr;
@@ -558,7 +594,7 @@ Type* AST::lookupType(const FQName& fqName, Scope* scope) {
 }
 
 // Rule 0: try resolve locally
-Type* AST::lookupTypeLocally(const FQName& fqName, Scope* scope) {
+Type* AST::lookupTypeLocally(const FQName& fqName, const Scope* scope) {
     CHECK(fqName.package().empty() && fqName.version().empty()
         && !fqName.name().empty() && fqName.valueName().empty());
 
@@ -749,6 +785,10 @@ Type *AST::findDefinedType(const FQName &fqName, FQName *matchingName) const {
     return nullptr;
 }
 
+const std::vector<ImportStatement>& AST::getImportStatements() const {
+    return mImportStatements;
+}
+
 void AST::getImportedPackages(std::set<FQName> *importSet) const {
     for (const auto& fqName : mImportedNamesGranular) {
         FQName packageName = fqName.getPackageAndVersion();
@@ -789,6 +829,9 @@ void AST::getAllImportedNamesGranular(std::set<FQName> *allImportNames) const {
             // re-export anything it itself imported.
             AST* ast = mCoordinator->parse(
                     fqName, nullptr /* imported */, Coordinator::Enforce::NONE);
+
+            // imported names must have already been validated
+            CHECK(ast != nullptr) << fqName.string();
 
             ast->addDefinedTypes(allImportNames);
         } else {
@@ -839,6 +882,50 @@ void AST::addReferencedTypes(std::set<FQName> *referencedTypes) const {
             [referencedTypes](const auto &fqName) {
                 referencedTypes->insert(fqName);
             });
+}
+
+bool AST::addMethod(Method* method, Interface* iface) {
+    if (iface->isIBase()) {
+        if (!mAllReservedMethods.emplace(method->name(), method).second) {
+            std::cerr << "ERROR: hidl-gen encountered duplicated reserved method " << method->name()
+                      << std::endl;
+            return false;
+        }
+
+        // methods will be added to iface in addAllReservedMethodsToInterface
+        return true;
+    }
+
+    iface->addUserDefinedMethod(method);
+
+    return true;
+}
+
+bool AST::addAllReservedMethodsToInterface(Interface* iface) {
+    std::map<std::string, Method*> allReservedMethods(mAllReservedMethods);
+    // Looking for the IBase AST which is imported for all interfaces that are not IBase
+    for (const AST* importedAST : mImportedASTs) {
+        allReservedMethods.insert(importedAST->mAllReservedMethods.begin(),
+                                  importedAST->mAllReservedMethods.end());
+    }
+
+    return iface->addAllReservedMethods(allReservedMethods);
+}
+
+void AST::setHeader(const DocComment* header) {
+    mHeader = header;
+}
+
+const DocComment* AST::getHeader() const {
+    return mHeader;
+}
+
+void AST::addUnhandledComment(const DocComment* docComment) {
+    if (docComment != nullptr) mUnhandledComments.push_back(docComment);
+}
+
+const std::vector<const DocComment*> AST::getUnhandledComments() const {
+    return mUnhandledComments;
 }
 
 }  // namespace android;

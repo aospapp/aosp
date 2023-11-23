@@ -43,6 +43,7 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
         CapabilitiesCache.OnLocalPrinterCapabilities {
     private static final String TAG = LocalPrintJob.class.getSimpleName();
     private static final boolean DEBUG = false;
+    private static final String IPP_SCHEME = "ipp";
     private static final String IPPS_SCHEME = "ipps";
 
     /** Maximum time to wait to find a printer before failing the job */
@@ -245,6 +246,15 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
     }
 
     private void deliver() {
+        // Upgrade to IPPS if necessary
+        Uri newUri = Uri.parse(mCapabilities.path);
+        if (IPPS_SCHEME.equals(newUri.getScheme()) && newUri.getPort() > 0 &&
+            IPP_SCHEME.equals(mPath.getScheme())) {
+            mPath = mPath.buildUpon().scheme(IPPS_SCHEME).encodedAuthority(mPath.getHost() +
+                ":" + newUri.getPort()).build();
+        }
+
+        if (DEBUG) Log.d(TAG, "deliver() to " + mPath);
         if (mCapabilities.certificate != null && !IPPS_SCHEME.equals(mPath.getScheme())) {
             mState = STATE_SECURITY;
             mPrintJob.block(mPrintService.getString(R.string.printer_not_encrypted));

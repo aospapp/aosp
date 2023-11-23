@@ -23,6 +23,7 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.ExecutionFiles;
 import com.android.tradefed.util.FileUtil;
 
 import org.easymock.EasyMock;
@@ -48,16 +49,23 @@ public class CompatibilityBuildProviderTest {
     public void setUp() throws Exception {
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mRootDir = FileUtil.createTempDir("cts-root-dir");
-        mProvider = new CompatibilityBuildProvider() {
-            @Override
-            String getRootDirPath() {
-                return mRootDir.getAbsolutePath();
-            }
-            @Override
-            protected String getSuiteInfoName() {
-                return "CTS";
-            }
-        };
+        mProvider =
+                new CompatibilityBuildProvider() {
+                    @Override
+                    String getRootDirPath() {
+                        return mRootDir.getAbsolutePath();
+                    }
+
+                    @Override
+                    protected String getSuiteInfoName() {
+                        return "CTS";
+                    }
+
+                    @Override
+                    ExecutionFiles getInvocationFiles() {
+                        return null;
+                    }
+                };
     }
 
     @After
@@ -174,5 +182,20 @@ public class CompatibilityBuildProviderTest {
                 CompatibilityBuildProvider.DYNAMIC_CONFIG_OVERRIDE_URL);
         assertTrue(String.format("URL was %s and should have contained %s", url, uniquePattern),
                 url.contains(uniquePattern));
+    }
+
+    /* Test that getRootDirPath can handle suite name containing `-`. */
+    @Test
+    public void testGetRootDirPath() throws Exception {
+        CompatibilityBuildProvider provider =
+                new CompatibilityBuildProvider() {
+                    @Override
+                    protected String getSuiteInfoName() {
+                        return "VTS-CORE";
+                    }
+                };
+        final String path = "test/path";
+        System.setProperty("VTS_CORE_ROOT", path);
+        assertEquals(path, provider.getRootDirPath());
     }
 }

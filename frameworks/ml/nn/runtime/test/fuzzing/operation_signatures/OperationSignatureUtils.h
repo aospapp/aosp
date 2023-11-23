@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_SIGNATURE_UTILS_H
-#define ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_SIGNATURE_UTILS_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_SIGNATURES_OPERATION_SIGNATURE_UTILS_H
+#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_SIGNATURES_OPERATION_SIGNATURE_UTILS_H
 
+#include <algorithm>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "TestHarness.h"
 #include "TestNeuralNetworksWrapper.h"
 #include "fuzzing/OperationManager.h"
 #include "fuzzing/RandomGraphGenerator.h"
@@ -32,55 +35,61 @@ namespace fuzzing_test {
 
 namespace {
 
-// From Type to cpp type.
-template <Type type>
+using namespace test_helper;
+
+// From TestOperandType to cpp type.
+template <TestOperandType type>
 struct CppType;
 template <>
-struct CppType<Type::TENSOR_FLOAT32> {
+struct CppType<TestOperandType::TENSOR_FLOAT32> {
     using type = float;
 };
 template <>
-struct CppType<Type::FLOAT32> {
+struct CppType<TestOperandType::FLOAT32> {
     using type = float;
 };
 template <>
-struct CppType<Type::TENSOR_INT32> {
+struct CppType<TestOperandType::TENSOR_INT32> {
     using type = int32_t;
 };
 template <>
-struct CppType<Type::INT32> {
+struct CppType<TestOperandType::INT32> {
     using type = int32_t;
 };
 template <>
-struct CppType<Type::TENSOR_QUANT8_ASYMM> {
+struct CppType<TestOperandType::TENSOR_QUANT8_ASYMM> {
     using type = uint8_t;
 };
 template <>
-struct CppType<Type::TENSOR_QUANT8_SYMM> {
+struct CppType<TestOperandType::TENSOR_QUANT8_SYMM> {
     using type = int8_t;
 };
 template <>
-struct CppType<Type::TENSOR_QUANT16_ASYMM> {
+struct CppType<TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED> {
+    using type = int8_t;
+};
+template <>
+struct CppType<TestOperandType::TENSOR_QUANT16_ASYMM> {
     using type = uint16_t;
 };
 template <>
-struct CppType<Type::TENSOR_QUANT16_SYMM> {
+struct CppType<TestOperandType::TENSOR_QUANT16_SYMM> {
     using type = int16_t;
 };
 template <>
-struct CppType<Type::TENSOR_BOOL8> {
+struct CppType<TestOperandType::TENSOR_BOOL8> {
     using type = bool8;
 };
 template <>
-struct CppType<Type::BOOL> {
+struct CppType<TestOperandType::BOOL> {
     using type = bool8;
 };
 template <>
-struct CppType<Type::TENSOR_FLOAT16> {
+struct CppType<TestOperandType::TENSOR_FLOAT16> {
     using type = _Float16;
 };
 template <>
-struct CppType<Type::FLOAT16> {
+struct CppType<TestOperandType::FLOAT16> {
     using type = _Float16;
 };
 
@@ -92,39 +101,64 @@ constexpr float kMaxFloat32 = 2.0f;
 constexpr float kMinFloat32 = -kMaxFloat32;
 
 template <typename T>
-inline void uniform(T low, T up, RandomOperand* op) {
-    T* data = reinterpret_cast<T*>(op->buffer.data());
-    uint32_t len = op->getNumberOfElements();
-    for (uint32_t i = 0; i < len; i++) data[i] = getUniform(low, up);
+inline T getUniformValue(int valueProperties, T low, T up, T zeroPoint) {
+    if (valueProperties & RandomOperand::NON_NEGATIVE) {
+        NN_FUZZER_CHECK(up >= zeroPoint);
+        low = std::max(low, zeroPoint);
+    }
+    if (valueProperties & RandomOperand::NON_ZERO) {
+        return getUniformNonZero(low, up, zeroPoint);
+    } else {
+        return getUniform(low, up);
+    }
 }
 template <>
-inline void uniform<bool8>(bool8, bool8, RandomOperand* op) {
-    bool8* data = reinterpret_cast<bool8*>(op->buffer.data());
+inline bool8 getUniformValue(int, bool8, bool8, bool8) {
+    return getBernoulli(0.5f);
+}
+
+template <typename T>
+inline void uniform(T low, T up, T zeroPoint, RandomOperand* op) {
+    T* data = reinterpret_cast<T*>(op->buffer.data());
     uint32_t len = op->getNumberOfElements();
-    for (uint32_t i = 0; i < len; i++) data[i] = getBernoulli(0.5f);
+    for (uint32_t i = 0; i < len; i++) {
+        data[i] = getUniformValue<T>(op->valueProperties, low, up, zeroPoint);
+    }
 }
 
 // Generate random buffer values with uniform distribution.
 // Dispatch to different generators by operand dataType.
 inline void uniformFinalizer(RandomOperand* op) {
     switch (op->dataType) {
-        case Type::TENSOR_FLOAT32:
-            uniform<float>(kMinFloat32, kMaxFloat32, op);
+        case TestOperandType::TENSOR_FLOAT32:
+        case TestOperandType::FLOAT32:
+            uniform<float>(kMinFloat32, kMaxFloat32, 0.0f, op);
             break;
-        case Type::TENSOR_INT32:
-            uniform<int32_t>(0, 255, op);
+        case TestOperandType::TENSOR_INT32:
+        case TestOperandType::INT32:
+            uniform<int32_t>(0, 255, op->zeroPoint, op);
             break;
-        case Type::TENSOR_QUANT8_ASYMM:
-            uniform<uint8_t>(0, 255, op);
+        case TestOperandType::TENSOR_QUANT8_ASYMM:
+            uniform<uint8_t>(0, 255, op->zeroPoint, op);
             break;
-        case Type::TENSOR_QUANT8_SYMM:
-            uniform<uint8_t>(-128, 127, op);
+        case TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            uniform<int8_t>(-128, 127, op->zeroPoint, op);
             break;
-        case Type::TENSOR_BOOL8:
-            uniform<bool8>(true, false, op);
+        case TestOperandType::TENSOR_QUANT8_SYMM:
+            uniform<int8_t>(-128, 127, op->zeroPoint, op);
             break;
-        case Type::TENSOR_FLOAT16:
-            uniform<_Float16>(kMinFloat32, kMaxFloat32, op);
+        case TestOperandType::TENSOR_QUANT16_ASYMM:
+            uniform<uint16_t>(0, 65535, op->zeroPoint, op);
+            break;
+        case TestOperandType::TENSOR_QUANT16_SYMM:
+            uniform<int16_t>(-32768, 32767, op->zeroPoint, op);
+            break;
+        case TestOperandType::TENSOR_BOOL8:
+            uniform<bool8>(true, false, false, op);
+            break;
+        case TestOperandType::TENSOR_FLOAT16:
+        case TestOperandType::FLOAT16:
+            uniform<_Float16>(kMinFloat32, kMaxFloat32, 0.0f, op);
             break;
         default:
             NN_FUZZER_CHECK(false) << "Unsupported data type.";
@@ -204,7 +238,7 @@ inline void setFreeDimensions(const std::shared_ptr<RandomOperand>& op, uint32_t
 }
 
 inline void setConvFCScale(bool applyOutputScaleBound, RandomOperation* op) {
-    if (op->inputs[0]->dataType == Type::TENSOR_QUANT8_ASYMM) {
+    if (isQuantizedType(op->inputs[0]->dataType)) {
         float biasScale = op->inputs[0]->scale * op->inputs[1]->scale;
         op->inputs[2]->scale = biasScale;
         if (applyOutputScaleBound) {
@@ -214,28 +248,60 @@ inline void setConvFCScale(bool applyOutputScaleBound, RandomOperation* op) {
 }
 
 // For ops with input0 and output0 of the same dimension.
-inline void sameDimensionOpConstructor(Type, uint32_t rank, RandomOperation* op) {
+inline void sameDimensionOpConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     setFreeDimensions(op->inputs[0], rank);
     op->outputs[0]->dimensions = op->inputs[0]->dimensions;
 }
 
 // For ops with input0 and output0 of the same shape including scale and zeroPoint.
-inline void sameShapeOpConstructor(Type dataType, uint32_t rank, RandomOperation* op) {
+inline void sameShapeOpConstructor(TestOperandType dataType, uint32_t rank, RandomOperation* op) {
     sameDimensionOpConstructor(dataType, rank, op);
     setSameQuantization(op->outputs[0], op->inputs[0]);
 }
 
-inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op) {
+inline void defaultOperandConstructor(TestOperandType dataType, uint32_t, RandomOperand* op) {
     op->dataType = dataType;
-    if (dataType == Type::TENSOR_QUANT8_ASYMM) {
+    if (dataType == TestOperandType::TENSOR_QUANT8_ASYMM) {
         op->scale = getUniform<float>(0.1, 2.0);
         op->zeroPoint = getUniform<int32_t>(0, 255);
-    } else if (dataType == Type::TENSOR_QUANT8_SYMM) {
+    } else if (dataType == TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        op->scale = getUniform<float>(0.1, 2.0);
+        op->zeroPoint = getUniform<int32_t>(-128, 127);
+    } else if (dataType == TestOperandType::TENSOR_QUANT8_SYMM) {
+        op->scale = getUniform<float>(0.1, 2.0);
+        op->zeroPoint = 0;
+    } else if (dataType == TestOperandType::TENSOR_QUANT16_ASYMM) {
+        op->scale = getUniform<float>(0.1, 2.0);
+        op->zeroPoint = getUniform<int32_t>(0, 65535);
+    } else if (dataType == TestOperandType::TENSOR_QUANT16_SYMM) {
         op->scale = getUniform<float>(0.1, 2.0);
         op->zeroPoint = 0;
     } else {
         op->scale = 0.0f;
         op->zeroPoint = 0;
+    }
+}
+
+inline void defaultScalarOperandConstructor(TestOperandType dataType, uint32_t, RandomOperand* op) {
+    switch (dataType) {
+        case TestOperandType::TENSOR_FLOAT32:
+            op->dataType = TestOperandType::FLOAT32;
+            op->scale = 0.0f;
+            op->zeroPoint = 0;
+            break;
+        case TestOperandType::TENSOR_FLOAT16:
+            op->dataType = TestOperandType::FLOAT16;
+            op->scale = 0.0f;
+            op->zeroPoint = 0;
+            break;
+        case TestOperandType::TENSOR_INT32:
+            op->dataType = TestOperandType::INT32;
+            op->scale = 0.0f;
+            op->zeroPoint = 0;
+            break;
+        default:
+            NN_FUZZER_CHECK(false) << "Data type " << toString(dataType)
+                                   << " is not supported in defaultScalarOperandConstructor.";
     }
 }
 
@@ -248,12 +314,20 @@ inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op
         .finalizer = uniformFinalizer                                               \
     }
 
+// A scalar operand with an uniformly distributed value. The operand's data type is set to the
+// corresponding scalar type of the operation's primary data type (which is always a tensor type).
+#define INPUT_SCALAR                                                                      \
+    {                                                                                     \
+        .type = RandomOperandType::INPUT, .constructor = defaultScalarOperandConstructor, \
+        .finalizer = uniformFinalizer                                                     \
+    }
+
 // An INPUT operand with a specified data type and uniformly distributed buffer values. In the case
 // of quantized data type, the quantization parameters are chosen randomly and uniformly.
 #define INPUT_TYPED(opType)                                                                      \
     {                                                                                            \
         .type = RandomOperandType::INPUT,                                                        \
-        .constructor = [](Type, uint32_t rank,                                                   \
+        .constructor = [](TestOperandType, uint32_t rank,                                        \
                           RandomOperand* op) { defaultOperandConstructor((opType), rank, op); }, \
         .finalizer = uniformFinalizer                                                            \
     }
@@ -262,17 +336,18 @@ inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op
 // An INPUT operand with uniformly distributed buffer values. The operand's data type is set to
 // TENSOR_INT32 if the operation's primary data type is TENSOR_QUANT8_ASYMM. Otherwise, it is the
 // same as INPUT_DEFAULT.
-#define INPUT_BIAS                                                    \
-    {                                                                 \
-        .type = RandomOperandType::INPUT,                             \
-        .constructor =                                                \
-                [](Type dataType, uint32_t rank, RandomOperand* op) { \
-                    if (dataType == Type::TENSOR_QUANT8_ASYMM) {      \
-                        dataType = Type::TENSOR_INT32;                \
-                    }                                                 \
-                    defaultOperandConstructor(dataType, rank, op);    \
-                },                                                    \
-        .finalizer = uniformFinalizer                                 \
+#define INPUT_BIAS                                                                 \
+    {                                                                              \
+        .type = RandomOperandType::INPUT,                                          \
+        .constructor =                                                             \
+                [](TestOperandType dataType, uint32_t rank, RandomOperand* op) {   \
+                    if (dataType == TestOperandType::TENSOR_QUANT8_ASYMM ||        \
+                        dataType == TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED) { \
+                        dataType = TestOperandType::TENSOR_INT32;                  \
+                    }                                                              \
+                    defaultOperandConstructor(dataType, rank, op);                 \
+                },                                                                 \
+        .finalizer = uniformFinalizer                                              \
     }
 
 // A helper macro for common code block filling operand buffer with random method.
@@ -291,11 +366,12 @@ inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op
     }
 
 // A 1-D vector of CONST parameters of length len, each uniformly selected within range [low, up].
-#define PARAMETER_VEC_RANGE(opType, len, low, up)                                                \
-    {                                                                                            \
-        .type = RandomOperandType::CONST, .constructor = [](Type, uint32_t, RandomOperand* op) { \
-            PARAMETER_FILL_BUFFER_HELPER(opType, len, getUniform, low, up);                      \
-        }                                                                                        \
+#define PARAMETER_VEC_RANGE(opType, len, low, up)                           \
+    {                                                                       \
+        .type = RandomOperandType::CONST,                                   \
+        .constructor = [](TestOperandType, uint32_t, RandomOperand* op) {   \
+            PARAMETER_FILL_BUFFER_HELPER(opType, len, getUniform, low, up); \
+        }                                                                   \
     }
 
 // A CONST scalar uniformly selected within range [low, up].
@@ -304,51 +380,61 @@ inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op
 // A CONST floating point scalar uniformly selected within range [low, up]. The operand's data type
 // is set to FLOAT16 if the operation's primary data type is TENSOR_FLOAT16. Otherwise, the data
 // type is set to FLOAT32.
-#define PARAMETER_FLOAT_RANGE(low, up)                                               \
-    {                                                                                \
-        .type = RandomOperandType::CONST,                                            \
-        .constructor = [](Type dataType, uint32_t, RandomOperand* op) {              \
-            if (dataType == Type::TENSOR_FLOAT16) {                                  \
-                PARAMETER_FILL_BUFFER_HELPER(Type::FLOAT16, 1, getUniform, low, up); \
-            } else {                                                                 \
-                PARAMETER_FILL_BUFFER_HELPER(Type::FLOAT32, 1, getUniform, low, up); \
-            }                                                                        \
-        }                                                                            \
+#define PARAMETER_FLOAT_RANGE(low, up)                                                          \
+    {                                                                                           \
+        .type = RandomOperandType::CONST,                                                       \
+        .constructor = [](TestOperandType dataType, uint32_t, RandomOperand* op) {              \
+            if (dataType == TestOperandType::TENSOR_FLOAT16) {                                  \
+                PARAMETER_FILL_BUFFER_HELPER(TestOperandType::FLOAT16, 1, getUniform, low, up); \
+            } else {                                                                            \
+                PARAMETER_FILL_BUFFER_HELPER(TestOperandType::FLOAT32, 1, getUniform, low, up); \
+            }                                                                                   \
+        }                                                                                       \
     }
 
 // A CONST scalar uniformly selected from the provided choices.
-#define PARAMETER_CHOICE(opType, ...)                                                            \
-    {                                                                                            \
-        .type = RandomOperandType::CONST, .constructor = [](Type, uint32_t, RandomOperand* op) { \
-            const std::vector<CppType<opType>::type> choices = {__VA_ARGS__};                    \
-            PARAMETER_FILL_BUFFER_HELPER(opType, 1, getRandomChoice, choices);                   \
-        }                                                                                        \
+#define PARAMETER_CHOICE(opType, ...)                                          \
+    {                                                                          \
+        .type = RandomOperandType::CONST,                                      \
+        .constructor = [](TestOperandType, uint32_t, RandomOperand* op) {      \
+            const std::vector<CppType<opType>::type> choices = {__VA_ARGS__};  \
+            PARAMETER_FILL_BUFFER_HELPER(opType, 1, getRandomChoice, choices); \
+        }                                                                      \
     }
 
 // A CONST scalar with unintialized buffer value. The buffer values are expected to be filled in the
 // operation constructor or finalizer.
-#define PARAMETER_NONE(opType)                                                          \
-    {                                                                                   \
-        .type = RandomOperandType::CONST,                                               \
-        .constructor = [](Type, uint32_t, RandomOperand* op) { op->dataType = opType; } \
+#define PARAMETER_NONE(opType)                                                                     \
+    {                                                                                              \
+        .type = RandomOperandType::CONST,                                                          \
+        .constructor = [](TestOperandType, uint32_t, RandomOperand* op) { op->dataType = opType; } \
+    }
+
+// A CONST omitted operand.
+#define PARAMETER_NO_VALUE(opType)                                                                 \
+    {                                                                                              \
+        .type = RandomOperandType::NO_VALUE,                                                       \
+        .constructor = [](TestOperandType, uint32_t, RandomOperand* op) { op->dataType = opType; } \
     }
 
 // A CONST integer scalar with value set as a FREE RandomVariable within default range.
-#define RANDOM_INT_FREE                                                                          \
-    {                                                                                            \
-        .type = RandomOperandType::CONST, .constructor = [](Type, uint32_t, RandomOperand* op) { \
-            op->dataType = Type::INT32;                                                          \
-            op->randomBuffer = {RandomVariableType::FREE};                                       \
-        }                                                                                        \
+#define RANDOM_INT_FREE                                                   \
+    {                                                                     \
+        .type = RandomOperandType::CONST,                                 \
+        .constructor = [](TestOperandType, uint32_t, RandomOperand* op) { \
+            op->dataType = TestOperandType::INT32;                        \
+            op->randomBuffer = {RandomVariableType::FREE};                \
+        }                                                                 \
     }
 
 // A CONST integer scalar with value set as a FREE RandomVariable within range [low, up].
-#define RANDOM_INT_RANGE(low, up)                                                                \
-    {                                                                                            \
-        .type = RandomOperandType::CONST, .constructor = [](Type, uint32_t, RandomOperand* op) { \
-            op->dataType = Type::INT32;                                                          \
-            op->randomBuffer = {RandomVariable((low), (up))};                                    \
-        }                                                                                        \
+#define RANDOM_INT_RANGE(low, up)                                         \
+    {                                                                     \
+        .type = RandomOperandType::CONST,                                 \
+        .constructor = [](TestOperandType, uint32_t, RandomOperand* op) { \
+            op->dataType = TestOperandType::INT32;                        \
+            op->randomBuffer = {RandomVariable((low), (up))};             \
+        }                                                                 \
     }
 
 // An OUTPUT operand with data type set the same as the operation primary data type. In the case of
@@ -358,27 +444,26 @@ inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op
 
 // An OUTPUT operand with a specified data type. In the case of quantized data type, the
 // quantization parameters are chosen randomly and uniformly.
-#define OUTPUT_TYPED(opType)                                        \
-    {                                                               \
-        .type = RandomOperandType::OUTPUT,                          \
-        .constructor = [](Type, uint32_t rank, RandomOperand* op) { \
-            defaultOperandConstructor((opType), rank, op);          \
-        }                                                           \
+#define OUTPUT_TYPED(opType)                                                   \
+    {                                                                          \
+        .type = RandomOperandType::OUTPUT,                                     \
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperand* op) { \
+            defaultOperandConstructor((opType), rank, op);                     \
+        }                                                                      \
     }
 
 // An OUTPUT operand with data type set the same as the operation primary data type. In the case of
 // quantized data type, the quantization parameters are set to the specified values.
-#define OUTPUT_QUANT(fixedScale, fixedZeroPoint)                             \
-    {                                                                        \
-        .type = RandomOperandType::OUTPUT,                                   \
-        .constructor = [](Type dataType, uint32_t rank, RandomOperand* op) { \
-            defaultOperandConstructor(dataType, rank, op);                   \
-            if (op->dataType == Type::TENSOR_QUANT8_ASYMM ||                 \
-                dataType == Type::TENSOR_QUANT8_SYMM) {                      \
-                op->scale = (fixedScale);                                    \
-                op->zeroPoint = (fixedZeroPoint);                            \
-            }                                                                \
-        }                                                                    \
+#define OUTPUT_QUANT(fixedScale, fixedZeroPoint)                                        \
+    {                                                                                   \
+        .type = RandomOperandType::OUTPUT,                                              \
+        .constructor = [](TestOperandType dataType, uint32_t rank, RandomOperand* op) { \
+            defaultOperandConstructor(dataType, rank, op);                              \
+            if (isQuantizedType(op->dataType)) {                                        \
+                op->scale = (fixedScale);                                               \
+                op->zeroPoint = (fixedZeroPoint);                                       \
+            }                                                                           \
+        }                                                                               \
     }
 
 // DEFINE_OPERATION_SIGNATURE creates a OperationSignature by aggregate initialization and adds it
@@ -389,13 +474,11 @@ inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op
 //
 // Example:
 //   DEFINE_OPERATION_SIGNATURE(RELU_V1_0) {
-//       .opType = ANEURALNETWORKS_RELU,
-//       .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
-//       .supportedRanks = {1, 2, 3, 4},
-//       .version = HalVersion::V1_0,
-//       .inputs = {INPUT_DEFAULT},
-//       .outputs = {OUTPUT_DEFAULT},
-//       .constructor = sameShapeOpConstructor};
+//       .opType = TestOperationType::RELU,
+//       .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32,
+//       TestOperandType::TENSOR_QUANT8_ASYMM}, .supportedRanks = {1, 2, 3, 4}, .version =
+//       TestHalVersion::V1_0, .inputs = {INPUT_DEFAULT}, .outputs = {OUTPUT_DEFAULT}, .constructor
+//       = sameShapeOpConstructor};
 //
 #define DEFINE_OPERATION_SIGNATURE(name) \
     const int dummy_##name = OperationSignatureHelper(#name) + OperationSignature
@@ -404,4 +487,4 @@ inline void defaultOperandConstructor(Type dataType, uint32_t, RandomOperand* op
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_SIGNATURE_UTILS_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_SIGNATURES_OPERATION_SIGNATURE_UTILS_H

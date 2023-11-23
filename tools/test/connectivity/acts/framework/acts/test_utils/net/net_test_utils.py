@@ -14,9 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 import logging
+import os
 
 from acts.controllers import adb
 from acts import asserts
+from acts import signals
 from acts import utils
 from acts.controllers.adb import AdbError
 from acts.logger import epoch_to_log_line_timestamp
@@ -25,9 +27,11 @@ from acts.logger import normalize_log_line_timestamp
 from acts.utils import start_standing_subprocess
 from acts.utils import stop_standing_subprocess
 from acts.test_utils.net import connectivity_const as cconst
+from acts.test_utils.tel.tel_test_utils import get_operator_name
 from acts.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.test_utils.wifi import wifi_test_utils as wutils
+from scapy.all import get_if_list
 
 import os
 import re
@@ -37,7 +41,13 @@ import urllib.request
 VPN_CONST = cconst.VpnProfile
 VPN_TYPE = cconst.VpnProfileType
 VPN_PARAMS = cconst.VpnReqParams
-TCPDUMP_PATH = "/data/local/tmp/tcpdump"
+TCPDUMP_PATH = "/data/local/tmp/"
+USB_CHARGE_MODE = "svc usb setFunctions"
+USB_TETHERING_MODE = "svc usb setFunctions rndis"
+DEVICE_IP_ADDRESS = "ip address"
+
+GCE_SSH = "gcloud compute ssh "
+GCE_SCP = "gcloud compute scp "
 
 
 def verify_lte_data_and_tethering_supported(ad):
@@ -279,8 +289,178 @@ def stop_tcpdump(ad,
     except Exception as e:
         ad.log.warning(e)
     log_path = os.path.join(ad.log_path, test_name)
-    utils.create_dir(log_path)
+    os.makedirs(log_path, exist_ok=True)
     ad.adb.pull("%s/. %s" % (TCPDUMP_PATH, log_path), timeout=adb_pull_timeout)
     ad.adb.shell("rm -rf %s/*" % TCPDUMP_PATH, ignore_status=True)
     file_name = "tcpdump_%s_%s.pcap" % (ad.serial, test_name)
     return "%s/%s" % (log_path, file_name)
+
+def start_tcpdump_gce_server(ad, test_name, dest_port, gce):
+    """ Start tcpdump on gce server
+
+    Args:
+        ad: android device object
+        test_name: test case name
+        dest_port: port to collect tcpdump
+        gce: dictionary of gce instance
+
+    Returns:
+       process id and pcap file path from gce server
+    """
+    ad.log.info("Starting tcpdump on gce server")
+
+    # pcap file name
+    fname = "/tmp/%s_%s_%s_%s" % \
+        (test_name, ad.model, ad.serial,
+         time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(time.time())))
+
+    # start tcpdump
+    tcpdump_cmd = "sudo bash -c \'tcpdump -i %s -w %s.pcap port %s > \
+        %s.txt 2>&1 & echo $!\'" % (gce["interface"], fname, dest_port, fname)
+    gcloud_ssh_cmd = "%s --project=%s --zone=%s %s@%s --command " % \
+        (GCE_SSH, gce["project"], gce["zone"], gce["username"], gce["hostname"])
+    gce_ssh_cmd = '%s "%s"' % (gcloud_ssh_cmd, tcpdump_cmd)
+    utils.exe_cmd(gce_ssh_cmd)
+
+    # get process id
+    ps_cmd = '%s "ps aux | grep tcpdump | grep %s"' % (gcloud_ssh_cmd, fname)
+    tcpdump_pid = utils.exe_cmd(ps_cmd).decode("utf-8", "ignore").split()
+    if not tcpdump_pid:
+        raise signals.TestFailure("Failed to start tcpdump on gce server")
+    return tcpdump_pid[1], fname
+
+def stop_tcpdump_gce_server(ad, tcpdump_pid, fname, gce):
+    """ Stop and pull tcpdump file from gce server
+
+    Args:
+        ad: android device object
+        tcpdump_pid: process id for tcpdump file
+        fname: tcpdump file path
+        gce: dictionary of gce instance
+
+    Returns:
+       pcap file from gce server
+    """
+    ad.log.info("Stop and pull pcap file from gce server")
+
+    # stop tcpdump
+    tcpdump_cmd = "sudo kill %s" % tcpdump_pid
+    gcloud_ssh_cmd = "%s --project=%s --zone=%s %s@%s --command " % \
+        (GCE_SSH, gce["project"], gce["zone"], gce["username"], gce["hostname"])
+    gce_ssh_cmd = '%s "%s"' % (gcloud_ssh_cmd, tcpdump_cmd)
+    utils.exe_cmd(gce_ssh_cmd)
+
+    # verify tcpdump is stopped
+    ps_cmd = '%s "ps aux | grep tcpdump"' % gcloud_ssh_cmd
+    res = utils.exe_cmd(ps_cmd).decode("utf-8", "ignore")
+    if tcpdump_pid in res.split():
+        raise signals.TestFailure("Failed to stop tcpdump on gce server")
+    if not fname:
+        return None
+
+    # pull pcap file
+    gcloud_scp_cmd = "%s --project=%s --zone=%s %s@%s:" % \
+        (GCE_SCP, gce["project"], gce["zone"], gce["username"], gce["hostname"])
+    pull_file = '%s%s.pcap %s/' % (gcloud_scp_cmd, fname, ad.device_log_path)
+    utils.exe_cmd(pull_file)
+    if not os.path.exists(
+        "%s/%s.pcap" % (ad.device_log_path, fname.split('/')[-1])):
+        raise signals.TestFailure("Failed to pull tcpdump from gce server")
+
+    # delete pcaps
+    utils.exe_cmd('%s "sudo rm %s.*"' % (gcloud_ssh_cmd, fname))
+
+    # return pcap file
+    pcap_file = "%s/%s.pcap" % (ad.device_log_path, fname.split('/')[-1])
+    return pcap_file
+
+def is_ipaddress_ipv6(ip_address):
+    """Verify if the given string is a valid IPv6 address.
+
+    Args:
+        ip_address: string containing the IP address
+
+    Returns:
+        True: if valid ipv6 address
+        False: if not
+    """
+    try:
+        socket.inet_pton(socket.AF_INET6, ip_address)
+        return True
+    except socket.error:
+        return False
+
+def carrier_supports_ipv6(dut):
+    """Verify if carrier supports ipv6.
+
+    Args:
+        dut: Android device that is being checked
+
+    Returns:
+        True: if carrier supports ipv6
+        False: if not
+    """
+
+    carrier_supports_ipv6 = ["vzw", "tmo", "Far EasTone", "Chunghwa Telecom"]
+    operator = get_operator_name("log", dut)
+    return operator in carrier_supports_ipv6
+
+def supports_ipv6_tethering(self, dut):
+    """ Check if provider supports IPv6 tethering.
+
+    Returns:
+        True: if provider supports IPv6 tethering
+        False: if not
+    """
+    carrier_supports_tethering = ["vzw", "tmo", "Far EasTone", "Chunghwa Telecom"]
+    operator = get_operator_name(self.log, dut)
+    return operator in carrier_supports_tethering
+
+
+def start_usb_tethering(ad):
+    """Start USB tethering.
+
+    Args:
+        ad: android device object
+    """
+    # TODO: test USB tethering by #startTethering API - b/149116235
+    ad.log.info("Starting USB Tethering")
+    ad.stop_services()
+    ad.adb.shell(USB_TETHERING_MODE, ignore_status=True)
+    ad.adb.wait_for_device()
+    ad.start_services()
+    if "rndis" not in ad.adb.shell(DEVICE_IP_ADDRESS):
+        raise signals.TestFailure("Unable to enable USB tethering.")
+
+
+def stop_usb_tethering(ad):
+    """Stop USB tethering.
+
+    Args:
+        ad: android device object
+    """
+    ad.log.info("Stopping USB Tethering")
+    ad.stop_services()
+    ad.adb.shell(USB_CHARGE_MODE)
+    ad.adb.wait_for_device()
+    ad.start_services()
+
+
+def wait_for_new_iface(old_ifaces):
+    """Wait for the new interface to come up.
+
+    Args:
+        old_ifaces: list of old interfaces
+    """
+    old_set = set(old_ifaces)
+    # Try 10 times to find a new interface with a 1s sleep every time
+    # (equivalent to a 9s timeout)
+    for i in range(0, 10):
+        new_ifaces = set(get_if_list()) - old_set
+        asserts.assert_true(len(new_ifaces) < 2,
+                            "Too many new interfaces after turning on "
+                            "tethering")
+        if len(new_ifaces) == 1:
+            return new_ifaces.pop()
+        time.sleep(1)
+    asserts.fail("Timeout waiting for tethering interface on host")

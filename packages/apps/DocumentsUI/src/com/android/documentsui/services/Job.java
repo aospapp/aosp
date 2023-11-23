@@ -27,9 +27,6 @@ import static com.android.documentsui.services.FileOperationService.EXTRA_JOB_ID
 import static com.android.documentsui.services.FileOperationService.EXTRA_OPERATION_TYPE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_UNKNOWN;
 
-import androidx.annotation.DrawableRes;
-import androidx.annotation.IntDef;
-import androidx.annotation.PluralsRes;
 import android.app.Notification;
 import android.app.Notification.Builder;
 import android.app.PendingIntent;
@@ -39,11 +36,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.CancellationSignal;
+import android.os.DeadObjectException;
 import android.os.FileUtils;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
 import android.util.Log;
+
+import androidx.annotation.DrawableRes;
+import androidx.annotation.IntDef;
+import androidx.annotation.PluralsRes;
 
 import com.android.documentsui.Metrics;
 import com.android.documentsui.OperationDialogFragment;
@@ -211,6 +213,18 @@ abstract public class Job implements Runnable {
         return getClient(doc.derivedUri);
     }
 
+    void releaseClient(Uri uri) {
+        ContentProviderClient client = mClients.get(uri.getAuthority());
+        if (client != null) {
+            client.close();
+            mClients.remove(uri.getAuthority());
+        }
+    }
+
+    void releaseClient(DocumentInfo doc) {
+        releaseClient(doc.derivedUri);
+    }
+
     final void cleanup() {
         for (ContentProviderClient client : mClients.values()) {
             FileUtils.closeQuietly(client);
@@ -270,6 +284,9 @@ abstract public class Job implements Runnable {
                         + "File is not deletable or removable: %s.", doc.derivedUri);
             }
         } catch (FileNotFoundException | RemoteException | RuntimeException e) {
+            if (e instanceof DeadObjectException) {
+                releaseClient(doc);
+            }
             throw new ResourceException("Failed to delete file %s due to an exception.",
                     doc.derivedUri, e);
         }

@@ -108,6 +108,7 @@ lt{
         car{"karibų"}
         cay{"kaijūgų"}
         cch{"atsamų"}
+        ccp{"Čakma"}
         ce{"čečėnų"}
         ceb{"sebuanų"}
         cgg{"čigų"}
@@ -638,10 +639,16 @@ lt{
         zxx{"nėra kalbinio turinio"}
         zza{"zaza"}
     }
+    Languages%long{
+        zh_Hans{"supaprastintoji mandarinų kinų"}
+        zh_Hant{"tradicinė mandarinų kinų"}
+    }
+    Languages%menu{
+        yue{"kinų kalbos Kantono tarmė"}
+        zh{"kinų, mandarinų"}
+    }
     Languages%short{
         az{"azeri"}
-        en_GB{"anglų (JK)"}
-        en_US{"anglų (JAV)"}
     }
     Scripts{
         Afak{"Afaka"}
@@ -1023,7 +1030,7 @@ lt{
         VALENCIA{"Valenciečiai"}
         WADEGILE{"Wade-Giles Romanization"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     characterLabelPattern{
         all{"{0} – visi"}
         category-list{"{0}: {1}"}

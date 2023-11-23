@@ -127,7 +127,6 @@ nmg{
         MD{"Mɔldavia"}
         MG{"Madagaskar"}
         MH{"Maŋ́ má Marshall"}
-        MK{"Macedonia"}
         ML{"Mali"}
         MM{"Myanmar"}
         MN{"Mɔngolia"}
@@ -227,5 +226,5 @@ nmg{
         ZM{"Zambia"}
         ZW{"Zimbabwǝ"}
     }
-    Version{"2.1.39.11"}
+    Version{"36.1"}
 }

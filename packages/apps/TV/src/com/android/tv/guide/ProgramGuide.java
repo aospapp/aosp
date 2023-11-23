@@ -32,10 +32,7 @@ import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v17.leanback.widget.OnChildSelectedListener;
-import android.support.v17.leanback.widget.SearchOrbView;
-import android.support.v17.leanback.widget.VerticalGridView;
-import android.support.v7.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
 import android.view.View.MeasureSpec;
@@ -44,6 +41,11 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener;
+
+import androidx.leanback.widget.OnChildSelectedListener;
+import androidx.leanback.widget.SearchOrbView;
+import androidx.leanback.widget.VerticalGridView;
+
 import com.android.tv.ChannelTuner;
 import com.android.tv.MainActivity;
 import com.android.tv.R;
@@ -65,7 +67,9 @@ import com.android.tv.ui.ViewUtils;
 import com.android.tv.ui.hideable.AutoHideScheduler;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-import com.android.tv.common.flags.BackendKnobsFlags;
+
+import com.android.tv.common.flags.UiFlags;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -112,6 +116,7 @@ public class ProgramGuide
     private final int mAnimationDuration;
     private final int mDetailPadding;
     private final SearchOrbView mSearchOrb;
+    private final UiFlags mUiFlags;
     private int mCurrentTimeIndicatorWidth;
 
     private final View mContainer;
@@ -185,15 +190,14 @@ public class ProgramGuide
         mActivity = activity;
         TvSingletons singletons = TvSingletons.getSingletons(mActivity);
         mPerformanceMonitor = singletons.getPerformanceMonitor();
-        BackendKnobsFlags backendKnobsFlags = singletons.getBackendKnobs();
+        mUiFlags = singletons.getUiFlags();
         mProgramManager =
                 new ProgramManager(
                         tvInputManagerHelper,
                         channelDataManager,
                         programDataManager,
                         dvrDataManager,
-                        dvrScheduleManager,
-                        backendKnobsFlags);
+                        dvrScheduleManager);
         mChannelTuner = channelTuner;
         mTracker = tracker;
         mPreShowRunnable = preShowRunnable;
@@ -261,7 +265,7 @@ public class ProgramGuide
                         }
                     });
             mSidePanelGridView.setOnChildSelectedListener(
-                    new android.support.v17.leanback.widget.OnChildSelectedListener() {
+                    new androidx.leanback.widget.OnChildSelectedListener() {
                         @Override
                         public void onChildSelected(ViewGroup viewGroup, View view, int i, long l) {
                             mSearchOrb.animate().alpha(i == 0 ? 1.0f : 0.0f);
@@ -282,7 +286,8 @@ public class ProgramGuide
                         res.getInteger(R.integer.max_recycled_view_pool_epg_header_row_item));
         mTimelineRow.setAdapter(mTimeListAdapter);
 
-        ProgramTableAdapter programTableAdapter = new ProgramTableAdapter(mActivity, this);
+        ProgramTableAdapter programTableAdapter =
+                new ProgramTableAdapter(mActivity, this, mUiFlags);
         programTableAdapter.registerAdapterDataObserver(
                 new RecyclerView.AdapterDataObserver() {
                     @Override

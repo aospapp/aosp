@@ -17,6 +17,7 @@ package com.android.documentsui.inspector;
 
 import static androidx.core.util.Preconditions.checkArgument;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
@@ -31,13 +32,26 @@ import androidx.loader.app.LoaderManager;
 
 import com.android.documentsui.R;
 import com.android.documentsui.base.Shared;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.inspector.InspectorController.DataSupplier;
 
 public class InspectorActivity extends AppCompatActivity {
 
+    private static final String EXTRA_USER_ID = "user_id";
+
     private InspectorController mController;
     private View mView;
     private Toolbar mToolbar;
+
+    /**
+     * Returns an intent for inspector activity with a uri and user of the uri.
+     */
+    public static Intent createIntent(Context context, Uri uri, UserId userId) {
+        Intent intent = new Intent(context, InspectorActivity.class);
+        intent.setData(uri);
+        intent.putExtra(EXTRA_USER_ID, userId.getIdentifier());
+        return intent;
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -67,8 +81,11 @@ public class InspectorActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         Uri uri = getIntent().getData();
+        checkArgument(getIntent().hasExtra(EXTRA_USER_ID));
         checkArgument(uri.getScheme().equals("content"));
-        mController.loadInfo(uri);
+        UserId userId = UserId.of(
+                getIntent().getIntExtra(EXTRA_USER_ID, UserId.UNSPECIFIED_USER.getIdentifier()));
+        mController.loadInfo(uri, userId);
     }
 
     @Override

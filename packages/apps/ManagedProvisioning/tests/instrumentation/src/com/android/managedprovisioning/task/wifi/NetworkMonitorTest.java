@@ -65,7 +65,8 @@ public class NetworkMonitorTest {
         verify(mContext).registerReceiver(receiverCaptor.capture(), eq(NetworkMonitor.FILTER));
 
         // WHEN connectivity is not obtained and a broadcast is received
-        when(mUtils.isConnectedToWifi(mContext)).thenReturn(false);
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(
+                false);
         receiverCaptor.getValue().onReceive(mContext,
                 new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
 
@@ -102,7 +103,8 @@ public class NetworkMonitorTest {
         verifyZeroInteractions(mCallback);
 
         // WHEN connectivity is obtained and a broadcast is received
-        when(mUtils.isConnectedToWifi(mContext)).thenReturn(true);
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(
+                true);
         receiverCaptor.getValue().onReceive(mContext,
                 new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
 

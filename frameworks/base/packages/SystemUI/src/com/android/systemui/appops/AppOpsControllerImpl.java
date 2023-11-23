@@ -16,8 +16,6 @@
 
 package com.android.systemui.appops;
 
-import static com.android.systemui.Dependency.BG_LOOPER_NAME;
-
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.os.Handler;
@@ -30,6 +28,8 @@ import android.util.Log;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.systemui.Dumpable;
+import com.android.systemui.dagger.qualifiers.Background;
+import com.android.systemui.dump.DumpManager;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Set;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 import javax.inject.Singleton;
 
 /**
@@ -49,9 +48,12 @@ import javax.inject.Singleton;
  */
 @Singleton
 public class AppOpsControllerImpl implements AppOpsController,
-        AppOpsManager.OnOpActiveChangedListener,
+        AppOpsManager.OnOpActiveChangedInternalListener,
         AppOpsManager.OnOpNotedListener, Dumpable {
 
+    // This is the minimum time that we will keep AppOps that are noted on record. If multiple
+    // occurrences of the same (op, package, uid) happen in a shorter interval, they will not be
+    // notified to listeners.
     private static final long NOTED_OP_TIME_DELAY_MS = 5000;
     private static final String TAG = "AppOpsControllerImpl";
     private static final boolean DEBUG = false;
@@ -61,6 +63,7 @@ public class AppOpsControllerImpl implements AppOpsController,
     private H mBGHandler;
     private final List<AppOpsController.Callback> mCallbacks = new ArrayList<>();
     private final ArrayMap<Integer, Set<Callback>> mCallbacksByCode = new ArrayMap<>();
+    private boolean mListening;
 
     @GuardedBy("mActiveItems")
     private final List<AppOpItem> mActiveItems = new ArrayList<>();
@@ -76,7 +79,10 @@ public class AppOpsControllerImpl implements AppOpsController,
     };
 
     @Inject
-    public AppOpsControllerImpl(Context context, @Named(BG_LOOPER_NAME) Looper bgLooper) {
+    public AppOpsControllerImpl(
+            Context context,
+            @Background Looper bgLooper,
+            DumpManager dumpManager) {
         mContext = context;
         mAppOps = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
         mBGHandler = new H(bgLooper);
@@ -84,6 +90,7 @@ public class AppOpsControllerImpl implements AppOpsController,
         for (int i = 0; i < numOps; i++) {
             mCallbacksByCode.put(OPS[i], new ArraySet<>());
         }
+        dumpManager.registerDumpable(TAG, this);
     }
 
     @VisibleForTesting
@@ -93,6 +100,7 @@ public class AppOpsControllerImpl implements AppOpsController,
 
     @VisibleForTesting
     protected void setListening(boolean listening) {
+        mListening = listening;
         if (listening) {
             mAppOps.startWatchingActive(OPS, this);
             mAppOps.startWatchingNoted(OPS, this);
@@ -155,7 +163,8 @@ public class AppOpsControllerImpl implements AppOpsController,
         if (mCallbacks.isEmpty()) setListening(false);
     }
 
-    private AppOpItem getAppOpItem(List<AppOpItem> appOpList, int code, int uid,
+    // Find item number in list, only call if the list passed is locked
+    private AppOpItem getAppOpItemLocked(List<AppOpItem> appOpList, int code, int uid,
             String packageName) {
         final int itemsQ = appOpList.size();
         for (int i = 0; i < itemsQ; i++) {
@@ -170,7 +179,7 @@ public class AppOpsControllerImpl implements AppOpsController,
 
     private boolean updateActives(int code, int uid, String packageName, boolean active) {
         synchronized (mActiveItems) {
-            AppOpItem item = getAppOpItem(mActiveItems, code, uid, packageName);
+            AppOpItem item = getAppOpItemLocked(mActiveItems, code, uid, packageName);
             if (item == null && active) {
                 item = new AppOpItem(code, uid, packageName, System.currentTimeMillis());
                 mActiveItems.add(item);
@@ -188,25 +197,37 @@ public class AppOpsControllerImpl implements AppOpsController,
     private void removeNoted(int code, int uid, String packageName) {
         AppOpItem item;
         synchronized (mNotedItems) {
-            item = getAppOpItem(mNotedItems, code, uid, packageName);
+            item = getAppOpItemLocked(mNotedItems, code, uid, packageName);
             if (item == null) return;
             mNotedItems.remove(item);
             if (DEBUG) Log.w(TAG, "Removed item: " + item.toString());
         }
-        notifySuscribers(code, uid, packageName, false);
+        boolean active;
+        // Check if the item is also active
+        synchronized (mActiveItems) {
+            active = getAppOpItemLocked(mActiveItems, code, uid, packageName) != null;
+        }
+        if (!active) {
+            notifySuscribers(code, uid, packageName, false);
+        }
     }
 
-    private void addNoted(int code, int uid, String packageName) {
+    private boolean addNoted(int code, int uid, String packageName) {
         AppOpItem item;
+        boolean createdNew = false;
         synchronized (mNotedItems) {
-            item = getAppOpItem(mNotedItems, code, uid, packageName);
+            item = getAppOpItemLocked(mNotedItems, code, uid, packageName);
             if (item == null) {
                 item = new AppOpItem(code, uid, packageName, System.currentTimeMillis());
                 mNotedItems.add(item);
                 if (DEBUG) Log.w(TAG, "Added item: " + item.toString());
+                createdNew = true;
             }
         }
+        // We should keep this so we make sure it cannot time out.
+        mBGHandler.removeCallbacksAndMessages(item);
         mBGHandler.scheduleRemoval(item, NOTED_OP_TIME_DELAY_MS);
+        return createdNew;
     }
 
     /**
@@ -253,23 +274,46 @@ public class AppOpsControllerImpl implements AppOpsController,
 
     @Override
     public void onOpActiveChanged(int code, int uid, String packageName, boolean active) {
-        if (updateActives(code, uid, packageName, active)) {
-            notifySuscribers(code, uid, packageName, active);
+        if (DEBUG) {
+            Log.w(TAG, String.format("onActiveChanged(%d,%d,%s,%s", code, uid, packageName,
+                    Boolean.toString(active)));
+        }
+        boolean activeChanged = updateActives(code, uid, packageName, active);
+        if (!activeChanged) return; // early return
+        // Check if the item is also noted, in that case, there's no update.
+        boolean alsoNoted;
+        synchronized (mNotedItems) {
+            alsoNoted = getAppOpItemLocked(mNotedItems, code, uid, packageName) != null;
+        }
+        // If active is true, we only send the update if the op is not actively noted (already true)
+        // If active is false, we only send the update if the op is not actively noted (prevent
+        // early removal)
+        if (!alsoNoted) {
+            mBGHandler.post(() -> notifySuscribers(code, uid, packageName, active));
         }
     }
 
     @Override
     public void onOpNoted(int code, int uid, String packageName, int result) {
         if (DEBUG) {
-            Log.w(TAG, "Op: " + code + " with result " + AppOpsManager.MODE_NAMES[result]);
+            Log.w(TAG, "Noted op: " + code + " with result "
+                    + AppOpsManager.MODE_NAMES[result] + " for package " + packageName);
         }
         if (result != AppOpsManager.MODE_ALLOWED) return;
-        addNoted(code, uid, packageName);
-        notifySuscribers(code, uid, packageName, true);
+        boolean notedAdded = addNoted(code, uid, packageName);
+        if (!notedAdded) return; // early return
+        boolean alsoActive;
+        synchronized (mActiveItems) {
+            alsoActive = getAppOpItemLocked(mActiveItems, code, uid, packageName) != null;
+        }
+        if (!alsoActive) {
+            mBGHandler.post(() -> notifySuscribers(code, uid, packageName, true));
+        }
     }
 
     private void notifySuscribers(int code, int uid, String packageName, boolean active) {
         if (mCallbacksByCode.containsKey(code)) {
+            if (DEBUG) Log.d(TAG, "Notifying of change in package " + packageName);
             for (Callback cb: mCallbacksByCode.get(code)) {
                 cb.onActiveStateChanged(code, uid, packageName, active);
             }
@@ -279,6 +323,7 @@ public class AppOpsControllerImpl implements AppOpsController,
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("AppOpsController state:");
+        pw.println("  Listening: " + mListening);
         pw.println("  Active Items:");
         for (int i = 0; i < mActiveItems.size(); i++) {
             final AppOpItem item = mActiveItems.get(i);
@@ -292,7 +337,7 @@ public class AppOpsControllerImpl implements AppOpsController,
 
     }
 
-    protected final class H extends Handler {
+    protected class H extends Handler {
         H(Looper looper) {
             super(looper);
         }

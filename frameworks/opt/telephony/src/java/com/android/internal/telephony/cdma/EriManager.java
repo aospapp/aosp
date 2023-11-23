@@ -16,18 +16,17 @@
 
 package com.android.internal.telephony.cdma;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
-import android.telephony.Rlog;
 import android.util.Xml;
 
 import com.android.internal.telephony.Phone;
-import com.android.internal.util.XmlUtils;
-
+import com.android.internal.telephony.util.XmlUtils;
+import com.android.telephony.Rlog;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;

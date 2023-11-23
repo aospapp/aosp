@@ -32,7 +32,7 @@ public class GetIntegerAction implements java.security.PrivilegedAction<java.lan
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public GetIntegerAction(java.lang.String theProp, int defaultVal) {
         throw new RuntimeException("Stub!");
     }

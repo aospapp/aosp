@@ -18,7 +18,6 @@ from __future__ import print_function
 
 import argparse
 import glob
-import multiprocessing
 import os
 import shutil
 import subprocess
@@ -79,7 +78,6 @@ def build_product(out_dir, product):
     env['TARGET_BUILD_VARIANT'] = 'userdebug'
     env['TARGET_PRODUCT'] = product
 
-    jobs_arg = '-j{}'.format(multiprocessing.cpu_count())
     targets = [
         # PHONY target specified in frameworks/rs/Android.mk.
         'rs-prebuilts-full',
@@ -88,7 +86,7 @@ def build_product(out_dir, product):
             'android-support-v8-renderscript_intermediates/classes.jar')
     ]
     subprocess.check_call(
-        ['make', jobs_arg] + targets, cwd=android_path(), env=env)
+        ['build/soong/soong_ui.bash', '--make-mode'] + targets, cwd=android_path(), env=env)
 
 
 def package_toolchain(build_dir, build_name, host, dist_dir):

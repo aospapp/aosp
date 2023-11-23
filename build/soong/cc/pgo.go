@@ -27,10 +27,9 @@ import (
 
 var (
 	// Add flags to ignore warnings that profiles are old or missing for
-	// some functions, and turn on the experimental new pass manager.
+	// some functions.
 	profileUseOtherFlags = []string{
 		"-Wno-backend-plugin",
-		"-fexperimental-new-pass-manager",
 	}
 
 	globalPgoProfileProjects = []string{
@@ -42,9 +41,9 @@ var (
 var pgoProfileProjectsConfigKey = android.NewOnceKey("PgoProfileProjects")
 
 const profileInstrumentFlag = "-fprofile-generate=/data/local/tmp"
-const profileSamplingFlag = "-gline-tables-only"
+const profileSamplingFlag = "-gmlt -fdebug-info-for-profiling"
 const profileUseInstrumentFormat = "-fprofile-use=%s"
-const profileUseSamplingFormat = "-fprofile-sample-use=%s"
+const profileUseSamplingFormat = "-fprofile-sample-accurate -fprofile-sample-use=%s"
 
 func getPgoProfileProjects(config android.DeviceConfig) []string {
 	return config.OnceStringSlice(pgoProfileProjectsConfigKey, func() []string {
@@ -89,20 +88,21 @@ func (pgo *pgo) props() []interface{} {
 	return []interface{}{&pgo.Properties}
 }
 
-func (props *PgoProperties) addProfileGatherFlags(ctx ModuleContext, flags Flags) Flags {
-	flags.CFlags = append(flags.CFlags, props.Pgo.Cflags...)
+func (props *PgoProperties) addInstrumentationProfileGatherFlags(ctx ModuleContext, flags Flags) Flags {
+	flags.Local.CFlags = append(flags.Local.CFlags, props.Pgo.Cflags...)
 
-	if props.isInstrumentation() {
-		flags.CFlags = append(flags.CFlags, profileInstrumentFlag)
-		// The profile runtime is added below in deps().  Add the below
-		// flag, which is the only other link-time action performed by
-		// the Clang driver during link.
-		flags.LdFlags = append(flags.LdFlags, "-u__llvm_profile_runtime")
-	}
-	if props.isSampling() {
-		flags.CFlags = append(flags.CFlags, profileSamplingFlag)
-		flags.LdFlags = append(flags.LdFlags, profileSamplingFlag)
-	}
+	flags.Local.CFlags = append(flags.Local.CFlags, profileInstrumentFlag)
+	// The profile runtime is added below in deps().  Add the below
+	// flag, which is the only other link-time action performed by
+	// the Clang driver during link.
+	flags.Local.LdFlags = append(flags.Local.LdFlags, "-u__llvm_profile_runtime")
+	return flags
+}
+func (props *PgoProperties) addSamplingProfileGatherFlags(ctx ModuleContext, flags Flags) Flags {
+	flags.Local.CFlags = append(flags.Local.CFlags, props.Pgo.Cflags...)
+
+	flags.Local.CFlags = append(flags.Local.CFlags, profileSamplingFlag)
+	flags.Local.LdFlags = append(flags.Local.LdFlags, profileSamplingFlag)
 	return flags
 }
 
@@ -171,13 +171,17 @@ func (props *PgoProperties) addProfileUseFlags(ctx ModuleContext, flags Flags) F
 		profileFilePath := profileFile.Path()
 		profileUseFlags := props.profileUseFlags(ctx, profileFilePath.String())
 
-		flags.CFlags = append(flags.CFlags, profileUseFlags...)
-		flags.LdFlags = append(flags.LdFlags, profileUseFlags...)
+		flags.Local.CFlags = append(flags.Local.CFlags, profileUseFlags...)
+		flags.Local.LdFlags = append(flags.Local.LdFlags, profileUseFlags...)
 
 		// Update CFlagsDeps and LdFlagsDeps so the module is rebuilt
 		// if profileFile gets updated
 		flags.CFlagsDeps = append(flags.CFlagsDeps, profileFilePath)
 		flags.LdFlagsDeps = append(flags.LdFlagsDeps, profileFilePath)
+
+		if props.isSampling() {
+			flags.Local.LdFlags = append(flags.Local.LdFlags, "-Wl,-mllvm,-no-warn-sample-unused=true")
+		}
 	}
 	return flags
 }
@@ -209,11 +213,6 @@ func (props *PgoProperties) isPGO(ctx BaseModuleContext) bool {
 		}
 		missingProps := strings.Join(missing, ", ")
 		ctx.ModuleErrorf("PGO specification is missing properties: " + missingProps)
-	}
-
-	// Sampling not supported yet
-	if isSampling {
-		ctx.PropertyErrorf("pgo.sampling", "\"sampling\" is not supported yet)")
 	}
 
 	if isSampling && isInstrumentation {
@@ -258,6 +257,12 @@ func (pgo *pgo) begin(ctx BaseModuleContext) {
 		}
 	}
 
+	// PGO profile use is not feasible for a Clang coverage build because
+	// -fprofile-use and -fprofile-instr-generate are incompatible.
+	if ctx.DeviceConfig().ClangCoverageEnabled() {
+		return
+	}
+
 	if !ctx.Config().IsEnvTrue("ANDROID_PGO_NO_PROFILE_USE") &&
 		proptools.BoolDefault(pgo.Properties.Pgo.Enable_profile_use, true) {
 		if profileFile := pgo.Properties.getPgoProfileFile(ctx); profileFile.Valid() {
@@ -282,8 +287,12 @@ func (pgo *pgo) flags(ctx ModuleContext, flags Flags) Flags {
 	props := pgo.Properties
 
 	// Add flags to profile this module based on its profile_kind
-	if props.ShouldProfileModule {
-		return props.addProfileGatherFlags(ctx, flags)
+	if props.ShouldProfileModule && props.isInstrumentation() {
+		return props.addInstrumentationProfileGatherFlags(ctx, flags)
+	} else if props.ShouldProfileModule && props.isSampling() {
+		return props.addSamplingProfileGatherFlags(ctx, flags)
+	} else if ctx.DeviceConfig().SamplingPGO() {
+		return props.addSamplingProfileGatherFlags(ctx, flags)
 	}
 
 	if !ctx.Config().IsEnvTrue("ANDROID_PGO_NO_PROFILE_USE") {

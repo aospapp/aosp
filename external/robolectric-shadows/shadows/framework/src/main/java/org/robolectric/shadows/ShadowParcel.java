@@ -7,6 +7,7 @@ import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.O_MR1;
 import static android.os.Build.VERSION_CODES.P;
+import static android.os.Build.VERSION_CODES.R;
 import static org.robolectric.RuntimeEnvironment.castNativePtr;
 
 import android.os.BadParcelableException;
@@ -311,6 +312,16 @@ public class ShadowParcel {
     NATIVE_PTR_TO_PARCEL.get(nativePtr).writeString(val);
   }
 
+  @Implementation(minSdk = R)
+  protected static void nativeWriteString8(long nativePtr, String val) {
+    nativeWriteString(nativePtr, val);
+  }
+
+  @Implementation(minSdk = R)
+  protected static void nativeWriteString16(long nativePtr, String val) {
+    nativeWriteString(nativePtr, val);
+  }
+
   @HiddenApi
   @Implementation(maxSdk = KITKAT_WATCH)
   protected static void nativeWriteStrongBinder(int nativePtr, IBinder val) {
@@ -397,6 +408,16 @@ public class ShadowParcel {
   @Implementation(minSdk = LOLLIPOP)
   protected static String nativeReadString(long nativePtr) {
     return NATIVE_PTR_TO_PARCEL.get(nativePtr).readString();
+  }
+
+  @Implementation(minSdk = R)
+  protected static String nativeReadString8(long nativePtr) {
+    return nativeReadString(nativePtr);
+  }
+
+  @Implementation(minSdk = R)
+  protected static String nativeReadString16(long nativePtr) {
+    return nativeReadString(nativePtr);
   }
 
   @HiddenApi

@@ -48,7 +48,7 @@
     <string name="no_printer_found" msgid="4777867380924351173">"इस पते पर कोई प्रिंटर नहीं मिला"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"प्रिंटर इस पर काम नहीं करता है"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
-    <string name="find_wifi_direct" msgid="5270504288829123954">"वाई-फ़ाई Direct प्रिंटर ढूंढें"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct प्रिंटर ढूंढें"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct से प्रिंट करना"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct प्रिंटर"</string>
     <string name="searching" msgid="2114018057619514587">"खोज की जा रही है…"</string>
@@ -60,12 +60,18 @@
     <string name="forget" msgid="892068061425802502">"भूल जाएं"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct के ज़रिए कनेक्ट किया जाता है"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> पर मौजूदा नेटवर्क के ज़रिए कनेक्ट किया जाता है"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"डिफ़ॉल्ट रूप से प्रिंट करने की सेवा में बुनियादी विकल्प मिलते हैं. इस प्रिंटर के लिए दूसरे विकल्प, किसी और प्रिंट सेवा में उपलब्ध हो सकते हैं."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"सुझाई गई सेवाएं"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"इंस्टॉल करने के लिए चुनें"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"चालू करने के लिए चुनें"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"सेवाएं प्रबंधित करें"</string>
     <string name="security" msgid="2279008326210305401">"सुरक्षा"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"इस प्रिंटर ने एक नया सुरक्षा प्रमाणपत्र दिया या फिर कोई दूसरा डिवाइस इसके नाम से काम कर रहा है. नया प्रमाणपत्र स्वीकार करें?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"यह प्रिंटर अब सुरक्षित किए गए काम स्वीकार नहीं करता है प्रिंट करना चाहते हैं?"</string>
     <string name="accept" msgid="4426153292469698134">"स्वीकार करें"</string>
     <string name="reject" msgid="24751635160440693">"अस्‍वीकार करें"</string>
     <string name="connections" msgid="8895413761760117180">"कनेक्शन"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"आपके आस-पास मौजूद डिवाइस ढूंढने के लिए, डिफ़ॉल्ट प्रिंटिंग सेवा को जगह की जानकारी एक्सेस करने की अनुमति की ज़रूरत होती है."</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"आपके आस-पास मौजूद डिवाइस ढूंढने के लिए, डिफ़ॉल्ट प्रिंटिंग सेवा को जगह की जानकारी ऐक्सेस करने की अनुमति की ज़रूरत होती है."</string>
     <string name="fix" msgid="7784394272611365393">"अनुमति दें"</string>
+    <string name="print" msgid="7851318072404916362">"प्रिंट करें"</string>
 </resources>

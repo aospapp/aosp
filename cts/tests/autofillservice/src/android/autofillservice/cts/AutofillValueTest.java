@@ -303,7 +303,7 @@ public class AutofillValueTest
         startAutoFill(mSpinner);
 
         // Autofill it.
-        mUiBot.selectDataset("dataset");
+        mUiBot.selectDatasetSync("dataset");
 
         if (expectAutoFill) {
             // Check the results.
@@ -524,7 +524,7 @@ public class AutofillValueTest
 
     @Test
     public void autofillInvalidListValueToRadioGroup() throws Exception {
-        autofillListValue(AutofillValue.forList(-1), 0, false);
+        autofillRadioGroup(AutofillValue.forList(-1), 0, false);
     }
 
     @Test

@@ -30,10 +30,10 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.LocalClassDeclarationStmtMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
 import java.util.Optional;
+import com.github.javaparser.ast.Generated;
 
 /**
  * <h1>A class declaration inside a method.</h1>
@@ -46,7 +46,7 @@ import java.util.Optional;
  * @see ClassOrInterfaceDeclaration
  * @author Julio Vilmar Gesser
  */
-public final class LocalClassDeclarationStmt extends Statement {
+public class LocalClassDeclarationStmt extends Statement {
 
     private ClassOrInterfaceDeclaration classDeclaration;
 

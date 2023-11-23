@@ -19,6 +19,7 @@
 
 #include <future>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -75,12 +76,16 @@ class KeystoreClientImpl : public KeystoreClient {
                                              std::string* output_data) override;
     KeyStoreNativeReturnCode finishOperation(uint64_t handle,
                                              const keystore::AuthorizationSet& input_parameters,
+                                             const std::string& input_data,
                                              const std::string& signature_to_verify,
                                              keystore::AuthorizationSet* output_parameters,
                                              std::string* output_data) override;
     KeyStoreNativeReturnCode abortOperation(uint64_t handle) override;
     bool doesKeyExist(const std::string& key_name) override;
     bool listKeys(const std::string& prefix, std::vector<std::string>* key_name_list) override;
+    bool listKeysOfUid(const std::string& prefix, int uid,
+                       std::vector<std::string>* key_name_list) override;
+    std::optional<std::vector<uint8_t>> getKey(const std::string& alias, int uid) override;
 
   private:
     // Returns an available virtual operation handle.

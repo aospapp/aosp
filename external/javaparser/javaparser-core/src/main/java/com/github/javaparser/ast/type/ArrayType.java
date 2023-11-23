@@ -34,19 +34,19 @@ import com.github.javaparser.metamodel.ArrayTypeMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.resolution.types.ResolvedArrayType;
 import com.github.javaparser.utils.Pair;
-import javax.annotation.Generated;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import static com.github.javaparser.ast.NodeList.nodeList;
 import static com.github.javaparser.utils.Utils.assertNotNull;
 import java.util.function.Consumer;
+import com.github.javaparser.ast.Generated;
 
 /**
  * To indicate that a type is an array, it gets wrapped in an ArrayType for every array level it has.
  * So, int[][] becomes ArrayType(ArrayType(int)).
  */
-public final class ArrayType extends ReferenceType implements NodeWithAnnotations<ArrayType> {
+public class ArrayType extends ReferenceType implements NodeWithAnnotations<ArrayType> {
 
     @Override
     public ResolvedArrayType resolve() {

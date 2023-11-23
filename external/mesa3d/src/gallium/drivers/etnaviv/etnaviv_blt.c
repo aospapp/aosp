@@ -178,7 +178,7 @@ emit_blt_copyimage(struct etna_cmd_stream *stream, const struct blt_imgcopy_op *
 static void
 emit_blt_inplace(struct etna_cmd_stream *stream, const struct blt_inplace_op *op)
 {
-   assert(op->bpp > 0 && util_is_power_of_two(op->bpp));
+   assert(op->bpp > 0 && util_is_power_of_two_nonzero(op->bpp));
    etna_cmd_stream_reserve(stream, 64*2); /* Never allow BLT sequences to be broken up */
    etna_set_state(stream, VIVS_BLT_ENABLE, 0x00000001);
    etna_set_state(stream, VIVS_BLT_CONFIG,
@@ -510,7 +510,9 @@ etna_try_blt_blit(struct pipe_context *pctx,
    etna_stall(ctx->stream, SYNC_RECIPIENT_FE, SYNC_RECIPIENT_BLT);
    etna_set_state(ctx->stream, VIVS_GL_FLUSH_CACHE, 0x00000c23);
 
+   resource_read(ctx, &src->base);
    resource_written(ctx, &dst->base);
+
    dst->seqno++;
    dst_lev->ts_valid = false;
 
@@ -556,7 +558,7 @@ etna_blit_blt(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
 void
 etna_clear_blit_blt_init(struct pipe_context *pctx)
 {
-   DBG("etnaviv: Using BLT blit engine\n");
+   DBG("etnaviv: Using BLT blit engine");
    pctx->clear = etna_clear_blt;
    pctx->blit = etna_blit_blt;
 }

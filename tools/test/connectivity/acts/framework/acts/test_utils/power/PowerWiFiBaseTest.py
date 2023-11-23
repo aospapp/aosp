@@ -15,9 +15,11 @@
 #   limitations under the License.
 
 import acts.test_utils.power.PowerBaseTest as PBT
+from acts.test_utils.wifi import wifi_test_utils as wutils
 from acts.test_utils.wifi import wifi_power_test_utils as wputils
 
 IPERF_DURATION = 'iperf_duration'
+INITIAL_ATTEN = [0, 0, 90, 90]
 
 
 class PowerWiFiBaseTest(PBT.PowerBaseTest):
@@ -34,6 +36,8 @@ class PowerWiFiBaseTest(PBT.PowerBaseTest):
             self.access_point_main = self.access_points[0]
             if len(self.access_points) > 1:
                 self.access_point_aux = self.access_points[1]
+        if hasattr(self, 'attenuators'):
+            self.set_attenuation(INITIAL_ATTEN)
         if hasattr(self, 'network_file'):
             self.networks = self.unpack_custom_file(self.network_file, False)
             self.main_network = self.networks['main_network']
@@ -42,7 +46,7 @@ class PowerWiFiBaseTest(PBT.PowerBaseTest):
             self.pkt_sender = self.packet_senders[0]
         if hasattr(self, 'iperf_servers'):
             self.iperf_server = self.iperf_servers[0]
-        if hasattr(self, 'iperf_duration'):
+        if self.iperf_duration:
             self.mon_duration = self.iperf_duration - 10
             self.create_monsoon_info()
 
@@ -81,15 +85,41 @@ class PowerWiFiBaseTest(PBT.PowerBaseTest):
             for ap in self.access_points:
                 ap.close()
 
+    def setup_ap_connection(self, network, bandwidth=80, connect=True,
+                            ap=None):
+        """Setup AP and connect DUT to it.
+
+        Args:
+            network: the network config for the AP to be setup
+            bandwidth: bandwidth of the WiFi network to be setup
+            connect: indicator of if connect dut to the network after setup
+            ap: access point object, default is None to find the main AP
+        Returns:
+            self.brconfigs: dict for bridge interface configs
+        """
+        wutils.wifi_toggle_state(self.dut, True)
+        if not ap:
+            if hasattr(self, 'access_points'):
+                self.brconfigs = wputils.ap_setup(
+                    self.access_point, network, bandwidth=bandwidth)
+        else:
+            self.brconfigs = wputils.ap_setup(ap, network, bandwidth=bandwidth)
+        if connect:
+            wutils.wifi_connect(self.dut, network, num_of_tries=3)
+
+        if ap or (not ap and hasattr(self, 'access_points')):
+            return self.brconfigs
+
     def collect_power_data(self):
         """Measure power, plot and check pass/fail.
 
         If IPERF is run, need to pull iperf results and attach it to the plot.
         """
-        super().collect_power_data()
+        result = super().collect_power_data()
         tag = ''
-        if hasattr(self, IPERF_DURATION):
+        if self.iperf_duration:
             throughput = self.process_iperf_results()
             tag = '_RSSI_{0:d}dBm_Throughput_{1:.2f}Mbps'.format(
                 self.RSSI, throughput)
-            wputils.monsoon_data_plot(self.mon_info, self.file_path, tag=tag)
+            wputils.monsoon_data_plot(self.mon_info, result, tag=tag)
+        return result

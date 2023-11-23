@@ -15,31 +15,22 @@
  */
 
 #include "aidl.h"
-#include "aidl_apicheck.h"
+#include "aidl_checkapi.h"
 #include "io_delegate.h"
 #include "logging.h"
 #include "options.h"
 
 #include <iostream>
-#include <memory>
+
+#ifdef AIDL_CPP_BUILD
+constexpr Options::Language kDefaultLang = Options::Language::CPP;
+#else
+constexpr Options::Language kDefaultLang = Options::Language::JAVA;
+#endif
 
 using android::aidl::Options;
 
-// aidl is leaky. Turn off LeakSanitizer by default. b/37749857
-extern "C" const char* __asan_default_options() {
-  return "detect_leaks=0";
-}
-
-int main(int argc, char* argv[]) {
-  android::base::InitLogging(argv);
-  LOG(DEBUG) << "aidl starting";
-  Options options(argc, argv, Options::Language::JAVA);
-  if (!options.Ok()) {
-    std::cerr << options.GetErrorMessage();
-    std::cerr << options.GetUsage();
-    return 1;
-  }
-
+int process_options(const Options& options) {
   android::aidl::IoDelegate io_delegate;
   switch (options.GetTask()) {
     case Options::Task::COMPILE:
@@ -56,4 +47,28 @@ int main(int argc, char* argv[]) {
       LOG(FATAL) << "aidl: internal error" << std::endl;
       return 1;
   }
+}
+
+int main(int argc, char* argv[]) {
+  android::base::InitLogging(argv);
+  LOG(DEBUG) << "aidl starting";
+
+  Options options(argc, argv, kDefaultLang);
+  if (!options.Ok()) {
+    std::cerr << options.GetErrorMessage();
+    std::cerr << options.GetUsage();
+    return 1;
+  }
+
+  int ret = process_options(options);
+
+  // compiler invariants
+
+  // once AIDL_ERROR/AIDL_FATAL are used everywhere instead of std::cerr/LOG, we
+  // can make this assertion in both directions.
+  if (ret == 0) {
+    AIDL_FATAL_IF(AidlError::hadError(), "Compiler success, but error emitted");
+  }
+
+  return ret;
 }

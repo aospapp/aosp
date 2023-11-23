@@ -37,6 +37,10 @@ namespace arm64 {
 #define reg_d(D) Arm64Assembler::reg_d(D)
 #define reg_s(S) Arm64Assembler::reg_s(S)
 
+// The AAPCS64 requires 16-byte alignement. This is the same as the Managed ABI stack alignment.
+static constexpr size_t kAapcs64StackAlignment = 16u;
+static_assert(kAapcs64StackAlignment == kStackAlignment);
+
 Arm64JNIMacroAssembler::~Arm64JNIMacroAssembler() {
 }
 
@@ -57,16 +61,20 @@ void Arm64JNIMacroAssembler::GetCurrentThread(FrameOffset offset, ManagedRegiste
 
 // See Arm64 PCS Section 5.2.2.1.
 void Arm64JNIMacroAssembler::IncreaseFrameSize(size_t adjust) {
-  CHECK_ALIGNED(adjust, kStackAlignment);
-  AddConstant(SP, -adjust);
-  cfi().AdjustCFAOffset(adjust);
+  if (adjust != 0u) {
+    CHECK_ALIGNED(adjust, kStackAlignment);
+    AddConstant(SP, -adjust);
+    cfi().AdjustCFAOffset(adjust);
+  }
 }
 
 // See Arm64 PCS Section 5.2.2.1.
 void Arm64JNIMacroAssembler::DecreaseFrameSize(size_t adjust) {
-  CHECK_ALIGNED(adjust, kStackAlignment);
-  AddConstant(SP, adjust);
-  cfi().AdjustCFAOffset(-adjust);
+  if (adjust != 0u) {
+    CHECK_ALIGNED(adjust, kStackAlignment);
+    AddConstant(SP, adjust);
+    cfi().AdjustCFAOffset(-adjust);
+  }
 }
 
 void Arm64JNIMacroAssembler::AddConstant(XRegister rd, int32_t value, Condition cond) {
@@ -531,6 +539,15 @@ void Arm64JNIMacroAssembler::VerifyObject(FrameOffset /*src*/, bool /*could_be_n
   // TODO: not validating references.
 }
 
+void Arm64JNIMacroAssembler::Jump(ManagedRegister m_base, Offset offs, ManagedRegister m_scratch) {
+  Arm64ManagedRegister base = m_base.AsArm64();
+  Arm64ManagedRegister scratch = m_scratch.AsArm64();
+  CHECK(base.IsXRegister()) << base;
+  CHECK(scratch.IsXRegister()) << scratch;
+  LoadFromOffset(scratch.AsXRegister(), base.AsXRegister(), offs.Int32Value());
+  ___ Br(reg_x(scratch.AsXRegister()));
+}
+
 void Arm64JNIMacroAssembler::Call(ManagedRegister m_base, Offset offs, ManagedRegister m_scratch) {
   Arm64ManagedRegister base = m_base.AsArm64();
   Arm64ManagedRegister scratch = m_scratch.AsArm64();
@@ -689,7 +706,7 @@ void Arm64JNIMacroAssembler::BuildFrame(size_t frame_size,
                                         const ManagedRegisterEntrySpills& entry_spills) {
   // Setup VIXL CPURegList for callee-saves.
   CPURegList core_reg_list(CPURegister::kRegister, kXRegSize, 0);
-  CPURegList fp_reg_list(CPURegister::kFPRegister, kDRegSize, 0);
+  CPURegList fp_reg_list(CPURegister::kVRegister, kDRegSize, 0);
   for (auto r : callee_save_regs) {
     Arm64ManagedRegister reg = r.AsArm64();
     if (reg.IsXRegister()) {
@@ -704,18 +721,20 @@ void Arm64JNIMacroAssembler::BuildFrame(size_t frame_size,
 
   // Increase frame to required size.
   DCHECK_ALIGNED(frame_size, kStackAlignment);
-  DCHECK_GE(frame_size, core_reg_size + fp_reg_size + static_cast<size_t>(kArm64PointerSize));
+  // Must at least have space for Method* if we're going to spill it.
+  DCHECK_GE(frame_size,
+            core_reg_size + fp_reg_size + (method_reg.IsRegister() ? kXRegSizeInBytes : 0u));
   IncreaseFrameSize(frame_size);
 
   // Save callee-saves.
   asm_.SpillRegisters(core_reg_list, frame_size - core_reg_size);
   asm_.SpillRegisters(fp_reg_list, frame_size - core_reg_size - fp_reg_size);
 
-  DCHECK(core_reg_list.IncludesAliasOf(reg_x(TR)));
-
-  // Write ArtMethod*
-  DCHECK(X0 == method_reg.AsArm64().AsXRegister());
-  StoreToOffset(X0, SP, 0);
+  if (method_reg.IsRegister()) {
+    // Write ArtMethod*
+    DCHECK(X0 == method_reg.AsArm64().AsXRegister());
+    StoreToOffset(X0, SP, 0);
+  }
 
   // Write out entry spills
   int32_t offset = frame_size + static_cast<size_t>(kArm64PointerSize);
@@ -745,7 +764,7 @@ void Arm64JNIMacroAssembler::RemoveFrame(size_t frame_size,
                                          bool may_suspend) {
   // Setup VIXL CPURegList for callee-saves.
   CPURegList core_reg_list(CPURegister::kRegister, kXRegSize, 0);
-  CPURegList fp_reg_list(CPURegister::kFPRegister, kDRegSize, 0);
+  CPURegList fp_reg_list(CPURegister::kVRegister, kDRegSize, 0);
   for (auto r : callee_save_regs) {
     Arm64ManagedRegister reg = r.AsArm64();
     if (reg.IsXRegister()) {
@@ -760,10 +779,8 @@ void Arm64JNIMacroAssembler::RemoveFrame(size_t frame_size,
 
   // For now we only check that the size of the frame is large enough to hold spills and method
   // reference.
-  DCHECK_GE(frame_size, core_reg_size + fp_reg_size + static_cast<size_t>(kArm64PointerSize));
-  DCHECK_ALIGNED(frame_size, kStackAlignment);
-
-  DCHECK(core_reg_list.IncludesAliasOf(reg_x(TR)));
+  DCHECK_GE(frame_size, core_reg_size + fp_reg_size);
+  DCHECK_ALIGNED(frame_size, kAapcs64StackAlignment);
 
   cfi().RememberState();
 
@@ -781,11 +798,8 @@ void Arm64JNIMacroAssembler::RemoveFrame(size_t frame_size,
     } else {
       // The method shall not be suspended; no need to refresh the Marking Register.
 
-      // Check that the Marking Register is a callee-save register,
-      // and thus has been preserved by native code following the
-      // AAPCS64 calling convention.
-      DCHECK(core_reg_list.IncludesAliasOf(mr))
-          << "core_reg_list should contain Marking Register X" << mr.GetCode();
+      // The Marking Register is a callee-save register and thus has been
+      // preserved by native code following the AAPCS64 calling convention.
 
       // The following condition is a compile-time one, so it does not have a run-time cost.
       if (kIsDebugBuild) {

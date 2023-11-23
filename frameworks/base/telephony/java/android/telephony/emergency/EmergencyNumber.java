@@ -18,12 +18,15 @@ package android.telephony.emergency;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.TestApi;
 import android.hardware.radio.V1_4.EmergencyNumberSource;
 import android.hardware.radio.V1_4.EmergencyServiceCategory;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
-import android.telephony.Rlog;
+
+import com.android.telephony.Rlog;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -183,6 +186,7 @@ public final class EmergencyNumber implements Parcelable, Comparable<EmergencyNu
      *
      * @hide
      */
+    @TestApi
     public static final int EMERGENCY_NUMBER_SOURCE_TEST =  1 << 5;
     /** Bit-field which indicates the number is from the modem config. */
     public static final int EMERGENCY_NUMBER_SOURCE_MODEM_CONFIG =
@@ -300,6 +304,9 @@ public final class EmergencyNumber implements Parcelable, Comparable<EmergencyNu
      *
      * The character in the number string is only the dial pad
      * character('0'-'9', '*', '+', or '#'). For example: 911.
+     *
+     * If the number starts with carrier prefix, the carrier prefix is configured in
+     * {@link CarrierConfigManager#KEY_EMERGENCY_NUMBER_PREFIX_STRING_ARRAY}.
      *
      * @return the dialing number.
      */

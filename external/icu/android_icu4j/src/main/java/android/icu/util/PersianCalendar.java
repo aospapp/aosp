@@ -137,7 +137,7 @@ public class PersianCalendar extends Calendar {
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @Deprecated
     public PersianCalendar(Locale aLocale)
     {

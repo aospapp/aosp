@@ -1,0 +1,19 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Date : 2017/08/01
+# Operation: SQC
+# Purpose : Allow Whatstemp, a MTK thermal logging tool, to log thermal related information
+# properly for thermal tests at OEM/ODM.
+allow untrusted_app_25 proc_mtktz:dir search;
+allow untrusted_app_25 proc_mtktz:file r_file_perms;
+allow untrusted_app_25 proc_thermal:dir search;
+allow untrusted_app_25 proc_thermal:file r_file_perms;
+
+allow untrusted_app_25 sysfs_fps:dir search;
+allow untrusted_app_25 sysfs_fps:file r_file_perms;
+allow untrusted_app_25 sysfs_batteryinfo:dir search;
+#allow untrusted_app_25 sysfs_batteryinfo:file { getattr open read };
+allow untrusted_app_25 sysfs_therm:dir r_dir_perms;
+allow untrusted_app_25 sysfs_therm:file r_file_perms;

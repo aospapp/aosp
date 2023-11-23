@@ -22,7 +22,6 @@
 %P = (future|past)
 %R = (gregorian|buddhist|coptic|ethiopic|ethiopic-amete-alem|hebrew|indian|islamic|japanese|persian|roc)
 %S = ([^/]*+)
-%T = (nanosecond|microsecond|millisecond|second|minute|hour|day|week|month|year|century)
 %V = (speed|acceleration)
 %W = (temperature|pressure)
 %X = (energy|power)
@@ -40,8 +39,18 @@
 //ldml/characters/exemplarCharacters$                       ; Core Data ; Alphabetic Information ; Characters in Use ; Main Letters
 //ldml/characters/exemplarCharacters[@type="%A"]            ; Core Data ; Alphabetic Information ; Characters in Use ; Others: $1
 
+//ldml/characters/parseLenients[@scope="%A"][@level="%A"]/parseLenient[@sample="%A"] ; Core Data ; Alphabetic Information ; Parse ; $1-$2($3)
+
+//ldml/characters/ellipsis[@type="%A"]                      ; Core Data ; Alphabetic Information ; Ellipsis ; $1
+
+//ldml/delimiters/quotation%E                               ; Core Data ; Alphabetic Information ; Quotation Marks ; $1
+//ldml/delimiters/alternateQuotation%E                      ; Core Data ; Alphabetic Information ; Quotation Marks ; embedded-$1
+//ldml/characters/moreInformation                           ; Core Data ; Alphabetic Information ; Symbols ; More Information
+
 //ldml/numbers/(default)NumberingSystem                       ; Core Data ; Numbering Systems ; Numbering System ; $1
 //ldml/numbers/otherNumberingSystems/(%E)                   ; Core Data ; Numbering Systems ; Numbering System ; $1
+
+//ldml/posix/messages/%Estr                                 ; Core Data ; Alphabetic Information ; Yes and No ; posix-$1
 
 ### Locale Display Names
 //ldml/localeDisplayNames/localeDisplayPattern/%E              ; Locale Display Names ; Locale Name Patterns ; Locale Formatting ; &localePattern($1)
@@ -165,9 +174,13 @@
 
 //ldml/localeDisplayNames/measurementSystemNames/measurementSystemName[@type="%A"] ; Units ; Measurement Systems ; null ; $1
 
-//ldml/units/unitLength[@type="%L"]/unit[@type="duration-%T%A"]/displayName                             ; Units ; Duration ; &datefield($2$3) ; &unitCount($1-displayName)
-//ldml/units/unitLength[@type="%L"]/unit[@type="duration-%T%A"]/unitPattern[@count="%A"]                ; Units ; Duration ; &datefield($2$3) ; &unitCount($1-$4)
-//ldml/units/unitLength[@type="%L"]/unit[@type="duration-%T%A"]/perUnitPattern                          ; Units ; Duration ; &datefield($2$3) ; &unitCount($1-per)
+//ldml/units/unitLength[@type="%L"]/unit[@type="duration-%A"]/displayName                             ; Units ; Duration ; &datefield($2) ; &unitCount($1-displayName)
+//ldml/units/unitLength[@type="%L"]/unit[@type="duration-%A"]/unitPattern[@count="%A"]                ; Units ; Duration ; &datefield($2) ; &unitCount($1-$3)
+//ldml/units/unitLength[@type="%L"]/unit[@type="duration-%A"]/perUnitPattern                          ; Units ; Duration ; &datefield($2) ; &unitCount($1-per)
+
+//ldml/units/unitLength[@type="%L"]/unit[@type="graphics-%A"]/displayName                               ; Units ; Graphics ; &unit(length-$2) ; &unitCount($1-displayName)
+//ldml/units/unitLength[@type="%L"]/unit[@type="graphics-%A"]/unitPattern[@count="%A"]                  ; Units ; Graphics ; &unit(length-$2) ; &unitCount($1-$3)
+//ldml/units/unitLength[@type="%L"]/unit[@type="graphics-%A"]/perUnitPattern                            ; Units ; Graphics ; &unit(length-$2) ; &unitCount($1-per)
 
 //ldml/units/unitLength[@type="%L"]/unit[@type="length-%A"]/displayName                                 ; Units ; Length ; &unit(length-$2) ; &unitCount($1-displayName)
 //ldml/units/unitLength[@type="%L"]/unit[@type="length-%A"]/unitPattern[@count="%A"]                    ; Units ; Length ; &unit(length-$2) ; &unitCount($1-$3)
@@ -226,14 +239,6 @@
 //ldml/listPatterns/listPattern[@type="unit-short"]/listPatternPart[@type="%A"] ; Misc ; Displaying Lists ; Short Unit List ; &listOrder($1)
 //ldml/listPatterns/listPattern[@type="unit-narrow"]/listPatternPart[@type="%A"] ; Misc ; Displaying Lists ; Narrow Unit List ; &listOrder($1)
 
-//ldml/characters/ellipsis[@type="%A"]                      ; Misc ; Linguistic Elements ; Ellipsis ; $1
-
-//ldml/characters/parseLenients[@scope="%A"][@level="%A"]/parseLenient[@sample="%A"] ; Misc ; Linguistic Elements ; Parse ; $1-$2($3)
-
-//ldml/delimiters/quotation%E                               ; Misc ; Linguistic Elements ; Quotation Marks ; $1
-//ldml/delimiters/alternateQuotation%E                      ; Misc ; Linguistic Elements ; Quotation Marks ; embedded-$1
-//ldml/characters/moreInformation                           ; Misc ; Linguistic Elements ; Symbols ; More Information
-//ldml/posix/messages/%Estr                                 ; Misc ; Linguistic Elements ; Yes and No ; posix-$1
 //ldml/localeDisplayNames/transformNames/transformName[@type="%A"]          ; Misc ; Transforms ; null ; $1
 
 
@@ -250,8 +255,8 @@
 //ldml/localeDisplayNames/annotationPatterns/annotationPattern[@type="%A"] ; Characters ; Category ; Link ; $1
 
 # Use special hyphens
-//ldml/annotations/annotation[@cp="%A"][@type="tts"]	; Characters ; &major($1) ; &minor($1) ; &alphaOrder($1 -name)
-//ldml/annotations/annotation[@cp="%A"]					; Characters ; &major($1) ; &minor($1) ; &alphaOrder($1 –keywords)
+//ldml/annotations/annotation[@cp="%A"][@type="tts"]	; Characters ; &major($1) ; &minor($1) ; &emoji($1 -name)
+//ldml/annotations/annotation[@cp="%A"]					; Characters ; &major($1) ; &minor($1) ; &emoji($1 –keywords)
 
 #OLD
 //ldml/annotations/annotation_[@cp="%A"]/_tts			; Characters ; Annotation ; $1 ; TTS ; HIDE

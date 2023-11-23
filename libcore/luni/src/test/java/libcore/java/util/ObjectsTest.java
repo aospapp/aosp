@@ -25,6 +25,111 @@ public class ObjectsTest extends junit.framework.TestCase {
     public String toString() { return "hello"; }
   }
 
+  public void test_checkFromIndexSize_valid() {
+    Objects.checkFromIndexSize(/* fromIndex */ 0, /* size */ 0, /* length */ 10);
+    Objects.checkFromIndexSize(/* fromIndex */ 10, /* size */ 0, /* length */ 10);
+    Objects.checkFromIndexSize(/* fromIndex */ 5, /* size */ 1, /* length */ 10);
+    Objects.checkFromIndexSize(/* fromIndex */ 0, /* size */ 10, /* length */ 10);
+    Objects.checkFromIndexSize(/* fromIndex */ 1, /* size */ 9, /* length */ 10);
+    Objects.checkFromIndexSize(/* fromIndex */ 0, /* size */ 9, /* length */ 10);
+  }
+
+  public void test_checkFromIndexSize_negativeSize() {
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ -1, /* size */ 10, /* length */ 100);
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ 5, /* size */ -1, /* length */ 100);
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ 0, /* size */ -1, /* length */ 100);
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ 0, /* size */ -1, /* length */ -1);
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ 0, /* size */ 0, /* length */ -1);
+  }
+
+  public void test_checkFromIndexSize_beyondEnd() {
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ 0, /* size */ 10, /* length */ 9);
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ 1, /* size */ 10, /* length */ 10);
+
+    // Invalid, but fromIndex + size overflows and is < length.
+    assertFromIndexSizeOutOfBounds(/* fromIndex */ Integer.MAX_VALUE - 10, /* size */ 11,
+            /* length */ Integer.MAX_VALUE);
+  }
+
+  private static void assertFromIndexSizeOutOfBounds(int fromIndex, int size, int length) {
+    try {
+      Objects.checkFromIndexSize(fromIndex, size, length);
+      fail();
+    } catch (IndexOutOfBoundsException expected) {
+    }
+  }
+
+  public void test_checkFromToIndex_valid() {
+    Objects.checkFromToIndex(/* fromIndex */ 0, /* toIndex */ 0, /* length */ 10);
+    Objects.checkFromToIndex(/* fromIndex */ 10, /* toIndex */ 10, /* length */ 10);
+    Objects.checkFromToIndex(/* fromIndex */ 5, /* toIndex */ 6, /* length */ 10);
+    Objects.checkFromToIndex(/* fromIndex */ 0, /* toIndex */ 10, /* length */ 10);
+    Objects.checkFromToIndex(/* fromIndex */ 1, /* toIndex */ 10, /* length */ 10);
+    Objects.checkFromToIndex(/* fromIndex */ 0, /* toIndex */ 0, /* length */ 10);
+  }
+
+  public void test_checkFromToIndex_negativeSize() {
+    assertFromToIndexOutOfBounds(/* fromIndex */ -1, /* toIndex */ 9, /* length */ 100);
+    assertFromToIndexOutOfBounds(/* fromIndex */ 5, /* toIndex */ 4, /* length */ 100);
+    assertFromToIndexOutOfBounds(/* fromIndex */ 0, /* toIndex */ -1, /* length */ 100);
+    assertFromToIndexOutOfBounds(/* fromIndex */ 0, /* toIndex */ -1, /* length */ -1);
+    assertFromToIndexOutOfBounds(/* fromIndex */ 0, /* toIndex */ 0, /* length */ -1);
+  }
+
+  public void test_checkFromToIndex_beyondEnd() {
+    assertFromToIndexOutOfBounds(/* fromIndex */ 0, /* toIndex */ 10, /* length */ 9);
+    assertFromToIndexOutOfBounds(/* fromIndex */ 1, /* toIndex */ 11, /* length */ 10);
+    assertFromToIndexOutOfBounds(/* fromIndex */ Integer.MAX_VALUE - 10,
+            /* toIndex */ Integer.MIN_VALUE, /* length */ Integer.MAX_VALUE);
+  }
+
+  private static void assertFromToIndexOutOfBounds(int fromIndex, int toIndex, int length) {
+    try {
+      Objects.checkFromToIndex(fromIndex, toIndex, length);
+      fail();
+    } catch (IndexOutOfBoundsException expected) {
+    }
+  }
+
+  public void test_checkIndex_empty() {
+    assertIndexOutOfBounds(0, 0);
+    assertIndexOutOfBounds(1, 0);
+    assertIndexOutOfBounds(-1, 0);
+    assertIndexOutOfBounds(100, 0);
+    assertIndexOutOfBounds(-100, 0);
+    assertIndexOutOfBounds(Integer.MAX_VALUE, 0);
+    assertIndexOutOfBounds(Integer.MAX_VALUE, 0);
+  }
+
+  public void test_checkIndex_size1() {
+    Objects.checkIndex(0, 1);
+    assertIndexOutOfBounds(1, 1);
+    assertIndexOutOfBounds(-1, 1);
+    assertIndexOutOfBounds(100, 1);
+    assertIndexOutOfBounds(-100, 1);
+    assertIndexOutOfBounds(Integer.MAX_VALUE, 1);
+    assertIndexOutOfBounds(Integer.MAX_VALUE, 1);
+  }
+
+  public void test_checkIndex_largeSize() {
+    Objects.checkIndex(0, 100);
+    Objects.checkIndex(99, 100);
+    Objects.checkIndex(100, Integer.MAX_VALUE);
+    Objects.checkIndex(Integer.MAX_VALUE - 1, Integer.MAX_VALUE);
+    assertIndexOutOfBounds(-1, 100);
+    assertIndexOutOfBounds(100, 100);
+    assertIndexOutOfBounds(Integer.MAX_VALUE, Integer.MAX_VALUE);
+    assertIndexOutOfBounds(-1, Integer.MAX_VALUE);
+  }
+
+  private static void assertIndexOutOfBounds(int index, int length) {
+    try {
+      Objects.checkIndex(index, length);
+      fail();
+    } catch (IndexOutOfBoundsException expected) {
+    }
+  }
+
   public void test_compare() throws Exception {
     assertEquals(0, Objects.compare(null, null, String.CASE_INSENSITIVE_ORDER));
     assertEquals(0, Objects.compare("a", "A", String.CASE_INSENSITIVE_ORDER));
@@ -121,12 +226,45 @@ public class ObjectsTest extends junit.framework.TestCase {
     } catch (NullPointerException expected) {
     }
 
+    // This does not currently throw. The presence of this test ensures that any
+    // future behavior change is deliberate.
+    assertEquals(h, Objects.requireNonNull(h, (Supplier<String>) null));
+
     // The message returned by the supplier is null.
     try {
       Objects.requireNonNull(null, () -> null);
       fail();
     } catch (NullPointerException expected) {
       assertEquals(null, expected.getMessage());
+    }
+  }
+
+  public void test_requireNonNullElse() {
+    assertEquals("obj", Objects.requireNonNullElse("obj", "default"));
+    assertEquals("default", Objects.requireNonNullElse(null, "default"));
+    assertEquals("obj", Objects.requireNonNullElse("obj", null));
+    assertThrowsNpe(() -> Objects.requireNonNullElse(null, null));
+  }
+
+  public void test_requireNonNullElseGet_obj() {
+    assertEquals("obj", Objects.requireNonNullElseGet("obj", () -> "default"));
+    // null supplier / supplier that returns null is tolerated when obj != null.
+    assertEquals("obj", Objects.requireNonNullElseGet("obj", () -> null));
+    assertEquals("obj", Objects.requireNonNullElseGet("obj", null));
+  }
+
+  public void test_requireNonNullElseGet_nullObj() {
+    assertEquals("default", Objects.requireNonNullElseGet(null, () -> "default"));
+    // null supplier and supplier of null both throw.
+    assertThrowsNpe(() -> Objects.requireNonNullElseGet(null, (Supplier<?>) () -> null));
+    assertThrowsNpe(() -> Objects.requireNonNullElse(null, null));
+  }
+
+  private static void assertThrowsNpe(Runnable runnable) {
+    try {
+      runnable.run();
+      fail();
+    } catch (NullPointerException expected) {
     }
   }
 

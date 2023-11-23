@@ -20,6 +20,7 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
+import android.annotation.TestApi;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.RemoteException;
@@ -37,7 +38,6 @@ import android.telephony.ims.stub.ImsMultiEndpointImplBase;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.telephony.ims.stub.ImsSmsImplBase;
 import android.telephony.ims.stub.ImsUtImplBase;
-import android.util.Log;
 
 import com.android.ims.internal.IImsCallSession;
 import com.android.ims.internal.IImsEcbm;
@@ -52,12 +52,17 @@ import java.lang.annotation.RetentionPolicy;
  *
  * Any class wishing to use MmTelFeature should extend this class and implement all methods that the
  * service supports.
- * @hide
  */
-@SystemApi
 public class MmTelFeature extends ImsFeature {
 
     private static final String LOG_TAG = "MmTelFeature";
+
+    /**
+     * @hide
+     */
+    @SystemApi @TestApi
+    public MmTelFeature() {
+    }
 
     private final IImsMmTelFeature mImsMMTelBinder = new IImsMmTelFeature.Stub() {
 
@@ -154,17 +159,13 @@ public class MmTelFeature extends ImsFeature {
         @Override
         public void changeCapabilitiesConfiguration(CapabilityChangeRequest request,
                 IImsCapabilityCallback c) {
-            synchronized (mLock) {
-                MmTelFeature.this.requestChangeEnabledCapabilities(request, c);
-            }
+            MmTelFeature.this.requestChangeEnabledCapabilities(request, c);
         }
 
         @Override
         public void queryCapabilityConfiguration(int capability, int radioTech,
                 IImsCapabilityCallback c) {
-            synchronized (mLock) {
-                queryCapabilityConfigurationInternal(capability, radioTech, c);
-            }
+            queryCapabilityConfigurationInternal(capability, radioTech, c);
         }
 
         @Override
@@ -217,13 +218,7 @@ public class MmTelFeature extends ImsFeature {
      * {@link MmTelCapabilities#CAPABILITY_TYPE_UT}, and
      * {@link MmTelCapabilities#CAPABILITY_TYPE_SMS}.
      *
-     * The capabilities of this MmTelFeature will be set by the framework and can be queried with
-     * {@link #queryCapabilityStatus()}.
-     *
-     * This MmTelFeature can then return the status of each of these capabilities (enabled or not)
-     * by sending a {@link #notifyCapabilitiesStatusChanged} callback to the framework. The current
-     * status can also be queried using {@link #queryCapabilityStatus()}.
-     * @see #isCapable(int)
+     * The capabilities of this MmTelFeature will be set by the framework.
      */
     public static class MmTelCapabilities extends Capabilities {
 
@@ -231,13 +226,18 @@ public class MmTelFeature extends ImsFeature {
          * Create a new empty {@link MmTelCapabilities} instance.
          * @see #addCapabilities(int)
          * @see #removeCapabilities(int)
+         * @hide
          */
+        @SystemApi @TestApi
         public MmTelCapabilities() {
             super();
         }
 
-        /**@deprecated Use {@link MmTelCapabilities} to construct a new instance instead.*/
+        /**@deprecated Use {@link MmTelCapabilities} to construct a new instance instead.
+         * @hide
+         */
         @Deprecated
+        @SystemApi @TestApi
         public MmTelCapabilities(Capabilities c) {
             mCapabilities = c.mCapabilities;
         }
@@ -246,11 +246,14 @@ public class MmTelFeature extends ImsFeature {
          * Create a new {link @MmTelCapabilities} instance with the provided capabilities.
          * @param capabilities The capabilities that are supported for MmTel in the form of a
          *                     bitfield.
+         * @hide
          */
-        public MmTelCapabilities(int capabilities) {
-            mCapabilities = capabilities;
+        @SystemApi @TestApi
+        public MmTelCapabilities(@MmTelCapability int capabilities) {
+            super(capabilities);
         }
 
+        /** @hide */
         @IntDef(flag = true,
                 value = {
                         CAPABILITY_TYPE_VOICE,
@@ -281,21 +284,37 @@ public class MmTelFeature extends ImsFeature {
          */
         public static final int CAPABILITY_TYPE_SMS = 1 << 3;
 
+        /**
+        * @hide
+        */
         @Override
+        @SystemApi @TestApi
         public final void addCapabilities(@MmTelCapability int capabilities) {
             super.addCapabilities(capabilities);
         }
 
+        /**
+        * @hide
+        */
         @Override
+        @SystemApi @TestApi
         public final void removeCapabilities(@MmTelCapability int capability) {
             super.removeCapabilities(capability);
         }
 
+        /**
+        * @hide
+        */
         @Override
+        @SystemApi @TestApi
         public final boolean isCapable(@MmTelCapability int capabilities) {
             return super.isCapable(capabilities);
         }
 
+        /**
+        * @hide
+        */
+        @NonNull
         @Override
         public String toString() {
             StringBuilder builder = new StringBuilder("MmTel Capabilities - [");
@@ -321,8 +340,10 @@ public class MmTelFeature extends ImsFeature {
         /**
          * Called when the IMS provider receives an incoming call.
          * @param c The {@link ImsCallSession} associated with the new call.
+         * @hide
          */
         @Override
+        @SystemApi @TestApi
         public void onIncomingCall(IImsCallSession c, Bundle extras) {
 
         }
@@ -331,8 +352,10 @@ public class MmTelFeature extends ImsFeature {
          * Called when the IMS provider implicitly rejects an incoming call during setup.
          * @param callProfile An {@link ImsCallProfile} with the call details.
          * @param reason The {@link ImsReasonInfo} reason for call rejection.
+         * @hide
          */
         @Override
+        @SystemApi @TestApi
         public void onRejectedCall(ImsCallProfile callProfile, ImsReasonInfo reason) {
 
         }
@@ -340,8 +363,10 @@ public class MmTelFeature extends ImsFeature {
         /**
          * Updates the Listener when the voice message count for IMS has changed.
          * @param count an integer representing the new message count.
+         * @hide
          */
         @Override
+        @SystemApi @TestApi
         public void onVoiceMessageCountUpdate(int count) {
 
         }
@@ -350,14 +375,19 @@ public class MmTelFeature extends ImsFeature {
     /**
      * To be returned by {@link #shouldProcessCall(String[])} when the ImsService should process the
      * outgoing call as IMS.
+     * @hide
      */
+    @SystemApi @TestApi
     public static final int PROCESS_CALL_IMS = 0;
     /**
      * To be returned by {@link #shouldProcessCall(String[])} when the telephony framework should
      * not process the outgoing call as IMS and should instead use circuit switch.
+     * @hide
      */
+    @SystemApi @TestApi
     public static final int PROCESS_CALL_CSFB = 1;
 
+    /** @hide */
     @IntDef(flag = true,
             value = {
                     PROCESS_CALL_IMS,
@@ -365,6 +395,29 @@ public class MmTelFeature extends ImsFeature {
             })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ProcessCallResult {}
+
+    /**
+     * If the flag is present and true, it indicates that the incoming call is for USSD.
+     * <p>
+     * This is an optional boolean flag.
+     * @hide
+     */
+    @SystemApi @TestApi
+    public static final String EXTRA_IS_USSD = "android.telephony.ims.feature.extra.IS_USSD";
+
+    /**
+     * If this flag is present and true, this call is marked as an unknown dialing call instead
+     * of an incoming call. An example of such a call is a call that is originated by sending
+     * commands (like AT commands) directly to the modem without Android involvement or dialing
+     * calls appearing over IMS when the modem does a silent redial from circuit-switched to IMS in
+     * certain situations.
+     * <p>
+     * This is an optional boolean flag.
+     * @hide
+     */
+    @SystemApi @TestApi
+    public static final String EXTRA_IS_UNKNOWN_CALL =
+            "android.telephony.ims.feature.extra.IS_UNKNOWN_CALL";
 
     private IImsMmTelListener mListener;
 
@@ -381,15 +434,13 @@ public class MmTelFeature extends ImsFeature {
         }
     }
 
-    private void queryCapabilityConfigurationInternal(int capability, int radioTech,
-            IImsCapabilityCallback c) {
-        boolean enabled = queryCapabilityConfiguration(capability, radioTech);
-        try {
-            if (c != null) {
-                c.onQueryCapabilityConfiguration(capability, radioTech, enabled);
-            }
-        } catch (RemoteException e) {
-            Log.e(LOG_TAG, "queryCapabilityConfigurationInternal called on dead binder!");
+    /**
+     * @return the listener associated with this MmTelFeature. May be null if it has not been set
+     * by the framework yet.
+     */
+    private IImsMmTelListener getListener() {
+        synchronized (mLock) {
+            return mListener;
         }
     }
 
@@ -401,9 +452,11 @@ public class MmTelFeature extends ImsFeature {
      * Should be a subset of the capabilities that are enabled by the framework in
      * {@link #changeEnabledCapabilities}.
      * @return A copy of the current MmTelFeature capability status.
+     * @hide
      */
     @Override
-    public final MmTelCapabilities queryCapabilityStatus() {
+    @SystemApi @TestApi
+    public @NonNull final MmTelCapabilities queryCapabilityStatus() {
         return new MmTelCapabilities(super.queryCapabilityStatus());
     }
 
@@ -415,7 +468,9 @@ public class MmTelFeature extends ImsFeature {
      * the status of that capability is disabled. This can happen if the network does not currently
      * support the capability that is enabled. A capability that is disabled by the framework (via
      * {@link #changeEnabledCapabilities}) should also show the status as disabled.
+     * @hide
      */
+    @SystemApi @TestApi
     public final void notifyCapabilitiesStatusChanged(@NonNull MmTelCapabilities c) {
         if (c == null) {
             throw new IllegalArgumentException("MmTelCapabilities must be non-null!");
@@ -426,22 +481,25 @@ public class MmTelFeature extends ImsFeature {
     /**
      * Notify the framework of an incoming call.
      * @param c The {@link ImsCallSessionImplBase} of the new incoming call.
+     * @param extras A bundle containing extra parameters related to the call. See
+     * {@link #EXTRA_IS_UNKNOWN_CALL} and {@link #EXTRA_IS_USSD} above.
+      * @hide
      */
+    @SystemApi @TestApi
     public final void notifyIncomingCall(@NonNull ImsCallSessionImplBase c,
             @NonNull Bundle extras) {
         if (c == null || extras == null) {
             throw new IllegalArgumentException("ImsCallSessionImplBase and Bundle can not be "
                     + "null.");
         }
-        synchronized (mLock) {
-            if (mListener == null) {
-                throw new IllegalStateException("Session is not available.");
-            }
-            try {
-                mListener.onIncomingCall(c.getServiceImpl(), extras);
-            } catch (RemoteException e) {
-                throw new RuntimeException(e);
-            }
+        IImsMmTelListener listener = getListener();
+        if (listener == null) {
+            throw new IllegalStateException("Session is not available.");
+        }
+        try {
+            listener.onIncomingCall(c.getServiceImpl(), extras);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -451,22 +509,23 @@ public class MmTelFeature extends ImsFeature {
      * @param callProfile The {@link ImsCallProfile} IMS call profile with details.
      *        This can be null if no call information is available for the rejected call.
      * @param reason The {@link ImsReasonInfo} call rejection reason.
+     * @hide
      */
+    @SystemApi @TestApi
     public final void notifyRejectedCall(@NonNull ImsCallProfile callProfile,
             @NonNull ImsReasonInfo reason) {
         if (callProfile == null || reason == null) {
             throw new IllegalArgumentException("ImsCallProfile and ImsReasonInfo must not be "
                     + "null.");
         }
-        synchronized (mLock) {
-            if (mListener == null) {
-                throw new IllegalStateException("Session is not available.");
-            }
-            try {
-                mListener.onRejectedCall(callProfile, reason);
-            } catch (RemoteException e) {
-                throw new RuntimeException(e);
-            }
+        IImsMmTelListener listener = getListener();
+        if (listener == null) {
+            throw new IllegalStateException("Session is not available.");
+        }
+        try {
+            listener.onRejectedCall(callProfile, reason);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -475,32 +534,32 @@ public class MmTelFeature extends ImsFeature {
      * @hide
      */
     public final void notifyIncomingCallSession(IImsCallSession c, Bundle extras) {
-        synchronized (mLock) {
-            if (mListener == null) {
-                throw new IllegalStateException("Session is not available.");
-            }
-            try {
-                mListener.onIncomingCall(c, extras);
-            } catch (RemoteException e) {
-                throw new RuntimeException(e);
-            }
+        IImsMmTelListener listener = getListener();
+        if (listener == null) {
+            throw new IllegalStateException("Session is not available.");
+        }
+        try {
+            listener.onIncomingCall(c, extras);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
         }
     }
 
     /**
      * Notify the framework of a change in the Voice Message count.
      * @link count the new Voice Message count.
+     * @hide
      */
+    @SystemApi @TestApi
     public final void notifyVoiceMessageCountUpdate(int count) {
-        synchronized (mLock) {
-            if (mListener == null) {
-                throw new IllegalStateException("Session is not available.");
-            }
-            try {
-                mListener.onVoiceMessageCountUpdate(count);
-            } catch (RemoteException e) {
-                throw new RuntimeException(e);
-            }
+        IImsMmTelListener listener = getListener();
+        if (listener == null) {
+            throw new IllegalStateException("Session is not available.");
+        }
+        try {
+            listener.onVoiceMessageCountUpdate(count);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -511,7 +570,10 @@ public class MmTelFeature extends ImsFeature {
      * status for capability A.
      * @param capability The capability that we are querying the configuration for.
      * @return true if the capability is enabled, false otherwise.
+     * @hide
      */
+    @Override
+    @SystemApi @TestApi
     public boolean queryCapabilityConfiguration(@MmTelCapabilities.MmTelCapability int capability,
             @ImsRegistrationImplBase.ImsRegistrationTech int radioTech) {
         // Base implementation - Override to provide functionality
@@ -529,8 +591,10 @@ public class MmTelFeature extends ImsFeature {
      * Enabling/Disabling a capability here indicates that the capability should be registered or
      * deregistered (depending on the capability change) and become available or unavailable to
      * the framework.
+     * * @hide
      */
     @Override
+    @SystemApi @TestApi
     public void changeEnabledCapabilities(@NonNull CapabilityChangeRequest request,
             @NonNull CapabilityCallbackProxy c) {
         // Base implementation, no-op
@@ -553,7 +617,9 @@ public class MmTelFeature extends ImsFeature {
      *        {@link ImsCallProfile#CALL_TYPE_VS_TX}
      *        {@link ImsCallProfile#CALL_TYPE_VS_RX}
      * @return a {@link ImsCallProfile} object
+     * @hide
      */
+    @SystemApi @TestApi
     public @Nullable ImsCallProfile createCallProfile(int callSessionType, int callType) {
         // Base Implementation - Should be overridden
         return null;
@@ -574,7 +640,9 @@ public class MmTelFeature extends ImsFeature {
      * {@link ImsCallSession} directly.
      *
      * @param profile a call profile to make the call
+     * @hide
      */
+    @SystemApi @TestApi
     public @Nullable ImsCallSessionImplBase createCallSession(@NonNull ImsCallProfile profile) {
         // Base Implementation - Should be overridden
         return null;
@@ -591,7 +659,9 @@ public class MmTelFeature extends ImsFeature {
      *         call as a conference.
      * @return a {@link ProcessCallResult} to the framework, which will be used to determine if the
      *        call will be placed over IMS or via CSFB.
+     * @hide
      */
+    @SystemApi @TestApi
     public @ProcessCallResult int shouldProcessCall(@NonNull String[] numbers) {
         return PROCESS_CALL_IMS;
     }
@@ -624,7 +694,9 @@ public class MmTelFeature extends ImsFeature {
     /**
      * @return The {@link ImsUtImplBase} Ut interface implementation for the supplementary service
      * configuration.
+     * @hide
      */
+    @SystemApi @TestApi
     public @NonNull ImsUtImplBase getUt() {
         // Base Implementation - Should be overridden
         return new ImsUtImplBase();
@@ -633,7 +705,9 @@ public class MmTelFeature extends ImsFeature {
     /**
      * @return The {@link ImsEcbmImplBase} Emergency call-back mode interface for emergency VoLTE
      * calls that support it.
+     * @hide
      */
+    @SystemApi @TestApi
     public @NonNull ImsEcbmImplBase getEcbm() {
         // Base Implementation - Should be overridden
         return new ImsEcbmImplBase();
@@ -642,7 +716,9 @@ public class MmTelFeature extends ImsFeature {
     /**
      * @return The {@link ImsMultiEndpointImplBase} implementation for implementing Dialog event
      * package processing for multi-endpoint.
+     * @hide
      */
+    @SystemApi @TestApi
     public @NonNull ImsMultiEndpointImplBase getMultiEndpoint() {
         // Base Implementation - Should be overridden
         return new ImsMultiEndpointImplBase();
@@ -668,7 +744,9 @@ public class MmTelFeature extends ImsFeature {
      *         // Remote side is dead
      *     }
      * }
+     * @hide
      */
+    @SystemApi @TestApi
     public void setUiTtyMode(int mode, @Nullable Message onCompleteMessage) {
         // Base Implementation - Should be overridden
     }
@@ -702,7 +780,9 @@ public class MmTelFeature extends ImsFeature {
      *
      * @return an instance of {@link ImsSmsImplBase} which should be implemented by the IMS
      * Provider.
+     * @hide
      */
+    @SystemApi @TestApi
     public @NonNull ImsSmsImplBase getSmsImplementation() {
         return new ImsSmsImplBase();
     }
@@ -711,14 +791,22 @@ public class MmTelFeature extends ImsFeature {
         return getSmsImplementation().getSmsFormat();
     }
 
-    /**{@inheritDoc}*/
+    /**
+     * {@inheritDoc}
+     * @hide
+     */
     @Override
+    @SystemApi @TestApi
     public void onFeatureRemoved() {
         // Base Implementation - Should be overridden
     }
 
-    /**{@inheritDoc}*/
+    /**
+     * {@inheritDoc}
+     * @hide
+     */
     @Override
+    @SystemApi @TestApi
     public void onFeatureReady() {
         // Base Implementation - Should be overridden
     }

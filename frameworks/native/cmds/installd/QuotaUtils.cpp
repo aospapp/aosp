@@ -61,6 +61,10 @@ bool InvalidateQuotaMounts() {
         std::getline(in, target, ' ');
         std::getline(in, ignored);
 
+        if (target.compare(0, 13, "/data_mirror/") == 0) {
+            continue;
+        }
+
         if (source.compare(0, 11, "/dev/block/") == 0) {
             struct dqblk dq;
             if (quotactl(QCMD(Q_GETQUOTA, USRQUOTA), source.c_str(), 0,
@@ -92,6 +96,26 @@ int64_t GetOccupiedSpaceForUid(const std::string& uuid, uid_t uid) {
     } else {
 #if MEASURE_DEBUG
         LOG(DEBUG) << "quotactl() for UID " << uid << " " << dq.dqb_curspace;
+#endif
+        return dq.dqb_curspace;
+    }
+}
+
+int64_t GetOccupiedSpaceForProjectId(const std::string& uuid, int projectId) {
+    const std::string device = FindQuotaDeviceForUuid(uuid);
+    if (device == "") {
+        return -1;
+    }
+    struct dqblk dq;
+    if (quotactl(QCMD(Q_GETQUOTA, PRJQUOTA), device.c_str(), projectId,
+            reinterpret_cast<char*>(&dq)) != 0) {
+        if (errno != ESRCH) {
+            PLOG(ERROR) << "Failed to quotactl " << device << " for Project ID " << projectId;
+        }
+        return -1;
+    } else {
+#if MEASURE_DEBUG
+        LOG(DEBUG) << "quotactl() for Project ID " << projectId << " " << dq.dqb_curspace;
 #endif
         return dq.dqb_curspace;
     }

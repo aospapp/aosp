@@ -16,10 +16,10 @@ This suite verifies ARC's basic functionality for the Android Pre-Flight Queue
 by running ARC-specific Tast integration tests that must always pass against a
 DUT. See http://go/tast for more information about Tast.
 
-The only Autotest test executed by this suite is tast.mustpass-android, which is
+The only Autotest test executed by this suite is tast.critical-android, which is
 a server test that executes the tast executable. The tast executable runs
-individual Tast tests. If any of these Tast tests fail, then tast.mustpass.arc
-(and this suite) fail. """
+individual Tast tests. If any of these Tast tests fail, then
+tast.critical-android (and this suite) fail. """
 
 import common
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite

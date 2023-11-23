@@ -144,7 +144,7 @@ void ThreadMutex::unlock() { pthread_mutex_unlock(&mMutex); }
 ** Returns:     none
 **
 *******************************************************************************/
-NfcAdaptation::NfcAdaptation() {}
+NfcAdaptation::NfcAdaptation() { mCurrentIoctlData = NULL; }
 
 /*******************************************************************************
 **

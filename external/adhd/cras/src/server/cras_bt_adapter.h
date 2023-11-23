@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 The Chromium Authors. All rights reserved.
+/* Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -10,7 +10,14 @@
 
 struct cras_bt_adapter;
 
-struct cras_bt_adapter *cras_bt_adapter_create(const char *object_path);
+/* Creates an bt_adapter instance representing the bluetooth controller
+ * on the system.
+ * Args:
+ *    conn - The dbus connection.
+ *    object_path - Object path of the bluetooth controller.
+ */
+struct cras_bt_adapter *cras_bt_adapter_create(DBusConnection *conn,
+					       const char *object_path);
 void cras_bt_adapter_destroy(struct cras_bt_adapter *adapter);
 void cras_bt_adapter_reset();
 
@@ -23,11 +30,21 @@ const char *cras_bt_adapter_name(const struct cras_bt_adapter *adapter);
 
 int cras_bt_adapter_powered(const struct cras_bt_adapter *adapter);
 
+/*
+ * Returns true if adapter supports wide band speech feature.
+ */
+int cras_bt_adapter_wbs_supported(struct cras_bt_adapter *adapter);
 
 void cras_bt_adapter_update_properties(struct cras_bt_adapter *adapter,
 				       DBusMessageIter *properties_array_iter,
 				       DBusMessageIter *invalidated_array_iter);
 
 int cras_bt_adapter_on_usb(struct cras_bt_adapter *adapter);
+
+/*
+ * Queries adapter supported capabilies from bluetooth daemon. This shall
+ * be called only after adapter powers on.
+ */
+int cras_bt_adapter_get_supported_capabilities(struct cras_bt_adapter *adapter);
 
 #endif /* CRAS_BT_ADAPTER_H_ */

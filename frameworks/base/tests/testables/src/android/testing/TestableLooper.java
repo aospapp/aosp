@@ -222,6 +222,10 @@ public class TestableLooper {
         return sLoopers.get(test);
     }
 
+    public static void remove(Object test) {
+        sLoopers.remove(test);
+    }
+
     static class LooperFrameworkMethod extends FrameworkMethod {
         private HandlerThread mHandlerThread;
 
@@ -234,6 +238,9 @@ public class TestableLooper {
             try {
                 mLooper = setAsMain ? Looper.getMainLooper() : createLooper();
                 mTestableLooper = new TestableLooper(mLooper, false);
+                if (!setAsMain) {
+                    mTestableLooper.getLooper().getThread().setName(test.getClass().getName());
+                }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

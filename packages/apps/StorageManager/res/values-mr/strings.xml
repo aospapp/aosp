@@ -41,7 +41,7 @@
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"स्टोरेज स्वयंचलितपणे व्यवस्थापित करायचे?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"आता <xliff:g id="USED">%1$s</xliff:g> मोकळे आहे. स्टोरेज व्यवस्‍थापकास तुमच्या डिव्हाइस वरून बॅक अप घेतलेली आशय काढून आपोआप स्थान मोकळे करू द्यायचे?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"नाही, नको"</string>
-    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"चालू करा"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"सुरू करा"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"वारंवार न वापरले जाणारे अ‍ॅप्स"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
@@ -53,7 +53,7 @@
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"तुमच्या टॅबलेटमध्ये जागा कमी आहे"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"तुमचा फोन पुन्हा भरणेे प्रारंभ होतो तेव्हा जुने फोटो आणि व्हिडिओ स्वयंचलितपणेे काढून स्टोरेज व्यवस्थापकास स्थान मोकळे करू द्या."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"नाही, नको"</string>
-    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"चालू करा"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"सुरू करा"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"फोटो आणि व्हिडिओंंचा बॅकअप घेतला"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"आयटम शोधत आहे..."</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"सर्व आयटम दाखवा"</string>
@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"तुमचा स्टोरेज आता स्टोरेज व्यवस्थापक व्यवस्थापित करत आहे"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"काढण्यासाठी काहीही नाही"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"अलीकडील आयटमचे पुनरावलोकन करा"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"काढण्यासाठी कोणत्याही जुन्या फायली नाहीत. जागा मोकळी करण्यासाठी अलीकडील फोटो, व्हिडिओ आणि अ‍ॅप्स काढा."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"काढण्यासाठी कोणत्याही जुन्या फाइल नाहीत. जागा मोकळी करण्यासाठी अलीकडील फोटो, व्हिडिओ आणि अ‍ॅप्स काढा."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> ला <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> जागेची आवश्यकता आहे"</string>
 </resources>

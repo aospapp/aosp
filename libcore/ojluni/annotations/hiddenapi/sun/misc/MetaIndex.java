@@ -33,12 +33,12 @@ public class MetaIndex {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static sun.misc.MetaIndex forJar(java.io.File jar) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static synchronized void registerDirectory(java.io.File dir) {
         throw new RuntimeException("Stub!");
     }

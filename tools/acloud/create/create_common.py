@@ -15,22 +15,17 @@
 # limitations under the License.
 """Common code used by acloud create methods/classes."""
 
-from __future__ import print_function
-
-import glob
 import logging
 import os
-import tempfile
-import time
-import zipfile
 
 from acloud import errors
 from acloud.internal import constants
+from acloud.internal.lib import android_build_client
+from acloud.internal.lib import auth
 from acloud.internal.lib import utils
 
-logger = logging.getLogger(__name__)
 
-_ACLOUD_IMAGE_ZIP_POSTFIX = "-local-img-%s.zip"
+logger = logging.getLogger(__name__)
 
 
 def ParseHWPropertyArgs(dict_str, item_separator=",", key_value_separator=":"):
@@ -68,40 +63,58 @@ def ParseHWPropertyArgs(dict_str, item_separator=",", key_value_separator=":"):
     return hw_dict
 
 
-@utils.TimeExecute(function_description="Compressing images")
-def ZipCFImageFiles(basedir):
-    """Zip images from basedir.
+def GetCvdHostPackage():
+    """Get cvd host package path.
 
-    TODO(b/129376163):Use lzop for fast sparse image upload when host image
-    support it.
-
-    Args:
-        basedir: String of local images path.
+    Look for the host package in $ANDROID_HOST_OUT and dist dir then verify
+    existence and get cvd host package path.
 
     Return:
-        Strings of zipped image path.
+        A string, the path to the host package.
+
+    Raises:
+        errors.GetCvdLocalHostPackageError: Can't find cvd host package.
     """
-    tmp_folder = os.path.join(tempfile.gettempdir(),
-                              constants.TEMP_ARTIFACTS_FOLDER)
-    if not os.path.exists(tmp_folder):
-        os.makedirs(tmp_folder)
-    archive_name = "%s-local-%d.zip" % (os.environ.get(constants.ENV_BUILD_TARGET),
-                                        int(time.time()))
-    archive_file = os.path.join(tmp_folder, archive_name)
-    if os.path.exists(archive_file):
-        raise errors.ZipImageError("This file shouldn't exist, please delete: %s"
-                                   % archive_file)
+    dirs_to_check = list(filter(None, [os.environ.get(constants.ENV_ANDROID_HOST_OUT)]))
+    dist_dir = utils.GetDistDir()
+    if dist_dir:
+        dirs_to_check.append(dist_dir)
 
-    zip_file = zipfile.ZipFile(archive_file, 'w', zipfile.ZIP_DEFLATED,
-                               allowZip64=True)
-    required_files = ([os.path.join(basedir, "android-info.txt")] +
-                      glob.glob(os.path.join(basedir, "*.img")))
-    logger.debug("archiving images: %s", required_files)
+    for path in dirs_to_check:
+        cvd_host_package = os.path.join(path, constants.CVD_HOST_PACKAGE)
+        if os.path.exists(cvd_host_package):
+            logger.debug("cvd host package: %s", cvd_host_package)
+            return cvd_host_package
+    raise errors.GetCvdLocalHostPackageError(
+        "Can't find the cvd host package (Try lunching a cuttlefish target"
+        " like aosp_cf_x86_phone-userdebug and running 'm'): \n%s" %
+        '\n'.join(dirs_to_check))
 
-    for f in required_files:
-        # Pass arcname arg to remove the directory structure.
-        zip_file.write(f, arcname=os.path.basename(f))
 
-    zip_file.close()
-    logger.debug("zip images done:%s", archive_file)
-    return archive_file
+def DownloadRemoteArtifact(cfg, build_target, build_id, artifact, extract_path,
+                           decompress=False):
+    """Download remote artifact.
+
+    Args:
+        cfg: An AcloudConfig instance.
+        build_target: String, the build target, e.g. cf_x86_phone-userdebug.
+        build_id: String, Build id, e.g. "2263051", "P2804227"
+        artifact: String, zip image or cvd host package artifact.
+        extract_path: String, a path include extracted files.
+        decompress: Boolean, if true decompress the artifact.
+    """
+    build_client = android_build_client.AndroidBuildClient(
+        auth.CreateCredentials(cfg))
+    temp_file = os.path.join(extract_path, artifact)
+    build_client.DownloadArtifact(
+        build_target,
+        build_id,
+        artifact,
+        temp_file)
+    if decompress:
+        utils.Decompress(temp_file, extract_path)
+        try:
+            os.remove(temp_file)
+            logger.debug("Deleted temporary file %s", temp_file)
+        except OSError as e:
+            logger.error("Failed to delete temporary file: %s", str(e))

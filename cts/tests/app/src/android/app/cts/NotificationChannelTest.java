@@ -18,6 +18,7 @@ package android.app.cts;
 
 import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
 import static android.app.NotificationManager.IMPORTANCE_HIGH;
+import static android.app.NotificationManager.IMPORTANCE_UNSPECIFIED;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -58,13 +59,32 @@ public class NotificationChannelTest extends AndroidTestCase {
         assertEquals(Notification.AUDIO_ATTRIBUTES_DEFAULT, channel.getAudioAttributes());
         assertEquals(null, channel.getGroup());
         assertTrue(channel.getLightColor() == 0);
-        assertTrue(channel.canBubble());
+        assertFalse(channel.canBubble());
         assertFalse(channel.isImportanceLockedByOEM());
+        assertEquals(IMPORTANCE_UNSPECIFIED, channel.getOriginalImportance());
+        assertNull(channel.getConversationId());
+        assertNull(channel.getParentChannelId());
+        assertFalse(channel.isImportantConversation());
     }
 
     public void testWriteToParcel() {
         NotificationChannel channel =
                 new NotificationChannel("1", "one", IMPORTANCE_DEFAULT);
+        channel.setBypassDnd(true);
+        channel.setOriginalImportance(IMPORTANCE_HIGH);
+        channel.setShowBadge(false);
+        channel.setAllowBubbles(false);
+        channel.setGroup("a thing");
+        channel.setSound(Uri.fromParts("a", "b", "c"),
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                        .build());
+        channel.setLightColor(Color.RED);
+        channel.setDeleted(true);
+        channel.setFgServiceShown(true);
+        channel.setVibrationPattern(new long[] {299, 4562});
+        channel.setBlockable(true);
+        channel.setConversationId("parent_channel", "conversation 1");
+        channel.setImportantConversation(true);
         Parcel parcel = Parcel.obtain();
         channel.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
@@ -166,10 +186,49 @@ public class NotificationChannelTest extends AndroidTestCase {
         assertEquals(false, channel.canBubble());
     }
 
+    public void testIsBlockableSystem() {
+        NotificationChannel channel =
+                new NotificationChannel("1", "one", IMPORTANCE_DEFAULT);
+        channel.setBlockable(true);
+        assertTrue(channel.isBlockable());
+    }
+
     public void testIsImportanceLockedByOEM() {
         NotificationChannel channel =
                 new NotificationChannel("1", "one", IMPORTANCE_DEFAULT);
         channel.setImportanceLockedByOEM(true);
         assertTrue(channel.isImportanceLockedByOEM());
+    }
+
+    public void testSystemBlockable() {
+        NotificationChannel channel = new NotificationChannel("a", "ab", IMPORTANCE_DEFAULT);
+        assertEquals(false, channel.isBlockable());
+        channel.setBlockable(true);
+        assertEquals(true, channel.isBlockable());
+    }
+
+    public void testOriginalImportance() {
+        NotificationChannel channel = new NotificationChannel("a", "ab", IMPORTANCE_DEFAULT);
+        channel.setOriginalImportance(IMPORTANCE_HIGH);
+        assertEquals(IMPORTANCE_HIGH, channel.getOriginalImportance());
+    }
+
+    public void testConversation() {
+        NotificationChannel channel = new NotificationChannel("a", "ab", IMPORTANCE_DEFAULT);
+        channel.setConversationId("parent", "conversation");
+
+        assertEquals("parent", channel.getParentChannelId());
+        assertEquals("conversation", channel.getConversationId());
+        assertFalse(channel.isImportantConversation());
+
+        channel.setImportantConversation(true);
+        assertTrue(channel.isImportantConversation());
+    }
+
+    public void testHasUserSetSound() {
+        NotificationChannel channel = new NotificationChannel("a", "a", IMPORTANCE_DEFAULT);
+        channel.lockFields(NotificationChannel.USER_LOCKED_SOUND);
+
+        assertTrue(channel.hasUserSetSound());
     }
 }

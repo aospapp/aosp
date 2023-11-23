@@ -6,7 +6,7 @@ import logging
 import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.server import autotest, test
+from autotest_lib.server import autotest
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
@@ -34,6 +34,7 @@ class firmware_Cr50USB(FirmwareTest):
 
     def run_once(self, host, cmdline_args, num_iterations=100,
                  exit_condition=None):
+        """Runs a single iteration of the test."""
         self.host = host
         # Disable CCD so it doesn't interfere with the Cr50 AP usb connection.
         if hasattr(self, "cr50"):

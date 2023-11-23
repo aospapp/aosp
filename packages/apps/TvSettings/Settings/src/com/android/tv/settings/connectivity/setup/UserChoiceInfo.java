@@ -19,6 +19,7 @@ package com.android.tv.settings.connectivity.setup;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 
 import androidx.annotation.IntDef;
 import androidx.lifecycle.ViewModel;
@@ -26,6 +27,7 @@ import androidx.lifecycle.ViewModel;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Class that stores the user choice information for basic Wi-Fi flow.
@@ -35,24 +37,22 @@ public class UserChoiceInfo extends ViewModel {
     public static final int PASSWORD = 2;
     public static final int SECURITY = 3;
     public static final int SSID = 4;
-
-    @IntDef({
-            SELECT_WIFI,
-            PASSWORD,
-            SECURITY,
-            SSID
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface PAGE {
-    }
-
-    private HashMap<Integer, CharSequence> mDataSummary = new HashMap<>();
-
+    public static final int EAP_METHOD = 5;
+    public static final int PHASE_2_AUTHENTICATION = 6;
+    public static final int CA_CERTIFICATE = 7;
+    public static final int USER_CERT = 8;
+    public static final int DOMAIN = 9;
+    public static final int IDENTITY = 10;
+    public static final int ANONYMOUS_IDENTITY = 11;
+    Map<Integer, Boolean> mIsPageVisible = new ArrayMap<>();
+    private HashMap<Integer, String> mDataSummary = new HashMap<>();
+    private HashMap<Integer, Integer> mChoiceSummary = new HashMap<>();
     private WifiConfiguration mWifiConfiguration = new WifiConfiguration();
     private int mWifiSecurity;
     private ScanResult mChosenNetwork;
     private String mConnectedNetwork;
     private boolean mIsPasswordHidden = false;
+    private ConnectionFailedStatus mConnectionFailedStatus;
 
     /**
      * Store the page summary into a HashMap.
@@ -62,6 +62,10 @@ public class UserChoiceInfo extends ViewModel {
      */
     public void put(@PAGE int page, String info) {
         mDataSummary.put(page, info);
+    }
+
+    public void put(@PAGE int page, int choice) {
+        mChoiceSummary.put(page, choice);
     }
 
     /**
@@ -78,13 +82,20 @@ public class UserChoiceInfo extends ViewModel {
         return TextUtils.equals(choice, mDataSummary.get(page));
     }
 
+    public Integer getChoice(@PAGE int page) {
+        if (!mChoiceSummary.containsKey(page)) {
+            return null;
+        }
+        return mChoiceSummary.get(page);
+    }
+
     /**
      * Get summary of a page.
      *
      * @param page The queried page.
      * @return The summary of the page.
      */
-    public CharSequence getPageSummary(@PAGE int page) {
+    public String getPageSummary(@PAGE int page) {
         if (!mDataSummary.containsKey(page)) {
             return null;
         }
@@ -182,6 +193,14 @@ public class UserChoiceInfo extends ViewModel {
         this.mIsPasswordHidden = hidden;
     }
 
+    public ConnectionFailedStatus getConnectionFailedStatus() {
+        return mConnectionFailedStatus;
+    }
+
+    public void setConnectionFailedStatus(ConnectionFailedStatus status) {
+        mConnectionFailedStatus = status;
+    }
+
     /**
      * Initialize all the information.
      */
@@ -192,5 +211,41 @@ public class UserChoiceInfo extends ViewModel {
         mChosenNetwork = null;
         mChosenNetwork = null;
         mIsPasswordHidden = false;
+    }
+
+    public void setVisible(@PAGE int page, boolean visible) {
+        mIsPageVisible.put(page, visible);
+    }
+
+    public boolean isVisible(@PAGE int page) {
+        if (!mIsPageVisible.containsKey(page)) {
+            return true;
+        }
+        return mIsPageVisible.get(page);
+    }
+
+
+    public enum ConnectionFailedStatus {
+        AUTHENTICATION,
+        REJECTED,
+        TIMEOUT,
+        UNKNOWN
+    }
+
+    @IntDef({
+            SELECT_WIFI,
+            PASSWORD,
+            SECURITY,
+            SSID,
+            EAP_METHOD,
+            PHASE_2_AUTHENTICATION,
+            CA_CERTIFICATE,
+            USER_CERT,
+            DOMAIN,
+            IDENTITY,
+            ANONYMOUS_IDENTITY,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PAGE {
     }
 }

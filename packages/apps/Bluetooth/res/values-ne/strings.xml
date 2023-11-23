@@ -16,10 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"डाउनलोड प्रबन्धक पहुँच गर्नुहोस्।"</string>
-    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"अनुप्रयोगलाई ब्लुटुथसाझेदारी प्रबन्धक पहुँचको अनुमति दिन्छ र यसलाई फाइलहरू स्थानान्तरण गर्न प्रयोग गर्दछ।"</string>
+    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"डाउनलोड म्यानेजर पहुँच गर्नुहोस्।"</string>
+    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"एपलाई ब्लुटुथसाझेदारी प्रबन्धक पहुँचको अनुमति दिन्छ र यसलाई फाइलहरू स्थानान्तरण गर्न प्रयोग गर्दछ।"</string>
     <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"स्वेतसूची ब्लुटुथ उपकरण पहुँच।"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"त्यस उपकरणलाई यस उपकरणमा फाइलहरू पठाउन बिना कुनै पुष्टि अनुमति दिँदै अनुप्रयोगलाई अस्थायी रूपमा ब्लुटुथ उपकरणलाई स्वेतसूचीमा राख्न अनुमति दिन्छ।"</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"त्यस उपकरणलाई यस उपकरणमा फाइलहरू पठाउन बिना कुनै पुष्टि अनुमति दिँदै एपलाई अस्थायी रूपमा ब्लुटुथ उपकरणलाई स्वेतसूचीमा राख्न अनुमति दिन्छ।"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"ब्लुटुथ"</string>
     <string name="unknown_device" msgid="9221903979877041009">"अज्ञात उपकरण"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"अज्ञात"</string>
@@ -69,11 +69,10 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"ठिक छ"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"फाइल\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" लाई पठाइएन।"</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"फाइल: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"फेरि प्रयास गर्नुहोस्"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"बन्द गर्नुहोस्"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ठिक छ"</string>
     <string name="unknown_file" msgid="6092727753965095366">"अज्ञात फाइल"</string>
-    <string name="unknown_file_desc" msgid="480434281415453287">"यस प्रकारको फाइल सम्हालन  कुनै अनुप्रयोग छैन।\n"</string>
+    <string name="unknown_file_desc" msgid="480434281415453287">"यस प्रकारको फाइल सम्हालन  कुनै एप छैन।\n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"फाइल छैन"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"फाइल अवस्थित छैन। \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"कृपया प्रतीक्षा गर्नुहोस्..."</string>
@@ -100,13 +99,13 @@
     <string name="status_connection_error" msgid="947681831523219891">"जडान असफल।"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"अनुरोधलाई सही रूपमा सम्हाल्न सकिँदैन।"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"अज्ञात त्रुटि।"</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"ब्लुटुथ प्राप्त भयो"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"ब्लुटुथबाट प्राप्त भएको"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"ब्लुटुथमार्फत गरिने आदान प्रदान"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> प्राप्त गर्ने कार्य सम्पन्न भयो।"</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> पठाउने कार्य पुरा भयो।"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"इनबाउन्ड स्थानान्तरण"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"आउटबाउन्ड स्थानान्तरण"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"स्थानान्तरण इतिहास खाली छ।"</string>
+    <string name="no_transfers" msgid="3482965619151865672">"अहिलेसम्म कुनै वस्तु ट्रान्सफर गरिएको छैन।"</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"सूचीबाट सम्पूर्ण वस्तुहरू मेटाइने छन्।"</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"ब्लुटुथ साझेदारी: पठाइएका फाइलहरू"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"ब्लुटुथ साझेदारी: प्राप्त फाइलहरू"</string>
@@ -127,11 +126,12 @@
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"रद्द गर्नुहोस्"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"तपाईंले ब्लुटुथ मार्फत साझेदारी गर्न चाहेका खाताहरू चयन गर्नुहोस्। तपाईंले अझै पनि खाताहरूमा जडान गर्दा कुनै पनि पहुँच स्वीकार गर्नुपर्छ।"</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"स्लटहरू बाँकी:"</string>
-    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"अनुप्रयोग आइकन"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"एप आइकन"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ब्लुटुथ सन्देश साझेदारी सेटिङहरू"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"खाता चयन गर्न सक्दैन। ० स्लटहरू बाँकी"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"ब्लुटुथ सम्बन्धी अडियो यन्त्रलाई जडान गरियो"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ब्लुटुथ सम्बन्धी अडियो यन्त्रलाई विच्छेद गरियो"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ब्लुटुथको अडियो"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"४ जि.बि. भन्दा ठूला फाइलहरूलाई स्थानान्तरण गर्न सकिँदैन"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"ब्लुटुथमा जोड्नुहोस्"</string>
 </resources>

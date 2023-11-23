@@ -56,7 +56,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite Utilities---"); logln();
                     IntlTestUtilities test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
                 break;
 
@@ -65,7 +65,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite Normalize---"); logln();
                     IntlTestNormalize test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
 #endif
                 break;
@@ -75,7 +75,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite Collator---"); logln();
                     IntlTestCollator test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
 #endif
                 break;
@@ -85,7 +85,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite Regex---"); logln();
                     RegexTest test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
 #endif
                 break;
@@ -95,7 +95,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite Format---"); logln();
                     IntlTestFormat test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
 #endif
                 break;
@@ -105,7 +105,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite Transliterator---"); logln();
                     IntlTestTransliterator test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
 #endif
                 break;
@@ -115,7 +115,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite RuleBasedBreakIterator---"); logln();
                     IntlTestRBBI test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
 #endif
                 break;
@@ -124,7 +124,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite RuleBasedNumberFormat----"); logln();
                     IntlTestRBNF test;
-                    callTest(test, par);
+                    callTest(test, par, name);
                 }
 #endif
                 break;
@@ -133,7 +133,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite RuleBasedNumberFormat RT----"); logln();
                     RbnfRoundTripTest test;
-                    callTest(test, par);
+                    callTest(test, par, name);
                 }
 #endif
                 break;
@@ -143,7 +143,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite ICUService---"); logln();
                     ICUServiceTest test;
-                    callTest(test, par);
+                    callTest(test, par, name);
                 }
 #endif
                 break;
@@ -152,7 +152,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
             if(exec){
                 logln("TestSuite IDNA----"); logln();
                 TestIDNA test;
-                callTest(test,par);
+                callTest(test,par, name);
             }
 #endif
             break;
@@ -161,7 +161,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite Conversion---"); logln();
                     ConversionTest test;
-                    callTest( test, par );
+                    callTest( test, par, name );
                 }
 #endif
                 break;
@@ -171,7 +171,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite RuleBasedNumberParse ----"); logln();
                     IntlTestRBNFParse test;
-                    callTest(test, par);
+                    callTest(test, par, name);
                 }
 #endif
                 break;
@@ -180,7 +180,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite CharsetDetection---"); logln();
                     CharsetDetectionTest test;
-                    callTest(test, par);
+                    callTest(test, par, name);
                 }
 
                 break;
@@ -191,7 +191,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite SpoofDetection---"); logln();
                     IntlTestSpoof test;
-                    callTest(test, par);
+                    callTest(test, par, name);
                 }
 #else
                 name = "skip";
@@ -202,7 +202,7 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                 if (exec) {
                     logln("TestSuite bidi---"); logln();
                     LocalPointer<IntlTest> test(createBiDiConformanceTest());
-                    callTest(*test, par);
+                    callTest(*test, par, name);
                 }
 
                 break;

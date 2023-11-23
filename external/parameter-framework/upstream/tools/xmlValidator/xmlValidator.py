@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 # Copyright (c) 2014, Intel Corporation
 # All rights reserved.
@@ -28,20 +28,21 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from lxml import etree
 from os import path
 from os import walk
 from sys import argv
 
+from lxml import etree
+
 class PrintColor():
     @staticmethod
     def success(stringToPrint):
-        green=32
+        green = 32
         PrintColor._printColor(green, stringToPrint)
 
     @staticmethod
     def error(stringToPrint):
-        red=31
+        red = 31
         PrintColor._printColor(red, stringToPrint)
 
     @staticmethod

@@ -19,15 +19,22 @@ set -e
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
+# Make sure we're in C locale so build inside chroot does not complain
+# about missing files
+unset LANG LANGUAGE \
+  LC_ADDRESS LC_ALL LC_COLLATE LC_CTYPE LC_IDENTIFICATION LC_MEASUREMENT \
+  LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE LC_TIME
+export LC_ALL=C
+
 usage() {
-  echo -n "usage: $0 [-h] [-s wheezy|stretch] [-a i386|amd64|armhf|arm64] "
+  echo -n "usage: $0 [-h] [-s bullseye] [-a i386|amd64|armhf|arm64] "
   echo "[-m http://mirror/debian] [-n net_test.rootfs.`date +%Y%m%d`]"
   exit 1
 }
 
 mirror=http://ftp.debian.org/debian
 debootstrap=debootstrap
-suite=stretch
+suite=bullseye
 arch=amd64
 
 while getopts ":hs:a:m:n:" opt; do
@@ -36,14 +43,11 @@ while getopts ":hs:a:m:n:" opt; do
       usage
       ;;
     s)
-      if [ "$OPTARG" != "wheezy" -a "$OPTARG" != "stretch" ]; then
+      if [[ "$OPTARG" != "bullseye" ]]; then
         echo "Invalid suite: $OPTARG" >&2
         usage
       fi
       suite="${OPTARG}"
-      if [[ "${suite}" == wheezy ]]; then
-        mirror=http://archive.debian.org/debian
-      fi
       ;;
     a)
       case "${OPTARG}" in
@@ -92,12 +96,18 @@ trap failure ERR
 packages=`cat $SCRIPT_DIR/rootfs/$suite.list | xargs | tr -s ' ' ','`
 
 # For the debootstrap intermediates
-workdir=`mktemp -d`
-workdir_remove() {
+tmpdir=`mktemp -d`
+tmpdir_remove() {
   echo "Removing temporary files.." >&2
-  sudo rm -rf $workdir
+  sudo rm -rf "${tmpdir}"
 }
-trap workdir_remove EXIT
+trap tmpdir_remove EXIT
+
+workdir="${tmpdir}/_"
+
+mkdir "${workdir}"
+chmod 0755 "${workdir}"
+sudo chown root:root "${workdir}"
 
 # Run the debootstrap first
 cd $workdir
@@ -122,7 +132,7 @@ cd -
 mount=`mktemp -d`
 mount_remove() {
  rmdir $mount
- workdir_remove
+ tmpdir_remove
 }
 trap mount_remove EXIT
 

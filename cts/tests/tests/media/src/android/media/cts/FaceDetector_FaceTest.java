@@ -27,6 +27,7 @@ import android.test.InstrumentationTestCase;
 
 import java.util.List;
 
+@NonMediaMainlineTest
 public class FaceDetector_FaceTest extends InstrumentationTestCase {
     private FaceDetectorStub mActivity;
 

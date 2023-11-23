@@ -21,6 +21,7 @@ import static android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_PAUSE;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_PLAY;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID;
+import static android.support.v4.media.session.PlaybackStateCompat.ACTION_PREPARE;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_SEEK_TO;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_SKIP_TO_NEXT;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
@@ -28,10 +29,8 @@ import static android.support.v4.media.session.PlaybackStateCompat.ACTION_SKIP_T
 import static android.support.v4.media.session.PlaybackStateCompat.ERROR_CODE_APP_ERROR;
 import static android.support.v4.media.session.PlaybackStateCompat.STATE_ERROR;
 
-import static com.android.car.media.common.MediaConstants.ERROR_RESOLUTION_ACTION_INTENT;
-import static com.android.car.media.common.MediaConstants.ERROR_RESOLUTION_ACTION_LABEL;
-
 import androidx.annotation.Nullable;
+
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -44,6 +43,7 @@ import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.android.car.media.testmediaapp.TmaMediaEvent.Action;
 import com.android.car.media.testmediaapp.TmaMediaEvent.EventState;
 import com.android.car.media.testmediaapp.TmaMediaEvent.ResolutionIntent;
 import com.android.car.media.testmediaapp.TmaMediaItem.TmaCustomAction;
@@ -78,7 +78,6 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
     private TmaMediaItem mActiveItem;
     private int mNextEventIndex = -1;
 
-
     TmaPlayer(Context context, TmaLibrary library, AudioManager audioManager, Handler handler,
             MediaSessionCompat session) {
         mContext = context;
@@ -107,8 +106,8 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
             PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, prefsIntent, 0);
 
             Bundle extras = new Bundle();
-            extras.putString(ERROR_RESOLUTION_ACTION_LABEL, event.mActionLabel);
-            extras.putParcelable(ERROR_RESOLUTION_ACTION_INTENT, pendingIntent);
+            extras.putString(MediaKeys.ERROR_RESOLUTION_ACTION_LABEL, event.mActionLabel);
+            extras.putParcelable(MediaKeys.ERROR_RESOLUTION_ACTION_INTENT, pendingIntent);
             state.setExtras(extras);
         }
 
@@ -142,6 +141,46 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
     public void onPlayFromMediaId(String mediaId, Bundle extras) {
         super.onPlayFromMediaId(mediaId, extras);
         playItem(mLibrary.getMediaItemById(mediaId));
+    }
+
+    @Override
+    public void onPrepareFromMediaId(String mediaId, Bundle extras) {
+        super.onPrepareFromMediaId(mediaId, extras);
+
+        TmaMediaItem item = mLibrary.getMediaItemById(mediaId);
+        prepareMediaItem(item);
+    }
+
+    @Override
+    public void onPrepare() {
+        super.onPrepare();
+        if (!mSession.isActive()) {
+            mSession.setActive(true);
+        }
+        // Prepare the first playable item (at root level) as the active item
+        if (mActiveItem == null) {
+            TmaMediaItem root = mLibrary.getRoot(mPrefs.mRootNodeType.getValue());
+            if (root != null) {
+                prepareMediaItem(root.getPlayableByIndex(0));
+            }
+        }
+    }
+
+    void prepareMediaItem(@Nullable TmaMediaItem item) {
+        if (item != null && item.getParent() != null) {
+            if (mIsPlaying) {
+                stopPlayback();
+            }
+            mActiveItem = item;
+            mActiveItem.updateSessionMetadata(mSession);
+            mSession.setQueue(item.getParent().buildQueue());
+
+            PlaybackStateCompat.Builder state = new PlaybackStateCompat.Builder()
+                    .setState(PlaybackStateCompat.STATE_PAUSED, mCurrentPositionMs, mPlaybackSpeed)
+                    .setActions(addActions(ACTION_PLAY));
+            setActiveItemState(state);
+            mSession.setPlaybackState(state.build());
+        }
     }
 
     @Override
@@ -209,6 +248,8 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
             } else if (TmaCustomAction.HEART_LESS_LESS.mId.equals(action)) {
                 mActiveItem.mHearts--;
                 toast("" + mActiveItem.mHearts);
+            } else if (TmaCustomAction.REQUEST_LOCATION.mId.equals(action)) {
+                mContext.startService(new Intent(mContext, TmaForegroundService.class));
             }
         }
     }
@@ -226,11 +267,14 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
         if (mActiveItem == null) return;
 
         TmaMediaEvent event = mActiveItem.mMediaEvents.get(mNextEventIndex);
+        event.maybeThrow();
 
         if (event.premiumAccountRequired() &&
                 TmaAccountType.PAID.equals(mPrefs.mAccountType.getValue())) {
             Log.i(TAG, "Ignoring even for paid account");
             return;
+        } else if (Action.RESET_METADATA.equals(event.mAction)) {
+            mSession.setMetadata(mSession.getController().getMetadata());
         } else {
             setPlaybackState(event);
         }
@@ -304,7 +348,8 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
     }
 
     private long addActions(long actions) {
-        actions |= ACTION_PLAY_FROM_MEDIA_ID | ACTION_SKIP_TO_QUEUE_ITEM | ACTION_SEEK_TO;
+        actions |= ACTION_PLAY_FROM_MEDIA_ID | ACTION_SKIP_TO_QUEUE_ITEM | ACTION_SEEK_TO
+                | ACTION_PREPARE;
 
         if (mActiveItem != null) {
             if (mActiveItem.getNext() != null) {

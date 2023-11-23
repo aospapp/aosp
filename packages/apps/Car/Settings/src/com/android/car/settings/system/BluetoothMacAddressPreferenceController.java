@@ -48,7 +48,7 @@ public class BluetoothMacAddressPreferenceController extends
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
             return UNSUPPORTED_ON_DEVICE;
         }
-        return super.getAvailabilityStatus();
+        return AVAILABLE_FOR_VIEWING;
     }
 
     @Override

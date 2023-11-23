@@ -10,9 +10,6 @@ persist.rild.nitz_short_ons_2=
 persist.rild.nitz_short_ons_3=
 DEVICE_PROVISIONED=1
 
-# Set network mode to Global by default and no DSDS/DSDA
-ro.telephony.default_network=10
-
 debug.sf.hw=1
 debug.gralloc.enable_fb_ubwc=1
 
@@ -37,7 +34,6 @@ persist.mm.enable.prefetch=true
 vendor.vidc.enc.dcvs.extra-buff-count=2
 
 # system props for the data netmgrd
-persist.data.netmgrd.qos.enable=true
 persist.data.mode=concurrent
 
 # system props for time-services

@@ -24,6 +24,7 @@
 
 #include "EmulatedCamera.h"
 #include "EmulatedQemuCameraDevice.h"
+#include <ui/GraphicBufferMapper.h>
 
 namespace android {
 
@@ -32,7 +33,8 @@ namespace android {
 class EmulatedQemuCamera : public EmulatedCamera {
 public:
     /* Constructs EmulatedQemuCamera instance. */
-    EmulatedQemuCamera(int cameraId, struct hw_module_t* module);
+    EmulatedQemuCamera(int cameraId, struct hw_module_t* module,
+                       GraphicBufferMapper* gbm);
 
     /* Destructs EmulatedQemuCamera instance. */
     ~EmulatedQemuCamera();
@@ -66,6 +68,9 @@ protected:
 
     /* Supported frame dimensions reported by the camera device. */
     String8                     mFrameDims;
+
+private:
+    using EmulatedCamera::Initialize;
 };
 
 }; /* namespace android */

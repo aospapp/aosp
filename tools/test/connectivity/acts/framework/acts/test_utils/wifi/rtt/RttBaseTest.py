@@ -23,10 +23,6 @@ from acts.test_utils.wifi.rtt import rtt_test_utils as rutils
 
 
 class RttBaseTest(BaseTestClass):
-    def __init__(self, controllers):
-        if not hasattr(self, 'android_devices'):
-            super(RttBaseTest, self).__init__(controllers)
-
     def setup_test(self):
         required_params = ("lci_reference", "lcr_reference",
                            "rtt_reference_distance_mm",
@@ -54,7 +50,7 @@ class RttBaseTest(BaseTestClass):
                 rutils.wait_for_event(ad, rconsts.BROADCAST_WIFI_RTT_AVAILABLE)
             ad.ed.clear_all_events()
             rutils.config_privilege_override(ad, False)
-            ad.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+            wutils.set_wifi_country_code(ad, wutils.WifiEnums.CountryCode.US)
             ad.rtt_capabilities = rutils.get_rtt_capabilities(ad)
 
     def teardown_test(self):

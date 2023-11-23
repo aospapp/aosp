@@ -146,16 +146,6 @@ public abstract class DeviceAndProfileOwnerTransferOutgoingTest {
     }
 
     @Test
-    public void testClearDisallowAddManagedProfileRestriction() {
-        setUserRestriction(UserManager.DISALLOW_ADD_MANAGED_PROFILE, false);
-    }
-
-    @Test
-    public void testAddDisallowAddManagedProfileRestriction() {
-        setUserRestriction(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE, true);
-    }
-
-    @Test
     public void testSetAffiliationId1() {
         setAffiliationId("id.number.1");
     }

@@ -79,7 +79,7 @@ open class TextClassItem(
 
     private var innerClasses: List<ClassItem> = mutableListOf()
 
-    override var defaultConstructor: ConstructorItem? = null
+    override var stubConstructor: ConstructorItem? = null
 
     override var hasPrivateConstructor: Boolean = false
 
@@ -252,6 +252,10 @@ open class TextClassItem(
     override fun simpleName(): String = name.substring(name.lastIndexOf('.') + 1)
     override fun fullName(): String = fullName
     override fun qualifiedName(): String = qualifiedName
+    override fun isDefined(): Boolean {
+        assert(emit == (position != SourcePositionInfo.UNKNOWN))
+        return emit
+    }
     override fun toString(): String = qualifiedName()
 
     override fun mapTypeVariables(target: ClassItem): Map<String, String> {

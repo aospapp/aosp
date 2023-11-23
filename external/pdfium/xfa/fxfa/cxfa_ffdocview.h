@@ -7,22 +7,26 @@
 #ifndef XFA_FXFA_CXFA_FFDOCVIEW_H_
 #define XFA_FXFA_CXFA_FFDOCVIEW_H_
 
-#include <map>
+#include <deque>
 #include <memory>
 #include <vector>
 
+#include "core/fxcrt/observed_ptr.h"
 #include "core/fxcrt/unowned_ptr.h"
 #include "xfa/fxfa/cxfa_eventparam.h"
 #include "xfa/fxfa/cxfa_ffdoc.h"
+#include "xfa/fxfa/cxfa_ffwidget.h"
+#include "xfa/fxfa/fxfa.h"
 
 class CXFA_BindItems;
-class CXFA_FFWidgetHandler;
 class CXFA_FFDoc;
-class CXFA_FFWidget;
+class CXFA_FFWidgetHandler;
+class CXFA_Node;
+class CXFA_ReadyNodeIterator;
 class CXFA_Subform;
-class CXFA_WidgetAccIterator;
+class CXFA_ViewLayoutItem;
 
-extern const XFA_AttributeEnum gs_EventActivity[];
+extern const XFA_AttributeValue gs_EventActivity[];
 enum XFA_DOCVIEW_LAYOUTSTATUS {
   XFA_DOCVIEW_LAYOUTSTATUS_None,
   XFA_DOCVIEW_LAYOUTSTATUS_Start,
@@ -45,74 +49,59 @@ class CXFA_FFDocView {
   explicit CXFA_FFDocView(CXFA_FFDoc* pDoc);
   ~CXFA_FFDocView();
 
-  CXFA_FFDoc* GetDoc() { return m_pDoc.Get(); }
-  int32_t StartLayout(int32_t iStartPage = 0);
+  CXFA_FFDoc* GetDoc() const { return m_pDoc.Get(); }
+  int32_t StartLayout();
   int32_t DoLayout();
   void StopLayout();
   int32_t GetLayoutStatus() const { return m_iStatus; }
+
   void UpdateDocView();
+  void UpdateUIDisplay(CXFA_Node* pNode, CXFA_FFWidget* pExcept);
+
   int32_t CountPageViews() const;
   CXFA_FFPageView* GetPageView(int32_t nIndex) const;
 
-  void ResetWidgetAcc(CXFA_WidgetAcc* pWidgetAcc);
-  int32_t ProcessWidgetEvent(CXFA_EventParam* pParam,
-                             CXFA_WidgetAcc* pWidgetAcc);
+  void ResetNode(CXFA_Node* pNode);
   CXFA_FFWidgetHandler* GetWidgetHandler();
-  std::unique_ptr<CXFA_WidgetAccIterator> CreateWidgetAccIterator();
+  std::unique_ptr<CXFA_ReadyNodeIterator> CreateReadyNodeIterator();
   CXFA_FFWidget* GetFocusWidget() const { return m_pFocusWidget.Get(); }
-  void KillFocus();
-  bool SetFocus(CXFA_FFWidget* hWidget);
+  bool SetFocus(CXFA_FFWidget* pNewFocus);
   CXFA_FFWidget* GetWidgetForNode(CXFA_Node* node);
   CXFA_FFWidget* GetWidgetByName(const WideString& wsName,
                                  CXFA_FFWidget* pRefWidget);
-  CXFA_WidgetAcc* GetWidgetAccByName(const WideString& wsName,
-                                     CXFA_WidgetAcc* pRefWidgetAcc);
   CXFA_LayoutProcessor* GetXFALayout() const;
-  void OnPageEvent(CXFA_ContainerLayoutItem* pSender, uint32_t dwEvent);
+  void OnPageEvent(CXFA_ViewLayoutItem* pSender, uint32_t dwEvent);
   void LockUpdate() { m_iLock++; }
   void UnlockUpdate() { m_iLock--; }
-  bool IsUpdateLocked() { return m_iLock > 0; }
-  void ClearInvalidateList() { m_mapPageInvalidate.clear(); }
-  void AddInvalidateRect(CXFA_FFWidget* pWidget, const CFX_RectF& rtInvalidate);
-  void AddInvalidateRect(CXFA_FFPageView* pPageView,
-                         const CFX_RectF& rtInvalidate);
-  void RunInvalidate();
+  void InvalidateRect(CXFA_FFPageView* pPageView,
+                      const CFX_RectF& rtInvalidate);
   void RunDocClose();
-  void DestroyDocView();
 
-  void ProcessValueChanged(CXFA_WidgetAcc* widgetAcc);
-
-  bool InitValidate(CXFA_Node* pNode);
-  bool RunValidate();
-
+  void ProcessValueChanged(CXFA_Node* node);
   void SetChangeMark();
 
-  void AddValidateWidget(CXFA_WidgetAcc* pWidget);
+  void AddValidateNode(CXFA_Node* node);
   void AddCalculateNodeNotify(CXFA_Node* pNodeChange);
-  void AddCalculateWidgetAcc(CXFA_WidgetAcc* pWidgetAcc);
-  int32_t RunCalculateWidgets();
-  bool IsStaticNotify() {
-    return m_pDoc->GetFormType() == FormType::kXFAForeground;
-  }
+  void AddCalculateNode(CXFA_Node* node);
+
   bool RunLayout();
-  void RunSubformIndexChange();
   void AddNewFormNode(CXFA_Node* pNode);
   void AddIndexChangedSubform(CXFA_Node* pNode);
-  CXFA_WidgetAcc* GetFocusWidgetAcc() const { return m_pFocusAcc.Get(); }
-  void SetFocusWidgetAcc(CXFA_WidgetAcc* pWidgetAcc);
+  CXFA_Node* GetFocusNode() const { return m_pFocusNode.Get(); }
+  void SetFocusNode(CXFA_Node* pNode);
   void DeleteLayoutItem(CXFA_FFWidget* pWidget);
-  int32_t ExecEventActivityByDeepFirst(CXFA_Node* pFormNode,
-                                       XFA_EVENTTYPE eEventType,
-                                       bool bIsFormReady,
-                                       bool bRecursive,
-                                       CXFA_Node* pExclude);
+  XFA_EventError ExecEventActivityByDeepFirst(CXFA_Node* pFormNode,
+                                              XFA_EVENTTYPE eEventType,
+                                              bool bIsFormReady,
+                                              bool bRecursive);
 
   void AddBindItem(CXFA_BindItems* item) { m_BindItems.push_back(item); }
 
-  bool m_bLayoutEvent;
+  bool m_bLayoutEvent = false;
+  bool m_bInLayoutStatus = false;
   std::vector<WideString> m_arrNullTestMsg;
-  CXFA_FFWidget* m_pListFocusWidget;
-  bool m_bInLayoutStatus;
+
+  void ResetLayoutProcessor() { m_pXFADocLayout.Release(); }
 
  private:
   bool RunEventLayoutReady();
@@ -121,23 +110,27 @@ class CXFA_FFDocView {
   void InitLayout(CXFA_Node* pNode);
   size_t RunCalculateRecursive(size_t index);
   void ShowNullTestMsg();
-  bool ResetSingleWidgetAccData(CXFA_WidgetAcc* pWidgetAcc);
+  bool ResetSingleNodeData(CXFA_Node* pNode);
   CXFA_Subform* GetRootSubform();
+
+  bool IsUpdateLocked() const { return m_iLock > 0; }
+  bool InitValidate(CXFA_Node* pNode);
+  bool RunValidate();
+  XFA_EventError RunCalculateWidgets();
+  void RunSubformIndexChange();
 
   UnownedPtr<CXFA_FFDoc> const m_pDoc;
   std::unique_ptr<CXFA_FFWidgetHandler> m_pWidgetHandler;
-  CXFA_LayoutProcessor* m_pXFADocLayout;  // Not owned.
-  UnownedPtr<CXFA_WidgetAcc> m_pFocusAcc;
-  UnownedPtr<CXFA_FFWidget> m_pFocusWidget;
-  UnownedPtr<CXFA_FFWidget> m_pOldFocusWidget;
-  std::map<CXFA_FFPageView*, std::unique_ptr<CFX_RectF>> m_mapPageInvalidate;
-  std::vector<CXFA_WidgetAcc*> m_ValidateAccs;
-  std::vector<CXFA_WidgetAcc*> m_CalculateAccs;
-  std::vector<CXFA_BindItems*> m_BindItems;
-  std::vector<CXFA_Node*> m_NewAddedNodes;
-  std::vector<CXFA_Node*> m_IndexChangedSubforms;
-  XFA_DOCVIEW_LAYOUTSTATUS m_iStatus;
-  int32_t m_iLock;
+  UnownedPtr<CXFA_LayoutProcessor> m_pXFADocLayout;
+  UnownedPtr<CXFA_Node> m_pFocusNode;
+  ObservedPtr<CXFA_FFWidget> m_pFocusWidget;
+  std::deque<CXFA_Node*> m_ValidateNodes;
+  std::vector<CXFA_Node*> m_CalculateNodes;
+  std::deque<CXFA_BindItems*> m_BindItems;
+  std::deque<CXFA_Node*> m_NewAddedNodes;
+  std::deque<CXFA_Node*> m_IndexChangedSubforms;
+  XFA_DOCVIEW_LAYOUTSTATUS m_iStatus = XFA_DOCVIEW_LAYOUTSTATUS_None;
+  int32_t m_iLock = 0;
 };
 
 #endif  // XFA_FXFA_CXFA_FFDOCVIEW_H_

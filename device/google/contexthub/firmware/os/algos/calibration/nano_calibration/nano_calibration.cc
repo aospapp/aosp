@@ -16,12 +16,35 @@
 
 #include "calibration/nano_calibration/nano_calibration.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "chre/util/nanoapp/log.h"
 
 namespace nano_calibration {
 namespace {
+
+// Common log message sensor-specific identifiers.
+constexpr char kAccelTag[] = {"[NanoSensorCal:ACCEL_MPS2]"};
+constexpr char kGyroTag[] = {"[NanoSensorCal:GYRO_RPS]"};
+constexpr char kMagTag[] = {"[NanoSensorCal:MAG_UT]"};
+
+// Defines a plan for limiting log messages so that upon initialization there
+// begins a period set by 'duration_of_rapid_messages_min' where log messages
+// appear at a rate set by 'rapid_message_interval_sec'. Afterwards, log
+// messages will be produced at a rate determined by
+// 'slow_message_interval_min'.
+struct LogMessageRegimen {
+  uint8_t rapid_message_interval_sec;   // Assists device verification.
+  uint8_t slow_message_interval_min;    // Avoids long-term log spam.
+  uint8_t duration_of_rapid_messages_min;
+};
+
+constexpr LogMessageRegimen kGyroscopeMessagePlan = {
+    /*rapid_message_interval_sec*/ 20,
+    /*slow_message_interval_min*/ 5,
+    /*duration_of_rapid_messages_min*/ 3
+};
 
 using ::online_calibration::CalibrationDataThreeAxis;
 using ::online_calibration::CalibrationTypeFlags;
@@ -30,20 +53,23 @@ using ::online_calibration::SensorIndex;
 using ::online_calibration::SensorType;
 
 // NanoSensorCal logging macros.
-#ifdef NANO_SENSOR_CAL_DBG_ENABLED
 #ifndef LOG_TAG
 #define LOG_TAG "[ImuCal]"
 #endif
+
+#ifdef NANO_SENSOR_CAL_DBG_ENABLED
 #define NANO_CAL_LOGD(tag, format, ...) LOGD("%s " format, tag, ##__VA_ARGS__)
-#define NANO_CAL_LOGI(tag, format, ...) LOGI("%s " format, tag, ##__VA_ARGS__)
 #define NANO_CAL_LOGW(tag, format, ...) LOGW("%s " format, tag, ##__VA_ARGS__)
 #define NANO_CAL_LOGE(tag, format, ...) LOGE("%s " format, tag, ##__VA_ARGS__)
 #else
 #define NANO_CAL_LOGD(tag, format, ...) CHRE_LOG_NULL(format, ##__VA_ARGS__)
-#define NANO_CAL_LOGI(tag, format, ...) CHRE_LOG_NULL(format, ##__VA_ARGS__)
 #define NANO_CAL_LOGW(tag, format, ...) CHRE_LOG_NULL(format, ##__VA_ARGS__)
 #define NANO_CAL_LOGE(tag, format, ...) CHRE_LOG_NULL(format, ##__VA_ARGS__)
 #endif  // NANO_SENSOR_CAL_DBG_ENABLED
+
+// NOTE: LOGI is defined to ensure calibration updates are always logged for
+// field diagnosis and verification.
+#define NANO_CAL_LOGI(tag, format, ...) LOGI("%s " format, tag, ##__VA_ARGS__)
 
 }  // namespace
 
@@ -87,6 +113,9 @@ void NanoSensorCal::Initialize(OnlineCalibrationThreeAxis *accel_cal,
       NANO_CAL_LOGE(kMagTag, "Failed to initialize: wrong sensor type.");
     }
   }
+
+  // Resets the initialization timestamp. Set below in HandleSensorSamples.
+  initialization_start_time_nanos_ = 0;
 }
 
 void NanoSensorCal::HandleSensorSamples(
@@ -119,6 +148,13 @@ void NanoSensorCal::HandleSensorSamples(
     sample.timestamp_nanos += data[i].timestampDelta;
     memcpy(sample.data, data[i].v, sizeof(sample.data));
     ProcessSample(sample);
+  }
+
+  // Starts tracking the time after initialization to help rate limit gyro log
+  // messaging.
+  if (initialization_start_time_nanos_ == 0) {
+    initialization_start_time_nanos_ = header.baseTimestamp;
+    gyro_notification_time_nanos_ = 0;
   }
 }
 
@@ -174,15 +210,7 @@ void NanoSensorCal::ProcessSample(const SensorData &sample) {
       if (NotifyAshCalibration(CHRE_SENSOR_TYPE_GYROSCOPE,
                                gyro_cal_->GetSensorCalibration(),
                                gyro_cal_update_flags_, kGyroTag)) {
-        // Limits the log messaging update rate for the gyro calibrations since
-        // these can occur frequently with rapid temperature changes.
-        if (NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(
-                sample.timestamp_nanos, gyro_notification_time_nanos_,
-                kNanoSensorCalMessageIntervalNanos)) {
-          gyro_notification_time_nanos_ = sample.timestamp_nanos;
-          PrintCalibration(gyro_cal_->GetSensorCalibration(),
-                           gyro_cal_update_flags_, kGyroTag);
-        }
+        HandleGyroLogMessage(sample.timestamp_nanos);
       }
     }
   }
@@ -309,7 +337,9 @@ bool NanoSensorCal::LoadAshCalibration(uint8_t chreSensorType,
       }
     }
   } else {
-    NANO_CAL_LOGE(sensor_tag, "ASH failed to recall calibration data.");
+    // This is not necessarily an error since there may not be any previously
+    // stored runtime calibration data to load yet (e.g., first device boot).
+    NANO_CAL_LOGW(sensor_tag, "ASH did not recall calibration data.");
   }
 
   return false;
@@ -410,6 +440,27 @@ void NanoSensorCal::PrintCalibration(const CalibrationDataThreeAxis &cal_data,
     NANO_CAL_LOGI(sensor_tag, "Temp Intercept: %.6f, %.6f, %.6f",
                   cal_data.temp_intercept[0], cal_data.temp_intercept[1],
                   cal_data.temp_intercept[2]);
+  }
+}
+
+void NanoSensorCal::HandleGyroLogMessage(uint64_t timestamp_nanos) {
+  // Limits the log messaging update rate for the gyro calibrations since
+  // these can occur frequently with rapid temperature changes.
+  const int64_t next_log_interval_nanos =
+      (NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(
+          timestamp_nanos, initialization_start_time_nanos_,
+          MIN_TO_NANOS(kGyroscopeMessagePlan.duration_of_rapid_messages_min)))
+          ? MIN_TO_NANOS(kGyroscopeMessagePlan.slow_message_interval_min)
+          : SEC_TO_NANOS(kGyroscopeMessagePlan.rapid_message_interval_sec);
+
+  const bool print_gyro_log = NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(
+        timestamp_nanos, gyro_notification_time_nanos_,
+        next_log_interval_nanos);
+
+  if (print_gyro_log) {
+    gyro_notification_time_nanos_ = timestamp_nanos;
+    PrintCalibration(gyro_cal_->GetSensorCalibration(), gyro_cal_update_flags_,
+                     kGyroTag);
   }
 }
 

@@ -16,9 +16,11 @@
 
 package com.android.bluetooth.avrcpcontroller;
 
-import android.media.MediaMetadata;
-import android.media.session.PlaybackState;
+import android.bluetooth.BluetoothDevice;
+import android.net.Uri;
 import android.os.SystemClock;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
 
 import java.util.Arrays;
@@ -40,40 +42,53 @@ class AvrcpPlayer {
     public static final int FEATURE_FORWARD = 47;
     public static final int FEATURE_PREVIOUS = 48;
     public static final int FEATURE_BROWSING = 59;
+    public static final int FEATURE_NOW_PLAYING = 65;
 
-    private int mPlayStatus = PlaybackState.STATE_NONE;
-    private long mPlayTime = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
+    private BluetoothDevice mDevice;
+    private int mPlayStatus = PlaybackStateCompat.STATE_NONE;
+    private long mPlayTime = PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
     private long mPlayTimeUpdate = 0;
     private float mPlaySpeed = 1;
     private int mId;
     private String mName = "";
     private int mPlayerType;
-    private byte[] mPlayerFeatures;
-    private long mAvailableActions;
-    private MediaMetadata mCurrentTrack;
-    private PlaybackState mPlaybackState;
+    private byte[] mPlayerFeatures = new byte[16];
+    private long mAvailableActions = PlaybackStateCompat.ACTION_PREPARE;
+    private AvrcpItem mCurrentTrack;
+    private PlaybackStateCompat mPlaybackStateCompat;
+    private PlayerApplicationSettings mSupportedPlayerApplicationSettings =
+            new PlayerApplicationSettings();
+    private PlayerApplicationSettings mCurrentPlayerApplicationSettings;
 
     AvrcpPlayer() {
+        mDevice = null;
         mId = INVALID_ID;
         //Set Default Actions in case Player data isn't available.
-        mAvailableActions = PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY
-                | PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS
-                | PlaybackState.ACTION_STOP;
-        PlaybackState.Builder playbackStateBuilder = new PlaybackState.Builder()
+        mAvailableActions = PlaybackStateCompat.ACTION_PAUSE | PlaybackStateCompat.ACTION_PLAY
+                | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+                | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                | PlaybackStateCompat.ACTION_STOP | PlaybackStateCompat.ACTION_PREPARE;
+        PlaybackStateCompat.Builder playbackStateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(mAvailableActions);
-        mPlaybackState = playbackStateBuilder.build();
+        mPlaybackStateCompat = playbackStateBuilder.build();
     }
 
-    AvrcpPlayer(int id, String name, byte[] playerFeatures, int playStatus, int playerType) {
+    AvrcpPlayer(BluetoothDevice device, int id, String name, byte[] playerFeatures, int playStatus,
+            int playerType) {
+        mDevice = device;
         mId = id;
         mName = name;
         mPlayStatus = playStatus;
         mPlayerType = playerType;
         mPlayerFeatures = Arrays.copyOf(playerFeatures, playerFeatures.length);
-        updateAvailableActions();
-        PlaybackState.Builder playbackStateBuilder = new PlaybackState.Builder()
+        PlaybackStateCompat.Builder playbackStateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(mAvailableActions);
-        mPlaybackState = playbackStateBuilder.build();
+        mPlaybackStateCompat = playbackStateBuilder.build();
+        updateAvailableActions();
+    }
+
+    public BluetoothDevice getDevice() {
+        return mDevice;
     }
 
     public int getId() {
@@ -87,7 +102,8 @@ class AvrcpPlayer {
     public void setPlayTime(int playTime) {
         mPlayTime = playTime;
         mPlayTimeUpdate = SystemClock.elapsedRealtime();
-        mPlaybackState = new PlaybackState.Builder(mPlaybackState).setState(mPlayStatus, mPlayTime,
+        mPlaybackStateCompat = new PlaybackStateCompat.Builder(mPlaybackStateCompat).setState(
+                mPlayStatus, mPlayTime,
                 mPlaySpeed).build();
     }
 
@@ -97,28 +113,46 @@ class AvrcpPlayer {
 
     public void setPlayStatus(int playStatus) {
         mPlayTime += mPlaySpeed * (SystemClock.elapsedRealtime()
-                - mPlaybackState.getLastPositionUpdateTime());
+                - mPlaybackStateCompat.getLastPositionUpdateTime());
         mPlayStatus = playStatus;
         switch (mPlayStatus) {
-            case PlaybackState.STATE_STOPPED:
+            case PlaybackStateCompat.STATE_STOPPED:
                 mPlaySpeed = 0;
                 break;
-            case PlaybackState.STATE_PLAYING:
+            case PlaybackStateCompat.STATE_PLAYING:
                 mPlaySpeed = 1;
                 break;
-            case PlaybackState.STATE_PAUSED:
+            case PlaybackStateCompat.STATE_PAUSED:
                 mPlaySpeed = 0;
                 break;
-            case PlaybackState.STATE_FAST_FORWARDING:
+            case PlaybackStateCompat.STATE_FAST_FORWARDING:
                 mPlaySpeed = 3;
                 break;
-            case PlaybackState.STATE_REWINDING:
+            case PlaybackStateCompat.STATE_REWINDING:
                 mPlaySpeed = -3;
                 break;
         }
 
-        mPlaybackState = new PlaybackState.Builder(mPlaybackState).setState(mPlayStatus, mPlayTime,
+        mPlaybackStateCompat = new PlaybackStateCompat.Builder(mPlaybackStateCompat).setState(
+                mPlayStatus, mPlayTime,
                 mPlaySpeed).build();
+    }
+
+    public void setSupportedPlayerApplicationSettings(
+            PlayerApplicationSettings playerApplicationSettings) {
+        mSupportedPlayerApplicationSettings = playerApplicationSettings;
+        updateAvailableActions();
+    }
+
+    public void setCurrentPlayerApplicationSettings(
+            PlayerApplicationSettings playerApplicationSettings) {
+        Log.d(TAG, "Settings changed");
+        mCurrentPlayerApplicationSettings = playerApplicationSettings;
+        MediaSessionCompat session = BluetoothMediaBrowserService.getSession();
+        session.setRepeatMode(mCurrentPlayerApplicationSettings.getSetting(
+                PlayerApplicationSettings.REPEAT_STATUS));
+        session.setShuffleMode(mCurrentPlayerApplicationSettings.getSetting(
+                PlayerApplicationSettings.SHUFFLE_STATUS));
     }
 
     public int getPlayStatus() {
@@ -131,48 +165,75 @@ class AvrcpPlayer {
         return (mPlayerFeatures[byteNumber] & bitMask) == bitMask;
     }
 
-    public PlaybackState getPlaybackState() {
+    public boolean supportsSetting(int settingType, int settingValue) {
+        return mSupportedPlayerApplicationSettings.supportsSetting(settingType, settingValue);
+    }
+
+    public PlaybackStateCompat getPlaybackState() {
         if (DBG) {
             Log.d(TAG, "getPlayBackState state " + mPlayStatus + " time " + mPlayTime);
         }
-        return mPlaybackState;
+        return mPlaybackStateCompat;
     }
 
-    public synchronized void updateCurrentTrack(MediaMetadata update) {
+    public synchronized void updateCurrentTrack(AvrcpItem update) {
         if (update != null) {
-            long trackNumber = update.getLong(MediaMetadata.METADATA_KEY_TRACK_NUMBER);
-            mPlaybackState = new PlaybackState.Builder(mPlaybackState).setActiveQueueItemId(
+            long trackNumber = update.getTrackNumber();
+            mPlaybackStateCompat = new PlaybackStateCompat.Builder(
+                    mPlaybackStateCompat).setActiveQueueItemId(
                     trackNumber - 1).build();
         }
         mCurrentTrack = update;
     }
 
-    public synchronized MediaMetadata getCurrentTrack() {
+    public synchronized boolean notifyImageDownload(String uuid, Uri imageUri) {
+        if (DBG) Log.d(TAG, "Got an image download -- uuid=" + uuid + ", uri=" + imageUri);
+        if (uuid == null || imageUri == null || mCurrentTrack == null) return false;
+        if (uuid.equals(mCurrentTrack.getCoverArtUuid())) {
+            mCurrentTrack.setCoverArtLocation(imageUri);
+            if (DBG) Log.d(TAG, "Image UUID '" + uuid + "' was added to current track.");
+            return true;
+        }
+        return false;
+    }
+
+    public synchronized AvrcpItem getCurrentTrack() {
         return mCurrentTrack;
     }
 
     private void updateAvailableActions() {
         if (supportsFeature(FEATURE_PLAY)) {
-            mAvailableActions = mAvailableActions | PlaybackState.ACTION_PLAY;
+            mAvailableActions = mAvailableActions | PlaybackStateCompat.ACTION_PLAY;
         }
         if (supportsFeature(FEATURE_STOP)) {
-            mAvailableActions = mAvailableActions | PlaybackState.ACTION_STOP;
+            mAvailableActions = mAvailableActions | PlaybackStateCompat.ACTION_STOP;
         }
         if (supportsFeature(FEATURE_PAUSE)) {
-            mAvailableActions = mAvailableActions | PlaybackState.ACTION_PAUSE;
+            mAvailableActions = mAvailableActions | PlaybackStateCompat.ACTION_PAUSE;
         }
         if (supportsFeature(FEATURE_REWIND)) {
-            mAvailableActions = mAvailableActions | PlaybackState.ACTION_REWIND;
+            mAvailableActions = mAvailableActions | PlaybackStateCompat.ACTION_REWIND;
         }
         if (supportsFeature(FEATURE_FAST_FORWARD)) {
-            mAvailableActions = mAvailableActions | PlaybackState.ACTION_FAST_FORWARD;
+            mAvailableActions = mAvailableActions | PlaybackStateCompat.ACTION_FAST_FORWARD;
         }
         if (supportsFeature(FEATURE_FORWARD)) {
-            mAvailableActions = mAvailableActions | PlaybackState.ACTION_SKIP_TO_NEXT;
+            mAvailableActions = mAvailableActions | PlaybackStateCompat.ACTION_SKIP_TO_NEXT;
         }
         if (supportsFeature(FEATURE_PREVIOUS)) {
-            mAvailableActions = mAvailableActions | PlaybackState.ACTION_SKIP_TO_PREVIOUS;
+            mAvailableActions = mAvailableActions | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
         }
+        if (mSupportedPlayerApplicationSettings.supportsSetting(
+                PlayerApplicationSettings.REPEAT_STATUS)) {
+            mAvailableActions |= PlaybackStateCompat.ACTION_SET_REPEAT_MODE;
+        }
+        if (mSupportedPlayerApplicationSettings.supportsSetting(
+                PlayerApplicationSettings.SHUFFLE_STATUS)) {
+            mAvailableActions |= PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE;
+        }
+        mPlaybackStateCompat = new PlaybackStateCompat.Builder(mPlaybackStateCompat)
+                .setActions(mAvailableActions).build();
+
         if (DBG) Log.d(TAG, "Supported Actions = " + mAvailableActions);
     }
 }

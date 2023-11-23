@@ -13,6 +13,7 @@
  */
 
 #include <common.h>
+#include <time.h>
 #if defined (CONFIG_IMX)
 
 #include <asm/arch/imx-regs.h>
@@ -36,17 +37,17 @@ int timer_init (void)
 /*
  * timer without interrupts
  */
+static ulong get_timer_masked (void)
+{
+	return TCN1;
+}
+
 ulong get_timer (ulong base)
 {
 	return get_timer_masked() - base;
 }
 
-ulong get_timer_masked (void)
-{
-	return TCN1;
-}
-
-void udelay_masked (unsigned long usec)
+void __udelay (unsigned long usec)
 {
 	ulong endtime = get_timer_masked() + usec;
 	signed long diff;
@@ -55,11 +56,6 @@ void udelay_masked (unsigned long usec)
 		ulong now = get_timer_masked ();
 		diff = endtime - now;
 	} while (diff >= 0);
-}
-
-void __udelay (unsigned long usec)
-{
-	udelay_masked(usec);
 }
 
 /*

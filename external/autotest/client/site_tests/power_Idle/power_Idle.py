@@ -8,6 +8,7 @@ import time
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.bluetooth import bluetooth_device_xmlrpc_server
+from autotest_lib.client.cros.input_playback import keyboard
 from autotest_lib.client.cros.power import power_test
 from autotest_lib.client.cros.power import power_utils
 
@@ -29,15 +30,21 @@ class power_Idle(power_test.power_Test):
     """
     version = 1
 
-    def initialize(self, pdash_note='', seconds_period=10.):
+    def initialize(self, pdash_note='', seconds_period=10.,
+                   force_discharge=False):
         super(power_Idle, self).initialize(seconds_period=seconds_period,
-                                           pdash_note=pdash_note)
+                                           pdash_note=pdash_note,
+                                           force_discharge=force_discharge)
 
-    def run_once(self, warmup_secs=20, idle_secs=120):
+    def run_once(self, warmup_secs=20, idle_secs=120, default_only=False):
         """Collect power stats for idle tests."""
 
         def measure_it(warmup_secs, idle_secs, tagname):
-            time.sleep(warmup_secs)
+            """Helper function to wrap testing loop for each sub test."""
+            if warmup_secs > 0:
+                tstart = time.time()
+                time.sleep(warmup_secs)
+                self.checkpoint_measurements("warmup", tstart)
             tstart = time.time()
             time.sleep(idle_secs)
             self.checkpoint_measurements(tagname, tstart)
@@ -45,7 +52,21 @@ class power_Idle(power_test.power_Test):
         bt_device = bluetooth_device_xmlrpc_server \
             .BluetoothDeviceXmlRpcDelegate()
 
-        with chrome.Chrome():
+        with chrome.Chrome() as self.cr:
+
+            # Measure power in full-screen blank tab
+            tab = self.cr.browser.tabs.New()
+            tab.Activate()
+            fullscreen = tab.EvaluateJavaScript('document.webkitIsFullScreen')
+            if not fullscreen:
+                with keyboard.Keyboard() as keys:
+                    keys.press_key('f4')
+
+            if default_only:
+                self.start_measurements()
+                measure_it(warmup_secs, idle_secs, 'all-default')
+                return
+
             # test1 : display off, BT off
             power_utils.set_display_power(power_utils.DISPLAY_POWER_ALL_OFF)
             if not bt_device.set_powered(False):
@@ -68,6 +89,7 @@ class power_Idle(power_test.power_Test):
             power_utils.set_display_power(power_utils.DISPLAY_POWER_ALL_OFF)
             measure_it(warmup_secs, idle_secs, 'display-off_bluetooth-on')
 
-def cleanup(self):
-    power_utils.set_display_power(power_utils.DISPLAY_POWER_ALL_ON)
-    super(power_Idle, self).cleanup()
+    def cleanup(self):
+        """Reset to previous state."""
+        power_utils.set_display_power(power_utils.DISPLAY_POWER_ALL_ON)
+        super(power_Idle, self).cleanup()

@@ -37,44 +37,44 @@ public final class Snackbars {
     public static final void showDocumentsClipped(Activity activity, int docCount) {
         String msg = Shared.getQuantityString(
                 activity, R.plurals.clipboard_files_clipped, docCount);
-        Snackbars.makeSnackbar(activity, msg, Snackbar.LENGTH_SHORT).show();
+        Snackbars.makeSnackbar(activity, msg, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showMove(Activity activity, int docCount) {
         CharSequence message = Shared.getQuantityString(activity, R.plurals.move_begin, docCount);
-        makeSnackbar(activity, message, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, message, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showCopy(Activity activity, int docCount) {
         CharSequence message = Shared.getQuantityString(activity, R.plurals.copy_begin, docCount);
-        makeSnackbar(activity, message, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, message, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showCompress(Activity activity, int docCount) {
         CharSequence message = Shared.getQuantityString(activity, R.plurals.compress_begin, docCount);
-        makeSnackbar(activity, message, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, message, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showExtract(Activity activity, int docCount) {
         CharSequence message = Shared.getQuantityString(activity, R.plurals.extract_begin, docCount);
-        makeSnackbar(activity, message, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, message, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showDelete(Activity activity, int docCount) {
         CharSequence message = Shared.getQuantityString(activity, R.plurals.deleting, docCount);
-        makeSnackbar(activity, message, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, message, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showOperationRejected(Activity activity) {
-        makeSnackbar(activity, R.string.file_operation_rejected, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, R.string.file_operation_rejected, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showOperationFailed(Activity activity) {
-        makeSnackbar(activity, R.string.file_operation_error, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, R.string.file_operation_error, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showRenameFailed(Activity activity) {
-        makeSnackbar(activity, R.string.rename_error, Snackbar.LENGTH_SHORT).show();
+        makeSnackbar(activity, R.string.rename_error, Snackbar.LENGTH_LONG).show();
     }
 
     public static final void showInspectorError(Activity activity) {
@@ -84,7 +84,7 @@ public final class Snackbars {
     }
 
     public static final void showCustomTextWithImage(Activity activity, String text, int imageRes) {
-        Snackbar snackbar = makeSnackbar(activity, text, Snackbar.LENGTH_SHORT);
+        Snackbar snackbar = makeSnackbar(activity, text, Snackbar.LENGTH_LONG);
         View snackbarLayout = snackbar.getView();
         TextView textView = (TextView)snackbarLayout.findViewById(
                 com.google.android.material.R.id.snackbar_text);

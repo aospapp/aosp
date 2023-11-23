@@ -18,7 +18,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import gast
 import six
 import termcolor
@@ -91,7 +90,10 @@ class PrettyPrinter(gast.NodeVisitor):
           self._print('%s%s=[' % (self._indent(), self._field(f)))
           self.indent_lvl += 1
           for n in v:
-            self.generic_visit(n)
+            if n is not None:
+              self.generic_visit(n)
+            else:
+              self._print('%sNone' % (self._indent()))
           self.indent_lvl -= 1
           self._print('%s]' % (self._indent()))
         else:
@@ -101,7 +103,10 @@ class PrettyPrinter(gast.NodeVisitor):
           self._print('%s%s=(' % (self._indent(), self._field(f)))
           self.indent_lvl += 1
           for n in v:
-            self.generic_visit(n)
+            if n is not None:
+              self.generic_visit(n)
+            else:
+              self._print('%sNone' % (self._indent()))
           self.indent_lvl -= 1
           self._print('%s)' % (self._indent()))
         else:

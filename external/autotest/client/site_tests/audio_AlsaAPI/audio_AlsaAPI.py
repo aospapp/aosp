@@ -17,7 +17,9 @@ class audio_AlsaAPI(test.test):
     _PLAYBACK_DEVICE_NAME = '^pcmC(\d+)D(\d+)p$'
     # A list of boards that do not correctly implement snd_pcm_drop, see
     # crosbug.com/p/51882
-    _BOARDS_WITHOUT_DROP_SUPPORT  = ['banon', 'elm', 'samus', 'squawks']
+    _BOARDS_WITHOUT_DROP_SUPPORT  = [
+            'banon', 'elm', 'samus', 'samus-kernelnext', 'squawks'
+    ]
     # A dict of list of (card name, device) to be skipped on some boards.
     _DEVICES_TO_BE_SKIPPED = {
         # On the following boards, devices 4,5,6 are HDMI devices.

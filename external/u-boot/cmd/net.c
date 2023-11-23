@@ -9,6 +9,7 @@
  */
 #include <common.h>
 #include <command.h>
+#include <env.h>
 #include <net.h>
 
 static int netboot_common(enum proto_t, cmd_tbl_t *, int, char * const []);
@@ -192,6 +193,9 @@ static int netboot_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	switch (argc) {
 	case 1:
+		/* refresh bootfile name from env */
+		copy_filename(net_boot_file_name, env_get("bootfile"),
+			      sizeof(net_boot_file_name));
 		break;
 
 	case 2:	/*
@@ -203,6 +207,9 @@ static int netboot_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 		addr = simple_strtoul(argv[1], &end, 16);
 		if (end == (argv[1] + strlen(argv[1]))) {
 			load_addr = addr;
+			/* refresh bootfile name from env */
+			copy_filename(net_boot_file_name, env_get("bootfile"),
+				      sizeof(net_boot_file_name));
 		} else {
 			net_boot_file_name_explicit = true;
 			copy_filename(net_boot_file_name, argv[1],

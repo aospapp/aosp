@@ -31,7 +31,6 @@ import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
-import com.android.managedprovisioning.finalization.FinalizationController;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 
@@ -53,7 +52,6 @@ public abstract class AbstractProvisioningController implements AbstractProvisio
 
     private final ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
     private final ProvisioningControllerCallback mCallback;
-    private final FinalizationController mFinalizationController;
     private Handler mWorkerHandler;
 
     // Provisioning hasn't started yet
@@ -78,13 +76,11 @@ public abstract class AbstractProvisioningController implements AbstractProvisio
             Context context,
             ProvisioningParams params,
             int userId,
-            ProvisioningControllerCallback callback,
-            FinalizationController finalizationController) {
+            ProvisioningControllerCallback callback) {
         mContext = checkNotNull(context);
         mParams = checkNotNull(params);
         mUserId = userId;
         mCallback = checkNotNull(callback);
-        mFinalizationController = checkNotNull(finalizationController);
         mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
                 MetricsWriterFactory.getMetricsWriter(mContext, new SettingsFacade()),
                 new ManagedProvisioningSharedPreferences(context));

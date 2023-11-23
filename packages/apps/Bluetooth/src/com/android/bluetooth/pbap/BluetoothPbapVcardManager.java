@@ -153,7 +153,8 @@ public class BluetoothPbapVcardManager {
         int size;
         switch (type) {
             case BluetoothPbapObexServer.ContentType.PHONEBOOK:
-                size = getContactsSize();
+            case BluetoothPbapObexServer.ContentType.FAVORITES:
+                size = getContactsSize(type);
                 break;
             default:
                 size = getCallHistorySize(type);
@@ -165,16 +166,30 @@ public class BluetoothPbapVcardManager {
         return size;
     }
 
-    public final int getContactsSize() {
+    /**
+     * Returns the number of contacts (i.e., vcf) in a phonebook object.
+     * @param type specifies which phonebook object, e.g., pb, fav
+     * @return
+     */
+    public final int getContactsSize(final int type) {
         final Uri myUri = DevicePolicyUtils.getEnterprisePhoneUri(mContext);
         Cursor contactCursor = null;
+        String selectionClause = null;
+        if (type == BluetoothPbapObexServer.ContentType.FAVORITES) {
+            selectionClause = Phone.STARRED + " = 1";
+        }
         try {
-            contactCursor = mResolver.query(myUri, new String[]{Phone.CONTACT_ID}, null, null,
-                    Phone.CONTACT_ID);
+            contactCursor = mResolver.query(myUri,
+                    new String[]{Phone.CONTACT_ID}, selectionClause,
+                    null, Phone.CONTACT_ID);
             if (contactCursor == null) {
                 return 0;
             }
-            return getDistinctContactIdSize(contactCursor) + 1; // always has the 0.vcf
+            int contactsSize = getDistinctContactIdSize(contactCursor);
+            if (type == BluetoothPbapObexServer.ContentType.PHONEBOOK) {
+                contactsSize += 1; // pb has the 0.vcf owner's card
+            }
+            return contactsSize;
         } catch (CursorWindowAllocationException e) {
             Log.e(TAG, "CursorWindowAllocationException while getting Contacts size");
         } finally {
@@ -551,7 +566,7 @@ public class BluetoothPbapVcardManager {
     final int composeAndSendPhonebookVcards(Operation op, final int startPoint, final int endPoint,
             final boolean vcardType21, String ownerVCard, int needSendBody, int pbSize,
             boolean ignorefilter, byte[] filter, byte[] vcardselector, String vcardselectorop,
-            boolean vcardselect) {
+            boolean vcardselect, boolean favorites) {
         if (startPoint < 1 || startPoint > endPoint) {
             Log.e(TAG, "internal error: startPoint or endPoint is not correct.");
             return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
@@ -562,9 +577,15 @@ public class BluetoothPbapVcardManager {
         Cursor contactIdCursor = new MatrixCursor(new String[]{
                 Phone.CONTACT_ID
         });
+
+        String selectionClause = null;
+        if (favorites) {
+            selectionClause = Phone.STARRED + " = 1";
+        }
+
         try {
-            contactCursor = mResolver.query(myUri, PHONES_CONTACTS_PROJECTION, null, null,
-                    Phone.CONTACT_ID);
+            contactCursor = mResolver.query(myUri, PHONES_CONTACTS_PROJECTION, selectionClause,
+                    null, Phone.CONTACT_ID);
             if (contactCursor != null) {
                 contactIdCursor =
                         ContactCursorFilter.filterByRange(contactCursor, startPoint, endPoint);

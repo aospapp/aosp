@@ -35,8 +35,8 @@ public class PasswordEditTextPreferenceDialogFragment extends
     private EditText mEditText;
 
     /**
-     * Returns a new instance of {@link PasswordEditTextPreferenceDialogFragment} for the {@link
-     * PasswordEditTextPreference} with the given {@code key}.
+     * Returns a new instance of {@link PasswordEditTextPreferenceDialogFragment} for the
+     * {@link PasswordEditTextPreference} with the given {@code key}.
      */
     public static PasswordEditTextPreferenceDialogFragment newInstance(String key) {
         PasswordEditTextPreferenceDialogFragment fragment =

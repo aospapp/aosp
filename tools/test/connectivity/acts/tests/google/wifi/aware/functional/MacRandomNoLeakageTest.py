@@ -44,11 +44,9 @@ class MacRandomNoLeakageTest(AwareBaseTest, WifiBaseTest):
     PASSPHRASE = "This is some random passphrase - very very secure!!"
     PMK = "ODU0YjE3YzdmNDJiNWI4NTQ2NDJjNDI3M2VkZTQyZGU="
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-        AwareBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         asserts.assert_true(hasattr(self, 'packet_capture'),
                             "Needs packet_capture attribute to support sniffing.")
         self.configure_packet_capture(channel_5g=self.AWARE_DEFAULT_CHANNEL_5_BAND,
@@ -72,12 +70,13 @@ class MacRandomNoLeakageTest(AwareBaseTest, WifiBaseTest):
         pcaps = pcap_5g + pcap_2g
 
         # Verify factory MAC is not leaked in both 2G and 5G pcaps
-        for mac in factory_mac_addresses:
-            wutils.verify_mac_not_found_in_pcap(mac, pcaps)
+        ads = [self.android_devices[0], self.android_devices[1]]
+        for i, mac in enumerate(factory_mac_addresses):
+            wutils.verify_mac_not_found_in_pcap(ads[i], mac, pcaps)
 
         # Verify random MACs are being used and in pcaps
-        for mac in mac_addresses:
-            wutils.verify_mac_is_found_in_pcap(mac, pcaps)
+        for i, mac in enumerate(mac_addresses):
+            wutils.verify_mac_is_found_in_pcap(ads[i], mac, pcaps)
 
     def transfer_mac_format(self, mac):
         """add ':' to mac String, and transfer to lower case

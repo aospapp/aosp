@@ -48,9 +48,12 @@ echo "Run Boot tests from $ADT_INFRA"
 cmd="$ADT_INFRA/emu_test/utils/run_boot_test.sh"
 run_with_timeout $cmd $DIST_DIR $ORI $API 5400
 
-echo "Run UI tests from $ADT_INFRA"
-cmd="$ADT_INFRA/emu_test/utils/run_ui_test.sh"
-run_with_timeout $cmd $DIST_DIR $ORI $API 10800
+# Skip UI tests for presubmit build which has a build number starts with P.
+if [[ $BUILD_NUMBER != P* ]]; then
+    echo "Run UI tests from $ADT_INFRA"
+    cmd="$ADT_INFRA/emu_test/utils/run_ui_test.sh"
+    run_with_timeout $cmd $DIST_DIR $ORI $API 10800
+fi
 
 echo "Cleanup prebuilts"
 rm -rf /buildbot/prebuilt/*

@@ -44,7 +44,6 @@ public abstract class CdmaBasePreferenceController extends TelephonyBasePreferen
     protected Preference mPreference;
     protected TelephonyManager mTelephonyManager;
     protected PreferenceManager mPreferenceManager;
-    protected int mSubId;
     private DataContentObserver mDataContentObserver;
 
     public CdmaBasePreferenceController(Context context, String key) {
@@ -73,7 +72,8 @@ public abstract class CdmaBasePreferenceController extends TelephonyBasePreferen
     public void init(PreferenceManager preferenceManager, int subId) {
         mPreferenceManager = preferenceManager;
         mSubId = subId;
-        mTelephonyManager = TelephonyManager.from(mContext).createForSubscriptionId(mSubId);
+        mTelephonyManager = mContext.getSystemService(TelephonyManager.class)
+                .createForSubscriptionId(mSubId);
     }
 
     public void init(int subId) {

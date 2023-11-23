@@ -21,41 +21,21 @@
 #include <memory>
 #include <vector>
 
-#include "os/log.h"
+#include "packet/byte_inserter.h"
 
 namespace bluetooth {
 namespace packet {
 
-class BitInserter : public std::back_insert_iterator<std::vector<uint8_t>> {
+class BitInserter : public ByteInserter {
  public:
-  BitInserter(std::vector<uint8_t>& vector) : std::back_insert_iterator<std::vector<uint8_t>>(vector) {}
-  virtual ~BitInserter() {
-    ASSERT(num_saved_bits_ == 0);
-  }
+  BitInserter(std::vector<uint8_t>& vector);
+  ~BitInserter() override;
 
-  void insert_bits(uint8_t byte, size_t num_bits) {
-    size_t total_bits = num_bits + num_saved_bits_;
-    uint16_t new_value = saved_bits_ | (static_cast<uint16_t>(byte) << num_saved_bits_);
-    if (total_bits >= 8) {
-      uint8_t new_byte = static_cast<uint8_t>(new_value);
-      std::back_insert_iterator<std::vector<uint8_t>>::operator=(new_byte);
-      total_bits -= 8;
-      new_value = new_value >> 8;
-    }
-    num_saved_bits_ = total_bits;
-    uint8_t mask = 0xff >> (8 - num_saved_bits_);
-    saved_bits_ = static_cast<uint8_t>(new_value) & mask;
-  }
+  virtual void insert_bits(uint8_t byte, size_t num_bits);
 
-  void insert_byte(uint8_t byte) {
-    insert_bits(byte, 8);
-  }
+  void insert_byte(uint8_t byte) override;
 
-  bool IsByteAligned() {
-    return num_saved_bits_ == 0;
-  }
-
- private:
+ protected:
   size_t num_saved_bits_{0};
   uint8_t saved_bits_{0};
 };

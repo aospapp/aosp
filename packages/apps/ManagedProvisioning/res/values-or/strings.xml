@@ -40,7 +40,7 @@
     <string name="terms" msgid="8295436105384703903">"ସର୍ତ୍ତାବଳୀ"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"ୱର୍କ ପ୍ରୋଫାଇଲ୍‍ ସୂଚନା"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"ପରିଚାଳିତ ଡିଭାଇସ୍‌ ସୂଚନା"</string>
-    <string name="default_managed_profile_name" msgid="5370257687074907055">"ୱର୍କ ପ୍ରୋଫାଇଲ୍‌"</string>
+    <string name="default_managed_profile_name" msgid="5370257687074907055">"ୱାର୍କ ପ୍ରୋଫାଇଲ୍‌"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"ପ୍ରାଥମିକ ୟୁଜର୍‍"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ବର୍ତ୍ତମାନ ଥିବା ପ୍ରୋଫାଇଲ୍‍ ଡିଲିଟ କରିବେ?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"ପୂର୍ବରୁ ଆପଣଙ୍କର ଏକ ୱର୍କ ପ୍ରୋଫାଇଲ୍‍ ରହିଛି। ନିମ୍ନ ଆପ୍‍ ବ୍ୟବହାର କରି ଏହା ପରିଚାଳନା କରାଯାଇଥାଏ:"</string>
@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"ରିସେଟ୍‍ କରନ୍ତୁ"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ପ୍ରୋଫାଇଲ୍‍ ସେଟ୍‍ ଅପ୍‍ କରିପାରିବ ନାହିଁ"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"ଡିଭାଇସ୍‌ ସେଟ୍ ଅପ୍ କରିପାରିବ ନାହିଁ"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"କିଛି ଭୁଲ ହୋଇଗଲା"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"ଡିଭାଇସ୍‌ ସେଟ୍ ଅପ୍ କରାଯାଇପାରିଲା ନାହିଁ। ସାହାଯ୍ୟ ପାଇଁ, ଆପଣଙ୍କ ବ୍ୟବସ୍ଥାପକଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"ସାହାଯ୍ୟ ପାଇଁ ଆପଣଙ୍କର ଆଇଟି ଆଡମିନ୍‍ଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ"</string>
+    <string name="reset_device" msgid="5483853913241939262">"ଏହି ଡିଭାଇସକୁ ରିସେଟ୍ କରି ଏହାକୁ ପୁଣି ସେଟ୍ ଅପ୍ କରିବାକୁ ଚେଷ୍ଟା କରନ୍ତୁ"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"ଡିଭାଇସ୍‍ ପୂର୍ବରୁ ସେଟଅପ୍‌ କରାଯାଇଛି"</string>
     <string name="error_wifi" msgid="1850288843966836571">"ୱାଇ-ଫାଇ ସହ ସଂଯୋଗ ହୋଇପାରିଲା ନାହିଁ"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"ଆପଣଙ୍କ ଡିଭାଇସରେ ରିସେଟ୍‍ ସୁରକ୍ଷା ଚାଲୁ କରାଯାଇଛି। ସାହାଯ୍ୟ ପାଇଁ ଆପଣଙ୍କ ବ୍ୟବସ୍ଥାପକଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"ୱର୍କ ଡିଭାଇସ୍ ସେଟ୍ ଅପ୍ କରିବାକୁ ପ୍ରସ୍ତୁତ ହେଉଛି…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ବ୍ୟବସ୍ଥାପକ ଆପ୍ ସେଟ‍୍‌ ଅପ୍ କରାଯାଉଛି"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"ବାକି ସବୁକିଛି ସେଟ୍‌ଅପ୍ କରନ୍ତୁ"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"ବର୍ତ୍ତମାନ, ବାକି ସବୁକିଛି ସେଟ୍ କରନ୍ତୁ"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"ଆପଣଙ୍କ ଡିଭାଇସ୍ ଠାରୁ ଅଧିକ ପାଇବାକୁ ଏକ ବ୍ୟକ୍ତିଗତ ଆକାଉଣ୍ଟ ଯୋଗ କରନ୍ତୁ"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"ବର୍ତ୍ତମାନ ଆପଣଙ୍କର କାର୍ଯ୍ୟ ପ୍ରୋଫାଇଲ୍ ପ୍ରସ୍ତୁତ ହୋଇଛି, ଆପଣ ଆପଣଙ୍କର ଆପ୍ସ ଏବଂ ବିଷୟବସ୍ତୁ ଆକ୍ସେସ୍ କରିବାକୁ ଏକ Google ଆକାଉଣ୍ଟ ମଧ୍ୟ ଯୋଗ କରିପାରିବେ।"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ଏହି ଡିଭାଇସ୍ ଆପଣଙ୍କ ସଂସ୍ଥାର ଅନ୍ତର୍ଗତ ଅଟେ"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ଏହି ଫୋନ୍‌କୁ ପରିଚଳନା ଏବଂ ମନିଟର୍ କରିବାକୁ ନିମ୍ନୋକ୍ତ ଆପ୍‌ର ବ୍ୟବହାର ହେବ"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"ୱର୍କ ସେଟ୍‌ଅପ୍ ପାଇଁ ପ୍ରସ୍ତୁତ ହେଉଛି…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"ପ୍ରଥମେ, ଆସନ୍ତୁ ଆପଣଙ୍କ ୱର୍କ ପ୍ରୋଫାଇଲ୍ ସେଟ୍ ଅପ୍ କରିବା"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ଚାଲନ୍ତୁ ଆପଣଙ୍କର ୱାର୍କ ପ୍ରୋଫାଇଲ୍ ସେଟ୍ ଅପ୍ କରିବା"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ୱର୍କ ଆପ୍ସ ଆପଣଙ୍କର ୱର୍କ ପ୍ରୋଫାଇଲ୍‌ରେ ରଖାଯାଇଛି"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ଆପଣଙ୍କର ପୁରା ଦିନର କାମ ଶେଷ ହୋଇଗଲା ପରେ ୱର୍କ ଆପ୍ସକୁ ବିରତି କରନ୍ତୁ"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"ଆପଣଙ୍କର IT ବ୍ୟବସ୍ଥାପକ କେବଳ ଆପଣଙ୍କର ୱର୍କ ପ୍ରୋଫାଇଲ୍‌ରେ ଥିବା ଡାଟା ଦେଖିପାରିବେ"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ଆପଣଙ୍କ ୱାର୍କ ପ୍ରୋଫାଇଲରେ ଥିବା ଡାଟା ଆପଣଙ୍କ IT ଆଡମିନକୁ ଦେଖାଯାଉଛି"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ଆପଣଙ୍କର ୱର୍କ ପ୍ରୋଫାଇଲ୍‍ ସେଟ୍‌ ଅପ୍‍ କରାଯାଉଛି…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"ୱର୍କ ଆପ୍ସ ଆପଣଙ୍କର ୱର୍କ ପ୍ରୋଫାଇଲ୍‌ରେ ରଖାଯାଇଛି। ଆପଣଙ୍କର ପୁରା ଦିନର କାମ ଶେଷ ହେବା ପରେ ଆପଣ ନିଜର ୱର୍କ ଆପ୍ସକୁ ବିରତି କରିପାରିବେ। ଆପଣଙ୍କର IT ବ୍ୟବସ୍ଥାପକଙ୍କୁ ଆପଣଙ୍କର ୱର୍କ ପ୍ରୋଫାଇଲ୍‌ରେ ଥିବା କେବଳ ଡାଟା ଦେଖାଯିବ।"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"କାର୍ଯ୍ୟସ୍ଥଳୀ ଆପଗୁଡ଼ିକ ଆପଣଙ୍କ ୱାର୍କ ପ୍ରୋଫାଇଲରେ ରଖାଯାଇଛି। ଆପଣ ଆପଣଙ୍କ ପୂରା ଦିନର କାମ ସମାପ୍ତ କରିସାରିବା ପରେ ଆପଣଙ୍କର କାର୍ଯ୍ୟସ୍ଥଳୀ ଆପଗୁଡ଼ିକୁ ବିରତ କରିପାରିବେ। ଆପଣଙ୍କ ୱାର୍କ ପ୍ରୋଫାଇଲରେ ଥିବା ଡାଟା ଆପଣଙ୍କ IT ଆଡମିନକୁ ଦେଖାଯାଉଛି।"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"ଆସନ୍ତୁ ଆପଣଙ୍କ ୱର୍କ ଡିଭାଇସ୍‌କୁ ସେଟ୍ ଅପ୍ କରିବା"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"ଆପଣଙ୍କର ଆଙ୍ଗୁଠି ଟିପରେ ନିଜର ୱର୍କ ଆପ୍ସ ରଖନ୍ତୁ"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ଏହି ଡିଭାଇସ୍‌ ବ୍ୟକ୍ତିଗତ ନୁହେଁ"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ଆପଣଙ୍କ IT ବ୍ୟବସ୍ଥାପକ ବୋଧହୁଏ ଏହି ଡିଭାଇସ୍‌ରେ ଆପଣଙ୍କ ଡାଟା ଏବଂ କାର୍ଯ୍ୟକଳାପ ଦେଖିପାରିବେ।"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"ଆପଣଙ୍କ ଡିଭାଇସ୍‌କୁ ସେଟ୍ ଅପ୍ କରାଯାଉଛି…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ଆପଣଙ୍କ ୱର୍କ ଆପ୍ସକୁ ସହଜରେ ଆକ୍ସେସ୍ କରିବାକୁ ଏହି ଡିଭାଇସ୍ ବ୍ୟବହାର କରନ୍ତୁ। ଏହି ଡିଭାଇସ୍ ବ୍ୟକ୍ତିଗତ ନୁହେଁ, ତେଣୁ ବୋଧହୁଏ ଆପଣଙ୍କ IT ବ୍ୟବସ୍ଥାପକ ଆପଣଙ୍କ ଡାଟା ଏବଂ କାର୍ଯ୍ୟକଳାପ ଦେଖିପାରିବେ। ଅଧିକ ଜାଣିବାକୁ, ଆପଣଙ୍କ IT ବ୍ୟବସ୍ଥାପକଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"ୱାର୍କ ଆପ୍ସ ଆପଣଙ୍କ ୱାର୍କ ପ୍ରୋଫାଇଲରେ ରଖାଯାଏ ଓ ଏହା ଆପଣଙ୍କ IT ଆଡମିନଙ୍କ ଦ୍ୱାରା ପରିଚାଳିତ ହୋଇଥାଏ"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"ବ୍ୟକ୍ତିଗତ ଆପଗୁଡ଼ିକ କାର୍ଯ୍ୟସ୍ଥଳୀ ଆପଗୁଡ଼ିକ ଠାରୁ ଅଲଗା ଅଟେ ଓ ଏହା ଲୁକ୍କାୟିତ ଅଛି"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ଆପଣଙ୍କ IT ଆଡମିନ୍ ଏହି ଡିଭାଇସକୁ ନିୟନ୍ତ୍ରଣ କରି ନିର୍ଦ୍ଦିଷ୍ଟ ଆପଗୁଡ଼ିକୁ ବ୍ଲକ୍ କରିପାରିବେ"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"କାର୍ଯ୍ୟସ୍ଥଳୀ ଆପଗୁଡ଼ିକ ଆପଣଙ୍କ ୱାର୍କ ପ୍ରୋଫାଇଲରେ ରଖାଯାଇଛି ଓ ଏଗୁଡ଼ିକ ଆପଣଙ୍କ IT ଆଡମିନଙ୍କ ଦ୍ୱାରା ପରିଚାଳିତ ହେଉଛି। ବ୍ୟକ୍ତିଗତ ଆପଗୁଡ଼ିକ କାର୍ଯ୍ୟସ୍ଥଳୀ ଆପଗୁଡ଼ିକ ଠାରୁ ପୃଥକ୍ ଓ ଲୁକ୍କାୟିତ ଅଟେ। ଆପଣଙ୍କ IT ଆଡମିନ୍ ଏହି ଡିଭାଇସକୁ ନିୟନ୍ତ୍ରଣ କରି ନିର୍ଦ୍ଦିଷ୍ଟ ଆପଗୁଡ଼ିକୁ ବ୍ଲକ୍ କରିପାରିବେ।"</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"ଟିକେ ରୁହନ୍ତୁ…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"ଗୋପନୀୟତା ରିମାଇଣ୍ଡର୍‍"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ଆପଣଙ୍କ IT ବ୍ୟବସ୍ଥାପକ ବୋଧହୁଏ ଏହି ଡିଭାଇସ୍‌ରେ ଆପଣଙ୍କ ଡାଟା ଏବଂ କାର୍ଯ୍ୟକଳାପ ଦେଖିପାରିବେ"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"ଆପଣଙ୍କ ଡିଭାଇସ୍ ବ୍ୟବହାର ପାଇଁ ପ୍ରସ୍ତୁତ ଅଛି!"</string>
     <string name="done" msgid="7755227776955952318">"ହୋଇଗଲା"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"ଏହି ଡିଭାଇସ୍ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>ରୁ କ୍ରେଡିଟରେ କିଣା ଯାଇଥିଲା"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ଏହା କରିପାରିବ:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ଆପ୍ ଇନଷ୍ଟଲ୍ କରିପାରିବ, ଫଳରେ ଆପଣ ଏହି ଡିଭାଇସ୍ ପାଇଁ ପେମେଣ୍ଟଗୁଡ଼ିକ କରିପାରିବେ"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"ଯଦି ଆପଣ କୌଣସି ପେମେଣ୍ଟ କରିବେ ନାହିଁ, ତେବେ ଏହି ଡିଭାଇସକୁ ଆକ୍ସେସ୍ ପ୍ରତିବନ୍ଧିତ କରିପାରିବ"</string>
 </resources>

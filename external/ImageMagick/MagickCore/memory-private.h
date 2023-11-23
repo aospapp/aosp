@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -18,19 +18,19 @@
 #ifndef MAGICKCORE_MEMORY_PRIVATE_H
 #define MAGICKCORE_MEMORY_PRIVATE_H
 
+#include "MagickCore/magick-config.h"
+
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
 
-#include "MagickCore/exception-private.h"
-
 #if defined(__powerpc__)
-#  define CACHE_LINE_SIZE  (16*sizeof(void *))
+#  define CACHE_LINE_SIZE  (16 * MAGICKCORE_SIZEOF_VOID_P)
 #else
-#  define CACHE_LINE_SIZE  (8*sizeof(void *))
+#  define CACHE_LINE_SIZE  (8 * MAGICKCORE_SIZEOF_VOID_P)
 #endif
 
-#define CacheAlign(size)  ((size) < CACHE_LINE_SIZE ? CACHE_LINE_SIZE : (size))
+#define CACHE_ALIGNED(n)  MAGICKCORE_ALIGN_UP(n,CACHE_LINE_SIZE)
 
 #if (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ > 6))
 #if !defined(__ICC)
@@ -43,29 +43,9 @@ extern "C" {
 #define MagickAssumeAligned(address)  (address)
 #endif
 
-MagickExport MagickBooleanType 
-  HeapOverflowSanityCheck(const size_t,const size_t) magick_alloc_sizes(1,2);
-
-MagickExport size_t
-  GetMaxMemoryRequest(void);
-
 extern MagickPrivate void
   ResetMaxMemoryRequest(void),
   ResetVirtualAnonymousMemory(void);
-
-static inline void *AcquireCriticalMemory(const size_t size)
-{
-  register void
-    *memory;
- 
-  /*
-    Fail if memory request cannot be fulfilled.
-  */
-  memory=AcquireMagickMemory(size);
-  if (memory == (void *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  return(memory);
-}
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

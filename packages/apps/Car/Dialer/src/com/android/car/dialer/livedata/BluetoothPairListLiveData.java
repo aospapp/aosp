@@ -28,7 +28,6 @@ import androidx.lifecycle.LiveData;
 
 import com.android.car.dialer.log.L;
 
-import java.util.Collections;
 import java.util.Set;
 
 /**

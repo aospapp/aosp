@@ -35,29 +35,19 @@ locations on the system, described below.
 at the beginning of its execution.  It is responsible for the initial
 set up of the system.
 
-Devices that mount /system, /vendor through the first stage mount mechanism
-load all of the files contained within the
+Init loads all of the files contained within the
 /{system,vendor,odm}/etc/init/ directories immediately after loading
 the primary /init.rc.  This is explained in more details in the
 Imports section of this file.
 
-Legacy devices without the first stage mount mechanism do the following:
-1. /init.rc imports /init.${ro.hardware}.rc which is the primary
-   vendor supplied .rc file.
-2. During the mount\_all command, the init executable loads all of the
-   files contained within the /{system,vendor,odm}/etc/init/ directories.
-   These directories are intended for all Actions and Services used after
-   file system mounting.
-
-One may specify paths in the mount\_all command line to have it import
-.rc files at the specified paths instead of the default ones listed above.
-This is primarily for supporting factory mode and other non-standard boot
-modes.  The three default paths should be used for the normal boot process.
+Legacy devices without the first stage mount mechanism previously were
+able to import init scripts during mount_all, however that is deprecated
+and not allowed for devices launching after Q.
 
 The intention of these directories is:
 
    1. /system/etc/init/ is for core system items such as
-      SurfaceFlinger, MediaService, and logcatd.
+      SurfaceFlinger, MediaService, and logd.
    2. /vendor/etc/init/ is for SoC vendor items such as actions or
       daemons needed for core SoC functionality.
    3. /odm/etc/init/ is for device manufacturer items such as
@@ -72,7 +62,7 @@ system macro, LOCAL\_INIT\_RC, that handles this for developers.  Each
 init .rc file should additionally contain any actions associated with
 its service.
 
-An example is the logcatd.rc and Android.mk files located in the
+An example is the userdebug logcatd.rc and Android.mk files located in the
 system/core/logcat directory.  The LOCAL\_INIT\_RC macro in the
 Android.mk file places logcatd.rc in /system/etc/init/ during the
 build process.  Init loads logcatd.rc during the mount\_all command and
@@ -87,14 +77,6 @@ fact present on the file system, which was not the case with the
 monolithic init .rc files.  This additionally will aid in merge
 conflict resolution when multiple services are added to the system, as
 each one will go into a separate file.
-
-There are two options "early" and "late" in mount\_all command
-which can be set after optional paths. With "--early" set, the
-init executable will skip mounting entries with "latemount" flag
-and triggering fs encryption state event. With "--late" set,
-init executable will only mount entries with "latemount" flag but skip
-importing rc files. By default, no option is set, and mount\_all will
-process all entries in the given fstab.
 
 Actions
 -------
@@ -188,6 +170,8 @@ runs the service.
   be changed by setting the "androidboot.console" kernel parameter. In
   all cases the leading "/dev/" should be omitted, so "/dev/tty0" would be
   specified as just "console tty0".
+  This option connects stdin, stdout, and stderr to the console. It is mutually exclusive with the
+  stdio_to_kmsg option, which only connects stdout and stderr to kmsg.
 
 `critical`
 > This is a device-critical service. If it exits more than four times in
@@ -214,9 +198,9 @@ runs the service.
 
 `interface <interface name> <instance name>`
 > Associates this service with a list of the HIDL services that it provides. The interface name
-  must be a fully-qualified name and not a value name. This is used to allow hwservicemanager to
-  lazily start services. When multiple interfaces are served, this tag should be used multiple
-  times.
+  must be a fully-qualified name and not a value name. For instance, this is used to allow
+  hwservicemanager to lazily start services. When multiple interfaces are served, this tag should
+  be used multiple times.
   For example: interface vendor.foo.bar@1.0::IBaz default
 
 `ioprio <class> <priority>`
@@ -281,6 +265,12 @@ runs the service.
 > Scheduling priority of the service process. This value has to be in range
   -20 to 19. Default priority is 0. Priority is set via setpriority().
 
+`reboot_on_failure <target>`
+> If this process cannot be started or if the process terminates with an exit code other than
+  CLD_EXITED or an status other than '0', reboot the system with the target specified in
+  _target_. _target_ takes the same format as the parameter to sys.powerctl. This is particularly
+  intended to be used with the `exec_start` builtin for any must-have checks during boot.
+
 `restart_period <seconds>`
 > If a non-oneshot service exits, it will be restarted at its start time plus
   this period. It defaults to 5s to rate limit crashing services.
@@ -317,12 +307,24 @@ runs the service.
   See the below section on debugging for how this can be used.
 
 `socket <name> <type> <perm> [ <user> [ <group> [ <seclabel> ] ] ]`
-> Create a unix domain socket named /dev/socket/_name_ and pass its fd to the
-  launched process.  _type_ must be "dgram", "stream" or "seqpacket".  User and
+> Create a UNIX domain socket named /dev/socket/_name_ and pass its fd to the
+  launched process.  _type_ must be "dgram", "stream" or "seqpacket".  _type_
+  may end with "+passcred" to enable SO_PASSCRED on the socket. User and
   group default to 0.  'seclabel' is the SELinux security context for the
   socket.  It defaults to the service security context, as specified by
   seclabel or computed based on the service executable file security context.
   For native executables see libcutils android\_get\_control\_socket().
+
+`stdio_to_kmsg`
+> Redirect stdout and stderr to /dev/kmsg_debug. This is useful for services that do not use native
+  Android logging during early boot and whose logs messages we want to capture. This is only enabled
+  when /dev/kmsg_debug is enabled, which is only enabled on userdebug and eng builds.
+  This is mutually exclusive with the console option, which additionally connects stdin to the
+  given console.
+
+`task_profiles <profile> [ <profile>\* ]`
+> Set task profiles for the process when it forks. This is designed to replace the use of
+  writepid option for moving a process into a cgroup.
 
 `timeout_period <seconds>`
 > Provide a timeout after which point the service will be killed. The oneshot keyword is respected
@@ -358,6 +360,8 @@ runs the service.
   cgroup/cpuset usage. If no files under /dev/cpuset/ are specified, but the
   system property 'ro.cpuset.default' is set to a non-empty cpuset name (e.g.
   '/foreground'), then the pid is written to file /dev/cpuset/_cpuset\_name_/tasks.
+  The use of this option for moving a process into a cgroup is obsolete. Please
+  use task_profiles option instead.
 
 
 Triggers
@@ -489,6 +493,25 @@ Commands
   -f: force installation of the module even if the version of the running kernel
   and the version of the kernel for which the module was compiled do not match.
 
+`interface_start <name>` \
+`interface_restart <name>` \
+`interface_stop <name>`
+> Find the service that provides the interface _name_ if it exists and run the `start`, `restart`,
+or `stop` commands on it respectively.  _name_ may be either a fully qualified HIDL name, in which
+case it is specified as `<interface>/<instance>`, or an AIDL name, in which case it is specified as
+`aidl/<interface>` for example `android.hardware.secure_element@1.1::ISecureElement/eSE1` or
+`aidl/aidl_lazy_test_1`.
+
+> Note that these commands only act on interfaces specified by the `interface` service option, not
+on interfaces registered at runtime.
+
+> Example usage of these commands: \
+`interface_start android.hardware.secure_element@1.1::ISecureElement/eSE1`
+will start the HIDL Service that provides the `android.hardware.secure_element@1.1` and `eSI1`
+instance. \
+`interface_start aidl/aidl_lazy_test_1` will start the AIDL service that
+provides the `aidl_lazy_test_1` interface.
+
 `load_system_props`
 > (This action is deprecated and no-op.)
 
@@ -497,32 +520,52 @@ Commands
   This is included in the default init.rc.
 
 `loglevel <level>`
-> Sets the kernel log level to level. Properties are expanded within _level_.
+> Sets init's log level to the integer level, from 7 (all logging) to 0
+  (fatal logging only). The numeric values correspond to the kernel log
+  levels, but this command does not affect the kernel log level. Use the
+  `write` command to write to `/proc/sys/kernel/printk` to change that.
+  Properties are expanded within _level_.
 
 `mark_post_data`
 > Used to mark the point right after /data is mounted. Used to implement the
   `class_reset_post_data` and `class_start_post_data` commands.
 
-`mkdir <path> [mode] [owner] [group]`
+`mkdir <path> [<mode>] [<owner>] [<group>] [encryption=<action>] [key=<key>]`
 > Create a directory at _path_, optionally with the given mode, owner, and
   group. If not provided, the directory is created with permissions 755 and
   owned by the root user and root group. If provided, the mode, owner and group
   will be updated if the directory exists already.
 
-`mount_all <fstab> [ <path> ]\* [--<option>]`
-> Calls fs\_mgr\_mount\_all on the given fs\_mgr-format fstab and imports .rc files
-  at the specified paths (e.g., on the partitions just mounted) with optional
+ > _action_ can be one of:
+  * `None`: take no encryption action; directory will be encrypted if parent is.
+  * `Require`: encrypt directory, abort boot process if encryption fails
+  * `Attempt`: try to set an encryption policy, but continue if it fails
+  * `DeleteIfNecessary`: recursively delete directory if necessary to set
+  encryption policy.
+
+  > _key_ can be one of:
+  * `ref`: use the systemwide DE key
+  * `per_boot_ref`: use the key freshly generated on each boot.
+
+`mount_all [ <fstab> ] [--<option>]`
+> Calls fs\_mgr\_mount\_all on the given fs\_mgr-format fstab with optional
   options "early" and "late".
-  Refer to the section of "Init .rc Files" for detail.
+  With "--early" set, the init executable will skip mounting entries with
+  "latemount" flag and triggering fs encryption state event. With "--late" set,
+  init executable will only mount entries with "latemount" flag. By default,
+  no option is set, and mount\_all will process all entries in the given fstab.
+  If the fstab parameter is not specified, fstab.${ro.boot.fstab_suffix},
+  fstab.${ro.hardware} or fstab.${ro.hardware.platform} will be scanned for
+  under /odm/etc, /vendor/etc, or / at runtime, in that order.
 
 `mount <type> <device> <dir> [ <flag>\* ] [<options>]`
 > Attempt to mount the named device at the directory _dir_
   _flag_s include "ro", "rw", "remount", "noatime", ...
   _options_ include "barrier=1", "noauto\_da\_alloc", "discard", ... as
-  a comma separated string, eg: barrier=1,noauto\_da\_alloc
+  a comma separated string, e.g. barrier=1,noauto\_da\_alloc
 
 `parse_apex_configs`
-> Parses config file(s) from the mounted APEXes. Intented to be used only once
+> Parses config file(s) from the mounted APEXes. Intended to be used only once
   when apexd notifies the mount event by setting apexd.status to ready.
 
 `restart <service>`
@@ -568,6 +611,7 @@ Commands
   Note that this is _not_ synchronous, and even if it were, there is
   no guarantee that the operating system's scheduler will execute the
   service sufficiently to guarantee anything about the service's status.
+  See the `exec_start` command for a synchronous version of `start`.
 
 > This creates an important consequence that if the service offers
   functionality to other services, such as providing a
@@ -579,13 +623,16 @@ Commands
 `stop <service>`
 > Stop a service from running if it is currently running.
 
-`swapon_all <fstab>`
+`swapon_all [ <fstab> ]`
 > Calls fs\_mgr\_swapon\_all on the given fstab file.
+  If the fstab parameter is not specified, fstab.${ro.boot.fstab_suffix},
+  fstab.${ro.hardware} or fstab.${ro.hardware.platform} will be scanned for
+  under /odm/etc, /vendor/etc, or / at runtime, in that order.
 
 `symlink <target> <path>`
 > Create a symbolic link at _path_ with the value _target_
 
-`sysclktz <mins_west_of_gmt>`
+`sysclktz <minutes_west_of_gmt>`
 > Set the system clock base (0 if system clock ticks in GMT)
 
 `trigger <event>`
@@ -595,8 +642,11 @@ Commands
 `umount <path>`
 > Unmount the filesystem mounted at that path.
 
-`verity_load_state`
-> Internal implementation detail used to load dm-verity state.
+`umount_all [ <fstab> ]`
+> Calls fs\_mgr\_umount\_all on the given fstab file.
+  If the fstab parameter is not specified, fstab.${ro.boot.fstab_suffix},
+  fstab.${ro.hardware} or fstab.${ro.hardware.platform} will be scanned for
+  under /odm/etc, /vendor/etc, or / at runtime, in that order.
 
 `verity_update_state <mount-point>`
 > Internal implementation detail used to update dm-verity state and
@@ -606,7 +656,8 @@ Commands
 `wait <path> [ <timeout> ]`
 > Poll for the existence of the given file and return when found,
   or the timeout has been reached. If timeout is not specified it
-  currently defaults to five seconds.
+  currently defaults to five seconds. The timeout value can be
+  fractional seconds, specified in floating point notation.
 
 `wait_for_prop <name> <value>`
 > Wait for system property _name_ to be _value_. Properties are expanded
@@ -637,8 +688,9 @@ There are only three times where the init executable imports .rc files:
       `ro.boot.init_rc` during initial boot.
    2. When it imports /{system,vendor,odm}/etc/init/ for first stage mount
       devices immediately after importing /init.rc.
-   3. When it imports /{system,vendor,odm}/etc/init/ or .rc files at specified
-      paths during mount_all.
+   3. (Deprecated) When it imports /{system,vendor,odm}/etc/init/ or .rc files
+      at specified paths during mount_all, not allowed for devices launching
+      after Q.
 
 The order that files are imported is a bit complex for legacy reasons
 and to keep backwards compatibility.  It is not strictly guaranteed.
@@ -648,7 +700,7 @@ different command is to either 1) place it in an Action with an
 earlier executed trigger, or 2) place it in an Action with the same
 trigger within the same file at an earlier line.
 
-Nonetheless, the defacto order for first stage mount devices is:
+Nonetheless, the de facto order for first stage mount devices is:
 1. /init.rc is parsed then recursively each of its imports are
    parsed.
 2. The contents of /system/etc/init/ are alphabetized and parsed
@@ -686,6 +738,38 @@ Init provides state information with the following properties.
   `/sys/fs/ext4/${dev.mnt.blk.<mount_point>}/` to tune the block device
   characteristics in a device agnostic manner.
 
+Init responds to properties that begin with `ctl.`.  These properties take the format of
+`ctl.[<target>_]<command>` and the _value_ of the system property is used as a parameter.  The
+_target_ is optional and specifies the service option that _value_ is meant to match with.  There is
+only one option for _target_, `interface` which indicates that _value_ will refer to an interface
+that a service provides and not the service name itself.
+
+For example:
+
+`SetProperty("ctl.start", "logd")` will run the `start` command on `logd`.
+
+`SetProperty("ctl.interface_start", "aidl/aidl_lazy_test_1")` will run the `start` command on the
+service that exposes the `aidl aidl_lazy_test_1` interface.
+
+Note that these
+properties are only settable; they will have no value when read.
+
+The _commands_ are listed below.
+
+`start` \
+`restart` \
+`stop` \
+These are equivalent to using the `start`, `restart`, and `stop` commands on the service specified
+by the _value_ of the property.
+
+`oneshot_one` and `oneshot_off` will turn on or off the _oneshot_
+flag for the service specified by the _value_ of the property.  This is
+particularly intended for services that are conditionally lazy HALs.  When
+they are lazy HALs, oneshot must be on, otherwise oneshot should be off.
+
+`sigstop_on` and `sigstop_off` will turn on or off the _sigstop_ feature for the service
+specified by the _value_ of the property.  See the _Debugging init_ section below for more details
+about this feature.
 
 Boot timing
 -----------
@@ -695,8 +779,11 @@ Init records some boot timing information in system properties.
 > Time after boot in ns (via the CLOCK\_BOOTTIME clock) at which the first
   stage of init started.
 
+`ro.boottime.init.first_stage`
+> How long in ns it took to run first stage.
+
 `ro.boottime.init.selinux`
-> How long it took the first stage to initialize SELinux.
+> How long in ns it took to run SELinux stage.
 
 `ro.boottime.init.cold_boot_wait`
 > How long init waited for ueventd's coldboot phase to end.
@@ -738,7 +825,7 @@ Comparing two bootcharts
 A handy script named compare-bootcharts.py can be used to compare the
 start/end time of selected processes. The aforementioned grab-bootchart.sh
 will leave a bootchart tarball named bootchart.tgz at /tmp/android-bootchart.
-If two such barballs are preserved on the host machine under different
+If two such tarballs are preserved on the host machine under different
 directories, the script can list the timestamps differences. For example:
 
 Usage: system/core/init/compare-bootcharts.py _base-bootchart-dir_ _exp-bootchart-dir_
@@ -779,6 +866,12 @@ affected.
 
 Debugging init
 --------------
+When a service starts from init, it may fail to `execv()` the service. This is not typical, and may
+point to an error happening in the linker as the new service is started. The linker in Android
+prints its logs to `logd` and `stderr`, so they are visible in `logcat`. If the error is encountered
+before it is possible to access `logcat`, the `stdio_to_kmsg` service option may be used to direct
+the logs that the linker prints to `stderr` to `kmsg`, where they can be read via a serial port.
+
 Launching init services without init is not recommended as init sets up a significant amount of
 environment (user, groups, security label, capabilities, etc) that is hard to replicate manually.
 
@@ -786,7 +879,7 @@ If it is required to debug a service from its very start, the `sigstop` service 
 This option will send SIGSTOP to a service immediately before calling exec. This gives a window
 where developers can attach a debugger, strace, etc before continuing the service with SIGCONT.
 
-This flag can also be dynamically controled via the ctl.sigstop_on and ctl.sigstop_off properties.
+This flag can also be dynamically controlled via the ctl.sigstop_on and ctl.sigstop_off properties.
 
 Below is an example of dynamically debugging logd via the above:
 

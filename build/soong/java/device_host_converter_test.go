@@ -50,9 +50,7 @@ func TestDeviceForHost(t *testing.T) {
 		}
 	`
 
-	config := testConfig(nil)
-	ctx := testContext(config, bp, nil)
-	run(t, ctx, config)
+	ctx, config := testJava(t, bp)
 
 	deviceModule := ctx.ModuleForTests("device_module", "android_common")
 	deviceTurbineCombined := deviceModule.Output("turbine-combined/device_module.jar")
@@ -62,7 +60,7 @@ func TestDeviceForHost(t *testing.T) {
 	deviceImportModule := ctx.ModuleForTests("device_import_module", "android_common")
 	deviceImportCombined := deviceImportModule.Output("combined/device_import_module.jar")
 
-	hostModule := ctx.ModuleForTests("host_module", config.BuildOsCommonVariant)
+	hostModule := ctx.ModuleForTests("host_module", config.BuildOSCommonTarget.String())
 	hostJavac := hostModule.Output("javac/host_module.jar")
 	hostRes := hostModule.Output("res/host_module.jar")
 	combined := hostModule.Output("combined/host_module.jar")
@@ -126,22 +124,20 @@ func TestHostForDevice(t *testing.T) {
 
 		java_library {
 			name: "device_module",
-			no_framework_libs: true,
+			sdk_version: "core_platform",
 			srcs: ["b.java"],
 			java_resources: ["java-res/b/b"],
 			static_libs: ["host_for_device_module"],
 		}
 	`
 
-	config := testConfig(nil)
-	ctx := testContext(config, bp, nil)
-	run(t, ctx, config)
+	ctx, config := testJava(t, bp)
 
-	hostModule := ctx.ModuleForTests("host_module", config.BuildOsCommonVariant)
+	hostModule := ctx.ModuleForTests("host_module", config.BuildOSCommonTarget.String())
 	hostJavac := hostModule.Output("javac/host_module.jar")
 	hostRes := hostModule.Output("res/host_module.jar")
 
-	hostImportModule := ctx.ModuleForTests("host_import_module", config.BuildOsCommonVariant)
+	hostImportModule := ctx.ModuleForTests("host_import_module", config.BuildOSCommonTarget.String())
 	hostImportCombined := hostImportModule.Output("combined/host_import_module.jar")
 
 	deviceModule := ctx.ModuleForTests("device_module", "android_common")

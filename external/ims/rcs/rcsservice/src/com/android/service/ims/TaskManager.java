@@ -28,30 +28,23 @@
 
 package com.android.service.ims;
 
-import java.util.Set;
+import android.content.Context;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
+import android.telephony.PhoneNumberUtils;
+
+import com.android.ims.internal.Logger;
+import com.android.service.ims.presence.ContactCapabilityResponse;
+import com.android.service.ims.presence.PresenceAvailabilityTask;
+import com.android.service.ims.presence.PresenceCapabilityTask;
+import com.android.service.ims.presence.PresenceTask;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-import android.os.RemoteException;
-import android.content.Context;
-import android.os.Handler;
-import android.os.Message;
-import android.os.HandlerThread;
-import android.os.Looper;
-import android.telephony.PhoneNumberUtils;
-
-import com.android.ims.internal.uce.presence.PresCmdStatus;
-
-import com.android.ims.internal.Logger;
-import com.android.ims.RcsManager.ResultCode;
-import com.android.ims.RcsPresenceInfo;
-import com.android.ims.IRcsPresenceListener;
-
-import com.android.service.ims.presence.PresenceTask;
-import com.android.service.ims.presence.PresenceCapabilityTask;
-import com.android.service.ims.presence.PresenceAvailabilityTask;
+import java.util.Set;
 
 /**
  * TaskManager
@@ -116,7 +109,7 @@ public class TaskManager{
     }
 
     public int addCapabilityTask(Context context, String[] contacts,
-            IRcsPresenceListener listener, long timeout){
+            ContactCapabilityResponse listener, long timeout){
         int taskId = TaskManager.getDefault().generateTaskId();
         synchronized (mSyncObj){
             Task task = new PresenceCapabilityTask(context, taskId, TASK_TYPE_GET_CAPABILITY,
@@ -127,7 +120,7 @@ public class TaskManager{
         return taskId;
     }
 
-    public int addAvailabilityTask(String contact, IRcsPresenceListener listener){
+    public int addAvailabilityTask(String contact, ContactCapabilityResponse listener){
         int taskId = TaskManager.getDefault().generateTaskId();
         synchronized (mSyncObj){
             String[] contacts = new String[1];
@@ -140,12 +133,12 @@ public class TaskManager{
         return taskId;
     }
 
-    public int addPublishTask(String contact, IRcsPresenceListener listener){
+    public int addPublishTask(String contact){
         int taskId = TaskManager.getDefault().generateTaskId();
         synchronized (mSyncObj){
             String[] contacts = new String[1];
             contacts[0] = contact;
-            Task task = new PresenceTask(taskId, TASK_TYPE_PUBLISH, listener, contacts);
+            Task task = new PresenceTask(taskId, TASK_TYPE_PUBLISH, null /*listener*/, contacts);
             putTaskInternal(taskId, task);
         }
 
@@ -167,6 +160,32 @@ public class TaskManager{
             }
             logger.debug("Removed Task: " + task);
         }
+    }
+
+    public Task getTaskForSingleContactQuery(String contact) {
+        synchronized (mSyncObj){
+            Set<String> keys= mTaskMap.keySet();
+            if(keys == null){
+                logger.debug("getTaskByContact keys=null");
+                return null;
+            }
+
+            for(String key:keys){
+                Task task = mTaskMap.get(key);
+                if(task == null){
+                    continue;
+                }
+
+                if (task instanceof PresenceTask) {
+                    PresenceTask presenceTask = (PresenceTask) task;
+                    if(presenceTask.mContacts.length == 1 &&
+                            PhoneNumberUtils.compare(contact, presenceTask.mContacts[0])){
+                        return task;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     public Task getTaskByRequestId(int sipRequestId){

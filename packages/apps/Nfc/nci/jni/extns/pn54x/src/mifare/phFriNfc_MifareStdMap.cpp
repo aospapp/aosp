@@ -1379,8 +1379,6 @@ static NFCSTATUS phFriNfc_MifStd_H_BlkChk(phFriNfc_NdefMap_t* NdefMap) {
     if (NdefMap->CardType == PH_FRINFC_NDEFMAP_MIFARE_STD_1K_CARD) {
       /* if Sector Id > 15 No Sectors to write */
       if (SectorID > 15) {
-        SectorID =
-            phFriNfc_MifStd_H_GetSect(NdefMap->StdMifareContainer.currentBlock);
         /*Error: No Ndef Compliant Sectors present */
         Result = PHNFCSTVAL(CID_FRI_NFC_NDEF_MAP, NFCSTATUS_INVALID_PARAMETER);
         callbreak = 1;
@@ -1413,8 +1411,6 @@ static NFCSTATUS phFriNfc_MifStd_H_BlkChk(phFriNfc_NdefMap_t* NdefMap) {
         } else {
           phFriNfc_MifStd1k_H_BlkChk(NdefMap, SectorID, &callbreak);
         }
-      } else {
-        phFriNfc_MifStd1k_H_BlkChk(NdefMap, SectorID, &callbreak);
       }
     } /* End of if*/ /* End of Mifare 2k check*/
     else             /* Mifare 4k check starts here */
@@ -2676,18 +2672,9 @@ static NFCSTATUS phFriNfc_MifStd_H_GetNxtTLV(phFriNfc_NdefMap_t* NdefMap,
 
   if (*TL4bytesFlag == PH_FRINFC_MIFARESTD_FLAG0) {
     (*TempLength) += (NdefMap->SendRecvBuf[TempLen] + PH_FRINFC_MIFARESTD_VAL1);
-
-    if (NdefMap->TLVStruct.NdefTLVFoundFlag == PH_FRINFC_MIFARESTD_FLAG0) {
-      LengthRemaining =
-          (((*TempLength) < PH_FRINFC_MIFARESTD_BYTES_READ)
-               ? PH_FRINFC_MIFARESTD_VAL0
-               : (NdefMap->SendRecvBuf[TempLen] - LengthRemaining));
-    } else {
-      LengthRemaining =
-          (((*TempLength) < PH_FRINFC_MIFARESTD_BYTES_READ)
-               ? PH_FRINFC_MIFARESTD_VAL0
-               : (NdefMap->SendRecvBuf[TempLen] - LengthRemaining));
-    }
+    LengthRemaining = (((*TempLength) < PH_FRINFC_MIFARESTD_BYTES_READ)
+                           ? PH_FRINFC_MIFARESTD_VAL0
+                           : (NdefMap->SendRecvBuf[TempLen] - LengthRemaining));
   } else {
     *TL4bytesFlag = PH_FRINFC_MIFARESTD_FLAG0;
     if (NdefMap->TLVStruct.NoLbytesinTLV == PH_FRINFC_MIFARESTD_VAL1) {
@@ -3524,8 +3511,8 @@ static NFCSTATUS phFriNfc_MifStd_H_ProBytesToWr(phFriNfc_NdefMap_t* NdefMap) {
   uint8_t TempLength = PH_FRINFC_MIFARESTD_VAL0;
 
   if (*NdefMap->SendRecvLength == PH_FRINFC_MIFARESTD_BYTES_READ) {
-    memcpy(&NdefMap->SendRecvBuf[PH_FRINFC_MIFARESTD_VAL1],
-           NdefMap->SendRecvBuf, PH_FRINFC_MIFARESTD_BLOCK_BYTES);
+    memmove(&NdefMap->SendRecvBuf[PH_FRINFC_MIFARESTD_VAL1],
+            NdefMap->SendRecvBuf, PH_FRINFC_MIFARESTD_BLOCK_BYTES);
 
     /* Write to Ndef TLV Block */
     NdefMap->SendRecvBuf[PH_FRINFC_MIFARESTD_VAL0] =

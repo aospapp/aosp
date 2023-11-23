@@ -30,9 +30,9 @@ public class RemoteLayoutLogAdapter extends LayoutLog {
     }
 
     @Override
-    public void warning(String tag, String message, Object data) {
+    public void warning(String tag, String message, Object viewCookie, Object data) {
         try {
-            mLog.warning(tag, message, null);
+            mLog.warning(tag, message, viewCookie, null);
         } catch (RemoteException e) {
             throw new RuntimeException(e);
         }
@@ -49,18 +49,19 @@ public class RemoteLayoutLogAdapter extends LayoutLog {
     }
 
     @Override
-    public void error(String tag, String message, Object data) {
+    public void error(String tag, String message, Object viewCookie, Object data) {
         try {
-            mLog.error(tag, message, null);
+            mLog.error(tag, message, viewCookie, null);
         } catch (RemoteException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void error(String tag, String message, Throwable throwable, Object data) {
+    public void error(String tag, String message, Throwable throwable, Object viewCookie,
+            Object data) {
         try {
-            mLog.error(tag, message, throwable, null);
+            mLog.error(tag, message, throwable, viewCookie, null);
         } catch (RemoteException e) {
             throw new RuntimeException(e);
         }

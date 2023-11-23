@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "gtest/gtest.h"
 #include "chre/pal/version.h"
+#include "gtest/gtest.h"
 
 TEST(PalVersionTest, CreateApiVersion) {
   constexpr uint32_t version = CHRE_PAL_CREATE_API_VERSION(3, 6);
@@ -27,22 +27,19 @@ TEST(PalVersionTest, CompatibilityCheck) {
   constexpr uint32_t pal_version = CHRE_PAL_CREATE_API_VERSION(2, 8);
 
   uint32_t requested_version = CHRE_PAL_CREATE_API_VERSION(3, 6);
-  EXPECT_FALSE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version,
-                                                requested_version));
+  EXPECT_FALSE(
+      CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version, requested_version));
 
   requested_version = CHRE_PAL_CREATE_API_VERSION(1, 5);
-  EXPECT_FALSE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version,
-                                                requested_version));
+  EXPECT_FALSE(
+      CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version, requested_version));
 
   requested_version = CHRE_PAL_CREATE_API_VERSION(2, 7);
-  EXPECT_TRUE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version,
-                                               requested_version));
+  EXPECT_TRUE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version, requested_version));
 
   requested_version = CHRE_PAL_CREATE_API_VERSION(2, 4);
-  EXPECT_TRUE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version,
-                                               requested_version));
+  EXPECT_TRUE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version, requested_version));
 
   requested_version = CHRE_PAL_CREATE_API_VERSION(2, 9);
-  EXPECT_TRUE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version,
-                                               requested_version));
+  EXPECT_TRUE(CHRE_PAL_VERSIONS_ARE_COMPATIBLE(pal_version, requested_version));
 }

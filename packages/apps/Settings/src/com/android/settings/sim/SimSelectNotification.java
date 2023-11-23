@@ -46,6 +46,7 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.settings.HelpTrampoline;
 import com.android.settings.R;
 import com.android.settings.network.SubscriptionUtil;
 import com.android.settings.network.telephony.MobileNetworkActivity;
@@ -102,7 +103,7 @@ public class SimSelectNotification extends BroadcastReceiver {
 
         SubscriptionManager subscriptionManager = ((SubscriptionManager) context.getSystemService(
                 Context.TELEPHONY_SUBSCRIPTION_SERVICE));
-        if (!subscriptionManager.isActiveSubId(subId)) {
+        if (!subscriptionManager.isActiveSubscriptionId(subId)) {
             Log.w(TAG, "onEnableMmsDataRequest invalid sub ID " + subId);
             return;
         }
@@ -202,7 +203,7 @@ public class SimSelectNotification extends BroadcastReceiver {
 
         Notification.Builder builder =
                 new Notification.Builder(context, SIM_SELECT_NOTIFICATION_CHANNEL)
-                .setSmallIcon(R.drawable.ic_sim_card_alert_white_48dp)
+                .setSmallIcon(R.drawable.ic_sim_alert)
                 .setColor(context.getColor(R.color.sim_noitification))
                 .setContentTitle(resources.getText(R.string.sim_notification_title))
                 .setContentText(resources.getText(R.string.sim_notification_summary))
@@ -282,7 +283,7 @@ public class SimSelectNotification extends BroadcastReceiver {
 
         Notification.Builder builder =
                 new Notification.Builder(context, SIM_WARNING_NOTIFICATION_CHANNEL)
-                        .setSmallIcon(R.drawable.ic_sim_card_alert_white_48dp)
+                        .setSmallIcon(R.drawable.ic_sim_alert)
                         .setColor(context.getColor(R.color.sim_noitification))
                         .setContentTitle(resources.getText(
                                 R.string.sim_combination_warning_notification_title))
@@ -292,10 +293,9 @@ public class SimSelectNotification extends BroadcastReceiver {
                         .setAutoCancel(true);
 
         // Create the pending intent that will lead to the helper page.
-        Intent resultIntent = HelpUtils.getHelpIntent(
-                context,
-                context.getString(R.string.help_uri_sim_combination_warning),
-                context.getClass().getName());
+        Intent resultIntent = new Intent(context, HelpTrampoline.class);
+        resultIntent.putExtra(Intent.EXTRA_TEXT, "help_uri_sim_combination_warning");
+
         PendingIntent resultPendingIntent = PendingIntent.getActivity(context, 0, resultIntent,
                 PendingIntent.FLAG_CANCEL_CURRENT);
         builder.setContentIntent(resultPendingIntent);

@@ -35,11 +35,9 @@ BLUETOOTH_WAIT_TIME = 2
 
 class WlanWithHfpFunctionalityTest(CoexBaseTest):
 
-    def __init__(self, controllers):
-        super().__init__(controllers)
-
     def setup_class(self):
         super().setup_class()
+
         req_params = ["sim_conf_file", "fping_drop_tolerance"]
         self.unpack_userparams(req_params)
         self.ag_phone_number, self.re_phone_number = setup_tel_config(

@@ -22,6 +22,10 @@ import com.android.tradefed.command.CommandOptions;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -61,6 +65,7 @@ public class TfTestLauncherTest {
     private IRunUtil mMockRunUtil;
     private IFolderBuildInfo mMockBuildInfo;
     private IConfiguration mMockConfig;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() throws Exception {
@@ -75,6 +80,10 @@ public class TfTestLauncherTest {
         mTfTestLauncher.setEventStreaming(false);
         mTfTestLauncher.setConfiguration(mMockConfig);
 
+        IInvocationContext context = new InvocationContext();
+        context.addDeviceBuildInfo("device", mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
+
         EasyMock.expect(mMockConfig.getCommandOptions()).andStubReturn(new CommandOptions());
 
         OptionSetter setter = new OptionSetter(mTfTestLauncher);
@@ -82,18 +91,21 @@ public class TfTestLauncherTest {
         setter.setOptionValue("sub-global-config", SUB_GLOBAL_CONFIG);
     }
 
-    /** Test {@link TfTestLauncher#run(ITestInvocationListener)} */
+    /** Test {@link TfTestLauncher#run(TestInformation, ITestInvocationListener)} */
     @Test
-    public void testRun() {
+    public void testRun() throws DeviceNotAvailableException {
         CommandResult cr = new CommandResult(CommandStatus.SUCCESS);
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
                                 EasyMock.anyLong(),
                                 (FileOutputStream) EasyMock.anyObject(),
                                 (FileOutputStream) EasyMock.anyObject(),
-                                EasyMock.eq("java"),
+                                EasyMock.endsWith("/java"),
                                 (String) EasyMock.anyObject(),
                                 EasyMock.eq("--add-opens=java.base/java.nio=ALL-UNNAMED"),
+                                EasyMock.eq(
+                                        "--add-opens=java.base/sun.reflect.annotation=ALL-UNNAMED"),
+                                EasyMock.eq("--add-opens=java.base/java.io=ALL-UNNAMED"),
                                 EasyMock.eq("-cp"),
                                 (String) EasyMock.anyObject(),
                                 EasyMock.eq("com.android.tradefed.command.CommandRunner"),
@@ -151,7 +163,7 @@ public class TfTestLauncherTest {
                 EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mMockBuildInfo, mMockRunUtil, mMockListener, mMockConfig);
-        mTfTestLauncher.run(mMockListener);
+        mTfTestLauncher.run(mTestInfo, mMockListener);
         EasyMock.verify(mMockBuildInfo, mMockRunUtil, mMockListener, mMockConfig);
     }
 
@@ -225,6 +237,9 @@ public class TfTestLauncherTest {
     public void testRunCoverage() throws Exception {
         OptionSetter setter = new OptionSetter(mTfTestLauncher);
         setter.setOptionValue("jacoco-code-coverage", "true");
+        setter.setOptionValue("include-coverage", "com.android.tradefed*");
+        setter.setOptionValue("include-coverage", "com.google.android.tradefed*");
+        setter.setOptionValue("exclude-coverage", "com.test*");
         EasyMock.expect(mMockBuildInfo.getRootDir()).andReturn(new File(""));
         EasyMock.expect(mMockBuildInfo.getTestTag()).andReturn(TEST_TAG);
         EasyMock.expect(mMockBuildInfo.getBuildBranch()).andReturn(BUILD_BRANCH).times(2);
@@ -237,14 +252,22 @@ public class TfTestLauncherTest {
         mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name());
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         mMockRunUtil.setEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE, SUB_GLOBAL_CONFIG);
-        EasyMock.replay(mMockBuildInfo, mMockRunUtil, mMockListener);
+        EasyMock.replay(mMockBuildInfo, mMockRunUtil, mMockListener, mMockConfig);
         try {
             mTfTestLauncher.preRun();
             EasyMock.verify(mMockBuildInfo, mMockRunUtil, mMockListener);
             assertTrue(mTfTestLauncher.mCmdArgs.get(2).startsWith("-javaagent:"));
+            assertTrue(
+                    mTfTestLauncher
+                            .mCmdArgs
+                            .get(2)
+                            .contains(
+                                    "includes=com.android.tradefed*:com.google.android.tradefed*,"
+                                            + "excludes=com.test*"));
         } finally {
             FileUtil.recursiveDelete(mTfTestLauncher.mTmpDir);
             mTfTestLauncher.cleanTmpFile();
         }
+        EasyMock.verify(mMockBuildInfo, mMockRunUtil, mMockListener, mMockConfig);
     }
 }

@@ -21,10 +21,6 @@
 #define KEY "(CONFIG[\\w_]+)"
 #define COMMENT "(?:#.*)"
 
-static const std::regex sKeyValuePattern("^\\s*" KEY "\\s*=\\s*([^#]+)" COMMENT "?$");
-static const std::regex sNotSetPattern("^\\s*#\\s*" KEY " is not set\\s*$");
-static const std::regex sCommentPattern("^\\s*" COMMENT "$");
-
 namespace android {
 namespace vintf {
 
@@ -56,10 +52,13 @@ std::string trimTrailingSpaces(const std::string& s) {
 }
 
 status_t KernelConfigParser::processRemaining() {
-
     if (mRemaining.empty()) {
         return OK;
     }
+
+    static const std::regex sKeyValuePattern("^\\s*" KEY "\\s*=\\s*([^#]+)" COMMENT "?$");
+    static const std::regex sNotSetPattern("^\\s*#\\s*" KEY " is not set\\s*$");
+    static const std::regex sCommentPattern("^\\s*" COMMENT "$");
 
     std::smatch match;
 

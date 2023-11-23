@@ -43,6 +43,7 @@ import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.PackageStatusNotifier;
 import com.android.wallpaper.module.PackageStatusNotifier.PackageStatus;
+import com.android.wallpaper.module.WallpaperPersister;
 import com.android.wallpaper.module.WallpaperPreferences;
 import com.android.wallpaper.picker.PreviewActivity.PreviewActivityIntentFactory;
 import com.android.wallpaper.picker.ViewOnlyPreviewActivity.ViewOnlyPreviewActivityIntentFactory;
@@ -60,10 +61,11 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
 
     private final FragmentActivity mActivity;
     private final WallpapersUiContainer mContainer;
-    static final int SHOW_CATEGORY_REQUEST_CODE = 0;
-    static final int PREVIEW_WALLPAPER_REQUEST_CODE = 1;
-    static final int VIEW_ONLY_PREVIEW_WALLPAPER_REQUEST_CODE = 2;
-    static final int READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE = 3;
+    public static final int SHOW_CATEGORY_REQUEST_CODE = 0;
+    public static final int PREVIEW_WALLPAPER_REQUEST_CODE = 1;
+    public static final int VIEW_ONLY_PREVIEW_WALLPAPER_REQUEST_CODE = 2;
+    public static final int READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE = 3;
+    public static final int PREVIEW_LIVE_WALLPAPER_REQUEST_CODE = 4;
 
     private IndividualPickerActivityIntentFactory mPickerIntentFactory;
 
@@ -78,6 +80,7 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
     private PackageStatusNotifier.Listener mLiveWallpaperStatusListener;
     private PackageStatusNotifier.Listener mThirdPartyStatusListener;
     private CategoryProvider mCategoryProvider;
+    private WallpaperPersister mWallpaperPersister;
     private static final String READ_PERMISSION = permission.READ_EXTERNAL_STORAGE;
 
     public WallpaperPickerDelegate(WallpapersUiContainer container, FragmentActivity activity,
@@ -93,6 +96,7 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
         mPreferences = injector.getPreferences(activity);
 
         mPackageStatusNotifier = injector.getPackageStatusNotifier(activity);
+        mWallpaperPersister = injector.getWallpaperPersister(activity);
         final FormFactorChecker formFactorChecker = injector.getFormFactorChecker(activity);
         mFormFactor = formFactorChecker.getFormFactor();
 
@@ -153,7 +157,7 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
     }
 
     private void showCustomPhotoPicker() {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         mActivity.startActivityForResult(intent, SHOW_CATEGORY_REQUEST_CODE);
     }
@@ -428,25 +432,33 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
      * OK, false otherwise.
      */
     public boolean handleActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == SHOW_CATEGORY_REQUEST_CODE  && resultCode == Activity.RESULT_OK) {
-            Uri imageUri = (data == null) ? null : data.getData();
-            if (imageUri != null) {
+        if (resultCode != Activity.RESULT_OK) {
+            return false;
+        }
+
+        switch (requestCode) {
+            case SHOW_CATEGORY_REQUEST_CODE:
+                Uri imageUri = (data == null) ? null : data.getData();
+                if (imageUri == null) {
+                    // User finished viewing a category without any data, which implies that the
+                    // user previewed and selected a wallpaper in-app, so finish this activity.
+                    return true;
+                }
+
                 // User selected an image from the system picker, so launch the preview for that
                 // image.
                 ImageWallpaperInfo imageWallpaper = new ImageWallpaperInfo(imageUri);
 
                 imageWallpaper.showPreview(mActivity, getPreviewIntentFactory(),
                         PREVIEW_WALLPAPER_REQUEST_CODE);
-            } else {
-                // User finished viewing a category without any data, which implies that the user
-                // previewed and selected a wallpaper in-app, so finish this activity.
+                return false;
+            case PREVIEW_WALLPAPER_REQUEST_CODE:
+            case PREVIEW_LIVE_WALLPAPER_REQUEST_CODE:
+                // User previewed and selected a wallpaper, so finish this activity.
+                mWallpaperPersister.onLiveWallpaperSet();
                 return true;
-            }
-        } else if (requestCode == PREVIEW_WALLPAPER_REQUEST_CODE
-                && resultCode == Activity.RESULT_OK) {
-            // User previewed and selected a wallpaper, so finish this activity.
-            return true;
+            default:
+                return false;
         }
-        return false;
     }
 }

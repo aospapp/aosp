@@ -29,11 +29,12 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
 import android.hardware.automotive.vehicle.V2_0.VehicleGear;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.vehiclehal.VehiclePropValueBuilder;
 import com.android.internal.annotations.GuardedBy;
@@ -211,9 +212,14 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
-        assertNotNull(drivingEvent);
-        assertThat(drivingEvent.eventValue).isEqualTo(CarDrivingStateEvent.DRIVING_STATE_IDLING);
-
+        if (Build.IS_DEBUGGABLE) {
+            // In userdebug build, payloadChecker in HAL drops the invalid event.
+            assertNull(drivingEvent);
+        } else {
+            assertNotNull(drivingEvent);
+            assertThat(drivingEvent.eventValue).isEqualTo(
+                    CarDrivingStateEvent.DRIVING_STATE_IDLING);
+        }
         // Now, send in an invalid speed value as well, now the driving state will be unknown and
         // the UX restrictions will change to fully restricted.
         listener.reset();
@@ -224,13 +230,19 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
-        assertNotNull(drivingEvent);
-        assertThat(drivingEvent.eventValue).isEqualTo(CarDrivingStateEvent.DRIVING_STATE_UNKNOWN);
-        restrictions = listener.waitForUxRestrictionsChange();
-        assertNotNull(restrictions);
-        assertTrue(restrictions.isRequiresDistractionOptimization());
-        assertThat(restrictions.getActiveRestrictions())
-                .isEqualTo(CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED);
+        if (Build.IS_DEBUGGABLE) {
+            // In userdebug build, payloadChecker in HAL drops the invalid event.
+            assertNull(drivingEvent);
+        } else {
+            assertNotNull(drivingEvent);
+            assertThat(drivingEvent.eventValue).isEqualTo(
+                    CarDrivingStateEvent.DRIVING_STATE_UNKNOWN);
+            restrictions = listener.waitForUxRestrictionsChange();
+            assertNotNull(restrictions);
+            assertTrue(restrictions.isRequiresDistractionOptimization());
+            assertThat(restrictions.getActiveRestrictions())
+                    .isEqualTo(CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED);
+        }
         mCarDrivingStateManager.unregisterListener();
         mCarUxRManager.unregisterListener();
     }

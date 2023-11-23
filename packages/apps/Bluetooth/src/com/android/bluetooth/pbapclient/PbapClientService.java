@@ -19,9 +19,11 @@ package com.android.bluetooth.pbapclient;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothPbapClient;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -31,6 +33,7 @@ import android.util.Log;
 import com.android.bluetooth.R;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
 import com.android.bluetooth.sdp.SdpManager;
 
 import java.util.ArrayList;
@@ -71,6 +74,9 @@ public class PbapClientService extends ProfileService {
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         // delay initial download until after the user is unlocked to add an account.
         filter.addAction(Intent.ACTION_USER_UNLOCKED);
+        // To remove call logs when PBAP was never connected while calls were made,
+        // we also listen for HFP to become disconnected.
+        filter.addAction(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
         try {
             registerReceiver(mPbapBroadcastReceiver, filter);
         } catch (Exception e) {
@@ -128,6 +134,21 @@ public class PbapClientService extends ProfileService {
         }
     }
 
+    private void removeHfpCallLog(String accountName, Context context) {
+        if (DBG) Log.d(TAG, "Removing call logs from " + accountName);
+        // Delete call logs belonging to accountName==BD_ADDR that also match
+        // component name "hfpclient".
+        ComponentName componentName = new ComponentName(context, HfpClientConnectionService.class);
+        String selectionFilter = CallLog.Calls.PHONE_ACCOUNT_ID + "=? AND "
+                + CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + "=?";
+        String[] selectionArgs = new String[]{accountName, componentName.flattenToString()};
+        try {
+            getContentResolver().delete(CallLog.Calls.CONTENT_URI, selectionFilter, selectionArgs);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+        }
+    }
+
     private void registerSdpRecord() {
         SdpManager sdpManager = SdpManager.getDefaultManager();
         if (sdpManager == null) {
@@ -170,6 +191,21 @@ public class PbapClientService extends ProfileService {
             } else if (action.equals(Intent.ACTION_USER_UNLOCKED)) {
                 for (PbapClientStateMachine stateMachine : mPbapClientStateMachineMap.values()) {
                     stateMachine.resumeDownload();
+                }
+            } else if (action.equals(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED)) {
+                // PbapClientConnectionHandler has code to remove calllogs when PBAP disconnects.
+                // However, if PBAP was never connected/enabled in the first place, and calls are
+                // made over HFP, these calllogs will not be removed when the device disconnects.
+                // This code ensures callogs are still removed in this case.
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                int newState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
+
+                if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    if (DBG) {
+                        Log.d(TAG, "Received intent to disconnect HFP with " + device);
+                    }
+                    // HFP client stores entries in calllog.db by BD_ADDR and component name
+                    removeHfpCallLog(device.getAddress(), context);
                 }
             }
         }
@@ -253,21 +289,21 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public boolean setPriority(BluetoothDevice device, int priority) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             PbapClientService service = getService();
             if (service == null) {
                 return false;
             }
-            return service.setPriority(device, priority);
+            return service.setConnectionPolicy(device, connectionPolicy);
         }
 
         @Override
-        public int getPriority(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device) {
             PbapClientService service = getService();
             if (service == null) {
-                return BluetoothProfile.PRIORITY_UNDEFINED;
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
-            return service.getPriority(device);
+            return service.getConnectionPolicy(device);
         }
 
 
@@ -297,9 +333,10 @@ public class PbapClientService extends ProfileService {
         if (device == null) {
             throw new IllegalArgumentException("Null device");
         }
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) Log.d(TAG, "Received request to ConnectPBAPPhonebook " + device.getAddress());
-        if (getPriority(device) <= BluetoothProfile.PRIORITY_OFF) {
+        if (getConnectionPolicy(device) <= BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             return false;
         }
         synchronized (mPbapClientStateMachineMap) {
@@ -317,11 +354,18 @@ public class PbapClientService extends ProfileService {
         }
     }
 
-    boolean disconnect(BluetoothDevice device) {
+    /**
+     * Disconnects the pbap client profile from the passed in device
+     *
+     * @param device is the device with which we will disconnect the pbap client profile
+     * @return true if we disconnected the pbap client profile, false otherwise
+     */
+    public boolean disconnect(BluetoothDevice device) {
         if (device == null) {
             throw new IllegalArgumentException("Null device");
         }
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         PbapClientStateMachine pbapClientStateMachine = mPbapClientStateMachineMap.get(device);
         if (pbapClientStateMachine != null) {
             pbapClientStateMachine.disconnect(device);
@@ -356,7 +400,16 @@ public class PbapClientService extends ProfileService {
         return deviceList;
     }
 
-    int getConnectionState(BluetoothDevice device) {
+    /**
+     * Get the current connection state of the profile
+     *
+     * @param device is the remote bluetooth device
+     * @return {@link BluetoothProfile#STATE_DISCONNECTED} if this profile is disconnected,
+     * {@link BluetoothProfile#STATE_CONNECTING} if this profile is being connected,
+     * {@link BluetoothProfile#STATE_CONNECTED} if this profile is connected, or
+     * {@link BluetoothProfile#STATE_DISCONNECTING} if this profile is being disconnected
+     */
+    public int getConnectionState(BluetoothDevice device) {
         if (device == null) {
             throw new IllegalArgumentException("Null device");
         }
@@ -369,26 +422,60 @@ public class PbapClientService extends ProfileService {
         }
     }
 
-    public boolean setPriority(BluetoothDevice device, int priority) {
+    /**
+     * Set connection policy of the profile and connects it if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED} or disconnects if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     */
+    public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         if (device == null) {
             throw new IllegalArgumentException("Null device");
         }
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) {
-            Log.d(TAG, "Saved priority " + device + " = " + priority);
+            Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
         AdapterService.getAdapterService().getDatabase()
-            .setProfilePriority(device, BluetoothProfile.PBAP_CLIENT, priority);
+            .setProfileConnectionPolicy(device, BluetoothProfile.PBAP_CLIENT, connectionPolicy);
+        if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            connect(device);
+        } else if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            disconnect(device);
+        }
         return true;
     }
 
-    public int getPriority(BluetoothDevice device) {
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
         if (device == null) {
             throw new IllegalArgumentException("Null device");
         }
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         return AdapterService.getAdapterService().getDatabase()
-                .getProfilePriority(device, BluetoothProfile.PBAP_CLIENT);
+                .getProfileConnectionPolicy(device, BluetoothProfile.PBAP_CLIENT);
     }
 
     @Override

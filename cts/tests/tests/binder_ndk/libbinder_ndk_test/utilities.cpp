@@ -56,6 +56,9 @@ const AIBinder_Class* SampleData::kClass =
     AIBinder_Class_define(SampleData::kDescriptor, SampleClassOnCreate,
                           SampleClassOnDestroy, SampleClassOnTransact);
 
+const AIBinder_Class* SampleData::kAnotherClassWithSameDescriptor = AIBinder_Class_define(
+    SampleData::kDescriptor, SampleClassOnCreate, SampleClassOnDestroy, SampleClassOnTransact);
+
 const char* SampleData::kAnotherDescriptor = "this-is-another-arbitrary-thing";
 const AIBinder_Class* SampleData::kAnotherClass =
     AIBinder_Class_define(SampleData::kAnotherDescriptor, SampleClassOnCreate,
@@ -71,4 +74,27 @@ JNIEnv* GetEnv() {
   EXPECT_EQ(JNI_OK, attach);
   EXPECT_NE(nullptr, result);
   return result;
+}
+
+jobject callStaticJavaMethodForObject(JNIEnv* env, const std::string& clazz,
+                                      const std::string& method, const std::string& type) {
+  jclass cl = env->FindClass(clazz.c_str());
+  if (cl == nullptr) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "No class %s", clazz.c_str());
+    return nullptr;
+  }
+
+  jmethodID mid = env->GetStaticMethodID(cl, method.c_str(), type.c_str());
+  if (mid == nullptr) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "No method id %s", method.c_str());
+    return nullptr;
+  }
+
+  jobject object = env->CallStaticObjectMethod(cl, mid);
+  if (object == nullptr) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Got null object from Java");
+    return nullptr;
+  }
+
+  return object;
 }

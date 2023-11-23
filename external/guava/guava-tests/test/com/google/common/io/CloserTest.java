@@ -16,25 +16,22 @@
 
 package com.google.common.io;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.testing.TestLogHandler;
-
-import junit.framework.TestCase;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.logging.LogRecord;
-
-import javax.annotation.Nullable;
+import junit.framework.TestCase;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Tests for {@link Closer}.
@@ -50,16 +47,9 @@ public class CloserTest extends TestCase {
     suppressor = new TestSuppressor();
   }
 
+  @AndroidIncompatible // TODO(cpovirk): Look up Build.VERSION.SDK_INT reflectively.
   public void testCreate() {
-    Closer closer = Closer.create();
-    String javaVersion = System.getProperty("java.version");
-    String secondPart = Iterables.get(Splitter.on('.').split(javaVersion), 1);
-    int versionNumber = Integer.parseInt(secondPart);
-    if (versionNumber < 7) {
-      assertTrue(closer.suppressor instanceof Closer.LoggingSuppressor);
-    } else {
-      assertTrue(closer.suppressor instanceof Closer.SuppressingSuppressor);
-    }
+    assertThat(Closer.create().suppressor).isInstanceOf(Closer.SuppressingSuppressor.class);
   }
 
   public void testNoExceptionsThrown() throws IOException {
@@ -125,7 +115,7 @@ public class CloserTest extends TestCase {
         closer.close();
       }
     } catch (Throwable expected) {
-      assertTrue(expected instanceof IOException);
+      assertThat(expected).isInstanceOf(IOException.class);
     }
 
     assertTrue(c1.isClosed());
@@ -301,7 +291,8 @@ public class CloserTest extends TestCase {
       TestCloseable c2 = closer.register(TestCloseable.throwsOnClose(new RuntimeException()));
       try {
         throw closer.rethrow(new IOException("thrown"), IOException.class);
-      } catch (IOException expected) {}
+      } catch (IOException expected) {
+      }
 
       assertTrue(logHandler.getStoredLogRecords().isEmpty());
 
@@ -339,7 +330,7 @@ public class CloserTest extends TestCase {
       } catch (Throwable e) {
         throw closer.rethrow(thrownException, IOException.class);
       } finally {
-        assertEquals(0, getSuppressed(thrownException).length);
+        assertThat(getSuppressed(thrownException)).isEmpty();
         closer.close();
       }
     } catch (IOException expected) {
@@ -378,9 +369,7 @@ public class CloserTest extends TestCase {
     assertEquals(ImmutableList.copyOf(expected), suppressor.suppressions);
   }
 
-  /**
-   * Suppressor that records suppressions.
-   */
+  /** Suppressor that records suppressions. */
   private static class TestSuppressor implements Closer.Suppressor {
 
     private final List<Suppression> suppressions = Lists.newArrayList();
@@ -391,9 +380,7 @@ public class CloserTest extends TestCase {
     }
   }
 
-  /**
-   * Record of a call to suppress.
-   */
+  /** Record of a call to suppress. */
   private static class Suppression {
     private final Closeable closeable;
     private final Throwable thrown;

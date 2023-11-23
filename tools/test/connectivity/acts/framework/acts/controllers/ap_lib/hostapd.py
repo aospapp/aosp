@@ -178,17 +178,18 @@ class Hostapd(object):
         """Writes the configs to the hostapd config file."""
         self._shell.delete_file(self._config_file)
 
-        our_configs = collections.OrderedDict()
-        our_configs['interface'] = self._interface
-        our_configs['ctrl_interface'] = self._ctrl_file
+        interface_configs = collections.OrderedDict()
+        interface_configs['interface'] = self._interface
+        interface_configs['ctrl_interface'] = self._ctrl_file
+        pairs = ('%s=%s' % (k, v) for k, v in interface_configs.items())
+
         packaged_configs = self.config.package_configs()
         if additional_parameters:
             packaged_configs.append(additional_parameters)
-
-        pairs = ('%s=%s' % (k, v) for k, v in our_configs.items())
         for packaged_config in packaged_configs:
             config_pairs = ('%s=%s' % (k, v)
-                            for k, v in packaged_config.items())
+                            for k, v in packaged_config.items()
+                            if v is not None)
             pairs = itertools.chain(pairs, config_pairs)
 
         hostapd_conf = '\n'.join(pairs)

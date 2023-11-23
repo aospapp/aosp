@@ -64,18 +64,17 @@ void Perfstatsd::getHistory(std::string *ret) {
     }
 
     if (ret->size() > 400_KiB)
-        LOG_TO(SYSTEM, WARNING) << "Data might be too large. size: " << ret->size() << " bytes\n"
-                                << *ret;
+        LOG(WARNING) << "Data might be too large. size: " << ret->size() << " bytes\n" << *ret;
 }
 
 void Perfstatsd::setOptions(const std::string &key, const std::string &value) {
     if (key == PERFSTATSD_PERIOD) {
         uint32_t val = 0;
         if (!base::ParseUint(value, &val) || val < 1) {
-            LOG_TO(SYSTEM, ERROR) << "Invalid value. Minimum refresh period is 1 second";
+            LOG(ERROR) << "Invalid value. Minimum refresh period is 1 second";
         } else {
             mRefreshPeriod = val;
-            LOG_TO(SYSTEM, INFO) << "set period to " << value << " seconds";
+            LOG(INFO) << "set period to " << value << " seconds";
         }
         return;
     }

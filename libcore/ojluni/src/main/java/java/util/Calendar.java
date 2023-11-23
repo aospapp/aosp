@@ -3376,6 +3376,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
      */
     private void setWeekCountData(Locale desiredLocale)
     {
+        desiredLocale = LocaleData.getCompatibleLocaleForBug159514442(desiredLocale);
         /* try to get the Locale data from the cache */
         int[] data = cachedLocaleData.get(desiredLocale);
         if (data == null) {  /* cache miss */

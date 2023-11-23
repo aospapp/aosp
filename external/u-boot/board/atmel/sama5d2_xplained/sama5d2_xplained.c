@@ -6,6 +6,7 @@
 
 #include <common.h>
 #include <debug_uart.h>
+#include <init.h>
 #include <asm/io.h>
 #include <asm/arch/at91_common.h>
 #include <asm/arch/atmel_pio4.h>
@@ -14,6 +15,8 @@
 #include <asm/arch/clk.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/sama5d2.h>
+
+extern void at91_pda_detect(void);
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -28,6 +31,7 @@ int board_late_init(void)
 #ifdef CONFIG_DM_VIDEO
 	at91_video_show_board_info();
 #endif
+	at91_pda_detect();
 	return 0;
 }
 #endif

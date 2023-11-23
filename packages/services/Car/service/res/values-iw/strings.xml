@@ -17,11 +17,13 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="car_permission_label" msgid="741004755205554376">"גישה לנתוני הרכב"</string>
-    <string name="car_permission_desc" msgid="162499818870052725">"גישה לנתוני הרכב."</string>
+    <string name="car_permission_desc" msgid="162499818870052725">"לקבל גישה לנתוני הרכב."</string>
     <string name="car_permission_label_camera" msgid="3725702064841827180">"גישה למצלמה של הרכב"</string>
     <string name="car_permission_desc_camera" msgid="917024932164501426">"גישה למצלמות הרכב."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"גישה למידע על נתוני צריכת האנרגיה של הרכב"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"גישה למידע על אנרגיית הרכב"</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"התאמה של הטווח הנותר של הרכב"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"התאמת הערך של הטווח הנותר של הרכב."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"גישה למערכת החימום, הקירור והאוורור של הרכב"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"גישה למערכת החימום, האוורור ומיזוג האוויר (HVAC) של הרכב."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"גישה לנתוני הקילומטראז\' של הרכב"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"הגדרת הגבלות של חוויית משתמש (UX)"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"תקשורת באמצעות מכשיר USB במצב AOAP"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"מאפשרת לאפליקציה לתקשר עם מכשיר במצב AOAP ‏(Android Open Accessory Protocol)"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"גישת קריאה אל מערכת המודעות לתפוסה (Occupant Awareness)"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"הרשאה לסטטוס קריאה ונתוני זיהוי למערכת המודעות לתפוסה (Occupant Awareness)"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"שליטה בתרשים של מערכת המודעות לתפוסה (Occupant Awareness)"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"הרשאה לשליטה בהתחלה ובסיום של תרשים הזיהוי של מערכת המודעות לתפוסה (Occupant Awareness)"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"שירות הקלט של הרכב"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ניהול אירועי קלט"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"פרוטוקול CAN bus נכשל"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"פרוטוקול CAN bus לא מגיב. יש לנתק ולחבר שוב את מערכת הסטריאו ולהתניע מחדש את הרכב"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"מטעמי בטיחות, פעילות זו אינה זמינה בזמן נהיגה.\nכדי להמשיך, צריך להמתין עד לחניית הרכב."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"לא ניתן להשתמש בתכונה הזו בזמן נהיגה"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"כדי להפעיל מחדש את האפליקציה במצב בטוח, יש ללחוץ על <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="5829638404777671253">"הקודם"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"סגירת האפליקציה"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"חזרה"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"קריאת נתוני אבחון"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"קריאת נתוני אבחון מהרכב."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"מחיקת נתוני האבחון"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"גישה למידע מפורט על מנוע הרכב."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"גישה לפתח מכל הדלק וליציאת הטעינה של הרכב"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"גישה לפתח מכל הדלק וליציאת הטעינה של הרכב."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"שליטה בפתח מכל הדלק וביציאת הטעינה של המכונית"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"שליטה בפתח מכל הדלק וביציאת הטעינה של המכונית."</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"קריאת פרטי הזיהוי של הרכב"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"גישה לפרטי הזיהוי של הרכב."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"שליטה בדלתות הרכב"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"שליטה במושבי הרכב."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"גישה לנתונים הבסיסיים של הרכב"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"גישה לנתונים הבסיסיים של הרכב."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"מתן גישה למידע לגבי הרשאת הספק של המכונית"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"מתן גישה למידע לגבי הרשאת הספק של המכונית."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"קריאה של מצב הפנסים החיצוניים של הרכב"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"גישה למצב הפנסים החיצוניים של הרכב."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"קריאת נתונים על הפנסים החיצוניים של הרכב"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"גישה למצב הטעינה של הרכב."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"רישום מכשיר מהימן"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"הפעלת רישום של מכשירים מהימנים"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"שליטה במצב הבדיקה של הרכב"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"שליטה במצב הבדיקה של הרכב"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"הפעלה או השבתה של תכונות המכונית"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"הפעלה או השבתה של תכונות המכונית."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"שימוש בטיימר המפקח (watchdog) של המכונית"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"שימוש בטיימר המפקח (watchdog) של המכונית."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"המכשיר שלי"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"אורח"</string>
 </resources>

@@ -18,22 +18,26 @@ package android.net.dhcp;
 
 import static android.net.dhcp.DhcpLease.EXPIRATION_NEVER;
 import static android.net.dhcp.DhcpLease.inet4AddrToString;
-import static android.net.shared.Inet4AddressUtils.inet4AddressToIntHTH;
-import static android.net.shared.Inet4AddressUtils.intToInet4AddressHTH;
-import static android.net.shared.Inet4AddressUtils.prefixLengthToV4NetmaskIntHTH;
 
+import static com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTH;
+import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTH;
+import static com.android.net.module.util.Inet4AddressUtils.prefixLengthToV4NetmaskIntHTH;
 import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_ANY;
 import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_BITS;
 
 import static java.lang.Math.min;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.net.IpPrefix;
 import android.net.MacAddress;
 import android.net.dhcp.DhcpServer.Clock;
 import android.net.util.SharedLog;
+import android.os.RemoteCallbackList;
+import android.os.RemoteException;
 import android.util.ArrayMap;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import java.net.Inet4Address;
 import java.util.ArrayList;
@@ -44,6 +48,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -72,9 +77,12 @@ class DhcpLeaseRepository {
     @NonNull
     private Set<Inet4Address> mReservedAddrs;
     private int mSubnetAddr;
+    private int mPrefixLength;
     private int mSubnetMask;
     private int mNumAddresses;
     private long mLeaseTimeMs;
+    @Nullable
+    private Inet4Address mClientAddr;
 
     /**
      * Next timestamp when committed or declined leases should be checked for expired ones. This
@@ -82,6 +90,9 @@ class DhcpLeaseRepository {
      * update this when removing entries, but it must always be updated when adding/updating.
      */
     private long mNextExpirationCheck = EXPIRATION_NEVER;
+
+    @NonNull
+    private RemoteCallbackList<IDhcpEventCallbacks> mEventCallbacks = new RemoteCallbackList<>();
 
     static class DhcpLeaseException extends Exception {
         DhcpLeaseException(String message) {
@@ -120,37 +131,47 @@ class DhcpLeaseRepository {
     private final LinkedHashMap<Inet4Address, Long> mDeclinedAddrs = new LinkedHashMap<>();
 
     DhcpLeaseRepository(@NonNull IpPrefix prefix, @NonNull Set<Inet4Address> reservedAddrs,
-            long leaseTimeMs, @NonNull SharedLog log, @NonNull Clock clock) {
-        updateParams(prefix, reservedAddrs, leaseTimeMs);
+            long leaseTimeMs, @Nullable Inet4Address clientAddr, @NonNull SharedLog log,
+            @NonNull Clock clock) {
         mLog = log;
         mClock = clock;
+        mClientAddr = clientAddr;
+        updateParams(prefix, reservedAddrs, leaseTimeMs, clientAddr);
     }
 
     public void updateParams(@NonNull IpPrefix prefix, @NonNull Set<Inet4Address> reservedAddrs,
-            long leaseTimeMs) {
+            long leaseTimeMs, @Nullable Inet4Address clientAddr) {
         mPrefix = prefix;
         mReservedAddrs = Collections.unmodifiableSet(new HashSet<>(reservedAddrs));
-        mSubnetMask = prefixLengthToV4NetmaskIntHTH(prefix.getPrefixLength());
+        mPrefixLength = prefix.getPrefixLength();
+        mSubnetMask = prefixLengthToV4NetmaskIntHTH(mPrefixLength);
         mSubnetAddr = inet4AddressToIntHTH((Inet4Address) prefix.getAddress()) & mSubnetMask;
-        mNumAddresses = 1 << (IPV4_ADDR_BITS - prefix.getPrefixLength());
+        mNumAddresses = clientAddr != null ? 1 : 1 << (IPV4_ADDR_BITS - prefix.getPrefixLength());
         mLeaseTimeMs = leaseTimeMs;
+        mClientAddr = clientAddr;
 
-        cleanMap(mCommittedLeases);
         cleanMap(mDeclinedAddrs);
+        if (cleanMap(mCommittedLeases)) {
+            notifyLeasesChanged();
+        }
     }
 
     /**
      * From a map keyed by {@link Inet4Address}, remove entries where the key is invalid (as
      * specified by {@link #isValidAddress(Inet4Address)}), or is a reserved address.
+     * @return true if and only if at least one entry was removed.
      */
-    private <T> void cleanMap(Map<Inet4Address, T> map) {
+    private <T> boolean cleanMap(Map<Inet4Address, T> map) {
         final Iterator<Entry<Inet4Address, T>> it = map.entrySet().iterator();
+        boolean removed = false;
         while (it.hasNext()) {
             final Inet4Address addr = it.next().getKey();
             if (!isValidAddress(addr) || mReservedAddrs.contains(addr)) {
                 it.remove();
+                removed = true;
             }
         }
+        return removed;
     }
 
     /**
@@ -180,12 +201,31 @@ class DhcpLeaseRepository {
             mLog.log("Offering extended lease " + newLease);
             // Do not update lease time in the map: the offer is not committed yet.
         } else if (reqAddr != null && isValidAddress(reqAddr) && isAvailable(reqAddr)) {
-            newLease = new DhcpLease(clientId, hwAddr, reqAddr, expTime, hostname);
+            newLease = new DhcpLease(clientId, hwAddr, reqAddr, mPrefixLength, expTime, hostname);
             mLog.log("Offering requested lease " + newLease);
         } else {
             newLease = makeNewOffer(clientId, hwAddr, expTime, hostname);
             mLog.log("Offering new generated lease " + newLease);
         }
+        return newLease;
+    }
+
+    /**
+     * Get a rapid committed DHCP Lease, to reply to a DHCPDISCOVER w/ Rapid Commit option.
+     *
+     * @param clientId Client identifier option if specified, or {@link #CLIENTID_UNSPEC}
+     * @param relayAddr Internet address of the relay (giaddr), can be {@link Inet4Address#ANY}
+     * @param hostname Client-provided hostname, or {@link DhcpLease#HOSTNAME_NONE}
+     * @throws OutOfAddressesException The server does not have any available address
+     * @throws InvalidSubnetException The lease was requested from an unsupported subnet
+     */
+    @NonNull
+    public DhcpLease getCommittedLease(@Nullable byte[] clientId, @NonNull MacAddress hwAddr,
+            @NonNull Inet4Address relayAddr, @Nullable String hostname)
+            throws OutOfAddressesException, InvalidSubnetException {
+        final DhcpLease newLease = getOffer(clientId, hwAddr, relayAddr, null /* reqAddr */,
+                hostname);
+        commitLease(newLease);
         return newLease;
     }
 
@@ -247,7 +287,8 @@ class DhcpLeaseRepository {
         if (assignedLease != null) {
             if (sidSet && reqAddr != null) {
                 // Client in SELECTING state; remove any current lease before creating a new one.
-                mCommittedLeases.remove(assignedLease.getNetAddr());
+                // Do not notify of change as it will be done when the new lease is committed.
+                removeLease(assignedLease.getNetAddr(), false /* notifyChange */);
             } else if (!assignedLease.getNetAddr().equals(leaseAddr)) {
                 // reqAddr null (RENEWING/REBINDING): client renewing its own lease for clientAddr.
                 // reqAddr set with sid not set (INIT-REBOOT): client verifying configuration.
@@ -294,7 +335,7 @@ class DhcpLeaseRepository {
         final DhcpLease lease;
         if (currentLease == null) {
             if (isValidAddress(addr) && !mReservedAddrs.contains(addr)) {
-                lease = new DhcpLease(clientId, hwAddr, addr, expTime, hostname);
+                lease = new DhcpLease(clientId, hwAddr, addr, mPrefixLength, expTime, hostname);
             } else {
                 throw new InvalidAddressException("Lease not found and address unavailable");
             }
@@ -308,6 +349,13 @@ class DhcpLeaseRepository {
     private void commitLease(@NonNull DhcpLease lease) {
         mCommittedLeases.put(lease.getNetAddr(), lease);
         maybeUpdateEarliestExpiration(lease.getExpTime());
+        notifyLeasesChanged();
+    }
+
+    private void removeLease(@NonNull Inet4Address address, boolean notifyChange) {
+        // Earliest expiration remains <= the first expiry time on remove, so no need to update it.
+        mCommittedLeases.remove(address);
+        if (notifyChange) notifyLeasesChanged();
     }
 
     /**
@@ -323,8 +371,8 @@ class DhcpLeaseRepository {
             return false;
         }
         if (currentLease.matchesClient(clientId, hwAddr)) {
-            mCommittedLeases.remove(addr);
             mLog.log("Released lease " + currentLease);
+            removeLease(addr, true /* notifyChange */);
             return true;
         }
         mLog.w(String.format("Not releasing lease %s: does not match client (cid %s, hwAddr %s)",
@@ -332,7 +380,26 @@ class DhcpLeaseRepository {
         return false;
     }
 
-    public void markLeaseDeclined(@NonNull Inet4Address addr) {
+    private void notifyLeasesChanged() {
+        final List<DhcpLeaseParcelable> leaseParcelables =
+                new ArrayList<>(mCommittedLeases.size());
+        for (DhcpLease committedLease : mCommittedLeases.values()) {
+            leaseParcelables.add(committedLease.toParcelable());
+        }
+
+        final int cbCount = mEventCallbacks.beginBroadcast();
+        for (int i = 0; i < cbCount; i++) {
+            try {
+                mEventCallbacks.getBroadcastItem(i).onLeasesChanged(leaseParcelables);
+            } catch (RemoteException e) {
+                mLog.e("Could not send lease callback", e);
+            }
+        }
+        mEventCallbacks.finishBroadcast();
+    }
+
+    @VisibleForTesting
+    void markLeaseDeclined(@NonNull Inet4Address addr) {
         if (mDeclinedAddrs.containsKey(addr) || !isValidAddress(addr)) {
             mLog.logf("Not marking %s as declined: already declined or not assignable",
                     inet4AddrToString(addr));
@@ -342,6 +409,22 @@ class DhcpLeaseRepository {
         mDeclinedAddrs.put(addr, expTime);
         mLog.logf("Marked %s as declined expiring %d", inet4AddrToString(addr), expTime);
         maybeUpdateEarliestExpiration(expTime);
+    }
+
+    /**
+     * Mark a committed lease matching the passed in clientId and hardware address parameters to be
+     * declined, and delete it from the repository.
+     *
+     * @param clientId Client identifier option if specified, or {@link #CLIENTID_UNSPEC}
+     * @param hwAddr client's mac address
+     * @param Addr IPv4 address to be declined
+     * @return true if a lease matching parameters was removed from committed repository.
+     */
+    public boolean markAndReleaseDeclinedLease(@Nullable byte[] clientId,
+            @NonNull MacAddress hwAddr, @NonNull Inet4Address addr) {
+        if (!releaseLease(clientId, hwAddr, addr)) return false;
+        markLeaseDeclined(addr);
+        return true;
     }
 
     /**
@@ -360,6 +443,14 @@ class DhcpLeaseRepository {
     public Set<Inet4Address> getDeclinedAddresses() {
         removeExpiredLeases(mClock.elapsedRealtime());
         return new HashSet<>(mDeclinedAddrs.keySet());
+    }
+
+    /**
+     * Add callbacks that will be called on leases update.
+     */
+    public void addLeaseCallbacks(@NonNull IDhcpEventCallbacks cb) {
+        Objects.requireNonNull(cb, "Callbacks must be non-null");
+        mEventCallbacks.register(cb);
     }
 
     /**
@@ -446,6 +537,9 @@ class DhcpLeaseRepository {
      * address (with the ordering in {@link #getAddrIndex(int)}) is returned.
      */
     private int getValidAddress(int addr) {
+        // Only mClientAddr is valid if static client address is enforced.
+        if (mClientAddr != null) return inet4AddressToIntHTH(mClientAddr);
+
         final int lastByteMask = 0xff;
         int addrIndex = getAddrIndex(addr); // 0-based index of the address in the subnet
 
@@ -521,7 +615,7 @@ class DhcpLeaseRepository {
         for (int i = 0; i < mNumAddresses; i++) {
             final Inet4Address addr = intToInet4AddressHTH(intAddr);
             if (isAvailable(addr) && !mDeclinedAddrs.containsKey(addr)) {
-                return new DhcpLease(clientId, hwAddr, addr, expTime, hostname);
+                return new DhcpLease(clientId, hwAddr, addr, mPrefixLength, expTime, hostname);
             }
             intAddr = getNextAddress(intAddr);
         }
@@ -537,7 +631,7 @@ class DhcpLeaseRepository {
             // However declined addresses may have been requested (typically by the machine that was
             // already using the address) after being declined.
             if (isAvailable(addr)) {
-                return new DhcpLease(clientId, hwAddr, addr, expTime, hostname);
+                return new DhcpLease(clientId, hwAddr, addr, mPrefixLength, expTime, hostname);
             }
         }
 

@@ -16,6 +16,8 @@
 
 package android.inputmethodservice.cts.devicetest;
 
+import static android.content.Intent.ACTION_CLOSE_SYSTEM_DIALOGS;
+import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
 import static android.inputmethodservice.cts.DeviceEvent.isFrom;
 import static android.inputmethodservice.cts.DeviceEvent.isNewerThan;
 import static android.inputmethodservice.cts.DeviceEvent.isType;
@@ -34,6 +36,10 @@ import static android.inputmethodservice.cts.common.ImeCommandConstants.EXTRA_AR
 import static android.inputmethodservice.cts.common.ImeCommandConstants.EXTRA_COMMAND;
 import static android.inputmethodservice.cts.devicetest.MoreCollectors.startingFrom;
 
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
+import android.content.Intent;
 import android.inputmethodservice.cts.DeviceEvent;
 import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType;
 import android.inputmethodservice.cts.common.EditTextAppConstants;
@@ -41,10 +47,13 @@ import android.inputmethodservice.cts.common.Ime1Constants;
 import android.inputmethodservice.cts.common.Ime2Constants;
 import android.inputmethodservice.cts.common.test.ShellCommandUtils;
 import android.inputmethodservice.cts.devicetest.SequenceMatcher.MatchResult;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.support.test.uiautomator.UiObject2;
+import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
 
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
@@ -62,7 +71,7 @@ import java.util.stream.Collector;
 @RunWith(AndroidJUnit4.class)
 public class InputMethodServiceDeviceTest {
 
-    private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
+    private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(7);
 
     /** Test to check CtsInputMethod1 receives onCreate and onStartInput. */
     @Test
@@ -276,6 +285,72 @@ public class InputMethodServiceDeviceTest {
     }
 
     /**
+     * Test if IMEs remain to be visible after switching to other IMEs.
+     *
+     * <p>Regression test for Bug 152876819.</p>
+     */
+    @Test
+    public void testImeVisibilityAfterImeSwitching() throws Throwable {
+        final TestHelper helper = new TestHelper();
+
+        helper.launchActivity(EditTextAppConstants.PACKAGE, EditTextAppConstants.CLASS,
+                EditTextAppConstants.URI);
+
+        helper.findUiObject(EditTextAppConstants.EDIT_TEXT_RES_NAME).click();
+
+        InputMethodVisibilityVerifier.assertIme1Visible(TIMEOUT);
+
+        // Switch IME from CtsInputMethod1 to CtsInputMethod2.
+        helper.shell(ShellCommandUtils.broadcastIntent(
+                ACTION_IME_COMMAND, Ime1Constants.PACKAGE,
+                "-e", EXTRA_COMMAND, COMMAND_SWITCH_INPUT_METHOD,
+                "-e", EXTRA_ARG_STRING1, Ime2Constants.IME_ID));
+
+        InputMethodVisibilityVerifier.assertIme2Visible(TIMEOUT);
+
+        // Switch IME from CtsInputMethod2 to CtsInputMethod1.
+        helper.shell(ShellCommandUtils.broadcastIntent(
+                ACTION_IME_COMMAND, Ime2Constants.PACKAGE,
+                "-e", EXTRA_COMMAND, COMMAND_SWITCH_INPUT_METHOD,
+                "-e", EXTRA_ARG_STRING1, Ime1Constants.IME_ID));
+
+        InputMethodVisibilityVerifier.assertIme1Visible(TIMEOUT);
+
+        // Switch IME from CtsInputMethod1 to CtsInputMethod2.
+        helper.shell(ShellCommandUtils.broadcastIntent(
+                ACTION_IME_COMMAND, Ime1Constants.PACKAGE,
+                "-e", EXTRA_COMMAND, COMMAND_SWITCH_INPUT_METHOD,
+                "-e", EXTRA_ARG_STRING1, Ime2Constants.IME_ID));
+
+        InputMethodVisibilityVerifier.assertIme2Visible(TIMEOUT);
+
+        // Make sure the IME switch UI still works after device screen off / on with focusing
+        // same Editor.
+        turnScreenOff(helper);
+        turnScreenOn(helper);
+        helper.shell(ShellCommandUtils.unlockScreen());
+        assertTrue(helper.findUiObject(EditTextAppConstants.EDIT_TEXT_RES_NAME).isFocused());
+
+        // Switch IME from CtsInputMethod2 to CtsInputMethod1.
+        showInputMethodPicker(helper);
+        helper.shell(ShellCommandUtils.broadcastIntent(
+                ACTION_IME_COMMAND, Ime2Constants.PACKAGE,
+                "-e", EXTRA_COMMAND, COMMAND_SWITCH_INPUT_METHOD,
+                "-e", EXTRA_ARG_STRING1, Ime1Constants.IME_ID));
+
+        InputMethodVisibilityVerifier.assertIme1Visible(TIMEOUT);
+
+        // Switch IME from CtsInputMethod1 to CtsInputMethod2.
+        showInputMethodPicker(helper);
+        helper.shell(ShellCommandUtils.broadcastIntent(
+                ACTION_IME_COMMAND, Ime1Constants.PACKAGE,
+                "-e", EXTRA_COMMAND, COMMAND_SWITCH_INPUT_METHOD,
+                "-e", EXTRA_ARG_STRING1, Ime2Constants.IME_ID));
+
+        InputMethodVisibilityVerifier.assertIme2Visible(TIMEOUT);
+    }
+
+    /**
      * Build stream collector of {@link DeviceEvent} collecting sequence that elements have
      * specified types.
      *
@@ -288,5 +363,45 @@ public class InputMethodServiceDeviceTest {
         return SequenceMatcher.of(Arrays.stream(types)
                 .map(DeviceEvent::isType)
                 .toArray(arraySupplier));
+    }
+
+    /**
+     * Call a command to turn screen On.
+     *
+     * This method will wait until the power state is interactive with {@link
+     * PowerManager#isInteractive()}.
+     */
+    private static void turnScreenOn(TestHelper helper) throws Exception {
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        final PowerManager pm = context.getSystemService(PowerManager.class);
+        helper.shell(ShellCommandUtils.wakeUp());
+        pollingCheck(() -> pm != null && pm.isInteractive(), TIMEOUT,
+                "Device does not wake up within the timeout period");
+    }
+
+    /**
+     * Call a command to turn screen off.
+     *
+     * This method will wait until the power state is *NOT* interactive with
+     * {@link PowerManager#isInteractive()}.
+     * Note that {@link PowerManager#isInteractive()} may not return {@code true} when the device
+     * enables Aod mode, recommend to add (@link DisableScreenDozeRule} in the test to disable Aod
+     * for making power state reliable.
+     */
+    private static void turnScreenOff(TestHelper helper) throws Exception {
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        final PowerManager pm = context.getSystemService(PowerManager.class);
+        helper.shell(ShellCommandUtils.sleepDevice());
+        pollingCheck(() -> pm != null && !pm.isInteractive(), TIMEOUT,
+                "Device does not sleep within the timeout period");
+    }
+
+    private static void showInputMethodPicker(TestHelper helper) throws Exception {
+        // Test InputMethodManager#showInputMethodPicker() works as expected.
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        final InputMethodManager imm = context.getSystemService(InputMethodManager.class);
+        helper.shell(ShellCommandUtils.showImePicker());
+        pollingCheck(() -> imm.isInputMethodPickerShown(), TIMEOUT,
+                "InputMethod picker should be shown");
     }
 }

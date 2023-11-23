@@ -17,6 +17,7 @@
 package com.android.server.wifi;
 
 import android.annotation.NonNull;
+import android.net.wifi.ScanResult;
 
 import com.android.server.wifi.WifiCandidates.Candidate;
 import com.android.server.wifi.WifiCandidates.ScoredCandidate;
@@ -45,6 +46,9 @@ final class CompatibilityScorer implements WifiCandidates.CandidateScorer {
     // config_wifi_framework_5GHz_preference_boost_factor
     public static final int BAND_5GHZ_AWARD_IS_40 = 40;
 
+    // config_wifiFramework6ghzPreferenceBoostFactor
+    public static final int BAND_6GHZ_AWARD_IS_40 = 40;
+
     // config_wifi_framework_SECURITY_AWARD
     public static final int SECURITY_AWARD_IS_80 = 80;
 
@@ -56,6 +60,8 @@ final class CompatibilityScorer implements WifiCandidates.CandidateScorer {
 
     // config_wifi_framework_SAME_BSSID_AWARD
     public static final int SAME_BSSID_AWARD_IS_24 = 24;
+
+    private static final boolean USE_USER_CONNECT_CHOICE = true;
 
     CompatibilityScorer(ScoringParams scoringParams) {
         mScoringParams = scoringParams;
@@ -74,7 +80,9 @@ final class CompatibilityScorer implements WifiCandidates.CandidateScorer {
         int rssi = Math.min(candidate.getScanRssi(), rssiSaturationThreshold);
         int score = (rssi + RSSI_SCORE_OFFSET) * RSSI_SCORE_SLOPE_IS_4;
 
-        if (candidate.getFrequency() >= ScoringParams.MINIMUM_5GHZ_BAND_FREQUENCY_IN_MEGAHERTZ) {
+        if (ScanResult.is6GHz(candidate.getFrequency())) {
+            score += BAND_6GHZ_AWARD_IS_40;
+        } else if (ScanResult.is5GHz(candidate.getFrequency())) {
             score += BAND_5GHZ_AWARD_IS_40;
         }
         score += (int) (candidate.getLastSelectionWeight() * LAST_SELECTION_AWARD_IS_480);
@@ -89,19 +97,20 @@ final class CompatibilityScorer implements WifiCandidates.CandidateScorer {
         }
 
         // To simulate the old strict priority rule, subtract a penalty based on
-        // which evaluator added the candidate.
-        score -= 1000 * candidate.getEvaluatorId();
+        // which nominator added the candidate.
+        score -= 1000 * candidate.getNominatorId();
 
         // The old method breaks ties on the basis of RSSI, which we can
         // emulate easily since our score does not need to be an integer.
         double tieBreaker = candidate.getScanRssi() / 1000.0;
-        return new ScoredCandidate(score + tieBreaker, 10, candidate);
+        return new ScoredCandidate(score + tieBreaker, 10,
+                                   USE_USER_CONNECT_CHOICE, candidate);
     }
 
     @Override
-    public ScoredCandidate scoreCandidates(@NonNull Collection<Candidate> group) {
+    public ScoredCandidate scoreCandidates(@NonNull Collection<Candidate> candidates) {
         ScoredCandidate choice = ScoredCandidate.NONE;
-        for (Candidate candidate : group) {
+        for (Candidate candidate : candidates) {
             ScoredCandidate scoredCandidate = scoreCandidate(candidate);
             if (scoredCandidate.value > choice.value) {
                 choice = scoredCandidate;
@@ -110,11 +119,6 @@ final class CompatibilityScorer implements WifiCandidates.CandidateScorer {
         // Here we just return the highest scored candidate; we could
         // compute a new score, if desired.
         return choice;
-    }
-
-    @Override
-    public boolean userConnectChoiceOverrideWanted() {
-        return true;
     }
 
 }

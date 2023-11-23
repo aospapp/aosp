@@ -21,6 +21,12 @@ java_library {
         "src/android/jvmti/cts/JvmtiRunTestBasedTest.java",
         ":art_cts_jvmti_test_library",
     ],
+    // Allow sun.misc.Unsafe.
+    target: {
+        android: {
+            libs: ["libcore_private.stubs"],
+        },
+    },
     sdk_version: "test_current",
     dex_preopt: {
         enabled: false,

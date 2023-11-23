@@ -32,6 +32,12 @@
 #include "genxml/gen_macros.h"
 #include "genxml/genX_pack.h"
 
+/* We reserve GPR 14 and 15 for conditional rendering */
+#define GEN_MI_BUILDER_NUM_ALLOC_GPRS 14
+#define __gen_get_batch_dwords anv_batch_emit_dwords
+#define __gen_address_offset anv_address_add
+#include "common/gen_mi_builder.h"
+
 VkResult genX(CreateQueryPool)(
     VkDevice                                    _device,
     const VkQueryPoolCreateInfo*                pCreateInfo,
@@ -70,7 +76,13 @@ VkResult genX(CreateQueryPool)(
       pipeline_statistics &= ANV_PIPELINE_STATISTICS_MASK;
 
       /* Statistics queries have a min and max for every statistic */
-      uint64s_per_slot += 2 * _mesa_bitcount(pipeline_statistics);
+      uint64s_per_slot += 2 * util_bitcount(pipeline_statistics);
+      break;
+   case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
+      /* Transform feedback queries are 4 values, begin/end for
+       * written/available.
+       */
+      uint64s_per_slot += 4;
       break;
    default:
       assert(!"Invalid query type");
@@ -94,8 +106,13 @@ VkResult genX(CreateQueryPool)(
    if (pdevice->supports_48bit_addresses)
       pool->bo.flags |= EXEC_OBJECT_SUPPORTS_48B_ADDRESS;
 
+   if (pdevice->use_softpin)
+      pool->bo.flags |= EXEC_OBJECT_PINNED;
+
    if (pdevice->has_exec_async)
       pool->bo.flags |= EXEC_OBJECT_ASYNC;
+
+   anv_vma_alloc(device, &pool->bo);
 
    /* For query pools, we set the caching mode to I915_CACHING_CACHED.  On LLC
     * platforms, this does nothing.  On non-LLC platforms, this means snooping
@@ -129,8 +146,18 @@ void genX(DestroyQueryPool)(
       return;
 
    anv_gem_munmap(pool->bo.map, pool->bo.size);
+   anv_vma_free(device, &pool->bo);
    anv_gem_close(device, pool->bo.gem_handle);
    vk_free2(&device->alloc, pAllocator, pool);
+}
+
+static struct anv_address
+anv_query_address(struct anv_query_pool *pool, uint32_t query)
+{
+   return (struct anv_address) {
+      .bo = &pool->bo,
+      .offset = query * pool->stride,
+   };
 }
 
 static void
@@ -166,9 +193,7 @@ wait_for_available(struct anv_device *device,
          continue;
       } else if (ret == -1) {
          /* We don't know the real error. */
-         device->lost = true;
-         return vk_errorf(device->instance, device, VK_ERROR_DEVICE_LOST,
-                          "gem wait failed: %m");
+         return anv_device_set_lost(device, "gem wait failed: %m");
       } else {
          assert(ret == 0);
          /* The BO is no longer busy. */
@@ -207,9 +232,10 @@ VkResult genX(GetQueryPoolResults)(
 
    assert(pool->type == VK_QUERY_TYPE_OCCLUSION ||
           pool->type == VK_QUERY_TYPE_PIPELINE_STATISTICS ||
-          pool->type == VK_QUERY_TYPE_TIMESTAMP);
+          pool->type == VK_QUERY_TYPE_TIMESTAMP ||
+          pool->type == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT);
 
-   if (unlikely(device->lost))
+   if (anv_device_is_lost(device))
       return VK_ERROR_DEVICE_LOST;
 
    if (pData == NULL)
@@ -243,18 +269,19 @@ VkResult genX(GetQueryPoolResults)(
        */
       bool write_results = available || (flags & VK_QUERY_RESULT_PARTIAL_BIT);
 
-      if (write_results) {
-         switch (pool->type) {
-         case VK_QUERY_TYPE_OCCLUSION: {
-            cpu_write_query_result(pData, flags, 0, slot[2] - slot[1]);
-            break;
-         }
+      uint32_t idx = 0;
+      switch (pool->type) {
+      case VK_QUERY_TYPE_OCCLUSION:
+         if (write_results)
+            cpu_write_query_result(pData, flags, idx, slot[2] - slot[1]);
+         idx++;
+         break;
 
-         case VK_QUERY_TYPE_PIPELINE_STATISTICS: {
-            uint32_t statistics = pool->pipeline_statistics;
-            uint32_t idx = 0;
-            while (statistics) {
-               uint32_t stat = u_bit_scan(&statistics);
+      case VK_QUERY_TYPE_PIPELINE_STATISTICS: {
+         uint32_t statistics = pool->pipeline_statistics;
+         while (statistics) {
+            uint32_t stat = u_bit_scan(&statistics);
+            if (write_results) {
                uint64_t result = slot[idx * 2 + 2] - slot[idx * 2 + 1];
 
                /* WaDividePSInvocationCountBy4:HSW,BDW */
@@ -263,29 +290,37 @@ VkResult genX(GetQueryPoolResults)(
                   result >>= 2;
 
                cpu_write_query_result(pData, flags, idx, result);
-
-               idx++;
             }
-            assert(idx == _mesa_bitcount(pool->pipeline_statistics));
-            break;
+            idx++;
          }
+         assert(idx == util_bitcount(pool->pipeline_statistics));
+         break;
+      }
 
-         case VK_QUERY_TYPE_TIMESTAMP: {
-            cpu_write_query_result(pData, flags, 0, slot[1]);
-            break;
-         }
-         default:
-            unreachable("invalid pool type");
-         }
-      } else {
+      case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
+         if (write_results)
+            cpu_write_query_result(pData, flags, idx, slot[2] - slot[1]);
+         idx++;
+         if (write_results)
+            cpu_write_query_result(pData, flags, idx, slot[4] - slot[3]);
+         idx++;
+         break;
+
+      case VK_QUERY_TYPE_TIMESTAMP:
+         if (write_results)
+            cpu_write_query_result(pData, flags, idx, slot[1]);
+         idx++;
+         break;
+
+      default:
+         unreachable("invalid pool type");
+      }
+
+      if (!write_results)
          status = VK_NOT_READY;
-      }
 
-      if (flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT) {
-         uint32_t idx = (pool->type == VK_QUERY_TYPE_PIPELINE_STATISTICS) ?
-                        _mesa_bitcount(pool->pipeline_statistics) : 1;
+      if (flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT)
          cpu_write_query_result(pData, flags, idx, available);
-      }
 
       pData += stride;
       if (pData >= data_end)
@@ -297,13 +332,13 @@ VkResult genX(GetQueryPoolResults)(
 
 static void
 emit_ps_depth_count(struct anv_cmd_buffer *cmd_buffer,
-                    struct anv_bo *bo, uint32_t offset)
+                    struct anv_address addr)
 {
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
       pc.DestinationAddressType  = DAT_PPGTT;
       pc.PostSyncOperation       = WritePSDepthCount;
       pc.DepthStallEnable        = true;
-      pc.Address                 = (struct anv_address) { bo, offset };
+      pc.Address                 = addr;
 
       if (GEN_GEN == 9 && cmd_buffer->device->info.gt == 4)
          pc.CommandStreamerStallEnable = true;
@@ -311,14 +346,23 @@ emit_ps_depth_count(struct anv_cmd_buffer *cmd_buffer,
 }
 
 static void
-emit_query_availability(struct anv_cmd_buffer *cmd_buffer,
-                        struct anv_bo *bo, uint32_t offset)
+emit_query_mi_availability(struct gen_mi_builder *b,
+                           struct anv_address addr,
+                           bool available)
+{
+   gen_mi_store(b, gen_mi_mem64(addr), gen_mi_imm(available));
+}
+
+static void
+emit_query_pc_availability(struct anv_cmd_buffer *cmd_buffer,
+                           struct anv_address addr,
+                           bool available)
 {
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
       pc.DestinationAddressType  = DAT_PPGTT;
       pc.PostSyncOperation       = WriteImmediateData;
-      pc.Address                 = (struct anv_address) { bo, offset };
-      pc.ImmediateData           = 1;
+      pc.Address                 = addr;
+      pc.ImmediateData           = available;
    }
 }
 
@@ -328,21 +372,42 @@ emit_query_availability(struct anv_cmd_buffer *cmd_buffer,
  */
 static void
 emit_zero_queries(struct anv_cmd_buffer *cmd_buffer,
-                  struct anv_query_pool *pool,
+                  struct gen_mi_builder *b, struct anv_query_pool *pool,
                   uint32_t first_index, uint32_t num_queries)
 {
-   const uint32_t num_elements = pool->stride / sizeof(uint64_t);
+   switch (pool->type) {
+   case VK_QUERY_TYPE_OCCLUSION:
+   case VK_QUERY_TYPE_TIMESTAMP:
+      /* These queries are written with a PIPE_CONTROL so clear them using the
+       * PIPE_CONTROL as well so we don't have to synchronize between 2 types
+       * of operations.
+       */
+      assert((pool->stride % 8) == 0);
+      for (uint32_t i = 0; i < num_queries; i++) {
+         struct anv_address slot_addr =
+            anv_query_address(pool, first_index + i);
 
-   for (uint32_t i = 0; i < num_queries; i++) {
-      uint32_t slot_offset = (first_index + i) * pool->stride;
-      for (uint32_t j = 1; j < num_elements; j++) {
-         anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_DATA_IMM), sdi) {
-            sdi.Address.bo = &pool->bo;
-            sdi.Address.offset = slot_offset + j * sizeof(uint64_t);
-            sdi.ImmediateData = 0ull;
+         for (uint32_t qword = 1; qword < (pool->stride / 8); qword++) {
+            emit_query_pc_availability(cmd_buffer,
+                                       anv_address_add(slot_addr, qword * 8),
+                                       false);
          }
+         emit_query_pc_availability(cmd_buffer, slot_addr, true);
       }
-      emit_query_availability(cmd_buffer, &pool->bo, slot_offset);
+      break;
+
+   case VK_QUERY_TYPE_PIPELINE_STATISTICS:
+   case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
+      for (uint32_t i = 0; i < num_queries; i++) {
+         struct anv_address slot_addr =
+            anv_query_address(pool, first_index + i);
+         gen_mi_memset(b, anv_address_add(slot_addr, 8), 0, pool->stride - 8);
+         emit_query_mi_availability(b, slot_addr, true);
+      }
+      break;
+
+   default:
+      unreachable("Unsupported query type");
    }
 }
 
@@ -355,14 +420,42 @@ void genX(CmdResetQueryPool)(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_query_pool, pool, queryPool);
 
-   for (uint32_t i = 0; i < queryCount; i++) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_DATA_IMM), sdm) {
-         sdm.Address = (struct anv_address) {
-            .bo = &pool->bo,
-            .offset = (firstQuery + i) * pool->stride,
-         };
-         sdm.ImmediateData = 0;
+   switch (pool->type) {
+   case VK_QUERY_TYPE_OCCLUSION:
+   case VK_QUERY_TYPE_TIMESTAMP:
+      for (uint32_t i = 0; i < queryCount; i++) {
+         emit_query_pc_availability(cmd_buffer,
+                                    anv_query_address(pool, firstQuery + i),
+                                    false);
       }
+      break;
+
+   case VK_QUERY_TYPE_PIPELINE_STATISTICS:
+   case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT: {
+      struct gen_mi_builder b;
+      gen_mi_builder_init(&b, &cmd_buffer->batch);
+
+      for (uint32_t i = 0; i < queryCount; i++)
+         emit_query_mi_availability(&b, anv_query_address(pool, firstQuery + i), false);
+      break;
+   }
+
+   default:
+      unreachable("Unsupported query type");
+   }
+}
+
+void genX(ResetQueryPoolEXT)(
+    VkDevice                                    _device,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    firstQuery,
+    uint32_t                                    queryCount)
+{
+   ANV_FROM_HANDLE(anv_query_pool, pool, queryPool);
+
+   for (uint32_t i = 0; i < queryCount; i++) {
+      uint64_t *slot = pool->bo.map + (firstQuery + i) * pool->stride;
+      *slot = 0;
    }
 }
 
@@ -381,23 +474,27 @@ static const uint32_t vk_pipeline_stat_to_reg[] = {
 };
 
 static void
-emit_pipeline_stat(struct anv_cmd_buffer *cmd_buffer, uint32_t stat,
-                   struct anv_bo *bo, uint32_t offset)
+emit_pipeline_stat(struct gen_mi_builder *b, uint32_t stat,
+                   struct anv_address addr)
 {
    STATIC_ASSERT(ANV_PIPELINE_STATISTICS_MASK ==
                  (1 << ARRAY_SIZE(vk_pipeline_stat_to_reg)) - 1);
 
    assert(stat < ARRAY_SIZE(vk_pipeline_stat_to_reg));
-   uint32_t reg = vk_pipeline_stat_to_reg[stat];
+   gen_mi_store(b, gen_mi_mem64(addr),
+                gen_mi_reg64(vk_pipeline_stat_to_reg[stat]));
+}
 
-   anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_REGISTER_MEM), lrm) {
-      lrm.RegisterAddress  = reg,
-      lrm.MemoryAddress    = (struct anv_address) { bo, offset };
-   }
-   anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_REGISTER_MEM), lrm) {
-      lrm.RegisterAddress  = reg + 4,
-      lrm.MemoryAddress    = (struct anv_address) { bo, offset + 4 };
-   }
+static void
+emit_xfb_query(struct gen_mi_builder *b, uint32_t stream,
+               struct anv_address addr)
+{
+   assert(stream < MAX_XFB_STREAMS);
+
+   gen_mi_store(b, gen_mi_mem64(anv_address_add(addr, 0)),
+                gen_mi_reg64(GENX(SO_NUM_PRIMS_WRITTEN0_num) + stream * 8));
+   gen_mi_store(b, gen_mi_mem64(anv_address_add(addr, 16)),
+                gen_mi_reg64(GENX(SO_PRIM_STORAGE_NEEDED0_num) + stream * 8));
 }
 
 void genX(CmdBeginQuery)(
@@ -406,12 +503,26 @@ void genX(CmdBeginQuery)(
     uint32_t                                    query,
     VkQueryControlFlags                         flags)
 {
+   genX(CmdBeginQueryIndexedEXT)(commandBuffer, queryPool, query, flags, 0);
+}
+
+void genX(CmdBeginQueryIndexedEXT)(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    query,
+    VkQueryControlFlags                         flags,
+    uint32_t                                    index)
+{
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_query_pool, pool, queryPool);
+   struct anv_address query_addr = anv_query_address(pool, query);
+
+   struct gen_mi_builder b;
+   gen_mi_builder_init(&b, &cmd_buffer->batch);
 
    switch (pool->type) {
    case VK_QUERY_TYPE_OCCLUSION:
-      emit_ps_depth_count(cmd_buffer, &pool->bo, query * pool->stride + 8);
+      emit_ps_depth_count(cmd_buffer, anv_address_add(query_addr, 8));
       break;
 
    case VK_QUERY_TYPE_PIPELINE_STATISTICS: {
@@ -422,14 +533,22 @@ void genX(CmdBeginQuery)(
       }
 
       uint32_t statistics = pool->pipeline_statistics;
-      uint32_t offset = query * pool->stride + 8;
+      uint32_t offset = 8;
       while (statistics) {
          uint32_t stat = u_bit_scan(&statistics);
-         emit_pipeline_stat(cmd_buffer, stat, &pool->bo, offset);
+         emit_pipeline_stat(&b, stat, anv_address_add(query_addr, offset));
          offset += 16;
       }
       break;
    }
+
+   case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
+      anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
+         pc.CommandStreamerStallEnable = true;
+         pc.StallAtPixelScoreboard = true;
+      }
+      emit_xfb_query(&b, index, anv_address_add(query_addr, 8));
+      break;
 
    default:
       unreachable("");
@@ -441,13 +560,26 @@ void genX(CmdEndQuery)(
     VkQueryPool                                 queryPool,
     uint32_t                                    query)
 {
+   genX(CmdEndQueryIndexedEXT)(commandBuffer, queryPool, query, 0);
+}
+
+void genX(CmdEndQueryIndexedEXT)(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    query,
+    uint32_t                                    index)
+{
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_query_pool, pool, queryPool);
+   struct anv_address query_addr = anv_query_address(pool, query);
+
+   struct gen_mi_builder b;
+   gen_mi_builder_init(&b, &cmd_buffer->batch);
 
    switch (pool->type) {
    case VK_QUERY_TYPE_OCCLUSION:
-      emit_ps_depth_count(cmd_buffer, &pool->bo, query * pool->stride + 16);
-      emit_query_availability(cmd_buffer, &pool->bo, query * pool->stride);
+      emit_ps_depth_count(cmd_buffer, anv_address_add(query_addr, 16));
+      emit_query_pc_availability(cmd_buffer, query_addr, true);
       break;
 
    case VK_QUERY_TYPE_PIPELINE_STATISTICS: {
@@ -458,16 +590,26 @@ void genX(CmdEndQuery)(
       }
 
       uint32_t statistics = pool->pipeline_statistics;
-      uint32_t offset = query * pool->stride + 16;
+      uint32_t offset = 16;
       while (statistics) {
          uint32_t stat = u_bit_scan(&statistics);
-         emit_pipeline_stat(cmd_buffer, stat, &pool->bo, offset);
+         emit_pipeline_stat(&b, stat, anv_address_add(query_addr, offset));
          offset += 16;
       }
 
-      emit_query_availability(cmd_buffer, &pool->bo, query * pool->stride);
+      emit_query_mi_availability(&b, query_addr, true);
       break;
    }
+
+   case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
+      anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
+         pc.CommandStreamerStallEnable = true;
+         pc.StallAtPixelScoreboard = true;
+      }
+
+      emit_xfb_query(&b, index, anv_address_add(query_addr, 16));
+      emit_query_mi_availability(&b, query_addr, true);
+      break;
 
    default:
       unreachable("");
@@ -483,9 +625,9 @@ void genX(CmdEndQuery)(
     */
    if (cmd_buffer->state.subpass && cmd_buffer->state.subpass->view_mask) {
       const uint32_t num_queries =
-         _mesa_bitcount(cmd_buffer->state.subpass->view_mask);
+         util_bitcount(cmd_buffer->state.subpass->view_mask);
       if (num_queries > 1)
-         emit_zero_queries(cmd_buffer, pool, query + 1, num_queries - 1);
+         emit_zero_queries(cmd_buffer, &b, pool, query + 1, num_queries - 1);
    }
 }
 
@@ -499,20 +641,17 @@ void genX(CmdWriteTimestamp)(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_query_pool, pool, queryPool);
-   uint32_t offset = query * pool->stride;
+   struct anv_address query_addr = anv_query_address(pool, query);
 
    assert(pool->type == VK_QUERY_TYPE_TIMESTAMP);
 
+   struct gen_mi_builder b;
+   gen_mi_builder_init(&b, &cmd_buffer->batch);
+
    switch (pipelineStage) {
    case VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT:
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_REGISTER_MEM), srm) {
-         srm.RegisterAddress  = TIMESTAMP;
-         srm.MemoryAddress    = (struct anv_address) { &pool->bo, offset + 8 };
-      }
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_REGISTER_MEM), srm) {
-         srm.RegisterAddress  = TIMESTAMP + 4;
-         srm.MemoryAddress    = (struct anv_address) { &pool->bo, offset + 12 };
-      }
+      gen_mi_store(&b, gen_mi_mem64(anv_address_add(query_addr, 8)),
+                       gen_mi_reg64(TIMESTAMP));
       break;
 
    default:
@@ -520,7 +659,7 @@ void genX(CmdWriteTimestamp)(
       anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
          pc.DestinationAddressType  = DAT_PPGTT;
          pc.PostSyncOperation       = WriteTimestamp;
-         pc.Address = (struct anv_address) { &pool->bo, offset + 8 };
+         pc.Address                 = anv_address_add(query_addr, 8);
 
          if (GEN_GEN == 9 && cmd_buffer->device->info.gt == 4)
             pc.CommandStreamerStallEnable = true;
@@ -528,7 +667,7 @@ void genX(CmdWriteTimestamp)(
       break;
    }
 
-   emit_query_availability(cmd_buffer, &pool->bo, offset);
+   emit_query_pc_availability(cmd_buffer, query_addr, true);
 
    /* When multiview is active the spec requires that N consecutive query
     * indices are used, where N is the number of active views in the subpass.
@@ -540,188 +679,35 @@ void genX(CmdWriteTimestamp)(
     */
    if (cmd_buffer->state.subpass && cmd_buffer->state.subpass->view_mask) {
       const uint32_t num_queries =
-         _mesa_bitcount(cmd_buffer->state.subpass->view_mask);
+         util_bitcount(cmd_buffer->state.subpass->view_mask);
       if (num_queries > 1)
-         emit_zero_queries(cmd_buffer, pool, query + 1, num_queries - 1);
+         emit_zero_queries(cmd_buffer, &b, pool, query + 1, num_queries - 1);
    }
 }
 
 #if GEN_GEN > 7 || GEN_IS_HASWELL
 
-static uint32_t
-mi_alu(uint32_t opcode, uint32_t operand1, uint32_t operand2)
-{
-   struct GENX(MI_MATH_ALU_INSTRUCTION) instr = {
-      .ALUOpcode = opcode,
-      .Operand1 = operand1,
-      .Operand2 = operand2,
-   };
-
-   uint32_t dw;
-   GENX(MI_MATH_ALU_INSTRUCTION_pack)(NULL, &dw, &instr);
-
-   return dw;
-}
-
-#define CS_GPR(n) (0x2600 + (n) * 8)
-
 static void
-emit_load_alu_reg_u64(struct anv_batch *batch, uint32_t reg,
-                      struct anv_bo *bo, uint32_t offset)
-{
-   anv_batch_emit(batch, GENX(MI_LOAD_REGISTER_MEM), lrm) {
-      lrm.RegisterAddress  = reg,
-      lrm.MemoryAddress    = (struct anv_address) { bo, offset };
-   }
-   anv_batch_emit(batch, GENX(MI_LOAD_REGISTER_MEM), lrm) {
-      lrm.RegisterAddress  = reg + 4;
-      lrm.MemoryAddress    = (struct anv_address) { bo, offset + 4 };
-   }
-}
-
-static void
-emit_load_alu_reg_imm32(struct anv_batch *batch, uint32_t reg, uint32_t imm)
-{
-   anv_batch_emit(batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-      lri.RegisterOffset   = reg;
-      lri.DataDWord        = imm;
-   }
-}
-
-static void
-emit_load_alu_reg_imm64(struct anv_batch *batch, uint32_t reg, uint64_t imm)
-{
-   emit_load_alu_reg_imm32(batch, reg, (uint32_t)imm);
-   emit_load_alu_reg_imm32(batch, reg + 4, (uint32_t)(imm >> 32));
-}
-
-static void
-emit_load_alu_reg_reg32(struct anv_batch *batch, uint32_t src, uint32_t dst)
-{
-   anv_batch_emit(batch, GENX(MI_LOAD_REGISTER_REG), lrr) {
-      lrr.SourceRegisterAddress      = src;
-      lrr.DestinationRegisterAddress = dst;
-   }
-}
-
-/*
- * GPR0 = GPR0 & ((1ull << n) - 1);
- */
-static void
-keep_gpr0_lower_n_bits(struct anv_batch *batch, uint32_t n)
-{
-   assert(n < 64);
-   emit_load_alu_reg_imm64(batch, CS_GPR(1), (1ull << n) - 1);
-
-   uint32_t *dw = anv_batch_emitn(batch, 5, GENX(MI_MATH));
-   if (!dw) {
-      anv_batch_set_error(batch, VK_ERROR_OUT_OF_HOST_MEMORY);
-      return;
-   }
-
-   dw[1] = mi_alu(MI_ALU_LOAD, MI_ALU_SRCA, MI_ALU_REG0);
-   dw[2] = mi_alu(MI_ALU_LOAD, MI_ALU_SRCB, MI_ALU_REG1);
-   dw[3] = mi_alu(MI_ALU_AND, 0, 0);
-   dw[4] = mi_alu(MI_ALU_STORE, MI_ALU_REG0, MI_ALU_ACCU);
-}
-
-/*
- * GPR0 = GPR0 << 30;
- */
-static void
-shl_gpr0_by_30_bits(struct anv_batch *batch)
-{
-   /* First we mask 34 bits of GPR0 to prevent overflow */
-   keep_gpr0_lower_n_bits(batch, 34);
-
-   const uint32_t outer_count = 5;
-   const uint32_t inner_count = 6;
-   STATIC_ASSERT(outer_count * inner_count == 30);
-   const uint32_t cmd_len = 1 + inner_count * 4;
-
-   /* We'll emit 5 commands, each shifting GPR0 left by 6 bits, for a total of
-    * 30 left shifts.
-    */
-   for (int o = 0; o < outer_count; o++) {
-      /* Submit one MI_MATH to shift left by 6 bits */
-      uint32_t *dw = anv_batch_emitn(batch, cmd_len, GENX(MI_MATH));
-      if (!dw) {
-         anv_batch_set_error(batch, VK_ERROR_OUT_OF_HOST_MEMORY);
-         return;
-      }
-
-      dw++;
-      for (int i = 0; i < inner_count; i++, dw += 4) {
-         dw[0] = mi_alu(MI_ALU_LOAD, MI_ALU_SRCA, MI_ALU_REG0);
-         dw[1] = mi_alu(MI_ALU_LOAD, MI_ALU_SRCB, MI_ALU_REG0);
-         dw[2] = mi_alu(MI_ALU_ADD, 0, 0);
-         dw[3] = mi_alu(MI_ALU_STORE, MI_ALU_REG0, MI_ALU_ACCU);
-      }
-   }
-}
-
-/*
- * GPR0 = GPR0 >> 2;
- *
- * Note that the upper 30 bits of GPR are lost!
- */
-static void
-shr_gpr0_by_2_bits(struct anv_batch *batch)
-{
-   shl_gpr0_by_30_bits(batch);
-   emit_load_alu_reg_reg32(batch, CS_GPR(0) + 4, CS_GPR(0));
-   emit_load_alu_reg_imm32(batch, CS_GPR(0) + 4, 0);
-}
-
-static void
-gpu_write_query_result(struct anv_batch *batch,
-                       struct anv_buffer *dst_buffer, uint32_t dst_offset,
+gpu_write_query_result(struct gen_mi_builder *b,
+                       struct anv_address dst_addr,
                        VkQueryResultFlags flags,
-                       uint32_t value_index, uint32_t reg)
+                       uint32_t value_index,
+                       struct gen_mi_value query_result)
 {
-   if (flags & VK_QUERY_RESULT_64_BIT)
-      dst_offset += value_index * 8;
-   else
-      dst_offset += value_index * 4;
-
-   anv_batch_emit(batch, GENX(MI_STORE_REGISTER_MEM), srm) {
-      srm.RegisterAddress  = reg;
-      srm.MemoryAddress    = (struct anv_address) {
-         .bo = dst_buffer->bo,
-         .offset = dst_buffer->offset + dst_offset,
-      };
-   }
-
    if (flags & VK_QUERY_RESULT_64_BIT) {
-      anv_batch_emit(batch, GENX(MI_STORE_REGISTER_MEM), srm) {
-         srm.RegisterAddress  = reg + 4;
-         srm.MemoryAddress    = (struct anv_address) {
-            .bo = dst_buffer->bo,
-            .offset = dst_buffer->offset + dst_offset + 4,
-         };
-      }
+      struct anv_address res_addr = anv_address_add(dst_addr, value_index * 8);
+      gen_mi_store(b, gen_mi_mem64(res_addr), query_result);
+   } else {
+      struct anv_address res_addr = anv_address_add(dst_addr, value_index * 4);
+      gen_mi_store(b, gen_mi_mem32(res_addr), query_result);
    }
 }
 
-static void
-compute_query_result(struct anv_batch *batch, uint32_t dst_reg,
-                     struct anv_bo *bo, uint32_t offset)
+static struct gen_mi_value
+compute_query_result(struct gen_mi_builder *b, struct anv_address addr)
 {
-   emit_load_alu_reg_u64(batch, CS_GPR(0), bo, offset);
-   emit_load_alu_reg_u64(batch, CS_GPR(1), bo, offset + 8);
-
-   /* FIXME: We need to clamp the result for 32 bit. */
-
-   uint32_t *dw = anv_batch_emitn(batch, 5, GENX(MI_MATH));
-   if (!dw) {
-      anv_batch_set_error(batch, VK_ERROR_OUT_OF_HOST_MEMORY);
-      return;
-   }
-
-   dw[1] = mi_alu(MI_ALU_LOAD, MI_ALU_SRCA, MI_ALU_REG1);
-   dw[2] = mi_alu(MI_ALU_LOAD, MI_ALU_SRCB, MI_ALU_REG0);
-   dw[3] = mi_alu(MI_ALU_SUB, 0, 0);
-   dw[4] = mi_alu(MI_ALU_STORE, dst_reg, MI_ALU_ACCU);
+   return gen_mi_isub(b, gen_mi_mem64(anv_address_add(addr, 8)),
+                         gen_mi_mem64(anv_address_add(addr, 0)));
 }
 
 void genX(CmdCopyQueryPoolResults)(
@@ -737,55 +723,80 @@ void genX(CmdCopyQueryPoolResults)(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_query_pool, pool, queryPool);
    ANV_FROM_HANDLE(anv_buffer, buffer, destBuffer);
-   uint32_t slot_offset;
 
-   if (flags & VK_QUERY_RESULT_WAIT_BIT) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
-         pc.CommandStreamerStallEnable = true;
-         pc.StallAtPixelScoreboard     = true;
-      }
+   struct gen_mi_builder b;
+   gen_mi_builder_init(&b, &cmd_buffer->batch);
+   struct gen_mi_value result;
+
+   /* If render target writes are ongoing, request a render target cache flush
+    * to ensure proper ordering of the commands from the 3d pipe and the
+    * command streamer.
+    */
+   if (cmd_buffer->state.pending_pipe_bits & ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) {
+      cmd_buffer->state.pending_pipe_bits |=
+         ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT;
    }
 
+   if ((flags & VK_QUERY_RESULT_WAIT_BIT) ||
+       (cmd_buffer->state.pending_pipe_bits & ANV_PIPE_FLUSH_BITS) ||
+       /* Occlusion & timestamp queries are written using a PIPE_CONTROL and
+        * because we're about to copy values from MI commands, we need to
+        * stall the command streamer to make sure the PIPE_CONTROL values have
+        * landed, otherwise we could see inconsistent values & availability.
+        *
+        *  From the vulkan spec:
+        *
+        *     "vkCmdCopyQueryPoolResults is guaranteed to see the effect of
+        *     previous uses of vkCmdResetQueryPool in the same queue, without
+        *     any additional synchronization."
+        */
+       pool->type == VK_QUERY_TYPE_OCCLUSION ||
+       pool->type == VK_QUERY_TYPE_TIMESTAMP) {
+      cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_CS_STALL_BIT;
+      genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+   }
+
+   struct anv_address dest_addr = anv_address_add(buffer->address, destOffset);
    for (uint32_t i = 0; i < queryCount; i++) {
-      slot_offset = (firstQuery + i) * pool->stride;
+      struct anv_address query_addr = anv_query_address(pool, firstQuery + i);
+      uint32_t idx = 0;
       switch (pool->type) {
       case VK_QUERY_TYPE_OCCLUSION:
-         compute_query_result(&cmd_buffer->batch, MI_ALU_REG2,
-                              &pool->bo, slot_offset + 8);
-         gpu_write_query_result(&cmd_buffer->batch, buffer, destOffset,
-                                flags, 0, CS_GPR(2));
+         result = compute_query_result(&b, anv_address_add(query_addr, 8));
+         gpu_write_query_result(&b, dest_addr, flags, idx++, result);
          break;
 
       case VK_QUERY_TYPE_PIPELINE_STATISTICS: {
          uint32_t statistics = pool->pipeline_statistics;
-         uint32_t idx = 0;
          while (statistics) {
             uint32_t stat = u_bit_scan(&statistics);
 
-            compute_query_result(&cmd_buffer->batch, MI_ALU_REG0,
-                                 &pool->bo, slot_offset + idx * 16 + 8);
+            result = compute_query_result(&b, anv_address_add(query_addr,
+                                                              idx * 16 + 8));
 
             /* WaDividePSInvocationCountBy4:HSW,BDW */
             if ((cmd_buffer->device->info.gen == 8 ||
                  cmd_buffer->device->info.is_haswell) &&
                 (1 << stat) == VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT) {
-               shr_gpr0_by_2_bits(&cmd_buffer->batch);
+               result = gen_mi_ushr32_imm(&b, result, 2);
             }
 
-            gpu_write_query_result(&cmd_buffer->batch, buffer, destOffset,
-                                   flags, idx, CS_GPR(0));
-
-            idx++;
+            gpu_write_query_result(&b, dest_addr, flags, idx++, result);
          }
-         assert(idx == _mesa_bitcount(pool->pipeline_statistics));
+         assert(idx == util_bitcount(pool->pipeline_statistics));
          break;
       }
 
+      case VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT:
+         result = compute_query_result(&b, anv_address_add(query_addr, 8));
+         gpu_write_query_result(&b, dest_addr, flags, idx++, result);
+         result = compute_query_result(&b, anv_address_add(query_addr, 24));
+         gpu_write_query_result(&b, dest_addr, flags, idx++, result);
+         break;
+
       case VK_QUERY_TYPE_TIMESTAMP:
-         emit_load_alu_reg_u64(&cmd_buffer->batch,
-                               CS_GPR(2), &pool->bo, slot_offset + 8);
-         gpu_write_query_result(&cmd_buffer->batch, buffer, destOffset,
-                                flags, 0, CS_GPR(2));
+         result = gen_mi_mem64(anv_address_add(query_addr, 8));
+         gpu_write_query_result(&b, dest_addr, flags, 0, result);
          break;
 
       default:
@@ -793,16 +804,11 @@ void genX(CmdCopyQueryPoolResults)(
       }
 
       if (flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT) {
-         uint32_t idx = (pool->type == VK_QUERY_TYPE_PIPELINE_STATISTICS) ?
-                        _mesa_bitcount(pool->pipeline_statistics) : 1;
-
-         emit_load_alu_reg_u64(&cmd_buffer->batch, CS_GPR(0),
-                               &pool->bo, slot_offset);
-         gpu_write_query_result(&cmd_buffer->batch, buffer, destOffset,
-                                flags, idx, CS_GPR(0));
+         gpu_write_query_result(&b, dest_addr, flags, idx,
+                                gen_mi_mem64(query_addr));
       }
 
-      destOffset += destStride;
+      dest_addr = anv_address_add(dest_addr, destStride);
    }
 }
 

@@ -15,6 +15,8 @@
 package android
 
 import (
+	"reflect"
+
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
@@ -25,6 +27,7 @@ import (
 //   run Pre-deps mutators
 //   run depsMutator
 //   run PostDeps mutators
+//   run FinalDeps mutators (CreateVariations disallowed in this phase)
 //   continue on to GenerateAndroidBuildActions
 
 func registerMutatorsToContext(ctx *blueprint.Context, mutators []*mutator) {
@@ -41,7 +44,7 @@ func registerMutatorsToContext(ctx *blueprint.Context, mutators []*mutator) {
 	}
 }
 
-func registerMutators(ctx *blueprint.Context, preArch, preDeps, postDeps []RegisterMutatorFunc) {
+func registerMutators(ctx *blueprint.Context, preArch, preDeps, postDeps, finalDeps []RegisterMutatorFunc) {
 	mctx := &registerMutatorsContext{}
 
 	register := func(funcs []RegisterMutatorFunc) {
@@ -58,33 +61,79 @@ func registerMutators(ctx *blueprint.Context, preArch, preDeps, postDeps []Regis
 
 	register(postDeps)
 
+	mctx.finalPhase = true
+	register(finalDeps)
+
 	registerMutatorsToContext(ctx, mctx.mutators)
 }
 
 type registerMutatorsContext struct {
-	mutators []*mutator
+	mutators   []*mutator
+	finalPhase bool
 }
 
 type RegisterMutatorsContext interface {
-	TopDown(name string, m AndroidTopDownMutator) MutatorHandle
-	BottomUp(name string, m AndroidBottomUpMutator) MutatorHandle
+	TopDown(name string, m TopDownMutator) MutatorHandle
+	BottomUp(name string, m BottomUpMutator) MutatorHandle
 }
 
 type RegisterMutatorFunc func(RegisterMutatorsContext)
 
 var preArch = []RegisterMutatorFunc{
-	func(ctx RegisterMutatorsContext) {
-		ctx.TopDown("load_hooks", LoadHookMutator).Parallel()
-	},
 	RegisterNamespaceMutator,
-	RegisterPrebuiltsPreArchMutators,
+
+	// Check the visibility rules are valid.
+	//
+	// This must run after the package renamer mutators so that any issues found during
+	// validation of the package's default_visibility property are reported using the
+	// correct package name and not the synthetic name.
+	//
+	// This must also be run before defaults mutators as the rules for validation are
+	// different before checking the rules than they are afterwards. e.g.
+	//    visibility: ["//visibility:private", "//visibility:public"]
+	// would be invalid if specified in a module definition but is valid if it results
+	// from something like this:
+	//
+	//    defaults {
+	//        name: "defaults",
+	//        // Be inaccessible outside a package by default.
+	//        visibility: ["//visibility:private"]
+	//    }
+	//
+	//    defaultable_module {
+	//        name: "defaultable_module",
+	//        defaults: ["defaults"],
+	//        // Override the default.
+	//        visibility: ["//visibility:public"]
+	//    }
+	//
+	RegisterVisibilityRuleChecker,
+
+	// Apply properties from defaults modules to the referencing modules.
+	//
+	// Any mutators that are added before this will not see any modules created by
+	// a DefaultableHook.
 	RegisterDefaultsPreArchMutators,
-	RegisterOverridePreArchMutators,
+
+	// Create an association between prebuilt modules and their corresponding source
+	// modules (if any).
+	//
+	// Must be run after defaults mutators to ensure that any modules created by
+	// a DefaultableHook can be either a prebuilt or a source module with a matching
+	// prebuilt.
+	RegisterPrebuiltsPreArchMutators,
+
+	// Gather the visibility rules for all modules for us during visibility enforcement.
+	//
+	// This must come after the defaults mutators to ensure that any visibility supplied
+	// in a defaults module has been successfully applied before the rules are gathered.
+	RegisterVisibilityRuleGatherer,
 }
 
 func registerArchMutator(ctx RegisterMutatorsContext) {
+	ctx.BottomUp("os", osMutator).Parallel()
+	ctx.BottomUp("image", imageMutator).Parallel()
 	ctx.BottomUp("arch", archMutator).Parallel()
-	ctx.TopDown("arch_hooks", archHookMutator).Parallel()
 }
 
 var preDeps = []RegisterMutatorFunc{
@@ -94,8 +143,12 @@ var preDeps = []RegisterMutatorFunc{
 var postDeps = []RegisterMutatorFunc{
 	registerPathDepsMutator,
 	RegisterPrebuiltsPostDepsMutators,
-	registerNeverallowMutator,
+	RegisterVisibilityRuleEnforcer,
+	RegisterNeverallowMutator,
+	RegisterOverridePostDepsMutators,
 }
+
+var finalDeps = []RegisterMutatorFunc{}
 
 func PreArchMutators(f RegisterMutatorFunc) {
 	preArch = append(preArch, f)
@@ -109,74 +162,63 @@ func PostDepsMutators(f RegisterMutatorFunc) {
 	postDeps = append(postDeps, f)
 }
 
-type AndroidTopDownMutator func(TopDownMutatorContext)
+func FinalDepsMutators(f RegisterMutatorFunc) {
+	finalDeps = append(finalDeps, f)
+}
+
+type TopDownMutator func(TopDownMutatorContext)
 
 type TopDownMutatorContext interface {
 	BaseModuleContext
-	androidBaseContext
 
-	OtherModuleExists(name string) bool
+	MutatorName() string
+
 	Rename(name string)
-	Module() Module
 
-	OtherModuleName(m blueprint.Module) string
-	OtherModuleErrorf(m blueprint.Module, fmt string, args ...interface{})
-	OtherModuleDependencyTag(m blueprint.Module) blueprint.DependencyTag
-
-	CreateModule(blueprint.ModuleFactory, ...interface{})
-
-	GetDirectDepWithTag(name string, tag blueprint.DependencyTag) blueprint.Module
-	GetDirectDep(name string) (blueprint.Module, blueprint.DependencyTag)
-
-	VisitDirectDeps(visit func(Module))
-	VisitDirectDepsWithTag(tag blueprint.DependencyTag, visit func(Module))
-	VisitDirectDepsIf(pred func(Module) bool, visit func(Module))
-	VisitDepsDepthFirst(visit func(Module))
-	VisitDepsDepthFirstIf(pred func(Module) bool, visit func(Module))
-	WalkDeps(visit func(Module, Module) bool)
-	// GetWalkPath is supposed to be called in visit function passed in WalkDeps()
-	// and returns a top-down dependency path from a start module to current child module.
-	GetWalkPath() []Module
+	CreateModule(ModuleFactory, ...interface{}) Module
 }
 
-type androidTopDownMutatorContext struct {
-	blueprint.TopDownMutatorContext
-	androidBaseContextImpl
-	walkPath []Module
+type topDownMutatorContext struct {
+	bp blueprint.TopDownMutatorContext
+	baseModuleContext
 }
 
-type AndroidBottomUpMutator func(BottomUpMutatorContext)
+type BottomUpMutator func(BottomUpMutatorContext)
 
 type BottomUpMutatorContext interface {
 	BaseModuleContext
-	androidBaseContext
 
-	OtherModuleExists(name string) bool
+	MutatorName() string
+
 	Rename(name string)
-	Module() blueprint.Module
 
 	AddDependency(module blueprint.Module, tag blueprint.DependencyTag, name ...string)
 	AddReverseDependency(module blueprint.Module, tag blueprint.DependencyTag, name string)
-	CreateVariations(...string) []blueprint.Module
-	CreateLocalVariations(...string) []blueprint.Module
+	CreateVariations(...string) []Module
+	CreateLocalVariations(...string) []Module
 	SetDependencyVariation(string)
+	SetDefaultDependencyVariation(*string)
 	AddVariationDependencies([]blueprint.Variation, blueprint.DependencyTag, ...string)
 	AddFarVariationDependencies([]blueprint.Variation, blueprint.DependencyTag, ...string)
 	AddInterVariantDependency(tag blueprint.DependencyTag, from, to blueprint.Module)
 	ReplaceDependencies(string)
+	AliasVariation(variationName string)
 }
 
-type androidBottomUpMutatorContext struct {
-	blueprint.BottomUpMutatorContext
-	androidBaseContextImpl
+type bottomUpMutatorContext struct {
+	bp blueprint.BottomUpMutatorContext
+	baseModuleContext
+	finalPhase bool
 }
 
-func (x *registerMutatorsContext) BottomUp(name string, m AndroidBottomUpMutator) MutatorHandle {
+func (x *registerMutatorsContext) BottomUp(name string, m BottomUpMutator) MutatorHandle {
+	finalPhase := x.finalPhase
 	f := func(ctx blueprint.BottomUpMutatorContext) {
 		if a, ok := ctx.Module().(Module); ok {
-			actx := &androidBottomUpMutatorContext{
-				BottomUpMutatorContext: ctx,
-				androidBaseContextImpl: a.base().androidBaseContextFactory(ctx),
+			actx := &bottomUpMutatorContext{
+				bp:                ctx,
+				baseModuleContext: a.base().baseModuleContextFactory(ctx),
+				finalPhase:        finalPhase,
 			}
 			m(actx)
 		}
@@ -186,12 +228,12 @@ func (x *registerMutatorsContext) BottomUp(name string, m AndroidBottomUpMutator
 	return mutator
 }
 
-func (x *registerMutatorsContext) TopDown(name string, m AndroidTopDownMutator) MutatorHandle {
+func (x *registerMutatorsContext) TopDown(name string, m TopDownMutator) MutatorHandle {
 	f := func(ctx blueprint.TopDownMutatorContext) {
 		if a, ok := ctx.Module().(Module); ok {
-			actx := &androidTopDownMutatorContext{
-				TopDownMutatorContext:  ctx,
-				androidBaseContextImpl: a.base().androidBaseContextFactory(ctx),
+			actx := &topDownMutatorContext{
+				bp:                ctx,
+				baseModuleContext: a.base().baseModuleContextFactory(ctx),
 			}
 			m(actx)
 		}
@@ -216,123 +258,151 @@ func depsMutator(ctx BottomUpMutatorContext) {
 	}
 }
 
-func (a *androidTopDownMutatorContext) Config() Config {
-	return a.config
+func (t *topDownMutatorContext) AppendProperties(props ...interface{}) {
+	for _, p := range props {
+		err := proptools.AppendMatchingProperties(t.Module().base().customizableProperties,
+			p, nil)
+		if err != nil {
+			if propertyErr, ok := err.(*proptools.ExtendPropertyError); ok {
+				t.PropertyErrorf(propertyErr.Property, "%s", propertyErr.Err.Error())
+			} else {
+				panic(err)
+			}
+		}
+	}
 }
 
-func (a *androidBottomUpMutatorContext) Config() Config {
-	return a.config
+func (t *topDownMutatorContext) PrependProperties(props ...interface{}) {
+	for _, p := range props {
+		err := proptools.PrependMatchingProperties(t.Module().base().customizableProperties,
+			p, nil)
+		if err != nil {
+			if propertyErr, ok := err.(*proptools.ExtendPropertyError); ok {
+				t.PropertyErrorf(propertyErr.Property, "%s", propertyErr.Err.Error())
+			} else {
+				panic(err)
+			}
+		}
+	}
 }
 
-func (a *androidTopDownMutatorContext) Module() Module {
-	module, _ := a.TopDownMutatorContext.Module().(Module)
+// android.topDownMutatorContext either has to embed blueprint.TopDownMutatorContext, in which case every method that
+// has an overridden version in android.BaseModuleContext has to be manually forwarded to BaseModuleContext to avoid
+// ambiguous method errors, or it has to store a blueprint.TopDownMutatorContext non-embedded, in which case every
+// non-overridden method has to be forwarded.  There are fewer non-overridden methods, so use the latter.  The following
+// methods forward to the identical blueprint versions for topDownMutatorContext and bottomUpMutatorContext.
+
+func (t *topDownMutatorContext) MutatorName() string {
+	return t.bp.MutatorName()
+}
+
+func (t *topDownMutatorContext) Rename(name string) {
+	t.bp.Rename(name)
+	t.Module().base().commonProperties.DebugName = name
+}
+
+func (t *topDownMutatorContext) CreateModule(factory ModuleFactory, props ...interface{}) Module {
+	inherited := []interface{}{&t.Module().base().commonProperties}
+	module := t.bp.CreateModule(ModuleFactoryAdaptor(factory), append(inherited, props...)...).(Module)
+
+	if t.Module().base().variableProperties != nil && module.base().variableProperties != nil {
+		src := t.Module().base().variableProperties
+		dst := []interface{}{
+			module.base().variableProperties,
+			// Put an empty copy of the src properties into dst so that properties in src that are not in dst
+			// don't cause a "failed to find property to extend" error.
+			proptools.CloneEmptyProperties(reflect.ValueOf(src)).Interface(),
+		}
+		err := proptools.AppendMatchingProperties(dst, src, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	return module
 }
 
-func (a *androidTopDownMutatorContext) VisitDirectDeps(visit func(Module)) {
-	a.TopDownMutatorContext.VisitDirectDeps(func(module blueprint.Module) {
-		if aModule, _ := module.(Module); aModule != nil {
-			visit(aModule)
-		}
-	})
+func (b *bottomUpMutatorContext) MutatorName() string {
+	return b.bp.MutatorName()
 }
 
-func (a *androidTopDownMutatorContext) VisitDirectDepsWithTag(tag blueprint.DependencyTag, visit func(Module)) {
-	a.TopDownMutatorContext.VisitDirectDeps(func(module blueprint.Module) {
-		if aModule, _ := module.(Module); aModule != nil {
-			if a.TopDownMutatorContext.OtherModuleDependencyTag(aModule) == tag {
-				visit(aModule)
-			}
-		}
-	})
+func (b *bottomUpMutatorContext) Rename(name string) {
+	b.bp.Rename(name)
+	b.Module().base().commonProperties.DebugName = name
 }
 
-func (a *androidTopDownMutatorContext) VisitDirectDepsIf(pred func(Module) bool, visit func(Module)) {
-	a.TopDownMutatorContext.VisitDirectDepsIf(
-		// pred
-		func(module blueprint.Module) bool {
-			if aModule, _ := module.(Module); aModule != nil {
-				return pred(aModule)
-			} else {
-				return false
-			}
-		},
-		// visit
-		func(module blueprint.Module) {
-			visit(module.(Module))
-		})
+func (b *bottomUpMutatorContext) AddDependency(module blueprint.Module, tag blueprint.DependencyTag, name ...string) {
+	b.bp.AddDependency(module, tag, name...)
 }
 
-func (a *androidTopDownMutatorContext) VisitDepsDepthFirst(visit func(Module)) {
-	a.TopDownMutatorContext.VisitDepsDepthFirst(func(module blueprint.Module) {
-		if aModule, _ := module.(Module); aModule != nil {
-			visit(aModule)
-		}
-	})
+func (b *bottomUpMutatorContext) AddReverseDependency(module blueprint.Module, tag blueprint.DependencyTag, name string) {
+	b.bp.AddReverseDependency(module, tag, name)
 }
 
-func (a *androidTopDownMutatorContext) VisitDepsDepthFirstIf(pred func(Module) bool, visit func(Module)) {
-	a.TopDownMutatorContext.VisitDepsDepthFirstIf(
-		// pred
-		func(module blueprint.Module) bool {
-			if aModule, _ := module.(Module); aModule != nil {
-				return pred(aModule)
-			} else {
-				return false
-			}
-		},
-		// visit
-		func(module blueprint.Module) {
-			visit(module.(Module))
-		})
-}
-
-func (a *androidTopDownMutatorContext) WalkDeps(visit func(Module, Module) bool) {
-	a.walkPath = []Module{a.Module()}
-	a.TopDownMutatorContext.WalkDeps(func(child, parent blueprint.Module) bool {
-		childAndroidModule, _ := child.(Module)
-		parentAndroidModule, _ := parent.(Module)
-		if childAndroidModule != nil && parentAndroidModule != nil {
-			// record walkPath before visit
-			for a.walkPath[len(a.walkPath)-1] != parentAndroidModule {
-				a.walkPath = a.walkPath[0 : len(a.walkPath)-1]
-			}
-			a.walkPath = append(a.walkPath, childAndroidModule)
-			return visit(childAndroidModule, parentAndroidModule)
-		} else {
-			return false
-		}
-	})
-}
-
-func (a *androidTopDownMutatorContext) GetWalkPath() []Module {
-	return a.walkPath
-}
-
-func (a *androidTopDownMutatorContext) AppendProperties(props ...interface{}) {
-	for _, p := range props {
-		err := proptools.AppendMatchingProperties(a.Module().base().customizableProperties,
-			p, nil)
-		if err != nil {
-			if propertyErr, ok := err.(*proptools.ExtendPropertyError); ok {
-				a.PropertyErrorf(propertyErr.Property, "%s", propertyErr.Err.Error())
-			} else {
-				panic(err)
-			}
-		}
+func (b *bottomUpMutatorContext) CreateVariations(variations ...string) []Module {
+	if b.finalPhase {
+		panic("CreateVariations not allowed in FinalDepsMutators")
 	}
+
+	modules := b.bp.CreateVariations(variations...)
+
+	aModules := make([]Module, len(modules))
+	for i := range variations {
+		aModules[i] = modules[i].(Module)
+		base := aModules[i].base()
+		base.commonProperties.DebugMutators = append(base.commonProperties.DebugMutators, b.MutatorName())
+		base.commonProperties.DebugVariations = append(base.commonProperties.DebugVariations, variations[i])
+	}
+
+	return aModules
 }
 
-func (a *androidTopDownMutatorContext) PrependProperties(props ...interface{}) {
-	for _, p := range props {
-		err := proptools.PrependMatchingProperties(a.Module().base().customizableProperties,
-			p, nil)
-		if err != nil {
-			if propertyErr, ok := err.(*proptools.ExtendPropertyError); ok {
-				a.PropertyErrorf(propertyErr.Property, "%s", propertyErr.Err.Error())
-			} else {
-				panic(err)
-			}
-		}
+func (b *bottomUpMutatorContext) CreateLocalVariations(variations ...string) []Module {
+	if b.finalPhase {
+		panic("CreateLocalVariations not allowed in FinalDepsMutators")
 	}
+
+	modules := b.bp.CreateLocalVariations(variations...)
+
+	aModules := make([]Module, len(modules))
+	for i := range variations {
+		aModules[i] = modules[i].(Module)
+		base := aModules[i].base()
+		base.commonProperties.DebugMutators = append(base.commonProperties.DebugMutators, b.MutatorName())
+		base.commonProperties.DebugVariations = append(base.commonProperties.DebugVariations, variations[i])
+	}
+
+	return aModules
+}
+
+func (b *bottomUpMutatorContext) SetDependencyVariation(variation string) {
+	b.bp.SetDependencyVariation(variation)
+}
+
+func (b *bottomUpMutatorContext) SetDefaultDependencyVariation(variation *string) {
+	b.bp.SetDefaultDependencyVariation(variation)
+}
+
+func (b *bottomUpMutatorContext) AddVariationDependencies(variations []blueprint.Variation, tag blueprint.DependencyTag,
+	names ...string) {
+
+	b.bp.AddVariationDependencies(variations, tag, names...)
+}
+
+func (b *bottomUpMutatorContext) AddFarVariationDependencies(variations []blueprint.Variation,
+	tag blueprint.DependencyTag, names ...string) {
+
+	b.bp.AddFarVariationDependencies(variations, tag, names...)
+}
+
+func (b *bottomUpMutatorContext) AddInterVariantDependency(tag blueprint.DependencyTag, from, to blueprint.Module) {
+	b.bp.AddInterVariantDependency(tag, from, to)
+}
+
+func (b *bottomUpMutatorContext) ReplaceDependencies(name string) {
+	b.bp.ReplaceDependencies(name)
+}
+
+func (b *bottomUpMutatorContext) AliasVariation(variationName string) {
+	b.bp.AliasVariation(variationName)
 }

@@ -70,6 +70,7 @@ class firmware_EventLog(FirmwareTest):
         self.host.run('restart powerd')
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.faft_config.has_eventlog:
             raise error.TestNAError('This board has no eventlog support.')
 

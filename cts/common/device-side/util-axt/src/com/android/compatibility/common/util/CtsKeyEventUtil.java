@@ -191,7 +191,7 @@ public final class CtsKeyEventUtil {
                 metaState, deviceId, scanCode, flags, source);
 
         InputMethodManager imm = targetView.getContext().getSystemService(InputMethodManager.class);
-        imm.dispatchKeyEventFromInputMethod(null, newEvent);
+        imm.dispatchKeyEventFromInputMethod(imm.isActive() ? null : targetView, newEvent);
         instrumentation.waitForIdleSync();
     }
 

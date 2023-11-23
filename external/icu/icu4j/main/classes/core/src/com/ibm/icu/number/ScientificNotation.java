@@ -2,18 +2,20 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 package com.ibm.icu.number;
 
+import java.text.Format.Field;
+
+import com.ibm.icu.impl.FormattedStringBuilder;
+import com.ibm.icu.impl.number.ConstantAffixModifier;
 import com.ibm.icu.impl.number.DecimalQuantity;
 import com.ibm.icu.impl.number.MicroProps;
 import com.ibm.icu.impl.number.MicroPropsGenerator;
 import com.ibm.icu.impl.number.Modifier;
 import com.ibm.icu.impl.number.MultiplierProducer;
-import com.ibm.icu.impl.number.NumberStringBuilder;
 import com.ibm.icu.impl.number.RoundingUtils;
 import com.ibm.icu.number.NumberFormatter.SignDisplay;
 import com.ibm.icu.number.Precision.SignificantRounderImpl;
 import com.ibm.icu.text.DecimalFormatSymbols;
 import com.ibm.icu.text.NumberFormat;
-import com.ibm.icu.text.NumberFormat.Field;
 
 /**
  * A class that defines the scientific notation style to be used when formatting numbers in
@@ -22,11 +24,10 @@ import com.ibm.icu.text.NumberFormat.Field;
  * <p>
  * To create a ScientificNotation, use one of the factory methods in {@link Notation}.
  *
- * @draft ICU 60
- * @provisional This API might change or be removed in a future release.
+ * @stable ICU 60
  * @see NumberFormatter
  */
-public class ScientificNotation extends Notation implements Cloneable {
+public class ScientificNotation extends Notation {
 
     int engineeringInterval;
     boolean requireMinInt;
@@ -55,13 +56,13 @@ public class ScientificNotation extends Notation implements Cloneable {
      * @param minExponentDigits
      *            The minimum number of digits to show in the exponent.
      * @return A ScientificNotation, for chaining.
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @throws IllegalArgumentException if minExponentDigits is too big or smaller than 1
+     * @stable ICU 60
      * @see NumberFormatter
      */
     public ScientificNotation withMinExponentDigits(int minExponentDigits) {
         if (minExponentDigits >= 1 && minExponentDigits <= RoundingUtils.MAX_INT_FRAC_SIG) {
-            ScientificNotation other = (ScientificNotation) this.clone();
+            ScientificNotation other = createCopy();
             other.minExponentDigits = minExponentDigits;
             return other;
         } else {
@@ -82,28 +83,23 @@ public class ScientificNotation extends Notation implements Cloneable {
      * @param exponentSignDisplay
      *            The strategy for displaying the sign in the exponent.
      * @return A ScientificNotation, for chaining.
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      * @see NumberFormatter
      */
     public ScientificNotation withExponentSignDisplay(SignDisplay exponentSignDisplay) {
-        ScientificNotation other = (ScientificNotation) this.clone();
+        ScientificNotation other = createCopy();
         other.exponentSignDisplay = exponentSignDisplay;
         return other;
     }
 
-    /**
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
-     */
-    @Override
-    public Object clone() {
-        try {
-            return super.clone();
-        } catch (CloneNotSupportedException e) {
-            // Should not happen since parent is Object
-            throw new AssertionError(e);
-        }
+    /** Package-private clone method */
+    ScientificNotation createCopy() {
+        return new ScientificNotation(
+            engineeringInterval,
+            requireMinInt,
+            minExponentDigits,
+            exponentSignDisplay
+        );
     }
 
     /* package-private */ MicroPropsGenerator withLocaleData(
@@ -161,9 +157,15 @@ public class ScientificNotation extends Notation implements Cloneable {
             MicroProps micros = parent.processQuantity(quantity);
             assert micros.rounder != null;
 
+            // Do not apply scientific notation to special doubles
+            if (quantity.isInfinite() || quantity.isNaN()) {
+                micros.modInner = ConstantAffixModifier.EMPTY;
+                return micros;
+            }
+
             // Treat zero as if it had magnitude 0
             int exponent;
-            if (quantity.isZero()) {
+            if (quantity.isZeroish()) {
                 if (notation.requireMinInt && micros.rounder instanceof SignificantRounderImpl) {
                     // Show "00.000E0" on pattern "00.000E0"
                     ((SignificantRounderImpl) micros.rounder).apply(quantity,
@@ -255,11 +257,11 @@ public class ScientificNotation extends Notation implements Cloneable {
         }
 
         @Override
-        public int apply(NumberStringBuilder output, int leftIndex, int rightIndex) {
+        public int apply(FormattedStringBuilder output, int leftIndex, int rightIndex) {
             return doApply(exponent, output, rightIndex);
         }
 
-        private int doApply(int exponent, NumberStringBuilder output, int rightIndex) {
+        private int doApply(int exponent, FormattedStringBuilder output, int rightIndex) {
             // FIXME: Localized exponent separator location.
             int i = rightIndex;
             // Append the exponent separator and sign
@@ -290,7 +292,7 @@ public class ScientificNotation extends Notation implements Cloneable {
         }
 
         @Override
-        public int apply(NumberStringBuilder output, int leftIndex, int rightIndex) {
+        public int apply(FormattedStringBuilder output, int leftIndex, int rightIndex) {
             return handler.doApply(exponent, output, rightIndex);
         }
 

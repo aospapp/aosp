@@ -36,10 +36,8 @@ static const size_t maxTotalSize = 2 * 1024 * 1024;
 namespace android {
 
 class NNCacheTest : public ::testing::TestWithParam<NNCache::Policy> {
-protected:
-    virtual void SetUp() {
-        mCache = NNCache::get();
-    }
+   protected:
+    virtual void SetUp() { mCache = NNCache::get(); }
 
     virtual void TearDown() {
         mCache->setCacheFilename("");
@@ -49,18 +47,19 @@ protected:
     NNCache* mCache;
 };
 
-INSTANTIATE_TEST_CASE_P(Policy, NNCacheTest,
-    ::testing::Values(NNCache::Policy(NNCache::Select::RANDOM, NNCache::Capacity::HALVE),
-                      NNCache::Policy(NNCache::Select::LRU, NNCache::Capacity::HALVE),
+INSTANTIATE_TEST_CASE_P(
+        Policy, NNCacheTest,
+        ::testing::Values(NNCache::Policy(NNCache::Select::RANDOM, NNCache::Capacity::HALVE),
+                          NNCache::Policy(NNCache::Select::LRU, NNCache::Capacity::HALVE),
 
-                      NNCache::Policy(NNCache::Select::RANDOM, NNCache::Capacity::FIT),
-                      NNCache::Policy(NNCache::Select::LRU, NNCache::Capacity::FIT),
+                          NNCache::Policy(NNCache::Select::RANDOM, NNCache::Capacity::FIT),
+                          NNCache::Policy(NNCache::Select::LRU, NNCache::Capacity::FIT),
 
-                      NNCache::Policy(NNCache::Select::RANDOM, NNCache::Capacity::FIT_HALVE),
-                      NNCache::Policy(NNCache::Select::LRU, NNCache::Capacity::FIT_HALVE)));
+                          NNCache::Policy(NNCache::Select::RANDOM, NNCache::Capacity::FIT_HALVE),
+                          NNCache::Policy(NNCache::Select::LRU, NNCache::Capacity::FIT_HALVE)));
 
 TEST_P(NNCacheTest, UninitializedCacheAlwaysMisses) {
-    uint8_t buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    uint8_t buf[4] = {0xee, 0xee, 0xee, 0xee};
     mCache->setBlob("abcd", 4, "efgh", 4);
     ASSERT_EQ(0, mCache->getBlob("abcd", 4, buf, 4));
     ASSERT_EQ(0xee, buf[0]);
@@ -70,7 +69,7 @@ TEST_P(NNCacheTest, UninitializedCacheAlwaysMisses) {
 }
 
 TEST_P(NNCacheTest, InitializedCacheAlwaysHits) {
-    uint8_t buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    uint8_t buf[4] = {0xee, 0xee, 0xee, 0xee};
     mCache->initialize(maxKeySize, maxValueSize, maxTotalSize, GetParam());
     mCache->setBlob("abcd", 4, "efgh", 4);
     ASSERT_EQ(4, mCache->getBlob("abcd", 4, buf, 4));
@@ -81,7 +80,7 @@ TEST_P(NNCacheTest, InitializedCacheAlwaysHits) {
 }
 
 TEST_P(NNCacheTest, TerminatedCacheAlwaysMisses) {
-    uint8_t buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    uint8_t buf[4] = {0xee, 0xee, 0xee, 0xee};
     mCache->initialize(maxKeySize, maxValueSize, maxTotalSize, GetParam());
     mCache->setBlob("abcd", 4, "efgh", 4);
 
@@ -122,18 +121,17 @@ TEST_P(NNCacheTest, ExceedingTotalLimitFitsBigEntry) {
     }
     // Insert one more entry, causing a cache overflow.
     const int bigValueSize = std::min((MAX_TOTAL_SIZE * 3) / 4 - 1, int(MAX_VALUE_SIZE));
-    ASSERT_GT(bigValueSize+1, MAX_TOTAL_SIZE / 2);  // Check testing assumption
+    ASSERT_GT(bigValueSize + 1, MAX_TOTAL_SIZE / 2);  // Check testing assumption
     {
         unsigned char buf[MAX_VALUE_SIZE];
-        for (int i = 0; i < bigValueSize; i++)
-            buf[i] = 0xee;
+        for (int i = 0; i < bigValueSize; i++) buf[i] = 0xee;
         uint8_t k = maxEntries;
         mCache->setBlob(&k, 1, buf, bigValueSize);
     }
     // Count the number and size of entries in the cache.
     int numCached = 0;
     size_t sizeCached = 0;
-    for (int i = 0; i < maxEntries+1; i++) {
+    for (int i = 0; i < maxEntries + 1; i++) {
         uint8_t k = i;
         size_t size = mCache->getBlob(&k, 1, NULL, 0);
         if (size) {
@@ -145,8 +143,8 @@ TEST_P(NNCacheTest, ExceedingTotalLimitFitsBigEntry) {
         case NNCache::Capacity::HALVE:
             // New value is too big for this cleaning algorithm.  So
             // we cleaned the cache, but did not insert the new value.
-            ASSERT_EQ(maxEntries/2, numCached);
-            ASSERT_EQ(size_t((maxEntries/2)*2), sizeCached);
+            ASSERT_EQ(maxEntries / 2, numCached);
+            ASSERT_EQ(size_t((maxEntries / 2) * 2), sizeCached);
             break;
         case NNCache::Capacity::FIT:
         case NNCache::Capacity::FIT_HALVE: {
@@ -175,9 +173,7 @@ TEST_P(NNCacheTest, ExceedingTotalLimitFitsBigEntry) {
 }
 
 class NNCacheSerializationTest : public NNCacheTest {
-
-protected:
-
+   protected:
     virtual void SetUp() {
         NNCacheTest::SetUp();
         mTempFile.reset(new TemporaryFile());
@@ -190,7 +186,7 @@ protected:
 
     std::unique_ptr<TemporaryFile> mTempFile;
 
-    void yesStringBlob(const char *key, const char *value) {
+    void yesStringBlob(const char* key, const char* value) {
         SCOPED_TRACE(key);
 
         uint8_t buf[10];
@@ -206,7 +202,7 @@ protected:
         }
     }
 
-    void noStringBlob(const char *key) {
+    void noStringBlob(const char* key) {
         SCOPED_TRACE(key);
 
         uint8_t buf[10];
@@ -219,11 +215,10 @@ protected:
             ASSERT_EQ(0xee, buf[i]);
         }
     }
-
 };
 
 TEST_P(NNCacheSerializationTest, ReinitializedCacheContainsValues) {
-    uint8_t buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    uint8_t buf[4] = {0xee, 0xee, 0xee, 0xee};
     mCache->setCacheFilename(&mTempFile->path[0]);
     mCache->initialize(maxKeySize, maxValueSize, maxTotalSize, GetParam());
     mCache->setBlob("abcd", 4, "efgh", 4);
@@ -235,7 +230,7 @@ TEST_P(NNCacheSerializationTest, ReinitializedCacheContainsValues) {
     // - we do not modify the buffer that value pointer originally points to
     // - the value pointer gets set to something other than nullptr
     // - the newly-allocated buffer is set properly
-    uint8_t *bufPtr = &buf[0];
+    uint8_t* bufPtr = &buf[0];
     ASSERT_EQ(4, mCache->getBlob("abcd", 4, &bufPtr, malloc));
     ASSERT_EQ(0xee, buf[0]);
     ASSERT_EQ(0xee, buf[1]);
@@ -273,8 +268,8 @@ TEST_P(NNCacheSerializationTest, ReinitializedCacheContainsValuesSizeConstrained
         SCOPED_TRACE("after second initialize()");
         yesStringBlob("abcd", "efgh");
         noStringBlob("abcdef");  // key too large
-        noStringBlob("ab");  // value too large
+        noStringBlob("ab");      // value too large
     }
 }
 
-}
+}  // namespace android

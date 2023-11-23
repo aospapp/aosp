@@ -1,17 +1,14 @@
 #!/bin/bash
+# Script to update Android make-files for HAL modules.
 
-packages=(
-    android.hidl.allocator@1.0
-    android.hidl.base@1.0
-    android.hidl.manager@1.0
-    android.hidl.manager@1.1
-    android.hidl.manager@1.2
-    android.hidl.memory@1.0
-    android.hidl.safe_union@1.0
-    android.hidl.token@1.0
-)
+set -e
 
-for package in "${packages[@]}"; do
-    echo "Updating $package."
-    hidl-gen -Landroidbp -r android.hidl:system/libhidl/transport $package
-done
+if [ -z "$ANDROID_BUILD_TOP" ]; then
+    echo "Missing ANDROID_BUILD_TOP env variable. Run 'lunch' first."
+    exit 1
+fi
+
+source $ANDROID_BUILD_TOP/system/tools/hidl/update-makefiles-helper.sh
+
+do_makefiles_update \
+  "android.hidl:system/libhidl/transport"

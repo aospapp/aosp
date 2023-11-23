@@ -39,7 +39,6 @@ public class VtsPythonRunnerHelperTest {
     private static final String[] mPythonCmd = {"python"};
     private static final long mTestTimeout = 1000 * 5;
 
-    private ProcessHelper mProcessHelper = null;
     private VtsPythonRunnerHelper mVtsPythonRunnerHelper = null;
     private String mVirtualenvPath = "virtualenv_path_" + System.currentTimeMillis();
 
@@ -47,48 +46,6 @@ public class VtsPythonRunnerHelperTest {
     public void setUp() throws Exception {
         IFolderBuildInfo buildInfo = EasyMock.createNiceMock(IFolderBuildInfo.class);
         EasyMock.replay(buildInfo);
-        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(new File(mVirtualenvPath), null) {
-            @Override
-            protected ProcessHelper createProcessHelper(String[] cmd) {
-                return mProcessHelper;
-            }
-        };
-    }
-
-    /**
-     * Create a process helper which mocks status of a running process.
-     */
-    private static ProcessHelper createMockProcessHelper(
-            CommandStatus status, boolean interrupted, boolean keepRunning) {
-        Process process;
-        try {
-            process = new ProcessBuilder("true").start();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return new ProcessHelper(process) {
-            @Override
-            public CommandStatus waitForProcess(long timeoutMsecs) throws RunInterruptedException {
-                if (interrupted) {
-                    throw new RunInterruptedException();
-                }
-                return status;
-            }
-
-            @Override
-            public boolean isRunning() {
-                return keepRunning;
-            }
-        };
-    }
-
-    private static ProcessHelper createMockProcessHelper(
-            CommandStatus status, boolean interrupted) {
-        return createMockProcessHelper(status, interrupted, /*keepRunning=*/false);
-    }
-
-    private static ProcessHelper createMockProcessHelper(CommandStatus status) {
-        return createMockProcessHelper(status, /*interrupted=*/false, /*keepRunning=*/false);
     }
 
     /**
@@ -125,44 +82,76 @@ public class VtsPythonRunnerHelperTest {
         return runUtil;
     }
 
+    /**
+     * Create a mock runUtil with returns the expected command status.
+     */
+    private IRunUtil createMockRunUtil(CommandStatus status) {
+        IRunUtil runUtil = EasyMock.createMock(IRunUtil.class);
+        EasyMock.expect(runUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.anyObject(),
+                                EasyMock.anyObject(), EasyMock.anyObject()))
+                .andReturn(new CommandResult(status));
+        runUtil.setWorkingDir(null);
+        return runUtil;
+    }
+
     @Test
     public void testProcessRunSuccess() {
+        IRunUtil runUtil = createMockRunUtil(CommandStatus.SUCCESS);
+        EasyMock.replay(runUtil);
+        mVtsPythonRunnerHelper =
+                new VtsPythonRunnerHelper(new File(mVirtualenvPath), null, runUtil);
         CommandResult commandResult = new CommandResult();
-        mProcessHelper = createMockProcessHelper(CommandStatus.SUCCESS);
         String interruptMessage =
                 mVtsPythonRunnerHelper.runPythonRunner(mPythonCmd, commandResult, mTestTimeout);
         assertEquals(interruptMessage, null);
         assertEquals(commandResult.getStatus(), CommandStatus.SUCCESS);
+        EasyMock.verify(runUtil);
     }
 
     @Test
     public void testProcessRunFailed() {
+        IRunUtil runUtil = createMockRunUtil(CommandStatus.FAILED);
+        EasyMock.replay(runUtil);
+        mVtsPythonRunnerHelper =
+                new VtsPythonRunnerHelper(new File(mVirtualenvPath), null, runUtil);
         CommandResult commandResult = new CommandResult();
-        mProcessHelper = createMockProcessHelper(CommandStatus.FAILED);
         String interruptMessage =
                 mVtsPythonRunnerHelper.runPythonRunner(mPythonCmd, commandResult, mTestTimeout);
         assertEquals(interruptMessage, null);
         assertEquals(commandResult.getStatus(), CommandStatus.FAILED);
+        EasyMock.verify(runUtil);
     }
 
     @Test
     public void testProcessRunTimeout() {
+        IRunUtil runUtil = createMockRunUtil(CommandStatus.TIMED_OUT);
+        EasyMock.replay(runUtil);
+        mVtsPythonRunnerHelper =
+                new VtsPythonRunnerHelper(new File(mVirtualenvPath), null, runUtil);
         CommandResult commandResult = new CommandResult();
-        mProcessHelper = createMockProcessHelper(CommandStatus.TIMED_OUT);
         String interruptMessage =
                 mVtsPythonRunnerHelper.runPythonRunner(mPythonCmd, commandResult, mTestTimeout);
         assertEquals(interruptMessage, null);
         assertEquals(commandResult.getStatus(), CommandStatus.TIMED_OUT);
+        EasyMock.verify(runUtil);
     }
 
     @Test
     public void testProcessRunInterrupted() {
+        IRunUtil runUtil = EasyMock.createMock(IRunUtil.class);
+        EasyMock.expect(runUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.anyObject(),
+                                EasyMock.anyObject(), EasyMock.anyObject()))
+                .andThrow(new RunInterruptedException("abort"));
+        runUtil.setWorkingDir(null);
+        EasyMock.replay(runUtil);
+        mVtsPythonRunnerHelper =
+                new VtsPythonRunnerHelper(new File(mVirtualenvPath), null, runUtil);
         CommandResult commandResult = new CommandResult();
-        mProcessHelper = createMockProcessHelper(null, /*interrupted=*/true);
         String interruptMessage =
                 mVtsPythonRunnerHelper.runPythonRunner(mPythonCmd, commandResult, mTestTimeout);
         assertNotEquals(interruptMessage, null);
         assertEquals(commandResult.getStatus(), CommandStatus.TIMED_OUT);
+        EasyMock.verify(runUtil);
     }
 
     @Test

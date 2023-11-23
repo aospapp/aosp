@@ -16,10 +16,11 @@
 #ifndef _GL_ENCODER_H_
 #define _GL_ENCODER_H_
 
+#include <vector>
+
 #include "gl_enc.h"
 #include "GLClientState.h"
 #include "GLSharedGroup.h"
-#include "FixedBuffer.h"
 #include "ChecksumCalculator.h"
 
 class GLEncoder : public gl_encoder_context_t {
@@ -53,7 +54,7 @@ private:
     GLClientState *m_state;
     GLSharedGroupPtr m_shared;
     GLenum  m_error;
-    FixedBuffer m_fixedBuffer;
+    std::vector<char> m_fixedBuffer;
     GLint *m_compressedTextureFormats;
     GLint m_num_compressedTextureFormats;
 

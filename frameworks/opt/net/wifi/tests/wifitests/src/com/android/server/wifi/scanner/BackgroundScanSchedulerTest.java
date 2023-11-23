@@ -32,6 +32,7 @@ import android.util.ArraySet;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.WifiNative.BucketSettings;
 import com.android.server.wifi.scanner.KnownBandsChannelHelper.KnownBandsChannelCollection;
@@ -50,7 +51,7 @@ import java.util.Set;
  * Unit tests for {@link com.android.server.wifi.scanner.BackgroundScanScheduler}.
  */
 @SmallTest
-public class BackgroundScanSchedulerTest {
+public class BackgroundScanSchedulerTest extends WifiBaseTest {
 
     private static final int DEFAULT_MAX_BUCKETS = 9;
     private static final int DEFAULT_MAX_CHANNELS_PER_BUCKET = 23;
@@ -65,7 +66,8 @@ public class BackgroundScanSchedulerTest {
         mChannelHelper = new PresetKnownBandsChannelHelper(
                 new int[]{2400, 2450},
                 new int[]{5150, 5175},
-                new int[]{5600, 5650, 5660});
+                new int[]{5600, 5650, 5660},
+                new int[]{5945, 5985});
         mScheduler = new BackgroundScanScheduler(mChannelHelper);
         mScheduler.setMaxBuckets(DEFAULT_MAX_BUCKETS);
         mScheduler.setMaxChannelsPerBucket(DEFAULT_MAX_CHANNELS_PER_BUCKET);
@@ -417,8 +419,8 @@ public class BackgroundScanSchedulerTest {
     @Test
     public void singleExponentialBackOffRequest() {
         Collection<ScanSettings> requests = Collections.singleton(createRequest(
-                WifiScanner.TYPE_LOW_LATENCY, WifiScanner.WIFI_BAND_BOTH, 30000, 160000, 2, 0, 20,
-                WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN
+                WifiScanner.SCAN_TYPE_LOW_LATENCY, WifiScanner.WIFI_BAND_BOTH,
+                30000, 160000, 2, 0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN
         ));
 
         mScheduler.updateSchedule(requests);
@@ -434,8 +436,8 @@ public class BackgroundScanSchedulerTest {
     @Test
     public void exponentialBackOffAndRegularRequests() {
         Collection<ScanSettings> requests = new ArrayList<>();
-        requests.add(createRequest(WifiScanner.TYPE_LOW_LATENCY, WifiScanner.WIFI_BAND_BOTH, 30000,
-                200000, 1, 0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN));
+        requests.add(createRequest(WifiScanner.SCAN_TYPE_LOW_LATENCY, WifiScanner.WIFI_BAND_BOTH,
+                30000, 200000, 1, 0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN));
         requests.add(createRequest(channelsToSpec(5175), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_AFTER_BUFFER_FULL));
 

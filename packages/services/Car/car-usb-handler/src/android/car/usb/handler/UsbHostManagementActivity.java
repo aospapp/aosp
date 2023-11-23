@@ -80,7 +80,6 @@ public class UsbHostManagementActivity extends Activity {
         if (connectedDevice != null) {
             mController.processDevice(connectedDevice);
         } else {
-            unregisterResolveBroadcastReceiver();
             finish();
         }
     }
@@ -90,8 +89,8 @@ public class UsbHostManagementActivity extends Activity {
             // We could have been unregistered after receiving the intent but before processing it,
             // so make sure we are still registered.
             if (mReceiverRegistered) {
-                processDevice();
                 unregisterResolveBroadcastReceiver();
+                processDevice();
             }
         }
     }

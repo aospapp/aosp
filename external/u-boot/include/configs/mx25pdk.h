@@ -28,7 +28,6 @@
 
 /* Physical Memory Map */
 
-#define CONFIG_NR_DRAM_BANKS	1
 #define PHYS_SDRAM_1		0x80000000
 #define PHYS_SDRAM_1_SIZE	(64 * 1024 * 1024)
 
@@ -50,8 +49,6 @@
 #define CONFIG_MXC_UART_BASE	UART1_BASE
 
 /* No NOR flash present */
-#define CONFIG_ENV_OFFSET      (6 * 64 * 1024)
-#define CONFIG_ENV_SIZE        (8 * 1024)
 #define CONFIG_SYS_MMC_ENV_DEV		0
 
 /* U-Boot general configuration */
@@ -62,7 +59,6 @@
 /* Ethernet */
 #define CONFIG_FEC_MXC
 #define CONFIG_FEC_MXC_PHYADDR		0x1f
-#define CONFIG_MII
 #define CONFIG_ENV_OVERWRITE
 
 /* ESDHC driver */

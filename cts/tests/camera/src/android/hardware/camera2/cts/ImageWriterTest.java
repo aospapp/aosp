@@ -17,8 +17,10 @@
 package android.hardware.camera2.cts;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
+import static junit.framework.Assert.*;
 
 import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.CameraDevice;
@@ -38,6 +40,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.Test;
+
 /**
  * <p>
  * Basic test for ImageWriter APIs. ImageWriter takes the images produced by
@@ -45,6 +51,7 @@ import java.util.List;
  * interface or ImageReader.
  * </p>
  */
+@RunWith(Parameterized.class)
 public class ImageWriterTest extends Camera2AndroidTestCase {
     private static final String TAG = "ImageWriterTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -56,7 +63,7 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
     private ImageWriter mWriter;
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         try {
             closeImageReader(mReaderForWriter);
         } finally {
@@ -88,8 +95,9 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
      * interface.</li>
      * </p>
      */
+    @Test
     public void testYuvImageWriterReaderOperation() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 Log.i(TAG, "Testing Camera " + id);
                 if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
@@ -110,8 +118,9 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
      * factory method of ImageReader and ImageWriter.
      * </p>
      */
+    @Test
     public void testYuvImageWriterReaderOperationAlt() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 Log.i(TAG, "Testing Camera " + id);
                 if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
@@ -126,6 +135,7 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
         }
     }
 
+    @Test
     public void testAbandonedSurfaceExceptions() throws Exception {
         final int READER_WIDTH = 1920;
         final int READER_HEIGHT = 1080;
@@ -166,6 +176,29 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
         } catch (IllegalStateException e) {
             // Expected
         } finally {
+            writer.close();
+        }
+    }
+
+    @Test
+    public void testWriterFormatOverride() throws Exception {
+        int[] TEXTURE_TEST_FORMATS = {ImageFormat.YV12, ImageFormat.YUV_420_888};
+        SurfaceTexture texture = new SurfaceTexture(/*random int*/1);
+        texture.setDefaultBufferSize(640, 480);
+        Surface surface = new Surface(texture);
+
+        // Make sure that the default newInstance is still valid.
+        ImageWriter defaultWriter = ImageWriter.newInstance(surface, MAX_NUM_IMAGES);
+        Image defaultImage = defaultWriter.dequeueInputImage();
+        defaultWriter.close();
+
+        for (int format : TEXTURE_TEST_FORMATS) {
+            // Override default buffer format of Surface texture to test format
+            ImageWriter writer = ImageWriter.newInstance(surface, MAX_NUM_IMAGES, format);
+            Image image = writer.dequeueInputImage();
+            Log.i(TAG, "testing format " + format + ", got input image format " +
+                    image.getFormat());
+            assertTrue(image.getFormat() == format);
             writer.close();
         }
     }

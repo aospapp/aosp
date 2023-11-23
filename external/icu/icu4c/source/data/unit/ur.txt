@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ur{
-    Version{"2.1.44.3"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -52,6 +52,11 @@ ur{
                 dnam{"ایکڑ"}
                 one{"{0} ایکڑ"}
                 other{"{0} ایکڑ"}
+            }
+            dunam{
+                dnam{"دُنامز"}
+                one{"{0} دُنام"}
+                other{"{0} دُنامز"}
             }
             hectare{
                 dnam{"ہیکٹر"}
@@ -118,6 +123,11 @@ ur{
                 one{"{0} ملی مول فی لیٹر"}
                 other{"{0} ملی مول فی لیٹر"}
             }
+            mole{
+                dnam{"مولز"}
+                one{"{0} مول"}
+                other{"{0} مولز"}
+            }
             part-per-million{
                 dnam{"فی ملین حصے"}
                 one{"{0} فی ملین حصے"}
@@ -132,6 +142,11 @@ ur{
                 dnam{"فی ہزار"}
                 one{"{0} فی ہزار"}
                 other{"{0} فی ہزار"}
+            }
+            permyriad{
+                dnam{"پرمرئیڈ"}
+                one{"{0} پرمرئیڈ"}
+                other{"{0} پرمرئیڈ"}
             }
         }
         consumption{
@@ -232,6 +247,11 @@ ur{
                 other{"{0} دن"}
                 per{"{0} فی دن"}
             }
+            decade{
+                dnam{"دہائیاں"}
+                one{"{0} دہائی"}
+                other{"{0} دہائیاں"}
+            }
             hour{
                 dnam{"گھنٹے"}
                 one{"{0} گھنٹہ"}
@@ -307,10 +327,20 @@ ur{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"برطانوی تھرمل اکائیاں"}
+                one{"{0} برطانوی تھرمل اکائی"}
+                other{"{0} برطانوی تھرمل اکائیاں"}
+            }
             calorie{
                 dnam{"کیلوریز"}
                 one{"{0} کیلوری"}
                 other{"{0} کیلوریز"}
+            }
+            electronvolt{
+                dnam{"الیکٹرون وولٹس"}
+                one{"{0} الیکٹرون وولٹ"}
+                other{"{0} الیکٹرون وولٹس"}
             }
             foodcalorie{
                 dnam{"کیلوریز"}
@@ -337,6 +367,23 @@ ur{
                 one{"{0} کلو واٹ آور"}
                 other{"{0} کلو واٹ آور"}
             }
+            therm-us{
+                dnam{"امریکی تھرمز"}
+                one{"{0} امریکی تھرم"}
+                other{"{0} امریکی تھرمز"}
+            }
+        }
+        force{
+            newton{
+                dnam{"نیوٹنز"}
+                one{"{0} نیوٹن"}
+                other{"{0} نیوٹنز"}
+            }
+            pound-force{
+                dnam{"پاؤنڈز قوت"}
+                one{"{0} پاؤنڈ قوت"}
+                other{"{0} پاؤنڈز قوت"}
+            }
         }
         frequency{
             gigahertz{
@@ -358,6 +405,43 @@ ur{
                 dnam{"میگاہرٹز"}
                 one{"{0} میگاہرٹز"}
                 other{"{0} میگاہرٹز"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"ڈاٹس فی سینٹی میٹر"}
+                one{"{0} ڈاٹ فی سینٹی میٹر"}
+                other{"{0} ڈاٹس فی سینٹی میٹر"}
+            }
+            dot-per-inch{
+                dnam{"ڈاٹس فی انچ"}
+                one{"{0} ڈاٹ فی انچ"}
+                other{"{0} ڈاٹس فی انچ"}
+            }
+            em{
+                dnam{"ٹائپوگرافک em"}
+                one{"{0} em"}
+                other{"{0} ems"}
+            }
+            megapixel{
+                dnam{"میگا پکسلز"}
+                one{"{0} میگا پکسل"}
+                other{"{0} میگا پکسلز"}
+            }
+            pixel{
+                dnam{"پکسلز"}
+                one{"{0} پکسل"}
+                other{"{0} پکسلز"}
+            }
+            pixel-per-centimeter{
+                dnam{"پکسلز فی سینٹی میٹر"}
+                one{"{0} پکسل فی سینٹی میٹر"}
+                other{"{0} پکسلز فی سینٹی میٹر"}
+            }
+            pixel-per-inch{
+                dnam{"پکسلز فی انچ"}
+                one{"{0} پکسل فی انچ"}
+                other{"{0} پکسلز فی انچ"}
             }
         }
         length{
@@ -451,6 +535,11 @@ ur{
                 one{"{0} پوائنٹ"}
                 other{"{0} پوائنٹس"}
             }
+            solar-radius{
+                dnam{"شمسی رداس"}
+                one{"{0} شمسی رداس"}
+                other{"{0} شمسی رداس"}
+            }
             yard{
                 dnam{"گز"}
                 one{"{0} یارڈ"}
@@ -463,12 +552,27 @@ ur{
                 one{"{0} lux"}
                 other{"{0} lux"}
             }
+            solar-luminosity{
+                dnam{"شمسی چمک"}
+                one{"{0} شمسی چمک"}
+                other{"{0} شمسی چمک"}
+            }
         }
         mass{
             carat{
                 dnam{"قیراط"}
                 one{"{0} قیراط"}
                 other{"{0} قیراط"}
+            }
+            dalton{
+                dnam{"ڈالٹنز"}
+                one{"{0} ڈالٹن"}
+                other{"{0} ڈالٹنز"}
+            }
+            earth-mass{
+                dnam{"زمینی کمیتیں"}
+                one{"{0} زمینی کمیت"}
+                other{"{0} زمینی کمیتیں"}
             }
             gram{
                 dnam{"گرام"}
@@ -513,6 +617,11 @@ ur{
                 one{"{0} پاؤنڈ"}
                 other{"{0} پاؤنڈ"}
                 per{"{0} فی پاؤنڈ"}
+            }
+            solar-mass{
+                dnam{"شمسی کمیتیں"}
+                one{"{0} شمسی کمیت"}
+                other{"{0} شمسی کمیتیں"}
             }
             stone{
                 dnam{"اسٹونز"}
@@ -563,6 +672,11 @@ ur{
                 one{"{0} ماحول"}
                 other{"{0} ماحول"}
             }
+            bar{
+                dnam{"بارز"}
+                one{"{0} بار"}
+                other{"{0} بارز"}
+            }
             hectopascal{
                 dnam{"ہیکٹو پاسکل"}
                 one{"{0} ہیکٹو پاسکل"}
@@ -573,6 +687,16 @@ ur{
                 one{"{0} انچ مرکری"}
                 other{"{0} انچ مرکری"}
             }
+            kilopascal{
+                dnam{"کلو پاسکلز"}
+                one{"{0} کلو پاسکل"}
+                other{"{0} کلو پاسکلز"}
+            }
+            megapascal{
+                dnam{"میگا پاسکلز"}
+                one{"{0} میگا پاسکل"}
+                other{"{0} میگا پاسکلز"}
+            }
             millibar{
                 dnam{"ملی بار"}
                 one{"{0} ملی بار"}
@@ -582,6 +706,11 @@ ur{
                 dnam{"ملی میٹر مرکری"}
                 one{"{0} ملی میٹر مرکری"}
                 other{"{0} ملی میٹر مرکری"}
+            }
+            pascal{
+                dnam{"پاسکل"}
+                one{"{0} پاسکل"}
+                other{"{0} پاسکل"}
             }
             pound-per-square-inch{
                 dnam{"پاؤنڈز فی مربع انچ"}
@@ -633,11 +762,28 @@ ur{
                 other{"{0} کیلون"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"نیوٹن میٹر"}
+                one{"{0} نیوٹن میٹر"}
+                other{"{0} نیوٹن میٹر"}
+            }
+            pound-foot{
+                dnam{"پاؤنڈ فٹ"}
+                one{"{0} پاؤنڈ فٹ"}
+                other{"{0} پاؤنڈ فٹ"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ایکڑ فٹ"}
                 one{"{0} ایکڑ فٹ"}
                 other{"{0} ایکڑ فٹ"}
+            }
+            barrel{
+                dnam{"بیرلز"}
+                one{"{0} بیرل"}
+                other{"{0} بیرلز"}
             }
             centiliter{
                 dnam{"سینٹی لیٹر"}
@@ -700,6 +846,11 @@ ur{
                 dnam{"فلوئڈ اونس"}
                 one{"{0} فلوئڈ اونس"}
                 other{"{0} فلوئڈ اونس"}
+            }
+            fluid-ounce-imperial{
+                dnam{"امپیریل فلوئڈ اونس"}
+                one{"{0} امپیریئل فلوئڈ اونس"}
+                other{"{0} امپیریئل فلوئڈ اونس"}
             }
             gallon{
                 dnam{"گیلن"}
@@ -1032,9 +1183,8 @@ ur{
                 other{"{0}‎°"}
             }
             fahrenheit{
-                dnam{"°F"}
                 one{"{0}‎°F"}
-                other{"{0}°F"}
+                other{"{0}‎°F"}
             }
             generic{
                 dnam{"°"}
@@ -1111,6 +1261,11 @@ ur{
                 one{"{0} ایکڑ"}
                 other{"{0} ایکڑ"}
             }
+            dunam{
+                dnam{"دُنامز"}
+                one{"{0} دُنام"}
+                other{"{0} دُنام"}
+            }
             hectare{
                 dnam{"ہیکٹر"}
                 one{"{0} ہیکٹر"}
@@ -1176,6 +1331,11 @@ ur{
                 one{"{0} mmol/L"}
                 other{"{0} mmol/L"}
             }
+            mole{
+                dnam{"مول"}
+                one{"{0} مول"}
+                other{"{0} مول"}
+            }
             part-per-million{
                 dnam{"حصے/ملین"}
                 one{"{0} ppm"}
@@ -1190,6 +1350,9 @@ ur{
                 dnam{"فی ہزار"}
                 one{"{0}‰"}
                 other{"{0}‰"}
+            }
+            permyriad{
+                dnam{"پرمرئیڈ"}
             }
         }
         consumption{
@@ -1290,6 +1453,11 @@ ur{
                 other{"{0} دن"}
                 per{"{0} فی دن"}
             }
+            decade{
+                dnam{"دہائی"}
+                one{"{0} دہائی"}
+                other{"{0} دہائی"}
+            }
             hour{
                 dnam{"گھنٹے"}
                 one{"{0} گھنٹہ"}
@@ -1365,10 +1533,16 @@ ur{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+            }
             calorie{
                 dnam{"cal"}
                 one{"{0} cal"}
                 other{"{0} cal"}
+            }
+            electronvolt{
+                dnam{"الیکٹرون وولٹ"}
             }
             foodcalorie{
                 dnam{"Cal"}
@@ -1395,6 +1569,19 @@ ur{
                 one{"{0} kWh"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"امریکی تھرم"}
+                one{"{0} امریکی تھرم"}
+                other{"{0} امریکی تھرمز"}
+            }
+        }
+        force{
+            newton{
+                dnam{"نیوٹن"}
+            }
+            pound-force{
+                dnam{"پاؤنڈ قوت"}
+            }
         }
         frequency{
             gigahertz{
@@ -1416,6 +1603,14 @@ ur{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            megapixel{
+                dnam{"میگا پکسلز"}
+            }
+            pixel{
+                dnam{"پکسلز"}
             }
         }
         length{
@@ -1505,9 +1700,12 @@ ur{
                 other{"{0} پیکو میٹر"}
             }
             point{
-                dnam{"pt"}
+                dnam{"پوائنٹس"}
                 one{"{0} pt"}
                 other{"{0} pt"}
+            }
+            solar-radius{
+                dnam{"شمسی رداس"}
             }
             yard{
                 dnam{"گز"}
@@ -1521,12 +1719,25 @@ ur{
                 one{"{0} lx"}
                 other{"{0} lx"}
             }
+            solar-luminosity{
+                dnam{"شمسی چمک"}
+            }
         }
         mass{
             carat{
                 dnam{"قیراط"}
                 one{"{0} CD"}
                 other{"{0} CD"}
+            }
+            dalton{
+                dnam{"ڈالٹنز"}
+                one{"{0} Da"}
+                other{"{0} Da"}
+            }
+            earth-mass{
+                dnam{"زمینی کمیتیں"}
+                one{"{0} M⊕"}
+                other{"{0} M⊕"}
             }
             gram{
                 dnam{"گرام"}
@@ -1571,6 +1782,11 @@ ur{
                 one{"{0} lb"}
                 other{"{0} lb"}
                 per{"{0}/lb"}
+            }
+            solar-mass{
+                dnam{"شمسی کمیتیں"}
+                one{"{0} M☉"}
+                other{"{0} M☉"}
             }
             stone{
                 dnam{"st"}
@@ -1621,6 +1837,11 @@ ur{
                 one{"{0} atm"}
                 other{"{0} atm"}
             }
+            bar{
+                dnam{"بار"}
+                one{"{0} بار"}
+                other{"{0} بارز"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 one{"{0} hPa"}
@@ -1630,6 +1851,16 @@ ur{
                 dnam{"inHg"}
                 one{"{0} inHg"}
                 other{"{0} inHg"}
+            }
+            kilopascal{
+                dnam{"kPa"}
+                one{"{0} kPa"}
+                other{"{0} kPa"}
+            }
+            megapascal{
+                dnam{"MPa"}
+                one{"{0} MPa"}
+                other{"{0} MPa"}
             }
             millibar{
                 dnam{"mbar"}
@@ -1696,6 +1927,9 @@ ur{
                 dnam{"ایکڑ فٹ"}
                 one{"{0} ac ft"}
                 other{"{0} ac ft"}
+            }
+            barrel{
+                dnam{"بیرل"}
             }
             centiliter{
                 dnam{"سینٹی لیٹر"}

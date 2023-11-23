@@ -17,6 +17,17 @@
 
 #include <errno.h>
 #include <string.h>
+#ifdef VK_USE_PLATFORM_FUCHSIA
+#include <fuchsia/logger/llcpp/fidl.h>
+#include <lib/syslog/global.h>
+#include <lib/zx/channel.h>
+#include <lib/zx/socket.h>
+#include <lib/zxio/zxio.h>
+#include <lib/zxio/inception.h>
+#include <unistd.h>
+
+#include "services/service_connector.h"
+#endif
 
 #include "HostConnection.h"
 #include "ResourceTracker.h"
@@ -24,18 +35,9 @@
 
 #include "func_table.h"
 
-#include <array>
-#include <bitset>
-#include <mutex>
-
 // Used when there is no Vulkan support on the host.
 // Copied from frameworks/native/vulkan/libvulkan/stubhal.cpp
 namespace vkstubhal {
-
-const size_t kMaxInstances = 32;
-static std::mutex g_instance_mutex;
-static std::bitset<kMaxInstances> g_instance_used(false);
-static std::array<hwvulkan_dispatch_t, kMaxInstances> g_instances;
 
 [[noreturn]] VKAPI_ATTR void NoOp() {
     LOG_ALWAYS_FATAL("invalid stub function called");
@@ -62,28 +64,19 @@ VkResult CreateInstance(const VkInstanceCreateInfo* /*create_info*/,
                         const VkAllocationCallbacks* /*allocator*/,
                         VkInstance* instance) {
     AEMU_SCOPED_TRACE("vkstubhal::CreateInstance");
-    std::lock_guard<std::mutex> lock(g_instance_mutex);
-    for (size_t i = 0; i < kMaxInstances; i++) {
-        if (!g_instance_used[i]) {
-            g_instance_used[i] = true;
-            g_instances[i].magic = HWVULKAN_DISPATCH_MAGIC;
-            *instance = reinterpret_cast<VkInstance>(&g_instances[i]);
-            return VK_SUCCESS;
-        }
-    }
-    ALOGE("no more instances available (max=%zu)", kMaxInstances);
-    return VK_ERROR_INITIALIZATION_FAILED;
+    auto dispatch = new hwvulkan_dispatch_t;
+    dispatch->magic = HWVULKAN_DISPATCH_MAGIC;
+    *instance = reinterpret_cast<VkInstance>(dispatch);
+    return VK_SUCCESS;
 }
 
 void DestroyInstance(VkInstance instance,
                      const VkAllocationCallbacks* /*allocator*/) {
     AEMU_SCOPED_TRACE("vkstubhal::DestroyInstance");
-    std::lock_guard<std::mutex> lock(g_instance_mutex);
-    ssize_t idx =
-        reinterpret_cast<hwvulkan_dispatch_t*>(instance) - &g_instances[0];
-    ALOG_ASSERT(idx >= 0 && static_cast<size_t>(idx) < g_instance_used.size(),
+    auto dispatch = reinterpret_cast<hwvulkan_dispatch_t*>(instance);
+    ALOG_ASSERT(dispatch->magic == HWVULKAN_DISPATCH_MAGIC,
                 "DestroyInstance: invalid instance handle");
-    g_instance_used[static_cast<size_t>(idx)] = false;
+    delete dispatch;
 }
 
 VkResult EnumeratePhysicalDevices(VkInstance /*instance*/,
@@ -94,6 +87,12 @@ VkResult EnumeratePhysicalDevices(VkInstance /*instance*/,
     return VK_SUCCESS;
 }
 
+VkResult EnumerateInstanceVersion(uint32_t* pApiVersion) {
+    AEMU_SCOPED_TRACE("vkstubhal::EnumerateInstanceVersion");
+    *pApiVersion = VK_API_VERSION_1_0;
+    return VK_SUCCESS;
+}
+
 VkResult
 EnumeratePhysicalDeviceGroups(VkInstance /*instance*/,
                               uint32_t* count,
@@ -101,6 +100,66 @@ EnumeratePhysicalDeviceGroups(VkInstance /*instance*/,
     AEMU_SCOPED_TRACE("vkstubhal::EnumeratePhysicalDeviceGroups");
     *count = 0;
     return VK_SUCCESS;
+}
+
+VkResult
+CreateDebugReportCallbackEXT(VkInstance /*instance*/,
+                             const VkDebugReportCallbackCreateInfoEXT* /*pCreateInfo*/,
+                             const VkAllocationCallbacks* /*pAllocator*/,
+                             VkDebugReportCallbackEXT* pCallback)
+{
+    AEMU_SCOPED_TRACE("vkstubhal::CreateDebugReportCallbackEXT");
+    *pCallback = VK_NULL_HANDLE;
+    return VK_SUCCESS;
+}
+
+void
+DestroyDebugReportCallbackEXT(VkInstance /*instance*/,
+                              VkDebugReportCallbackEXT /*callback*/,
+                              const VkAllocationCallbacks* /*pAllocator*/)
+{
+    AEMU_SCOPED_TRACE("vkstubhal::DestroyDebugReportCallbackEXT");
+}
+
+void
+DebugReportMessageEXT(VkInstance /*instance*/,
+                      VkDebugReportFlagsEXT /*flags*/,
+                      VkDebugReportObjectTypeEXT /*objectType*/,
+                      uint64_t /*object*/,
+                      size_t /*location*/,
+                      int32_t /*messageCode*/,
+                      const char* /*pLayerPrefix*/,
+                      const char* /*pMessage*/)
+{
+    AEMU_SCOPED_TRACE("vkstubhal::DebugReportMessageEXT");
+}
+
+VkResult
+CreateDebugUtilsMessengerEXT(VkInstance /*instance*/,
+                             const VkDebugUtilsMessengerCreateInfoEXT* /*pCreateInfo*/,
+                             const VkAllocationCallbacks* /*pAllocator*/,
+                             VkDebugUtilsMessengerEXT* pMessenger)
+{
+    AEMU_SCOPED_TRACE("vkstubhal::CreateDebugUtilsMessengerEXT");
+    *pMessenger = VK_NULL_HANDLE;
+    return VK_SUCCESS;
+}
+
+void
+DestroyDebugUtilsMessengerEXT(VkInstance /*instance*/,
+                              VkDebugUtilsMessengerEXT /*messenger*/,
+                              const VkAllocationCallbacks* /*pAllocator*/)
+{
+    AEMU_SCOPED_TRACE("vkstubhal::DestroyDebugUtilsMessengerkEXT");
+}
+
+void
+SubmitDebugUtilsMessageEXT(VkInstance /*instance*/,
+                           VkDebugUtilsMessageSeverityFlagBitsEXT /*messageSeverity*/,
+                           VkDebugUtilsMessageTypeFlagsEXT /*messageTypes*/,
+                           const VkDebugUtilsMessengerCallbackDataEXT* /*pCallbackData*/)
+{
+    AEMU_SCOPED_TRACE("vkstubhal::SubmitDebugUtilsMessageEXT");
 }
 
 #ifdef VK_USE_PLATFORM_FUCHSIA
@@ -183,11 +242,28 @@ PFN_vkVoidFunction GetInstanceProcAddr(VkInstance instance,
             EnumerateInstanceExtensionProperties);
     if (strcmp(name, "vkEnumeratePhysicalDevices") == 0)
         return reinterpret_cast<PFN_vkVoidFunction>(EnumeratePhysicalDevices);
+    if (strcmp(name, "vkEnumerateInstanceVersion") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(EnumerateInstanceVersion);
     if (strcmp(name, "vkEnumeratePhysicalDeviceGroups") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(
+            EnumeratePhysicalDeviceGroups);
+    if (strcmp(name, "vkEnumeratePhysicalDeviceGroupsKHR") == 0)
         return reinterpret_cast<PFN_vkVoidFunction>(
             EnumeratePhysicalDeviceGroups);
     if (strcmp(name, "vkGetInstanceProcAddr") == 0)
         return reinterpret_cast<PFN_vkVoidFunction>(GetInstanceProcAddr);
+    if (strcmp(name, "vkCreateDebugReportCallbackEXT") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(CreateDebugReportCallbackEXT);
+    if (strcmp(name, "vkDestroyDebugReportCallbackEXT") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(DestroyDebugReportCallbackEXT);
+    if (strcmp(name, "vkDebugReportMessageEXT") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(DebugReportMessageEXT);
+    if (strcmp(name, "vkCreateDebugUtilsMessengerEXT") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(CreateDebugUtilsMessengerEXT);
+    if (strcmp(name, "vkDestroyDebugUtilsMessengerEXT") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(DestroyDebugUtilsMessengerEXT);
+    if (strcmp(name, "vkSubmitDebugUtilsMessageEXT") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(SubmitDebugUtilsMessageEXT);
 #ifdef VK_USE_PLATFORM_FUCHSIA
     if (strcmp(name, "vkGetMemoryZirconHandleFUCHSIA") == 0)
         return reinterpret_cast<PFN_vkVoidFunction>(GetMemoryZirconHandleFUCHSIA);
@@ -206,12 +282,31 @@ PFN_vkVoidFunction GetInstanceProcAddr(VkInstance instance,
     if (strcmp(name, "vkGetBufferCollectionPropertiesFUCHSIA") == 0)
         return reinterpret_cast<PFN_vkVoidFunction>(GetBufferCollectionPropertiesFUCHSIA);
 #endif
-    // Per the spec, return NULL if instance is NULL.
-    if (!instance)
-        return nullptr;
-    // None of the other Vulkan functions should ever be called, as they all
-    // take a VkPhysicalDevice or other object obtained from a physical device.
-    return reinterpret_cast<PFN_vkVoidFunction>(NoOp);
+    // Return NoOp for entrypoints that should never be called.
+    if (strcmp(name, "vkGetPhysicalDeviceFeatures") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceFormatProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceImageFormatProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceMemoryProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceQueueFamilyProperties") == 0 ||
+        strcmp(name, "vkGetDeviceProcAddr") == 0 ||
+        strcmp(name, "vkCreateDevice") == 0 ||
+        strcmp(name, "vkEnumerateDeviceExtensionProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceSparseImageFormatProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceFeatures2") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceProperties2") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceFormatProperties2") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceImageFormatProperties2") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceQueueFamilyProperties2") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceMemoryProperties2") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceSparseImageFormatProperties2") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceExternalBufferProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceExternalFenceProperties") == 0 ||
+        strcmp(name, "vkGetPhysicalDeviceExternalSemaphoreProperties") == 0)
+        return reinterpret_cast<PFN_vkVoidFunction>(NoOp);
+
+    // Per the spec, return NULL for nonexistent entrypoints.
+    return nullptr;
 }
 
 } // namespace vkstubhal
@@ -257,13 +352,20 @@ int CloseDevice(struct hw_device_t* /*device*/) {
         ALOGE("vulkan: Failed to get renderControl encoder context\n"); \
         return ret; \
     } \
+    goldfish_vk::ResourceTracker::get()->setupFeatures(rcEnc->featureInfo_const()); \
+    goldfish_vk::ResourceTracker::ThreadingCallbacks threadingCallbacks = { \
+        [] { auto hostCon = HostConnection::get(); \
+            ExtendedRCEncoderContext *rcEnc = hostCon->rcEncoder(); \
+            return hostCon; }, \
+        [](HostConnection* hostCon) { return hostCon->vkEncoder(); }, \
+    }; \
+    goldfish_vk::ResourceTracker::get()->setThreadingCallbacks(threadingCallbacks); \
+    auto hostSupportsVulkan = goldfish_vk::ResourceTracker::get()->hostSupportsVulkan(); \
     goldfish_vk::VkEncoder *vkEnc = hostCon->vkEncoder(); \
     if (!vkEnc) { \
         ALOGE("vulkan: Failed to get Vulkan encoder\n"); \
         return ret; \
     } \
-    goldfish_vk::ResourceTracker::get()->setupFeatures(rcEnc->featureInfo_const()); \
-    auto hostSupportsVulkan = goldfish_vk::ResourceTracker::get()->hostSupportsVulkan(); \
 
 VKAPI_ATTR
 VkResult EnumerateInstanceExtensionProperties(
@@ -568,8 +670,30 @@ int OpenDevice(const hw_module_t* /*module*/,
 
 class VulkanDevice {
 public:
-    VulkanDevice() {
+    VulkanDevice() : mHostSupportsGoldfish(IsAccessible(QEMU_PIPE_PATH)) {
+        InitLogger();
         goldfish_vk::ResourceTracker::get();
+    }
+
+    static void InitLogger();
+
+    static bool IsAccessible(const char* name) {
+        zx_handle_t handle = GetConnectToServiceFunction()(name);
+        if (handle == ZX_HANDLE_INVALID)
+            return false;
+
+        zxio_storage_t io_storage;
+        zx_status_t status = zxio_remote_init(&io_storage, handle, ZX_HANDLE_INVALID);
+        if (status != ZX_OK)
+            return false;
+
+        zxio_node_attr_t attr;
+        status = zxio_attr_get(&io_storage.io, &attr);
+        zxio_close(&io_storage.io);
+        if (status != ZX_OK)
+            return false;
+
+        return true;
     }
 
     static VulkanDevice& GetInstance() {
@@ -578,9 +702,41 @@ public:
     }
 
     PFN_vkVoidFunction GetInstanceProcAddr(VkInstance instance, const char* name) {
+        if (!mHostSupportsGoldfish) {
+            return vkstubhal::GetInstanceProcAddr(instance, name);
+        }
         return ::GetInstanceProcAddr(instance, name);
     }
+
+private:
+    const bool mHostSupportsGoldfish;
 };
+
+void VulkanDevice::InitLogger() {
+   zx_handle_t channel = GetConnectToServiceFunction()("/svc/fuchsia.logger.LogSink");
+   if (channel == ZX_HANDLE_INVALID)
+      return;
+
+  zx::socket local_socket, remote_socket;
+  zx_status_t status = zx::socket::create(ZX_SOCKET_DATAGRAM, &local_socket, &remote_socket);
+  if (status != ZX_OK)
+    return;
+
+  auto result = llcpp::fuchsia::logger::LogSink::Call::Connect(
+      zx::unowned_channel(channel), std::move(remote_socket));
+  zx_handle_close(channel);
+
+  if (result.status() != ZX_OK)
+    return;
+
+  fx_logger_config_t config = {.min_severity = FX_LOG_INFO,
+                               .console_fd = -1,
+                               .log_service_channel = local_socket.release(),
+                               .tags = nullptr,
+                               .num_tags = 0};
+
+  fx_log_init_with_config(&config);
+}
 
 extern "C" __attribute__((visibility("default"))) PFN_vkVoidFunction
 vk_icdGetInstanceProcAddr(VkInstance instance, const char* name) {
@@ -591,6 +747,34 @@ extern "C" __attribute__((visibility("default"))) VkResult
 vk_icdNegotiateLoaderICDInterfaceVersion(uint32_t* pSupportedVersion) {
     *pSupportedVersion = std::min(*pSupportedVersion, 3u);
     return VK_SUCCESS;
+}
+
+typedef VkResult(VKAPI_PTR *PFN_vkConnectToServiceAddr)(const char *pName, uint32_t handle);
+
+namespace {
+
+PFN_vkConnectToServiceAddr g_vulkan_connector;
+
+zx_handle_t LocalConnectToServiceFunction(const char* pName) {
+    zx::channel remote_endpoint, local_endpoint;
+    zx_status_t status;
+    if ((status = zx::channel::create(0, &remote_endpoint, &local_endpoint)) != ZX_OK) {
+        ALOGE("zx::channel::create failed: %d", status);
+        return ZX_HANDLE_INVALID;
+    }
+    if ((status = g_vulkan_connector(pName, remote_endpoint.release())) != ZX_OK) {
+        ALOGE("vulkan_connector failed: %d", status);
+        return ZX_HANDLE_INVALID;
+    }
+    return local_endpoint.release();
+}
+
+}
+
+extern "C" __attribute__((visibility("default"))) void
+vk_icdInitializeConnectToServiceCallback(PFN_vkConnectToServiceAddr callback) {
+    g_vulkan_connector = callback;
+    SetConnectToServiceFunction(&LocalConnectToServiceFunction);
 }
 
 #endif

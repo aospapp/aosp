@@ -37,13 +37,14 @@ import androidx.test.rule.ActivityTestRule
 import android.support.test.uiautomator.UiDevice
 import android.support.test.uiautomator.Until
 import androidx.core.content.FileProvider
-import com.android.compatibility.common.util.AppOpsUtils
+import com.android.compatibility.common.util.FutureResultActivity
 import org.junit.After
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Rule
 import java.io.File
 import java.lang.IllegalArgumentException
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
@@ -62,7 +63,7 @@ const val APP_OP_STR = "REQUEST_INSTALL_PACKAGES"
 
 open class PackageInstallerTestBase {
     @get:Rule
-    val installDialogStarter = ActivityTestRule(InstallConfirmDialogStarter::class.java)
+    val installDialogStarter = ActivityTestRule(FutureResultActivity::class.java)
 
     private val context = InstrumentationRegistry.getTargetContext()
     private val pm = context.packageManager
@@ -79,7 +80,7 @@ open class PackageInstallerTestBase {
             if (status == STATUS_PENDING_USER_ACTION) {
                 val activityIntent = intent.getParcelableExtra<Intent>(EXTRA_INTENT)
                 activityIntent!!.addFlags(FLAG_ACTIVITY_CLEAR_TASK or FLAG_ACTIVITY_NEW_TASK)
-                installDialogStarter.activity.startActivityForResult(activityIntent, 0)
+                installDialogStarter.activity.startActivityForResult(activityIntent)
             }
 
             installSessionResult.offer(status)
@@ -128,7 +129,7 @@ open class PackageInstallerTestBase {
     /**
      * Start an installation via a session
      */
-    protected fun startInstallationViaSession(): PackageInstaller.Session {
+    protected fun startInstallationViaSession(): CompletableFuture<Int> {
         val pi = pm.packageInstaller
 
         // Create session
@@ -143,33 +144,28 @@ open class PackageInstallerTestBase {
         }
 
         // Commit session
-        val pendingIntent = PendingIntent.getBroadcast(context, 0, Intent(INSTALL_ACTION_CB),
-                FLAG_UPDATE_CURRENT)
-        session.commit(pendingIntent.intentSender)
+        val dialog = FutureResultActivity.doAndAwaitStart {
+            val pendingIntent = PendingIntent.getBroadcast(context, 0, Intent(INSTALL_ACTION_CB),
+                    FLAG_UPDATE_CURRENT)
+            session.commit(pendingIntent.intentSender)
+        }
 
         // The system should have asked us to launch the installer
         Assert.assertEquals(STATUS_PENDING_USER_ACTION, getInstallSessionResult())
 
-        return session
+        return dialog
     }
 
     /**
      * Start an installation via a session
      */
-    protected fun startInstallationViaIntent() {
+    protected fun startInstallationViaIntent(): CompletableFuture<Int> {
         val intent = Intent(Intent.ACTION_INSTALL_PACKAGE)
         intent.data = FileProvider.getUriForFile(context, CONTENT_AUTHORITY, apkFile)
         intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
         intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
 
-        installDialogStarter.activity.startActivityForResult(intent, 0)
-    }
-
-    /**
-     * Wait for result of install dialog and return it
-     */
-    fun getInstallDialogResult(timeout: Long = TIMEOUT): Int? {
-        return installDialogResults.poll(timeout, TimeUnit.MILLISECONDS)
+        return installDialogStarter.activity.startActivityForResult(intent)
     }
 
     fun assertInstalled() {
@@ -196,11 +192,15 @@ open class PackageInstallerTestBase {
     }
 
     /**
-     * Assert that there are no more callbacks from the install session or install dialog
+     * Sets the given secure setting to the provided value.
      */
-    fun assertNoMoreInstallResults() {
-        Assert.assertNull(getInstallSessionResult(0))
-        Assert.assertEquals(0, installDialogResults.size)
+    fun setSecureSetting(secureSetting: String, value: Int) {
+        uiDevice.executeShellCommand("settings put secure $secureSetting $value")
+    }
+
+    fun setSecureFrp(secureFrp: Boolean) {
+        uiDevice.executeShellCommand("settings --user 0 " +
+                "put secure secure_frp_mode ${if (secureFrp) 1 else 0}")
     }
 
     @After
@@ -214,10 +214,5 @@ open class PackageInstallerTestBase {
     @After
     fun uninstallTestPackage() {
         uiDevice.executeShellCommand("pm uninstall $TEST_APK_PACKAGE_NAME")
-    }
-
-    @After
-    fun resetAppOps() {
-        AppOpsUtils.reset(context.packageName)
     }
 }

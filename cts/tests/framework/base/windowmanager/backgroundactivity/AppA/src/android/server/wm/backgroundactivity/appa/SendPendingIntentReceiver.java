@@ -23,11 +23,14 @@ import static android.server.wm.backgroundactivity.appa.Components.SendPendingIn
 import static android.server.wm.backgroundactivity.appa.Components.StartBackgroundActivityReceiver.START_ACTIVITY_DELAY_MS_EXTRA;
 import static android.server.wm.backgroundactivity.appb.Components.APP_B_START_PENDING_INTENT_RECEIVER;
 import static android.server.wm.backgroundactivity.appb.Components.StartPendingIntentReceiver.PENDING_INTENT_EXTRA;
+import static android.server.wm.backgroundactivity.common.CommonComponents.EVENT_NOTIFIER_EXTRA;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.ResultReceiver;
+import android.server.wm.backgroundactivity.common.CommonComponents.Event;
 
 /**
  * Receive broadcast command to create a pendingIntent and send it to AppB.
@@ -38,6 +41,10 @@ public class SendPendingIntentReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent receivedIntent) {
         boolean isBroadcast = receivedIntent.getBooleanExtra(IS_BROADCAST_EXTRA, false);
         int startActivityDelayMs = receivedIntent.getIntExtra(START_ACTIVITY_DELAY_MS_EXTRA, 0);
+        ResultReceiver eventNotifier = receivedIntent.getParcelableExtra(EVENT_NOTIFIER_EXTRA);
+        if (eventNotifier != null) {
+            eventNotifier.send(Event.APP_A_SEND_PENDING_INTENT_BROADCAST_RECEIVED, null);
+        }
 
         final PendingIntent pendingIntent;
         if (isBroadcast) {
@@ -46,6 +53,7 @@ public class SendPendingIntentReceiver extends BroadcastReceiver {
             Intent newIntent = new Intent();
             newIntent.setComponent(APP_A_START_ACTIVITY_RECEIVER);
             newIntent.putExtra(START_ACTIVITY_DELAY_MS_EXTRA, startActivityDelayMs);
+            newIntent.putExtra(EVENT_NOTIFIER_EXTRA, eventNotifier);
             pendingIntent = PendingIntent.getBroadcast(context, 0,
                     newIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         } else {
@@ -53,7 +61,6 @@ public class SendPendingIntentReceiver extends BroadcastReceiver {
             Intent newIntent = new Intent();
             newIntent.setComponent(APP_A_BACKGROUND_ACTIVITY);
             newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
             pendingIntent = PendingIntent.getActivity(context, 0,
                     newIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         }
@@ -62,6 +69,7 @@ public class SendPendingIntentReceiver extends BroadcastReceiver {
         Intent intent = new Intent();
         intent.setComponent(APP_B_START_PENDING_INTENT_RECEIVER);
         intent.putExtra(PENDING_INTENT_EXTRA, pendingIntent);
+        intent.putExtra(EVENT_NOTIFIER_EXTRA, eventNotifier);
         context.sendBroadcast(intent);
     }
 }

@@ -33,98 +33,65 @@ class AmbientShadowVertexCalculator {
     public AmbientShadowVertexCalculator(AmbientShadowConfig config) {
         mConfig = config;
 
-        int rings = mConfig.getLayers() + 1;
-        int size = mConfig.getRays() * rings;
+        int size = mConfig.getPolygon().length / 3;
 
-        mVertex = new float[size * 2];
-        mColor = new float[size * 4];
-        mIndex = new int[(size * 2 + (mConfig.getRays() - 2)) * 3];
+        mVertex = new float[size * 2 * 2];
+        mColor = new float[size * 2 * 4];
+        mIndex = new int[(size * 3 - 2) * 3];
     }
 
     /**
-     * Generates vertex using the polygon info
-     * @param polygon 3d polygon info in format : {x1, y1, z1, x2, y2, z2 ...}
-     * @return true if vertices are generated with right colour/index. False otherwise.
+     * Generates ambient shadow triangulation using configuration provided
      */
-    public boolean generateVertex(float[] polygon) {
-        // Despite us not using z coord, we want calculations in 3d space as our polygon is using
-        // 3d coord system.
-        float[] centroidxy = new float[3];
+    public void generateVertex() {
+        float[] polygon = mConfig.getPolygon();
+        float cx = mConfig.getLightSourcePosition()[0];
+        float cy = mConfig.getLightSourcePosition()[1];
+
         int polygonLength = polygon.length/3;
 
-        Math3DHelper.centroid3d(polygon, polygonLength, centroidxy);
+        float opacity = .8f * (0.5f / (mConfig.getEdgeScale() / 10f));
 
-        float cx = centroidxy[0];
-        float cy = centroidxy[1];
+        int trShift = 0;
+        for (int i = 0; i < polygonLength; ++i, trShift += 6) {
+            int shift = i * 4;
+            int colorShift = i * 8;
+            int idxShift = i * 2;
 
-        Rays rays = new Rays(mConfig.getRays());
-        int raysLength = rays.dx.length;
-        float rayDist[] = new float[mConfig.getRays()];
+            float px = polygon[3 * i + 0];
+            float py = polygon[3 * i + 1];
+            mVertex[shift + 0] = px;
+            mVertex[shift + 1] = py;
 
-        float[] rayHeights = new float[mConfig.getRays()];
+            // TODO: I do not really understand this but this matches the previous behavior.
+            // The weird bit is that for outlines with low elevation the ambient shadow is
+            // entirely drawn underneath the shadow caster. This is most probably incorrect
+            float h = polygon[3 * i + 2] * mConfig.getShadowBoundRatio();
 
-        for (int i = 0; i < raysLength; i++) {
-            float dx = rays.dx[i];
-            float dy = rays.dy[i];
+            mVertex[shift + 2] = cx + h * (px - cx);
+            mVertex[shift + 3] = cy + h * (py - cy);
 
-            float[] intersection = Math3DHelper.rayIntersectPoly(polygon, polygonLength, cx, cy,
-                    dx, dy, 3);
-            if (intersection.length == 1) {
-                return false;
-            }
-            rayDist[i] = intersection[0];
-            int index = (int) (intersection[2] * 3);
-            int index2 = (int) (((intersection[2] + 1) % polygonLength) * 3);
-            float h1 = polygon[index + 2] * mConfig.getShadowBoundRatio();
-            float h2 = polygon[index2 + 2] * mConfig.getShadowBoundRatio();
-            rayHeights[i] = h1 + intersection[1] * (h2 - h1);
+            mColor[colorShift + 3] = opacity;
+
+            mIndex[trShift + 0] = idxShift + 0;
+            mIndex[trShift + 1] = idxShift + 1;
+            mIndex[trShift + 2] = idxShift + 2;
+
+            mIndex[trShift + 3] = idxShift + 1;
+            mIndex[trShift + 4] = idxShift + 2;
+            mIndex[trShift + 5] = idxShift + 3;
         }
+        // cycle back to the front
+        mIndex[trShift - 1] = 1;
+        mIndex[trShift - 2] = 0;
+        mIndex[trShift - 4] = 0;
 
-        int rings = mConfig.getLayers() + 1;
-        for (int i = 0; i < raysLength; i++) {
-            float dx = rays.dx[i];
-            float dy = rays.dy[i];
-            float cast = rayDist[i] * rayHeights[i];
-
-            float opacity = .8f * (0.5f / (mConfig.getEdgeScale() / 10f));
-            for (int j = 0; j < rings; j++) {
-                int p = i * rings + j;
-                float jf = j / (float) (rings - 1);
-                float t = rayDist[i] + jf * (cast - rayDist[i]);
-
-                mVertex[p * 2 + 0] = dx * t + cx;
-                mVertex[p * 2 + 1] = dy * t + cy;
-                // TODO: we might be able to optimize this in the future.
-                mColor[p * 4 + 0] = 0;
-                mColor[p * 4 + 1] = 0;
-                mColor[p * 4 + 2] = 0;
-                mColor[p * 4 + 3] = (1 - jf) * opacity;
-            }
+        // Filling the shadow right under the outline. Can we skip that?
+        for (int i = 1; i < polygonLength - 1; ++i, trShift += 3) {
+            mIndex[trShift + 0] = 0;
+            mIndex[trShift + 1] = 2 * i;
+            mIndex[trShift + 2] = 2 * (i+1);
         }
-
-        int k = 0;
-        for (int i = 0; i < mConfig.getRays(); i++) {
-            for (int j = 0; j < mConfig.getLayers(); j++) {
-                int r1 = j + rings * i;
-                int r2 = j + rings * ((i + 1) % mConfig.getRays());
-
-                mIndex[k * 3 + 0] = r1;
-                mIndex[k * 3 + 1] = r1 + 1;
-                mIndex[k * 3 + 2] = r2;
-                k++;
-                mIndex[k * 3 + 0] = r2;
-                mIndex[k * 3 + 1] = r1 + 1;
-                mIndex[k * 3 + 2] = r2 + 1;
-                k++;
-            }
-        }
-        int ringOffset = 0;
-        for (int i = 1; i < mConfig.getRays() - 1; i++, k++) {
-            mIndex[k * 3 + 0] = ringOffset;
-            mIndex[k * 3 + 1] = ringOffset + rings * i;
-            mIndex[k * 3 + 2] = ringOffset + rings * (1 + i);
-        }
-        return true;
     }
 
     public int[] getIndex() {
@@ -141,22 +108,4 @@ class AmbientShadowVertexCalculator {
     public float[] getColor() {
         return mColor;
     }
-
-    private static class Rays {
-        public final float[] dx;
-        public final float[] dy;
-        public final double deltaAngle;
-
-        public Rays(int rays) {
-            dx = new float[rays];
-            dy = new float[rays];
-            deltaAngle = 2 * Math.PI / rays;
-
-            for (int i = 0; i < rays; i++) {
-                dx[i] = (float) Math.sin(deltaAngle * i);
-                dy[i] = (float) Math.cos(deltaAngle * i);
-            }
-        }
-    }
-
 }

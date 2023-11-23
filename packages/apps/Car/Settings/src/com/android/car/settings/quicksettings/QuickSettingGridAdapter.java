@@ -149,8 +149,6 @@ public class QuickSettingGridAdapter
         for (Tile tile : mTiles) {
             tile.stop();
         }
-        mTiles.clear();
-        mSeekbarTiles.clear();
     }
 
     @Override

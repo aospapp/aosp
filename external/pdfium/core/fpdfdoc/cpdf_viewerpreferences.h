@@ -10,6 +10,7 @@
 #include "core/fxcrt/fx_string.h"
 #include "core/fxcrt/fx_system.h"
 #include "core/fxcrt/unowned_ptr.h"
+#include "third_party/base/optional.h"
 
 class CPDF_Array;
 class CPDF_Dictionary;
@@ -17,7 +18,7 @@ class CPDF_Document;
 
 class CPDF_ViewerPreferences {
  public:
-  explicit CPDF_ViewerPreferences(CPDF_Document* pDoc);
+  explicit CPDF_ViewerPreferences(const CPDF_Document* pDoc);
   ~CPDF_ViewerPreferences();
 
   bool IsDirectionR2L() const;
@@ -26,15 +27,13 @@ class CPDF_ViewerPreferences {
   CPDF_Array* PrintPageRange() const;
   ByteString Duplex() const;
 
-  // Gets the entry for |bsKey|. If the entry exists and it is of type name,
-  // then this method writes the value into |bsVal| and returns true. Otherwise
-  // returns false and |bsVal| is untouched. |bsVal| must not be NULL.
-  bool GenericName(const ByteString& bsKey, ByteString* bsVal) const;
+  // Gets the entry for |bsKey|.
+  Optional<ByteString> GenericName(const ByteString& bsKey) const;
 
  private:
   CPDF_Dictionary* GetViewerPreferences() const;
 
-  UnownedPtr<CPDF_Document> const m_pDoc;
+  UnownedPtr<const CPDF_Document> const m_pDoc;
 };
 
 #endif  // CORE_FPDFDOC_CPDF_VIEWERPREFERENCES_H_

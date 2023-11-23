@@ -23,7 +23,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.UserHandle;
 import android.util.Log;
 
-import com.android.car.settingslib.loader.AsyncLoader;
+import com.android.car.settings.common.AsyncLoader;
 import com.android.internal.util.Preconditions;
 import com.android.settingslib.applications.StorageStatsSource;
 import com.android.settingslib.applications.StorageStatsSource.AppStorageStats;

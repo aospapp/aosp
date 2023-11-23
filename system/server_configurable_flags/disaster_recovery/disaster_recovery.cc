@@ -31,6 +31,13 @@ int main(int argc, char* argv[]) {
     LOG(ERROR) << "argc: " << std::to_string(argc) << ", it should only be 2.";
     return 1;
   }
+  const char* configuration_namespace = "configuration";
+  const char* disable_rescue_party_flag = "disable_rescue_party";
+  if (server_configurable_flags::GetServerConfigurableFlag(
+          configuration_namespace, disable_rescue_party_flag, "false") == "true") {
+    LOG(INFO) << "flags_heatlh_check is disabled by flag, skipping reset.";
+    return 0;
+  }
 
   std::string reset_mode_str(argv[1]);
   server_configurable_flags::ResetMode reset_mode;

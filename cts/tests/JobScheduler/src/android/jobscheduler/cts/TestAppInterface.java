@@ -18,6 +18,7 @@ package android.jobscheduler.cts;
 import static android.jobscheduler.cts.jobtestapp.TestJobService.ACTION_JOB_STARTED;
 import static android.jobscheduler.cts.jobtestapp.TestJobService.ACTION_JOB_STOPPED;
 import static android.jobscheduler.cts.jobtestapp.TestJobService.JOB_PARAMS_EXTRA_KEY;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
 
 import android.app.job.JobParameters;
 import android.content.BroadcastReceiver;
@@ -28,6 +29,7 @@ import android.content.IntentFilter;
 import android.jobscheduler.cts.jobtestapp.TestActivity;
 import android.jobscheduler.cts.jobtestapp.TestJobSchedulerReceiver;
 import android.os.SystemClock;
+import android.server.wm.WindowManagerStateHelper;
 import android.util.Log;
 
 /**
@@ -77,10 +79,18 @@ class TestAppInterface {
     }
 
     void startAndKeepTestActivity() {
+        startAndKeepTestActivity(false);
+    }
+
+    void startAndKeepTestActivity(boolean waitForResume) {
         final Intent testActivity = new Intent();
         testActivity.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        testActivity.setComponent(new ComponentName(TEST_APP_PACKAGE, TEST_APP_ACTIVITY));
+        ComponentName testComponentName = new ComponentName(TEST_APP_PACKAGE, TEST_APP_ACTIVITY);
+        testActivity.setComponent(testComponentName);
         mContext.startActivity(testActivity);
+        if (waitForResume) {
+            new WindowManagerStateHelper().waitForActivityState(testComponentName, STATE_RESUMED);
+        }
     }
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {

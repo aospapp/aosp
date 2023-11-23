@@ -16,10 +16,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define ETH_PHY_CTRL_REG		0
-#define ETH_PHY_CTRL_POWER_DOWN_BIT	11
-#define ETH_PHY_CTRL_POWER_DOWN_MASK	(1 << ETH_PHY_CTRL_POWER_DOWN_BIT)
-
 /*
  * Those values and defines are taken from the Marvell U-Boot version
  * "u-boot-2013.01-2016_T1.0.eng_drop_v10"
@@ -67,7 +63,7 @@ static struct mv_ddr_topology_map board_topology_map = {
 	    SPEED_BIN_DDR_1866L,	/* speed_bin */
 	    MV_DDR_DEV_WIDTH_8BIT,	/* memory_width */
 	    MV_DDR_DIE_CAP_2GBIT,	/* mem_size */
-	    DDR_FREQ_800,		/* frequency */
+	    MV_DDR_FREQ_800,		/* frequency */
 	    0, 0,			/* cas_wl cas_l */
 	    MV_DDR_TEMP_LOW,		/* temperature */
 	    MV_DDR_TIM_DEFAULT} },	/* timing */

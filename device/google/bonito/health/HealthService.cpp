@@ -14,27 +14,29 @@
  * limitations under the License.
  */
 #define LOG_TAG "android.hardware.health@2.0-service.bonito"
-#include <android-base/logging.h>
-
 #include <android-base/file.h>
+#include <android-base/logging.h>
 #include <android-base/parseint.h>
 #include <android-base/strings.h>
 #include <health2/Health.h>
 #include <health2/service.h>
 #include <healthd/healthd.h>
 #include <hidl/HidlTransportSupport.h>
+#include <pixelhealth/BatteryDefender.h>
 #include <pixelhealth/BatteryMetricsLogger.h>
+#include <pixelhealth/BatteryThermalControl.h>
 #include <pixelhealth/CycleCountBackupRestore.h>
 #include <pixelhealth/DeviceHealth.h>
 #include <pixelhealth/LowBatteryShutdownMetrics.h>
 
-#include "BatteryRechargingControl.h"
-#include "BatteryInfoUpdate.h"
-#include "LearnedCapacityBackupRestore.h"
 #include <fstream>
 #include <iomanip>
 #include <string>
 #include <vector>
+
+#include "BatteryInfoUpdate.h"
+#include "BatteryRechargingControl.h"
+#include "LearnedCapacityBackupRestore.h"
 
 namespace {
 
@@ -44,7 +46,9 @@ using android::hardware::health::V2_0::StorageInfo;
 using ::device::google::bonito::health::BatteryRechargingControl;
 using ::device::google::bonito::health::BatteryInfoUpdate;
 using ::device::google::bonito::health::LearnedCapacityBackupRestore;
+using hardware::google::pixel::health::BatteryDefender;
 using hardware::google::pixel::health::BatteryMetricsLogger;
+using hardware::google::pixel::health::BatteryThermalControl;
 using hardware::google::pixel::health::CycleCountBackupRestore;
 using hardware::google::pixel::health::DeviceHealth;
 using hardware::google::pixel::health::LowBatteryShutdownMetrics;
@@ -55,12 +59,14 @@ constexpr char kBatteryOCV[] {FG_DIR "/bms/voltage_ocv"};
 constexpr char kVoltageAvg[] {FG_DIR "/battery/voltage_now"};
 constexpr char kCycleCountsBins[] {FG_DIR "/bms/device/cycle_counts_bins"};
 
+static BatteryDefender battDefender;
 static BatteryRechargingControl battRechargingControl;
 static BatteryInfoUpdate battInfoUpdate;
+static BatteryThermalControl battThermalControl("sys/devices/virtual/thermal/tz-by-name/soc/mode");
 static BatteryMetricsLogger battMetricsLogger(kBatteryResistance, kBatteryOCV);
 static LowBatteryShutdownMetrics shutdownMetrics(kVoltageAvg);
 static CycleCountBackupRestore ccBackupRestoreBMS(
-    8, kCycleCountsBins, "/persist/battery/qcom_cycle_counts_bins");
+    8, kCycleCountsBins, "/mnt/vendor/persist/battery/qcom_cycle_counts_bins");
 static DeviceHealth deviceHealth;
 static LearnedCapacityBackupRestore lcBackupRestore;
 
@@ -106,16 +112,19 @@ void fill_emmc_storage_attribute(StorageAttribute* attr) {
 void healthd_board_init(struct healthd_config*) {
     ccBackupRestoreBMS.Restore();
     lcBackupRestore.Restore();
+    battDefender.update();
 }
 
 int healthd_board_battery_update(struct android::BatteryProperties *props) {
     battRechargingControl.updateBatteryProperties(props);
     deviceHealth.update(props);
+    battThermalControl.updateThermalState(props);
     battInfoUpdate.update(props);
     battMetricsLogger.logBatteryProperties(props);
     shutdownMetrics.logShutdownVoltage(props);
     ccBackupRestoreBMS.Backup(props->batteryLevel);
     lcBackupRestore.Backup();
+    battDefender.update();
     return 0;
 }
 

@@ -28,22 +28,17 @@ import android.net.Uri;
 import android.os.IBinder;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
-import android.telecom.CallAudioState.CallAudioRoute;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
 import com.android.car.telephony.common.TelecomUtils;
-import com.android.internal.annotations.VisibleForTesting;
-
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberType;
-import com.google.i18n.phonenumbers.PhoneNumberUtil.ValidationResult;
-import com.google.i18n.phonenumbers.Phonenumber;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -227,11 +222,13 @@ public class UiCallManager {
      * The available routes are defined in {@link CallAudioState}.
      */
     public int getAudioRoute() {
-        if (isBluetoothCall()
-                && mBluetoothHeadsetClient != null
-                && !mBluetoothHeadsetClient.getConnectedDevices().isEmpty()) {
+        List<BluetoothDevice> devices = mBluetoothHeadsetClient != null
+                ? mBluetoothHeadsetClient.getConnectedDevices()
+                : Collections.emptyList();
+
+        if (isBluetoothCall() && !devices.isEmpty()) {
             // TODO: Make this handle multiple devices
-            BluetoothDevice device = mBluetoothHeadsetClient.getConnectedDevices().get(0);
+            BluetoothDevice device = devices.get(0);
             int audioState = mBluetoothHeadsetClient.getAudioState(device);
 
             if (audioState == BluetoothHeadsetClient.STATE_AUDIO_CONNECTED) {
@@ -250,7 +247,7 @@ public class UiCallManager {
     /**
      * Re-route the audio out phone of the ongoing phone call.
      */
-    public void setAudioRoute(@CallAudioRoute int audioRoute) {
+    public void setAudioRoute(int audioRoute) {
         if (mBluetoothHeadsetClient != null && isBluetoothCall()) {
             for (BluetoothDevice device : mBluetoothHeadsetClient.getConnectedDevices()) {
                 List<BluetoothHeadsetClientCall> currentCalls =
@@ -280,8 +277,16 @@ public class UiCallManager {
         if (isValidNumber(number)) {
             Uri uri = Uri.fromParts("tel", number, null);
             L.d(TAG, "android.telecom.TelecomManager#placeCall: %s", number);
-            mTelecomManager.placeCall(uri, null);
-            return true;
+
+            try {
+                mTelecomManager.placeCall(uri, null);
+                return true;
+            } catch (IllegalStateException e) {
+                Toast.makeText(mContext, R.string.error_telephony_not_available,
+                        Toast.LENGTH_SHORT).show();
+                L.w(TAG, e.toString());
+                return false;
+            }
         } else {
             L.d(TAG, "invalid number dialed", number);
             Toast.makeText(mContext, R.string.error_invalid_phone_number,
@@ -291,24 +296,13 @@ public class UiCallManager {
     }
 
     /**
-     * Runs basic validation check of a phone number, to verify it is the correct length
-     * in an internationalized way. Further validation on whether the number actually exists
-     * is left for the phone carrier.
+     * Runs basic validation check of a phone number, to verify it is not empty.
      */
     private boolean isValidNumber(String number) {
-        Phonenumber.PhoneNumber phoneNumber = TelecomUtils.createI18nPhoneNumber(mContext,
-                number);
-        if (phoneNumber != null) {
-            for (PhoneNumberType type : PhoneNumberType.values()) {
-                ValidationResult result =
-                        PhoneNumberUtil.getInstance().isPossibleNumberForTypeWithReason(phoneNumber,
-                                type);
-                if (result != ValidationResult.TOO_SHORT && result != ValidationResult.TOO_LONG) {
-                    return true;
-                }
-            }
+        if (TextUtils.isEmpty(number)) {
+            return false;
         }
-        return false;
+        return true;
     }
 
     public void callVoicemail() {

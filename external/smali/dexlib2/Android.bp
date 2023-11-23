@@ -27,7 +27,6 @@ java_library_host {
         "guava",
         "jcommander",
         "jsr305",
-        "smali-util",
     ],
 }
 
@@ -46,6 +45,23 @@ java_library_host {
         "commons-cli-1.2",
         "jcommander",
         "jsr305",
-        "smali-util",
+    ],
+}
+
+java_library_host {
+    name: "dexlib2-no-guava-no-cli",
+
+    srcs: [
+        "src/main/java/**/*.java",
+    ],
+
+    libs: [
+        "guava",
+        "commons-cli-1.2",
+    ],
+
+    static_libs: [
+        "jcommander",
+        "jsr305",
     ],
 }

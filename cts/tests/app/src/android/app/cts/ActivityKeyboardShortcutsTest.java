@@ -27,7 +27,6 @@ import android.widget.PopupMenu;
 import java.util.ArrayList;
 import java.util.List;
 
-import androidx.test.filters.FlakyTest;
 
 /**
  * Tests functionality in Activity related to Keyboard Shortcuts.
@@ -53,7 +52,6 @@ public class ActivityKeyboardShortcutsTest
      * Tests that requestShowKeyboardShortcuts fetches app specific shortcuts even when triggered
      * from an overflow menu (options menu in the test)
      */
-    @FlakyTest(bugId = 133760851)
     public void testRequestShowKeyboardShortcuts() throws InterruptedException {
         if (!keyboardShortcutsSupported()) {
             return;

@@ -23,7 +23,7 @@ extern int register_android_security_cts_SeccompTest(JNIEnv*);
 extern int register_android_security_cts_MMapExecutableTest(JNIEnv* env);
 extern int register_android_security_cts_EncryptionTest(JNIEnv* env);
 
-jint JNI_OnLoad(JavaVM *vm, void *reserved) {
+jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env = NULL;
 
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_4) != JNI_OK) {

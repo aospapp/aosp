@@ -16,20 +16,17 @@
 package com.android.tradefed.targetprep;
 
 import com.android.ddmlib.Log;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 
 /**
- * Placeholder empty implementation of a {@link ITargetPreparer}.
+ * Placeholder empty implementation of a {@link com.android.tradefed.targetprep.ITargetPreparer}.
  */
 // TODO: Delete when real target preparers live here.
 public class ExampleTargetPreparer extends BaseTargetPreparer {
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError {
+    public void setUp(TestInformation testInfo) throws TargetSetupError {
         Log.d("TargetPreparer", "Not doing anything because I'm just an example");
     }
 }

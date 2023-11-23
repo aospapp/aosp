@@ -16,10 +16,8 @@
 
 package android.platform.helpers;
 
-/**
- * Helper class for functional tests of Settings facet
- */
-public interface IAutoSettingHelper extends IAppHelper {
+/** Helper class for functional tests of Settings facet */
+public interface IAutoSettingHelper extends IAppHelper, Scrollable {
 
     /**
      * enum for Day/Night mode.
@@ -60,6 +58,13 @@ public interface IAutoSettingHelper extends IAppHelper {
     /**
      * Setup expectations: The app is open
      *
+     * <p>Open full settings page
+     */
+    void openFullSettings();
+
+    /**
+     * Setup expectations: The app is open
+     *
      * <p>Open quick settings page
      */
     void openQuickSettings();
@@ -79,6 +84,13 @@ public interface IAutoSettingHelper extends IAppHelper {
     void turnOnOffBluetooth(boolean turnOn);
 
     /**
+     * Setup expectations: The app is open and Hotspot & tethering setting options is selected
+     *
+     * @param turnOn to turn on/off Hotspot
+     */
+    void turnOnOffHotspot(boolean turnOn);
+
+    /**
      * Setup expectations: The app is open.
      *
      * Checks if the wifi is enabled.
@@ -91,6 +103,13 @@ public interface IAutoSettingHelper extends IAppHelper {
      * Checks if the bluetooth is enabled.
      */
     boolean isBluetoothOn();
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * Checks if hotspot is enabled.
+     */
+    boolean isHotspotOn();
 
     /**
      * Setup expectations: The app is open and the settings facet is open

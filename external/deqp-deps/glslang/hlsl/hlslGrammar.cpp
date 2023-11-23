@@ -1197,7 +1197,7 @@ bool HlslGrammar::acceptSamplerTypeDX9(TType &type)
     TSampler sampler;
     sampler.set(txType.getBasicType(), dim, false, isShadow, false);
 
-	if (!parseContext.setTextureReturnType(sampler, txType, token.loc))
+    if (!parseContext.setTextureReturnType(sampler, txType, token.loc))
         return false;
 
     type.shallowCopy(TType(sampler, EvqUniform, arraySizes));
@@ -1489,7 +1489,7 @@ bool HlslGrammar::acceptType(TType& type, TIntermNode*& nodeList)
     case EHTokSampler3d:              // ...
     case EHTokSamplerCube:            // ...
         if (parseContext.hlslDX9Compatible())
-			return acceptSamplerTypeDX9(type);
+            return acceptSamplerTypeDX9(type);
         else
             return acceptSamplerType(type);
         break;
@@ -2516,6 +2516,8 @@ bool HlslGrammar::acceptMemberFunctionDefinition(TIntermNode*& nodeList, const T
 //
 bool HlslGrammar::acceptFunctionParameters(TFunction& function)
 {
+    parseContext.beginParameterParsing(function);
+
     // LEFT_PAREN
     if (! acceptTokenClass(EHTokLeftParen))
         return false;
@@ -3218,6 +3220,11 @@ bool HlslGrammar::acceptConstructor(TIntermTyped*& node)
             // It's possible this is a type keyword used as an identifier.  Put the token back
             // for later use.
             recedeToken();
+            return false;
+        }
+
+        if (arguments == nullptr) {
+            expected("one or more arguments");
             return false;
         }
 

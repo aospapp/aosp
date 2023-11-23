@@ -45,45 +45,36 @@ namespace android {
 
 EmulatedCameraFactory::EmulatedCameraFactory() :
         mQemuClient(),
-        mEmulatedCameras(nullptr),
-        mEmulatedCameraNum(0),
-        mFakeCameraNum(0),
         mConstructedOK(false),
+        mGBM(&GraphicBufferMapper::get()),
         mCallbacks(nullptr) {
 
     /*
      * Figure out how many cameras need to be created, so we can allocate the
      * array of emulated cameras before populating it.
      */
-    int emulatedCamerasSize = 0;
 
     // QEMU Cameras
     std::vector<QemuCameraInfo> qemuCameras;
     if (mQemuClient.connectClient(nullptr) == NO_ERROR) {
         findQemuCameras(&qemuCameras);
-        emulatedCamerasSize += qemuCameras.size();
     }
 
+    int fakeCameraNum = 0;
     waitForQemuSfFakeCameraPropertyAvailable();
     // Fake Cameras
     if (isFakeCameraEmulationOn(/* backCamera */ true)) {
-        mFakeCameraNum++;
+        fakeCameraNum++;
     }
     if (isFakeCameraEmulationOn(/* backCamera */ false)) {
-        mFakeCameraNum++;
+        fakeCameraNum++;
     }
-    emulatedCamerasSize += mFakeCameraNum;
 
     /*
      * We have the number of cameras we need to create, now allocate space for
      * them.
      */
-    mEmulatedCameras = new EmulatedBaseCamera*[emulatedCamerasSize];
-    if (mEmulatedCameras == nullptr) {
-        ALOGE("%s: Unable to allocate emulated camera array for %d entries",
-                __FUNCTION__, mEmulatedCameraNum);
-        return;
-    }
+    mEmulatedCameras.reserve(qemuCameras.size() + fakeCameraNum);
 
     createQemuCameras(qemuCameras);
 
@@ -95,17 +86,16 @@ EmulatedCameraFactory::EmulatedCameraFactory() :
         createFakeCamera(/* backCamera */ false);
     }
 
-    ALOGE("%d cameras are being emulated. %d of them are fake cameras.",
-            mEmulatedCameraNum, mFakeCameraNum);
+    ALOGE("%zu cameras are being emulated. %d of them are fake cameras.",
+            mEmulatedCameras.size(), fakeCameraNum);
 
     // Create hotplug thread.
     {
-        Vector<int> cameraIdVector;
-        for (int i = 0; i < mEmulatedCameraNum; ++i) {
-            cameraIdVector.push_back(i);
+        std::vector<int> cameraIdVector;
+        for (const auto &camera: mEmulatedCameras) {
+            cameraIdVector.push_back(camera->getCameraId());
         }
-        mHotplugThread = new EmulatedCameraHotplugThread(&cameraIdVector[0],
-                                                         mEmulatedCameraNum);
+        mHotplugThread = new EmulatedCameraHotplugThread(std::move(cameraIdVector));
         mHotplugThread->run("EmulatedCameraHotplugThread");
     }
 
@@ -113,14 +103,7 @@ EmulatedCameraFactory::EmulatedCameraFactory() :
 }
 
 EmulatedCameraFactory::~EmulatedCameraFactory() {
-    if (mEmulatedCameras != nullptr) {
-        for (int n = 0; n < mEmulatedCameraNum; n++) {
-            if (mEmulatedCameras[n] != nullptr) {
-                delete mEmulatedCameras[n];
-            }
-        }
-        delete[] mEmulatedCameras;
-    }
+    mEmulatedCameras.clear();
 
     if (mHotplugThread != nullptr) {
         mHotplugThread->requestExit();
@@ -334,6 +317,41 @@ void EmulatedCameraFactory::findQemuCameras(
     }
 }
 
+std::unique_ptr<EmulatedBaseCamera>
+EmulatedCameraFactory::createQemuCameraImpl(int halVersion,
+                                            const QemuCameraInfo& camInfo,
+                                            int cameraId,
+                                            struct hw_module_t* module) {
+    status_t res;
+
+    switch (halVersion) {
+    case 1: {
+            auto camera = std::make_unique<EmulatedQemuCamera>(cameraId, module, mGBM);
+            res = camera->Initialize(camInfo.name, camInfo.frameDims, camInfo.dir);
+            if (res == NO_ERROR) {
+                return camera;
+            }
+        }
+        break;
+
+    case 3: {
+            auto camera = std::make_unique<EmulatedQemuCamera3>(cameraId, module, mGBM);
+            res = camera->Initialize(camInfo.name, camInfo.frameDims, camInfo.dir);
+            if (res == NO_ERROR) {
+                return camera;
+            }
+        }
+        break;
+
+    default:
+        ALOGE("%s: QEMU support for camera hal version %d is not "
+              "implemented", __func__, halVersion);
+        break;
+    }
+
+    return nullptr;
+}
+
 void EmulatedCameraFactory::createQemuCameras(
         const std::vector<QemuCameraInfo> &qemuCameras) {
     /*
@@ -352,132 +370,66 @@ void EmulatedCameraFactory::createQemuCameras(
          * Here, we're assuming the first webcam is intended to be the back
          * camera and any other webcams are front cameras.
          */
-        int halVersion = 0;
-        if (qemuIndex == 0) {
-            halVersion = getCameraHalVersion(/* backCamera */ true);
-        } else {
-            halVersion = getCameraHalVersion(/* backCamera */ false);
+        const bool isBackcamera = (qemuIndex == 0);
+        const int halVersion = getCameraHalVersion(isBackcamera);
+
+        std::unique_ptr<EmulatedBaseCamera> camera =
+            createQemuCameraImpl(halVersion,
+                                 cameraInfo,
+                                 mEmulatedCameras.size(),
+                                 &HAL_MODULE_INFO_SYM.common);
+        if (camera) {
+            mEmulatedCameras.push_back(std::move(camera));
         }
 
-        // Create and initialize QEMU camera.
-        EmulatedBaseCamera *qemuCam = nullptr;
-        status_t res;
-        switch (halVersion) {
-            case 1:
-                EmulatedQemuCamera *qemuCamOne;
-                qemuCamOne = new EmulatedQemuCamera(
-                        mEmulatedCameraNum, &HAL_MODULE_INFO_SYM.common);
-                if (qemuCamOne == nullptr) {
-                    ALOGE("%s: Unable to instantiate EmulatedQemuCamera",
-                            __FUNCTION__);
-                } else {
-                    /*
-                     * We have to initialize in each switch case, because
-                     * EmulatedBaseCamera::Initialize has a different method
-                     * signature.
-                     *
-                     * TODO: Having an EmulatedBaseQemuCamera class
-                     * could fix this issue.
-                     */
-                    res = qemuCamOne->Initialize(
-                            cameraInfo.name,
-                            cameraInfo.frameDims,
-                            cameraInfo.dir);
-                }
-                qemuCam = qemuCamOne;
-                break;
-            case 2:
-                ALOGE("%s: QEMU support for camera hal version %d is not "
-                        "implemented", __FUNCTION__, halVersion);
-                break;
-            case 3:
-                EmulatedQemuCamera3 *qemuCamThree;
-                qemuCamThree = new EmulatedQemuCamera3(
-                        mEmulatedCameraNum, &HAL_MODULE_INFO_SYM.common);
-                if (qemuCamThree == nullptr) {
-                    ALOGE("%s: Unable to instantiate EmulatedQemuCamera3",
-                            __FUNCTION__);
-                } else {
-                    res = qemuCamThree->Initialize(
-                            cameraInfo.name,
-                            cameraInfo.frameDims,
-                            cameraInfo.dir);
-                }
-                qemuCam = qemuCamThree;
-                break;
-            default:
-                ALOGE("%s: Unknown camera hal version requested: %d",
-                        __FUNCTION__, halVersion);
-        }
+        qemuIndex++;
+    }
+}
 
-        if (qemuCam == nullptr) {
-            ALOGE("%s: Unable to instantiate EmulatedQemuCamera",
-                    __FUNCTION__);
-        } else {
-            if (res == NO_ERROR) {
-                mEmulatedCameras[mEmulatedCameraNum] = qemuCam;
-                qemuIndex++;
-                mEmulatedCameraNum++;
+std::unique_ptr<EmulatedBaseCamera>
+EmulatedCameraFactory::createFakeCameraImpl(bool backCamera,
+                                            int halVersion,
+                                            int cameraId,
+                                            struct hw_module_t* module) {
+    switch (halVersion) {
+    case 1:
+        return std::make_unique<EmulatedFakeCamera>(cameraId, backCamera, module, mGBM);
+
+    case 2:
+        return std::make_unique<EmulatedFakeCamera2>(cameraId, backCamera, module, mGBM);
+
+    case 3: {
+            static const char key[] = "ro.kernel.qemu.camera.fake.rotating";
+            char prop[PROPERTY_VALUE_MAX];
+
+            if (property_get(key, prop, nullptr) > 0) {
+                return std::make_unique<EmulatedFakeCamera>(cameraId, backCamera, module, mGBM);
             } else {
-                delete qemuCam;
+                return std::make_unique<EmulatedFakeCamera3>(cameraId, backCamera, module, mGBM);
             }
         }
+
+    default:
+        ALOGE("%s: Unknown %s camera hal version requested: %d",
+              __func__, backCamera ? "back" : "front", halVersion);
+        return nullptr;
     }
 }
 
 void EmulatedCameraFactory::createFakeCamera(bool backCamera) {
-    int halVersion = getCameraHalVersion(backCamera);
+    const int halVersion = getCameraHalVersion(backCamera);
 
-    /*
-     * Create and initialize the fake camera, using the index into
-     * mEmulatedCameras as the camera ID.
-     */
-    switch (halVersion) {
-        case 1:
-            mEmulatedCameras[mEmulatedCameraNum] =
-                    new EmulatedFakeCamera(mEmulatedCameraNum, backCamera,
-                            &HAL_MODULE_INFO_SYM.common);
-            break;
-        case 2:
-            mEmulatedCameras[mEmulatedCameraNum] =
-                    new EmulatedFakeCamera2(mEmulatedCameraNum, backCamera,
-                            &HAL_MODULE_INFO_SYM.common);
-            break;
-        case 3:
-            {
-                const char *key = "ro.kernel.qemu.camera.fake.rotating";
-                char prop[PROPERTY_VALUE_MAX];
-                if (property_get(key, prop, nullptr) > 0) {
-                    mEmulatedCameras[mEmulatedCameraNum] =
-                        new EmulatedFakeCamera(mEmulatedCameraNum, backCamera,
-                                &HAL_MODULE_INFO_SYM.common);
-                } else {
-                    mEmulatedCameras[mEmulatedCameraNum] =
-                        new EmulatedFakeCamera3(mEmulatedCameraNum, backCamera,
-                                &HAL_MODULE_INFO_SYM.common);
-                }
-            }
-            break;
-        default:
-            ALOGE("%s: Unknown %s camera hal version requested: %d",
-                    __FUNCTION__, backCamera ? "back" : "front", halVersion);
-    }
+    std::unique_ptr<EmulatedBaseCamera> camera = createFakeCameraImpl(
+        backCamera, halVersion, mEmulatedCameras.size(),
+        &HAL_MODULE_INFO_SYM.common);
 
-    if (mEmulatedCameras[mEmulatedCameraNum] == nullptr) {
-        ALOGE("%s: Unable to instantiate fake camera class", __FUNCTION__);
+    status_t res = camera->Initialize();
+    if (res == NO_ERROR) {
+        mEmulatedCameras.push_back(std::move(camera));
     } else {
-        ALOGV("%s: %s camera device version is %d", __FUNCTION__,
-                backCamera ? "Back" : "Front", halVersion);
-        status_t res = mEmulatedCameras[mEmulatedCameraNum]->Initialize();
-        if (res == NO_ERROR) {
-            // Camera creation and initialization was successful.
-            mEmulatedCameraNum++;
-        } else {
-            ALOGE("%s: Unable to initialize %s camera %d: %s (%d)",
-                    __FUNCTION__, backCamera ? "back" : "front",
-                    mEmulatedCameraNum, strerror(-res), res);
-            delete mEmulatedCameras[mEmulatedCameraNum];
-        }
+        ALOGE("%s: Unable to initialize %s camera %zu: %s (%d)",
+              __func__, backCamera ? "back" : "front",
+              mEmulatedCameras.size(), strerror(-res), res);
     }
 }
 
@@ -506,12 +458,11 @@ void EmulatedCameraFactory::waitForQemuSfFakeCameraPropertyAvailable() {
 }
 
 bool EmulatedCameraFactory::isFakeCameraEmulationOn(bool backCamera) {
-    /*
-     * Defined by 'qemu.sf.fake_camera' boot property. If the property exists,
-     * and if it's set to 'both', then fake cameras are used to emulate both
-     * sides. If it's set to 'back' or 'front', then a fake camera is used only
-     * to emulate the back or front camera, respectively.
-     */
+    // Always return false, because another HAL (Google Camera HAL)
+    // will create the fake cameras
+    if (!property_get_bool("ro.kernel.qemu.legacy_fake_camera", false)) {
+        return false;
+    }
     char prop[PROPERTY_VALUE_MAX];
     if ((property_get("qemu.sf.fake_camera", prop, nullptr) > 0) &&
         (!strcmp(prop, "both") ||
@@ -546,7 +497,7 @@ int EmulatedCameraFactory::getCameraHalVersion(bool backCamera) {
 
 void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus) {
 
-    EmulatedBaseCamera *cam = mEmulatedCameras[cameraId];
+    EmulatedBaseCamera *cam = mEmulatedCameras[cameraId].get();
     if (!cam) {
         ALOGE("%s: Invalid camera ID %d", __FUNCTION__, cameraId);
         return;

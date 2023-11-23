@@ -82,6 +82,7 @@ cc_library {
         support_system_process: true,
     },
     host_supported: true,
+    native_bridge_supported: true,
     // The following list contains platform-independent functionalities.
     //
     // Skip apple_versioning.c since it is unused.
@@ -372,7 +373,6 @@ cc_library {
     target: {
         android: {
             shared_libs: ["liblog"],
-            static_libs: ["liblzma"],
         },
         android_arm: {
             static_libs: ["libunwind_llvm"],
@@ -401,7 +401,6 @@ cc_library {
         },
         linux_glibc: {
             static_libs: ["libunwindbacktrace", "libunwind_static"],
-            shared_libs: ["liblzma"],
         },
         windows: {
             enabled: true,
@@ -411,42 +410,10 @@ cc_library {
     },
 
     asflags: ["-integrated-as"],
-    no_libgcc: true,
+    no_libcrt: true,
 
     sanitize: {
         never: true,
     },
     stl: "none",
 }
-
-cc_defaults {
-    name: "asan_arch_defaults",
-
-    vendor_available: true,
-    enabled: false,
-    target: {
-        android_arm: {
-            enabled: true,
-        },
-        android_arm64: {
-            enabled: true,
-        },
-        android_mips: {
-            enabled: true,
-        },
-        android_mips64: {
-            enabled: true,
-        },
-        android_x86: {
-            enabled: true,
-        },
-        android_x86_64: {
-            enabled: true,
-        },
-        linux_glibc: {
-            enabled: true,
-        },
-    },
-}
-
-subdirs=["lib/*"]

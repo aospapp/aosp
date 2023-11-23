@@ -27,15 +27,21 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.Surface;
 import android.view.View;
+
 import com.android.tv.common.CommonPreferences.CommonPreferencesChangedListener;
 import com.android.tv.common.compat.TisSessionCompat;
+import com.android.tv.common.dagger.annotations.ApplicationContext;
 import com.android.tv.tuner.prefs.TunerPreferences;
-import com.android.tv.tuner.source.TsDataSourceManager;
 import com.android.tv.tuner.tvinput.datamanager.ChannelDataManager;
+import com.android.tv.tuner.tvinput.factory.TunerSessionFactory;
+import com.android.tv.tuner.tvinput.factory.TunerSessionFactory.SessionRecordingCallback;
 import com.android.tv.tuner.tvinput.factory.TunerSessionFactory.SessionReleasedCallback;
-import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
+
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
 
 /** Provides a tuner TV input session. */
+@AutoFactory(className = "TunerSessionExoV2Factory", implementing = TunerSessionFactory.class)
 public class TunerSessionExoV2 extends TisSessionCompat
         implements CommonPreferencesChangedListener {
 
@@ -45,26 +51,27 @@ public class TunerSessionExoV2 extends TisSessionCompat
     private final TunerSessionOverlay mTunerSessionOverlay;
     private final TunerSessionWorkerExoV2 mSessionWorker;
     private final SessionReleasedCallback mReleasedCallback;
+    private final SessionRecordingCallback mRecordingCallback;
     private boolean mPlayPaused;
     private long mTuneStartTimestamp;
 
     public TunerSessionExoV2(
-            Context context,
+            @Provided @ApplicationContext Context context,
             ChannelDataManager channelDataManager,
             SessionReleasedCallback releasedCallback,
-            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags,
-            TsDataSourceManager.Factory tsDataSourceManagerFactory) {
+            SessionRecordingCallback recordingCallback,
+            @Provided TunerSessionWorkerExoV2.Factory tunerSessionWorkerExoV2Factory,
+            @Provided TunerSessionOverlay.Factory tunerSessionOverlay) {
         super(context);
         mReleasedCallback = releasedCallback;
-        mTunerSessionOverlay = new TunerSessionOverlay(context);
+        mRecordingCallback = recordingCallback;
+        mTunerSessionOverlay = tunerSessionOverlay.create(context);
         mSessionWorker =
-                new TunerSessionWorkerExoV2(
+                tunerSessionWorkerExoV2Factory.create(
                         context,
                         channelDataManager,
                         this,
-                        mTunerSessionOverlay,
-                        concurrentDvrPlaybackFlags,
-                        tsDataSourceManagerFactory);
+                        mTunerSessionOverlay);
         TunerPreferences.setCommonPreferencesChangedListener(this);
     }
 
@@ -202,5 +209,9 @@ public class TunerSessionExoV2 extends TisSessionCompat
     @Override
     public void onCommonPreferencesChanged() {
         mSessionWorker.sendMessage(TunerSessionWorkerExoV2.MSG_TUNER_PREFERENCES_CHANGED);
+    }
+
+    public Uri getRecordingUri(Uri channelUri) {
+        return mRecordingCallback.getRecordingUri(channelUri);
     }
 }

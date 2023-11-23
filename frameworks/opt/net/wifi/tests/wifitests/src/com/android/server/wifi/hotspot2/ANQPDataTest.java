@@ -24,6 +24,7 @@ import static org.mockito.MockitoAnnotations.initMocks;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.Clock;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.Constants;
 
@@ -40,7 +41,7 @@ import java.util.Map;
  * allow easy construction of ANQP elements for testing.
  */
 @SmallTest
-public class ANQPDataTest {
+public class ANQPDataTest extends WifiBaseTest {
     @Mock Clock mClock;
 
     /**

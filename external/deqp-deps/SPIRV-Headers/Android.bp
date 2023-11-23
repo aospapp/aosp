@@ -1,34 +1,20 @@
-filegroup {
-    name: "deqp_spirv.core.grammar.json-1.0",
-    srcs: ["include/spirv/1.0/spirv.core.grammar.json"],
-}
 
 filegroup {
-    name: "deqp_spirv.core.grammar.json-1.1",
-    srcs: ["include/spirv/1.1/spirv.core.grammar.json"],
-}
-
-filegroup {
-    name: "deqp_spirv.core.grammar.json-1.2",
-    srcs: ["include/spirv/1.2/spirv.core.grammar.json"],
-}
-
-filegroup {
-    name: "deqp_spirv.core.grammar.json-unified1",
+    name: "deqp_spirv_headers_unified1_spirv.core.grammar.json",
     srcs: ["include/spirv/unified1/spirv.core.grammar.json"],
 }
 
 filegroup {
-    name: "deqp_spirv.glsl.grammar.json",
-    srcs: ["include/spirv/1.2/extinst.glsl.std.450.grammar.json"],
+    name: "deqp_spirv_headers_unified1_extinst.opencl.std.100.grammar.json",
+    srcs: ["include/spirv/unified1/extinst.opencl.std.100.grammar.json"],
 }
 
 filegroup {
-    name: "deqp_spirv.opencl.grammar.json",
-    srcs: ["include/spirv/1.2/extinst.opencl.std.100.grammar.json"],
+    name: "deqp_spirv_headers_unified1_extinst.glsl.std.450.grammar.json",
+    srcs: ["include/spirv/unified1/extinst.glsl.std.450.grammar.json"],
 }
 
 filegroup {
-    name: "deqp_spirv.registry.xml",
+    name: "deqp_spirv_headers_spir-v.xml",
     srcs: ["include/spirv/spir-v.xml"],
 }

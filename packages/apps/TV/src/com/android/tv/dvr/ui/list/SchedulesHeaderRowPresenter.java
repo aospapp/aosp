@@ -19,7 +19,7 @@ package com.android.tv.dvr.ui.list;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.support.v17.leanback.widget.RowPresenter;
+import androidx.leanback.widget.RowPresenter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;

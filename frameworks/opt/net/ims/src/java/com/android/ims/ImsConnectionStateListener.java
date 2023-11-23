@@ -17,9 +17,8 @@
 package com.android.ims;
 
 import android.net.Uri;
-import android.telephony.ims.ImsMmTelManager;
+import android.telephony.ims.RegistrationManager;
 import android.telephony.ims.ImsReasonInfo;
-import android.telephony.ims.feature.ImsFeature;
 import android.telephony.ims.feature.MmTelFeature;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 
@@ -29,10 +28,10 @@ import java.util.Arrays;
  * Listener for receiving notifications about changes to the IMS connection.
  * It provides a state of IMS registration between UE and IMS network, the service
  * availability of the local device during IMS registered.
- * @Deprecated Use {@link ImsMmTelManager.RegistrationCallback} instead.
+ * @Deprecated Use {@link RegistrationManager.RegistrationCallback} instead.
  * @hide
  */
-public class ImsConnectionStateListener extends ImsMmTelManager.RegistrationCallback {
+public class ImsConnectionStateListener extends RegistrationManager.RegistrationCallback {
 
     @Override
     public final void onRegistered(@ImsRegistrationImplBase.ImsRegistrationTech int imsRadioTech) {

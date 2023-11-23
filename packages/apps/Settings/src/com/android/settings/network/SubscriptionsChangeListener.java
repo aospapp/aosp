@@ -23,6 +23,7 @@ import android.content.IntentFilter;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
@@ -45,11 +46,11 @@ public class SubscriptionsChangeListener extends ContentObserver {
     private BroadcastReceiver mBroadcastReceiver;
 
     public SubscriptionsChangeListener(Context context, SubscriptionsChangeListenerClient client) {
-        super(new Handler());
+        super(new Handler(Looper.getMainLooper()));
         mContext = context;
         mClient = client;
         mSubscriptionManager = mContext.getSystemService(SubscriptionManager.class);
-        mSubscriptionsChangedListener = new OnSubscriptionsChangedListener() {
+        mSubscriptionsChangedListener = new OnSubscriptionsChangedListener(Looper.getMainLooper()) {
             @Override
             public void onSubscriptionsChanged() {
                 subscriptionsChangedCallback();
@@ -67,7 +68,8 @@ public class SubscriptionsChangeListener extends ContentObserver {
     }
 
     public void start() {
-        mSubscriptionManager.addOnSubscriptionsChangedListener(mSubscriptionsChangedListener);
+        mSubscriptionManager.addOnSubscriptionsChangedListener(
+                mContext.getMainExecutor(), mSubscriptionsChangedListener);
         mContext.getContentResolver()
                 .registerContentObserver(mAirplaneModeSettingUri, false, this);
         final IntentFilter radioTechnologyChangedFilter = new IntentFilter(

@@ -376,6 +376,7 @@
   />
 
   <apn carrier="MVNO NL"
+      carrier_id = "2149"
       mcc="204"
       mnc="03"
       apn="internet.mvno.mobi"
@@ -404,19 +405,19 @@
       apn="truphone.com"
       mmsc="http://mmsc.truphone.com:1981/mm1"
       type="default,supl,mms,dun"
-      mvno_match_data="204043914"
-      mvno_type="imsi"
+      mvno_type="gid"
+      mvno_match_data="547275554B3030656E"
   />
 
   <apn carrier="Truphone"
-      carrier_id = "20"
+      carrier_id = "2143"
       mcc="204"
       mnc="04"
       apn="truphone.com"
       mmsc="http://mmsc.truphone.com:1981/mm1"
       type="default,supl,mms,dun"
-      mvno_match_data="20404794"
-      mvno_type="imsi"
+      mvno_type="gid"
+      mvno_match_data="54727555533030656E"
   />
 
   <apn carrier="Vodafone NL"
@@ -637,6 +638,7 @@
   />
 
   <apn carrier="MVNO NL"
+      carrier_id = "2149"
       mcc="204"
       mnc="08"
       apn="internet.mvno.mobi"
@@ -670,6 +672,28 @@
       mvno_match_data="Rabo Mobiel"
       mvno_type="spn"
   />
+ 
+   <apn carrier="Truphone"
+      carrier_id = "2143"
+      mcc="204"
+      mnc="08"
+      apn="truphone.com"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
+      mvno_type="gid"
+      mvno_match_data="547275554B3030656E"
+  />
+ 
+   <apn carrier="Truphone"
+      carrier_id = "2143"
+      mcc="204"
+      mnc="08"
+      apn="truphone.com"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
+      mvno_type="gid"
+      mvno_match_data="54727555533030656E"
+  />
 
   <apn carrier="HOT mobile Internet"
       carrier_id = "1991"
@@ -693,6 +717,7 @@
       mvno_match_data="HOT mobile"
       mvno_type="spn"
   />
+  
 
   <apn carrier="Telfort Internet"
       carrier_id = "1644"
@@ -1106,28 +1131,29 @@
       mvno_type="gid"
   />
 
-  <apn carrier="Tele2 WAP"
-      carrier_id = "32"
+  <apn carrier="Coriolis"
+      carrier_id = "2135"
       mcc="208"
       mnc="01"
-      apn="ofnew.fr"
-      user="orange"
-      password="orange"
+      apn="coriolis"
       type="default,supl"
+      mvno_match_data="208011511"
+      mvno_type="imsi"
   />
 
-  <apn carrier="Tele2 MMS"
-      carrier_id = "32"
+  <apn carrier="Coriolis MMS"
+      carrier_id = "2135"
       mcc="208"
       mnc="01"
-      apn="orange.acte"
-      user="orange"
-      password="orange"
-      mmsc="http://mms.orange.fr"
-      mmsproxy="192.168.10.200"
-      mmsport="8080"
+      apn="mmscoriolis"
+      mmsc="http://mms.coriolis.fr"
+      mmsproxy="10.12.0.1"
+      mmsport="9028"
       type="mms"
+      mvno_match_data="208011511"
+      mvno_type="imsi"
   />
+
 
   <apn carrier="SFR webphone"
       carrier_id = "27"
@@ -1161,12 +1187,47 @@
   />
 
   <apn carrier="Truphone"
+      carrier_id = "2143"
       mcc="208"
       mnc="09"
       apn="truphone.com"
       mmsc="http://mmsc.truphone.com:1981/mm1"
       type="default,supl,mms,dun"
-      mvno_match_data="208090022"
+      mvno_type="gid"
+      mvno_match_data="547275554B3030656E"
+  />
+
+  <apn carrier="Truphone"
+      carrier_id = "2143"
+      mcc="208"
+      mnc="09"
+      apn="truphone.com"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
+	  mvno_type="gid"
+      mvno_match_data="54727555533030656E"
+  />
+
+  <apn carrier="Coriolis"
+      carrier_id = "2135"
+      mcc="208"
+      mnc="09"
+      apn="coriolis"
+      type="default,supl"
+      mvno_match_data="208090036"
+      mvno_type="imsi"
+  />
+
+  <apn carrier="Coriolis MMS"
+      carrier_id = "2135"
+      mcc="208"
+      mnc="09"
+      apn="mmscoriolis"
+      mmsc="http://mms.coriolis.fr"
+      mmsproxy="10.12.0.1"
+      mmsport="9028"
+      type="mms"
+      mvno_match_data="208090036"
       mvno_type="imsi"
   />
 
@@ -1476,6 +1537,14 @@
       mvno_type="spn"
       mvno_match_data="RegloMobile"
   />
+  <apn carrier="Truphone"
+      carrier_id = "2143"
+      mcc="208"
+      mnc="12"
+      apn="truphone.com"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
+  />
 
   <apn carrier="Free"
       carrier_id = "1958"
@@ -1511,7 +1580,7 @@
       mcc="208"
       mnc="15"
       apn="iliad"
-      mmsc="http://mms.iliad-italia.it"
+      mmsc="http://mms.iliad.it"
       type="default,supl,mms"
       mvno_match_data="F003"
       mvno_type="gid"
@@ -1610,8 +1679,6 @@
       mnc="27"
       apn="coriolis"
       type="default,supl"
-      mvno_match_data="Coriolis"
-      mvno_type="spn"
   />
 
   <apn carrier="Coriolis MMS"
@@ -1623,8 +1690,6 @@
       mmsproxy="10.12.0.1"
       mmsport="9028"
       type="mms"
-      mvno_match_data="Coriolis"
-      mvno_type="spn"
   />
 
 
@@ -1959,10 +2024,30 @@
       password=""
       port=""
       proxy=""
-      type="default,supl,foat,hipri"
+      type="default,supl,fota,hipri"
       roaming_protocol="IPV4V6"
       mvno_type="imsi"
       mvno_match_data="214050104xxxxxx"
+  />
+
+  <apn carrier="DIGI Spain"
+      carrier_id="2442"
+      mcc="214"
+      mnc="05"
+      apn="internet.digimobil.es"
+      type="default,supl"
+      mvno_type="gid"
+      mvno_match_data="44474553"
+  />
+
+  <apn carrier="DIGI Italy"
+      carrier_id="2443"
+      mcc="214"
+      mnc="05"
+      apn="digi.mobile"
+      type="default,supl"
+      mvno_type="gid"
+      mvno_match_data="44474954"
   />
 
   <apn carrier="INTERNET GPRS"
@@ -2331,6 +2416,14 @@
       type="mms"
   />
 
+  <apn carrier="DIGI Spain"
+      carrier_id="2442"
+      mcc="214"
+      mnc="22"
+      apn="internet.digimobil.es"
+      type="default,supl"
+  />
+
   <apn carrier="Truphone"
       carrier_id = "2143"
       mcc="214"
@@ -2364,7 +2457,7 @@
       password=""
       port=""
       proxy=""
-      type="default,supl,foat,hipri"
+      type="default,supl,fota,hipri"
       protocol="IPV4V6"
   />
 
@@ -3106,13 +3199,48 @@
       mvno_match_data="ERG"
   />
 
+  <apn carrier="DailyTelecomWAP"
+        carrier_id = "2438"
+        mcc="222"
+        mnc="10"
+        apn="wap.dtm.it"
+        type="default,supl,dun"
+        mvno_type="spn"
+        mvno_match_data="Daily Telecom"
+  />
+
+  <apn carrier="DIGI Italy"
+      carrier_id="2443"
+      mcc="222"
+      mnc="36"
+      apn="digi.mobile"
+      type="default,supl"
+  />
+
   <apn carrier="Iliad"
       carrier_id = "2124"
       mcc="222"
       mnc="50"
       apn="iliad"
-      mmsc="http://mms.iliad-italia.it"
+      mmsc="http://mms.iliad.it"
       type="default,supl,mms"
+  />
+
+  <apn carrier="WEB CoopVoce"
+        mcc="222"
+        mnc="53"
+        apn="internet.coopvoce.it"
+        type="default"
+  />
+
+  <apn carrier="MMS CoopVoce"
+        mcc="222"
+        mnc="53"
+        apn="message.coopvoce.it"
+        type="mms"
+        mmsc="http://mms.coop.it/servlets/mms"
+        mmsproxy="213.230.130.89"
+        mmsport="80"
   />
 
   <apn carrier="Plintron"
@@ -3294,6 +3422,26 @@
       apn="internet"
       authtype="1"
       type="default,supl"
+  />
+
+  <apn carrier="DIGI Spain"
+      carrier_id="2442"
+      mcc="226"
+      mnc="05"
+      apn="internet.digimobil.es"
+      type="default,supl"
+      mvno_type="gid"
+      mvno_match_data="44474553"
+  />
+
+  <apn carrier="DIGI Italy"
+      carrier_id="2443"
+      mcc="226"
+      mnc="05"
+      apn="digi.mobile"
+      type="default,supl"
+      mvno_type="gid"
+      mvno_match_data="44474954"
   />
 
   <apn carrier="Cosmote Connect Mobile"
@@ -3977,6 +4125,7 @@
       mmsport="8799"
       authtype="1"
       type="default,supl,mms"
+      user_editable="false"
   />
 
   <apn carrier="Vodafone UK Prepay"
@@ -3990,6 +4139,7 @@
       mmsport="8799"
       authtype="1"
       type="default,supl,mms"
+      user_editable="false"
   />
 
   <apn carrier="ASDA WAP"
@@ -4314,7 +4464,7 @@
       protocol="IPV6"
       roaming_protocol="IPV6"
   />
-  
+
   <apn carrier="Internet"
       carrier_id = "2283"
       mcc="234"
@@ -4442,17 +4592,6 @@
       mnc="50"
       apn="pepper"
       type="default,supl"
-  />
-
-  <apn carrier="Truphone"
-      carrier_id = "2143"
-      mcc="234"
-      mnc="50"
-      apn="truphone.com"
-      mmsc="http://mmsc.truphone.com:1981/mm1"
-      type="default,supl,mms,dun"
-      mvno_match_data="234500008"
-      mvno_type="imsi"
   />
 
   <apn carrier="C&amp;W Guernsey Internet"
@@ -6066,11 +6205,31 @@
       type="mms"
   />
 
+  <apn carrier="VTB Mobile"
+      carrier_id = "2448"
+      mcc="250"
+      mnc="26"
+      apn="vtb"
+      user=""
+      password=""
+      type="default,supl"
+  />
+
   <apn carrier="VODA internet"
       carrier_id = "1029"
       mcc="250"
       mnc="28"
       apn="vodalte.ru"
+      type="default,supl"
+  />
+
+  <apn carrier="Next Mobile"
+      carrier_id="2444"
+      mcc="250"
+      mnc="47"
+      apn="Next"
+      user=""
+      password=""
       type="default,supl"
   />
 
@@ -6269,6 +6428,8 @@
       apn="mts"
       user="mts"
       password="mts"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
       authtype="1"
       type="default,supl"
   />
@@ -6634,6 +6795,19 @@
       type="mms"
   />
 
+  <apn carrier="MVNO DE"
+     carrier_id = "2461"
+     mcc="262"
+     mnc="03"
+     apn="internet.mvno.mobi"
+     user="mvno"
+     password="mvno"
+     authtype="1"
+     type="default,supl"
+     mvno_match_data="26203483"
+     mvno_type="imsi"
+  />
+
   <apn carrier="o2 Internet"
       mcc="262"
       mnc="07"
@@ -6715,6 +6889,19 @@
       type="ims"
       protocol="IPV4V6"
       roaming_protocol="IPV4V6"
+  />
+
+  <apn carrier="MVNO DE"
+     carrier_id = "2461"
+     mcc="262"
+     mnc="20"
+     apn="internet.mvno.mobi"
+     user="mvno"
+     password="mvno"
+     authtype="1"
+     type="default,supl"
+     mvno_match_data="26220"
+     mvno_type="imsi"
   />
 
   <apn carrier="Truphone"
@@ -6933,12 +7120,12 @@
       type="dun"
   />
 
-  <apn carrier="O2 Ireland"
+  <apn carrier="3"
       carrier_id = "792"
       mcc="272"
       mnc="02"
       apn="internet"
-      mmsc="http://mmsc.mms.o2.ie:8002/"
+      mmsc="http://mms.three.ie"
       mmsproxy="62.40.32.40"
       mmsport="8080"
       type="default,supl,mms"
@@ -10076,7 +10263,7 @@
       bearer="18"
   />
 
-  <apn carrier="Project Fi - T"
+  <apn carrier="Google Fi - T"
       carrier_id = "1989"
       mcc="310"
       mnc="260"
@@ -10291,7 +10478,7 @@
 
 
   <apn carrier="Truphone"
-      carrier_id = "1"
+      carrier_id = "2143"
       mcc="310"
       mnc="300"
       apn="truphone.com"
@@ -11462,6 +11649,38 @@
       roaming_protocol="IP"
       mvno_match_data="6D"
       mvno_type="gid"
+  />
+
+  <apn carrier="Truphone"
+      carrier_id = "2143"
+      mcc="310"
+      mnc="69"
+      apn="truphone.com"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
+      mvno_type="gid"
+      mvno_match_data="547275554B3030656E"
+  />
+
+  <apn carrier="Truphone"
+      carrier_id = "2143"
+      mcc="310"
+      mnc="69"
+      apn="truphone.com"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
+	  mvno_type="gid"
+      mvno_match_data="54727555533030656E"
+  />
+
+  <apn carrier="Limitless"
+      carrier_id = "1808"
+      mcc="310"
+      mnc="690"
+      apn="limitless.us4g.com"
+      mmsc="http://mms.limitless.csky.us:6672/"
+      mmsproxy="209.4.229.79"
+      mmsport="9401"
   />
 
   <apn carrier="Rogers Internet"
@@ -13811,29 +14030,10 @@
       mcc="311"
       mnc="370"
       apn="mms.gci"
-      proxy="209.4.229.92"
+      proxy="24.237.158.34"
       port="9201"
-      mmsc="http://mmsc.gci.csky.us:6672"
-      mmsproxy="209.4.229.92"
-      mmsport="9201"
-      type="mms"
-  />
-
-  <apn carrier="ACS WEB"
-      carrier_id = "1843"
-      mcc="311"
-      mnc="370"
-      apn="web.acs"
-      type="default,supl"
-  />
-
-  <apn carrier="ACS MMS"
-      carrier_id = "1843"
-      mcc="311"
-      mnc="370"
-      apn="mms.acs"
-      mmsc="http://mmsc.acsalaska.net"
-      mmsproxy="209.4.229.92"
+      mmsc="http://mmsc.gci.net"
+      mmsproxy="24.237.158.34"
       mmsport="9201"
       type="mms"
   />
@@ -15535,6 +15735,25 @@
       mmsc="http://mms.cleartalk.us/cleartalk/mms.php"
       mtu="1428"
     />
+
+  <apn carrier="Sprint"
+      carrier_id = "1788"
+      mcc="311"
+      mnc="882"
+      apn="internet.curiosity.sprint.com"
+      type="default"
+      protocol="IPV4V6"
+      network_type_bitmask="13"
+  />
+  <apn carrier="Sprint"
+      carrier_id = "1788"
+      mcc="311"
+      mnc="882"
+      apn="arm.ericsson.iot"
+      type="admin"
+      protocol="IPV4V6"
+      network_type_bitmask="13"
+  />
 
   <apn carrier="MobileNation"
       carrier_id = "2258"
@@ -17245,6 +17464,15 @@
       type="mms"
   />
 
+  <apn carrier="Wind Telecom"
+      carrier_id = "2437"
+      mcc="370"
+      mnc="05"
+      apn="smart.wind4g.com.do"
+      type="default"
+      protocol="IPV4V6"
+  />
+
   <apn carrier='Haiti:Digicel:Internet'
       carrier_id = "1532"
       mcc='372'
@@ -17727,6 +17955,16 @@
       apn="internet.dos.kz"
       type="default,supl"
   />
+
+  <apn carrier="izi"
+       carrier_id = "2436"
+       mcc="401"
+       mnc="01"
+       apn="izi.me"
+       type="default,supl"
+       mvno_type="imsi"
+       mvno_match_data="40101568"
+   />
 
   <apn carrier="Kcell Internet"
       carrier_id = "1589"
@@ -27184,7 +27422,7 @@
   />
 
   <apn carrier="Truphone"
-      carrier_id = "763"
+      carrier_id = "2143"
       mcc="454"
       mnc="08"
       apn="truphone.com"
@@ -28226,17 +28464,6 @@
       mmsproxy="61.88.190.10"
       mmsport="8070"
       type="mms"
-  />
-
-  <apn carrier="Truphone"
-      carrier_id = "2143"
-      mcc="505"
-      mnc="02"
-      apn="truphone.com"
-      mmsc="http://mmsc.truphone.com:1981/mm1"
-      type="default,supl,mms,dun"
-      mvno_match_data="50502100"
-      mvno_type="imsi"
   />
 
   <apn carrier="Virgin Internet"
@@ -33012,6 +33239,31 @@
       mvno_match_data="Surf"
   />
 
+  <apn carrier="LIGUE 4G Internet"
+      mcc="724"
+      mnc="18"
+      apn="iot4u.br"
+      authtype="1"
+      user="arqia"
+      password="arqia"
+      type="default"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4"
+      mvno_type="spn"
+      mvno_match_data="LIGUE"
+  />
+
+  <apn carrier="LIGUE 4G IMS"
+      mcc="724"
+      mnc="18"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4"
+      mvno_type="spn"
+      mvno_match_data="LIGUE"
+  />
+
   <apn carrier="TelemigC GPRS"
       carrier_id = "543"
       mcc="724"
@@ -33033,6 +33285,22 @@
       mmsproxy="200.192.230.142"
       mmsport="8080"
       type="mms"
+  />
+
+  <apn carrier="LIGUE Internet"
+      mcc="724"
+      mnc="21"
+      apn="internet.ligue.vc"
+      type="default"
+      protocol="IPV4V6"
+  />
+
+  <apn carrier="LIGUE IMS"
+      mcc="724"
+      mnc="21"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
   />
 
   <apn carrier="Vivo Internet"

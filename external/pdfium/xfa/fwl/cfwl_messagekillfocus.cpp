@@ -17,8 +17,4 @@ CFWL_MessageKillFocus::CFWL_MessageKillFocus(CFWL_Widget* pSrcTarget,
                                              CFWL_Widget* pDstTarget)
     : CFWL_Message(CFWL_Message::Type::KillFocus, pSrcTarget, pDstTarget) {}
 
-CFWL_MessageKillFocus::~CFWL_MessageKillFocus() {}
-
-std::unique_ptr<CFWL_Message> CFWL_MessageKillFocus::Clone() {
-  return pdfium::MakeUnique<CFWL_MessageKillFocus>(*this);
-}
+CFWL_MessageKillFocus::~CFWL_MessageKillFocus() = default;

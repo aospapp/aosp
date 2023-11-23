@@ -44,7 +44,7 @@ class firmware_ECBattery(FirmwareTest):
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.ec.send_command("chan 0")
-
+        self._host = host
 
     def cleanup(self):
         try:
@@ -58,8 +58,19 @@ class firmware_ECBattery(FirmwareTest):
         """Get battery path in sysfs."""
         match = self.faft_client.system.run_shell_command_get_output(
                 'grep -iH --color=no "Battery" /sys/class/power_supply/*/type')
-        name = re.search("/sys/class/power_supply/([^/]+)/",
-                         match[0]).group(1)
+        name = None
+        for item in match:
+            logging.info("Battery sysfs %s", item)
+            name = re.search("/sys/class/power_supply/([^/]+)/",
+                             item).group(1)
+            if (self._host.path_exists(self.BATTERY_STATUS % name) and
+                self._host.path_exists(self.BATTERY_VOLTAGE_READING % name) and
+                self._host.path_exists(self.BATTERY_CURRENT_READING % name)):
+                break
+            else:
+                name = None
+        if name is None:
+            raise error.TestFail("Can't find a battery sysfs node")
         logging.info("Battery name is %s", name)
         self._battery_status = self.BATTERY_STATUS % name
         self._battery_voltage = self.BATTERY_VOLTAGE_READING % name

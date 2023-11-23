@@ -20,11 +20,6 @@
         <option name="cleanup" value="true" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
-        <option name="test-module-name" value="VtsKernelCheckpointDTFstabTest" />
-        <option name="test-case-path" value="vts/testcases/kernel/checkpoint/VtsKernelCheckpointDTFstabTest" />
-        <option name="precondition-first-api-level" value="29" />
-    </test>
-    <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsKernelCheckpointTest" />
         <option name="test-case-path" value="vts/testcases/kernel/checkpoint/VtsKernelCheckpointTest" />
         <option name="test-timeout" value="6m" />

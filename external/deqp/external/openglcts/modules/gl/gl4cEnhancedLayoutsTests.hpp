@@ -69,6 +69,7 @@ public:
 	glw::GLuint GetSize(const bool is_std140 = false) const;
 	glw::GLenum GetTypeGLenum() const;
 	glw::GLuint GetNumComponents() const;
+	std::vector<glw::GLuint> GetValidComponents() const;
 
 	/* Public static routines */
 	/* Functionality */
@@ -85,6 +86,8 @@ public:
 
 	/* GL gets */
 	static glw::GLenum GetTypeGLenum(TYPES type);
+
+	static bool CanTypesShareLocation(TYPES first, TYPES second);
 
 	/* Public fields */
 	TYPES		m_basic_type;
@@ -1026,7 +1029,8 @@ protected:
 	std::string getTypeName(glw::GLuint index) const;
 	glw::GLuint getTypesNumber() const;
 
-	bool isFlatRequired(Utils::Shader::STAGES stage, const Utils::Type& type, Utils::Variable::STORAGE storage) const;
+	bool isFlatRequired(Utils::Shader::STAGES stage, const Utils::Type& type, Utils::Variable::STORAGE storage,
+						const bool coherent = false) const;
 
 private:
 	/* Private methods */
@@ -1120,10 +1124,11 @@ protected:
 	virtual std::string getShaderSource(glw::GLuint test_case_index, Utils::Shader::STAGES stage) = 0;
 	virtual bool isComputeRelevant(glw::GLuint test_case_index);
 	virtual bool isFailureExpected(glw::GLuint test_case_index);
+	virtual bool isSeparable(const glw::GLuint test_case_index);
 	virtual bool testCase(glw::GLuint test_case_index);
 };
 
-/** Base class for test doing Texture alghorithm **/
+/** Base class for test doing Texture algorithm **/
 class TextureTestBase : public TestBase
 {
 public:
@@ -2526,6 +2531,7 @@ protected:
 	virtual std::string getTestCaseName(glw::GLuint test_case_index);
 	virtual glw::GLuint getTestCaseNumber();
 	virtual bool isComputeRelevant(glw::GLuint test_case_index);
+	virtual bool isSeparable(const glw::GLuint test_case_index);
 	virtual void testInit();
 
 private:
@@ -2549,6 +2555,8 @@ private:
  *
  *   Modify VaryingLocations to test all possible combinations of components
  *   layout:
+ *       - g64vec2
+ *       - g64scalar, g64scalar
  *       - gvec4
  *       - scalar, gvec3
  *       - gvec3, scalar
@@ -2589,6 +2597,8 @@ private:
 	/* Private enums */
 	enum COMPONENTS_LAYOUT
 	{
+		G64VEC2,
+		G64SCALAR_G64SCALAR,
 		GVEC4,
 		SCALAR_GVEC3,
 		GVEC3_SCALAR,
@@ -2666,9 +2676,10 @@ protected:
 	virtual glw::GLuint getArrayLength();
 };
 
-/** Implementation of test VaryingExceedingComponents. Description follows:
+/** Implementation of test VaryingInvalidValueComponent. Description follows:
  *
- * Test verifies that it is not allowed to exceed components.
+ * Test verifies that it is not allowed to use some component values
+ * with specific types.
  *
  * Test following code snippets:
  *
@@ -2678,8 +2689,63 @@ protected:
  *
  *     layout (location = 1, component = COMPONENT) in type gohan[LENGTH];
  *
- * Select COMPONENT so as to exceed space available at location, eg. 2 for
- * vec4. Select array length so as to not exceed limits of available locations.
+ * Select COMPONENT so it is an invalid value either due the specific
+ * restrictions of each type, eg. 2 for vec4, which overflows the
+ * amount of components in a location. Select array length so as to
+ * not exceed limits of available locations.
+ *
+ * Test all types. Test all shader stages. Test both in and out varyings.
+ *
+ * It is expected that build process will fail.
+ **/
+class VaryingInvalidValueComponentTest : public NegativeTestBase
+{
+public:
+	/* Public methods */
+	VaryingInvalidValueComponentTest(deqp::Context& context);
+
+	virtual ~VaryingInvalidValueComponentTest()
+	{
+	}
+
+protected:
+	/* Methods to be implemented by child class */
+	virtual std::string getShaderSource(glw::GLuint test_case_index, Utils::Shader::STAGES stage);
+
+	virtual std::string getTestCaseName(glw::GLuint test_case_index);
+	virtual glw::GLuint getTestCaseNumber();
+	virtual bool isComputeRelevant(glw::GLuint test_case_index);
+	virtual void testInit();
+
+private:
+	/* Private types */
+	struct testCase
+	{
+		glw::GLuint			  m_component;
+		bool				  m_is_input;
+		bool				  m_is_array;
+		Utils::Shader::STAGES m_stage;
+		Utils::Type			  m_type;
+	};
+
+	/* Private fields */
+	std::vector<testCase> m_test_cases;
+};
+
+/** Implementation of test VaryingExceedingComponents. Description follows:
+ *
+ * Test verifies that it is not allowed to use a value that exceeds
+ * the amount of possible components in a location.
+ *
+ * Test following code snippets:
+ *
+ *     layout (location = 1, component = 4) in type gohan;
+ *
+ * and
+ *
+ *     layout (location = 1, component = 4) in type gohan[LENGTH];
+ *
+ * Select array length so as to not exceed limits of available locations.
  *
  * Test all types. Test all shader stages. Test both in and out varyings.
  *
@@ -2708,7 +2774,6 @@ private:
 	/* Private types */
 	struct testCase
 	{
-		glw::GLuint			  m_component;
 		bool				  m_is_input;
 		bool				  m_is_array;
 		Utils::Shader::STAGES m_stage;
@@ -2841,6 +2906,7 @@ private:
 	enum CASES
 	{
 		MATRIX = 0,
+		DVEC3_DVEC4,
 		BLOCK,
 		STRUCT,
 
@@ -3018,9 +3084,6 @@ private:
 		Utils::Type			  m_type_goten;
 	};
 
-	/* Private routines */
-	bool isFloatType(const Utils::Type& type);
-
 	/* Private fields */
 	std::vector<testCase> m_test_cases;
 };
@@ -3091,7 +3154,6 @@ private:
 
 	/* Private routines */
 	const glw::GLchar* getInterpolationQualifier(INTERPOLATIONS interpolation);
-	bool isFloatType(const Utils::Type& type);
 
 	/* Private fields */
 	std::vector<testCase> m_test_cases;
@@ -3153,8 +3215,6 @@ private:
 		glw::GLuint			  m_component_goten;
 		AUXILIARIES			  m_aux_gohan;
 		AUXILIARIES			  m_aux_goten;
-		const glw::GLchar*	m_int_gohan;
-		const glw::GLchar*	m_int_goten;
 		bool				  m_is_input;
 		Utils::Shader::STAGES m_stage;
 		Utils::Type			  m_type_gohan;
@@ -3163,7 +3223,6 @@ private:
 
 	/* Private routines */
 	const glw::GLchar* getAuxiliaryQualifier(AUXILIARIES aux);
-	bool isFloatType(const Utils::Type& type);
 
 	/* Private fields */
 	std::vector<testCase> m_test_cases;
@@ -3517,9 +3576,9 @@ private:
  *
  * ,
  *
- *     layout (xfb_buffer = 0, xfb_stride = 32) out;
+ *     layout (xfb_buffer = 0, xfb_stride = 28) out;
  *
- *     layout (xfb_offset = 16, xfb_stride = 32) out vec4 goku;
+ *     layout (xfb_offset = 16, xfb_stride = 28) out vec4 goku;
  *
  *     goku = EXPECTED_VALUE.
  *
@@ -3600,12 +3659,16 @@ private:
  *
  * Test following code snippets:
  *
- *     layout (xfb_offset = 0, xfb_stride = 2 * sizeof(type)) out type goku;
+ *     layout (xfb_stride = sizeof(type)) out;
+ *
+ *     layout (xfb_offset = 0) out type goku;
  *
  * and
  *
- *     layout (xfb_offset = 0, xfb_stride = 2 * sizeof(type)) out type goku;
- *     layout (xfb_offset = sizeof(type))                     out type vegeta;
+ *     layout (xfb_stride = sizeof(type)) out;
+ *
+ *     layout (xfb_offset = 0)            out type goku;
+ *     layout (xfb_offset = sizeof(type)) out type vegeta;
  *
  * It is expected that:
  *     - first snippet will build successfully,
@@ -4093,11 +4156,11 @@ private:
  *
  * ,
  *
- *     layout (xfb_buffer = 0, xfb_offset = MAX_SIZE) out vec4 output;
+ *     layout (xfb_buffer = 0, xfb_offset = MAX_SIZE + 16) out vec4 output;
  *
  * and
  *
- *     layout (xfb_buffer = 0, xfb_offset = MAX_SIZE) out Block
+ *     layout (xfb_buffer = 0, xfb_offset = MAX_SIZE + 16) out Block
  *     {
  *         vec4 member;
  *     };
@@ -4316,8 +4379,8 @@ private:
  *
  * Test following code snippet:
  *
- *     layout (xfb_offset = sizeof(type))       out type gohan;
- *     layout (xfb_offset = 1.5 * sizeof(type)) out type goten;
+ *     layout (xfb_offset = 0)       out type gohan;
+ *     layout (xfb_offset = 0.5 * sizeof(type)) out type goten;
  *
  *     gohan = EXPECTED_VALUE;
  *     goten = EXPECTED_VALUE;
@@ -4349,8 +4412,7 @@ private:
 	/* Private types */
 	struct testCase
 	{
-		glw::GLuint			  m_offset_gohan;
-		glw::GLuint			  m_offset_goten;
+		glw::GLuint			  m_offset;
 		Utils::Shader::STAGES m_stage;
 		Utils::Type			  m_type;
 	};
@@ -4410,7 +4472,7 @@ private:
 
 /** Implementation of test XFBCaptureInactiveOutputVariable. Description follows:
  *
- * Test verifies behaviour of inactive outputs.
+ * Test verifies behavior of inactive outputs.
  *
  * This test implements Buffer algorithm. Rasterization can be disabled. Draw
  * two vertices instead of one. Test following code snippet:
@@ -4472,7 +4534,7 @@ private:
 
 /** Implementation of test XFBCaptureInactiveOutputComponent. Description follows:
  *
- * Test verifies behaviour of inactive component.
+ * Test verifies behavior of inactive component.
  *
  * This test implements Buffer algorithm. Rasterization can be disabled. Draw
  * two vertices instead of one. Test following code snippet:

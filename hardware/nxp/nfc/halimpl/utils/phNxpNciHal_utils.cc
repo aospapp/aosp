@@ -36,7 +36,7 @@
 *******************************************************************************/
 int listInit(struct listHead* pList) {
   pList->pFirst = NULL;
-  if (pthread_mutex_init(&pList->mutex, NULL) == -1) {
+  if (pthread_mutex_init(&pList->mutex, NULL) != 0) {
     NXPLOG_NCIHAL_E("Mutex creation failed (errno=0x%08x)", errno);
     return 0;
   }
@@ -59,7 +59,7 @@ int listDestroy(struct listHead* pList) {
     bListNotEmpty = listGetAndRemoveNext(pList, NULL);
   }
 
-  if (pthread_mutex_destroy(&pList->mutex) == -1) {
+  if (pthread_mutex_destroy(&pList->mutex) != 0) {
     NXPLOG_NCIHAL_E("Mutex destruction failed (errno=0x%08x)", errno);
     return 0;
   }
@@ -266,12 +266,12 @@ phNxpNciHal_Monitor_t* phNxpNciHal_init_monitor(void) {
   if (nxpncihal_monitor != NULL) {
     memset(nxpncihal_monitor, 0x00, sizeof(phNxpNciHal_Monitor_t));
 
-    if (pthread_mutex_init(&nxpncihal_monitor->reentrance_mutex, NULL) == -1) {
+    if (pthread_mutex_init(&nxpncihal_monitor->reentrance_mutex, NULL) != 0) {
       NXPLOG_NCIHAL_E("reentrance_mutex creation returned 0x%08x", errno);
       goto clean_and_return;
     }
 
-    if (pthread_mutex_init(&nxpncihal_monitor->concurrency_mutex, NULL) == -1) {
+    if (pthread_mutex_init(&nxpncihal_monitor->concurrency_mutex, NULL) != 0) {
       NXPLOG_NCIHAL_E("concurrency_mutex creation returned 0x%08x", errno);
       pthread_mutex_destroy(&nxpncihal_monitor->reentrance_mutex);
       goto clean_and_return;

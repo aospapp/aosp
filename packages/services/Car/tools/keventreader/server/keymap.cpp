@@ -28,7 +28,7 @@ Keymap::Keymap() {
     fillMap();
 }
 
-std::string_view Keymap::getDisplayName(int keycode) {
+std::string Keymap::getDisplayName(int keycode) {
     auto iter = mKeyMap.find(keycode), end = mKeyMap.end();
     if (iter == end) {
         std::stringstream ss;

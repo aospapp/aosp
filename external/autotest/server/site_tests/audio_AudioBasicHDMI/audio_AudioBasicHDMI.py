@@ -25,9 +25,8 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
 
     """
     version = 2
-    DELAY_BEFORE_PLAYBACK = 2
-    DELAY_AFTER_PLAYBACK = 2
     CONNECT_TIMEOUT_SEC = 30
+    RECORDING_DURATION = 6
     SUSPEND_SEC = 15
     WAIT_TO_REBIND_SEC = 15
     WEB_PLAYBACK_SEC = 15
@@ -69,6 +68,11 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
         # Stop audio playback by closing the browser tab.
         if while_playback:
             browser_facade.close_tab(tab_descriptor)
+
+        # Explicitly select the node as there is a known issue
+        # that the selected node might change after a suspension.
+        # We should remove this after the issue is addressed(crbug:987529).
+        audio_facade.set_selected_node_types(['HDMI'], None)
         audio_test_utils.check_audio_nodes(audio_facade,
                                         (['HDMI'], None))
 
@@ -132,18 +136,19 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
 
             source.set_playback_data(golden_file)
 
+            # There is a known issue that if we reopen the HDMI device,
+            # chameleon will interrupt recording (crbug.com/1027040). However,
+            # if there is another stream playing earlier, CRAS may need to
+            # reopen the device during recording. To fix it, we should move
+            # playback before the recording of chameleon.
+            logging.info('Start playing %s on Cros device',
+                         golden_file.path)
+            source.start_playback()
+
             logging.info('Start recording from Chameleon.')
             recorder.start_recording()
 
-            time.sleep(self.DELAY_BEFORE_PLAYBACK)
-
-            logging.info('Start playing %s on Cros device',
-                         golden_file.path)
-            source.start_playback(blocking=True)
-
-            logging.info('Stopped playing %s on Cros device',
-                         golden_file.path)
-            time.sleep(self.DELAY_AFTER_PLAYBACK)
+            time.sleep(self.RECORDING_DURATION)
 
             audio_test_utils.dump_cros_audio_logs(
                     host, audio_facade, self.resultsdir, 'after_recording')

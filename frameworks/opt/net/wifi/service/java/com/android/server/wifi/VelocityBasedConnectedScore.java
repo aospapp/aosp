@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
 
 import com.android.server.wifi.util.KalmanFilter;
@@ -29,7 +30,7 @@ public class VelocityBasedConnectedScore extends ConnectedScore {
 
     private final ScoringParams mScoringParams;
 
-    private int mFrequency = ScoringParams.BAND5;
+    private int mFrequency = ScanResult.BAND_5_GHZ_START_FREQ_MHZ;
     private double mThresholdAdjustment;
     private final KalmanFilter mFilter;
     private long mLastMillis;
@@ -150,12 +151,12 @@ public class VelocityBasedConnectedScore extends ConnectedScore {
         if (mThresholdAdjustment < -7) return;
         if (mFilteredRssi >= getAdjustedRssiThreshold() + 2.0) return;
         if (Math.abs(mEstimatedRateOfRssiChange) >= 0.2) return;
-        double txSuccessPps = wifiInfo.txSuccessRate;
-        double rxSuccessPps = wifiInfo.rxSuccessRate;
+        double txSuccessPps = wifiInfo.getSuccessfulTxPacketsPerSecond();
+        double rxSuccessPps = wifiInfo.getSuccessfulRxPacketsPerSecond();
         if (txSuccessPps < mMinimumPpsForMeasuringSuccess) return;
         if (rxSuccessPps < mMinimumPpsForMeasuringSuccess) return;
-        double txBadPps = wifiInfo.txBadRate;
-        double txRetriesPps = wifiInfo.txRetriesRate;
+        double txBadPps = wifiInfo.getLostTxPacketsPerSecond();
+        double txRetriesPps = wifiInfo.getRetriedTxPacketsPerSecond();
         double probabilityOfSuccessfulTx = txSuccessPps / (txSuccessPps + txBadPps + txRetriesPps);
         if (probabilityOfSuccessfulTx > 0.2) {
             // May want this amount to vary with how close to threshold we are

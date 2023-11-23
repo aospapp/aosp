@@ -15,6 +15,11 @@
  */
 package android.signature.cts;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Represents one class member parsed from the reader of dex signatures.
  */
@@ -22,13 +27,13 @@ public abstract class DexMember {
     private final String mName;
     private final String mClassDescriptor;
     private final String mType;
-    private final String[] mFlags;
+    private final Set<String> mFlags;
 
     protected DexMember(String className, String name, String type, String[] flags) {
         mName = name;
         mClassDescriptor = className;
         mType = type;
-        mFlags = flags;
+        mFlags = flags == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(flags));
     }
 
     public String getName() {
@@ -51,7 +56,7 @@ public abstract class DexMember {
         return dexToJavaType(mType);
     }
 
-    public String[] getHiddenapiFlags() {
+    public Set<String> getHiddenapiFlags() {
         return mFlags;
     }
 

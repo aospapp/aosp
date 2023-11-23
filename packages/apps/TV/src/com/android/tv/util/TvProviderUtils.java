@@ -27,7 +27,7 @@ import android.support.annotation.StringDef;
 import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.util.Log;
-import com.android.tv.data.BaseProgram;
+import com.android.tv.data.api.BaseProgram;
 import com.android.tv.features.PartnerFeatures;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -67,6 +67,9 @@ public final class TvProviderUtils {
     @WorkerThread
     public static synchronized boolean checkSeriesIdColumn(Context context, Uri uri) {
         boolean canCreateColumn = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
+        canCreateColumn =
+                (canCreateColumn
+                        || PartnerFeatures.TVPROVIDER_ALLOWS_COLUMN_CREATION.isEnabled(context));
         if (!canCreateColumn) {
             return false;
         }
@@ -112,6 +115,9 @@ public final class TvProviderUtils {
     @WorkerThread
     public static synchronized boolean checkStateColumn(Context context, Uri uri) {
         boolean canCreateColumn = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
+        canCreateColumn =
+                (canCreateColumn
+                        || PartnerFeatures.TVPROVIDER_ALLOWS_COLUMN_CREATION.isEnabled(context));
         if (!canCreateColumn) {
             return false;
         }
@@ -144,8 +150,8 @@ public final class TvProviderUtils {
         return TRUE.equals(sRecordedProgramHasStateColumn);
     }
 
-    public static String[] addExtraColumnsToProjection(String[] projection,
-            @TvProviderExtraColumn String column) {
+    public static String[] addExtraColumnsToProjection(
+            String[] projection, @TvProviderExtraColumn String column) {
         List<String> projectionList = new ArrayList<>(Arrays.asList(projection));
         if (!projectionList.contains(column)) {
             projectionList.add(column);

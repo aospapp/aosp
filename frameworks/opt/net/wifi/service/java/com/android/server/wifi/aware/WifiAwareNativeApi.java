@@ -37,15 +37,14 @@ import android.hardware.wifi.V1_2.NanConfigRequestSupplemental;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.SubscribeConfig;
+import android.net.wifi.util.HexEncoding;
+import android.os.BasicShellCommandHandler;
 import android.os.RemoteException;
-import android.os.ShellCommand;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseIntArray;
 
 import com.android.internal.annotations.VisibleForTesting;
-
-import libcore.util.HexEncoding;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -62,7 +61,7 @@ import java.util.Map;
 public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellCommand {
     private static final String TAG = "WifiAwareNativeApi";
     private static final boolean VDBG = false; // STOPSHIP if true
-    /* package */ boolean mDbg = false;
+    private boolean mDbg = false;
 
     @VisibleForTesting
     static final String SERVICE_NAME_FOR_OOB_DATA_PATH = "Wi-Fi Aware Data Path";
@@ -77,6 +76,14 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
             mTransactionIds = new SparseIntArray();
         }
     }
+
+    /**
+     * Enable verbose logging.
+     */
+    public void enableVerboseLogging(boolean verbose) {
+        mDbg = verbose | VDBG;
+    }
+
 
     private void recordTransactionId(int transactionId) {
         if (!VDBG) return;
@@ -101,6 +108,15 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         return android.hardware.wifi.V1_2.IWifiNanIface.castFrom(iface);
     }
 
+    /**
+     * (HIDL) Cast the input to a 1.4 NAN interface (possibly resulting in a null).
+     *
+     * Separate function so can be mocked in unit tests.
+     */
+    public android.hardware.wifi.V1_4.IWifiNanIface mockableCastTo_1_4(IWifiNanIface iface) {
+        return android.hardware.wifi.V1_4.IWifiNanIface.castFrom(iface);
+    }
+
     /*
      * Parameters settable through the shell command.
      * see wifi/1.0/types.hal NanBandSpecificConfig.discoveryWindowIntervalVal and
@@ -119,6 +135,12 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
     private static final int PARAM_DW_5GHZ_DEFAULT = 1; // 1 -> DW=1, latency=512ms
     private static final int PARAM_DW_5GHZ_INACTIVE = 0; // 0 = disabled
     private static final int PARAM_DW_5GHZ_IDLE = 0; // == inactive
+
+    // TODO:
+    /* package */ static final String PARAM_DW_6GHZ = "dw_6ghz";
+    private static final int PARAM_DW_6GHZ_DEFAULT = 1; // 1 -> DW=1, latency=512ms
+    private static final int PARAM_DW_6GHZ_INACTIVE = 0; // 0 = disabled
+    private static final int PARAM_DW_6GHZ_IDLE = 0; // == inactive
 
     /* package */ static final String PARAM_DISCOVERY_BEACON_INTERVAL_MS =
             "disc_beacon_interval_ms";
@@ -148,7 +170,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
      * @return -1 if parameter not recognized or invalid value, 0 otherwise.
      */
     @Override
-    public int onCommand(ShellCommand parentShell) {
+    public int onCommand(BasicShellCommandHandler parentShell) {
         final PrintWriter pw = parentShell.getErrPrintWriter();
 
         String subCmd = parentShell.getNextArgRequired();
@@ -243,6 +265,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         Map<String, Integer> defaultMap = new HashMap<>();
         defaultMap.put(PARAM_DW_24GHZ, PARAM_DW_24GHZ_DEFAULT);
         defaultMap.put(PARAM_DW_5GHZ, PARAM_DW_5GHZ_DEFAULT);
+        defaultMap.put(PARAM_DW_6GHZ, PARAM_DW_6GHZ_DEFAULT);
         defaultMap.put(PARAM_DISCOVERY_BEACON_INTERVAL_MS,
                 PARAM_DISCOVERY_BEACON_INTERVAL_MS_DEFAULT);
         defaultMap.put(PARAM_NUM_SS_IN_DISCOVERY, PARAM_NUM_SS_IN_DISCOVERY_DEFAULT);
@@ -251,6 +274,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         Map<String, Integer> inactiveMap = new HashMap<>();
         inactiveMap.put(PARAM_DW_24GHZ, PARAM_DW_24GHZ_INACTIVE);
         inactiveMap.put(PARAM_DW_5GHZ, PARAM_DW_5GHZ_INACTIVE);
+        inactiveMap.put(PARAM_DW_6GHZ, PARAM_DW_6GHZ_INACTIVE);
         inactiveMap.put(PARAM_DISCOVERY_BEACON_INTERVAL_MS,
                 PARAM_DISCOVERY_BEACON_INTERVAL_MS_INACTIVE);
         inactiveMap.put(PARAM_NUM_SS_IN_DISCOVERY, PARAM_NUM_SS_IN_DISCOVERY_INACTIVE);
@@ -259,6 +283,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         Map<String, Integer> idleMap = new HashMap<>();
         idleMap.put(PARAM_DW_24GHZ, PARAM_DW_24GHZ_IDLE);
         idleMap.put(PARAM_DW_5GHZ, PARAM_DW_5GHZ_IDLE);
+        idleMap.put(PARAM_DW_6GHZ, PARAM_DW_6GHZ_IDLE);
         idleMap.put(PARAM_DISCOVERY_BEACON_INTERVAL_MS,
                 PARAM_DISCOVERY_BEACON_INTERVAL_MS_IDLE);
         idleMap.put(PARAM_NUM_SS_IN_DISCOVERY, PARAM_NUM_SS_IN_DISCOVERY_IDLE);
@@ -273,7 +298,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
     }
 
     @Override
-    public void onHelp(String command, ShellCommand parentShell) {
+    public void onHelp(String command, BasicShellCommandHandler parentShell) {
         final PrintWriter pw = parentShell.getOutPrintWriter();
 
         pw.println("  " + command);
@@ -348,152 +373,229 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
             return false;
         }
         android.hardware.wifi.V1_2.IWifiNanIface iface12 = mockableCastTo_1_2(iface);
+        android.hardware.wifi.V1_4.IWifiNanIface iface14 = mockableCastTo_1_4(iface);
         NanConfigRequestSupplemental configSupplemental12 = new NanConfigRequestSupplemental();
-        if (iface12 != null) {
-            if (VDBG) Log.v(TAG, "HAL 1.2 detected");
+        if (iface12 != null || iface14 != null) {
             configSupplemental12.discoveryBeaconIntervalMs = 0;
             configSupplemental12.numberOfSpatialStreamsInDiscovery = 0;
             configSupplemental12.enableDiscoveryWindowEarlyTermination = false;
             configSupplemental12.enableRanging = true;
         }
 
+        NanBandSpecificConfig config24 = new NanBandSpecificConfig();
+        config24.rssiClose = 60;
+        config24.rssiMiddle = 70;
+        config24.rssiCloseProximity = 60;
+        config24.dwellTimeMs = (byte) 200;
+        config24.scanPeriodSec = 20;
+        if (configRequest.mDiscoveryWindowInterval[ConfigRequest.NAN_BAND_24GHZ]
+                == ConfigRequest.DW_INTERVAL_NOT_INIT) {
+            config24.validDiscoveryWindowIntervalVal = false;
+        } else {
+            config24.validDiscoveryWindowIntervalVal = true;
+            config24.discoveryWindowIntervalVal =
+                    (byte) configRequest.mDiscoveryWindowInterval[ConfigRequest
+                            .NAN_BAND_24GHZ];
+        }
+
+        NanBandSpecificConfig config5 = new NanBandSpecificConfig();
+        config5.rssiClose = 60;
+        config5.rssiMiddle = 75;
+        config5.rssiCloseProximity = 60;
+        config5.dwellTimeMs = (byte) 200;
+        config5.scanPeriodSec = 20;
+        if (configRequest.mDiscoveryWindowInterval[ConfigRequest.NAN_BAND_5GHZ]
+                == ConfigRequest.DW_INTERVAL_NOT_INIT) {
+            config5.validDiscoveryWindowIntervalVal = false;
+        } else {
+            config5.validDiscoveryWindowIntervalVal = true;
+            config5.discoveryWindowIntervalVal =
+                    (byte) configRequest.mDiscoveryWindowInterval[ConfigRequest
+                            .NAN_BAND_5GHZ];
+        }
+
+        // TODO: b/145609058
+        // Need to review values for this config, currently it is a copy from config5
+        NanBandSpecificConfig config6 = new NanBandSpecificConfig();
+        config6.rssiClose = 60;
+        config6.rssiMiddle = 75;
+        config6.rssiCloseProximity = 60;
+        config6.dwellTimeMs = (byte) 200;
+        config6.scanPeriodSec = 20;
+        if (configRequest.mDiscoveryWindowInterval[ConfigRequest.NAN_BAND_6GHZ]
+                == ConfigRequest.DW_INTERVAL_NOT_INIT) {
+            config6.validDiscoveryWindowIntervalVal = false;
+        } else {
+            config6.validDiscoveryWindowIntervalVal = true;
+            config6.discoveryWindowIntervalVal =
+                    (byte) configRequest.mDiscoveryWindowInterval[ConfigRequest
+                            .NAN_BAND_6GHZ];
+        }
+
         try {
             WifiStatus status;
             if (initialConfiguration) {
-                // translate framework to HIDL configuration
-                NanEnableRequest req = new NanEnableRequest();
+                if (iface14 != null) {
+                    // translate framework to HIDL configuration (V_1.4)
+                    android.hardware.wifi.V1_4.NanEnableRequest req =
+                            new android.hardware.wifi.V1_4.NanEnableRequest();
 
-                req.operateInBand[NanBandIndex.NAN_BAND_24GHZ] = true;
-                req.operateInBand[NanBandIndex.NAN_BAND_5GHZ] = configRequest.mSupport5gBand;
-                req.hopCountMax = 2;
-                req.configParams.masterPref = (byte) configRequest.mMasterPreference;
-                req.configParams.disableDiscoveryAddressChangeIndication = !notifyIdentityChange;
-                req.configParams.disableStartedClusterIndication = !notifyIdentityChange;
-                req.configParams.disableJoinedClusterIndication = !notifyIdentityChange;
-                req.configParams.includePublishServiceIdsInBeacon = true;
-                req.configParams.numberOfPublishServiceIdsInBeacon = 0;
-                req.configParams.includeSubscribeServiceIdsInBeacon = true;
-                req.configParams.numberOfSubscribeServiceIdsInBeacon = 0;
-                req.configParams.rssiWindowSize = 8;
-                req.configParams.macAddressRandomizationIntervalSec = mSettableParameters.get(
-                        PARAM_MAC_RANDOM_INTERVAL_SEC);
+                    req.operateInBand[NanBandIndex.NAN_BAND_24GHZ] = true;
+                    req.operateInBand[NanBandIndex.NAN_BAND_5GHZ] = configRequest.mSupport5gBand;
+                    req.operateInBand[android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ] =
+                            configRequest.mSupport6gBand;
+                    req.hopCountMax = 2;
+                    req.configParams.masterPref = (byte) configRequest.mMasterPreference;
+                    req.configParams.disableDiscoveryAddressChangeIndication =
+                            !notifyIdentityChange;
+                    req.configParams.disableStartedClusterIndication = !notifyIdentityChange;
+                    req.configParams.disableJoinedClusterIndication = !notifyIdentityChange;
+                    req.configParams.includePublishServiceIdsInBeacon = true;
+                    req.configParams.numberOfPublishServiceIdsInBeacon = 0;
+                    req.configParams.includeSubscribeServiceIdsInBeacon = true;
+                    req.configParams.numberOfSubscribeServiceIdsInBeacon = 0;
+                    req.configParams.rssiWindowSize = 8;
+                    req.configParams.macAddressRandomizationIntervalSec = mSettableParameters.get(
+                            PARAM_MAC_RANDOM_INTERVAL_SEC);
 
-                NanBandSpecificConfig config24 = new NanBandSpecificConfig();
-                config24.rssiClose = 60;
-                config24.rssiMiddle = 70;
-                config24.rssiCloseProximity = 60;
-                config24.dwellTimeMs = (byte) 200;
-                config24.scanPeriodSec = 20;
-                if (configRequest.mDiscoveryWindowInterval[ConfigRequest.NAN_BAND_24GHZ]
-                        == ConfigRequest.DW_INTERVAL_NOT_INIT) {
-                    config24.validDiscoveryWindowIntervalVal = false;
+                    req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
+                    req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
+                    req.configParams.bandSpecificConfig[
+                            android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ] = config6;
+
+                    req.debugConfigs.validClusterIdVals = true;
+                    req.debugConfigs.clusterIdTopRangeVal = (short) configRequest.mClusterHigh;
+                    req.debugConfigs.clusterIdBottomRangeVal = (short) configRequest.mClusterLow;
+                    req.debugConfigs.validIntfAddrVal = false;
+                    req.debugConfigs.validOuiVal = false;
+                    req.debugConfigs.ouiVal = 0;
+                    req.debugConfigs.validRandomFactorForceVal = false;
+                    req.debugConfigs.randomFactorForceVal = 0;
+                    req.debugConfigs.validHopCountForceVal = false;
+                    req.debugConfigs.hopCountForceVal = 0;
+                    req.debugConfigs.validDiscoveryChannelVal = false;
+                    req.debugConfigs.discoveryChannelMhzVal[NanBandIndex.NAN_BAND_24GHZ] = 0;
+                    req.debugConfigs.discoveryChannelMhzVal[NanBandIndex.NAN_BAND_5GHZ] = 0;
+                    req.debugConfigs.discoveryChannelMhzVal[
+                            android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ] = 0;
+                    req.debugConfigs.validUseBeaconsInBandVal = false;
+                    req.debugConfigs.useBeaconsInBandVal[NanBandIndex.NAN_BAND_24GHZ] = true;
+                    req.debugConfigs.useBeaconsInBandVal[NanBandIndex.NAN_BAND_5GHZ] = true;
+                    req.debugConfigs.useBeaconsInBandVal[
+                            android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ] = true;
+                    req.debugConfigs.validUseSdfInBandVal = false;
+                    req.debugConfigs.useSdfInBandVal[NanBandIndex.NAN_BAND_24GHZ] = true;
+                    req.debugConfigs.useSdfInBandVal[NanBandIndex.NAN_BAND_5GHZ] = true;
+                    req.debugConfigs.useSdfInBandVal[
+                            android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ] = true;
+
+                    updateConfigForPowerSettings14(req.configParams, configSupplemental12,
+                            isInteractive, isIdle);
+
+                    status = iface14.enableRequest_1_4(transactionId, req, configSupplemental12);
                 } else {
-                    config24.validDiscoveryWindowIntervalVal = true;
-                    config24.discoveryWindowIntervalVal =
-                            (byte) configRequest.mDiscoveryWindowInterval[ConfigRequest
-                                    .NAN_BAND_24GHZ];
-                }
-                req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
+                    // translate framework to HIDL configuration (before V_1.4)
+                    NanEnableRequest req = new NanEnableRequest();
 
-                NanBandSpecificConfig config5 = new NanBandSpecificConfig();
-                config5.rssiClose = 60;
-                config5.rssiMiddle = 75;
-                config5.rssiCloseProximity = 60;
-                config5.dwellTimeMs = (byte) 200;
-                config5.scanPeriodSec = 20;
-                if (configRequest.mDiscoveryWindowInterval[ConfigRequest.NAN_BAND_5GHZ]
-                        == ConfigRequest.DW_INTERVAL_NOT_INIT) {
-                    config5.validDiscoveryWindowIntervalVal = false;
-                } else {
-                    config5.validDiscoveryWindowIntervalVal = true;
-                    config5.discoveryWindowIntervalVal =
-                            (byte) configRequest.mDiscoveryWindowInterval[ConfigRequest
-                                    .NAN_BAND_5GHZ];
-                }
-                req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
+                    req.operateInBand[NanBandIndex.NAN_BAND_24GHZ] = true;
+                    req.operateInBand[NanBandIndex.NAN_BAND_5GHZ] = configRequest.mSupport5gBand;
+                    req.hopCountMax = 2;
+                    req.configParams.masterPref = (byte) configRequest.mMasterPreference;
+                    req.configParams.disableDiscoveryAddressChangeIndication =
+                            !notifyIdentityChange;
+                    req.configParams.disableStartedClusterIndication = !notifyIdentityChange;
+                    req.configParams.disableJoinedClusterIndication = !notifyIdentityChange;
+                    req.configParams.includePublishServiceIdsInBeacon = true;
+                    req.configParams.numberOfPublishServiceIdsInBeacon = 0;
+                    req.configParams.includeSubscribeServiceIdsInBeacon = true;
+                    req.configParams.numberOfSubscribeServiceIdsInBeacon = 0;
+                    req.configParams.rssiWindowSize = 8;
+                    req.configParams.macAddressRandomizationIntervalSec = mSettableParameters.get(
+                            PARAM_MAC_RANDOM_INTERVAL_SEC);
 
-                req.debugConfigs.validClusterIdVals = true;
-                req.debugConfigs.clusterIdTopRangeVal = (short) configRequest.mClusterHigh;
-                req.debugConfigs.clusterIdBottomRangeVal = (short) configRequest.mClusterLow;
-                req.debugConfigs.validIntfAddrVal = false;
-                req.debugConfigs.validOuiVal = false;
-                req.debugConfigs.ouiVal = 0;
-                req.debugConfigs.validRandomFactorForceVal = false;
-                req.debugConfigs.randomFactorForceVal = 0;
-                req.debugConfigs.validHopCountForceVal = false;
-                req.debugConfigs.hopCountForceVal = 0;
-                req.debugConfigs.validDiscoveryChannelVal = false;
-                req.debugConfigs.discoveryChannelMhzVal[NanBandIndex.NAN_BAND_24GHZ] = 0;
-                req.debugConfigs.discoveryChannelMhzVal[NanBandIndex.NAN_BAND_5GHZ] = 0;
-                req.debugConfigs.validUseBeaconsInBandVal = false;
-                req.debugConfigs.useBeaconsInBandVal[NanBandIndex.NAN_BAND_24GHZ] = true;
-                req.debugConfigs.useBeaconsInBandVal[NanBandIndex.NAN_BAND_5GHZ] = true;
-                req.debugConfigs.validUseSdfInBandVal = false;
-                req.debugConfigs.useSdfInBandVal[NanBandIndex.NAN_BAND_24GHZ] = true;
-                req.debugConfigs.useSdfInBandVal[NanBandIndex.NAN_BAND_5GHZ] = true;
+                    req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
+                    req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
 
-                updateConfigForPowerSettings(req.configParams, configSupplemental12, isInteractive,
-                        isIdle);
+                    req.debugConfigs.validClusterIdVals = true;
+                    req.debugConfigs.clusterIdTopRangeVal = (short) configRequest.mClusterHigh;
+                    req.debugConfigs.clusterIdBottomRangeVal = (short) configRequest.mClusterLow;
+                    req.debugConfigs.validIntfAddrVal = false;
+                    req.debugConfigs.validOuiVal = false;
+                    req.debugConfigs.ouiVal = 0;
+                    req.debugConfigs.validRandomFactorForceVal = false;
+                    req.debugConfigs.randomFactorForceVal = 0;
+                    req.debugConfigs.validHopCountForceVal = false;
+                    req.debugConfigs.hopCountForceVal = 0;
+                    req.debugConfigs.validDiscoveryChannelVal = false;
+                    req.debugConfigs.discoveryChannelMhzVal[NanBandIndex.NAN_BAND_24GHZ] = 0;
+                    req.debugConfigs.discoveryChannelMhzVal[NanBandIndex.NAN_BAND_5GHZ] = 0;
+                    req.debugConfigs.validUseBeaconsInBandVal = false;
+                    req.debugConfigs.useBeaconsInBandVal[NanBandIndex.NAN_BAND_24GHZ] = true;
+                    req.debugConfigs.useBeaconsInBandVal[NanBandIndex.NAN_BAND_5GHZ] = true;
+                    req.debugConfigs.validUseSdfInBandVal = false;
+                    req.debugConfigs.useSdfInBandVal[NanBandIndex.NAN_BAND_24GHZ] = true;
+                    req.debugConfigs.useSdfInBandVal[NanBandIndex.NAN_BAND_5GHZ] = true;
 
-                if (iface12 != null) {
-                    status = iface12.enableRequest_1_2(transactionId, req, configSupplemental12);
-                } else {
-                    status = iface.enableRequest(transactionId, req);
+                    updateConfigForPowerSettings(req.configParams, configSupplemental12,
+                            isInteractive, isIdle);
+
+                    if (iface12 != null) {
+                        status = iface12.enableRequest_1_2(transactionId, req,
+                                configSupplemental12);
+                    } else {
+                        status = iface.enableRequest(transactionId, req);
+                    }
                 }
             } else {
-                NanConfigRequest req = new NanConfigRequest();
-                req.masterPref = (byte) configRequest.mMasterPreference;
-                req.disableDiscoveryAddressChangeIndication = !notifyIdentityChange;
-                req.disableStartedClusterIndication = !notifyIdentityChange;
-                req.disableJoinedClusterIndication = !notifyIdentityChange;
-                req.includePublishServiceIdsInBeacon = true;
-                req.numberOfPublishServiceIdsInBeacon = 0;
-                req.includeSubscribeServiceIdsInBeacon = true;
-                req.numberOfSubscribeServiceIdsInBeacon = 0;
-                req.rssiWindowSize = 8;
-                req.macAddressRandomizationIntervalSec = mSettableParameters.get(
-                        PARAM_MAC_RANDOM_INTERVAL_SEC);
+                if (iface14 != null) {
+                    android.hardware.wifi.V1_4.NanConfigRequest req =
+                            new android.hardware.wifi.V1_4.NanConfigRequest();
+                    req.masterPref = (byte) configRequest.mMasterPreference;
+                    req.disableDiscoveryAddressChangeIndication = !notifyIdentityChange;
+                    req.disableStartedClusterIndication = !notifyIdentityChange;
+                    req.disableJoinedClusterIndication = !notifyIdentityChange;
+                    req.includePublishServiceIdsInBeacon = true;
+                    req.numberOfPublishServiceIdsInBeacon = 0;
+                    req.includeSubscribeServiceIdsInBeacon = true;
+                    req.numberOfSubscribeServiceIdsInBeacon = 0;
+                    req.rssiWindowSize = 8;
+                    req.macAddressRandomizationIntervalSec = mSettableParameters.get(
+                            PARAM_MAC_RANDOM_INTERVAL_SEC);
 
-                NanBandSpecificConfig config24 = new NanBandSpecificConfig();
-                config24.rssiClose = 60;
-                config24.rssiMiddle = 70;
-                config24.rssiCloseProximity = 60;
-                config24.dwellTimeMs = (byte) 200;
-                config24.scanPeriodSec = 20;
-                if (configRequest.mDiscoveryWindowInterval[ConfigRequest.NAN_BAND_24GHZ]
-                        == ConfigRequest.DW_INTERVAL_NOT_INIT) {
-                    config24.validDiscoveryWindowIntervalVal = false;
+                    req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
+                    req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
+                    req.bandSpecificConfig[android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ] =
+                            config6;
+
+                    updateConfigForPowerSettings14(req, configSupplemental12, isInteractive,
+                            isIdle);
+
+                    status = iface14.configRequest_1_4(transactionId, req, configSupplemental12);
                 } else {
-                    config24.validDiscoveryWindowIntervalVal = true;
-                    config24.discoveryWindowIntervalVal =
-                            (byte) configRequest.mDiscoveryWindowInterval[ConfigRequest
-                                    .NAN_BAND_24GHZ];
-                }
-                req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
+                    NanConfigRequest req = new NanConfigRequest();
+                    req.masterPref = (byte) configRequest.mMasterPreference;
+                    req.disableDiscoveryAddressChangeIndication = !notifyIdentityChange;
+                    req.disableStartedClusterIndication = !notifyIdentityChange;
+                    req.disableJoinedClusterIndication = !notifyIdentityChange;
+                    req.includePublishServiceIdsInBeacon = true;
+                    req.numberOfPublishServiceIdsInBeacon = 0;
+                    req.includeSubscribeServiceIdsInBeacon = true;
+                    req.numberOfSubscribeServiceIdsInBeacon = 0;
+                    req.rssiWindowSize = 8;
+                    req.macAddressRandomizationIntervalSec = mSettableParameters.get(
+                            PARAM_MAC_RANDOM_INTERVAL_SEC);
 
-                NanBandSpecificConfig config5 = new NanBandSpecificConfig();
-                config5.rssiClose = 60;
-                config5.rssiMiddle = 75;
-                config5.rssiCloseProximity = 60;
-                config5.dwellTimeMs = (byte) 200;
-                config5.scanPeriodSec = 20;
-                if (configRequest.mDiscoveryWindowInterval[ConfigRequest.NAN_BAND_5GHZ]
-                        == ConfigRequest.DW_INTERVAL_NOT_INIT) {
-                    config5.validDiscoveryWindowIntervalVal = false;
-                } else {
-                    config5.validDiscoveryWindowIntervalVal = true;
-                    config5.discoveryWindowIntervalVal =
-                            (byte) configRequest.mDiscoveryWindowInterval[ConfigRequest
-                                    .NAN_BAND_5GHZ];
-                }
-                req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
+                    req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
+                    req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
 
-                updateConfigForPowerSettings(req, configSupplemental12, isInteractive, isIdle);
+                    updateConfigForPowerSettings(req, configSupplemental12, isInteractive, isIdle);
 
-                if (iface12 != null) {
-                    status = iface12.configRequest_1_2(transactionId, req, configSupplemental12);
-                } else {
-                    status = iface.configRequest(transactionId, req);
+                    if (iface12 != null) {
+                        status = iface12.configRequest_1_2(transactionId, req,
+                                configSupplemental12);
+                    } else {
+                        status = iface.configRequest(transactionId, req);
+                    }
                 }
             }
             if (status.code == WifiStatusCode.SUCCESS) {
@@ -1072,7 +1174,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
     // utilities
 
     /**
-     * Update the NAN configuration to reflect the current power settings.
+     * Update the NAN configuration to reflect the current power settings (before V1.4)
      */
     private void updateConfigForPowerSettings(NanConfigRequest req,
             NanConfigRequestSupplemental configSupplemental12, boolean isInteractive,
@@ -1088,6 +1190,35 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                 mSettablePowerParameters.get(key).get(PARAM_DW_5GHZ));
         updateSingleConfigForPowerSettings(req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ],
                 mSettablePowerParameters.get(key).get(PARAM_DW_24GHZ));
+
+        configSupplemental12.discoveryBeaconIntervalMs = mSettablePowerParameters.get(key).get(
+                PARAM_DISCOVERY_BEACON_INTERVAL_MS);
+        configSupplemental12.numberOfSpatialStreamsInDiscovery = mSettablePowerParameters.get(
+                key).get(PARAM_NUM_SS_IN_DISCOVERY);
+        configSupplemental12.enableDiscoveryWindowEarlyTermination = mSettablePowerParameters.get(
+                key).get(PARAM_ENABLE_DW_EARLY_TERM) != 0;
+    }
+
+    /**
+     * Update the NAN configuration to reflect the current power settings (V1.4)
+     */
+    private void updateConfigForPowerSettings14(android.hardware.wifi.V1_4.NanConfigRequest req,
+            NanConfigRequestSupplemental configSupplemental12, boolean isInteractive,
+            boolean isIdle) {
+        String key = POWER_PARAM_DEFAULT_KEY;
+        if (isIdle) {
+            key = POWER_PARAM_IDLE_KEY;
+        } else if (!isInteractive) {
+            key = POWER_PARAM_INACTIVE_KEY;
+        }
+
+        updateSingleConfigForPowerSettings(req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ],
+                mSettablePowerParameters.get(key).get(PARAM_DW_5GHZ));
+        updateSingleConfigForPowerSettings(req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ],
+                mSettablePowerParameters.get(key).get(PARAM_DW_24GHZ));
+        updateSingleConfigForPowerSettings(req.bandSpecificConfig[
+                android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ],
+                mSettablePowerParameters.get(key).get(PARAM_DW_6GHZ));
 
         configSupplemental12.discoveryBeaconIntervalMs = mSettablePowerParameters.get(key).get(
                 PARAM_DISCOVERY_BEACON_INTERVAL_MS);

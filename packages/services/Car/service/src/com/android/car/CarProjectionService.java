@@ -26,14 +26,12 @@ import static android.net.wifi.WifiManager.EXTRA_WIFI_AP_STATE;
 import static android.net.wifi.WifiManager.WIFI_AP_STATE_DISABLED;
 import static android.net.wifi.WifiManager.WIFI_AP_STATE_ENABLED;
 import static android.net.wifi.WifiManager.WIFI_AP_STATE_ENABLING;
-import static android.net.wifi.WifiManager.WIFI_FREQUENCY_BAND_5GHZ;
 
 import android.annotation.Nullable;
 import android.app.ActivityOptions;
 import android.bluetooth.BluetoothDevice;
 import android.car.CarProjectionManager;
 import android.car.CarProjectionManager.ProjectionAccessPointCallback;
-import android.car.CarProjectionManager.ProjectionKeyEventHandler;
 import android.car.ICarProjection;
 import android.car.ICarProjectionKeyEventHandler;
 import android.car.ICarProjectionStatusListener;
@@ -49,15 +47,17 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Rect;
-import android.net.wifi.WifiConfiguration;
+import android.net.MacAddress;
+import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiClient;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.LocalOnlyHotspotCallback;
 import android.net.wifi.WifiManager.LocalOnlyHotspotReservation;
-import android.net.wifi.WifiManager.SoftApCallback;
 import android.net.wifi.WifiScanner;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerExecutor;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
@@ -156,6 +156,20 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
                 unbindServiceIfBound();
             }
         };
+
+    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            int currState = intent.getIntExtra(EXTRA_WIFI_AP_STATE, WIFI_AP_STATE_DISABLED);
+            int prevState = intent.getIntExtra(EXTRA_PREVIOUS_WIFI_AP_STATE,
+                    WIFI_AP_STATE_DISABLED);
+            int errorCode = intent.getIntExtra(EXTRA_WIFI_AP_FAILURE_REASON, 0);
+            String ifaceName = intent.getStringExtra(EXTRA_WIFI_AP_INTERFACE_NAME);
+            int mode = intent.getIntExtra(EXTRA_WIFI_AP_MODE,
+                    WifiManager.IFACE_IP_MODE_UNSPECIFIED);
+            handleWifiApStateChange(currState, prevState, errorCode, ifaceName, mode);
+        }
+    };
 
     private boolean mBound;
     private Intent mRegisteredService;
@@ -595,14 +609,14 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
 
         if (mSoftApCallback == null) {
             mSoftApCallback = new ProjectionSoftApCallback();
-            mWifiManager.registerSoftApCallback(mSoftApCallback, mHandler);
+            mWifiManager.registerSoftApCallback(new HandlerExecutor(mHandler), mSoftApCallback);
             ensureApConfiguration();
         }
 
-        if (!mWifiManager.startSoftAp(null /* use existing config*/)) {
+        if (!mWifiManager.startTetheredHotspot(null /* use existing config*/)) {
             // The indicates that AP might be already started.
             if (mWifiManager.getWifiApState() == WIFI_AP_STATE_ENABLED) {
-                sendApStarted(mWifiManager.getWifiApConfiguration());
+                sendApStarted(mWifiManager.getSoftApConfiguration());
             } else {
                 Log.e(TAG, "Failed to start soft AP");
                 sendApFailed(ERROR_GENERIC);
@@ -625,7 +639,7 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
     private void startLocalOnlyApLocked() {
         if (mLocalOnlyHotspotReservation != null) {
             Log.i(TAG, "Local-only hotspot is already registered.");
-            sendApStarted(mLocalOnlyHotspotReservation.getWifiConfiguration());
+            sendApStarted(mLocalOnlyHotspotReservation.getSoftApConfiguration());
             return;
         }
 
@@ -637,13 +651,18 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
                 synchronized (mLock) {
                     mLocalOnlyHotspotReservation = reservation;
                 }
-                sendApStarted(reservation.getWifiConfiguration());
+                sendApStarted(reservation.getSoftApConfiguration());
             }
 
             @Override
             public void onStopped() {
                 Log.i(TAG, "Local-only hotspot stopped.");
                 synchronized (mLock) {
+                    if (mLocalOnlyHotspotReservation != null) {
+                        // We must explicitly released old reservation object, otherwise it may
+                        // unexpectedly stop LOHS later because it overrode finalize() method.
+                        mLocalOnlyHotspotReservation.close();
+                    }
                     mLocalOnlyHotspotReservation = null;
                 }
                 sendApStopped();
@@ -688,18 +707,19 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
         mLocalOnlyHotspotReservation = null;
     }
 
-    private void sendApStarted(WifiConfiguration wifiConfiguration) {
-        WifiConfiguration localWifiConfig = new WifiConfiguration(wifiConfiguration);
-        localWifiConfig.BSSID = mApBssid;
-
+    private void sendApStarted(SoftApConfiguration softApConfiguration) {
+        SoftApConfiguration localSoftApConfig =
+                new SoftApConfiguration.Builder(softApConfiguration)
+                .setBssid(MacAddress.fromString(mApBssid))
+                .build();
         Message message = Message.obtain();
         message.what = CarProjectionManager.PROJECTION_AP_STARTED;
-        message.obj = localWifiConfig;
+        message.obj = localSoftApConfig;
         Log.i(TAG, "Sending PROJECTION_AP_STARTED, ssid: "
-                + localWifiConfig.getPrintableSsid()
-                + ", apBand: " + localWifiConfig.apBand
-                + ", apChannel: " + localWifiConfig.apChannel
-                + ", bssid: " + localWifiConfig.BSSID);
+                + localSoftApConfig.getSsid()
+                + ", apBand: " + localSoftApConfig.getBand()
+                + ", apChannel: " + localSoftApConfig.getChannel()
+                + ", bssid: " + localSoftApConfig.getBssid());
         sendApStatusMessage(message);
     }
 
@@ -731,22 +751,7 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
     @Override
     public void init() {
         mContext.registerReceiver(
-                new BroadcastReceiver() {
-                    @Override
-                    public void onReceive(Context context, Intent intent) {
-                        final int currState = intent.getIntExtra(EXTRA_WIFI_AP_STATE,
-                                WIFI_AP_STATE_DISABLED);
-                        final int prevState = intent.getIntExtra(EXTRA_PREVIOUS_WIFI_AP_STATE,
-                                WIFI_AP_STATE_DISABLED);
-                        final int errorCode = intent.getIntExtra(EXTRA_WIFI_AP_FAILURE_REASON, 0);
-                        final String ifaceName =
-                                intent.getStringExtra(EXTRA_WIFI_AP_INTERFACE_NAME);
-                        final int mode = intent.getIntExtra(EXTRA_WIFI_AP_MODE,
-                                WifiManager.IFACE_IP_MODE_UNSPECIFIED);
-                        handleWifiApStateChange(currState, prevState, errorCode, ifaceName, mode);
-                    }
-                },
-                new IntentFilter(WifiManager.WIFI_AP_STATE_CHANGED_ACTION));
+                mBroadcastReceiver, new IntentFilter(WifiManager.WIFI_AP_STATE_CHANGED_ACTION));
     }
 
     private void handleWifiApStateChange(int currState, int prevState, int errorCode,
@@ -773,6 +778,7 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
         synchronized (mLock) {
             mKeyEventHandlers.clear();
         }
+        mContext.unregisterReceiver(mBroadcastReceiver);
     }
 
     @Override
@@ -932,15 +938,15 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
 
     private void ensureApConfiguration() {
         // Always prefer 5GHz configuration whenever it is available.
-        WifiConfiguration apConfig = mWifiManager.getWifiApConfiguration();
-        if (apConfig != null && apConfig.apBand != WIFI_FREQUENCY_BAND_5GHZ
+        SoftApConfiguration apConfig = mWifiManager.getSoftApConfiguration();
+        if (apConfig != null && apConfig.getBand() != SoftApConfiguration.BAND_5GHZ
                 && mWifiManager.is5GHzBandSupported()) {
-            apConfig.apBand = WIFI_FREQUENCY_BAND_5GHZ;
-            mWifiManager.setWifiApConfiguration(apConfig);
+            mWifiManager.setSoftApConfiguration(new SoftApConfiguration.Builder(apConfig)
+                    .setBand(SoftApConfiguration.BAND_5GHZ).build());
         }
     }
 
-    private class ProjectionSoftApCallback implements SoftApCallback {
+    private class ProjectionSoftApCallback implements WifiManager.SoftApCallback {
         private boolean mCurrentStateCall = true;
 
         @Override
@@ -958,7 +964,7 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
 
             switch (state) {
                 case WifiManager.WIFI_AP_STATE_ENABLED: {
-                    sendApStarted(mWifiManager.getWifiApConfiguration());
+                    sendApStarted(mWifiManager.getSoftApConfiguration());
                     break;
                 }
                 case WifiManager.WIFI_AP_STATE_DISABLED: {
@@ -982,8 +988,11 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
         }
 
         @Override
-        public void onNumClientsChanged(int numClients) {
-            Log.i(TAG, "ProjectionSoftApCallback, onNumClientsChanged: " + numClients);
+        public void onConnectedClientsChanged(List<WifiClient> clients) {
+            if (DBG) {
+                Log.d(TAG, "ProjectionSoftApCallback, onConnectedClientsChanged with "
+                        + clients.size() + " clients");
+            }
         }
     }
 

@@ -86,13 +86,13 @@ public class BluetoothMapContent {
     private static final int MASK_REPLYTO_ADDRESSING = 0x00008000;
     // TODO: Duplicate in proposed spec
     // private static final int MASK_RECEPTION_STATE       = 0x00010000;
-    private static final int MASK_DELIVERY_STATUS = 0x00020000;
-    private static final int MASK_CONVERSATION_ID = 0x00040000;
-    private static final int MASK_CONVERSATION_NAME = 0x00080000;
+    private static final int MASK_DELIVERY_STATUS = 0x00010000;
+    private static final int MASK_CONVERSATION_ID = 0x00020000;
+    private static final int MASK_CONVERSATION_NAME = 0x00040000;
     private static final int MASK_FOLDER_TYPE = 0x00100000;
     // TODO: about to be removed from proposed spec
     // private static final int MASK_SEQUENCE_NUMBER       = 0x00200000;
-    private static final int MASK_ATTACHMENT_MIME = 0x00400000;
+    private static final int MASK_ATTACHMENT_MIME = 0x00100000;
 
     private static final int CONVO_PARAM_MASK_CONVO_NAME = 0x00000001;
     private static final int CONVO_PARAM_MASK_CONVO_LAST_ACTIVITY = 0x00000002;
@@ -2190,11 +2190,6 @@ public class BluetoothMapContent {
         if (tm != null) {
             fi.mPhoneType = tm.getPhoneType();
             fi.mPhoneNum = tm.getLine1Number();
-            fi.mPhoneAlphaTag = tm.getLine1AlphaTag();
-            if (D) {
-                Log.d(TAG, "phone type = " + fi.mPhoneType + " phone num = " + fi.mPhoneNum
-                        + " phone alpha tag = " + fi.mPhoneAlphaTag);
-            }
         }
     }
 
@@ -2458,7 +2453,6 @@ public class BluetoothMapContent {
                         setDeliveryStatus(ele, tmpCursor, fi, ap);
                         setThreadId(ele, tmpCursor, fi, ap);
                         setThreadName(ele, tmpCursor, fi, ap);
-                        setFolderType(ele, tmpCursor, fi, ap);
                     }
                 }
             }
@@ -3713,9 +3707,10 @@ public class BluetoothMapContent {
                 if (charset == MAP_MESSAGE_CHARSET_NATIVE) {
                     if (type == 1) { //Inbox
                         message.setSmsBodyPdus(
-                                BluetoothMapSmsPdu.getDeliverPdus(msgBody, phone, time));
+                                BluetoothMapSmsPdu.getDeliverPdus(mContext, msgBody, phone, time));
                     } else {
-                        message.setSmsBodyPdus(BluetoothMapSmsPdu.getSubmitPdus(msgBody, phone));
+                        message.setSmsBodyPdus(
+                                BluetoothMapSmsPdu.getSubmitPdus(mContext, msgBody, phone));
                     }
                 } else /*if (charset == MAP_MESSAGE_CHARSET_UTF8)*/ {
                     message.setSmsBody(msgBody);

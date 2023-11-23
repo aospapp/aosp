@@ -34,8 +34,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
+import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.Connection.VideoProvider;
+import android.telecom.DisconnectCause;
 import android.telecom.InCallService;
 import android.telecom.InCallService.VideoCall;
 import android.telecom.VideoCallImpl;
@@ -63,6 +65,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+
+import com.android.server.telecom.CallsManager;
 
 /**
  * Performs tests of the {@link VideoProvider} and {@link VideoCall} APIs.  Ensures that requests
@@ -116,13 +120,18 @@ public class VideoProviderTest extends TelecomSystemTest {
         mVideoCallImpl = (VideoCallImpl) mVideoCall;
         mVideoCall.registerCallback(mVideoCallCallback);
 
+        // A little hacky, but we do not want CallsManager spawning InCallTonePlayer threads.
+        CallsManager callsManager = mTelecomSystem.getCallsManager();
+        callsManager.removeListener(callsManager.getCallAudioManager());
+
         mConnectionInfo = mConnectionServiceFixtureA.mConnectionById.get(mCallIds.mConnectionId);
         mVerificationLock = new CountDownLatch(1);
-        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
+        mTelecomSystem.getCallsManager().waitOnHandlers();
 
         doNothing().when(mContext).enforcePermission(anyString(), anyInt(), anyInt(), anyString());
         doReturn(AppOpsManager.MODE_ALLOWED).when(mAppOpsManager).noteOp(anyInt(), anyInt(),
                 anyString());
+
     }
 
     @Override

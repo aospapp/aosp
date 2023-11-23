@@ -381,7 +381,11 @@ struct xfrm_usersa_info {
 #define XFRM_STATE_AF_UNSPEC	32
 #define XFRM_STATE_ALIGN4	64
 #define XFRM_STATE_ESN		128
-};
+}
+#ifdef __i386__
+__attribute__((aligned(8))) /* b/138147164 */
+#endif
+;
 
 #define XFRM_SA_XFLAG_DONT_ENCAP_DSCP	1
 
@@ -420,7 +424,11 @@ struct xfrm_userpolicy_info {
 	/* Automatically expand selector to include matching ICMP payloads. */
 #define XFRM_POLICY_ICMP	2
 	__u8				share;
-};
+}
+#ifdef __i386__
+__attribute__((aligned(8))) /* b/138147164 */
+#endif
+;
 
 struct xfrm_userpolicy_id {
 	struct xfrm_selector		sel;

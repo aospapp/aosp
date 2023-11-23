@@ -15,6 +15,14 @@
  *  Date:   Thu Nov 13 15:19:33 2014 -0800
  *
  *      fanotify: fix notification of groups with inode & mount marks
+ *
+ * The overlayfs test case is a regression test for:
+ *
+ *  commit d989903058a83e8536cc7aadf9256a47d5c173fe
+ *  Author: Amir Goldstein <amir73il@gmail.com>
+ *  Date:   Wed Apr 24 19:39:50 2019 +0300
+ *
+ *      ovl: do not generate duplicate fsnotify events for "fake" path
  */
 #define _GNU_SOURCE
 #include "config.h"
@@ -54,8 +62,18 @@ static int fd_notify[FANOTIFY_PRIORITIES][GROUPS_PER_PRIO];
 
 static char event_buf[EVENT_BUF_LEN];
 
-#define MOUNT_NAME "mntpoint"
-static int mount_created;
+static const char mntpoint[] = OVL_BASE_MNTPOINT;
+
+static int ovl_mounted;
+
+static struct tcase {
+	const char *tname;
+	const char *mnt;
+	int use_overlay;
+} tcases[] = {
+	{ "Fanotify merge mount mark", mntpoint, 0 },
+	{ "Fanotify merge overlayfs mount mark", OVL_MNT, 1 },
+};
 
 static void create_fanotify_groups(void)
 {
@@ -72,12 +90,12 @@ static void create_fanotify_groups(void)
 			ret = fanotify_mark(fd_notify[p][i],
 					    FAN_MARK_ADD | FAN_MARK_MOUNT,
 					    FAN_MODIFY,
-					    AT_FDCWD, ".");
+					    AT_FDCWD, fname);
 			if (ret < 0) {
 				tst_brk(TBROK | TERRNO,
 					"fanotify_mark(%d, FAN_MARK_ADD | "
 					"FAN_MARK_MOUNT, FAN_MODIFY, AT_FDCWD,"
-					" '.') failed", fd_notify[p][i]);
+					" %s) failed", fd_notify[p][i], fname);
 			}
 			/* Add ignore mark for groups with higher priority */
 			if (p == 0)
@@ -130,11 +148,34 @@ static void verify_event(int group, struct fanotify_event_metadata *event)
 	}
 }
 
-void test01(void)
+/* Close all file descriptors of read events */
+static void close_events_fd(struct fanotify_event_metadata *event, int buflen)
+{
+	while (buflen >= (int)FAN_EVENT_METADATA_LEN) {
+		if (event->fd != FAN_NOFD)
+			SAFE_CLOSE(event->fd);
+		buflen -= (int)FAN_EVENT_METADATA_LEN;
+		event++;
+	}
+}
+
+void test_fanotify(unsigned int n)
 {
 	int ret;
 	unsigned int p, i;
 	struct fanotify_event_metadata *event;
+	struct tcase *tc = &tcases[n];
+
+	tst_res(TINFO, "Test #%d: %s", n, tc->tname);
+
+	if (tc->use_overlay && !ovl_mounted) {
+		tst_res(TCONF,
+		        "overlayfs is not configured in this kernel.");
+		return;
+	}
+
+	sprintf(fname, "%s/tfile_%d", tc->mnt, getpid());
+	SAFE_TOUCH(fname, 0644, NULL);
 
 	create_fanotify_groups();
 
@@ -168,17 +209,16 @@ void test01(void)
 		} else {
 			verify_event(i, event);
 		}
-		if (event->fd != FAN_NOFD)
-			SAFE_CLOSE(event->fd);
+		close_events_fd(event, ret);
 	}
+
 	for (p = 1; p < FANOTIFY_PRIORITIES; p++) {
 		for (i = 0; i < GROUPS_PER_PRIO; i++) {
 			ret = read(fd_notify[p][i], event_buf, EVENT_BUF_LEN);
 			if (ret > 0) {
 				tst_res(TFAIL, "group %d got event",
 					p*GROUPS_PER_PRIO + i);
-				if (event->fd != FAN_NOFD)
-					SAFE_CLOSE(event->fd);
+				close_events_fd((void *)event_buf, ret);
 			} else if (ret == 0) {
 				tst_brk(TBROK, "zero length "
 					"read from fanotify fd");
@@ -196,31 +236,30 @@ void test01(void)
 
 static void setup(void)
 {
-	SAFE_MKDIR(MOUNT_NAME, 0755);
-	SAFE_MOUNT(MOUNT_NAME, MOUNT_NAME, "none", MS_BIND, NULL);
-	mount_created = 1;
-	SAFE_CHDIR(MOUNT_NAME);
-
-	sprintf(fname, "tfile_%d", getpid());
-	SAFE_FILE_PRINTF(fname, "1");
+	ovl_mounted = TST_MOUNT_OVERLAY();
 }
 
 static void cleanup(void)
 {
 	cleanup_fanotify_groups();
 
-	SAFE_CHDIR("../");
-
-	if (mount_created && tst_umount(MOUNT_NAME) < 0)
-		tst_brk(TBROK | TERRNO, "umount failed");
+	if (ovl_mounted)
+		SAFE_UMOUNT(OVL_MNT);
 }
 
 static struct tst_test test = {
-	.test_all = test01,
+	.test = test_fanotify,
+	.tcnt = ARRAY_SIZE(tcases),
 	.setup = setup,
 	.cleanup = cleanup,
-	.needs_tmpdir = 1,
-	.needs_root = 1
+	.needs_root = 1,
+	.mount_device = 1,
+	.mntpoint = mntpoint,
+	.tags = (const struct tst_tag[]) {
+		{"linux-git", "8edc6e1688fc"},
+		{"linux-git", "d989903058a8"},
+		{}
+	}
 };
 
 #else

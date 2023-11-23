@@ -20,9 +20,9 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -32,6 +32,7 @@ import android.support.test.uiautomator.Until;
 import java.io.IOException;
 
 /*
+ * These Tests are Ignored as frames cannot be rendered in Youtube App.
  * This class contains the tests for key system apps on Android TV jank.
  */
 public class SystemAppJankTests extends JankTestBase {
@@ -67,14 +68,14 @@ public class SystemAppJankTests extends JankTestBase {
     }
 
     // Measures jank while scrolling down the Youtube Navigation Bar
-    @JankTest(expectedFrames=100, beforeTest = "launchYoutube",
-            afterTest="afterTestSystemApp")
-    @GfxMonitor(processName=YOUTUBE_PACKAGE)
-    public void testYoutubeGuideNavigation() throws UiObjectNotFoundException {
-        // As of launching Youtube, we're already at the screen where
-        // the navigation bar is in focus, so we only need to scroll.
-        navigateDownAndUpCurrentScreen();
-    }
+/*  @JankTest(expectedFrames=100, beforeTest = "launchYoutube",
+ *           afterTest="afterTestSystemApp")
+ *  @GfxMonitor(processName=YOUTUBE_PACKAGE)
+ *  public void testYoutubeGuideNavigation() throws UiObjectNotFoundException {
+ *        // As of launching Youtube, we're already at the screen where
+ *      // the navigation bar is in focus, so we only need to scroll.
+ *      navigateDownAndUpCurrentScreen();
+    } */
 
     public void goToYoutubeContainer() throws UiObjectNotFoundException {
         launchYoutube();
@@ -87,14 +88,14 @@ public class SystemAppJankTests extends JankTestBase {
     }
 
     // Measures jank while scrolling down the Youtube Navigation Bar
-    @JankTest(expectedFrames=100, beforeTest = "goToYoutubeContainer",
-            afterTest="afterTestSystemApp")
-    @GfxMonitor(processName=YOUTUBE_PACKAGE)
-    public void testYoutubeContainerListNavigation() throws UiObjectNotFoundException {
-        // The gotoYouTubeContainer method confirms that the focus is
-        // on the content, so we only need to scroll.
-        navigateDownAndUpCurrentScreen();
-    }
+/*  @JankTest(expectedFrames=100, beforeTest = "goToYoutubeContainer",
+ *            afterTest="afterTestSystemApp")
+ *  @GfxMonitor(processName=YOUTUBE_PACKAGE)
+ *  public void testYoutubeContainerListNavigation() throws UiObjectNotFoundException {
+ *      // The gotoYouTubeContainer method confirms that the focus is
+ *      // on the content, so we only need to scroll.
+ *      navigateDownAndUpCurrentScreen();
+    } */
 
     public void navigateDownAndUpCurrentScreen() {
         for (int i = 0; i < INNER_LOOP; i++) {

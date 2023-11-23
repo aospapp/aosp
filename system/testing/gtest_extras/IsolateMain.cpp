@@ -59,11 +59,6 @@ static void PrintHelpInfo() {
   printf(
       " will be called slow.\n"
       "      Only valid in isolation mode. Default slow threshold is 2000 ms.\n");
-  ColoredPrintf(COLOR_GREEN, "  --gtest_format\n");
-  printf(
-      "      Use the default gtest format, not the enhanced format.\n"
-      "\n"
-      "Default test option is ");
   ColoredPrintf(COLOR_GREEN, "-j");
   printf(
       ".\n"
@@ -139,19 +134,7 @@ int IsolateMain(int argc, char** argv, char**) {
     args.insert(args.begin() + 1, initial_args.begin(), initial_args.end());
   }
 
-  // To run a DeathTest in threadsafe mode, gtest requires that the user must
-  // invoke the test program directly, not by running it from the path.
-  // This is because gtest uses clone() + execve() to run a DeathTest() and
-  // execve() doesn't search the path to execute.
-  std::vector<const char*> child_args;
-  std::string exec_path;  // Need to be scoped through the entire function.
-  if (strchr(args[0], '/') == nullptr) {
-    exec_path = android::base::GetExecutablePath();
-    child_args.push_back(exec_path.c_str());
-  } else {
-    child_args.push_back(args[0]);
-  }
-
+  std::vector<char*> child_args;
   android::gtest_extras::Options options;
   if (!options.Process(args, &child_args)) {
     return 1;
@@ -159,7 +142,7 @@ int IsolateMain(int argc, char** argv, char**) {
 
   // Add the --no_isolate option to force child processes not to rerun
   // in isolation mode.
-  child_args.push_back("--no_isolate");
+  child_args.push_back(strdup("--no_isolate"));
 
   // Set the flag values.
   ::testing::GTEST_FLAG(color) = options.color();

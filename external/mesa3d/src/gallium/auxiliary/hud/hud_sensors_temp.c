@@ -122,6 +122,9 @@ get_sensor_values(struct sensors_temp_info *sti)
    case SENSORS_POWER_CURRENT:
       sf = sensors_get_subfeature(sti->chip, sti->feature,
                                   SENSORS_SUBFEATURE_POWER_INPUT);
+      if (!sf)
+          sf = sensors_get_subfeature(sti->chip, sti->feature,
+                                      SENSORS_SUBFEATURE_POWER_AVERAGE);
       if (sf) {
          /* Sensors API returns in WATTs, even though driver is reporting mW,
           * convert back to mW */
@@ -256,8 +259,8 @@ create_object(const char *chipname, const char *featurename,
    sti->mode = mode;
    sti->chip = (sensors_chip_name *) chip;
    sti->feature = feature;
-   strcpy(sti->chipname, chipname);
-   strcpy(sti->featurename, featurename);
+   snprintf(sti->chipname, sizeof(sti->chipname), "%s", chipname);
+   snprintf(sti->featurename, sizeof(sti->featurename), "%s", featurename);
    snprintf(sti->name, sizeof(sti->name), "%s.%s", sti->chipname,
       sti->featurename);
 

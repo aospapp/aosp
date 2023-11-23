@@ -35,7 +35,7 @@ class ClientPriority {
 public:
     /**
      * Choosing to set mIsVendorClient through a parameter instead of calling
-     * hardware::IPCThreadState::self()->isServingCall() to protect against the
+     * getCurrentServingCall() == BinderCallType::HWBINDER to protect against the
      * case where the construction is offloaded to another thread which isn't a
      * hwbinder thread.
      */
@@ -237,7 +237,7 @@ void ClientDescriptor<KEY, VALUE>::setPriority(const ClientPriority& priority) {
     // We don't use the usual copy constructor here since we want to remember
     // whether a client is a vendor client or not. This could have been wiped
     // off in the incoming priority argument since an AIDL thread might have
-    // called hardware::IPCThreadState::self()->isServingCall() after refreshing
+    // called getCurrentServingCall() == BinderCallType::HWBINDER after refreshing
     // priorities for old clients through ProcessInfoService::getProcessStatesScoresFromPids().
     mPriority.setScore(priority.getScore());
     mPriority.setState(priority.getState());
@@ -496,6 +496,20 @@ ClientManager<KEY, VALUE, LISTENER>::wouldEvictLocked(
                 evictList.clear();
                 evictList.push_back(client);
                 return evictList;
+            } else if (conflicting && owner == curOwner) {
+                // Pre-existing conflicting client with the same client owner exists
+                // Open the same device twice -> most recent open wins
+                // Otherwise let the existing client wins to avoid behaviors difference
+                // due to how HAL advertising conflicting devices (which is hidden from
+                // application)
+                if (curKey == key) {
+                    evictList.push_back(i);
+                    totalCost -= curCost;
+                } else {
+                    evictList.clear();
+                    evictList.push_back(client);
+                    return evictList;
+                }
             } else if (conflicting || ((totalCost > mMaxCost && curCost > 0) &&
                     (curPriority >= priority) &&
                     !(highestPriorityOwner == owner && owner == curOwner))) {

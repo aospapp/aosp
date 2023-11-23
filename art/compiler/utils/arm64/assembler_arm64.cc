@@ -49,6 +49,7 @@ static void SetVIXLCPUFeaturesFromART(vixl::aarch64::MacroAssembler* vixl_masm_,
   }
   if (art_features->HasFP16()) {
     features->Combine(vixl::CPUFeatures::kFPHalf);
+    features->Combine(vixl::CPUFeatures::kNEONHalf);
   }
   if (art_features->HasLSE()) {
     features->Combine(vixl::CPUFeatures::kAtomics);
@@ -101,15 +102,6 @@ void Arm64Assembler::JumpTo(ManagedRegister m_base, Offset offs, ManagedRegister
   temps.Exclude(reg_x(base.AsXRegister()), reg_x(scratch.AsXRegister()));
   ___ Ldr(reg_x(scratch.AsXRegister()), MEM_OP(reg_x(base.AsXRegister()), offs.Int32Value()));
   ___ Br(reg_x(scratch.AsXRegister()));
-}
-
-static inline dwarf::Reg DWARFReg(CPURegister reg) {
-  if (reg.IsFPRegister()) {
-    return dwarf::Reg::Arm64Fp(reg.GetCode());
-  } else {
-    DCHECK_LT(reg.GetCode(), 31u);  // X0 - X30.
-    return dwarf::Reg::Arm64Core(reg.GetCode());
-  }
 }
 
 void Arm64Assembler::SpillRegisters(CPURegList registers, int offset) {

@@ -25,6 +25,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from distutils.version import LooseVersion
+import config
+import fnmatch
 import glob
 import operator
 import os
@@ -45,10 +47,10 @@ def abort(message):
 
 
 # Emulate python3 subprocess.getstatusoutput.
-def getstatusoutput(command, shell=False):
+def getstatusoutput(command):
   try:
     args = shlex.split(command)
-    output = subprocess.check_output(args, stderr=subprocess.STDOUT, shell=shell)
+    output = subprocess.check_output(args, stderr=subprocess.STDOUT)
     return 0, output.rstrip('\n')
   except subprocess.CalledProcessError as e:
     return e.returncode, e.output.rstrip('\n')
@@ -77,7 +79,7 @@ def relrealpath(path, start=os.getcwd()):
 # Query the compiler about its preprocessor directives and return all of them as
 # a dictionnary.
 def GetCompilerDirectives(env):
-  args = [env['CXX']]
+  args = [env['compiler']]
   # Pass the CXXFLAGS varables to the compile, in case we've used "-m32" to
   # compile for i386.
   if env['CXXFLAGS']:
@@ -194,3 +196,56 @@ class CompilerInformation(object):
     # version numbers.
     return self.compiler == compiler and \
            operator(LooseVersion(self.version), LooseVersion(version))
+
+class ReturnCode:
+  def __init__(self, exit_on_error, printer_fn):
+    self.rc = 0
+    self.exit_on_error = exit_on_error
+    self.printer_fn = printer_fn
+
+  def Combine(self, rc):
+    self.rc |= rc
+    if self.exit_on_error and rc != 0:
+      self.PrintStatus()
+      sys.exit(rc)
+
+  @property
+  def Value(self):
+    return self.rc
+
+  def PrintStatus(self):
+    self.printer_fn('\n$ ' + ' '.join(sys.argv))
+    if self.rc == 0:
+      self.printer_fn('SUCCESS')
+    else:
+      self.printer_fn('FAILURE')
+
+# Return a list of files whose name matches at least one `include` pattern, and
+# no `exclude` patterns, and whose directory (relative to the repository base)
+# matches at least one `include_dirs` and no `exclude_dirs` patterns.
+#
+# For directory matches, leading and trailing slashes are added first (so that
+# "*/foo/*" matches all of 'foo/bar', 'bar/foo' and 'bar/foo/bar').
+def get_source_files(
+    include = ['*.h', '*.cc'],
+    include_dirs = ['/src/*', '/test/*', '/examples/*', '/benchmarks/*'],
+    exclude = [],
+    exclude_dirs = ['.*', '*/traces/*']):
+  def NameMatchesAnyFilter(name, filters):
+    for f in filters:
+      if fnmatch.fnmatch(name, f):
+        return True
+    return False
+
+  files_found = []
+  for root, dirs, files in os.walk(config.dir_root):
+    git_path = os.path.join('/', os.path.relpath(root, config.dir_root), '')
+    if NameMatchesAnyFilter(git_path, include_dirs) and \
+        not NameMatchesAnyFilter(git_path, exclude_dirs):
+      files_found += [
+        os.path.join(root, name)
+        for name in files
+        if NameMatchesAnyFilter(name, include) and \
+            not NameMatchesAnyFilter(name, exclude)
+      ]
+  return files_found

@@ -23,10 +23,8 @@
 
 namespace chre {
 
-DynamicVectorBase::DynamicVectorBase(DynamicVectorBase&& other)
-    : mData(other.mData),
-      mSize(other.mSize),
-      mCapacity(other.mCapacity) {
+DynamicVectorBase::DynamicVectorBase(DynamicVectorBase &&other)
+    : mData(other.mData), mSize(other.mSize), mCapacity(other.mCapacity) {
   other.mData = nullptr;
   other.mSize = 0;
   other.mCapacity = 0;
@@ -76,8 +74,8 @@ void DynamicVectorBase::doErase(size_t index, size_t elementSize) {
 bool DynamicVectorBase::doPushBack(const void *element, size_t elementSize) {
   bool spaceAvailable = doPrepareForPush(elementSize);
   if (spaceAvailable) {
-    memcpy(static_cast<uint8_t *>(mData) + (mSize * elementSize),
-           element, elementSize);
+    memcpy(static_cast<uint8_t *>(mData) + (mSize * elementSize), element,
+           elementSize);
     mSize++;
   }
 

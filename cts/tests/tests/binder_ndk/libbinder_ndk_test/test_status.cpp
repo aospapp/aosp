@@ -15,6 +15,9 @@
  */
 #define LOG_TAG "Cts-NdkBinderTest"
 
+#include "utilities.h"
+
+#include <android/binder_auto_utils.h>
 #include <android/binder_status.h>
 #include <gtest/gtest.h>
 
@@ -192,4 +195,21 @@ TEST(NdkBinderTest_AStatus, StatusesPruned) {
     checkIsErrorStatus(status, STATUS_UNKNOWN_ERROR);
     AStatus_delete(status);
   }
+}
+
+TEST(NdkBinderTest_AStatus, StatusDescription) {
+  using ndk::ScopedAStatus;
+
+  EXPECT_TRUE(
+      ContainsSubstring(ScopedAStatus::fromExceptionCode(EX_TRANSACTION_FAILED).getDescription(),
+                        "TRANSACTION_FAILED"));
+  EXPECT_TRUE(ContainsSubstring(
+      ScopedAStatus::fromExceptionCodeWithMessage(EX_TRANSACTION_FAILED, "asdf").getDescription(),
+      "asdf"));
+  EXPECT_TRUE(
+      ContainsSubstring(ScopedAStatus::fromServiceSpecificError(42).getDescription(), "42"));
+  EXPECT_TRUE(ContainsSubstring(
+      ScopedAStatus::fromServiceSpecificErrorWithMessage(42, "asdf").getDescription(), "asdf"));
+  EXPECT_TRUE(
+      ContainsSubstring(ScopedAStatus::fromStatus(STATUS_BAD_TYPE).getDescription(), "BAD_TYPE"));
 }

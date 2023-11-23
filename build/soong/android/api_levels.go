@@ -16,6 +16,7 @@ package android
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 )
 
@@ -72,8 +73,9 @@ func getApiLevelsMap(config Config) map[string]int {
 			"O-MR1": 27,
 			"P":     28,
 			"Q":     29,
+			"R":     30,
 		}
-		for i, codename := range config.PlatformVersionCombinedCodenames() {
+		for i, codename := range config.PlatformVersionActiveCodenames() {
 			apiLevelsMap[codename] = baseApiLevel + i
 		}
 
@@ -84,14 +86,19 @@ func getApiLevelsMap(config Config) map[string]int {
 // Converts an API level string into its numeric form.
 // * Codenames are decoded.
 // * Numeric API levels are simply converted.
-// * "minimum" and "current" are not currently handled since the former is
-//   NDK specific and the latter has inconsistent meaning.
-func ApiStrToNum(ctx BaseContext, apiLevel string) (int, error) {
-	num, ok := getApiLevelsMap(ctx.Config())[apiLevel]
-	if ok {
+// * "current" is mapped to FutureApiLevel(10000)
+// * "minimum" is NDK specific and not handled with this. (refer normalizeNdkApiLevel in cc.go)
+func ApiStrToNum(ctx BaseModuleContext, apiLevel string) (int, error) {
+	if apiLevel == "current" {
+		return FutureApiLevel, nil
+	}
+	if num, ok := getApiLevelsMap(ctx.Config())[apiLevel]; ok {
 		return num, nil
 	}
-	return strconv.Atoi(apiLevel)
+	if num, err := strconv.Atoi(apiLevel); err == nil {
+		return num, nil
+	}
+	return 0, fmt.Errorf("SDK version should be one of \"current\", <number> or <codename>: %q", apiLevel)
 }
 
 func (a *apiLevelsSingleton) GenerateBuildActions(ctx SingletonContext) {

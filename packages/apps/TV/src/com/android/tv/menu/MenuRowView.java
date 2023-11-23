@@ -25,6 +25,7 @@ import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.android.tv.R;
@@ -89,6 +90,18 @@ public abstract class MenuRowView extends LinearLayout {
         float textSizeDeselected =
                 res.getDimensionPixelSize(R.dimen.menu_row_title_text_size_deselected);
         mTitleViewScaleSelected = textSizeSelected / textSizeDeselected;
+        this.setAccessibilityDelegate(
+                new AccessibilityDelegate() {
+                    @Override
+                    public void sendAccessibilityEvent(View host, int eventType) {
+                        super.sendAccessibilityEvent(host, eventType);
+                        if (eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED &&
+                                !mRow.isReselected()) {
+                            requestChildFocus();
+                        }
+                    }
+                }
+        );
     }
 
     @Override
@@ -176,6 +189,9 @@ public abstract class MenuRowView extends LinearLayout {
     protected void setInitialFocusView(@NonNull View v) {
         mLastFocusView = v;
     }
+
+    /** Subclasses should implement this to request focus on child. */
+    protected abstract void requestChildFocus();
 
     /**
      * Called when the focus of a child view is changed. The inherited class should override this

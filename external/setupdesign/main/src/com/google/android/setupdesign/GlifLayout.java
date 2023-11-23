@@ -112,11 +112,8 @@ public class GlifLayout extends PartnerCustomizationLayout {
         a.getBoolean(R.styleable.SudGlifLayout_sudUsePartnerHeavyTheme, false);
     applyPartnerHeavyThemeResource = shouldApplyPartnerResource() && usePartnerHeavyTheme;
 
-    registerMixin(
-        HeaderMixin.class,
-        new HeaderMixin(this, attrs, defStyleAttr));
-    registerMixin(
-        IconMixin.class, new IconMixin(this, attrs, defStyleAttr));
+    registerMixin(HeaderMixin.class, new HeaderMixin(this, attrs, defStyleAttr));
+    registerMixin(IconMixin.class, new IconMixin(this, attrs, defStyleAttr));
     registerMixin(ProgressBarMixin.class, new ProgressBarMixin(this));
     final RequireScrollMixin requireScrollMixin = new RequireScrollMixin(this);
     registerMixin(RequireScrollMixin.class, requireScrollMixin);
@@ -154,15 +151,19 @@ public class GlifLayout extends PartnerCustomizationLayout {
   @Override
   protected void onFinishInflate() {
     super.onFinishInflate();
+    getMixin(IconMixin.class).tryApplyPartnerCustomizationStyle();
+    getMixin(HeaderMixin.class).tryApplyPartnerCustomizationStyle();
+    tryApplyPartnerCustomizationStyleToShortDescription();
+  }
 
-    TextView description = this.findManagedViewById(R.id.sud_layout_description);
-    if (description != null) {
-      if (applyPartnerHeavyThemeResource) {
+  private void tryApplyPartnerCustomizationStyleToShortDescription() {
+    if (applyPartnerHeavyThemeResource) {
+      TextView description =
+          this.findManagedViewById(com.google.android.setupdesign.R.id.sud_layout_description);
+      if (description != null) {
         DescriptionStyler.applyPartnerCustomizationStyle(description);
       }
     }
-    getMixin(IconMixin.class).applyPartnerCustomizationStyle();
-    getMixin(HeaderMixin.class).applyPartnerCustomizationStyle();
   }
 
   @Override

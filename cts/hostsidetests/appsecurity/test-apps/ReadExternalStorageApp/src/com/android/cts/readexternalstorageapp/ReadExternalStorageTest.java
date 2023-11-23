@@ -60,6 +60,12 @@ public class ReadExternalStorageTest extends AndroidTestCase {
                 path = path.getParentFile();
             }
 
+            // Path is 'Android/<data|obb>'. These directories may not be executable, depending on
+            // the mount. However, these directories should never be writable, hence we only test
+            // for no-write access here.
+            assertDirNoWriteAccess(path);
+            path = path.getParentFile();
+
             // Keep walking up until we leave device
             while (path != null) {
                 if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {

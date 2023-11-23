@@ -16,7 +16,7 @@
 
 package com.google.android.car.kitchensink.activityview;
 
-import android.app.ActivityView;
+import android.car.app.CarActivityView;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
@@ -36,7 +36,7 @@ import java.util.Random;
  * This fragment exercises the capabilities of virtual display.
  */
 public class ActivityViewTestFragment extends Fragment {
-    private ActivityView mActivityView;
+    private CarActivityView mActivityView;
     private ViewGroup mActivityViewParent;
 
     @Override
@@ -62,7 +62,7 @@ public class ActivityViewTestFragment extends Fragment {
 
     private void onLaunchActivityClicked(View v) {
         Intent intent = new Intent();
-        intent.setComponent(ComponentName.createRelative("com.android.settings", ".Settings"));
+        intent.setComponent(ComponentName.createRelative("com.android.car.settings", ".Settings"));
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mActivityView.startActivity(intent);
     }

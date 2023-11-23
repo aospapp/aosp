@@ -6,6 +6,7 @@ import logging
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import cr50_utils
+from autotest_lib.server.cros import filesystem_util
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -20,7 +21,7 @@ class firmware_Cr50SetBoardId(Cr50Test):
     BID_SCRIPT = '/usr/share/cros/cr50-set-board-id.sh'
 
     # the command to get the brand name
-    GET_BRAND = 'mosys platform brand'
+    GET_BRAND = 'cros_config / brand-code'
 
     # Used when the flags were not initialized in the factory.
     UNKNOWN_FLAGS = 0xff00
@@ -28,6 +29,7 @@ class firmware_Cr50SetBoardId(Cr50Test):
     DEVELOPMENT_FLAGS = 0x7f7f
     # Used for PVT and MP builds.
     RELEASE_FLAGS = 0x7f80
+    TEST_MP_FLAGS = 0x10000
     PHASE_FLAGS_DICT = {
         'unknown' : UNKNOWN_FLAGS,
 
@@ -48,38 +50,29 @@ class firmware_Cr50SetBoardId(Cr50Test):
     ERROR_ALREADY_SET = ['Board ID and flag have already been set.', 2]
     ERROR_BID_SET_DIFFERENTLY = ['Board ID has been set differently.', 3]
     ERROR_FLAG_SET_DIFFERENTLY = ['Flag has been set differently.', 3]
+    ERROR_BID_MISMATCH = ['Error 5 while setting board id', 1]
 
-    def initialize(self, host, cmdline_args, full_args, dev_path='', bid=''):
+    def initialize(self, host, cmdline_args, full_args, bid=''):
         # Restore the original image, rlz code, and board id during cleanup.
         super(firmware_Cr50SetBoardId, self).initialize(host, cmdline_args,
-             full_args, restore_cr50_state=True, cr50_dev_path=dev_path)
-        if self.cr50.using_ccd():
+              full_args, restore_cr50_image=True, restore_cr50_board_id=True)
+        if self.servo.main_device_is_ccd():
             raise error.TestNAError('Use a flex cable instead of CCD cable.')
-
-        # Update to the dev image so we can erase the board id after we set it.
-        # This test is verifying cr50-set-board-id and not the actual getting/
-        # setting of the board id on the cr50 side, so it is ok if the cr50 is
-        # running a dev image.
-        self.cr50_update(self.get_saved_cr50_dev_path())
-
-        if not self.cr50.has_command('bid'):
-            raise error.TestNAError('Cr50 image does not support board id')
-
-        if not self.host.path_exists(self.BID_SCRIPT):
-            raise error.TestNAError('Device does not have "cr50-set-board-id"')
 
         result = self.host.run(self.GET_BRAND, ignore_status=True)
         platform_brand = result.stdout.strip()
         if result.exit_status or not platform_brand:
-            raise error.TestNAError('Could not get "mosys platform brand"')
+            raise error.TestNAError('Could not get "cros_config / brand-code"')
         self.platform_brand = platform_brand
-        self.erase_bid()
-        cr50_utils.StopTrunksd(self.host)
 
-
-    def erase_bid(self):
-        """Erase the current board id"""
-        self.cr50.send_command('eraseflashinfo')
+        bid = self.get_saved_cr50_original_version()[2]
+        self._bid_flags = int(bid.rsplit(':', 1)[-1], 16) if bid else 0
+        if self._bid_flags == self.TEST_MP_FLAGS:
+            raise error.TestNAError('cr50-set-board-id cannot be used with '
+                                    'test mp images.')
+        filesystem_util.make_rootfs_writable(self.host)
+        self.host.run('rm %s' % cr50_utils.CR50_PREPVT, ignore_status=True)
+        self.host.run('rm %s' % cr50_utils.CR50_PROD, ignore_status=True)
 
 
     def run_script(self, expected_result, phase, board_id=''):
@@ -110,23 +103,33 @@ class firmware_Cr50SetBoardId(Cr50Test):
         message = message.replace('BID', expected_board_id)
         message = message.replace('PHASE', phase)
 
+        logging.info(result.stdout)
         # Compare the expected script output to the actual script result
         if message not in result.stdout or exit_status != result.exit_status:
             logging.debug(result)
             raise error.TestFail('Expected "%s" got "%s"' % (message,
                                  result.stdout))
-        logging.info(result.stdout)
+
+
+    def eraseflashinfo(self):
+        """Eraseflashinfo if the board id is set."""
+        if cr50_utils.GetChipBoardId(self.host) == cr50_utils.ERASED_CHIP_BID:
+            return
+        # Erase the board id so we can change it.
+        self.eraseflashinfo_and_restore_image()
 
 
     def run_once(self):
         """Verify cr50-set-board-id.sh"""
+        self.eraseflashinfo()
         # 'A' is too short to be a valid rlz code
         self.run_script(self.ERROR_INVALID_RLZ, 'dvt', 'A')
         # dummy_phase is not a valid phase
         self.run_script(self.ERROR_UNKNOWN_PHASE, 'dummy_phase')
-        # The rlz code is checked before the phase
-        self.run_script(self.ERROR_INVALID_RLZ, 'dummy_phase', 'A')
+        # The rlz code is checked after the phase
+        self.run_script(self.ERROR_UNKNOWN_PHASE, 'dummy_phase', 'A')
 
+        self.eraseflashinfo()
         # Set the board id so we can verify cr50-set-board-id has the correct
         # response to the board id already being set.
         self.run_script(self.SUCCESS, 'dvt', 'TEST')
@@ -140,11 +143,19 @@ class firmware_Cr50SetBoardId(Cr50Test):
 
         # Verify each stage sets the right flags
         for phase, flags in self.PHASE_FLAGS_DICT.iteritems():
-            # Erase the board id so we can change it.
-            self.erase_bid()
+            self.eraseflashinfo()
 
+            expected_response = self.SUCCESS
+            expected_brand = self.platform_brand
+            expected_flags = flags
+            if self._bid_flags & flags != self._bid_flags:
+                expected_response = self.ERROR_BID_MISMATCH
+                expected_brand = cr50_utils.ERASED_BID_INT
+                expected_flags = cr50_utils.ERASED_BID_INT
+                logging.info('%s phase mismatch with current image', phase)
             # Run the script to set the board id and flags for the given phase.
-            self.run_script(self.SUCCESS, phase)
+            self.run_script(expected_response, phase)
 
             # Check that the board id and flags are actually set.
-            cr50_utils.CheckChipBoardId(self.host, self.platform_brand, flags)
+            cr50_utils.CheckChipBoardId(self.host, expected_brand,
+                                        expected_flags)

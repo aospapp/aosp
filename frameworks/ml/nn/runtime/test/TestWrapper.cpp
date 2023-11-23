@@ -23,7 +23,7 @@ using namespace ::android::nn::wrapper;
 // This file tests certain aspects of the interfaces from NeuralNetworksWrapper.h.
 
 class WrapperTestModelFinish : public ::testing::Test {
-protected:
+   protected:
     void SetUp() override {
         OperandType type(Type::TENSOR_FLOAT32, {1});
         mIn = mModel.addOperand(&type);

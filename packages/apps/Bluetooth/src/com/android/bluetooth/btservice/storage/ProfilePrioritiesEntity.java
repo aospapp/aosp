@@ -23,31 +23,49 @@ import androidx.room.Entity;
 @Entity
 class ProfilePrioritiesEntity {
     /* Bluetooth profile priorities*/
-    public int a2dp_priority;
-    public int a2dp_sink_priority;
-    public int hfp_priority;
-    public int hfp_client_priority;
-    public int hid_host_priority;
-    public int pan_priority;
-    public int pbap_priority;
-    public int pbap_client_priority;
-    public int map_priority;
-    public int sap_priority;
-    public int hearing_aid_priority;
-    public int map_client_priority;
+    public int a2dp_connection_policy;
+    public int a2dp_sink_connection_policy;
+    public int hfp_connection_policy;
+    public int hfp_client_connection_policy;
+    public int hid_host_connection_policy;
+    public int pan_connection_policy;
+    public int pbap_connection_policy;
+    public int pbap_client_connection_policy;
+    public int map_connection_policy;
+    public int sap_connection_policy;
+    public int hearing_aid_connection_policy;
+    public int map_client_connection_policy;
 
     ProfilePrioritiesEntity() {
-        a2dp_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        a2dp_sink_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        hfp_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        hfp_client_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        hid_host_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        pan_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        pbap_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        pbap_client_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        map_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        sap_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        hearing_aid_priority = BluetoothProfile.PRIORITY_UNDEFINED;
-        map_client_priority = BluetoothProfile.PRIORITY_UNDEFINED;
+        a2dp_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        a2dp_sink_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        hfp_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        hfp_client_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        hid_host_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        pan_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        pbap_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        pbap_client_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        map_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        sap_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        hearing_aid_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        map_client_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+    }
+
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("A2DP=").append(a2dp_connection_policy)
+                .append("|A2DP_SINK=").append(a2dp_sink_connection_policy)
+                .append("|HEADSET=").append(hfp_connection_policy)
+                .append("|HEADSET_CLIENT=").append(hfp_client_connection_policy)
+                .append("|HID_HOST=").append(hid_host_connection_policy)
+                .append("|PAN=").append(pan_connection_policy)
+                .append("|PBAP=").append(pbap_connection_policy)
+                .append("|PBAP_CLIENT=").append(pbap_client_connection_policy)
+                .append("|MAP=").append(map_connection_policy)
+                .append("|MAP_CLIENT=").append(map_client_connection_policy)
+                .append("|SAP=").append(sap_connection_policy)
+                .append("|HEARING_AID=").append(hearing_aid_connection_policy);
+
+        return builder.toString();
     }
 }

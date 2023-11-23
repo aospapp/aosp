@@ -21,6 +21,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import android.view.MenuItem;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.selection.SelectionTracker;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -32,11 +33,9 @@ import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.dirlist.AppsRowManager;
 import com.android.documentsui.picker.PickResult;
-import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.ui.DialogController;
 import com.android.documentsui.ui.MessageBuilder;
-import androidx.annotation.VisibleForTesting;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -50,7 +49,6 @@ public class Injector<T extends ActionHandler> {
 
     public final Features features;
     public final ActivityConfig config;
-    public final ScopedPreferences prefs;
     public final MessageBuilder messages;
     public final Lookup<String, String> fileTypeLookup;
     public final Consumer<Collection<RootInfo>> shortcutsUpdater;
@@ -68,6 +66,9 @@ public class Injector<T extends ActionHandler> {
     public ActionModeController actionModeController;
 
     @ContentScoped
+    public ProfileTabsController profileTabsController;
+
+    @ContentScoped
     public T actions;
 
     @ContentScoped
@@ -83,12 +84,11 @@ public class Injector<T extends ActionHandler> {
     public Injector(
             Features features,
             ActivityConfig config,
-            ScopedPreferences prefs,
             MessageBuilder messages,
             DialogController dialogs,
             Lookup<String, String> fileTypeLookup,
             Consumer<Collection<RootInfo>> shortcutsUpdater) {
-        this(features, config, prefs, messages, dialogs, fileTypeLookup,
+        this(features, config, messages, dialogs, fileTypeLookup,
                 shortcutsUpdater, new Model(features));
     }
 
@@ -96,7 +96,6 @@ public class Injector<T extends ActionHandler> {
     public Injector(
             Features features,
             ActivityConfig config,
-            ScopedPreferences prefs,
             MessageBuilder messages,
             DialogController dialogs,
             Lookup<String, String> fileTypeLookup,
@@ -105,7 +104,6 @@ public class Injector<T extends ActionHandler> {
 
         this.features = features;
         this.config = config;
-        this.prefs = prefs;
         this.messages = messages;
         this.dialogs = dialogs;
         this.fileTypeLookup = fileTypeLookup;

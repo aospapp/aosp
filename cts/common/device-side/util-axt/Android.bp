@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// temporary compatibility-device-util variant that brings in androidx.test transitively, instead
-// of android.support.test target. Will be removed after androidx.test CTS conversion is complete.
 java_library_static {
     name: "compatibility-device-util-axt",
     sdk_version: "test_current",
 
     srcs: [
         "src/**/*.java",
+        "src/**/*.kt",
         "src/**/*.aidl",
     ],
 

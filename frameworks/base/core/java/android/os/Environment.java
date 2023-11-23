@@ -20,10 +20,13 @@ import android.Manifest;
 import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.app.AppGlobals;
 import android.app.AppOpsManager;
 import android.app.admin.DevicePolicyManager;
+import android.compat.Compatibility;
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.Disabled;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -34,7 +37,12 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Provides access to environment variables.
@@ -54,7 +62,8 @@ public class Environment {
     private static final String ENV_ODM_ROOT = "ODM_ROOT";
     private static final String ENV_VENDOR_ROOT = "VENDOR_ROOT";
     private static final String ENV_PRODUCT_ROOT = "PRODUCT_ROOT";
-    private static final String ENV_PRODUCT_SERVICES_ROOT = "PRODUCT_SERVICES_ROOT";
+    private static final String ENV_SYSTEM_EXT_ROOT = "SYSTEM_EXT_ROOT";
+    private static final String ENV_APEX_ROOT = "APEX_ROOT";
 
     /** {@hide} */
     public static final String DIR_ANDROID = "Android";
@@ -77,8 +86,50 @@ public class Environment {
     private static final File DIR_ODM_ROOT = getDirectory(ENV_ODM_ROOT, "/odm");
     private static final File DIR_VENDOR_ROOT = getDirectory(ENV_VENDOR_ROOT, "/vendor");
     private static final File DIR_PRODUCT_ROOT = getDirectory(ENV_PRODUCT_ROOT, "/product");
-    private static final File DIR_PRODUCT_SERVICES_ROOT = getDirectory(ENV_PRODUCT_SERVICES_ROOT,
-                                                           "/product_services");
+    private static final File DIR_SYSTEM_EXT_ROOT = getDirectory(ENV_SYSTEM_EXT_ROOT,
+            "/system_ext");
+    private static final File DIR_APEX_ROOT = getDirectory(ENV_APEX_ROOT,
+            "/apex");
+
+    /**
+     * Scoped Storage is on by default. However, it is not strictly enforced and there are multiple
+     * ways to opt out of scoped storage:
+     * <ul>
+     * <li>Target Sdk < Q</li>
+     * <li>Target Sdk = Q and has `requestLegacyExternalStorage` set in AndroidManifest.xml</li>
+     * <li>Target Sdk > Q: Upgrading from an app that was opted out of scoped storage and has
+     * `preserveLegacyExternalStorage` set in AndroidManifest.xml</li>
+     * </ul>
+     * This flag is enabled for all apps by default as Scoped Storage is enabled by default.
+     * Developers can disable this flag to opt out of Scoped Storage and have legacy storage
+     * workflow.
+     *
+     * Note: {@code FORCE_ENABLE_SCOPED_STORAGE} should also be disabled for apps to opt out of
+     * scoped storage.
+     * Note: This flag is also used in {@code com.android.providers.media.LocalCallingIdentity}.
+     * Any modifications to this flag should be reflected there as well.
+     * See https://developer.android.com/training/data-storage#scoped-storage for more information.
+     */
+    @ChangeId
+    private static final long DEFAULT_SCOPED_STORAGE = 149924527L;
+
+    /**
+     * Setting this flag strictly enforces Scoped Storage regardless of:
+     * <ul>
+     * <li>The value of Target Sdk</li>
+     * <li>The value of `requestLegacyExternalStorage` in AndroidManifest.xml</li>
+     * <li>The value of `preserveLegacyExternalStorage` in AndroidManifest.xml</li>
+     * </ul>
+     *
+     * Note: {@code DEFAULT_SCOPED_STORAGE} should also be enabled for apps to be enforced into
+     * scoped storage.
+     * Note: This flag is also used in {@code com.android.providers.media.LocalCallingIdentity}.
+     * Any modifications to this flag should be reflected there as well.
+     * See https://developer.android.com/training/data-storage#scoped-storage for more information.
+     */
+    @ChangeId
+    @Disabled
+    private static final long FORCE_ENABLE_SCOPED_STORAGE = 132649864L;
 
     @UnsupportedAppUsage
     private static UserEnvironment sCurrentUser;
@@ -168,8 +219,11 @@ public class Environment {
         return DIR_ANDROID_ROOT;
     }
 
-    /** {@hide} */
-    @TestApi
+    /**
+     * Return root directory where all external storage devices will be mounted.
+     * For example, {@link #getExternalStorageDirectory()} will appear under
+     * this location.
+     */
     public static @NonNull File getStorageDirectory() {
         return DIR_ANDROID_STORAGE;
     }
@@ -181,6 +235,7 @@ public class Environment {
      * @hide
      */
     @SystemApi
+    @TestApi
     public static @NonNull File getOemDirectory() {
         return DIR_OEM_ROOT;
     }
@@ -192,6 +247,7 @@ public class Environment {
      * @hide
      */
     @SystemApi
+    @TestApi
     public static @NonNull File getOdmDirectory() {
         return DIR_ODM_ROOT;
     }
@@ -202,6 +258,7 @@ public class Environment {
      * @hide
      */
     @SystemApi
+    @TestApi
     public static @NonNull File getVendorDirectory() {
         return DIR_VENDOR_ROOT;
     }
@@ -222,11 +279,37 @@ public class Environment {
      * Return root directory of the "product_services" partition holding middleware
      * services if any. If present, the partition is mounted read-only.
      *
+     * @deprecated This directory is not guaranteed to exist.
+     *             Its name is changed to "system_ext" because the partition's purpose is changed.
+     *             {@link #getSystemExtDirectory()}
      * @hide
      */
     @SystemApi
+    @Deprecated
     public static @NonNull File getProductServicesDirectory() {
-        return DIR_PRODUCT_SERVICES_ROOT;
+        return getDirectory("PRODUCT_SERVICES_ROOT", "/product_services");
+    }
+
+    /**
+     * Return root directory of the "system_ext" partition holding system partition's extension
+     * If present, the partition is mounted read-only.
+     *
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    public static @NonNull File getSystemExtDirectory() {
+        return DIR_SYSTEM_EXT_ROOT;
+    }
+
+    /**
+     * Return root directory of the apex mount point, where all the apex modules are made available
+     * to the rest of the system.
+     *
+     * @hide
+     */
+    public static @NonNull File getApexDirectory() {
+        return DIR_APEX_ROOT;
     }
 
     /**
@@ -494,6 +577,31 @@ public class Environment {
      */
     public static File getPackageCacheDirectory() {
         return new File(getDataSystemDirectory(), "package_cache");
+    }
+
+    /**
+     * Return locations where media files (such as ringtones, notification
+     * sounds, or alarm sounds) may be located on internal storage. These are
+     * typically indexed under {@link MediaStore#VOLUME_INTERNAL}.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static @NonNull Collection<File> getInternalMediaDirectories() {
+        final ArrayList<File> res = new ArrayList<>();
+        addCanonicalFile(res, new File(Environment.getRootDirectory(), "media"));
+        addCanonicalFile(res, new File(Environment.getOemDirectory(), "media"));
+        addCanonicalFile(res, new File(Environment.getProductDirectory(), "media"));
+        return res;
+    }
+
+    private static void addCanonicalFile(List<File> list, File file) {
+        try {
+            list.add(file.getCanonicalFile());
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to resolve " + file + ": " + e);
+            list.add(file);
+        }
     }
 
     /**
@@ -867,6 +975,15 @@ public class Environment {
     }
 
     /**
+     * Returns the path for android-specific OBB data on the SD card.
+     * @hide
+     */
+    public static File[] buildExternalStorageAndroidObbDirs() {
+        throwIfUserRequired();
+        return sCurrentUser.buildExternalStorageAndroidObbDirs();
+    }
+
+    /**
      * Generates the raw path to an application's data
      * @hide
      */
@@ -1130,12 +1247,13 @@ public class Environment {
     }
 
     /**
-     * Returns whether the primary shared/external storage media is a legacy
-     * view that includes files not owned by the app.
+     * Returns whether the shared/external storage media is a
+     * legacy view that includes files not owned by the app.
      * <p>
      * This value may be different from the value requested by
      * {@code requestLegacyExternalStorage} in the app's manifest, since an app
-     * may inherit its legacy state based on when it was first installed.
+     * may inherit its legacy state based on when it was first installed, target sdk and other
+     * factors.
      * <p>
      * Non-legacy apps can continue to discover and read media belonging to
      * other apps via {@link android.provider.MediaStore}.
@@ -1146,22 +1264,24 @@ public class Environment {
     }
 
     /**
-     * Returns whether the shared/external storage media at the given path is a
+     * Returns whether the shared/external storage media is a
      * legacy view that includes files not owned by the app.
      * <p>
      * This value may be different from the value requested by
      * {@code requestLegacyExternalStorage} in the app's manifest, since an app
-     * may inherit its legacy state based on when it was first installed.
+     * may inherit its legacy state based on when it was first installed, target sdk and other
+     * factors.
      * <p>
      * Non-legacy apps can continue to discover and read media belonging to
      * other apps via {@link android.provider.MediaStore}.
      *
      * @throws IllegalArgumentException if the path is not a valid storage
-     *             device.
+     * device.
      */
     public static boolean isExternalStorageLegacy(@NonNull File path) {
         final Context context = AppGlobals.getInitialApplication();
         final int uid = context.getApplicationInfo().uid;
+        // Isolated processes and Instant apps are never allowed to be in scoped storage
         if (Process.isIsolated(uid)) {
             return false;
         }
@@ -1171,26 +1291,77 @@ public class Environment {
             return false;
         }
 
-        if (packageManager.checkPermission(Manifest.permission.WRITE_MEDIA_STORAGE,
-                context.getPackageName()) == PackageManager.PERMISSION_GRANTED) {
+        boolean defaultScopedStorage = Compatibility.isChangeEnabled(DEFAULT_SCOPED_STORAGE);
+        boolean forceEnableScopedStorage = Compatibility.isChangeEnabled(
+                FORCE_ENABLE_SCOPED_STORAGE);
+        // if Scoped Storage is strictly enforced, the app does *not* have legacy storage access
+        // Note: does not require packagename/uid as this is directly called from an app process
+        if (isScopedStorageEnforced(defaultScopedStorage, forceEnableScopedStorage)) {
+            return false;
+        }
+        // if Scoped Storage is strictly disabled, the app has legacy storage access
+        // Note: does not require packagename/uid as this is directly called from an app process
+        if (isScopedStorageDisabled(defaultScopedStorage, forceEnableScopedStorage)) {
             return true;
         }
 
-        if (packageManager.checkPermission(Manifest.permission.INSTALL_PACKAGES,
-                context.getPackageName()) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final String[] packagesForUid = packageManager.getPackagesForUid(uid);
-        for (String packageName : packagesForUid) {
-            if (appOps.checkOpNoThrow(AppOpsManager.OP_REQUEST_INSTALL_PACKAGES,
-                    uid, packageName) == AppOpsManager.MODE_ALLOWED) {
-                return true;
-            }
-        }
-
         return appOps.checkOpNoThrow(AppOpsManager.OP_LEGACY_STORAGE,
                 uid, context.getOpPackageName()) == AppOpsManager.MODE_ALLOWED;
+    }
+
+    /**
+     * Returns whether the calling app has All Files Access on the primary shared/external storage
+     * media.
+     * <p>Declaring the permission {@link android.Manifest.permission#MANAGE_EXTERNAL_STORAGE} isn't
+     * enough to gain the access.
+     * <p>To request access, use
+     * {@link android.provider.Settings#ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION}.
+     */
+    public static boolean isExternalStorageManager() {
+        final File externalDir = sCurrentUser.getExternalDirs()[0];
+        return isExternalStorageManager(externalDir);
+    }
+
+    /**
+     * Returns whether the calling app has All Files Access at the given {@code path}
+     * <p>Declaring the permission {@link android.Manifest.permission#MANAGE_EXTERNAL_STORAGE} isn't
+     * enough to gain the access.
+     * <p>To request access, use
+     * {@link android.provider.Settings#ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION}.
+     */
+    public static boolean isExternalStorageManager(@NonNull File path) {
+        final Context context = Objects.requireNonNull(AppGlobals.getInitialApplication());
+        String packageName = Objects.requireNonNull(context.getPackageName());
+        int uid = context.getApplicationInfo().uid;
+
+        final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
+        final int opMode =
+                appOps.checkOpNoThrow(AppOpsManager.OP_MANAGE_EXTERNAL_STORAGE, uid, packageName);
+
+        switch (opMode) {
+            case AppOpsManager.MODE_DEFAULT:
+                return PackageManager.PERMISSION_GRANTED
+                        == context.checkPermission(
+                                Manifest.permission.MANAGE_EXTERNAL_STORAGE, Process.myPid(), uid);
+            case AppOpsManager.MODE_ALLOWED:
+                return true;
+            case AppOpsManager.MODE_ERRORED:
+            case AppOpsManager.MODE_IGNORED:
+                return false;
+            default:
+                throw new IllegalStateException("Unknown AppOpsManager mode " + opMode);
+        }
+    }
+
+    private static boolean isScopedStorageEnforced(boolean defaultScopedStorage,
+            boolean forceEnableScopedStorage) {
+        return defaultScopedStorage && forceEnableScopedStorage;
+    }
+
+    private static boolean isScopedStorageDisabled(boolean defaultScopedStorage,
+            boolean forceEnableScopedStorage) {
+        return !defaultScopedStorage && !forceEnableScopedStorage;
     }
 
     static File getDirectory(String variableName, String defaultPath) {

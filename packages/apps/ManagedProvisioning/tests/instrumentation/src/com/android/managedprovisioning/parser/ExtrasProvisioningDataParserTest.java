@@ -15,6 +15,7 @@
  */
 package com.android.managedprovisioning.parser;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_FINANCED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
@@ -299,6 +300,51 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         .setWifiInfo(TEST_WIFI_INFO)
                         .setAdminExtrasBundle(createTestAdminExtras())
                         .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
+                        .setDeviceAdminLabel(TEST_DEVICE_ADMIN_PACKAGE_LABEL)
+                        .setOrganizationName(TEST_ORGANIZATION_NAME)
+                        .setSupportUrl(TEST_SUPPORT_URL)
+                        .build())
+                .isEqualTo(params);
+    }
+
+    public void testParse_financedDeviceProvisioningIntent() throws Exception {
+        // GIVEN a ACTION_PROVISION_FINANCED_DEVICE intent and other extras.
+        Intent intent = new Intent(ACTION_PROVISION_FINANCED_DEVICE)
+                // GIVEN a device admin package name and component name
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, TEST_PACKAGE_NAME)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME)
+                .putExtras(getTestDeviceAdminDownloadExtras())
+                .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, createTestAdminExtras())
+                .putExtra(EXTRA_PROVISIONING_SKIP_USER_CONSENT, TEST_SKIP_USER_CONSENT)
+                .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, TEST_KEEP_ACCOUNT_MIGRATED)
+                .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                    TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL,
+                    TEST_DEVICE_ADMIN_PACKAGE_LABEL)
+                .putExtra(EXTRA_PROVISIONING_ORGANIZATION_NAME, TEST_ORGANIZATION_NAME)
+                .putExtra(EXTRA_PROVISIONING_SUPPORT_URL, TEST_SUPPORT_URL);
+
+        // WHEN the intent is parsed by the parser.
+        ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
+
+        // THEN ProvisionParams is constructed as expected.
+        assertThat(
+                ProvisioningParams.Builder.builder()
+                        .setProvisioningAction(ACTION_PROVISION_FINANCED_DEVICE)
+                        .setDeviceAdminComponentName(TEST_COMPONENT_NAME)
+                        .setDeviceAdminDownloadInfo(TEST_DOWNLOAD_INFO)
+                        .setProvisioningId(TEST_PROVISIONING_ID)
+                        // THEN customizable color is not supported.
+                        .setMainColor(ProvisioningParams.DEFAULT_MAIN_COLOR)
+                        // THEN skipping user consent flag is ignored
+                        .setSkipUserConsent(false)
+                        // THEN keep account migrated flag is ignored
+                        .setKeepAccountMigrated(false)
+                        // THEN leave all system apps is always true
+                        .setLeaveAllSystemAppsEnabled(true)
+                        // THEN skip user setup is always false
+                        .setSkipUserSetup(false)
+                        .setAdminExtrasBundle(createTestAdminExtras())
                         .setDeviceAdminLabel(TEST_DEVICE_ADMIN_PACKAGE_LABEL)
                         .setOrganizationName(TEST_ORGANIZATION_NAME)
                         .setSupportUrl(TEST_SUPPORT_URL)

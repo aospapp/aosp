@@ -57,8 +57,6 @@ void initMagCalSphere(
     const struct DiversityCheckerParameters *diverse_parameters,
     float default_odr_in_hz);
 
-void magCalSphereDestroy(struct MagCalSphere *mocs);
-
 enum MagUpdate magCalSphereUpdate(struct MagCalSphere *mocs,
                                   uint64_t sample_time_us, float x, float y,
                                   float z);

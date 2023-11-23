@@ -13,7 +13,6 @@ import copy
 import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
-from autotest_lib.scheduler import scheduler_config
 from autotest_lib.site_utils import server_manager_utils
 
 
@@ -23,9 +22,7 @@ def get_drones():
     if server_manager_utils.use_server_db():
         return server_manager_utils.get_drones()
     else:
-        drones = global_config.global_config.get_config_value(
-                scheduler_config.CONFIG_SECTION, 'drones', default='localhost')
-        return [hostname.strip() for hostname in drones.split(',')]
+        return []
 
 
 def get_shards():

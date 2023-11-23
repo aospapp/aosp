@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,7 +26,10 @@ import org.objectweb.asm.Opcodes;
 public class CRC64Test {
 
 	@Test
-	public void testJava9() {
+	public void except_java_9_checksums_should_be_different_for_different_bytecode_versions() {
+		assertEquals(0x589E9080A572741EL,
+				CRC64.classId(createClass(Opcodes.V10)));
+
 		// should remove workaround for Java 9
 		// during change of exec file version
 		assertEquals(0x1007, ExecutionDataWriter.FORMAT_VERSION);

@@ -16,23 +16,36 @@
 
 package android.net.apf;
 
+import static com.android.testutils.ParcelUtilsKt.assertParcelSane;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.content.Context;
+
+import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.internal.util.ParcelableTestUtil;
-import com.android.internal.util.TestUtils;
-
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Arrays;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class ApfCapabilitiesTest {
+    private Context mContext;
+
+    @Before
+    public void setUp() {
+        mContext = InstrumentationRegistry.getContext();
+    }
+
     @Test
     public void testConstructAndParcel() {
         final ApfCapabilities caps = new ApfCapabilities(123, 456, 789);
@@ -40,9 +53,7 @@ public class ApfCapabilitiesTest {
         assertEquals(456, caps.maximumApfProgramSize);
         assertEquals(789, caps.apfPacketFormat);
 
-        ParcelableTestUtil.assertFieldCountEquals(3, ApfCapabilities.class);
-
-        TestUtils.assertParcelingIsLossless(caps);
+        assertParcelSane(caps, 3);
     }
 
     @Test
@@ -61,5 +72,28 @@ public class ApfCapabilitiesTest {
 
         caps = new ApfCapabilities(4 /* apfVersionSupported */, 5, 6);
         assertTrue(caps.hasDataAccess());
+    }
+
+    @Test
+    public void testGetApfDrop8023Frames() {
+        // Get com.android.internal.R.bool.config_apfDrop802_3Frames. The test cannot directly
+        // use R.bool.config_apfDrop802_3Frames because that is not a stable resource ID.
+        final int resId = mContext.getResources().getIdentifier("config_apfDrop802_3Frames",
+                "bool", "android");
+        final boolean shouldDrop8023Frames = mContext.getResources().getBoolean(resId);
+        final boolean actual = ApfCapabilities.getApfDrop8023Frames();
+        assertEquals(shouldDrop8023Frames, actual);
+    }
+
+    @Test
+    public void testGetApfEtherTypeBlackList() {
+        // Get com.android.internal.R.array.config_apfEthTypeBlackList. The test cannot directly
+        // use R.array.config_apfEthTypeBlackList because that is not a stable resource ID.
+        final int resId = mContext.getResources().getIdentifier("config_apfEthTypeBlackList",
+                "array", "android");
+        final int[] blacklistedEtherTypeArray = mContext.getResources().getIntArray(resId);
+        final int[] actual = ApfCapabilities.getApfEtherTypeBlackList();
+        assertNotNull(actual);
+        assertTrue(Arrays.equals(blacklistedEtherTypeArray, actual));
     }
 }

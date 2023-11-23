@@ -16,7 +16,7 @@
 
 package org.apache.harmony.dalvik.ddmc;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import dalvik.annotation.optimization.FastNative;
 
 /**

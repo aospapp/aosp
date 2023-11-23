@@ -21,15 +21,28 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Binder;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.util.ArrayMap;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+
+import java.util.ArrayList;
 import java.util.List;
 
 /** Utility class */
 public final class CarServiceUtils {
 
+    private static final String TAG = "CAR.UTIL";
+    /** Empty int array */
+    public  static final int[] EMPTY_INT_ARRAY = new int[0];
+
     private static final String PACKAGE_NOT_FOUND = "Package not found:";
+
+    /** K: class name, V: HandlerThread */
+    private static final ArrayMap<String, HandlerThread> sHandlerThreads = new ArrayMap<>();
 
     /** do not construct. static only */
     private CarServiceUtils() {};
@@ -165,5 +178,65 @@ public final class CarServiceUtils {
             array[i] = list.get(i);
         }
         return array;
+    }
+
+    /**
+     * Returns delta between elapsed time to uptime = {@link SystemClock#elapsedRealtime()} -
+     * {@link SystemClock#uptimeMillis()}. Note that this value will be always >= 0.
+     */
+    public static long getUptimeToElapsedTimeDeltaInMillis() {
+        int retry = 0;
+        int max_retry = 2; // try only up to twice
+        while (true) {
+            long elapsed1 = SystemClock.elapsedRealtime();
+            long uptime = SystemClock.uptimeMillis();
+            long elapsed2 = SystemClock.elapsedRealtime();
+            if (elapsed1 == elapsed2) { // avoid possible 1 ms fluctuation.
+                return elapsed1 - uptime;
+            }
+            retry++;
+            if (retry >= max_retry) {
+                return elapsed1 - uptime;
+            }
+        }
+    }
+
+    /**
+     * Gets a static instance of {@code HandlerThread} for the given {@code name}. If the thread
+     * does not exist, create one and start it before returning.
+     */
+    public static HandlerThread getHandlerThread(String name) {
+        synchronized (sHandlerThreads) {
+            HandlerThread thread = sHandlerThreads.get(name);
+            if (thread == null || !thread.isAlive()) {
+                Log.i(TAG, "Starting HandlerThread:" + name);
+                thread = new HandlerThread(name);
+                thread.start();
+                sHandlerThreads.put(name, thread);
+            }
+            return thread;
+        }
+    }
+
+    /**
+     * Finishes all queued {@code Handler} tasks for {@code HandlerThread} created via
+     * {@link #getHandlerThread(String)}. This is useful only for testing.
+     */
+    @VisibleForTesting
+    public static void finishAllHandlerTasks() {
+        ArrayList<HandlerThread> threads;
+        synchronized (sHandlerThreads) {
+            threads = new ArrayList<>(sHandlerThreads.values());
+        }
+        ArrayList<SyncRunnable> syncs = new ArrayList<>(threads.size());
+        for (int i = 0; i < threads.size(); i++) {
+            Handler handler = new Handler(threads.get(i).getLooper());
+            SyncRunnable sr = new SyncRunnable(() -> { });
+            handler.post(sr);
+            syncs.add(sr);
+        }
+        for (int i = 0; i < syncs.size(); i++) {
+            syncs.get(i).waitForComplete();
+        }
     }
 }

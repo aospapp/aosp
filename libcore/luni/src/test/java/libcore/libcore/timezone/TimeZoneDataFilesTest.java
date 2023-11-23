@@ -27,31 +27,28 @@ import static org.junit.Assert.assertTrue;
 public class TimeZoneDataFilesTest {
 
     private static final String ANDROID_TZDATA_ROOT_ENV = "ANDROID_TZDATA_ROOT";
-    private static final String ANDROID_RUNTIME_ROOT_ENV = "ANDROID_RUNTIME_ROOT";
+    private static final String ANDROID_I18N_ROOT_ENV = "ANDROID_I18N_ROOT";
+    private static final String ANDROID_DATA_ENV = "ANDROID_DATA";
 
     @Test
     public void expectedEnvironmentVariables() {
         // These environment variables are required to locate data files used by libcore / ICU.
+        assertNotNull(System.getenv(ANDROID_DATA_ENV));
         assertNotNull(System.getenv(ANDROID_TZDATA_ROOT_ENV));
-        assertNotNull(System.getenv(ANDROID_RUNTIME_ROOT_ENV));
+        assertNotNull(System.getenv(ANDROID_I18N_ROOT_ENV));
     }
 
     @Test
     public void getTimeZoneFilePaths() {
         String[] paths = TimeZoneDataFiles.getTimeZoneFilePaths("foo");
-        assertEquals(4, paths.length);
+        assertEquals(2, paths.length);
 
+        assertTrue(paths[0].startsWith(System.getenv(ANDROID_DATA_ENV)));
         assertTrue(paths[0].contains("/misc/zoneinfo/current/"));
         assertTrue(paths[0].endsWith("/foo"));
 
         assertTrue(paths[1].startsWith(System.getenv(ANDROID_TZDATA_ROOT_ENV)));
         assertTrue(paths[1].endsWith("/foo"));
-
-        assertTrue(paths[2].startsWith(System.getenv(ANDROID_RUNTIME_ROOT_ENV)));
-        assertTrue(paths[2].endsWith("/foo"));
-
-        assertTrue(paths[3].contains("/usr/share/zoneinfo/"));
-        assertTrue(paths[3].endsWith("/foo"));
     }
 
     // http://b/34867424
@@ -64,6 +61,7 @@ public class TimeZoneDataFilesTest {
         assertEquals(3, paths.length);
 
         String dataDirPath = paths[0];
+        assertTrue(dataDirPath.startsWith(System.getenv(ANDROID_DATA_ENV)));
         assertTrue(dataDirPath + " invalid", dataDirPath.contains("/misc/zoneinfo/current/icu"));
 
         String tzdataModulePath = paths[1];
@@ -72,7 +70,7 @@ public class TimeZoneDataFilesTest {
 
         String runtimeModulePath = paths[2];
         assertTrue(runtimeModulePath + " invalid",
-                runtimeModulePath.startsWith(System.getenv(ANDROID_RUNTIME_ROOT_ENV)));
+                runtimeModulePath.startsWith(System.getenv(ANDROID_I18N_ROOT_ENV)));
         assertTrue(runtimeModulePath + " invalid", runtimeModulePath.contains("/etc/icu"));
     }
 }

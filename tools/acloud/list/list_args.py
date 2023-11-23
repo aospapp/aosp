@@ -31,5 +31,11 @@ def GetListArgParser(subparser):
     list_parser = subparser.add_parser(CMD_LIST)
     list_parser.required = False
     list_parser.set_defaults(which=CMD_LIST)
+    list_parser.add_argument(
+        "--local-only",
+        action="store_true",
+        dest="local_only",
+        required=False,
+        help="Do not authenticate and query remote instances.")
 
     return list_parser

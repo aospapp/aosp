@@ -115,6 +115,29 @@ service Keymaster {
    */
   rpc ProvisionCertificates(ProvisionCertificatesRequest) returns (ProvisionCertificatesResponse);
 
+  /*
+   * KM4.1 methods.
+   */
+  rpc DeviceLocked(DeviceLockedRequest) returns (DeviceLockedResponse);
+  rpc EarlyBootEnded(EarlyBootEndedRequest) returns (EarlyBootEndedResponse);
+
+  /*
+   * More vendor specific methods.
+   */
+  rpc ReadCertificate(ReadCertificateRequest) returns (ReadCertificateResponse);
+  rpc IdentityStartAttestKey (IdentityStartAttestKeyRequest) returns (IdentityStartAttestKeyResponse);
+  rpc IdentityFinishAttestKey (IdentityFinishAttestKeyRequest) returns (IdentityFinishAttestKeyResponse);
+
+  /*
+   * Resume-on-Reboot implementation.
+   */
+  rpc VigoReadVS(VigoReadVSRequest) returns (VigoReadVSResponse);
+  rpc VigoStartChannel(VigoStartChannelRequest)
+      returns (VigoStartChannelResponse);
+  rpc VigoStoreSecret(VigoStoreSecretRequest) returns (VigoStoreSecretResponse);
+  rpc VigoReleaseSecret(VigoReleaseSecretRequest)
+      returns (VigoReleaseSecretResponse);
+
   // These are implemented with a enum, so new RPCs must be appended, and
   // deprecated RPCs need placeholders.
 }
@@ -337,6 +360,21 @@ message ComputeSharedHmacResponse {
   bytes sharing_check = 2;
 }
 
+// DeviceLockedRequest
+message DeviceLockedRequest {
+  bool password_only = 1;
+  VerificationToken verification_token = 2;
+}
+message DeviceLockedResponse {
+  ErrorCode error_code = 1;
+}
+
+// DeviceLockedRequest
+message EarlyBootEndedRequest {}
+message EarlyBootEndedResponse {
+  ErrorCode error_code = 1;
+}
+
 /*
  * Vendor HAL.
  */
@@ -455,4 +493,69 @@ message ProvisionCertificatesRequest {
 message ProvisionCertificatesResponse {
   ErrorCode error_code = 1;
   CertificateStatus cert_status = 2;
+}
+
+message ReadCertificateRequest {
+  AttestationSelector selector = 1;
+  Algorithm algorithm = 2;
+}
+message ReadCertificateResponse {
+  ErrorCode error_code = 1;
+  Certificate cert = 2;
+}
+
+message VigoReadVSRequest {}
+message VigoReadVSResponse {
+  ErrorCode error_code = 1;
+  VigoKey vs_key = 2;
+}
+message VigoStartChannelRequest {
+  VigoKey client_key = 1;
+}
+message VigoStartChannelResponse {
+  ErrorCode error_code = 1;
+  VigoKey server_key = 2;
+  VigoSignature channel_signature = 3;
+}
+message VigoStoreSecretRequest {
+  VigoKey rs_key = 1;
+  VigoSecret secret_encrypted = 2;
+}
+message VigoStoreSecretResponse {
+  ErrorCode error_code = 1;
+}
+message VigoReleaseSecretRequest {
+  VigoSignature rs_signature = 1;
+}
+message VigoReleaseSecretResponse {
+  ErrorCode error_code = 1;
+  VigoSecret secret_encrypted = 2;
+}
+
+// IdentityStartAttestKey
+message IdentityStartAttestKeyRequest {
+  bytes pubkey = 1;
+  KeyParameters params = 2;
+  uint32 attestation_app_id_len = 3;
+  AttestationSelector selector = 4;
+  bytes not_before = 5;      // strftime('%y%m%d%H%M%SZ') [13 octects]
+  bytes not_after = 6;       // strftime('%y%m%d%H%M%SZ') [13 octects]
+  uint64 creation_time_ms = 7;      // Rough current time (ms since epoch).
+}
+message IdentityStartAttestKeyResponse {
+  ErrorCode error_code = 1;
+  OperationHandle handle = 2;
+  bytes certificate_prologue = 3;
+}
+
+// IdentityFinishAttestKeyRequest
+message IdentityFinishAttestKeyRequest {
+  OperationHandle handle = 1;
+  bool use_km_attest_key = 2;
+}
+message IdentityFinishAttestKeyResponse {
+  ErrorCode error_code = 1;
+  bytes certificate_epilogue = 2;
+  ChipFusing chip_fusing = 3;
+  bool nodelocked_ro = 4;
 }

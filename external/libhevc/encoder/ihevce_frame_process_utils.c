@@ -436,9 +436,7 @@ void ihevce_dyn_bitrate(void *pv_hle_ctxt, void *pv_dyn_bitrate_prms)
     ihevce_rc_register_dyn_change_bitrate(
         ps_enc_ctxt->s_module_ctxt.apv_rc_ctxt[ps_dyn_bitrate_prms->i4_tgt_br_id],
         (LWORD64)ps_dyn_bitrate_prms->i4_new_tgt_bitrate,
-        (LWORD64)ps_dyn_bitrate_prms->i4_new_peak_bitrate,
-        ps_dyn_bitrate_prms->i4_new_rate_factor,
-        ps_enc_ctxt->ps_stat_prms->s_config_prms.i4_rate_control_mode);
+        (LWORD64)ps_dyn_bitrate_prms->i4_new_peak_bitrate);
 
     /*unlock rate control context*/
     osal_mutex_unlock(ps_enc_ctxt->pv_rc_mutex_lock_hdl);

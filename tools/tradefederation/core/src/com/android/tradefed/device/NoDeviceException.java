@@ -15,11 +15,14 @@
  */
 package com.android.tradefed.device;
 
+import com.android.tradefed.build.BuildSerializedVersion;
+
 /**
  * Thrown when there's no device to execute a given command.
  */
-@SuppressWarnings("serial")
 public class NoDeviceException extends Exception {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
+
     /**
      * Creates a {@link NoDeviceException}.
      */

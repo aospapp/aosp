@@ -80,6 +80,7 @@ TEST(cmd_report_sample, has_thread_record) {
   std::string data;
   GetProtobufReport(PERF_DATA_WITH_SYMBOLS, &data);
   ASSERT_NE(data.find("thread:"), std::string::npos);
+  ASSERT_NE(data.find("thread_name: t2"), std::string::npos);
 }
 
 TEST(cmd_report_sample, trace_offcpu) {

@@ -57,8 +57,6 @@ struct user_euid {
 user_euid user_euids[] = {{AID_VPN, AID_SYSTEM},
                           {AID_WIFI, AID_SYSTEM},
                           {AID_ROOT, AID_SYSTEM},
-                          {AID_WIFI, AID_KEYSTORE},
-                          {AID_KEYSTORE, AID_WIFI},
 
 #ifdef GRANT_ROOT_ALL_PERMISSIONS
                           // Allow VTS tests to act on behalf of the wifi user

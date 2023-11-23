@@ -52,9 +52,10 @@ public final class ClientSessionContext extends AbstractSessionContext {
      * Applications should not use this method. Instead use {@link
      * Conscrypt#setClientSessionCache(SSLContext, SSLClientSessionCache)}.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
-    public void setPersistentCache(SSLClientSessionCache persistentCache) {
+    @android.compat.annotation
+            .UnsupportedAppUsage
+            @libcore.api.CorePlatformApi
+            public void setPersistentCache(SSLClientSessionCache persistentCache) {
         this.persistentCache = persistentCache;
     }
 
@@ -119,7 +120,7 @@ public final class ClientSessionContext extends AbstractSessionContext {
      * @param port of server
      * @return cached session or null if none found
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private NativeSslSession getSession(String host, int port) {
         if (host == null) {
             return null;

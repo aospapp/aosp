@@ -22,7 +22,7 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cellbroadcastreceiver"
+        android:targetPackage="com.android.cellbroadcastreceiver.module"
         android:label="CellBroadcastReceiver Unit Test Cases">
     </instrumentation>
 

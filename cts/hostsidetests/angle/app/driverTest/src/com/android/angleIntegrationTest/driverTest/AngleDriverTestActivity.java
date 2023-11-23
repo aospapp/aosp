@@ -18,13 +18,10 @@ package com.android.angleIntegrationTest.driverTest;
 
 import static org.junit.Assert.fail;
 
-import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.angleIntegrationTest.common.AngleIntegrationTestActivity;
 import com.android.angleIntegrationTest.common.GlesView;
 
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -33,29 +30,18 @@ public class AngleDriverTestActivity {
 
     private final String TAG = this.getClass().getSimpleName();
 
-    @Rule
-    public ActivityTestRule<AngleIntegrationTestActivity> rule =
-            new ActivityTestRule<>(AngleIntegrationTestActivity.class);
-
     private void validateDeveloperOption(boolean angleEnabled) throws Exception {
-        AngleIntegrationTestActivity activity = rule.getActivity();
-        GlesView glesView = activity.getGlesView();
-        String renderer = glesView.getRenderer();
+        GlesView glesView = new GlesView();
 
-        while(renderer.length() == 0) {
-            renderer = glesView.getRenderer();
-        }
-
-        if (angleEnabled) {
-            if (!renderer.toLowerCase().contains("ANGLE".toLowerCase())) {
+        if (!glesView.validateDeveloperOption(angleEnabled)) {
+            if (angleEnabled) {
+                String renderer = glesView.getRenderer();
                 fail("Failure - ANGLE was not loaded: '" + renderer + "'");
-            }
-        } else {
-            if (renderer.toLowerCase().contains("ANGLE".toLowerCase())) {
+            } else {
+                String renderer = glesView.getRenderer();
                 fail("Failure - ANGLE was loaded: '" + renderer + "'");
             }
         }
-
     }
 
     @Test

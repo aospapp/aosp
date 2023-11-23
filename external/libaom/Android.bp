@@ -401,6 +401,7 @@ aom_version_sources_gen = [
 ]
 cc_library_static {
     name: "libaom",
+    host_supported: true,
     vendor_available: true,
     cflags: [
         "-O3",
@@ -457,6 +458,9 @@ cc_library_static {
                 "config/",
                 "config/x86_64/",
             ],
+            cflags: [
+                "-mssse3",
+            ],
             srcs: aom_av1_common_sources +
                 aom_av1_decoder_sources +
                 aom_dsp_common_sources +
@@ -480,6 +484,9 @@ cc_library_static {
                 "config/",
                 "config/x86/",
             ],
+            cflags: [
+                "-mssse3",
+            ],
             srcs: aom_av1_common_sources +
                 aom_av1_decoder_sources +
                 aom_dsp_common_sources +
@@ -500,4 +507,50 @@ cc_library_static {
 
     },
 
+    sanitize: {
+        blacklist: "libaom_blacklist.txt",
+    },
+
+}
+
+cc_fuzz {
+    name: "av1_dec_fuzzer",
+    host_supported: true,
+    srcs: [
+        "libaom/examples/av1_dec_fuzzer.cc",
+    ],
+    arch: {
+        arm: {
+            neon: {
+                local_include_dirs: [
+                    "config/",
+                    "config/arm/",
+                ],
+            },
+        },
+
+        arm64: {
+            local_include_dirs: [
+                "config/",
+                "config/arm64/",
+            ],
+        },
+
+        x86: {
+            local_include_dirs: [
+                "config/",
+                "config/x86/",
+            ],
+        },
+
+        x86_64: {
+            local_include_dirs: [
+                "config/",
+                "config/x86_64/",
+            ],
+        },
+    },
+    static_libs: [
+        "libaom",
+    ],
 }

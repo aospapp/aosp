@@ -16,7 +16,10 @@
 
 """Unittests for atest."""
 
+import datetime
+import os
 import sys
+import tempfile
 import unittest
 import mock
 
@@ -275,6 +278,21 @@ class AtestUnittests(unittest.TestCase):
         test_infos = [no_install_test_info]
         atest._validate_exec_mode(parsed_args, test_infos)
         self.assertFalse(parsed_args.host)
+
+    def test_make_test_run_dir(self):
+        """Test make_test_run_dir."""
+        tmp_dir = tempfile.mkdtemp()
+        constants.ATEST_RESULT_ROOT = tmp_dir
+        date_time = None
+
+        work_dir = atest.make_test_run_dir()
+        folder_name = os.path.basename(work_dir)
+        date_time = datetime.datetime.strptime('_'.join(folder_name.split('_')[0:2]),
+                                               atest.TEST_RUN_DIR_PREFIX)
+
+        reload(constants)
+        self.assertIsNotNone(date_time)
+
 
 if __name__ == '__main__':
     unittest.main()

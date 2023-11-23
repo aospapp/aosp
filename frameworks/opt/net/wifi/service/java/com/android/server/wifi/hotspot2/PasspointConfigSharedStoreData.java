@@ -16,7 +16,11 @@
 
 package com.android.server.wifi.hotspot2;
 
+import android.annotation.Nullable;
+import android.util.Log;
+
 import com.android.server.wifi.WifiConfigStore;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtil;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -42,6 +46,7 @@ import java.io.IOException;
  *
  */
 public class PasspointConfigSharedStoreData implements WifiConfigStore.StoreData {
+    private static final String TAG = "PasspointConfigSharedStoreData";
     private static final String XML_TAG_SECTION_HEADER_PASSPOINT_CONFIG_DATA =
             "PasspointConfigData";
     private static final String XML_TAG_PROVIDER_INDEX = "ProviderIndex";
@@ -72,13 +77,16 @@ public class PasspointConfigSharedStoreData implements WifiConfigStore.StoreData
     }
 
     @Override
-    public void serializeData(XmlSerializer out)
+    public void serializeData(XmlSerializer out,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         serializeShareData(out);
     }
 
     @Override
-    public void deserializeData(XmlPullParser in, int outerTagDepth)
+    public void deserializeData(XmlPullParser in, int outerTagDepth,
+            @WifiConfigStore.Version int version,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         // Ignore empty reads.
         if (in == null) {
@@ -144,8 +152,8 @@ public class PasspointConfigSharedStoreData implements WifiConfigStore.StoreData
                     mDataSource.setProviderIndex((long) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown value under share store data "
-                            + valueName[0]);
+                    Log.w(TAG, "Ignoring unknown value under share store data " + valueName[0]);
+                    break;
             }
         }
     }

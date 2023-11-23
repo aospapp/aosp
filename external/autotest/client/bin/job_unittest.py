@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # pylint: disable=missing-docstring
 
 import logging

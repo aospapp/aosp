@@ -9,6 +9,7 @@
 #ifndef CRAS_TYPES_H_
 #define CRAS_TYPES_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -16,7 +17,7 @@
 #include "cras_iodev_info.h"
 
 /* Architecture independent timespec */
-struct __attribute__ ((__packed__)) cras_timespec {
+struct __attribute__((__packed__)) cras_timespec {
 	int64_t tv_sec;
 	int64_t tv_nsec;
 };
@@ -37,11 +38,24 @@ enum TEST_IODEV_TYPE {
 	TEST_IODEV_HOTWORD,
 };
 
-
 /* Commands for test iodevs. */
 enum CRAS_TEST_IODEV_CMD {
 	TEST_IODEV_CMD_HOTWORD_TRIGGER,
 };
+
+/* CRAS client connection types. */
+enum CRAS_CONNECTION_TYPE {
+	CRAS_CONTROL, // For legacy client.
+	CRAS_PLAYBACK, // For playback client.
+	CRAS_CAPTURE, // For capture client.
+	CRAS_NUM_CONN_TYPE,
+};
+
+static inline bool
+cras_validate_connection_type(enum CRAS_CONNECTION_TYPE conn_type)
+{
+	return 0 <= conn_type && conn_type < CRAS_NUM_CONN_TYPE;
+}
 
 /* Directions of audio streams.
  * Input, Output, or loopback.
@@ -58,6 +72,24 @@ enum CRAS_STREAM_DIRECTION {
 	CRAS_STREAM_POST_MIX_PRE_DSP,
 	CRAS_NUM_DIRECTIONS
 };
+
+/* Bitmask for supporting all CRAS_STREAM_DIRECTION. */
+#define CRAS_STREAM_ALL_DIRECTION ((1 << CRAS_NUM_DIRECTIONS) - 1)
+
+/* Converts CRAS_STREAM_DIRECTION to bitmask.
+ * Args:
+ *   dir - An enum CRAS_STREAM_DIRECTION.
+ *
+ * Returns:
+ *   bitmask for the given direction on success, negative on failure.
+ */
+static inline int
+cras_stream_direction_mask(const enum CRAS_STREAM_DIRECTION dir)
+{
+	if (0 <= dir && dir < CRAS_NUM_DIRECTIONS)
+		return (1 << dir);
+	return -EINVAL;
+}
 
 /*
  * Flags for stream types.
@@ -120,12 +152,27 @@ enum CRAS_STREAM_TYPE {
 	CRAS_STREAM_NUM_TYPES,
 };
 
-#define ENUM_STR(x) case x: return #x;
+/* Types of audio clients. */
+enum CRAS_CLIENT_TYPE {
+	CRAS_CLIENT_TYPE_UNKNOWN, /* Unknown client */
+	CRAS_CLIENT_TYPE_LEGACY, /* A client with old craslib (CRAS_PROTO_VER = 3) */
+	CRAS_CLIENT_TYPE_TEST, /* cras_test_client */
+	CRAS_CLIENT_TYPE_PCM, /* A client using CRAS via pcm, like aplay */
+	CRAS_CLIENT_TYPE_CHROME, /* Chrome, UI */
+	CRAS_CLIENT_TYPE_ARC, /* ARC++ */
+	CRAS_CLIENT_TYPE_CROSVM, /* CROSVM */
+	CRAS_CLIENT_TYPE_SERVER_STREAM, /* Server stream */
+};
 
-static inline const char *cras_stream_type_str(
-		enum CRAS_STREAM_TYPE stream_type)
+#define ENUM_STR(x)                                                            \
+	case x:                                                                \
+		return #x;
+
+static inline const char *
+cras_stream_type_str(enum CRAS_STREAM_TYPE stream_type)
 {
-	switch(stream_type) {
+	// clang-format off
+	switch (stream_type) {
 	ENUM_STR(CRAS_STREAM_TYPE_DEFAULT)
 	ENUM_STR(CRAS_STREAM_TYPE_MULTIMEDIA)
 	ENUM_STR(CRAS_STREAM_TYPE_VOICE_COMMUNICATION)
@@ -135,6 +182,26 @@ static inline const char *cras_stream_type_str(
 	default:
 		return "INVALID_STREAM_TYPE";
 	}
+	// clang-format on
+}
+
+static inline const char *
+cras_client_type_str(enum CRAS_CLIENT_TYPE client_type)
+{
+	// clang-format off
+	switch (client_type) {
+	ENUM_STR(CRAS_CLIENT_TYPE_UNKNOWN)
+	ENUM_STR(CRAS_CLIENT_TYPE_LEGACY)
+	ENUM_STR(CRAS_CLIENT_TYPE_TEST)
+	ENUM_STR(CRAS_CLIENT_TYPE_PCM)
+	ENUM_STR(CRAS_CLIENT_TYPE_CHROME)
+	ENUM_STR(CRAS_CLIENT_TYPE_ARC)
+	ENUM_STR(CRAS_CLIENT_TYPE_CROSVM)
+	ENUM_STR(CRAS_CLIENT_TYPE_SERVER_STREAM)
+	default:
+		return "INVALID_CLIENT_TYPE";
+	}
+	// clang-format on
 }
 
 /* Effects that can be enabled for a CRAS stream. */
@@ -146,7 +213,7 @@ enum CRAS_STREAM_EFFECT {
 };
 
 /* Information about a client attached to the server. */
-struct __attribute__ ((__packed__)) cras_attached_client_info {
+struct __attribute__((__packed__)) cras_attached_client_info {
 	uint32_t id;
 	int32_t pid;
 	uint32_t uid;
@@ -166,22 +233,23 @@ static inline cras_node_id_t cras_make_node_id(uint32_t dev_index,
 
 static inline uint32_t dev_index_of(cras_node_id_t id)
 {
-	return (uint32_t) (id >> 32);
+	return (uint32_t)(id >> 32);
 }
 
 static inline uint32_t node_index_of(cras_node_id_t id)
 {
-	return (uint32_t) id;
+	return (uint32_t)id;
 }
 
 #define CRAS_MAX_IODEVS 20
 #define CRAS_MAX_IONODES 20
 #define CRAS_MAX_ATTACHED_CLIENTS 20
 #define CRAS_MAX_AUDIO_THREAD_SNAPSHOTS 10
-#define CRAS_HOTWORD_STRING_SIZE 256
+#define CRAS_MAX_HOTWORD_MODEL_NAME_SIZE 12
 #define MAX_DEBUG_DEVS 4
 #define MAX_DEBUG_STREAMS 8
-#define AUDIO_THREAD_EVENT_LOG_SIZE (1024*6)
+#define AUDIO_THREAD_EVENT_LOG_SIZE (1024 * 6)
+#define CRAS_BT_EVENT_LOG_SIZE 1024
 
 /* There are 8 bits of space for events. */
 enum AUDIO_THREAD_LOG_EVENTS {
@@ -208,6 +276,8 @@ enum AUDIO_THREAD_LOG_EVENTS {
 	AUDIO_THREAD_CAPTURE_POST,
 	AUDIO_THREAD_CAPTURE_WRITE,
 	AUDIO_THREAD_CONV_COPY,
+	AUDIO_THREAD_STREAM_FETCH_PENDING,
+	AUDIO_THREAD_STREAM_RESCHEDULE,
 	AUDIO_THREAD_STREAM_SLEEP_TIME,
 	AUDIO_THREAD_STREAM_SLEEP_ADJUST,
 	AUDIO_THREAD_STREAM_SKIP_CB,
@@ -224,9 +294,37 @@ enum AUDIO_THREAD_LOG_EVENTS {
 	AUDIO_THREAD_FILL_ODEV_ZEROS,
 	AUDIO_THREAD_UNDERRUN,
 	AUDIO_THREAD_SEVERE_UNDERRUN,
+	AUDIO_THREAD_CAPTURE_DROP_TIME,
+	AUDIO_THREAD_DEV_DROP_FRAMES,
 };
 
-struct __attribute__ ((__packed__)) audio_thread_event {
+/* There are 8 bits of space for events. */
+enum CRAS_BT_LOG_EVENTS {
+	BT_ADAPTER_ADDED,
+	BT_ADAPTER_REMOVED,
+	BT_AUDIO_GATEWAY_INIT,
+	BT_AUDIO_GATEWAY_START,
+	BT_AVAILABLE_CODECS,
+	BT_A2DP_CONFIGURED,
+	BT_A2DP_START,
+	BT_A2DP_SUSPENDED,
+	BT_CODEC_SELECTION,
+	BT_DEV_CONNECTED_CHANGE,
+	BT_DEV_CONN_WATCH_CB,
+	BT_DEV_SUSPEND_CB,
+	BT_HFP_NEW_CONNECTION,
+	BT_HFP_REQUEST_DISCONNECT,
+	BT_HFP_SUPPORTED_FEATURES,
+	BT_HSP_NEW_CONNECTION,
+	BT_HSP_REQUEST_DISCONNECT,
+	BT_NEW_AUDIO_PROFILE_AFTER_CONNECT,
+	BT_RESET,
+	BT_SCO_CONNECT,
+	BT_TRANSPORT_ACQUIRE,
+	BT_TRANSPORT_RELEASE,
+};
+
+struct __attribute__((__packed__)) audio_thread_event {
 	uint32_t tag_sec;
 	uint32_t nsec;
 	uint32_t data1;
@@ -235,13 +333,14 @@ struct __attribute__ ((__packed__)) audio_thread_event {
 };
 
 /* Ring buffer of log events from the audio thread. */
-struct __attribute__ ((__packed__)) audio_thread_event_log {
-	uint32_t write_pos;
+struct __attribute__((__packed__)) audio_thread_event_log {
+	uint64_t write_pos;
+	uint64_t sync_write_pos;
 	uint32_t len;
 	struct audio_thread_event log[AUDIO_THREAD_EVENT_LOG_SIZE];
 };
 
-struct __attribute__ ((__packed__)) audio_dev_debug_info {
+struct __attribute__((__packed__)) audio_dev_debug_info {
 	char dev_name[CRAS_NODE_NAME_BUFFER_SIZE];
 	uint32_t buffer_size;
 	uint32_t min_buffer_level;
@@ -254,13 +353,19 @@ struct __attribute__ ((__packed__)) audio_dev_debug_info {
 	uint32_t num_underruns;
 	uint32_t num_severe_underruns;
 	uint32_t highest_hw_level;
+	uint32_t runtime_sec;
+	uint32_t runtime_nsec;
+	uint32_t longest_wake_sec;
+	uint32_t longest_wake_nsec;
+	double software_gain_scaler;
 };
 
-struct __attribute__ ((__packed__)) audio_stream_debug_info {
+struct __attribute__((__packed__)) audio_stream_debug_info {
 	uint64_t stream_id;
 	uint32_t dev_idx;
 	uint32_t direction;
 	uint32_t stream_type;
+	uint32_t client_type;
 	uint32_t buffer_frames;
 	uint32_t cb_threshold;
 	uint64_t effects;
@@ -269,17 +374,40 @@ struct __attribute__ ((__packed__)) audio_stream_debug_info {
 	uint32_t num_channels;
 	uint32_t longest_fetch_sec;
 	uint32_t longest_fetch_nsec;
+	uint32_t num_missed_cb;
 	uint32_t num_overruns;
+	uint32_t is_pinned;
+	uint32_t pinned_dev_idx;
+	uint32_t runtime_sec;
+	uint32_t runtime_nsec;
+	double stream_volume;
 	int8_t channel_layout[CRAS_CH_MAX];
 };
 
 /* Debug info shared from server to client. */
-struct __attribute__ ((__packed__)) audio_debug_info {
+struct __attribute__((__packed__)) audio_debug_info {
 	uint32_t num_streams;
 	uint32_t num_devs;
 	struct audio_dev_debug_info devs[MAX_DEBUG_DEVS];
 	struct audio_stream_debug_info streams[MAX_DEBUG_STREAMS];
 	struct audio_thread_event_log log;
+};
+
+struct __attribute__((__packed__)) cras_bt_event {
+	uint32_t tag_sec;
+	uint32_t nsec;
+	uint32_t data1;
+	uint32_t data2;
+};
+
+struct __attribute__((__packed__)) cras_bt_event_log {
+	uint32_t write_pos;
+	uint32_t len;
+	struct cras_bt_event log[CRAS_BT_EVENT_LOG_SIZE];
+};
+
+struct __attribute__((__packed__)) cras_bt_debug_info {
+	struct cras_bt_event_log bt_log;
 };
 
 /*
@@ -291,13 +419,14 @@ enum CRAS_AUDIO_THREAD_EVENT_TYPE {
 	AUDIO_THREAD_EVENT_DEBUG,
 	AUDIO_THREAD_EVENT_SEVERE_UNDERRUN,
 	AUDIO_THREAD_EVENT_UNDERRUN,
+	AUDIO_THREAD_EVENT_DROP_SAMPLES,
 	AUDIO_THREAD_EVENT_TYPE_COUNT,
 };
 
 /*
  * Structure of snapshot for audio thread.
  */
-struct __attribute__ ((__packed__)) cras_audio_thread_snapshot {
+struct __attribute__((__packed__)) cras_audio_thread_snapshot {
 	struct timespec timestamp;
 	enum CRAS_AUDIO_THREAD_EVENT_TYPE event_type;
 	struct audio_debug_info audio_debug_info;
@@ -306,9 +435,9 @@ struct __attribute__ ((__packed__)) cras_audio_thread_snapshot {
 /*
  * Ring buffer for storing snapshots.
  */
-struct __attribute__ ((__packed__)) cras_audio_thread_snapshot_buffer{
-	struct cras_audio_thread_snapshot snapshots[
-			CRAS_MAX_AUDIO_THREAD_SNAPSHOTS];
+struct __attribute__((__packed__)) cras_audio_thread_snapshot_buffer {
+	struct cras_audio_thread_snapshot
+		snapshots[CRAS_MAX_AUDIO_THREAD_SNAPSHOTS];
 	int pos;
 };
 
@@ -356,10 +485,14 @@ struct __attribute__ ((__packed__)) cras_audio_thread_snapshot_buffer{
  *    non_empty_status - Whether any non-empty audio is being
  *        played/captured.
  *    aec_supported - Flag to indicate if system aec is supported.
+ *    aec_group_id  - Group ID for the system aec to use for separating aec
+ *        tunings.
  *    snapshot_buffer - ring buffer for storing audio thread snapshots.
+ *    bt_debug_info - ring buffer for storing bluetooth event logs.
+ *    bt_wbs_enabled - Whether or not bluetooth wideband speech is enabled.
  */
 #define CRAS_SERVER_STATE_VERSION 2
-struct __attribute__ ((packed, aligned(4))) cras_server_state {
+struct __attribute__((packed, aligned(4))) cras_server_state {
 	uint32_t state_version;
 	uint32_t volume;
 	int32_t min_volume_dBFS;
@@ -392,12 +525,16 @@ struct __attribute__ ((packed, aligned(4))) cras_server_state {
 	int32_t default_output_buffer_size;
 	int32_t non_empty_status;
 	int32_t aec_supported;
+	int32_t aec_group_id;
 	struct cras_audio_thread_snapshot_buffer snapshot_buffer;
+	struct cras_bt_debug_info bt_debug_info;
+	int32_t bt_wbs_enabled;
 };
 
 /* Actions for card add/remove/change. */
-enum cras_notify_device_action { /* Must match gavd action definitions.  */
-	CRAS_DEVICE_ACTION_ADD    = 0,
+enum cras_notify_device_action {
+	/* Must match gavd action definitions.  */
+	CRAS_DEVICE_ACTION_ADD = 0,
 	CRAS_DEVICE_ACTION_REMOVE = 1,
 	CRAS_DEVICE_ACTION_CHANGE = 2,
 };
@@ -419,7 +556,7 @@ enum CRAS_ALSA_CARD_TYPE {
 	ALSA_CARD_TYPE_USB,
 };
 #define USB_SERIAL_NUMBER_BUFFER_SIZE 64
-struct __attribute__ ((__packed__)) cras_alsa_card_info {
+struct __attribute__((__packed__)) cras_alsa_card_info {
 	enum CRAS_ALSA_CARD_TYPE card_type;
 	uint32_t card_index;
 	uint32_t usb_vendor_id;
@@ -439,6 +576,12 @@ static inline cras_stream_id_t cras_get_stream_id(uint16_t client_id,
 	return (cras_stream_id_t)(((client_id & 0x0000ffff) << 16) |
 				  (stream_id & 0x0000ffff));
 }
+/* Verify if the stream_id fits the given client_id */
+static inline bool cras_valid_stream_id(cras_stream_id_t stream_id,
+					uint16_t client_id)
+{
+	return ((stream_id >> 16) ^ client_id) == 0;
+}
 
 enum CRAS_NODE_TYPE {
 	/* These value can be used for output nodes. */
@@ -455,6 +598,8 @@ enum CRAS_NODE_TYPE {
 	/* These value can be used for both output and input nodes. */
 	CRAS_NODE_TYPE_USB,
 	CRAS_NODE_TYPE_BLUETOOTH,
+	CRAS_NODE_TYPE_FALLBACK_NORMAL,
+	CRAS_NODE_TYPE_FALLBACK_ABNORMAL,
 	CRAS_NODE_TYPE_UNKNOWN,
 };
 

@@ -16,12 +16,25 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="horizontal" android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <ListView
-        android:id="@+id/volume_list"
+
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
+        android:layout_marginLeft="20dp"
+        android:orientation="vertical"
         android:layout_weight="3">
-    </ListView>
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/zones_tab"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content">
+        </com.google.android.material.tabs.TabLayout>
+        <androidx.viewpager.widget.ViewPager
+            android:id="@+id/zone_view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+        </androidx.viewpager.widget.ViewPager>
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="0dp"
@@ -29,12 +42,6 @@
         android:layout_marginLeft="20dp"
         android:orientation="vertical"
         android:layout_weight="1">
-
-        <Button
-            android:id="@+id/refresh"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/refresh_volume"/>
 
         <Button
             android:id="@+id/volume_up"

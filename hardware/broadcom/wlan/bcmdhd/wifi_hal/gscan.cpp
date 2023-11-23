@@ -159,10 +159,16 @@ typedef enum {
     GSCAN_ATTRIBUTE_EPNO_SECURE_BONUS,
     GSCAN_ATTRIBUTE_EPNO_5G_BONUS,
 
+    /* Roaming features */
+    GSCAN_ATTRIBUTE_ROAM_STATE_SET = 140,
     GSCAN_ATTRIBUTE_MAX
 
 } GSCAN_ATTRIBUTE;
 
+typedef struct {
+    int num_bssid;                          // number of blacklisted BSSIDs
+    mac_addr bssids[MAX_BLACKLIST_BSSID];   // blacklisted BSSIDs
+} wifi_bssid_params;
 
 // helper methods
 wifi_error wifi_enable_full_scan_results(wifi_request_id id, wifi_interface_handle iface,
@@ -190,18 +196,22 @@ void convert_to_hal_result(wifi_scan_result *to, wifi_gscan_result_t *from)
 
 class GetCapabilitiesCommand : public WifiCommand
 {
-    wifi_gscan_capabilities *mCapabilities;
-public:
-    GetCapabilitiesCommand(wifi_interface_handle iface, wifi_gscan_capabilities *capabitlites)
-        : WifiCommand("GetGscanCapabilitiesCommand", iface, 0), mCapabilities(capabitlites)
+    void *mCapabilities;
+    uint16_t mRequesttype;
+    int mRequestsize;
+    public:
+    GetCapabilitiesCommand(wifi_interface_handle iface, void *capabitlites, uint16_t request_type,
+            int request_size)
+        : WifiCommand("GetGscanCapabilitiesCommand", iface, 0), mCapabilities(capabitlites), mRequesttype(request_type),
+        mRequestsize(request_size)
     {
-        memset(mCapabilities, 0, sizeof(*mCapabilities));
+        memset(mCapabilities, 0, mRequestsize);
     }
 
     virtual int create() {
         ALOGV("Creating message to get scan capablities; iface = %d", mIfaceInfo->id);
 
-        int ret = mMsg.create(GOOGLE_OUI, GSCAN_SUBCMD_GET_CAPABILITIES);
+        int ret = mMsg.create(GOOGLE_OUI, mRequesttype);
         if (ret < 0) {
             return ret;
         }
@@ -209,7 +219,7 @@ public:
         return ret;
     }
 
-protected:
+    protected:
     virtual int handleResponse(WifiEvent& reply) {
 
         ALOGV("In GetCapabilities::handleResponse");
@@ -225,20 +235,28 @@ protected:
         void *data = reply.get_vendor_data();
         int len = reply.get_vendor_data_len();
 
-        ALOGV("Id = %0x, subcmd = %d, len = %d, expected len = %d", id, subcmd, len,
-                    sizeof(*mCapabilities));
+        ALOGV("Id = %0x, subcmd = 0x%x, len = %d, expected len = %zd", id, subcmd, len,
+            mRequestsize);
 
-        memcpy(mCapabilities, data, min(len, (int) sizeof(*mCapabilities)));
+        memcpy(mCapabilities, data, min(len, mRequestsize));
 
         return NL_OK;
     }
 };
 
-
 wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
         wifi_gscan_capabilities *capabilities)
 {
-    GetCapabilitiesCommand command(handle, capabilities);
+    GetCapabilitiesCommand command(handle, capabilities, GSCAN_SUBCMD_GET_CAPABILITIES,
+            (int)sizeof(wifi_gscan_capabilities));
+    return (wifi_error) command.requestResponse();
+}
+
+wifi_error wifi_get_roaming_capabilities(wifi_interface_handle handle,
+        wifi_roaming_capabilities *capabilities)
+{
+    GetCapabilitiesCommand command(handle, capabilities, WIFI_SUBCMD_ROAM_CAPABILITY,
+            (int)sizeof(wifi_roaming_capabilities));
     return (wifi_error) command.requestResponse();
 }
 
@@ -1676,6 +1694,174 @@ wifi_error wifi_set_epno_list(wifi_request_id id, wifi_interface_handle iface,
     return result;
 }
 
+class BssidBlacklistCommand : public WifiCommand
+{
+    private:
+        wifi_bssid_params *mParams;
+    public:
+        BssidBlacklistCommand(wifi_interface_handle handle, int id,
+                wifi_bssid_params *params)
+            : WifiCommand("BssidBlacklistCommand", handle, id), mParams(params)
+        { }
+        int createRequest(WifiRequest& request) {
+            if ((mParams->num_bssid < 0) || (mParams->num_bssid > MAX_BLACKLIST_BSSID)) {
+                return WIFI_ERROR_INVALID_ARGS;
+            }
+            int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_SET_BSSID_BLACKLIST);
+            if (result < 0) {
+                return result;
+            }
+
+            nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+            if (!mParams->num_bssid) {
+                result = request.put_u32(GSCAN_ATTRIBUTE_BSSID_BLACKLIST_FLUSH, 1);
+                if (result < 0) {
+                    return result;
+                }
+            } else {
+                result = request.put_u32(GSCAN_ATTRIBUTE_NUM_BSSID, mParams->num_bssid);
+                if (result < 0) {
+                    return result;
+                }
+                for (int i = 0; i < mParams->num_bssid; i++) {
+                    result = request.put_addr(GSCAN_ATTRIBUTE_BLACKLIST_BSSID, mParams->bssids[i]);
+                    if (result < 0) {
+                        return result;
+                    }
+               }
+            }
+            request.attr_end(data);
+            return result;
+        }
+
+        int start() {
+            ALOGV("Executing bssid blacklist request, num = %d", mParams->num_bssid);
+            WifiRequest request(familyId(), ifaceId());
+            int result = createRequest(request);
+            if (result < 0) {
+                return result;
+            }
+
+            result = requestResponse(request);
+            if (result < 0) {
+                ALOGE("Failed to execute bssid blacklist request, result = %d", result);
+                return result;
+            }
+
+            ALOGI("Successfully added %d blacklist bssids", mParams->num_bssid);
+            return result;
+        }
+
+        virtual int handleResponse(WifiEvent& reply) {
+            /* Nothing to do on response! */
+            return NL_SKIP;
+        }
+};
+
+wifi_error wifi_set_bssid_blacklist(wifi_request_id id, wifi_interface_handle iface,
+        wifi_bssid_params params)
+{
+    wifi_handle handle = getWifiHandle(iface);
+
+    BssidBlacklistCommand *cmd = new BssidBlacklistCommand(iface, id, &params);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    //release the reference of command as well
+    cmd->releaseRef();
+    return result;
+}
+
+wifi_error wifi_configure_roaming(wifi_interface_handle iface,
+		wifi_roaming_config *roam_config)
+{
+    wifi_error ret;
+    wifi_bssid_params bssid_params;
+    unsigned int i;
+    wifi_request_id id = 0;
+
+    /* Set bssid blacklist */
+    if (roam_config->num_blacklist_bssid == 0) {
+        /* Flush request */
+        ALOGI("%s: num_blacklist_bssid == 0 (flush)", __FUNCTION__);
+    }
+
+    bssid_params.num_bssid = roam_config->num_blacklist_bssid;
+
+    for (i = 0; i < roam_config->num_blacklist_bssid; i++) {
+        mac_addr &addr1 = roam_config->blacklist_bssid[i];
+        memcpy(&bssid_params.bssids[i], &roam_config->blacklist_bssid[i],
+            sizeof(mac_addr));
+        ALOGI("%02x:%02x:%02x:%02x:%02x:%02x\n", addr1[0],
+            addr1[1], addr1[2], addr1[3], addr1[4], addr1[5]);
+    }
+    ret = wifi_set_bssid_blacklist(id, iface, bssid_params);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Failed to configure blacklist bssids", __FUNCTION__);
+        return ret;
+    }
+
+    return ret;
+}
+
+class FirmwareRoamingStateCommand : public WifiCommand
+{
+    private:
+        fw_roaming_state_t roam_state;
+    public:
+        FirmwareRoamingStateCommand(wifi_interface_handle handle,
+                fw_roaming_state_t state)
+            : WifiCommand("FirmwareRoamingStateCommand", handle, -1), roam_state(state)
+        { }
+        int createRequest(WifiRequest& request) {
+            int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_FW_ROAM_POLICY);
+            if (result < 0) {
+                return result;
+            }
+
+            nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+            result = request.put_u32(GSCAN_ATTRIBUTE_ROAM_STATE_SET, roam_state);
+            if (result < 0) {
+                return result;
+            }
+            request.attr_end(data);
+            return result;
+        }
+
+        int start() {
+            ALOGV("Executing firmware roam state set, state = %d", roam_state);
+            WifiRequest request(familyId(), ifaceId());
+            int result = createRequest(request);
+            if (result < 0) {
+                return result;
+            }
+
+            result = requestResponse(request);
+            if (result < 0) {
+                ALOGE("Failed to execute firmware roam state set, result = %d", result);
+                return result;
+            }
+
+            ALOGI("Successfully set firmware roam state - %d", roam_state);
+            return result;
+        }
+
+        virtual int handleResponse(WifiEvent& reply) {
+            /* Nothing to do on response! */
+            return NL_SKIP;
+        }
+};
+
+wifi_error wifi_enable_firmware_roaming(wifi_interface_handle iface,
+            fw_roaming_state_t state)
+{
+    /* Set firmware roaming state */
+    FirmwareRoamingStateCommand *cmd = new FirmwareRoamingStateCommand(iface, state);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    //release the reference of command as well
+    cmd->releaseRef();
+    return result;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 

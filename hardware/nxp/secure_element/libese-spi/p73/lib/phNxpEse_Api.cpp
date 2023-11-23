@@ -210,7 +210,7 @@ ESESTATUS phNxpEse_open(phNxpEse_initParams initParams) {
 
   /*Read device node path*/
   ese_node = EseConfig::getString(NAME_NXP_ESE_DEV_NODE, "/dev/pn81a");
-  strcpy(ese_dev_node, ese_node.c_str());
+  strlcpy(ese_dev_node, ese_node.c_str(), sizeof(ese_dev_node));
   tPalConfig.pDevName = (int8_t*)ese_dev_node;
 
   /* Initialize PAL layer */
@@ -344,7 +344,7 @@ bool phNxpEse_isOpen() { return nxpese_ctxt.EseLibStatus != ESE_STATUS_CLOSE; }
 ESESTATUS phNxpEse_openPrioSession(phNxpEse_initParams initParams) {
   phPalEse_Config_t tPalConfig;
   ESESTATUS wConfigStatus = ESESTATUS_SUCCESS;
-  unsigned long int num = 0, tpm_enable = 0;
+  unsigned long int num = 0;
 
   ALOGE("phNxpEse_openPrioSession Enter");
 #ifdef SPM_INTEGRATED
@@ -481,14 +481,6 @@ ESESTATUS phNxpEse_openPrioSession(phNxpEse_initParams initParams) {
   }
   wConfigStatus =
       phPalEse_ioctl(phPalEse_e_EnablePollMode, nxpese_ctxt.pDevHandle, 1);
-  if (tpm_enable) {
-    wConfigStatus = phPalEse_ioctl(phPalEse_e_EnableThroughputMeasurement,
-                                   nxpese_ctxt.pDevHandle, 0);
-    if (wConfigStatus != ESESTATUS_SUCCESS) {
-      ALOGE("phPalEse_IoCtl Failed");
-      goto clean_and_return;
-    }
-  }
   if (wConfigStatus != ESESTATUS_SUCCESS) {
     ALOGE("phPalEse_IoCtl Failed");
     goto clean_and_return;

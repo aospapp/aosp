@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -387,6 +387,7 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
     text[MagickPathExtent];
 
   double
+    max_value,
     x_offset,
     y_offset;
 
@@ -417,7 +418,6 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   unsigned long
     depth,
     height,
-    max_value,
     width;
 
   /*
@@ -447,17 +447,17 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   {
     width=0;
     height=0;
-    max_value=0;
+    max_value=0.0;
     *colorspace='\0';
-    count=(ssize_t) sscanf(text+32,"%lu,%lu,%lu,%32s",&width,&height,&max_value,
+    count=(ssize_t) sscanf(text+32,"%lu,%lu,%lf,%32s",&width,&height,&max_value,
       colorspace);
-    if ((count != 4) || (width == 0) || (height == 0) || (max_value == 0))
+    if ((count != 4) || (width == 0) || (height == 0) || (max_value == 0.0))
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     image->columns=width;
     image->rows=height;
-    if ((max_value == 0) || (max_value > 4294967295UL))
+    if ((max_value == 0.0) || (max_value > 18446744073709551615.0))
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
-    for (depth=1; (GetQuantumRange(depth)+1) < max_value; depth++) ;
+    for (depth=1; (GetQuantumRange(depth)+1.0) < max_value; depth++) ;
     image->depth=depth;
     status=SetImageExtent(image,image->columns,image->rows,exception);
     if (status != MagickFalse)
@@ -563,16 +563,16 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
             green+=(range+1)/2.0;
             blue+=(range+1)/2.0;
           }
-        pixel.red=(MagickRealType) ScaleAnyToQuantum((QuantumAny) (red+0.5),
-          range);
-        pixel.green=(MagickRealType) ScaleAnyToQuantum((QuantumAny) (green+0.5),
-          range);
-        pixel.blue=(MagickRealType) ScaleAnyToQuantum((QuantumAny) (blue+0.5),
-          range);
-        pixel.black=(MagickRealType) ScaleAnyToQuantum((QuantumAny) (black+0.5),
-          range);
-        pixel.alpha=(MagickRealType) ScaleAnyToQuantum((QuantumAny) (alpha+0.5),
-          range);
+        pixel.red=(MagickRealType) ScaleAnyToQuantum((QuantumAny)
+          MagickMax(red+0.5,0.0),range);
+        pixel.green=(MagickRealType) ScaleAnyToQuantum((QuantumAny)
+          MagickMax(green+0.5,0.0),range);
+        pixel.blue=(MagickRealType) ScaleAnyToQuantum((QuantumAny)
+          MagickMax(blue+0.5,0.0),range);
+        pixel.black=(MagickRealType) ScaleAnyToQuantum((QuantumAny)
+          MagickMax(black+0.5,0.0),range);
+        pixel.alpha=(MagickRealType) ScaleAnyToQuantum((QuantumAny)
+          MagickMax(alpha+0.5,0.0),range);
         q=GetAuthenticPixels(image,(ssize_t) x_offset,(ssize_t) y_offset,1,1,
           exception);
         if (q == (Quantum *) NULL)
@@ -784,8 +784,8 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
           MAGICKCORE_QUANTUM_DEPTH;
         (void) FormatLocaleString(buffer,MagickPathExtent,
           "# ImageMagick pixel enumeration: %.20g,%.20g,%.20g,%s\n",(double)
-          image->columns,(double) image->rows,(double) ((MagickOffsetType)
-          GetQuantumRange(depth)),colorspace);
+          image->columns,(double) image->rows,(double) GetQuantumRange(depth),
+          colorspace);
         (void) WriteBlobString(image,buffer);
       }
     GetPixelInfo(image,&pixel);
@@ -797,11 +797,6 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
       for (x=0; x < (ssize_t) image->columns; x++)
       {
         GetPixelInfoPixel(image,p,&pixel);
-        if (pixel.colorspace == LabColorspace)
-          {
-            pixel.green-=(QuantumRange+1)/2.0;
-            pixel.blue-=(QuantumRange+1)/2.0;
-          }
         if (LocaleCompare(image_info->magick,"SPARSE-COLOR") == 0)
           {
             /*

@@ -22,7 +22,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 class CtsAngleCommon {
-    private static final int TEST_WAIT_TIME_MS = 1000;
+    // General
+    static final int NUM_ATTEMPTS = 5;
+    static final int REATTEMPT_SLEEP_MSEC = 5000;
 
     // Settings.Global
     static final String SETTINGS_GLOBAL_ALL_USE_ANGLE = "angle_gl_driver_all_angle";
@@ -87,14 +89,18 @@ class CtsAngleCommon {
 
     static void setGlobalSetting(ITestDevice device, String globalSetting, String value) throws Exception {
         device.setSetting("global", globalSetting, value);
+        device.executeShellCommand("am refresh-settings-cache");
     }
 
     static void clearSettings(ITestDevice device) throws Exception {
+        // Cached Activity Manager settings
         setGlobalSetting(device, SETTINGS_GLOBAL_ALL_USE_ANGLE, "0");
         setGlobalSetting(device, SETTINGS_GLOBAL_ANGLE_IN_USE_DIALOG_BOX, "0");
         setGlobalSetting(device, SETTINGS_GLOBAL_DRIVER_PKGS, "\"\"");
         setGlobalSetting(device, SETTINGS_GLOBAL_DRIVER_VALUES, "\"\"");
         setGlobalSetting(device, SETTINGS_GLOBAL_WHITELIST, "\"\"");
+
+        // Properties
         setProperty(device, PROPERTY_TEMP_RULES_FILE, "\"\"");
     }
 
@@ -105,13 +111,9 @@ class CtsAngleCommon {
     }
 
     static void startActivity(ITestDevice device, String action) throws Exception {
-        // Pause for a moment for the settings to propagate, with the hope that adb and the ANGLE
-        // APK Global.Settings updates are the same for everyone.
-        Thread.sleep(TEST_WAIT_TIME_MS);
         // Run the ANGLE activity so it'll clear up any 'default' settings.
         device.executeShellCommand("am start --user " + device.getCurrentUser() +
                 " -S -W -a \"" + action + "\"");
-        Thread.sleep(TEST_WAIT_TIME_MS);
     }
 
     static void stopPackage(ITestDevice device, String pkgName) throws Exception {
@@ -123,23 +125,5 @@ class CtsAngleCommon {
      */
     static void setProperty(ITestDevice device, String property, String value) throws Exception {
         device.executeShellCommand("setprop " + property + " " + value);
-    }
-
-    /**
-     * Wait for a bit for things to settle down before running the device tests.
-     * @param pkgName
-     * @param testClassName
-     * @param testMethodName
-     * @return
-     * @throws Exception
-     */
-    static boolean waitThenRunDeviceTests(BaseHostJUnit4Test test,
-            String pkgName,
-            String testClassName,
-            String testMethodName) throws Exception {
-        // Pause for a moment for the settings to propagate, with the hope that adb and the ANGLE
-        // APK Global.Settings updates are the same for everyone.
-        Thread.sleep(TEST_WAIT_TIME_MS);
-        return test.runDeviceTests(pkgName, testClassName, testMethodName);
     }
 }

@@ -14,6 +14,8 @@
 #include "wpa.h"
 #include "wpa_i.h"
 #include "pmksa_cache.h"
+#include "wpa_supplicant_i.h"
+#include "notify.h"
 
 #if defined(IEEE8021X_EAPOL) && !defined(CONFIG_NO_WPA)
 
@@ -265,9 +267,12 @@ pmksa_cache_add_entry(struct rsn_pmksa_cache *pmksa,
 	wpa_printf(MSG_DEBUG, "RSN: Added PMKSA cache entry for " MACSTR
 		   " network_ctx=%p akmp=0x%x", MAC2STR(entry->aa),
 		   entry->network_ctx, entry->akmp);
+	wpas_notify_pmk_cache_added((struct wpa_supplicant *)pmksa->sm->ctx->ctx, entry);
 	wpa_sm_add_pmkid(pmksa->sm, entry->network_ctx, entry->aa, entry->pmkid,
 			 entry->fils_cache_id_set ? entry->fils_cache_id : NULL,
-			 entry->pmk, entry->pmk_len);
+			 entry->pmk, entry->pmk_len,
+			 pmksa->sm->dot11RSNAConfigPMKLifetime,
+			 pmksa->sm->dot11RSNAConfigPMKReauthThreshold);
 
 	return entry;
 }
@@ -277,7 +282,7 @@ pmksa_cache_add_entry(struct rsn_pmksa_cache *pmksa,
  * pmksa_cache_flush - Flush PMKSA cache entries for a specific network
  * @pmksa: Pointer to PMKSA cache data from pmksa_cache_init()
  * @network_ctx: Network configuration context or %NULL to flush all entries
- * @pmk: PMK to match for or %NYLL to match all PMKs
+ * @pmk: PMK to match for or %NULL to match all PMKs
  * @pmk_len: PMK length
  */
 void pmksa_cache_flush(struct rsn_pmksa_cache *pmksa, void *network_ctx,
@@ -371,9 +376,12 @@ pmksa_cache_clone_entry(struct rsn_pmksa_cache *pmksa,
 {
 	struct rsn_pmksa_cache_entry *new_entry;
 	os_time_t old_expiration = old_entry->expiration;
+	const u8 *pmkid = NULL;
 
+	if (wpa_key_mgmt_sae(old_entry->akmp))
+		pmkid = old_entry->pmkid;
 	new_entry = pmksa_cache_add(pmksa, old_entry->pmk, old_entry->pmk_len,
-				    NULL, NULL, 0,
+				    pmkid, NULL, 0,
 				    aa, pmksa->sm->own_addr,
 				    old_entry->network_ctx, old_entry->akmp,
 				    old_entry->fils_cache_id_set ?
@@ -413,6 +421,20 @@ pmksa_cache_get_opportunistic(struct rsn_pmksa_cache *pmksa, void *network_ctx,
 	while (entry) {
 		if (entry->network_ctx == network_ctx &&
 		    (!akmp || entry->akmp == akmp)) {
+			struct os_reltime now;
+
+			if (wpa_key_mgmt_sae(entry->akmp) &&
+			    os_get_reltime(&now) == 0 &&
+			    entry->reauth_time < now.sec) {
+				wpa_printf(MSG_DEBUG,
+					   "RSN: Do not clone PMKSA cache entry for "
+					   MACSTR
+					   " since its reauth threshold has passed",
+					   MAC2STR(entry->aa));
+				entry = entry->next;
+				continue;
+			}
+
 			entry = pmksa_cache_clone_entry(pmksa, entry, aa);
 			if (entry) {
 				wpa_printf(MSG_DEBUG, "RSN: added "
@@ -516,6 +538,20 @@ int pmksa_cache_set_current(struct wpa_sm *sm, const u8 *pmkid,
 							      network_ctx,
 							      fils_cache_id);
 	if (sm->cur_pmksa) {
+		struct os_reltime now;
+
+		if (wpa_key_mgmt_sae(sm->cur_pmksa->akmp) &&
+		    os_get_reltime(&now) == 0 &&
+		    sm->cur_pmksa->reauth_time < now.sec) {
+			wpa_printf(MSG_DEBUG,
+				   "RSN: Do not allow PMKSA cache entry for "
+				   MACSTR
+				   " to be used for SAE since its reauth threshold has passed",
+				   MAC2STR(sm->cur_pmksa->aa));
+			sm->cur_pmksa = NULL;
+			return -1;
+		}
+
 		wpa_hexdump(MSG_DEBUG, "RSN: PMKSA cache entry found - PMKID",
 			    sm->cur_pmksa->pmkid, PMKID_LEN);
 		return 0;

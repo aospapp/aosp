@@ -62,7 +62,7 @@ public class InCallWakeLockController extends CallsManagerListenerBase {
 
     private void handleWakeLock() {
         // We grab a full lock as long as there exists a ringing call.
-        Call ringingCall = mCallsManager.getRingingCall();
+        Call ringingCall = mCallsManager.getRingingOrSimulatedRingingCall();
         if (ringingCall != null) {
             mTelecomWakeLock.acquire();
             Log.i(this, "Acquiring full wake lock");

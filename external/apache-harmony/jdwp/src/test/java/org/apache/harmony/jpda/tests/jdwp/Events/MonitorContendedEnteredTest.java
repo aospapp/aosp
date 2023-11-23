@@ -20,9 +20,12 @@ package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import org.apache.harmony.jpda.tests.framework.TestErrorException;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.Event_MONITOR_CONTENDED_ENTERED;
+import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Value;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -48,6 +51,40 @@ public class MonitorContendedEnteredTest extends JDWPSyncTestCase {
     private void verifyEvent(){
         // Inform debuggee that the request has been set
         logWriter.println("==> Request has been set.");
+        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+        // Debuggee thinks the monitor is contended.
+        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+
+        // Wait for the other thread to look asleep.
+        boolean hasWaiters;
+        long classID = getClassIDBySignature(getDebuggeeClassSignature());
+        long cnt = 0;
+        String fieldName = "lock";
+        long fld_id = checkField(classID, fieldName);
+        do {
+            CommandPacket getValuesCommand = new CommandPacket(
+                    JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
+                    JDWPCommands.ReferenceTypeCommandSet.GetValuesCommand);
+            getValuesCommand.setNextValueAsReferenceTypeID(classID);
+            getValuesCommand.setNextValueAsInt(1);
+            getValuesCommand.setNextValueAsFieldID(fld_id);
+            ReplyPacket getValuesReply = debuggeeWrapper.vmMirror.performCommand(getValuesCommand);
+            checkReplyPacket(getValuesReply, "ReferenceType::GetValues command");
+            getValuesReply.getNextValueAsInt();  // num-replies
+            Value lkvalue = getValuesReply.getNextValueAsValue();
+            long lk = lkvalue.getLongValue();
+            CommandPacket monitorInfoCmd = new CommandPacket(
+                    JDWPCommands.ObjectReferenceCommandSet.CommandSetID,
+                    JDWPCommands.ObjectReferenceCommandSet.MonitorInfoCommand);
+            monitorInfoCmd.setNextValueAsObjectID(lk);
+            ReplyPacket monInfoReply = debuggeeWrapper.vmMirror.performCommand(monitorInfoCmd);
+            checkReplyPacket(monInfoReply, "ObjectReference::MonitorInfo command");
+            monInfoReply.getNextValueAsThreadID();  // owner
+            monInfoReply.getNextValueAsInt();  // entryCount
+            hasWaiters = monInfoReply.getNextValueAsInt() != 0;
+        } while (!hasWaiters);
+        logWriter.println("==> Monitor has waiter.");
+        // Wake up the blocking thread. Its job is done.
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
 
         // Receive event of MONITOR_CONTENDED_ENTERED

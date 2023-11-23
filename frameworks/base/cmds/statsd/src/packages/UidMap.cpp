@@ -21,10 +21,6 @@
 #include "guardrail/StatsdStats.h"
 #include "packages/UidMap.h"
 
-#include <android/os/IStatsCompanionService.h>
-#include <binder/IServiceManager.h>
-#include <utils/Errors.h>
-
 #include <inttypes.h>
 
 using namespace android;
@@ -119,7 +115,7 @@ int64_t UidMap::getAppVersion(int uid, const string& packageName) const {
 void UidMap::updateMap(const int64_t& timestamp, const vector<int32_t>& uid,
                        const vector<int64_t>& versionCode, const vector<String16>& versionString,
                        const vector<String16>& packageName, const vector<String16>& installer) {
-    vector<wp<PackageInfoListener>> broadcastList;
+    wp<PackageInfoListener> broadcast = NULL;
     {
         lock_guard<mutex> lock(mMutex);  // Exclusively lock for updates.
 
@@ -150,25 +146,22 @@ void UidMap::updateMap(const int64_t& timestamp, const vector<int32_t>& uid,
 
         ensureBytesUsedBelowLimit();
         StatsdStats::getInstance().setCurrentUidMapMemory(mBytesUsed);
-        getListenerListCopyLocked(&broadcastList);
+        broadcast = mSubscriber;
     }
     // To avoid invoking callback while holding the internal lock. we get a copy of the listener
-    // list and invoke the callback. It's still possible that after we copy the list, a
-    // listener removes itself before we call it. It's then the listener's job to handle it (expect
-    // the callback to be called after listener is removed, and the listener should properly
-    // ignore it).
-    for (const auto& weakPtr : broadcastList) {
-        auto strongPtr = weakPtr.promote();
-        if (strongPtr != NULL) {
-            strongPtr->onUidMapReceived(timestamp);
-        }
+    // and invoke the callback. It's still possible that after we copy the listener, it removes
+    // itself before we call it. It's then the listener's job to handle it (expect the callback to
+    // be called after listener is removed, and the listener should properly ignore it).
+    auto strongPtr = broadcast.promote();
+    if (strongPtr != NULL) {
+        strongPtr->onUidMapReceived(timestamp);
     }
 }
 
 void UidMap::updateApp(const int64_t& timestamp, const String16& app_16, const int32_t& uid,
                        const int64_t& versionCode, const String16& versionString,
                        const String16& installer) {
-    vector<wp<PackageInfoListener>> broadcastList;
+    wp<PackageInfoListener> broadcast = NULL;
     string appName = string(String8(app_16).string());
     {
         lock_guard<mutex> lock(mMutex);
@@ -195,7 +188,7 @@ void UidMap::updateApp(const int64_t& timestamp, const String16& app_16, const i
             // for the first time, then we don't notify the listeners.
             // It's also OK to split again if we're forming a partial bucket after re-installing an
             // app after deletion.
-            getListenerListCopyLocked(&broadcastList);
+            broadcast = mSubscriber;
         }
         mChanges.emplace_back(false, timestamp, appName, uid, versionCode, newVersionString,
                               prevVersion, prevVersionString);
@@ -205,11 +198,9 @@ void UidMap::updateApp(const int64_t& timestamp, const String16& app_16, const i
         StatsdStats::getInstance().setUidMapChanges(mChanges.size());
     }
 
-    for (const auto& weakPtr : broadcastList) {
-        auto strongPtr = weakPtr.promote();
-        if (strongPtr != NULL) {
-            strongPtr->notifyAppUpgrade(timestamp, appName, uid, versionCode);
-        }
+    auto strongPtr = broadcast.promote();
+    if (strongPtr != NULL) {
+        strongPtr->notifyAppUpgrade(timestamp, appName, uid, versionCode);
     }
 }
 
@@ -230,21 +221,8 @@ void UidMap::ensureBytesUsedBelowLimit() {
     }
 }
 
-void UidMap::getListenerListCopyLocked(vector<wp<PackageInfoListener>>* output) {
-    for (auto weakIt = mSubscribers.begin(); weakIt != mSubscribers.end();) {
-        auto strongPtr = weakIt->promote();
-        if (strongPtr != NULL) {
-            output->push_back(*weakIt);
-            weakIt++;
-        } else {
-            weakIt = mSubscribers.erase(weakIt);
-            VLOG("The UidMap listener is gone, remove it now");
-        }
-    }
-}
-
 void UidMap::removeApp(const int64_t& timestamp, const String16& app_16, const int32_t& uid) {
-    vector<wp<PackageInfoListener>> broadcastList;
+    wp<PackageInfoListener> broadcast = NULL;
     string app = string(String8(app_16).string());
     {
         lock_guard<mutex> lock(mMutex);
@@ -271,25 +249,18 @@ void UidMap::removeApp(const int64_t& timestamp, const String16& app_16, const i
         ensureBytesUsedBelowLimit();
         StatsdStats::getInstance().setCurrentUidMapMemory(mBytesUsed);
         StatsdStats::getInstance().setUidMapChanges(mChanges.size());
-        getListenerListCopyLocked(&broadcastList);
+        broadcast = mSubscriber;
     }
 
-    for (const auto& weakPtr : broadcastList) {
-        auto strongPtr = weakPtr.promote();
-        if (strongPtr != NULL) {
-            strongPtr->notifyAppRemoved(timestamp, app, uid);
-        }
+    auto strongPtr = broadcast.promote();
+    if (strongPtr != NULL) {
+        strongPtr->notifyAppRemoved(timestamp, app, uid);
     }
 }
 
-void UidMap::addListener(wp<PackageInfoListener> producer) {
+void UidMap::setListener(wp<PackageInfoListener> listener) {
     lock_guard<mutex> lock(mMutex);  // Lock for updates
-    mSubscribers.insert(producer);
-}
-
-void UidMap::removeListener(wp<PackageInfoListener> producer) {
-    lock_guard<mutex> lock(mMutex);  // Lock for updates
-    mSubscribers.erase(producer);
+    mSubscriber = listener;
 }
 
 void UidMap::assignIsolatedUid(int isolatedUid, int parentUid) {
@@ -574,7 +545,15 @@ const std::map<string, uint32_t> UidMap::sAidToUidMapping = {{"AID_ROOT", 0},
                                                              {"AID_LMKD", 1069},
                                                              {"AID_LLKD", 1070},
                                                              {"AID_IORAPD", 1071},
+                                                             {"AID_GPU_SERVICE", 1072},
                                                              {"AID_NETWORK_STACK", 1073},
+                                                             {"AID_GSID", 1074},
+                                                             {"AID_FSVERITY_CERT", 1075},
+                                                             {"AID_CREDSTORE", 1076},
+                                                             {"AID_EXTERNAL_STORAGE", 1077},
+                                                             {"AID_EXT_DATA_RW", 1078},
+                                                             {"AID_EXT_OBB_RW", 1079},
+                                                             {"AID_CONTEXT_HUB", 1080},
                                                              {"AID_SHELL", 2000},
                                                              {"AID_CACHE", 2001},
                                                              {"AID_DIAG", 2002}};

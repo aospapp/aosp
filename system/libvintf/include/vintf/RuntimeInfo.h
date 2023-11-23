@@ -33,6 +33,10 @@
 namespace android {
 namespace vintf {
 
+namespace testing {
+class VintfObjectRuntimeInfoTest;
+}  // namespace testing
+
 struct CompatibilityMatrix;
 
 // Runtime Info sent to OTA server
@@ -76,26 +80,33 @@ struct RuntimeInfo {
     bool checkCompatibility(const CompatibilityMatrix& mat, std::string* error = nullptr,
                             CheckFlags::Type flags = CheckFlags::DEFAULT) const;
 
+
     using FetchFlags = uint32_t;
     enum FetchFlag : FetchFlags {
-        CPU_VERSION     = 1 << 0,
-        CONFIG_GZ       = 1 << 1,
-        CPU_INFO        = 1 << 2,
-        POLICYVERS      = 1 << 3,
-        AVB             = 1 << 4,
+        CPU_VERSION = 1 << 0,
+        CONFIG_GZ = 1 << 1,
+        CPU_INFO = 1 << 2,
+        POLICYVERS = 1 << 3,
+        AVB = 1 << 4,
+        KERNEL_FCM = 1 << 5,
         LAST_PLUS_ONE,
 
         NONE = 0,
         ALL = ((LAST_PLUS_ONE - 1) << 1) - 1,
     };
 
+    Level kernelLevel() const;
+
    protected:
     virtual status_t fetchAllInformation(FetchFlags flags);
+
+    void setKernelLevel(Level level);
 
     friend struct RuntimeInfoFetcher;
     friend class VintfObject;
     friend struct LibVintfTest;
     friend std::string dump(const RuntimeInfo& ki, bool);
+    friend class testing::VintfObjectRuntimeInfoTest;
 
     // /proc/config.gz
     // Key: CONFIG_xxx; Value: the value after = sign.

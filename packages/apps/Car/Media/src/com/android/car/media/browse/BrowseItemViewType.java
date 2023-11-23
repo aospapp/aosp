@@ -24,10 +24,15 @@ import androidx.annotation.LayoutRes;
 public enum BrowseItemViewType {
     /** A section header */
     HEADER(com.android.car.media.R.layout.media_browse_header_item),
-    /** A grid item including an image and a title */
+    /** A grid item with a large image. */
     GRID_ITEM(com.android.car.media.R.layout.media_browse_grid_item, 1),
-    /** A list item including title and subtitle */
+    /** A grid item a medium icon. */
+    ICON_GRID_ITEM(com.android.car.media.R.layout.media_browse_grid_icons_item, 1),
+    /** A list item with a medium image. */
     LIST_ITEM(com.android.car.media.R.layout.media_browse_list_item),
+    /** A list item with a small icon. */
+    ICON_LIST_ITEM(com.android.car.media.R.layout.media_browse_list_icons_item),
+
     /** A spacer view that creates additional padding at the edges of the list, and for headers */
     SPACER(com.android.car.media.R.layout.media_browse_spacer);
 

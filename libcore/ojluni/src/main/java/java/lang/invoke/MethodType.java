@@ -894,9 +894,6 @@ class MethodType implements java.io.Serializable {
         return true;
     }
 
-    // Android-changed: Temporary workaround for bug in MethodHandle.asType(MethodType).
-    // See http://b/113855305 for more details
-    // Update documentation to describe new behavior.
     /** Reports true if the src can be converted to the dst, by both asType and MHs.eCE,
      *  and with the same effect.
      *  MHs.eCA has the following "upgrades" to MH.asType:
@@ -914,9 +911,7 @@ class MethodType implements java.io.Serializable {
      */
     private static boolean explicitCastEquivalentToAsType(Class<?> src, Class<?> dst) {
         if (src == dst || dst == Object.class || dst == void.class)  return true;
-        // Android-changed: Temporary workaround for bug in MethodHandle.asType(MethodType).
-        // if (src.isPrimitive()) {
-        if (src.isPrimitive() && src != void.class) {
+        if (src.isPrimitive()) {
             // Could be a prim/prim conversion, where casting is a strict superset.
             // Or a boxing conversion, which is always to an exact wrapper class.
             return canConvert(src, dst);

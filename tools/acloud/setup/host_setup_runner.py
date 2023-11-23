@@ -23,33 +23,40 @@ from __future__ import print_function
 
 import getpass
 import logging
+import os
+import shutil
+import sys
+import tempfile
 
 from acloud.internal import constants
 from acloud.internal.lib import utils
 from acloud.setup import base_task_runner
 from acloud.setup import setup_common
 
+
 logger = logging.getLogger(__name__)
 
-# Install cuttlefish-common will probably not work now.
-# TODO: update this to pull from the proper repo.
-_AVD_REQUIRED_PKGS = ["cuttlefish-common", "ssvnc",
-                      # TODO(b/117613492): This is all qemu related, take this
-                      # out once they are added back in as deps for
-                      # cuttlefish-common.
-                      "qemu-kvm", "qemu-system-common", "qemu-system-x86",
-                      "qemu-utils", "libvirt-clients", "libvirt-daemon-system"]
+# Packages "devscripts" and "equivs" are required for "mk-build-deps".
+_AVD_REQUIRED_PKGS = [
+    "devscripts", "equivs", "libvirt-clients", "libvirt-daemon-system"]
+_BASE_REQUIRED_PKGS = ["ssvnc", "lzop"]
+_CUTTLEFISH_COMMOM_PKG = "cuttlefish-common"
+_CF_COMMOM_FOLDER = "cf-common"
 _LIST_OF_MODULES = ["kvm_intel", "kvm"]
 _UPDATE_APT_GET_CMD = "sudo apt-get update"
+_INSTALL_CUTTLEFISH_COMMOM_CMD = [
+    "git clone https://github.com/google/android-cuttlefish.git {git_folder}",
+    "cd {git_folder}",
+    "yes | sudo mk-build-deps -i -r -B",
+    "dpkg-buildpackage -uc -us",
+    "sudo apt-get install -y -f ../cuttlefish-common_*_amd64.deb"]
 
 
-class AvdPkgInstaller(base_task_runner.BaseTaskRunner):
-    """Subtask runner class for installing required packages."""
+class BasePkgInstaller(base_task_runner.BaseTaskRunner):
+    """Subtask base runner class for installing packages."""
 
-    WELCOME_MESSAGE_TITLE = "Install required package for host setup"
-    WELCOME_MESSAGE = (
-        "This step will walk you through the required packages installation for "
-        "running Android cuttlefish devices and vnc on your host.")
+    # List of packages for child classes to override.
+    PACKAGES = []
 
     def ShouldRun(self):
         """Check if required packages are all installed.
@@ -62,23 +69,91 @@ class AvdPkgInstaller(base_task_runner.BaseTaskRunner):
 
         # Any required package is not installed or not up-to-date will need to
         # run installation task.
-        for pkg_name in _AVD_REQUIRED_PKGS:
+        for pkg_name in self.PACKAGES:
             if not setup_common.PackageInstalled(pkg_name):
                 return True
 
         return False
 
     def _Run(self):
-        """Install Cuttlefish-common package."""
+        """Install specified packages."""
+        cmd = "\n".join(
+            [setup_common.PKG_INSTALL_CMD % pkg
+             for pkg in self.PACKAGES
+             if not setup_common.PackageInstalled(pkg)])
 
-        logger.info("Start to install required package: %s ",
-                    _AVD_REQUIRED_PKGS)
+        if not utils.GetUserAnswerYes("\nStart to install package(s):\n%s"
+                                      "\nPress 'y' to continue or anything "
+                                      "else to do it myself and run acloud "
+                                      "again[y/N]: " % cmd):
+            sys.exit(constants.EXIT_BY_USER)
 
         setup_common.CheckCmdOutput(_UPDATE_APT_GET_CMD, shell=True)
-        for pkg in _AVD_REQUIRED_PKGS:
+        for pkg in self.PACKAGES:
             setup_common.InstallPackage(pkg)
 
-        logger.info("All required package are installed now.")
+        logger.info("All package(s) installed now.")
+
+
+class AvdPkgInstaller(BasePkgInstaller):
+    """Subtask runner class for installing packages for local instances."""
+
+    WELCOME_MESSAGE_TITLE = ("Install required packages for host setup for "
+                             "local instances")
+    WELCOME_MESSAGE = ("This step will walk you through the required packages "
+                       "installation for running Android cuttlefish devices "
+                       "on your host.")
+    PACKAGES = _AVD_REQUIRED_PKGS
+
+
+class HostBasePkgInstaller(BasePkgInstaller):
+    """Subtask runner class for installing base host packages."""
+
+    WELCOME_MESSAGE_TITLE = "Install base packages on the host"
+    WELCOME_MESSAGE = ("This step will walk you through the base packages "
+                       "installation for your host.")
+    PACKAGES = _BASE_REQUIRED_PKGS
+
+
+class CuttlefishCommonPkgInstaller(base_task_runner.BaseTaskRunner):
+    """Subtask base runner class for installing cuttlefish-common."""
+
+    WELCOME_MESSAGE_TITLE = "Install cuttlefish-common packages on the host"
+    WELCOME_MESSAGE = ("This step will walk you through the cuttlefish-common "
+                       "packages installation for your host.")
+
+    def ShouldRun(self):
+        """Check if cuttlefish-common package is installed.
+
+        Returns:
+            Boolean, True if cuttlefish-common is not installed.
+        """
+        if not utils.IsSupportedPlatform():
+            return False
+
+        # Any required package is not installed or not up-to-date will need to
+        # run installation task.
+        if not setup_common.PackageInstalled(_CUTTLEFISH_COMMOM_PKG):
+            return True
+        return False
+
+    def _Run(self):
+        """Install cuttlefilsh-common packages."""
+        cf_common_path = os.path.join(tempfile.mkdtemp(), _CF_COMMOM_FOLDER)
+        logger.debug("cuttlefish-common path: %s", cf_common_path)
+        cmd = "\n".join(sub_cmd.format(git_folder=cf_common_path)
+                        for sub_cmd in _INSTALL_CUTTLEFISH_COMMOM_CMD)
+
+        if not utils.GetUserAnswerYes("\nStart to install cuttlefish-common :\n%s"
+                                      "\nPress 'y' to continue or anything "
+                                      "else to do it myself and run acloud "
+                                      "again[y/N]: " % cmd):
+            sys.exit(constants.EXIT_BY_USER)
+        try:
+            setup_common.CheckCmdOutput(cmd, shell=True)
+        finally:
+            shutil.rmtree(os.path.dirname(cf_common_path))
+        logger.info("Cuttlefish-common package installed now.")
 
 
 class CuttlefishHostSetup(base_task_runner.BaseTaskRunner):

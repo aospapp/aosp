@@ -41,7 +41,7 @@ channelQuant8 = DataTypeConverter().Identify({
 example = Example({
     i1: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.0, 1.0],
     o1: [.875, .875, .875, .875]
-}).AddNchw(i1, o1, layout).AddInput(f1, b1).AddVariations("relaxed", quant8, channelQuant8, "float16")
+}).AddNchw(i1, o1, layout).AddVariations("relaxed", quant8, channelQuant8, "float16")
 
 
 # TEST 2: CONV_NCHW_2
@@ -69,7 +69,7 @@ channelQuant8 = DataTypeConverter().Identify({
 example = Example({
     i2: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     o2: [0, 0, 0, 0, 35, 112, 157, 0, 0, 34, 61, 0]
-}).AddNchw(i2, o2, layout).AddInput(f2, b2).AddVariations("relaxed", quant8, channelQuant8, "float16")
+}).AddNchw(i2, o2, layout).AddVariations("relaxed", quant8, channelQuant8, "float16")
 
 
 # TEST 3: CONV_NCHW_CHANNEL
@@ -97,7 +97,7 @@ channelQuant8 = DataTypeConverter().Identify({
 example = Example({
     i3: [5.,  5.,   5.],
     o3: [15., 37.5, 60.]
-}).AddNchw(i3, o3, layout).AddInput(f3, b3).AddVariations("relaxed", quant8, channelQuant8, "float16")
+}).AddNchw(i3, o3, layout).AddVariations("relaxed", quant8, channelQuant8, "float16")
 
 
 # TEST 4: CONV_NCHW_LARGE
@@ -137,7 +137,7 @@ example = Example({
          138.,  171.,  204.,
          174.,  216.,  258.,
          210.,  261.,  312.]
-}).AddNchw(i4, o4, layout).AddInput(f4, b4).AddVariations("relaxed", quant8, channelQuant8, channelQuant8_mult_gt_1, "float16")
+}).AddNchw(i4, o4, layout).AddVariations("relaxed", quant8, channelQuant8, channelQuant8_mult_gt_1, "float16")
 
 
 # TEST 5/6: CONV_1_H3_W2_[SAME|VALID]
@@ -208,7 +208,7 @@ example = Example({
         131, 132
     ],
     o9: [145, 129, 132, 145, 129, 132, 144, 131, 130, 164, 131, 130]
-}, model=model9).AddInput(f9, b9).AddVariations("relaxed")
+}, model=model9).AddVariations("relaxed")
 
 
 # TEST 10: zero-sized input, explicit padding
@@ -245,12 +245,11 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", quant8, "float16")
 
 
@@ -288,10 +287,77 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", quant8, "float16")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc_2",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc_all_inputs_as_internal",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc_all_inputs_as_internal_2",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc_all_tensors_as_inputs",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc_all_tensors_as_inputs_2",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_1_H3_W2_SAME_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc_2",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc_all_inputs_as_internal",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc_all_inputs_as_internal_2",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc_all_tensors_as_inputs",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc_all_tensors_as_inputs_2",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_1_H3_W2_VALID_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc_2",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc_all_inputs_as_internal",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc_all_inputs_as_internal_2",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc_all_tensors_as_inputs",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc_all_tensors_as_inputs_2",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_3_H3_W2_SAME_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc_2",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc_all_inputs_as_internal",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc_all_inputs_as_internal_2",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc_all_tensors_as_inputs",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc_all_tensors_as_inputs_2",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_3_H3_W2_VALID_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "conv2d_v1_2_channel_nhwc",
+                   "conv2d_v1_2_channel_nhwc_all_inputs_as_internal",
+                   "conv2d_v1_2_channel_nhwc_all_tensors_as_inputs",
+                   "conv2d_v1_2_channel_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_channel_nhwc_quant8",
+                   "conv2d_v1_2_channel_nhwc_quant8_all_inputs_as_internal",
+                   "conv2d_v1_2_channel_nhwc_quant8_all_tensors_as_inputs",
+                   "conv2d_v1_2_channel_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_large_nhwc",
+                   "conv2d_v1_2_large_nhwc_all_inputs_as_internal",
+                   "conv2d_v1_2_large_nhwc_all_tensors_as_inputs",
+                   "conv2d_v1_2_large_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_large_nhwc_quant8",
+                   "conv2d_v1_2_large_nhwc_quant8_all_inputs_as_internal",
+                   "conv2d_v1_2_large_nhwc_quant8_all_tensors_as_inputs",
+                   "conv2d_v1_2_large_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_nhwc",
+                   "conv2d_v1_2_nhwc_2",
+                   "conv2d_v1_2_nhwc_all_inputs_as_internal",
+                   "conv2d_v1_2_nhwc_all_inputs_as_internal_2",
+                   "conv2d_v1_2_nhwc_all_tensors_as_inputs",
+                   "conv2d_v1_2_nhwc_all_tensors_as_inputs_2",
+                   "conv2d_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "conv2d_v1_2_nhwc_quant8",
+                   "conv2d_v1_2_nhwc_quant8_2",
+                   "conv2d_v1_2_nhwc_quant8_all_inputs_as_internal",
+                   "conv2d_v1_2_nhwc_quant8_all_inputs_as_internal_2",
+                   "conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs",
+                   "conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs_2",
+                   "conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal_2")

@@ -48,6 +48,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
@@ -744,10 +745,51 @@ public class GradientDrawableTest {
 
     @Test
     public void testGradientNegativeAngle() {
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle,
+                Orientation.TOP_BOTTOM);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_45,
+                Orientation.TL_BR);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_90,
+                Orientation.TOP_BOTTOM);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_135,
+                Orientation.TR_BL);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_180,
+                Orientation.RIGHT_LEFT);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_225,
+                Orientation.BR_TL);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_270,
+                Orientation.BOTTOM_TOP);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_315,
+                Orientation.BL_TR);
+        verifyGradientOrientation(R.drawable.gradientdrawable_negative_angle_360,
+                Orientation.LEFT_RIGHT);
+    }
+
+    private void verifyGradientOrientation(int resId, Orientation expected) {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        assertEquals(expected,
+                ((GradientDrawable) context.getDrawable(resId)).getOrientation());
+    }
+
+    @Ignore("Disabling temporarily while actual fix to maintain behavioral differences of "
+            + "orientation xml and programmatically defined GradientDrawables")
+    @Test
+    public void testGradientNoAngle() {
+        // Verify that the default orientation for a GradientDrawable defined in xml is
+        // LEFT_RIGHT. This differs from the default behavior of programmatically defined
+        // GradientDrawables
         final Context context = InstrumentationRegistry.getTargetContext();
         GradientDrawable drawable = (GradientDrawable)
-                context.getDrawable(R.drawable.gradientdrawable_negative_angle);
-        assertEquals(Orientation.TOP_BOTTOM, drawable.getOrientation());
+                context.getDrawable(R.drawable.gradientdrawable_no_angle);
+        assertEquals(Orientation.LEFT_RIGHT, drawable.getOrientation());
+    }
+
+    @Test
+    public void testDynamicGradientDefaultOrientation() {
+        // Verify that the default orientation for a programmatically defined GradientDrawable is
+        // TOP_BOTTOM. This differs from the default behavior of xml inflated GradientDrawables
+        // that default to LEFT_RIGHT
+        assertEquals(Orientation.TOP_BOTTOM, new GradientDrawable().getOrientation());
     }
 
     @Test

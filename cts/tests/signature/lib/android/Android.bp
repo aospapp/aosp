@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-java_library_static {
-  name: "cts-signature-common",
-  host_supported: false,
-  installable: false,
-  srcs: ["src/**/*.java"],
-  static_libs: ["signature-common-javalib"],
-  sdk_version: "current",
+java_library {
+    name: "cts-signature-common",
+    visibility: [
+        "//cts/tests/signature:__subpackages__",
+    ],
+    installable: false,
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
+    static_libs: [
+        "signature-common-javalib",
+    ],
+    sdk_version: "current",
 }

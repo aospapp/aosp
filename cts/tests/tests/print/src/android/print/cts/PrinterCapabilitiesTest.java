@@ -305,7 +305,7 @@ public class PrinterCapabilitiesTest extends BasePrintTest {
 
         waitForPrinterDiscoverySessionCreateCallbackCalled();
 
-        getUiDevice().pressBack();
+        mPrintHelper.cancelPrinting();
 
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
     }
@@ -388,7 +388,7 @@ public class PrinterCapabilitiesTest extends BasePrintTest {
             selectPrinter(PRINTER_NAME);
         }
 
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         if (!sDefaultPrinterBeenSet) {
             answerPrintServicesWarning(true);

@@ -399,3 +399,11 @@ class DisplayFacadeRemoteAdapter(object):
         """
         logging.info('Connector Type %s.', connector_type)
         return self._display_proxy.reset_connector_if_applicable(connector_type)
+
+
+    def get_window_info(self):
+        """Gets the current window info from Chrome.system.window API.
+
+        @return a dict for the information of the current window.
+        """
+        return self._display_proxy.get_window_info()

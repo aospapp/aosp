@@ -20,10 +20,11 @@ java_library {
     name: "FrameworksNetCommonTests",
     srcs: ["java/**/*.java", "java/**/*.kt"],
     static_libs: [
+        "androidx.core_core",
         "androidx.test.rules",
-        "frameworks-net-testutils",
         "junit",
         "mockito-target-minus-junit4",
+        "net-tests-utils",
         "platform-test-annotations",
     ],
     libs: [

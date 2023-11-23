@@ -2,6 +2,11 @@
 #
 # Runner for an individual run-test.
 
+if [[ -z "$ANDROID_BUILD_TOP" ]]; then
+  echo 'ANDROID_BUILD_TOP environment variable is empty; did you forget to run `lunch`?'
+  exit 1
+fi
+
 msg() {
     if [ "$QUIET" = "n" ]; then
         echo "$@"
@@ -9,11 +14,13 @@ msg() {
 }
 
 ANDROID_ROOT="/system"
-ANDROID_RUNTIME_ROOT="/apex/com.android.runtime"
+ANDROID_ART_ROOT="/apex/com.android.art"
+ANDROID_I18N_ROOT="/apex/com.android.i18n"
 ANDROID_TZDATA_ROOT="/apex/com.android.tzdata"
-ARCHITECTURES_32="(arm|x86|mips|none)"
-ARCHITECTURES_64="(arm64|x86_64|mips64|none)"
+ARCHITECTURES_32="(arm|x86|none)"
+ARCHITECTURES_64="(arm64|x86_64|none)"
 ARCHITECTURES_PATTERN="${ARCHITECTURES_32}"
+GET_DEVICE_ISA_BITNESS_FLAG="--32"
 BOOT_IMAGE=""
 CHROOT=
 COMPILE_FLAGS=""
@@ -23,8 +30,8 @@ WITH_AGENT=()
 DEBUGGER_AGENT=""
 WRAP_DEBUGGER_AGENT="n"
 DEV_MODE="n"
-DEX2OAT_NDEBUG_BINARY="dex2oat"
-DEX2OAT_DEBUG_BINARY="dex2oatd"
+DEX2OAT_NDEBUG_BINARY="dex2oat32"
+DEX2OAT_DEBUG_BINARY="dex2oatd32"
 EXPERIMENTAL=""
 FALSE_BIN="false"
 FLAGS=""
@@ -45,6 +52,7 @@ INTERPRETER="n"
 JIT="n"
 INVOKE_WITH=""
 IS_JVMTI_TEST="n"
+ADD_LIBDIR_ARGUMENTS="n"
 ISA=x86
 LIBRARY_DIRECTORY="lib"
 TEST_DIRECTORY="nativetest"
@@ -55,14 +63,11 @@ QUIET="n"
 RELOCATE="n"
 STRIP_DEX="n"
 SECONDARY_DEX=""
-TIME_OUT="gdb"  # "n" (disabled), "timeout" (use timeout), "gdb" (use gdb)
-TIMEOUT_DUMPER=timeout_dumper
-# Value in seconds
-if [ "$ART_USE_READ_BARRIER" != "false" ]; then
-  TIME_OUT_VALUE=2400  # 40 minutes.
-else
-  TIME_OUT_VALUE=1200  # 20 minutes.
-fi
+TIME_OUT="n"  # "n" (disabled), "timeout" (use timeout), "gdb" (use gdb)
+TIMEOUT_DUMPER=signal_dumper
+# Values in seconds.
+TIME_OUT_EXTRA=0
+TIME_OUT_VALUE=
 USE_GDB="n"
 USE_GDBSERVER="n"
 GDBSERVER_PORT=":5039"
@@ -91,6 +96,7 @@ RANDOM_PROFILE="n"
 DEX2OAT_TIMEOUT="300" # 5 mins
 # The *hard* timeout where we really start trying to kill the dex2oat.
 DEX2OAT_RT_TIMEOUT="360" # 6 mins
+CREATE_RUNNER="n"
 
 # if "y", run 'sync' before dalvikvm to make sure all files from
 # build step (e.g. dex2oat) were finished writing.
@@ -126,6 +132,9 @@ while true; do
         USE_JVMTI="y"
         IS_JVMTI_TEST="y"
         shift
+    elif [ "x$1" = "x--add-libdir-argument" ]; then
+        ADD_LIBDIR_ARGUMENTS="y"
+        shift
     elif [ "x$1" = "x-O" ]; then
         TEST_IS_NDEBUG="y"
         shift
@@ -138,8 +147,8 @@ while true; do
         LIB="$1"
         shift
     elif [ "x$1" = "x--gc-stress" ]; then
-        # Give an extra 5 mins if we are gc-stress.
-        TIME_OUT_VALUE=$((${TIME_OUT_VALUE} + 300))
+        # Give an extra 20 mins if we are gc-stress.
+        TIME_OUT_EXTRA=$((${TIME_OUT_EXTRA} + 1200))
         shift
     elif [ "x$1" = "x--testlib" ]; then
         shift
@@ -157,11 +166,19 @@ while true; do
         fi
         ARGS="${ARGS} $1"
         shift
+    elif [ "x$1" = "x--compiler-only-option" ]; then
+        shift
+        option="$1"
+        COMPILE_FLAGS="${COMPILE_FLAGS} $option"
+        shift
     elif [ "x$1" = "x-Xcompiler-option" ]; then
         shift
         option="$1"
         FLAGS="${FLAGS} -Xcompiler-option $option"
         COMPILE_FLAGS="${COMPILE_FLAGS} $option"
+        shift
+    elif [ "x$1" = "x--create-runner" ]; then
+        CREATE_RUNNER="y"
         shift
     elif [ "x$1" = "x--android-runtime-option" ]; then
         shift
@@ -172,6 +189,11 @@ while true; do
         shift
         option="$1"
         FLAGS="${FLAGS} $option"
+        if [ "x$option" = "x-Xmethod-trace" ]; then
+            # Method tracing can slow some tests down a lot, in particular
+            # 530-checker-lse2.
+            TIME_OUT_EXTRA=$((${TIME_OUT_EXTRA} + 1200))
+        fi
         shift
     elif [ "x$1" = "x--boot" ]; then
         shift
@@ -221,8 +243,14 @@ while true; do
     elif [ "x$1" = "x--host" ]; then
         HOST="y"
         ANDROID_ROOT="${ANDROID_HOST_OUT}"
-        ANDROID_RUNTIME_ROOT="${ANDROID_HOST_OUT}/com.android.runtime"
+        ANDROID_ART_ROOT="${ANDROID_HOST_OUT}/com.android.art"
+        ANDROID_I18N_ROOT="${ANDROID_HOST_OUT}/com.android.i18n"
         ANDROID_TZDATA_ROOT="${ANDROID_HOST_OUT}/com.android.tzdata"
+        # On host, we default to using the symlink, as the PREFER_32BIT
+        # configuration is the only configuration building a 32bit version of
+        # dex2oat.
+        DEX2OAT_DEBUG_BINARY="dex2oatd"
+        DEX2OAT_NDEBUG_BINARY="dex2oat"
         shift
     elif [ "x$1" = "x--bionic" ]; then
         BIONIC="y"
@@ -276,6 +304,7 @@ while true; do
         TIME_OUT="n"
         shift
     elif [ "x$1" = "x--debug" ]; then
+        USE_JVMTI="y"
         DEBUGGER="y"
         TIME_OUT="n"
         shift
@@ -292,10 +321,6 @@ while true; do
         USE_GDBSERVER="y"
         DEV_MODE="y"
         TIME_OUT="n"
-        HOST="y"
-        ANDROID_ROOT="${ANDROID_HOST_OUT}"
-        ANDROID_RUNTIME_ROOT="${ANDROID_HOST_OUT}/com.android.runtime"
-        ANDROID_TZDATA_ROOT="${ANDROID_HOST_OUT}/com.android.tzdata"
         shift
     elif [ "x$1" = "x--gdb" ]; then
         USE_GDB="y"
@@ -356,9 +381,13 @@ while true; do
         shift
         ANDROID_ROOT="$1"
         shift
-    elif [ "x$1" = "x--android-runtime-root" ]; then
+    elif [ "x$1" = "x--android-i18n-root" ]; then
         shift
-        ANDROID_RUNTIME_ROOT="$1"
+        ANDROID_I18N_ROOT="$1"
+        shift
+    elif [ "x$1" = "x--android-art-root" ]; then
+        shift
+        ANDROID_ART_ROOT="$1"
         shift
     elif [ "x$1" = "x--android-tzdata-root" ]; then
         shift
@@ -382,6 +411,9 @@ while true; do
         LIBRARY_DIRECTORY="lib64"
         TEST_DIRECTORY="nativetest64"
         ARCHITECTURES_PATTERN="${ARCHITECTURES_64}"
+        GET_DEVICE_ISA_BITNESS_FLAG="--64"
+        DEX2OAT_NDEBUG_BINARY="dex2oat64"
+        DEX2OAT_DEBUG_BINARY="dex2oatd64"
         shift
     elif [ "x$1" = "x--experimental" ]; then
         if [ "$#" -lt 2 ]; then
@@ -428,8 +460,37 @@ while true; do
     fi
 done
 
+# HACK: Force the use of `signal_dumper` on host.
+if [[ "$HOST" = "y" ]]; then
+  TIME_OUT="timeout"
+fi
+
+# If you change this, update the timeout in testrunner.py as well.
+if [ -z "$TIME_OUT_VALUE" ] ; then
+  # 10 minutes is the default.
+  TIME_OUT_VALUE=600
+
+  # For sanitized builds use a larger base.
+  # TODO: Consider sanitized target builds?
+  if [ "x$SANITIZE_HOST" != "x" ] ; then
+    TIME_OUT_VALUE=1500  # 25 minutes.
+  fi
+
+  TIME_OUT_VALUE=$((${TIME_OUT_VALUE} + ${TIME_OUT_EXTRA}))
+fi
+
+# Escape hatch for slow hosts or devices. Accept an environment variable as a timeout factor.
+if [ ! -z "$ART_TIME_OUT_MULTIPLIER" ] ; then
+  TIME_OUT_VALUE=$((${TIME_OUT_VALUE} * ${ART_TIME_OUT_MULTIPLIER}))
+fi
+
 # The DEX_LOCATION with the chroot prefix, if any.
 CHROOT_DEX_LOCATION="$CHROOT$DEX_LOCATION"
+
+# If running on device, determine the ISA of the device.
+if [ "$HOST" = "n" ]; then
+  ISA=$("$ANDROID_BUILD_TOP/art/test/utils/get-device-isa" "$GET_DEVICE_ISA_BITNESS_FLAG")
+fi
 
 if [ "$USE_JVM" = "n" ]; then
     FLAGS="${FLAGS} ${ANDROID_FLAGS}"
@@ -484,7 +545,7 @@ msg "------------------------------"
 
 if [ "$DEBUGGER" = "y" ]; then
   # Use this instead for ddms and connect by running 'ddms':
-  # DEBUGGER_OPTS="-agentlib:jdwp=transport=dt_android_adb,server=y,suspend=y"
+  # DEBUGGER_OPTS="-XjdwpOptions=server=y,suspend=y -XjdwpProvider:adbconnection"
   # TODO: add a separate --ddms option?
 
   PORT=12345
@@ -494,9 +555,8 @@ if [ "$DEBUGGER" = "y" ]; then
   fi
   msg "    jdb -attach localhost:$PORT"
   if [ "$USE_JVM" = "n" ]; then
-    # TODO We should switch over to using the jvmti agent by default.
-    # Need to tell the runtime to enable the internal jdwp implementation.
-    DEBUGGER_OPTS="-XjdwpOptions:transport=dt_socket,address=$PORT,server=y,suspend=y -XjdwpProvider:internal"
+    # Use the default libjdwp agent. Use --debug-agent to use a custom one.
+    DEBUGGER_OPTS="-agentpath:libjdwp.so=transport=dt_socket,address=$PORT,server=y,suspend=y -XjdwpProvider:internal"
   else
     DEBUGGER_OPTS="-agentlib:jdwp=transport=dt_socket,address=$PORT,server=y,suspend=y"
   fi
@@ -535,6 +595,14 @@ if [ "$USE_JVMTI" = "y" ]; then
   fi
 fi
 
+# Add the libdir to the argv passed to the main function.
+if [ "$ADD_LIBDIR_ARGUMENTS" = "y" ]; then
+  if [[ "$HOST" = "y" ]]; then
+    ARGS="${ARGS} ${ANDROID_HOST_OUT}/${TEST_DIRECTORY}/"
+  else
+    ARGS="${ARGS} /data/${TEST_DIRECTORY}/art/${ISA}/"
+  fi
+fi
 if [ "$IS_JVMTI_TEST" = "y" ]; then
   agent=libtiagentd.so
   lib=tiagentd
@@ -547,7 +615,14 @@ if [ "$IS_JVMTI_TEST" = "y" ]; then
   if [[ "$USE_JVM" = "y" ]]; then
     FLAGS="${FLAGS} -agentpath:${ANDROID_HOST_OUT}/nativetest64/${agent}=${TEST_NAME},jvm"
   else
-    FLAGS="${FLAGS} -agentpath:${agent}=${TEST_NAME},art"
+    if [[ "$HOST" = "y" ]]; then
+      FLAGS="${FLAGS} -agentpath:${agent}=${TEST_NAME},art"
+    else
+      # The linker configuration used for dalvikvm(64) in the ART APEX
+      # requires us to pass the full path to the agent to the runtime when
+      # running on device.
+      FLAGS="${FLAGS} -agentpath:/data/${TEST_DIRECTORY}/art/${ISA}/${agent}=${TEST_NAME},art"
+    fi
   fi
 fi
 
@@ -578,7 +653,14 @@ if [[ "$JVMTI_STRESS" = "y" ]]; then
   if [[ "$USE_JVM" = "y" ]]; then
     FLAGS="${FLAGS} -agentpath:${ANDROID_HOST_OUT}/nativetest64/${agent}=${agent_args}"
   else
-    FLAGS="${FLAGS} -agentpath:${agent}=${agent_args}"
+    if [[ "$HOST" = "y" ]]; then
+      FLAGS="${FLAGS} -agentpath:${agent}=${agent_args}"
+    else
+      # The linker configuration used for dalvikvm(64) in the ART APEX
+      # requires us to pass the full path to the agent to the runtime when
+      # running on device.
+      FLAGS="${FLAGS} -agentpath:/data/${TEST_DIRECTORY}/art/${ISA}/${agent}=${agent_args}"
+    fi
   fi
 fi
 
@@ -594,14 +676,22 @@ if [ "$USE_JVM" = "y" ]; then
   if [ "$DEV_MODE" = "y" ]; then
     echo $cmdline
   fi
-  $cmdline
+  if [ "$CREATE_RUNNER" = "y" ]; then
+    echo "#!/bin/bash" > runit.sh
+    echo "export LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\""
+    echo $cmdline "2>&1" >> runit.sh
+    chmod u+x runit.sh
+    echo "Runnable test script written to $PWD/runit.sh"
+  else
+    $cmdline
+  fi
   exit
 fi
 
 # Note: This must start with the CORE_IMG_JARS in Android.common_path.mk
 # because that's what we use for compiling the core.art image.
 # It may contain additional modules from TEST_CORE_JARS.
-bpath_modules="core-oj core-libart okhttp bouncycastle apache-xml conscrypt"
+bpath_modules="core-oj core-libart core-icu4j okhttp bouncycastle apache-xml conscrypt"
 if [ "${HOST}" = "y" ]; then
     framework="${ANDROID_HOST_OUT}/framework"
     if [ "${ANDROID_HOST_OUT:0:${#ANDROID_BUILD_TOP}+1}" = "${ANDROID_BUILD_TOP}/" ]; then
@@ -654,7 +744,8 @@ if [ "$USE_GDB" = "y" ]; then
     echo "Cannot pass both --gdb and --gdbserver at the same time!" >&2
     exit 1
   elif [ "$HOST" = "n" ]; then
-    GDB="$GDBSERVER_DEVICE $GDBSERVER_PORT"
+    # We might not have any hostname resolution if we are using a chroot.
+    GDB="$GDBSERVER_DEVICE --no-startup-with-shell 127.0.0.1$GDBSERVER_PORT"
   else
     if [ `uname` = "Darwin" ]; then
         GDB=lldb
@@ -669,10 +760,11 @@ if [ "$USE_GDB" = "y" ]; then
   fi
 elif [ "$USE_GDBSERVER" = "y" ]; then
   if [ "$HOST" = "n" ]; then
-    echo "Cannot use --gdbserver in non-host configs" >&2
-    exit 1
+    # We might not have any hostname resolution if we are using a chroot.
+    GDB="$GDBSERVER_DEVICE --no-startup-with-shell 127.0.0.1$GDBSERVER_PORT"
+  else
+    GDB="$GDBSERVER_HOST $GDBSERVER_PORT"
   fi
-  GDB="$GDBSERVER_HOST $GDBSERVER_PORT"
 fi
 
 if [ "$INTERPRETER" = "y" ]; then
@@ -714,35 +806,6 @@ else
     FLAGS="$FLAGS -Xnorelocate"
 fi
 
-if [ "$HOST" = "n" ]; then
-  # Need to be root to query /data/dalvik-cache
-  adb root > /dev/null
-  adb wait-for-device
-  ISA=
-  ISA_adb_invocation=
-  ISA_outcome=
-  # We iterate a few times to workaround an adb issue. b/32655576
-  for i in {1..10}; do
-    ISA_adb_invocation=$(adb shell ls -F /data/dalvik-cache)
-    ISA_outcome=$?
-    ISA=$(echo $ISA_adb_invocation | grep -Ewo "${ARCHITECTURES_PATTERN}")
-    if [ x"$ISA" != "x" ]; then
-      break;
-    fi
-  done
-  if [ x"$ISA" = "x" ]; then
-    echo "Unable to determine architecture"
-    # Print a few things for helping diagnosing the problem.
-    echo "adb invocation output: $ISA_adb_invocation"
-    echo "adb invocation outcome: $ISA_outcome"
-    echo $(adb shell ls -F /data/dalvik-cache)
-    echo $(adb shell ls /data/dalvik-cache)
-    echo ${ARCHITECTURES_PATTERN}
-    echo $(adb shell ls -F /data/dalvik-cache | grep -Ewo "${ARCHITECTURES_PATTERN}")
-    exit 1
-  fi
-fi
-
 if [ "$BIONIC" = "y" ]; then
   # This is the location that soong drops linux_bionic builds. Despite being
   # called linux_bionic-x86 the build is actually amd64 (x86_64) only.
@@ -750,8 +813,8 @@ if [ "$BIONIC" = "y" ]; then
     echo "linux_bionic-x86 target doesn't seem to have been built!" >&2
     exit 1
   fi
-  # Set timeout_dumper manually so it works even with apex's
-  TIMEOUT_DUMPER=$OUT_DIR/soong/host/linux_bionic-x86/bin/timeout_dumper
+  # Set TIMEOUT_DUMPER manually so it works even with apex's
+  TIMEOUT_DUMPER=$OUT_DIR/soong/host/linux_bionic-x86/bin/signal_dumper
 fi
 
 # Prevent test from silently falling back to interpreter in no-prebuild mode. This happens
@@ -774,7 +837,20 @@ if [ ${#VDEX_NAME} -gt $max_filename_size ]; then
     exit 1
 fi
 
-BIN_DIR=$ANDROID_ROOT/bin
+if [ "$HOST" = "y" ]; then
+  # On host, run binaries (`dex2oat(d)`, `dalvikvm`, `profman`) from the `bin`
+  # directory under the "Android Root" (usually `out/host/linux-x86`).
+  #
+  # TODO(b/130295968): Adjust this if/when ART host artifacts are installed
+  # under the ART root (usually `out/host/linux-x86/com.android.art`).
+  ANDROID_ART_BIN_DIR=$ANDROID_ROOT/bin
+else
+  # On target, run binaries (`dex2oat(d)`, `dalvikvm`, `profman`) from the ART
+  # APEX's `bin` directory. This means the linker will observe the ART APEX
+  # linker configuration file (`/apex/com.android.art/etc/ld.config.txt`) for
+  # these binaries.
+  ANDROID_ART_BIN_DIR=$ANDROID_ART_ROOT/bin
+fi
 
 profman_cmdline="true"
 dex2oat_cmdline="true"
@@ -811,10 +887,10 @@ if [ "$USE_ZIPAPEX" = "y" ]; then
   fi
   setupapex_cmdline="unzip -o -u ${zip_options} ${ZIPAPEX_LOC} apex_payload.zip -d ${DEX_LOCATION}"
   installapex_cmdline="unzip -o -u ${zip_options} ${DEX_LOCATION}/apex_payload.zip -d ${DEX_LOCATION}/zipapex"
-  BIN_DIR=$DEX_LOCATION/zipapex/bin
+  ANDROID_ART_BIN_DIR=$DEX_LOCATION/zipapex/bin
 elif [ "$USE_EXTRACTED_ZIPAPEX" = "y" ]; then
   # Just symlink the zipapex binaries
-  BIN_DIR=$DEX_LOCATION/zipapex/bin
+  ANDROID_ART_BIN_DIR=$DEX_LOCATION/zipapex/bin
   # Force since some tests manually run this file twice.
   ln_options=""
   if [ "$DEV_MODE" = "y" ]; then
@@ -826,7 +902,7 @@ fi
 # PROFILE takes precedence over RANDOM_PROFILE, since PROFILE tests require a
 # specific profile to run properly.
 if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
-  profman_cmdline="$BIN_DIR/profman  \
+  profman_cmdline="$ANDROID_ART_BIN_DIR/profman  \
     --apk=$DEX_LOCATION/$TEST_NAME.jar \
     --dex-location=$DEX_LOCATION/$TEST_NAME.jar"
   if [ -f $DEX_LOCATION/$TEST_NAME-ex.jar ]; then
@@ -845,23 +921,27 @@ if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
   fi
 fi
 
+# Enable mini-debug-info for JIT (if JIT is used).
+FLAGS="$FLAGS -Xcompiler-option --generate-mini-debug-info"
+
 if [ "$PREBUILD" = "y" ]; then
   mkdir_locations="${mkdir_locations} ${DEX_LOCATION}/oat/$ISA"
   if [ "$APP_IMAGE" = "y" ]; then
     # Pick a base that will force the app image to get relocated.
-    app_image="--base=0x4000 --app-image-file=$DEX_LOCATION/oat/$ISA/$TEST_NAME.art --resolve-startup-const-strings=true"
+    app_image="--app-image-file=$DEX_LOCATION/oat/$ISA/$TEST_NAME.art --resolve-startup-const-strings=true"
   fi
 
   dex2oat_binary=${DEX2OAT_DEBUG_BINARY}
   if  [[ "$TEST_IS_NDEBUG" = "y" ]]; then
     dex2oat_binary=${DEX2OAT_NDEBUG_BINARY}
   fi
-  dex2oat_cmdline="$INVOKE_WITH $BIN_DIR/$dex2oat_binary \
+  dex2oat_cmdline="$INVOKE_WITH $ANDROID_ART_BIN_DIR/$dex2oat_binary \
                       $COMPILE_FLAGS \
                       --boot-image=${BOOT_IMAGE} \
                       --dex-file=$DEX_LOCATION/$TEST_NAME.jar \
                       --oat-file=$DEX_LOCATION/oat/$ISA/$TEST_NAME.odex \
                       ${app_image} \
+                      --generate-mini-debug-info \
                       --instruction-set=$ISA"
   if [ "x$INSTRUCTION_SET_FEATURES" != "x" ] ; then
     dex2oat_cmdline="${dex2oat_cmdline} --instruction-set-features=${INSTRUCTION_SET_FEATURES}"
@@ -910,10 +990,17 @@ if [ "$HOST" = "n" ]; then
   TMP_DIR_OPTION="-Djava.io.tmpdir=/data/local/tmp"
 fi
 
+# The build servers have an ancient version of bash so we cannot use @Q.
+if [ "$USE_GDBSERVER" == "y" ]; then
+  printf -v QUOTED_DALVIKVM_BOOT_OPT "%q" "$DALVIKVM_BOOT_OPT"
+else
+  QUOTED_DALVIKVM_BOOT_OPT="$DALVIKVM_BOOT_OPT"
+fi
+
 # We set DumpNativeStackOnSigQuit to false to avoid stressing libunwind.
 # b/27185632
 # b/24664297
-dalvikvm_cmdline="$INVOKE_WITH $GDB $BIN_DIR/$DALVIKVM \
+dalvikvm_cmdline="$INVOKE_WITH $GDB $ANDROID_ART_BIN_DIR/$DALVIKVM \
                   $GDB_ARGS \
                   $FLAGS \
                   $DEX_VERIFY \
@@ -924,7 +1011,7 @@ dalvikvm_cmdline="$INVOKE_WITH $GDB $BIN_DIR/$DALVIKVM \
                   $JNI_OPTS \
                   $INT_OPTS \
                   $DEBUGGER_OPTS \
-                  $DALVIKVM_BOOT_OPT \
+                  ${QUOTED_DALVIKVM_BOOT_OPT} \
                   $TMP_DIR_OPTION \
                   -XX:DumpNativeStackOnSigQuit:false \
                   -cp $DEX_LOCATION/$TEST_NAME.jar$SECONDARY_DEX $MAIN $ARGS"
@@ -990,13 +1077,23 @@ if [ "$HOST" = "n" ]; then
       fi
     fi
 
-    LD_LIBRARY_PATH=/data/$TEST_DIRECTORY/art/$ISA
+    # Populate LD_LIBRARY_PATH.
+    LD_LIBRARY_PATH=
     if [ "$ANDROID_ROOT" != "/system" ]; then
       # Current default installation is dalvikvm 64bits and dex2oat 32bits,
       # so we can only use LD_LIBRARY_PATH when testing on a local
       # installation.
-      LD_LIBRARY_PATH="$ANDROID_ROOT/$LIBRARY_DIRECTORY:$LD_LIBRARY_PATH"
+      LD_LIBRARY_PATH="$ANDROID_ROOT/$LIBRARY_DIRECTORY"
     fi
+    # Needed to access libarttest(d).so and JVMTI agent libraries.
+    LD_LIBRARY_PATH="/data/$TEST_DIRECTORY/art/$ISA:$LD_LIBRARY_PATH"
+    # Needed to access the boot (core) image files.
+    LD_LIBRARY_PATH="/data/art-test/$ISA:$LD_LIBRARY_PATH"
+    # Needed to access the test's Odex files.
+    LD_LIBRARY_PATH="$DEX_LOCATION/oat/$ISA:$LD_LIBRARY_PATH"
+    # Needed to access the test's native libraries (see e.g. 674-hiddenapi,
+    # which generates `libhiddenapitest_*.so` libraries in `$DEX_LOCATION`).
+    LD_LIBRARY_PATH="$DEX_LOCATION:$LD_LIBRARY_PATH"
 
     # System libraries needed by libarttestd.so
     PUBLIC_LIBS=libc++.so:libbacktrace.so:libbase.so:libnativehelper.so
@@ -1004,6 +1101,53 @@ if [ "$HOST" = "n" ]; then
       PUBLIC_LIBS=$PUBLIC_LIBS:libart.so:libdexfile.so:libprofile.so:libartbase.so
     else
       PUBLIC_LIBS=$PUBLIC_LIBS:libartd.so:libdexfiled.so:libprofiled.so:libartbased.so
+    fi
+
+    # Prepend directories to the path on device.
+    PREPEND_TARGET_PATH=$ANDROID_ART_BIN_DIR
+    if [ "$ANDROID_ROOT" != "/system" ]; then
+      PREPEND_TARGET_PATH="$PREPEND_TARGET_PATH:$ANDROID_ROOT/bin"
+    fi
+
+    timeout_dumper_cmd=
+
+    # Check whether signal_dumper is available.
+    if [ "$TIMEOUT_DUMPER" = signal_dumper ] ; then
+      # Chroot? Use as prefix for tests.
+      TIMEOUT_DUMPER_PATH_PREFIX=
+      if [ -n "$CHROOT" ]; then
+        TIMEOUT_DUMPER_PATH_PREFIX="$CHROOT/"
+      fi
+
+      # Testing APEX?
+      if adb shell "test -x ${TIMEOUT_DUMPER_PATH_PREFIX}/apex/com.android.art/bin/signal_dumper" ; then
+        TIMEOUT_DUMPER="/apex/com.android.art/bin/signal_dumper"
+      # Is it in /system/bin?
+      elif adb shell "test -x ${TIMEOUT_DUMPER_PATH_PREFIX}/system/bin/signal_dumper" ; then
+        TIMEOUT_DUMPER="/system/bin/signal_dumper"
+      else
+        TIMEOUT_DUMPER=
+      fi
+    else
+      TIMEOUT_DUMPER=
+    fi
+
+    if [ ! -z "$TIMEOUT_DUMPER" ] ; then
+      # Use "-l" to dump to logcat. That is convenience for the build bot crash symbolization.
+      # Use exit code 124 for toybox timeout (b/141007616).
+      timeout_dumper_cmd="${TIMEOUT_DUMPER} -l -s 15 -e 124"
+    fi
+
+    timeout_prefix=
+    if [ "$TIME_OUT" = "timeout" ]; then
+      # Add timeout command if time out is desired.
+      #
+      # Note: We first send SIGTERM (the timeout default, signal 15) to the signal dumper, which
+      #       will induce a full thread dump before killing the process. To ensure any issues in
+      #       dumping do not lead to a deadlock, we also use the "-k" option to definitely kill the
+      #       child.
+      # Note: Using "--foreground" to not propagate the signal to children, i.e., the runtime.
+      timeout_prefix="timeout --foreground -k 120s ${TIME_OUT_VALUE}s ${timeout_dumper_cmd} $cmdline"
     fi
 
     # Create a script with the command. The command can get longer than the longest
@@ -1016,26 +1160,30 @@ if [ "$HOST" = "n" ]; then
              export ANDROID_ADDITIONAL_PUBLIC_LIBRARIES=$PUBLIC_LIBS && \
              export DEX_LOCATION=$DEX_LOCATION && \
              export ANDROID_ROOT=$ANDROID_ROOT && \
-             export ANDROID_RUNTIME_ROOT=$ANDROID_RUNTIME_ROOT && \
+             export ANDROID_I18N_ROOT=$ANDROID_I18N_ROOT && \
+             export ANDROID_ART_ROOT=$ANDROID_ART_ROOT && \
              export ANDROID_TZDATA_ROOT=$ANDROID_TZDATA_ROOT && \
              export ANDROID_LOG_TAGS=$ANDROID_LOG_TAGS && \
              rm -rf ${DEX_LOCATION}/dalvik-cache/ && \
              mkdir -p ${mkdir_locations} && \
              export LD_LIBRARY_PATH=$LD_LIBRARY_PATH && \
-             export PATH=$BIN_DIR:$PATH && \
+             export PATH=$PREPEND_TARGET_PATH:\$PATH && \
              $profman_cmdline && \
              $dex2oat_cmdline && \
              $dm_cmdline && \
              $vdex_cmdline && \
              $strip_cmdline && \
              $sync_cmdline && \
-             $dalvikvm_cmdline"
+             $timeout_prefix $dalvikvm_cmdline"
 
     cmdfile=$(tempfile -p "cmd-" -s "-$TEST_NAME")
     echo "$cmdline" > $cmdfile
 
     if [ "$DEV_MODE" = "y" ]; then
       echo $cmdline
+      if [ "$USE_GDB" = "y" ] || [ "$USE_GDBSERVER" = "y" ]; then
+        echo "Forward ${GDBSERVER_PORT} to local port and connect GDB"
+      fi
     fi
 
     if [ "$QUIET" = "n" ]; then
@@ -1062,7 +1210,8 @@ else
 
     export ANDROID_DATA="$DEX_LOCATION"
     export ANDROID_ROOT="${ANDROID_ROOT}"
-    export ANDROID_RUNTIME_ROOT="${ANDROID_RUNTIME_ROOT}"
+    export ANDROID_I18N_ROOT="${ANDROID_I18N_ROOT}"
+    export ANDROID_ART_ROOT="${ANDROID_ART_ROOT}"
     export ANDROID_TZDATA_ROOT="${ANDROID_TZDATA_ROOT}"
     if [ "$USE_ZIPAPEX" = "y" ] || [ "$USE_EXRACTED_ZIPAPEX" = "y" ]; then
       # Put the zipapex files in front of the ld-library-path
@@ -1072,7 +1221,7 @@ else
       export LD_LIBRARY_PATH="${ANDROID_ROOT}/${LIBRARY_DIRECTORY}:${ANDROID_ROOT}/${TEST_DIRECTORY}"
       export DYLD_LIBRARY_PATH="${ANDROID_ROOT}/${LIBRARY_DIRECTORY}:${ANDROID_ROOT}/${TEST_DIRECTORY}"
     fi
-    export PATH="$PATH:$BIN_DIR"
+    export PATH="$PATH:$ANDROID_ART_BIN_DIR"
 
     # Temporarily disable address space layout randomization (ASLR).
     # This is needed on the host so that the linker loads core.oat at the necessary address.
@@ -1100,15 +1249,16 @@ else
     if [ "$TIME_OUT" = "timeout" ]; then
       # Add timeout command if time out is desired.
       #
-      # Note: We first send SIGRTMIN+2 (usually 36) to ART, which will induce a full thread dump
-      #       before abort. However, dumping threads might deadlock, so we also use the "-k"
-      #       option to definitely kill the child.
+      # Note: We first send SIGTERM (the timeout default, signal 15) to the signal dumper, which
+      #       will induce a full thread dump before killing the process. To ensure any issues in
+      #       dumping do not lead to a deadlock, we also use the "-k" option to definitely kill the
+      #       child.
       # Note: Using "--foreground" to not propagate the signal to children, i.e., the runtime.
-      cmdline="timeout --foreground -k 120s -s SIGRTMIN+2 ${TIME_OUT_VALUE}s ${TIMEOUT_DUMPER} $cmdline"
+      cmdline="timeout --foreground -k 120s ${TIME_OUT_VALUE}s ${TIMEOUT_DUMPER} -s 15 $cmdline"
     fi
 
     if [ "$DEV_MODE" = "y" ]; then
-      for var in ANDROID_PRINTF_LOG ANDROID_DATA ANDROID_ROOT LD_LIBRARY_PATH DYLD_LIBRARY_PATH PATH LD_USE_LOAD_BIAS; do
+      for var in ANDROID_PRINTF_LOG ANDROID_DATA ANDROID_ROOT ANDROID_I18N_ROOT ANDROID_TZDATA_ROOT ANDROID_ART_ROOT LD_LIBRARY_PATH DYLD_LIBRARY_PATH PATH LD_USE_LOAD_BIAS; do
         echo EXPORT $var=${!var}
       done
       echo "$(declare -f linkdirs)"
@@ -1137,6 +1287,32 @@ else
     $strip_cmdline || { echo "Strip failed." >&2 ; exit 3; }
     $sync_cmdline || { echo "Sync failed." >&2 ; exit 4; }
 
+    if [ "$CREATE_RUNNER" = "y" ]; then
+      echo "#!/bin/bash" > ${DEX_LOCATION}/runit.sh
+      for var in ANDROID_PRINTF_LOG ANDROID_DATA ANDROID_ROOT ANDROID_I18N_ROOT ANDROID_TZDATA_ROOT ANDROID_ART_ROOT LD_LIBRARY_PATH DYLD_LIBRARY_PATH PATH LD_USE_LOAD_BIAS; do
+        echo export $var="${!var}" >> ${DEX_LOCATION}/runit.sh
+      done
+      if [ "$DEV_MODE" = "y" ]; then
+        echo $cmdline "2>&1" >> ${DEX_LOCATION}/runit.sh
+      else
+        echo 'STDERR=$(mktemp)' >> ${DEX_LOCATION}/runit.sh
+        echo 'STDOUT=$(mktemp)' >> ${DEX_LOCATION}/runit.sh
+        echo $cmdline '2>${STDERR} >${STDOUT}' >> ${DEX_LOCATION}/runit.sh
+        echo 'if diff ${STDOUT} $ANDROID_DATA/expected.txt; then' >> ${DEX_LOCATION}/runit.sh
+        echo '  rm -f ${STDOUT} ${STDERR}' >> ${DEX_LOCATION}/runit.sh
+        echo '  exit 0' >> ${DEX_LOCATION}/runit.sh
+        echo 'else' >> ${DEX_LOCATION}/runit.sh
+        echo '  echo  STDOUT:' >> ${DEX_LOCATION}/runit.sh
+        echo '  cat ${STDOUT}' >> ${DEX_LOCATION}/runit.sh
+        echo '  echo  STDERR:' >> ${DEX_LOCATION}/runit.sh
+        echo '  cat ${STDERR}' >> ${DEX_LOCATION}/runit.sh
+        echo '  rm -f ${STDOUT} ${STDERR}' >> ${DEX_LOCATION}/runit.sh
+        echo '  exit 1' >> ${DEX_LOCATION}/runit.sh
+        echo 'fi' >> ${DEX_LOCATION}/runit.sh
+      fi
+      chmod u+x $DEX_LOCATION/runit.sh
+      echo "Runnable test script written to ${DEX_LOCATION}/runit.sh"
+    fi
     if [ "$DRY_RUN" = "y" ]; then
       exit 0
     fi

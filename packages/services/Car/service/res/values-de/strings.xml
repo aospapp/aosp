@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Auf Autokamera(s) zugreifen."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"auf Energieinformationen des Autos zuzugreifen"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Auf Energieinformationen des Autos zugreifen."</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"Strecke anpassen, die das Auto noch fahren kann"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Wert für die Strecke anpassen, die das Auto noch fahren kann."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"auf die Klimaanlage zuzugreifen"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"Auf Klimaanlage des Autos zugreifen."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"auf den Kilometerstand zuzugreifen"</string>
@@ -62,17 +64,23 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"UX-Einschränkungen konfigurieren"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"Mit USB-Gerät im AOAP-Modus kommunizieren"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"Ermöglicht einer App, mit einem Gerät im AOAP-Modus zu kommunizieren"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Occupant Awareness System – Lesezugriff"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Berechtigung, die Status- und Erkennungsdaten des Occupant Awareness System zu lesen"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Occupant Awareness System Graph steuern"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Berechtigung, den Start- und Stoppvorgang des Occupant Awareness System-Erkennungsgraphen zu steuern"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Eingabedienst für das Auto"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Eingabe-Ereignisse verwalten"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN-Bus ausgefallen"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-Bus reagiert nicht. Trenne die Haupteinheit vom Stromnetz, schließe sie wieder an und starte das Auto."</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"Aus Sicherheitsgründen ist diese Aktivität während der Fahrt nicht verfügbar.\nWarte, bis das Fahrzeug geparkt ist."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"Du kannst diese Funktion nicht während der Fahrt nutzen"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"Wähle <xliff:g id="EXIT_BUTTON">%s</xliff:g>, um die App mit sicheren Funktionen neu zu starten."</string>
     <string name="exit_button" msgid="5829638404777671253">"Zurück"</string>
-    <string name="car_permission_label_diag_read" msgid="7248894224877702604">"Diagnosedaten zu lesen"</string>
-    <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Diagnosedaten des Autos lesen."</string>
-    <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"Diagnosedaten zu löschen"</string>
-    <string name="car_permission_desc_diag_clear" msgid="7453222114866042786">"Diagnosedaten des Autos löschen."</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"App schließen"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"Zurück"</string>
+    <string name="car_permission_label_diag_read" msgid="7248894224877702604">"Fehlerberichte zu lesen"</string>
+    <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Fehlerberichte des Autos lesen."</string>
+    <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"Fehlerberichte zu löschen"</string>
+    <string name="car_permission_desc_diag_clear" msgid="7453222114866042786">"Fehlerberichte des Autos löschen."</string>
     <string name="car_permission_label_vms_publisher" msgid="3049934078926106641">"VMS-Herausgeber"</string>
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"VMS-Meldungen senden"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS-Abonnent"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"Auf detaillierte Motorinformationen zugreifen."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"auf die Tankklappe und die Ladebuchse zuzugreifen"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"Auf Tankklappe und Ladebuchse zugreifen."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"Tankklappe und Ladebuchse steuern"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"Tankklappe und Ladebuchse steuern."</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"die Fahrzeug-Identifizierungsnummer zu lesen"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"Auf Fahrzeug-Identifizierungsnummer zugreifen."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"die Autotüren zu steuern"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Autositze steuern."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"auf grundlegende Fahrzeuginformationen zuzugreifen"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Auf grundlegende Fahrzeuginformationen zugreifen."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"Auf Informationen zu Berechtigungen des Herstellers zugreifen"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Auf Informationen zu Berechtigungen des Herstellers zugreifen."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"Informationen zum Zustand der Außenbeleuchtung zu lesen"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Auf Informationen zum Zustand der Außenbeleuchtung zugreifen."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"Informationen zur Außenbeleuchtung zu lesen"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"Auf Informationen zum Energiestatus des Autos zugreifen."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"Vertrauenswürdiges Gerät registrieren"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"Registrieren eines vertrauenswürdigen Geräts erlauben"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"Testmodus des Autos steuern"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"Testmodus des Autos steuern"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"Funktionen des Autos aktivieren oder deaktivieren"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"Funktionen des Autos aktivieren oder deaktivieren."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"Watchdog im Auto verwenden"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"Watchdog im Auto verwenden."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Mein Gerät"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"Gast"</string>
 </resources>

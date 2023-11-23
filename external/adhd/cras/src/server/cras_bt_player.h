@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
+/* Copyright 2016 The Chromium OS Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -10,7 +10,6 @@
 #include <stdbool.h>
 
 #include "cras_bt_adapter.h"
-
 
 /* Object to register as media player so that bluetoothd will report hardware
  * volume from device through bt_transport. Properties of the player are defined

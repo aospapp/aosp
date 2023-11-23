@@ -18,7 +18,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 8495723813297216424 (0x75e6dfcbc1685ba8)
-    Signature Algorithm: ecdsa-with-SHA256
+        Signature Algorithm: ecdsa-with-SHA256
         Issuer: C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com Root Certification Authority ECC
         Validity
             Not Before: Feb 12 18:14:03 2016 GMT

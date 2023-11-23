@@ -25,8 +25,6 @@
 
 package sun.nio.cs;
 
-import java.nio.charset.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ThreadLocalCoders {
 
@@ -34,7 +32,7 @@ public class ThreadLocalCoders {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.nio.charset.CharsetDecoder decoderFor(java.lang.Object name) {
         throw new RuntimeException("Stub!");
     }

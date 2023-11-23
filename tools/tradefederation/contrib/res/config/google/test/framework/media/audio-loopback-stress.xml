@@ -13,7 +13,7 @@
   </target_preparer>
 
   <target_preparer class="com.android.tradefed.targetprep.InstallApkSetup">
-    <option name="apk-path" value="/google/data/ro/teams/tradefed/testdata/media/apps/Loopback.apk" />
+    <option name="apk-path" value="gs://tradefed_test_resources/teams/tradefed/testdata/media/apps/Loopback.apk" />
   </target_preparer>
 
   <test class="com.android.media.tests.AudioLoopbackTest">

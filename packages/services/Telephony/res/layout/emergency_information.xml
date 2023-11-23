@@ -19,7 +19,8 @@
     android:layout_height="@dimen/emergency_info_button_height"
     android:layout_width="match_parent"
     android:layout_marginHorizontal="@dimen/emergency_shortcut_buttons_margin_horizontal"
-    android:layout_marginVertical="@dimen/emergency_info_button_margin_vertical">
+    android:layout_marginTop="@dimen/emergency_info_button_margin_top"
+    android:layout_marginBottom="@dimen/emergency_info_button_margin_bottom">
     <FrameLayout
         android:id="@+id/emergency_info_view"
         android:layout_height="match_parent"
@@ -38,7 +39,7 @@
                 android:layout_marginEnd="@dimen/emergency_dialer_image_margin_end"
                 android:layout_height="@dimen/emergency_info_image_height"
                 android:layout_width="@dimen/emergency_info_image_width"
-                android:scaleType="centerCrop"/>
+                android:scaleType="centerInside"/>
             <LinearLayout
                 android:layout_height="wrap_content"
                 android:layout_width="match_parent"
@@ -53,8 +54,7 @@
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:lineHeight="@dimen/emergency_info_name_line_height"
-                    android:fontFamily="@*android:string/config_headlineFontFamily"
-                    android:textAppearance="@style/HeadlineTextAppearance"/>
+                    android:textAppearance="@style/EmergencyInfoNameTextAppearance"/>
                 <TextView
                     android:id="@+id/emergency_info_hint"
                     android:layout_height="wrap_content"
@@ -62,8 +62,7 @@
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:lineHeight="@dimen/emergency_info_hint_line_height"
-                    android:alpha="0.7"
-                    android:textAppearance="@style/SubtitleTextAppearance"
+                    android:textAppearance="@style/EmergencyInfoHintTextAppearance"
                     android:text="@string/emergency_information_hint"/>
             </LinearLayout>
         </LinearLayout>
@@ -88,7 +87,7 @@
                 android:layout_width="@dimen/emergency_info_image_width"
                 android:layout_marginStart="@dimen/emergency_dialer_image_margin_start"
                 android:layout_marginEnd="@dimen/emergency_dialer_image_margin_end"
-                android:scaleType="centerCrop"/>
+                android:scaleType="centerInside"/>
             <TextView
                 android:id="@+id/confirmed_emergency_info"
                 android:layout_height="wrap_content"
@@ -99,8 +98,7 @@
                 android:maxLines="2"
                 android:ellipsize="end"
                 android:lineHeight="@dimen/confirmed_emergency_info_line_height"
-                android:fontFamily="@*android:string/config_headlineFontFamily"
-                android:textAppearance="@style/PhoneCallHintTextAppearance"
+                android:textAppearance="@style/EmergencyInfoTapHintTextAppearance"
                 android:text="@string/emergency_information_confirm_hint"/>
         </LinearLayout>
     </FrameLayout>

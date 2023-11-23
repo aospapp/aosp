@@ -64,6 +64,7 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
   options.push_back(std::make_pair("-Xmx4k", nullptr));
   options.push_back(std::make_pair("-Xss1m", nullptr));
   options.push_back(std::make_pair("-XX:HeapTargetUtilization=0.75", nullptr));
+  options.push_back(std::make_pair("-XX:StopForNativeAllocs=200m", nullptr));
   options.push_back(std::make_pair("-Dfoo=bar", nullptr));
   options.push_back(std::make_pair("-Dbaz=qux", nullptr));
   options.push_back(std::make_pair("-verbose:gc,class,jni", nullptr));
@@ -90,6 +91,7 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
   EXPECT_PARSED_EQ(2048U, Opt::MemoryInitialSize);
   EXPECT_PARSED_EQ(4 * KB, Opt::MemoryMaximumSize);
   EXPECT_PARSED_EQ(1 * MB, Opt::StackSize);
+  EXPECT_PARSED_EQ(200 * MB, Opt::StopForNativeAllocs);
   EXPECT_DOUBLE_EQ(0.75, map.GetOrDefault(Opt::HeapTargetUtilization));
   EXPECT_TRUE(test_vfprintf == map.GetOrDefault(Opt::HookVfprintf));
   EXPECT_TRUE(test_exit == map.GetOrDefault(Opt::HookExit));
@@ -98,6 +100,7 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
   EXPECT_FALSE(VLOG_IS_ON(compiler));
   EXPECT_FALSE(VLOG_IS_ON(heap));
   EXPECT_TRUE(VLOG_IS_ON(gc));
+  EXPECT_FALSE(VLOG_IS_ON(interpreter));
   EXPECT_FALSE(VLOG_IS_ON(jdwp));
   EXPECT_TRUE(VLOG_IS_ON(jni));
   EXPECT_FALSE(VLOG_IS_ON(monitor));
@@ -160,13 +163,11 @@ TEST_F(ParsedOptionsTest, ParsedOptionsInstructionSet) {
     EXPECT_EQ(kRuntimeISA, isa);
   }
 
-  const char* isa_strings[] = { "arm", "arm64", "x86", "x86_64", "mips", "mips64" };
+  const char* isa_strings[] = { "arm", "arm64", "x86", "x86_64" };
   InstructionSet ISAs[] = { InstructionSet::kArm,
                             InstructionSet::kArm64,
                             InstructionSet::kX86,
-                            InstructionSet::kX86_64,
-                            InstructionSet::kMips,
-                            InstructionSet::kMips64 };
+                            InstructionSet::kX86_64 };
   static_assert(arraysize(isa_strings) == arraysize(ISAs), "Need same amount.");
 
   for (size_t i = 0; i < arraysize(isa_strings); ++i) {

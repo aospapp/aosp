@@ -16,6 +16,10 @@
 
 package android.cts.backup;
 
+import static org.junit.Assert.fail;
+
+import com.android.compatibility.common.util.BackupHostSideUtils;
+import com.android.compatibility.common.util.BackupUtils;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
@@ -27,7 +31,11 @@ import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.TargetSetupError;
 
+import java.io.IOException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,6 +46,7 @@ import java.util.regex.Pattern;
  */
 @OptionClass(alias = "backup-preparer")
 public class BackupPreparer implements ITargetCleaner {
+    private static final long TRANSPORT_AVAILABLE_TIMEOUT_SECONDS = TimeUnit.MINUTES.toSeconds(5);
     @Option(name="enable-backup-if-needed", description=
             "Enable backup before all the tests and return to the original state after.")
     private boolean mEnableBackup = true;
@@ -52,20 +61,19 @@ public class BackupPreparer implements ITargetCleaner {
 
     private static final String LOCAL_TRANSPORT =
             "com.android.localtransport/.LocalTransport";
-
-    private static final int BACKUP_PROVISIONING_TIMEOUT_SECONDS = 30;
-    private static final int BACKUP_PROVISIONING_POLL_INTERVAL_SECONDS = 1;
+    private final int USER_SYSTEM = 0;
 
     private boolean mIsBackupSupported;
     private boolean mWasBackupEnabled;
     private String mOldTransport;
     private ITestDevice mDevice;
+    private BackupUtils mBackupUtils;
 
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
         mDevice = device;
-
+        mBackupUtils = BackupHostSideUtils.createBackupUtils(mDevice);
         mIsBackupSupported = mDevice.hasFeature("feature:" + FEATURE_BACKUP);
 
         // In case the device was just rebooted, wait for the broadcast queue to get idle to avoid
@@ -73,11 +81,15 @@ public class BackupPreparer implements ITargetCleaner {
         waitForBroadcastIdle();
 
         if (mIsBackupSupported) {
-            // Enable backup and select local backup transport
-            if (!hasBackupTransport(LOCAL_TRANSPORT)) {
-                throw new TargetSetupError("Device should have LocalTransport available",
-                        device.getDeviceDescriptor());
+            BackupHostSideUtils.checkSetupComplete(mDevice);
+            if (!isBackupActiveForSysytemUser()) {
+                throw new TargetSetupError("Cannot run test as backup is not active for system "
+                        + "user", device.getDeviceDescriptor());
             }
+
+            // Enable backup and select local backup transport
+            waitForTransport(LOCAL_TRANSPORT);
+
             if (mEnableBackup) {
                 CLog.i("Enabling backup on %s", mDevice.getSerialNumber());
                 mWasBackupEnabled = enableBackup(true);
@@ -87,7 +99,11 @@ public class BackupPreparer implements ITargetCleaner {
                     mOldTransport = setBackupTransport(LOCAL_TRANSPORT);
                     CLog.d("Old transport : %s", mOldTransport);
                 }
-                waitForBackupInitialization();
+                try {
+                    mBackupUtils.waitForBackupInitialization();
+                } catch (IOException e) {
+                    throw new TargetSetupError("Backup not initialized", e);
+                }
             }
         }
     }
@@ -99,7 +115,8 @@ public class BackupPreparer implements ITargetCleaner {
 
         if (mIsBackupSupported) {
             if (mEnableBackup) {
-                CLog.i("Returning backup to it's previous state on %s", mDevice.getSerialNumber());
+                CLog.i("Returning backup to it's previous state on %s",
+                        mDevice.getSerialNumber());
                 enableBackup(mWasBackupEnabled);
                 if (mSelectLocalTransport) {
                     CLog.i("Returning selected transport to it's previous value on %s",
@@ -110,15 +127,56 @@ public class BackupPreparer implements ITargetCleaner {
         }
     }
 
-    // Copied over from BackupQuotaTest
-    private boolean hasBackupTransport(String transport) throws DeviceNotAvailableException {
+    private void waitForTransport(String transport) throws TargetSetupError {
+        try {
+            waitUntilWithLastTry(
+                    "Local transport didn't become available",
+                    TRANSPORT_AVAILABLE_TIMEOUT_SECONDS,
+                    lastTry -> uncheck(() -> hasBackupTransport(transport, lastTry)));
+        } catch (InterruptedException e) {
+            throw new TargetSetupError(
+                    "Device should have LocalTransport available", mDevice.getDeviceDescriptor());
+        }
+    }
+
+    private boolean hasBackupTransport(String transport, boolean logIfFail)
+            throws DeviceNotAvailableException, TargetSetupError {
         String output = mDevice.executeShellCommand("bmgr list transports");
         for (String t : output.split(" ")) {
             if (transport.equals(t.trim())) {
                 return true;
             }
         }
+        if (logIfFail) {
+            throw new TargetSetupError(
+                    transport + " not available. bmgr list transports: " + output,
+                    mDevice.getDeviceDescriptor());
+        }
         return false;
+    }
+
+    /**
+     * Calls {@code predicate} with {@code false} until time-out {@code timeoutSeconds} is reached,
+     * if {@code predicate} returns true, method returns. If time-out is reached before that, we
+     * call {@code predicate} with {@code true} one last time, if that last call returns false we
+     * fail with {@code message}.
+     *
+     * TODO: Move to CommonTestUtils
+     */
+    private static void waitUntilWithLastTry(
+            String message, long timeoutSeconds, Function<Boolean, Boolean> predicate)
+            throws InterruptedException {
+        int sleep = 125;
+        final long timeout = System.currentTimeMillis() + timeoutSeconds * 1000;
+        while (System.currentTimeMillis() < timeout) {
+            if (predicate.apply(false)) {
+                return;
+            }
+            Thread.sleep(sleep);
+        }
+        if (!predicate.apply(true)) {
+            fail(message);
+        }
     }
 
     // Copied over from BackupQuotaTest
@@ -149,27 +207,6 @@ public class BackupPreparer implements ITargetCleaner {
         }
     }
 
-    private void waitForBackupInitialization()
-        throws TargetSetupError, DeviceNotAvailableException {
-        long tryUntilNanos = System.nanoTime()
-            + TimeUnit.SECONDS.toNanos(BACKUP_PROVISIONING_TIMEOUT_SECONDS);
-        while (System.nanoTime() < tryUntilNanos) {
-            String output = mDevice.executeShellCommand("dumpsys backup");
-            if (output.matches("(?s)"  // DOTALL
-                + "^Backup Manager is .* not pending init.*")) {
-                return;
-            }
-            try {
-                Thread.sleep(TimeUnit.SECONDS.toMillis(BACKUP_PROVISIONING_POLL_INTERVAL_SECONDS));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-        throw new TargetSetupError("Timed out waiting for backup initialization",
-            mDevice.getDeviceDescriptor());
-    }
-
     // Copied over from BaseDevicePolicyTest
     private void waitForBroadcastIdle() throws DeviceNotAvailableException, TargetSetupError {
         CollectingOutputReceiver receiver = new CollectingOutputReceiver();
@@ -190,4 +227,21 @@ public class BackupPreparer implements ITargetCleaner {
         }
     }
 
+    private boolean isBackupActiveForSysytemUser() {
+        try {
+            return mBackupUtils.isBackupActivatedForUser(USER_SYSTEM);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to check backup activation status");
+        }
+    }
+
+    private static <T> T uncheck(Callable<T> callable) {
+        try {
+            return callable.call();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CompletionException(e);
+        }
+    }
 }

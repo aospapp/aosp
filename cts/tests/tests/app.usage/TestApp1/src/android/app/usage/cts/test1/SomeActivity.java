@@ -15,7 +15,7 @@
  */
 package android.app.usage.cts.test1;
 
-import android.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.WindowManager;

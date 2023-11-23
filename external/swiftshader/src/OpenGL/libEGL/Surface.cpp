@@ -33,6 +33,9 @@
 #elif defined(__APPLE__)
 #include "OSXUtils.hpp"
 #endif
+#if defined(__ANDROID__) && defined(ANDROID_NDK_BUILD)
+#include <android/native_window.h>
+#endif
 
 #include <algorithm>
 
@@ -247,6 +250,8 @@ sw::Format Surface::getClientBufferFormat() const
 			return sw::FORMAT_R8;
 		case GL_RG:
 			return sw::FORMAT_G8R8;
+		case GL_RGB:
+			return sw::FORMAT_X8R8G8B8;
 		case GL_BGRA_EXT:
 			return sw::FORMAT_A8R8G8B8;
 		default:
@@ -339,8 +344,13 @@ bool WindowSurface::checkForResize()
 		int windowWidth = client.right - client.left;
 		int windowHeight = client.bottom - client.top;
 	#elif defined(__ANDROID__)
+	#ifdef ANDROID_NDK_BUILD
+		int windowWidth = ANativeWindow_getWidth(window);
+		int windowHeight = ANativeWindow_getHeight(window);
+	#else
 		int windowWidth;  window->query(window, NATIVE_WINDOW_WIDTH, &windowWidth);
 		int windowHeight; window->query(window, NATIVE_WINDOW_HEIGHT, &windowHeight);
+	#endif
 	#elif defined(USE_X11)
 		XWindowAttributes windowAttributes;
 		Status status = libX11->XGetWindowAttributes((::Display*)display->getNativeDisplay(), window, &windowAttributes);

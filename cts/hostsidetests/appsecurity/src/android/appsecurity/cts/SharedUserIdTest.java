@@ -62,9 +62,9 @@ public class SharedUserIdTest extends BaseAppSecurityTest {
             getDevice().uninstallPackage(SHARED_UI_PKG);
             getDevice().uninstallPackage(SHARED_UI_DIFF_CERT_PKG);
 
-            new InstallMultiple().addApk(SHARED_UI_APK).run();
+            new InstallMultiple().addFile(SHARED_UI_APK).run();
             runDeviceTests(SHARED_UI_PKG, SHARED_UI_TEST_CLASS, SHARED_UI_TEST_METHOD);
-            new InstallMultiple().addApk(SHARED_UI_DIFF_CERT_APK)
+            new InstallMultiple().addFile(SHARED_UI_DIFF_CERT_APK)
                     .runExpectingFailure("INSTALL_FAILED_SHARED_USER_INCOMPATIBLE");
             runDeviceTests(SHARED_UI_PKG, SHARED_UI_TEST_CLASS, SHARED_UI_TEST_METHOD);
         } finally {

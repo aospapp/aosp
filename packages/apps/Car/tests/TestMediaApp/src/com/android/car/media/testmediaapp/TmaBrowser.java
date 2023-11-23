@@ -15,6 +15,10 @@
  */
 package com.android.car.media.testmediaapp;
 
+import static com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaBrowseNodeType.LEAF_CHILDREN;
+import static com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaBrowseNodeType.QUEUE_ONLY;
+import static com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaLoginEventOrder.PLAYBACK_STATE_UPDATE_FIRST;
+
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Bundle;
@@ -30,11 +34,13 @@ import androidx.media.MediaBrowserServiceCompat;
 
 import com.android.car.media.testmediaapp.loader.TmaLoader;
 import com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaAccountType;
-import com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaNodeReplyDelay;
+import com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaReplyDelay;
 import com.android.car.media.testmediaapp.prefs.TmaPrefs;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
@@ -46,10 +52,17 @@ import java.util.List;
  * {@link TmaPlayer}.
  */
 public class TmaBrowser extends MediaBrowserServiceCompat {
+    private static final String TAG = "TmaBrowser";
 
+    private static final int MAX_SEARCH_DEPTH = 4;
     private static final String MEDIA_SESSION_TAG = "TEST_MEDIA_SESSION";
     private static final String ROOT_ID = "_ROOT_ID_";
     private static final String SEARCH_SUPPORTED = "android.media.browse.SEARCH_SUPPORTED";
+    /**
+     * Extras key to allow Android Auto to identify the browse service from the media session.
+     */
+    private static final String BROWSE_SERVICE_FOR_SESSION_KEY =
+        "android.media.session.BROWSE_SERVICE";
 
     private TmaPrefs mPrefs;
     private Handler mHandler;
@@ -58,7 +71,6 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
     private TmaPlayer mPlayer;
 
     private BrowserRoot mRoot;
-    private String mLastLoadedNodeId;
 
     @Override
     public void onCreate() {
@@ -75,6 +87,9 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
         mSession.setCallback(mPlayer);
         mSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
                 | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        Bundle mediaSessionExtras = new Bundle();
+        mediaSessionExtras.putString(BROWSE_SERVICE_FOR_SESSION_KEY, TmaBrowser.class.getName());
+        mSession.setExtras(mediaSessionExtras);
 
         mPrefs.mAccountType.registerChangeListener(
                 (oldValue, newValue) -> onAccountChanged(newValue));
@@ -85,9 +100,11 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
         mPrefs.mRootReplyDelay.registerChangeListener(
                 (oldValue, newValue) -> invalidateRoot());
 
-        Bundle extras = new Bundle();
-        extras.putBoolean(SEARCH_SUPPORTED, true);
-        mRoot = new BrowserRoot(ROOT_ID, extras);
+        Bundle browserRootExtras = new Bundle();
+        browserRootExtras.putBoolean(SEARCH_SUPPORTED, true);
+        mRoot = new BrowserRoot(ROOT_ID, browserRootExtras);
+
+        updatePlaybackState(mPrefs.mAccountType.getValue());
     }
 
     @Override
@@ -99,20 +116,35 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
     }
 
     private void onAccountChanged(TmaAccountType accountType) {
+        if (PLAYBACK_STATE_UPDATE_FIRST.equals(mPrefs.mLoginEventOrder.getValue())) {
+            updatePlaybackState(accountType);
+            invalidateRoot();
+        } else {
+            invalidateRoot();
+            (new Handler()).postDelayed(() -> {
+                updatePlaybackState(accountType);
+            }, 3000);
+        }
+    }
+
+    private void updatePlaybackState(TmaAccountType accountType) {
         if (accountType == TmaAccountType.NONE) {
+            mSession.setMetadata(null);
+            mPlayer.onStop();
             mPlayer.setPlaybackState(
                     new TmaMediaEvent(TmaMediaEvent.EventState.ERROR,
                             TmaMediaEvent.StateErrorCode.AUTHENTICATION_EXPIRED,
                             getResources().getString(R.string.no_account),
                             getResources().getString(R.string.select_account),
-                            TmaMediaEvent.ResolutionIntent.PREFS, 0));
+                            TmaMediaEvent.ResolutionIntent.PREFS,
+                            TmaMediaEvent.Action.NONE, 0, null));
         } else {
             // TODO don't reset error in all cases...
             PlaybackStateCompat.Builder playbackState = new PlaybackStateCompat.Builder();
             playbackState.setState(PlaybackStateCompat.STATE_PAUSED, 0, 0);
+            playbackState.setActions(PlaybackStateCompat.ACTION_PREPARE);
             mSession.setPlaybackState(playbackState.build());
         }
-        invalidateRoot();
     }
 
     private void invalidateRoot() {
@@ -122,24 +154,38 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
     @Override
     public BrowserRoot onGetRoot(
             @NonNull String clientPackageName, int clientUid, Bundle rootHints) {
+        if (rootHints == null) {
+            Log.e(TAG, "Client " + clientPackageName + " didn't set rootHints.");
+            throw new NullPointerException("rootHints is null");
+        }
+        Log.i(TAG, "onGetroot client: " + clientPackageName + " EXTRA_MEDIA_ART_SIZE_HINT_PIXELS: "
+                + rootHints.getInt(MediaKeys.EXTRA_MEDIA_ART_SIZE_HINT_PIXELS, 0));
         return mRoot;
     }
 
     @Override
     public void onLoadChildren(@NonNull String parentId, @NonNull Result<List<MediaItem>> result) {
-        mLastLoadedNodeId = parentId;
         getMediaItemsWithDelay(parentId, result, null);
+
+        if (QUEUE_ONLY.equals(mPrefs.mRootNodeType.getValue()) && ROOT_ID.equals(parentId)) {
+            TmaMediaItem queue = mLibrary.getRoot(LEAF_CHILDREN);
+            if (queue != null) {
+                mSession.setQueue(queue.buildQueue());
+                mPlayer.prepareMediaItem(queue.getPlayableByIndex(0));
+            }
+        }
     }
 
     @Override
-    public void onSearch(final String query, final Bundle extras, Result<List<MediaItem>> result) {
-        getMediaItemsWithDelay(mLastLoadedNodeId, result, query);
+    public void onSearch(@NonNull String query, Bundle extras,
+            @NonNull Result<List<MediaItem>> result) {
+        getMediaItemsWithDelay(ROOT_ID, result, query);
     }
 
     private void getMediaItemsWithDelay(@NonNull String parentId,
             @NonNull Result<List<MediaItem>> result, @Nullable String filter) {
         // TODO: allow per item override of the delay ?
-        TmaNodeReplyDelay delay = mPrefs.mRootReplyDelay.getValue();
+        TmaReplyDelay delay = mPrefs.mRootReplyDelay.getValue();
         Runnable task = () -> {
             TmaMediaItem node;
             if (TmaAccountType.NONE.equals(mPrefs.mAccountType.getValue())) {
@@ -152,23 +198,73 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
 
             if (node == null) {
                 result.sendResult(null);
+            } else if (filter != null) {
+                List<MediaItem> hits = new ArrayList<>(50);
+                Pattern pat = Pattern.compile(Pattern.quote(filter), Pattern.CASE_INSENSITIVE);
+                addSearchResults(node, pat.matcher(""), hits, MAX_SEARCH_DEPTH);
+                result.sendResult(hits);
             } else {
-                List<MediaItem> items = new ArrayList<>(node.mChildren.size());
-                for (TmaMediaItem child : node.mChildren) {
-                    MediaItem item = child.toMediaItem();
-                    CharSequence title = item.getDescription().getTitle();
-                    if (filter == null || (title != null && title.toString().contains(filter))) {
-                        items.add(item);
+                List<TmaMediaItem> children = node.getChildren();
+                int childrenCount = children.size();
+                List<MediaItem> items = new ArrayList<>(childrenCount);
+                if (childrenCount <= 0) {
+                    result.sendResult(items);
+                } else {
+                    int selfUpdateDelay = node.getSelfUpdateDelay();
+                    int toShow = (selfUpdateDelay > 0) ? 1 + node.mRevealCounter : childrenCount;
+                    for (int childIndex = 0 ; childIndex < toShow; childIndex++) {
+                        items.add(children.get(childIndex).toMediaItem());
+                    }
+                    result.sendResult(items);
+
+                    if (selfUpdateDelay > 0) {
+                        mHandler.postDelayed(new UpdateNodeTask(parentId), selfUpdateDelay);
+                        node.mRevealCounter = (node.mRevealCounter + 1) % (childrenCount);
                     }
                 }
-                result.sendResult(items);
             }
         };
-        if (delay == TmaNodeReplyDelay.NONE) {
+        if (delay == TmaReplyDelay.NONE) {
             task.run();
         } else {
             result.detach();
             mHandler.postDelayed(task, delay.mReplyDelayMs);
+        }
+    }
+
+    private void addSearchResults(@Nullable TmaMediaItem node, Matcher matcher,
+            List<MediaItem> hits, int currentDepth) {
+        if (node == null || currentDepth <= 0) {
+            return;
+        }
+
+        for (TmaMediaItem child : node.getChildren()) {
+            MediaItem item = child.toMediaItem();
+            CharSequence title = item.getDescription().getTitle();
+            if (title != null) {
+                matcher.reset(title);
+                if (matcher.find()) {
+                    hits.add(item);
+                }
+            }
+
+            // Ask the library to load the grand children
+            child = mLibrary.getMediaItemById(child.getMediaId());
+            addSearchResults(child, matcher, hits, currentDepth - 1);
+        }
+    }
+
+    private class UpdateNodeTask implements Runnable {
+
+        private final String mNodeId;
+
+        UpdateNodeTask(@NonNull String nodeId) {
+            mNodeId = nodeId;
+        }
+
+        @Override
+        public void run() {
+            notifyChildrenChanged(mNodeId);
         }
     }
 }

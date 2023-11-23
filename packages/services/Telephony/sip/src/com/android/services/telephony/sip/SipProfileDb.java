@@ -16,11 +16,10 @@
 
 package com.android.services.telephony.sip;
 
-import com.android.internal.os.AtomicFile;
-
 import android.content.Context;
 import android.net.sip.SipProfile;
 import android.text.TextUtils;
+import android.util.AtomicFile;
 import android.util.EventLog;
 import android.util.Log;
 

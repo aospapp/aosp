@@ -15,12 +15,11 @@
 ** limitations under the License.
 */
 
-#include "soft_attestation_cert.h"
+#include <keymaster/contexts/soft_attestation_cert.h>
 
 #include <stdint.h>
 #include <hardware/keymaster_defs.h>
 #include <keymaster/android_keymaster_utils.h>
-#include <openssl/aes.h>
 
 namespace keymaster {
 

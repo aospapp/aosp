@@ -18,29 +18,34 @@
 
 #include "art_method.h"
 #include "dex/dex_file_types.h"
+#include "interpreter/interpreter_mterp_impl.h"
+#include "interpreter/mterp/mterp.h"
+#include "nterp_helpers.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack_map.h"
 #include "thread.h"
 
 namespace art {
 
-uint32_t OatQuickMethodHeader::ToDexPc(ArtMethod* method,
+uint32_t OatQuickMethodHeader::ToDexPc(ArtMethod** frame,
                                        const uintptr_t pc,
                                        bool abort_on_failure) const {
+  ArtMethod* method = *frame;
   const void* entry_point = GetEntryPoint();
   uint32_t sought_offset = pc - reinterpret_cast<uintptr_t>(entry_point);
   if (method->IsNative()) {
     return dex::kDexNoIndex;
+  } else if (IsNterpMethodHeader()) {
+    return NterpGetDexPC(frame);
   } else {
     DCHECK(IsOptimized());
-    CodeInfo code_info(this, CodeInfo::DecodeFlags::InlineInfoOnly);
+    CodeInfo code_info = CodeInfo::DecodeInlineInfoOnly(this);
     StackMap stack_map = code_info.GetStackMapForNativePcOffset(sought_offset);
     if (stack_map.IsValid()) {
       return stack_map.GetDexPc();
     }
   }
   if (abort_on_failure) {
-    ScopedObjectAccess soa(Thread::Current());
     LOG(FATAL) << "Failed to find Dex offset for PC offset "
            << reinterpret_cast<void*>(sought_offset)
            << "(PC " << reinterpret_cast<void*>(pc) << ", entry_point=" << entry_point
@@ -56,9 +61,14 @@ uintptr_t OatQuickMethodHeader::ToNativeQuickPc(ArtMethod* method,
                                                 bool abort_on_failure) const {
   const void* entry_point = GetEntryPoint();
   DCHECK(!method->IsNative());
+  if (IsNterpMethodHeader()) {
+    // This should only be called on an nterp frame for getting a catch handler.
+    CHECK(is_for_catch_handler);
+    return NterpGetCatchHandler();
+  }
   DCHECK(IsOptimized());
   // Search for the dex-to-pc mapping in stack maps.
-  CodeInfo code_info(this, CodeInfo::DecodeFlags::InlineInfoOnly);
+  CodeInfo code_info = CodeInfo::DecodeInlineInfoOnly(this);
 
   // All stack maps are stored in the same CodeItem section, safepoint stack
   // maps first, then catch stack maps. We use `is_for_catch_handler` to select
@@ -76,6 +86,17 @@ uintptr_t OatQuickMethodHeader::ToNativeQuickPc(ArtMethod* method,
                << " in " << method->PrettyMethod();
   }
   return UINTPTR_MAX;
+}
+
+OatQuickMethodHeader* OatQuickMethodHeader::NterpMethodHeader =
+    (interpreter::IsNterpSupported()
+        ? reinterpret_cast<OatQuickMethodHeader*>(
+              reinterpret_cast<uintptr_t>(interpreter::GetNterpEntryPoint()) -
+                  sizeof(OatQuickMethodHeader))
+        : nullptr);
+
+bool OatQuickMethodHeader::IsNterpMethodHeader() const {
+  return interpreter::IsNterpSupported() ? (this == NterpMethodHeader) : false;
 }
 
 }  // namespace art

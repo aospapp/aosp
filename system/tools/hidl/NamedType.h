@@ -28,13 +28,12 @@
 namespace android {
 
 struct NamedType : public Type {
-    NamedType(const char* localName, const FQName& fullName, const Location& loc, Scope* parent);
+    NamedType(const std::string& localName, const FQName& fullName, const Location& loc,
+              Scope* parent);
 
     bool isNamedType() const override;
 
     const FQName &fqName() const;
-
-    std::string localName() const;
 
     /* short for fqName().cppName() */
     std::string fullName() const;
@@ -49,7 +48,6 @@ struct NamedType : public Type {
             const std::string &name) const override;
 
    private:
-    const std::string mLocalName;
     const FQName mFullName;
     const Location mLocation;
 

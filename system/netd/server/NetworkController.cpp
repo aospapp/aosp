@@ -30,13 +30,13 @@
 #include <android-base/strings.h>
 #include <cutils/misc.h>  // FIRST_APPLICATION_UID
 #include <netd_resolv/resolv.h>
-#include <netd_resolv/resolv_stub.h>
 #include "log/log.h"
 
 #include "Controllers.h"
 #include "DummyNetwork.h"
 #include "Fwmark.h"
 #include "LocalNetwork.h"
+#include "OffloadUtils.h"
 #include "PhysicalNetwork.h"
 #include "RouteController.h"
 #include "VirtualNetwork.h"
@@ -47,8 +47,7 @@
 
 using android::netdutils::DumpWriter;
 
-namespace android {
-namespace net {
+namespace android::net {
 
 namespace {
 
@@ -67,21 +66,21 @@ const unsigned MAX_NET_ID = 65535;
 // setPermissionForNetworks).
 // TODO: use std::mutex and GUARDED_BY instead of manual inspection.
 class NetworkController::DelegateImpl : public PhysicalNetwork::Delegate {
-public:
+  public:
     explicit DelegateImpl(NetworkController* networkController);
     virtual ~DelegateImpl();
 
-    int modifyFallthrough(unsigned vpnNetId, const std::string& physicalInterface,
-                          Permission permission, bool add) WARN_UNUSED_RESULT;
+    [[nodiscard]] int modifyFallthrough(unsigned vpnNetId, const std::string& physicalInterface,
+                                        Permission permission, bool add);
 
-private:
-    int addFallthrough(const std::string& physicalInterface,
-                       Permission permission) override WARN_UNUSED_RESULT;
-    int removeFallthrough(const std::string& physicalInterface,
-                          Permission permission) override WARN_UNUSED_RESULT;
+  private:
+    [[nodiscard]] int addFallthrough(const std::string& physicalInterface,
+                                     Permission permission) override;
+    [[nodiscard]] int removeFallthrough(const std::string& physicalInterface,
+                                        Permission permission) override;
 
-    int modifyFallthrough(const std::string& physicalInterface, Permission permission,
-                          bool add) WARN_UNUSED_RESULT;
+    [[nodiscard]] int modifyFallthrough(const std::string& physicalInterface, Permission permission,
+                                        bool add);
 
     NetworkController* const mNetworkController;
 };
@@ -143,6 +142,22 @@ NetworkController::NetworkController() :
         mProtectableUsers({AID_VPN}) {
     mNetworks[LOCAL_NET_ID] = new LocalNetwork(LOCAL_NET_ID);
     mNetworks[DUMMY_NET_ID] = new DummyNetwork(DUMMY_NET_ID);
+
+    // Clear all clsact stubs on all interfaces.
+    // TODO: perhaps only remove the clsact on the interface which is added by
+    // RouteController::addInterfaceToPhysicalNetwork. Currently, the netd only
+    // attach the clsact to the interface for the physical network.
+    if (bpf::isBpfSupported()) {
+        const auto& ifaces = InterfaceController::getIfaceNames();
+        if (isOk(ifaces)) {
+            for (const std::string& iface : ifaces.value()) {
+                if (int ifIndex = if_nametoindex(iface.c_str())) {
+                    // Ignore the error because the interface might not have a clsact.
+                    tcQdiscDelDevClsact(ifIndex);
+                }
+            }
+        }
+    }
 }
 
 unsigned NetworkController::getDefaultNetwork() const {
@@ -214,8 +229,7 @@ uint32_t NetworkController::getNetworkForDnsLocked(unsigned* netId, uid_t uid) c
         // servers (through the default network). Otherwise, the query is guaranteed to fail.
         // http://b/29498052
         Network *network = getNetworkLocked(*netId);
-        if (network && network->getType() == Network::VIRTUAL &&
-            !RESOLV_STUB.resolv_has_nameservers(*netId)) {
+        if (network && network->getType() == Network::VIRTUAL && !resolv_has_nameservers(*netId)) {
             *netId = mDefaultNetId;
         }
     } else {
@@ -224,7 +238,7 @@ uint32_t NetworkController::getNetworkForDnsLocked(unsigned* netId, uid_t uid) c
         // them). Otherwise, use the default network's DNS servers.
         // TODO: Consider if we should set the explicit bit here.
         VirtualNetwork* virtualNetwork = getVirtualNetworkForUserLocked(uid);
-        if (virtualNetwork && RESOLV_STUB.resolv_has_nameservers(virtualNetwork->getNetId())) {
+        if (virtualNetwork && resolv_has_nameservers(virtualNetwork->getNetId())) {
             *netId = virtualNetwork->getNetId();
         } else {
             // TODO: return an error instead of silently doing the DNS lookup on the wrong network.
@@ -234,11 +248,6 @@ uint32_t NetworkController::getNetworkForDnsLocked(unsigned* netId, uid_t uid) c
     }
     fwmark.netId = *netId;
     return fwmark.intValue;
-}
-
-uint32_t NetworkController::getNetworkForDns(unsigned* netId, uid_t uid) const {
-    ScopedRLock lock(mRWLock);
-    return getNetworkForDnsLocked(netId, uid);
 }
 
 // Returns the NetId that a given UID would use if no network is explicitly selected. Specifically,
@@ -497,12 +506,20 @@ int NetworkController::addInterfaceToNetwork(unsigned netId, const char* interfa
         return ret;
     }
 
-    int ifIndex = RouteController::getIfIndex(interface);
-    if (ifIndex) {
-        mIfindexToLastNetId[ifIndex] = netId;
-    } else {
-        // Cannot happen, since addInterface() above will have failed.
-        ALOGE("inconceivable! added interface %s with no index", interface);
+    // Only populate mIfindexToLastNetId for non-local networks, because for these getIfIndex will
+    // return 0. That's fine though, because that map is only used to prevent force-closing sockets
+    // when the same IP address is handed over from one interface to another interface that is in
+    // the same network but not in the same netId (for now this is done only on VPNs). That is not
+    // useful for the local network because IP addresses in the local network are always assigned by
+    // the device itself and never meaningful on any other network.
+    if (netId != LOCAL_NET_ID) {
+        int ifIndex = RouteController::getIfIndex(interface);
+        if (ifIndex) {
+            mIfindexToLastNetId[ifIndex] = netId;
+        } else {
+            // Cannot happen, since addInterface() above will have failed.
+            ALOGE("inconceivable! added interface %s with no index", interface);
+        }
     }
     return 0;
 }
@@ -593,13 +610,18 @@ int NetworkController::removeUsersFromNetwork(unsigned netId, const UidRanges& u
 }
 
 int NetworkController::addRoute(unsigned netId, const char* interface, const char* destination,
-                                const char* nexthop, bool legacy, uid_t uid) {
-    return modifyRoute(netId, interface, destination, nexthop, true, legacy, uid);
+                                const char* nexthop, bool legacy, uid_t uid, int mtu) {
+    return modifyRoute(netId, interface, destination, nexthop, ROUTE_ADD, legacy, uid, mtu);
+}
+
+int NetworkController::updateRoute(unsigned netId, const char* interface, const char* destination,
+                                   const char* nexthop, bool legacy, uid_t uid, int mtu) {
+    return modifyRoute(netId, interface, destination, nexthop, ROUTE_UPDATE, legacy, uid, mtu);
 }
 
 int NetworkController::removeRoute(unsigned netId, const char* interface, const char* destination,
                                    const char* nexthop, bool legacy, uid_t uid) {
-    return modifyRoute(netId, interface, destination, nexthop, false, legacy, uid);
+    return modifyRoute(netId, interface, destination, nexthop, ROUTE_REMOVE, legacy, uid, 0);
 }
 
 void NetworkController::addInterfaceAddress(unsigned ifIndex, const char* address) {
@@ -633,7 +655,7 @@ bool NetworkController::removeInterfaceAddress(unsigned ifindex, const char* add
     }
     // Then, check for VPN handover condition
     if (mIfindexToLastNetId.find(ifindex) == mIfindexToLastNetId.end()) {
-        ALOGE("Interface index %u was never in a currently-connected netId", ifindex);
+        ALOGW("Interface index %u was never in a currently-connected non-local netId", ifindex);
         return true;
     }
     unsigned lastNetId = mIfindexToLastNetId[ifindex];
@@ -776,7 +798,8 @@ int NetworkController::checkUserNetworkAccessLocked(uid_t uid, unsigned netId) c
 }
 
 int NetworkController::modifyRoute(unsigned netId, const char* interface, const char* destination,
-                                   const char* nexthop, bool add, bool legacy, uid_t uid) {
+                                   const char* nexthop, enum RouteOperation op, bool legacy,
+                                   uid_t uid, int mtu) {
     ScopedRLock lock(mRWLock);
 
     if (!isValidNetworkLocked(netId)) {
@@ -806,8 +829,15 @@ int NetworkController::modifyRoute(unsigned netId, const char* interface, const 
         tableType = RouteController::INTERFACE;
     }
 
-    return add ? RouteController::addRoute(interface, destination, nexthop, tableType) :
-                 RouteController::removeRoute(interface, destination, nexthop, tableType);
+    switch (op) {
+        case ROUTE_ADD:
+            return RouteController::addRoute(interface, destination, nexthop, tableType, mtu);
+        case ROUTE_UPDATE:
+            return RouteController::updateRoute(interface, destination, nexthop, tableType, mtu);
+        case ROUTE_REMOVE:
+            return RouteController::removeRoute(interface, destination, nexthop, tableType);
+    }
+    return -EINVAL;
 }
 
 int NetworkController::modifyFallthroughLocked(unsigned vpnNetId, bool add) {
@@ -850,5 +880,4 @@ void NetworkController::updateTcpSocketMonitorPolling() {
     }
 }
 
-}  // namespace net
-}  // namespace android
+}  // namespace android::net

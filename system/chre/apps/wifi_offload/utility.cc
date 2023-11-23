@@ -90,8 +90,8 @@ int Ieee80211FrequencyToChannel(int freq) {
 
 void LogSsid(const uint8_t *ssid, uint8_t ssid_len) {
   const char *ssid_str = "<non-printable>";
-  char ssid_buffer[std::max<size_t>(kMaxSsidStrLen,
-                                    CHRE_WIFI_SSID_MAX_LEN * 3)];
+  char
+      ssid_buffer[std::max<size_t>(kMaxSsidStrLen, CHRE_WIFI_SSID_MAX_LEN * 3)];
   if (ssid_len == 0) {
     ssid_str = "<empty>";
   } else if (ParseSsidToStr(ssid, ssid_len, ssid_buffer, kMaxSsidStrLen)) {

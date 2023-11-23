@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/storage_settings_title">
+                  android:title="@string/storage_settings_title"
+                  android:key="@string/psk_storage_settings">
     <com.android.car.settings.common.ProgressBarPreference
         android:icon="@drawable/ic_media_stream"
         android:key="@string/pk_storage_music_audio"

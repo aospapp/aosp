@@ -17,10 +17,15 @@
 package android.view.inputmethod.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import android.os.Parcel;
 import android.view.inputmethod.ExtractedTextRequest;
+import android.view.inputmethod.InputConnection;
 
+import androidx.annotation.AnyThread;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -30,24 +35,63 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class ExtractedTextRequestTest {
-    @Test
-    public void testExtractedTextRequest() {
-        ExtractedTextRequest request = new ExtractedTextRequest();
-        request.flags = 1;
-        request.hintMaxChars = 100;
-        request.hintMaxLines = 10;
-        request.token = 2;
 
+    private static final int EXPECTED_FLAGS = InputConnection.GET_TEXT_WITH_STYLES;
+    private static final int EXPECTED_HINT_MAX_CHARS = 100;
+    private static final int EXPECTED_HINT_MAX_LINES = 10;
+    private static final int EXPECTED_TOKEN = 2;
+
+    /**
+     * @return An instance of {@link ExtractedTextRequest} for test.
+     */
+    @AnyThread
+    @NonNull
+    static ExtractedTextRequest createForTest() {
+        final ExtractedTextRequest request = new ExtractedTextRequest();
+        request.flags = EXPECTED_FLAGS;
+        request.hintMaxChars = EXPECTED_HINT_MAX_CHARS;
+        request.hintMaxLines = EXPECTED_HINT_MAX_LINES;
+        request.token = EXPECTED_TOKEN;
+        return request;
+    }
+
+    /**
+     * Ensures that the specified object is equivalent to the one returned from
+     * {@link #createForTest()}.
+     *
+     * @param request {@link ExtractedTextRequest} to be tested.
+     */
+    static void assertTestInstance(@Nullable ExtractedTextRequest request) {
+        assertNotNull(request);
+
+        assertEquals(EXPECTED_FLAGS, request.flags);
+        assertEquals(EXPECTED_HINT_MAX_CHARS, request.hintMaxChars);
+        assertEquals(EXPECTED_HINT_MAX_LINES, request.hintMaxLines);
+        assertEquals(EXPECTED_TOKEN, request.token);
         assertEquals(0, request.describeContents());
+    }
 
-        Parcel p = Parcel.obtain();
-        request.writeToParcel(p, 0);
-        p.setDataPosition(0);
-        ExtractedTextRequest target = ExtractedTextRequest.CREATOR.createFromParcel(p);
-        p.recycle();
-        assertEquals(request.flags, target.flags);
-        assertEquals(request.hintMaxChars, request.hintMaxChars);
-        assertEquals(request.hintMaxLines, target.hintMaxLines);
-        assertEquals(request.token, target.token);
+    /**
+     * Ensures that {@link ExtractedTextRequest} can be serialized and deserialized via
+     * {@link Parcel}.
+     */
+    @Test
+    public void testWriteToParcel() {
+        final ExtractedTextRequest original = createForTest();
+        assertTestInstance(original);
+        final ExtractedTextRequest copied = cloneViaParcel(original);
+        assertTestInstance(copied);
+    }
+
+    @NonNull
+    private static ExtractedTextRequest cloneViaParcel(@NonNull ExtractedTextRequest src) {
+        final Parcel parcel = Parcel.obtain();
+        try {
+            src.writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            return ExtractedTextRequest.CREATOR.createFromParcel(parcel);
+        } finally {
+            parcel.recycle();
+        }
     }
 }

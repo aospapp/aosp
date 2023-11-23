@@ -17,6 +17,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
        package="com.android.cts.usespermissiondiffcertapp">
 
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
+
     <!-- We say we want to use the other app's permission, but it is signed with
          a different cert so it should fail. -->
     <uses-permission android:name="com.android.cts.permissionWithSignature"/>
@@ -35,6 +37,7 @@
         <activity android:name=".ReceiveUriActivity" android:exported="true"
                 android:launchMode="singleTop" />
         <service android:name=".ReceiveUriService" android:exported="true" />
+        <activity android:name=".GetResultActivity" android:exported="true" />
     </application>
 
     <instrumentation android:targetPackage="com.android.cts.usespermissiondiffcertapp"

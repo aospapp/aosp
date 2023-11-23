@@ -18,13 +18,9 @@ package com.android.tradefed.log;
 
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.config.ConfigurationException;
-import com.android.tradefed.config.IGlobalConfiguration;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import junit.framework.TestCase;
-
-import org.easymock.EasyMock;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,14 +32,6 @@ import java.util.List;
 public class LogUtilFuncTest extends TestCase {
     private static final String CLASS_NAME = "LogUtilFuncTest";
     private static final String STRING = "hallo!";
-    private ITerribleFailureHandler mMockWtfHandler;
-    private IGlobalConfiguration mMockGlobalConfig;
-
-    @Override
-    protected void setUp() throws Exception, ConfigurationException {
-        mMockWtfHandler = EasyMock.createMock(ITerribleFailureHandler.class);
-        mMockGlobalConfig = EasyMock.createMock(IGlobalConfiguration.class);
-    }
 
     public void testCLog_v() {
         Log.v(CLASS_NAME, "this is the real Log.v");
@@ -73,47 +61,6 @@ public class LogUtilFuncTest extends TestCase {
         Log.e(CLASS_NAME, "this is the real Log.e");
         CLog.e("this is CLog.e");
         CLog.e("this is CLog.e with a format string: %s has length %d", STRING, STRING.length());
-    }
-
-    /**
-     * Verify that all variants of calling CLog.wtf() results in a wtf handler being called
-     */
-    public void testCLog_wtf() {
-        // force CLog.wtf to use mock version of Global Config instead,
-        // and set getWtfHandler() to return a mock wtf handler
-        CLog.setGlobalConfigInstance(mMockGlobalConfig);
-        EasyMock.expect(mMockGlobalConfig.getWtfHandler()).andReturn(mMockWtfHandler).anyTimes();
-        EasyMock.replay(mMockGlobalConfig);
-
-        // expect onTerribleFailure to be called once per CLog.wtf() call
-        EasyMock.expect(mMockWtfHandler.onTerribleFailure(EasyMock.<String> anyObject(),
-                EasyMock.<Throwable> anyObject())).andReturn(true).times(4);
-        EasyMock.replay(mMockWtfHandler);
-
-        CLog.wtf("this is CLog.wtf");
-        CLog.wtf(new Throwable("this is CLog.wtf as a throwable"));
-        CLog.wtf("this is CLog.wtf with a format string: %s has length %d",
-                STRING, STRING.length());
-        CLog.wtf("this is CLog.wtf with a throwable", new Throwable("this is my throwable"));
-        EasyMock.verify(mMockWtfHandler);
-    }
-
-    /**
-     * Verify scenario where no wtf handler has been configured when CLog.wtf() is called
-     */
-    public void testCLog_wtf_wtfHandlerNotSet() {
-        // force CLog.wtf to use mock version of Global Config instead,
-        // and set getWtfHandler() to return null (simulating no wtf handler being set)
-        CLog.setGlobalConfigInstance(mMockGlobalConfig);
-        EasyMock.expect(mMockGlobalConfig.getWtfHandler()).andReturn(null);
-        EasyMock.replay(mMockGlobalConfig);
-
-        // by not setting any expect on mMockWtfHandler,
-        // EasyMock will verify that 0 calls are made to wtf handler
-        EasyMock.replay(mMockWtfHandler);
-
-        CLog.wtf("this is CLog.wtf without any handler set");
-        EasyMock.verify(mMockWtfHandler);
     }
 
     /**

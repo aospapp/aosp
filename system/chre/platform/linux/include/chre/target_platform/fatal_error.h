@@ -19,9 +19,10 @@
 
 #include <cstdlib>
 
-#define FATAL_ERROR_QUIT() do { \
-    chre::preFatalError();      \
-    abort();                    \
+#define FATAL_ERROR_QUIT() \
+  do {                     \
+    chre::preFatalError(); \
+    abort();               \
   } while (0)
 
 namespace chre {

@@ -24,14 +24,7 @@
 
 <script>
 
-import jsonProtoDefs from 'frameworks/base/core/proto/android/server/windowmanagertrace.proto'
-import protobuf from 'protobufjs'
-
-var protoDefs = protobuf.Root.fromJSON(jsonProtoDefs);
-var TraceMessage = protoDefs.lookupType(
-  "com.android.server.wm.WindowManagerTraceFileProto");
-var ServiceMessage = protoDefs.lookupType(
-  "com.android.server.wm.WindowManagerServiceDumpProto");
+import { multiply_rect } from './matrix_utils.js'
 
 export default {
   name: 'rects',
@@ -46,8 +39,8 @@ export default {
       if (this.bounds) {
         return this.bounds;
       }
-      var width = Math.max(...this.rects.map((r) => r.right));
-      var height = Math.max(...this.rects.map((r) => r.bottom));
+      var width = Math.max(...this.rects.map((r) => multiply_rect(r.transform, r).right));
+      var height = Math.max(...this.rects.map((r) => multiply_rect(r.transform, r).bottom));
       return {width, height};
     },
     boundsStyle() {

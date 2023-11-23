@@ -51,25 +51,29 @@
 
 __BEGIN_DECLS
 
-#if defined(__BIONIC_FORTIFY)
 /** Deprecated. Use memmove() instead. */
-#define bcopy(b1, b2, len) (void)(__builtin___memmove_chk((b2), (b1), (len), __bos0(b2)))
-/** Deprecated. Use memset() instead. */
-#define bzero(b, len) (void)(__builtin___memset_chk((b), '\0', (len), __bos0(b)))
-#else
-/** Deprecated. Use memmove() instead. */
-#define bcopy(b1, b2, len) (void)(__builtin_memmove((b2), (b1), (len)))
-/** Deprecated. Use memset() instead. */
-#define bzero(b, len) (void)(__builtin_memset((b), '\0', (len)))
-#endif
+#define bcopy(b1, b2, len) __bionic_bcopy((b1), (b2), (len))
+static __inline__ __always_inline void __bionic_bcopy(const void* b1, void* b2, size_t len) {
+  __builtin_memmove(b2, b1, len);
+}
 
-#if !defined(__i386__) || __ANDROID_API__ >= __ANDROID_API_J_MR2__
+/** Deprecated. Use memset() instead. */
+#define bzero(b, len) __bionic_bzero((b), (len))
+static __inline__ __always_inline void __bionic_bzero(void* b, size_t len) {
+  __builtin_memset(b, 0, len);
+}
+
+#if !defined(__i386__) || __ANDROID_API__ >= 18
 /**
  * [ffs(3)](http://man7.org/linux/man-pages/man3/ffs.3.html) finds the first set bit in `__i`.
  *
  * Returns 0 if no bit is set, or the index of the lowest set bit (counting from 1) otherwise.
  */
 int ffs(int __i) __INTRODUCED_IN_X86(18);
+#endif
+
+#if defined(__BIONIC_INCLUDE_FORTIFY_HEADERS)
+#include <bits/fortify/strings.h>
 #endif
 
 __END_DECLS

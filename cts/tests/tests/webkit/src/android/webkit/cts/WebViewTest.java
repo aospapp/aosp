@@ -296,6 +296,10 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
                 WebView.findAddress("455 LARKSPUR DRIVE CALIFORNIA SPRINGS CALIFORNIA"));
         // not an address
         assertNull(WebView.findAddress("This is not an address: no town, no state, no zip."));
+
+        // would be an address, except for numbers that are not ASCII
+        assertNull(WebView.findAddress(
+                "80\uD835\uDFEF \uD835\uDFEF\uD835\uDFEFth Avenue Sunnyvale, CA 94089"));
     }
 
     @UiThreadTest
@@ -1694,7 +1698,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         final int previousScrollX = mOnUiThread.getScrollX();
         final int previousScrollY = mOnUiThread.getScrollY();
 
-        mOnUiThread.flingScroll(100, 100);
+        mOnUiThread.flingScroll(10000, 10000);
 
         new PollingCheck() {
             @Override

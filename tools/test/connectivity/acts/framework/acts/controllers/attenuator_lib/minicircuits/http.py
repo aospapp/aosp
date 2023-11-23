@@ -41,6 +41,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
         self._ip_address = None
         self._port = None
         self._timeout = None
+        self.address = None
 
     def open(self, host, port=80, timeout=2):
         """Initializes the AttenuatorInstrument and queries basic information.
@@ -54,6 +55,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
         self._ip_address = host
         self._port = port
         self._timeout = timeout
+        self.address = host
 
         att_req = urllib.request.urlopen('http://{}:{}/MN?'.format(
             self._ip_address, self._port))

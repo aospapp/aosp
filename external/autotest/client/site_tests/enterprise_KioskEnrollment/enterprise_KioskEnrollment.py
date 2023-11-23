@@ -24,21 +24,6 @@ class enterprise_KioskEnrollment(test.test):
     EXT_ID = 'odjaaghiehpobimgdjjfofmablbaleem'
     EXT_PAGE = 'viewer.html'
 
-    def _CheckKioskExtensionContexts(self, browser):
-        ext_contexts = kiosk_utils.wait_for_kiosk_ext(
-                browser, self.EXT_ID)
-        ext_urls = set([context.EvaluateJavaScript('location.href;')
-                       for context in ext_contexts])
-        expected_urls = set(
-                ['chrome-extension://' + self.EXT_ID + '/' + path
-                for path in [self.EXT_PAGE,
-                             '_generated_background_page.html']])
-        if expected_urls != ext_urls:
-            raise error.TestFail(
-                    'Unexpected extension context urls, expected %s, got %s'
-                    % (expected_urls, ext_urls))
-
-
     def run_once(self, kiosk_app_attributes=None):
         if kiosk_app_attributes:
             self.APP_NAME, self.EXT_ID, self.EXT_PAGE = \
@@ -53,10 +38,10 @@ class enterprise_KioskEnrollment(test.test):
         with chrome.Chrome(auto_login=False,
                            disable_gaia_services=False) as cr:
             enrollment.EnterpriseEnrollment(cr.browser, user_id, password)
-        # This way of checking a kiosk extension doesn't work.
-        #self._CheckKioskExtensionContexts(cr.browser)
+
         time.sleep(15)
-        running_apps = utils2.system_output('cat /var/log/messages | grep kiosk')
+        running_apps = utils2.system_output(
+            'cat /var/log/messages | grep kiosk')
         if KIOSK_MODE not in running_apps:
             raise error.TestFail(
-                'DUT did not enter kiosk mode. and it should have.')    
+                'DUT did not enter kiosk mode. and it should have.')

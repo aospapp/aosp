@@ -27,10 +27,10 @@ import android.view.View;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
-import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiPreference;
 
 /**
  * Car Setting's own version of SeekBarPreference.
@@ -40,7 +40,7 @@ import com.android.car.settings.R;
  * seek bar value is changing. This can be set programmatically by using the {@link
  * #setContinuousUpdate() setContinuousUpdate} method.
  */
-public class SeekBarPreference extends Preference {
+public class SeekBarPreference extends CarUiPreference {
 
     private int mSeekBarValue;
     private int mMin;

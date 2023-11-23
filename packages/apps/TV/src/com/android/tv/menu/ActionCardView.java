@@ -19,6 +19,7 @@ package com.android.tv.menu;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -91,6 +92,13 @@ public class ActionCardView extends RelativeLayout implements ItemListRowView.Ca
         if (DEBUG) {
             Log.d(TAG, "onDeselected: action=" + mLabelView.getText());
         }
+    }
+
+    /** Request focus and accessibility focus on card view. */
+    @Override
+    public boolean requestFocusWithAccessibility() {
+        return requestFocus() &&
+                performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
     }
 
     @Override

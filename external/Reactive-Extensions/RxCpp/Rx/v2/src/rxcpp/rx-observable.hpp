@@ -174,22 +174,26 @@ class blocking_observable
         std::mutex lock;
         std::condition_variable wake;
         bool disposed = false;
-        rxu::error_ptr error;
 
         auto dest = make_subscriber<T>(std::forward<ArgN>(an)...);
 
+        rxu::error_ptr error;
+        bool has_error = false;
+
         // keep any error to rethrow at the end.
+        // copy 'dest' by-value to avoid using it after it goes out of scope.
         auto scbr = make_subscriber<T>(
             dest,
-            [&](T t){dest.on_next(t);},
-            [&](rxu::error_ptr e){
+            [dest](T t){dest.on_next(t);},
+            [dest,&error,&has_error,do_rethrow](rxu::error_ptr e){
                 if (do_rethrow) {
+                    has_error = true;
                     error = e;
                 } else {
                     dest.on_error(e);
                 }
             },
-            [&](){dest.on_completed();}
+            [dest](){dest.on_completed();}
             );
 
         auto cs = scbr.get_subscription();
@@ -208,7 +212,7 @@ class blocking_observable
                 return disposed;
             });
 
-        if (error) {rxu::rethrow_exception(error);}
+        if (has_error) {rxu::rethrow_exception(error);}
     }
 
 public:

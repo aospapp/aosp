@@ -51,6 +51,8 @@ public final class DeviceTestConstants {
             new TestInfo(PACKAGE, SERVICE_TEST, "testInputUnbindsOnImeStopped");
     public static final TestInfo TEST_INPUT_UNBINDS_ON_APP_STOPPED =
             new TestInfo(PACKAGE, SERVICE_TEST, "testInputUnbindsOnAppStopped");
+    public static final TestInfo TEST_IME_VISIBILITY_AFTER_IME_SWITCHING =
+            new TestInfo(PACKAGE, SERVICE_TEST, "testImeVisibilityAfterImeSwitching");
 
     /**
      * Device test class: ShellCommandDeviceTest.

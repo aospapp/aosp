@@ -70,7 +70,7 @@ public final class IoStats implements Parcelable {
         mUptimeTimestamp = in.getInt("uptime");
         JSONArray statsArray = in.getJSONArray("stats");
         mStats = new ArrayList<>();
-        for(int i = 0; i < statsArray.length(); ++i) {
+        for (int i = 0; i < statsArray.length(); ++i) {
             mStats.add(new IoStatsEntry(statsArray.getJSONObject(i)));
         }
     }
@@ -113,6 +113,11 @@ public final class IoStats implements Parcelable {
         return Objects.hash(mStats, mUptimeTimestamp);
     }
 
+    /**
+     * Returns user's stats ({@link IoStatsEntry}).
+     *
+     * @param uid Android's user id
+     */
     public IoStatsEntry getUserIdStats(int uid) {
         for (IoStatsEntry stats : getStats()) {
             if (stats.uid == uid) {
@@ -123,6 +128,10 @@ public final class IoStats implements Parcelable {
         return null;
     }
 
+    /**
+     * Returns the following foreground total metrics: bytes written and read, bytes read from and
+     * written to storage, and number of sync calls.
+     */
     public IoStatsEntry.Metrics getForegroundTotals() {
         long bytesRead = 0;
         long bytesWritten = 0;
@@ -145,6 +154,10 @@ public final class IoStats implements Parcelable {
                 fsyncCalls);
     }
 
+    /**
+     * Returns the following background total metrics: bytes written and read, bytes read from and
+     * written to storage, and number of sync calls.
+     */
     public IoStatsEntry.Metrics getBackgroundTotals() {
         long bytesRead = 0;
         long bytesWritten = 0;
@@ -167,6 +180,10 @@ public final class IoStats implements Parcelable {
             fsyncCalls);
     }
 
+    /**
+     * Returns the sum of all foreground and background metrics (bytes written, bytes read from
+     * storage, bytes written to storage and number of sync calls).
+     */
     public IoStatsEntry.Metrics getTotals() {
         IoStatsEntry.Metrics foreground = getForegroundTotals();
         IoStatsEntry.Metrics background = getBackgroundTotals();
@@ -181,9 +198,9 @@ public final class IoStats implements Parcelable {
     @Override
     public boolean equals(Object other) {
         if (other instanceof IoStats) {
-            IoStats delta = (IoStats)other;
-            return delta.getTimestamp() == getTimestamp() &&
-                delta.getStats().equals(getStats());
+            IoStats delta = (IoStats) other;
+            return delta.getTimestamp() == getTimestamp()
+                && delta.getStats().equals(getStats());
         }
         return false;
     }

@@ -19,21 +19,16 @@ struct cras_iodev *cras_bt_io_create(struct cras_bt_device *device,
 void cras_bt_io_destroy(struct cras_iodev *bt_iodev);
 
 /* Looks up for the node of given profile, returns NULL if doesn't exist. */
-struct cras_ionode *cras_bt_io_get_profile(
-		struct cras_iodev *bt_iodev,
-		enum cras_bt_device_profile profile);
+struct cras_ionode *cras_bt_io_get_profile(struct cras_iodev *bt_iodev,
+					   enum cras_bt_device_profile profile);
 
 /* Appends a profile specific iodev to bt_iodev. */
-int cras_bt_io_append(struct cras_iodev *bt_iodev,
-		      struct cras_iodev *dev,
+int cras_bt_io_append(struct cras_iodev *bt_iodev, struct cras_iodev *dev,
 		      enum cras_bt_device_profile profile);
 
 /* Checks if the active node of bt_io matches a profile. */
 int cras_bt_io_on_profile(struct cras_iodev *bt_iodev,
 			  enum cras_bt_device_profile profile);
-
-/* Updates the buffer size to the profile specific iodev. */
-int cras_bt_io_update_buffer_size(struct cras_iodev *bt_iodev);
 
 /* Dry-run the profile device removal from bt_iodev.
  * Returns:

@@ -23,20 +23,18 @@ import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.graphics.drawable.Drawable;
-import android.os.RemoteException;
 import android.provider.SearchIndexableResource;
 import android.provider.Settings;
 import android.service.notification.NotificationAssistantService;
 import android.text.TextUtils;
-import android.util.Log;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.applications.defaultapps.DefaultAppPickerFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.settingslib.applications.DefaultAppInfo;
 import com.android.settingslib.applications.ServiceListing;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.widget.CandidateInfo;
 
 import java.util.ArrayList;

@@ -30,7 +30,7 @@ MEASUREMENT_DURATION_SECONDS = 12
 # Time in seconds to wait for cpu idle until giveup.
 IDLE_CPU_WAIT_TIMEOUT_SECONDS = 60.0
 # Maximum percent of cpu usage considered as idle.
-IDLE_CPU_LOAD_PERCENTAGE = 0.1
+IDLE_CPU_LOAD_PERCENTAGE = 0.2
 
 GRAPH_NAME = 'power_consumption'
 
@@ -85,6 +85,11 @@ class graphics_VideoRenderingPower(graphics_utils.GraphicsTest):
 
         rapl = []
         if power_utils.has_battery():
+            # Sometimes, the DUT is supposed to have a battery but we may not
+            # detect one. This is a symptom of a bad battery (b/145144707).
+            if self._power_status.battery_path is None:
+                raise error.TestFail('No battery found in this DUT (this is a '
+                                     'symptom of a bad battery).')
             rapl.append(
                 power_status.SystemPower(self._power_status.battery_path))
         else:
@@ -129,7 +134,7 @@ class graphics_VideoRenderingPower(graphics_utils.GraphicsTest):
                 logging.debug(measurements)
 
                 for category in sorted(measurements):
-                    if category.endswith('_pwr'):
+                    if category.endswith('_pwr_avg'):
                         description = '%s_%s_%s' % (
                             video_short_name, test_name_and_flags[0], category)
                         self.output_perf_value(

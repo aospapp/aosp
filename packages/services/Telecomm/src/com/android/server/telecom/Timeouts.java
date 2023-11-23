@@ -29,7 +29,8 @@ import java.util.concurrent.TimeUnit;
  */
 public final class Timeouts {
     public static class Adapter {
-        public Adapter() { }
+        public Adapter() {
+        }
 
         public long getCallScreeningTimeoutMillis(ContentResolver cr) {
             return Timeouts.getCallScreeningTimeoutMillis(cr);
@@ -62,20 +63,25 @@ public final class Timeouts {
         public long getPhoneAccountSuggestionServiceTimeout(ContentResolver cr) {
             return Timeouts.getPhoneAccountSuggestionServiceTimeout(cr);
         }
+
+        public long getCallRecordingToneRepeatIntervalMillis(ContentResolver cr) {
+            return Timeouts.getCallRecordingToneRepeatIntervalMillis(cr);
+        }
     }
 
     /** A prefix to use for all keys so to not clobber the global namespace. */
     private static final String PREFIX = "telecom.";
 
-    private Timeouts() {}
+    private Timeouts() {
+    }
 
     /**
      * Returns the timeout value from Settings or the default value if it hasn't been changed. This
      * method is safe to call from any thread, including the UI thread.
      *
      * @param contentResolver The content resolved.
-     * @param key Settings key to retrieve.
-     * @param defaultValue Default value, in milliseconds.
+     * @param key             Settings key to retrieve.
+     * @param defaultValue    Default value, in milliseconds.
      * @return The timeout value from Settings or the default value if it hasn't been changed.
      */
     private static long get(ContentResolver contentResolver, String key, long defaultValue) {
@@ -176,8 +182,8 @@ public final class Timeouts {
      * as potential emergency callbacks.
      */
     public static long getEmergencyCallbackWindowMillis(ContentResolver contentResolver) {
-      return get(contentResolver, "emergency_callback_window_millis",
-          TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES));
+        return get(contentResolver, "emergency_callback_window_millis",
+                TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES));
     }
 
     /**
@@ -187,7 +193,7 @@ public final class Timeouts {
      */
     public static long getUserDefinedCallRedirectionTimeoutMillis(ContentResolver contentResolver) {
         return get(contentResolver, "user_defined_call_redirection_timeout",
-            5000L /* 5 seconds */);
+                5000L /* 5 seconds */);
     }
 
     /**
@@ -197,5 +203,12 @@ public final class Timeouts {
      */
     public static long getCarrierCallRedirectionTimeoutMillis(ContentResolver contentResolver) {
         return get(contentResolver, "carrier_call_redirection_timeout", 5000L /* 5 seconds */);
+    }
+
+    /**
+     * Returns the number of milliseconds between two plays of the call recording tone.
+     */
+    public static long getCallRecordingToneRepeatIntervalMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "call_recording_tone_repeat_interval", 15000L /* 15 seconds */);
     }
 }

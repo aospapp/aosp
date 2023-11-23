@@ -33,6 +33,7 @@ public:
     virtual void *allocBuffer(size_t minSize);
     virtual int commitBuffer(size_t size);
     virtual const unsigned char *readFully(void *buf, size_t len);
+    virtual const unsigned char *commitBufferAndReadFully(size_t size, void *buf, size_t len);
     virtual const unsigned char *read(void *buf, size_t *inout_len);
 
     bool valid() { return m_sock >= 0; }

@@ -26,8 +26,8 @@ import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputBinding;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
@@ -38,7 +38,7 @@ import org.junit.runner.RunWith;
 public class InputBindingTest {
     @Test
     public void testInputBinding() {
-        View view = new View(InstrumentationRegistry.getTargetContext());
+        View view = new View(InstrumentationRegistry.getInstrumentation().getTargetContext());
         BaseInputConnection bic = new BaseInputConnection(view, false);
         Binder binder = new Binder();
         int uid = 1;

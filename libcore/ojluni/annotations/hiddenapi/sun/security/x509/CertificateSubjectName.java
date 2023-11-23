@@ -30,7 +30,7 @@ import sun.security.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CertificateSubjectName implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateSubjectName(sun.security.x509.X500Name name) {
         throw new RuntimeException("Stub!");
     }
@@ -55,7 +55,7 @@ public class CertificateSubjectName implements sun.security.x509.CertAttrSet<jav
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.Object get(java.lang.String name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

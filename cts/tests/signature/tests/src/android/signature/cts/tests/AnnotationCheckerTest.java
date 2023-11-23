@@ -37,7 +37,8 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
     @Override
     protected AnnotationChecker createChecker(ResultObserver resultObserver,
             ClassProvider provider) {
-        return new AnnotationChecker(resultObserver, provider, ApiAnnotation.class.getName());
+        return new AnnotationChecker(resultObserver, provider,
+                "@android.signature.cts.tests.data.ApiAnnotation()");
     }
 
     private static void addConstructor(JDiffClassDescription clz, String... paramTypes) {

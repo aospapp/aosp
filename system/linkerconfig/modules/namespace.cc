@@ -16,99 +16,135 @@
 
 #include "linkerconfig/namespace.h"
 
+#include <android-base/strings.h>
+
+#include "linkerconfig/apex.h"
 #include "linkerconfig/log.h"
 
-#define LOG_TAG "linkerconfig"
+namespace {
+
+constexpr const char* kDataAsanPath = "/data/asan";
+
+bool FindFromPathList(const std::vector<std::string>& list,
+                      const std::string& path) {
+  for (auto& path_member : list) {
+    for (auto& path_item : android::base::Split(path_member, ":")) {
+      if (path_item == path) return true;
+    }
+  }
+
+  return false;
+}
+
+}  // namespace
 
 namespace android {
 namespace linkerconfig {
 namespace modules {
 
-constexpr const char* kDataAsanPath = "/data/asan";
-
-void Namespace::WritePathString(ConfigWriter& writer,
-                                const std::string& path_type,
-                                const std::vector<std::string>& path_list) {
-  std::string prefix = path_type + ".paths ";
-  bool is_first = true;
-  for (auto& path : path_list) {
-    writer.WriteLine(prefix + (is_first ? "= " : "+= ") + path);
-    is_first = false;
-  }
+void InitializeWithApex(Namespace& ns, const ApexInfo& apex_info) {
+  ns.AddSearchPath(apex_info.path + "/${LIB}");
+  ns.AddPermittedPath(apex_info.path + "/${LIB}");
+  ns.AddPermittedPath("/system/${LIB}");
+  ns.AddProvides(apex_info.provide_libs);
+  ns.AddRequires(apex_info.require_libs);
 }
 
-std::shared_ptr<Link> Namespace::CreateLink(const std::string& target_namespace,
-                                            bool allow_all_shared_libs) {
-  auto new_link =
-      std::make_shared<Link>(name_, target_namespace, allow_all_shared_libs);
-
-  if (links_.find(target_namespace) != links_.end()) {
-    LOG(INFO) << "Link to " << target_namespace
-              << " already exists. Overwriting link.";
+Link& Namespace::GetLink(const std::string& target_namespace) {
+  for (auto& link : links_) {
+    if (link.To() == target_namespace) {
+      return link;
+    }
   }
-
-  links_[target_namespace] = new_link;
-  return new_link;
+  return links_.emplace_back(name_, target_namespace);
 }
 
 void Namespace::WriteConfig(ConfigWriter& writer) {
-  writer.SetPrefix("namespace." + name_ + ".");
+  const auto prefix = "namespace." + name_ + ".";
 
-  writer.WriteLine("isolated = %s", is_isolated_ ? "true" : "false");
+  writer.WriteLine(prefix + "isolated = " + (is_isolated_ ? "true" : "false"));
 
   if (is_visible_) {
-    writer.WriteLine("visible = true");
+    writer.WriteLine(prefix + "visible = true");
   }
 
-  WritePathString(writer, "search", search_paths_);
-  WritePathString(writer, "permitted", permitted_paths_);
-  WritePathString(writer, "asan.search", asan_search_paths_);
-  WritePathString(writer, "asan.permitted", asan_permitted_paths_);
+  writer.WriteVars(prefix + "search.paths", search_paths_);
+  writer.WriteVars(prefix + "permitted.paths", permitted_paths_);
+  writer.WriteVars(prefix + "asan.search.paths", asan_search_paths_);
+  writer.WriteVars(prefix + "asan.permitted.paths", asan_permitted_paths_);
+  writer.WriteVars(prefix + "whitelisted", whitelisted_);
 
   if (!links_.empty()) {
-    std::string link_list = "";
-
-    bool is_first = true;
-    for (auto& link : links_) {
-      if (!is_first) {
-        link_list += ",";
-      }
-      link_list += link.first;
-      is_first = false;
+    std::vector<std::string> link_list;
+    link_list.reserve(links_.size());
+    for (const auto& link : links_) {
+      link_list.push_back(link.To());
     }
+    writer.WriteLine(prefix + "links = " + android::base::Join(link_list, ","));
 
-    writer.WriteLine("links = " + link_list);
-
-    for (auto& link : links_) {
-      link.second->WriteConfig(writer);
+    for (const auto& link : links_) {
+      link.WriteConfig(writer);
     }
   }
-
-  writer.ResetPrefix();
 }
 
-void Namespace::AddSearchPath(const std::string& path, bool in_asan,
-                              bool with_data_asan) {
+void Namespace::AddSearchPath(const std::string& path, AsanPath path_from_asan) {
   search_paths_.push_back(path);
 
-  if (in_asan) {
-    asan_search_paths_.push_back(path);
-    if (with_data_asan) {
+  switch (path_from_asan) {
+    case AsanPath::NONE:
+      break;
+    case AsanPath::SAME_PATH:
+      asan_search_paths_.push_back(path);
+      break;
+    case AsanPath::WITH_DATA_ASAN:
       asan_search_paths_.push_back(kDataAsanPath + path);
-    }
+      asan_search_paths_.push_back(path);
+      break;
   }
 }
 
-void Namespace::AddPermittedPath(const std::string& path, bool in_asan,
-                                 bool with_data_asan) {
+void Namespace::AddPermittedPath(const std::string& path,
+                                 AsanPath path_from_asan) {
   permitted_paths_.push_back(path);
 
-  if (in_asan) {
-    asan_permitted_paths_.push_back(path);
-    if (with_data_asan) {
+  switch (path_from_asan) {
+    case AsanPath::NONE:
+      break;
+    case AsanPath::SAME_PATH:
+      asan_permitted_paths_.push_back(path);
+      break;
+    case AsanPath::WITH_DATA_ASAN:
       asan_permitted_paths_.push_back(kDataAsanPath + path);
-    }
+      asan_permitted_paths_.push_back(path);
+      break;
   }
+}
+
+void Namespace::AddWhitelisted(const std::string& path) {
+  whitelisted_.push_back(path);
+}
+
+std::string Namespace::GetName() const {
+  return name_;
+}
+
+bool Namespace::ContainsSearchPath(const std::string& path,
+                                   AsanPath path_from_asan) {
+  return FindFromPathList(search_paths_, path) &&
+         (path_from_asan == AsanPath::NONE ||
+          FindFromPathList(asan_search_paths_, path)) &&
+         (path_from_asan != AsanPath::WITH_DATA_ASAN ||
+          FindFromPathList(asan_search_paths_, kDataAsanPath + path));
+}
+
+bool Namespace::ContainsPermittedPath(const std::string& path,
+                                      AsanPath path_from_asan) {
+  return FindFromPathList(permitted_paths_, path) &&
+         (path_from_asan == AsanPath::NONE ||
+          FindFromPathList(asan_permitted_paths_, path)) &&
+         (path_from_asan != AsanPath::WITH_DATA_ASAN ||
+          FindFromPathList(asan_permitted_paths_, kDataAsanPath + path));
 }
 
 }  // namespace modules

@@ -51,17 +51,19 @@ public class TmaEnumPrefs {
     }
 
     /** For simulating various reply speeds. */
-    public enum TmaNodeReplyDelay implements EnumPrefValue {
+    public enum TmaReplyDelay implements EnumPrefValue {
         NONE("None", "none", 0),
         SHORT("Short", "short", 50),
+        SHORT_PLUS("Short+", "short+", 150),
         MEDIUM("Medium", "medium", 500),
+        MEDIUM_PLUS("Medium+", "medium+", 2000),
         LONG("Long", "long", 5000),
         EXTRA_LONG("Extra-Long", "extra-long", 10000);
 
         private final PrefValueImpl mPrefValue;
         public final int mReplyDelayMs;
 
-        TmaNodeReplyDelay(String displayTitle, String id, int delayMs) {
+        TmaReplyDelay(String displayTitle, String id, int delayMs) {
             mPrefValue = new PrefValueImpl(displayTitle + "(" + delayMs + ")", id);
             mReplyDelayMs = delayMs;
         }
@@ -81,13 +83,39 @@ public class TmaEnumPrefs {
     public enum TmaBrowseNodeType implements EnumPrefValue {
         NULL("Null (error)", "null"),
         EMPTY("Empty", "empty"),
+        QUEUE_ONLY("Queue only", "queue-only"),
+        SINGLE_TAB("Single browse-able tab", "single-tab"),
         NODE_CHILDREN("Only browse-able content", "nodes"),
         LEAF_CHILDREN("Only playable content (basic working and error cases)", "leaves"),
-        MIXED_CHILDREN("Mixed content (apps are not supposed to do that)", "mixed");
+        MIXED_CHILDREN("Mixed content (apps are not supposed to do that)", "mixed"),
+        UNTAGGED("Untagged media items (not playable or browsable)", "untagged");
 
         private final PrefValueImpl mPrefValue;
 
         TmaBrowseNodeType(String displayTitle, String id) {
+            mPrefValue = new PrefValueImpl(displayTitle, id);
+        }
+
+        @Override
+        public String getTitle() {
+            return mPrefValue.getTitle();
+        }
+
+        @Override
+        public String getId() {
+            return mPrefValue.getId();
+        }
+    }
+
+    /* To simulate the events order after login. Media apps should update playback state first, then
+     * load the browse tree. But sometims some apps (e.g., GPB) don't follow this order strictly. */
+    public enum TmaLoginEventOrder implements EnumPrefValue {
+        PLAYBACK_STATE_UPDATE_FIRST("Update playback state first", "state-first"),
+        BROWSE_TREE_LOAD_FRIST("Load browse tree first", "tree-first");
+
+        private final PrefValueImpl mPrefValue;
+
+        TmaLoginEventOrder(String displayTitle, String id) {
             mPrefValue = new PrefValueImpl(displayTitle, id);
         }
 

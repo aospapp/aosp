@@ -18,6 +18,7 @@ package com.android.tradefed.device.cloud;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.IDevice.DeviceState;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IDeviceMonitor;
 import com.android.tradefed.device.IDeviceStateMonitor;
@@ -34,6 +35,7 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestLoggerReceiver;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
@@ -43,7 +45,11 @@ import com.google.common.net.HostAndPort;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+
+import javax.annotation.Nullable;
 
 /**
  * Extends {@link RemoteAndroidDevice} behavior for a full stack android device running in the
@@ -52,12 +58,6 @@ import java.util.List;
  */
 public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements ITestLoggerReceiver {
 
-    /** The directory where to find debug logs for a nested remote instance. */
-    public static final String NESTED_REMOTE_LOG_DIR = "${HOME}/../vsoc-01/cuttlefish_runtime/";
-    /** The directory where to find debug logs for an emulator instance. */
-    public static final String EMULATOR_REMOTE_LOG_DIR = "/home/vsoc-01/log/";
-
-    private String mInitialSerial;
     private GceAvdInfo mGceAvd;
     private ITestLogger mTestLogger;
 
@@ -68,6 +68,8 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
     private static final long WAIT_AFTER_REBOOT = 60 * 1000;
     private static final long WAIT_FOR_TUNNEL_OFFLINE = 5 * 1000;
     private static final int WAIT_TIME_DIVISION = 4;
+
+    private static final long FETCH_TOMBSTONES_TIMEOUT_MS = 5 * 60 * 1000;
 
     /**
      * Creates a {@link RemoteAndroidVirtualDevice}.
@@ -85,22 +87,13 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
     @Override
     public void preInvocationSetup(IBuildInfo info)
             throws TargetSetupError, DeviceNotAvailableException {
-        preInvocationSetup(info, null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void preInvocationSetup(IBuildInfo info, List<IBuildInfo> testResourceBuildInfos)
-            throws TargetSetupError, DeviceNotAvailableException {
+        super.preInvocationSetup(info);
         try {
             mGceAvd = null;
             mGceSshMonitor = null;
             // We create a brand new GceManager each time to ensure clean state.
-            mGceHandler =
-                    new GceManager(
-                            getDeviceDescriptor(), getOptions(), info, testResourceBuildInfos);
+            mGceHandler = new GceManager(getDeviceDescriptor(), getOptions(), info);
             getGceHandler().logStableHostImageInfos(info);
-            mInitialSerial = getSerialNumber();
             setFastbootEnabled(false);
 
             // Launch GCE helper script.
@@ -111,7 +104,8 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
                 throw new DeviceNotAvailableException(
                         String.format(
                                 "Failed to launch GCE after %sms", getOptions().getGceCmdTimeout()),
-                        getSerialNumber());
+                        getSerialNumber(),
+                        DeviceErrorIdentifier.FAILED_TO_LAUNCH_GCE);
             }
             CLog.d("%sms left before timeout after GCE launch returned", remainingTime);
             // Wait for device to be ready.
@@ -140,7 +134,8 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
                 throw new DeviceNotAvailableException(
                         String.format(
                                 "AVD device booted but was in %s state", getIDevice().getState()),
-                        getSerialNumber());
+                        getSerialNumber(),
+                        DeviceErrorIdentifier.FAILED_TO_LAUNCH_GCE);
             }
             enableAdbRoot();
         } catch (DeviceNotAvailableException | TargetSetupError e) {
@@ -156,7 +151,7 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
 
     /** {@inheritDoc} */
     @Override
-    public void postInvocationTearDown() {
+    public void postInvocationTearDown(Throwable exception) {
         try {
             CLog.i("Invocation tear down for device %s", getSerialNumber());
             // Log the last part of the logcat from the tear down.
@@ -185,28 +180,35 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
             }
 
             if (mGceAvd != null) {
-                // attempt to get a bugreport if Gce Avd is a failure
-                if (!GceStatus.SUCCESS.equals(mGceAvd.getStatus())) {
-                    // Get a bugreport via ssh
-                    getSshBugreport();
-                }
-                // Log the serial output of the instance.
-                getGceHandler().logSerialOutput(mGceAvd, mTestLogger);
+                // Host and port can be null in case of acloud timeout
+                if (mGceAvd.hostAndPort() != null) {
+                    // attempt to get a bugreport if Gce Avd is a failure
+                    if (!GceStatus.SUCCESS.equals(mGceAvd.getStatus())) {
+                        // Get a bugreport via ssh
+                        getSshBugreport();
+                    }
+                    // Log the serial output of the instance.
+                    getGceHandler().logSerialOutput(mGceAvd, mTestLogger);
 
-                // Fetch remote files
-                CommonLogRemoteFileUtil.fetchCommonFiles(
-                        mTestLogger, mGceAvd, getOptions(), getRunUtil());
+                    // Fetch remote files
+                    CommonLogRemoteFileUtil.fetchCommonFiles(
+                            mTestLogger, mGceAvd, getOptions(), getRunUtil());
 
-                // Cleanup GCE first to make sure ssh tunnel has nowhere to go.
-                if (!getOptions().shouldSkipTearDown()) {
-                    getGceHandler().shutdownGce();
+                    // Fetch all tombstones if any.
+                    CommonLogRemoteFileUtil.fetchTombstones(
+                            mTestLogger, mGceAvd, getOptions(), getRunUtil());
                 }
-                // We are done with the gce related information, clean it to prevent re-entry.
-                mGceAvd = null;
             }
 
-            if (mInitialSerial != null) {
-                setIDevice(new RemoteAvdIDevice(mInitialSerial));
+            // Cleanup GCE first to make sure ssh tunnel has nowhere to go.
+            if (!getOptions().shouldSkipTearDown()) {
+                getGceHandler().shutdownGce();
+            }
+            // We are done with the gce related information, clean it to prevent re-entry.
+            mGceAvd = null;
+
+            if (getInitialSerial() != null) {
+                setIDevice(new RemoteAvdIDevice(getInitialSerial(), getInitialIp()));
             }
             setFastbootEnabled(false);
 
@@ -215,7 +217,7 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
             }
         } finally {
             // Ensure parent postInvocationTearDown is always called.
-            super.postInvocationTearDown();
+            super.postInvocationTearDown(exception);
         }
     }
 
@@ -249,7 +251,7 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
         TargetSetupError exception = null;
         for (int attempt = 0; attempt < getOptions().getGceMaxAttempt(); attempt++) {
             try {
-                mGceAvd = getGceHandler().startGce();
+                mGceAvd = getGceHandler().startGce(getInitialIp());
                 if (mGceAvd != null) break;
             } catch (TargetSetupError tse) {
                 CLog.w(
@@ -263,7 +265,11 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
         } else {
             CLog.i("GCE AVD has been started: %s", mGceAvd);
             if (GceAvdInfo.GceStatus.BOOT_FAIL.equals(mGceAvd.getStatus())) {
-                throw new TargetSetupError(mGceAvd.getErrors(), getDeviceDescriptor());
+                String errorMsg =
+                        String.format(
+                                "Device failed to boot. Error from Acloud: %s",
+                                mGceAvd.getErrors());
+                throw new TargetSetupError(errorMsg, getDeviceDescriptor());
             }
         }
         createGceSshMonitor(this, buildInfo, mGceAvd.hostAndPort(), this.getOptions());
@@ -318,7 +324,8 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
         }
         throw new DeviceNotAvailableException(
                 String.format("Tunnel did not come back online after %sms", waitTime),
-                getSerialNumber());
+                getSerialNumber(),
+                DeviceErrorIdentifier.FAILED_TO_CONNECT_TO_GCE);
     }
 
     @Override
@@ -334,16 +341,78 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
     }
 
     @Override
-    protected void doAdbReboot(String into) throws DeviceNotAvailableException {
+    protected void doAdbReboot(RebootMode rebootMode, @Nullable final String reason)
+            throws DeviceNotAvailableException {
         // We catch that adb reboot is called to expect it from the tunnel.
         getGceSshMonitor().isAdbRebootCalled(true);
-        super.doAdbReboot(into);
+        super.doAdbReboot(rebootMode, reason);
         // We allow a little time for instance to reboot and be reachable.
         getRunUtil().sleep(WAIT_AFTER_REBOOT);
         // after the reboot we wait for tunnel to be online and device to be reconnected
         getRunUtil().sleep(WAIT_FOR_TUNNEL_OFFLINE);
         waitForTunnelOnline(WAIT_FOR_TUNNEL_ONLINE);
         waitForAdbConnect(WAIT_FOR_ADB_CONNECT);
+    }
+
+    /**
+     * Cuttlefish has a special feature that brings the tombstones to the remote host where we can
+     * get them directly.
+     */
+    @Override
+    public List<File> getTombstones() throws DeviceNotAvailableException {
+        InstanceType type = getOptions().getInstanceType();
+        if (InstanceType.CUTTLEFISH.equals(type) || InstanceType.REMOTE_NESTED_AVD.equals(type)) {
+            List<File> tombs = new ArrayList<>();
+            String remoteRuntimePath =
+                    String.format(
+                                    CommonLogRemoteFileUtil.NESTED_REMOTE_LOG_DIR,
+                                    getOptions().getInstanceUser())
+                            + "tombstones/*";
+            File localDir = null;
+            try {
+                localDir = FileUtil.createTempDir("tombstones");
+            } catch (IOException e) {
+                CLog.e(e);
+                return tombs;
+            }
+            if (!fetchRemoteDir(localDir, remoteRuntimePath)) {
+                CLog.e("Failed to pull %s", remoteRuntimePath);
+                FileUtil.recursiveDelete(localDir);
+            } else {
+                tombs.addAll(Arrays.asList(localDir.listFiles()));
+                localDir.deleteOnExit();
+            }
+            return tombs;
+        }
+        // If it's not Cuttlefish, use the standard call.
+        return super.getTombstones();
+    }
+
+    /**
+     * Returns the {@link GceAvdInfo} from the created remote VM. Returns null if the bring up was
+     * not successful.
+     */
+    public @Nullable GceAvdInfo getAvdInfo() {
+        if (mGceAvd == null) {
+            CLog.w("Requested getAvdInfo() but GceAvdInfo is null.");
+            return null;
+        }
+        if (!GceStatus.SUCCESS.equals(mGceAvd.getStatus())) {
+            CLog.w("Requested getAvdInfo() but the bring up was not successful, returning null.");
+            return null;
+        }
+        return mGceAvd;
+    }
+
+    @VisibleForTesting
+    boolean fetchRemoteDir(File localDir, String remotePath) {
+        return RemoteFileUtil.fetchRemoteDir(
+                mGceAvd,
+                getOptions(),
+                getRunUtil(),
+                FETCH_TOMBSTONES_TIMEOUT_MS,
+                remotePath,
+                localDir);
     }
 
     /**
@@ -363,5 +432,19 @@ public class RemoteAndroidVirtualDevice extends RemoteAndroidDevice implements I
     @VisibleForTesting
     GceManager getGceHandler() {
         return mGceHandler;
+    }
+
+    @Override
+    public DeviceDescriptor getDeviceDescriptor() {
+        DeviceDescriptor descriptor = super.getDeviceDescriptor();
+        if (!getInitialSerial().equals(descriptor.getSerial())) {
+            // Alter the display for the console.
+            descriptor =
+                    new DeviceDescriptor(
+                            descriptor,
+                            getInitialSerial(),
+                            getInitialSerial() + "[" + descriptor.getSerial() + "]");
+        }
+        return descriptor;
     }
 }

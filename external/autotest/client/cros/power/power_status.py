@@ -20,6 +20,7 @@ import time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error, enum
+from autotest_lib.client.common_lib.utils import poll_for_condition_ex
 from autotest_lib.client.cros import kernel_trace
 from autotest_lib.client.cros.power import power_utils
 
@@ -143,9 +144,8 @@ class ThermalStatACPI(DevStat):
             if field.find('trip_point_') != -1 and field.find('_temp') != -1 \
                     and self.temp > self.read_val(field, int):
                 self.num_points_tripped += 1
-                logging.info('Temperature trip point #' + \
-                            field[len('trip_point_'):field.rfind('_temp')] + \
-                            ' tripped.')
+                logging.info('Temperature trip point #%s tripped.', \
+                            field[len('trip_point_'):field.rfind('_temp')])
 
 
 class ThermalStatHwmon(DevStat):
@@ -415,7 +415,7 @@ class SysStat(object):
 
     Fields:
 
-    battery:   A list of BatteryStat objects.
+    battery:   A BatteryStat object.
     linepower: A list of LineStat objects.
     """
     psu_types = ['Mains', 'USB', 'USB_ACA', 'USB_C', 'USB_CDP', 'USB_DCP',
@@ -448,6 +448,10 @@ class SysStat(object):
             logging.warning("System does not provide power sysfs interface")
 
         self.thermal = ThermalStat()
+        if self.battery_path:
+            self.sys_low_batt_p = float(utils.system_output(
+                    'check_powerd_config --low_battery_shutdown_percent',
+                    ignore_status=True) or 4.0)
 
 
     def refresh(self):
@@ -457,7 +461,7 @@ class SysStat(object):
         self.linepower = []
 
         if self.battery_path:
-            self.battery = [ BatteryStat(self.battery_path) ]
+            self.battery = BatteryStat(self.battery_path)
 
         for path in self.linepower_path:
             self.linepower.append(LineStat(path))
@@ -466,7 +470,7 @@ class SysStat(object):
 
         temp_str = self.thermal.get_temps()
         if temp_str:
-            logging.info('Temperature reading: ' + temp_str)
+            logging.info('Temperature reading: %s', temp_str)
         else:
             logging.error('Could not read temperature, skipping.')
 
@@ -486,14 +490,19 @@ class SysStat(object):
         return on_ac
 
 
-    def ac_charging(self):
+    def battery_charging(self):
         """
-        Returns true if device is currently charging from AC power.
+        Returns true if battery is currently charging or false otherwise.
         """
-        charging = False
         for linepower in self.linepower:
-            charging |= (linepower.status == 'Charging')
-        return charging
+            if linepower.status == 'Charging':
+                return True
+
+        if not self.battery_path:
+            logging.warn('Unable to determine battery charge status')
+            return False
+
+        return self.battery.status.rstrip() == 'Charging'
 
 
     def battery_discharging(self):
@@ -504,7 +513,17 @@ class SysStat(object):
             logging.warn('Unable to determine battery discharge status')
             return False
 
-        return(self.battery[0].status.rstrip() == 'Discharging')
+        return self.battery.status.rstrip() == 'Discharging'
+
+    def battery_full(self):
+        """
+        Returns true if battery is currently full or false otherwise.
+        """
+        if not self.battery_path:
+            logging.warn('Unable to determine battery fullness status')
+            return False
+
+        return self.battery.status.rstrip() == 'Full'
 
 
     def battery_discharge_ok_on_ac(self):
@@ -513,14 +532,21 @@ class SysStat(object):
         some devices cycle between charge & discharge above a certain
         SoC.  If AC is charging and SoC > 95% we can safely assume that.
         """
-        return self.ac_charging() and (self.percent_current_charge() > 95)
+        return self.battery_charging() and (self.percent_current_charge() > 95)
 
 
     def percent_current_charge(self):
         """Returns current charge compare to design capacity in percent.
         """
-        return self.battery[0].charge_now * 100 / \
-               self.battery[0].charge_full_design
+        return self.battery.charge_now * 100 / \
+               self.battery.charge_full_design
+
+
+    def percent_display_charge(self):
+        """Returns current display charge in percent.
+        """
+        keyvals = parse_power_supply_info()
+        return float(keyvals['Battery']['display percentage'])
 
 
     def assert_battery_state(self, percent_initial_charge_min):
@@ -545,6 +571,23 @@ class SysStat(object):
             raise error.TestError('Initial charge (%f) less than min (%f)'
                       % (percent_initial_charge, percent_initial_charge_min))
 
+    def assert_battery_in_range(self, min_level, max_level):
+        """Raise a error.TestFail if the battery level is not in range."""
+        current_percent = self.percent_display_charge()
+        if not (min_level <= current_percent <= max_level):
+            raise error.TestFail('battery must be in range [{}, {}]'.format(
+                                 min_level, max_level))
+
+    def is_low_battery(self, low_batt_margin_p=2.0):
+        """Returns True if battery current charge is low
+
+        @param low_batt_margin_p: percentage of battery that would be added to
+                                  system low battery level.
+        """
+        return (self.battery_discharging() and
+                self.percent_current_charge() < self.sys_low_batt_p +
+                                                low_batt_margin_p)
+
 
 def get_status():
     """
@@ -557,6 +600,51 @@ def get_status():
     status.refresh()
     return status
 
+
+def poll_for_charging_behavior(behavior, timeout):
+    """
+    Wait up to |timeout| seconds for the charging behavior to become |behavior|.
+
+    @param behavior: One of 'ON_AC_AND_CHARGING',
+                            'ON_AC_AND_NOT_CHARGING',
+                            'NOT_ON_AC_AND_NOT_CHARGING'.
+    @param timeout: in seconds.
+
+    @raises: error.TestFail if the behavior does not match in time, or another
+             exception if something else fails along the way.
+    """
+    ps = get_status()
+
+    def _verify_on_AC_and_charging():
+        ps.refresh()
+        if not ps.on_ac():
+            raise error.TestFail('Device is not on AC, but should be')
+        if not ps.battery_charging():
+            raise error.TestFail('Device is not charging, but should be')
+        return True
+
+    def _verify_on_AC_and_not_charging():
+        ps.refresh()
+        if not ps.on_ac():
+            raise error.TestFail('Device is not on AC, but should be')
+        if ps.battery_charging():
+            raise error.TestFail('Device is charging, but should not be')
+        return True
+
+    def _verify_not_on_AC_and_not_charging():
+        ps.refresh()
+        if ps.on_ac():
+            raise error.TestFail('Device is on AC, but should not be')
+        return True
+
+    poll_functions = {
+        'ON_AC_AND_CHARGING'        : _verify_on_AC_and_charging,
+        'ON_AC_AND_NOT_CHARGING'    : _verify_on_AC_and_not_charging,
+        'NOT_ON_AC_AND_NOT_CHARGING': _verify_not_on_AC_and_not_charging,
+    }
+    poll_for_condition_ex(poll_functions[behavior],
+                          timeout=timeout,
+                          sleep_interval=1)
 
 class AbstractStats(object):
     """
@@ -608,7 +696,7 @@ class AbstractStats(object):
 
     def __init__(self, name=None, incremental=True):
         if not name:
-            error.TestFail("Need to name AbstractStats instance please.")
+            raise error.TestFail("Need to name AbstractStats instance please.")
         self.name = name
         self.incremental = incremental
         self._stats = self._read_stats()
@@ -676,16 +764,18 @@ class AbstractStats(object):
 
 CPU_BASE_PATH = '/sys/devices/system/cpu/'
 
-def get_all_cpus():
+def count_all_cpus():
     """
-    Retrieve all numbers of 'cpu\d+' files under |CPU_BASE_PATH|.
+    Return count of cpus on system.
     """
-    cpu_entry_re = re.compile(r'cpu(\d+)')
-    cpus = []
-    for f in os.listdir(CPU_BASE_PATH):
-      match = cpu_entry_re.match(f)
-      if match:
-        cpus.append(int(match.groups()[0]))
+    path = '%s/cpu[0-9]*' % CPU_BASE_PATH
+    return len(glob.glob(path))
+
+def get_online_cpus():
+    """
+    Return list of integer cpu numbers that are online.
+    """
+    cpus = [int(f.split('/')[-1]) for f in glob.iglob('/dev/cpu/[0-9]*')]
     return frozenset(cpus)
 
 def get_cpus_filepaths_for_suffix(cpus, suffix):
@@ -716,31 +806,35 @@ class CPUFreqStats(AbstractStats):
         name = 'cpufreq'
         stats_suffix = 'cpufreq/stats/time_in_state'
         key_suffix = 'cpufreq/scaling_available_frequencies'
-        intel_pstate_msr_path = '/dev/cpu/*/msr'
-        all_cpus = get_all_cpus()
+        cpufreq_driver = '/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver'
         if not cpus:
-            cpus = all_cpus
-        cpus, self._file_paths = get_cpus_filepaths_for_suffix(cpus,
-                                                               stats_suffix)
-        if len(cpus) and len(cpus) < len(all_cpus):
+            cpus = get_online_cpus()
+        _, self._file_paths = get_cpus_filepaths_for_suffix(cpus,
+                                                            stats_suffix)
+
+        if len(cpus) and len(cpus) < count_all_cpus():
             name = '%s_%s' % (name, '_'.join([str(c) for c in cpus]))
-        _, cpufreq_key_paths = get_cpus_filepaths_for_suffix(cpus, key_suffix)
-        intel_pstate_msr_paths = glob.glob(intel_pstate_msr_path)
         self._running_intel_pstate = False
         self._initial_perf = None
         self._current_perf = None
         self._max_freq = 0
+        self._cpus = cpus
+        self._available_freqs = set()
+
         if not self._file_paths:
             logging.debug('time_in_state file not found')
-            if intel_pstate_msr_paths:
-                logging.debug('intel_pstate msr file found')
-                self._num_cpus = len(intel_pstate_msr_paths)
-                self._running_intel_pstate = True
 
-        self._available_freqs = set()
-        for path in cpufreq_key_paths:
-            self._available_freqs |= set(int(x) for x in
-                                         utils.read_file(path).split())
+        # assumes cpufreq driver for CPU0 is the same as the others.
+        freq_driver = utils.read_one_line(cpufreq_driver)
+        if freq_driver == 'intel_pstate':
+            logging.debug('intel_pstate driver active')
+            self._running_intel_pstate = True
+        else:
+            _, cpufreq_key_paths = get_cpus_filepaths_for_suffix(cpus,
+                                                                 key_suffix)
+            for path in cpufreq_key_paths:
+                self._available_freqs |= set(int(x) for x in
+                                             utils.read_file(path).split())
 
         super(CPUFreqStats, self).__init__(name=name)
 
@@ -750,7 +844,7 @@ class CPUFreqStats(AbstractStats):
             aperf = 0
             mperf = 0
 
-            for cpu in range(self._num_cpus):
+            for cpu in self._cpus:
                 aperf += utils.rdmsr(self.MSR_IA32_APERF, cpu)
                 mperf += utils.rdmsr(self.MSR_IA32_MPERF, cpu)
 
@@ -834,11 +928,10 @@ class CPUIdleStats(CPUCStateStats):
     def __init__(self, cpus=None):
         name = 'cpuidle'
         cpuidle_suffix = 'cpuidle'
-        all_cpus = get_all_cpus()
         if not cpus:
-            cpus = all_cpus
+            cpus = get_online_cpus()
         cpus, self._cpus = get_cpus_filepaths_for_suffix(cpus, cpuidle_suffix)
-        if len(cpus) and len(cpus) < len(all_cpus):
+        if len(cpus) and len(cpus) < count_all_cpus():
             name = '%s_%s' % (name, '_'.join([str(c) for c in cpus]))
         super(CPUIdleStats, self).__init__(name=name, non_c0_stat='non-C0')
 
@@ -869,8 +962,8 @@ class CPUIdleStats(CPUCStateStats):
                     # Kernel race condition that can happen while a new C-state
                     # gets added (e.g. AC->battery). Don't know the 'name' of
                     # the state yet, but its 'time' would be 0 anyway.
-                    logging.warning('Read name: <null>, time: %d from %s'
-                        % (usecs, state) + '... skipping.')
+                    logging.warning('Read name: <null>, time: %d from %s...'
+                                    'skipping.', usecs, state)
                     continue
 
                 cpuidle_stats[name] += usecs
@@ -911,8 +1004,10 @@ class CPUPackageStats(CPUCStateStats):
                 'Airmont':      self.SILVERMONT,
                 'Atom':         self.ATOM,
                 'Broadwell':    self.BROADWELL,
+                'Comet Lake':   self.BROADWELL,
                 'Goldmont':     self.GOLDMONT,
                 'Haswell':      self.SANDY_BRIDGE,
+                'Ice Lake':     self.BROADWELL,
                 'Ivy Bridge':   self.SANDY_BRIDGE,
                 'Ivy Bridge-E': self.SANDY_BRIDGE,
                 'Kaby Lake':    self.BROADWELL,
@@ -920,6 +1015,7 @@ class CPUPackageStats(CPUCStateStats):
                 'Sandy Bridge': self.SANDY_BRIDGE,
                 'Silvermont':   self.SILVERMONT,
                 'Skylake':      self.BROADWELL,
+                'Tiger Lake':   self.BROADWELL,
                 'Westmere':     self.NEHALEM,
                 }.get(cpu_uarch, None)
 
@@ -1139,7 +1235,7 @@ class GPUFreqStats(AbstractStats):
             logging.debug("Current GPU freq: %s", cur_mhz)
             logging.debug("All GPU freqs: %s", self._freqs)
 
-        super(GPUFreqStats, self).__init__(name='gpu', incremental=incremental)
+        super(GPUFreqStats, self).__init__(name='gpufreq', incremental=incremental)
 
 
     @classmethod
@@ -1277,7 +1373,7 @@ def get_cpu_sibling_groups():
     siblings_suffix = 'topology/core_siblings_list'
     sibling_groups = []
     cpus_processed = set()
-    cpus, sibling_file_paths = get_cpus_filepaths_for_suffix(get_all_cpus(),
+    cpus, sibling_file_paths = get_cpus_filepaths_for_suffix(get_online_cpus(),
                                                              siblings_suffix)
     for c, siblings_path in zip(cpus, sibling_file_paths):
         if c in cpus_processed:
@@ -1307,6 +1403,8 @@ def get_available_cpu_stats():
     for cpu_group in cpu_sibling_groups:
         ret.append(CPUFreqStats(cpu_group))
         ret.append(CPUIdleStats(cpu_group))
+    if has_rc6_support():
+        ret.append(GPURC6Stats())
     return ret
 
 
@@ -2068,6 +2166,42 @@ class TempLogger(MeasurementLogger):
         return super(TempLogger, self).calc(mtype)
 
 
+class VideoFpsLogger(MeasurementLogger):
+    """Class to measure Video FPS."""
+
+    def __init__(self, tab, seconds_period=1.0, checkpoint_logger=None):
+        """Initialize a VideoFpsLogger.
+
+        Args:
+            tab: Chrome tab object
+        """
+        super(VideoFpsLogger, self).__init__([], seconds_period,
+                                             checkpoint_logger)
+        self._tab = tab
+        names = self._tab.EvaluateJavaScript(
+            'Array.from(document.getElementsByTagName("video")).map(v => v.id)')
+        self.domains =  [n or 'video_' + str(i) for i, n in enumerate(names)]
+        self._last = [0] * len(names)
+        self.refresh()
+
+    def refresh(self):
+        current = self._tab.EvaluateJavaScript(
+            'Array.from(document.getElementsByTagName("video")).map('
+            'v => v.webkitDecodedFrameCount)')
+        fps = [(b - a) / self.seconds_period
+               for a, b in zip(self._last , current)]
+        self._last = current
+        return fps
+
+    def save_results(self, resultsdir, fname_prefix=None):
+        if not fname_prefix:
+            fname_prefix = 'video_fps_results_%.0f' % time.time()
+        super(VideoFpsLogger, self).save_results(resultsdir, fname_prefix)
+
+    def calc(self, mtype='fps'):
+        return super(VideoFpsLogger, self).calc(mtype)
+
+
 class DiskStateLogger(threading.Thread):
     """Records the time percentages the disk stays in its different power modes.
 
@@ -2335,15 +2469,61 @@ class RC6ResidencyStats(object):
     """
     def __init__(self):
         self._rc6_enable_checked = False
-        self._initial_stat = self._parse_rc6_residency_info()
+        self._previous_stat = self._parse_rc6_residency_info()
+        self._accumulated_stat = 0
 
-    def get_accumulated_residency_secs(self):
+        # Setup max RC6 residency count for modern chips. The table order
+        # is in small/big-core first, follows by the uarch name. We don't
+        # need to deal with the wraparound for devices with v4.17+ kernel
+        # which has the commit 817cc0791823 ("drm/i915: Handle RC6 counter wrap").
+        cpu_uarch = utils.get_intel_cpu_uarch()
+        self._max_counter = {
+          # Small-core w/ GEN9 LP graphics
+          'Airmont':      3579125,
+          'Goldmont':     3579125,
+          # Big-core
+          'Broadwell':    5497558,
+          'Haswell':      5497558,
+          'Kaby Lake':    5497558,
+          'Skylake':      5497558,
+        }.get(cpu_uarch, None)
+
+    def get_accumulated_residency_msecs(self):
         """Check number of RC6 state entry since the class has been initialized.
 
-        @returns int of RC6 residency in seconds since instantiation.
+        @returns int of RC6 residency in milliseconds since instantiation.
         """
         current_stat = self._parse_rc6_residency_info()
-        return (current_stat - self._initial_stat) * 1e-3
+
+        # The problem here is that we cannot assume the rc6_residency_ms is
+        # monotonically increasing by current kernel i915 implementation.
+        #
+        # Considering different hardware has different wraparound period,
+        # this is a mitigation plan to deal with different wraparound period
+        # on various platforms, in order to make the test platform agnostic.
+        #
+        # This scarifes the accuracy of RC6 residency a bit, up on the calling
+        # period.
+        #
+        # Reference: Bug 94852 - [SKL] rc6_residency_ms unreliable
+        # (https://bugs.freedesktop.org/show_bug.cgi?id=94852)
+        #
+        # However for modern processors with a known overflow count, apply
+        # constant of RC6 max counter to improve accuracy.
+        #
+        # Note that the max counter is bound for sysfs overflow, while the
+        # accumulated residency here is the diff against the first reading.
+        if current_stat < self._previous_stat:
+          if self._max_counter is None:
+            logging.warning('GPU: Detect rc6_residency_ms wraparound')
+            self._accumulated_stat += current_stat
+          else:
+            self._accumulated_stat += current_stat + (self._max_counter - self._previous_stat)
+        else:
+          self._accumulated_stat += current_stat - self._previous_stat
+
+        self._previous_stat = current_stat
+        return self._accumulated_stat
 
     def _is_rc6_enable(self):
         """
@@ -2356,7 +2536,7 @@ class RC6ResidencyStats(object):
         if not os.path.exists(path):
             raise error.TestFail('RC6 enable file not found.')
 
-        return int(utils.read_one_line(path)) == 1
+        return (int(utils.read_one_line(path)) & 0x1) == 0x1
 
     def _parse_rc6_residency_info(self):
         """
@@ -2396,8 +2576,9 @@ class PCHPowergatingStats(object):
         """
         # PCH IP block that is on for S0ix. Ignore these IP block.
         S0IX_WHITELIST = set([
-                'PMC', 'OPI-DMI', 'SPI / eSPI', 'XHCI', 'xHCI', 'FUSE', 'PCIE0',
-                'NPKVRC', 'NPKVNN'])
+                'PMC', 'OPI-DMI', 'SPI / eSPI', 'XHCI', 'xHCI', 'FUSE', 'Fuse',
+                'PCIE0', 'NPKVRC', 'NPKVNN', 'NPK_VNN', 'PSF1', 'PSF2', 'PSF3',
+                'PSF4', 'SBR0', 'SBR1', 'SBR2', 'SBR4', 'SBR5', 'SBR6', 'SBR7'])
 
         # PCH IP block that is on/off for S0ix depend on features enabled.
         # Add log when these IPs state are on.
@@ -2408,6 +2589,10 @@ class PCHPowergatingStats(object):
         # CNV device has 0x31dc as devid .
         if len(utils.system_output('lspci -d :31dc')) > 0:
             S0IX_WHITELIST.add('CNV')
+
+        # HrP2 device has 0x02f0 as devid.
+        if len(utils.system_output('lspci -d :02f0')) > 0:
+            S0IX_WHITELIST.update(['CNVI', 'NPK_AON'])
 
         on_ip = set(ip['name'] for ip in self._stat if ip['state'])
         on_ip -= S0IX_WHITELIST
@@ -2528,3 +2713,50 @@ class PCHPowergatingStats(object):
 
             ret.append({'name': name, 'state': state})
         self._stat = ret
+
+def has_rc6_support():
+    """
+    Helper to examine that RC6 is enabled with residency counter.
+
+    @returns Boolean of RC6 support status.
+    """
+    enable_path = '/sys/class/drm/card0/power/rc6_enable'
+    residency_path = '/sys/class/drm/card0/power/rc6_residency_ms'
+
+    has_rc6_enabled = os.path.exists(enable_path)
+    has_rc6_residency = False
+    rc6_enable_mask = 0
+
+    if has_rc6_enabled:
+        # TODO (harry.pan): Some old chip has RC6P and RC6PP
+        # in the bits[1:2]; in case of that, ideally these time
+        # slice will fall into RC0, fix it up if required.
+        rc6_enable_mask = int(utils.read_one_line(enable_path))
+        has_rc6_enabled &= (rc6_enable_mask) & 0x1 == 0x1
+        has_rc6_residency = os.path.exists(residency_path)
+
+    logging.debug("GPU: RC6 residency support: %s, mask: 0x%x",
+                  {True: "yes", False: "no"} [has_rc6_enabled and has_rc6_residency],
+                  rc6_enable_mask)
+
+    return (has_rc6_enabled and has_rc6_residency)
+
+class GPURC6Stats(AbstractStats):
+    """
+    GPU RC6 statistics to give ratio of RC6 and RC0 residency
+
+    Protected Attributes:
+      _rc6: object of RC6ResidencyStats
+    """
+    def __init__(self):
+        self._rc6 = RC6ResidencyStats()
+        super(GPURC6Stats, self).__init__(name='gpuidle')
+
+    def _read_stats(self):
+        total = int(time.time() * 1000)
+        msecs = self._rc6.get_accumulated_residency_msecs()
+        stats = collections.defaultdict(int)
+        stats['RC6'] += msecs
+        stats['RC0'] += total - msecs
+        logging.debug("GPU: RC6 residency: %d ms", msecs)
+        return stats

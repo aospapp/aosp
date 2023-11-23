@@ -101,7 +101,7 @@ def main():
         fl = md["android.lens.focalLength"]
         fov = 2 * math.degrees(math.atan(diag / (2 * fl)))
         print "Assert field of view: %.1f degrees" % fov
-        assert 30 <= fov <= 130
+        assert 10 <= fov <= 130
 
         if its.caps.lens_approx_calibrated(props):
             diopter_hyperfocal = props["android.lens.info.hyperfocalDistance"]

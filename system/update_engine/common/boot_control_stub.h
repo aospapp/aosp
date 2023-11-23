@@ -17,9 +17,11 @@
 #ifndef UPDATE_ENGINE_COMMON_BOOT_CONTROL_STUB_H_
 #define UPDATE_ENGINE_COMMON_BOOT_CONTROL_STUB_H_
 
+#include <memory>
 #include <string>
 
 #include "update_engine/common/boot_control_interface.h"
+#include "update_engine/common/dynamic_partition_control_interface.h"
 
 namespace chromeos_update_engine {
 
@@ -32,7 +34,7 @@ namespace chromeos_update_engine {
 // implementation is in use.
 class BootControlStub : public BootControlInterface {
  public:
-  BootControlStub() = default;
+  BootControlStub();
   ~BootControlStub() = default;
 
   // BootControlInterface overrides.
@@ -45,12 +47,12 @@ class BootControlStub : public BootControlInterface {
   bool MarkSlotUnbootable(BootControlInterface::Slot slot) override;
   bool SetActiveBootSlot(BootControlInterface::Slot slot) override;
   bool MarkBootSuccessfulAsync(base::Callback<void(bool)> callback) override;
-  bool InitPartitionMetadata(Slot slot,
-                             const PartitionMetadata& partition_metadata,
-                             bool update_metadata) override;
-  void Cleanup() override;
+  bool IsSlotMarkedSuccessful(BootControlInterface::Slot slot) const override;
+  DynamicPartitionControlInterface* GetDynamicPartitionControl() override;
 
  private:
+  std::unique_ptr<DynamicPartitionControlInterface> dynamic_partition_control_;
+
   DISALLOW_COPY_AND_ASSIGN(BootControlStub);
 };
 

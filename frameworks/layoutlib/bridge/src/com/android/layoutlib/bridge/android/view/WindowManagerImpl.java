@@ -15,21 +15,35 @@
  */
 package com.android.layoutlib.bridge.android.view;
 
+import android.app.ResourcesManager;
+import android.content.Context;
+import android.graphics.Insets;
+import android.graphics.Point;
+import android.graphics.Rect;
 import android.graphics.Region;
+import android.os.RemoteException;
 import android.util.DisplayMetrics;
+import android.util.Size;
 import android.view.Display;
 import android.view.Display.Mode;
 import android.view.DisplayAdjustments;
+import android.view.DisplayCutout;
 import android.view.DisplayInfo;
+import android.view.InsetsState;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.WindowManagerGlobal;
+import android.view.WindowMetrics;
 
 public class WindowManagerImpl implements WindowManager {
 
+    private final Context mContext;
     private final DisplayMetrics mMetrics;
     private final Display mDisplay;
 
-    public WindowManagerImpl(DisplayMetrics metrics) {
+    public WindowManagerImpl(Context context, DisplayMetrics metrics) {
+        mContext = context;
         mMetrics = metrics;
 
         DisplayInfo info = new DisplayInfo();
@@ -38,6 +52,7 @@ public class WindowManagerImpl implements WindowManager {
         info.supportedModes = new Mode[] {
                 new Mode(0, mMetrics.widthPixels, mMetrics.heightPixels, 60f)
         };
+        info.logicalDensityDpi = mMetrics.densityDpi;
         mDisplay = new Display(null, Display.DEFAULT_DISPLAY, info,
                 DisplayAdjustments.DEFAULT_DISPLAY_ADJUSTMENTS);
     }
@@ -92,5 +107,48 @@ public class WindowManagerImpl implements WindowManager {
     @Override
     public void setShouldShowIme(int displayId, boolean shouldShow) {
         // pass
+    }
+
+    @Override
+    public WindowMetrics getCurrentWindowMetrics() {
+        final Rect bound = getCurrentBounds(mContext);
+
+        return new WindowMetrics(bound, computeWindowInsets());
+    }
+
+    private static Rect getCurrentBounds(Context context) {
+        synchronized (ResourcesManager.getInstance()) {
+            return context.getResources().getConfiguration().windowConfiguration.getBounds();
+        }
+    }
+
+    @Override
+    public WindowMetrics getMaximumWindowMetrics() {
+        return new WindowMetrics(getMaximumBounds(), computeWindowInsets());
+    }
+
+    private Rect getMaximumBounds() {
+        final Point displaySize = new Point();
+        mDisplay.getRealSize(displaySize);
+        return new Rect(0, 0, displaySize.x, displaySize.y);
+    }
+
+    private WindowInsets computeWindowInsets() {
+        try {
+            final Rect systemWindowInsets = new Rect();
+            final Rect stableInsets = new Rect();
+            final DisplayCutout.ParcelableWrapper displayCutout =
+                    new DisplayCutout.ParcelableWrapper();
+            final InsetsState insetsState = new InsetsState();
+            WindowManagerGlobal.getWindowManagerService().getWindowInsets(
+                    new WindowManager.LayoutParams(), mContext.getDisplayId(), systemWindowInsets,
+                    stableInsets, displayCutout, insetsState);
+            return new WindowInsets.Builder()
+                    .setSystemWindowInsets(Insets.of(systemWindowInsets))
+                    .setStableInsets(Insets.of(stableInsets))
+                    .setDisplayCutout(displayCutout.get()).build();
+        } catch (RemoteException ignore) {
+        }
+        return null;
     }
 }

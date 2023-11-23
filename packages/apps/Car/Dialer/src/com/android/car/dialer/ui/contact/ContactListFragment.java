@@ -24,6 +24,8 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProviders;
 
+import com.android.car.dialer.Constants;
+import com.android.car.dialer.R;
 import com.android.car.dialer.ui.common.DialerListBaseFragment;
 import com.android.car.telephony.common.Contact;
 
@@ -40,13 +42,29 @@ public class ContactListFragment extends DialerListBaseFragment implements
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        mContactListAdapter = new ContactListAdapter(
-                getContext(), /* onShowContactDetailListener= */this);
+        super.onViewCreated(view, savedInstanceState);
+        // Don't recreate the adapter if we already have one, so that the list items
+        // will display immediately upon the view being recreated. If they're not displayed
+        // immediately, we won't remember our scroll position.
+        if (mContactListAdapter == null) {
+            mContactListAdapter = new ContactListAdapter(
+                    getContext(), /* onShowContactDetailListener= */this);
+        }
         getRecyclerView().setAdapter(mContactListAdapter);
 
         ContactListViewModel contactListViewModel = ViewModelProviders.of(this).get(
                 ContactListViewModel.class);
-        contactListViewModel.getAllContacts().observe(this, mContactListAdapter::setContactList);
+        contactListViewModel.getAllContacts().observe(this, contacts -> {
+            if (contacts.isLoading()) {
+                showLoading();
+            } else if (contacts.getData() == null) {
+                showEmpty(Constants.INVALID_RES_ID, R.string.contact_list_empty,
+                        R.string.available_after_sync);
+            } else {
+                mContactListAdapter.setContactList(contacts.getData());
+                showContent();
+            }
+        });
     }
 
     @Override

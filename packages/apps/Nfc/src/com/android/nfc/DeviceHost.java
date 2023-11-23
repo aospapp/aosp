@@ -258,4 +258,6 @@ public interface DeviceHost {
     public void shutdown();
 
     public boolean setNfcSecure(boolean enable);
+
+    public String getNfaStorageDir();
 }

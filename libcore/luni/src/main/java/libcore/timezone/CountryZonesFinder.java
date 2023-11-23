@@ -16,6 +16,8 @@
 
 package libcore.timezone;
 
+import static libcore.timezone.XmlUtils.normalizeCountryIso;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -76,7 +78,7 @@ public final class CountryZonesFinder {
      */
     @libcore.api.CorePlatformApi
     public CountryTimeZones lookupCountryTimeZones(String countryIso) {
-        String normalizedCountryIso = TimeZoneFinder.normalizeCountryIso(countryIso);
+        String normalizedCountryIso = normalizeCountryIso(countryIso);
         for (CountryTimeZones countryTimeZones : countryTimeZonesList) {
             if (countryTimeZones.getCountryIso().equals(normalizedCountryIso)) {
                 return countryTimeZones;

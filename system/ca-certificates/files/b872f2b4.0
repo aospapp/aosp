@@ -23,7 +23,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 6643877497813316402 (0x5c33cb622c5fb332)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: CN=Atos TrustedRoot 2011, O=Atos, C=DE
         Validity
             Not Before: Jul  7 14:58:30 2011 GMT
@@ -31,7 +31,7 @@ Certificate:
         Subject: CN=Atos TrustedRoot 2011, O=Atos, C=DE
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:95:85:3b:97:6f:2a:3b:2e:3b:cf:a6:f3:29:35:
                     be:cf:18:ac:3e:aa:d9:f8:4d:a0:3e:1a:47:b9:bc:

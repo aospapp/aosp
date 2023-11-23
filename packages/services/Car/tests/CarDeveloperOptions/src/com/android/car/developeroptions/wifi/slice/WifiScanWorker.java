@@ -34,7 +34,6 @@ import android.util.Log;
 
 import androidx.annotation.VisibleForTesting;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.slices.SliceBackgroundWorker;
 import com.android.car.developeroptions.wifi.WifiUtils;
 import com.android.settingslib.wifi.AccessPoint;
@@ -42,6 +41,7 @@ import com.android.settingslib.wifi.WifiTracker;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * {@link SliceBackgroundWorker} for Wi-Fi, used by WifiSlice.
@@ -185,7 +185,7 @@ public class WifiScanWorker extends SliceBackgroundWorker<AccessPoint> implement
         private boolean mIsCaptivePortal;
 
         CaptivePortalNetworkCallback(Network network) {
-            mNetwork = Preconditions.checkNotNull(network);
+            mNetwork = Objects.requireNonNull(network);
         }
 
         @Override

@@ -17,6 +17,7 @@
 
 # A simple GUI to remotely actuate the Vehicle HAL via the eumalator
 
+import argparse
 import sys
 from threading import Thread
 from PyQt4.QtCore import *
@@ -125,8 +126,12 @@ def sliderMove(slider, gearDisplay):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Vehicle HAL Driver UI')
+    parser.add_argument("--serial", "-s", action='store', dest='serial',
+        default=None, required=False, help='Select which device to connect to')
+    args = parser.parse_args()
     print "Starting VHal driver GUI"
-    vhal = Vhal(c.vhal_types_2_0)
+    vhal = Vhal(c.vhal_types_2_0, device=args.serial)
 
     # Start a receive thread to consume any replies from the vhal
     print "Starting receiver thread"

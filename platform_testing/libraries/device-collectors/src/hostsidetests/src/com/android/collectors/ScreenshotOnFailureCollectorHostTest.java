@@ -35,8 +35,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.net.URLConnection;
 import java.util.Arrays;
 
 /**
@@ -79,24 +80,29 @@ public class ScreenshotOnFailureCollectorHostTest extends BaseHostJUnit4Test {
         mTestRunner.addInstrumentationArg("screenshot-format", "file:screenshot-log");
 
         CollectingTestListener listener = new CollectingTestListener();
-        FilePullerDeviceMetricCollector collector = new FilePullerDeviceMetricCollector() {
-            @Override
-            public void processMetricFile(String key, File metricFile, DeviceMetricData runData) {
-                try {
-                    assertTrue(metricFile.getName().contains("png"));
-                    assertTrue(metricFile.length() > 0);
-                    assertEquals("image/png", Files.probeContentType(metricFile.toPath()));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                } finally {
-                    assertTrue(metricFile.delete());
-                }
-            }
-            @Override
-            public void processMetricDirectory(String key, File metricDirectory,
-                    DeviceMetricData runData) {
-            }
-        };
+        FilePullerDeviceMetricCollector collector =
+                new FilePullerDeviceMetricCollector() {
+                    @Override
+                    public void processMetricFile(
+                            String key, File metricFile, DeviceMetricData runData) {
+                        try {
+                            assertTrue(metricFile.getName().contains("png"));
+                            assertTrue(metricFile.length() > 0);
+                            String mime =
+                                    URLConnection.guessContentTypeFromStream(
+                                            new FileInputStream(metricFile));
+                            assertEquals("image/png", mime);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        } finally {
+                            assertTrue(metricFile.delete());
+                        }
+                    }
+
+                    @Override
+                    public void processMetricDirectory(
+                            String key, File metricDirectory, DeviceMetricData runData) {}
+                };
         OptionSetter optionSetter = new OptionSetter(collector);
         String pattern = String.format("%s_.*", SCREENSHOT_COLLECTOR);
         optionSetter.setOptionValue("pull-pattern-keys", pattern);

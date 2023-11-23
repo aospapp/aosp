@@ -66,6 +66,7 @@ class platform_Flashrom(FirmwareTest):
         return (int(fmap_data[2], 16), int(fmap_data[3], 16))
 
     def run_once(self, dev_mode=True):
+        """Main test logic"""
         # 1) Check SW WP is disabled.
         self._check_wp_disable()
 

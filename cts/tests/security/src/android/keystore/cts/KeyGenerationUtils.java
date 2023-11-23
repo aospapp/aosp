@@ -43,16 +43,26 @@ public class KeyGenerationUtils {
                 .build();
     }
 
+    private static AttestedKeyPair generateRsaKeyPair(DevicePolicyManager dpm, ComponentName admin,
+            int deviceIdAttestationFlags, String alias) {
+        return  dpm.generateKeyPair(
+                admin, "RSA", buildRsaKeySpecWithKeyAttestation(alias),
+                deviceIdAttestationFlags);
+    }
+
     private static void generateKeyWithIdFlagsExpectingSuccess(DevicePolicyManager dpm,
             ComponentName admin, int deviceIdAttestationFlags) {
         try {
-            AttestedKeyPair generated = dpm.generateKeyPair(
-                    admin, "RSA", buildRsaKeySpecWithKeyAttestation(ALIAS),
-                    deviceIdAttestationFlags);
+            AttestedKeyPair generated =
+                    generateRsaKeyPair(dpm, admin, deviceIdAttestationFlags, ALIAS);
             assertThat(generated).isNotNull();
         } finally {
             assertThat(dpm.removeKeyPair(admin, ALIAS)).isTrue();
         }
+    }
+
+    public static void generateRsaKey(DevicePolicyManager dpm, ComponentName admin, String alias) {
+        assertThat(generateRsaKeyPair(dpm, admin, 0, alias)).isNotNull();
     }
 
     public static void generateKeyWithDeviceIdAttestationExpectingSuccess(DevicePolicyManager dpm,

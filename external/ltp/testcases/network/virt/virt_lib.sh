@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (c) 2018 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2018-2019 Petr Vorel <pvorel@suse.cz>
 # Copyright (c) 2014-2017 Oracle and/or its affiliates. All Rights Reserved.
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 #
@@ -50,7 +50,7 @@ virt_lib_setup()
 	;;
 	esac
 
-	tst_test_cmds "ip"
+	tst_require_cmds "ip"
 
 	virt_add ltp_v0 || \
 		tst_brk TCONF "iproute2 or kernel doesn't support $virt_type"
@@ -69,9 +69,13 @@ ip_remote=$(tst_ipaddr rhost)
 ip_virt_remote="$(TST_IPV6= tst_ipaddr_un rhost)"
 ip6_virt_remote="$(TST_IPV6=6 tst_ipaddr_un rhost)"
 
+vxlan_dstport=0
+
 # Max performance loss (%) for virtual devices during network load
 VIRT_PERF_THRESHOLD=${VIRT_PERF_THRESHOLD:-80}
-vxlan_dstport=0
+if [ -n "$VIRT_PERF_THRESHOLD_MIN" ] && [ "$VIRT_PERF_THRESHOLD" -lt $VIRT_PERF_THRESHOLD_MIN ]; then
+	 VIRT_PERF_THRESHOLD="$VIRT_PERF_THRESHOLD_MIN"
+fi
 
 cleanup_vifaces()
 {
@@ -252,7 +256,7 @@ vxlan_setup_subnet_uni()
 
 vxlan_setup_subnet_multi()
 {
-	tst_test_cmds "od"
+	tst_require_cmds "od"
 	local b1=$(($(od -An -d -N1 /dev/urandom) % 254 + 1))
 	local b2=$(($(od -An -d -N1 /dev/urandom) % 254 + 1))
 	local b3=$(($(od -An -d -N1 /dev/urandom) % 254 + 1))
@@ -327,11 +331,21 @@ virt_check_cmd()
 
 virt_netperf_msg_sizes()
 {
-	local sizes="100 1000 2000 10000"
+	local sizes="100 1000 2000 $TST_NET_MAX_PKT"
 	local s
 
 	for s in $sizes; do
 		virt_compare_netperf pass "-n $s -N $s"
+	done
+}
+
+virt_netperf_rand_sizes()
+{
+	local max_pkt_size="$TST_NET_MAX_PKT"
+	local types="tcp udp udp_lite"
+
+	for t in $types; do
+		virt_compare_netperf pass "-A $max_pkt_size -T $t"
 	done
 }
 
@@ -354,4 +368,19 @@ virt_test_02()
 	virt_check_cmd virt_add ltp_v0 $2 || return
 	virt_add_delete_test "$2"
 	start_id=$(($start_id + $NS_TIMES))
+}
+
+virt_gre_setup()
+{
+	virt_type="gre"
+	[ "$TST_IPV6" ] && virt_type="ip6gre"
+	virt_lib_setup
+
+	if [ -z $ip_local -o -z $ip_remote ]; then
+		tst_brk TBROK "you must specify IP address"
+	fi
+
+	tst_res TINFO "test $virt_type"
+	virt_setup "local $(tst_ipaddr) remote $(tst_ipaddr rhost) dev $(tst_iface)" \
+	"local $(tst_ipaddr rhost) remote $(tst_ipaddr) dev $(tst_iface rhost)"
 }

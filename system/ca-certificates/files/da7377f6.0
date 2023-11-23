@@ -34,7 +34,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             4f:d2:2b:8f:f5:64:c8:33:9e:4f:34:58:66:23:70:60
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=CN, O=UniTrust, CN=UCA Extended Validation Root
         Validity
             Not Before: Mar 13 00:00:00 2015 GMT
@@ -42,7 +42,7 @@ Certificate:
         Subject: C=CN, O=UniTrust, CN=UCA Extended Validation Root
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:a9:09:07:28:13:02:b0:99:e0:64:aa:1e:43:16:
                     7a:73:b1:91:a0:75:3e:a8:fa:e3:38:00:7a:ec:89:

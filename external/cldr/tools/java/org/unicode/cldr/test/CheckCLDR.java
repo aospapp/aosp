@@ -41,6 +41,7 @@ import org.unicode.cldr.util.RegexFileParser.RegexLineParser;
 import org.unicode.cldr.util.StandardCodes;
 import org.unicode.cldr.util.TransliteratorUtilities;
 import org.unicode.cldr.util.VoteResolver;
+import org.unicode.cldr.util.VoteResolver.Status;
 
 import com.ibm.icu.dev.util.ElapsedTimer;
 import com.ibm.icu.impl.Row.R3;
@@ -67,6 +68,9 @@ import com.ibm.icu.util.ICUUncheckedIOException;
  * @author davis
  */
 abstract public class CheckCLDR {
+
+    public static final boolean LIMITED_SUBMISSION = false; // TODO represent differently
+
     private static CLDRFile displayInformation;
 
     private CLDRFile cldrFileToCheck;
@@ -100,7 +104,10 @@ abstract public class CheckCLDR {
         /**
          * Disallow (for various reasons)
          */
-        FORBID_ERRORS(true), FORBID_READONLY(true), FORBID_UNLESS_DATA_SUBMISSION(true), FORBID_COVERAGE(true), FORBID_NEEDS_TICKET(true);
+        FORBID_ERRORS(true), 
+        FORBID_READONLY(true), 
+        FORBID_UNLESS_DATA_SUBMISSION(true), 
+        FORBID_NULL(true);
 
         private final boolean isForbidden;
 
@@ -119,27 +126,6 @@ abstract public class CheckCLDR {
         public boolean canShow() {
             return !isForbidden;
         }
-
-        /**
-         * @deprecated
-         */
-        public static final StatusAction FORBID = FORBID_READONLY;
-        /**
-         * @deprecated
-         */
-        public static final StatusAction SHOW_VOTING_AND_ADD = ALLOW;
-        /**
-         * @deprecated
-         */
-        public static final StatusAction SHOW_VOTING_AND_TICKET = ALLOW_VOTING_AND_TICKET;
-        /**
-         * @deprecated
-         */
-        public static final StatusAction SHOW_VOTING_BUT_NO_ADD = ALLOW_VOTING_BUT_NO_ADD;
-        /**
-         * @deprecated
-         */
-        public static final StatusAction FORBID_HAS_ERROR = FORBID_ERRORS;
     }
 
     private static final HashMap<String, Phase> PHASE_NAMES = new HashMap<String, Phase>();
@@ -177,7 +163,7 @@ abstract public class CheckCLDR {
             InputMethod inputMethod,
             PathHeader.SurveyToolStatus status,
             UserInfo userInfo // can get voterInfo from this.
-        ) {
+            ) {
 
             // always forbid deprecated items - don't show.
             if (status == SurveyToolStatus.DEPRECATED) {
@@ -198,33 +184,33 @@ abstract public class CheckCLDR {
                 return StatusAction.ALLOW;
             }
 
-            // if the coverage level is optional, disallow everything
-            if (pathValueInfo.getCoverageLevel().compareTo(Level.COMPREHENSIVE) > 0) {
-                return StatusAction.FORBID_COVERAGE;
+            if (status == SurveyToolStatus.HIDE) {
+                return StatusAction.FORBID_READONLY;
             }
 
-            if (status == SurveyToolStatus.HIDE) {
+            CandidateInfo winner = pathValueInfo.getCurrentItem();
+            ValueStatus valueStatus = getValueStatus(winner, ValueStatus.NONE, null);
+
+            // if limited submission, and winner doesn't have an error, limit the values
+
+            if (LIMITED_SUBMISSION && !SubmissionLocales.allowEvenIfLimited(pathValueInfo.getLocale().toString(), pathValueInfo.getXpath(), valueStatus == ValueStatus.ERROR, pathValueInfo.getBaselineStatus() == Status.missing)) {
                 return StatusAction.FORBID_READONLY;
             }
 
             if (this == Phase.SUBMISSION) {
                 return (status == SurveyToolStatus.READ_WRITE || status == SurveyToolStatus.LTR_ALWAYS)
                     ? StatusAction.ALLOW
-                    : StatusAction.ALLOW_VOTING_AND_TICKET;
+                        : StatusAction.ALLOW_VOTING_AND_TICKET;
             }
 
-            // We are not in submission.
+            // We are in vetting, not in submission
+
             // Only allow ADD if we have an error or warning
-            ValueStatus valueStatus = ValueStatus.NONE;
-            CandidateInfo winner = pathValueInfo.getCurrentItem();
             // Only check winning value for errors/warnings per ticket #8677
-            // We used to check all candidates.
-//            for (CandidateInfo value : pathValueInfo.getValues()) {
-            valueStatus = getValueStatus(winner, valueStatus);
             if (valueStatus != ValueStatus.NONE) {
                 return (status == SurveyToolStatus.READ_WRITE || status == SurveyToolStatus.LTR_ALWAYS)
                     ? StatusAction.ALLOW
-                    : StatusAction.ALLOW_VOTING_AND_TICKET;
+                        : StatusAction.ALLOW_VOTING_AND_TICKET;
             }
 //            }
 
@@ -251,7 +237,7 @@ abstract public class CheckCLDR {
             InputMethod inputMethod,
             PathHeader.SurveyToolStatus status,
             UserInfo userInfo // can get voterInfo from this.
-        ) {
+            ) {
             if (status != SurveyToolStatus.READ_WRITE && status != SurveyToolStatus.LTR_ALWAYS) {
                 return StatusAction.FORBID_READONLY; // not writable.
             }
@@ -272,7 +258,7 @@ abstract public class CheckCLDR {
             }
 
             // Disallow errors.
-            ValueStatus valueStatus = getValueStatus(enteredValue, ValueStatus.NONE);
+            ValueStatus valueStatus = getValueStatus(enteredValue, ValueStatus.NONE, CheckStatus.crossCheckSubtypes);
             if (valueStatus == ValueStatus.ERROR) {
                 return StatusAction.FORBID_ERRORS;
             }
@@ -288,7 +274,7 @@ abstract public class CheckCLDR {
                 if (value == enteredValue) {
                     return StatusAction.ALLOW;
                 }
-                valueStatus = getValueStatus(value, valueStatus);
+                valueStatus = getValueStatus(value, valueStatus, CheckStatus.crossCheckSubtypes);
             }
 
             // If there were any errors/warnings on other values, allow
@@ -302,11 +288,11 @@ abstract public class CheckCLDR {
             return StatusAction.FORBID_UNLESS_DATA_SUBMISSION;
         }
 
-        enum ValueStatus {
+        public enum ValueStatus {
             ERROR, WARNING, NONE
         }
 
-        private ValueStatus getValueStatus(CandidateInfo value, ValueStatus previous) {
+        public ValueStatus getValueStatus(CandidateInfo value, ValueStatus previous, Set<Subtype> changeErrorToWarning) {
             if (previous == ValueStatus.ERROR || value == null) {
                 return previous;
             }
@@ -314,7 +300,7 @@ abstract public class CheckCLDR {
             for (CheckStatus item : value.getCheckStatusList()) {
                 CheckStatus.Type type = item.getType();
                 if (type.equals(CheckStatus.Type.Error)) {
-                    if (CheckStatus.crossCheckSubtypes.contains(item.getSubtype())) {
+                    if (changeErrorToWarning != null && changeErrorToWarning.contains(item.getSubtype())) {
                         return ValueStatus.WARNING;
                     } else {
                         return ValueStatus.ERROR;
@@ -330,8 +316,14 @@ abstract public class CheckCLDR {
     public static final class Options implements Comparable<Options> {
 
         public enum Option {
-            locale, CoverageLevel_requiredLevel("CoverageLevel.requiredLevel"), CoverageLevel_localeType(
-                "CoverageLevel.localeType"), SHOW_TIMES, phase, lgWarningCheck, CheckCoverage_skip("CheckCoverage.skip"), exemplarErrors;
+            locale,
+            CoverageLevel_requiredLevel("CoverageLevel.requiredLevel"),
+            CoverageLevel_localeType("CoverageLevel.localeType"),
+            SHOW_TIMES,
+            phase,
+            lgWarningCheck,
+            CheckCoverage_skip("CheckCoverage.skip"),
+            exemplarErrors;
 
             private String key;
 
@@ -441,11 +433,6 @@ abstract public class CheckCLDR {
             }
         }
 
-        private Options clear(Option o) {
-            set(o, null);
-            return this;
-        }
-
         private Options clear() {
             for (int i = 0; i < options.length; i++) {
                 options[i] = null;
@@ -470,6 +457,14 @@ abstract public class CheckCLDR {
             return CLDRLocale.getInstance(get(Option.locale));
         }
 
+        /**
+         * Get the required coverage level for the specified locale, for this CheckCLDR object.
+         *
+         * @param localeID
+         * @return the Level
+         *
+         * Called by CheckCoverage.setCldrFileToCheck and CheckDates.setCldrFileToCheck
+         */
         public Level getRequiredLevel(String localeID) {
             Level result;
             // see if there is an explicit level
@@ -480,7 +475,8 @@ abstract public class CheckCLDR {
                     return result;
                 }
             }
-            // otherwise, see if there is an organization level
+            // otherwise, see if there is an organization level for the "Cldr" organization.
+            // This is not user-specific.
             return sc.getLocaleCoverageLevel("Cldr", localeID);
         }
 
@@ -537,9 +533,9 @@ abstract public class CheckCLDR {
             for (Option o : Option.values()) {
                 if (options[o.ordinal()] != null) {
                     sb.append(o)
-                        .append('=')
-                        .append(options[o.ordinal()])
-                        .append(' ');
+                    .append('=')
+                    .append(options[o.ordinal()])
+                    .append(' ');
                 }
             }
             return sb.toString();
@@ -589,8 +585,8 @@ abstract public class CheckCLDR {
             .add(new CheckWidths())
             .add(new CheckPlaceHolders())
             .add(new CheckNew(factory)) // this is at the end; it will check for other certain other errors and warnings and
-        // not add a message if there are any.
-        ;
+            // not add a message if there are any.
+            ;
     }
 
     /**
@@ -711,13 +707,13 @@ abstract public class CheckCLDR {
             missingMainExemplars, mustNotStartOrEndWithSpace, illegalCharactersInNumberPattern, 
             numberPatternNotCanonical, currencyPatternMissingCurrencySymbol, missingMinusSign, 
             badNumericType, percentPatternMissingPercentSymbol, illegalNumberFormat, unexpectedAttributeValue, 
-            metazoneContainsDigit, tooManyGroupingSeparators, inconsistentPluralFormat, sameAsEnglishOrCode, 
+            metazoneContainsDigit, tooManyGroupingSeparators, inconsistentPluralFormat, sameAsEnglish, sameAsCode, 
             dateSymbolCollision, incompleteLogicalGroup, extraMetazoneString, inconsistentDraftStatus, 
             errorOrWarningInLogicalGroup, valueTooWide, valueTooNarrow, nameContainsYear, patternCannotContainDigits, 
             patternContainsInvalidCharacters, parenthesesNotAllowed, illegalNumberingSystem, unexpectedOrderOfEraYear, 
             invalidPlaceHolder, asciiQuotesNotAllowed, badMinimumGroupingDigits, inconsistentPeriods, 
             inheritanceMarkerNotAllowed, invalidDurationUnitPattern, invalidDelimiter, illegalCharactersInPattern,
-            badParseLenient, tooManyValues;
+            badParseLenient, tooManyValues, invalidSymbol;
 
             public String toString() {
                 return TO_STRING.matcher(name()).replaceAll(" $1").toLowerCase();
@@ -726,6 +722,9 @@ abstract public class CheckCLDR {
             static Pattern TO_STRING = PatternCache.get("([A-Z])");
         };
 
+        /** 
+         * These error don't prevent entry during submission, since they become valid if a different row is changed.
+         */
         public static EnumSet<Subtype> crossCheckSubtypes = EnumSet.of(
             Subtype.dateSymbolCollision,
             Subtype.displayCollision,
@@ -811,6 +810,9 @@ abstract public class CheckCLDR {
         public CheckStatus setMessage(String message) {
             if (cause == null) {
                 throw new IllegalArgumentException("Must have cause set.");
+            }
+            if (message == null) {
+                throw new IllegalArgumentException("Message cannot be null.");
             }
             this.messageFormat = message;
             this.parameters = null;
@@ -933,7 +935,7 @@ abstract public class CheckCLDR {
         public abstract String getHTML(Map<String, String> postArguments) throws Exception;
 
         /**
-         * Only here for compatibiltiy. Use the other getHTML instead
+         * Only here for compatibility. Use the other getHTML instead
          */
         public final String getHTML(String path, String fullPath, String value) throws Exception {
             return getHTML(internalPostArguments);
@@ -953,13 +955,6 @@ abstract public class CheckCLDR {
             internalPostArguments.putAll(postArguments);
             return true;
         }
-        // /**
-        // * Utility for setting map. Use the paradigm in CheckNumbers.
-        // */
-        // public boolean putIfDifferent(Map inout, String key, String value) {
-        // Object oldValue = inout.put(key, value);
-        // return !value.equals(oldValue);
-        // }
     }
 
     public static abstract class FormatDemo extends SimpleDemo {
@@ -997,16 +992,16 @@ abstract public class CheckCLDR {
         public static void appendLine(StringBuffer htmlMessage, String pattern, String input, String formatted,
             String reparsed) {
             htmlMessage.append("<tr><td><input type='text' name='pattern' value='")
-                .append(TransliteratorUtilities.toXML.transliterate(pattern))
-                .append("'></td><td><input type='text' name='input' value='")
-                .append(TransliteratorUtilities.toXML.transliterate(input))
-                .append("'></td><td>")
-                .append("<input type='submit' value='Test' name='Test'>")
-                .append("</td><td>" + "<input type='text' name='formatted' value='")
-                .append(TransliteratorUtilities.toXML.transliterate(formatted))
-                .append("'></td><td>" + "<input type='text' name='reparsed' value='")
-                .append(TransliteratorUtilities.toXML.transliterate(reparsed))
-                .append("'></td></tr>");
+            .append(TransliteratorUtilities.toXML.transliterate(pattern))
+            .append("'></td><td><input type='text' name='input' value='")
+            .append(TransliteratorUtilities.toXML.transliterate(input))
+            .append("'></td><td>")
+            .append("<input type='submit' value='Test' name='Test'>")
+            .append("</td><td>" + "<input type='text' name='formatted' value='")
+            .append(TransliteratorUtilities.toXML.transliterate(formatted))
+            .append("'></td><td>" + "<input type='text' name='reparsed' value='")
+            .append(TransliteratorUtilities.toXML.transliterate(reparsed))
+            .append("'></td></tr>");
         }
 
         /**
@@ -1014,7 +1009,7 @@ abstract public class CheckCLDR {
          */
         public static void appendTitle(StringBuffer htmlMessage) {
             htmlMessage.append("<table border='1' cellspacing='0' cellpadding='2'" +
-            // " style='border-collapse: collapse' style='width: 100%'" +
+                // " style='border-collapse: collapse' style='width: 100%'" +
                 "><tr>" +
                 "<th>Pattern</th>" +
                 "<th>Unlocalized Input</th>" +
@@ -1089,8 +1084,8 @@ abstract public class CheckCLDR {
          */
         // if (value == cldrFileToCheck.getBaileyValue(path, null, null) && value != cldrFileToCheck.getWinningValue(path)) {
         if (value != null
-                && value.equals(cldrFileToCheck.getBaileyValue(path, null, null))
-                && !value.equals(cldrFileToCheck.getWinningValue(path))) {
+            && value.equals(cldrFileToCheck.getBaileyValue(path, null, null))
+            && !value.equals(cldrFileToCheck.getWinningValue(path))) {
             return this;
         }
         // If we're being asked to run tests for an inheritance marker, then we need to change it
@@ -1115,21 +1110,6 @@ abstract public class CheckCLDR {
     }
 
     /**
-     * @deprecated use {@link #getExamples(String, String, String, Options, List)}
-     * @param path
-     * @param fullPath
-     * @param value
-     * @param options
-     * @param result
-     * @return
-     */
-    @Deprecated
-    public final CheckCLDR getExamples(String path, String fullPath, String value, Map<String, String> options,
-        List<CheckStatus> result) {
-        return getExamples(path, fullPath, value, new Options(options), result);
-    }
-
-    /**
      * Returns any examples in the result parameter. Both examples and demos can
      * be returned. A demo will have getType() == CheckStatus.demoType. In that
      * case, there will be no getMessage or getHTMLMessage available; instead,
@@ -1142,6 +1122,7 @@ abstract public class CheckCLDR {
         return handleGetExamples(path, fullPath, value, options, result);
     }
 
+    @SuppressWarnings("unused")
     protected CheckCLDR handleGetExamples(String path, String fullPath, String value, Options options2,
         List<CheckStatus> result) {
         return this; // NOOP unless overridden
@@ -1259,7 +1240,7 @@ abstract public class CheckCLDR {
                 .setMessage("Internal error in {0}. Exception: {1}, Message: {2}, Trace: {3}",
                     new Object[] { item.getClass().getName(), e.getClass().getName(), e,
                         Arrays.asList(e.getStackTrace())
-                    }));
+                }));
         }
 
         public CheckCLDR setCldrFileToCheck(CLDRFile cldrFileToCheck, Options options,
@@ -1321,8 +1302,6 @@ abstract public class CheckCLDR {
         }
     }
 
-    // static Transliterator prettyPath = getTransliteratorFromFile("ID", "prettyPath.txt");
-
     public static Transliterator getTransliteratorFromFile(String ID, String file) {
         try {
             BufferedReader br = CldrUtility.getUTF8Data(file);
@@ -1382,7 +1361,9 @@ abstract public class CheckCLDR {
      */
     private boolean shouldExcludeStatus(String xpath, CheckStatus status) {
         List<Pattern> xpathPatterns = filtersForLocale.get(status.getSubtype());
-        if (xpathPatterns == null) return false;
+        if (xpathPatterns == null) {
+            return false;
+        }
         for (Pattern xpathPattern : xpathPatterns) {
             if (xpathPattern.matcher(xpath).matches()) {
                 return true;

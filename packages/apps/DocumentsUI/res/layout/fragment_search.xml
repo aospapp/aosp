@@ -22,21 +22,6 @@
     android:layout_height="match_parent"
     android:background="?android:attr/colorBackground">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?android:attr/actionBarSize"
-        android:layout_margin="@dimen/search_bar_margin"
-        android:theme="?actionBarTheme"
-        app:navigationIcon="@drawable/ic_arrow_back"
-        app:navigationContentDescription="@string/abc_toolbar_collapse_description">
-
-        <androidx.appcompat.widget.SearchView
-            android:id="@+id/search_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"/>
-    </androidx.appcompat.widget.Toolbar>
-
     <!-- used for search chip. -->
     <include layout="@layout/search_chip_row"/>
 

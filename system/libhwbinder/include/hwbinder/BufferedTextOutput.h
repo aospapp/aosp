@@ -63,7 +63,7 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-}; // namespace hardware
-}; // namespace android
+} // namespace hardware
+} // namespace android
 
 #endif // ANDROID_HARDWARE_BUFFEREDTEXTOUTPUT_H

@@ -111,8 +111,6 @@ struct LmSolver {
 void lmSolverInit(struct LmSolver *solver, const struct LmParams *params,
                   ResidualAndJacobianFunction func);
 
-void lmSolverDestroy(struct LmSolver *solver);
-
 // Sets pointer for temporary data needed for an individual LM solve.
 // Note, this must be called prior to calling lmSolverSolve().
 void lmSolverSetData(struct LmSolver *solver, struct LmData *data);

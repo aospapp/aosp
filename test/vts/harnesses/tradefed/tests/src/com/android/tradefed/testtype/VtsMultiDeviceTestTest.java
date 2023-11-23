@@ -27,12 +27,19 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.VtsPythonRunnerHelper;
-
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import org.easymock.EasyMock;
 import org.json.JSONObject;
 import org.junit.After;
@@ -41,20 +48,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileWriter;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Unit tests for {@link VtsMultiDeviceTest}.
  * This class requires testcase config files.
  * The working directory is assumed to be
  * test/
  * which contains the same config as the build output
- * out/host/linux-x86/vts/android-vts/testcases/
+ * out/host/linux-x86/vts10/android-vts10/testcases/
  */
 @RunWith(JUnit4.class)
 public class VtsMultiDeviceTestTest {
@@ -218,7 +218,7 @@ public class VtsMultiDeviceTestTest {
     @Test
     public void testRunNormalInput_restartFramework() throws Exception {
         OptionSetter setter = new OptionSetter(mTest);
-        setter.setOptionValue("stop-native-servers", "true");
+        setter.setOptionValue("disable-framework", "true");
         EasyMock.expect(mDevice.executeShellCommand(
                                 "log -p i -t \"VTS\" \"[Test Module] null BEGIN\""))
                 .andReturn("");
@@ -345,6 +345,9 @@ public class VtsMultiDeviceTestTest {
                 return createMockVtsPythonRunnerHelper(CommandStatus.FAILED, workingDir);
             }
         }
+        mMockInvocationListener.testLog(EasyMock.<String>anyObject(), EasyMock.eq(LogDataType.TEXT),
+                EasyMock.<FileInputStreamSource>anyObject());
+        EasyMock.expectLastCall().times(2);
         mMockInvocationListener.testRunFailed((String) EasyMock.anyObject());
         mMockInvocationListener.testRunEnded(
                 EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());

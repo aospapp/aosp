@@ -15,15 +15,18 @@
 #include "raw.h"
 
 #ifndef min
-#define min(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a < _b ? _a : _b; })
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a < _b ? _a : _b;                                             \
+	})
 #endif
 
 static double tp_diff(struct timespec *tp2, struct timespec *tp1)
 {
-	return (tp2->tv_sec - tp1->tv_sec)
-		+ (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
+	return (tp2->tv_sec - tp1->tv_sec) +
+	       (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
 }
 
 void process(struct crossover *xo, int count, float *data0, float *data1,
@@ -31,8 +34,8 @@ void process(struct crossover *xo, int count, float *data0, float *data1,
 {
 	int start;
 	for (start = 0; start < count; start += 2048)
-		crossover_process(xo, min(2048, count - start),
-				  data0 + start, data1 + start, data2 + start);
+		crossover_process(xo, min(2048, count - start), data0 + start,
+				  data1 + start, data2 + start);
 }
 
 int main(int argc, char **argv)
@@ -65,8 +68,7 @@ int main(int argc, char **argv)
 
 	crossover_init(&xo, 400 / NQ, 4000 / NQ);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp1);
-	process(&xo, frames, data0 + frames, data1 + frames,
-		data2 + frames);
+	process(&xo, frames, data0 + frames, data1 + frames, data2 + frames);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp2);
 	printf("processing takes %g seconds for %zu samples\n",
 	       tp_diff(&tp2, &tp1), frames);

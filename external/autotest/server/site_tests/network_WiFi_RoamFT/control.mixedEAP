@@ -21,7 +21,9 @@ from autotest_lib.client.common_lib.cros import site_eap_certs
 from autotest_lib.client.common_lib.cros.network import xmlrpc_security_types
 
 def run(machine):
-    ft_eap_config = xmlrpc_security_types.WPAEAPConfig(
+    # TODO(crbug.com/977722): we shouldn't need different certs. Remove this
+    # once the bug is resolved.
+    ft_eap_config1 = xmlrpc_security_types.WPAEAPConfig(
         server_ca_cert=site_eap_certs.ca_cert_1,
         server_cert=site_eap_certs.server_cert_1,
         server_key=site_eap_certs.server_private_key_1,
@@ -30,12 +32,21 @@ def run(machine):
         client_key=site_eap_certs.client_private_key_1,
         wpa_mode=xmlrpc_security_types.WPAConfig.MODE_PURE_WPA2,
         ft_mode=xmlrpc_security_types.WPAConfig.FT_MODE_MIXED)
+    ft_eap_config2 = xmlrpc_security_types.WPAEAPConfig(
+        server_ca_cert=site_eap_certs.ca_cert_2,
+        server_cert=site_eap_certs.server_cert_2,
+        server_key=site_eap_certs.server_private_key_2,
+        client_ca_cert=site_eap_certs.ca_cert_2,
+        client_cert=site_eap_certs.client_cert_2,
+        client_key=site_eap_certs.client_private_key_2,
+        wpa_mode=xmlrpc_security_types.WPAConfig.MODE_PURE_WPA2,
+        ft_mode=xmlrpc_security_types.WPAConfig.FT_MODE_MIXED)
     host = hosts.create_host(machine)
     job.run_test('network_WiFi_RoamFT',
                  tag=NAME.split('.')[1],
                  host=host,
                  raw_cmdline_args=args,
-                 additional_params=ft_eap_config)
+                 additional_params=[ft_eap_config1, ft_eap_config2])
 
 
 parallel_simple(run, machines)

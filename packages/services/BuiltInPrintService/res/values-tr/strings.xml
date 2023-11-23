@@ -49,7 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Yazıcı desteklenmiyor"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Kablosuz Doğrudan Bağlantı"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Kablosuz Doğrudan Bağlantı yazıcılarını bul"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"Kablosuz Doğrudan Bağlantı ile yazdırma"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Kablosuz Doğrudan yazdırma"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Kablosuz Doğrudan Bağlantı yazıcıları"</string>
     <string name="searching" msgid="2114018057619514587">"Aranıyor…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Bu bağlantıyı yazıcınızın ön panelinden onaylamanız gerekebilir"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Unut"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Kablosuz Doğrudan Bağlantı ile bağlanıyor"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Geçerli ağ ile <xliff:g id="IP_ADDRESS">%1$s</xliff:g> adresinden bağlanıyor"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Varsayılan Yazdırma Hizmeti, temel seçenekler sağlar. Bu yazıcı için diğer seçenekler başka yazdırma hizmetinde de olabilir."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Önerilen hizmetler"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Yüklemek için seçin"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Etkinleştirmek için seçin"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Hizmetleri yönet"</string>
     <string name="security" msgid="2279008326210305401">"Güvenlik"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Bu yazıcı yeni bir güvenlik sertifikası sağladı veya başka bir cihaz bu yazıcının kimliğine bürünüyor. Yeni sertifikayı kabul ediyor musunuz?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Bu yazıcı artık şifrelenmiş işleri kabul etmiyor. Yazdırmaya devam etmek istiyor musunuz?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Bağlantılar"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Varsayılan Yazdırma Hizmeti\'nin yakındaki cihazları bulabilmesi için konum iznine ihtiyacı var."</string>
     <string name="fix" msgid="7784394272611365393">"İzni incele"</string>
+    <string name="print" msgid="7851318072404916362">"Yazdır"</string>
 </resources>

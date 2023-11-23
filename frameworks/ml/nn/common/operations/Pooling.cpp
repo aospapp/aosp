@@ -14,15 +14,23 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
+#include <tensorflow/lite/kernels/internal/optimized/optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/integer_ops/pooling.h>
+
+#include <vector>
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
-
-#include "tensorflow/lite/kernels/internal/optimized/optimized_ops.h"
-
 #include "Tracing.h"
 
 namespace android {
 namespace nn {
+
+using namespace hal;
+
 namespace pooling {
 
 constexpr uint32_t kInputTensor = 0;
@@ -94,17 +102,27 @@ struct PoolingParam {
 
     tflite::PoolParams toTfliteParam(const Shape& output) const {
         tflite::PoolParams params = {
+                .padding_values = {.width = static_cast<int16_t>(padding_left),
+                                   .height = static_cast<int16_t>(padding_top),
+                                   .width_offset = 0,
+                                   .height_offset = 0},
                 .stride_height = stride_height,
                 .stride_width = stride_width,
                 .filter_height = filter_height,
                 .filter_width = filter_width,
-                .padding_values = {.height = static_cast<int16_t>(padding_top),
-                                   .width = static_cast<int16_t>(padding_left)}};
+        };
         if (output.type == OperandType::TENSOR_QUANT8_ASYMM) {
             int32_t output_activation_min = 0;
             int32_t output_activation_max = 0;
             CalculateActivationRangeUint8(activation, output, &output_activation_min,
                                           &output_activation_max);
+            params.quantized_activation_min = output_activation_min;
+            params.quantized_activation_max = output_activation_max;
+        } else if (output.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+            int32_t output_activation_min = 0;
+            int32_t output_activation_max = 0;
+            CalculateActivationRangeInt8(activation, output, &output_activation_min,
+                                         &output_activation_max);
             params.quantized_activation_min = output_activation_min;
             params.quantized_activation_max = output_activation_max;
         } else {
@@ -151,6 +169,19 @@ bool averagePoolNhwc(const uint8_t* inputData, const Shape& inputShape, const Po
     return true;
 }
 
+bool averagePoolNhwc(const int8_t* inputData, const Shape& inputShape, const PoolingParam& param,
+                     int8_t* outputData, const Shape& outputShape) {
+    NNTRACE_TRANS("averagePoolQuant8Signed");
+    auto op_params = param.toTfliteParam(outputShape);
+    NNTRACE_COMP_SWITCH("optimized_integer_ops::AveragePool");
+    // We are using reference implementation of the AveragePool op because the
+    // optimized version fails to pass some of the quantization coupling tests.
+    tflite::reference_integer_ops::AveragePool(op_params, convertShapeToTflshape(inputShape),
+                                               inputData, convertShapeToTflshape(outputShape),
+                                               outputData);
+    return true;
+}
+
 bool l2PoolNhwc(const float* inputData, const Shape& inputShape, const PoolingParam& param,
                 float* outputData, const Shape& outputShape) {
     NNTRACE_TRANS("l2PoolFloat32");
@@ -190,6 +221,18 @@ bool maxPoolNhwc(const uint8_t* inputData, const Shape& inputShape, const Poolin
     NNTRACE_COMP_SWITCH("optimized_ops::MaxPool");
     tflite::optimized_ops::MaxPool(op_params, convertShapeToTflshape(inputShape), inputData,
                                    convertShapeToTflshape(outputShape), outputData);
+    return true;
+}
+
+bool maxPoolNhwc(const int8_t* inputData, const Shape& inputShape, const PoolingParam& param,
+                 int8_t* outputData, const Shape& outputShape) {
+    NNTRACE_TRANS("maxPoolQuant8Signed");
+    auto op_params = param.toTfliteParam(outputShape);
+    NNTRACE_COMP_SWITCH("optimized_integer_ops::MaxPool");
+    // We are using reference implementation of the MaxPool op because the
+    // optimized version fails to pass some of the quantization coupling tests.
+    tflite::reference_integer_ops::MaxPool(op_params, convertShapeToTflshape(inputShape), inputData,
+                                           convertShapeToTflshape(outputShape), outputData);
     return true;
 }
 
@@ -278,6 +321,18 @@ bool validate(OperationType opType, const IOperationValidationContext* context) 
                 OperandType::INT32,
                 OperandType::INT32,
         };
+    } else if (opType != OperationType::L2_POOL_2D &&
+               inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
+        inExpectedTypes = {
+                OperandType::TENSOR_QUANT8_ASYMM_SIGNED,
+                OperandType::INT32,
+                OperandType::INT32,
+                OperandType::INT32,
+                OperandType::INT32,
+                OperandType::INT32,
+                OperandType::INT32,
+        };
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported input tensor type for operation "
                             << getOperationName(opType);
@@ -344,6 +399,7 @@ bool executeAveragePool(IOperationExecutionContext* context) {
         POOLING_DISPATCH_INPUT_TYPE(averagePool, TENSOR_FLOAT32, float);
         POOLING_DISPATCH_INPUT_TYPE(averagePool, TENSOR_FLOAT16, _Float16);
         POOLING_DISPATCH_INPUT_TYPE(averagePool, TENSOR_QUANT8_ASYMM, uint8_t);
+        POOLING_DISPATCH_INPUT_TYPE(averagePool, TENSOR_QUANT8_ASYMM_SIGNED, int8_t);
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation AVERAGE_POOL_2D";
     }
@@ -371,6 +427,7 @@ bool executeMaxPool(IOperationExecutionContext* context) {
         POOLING_DISPATCH_INPUT_TYPE(maxPool, TENSOR_FLOAT32, float);
         POOLING_DISPATCH_INPUT_TYPE(maxPool, TENSOR_FLOAT16, _Float16);
         POOLING_DISPATCH_INPUT_TYPE(maxPool, TENSOR_QUANT8_ASYMM, uint8_t);
+        POOLING_DISPATCH_INPUT_TYPE(maxPool, TENSOR_QUANT8_ASYMM_SIGNED, int8_t);
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation MAX_POOL_2D";
     }

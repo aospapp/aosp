@@ -103,6 +103,12 @@ void ihevce_compute_cu_level_QP(
     WORD32 i4_activity_for_lamda,
     WORD32 i4_reduce_qp);
 
+void ihevce_update_cu_level_qp_lamda(
+    ihevce_enc_loop_ctxt_t *ps_ctxt,
+    cu_analyse_t *ps_cu_analyse,
+    WORD32 trans_size,
+    WORD32 is_intra);
+
 WORD32 ihevce_scan_coeffs(
     WORD16 *pi2_quant_coeffs,
     WORD32 *pi4_subBlock2csbfId_map,

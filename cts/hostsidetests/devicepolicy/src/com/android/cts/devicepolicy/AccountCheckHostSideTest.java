@@ -16,12 +16,17 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.tradefed.log.LogUtil.CLog;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import junit.framework.AssertionFailedError;
+import android.platform.test.annotations.LargeTest;
+
+import com.android.tradefed.log.LogUtil.CLog;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.junit.Test;
 
 public class AccountCheckHostSideTest extends BaseDevicePolicyTest {
     private static final String APK_NON_TEST_ONLY = "CtsAccountCheckNonTestOnlyOwnerApp.apk";
@@ -44,7 +49,7 @@ public class AccountCheckHostSideTest extends BaseDevicePolicyTest {
             "com.android.cts.devicepolicy.accountcheck.AccountCheckTest";
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             if (getDevice().getInstalledPackageNames().contains(PACKAGE_AUTH)) {
                 runCleanupTestOnlyOwnerAllowingFailure();
@@ -73,7 +78,7 @@ public class AccountCheckHostSideTest extends BaseDevicePolicyTest {
     private void runCleanupTestOnlyOwnerAllowingFailure() throws Exception {
         try {
             runCleanupTestOnlyOwner();
-        } catch (AssertionFailedError ignore) {
+        } catch (AssertionError ignore) {
         }
     }
 
@@ -84,7 +89,7 @@ public class AccountCheckHostSideTest extends BaseDevicePolicyTest {
     private void runCleanupNonTestOnlyOwnerAllowingFailure() throws Exception {
         try {
             runCleanupNonTestOnlyOwner();
-        } catch (AssertionFailedError ignore) {
+        } catch (AssertionError ignore) {
         }
     }
 
@@ -95,7 +100,7 @@ public class AccountCheckHostSideTest extends BaseDevicePolicyTest {
     private void removeAllAccountsAllowingFailure() throws Exception {
         try {
             removeAllAccounts();
-        } catch (AssertionFailedError ignore) {
+        } catch (AssertionError ignore) {
         }
     }
 
@@ -147,6 +152,8 @@ public class AccountCheckHostSideTest extends BaseDevicePolicyTest {
         return Integer.parseInt(count) > 0;
     }
 
+    @Test
+    @LargeTest
     public void testAccountCheck() throws Exception {
         if (!mHasFeature) {
             return;
@@ -239,6 +246,7 @@ public class AccountCheckHostSideTest extends BaseDevicePolicyTest {
      * Make sure even if the "test-only" flag changes when an app is updated, we still respect
      * the original value.
      */
+    @Test
     public void testInheritTestOnly() throws Exception {
         if (!mHasFeature) {
             return;

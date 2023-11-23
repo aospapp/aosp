@@ -21,6 +21,5 @@
     <option name="test-tag" value="DeviceHealthChecks" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.devicehealthchecks" />
-        <option name="runner" value="android.support.test.runner.AndroidJUnitRunner" />
     </test>
 </configuration>

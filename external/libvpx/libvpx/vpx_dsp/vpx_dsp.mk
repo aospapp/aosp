@@ -47,13 +47,11 @@ endif
 # intra predictions
 DSP_SRCS-yes += intrapred.c
 
-DSP_SRCS-$(HAVE_SSE) += x86/intrapred_sse2.asm
 DSP_SRCS-$(HAVE_SSE2) += x86/intrapred_sse2.asm
 DSP_SRCS-$(HAVE_SSSE3) += x86/intrapred_ssse3.asm
 DSP_SRCS-$(HAVE_VSX) += ppc/intrapred_vsx.c
 
 ifeq ($(CONFIG_VP9_HIGHBITDEPTH),yes)
-DSP_SRCS-$(HAVE_SSE)  += x86/highbd_intrapred_sse2.asm
 DSP_SRCS-$(HAVE_SSE2) += x86/highbd_intrapred_sse2.asm
 DSP_SRCS-$(HAVE_SSE2) += x86/highbd_intrapred_intrin_sse2.c
 DSP_SRCS-$(HAVE_SSSE3) += x86/highbd_intrapred_intrin_ssse3.c
@@ -83,12 +81,13 @@ DSP_SRCS-$(HAVE_DSPR2)  += mips/intrapred16_dspr2.c
 DSP_SRCS-$(HAVE_DSPR2)  += mips/common_dspr2.h
 DSP_SRCS-$(HAVE_DSPR2)  += mips/common_dspr2.c
 
+DSP_SRCS-yes += vpx_filter.h
+ifeq ($(CONFIG_VP9),yes)
 # interpolation filters
 DSP_SRCS-yes += vpx_convolve.c
 DSP_SRCS-yes += vpx_convolve.h
-DSP_SRCS-yes += vpx_filter.h
 
-DSP_SRCS-$(ARCH_X86)$(ARCH_X86_64) += x86/convolve.h
+DSP_SRCS-$(VPX_ARCH_X86)$(VPX_ARCH_X86_64) += x86/convolve.h
 
 DSP_SRCS-$(HAVE_SSE2) += x86/convolve_sse2.h
 DSP_SRCS-$(HAVE_SSSE3) += x86/convolve_ssse3.h
@@ -112,7 +111,6 @@ endif
 
 DSP_SRCS-$(HAVE_SSE2)  += x86/vpx_convolve_copy_sse2.asm
 DSP_SRCS-$(HAVE_NEON)  += arm/vpx_scaled_convolve8_neon.c
-
 
 ifeq ($(HAVE_NEON_ASM),yes)
 DSP_SRCS-yes += arm/vpx_convolve_copy_neon_asm$(ASM)
@@ -167,8 +165,8 @@ DSP_SRCS-$(HAVE_VSX)  += ppc/vpx_convolve_vsx.c
 # loop filters
 DSP_SRCS-yes += loopfilter.c
 
-DSP_SRCS-$(ARCH_X86)$(ARCH_X86_64)   += x86/loopfilter_sse2.c
-DSP_SRCS-$(HAVE_AVX2)                += x86/loopfilter_avx2.c
+DSP_SRCS-$(HAVE_SSE2)  += x86/loopfilter_sse2.c
+DSP_SRCS-$(HAVE_AVX2)  += x86/loopfilter_avx2.c
 
 ifeq ($(HAVE_NEON_ASM),yes)
 DSP_SRCS-yes  += arm/loopfilter_16_neon$(ASM)
@@ -194,6 +192,7 @@ ifeq ($(CONFIG_VP9_HIGHBITDEPTH),yes)
 DSP_SRCS-$(HAVE_NEON)   += arm/highbd_loopfilter_neon.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/highbd_loopfilter_sse2.c
 endif  # CONFIG_VP9_HIGHBITDEPTH
+endif # CONFIG_VP9
 
 DSP_SRCS-yes            += txfm_common.h
 DSP_SRCS-$(HAVE_SSE2)   += x86/txfm_common_sse2.h
@@ -206,7 +205,7 @@ DSP_SRCS-$(HAVE_SSE2)   += x86/fwd_txfm_sse2.h
 DSP_SRCS-$(HAVE_SSE2)   += x86/fwd_txfm_sse2.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/fwd_txfm_impl_sse2.h
 DSP_SRCS-$(HAVE_SSE2)   += x86/fwd_dct32x32_impl_sse2.h
-ifeq ($(ARCH_X86_64),yes)
+ifeq ($(VPX_ARCH_X86_64),yes)
 DSP_SRCS-$(HAVE_SSSE3)  += x86/fwd_txfm_ssse3_x86_64.asm
 endif
 DSP_SRCS-$(HAVE_AVX2)   += x86/fwd_txfm_avx2.c
@@ -218,7 +217,11 @@ DSP_SRCS-$(HAVE_NEON)   += arm/fdct_partial_neon.c
 DSP_SRCS-$(HAVE_NEON)   += arm/fwd_txfm_neon.c
 DSP_SRCS-$(HAVE_MSA)    += mips/fwd_txfm_msa.h
 DSP_SRCS-$(HAVE_MSA)    += mips/fwd_txfm_msa.c
+
+ifneq ($(CONFIG_VP9_HIGHBITDEPTH),yes)
 DSP_SRCS-$(HAVE_MSA)    += mips/fwd_dct32x32_msa.c
+endif  # !CONFIG_VP9_HIGHBITDEPTH
+
 DSP_SRCS-$(HAVE_VSX)    += ppc/fdct32x32_vsx.c
 endif  # CONFIG_VP9_ENCODER
 
@@ -313,7 +316,7 @@ DSP_SRCS-$(HAVE_AVX2)  += x86/avg_intrin_avx2.c
 DSP_SRCS-$(HAVE_NEON)  += arm/avg_neon.c
 DSP_SRCS-$(HAVE_NEON)  += arm/hadamard_neon.c
 DSP_SRCS-$(HAVE_MSA)   += mips/avg_msa.c
-ifeq ($(ARCH_X86_64),yes)
+ifeq ($(VPX_ARCH_X86_64),yes)
 DSP_SRCS-$(HAVE_SSSE3) += x86/avg_ssse3_x86_64.asm
 endif
 DSP_SRCS-$(HAVE_VSX)   += ppc/hadamard_vsx.c
@@ -349,8 +352,6 @@ DSP_SRCS-$(HAVE_AVX2)   += x86/sad4d_avx2.c
 DSP_SRCS-$(HAVE_AVX2)   += x86/sad_avx2.c
 DSP_SRCS-$(HAVE_AVX512) += x86/sad4d_avx512.c
 
-DSP_SRCS-$(HAVE_SSE)    += x86/sad4d_sse2.asm
-DSP_SRCS-$(HAVE_SSE)    += x86/sad_sse2.asm
 DSP_SRCS-$(HAVE_SSE2)   += x86/sad4d_sse2.asm
 DSP_SRCS-$(HAVE_SSE2)   += x86/sad_sse2.asm
 DSP_SRCS-$(HAVE_SSE2)   += x86/subtract_sse2.asm
@@ -378,17 +379,15 @@ DSP_SRCS-$(HAVE_MSA)    += mips/sub_pixel_variance_msa.c
 
 DSP_SRCS-$(HAVE_MMI)    += mips/variance_mmi.c
 
-DSP_SRCS-$(HAVE_SSE)    += x86/variance_sse2.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/avg_pred_sse2.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/variance_sse2.c  # Contains SSE2 and SSSE3
 DSP_SRCS-$(HAVE_AVX2)   += x86/variance_avx2.c
 DSP_SRCS-$(HAVE_VSX)    += ppc/variance_vsx.c
 
-ifeq ($(ARCH_X86_64),yes)
+ifeq ($(VPX_ARCH_X86_64),yes)
 DSP_SRCS-$(HAVE_SSE2)   += x86/ssim_opt_x86_64.asm
-endif  # ARCH_X86_64
+endif  # VPX_ARCH_X86_64
 
-DSP_SRCS-$(HAVE_SSE)    += x86/subpel_variance_sse2.asm
 DSP_SRCS-$(HAVE_SSE2)   += x86/subpel_variance_sse2.asm  # Contains SSE2 and SSSE3
 
 ifeq ($(CONFIG_VP9_HIGHBITDEPTH),yes)

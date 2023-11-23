@@ -88,4 +88,8 @@ std::unique_ptr<Command> CreateCommandInstance(const std::string& cmd_name);
 const std::vector<std::string> GetAllCommandNames();
 bool RunSimpleperfCmd(int argc, char** argv);
 
+namespace simpleperf {
+extern bool log_to_android_buffer;
+}
+
 #endif  // SIMPLE_PERF_COMMAND_H_

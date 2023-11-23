@@ -20,8 +20,9 @@ import static android.autofillservice.cts.Helper.ID_PASSWORD;
 import static android.autofillservice.cts.Helper.ID_PASSWORD_LABEL;
 import static android.autofillservice.cts.Helper.ID_USERNAME;
 import static android.autofillservice.cts.Helper.ID_USERNAME_LABEL;
+import static android.autofillservice.cts.Helper.assertHintFromResources;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
-import static android.autofillservice.cts.Helper.assertTextFromResouces;
+import static android.autofillservice.cts.Helper.assertTextFromResources;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.InstrumentedAutoFillService.waitUntilConnected;
@@ -92,10 +93,16 @@ public class LoginWithStringsActivityTest
         assertTextIsSanitized(fillRequest.structure, ID_PASSWORD);
 
         // Make sure labels were not sanitized
-        assertTextFromResouces(fillRequest.structure, ID_USERNAME_LABEL, "Username", false,
+        assertTextFromResources(fillRequest.structure, ID_USERNAME_LABEL, "Username", false,
                 "username_string");
-        assertTextFromResouces(fillRequest.structure, ID_PASSWORD_LABEL, "Password", false,
+        assertTextFromResources(fillRequest.structure, ID_PASSWORD_LABEL, "Password", false,
                 "password_string");
+
+        // Check text hints
+        assertHintFromResources(fillRequest.structure, ID_USERNAME, "Hint for username",
+                "username_hint");
+        assertHintFromResources(fillRequest.structure, ID_PASSWORD, "Hint for password",
+                "password_hint");
 
         // Auto-fill it.
         mUiBot.selectDataset("The Dude");
@@ -130,10 +137,16 @@ public class LoginWithStringsActivityTest
         assertTextAndValue(password, "dude");
 
         // Make sure labels were not sanitized
-        assertTextFromResouces(saveRequest.structure, ID_USERNAME_LABEL, "Username", false,
+        assertTextFromResources(saveRequest.structure, ID_USERNAME_LABEL, "Username", false,
                 "username_string");
-        assertTextFromResouces(saveRequest.structure, ID_PASSWORD_LABEL, "Password", false,
+        assertTextFromResources(saveRequest.structure, ID_PASSWORD_LABEL, "Password", false,
                 "password_string");
+
+        // Check text hints
+        assertHintFromResources(fillRequest.structure, ID_USERNAME, "Hint for username",
+                "username_hint");
+        assertHintFromResources(fillRequest.structure, ID_PASSWORD, "Hint for password",
+                "password_hint");
 
         // Make sure extras were passed back on onSave()
         assertThat(saveRequest.data).isNotNull();

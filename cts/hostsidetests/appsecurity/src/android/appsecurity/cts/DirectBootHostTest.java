@@ -55,6 +55,8 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     private static final String MODE_NONE = "none";
 
     private static final String FEATURE_DEVICE_ADMIN = "feature:android.software.device_admin";
+    private static final String FEATURE_SECURE_LOCK_SCREEN =
+            "feature:android.software.secure_lock_screen";
     private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive";
 
     private static final long SHUTDOWN_TIME_MS = 30 * 1000;
@@ -145,8 +147,8 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
         boolean doTest = true;
         try {
             // Set up test app and secure lock screens
-            new InstallMultiple().addApk(APK).run();
-            new InstallMultiple().addApk(OTHER_APK).run();
+            new InstallMultiple().addFile(APK).run();
+            new InstallMultiple().addFile(OTHER_APK).run();
 
             // To receive boot broadcasts, kick our other app out of stopped state
             getDevice().executeShellCommand("am start -a android.intent.action.MAIN"
@@ -213,7 +215,8 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     }
 
     private boolean isSupportedDevice() throws Exception {
-        return getDevice().hasFeature(FEATURE_DEVICE_ADMIN);
+        return getDevice().hasFeature(FEATURE_DEVICE_ADMIN)
+                && getDevice().hasFeature(FEATURE_SECURE_LOCK_SCREEN);
     }
 
     private boolean isAutomotiveDevice() throws Exception {
@@ -223,6 +226,7 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
         public InstallMultiple() {
             super(getDevice(), getBuild(), getAbi());
+            addArg("--force-queryable");
         }
     }
 }

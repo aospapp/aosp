@@ -26,7 +26,6 @@ import android.util.Log;
 import android.util.Pair;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.org.conscrypt.TrustManagerImpl;
 import com.android.server.wifi.hotspot2.soap.HttpsServiceConnection;
 import com.android.server.wifi.hotspot2.soap.HttpsTransport;
 import com.android.server.wifi.hotspot2.soap.SoapParser;
@@ -43,12 +42,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.security.KeyManagementException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -58,9 +59,9 @@ import java.util.Map;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
-import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
 /**
@@ -107,14 +108,26 @@ public class OsuServerConnection {
      * Initializes socket factory for server connection using HTTPS
      *
      * @param tlsContext       SSLContext that will be used for HTTPS connection
-     * @param trustManagerImpl TrustManagerImpl delegate to validate certs
+     * @param trustManagerFactory TrustManagerFactory to extract the trust manager from
      */
-    public void init(SSLContext tlsContext, TrustManagerImpl trustManagerImpl) {
-        if (tlsContext == null) {
+    public void init(SSLContext tlsContext, TrustManagerFactory trustManagerFactory) {
+        if (tlsContext == null || trustManagerFactory == null) {
+            Log.e(TAG, "Invalid arguments passed to init");
             return;
         }
         try {
-            mTrustManager = new WFATrustManager(trustManagerImpl);
+            X509TrustManager x509TrustManager = null;
+            for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
+                if (tm instanceof X509TrustManager) {
+                    x509TrustManager = (X509TrustManager) tm;
+                    break;
+                }
+            }
+            if (x509TrustManager == null) {
+                Log.e(TAG, "Unable to initialize trust manager");
+                return;
+            }
+            mTrustManager = new WFATrustManager(x509TrustManager);
             tlsContext.init(null, new TrustManager[]{mTrustManager}, null);
             mSocketFactory = tlsContext.getSocketFactory();
         } catch (KeyManagementException e) {
@@ -163,11 +176,19 @@ public class OsuServerConnection {
      */
     public boolean connect(@NonNull URL url, @NonNull Network network) {
         if (url == null) {
-            Log.e(TAG, "url is null");
+            Log.e(TAG, "URL is null");
             return false;
         }
         if (network == null) {
             Log.e(TAG, "network is null");
+            return false;
+        }
+
+        String protocol = url.getProtocol();
+        // According to section 7.5.1 OSU operational requirements, in HS2.0 R3 specification,
+        // the URL must be HTTPS. Enforce it here.
+        if (!TextUtils.equals(protocol, "https")) {
+            Log.e(TAG, "OSU server URL must be HTTPS");
             return false;
         }
 
@@ -179,27 +200,25 @@ public class OsuServerConnection {
      * Validates the service provider by comparing its identities found in OSU Server cert
      * to the friendlyName obtained from ANQP exchange that is displayed to the user.
      *
-     * @param locale       a {@link Locale} object used for matching the friendly name in
-     *                     subjectAltName section of the certificate along with
-     *                     {@param friendlyName}.
-     * @param friendlyName a string of the friendly name used for finding the same name in
-     *                     subjectAltName section of the certificate.
+     * @param friendlyNames the friendly names used for finding the same name in
+     *                     subjectAltName section of the certificate, which is a map of language
+     *                     codes from ISO-639 and names.
      * @return boolean true if friendlyName shows up as one of the identities in the cert
      */
-    public boolean validateProvider(Locale locale,
-            String friendlyName) {
+    public boolean validateProvider(
+            Map<String, String> friendlyNames) {
 
-        if (locale == null || TextUtils.isEmpty(friendlyName)) {
+        if (friendlyNames.size() == 0) {
             return false;
         }
 
         for (Pair<Locale, String> identity : ServiceProviderVerifier.getProviderNames(
                 mTrustManager.getProviderCert())) {
-            if (identity.first == null) continue;
+            if (identity.first == null || TextUtils.isEmpty(identity.second)) continue;
 
             // Compare the language code for ISO-639.
-            if (identity.first.getISO3Language().equals(locale.getISO3Language()) &&
-                    TextUtils.equals(identity.second, friendlyName)) {
+            if (TextUtils.equals(identity.second,
+                    friendlyNames.get(identity.first.getISO3Language()))) {
                 if (mVerboseLoggingEnabled) {
                     Log.v(TAG, "OSU certificate is valid for "
                             + identity.first.getISO3Language() + "/" + identity.second);
@@ -271,13 +290,37 @@ public class OsuServerConnection {
         mNetwork = network;
         mUrl = url;
 
-        HttpsURLConnection urlConnection;
+        URLConnection urlConnection;
+        HttpsURLConnection httpsURLConnection;
+
         try {
-            urlConnection = (HttpsURLConnection) mNetwork.openConnection(mUrl);
-            urlConnection.setSSLSocketFactory(mSocketFactory);
-            urlConnection.setConnectTimeout(HttpsServiceConnection.DEFAULT_TIMEOUT_MS);
-            urlConnection.setReadTimeout(HttpsServiceConnection.DEFAULT_TIMEOUT_MS);
-            urlConnection.connect();
+            urlConnection = mNetwork.openConnection(mUrl);
+        } catch (IOException e) {
+            Log.e(TAG, "Unable to establish a URL connection: " + e);
+            if (mOsuServerCallbacks != null) {
+                mOsuServerCallbacks.onServerConnectionStatus(
+                        mOsuServerCallbacks.getSessionId(),
+                        false);
+            }
+            return;
+        }
+
+        if (urlConnection instanceof HttpsURLConnection) {
+            httpsURLConnection = (HttpsURLConnection) urlConnection;
+        } else {
+            Log.e(TAG, "Invalid URL connection");
+            if (mOsuServerCallbacks != null) {
+                mOsuServerCallbacks.onServerConnectionStatus(mOsuServerCallbacks.getSessionId(),
+                        false);
+            }
+            return;
+        }
+
+        try {
+            httpsURLConnection.setSSLSocketFactory(mSocketFactory);
+            httpsURLConnection.setConnectTimeout(HttpsServiceConnection.DEFAULT_TIMEOUT_MS);
+            httpsURLConnection.setReadTimeout(HttpsServiceConnection.DEFAULT_TIMEOUT_MS);
+            httpsURLConnection.connect();
         } catch (IOException e) {
             Log.e(TAG, "Unable to establish a URL connection: " + e);
             if (mOsuServerCallbacks != null) {
@@ -286,7 +329,7 @@ public class OsuServerConnection {
             }
             return;
         }
-        mUrlConnection = urlConnection;
+        mUrlConnection = httpsURLConnection;
         if (mOsuServerCallbacks != null) {
             mOsuServerCallbacks.onServerConnectionStatus(mOsuServerCallbacks.getSessionId(), true);
         }
@@ -380,11 +423,25 @@ public class OsuServerConnection {
                 }
                 X509Certificate certificate = getCert(certInfo.getKey());
 
-                if (certificate == null || !ServiceProviderVerifier.verifyCertFingerprint(
+                if (certificate == null) {
+                    // In case of an invalid cert, clear all of retrieved CA certs so that
+                    // PasspointProvisioner aborts current flow. getCert already logs the error.
+                    trustRootCertificates.clear();
+                    break;
+                }
+
+                // Verify that the certificate's fingerprint matches the one provided in the PPS-MO
+                // profile, in accordance with section 7.3.1 of the HS2.0 specification.
+                if (!ServiceProviderVerifier.verifyCertFingerprint(
                         certificate, certInfo.getValue())) {
-                    // If any failure happens, clear all of retrieved CA certs so that
+                    // If fingerprint does not match, clear all of retrieved CA certs so that
                     // PasspointProvisioner aborts current flow.
                     trustRootCertificates.clear();
+                    String certName = "";
+                    if (certificate.getSubjectDN() != null) {
+                        certName = certificate.getSubjectDN().getName();
+                    }
+                    Log.e(TAG, "Fingerprint does not match the certificate " + certName);
                     break;
                 }
                 certificates.add(certificate);
@@ -544,11 +601,11 @@ public class OsuServerConnection {
     }
 
     private class WFATrustManager implements X509TrustManager {
-        private TrustManagerImpl mDelegate;
+        private X509TrustManager mDelegate;
         private List<X509Certificate> mServerCerts;
 
-        WFATrustManager(TrustManagerImpl trustManagerImpl) {
-            mDelegate = trustManagerImpl;
+        WFATrustManager(@NonNull X509TrustManager x509TrustManager) {
+            mDelegate = x509TrustManager;
         }
 
         @Override
@@ -568,13 +625,19 @@ public class OsuServerConnection {
             boolean certsValid = false;
             try {
                 // Perform certificate path validation and get validated certs
-                mServerCerts = mDelegate.getTrustedChainForServer(chain, authType,
-                        (SSLSocket) null);
+                mDelegate.checkServerTrusted(chain, authType);
+                mServerCerts = Arrays.asList(chain);
                 certsValid = true;
             } catch (CertificateException e) {
-                Log.e(TAG, "Unable to validate certs " + e);
-                if (mVerboseLoggingEnabled) {
-                    e.printStackTrace();
+                Log.e(TAG, "Certificate validation failure: " + e);
+                int i = 0;
+                for (X509Certificate cert : chain) {
+                    // Provide some more details about the invalid certificate
+                    Log.e(TAG, "Cert " + i + " details: " + cert.getSubjectDN());
+                    Log.e(TAG, "Not before: " + cert.getNotBefore() + ", not after: "
+                            + cert.getNotAfter());
+                    Log.e(TAG, "Cert " + i + " issuer: " + cert.getIssuerDN());
+                    i++;
                 }
             }
             if (mOsuServerCallbacks != null) {

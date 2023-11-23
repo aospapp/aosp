@@ -17,7 +17,6 @@
 #include "chre/core/init.h"
 
 #include "chre/core/event_loop_manager.h"
-#include "chre/platform/platform_sensor.h"
 #include "chre/platform/system_time.h"
 #include "chre/util/singleton.h"
 
@@ -35,15 +34,10 @@ void init() {
   LOGI("CHRE init, version: %s", kChreVersionString);
 
   SystemTime::init();
-  PlatformSensor::init();
   EventLoopManagerSingleton::init();
 }
 
 void deinit() {
-  PlatformSensor::deinit();
-
-  // EventLoopManager has to be the last one to deinit to handle callback
-  // functions in PlatformSensor potentially from a different thread.
   EventLoopManagerSingleton::deinit();
 
   LOGD("CHRE deinit");

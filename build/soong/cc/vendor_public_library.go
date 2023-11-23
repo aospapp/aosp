@@ -24,9 +24,15 @@ import (
 var (
 	vendorPublicLibrarySuffix = ".vendorpublic"
 
-	vendorPublicLibraries     = []string{}
+	vendorPublicLibrariesKey  = android.NewOnceKey("vendorPublicLibraries")
 	vendorPublicLibrariesLock sync.Mutex
 )
+
+func vendorPublicLibraries(config android.Config) *[]string {
+	return config.Once(vendorPublicLibrariesKey, func() interface{} {
+		return &[]string{}
+	}).(*[]string)
+}
 
 // Creates a stub shared library for a vendor public library. Vendor public libraries
 // are vendor libraries (owned by them and installed to /vendor partition) that are
@@ -82,12 +88,13 @@ func (stub *vendorPublicLibraryStubDecorator) compilerInit(ctx BaseModuleContext
 
 	vendorPublicLibrariesLock.Lock()
 	defer vendorPublicLibrariesLock.Unlock()
-	for _, lib := range vendorPublicLibraries {
+	vendorPublicLibraries := vendorPublicLibraries(ctx.Config())
+	for _, lib := range *vendorPublicLibraries {
 		if lib == name {
 			return
 		}
 	}
-	vendorPublicLibraries = append(vendorPublicLibraries, name)
+	*vendorPublicLibraries = append(*vendorPublicLibraries, name)
 }
 
 func (stub *vendorPublicLibraryStubDecorator) compilerFlags(ctx ModuleContext, flags Flags, deps PathDeps) Flags {
@@ -117,11 +124,21 @@ func (stub *vendorPublicLibraryStubDecorator) link(ctx ModuleContext, flags Flag
 	objs Objects) android.Path {
 	if !Bool(stub.Properties.Unversioned) {
 		linkerScriptFlag := "-Wl,--version-script," + stub.versionScriptPath.String()
-		flags.LdFlags = append(flags.LdFlags, linkerScriptFlag)
+		flags.Local.LdFlags = append(flags.Local.LdFlags, linkerScriptFlag)
+		flags.LdFlagsDeps = append(flags.LdFlagsDeps, stub.versionScriptPath)
 	}
 	return stub.libraryDecorator.link(ctx, flags, deps, objs)
 }
 
+// vendor_public_library creates a stub shared library for a vendor public
+// library. This stub library is a build-time only artifact that provides
+// symbols that are exposed from a vendor public library. Example:
+//
+//    vendor_public_library {
+//        name: "libfoo",
+//        symbol_file: "libfoo.map.txt",
+//        export_public_headers: ["libfoo_headers"],
+//    }
 func vendorPublicLibraryFactory() android.Module {
 	module, library := NewLibrary(android.DeviceSupported)
 	library.BuildOnlyShared()

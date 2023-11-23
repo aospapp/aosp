@@ -18,12 +18,9 @@
 #include <string>
 
 #include <android-base/properties.h>
+#include <android/api-level.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
-namespace {
-const int Q_API_LEVEL = 29;
-}
 
 namespace android {
 namespace kernel {
@@ -41,7 +38,8 @@ class KernelVersionTest : public ::testing::Test {
     std::getline(proc_version, version_);
   }
   bool should_run() const {
-    return arch_ == "arm64" && first_api_level_ >= Q_API_LEVEL;
+    return first_api_level_ >= __ANDROID_API_R__ ||
+           (arch_ == "arm64" && first_api_level_ >= __ANDROID_API_Q__);
   }
 };
 

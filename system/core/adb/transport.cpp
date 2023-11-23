@@ -36,6 +36,9 @@
 #include <set>
 #include <thread>
 
+#include <adb/crypto/rsa_2048_key.h>
+#include <adb/crypto/x509_generator.h>
+#include <adb/tls/tls_connection.h>
 #include <android-base/logging.h>
 #include <android-base/parsenetaddress.h>
 #include <android-base/stringprintf.h>
@@ -49,13 +52,16 @@
 #include "adb_io.h"
 #include "adb_trace.h"
 #include "adb_utils.h"
-#include "fdevent.h"
+#include "fdevent/fdevent.h"
 #include "sysdeps/chrono.h"
 
+using namespace adb::crypto;
+using namespace adb::tls;
 using android::base::ScopedLockAssertion;
+using TlsError = TlsConnection::TlsError;
 
 static void remove_transport(atransport* transport);
-static void transport_unref(atransport* transport);
+static void transport_destroy(atransport* transport);
 
 // TODO: unordered_map<TransportId, atransport*>
 static auto& transport_list = *new std::list<atransport*>();
@@ -66,6 +72,7 @@ static auto& transport_lock = *new std::recursive_mutex();
 const char* const kFeatureShell2 = "shell_v2";
 const char* const kFeatureCmd = "cmd";
 const char* const kFeatureStat2 = "stat_v2";
+const char* const kFeatureLs2 = "ls_v2";
 const char* const kFeatureLibusb = "libusb";
 const char* const kFeaturePushSync = "push_sync";
 const char* const kFeatureApex = "apex";
@@ -73,6 +80,9 @@ const char* const kFeatureFixedPushMkdir = "fixed_push_mkdir";
 const char* const kFeatureAbb = "abb";
 const char* const kFeatureFixedPushSymlinkTimestamp = "fixed_push_symlink_timestamp";
 const char* const kFeatureAbbExec = "abb_exec";
+const char* const kFeatureRemountShell = "remount_shell";
+const char* const kFeatureSendRecv2 = "sendrecv_v2";
+const char* const kFeatureSendRecv2Brotli = "sendrecv_v2_brotli";
 
 namespace {
 
@@ -277,18 +287,7 @@ void BlockingConnectionAdapter::Start() {
                    << "): started multiple times";
     }
 
-    read_thread_ = std::thread([this]() {
-        LOG(INFO) << this->transport_name_ << ": read thread spawning";
-        while (true) {
-            auto packet = std::make_unique<apacket>();
-            if (!underlying_->Read(packet.get())) {
-                PLOG(INFO) << this->transport_name_ << ": read failed";
-                break;
-            }
-            read_callback_(this, std::move(packet));
-        }
-        std::call_once(this->error_flag_, [this]() { this->error_callback_(this, "read failed"); });
-    });
+    StartReadThread();
 
     write_thread_ = std::thread([this]() {
         LOG(INFO) << this->transport_name_ << ": write thread spawning";
@@ -315,6 +314,46 @@ void BlockingConnectionAdapter::Start() {
     });
 
     started_ = true;
+}
+
+void BlockingConnectionAdapter::StartReadThread() {
+    read_thread_ = std::thread([this]() {
+        LOG(INFO) << this->transport_name_ << ": read thread spawning";
+        while (true) {
+            auto packet = std::make_unique<apacket>();
+            if (!underlying_->Read(packet.get())) {
+                PLOG(INFO) << this->transport_name_ << ": read failed";
+                break;
+            }
+
+            bool got_stls_cmd = false;
+            if (packet->msg.command == A_STLS) {
+                got_stls_cmd = true;
+            }
+
+            read_callback_(this, std::move(packet));
+
+            // If we received the STLS packet, we are about to perform the TLS
+            // handshake. So this read thread must stop and resume after the
+            // handshake completes otherwise this will interfere in the process.
+            if (got_stls_cmd) {
+                LOG(INFO) << this->transport_name_
+                          << ": Received STLS packet. Stopping read thread.";
+                return;
+            }
+        }
+        std::call_once(this->error_flag_, [this]() { this->error_callback_(this, "read failed"); });
+    });
+}
+
+bool BlockingConnectionAdapter::DoTlsHandshake(RSA* key, std::string* auth_key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (read_thread_.joinable()) {
+        read_thread_.join();
+    }
+    bool success = this->underlying_->DoTlsHandshake(key, auth_key);
+    StartReadThread();
+    return success;
 }
 
 void BlockingConnectionAdapter::Reset() {
@@ -386,8 +425,36 @@ bool BlockingConnectionAdapter::Write(std::unique_ptr<apacket> packet) {
     return true;
 }
 
+FdConnection::FdConnection(unique_fd fd) : fd_(std::move(fd)) {}
+
+FdConnection::~FdConnection() {}
+
+bool FdConnection::DispatchRead(void* buf, size_t len) {
+    if (tls_ != nullptr) {
+        // The TlsConnection doesn't allow 0 byte reads
+        if (len == 0) {
+            return true;
+        }
+        return tls_->ReadFully(buf, len);
+    }
+
+    return ReadFdExactly(fd_.get(), buf, len);
+}
+
+bool FdConnection::DispatchWrite(void* buf, size_t len) {
+    if (tls_ != nullptr) {
+        // The TlsConnection doesn't allow 0 byte writes
+        if (len == 0) {
+            return true;
+        }
+        return tls_->WriteFully(std::string_view(reinterpret_cast<const char*>(buf), len));
+    }
+
+    return WriteFdExactly(fd_.get(), buf, len);
+}
+
 bool FdConnection::Read(apacket* packet) {
-    if (!ReadFdExactly(fd_.get(), &packet->msg, sizeof(amessage))) {
+    if (!DispatchRead(&packet->msg, sizeof(amessage))) {
         D("remote local: read terminated (message)");
         return false;
     }
@@ -399,7 +466,7 @@ bool FdConnection::Read(apacket* packet) {
 
     packet->payload.resize(packet->msg.data_length);
 
-    if (!ReadFdExactly(fd_.get(), &packet->payload[0], packet->payload.size())) {
+    if (!DispatchRead(&packet->payload[0], packet->payload.size())) {
         D("remote local: terminated (data)");
         return false;
     }
@@ -408,19 +475,69 @@ bool FdConnection::Read(apacket* packet) {
 }
 
 bool FdConnection::Write(apacket* packet) {
-    if (!WriteFdExactly(fd_.get(), &packet->msg, sizeof(packet->msg))) {
+    if (!DispatchWrite(&packet->msg, sizeof(packet->msg))) {
         D("remote local: write terminated");
         return false;
     }
 
     if (packet->msg.data_length) {
-        if (!WriteFdExactly(fd_.get(), &packet->payload[0], packet->msg.data_length)) {
+        if (!DispatchWrite(&packet->payload[0], packet->msg.data_length)) {
             D("remote local: write terminated");
             return false;
         }
     }
 
     return true;
+}
+
+bool FdConnection::DoTlsHandshake(RSA* key, std::string* auth_key) {
+    bssl::UniquePtr<EVP_PKEY> evp_pkey(EVP_PKEY_new());
+    if (!EVP_PKEY_set1_RSA(evp_pkey.get(), key)) {
+        LOG(ERROR) << "EVP_PKEY_set1_RSA failed";
+        return false;
+    }
+    auto x509 = GenerateX509Certificate(evp_pkey.get());
+    auto x509_str = X509ToPEMString(x509.get());
+    auto evp_str = Key::ToPEMString(evp_pkey.get());
+#ifdef _WIN32
+    int osh = cast_handle_to_int(adb_get_os_handle(fd_));
+#else
+    int osh = adb_get_os_handle(fd_);
+#endif
+
+#if ADB_HOST
+    tls_ = TlsConnection::Create(TlsConnection::Role::Client, x509_str, evp_str, osh);
+#else
+    tls_ = TlsConnection::Create(TlsConnection::Role::Server, x509_str, evp_str, osh);
+#endif
+    CHECK(tls_);
+#if ADB_HOST
+    // TLS 1.3 gives the client no message if the server rejected the
+    // certificate. This will enable a check in the tls connection to check
+    // whether the client certificate got rejected. Note that this assumes
+    // that, on handshake success, the server speaks first.
+    tls_->EnableClientPostHandshakeCheck(true);
+    // Add callback to set the certificate when server issues the
+    // CertificateRequest.
+    tls_->SetCertificateCallback(adb_tls_set_certificate);
+    // Allow any server certificate
+    tls_->SetCertVerifyCallback([](X509_STORE_CTX*) { return 1; });
+#else
+    // Add callback to check certificate against a list of known public keys
+    tls_->SetCertVerifyCallback(
+            [auth_key](X509_STORE_CTX* ctx) { return adbd_tls_verify_cert(ctx, auth_key); });
+    // Add the list of allowed client CA issuers
+    auto ca_list = adbd_tls_client_ca_list();
+    tls_->SetClientCAList(ca_list.get());
+#endif
+
+    auto err = tls_->DoHandshake();
+    if (err == TlsError::Success) {
+        return true;
+    }
+
+    tls_.reset();
+    return false;
 }
 
 void FdConnection::Close() {
@@ -542,9 +659,7 @@ static void device_tracker_ready(asocket* socket) {
     // for the first time, even if no update occurred.
     if (tracker->update_needed) {
         tracker->update_needed = false;
-
-        std::string transports = list_transports(tracker->long_output);
-        device_tracker_send(tracker, transports);
+        device_tracker_send(tracker, list_transports(tracker->long_output));
     }
 }
 
@@ -587,13 +702,11 @@ void update_transports() {
     update_transport_status();
 
     // Notify `adb track-devices` clients.
-    std::string transports = list_transports(false);
-
     device_tracker* tracker = device_tracker_list;
     while (tracker != nullptr) {
         device_tracker* next = tracker->next;
         // This may destroy the tracker if the connection is closed.
-        device_tracker_send(tracker, transports);
+        device_tracker_send(tracker, list_transports(tracker->long_output));
         tracker = next;
     }
 }
@@ -679,7 +792,6 @@ static void transport_registration_func(int _fd, unsigned ev, void*) {
     if (t->GetConnectionState() != kCsNoPerm) {
         // The connection gets a reference to the atransport. It will release it
         // upon a read/write error.
-        t->ref_count++;
         t->connection()->SetTransportName(t->serial_name());
         t->connection()->SetReadCallback([t](Connection*, std::unique_ptr<apacket> p) {
             if (!check_header(p.get(), t)) {
@@ -698,7 +810,7 @@ static void transport_registration_func(int _fd, unsigned ev, void*) {
             LOG(INFO) << t->serial_name() << ": connection terminated: " << error;
             fdevent_run_on_main_thread([t]() {
                 handle_offline(t);
-                transport_unref(t);
+                transport_destroy(t);
             });
         });
 
@@ -753,6 +865,26 @@ void kick_all_transports() {
     }
 }
 
+void kick_all_tcp_tls_transports() {
+    std::lock_guard<std::recursive_mutex> lock(transport_lock);
+    for (auto t : transport_list) {
+        if (t->IsTcpDevice() && t->use_tls) {
+            t->Kick();
+        }
+    }
+}
+
+#if !ADB_HOST
+void kick_all_transports_by_auth_key(std::string_view auth_key) {
+    std::lock_guard<std::recursive_mutex> lock(transport_lock);
+    for (auto t : transport_list) {
+        if (auth_key == t->auth_key) {
+            t->Kick();
+        }
+    }
+}
+#endif
+
 /* the fdevent select pump is single threaded */
 void register_transport(atransport* transport) {
     tmsg m;
@@ -774,36 +906,27 @@ static void remove_transport(atransport* transport) {
     }
 }
 
-static void transport_unref(atransport* t) {
+static void transport_destroy(atransport* t) {
     check_main_thread();
     CHECK(t != nullptr);
 
     std::lock_guard<std::recursive_mutex> lock(transport_lock);
-    CHECK_GT(t->ref_count, 0u);
-    t->ref_count--;
-    if (t->ref_count == 0) {
-        LOG(INFO) << "destroying transport " << t->serial_name();
-        t->connection()->Stop();
+    LOG(INFO) << "destroying transport " << t->serial_name();
+    t->connection()->Stop();
 #if ADB_HOST
-        if (t->IsTcpDevice() && !t->kicked()) {
-            D("transport: %s unref (attempting reconnection)", t->serial.c_str());
+    if (t->IsTcpDevice() && !t->kicked()) {
+        D("transport: %s destroy (attempting reconnection)", t->serial.c_str());
 
-            // We need to clear the transport's keys, so that on the next connection, it tries
-            // again from the beginning.
-            t->ResetKeys();
-            reconnect_handler.TrackTransport(t);
-        } else {
-            D("transport: %s unref (kicking and closing)", t->serial.c_str());
-            remove_transport(t);
-        }
-#else
-        D("transport: %s unref (kicking and closing)", t->serial.c_str());
-        remove_transport(t);
+        // We need to clear the transport's keys, so that on the next connection, it tries
+        // again from the beginning.
+        t->ResetKeys();
+        reconnect_handler.TrackTransport(t);
+        return;
+    }
 #endif
 
-    } else {
-        D("transport: %s unref (count=%zu)", t->serial.c_str(), t->ref_count);
-    }
+    D("transport: %s destroy (kicking and closing)", t->serial.c_str());
+    remove_transport(t);
 }
 
 static int qual_match(const std::string& to_test, const char* prefix, const std::string& qual,
@@ -1038,6 +1161,10 @@ int atransport::get_protocol_version() const {
     return protocol_version;
 }
 
+int atransport::get_tls_version() const {
+    return tls_version;
+}
+
 size_t atransport::get_max_payload() const {
     return max_payload;
 }
@@ -1048,11 +1175,15 @@ const FeatureSet& supported_features() {
             kFeatureShell2,
             kFeatureCmd,
             kFeatureStat2,
+            kFeatureLs2,
             kFeatureFixedPushMkdir,
             kFeatureApex,
             kFeatureAbb,
             kFeatureFixedPushSymlinkTimestamp,
             kFeatureAbbExec,
+            kFeatureRemountShell,
+            kFeatureSendRecv2,
+            kFeatureSendRecv2Brotli,
             // Increment ADB_SERVER_VERSION when adding a feature that adbd needs
             // to know about. Otherwise, the client can be stuck running an old
             // version of the server even after upgrading their copy of adb.
@@ -1231,8 +1362,9 @@ void close_usb_devices(bool reset) {
 #endif  // ADB_HOST
 
 bool register_socket_transport(unique_fd s, std::string serial, int port, int local,
-                               atransport::ReconnectCallback reconnect, int* error) {
+                               atransport::ReconnectCallback reconnect, bool use_tls, int* error) {
     atransport* t = new atransport(std::move(reconnect), kCsOffline);
+    t->use_tls = use_tls;
 
     D("transport: %s init'ing for socket %d, on port %d", serial.c_str(), s.get(), port);
     if (init_socket_transport(t, std::move(s), port, local) < 0) {
@@ -1321,6 +1453,7 @@ void kick_all_tcp_devices() {
 
 #endif
 
+#if ADB_HOST
 void register_usb_transport(usb_handle* usb, const char* serial, const char* devpath,
                             unsigned writeable) {
     atransport* t = new atransport(writeable ? kCsOffline : kCsNoPerm);
@@ -1342,6 +1475,7 @@ void register_usb_transport(usb_handle* usb, const char* serial, const char* dev
 
     register_transport(t);
 }
+#endif
 
 #if ADB_HOST
 // This should only be used for transports with connection_state == kCsNoPerm.
@@ -1370,6 +1504,15 @@ bool check_header(apacket* p, atransport* t) {
 }
 
 #if ADB_HOST
+std::shared_ptr<RSA> atransport::Key() {
+    if (keys_.empty()) {
+        return nullptr;
+    }
+
+    std::shared_ptr<RSA> result = keys_[0];
+    return result;
+}
+
 std::shared_ptr<RSA> atransport::NextKey() {
     if (keys_.empty()) {
         LOG(INFO) << "fetching keys for transport " << this->serial_name();
@@ -1377,10 +1520,11 @@ std::shared_ptr<RSA> atransport::NextKey() {
 
         // We should have gotten at least one key: the one that's automatically generated.
         CHECK(!keys_.empty());
+    } else {
+        keys_.pop_front();
     }
 
     std::shared_ptr<RSA> result = keys_[0];
-    keys_.pop_front();
     return result;
 }
 

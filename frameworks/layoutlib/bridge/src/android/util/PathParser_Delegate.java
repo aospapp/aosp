@@ -123,7 +123,7 @@ public class PathParser_Delegate {
         if (length != to.mPathDataNodes.length) {
             Bridge.getLog().error(LayoutLog.TAG_BROKEN,
                     "Cannot interpolate path data with different lengths (from " + length + " to " +
-                            to.mPathDataNodes.length + ").", null);
+                            to.mPathDataNodes.length + ").", null, null);
             return false;
         }
         if (out.mPathDataNodes.length != length) {

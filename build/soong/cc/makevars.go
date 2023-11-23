@@ -63,7 +63,16 @@ func makeStringOfWarningAllowedProjects() string {
 	}
 }
 
+type notOnHostContext struct {
+}
+
+func (c *notOnHostContext) Host() bool {
+	return false
+}
+
 func makeVarsProvider(ctx android.MakeVarsContext) {
+	vendorPublicLibraries := vendorPublicLibraries(ctx.Config())
+
 	ctx.Strict("LLVM_RELEASE_VERSION", "${config.ClangShortVersion}")
 	ctx.Strict("LLVM_PREBUILTS_VERSION", "${config.ClangVersion}")
 	ctx.Strict("LLVM_PREBUILTS_BASE", "${config.ClangBase}")
@@ -75,7 +84,6 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("LLVM_OBJCOPY", "${config.ClangBin}/llvm-objcopy")
 	ctx.Strict("LLVM_STRIP", "${config.ClangBin}/llvm-strip")
 	ctx.Strict("PATH_TO_CLANG_TIDY", "${config.ClangBin}/clang-tidy")
-	ctx.Strict("PATH_TO_CLANG_TIDY_SHELL", "${config.ClangTidyShellPath}")
 	ctx.StrictSorted("CLANG_CONFIG_UNKNOWN_CFLAGS", strings.Join(config.ClangUnknownCflags, " "))
 
 	ctx.Strict("RS_LLVM_PREBUILTS_VERSION", "${config.RSClangVersion}")
@@ -93,18 +101,12 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 
 	ctx.Strict("BOARD_VNDK_VERSION", ctx.DeviceConfig().VndkVersion())
 
-	ctx.Strict("VNDK_CORE_LIBRARIES", strings.Join(vndkCoreLibraries, " "))
-	ctx.Strict("VNDK_SAMEPROCESS_LIBRARIES", strings.Join(vndkSpLibraries, " "))
-	ctx.Strict("LLNDK_LIBRARIES", strings.Join(llndkLibraries, " "))
-	ctx.Strict("VNDK_PRIVATE_LIBRARIES", strings.Join(vndkPrivateLibraries, " "))
-	ctx.Strict("VNDK_USING_CORE_VARIANT_LIBRARIES", strings.Join(vndkUsingCoreVariantLibraries, " "))
-
 	// Filter vendor_public_library that are exported to make
 	exportedVendorPublicLibraries := []string{}
 	ctx.VisitAllModules(func(module android.Module) {
 		if ccModule, ok := module.(*Module); ok {
 			baseName := ccModule.BaseModuleName()
-			if inList(baseName, vendorPublicLibraries) && module.ExportedToMake() {
+			if inList(baseName, *vendorPublicLibraries) && module.ExportedToMake() {
 				if !inList(baseName, exportedVendorPublicLibraries) {
 					exportedVendorPublicLibraries = append(exportedVendorPublicLibraries, baseName)
 				}
@@ -124,7 +126,6 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 
 	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_CFLAGS", strings.Join(asanCflags, " "))
 	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_LDFLAGS", strings.Join(asanLdflags, " "))
-	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_STATIC_LIBRARIES", strings.Join(asanLibs, " "))
 
 	ctx.Strict("HWADDRESS_SANITIZER_CONFIG_EXTRA_CFLAGS", strings.Join(hwasanCflags, " "))
 	ctx.Strict("HWADDRESS_SANITIZER_GLOBAL_OPTIONS", strings.Join(hwasanGlobalOptions, ","))
@@ -146,6 +147,9 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("WITH_TIDY_FLAGS", "${config.TidyWithTidyFlags}")
 
 	ctx.Strict("AIDL_CPP", "${aidlCmd}")
+	ctx.Strict("ALLOWED_MANUAL_INTERFACE_PATHS", strings.Join(allowedManualInterfacePaths, " "))
+
+	ctx.Strict("M4", "${m4Cmd}")
 
 	ctx.Strict("RS_GLOBAL_INCLUDES", "${config.RsGlobalIncludes}")
 
@@ -234,9 +238,9 @@ func makeVarsToolchain(ctx android.MakeVarsContext, secondPrefix string,
 	}
 
 	clangPrefix := secondPrefix + "CLANG_" + typePrefix
-	clangExtras := "-target " + toolchain.ClangTriple()
-	clangExtras += " -B" + config.ToolPath(toolchain)
+	clangExtras := "-B" + config.ToolPath(toolchain)
 
+	ctx.Strict(clangPrefix+"TRIPLE", toolchain.ClangTriple())
 	ctx.Strict(clangPrefix+"GLOBAL_CFLAGS", strings.Join([]string{
 		toolchain.ClangCflags(),
 		"${config.CommonClangGlobalCflags}",

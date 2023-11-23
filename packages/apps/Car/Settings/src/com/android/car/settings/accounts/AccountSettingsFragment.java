@@ -16,23 +16,35 @@
 
 package com.android.car.settings.accounts;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.view.View;
-import android.widget.Button;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.car.settings.users.UserHelper;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.settingslib.search.SearchIndexable;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Lists the user's accounts and any related options.
  */
+@SearchIndexable
 public class AccountSettingsFragment extends SettingsFragment {
+    private MenuItem mAddAccountButton;
+
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
@@ -40,23 +52,22 @@ public class AccountSettingsFragment extends SettingsFragment {
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    protected List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mAddAccountButton);
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-        // Enable the add account button if the user is allowed to modify accounts
-        Button addAccountButton = requireActivity().findViewById(R.id.action_button1);
-        if (new CarUserManagerHelper(getContext()).canCurrentProcessModifyAccounts()) {
-            addAccountButton.setText(R.string.user_add_account_menu);
-            addAccountButton.setOnClickListener(v -> onAddAccountClicked());
-        } else {
-            addAccountButton.setVisibility(View.GONE);
-        }
+        boolean canModifyAccounts = UserHelper.getInstance(getContext())
+                .canCurrentProcessModifyAccounts();
+
+        mAddAccountButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.user_add_account_menu)
+                .setOnClickListener(i -> onAddAccountClicked())
+                .setVisible(canModifyAccounts)
+                .build();
     }
 
     @Override
@@ -72,6 +83,44 @@ public class AccountSettingsFragment extends SettingsFragment {
     }
 
     private void onAddAccountClicked() {
-        launchFragment(new ChooseAccountFragment());
+        AccountTypesHelper helper = new AccountTypesHelper(getContext());
+        Intent activityIntent = requireActivity().getIntent();
+
+        String[] authorities = activityIntent.getStringArrayExtra(Settings.EXTRA_AUTHORITIES);
+        if (authorities != null) {
+            helper.setAuthorities(Arrays.asList(authorities));
+        }
+
+        String[] accountTypesForFilter =
+                activityIntent.getStringArrayExtra(Settings.EXTRA_ACCOUNT_TYPES);
+        if (accountTypesForFilter != null) {
+            helper.setAccountTypesFilter(
+                    new HashSet<>(Arrays.asList(accountTypesForFilter)));
+        }
+
+        Set<String> authorizedAccountTypes = helper.getAuthorizedAccountTypes();
+
+        if (authorizedAccountTypes.size() == 1) {
+            String accountType = authorizedAccountTypes.iterator().next();
+            startActivity(
+                    AddAccountActivity.createAddAccountActivityIntent(getContext(), accountType));
+        } else {
+            startActivity(new Intent(getContext(),
+                    CarSettingActivities.ChooseAccountActivity.class));
+        }
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.account_settings_fragment,
+                    Settings.ACTION_SYNC_SETTINGS) {
+                @Override
+                public List<String> getNonIndexableKeys(Context context) {
+                    List<String> nonIndexableKeys = new ArrayList<>();
+                    nonIndexableKeys.add(context.getString(R.string.pk_account_list));
+                    return nonIndexableKeys;
+                }
+            };
 }

@@ -30,19 +30,15 @@
 #include <binder/IServiceManager.h>
 #include <binder/Status.h>
 #include <cutils/properties.h>
-#include <json/value.h>
-#include <json/writer.h>
 #include <log/log.h>
 #include <netdutils/DumpWriter.h>
 #include <utils/Errors.h>
 #include <utils/String16.h>
 
-#include "BinderUtil.h"
 #include "Controllers.h"
+#include "Fwmark.h"
 #include "InterfaceController.h"
-#include "NetdConstants.h"  // SHA256_SIZE
 #include "NetdNativeService.h"
-#include "NetdPermissions.h"
 #include "OemNetdListener.h"
 #include "Permission.h"
 #include "Process.h"
@@ -50,10 +46,13 @@
 #include "SockDiag.h"
 #include "UidRanges.h"
 #include "android/net/BnNetd.h"
+#include "binder_utils/BinderUtil.h"
+#include "binder_utils/NetdPermissions.h"
 #include "netid_client.h"  // NETID_UNSET
 
 using android::base::StringPrintf;
 using android::base::WriteStringToFile;
+using android::net::TetherOffloadRuleParcel;
 using android::net::TetherStatsParcel;
 using android::net::UidRangeParcel;
 using android::netdutils::DumpWriter;
@@ -66,21 +65,35 @@ namespace net {
 namespace {
 const char OPT_SHORT[] = "--short";
 
+// The input permissions should be equivalent that this function would return ok if any of them is
+// granted.
 binder::Status checkAnyPermission(const std::vector<const char*>& permissions) {
     pid_t pid = IPCThreadState::self()->getCallingPid();
     uid_t uid = IPCThreadState::self()->getCallingUid();
 
+    // TODO: Do the pure permission check in this function. Have another method
+    // (e.g. checkNetworkStackPermission) to wrap AID_SYSTEM and
+    // AID_NETWORK_STACK uid check.
     // If the caller is the system UID, don't check permissions.
     // Otherwise, if the system server's binder thread pool is full, and all the threads are
     // blocked on a thread that's waiting for us to complete, we deadlock. http://b/69389492
     //
     // From a security perspective, there is currently no difference, because:
-    // 1. The only permissions we check in netd's binder interface are CONNECTIVITY_INTERNAL
-    //    and NETWORK_STACK, which the system server always has (or MAINLINE_NETWORK_STACK, which
-    //    is equivalent to having both CONNECTIVITY_INTERNAL and NETWORK_STACK).
+    // 1. The system server has the NETWORK_STACK permission, which grants access to all the
+    //    IPCs in this file.
     // 2. AID_SYSTEM always has all permissions. See ActivityManager#checkComponentPermission.
     if (uid == AID_SYSTEM) {
         return binder::Status::ok();
+    }
+    // AID_NETWORK_STACK own MAINLINE_NETWORK_STACK permission, don't IPC to system server to check
+    // MAINLINE_NETWORK_STACK permission. Cross-process(netd, networkstack and system server)
+    // deadlock: http://b/149766727
+    if (uid == AID_NETWORK_STACK) {
+        for (const char* permission : permissions) {
+            if (std::strcmp(permission, PERM_MAINLINE_NETWORK_STACK) == 0) {
+                return binder::Status::ok();
+            }
+        }
     }
 
     for (const char* permission : permissions) {
@@ -116,9 +129,6 @@ binder::Status checkAnyPermission(const std::vector<const char*>& permissions) {
         }                                             \
     } while (0)
 
-#define ENFORCE_INTERNAL_PERMISSIONS() \
-    ENFORCE_ANY_PERMISSION(PERM_CONNECTIVITY_INTERNAL, PERM_MAINLINE_NETWORK_STACK)
-
 #define ENFORCE_NETWORK_STACK_PERMISSIONS() \
     ENFORCE_ANY_PERMISSION(PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK)
 
@@ -131,6 +141,14 @@ binder::Status asBinderStatus(const netdutils::Status& status) {
         return binder::Status::ok();
     }
     return binder::Status::fromServiceSpecificError(status.code(), status.msg().c_str());
+}
+
+template <typename T>
+binder::Status asBinderStatus(const base::Result<T> result) {
+    if (result.ok()) return binder::Status::ok();
+
+    return binder::Status::fromServiceSpecificError(result.error().code(),
+                                                    result.error().message().c_str());
 }
 
 inline binder::Status statusFromErrcode(int ret) {
@@ -210,6 +228,9 @@ status_t NetdNativeService::dump(int fd, const Vector<String16> &args) {
     gCtls->clatdCtrl.dump(dw);
     dw.blankline();
 
+    gCtls->tetherCtrl.dump(dw);
+    dw.blankline();
+
     {
         ScopedIndent indentLog(dw);
         if (contains(args, String16(OPT_SHORT))) {
@@ -239,7 +260,7 @@ status_t NetdNativeService::dump(int fd, const Vector<String16> &args) {
 }
 
 binder::Status NetdNativeService::isAlive(bool *alive) {
-    NETD_BIG_LOCK_RPC(PERM_CONNECTIVITY_INTERNAL, PERM_MAINLINE_NETWORK_STACK);
+    NETD_BIG_LOCK_RPC(PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
 
     *alive = true;
 
@@ -248,16 +269,14 @@ binder::Status NetdNativeService::isAlive(bool *alive) {
 
 binder::Status NetdNativeService::firewallReplaceUidChain(const std::string& chainName,
         bool isWhitelist, const std::vector<int32_t>& uids, bool *ret) {
-    NETD_LOCKING_RPC(gCtls->firewallCtrl.lock, PERM_CONNECTIVITY_INTERNAL,
-                     PERM_MAINLINE_NETWORK_STACK);
+    NETD_LOCKING_RPC(gCtls->firewallCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
     int err = gCtls->firewallCtrl.replaceUidChain(chainName, isWhitelist, uids);
     *ret = (err == 0);
     return binder::Status::ok();
 }
 
 binder::Status NetdNativeService::bandwidthEnableDataSaver(bool enable, bool *ret) {
-    NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_CONNECTIVITY_INTERNAL,
-                     PERM_MAINLINE_NETWORK_STACK);
+    NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
     int err = gCtls->bandwidthCtrl.enableDataSaver(enable);
     *ret = (err == 0);
     return binder::Status::ok();
@@ -324,7 +343,7 @@ binder::Status NetdNativeService::bandwidthRemoveNiceApp(int32_t uid) {
 }
 
 binder::Status NetdNativeService::networkCreatePhysical(int32_t netId, int32_t permission) {
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.createPhysicalNetwork(netId, convertPermission(permission));
     return statusFromErrcode(ret);
 }
@@ -343,13 +362,13 @@ binder::Status NetdNativeService::networkDestroy(int32_t netId) {
 }
 
 binder::Status NetdNativeService::networkAddInterface(int32_t netId, const std::string& iface) {
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.addInterfaceToNetwork(netId, iface.c_str());
     return statusFromErrcode(ret);
 }
 
 binder::Status NetdNativeService::networkRemoveInterface(int32_t netId, const std::string& iface) {
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.removeInterfaceFromNetwork(netId, iface.c_str());
     return statusFromErrcode(ret);
 }
@@ -357,7 +376,7 @@ binder::Status NetdNativeService::networkRemoveInterface(int32_t netId, const st
 binder::Status NetdNativeService::networkAddUidRanges(
         int32_t netId, const std::vector<UidRangeParcel>& uidRangeArray) {
     // NetworkController::addUsersToNetwork is thread-safe.
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.addUsersToNetwork(netId, UidRanges(uidRangeArray));
     return statusFromErrcode(ret);
 }
@@ -365,7 +384,7 @@ binder::Status NetdNativeService::networkAddUidRanges(
 binder::Status NetdNativeService::networkRemoveUidRanges(
         int32_t netId, const std::vector<UidRangeParcel>& uidRangeArray) {
     // NetworkController::removeUsersFromNetwork is thread-safe.
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.removeUsersFromNetwork(netId, UidRanges(uidRangeArray));
     return statusFromErrcode(ret);
 }
@@ -377,7 +396,7 @@ binder::Status NetdNativeService::networkRejectNonSecureVpn(
     // the CommandListener "network" command will need to hold this lock too, not just the ones that
     // read/modify network internal state (that is sufficient for ::dump() because it doesn't
     // look at routes, but it's not enough here).
-    NETD_BIG_LOCK_RPC(PERM_CONNECTIVITY_INTERNAL, PERM_MAINLINE_NETWORK_STACK);
+    NETD_BIG_LOCK_RPC(PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
     UidRanges uidRanges(uidRangeArray);
 
     int err;
@@ -391,7 +410,7 @@ binder::Status NetdNativeService::networkRejectNonSecureVpn(
 
 binder::Status NetdNativeService::socketDestroy(const std::vector<UidRangeParcel>& uids,
                                                 const std::vector<int32_t>& skipUids) {
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
 
     SockDiag sd;
     if (!sd.open()) {
@@ -417,6 +436,8 @@ binder::Status NetdNativeService::tetherApplyDnsInterfaces(bool *ret) {
 
 namespace {
 
+constexpr const int UNUSED_IFINDEX = 0;
+
 void tetherAddStatsByInterface(TetherController::TetherStats* tetherStatsParcel,
                                const TetherController::TetherStats& tetherStats) {
     if (tetherStatsParcel->extIface == tetherStats.extIface) {
@@ -434,6 +455,7 @@ TetherStatsParcel toTetherStatsParcel(const TetherController::TetherStats& stats
     result.rxPackets = stats.rxPackets;
     result.txBytes = stats.txBytes;
     result.txPackets = stats.txPackets;
+    result.ifIndex = UNUSED_IFINDEX;
     return result;
 }
 
@@ -480,7 +502,7 @@ binder::Status NetdNativeService::tetherGetStats(
 
 binder::Status NetdNativeService::interfaceAddAddress(const std::string &ifName,
         const std::string &addrString, int prefixLength) {
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     const int err = InterfaceController::addAddress(
             ifName.c_str(), addrString.c_str(), prefixLength);
     if (err != 0) {
@@ -492,7 +514,7 @@ binder::Status NetdNativeService::interfaceAddAddress(const std::string &ifName,
 
 binder::Status NetdNativeService::interfaceDelAddress(const std::string &ifName,
         const std::string &addrString, int prefixLength) {
-    ENFORCE_INTERNAL_PERMISSIONS();
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     const int err = InterfaceController::delAddress(
             ifName.c_str(), addrString.c_str(), prefixLength);
     if (err != 0) {
@@ -573,7 +595,6 @@ binder::Status NetdNativeService::setProcSysNet(int32_t ipversion, int32_t which
 binder::Status NetdNativeService::ipSecSetEncapSocketOwner(const ParcelFileDescriptor& socket,
                                                            int newUid) {
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    gLog.log("ipSecSetEncapSocketOwner()");
 
     uid_t callerUid = IPCThreadState::self()->getCallingUid();
     return asBinderStatus(
@@ -587,8 +608,7 @@ binder::Status NetdNativeService::ipSecAllocateSpi(
         int32_t inSpi,
         int32_t* outSpi) {
     // Necessary locking done in IpSecService and kernel
-    ENFORCE_INTERNAL_PERMISSIONS();
-    gLog.log("ipSecAllocateSpi()");
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     return asBinderStatus(gCtls->xfrmCtrl.ipSecAllocateSpi(
                     transformId,
                     sourceAddress,
@@ -606,8 +626,7 @@ binder::Status NetdNativeService::ipSecAddSecurityAssociation(
         const std::vector<uint8_t>& aeadKey, int32_t aeadIcvBits, int32_t encapType,
         int32_t encapLocalPort, int32_t encapRemotePort, int32_t interfaceId) {
     // Necessary locking done in IpSecService and kernel
-    ENFORCE_INTERNAL_PERMISSIONS();
-    gLog.log("ipSecAddSecurityAssociation()");
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     return asBinderStatus(gCtls->xfrmCtrl.ipSecAddSecurityAssociation(
             transformId, mode, sourceAddress, destinationAddress, underlyingNetId, spi, markValue,
             markMask, authAlgo, authKey, authTruncBits, cryptAlgo, cryptKey, cryptTruncBits,
@@ -620,8 +639,7 @@ binder::Status NetdNativeService::ipSecDeleteSecurityAssociation(
         const std::string& destinationAddress, int32_t spi, int32_t markValue, int32_t markMask,
         int32_t interfaceId) {
     // Necessary locking done in IpSecService and kernel
-    ENFORCE_INTERNAL_PERMISSIONS();
-    gLog.log("ipSecDeleteSecurityAssociation()");
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     return asBinderStatus(gCtls->xfrmCtrl.ipSecDeleteSecurityAssociation(
             transformId, sourceAddress, destinationAddress, spi, markValue, markMask, interfaceId));
 }
@@ -630,8 +648,7 @@ binder::Status NetdNativeService::ipSecApplyTransportModeTransform(
         const ParcelFileDescriptor& socket, int32_t transformId, int32_t direction,
         const std::string& sourceAddress, const std::string& destinationAddress, int32_t spi) {
     // Necessary locking done in IpSecService and kernel
-    ENFORCE_INTERNAL_PERMISSIONS();
-    gLog.log("ipSecApplyTransportModeTransform()");
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     return asBinderStatus(gCtls->xfrmCtrl.ipSecApplyTransportModeTransform(
             socket.get(), transformId, direction, sourceAddress, destinationAddress, spi));
 }
@@ -639,8 +656,7 @@ binder::Status NetdNativeService::ipSecApplyTransportModeTransform(
 binder::Status NetdNativeService::ipSecRemoveTransportModeTransform(
         const ParcelFileDescriptor& socket) {
     // Necessary locking done in IpSecService and kernel
-    ENFORCE_INTERNAL_PERMISSIONS();
-    gLog.log("ipSecRemoveTransportModeTransform()");
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
     return asBinderStatus(gCtls->xfrmCtrl.ipSecRemoveTransportModeTransform(socket.get()));
 }
 
@@ -652,7 +668,6 @@ binder::Status NetdNativeService::ipSecAddSecurityPolicy(int32_t transformId, in
                                                          int32_t markMask, int32_t interfaceId) {
     // Necessary locking done in IpSecService and kernel
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    gLog.log("ipSecAddSecurityPolicy()");
     return asBinderStatus(gCtls->xfrmCtrl.ipSecAddSecurityPolicy(
             transformId, selAddrFamily, direction, tmplSrcAddress, tmplDstAddress, spi, markValue,
             markMask, interfaceId));
@@ -664,7 +679,6 @@ binder::Status NetdNativeService::ipSecUpdateSecurityPolicy(
         int32_t markValue, int32_t markMask, int32_t interfaceId) {
     // Necessary locking done in IpSecService and kernel
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    gLog.log("ipSecAddSecurityPolicy()");
     return asBinderStatus(gCtls->xfrmCtrl.ipSecUpdateSecurityPolicy(
             transformId, selAddrFamily, direction, tmplSrcAddress, tmplDstAddress, spi, markValue,
             markMask, interfaceId));
@@ -676,7 +690,6 @@ binder::Status NetdNativeService::ipSecDeleteSecurityPolicy(int32_t transformId,
                                                             int32_t markMask, int32_t interfaceId) {
     // Necessary locking done in IpSecService and kernel
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    gLog.log("ipSecAddSecurityPolicy()");
     return asBinderStatus(gCtls->xfrmCtrl.ipSecDeleteSecurityPolicy(
             transformId, selAddrFamily, direction, markValue, markMask, interfaceId));
 }
@@ -829,6 +842,7 @@ binder::Status NetdNativeService::ipfwdRemoveInterfaceForward(const std::string&
 }
 
 namespace {
+
 std::string addCurlyBrackets(const std::string& s) {
     return "{" + s + "}";
 }
@@ -908,11 +922,19 @@ binder::Status NetdNativeService::interfaceSetMtu(const std::string& ifName, int
 }
 
 binder::Status NetdNativeService::tetherStart(const std::vector<std::string>& dhcpRanges) {
+    TetherConfigParcel config;
+    config.usingLegacyDnsProxy = true;
+    config.dhcpRanges = dhcpRanges;
+    return tetherStartWithConfiguration(config);
+}
+
+binder::Status NetdNativeService::tetherStartWithConfiguration(const TetherConfigParcel& config) {
     NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    if (dhcpRanges.size() % 2 == 1) {
+    if (config.dhcpRanges.size() % 2 == 1) {
         return statusFromErrcode(-EINVAL);
     }
-    int res = gCtls->tetherCtrl.startTethering(dhcpRanges);
+    // TODO: Pass TetherConfigParcel directly.
+    int res = gCtls->tetherCtrl.startTethering(config.usingLegacyDnsProxy, config.dhcpRanges);
     return statusFromErrcode(res);
 }
 
@@ -963,6 +985,39 @@ binder::Status NetdNativeService::tetherDnsList(std::vector<std::string>* dnsLis
     return binder::Status::ok();
 }
 
+binder::Status NetdNativeService::networkAddRouteParcel(int32_t netId,
+                                                        const RouteInfoParcel& route) {
+    // Public methods of NetworkController are thread-safe.
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+    bool legacy = false;
+    uid_t uid = 0;  // UID is only meaningful for legacy routes.
+
+    // convert Parcel to parameters
+    int res = gCtls->netCtrl.addRoute(netId, route.ifName.c_str(), route.destination.c_str(),
+                                      route.nextHop.empty() ? nullptr : route.nextHop.c_str(),
+                                      legacy, uid, route.mtu);
+    return statusFromErrcode(res);
+}
+
+binder::Status NetdNativeService::networkUpdateRouteParcel(int32_t netId,
+                                                           const RouteInfoParcel& route) {
+    // Public methods of NetworkController are thread-safe.
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+    bool legacy = false;
+    uid_t uid = 0;  // UID is only meaningful for legacy routes.
+
+    // convert Parcel to parameters
+    int res = gCtls->netCtrl.updateRoute(netId, route.ifName.c_str(), route.destination.c_str(),
+                                         route.nextHop.empty() ? nullptr : route.nextHop.c_str(),
+                                         legacy, uid, route.mtu);
+    return statusFromErrcode(res);
+}
+
+binder::Status NetdNativeService::networkRemoveRouteParcel(int32_t netId,
+                                                           const RouteInfoParcel& route) {
+    return networkRemoveRoute(netId, route.ifName, route.destination, route.nextHop);
+}
+
 binder::Status NetdNativeService::networkAddRoute(int32_t netId, const std::string& ifName,
                                                   const std::string& destination,
                                                   const std::string& nextHop) {
@@ -971,7 +1026,7 @@ binder::Status NetdNativeService::networkAddRoute(int32_t netId, const std::stri
     bool legacy = false;
     uid_t uid = 0;  // UID is only meaningful for legacy routes.
     int res = gCtls->netCtrl.addRoute(netId, ifName.c_str(), destination.c_str(),
-                                      nextHop.empty() ? nullptr : nextHop.c_str(), legacy, uid);
+                                      nextHop.empty() ? nullptr : nextHop.c_str(), legacy, uid, 0);
     return statusFromErrcode(res);
 }
 
@@ -993,7 +1048,7 @@ binder::Status NetdNativeService::networkAddLegacyRoute(int32_t netId, const std
     bool legacy = true;
     int res = gCtls->netCtrl.addRoute(netId, ifName.c_str(), destination.c_str(),
                                       nextHop.empty() ? nullptr : nextHop.c_str(), legacy,
-                                      (uid_t) uid);
+                                      (uid_t)uid, 0);
     return statusFromErrcode(res);
 }
 
@@ -1183,6 +1238,77 @@ binder::Status NetdNativeService::getOemNetd(android::sp<android::IBinder>* list
     ENFORCE_NETWORK_STACK_PERMISSIONS();
     *listener = com::android::internal::net::OemNetdListener::getListener();
 
+    return binder::Status::ok();
+}
+
+binder::Status NetdNativeService::getFwmarkForNetwork(int32_t netId, MarkMaskParcel* markMask) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+
+    Fwmark fwmark;
+    fwmark.netId = netId;
+    markMask->mask = FWMARK_NET_ID_MASK;
+    markMask->mark = fwmark.intValue;
+    return binder::Status::ok();
+}
+
+binder::Status NetdNativeService::tetherOffloadRuleAdd(const TetherOffloadRuleParcel& rule) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+
+    return asBinderStatus(gCtls->tetherCtrl.addOffloadRule(rule));
+}
+
+binder::Status NetdNativeService::tetherOffloadRuleRemove(const TetherOffloadRuleParcel& rule) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+
+    return asBinderStatus(gCtls->tetherCtrl.removeOffloadRule(rule));
+}
+
+namespace {
+
+constexpr const char UNUSED_IFNAME[] = "";
+
+TetherStatsParcel toTetherStatsParcel(const TetherController::TetherOffloadStats& stats) {
+    TetherStatsParcel result;
+    result.iface = UNUSED_IFNAME;
+    result.rxBytes = stats.rxBytes;
+    result.rxPackets = stats.rxPackets;
+    result.txBytes = stats.txBytes;
+    result.txPackets = stats.txPackets;
+    result.ifIndex = stats.ifIndex;
+    return result;
+}
+
+}  // namespace
+
+binder::Status NetdNativeService::tetherOffloadGetStats(
+        std::vector<TetherStatsParcel>* tetherStatsParcelVec) {
+    NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
+
+    tetherStatsParcelVec->clear();
+    const auto& statsList = gCtls->tetherCtrl.getTetherOffloadStats();
+    if (!isOk(statsList)) {
+        return asBinderStatus(statsList);
+    }
+    for (const auto& stats : statsList.value()) {
+        tetherStatsParcelVec->push_back(toTetherStatsParcel(stats));
+    }
+    return binder::Status::ok();
+}
+
+binder::Status NetdNativeService::tetherOffloadSetInterfaceQuota(int ifIndex, int64_t quotaBytes) {
+    NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
+    int res = gCtls->tetherCtrl.setTetherOffloadInterfaceQuota(ifIndex, quotaBytes);
+    return statusFromErrcode(res);
+}
+
+binder::Status NetdNativeService::tetherOffloadGetAndClearStats(
+        int ifIndex, android::net::TetherStatsParcel* tetherStats) {
+    NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
+    const auto& stats = gCtls->tetherCtrl.getAndClearTetherOffloadStats(ifIndex);
+    if (!stats.ok()) {
+        return asBinderStatus(stats);
+    }
+    *tetherStats = toTetherStatsParcel(stats.value());
     return binder::Status::ok();
 }
 

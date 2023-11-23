@@ -37,6 +37,8 @@ constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
+using namespace hal;
+
 template <typename T>
 inline bool compute(const T* input, const Shape& shape, T* output) {
     const auto size = getNumberOfElements(shape);

@@ -19,7 +19,7 @@
 
 #include <log/log.h>
 
-#include "gralloc_cb.h"
+#include <gralloc_cb_bp.h>
 #include "JpegCompressor.h"
 #include "../EmulatedFakeCamera2.h"
 #include "../EmulatedFakeCamera3.h"
@@ -29,12 +29,13 @@
 
 namespace android {
 
-JpegCompressor::JpegCompressor():
+JpegCompressor::JpegCompressor(GraphicBufferMapper* gbm):
         Thread(false),
         mIsBusy(false),
         mSynchronous(false),
         mBuffers(NULL),
-        mListener(NULL) {
+        mListener(NULL),
+        mGBM(gbm) {
 }
 
 JpegCompressor::~JpegCompressor() {
@@ -187,7 +188,7 @@ status_t JpegCompressor::compress() {
     // Refer to /hardware/libhardware/include/hardware/camera3.h
     // Transport header for compressed JPEG buffers in output streams.
     camera3_jpeg_blob_t jpeg_blob;
-    cb_handle_t *cb = (cb_handle_t *)(*mJpegBuffer.buffer);
+    const cb_handle_t *cb = cb_handle_t::from(*mJpegBuffer.buffer);
     jpeg_blob.jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
     jpeg_blob.jpeg_size = nV21JpegCompressor.getCompressedSize();
     memcpy(mJpegBuffer.img + cb->width - sizeof(camera3_jpeg_blob_t),
@@ -227,7 +228,14 @@ void JpegCompressor::cleanUp() {
 
     if (mFoundAux) {
         if (mAuxBuffer.streamId == 0) {
-            delete[] mAuxBuffer.img;
+            if (mAuxBuffer.buffer == nullptr) {
+                delete[] mAuxBuffer.img;
+            } else {
+                buffer_handle_t buffer = *mAuxBuffer.buffer;
+
+                mGBM->unlock(buffer);
+                mGBM->freeBuffer(buffer);
+            }
         } else if (!mSynchronous) {
             mListener->onJpegInputDone(mAuxBuffer);
         }

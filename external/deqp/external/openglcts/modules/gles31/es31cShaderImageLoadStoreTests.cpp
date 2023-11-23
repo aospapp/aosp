@@ -103,19 +103,19 @@ public:
 			return false;
 		}
 	}
-	bool IsSSBInVSFSAvailable(int required)
+	bool IsSSBInVSFSAvailable(int requiredVS, int requiredFS)
 	{
 		GLint blocksVS, blocksFS;
 		glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &blocksVS);
 		glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &blocksFS);
-		if (blocksVS >= required && blocksFS >= required)
+		if (blocksVS >= requiredVS && blocksFS >= requiredFS)
 			return true;
 		else
 		{
 			std::ostringstream reason;
-			reason << "Required " << required << " VS storage blocks but only " << blocksVS << " available."
+			reason << "Required " << requiredVS << " VS storage blocks but only " << blocksVS << " available."
 				   << std::endl
-				   << "Required " << required << " FS storage blocks but only " << blocksFS << " available."
+				   << "Required " << requiredFS << " FS storage blocks but only " << blocksFS << " available."
 				   << std::endl;
 			OutputNotSupported(reason.str());
 			return false;
@@ -1354,7 +1354,7 @@ class BasicAllFormatsLoadFS : public ShaderImageLoadStoreBase
 	}
 	virtual long Run()
 	{
-		if (!IsVSFSAvailable(0, 1) || !IsSSBInVSFSAvailable(1))
+		if (!IsVSFSAvailable(0, 1) || !IsSSBInVSFSAvailable(0, 1))
 			return NOT_SUPPORTED;
 
 		CreateFullViewportQuad(&m_vao, &m_vbo, NULL);
@@ -2256,7 +2256,7 @@ class BasicAllTargetsLoadFS : public ShaderImageLoadStoreBase
 
 	virtual long Run()
 	{
-		if (!IsVSFSAvailable(0, 4) || !IsSSBInVSFSAvailable(4))
+		if (!IsVSFSAvailable(0, 4) || !IsSSBInVSFSAvailable(0, 4))
 			return NOT_SUPPORTED;
 		CreateFullViewportQuad(&m_vao, &m_vbo, NULL);
 
@@ -2703,7 +2703,7 @@ class BasicAllTargetsAtomicFS : public ShaderImageLoadStoreBase
 			return NOT_SUPPORTED;
 		if (!AreOutputsAvailable(5))
 			return NOT_SUPPORTED;
-		if (!IsSSBInVSFSAvailable(1))
+		if (!IsSSBInVSFSAvailable(0, 1))
 			return NOT_SUPPORTED;
 		CreateFullViewportQuad(&m_vao, &m_vbo, NULL);
 
@@ -3358,7 +3358,7 @@ class BasicAllTargetsLoadStoreVS : public LoadStoreMachine
 {
 	virtual long Run()
 	{
-		if (!IsVSFSAvailable(4, 0) || !IsSSBInVSFSAvailable(1))
+		if (!IsVSFSAvailable(4, 0) || !IsSSBInVSFSAvailable(1, 0))
 			return NOT_SUPPORTED;
 		return RunStage(0);
 	}
@@ -3380,7 +3380,7 @@ class BasicAllTargetsAtomicVS : public AtomicMachine
 {
 	virtual long Run()
 	{
-		if (!IsVSFSAvailable(4, 0) || !IsSSBInVSFSAvailable(1))
+		if (!IsVSFSAvailable(4, 0) || !IsSSBInVSFSAvailable(1, 0))
 			return NOT_SUPPORTED;
 		return RunStage(0);
 	}
@@ -3415,7 +3415,7 @@ class BasicGLSLMiscFS : public ShaderImageLoadStoreBase
 	}
 	virtual long Run()
 	{
-		if (!IsVSFSAvailable(0, 2) || !IsSSBInVSFSAvailable(1))
+		if (!IsVSFSAvailable(0, 2) || !IsSSBInVSFSAvailable(0, 1))
 			return NOT_SUPPORTED;
 
 		const int		   kSize = 32;
@@ -3820,7 +3820,7 @@ class AdvancedSyncImageAccess : public ShaderImageLoadStoreBase
 
 	virtual long Run()
 	{
-		if (!IsVSFSAvailable(1, 0) || !IsSSBInVSFSAvailable(1))
+		if (!IsVSFSAvailable(1, 0) || !IsSSBInVSFSAvailable(1, 0))
 			return NOT_SUPPORTED;
 
 		const int		  kSize = 44;
@@ -4078,7 +4078,7 @@ class AdvancedSyncImageAccess2 : public ShaderImageLoadStoreBase
 	virtual long Run()
 	{
 		const int kSize = 32;
-		if (!IsVSFSAvailable(0, 1) || !IsSSBInVSFSAvailable(1))
+		if (!IsVSFSAvailable(0, 1) || !IsSSBInVSFSAvailable(0, 1))
 			return NOT_SUPPORTED;
 		const char* const glsl_vs =
 			NL "layout(location = 0) in vec4 i_position;" NL "void main() {" NL "  gl_Position = i_position;" NL "}";
@@ -4175,10 +4175,28 @@ class AdvancedAllStagesOneImage : public ShaderImageLoadStoreBase
 		const int kSize = 64;
 		if (!IsVSFSAvailable(1, 1) || !IsImageAtomicSupported())
 			return NOT_SUPPORTED;
+                /* Note that we use imageAtomicCompSwap on the vertex
+                 * shader on purpose, for two reasons:
+                 *
+                 * * Test can't assume that the vertex shader will be
+                 *   executed exactly once per vertex. So the test
+                 *   can't use imageAtomicAdd as it is not possible to
+                 *   known in advance the final value (see khronos
+                 *   issue #1910)
+                 *
+                 * * Test can't assume that all the vertex shader
+                 *   executions will be executed before rasterization
+                 *   (so fragment shader) starts, specially on tile
+                 *   based GPUs. So the test can't use
+                 *   imageAtomicExchange, as it could happen that a
+                 *   vertex shader execution overrides the values
+                 *   being updated by the frament shader (see khronos
+                 *   issue #1997)
+                 */
 		const char* const glsl_vs =
 			NL "layout(location = 0) in vec4 i_position;" NL
 			   "layout(r32ui, binding = 3) coherent uniform uimage2D g_image;" NL "void main() {" NL
-			   "  gl_Position = i_position;" NL "  imageAtomicAdd(g_image, ivec2(0, gl_VertexID), 100u);" NL "}";
+			   "  gl_Position = i_position;" NL "  imageAtomicCompSwap(g_image, ivec2(0, gl_VertexID), 0u, 100u);" NL "}";
 		const char* const glsl_fs =
 			NL "#define KSIZE 64" NL "layout(r32ui, binding = 3) coherent uniform uimage2D g_image;" NL
 			   "void main() {" NL "  imageAtomicAdd(g_image, ivec2(0, int(gl_FragCoord.x) & 0x03), 0x1u);" NL "}";
@@ -4262,7 +4280,7 @@ class AdvancedMemoryOrderVSFS : public ShaderImageLoadStoreBase
 	virtual long Run()
 	{
 		const int kSize = 11;
-		if (!IsVSFSAvailable(1, 1) || !IsSSBInVSFSAvailable(1))
+		if (!IsVSFSAvailable(1, 1) || !IsSSBInVSFSAvailable(1, 1))
 			return NOT_SUPPORTED;
 		const char* const glsl_vs = NL
 			"layout(location = 0) in vec4 i_position;" NL "out vec4 vs_color;" NL
@@ -4383,6 +4401,8 @@ class AdvancedSSOSimple : public ShaderImageLoadStoreBase
 		if (!IsVSFSAvailable(0, 2))
 			return NOT_SUPPORTED;
 		const int kSize = 4;
+		const int textureWidth = 16;
+		const int textureHeight = 16;
 
 		if (pipeline)
 		{
@@ -4394,7 +4414,7 @@ class AdvancedSSOSimple : public ShaderImageLoadStoreBase
 		glBindTexture(GL_TEXTURE_2D_ARRAY, m_texture);
 		glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA32F, getWindowWidth(), getWindowHeight(), 8);
+		glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA32F, textureWidth, textureHeight, 8);
 
 		glBindImageTexture(0, m_texture, 0, GL_FALSE, 6, GL_READ_WRITE, GL_RGBA32F);
 		glBindImageTexture(1, m_texture, 0, GL_FALSE, 4, GL_READ_WRITE, GL_RGBA32F);
@@ -4425,8 +4445,8 @@ class AdvancedSSOSimple : public ShaderImageLoadStoreBase
 			   "  data[idx][3] = (imageLoad(g_image[3], ivec2(gl_GlobalInvocationID))).z;" NL "}";
 		c_program = CreateComputeProgram(glsl_cs);
 		glUseProgram(c_program);
-		int wsx   = (getWindowWidth() / kSize) * kSize;
-		int wsy   = (getWindowHeight() / kSize) * kSize;
+		int wsx   = (textureWidth / kSize) * kSize;
+		int wsy   = (textureHeight / kSize) * kSize;
 		int minor = wsx > wsy ? wsy : wsx;
 
 		std::vector<vec4> data_b(wsx * wsy + 1);

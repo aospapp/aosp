@@ -36,7 +36,7 @@ package com.android.ims;
 public class RcsException extends Exception {
 
     /**
-     * Refer to {@link RcsManager.ResultCode}
+     * Refer to {@link ResultCode}
      */
     private int mCode;
 
@@ -56,7 +56,7 @@ public class RcsException extends Exception {
     /**
      * Gets the detailed exception code when RcsException is throwed
      *
-     * @return the exception code in {@link RcsManager.ResultCode}
+     * @return the exception code in {@link ResultCode}
      */
     public int getCode() {
         return mCode;

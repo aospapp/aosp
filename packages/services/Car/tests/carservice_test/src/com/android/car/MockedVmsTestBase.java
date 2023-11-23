@@ -25,7 +25,6 @@ import android.car.vms.VmsLayer;
 import android.car.vms.VmsPublisherClientService;
 import android.car.vms.VmsSubscriberManager;
 import android.car.vms.VmsSubscriptionState;
-import android.content.Intent;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
@@ -34,7 +33,6 @@ import android.hardware.automotive.vehicle.V2_0.VmsAvailabilityStateIntegerValue
 import android.hardware.automotive.vehicle.V2_0.VmsBaseMessageIntegerValuesIndex;
 import android.hardware.automotive.vehicle.V2_0.VmsMessageType;
 import android.hardware.automotive.vehicle.V2_0.VmsStartSessionMessageIntegerValuesIndex;
-import android.os.UserHandle;
 import android.util.Log;
 import android.util.Pair;
 
@@ -51,25 +49,15 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class MockedVmsTestBase extends MockedCarTestBase {
-    public static final long PUBLISHER_BIND_TIMEOUT_SECS = 2L;
-
+    public static final long PUBLISHER_CLIENT_TIMEOUT = 500L;
+    public static final long MESSAGE_RECEIVE_TIMEOUT = 500L;
     private static final String TAG = "MockedVmsTestBase";
-    private static CountDownLatch sPublisherIsReady = new CountDownLatch(1);
-    private static MockPublisherClient sPublisherClient;
+
+    private MockPublisherClient mPublisherClient;
+    private CountDownLatch mPublisherIsReady = new CountDownLatch(1);
     private VmsSubscriberManager mVmsSubscriberManager;
     private MockSubscriberClient mSubscriberClient;
     private MockHalClient mHalClient;
-
-    @Override
-    protected synchronized void configureResourceOverrides(MockResources resources) {
-        super.configureResourceOverrides(resources);
-        // Override publisher client endpoint configurations
-        // Both lists must be set, but only one will be used (see setUp)
-        resources.overrideResource(com.android.car.R.array.vmsPublisherSystemClients,
-                new String[]{getFlattenComponent(MockPublisherClient.class)});
-        resources.overrideResource(com.android.car.R.array.vmsPublisherUserClients,
-                new String[]{getFlattenComponent(MockPublisherClient.class)});
-    }
 
     @Override
     protected synchronized void configureMockedHal() {
@@ -82,14 +70,17 @@ public class MockedVmsTestBase extends MockedCarTestBase {
 
     @Before
     public void setUpVms() throws Exception {
-        // Trigger VmsClientManager to bind to the MockPublisherClient
-        getContext().sendBroadcastAsUser(new Intent(Intent.ACTION_USER_UNLOCKED), UserHandle.ALL);
-
+        mPublisherClient = new MockPublisherClient();
+        mPublisherClient.setMockCar(getCar());
         mVmsSubscriberManager = (VmsSubscriberManager) getCar().getCarManager(
                 Car.VMS_SUBSCRIBER_SERVICE);
         mSubscriberClient = new MockSubscriberClient();
         mVmsSubscriberManager.setVmsSubscriberClientCallback(Executors.newSingleThreadExecutor(),
                 mSubscriberClient);
+
+        assertTrue(
+                "Timeout while waiting for publisher client to be ready",
+                mPublisherIsReady.await(PUBLISHER_CLIENT_TIMEOUT, TimeUnit.MILLISECONDS));
 
         // Validate session handshake
         List<Integer> v = mHalClient.receiveMessage().value.int32Values;
@@ -116,26 +107,12 @@ public class MockedVmsTestBase extends MockedCarTestBase {
                 (int) v.get(VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS));
     }
 
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-        sPublisherIsReady = new CountDownLatch(1);
-        sPublisherClient = null;
-    }
-
     VmsSubscriberManager getSubscriberManager() {
         return mVmsSubscriberManager;
     }
 
     MockPublisherClient getMockPublisherClient() {
-        try {
-            assertTrue(
-                    "Timeout while waiting for publisher client to be ready",
-                    sPublisherIsReady.await(PUBLISHER_BIND_TIMEOUT_SECS, TimeUnit.SECONDS));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        return sPublisherClient;
+        return mPublisherClient;
     }
 
     MockSubscriberClient getMockSubscriberClient() {
@@ -146,20 +123,24 @@ public class MockedVmsTestBase extends MockedCarTestBase {
         return mHalClient;
     }
 
-    public static class MockPublisherClient extends VmsPublisherClientService {
+    class MockPublisherClient extends VmsPublisherClientService {
         private BlockingQueue<VmsSubscriptionState> mSubscriptionState =
                 new LinkedBlockingQueue<>();
+
+        void setMockCar(Car car) {
+            onCarLifecycleChanged(car, true);
+        }
 
         @Override
         protected void onVmsPublisherServiceReady() {
             Log.d(TAG, "MockPublisherClient.onVmsPublisherServiceReady");
-            sPublisherClient = this;
-            sPublisherIsReady.countDown();
+            mPublisherIsReady.countDown();
         }
 
         @Override
         public void onVmsSubscriptionChange(VmsSubscriptionState subscriptionState) {
-            Log.d(TAG, "MockPublisherClient.onVmsSubscriptionChange");
+            Log.d(TAG, "MockPublisherClient.onVmsSubscriptionChange: "
+                    + subscriptionState.getSequenceNumber());
             mSubscriptionState.add(subscriptionState);
         }
 
@@ -226,7 +207,7 @@ public class MockedVmsTestBase extends MockedCarTestBase {
 
     private static <T> T receiveWithTimeout(BlockingQueue<T> queue) {
         try {
-            return queue.poll(2L, TimeUnit.SECONDS);
+            return queue.poll(MESSAGE_RECEIVE_TIMEOUT, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

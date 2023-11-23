@@ -72,7 +72,10 @@
         </activity>
 
         <activity android:name="android.hardware.input.cts.InputCtsActivity"
-            android:label="InputCtsActivity" />
+            android:label="InputCtsActivity"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation
+                    |screenLayout|fontScale|uiMode|orientation|density|screenSize
+                    |smallestScreenSize"/>
 
         <activity android:name="android.hardware.cts.FingerprintTestActivity"
             android:label="FingerprintTestActivity">

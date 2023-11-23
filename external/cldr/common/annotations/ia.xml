@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14453 $"/>
+		<version number="$Revision$"/>
 		<language type="ia"/>
 	</identity>
 	<annotations>
@@ -21,32 +21,66 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🏾" type="tts">tono de pelle medio-obscur</annotation>
 		<annotation cp="🏿">tono de pelle | tono de pelle obscur | typo 6</annotation>
 		<annotation cp="🏿" type="tts">tono de pelle obscur</annotation>
+		<annotation cp="🫀">battimento del corde | centro | corde | organo | pulsation cardiac | pulsation del corde | rhythmo cardiac | rhythmo del corde</annotation>
+		<annotation cp="🫀" type="tts">corde</annotation>
+		<annotation cp="🫁">exhalation | halito | inhalation | organo | pulmones | respiration | sufflo | suspiro</annotation>
+		<annotation cp="🫁" type="tts">pulmones</annotation>
 		<annotation cp="😀">facie | surridente | surriso | visage | visage con grande surriso</annotation>
 		<annotation cp="😀" type="tts">visage con grande surriso</annotation>
-		<annotation cp="😁">facie | radiante | surridente | surriso | visage | visage radiante con oculos surridente</annotation>
-		<annotation cp="😁" type="tts">visage radiante con oculos surridente</annotation>
-		<annotation cp="😂">facie | gaudio | joia | lacrimas | visage | visage plorante de riso</annotation>
-		<annotation cp="😂" type="tts">visage plorante de riso</annotation>
-		<annotation cp="🤣">facie | ridente | riso | rolante se per terra de rider | rolar | visage</annotation>
-		<annotation cp="🤣" type="tts">rolante se per terra de rider</annotation>
 		<annotation cp="😃">aperte | bucca | facie | grande surriso con grande oculos | surriso | visage</annotation>
 		<annotation cp="😃" type="tts">grande surriso con grande oculos</annotation>
 		<annotation cp="😄">aperte | facie | grande surriso con oculos surridente | oculos | surridente | visage</annotation>
 		<annotation cp="😄" type="tts">grande surriso con oculos surridente</annotation>
-		<annotation cp="😅">aperte | facie | frigide | grande surriso con gutta de sudor | sudor | visage</annotation>
-		<annotation cp="😅" type="tts">grande surriso con gutta de sudor</annotation>
+		<annotation cp="😁">facie | radiante | surridente | surriso | visage | visage radiante con oculos surridente</annotation>
+		<annotation cp="😁" type="tts">visage radiante con oculos surridente</annotation>
 		<annotation cp="😆">facie | grande surriso con oculos clause | satisfacite | satisfaction | surridente | visage</annotation>
 		<annotation cp="😆" type="tts">grande surriso con oculos clause</annotation>
+		<annotation cp="😅">aperte | facie | frigide | grande surriso con gutta de sudor | sudor | visage</annotation>
+		<annotation cp="😅" type="tts">grande surriso con gutta de sudor</annotation>
+		<annotation cp="🤣">facie | ridente | riso | rolante se per terra de rider | rolar | visage</annotation>
+		<annotation cp="🤣" type="tts">rolante se per terra de rider</annotation>
+		<annotation cp="😂">facie | gaudio | joia | lacrimas | visage | visage plorante de riso</annotation>
+		<annotation cp="😂" type="tts">visage plorante de riso</annotation>
 		<annotation cp="😉">batter | facie | palpebras | visage | visage que batte le palpebras</annotation>
 		<annotation cp="😉" type="tts">visage que batte le palpebras</annotation>
 		<annotation cp="😊">facie | rubescer | rubor | surridente | surriso con oculos surridente | visage</annotation>
 		<annotation cp="😊" type="tts">surriso con oculos surridente</annotation>
+		<annotation cp="😍">corde | facie | oculo | surridente | surriso con oculos in forma de corde | visage</annotation>
+		<annotation cp="😍" type="tts">surriso con oculos in forma de corde</annotation>
 		<annotation cp="😋">alimento | deliciose | facie | mangiar | visage | visage que sapora un bon repasto</annotation>
 		<annotation cp="😋" type="tts">visage que sapora un bon repasto</annotation>
 		<annotation cp="😎">berillos | facie | sol | surriso | surriso con oculares de sol | visage</annotation>
 		<annotation cp="😎" type="tts">surriso con oculares de sol</annotation>
-		<annotation cp="😍">corde | facie | oculo | surridente | surriso con oculos in forma de corde | visage</annotation>
-		<annotation cp="😍" type="tts">surriso con oculos in forma de corde</annotation>
+		<annotation cp="💪">biceps | biceps contrahite | biceps flectite | flexion | forte | musculo</annotation>
+		<annotation cp="💪" type="tts">biceps flectite</annotation>
+		<annotation cp="🦾">accessibilitate | bracio mechanic | prothese | prothesis</annotation>
+		<annotation cp="🦾" type="tts">bracio mechanic</annotation>
+		<annotation cp="🦿">accessibilitate | gamba mechanic | prothese | prothesis</annotation>
+		<annotation cp="🦿" type="tts">gamba mechanic</annotation>
+		<annotation cp="🦵">colpo de pede | gamba | membro</annotation>
+		<annotation cp="🦵" type="tts">gamba</annotation>
+		<annotation cp="🦶">colpo de pede | pede</annotation>
+		<annotation cp="🦶" type="tts">pede</annotation>
+		<annotation cp="👂">audientia | audita | audition | aural | aure | auricular | corpore</annotation>
+		<annotation cp="👂" type="tts">aure</annotation>
+		<annotation cp="🦻">accessibilitate | aure con audiophono | debile de audito | dur de aure</annotation>
+		<annotation cp="🦻" type="tts">aure con audiophono</annotation>
+		<annotation cp="👃">corpore | naso</annotation>
+		<annotation cp="👃" type="tts">naso</annotation>
+		<annotation cp="🧠">cerebro | intelligente</annotation>
+		<annotation cp="🧠" type="tts">cerebro</annotation>
+		<annotation cp="🦷">dental | dentari | dente | dentista | odontologia | orthodontista</annotation>
+		<annotation cp="🦷" type="tts">dente</annotation>
+		<annotation cp="🦴">osso | osteologia | skeleto</annotation>
+		<annotation cp="🦴" type="tts">osso</annotation>
+		<annotation cp="👀">facie | ocular | oculo | oculos | ophthalmologia | vision | visual</annotation>
+		<annotation cp="👀" type="tts">oculos</annotation>
+		<annotation cp="👁">corpore | ocular | oculo | ophthalmologia | vision | visual</annotation>
+		<annotation cp="👁" type="tts">oculo</annotation>
+		<annotation cp="👅">corpore | lingua | lingual</annotation>
+		<annotation cp="👅" type="tts">lingua</annotation>
+		<annotation cp="👄">bucca | labial | labios | oral | ore</annotation>
+		<annotation cp="👄" type="tts">bucca</annotation>
 		<annotation cp="🦰">capillos rosse | rossa | rossastre | rubee | rubie | rubre</annotation>
 		<annotation cp="🦰" type="tts">capillos rosse</annotation>
 		<annotation cp="🦱">afro | buclate | buclettas | capillos | crispe</annotation>

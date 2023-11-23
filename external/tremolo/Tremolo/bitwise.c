@@ -217,7 +217,7 @@ long oggpack_look(oggpack_buffer *b,int bits){
   unsigned long ret = 0;
   int BITS = bits;
 
-  if (!b->headptr) return 0;
+  if (!b->headptr || b->headend < 0) return 0;
 
   bits+=b->headbit;
 

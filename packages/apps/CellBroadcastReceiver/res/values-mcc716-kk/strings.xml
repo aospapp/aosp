@@ -19,5 +19,6 @@
     <string name="public_safety_message" msgid="7237115648380675159">"Ақпараттық хабар"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"Ақпараттық хабар"</string>
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"Төтенше жағдай туралы ескерту: тексеру хабары"</string>
-    <string name="cmas_exercise_alert" msgid="996644454768618214">"Төтенше жағдай туралы ескерту: жаттығу/симуляциялық хабар"</string>
+    <string name="cmas_exercise_alert" msgid="3061507852301643814">"Төтенше жағдай хабарландыруы: оқу/жаттығу хабары"</string>
+    <string name="pws_other_message_identifiers" msgid="4992476982074198144">"Төтенше жағдай хабарландыруы: тексеру хабары"</string>
 </resources>

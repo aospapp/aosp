@@ -112,7 +112,7 @@ import java.util.stream.StreamSupport;
  * however most current implementations do not do so.
  *
  * <p>This interface is a member of the
- * <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/collections/index.html">
+ * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
  * @implSpec

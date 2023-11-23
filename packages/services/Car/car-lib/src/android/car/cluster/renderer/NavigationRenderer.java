@@ -37,18 +37,19 @@ public abstract class NavigationRenderer {
     /**
      * Called when a navigation state change is received.
      *
-     * @deprecated use {@link #onNavigationStateChanged(Bundle)} instead.
+     * @removed Replaced by {@link #onNavigationStateChanged(Bundle)}
      */
-    @Deprecated
-    public void onEvent(int eventType, Bundle bundle) {}
+    public void onEvent(int eventType, Bundle bundle) {
+    }
 
     /**
      * Called when a navigation state change is received.
      *
      * @param bundle {@link android.os.Bundle} containing the description of the navigation state
-     *               change. This information can be parsed using
-     *               <a href="https://developer.android.com/reference/androidx/car/cluster/navigation/NavigationState.html#toParcelable()">
-     *               androidx.car.cluster.navigation.NavigationState#fromParcelable(Parcelable)</a>
+     *               change as an array of bytes. This information can be parsed using
+     *               {@link android.car.cluster.navigation.NavigationState.NavigationStateProto
+     *                                        #parseFrom(protoBytes)}.
      */
-    public void onNavigationStateChanged(@Nullable Bundle bundle) {}
+    public void onNavigationStateChanged(@Nullable Bundle bundle) {
+    }
 }

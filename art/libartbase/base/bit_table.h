@@ -49,13 +49,12 @@ class BitTableBase {
 
   ALWAYS_INLINE void Decode(BitMemoryReader& reader) {
     // Decode row count and column sizes from the table header.
-    num_rows_ = reader.ReadVarint();
-    if (num_rows_ != 0) {
-      column_offset_[0] = 0;
-      for (uint32_t i = 0; i < kNumColumns; i++) {
-        size_t column_end = column_offset_[i] + reader.ReadVarint();
-        column_offset_[i + 1] = dchecked_integral_cast<uint16_t>(column_end);
-      }
+    std::array<uint32_t, 1+kNumColumns> header = reader.ReadInterleavedVarints<1+kNumColumns>();
+    num_rows_ = header[0];
+    column_offset_[0] = 0;
+    for (uint32_t i = 0; i < kNumColumns; i++) {
+      size_t column_end = column_offset_[i] + header[i + 1];
+      column_offset_[i + 1] = dchecked_integral_cast<uint16_t>(column_end);
     }
 
     // Record the region which contains the table data and skip past it.
@@ -109,6 +108,7 @@ class BitTableAccessor {
   static constexpr uint32_t kNumColumns = NumColumns;
   static constexpr uint32_t kNoValue = BitTableBase<kNumColumns>::kNoValue;
 
+  BitTableAccessor() = default;
   BitTableAccessor(const BitTableBase<kNumColumns>* table, uint32_t row)
       : table_(table), row_(row) {
     DCHECK(table_ != nullptr);
@@ -335,7 +335,7 @@ class BitTableBuilderBase {
   }
 
   // Calculate the column bit widths based on the current data.
-  void Measure(/*out*/ std::array<uint32_t, kNumColumns>* column_bits) const {
+  void Measure(/*out*/ uint32_t* column_bits) const {
     uint32_t max_column_value[kNumColumns];
     std::fill_n(max_column_value, kNumColumns, 0);
     for (uint32_t r = 0; r < size(); r++) {
@@ -344,7 +344,7 @@ class BitTableBuilderBase {
       }
     }
     for (uint32_t c = 0; c < kNumColumns; c++) {
-      (*column_bits)[c] = MinimumBitsToStore(max_column_value[c]);
+      column_bits[c] = MinimumBitsToStore(max_column_value[c]);
     }
   }
 
@@ -353,20 +353,17 @@ class BitTableBuilderBase {
   void Encode(BitMemoryWriter<Vector>& out) const {
     size_t initial_bit_offset = out.NumberOfWrittenBits();
 
-    std::array<uint32_t, kNumColumns> column_bits;
-    Measure(&column_bits);
-    out.WriteVarint(size());
-    if (size() != 0) {
-      // Write table header.
-      for (uint32_t c = 0; c < kNumColumns; c++) {
-        out.WriteVarint(column_bits[c]);
-      }
+    // Write table header.
+    std::array<uint32_t, 1 + kNumColumns> header;
+    header[0] = size();
+    uint32_t* column_bits = header.data() + 1;
+    Measure(column_bits);
+    out.WriteInterleavedVarints(header);
 
-      // Write table data.
-      for (uint32_t r = 0; r < size(); r++) {
-        for (uint32_t c = 0; c < kNumColumns; c++) {
-          out.WriteBits(rows_[r][c] - kValueBias, column_bits[c]);
-        }
+    // Write table data.
+    for (uint32_t r = 0; r < size(); r++) {
+      for (uint32_t c = 0; c < kNumColumns; c++) {
+        out.WriteBits(rows_[r][c] - kValueBias, column_bits[c]);
       }
     }
 
@@ -444,16 +441,17 @@ class BitmapTableBuilder {
   void Encode(BitMemoryWriter<Vector>& out) const {
     size_t initial_bit_offset = out.NumberOfWrittenBits();
 
-    out.WriteVarint(size());
-    if (size() != 0) {
-      out.WriteVarint(max_num_bits_);
+    // Write table header.
+    out.WriteInterleavedVarints(std::array<uint32_t, 2>{
+      dchecked_integral_cast<uint32_t>(size()),
+      dchecked_integral_cast<uint32_t>(max_num_bits_),
+    });
 
-      // Write table data.
-      for (MemoryRegion row : rows_) {
-        BitMemoryRegion src(row);
-        BitMemoryRegion dst = out.Allocate(max_num_bits_);
-        dst.StoreBits(/* bit_offset */ 0, src, std::min(max_num_bits_, src.size_in_bits()));
-      }
+    // Write table data.
+    for (MemoryRegion row : rows_) {
+      BitMemoryRegion src(row);
+      BitMemoryRegion dst = out.Allocate(max_num_bits_);
+      dst.StoreBits(/* bit_offset */ 0, src, std::min(max_num_bits_, src.size_in_bits()));
     }
 
     // Verify the written data.

@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libjnibranchingfuncalls
 
-LOCAL_SRC_FILES := jnibranchingfuncalls.cpp scalars.rs
+LOCAL_SRC_FILES := jnibranchingfuncalls.cpp scalars.rscript
 
 LOCAL_RENDERSCRIPT_FLAGS := -g
 

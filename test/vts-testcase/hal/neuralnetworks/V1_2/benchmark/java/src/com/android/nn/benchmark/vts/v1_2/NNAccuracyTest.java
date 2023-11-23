@@ -20,9 +20,11 @@ import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertTrue;
 
 import android.app.Activity;
+import android.hidl.manager.V1_2.IServiceManager;
+import android.os.RemoteException;
 import android.util.Pair;
-import androidx.test.filters.LargeTest;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
 import androidx.test.rule.ActivityTestRule;
 import com.android.nn.benchmark.core.BenchmarkException;
 import com.android.nn.benchmark.core.BenchmarkResult;
@@ -37,30 +39,39 @@ import java.util.List;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-import org.junit.Test;
 
 /**
  * Tests the accuracy of the model outputs.
  */
 @RunWith(Parameterized.class)
 public class NNAccuracyTest {
-    private static final String ARG_HAL_SERVICE_INSTANCE = "halServiceInstance";
-    private static final String HAL_SERVICE_INSTANCE_PREFIX =
-            "android.hardware.neuralnetworks@1.2::IDevice/";
+    private static final String HAL_SERVICE_TYPE = "android.hardware.neuralnetworks@1.2::IDevice";
 
     @Rule
     public ActivityTestRule<NNAccuracyActivity> mActivityRule =
             new ActivityTestRule<>(NNAccuracyActivity.class);
 
-    @Parameterized.Parameter(0) public TestModels.TestModelEntry mModel;
+    private static class InstanceModel {
+        final String mInstance;
+        final TestModels.TestModelEntry mEntry;
+
+        InstanceModel(String instance, TestModels.TestModelEntry entry) {
+            mInstance = instance;
+            mEntry = entry;
+        }
+
+        @Override
+        public String toString() {
+            return mInstance + ":" + mEntry.mModelName;
+        }
+    }
+    @Parameterized.Parameter(0) public InstanceModel mModel;
 
     private Activity mActivity;
-
-    private String mHalServiceInstance;
-    private String mDeviceName;
 
     // TODO(vddang): Add mobilenet_v1_0.25_128_quant_topk_aosp
     private static final String[] MODEL_NAMES = new String[] {
@@ -81,37 +92,42 @@ public class NNAccuracyTest {
     };
 
     @Parameters(name = "{0}")
-    public static List<TestModels.TestModelEntry> modelsList() {
-        List<TestModels.TestModelEntry> models = new ArrayList<>();
-        for (String modelName : MODEL_NAMES) {
-            models.add(TestModels.getModelByName(modelName));
+    public static Iterable<InstanceModel> parameterList() throws RemoteException {
+        List<String> serviceInstances =
+                IServiceManager.getService().listManifestByInterface(HAL_SERVICE_TYPE);
+        List<InstanceModel> parameters = new ArrayList<>();
+        for (String instance : serviceInstances) {
+            for (String modelName : MODEL_NAMES) {
+                TestModels.TestModelEntry entry = TestModels.getModelByName(modelName);
+                if (entry == null) {
+                    throw new RuntimeException("Failed to find model of name " + modelName);
+                }
+                parameters.add(new InstanceModel(instance, entry));
+            }
         }
-        return Collections.unmodifiableList(models);
+
+        return Collections.unmodifiableList(parameters);
     }
 
     @Before
     public void setUp() throws Exception {
         mActivity = mActivityRule.getActivity();
-        mHalServiceInstance =
-                InstrumentationRegistry.getArguments().getString(ARG_HAL_SERVICE_INSTANCE);
-        assertTrue(mHalServiceInstance.startsWith(HAL_SERVICE_INSTANCE_PREFIX));
-        mDeviceName = mHalServiceInstance.substring(HAL_SERVICE_INSTANCE_PREFIX.length());
     }
 
     @Test
     @LargeTest
     public void testDriver() throws BenchmarkException, IOException {
-        NNTestBase test = mModel.createNNTestBase();
+        NNTestBase test = mModel.mEntry.createNNTestBase();
         test.useNNApi();
-        test.setNNApiDeviceName(mDeviceName);
+        test.setNNApiDeviceName(mModel.mInstance);
         if (!test.setupModel(mActivity)) {
             throw new AssumptionViolatedException("The driver rejected the model.");
         }
         Pair<List<InferenceInOutSequence>, List<InferenceResult>> inferenceResults =
                 test.runBenchmarkCompleteInputSet(/*setRepeat=*/1, /*timeoutSec=*/3600);
-        BenchmarkResult benchmarkResult = BenchmarkResult.fromInferenceResults(mModel.mModelName,
-                BenchmarkResult.BACKEND_TFLITE_NNAPI, inferenceResults.first,
-                inferenceResults.second, test.getEvaluator());
+        BenchmarkResult benchmarkResult = BenchmarkResult.fromInferenceResults(
+                mModel.mEntry.mModelName, BenchmarkResult.BACKEND_TFLITE_NNAPI,
+                inferenceResults.first, inferenceResults.second, test.getEvaluator());
         assertFalse(benchmarkResult.hasValidationErrors());
     }
 }

@@ -49,6 +49,9 @@ class ProcUidConcurrentActiveTimeTest(KernelProcFileTestBase.KernelProcFileTestB
     def get_path(self):
         return "/proc/uid_concurrent_active_time"
 
+    def file_optional(self, shell=None, dut=None):
+        return True
+
     def result_correct(self, result):
         cpus, times = result
         no_repeated_uids = len(set(x[0] for x in times)) == len(times)
@@ -90,6 +93,9 @@ class ProcUidConcurrentPolicyTimeTest(KernelProcFileTestBase.KernelProcFileTestB
 
     def get_path(self):
         return "/proc/uid_concurrent_policy_time"
+
+    def file_optional(self, shell=None, dut=None):
+        return True
 
     def result_correct(self, result):
         cpus, times = result

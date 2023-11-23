@@ -19,9 +19,8 @@ struct cras_observer_client;
  *    Valid pointer to the client reference, or NULL on memory allocation
  *    error.
  */
-struct cras_observer_client *cras_observer_add(
-			const struct cras_observer_ops *ops,
-			void *context);
+struct cras_observer_client *
+cras_observer_add(const struct cras_observer_ops *ops, void *context);
 
 /* Retrieve the observed state changes.
  * Args:
@@ -84,8 +83,7 @@ void cras_observer_notify_node_left_right_swapped(cras_node_id_t node_id,
 						  int swapped);
 
 /* Notify observers of input node gain change. */
-void cras_observer_notify_input_node_gain(cras_node_id_t node_id,
-					  int32_t gain);
+void cras_observer_notify_input_node_gain(cras_node_id_t node_id, int32_t gain);
 
 /* Notify observers of suspend state changed. */
 void cras_observer_notify_suspend_changed(int suspended);

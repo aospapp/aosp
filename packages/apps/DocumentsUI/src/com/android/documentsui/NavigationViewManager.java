@@ -18,7 +18,6 @@ package com.android.documentsui;
 
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
-import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Outline;
 import android.graphics.drawable.Drawable;
@@ -29,13 +28,14 @@ import android.view.ViewOutlineProvider;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
 
-import com.android.documentsui.R;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.AnimationView;
 
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
+import com.google.android.material.tabs.TabLayout;
 
 import java.util.function.IntConsumer;
 
@@ -51,6 +51,7 @@ public class NavigationViewManager {
     private final State mState;
     private final NavigationViewManager.Environment mEnv;
     private final Breadcrumb mBreadcrumb;
+    private final ProfileTabs mProfileTabs;
     private final View mSearchBarView;
     private final CollapsingToolbarLayout mCollapsingBarLayout;
     private final Drawable mDefaultActionBarBackground;
@@ -58,11 +59,13 @@ public class NavigationViewManager {
     private final boolean mShowSearchBar;
 
     public NavigationViewManager(
-            Activity activity,
+            BaseActivity activity,
             DrawerController drawer,
             State state,
             NavigationViewManager.Environment env,
-            Breadcrumb breadcrumb) {
+            Breadcrumb breadcrumb,
+            View tabLayoutContainer,
+            UserIdManager userIdManager) {
 
         mToolbar = activity.findViewById(R.id.toolbar);
         mDrawer = drawer;
@@ -70,6 +73,7 @@ public class NavigationViewManager {
         mEnv = env;
         mBreadcrumb = breadcrumb;
         mBreadcrumb.setup(env, state, this::onNavigationItemSelected);
+        mProfileTabs = new ProfileTabs(tabLayoutContainer, mState, userIdManager, mEnv, activity);
 
         mToolbar.setNavigationOnClickListener(
                 new View.OnClickListener() {
@@ -102,6 +106,17 @@ public class NavigationViewManager {
         mSearchBarView.setOnClickListener(listener);
     }
 
+    public ProfileTabsAddons getProfileTabsAddons() {
+        return mProfileTabs;
+    }
+
+    /**
+     * Sets a listener to the profile tabs.
+     */
+    public void setProfileTabsListener(ProfileTabs.Listener listener) {
+        mProfileTabs.setListener(listener);
+    }
+
     private void onNavigationIconClicked() {
         if (mDrawer.isPresent()) {
             mDrawer.setOpen(true);
@@ -119,9 +134,14 @@ public class NavigationViewManager {
         }
     }
 
+    public UserId getSelectedUser() {
+        return mProfileTabs.getSelectedUser();
+    }
+
     public void update() {
         updateScrollFlag();
         updateToolbar();
+        mProfileTabs.updateView();
 
         // TODO: Looks to me like this block is never getting hit.
         if (mEnv.isSearchExpanded()) {
@@ -139,16 +159,13 @@ public class NavigationViewManager {
             mBreadcrumb.show(false);
             mToolbar.setTitle(null);
             mSearchBarView.setVisibility(View.VISIBLE);
-        } else if (mState.stack.size() <= 1) {
-            mBreadcrumb.show(false);
+        } else {
             mSearchBarView.setVisibility(View.GONE);
-            String title = mEnv.getCurrentRoot().title;
+            String title = mState.stack.size() <= 1
+                    ? mEnv.getCurrentRoot().title : mState.stack.getTitle();
             if (VERBOSE) Log.v(TAG, "New toolbar title is: " + title);
             mToolbar.setTitle(title);
-        } else {
             mBreadcrumb.show(true);
-            mToolbar.setTitle(null);
-            mSearchBarView.setVisibility(View.GONE);
             mBreadcrumb.postUpdate();
         }
     }

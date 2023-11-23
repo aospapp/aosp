@@ -22,22 +22,22 @@
 
 namespace chre {
 
-template<typename ElementType, size_t kSize>
-template<typename... Args>
+template <typename ElementType, size_t kSize>
+template <typename... Args>
 ElementType *SynchronizedMemoryPool<ElementType, kSize>::allocate(
-    Args&&... args) {
+    Args &&... args) {
   LockGuard<Mutex> lock(mMutex);
   return mMemoryPool.allocate(args...);
 }
 
-template<typename ElementType, size_t kSize>
+template <typename ElementType, size_t kSize>
 void SynchronizedMemoryPool<ElementType, kSize>::deallocate(
     ElementType *element) {
   LockGuard<Mutex> lock(mMutex);
   mMemoryPool.deallocate(element);
 }
 
-template<typename ElementType, size_t kSize>
+template <typename ElementType, size_t kSize>
 size_t SynchronizedMemoryPool<ElementType, kSize>::getFreeBlockCount() {
   LockGuard<Mutex> lock(mMutex);
   return mMemoryPool.getFreeBlockCount();

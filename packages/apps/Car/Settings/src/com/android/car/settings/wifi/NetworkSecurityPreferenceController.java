@@ -19,6 +19,7 @@ package com.android.car.settings.wifi;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
+import android.net.wifi.WifiManager;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.ListPreference;
@@ -28,6 +29,7 @@ import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.settingslib.wifi.AccessPoint;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +51,10 @@ public class NetworkSecurityPreferenceController extends PreferenceController<Li
             AccessPoint.SECURITY_NONE,
             AccessPoint.SECURITY_WEP,
             AccessPoint.SECURITY_PSK,
-            AccessPoint.SECURITY_EAP);
+            AccessPoint.SECURITY_EAP,
+            AccessPoint.SECURITY_SAE,
+            AccessPoint.SECURITY_OWE,
+            AccessPoint.SECURITY_EAP_SUITE_B);
 
     private CharSequence[] mSecurityTypeNames;
     private CharSequence[] mSecurityTypeIds;
@@ -68,15 +73,49 @@ public class NetworkSecurityPreferenceController extends PreferenceController<Li
     @Override
     protected void onCreateInternal() {
         // Security type setup.
-        mSecurityTypeNames = new CharSequence[SECURITY_TYPES.size()];
-        mSecurityTypeIds = new CharSequence[SECURITY_TYPES.size()];
-        mSelectedSecurityType = AccessPoint.SECURITY_NONE;
+        List<String> securityTypeNamesList = new ArrayList<String>();
+        List<String> securityTypeIdsList = new ArrayList<String>();
+        WifiManager wifiManager = getContext().getSystemService(WifiManager.class);
 
-        for (int i = 0; i < SECURITY_TYPES.size(); i++) {
-            int type = SECURITY_TYPES.get(i);
-            mSecurityTypeNames[i] = getContext().getString(SECURITY_TYPE_TO_DESC_RES.get(type));
-            mSecurityTypeIds[i] = Integer.toString(type);
+        securityTypeNamesList.add(getContext().getString(
+                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_NONE)));
+        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_NONE));
+
+        if (wifiManager.isEnhancedOpenSupported()) {
+            securityTypeNamesList.add(getContext().getString(
+                    SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_OWE)));
+            securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_OWE));
         }
+
+        securityTypeNamesList.add(getContext().getString(
+                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_WEP)));
+        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_WEP));
+
+        securityTypeNamesList.add(getContext().getString(
+                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_PSK)));
+        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_PSK));
+
+        if (wifiManager.isWpa3SaeSupported()) {
+            securityTypeNamesList.add(getContext().getString(
+                    SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_SAE)));
+            securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_SAE));
+        }
+
+        securityTypeNamesList.add(getContext().getString(
+                SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_EAP)));
+        securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_EAP));
+
+        if (wifiManager.isWpa3SuiteBSupported()) {
+            securityTypeNamesList.add(getContext().getString(
+                    SECURITY_TYPE_TO_DESC_RES.get(AccessPoint.SECURITY_EAP_SUITE_B)));
+            securityTypeIdsList.add(Integer.toString(AccessPoint.SECURITY_EAP_SUITE_B));
+        }
+
+        mSelectedSecurityType = AccessPoint.SECURITY_NONE;
+        mSecurityTypeNames = new CharSequence[securityTypeNamesList.size()];
+        mSecurityTypeNames = securityTypeNamesList.toArray(mSecurityTypeNames);
+        mSecurityTypeIds = new CharSequence[securityTypeIdsList.size()];
+        mSecurityTypeIds = securityTypeIdsList.toArray(mSecurityTypeIds);
 
         getPreference().setEntries(mSecurityTypeNames);
         getPreference().setEntryValues(mSecurityTypeIds);
@@ -108,6 +147,9 @@ public class NetworkSecurityPreferenceController extends PreferenceController<Li
         map.put(AccessPoint.SECURITY_WEP, R.string.wifi_security_wep);
         map.put(AccessPoint.SECURITY_PSK, R.string.wifi_security_psk_generic);
         map.put(AccessPoint.SECURITY_EAP, R.string.wifi_security_eap);
+        map.put(AccessPoint.SECURITY_SAE, R.string.wifi_security_sae);
+        map.put(AccessPoint.SECURITY_OWE, R.string.wifi_security_owe);
+        map.put(AccessPoint.SECURITY_EAP_SUITE_B, R.string.wifi_security_eap_suiteb);
         return map;
     }
 }

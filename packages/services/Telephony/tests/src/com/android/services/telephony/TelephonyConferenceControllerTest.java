@@ -16,6 +16,13 @@
 
 package com.android.services.telephony;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import android.os.Looper;
 import android.telecom.Conference;
 import android.telecom.Connection;
@@ -23,18 +30,9 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
-
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.ArgumentCaptor;
-
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.any;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,7 +48,7 @@ public class TelephonyConferenceControllerTest {
     private TelephonyConnectionServiceProxy mMockTelephonyConnectionServiceProxy;
 
     @Mock
-    private Conference.Listener mMockListener;
+    private TelephonyConferenceBase.TelephonyConferenceListener mMockListener;
 
     private TestTelephonyConnection mTestTelephonyConnectionA;
     private TestTelephonyConnection mTestTelephonyConnectionB;
@@ -94,8 +92,8 @@ public class TelephonyConferenceControllerTest {
         // add telephony connection A
         mControllerTest.add(mTestTelephonyConnectionA);
 
-        mTestTelephonyConnectionA.setActive();
-        mTestTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionA.setTelephonyConnectionActive();
+        mTestTelephonyConnectionB.setTelephonyConnectionOnHold();
 
         assertTrue(mTestTelephonyConnectionA.getConferenceables()
                 .contains(mTestTelephonyConnectionB));
@@ -146,8 +144,8 @@ public class TelephonyConferenceControllerTest {
         // add telephony connection A
         mControllerTest.add(mTestTelephonyConnectionA);
 
-        mTestTelephonyConnectionA.setActive();
-        mTestTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionA.setTelephonyConnectionActive();
+        mTestTelephonyConnectionB.setTelephonyConnectionOnHold();
 
         assertTrue(mTestTelephonyConnectionA.getConferenceables()
                 .contains(mTestTelephonyConnectionB));
@@ -160,7 +158,7 @@ public class TelephonyConferenceControllerTest {
         verify(mMockTelephonyConnectionServiceProxy).addConference(argumentCaptor.capture());
 
         // add a listener to the added conference
-        argumentCaptor.getValue().addListener(mMockListener);
+        argumentCaptor.getValue().addTelephonyConferenceListener(mMockListener);
 
         verify(mMockListener, never()).onDestroyed(any(Conference.class));
 

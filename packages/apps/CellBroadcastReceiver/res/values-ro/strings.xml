@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Alerte de urgență"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Alerte de urgență"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Setările pentru transmisia celulară nu sunt disponibile pentru acest utilizator"</string>
+    <string name="app_label" msgid="2008319089248760277">"Alerte de urgență wireless"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Alerte de urgență wireless"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Setările pentru alerte de urgență wireless nu sunt disponibile pentru acest utilizator"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Nu există alerte anterioare"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Ștergeți difuzările"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Afișați detaliile"</string>
     <string name="menu_delete" msgid="128380070910799366">"Ștergeți difuzarea"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Detalii alertă"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Detaliile alertei pentru remedierea erorilor"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Ștergeți difuzarea?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Ștergeți toate mesajele difuzate primite?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Ștergeți"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Alerte"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Mesaje privind difuzarea"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Alerte de urgență"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Alerte de urgență într-un apel vocal"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Permiteți alertele"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Primiți notificări despre urgențe"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Sunet de memento pentru alertă"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Rostește mesajele de alertă"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utilizați funcția de redare vocală a textului pentru a comunica mesajele alertelor de urgență"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Primiți notificări privind alertele de urgență wireless"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Memento alerte"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Un sunet de memento va fi redat la volumul obișnuit"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Istoricul alertelor de urgență"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Preferințe pentru alerte"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Difuzări de testare ETWS"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Primiți mesaje de testare de la autoritățile de stat și locale"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Alerte de urgență"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Avertizează cu privire la evenimentele care pun în pericol viața"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Testul lunar obligatoriu"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Primiți mesaje de test pentru sistemul de alertă privind siguranța"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Alerte de testare"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Trimite teste de la operator și teste lunare de la sistemul de alertă privind siguranța"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Vibrație"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Folosește volumul maxim"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Ignoră alte setări de volum și modul Nu deranja"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Trimite întotdeauna alerte la volumul maxim"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Ignoră funcția Nu deranja și alte setări pentru volum"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Difuzarea actualizărilor despre zonă"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Afișați informațiile despre actualizare în starea cardului SIM"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Opțiuni pentru dezvoltatori"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Categoria alertei:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofizic"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorologic"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Alerte noi"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Afișează un dialog de renunțare după afișarea primei alerte (alta decât alerta prezidențială)."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Afișează un dialog de renunțare"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"În prezent, primiți alerte de urgență. Doriți să primiți în continuare alerte de urgență?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"În prezent, primiți alerte de urgență wireless. Doriți să primiți în continuare alerte de urgență wireless?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Da"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Nu"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Istoricul alertelor de urgență"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"La fiecare 2 minute"</item>
     <item msgid="5718214950343391480">"La fiecare 5 minute"</item>
     <item msgid="3863339891188103437">"La fiecare 15 minute"</item>
-    <item msgid="6868848414437854609">"Dezactivat"</item>
+    <item msgid="7388573183644474611">"Niciodată"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Alerte de urgență wireless"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Alerte de la președinte"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Mesaje de avertizare naționale transmise de președinte. Nu pot fi dezactivate."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Modul de testare a transmisiei celulare este activat."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Modul de testare a transmisiei celulare este dezactivat."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Afișează toate mesajele"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Afișează mesajele obișnuite"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Identificator:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Număr de serie:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Schemă de codificare a datelor:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Conținutul mesajului:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Ora verificării locației:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Mesajul afișat:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Coordonate:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Timpul maxim de așteptare:"</string>
+    <string name="seconds" msgid="141450721520515025">"secunde"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Mesajul a fost copiat"</string>
 </resources>

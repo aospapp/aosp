@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"OK"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"ထံသို့ ဖိုင်ကို မပို့ပါ"</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ဖိုင် - <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"ပြန်ကြိုးစားပါ"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"ပိတ်ရန်"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"OK"</string>
     <string name="unknown_file" msgid="6092727753965095366">"အမျိုးအမည် မသိသောဖိုင်"</string>
@@ -106,7 +105,7 @@
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> ပို့ခြင်း ပြီးဆုံးပြီး"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"ပြန်လည်ရောက်လာသော လွှဲမှုများ"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"ပြန်လည်ထွက်မည့် လွှဲမှုများ"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"လွဲပြောင်းခြင်း မှတ်တမ်းတွင် ဘာမျှမရှိပါ"</string>
+    <string name="no_transfers" msgid="3482965619151865672">"လွှဲပြောင်းခြင်း မှတ်တမ်းတွင် ဘာမျှမရှိပါ"</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"အရာများအားလုံး စာရင်းမှ ရှင်းလင်းပစ်လိမ့်မည်"</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"ဘလူးတုသ် ဝေမျှမှု - ဖိုင်ပို့ပြီး"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"ဘလူးတုသ် ဝေမျှမှု - ရရှိပြီးဖိုင်များ"</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ဘလူးတုသ်အသံ မချိတ်ဆက်ထားပါ"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ဘလူးတုသ် အသံ"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB ထက်ပိုကြီးသည့် ဖိုင်များကို လွှဲပြောင်းမရနိုင်ပါ"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"ဘလူးတုသ်သို့ ချိတ်ဆက်ရန်"</string>
 </resources>

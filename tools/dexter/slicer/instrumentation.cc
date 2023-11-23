@@ -29,9 +29,88 @@ struct BytecodeConvertingVisitor : public lir::Visitor {
   }
 };
 
+void BoxValue(lir::Bytecode* bytecode,
+              lir::CodeIr* code_ir,
+              ir::Type* type,
+              dex::u4 src_reg,
+              dex::u4 dst_reg) {
+  bool is_wide = false;
+  const char* boxed_type_name = nullptr;
+  switch (*(type->descriptor)->c_str()) {
+    case 'Z':
+      boxed_type_name = "Ljava/lang/Boolean;";
+      break;
+    case 'B':
+      boxed_type_name = "Ljava/lang/Byte;";
+      break;
+    case 'C':
+      boxed_type_name = "Ljava/lang/Character;";
+      break;
+    case 'S':
+      boxed_type_name = "Ljava/lang/Short;";
+      break;
+    case 'I':
+      boxed_type_name = "Ljava/lang/Integer;";
+      break;
+    case 'J':
+      is_wide = true;
+      boxed_type_name = "Ljava/lang/Long;";
+      break;
+    case 'F':
+      boxed_type_name = "Ljava/lang/Float;";
+      break;
+    case 'D':
+      is_wide = true;
+      boxed_type_name = "Ljava/lang/Double;";
+      break;
+  }
+  SLICER_CHECK(boxed_type_name != nullptr);
+
+  ir::Builder builder(code_ir->dex_ir);
+  std::vector<ir::Type*> param_types;
+  param_types.push_back(type);
+
+  auto boxed_type = builder.GetType(boxed_type_name);
+  auto ir_proto = builder.GetProto(boxed_type, builder.GetTypeList(param_types));
+
+  auto ir_method_decl = builder.GetMethodDecl(
+      builder.GetAsciiString("valueOf"), ir_proto, boxed_type);
+
+  auto boxing_method = code_ir->Alloc<lir::Method>(ir_method_decl, ir_method_decl->orig_index);
+
+  auto args = code_ir->Alloc<lir::VRegRange>(src_reg, 1 + is_wide);
+  auto boxing_invoke = code_ir->Alloc<lir::Bytecode>();
+  boxing_invoke->opcode = dex::OP_INVOKE_STATIC_RANGE;
+  boxing_invoke->operands.push_back(args);
+  boxing_invoke->operands.push_back(boxing_method);
+  code_ir->instructions.InsertBefore(bytecode, boxing_invoke);
+
+  auto move_result = code_ir->Alloc<lir::Bytecode>();
+  move_result->opcode = dex::OP_MOVE_RESULT_OBJECT;
+  move_result->operands.push_back(code_ir->Alloc<lir::VReg>(dst_reg));
+  code_ir->instructions.InsertBefore(bytecode, move_result);
+}
+
 }  // namespace
 
 bool EntryHook::Apply(lir::CodeIr* code_ir) {
+  lir::Bytecode* bytecode = nullptr;
+  // find the first bytecode in the method body to insert the hook before it
+  for (auto instr : code_ir->instructions) {
+    BytecodeConvertingVisitor visitor;
+    instr->Accept(&visitor);
+    bytecode = visitor.out;
+    if (bytecode != nullptr) {
+      break;
+    }
+  }
+  if (bytecode == nullptr) {
+    return false;
+  }
+  if (tweak_ == Tweak::ArrayParams) {
+    return InjectArrayParamsHook(code_ir, bytecode);
+  }
+
   ir::Builder builder(code_ir->dex_ir);
   const auto ir_method = code_ir->ir_method;
 
@@ -39,10 +118,13 @@ bool EntryHook::Apply(lir::CodeIr* code_ir) {
   std::vector<ir::Type*> param_types;
   if ((ir_method->access_flags & dex::kAccStatic) == 0) {
     ir::Type* this_argument_type;
-    if (use_object_type_for_this_argument_) {
-      this_argument_type = builder.GetType("Ljava/lang/Object;");
-    } else {
-      this_argument_type = ir_method->decl->parent;
+    switch (tweak_) {
+      case Tweak::ThisAsObject:
+        this_argument_type = builder.GetType("Ljava/lang/Object;");
+        break;
+      default:
+        this_argument_type = ir_method->decl->parent;
+        break;
     }
     param_types.push_back(this_argument_type);
   }
@@ -72,27 +154,132 @@ bool EntryHook::Apply(lir::CodeIr* code_ir) {
   hook_invoke->operands.push_back(hook_method);
 
   // insert the hook before the first bytecode in the method body
-  for (auto instr : code_ir->instructions) {
-    BytecodeConvertingVisitor visitor;
-    instr->Accept(&visitor);
-    auto bytecode = visitor.out;
-    if (bytecode == nullptr) {
-      continue;
-    }
-    code_ir->instructions.InsertBefore(bytecode, hook_invoke);
-    break;
+  code_ir->instructions.InsertBefore(bytecode, hook_invoke);
+  return true;
+}
+
+bool EntryHook::InjectArrayParamsHook(lir::CodeIr* code_ir, lir::Bytecode* bytecode) {
+  ir::Builder builder(code_ir->dex_ir);
+  const auto ir_method = code_ir->ir_method;
+  auto param_types_list = ir_method->decl->prototype->param_types;
+  auto param_types = param_types_list != nullptr ? param_types_list->types : std::vector<ir::Type*>();
+  bool is_static = (ir_method->access_flags & dex::kAccStatic) != 0;
+
+  bool needsBoxingReg = false;
+  for (auto type: param_types) {
+    needsBoxingReg |= type->GetCategory() != ir::Type::Category::Reference;
   }
 
+  // allocate scract registers
+  slicer::AllocateScratchRegs alloc_regs(2 + needsBoxingReg);
+  alloc_regs.Apply(code_ir);
+  auto reg_iterator = alloc_regs.ScratchRegs().begin();
+  // register that will store size of during allocation
+  // later will be reused to store index when do "aput"
+  dex::u4 array_size_reg = *(reg_iterator);
+  // register that will store an array that will be passed
+  // as a parameter in entry hook
+  dex::u4 array_reg = *(++reg_iterator);
+  // if we need to boxing, this register stores result of boxing
+  dex::u4 boxing_reg = needsBoxingReg ? *(++reg_iterator) : 0;
+
+  // TODO: handle very "high" registers
+  if (boxing_reg > 0xff) {
+    printf("WARNING: can't instrument method %s.%s%s\n",
+           ir_method->decl->parent->Decl().c_str(),
+           ir_method->decl->name->c_str(),
+           ir_method->decl->prototype->Signature().c_str());
+    return false;
+  }
+
+  // array size bytecode
+  auto const_size_op = code_ir->Alloc<lir::Bytecode>();
+  const_size_op->opcode = dex::OP_CONST;
+  const_size_op->operands.push_back(code_ir->Alloc<lir::VReg>(array_size_reg));
+  const_size_op->operands.push_back(code_ir->Alloc<lir::Const32>(param_types.size() + !is_static));
+  code_ir->instructions.InsertBefore(bytecode, const_size_op);
+
+  // allocate array
+  const auto obj_array_type = builder.GetType("[Ljava/lang/Object;");
+  auto allocate_array_op = code_ir->Alloc<lir::Bytecode>();
+  allocate_array_op->opcode = dex::OP_NEW_ARRAY;
+  allocate_array_op->operands.push_back(code_ir->Alloc<lir::VReg>(array_reg));
+  allocate_array_op->operands.push_back(code_ir->Alloc<lir::VReg>(array_size_reg));
+  allocate_array_op->operands.push_back(
+      code_ir->Alloc<lir::Type>(obj_array_type, obj_array_type->orig_index));
+  code_ir->instructions.InsertBefore(bytecode, allocate_array_op);
+
+  // fill the array with parameters passed into function
+
+  std::vector<ir::Type*> types;
+  if (!is_static) {
+    types.push_back(ir_method->decl->parent);
+  }
+
+  types.insert(types.end(), param_types.begin(), param_types.end());
+
+  // register where params start
+  dex::u4 current_reg = ir_method->code->registers - ir_method->code->ins_count;
+  // reuse not needed anymore register to store indexes
+  dex::u4 array_index_reg = array_size_reg;
+  int i = 0;
+  for (auto type: types) {
+    dex::u4 src_reg = 0;
+    if (type->GetCategory() != ir::Type::Category::Reference) {
+      BoxValue(bytecode, code_ir, type, current_reg, boxing_reg);
+      src_reg = boxing_reg;
+      current_reg += 1 + (type->GetCategory() == ir::Type::Category::WideScalar);
+    } else {
+      src_reg = current_reg;
+      current_reg++;
+    }
+
+    auto index_const_op = code_ir->Alloc<lir::Bytecode>();
+    index_const_op->opcode = dex::OP_CONST;
+    index_const_op->operands.push_back(code_ir->Alloc<lir::VReg>(array_index_reg));
+    index_const_op->operands.push_back(code_ir->Alloc<lir::Const32>(i++));
+    code_ir->instructions.InsertBefore(bytecode, index_const_op);
+
+    auto aput_op = code_ir->Alloc<lir::Bytecode>();
+    aput_op->opcode = dex::OP_APUT_OBJECT;
+    aput_op->operands.push_back(code_ir->Alloc<lir::VReg>(src_reg));
+    aput_op->operands.push_back(code_ir->Alloc<lir::VReg>(array_reg));
+    aput_op->operands.push_back(code_ir->Alloc<lir::VReg>(array_index_reg));
+    code_ir->instructions.InsertBefore(bytecode, aput_op);
+  }
+
+  std::vector<ir::Type*> hook_param_types;
+  hook_param_types.push_back(obj_array_type);
+
+  auto ir_proto = builder.GetProto(builder.GetType("V"),
+                                   builder.GetTypeList(hook_param_types));
+
+  auto ir_method_decl = builder.GetMethodDecl(
+      builder.GetAsciiString(hook_method_id_.method_name), ir_proto,
+      builder.GetType(hook_method_id_.class_descriptor));
+
+  auto hook_method = code_ir->Alloc<lir::Method>(ir_method_decl, ir_method_decl->orig_index);
+  auto args = code_ir->Alloc<lir::VRegRange>(array_reg, 1);
+  auto hook_invoke = code_ir->Alloc<lir::Bytecode>();
+  hook_invoke->opcode = dex::OP_INVOKE_STATIC_RANGE;
+  hook_invoke->operands.push_back(args);
+  hook_invoke->operands.push_back(hook_method);
+  code_ir->instructions.InsertBefore(bytecode, hook_invoke);
   return true;
 }
 
 bool ExitHook::Apply(lir::CodeIr* code_ir) {
   ir::Builder builder(code_ir->dex_ir);
   const auto ir_method = code_ir->ir_method;
-  const auto return_type = ir_method->decl->prototype->return_type;
-
+  const auto declared_return_type = ir_method->decl->prototype->return_type;
+  bool return_as_object = tweak_ == Tweak::ReturnAsObject;
   // do we have a void-return method?
-  bool return_void = (::strcmp(return_type->descriptor->c_str(), "V") == 0);
+  bool return_void = (::strcmp(declared_return_type->descriptor->c_str(), "V") == 0);
+  // returnAsObject supports only object return type;
+  SLICER_CHECK(!return_as_object ||
+      (declared_return_type->GetCategory() == ir::Type::Category::Reference));
+  const auto return_type = return_as_object ? builder.GetType("Ljava/lang/Object;")
+      : declared_return_type;
 
   // construct the hook method declaration
   std::vector<ir::Type*> param_types;
@@ -168,6 +355,15 @@ bool ExitHook::Apply(lir::CodeIr* code_ir) {
       move_result->opcode = move_result_opcode;
       move_result->operands.push_back(bytecode->operands[0]);
       code_ir->instructions.InsertBefore(bytecode, move_result);
+
+      if (tweak_ == Tweak::ReturnAsObject) {
+        auto check_cast = code_ir->Alloc<lir::Bytecode>();
+        check_cast->opcode = dex::OP_CHECK_CAST;
+        check_cast->operands.push_back(code_ir->Alloc<lir::VReg>(reg));
+        check_cast->operands.push_back(
+            code_ir->Alloc<lir::Type>(declared_return_type, declared_return_type->orig_index));
+        code_ir->instructions.InsertBefore(bytecode, check_cast);
+      }
     }
   }
 

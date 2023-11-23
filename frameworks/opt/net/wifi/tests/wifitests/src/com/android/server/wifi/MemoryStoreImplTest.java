@@ -37,18 +37,21 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for {@link com.android.server.wifi.MemoryStoreImpl}.
  */
 @SmallTest
-public class MemoryStoreImplTest {
+public class MemoryStoreImplTest extends WifiBaseTest {
     @Mock Context mContext;
     @Mock WifiScoreCard mWifiScoreCard;
+    @Mock WifiHealthMonitor mWifiHealthMonitor;
     @Mock WifiScoreCard.BlobListener mBlobListener;
     @Mock WifiInjector mWifiInjector;
     @Mock IpMemoryStore mIpMemoryStore;
     private MemoryStoreImpl mMemoryStoreImpl;
+    private static final String DATA_NAME = "test";
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mMemoryStoreImpl = new MemoryStoreImpl(mContext, mWifiInjector, mWifiScoreCard);
+        mMemoryStoreImpl = new MemoryStoreImpl(mContext, mWifiInjector, mWifiScoreCard,
+                mWifiHealthMonitor);
     }
 
     /**
@@ -107,11 +110,11 @@ public class MemoryStoreImplTest {
 
         when(mWifiInjector.getIpMemoryStore()).thenReturn(mIpMemoryStore);
         mMemoryStoreImpl.start();
-        mMemoryStoreImpl.read(myL2Key, mBlobListener);
+        mMemoryStoreImpl.read(myL2Key, DATA_NAME, mBlobListener);
         verify(mIpMemoryStore).retrieveBlob(
                 eq(myL2Key),                                                  // String l2Key
                 eq(MemoryStoreImpl.WIFI_FRAMEWORK_IP_MEMORY_STORE_CLIENT_ID), // String clientId
-                eq(MemoryStoreImpl.WIFI_FRAMEWORK_IP_MEMORY_STORE_DATA_NAME), // String name
+                eq(DATA_NAME),
                 mOnBlobRetrievedListenerCaptor.capture());
         verifyNoMoreInteractions(mIpMemoryStore, mBlobListener);
         // Now simulate the completion of the read request
@@ -121,7 +124,7 @@ public class MemoryStoreImplTest {
                 .onBlobRetrieved(
                         statusSuccess,
                         myL2Key,
-                        MemoryStoreImpl.WIFI_FRAMEWORK_IP_MEMORY_STORE_DATA_NAME,
+                        DATA_NAME,
                         wrappedBlob);
         verify(mBlobListener).onBlobRetrieved(mBytesCaptor.capture());
         assertArrayEquals(myBlob, mBytesCaptor.getValue());
@@ -142,11 +145,11 @@ public class MemoryStoreImplTest {
         final String myL2Key = "L2Key:" + myBlob;
         when(mWifiInjector.getIpMemoryStore()).thenReturn(mIpMemoryStore);
         mMemoryStoreImpl.start();
-        mMemoryStoreImpl.write(myL2Key, myBlob);
+        mMemoryStoreImpl.write(myL2Key, DATA_NAME, myBlob);
         verify(mIpMemoryStore).storeBlob(
                 eq(myL2Key),
                 eq(MemoryStoreImpl.WIFI_FRAMEWORK_IP_MEMORY_STORE_CLIENT_ID),
-                eq(MemoryStoreImpl.WIFI_FRAMEWORK_IP_MEMORY_STORE_DATA_NAME),
+                eq(DATA_NAME),
                 mIpMemoryStoreBlobCaptor.capture(),
                 eq(null));
         android.net.ipmemorystore.Blob blob = mIpMemoryStoreBlobCaptor.getValue();
@@ -167,9 +170,9 @@ public class MemoryStoreImplTest {
         doThrow(new RuntimeException("Just a test"))
                 .when(mIpMemoryStore).storeBlob(any(), any(), any(), any(), any());
         mMemoryStoreImpl.start();
-        mMemoryStoreImpl.write(myL2Key, myBlob);
+        mMemoryStoreImpl.write(myL2Key, DATA_NAME, myBlob);
         // After the failed write, the read should do nothing.
-        mMemoryStoreImpl.read(myL2Key, mBlobListener);
+        mMemoryStoreImpl.read(myL2Key, DATA_NAME, mBlobListener);
         verify(mIpMemoryStore, never())
                 .retrieveBlob(any(), any(), any(), any());
     }

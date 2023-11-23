@@ -46,6 +46,12 @@ public class Components extends ComponentsBase {
                 "START_ACTIVITY_FROM_FG_ACTIVITY_DELAY_MS_EXTRA";
         public static final String START_ACTIVITY_FROM_FG_ACTIVITY_NEW_TASK_EXTRA =
                 "START_ACTIVITY_FROM_FG_ACTIVITY_NEW_TASK_EXTRA";
+        public static final String LAUNCH_INTENTS_EXTRA = "LAUNCH_INTENTS_EXTRA";
+
+        public static final String ACTION_LAUNCH_BACKGROUND_ACTIVITIES =
+                Components.class.getPackage().getName() + ".ACTION_LAUNCH_BACKGROUND_ACTIVITIES";
+        public static final String ACTION_FINISH_ACTIVITY =
+                Components.class.getPackage().getName() + ".ACTION_FINISH_ACTIVITY";
     }
 
     /** Extra key constants for {@link #APP_A_SEND_PENDING_INTENT_RECEIVER} */

@@ -19,6 +19,7 @@ package com.android.managedprovisioning.task;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -204,7 +205,7 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
     }
 
     private boolean isConnectedToSpecifiedWifi() {
-        if (!mUtils.isConnectedToWifi(mContext)) {
+        if (!mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)) {
             ProvisionLogger.logd("Not connected to WIFI");
             return false;
         }

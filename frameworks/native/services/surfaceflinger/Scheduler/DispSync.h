@@ -36,7 +36,7 @@ public:
     public:
         Callback() = default;
         virtual ~Callback();
-        virtual void onDispSyncEvent(nsecs_t when) = 0;
+        virtual void onDispSyncEvent(nsecs_t when, nsecs_t expectedVSyncTimestamp) = 0;
 
     protected:
         Callback(Callback const&) = delete;
@@ -49,18 +49,18 @@ public:
     virtual void reset() = 0;
     virtual bool addPresentFence(const std::shared_ptr<FenceTime>&) = 0;
     virtual void beginResync() = 0;
-    virtual bool addResyncSample(nsecs_t timestamp, bool* periodChanged) = 0;
+    virtual bool addResyncSample(nsecs_t timestamp, std::optional<nsecs_t> hwcVsyncPeriod,
+                                 bool* periodFlushed) = 0;
     virtual void endResync() = 0;
     virtual void setPeriod(nsecs_t period) = 0;
     virtual nsecs_t getPeriod() = 0;
-    virtual void setRefreshSkipCount(int count) = 0;
     virtual status_t addEventListener(const char* name, nsecs_t phase, Callback* callback,
                                       nsecs_t lastCallbackTime) = 0;
     virtual status_t removeEventListener(Callback* callback, nsecs_t* outLastCallback) = 0;
     virtual status_t changePhaseOffset(Callback* callback, nsecs_t phase) = 0;
-    virtual nsecs_t computeNextRefresh(int periodOffset) const = 0;
+    virtual nsecs_t computeNextRefresh(int periodOffset, nsecs_t now) const = 0;
     virtual void setIgnorePresentFences(bool ignore) = 0;
-    virtual nsecs_t expectedPresentTime() = 0;
+    virtual nsecs_t expectedPresentTime(nsecs_t now) = 0;
 
     virtual void dump(std::string& result) const = 0;
 
@@ -88,10 +88,9 @@ class DispSyncThread;
 // needed.
 class DispSync : public android::DispSync {
 public:
-    explicit DispSync(const char* name);
+    // hasSyncFramework specifies whether the platform supports present fences.
+    DispSync(const char* name, bool hasSyncFramework);
     ~DispSync() override;
-
-    void init(bool hasSyncFramework, int64_t dispSyncPresentTimeOffset);
 
     // reset clears the resync samples and error value.
     void reset() override;
@@ -120,27 +119,24 @@ public:
     // from the hardware vsync events.
     void beginResync() override;
     // Adds a vsync sample to the dispsync model. The timestamp is the time
-    // of the vsync event that fired. periodChanged will return true if the
+    // of the vsync event that fired. periodFlushed will return true if the
     // vsync period was detected to have changed to mPendingPeriod.
     //
     // This method will return true if more vsync samples are needed to lock
     // down the DispSync model, and false otherwise.
-    bool addResyncSample(nsecs_t timestamp, bool* periodChanged) override;
+    // periodFlushed will be set to true if mPendingPeriod is flushed to
+    // mIntendedPeriod, and false otherwise.
+    bool addResyncSample(nsecs_t timestamp, std::optional<nsecs_t> hwcVsyncPeriod,
+                         bool* periodFlushed) override;
     void endResync() override;
 
     // The setPeriod method sets the vsync event model's period to a specific
-    // value.  This should be used to prime the model when a display is first
-    // turned on.  It should NOT be used after that.
+    // value. This should be used to prime the model when a display is first
+    // turned on, or when a refresh rate change is requested.
     void setPeriod(nsecs_t period) override;
 
     // The getPeriod method returns the current vsync period.
     nsecs_t getPeriod() override;
-
-    // setRefreshSkipCount specifies an additional number of refresh
-    // cycles to skip.  For example, on a 60Hz display, a skip count of 1
-    // will result in events happening at 30Hz.  Default is zero.  The idea
-    // is to sacrifice smoothness for battery life.
-    void setRefreshSkipCount(int count) override;
 
     // addEventListener registers a callback to be called repeatedly at the
     // given phase offset from the hardware vsync events.  The callback is
@@ -171,7 +167,7 @@ public:
     // The periodOffset value can be used to move forward or backward; an
     // offset of zero is the next refresh, -1 is the previous refresh, 1 is
     // the refresh after next. etc.
-    nsecs_t computeNextRefresh(int periodOffset) const override;
+    nsecs_t computeNextRefresh(int periodOffset, nsecs_t now) const override;
 
     // In certain situations the present fences aren't a good indicator of vsync
     // time, e.g. when vr flinger is active, or simply aren't available,
@@ -182,7 +178,7 @@ public:
     void setIgnorePresentFences(bool ignore) override;
 
     // Determine the expected present time when a buffer acquired now will be displayed.
-    nsecs_t expectedPresentTime();
+    nsecs_t expectedPresentTime(nsecs_t now);
 
     // dump appends human-readable debug info to the result string.
     void dump(std::string& result) const override;
@@ -204,6 +200,11 @@ private:
     // mPeriod is the computed period of the modeled vsync events in
     // nanoseconds.
     nsecs_t mPeriod;
+
+    // mIntendedPeriod is the intended period of the modeled vsync events in
+    // nanoseconds. Under ideal conditions this should be similar if not the
+    // same as mPeriod, plus or minus an observed error.
+    nsecs_t mIntendedPeriod = 0;
 
     // mPendingPeriod is the proposed period change in nanoseconds.
     // If mPendingPeriod differs from mPeriod and is nonzero, it will
@@ -236,8 +237,8 @@ private:
     // process to store information about the hardware vsync event times used
     // to compute the model.
     nsecs_t mResyncSamples[MAX_RESYNC_SAMPLES] = {0};
-    size_t mFirstResyncSample;
-    size_t mNumResyncSamples;
+    size_t mFirstResyncSample = 0;
+    size_t mNumResyncSamples = 0;
     int mNumResyncSamplesSincePresent;
 
     // These member variables store information about the present fences used
@@ -245,17 +246,11 @@ private:
     std::shared_ptr<FenceTime> mPresentFences[NUM_PRESENT_SAMPLES]{FenceTime::NO_FENCE};
     size_t mPresentSampleOffset;
 
-    int mRefreshSkipCount;
-
     // mThread is the thread from which all the callbacks are called.
     sp<DispSyncThread> mThread;
 
     // mMutex is used to protect access to all member variables.
     mutable Mutex mMutex;
-
-    // This is the offset from the present fence timestamps to the corresponding
-    // vsync event.
-    int64_t mPresentTimeOffset;
 
     // Ignore present (retire) fences if the device doesn't have support for the
     // sync framework

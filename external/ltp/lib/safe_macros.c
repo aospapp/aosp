@@ -699,15 +699,12 @@ int safe_rename(const char *file, const int lineno, void (*cleanup_fn)(void),
 	return rval;
 }
 
-struct fuse_fs_type {
-	char const *fs_type;
-	int fallback;
-} fuse_fs_types[] = {
-	{ "exfat", 1 },
-	{ "ntfs", 0 },
+static const char *const fuse_fs_types[] = {
+	"exfat",
+	"ntfs",
 };
 
-static struct fuse_fs_type* find_fuse_fs_type(const char *fs_type)
+static int possibly_fuse(const char *fs_type)
 {
 	unsigned int i;
 
@@ -715,11 +712,11 @@ static struct fuse_fs_type* find_fuse_fs_type(const char *fs_type)
 		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(fuse_fs_types); i++) {
-		if (!strcmp(fuse_fs_types[i].fs_type, fs_type))
-			return &fuse_fs_types[i];
+		if (!strcmp(fuse_fs_types[i], fs_type))
+			return 1;
 	}
 
-	return NULL;
+	return 0;
 }
 
 int safe_mount(const char *file, const int lineno, void (*cleanup_fn)(void),
@@ -728,7 +725,16 @@ int safe_mount(const char *file, const int lineno, void (*cleanup_fn)(void),
 	       const void *data)
 {
 	int rval;
-	struct fuse_fs_type *fuse_fs_type = find_fuse_fs_type(filesystemtype);
+
+	/*
+	 * Don't try using the kernel's NTFS driver when mounting NTFS, since
+	 * the kernel's NTFS driver doesn't have proper write support.
+	 */
+	if (!filesystemtype || strcmp(filesystemtype, "ntfs")) {
+		rval = mount(source, target, filesystemtype, mountflags, data);
+		if (!rval)
+			return 0;
+	}
 
 	/*
 	 * The FUSE filesystem executes mount.fuse helper, which tries to
@@ -737,7 +743,7 @@ int safe_mount(const char *file, const int lineno, void (*cleanup_fn)(void),
          *
 	 * The mount helpers are called mount.$fs_type.
 	 */
-	if (fuse_fs_type) {
+	if (possibly_fuse(filesystemtype)) {
 		char buf[1024];
 
 		tst_resm(TINFO, "Trying FUSE...");
@@ -748,26 +754,17 @@ int safe_mount(const char *file, const int lineno, void (*cleanup_fn)(void),
 		if (WIFEXITED(rval) && WEXITSTATUS(rval) == 0)
 			return 0;
 
-		if (fuse_fs_type->fallback) {
-			tst_resm(TINFO,
-				 "mount.%s failed with %i, falling back to mount()",
-				 filesystemtype, rval);
-		} else {
-			tst_brkm(TBROK, cleanup_fn, "mount.%s failed with %i",
-				 filesystemtype, rval);
-			return -1;
-		}
-	}
-
-	rval = mount(source, target, filesystemtype, mountflags, data);
-	if (rval == -1) {
+		tst_brkm(TBROK, cleanup_fn, "mount.%s failed with %i",
+			 filesystemtype, rval);
+		return -1;
+	} else {
 		tst_brkm(TBROK | TERRNO, cleanup_fn,
 			 "%s:%d: mount(%s, %s, %s, %lu, %p) failed",
 			 file, lineno, source, target, filesystemtype,
 			 mountflags, data);
 	}
 
-	return rval;
+	return -1;
 }
 
 int safe_umount(const char *file, const int lineno, void (*cleanup_fn)(void),

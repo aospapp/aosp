@@ -20,7 +20,7 @@
 
 #include <gui/Surface.h>
 
-#include <media/ICrypto.h>
+#include <mediadrm/ICrypto.h>
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/foundation/ALooper.h>
@@ -36,7 +36,7 @@
 using namespace android;
 
 const int64_t kTimeoutWaitForOutputUs = 500000; // 0.5 seconds
-const int64_t kTimeoutWaitForInputUs = 5000; // 5 milliseconds
+const int64_t kTimeoutWaitForInputUs = 0; // don't wait
 const int kTimeoutMaxRetries = 20;
 
 //static

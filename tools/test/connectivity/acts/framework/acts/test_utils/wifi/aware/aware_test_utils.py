@@ -468,6 +468,28 @@ def verify_socket_connect(dut_s, dut_c, ipv6_s, ipv6_c, port):
     return True
 
 
+def run_ping6(dut, target_ip, duration=60):
+    """Run ping test and return the latency result
+
+    Args:
+        dut: the dut which run the ping cmd
+        target_ip: target IP Address for ping
+        duration: the duration time of the ping
+
+    return: dict contains "min/avg/max/mdev" result
+    """
+    cmd = "ping6 -w %d %s" % (duration, target_ip)
+    ping_result = dut.adb.shell(cmd, timeout=duration + 1)
+    res = re.match(".*mdev = (\S+) .*", ping_result, re.S)
+    asserts.assert_true(res, "Cannot reach the IP address %s", target_ip)
+    title = ["min", "avg", "max", "mdev"]
+    result = res.group(1).split("/")
+    latency_result = {}
+    for i in range(len(title)):
+        latency_result[title[i]] = result[i]
+    return latency_result
+
+
 #########################################################
 # Aware primitives
 #########################################################

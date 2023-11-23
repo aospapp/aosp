@@ -149,12 +149,6 @@ static void set_plane_properties(kms::AtomicReq& req, drm_plane_props_t* plane_p
             { "CRTC_W", plane_props->crtc_w },
             { "CRTC_H", plane_props->crtc_h },
     });
-
-    /* optional props */
-    req.add(plane, {
-            { "zorder", plane_props->zorder },
-            { "pre_mult_alpha", plane_props->pre_mult_alpha },
-    });
 }
 
 int HWCDisplay::update_display(drm_plane_props_t* planeProp)

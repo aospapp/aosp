@@ -7,41 +7,45 @@
 #ifndef FPDFSDK_FORMFILLER_CFFL_COMBOBOX_H_
 #define FPDFSDK_FORMFILLER_CFFL_COMBOBOX_H_
 
+#include <memory>
+
 #include "core/fxcrt/fx_string.h"
 #include "fpdfsdk/formfiller/cffl_textobject.h"
 
-class CBA_FontMap;
+class CPWL_ComboBox;
 
 struct FFL_ComboBoxState {
-  int nIndex;
-  int nStart;
-  int nEnd;
+  int nIndex = 0;
+  int nStart = 0;
+  int nEnd = 0;
   WideString sValue;
 };
 
-class CFFL_ComboBox : public CFFL_TextObject,
-                      public CPWL_Wnd::FocusHandlerIface {
+class CFFL_ComboBox final : public CFFL_TextObject,
+                            public CPWL_Wnd::FocusHandlerIface {
  public:
   CFFL_ComboBox(CPDFSDK_FormFillEnvironment* pApp, CPDFSDK_Widget* pWidget);
   ~CFFL_ComboBox() override;
 
   // CFFL_TextObject:
   CPWL_Wnd::CreateParams GetCreateParam() override;
-  CPWL_Wnd* NewPDFWindow(const CPWL_Wnd::CreateParams& cp) override;
+  std::unique_ptr<CPWL_Wnd> NewPWLWindow(
+      const CPWL_Wnd::CreateParams& cp,
+      std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData)
+      override;
   bool OnChar(CPDFSDK_Annot* pAnnot, uint32_t nChar, uint32_t nFlags) override;
   bool IsDataChanged(CPDFSDK_PageView* pPageView) override;
   void SaveData(CPDFSDK_PageView* pPageView) override;
   void GetActionData(CPDFSDK_PageView* pPageView,
                      CPDF_AAction::AActionType type,
-                     PDFSDK_FieldAction& fa) override;
+                     CPDFSDK_FieldAction& fa) override;
   void SetActionData(CPDFSDK_PageView* pPageView,
                      CPDF_AAction::AActionType type,
-                     const PDFSDK_FieldAction& fa) override;
-  bool IsActionDataChanged(CPDF_AAction::AActionType type,
-                           const PDFSDK_FieldAction& faOld,
-                           const PDFSDK_FieldAction& faNew) override;
+                     const CPDFSDK_FieldAction& fa) override;
   void SaveState(CPDFSDK_PageView* pPageView) override;
   void RestoreState(CPDFSDK_PageView* pPageView) override;
+  bool SetIndexSelected(int index, bool selected) override;
+  bool IsIndexSelected(int index) override;
 #ifdef PDF_ENABLE_XFA
   bool IsFieldFull(CPDFSDK_PageView* pPageView) override;
 #endif
@@ -51,6 +55,7 @@ class CFFL_ComboBox : public CFFL_TextObject,
 
  private:
   WideString GetSelectExportText();
+  CPWL_ComboBox* GetComboBox(CPDFSDK_PageView* pPageView, bool bNew);
 
   FFL_ComboBoxState m_State;
 };

@@ -30,8 +30,7 @@ import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * Helper class that runs the metric instrumentations on a test device.
@@ -243,10 +242,14 @@ class MetricsRunner {
         }
     }
 
+    /**
+     * Returns the ISO 8601 form of the current time in UTC, for use as a timestamp in filenames.
+     * (Note that using UTC avoids an issue where the timezone indicator includes a + sign for the
+     * offset, which triggers an issue with URL encoding in tradefed, which causes the calls to
+     * {@code testDevice.pullFile()} to fail. See b/149018916.)
+     */
     private static String getCurrentTimeIso8601() {
-        SimpleDateFormat iso8601Format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
-        Date now = new Date();
-        return iso8601Format.format(now);
+        return Instant.now().toString();
     }
 
     /**

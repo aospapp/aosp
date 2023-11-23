@@ -39,7 +39,7 @@ class BackoffSequence {
         time_type endOfSequenceIndicator{TIME_ZERO};
     };
 
-    BackoffSequence() {}
+    BackoffSequence() : BackoffSequence(Parameters{}) {}
     BackoffSequence(const BackoffSequence &) = default;
     BackoffSequence(BackoffSequence &&) = default;
     BackoffSequence& operator=(const BackoffSequence &) = default;

@@ -49,6 +49,12 @@ ECOService::ECOService() : BnECOService() {
     ECOLOGI("ECOService::obtainSession w: %d, h: %d, isCameraRecording: %d", width, height,
             isCameraRecording);
 
+    bool disable = property_get_bool(kDisableEcoServiceProperty, false);
+    if (disable) {
+        ECOLOGE("ECOService:: Failed to obtainSession as ECOService is disable");
+        return STATUS_ERROR(ERROR_UNSUPPORTED, "ECOService is disable");
+    }
+
     if (width <= 0) {
         return STATUS_ERROR(ERROR_ILLEGAL_ARGUMENT, "Width can not be <= 0");
     }

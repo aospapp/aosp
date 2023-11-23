@@ -12,19 +12,14 @@
 
 #include <asm/arch/rmobile.h>
 
-#define CONFIG_ARCH_CPU_INIT
-
 #define CONFIG_CMDLINE_TAG
 #define CONFIG_SETUP_MEMORY_TAGS
 #define CONFIG_INITRD_TAG
-
-#undef  CONFIG_SHOW_BOOT_PROGRESS
 
 /* MEMORY */
 #define KZM_SDRAM_BASE	(0x40000000)
 #define PHYS_SDRAM		KZM_SDRAM_BASE
 #define PHYS_SDRAM_SIZE		(512 * 1024 * 1024)
-#define CONFIG_NR_DRAM_BANKS	(1)
 
 /* NOR Flash */
 #define KZM_FLASH_BASE	(0x00000000)
@@ -64,14 +59,9 @@
 #define CONFIG_STANDALONE_LOAD_ADDR	0x41000000
 
 /* FLASH */
-#define CONFIG_FLASH_CFI_DRIVER
-#define CONFIG_SYS_FLASH_CFI
 #undef  CONFIG_SYS_FLASH_QUIET_TEST
 #define CONFIG_SYS_FLASH_EMPTY_INFO
 #define FLASH_SECTOR_SIZE	(256 * 1024)	/* 256 KB sectors */
-#define CONFIG_ENV_SIZE		FLASH_SECTOR_SIZE
-#define CONFIG_ENV_OFFSET	FLASH_SECTOR_SIZE
-#define CONFIG_ENV_ADDR		(CONFIG_SYS_FLASH_BASE + CONFIG_ENV_OFFSET)
 
 /* Timeout for Flash erase operations (in ms) */
 #define CONFIG_SYS_FLASH_ERASE_TOUT	(3 * 1000)
@@ -82,7 +72,6 @@
 /* Timeout for Flash clear lock bit operations (in ms) */
 #define CONFIG_SYS_FLASH_UNLOCK_TOUT	(3 * 1000)
 
-#undef  CONFIG_SYS_FLASH_PROTECTION
 #undef  CONFIG_SYS_DIRECT_FLASH_TFTP
 
 /* GPIO / PFC */

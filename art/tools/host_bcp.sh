@@ -14,24 +14,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [[ ${#@} != 1 ]]; then
+if [[ ${#@} != 1 ]] && [[ ${#@} != 2 ]]; then
   cat <<EOF
 Usage
-  host_bcp <image> | xargs <art-host-tool> ...
+  host_bcp <image> [--use-first-dir] | xargs <art-host-tool> ...
 Extracts boot class path locations from <image> and outputs the appropriate
   --runtime-arg -Xbootclasspath:...
   --runtime-arg -Xbootclasspath-locations:...
 arguments for many ART host tools based on the \$ANDROID_PRODUCT_OUT variable
-and existing \$ANDROID_PRODUCT_OUT/apex/com.android.runtime* paths.
+and existing \$ANDROID_PRODUCT_OUT/apex/com.android.art* paths.
+If --use-first-dir is specified, the script will use the first apex dir instead
+of resulting in an error.
 EOF
   exit 1
 fi
 
 IMAGE=$1
+USE_FIRST_DIR=false
+
+if [[ $2 == "--use-first-dir" ]]; then
+  USE_FIRST_DIR=true
+fi
+
 if [[ ! -e ${IMAGE} ]]; then
-  IMAGE=${ANDROID_PRODUCT_OUT}$1
+  IMAGE=${ANDROID_PRODUCT_OUT}/$1
   if [[ ! -e ${IMAGE} ]]; then
-    echo "Neither $1 nor ${ANDROID_PRODUCT_OUT}$1 exists."
+    echo "Neither $1 nor ${ANDROID_PRODUCT_OUT}/$1 exists."
     exit 1
   fi
 fi
@@ -42,17 +50,22 @@ if [[ "x${BCPL}" == "x" ]]; then
   exit 1
 fi
 
-RUNTIME_APEX=/apex/com.android.runtime
-RUNTIME_APEX_SELECTED=
-for d in `ls -1 -d ${ANDROID_PRODUCT_OUT}${RUNTIME_APEX}* 2>/dev/null`; do
-  if [[ "x${RUNTIME_APEX_SELECTED}" != "x" ]]; then
-    echo "Multiple Runtime apex dirs: ${RUNTIME_APEX_SELECTED}, ${d}."
+MANIFEST=/apex_manifest.pb
+ART_APEX=/apex/com.android.art
+ART_APEX_SELECTED=
+for m in `ls -1 -d ${ANDROID_PRODUCT_OUT}{,/system}${ART_APEX}*${MANIFEST} 2>/dev/null`; do
+  d=${m:0:-${#MANIFEST}}
+  if [[ "x${ART_APEX_SELECTED}" != "x" ]]; then
+    if [[ $USE_FIRST_DIR == true ]]; then
+      break
+    fi
+    echo "Multiple ART APEX dirs: ${ART_APEX_SELECTED}, ${d}."
     exit 1
   fi
-  RUNTIME_APEX_SELECTED=${d}
+  ART_APEX_SELECTED=${d}
 done
-if [[ "x${RUNTIME_APEX_SELECTED}" == "x" ]]; then
-  echo "No Runtime apex dir."
+if [[ "x${ART_APEX_SELECTED}" == "x" ]]; then
+  echo "No ART APEX dir."
   exit 1
 fi
 
@@ -62,9 +75,13 @@ IFS=:
 for COMPONENT in ${BCPL}; do
   HEAD=${ANDROID_PRODUCT_OUT}
   TAIL=${COMPONENT}
-  if [[ ${COMPONENT:0:${#RUNTIME_APEX}} = ${RUNTIME_APEX} ]]; then
-    HEAD=${RUNTIME_APEX_SELECTED}
-    TAIL=${COMPONENT:${#RUNTIME_APEX}}
+  if [[ ${COMPONENT:0:${#ART_APEX}} = ${ART_APEX} ]]; then
+    HEAD=${ART_APEX_SELECTED}
+    TAIL=${COMPONENT:${#ART_APEX}}
+  fi
+  if [[ ! -e $HEAD$TAIL ]]; then
+    echo "File does not exist: $HEAD$TAIL"
+    exit 1
   fi
   BCP="${BCP}:${HEAD}${TAIL}"
 done

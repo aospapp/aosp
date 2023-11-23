@@ -14,10 +14,12 @@
 
 package com.google.common.io;
 
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.io.BaseEncoding.base16;
 import static com.google.common.io.BaseEncoding.base32;
 import static com.google.common.io.BaseEncoding.base32Hex;
 import static com.google.common.io.BaseEncoding.base64;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -26,15 +28,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding.DecodingException;
-
-import junit.framework.TestCase;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
+import junit.framework.TestCase;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Tests for {@code BaseEncoding}.
@@ -43,12 +43,6 @@ import java.io.UnsupportedEncodingException;
  */
 @GwtCompatible(emulated = true)
 public class BaseEncodingTest extends TestCase {
-  public static void assertEquals(byte[] expected, byte[] actual) {
-    assertEquals(expected.length, actual.length);
-    for (int i = 0; i < expected.length; i++) {
-      assertEquals(expected[i], actual[i]);
-    }
-  }
 
   public void testSeparatorsExplicitly() {
     testEncodes(base64().withSeparator("\n", 3), "foobar", "Zm9\nvYm\nFy");
@@ -56,26 +50,27 @@ public class BaseEncodingTest extends TestCase {
     testEncodes(base32().withSeparator("*", 4), "foobar", "MZXW*6YTB*OI==*====");
   }
 
-  @SuppressWarnings("ReturnValueIgnored")
   public void testSeparatorSameAsPadChar() {
     try {
       base64().withSeparator("=", 3);
       fail("Expected IllegalArgumentException");
-    } catch (IllegalArgumentException expected) {}
+    } catch (IllegalArgumentException expected) {
+    }
 
     try {
       base64().withPadChar('#').withSeparator("!#!", 3);
       fail("Expected IllegalArgumentException");
-    } catch (IllegalArgumentException expected) {}
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
-  @SuppressWarnings("ReturnValueIgnored")
   public void testAtMostOneSeparator() {
     BaseEncoding separated = base64().withSeparator("\n", 3);
     try {
       separated.withSeparator("$", 4);
       fail("Expected UnsupportedOperationException");
-    } catch (UnsupportedOperationException expected) {}
+    } catch (UnsupportedOperationException expected) {
+    }
   }
 
   public void testBase64() {
@@ -89,7 +84,7 @@ public class BaseEncodingTest extends TestCase {
     testEncodingWithSeparators(base64(), "foobar", "Zm9vYmFy");
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   public void testBase64Streaming() throws IOException {
     // The following test vectors are specified in RFC 4648 itself
     testStreamingEncodingWithSeparators(base64(), "", "");
@@ -111,15 +106,18 @@ public class BaseEncodingTest extends TestCase {
 
   public void testBase64InvalidDecodings() {
     // These contain bytes not in the decodabet.
-    assertFailsToDecode(base64(), "\u007f");
-    assertFailsToDecode(base64(), "Wf2!");
+    assertFailsToDecode(base64(), "A\u007f", "Unrecognized character: 0x7f");
+    assertFailsToDecode(base64(), "Wf2!", "Unrecognized character: !");
     // This sentence just isn't base64() encoded.
     assertFailsToDecode(base64(), "let's not talk of love or chains!");
     // A 4n+1 length string is never legal base64().
-    assertFailsToDecode(base64(), "12345");
+    assertFailsToDecode(base64(), "12345", "Invalid input length 5");
+    // These have a combination of invalid length, unrecognized characters and wrong padding.
+    assertFailsToDecode(base64(), "AB=C", "Unrecognized character: =");
+    assertFailsToDecode(base64(), "A=BCD", "Invalid input length 5");
+    assertFailsToDecode(base64(), "?", "Invalid input length 1");
   }
 
-  @SuppressWarnings("ReturnValueIgnored")
   public void testBase64CannotUpperCase() {
     try {
       base64().upperCase();
@@ -129,7 +127,6 @@ public class BaseEncodingTest extends TestCase {
     }
   }
 
-  @SuppressWarnings("ReturnValueIgnored")
   public void testBase64CannotLowerCase() {
     try {
       base64().lowerCase();
@@ -150,7 +147,7 @@ public class BaseEncodingTest extends TestCase {
     testEncodingWithSeparators(enc, "foobar", "Zm9vYmFy");
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   public void testBase64StreamingAlternatePadding() throws IOException {
     BaseEncoding enc = base64().withPadChar('~');
     testStreamingEncodingWithSeparators(enc, "", "");
@@ -173,7 +170,7 @@ public class BaseEncodingTest extends TestCase {
     testEncodingWithSeparators(enc, "foobar", "Zm9vYmFy");
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   public void testBase64StreamingOmitPadding() throws IOException {
     BaseEncoding enc = base64().omitPadding();
     testStreamingEncodingWithSeparators(enc, "", "");
@@ -183,6 +180,14 @@ public class BaseEncodingTest extends TestCase {
     testStreamingEncodingWithSeparators(enc, "foob", "Zm9vYg");
     testStreamingEncodingWithSeparators(enc, "fooba", "Zm9vYmE");
     testStreamingEncodingWithSeparators(enc, "foobar", "Zm9vYmFy");
+  }
+
+  public void testBase64Offset() {
+    testEncodesWithOffset(base64(), "foobar", 0, 6, "Zm9vYmFy");
+    testEncodesWithOffset(base64(), "foobar", 1, 5, "b29iYXI=");
+    testEncodesWithOffset(base64(), "foobar", 2, 3, "b2Jh");
+    testEncodesWithOffset(base64(), "foobar", 3, 1, "Yg==");
+    testEncodesWithOffset(base64(), "foobar", 4, 0, "");
   }
 
   public void testBase32() {
@@ -196,7 +201,7 @@ public class BaseEncodingTest extends TestCase {
     testEncodingWithCasing(base32(), "foobar", "MZXW6YTBOI======");
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   public void testBase32Streaming() throws IOException {
     // The following test vectors are specified in RFC 4648 itself
     testStreamingEncodingWithCasing(base32(), "", "");
@@ -230,18 +235,30 @@ public class BaseEncodingTest extends TestCase {
 
   public void testBase32InvalidDecodings() {
     // These contain bytes not in the decodabet.
-    assertFailsToDecode(base32(), "\u007f");
-    assertFailsToDecode(base32(), "Wf2!");
+    assertFailsToDecode(base32(), "A ", "Unrecognized character: 0x20");
+    assertFailsToDecode(base32(), "Wf2!", "Unrecognized character: f");
     // This sentence just isn't base32() encoded.
     assertFailsToDecode(base32(), "let's not talk of love or chains!");
     // An 8n+{1,3,6} length string is never legal base32.
-    assertFailsToDecode(base32(), "A");
+    assertFailsToDecode(base32(), "A", "Invalid input length 1");
     assertFailsToDecode(base32(), "ABC");
     assertFailsToDecode(base32(), "ABCDEF");
+    // These have a combination of invalid length, unrecognized characters and wrong padding.
+    assertFailsToDecode(base32(), "AB=C", "Unrecognized character: =");
+    assertFailsToDecode(base32(), "A=BCDE", "Invalid input length 6");
+    assertFailsToDecode(base32(), "?", "Invalid input length 1");
   }
 
   public void testBase32UpperCaseIsNoOp() {
     assertSame(base32(), base32().upperCase());
+  }
+
+  public void testBase32Offset() {
+    testEncodesWithOffset(base32(), "foobar", 0, 6, "MZXW6YTBOI======");
+    testEncodesWithOffset(base32(), "foobar", 1, 5, "N5XWEYLS");
+    testEncodesWithOffset(base32(), "foobar", 2, 3, "N5RGC===");
+    testEncodesWithOffset(base32(), "foobar", 3, 1, "MI======");
+    testEncodesWithOffset(base32(), "foobar", 4, 0, "");
   }
 
   public void testBase32Hex() {
@@ -255,7 +272,7 @@ public class BaseEncodingTest extends TestCase {
     testEncodingWithCasing(base32Hex(), "foobar", "CPNMUOJ1E8======");
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   public void testBase32HexStreaming() throws IOException {
     // The following test vectors are specified in RFC 4648 itself
     testStreamingEncodingWithCasing(base32Hex(), "", "");
@@ -278,8 +295,8 @@ public class BaseEncodingTest extends TestCase {
 
   public void testBase32HexInvalidDecodings() {
     // These contain bytes not in the decodabet.
-    assertFailsToDecode(base32Hex(), "\u007f");
-    assertFailsToDecode(base32Hex(), "Wf2!");
+    assertFailsToDecode(base32Hex(), "A\u007f", "Unrecognized character: 0x7f");
+    assertFailsToDecode(base32Hex(), "Wf2!", "Unrecognized character: W");
     // This sentence just isn't base32 encoded.
     assertFailsToDecode(base32Hex(), "let's not talk of love or chains!");
     // An 8n+{1,3,6} length string is never legal base32.
@@ -306,6 +323,25 @@ public class BaseEncodingTest extends TestCase {
     assertSame(base16(), base16().upperCase());
   }
 
+  public void testBase16InvalidDecodings() {
+    // These contain bytes not in the decodabet.
+    assertFailsToDecode(base16(), "\n\n", "Unrecognized character: 0xa");
+    assertFailsToDecode(base16(), "EFGH", "Unrecognized character: G");
+    // Valid base16 strings always have an even length.
+    assertFailsToDecode(base16(), "A", "Invalid input length 1");
+    assertFailsToDecode(base16(), "ABC");
+    // These have a combination of invalid length and unrecognized characters.
+    assertFailsToDecode(base16(), "?", "Invalid input length 1");
+  }
+
+  public void testBase16Offset() {
+    testEncodesWithOffset(base16(), "foobar", 0, 6, "666F6F626172");
+    testEncodesWithOffset(base16(), "foobar", 1, 5, "6F6F626172");
+    testEncodesWithOffset(base16(), "foobar", 2, 3, "6F6261");
+    testEncodesWithOffset(base16(), "foobar", 3, 1, "62");
+    testEncodesWithOffset(base16(), "foobar", 4, 0, "");
+  }
+
   private static void testEncodingWithCasing(
       BaseEncoding encoding, String decoded, String encoded) {
     testEncodingWithSeparators(encoding, decoded, encoded);
@@ -320,7 +356,9 @@ public class BaseEncodingTest extends TestCase {
     // test separators work
     for (int sepLength = 3; sepLength <= 5; sepLength++) {
       for (String separator : ImmutableList.of(",", "\n", ";;", "")) {
-        testEncoding(encoding.withSeparator(separator, sepLength), decoded,
+        testEncoding(
+            encoding.withSeparator(separator, sepLength),
+            decoded,
             Joiner.on(separator).join(Splitter.fixedLength(sepLength).split(encoded)));
       }
     }
@@ -332,43 +370,45 @@ public class BaseEncodingTest extends TestCase {
   }
 
   private static void testEncodes(BaseEncoding encoding, String decoded, String encoded) {
-    byte[] bytes;
-    try {
-      // GWT does not support String.getBytes(Charset)
-      bytes = decoded.getBytes("UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError();
-    }
-    assertEquals(encoded, encoding.encode(bytes));
+    assertThat(encoding.encode(decoded.getBytes(UTF_8))).isEqualTo(encoded);
+  }
+
+  private static void testEncodesWithOffset(
+      BaseEncoding encoding, String decoded, int offset, int len, String encoded) {
+    assertThat(encoding.encode(decoded.getBytes(UTF_8), offset, len)).isEqualTo(encoded);
   }
 
   private static void testDecodes(BaseEncoding encoding, String encoded, String decoded) {
-    byte[] bytes;
-    try {
-      // GWT does not support String.getBytes(Charset)
-      bytes = decoded.getBytes("UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError();
-    }
-    assertEquals(bytes, encoding.decode(encoded));
+    assertTrue(encoding.canDecode(encoded));
+    assertThat(encoding.decode(encoded)).isEqualTo(decoded.getBytes(UTF_8));
   }
 
   private static void assertFailsToDecode(BaseEncoding encoding, String cannotDecode) {
+    assertFailsToDecode(encoding, cannotDecode, null);
+  }
+
+  private static void assertFailsToDecode(
+      BaseEncoding encoding, String cannotDecode, @Nullable String expectedMessage) {
+    assertFalse(encoding.canDecode(cannotDecode));
     try {
       encoding.decode(cannotDecode);
       fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
-      // success
+      if (expectedMessage != null) {
+        assertThat(expected).hasCauseThat().hasMessageThat().isEqualTo(expectedMessage);
+      }
     }
     try {
       encoding.decodeChecked(cannotDecode);
       fail("Expected DecodingException");
     } catch (DecodingException expected) {
-      // success
+      if (expectedMessage != null) {
+        assertThat(expected).hasMessageThat().isEqualTo(expectedMessage);
+      }
     }
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   private static void testStreamingEncodingWithCasing(
       BaseEncoding encoding, String decoded, String encoded) throws IOException {
     testStreamingEncodingWithSeparators(encoding, decoded, encoded);
@@ -376,7 +416,7 @@ public class BaseEncodingTest extends TestCase {
     testStreamingEncodingWithSeparators(encoding.lowerCase(), decoded, Ascii.toLowerCase(encoded));
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   private static void testStreamingEncodingWithSeparators(
       BaseEncoding encoding, String decoded, String encoded) throws IOException {
     testStreamingEncoding(encoding, decoded, encoded);
@@ -384,61 +424,51 @@ public class BaseEncodingTest extends TestCase {
     // test separators work
     for (int sepLength = 3; sepLength <= 5; sepLength++) {
       for (String separator : ImmutableList.of(",", "\n", ";;", "")) {
-        testStreamingEncoding(encoding.withSeparator(separator, sepLength), decoded,
+        testStreamingEncoding(
+            encoding.withSeparator(separator, sepLength),
+            decoded,
             Joiner.on(separator).join(Splitter.fixedLength(sepLength).split(encoded)));
       }
     }
   }
 
-  @GwtIncompatible("Reader/Writer")
+  @GwtIncompatible // Reader/Writer
   private static void testStreamingEncoding(BaseEncoding encoding, String decoded, String encoded)
       throws IOException {
     testStreamingEncodes(encoding, decoded, encoded);
     testStreamingDecodes(encoding, encoded, decoded);
   }
 
-  @GwtIncompatible("Writer")
+  @GwtIncompatible // Writer
   private static void testStreamingEncodes(BaseEncoding encoding, String decoded, String encoded)
       throws IOException {
-    byte[] bytes;
-    try {
-      // GWT does not support String.getBytes(Charset)
-      bytes = decoded.getBytes("UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError();
-    }
     StringWriter writer = new StringWriter();
     OutputStream encodingStream = encoding.encodingStream(writer);
-    encodingStream.write(bytes);
+    encodingStream.write(decoded.getBytes(UTF_8));
     encodingStream.close();
-    assertEquals(encoded, writer.toString());
+    assertThat(writer.toString()).isEqualTo(encoded);
   }
 
-  @GwtIncompatible("Reader")
+  @GwtIncompatible // Reader
   private static void testStreamingDecodes(BaseEncoding encoding, String encoded, String decoded)
       throws IOException {
-    byte[] bytes;
-    try {
-      // GWT does not support String.getBytes(Charset)
-      bytes = decoded.getBytes("UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError();
-    }
+    byte[] bytes = decoded.getBytes(UTF_8);
     InputStream decodingStream = encoding.decodingStream(new StringReader(encoded));
     for (int i = 0; i < bytes.length; i++) {
-      assertEquals(bytes[i] & 0xFF, decodingStream.read());
+      assertThat(decodingStream.read()).isEqualTo(bytes[i] & 0xFF);
     }
-    assertEquals(-1, decodingStream.read());
+    assertThat(decodingStream.read()).isEqualTo(-1);
     decodingStream.close();
   }
 
   public void testToString() {
-    assertEquals("BaseEncoding.base64().withPadChar(=)", BaseEncoding.base64().toString());
-    assertEquals("BaseEncoding.base32Hex().omitPadding()",
-        BaseEncoding.base32Hex().omitPadding().toString());
-    assertEquals("BaseEncoding.base32().lowerCase().withPadChar($)",
-        BaseEncoding.base32().lowerCase().withPadChar('$').toString());
-    assertEquals("BaseEncoding.base16().withSeparator(\"\n\", 10)",
-        BaseEncoding.base16().withSeparator("\n", 10).toString());
+    assertEquals("BaseEncoding.base64().withPadChar('=')", base64().toString());
+    assertEquals("BaseEncoding.base32Hex().omitPadding()", base32Hex().omitPadding().toString());
+    assertEquals(
+        "BaseEncoding.base32().lowerCase().withPadChar('$')",
+        base32().lowerCase().withPadChar('$').toString());
+    assertEquals(
+        "BaseEncoding.base16().withSeparator(\"\n\", 10)",
+        base16().withSeparator("\n", 10).toString());
   }
 }

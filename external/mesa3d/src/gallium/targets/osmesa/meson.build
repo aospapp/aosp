@@ -35,7 +35,7 @@ endif
 libosmesa = shared_library(
   osmesa_lib_name,
   'target.c',
-  c_args : [c_vis_args, '-DGALLIUM_TRACE'],
+  c_args : [c_vis_args],
   cpp_args : cpp_vis_args,
   link_args : [ld_args_gc_sections, osmesa_link_args],
   include_directories : [
@@ -43,10 +43,9 @@ libosmesa = shared_library(
     inc_gallium_drivers,
   ],
   link_depends : osmesa_link_deps,
-  link_whole : [libosmesa_st],
+  link_whole : [libosmesa_st, libglapi_static],
   link_with : [
-    libmesa_gallium, libgallium, libglapi_static, libws_null, libtrace,
-    osmesa_link_with,
+    libmesa_gallium, libgallium, libws_null, osmesa_link_with,
   ],
   dependencies : [
     dep_selinux, dep_thread, dep_clock, dep_unwind,

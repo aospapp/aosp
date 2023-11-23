@@ -18,78 +18,40 @@ package com.android.cts.verifier.screenpinning;
 import android.app.ActivityManager;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.view.View.OnClickListener;
-import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.OrderedTestActivity;
 import com.android.cts.verifier.R;
 
-public class ScreenPinningTestActivity extends PassFailButtons.Activity {
+public class ScreenPinningTestActivity extends OrderedTestActivity {
 
     private static final String TAG = "ScreenPinningTestActivity";
-    private static final String KEY_CURRENT_TEST = "keyCurrentTest";
     private static final long TASK_MODE_CHECK_DELAY = 200;
     private static final int MAX_TASK_MODE_CHECK_COUNT = 5;
 
-    private Test[] mTests;
-    private int mTestIndex;
-
     private ActivityManager mActivityManager;
-    private Button mNextButton;
-    private LinearLayout mInstructions;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.screen_pinning);
-        setPassFailButtonClickListeners();
-
-        mTests = new Test[] {
-            // Verify not already pinned.
-            mCheckStartedUnpinned,
-            // Enter pinning, verify pinned, try leaving and have the user exit.
-            mCheckStartPinning,
-            mCheckIsPinned,
-            mCheckTryLeave,
-            mCheckUnpin,
-            // Enter pinning, verify pinned, and use APIs to exit.
-            mCheckStartPinning,
-            mCheckIsPinned,
-            mCheckUnpinFromCode,
-            // All done.
-            mDone,
-        };
 
         mActivityManager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        mInstructions = (LinearLayout) findViewById(R.id.instructions_list);
-
-        mNextButton = (Button) findViewById(R.id.next_button);
-        mNextButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if ((mTestIndex >= 0) && (mTestIndex < mTests.length)) {
-                    mTests[mTestIndex].onNextClick();
-                }
-            }
-        });
-
-        // Don't allow pass until all tests complete.
-        findViewById(R.id.pass_button).setVisibility(View.GONE);
-
-        // Figure out if we are in a test or starting from the beginning.
-        if (savedInstanceState != null && savedInstanceState.containsKey(KEY_CURRENT_TEST)) {
-            mTestIndex = savedInstanceState.getInt(KEY_CURRENT_TEST);
-        } else {
-            mTestIndex = 0;
-        }
-        mTests[mTestIndex].run();
-    };
+    }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        outState.putInt(KEY_CURRENT_TEST, mTestIndex);
+    protected Test[] getTests() {
+        return new Test[]{
+                // Verify not already pinned.
+                mCheckStartedUnpinned,
+                // Enter pinning, verify pinned, try leaving and have the user exit.
+                mCheckStartPinning,
+                mCheckIsPinned,
+                mCheckTryLeave,
+                mCheckUnpin,
+                // Enter pinning, verify pinned, and use APIs to exit.
+                mCheckStartPinning,
+                mCheckIsPinned,
+                mCheckUnpinFromCode
+        };
     }
 
     @Override
@@ -98,27 +60,8 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
         // Users can still leave by pressing fail (or when done the pass) button.
     }
 
-    private void show(int id) {
-        TextView tv = new TextView(this);
-        tv.setPadding(10, 10, 10, 30);
-        tv.setText(id);
-        mInstructions.removeAllViews();
-        mInstructions.addView(tv);
-    }
-
-    private void succeed() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mTestIndex++;
-                if (mTestIndex < mTests.length) {
-                    mTests[mTestIndex].run();
-                }
-            }
-        });
-    }
-
-    private void error(int errorId) {
+    @Override
+    protected void error(int errorId) {
         error(errorId, new Throwable());
     }
 
@@ -128,10 +71,8 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
             public void run() {
                 String error = getString(errorId);
                 Log.d(TAG, error, cause);
-                // No more instructions needed.
-                findViewById(R.id.instructions_group).setVisibility(View.GONE);
 
-                ((TextView) findViewById(R.id.error_text)).setText(error);
+                ((TextView) findViewById(R.id.txt_instruction)).setText(error);
             }
         });
     }
@@ -211,40 +152,6 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
                     error(R.string.error_screen_pinning_couldnt_exit);
                 }
             }
-        };
+        }
     };
-
-    private final Test mDone = new Test(R.string.screen_pinning_done) {
-        @Override
-        protected void run() {
-            super.run();
-            // On test completion, hide "next" button, and show "pass" button
-            // instead.
-            mNextButton.setVisibility(View.GONE);
-            findViewById(R.id.pass_button).setVisibility(View.VISIBLE);
-        };
-    };
-
-    private abstract class Test {
-        private final int mResId;
-
-        public Test(int showId) {
-            mResId = showId;
-        }
-
-        protected void run() {
-            showText();
-        }
-
-        public void showText() {
-            if (mResId == 0) {
-                return;
-            }
-            show(mResId);
-        }
-
-        protected void onNextClick() {
-        }
-    }
-
 }

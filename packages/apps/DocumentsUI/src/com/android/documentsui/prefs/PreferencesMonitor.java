@@ -58,7 +58,7 @@ public final class PreferencesMonitor {
 
     // visible for use as a lambda, otherwise treat as a private.
     void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
-        if (Preferences.shouldBackup(key)) {
+        if (LocalPreferences.shouldBackup(key)) {
             mChangeCallback.accept(key);
             BackupManager.dataChanged(mPackageName);
         }

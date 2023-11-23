@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/premium_sms_access_title">
+    android:title="@string/premium_sms_access_title"
+    android:key="@string/psk_premium_sms_access">
     <Preference
         android:key="@string/pk_premium_sms_access_description"
         android:selectable="false"

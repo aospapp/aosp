@@ -17,46 +17,46 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="description_dialpad_back" msgid="8370856774250260053">"Naviguer vers l\'arrière"</string>
-    <string name="description_dialpad_overflow" msgid="4853244877599437286">"Plus d\'options"</string>
-    <string name="description_delete_button" msgid="88733669653753441">"retour arrière"</string>
-    <string name="description_image_button_plus" msgid="7821061347207448362">"plus"</string>
-    <string name="description_voicemail_button" msgid="6281470684653439120">"messagerie vocale"</string>
-    <string name="default_notification_description" msgid="6011631627871110785">"Son par défaut (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
-    <string name="callFailed_userBusy" msgid="5163219086553610486">"Ligne occupée"</string>
-    <string name="callFailed_congestion" msgid="3645995103907418337">"Réseau occupé"</string>
-    <string name="callFailed_timedOut" msgid="7772951976278867294">"Aucune réponse, délai expiré"</string>
-    <string name="callFailed_server_unreachable" msgid="4766146133909799091">"Serveur injoignable"</string>
-    <string name="callFailed_number_unreachable" msgid="1243366438388873914">"Numéro injoignable"</string>
-    <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"Nom d\'utilisateur ou mot de passe incorrect"</string>
-    <string name="callFailed_out_of_network" msgid="6970725831030399542">"Appel en itinérance"</string>
-    <string name="callFailed_server_error" msgid="1391421251190688379">"Erreur serveur. Veuillez réessayer plus tard."</string>
-    <string name="callFailed_noSignal" msgid="1758972490451048086">"Aucun signal"</string>
-    <string name="callFailed_limitExceeded" msgid="8796663077702587664">"Limite ACM dépassée"</string>
-    <string name="callFailed_powerOff" msgid="9179061328562234362">"Signal radio désactivé"</string>
-    <string name="callFailed_simError" msgid="3307159523385380486">"Aucune carte SIM ou erreur de carte SIM"</string>
-    <string name="callFailed_outOfService" msgid="4535901975891969115">"Réseau cellulaire non accessible"</string>
-    <string name="callFailed_fdn_only" msgid="1720606112619022283">"Les appels sortants sont limités par FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Appel remplacé par une demande USSD"</string>
-    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Appel remplacé par une demande SS"</string>
-    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Remplacement par un autre numéro"</string>
-    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Remplacement par un appel vidéo"</string>
-    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Appel vidéo remplacé par une demande SS"</string>
-    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Appel vidéo remplacé par une demande USSD"</string>
-    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Remplacement par un appel ordinaire"</string>
-    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Remplacement par un autre numéro"</string>
-    <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Vous ne pouvez pas effectuer des appels sortants lorsque l\'interdiction d\'appel est activée."</string>
-    <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Appels restreints par le contrôle d\'accès."</string>
-    <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Les appels d\'urgence limités par le contrôle d\'accès."</string>
-    <string name="callFailed_dsac_restricted_normal" msgid="266947632344387216">"Les appels normaux sont restreints par le contrôle d\'accès."</string>
-    <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Numéro incorrect"</string>
-    <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"Numéro de messagerie vocale inconnu."</string>
-    <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"Impossible de faire des appels vidéo lorsque le mode ATS est activé."</string>
-    <string name="callEnded_pulled" msgid="437630601519502587">"Appel transféré à un autre appareil."</string>
-    <string name="ringtone_silent" msgid="249805466934178869">"Aucune"</string>
-    <string name="ringtone_unknown" msgid="2303463713486734520">"Sonnerie Inconnue"</string>
-    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Toutes les lignes disponibles sont en cours d\'utilisation. Pour effectuer un appel, déconnectez l\'un des appels sur cet appareil ou l\'un de vos autres appareils."</string>
-    <string name="callFailed_data_disabled" msgid="3885826754435317856">"L\'appel a pris fin, car les données cellulaires ont été désactivées."</string>
-    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"L\'appel a pris fin, car la limite de données cellulaires a été atteinte."</string>
-    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Limite de données atteinte. Appel terminé."</string>
+    <string name="description_dialpad_back" msgid="6948371942814365471">"Naviguer vers l\'arrière"</string>
+    <string name="description_dialpad_overflow" msgid="386545562915853251">"Plus d\'options"</string>
+    <string name="description_delete_button" msgid="3440492396168418449">"retour arrière"</string>
+    <string name="description_image_button_plus" msgid="5473715983314974482">"plus"</string>
+    <string name="description_voicemail_button" msgid="3215317707268642855">"messagerie vocale"</string>
+    <string name="default_notification_description" msgid="7586091743351742205">"Son par défaut (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
+    <string name="callFailed_userBusy" msgid="8760595520859373561">"Ligne occupée"</string>
+    <string name="callFailed_congestion" msgid="660130739882090863">"Réseau occupé"</string>
+    <string name="callFailed_timedOut" msgid="6780964135550644777">"Aucune réponse, délai expiré"</string>
+    <string name="callFailed_server_unreachable" msgid="7004372091099175338">"Serveur injoignable"</string>
+    <string name="callFailed_number_unreachable" msgid="2855741498610643943">"Numéro injoignable"</string>
+    <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"Nom d\'utilisateur ou mot de passe incorrect"</string>
+    <string name="callFailed_out_of_network" msgid="3725361800376129141">"Appel en itinérance"</string>
+    <string name="callFailed_server_error" msgid="8449565039784274698">"Erreur serveur. Veuillez réessayer plus tard."</string>
+    <string name="callFailed_noSignal" msgid="7700332004458210245">"Aucun signal"</string>
+    <string name="callFailed_limitExceeded" msgid="2877263157928717415">"Limite ACM dépassée"</string>
+    <string name="callFailed_powerOff" msgid="2212239757387143765">"Signal radio désactivé"</string>
+    <string name="callFailed_simError" msgid="510948380244092037">"Aucune carte SIM ou erreur de carte SIM"</string>
+    <string name="callFailed_outOfService" msgid="2917536349269880601">"Réseau cellulaire non accessible"</string>
+    <string name="callFailed_fdn_only" msgid="584249308311672690">"Les appels sortants sont limités par FDN."</string>
+    <string name="callFailed_dialToUssd" msgid="6794913139176808973">"Appel remplacé par une demande USSD"</string>
+    <string name="callFailed_dialToSs" msgid="6749473185855000519">"Appel remplacé par une demande SS"</string>
+    <string name="callFailed_dialToDial" msgid="391531243214210803">"Remplacement par un autre numéro"</string>
+    <string name="callFailed_dialToDialVideo" msgid="1405537953282276350">"Remplacement par un appel vidéo"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4187072851496468440">"Appel vidéo remplacé par une demande SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="4479951468674677111">"Appel vidéo remplacé par une demande USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="160029277192677751">"Remplacement par un appel ordinaire"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="3976695729414283836">"Remplacement par un autre numéro"</string>
+    <string name="callFailed_cb_enabled" msgid="3555984829657638323">"Vous ne pouvez pas effectuer des appels sortants lorsque l\'interdiction d\'appel est activée."</string>
+    <string name="callFailed_dsac_restricted" msgid="4073547013432506074">"Appels restreints par le contrôle d\'accès."</string>
+    <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"Les appels d\'urgence limités par le contrôle d\'accès."</string>
+    <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"Les appels normaux sont restreints par le contrôle d\'accès."</string>
+    <string name="callFailed_unobtainable_number" msgid="2048455732432022283">"Numéro incorrect"</string>
+    <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"Numéro de messagerie vocale inconnu."</string>
+    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Impossible de faire des appels vidéo lorsque le mode ATS est activé."</string>
+    <string name="callEnded_pulled" msgid="4824518546417807865">"Appel transféré à un autre appareil."</string>
+    <string name="ringtone_silent" msgid="1173111569760233645">"Aucune"</string>
+    <string name="ringtone_unknown" msgid="3036191370493284036">"Sonnerie Inconnue"</string>
+    <string name="callFailed_maximum_reached" msgid="6704266142192963900">"Toutes les lignes disponibles sont en cours d\'utilisation. Pour effectuer un appel, déconnectez l\'un des appels sur cet appareil ou l\'un de vos autres appareils."</string>
+    <string name="callFailed_data_disabled" msgid="8592999219489448277">"L\'appel a pris fin, car les données cellulaires ont été désactivées."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="3739097798746751739">"L\'appel a pris fin, car la limite de données cellulaires a été atteinte."</string>
+    <string name="callFailed_data_limit_reached" msgid="3018609096563149722">"Limite de données atteinte. Appel terminé."</string>
 </resources>

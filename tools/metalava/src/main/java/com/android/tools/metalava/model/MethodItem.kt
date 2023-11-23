@@ -404,6 +404,10 @@ interface MethodItem : MemberItem {
     /** If annotation method, returns the default value as a source expression */
     fun defaultValue(): String = ""
 
+    fun hasDefaultValue(): Boolean {
+        return defaultValue() != ""
+    }
+
     /**
      * Check the declared default annotation value and return true if the defaults
      * are the same. Only defined on two annotation methods; for all other
@@ -451,10 +455,12 @@ interface MethodItem : MemberItem {
                 // Workaround for signature-based codebase, where we can't always resolve generic
                 // parameters: if we see a mismatch here which looks like a failure to erase say T into
                 // java.lang.Object, don't treat that as a mismatch. (Similar common case: T[] and Object[])
-                if (typeString1[0].isUpperCase() &&
-                    typeString1.length == 1 || !typeString2[1].isLetterOrDigit() &&
-                    parameter1.codebase is TextCodebase
-                ) {
+                if (typeString1[0].isUpperCase() && typeString1.length == 1 &&
+                    parameter1.codebase is TextCodebase) {
+                    continue
+                }
+                if (typeString2.length >= 2 && !typeString2[1].isLetterOrDigit() &&
+                    parameter1.codebase is TextCodebase) {
                     continue
                 }
                 return false

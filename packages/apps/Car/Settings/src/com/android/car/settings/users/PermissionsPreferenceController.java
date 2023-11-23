@@ -91,8 +91,10 @@ public class PermissionsPreferenceController extends
             preference.getExtras().putString(PERMISSION_TYPE_KEY, permission.getPermissionKey());
             preference.setOnPreferenceChangeListener((pref, newValue) -> {
                 boolean granted = (boolean) newValue;
-                getCarUserManagerHelper().setUserRestriction(getUserInfo(),
-                        pref.getExtras().getString(PERMISSION_TYPE_KEY), !granted);
+                UserManager.get(context).setUserRestriction(
+                        pref.getExtras().getString(PERMISSION_TYPE_KEY),
+                        !granted,
+                        getUserInfo().getUserHandle());
                 return true;
             });
             mPermissionPreferences.add(preference);
@@ -106,6 +108,7 @@ public class PermissionsPreferenceController extends
 
     @Override
     protected void onCreateInternal() {
+        super.onCreateInternal();
         for (SwitchPreference switchPreference : mPermissionPreferences) {
             getPreference().addPreference(switchPreference);
         }
@@ -114,8 +117,11 @@ public class PermissionsPreferenceController extends
     @Override
     protected void updateState(PreferenceGroup preferenceGroup) {
         for (SwitchPreference switchPreference : mPermissionPreferences) {
-            switchPreference.setChecked(!getCarUserManagerHelper().hasUserRestriction(
-                    switchPreference.getExtras().getString(PERMISSION_TYPE_KEY), getUserInfo()));
+            UserManager userManager = UserManager.get(getContext());
+            switchPreference.setChecked(
+                    !userManager.hasUserRestriction(
+                            switchPreference.getExtras().getString(PERMISSION_TYPE_KEY),
+                            getUserInfo().getUserHandle()));
         }
     }
 }

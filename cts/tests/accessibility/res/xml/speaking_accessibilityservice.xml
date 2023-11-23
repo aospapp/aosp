@@ -21,7 +21,9 @@
     android:canRequestTouchExplorationMode="true"
     android:canRequestFilterKeyEvents="true"
     android:settingsActivity="foo.bar.Activity"
+    android:animatedImageDrawable="@drawable/jpg_48_48"
     android:description="@string/some_description"
+    android:htmlDescription="@string/html_description_speaking_accessibility_service"
     android:summary="@string/some_summary"
     android:nonInteractiveUiTimeout="1000"
     android:interactiveUiTimeout="6000"/>

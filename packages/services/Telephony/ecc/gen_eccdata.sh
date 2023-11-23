@@ -20,24 +20,8 @@ if [ -z "${ANDROID_BUILD_TOP}" ] ; then
   exit 1
 fi
 
-case $(uname -s) in
-  Darwin)
-    KERNEL=darwin
-    ;;
-  Linux)
-    KERNEL=linux
-    ;;
-  *)
-    echo "Unknown kernel \"`uname -s`\"" 1>&2
-    exit 1
-    ;;
-esac
-
-read -d "" PROTOC_COMMAND << END || :
-${ANDROID_BUILD_TOP}/prebuilts/tools/${KERNEL}-x86_64/protoc/bin/protoc
-END
-if ! [ -x "${PROTOC_COMMAND}" ] ; then
-  echo "Missing ${PROTOC_COMMAND}." 1>&2
+if ! [ -x "$(which aprotoc)" ] ; then
+  echo "Missing aprotoc, build it with 'm aprotoc'." 1>&2
   exit 1
 fi
 

@@ -1,10 +1,8 @@
 <a name="faft" />
 
-# [FAFT (Fully Automated Firmware Test)
+# FAFT (Fully Automated Firmware Test)
 
 _Last updated: 2011/11/08_
-
-_Last content refresh from go/faft: 2019/02/19_
 
 - [FAFT (Fully Automated Firmware Test)](#faft)
   - [FAFT Related Documents](#faft-related-documents)
@@ -56,7 +54,7 @@ This document uses [U-Boot](http://en.wikipedia.org/wiki/Das_U-Boot) as an examp
 
 The U-Boot software stack looks like the following graph: [cl/70339149](https://critique.corp.google.com/#review/70339149)
 
-<img src="assets/faft-u-boot-stack.png" />
+![faft-u-boot-stack](assets/faft-u-boot-stack.png)
 
 Most of the verified boot logic and crypto algorithms are inside the vboot_reference library. The main control logic in U-Boot is simple, just like reading some headers from SPI and filling them in a data structure which is then passed to vboot_reference.
 
@@ -64,7 +62,7 @@ The underlying U-Boot drivers are abstracted into VBoot Export APIs and some (no
 
 The firmware boot path is like the following graph:
 
-<img src="assets/faft-firmware-boot-path.png" />
+![faft-firmware-boot-path](assets/faft-firmware-boot-path.png)
 
 Our tests are mostly focused on VBoot Bootstub and VBoot Main Firmware since they are complicated and many decision branches. U-Boot initialization and kernel booting are simple and single path decisions. So full system regression tests are enough.
 
@@ -81,7 +79,7 @@ Source: src/platform/vboot_reference/tests
 
 vboot_reference provides a lot of tests varying from crypto algorithms to vboot main logic and control flows. These tests stub the underlying APIs as all success functions. So it is unable to validate the correctness of underlying BIOS platform and the hardware behaviors.
 
-<img src="assets/faft-vboot-reference-tests.png" />
+![faft-vboot-reference-tests](assets/faft-vboot-reference-tests.png)
 
 <a name="u-boot-vbexport-vboot-tests" />
 
@@ -91,7 +89,7 @@ Source: src/third_party/u-boot/files/common/cmd_vb*_test.c
 
 Almost all the U-Boot drivers are abstracted into couple of major APIs: VBExport APIs and main logic used driver APIs. U-Boot provides a CLI for manual diagnostic. We wrote some commands to test these APIs. For example, for testing the disk read/write functions, a test command is to write some patterns to the disk and read them back to verify. However, some of these tests needs human involved, like inserting an USB stick to check if it is detectable.
 
-<img src="assets/faft-u-boot-vbexport-vboot-test.png" />
+![faft-u-boot-vbexport-vboot-test](assets/faft-u-boot-vbexport-vboot-test.png)
 
 <a name="saft-semi-automated-firmware-test" />
 
@@ -103,7 +101,7 @@ First of all, SAFT only works on x86 and hasn’t ported to ARM yet.
 
 SAFT assumes the whole firmware as a black-box and tests the whole system from firmware, kernel, to rootfs. For example, it corrupts firmware RW A/B to see if it enters recovery mode success. However, SAFT also needs human involved in many cases.
 
-<img src="assets/faft-saft.png" />
+![faft-saft](assets/faft-saft.png)
 
 <a name="factory-regression-testing-using-servo" />
 
@@ -139,7 +137,7 @@ We need a [Servo board](https://sites.google.com/a/google.com/chromeos-partner/h
 - get console output via UART;
 - simulate USB plug in/out, by either muxing a physical USB stick or emulating a USB storage gadget in the host machine.
 
-<img src="assets/faft-test-environment.png" />
+![faft-test-environment](assets/faft-test-environment.png)
 
 <a name="test-harness" />
 
@@ -164,7 +162,7 @@ FAFT is also based on the existing ServoTest approach and does some enhancements
 
 Here is our proposed FAFT framework. The red pieces are missing and need to be implemented in this project.
 
-<img src="assets/faft-software-architecture.png" />
+![faft-software-architecture](assets/faft-software-architecture.png)
 
 All the FAFT test cases are server side tests, meaning that all the actions are controlled by Host. It is flexible to keep states after sequential reboot. However, we still want to get the DUT state and run some command on it, like getting current firmware version, setting the fw_try_b flag, etc. These actions should be completed in the DUT. So we setup a FAFT Client for this purpose and use RPC to communicate with it.
 
@@ -271,7 +269,7 @@ This demo presents the feasibility of the integration of SAFT library and FAFT f
 
 In order to increase the test coverage and verify the underlying BIOS functions and drivers, a good entry is to re-run all existing vbexport / vboot tests in an automated way using our test framework!. See more detail in the State of the Art Section. We can catch bugs easily if any drivers changed or the BIOS source rebased.
 
-<img src="assets/faft-u-boot-vbexport-vboot-test.png" />
+![faft-u-boot-vbexport-vboot-test](assets/faft-u-boot-vbexport-vboot-test.png)
 
 <a name="scope-3" />
 

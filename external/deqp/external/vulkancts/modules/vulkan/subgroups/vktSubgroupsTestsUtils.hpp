@@ -48,6 +48,7 @@
 #include "deUniquePtr.hpp"
 
 #include <string>
+#include <vector>
 
 namespace vkt
 {
@@ -89,6 +90,8 @@ struct SSBOData
 
 std::string getSharedMemoryBallotHelper();
 
+std::string getSharedMemoryBallotHelperARB();
+
 deUint32 getSubgroupSize(Context& context);
 
 vk::VkDeviceSize maxSupportedSubgroupSize();
@@ -100,6 +103,23 @@ std::string getSubgroupFeatureName(vk::VkSubgroupFeatureFlagBits bit);
 void addNoSubgroupShader (vk::SourceCollections& programCollection);
 
 std::string getVertShaderForStage(vk::VkShaderStageFlags stage);//TODO
+
+void initStdFrameBufferPrograms(	vk::SourceCollections&			programCollection,
+									const vk::ShaderBuildOptions&	buildOptions,
+									vk::VkShaderStageFlags			shaderStage,
+									vk::VkFormat					format,
+									bool							gsPointSize,
+									std::string						extHeader,
+									std::string						testSrc,
+									std::string						helperStr);
+
+void initStdPrograms(	vk::SourceCollections&			programCollection,
+								const vk::ShaderBuildOptions&	buildOptions,
+								vk::VkShaderStageFlags			shaderStage,
+								vk::VkFormat					format,
+								std::string						extHeader,
+								std::string						testSrc,
+								std::string						helperStr);
 
 bool isSubgroupSupported(Context& context);
 
@@ -114,11 +134,23 @@ bool isFragmentSSBOSupportedForDevice(Context& context);
 
 bool isVertexSSBOSupportedForDevice(Context& context);
 
-bool isDoubleSupportedForDevice(Context& context);
+bool isFormatSupportedForDevice(Context& context, vk::VkFormat format);
 
-bool isDoubleFormat(vk::VkFormat format);
+bool isInt64SupportedForDevice(Context& context);
 
-std::string getFormatNameForGLSL(vk::VkFormat format);
+bool isTessellationAndGeometryPointSizeSupported(Context& context);
+
+bool isSubgroupBroadcastDynamicIdSupported(Context& context);
+
+std::string getFormatNameForGLSL (vk::VkFormat format);
+
+std::string getAdditionalExtensionForFormat (vk::VkFormat format);
+
+const std::vector<vk::VkFormat> getAllFormats ();
+
+bool isFormatSigned (vk::VkFormat format);
+bool isFormatUnsigned (vk::VkFormat format);
+bool isFormatFloat (vk::VkFormat format);
 
 void addGeometryShadersFromTemplate (const std::string& glslTemplate, const vk::ShaderBuildOptions& options, vk::GlslSourceCollection& collection);
 void addGeometryShadersFromTemplate (const std::string& spirvTemplate, const vk::SpirVAsmBuildOptions& options, vk::SpirVAsmCollection& collection);

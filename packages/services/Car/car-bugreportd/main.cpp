@@ -61,9 +61,10 @@ constexpr const char* kOkPrefix = "OK:";
 constexpr const int kMaxDumpstateConnectAttempts = 20;
 // Wait time between connect attempts
 constexpr const int kWaitTimeBetweenConnectAttemptsInSec = 1;
-// Wait time for dumpstate. No timeout in dumpstate is longer than 60 seconds. Choose
-// a value that is twice longer.
-constexpr const int kDumpstateTimeoutInSec = 120;
+// Wait time for dumpstate. Set a timeout so that if nothing is read in 10 minutes, we'll stop
+// reading and quit. No timeout in dumpstate is longer than 60 seconds, so this gives lots of leeway
+// in case of unforeseen time outs.
+constexpr const int kDumpstateTimeoutInSec = 600;
 // The prefix for screenshot filename in the generated zip file.
 constexpr const char* kScreenshotPrefix = "/screenshot";
 
@@ -197,6 +198,7 @@ int copyTo(int fd_in, int fd_out, void* buffer, size_t buffer_len) {
 bool copyFile(const std::string& zip_path, int output_socket) {
     android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(zip_path.c_str(), O_RDONLY)));
     if (fd == -1) {
+        ALOGE("Failed to open zip file %s.", zip_path.c_str());
         return false;
     }
     while (1) {
@@ -206,6 +208,7 @@ bool copyFile(const std::string& zip_path, int output_socket) {
             break;
         }
         if (bytes_copied == -1) {
+            ALOGE("Failed to copy zip file %s to the output_socket.", zip_path.c_str());
             return false;
         }
     }
@@ -239,13 +242,14 @@ bool doBugreport(int progress_socket, size_t* out_bytes_written, std::string* zi
 
     std::string line;
     std::string last_nonempty_line;
+    char buffer[65536];
     while (true) {
-        char buffer[65536];
         ssize_t bytes_read = copyTo(s, progress_socket, buffer, sizeof(buffer));
         if (bytes_read == 0) {
             break;
         }
         if (bytes_read == -1) {
+            ALOGE("Failed to copy progress to the progress_socket.");
             return false;
         }
         // Process the buffer line by line. this is needed for the filename.
@@ -468,12 +472,12 @@ int main(void) {
     bool ret_val = doBugreport(progress_socket, &bytes_written, &zip_path);
     close(progress_socket);
 
-    int output_socket = openSocket(kCarBrOutputSocket);
-    if (output_socket != -1 && ret_val) {
-        ret_val = copyFile(zip_path, output_socket);
-    }
-    if (output_socket != -1) {
-        close(output_socket);
+    if (ret_val) {
+        int output_socket = openSocket(kCarBrOutputSocket);
+        if (output_socket != -1) {
+            ret_val = copyFile(zip_path, output_socket);
+            close(output_socket);
+        }
     }
 
     int extra_output_socket = openSocket(kCarBrExtraOutputSocket);

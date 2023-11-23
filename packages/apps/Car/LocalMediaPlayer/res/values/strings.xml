@@ -21,6 +21,8 @@
     <string name="genres_title">Genres</string>
     <string name="albums_title">Albums</string>
     <string name="playback_error">Something went wrong.</string>
+    <string name="permission_error">Missing permission.</string>
+    <string name="permission_error_resolve">Grant permission</string>
     <string name="playlist">Now Playing</string>
     <string name="shuffle">Shuffle</string>
 

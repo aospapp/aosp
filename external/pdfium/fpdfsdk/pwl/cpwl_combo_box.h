@@ -14,10 +14,12 @@
 #include "fpdfsdk/pwl/cpwl_list_box.h"
 #include "fpdfsdk/pwl/cpwl_wnd.h"
 
-class CPWL_CBListBox : public CPWL_ListBox {
+class CPWL_CBListBox final : public CPWL_ListBox {
  public:
-  CPWL_CBListBox() {}
-  ~CPWL_CBListBox() override {}
+  CPWL_CBListBox(
+      const CreateParams& cp,
+      std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData);
+  ~CPWL_CBListBox() override;
 
   // CPWL_ListBox
   bool OnLButtonUp(const CFX_PointF& point, uint32_t nFlag) override;
@@ -28,10 +30,12 @@ class CPWL_CBListBox : public CPWL_ListBox {
   bool OnCharNotify(uint16_t nChar, uint32_t nFlag);
 };
 
-class CPWL_CBButton : public CPWL_Wnd {
+class CPWL_CBButton final : public CPWL_Wnd {
  public:
-  CPWL_CBButton() {}
-  ~CPWL_CBButton() override {}
+  CPWL_CBButton(
+      const CreateParams& cp,
+      std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData);
+  ~CPWL_CBButton() override;
 
   // CPWL_Wnd
   void DrawThisAppearance(CFX_RenderDevice* pDevice,
@@ -40,16 +44,16 @@ class CPWL_CBButton : public CPWL_Wnd {
   bool OnLButtonUp(const CFX_PointF& point, uint32_t nFlag) override;
 };
 
-class CPWL_ComboBox : public CPWL_Wnd {
+class CPWL_ComboBox final : public CPWL_Wnd {
  public:
-  CPWL_ComboBox();
+  CPWL_ComboBox(
+      const CreateParams& cp,
+      std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData);
   ~CPWL_ComboBox() override;
 
   CPWL_Edit* GetEdit() const { return m_pEdit.Get(); }
 
   // CPWL_Wnd:
-  ByteString GetClassName() const override;
-  void OnCreate(CreateParams* pParamsToAdjust) override;
   void OnDestroy() override;
   bool OnKeyDown(uint16_t nChar, uint32_t nFlag) override;
   bool OnChar(uint16_t nChar, uint32_t nFlag) override;
@@ -60,12 +64,16 @@ class CPWL_ComboBox : public CPWL_Wnd {
   CFX_FloatRect GetFocusRect() const override;
   void SetFocus() override;
   void KillFocus() override;
+  WideString GetText() override;
   WideString GetSelectedText() override;
   void ReplaceSelection(const WideString& text) override;
+  bool CanUndo() override;
+  bool CanRedo() override;
+  bool Undo() override;
+  bool Redo() override;
 
   void SetFillerNotify(IPWL_Filler_Notify* pNotify);
 
-  WideString GetText() const;
   void SetText(const WideString& text);
   void AddString(const WideString& str);
   int32_t GetSelect() const;
@@ -76,9 +84,7 @@ class CPWL_ComboBox : public CPWL_Wnd {
   void ClearSelection();
   void SelectAll();
   bool IsPopup() const;
-
   void SetSelectText();
-
   void AttachFFLData(CFFL_FormFiller* pData) { m_pFormFiller = pData; }
 
  private:

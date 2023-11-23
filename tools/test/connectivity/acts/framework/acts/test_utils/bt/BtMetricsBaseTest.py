@@ -17,7 +17,7 @@ import time
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.libs.proto.proto_utils import compile_import_proto, parse_proto_to_ascii
 from acts.test_utils.bt.bt_metrics_utils import get_bluetooth_metrics
-from acts.utils import create_dir, dump_string_to_file
+from acts.utils import dump_string_to_file
 
 
 class BtMetricsBaseTest(BluetoothBaseTest):
@@ -50,7 +50,7 @@ class BtMetricsBaseTest(BluetoothBaseTest):
                 return False
         for ad in self.android_devices:
             ad.metrics_path = os.path.join(ad.log_path, "BluetoothMetrics")
-            create_dir(ad.metrics_path)
+            os.makedirs(ad.metrics_path, exist_ok=True)
             ad.bluetooth_proto_module = \
                 compile_import_proto(ad.metrics_path, self.bluetooth_proto_path)
             if not ad.bluetooth_proto_module:

@@ -6,9 +6,13 @@ import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.N;
 import static android.os.Build.VERSION_CODES.N_MR1;
+import static android.os.Build.VERSION_CODES.R;
+
 import static org.robolectric.shadow.api.Shadow.directlyOn;
 
 import android.Manifest.permission;
+import android.annotation.NonNull;
+import android.annotation.UserIdInt;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
@@ -17,17 +21,23 @@ import android.os.IUserManager;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
+
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.annotation.Resetter;
+import org.robolectric.util.ReflectionHelpers.ClassParameter;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Robolectric implementation of {@link android.os.UserManager}.
@@ -44,6 +54,7 @@ public class ShadowUserManager {
   public static final int FLAG_ADMIN = UserInfo.FLAG_ADMIN;
   public static final int FLAG_GUEST = UserInfo.FLAG_GUEST;
   public static final int FLAG_RESTRICTED = UserInfo.FLAG_RESTRICTED;
+  public static final int FLAG_MANAGED_PROFILE = UserInfo.FLAG_MANAGED_PROFILE;
 
   private static Map<Integer, Integer> userPidMap = new HashMap<>();
 
@@ -58,6 +69,8 @@ public class ShadowUserManager {
   private long nextUserSerial = 0;
   private Map<Integer, UserState> userState = new HashMap<>();
   private Map<Integer, UserInfo> userInfoMap = new HashMap<>();
+  private Map<Integer, List<UserInfo>> profiles = new HashMap<>();
+  private Map<Integer, Integer> profileToParent = new HashMap<>();
 
   private Context context;
   private boolean enforcePermissions;
@@ -106,6 +119,47 @@ public class ShadowUserManager {
     return ImmutableList.copyOf(userProfiles.keySet());
   }
 
+  /**
+   * If any profiles have been added using {@link #addProfile}, return those profiles.
+   *
+   * Otherwise follow real android behaviour.
+   */
+  @Implementation(minSdk = LOLLIPOP)
+  protected List<UserInfo> getProfiles(int userHandle) {
+    if (profiles.containsKey(userHandle)) {
+      return ImmutableList.copyOf(profiles.get(userHandle));
+    }
+
+    if (profileToParent.containsKey(userHandle)
+            && profiles.containsKey(profileToParent.get(userHandle))) {
+      return ImmutableList.copyOf(profiles.get(profileToParent.get(userHandle)));
+    }
+
+    return directlyOn(
+            realObject, UserManager.class, "getProfiles", ClassParameter.from(int.class, userHandle));
+  }
+
+  /** Add a profile to be returned by {@link #getProfiles(int)}.**/
+  public void addProfile(
+          int userHandle, int profileUserHandle, String profileName, int profileFlags) {
+    UserInfo userInfo = new UserInfo(profileUserHandle, profileName, profileFlags);
+    profiles.putIfAbsent(userHandle, new ArrayList<>());
+    profiles.get(userHandle).add(userInfo);
+    userInfoMap.put(profileUserHandle, userInfo);
+    profileToParent.put(profileUserHandle, userHandle);
+  }
+
+  /**
+   * If this profile has been added using {@link #addProfile}, return its parent.
+   */
+  @Implementation(minSdk = LOLLIPOP)
+  protected UserInfo getProfileParent(int userHandle) {
+    if (!profileToParent.containsKey(userHandle)) {
+      return null;
+    }
+    return userInfoMap.get(profileToParent.get(userHandle));
+  }
+
   @Implementation(minSdk = N)
   protected boolean isUserUnlocked() {
     return userUnlocked;
@@ -131,11 +185,51 @@ public class ShadowUserManager {
   protected boolean isManagedProfile() {
     if (enforcePermissions && !hasManageUsersPermission()) {
       throw new SecurityException(
-          "You need MANAGE_USERS permission to: check if specified user a " +
-              "managed profile outside your profile group");
+              "You need MANAGE_USERS permission to: check if specified user a " +
+                      "managed profile outside your profile group");
     }
     return managedProfile;
   }
+
+  /**
+   * If permissions are enforced (see {@link #enforcePermissionChecks(boolean)}) and the application
+   * doesn't have the {@link android.Manifest.permission#MANAGE_USERS} permission, throws a {@link
+   * SecurityManager} exception.
+   *
+   * @return true if the profile added has FLAG_MANAGED_PROFILE
+   * @see #enforcePermissionChecks(boolean)
+   * @see #addProfile(int, int, String, int)
+   * @see #addUser(int, String, int)
+   */
+  @Implementation(minSdk = N)
+  protected boolean isManagedProfile(int userHandle) {
+    if (enforcePermissions && !hasManageUsersPermission()) {
+      throw new SecurityException(
+              "You need MANAGE_USERS permission to: check if specified user a "
+                      + "managed profile outside your profile group");
+    }
+    UserInfo info = getUserInfo(userHandle);
+    return info != null && ((info.flags & FLAG_MANAGED_PROFILE) == FLAG_MANAGED_PROFILE);
+  }
+
+  // BEGIN-INTERNAL
+  @Implementation(minSdk = R)
+  protected boolean isProfile() {
+    return isManagedProfile();
+  }
+
+  /**
+   * Compared to real Android, userId is not used, instead
+   * managedProfile determines if user has badge.
+   *
+   * @param userId ignored, uses managedProfile field
+   * @return true if managedProfile field is true
+   */
+  @Implementation(minSdk = R)
+  protected boolean hasBadge(int userId) {
+    return isProfile();
+  }
+  // END-INTERNAL
 
   public void enforcePermissionChecks(boolean enforcePermissions) {
     this.enforcePermissions = enforcePermissions;
@@ -153,6 +247,13 @@ public class ShadowUserManager {
     Bundle bundle = userRestrictions.get(userHandle.getIdentifier());
     return bundle != null && bundle.getBoolean(restrictionKey);
   }
+
+  // BEGIN-INTERNAL
+  @Implementation(minSdk = R)
+  protected boolean hasUserRestrictionForUser(String restrictionKey, UserHandle userHandle) {
+    return hasUserRestriction(restrictionKey, userHandle);
+  }
+  // END-INTERNAL
 
   public void setUserRestriction(UserHandle userHandle, String restrictionKey, boolean value) {
     Bundle bundle = getUserRestrictionsForUser(userHandle);
@@ -206,6 +307,16 @@ public class ShadowUserManager {
   @Implementation
   protected UserHandle getUserForSerialNumber(long serialNumber) {
     return userProfiles.inverse().get(serialNumber);
+  }
+
+  /**
+   * @see #addProfile(int, int, String, int)
+   * @see #addUser(int, String, int)
+   */
+  @Implementation
+  protected int getUserSerialNumber(@UserIdInt int userHandle) {
+    Long result = userProfiles.get(UserHandle.of(userHandle));
+    return result != null ? result.intValue() : -1;
   }
 
   private boolean hasManageUsersPermission() {
@@ -357,8 +468,8 @@ public class ShadowUserManager {
     UserState state = userState.get(handle.getIdentifier());
 
     if (state == UserState.STATE_RUNNING_LOCKED
-        || state == UserState.STATE_RUNNING_UNLOCKED
-        || state == UserState.STATE_RUNNING_UNLOCKING) {
+            || state == UserState.STATE_RUNNING_UNLOCKED
+            || state == UserState.STATE_RUNNING_UNLOCKING) {
       return true;
     } else {
       return false;
@@ -374,9 +485,9 @@ public class ShadowUserManager {
     UserState state = userState.get(handle.getIdentifier());
 
     if (state == UserState.STATE_RUNNING_LOCKED
-        || state == UserState.STATE_RUNNING_UNLOCKED
-        || state == UserState.STATE_RUNNING_UNLOCKING
-        || state == UserState.STATE_STOPPING) {
+            || state == UserState.STATE_RUNNING_UNLOCKED
+            || state == UserState.STATE_RUNNING_UNLOCKING
+            || state == UserState.STATE_STOPPING) {
       return true;
     } else {
       return false;
@@ -442,6 +553,29 @@ public class ShadowUserManager {
     return true;
   }
 
+  // BEGIN-INTERNAL
+  @Implementation(minSdk = R)
+  protected UserInfo createProfileForUserEvenWhenDisallowed(String name,
+          @NonNull String userType, @UserInfo.UserInfoFlag int flags, @UserIdInt int userId,
+          String[] disallowedPackages) throws UserManager.UserOperationException {
+    List<UserInfo> userIdProfiles = profiles.computeIfAbsent(userId, ignored -> new ArrayList<>());
+    int profileUserId = userIdProfiles.isEmpty() ? 10 : findMaxProfileId(userIdProfiles) + 1;
+    UserInfo profileUserInfo = new UserInfo(profileUserId, name, flags);
+    userIdProfiles.add(profileUserInfo);
+    profileToParent.put(profileUserId, userId);
+    addUserProfile(UserHandle.of(profileUserId));
+    return profileUserInfo;
+  }
+
+  /** Assumes the given list of profile infos is non-empty. */
+  private int findMaxProfileId(List<UserInfo> userIdProfiles) {
+    return Collections.max(
+            userIdProfiles.stream()
+                    .map(userInfo -> userInfo.id)
+                    .collect(Collectors.toList()));
+  }
+  // END-INTERNAL
+
   /**
    * Switches the current user to {@code userHandle}.
    *
@@ -464,15 +598,16 @@ public class ShadowUserManager {
    */
   public void addUser(int id, String name, int flags) {
     UserHandle userHandle =
-        id == UserHandle.USER_SYSTEM ? Process.myUserHandle() : new UserHandle(id);
+            id == UserHandle.USER_SYSTEM ? Process.myUserHandle() : new UserHandle(id);
     addUserProfile(userHandle);
     setSerialNumberForUser(userHandle, (long) id);
+    profiles.putIfAbsent(id, new ArrayList<>());
     userInfoMap.put(id, new UserInfo(id, name, flags));
     userPidMap.put(
-        id,
-        id == UserHandle.USER_SYSTEM
-            ? Process.myUid()
-            : id * UserHandle.PER_USER_RANGE + ShadowProcess.getRandomApplicationUid());
+            id,
+            id == UserHandle.USER_SYSTEM
+                    ? Process.myUid()
+                    : id * UserHandle.PER_USER_RANGE + ShadowProcess.getRandomApplicationUid());
   }
 
   @Resetter

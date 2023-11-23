@@ -25,6 +25,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.provider.Telephony;
 import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -59,7 +60,7 @@ public final class TelephonyDatabaseHelperTest {
     public void setUp() {
         Log.d(TAG, "setUp() +");
         mContext = InstrumentationRegistry.getContext();
-        mHelper = new TelephonyProvider.DatabaseHelper(mContext);
+        mHelper = new TelephonyProviderTestable().new DatabaseHelper(mContext);
         mInMemoryDbHelper = new InMemoryTelephonyProviderV5DbHelper();
         Log.d(TAG, "setUp() -");
     }
@@ -69,7 +70,7 @@ public final class TelephonyDatabaseHelperTest {
         Log.d(TAG, "databaseHelperOnUpgrade_hasApnSetIdField");
         // (5 << 16 | 6) is the first upgrade trigger in onUpgrade
         SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
-        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.DatabaseHelper.getVersion(mContext));
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
 
         // the upgraded db must have the APN_SET_ID field
         Cursor cursor = db.query("carriers", null, null, null, null, null, null);
@@ -84,7 +85,7 @@ public final class TelephonyDatabaseHelperTest {
         Log.d(TAG, "databaseHelperOnUpgrade_hasSubscriptionTypeField");
         // (5 << 16 | 6) is the first upgrade trigger in onUpgrade
         SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
-        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.DatabaseHelper.getVersion(mContext));
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
 
         // the upgraded db must have the Telephony.Carriers.CARRIER_ID field
         Cursor cursor = db.query("carriers", null, null, null, null, null, null);
@@ -97,7 +98,7 @@ public final class TelephonyDatabaseHelperTest {
     public void databaseHelperOnUpgrade_hasCountryIsoField() {
         Log.d(TAG, "databaseHelperOnUpgrade_hasCountryIsoField");
         SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
-        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.DatabaseHelper.getVersion(mContext));
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
 
         // the upgraded db must have the Telephony.Carriers.CARRIER_ID field
         Cursor cursor = db.query("simInfo", null, null, null, null, null, null);
@@ -110,7 +111,7 @@ public final class TelephonyDatabaseHelperTest {
     public void databaseHelperOnUpgrade_hasProfileClassField() {
         Log.d(TAG, "databaseHelperOnUpgrade_hasProfileClassField");
         SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
-        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.DatabaseHelper.getVersion(mContext));
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
 
         // the upgraded db must have the PROFILE_CLASS field
         Cursor cursor = db.query("siminfo", null, null, null, null, null, null);
@@ -124,7 +125,7 @@ public final class TelephonyDatabaseHelperTest {
         Log.d(TAG, "databaseHelperOnUpgrade_hasSkip464XlatField");
         // (5 << 16 | 6) is the first upgrade trigger in onUpgrade
         SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
-        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.DatabaseHelper.getVersion(mContext));
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
 
         // the upgraded db must have the Telephony.Carriers.CARRIER_ID field
         Cursor cursor = db.query("carriers", null, null, null, null, null, null);
@@ -138,7 +139,7 @@ public final class TelephonyDatabaseHelperTest {
         Log.d(TAG, "databaseHelperOnUpgrade_columnsMatchNewlyCreatedDb");
         // (5 << 16 | 6) is the first upgrade trigger in onUpgrade
         SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
-        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.DatabaseHelper.getVersion(mContext));
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
 
         // compare upgraded carriers table to a carriers table created from scratch
         db.execSQL(TelephonyProvider.getStringForCarrierTableCreation("carriers_full"));
@@ -174,7 +175,7 @@ public final class TelephonyDatabaseHelperTest {
         Log.d(TAG, "databaseHelperOnUpgrade_hasSubscriptionTypeField");
         // (5 << 16 | 6) is the first upgrade trigger in onUpgrade
         SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
-        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.DatabaseHelper.getVersion(mContext));
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
 
         // the upgraded db must have the SubscriptionManager.SUBSCRIPTION_TYPE field
         Cursor cursor = db.query("siminfo", null, null, null, null, null, null);
@@ -182,6 +183,22 @@ public final class TelephonyDatabaseHelperTest {
         Log.d(TAG, "siminfo columns: " + Arrays.toString(upgradedColumns));
 
         assertTrue(Arrays.asList(upgradedColumns).contains(SubscriptionManager.SUBSCRIPTION_TYPE));
+    }
+
+    @Test
+    public void databaseHelperOnUpgrade_hasImsRcsUceEnabledField() {
+        Log.d(TAG, "databaseHelperOnUpgrade_hasImsRcsUceEnabledField");
+        // (5 << 16 | 6) is the first upgrade trigger in onUpgrade
+        SQLiteDatabase db = mInMemoryDbHelper.getWritableDatabase();
+        mHelper.onUpgrade(db, (4 << 16), TelephonyProvider.getVersion(mContext));
+
+        // the upgraded db must have the SubscriptionManager.SUBSCRIPTION_TYPE field
+        Cursor cursor = db.query("siminfo", null, null, null, null, null, null);
+        String[] upgradedColumns = cursor.getColumnNames();
+        Log.d(TAG, "siminfo columns: " + Arrays.toString(upgradedColumns));
+
+        assertTrue(Arrays.asList(upgradedColumns).contains(
+                Telephony.SimInfo.COLUMN_IMS_RCS_UCE_ENABLED));
     }
 
     /**
@@ -242,22 +259,22 @@ public final class TelephonyDatabaseHelperTest {
             Log.d(TAG, "InMemoryTelephonyProviderV5DbHelper onCreate creating the siminfo table");
             db.execSQL(
                     "CREATE TABLE siminfo ("
-                    + SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID
+                    + Telephony.SimInfo.COLUMN_UNIQUE_KEY_SUBSCRIPTION_ID
                     + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + SubscriptionManager.ICC_ID + " TEXT NOT NULL,"
-                    + SubscriptionManager.SIM_SLOT_INDEX
-                        + " INTEGER DEFAULT " + SubscriptionManager.SIM_NOT_INSERTED + ","
-                    + SubscriptionManager.DISPLAY_NAME + " TEXT,"
-                    + SubscriptionManager.NAME_SOURCE
-                        + " INTEGER DEFAULT " + SubscriptionManager.NAME_SOURCE_DEFAULT_SOURCE + ","
-                    + SubscriptionManager.COLOR
-                        + " INTEGER DEFAULT " + SubscriptionManager.COLOR_DEFAULT + ","
-                    + SubscriptionManager.NUMBER + " TEXT,"
-                    + SubscriptionManager.DISPLAY_NUMBER_FORMAT + " INTEGER NOT NULL"
-                        + " DEFAULT " + SubscriptionManager.DISPLAY_NUMBER_DEFAULT + ","
-                    + SubscriptionManager.DATA_ROAMING
-                        + " INTEGER DEFAULT " + SubscriptionManager.DATA_ROAMING_DEFAULT + ","
-                    + SubscriptionManager.CARD_ID + " TEXT NOT NULL"
+                    + Telephony.SimInfo.COLUMN_ICC_ID + " TEXT NOT NULL,"
+                    + Telephony.SimInfo.COLUMN_SIM_SLOT_INDEX
+                        + " INTEGER DEFAULT " + Telephony.SimInfo.SIM_NOT_INSERTED + ","
+                    + Telephony.SimInfo.COLUMN_DISPLAY_NAME + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_NAME_SOURCE
+                        + " INTEGER DEFAULT " + Telephony.SimInfo.NAME_SOURCE_CARRIER_ID + ","
+                    + Telephony.SimInfo.COLUMN_COLOR
+                        + " INTEGER DEFAULT " + Telephony.SimInfo.COLOR_DEFAULT + ","
+                    + Telephony.SimInfo.COLUMN_NUMBER + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_DISPLAY_NUMBER_FORMAT + " INTEGER NOT NULL"
+                        + " DEFAULT " + Telephony.SimInfo.DISPLAY_NUMBER_DEFAULT + ","
+                    + Telephony.SimInfo.COLUMN_DATA_ROAMING
+                        + " INTEGER DEFAULT " + Telephony.SimInfo.DATA_ROAMING_DISABLE + ","
+                    + Telephony.SimInfo.COLUMN_CARD_ID + " TEXT NOT NULL"
                     + ");");
         }
 

@@ -4,12 +4,8 @@
 
 import logging
 import time
-import sys
 
-from multiprocessing import Process
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros.faft.utils import shell_wrapper
 
 class ConnectionError(Exception):
     """Raised on an error of connecting DUT."""
@@ -102,10 +98,7 @@ class _CtrlDBypasser(_BaseFwBypasser):
     def trigger_dev_to_rec(self):
         """Trigger to the rec mode from the dev screen."""
         time.sleep(self.faft_config.firmware_screen)
-
-        # Pressing Enter for too long triggers a second key press.
-        # Let's press it without delay
-        self.servo.enter_key(press_secs=0)
+        self.servo.enter_key()
 
 
     def trigger_rec_to_dev(self):
@@ -116,6 +109,9 @@ class _CtrlDBypasser(_BaseFwBypasser):
         if self.faft_config.rec_button_dev_switch:
             logging.info('RECOVERY button pressed to switch to dev mode')
             self.servo.toggle_recovery_switch()
+        elif self.faft_config.power_button_dev_switch:
+            logging.info('POWER button pressed to switch to dev mode')
+            self.servo.power_normal_press()
         else:
             logging.info('ENTER pressed to switch to dev mode')
             self.servo.enter_key()
@@ -245,9 +241,9 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         # every 3.1 seconds until firmware_screen delay has been reached.
         while time.time() < timeout:
             self.servo.set_nocheck('volume_down_hold', duration)
-            # After pressing 'volume_down_hold' button, wait for 0.2 seconds
+            # After pressing 'volume_down_hold' button, wait for 0.1 seconds
             # before start pressing the button for next iteration.
-            time.sleep(self.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.2)
+            time.sleep(0.1)
             if self.client_host.ping_wait_up(timeout=0.1):
                 break
 
@@ -367,34 +363,13 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         self.servo.set_nocheck('volume_down_hold', 100)
         time.sleep(self.faft_config.confirm_screen)
 
-def _create_fw_bypasser(faft_framework):
-    """Creates a proper firmware bypasser.
-
-    @param faft_framework: The main FAFT framework object.
-    """
-    bypasser_type = faft_framework.faft_config.fw_bypasser_type
-    if bypasser_type == 'ctrl_d_bypasser':
-        logging.info('Create a CtrlDBypasser')
-        return _CtrlDBypasser(faft_framework)
-    elif bypasser_type == 'jetstream_bypasser':
-        logging.info('Create a JetstreamBypasser')
-        return _JetstreamBypasser(faft_framework)
-    elif bypasser_type == 'ryu_bypasser':
-        # FIXME Create an RyuBypasser
-        logging.info('Create a CtrlDBypasser')
-        return _CtrlDBypasser(faft_framework)
-    elif bypasser_type == 'tablet_detachable_bypasser':
-        logging.info('Create a TabletDetachableBypasser')
-        return _TabletDetachableBypasser(faft_framework)
-    else:
-        raise NotImplementedError('Not supported fw_bypasser_type: %s',
-                                  bypasser_type)
-
 
 class _BaseModeSwitcher(object):
     """Base class that controls firmware mode switching."""
 
     HOLD_VOL_DOWN_BUTTON_BYPASS = _BaseFwBypasser.HOLD_VOL_DOWN_BUTTON_BYPASS
+
+    FW_BYPASSER_CLASS = _BaseFwBypasser
 
     def __init__(self, faft_framework):
         self.faft_framework = faft_framework
@@ -403,9 +378,12 @@ class _BaseModeSwitcher(object):
         self.servo = faft_framework.servo
         self.faft_config = faft_framework.faft_config
         self.checkers = faft_framework.checkers
-        self.bypasser = _create_fw_bypasser(faft_framework)
+        self.bypasser = self._create_fw_bypasser()
         self._backup_mode = None
 
+    def _create_fw_bypasser(self):
+        """Creates a proper firmware bypasser."""
+        return self.FW_BYPASSER_CLASS(self.faft_framework)
 
     def setup_mode(self, mode):
         """Setup for the requested mode.
@@ -461,7 +439,7 @@ class _BaseModeSwitcher(object):
         if sync_before_boot:
             self.faft_framework.blocking_sync()
         if to_mode == 'rec':
-            self._enable_rec_mode_and_reboot(usb_state='dut')
+            self.enable_rec_mode_and_reboot(usb_state='dut')
             if wait_for_dut_up:
                 self.wait_for_client()
 
@@ -574,7 +552,7 @@ class _BaseModeSwitcher(object):
                      reboot_type, reboot_method.__name__)
 
 
-    def _enable_rec_mode_and_reboot(self, usb_state=None):
+    def enable_rec_mode_and_reboot(self, usb_state=None):
         """Switch to rec mode and reboot.
 
         This method emulates the behavior of the old physical recovery switch,
@@ -709,12 +687,14 @@ class _BaseModeSwitcher(object):
 class _KeyboardDevSwitcher(_BaseModeSwitcher):
     """Class that switches firmware mode via keyboard combo."""
 
+    FW_BYPASSER_CLASS = _CtrlDBypasser
+
     def _enable_dev_mode_and_reboot(self):
         """Switch to developer mode and reboot."""
         logging.info("Enabling keyboard controlled developer mode")
         # Rebooting EC with rec mode on. Should power on AP.
         # Plug out USB disk for preventing recovery boot without warning
-        self._enable_rec_mode_and_reboot(usb_state='host')
+        self.enable_rec_mode_and_reboot(usb_state='host')
         self.wait_for_client_offline()
         self.bypasser.trigger_rec_to_dev()
 
@@ -730,10 +710,12 @@ class _KeyboardDevSwitcher(_BaseModeSwitcher):
 class _JetstreamSwitcher(_BaseModeSwitcher):
     """Class that switches firmware mode in Jetstream devices."""
 
+    FW_BYPASSER_CLASS = _JetstreamBypasser
+
     def _enable_dev_mode_and_reboot(self):
         """Switch to developer mode and reboot."""
         logging.info("Enabling Jetstream developer mode")
-        self._enable_rec_mode_and_reboot(usb_state='host')
+        self.enable_rec_mode_and_reboot(usb_state='host')
         self.wait_for_client_offline()
         self.bypasser.trigger_rec_to_dev()
 
@@ -742,13 +724,15 @@ class _JetstreamSwitcher(_BaseModeSwitcher):
         """Switch to normal mode and reboot."""
         logging.info("Disabling Jetstream developer mode")
         self.servo.disable_development_mode()
-        self._enable_rec_mode_and_reboot(usb_state='host')
+        self.enable_rec_mode_and_reboot(usb_state='host')
         time.sleep(self.faft_config.firmware_screen)
         self._disable_rec_mode_and_reboot(usb_state='host')
 
 
 class _TabletDetachableSwitcher(_BaseModeSwitcher):
     """Class that switches fw mode in tablets/detachables with fw menu UI."""
+
+    FW_BYPASSER_CLASS = _TabletDetachableBypasser
 
     def _enable_dev_mode_and_reboot(self):
         """Switch to developer mode and reboot.
@@ -762,7 +746,7 @@ class _TabletDetachableSwitcher(_BaseModeSwitcher):
                  Language
         """
         logging.info('Enabling tablets/detachable recovery mode')
-        self._enable_rec_mode_and_reboot(usb_state='host')
+        self.enable_rec_mode_and_reboot(usb_state='host')
         self.wait_for_client_offline()
         self.bypasser.trigger_rec_to_dev()
 
@@ -789,136 +773,11 @@ class _TabletDetachableSwitcher(_BaseModeSwitcher):
         self.bypasser.trigger_dev_to_normal()
 
 
-class _RyuSwitcher(_BaseModeSwitcher):
-    """Class that switches firmware mode via physical button."""
+_SWITCHER_CLASSES = {
+    'keyboard_dev_switcher': _KeyboardDevSwitcher,
+    'jetstream_switcher': _JetstreamSwitcher,
+    'tablet_detachable_switcher': _TabletDetachableSwitcher}
 
-    FASTBOOT_OEM_DELAY = 10
-    RECOVERY_TIMEOUT = 2400
-    RECOVERY_SETUP = 60
-    ANDROID_BOOTUP = 600
-    FWTOOL_STARTUP_DELAY = 30
-
-    def wait_for_client(self, timeout=180):
-        """Wait for the client to come back online.
-
-        New remote processes will be launched if their used flags are enabled.
-
-        @param timeout: Time in seconds to wait for the client SSH daemon to
-                        come up.
-        @raise ConnectionError: Failed to connect DUT.
-        """
-        if not self.faft_client.system.wait_for_client(timeout):
-            raise ConnectionError('DUT is still down unexpectedly')
-
-        # there's a conflict between fwtool and crossystem trying to access
-        # the nvram after the OS boots up.  Temporarily put a hard wait of
-        # 30 seconds to try to wait for fwtool to finish up.
-        time.sleep(self.FWTOOL_STARTUP_DELAY)
-
-
-    def wait_for_client_offline(self, timeout=60, orig_boot_id=None):
-        """Wait for the client to come offline.
-
-        @param timeout: Time in seconds to wait the client to come offline.
-        @param orig_boot_id: A string containing the original boot id.
-        @raise ConnectionError: Failed to wait DUT offline.
-        """
-        # TODO: Add a way to check orig_boot_id
-        if not self.faft_client.system.wait_for_client_offline(timeout):
-            raise ConnectionError('DUT is still up unexpectedly')
-
-    def print_recovery_warning(self):
-        """Print recovery warning"""
-        logging.info("***")
-        logging.info("*** Entering recovery mode.  This may take awhile ***")
-        logging.info("***")
-        # wait a minute for DUT to get settled into wipe stage
-        time.sleep(self.RECOVERY_SETUP)
-
-    def is_fastboot_mode(self):
-        """Return True if DUT in fastboot mode, False otherwise"""
-        result = self.faft_client.host.run_shell_command_get_output(
-            'fastboot devices')
-        if not result:
-            return False
-        else:
-            return True
-
-    def wait_for_client_fastboot(self, timeout=30):
-        """Wait for the client to come online in fastboot mode
-
-        @param timeout: Time in seconds to wait the client
-        @raise ConnectionError: Failed to wait DUT offline.
-        """
-        utils.wait_for_value(self.is_fastboot_mode, True, timeout_sec=timeout)
-
-    def _run_cmd(self, args):
-        """Wrapper for run_shell_command
-
-        For Process creation
-        """
-        return self.faft_client.host.run_shell_command(args)
-
-    def _enable_dev_mode_and_reboot(self):
-        """Switch to developer mode and reboot."""
-        logging.info("Entering RyuSwitcher: _enable_dev_mode_and_reboot")
-        try:
-            self.faft_client.system.run_shell_command('reboot bootloader')
-            self.wait_for_client_fastboot()
-
-            process = Process(
-                target=self._run_cmd,
-                args=('fastboot oem unlock',))
-            process.start()
-
-            # need a slight delay to give the ap time to get into valid state
-            time.sleep(self.FASTBOOT_OEM_DELAY)
-            self.servo.power_key(self.faft_config.hold_pwr_button_poweron)
-            process.join()
-
-            self.print_recovery_warning()
-            self.wait_for_client_fastboot(self.RECOVERY_TIMEOUT)
-            self.faft_client.host.run_shell_command('fastboot continue')
-            self.wait_for_client(self.ANDROID_BOOTUP)
-
-        # need to reset DUT into clean state
-        except shell_wrapper.ShellError:
-            raise error.TestError('Error executing shell command')
-        except ConnectionError:
-            raise error.TestError('Timed out waiting for DUT to exit recovery')
-        except:
-            raise error.TestError('Unexpected Exception: %s' % sys.exc_info()[0])
-        logging.info("Exiting RyuSwitcher: _enable_dev_mode_and_reboot")
-
-    def _enable_normal_mode_and_reboot(self):
-        """Switch to normal mode and reboot."""
-        try:
-            self.faft_client.system.run_shell_command('reboot bootloader')
-            self.wait_for_client_fastboot()
-
-            process = Process(
-                target=self._run_cmd,
-                args=('fastboot oem lock',))
-            process.start()
-
-            # need a slight delay to give the ap time to get into valid state
-            time.sleep(self.FASTBOOT_OEM_DELAY)
-            self.servo.power_key(self.faft_config.hold_pwr_button_poweron)
-            process.join()
-
-            self.print_recovery_warning()
-            self.wait_for_client_fastboot(self.RECOVERY_TIMEOUT)
-            self.faft_client.host.run_shell_command('fastboot continue')
-            self.wait_for_client(self.ANDROID_BOOTUP)
-
-        # need to reset DUT into clean state
-        except shell_wrapper.ShellError:
-            raise error.TestError('Error executing shell command')
-        except ConnectionError:
-            raise error.TestError('Timed out waiting for DUT to exit recovery')
-        except:
-            raise error.TestError('Unexpected Exception: %s' % sys.exc_info()[0])
-        logging.info("Exiting RyuSwitcher: _enable_normal_mode_and_reboot")
 
 def create_mode_switcher(faft_framework):
     """Creates a proper mode switcher.
@@ -926,18 +785,9 @@ def create_mode_switcher(faft_framework):
     @param faft_framework: The main FAFT framework object.
     """
     switcher_type = faft_framework.faft_config.mode_switcher_type
-    if switcher_type == 'keyboard_dev_switcher':
-        logging.info('Create a KeyboardDevSwitcher')
-        return _KeyboardDevSwitcher(faft_framework)
-    elif switcher_type == 'jetstream_switcher':
-        logging.info('Create a JetstreamSwitcher')
-        return _JetstreamSwitcher(faft_framework)
-    elif switcher_type == 'ryu_switcher':
-        logging.info('Create a RyuSwitcher')
-        return _RyuSwitcher(faft_framework)
-    elif switcher_type == 'tablet_detachable_switcher':
-        logging.info('Create a TabletDetachableSwitcher')
-        return _TabletDetachableSwitcher(faft_framework)
-    else:
+    switcher_class = _SWITCHER_CLASSES.get(switcher_type, None)
+    if switcher_class is None:
         raise NotImplementedError('Not supported mode_switcher_type: %s',
                                   switcher_type)
+    else:
+        return switcher_class(faft_framework)

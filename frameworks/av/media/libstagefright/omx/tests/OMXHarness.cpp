@@ -27,13 +27,13 @@
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
 #include <cutils/properties.h>
+#include <datasource/DataSourceFactory.h>
 #include <media/DataSource.h>
 #include <media/IMediaHTTPService.h>
-#include <media/MediaSource.h>
+#include <media/stagefright/MediaSource.h>
 #include <media/OMXBuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/ALooper.h>
-#include <media/stagefright/DataSourceFactory.h>
 #include <media/stagefright/InterfaceUtils.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaDefs.h>
@@ -211,6 +211,17 @@ status_t Harness::allocatePortBuffers(
     status_t err = getPortDefinition(portIndex, &def);
     EXPECT_SUCCESS(err, "getPortDefinition");
 
+    switch (def.eDomain) {
+        case OMX_PortDomainVideo:
+            EXPECT(def.format.video.cMIMEType == 0, "portDefinition video MIME");
+            break;
+        case OMX_PortDomainAudio:
+            EXPECT(def.format.audio.cMIMEType == 0, "portDefinition audio MIME");
+            break;
+        default:
+            break;
+    }
+
     for (OMX_U32 i = 0; i < def.nBufferCountActual; ++i) {
         Buffer buffer;
         buffer.mFlags = 0;
@@ -278,7 +289,7 @@ private:
 
 static sp<IMediaExtractor> CreateExtractorFromURI(const char *uri) {
     sp<DataSource> source =
-        DataSourceFactory::CreateFromURI(NULL /* httpService */, uri);
+        DataSourceFactory::getInstance()->CreateFromURI(NULL /* httpService */, uri);
 
     if (source == NULL) {
         return NULL;

@@ -41,8 +41,7 @@ import android.telephony.SubscriptionManager;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.telephony.CallerInfo;
-import com.android.internal.telephony.SubscriptionController;
+import android.telecom.CallerInfo;
 import com.android.server.telecom.callfiltering.CallFilteringResult;
 
 import java.util.Arrays;
@@ -132,6 +131,11 @@ public final class CallLogManager extends CallsManagerListenerBase {
 
     private static final String TAG = CallLogManager.class.getSimpleName();
 
+    // Copied from android.telephony.DisconnectCause.toString
+    // TODO: come up with a better way to indicate in a android.telecom.DisconnectCause that
+    // a conference was merged successfully
+    private static final String REASON_IMS_MERGED_SUCCESSFULLY = "IMS_MERGED_SUCCESSFULLY";
+
     private final Context mContext;
     private final CarrierConfigManager mCarrierConfigManager;
     private final PhoneAccountRegistrar mPhoneAccountRegistrar;
@@ -200,13 +204,25 @@ public final class CallLogManager extends CallsManagerListenerBase {
      * should be logged in its PhoneAccount
      */
     @VisibleForTesting
-    public boolean shouldLogDisconnectedCall(Call call, int oldState, boolean isCallCancelled) {
+    public boolean shouldLogDisconnectedCall(Call call, int oldState, boolean isCallCanceled) {
+        boolean shouldCallSelfManagedLogged = call.isLoggedSelfManaged()
+                && (call.getHandoverState() == HandoverState.HANDOVER_NONE
+                || call.getHandoverState() == HandoverState.HANDOVER_COMPLETE);
+
         // "Choose account" phase when disconnected
         if (oldState == CallState.SELECT_PHONE_ACCOUNT) {
             return false;
         }
         // A conference call which had children should not be logged, unless it was remotely hosted.
         if (call.isConference() && call.hadChildren() &&
+                !call.hasProperty(Connection.PROPERTY_REMOTELY_HOSTED)) {
+            return false;
+        }
+
+        // A conference call which had no children should not be logged; this case will occur on IMS
+        // when no conference event package data is received.  We will have logged the participants
+        // as they merge into the conference, so we should not log the conference itself.
+        if (call.isConference() && !call.hadChildren() &&
                 !call.hasProperty(Connection.PROPERTY_REMOTELY_HOSTED)) {
             return false;
         }
@@ -218,7 +234,7 @@ public final class CallLogManager extends CallsManagerListenerBase {
         }
 
         DisconnectCause cause = call.getDisconnectCause();
-        if (isCallCancelled) {
+        if (isCallCanceled) {
             // No log when disconnecting to simulate a single party conference.
             if (cause != null
                     && DisconnectCause.REASON_EMULATING_SINGLE_CALL.equals(cause.getReason())) {
@@ -227,8 +243,9 @@ public final class CallLogManager extends CallsManagerListenerBase {
             // Explicitly canceled
             // Conference children connections only have CAPABILITY_DISCONNECT_FROM_CONFERENCE.
             // Log them when they are disconnected from conference.
-            return Connection.can(call.getConnectionCapabilities(),
-                    Connection.CAPABILITY_DISCONNECT_FROM_CONFERENCE);
+            return (call.getConnectionCapabilities()
+                    & Connection.CAPABILITY_DISCONNECT_FROM_CONFERENCE)
+                    == Connection.CAPABILITY_DISCONNECT_FROM_CONFERENCE;
         }
         // An external call
         if (call.isExternalCall()) {
@@ -236,9 +253,11 @@ public final class CallLogManager extends CallsManagerListenerBase {
         }
 
         // Call merged into conferences and marked with IMS_MERGED_SUCCESSFULLY.
-        if (cause != null && android.telephony.DisconnectCause.toString(
-                android.telephony.DisconnectCause.IMS_MERGED_SUCCESSFULLY)
-                .equals(cause.getReason())) {
+        // Return false if the conference supports the participants packets for the carrier.
+        // Otherwise, fall through. Merged calls would be associated with disconnected
+        // connections because of special carrier requirements. Those calls don't look like
+        // merged, e.g. could be one active and the other on hold.
+        if (cause != null && REASON_IMS_MERGED_SUCCESSFULLY.equals(cause.getReason())) {
             int subscriptionId = mPhoneAccountRegistrar
                     .getSubscriptionIdForPhoneAccount(call.getTargetPhoneAccount());
             // By default, the conference should return a list of participants.
@@ -256,9 +275,6 @@ public final class CallLogManager extends CallsManagerListenerBase {
             }
         }
 
-        boolean shouldCallSelfManagedLogged = call.isLoggedSelfManaged()
-                && (call.getHandoverState() == HandoverState.HANDOVER_NONE
-                || call.getHandoverState() == HandoverState.HANDOVER_COMPLETE);
         // Call is NOT a self-managed call OR call is a self-managed call which has indicated it
         // should be logged in its PhoneAccount
         return !call.isSelfManaged() || shouldCallSelfManagedLogged;
@@ -295,7 +311,18 @@ public final class CallLogManager extends CallsManagerListenerBase {
      */
     void logCall(Call call, int callLogType,
         @Nullable LogCallCompletedListener logCallCompletedListener, CallFilteringResult result) {
-        final long creationTime = call.getCreationTimeMillis();
+        long creationTime;
+
+        if (call.getConnectTimeMillis() != 0
+                && call.getConnectTimeMillis() < call.getCreationTimeMillis()) {
+            // If connected time is available, use connected time. The connected time might be
+            // earlier than created time since it might come from carrier sent special SMS to
+            // notifier user earlier missed call.
+            creationTime = call.getConnectTimeMillis();
+        } else {
+            creationTime = call.getCreationTimeMillis();
+        }
+
         final long age = call.getAgeMillis();
 
         final String logNumber = getLogNumber(call);
@@ -320,10 +347,11 @@ public final class CallLogManager extends CallsManagerListenerBase {
 
         int callFeatures = getCallFeatures(call.getVideoStateHistory(),
                 call.getDisconnectCause().getCode() == DisconnectCause.CALL_PULLED,
-                shouldSaveHdInfo(call, accountHandle),
-                (call.getConnectionProperties() & Connection.PROPERTY_ASSISTED_DIALING_USED) ==
-                        Connection.PROPERTY_ASSISTED_DIALING_USED,
-                call.wasEverRttCall());
+                call.wasHighDefAudio(), call.wasWifi(),
+                (call.getConnectionProperties() & Connection.PROPERTY_ASSISTED_DIALING) ==
+                        Connection.PROPERTY_ASSISTED_DIALING,
+                call.wasEverRttCall(),
+                call.wasVolte());
 
         if (callLogType == Calls.BLOCKED_TYPE) {
             logCall(call.getCallerInfo(), logNumber, call.getPostDialDigits(), formattedViaNumber,
@@ -443,11 +471,12 @@ public final class CallLogManager extends CallsManagerListenerBase {
      * @param videoState The video state.
      * @param isPulledCall {@code true} if this call was pulled to another device.
      * @param isStoreHd {@code true} if this call was used HD.
+     * @param isWifi {@code true} if this call was used wifi.
      * @param isUsingAssistedDialing {@code true} if this call used assisted dialing.
      * @return The call features.
      */
     private static int getCallFeatures(int videoState, boolean isPulledCall, boolean isStoreHd,
-            boolean isUsingAssistedDialing, boolean isRtt) {
+            boolean isWifi, boolean isUsingAssistedDialing, boolean isRtt, boolean isVolte) {
         int features = 0;
         if (VideoProfile.isVideo(videoState)) {
             features |= Calls.FEATURES_VIDEO;
@@ -458,29 +487,19 @@ public final class CallLogManager extends CallsManagerListenerBase {
         if (isStoreHd) {
             features |= Calls.FEATURES_HD_CALL;
         }
+        if (isWifi) {
+            features |= Calls.FEATURES_WIFI;
+        }
         if (isUsingAssistedDialing) {
             features |= Calls.FEATURES_ASSISTED_DIALING_USED;
         }
         if (isRtt) {
             features |= Calls.FEATURES_RTT;
         }
+        if (isVolte) {
+            features |= Calls.FEATURES_VOLTE;
+        }
         return features;
-    }
-
-    private boolean shouldSaveHdInfo(Call call, PhoneAccountHandle accountHandle) {
-        CarrierConfigManager configManager = (CarrierConfigManager) mContext.getSystemService(
-                Context.CARRIER_CONFIG_SERVICE);
-        PersistableBundle configBundle = null;
-        if (configManager != null) {
-            configBundle = configManager.getConfigForSubId(
-                    mPhoneAccountRegistrar.getSubscriptionIdForPhoneAccount(accountHandle));
-        }
-        if (configBundle != null && configBundle.getBoolean(
-                CarrierConfigManager.KEY_IDENTIFY_HIGH_DEFINITION_CALLS_IN_CALL_LOG_BOOL)
-                && call.wasHighDefAudio()) {
-            return true;
-        }
-        return false;
     }
 
     /**

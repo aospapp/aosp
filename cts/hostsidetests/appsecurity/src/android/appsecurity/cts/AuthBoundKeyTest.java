@@ -16,6 +16,8 @@
 
 package android.appsecurity.cts;
 
+import static org.junit.Assume.assumeTrue;
+
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -49,10 +51,12 @@ public class AuthBoundKeyTest extends BaseAppSecurityTest {
     @Test
     public void useInvalidatedAuthBoundKey()
             throws DeviceNotAvailableException, FileNotFoundException {
-        new InstallMultiple().addApk(APK).run();
+        assumeTrue("Device does not support secure lock",
+                   getDevice().hasFeature("android.software.secure_lock_screen"));
+        new InstallMultiple().addFile(APK).run();
         getDevice().executeShellCommand("cmd lock_settings set-pin 1234");
         runDeviceTests(PKG, CLASS, "testGenerateAuthBoundKey");
-        getDevice().executeShellCommand("cmd lock_settings clear --old 1234 --user 0");
+        getDevice().executeShellCommand("cmd lock_settings clear --old 1234");
         runDeviceTests(PKG, CLASS, "testUseKey");
         getDevice().executeShellCommand("cmd lock_settings set-pin 12345");
         getDevice().executeShellCommand("input keyevent 26");  // Screen on
@@ -63,7 +67,7 @@ public class AuthBoundKeyTest extends BaseAppSecurityTest {
         try {
             runDeviceTests(PKG, CLASS, "testUseKey");
         } finally {
-            getDevice().executeShellCommand("cmd lock_settings clear --old 12345 --user 0");
+            getDevice().executeShellCommand("cmd lock_settings clear --old 12345");
         }
     }
 }

@@ -19,7 +19,7 @@
     <RelativeLayout android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:padding="20dp">
-        <ActivityView android:id="@+id/av_activityview"
+        <android.car.app.CarActivityView android:id="@+id/av_activityview"
                       android:layout_width="match_parent"
                       android:layout_height="match_parent"/>
     </RelativeLayout>

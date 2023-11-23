@@ -24,10 +24,14 @@ from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 import acts.test_utils.wifi.wifi_test_utils as wutils
 import acts.utils
 
+WifiEnums = wutils.WifiEnums
+SSID = WifiEnums.SSID_KEY
 CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT = 5
+SCANS_REQUIRED_TO_FIND_SSID = 5
 LAST_DISCONNECT_TIMEOUT_MILLIS = 5000
 LAST_DISCONNECT_TIMEOUT_SEC = LAST_DISCONNECT_TIMEOUT_MILLIS / 1000
 PRESCAN_DELAY_SEC = 5
+WIFI_TOGGLE_DELAY_SEC = 3
 
 
 class WifiWakeTest(WifiBaseTest):
@@ -39,10 +43,9 @@ class WifiWakeTest(WifiBaseTest):
     * Two APs that can be turned on and off
     """
 
-    def __init__(self, controllers):
-        super().__init__(controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
         # turn location back on
@@ -110,7 +113,15 @@ class WifiWakeTest(WifiBaseTest):
         self.dut.take_bug_report(test_name, begin_time)
         self.dut.cat_adb_log(test_name, begin_time)
 
-    def do_location_scan(self, num_times=1):
+    def find_ssid_in_scan_results(self, scan_results_batches, ssid):
+        scan_results_batch = scan_results_batches[0]
+        scan_results = scan_results_batch["ScanResults"]
+        for scan_result in scan_results:
+            if ssid == scan_result["SSID"]:
+               return True
+        return False
+
+    def do_location_scan(self, num_times=1, ssid_to_find=None):
         scan_settings = {
             "band": wutils.WifiEnums.WIFI_BAND_BOTH,
             "periodInMs": 0,
@@ -143,6 +154,10 @@ class WifiWakeTest(WifiBaseTest):
                     event = self.dut.ed.pop_event(event_name, wait_time)
                     self.log.debug("Event received: %s", event)
                     result_received += 1
+                    scan_results_batches = event["data"]["Results"]
+                    if ssid_to_find and self.find_ssid_in_scan_results(
+                        scan_results_batches, ssid_to_find):
+                        return
             except queue.Empty as error:
                 asserts.assert_true(
                     result_received >= 1,
@@ -188,15 +203,17 @@ class WifiWakeTest(WifiBaseTest):
         self.do_location_scan(CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT + 2)
 
         self.ap_a_on()
-        self.do_location_scan()
+        self.do_location_scan(
+            SCANS_REQUIRED_TO_FIND_SSID, self.ap_a[wutils.WifiEnums.SSID_KEY])
+        time.sleep(WIFI_TOGGLE_DELAY_SEC)
         asserts.assert_true(
             self.dut.droid.wifiCheckState(),
             "Expect Wifi Wake to enable Wifi, but Wifi is disabled.")
 
-    @test_tracker_info(uuid="")
+    @test_tracker_info(uuid="3cecd1c5-54bc-44a2-86f7-ad84625bf094")
     def test_reconnect_wifi_network_suggestion(self):
         """Tests that Wifi Wake re-enables Wifi for app provided suggestion."""
-        self.dut.log.info("Adding network suggestions");
+        self.dut.log.info("Adding network suggestions")
         asserts.assert_true(
             self.dut.droid.wifiAddNetworkSuggestions([self.ap_a]),
             "Failed to add suggestions")
@@ -204,15 +221,23 @@ class WifiWakeTest(WifiBaseTest):
             self.dut.droid.wifiAddNetworkSuggestions([self.ap_b]),
             "Failed to add suggestions")
         # Enable suggestions by the app.
-        self.dut.log.debug("Enabling suggestions from test");
+        self.dut.log.debug("Enabling suggestions from test")
         self.dut.adb.shell("cmd wifi network-suggestions-set-user-approved"
                            + " " + SL4A_APK_NAME + " yes")
         # Ensure network is seen in scan results & auto-connected to.
         self.do_location_scan(2)
         wutils.wait_for_connect(self.dut)
+        current_network = self.dut.droid.wifiGetConnectionInfo()
         self.dut.ed.clear_all_events()
-        self.ap_a_off()
-        self.ap_b_off()
+        if current_network[SSID] == self.ap_a[SSID]:
+            # connected to AP A, so turn AP B off first to prevent the
+            # device from immediately reconnecting to AP B
+            self.ap_b_off()
+            self.ap_a_off()
+        else:
+            self.ap_a_off()
+            self.ap_b_off()
+
         wutils.wait_for_disconnect(self.dut)
         self.log.info("Wifi Disconnected")
         time.sleep(LAST_DISCONNECT_TIMEOUT_SEC * 1.2)
@@ -221,7 +246,9 @@ class WifiWakeTest(WifiBaseTest):
         self.do_location_scan(CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT + 2)
 
         self.ap_a_on()
-        self.do_location_scan()
+        self.do_location_scan(
+            SCANS_REQUIRED_TO_FIND_SSID, self.ap_a[wutils.WifiEnums.SSID_KEY])
+        time.sleep(WIFI_TOGGLE_DELAY_SEC)
         asserts.assert_true(
             self.dut.droid.wifiCheckState(),
             "Expect Wifi Wake to enable Wifi, but Wifi is disabled.")
@@ -241,7 +268,9 @@ class WifiWakeTest(WifiBaseTest):
         # evict AP A from Wakeup Lock
         self.do_location_scan(CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT + 2)
         self.ap_a_on()
-        self.do_location_scan()
+        self.do_location_scan(
+            SCANS_REQUIRED_TO_FIND_SSID, self.ap_a[wutils.WifiEnums.SSID_KEY])
+        time.sleep(WIFI_TOGGLE_DELAY_SEC)
         asserts.assert_true(
             self.dut.droid.wifiCheckState(),
             "Expect Wifi Wake to enable Wifi, but Wifi is disabled.")
@@ -283,7 +312,9 @@ class WifiWakeTest(WifiBaseTest):
         time.sleep(PRESCAN_DELAY_SEC)
         self.do_location_scan(CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT + 2)
         self.ap_a_on()
-        self.do_location_scan()
+        self.do_location_scan(
+            SCANS_REQUIRED_TO_FIND_SSID, self.ap_a[wutils.WifiEnums.SSID_KEY])
+        time.sleep(WIFI_TOGGLE_DELAY_SEC)
         asserts.assert_true(
             self.dut.droid.wifiCheckState(),
             "Expect Wifi Wake to enable Wifi, but Wifi is disabled.")
@@ -323,7 +354,9 @@ class WifiWakeTest(WifiBaseTest):
         self.ap_b_off()
         self.do_location_scan(CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT + 2)
         self.ap_a_on()
-        self.do_location_scan()
+        self.do_location_scan(
+            SCANS_REQUIRED_TO_FIND_SSID, self.ap_a[wutils.WifiEnums.SSID_KEY])
+        time.sleep(WIFI_TOGGLE_DELAY_SEC)
         asserts.assert_true(
             self.dut.droid.wifiCheckState(),
             "Expect Wifi Wake to enable Wifi, but Wifi is disabled.")
@@ -351,14 +384,11 @@ class WifiWakeTest(WifiBaseTest):
         self.ap_a_atten.set_atten(30)
         self.ap_b_atten.set_atten(0)
 
-        self.do_location_scan()
+        self.do_location_scan(
+            SCANS_REQUIRED_TO_FIND_SSID, self.ap_b[wutils.WifiEnums.SSID_KEY])
+        time.sleep(WIFI_TOGGLE_DELAY_SEC)
         asserts.assert_true(
             self.dut.droid.wifiCheckState(),
             "Expect Wifi Wake to enable Wifi, but Wifi is disabled.")
         expected_ssid = self.ap_b[wutils.WifiEnums.SSID_KEY]
-        actual_ssid = self.dut.droid.wifiGetConnectionInfo()[
-            wutils.WifiEnums.SSID_KEY]
-        asserts.assert_equal(
-            expected_ssid, actual_ssid,
-            ("Expected to connect to SSID '{}', but actually connected to "
-             "'{}' instead.").format(expected_ssid, actual_ssid))
+        wutils.wait_for_connect(self.dut, expected_ssid)

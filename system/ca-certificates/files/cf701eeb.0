@@ -25,7 +25,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             0c:f0:8e:5c:08:16:a5:ad:42:7f:f0:eb:27:18:59:d0
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=US, O=SecureTrust Corporation, CN=SecureTrust CA
         Validity
             Not Before: Nov  7 19:31:18 2006 GMT
@@ -33,7 +33,7 @@ Certificate:
         Subject: C=US, O=SecureTrust Corporation, CN=SecureTrust CA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:ab:a4:81:e5:95:cd:f5:f6:14:8e:c2:4f:ca:d4:
                     e2:78:95:58:9c:41:e1:0d:99:40:24:17:39:91:33:

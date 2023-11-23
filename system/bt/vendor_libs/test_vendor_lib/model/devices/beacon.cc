@@ -14,31 +14,27 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "beacon"
-
 #include "beacon.h"
 
-#include "le_advertisement.h"
 #include "model/setup/device_boutique.h"
-#include "osi/include/log.h"
 
 using std::vector;
 
 namespace test_vendor_lib {
 
-bool Beacon::registered_ = DeviceBoutique::Register(LOG_TAG, &Beacon::Create);
+bool Beacon::registered_ = DeviceBoutique::Register("beacon", &Beacon::Create);
 
 Beacon::Beacon() {
   advertising_interval_ms_ = std::chrono::milliseconds(1280);
-  properties_.SetLeAdvertisementType(BTM_BLE_NON_CONNECT_EVT);
+  properties_.SetLeAdvertisementType(0x03 /* NON_CONNECT */);
   properties_.SetLeAdvertisement({0x0F,  // Length
-                                  BTM_BLE_AD_TYPE_NAME_CMPL, 'g', 'D', 'e', 'v', 'i', 'c', 'e', '-', 'b', 'e', 'a', 'c',
+                                  0x09 /* TYPE_NAME_CMPL */, 'g', 'D', 'e', 'v', 'i', 'c', 'e', '-', 'b', 'e', 'a', 'c',
                                   'o', 'n',
                                   0x02,  // Length
-                                  BTM_BLE_AD_TYPE_FLAG, BTM_BLE_BREDR_NOT_SPT | BTM_BLE_GEN_DISC_FLAG});
+                                  0x01 /* TYPE_FLAG */, 0x4 /* BREDR_NOT_SPT */ | 0x2 /* GEN_DISC_FLAG */});
 
   properties_.SetLeScanResponse({0x05,  // Length
-                                 BTM_BLE_AD_TYPE_NAME_SHORT, 'b', 'e', 'a', 'c'});
+                                 0x08 /* TYPE_NAME_SHORT */, 'b', 'e', 'a', 'c'});
 }
 
 std::string Beacon::GetTypeString() const {
@@ -63,29 +59,35 @@ void Beacon::Initialize(const vector<std::string>& args) {
 }
 
 void Beacon::TimerTick() {
-  if (IsAdvertisementAvailable(std::chrono::milliseconds(5000))) {
-    std::unique_ptr<packets::LeAdvertisementBuilder> ad = packets::LeAdvertisementBuilder::Create(
-        LeAdvertisement::AddressType::PUBLIC,
-        static_cast<LeAdvertisement::AdvertisementType>(properties_.GetLeAdvertisementType()),
+  if (IsAdvertisementAvailable()) {
+    last_advertisement_ = std::chrono::steady_clock::now();
+    auto ad = model::packets::LeAdvertisementBuilder::Create(
+        properties_.GetLeAddress(), Address::kEmpty,
+        model::packets::AddressType::PUBLIC,
+        static_cast<model::packets::AdvertisementType>(
+            properties_.GetLeAdvertisementType()),
         properties_.GetLeAdvertisement());
-    std::shared_ptr<packets::LinkLayerPacketBuilder> to_send =
-        packets::LinkLayerPacketBuilder::WrapLeAdvertisement(std::move(ad), properties_.GetLeAddress());
-    std::vector<std::shared_ptr<PhyLayer>> le_phys = phy_layers_[Phy::Type::LOW_ENERGY];
-    for (std::shared_ptr<PhyLayer> phy : le_phys) {
+    std::shared_ptr<model::packets::LinkLayerPacketBuilder> to_send =
+        std::move(ad);
+
+    for (auto phy : phy_layers_[Phy::Type::LOW_ENERGY]) {
       phy->Send(to_send);
     }
   }
 }
 
-void Beacon::IncomingPacket(packets::LinkLayerPacketView packet) {
-  if (packet.GetDestinationAddress() == properties_.GetLeAddress() && packet.GetType() == Link::PacketType::LE_SCAN) {
-    std::unique_ptr<packets::LeAdvertisementBuilder> scan_response = packets::LeAdvertisementBuilder::Create(
-        LeAdvertisement::AddressType::PUBLIC, LeAdvertisement::AdvertisementType::SCAN_RESPONSE,
+void Beacon::IncomingPacket(model::packets::LinkLayerPacketView packet) {
+  if (packet.GetDestinationAddress() == properties_.GetLeAddress() &&
+      packet.GetType() == model::packets::PacketType::LE_SCAN) {
+    auto scan_response = model::packets::LeScanResponseBuilder::Create(
+        properties_.GetLeAddress(), packet.GetSourceAddress(),
+        model::packets::AddressType::PUBLIC,
+        model::packets::AdvertisementType::SCAN_RESPONSE,
         properties_.GetLeScanResponse());
-    std::shared_ptr<packets::LinkLayerPacketBuilder> to_send = packets::LinkLayerPacketBuilder::WrapLeScanResponse(
-        std::move(scan_response), properties_.GetLeAddress(), packet.GetSourceAddress());
-    std::vector<std::shared_ptr<PhyLayer>> le_phys = phy_layers_[Phy::Type::LOW_ENERGY];
-    for (auto phy : le_phys) {
+    std::shared_ptr<model::packets::LinkLayerPacketBuilder> to_send =
+        std::move(scan_response);
+
+    for (auto phy : phy_layers_[Phy::Type::LOW_ENERGY]) {
       phy->Send(to_send);
     }
   }

@@ -27,15 +27,15 @@ java_test_host {
     data: [
         // Include the JDI classes in the testcases directory.
         ":jdi-support",
+        ":CtsJdwpTunnelSampleApp",
     ],
 
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 
     // LOCAL_CTS_TEST_PACKAGE := android.host.jdwptunnel
-
 }

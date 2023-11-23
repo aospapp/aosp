@@ -57,6 +57,18 @@ interface IRadioAppService {
     void step(boolean forward, in ITuneCallback callback);
 
     /**
+     * Skips forward or backwards; the meaning of "skip" is defined by setSkipMode().
+     */
+    void skip(boolean forward, in ITuneCallback callback);
+
+    /**
+      * Sets the behavior of skip()
+      *
+      * @param mode must be a valid SkipMode enum value.
+      */
+    void setSkipMode(int mode);
+
+    /**
      * Mutes or resumes audio.
      *
      * @param muted {@code true} to mute, {@code false} to resume audio.

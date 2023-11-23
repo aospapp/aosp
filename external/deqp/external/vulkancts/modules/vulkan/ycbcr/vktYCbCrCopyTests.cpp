@@ -59,7 +59,6 @@ namespace ycbcr
 {
 namespace
 {
-typedef de::SharedPtr<vk::Allocation> AllocationSp;
 
 struct ImageConfig
 {
@@ -93,58 +92,48 @@ struct TestConfig
 	ImageConfig	dst;
 };
 
+void checkFormatSupport(Context& context, const ImageConfig& config)
+{
+	try
+	{
+		const vk::VkFormatProperties	properties	(vk::getPhysicalDeviceFormatProperties(context.getInstanceInterface(), context.getPhysicalDevice(), config.format));
+		const vk::VkFormatFeatureFlags	features	(config.tiling == vk::VK_IMAGE_TILING_OPTIMAL
+													? properties.optimalTilingFeatures
+													: properties.linearTilingFeatures);
+
+		if ((features & vk::VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) == 0
+			&& (features & vk::VK_FORMAT_FEATURE_TRANSFER_DST_BIT) == 0)
+		{
+			TCU_THROW(NotSupportedError, "Format doesn't support copies");
+		}
+
+		if (config.disjoint && ((features & vk::VK_FORMAT_FEATURE_DISJOINT_BIT) == 0))
+			TCU_THROW(NotSupportedError, "Format doesn't support disjoint planes");
+	}
+	catch (const vk::Error& err)
+	{
+		if (err.getError() == vk::VK_ERROR_FORMAT_NOT_SUPPORTED)
+			TCU_THROW(NotSupportedError, "Format not supported");
+
+		throw;
+	}
+}
+
 void checkSupport (Context& context, const TestConfig config)
 {
+	const vk::VkPhysicalDeviceLimits limits = context.getDeviceProperties().limits;
+
+	if (config.src.size.x() > limits.maxImageDimension2D || config.src.size.y() > limits.maxImageDimension2D
+		|| config.dst.size.x() > limits.maxImageDimension2D || config.dst.size.y() > limits.maxImageDimension2D)
+	{
+		TCU_THROW(NotSupportedError, "Requested image dimensions not supported");
+	}
+
 	if (!de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), string("VK_KHR_sampler_ycbcr_conversion")))
 		TCU_THROW(NotSupportedError, "Extension VK_KHR_sampler_ycbcr_conversion not supported");
 
-	try
-	{
-		const vk::VkFormatProperties	properties	(vk::getPhysicalDeviceFormatProperties(context.getInstanceInterface(), context.getPhysicalDevice(), config.src.format));
-		const vk::VkFormatFeatureFlags	features	(config.src.tiling == vk::VK_IMAGE_TILING_OPTIMAL
-													? properties.optimalTilingFeatures
-													: properties.linearTilingFeatures);
-
-		if ((features & vk::VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) == 0
-			&& (features & vk::VK_FORMAT_FEATURE_TRANSFER_DST_BIT) == 0)
-		{
-			TCU_THROW(NotSupportedError, "Source format doesn't support copies");
-		}
-
-		if (config.src.disjoint && ((features & vk::VK_FORMAT_FEATURE_DISJOINT_BIT) == 0))
-			TCU_THROW(NotSupportedError, "Format doesn'tsupport  disjoint planes");
-	}
-	catch (const vk::Error& err)
-	{
-		if (err.getError() == vk::VK_ERROR_FORMAT_NOT_SUPPORTED)
-			TCU_THROW(NotSupportedError, "Format not supported");
-
-		throw;
-	}
-
-	try
-	{
-		const vk::VkFormatProperties	properties	(vk::getPhysicalDeviceFormatProperties(context.getInstanceInterface(), context.getPhysicalDevice(), config.dst.format));
-		const vk::VkFormatFeatureFlags	features	(config.dst.tiling == vk::VK_IMAGE_TILING_OPTIMAL
-													? properties.optimalTilingFeatures
-													: properties.linearTilingFeatures);
-
-		if ((features & vk::VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) == 0
-			&& (features & vk::VK_FORMAT_FEATURE_TRANSFER_DST_BIT) == 0)
-		{
-			TCU_THROW(NotSupportedError, "Source format doesn't support copies");
-		}
-
-		if (config.dst.disjoint && ((features & vk::VK_FORMAT_FEATURE_DISJOINT_BIT) == 0))
-			TCU_THROW(NotSupportedError, "Format doesn't disjoint planes");
-	}
-	catch (const vk::Error& err)
-	{
-		if (err.getError() == vk::VK_ERROR_FORMAT_NOT_SUPPORTED)
-			TCU_THROW(NotSupportedError, "Format not supported");
-
-		throw;
-	}
+	checkFormatSupport(context, config.src);
+	checkFormatSupport(context, config.dst);
 }
 
 vk::Move<vk::VkImage> createImage (const vk::DeviceInterface&	vkd,
@@ -175,134 +164,6 @@ vk::Move<vk::VkImage> createImage (const vk::DeviceInterface&	vkd,
 	};
 
 	return vk::createImage(vkd, device, &createInfo);
-}
-
-vk::VkFormat getPlaneCompatibleFormat (vk::VkFormat format, deUint32 planeNdx)
-{
-	DE_ASSERT(planeNdx < 3);
-
-	switch (format)
-	{
-		case vk::VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
-			return vk::VK_FORMAT_R8_UNORM;
-
-		case vk::VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R8_UNORM;
-			else
-				return vk::VK_FORMAT_R8G8_UNORM;
-		}
-
-		case vk::VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM:
-			return vk::VK_FORMAT_R8_UNORM;
-
-		case vk::VK_FORMAT_G8_B8R8_2PLANE_422_UNORM:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R8_UNORM;
-			else
-				return vk::VK_FORMAT_R8G8_UNORM;
-		}
-
-		case vk::VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM:
-			return vk::VK_FORMAT_R8_UNORM;
-
-		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16:
-			return vk::VK_FORMAT_R10X6_UNORM_PACK16;
-
-		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R10X6_UNORM_PACK16;
-			else
-				return vk::VK_FORMAT_R10X6G10X6_UNORM_2PACK16;
-		}
-
-		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16:
-			return vk::VK_FORMAT_R10X6_UNORM_PACK16;
-
-		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R10X6_UNORM_PACK16;
-			else
-				return vk::VK_FORMAT_R10X6G10X6_UNORM_2PACK16;
-		}
-
-		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16:
-			return vk::VK_FORMAT_R10X6_UNORM_PACK16;
-
-		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16:
-			return vk::VK_FORMAT_R12X4_UNORM_PACK16;
-
-		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R12X4_UNORM_PACK16;
-			else
-				return vk::VK_FORMAT_R12X4G12X4_UNORM_2PACK16;
-		}
-
-		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16:
-			return vk::VK_FORMAT_R12X4_UNORM_PACK16;
-
-		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R12X4_UNORM_PACK16;
-			else
-				return vk::VK_FORMAT_R12X4G12X4_UNORM_2PACK16;
-		}
-
-		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16:
-			return vk::VK_FORMAT_R12X4_UNORM_PACK16;
-
-		case vk::VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM:
-			return vk::VK_FORMAT_R16_UNORM;
-
-		case vk::VK_FORMAT_G16_B16R16_2PLANE_420_UNORM:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R16_UNORM;
-			else
-				return vk::VK_FORMAT_R16G16_UNORM;
-		}
-
-		case vk::VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM:
-			return vk::VK_FORMAT_R16_UNORM;
-
-		case vk::VK_FORMAT_G16_B16R16_2PLANE_422_UNORM:
-		{
-			DE_ASSERT(planeNdx < 2);
-
-			if (planeNdx == 0)
-				return vk::VK_FORMAT_R16_UNORM;
-			else
-				return vk::VK_FORMAT_R16G16_UNORM;
-		}
-
-		case vk::VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM:
-			return vk::VK_FORMAT_R16_UNORM;
-
-		default:
-			DE_ASSERT(planeNdx == 0);
-			return format;
-	}
 }
 
 bool isCompatible (vk::VkFormat	srcFormat,
@@ -514,25 +375,6 @@ bool isCompatible (vk::VkFormat	srcFormat,
 	}
 }
 
-UVec2 getBlockSize (vk::VkFormat format)
-{
-	switch (format)
-	{
-		case vk::VK_FORMAT_G8B8G8R8_422_UNORM:
-		case vk::VK_FORMAT_B8G8R8G8_422_UNORM:
-		case vk::VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16:
-		case vk::VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16:
-		case vk::VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16:
-		case vk::VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16:
-		case vk::VK_FORMAT_G16B16G16R16_422_UNORM:
-		case vk::VK_FORMAT_B16G16R16G16_422_UNORM:
-			return UVec2(2, 1);
-
-		default:
-			return UVec2(1u, 1u);
-	}
-}
-
 deUint32 getBlockByteSize (vk::VkFormat format)
 {
 	switch (format)
@@ -590,16 +432,6 @@ deUint32 getBlockByteSize (vk::VkFormat format)
 	}
 }
 
-UVec2 getPlaneSize (const vk::PlanarFormatDescription&	info,
-					deUint32							planeNdx,
-					const UVec2&						size)
-{
-	if (info.numPlanes > 1)
-		return UVec2(size.x() / info.planes[planeNdx].widthDivisor, size.y() / info.planes[planeNdx].heightDivisor);
-	else
-		return size;
-}
-
 UVec2 randomUVec2 (de::Random&	rng,
 				   const UVec2&	min,
 				   const UVec2&	max)
@@ -628,8 +460,8 @@ void genCopies (de::Random&					rng,
 	{
 		for (deUint32 dstPlaneNdx = 0; dstPlaneNdx < dstPlaneInfo.numPlanes; dstPlaneNdx++)
 		{
-			const vk::VkFormat srcPlaneFormat (getPlaneCompatibleFormat(srcFormat, srcPlaneNdx));
-			const vk::VkFormat dstPlaneFormat (getPlaneCompatibleFormat(dstFormat, dstPlaneNdx));
+			const vk::VkFormat srcPlaneFormat (getPlaneCompatibleFormat(srcPlaneInfo, srcPlaneNdx));
+			const vk::VkFormat dstPlaneFormat (getPlaneCompatibleFormat(dstPlaneInfo, dstPlaneNdx));
 
 			if (isCompatible(srcPlaneFormat, dstPlaneFormat))
 				pairs.push_back(std::make_pair(srcPlaneNdx, dstPlaneNdx));
@@ -645,21 +477,21 @@ void genCopies (de::Random&					rng,
 		const pair<deUint32, deUint32>	planes			(rng.choose<pair<deUint32, deUint32> >(pairs.begin(), pairs.end()));
 
 		const deUint32					srcPlaneNdx			(planes.first);
-		const vk::VkFormat				srcPlaneFormat		(getPlaneCompatibleFormat(srcFormat, srcPlaneNdx));
-		const UVec2						srcBlockSize		(getBlockSize(srcPlaneFormat));
-		const UVec2						srcPlaneSize		(getPlaneSize(srcPlaneInfo, srcPlaneNdx, srcSize));
-		const UVec2						srcPlaneBlockSize	(srcPlaneSize / srcBlockSize);
+		const vk::VkFormat				srcPlaneFormat		(getPlaneCompatibleFormat(srcPlaneInfo, srcPlaneNdx));
+		const UVec2						srcBlockExtent		(getBlockExtent(srcPlaneFormat));
+		const UVec2						srcPlaneExtent		(getPlaneExtent(srcPlaneInfo, srcSize, srcPlaneNdx, 0));
+		const UVec2						srcPlaneBlockExtent	(srcPlaneExtent / srcBlockExtent);
 
 		const deUint32					dstPlaneNdx			(planes.second);
-		const vk::VkFormat				dstPlaneFormat		(getPlaneCompatibleFormat(dstFormat, dstPlaneNdx));
-		const UVec2						dstBlockSize		(getBlockSize(dstPlaneFormat));
-		const UVec2						dstPlaneSize		(getPlaneSize(dstPlaneInfo, dstPlaneNdx, dstSize));
-		const UVec2						dstPlaneBlockSize	(dstPlaneSize / dstBlockSize);
+		const vk::VkFormat				dstPlaneFormat		(getPlaneCompatibleFormat(dstPlaneInfo, dstPlaneNdx));
+		const UVec2						dstBlockExtent		(getBlockExtent(dstPlaneFormat));
+		const UVec2						dstPlaneExtent		(getPlaneExtent(dstPlaneInfo, dstSize, dstPlaneNdx, 0));
+		const UVec2						dstPlaneBlockExtent	(dstPlaneExtent / dstBlockExtent);
 
-		const UVec2						copyBlockSize		(randomUVec2(rng, UVec2(1u, 1u), tcu::min(srcPlaneBlockSize, dstPlaneBlockSize)));
-		const UVec2						srcOffset			(srcBlockSize * randomUVec2(rng, UVec2(0u, 0u), srcPlaneBlockSize - copyBlockSize));
-		const UVec2						dstOffset			(dstBlockSize * randomUVec2(rng, UVec2(0u, 0u), dstPlaneBlockSize - copyBlockSize));
-		const UVec2						copySize			(copyBlockSize * srcBlockSize);
+		const UVec2						copyBlockExtent		(randomUVec2(rng, UVec2(1u, 1u), tcu::min(srcPlaneBlockExtent, dstPlaneBlockExtent)));
+		const UVec2						srcOffset			(srcBlockExtent * randomUVec2(rng, UVec2(0u, 0u), srcPlaneBlockExtent - copyBlockExtent));
+		const UVec2						dstOffset			(dstBlockExtent * randomUVec2(rng, UVec2(0u, 0u), dstPlaneBlockExtent - copyBlockExtent));
+		const UVec2						copyExtent			(copyBlockExtent * srcBlockExtent);
 		const vk::VkImageCopy			copy				=
 		{
 			// src
@@ -688,8 +520,8 @@ void genCopies (de::Random&					rng,
 			},
 			// size
 			{
-				copySize.x(),
-				copySize.y(),
+				copyExtent.x(),
+				copyExtent.y(),
 				1u
 			}
 		};
@@ -852,36 +684,36 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 				const deUint32			srcPlaneNdx			(copy.srcSubresource.aspectMask != vk::VK_IMAGE_ASPECT_COLOR_BIT
 															? vk::getAspectPlaneNdx((vk::VkImageAspectFlagBits)copy.srcSubresource.aspectMask)
 															: 0u);
-				const UVec2				srcPlaneSize		(getPlaneSize(srcData.getDescription(), srcPlaneNdx, config.src.size));
+				const UVec2				srcPlaneExtent		(getPlaneExtent(srcData.getDescription(), config.src.size, srcPlaneNdx, 0));
 
 				const vk::VkFormat		srcPlaneFormat		(getPlaneCompatibleFormat(config.src.format, srcPlaneNdx));
-				const UVec2				srcBlockSize		(getBlockSize(srcPlaneFormat));
+				const UVec2				srcBlockExtent		(getBlockExtent(srcPlaneFormat));
 
 				const deUint32			blockSizeBytes		(getBlockByteSize(srcPlaneFormat));
 
-				const UVec2				srcPlaneBlockSize	(srcPlaneSize / srcBlockSize);
-				const UVec2				srcBlockOffset		(copy.srcOffset.x / srcBlockSize.x(), copy.srcOffset.y / srcBlockSize.y());
-				const UVec2				srcBlockPitch		(blockSizeBytes, blockSizeBytes * srcPlaneBlockSize.x());
+				const UVec2				srcPlaneBlockExtent	(srcPlaneExtent / srcBlockExtent);
+				const UVec2				srcBlockOffset		(copy.srcOffset.x / srcBlockExtent.x(), copy.srcOffset.y / srcBlockExtent.y());
+				const UVec2				srcBlockPitch		(blockSizeBytes, blockSizeBytes * srcPlaneBlockExtent.x());
 
 				const deUint32			dstPlaneNdx			(copy.dstSubresource.aspectMask != vk::VK_IMAGE_ASPECT_COLOR_BIT
 															? vk::getAspectPlaneNdx((vk::VkImageAspectFlagBits)copy.dstSubresource.aspectMask)
 															: 0u);
-				const UVec2				dstPlaneSize		(getPlaneSize(dstData.getDescription(), dstPlaneNdx, config.dst.size));
+				const UVec2				dstPlaneExtent		(getPlaneExtent(dstData.getDescription(), config.dst.size, dstPlaneNdx, 0));
 
 				const vk::VkFormat		dstPlaneFormat		(getPlaneCompatibleFormat(config.dst.format, dstPlaneNdx));
-				const UVec2				dstBlockSize		(getBlockSize(dstPlaneFormat));
+				const UVec2				dstBlockExtent		(getBlockExtent(dstPlaneFormat));
 
-				const UVec2				dstPlaneBlockSize	(dstPlaneSize / dstBlockSize);
-				const UVec2				dstBlockOffset		(copy.dstOffset.x / dstBlockSize.x(), copy.dstOffset.y / dstBlockSize.y());
-				const UVec2				dstBlockPitch		(blockSizeBytes, blockSizeBytes * dstPlaneBlockSize.x());
+				const UVec2				dstPlaneBlockExtent	(dstPlaneExtent / dstBlockExtent);
+				const UVec2				dstBlockOffset		(copy.dstOffset.x / dstBlockExtent.x(), copy.dstOffset.y / dstBlockExtent.y());
+				const UVec2				dstBlockPitch		(blockSizeBytes, blockSizeBytes * dstPlaneBlockExtent.x());
 
-				const UVec2				blockSize			(copy.extent.width / srcBlockSize.x(), copy.extent.height / srcBlockSize.y());
+				const UVec2				blockExtent			(copy.extent.width / srcBlockExtent.x(), copy.extent.height / srcBlockExtent.y());
 
 				DE_ASSERT(blockSizeBytes == getBlockByteSize(dstPlaneFormat));
 
-				for (deUint32 y = 0; y < blockSize.y(); y++)
+				for (deUint32 y = 0; y < blockExtent.y(); y++)
 				{
-					const deUint32	size	= blockSize.x() * blockSizeBytes;
+					const deUint32	size	= blockExtent.x() * blockSizeBytes;
 					const deUint32	srcPos	= tcu::dot(srcBlockPitch, UVec2(srcBlockOffset.x(), srcBlockOffset.y() + y));
 					const deUint32	dstPos	= tcu::dot(dstBlockPitch, UVec2(dstBlockOffset.x(), dstBlockOffset.y() + y));
 
@@ -895,7 +727,8 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 
 			for (deUint32 planeNdx = 0; planeNdx < result.getDescription().numPlanes; ++planeNdx)
 			{
-				for (size_t byteNdx = 0; byteNdx < result.getPlaneSize(planeNdx); byteNdx++)
+				deUint32 planeSize = vk::getPlaneSizeInBytes(result.getDescription(), result.getSize(), planeNdx, 0u, 1u);
+				for (size_t byteNdx = 0; byteNdx < planeSize; byteNdx++)
 				{
 					const deUint8	res	= ((const deUint8*)result.getPlanePtr(planeNdx))[byteNdx];
 					const deUint8	ref	= ((const deUint8*)reference.getPlanePtr(planeNdx))[byteNdx];
@@ -977,7 +810,7 @@ bool isCopyCompatible (vk::VkFormat srcFormat, vk::VkFormat dstFormat)
 	return false;
 }
 
-void initTests (tcu::TestCaseGroup* testGroup)
+void initYcbcrDefaultCopyTests (tcu::TestCaseGroup* testGroup)
 {
 	const vk::VkFormat ycbcrFormats[] =
 	{
@@ -1096,11 +929,128 @@ void initTests (tcu::TestCaseGroup* testGroup)
 	}
 }
 
+void initYcbcrDimensionsCopyTests (tcu::TestCaseGroup* testGroup)
+{
+	tcu::TestContext&	testCtx				= testGroup->getTestContext();
+
+	const vk::VkFormat	testFormats[]		=
+	{
+		// 8-bit
+		vk::VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM,
+		// 10-bit
+		vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16,
+		// 12-bit
+		vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16,
+		// 16-bit
+		vk::VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM,
+		// Non-ycbcr
+		vk::VK_FORMAT_R8G8B8A8_UNORM,
+	};
+
+	const tcu::UVec2	imageDimensions[]	=
+	{
+		// Wide: large pot x small pot
+		tcu::UVec2(4096,	4u),
+		tcu::UVec2(8192,	4u),
+		tcu::UVec2(16384,	4u),
+		tcu::UVec2(32768,	4u),
+
+		// Wide: large pot x small npot
+		tcu::UVec2(4096,	6u),
+		tcu::UVec2(8192,	6u),
+		tcu::UVec2(16384,	6u),
+		tcu::UVec2(32768,	6u),
+
+		// Tall: small pot x large pot
+		tcu::UVec2(4u, 4096),
+		tcu::UVec2(4u, 8192),
+		tcu::UVec2(4u, 16384),
+		tcu::UVec2(4u, 32768),
+
+		// Tall: small npot x large pot
+		tcu::UVec2(6u, 4096),
+		tcu::UVec2(6u, 8192),
+		tcu::UVec2(6u, 16384),
+		tcu::UVec2(6u, 32768)
+	};
+
+	const struct
+	{
+		const char*			name;
+		vk::VkImageTiling	value;
+	} imageTilings[] =
+	{
+		{ "linear",		vk::VK_IMAGE_TILING_LINEAR	},
+		{ "optimal",	vk::VK_IMAGE_TILING_OPTIMAL	}
+	};
+
+	for (size_t imageDimensionNdx = 0; imageDimensionNdx < DE_LENGTH_OF_ARRAY(imageDimensions); imageDimensionNdx++)
+	{
+		const UVec2						srcSize			(imageDimensions[imageDimensionNdx]);
+		const UVec2						dstSize			(imageDimensions[imageDimensionNdx]);
+		const string					dimensionsName	("src" + de::toString(srcSize.x()) + "x" + de::toString(srcSize.y()) + "_dst" + de::toString(dstSize.x()) + "x" + de::toString(dstSize.y()));
+
+		de::MovePtr<tcu::TestCaseGroup>	dimensionGroup	(new tcu::TestCaseGroup(testCtx, dimensionsName.c_str(), ("Image dimensions " + dimensionsName).c_str()));
+
+		for (size_t srcFormatNdx = 0; srcFormatNdx < DE_LENGTH_OF_ARRAY(testFormats); srcFormatNdx++)
+		{
+			const vk::VkFormat				srcFormat		(testFormats[srcFormatNdx]);
+			const string					srcFormatName	(de::toLower(std::string(getFormatName(srcFormat)).substr(10)));
+			de::MovePtr<tcu::TestCaseGroup>	srcFormatGroup	(new tcu::TestCaseGroup(testCtx, srcFormatName.c_str(), ("Tests for copies using format " + srcFormatName).c_str()));
+
+			for (size_t dstFormatNdx = 0; dstFormatNdx < DE_LENGTH_OF_ARRAY(testFormats); dstFormatNdx++)
+			{
+				const vk::VkFormat	dstFormat		(testFormats[dstFormatNdx]);
+				const string		dstFormatName	(de::toLower(std::string(getFormatName(dstFormat)).substr(10)));
+
+				if ((!vk::isYCbCrFormat(srcFormat) && !vk::isYCbCrFormat(dstFormat))
+						|| !isCopyCompatible(srcFormat, dstFormat))
+					continue;
+
+				de::MovePtr<tcu::TestCaseGroup>	dstFormatGroup	(new tcu::TestCaseGroup(testCtx, dstFormatName.c_str(), ("Tests for copies using format " + dstFormatName).c_str()));
+
+				for (size_t srcTilingNdx = 0; srcTilingNdx < DE_LENGTH_OF_ARRAY(imageTilings); srcTilingNdx++)
+				{
+					const vk::VkImageTiling	srcTiling		= imageTilings[srcTilingNdx].value;
+					const char* const		srcTilingName	= imageTilings[srcTilingNdx].name;
+
+					for (size_t dstTilingNdx = 0; dstTilingNdx < DE_LENGTH_OF_ARRAY(imageTilings); dstTilingNdx++)
+					{
+						const vk::VkImageTiling	dstTiling		= imageTilings[dstTilingNdx].value;
+						const char* const		dstTilingName	= imageTilings[dstTilingNdx].name;
+
+						for (size_t srcDisjointNdx = 0; srcDisjointNdx < 2; srcDisjointNdx++)
+						for (size_t dstDisjointNdx = 0; dstDisjointNdx < 2; dstDisjointNdx++)
+						{
+							const bool			srcDisjoint	= srcDisjointNdx == 1;
+							const bool			dstDisjoint	= dstDisjointNdx == 1;
+							const TestConfig	config		(ImageConfig(srcFormat, srcTiling, srcDisjoint, srcSize), ImageConfig(dstFormat, dstTiling, dstDisjoint, dstSize));
+
+							addFunctionCase(dstFormatGroup.get(), string(srcTilingName) + (srcDisjoint ? "_disjoint_" : "_") + string(dstTilingName) + (dstDisjoint ? "_disjoint" : ""), "", checkSupport, imageCopyTest, config);
+						}
+					}
+				}
+
+				srcFormatGroup->addChild(dstFormatGroup.release());
+			}
+
+			dimensionGroup->addChild(srcFormatGroup.release());
+		}
+
+		testGroup->addChild(dimensionGroup.release());
+	}
+}
+
 } // anonymous
 
 tcu::TestCaseGroup* createCopyTests (tcu::TestContext& testCtx)
 {
-	return createTestGroup(testCtx, "copy", "YCbCr Format Copy Tests", initTests);
+	return createTestGroup(testCtx, "copy", "YCbCr Format Copy Tests", initYcbcrDefaultCopyTests);
+}
+
+tcu::TestCaseGroup* createDimensionsCopyTests (tcu::TestContext& testCtx)
+{
+	return createTestGroup(testCtx, "copy_dimensions", "YCbCr format copy tests between different image dimensions", initYcbcrDimensionsCopyTests);
 }
 
 } // ycbcr

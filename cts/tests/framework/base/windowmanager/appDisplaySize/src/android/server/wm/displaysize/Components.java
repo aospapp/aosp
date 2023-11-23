@@ -23,11 +23,4 @@ public class Components extends ComponentsBase {
 
     public static final ComponentName SMALLEST_WIDTH_ACTIVITY =
             component(Components.class, "SmallestWidthActivity");
-
-    /**
-     * Extra key to launch another activity. The extra value is activity's component name.
-     */
-    public static class SmallestWidthActivity {
-        public static final String EXTRA_LAUNCH_ANOTHER_ACTIVITY = "launch_another_activity";
-    }
 }

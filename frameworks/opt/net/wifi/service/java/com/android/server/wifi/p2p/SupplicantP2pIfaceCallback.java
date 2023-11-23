@@ -285,9 +285,9 @@ public class SupplicantP2pIfaceCallback extends ISupplicantP2pIfaceCallback.Stub
         group.setPassphrase(passphrase);
 
         if (isPersistent) {
-            group.setNetworkId(WifiP2pGroup.PERSISTENT_NET_ID);
+            group.setNetworkId(WifiP2pGroup.NETWORK_ID_PERSISTENT);
         } else {
-            group.setNetworkId(WifiP2pGroup.TEMPORARY_NET_ID);
+            group.setNetworkId(WifiP2pGroup.NETWORK_ID_TEMPORARY);
         }
 
         WifiP2pDevice owner = new WifiP2pDevice();

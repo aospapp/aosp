@@ -20,8 +20,10 @@ import android.content.Context;
 import android.hardware.biometrics.BiometricConstants;
 import android.hardware.biometrics.BiometricsProtoEnums;
 import android.hardware.face.FaceManager;
+import android.hardware.fingerprint.FingerprintManager;
 import android.util.Slog;
-import android.util.StatsLog;
+
+import com.android.internal.util.FrameworkStatsLog;
 
 /**
  * Abstract class that adds logging functionality to the ClientMonitor classes.
@@ -32,6 +34,10 @@ public abstract class LoggableMonitor {
     public static final boolean DEBUG = false;
 
     private long mFirstAcquireTimeMs;
+
+    protected long getFirstAcquireTimeMs() {
+        return mFirstAcquireTimeMs;
+    }
 
     /**
      * Only valid for AuthenticationClient.
@@ -64,8 +70,12 @@ public abstract class LoggableMonitor {
 
     protected final void logOnAcquired(Context context, int acquiredInfo, int vendorCode,
             int targetUserId) {
-        if (statsModality() == BiometricsProtoEnums.MODALITY_FACE) {
-            if (acquiredInfo == FaceManager.FACE_ACQUIRED_START) {
+
+        final boolean isFace = statsModality() == BiometricsProtoEnums.MODALITY_FACE;
+        final boolean isFingerprint = statsModality() == BiometricsProtoEnums.MODALITY_FINGERPRINT;
+        if (isFace || isFingerprint) {
+            if ((isFingerprint && acquiredInfo == FingerprintManager.FINGERPRINT_ACQUIRED_START)
+                    || (isFace && acquiredInfo == FaceManager.FACE_ACQUIRED_START)) {
                 mFirstAcquireTimeMs = System.currentTimeMillis();
             }
         } else if (acquiredInfo == BiometricConstants.BIOMETRIC_ACQUIRED_GOOD) {
@@ -82,18 +92,22 @@ public abstract class LoggableMonitor {
                     + ", AcquiredInfo: " + acquiredInfo
                     + ", VendorCode: " + vendorCode);
         }
-        StatsLog.write(StatsLog.BIOMETRIC_ACQUIRED,
+        FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_ACQUIRED,
                 statsModality(),
                 targetUserId,
                 isCryptoOperation(),
                 statsAction(),
                 statsClient(),
                 acquiredInfo,
-                0 /* vendorCode */, // Don't log vendorCode for now
+                vendorCode,
                 Utils.isDebugEnabled(context, targetUserId));
     }
 
     protected final void logOnError(Context context, int error, int vendorCode, int targetUserId) {
+
+        final long latency = mFirstAcquireTimeMs != 0
+                ? (System.currentTimeMillis() - mFirstAcquireTimeMs) : -1;
+
         if (DEBUG) {
             Slog.v(TAG, "Error! Modality: " + statsModality()
                     + ", User: " + targetUserId
@@ -101,9 +115,12 @@ public abstract class LoggableMonitor {
                     + ", Action: " + statsAction()
                     + ", Client: " + statsClient()
                     + ", Error: " + error
-                    + ", VendorCode: " + vendorCode);
+                    + ", VendorCode: " + vendorCode
+                    + ", Latency: " + latency);
+        } else {
+            Slog.v(TAG, "Error latency: " + latency);
         }
-        StatsLog.write(StatsLog.BIOMETRIC_ERROR_OCCURRED,
+        FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_ERROR_OCCURRED,
                 statsModality(),
                 targetUserId,
                 isCryptoOperation(),
@@ -111,20 +128,21 @@ public abstract class LoggableMonitor {
                 statsClient(),
                 error,
                 vendorCode,
-                Utils.isDebugEnabled(context, targetUserId));
+                Utils.isDebugEnabled(context, targetUserId),
+                sanitizeLatency(latency));
     }
 
     protected final void logOnAuthenticated(Context context, boolean authenticated,
             boolean requireConfirmation, int targetUserId, boolean isBiometricPrompt) {
-        int authState = StatsLog.BIOMETRIC_AUTHENTICATED__STATE__UNKNOWN;
+        int authState = FrameworkStatsLog.BIOMETRIC_AUTHENTICATED__STATE__UNKNOWN;
         if (!authenticated) {
-            authState = StatsLog.BIOMETRIC_AUTHENTICATED__STATE__REJECTED;
+            authState = FrameworkStatsLog.BIOMETRIC_AUTHENTICATED__STATE__REJECTED;
         } else {
             // Authenticated
             if (isBiometricPrompt && requireConfirmation) {
-                authState = StatsLog.BIOMETRIC_AUTHENTICATED__STATE__PENDING_CONFIRMATION;
+                authState = FrameworkStatsLog.BIOMETRIC_AUTHENTICATED__STATE__PENDING_CONFIRMATION;
             } else {
-                authState = StatsLog.BIOMETRIC_AUTHENTICATED__STATE__CONFIRMED;
+                authState = FrameworkStatsLog.BIOMETRIC_AUTHENTICATED__STATE__CONFIRMED;
             }
         }
 
@@ -145,14 +163,14 @@ public abstract class LoggableMonitor {
             Slog.v(TAG, "Authentication latency: " + latency);
         }
 
-        StatsLog.write(StatsLog.BIOMETRIC_AUTHENTICATED,
+        FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_AUTHENTICATED,
                 statsModality(),
                 targetUserId,
                 isCryptoOperation(),
                 statsClient(),
                 requireConfirmation,
                 authState,
-                latency,
+                sanitizeLatency(latency),
                 Utils.isDebugEnabled(context, targetUserId));
     }
 
@@ -167,11 +185,19 @@ public abstract class LoggableMonitor {
             Slog.v(TAG, "Enroll latency: " + latency);
         }
 
-        StatsLog.write(StatsLog.BIOMETRIC_ENROLLED,
+        FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_ENROLLED,
                 statsModality(),
                 targetUserId,
-                latency,
+                sanitizeLatency(latency),
                 enrollSuccessful);
+    }
+
+    private long sanitizeLatency(long latency) {
+        if (latency < 0) {
+            Slog.w(TAG, "found a negative latency : " + latency);
+            return -1;
+        }
+        return latency;
     }
 
 }

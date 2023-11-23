@@ -40,7 +40,7 @@ import java.util.List;
 
 public class BluetoothHidDeviceFacade extends RpcReceiver {
 
-    public static final ParcelUuid[] UUIDS = {BluetoothUuid.Hid};
+    public static final ParcelUuid[] UUIDS = {BluetoothUuid.HID};
 
     public static final byte ID_KEYBOARD = 1;
     public static final byte ID_MOUSE = 2;
@@ -316,7 +316,7 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
         }
         BluetoothDevice mDevice =
                 BluetoothFacade.getDevice(BluetoothFacade.DiscoveredDevices, device);
-        Log.d("Connecting to device " + mDevice.getAliasName());
+        Log.d("Connecting to device " + mDevice.getAlias());
         return hidDeviceConnect(mDevice);
     }
 

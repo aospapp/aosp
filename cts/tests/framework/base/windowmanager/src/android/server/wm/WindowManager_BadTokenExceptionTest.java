@@ -18,6 +18,7 @@ package android.server.wm;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+import android.platform.test.annotations.Presubmit;
 import android.view.WindowManager.BadTokenException;
 
 import androidx.test.filters.SmallTest;
@@ -26,6 +27,7 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+@Presubmit
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class WindowManager_BadTokenExceptionTest {

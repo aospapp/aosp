@@ -17,7 +17,7 @@
 %                                 October 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -64,7 +64,6 @@
 #include "MagickCore/list.h"
 #include "MagickCore/log.h"
 #include "MagickCore/memory_.h"
-#include "MagickCore/memory-private.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/montage.h"
@@ -116,8 +115,11 @@ struct _ThresholdMap
 /*
   Static declarations.
 */
-static const char
-  *MinimalThresholdMap =
+#if MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
+  #include "MagickCore/threshold-map.h"
+#else
+static const char *const
+  BuiltinMap=
     "<?xml version=\"1.0\"?>"
     "<thresholds>"
     "  <threshold map=\"threshold\" alias=\"1x1\">"
@@ -134,6 +136,7 @@ static const char
     "    </levels>"
     "  </threshold>"
     "</thresholds>";
+#endif
 
 /*
   Forward declarations.
@@ -212,6 +215,8 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
   threshold_image=CloneImage(image,0,0,MagickTrue,exception);
   if (threshold_image == (Image *) NULL)
     return((Image *) NULL);
+  if ((width == 0) || (height == 0))
+    return(threshold_image);
   status=SetImageStorageClass(threshold_image,DirectClass,exception);
   if (status == MagickFalse)
     {
@@ -366,9 +371,8 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  AutoThresholdImage() automatically selects a threshold and replaces each
-%  pixel in the image with a black pixel if the image intentsity is less than
-%  the selected threshold otherwise white.
+%  AutoThresholdImage()  automatically performs image thresholding
+%  dependent on which method you specify.
 %
 %  The format of the AutoThresholdImage method is:
 %
@@ -563,8 +567,7 @@ static double OTSUThreshold(const Image *image,const double *histogram,
   return(100.0*threshold/MaxIntensity);
 }
 
-static double TriangleThreshold(const double *histogram,
-  ExceptionInfo *exception)
+static double TriangleThreshold(const double *histogram)
 {
   double
     a,
@@ -592,7 +595,6 @@ static double TriangleThreshold(const double *histogram,
   /*
     Compute optimal threshold with triangle algorithm.
   */
-  (void) exception;
   start=0;  /* find start bin, first bin not zero count */
   for (i=0; i <= (ssize_t) MaxIntensity; i++)
     if (histogram[i] > 0.0)
@@ -740,7 +742,7 @@ MagickExport MagickBooleanType AutoThresholdImage(Image *image,
     }
     case TriangleThresholdMethod:
     {
-      threshold=TriangleThreshold(histogram,exception);
+      threshold=TriangleThreshold(histogram);
       break;
     }
   }
@@ -821,7 +823,7 @@ MagickExport MagickBooleanType BilevelImage(Image *image,const double threshold,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
-  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+  if (IsGrayColorspace(image->colorspace) == MagickFalse)
     (void) SetImageColorspace(image,sRGBColorspace,exception);
   /*
     Bilevel threshold image.
@@ -1247,10 +1249,10 @@ MagickExport ThresholdMap *GetThresholdMap(const char *map_id,
   ThresholdMap
     *map;
 
-  map=GetThresholdMapFile(MinimalThresholdMap,"built-in",map_id,exception);
+  map=GetThresholdMapFile(BuiltinMap,"built-in",map_id,exception);
   if (map != (ThresholdMap *) NULL)
     return(map);
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -1651,7 +1653,7 @@ MagickExport MagickBooleanType ListThresholdMaps(FILE *file,
 %
 %    o threshold_map: A string containing the name of the threshold dither
 %      map to use, followed by zero or more numbers representing the number
-%      of color levels tho dither between.
+%      of color levels to dither between.
 %
 %      Any level number less than 2 will be equivalent to 2, and means only
 %      binary dithering will be applied to each color channel.
@@ -1662,7 +1664,7 @@ MagickExport MagickBooleanType ListThresholdMaps(FILE *file,
 %      the color channels.
 %
 %      For example: "o3x3,6" will generate a 6 level posterization of the
-%      image with a ordered 3x3 diffused pixel dither being applied between
+%      image with an ordered 3x3 diffused pixel dither being applied between
 %      each level. While checker,8,8,4 will produce a 332 colormaped image
 %      with only a single checkerboard hash pattern (50% grey) between each
 %      color level, to basically double the number of color levels with
@@ -1737,14 +1739,14 @@ MagickExport MagickBooleanType OrderedDitherImage(Image *image,
   p=strchr((char *) threshold_map,',');
   if ((p != (char *) NULL) && (isdigit((int) ((unsigned char) *(++p))) != 0))
     {
-      GetNextToken(p,&p,MagickPathExtent,token);
+      (void) GetNextToken(p,&p,MagickPathExtent,token);
       for (i=0; (i < MaxPixelChannels); i++)
         levels[i]=StringToDouble(token,(char **) NULL);
       for (i=0; (*p != '\0') && (i < MaxPixelChannels); i++)
       {
-        GetNextToken(p,&p,MagickPathExtent,token);
+        (void) GetNextToken(p,&p,MagickPathExtent,token);
         if (*token == ',')
-          GetNextToken(p,&p,MagickPathExtent,token);
+          (void) GetNextToken(p,&p,MagickPathExtent,token);
         levels[i]=StringToDouble(token,(char **) NULL);
       }
     }
@@ -2148,13 +2150,13 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
 %
 %    o image: the image.
 %
-%    o low_black: Define the minimum threshold value.
+%    o low_black: Define the minimum black threshold value.
 %
-%    o low_white: Define the maximum threshold value.
+%    o low_white: Define the minimum white threshold value.
 %
-%    o high_white: Define the minimum threshold value.
+%    o high_white: Define the maximum white threshold value.
 %
-%    o low_white: Define the maximum threshold value.
+%    o high_black: Define the maximum black threshold value.
 %
 %    o exception: return any errors or warnings in this structure.
 %

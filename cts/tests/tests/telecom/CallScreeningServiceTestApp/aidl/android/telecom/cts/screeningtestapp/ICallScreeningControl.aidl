@@ -24,4 +24,12 @@ interface ICallScreeningControl {
 
     void setCallResponse(boolean shouldDisallowCall, boolean shouldRejectCall,
             boolean shouldSkipCall, boolean shouldSkipCallLog, boolean shouldSkipNotification);
+
+    boolean waitForBind();
+
+    boolean waitForActivity();
+
+    String getCachedHandle();
+
+    int getCachedDisconnectCause();
 }

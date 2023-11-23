@@ -38,6 +38,40 @@ extern "C" {
 #undef MAGICKCORE_X11_DELEGATE
 #undef MAGICKCORE_BUILD_MODULES
 
+#define MAGICKCORE_STRING_QUOTE(str) #str
+#define MAGICKCORE_STRING_XQUOTE(str) MAGICKCORE_STRING_QUOTE(str)
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+# if defined(__GNUC__) || defined(__clang__)
+#  define MAGICK_COMPILER_WARNING(w) _Pragma(MAGICKCORE_STRING_QUOTE(GCC warning w))
+# elif defined(_MSC_VER)
+#  define MAGICK_COMPILER_WARNING(w) _Pragma(MAGICKCORE_STRING_QUOTE(message(w)))
+# endif
+#endif
+
+#ifndef MAGICK_COMPILER_WARNING
+# define MAGICK_COMPILER_WARNING(w)
+#endif
+
+#ifdef MAGICKCORE__FILE_OFFSET_BITS
+# ifdef _FILE_OFFSET_BITS
+#  if _FILE_OFFSET_BITS != MAGICKCORE__FILE_OFFSET_BITS
+    MAGICK_COMPILER_WARNING("_FILE_OFFSET_BITS is already defined, but does not match MAGICKCORE__FILE_OFFSET_BITS")
+#  else
+#   undef _FILE_OFFSET_BITS
+#  endif
+# endif
+# ifndef _FILE_OFFSET_BITS
+#  if MAGICKCORE__FILE_OFFSET_BITS == 64
+#   define _FILE_OFFSET_BITS 64
+#  elif MAGICKCORE__FILE_OFFSET_BITS == 32
+#   define _FILE_OFFSET_BITS 32
+#  else
+#   define _FILE_OFFSET_BITS MAGICKCORE__FILE_OFFSET_BITS
+#  endif
+# endif
+#endif
+
 /* Compatibility block */
 #if !defined(MAGICKCORE_QUANTUM_DEPTH) && defined(MAGICKCORE_QUANTUM_DEPTH_OBSOLETE_IN_H)
 # warning "you should set MAGICKCORE_QUANTUM_DEPTH to sensible default set it to configure time default"
@@ -123,10 +157,6 @@ extern "C" {
 #  define __CYGWIN__  __CYGWIN32__
 #endif
 
-/*! stringify */
-#define MAGICKCORE_STRING_QUOTE(str) #str
-#define MAGICKCORE_STRING_XQUOTE(str) MAGICKCORE_STRING_QUOTE(str)
-
 /*  ABI SUFFIX */
 #ifndef MAGICKCORE_HDRI_SUPPORT
 #define MAGICKCORE_ABI_SUFFIX  "Q" MAGICKCORE_STRING_XQUOTE(MAGICKCORE_QUANTUM_DEPTH)
@@ -211,6 +241,46 @@ extern "C" {
 #endif
 
 #endif
+
+/* for Clang compatibility */
+#ifndef __has_builtin
+#  define __has_builtin(x) 0
+#endif
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ > 201112L && !defined(__MINGW32__)
+# define MAGICKCORE_HAVE_STDC_ALIGNED_ALLOC 1
+#endif
+
+#if defined(__GNUC__) && !defined(__clang__)
+# define MAGICKCORE_DIAGNOSTIC_PUSH() \
+   _Pragma("GCC diagnostic push")
+# define MAGICKCORE_DIAGNOSTIC_IGNORE_MAYBE_UNINITIALIZED() \
+   _Pragma("GCC diagnostic ignored \"-Wmaybe-uninitialized\"")
+# define MAGICKCORE_DIAGNOSTIC_POP() \
+   _Pragma("GCC diagnostic pop")
+#else
+# define MAGICKCORE_DIAGNOSTIC_PUSH()
+# define MAGICKCORE_DIAGNOSTIC_IGNORE_MAYBE_UNINITIALIZED()
+# define MAGICKCORE_DIAGNOSTIC_POP()
+#endif
+
+#define MAGICKCORE_BITS_BELOW(power_of_2) \
+  ((power_of_2)-1)
+
+#define MAGICKCORE_MAX_ALIGNMENT_PADDING(power_of_2) \
+  MAGICKCORE_BITS_BELOW(power_of_2)
+
+#define MAGICKCORE_IS_NOT_ALIGNED(n, power_of_2) \
+  ((n) & MAGICKCORE_BITS_BELOW(power_of_2))
+
+#define MAGICKCORE_IS_NOT_POWER_OF_2(n) \
+  MAGICKCORE_IS_NOT_ALIGNED((n), (n))
+
+#define MAGICKCORE_ALIGN_DOWN(n, power_of_2) \
+  ((n) & ~MAGICKCORE_BITS_BELOW(power_of_2))
+
+#define MAGICKCORE_ALIGN_UP(n, power_of_2) \
+  MAGICKCORE_ALIGN_DOWN((n) + MAGICKCORE_MAX_ALIGNMENT_PADDING(power_of_2),power_of_2)
  
 #if defined(__cplusplus) || defined(c_plusplus)
 }

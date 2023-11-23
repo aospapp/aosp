@@ -47,6 +47,20 @@ public final class SystemUiDeviceConfigFlags {
      */
     public static final String NAS_MAX_SUGGESTIONS = "nas_max_suggestions";
 
+    // Flags related to screenshot intelligence
+
+    /**
+     * (bool) Whether to enable smart actions in screenshot notifications.
+     */
+    public static final String ENABLE_SCREENSHOT_NOTIFICATION_SMART_ACTIONS =
+            "enable_screenshot_notification_smart_actions";
+
+    /**
+     * (int) Timeout value in ms to get smart actions for screenshot notification.
+     */
+    public static final String SCREENSHOT_NOTIFICATION_SMART_ACTIONS_TIMEOUT_MS =
+            "screenshot_notification_smart_actions_timeout_ms";
+
     // Flags related to Smart Suggestions - these are read in SmartReplyConstants.
 
     /** (boolean) Whether to enable smart suggestions in notifications. */
@@ -106,7 +120,7 @@ public final class SystemUiDeviceConfigFlags {
      */
     public static final String HASH_SALT_MAX_DAYS = "hash_salt_max_days";
 
-    // Flags related to Assistant Handles
+    // Flags related to Assistant
 
     /**
      * (String) Which behavior mode for the Assistant Handles to use.
@@ -177,9 +191,60 @@ public final class SystemUiDeviceConfigFlags {
             "assist_handles_suppress_on_apps";
 
     /**
+     * Allow touch passthrough above assist area during a session.
+     */
+    public static final String ASSIST_TAP_PASSTHROUGH = "assist_tap_passthrough";
+
+    /**
      * (bool) Whether to show handles when taught.
      */
     public static final String ASSIST_HANDLES_SHOW_WHEN_TAUGHT = "assist_handles_show_when_taught";
+
+    /**
+     * (long) Duration per pixel, in milliseconds, of scrolling text at fast speed.
+     */
+    public static final String ASSIST_TRANSCRIPTION_DURATION_PER_PX_FAST =
+            "assist_transcription_duration_per_px_fast";
+
+    /**
+     * (long) Duration per pixel, in milliseconds, of scrolling text at regular speed.
+     */
+    public static final String ASSIST_TRANSCRIPTION_DURATION_PER_PX_REGULAR =
+            "assist_transcription_duration_per_px_regular";
+
+    /**
+     * (long) Duration, in milliseconds, over which text fades in.
+     */
+    public static final String ASSIST_TRANSCRIPTION_FADE_IN_DURATION =
+            "assist_transcription_fade_in_duration";
+
+    /**
+     * (long) Maximum total duration, in milliseconds, for a given transcription.
+     */
+    public static final String ASSIST_TRANSCRIPTION_MAX_DURATION =
+            "assist_transcription_max_duration";
+
+    /**
+     * (long) Minimum total duration, in milliseconds, for a given transcription.
+     */
+    public static final String ASSIST_TRANSCRIPTION_MIN_DURATION =
+            "assist_transcription_min_duration";
+
+    /**
+     * (boolean) Whether or not to enable an extra section in the notification shade which
+     * filters for "people" related messages.
+     */
+    public static final String NOTIFICATIONS_USE_PEOPLE_FILTERING =
+            "notifications_use_people_filtering";
+
+    /**
+     * (boolean) Whether or not to enable user dismissing of foreground service notifications
+     * into a new section at the bottom of the notification shade.
+     */
+    public static final String NOTIFICATIONS_ALLOW_FGS_DISMISSAL =
+            "notifications_allow_fgs_dismissal";
+
+    // Flags related to brightline falsing
 
     /**
      * (bool) Whether to use the new BrightLineFalsingManager.
@@ -270,5 +335,68 @@ public final class SystemUiDeviceConfigFlags {
             "brightline_falsing_zigzag_y_secondary_deviance";
 
 
-    private SystemUiDeviceConfigFlags() { }
+    // Flags related to screenshots
+
+    /**
+     * (boolean) Whether screenshot flow going to the corner (instead of shown in a notification)
+     * is enabled.
+     */
+    public static final String SCREENSHOT_CORNER_FLOW = "enable_screenshot_corner_flow";
+
+    /**
+     * (boolean) Whether scrolling screenshots are enabled.
+     */
+    public static final String SCREENSHOT_SCROLLING_ENABLED = "enable_screenshot_scrolling";
+
+    // Flags related to Nav Bar
+
+    /**
+     * (boolean) Whether to force the Nav Bar handle to remain opaque.
+     */
+    public static final String NAV_BAR_HANDLE_FORCE_OPAQUE = "nav_bar_handle_force_opaque";
+
+    /**
+     * (boolean) Whether to force the Nav Bar handle to remain visible over the lockscreen.
+     */
+    public static final String NAV_BAR_HANDLE_SHOW_OVER_LOCKSCREEN =
+            "nav_bar_handle_show_over_lockscreen";
+
+    /**
+     * (int) Timeout threshold, in millisecond, that Sharesheet waits for direct share targets.
+     */
+    public static final String SHARE_SHEET_DIRECT_SHARE_TIMEOUT =
+            "share_sheet_direct_share_timeout";
+
+    /**
+     * (boolean) Whether append direct share on Sharesheet is enabled.
+     */
+    public static final String APPEND_DIRECT_SHARE_ENABLED = "append_direct_share_enabled";
+
+    /**
+     * (boolean) Whether ChooserTargets ranking on Sharesheet is enabled.
+     */
+    public static final String CHOOSER_TARGET_RANKING_ENABLED = "chooser_target_ranking_enabled";
+
+    /**
+     * (boolean) Whether to enable user-drag resizing for PIP.
+     */
+    public static final String PIP_USER_RESIZE = "pip_user_resize";
+
+    /**
+     * (float) Bottom height in DP for Back Gesture.
+     */
+    public static final String BACK_GESTURE_BOTTOM_HEIGHT = "back_gesture_bottom_height";
+
+    /**
+     * (float) Edge width in DP where touch down is allowed for Back Gesture.
+     */
+    public static final String BACK_GESTURE_EDGE_WIDTH = "back_gesture_edge_width";
+
+    /**
+     * (float) Slop multiplier for Back Gesture.
+     */
+    public static final String BACK_GESTURE_SLOP_MULTIPLIER = "back_gesture_slop_multiplier";
+
+    private SystemUiDeviceConfigFlags() {
+    }
 }

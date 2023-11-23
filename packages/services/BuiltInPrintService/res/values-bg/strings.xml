@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Забравяне"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Свързва се чрез Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Свързва се чрез текущата мрежа на адрес <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Услугата за отпечатване по подразбиране предоставя основни опции. Още опции за този принтер може да са налице в друга услуга за печат."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Препоръчителни услуги"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Изберете, за да инсталирате"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Изберете, за да активирате"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Управление на услугите"</string>
     <string name="security" msgid="2279008326210305401">"Сигурност"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Този принтер предостави нов сертификат за сигурност или друго устройство се представя за него. Приемате ли новия сертификат?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Този принтер вече не приема шифровани задания. Искате ли да продължите да отпечатвате?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Връзки"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Стандартната услуга за отпечатване се нуждае от разрешение за достъп до местоположението, за да намира устройствата в близост."</string>
     <string name="fix" msgid="7784394272611365393">"Разрешение: Преглед"</string>
+    <string name="print" msgid="7851318072404916362">"Отпечатване"</string>
 </resources>

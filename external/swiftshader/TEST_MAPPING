@@ -1,7 +1,7 @@
 {
-  "presubmit": [
+  "imports": [
     {
-      "name": "CtsUiRenderingTestCases"
+      "path": "cts/tests/tests/uirendering"
     }
   ]
 }

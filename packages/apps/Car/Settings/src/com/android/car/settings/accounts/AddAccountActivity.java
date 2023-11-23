@@ -24,7 +24,6 @@ import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
 import android.app.PendingIntent;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -69,9 +68,9 @@ public class AddAccountActivity extends Activity {
     static final String EXTRA_HAS_MULTIPLE_USERS = "hasMultipleUsers";
 
     // Need a specific request code for add account activity.
-    public static final int ADD_ACCOUNT_REQUEST = 2001;
+    private static final int ADD_ACCOUNT_REQUEST = 2001;
 
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private UserManager mUserManager;
     private UserHandle mUserHandle;
     private PendingIntent mPendingIntent;
     private boolean mAddAccountCalled;
@@ -86,7 +85,7 @@ public class AddAccountActivity extends Activity {
             try {
                 Bundle result = future.getResult();
 
-                Intent intent = (Intent) result.getParcelable(AccountManager.KEY_INTENT);
+                Intent intent = result.getParcelable(AccountManager.KEY_INTENT);
                 Bundle addAccountOptions = new Bundle();
                 addAccountOptions.putBoolean(EXTRA_HAS_MULTIPLE_USERS,
                         hasMultipleUsers(AddAccountActivity.this));
@@ -104,6 +103,16 @@ public class AddAccountActivity extends Activity {
         }
     };
 
+    /**
+     * Creates an intent to start the {@link AddAccountActivity} to add an account of the given
+     * account type.
+     */
+    public static Intent createAddAccountActivityIntent(Context context, String accountType) {
+        Intent intent = new Intent(context, AddAccountActivity.class);
+        intent.putExtra(EXTRA_SELECTED_ACCOUNT, accountType);
+        return intent;
+    }
+
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
@@ -119,11 +128,10 @@ public class AddAccountActivity extends Activity {
             LOG.v("Restored from previous add account call: " + mAddAccountCalled);
         }
 
-        mCarUserManagerHelper = new CarUserManagerHelper(this);
-        mUserHandle = mCarUserManagerHelper.getCurrentProcessUserInfo().getUserHandle();
+        mUserManager = UserManager.get(getApplicationContext());
+        mUserHandle = UserHandle.of(UserHandle.myUserId());
 
-        if (mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                UserManager.DISALLOW_MODIFY_ACCOUNTS)) {
+        if (mUserManager.hasUserRestriction(UserManager.DISALLOW_MODIFY_ACCOUNTS)) {
             // We aren't allowed to add an account.
             Toast.makeText(
                     this, R.string.user_cannot_add_accounts_message, Toast.LENGTH_LONG)

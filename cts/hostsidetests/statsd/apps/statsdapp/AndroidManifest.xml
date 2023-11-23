@@ -15,7 +15,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.server.cts.device.statsd" >
+          package="com.android.server.cts.device.statsd"
+          android:versionCode="10" >
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
@@ -23,6 +24,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CONFIGURE_DISPLAY_BRIGHTNESS" />
@@ -41,7 +43,8 @@
 
         <service android:name=".StatsdCtsBackgroundService" android:exported="true" />
         <activity android:name=".StatsdCtsForegroundActivity" android:exported="true" />
-        <service android:name=".StatsdCtsForegroundService" android:exported="true" />
+        <service android:name=".StatsdCtsForegroundService"
+                 android:foregroundServiceType="camera" android:exported="true" />
 
         <activity
             android:name=".VideoPlayerActivity"
@@ -96,6 +99,8 @@
                 <action android:name="android.telecom.CallScreeningService" />
             </intent-filter>
         </service>
+
+        <service android:name=".IsolatedProcessService" android:isolatedProcess="true" />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

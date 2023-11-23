@@ -19,6 +19,7 @@
 #include <iostream>
 #include <utility>
 
+#include <android-base/logging.h>
 #include <android-base/strings.h>
 
 #include "parse_string.h"
@@ -38,16 +39,24 @@ bool CompatibilityMatrix::addKernel(MatrixKernel&& kernel, std::string* error) {
         return false;
     }
 
+    if (kernel.getSourceMatrixLevel() == Level::UNSPECIFIED) {
+        kernel.setSourceMatrixLevel(level());
+    }
+
     auto it = framework.mKernels.begin();
     for (; it != framework.mKernels.end(); ++it) {
+        if (it->getSourceMatrixLevel() != kernel.getSourceMatrixLevel()) {
+            continue;
+        }
         if (it->minLts() == kernel.minLts()) {
             break;
         }
-        if (it->minLts().version == kernel.minLts().version &&
-            it->minLts().majorRev == kernel.minLts().majorRev) {
+        if (it->minLts().dropMinor() == kernel.minLts().dropMinor()) {
             if (error) {
-                *error = "Kernel version mismatch; cannot add " + to_string(kernel.minLts()) +
-                         " because " + to_string(it->minLts()) + " was added.";
+                *error = "Kernel version mismatch; for level " +
+                         to_string(kernel.getSourceMatrixLevel()) + ", cannot add " +
+                         to_string(kernel.minLts()) + " because " + to_string(it->minLts()) +
+                         " was added.";
             }
             return false;
         }
@@ -93,12 +102,6 @@ SchemaType CompatibilityMatrix::type() const {
 
 Level CompatibilityMatrix::level() const {
     return mLevel;
-}
-
-Version CompatibilityMatrix::getMinimumMetaVersion() const {
-    // TODO(b/62801658): this needs to depend on whether there are 1.1 requirements
-    // (e.g. required <xmlfile> entry)
-    return {1, 0};
 }
 
 status_t CompatibilityMatrix::fetchAllInformation(const FileSystem* fileSystem,
@@ -191,6 +194,11 @@ bool CompatibilityMatrix::addAllHalsAsOptional(CompatibilityMatrix* other, std::
                                      const std::string& interface,
                                      const std::string& instanceOrPattern, bool isRegex) {
             for (auto* existingHal : existingHals) {
+                // Ignore HALs with different format.
+                if (halToAdd.format != existingHal->format) {
+                    continue;
+                }
+
                 MatrixHal* splitInstance =
                     this->splitInstance(existingHal, interface, instanceOrPattern, isRegex);
                 if (splitInstance != nullptr) {
@@ -245,50 +253,16 @@ bool CompatibilityMatrix::addAllXmlFilesAsOptional(CompatibilityMatrix* other, s
     return true;
 }
 
-// Merge Kernel.
-// Add <kernel> from exact "level", then optionally add <kernel> from high levels to low levels.
-// For example, (each letter is a kernel version x.y.z)
-// 1.xml: A1, B1
-// 2.xml: B2, C2, D2
-// 3.xml: D3, E3
-// Then the combined 1.xml should have
-// A1, B1 (from 1.xml, required), C2, D2, E3 (optional, use earliest possible).
+// Merge Kernel. See KernelInfo::getMatchedKernelRequirements for details on compatibility checks.
 bool CompatibilityMatrix::addAllKernels(CompatibilityMatrix* other, std::string* error) {
     for (MatrixKernel& kernel : other->framework.mKernels) {
+        if (kernel.getSourceMatrixLevel() == Level::UNSPECIFIED) {
+            kernel.setSourceMatrixLevel(other->level());
+        }
         KernelVersion ver = kernel.minLts();
         if (!addKernel(std::move(kernel), error)) {
             if (error) {
                 *error = "Cannot add kernel version " + to_string(ver) + ": " + *error;
-            }
-            return false;
-        }
-    }
-    return true;
-}
-
-bool CompatibilityMatrix::addAllKernelsAsOptional(CompatibilityMatrix* other, std::string* error) {
-    if (other == nullptr || other->level() <= level()) {
-        return true;
-    }
-
-    for (MatrixKernel& kernelToAdd : other->framework.mKernels) {
-        bool exists =
-            std::any_of(this->framework.mKernels.begin(), this->framework.mKernels.end(),
-                        [&kernelToAdd](const MatrixKernel& existing) {
-                            return kernelToAdd.minLts().version == existing.minLts().version &&
-                                   kernelToAdd.minLts().majorRev == existing.minLts().majorRev;
-                        });
-
-        if (exists) {
-            // Shouldn't retroactively add requirements to minLts(), so ignore this.
-            // This happens even when kernelToAdd.conditions() != existing.conditions().
-            continue;
-        }
-
-        KernelVersion minLts = kernelToAdd.minLts();
-        if (!addKernel(std::move(kernelToAdd), error)) {
-            if (error) {
-                *error = "Cannot add " + to_string(minLts) + ": " + *error;
             }
             return false;
         }
@@ -435,7 +409,7 @@ bool CompatibilityMatrix::addAllAsOptional(Named<CompatibilityMatrix>* inputMatr
                                            std::string* error) {
     if (!addAllHalsAsOptional(&inputMatrix->object, error) ||
         !addAllXmlFilesAsOptional(&inputMatrix->object, error) ||
-        !addAllKernelsAsOptional(&inputMatrix->object, error)) {
+        !addAllKernels(&inputMatrix->object, error)) {
         if (error) {
             *error = "File \"" + inputMatrix->name + "\" cannot be added: " + *error;
         }
@@ -447,11 +421,12 @@ bool CompatibilityMatrix::addAllAsOptional(Named<CompatibilityMatrix>* inputMatr
 }
 
 bool CompatibilityMatrix::forEachInstanceOfVersion(
-    const std::string& package, const Version& expectVersion,
+    HalFormat format, const std::string& package, const Version& expectVersion,
     const std::function<bool(const MatrixInstance&)>& func) const {
     for (const MatrixHal* hal : getHals(package)) {
         bool cont = hal->forEachInstance([&](const MatrixInstance& matrixInstance) {
-            if (matrixInstance.versionRange().contains(expectVersion)) {
+            if (matrixInstance.format() == format &&
+                matrixInstance.versionRange().contains(expectVersion)) {
                 return func(matrixInstance);
             }
             return true;
@@ -461,11 +436,11 @@ bool CompatibilityMatrix::forEachInstanceOfVersion(
     return true;
 }
 
-bool CompatibilityMatrix::matchInstance(const std::string& halName, const Version& version,
-                                        const std::string& interfaceName,
+bool CompatibilityMatrix::matchInstance(HalFormat format, const std::string& halName,
+                                        const Version& version, const std::string& interfaceName,
                                         const std::string& instance) const {
     bool found = false;
-    (void)forEachInstanceOfInterface(halName, version, interfaceName,
+    (void)forEachInstanceOfInterface(format, halName, version, interfaceName,
                                      [&found, &instance](const auto& e) {
                                          found |= (e.matchInstance(instance));
                                          return !found;  // if not found, continue
@@ -475,6 +450,15 @@ bool CompatibilityMatrix::matchInstance(const std::string& halName, const Versio
 
 std::string CompatibilityMatrix::getVendorNdkVersion() const {
     return type() == SchemaType::DEVICE ? device.mVendorNdk.version() : "";
+}
+
+Level CompatibilityMatrix::getSourceMatrixLevel(const MatrixKernel* matrixKernel) const {
+    CHECK(std::find_if(framework.mKernels.begin(), framework.mKernels.end(),
+                       [matrixKernel](const auto& e) { return &e == matrixKernel; }) !=
+          framework.mKernels.end());
+    Level ret = matrixKernel->getSourceMatrixLevel();
+    if (ret != Level::UNSPECIFIED) return ret;
+    return level();
 }
 
 } // namespace vintf

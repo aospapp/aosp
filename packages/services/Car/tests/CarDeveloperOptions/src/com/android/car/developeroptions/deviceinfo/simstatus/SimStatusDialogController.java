@@ -19,6 +19,7 @@ package com.android.car.developeroptions.deviceinfo.simstatus;
 import static android.content.Context.CARRIER_CONFIG_SERVICE;
 import static android.content.Context.EUICC_SERVICE;
 import static android.content.Context.TELEPHONY_SERVICE;
+import static android.content.Context.TELEPHONY_SUBSCRIPTION_SERVICE;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
@@ -30,10 +31,10 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.telephony.CarrierConfigManager;
-import android.telephony.CellBroadcastMessage;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
+import android.telephony.SmsCbMessage;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -102,6 +103,7 @@ public class SimStatusDialogController implements LifecycleObserver, OnResume, O
     private final SubscriptionInfo mSubscriptionInfo;
     private final TelephonyManager mTelephonyManager;
     private final CarrierConfigManager mCarrierConfigManager;
+    private final SubscriptionManager mSubscriptionManager;
     private final EuiccManager mEuiccManager;
     private final Resources mRes;
     private final Context mContext;
@@ -117,11 +119,16 @@ public class SimStatusDialogController implements LifecycleObserver, OnResume, O
                 if (extras == null) {
                     return;
                 }
-                final CellBroadcastMessage cbMessage = (CellBroadcastMessage) extras.get("message");
-                if (cbMessage != null
-                        && mSubscriptionInfo.getSubscriptionId() == cbMessage.getSubId()) {
-                    final String latestAreaInfo = cbMessage.getMessageBody();
-                    mDialog.setText(OPERATOR_INFO_VALUE_ID, latestAreaInfo);
+                final SmsCbMessage cbMessage = (SmsCbMessage) extras.get("message");
+                if (cbMessage != null) {
+                    int[] subIds = mSubscriptionManager.getSubscriptionIds(
+                            cbMessage.getSlotIndex());
+                    int subId = (subIds == null || subIds.length == 0)
+                            ? SubscriptionManager.INVALID_SUBSCRIPTION_ID : subIds[0];
+                    if (mSubscriptionInfo.getSubscriptionId() == subId) {
+                        final String latestAreaInfo = cbMessage.getMessageBody();
+                        mDialog.setText(OPERATOR_INFO_VALUE_ID, latestAreaInfo);
+                    }
                 }
             }
         }
@@ -139,6 +146,8 @@ public class SimStatusDialogController implements LifecycleObserver, OnResume, O
         mCarrierConfigManager = (CarrierConfigManager) mContext.getSystemService(
                 CARRIER_CONFIG_SERVICE);
         mEuiccManager = (EuiccManager) mContext.getSystemService(EUICC_SERVICE);
+        mSubscriptionManager = (SubscriptionManager) mContext.getSystemService(
+                TELEPHONY_SUBSCRIPTION_SERVICE);
 
         mRes = mContext.getResources();
 

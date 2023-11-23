@@ -86,6 +86,22 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
     }
 
     @MediumTest
+    public void testHeadsUpNotificationUpdate() throws Exception {
+        // GIVEN a HeadsUp notification is posted and
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
+
+        // WHEN the HUN is immediately updated multiple times
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
+
+        // THEN we still see the HUN
+        UiObject2 obj =
+                mDevice.wait(Until.findObject(By.text(NOTIFICATION_CONTENT_TEXT)), LONG_TIMEOUT);
+        assertNotNull(String.format("Notification %s did not HUN", NOTIFICATION_ID_1), obj);
+    }
+
+    @MediumTest
     public void testHeadsUpNotificationManualDismiss() throws Exception {
         mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
         Thread.sleep(SHORT_TIMEOUT);
@@ -100,10 +116,18 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
 
     @LargeTest
     public void testHeadsUpNotificationAutoDismiss() throws Exception {
+        // WHEN a HUN is posted
         mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
-        Thread.sleep(LONG_TIMEOUT * 3);
+
+        // THEN we see the HUN
+        Thread.sleep(SHORT_TIMEOUT);
         UiObject2 obj = mDevice.wait(Until.findObject(By.text(NOTIFICATION_CONTENT_TEXT)),
                 LONG_TIMEOUT);
+        assertNotNull(String.format("Notification %s did not HUN", NOTIFICATION_ID_1), obj);
+
+        // THEN we see the HUN auto dismissed
+        Thread.sleep(LONG_TIMEOUT * 3);
+        obj = mDevice.wait(Until.findObject(By.text(NOTIFICATION_CONTENT_TEXT)), SHORT_TIMEOUT);
         assertNull(String.format("Notification %s has not been auto dismissed", NOTIFICATION_ID_1),
                 obj);
     }
@@ -125,10 +149,7 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
         Thread.sleep(LONG_TIMEOUT);
         UiObject2 obj = mDevice.wait(Until.findObject(By.text(NOTIFICATION_CONTENT_TEXT)),
                 LONG_TIMEOUT);
-        if (obj == null) {
-            assertNull(String.format("Notification %s can not be found", NOTIFICATION_ID_1),
-                    obj);
-        }
+        assertNotNull(String.format("Notification %s can not be found", NOTIFICATION_ID_1), obj);
     }
 
     @LargeTest
@@ -137,7 +158,7 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
             setAlarmNow();
             UiObject2 obj = mDevice.wait(Until.findObject(By.text("test")), 60000);
             if (obj == null) {
-                fail("Alarm heads up notifcation is not working");
+                fail("Alarm heads up notification is not working");
             }
         } finally {
             mDevice.wait(Until.findObject(By.text("Dismiss")), LONG_TIMEOUT).click();

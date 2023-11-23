@@ -1,40 +1,39 @@
-cc_library {
-    name: "libarm-optimized-routines",
+cc_defaults {
+    name: "arm-optimized-routines-defaults",
     host_supported: true,
-    recovery_available: true,
     cflags: [
         "-Werror",
+        "-Wno-unused-parameter",
         "-O2",
-        "-DWANT_ROUNDING=0",
-        "-DWANT_ERRNO=0",
-        "-DFLT_EVAL_METHOD=0",
         "-ffp-contract=fast",
+        "-fno-math-errno",
+
+        // bionic configuration.
+
+        // We're actually implementing bionic here, so we don't want <math.h>
+        // to try to be helpful by renaming long double routines.
+        "-D__BIONIC_LP32_USE_LONG_DOUBLE",
+        "-DFLT_EVAL_METHOD=0",
+
+        // arm-optimized-routines configuration.
+
+        // BSD libm doesn't set errno, and bionic was based on the BSDs.
+        // https://github.com/ARM-software/optimized-routines/issues/16#issuecomment-572009659
+        "-DWANT_ERRNO=0",
+        // TODO: we may want the vector code in future, but it's not ready yet.
+        "-DWANT_VMATH=0",
     ],
+    local_include_dirs: ["math/include"],
+}
+
+cc_library {
+    name: "libarm-optimized-routines-math",
+    defaults: ["arm-optimized-routines-defaults"],
+    ramdisk_available: true,
+    recovery_available: true,
+    native_bridge_supported: true,
     srcs: [
-        "math/cosf.c",
-        "math/exp2.c",
-        "math/exp2f.c",
-        "math/exp2f_data.c",
-        "math/exp.c",
-        "math/exp_data.c",
-        "math/expf.c",
-        "math/log2.c",
-        "math/log2_data.c",
-        "math/log2f.c",
-        "math/log2f_data.c",
-        "math/log.c",
-        "math/log_data.c",
-        "math/logf.c",
-        "math/logf_data.c",
-        "math/math_err.c",
-        "math/math_errf.c",
-        "math/pow.c",
-        "math/pow_log_data.c",
-        "math/powf.c",
-        "math/powf_log2_data.c",
-        "math/sincosf.c",
-        "math/sincosf_data.c",
-        "math/sinf.c",
+        "math/*.c",
     ],
 
     // arch-specific settings
@@ -64,15 +63,11 @@ cc_library {
 // adb shell "/data/nativetest/mathtest/mathtest /data/nativetest/mathtest/test/testcases/directed/*"
 cc_test {
     name: "mathtest",
+    defaults: ["arm-optimized-routines-defaults"],
     gtest: false,
-    host_supported: true,
-    cflags: ["-Werror", "-Wno-missing-braces"],
-    srcs: [
-      "math/single/e_rem_pio2.c",
-      "test/mathtest.c"
-    ],
-    data: ["test/testcases/directed/*.tst"],
-    local_include_dirs: ["math/include"],
+    cflags: ["-Wno-missing-braces"],
+    srcs: ["math/test/mathtest.c"],
+    data: ["math/test/testcases/directed/*.tst"],
     target: {
         darwin: {
             enabled: false,
@@ -81,4 +76,26 @@ cc_test {
             enabled: true,
         },
     },
+}
+
+cc_test {
+    name: "ulp",
+    defaults: ["arm-optimized-routines-defaults"],
+    gtest: false,
+    srcs: ["math/test/ulp.c"],
+    data: ["math/test/runulp.sh"],
+}
+
+sh_test {
+    name: "arm-optimized-routines-tests",
+    src: "run-arm-optimized-routines-tests-on-android.sh",
+    filename: "run-arm-optimized-routines-tests-on-android.sh",
+    test_suites: ["general-tests"],
+    host_supported: true,
+    device_supported: false,
+    test_config: "arm-optimized-routines-tests.xml",
+    target_required: [
+        "mathtest",
+        "ulp",
+    ],
 }

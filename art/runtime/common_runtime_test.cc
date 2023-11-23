@@ -41,7 +41,9 @@
 #include "dex/art_dex_file_loader.h"
 #include "dex/dex_file-inl.h"
 #include "dex/dex_file_loader.h"
+#include "dex/method_reference.h"
 #include "dex/primitive.h"
+#include "dex/type_reference.h"
 #include "gc/heap.h"
 #include "gc/space/image_space.h"
 #include "gc_root-inl.h"
@@ -56,6 +58,7 @@
 #include "mirror/object_array-alloc-inl.h"
 #include "native/dalvik_system_DexFile.h"
 #include "noop_compiler_callbacks.h"
+#include "profile/profile_compilation_info.h"
 #include "runtime-inl.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
@@ -93,12 +96,7 @@ std::string CommonRuntimeTestImpl::GetAndroidTargetToolsDir(InstructionSet isa) 
       return GetAndroidToolsDir("prebuilts/gcc/linux-x86/x86",
                                 "x86_64-linux-android",
                                 "x86_64-linux-android");
-    case InstructionSet::kMips:
-    case InstructionSet::kMips64:
-      return GetAndroidToolsDir("prebuilts/gcc/linux-x86/mips",
-                                "mips64el-linux-android",
-                                "mips64el-linux-android");
-    case InstructionSet::kNone:
+    default:
       break;
   }
   ADD_FAILURE() << "Invalid isa " << isa;
@@ -122,6 +120,8 @@ void CommonRuntimeTestImpl::SetUp() {
   options.push_back(std::make_pair("-Xcheck:jni", nullptr));
   options.push_back(std::make_pair(min_heap_string, nullptr));
   options.push_back(std::make_pair(max_heap_string, nullptr));
+
+  // Technically this is redundant w/ common_art_test, but still check.
   options.push_back(std::make_pair("-XX:SlowDebug=true", nullptr));
   static bool gSlowDebugTestFlag = false;
   RegisterRuntimeDebugFlag(&gSlowDebugTestFlag);
@@ -270,16 +270,19 @@ jobject CommonRuntimeTestImpl::LoadDex(const char* dex_name) {
   return class_loader;
 }
 
-jobject CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::string& dex_name,
-                                                             jclass loader_class,
-                                                             jobject parent_loader,
-                                                             jobject shared_libraries) {
-  std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles(dex_name.c_str());
+jobject
+CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::vector<std::string>& dex_names,
+                                                     jclass loader_class,
+                                                     jobject parent_loader,
+                                                     jobject shared_libraries) {
   std::vector<const DexFile*> class_path;
-  CHECK_NE(0U, dex_files.size());
-  for (auto& dex_file : dex_files) {
-    class_path.push_back(dex_file.get());
-    loaded_dex_files_.push_back(std::move(dex_file));
+  for (const std::string& dex_name : dex_names) {
+    std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles(dex_name.c_str());
+    CHECK_NE(0U, dex_files.size());
+    for (auto& dex_file : dex_files) {
+      class_path.push_back(dex_file.get());
+      loaded_dex_files_.push_back(std::move(dex_file));
+    }
   }
   Thread* self = Thread::Current();
   ScopedObjectAccess soa(self);
@@ -318,7 +321,15 @@ jobject CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::string& 
 jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::string& dex_name,
                                                         jobject parent_loader,
                                                         jobject shared_libraries) {
-  return LoadDexInWellKnownClassLoader(dex_name,
+  return LoadDexInPathClassLoader(std::vector<std::string>{ dex_name },
+                                  parent_loader,
+                                  shared_libraries);
+}
+
+jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::vector<std::string>& names,
+                                                        jobject parent_loader,
+                                                        jobject shared_libraries) {
+  return LoadDexInWellKnownClassLoader(names,
                                        WellKnownClasses::dalvik_system_PathClassLoader,
                                        parent_loader,
                                        shared_libraries);
@@ -326,14 +337,14 @@ jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::string& dex_n
 
 jobject CommonRuntimeTestImpl::LoadDexInDelegateLastClassLoader(const std::string& dex_name,
                                                                 jobject parent_loader) {
-  return LoadDexInWellKnownClassLoader(dex_name,
+  return LoadDexInWellKnownClassLoader({ dex_name },
                                        WellKnownClasses::dalvik_system_DelegateLastClassLoader,
                                        parent_loader);
 }
 
 jobject CommonRuntimeTestImpl::LoadDexInInMemoryDexClassLoader(const std::string& dex_name,
                                                                jobject parent_loader) {
-  return LoadDexInWellKnownClassLoader(dex_name,
+  return LoadDexInWellKnownClassLoader({ dex_name },
                                        WellKnownClasses::dalvik_system_InMemoryDexClassLoader,
                                        parent_loader);
 }
@@ -400,18 +411,16 @@ void CommonRuntimeTestImpl::MakeInterpreted(ObjPtr<mirror::Class> klass) {
 }
 
 bool CommonRuntimeTestImpl::StartDex2OatCommandLine(/*out*/std::vector<std::string>* argv,
-                                                    /*out*/std::string* error_msg) {
+                                                    /*out*/std::string* error_msg,
+                                                    bool use_runtime_bcp_and_image) {
   DCHECK(argv != nullptr);
   DCHECK(argv->empty());
 
   Runtime* runtime = Runtime::Current();
-  const std::vector<gc::space::ImageSpace*>& image_spaces =
-      runtime->GetHeap()->GetBootImageSpaces();
-  if (image_spaces.empty()) {
+  if (use_runtime_bcp_and_image && runtime->GetHeap()->GetBootImageSpaces().empty()) {
     *error_msg = "No image location found for Dex2Oat.";
     return false;
   }
-  std::string image_location = image_spaces[0]->GetImageLocation();
 
   argv->push_back(runtime->GetCompilerExecutable());
   if (runtime->IsJavaDebuggable()) {
@@ -419,16 +428,200 @@ bool CommonRuntimeTestImpl::StartDex2OatCommandLine(/*out*/std::vector<std::stri
   }
   runtime->AddCurrentRuntimeFeaturesAsDex2OatArguments(argv);
 
-  argv->push_back("--runtime-arg");
-  argv->push_back(GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames()));
-  argv->push_back("--runtime-arg");
-  argv->push_back(GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations()));
+  if (use_runtime_bcp_and_image) {
+    argv->push_back("--runtime-arg");
+    argv->push_back(GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames()));
+    argv->push_back("--runtime-arg");
+    argv->push_back(GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations()));
 
-  argv->push_back("--boot-image=" + image_location);
+    const std::vector<gc::space::ImageSpace*>& image_spaces =
+        runtime->GetHeap()->GetBootImageSpaces();
+    DCHECK(!image_spaces.empty());
+    argv->push_back("--boot-image=" + image_spaces[0]->GetImageLocation());
+  }
 
   std::vector<std::string> compiler_options = runtime->GetCompilerOptions();
   argv->insert(argv->end(), compiler_options.begin(), compiler_options.end());
   return true;
+}
+
+bool CommonRuntimeTestImpl::CompileBootImage(const std::vector<std::string>& extra_args,
+                                             const std::string& image_file_name_prefix,
+                                             ArrayRef<const std::string> dex_files,
+                                             ArrayRef<const std::string> dex_locations,
+                                             std::string* error_msg,
+                                             const std::string& use_fd_prefix) {
+  Runtime* const runtime = Runtime::Current();
+  std::vector<std::string> argv {
+    runtime->GetCompilerExecutable(),
+    "--runtime-arg",
+    "-Xms64m",
+    "--runtime-arg",
+    "-Xmx64m",
+    "--runtime-arg",
+    "-Xverify:softfail",
+  };
+  CHECK_EQ(dex_files.size(), dex_locations.size());
+  for (const std::string& dex_file : dex_files) {
+    argv.push_back("--dex-file=" + dex_file);
+  }
+  for (const std::string& dex_location : dex_locations) {
+    argv.push_back("--dex-location=" + dex_location);
+  }
+  if (runtime->IsJavaDebuggable()) {
+    argv.push_back("--debuggable");
+  }
+  runtime->AddCurrentRuntimeFeaturesAsDex2OatArguments(&argv);
+
+  if (!kIsTargetBuild) {
+    argv.push_back("--host");
+  }
+
+  std::unique_ptr<File> art_file;
+  std::unique_ptr<File> vdex_file;
+  std::unique_ptr<File> oat_file;
+  if (!use_fd_prefix.empty()) {
+    art_file.reset(OS::CreateEmptyFile((use_fd_prefix + ".art").c_str()));
+    vdex_file.reset(OS::CreateEmptyFile((use_fd_prefix + ".vdex").c_str()));
+    oat_file.reset(OS::CreateEmptyFile((use_fd_prefix + ".oat").c_str()));
+    argv.push_back("--image-fd=" + std::to_string(art_file->Fd()));
+    argv.push_back("--output-vdex-fd=" + std::to_string(vdex_file->Fd()));
+    argv.push_back("--oat-fd=" + std::to_string(oat_file->Fd()));
+    argv.push_back("--oat-location=" + image_file_name_prefix + ".oat");
+  } else {
+    argv.push_back("--image=" + image_file_name_prefix + ".art");
+    argv.push_back("--oat-file=" + image_file_name_prefix + ".oat");
+    argv.push_back("--oat-location=" + image_file_name_prefix + ".oat");
+  }
+
+  std::vector<std::string> compiler_options = runtime->GetCompilerOptions();
+  argv.insert(argv.end(), compiler_options.begin(), compiler_options.end());
+
+  // We must set --android-root.
+  const char* android_root = getenv("ANDROID_ROOT");
+  CHECK(android_root != nullptr);
+  argv.push_back("--android-root=" + std::string(android_root));
+  argv.insert(argv.end(), extra_args.begin(), extra_args.end());
+
+  bool result = RunDex2Oat(argv, error_msg);
+  if (art_file != nullptr) {
+    CHECK_EQ(0, art_file->FlushClose());
+  }
+  if (vdex_file != nullptr) {
+    CHECK_EQ(0, vdex_file->FlushClose());
+  }
+  if (oat_file != nullptr) {
+    CHECK_EQ(0, oat_file->FlushClose());
+  }
+  return result;
+}
+
+bool CommonRuntimeTestImpl::RunDex2Oat(const std::vector<std::string>& args,
+                                       std::string* error_msg) {
+  // We only want fatal logging for the error message.
+  auto post_fork_fn = []() { return setenv("ANDROID_LOG_TAGS", "*:f", 1) == 0; };
+  ForkAndExecResult res = ForkAndExec(args, post_fork_fn, error_msg);
+  if (res.stage != ForkAndExecResult::kFinished) {
+    *error_msg = strerror(errno);
+    return false;
+  }
+  return res.StandardSuccess();
+}
+
+std::string CommonRuntimeTestImpl::GetImageDirectory() {
+  if (IsHost()) {
+    const char* host_dir = getenv("ANDROID_HOST_OUT");
+    CHECK(host_dir != nullptr);
+    return std::string(host_dir) + "/framework";
+  } else {
+    return std::string("/apex/com.android.art/javalib");
+  }
+}
+
+std::string CommonRuntimeTestImpl::GetImageLocation() {
+  return GetImageDirectory() + (IsHost() ? "/core.art" : "/boot.art");
+}
+
+std::string CommonRuntimeTestImpl::GetSystemImageFile() {
+  std::string isa = GetInstructionSetString(kRuntimeISA);
+  return GetImageDirectory() + "/" + isa + (IsHost() ? "/core.art" : "/boot.art");
+}
+
+void CommonRuntimeTestImpl::EnterTransactionMode() {
+  CHECK(!Runtime::Current()->IsActiveTransaction());
+  Runtime::Current()->EnterTransactionMode(/*strict=*/ false, /*root=*/ nullptr);
+}
+
+void CommonRuntimeTestImpl::ExitTransactionMode() {
+  Runtime::Current()->ExitTransactionMode();
+  CHECK(!Runtime::Current()->IsActiveTransaction());
+}
+
+void CommonRuntimeTestImpl::RollbackAndExitTransactionMode() {
+  Runtime::Current()->RollbackAndExitTransactionMode();
+  CHECK(!Runtime::Current()->IsActiveTransaction());
+}
+
+bool CommonRuntimeTestImpl::IsTransactionAborted() {
+  return Runtime::Current()->IsTransactionAborted();
+}
+
+void CommonRuntimeTestImpl::VisitDexes(ArrayRef<const std::string> dexes,
+                                       const std::function<void(MethodReference)>& method_visitor,
+                                       const std::function<void(TypeReference)>& class_visitor,
+                                       size_t method_frequency,
+                                       size_t class_frequency) {
+  size_t method_counter = 0;
+  size_t class_counter = 0;
+  for (const std::string& dex : dexes) {
+    std::vector<std::unique_ptr<const DexFile>> dex_files;
+    std::string error_msg;
+    const ArtDexFileLoader dex_file_loader;
+    CHECK(dex_file_loader.Open(dex.c_str(),
+                               dex,
+                               /*verify*/ true,
+                               /*verify_checksum*/ false,
+                               &error_msg,
+                               &dex_files))
+        << error_msg;
+    for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
+      for (size_t i = 0; i < dex_file->NumMethodIds(); ++i) {
+        if (++method_counter % method_frequency == 0) {
+          method_visitor(MethodReference(dex_file.get(), i));
+        }
+      }
+      for (size_t i = 0; i < dex_file->NumTypeIds(); ++i) {
+        if (++class_counter % class_frequency == 0) {
+          class_visitor(TypeReference(dex_file.get(), dex::TypeIndex(i)));
+        }
+      }
+    }
+  }
+}
+
+void CommonRuntimeTestImpl::GenerateProfile(ArrayRef<const std::string> dexes,
+                                            File* out_file,
+                                            size_t method_frequency,
+                                            size_t type_frequency) {
+  ProfileCompilationInfo profile;
+  VisitDexes(
+      dexes,
+      [&profile](MethodReference ref) {
+        uint32_t flags = ProfileCompilationInfo::MethodHotness::kFlagHot |
+            ProfileCompilationInfo::MethodHotness::kFlagStartup;
+        EXPECT_TRUE(profile.AddMethod(
+            ProfileMethodInfo(ref),
+            static_cast<ProfileCompilationInfo::MethodHotness::Flag>(flags)));
+      },
+      [&profile](TypeReference ref) {
+        std::set<dex::TypeIndex> classes;
+        classes.insert(ref.TypeIndex());
+        EXPECT_TRUE(profile.AddClassesForDex(ref.dex_file, classes.begin(), classes.end()));
+      },
+      method_frequency,
+      type_frequency);
+  profile.Save(out_file->Fd());
+  EXPECT_EQ(out_file->Flush(), 0);
 }
 
 CheckJniAbortCatcher::CheckJniAbortCatcher() : vm_(Runtime::Current()->GetJavaVM()) {
@@ -463,7 +656,6 @@ void CheckJniAbortCatcher::Hook(void* data, const std::string& reason) {
 extern "C"
 __attribute__((visibility("default"))) __attribute__((weak))
 void ArtTestGlobalInit() {
-  LOG(ERROR) << "ArtTestGlobalInit in common_runtime_test";
 }
 
 int main(int argc, char **argv) {

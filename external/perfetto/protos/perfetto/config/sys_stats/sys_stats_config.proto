@@ -15,14 +15,10 @@
  */
 
 syntax = "proto2";
-option optimize_for = LITE_RUNTIME;
 
 package perfetto.protos;
 
-import "perfetto/common/sys_stats_counters.proto";
-
-// When editing this file run ./tools/gen_tracing_cpp_headers_from_protos.py
-// to reflect changes in the corresponding C++ headers.
+import "protos/perfetto/common/sys_stats_counters.proto";
 
 // This file defines the configuration for the Linux /proc poller data source,
 // which injects counters in the trace.
@@ -39,7 +35,8 @@ message SysStatsConfig {
   // Cost: 0.3 ms [read] + 0.07 ms [parse + trace injection]
   optional uint32 meminfo_period_ms = 1;
 
-  // Only the counters specified below are reported.
+  // If empty all known counters are reported. Otherwise, only the counters
+  // specified below are reported.
   repeated MeminfoCounters meminfo_counters = 2;
 
   // Polls /proc/vmstat every X ms, if non-zero.

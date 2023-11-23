@@ -16,6 +16,7 @@
  */
 package com.android.org.conscrypt;
 
+import com.android.org.conscrypt.io.IoUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -82,8 +83,9 @@ public final class Conscrypt {
         int major = -1;
         int minor = -1;
         int patch = -1;
+        InputStream stream = null;
         try {
-            InputStream stream = Conscrypt.class.getResourceAsStream("conscrypt.properties");
+            stream = Conscrypt.class.getResourceAsStream("conscrypt.properties");
             if (stream != null) {
                 Properties props = new Properties();
                 props.load(stream);
@@ -92,6 +94,8 @@ public final class Conscrypt {
                 patch = Integer.parseInt(props.getProperty("com.android.org.conscrypt.version.patch", "-1"));
             }
         } catch (IOException e) {
+        } finally {
+            IoUtils.closeQuietly(stream);
         }
         if ((major >= 0) && (minor >= 0) && (patch >= 0)) {
             VERSION = new Version(major, minor, patch);
@@ -140,7 +144,7 @@ public final class Conscrypt {
     @Deprecated
     public static Provider newProvider(String providerName) {
         checkAvailability();
-        return new OpenSSLProvider(providerName, Platform.provideTrustManagerByDefault());
+        return newProviderBuilder().setName(providerName).build();
     }
 
     /**
@@ -149,6 +153,7 @@ public final class Conscrypt {
     public static class ProviderBuilder {
         private String name = Platform.getDefaultProviderName();
         private boolean provideTrustManager = Platform.provideTrustManagerByDefault();
+        private String defaultTlsProtocol = NativeCrypto.SUPPORTED_PROTOCOL_TLSV1_3;
 
         private ProviderBuilder() {}
 
@@ -179,8 +184,17 @@ public final class Conscrypt {
             return this;
         }
 
+        /**
+         * Specifies what the default TLS protocol should be for SSLContext identifiers
+         * {@code TLS}, {@code SSL}, and {@code Default}.
+         */
+        public ProviderBuilder defaultTlsProtocol(String defaultTlsProtocol) {
+            this.defaultTlsProtocol = defaultTlsProtocol;
+            return this;
+        }
+
         public Provider build() {
-            return new OpenSSLProvider(name, provideTrustManager);
+            return new OpenSSLProvider(name, provideTrustManager, defaultTlsProtocol);
         }
     }
 

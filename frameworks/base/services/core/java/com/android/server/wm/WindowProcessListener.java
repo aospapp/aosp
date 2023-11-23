@@ -17,6 +17,7 @@
 package com.android.server.wm;
 
 import android.util.proto.ProtoOutputStream;
+import android.view.RemoteAnimationAdapter;
 
 /**
  * Interface used by the owner/creator of a process that owns windows to listen to changes from the
@@ -50,6 +51,11 @@ public interface WindowProcessListener {
      */
     boolean isRemoved();
 
+    /**
+     * Returns true if the process is in a cached state.
+     */
+    boolean isCached();
+
     /** Returns the total time (in milliseconds) spent executing in both user and system code. */
     long getCpuTime();
 
@@ -58,6 +64,16 @@ public interface WindowProcessListener {
             long versionCode);
 
     /** App died :(...oh well */
-    void appDied();
-    void writeToProto(ProtoOutputStream proto, long fieldId);
+    void appDied(String reason);
+    void dumpDebug(ProtoOutputStream proto, long fieldId);
+
+    /**
+     * Sets if the process is currently running a remote animation, which is taken a signal for
+     * determining oom adjustment and scheduling behavior.
+     *
+     * @param runningRemoteAnimation True if the process is running a remote animation, false
+     *                               otherwise.
+     * @see RemoteAnimationAdapter
+     */
+    void setRunningRemoteAnimation(boolean runningRemoteAnimation);
 }

@@ -18,14 +18,12 @@ package com.android.tv.tuner.setup;
 
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
-import com.android.tv.common.BuildConfig;
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
 import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.tuner.R;
 import java.util.List;
-import java.util.TimeZone;
 
 /** A fragment for connection type selection. */
 public class ConnectionTypeFragment extends SetupMultiPaneFragment {
@@ -67,7 +65,6 @@ public class ConnectionTypeFragment extends SetupMultiPaneFragment {
 
     /** The content fragment of {@link ConnectionTypeFragment}. */
     public static class ContentFragment extends SetupGuidedStepFragment {
-
         @NonNull
         @Override
         public Guidance onCreateGuidance(Bundle savedInstanceState) {

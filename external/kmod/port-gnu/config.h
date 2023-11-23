@@ -10,6 +10,9 @@
 /* System logging. */
 #define ENABLE_LOGGING 1
 
+/* Enable openssl for modinfo. */
+/* #undef ENABLE_OPENSSL */
+
 /* Enable Xz for modules. */
 /* #undef ENABLE_XZ */
 
@@ -22,7 +25,7 @@
 
 /* Define to 1 if you have the declaration of `strndupa', and to 0 if you
    don't. */
-#define HAVE_DECL_STRNDUPA 1
+/* #define HAVE_DECL_STRNDUPA */
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -92,10 +95,9 @@
 #define HAVE___XSTAT 1
 
 /* Features in this build */
-#define KMOD_FEATURES "-XZ -ZLIB -EXPERIMENTAL"
+#define KMOD_FEATURES "-XZ -ZLIB -OPENSSL -EXPERIMENTAL"
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #define LT_OBJDIR ".libs/"
 
 /* Name of package */
@@ -108,7 +110,7 @@
 #define PACKAGE_NAME "kmod"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "kmod 23"
+#define PACKAGE_STRING "kmod 26"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "kmod"
@@ -117,7 +119,7 @@
 #define PACKAGE_URL "http://git.kernel.org/?p=utils/kernel/kmod/kmod.git"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "23"
+#define PACKAGE_VERSION "26"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -145,7 +147,7 @@
 
 
 /* Version number of package */
-#define VERSION "23"
+#define VERSION "26"
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE
@@ -180,4 +182,13 @@ char* basename(const char*);
 #else
 #include <endian.h>
 
+#endif
+
+#if defined(__ANDROID__)
+#include <stdlib.h>
+#include <unistd.h>
+static inline char *get_current_dir_name(void)
+{
+    return getcwd(malloc(PATH_MAX), PATH_MAX);
+}
 #endif

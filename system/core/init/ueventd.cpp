@@ -17,12 +17,15 @@
 #include "ueventd.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include <set>
 #include <thread>
@@ -37,6 +40,7 @@
 #include "devices.h"
 #include "firmware_handler.h"
 #include "modalias_handler.h"
+#include "selabel.h"
 #include "selinux.h"
 #include "uevent_handler.h"
 #include "uevent_listener.h"
@@ -109,10 +113,12 @@ namespace init {
 class ColdBoot {
   public:
     ColdBoot(UeventListener& uevent_listener,
-             std::vector<std::unique_ptr<UeventHandler>>& uevent_handlers)
+             std::vector<std::unique_ptr<UeventHandler>>& uevent_handlers,
+             bool enable_parallel_restorecon)
         : uevent_listener_(uevent_listener),
           uevent_handlers_(uevent_handlers),
-          num_handler_subprocesses_(std::thread::hardware_concurrency() ?: 4) {}
+          num_handler_subprocesses_(std::thread::hardware_concurrency() ?: 4),
+          enable_parallel_restorecon_(enable_parallel_restorecon) {}
 
     void Run();
 
@@ -120,16 +126,21 @@ class ColdBoot {
     void UeventHandlerMain(unsigned int process_num, unsigned int total_processes);
     void RegenerateUevents();
     void ForkSubProcesses();
-    void DoRestoreCon();
     void WaitForSubProcesses();
+    void RestoreConHandler(unsigned int process_num, unsigned int total_processes);
+    void GenerateRestoreCon(const std::string& directory);
 
     UeventListener& uevent_listener_;
     std::vector<std::unique_ptr<UeventHandler>>& uevent_handlers_;
 
     unsigned int num_handler_subprocesses_;
+    bool enable_parallel_restorecon_;
+
     std::vector<Uevent> uevent_queue_;
 
     std::set<pid_t> subprocess_pids_;
+
+    std::vector<std::string> restorecon_queue_;
 };
 
 void ColdBoot::UeventHandlerMain(unsigned int process_num, unsigned int total_processes) {
@@ -140,12 +151,40 @@ void ColdBoot::UeventHandlerMain(unsigned int process_num, unsigned int total_pr
             uevent_handler->HandleUevent(uevent);
         }
     }
-    _exit(EXIT_SUCCESS);
+}
+
+void ColdBoot::RestoreConHandler(unsigned int process_num, unsigned int total_processes) {
+    for (unsigned int i = process_num; i < restorecon_queue_.size(); i += total_processes) {
+        auto& dir = restorecon_queue_[i];
+
+        selinux_android_restorecon(dir.c_str(), SELINUX_ANDROID_RESTORECON_RECURSE);
+    }
+}
+
+void ColdBoot::GenerateRestoreCon(const std::string& directory) {
+    std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(directory.c_str()), &closedir);
+
+    if (!dir) return;
+
+    struct dirent* dent;
+    while ((dent = readdir(dir.get())) != NULL) {
+        if (strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0) continue;
+
+        struct stat st;
+        if (fstatat(dirfd(dir.get()), dent->d_name, &st, 0) == -1) continue;
+
+        if (S_ISDIR(st.st_mode)) {
+            std::string fullpath = directory + "/" + dent->d_name;
+            if (fullpath != "/sys/devices") {
+                restorecon_queue_.emplace_back(fullpath);
+            }
+        }
+    }
 }
 
 void ColdBoot::RegenerateUevents() {
     uevent_listener_.RegenerateUevents([this](const Uevent& uevent) {
-        uevent_queue_.emplace_back(std::move(uevent));
+        uevent_queue_.emplace_back(uevent);
         return ListenerAction::kContinue;
     });
 }
@@ -159,14 +198,14 @@ void ColdBoot::ForkSubProcesses() {
 
         if (pid == 0) {
             UeventHandlerMain(i, num_handler_subprocesses_);
+            if (enable_parallel_restorecon_) {
+                RestoreConHandler(i, num_handler_subprocesses_);
+            }
+            _exit(EXIT_SUCCESS);
         }
 
         subprocess_pids_.emplace(pid);
     }
-}
-
-void ColdBoot::DoRestoreCon() {
-    selinux_android_restorecon("/sys", SELINUX_ANDROID_RESTORECON_RECURSE);
 }
 
 void ColdBoot::WaitForSubProcesses() {
@@ -207,13 +246,23 @@ void ColdBoot::Run() {
 
     RegenerateUevents();
 
+    if (enable_parallel_restorecon_) {
+        selinux_android_restorecon("/sys", 0);
+        selinux_android_restorecon("/sys/devices", 0);
+        GenerateRestoreCon("/sys");
+        // takes long time for /sys/devices, parallelize it
+        GenerateRestoreCon("/sys/devices");
+    }
+
     ForkSubProcesses();
 
-    DoRestoreCon();
+    if (!enable_parallel_restorecon_) {
+        selinux_android_restorecon("/sys", SELINUX_ANDROID_RESTORECON_RECURSE);
+    }
 
     WaitForSubProcesses();
 
-    close(open(COLDBOOT_DONE, O_WRONLY | O_CREAT | O_CLOEXEC, 0000));
+    android::base::SetProperty(kColdBootDoneProp, "true");
     LOG(INFO) << "Coldboot took " << cold_boot_timer.duration().count() / 1000.0f << " seconds";
 }
 
@@ -239,7 +288,7 @@ int ueventd_main(int argc, char** argv) {
     // TODO: cleanup platform ueventd.rc to remove vendor specific device node entries (b/34968103)
     auto hardware = android::base::GetProperty("ro.hardware", "");
 
-    auto ueventd_configuration = ParseConfig({"/ueventd.rc", "/vendor/ueventd.rc",
+    auto ueventd_configuration = ParseConfig({"/system/etc/ueventd.rc", "/vendor/ueventd.rc",
                                               "/odm/ueventd.rc", "/ueventd." + hardware + ".rc"});
 
     uevent_handlers.emplace_back(std::make_unique<DeviceHandler>(
@@ -247,15 +296,18 @@ int ueventd_main(int argc, char** argv) {
             std::move(ueventd_configuration.sysfs_permissions),
             std::move(ueventd_configuration.subsystems), android::fs_mgr::GetBootDevices(), true));
     uevent_handlers.emplace_back(std::make_unique<FirmwareHandler>(
-            std::move(ueventd_configuration.firmware_directories)));
+            std::move(ueventd_configuration.firmware_directories),
+            std::move(ueventd_configuration.external_firmware_handlers)));
 
     if (ueventd_configuration.enable_modalias_handling) {
-        uevent_handlers.emplace_back(std::make_unique<ModaliasHandler>());
+        std::vector<std::string> base_paths = {"/odm/lib/modules", "/vendor/lib/modules"};
+        uevent_handlers.emplace_back(std::make_unique<ModaliasHandler>(base_paths));
     }
     UeventListener uevent_listener(ueventd_configuration.uevent_socket_rcvbuf_size);
 
-    if (access(COLDBOOT_DONE, F_OK) != 0) {
-        ColdBoot cold_boot(uevent_listener, uevent_handlers);
+    if (!android::base::GetBoolProperty(kColdBootDoneProp, false)) {
+        ColdBoot cold_boot(uevent_listener, uevent_handlers,
+                           ueventd_configuration.enable_parallel_restorecon);
         cold_boot.Run();
     }
 

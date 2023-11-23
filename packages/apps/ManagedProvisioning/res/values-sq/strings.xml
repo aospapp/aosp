@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Rivendos"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Nuk mund të konfigurojë profilin"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Nuk mund të konfigurojë pajisjen"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Ndodhi një gabim"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Pajisja nuk mund të konfigurohej. Për ndihmë, kontakto me administratorin e teknologjisë së informacionit."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Kontakto me administratorin e teknologjisë së informacionit për ndihmë"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Rivendose këtë pajisje dhe provo ta konfigurosh sërish"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Pajisja është e konfiguruar tashmë"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Nuk mundi të lidhej me Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Pajisja ka të aktivizuar mbrojtjen kundër rivendosjes. Për ndihmë, kontakto me administratorin e teknologjisë së informacionit."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Po përgatitet konfigurimi i pajisjes së punës…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Konfigurimi i aplikacionit të administratorit"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Konfiguro gjithçka tjetër"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Tani le të konfigurojmë gjithçka tjetër"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Shto një llogari personale për të marrë më shumë nga pajisja jote"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Ki parasysh se profili yt i punës është gati, mund të shtosh gjithashtu edhe një \"Llogari të Google\" personale për t\'u qasur në aplikacionet dhe përmbajtjen tënde."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Kjo pajisje i përket organizatës sate"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Aplikacioni i mëposhtëm do të përdoret për të menaxhuar dhe monitoruar këtë telefon"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Po përgatitet për konfigurimin e punës…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Së pari, le të konfigurojmë profilin tënd të punës"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Le të konfigurojmë profilin tënd të punës"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Aplikacionet e punës mbahen në profilin tënd të punës"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Vendosi në pauzë aplikacionet e punës kur të mbarosh për ditën përkatëse"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Vetëm të dhënat në profilin tënd të punës janë të dukshme për administratorin e teknologjisë së informacionit"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Administratori i TI-së mund të shikojë të dhënat e profilit tënd të punës"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Profili yt i punës po konfigurohet…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Aplikacionet e punës mbahen në profilin tënd të punës. Mund t\'i ndërpresësh aplikacionet e tua të punës kur të mbarosh për ditën përkatëse. Vetëm të dhënat në profilin tënd të punës janë të dukshme për administratorin e teknologjisë së informacionit."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Aplikacionet e punës mbahen në profilin tënd të punës. Mund t\'i ndërpresësh aplikacionet e tua të punës kur të mbarosh për ditën përkatëse. Të dhënat në profilin tënd të punës janë të dukshme për administratorin e teknologjisë së informacionit."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Le të konfigurojmë pajisjen tënde të punës"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Mbaji aplikacionet e tua të punës në majë të gishtave"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Kjo pajisje nuk është private"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Administratori i teknologjisë së informacionit mund të arrijë t\'i shikojë të dhënat e tua dhe aktivitetin tënd në këtë pajisje."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Pajisja po konfigurohet…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Përdor këtë pajisje për të pasur qasje me lehtësi tek aplikacionet e tua të punës. Kjo pajisje nuk është private, kështu që administratori yt i teknologjisë së informacionit mund të arrijë të shikojë të dhënat e tua dhe aktivitetin tënd. Për të mësuar më shumë, kontakto me administratorin tënd të teknologjisë së informacionit."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Apl. e punës mbahen në profilin tënd të punës dhe menaxhohen nga administratori yt i TI-së"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Aplikacionet personale janë të ndara dhe të fshehura nga aplikacionet e punës"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Admin. i TI-së mund ta kontrollojë këtë pajisje e të bllokojë aplikacione të caktuara"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Aplikacionet e punës mbahen në profilin tënd të punës dhe menaxhohen nga administratori yt i teknologjisë së informacionit. Aplikacionet personale janë të ndara dhe të fshehura nga aplikacionet e punës. Administratori yt i teknologjisë së informacionit mund të kontrollojë këtë pajisje dhe të bllokojë aplikacione të caktuara."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Vetëm një sekondë…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Rikujtuesi i privatësisë"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Administratori i teknologjisë së informacionit mund të arrijë t\'i shikojë të dhënat e tua dhe aktivitetin tënd në këtë pajisje"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Pajisja jote është gati për të vazhduar!"</string>
     <string name="done" msgid="7755227776955952318">"U krye"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Kjo pajisje u ble me kreditim nga <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> mund:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Të instalojë aplikacionin <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> në mënyrë që të kryesh pagesat për këtë pajisje"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Të kufizojë qasjen në këtë pajisje nëse nuk kryen pagesat"</string>
 </resources>

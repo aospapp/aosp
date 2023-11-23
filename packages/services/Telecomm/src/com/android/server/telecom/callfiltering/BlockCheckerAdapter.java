@@ -18,27 +18,49 @@ package com.android.server.telecom.callfiltering;
 
 import android.content.Context;
 import android.os.Bundle;
-
-import com.android.internal.telephony.BlockChecker;
+import android.provider.BlockedNumberContract;
+import android.telecom.Log;
 
 public class BlockCheckerAdapter {
+    private static final String TAG = BlockCheckerAdapter.class.getSimpleName();
+
     public BlockCheckerAdapter() { }
 
     /**
-     * Check whether the number is blocked.
+     * Returns the call blocking status for the {@code phoneNumber}.
+     * <p>
+     * This method catches all underlying exceptions to ensure that this method never throws any
+     * exception.
      *
      * @param context the context of the caller.
-     * @param number the number to check.
+     * @param phoneNumber the number to check.
      * @param extras the extra attribute of the number.
      * @return result code indicating if the number should be blocked, and if so why.
-     *         Valid values are: {@link android.provider.BlockedNumberContract#STATUS_NOT_BLOCKED},
-     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_IN_LIST},
-     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_NOT_IN_CONTACTS},
-     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_PAYPHONE},
-     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_RESTRICTED},
-     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_UNKNOWN_NUMBER}.
+     *         Valid values are: {@link BlockedNumberContract#STATUS_NOT_BLOCKED},
+     *         {@link BlockedNumberContract#STATUS_BLOCKED_IN_LIST},
+     *         {@link BlockedNumberContract#STATUS_BLOCKED_NOT_IN_CONTACTS},
+     *         {@link BlockedNumberContract#STATUS_BLOCKED_PAYPHONE},
+     *         {@link BlockedNumberContract#STATUS_BLOCKED_RESTRICTED},
+     *         {@link BlockedNumberContract#STATUS_BLOCKED_UNKNOWN_NUMBER}.
      */
-    public int getBlockStatus(Context context, String number, Bundle extras) {
-        return BlockChecker.getBlockStatus(context, number, extras);
+    public int getBlockStatus(Context context, String phoneNumber, Bundle extras) {
+        int blockStatus = BlockedNumberContract.STATUS_NOT_BLOCKED;
+        long startTimeNano = System.nanoTime();
+
+        try {
+            blockStatus = BlockedNumberContract.SystemContract.shouldSystemBlockNumber(
+                    context, phoneNumber, extras);
+            if (blockStatus != BlockedNumberContract.STATUS_NOT_BLOCKED) {
+                Log.d(TAG, phoneNumber + " is blocked.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, e, "Exception checking for blocked number");
+        }
+
+        int durationMillis = (int) ((System.nanoTime() - startTimeNano) / 1000000);
+        if (durationMillis > 500 || Log.isLoggable(android.util.Log.DEBUG)) {
+            Log.d(TAG, "Blocked number lookup took: " + durationMillis + " ms.");
+        }
+        return blockStatus;
     }
 }

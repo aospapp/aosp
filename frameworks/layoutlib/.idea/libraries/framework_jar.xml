@@ -1,7 +1,7 @@
 <component name="libraryTable">
   <library name="framework.jar">
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/../../out/host/common/obj/JAVA_LIBRARIES/temp_layoutlib_intermediates/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../out/soong/.intermediates/frameworks/layoutlib/temp_layoutlib/linux_glibc_common/gen/temp_layoutlib.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>

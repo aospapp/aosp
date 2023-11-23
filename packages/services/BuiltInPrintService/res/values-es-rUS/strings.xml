@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Olvidar"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Se conecta mediante Wi-Fi directo"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Se conecta mediante la red actual a <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"El servicio de impresión predeterminado brinda opciones básicas. Otros servicios pueden brindar opciones adicionales para esta impresora."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Servicios recomendados"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Selecciona para instalar"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Selecciona para habilitar"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Administrar servicios"</string>
     <string name="security" msgid="2279008326210305401">"Seguridad"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Esta impresora emitió un nuevo certificado de seguridad, o bien está suplantándola otro dispositivo. ¿Quieres aceptar el nuevo certificado?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Esta impresora ya no acepta tareas encriptadas. ¿Quieres continuar con la impresión?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Conexiones"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"El servicio de impresión predeterminada requiere permiso de ubicación para encontrar dispositivos cercanos."</string>
     <string name="fix" msgid="7784394272611365393">"Revisar permiso"</string>
+    <string name="print" msgid="7851318072404916362">"Imprimir"</string>
 </resources>

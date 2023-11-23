@@ -296,6 +296,8 @@ class PbapStateMachine extends StateMachine {
             }
             broadcastStateTransitions();
             MetricsLogger.logProfileConnectionEvent(BluetoothMetricsProto.ProfileId.PBAP);
+            mService.setConnectionPolicy(
+                    mRemoteDevice, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
         @Override

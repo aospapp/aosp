@@ -15,8 +15,13 @@
  */
 package com.android.car.hal;
 
+import static android.hardware.automotive.vehicle.V2_0.RotaryInputType.ROTARY_INPUT_TYPE_AUDIO_VOLUME;
+import static android.hardware.automotive.vehicle.V2_0.RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION;
 import static android.hardware.automotive.vehicle.V2_0.VehicleProperty.HW_KEY_INPUT;
+import static android.hardware.automotive.vehicle.V2_0.VehicleProperty.HW_ROTARY_INPUT;
 
+import android.car.input.CarInputManager;
+import android.car.input.RotaryEvent;
 import android.hardware.automotive.vehicle.V2_0.VehicleDisplay;
 import android.hardware.automotive.vehicle.V2_0.VehicleHwKeyInputAction;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
@@ -28,25 +33,38 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 
 import com.android.car.CarLog;
+import com.android.car.CarServiceUtils;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.PrintWriter;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
 public class InputHalService extends HalServiceBase {
 
     public static final int DISPLAY_MAIN = VehicleDisplay.MAIN;
     public static final int DISPLAY_INSTRUMENT_CLUSTER = VehicleDisplay.INSTRUMENT_CLUSTER;
+
+    private static final int[] SUPPORTED_PROPERTIES = new int[] {
+            HW_KEY_INPUT,
+            HW_ROTARY_INPUT
+    };
+
     private final VehicleHal mHal;
-    /** A function to retrieve the current system uptime - replaceable for testing. */
+
+    /**
+     * A function to retrieve the current system uptime in milliseconds - replaceable for testing.
+     */
     private final LongSupplier mUptimeSupplier;
 
     public interface InputListener {
+        /** Called for key event */
         void onKeyEvent(KeyEvent event, int targetDisplay);
+        /** Called for rotary event */
+        void onRotaryEvent(RotaryEvent event, int targetDisplay);
     }
 
     /** The current press state of a key. */
@@ -59,10 +77,15 @@ public class InputHalService extends HalServiceBase {
 
     private static final boolean DBG = false;
 
-    @GuardedBy("this")
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
     private boolean mKeyInputSupported = false;
 
-    @GuardedBy("this")
+    @GuardedBy("mLock")
+    private boolean mRotaryInputSupported = false;
+
+    @GuardedBy("mLock")
     private InputListener mListener;
 
     @GuardedBy("mKeyStates")
@@ -79,18 +102,38 @@ public class InputHalService extends HalServiceBase {
     }
 
     public void setInputListener(InputListener listener) {
-        synchronized (this) {
-            if (!mKeyInputSupported) {
-                Log.w(CarLog.TAG_INPUT, "input listener set while key input not supported");
+        boolean keyInputSupported;
+        boolean rotaryInputSupported;
+        synchronized (mLock) {
+            if (!mKeyInputSupported && !mRotaryInputSupported) {
+                Log.w(CarLog.TAG_INPUT,
+                        "input listener set while rotary and key input not supported");
                 return;
             }
             mListener = listener;
+            keyInputSupported = mKeyInputSupported;
+            rotaryInputSupported = mRotaryInputSupported;
         }
-        mHal.subscribeProperty(this, HW_KEY_INPUT);
+        if (keyInputSupported) {
+            mHal.subscribeProperty(this, HW_KEY_INPUT);
+        }
+        if (rotaryInputSupported) {
+            mHal.subscribeProperty(this, HW_ROTARY_INPUT);
+        }
     }
 
-    public synchronized boolean isKeyInputSupported() {
-        return mKeyInputSupported;
+    /** Returns whether {@code HW_KEY_INPUT} is supported. */
+    public boolean isKeyInputSupported() {
+        synchronized (mLock) {
+            return mKeyInputSupported;
+        }
+    }
+
+    /** Returns whether {@code HW_ROTARY_INPUT} is supported. */
+    public boolean isRotaryInputSupported() {
+        synchronized (mLock) {
+            return mRotaryInputSupported;
+        }
     }
 
     @Override
@@ -99,66 +142,166 @@ public class InputHalService extends HalServiceBase {
 
     @Override
     public void release() {
-        synchronized (this) {
+        synchronized (mLock) {
             mListener = null;
             mKeyInputSupported = false;
+            mRotaryInputSupported = false;
         }
     }
 
     @Override
-    public Collection<VehiclePropConfig> takeSupportedProperties(
-            Collection<VehiclePropConfig> allProperties) {
-        List<VehiclePropConfig> supported = new LinkedList<>();
-        for (VehiclePropConfig p: allProperties) {
-            if (p.prop == HW_KEY_INPUT) {
-                supported.add(p);
-                synchronized (this) {
-                    mKeyInputSupported = true;
-                }
+    public int[] getAllSupportedProperties() {
+        return SUPPORTED_PROPERTIES;
+    }
+
+    @Override
+    public void takeProperties(Collection<VehiclePropConfig> properties) {
+        for (VehiclePropConfig property : properties) {
+            switch (property.prop) {
+                case HW_KEY_INPUT:
+                    synchronized (mLock) {
+                        mKeyInputSupported = true;
+                    }
+                    break;
+                case HW_ROTARY_INPUT:
+                    synchronized (mLock) {
+                        mRotaryInputSupported = true;
+                    }
+                    break;
             }
         }
-        return supported;
     }
 
     @Override
-    public void handleHalEvents(List<VehiclePropValue> values) {
+    public void onHalEvents(List<VehiclePropValue> values) {
         InputListener listener;
-        synchronized (this) {
+        synchronized (mLock) {
             listener = mListener;
         }
         if (listener == null) {
             Log.w(CarLog.TAG_INPUT, "Input event while listener is null");
             return;
         }
-        for (VehiclePropValue v : values) {
-            if (v.prop != HW_KEY_INPUT) {
-                Log.e(CarLog.TAG_INPUT, "Wrong event dispatched, prop:0x" +
-                        Integer.toHexString(v.prop));
-                continue;
-            }
-            int action = (v.value.int32Values.get(0) == VehicleHwKeyInputAction.ACTION_DOWN) ?
-                            KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
-            int code = v.value.int32Values.get(1);
-            int display = v.value.int32Values.get(2);
-            int indentsCount = v.value.int32Values.size() < 4 ? 1 : v.value.int32Values.get(3);
-            if (DBG) {
-                Log.i(CarLog.TAG_INPUT, new StringBuilder()
-                                        .append("hal event code:").append(code)
-                                        .append(", action:").append(action)
-                                        .append(", display: ").append(display)
-                                        .append(", number of indents: ").append(indentsCount)
-                                        .toString());
-            }
-            while (indentsCount > 0) {
-                indentsCount--;
-                dispatchKeyEvent(listener, action, code, display);
+        for (VehiclePropValue value : values) {
+            switch (value.prop) {
+                case HW_KEY_INPUT:
+                    dispatchKeyInput(listener, value);
+                    break;
+                case HW_ROTARY_INPUT:
+                    dispatchRotaryInput(listener, value);
+                    break;
+                default:
+                    Log.e(CarLog.TAG_INPUT,
+                            "Wrong event dispatched, prop:0x" + Integer.toHexString(value.prop));
+                    break;
             }
         }
     }
 
-    private void dispatchKeyEvent(InputListener listener, int action, int code, int display) {
-        long eventTime = mUptimeSupplier.getAsLong();
+    private void dispatchKeyInput(InputListener listener, VehiclePropValue value) {
+        int action = (value.value.int32Values.get(0) == VehicleHwKeyInputAction.ACTION_DOWN)
+                ? KeyEvent.ACTION_DOWN
+                : KeyEvent.ACTION_UP;
+        int code = value.value.int32Values.get(1);
+        int display = value.value.int32Values.get(2);
+        int indentsCount = value.value.int32Values.size() < 4 ? 1 : value.value.int32Values.get(3);
+        if (DBG) {
+            Log.i(CarLog.TAG_INPUT, new StringBuilder()
+                    .append("hal event code:").append(code)
+                    .append(", action:").append(action)
+                    .append(", display: ").append(display)
+                    .append(", number of indents: ").append(indentsCount)
+                    .toString());
+        }
+        while (indentsCount > 0) {
+            indentsCount--;
+            dispatchKeyEvent(listener, action, code, display);
+        }
+    }
 
+    private void dispatchRotaryInput(InputListener listener, VehiclePropValue value) {
+        int timeValuesIndex = 3;  // remaining values are time deltas in nanoseconds
+        if (value.value.int32Values.size() < timeValuesIndex) {
+            Log.e(CarLog.TAG_INPUT, "Wrong int32 array size for RotaryInput from vhal:"
+                    + value.value.int32Values.size());
+            return;
+        }
+        int rotaryInputType = value.value.int32Values.get(0);
+        int detentCount = value.value.int32Values.get(1);
+        int display = value.value.int32Values.get(2);
+        long timestamp = value.timestamp;  // for first detent, uptime nanoseconds
+        if (DBG) {
+            Log.i(CarLog.TAG_INPUT, new StringBuilder()
+                    .append("hal rotary input type: ").append(rotaryInputType)
+                    .append(", number of detents:").append(detentCount)
+                    .append(", display: ").append(display)
+                    .toString());
+        }
+        boolean clockwise = detentCount > 0;
+        detentCount = Math.abs(detentCount);
+        if (detentCount == 0) { // at least there should be one event
+            Log.e(CarLog.TAG_INPUT, "Zero detentCount from vhal, ignore the event");
+            return;
+        }
+        if (display != DISPLAY_MAIN && display != DISPLAY_INSTRUMENT_CLUSTER) {
+            Log.e(CarLog.TAG_INPUT, "Wrong display type for RotaryInput from vhal:"
+                    + display);
+            return;
+        }
+        if (value.value.int32Values.size() != (timeValuesIndex + detentCount - 1)) {
+            Log.e(CarLog.TAG_INPUT, "Wrong int32 array size for RotaryInput from vhal:"
+                    + value.value.int32Values.size());
+            return;
+        }
+        int carInputManagerType;
+        switch (rotaryInputType) {
+            case ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION:
+                carInputManagerType = CarInputManager.INPUT_TYPE_ROTARY_NAVIGATION;
+                break;
+            case ROTARY_INPUT_TYPE_AUDIO_VOLUME:
+                carInputManagerType = CarInputManager.INPUT_TYPE_ROTARY_VOLUME;
+                break;
+            default:
+                Log.e(CarLog.TAG_INPUT, "Unknown rotary input type: " + rotaryInputType);
+                return;
+        }
+
+        long[] timestamps = new long[detentCount];
+        // vhal returns elapsed time while rotary event is using uptime to be in line with KeyEvent.
+        long uptimeToElapsedTimeDelta = CarServiceUtils.getUptimeToElapsedTimeDeltaInMillis();
+        long startUptime = TimeUnit.NANOSECONDS.toMillis(timestamp) - uptimeToElapsedTimeDelta;
+        timestamps[0] = startUptime;
+        for (int i = 0; i < timestamps.length - 1; i++) {
+            timestamps[i + 1] = timestamps[i] + TimeUnit.NANOSECONDS.toMillis(
+                    value.value.int32Values.get(timeValuesIndex + i));
+        }
+        RotaryEvent event = new RotaryEvent(carInputManagerType, clockwise, timestamps);
+        listener.onRotaryEvent(event, display);
+    }
+
+    /**
+     * Dispatches a KeyEvent using {@link #mUptimeSupplier} for the event time.
+     *
+     * @param listener listener to dispatch the event to
+     * @param action action for the KeyEvent
+     * @param code keycode for the KeyEvent
+     * @param display target display the event is associated with
+     */
+    private void dispatchKeyEvent(InputListener listener, int action, int code, int display) {
+        dispatchKeyEvent(listener, action, code, display, mUptimeSupplier.getAsLong());
+    }
+
+    /**
+     * Dispatches a KeyEvent.
+     *
+     * @param listener listener to dispatch the event to
+     * @param action action for the KeyEvent
+     * @param code keycode for the KeyEvent
+     * @param display target display the event is associated with
+     * @param eventTime uptime in milliseconds when the event occurred
+     */
+    private void dispatchKeyEvent(InputListener listener, int action, int code, int display,
+            long eventTime) {
         long downTime;
         int repeat;
 
@@ -186,7 +329,7 @@ public class InputHalService extends HalServiceBase {
             }
         }
 
-        KeyEvent event = KeyEvent.obtain(
+        KeyEvent event = new KeyEvent(
                 downTime,
                 eventTime,
                 action,
@@ -196,17 +339,15 @@ public class InputHalService extends HalServiceBase {
                 0 /* deviceId */,
                 0 /* scancode */,
                 0 /* flags */,
-                InputDevice.SOURCE_CLASS_BUTTON,
-                null /* characters */);
+                InputDevice.SOURCE_CLASS_BUTTON);
 
         listener.onKeyEvent(event, display);
-        event.recycle();
     }
 
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*Input HAL*");
         writer.println("mKeyInputSupported:" + mKeyInputSupported);
+        writer.println("mRotaryInputSupported:" + mRotaryInputSupported);
     }
-
 }

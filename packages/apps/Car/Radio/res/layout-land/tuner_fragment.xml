@@ -46,6 +46,7 @@ limitations under the License.
         android:gravity="center"
         android:textAppearance="@android:style/TextAppearance.DeviceDefault.Large"
         android:textColor="@color/manual_tuner_button_text_color"
+        android:textDirection="ltr"
         app:layout_constraintBottom_toTopOf="@+id/manual_tuner_done_button"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/dialpad_layout"

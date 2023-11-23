@@ -22,25 +22,27 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.app.admin.DevicePolicyManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.pm.UserInfo;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.ShadowDefaultDialerManager;
 import com.android.car.settings.testutils.ShadowSmsApplication;
+import com.android.car.settings.testutils.ShadowUserHelper;
+import com.android.car.settings.users.UserHelper;
 
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import java.util.Collections;
 
 /** Unit test for {@link ApplicationsUtils}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowDefaultDialerManager.class, ShadowSmsApplication.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowDefaultDialerManager.class, ShadowSmsApplication.class,
+        ShadowUserHelper.class})
 public class ApplicationsUtilsTest {
 
     private static final String PACKAGE_NAME = "com.android.car.settings.test";
@@ -49,6 +51,7 @@ public class ApplicationsUtilsTest {
     public void tearDown() {
         ShadowDefaultDialerManager.reset();
         ShadowSmsApplication.reset();
+        ShadowUserHelper.reset();
     }
 
     @Test
@@ -78,12 +81,14 @@ public class ApplicationsUtilsTest {
         UserInfo userInfo = new UserInfo();
         userInfo.id = 123;
         DevicePolicyManager dpm = mock(DevicePolicyManager.class);
-        CarUserManagerHelper um = mock(CarUserManagerHelper.class);
-        when(um.getAllUsers()).thenReturn(Collections.singletonList(userInfo));
+        UserHelper userHelper = mock(UserHelper.class);
+        ShadowUserHelper.setInstance(userHelper);
+        when(userHelper.getAllUsers()).thenReturn(Collections.singletonList(userInfo));
         when(dpm.getProfileOwnerAsUser(userInfo.id)).thenReturn(
                 new ComponentName(PACKAGE_NAME, "cls"));
 
-        assertThat(ApplicationsUtils.isProfileOrDeviceOwner(PACKAGE_NAME, dpm, um)).isTrue();
+        assertThat(ApplicationsUtils.isProfileOrDeviceOwner(PACKAGE_NAME, dpm, userHelper))
+                .isTrue();
     }
 
     @Test
@@ -92,13 +97,13 @@ public class ApplicationsUtilsTest {
         when(dpm.isDeviceOwnerAppOnAnyUser(PACKAGE_NAME)).thenReturn(true);
 
         assertThat(ApplicationsUtils.isProfileOrDeviceOwner(PACKAGE_NAME, dpm,
-                mock(CarUserManagerHelper.class))).isTrue();
+                mock(UserHelper.class))).isTrue();
     }
 
     @Test
     public void isProfileOrDeviceOwner_returnsFalse() {
         assertThat(ApplicationsUtils.isProfileOrDeviceOwner(PACKAGE_NAME,
-                mock(DevicePolicyManager.class), mock(CarUserManagerHelper.class))).isFalse();
+                mock(DevicePolicyManager.class), mock(UserHelper.class))).isFalse();
     }
 
 }

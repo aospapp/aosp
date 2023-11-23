@@ -27,6 +27,7 @@ import com.android.compatibility.common.util.IInvocationResult;
 import com.android.compatibility.common.util.IModuleResult;
 import com.android.compatibility.common.util.ITestResult;
 import com.android.compatibility.common.util.InvocationResult;
+import com.android.compatibility.common.util.InvocationResult.RunHistory;
 import com.android.compatibility.common.util.MetricsStore;
 import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultHandler;
@@ -64,6 +65,7 @@ import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.xml.XmlEscapers;
+import com.google.gson.Gson;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -75,6 +77,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -97,6 +100,9 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     private static final String CTS_PREFIX = "cts:";
     private static final String BUILD_INFO = CTS_PREFIX + "build_";
     private static final String LATEST_LINK_NAME = "latest";
+    /** Used to get run history from the test result of last run. */
+    private static final String RUN_HISTORY_KEY = "run_history";
+
 
     public static final String BUILD_BRAND = "build_brand";
     public static final String BUILD_DEVICE = "build_device";
@@ -144,6 +150,13 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     @Option(name = INCLUDE_HTML_IN_ZIP,
             description = "Whether failure summary report is included in the zip fie.")
     private boolean mIncludeHtml = false;
+
+    @Option(
+            name = "result-attribute",
+            description =
+                    "Extra key-value pairs to be added as attributes and corresponding"
+                            + "values of the \"Result\" tag in the result XML.")
+    private Map<String, String> mResultAttributes = new HashMap<String, String>();
 
     private CompatibilityBuildHelper mBuildHelper;
     private File mResultDir = null;
@@ -533,6 +546,15 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
         }
     }
 
+    /**
+     * Returns whether a report creation should be skipped.
+     */
+    protected boolean shouldSkipReportCreation() {
+        // This value is always false here for backwards compatibility.
+        // Extended classes have the option to override this.
+        return false;
+    }
+
     private void finalizeResults() {
         if (mFingerprintFailure) {
             CLog.w("Failed the fingerprint check. Skip result reporting.");
@@ -565,6 +587,26 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
         String moduleProgress = String.format("%d of %d",
                 mResult.getModuleCompleteCount(), mResult.getModules().size());
 
+
+        if (shouldSkipReportCreation()) {
+            return;
+        }
+
+        // Get run history from the test result of last run and add the run history of the current
+        // run to it.
+        // TODO(b/137973382): avoid casting by move the method to interface level.
+        Collection<RunHistory> runHistories = ((InvocationResult) mResult).getRunHistories();
+        String runHistoryJSON = mResult.getInvocationInfo().get(RUN_HISTORY_KEY);
+        Gson gson = new Gson();
+        if (runHistoryJSON != null) {
+            RunHistory[] runHistoryArray = gson.fromJson(runHistoryJSON, RunHistory[].class);
+            Collections.addAll(runHistories, runHistoryArray);
+        }
+        RunHistory newRun = new RunHistory();
+        newRun.startTime = mResult.getStartTime();
+        newRun.endTime = newRun.startTime + mElapsedTime;
+        runHistories.add(newRun);
+        mResult.addInvocationInfo(RUN_HISTORY_KEY, gson.toJson(runHistories));
 
         try {
             // Zip the full test results directory.
@@ -796,11 +838,19 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
      */
     protected File generateResultXmlFile()
             throws IOException, XmlPullParserException {
-        return ResultHandler.writeResults(mBuildHelper.getSuiteName(),
-                mBuildHelper.getSuiteVersion(), getSuitePlan(mBuildHelper),
-                mBuildHelper.getSuiteBuild(), mResult, mResultDir, mResult.getStartTime(),
-                mElapsedTime + mResult.getStartTime(), mReferenceUrl, getLogUrl(),
-                mBuildHelper.getCommandLineArgs());
+        return ResultHandler.writeResults(
+                mBuildHelper.getSuiteName(),
+                mBuildHelper.getSuiteVersion(),
+                getSuitePlan(mBuildHelper),
+                mBuildHelper.getSuiteBuild(),
+                mResult,
+                mResultDir,
+                mResult.getStartTime(),
+                mElapsedTime + mResult.getStartTime(),
+                mReferenceUrl,
+                getLogUrl(),
+                mBuildHelper.getCommandLineArgs(),
+                mResultAttributes);
     }
 
     /**

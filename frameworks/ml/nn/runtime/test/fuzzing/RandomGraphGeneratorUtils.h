@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_RANDOM_GRAPH_GENERATOR_UTILS_H
-#define ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_RANDOM_GRAPH_GENERATOR_UTILS_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_RANDOM_GRAPH_GENERATOR_UTILS_H
+#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_RANDOM_GRAPH_GENERATOR_UTILS_H
 
 #include <chrono>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <random>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "RandomGraphGenerator.h"
 #include "RandomVariable.h"
+#include "TestHarness.h"
 #include "TestNeuralNetworksWrapper.h"
 
 namespace android {
@@ -138,124 +141,8 @@ inline std::string joinStr(const std::string& joint, int limit, const std::vecto
     }
 }
 
-// TODO: Currently only 1.0 operations and operand types.
-static const char* kOperationNames[] = {
-        "ADD",
-        "AVERAGE_POOL_2D",
-        "CONCATENATION",
-        "CONV_2D",
-        "DEPTHWISE_CONV_2D",
-        "DEPTH_TO_SPACE",
-        "DEQUANTIZE",
-        "EMBEDDING_LOOKUP",
-        "FLOOR",
-        "FULLY_CONNECTED",
-        "HASHTABLE_LOOKUP",
-        "L2_NORMALIZATION",
-        "L2_POOL",
-        "LOCAL_RESPONSE_NORMALIZATION",
-        "LOGISTIC",
-        "LSH_PROJECTION",
-        "LSTM",
-        "MAX_POOL_2D",
-        "MUL",
-        "RELU",
-        "RELU1",
-        "RELU6",
-        "RESHAPE",
-        "RESIZE_BILINEAR",
-        "RNN",
-        "SOFTMAX",
-        "SPACE_TO_DEPTH",
-        "SVDF",
-        "TANH",
-        "BATCH_TO_SPACE_ND",
-        "DIV",
-        "MEAN",
-        "PAD",
-        "SPACE_TO_BATCH_ND",
-        "SQUEEZE",
-        "STRIDED_SLICE",
-        "SUB",
-        "TRANSPOSE",
-        "ABS",
-        "ARGMAX",
-        "ARGMIN",
-        "AXIS_ALIGNED_BBOX_TRANSFORM",
-        "BIDIRECTIONAL_SEQUENCE_LSTM",
-        "BIDIRECTIONAL_SEQUENCE_RNN",
-        "BOX_WITH_NMS_LIMIT",
-        "CAST",
-        "CHANNEL_SHUFFLE",
-        "DETECTION_POSTPROCESSING",
-        "EQUAL",
-        "EXP",
-        "EXPAND_DIMS",
-        "GATHER",
-        "GENERATE_PROPOSALS",
-        "GREATER",
-        "GREATER_EQUAL",
-        "GROUPED_CONV_2D",
-        "HEATMAP_MAX_KEYPOINT",
-        "INSTANCE_NORMALIZATION",
-        "LESS",
-        "LESS_EQUAL",
-        "LOG",
-        "LOGICAL_AND",
-        "LOGICAL_NOT",
-        "LOGICAL_OR",
-        "LOG_SOFTMAX",
-        "MAXIMUM",
-        "MINIMUM",
-        "NEG",
-        "NOT_EQUAL",
-        "PAD_V2",
-        "POW",
-        "PRELU",
-        "QUANTIZE",
-        "QUANTIZED_16BIT_LSTM",
-        "RANDOM_MULTINOMIAL",
-        "REDUCE_ALL",
-        "REDUCE_ANY",
-        "REDUCE_MAX",
-        "REDUCE_MIN",
-        "REDUCE_PROD",
-        "REDUCE_SUM",
-        "ROI_ALIGN",
-        "ROI_POOLING",
-        "RSQRT",
-        "SELECT",
-        "SIN",
-        "SLICE",
-        "SPLIT",
-        "SQRT",
-        "TILE",
-        "TOPK_V2",
-        "TRANSPOSE_CONV_2D",
-        "UNIDIRECTIONAL_SEQUENCE_LSTM",
-        "UNIDIRECTIONAL_SEQUENCE_RNN",
-        "RESIZE_NEAREST_NEIGHBOR",
-};
-
-static const char* kTypeNames[] = {
-        "FLOAT32",
-        "INT32",
-        "UINT32",
-        "TENSOR_FLOAT32",
-        "TENSOR_INT32",
-        "TENSOR_QUANT8_ASYMM",
-        "BOOL",
-        "TENSOR_QUANT16_SYMM",
-        "TENSOR_FLOAT16",
-        "TENSOR_BOOL8",
-        "FLOAT16",
-        "TENSOR_QUANT8_SYMM_PER_CHANNEL",
-        "TENSOR_QUANT16_ASYMM",
-        "TENSOR_QUANT8_SYMM",
-};
-
 static const char* kLifeTimeNames[6] = {
-        "TEMPORARY_VARIABLE", "MODEL_INPUT",        "MODEL_OUTPUT",
+        "TEMPORARY_VARIABLE", "SUBGRAPH_INPUT",     "SUBGRAPH_OUTPUT",
         "CONSTANT_COPY",      "CONSTANT_REFERENCE", "NO_VALUE",
 };
 
@@ -265,7 +152,7 @@ static const bool kScalarDataType[]{
         true,   // ANEURALNETWORKS_UINT32
         false,  // ANEURALNETWORKS_TENSOR_FLOAT32
         false,  // ANEURALNETWORKS_TENSOR_INT32
-        false,  // ANEURALNETWORKS_TENSOR_SYMMETRICAL_QUANT8
+        false,  // ANEURALNETWORKS_TENSOR_QUANT8_ASYMM
         true,   // ANEURALNETWORKS_BOOL
         false,  // ANEURALNETWORKS_TENSOR_QUANT16_SYMM
         false,  // ANEURALNETWORKS_TENSOR_FLOAT16
@@ -274,6 +161,7 @@ static const bool kScalarDataType[]{
         false,  // ANEURALNETWORKS_TENSOR_QUANT8_SYMM_PER_CHANNEL
         false,  // ANEURALNETWORKS_TENSOR_QUANT16_ASYMM
         false,  // ANEURALNETWORKS_TENSOR_QUANT8_SYMM
+        false,  // ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED
 };
 
 static const uint32_t kSizeOfDataType[]{
@@ -282,7 +170,7 @@ static const uint32_t kSizeOfDataType[]{
         4,  // ANEURALNETWORKS_UINT32
         4,  // ANEURALNETWORKS_TENSOR_FLOAT32
         4,  // ANEURALNETWORKS_TENSOR_INT32
-        1,  // ANEURALNETWORKS_TENSOR_SYMMETRICAL_QUANT8
+        1,  // ANEURALNETWORKS_TENSOR_QUANT8_ASYMM
         1,  // ANEURALNETWORKS_BOOL
         2,  // ANEURALNETWORKS_TENSOR_QUANT16_SYMM
         2,  // ANEURALNETWORKS_TENSOR_FLOAT16
@@ -291,6 +179,7 @@ static const uint32_t kSizeOfDataType[]{
         1,  // ANEURALNETWORKS_TENSOR_QUANT8_SYMM_PER_CHANNEL
         2,  // ANEURALNETWORKS_TENSOR_QUANT16_ASYMM
         1,  // ANEURALNETWORKS_TENSOR_QUANT8_SYMM
+        1,  // ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED
 };
 
 template <>
@@ -312,7 +201,7 @@ inline std::string toString<RandomVariableRange>(const RandomVariableRange& rang
 
 template <>
 inline std::string toString<RandomOperandType>(const RandomOperandType& type) {
-    static const std::string typeNames[] = {"Input", "Output", "Internal", "Parameter"};
+    static const std::string typeNames[] = {"Input", "Output", "Internal", "Parameter", "No Value"};
     return typeNames[static_cast<int>(type)];
 }
 
@@ -337,11 +226,6 @@ inline std::string toString<RandomVariableNode>(const RandomVariableNode& var) {
     }
     ss << ", timestamp = " << var->timestamp;
     return ss.str();
-}
-
-template <>
-inline std::string toString<Type>(const Type& type) {
-    return kTypeNames[static_cast<int32_t>(type)];
 }
 
 template <>
@@ -371,39 +255,6 @@ class bool8 {
 };
 static_assert(sizeof(bool8) == 1, "size of bool8 must be 8 bits");
 
-// Dump the random graph to a spec file.
-class SpecWriter {
-   public:
-    SpecWriter(std::string filename, std::string testname = "");
-    bool isOpen() { return os.is_open(); }
-    void dump(const std::vector<RandomOperation>& operations,
-              const std::vector<std::shared_ptr<RandomOperand>>& operands);
-
-   private:
-    void dump(test_wrapper::Type type, const uint8_t* buffer, uint32_t length);
-    void dump(const std::vector<RandomVariable>& dimensions);
-    void dump(const std::shared_ptr<RandomOperand>& op);
-    void dump(const RandomOperation& op);
-
-    template <typename T>
-    void dump(const T* buffer, uint32_t length) {
-        for (uint32_t i = 0; i < length; i++) {
-            if (i != 0) os << ", ";
-            if constexpr (std::is_integral<T>::value) {
-                os << static_cast<int>(buffer[i]);
-            } else if constexpr (std::is_same<T, _Float16>::value) {
-                os << static_cast<float>(buffer[i]);
-            } else if constexpr (std::is_same<T, bool8>::value) {
-                os << (buffer[i] ? "True" : "False");
-            } else {
-                os << buffer[i];
-            }
-        }
-    }
-
-    std::ofstream os;
-};
-
 struct RandomNumberGenerator {
     static std::mt19937 generator;
 };
@@ -413,21 +264,25 @@ inline bool getBernoulli(double p) {
     return dis(RandomNumberGenerator::generator);
 }
 
-// std::is_floating_point_v<_Float16> evaluates to true in CTS build target but false in
-// NeuralNetworksTest_static, so we define getUniform<_Float16> explicitly here if not CTS.
-#ifdef NNTEST_CTS
-#define NN_IS_FLOAT(T) std::is_floating_point_v<T>
-#else
-#define NN_IS_FLOAT(T) std::is_floating_point_v<T> || std::is_same_v<T, _Float16>
-#endif
+template <typename T>
+inline constexpr bool nnIsFloat = std::is_floating_point_v<T> || std::is_same_v<T, _Float16>;
 
 // getUniform for floating point values operates on a open interval (lower, upper).
 // This is important for generating a scale that is greater than but not equal to a lower bound.
 template <typename T>
-inline std::enable_if_t<NN_IS_FLOAT(T), T> getUniform(T lower, T upper) {
+inline std::enable_if_t<nnIsFloat<T>, T> getUniform(T lower, T upper) {
     float nextLower = std::nextafter(static_cast<float>(lower), std::numeric_limits<float>::max());
     std::uniform_real_distribution<float> dis(nextLower, upper);
     return dis(RandomNumberGenerator::generator);
+}
+template <typename T>
+inline std::enable_if_t<nnIsFloat<T>, T> getUniformNonZero(T lower, T upper, T zeroPoint) {
+    if (upper >= zeroPoint) {
+        upper = std::nextafter(static_cast<float>(upper), std::numeric_limits<float>::min());
+    }
+    std::uniform_real_distribution<float> dis(lower, upper);
+    const float value = dis(RandomNumberGenerator::generator);
+    return value >= zeroPoint ? std::nextafter(value, std::numeric_limits<float>::max()) : value;
 }
 
 // getUniform for integers operates on a closed interval [lower, upper].
@@ -436,6 +291,13 @@ template <typename T>
 inline std::enable_if_t<std::is_integral_v<T>, T> getUniform(T lower, T upper) {
     std::uniform_int_distribution<T> dis(lower, upper);
     return dis(RandomNumberGenerator::generator);
+}
+template <typename T>
+inline std::enable_if_t<std::is_integral_v<T>, T> getUniformNonZero(T lower, T upper, T zeroPoint) {
+    if (upper >= zeroPoint) upper--;
+    std::uniform_int_distribution<T> dis(lower, upper);
+    const T value = dis(RandomNumberGenerator::generator);
+    return value >= zeroPoint ? value + 1 : value;
 }
 
 template <typename T>
@@ -455,4 +317,4 @@ inline void randomShuffle(std::vector<T>* vec) {
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_RANDOM_GRAPH_GENERATOR_UTILS_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_RANDOM_GRAPH_GENERATOR_UTILS_H

@@ -94,7 +94,8 @@ public abstract class PreferenceController<V extends Preference> implements
      * @see #getAvailabilityStatus()
      */
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({AVAILABLE, CONDITIONALLY_UNAVAILABLE, UNSUPPORTED_ON_DEVICE, DISABLED_FOR_USER})
+    @IntDef({AVAILABLE, CONDITIONALLY_UNAVAILABLE, UNSUPPORTED_ON_DEVICE, DISABLED_FOR_USER,
+            AVAILABLE_FOR_VIEWING})
     public @interface AvailabilityStatus {
     }
 
@@ -118,6 +119,11 @@ public abstract class PreferenceController<V extends Preference> implements
      * The setting cannot be changed by the current user.
      */
     public static final int DISABLED_FOR_USER = 3;
+
+    /**
+     * The setting cannot be changed.
+     */
+    public static final int AVAILABLE_FOR_VIEWING = 4;
 
     /**
      * Indicates whether all Preferences are configured to ignore UX Restrictions Event.
@@ -236,14 +242,20 @@ public abstract class PreferenceController<V extends Preference> implements
         if (!mIsCreated) {
             return;
         }
-        if (getAvailabilityStatus() == AVAILABLE) {
+
+        if (isAvailable()) {
             mPreference.setVisible(true);
-            mPreference.setEnabled(true);
+            mPreference.setEnabled(getAvailabilityStatus() != AVAILABLE_FOR_VIEWING);
             updateState(mPreference);
             onApplyUxRestrictions(mUxRestrictions);
         } else {
             mPreference.setVisible(false);
         }
+    }
+
+    private boolean isAvailable() {
+        int availabilityStatus = getAvailabilityStatus();
+        return availabilityStatus == AVAILABLE || availabilityStatus == AVAILABLE_FOR_VIEWING;
     }
 
     // Controller lifecycle ========================================================================
@@ -346,8 +358,8 @@ public abstract class PreferenceController<V extends Preference> implements
 
     /**
      * Returns the {@link AvailabilityStatus} for the setting. This status is used to determine
-     * if the setting should be shown or hidden. Defaults to {@link #AVAILABLE}. This will be
-     * called before the controller lifecycle begins and on refresh events.
+     * if the setting should be shown, hidden, or disabled. Defaults to {@link #AVAILABLE}. This
+     * will be called before the controller lifecycle begins and on refresh events.
      */
     @AvailabilityStatus
     protected int getAvailabilityStatus() {

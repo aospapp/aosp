@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <malloc.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,95 +27,67 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "Action.h"
-#include "LineBuffer.h"
+#include "Alloc.h"
+#include "File.h"
 #include "NativeInfo.h"
 #include "Pointers.h"
 #include "Thread.h"
 #include "Threads.h"
 
-static char g_buffer[65535];
+constexpr size_t kDefaultMaxThreads = 512;
 
-size_t GetMaxAllocs(int fd) {
-  lseek(fd, 0, SEEK_SET);
-  LineBuffer line_buf(fd, g_buffer, sizeof(g_buffer));
-  char* line;
-  size_t line_len;
+static size_t GetMaxAllocs(const AllocEntry* entries, size_t num_entries) {
   size_t num_allocs = 0;
-  while (line_buf.GetLine(&line, &line_len)) {
-    char* word = reinterpret_cast<char*>(memchr(line, ':', line_len));
-    if (word == nullptr) {
-      continue;
-    }
-
-    word++;
-    while (*word++ == ' ');
-    // This will treat a realloc as an allocation, even if it frees
-    // another allocation. Since reallocs are relatively rare, this
-    // shouldn't inflate the numbers that much.
-    if (*word == 'f') {
-      // Check if this is a free of zero.
-      uintptr_t pointer;
-      if (sscanf(word, "free %" SCNxPTR, &pointer) == 1 && pointer != 0) {
+  for (size_t i = 0; i < num_entries; i++) {
+    switch (entries[i].type) {
+      case THREAD_DONE:
+        break;
+      case MALLOC:
+      case CALLOC:
+      case MEMALIGN:
+      case REALLOC:
+        num_allocs++;
+        break;
+      case FREE:
         num_allocs--;
-      }
-    } else if (*word != 't') {
-      // Skip the thread_done message.
-      num_allocs++;
+        break;
     }
   }
   return num_allocs;
 }
 
-void ProcessDump(int fd, size_t max_allocs, size_t max_threads) {
-  lseek(fd, 0, SEEK_SET);
+static void ProcessDump(const AllocEntry* entries, size_t num_entries, size_t max_threads) {
+  // Do a pass to get the maximum number of allocations used at one
+  // time to allow a single mmap that can hold the maximum number of
+  // pointers needed at once.
+  size_t max_allocs = GetMaxAllocs(entries, num_entries);
   Pointers pointers(max_allocs);
   Threads threads(&pointers, max_threads);
 
-  printf("Maximum threads available:   %zu\n", threads.max_threads());
-  printf("Maximum allocations in dump: %zu\n", max_allocs);
-  printf("Total pointers available:    %zu\n", pointers.max_pointers());
-  printf("\n");
+  NativePrintf("Maximum threads available:   %zu\n", threads.max_threads());
+  NativePrintf("Maximum allocations in dump: %zu\n", max_allocs);
+  NativePrintf("Total pointers available:    %zu\n\n", pointers.max_pointers());
 
-  PrintNativeInfo("Initial ");
+  NativePrintInfo("Initial ");
 
-  LineBuffer line_buf(fd, g_buffer, sizeof(g_buffer));
-  char* line;
-  size_t line_len;
-  size_t line_number = 0;
-  while (line_buf.GetLine(&line, &line_len)) {
-    pid_t tid;
-    int line_pos = 0;
-    char type[128];
-    uintptr_t key_pointer;
-
-    // Every line is of this format:
-    //   <tid>: <action_type> <pointer>
-    // Some actions have extra arguments which will be used and verified
-    // when creating the Action object.
-    if (sscanf(line, "%d: %s %" SCNxPTR " %n", &tid, type, &key_pointer, &line_pos) != 3) {
-      err(1, "Unparseable line found: %s\n", line);
+  for (size_t i = 0; i < num_entries; i++) {
+    if (((i + 1) % 100000) == 0) {
+      NativePrintf("  At line %zu:\n", i + 1);
+      NativePrintInfo("    ");
     }
-    line_number++;
-    if ((line_number % 100000) == 0) {
-      printf("  At line %zu:\n", line_number);
-      PrintNativeInfo("    ");
-    }
-    Thread* thread = threads.FindThread(tid);
+    const AllocEntry& entry = entries[i];
+    Thread* thread = threads.FindThread(entry.tid);
     if (thread == nullptr) {
-      thread = threads.CreateThread(tid);
+      thread = threads.CreateThread(entry.tid);
     }
 
     // Wait for the thread to complete any previous actions before handling
     // the next action.
     thread->WaitForReady();
 
-    Action* action = thread->CreateAction(key_pointer, type, line + line_pos);
-    if (action == nullptr) {
-      err(1, "Cannot create action from line: %s\n", line);
-    }
+    thread->SetAllocEntry(&entry);
 
-    bool does_free = action->DoesFree();
+    bool does_free = AllocDoesFree(entry);
     if (does_free) {
       // Make sure that any other threads doing allocations are complete
       // before triggering the action. Otherwise, another thread could
@@ -125,7 +98,7 @@ void ProcessDump(int fd, size_t max_allocs, size_t max_threads) {
     // Tell the thread to execute the action.
     thread->SetPending();
 
-    if (action->EndThread()) {
+    if (entries[i].type == THREAD_DONE) {
       // Wait for the thread to finish and clear the thread entry.
       threads.Finish(thread);
     }
@@ -140,7 +113,7 @@ void ProcessDump(int fd, size_t max_allocs, size_t max_threads) {
   // Wait for all threads to stop processing actions.
   threads.WaitForAllToQuiesce();
 
-  PrintNativeInfo("Final ");
+  NativePrintInfo("Final ");
 
   // Free any outstanding pointers.
   // This allows us to run a tool like valgrind to verify that no memory
@@ -149,11 +122,11 @@ void ProcessDump(int fd, size_t max_allocs, size_t max_threads) {
   pointers.FreeAll();
 
   // Print out the total time making all allocation calls.
-  printf("Total Allocation/Free Time: %" PRIu64 "ns %0.2fs\n",
-         threads.total_time_nsecs(), threads.total_time_nsecs()/1000000000.0);
+  char buffer[256];
+  uint64_t total_nsecs = threads.total_time_nsecs();
+  NativeFormatFloat(buffer, sizeof(buffer), total_nsecs, 1000000000);
+  NativePrintf("Total Allocation/Free Time: %" PRIu64 "ns %ss\n", total_nsecs, buffer);
 }
-
-constexpr size_t DEFAULT_MAX_THREADS = 512;
 
 int main(int argc, char** argv) {
   if (argc != 2 && argc != 3) {
@@ -163,29 +136,41 @@ int main(int argc, char** argv) {
       fprintf(stderr, "Requires at least one argument.\n");
     }
     fprintf(stderr, "Usage: %s MEMORY_LOG_FILE [MAX_THREADS]\n", basename(argv[0]));
+    fprintf(stderr, "  MEMORY_LOG_FILE\n");
+    fprintf(stderr, "    This can either be a text file or a zipped text file.\n");
+    fprintf(stderr, "  MAX_THREADs\n");
+    fprintf(stderr, "    The maximum number of threads in the trace. The default is %zu.\n",
+            kDefaultMaxThreads);
+    fprintf(stderr, "    This pre-allocates the memory for thread data to avoid allocating\n");
+    fprintf(stderr, "    while the trace is being replayed.\n");
     return 1;
   }
 
-  size_t max_threads = DEFAULT_MAX_THREADS;
+#if defined(__LP64__)
+  NativePrintf("64 bit environment.\n");
+#else
+  NativePrintf("32 bit environment.\n");
+#endif
+
+#if defined(__BIONIC__)
+  NativePrintf("Setting decay time to 1\n");
+  mallopt(M_DECAY_TIME, 1);
+#endif
+
+  size_t max_threads = kDefaultMaxThreads;
   if (argc == 3) {
     max_threads = atoi(argv[2]);
   }
 
-  int dump_fd = open(argv[1], O_RDONLY);
-  if (dump_fd == -1) {
-    fprintf(stderr, "Failed to open %s: %s\n", argv[1], strerror(errno));
-    return 1;
-  }
+  AllocEntry* entries;
+  size_t num_entries;
+  GetUnwindInfo(argv[1], &entries, &num_entries);
 
-  printf("Processing: %s\n", argv[1]);
+  NativePrintf("Processing: %s\n", argv[1]);
 
-  // Do a first pass to get the total number of allocations used at one
-  // time to allow a single mmap that can hold the maximum number of
-  // pointers needed at once.
-  size_t max_allocs = GetMaxAllocs(dump_fd);
-  ProcessDump(dump_fd, max_allocs, max_threads);
+  ProcessDump(entries, num_entries, max_threads);
 
-  close(dump_fd);
+  FreeEntries(entries, num_entries);
 
   return 0;
 }

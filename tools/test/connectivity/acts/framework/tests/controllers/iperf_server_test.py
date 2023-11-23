@@ -21,7 +21,6 @@ import os
 
 from acts.controllers import iperf_server
 from acts.controllers.iperf_server import IPerfServer
-from acts.controllers.iperf_server import IPerfServerBase
 from acts.controllers.iperf_server import IPerfServerOverAdb
 from acts.controllers.iperf_server import IPerfServerOverSsh
 
@@ -55,7 +54,8 @@ class IPerfServerModuleTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             iperf_server.create(['12345BAD_STRING'])
 
-    def test_create_creates_server_over_ssh_with_ssh_config_and_port(self):
+    @mock.patch('acts.controllers.iperf_server.utils')
+    def test_create_creates_server_over_ssh_with_ssh_config_and_port(self, _):
         self.assertIsInstance(
             iperf_server.create([{'ssh_config': {'user': '', 'host': ''},
                                   'port': ''}])[0],
@@ -74,12 +74,24 @@ class IPerfServerModuleTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             iperf_server.create([{'AndroidDevice': '53R147', 'ssh_config': {}}])
 
+    def test_get_port_from_ss_output_returns_correct_port_ipv4(self):
+        ss_output = ('tcp LISTEN  0 5 127.0.0.1:<PORT>  *:*'
+                     ' users:(("cmd",pid=<PID>,fd=3))')
+        self.assertEqual(
+            iperf_server._get_port_from_ss_output(ss_output, '<PID>'), '<PORT>')
+
+    def test_get_port_from_ss_output_returns_correct_port_ipv6(self):
+        ss_output = ('tcp LISTEN  0 5 ff:ff:ff:ff:ff:ff:<PORT>  *:*'
+                     ' users:(("cmd",pid=<PID>,fd=3))')
+        self.assertEqual(
+            iperf_server._get_port_from_ss_output(ss_output, '<PID>'), '<PORT>')
+
 
 class IPerfServerBaseTest(unittest.TestCase):
     """Tests acts.controllers.iperf_server.IPerfServerBase."""
 
-    @mock.patch('acts.utils.create_dir')
-    def test_get_full_file_path_creates_parent_directory(self, mock_create_dir):
+    @mock.patch('os.makedirs')
+    def test_get_full_file_path_creates_parent_directory(self, mock_makedirs):
         # Will never actually be created/used.
         logging.log_path = '/tmp/unit_test_garbage'
 
@@ -88,12 +100,12 @@ class IPerfServerBaseTest(unittest.TestCase):
         full_file_path = server._get_full_file_path()
 
         self.assertTrue(
-            mock_create_dir.called,
+            mock_makedirs.called,
             'Did not attempt to create a directory.'
         )
         self.assertEqual(
             os.path.dirname(full_file_path),
-            mock_create_dir.call_args[ARGS][0],
+            mock_makedirs.call_args[ARGS][0],
             'The parent directory of the full file path was not created.'
         )
 
@@ -101,8 +113,15 @@ class IPerfServerBaseTest(unittest.TestCase):
 class IPerfServerTest(unittest.TestCase):
     """Tests acts.controllers.iperf_server.IPerfServer."""
 
-    @mock.patch('acts.utils.start_standing_subprocess')
-    def test_start_makes_started_true(self, _):
+    PID = 123456
+
+    def setUp(self):
+        iperf_server._get_port_from_ss_output = lambda *_: IPerfServerTest.PID
+
+    @mock.patch('builtins.open')
+    @mock.patch('acts.controllers.iperf_server.subprocess')
+    @mock.patch('acts.controllers.iperf_server.job')
+    def test_start_makes_started_true(self, mock_job, __, ___):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServer('port')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
@@ -110,9 +129,10 @@ class IPerfServerTest(unittest.TestCase):
 
         self.assertTrue(server.started)
 
-    @mock.patch('acts.utils.start_standing_subprocess')
-    @mock.patch('acts.utils.stop_standing_subprocess')
-    def test_start_stop_makes_started_false(self, _, __):
+    @mock.patch('builtins.open')
+    @mock.patch('acts.controllers.iperf_server.subprocess')
+    @mock.patch('acts.controllers.iperf_server.job')
+    def test_start_stop_makes_started_false(self, _, __, ___):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServer('port')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
@@ -122,8 +142,10 @@ class IPerfServerTest(unittest.TestCase):
 
         self.assertFalse(server.started)
 
-    @mock.patch('acts.utils.start_standing_subprocess')
-    def test_start_sets_current_log_file(self, _):
+    @mock.patch('builtins.open')
+    @mock.patch('acts.controllers.iperf_server.subprocess')
+    @mock.patch('acts.controllers.iperf_server.job')
+    def test_start_sets_current_log_file(self, _, __, ___):
         server = IPerfServer('port')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
 
@@ -135,8 +157,9 @@ class IPerfServerTest(unittest.TestCase):
             'The _current_log_file was not received from _get_full_file_path.'
         )
 
-    @mock.patch('acts.utils.stop_standing_subprocess')
-    def test_stop_returns_current_log_file(self, _):
+    @mock.patch('builtins.open')
+    @mock.patch('acts.controllers.iperf_server.subprocess')
+    def test_stop_returns_current_log_file(self, _, __):
         server = IPerfServer('port')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._current_log_file = MOCK_LOGFILE_PATH
@@ -150,8 +173,10 @@ class IPerfServerTest(unittest.TestCase):
             'The _current_log_file was not returned by stop().'
         )
 
-    @mock.patch('acts.utils.start_standing_subprocess')
-    def test_start_does_not_run_two_concurrent_processes(self, start_proc):
+    @mock.patch('builtins.open')
+    @mock.patch('acts.controllers.iperf_server.subprocess')
+    @mock.patch('acts.controllers.iperf_server.job')
+    def test_start_does_not_run_two_concurrent_processes(self, start_proc, _, __):
         server = IPerfServer('port')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._iperf_process = mock.Mock()
@@ -182,7 +207,8 @@ class IPerfServerOverSshTest(unittest.TestCase):
 
     INIT_ARGS = [{'host': 'TEST_HOST', 'user': 'test'}, 'PORT']
 
-    def test_start_makes_started_true(self):
+    @mock.patch('acts.controllers.iperf_server.connection')
+    def test_start_makes_started_true(self, _):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
@@ -193,7 +219,8 @@ class IPerfServerOverSshTest(unittest.TestCase):
         self.assertTrue(server.started)
 
     @mock.patch('builtins.open')
-    def test_start_stop_makes_started_false(self, _):
+    @mock.patch('acts.controllers.iperf_server.connection')
+    def test_start_stop_makes_started_false(self, _, __):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
@@ -205,7 +232,8 @@ class IPerfServerOverSshTest(unittest.TestCase):
         self.assertFalse(server.started)
 
     @mock.patch('builtins.open')
-    def test_stop_returns_expected_log_file(self, _):
+    @mock.patch('acts.controllers.iperf_server.connection')
+    def test_stop_returns_expected_log_file(self, _, __):
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
@@ -219,7 +247,8 @@ class IPerfServerOverSshTest(unittest.TestCase):
             'The expected log file was not returned by stop().'
         )
 
-    def test_start_does_not_run_two_concurrent_processes(self):
+    @mock.patch('acts.controllers.iperf_server.connection')
+    def test_start_does_not_run_two_concurrent_processes(self, _):
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
@@ -233,7 +262,8 @@ class IPerfServerOverSshTest(unittest.TestCase):
         )
 
     @mock.patch('acts.utils.stop_standing_subprocess')
-    def test_stop_exits_early_if_no_process_has_started(self, stop_proc):
+    @mock.patch('acts.controllers.iperf_server.connection')
+    def test_stop_exits_early_if_no_process_has_started(self, _, __):
         server = IPerfServerOverSsh(*self.INIT_ARGS)
         server._ssh_session = mock.Mock()
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
@@ -254,22 +284,24 @@ class IPerfServerOverAdbTest(unittest.TestCase):
                            'IPerfServerOverAdb._android_device')
 
     @mock.patch(ANDROID_DEVICE_PROP)
-    def test_start_makes_started_true(self, _):
+    def test_start_makes_started_true(self, mock_ad):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServerOverAdb('53R147', 'PORT')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
+        mock_ad.adb.shell.return_value = '<PID>'
 
         server.start()
 
         self.assertTrue(server.started)
 
     @mock.patch('acts.libs.proc.job.run')
-    @mock.patch(ANDROID_DEVICE_PROP)
     @mock.patch('builtins.open')
-    def test_start_stop_makes_started_false(self, _, __, ___):
+    @mock.patch(ANDROID_DEVICE_PROP)
+    def test_start_stop_makes_started_false(self, mock_ad, _, __):
         """Tests calling start() without calling stop() makes started True."""
         server = IPerfServerOverAdb('53R147', 'PORT')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
+        mock_ad.adb.shell.side_effect = ['<PID>', '', '', '']
 
         server.start()
         server.stop()
@@ -277,12 +309,14 @@ class IPerfServerOverAdbTest(unittest.TestCase):
         self.assertFalse(server.started)
 
     @mock.patch('acts.libs.proc.job.run')
-    @mock.patch(ANDROID_DEVICE_PROP)
     @mock.patch('builtins.open')
-    def test_stop_returns_expected_log_file(self, _, __, ___):
+    @mock.patch(ANDROID_DEVICE_PROP)
+    def test_stop_returns_expected_log_file(self, mock_ad, _, __):
         server = IPerfServerOverAdb('53R147', 'PORT')
         server._get_full_file_path = lambda _: MOCK_LOGFILE_PATH
         server._iperf_process = mock.Mock()
+        server._iperf_process_adb_pid = '<PID>'
+        mock_ad.adb.shell.side_effect = ['', '', '']
 
         log_file = server.stop()
 

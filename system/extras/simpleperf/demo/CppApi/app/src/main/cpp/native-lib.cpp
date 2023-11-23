@@ -32,11 +32,11 @@ static std::atomic_bool profile_thread_exited(false);
 void* ProfileThreadFunc(void*) {
   pthread_setname_np(pthread_self(), "ProfileThread");
   simpleperf::RecordOptions options;
-  options.RecordDwarfCallGraph();
+  options.RecordDwarfCallGraph().SetEvent("cpu-clock");
   simpleperf::ProfileSession session;
   log("start recording");
   session.StartRecording(options);
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 1; i++) {
     sleep(1);
     log("pause recording");
     session.PauseRecording();
@@ -72,6 +72,8 @@ void* BusyThreadFunc(void*) {
     nanosleep(&ts, nullptr);
     count++;
   }
+  // Exit after recording. So we can build test apk, and expect profiling data file after app exits.
+  exit(0);
   return nullptr;
 }
 
@@ -79,14 +81,18 @@ extern "C" JNIEXPORT void JNICALL
 Java_simpleperf_demo_cpp_1api_MainActivity_runNativeCode(
     JNIEnv *env,
     jobject jobj) {
-  pthread_t profile_thread;
-  if (pthread_create(&profile_thread, nullptr, ProfileThreadFunc, nullptr) != 0) {
-    log("failed to create profile thread");
-    return;
-  }
-  pthread_t busy_thread;
-  if (pthread_create(&busy_thread, nullptr, BusyThreadFunc, nullptr) != 0) {
-    log("failed to create busy thread");
+  static bool threadsStarted = false;
+  if (!threadsStarted) {
+    pthread_t profile_thread;
+    if (pthread_create(&profile_thread, nullptr, ProfileThreadFunc, nullptr) != 0) {
+      log("failed to create profile thread");
+      return;
+    }
+    pthread_t busy_thread;
+    if (pthread_create(&busy_thread, nullptr, BusyThreadFunc, nullptr) != 0) {
+      log("failed to create busy thread");
+    }
+    threadsStarted = true;
   }
 }
 

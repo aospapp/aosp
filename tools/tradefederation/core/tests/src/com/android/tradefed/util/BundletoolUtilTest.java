@@ -17,8 +17,8 @@
 package com.android.tradefed.util;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
@@ -31,7 +31,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
-import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /** Unit tests for {@link BundletoolUtil} */
 @RunWith(JUnit4.class)
@@ -61,11 +62,16 @@ public class BundletoolUtilTest {
                     protected String getAdbPath() {
                         return "adb";
                     }
+
+                    @Override
+                    protected File getBundletoolFile() {
+                        return mBundletoolJar;
+                    }
                 };
     }
 
     @After
-    public void tearDown() throws IOException {
+    public void tearDown() {
         FileUtil.deleteFile(mBundletoolJar);
     }
 
@@ -88,12 +94,17 @@ public class BundletoolUtilTest {
                                 (String) EasyMock.anyObject(),
                                 (String) EasyMock.anyObject(),
                                 (String) EasyMock.anyObject(),
+                                (String) EasyMock.anyObject(),
                                 (String) EasyMock.anyObject()))
                 .andReturn(res)
                 .once();
+        Path expectedSpecFilePath =
+                Paths.get(mBundletoolJar.getParentFile().getAbsolutePath(), "serial.json");
+
 
         EasyMock.replay(mMockDevice, mMockRuntil);
-        mBundletoolUtil.generateDeviceSpecFile(mMockDevice);
+        String actualSpecFilePath = mBundletoolUtil.generateDeviceSpecFile(mMockDevice);
+        assertEquals(expectedSpecFilePath.toString(), actualSpecFilePath);
         EasyMock.verify(mMockRuntil);
         EasyMock.verify(mMockDevice);
     }

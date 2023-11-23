@@ -269,7 +269,8 @@ enum quniform_contents {
 
         QUNIFORM_TEXTURE_MSAA_ADDR,
 
-        QUNIFORM_UBO_ADDR,
+        QUNIFORM_UBO0_ADDR,
+        QUNIFORM_UBO1_ADDR,
 
         QUNIFORM_TEXRECT_SCALE_X,
         QUNIFORM_TEXRECT_SCALE_Y,
@@ -297,31 +298,6 @@ enum quniform_contents {
 struct vc4_varying_slot {
         uint8_t slot;
         uint8_t swizzle;
-};
-
-struct vc4_compiler_ubo_range {
-        /**
-         * offset in bytes from the start of the ubo where this range is
-         * uploaded.
-         *
-         * Only set once used is set.
-         */
-        uint32_t dst_offset;
-
-        /**
-         * offset in bytes from the start of the gallium uniforms where the
-         * data comes from.
-         */
-        uint32_t src_offset;
-
-        /** size in bytes of this ubo range */
-        uint32_t size;
-
-        /**
-         * Set if this range is used by the shader for indirect uniforms
-         * access.
-         */
-        bool used;
 };
 
 struct vc4_key {
@@ -363,6 +339,7 @@ struct vc4_fs_key {
         uint8_t alpha_test_func;
         uint8_t logicop_func;
         uint32_t point_sprite_mask;
+        uint32_t ubo_1_size;
 
         struct pipe_rt_blend_state blend;
 };
@@ -438,14 +415,6 @@ struct vc4_compile {
         uint32_t inputs_array_size;
         uint32_t outputs_array_size;
         uint32_t uniforms_array_size;
-
-        struct vc4_compiler_ubo_range *ubo_ranges;
-        uint32_t ubo_ranges_array_size;
-        /** Number of uniform areas declared in ubo_ranges. */
-        uint32_t num_uniform_ranges;
-        /** Number of uniform areas used for indirect addressed loads. */
-        uint32_t num_ubo_ranges;
-        uint32_t next_ubo_dst_offset;
 
         /* State for whether we're executing on each channel currently.  0 if
          * yes, otherwise a block number + 1 that the channel jumped to.
@@ -591,6 +560,8 @@ uint8_t qir_channels_written(struct qinst *inst);
 
 void qir_dump(struct vc4_compile *c);
 void qir_dump_inst(struct vc4_compile *c, struct qinst *inst);
+char *qir_describe_uniform(enum quniform_contents contents, uint32_t data,
+                           const uint32_t *uniforms);
 const char *qir_get_stage_name(enum qstage stage);
 
 void qir_validate(struct vc4_compile *c);

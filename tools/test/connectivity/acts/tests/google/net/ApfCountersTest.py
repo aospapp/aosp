@@ -15,9 +15,9 @@
 
 from acts import asserts
 from acts.test_decorators import test_tracker_info
+from acts.test_utils.net.net_test_utils import start_tcpdump
+from acts.test_utils.net.net_test_utils import stop_tcpdump
 from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from acts.test_utils.tel.tel_test_utils import start_adb_tcpdump
-from acts.test_utils.tel.tel_test_utils import stop_adb_tcpdump
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
 import acts.base_test
@@ -74,16 +74,10 @@ class ApfCountersTest(WifiBaseTest):
         self.tcpdump_pid = None
 
     def setup_test(self):
-        self.tcpdump_pid = start_adb_tcpdump(self.dut,
-                                             self.test_name,
-                                             mask='all')
+        self.tcpdump_pid = start_tcpdump(self.dut, self.test_name)
 
     def teardown_test(self):
-        if self.tcpdump_pid:
-            stop_adb_tcpdump(self.dut,
-                             self.tcpdump_pid,
-                             pull_tcpdump=True)
-            self.tcpdump_pid = None
+        stop_tcpdump(self.dut, self.tcpdump_pid, self.test_name)
 
     def on_fail(self, test_name, begin_time):
         self.dut.take_bug_report(test_name, begin_time)
@@ -177,6 +171,7 @@ class ApfCountersTest(WifiBaseTest):
           4. Verify internet connectivity
         """
         pkt_num = 400
+        rtt_list = random.sample(range(10, 10000), pkt_num)
 
         # get mac address of the dut
         ap = self.access_points[0]
@@ -189,8 +184,7 @@ class ApfCountersTest(WifiBaseTest):
         ra_count = self._get_icmp6intype134()
 
         # send RA with differnt re-trans time
-        for _ in range(pkt_num):
-            rtt=random.randint(10, 10000)
+        for rtt in rtt_list:
             ap.send_ra('wlan1', mac_addr, 0, 1, rtt=rtt)
 
         # get the new RA count

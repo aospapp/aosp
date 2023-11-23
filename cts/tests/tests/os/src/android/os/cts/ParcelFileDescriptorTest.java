@@ -341,6 +341,24 @@ public class ParcelFileDescriptorTest {
     }
 
     @Test
+    public void testFileWrapped() throws Exception {
+        final Handler handler1 = new Handler(Looper.getMainLooper());
+        final Handler handler2 = new Handler(Looper.getMainLooper());
+        final FutureCloseListener listener1 = new FutureCloseListener();
+        final FutureCloseListener listener2 = new FutureCloseListener();
+        final ParcelFileDescriptor file1 = ParcelFileDescriptor.open(
+                File.createTempFile("pfd", "bbq"), ParcelFileDescriptor.MODE_READ_WRITE, handler1,
+                listener1);
+        final ParcelFileDescriptor file2 = ParcelFileDescriptor.wrap(file1, handler2, listener2);
+
+        write(file2, 7);
+        file2.close();
+
+        // make sure we were notified
+        assertEquals(null, listener2.get());
+    }
+
+    @Test
     public void testSocketErrorAfterClose() throws Exception {
         final ParcelFileDescriptor[] pair = ParcelFileDescriptor.createReliableSocketPair();
         final ParcelFileDescriptor red = pair[0];

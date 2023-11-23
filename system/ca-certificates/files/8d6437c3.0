@@ -25,7 +25,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             0b:93:1c:3a:d6:39:67:ea:67:23:bf:c3:af:9a:f4:4b
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root G2
         Validity
             Not Before: Aug  1 12:00:00 2013 GMT
@@ -33,7 +33,7 @@ Certificate:
         Subject: C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Assured ID Root G2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:d9:e7:28:2f:52:3f:36:72:49:88:93:34:f3:f8:
                     6a:1e:31:54:80:9f:ad:54:41:b5:47:df:96:a8:d4:

@@ -5,27 +5,29 @@
 Introduction
 ------------
 
-SwiftShader is a high-performance CPU-based implementation of the OpenGL ES and Direct3D 9 graphics APIs<sup>1</sup><sup>2</sup>. Its goal is to provide hardware independence for advanced 3D graphics.
+SwiftShader is a high-performance CPU-based implementation of the Vulkan, OpenGL ES, and Direct3D 9 graphics APIs<sup>1</sup><sup>2</sup>. Its goal is to provide hardware independence for advanced 3D graphics.
 
 Building
 --------
 
-SwiftShader libraries can be built for Windows, Linux, and Mac OS X.  
+SwiftShader libraries can be built for Windows, Linux, and Mac OS X.\
 Android and Chrome (OS) build environments are also supported.
 
 * **Visual Studio**
-  
-  On Windows, open the [SwiftShader.sln](SwiftShader.sln) file using [Visual Studio Community](https://visualstudio.microsoft.com/vs/community/) or compatible version, and build the solution. Output DLLs will be placed in the _out_ subfolder. Sample executables such as _OGLES3ColourGrading_ can be found under the Tests solution folder and can be run from the IDE.
+\
+  For building the Vulkan ICD library, use [Visual Studio 2019](https://visualstudio.microsoft.com/vs/community/) to open the project folder and wait for it to run CMake. Open the [CMake Targets View](https://docs.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=vs-2019#ide-integration) in the Solution Explorer and select the vk_swiftshader project to [build](https://docs.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=vs-2019#building-cmake-projects) it.
+
+  There is also a legacy [SwiftShader.sln](SwiftShader.sln) file for Visual Studio 2017 for building OpenGL ES and Direct3D libraries. Output DLLs will be placed in the _out_ subfolder. Sample executables such as _OGLES3ColourGrading_ can be found under the Tests solution folder and can be run from the IDE.
 
 * **CMake**
 
   [Install CMake](https://cmake.org/download/) for Linux, Mac OS X, or Windows and use either [the IDE](https://cmake.org/runningcmake/) or run the following terminal commands:
 
-      mkdir build && cd build
+      cd build
       cmake ..
       make --jobs=8
 
-      ./unittests
+      ./gles-unittests
       ./OGLES2HelloAPI
 
 Usage
@@ -50,7 +52,7 @@ Authenticate your account here:
 https://swiftshader-review.googlesource.com/new-password
 
 All changes require a [Change-ID](https://gerrit-review.googlesource.com/Documentation/user-changeid.html) tag in the commit message. A commit hook may be used to add this tag automatically, and can be found at:
-https://gerrit-review.googlesource.com/tools/hooks/commit-msg. To clone the repository and install the commit hook in one go: 
+https://gerrit-review.googlesource.com/tools/hooks/commit-msg. To clone the repository and install the commit hook in one go:
 
     git clone https://swiftshader.googlesource.com/SwiftShader && (cd SwiftShader && curl -Lo `git rev-parse --git-dir`/hooks/commit-msg https://gerrit-review.googlesource.com/tools/hooks/commit-msg ; chmod +x `git rev-parse --git-dir`/hooks/commit-msg)
 
@@ -61,7 +63,7 @@ Changes are uploaded to Gerrit by executing:
 Testing
 -------
 
-SwiftShader's OpenGL ES implementation can be tested using the [dEQP](https://source.android.com/devices/graphics/testing) test suite.
+SwiftShader's OpenGL ES implementation can be tested using the [dEQP](https://github.com/KhronosGroup/VK-GL-CTS) test suite.
 
 See [docs/dEQP.md](docs/dEQP.md) for details.
 
@@ -69,8 +71,6 @@ Third-Party Dependencies
 ------------------------
 
 The [third_party](third_party/) directory contains projects which originated outside of SwiftShader:
-
-[LLVM](third_party/LLVM/) contains an outdated and diverged copy of the [LLVM](http://llvm.org/) compiler framework. Until further notice, maintenance fixes can be made directly in the SwiftShader repository.
 
 [subzero](third_party/subzero/) contains a fork of the [Subzero](https://chromium.googlesource.com/native_client/pnacl-subzero/) project. It is part of Google Chrome's (Portable) [Native Client](https://developer.chrome.com/native-client) project. Its authoritative source is at [https://chromium.googlesource.com/native_client/pnacl-subzero/](https://chromium.googlesource.com/native_client/pnacl-subzero/). The fork was made using [git-subtree](https://github.com/git/git/blob/master/contrib/subtree/git-subtree.txt) to include all of Subzero's history, and until further notice it should **not** diverge from the upstream project. Contributions must be tested using the [README](third_party/subzero/docs/README.rst) instructions, reviewed at [https://chromium-review.googlesource.com](https://chromium-review.googlesource.com/q/project:native_client%252Fpnacl-subzero), and then pulled into the SwiftShader repository.
 
@@ -90,7 +90,7 @@ Contact
 
 Public mailing list: [swiftshader@googlegroups.com](https://groups.google.com/forum/#!forum/swiftshader)
 
-General bug tracker:  https://g.co/swiftshaderbugs  
+General bug tracker:  https://g.co/swiftshaderbugs\
 Chrome specific bugs: https://bugs.chromium.org/p/swiftshader
 
 License
@@ -111,5 +111,5 @@ Disclaimer
 ----------
 
 1. Trademarks are the property of their respective owners.
-2. We do not claim official conformance with any graphics APIs at this moment.
+2. We do not claim official conformance with the Direct3D and OpenGL graphics APIs at this moment.
 3. This is not an official Google product.

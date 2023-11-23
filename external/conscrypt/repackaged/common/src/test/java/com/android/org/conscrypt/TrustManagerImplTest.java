@@ -159,6 +159,7 @@ public class TrustManagerImplTest {
             try {
                 tmi.getTrustedChainForServer(chain, "RSA",
                         new FakeSSLSocket(new FakeSSLSession(badHostname, chain), params));
+                fail();
             } catch (CertificateException expected) {
             }
 
@@ -190,6 +191,7 @@ public class TrustManagerImplTest {
             try {
                 tmi.getTrustedChainForServer(chain, "RSA",
                         new FakeSSLSocket(new FakeSSLSession(badHostname, chain), params));
+                fail();
             } catch (CertificateException expected) {
             }
 

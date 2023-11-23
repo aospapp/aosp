@@ -38,15 +38,12 @@
 
 syntax = "proto3";
 
-package perftools.profiles;
+// This is in perfetto.third_party to avoid clashing with potential other
+// copies of this proto.
+package perfetto.third_party.perftools.profiles;
 
 option java_package = "com.google.perftools.profiles";
 option java_outer_classname = "ProfileProto";
-
-// Perfetto Changes ===========================================================
-// 1. Add optimize_for = LITE_RUNTIME
-option optimize_for = LITE_RUNTIME;
-// ============================================================================
 
 message Profile {
   // A description of the samples associated with each Sample.value.

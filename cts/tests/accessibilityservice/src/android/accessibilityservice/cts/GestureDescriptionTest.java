@@ -14,30 +14,48 @@
 
 package android.accessibilityservice.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
 import android.graphics.Path;
 import android.graphics.PathMeasure;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
-import android.test.InstrumentationTestCase;
+
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Tests for creating gesture descriptions.
  */
 @Presubmit
 @AppModeFull
-public class GestureDescriptionTest extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class GestureDescriptionTest {
     static final int NOMINAL_PATH_DURATION = 100;
     private Path mNominalPath;
 
-    @Override
+    @Rule
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Before
     public void setUp() {
         mNominalPath = new Path();
         mNominalPath.moveTo(0, 0);
         mNominalPath.lineTo(10, 10);
     }
 
+    @Test
     public void testCreateStroke_noDuration_shouldThrow() {
         try {
             new StrokeDescription(mNominalPath, 0, 0);
@@ -46,6 +64,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCreateStroke_negativeStartTime_shouldThrow() {
         try {
             new StrokeDescription(mNominalPath, -1, NOMINAL_PATH_DURATION);
@@ -54,6 +73,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCreateStroke_negativeStartX_shouldThrow() {
         Path negativeStartXPath = new Path();
         negativeStartXPath.moveTo(-1, 0);
@@ -65,6 +85,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCreateStroke_negativeStartY_shouldThrow() {
         Path negativeStartYPath = new Path();
         negativeStartYPath.moveTo(0, -1);
@@ -76,6 +97,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCreateStroke_negativeEndX_shouldThrow() {
         Path negativeEndXPath = new Path();
         negativeEndXPath.moveTo(0, 0);
@@ -87,6 +109,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCreateStroke_negativeEndY_shouldThrow() {
         Path negativeEndYPath = new Path();
         negativeEndYPath.moveTo(0, 0);
@@ -98,6 +121,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCreateStroke_withEmptyPath_shouldThrow() {
         Path emptyPath = new Path();
         try {
@@ -107,6 +131,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCreateStroke_pathWithMultipleContours_shouldThrow() {
         Path multiContourPath = new Path();
         multiContourPath.moveTo(0, 0);
@@ -120,6 +145,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testStrokeDescriptionWillContinue() {
         StrokeDescription strokeDescription = new StrokeDescription(mNominalPath, 0, 100);
         assertFalse(strokeDescription.willContinue());
@@ -138,6 +164,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         assertTrue(continuation.willContinue());
     }
 
+    @Test
     public void testAddStroke_allowUpToMaxPaths() {
         GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
         for (int i = 0; i < GestureDescription.getMaxStrokeCount(); i++) {
@@ -156,6 +183,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testAddStroke_withDurationTooLong_shouldThrow() {
         Path path = new Path();
         path.moveTo(10, 10);
@@ -169,6 +197,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testEmptyDescription_shouldThrow() {
         GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
         try {
@@ -178,6 +207,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testStrokeDescriptionGetters_workAsExpected() {
         int x = 100;
         int startY = 100;
@@ -200,5 +230,19 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         Path returnedPath = strokeDescription.getPath();
         PathMeasure measure = new PathMeasure(returnedPath, false);
         assertEquals(50, (int) measure.getLength());
+    }
+
+    @Test
+    public void testSetDisplayId_getCorrectDisplayId() {
+        Path path = new Path();
+        path.moveTo(100, 100);
+        StrokeDescription stroke = new StrokeDescription(path, 150, 100);
+        GestureDescription.Builder builder = new GestureDescription.Builder();
+        builder.addStroke(stroke);
+        builder.setDisplayId(2);
+
+        GestureDescription gesture = builder.build();
+
+        assertEquals(2, gesture.getDisplayId());
     }
 }

@@ -5,7 +5,7 @@ LOCAL_MODULE := CppDebugWaitAttach
 
 LOCAL_SRC_FILES := \
 	WaitAttach.cpp \
-	simple.rs
+	simple.rscript
 
 include frameworks/rs/tests/lldb/cpp/common.mk
 include $(BUILD_EXECUTABLE)
@@ -16,7 +16,7 @@ LOCAL_MODULE := CppNoDebugWaitAttach
 
 LOCAL_SRC_FILES := \
 	WaitAttach.cpp \
-	simple.rs
+	simple.rscript
 
 include frameworks/rs/tests/lldb/cpp/common.mk
 LOCAL_RENDERSCRIPT_FLAGS := $(filter-out -g,$(LOCAL_RENDERSCRIPT_FLAGS))

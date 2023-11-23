@@ -128,7 +128,9 @@ public final class OpenSSLX509Certificate extends X509Certificate {
         }
 
         if (certRefs == null) {
-            return Collections.emptyList();
+            // To avoid returning a immutable list in only one path, we create an
+            // empty list here instead of using Collections.emptyList()
+            return new ArrayList<OpenSSLX509Certificate>();
         }
 
         final List<OpenSSLX509Certificate> certs = new ArrayList<OpenSSLX509Certificate>(
@@ -308,7 +310,11 @@ public final class OpenSSLX509Certificate extends X509Certificate {
     @Override
     public String getSigAlgName() {
         String oid = getSigAlgOID();
-        String algName = Platform.oidToAlgorithmName(oid);
+        String algName = OidData.oidToAlgorithmName(oid);
+        if (algName != null) {
+            return algName;
+        }
+        algName = Platform.oidToAlgorithmName(oid);
         if (algName != null) {
             return algName;
         }

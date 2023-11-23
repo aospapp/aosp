@@ -104,7 +104,7 @@ ti{
         Ethi{"ፊደል"}
         Latn{"ላቲን"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     codePatterns{
         language{"{0}"}
         script{"{0}"}

@@ -150,11 +150,9 @@ public class OtaspActivationService extends Service {
         mPhone.registerForCdmaOtaStatusChange(mHandler, EVENT_CDMA_PROVISION_STATUS_UPDATE, null);
         mPhone.registerForPreciseCallStateChanged(mHandler, EVENT_CALL_STATE_CHANGED, null);
         logd("startNonInteractiveOtasp: placing call to '" + OTASP_NUMBER + "'...");
-        int callStatus = PhoneUtils.placeCall(this,
+        int callStatus = PhoneUtils.placeOtaspCall(this,
                 getPhone(),
-                OTASP_NUMBER,
-                null,   // contactRef
-                false); // isEmergencyCall
+                OTASP_NUMBER);
         if (callStatus == PhoneUtils.CALL_STATUS_DIALED) {
             if (DBG) logd("  ==> success return from placeCall(): callStatus = " + callStatus);
         } else {

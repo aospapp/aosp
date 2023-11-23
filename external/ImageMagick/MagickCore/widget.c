@@ -18,7 +18,7 @@
 %                              September 1993                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -49,6 +49,7 @@
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/timer-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/token-private.h"
 #include "MagickCore/utility.h"
@@ -1108,7 +1109,7 @@ static void XEditText(Display *display,XWidgetInfo *text_info,
         {
           text_info->cursor--;
           (void) memmove(text_info->cursor,text_info->cursor+1,
-            MagickPathExtent);
+            strlen(text_info->cursor+1)+1);
           text_info->highlight=MagickFalse;
           break;
         }
@@ -1369,7 +1370,8 @@ static int XScreenEvent(Display *display,XEvent *event,char *data)
       if (event->xexpose.window == windows->command.id)
         if (event->xexpose.count == 0)
           {
-            (void) XCommandWidget(display,windows,(const char **) NULL,event);
+            (void) XCommandWidget(display,windows,(const char *const *) NULL,
+              event);
             break;
           }
       break;
@@ -2778,7 +2780,7 @@ MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
 %  The format of the XCommandWidget method is:
 %
 %      int XCommandWidget(Display *display,XWindows *windows,
-%        const char **selections,XEvent *event)
+%        const char *const *selections,XEvent *event)
 %
 %  A description of each parameter follows:
 %
@@ -2797,7 +2799,7 @@ MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
 %
 */
 MagickPrivate int XCommandWidget(Display *display,XWindows *windows,
-  const char **selections,XEvent *event)
+  const char *const *selections,XEvent *event)
 {
 #define tile_width 112
 #define tile_height 70
@@ -6725,7 +6727,7 @@ MagickPrivate void XInfoWidget(Display *display,XWindows *windows,
 %  The format of the XListBrowserWidget method is:
 %
 %      void XListBrowserWidget(Display *display,XWindows *windows,
-%        XWindowInfo *window_info,const char **list,const char *action,
+%        XWindowInfo *window_info,const char *const *list,const char *action,
 %        const char *query,char *reply)
 %
 %  A description of each parameter follows:
@@ -6746,7 +6748,7 @@ MagickPrivate void XInfoWidget(Display *display,XWindows *windows,
 %
 */
 MagickPrivate void XListBrowserWidget(Display *display,XWindows *windows,
-  XWindowInfo *window_info,const char **list,const char *action,
+  XWindowInfo *window_info,const char *const *list,const char *action,
   const char *query,char *reply)
 {
 #define CancelButtonText  "Cancel"
@@ -7636,7 +7638,7 @@ MagickPrivate void XListBrowserWidget(Display *display,XWindows *windows,
 %  The format of the XMenuWidget method is:
 %
 %      int XMenuWidget(Display *display,XWindows *windows,const char *title,
-%        const char **selections,char *item)
+%        const char *const *selections,char *item)
 %
 %  A description of each parameter follows:
 %
@@ -7658,7 +7660,7 @@ MagickPrivate void XListBrowserWidget(Display *display,XWindows *windows,
 %
 */
 MagickPrivate int XMenuWidget(Display *display,XWindows *windows,
-  const char *title,const char **selections,char *item)
+  const char *title,const char *const *selections,char *item)
 {
   Cursor
     cursor;
@@ -8187,11 +8189,11 @@ MagickPrivate void XNoticeWidget(Display *display,XWindows *windows,
   /*
     Respond to X events.
   */
-  timer=time((time_t *) NULL)+Timeout;
+  timer=GetMagickTime()+Timeout;
   state=UpdateConfigurationState;
   do
   {
-    if (time((time_t *) NULL) > timer)
+    if (GetMagickTime() > timer)
       break;
     if (state & UpdateConfigurationState)
       {
@@ -8895,7 +8897,7 @@ MagickPrivate void XProgressMonitorWidget(Display *display,XWindows *windows,
     Update image windows if there is a pending expose event.
   */
   while (XCheckTypedWindowEvent(display,windows->command.id,Expose,&event))
-    (void) XCommandWidget(display,windows,(const char **) NULL,&event);
+    (void) XCommandWidget(display,windows,(const char *const *) NULL,&event);
   while (XCheckTypedWindowEvent(display,windows->image.id,Expose,&event))
     XRefreshWindow(display,&windows->image,&event);
   while (XCheckTypedWindowEvent(display,windows->info.id,Expose,&event))

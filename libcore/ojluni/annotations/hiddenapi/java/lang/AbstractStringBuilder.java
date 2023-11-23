@@ -25,7 +25,7 @@
 
 package java.lang;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 abstract class AbstractStringBuilder implements java.lang.Appendable, java.lang.CharSequence {

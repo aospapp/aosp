@@ -6,36 +6,34 @@
 
 #include "xfa/fxfa/cxfa_fftext.h"
 
-#include "xfa/fwl/fwl_widgetdef.h"
+#include "xfa/fgas/layout/cfx_linkuserdata.h"
 #include "xfa/fwl/fwl_widgethit.h"
 #include "xfa/fxfa/cxfa_ffapp.h"
 #include "xfa/fxfa/cxfa_ffdoc.h"
-#include "xfa/fxfa/cxfa_ffdraw.h"
 #include "xfa/fxfa/cxfa_ffpageview.h"
 #include "xfa/fxfa/cxfa_ffwidget.h"
-#include "xfa/fxfa/cxfa_linkuserdata.h"
 #include "xfa/fxfa/cxfa_pieceline.h"
 #include "xfa/fxfa/cxfa_textlayout.h"
 #include "xfa/fxfa/cxfa_textpiece.h"
 #include "xfa/fxfa/parser/cxfa_margin.h"
 #include "xfa/fxgraphics/cxfa_graphics.h"
 
-CXFA_FFText::CXFA_FFText(CXFA_Node* pNode) : CXFA_FFDraw(pNode) {}
+CXFA_FFText::CXFA_FFText(CXFA_Node* pNode) : CXFA_FFWidget(pNode) {}
 
 CXFA_FFText::~CXFA_FFText() {}
 
 void CXFA_FFText::RenderWidget(CXFA_Graphics* pGS,
                                const CFX_Matrix& matrix,
-                               uint32_t dwStatus) {
-  if (!IsMatchVisibleStatus(dwStatus))
+                               HighlightOption highlight) {
+  if (!HasVisibleStatus())
     return;
 
   CFX_Matrix mtRotate = GetRotateMatrix();
   mtRotate.Concat(matrix);
 
-  CXFA_FFWidget::RenderWidget(pGS, mtRotate, dwStatus);
+  CXFA_FFWidget::RenderWidget(pGS, mtRotate, highlight);
 
-  CXFA_TextLayout* pTextLayout = m_pNode->GetWidgetAcc()->GetTextLayout();
+  CXFA_TextLayout* pTextLayout = m_pNode->GetTextLayout();
   if (!pTextLayout)
     return;
 
@@ -43,9 +41,9 @@ void CXFA_FFText::RenderWidget(CXFA_Graphics* pGS,
   CFX_RectF rtText = GetRectWithoutRotate();
   CXFA_Margin* margin = m_pNode->GetMarginIfExists();
   if (margin) {
-    CXFA_LayoutItem* pItem = this;
+    CXFA_ContentLayoutItem* pItem = GetLayoutItem();
     if (!pItem->GetPrev() && !pItem->GetNext()) {
-      XFA_RectWithoutMargin(rtText, margin);
+      XFA_RectWithoutMargin(&rtText, margin);
     } else {
       float fTopInset = 0;
       float fBottomInset = 0;
@@ -62,24 +60,25 @@ void CXFA_FFText::RenderWidget(CXFA_Graphics* pGS,
   CFX_Matrix mt(1, 0, 0, 1, rtText.left, rtText.top);
   CFX_RectF rtClip = mtRotate.TransformRect(rtText);
   mt.Concat(mtRotate);
-  pTextLayout->DrawString(pRenderDevice, mt, rtClip, GetIndex());
+  pTextLayout->DrawString(pRenderDevice, mt, rtClip,
+                          GetLayoutItem()->GetIndex());
 }
 
 bool CXFA_FFText::IsLoaded() {
-  CXFA_TextLayout* pTextLayout = m_pNode->GetWidgetAcc()->GetTextLayout();
-  return pTextLayout && !pTextLayout->m_bHasBlock;
+  CXFA_TextLayout* pTextLayout = m_pNode->GetTextLayout();
+  return pTextLayout && !pTextLayout->HasBlock();
 }
 
 bool CXFA_FFText::PerformLayout() {
-  CXFA_FFDraw::PerformLayout();
-  CXFA_TextLayout* pTextLayout = m_pNode->GetWidgetAcc()->GetTextLayout();
+  CXFA_FFWidget::PerformLayout();
+  CXFA_TextLayout* pTextLayout = m_pNode->GetTextLayout();
   if (!pTextLayout)
     return false;
-  if (!pTextLayout->m_bHasBlock)
+  if (!pTextLayout->HasBlock())
     return true;
 
-  pTextLayout->m_Blocks.clear();
-  CXFA_LayoutItem* pItem = this;
+  pTextLayout->ClearBlocks();
+  CXFA_ContentLayoutItem* pItem = GetLayoutItem();
   if (!pItem->GetPrev() && !pItem->GetNext())
     return true;
 
@@ -96,11 +95,16 @@ bool CXFA_FFText::PerformLayout() {
     pTextLayout->ItemBlocks(rtText, pItem->GetIndex());
     pItem = pItem->GetNext();
   }
-  pTextLayout->m_bHasBlock = false;
+  pTextLayout->ResetHasBlock();
   return true;
 }
 
-bool CXFA_FFText::OnLButtonDown(uint32_t dwFlags, const CFX_PointF& point) {
+bool CXFA_FFText::AcceptsFocusOnButtonDown(uint32_t dwFlags,
+                                           const CFX_PointF& point,
+                                           FWL_MouseCommand command) {
+  if (command != FWL_MouseCommand::LeftButtonDown)
+    return false;
+
   if (!GetRectWithoutRotate().Contains(point))
     return false;
 
@@ -108,6 +112,10 @@ bool CXFA_FFText::OnLButtonDown(uint32_t dwFlags, const CFX_PointF& point) {
   if (!wsURLContent)
     return false;
 
+  return true;
+}
+
+bool CXFA_FFText::OnLButtonDown(uint32_t dwFlags, const CFX_PointF& point) {
   SetButtonDown(true);
   return true;
 }
@@ -130,7 +138,7 @@ bool CXFA_FFText::OnLButtonUp(uint32_t dwFlags, const CFX_PointF& point) {
   return true;
 }
 
-FWL_WidgetHit CXFA_FFText::OnHitTest(const CFX_PointF& point) {
+FWL_WidgetHit CXFA_FFText::HitTest(const CFX_PointF& point) {
   if (!GetRectWithoutRotate().Contains(point))
     return FWL_WidgetHit::Unknown;
   if (!GetLinkURLAtPoint(point))
@@ -139,7 +147,7 @@ FWL_WidgetHit CXFA_FFText::OnHitTest(const CFX_PointF& point) {
 }
 
 const wchar_t* CXFA_FFText::GetLinkURLAtPoint(const CFX_PointF& point) {
-  CXFA_TextLayout* pTextLayout = m_pNode->GetWidgetAcc()->GetTextLayout();
+  CXFA_TextLayout* pTextLayout = m_pNode->GetTextLayout();
   if (!pTextLayout)
     return nullptr;
 

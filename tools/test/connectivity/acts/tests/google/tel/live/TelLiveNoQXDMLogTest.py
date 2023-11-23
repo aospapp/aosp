@@ -23,7 +23,6 @@ import os
 import re
 
 from acts import signals
-from acts.utils import create_dir
 from acts.utils import unzip_maintain_permissions
 from acts.utils import exe_cmd
 from acts.controllers.android_device import SL4A_APK_NAME
@@ -39,6 +38,9 @@ from acts.test_utils.tel.tel_defines import ATT_CARRIER_CONFIG_VERSION
 from acts.test_utils.tel.tel_defines import CARRIER_ID_METADATA_URL
 from acts.test_utils.tel.tel_defines import CARRIER_ID_CONTENT_URL
 from acts.test_utils.tel.tel_defines import CARRIER_ID_VERSION
+from acts.test_utils.tel.tel_defines import CARRIER_ID_METADATA_URL_P
+from acts.test_utils.tel.tel_defines import CARRIER_ID_CONTENT_URL_P
+from acts.test_utils.tel.tel_defines import CARRIER_ID_VERSION_P
 from acts.test_utils.tel.tel_lookup_tables import device_capabilities
 from acts.test_utils.tel.tel_lookup_tables import operator_capabilities
 from acts.test_utils.tel.tel_test_utils import lock_lte_band_by_mds
@@ -58,17 +60,20 @@ from acts.test_utils.tel.tel_test_utils import cleanup_configupdater
 from acts.test_utils.tel.tel_test_utils import pull_carrier_id_files
 from acts.test_utils.tel.tel_test_utils import wifi_toggle_state
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
+from acts.test_utils.tel.tel_subscription_utils import get_cbrs_and_default_sub_id
 from acts.utils import get_current_epoch_time
 from acts.keys import Config
 
 class TelLiveNoQXDMLogTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.dut = self.android_devices[0]
-        self.ad_reference = self.android_devices[1] if len(
-            self.android_devices) > 1 else None
+        if len(self.android_devices) > 1:
+            self.ad_reference = self.android_devices[1]
+            setattr(self.ad_reference, "qxdm_log", False)
+        else:
+            self.ad_reference = None
         setattr(self.dut, "qxdm_log", False)
-        setattr(self.ad_reference, "qxdm_log", False)
         self.stress_test_number = int(
             self.user_params.get("stress_test_number", 5))
         self.skip_reset_between_cases = False
@@ -115,7 +120,7 @@ class TelLiveNoQXDMLogTest(TelephonyBaseTest):
         keyword_time_dict = {}
 
         text_search_mapping = {
-            'boot_complete': "processing action (sys.boot_completed=1)",
+            'boot_complete': "ModemService: Received: android.intent.action.BOOT_COMPLETED",
             'Voice_Reg': "< VOICE_REGISTRATION_STATE {.regState = REG_HOME",
             'Data_Reg': "< DATA_REGISTRATION_STATE {.regState = REG_HOME",
             'Data_Call_Up': "onSetupConnectionCompleted result=SUCCESS",
@@ -209,6 +214,113 @@ class TelLiveNoQXDMLogTest(TelephonyBaseTest):
                 test_result = False
         return test_result
 
+    def _cbrs_bootup_time_test(self):
+        """CBRS Bootup Perf Test
+
+        Expected Results:
+            Time
+
+        Returns:
+            True is pass, False if fail.
+        """
+        self.number_of_devices = 1
+        ad = self.dut
+        cbrs_subid, default_subid = get_cbrs_and_default_sub_id(ad)
+        toggle_airplane_mode(self.log, ad, False)
+
+        fail_count = collections.defaultdict(int)
+        test_result = True
+        keyword_time_dict = {}
+
+        text_search_mapping = {
+            'boot_complete': "ModemService: Received: android.intent.action.BOOT_COMPLETED",
+            'cbrs_active': "notifyPreferredDataSubIdChanged to %s" % cbrs_subid,
+        }
+
+        text_obj_mapping = {
+            "boot_complete": None,
+            "cbrs_active": None,
+        }
+        blocked_for_calculate = ["boot_complete"]
+        for i in range(1, self.stress_test_number + 1):
+            ad.log.info("CBRS Bootup Time Test %s Iteration: %d / %d",
+                        self.test_name, i, self.stress_test_number)
+            begin_time = get_current_epoch_time()
+            ad.log.debug("Begin Time is %s", begin_time)
+            ad.log.info("reboot!")
+            reboot_device(ad)
+            iteration_result = "pass"
+
+            time.sleep(WAIT_TIME_FOR_BOOT_COMPLETE)
+
+            dict_match = ad.search_logcat(
+                text_search_mapping['boot_complete'], begin_time=begin_time)
+            if len(dict_match) != 0:
+                text_obj_mapping['boot_complete'] = dict_match[0][
+                    'datetime_obj']
+                ad.log.debug("Datetime for boot_complete is %s",
+                             text_obj_mapping['boot_complete'])
+                bootup_time = dict_match[0]['datetime_obj'].strftime('%s')
+                bootup_time = int(bootup_time) * 1000
+                ad.log.info("Bootup Time is %d", bootup_time)
+            else:
+                ad.log.error("TERMINATE- boot_complete not seen in logcat")
+                return False
+
+            for tel_state in text_search_mapping:
+                if tel_state == "boot_complete":
+                    continue
+                dict_match = ad.search_logcat(
+                    text_search_mapping[tel_state], begin_time=bootup_time)
+                if len(dict_match) != 0:
+                    text_obj_mapping[tel_state] = dict_match[0]['datetime_obj']
+                    ad.log.debug("Datetime for %s is %s", tel_state,
+                                 text_obj_mapping[tel_state])
+                else:
+                    ad.log.error("Cannot Find Text %s in logcat",
+                                 text_search_mapping[tel_state])
+                    blocked_for_calculate.append(tel_state)
+                    ad.log.debug("New Blocked %s", blocked_for_calculate)
+
+            ad.log.info("List Blocked %s", blocked_for_calculate)
+            for tel_state in text_search_mapping:
+                if tel_state not in blocked_for_calculate:
+                    time_diff = text_obj_mapping[tel_state] - \
+                                text_obj_mapping['boot_complete']
+                    ad.log.info("Time Diff is %d for %s", time_diff.seconds,
+                                tel_state)
+                    if tel_state in keyword_time_dict:
+                        keyword_time_dict[tel_state].append(time_diff.seconds)
+                    else:
+                        keyword_time_dict[tel_state] = [
+                            time_diff.seconds,
+                        ]
+                    ad.log.debug("Keyword Time Dict %s", keyword_time_dict)
+
+            ad.log.info("CBRS Bootup Time Test %s Iteration: %d / %d %s",
+                        self.test_name, i, self.stress_test_number,
+                        iteration_result)
+        ad.log.info("Final Keyword Time Dict %s", keyword_time_dict)
+        for tel_state in text_search_mapping:
+            if tel_state not in blocked_for_calculate:
+                avg_time = self._get_list_average(keyword_time_dict[tel_state])
+                if avg_time < 12.0:
+                    ad.log.info("Average %s for %d iterations = %.2f seconds",
+                                tel_state, self.stress_test_number, avg_time)
+                else:
+                    ad.log.error("Average %s for %d iterations = %.2f seconds",
+                                 tel_state, self.stress_test_number, avg_time)
+                    fail_count[tel_state] += 1
+
+        ad.log.info("Bootup Time Dict: %s", keyword_time_dict)
+        ad.log.info("fail_count: %s", dict(fail_count))
+        for failure, count in fail_count.items():
+            if count:
+                ad.log.error("%s %s failures in %s iterations", count, failure,
+                             self.stress_test_number)
+                test_result = False
+        return test_result
+
     """ Tests Begin """
 
     @test_tracker_info(uuid="109d59ff-a488-4a68-87fd-2d8d0c035326")
@@ -228,6 +340,24 @@ class TelLiveNoQXDMLogTest(TelephonyBaseTest):
             True is pass, False if fail.
         """
         return self._telephony_bootup_time_test()
+
+    @test_tracker_info(uuid="d29e6e62-3d54-4a58-b67f-2ba0de3d0a19")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_bootup_cbrs_stress(self):
+        """Bootup Optimized Reliability Test
+
+        Steps:
+            1. Reboot DUT.
+            2. Parse logcat for time taken by CBRS data
+            3. Repeat Step 1~2 for N times. (before reboot)
+
+        Expected Results:
+            No crash happens in stress test.
+
+        Returns:
+            True is pass, False if fail.
+        """
+        return self._cbrs_bootup_time_test()
 
     @test_tracker_info(uuid="67f50d11-a987-4e79-9a20-1569d365511b")
     @TelephonyBaseTest.tel_test_wrap
@@ -250,9 +380,8 @@ class TelLiveNoQXDMLogTest(TelephonyBaseTest):
         begin_time = get_current_epoch_time()
         for i in range(3):
             try:
-                bugreport_path = os.path.join(ad.log_path, self.test_name)
-                create_dir(bugreport_path)
                 ad.take_bug_report(self.test_name, begin_time)
+                bugreport_path = ad.device_log_path
                 break
             except Exception as e:
                 ad.log.error("bugreport attempt %s error: %s", i + 1, e)
@@ -277,9 +406,11 @@ class TelLiveNoQXDMLogTest(TelephonyBaseTest):
                 exe_cmd("tar -xvf %s" %
                         (bugreport_path + "/dumpstate_board.tar"))
                 os.chdir(current_dir)
-                if os.path.isfile(bugreport_path + "/power_anomaly_data.txt"):
-                    ad.log.info("Modem Power Anomaly File Exists!!")
-                    return True
+            else:
+                ad.log.info("The dumpstate_path file %s does not exist" % dumpstate_path)
+            if os.path.isfile(bugreport_path + "/power_anomaly_data.txt"):
+                ad.log.info("Modem Power Anomaly File Exists!!")
+                return True
             ad.log.info("Modem Power Anomaly File DO NOT Exist!!")
             return False
         except Exception as e:
@@ -375,7 +506,8 @@ class TelLiveNoQXDMLogTest(TelephonyBaseTest):
                 ad.wait_for_boot_completion()
                 ad.root_adb()
                 ad.log.info("Re-install sl4a")
-                ad.adb.shell("settings put global package_verifier_enable 0")
+                ad.adb.shell("settings put global verifier_verify_adb_installs"
+                             " 0")
                 ad.adb.install("-r /tmp/base.apk")
                 time.sleep(10)
                 try:
@@ -498,6 +630,11 @@ class TelLiveNoQXDMLogTest(TelephonyBaseTest):
             result_flag = False
             time_var = 1
             ad = self.android_devices[0]
+            if ad.adb.getprop("ro.build.version.release")[0] in ("9", "P"):
+                CARRIER_ID_VERSION = CARRIER_ID_VERSION_P
+                CARRIER_ID_METADATA_URL = CARRIER_ID_METADATA_URL_P
+                CARRIER_ID_CONTENT_URL = CARRIER_ID_CONTENT_URL_P
+
             ad.log.info("Before - CarrierId is %s", get_carrier_id_version(ad))
             # Setup Steps
             if not ensure_wifi_connected(self.log, ad, self.wifi_network_ssid,

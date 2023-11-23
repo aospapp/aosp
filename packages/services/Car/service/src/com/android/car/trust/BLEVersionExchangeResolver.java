@@ -16,6 +16,12 @@
 
 package com.android.car.trust;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.android.car.BLEStreamProtos.VersionExchangeProto.BLEVersionExchange;
@@ -31,13 +37,23 @@ class BLEVersionExchangeResolver {
     private static final int SECURITY_VERSION = 1;
 
     /**
-     * Return whether or not the given version exchange proto has the a version that is currently
-     * supported by this device.
+     * Returns a message stream that can be used to send messages to the given
+     * {@link BluetoothDevice} based on the version exchange proto.
      *
      * @param versionExchange The version exchange proto to resolve
-     * @return {@code true} if there is a supported version.
+     * @param device The remote device to send messages to.
+     * @param readCharacteristic The characteristic the remote device will use to write messages to.
+     *                           This is the characteristic this IHU will read from.
+     * @param writeCharacteristic The characteristic on the remote device that this IHU can write
+     *                            messages to.
+     * @return A stream that can send message or {@code null} if resolution was not possible.
      */
-    static boolean hasSupportedVersion(BLEVersionExchange versionExchange) {
+    @Nullable
+    static BleMessageStream resolveToStream(
+            @NonNull BLEVersionExchange versionExchange,
+            @NonNull BluetoothDevice device, @NonNull BlePeripheralManager blePeripheralManager,
+            @NonNull BluetoothGattCharacteristic writeCharacteristic,
+            @NonNull BluetoothGattCharacteristic readCharacteristic) {
         int minMessagingVersion = versionExchange.getMinSupportedMessagingVersion();
         int minSecurityVersion = versionExchange.getMinSupportedSecurityVersion();
 
@@ -47,19 +63,29 @@ class BLEVersionExchangeResolver {
         }
 
         // Only one supported version, so ensure the minimum version matches.
-        return minMessagingVersion == MESSAGING_VERSION && minSecurityVersion == SECURITY_VERSION;
+        if (minMessagingVersion == MESSAGING_VERSION && minSecurityVersion == SECURITY_VERSION) {
+            return new BleMessageStreamV1(
+                    new Handler(Looper.getMainLooper()),
+                    blePeripheralManager,
+                    device,
+                    writeCharacteristic,
+                    readCharacteristic);
+        }
+
+        return null;
     }
 
     /**
      * Returns a version exchange proto with the maximum and minimum protocol and security versions
      * this device currently supports.
      */
+    @NonNull
     static BLEVersionExchange makeVersionExchange() {
         return BLEVersionExchange.newBuilder()
                 .setMinSupportedMessagingVersion(MESSAGING_VERSION)
                 .setMaxSupportedMessagingVersion(MESSAGING_VERSION)
                 .setMinSupportedSecurityVersion(SECURITY_VERSION)
-                .setMinSupportedSecurityVersion(SECURITY_VERSION)
+                .setMaxSupportedSecurityVersion(SECURITY_VERSION)
                 .build();
     }
 

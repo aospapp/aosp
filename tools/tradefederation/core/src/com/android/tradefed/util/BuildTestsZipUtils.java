@@ -67,8 +67,9 @@ public class BuildTestsZipUtils {
         Collections.reverse(dirs);
 
         List<File> expandedTestDirs = new ArrayList<>();
+        File testsDir = null;
         if (buildInfo != null && buildInfo instanceof IDeviceBuildInfo) {
-            File testsDir = ((IDeviceBuildInfo) buildInfo).getTestsDir();
+            testsDir = ((IDeviceBuildInfo) buildInfo).getTestsDir();
             if (testsDir != null && testsDir.exists()) {
                 expandedTestDirs.add(FileUtil.getFileForPath(testsDir, "DATA", "app"));
                 expandedTestDirs.add(FileUtil.getFileForPath(testsDir, "DATA", "app", apkBase));
@@ -81,6 +82,13 @@ public class BuildTestsZipUtils {
                 File testcasesSubDir = FileUtil.findFile(testsDir, apkBase);
                 if (testcasesSubDir != null) {
                     expandedTestDirs.add(testcasesSubDir);
+                } else {
+                    // If there doesn't exist a directory named after apkBase, it's possible that
+                    // the apk is built output to a different module directory. Therefore, try to
+                    // search entire testsDir to locate the apk.
+                    // TODO(dshi): Find a better way to locate apk. Ideally we should start with the
+                    // test module's directory to avoid false-positive result.
+                    expandedTestDirs.add(testsDir);
                 }
             }
         }
@@ -132,6 +140,14 @@ public class BuildTestsZipUtils {
             }
             // If we couldn't find a resource, we delete the tmp file
             FileUtil.deleteFile(apkTempFile);
+        }
+
+        // Try to stage the files from remote zip files.
+        if (testsDir != null) {
+            File apkFile = buildInfo.stageRemoteFile(apkFileName, testsDir);
+            if (apkFile != null) {
+                return apkFile;
+            }
         }
         return null;
     }

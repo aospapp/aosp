@@ -23,6 +23,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileInputStreamSource;
@@ -92,12 +93,14 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
     }
 
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException {
-        if (buildInfo.getFile(DEVICE_INFO_DIR) != null) {
+    public void setUp(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        if (testInfo.getBuildInfo().getFile(DEVICE_INFO_DIR) != null) {
             CLog.i("Device info already collected, skipping DeviceInfoCollector.");
             return;
         }
+        ITestDevice device = testInfo.getDevice();
+        IBuildInfo buildInfo = testInfo.getBuildInfo();
         DevicePropertyInfo devicePropertyInfo =
                 new DevicePropertyInfo(
                         ABI,
@@ -133,16 +136,28 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
         if (mSkipDeviceInfo) {
             return;
         }
-        run(device, buildInfo);
+        run(testInfo);
         try {
             deviceInfoDir = FileUtil.createTempDir(DeviceInfo.RESULT_DIR_NAME);
             if (device.pullDir(mSrcDir, deviceInfoDir)) {
-                for (File deviceInfoFile : deviceInfoDir.listFiles()) {
-                    try (FileInputStreamSource source = new FileInputStreamSource(deviceInfoFile)) {
-                        mLogger.testLog(deviceInfoFile.getName(), LogDataType.TEXT, source);
+                if (!deviceInfoDir.exists() || deviceInfoDir.listFiles() == null) {
+                    CLog.e(
+                            "Pulled device-info, but local dir '%s' is not valid. "
+                                    + "[exists=%s, isDir=%s].",
+                            deviceInfoDir, deviceInfoDir.exists(), deviceInfoDir.isDirectory());
+                } else {
+                    for (File deviceInfoFile : deviceInfoDir.listFiles()) {
+                        try (FileInputStreamSource source =
+                                new FileInputStreamSource(deviceInfoFile)) {
+                            mLogger.testLog(deviceInfoFile.getName(), LogDataType.TEXT, source);
+                        }
                     }
+                    buildInfo.setFile(
+                            DEVICE_INFO_DIR,
+                            deviceInfoDir,
+                            /** version */
+                            "v1");
                 }
-                buildInfo.setFile(DEVICE_INFO_DIR, deviceInfoDir, /** version */ "v1");
             } else {
                 CLog.e("Failed to pull device-info files from device %s", device.getSerialNumber());
             }
@@ -153,10 +168,9 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
     }
 
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         FileUtil.recursiveDelete(deviceInfoDir);
-        super.tearDown(device, buildInfo, e);
+        super.tearDown(testInfo, e);
     }
 
     @Override

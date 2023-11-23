@@ -4,7 +4,7 @@
 
 FKEY_VERSION=$1
 
-pushd /var/tmp/faft/autest/keys
+pushd /usr/local/tmp/faft/autest/keys
 
 make_pair "firmware_data_key" $FIRMWARE_DATAKEY_ALGOID $FKEY_VERSION
 make_pair "dev_firmware_data_key" $DEV_FIRMWARE_DATAKEY_ALGOID $FKEY_VERSION

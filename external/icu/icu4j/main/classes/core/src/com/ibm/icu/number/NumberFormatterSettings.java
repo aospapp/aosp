@@ -23,8 +23,7 @@ import com.ibm.icu.util.ULocale;
  * by {@link UnlocalizedNumberFormatter} and {@link LocalizedNumberFormatter}. This class is not intended
  * for public subclassing.
  *
- * @draft ICU 60
- * @provisional This API might change or be removed in a future release.
+ * @stable ICU 60
  * @see NumberFormatter
  */
 public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<?>> {
@@ -84,8 +83,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The notation strategy to use.
      * @return The fluent chain.
      * @see Notation
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T notation(Notation notation) {
         return create(KEY_NOTATION, notation);
@@ -142,8 +140,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      * @see Currency
      * @see NoUnit
      * @see #perUnit
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T unit(MeasureUnit unit) {
         return create(KEY_UNIT, unit);
@@ -170,8 +167,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The unit to render in the denominator.
      * @return The fluent chain
      * @see #unit
-     * @draft ICU 61
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 61
      */
     public T perUnit(MeasureUnit perUnit) {
         return create(KEY_PER_UNIT, perUnit);
@@ -205,20 +201,10 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The rounding precision to use.
      * @return The fluent chain.
      * @see Precision
-     * @draft ICU 62
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 62
      */
     public T precision(Precision precision) {
         return create(KEY_PRECISION, precision);
-    }
-
-    /**
-     * @deprecated ICU 62 Use precision() instead. This method is for backwards compatibility and will be
-     *             removed in ICU 64. See http://bugs.icu-project.org/trac/ticket/13746
-     */
-    @Deprecated
-    public T rounding(Precision rounder) {
-        return precision(rounder);
     }
 
     /**
@@ -239,8 +225,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The rounding mode to use.
      * @return The fluent chain.
      * @see Precision
-     * @draft ICU 62
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 62
      */
     public T roundingMode(RoundingMode roundingMode) {
         return create(KEY_ROUNDING_MODE, roundingMode);
@@ -272,8 +257,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The grouping strategy to use.
      * @return The fluent chain.
      * @see GroupingStrategy
-     * @draft ICU 61
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 61
      */
     public T grouping(GroupingStrategy strategy) {
         return create(KEY_GROUPING, strategy);
@@ -301,8 +285,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The integer width to use.
      * @return The fluent chain.
      * @see IntegerWidth
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T integerWidth(IntegerWidth style) {
         return create(KEY_INTEGER, style);
@@ -346,8 +329,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The DecimalFormatSymbols to use.
      * @return The fluent chain.
      * @see DecimalFormatSymbols
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T symbols(DecimalFormatSymbols symbols) {
         symbols = (DecimalFormatSymbols) symbols.clone();
@@ -382,8 +364,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The NumberingSystem to use.
      * @return The fluent chain.
      * @see NumberingSystem
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T symbols(NumberingSystem ns) {
         return create(KEY_SYMBOLS, ns);
@@ -412,8 +393,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The width to use when rendering numbers.
      * @return The fluent chain
      * @see UnitWidth
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T unitWidth(UnitWidth style) {
         return create(KEY_UNIT_WIDTH, style);
@@ -442,8 +422,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The sign display strategy to use when rendering numbers.
      * @return The fluent chain
      * @see SignDisplay
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T sign(SignDisplay style) {
         return create(KEY_SIGN, style);
@@ -472,8 +451,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The decimal separator display strategy to use when rendering numbers.
      * @return The fluent chain
      * @see DecimalSeparatorDisplay
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public T decimal(DecimalSeparatorDisplay style) {
         return create(KEY_DECIMAL, style);
@@ -502,8 +480,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            An amount to be multiplied against numbers before formatting.
      * @return The fluent chain
      * @see Scale
-     * @draft ICU 62
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 62
      */
     public T scale(Scale scale) {
         return create(KEY_SCALE, scale);
@@ -557,8 +534,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      * @return A number skeleton string with behavior corresponding to this number formatter.
      * @throws UnsupportedOperationException
      *             If the number formatter has an option that cannot be represented in a skeleton string.
-     * @draft ICU 62
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 62
      */
     public String toSkeleton() {
         return NumberSkeletonImpl.generate(resolve());
@@ -668,8 +644,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
     /**
      * {@inheritDoc}
      *
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     @Override
     public int hashCode() {
@@ -679,8 +654,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
     /**
      * {@inheritDoc}
      *
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     @Override
     public boolean equals(Object other) {

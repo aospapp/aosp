@@ -16,10 +16,15 @@
 
 package com.android.server.wifi;
 
-import android.app.ActivityManagerInternal;
-import android.app.AppGlobals;
+import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+import static android.content.pm.PackageManager.FEATURE_DEVICE_ADMIN;
+
+import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.PendingIntent;
+import android.app.admin.DevicePolicyManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
@@ -27,17 +32,12 @@ import android.net.TrafficStats;
 import android.net.Uri;
 import android.net.ip.IpClientCallbacks;
 import android.net.ip.IpClientUtil;
-import android.os.BatteryStats;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.os.storage.StorageManager;
+import android.os.PersistableBundle;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
+import android.util.Log;
+import android.widget.Toast;
 
-import com.android.internal.app.IBatteryStats;
-import com.android.server.LocalServices;
 import com.android.server.wifi.util.WifiAsyncChannel;
 
 /**
@@ -46,40 +46,93 @@ import com.android.server.wifi.util.WifiAsyncChannel;
 public class FrameworkFacade {
     public static final String TAG = "FrameworkFacade";
 
-    private ActivityManagerInternal mActivityManagerInternal;
+    private ContentResolver mContentResolver = null;
+    private CarrierConfigManager mCarrierConfigManager = null;
+    private ActivityManager mActivityManager = null;
+
+    private ContentResolver getContentResolver(Context context) {
+        if (mContentResolver == null) {
+            mContentResolver = context.getContentResolver();
+        }
+        return mContentResolver;
+    }
+
+    private CarrierConfigManager getCarrierConfigManager(Context context) {
+        if (mCarrierConfigManager == null) {
+            mCarrierConfigManager =
+                (CarrierConfigManager) context.getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        }
+        return mCarrierConfigManager;
+    }
+
+    private ActivityManager getActivityManager(Context context) {
+        if (mActivityManager == null) {
+            mActivityManager =
+                (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        }
+        return mActivityManager;
+    }
+
+    /**
+     * Mockable setter for Settings.Global
+     */
+    public boolean setIntegerSetting(ContentResolver contentResolver, String name, int value) {
+        return Settings.Global.putInt(contentResolver, name, value);
+    }
+
+    /**
+     * Mockable getter for Settings.Global
+     */
+    public int getIntegerSetting(ContentResolver contentResolver, String name, int def) {
+        return Settings.Global.getInt(contentResolver, name, def);
+    }
 
     public boolean setIntegerSetting(Context context, String name, int def) {
-        return Settings.Global.putInt(context.getContentResolver(), name, def);
+        return Settings.Global.putInt(getContentResolver(context), name, def);
     }
 
     public int getIntegerSetting(Context context, String name, int def) {
-        return Settings.Global.getInt(context.getContentResolver(), name, def);
+        return Settings.Global.getInt(getContentResolver(context), name, def);
     }
 
     public long getLongSetting(Context context, String name, long def) {
-        return Settings.Global.getLong(context.getContentResolver(), name, def);
+        return Settings.Global.getLong(getContentResolver(context), name, def);
     }
 
     public boolean setStringSetting(Context context, String name, String def) {
-        return Settings.Global.putString(context.getContentResolver(), name, def);
+        return Settings.Global.putString(getContentResolver(context), name, def);
     }
 
     public String getStringSetting(Context context, String name) {
-        return Settings.Global.getString(context.getContentResolver(), name);
+        return Settings.Global.getString(getContentResolver(context), name);
     }
 
     /**
      * Mockable facade to Settings.Secure.getInt(.).
      */
     public int getSecureIntegerSetting(Context context, String name, int def) {
-        return Settings.Secure.getInt(context.getContentResolver(), name, def);
+        return Settings.Secure.getInt(getContentResolver(context), name, def);
     }
 
     /**
      * Mockable facade to Settings.Secure.getString(.).
      */
     public String getSecureStringSetting(Context context, String name) {
-        return Settings.Secure.getString(context.getContentResolver(), name);
+        return Settings.Secure.getString(getContentResolver(context), name);
+    }
+
+    /**
+     * Returns whether the device is in NIAP mode or not.
+     */
+    public boolean isNiapModeOn(Context context) {
+        DevicePolicyManager devicePolicyManager =
+                context.getSystemService(DevicePolicyManager.class);
+        if (devicePolicyManager == null
+                && context.getPackageManager().hasSystemFeature(FEATURE_DEVICE_ADMIN)) {
+            Log.e(TAG, "Error retrieving DPM service");
+        }
+        if (devicePolicyManager == null) return false;
+        return devicePolicyManager.isCommonCriteriaModeEnabled(null);
     }
 
     /**
@@ -93,7 +146,7 @@ public class FrameworkFacade {
      */
     public void registerContentObserver(Context context, Uri uri,
             boolean notifyForDescendants, ContentObserver contentObserver) {
-        context.getContentResolver().registerContentObserver(uri, notifyForDescendants,
+        getContentResolver(context).registerContentObserver(uri, notifyForDescendants,
                 contentObserver);
     }
 
@@ -105,19 +158,7 @@ public class FrameworkFacade {
      * @param contentObserver
      */
     public void unregisterContentObserver(Context context, ContentObserver contentObserver) {
-        context.getContentResolver().unregisterContentObserver(contentObserver);
-    }
-
-    public IBinder getService(String serviceName) {
-        return ServiceManager.getService(serviceName);
-    }
-
-    /**
-     * Returns the battery stats interface
-     * @return IBatteryStats BatteryStats service interface
-     */
-    public IBatteryStats getBatteryService() {
-        return IBatteryStats.Stub.asInterface(getService(BatteryStats.SERVICE_NAME));
+        getContentResolver(context).unregisterContentObserver(contentObserver);
     }
 
     public PendingIntent getBroadcast(Context context, int requestCode, Intent intent, int flags) {
@@ -131,20 +172,16 @@ public class FrameworkFacade {
         return PendingIntent.getActivity(context, requestCode, intent, flags);
     }
 
-    public SupplicantStateTracker makeSupplicantStateTracker(Context context,
-            WifiConfigManager configManager, Handler handler) {
-        return new SupplicantStateTracker(context, configManager, this, handler);
-    }
-
     public boolean getConfigWiFiDisableInECBM(Context context) {
-        CarrierConfigManager configManager = (CarrierConfigManager) context
-                .getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        if (configManager != null) {
-            return configManager.getConfig().getBoolean(
-                    CarrierConfigManager.KEY_CONFIG_WIFI_DISABLE_IN_ECBM);
+        CarrierConfigManager configManager = getCarrierConfigManager(context);
+        if (configManager == null) {
+            return false;
         }
-        /* Default to TRUE */
-        return true;
+        PersistableBundle bundle = configManager.getConfig();
+        if (bundle == null) {
+            return false;
+        }
+        return bundle.getBoolean(CarrierConfigManager.KEY_CONFIG_WIFI_DISABLE_IN_ECBM);
     }
 
     public long getTxPackets(String iface) {
@@ -166,17 +203,6 @@ public class FrameworkFacade {
     }
 
     /**
-     * Checks whether the given uid has been granted the given permission.
-     * @param permName the permission to check
-     * @param uid The uid to check
-     * @return {@link PackageManager.PERMISSION_GRANTED} if the permission has been granted and
-     *         {@link PackageManager.PERMISSION_DENIED} otherwise
-     */
-    public int checkUidPermission(String permName, int uid) throws RemoteException {
-        return AppGlobals.getPackageManager().checkUidPermission(permName, uid);
-    }
-
-    /**
      * Create a new instance of WifiAsyncChannel
      * @param tag String corresponding to the service creating the channel
      * @return WifiAsyncChannel object created
@@ -186,24 +212,14 @@ public class FrameworkFacade {
     }
 
     /**
-     * Check if the device will be restarting after decrypting during boot by calling {@link
-     * StorageManager.inCryptKeeperBounce}.
-     * @return true if the device will restart, false otherwise
-     */
-    public boolean inStorageManagerCryptKeeperBounce() {
-        return StorageManager.inCryptKeeperBounce();
-    }
-
-    /**
      * Check if the provided uid is the app in the foreground.
      * @param uid the uid to check
      * @return true if the app is in the foreground, false otherwise
      */
-    public boolean isAppForeground(int uid) {
-        if (mActivityManagerInternal == null) {
-            mActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
-        }
-        return mActivityManagerInternal.isAppForeground(uid);
+    public boolean isAppForeground(Context context, int uid) {
+        ActivityManager activityManager = getActivityManager(context);
+        if (activityManager == null) return false;
+        return activityManager.getUidImportance(uid) <= IMPORTANCE_VISIBLE;
     }
 
     /**
@@ -214,5 +230,66 @@ public class FrameworkFacade {
      */
     public Notification.Builder makeNotificationBuilder(Context context, String channelId) {
         return new Notification.Builder(context, channelId);
+    }
+
+    /**
+     * Starts supplicant
+     */
+    public void startSupplicant() {
+        SupplicantManager.start();
+    }
+
+    /**
+     * Stops supplicant
+     */
+    public void stopSupplicant() {
+        SupplicantManager.stop();
+    }
+
+    /**
+     * Create a new instance of {@link AlertDialog.Builder}.
+     * @param context reference to a Context
+     * @return an instance of AlertDialog.Builder
+     */
+    public AlertDialog.Builder makeAlertDialogBuilder(Context context) {
+        return new AlertDialog.Builder(context);
+    }
+
+    /**
+     * Show a toast message
+     * @param context reference to a Context
+     * @param text the message to display
+     */
+    public void showToast(Context context, String text) {
+        Toast toast = Toast.makeText(context, text, Toast.LENGTH_SHORT);
+        toast.show();
+    }
+
+    /**
+     * Wrapper for {@link TrafficStats#getMobileTxBytes}.
+     */
+    public long getMobileTxBytes() {
+        return TrafficStats.getMobileTxBytes();
+    }
+
+    /**
+     * Wrapper for {@link TrafficStats#getMobileRxBytes}.
+     */
+    public long getMobileRxBytes() {
+        return TrafficStats.getMobileRxBytes();
+    }
+
+    /**
+     * Wrapper for {@link TrafficStats#getTotalTxBytes}.
+     */
+    public long getTotalTxBytes() {
+        return TrafficStats.getTotalTxBytes();
+    }
+
+    /**
+     * Wrapper for {@link TrafficStats#getTotalRxBytes}.
+     */
+    public long getTotalRxBytes() {
+        return TrafficStats.getTotalRxBytes();
     }
 }

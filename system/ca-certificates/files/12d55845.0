@@ -23,7 +23,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             44:af:b0:80:d6:a3:27:ba:89:30:39:86:2e:f8:40:6b
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: O=Digital Signature Trust Co., CN=DST Root CA X3
         Validity
             Not Before: Sep 30 21:12:19 2000 GMT
@@ -31,7 +31,7 @@ Certificate:
         Subject: O=Digital Signature Trust Co., CN=DST Root CA X3
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:df:af:e9:97:50:08:83:57:b4:cc:62:65:f6:90:
                     82:ec:c7:d3:2c:6b:30:ca:5b:ec:d9:c3:7d:c7:40:

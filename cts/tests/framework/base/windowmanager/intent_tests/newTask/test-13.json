@@ -18,46 +18,32 @@
         ]
     },
     "initialState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleInstanceActivity",
-                                "state": "RESUMED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$SingleInstanceActivity",
+                        "state": "RESUMED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleInstanceActivity"
+                ]
             }
         ]
     },
     "endState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity",
-                                "state": "RESUMED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$RegularActivity",
+                        "state": "RESUMED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity"
+                ]
             },
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleInstanceActivity",
-                                "state": "STOPPED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$SingleInstanceActivity",
+                        "state": "STOPPED"
                     }
                 ]
             }

@@ -64,7 +64,6 @@ import org.junit.rules.ErrorCollector;
 
 import java.util.function.Supplier;
 
-@FlakyTest(detail = "until proven non-flaky")
 @SmallTest
 @Presubmit
 public class LocationOnScreenTests {

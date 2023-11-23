@@ -61,12 +61,12 @@ import androidx.preference.PreferenceScreen;
 import androidx.preference.PreferenceViewHolder;
 import androidx.preference.SwitchPreference;
 
-import com.android.internal.app.MediaRouteDialogPresenter;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.dashboard.SummaryLoader;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
+import com.android.internal.app.MediaRouteDialogPresenter;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
@@ -523,7 +523,7 @@ public final class WifiDisplaySettings extends SettingsPreferenceFragment implem
         if (DEBUG) {
             Slog.d(TAG, "Setting listen mode to: " + enable);
         }
-        mWifiP2pManager.listen(mWifiP2pChannel, enable, new ActionListener() {
+        final ActionListener listener = new ActionListener() {
             @Override
             public void onSuccess() {
                 if (DEBUG) {
@@ -537,7 +537,12 @@ public final class WifiDisplaySettings extends SettingsPreferenceFragment implem
                 Slog.e(TAG, "Failed to " + (enable ? "entered" : "exited")
                         + " listen mode with reason " + reason + ".");
             }
-        });
+        };
+        if (enable) {
+            mWifiP2pManager.startListening(mWifiP2pChannel, listener);
+        } else {
+            mWifiP2pManager.stopListening(mWifiP2pChannel, listener);
+        }
     }
 
     private void setWifiP2pChannels(final int lc, final int oc) {

@@ -32,6 +32,10 @@ type Action struct {
 	// but they can be any string.
 	Outputs []string
 
+	// Inputs is the (optional) list of inputs. Usually these are files,
+	// but they can be any string.
+	Inputs []string
+
 	// Command is the actual command line executed to perform the action.
 	// It's optional, but one of either Description or Command should be
 	// set.
@@ -173,6 +177,9 @@ type StatusOutput interface {
 	// Flush is called when your outputs should be flushed / closed. No
 	// output is expected after this call.
 	Flush()
+
+	// Write lets StatusOutput implement io.Writer
+	Write(p []byte) (n int, err error)
 }
 
 // Status is the multiplexer / accumulator between ToolStatus instances (via

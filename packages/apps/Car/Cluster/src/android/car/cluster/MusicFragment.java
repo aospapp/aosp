@@ -15,7 +15,10 @@
  */
 package android.car.cluster;
 
+import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
+
 import android.os.Bundle;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -50,9 +53,10 @@ public class MusicFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
             Bundle savedInstanceState) {
         FragmentActivity activity = requireActivity();
-        PlaybackViewModel playbackViewModel = PlaybackViewModel.get(activity.getApplication());
+        PlaybackViewModel playbackViewModel =
+                PlaybackViewModel.get(activity.getApplication(), MEDIA_SOURCE_MODE_PLAYBACK);
         MediaSourceViewModel mMediaSourceViewModel = MediaSourceViewModel.get(
-                activity.getApplication());
+                activity.getApplication(), MEDIA_SOURCE_MODE_PLAYBACK);
 
         MusicFragmentViewModel innerViewModel = ViewModelProviders.of(activity).get(
                 MusicFragmentViewModel.class);
@@ -75,6 +79,9 @@ public class MusicFragment extends Fragment {
 
         ImageView albumIcon = view.findViewById(R.id.album_art);
 
+        int artSize = view.getContext().getResources().getDimensionPixelSize(
+                R.dimen.playback_album_art_size_normal);
+
         new MetadataController(
             getViewLifecycleOwner(),
             playbackViewModel,
@@ -87,7 +94,7 @@ public class MusicFragment extends Fragment {
             trackLength,
             seekBar,
             albumIcon,
-            Target.SIZE_ORIGINAL
+            new Size(artSize, artSize)
         );
 
         return view;

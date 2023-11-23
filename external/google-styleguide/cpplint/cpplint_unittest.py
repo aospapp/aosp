@@ -43,6 +43,11 @@ import unittest
 
 import cpplint
 
+try:
+  xrange          # Python 2
+except NameError:
+  xrange = range  # Python 3
+
 
 # This class works as an error collector and replaces cpplint.Error
 # function for the unit tests.  We also verify each category we see
@@ -316,6 +321,8 @@ class CpplintTest(CpplintTestBase):
     self.assertEquals(0, cpplint.GetLineWidth(''))
     self.assertEquals(10, cpplint.GetLineWidth(u'x' * 10))
     self.assertEquals(16, cpplint.GetLineWidth(u'都|道|府|県|支庁'))
+    self.assertEquals(5 + 13 + 9, cpplint.GetLineWidth(
+        u'd𝐱/dt' + u'f : t ⨯ 𝐱 → ℝ' + u't ⨯ 𝐱 → ℝ'))
 
   def testGetTextInside(self):
     self.assertEquals('', cpplint._GetTextInside('fun()', r'fun\('))
@@ -4280,12 +4287,14 @@ class CpplintTest(CpplintTestBase):
     # (note that CPPLINT.cfg root=setting is always made absolute)
     this_files_path = os.path.dirname(os.path.abspath(__file__))
     (styleguide_path, this_files_dir) = os.path.split(this_files_path)
-    (styleguide_parent_path, _) = os.path.split(styleguide_path)
+    (styleguide_parent_path, styleguide_dir_name) = os.path.split(styleguide_path)
     # parent dir of styleguide
     cpplint._root = styleguide_parent_path
     self.assertIsNotNone(styleguide_parent_path)
+    # do not hardcode the 'styleguide' repository name, it could be anything.
+    expected_prefix = re.sub(r'[^a-zA-Z0-9]', '_', styleguide_dir_name).upper() + '_'
     # do not have 'styleguide' repo in '/'
-    self.assertEquals('STYLEGUIDE_CPPLINT_CPPLINT_TEST_HEADER_H_',
+    self.assertEquals('%sCPPLINT_CPPLINT_TEST_HEADER_H_' %(expected_prefix),
                       cpplint.GetHeaderGuardCPPVariable(file_path))
 
     # To run the 'relative path' tests, we must be in the directory of this test file.
@@ -4302,7 +4311,7 @@ class CpplintTest(CpplintTestBase):
     styleguide_rel_path = os.path.relpath(styleguide_parent_path,
                                           this_files_path) # '../..'
     cpplint._root = styleguide_rel_path
-    self.assertEquals('STYLEGUIDE_CPPLINT_CPPLINT_TEST_HEADER_H_',
+    self.assertEquals('%sCPPLINT_CPPLINT_TEST_HEADER_H_' %(expected_prefix),
                       cpplint.GetHeaderGuardCPPVariable(file_path))
 
     cpplint._root = None

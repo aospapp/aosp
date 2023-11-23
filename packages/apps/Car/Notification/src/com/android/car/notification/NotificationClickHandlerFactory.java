@@ -26,9 +26,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.service.notification.NotificationStats;
-import android.service.notification.StatusBarNotification;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -37,61 +37,79 @@ import com.android.car.assist.client.CarAssistUtils;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.NotificationVisibility;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Factory that builds a {@link View.OnClickListener} to handle the logic of what to do when a
  * notification is clicked. It also handles the interaction with the StatusBarService.
  */
 public class NotificationClickHandlerFactory {
+
+    /**
+     * Callback that will be issued after a notification is clicked.
+     */
+    public interface OnNotificationClickListener {
+
+        /**
+         * A notification was clicked and handleNotificationClicked was invoked.
+         *
+         * @param launchResult For non-Assistant actions, returned from
+         *        {@link PendingIntent#sendAndReturnResult}; for Assistant actions,
+         *        returns {@link ActivityManager#START_SUCCESS} on success;
+         *        {@link ActivityManager#START_ABORTED} otherwise.
+         *
+         * @param alertEntry {@link AlertEntry} whose Notification was clicked.
+         */
+        void onNotificationClicked(int launchResult, AlertEntry alertEntry);
+    }
+
     private static final String TAG = "NotificationClickHandlerFactory";
 
     private final IStatusBarService mBarService;
-    private final Callback mCallback;
+    private final List<OnNotificationClickListener> mClickListeners = new ArrayList<>();
     private CarAssistUtils mCarAssistUtils;
-    @Nullable private CarHeadsUpNotificationManager.Callback mHeadsUpManagerCallback;
-    @Nullable private NotificationDataManager mNotificationDataManager;
+    @Nullable
+    private NotificationDataManager mNotificationDataManager;
 
-    public NotificationClickHandlerFactory(IStatusBarService barService,
-            @Nullable Callback callback) {
+    public NotificationClickHandlerFactory(IStatusBarService barService) {
         mBarService = barService;
-        mCallback = callback != null ? callback : launchResult -> { };
         mCarAssistUtils = null;
     }
 
     /**
      * Sets the {@link NotificationDataManager} which contains additional state information of the
-     * {@link StatusBarNotification}s.
+     * {@link AlertEntry}s.
      */
     public void setNotificationDataManager(NotificationDataManager manager) {
-      mNotificationDataManager = manager;
+        mNotificationDataManager = manager;
     }
 
     /**
      * Returns the {@link NotificationDataManager} which contains additional state information of
-     * the {@link StatusBarNotification}s.
+     * the {@link AlertEntry}s.
      */
     @Nullable
     public NotificationDataManager getNotificationDataManager() {
-      return mNotificationDataManager;
+        return mNotificationDataManager;
     }
 
     /**
      * Returns a {@link View.OnClickListener} that should be used for the given
-     * {@link StatusBarNotification}
+     * {@link AlertEntry}
      *
-     * @param statusBarNotification that will be considered clicked when onClick is called.
+     * @param alertEntry that will be considered clicked when onClick is called.
      */
-    public View.OnClickListener getClickHandler(StatusBarNotification statusBarNotification) {
+    public View.OnClickListener getClickHandler(AlertEntry alertEntry) {
         return v -> {
-            Notification notification = statusBarNotification.getNotification();
+            Notification notification = alertEntry.getNotification();
             final PendingIntent intent = notification.contentIntent != null
                     ? notification.contentIntent
                     : notification.fullScreenIntent;
             if (intent == null) {
                 return;
             }
-            if (mHeadsUpManagerCallback != null) {
-                mHeadsUpManagerCallback.clearHeadsUpNotification();
-            }
+
             int result = ActivityManager.START_ABORTED;
             try {
                 result = intent.sendAndReturnResult(/* context= */ null, /* code= */ 0,
@@ -103,53 +121,40 @@ public class NotificationClickHandlerFactory {
                 Log.w(TAG, "Sending contentIntent failed: " + e);
             }
             NotificationVisibility notificationVisibility = NotificationVisibility.obtain(
-                    statusBarNotification.getKey(),
+                    alertEntry.getKey(),
                     /* rank= */ -1, /* count= */ -1, /* visible= */ true);
             try {
-                mBarService.onNotificationClick(statusBarNotification.getKey(),
+                mBarService.onNotificationClick(alertEntry.getKey(),
                         notificationVisibility);
-                if (shouldAutoCancel(statusBarNotification)) {
-                    mBarService.onNotificationClear(
-                            statusBarNotification.getPackageName(),
-                            statusBarNotification.getTag(),
-                            statusBarNotification.getId(),
-                            statusBarNotification.getUser().getIdentifier(),
-                            statusBarNotification.getKey(),
-                            NotificationStats.DISMISSAL_SHADE,
-                            NotificationStats.DISMISS_SENTIMENT_NEUTRAL,
-                            notificationVisibility);
+                if (shouldAutoCancel(alertEntry)) {
+                    clearNotification(alertEntry);
                 }
             } catch (RemoteException ex) {
                 Log.e(TAG, "Remote exception in getClickHandler", ex);
             }
-            mCallback.onNotificationClicked(result);
+            handleNotificationClicked(result, alertEntry);
         };
 
     }
 
-    public void setHeadsUpNotificationCallBack(
-            @Nullable CarHeadsUpNotificationManager.Callback callback) {
-        mHeadsUpManagerCallback = callback;
-    }
-
     /**
      * Returns a {@link View.OnClickListener} that should be used for the
-     * {@link android.app.Notification.Action} contained in the {@link StatusBarNotification}
+     * {@link android.app.Notification.Action} contained in the {@link AlertEntry}
      *
-     * @param statusBarNotification that contains the clicked action.
-     * @param index the index of the action clicked
+     * @param alertEntry that contains the clicked action.
+     * @param index the index of the action clicked.
      */
-    public View.OnClickListener getActionClickHandler(
-            StatusBarNotification statusBarNotification, int index) {
+    public View.OnClickListener getActionClickHandler(AlertEntry alertEntry, int index) {
         return v -> {
-            Notification notification = statusBarNotification.getNotification();
+            Notification notification = alertEntry.getNotification();
             Notification.Action action = notification.actions[index];
             NotificationVisibility notificationVisibility = NotificationVisibility.obtain(
-                    statusBarNotification.getKey(),
+                    alertEntry.getKey(),
                     /* rank= */ -1, /* count= */ -1, /* visible= */ true);
             boolean canceledExceptionThrown = false;
             int semanticAction = action.getSemanticAction();
-            if (CarAssistUtils.isCarCompatibleMessagingNotification(statusBarNotification)) {
+            if (CarAssistUtils.isCarCompatibleMessagingNotification(
+                    alertEntry.getStatusBarNotification())) {
                 if (semanticAction == Notification.Action.SEMANTIC_ACTION_REPLY) {
                     Context context = v.getContext().getApplicationContext();
                     Intent resultIntent = addCannedReplyMessage(action, context);
@@ -166,12 +171,12 @@ public class NotificationClickHandlerFactory {
                 if (result == ActivityManager.START_ABORTED) {
                     canceledExceptionThrown = true;
                 }
-                mCallback.onNotificationClicked(result);
+                handleNotificationClicked(result, alertEntry);
             }
             if (!canceledExceptionThrown) {
                 try {
                     mBarService.onNotificationActionClick(
-                            statusBarNotification.getKey(),
+                            alertEntry.getKey(),
                             index,
                             action,
                             notificationVisibility,
@@ -188,9 +193,10 @@ public class NotificationClickHandlerFactory {
      * {@param messageNotification}'s {@param playButton}. Once the message is read aloud, the
      * pending intent should be returned to the messaging app, so it can mark it as read.
      */
-    public View.OnClickListener getPlayClickHandler(StatusBarNotification messageNotification) {
+    public View.OnClickListener getPlayClickHandler(AlertEntry messageNotification) {
         return view -> {
-            if (!CarAssistUtils.isCarCompatibleMessagingNotification(messageNotification)) {
+            if (!CarAssistUtils.isCarCompatibleMessagingNotification(
+                    messageNotification.getStatusBarNotification())) {
                 return;
             }
             Context context = view.getContext().getApplicationContext();
@@ -204,7 +210,8 @@ public class NotificationClickHandlerFactory {
                 }
                 // Don't trigger mCallback so the shade remains open.
             };
-            mCarAssistUtils.requestAssistantVoiceAction(messageNotification,
+            mCarAssistUtils.requestAssistantVoiceAction(
+                    messageNotification.getStatusBarNotification(),
                     CarVoiceInteractionSession.VOICE_ACTION_READ_NOTIFICATION,
                     requestCallback);
         };
@@ -215,7 +222,7 @@ public class NotificationClickHandlerFactory {
      * {@param messageNotification}'s {@param muteButton}.
      */
     public View.OnClickListener getMuteClickHandler(
-            Button muteButton, StatusBarNotification messageNotification) {
+            Button muteButton, AlertEntry messageNotification) {
         return v -> {
             if (mNotificationDataManager != null) {
                 mNotificationDataManager.toggleMute(messageNotification);
@@ -226,9 +233,93 @@ public class NotificationClickHandlerFactory {
                                 : context.getString(R.string.action_mute_long));
                 // Don't trigger mCallback so the shade remains open.
             } else {
-              Log.d(TAG, "Could not set mute click handler as NotificationDataManager is null");
+                Log.d(TAG, "Could not set mute click handler as NotificationDataManager is null");
             }
         };
+    }
+
+    /**
+     * Registers a new {@link OnNotificationClickListener} to the list of click event listeners.
+     */
+    public void registerClickListener(OnNotificationClickListener clickListener) {
+        if (clickListener != null && !mClickListeners.contains(clickListener)) {
+            mClickListeners.add(clickListener);
+        }
+    }
+
+    /**
+     * Unregisters a {@link OnNotificationClickListener} from the list of click event listeners.
+     */
+    public void unregisterClickListener(OnNotificationClickListener clickListener) {
+        mClickListeners.remove(clickListener);
+    }
+
+    /**
+     * Clears all notifications.
+     */
+    public void clearAllNotifications() {
+        try {
+            mBarService.onClearAllNotifications(ActivityManager.getCurrentUser());
+        } catch (RemoteException e) {
+            Log.e(TAG, "clearAllNotifications: ", e);
+        }
+    }
+
+    /**
+     * Clears the notifications provided.
+     */
+    public void clearNotifications(List<NotificationGroup> notificationsToClear) {
+        notificationsToClear.forEach(notificationGroup -> {
+            if (notificationGroup.isGroup()) {
+                AlertEntry summaryNotification = notificationGroup.getGroupSummaryNotification();
+                clearNotification(summaryNotification);
+            }
+            notificationGroup.getChildNotifications()
+                    .forEach(alertEntry -> clearNotification(alertEntry));
+        });
+    }
+
+    /**
+     * Collapses the notification shade panel.
+     */
+    public void collapsePanel() {
+        try {
+            mBarService.collapsePanels();
+        } catch (RemoteException e) {
+            Log.e(TAG, "collapsePanel: ", e);
+        }
+    }
+
+    /**
+     * Invokes all onNotificationClicked handlers registered in {@link OnNotificationClickListener}s
+     * array.
+     */
+    private void handleNotificationClicked(int launceResult, AlertEntry alertEntry) {
+        mClickListeners.forEach(
+                listener -> listener.onNotificationClicked(launceResult, alertEntry));
+    }
+
+    private void clearNotification(AlertEntry alertEntry) {
+        try {
+            // rank and count is used for logging and is not need at this time thus -1
+            NotificationVisibility notificationVisibility = NotificationVisibility.obtain(
+                    alertEntry.getKey(),
+                    /* rank= */ -1,
+                    /* count= */ -1,
+                    /* visible= */ true);
+
+            mBarService.onNotificationClear(
+                    alertEntry.getStatusBarNotification().getPackageName(),
+                    alertEntry.getStatusBarNotification().getTag(),
+                    alertEntry.getStatusBarNotification().getId(),
+                    alertEntry.getStatusBarNotification().getUser().getIdentifier(),
+                    alertEntry.getStatusBarNotification().getKey(),
+                    NotificationStats.DISMISSAL_SHADE,
+                    NotificationStats.DISMISS_SENTIMENT_NEUTRAL,
+                    notificationVisibility);
+        } catch (RemoteException e) {
+            Log.e(TAG, "clearNotifications: ", e);
+        }
     }
 
     private int sendPendingIntent(PendingIntent pendingIntent, Context context,
@@ -263,11 +354,17 @@ public class NotificationClickHandlerFactory {
     }
 
     private void showToast(Context context, int resourceId) {
-        Toast.makeText(context, context.getString(resourceId), Toast.LENGTH_LONG).show();
+        Toast toast = Toast.makeText(context, context.getString(resourceId), Toast.LENGTH_LONG);
+        // This flag is needed for the Toast to show up on the active user's screen since
+        // Notifications is part of SystemUI. SystemUI is owned by a system process, which runs in
+        // the background, so without this, the toast will never appear in the foreground.
+        toast.getWindowParams().privateFlags |=
+                WindowManager.LayoutParams.SYSTEM_FLAG_SHOW_FOR_ALL_USERS;
+        toast.show();
     }
 
-    private boolean shouldAutoCancel(StatusBarNotification sbn) {
-        int flags = sbn.getNotification().flags;
+    private boolean shouldAutoCancel(AlertEntry alertEntry) {
+        int flags = alertEntry.getNotification().flags;
         if ((flags & Notification.FLAG_AUTO_CANCEL) != Notification.FLAG_AUTO_CANCEL) {
             return false;
         }
@@ -277,27 +374,4 @@ public class NotificationClickHandlerFactory {
         return true;
     }
 
-    public void clearAllNotifications() {
-        try {
-            mBarService.onClearAllNotifications(ActivityManager.getCurrentUser());
-        } catch (RemoteException e) {
-            Log.e(TAG, "clearAllNotifications: ", e);
-        }
-    }
-
-    /**
-     * Callback that will be issued after a notification is clicked
-     */
-    public interface Callback {
-
-        /**
-         * A notification was clicked and an onClickListener was fired.
-         *
-         * @param launchResult For non-Assistant actions, returned from
-         *        {@link PendingIntent#sendAndReturnResult}; for Assistant actions,
-         *        returns {@link ActivityManager#START_SUCCESS} on success;
-         *        {@link ActivityManager#START_ABORTED} otherwise.
-         */
-        void onNotificationClicked(int launchResult);
-    }
 }

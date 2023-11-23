@@ -19,66 +19,72 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_marginHorizontal="@*android:dimen/action_bar_margin"
-    android:orientation="horizontal">
+    android:orientation="vertical">
 
-    <!-- Start side: lock pattern -->
-    <FrameLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="@integer/content_weight">
-
-        <com.android.car.settings.security.PinPadView
-            android:id="@+id/pin_pad"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:columnCount="3"/>
-    </FrameLayout>
-
-    <!-- End side: pin entry field and messages -->
     <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:layout_weight="@integer/illustration_weight"
-        android:gravity="center"
-        android:orientation="vertical">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginHorizontal="@dimen/car_ui_margin"
+        android:orientation="horizontal">
 
-        <ImageView
-            android:layout_width="@dimen/icon_size"
-            android:layout_height="@dimen/icon_size"
-            android:src="@drawable/ic_lock"/>
+        <!-- Start side: lock pattern -->
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="@integer/content_weight">
 
-        <TextView
-            android:id="@+id/title_text"
-            android:layout_width="match_parent"
+            <com.android.car.settings.security.PinPadView
+                android:id="@+id/pin_pad"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:columnCount="3"/>
+        </FrameLayout>
+
+        <!-- End side: pin entry field and messages -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/choose_pin_title_text_margin_bottom"
+            android:layout_gravity="center_vertical"
+            android:layout_weight="@integer/illustration_weight"
             android:gravity="center"
-            android:text="@string/lockscreen_choose_your_pin"
-            android:textAppearance="?android:attr/textAppearanceLarge"/>
+            android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/password_entry"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:cursorVisible="false"
-            android:focusable="false"
-            android:gravity="center"
-            android:inputType="textPassword"
-            android:maxLines="1"
-            android:paddingHorizontal="@dimen/pin_password_entry_padding_horizontal"
-            android:textAppearance="?android:attr/textAppearanceLarge"/>
+            <ImageView
+                android:layout_width="@dimen/icon_size"
+                android:layout_height="@dimen/icon_size"
+                android:src="@drawable/ic_lock"/>
 
-        <!--  hint text -->
-        <TextView
-            android:id="@+id/hint_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:text="@string/choose_lock_pin_hints"
-            android:textAppearance="?android:attr/textAppearanceMedium"/>
+            <TextView
+                android:id="@+id/title_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/choose_pin_title_text_margin_bottom"
+                android:gravity="center"
+                android:text="@string/lockscreen_choose_your_pin"
+                android:textAppearance="?android:attr/textAppearanceLarge"/>
 
+            <EditText
+                android:id="@+id/password_entry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:cursorVisible="false"
+                android:focusable="false"
+                android:gravity="center"
+                android:inputType="textPassword"
+                android:maxLines="1"
+                android:paddingHorizontal="@dimen/pin_password_entry_padding_horizontal"
+                android:textAppearance="?android:attr/textAppearanceLarge"/>
+
+            <!--  hint text -->
+            <TextView
+                android:id="@+id/hint_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/choose_lock_pin_hints"
+                android:textAppearance="?android:attr/textAppearanceMedium"/>
+
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

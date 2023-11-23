@@ -23,11 +23,15 @@
 #include <sched.h>
 #include <errno.h>
 #include <vector>
+#include <cstdlib>
+#include "testutils.h"
 
 /**
  * Call to sched_setaffinity must be repected.
  */
 TEST(cpu, sched_setaffinity) {
+    ASSUME_GAMECORE_CERTIFIED();
+
     int cpu_count =  android_getCpuCount();
     for (int cpu = 0; cpu < cpu_count; ++cpu) {
         cpu_set_t set;
@@ -40,6 +44,8 @@ TEST(cpu, sched_setaffinity) {
 }
 
 TEST(cpu, sched_setaffinity_multiple_cpu) {
+    ASSUME_GAMECORE_CERTIFIED();
+
     int cpu_count =  android_getCpuCount();
 
     std::vector<std::vector<int>> data {

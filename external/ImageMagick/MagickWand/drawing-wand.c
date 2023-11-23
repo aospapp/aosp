@@ -23,7 +23,7 @@
 %                                March 2002                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -5001,7 +5001,7 @@ WandExport MagickBooleanType DrawSetFillPatternURL(DrawingWand *wand,
   (void) FormatLocaleString(pattern_spec,MagickPathExtent,"url(%s)",fill_url);
 #if DRAW_BINARY_IMPLEMENTATION
   DrawPatternPath(wand->image,CurrentContext,pattern_spec,
-    &CurrentContext->fill_pattern);
+    &CurrentContext->fill_pattern,wand->exception);
 #endif
   if (CurrentContext->fill.alpha != (Quantum) TransparentAlpha)
     CurrentContext->fill.alpha=(double) CurrentContext->alpha;
@@ -5441,7 +5441,7 @@ WandExport MagickBooleanType DrawSetStrokePatternURL(DrawingWand *wand,
   (void) FormatLocaleString(pattern_spec,MagickPathExtent,"url(%s)",stroke_url);
 #if DRAW_BINARY_IMPLEMENTATION
   DrawPatternPath(wand->image,CurrentContext,pattern_spec,
-    &CurrentContext->stroke_pattern);
+    &CurrentContext->stroke_pattern,wand->exception);
 #endif
   if (CurrentContext->stroke.alpha != (Quantum) TransparentAlpha)
     CurrentContext->stroke.alpha=(double) CurrentContext->alpha;
@@ -6463,14 +6463,14 @@ WandExport MagickBooleanType DrawSetVectorGraphics(DrawingWand *wand,
                 *p;
 
               p=q;
-              GetNextToken(p,&p,MagickPathExtent,token);
+              (void) GetNextToken(p,&p,MagickPathExtent,token);
               if (*token == ',')
-                GetNextToken(p,&p,MagickPathExtent,token);
+                (void) GetNextToken(p,&p,MagickPathExtent,token);
               for (x=0; IsPoint(token) != MagickFalse; x++)
               {
-                GetNextToken(p,&p,MagickPathExtent,token);
+                (void) GetNextToken(p,&p,MagickPathExtent,token);
                 if (*token == ',')
-                  GetNextToken(p,&p,MagickPathExtent,token);
+                  (void) GetNextToken(p,&p,MagickPathExtent,token);
               }
               CurrentContext->dash_pattern=(double *) AcquireQuantumMemory(
                 (size_t) (2UL*x)+1UL,sizeof(*CurrentContext->dash_pattern));
@@ -6479,9 +6479,9 @@ WandExport MagickBooleanType DrawSetVectorGraphics(DrawingWand *wand,
                   "MemoryAllocationFailed",wand->name);
               for (j=0; j < x; j++)
               {
-                GetNextToken(q,&q,MagickPathExtent,token);
+                (void) GetNextToken(q,&q,MagickPathExtent,token);
                 if (*token == ',')
-                  GetNextToken(q,&q,MagickPathExtent,token);
+                  (void) GetNextToken(q,&q,MagickPathExtent,token);
                 CurrentContext->dash_pattern[j]=StringToDouble(token,
                   (char **) NULL);
               }

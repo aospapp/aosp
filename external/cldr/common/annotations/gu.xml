@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="gu"/>
 	</identity>
 	<annotations>
@@ -23,152 +23,210 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏾" type="tts">મધ્યમ ઘેરો ચામડીનો રંગ</annotation>
 		<annotation cp="🏿">ઘેરો ચામડીનો રંગ | ઘેરો ત્વચાનો રંગ | ત્વચાનો પ્રકાર-6 | ત્વચાનો રંગ</annotation>
 		<annotation cp="🏿" type="tts">ઘેરો ચામડીનો રંગ</annotation>
+		<annotation cp="⚧">ટ્રાન્સજેન્ડર | ટ્રાન્સજેન્ડરનું પ્રતીક</annotation>
+		<annotation cp="⚧" type="tts">ટ્રાન્સજેન્ડરનું પ્રતીક</annotation>
+		<annotation cp="🤌">આંગળીઓ | કટાક્ષવાળું | ચીમટી આપવી | ચીમટી દેવા તૈયાર આંગળીઓ | પૂછપરછ | હાથનો સંકેત</annotation>
+		<annotation cp="🤌" type="tts">ચીમટી દેવા તૈયાર આંગળીઓ</annotation>
+		<annotation cp="🥲">આભારી | આંસુ | આંસુ આવી જાય તેટલું હસતો ચહેરો | ગર્વ | રાહત | હસતો | હૃદય પીગળવું । લાગણીવશ થવું</annotation>
+		<annotation cp="🥲" type="tts">આંસુ આવી જાય તેટલું હસતો ચહેરો</annotation>
+		<annotation cp="🥷">ચોરીચૂપકી | છુપાયેલ | નિન્જા | યોદ્ધો</annotation>
+		<annotation cp="🥷" type="tts">નિન્જા</annotation>
+		<annotation cp="🥸">અજ્ઞાત વેશે | ચશ્માં | ચહેરો | નાક | બનાવટી દેખાવ | બનાવટી દેખાવવાળો ચહેરો | વેષધારી</annotation>
+		<annotation cp="🥸" type="tts">બનાવટી દેખાવવાળો ચહેરો</annotation>
+		<annotation cp="🦣">ઊનવાળું | કદાવર | દંતશૂળ | નાશ પામવું | મૅમથ | વિશાળ</annotation>
+		<annotation cp="🦣" type="tts">મૅમથ</annotation>
+		<annotation cp="🦤">ડોડો | નાશ પામવું | મોરિશિયસ | વિશાળ</annotation>
+		<annotation cp="🦤" type="tts">ડોડો</annotation>
+		<annotation cp="🦫">બંધ | બીવર</annotation>
+		<annotation cp="🦫" type="tts">બીવર</annotation>
+		<annotation cp="🦬">જંગલી | ધણ | બાઇસન | ભેંસ | વાઇસેન્ટ</annotation>
+		<annotation cp="🦬" type="tts">બાઇસન</annotation>
+		<annotation cp="🦭">સીલ | સીલ માછલી</annotation>
+		<annotation cp="🦭" type="tts">સીલ</annotation>
+		<annotation cp="🧋">ટી | દૂધ | પરપોટા | પર્લ | બબલ</annotation>
+		<annotation cp="🧋" type="tts">બબલ ટી</annotation>
+		<annotation cp="🩴">ઝોરી | થોંગ સેન્ડલ | થોંગ્સ | બીચ પર પહેરવાના સેન્ડલ | સેન્ડલ્સ</annotation>
+		<annotation cp="🩴" type="tts">થોંગ સેન્ડલ</annotation>
+		<annotation cp="🪃">અથડાઈને પાછું આવવું | ઑસ્ટ્રેલિયા | પ્રતિક્રિયા | બૂમરેંગ</annotation>
+		<annotation cp="🪃" type="tts">બૂમરેંગ</annotation>
+		<annotation cp="🪄">જાદુ | જાદુ કરનારી સ્ત્રી | જાદુઈ છડી | જાદુગર</annotation>
+		<annotation cp="🪄" type="tts">જાદુઈ છડી</annotation>
+		<annotation cp="🪅">ઉજવણી | પાર્ટી | પિનાટા</annotation>
+		<annotation cp="🪅" type="tts">પિનાટા</annotation>
+		<annotation cp="🪆">ડૉલ | ઢીંગલી | નેસ્ટિંગ | નેસ્ટિંગ ડૉલ્સ | રશિયા</annotation>
+		<annotation cp="🪆" type="tts">નેસ્ટિંગ ડૉલ્સ</annotation>
+		<annotation cp="🪖">યોદ્ધો | લશ્કરી | સેના | સૈનિક | હેલ્મેટ</annotation>
+		<annotation cp="🪖" type="tts">લશ્કરી હેલ્મેટ</annotation>
+		<annotation cp="🪗">એકોર્ડિયન | ધમણવાળી વાદ્યપેટી | સ્ક્વિઝ બૉક્સ</annotation>
+		<annotation cp="🪗" type="tts">એકોર્ડિયન</annotation>
+		<annotation cp="🪘">કોંગા | ટપ્પો | ડ્રમ | તાલ | લાંબું ડ્રમ</annotation>
+		<annotation cp="🪘" type="tts">લાંબું ડ્રમ</annotation>
+		<annotation cp="🪙">ચાંદી | ધન | ધાતુ | મૂલ્યવાન વસ્તુ | સિક્કો | સોનાનો સિક્કો</annotation>
+		<annotation cp="🪙" type="tts">સિક્કો</annotation>
+		<annotation cp="🪚">કરવત | લમ્બર | સાધન | સુથાર | સુથારી કામની કરવત</annotation>
+		<annotation cp="🪚" type="tts">સુથારી કામની કરવત</annotation>
+		<annotation cp="🪛">સાધન | સ્ક્રુ | સ્ક્રુડ્રાઇવર</annotation>
+		<annotation cp="🪛" type="tts">સ્ક્રુડ્રાઇવર</annotation>
+		<annotation cp="🪜">ચઢવું | નિસરણી | નિસરણીનું પગથિયું | પગથિયું</annotation>
+		<annotation cp="🪜" type="tts">નિસરણી</annotation>
+		<annotation cp="🪝">કૅચ | ક્રૂક | જાળમાં ફસાવવું | વળાંક | વેચાણનું કેંદ્ર | હૂક</annotation>
+		<annotation cp="🪝" type="tts">હૂક</annotation>
+		<annotation cp="🪞">કાચ | પ્રતિબિંબ | રિફ્લેક્ટર | સ્પેક્યુલમ</annotation>
+		<annotation cp="🪞" type="tts">કાચ</annotation>
+		<annotation cp="🪟">આરપાર | ખુલતી | તાજી હવા | દેખાવું | ફ્રેમ | બારી</annotation>
+		<annotation cp="🪟" type="tts">બારી</annotation>
+		<annotation cp="🪠">ચૂસણ | પ્લંજર | પ્લમ્બર | ફોર્સ કપ | શૌચાલય</annotation>
+		<annotation cp="🪠" type="tts">પ્લંજર</annotation>
+		<annotation cp="🪡">કપડાં સીવવા | ટાંકા | ટાંકા મારી સીવવું | ભરતકામ | સીવવાની સોય | સીવવું | સોય</annotation>
+		<annotation cp="🪡" type="tts">સીવવાની સોય</annotation>
+		<annotation cp="🪢">આમળવું | ગાંઠ | ગૂંચવાયેલી દોરી | દોરડાની સેર | દોરડું | મડાગાંઠ | વળ આપેલી દોરી</annotation>
+		<annotation cp="🪢" type="tts">ગાંઠ</annotation>
+		<annotation cp="🪣">ટાંકી | ડોલ | પીપડું | બાલદી</annotation>
+		<annotation cp="🪣" type="tts">બાલદી</annotation>
+		<annotation cp="🪤">ઉંદર પકડવાનું પાંજરું | ઉંદરને પકડવાનું પાંજરું | પાંજરામાં મૂકેલી ખાજ | પાશ | ફસાવવું</annotation>
+		<annotation cp="🪤" type="tts">ઉંદર પકડવાનું પાંજરું</annotation>
+		<annotation cp="🪥">ટૂથબ્રશ | ડેન્ટલ | દાંત | બાથરૂમ | બ્રશ | સાફ કરવું | સ્વચ્છતા</annotation>
+		<annotation cp="🪥" type="tts">ટૂથબ્રશ</annotation>
+		<annotation cp="🪦">કબર | કબ્રસ્તાન | ટોમ્બસ્ટોન | સ્મશાન | હેડસ્ટોન</annotation>
+		<annotation cp="🪦" type="tts">હેડસ્ટોન</annotation>
+		<annotation cp="🪧">દેખાવ | ધરણાં | નિશાનીવાળું પાટિયું | વિરોધ | સૂત્ર પાટિયું</annotation>
+		<annotation cp="🪧" type="tts">સૂત્ર પાટિયું</annotation>
+		<annotation cp="🪨">ખડક | પથ્થર | ભારે વજનદાર | મજબૂત | શિલાખંડ</annotation>
+		<annotation cp="🪨" type="tts">ખડક</annotation>
+		<annotation cp="🪰">ઈયળ | ઉપદ્રવી જીવાત | માખી | રોગ | સડવું</annotation>
+		<annotation cp="🪰" type="tts">માખી</annotation>
+		<annotation cp="🪱">અળસિયું | કૃમિ | જળો | પરોપજીવી | વલયી કૃમિ</annotation>
+		<annotation cp="🪱" type="tts">કૃમિ</annotation>
+		<annotation cp="🪲">જંતુ | નાનું જીવડું | ભમરો</annotation>
+		<annotation cp="🪲" type="tts">ભમરો</annotation>
+		<annotation cp="🪳">ઉપદ્રવી જીવાત | જંતુ | રોચ | વાંદો</annotation>
+		<annotation cp="🪳" type="tts">વાંદો</annotation>
+		<annotation cp="🪴">ઉછેરવું | કૂંડામાં ઉગાડેલી વનસ્પતિ | ઘર | છોડ | નિરુપયોગી | બોરિંગ | વનસ્પતિ | વૃદ્ધિ પામવું</annotation>
+		<annotation cp="🪴" type="tts">કૂંડામાં ઉગાડેલી વનસ્પતિ</annotation>
+		<annotation cp="🪵">ઈમારતી લાકડું | લમ્બર | લાકડાનું ઢીમચું | લાકડું</annotation>
+		<annotation cp="🪵" type="tts">લાકડું</annotation>
+		<annotation cp="🪶">ઉડાણ | પક્ષી | પીંછાળું | હલકું</annotation>
+		<annotation cp="🪶" type="tts">પીંછાળું</annotation>
+		<annotation cp="🫀">અંગ | કાર્ડિયોલોજી | કેંદ્ર | ધબકારા | નાડી | હૃદય અંગ</annotation>
+		<annotation cp="🫀" type="tts">હૃદય અંગ</annotation>
+		<annotation cp="🫁">અંગ | ફેફ્સાં | શ્વાસ | શ્વાસ બહાર કાઢવો | શ્વાસ લેવો | શ્વાસોચ્છ્વાસની પ્રક્રિયા</annotation>
+		<annotation cp="🫁" type="tts">ફેફ્સાં</annotation>
+		<annotation cp="🫂">આભાર | એકબીજાને ભેટતા લોકો | ગુડબાય | જોરથી ભેટવું | હેલો</annotation>
+		<annotation cp="🫂" type="tts">એકબીજાને ભેટતા લોકો</annotation>
+		<annotation cp="🫐">બિલબેરી | બેરી | બ્લ્યૂ | બ્લ્યૂબેરી | બ્લ્યૂબેરીઝ</annotation>
+		<annotation cp="🫐" type="tts">બ્લ્યૂબેરીઝ</annotation>
+		<annotation cp="🫑">મરચાનો છોડ | મરચું | શાકભાજી | સિમલા મરચું</annotation>
+		<annotation cp="🫑" type="tts">સિમલા મરચું</annotation>
+		<annotation cp="🫒">ઓલિવ | ખાદ્ય</annotation>
+		<annotation cp="🫒" type="tts">ઓલિવ</annotation>
+		<annotation cp="🫓">એરેપા | નાન | પિટા | ફ્લેટબ્રેડ | લવાશ</annotation>
+		<annotation cp="🫓" type="tts">ફ્લેટબ્રેડ</annotation>
+		<annotation cp="🫔">તમાલે | મેક્સિકન | રૅપમાં વીંટાળેલું</annotation>
+		<annotation cp="🫔" type="tts">તમાલે</annotation>
+		<annotation cp="🫕">ચીઝ | ચોકલેટ | પીગળેલી | ફૉન્ડ્યુ | વાસણ | સ્વિસ</annotation>
+		<annotation cp="🫕" type="tts">ફૉન્ડ્યુ</annotation>
+		<annotation cp="🫖">કીટલી | ચા | ચાની ઝારી | ઝારી | પીવું</annotation>
+		<annotation cp="🫖" type="tts">ચાની ઝારી</annotation>
+		<annotation cp="🛖">ઘર | ઝૂંપડી | યર્ટ | રોડહાઉસ</annotation>
+		<annotation cp="🛖" type="tts">ઝૂંપડી</annotation>
+		<annotation cp="🛗">ઉપર ઊઠાવવું | ઍક્સેસિબિલિટી | એલિવેટર | લિફ્ટ</annotation>
+		<annotation cp="🛗" type="tts">એલિવેટર</annotation>
+		<annotation cp="🛻">ટ્રક | પિક-અપ | પિકઅપ</annotation>
+		<annotation cp="🛻" type="tts">પિકઅપ ટ્રક</annotation>
+		<annotation cp="🛼">રૉલર | સ્કેટ</annotation>
+		<annotation cp="🛼" type="tts">રૉલર સ્કેટ</annotation>
 		<annotation cp="😀">ચહેરો | સ્મિત | સ્મિત કરતો ચહેરો</annotation>
 		<annotation cp="😀" type="tts">સ્મિત કરતો ચહેરો</annotation>
-		<annotation cp="😁">આંખ | ચહેરો | સ્મિત | હસતી આંખો સાથેનો સ્મિત કરતો ચહેરો | હસવું</annotation>
-		<annotation cp="😁" type="tts">હસતી આંખો સાથેનો સ્મિત કરતો ચહેરો</annotation>
-		<annotation cp="😂">અશ્રુ | આનંદ | ચહેરો | હર્ષના આંસુ સાથેનો ચહેરો | હાસ્ય</annotation>
-		<annotation cp="😂" type="tts">હર્ષના આંસુ સાથેનો ચહેરો</annotation>
-		<annotation cp="🤣">ચહેરો | જમીન | જમીન પર લોટીને હસવું | લોટવું | હસવું</annotation>
-		<annotation cp="🤣" type="tts">જમીન પર લોટીને હસવું</annotation>
 		<annotation cp="😃">ખુલ્લા મોં સાથેનો સ્મિત કરતો ચહેરો | ખુલ્લું | ચહેરો | મોટી આંખો સાથે સ્મિત કરતો ચહેરો | સ્મિત</annotation>
 		<annotation cp="😃" type="tts">ખુલ્લા મોં સાથેનો સ્મિત કરતો ચહેરો</annotation>
 		<annotation cp="😄">આંખ | ખુલ્લા મોં અને હસતી આંખો સાથેનો સ્મિત કરતો ચહેરો | ખુલ્લું | ચહેરો | મોં | સ્મિત | હસતી આંખો સાથે સ્મિત કરતો ચહેરો</annotation>
 		<annotation cp="😄" type="tts">ખુલ્લા મોં અને હસતી આંખો સાથેનો સ્મિત કરતો ચહેરો</annotation>
-		<annotation cp="😅">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો સ્મિત કરતો ચહેરો | ખુલ્લો | ચહેરો | ઠંડો | પરસેવો | પરસેવો સાથે સ્મિત કરતો ચહેરો | સ્મિત</annotation>
-		<annotation cp="😅" type="tts">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="😁">આંખ | ચહેરો | સ્મિત | હસતી આંખો સાથેનો સ્મિત કરતો ચહેરો | હસવું</annotation>
+		<annotation cp="😁" type="tts">હસતી આંખો સાથેનો સ્મિત કરતો ચહેરો</annotation>
 		<annotation cp="😆">ખુલ્લા મોં અને ચુસ્તપણે બંધ આંખો સાથેનો સ્મિત કરતો ચહેરો | ખુલ્લા મોંએ હાસ્ય | ખુલ્લું મોઢું | ચહેરો | બંધ આંખો | બંધ આંખો સાથેનું હાસ્ય</annotation>
 		<annotation cp="😆" type="tts">ખુલ્લા મોં અને ચુસ્તપણે બંધ આંખો સાથેનો સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="😅">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો સ્મિત કરતો ચહેરો | ખુલ્લો | ચહેરો | ઠંડો | પરસેવો | પરસેવો સાથે સ્મિત કરતો ચહેરો | સ્મિત</annotation>
+		<annotation cp="😅" type="tts">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="🤣">ચહેરો | જમીન | જમીન પર લોટીને હસવું | લોટવું | હસવું</annotation>
+		<annotation cp="🤣" type="tts">જમીન પર લોટીને હસવું</annotation>
+		<annotation cp="😂">અશ્રુ | આનંદ | ચહેરો | હર્ષના આંસુ સાથેનો ચહેરો | હાસ્ય</annotation>
+		<annotation cp="😂" type="tts">હર્ષના આંસુ સાથેનો ચહેરો</annotation>
+		<annotation cp="🙂">ચહેરો | મુખ | સહેજ સ્મિત કરતો ચહેરો | સ્મિત | હાસ્ય</annotation>
+		<annotation cp="🙂" type="tts">સહેજ સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="🙃">ઊંધો | ચહેરો | મુખ</annotation>
+		<annotation cp="🙃" type="tts">ઊંધો ચહેરો</annotation>
 		<annotation cp="😉">આંખ મારતો ચહેરો | આંખ મારવી | ચહેરો</annotation>
 		<annotation cp="😉" type="tts">આંખ મારતો ચહેરો</annotation>
 		<annotation cp="😊">ચહેરો | હસતી આંખો | હસતો ચહેરો | હસતો ચહેરો અને આંખો | હસ્તી આંખો સાથેનો સ્મિત કરતો ચહેરો | હાસ્ય</annotation>
 		<annotation cp="😊" type="tts">હસ્તી આંખો સાથેનો સ્મિત કરતો ચહેરો</annotation>
-		<annotation cp="😋">ચહેરો | યમ યમ મસ્ત | સ્વાદિષ્ટ | સ્વાદિષ્ટ ભોજન | સ્વાદિષ્ટના ભાવવાળો ચહેરો | હસતો ચહેરો</annotation>
-		<annotation cp="😋" type="tts">સ્વાદિષ્ટના ભાવવાળો ચહેરો</annotation>
-		<annotation cp="😎">કૂલ | ચહેરો | તેજસ્વી | સનગ્લાસેસ | સનગ્લાસેસ સાથે હસતો ચહેરો | સૂર્ય</annotation>
-		<annotation cp="😎" type="tts">સનગ્લાસેસ સાથે હસતો ચહેરો</annotation>
+		<annotation cp="😇">ચહેરો | પ્રભાવલય | પ્રભાવલય સાથેનું હાસ્ય | પ્રભાવલય સાથેનો સ્મિત કરતો ચહેરો | મુખ | હાસ્ય</annotation>
+		<annotation cp="😇" type="tts">પ્રભાવલય સાથેનો સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="🥰">ક્રશ | પૂજવું | પ્રેમમાં | હૃદય | હૃદય સાથે હસતાં ચહેરો | હૃદય સાથે હસતો ચહેરો</annotation>
+		<annotation cp="🥰" type="tts">હૃદય સાથે હસતો ચહેરો</annotation>
 		<annotation cp="😍">આંખો | ચહેરો | પ્રેમ | સ્મિત | હૃદયાકારની આંખો સાથેનો સ્મિત કરતો ચહેરો | હ્રદયાકારની આંખો સાથેનો સ્મિત કરતો ચહેરો</annotation>
 		<annotation cp="😍" type="tts">હૃદયાકારની આંખો સાથેનો સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="🤩">સ્ટાર સ્ટ્રક</annotation>
+		<annotation cp="🤩" type="tts">સ્ટાર સ્ટ્રક</annotation>
 		<annotation cp="😘">ચહેરો | ચુંબન | ચુંબન ઉછાળતો ચહેરો</annotation>
 		<annotation cp="😘" type="tts">ચુંબન ઉછાળતો ચહેરો</annotation>
-		<annotation cp="🥰" draft="contributed">3 હ્રદય સાથે હસતો ચહેરો</annotation>
-		<annotation cp="🥰" type="tts" draft="contributed">3 હ્રદય સાથે હસતો ચહેરો</annotation>
 		<annotation cp="😗">ચહેરો | ચુંબન | ચુંબન કરતો ચહેરો</annotation>
 		<annotation cp="😗" type="tts">ચુંબન કરતો ચહેરો</annotation>
-		<annotation cp="😙">આંખો | ચહેરો | ચુંબન | હસતી આંખો સાથેનો ચુંબન કરતો ચહેરો | હાસ્ય</annotation>
-		<annotation cp="😙" type="tts">હસતી આંખો સાથેનો ચુંબન કરતો ચહેરો</annotation>
-		<annotation cp="😚">આંખ | ચહેરો | ચુંબન | બંધ | બંધ આંખો સાથે ચુંબન કરતો ચહેરો</annotation>
-		<annotation cp="😚" type="tts">બંધ આંખો સાથે ચુંબન કરતો ચહેરો</annotation>
 		<annotation cp="☺">ચહેરો | બિન-ભરેલો સ્માઇલી ચહેરો | મુખ | સ્માઇલી | હસતો ચહેરો</annotation>
 		<annotation cp="☺" type="tts">હસતો ચહેરો</annotation>
-		<annotation cp="🙂">ચહેરો | મુખ | સહેજ સ્મિત કરતો ચહેરો | સ્મિત | હાસ્ય</annotation>
-		<annotation cp="🙂" type="tts">સહેજ સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="😚">આંખ | ચહેરો | ચુંબન | બંધ | બંધ આંખો સાથે ચુંબન કરતો ચહેરો</annotation>
+		<annotation cp="😚" type="tts">બંધ આંખો સાથે ચુંબન કરતો ચહેરો</annotation>
+		<annotation cp="😙">આંખો | ચહેરો | ચુંબન | હસતી આંખો સાથેનો ચુંબન કરતો ચહેરો | હાસ્ય</annotation>
+		<annotation cp="😙" type="tts">હસતી આંખો સાથેનો ચુંબન કરતો ચહેરો</annotation>
+		<annotation cp="😋">ચહેરો | યમ યમ મસ્ત | સ્વાદિષ્ટ | સ્વાદિષ્ટ ભોજન | સ્વાદિષ્ટના ભાવવાળો ચહેરો | હસતો ચહેરો</annotation>
+		<annotation cp="😋" type="tts">સ્વાદિષ્ટના ભાવવાળો ચહેરો</annotation>
+		<annotation cp="😛">ચહેરો | જીભ | જીભ બહાર કાઢેલો ચહેરો | બહાર કાઢેલી જીભ સાથેનો ચહેરો</annotation>
+		<annotation cp="😛" type="tts">બહાર કાઢેલી જીભ સાથેનો ચહેરો</annotation>
+		<annotation cp="😜">આંખ | આંખ મારવાની સાથે જીભ બહાર કાઢતો ચહેરો | આંખ મારવી | ચહેરો | જીભ | જીભ સાથે આંખ મારતો ચહેરો | મજાક</annotation>
+		<annotation cp="😜" type="tts">આંખ મારવાની સાથે જીભ બહાર કાઢતો ચહેરો</annotation>
+		<annotation cp="🤪">ઉન્મત્ત ચહેરો</annotation>
+		<annotation cp="🤪" type="tts">ઉન્મત્ત ચહેરો</annotation>
+		<annotation cp="😝">આંખ | ચહેરો | ચુસ્તપણે બંધ આંખો સાથે જીભ બહાર કાઢતો ચહેરો | જીભ | જીભ સાથે ચુસ્તપણે બંધ આંખોવાળો ચહેરો | ભયાનક | સ્વાદ</annotation>
+		<annotation cp="😝" type="tts">ચુસ્તપણે બંધ આંખો સાથે જીભ બહાર કાઢતો ચહેરો</annotation>
+		<annotation cp="🤑">ચહેરો | ધન | ધનવાળો ચહેરો | મુખ</annotation>
+		<annotation cp="🤑" type="tts">ધનવાળો ચહેરો</annotation>
 		<annotation cp="🤗">આલિંગન | આલિંગન કરતો ચહેરો | આલિંગન કરવું | ચહેરો</annotation>
 		<annotation cp="🤗" type="tts">આલિંગન કરતો ચહેરો</annotation>
-		<annotation cp="🤩" draft="contributed">સ્ટાર સ્ટ્રક</annotation>
-		<annotation cp="🤩" type="tts" draft="contributed">સ્ટાર સ્ટ્રક</annotation>
+		<annotation cp="🤭">મોં પર હાથ મૂકેલો ચહેરો</annotation>
+		<annotation cp="🤭" type="tts">મોં પર હાથ મૂકેલો ચહેરો</annotation>
+		<annotation cp="🤫">ચૂપ કરતો ચહેરો</annotation>
+		<annotation cp="🤫" type="tts">ચૂપ કરતો ચહેરો</annotation>
 		<annotation cp="🤔">ચહેરો | વિચાર કરતો | વિચારશીલ ચહેરો</annotation>
 		<annotation cp="🤔" type="tts">વિચારશીલ ચહેરો</annotation>
-		<annotation cp="🤨" draft="contributed">ઊંચી ભ્રમર સાથેનો ચહેરો</annotation>
-		<annotation cp="🤨" type="tts" draft="contributed">ઊંચી ભ્રમર સાથેનો ચહેરો</annotation>
+		<annotation cp="🤐">ચહેરો | ઝિપથી બંધ કરેલો મોઢું | મુખ | મોઢા પર ઝિપ સાથેનો ચહેરો</annotation>
+		<annotation cp="🤐" type="tts">મોઢા પર ઝિપ સાથેનો ચહેરો</annotation>
+		<annotation cp="🤨">ઊંચી ભ્રમર સાથેનો ચહેરો</annotation>
+		<annotation cp="🤨" type="tts">ઊંચી ભ્રમર સાથેનો ચહેરો</annotation>
 		<annotation cp="😐">કોઈ ટિપ્પણી નહીં | ચહેરો | તટસ્થ | ભાવશૂન્ય</annotation>
 		<annotation cp="😐" type="tts">તટસ્થ ચહેરો</annotation>
 		<annotation cp="😑">અકથનીય ચહેરો | કોઈ ટિપ્પણી નહીં | ચહેરો | ભાવશૂન્ય ચહેરો | મુખ | હાવભાવવિહીન</annotation>
 		<annotation cp="😑" type="tts">ભાવશૂન્ય ચહેરો</annotation>
 		<annotation cp="😶">ચહેરો | મુખ | મોંઢા વગરનો | મોંઢા વગરનો ચહેરો</annotation>
 		<annotation cp="😶" type="tts">મોંઢા વગરનો ચહેરો</annotation>
-		<annotation cp="🙄">આંખો | આંખો ફેરવતો ચહેરો | ચહેરો | ફેરવવું</annotation>
-		<annotation cp="🙄" type="tts">આંખો ફેરવતો ચહેરો</annotation>
 		<annotation cp="😏">કૃત્રિમ | કૃત્રિમ હસતો ચહેરો | ચહેરો</annotation>
 		<annotation cp="😏" type="tts">કૃત્રિમ હસતો ચહેરો</annotation>
-		<annotation cp="😣">ચહેરો | જબરદસ્ત ચહેરો | સખત ચહેરો | સ્થાયી</annotation>
-		<annotation cp="😣" type="tts">જબરદસ્ત ચહેરો</annotation>
-		<annotation cp="😥">આવો | ઉદાસી પરંતુ રાહત ચહેરો | ચહેરો | નાખુશ પરંતુ રાહતવાળો ચહેરો | નિરાશ | રાહત</annotation>
-		<annotation cp="😥" type="tts">નાખુશ પરંતુ રાહતવાળો ચહેરો</annotation>
-		<annotation cp="😮">ખુલ્લાં મોંઢાવાળો ચહેરો | ખુલ્લું મોઢું | ચહેરો | મોંઢું | સહાનુભૂતિ</annotation>
-		<annotation cp="😮" type="tts">ખુલ્લાં મોંઢાવાળો ચહેરો</annotation>
-		<annotation cp="🤐">ચહેરો | ઝિપથી બંધ કરેલો મોઢું | મુખ | મોઢા પર ઝિપ સાથેનો ચહેરો</annotation>
-		<annotation cp="🤐" type="tts">મોઢા પર ઝિપ સાથેનો ચહેરો</annotation>
-		<annotation cp="😯">અચંભિત | અવાક | ચહેરો | શાંત ચહેરો</annotation>
-		<annotation cp="😯" type="tts">શાંત ચહેરો</annotation>
-		<annotation cp="😪">ઊંઘતું | ઊંઘતો ચહેરો | ચહેરો</annotation>
-		<annotation cp="😪" type="tts">ઊંઘતો ચહેરો</annotation>
-		<annotation cp="😫">ચહેરો | થાકેલો</annotation>
-		<annotation cp="😫" type="tts">થાકેલો ચહેરો</annotation>
-		<annotation cp="😴">ચહેરો | નિંદ્રાધીન ચહેરો | નિદ્રામાં | નિદ્રામાંનો ચહેરો</annotation>
-		<annotation cp="😴" type="tts">નિંદ્રાધીન ચહેરો</annotation>
-		<annotation cp="😌">ચહેરો | રાહતના ભાવવાળો ચહેરો | રાહતવાળો ચહેરો</annotation>
-		<annotation cp="😌" type="tts">રાહતના ભાવવાળો ચહેરો</annotation>
-		<annotation cp="😛">ચહેરો | જીભ | જીભ બહાર કાઢેલો ચહેરો | બહાર કાઢેલી જીભ સાથેનો ચહેરો</annotation>
-		<annotation cp="😛" type="tts">બહાર કાઢેલી જીભ સાથેનો ચહેરો</annotation>
-		<annotation cp="😜">આંખ | આંખ મારવાની સાથે જીભ બહાર કાઢતો ચહેરો | આંખ મારવી | ચહેરો | જીભ | જીભ સાથે આંખ મારતો ચહેરો | મજાક</annotation>
-		<annotation cp="😜" type="tts">આંખ મારવાની સાથે જીભ બહાર કાઢતો ચહેરો</annotation>
-		<annotation cp="😝">આંખ | ચહેરો | ચુસ્તપણે બંધ આંખો સાથે જીભ બહાર કાઢતો ચહેરો | જીભ | જીભ સાથે ચુસ્તપણે બંધ આંખોવાળો ચહેરો | ભયાનક | સ્વાદ</annotation>
-		<annotation cp="😝" type="tts">ચુસ્તપણે બંધ આંખો સાથે જીભ બહાર કાઢતો ચહેરો</annotation>
-		<annotation cp="🤤">ચહેરો | લાળ | લાળ ટપકવાવાળો ચહેરો</annotation>
-		<annotation cp="🤤" type="tts">લાળ ટપકવાવાળો ચહેરો</annotation>
 		<annotation cp="😒">ચહેરો | દુઃખી | નાખુશ</annotation>
 		<annotation cp="😒" type="tts">નાખુશ ચહેરો</annotation>
-		<annotation cp="😓">ચહેરો | ઠંડા પરસેવા સાથેનો ચહેરો | ઠંડો | તકલીફોની સાથે નિરાશાજનક ચહેરો | પરસેવો</annotation>
-		<annotation cp="😓" type="tts">ઠંડા પરસેવા સાથેનો ચહેરો</annotation>
-		<annotation cp="😔">ચહેરો | નાસીપાસ | વિચારગ્રસ્ત</annotation>
-		<annotation cp="😔" type="tts">વિચારગ્રસ્ત ચહેરો</annotation>
-		<annotation cp="😕">ચહેરો | મૂંઝાયેલ</annotation>
-		<annotation cp="😕" type="tts">મૂંઝાયેલ ચહેરો</annotation>
-		<annotation cp="🙃">ઊંધો | ચહેરો | મુખ</annotation>
-		<annotation cp="🙃" type="tts">ઊંધો ચહેરો</annotation>
-		<annotation cp="🤑">ચહેરો | ધન | ધનવાળો ચહેરો | મુખ</annotation>
-		<annotation cp="🤑" type="tts">ધનવાળો ચહેરો</annotation>
-		<annotation cp="😲">આઘાત | આશ્ચર્ય | આશ્ચર્યચકિત ચહેરો | ચહેરો | તદ્દન</annotation>
-		<annotation cp="😲" type="tts">આશ્ચર્યચકિત ચહેરો</annotation>
-		<annotation cp="☹">ગમગીન | ચહેરો | મુખ</annotation>
-		<annotation cp="☹" type="tts">ગમગીન ચહેરો</annotation>
-		<annotation cp="🙁">ગમગીન | ચહેરો | થોડો ગમગીન ચહેરો | મુખ</annotation>
-		<annotation cp="🙁" type="tts">થોડો ગમગીન ચહેરો</annotation>
-		<annotation cp="😖">આકુળવ્યાકુળ | ચહેરો</annotation>
-		<annotation cp="😖" type="tts">આકુળવ્યાકુળ ચહેરો</annotation>
-		<annotation cp="😞">ચહેરો | નિરાશ</annotation>
-		<annotation cp="😞" type="tts">નિરાશ ચહેરો</annotation>
-		<annotation cp="😟">ચહેરો | ચિંતાગ્રસ્ત</annotation>
-		<annotation cp="😟" type="tts">ચિંતાગ્રસ્ત ચહેરો</annotation>
-		<annotation cp="😤">ચહેરો | મેં તે જીત્યાનો ચહેરો | વિજય | વિજયી દેખાવ | હું જીત્યો</annotation>
-		<annotation cp="😤" type="tts">મેં તે જીત્યાનો ચહેરો</annotation>
-		<annotation cp="😢">આંસુઓ | ચહેરો | દુઃખી | રડતો ચહેરો | રડવું</annotation>
-		<annotation cp="😢" type="tts">રડતો ચહેરો</annotation>
-		<annotation cp="😭">અશ્રુ | ચહેરો | મોટેથી રડતો ચહેરો | મોટેથી રડવું | રડવું | રુદન</annotation>
-		<annotation cp="😭" type="tts">મોટેથી રડતો ચહેરો</annotation>
-		<annotation cp="😦">ખુલ્લાં મોંઢા સાથે ભવાં ચડાવતો ચહેરો | ખુલ્લું | ચહેરો | ભવાં | મુખ</annotation>
-		<annotation cp="😦" type="tts">ખુલ્લાં મોંઢા સાથે ભવાં ચડાવતો ચહેરો</annotation>
-		<annotation cp="😧">ચહેરો | દુઃખી</annotation>
-		<annotation cp="😧" type="tts">દુઃખી ચહેરો</annotation>
-		<annotation cp="😨">ચહેરો | ભયગ્રસ્ત | ભયભીત</annotation>
-		<annotation cp="😨" type="tts">ભયભીત ચહેરો</annotation>
-		<annotation cp="😩">કંટાળાજનક | ચહેરો | થાકેલો</annotation>
-		<annotation cp="😩" type="tts">કંટાળાજનક ચહેરો</annotation>
-		<annotation cp="🤯">ફાટતું માથું</annotation>
-		<annotation cp="🤯" type="tts" draft="contributed">ફાટતું માથું</annotation>
+		<annotation cp="🙄">આંખો | આંખો ફેરવતો ચહેરો | ચહેરો | ફેરવવું</annotation>
+		<annotation cp="🙄" type="tts">આંખો ફેરવતો ચહેરો</annotation>
 		<annotation cp="😬">ચહેરો | ચેનચાળા | ચેનચાળા કરતો ચહેરો</annotation>
 		<annotation cp="😬" type="tts">ચેનચાળા કરતો ચહેરો</annotation>
-		<annotation cp="😰">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો ચહેરો | ખુલ્લું મોઢું | ચહેરો | ઠંડા પરસેવા સાથેનો વાદળી ચહેરો | ઠંડો પરસેવો | ધસેલો ચહેરો</annotation>
-		<annotation cp="😰" type="tts">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો ચહેરો</annotation>
-		<annotation cp="😱">ચહેરો | ભય | ભયગ્રસ્ત | ભયભીત | ભયમાં ચીસો પાડતો ચહેરો | ભયમાં ચીસો પાડવી</annotation>
-		<annotation cp="😱" type="tts">ભયમાં ચીસો પાડતો ચહેરો</annotation>
-		<annotation cp="🥵" draft="contributed">લાલચોળ ચહેરો</annotation>
-		<annotation cp="🥵" type="tts" draft="contributed">લાલચોળ ચહેરો</annotation>
-		<annotation cp="🥶" draft="contributed">ઠંડો ચહેરો</annotation>
-		<annotation cp="🥶" type="tts" draft="contributed">ઠંડો ચહેરો</annotation>
-		<annotation cp="😳">ચહેરો | ફ્લશ્ડ | સ્તબ્ધ | સ્તબ્ધતામાં</annotation>
-		<annotation cp="😳" type="tts">સ્તબ્ધ ચહેરો</annotation>
-		<annotation cp="🤪">ઉન્મત્ત ચહેરો</annotation>
-		<annotation cp="🤪" type="tts" draft="contributed">ઉન્મત્ત ચહેરો</annotation>
-		<annotation cp="😵">ચક્કર | ચક્કર આવતો ચહેરો | ચહેરો</annotation>
-		<annotation cp="😵" type="tts">ચક્કર આવતો ચહેરો</annotation>
-		<annotation cp="😡">ગુસ્સેલ | ચહેરો | પાગલ | રિસાવું | લાલ ચહેરો | લાલ રિસાયેલો ચહેરો</annotation>
-		<annotation cp="😡" type="tts">લાલ રિસાયેલો ચહેરો</annotation>
-		<annotation cp="😠">ગુસ્સેલ | ચહેરો | પાગલ</annotation>
-		<annotation cp="😠" type="tts">ગુસ્સેલ ચહેરો</annotation>
-		<annotation cp="🤬">મુખ પર ચિહ્નો સાથેનો ચહેરો</annotation>
-		<annotation cp="🤬" type="tts" draft="contributed">મુખ પર ચિહ્નો સાથેનો ચહેરો</annotation>
+		<annotation cp="🤥">ખોટું | ખોટું બોલવાવાળો ચહેરો | ચહેરો</annotation>
+		<annotation cp="🤥" type="tts">ખોટું બોલવાવાળો ચહેરો</annotation>
+		<annotation cp="😌">ચહેરો | રાહતના ભાવવાળો ચહેરો | રાહતવાળો ચહેરો</annotation>
+		<annotation cp="😌" type="tts">રાહતના ભાવવાળો ચહેરો</annotation>
+		<annotation cp="😔">ચહેરો | નાસીપાસ | વિચારગ્રસ્ત</annotation>
+		<annotation cp="😔" type="tts">વિચારગ્રસ્ત ચહેરો</annotation>
+		<annotation cp="😪">ઊંઘતું | ઊંઘતો ચહેરો | ચહેરો</annotation>
+		<annotation cp="😪" type="tts">ઊંઘતો ચહેરો</annotation>
+		<annotation cp="🤤">ચહેરો | લાળ | લાળ ટપકવાવાળો ચહેરો</annotation>
+		<annotation cp="🤤" type="tts">લાળ ટપકવાવાળો ચહેરો</annotation>
+		<annotation cp="😴">ચહેરો | નિંદ્રાધીન ચહેરો | નિદ્રામાં | નિદ્રામાંનો ચહેરો</annotation>
+		<annotation cp="😴" type="tts">નિંદ્રાધીન ચહેરો</annotation>
 		<annotation cp="😷">ચહેરો | ઠંડો | તબીબી માસ્ક | માસ્ક | માસ્કવાળો ચહેરો | હવામાન હેઠળ</annotation>
 		<annotation cp="😷" type="tts">માસ્કવાળો ચહેરો</annotation>
 		<annotation cp="🤒">ચહેરો | થર્મોમીટર | થર્મોમીટર સાથેનો ચહેરો | બીમાર | માંદું | મુખ</annotation>
@@ -177,44 +235,102 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤕" type="tts">માથે પટ્ટીવાળો ચહેરો</annotation>
 		<annotation cp="🤢">ઊલટી | ચહેરો | ચીતરી ચડેલો | ચીતરી ચડેલો ચહેરો</annotation>
 		<annotation cp="🤢" type="tts">ચીતરી ચડેલો ચહેરો</annotation>
-		<annotation cp="🤮" draft="contributed">ઉલટી કરતો ચહેરો</annotation>
-		<annotation cp="🤮" type="tts" draft="contributed">ઉલટી કરતો ચહેરો</annotation>
+		<annotation cp="🤮">ઉલટી કરતો ચહેરો</annotation>
+		<annotation cp="🤮" type="tts">ઉલટી કરતો ચહેરો</annotation>
 		<annotation cp="🤧">ચહેરો | છીંક | છીંક ખાતો ચહેરો</annotation>
 		<annotation cp="🤧" type="tts">છીંક ખાતો ચહેરો</annotation>
-		<annotation cp="😇">ચહેરો | પ્રભાવલય | પ્રભાવલય સાથેનું હાસ્ય | પ્રભાવલય સાથેનો સ્મિત કરતો ચહેરો | મુખ | હાસ્ય</annotation>
-		<annotation cp="😇" type="tts">પ્રભાવલય સાથેનો સ્મિત કરતો ચહેરો</annotation>
+		<annotation cp="🥵">લાલચોળ ચહેરો</annotation>
+		<annotation cp="🥵" type="tts">લાલચોળ ચહેરો</annotation>
+		<annotation cp="🥶">ઠંડો | ઠંડો ચહેરો | થીજાવવું | ફ્રોસ્ટબાઇટ | ભૂરો પડી ગયેલો ચહેરો | લટકતો હિમકણ</annotation>
+		<annotation cp="🥶" type="tts">ઠંડો ચહેરો</annotation>
+		<annotation cp="🥴">અસ્થિર આંખો | ચક્કર | નશો કરેલ | પીધેલ | વાંકુ થતું મોઢું | વોઝી ચહેરો</annotation>
+		<annotation cp="🥴" type="tts">વોઝી ચહેરો</annotation>
+		<annotation cp="😵">ચક્કર | ચક્કર આવતો ચહેરો | ચહેરો</annotation>
+		<annotation cp="😵" type="tts">ચક્કર આવતો ચહેરો</annotation>
+		<annotation cp="🤯">ફાટતું માથું</annotation>
+		<annotation cp="🤯" type="tts">ફાટતું માથું</annotation>
 		<annotation cp="🤠">કાઉગર્લ | કાઉબૉય | કાઉબૉય હૅટવાળો ચહેરો | ચહેરો | હૅટ</annotation>
 		<annotation cp="🤠" type="tts">કાઉબૉય હૅટવાળો ચહેરો</annotation>
-		<annotation cp="🥳" draft="contributed">પાર્ટી કરતો ચહેરો</annotation>
-		<annotation cp="🥳" type="tts" draft="contributed">પાર્ટી કરતો ચહેરો</annotation>
-		<annotation cp="🥴" draft="contributed">વોઝી ચહેરો</annotation>
-		<annotation cp="🥴" type="tts" draft="contributed">વોઝી ચહેરો</annotation>
-		<annotation cp="🥺" draft="contributed">દયાવાળો ચહેરો</annotation>
-		<annotation cp="🥺" type="tts" draft="contributed">દયાવાળો ચહેરો</annotation>
-		<annotation cp="🤥">ખોટું | ખોટું બોલવાવાળો ચહેરો | ચહેરો</annotation>
-		<annotation cp="🤥" type="tts">ખોટું બોલવાવાળો ચહેરો</annotation>
-		<annotation cp="🤫">ચૂપ કરતો ચહેરો</annotation>
-		<annotation cp="🤫" type="tts" draft="contributed">ચૂપ કરતો ચહેરો</annotation>
-		<annotation cp="🤭">મોં પર હાથ મૂકેલો ચહેરો</annotation>
-		<annotation cp="🤭" type="tts" draft="contributed">મોં પર હાથ મૂકેલો ચહેરો</annotation>
-		<annotation cp="🧐">મોનોકલ સાથે ચહેરો</annotation>
-		<annotation cp="🧐" type="tts" draft="contributed">મોનોકલ સાથે ચહેરો</annotation>
+		<annotation cp="🥳">પાર્ટી કરતો ચહેરો</annotation>
+		<annotation cp="🥳" type="tts">પાર્ટી કરતો ચહેરો</annotation>
+		<annotation cp="😎">કૂલ | ચહેરો | તેજસ્વી | સનગ્લાસેસ | સનગ્લાસેસ સાથે હસતો ચહેરો | સૂર્ય</annotation>
+		<annotation cp="😎" type="tts">સનગ્લાસેસ સાથે હસતો ચહેરો</annotation>
 		<annotation cp="🤓">ચહેરો | ભોળપણ | ભોળપણના ભાવવાળો ચહેરો | મુખ | મુર્ખતાના ભાવવાળો ચહેરો</annotation>
 		<annotation cp="🤓" type="tts">ભોળપણના ભાવવાળો ચહેરો</annotation>
+		<annotation cp="🧐">મોનોકલ સાથે ચહેરો</annotation>
+		<annotation cp="🧐" type="tts">મોનોકલ સાથે ચહેરો</annotation>
+		<annotation cp="😕">ચહેરો | મૂંઝાયેલ</annotation>
+		<annotation cp="😕" type="tts">મૂંઝાયેલ ચહેરો</annotation>
+		<annotation cp="😟">ચહેરો | ચિંતાગ્રસ્ત</annotation>
+		<annotation cp="😟" type="tts">ચિંતાગ્રસ્ત ચહેરો</annotation>
+		<annotation cp="🙁">ગમગીન | ચહેરો | થોડો ગમગીન ચહેરો | મુખ</annotation>
+		<annotation cp="🙁" type="tts">થોડો ગમગીન ચહેરો</annotation>
+		<annotation cp="☹">ગમગીન | ચહેરો | મુખ</annotation>
+		<annotation cp="☹" type="tts">ગમગીન ચહેરો</annotation>
+		<annotation cp="😮">ખુલ્લાં મોંઢાવાળો ચહેરો | ખુલ્લું મોઢું | ચહેરો | મોંઢું | સહાનુભૂતિ</annotation>
+		<annotation cp="😮" type="tts">ખુલ્લાં મોંઢાવાળો ચહેરો</annotation>
+		<annotation cp="😯">અચંભિત | અવાક | ચહેરો | શાંત ચહેરો</annotation>
+		<annotation cp="😯" type="tts">શાંત ચહેરો</annotation>
+		<annotation cp="😲">આઘાત | આશ્ચર્ય | આશ્ચર્યચકિત ચહેરો | ચહેરો | તદ્દન</annotation>
+		<annotation cp="😲" type="tts">આશ્ચર્યચકિત ચહેરો</annotation>
+		<annotation cp="😳">ચહેરો | ફ્લશ્ડ | સ્તબ્ધ | સ્તબ્ધતામાં</annotation>
+		<annotation cp="😳" type="tts">સ્તબ્ધ ચહેરો</annotation>
+		<annotation cp="🥺">દયાવાળો ચહેરો</annotation>
+		<annotation cp="🥺" type="tts">દયાવાળો ચહેરો</annotation>
+		<annotation cp="😦">ખુલ્લાં મોંઢા સાથે ભવાં ચડાવતો ચહેરો | ખુલ્લું | ચહેરો | ભવાં | મુખ</annotation>
+		<annotation cp="😦" type="tts">ખુલ્લાં મોંઢા સાથે ભવાં ચડાવતો ચહેરો</annotation>
+		<annotation cp="😧">ચહેરો | દુઃખી</annotation>
+		<annotation cp="😧" type="tts">દુઃખી ચહેરો</annotation>
+		<annotation cp="😨">ચહેરો | ભયગ્રસ્ત | ભયભીત</annotation>
+		<annotation cp="😨" type="tts">ભયભીત ચહેરો</annotation>
+		<annotation cp="😰">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો ચહેરો | ખુલ્લું મોઢું | ચહેરો | ઠંડા પરસેવા સાથેનો વાદળી ચહેરો | ઠંડો પરસેવો | ધસેલો ચહેરો</annotation>
+		<annotation cp="😰" type="tts">ખુલ્લા મોં અને ઠંડા પરસેવા સાથેનો ચહેરો</annotation>
+		<annotation cp="😥">આવો | ઉદાસી પરંતુ રાહત ચહેરો | ચહેરો | નાખુશ પરંતુ રાહતવાળો ચહેરો | નિરાશ | રાહત</annotation>
+		<annotation cp="😥" type="tts">નાખુશ પરંતુ રાહતવાળો ચહેરો</annotation>
+		<annotation cp="😢">આંસુઓ | ચહેરો | દુઃખી | રડતો ચહેરો | રડવું</annotation>
+		<annotation cp="😢" type="tts">રડતો ચહેરો</annotation>
+		<annotation cp="😭">અશ્રુ | ચહેરો | મોટેથી રડતો ચહેરો | મોટેથી રડવું | રડવું | રુદન</annotation>
+		<annotation cp="😭" type="tts">મોટેથી રડતો ચહેરો</annotation>
+		<annotation cp="😱">ચહેરો | ભય | ભયગ્રસ્ત | ભયભીત | ભયમાં ચીસો પાડતો ચહેરો | ભયમાં ચીસો પાડવી</annotation>
+		<annotation cp="😱" type="tts">ભયમાં ચીસો પાડતો ચહેરો</annotation>
+		<annotation cp="😖">આકુળવ્યાકુળ | ચહેરો</annotation>
+		<annotation cp="😖" type="tts">આકુળવ્યાકુળ ચહેરો</annotation>
+		<annotation cp="😣">ચહેરો | જબરદસ્ત ચહેરો | સખત ચહેરો | સ્થાયી</annotation>
+		<annotation cp="😣" type="tts">જબરદસ્ત ચહેરો</annotation>
+		<annotation cp="😞">ચહેરો | નિરાશ</annotation>
+		<annotation cp="😞" type="tts">નિરાશ ચહેરો</annotation>
+		<annotation cp="😓">ચહેરો | ઠંડા પરસેવા સાથેનો ચહેરો | ઠંડો | તકલીફોની સાથે નિરાશાજનક ચહેરો | પરસેવો</annotation>
+		<annotation cp="😓" type="tts">ઠંડા પરસેવા સાથેનો ચહેરો</annotation>
+		<annotation cp="😩">કંટાળાજનક | ચહેરો | થાકેલો</annotation>
+		<annotation cp="😩" type="tts">કંટાળાજનક ચહેરો</annotation>
+		<annotation cp="😫">ચહેરો | થાકેલો</annotation>
+		<annotation cp="😫" type="tts">થાકેલો ચહેરો</annotation>
+		<annotation cp="🥱">કંટાળેલ | થાકેલ | બગાસું | બગાસું ખાતો ચહેરો</annotation>
+		<annotation cp="🥱" type="tts">બગાસું ખાતો ચહેરો</annotation>
+		<annotation cp="😤">ચહેરો | મેં તે જીત્યાનો ચહેરો | વિજય | વિજયી દેખાવ | હું જીત્યો</annotation>
+		<annotation cp="😤" type="tts">મેં તે જીત્યાનો ચહેરો</annotation>
+		<annotation cp="😡">ગુસ્સેલ | ચહેરો | પાગલ | રિસાવું | લાલ ચહેરો | લાલ રિસાયેલો ચહેરો</annotation>
+		<annotation cp="😡" type="tts">લાલ રિસાયેલો ચહેરો</annotation>
+		<annotation cp="😠">ગુસ્સેલ | ચહેરો | પાગલ</annotation>
+		<annotation cp="😠" type="tts">ગુસ્સેલ ચહેરો</annotation>
+		<annotation cp="🤬">મુખ પર ચિહ્નો સાથેનો ચહેરો</annotation>
+		<annotation cp="🤬" type="tts">મુખ પર ચિહ્નો સાથેનો ચહેરો</annotation>
 		<annotation cp="😈">ચહેરો | શિંગડા | શિંગડા સાથેનું હાસ્ય | શિંગડા સાથેનો સ્મિત કરતો ચહેરો | હાસ્ય</annotation>
 		<annotation cp="😈" type="tts">શિંગડા સાથેનો સ્મિત કરતો ચહેરો</annotation>
 		<annotation cp="👿">કાલ્પનિક | ચહેરો | થોભો | રાક્ષસ | શિંગડા સાથે ગુસ્સો ચહેરો | શેતાન</annotation>
 		<annotation cp="👿" type="tts">શેતાન</annotation>
+		<annotation cp="💀">ખોપરી | ચહેરો | પરી કથા | શરીર</annotation>
+		<annotation cp="💀" type="tts">ખોપરી</annotation>
+		<annotation cp="☠">ખોપરી અને હાડકાંની ચોકડી | ચહેરો | દૈત્ય | મુખ | મૃત્યુ | રાક્ષસ | શરીર</annotation>
+		<annotation cp="☠" type="tts">ખોપરી અને હાડકાંની ચોકડી</annotation>
+		<annotation cp="💩">ખૂંટો | છાણ | પૂપ</annotation>
+		<annotation cp="💩" type="tts">છાણ</annotation>
 		<annotation cp="🤡">ચહેરો | વિદૂષક | વિદૂષકવાળો ચહેરો</annotation>
 		<annotation cp="🤡" type="tts">વિદૂષકવાળો ચહેરો</annotation>
 		<annotation cp="👹">ઓની | ચહેરો | જાપાની દૈત્ય | દૈત્ય | પરી કથા | રાક્ષસ</annotation>
 		<annotation cp="👹" type="tts">દૈત્ય</annotation>
 		<annotation cp="👺">ચહેરો | જાપાની પ્રેત | ટેન્ગુ | પરી કથા | પ્રેત | રાક્ષસ</annotation>
 		<annotation cp="👺" type="tts">પ્રેત</annotation>
-		<annotation cp="💀">ખોપરી | ચહેરો | પરી કથા | શરીર</annotation>
-		<annotation cp="💀" type="tts">ખોપરી</annotation>
-		<annotation cp="☠">ખોપરી અને હાડકાંની ચોકડી | ચહેરો | દૈત્ય | મુખ | મૃત્યુ | રાક્ષસ | શરીર</annotation>
-		<annotation cp="☠" type="tts">ખોપરી અને હાડકાંની ચોકડી</annotation>
 		<annotation cp="👻">ચહેરો | પરી કથા | ભૂત</annotation>
 		<annotation cp="👻" type="tts">ભૂત</annotation>
 		<annotation cp="👽">UFO | ચહેરો | પરગ્રહવાસી | પરી કથા | પૃથ્વી બહારનાં</annotation>
@@ -222,9 +338,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👾">UFO | ચહેરો | પરગ્રહવાસી રાક્ષસ | પરી કથા | રાક્ષસ</annotation>
 		<annotation cp="👾" type="tts">પરગ્રહવાસી રાક્ષસ</annotation>
 		<annotation cp="🤖">ચહેરો | મશીની માનવ | મુખ | રોબોટ | રોબોટનો ચહેરો</annotation>
-		<annotation cp="🤖" type="tts">રોબોટનો ચહેરો</annotation>
-		<annotation cp="💩">ખૂંટો | છાણ | પૂપ</annotation>
-		<annotation cp="💩" type="tts">છાણ</annotation>
+		<annotation cp="🤖" type="tts">રોબોટ</annotation>
 		<annotation cp="😺">ખુલ્લા મોઢે હસતી બિલાડીનો ચહેરો | ખુલ્લું | ચહેરો | બિલાડી | બિલાડીનો ચહેરો | મોંઢું | સ્મિત કરતી બિલાડીનો ચહેરો</annotation>
 		<annotation cp="😺" type="tts">ખુલ્લા મોઢે હસતી બિલાડીનો ચહેરો</annotation>
 		<annotation cp="😸">ચહેરો | બિલાડી | બિલાડીનો ચહેરો | હસતી | હસતી આંખો અને અટ્ટહાસ્ય સાથેનો બિલાડીનો ચહેરો | હસતી આંખો અને હસવા સાથેનો બિલાડીનો ચહેરો | હસતી બિલાડીનો ચહેરો</annotation>
@@ -249,94 +363,360 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🙉" type="tts">ખરાબ સાંભળશો નહીં</annotation>
 		<annotation cp="🙊">ખરાબ બોલશો નહીં | ખરાબ બોલશો નહીં બતાવતો વાંદરો | વાંદરો</annotation>
 		<annotation cp="🙊" type="tts">ખરાબ બોલશો નહીં</annotation>
+		<annotation cp="💋">ચુંબન | ચુંબનનું ચિહ્ન | રોમાંસ | હોઠ</annotation>
+		<annotation cp="💋" type="tts">ચુંબનનું ચિહ્ન</annotation>
+		<annotation cp="💌">દિલ | દિલ સાથેનો મેઇલ | પત્ર | પ્રેમ પત્ર | રોમાંસ</annotation>
+		<annotation cp="💌" type="tts">પ્રેમ પત્ર</annotation>
+		<annotation cp="💘">તીર | તીર સાથેનું હૃદય | દિલ | દિલ અને તીર | પ્રેમ | લાગણી</annotation>
+		<annotation cp="💘" type="tts">તીર સાથેનું હૃદય</annotation>
+		<annotation cp="💝">દિલ | રિબન | રિબન સાથેનું દિલ | લાગણી | વેલેન્ટાઇન</annotation>
+		<annotation cp="💝" type="tts">રિબન સાથેનું દિલ</annotation>
+		<annotation cp="💖">ચળકતું | ચળકતું દિલ | પ્રેમ | રોમાંચિત | લાગણી</annotation>
+		<annotation cp="💖" type="tts">ચળકતું દિલ</annotation>
+		<annotation cp="💗">દિલ | પ્રેમ | મૂંઝાયેલું | રોમાંચિત | લાગણી | વધતું દિલ</annotation>
+		<annotation cp="💗" type="tts">વધતું દિલ</annotation>
+		<annotation cp="💓">દિલ | ધડકતું | ધડકન | પ્રેમ | લાગણી</annotation>
+		<annotation cp="💓" type="tts">ધડકતું દિલ</annotation>
+		<annotation cp="💞">આરાધ્ય | દિલ | પ્રેમ | ભમતા | લાગણી | સુંદર</annotation>
+		<annotation cp="💞" type="tts">ભમતા દિલ</annotation>
+		<annotation cp="💕">પ્રેમ | પ્રેમીઓ | બે દિલ | લાગણી</annotation>
+		<annotation cp="💕" type="tts">બે દિલ</annotation>
+		<annotation cp="💟">દિલ | દિલનો શણગાર</annotation>
+		<annotation cp="💟" type="tts">દિલનો શણગાર</annotation>
+		<annotation cp="❣">ઉદ્ગારવાચક | ઉદ્ગારવાચક ચિહ્ન સાથેનું હૃદય | ચિહ્ન | વિરામચિહ્ન | હૃદય</annotation>
+		<annotation cp="❣" type="tts">ઉદ્ગારવાચક ચિહ્ન સાથેનું હૃદય</annotation>
+		<annotation cp="💔">તોડવું | ભગ્ન | લાગણી | હૃદય | હૃદય ભંગ</annotation>
+		<annotation cp="💔" type="tts">ભગ્ન હૃદય</annotation>
+		<annotation cp="❤">લાલ | હૃદય</annotation>
+		<annotation cp="❤" type="tts">લાલ હૃદય</annotation>
+		<annotation cp="🧡">નારંગી દિલ</annotation>
+		<annotation cp="🧡" type="tts">નારંગી દિલ</annotation>
+		<annotation cp="💛">દિલ | પીળું | લાગણી</annotation>
+		<annotation cp="💛" type="tts">પીળું દિલ</annotation>
+		<annotation cp="💚">દિલ | લાગણી | લીલું</annotation>
+		<annotation cp="💚" type="tts">લીલું દિલ</annotation>
+		<annotation cp="💙">દિલ | લાગણી | વાદળી</annotation>
+		<annotation cp="💙" type="tts">વાદળી દિલ</annotation>
+		<annotation cp="💜">જાંબલી | દિલ | લાગણી</annotation>
+		<annotation cp="💜" type="tts">જાંબલી દિલ</annotation>
+		<annotation cp="🤎">કથ્થઈ | હૃદય</annotation>
+		<annotation cp="🤎" type="tts">કથ્થઈ હૃદય</annotation>
+		<annotation cp="🖤">કાળું | ખરાબ | હૃદય</annotation>
+		<annotation cp="🖤" type="tts">કાળું હૃદય</annotation>
+		<annotation cp="🤍">શ્વેત | હૃદય</annotation>
+		<annotation cp="🤍" type="tts">શ્વેત હૃદય</annotation>
+		<annotation cp="💯">100 | 100 પોઇન્ટ્સ | પૂર્ણ સ્કોર | સો પોઇન્ટ્સ | સ્કોર</annotation>
+		<annotation cp="💯" type="tts">સો પોઇન્ટ્સ</annotation>
+		<annotation cp="💢">કોમિક | ગુસ્સાનું ચિહ્ન | ગુસ્સે થયેલું | ગુસ્સો | લાગણી</annotation>
+		<annotation cp="💢" type="tts">ગુસ્સાનું ચિહ્ન</annotation>
+		<annotation cp="💥">ટક્કર | ટક્કરનું પ્રતીક | રમૂજી | લાગણી</annotation>
+		<annotation cp="💥" type="tts">ટક્કર</annotation>
+		<annotation cp="💫">ચક્કર | તારા | તારા જોવા | રમૂજી | લાગણી</annotation>
+		<annotation cp="💫" type="tts">ચક્કર</annotation>
+		<annotation cp="💦">પરસેવાનાં છાંટા | પરસેવાનાં ટીપા | પરસેવો | પ્રસ્વેદયુક્ત | રમૂજી | લાગણી</annotation>
+		<annotation cp="💦" type="tts">પરસેવાનાં ટીપા</annotation>
+		<annotation cp="💨">ચાલુ ડેશ | ડેશિંગ | દોડો | ભાગવું | રમૂજી | લાગણી</annotation>
+		<annotation cp="💨" type="tts">ડેશિંગ</annotation>
+		<annotation cp="🕳">કાણું | છિદ્ર</annotation>
+		<annotation cp="🕳" type="tts">છિદ્ર</annotation>
+		<annotation cp="💣">બોમ્બ | રમૂજી | લાગણી</annotation>
+		<annotation cp="💣" type="tts">બોમ્બ</annotation>
+		<annotation cp="💬">પરપોટો | ફુગ્ગો | ભાષણ પરપોટો | ભાષણ ફુગ્ગો | રમૂજી | સંવાદ</annotation>
+		<annotation cp="💬" type="tts">ભાષણ ફુગ્ગો</annotation>
+		<annotation cp="👁‍🗨">આંખ | સાક્ષી | સ્પીચ બબલ</annotation>
+		<annotation cp="👁‍🗨" type="tts">સાક્ષી</annotation>
+		<annotation cp="🗨">ડાબું સ્પીચ બબલ | વાણી | સંવાદ | સ્પીચ</annotation>
+		<annotation cp="🗨" type="tts">ડાબું સ્પીચ બબલ</annotation>
+		<annotation cp="🗯">ક્રોધ | જમણી તરફનું ગુસ્સાનું બબલ | પરપોટો | પાગલ | ફુગ્ગો | બબલ</annotation>
+		<annotation cp="🗯" type="tts">જમણી તરફનું ગુસ્સાનું બબલ</annotation>
+		<annotation cp="💭">પરપોટો | રમૂજી | વિચાર | વિચારનો પરપોટો | વિચારનો ફુગ્ગો</annotation>
+		<annotation cp="💭" type="tts">વિચારનો ફુગ્ગો</annotation>
+		<annotation cp="💤">ઊંઘતું | ઊંઘરેટી | નસકોરા | રમૂજી | લાગણી</annotation>
+		<annotation cp="💤" type="tts">નસકોરા</annotation>
+		<annotation cp="👋">હલાવવા | હાથ</annotation>
+		<annotation cp="👋" type="tts">હાથ હલાવવા</annotation>
+		<annotation cp="🤚">બેકહેન્ડ | હાથ</annotation>
+		<annotation cp="🤚" type="tts">હાથ</annotation>
+		<annotation cp="🖐">આંગળી | ફેલાવેલી આંગળી વાળો ઉઠાવેલો હાથ | ફેલાવેલું | શરીર | હાથ</annotation>
+		<annotation cp="🖐" type="tts">ફેલાવેલી આંગળી વાળો ઉઠાવેલો હાથ</annotation>
+		<annotation cp="✋">ઉઠાવેલો હાથ | હાથ</annotation>
+		<annotation cp="✋" type="tts">ઉઠાવેલો હાથ</annotation>
+		<annotation cp="🖖">આંગળી | વલ્કન | શરીર | સેલ્યુટની એક રીત | સ્પોઅક | હાથ</annotation>
+		<annotation cp="🖖" type="tts">સેલ્યુટની એક રીત</annotation>
+		<annotation cp="👌">ચિહ્ન | બરાબર | હાથ</annotation>
+		<annotation cp="👌" type="tts">બરાબર ચિહ્ન</annotation>
+		<annotation cp="🤏">ઓછા પ્રમાણમાં | ચપટી વગાડતો હાથ</annotation>
+		<annotation cp="🤏" type="tts">ચપટી વગાડતો હાથ</annotation>
+		<annotation cp="✌">કાતર | વિજય | વિજયનું ચિહ્ન | વિજયી હાથ</annotation>
+		<annotation cp="✌" type="tts">વિજયનું ચિહ્ન</annotation>
+		<annotation cp="🤞">ક્રૉસ | ક્રૉસ્ડ ફિંગર્સ | ફિંગર | ભાગ્ય | હાથ</annotation>
+		<annotation cp="🤞" type="tts">ક્રૉસ્ડ ફિંગર્સ</annotation>
+		<annotation cp="🤟">હાવભાવ પ્રત્યે પ્રેમ</annotation>
+		<annotation cp="🤟" type="tts">હાવભાવ પ્રત્યે પ્રેમ</annotation>
+		<annotation cp="🤘">આંગળી | રોક-ઑન | શરીર | શિંગડાં | શિંગડાનું ચિહ્ન | હાથ</annotation>
+		<annotation cp="🤘" type="tts">શિંગડાનું ચિહ્ન</annotation>
+		<annotation cp="🤙">કૉલ | મને કૉલ કરો હાથ | હાથ</annotation>
+		<annotation cp="🤙" type="tts">મને કૉલ કરો હાથ</annotation>
+		<annotation cp="👈">આંગળી | ડાબી આંગળી | ડાબી બાજુ ચીંધતી આંગળી | પહેલી આંગળી | હાથનો પાછલો ભાગ</annotation>
+		<annotation cp="👈" type="tts">ડાબી બાજુ ચીંધતી આંગળી</annotation>
+		<annotation cp="👉">આંગળી | જમણી આંગળી | જમણી બાજુ ચીંધતી આંગળી | પહેલી આંગળી | હાથનો પાછલો ભાગ</annotation>
+		<annotation cp="👉" type="tts">જમણી બાજુ ચીંધતી આંગળી</annotation>
+		<annotation cp="👆">આંગળી | ઉપર આંગળી | ઉપરની બાજુ ચીંધાયેલી આંગળી | પહેલી આંગળી | હાથની પાછલી બાજુએથી ઉપર ચીંધતી તર્જની | હાથનો પાછલો ભાગ</annotation>
+		<annotation cp="👆" type="tts">હાથની પાછલી બાજુએથી ઉપર ચીંધતી તર્જની</annotation>
+		<annotation cp="🖕">આંગળી | મધ્યમા | વચલી આંગળી | વચ્ચેની આંગળી | શરીર | હાથ</annotation>
+		<annotation cp="🖕" type="tts">મધ્યમા</annotation>
+		<annotation cp="👇">આંગળી | નીચી આંગળી | નીચેની બાજુ ચીંધાયેલી આંગળી | પહેલી આંગળી | હાથની પાછલી બાજુએથી નીચે ચીંધતી તર્જની | હાથનો પાછલો ભાગ</annotation>
+		<annotation cp="👇" type="tts">હાથની પાછલી બાજુએથી નીચે ચીંધતી તર્જની</annotation>
+		<annotation cp="☝">આંગળી | ઉપર | ઉપર ચીંધતી તર્જની | ચીંધતી | પ્રથમ આંગળી | શરીર | હાથ</annotation>
+		<annotation cp="☝" type="tts">ઉપર ચીંધતી તર્જની</annotation>
+		<annotation cp="👍">અંગુઠો | ઉંચો | ચિહ્ન | થમ્બ્સ અપ | હાથ</annotation>
+		<annotation cp="👍" type="tts">થમ્બ્સ અપ</annotation>
+		<annotation cp="👎">અંગુઠો | ચિહ્ન | નીચો | નીચો અંગૂઠો | હાથ</annotation>
+		<annotation cp="👎" type="tts">નીચો અંગૂઠો</annotation>
+		<annotation cp="✊">ઉઠાવેલ મુઠ્ઠી | મુઠ્ઠી | હાથ</annotation>
+		<annotation cp="✊" type="tts">ઉઠાવેલ મુઠ્ઠી</annotation>
+		<annotation cp="👊">બંધ મુઠ્ઠી | મુઠ્ઠી | હાથ</annotation>
+		<annotation cp="👊" type="tts">બંધ મુઠ્ઠી</annotation>
+		<annotation cp="🤛">ડાબીબાજુ | ડાબીબાજુની મુઠ્ઠી | મુઠ્ઠી</annotation>
+		<annotation cp="🤛" type="tts">ડાબીબાજુની મુઠ્ઠી</annotation>
+		<annotation cp="🤜">જમણીબાજુ | જમણીબાજુની મુઠ્ઠી | મુઠ્ઠી</annotation>
+		<annotation cp="🤜" type="tts">જમણીબાજુની મુઠ્ઠી</annotation>
+		<annotation cp="👏">ચિહ્ન | તાળી | તાળી પાડતાં હાથ | હાથ</annotation>
+		<annotation cp="👏" type="tts">તાળી પાડતાં હાથ</annotation>
+		<annotation cp="🙌">ઉજવણી | ઉજવણીમાં બંને હાથ ઉઠાવવા | બંને હાથ | હાથ ઉઠાવતી વ્યક્તિ | હુરરે</annotation>
+		<annotation cp="🙌" type="tts">હાથ ઉઠાવતી વ્યક્તિ</annotation>
+		<annotation cp="👐">ખુલ્લાં | ખુલ્લાં હાથનું ચિહ્ન | ચિહ્ન | હાથ</annotation>
+		<annotation cp="👐" type="tts">ખુલ્લાં હાથ</annotation>
+		<annotation cp="🤲">હથેળીઓ એક સાથે</annotation>
+		<annotation cp="🤲" type="tts">હથેળીઓ એક સાથે</annotation>
+		<annotation cp="🤝">કરાર | મિલાવવું | મીટિંગ | હાથ | હાથ મિલાવવો</annotation>
+		<annotation cp="🤝" type="tts">હાથ મિલાવવો</annotation>
+		<annotation cp="🙏">અદબ વાળેલા હાથ | પ્રાર્થના | પ્રાર્થના કરવી | વાળેલા હાથ | હાથ | હાવભાવ</annotation>
+		<annotation cp="🙏" type="tts">વાળેલા હાથ</annotation>
+		<annotation cp="✍">લખતો | લખવું | લખાણ | લખી રહેલો હાથ | શરીર | હાથ</annotation>
+		<annotation cp="✍" type="tts">લખી રહેલો હાથ</annotation>
+		<annotation cp="💅">કોસ્મેટિક્સ | નખ | નખની સંભાળ | નેઇલ પોલિશ | હાથ તથા નખની સાજસંભાળ</annotation>
+		<annotation cp="💅" type="tts">નેઇલ પોલિશ</annotation>
+		<annotation cp="🤳">કૅમરા | ફોન | સેલ્ફી</annotation>
+		<annotation cp="🤳" type="tts">સેલ્ફી</annotation>
+		<annotation cp="💪">ફલેક્સ | બાવડુ | મજબૂત | રમૂજી | સ્નાયુ</annotation>
+		<annotation cp="💪" type="tts">બાવડુ</annotation>
+		<annotation cp="🦾">ઍક્સેસિબિલિટી | કૃત્રિમ | મશીનથી બનેલો હાથ</annotation>
+		<annotation cp="🦾" type="tts">મશીનથી બનેલો હાથ</annotation>
+		<annotation cp="🦿">ઍક્સેસિબિલિટી | કૃત્રિમ | મશીનથી બનેલો પગ</annotation>
+		<annotation cp="🦿" type="tts">મશીનથી બનેલો પગ</annotation>
+		<annotation cp="🦵">અંગ | કિક મારવી | પગ</annotation>
+		<annotation cp="🦵" type="tts">પગ</annotation>
+		<annotation cp="🦶">કિક મારવી | જોરથી પગ પછાડવો | પગ | પંજો</annotation>
+		<annotation cp="🦶" type="tts">પંજો</annotation>
+		<annotation cp="👂">કાન | શરીર</annotation>
+		<annotation cp="👂" type="tts">કાન</annotation>
+		<annotation cp="🦻">ઍક્સેસિબિલિટી | ઓછું સાંભળનારું | શ્રવણ યંત્રની સાથે કાન</annotation>
+		<annotation cp="🦻" type="tts">શ્રવણ યંત્રની સાથે કાન</annotation>
+		<annotation cp="👃">ચહેરો | નાક | શરીર</annotation>
+		<annotation cp="👃" type="tts">નાક</annotation>
+		<annotation cp="🧠">મગજ</annotation>
+		<annotation cp="🧠" type="tts">મગજ</annotation>
+		<annotation cp="🦷">દાંત</annotation>
+		<annotation cp="🦷" type="tts">દાંત</annotation>
+		<annotation cp="🦴">હાડકાં</annotation>
+		<annotation cp="🦴" type="tts">હાડકાં</annotation>
+		<annotation cp="👀">આંખો | ચહેરો | શરીર</annotation>
+		<annotation cp="👀" type="tts">આંખો</annotation>
+		<annotation cp="👁">આંખ | શરીર</annotation>
+		<annotation cp="👁" type="tts">આંખ</annotation>
+		<annotation cp="👅">ચહેરો | જીભ | શરીર</annotation>
+		<annotation cp="👅" type="tts">જીભ</annotation>
+		<annotation cp="👄">ચહેરો | મોઢું | શરીર | હોઠ</annotation>
+		<annotation cp="👄" type="tts">મોઢું</annotation>
 		<annotation cp="👶">લોકો | શિશુ</annotation>
 		<annotation cp="👶" type="tts">શિશુ</annotation>
-		<annotation cp="🧒" draft="contributed">બાળક</annotation>
-		<annotation cp="🧒" type="tts" draft="contributed">બાળક</annotation>
+		<annotation cp="🧒">અનિર્દિષ્ટ લિંગ | બાળક | યુવાન | લિંગ તટસ્થ</annotation>
+		<annotation cp="🧒" type="tts">બાળક</annotation>
 		<annotation cp="👦">છોકરો | યુવાન</annotation>
 		<annotation cp="👦" type="tts">છોકરો</annotation>
 		<annotation cp="👧">કન્યા | છોકરી | યુવાન | રાશિ</annotation>
 		<annotation cp="👧" type="tts">છોકરી</annotation>
 		<annotation cp="🧑">અનિર્દિષ્ટ લિંગ | પુખ્ત | લિંગ-તટસ્થ | વ્યક્તિ</annotation>
 		<annotation cp="🧑" type="tts">વ્યક્તિ</annotation>
-		<annotation cp="👱">પીળાશ પડતાં વાળવાળી વ્યક્તિ | લોકો</annotation>
+		<annotation cp="👱">પીળાશ પડતાં વાળ | પીળાશ પડતાં વાળવાળી વ્યક્તિ | વાળ</annotation>
 		<annotation cp="👱" type="tts">પીળાશ પડતાં વાળવાળી વ્યક્તિ</annotation>
+		<annotation cp="🧑‍🍼">ખોરાક | બળકને ખોરાક આપતી વ્યક્તિ | બાળકને | બાળકને ખોરાક આપતી વ્યક્તિ | વ્યક્તિ | સારવાર કરતી</annotation>
+		<annotation cp="🧑‍🍼" type="tts">બળકને ખોરાક આપતી વ્યક્તિ</annotation>
+		<annotation cp="🧑‍🎄">એમએક્સ ક્લોઝ | ક્લોઝ, નાતાલ</annotation>
+		<annotation cp="🧑‍🎄" type="tts">એમએક્સ ક્લોઝ</annotation>
 		<annotation cp="👨">પુખ્ત | પુરુષ</annotation>
 		<annotation cp="👨" type="tts">પુરુષ</annotation>
-		<annotation cp="👱‍♂">પીળાશ પડતાં વાળવાળો પુરુષ | પુરુષ | સોનેરી વાળવાળું</annotation>
-		<annotation cp="👱‍♂" type="tts">પીળાશ પડતાં વાળવાળો પુરુષ</annotation>
-		<annotation cp="🧔" draft="contributed">દાઢી વાળી વ્યક્તિ</annotation>
-		<annotation cp="🧔" type="tts" draft="contributed">દાઢી વાળી વ્યક્તિ</annotation>
+		<annotation cp="🧔">દાઢી | દાઢી વાળી વ્યક્તિ | પુરુષ | વ્યક્તિ</annotation>
+		<annotation cp="🧔" type="tts">દાઢી વાળી વ્યક્તિ</annotation>
+		<annotation cp="👱‍♂">પીળાશ પડતાં વાળવાળો પુરુષ | પીળાશ પડતો | પુરુષ | પુરુષ: પીળાશ પડતાં વાળ | વાળ</annotation>
+		<annotation cp="👱‍♂" type="tts">પુરુષ: પીળાશ પડતાં વાળ</annotation>
+		<annotation cp="👨‍🍼">ખવડાવતો | બળકની | બળકને ખોરાક આપતો માણસ | માણસ | સારવાર કરતો</annotation>
+		<annotation cp="👨‍🍼" type="tts">બળકને ખોરાક આપતો માણસ</annotation>
 		<annotation cp="👩">પુખ્ત | સ્ત્રી</annotation>
 		<annotation cp="👩" type="tts">સ્ત્રી</annotation>
-		<annotation cp="👱‍♀">પીળાશ પડતાં વાળવાળી સ્ત્રી | સોનેરી વાળવાળું | સ્ત્રી</annotation>
-		<annotation cp="👱‍♀" type="tts">પીળાશ પડતાં વાળવાળી સ્ત્રી</annotation>
+		<annotation cp="👱‍♀">પીળાશ પડતાં વાળવાળી સ્ત્રી | વાળ | સોનેરી વાળવાળી સ્ત્રી | સ્ત્રી | સ્ત્રી: સોનેરી વાળ</annotation>
+		<annotation cp="👱‍♀" type="tts">સ્ત્રી: સોનેરી વાળ</annotation>
+		<annotation cp="👩‍🍼">ખવડાવતી | બળકની | બળકને ખોરાક આપતી સ્ત્રી | સારવાર કરતી | સ્ત્રી</annotation>
+		<annotation cp="👩‍🍼" type="tts">બળકને ખોરાક આપતી સ્ત્રી</annotation>
 		<annotation cp="🧓">અનિર્દિષ્ટ લિંગ | જૂના | જૂની વ્યક્તિ | પુખ્ત | લિંગ-તટસ્થ | વૃદ્ધ વ્યક્તિ</annotation>
 		<annotation cp="🧓" type="tts">વૃદ્ધ વ્યક્તિ</annotation>
 		<annotation cp="👴">પુખ્ત | પુરુષ | વૃદ્ધ</annotation>
 		<annotation cp="👴" type="tts">વૃદ્ધ પુરુષ</annotation>
 		<annotation cp="👵">પુખ્ત | વૃદ્ધ | સ્ત્રી</annotation>
 		<annotation cp="👵" type="tts">વૃદ્ધ સ્ત્રી</annotation>
+		<annotation cp="🙍">ભવાં ચડાવવાં | ભવાં ચડાવેલ વ્યક્તિ | વ્યક્તિ | હાવભાવ</annotation>
+		<annotation cp="🙍" type="tts">ભવાં ચડાવેલ વ્યક્તિ</annotation>
+		<annotation cp="🙍‍♂">પુરુષ | ભવાં ચડાવવાં | ભવાં ચડાવવાંવાળો પુરુષ | હાવભાવ</annotation>
+		<annotation cp="🙍‍♂" type="tts">ભવાં ચડાવવાંવાળો પુરુષ</annotation>
+		<annotation cp="🙍‍♀">ભવાં ચડાવવાં | ભવાં ચડાવવાંવાળી સ્ત્રી | સ્ત્રી | હાવભાવ</annotation>
+		<annotation cp="🙍‍♀" type="tts">ભવાં ચડાવવાંવાળી સ્ત્રી</annotation>
+		<annotation cp="🙎">રિસાતી વ્યક્તિ | રિસાવું | વ્યક્તિ | હાવભાવ</annotation>
+		<annotation cp="🙎" type="tts">રિસાતી વ્યક્તિ</annotation>
+		<annotation cp="🙎‍♂">પુરુષ | રિસાયેલો પુરુષ | રિસાવું | હાવભાવ</annotation>
+		<annotation cp="🙎‍♂" type="tts">રિસાયેલો પુરુષ</annotation>
+		<annotation cp="🙎‍♀">રિસાયેલી સ્ત્રી | રિસાવું | સ્ત્રી | હાવભાવ</annotation>
+		<annotation cp="🙎‍♀" type="tts">રિસાયેલી સ્ત્રી</annotation>
+		<annotation cp="🙅">ચહેરો | નહીં | પ્રતિબંધિત | સારું નથી | સારું નહીંનો હાવભાવ | હાવભાવ</annotation>
+		<annotation cp="🙅" type="tts">સારું નહીંનો હાવભાવ</annotation>
+		<annotation cp="🙅‍♂">ચહેરો | નહીં | પુરુષ | પ્રતિબંધિત | સારું નથી | સારું નહીંનો હાવભાવ પુરુષ | હાવભાવ</annotation>
+		<annotation cp="🙅‍♂" type="tts">સારું નહીંનો હાવભાવ પુરુષ</annotation>
+		<annotation cp="🙅‍♀">ચહેરો | નહીં | પ્રતિબંધિત | સારું નથી | સારું નહીંનો હાવભાવ સ્ત્રી | સ્ત્રી | હાવભાવ</annotation>
+		<annotation cp="🙅‍♀" type="tts">સારું નહીંનો હાવભાવ સ્ત્રી</annotation>
+		<annotation cp="🙆">ઑકે હાવભાવ | ઑકેનો હાવભાવ | ચહેરો | બધું બરાબર છે | હાવભાવ</annotation>
+		<annotation cp="🙆" type="tts">ઑકેનો હાવભાવ</annotation>
+		<annotation cp="🙆‍♂">ઑકે હાવભાવ | ચહેરો | પુરુષ | પુરુષ ઑકેનો હાવભાવ | બધું બરાબર છે | હાવભાવ</annotation>
+		<annotation cp="🙆‍♂" type="tts">પુરુષ ઑકેનો હાવભાવ</annotation>
+		<annotation cp="🙆‍♀">ઑકે હાવભાવ | ચહેરો | બધું બરાબર છે | સ્ત્રી | સ્ત્રી, ઑકેનો હાવભાવ | હાવભાવ</annotation>
+		<annotation cp="🙆‍♀" type="tts">સ્ત્રી, ઑકેનો હાવભાવ</annotation>
+		<annotation cp="💁">માહિતી | માહિતી આપતી વ્યક્તિ | માહિતી ડેસ્ક | લોકો | સહાય</annotation>
+		<annotation cp="💁" type="tts">માહિતી આપતી વ્યક્તિ</annotation>
+		<annotation cp="💁‍♂">પુરુષ | માહિતી | માહિતી આપતો પુરુષ | માહિતી ડેસ્ક | સહાય</annotation>
+		<annotation cp="💁‍♂" type="tts">માહિતી આપતો પુરુષ</annotation>
+		<annotation cp="💁‍♀">માહિતી | માહિતી આપતી સ્ત્રી | માહિતી ડેસ્ક | સહાય | સ્ત્રી</annotation>
+		<annotation cp="💁‍♀" type="tts">માહિતી આપતી સ્ત્રી</annotation>
+		<annotation cp="🙋">ઉપર હાથ ઉઠાવવો | ખુશ | વ્યક્તિ | હાથ ઉપર ઉઠાવતી ખુશ વ્યક્તિ | હાથ ઉપર ઉઠાવેલ વ્યક્તિ | હાવભાવ</annotation>
+		<annotation cp="🙋" type="tts">હાથ ઉપર ઉઠાવતી ખુશ વ્યક્તિ</annotation>
+		<annotation cp="🙋‍♂">ઉપર હાથ ઉઠાવવો | પુરુષ | હાથ ઉપર ઉઠાવતો ખુશ પુરુષ | હાવભાવ</annotation>
+		<annotation cp="🙋‍♂" type="tts">હાથ ઉપર ઉઠાવતો ખુશ પુરુષ</annotation>
+		<annotation cp="🙋‍♀">ઉપર હાથ ઉઠાવવો | સ્ત્રી | હાથ ઉપર ઉઠાવતી ખુશ સ્ત્રી | હાવભાવ</annotation>
+		<annotation cp="🙋‍♀" type="tts">હાથ ઉપર ઉઠાવતી ખુશ સ્ત્રી</annotation>
+		<annotation cp="🧏">ઍક્સેસિબિલિટી | કાન | બધિર | બધિર વ્યક્તિ | સાંભળવું</annotation>
+		<annotation cp="🧏" type="tts">બધિર વ્યક્તિ</annotation>
+		<annotation cp="🧏‍♂">બધિર | બધિર પુરુષ | માણસ</annotation>
+		<annotation cp="🧏‍♂" type="tts">બધિર પુરુષ</annotation>
+		<annotation cp="🧏‍♀">બધિર | સ્ત્રી</annotation>
+		<annotation cp="🧏‍♀" type="tts">બધિર સ્ત્રી</annotation>
+		<annotation cp="🙇">ઊંડેથી નમેલ | નમવું | મને માફ કરશો | માફ કરશો | વંદન કરતી વ્યક્તિ | વ્યક્તિ | હાવભાવ</annotation>
+		<annotation cp="🙇" type="tts">વંદન કરતી વ્યક્તિ</annotation>
+		<annotation cp="🙇‍♂">ઊંડેથી નમેલ | નમવું | પુરુષ | મને માફ કરશો | માફ કરશો | વંદન કરતો પુરુષ | હાવભાવ</annotation>
+		<annotation cp="🙇‍♂" type="tts">વંદન કરતો પુરુષ</annotation>
+		<annotation cp="🙇‍♀">ઊંડેથી નમેલ | નમવું | મને માફ કરશો | માફ કરશો | વંદન કરતી સ્ત્રી | સ્ત્રી | હાવભાવ</annotation>
+		<annotation cp="🙇‍♀" type="tts">વંદન કરતી સ્ત્રી</annotation>
+		<annotation cp="🤦">અવિશ્વાસ | ચહેરો | માથા ઉપર હાથ દેવો | રોષ | હાથ</annotation>
+		<annotation cp="🤦" type="tts">માથા ઉપર હાથ દેવો</annotation>
+		<annotation cp="🤦‍♂">અવિશ્વાસ | પુરુષ | માથા ઉપર હાથ દેતો પુરુષ | માથા ઉપર હાથ દેવો | રોષ | હાથ</annotation>
+		<annotation cp="🤦‍♂" type="tts">માથા ઉપર હાથ દેતો પુરુષ</annotation>
+		<annotation cp="🤦‍♀">અવિશ્વાસ | માથા ઉપર હાથ દેતી સ્ત્રી | માથા ઉપર હાથ દેવો | રોષ | સ્ત્રી | હાથ</annotation>
+		<annotation cp="🤦‍♀" type="tts">માથા ઉપર હાથ દેતી સ્ત્રી</annotation>
+		<annotation cp="🤷">અજ્ઞાન | બેદરકારી | લાપરવાઈ | શંકા</annotation>
+		<annotation cp="🤷" type="tts">બેદરકારી</annotation>
+		<annotation cp="🤷‍♂">અજ્ઞાન | પુરુષ | બેદરકારી | લાપરવાઈ | શંકા</annotation>
+		<annotation cp="🤷‍♂" type="tts">બેદરકારી પુરુષ</annotation>
+		<annotation cp="🤷‍♀">અજ્ઞાન | બેદરકારી | લાપરવાઈ | શંકા | સ્ત્રી</annotation>
+		<annotation cp="🤷‍♀" type="tts">બેદરકારી સ્ત્રી</annotation>
+		<annotation cp="🧑‍⚕">આરોગ્ય કાર્યકર્તા | આરોગ્યસંભાળ | ઉપચારક | ડૉક્ટર | નર્સ</annotation>
+		<annotation cp="🧑‍⚕" type="tts">આરોગ્ય કાર્યકર્તા</annotation>
 		<annotation cp="👨‍⚕">આરોગ્યસંભાળ | ઉપચારક | ડૉક્ટર | નર્સ | પુરુષ | પુરુષ આરોગ્ય કાર્યકર્તા</annotation>
 		<annotation cp="👨‍⚕" type="tts">પુરુષ આરોગ્ય કાર્યકર્તા</annotation>
 		<annotation cp="👩‍⚕">આરોગ્યસંભાળ | ઉપચારક | ડૉક્ટર | નર્સ | સ્ત્રી | સ્ત્રી આરોગ્ય કાર્યકર્તા</annotation>
 		<annotation cp="👩‍⚕" type="tts">સ્ત્રી આરોગ્ય કાર્યકર્તા</annotation>
+		<annotation cp="🧑‍🎓">છાત્ર | સ્નાતક</annotation>
+		<annotation cp="🧑‍🎓" type="tts">છાત્ર</annotation>
 		<annotation cp="👨‍🎓">પુરુષ | વિદ્યાર્થી | સ્નાતક</annotation>
 		<annotation cp="👨‍🎓" type="tts">વિદ્યાર્થી</annotation>
 		<annotation cp="👩‍🎓">વિદ્યાર્થિની | સ્ત્રી | સ્નાતક</annotation>
 		<annotation cp="👩‍🎓" type="tts">વિદ્યાર્થિની</annotation>
+		<annotation cp="🧑‍🏫">અધ્યાપક | પ્રશિક્ષક | પ્રાધ્યાપક | શિક્ષક</annotation>
+		<annotation cp="🧑‍🏫" type="tts">અધ્યાપક</annotation>
 		<annotation cp="👨‍🏫">પુરુષ | પ્રશિક્ષક | પ્રોફેસર | શિક્ષક</annotation>
 		<annotation cp="👨‍🏫" type="tts">શિક્ષક</annotation>
 		<annotation cp="👩‍🏫">પ્રશિક્ષક | પ્રોફેસર | શિક્ષકા | શિક્ષિકા | સ્ત્રી</annotation>
 		<annotation cp="👩‍🏫" type="tts">શિક્ષિકા</annotation>
+		<annotation cp="🧑‍⚖">જજ | ત્રાજવું</annotation>
+		<annotation cp="🧑‍⚖" type="tts">જજ</annotation>
 		<annotation cp="👨‍⚖">તરાજુ | ન્યાય | ન્યાયાધીશ | પુરુષ</annotation>
 		<annotation cp="👨‍⚖" type="tts">ન્યાયાધીશ</annotation>
 		<annotation cp="👩‍⚖">તરાજુ | ન્યાય | સ્ત્રી | સ્ત્રી ન્યાયાધીશ</annotation>
 		<annotation cp="👩‍⚖" type="tts">સ્ત્રી ન્યાયાધીશ</annotation>
+		<annotation cp="🧑‍🌾">કૃષિકાર | માળી | રાંચર</annotation>
+		<annotation cp="🧑‍🌾" type="tts">કૃષિકાર</annotation>
 		<annotation cp="👨‍🌾">ખેડૂત | પુરુષ | માળી | રેન્ચર</annotation>
 		<annotation cp="👨‍🌾" type="tts">ખેડૂત</annotation>
 		<annotation cp="👩‍🌾">ખેડૂત | માળી | રેન્ચર | સ્ત્રી</annotation>
 		<annotation cp="👩‍🌾" type="tts">સ્ત્રી ખેડૂત</annotation>
+		<annotation cp="🧑‍🍳">કૂક | શેફ</annotation>
+		<annotation cp="🧑‍🍳" type="tts">કૂક</annotation>
 		<annotation cp="👨‍🍳">પુરુષ | મહારાજ | રસોઇયો | રસોઈયો</annotation>
 		<annotation cp="👨‍🍳" type="tts">રસોઇયો</annotation>
 		<annotation cp="👩‍🍳">રસોયણ | રાંધવું | સ્ત્રી</annotation>
 		<annotation cp="👩‍🍳" type="tts">રસોયણ</annotation>
+		<annotation cp="🧑‍🔧">ઇલેક્ટ્રિશિયન | પ્લમ્બર | યંત્ર - કારીગર | વેપારી</annotation>
+		<annotation cp="🧑‍🔧" type="tts">યંત્ર - કારીગર</annotation>
 		<annotation cp="👨‍🔧">ઇલેક્ટ્રિશન | કારીગર | પુરુષ | પ્લમ્બર | મેકૅનિક</annotation>
 		<annotation cp="👨‍🔧" type="tts">મેકૅનિક</annotation>
 		<annotation cp="👩‍🔧">ઇલેક્ટ્રિશન | પ્લમ્બર | મેકૅનિક | સ્ત્રી</annotation>
 		<annotation cp="👩‍🔧" type="tts">સ્ત્રી મેકૅનિક</annotation>
+		<annotation cp="🧑‍🏭">એસેમ્બલી | ઔદ્યોગિક | કાર્યકર્તા | ફૅક્ટરી</annotation>
+		<annotation cp="🧑‍🏭" type="tts">ફૅક્ટરી કાર્યકર્તા</annotation>
 		<annotation cp="👨‍🏭">ઔદ્યોગિક | કાર્યકર્તા | પુરુષ | ફૅક્ટરી | મંડલી</annotation>
 		<annotation cp="👨‍🏭" type="tts">પુરુષ ફૅક્ટરી કાર્યકર્તા</annotation>
 		<annotation cp="👩‍🏭">ઔદ્યોગિક | કાર્યકર્તા | ફૅક્ટરી | મંડલી | સ્ત્રી</annotation>
 		<annotation cp="👩‍🏭" type="tts">સ્ત્રી ફૅક્ટરી કાર્યકર્તા</annotation>
+		<annotation cp="🧑‍💼">આર્કિટેક્ટ | ઑફિસ કાર્યકર્તા | વ્યવસાય | વ્હાઇટ-કૉલર | સંચાલક</annotation>
+		<annotation cp="🧑‍💼" type="tts">ઑફિસ કાર્યકર્તા</annotation>
 		<annotation cp="👨‍💼">આર્કિટેક્ટ | ઑફિસ | પુરુષ | પુરુષ ઑફિસ કાર્યકર્તા | વ્યવસાય | સંચાલક</annotation>
 		<annotation cp="👨‍💼" type="tts">પુરુષ ઑફિસ કાર્યકર્તા</annotation>
 		<annotation cp="👩‍💼">આર્કિટેક્ટ | ઑફિસ | વ્યવસાય | સંચાલક | સ્ત્રી | સ્ત્રી ઑફિસ કાર્યકર્તા</annotation>
 		<annotation cp="👩‍💼" type="tts">સ્ત્રી ઑફિસ કાર્યકર્તા</annotation>
+		<annotation cp="🧑‍🔬">એન્જિનિઅર | જીવવિજ્ઞાની | ભૌતિકવિજ્ઞાની | રસાયણશાસ્ત્રી | વિજ્ઞાની | વૈજ્ઞાનિક</annotation>
+		<annotation cp="🧑‍🔬" type="tts">વિજ્ઞાની</annotation>
 		<annotation cp="👨‍🔬">એન્જિનિઅર | ગણિતશાસ્ત્રી | જીવવિજ્ઞાની | પુરુષ | ભૌતિકવિજ્ઞાની | રસાયણશાસ્ત્રી | વૈજ્ઞાનિક</annotation>
 		<annotation cp="👨‍🔬" type="tts">પુરુષ વૈજ્ઞાનિક</annotation>
 		<annotation cp="👩‍🔬">એન્જિનિઅર | ગણિતશાસ્ત્રી | જીવવિજ્ઞાની | ભૌતિકવિજ્ઞાની | રસાયણશાસ્ત્રી | વૈજ્ઞાનિક | સ્ત્રી</annotation>
 		<annotation cp="👩‍🔬" type="tts">સ્ત્રી વૈજ્ઞાનિક</annotation>
+		<annotation cp="🧑‍💻">કોડર | ટેક્નૉલોજિસ્ટ | પ્રૌદ્યોગિકીવિદ્ | વિકાસકર્તા | શોધક | સોફ્ટવેર</annotation>
+		<annotation cp="🧑‍💻" type="tts">પ્રૌદ્યોગિકીવિદ્</annotation>
 		<annotation cp="👨‍💻">કોડર | ટેક્નૉલોજિસ્ટ | પુરુષ | વિકાસકર્તા | શોધક | સોફ્ટવેર</annotation>
 		<annotation cp="👨‍💻" type="tts">પુરુષ ટેક્નૉલોજિસ્ટ</annotation>
 		<annotation cp="👩‍💻">કોડર | ટેક્નૉલોજિસ્ટ | વિકાસકર્તા | શોધક | સોફ્ટવેર | સ્ત્રી</annotation>
 		<annotation cp="👩‍💻" type="tts">સ્ત્રી ટેક્નૉલોજિસ્ટ</annotation>
+		<annotation cp="🧑‍🎤">અભિનેતા | ગાયક | ગીત ગાનાર | મનોરંજનકર્તા | રૉક | સ્ટાર</annotation>
+		<annotation cp="🧑‍🎤" type="tts">ગીત ગાનાર</annotation>
 		<annotation cp="👨‍🎤">અભિનેતા | ગાયક | પુરુષ | મનોરંજનકર્તા | રૉક | સ્ટાર</annotation>
 		<annotation cp="👨‍🎤" type="tts">ગાયક</annotation>
 		<annotation cp="👩‍🎤">અભિનેતા | ગાયિકા | મનોરંજનકર્તા | રૉક | સ્ટાર | સ્ત્રી</annotation>
 		<annotation cp="👩‍🎤" type="tts">ગાયિકા</annotation>
+		<annotation cp="🧑‍🎨">આર્ટિસ્ટ | કલાકાર | પેલેટ</annotation>
+		<annotation cp="🧑‍🎨" type="tts">આર્ટિસ્ટ</annotation>
 		<annotation cp="👨‍🎨">કલાકાર | ચિત્રકાર | પુરુષ</annotation>
 		<annotation cp="👨‍🎨" type="tts">પુરુષ કલાકાર</annotation>
 		<annotation cp="👩‍🎨">કલાકાર | ચિત્રકાર | સ્ત્રી</annotation>
 		<annotation cp="👩‍🎨" type="tts">સ્ત્રી કલાકાર</annotation>
+		<annotation cp="🧑‍✈">પાઇલટ | વિમાન | વિમાન ચાલક</annotation>
+		<annotation cp="🧑‍✈" type="tts">વિમાન ચાલક</annotation>
 		<annotation cp="👨‍✈">પાઇલટ | પુરુષ | વિમાન</annotation>
 		<annotation cp="👨‍✈" type="tts">પુરુષ પાઇલટ</annotation>
 		<annotation cp="👩‍✈">પાઇલટ | વિમાન | સ્ત્રી</annotation>
 		<annotation cp="👩‍✈" type="tts">સ્ત્રી પાઇલટ</annotation>
+		<annotation cp="🧑‍🚀">અંતરીક્ષયાત્રી | અવકાશયાત્રી | રૉકેટ</annotation>
+		<annotation cp="🧑‍🚀" type="tts">અંતરીક્ષયાત્રી</annotation>
 		<annotation cp="👨‍🚀">અવકાશ | અવકાશયાત્રી | પુરુષ | રૉકેટ</annotation>
 		<annotation cp="👨‍🚀" type="tts">પુરુષ અવકાશયાત્રી</annotation>
 		<annotation cp="👩‍🚀">અવકાશ | અવકાશયાત્રી | રૉકેટ | સ્ત્રી</annotation>
 		<annotation cp="👩‍🚀" type="tts">સ્ત્રી અવકાશયાત્રી</annotation>
+		<annotation cp="🧑‍🚒">અગ્નિશામક | આગ બુઝાવનાર | ફાયરટ્રક</annotation>
+		<annotation cp="🧑‍🚒" type="tts">આગ બુઝાવનાર</annotation>
 		<annotation cp="👨‍🚒">અગ્નિશામક | પુરુષ</annotation>
 		<annotation cp="👨‍🚒" type="tts">પુરુષ અગ્નિશામક</annotation>
 		<annotation cp="👩‍🚒">અગ્નિશામક | સ્ત્રી</annotation>
@@ -377,16 +757,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👳‍♀" type="tts">પાઘડી વાળી સ્ત્રી</annotation>
 		<annotation cp="👲">ગુઆ પી માઓ | ગુઆ પી માઓ સાથેનો પુરુષ | ચીની ટોપી સાથેનો પુરુષ | પુરુષ | લોકો</annotation>
 		<annotation cp="👲" type="tts">ચીની ટોપી સાથેનો પુરુષ</annotation>
-		<annotation cp="🧕" draft="contributed">માથાના સ્કાફ સાથે સ્ત્રી</annotation>
-		<annotation cp="🧕" type="tts" draft="contributed">માથાના સ્કાફ સાથે સ્ત્રી</annotation>
-		<annotation cp="🤵">ટક્સીડો | ટક્સીડો પહેરેલો માણસ | માણસ | વરરાજા</annotation>
-		<annotation cp="🤵" type="tts">ટક્સીડો પહેરેલો માણસ</annotation>
-		<annotation cp="👰">ઘૂંઘટ | ઘૂંઘટ તાણેલી નવવધુ | તાણેલી નવવધુ | નવવધુ | લોકો</annotation>
-		<annotation cp="👰" type="tts">તાણેલી નવવધુ</annotation>
+		<annotation cp="🧕">માથાના સ્કાફ સાથે સ્ત્રી</annotation>
+		<annotation cp="🧕" type="tts">માથાના સ્કાફ સાથે સ્ત્રી</annotation>
+		<annotation cp="🤵">ટક્સીડો | ટક્સીડો પહેરેલી વ્યક્તિ | ટક્સીડો પહેરેલો વ્યક્તિ | વરરાજા | વ્યક્તિ</annotation>
+		<annotation cp="🤵" type="tts">ટક્સીડો પહેરેલો વ્યક્તિ</annotation>
+		<annotation cp="🤵‍♀">ટક્સીડો | ટક્સીડો પહેરેલી સ્ત્રી | સ્ત્રી</annotation>
+		<annotation cp="🤵‍♀" type="tts">ટક્સીડો પહેરેલી સ્ત્રી</annotation>
+		<annotation cp="🤵‍♂">ટક્સીડો | ટક્સીડો પહેરેલો પુરુષ | પુરુષ</annotation>
+		<annotation cp="🤵‍♂" type="tts">ટક્સીડો પહેરેલો પુરુષ</annotation>
+		<annotation cp="👰">ઘૂંઘટ | ઘૂંઘટ ઓઢેલી વ્યક્તિ | નવવધૂ | લગ્ન | વ્યક્તિ</annotation>
+		<annotation cp="👰" type="tts">ઘૂંઘટ ઓઢેલી વ્યક્તિ</annotation>
+		<annotation cp="👰‍♀">ઘૂંઘટ | ઘૂંઘટ તાણેલી સ્ત્રી | સ્ત્રી</annotation>
+		<annotation cp="👰‍♀" type="tts">ઘૂંઘટ તાણેલી સ્ત્રી</annotation>
+		<annotation cp="👰‍♂">ઘૂંઘટ | ઘૂંઘટ તાણેલો પુરુષ | પુરુષ</annotation>
+		<annotation cp="👰‍♂" type="tts">ઘૂંઘટ તાણેલો પુરુષ</annotation>
 		<annotation cp="🤰">સગર્ભા | સ્ત્રી</annotation>
 		<annotation cp="🤰" type="tts">સગર્ભા સ્ત્રી</annotation>
 		<annotation cp="🤱">સ્તનપાન</annotation>
-		<annotation cp="🤱" type="tts" draft="contributed">સ્તનપાન</annotation>
+		<annotation cp="🤱" type="tts">સ્તનપાન</annotation>
 		<annotation cp="👼">ચહેરો | દેવદૂત | પરી કથા | બાળ દેવદૂત</annotation>
 		<annotation cp="👼" type="tts">બાળ દેવદૂત</annotation>
 		<annotation cp="🎅">ઉજવણી | નાતાલ | ફાધર ક્રિસમસ | સાંતા | સાંતા ક્લોઝ</annotation>
@@ -395,112 +783,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤶" type="tts">મધર ક્રિસ્મસ</annotation>
 		<annotation cp="🦸">ગુણવાન | સુપરપાવર | સુપરહીરો | હીરો | હીરોઇન</annotation>
 		<annotation cp="🦸" type="tts">સુપરહીરો</annotation>
-		<annotation cp="🦸‍♀">ગુણવાન | સુપરપાવર | સ્ત્રી | સ્ત્રી સુપરહીરો | હીરો | હીરોઇન</annotation>
-		<annotation cp="🦸‍♀" type="tts">સ્ત્રી સુપરહીરો</annotation>
 		<annotation cp="🦸‍♂">ગુણવાન | પુરુષ | પુરુષ સુપરહીરો | સુપરપાવર | હીરો</annotation>
 		<annotation cp="🦸‍♂" type="tts">પુરુષ સુપરહીરો</annotation>
+		<annotation cp="🦸‍♀">ગુણવાન | સુપરપાવર | સ્ત્રી | સ્ત્રી સુપરહીરો | હીરો | હીરોઇન</annotation>
+		<annotation cp="🦸‍♀" type="tts">સ્ત્રી સુપરહીરો</annotation>
 		<annotation cp="🦹">ખલનાયક | ગુનેગાર | દુષ્ટ | વિલન | સુપરપાવર | સુપરવિલન</annotation>
 		<annotation cp="🦹" type="tts">સુપરવિલન</annotation>
-		<annotation cp="🦹‍♀">ખલનાયક | ગુનેગાર | દુષ્ટ | વિલન | સુપરપાવર | સ્ત્રી | સ્ત્રી સુપરવિલન</annotation>
-		<annotation cp="🦹‍♀" type="tts">સ્ત્રી સુપરવિલન</annotation>
 		<annotation cp="🦹‍♂">ખલનાયક | ગુનેગાર | દુષ્ટ | પુરુષ | પુરુષ સુપરવિલન | વિલન | સુપરપાવર</annotation>
 		<annotation cp="🦹‍♂" type="tts">પુરુષ સુપરવિલન</annotation>
+		<annotation cp="🦹‍♀">ખલનાયક | ગુનેગાર | દુષ્ટ | વિલન | સુપરપાવર | સ્ત્રી | સ્ત્રી સુપરવિલન</annotation>
+		<annotation cp="🦹‍♀" type="tts">સ્ત્રી સુપરવિલન</annotation>
 		<annotation cp="🧙">મેજ</annotation>
-		<annotation cp="🧙" type="tts" draft="contributed">મેજ</annotation>
-		<annotation cp="🧙‍♀">સ્ત્રી મેજ</annotation>
-		<annotation cp="🧙‍♀" type="tts" draft="contributed">સ્ત્રી મેજ</annotation>
+		<annotation cp="🧙" type="tts">મેજ</annotation>
 		<annotation cp="🧙‍♂">પુરુષ મેજ</annotation>
-		<annotation cp="🧙‍♂" type="tts" draft="contributed">પુરુષ મેજ</annotation>
+		<annotation cp="🧙‍♂" type="tts">પુરુષ મેજ</annotation>
+		<annotation cp="🧙‍♀">સ્ત્રી મેજ</annotation>
+		<annotation cp="🧙‍♀" type="tts">સ્ત્રી મેજ</annotation>
 		<annotation cp="🧚">પરી</annotation>
-		<annotation cp="🧚" type="tts" draft="contributed">પરી</annotation>
-		<annotation cp="🧚‍♀">સ્ત્રી પરી</annotation>
-		<annotation cp="🧚‍♀" type="tts" draft="contributed">સ્ત્રી પરી</annotation>
+		<annotation cp="🧚" type="tts">પરી</annotation>
 		<annotation cp="🧚‍♂">પુરુષ પરી</annotation>
-		<annotation cp="🧚‍♂" type="tts" draft="contributed">પુરુષ પરી</annotation>
+		<annotation cp="🧚‍♂" type="tts">પુરુષ પરી</annotation>
+		<annotation cp="🧚‍♀">સ્ત્રી પરી</annotation>
+		<annotation cp="🧚‍♀" type="tts">સ્ત્રી પરી</annotation>
 		<annotation cp="🧛">પિચાશ</annotation>
-		<annotation cp="🧛" type="tts" draft="contributed">પિચાશ</annotation>
-		<annotation cp="🧛‍♀">મહિલા પિશાચ</annotation>
-		<annotation cp="🧛‍♀" type="tts" draft="contributed">મહિલા પિશાચ</annotation>
+		<annotation cp="🧛" type="tts">પિચાશ</annotation>
 		<annotation cp="🧛‍♂">પુરુષ પિચાશ</annotation>
-		<annotation cp="🧛‍♂" type="tts" draft="contributed">પુરુષ પિચાશ</annotation>
+		<annotation cp="🧛‍♂" type="tts">પુરુષ પિચાશ</annotation>
+		<annotation cp="🧛‍♀">મહિલા પિશાચ</annotation>
+		<annotation cp="🧛‍♀" type="tts">મહિલા પિશાચ</annotation>
 		<annotation cp="🧜">મરપર્સન</annotation>
-		<annotation cp="🧜" type="tts" draft="contributed">મરપર્સન</annotation>
-		<annotation cp="🧜‍♀">મરમેઈડ</annotation>
-		<annotation cp="🧜‍♀" type="tts" draft="contributed">મરમેઈડ</annotation>
+		<annotation cp="🧜" type="tts">મરપર્સન</annotation>
 		<annotation cp="🧜‍♂">મરમેન</annotation>
-		<annotation cp="🧜‍♂" type="tts" draft="contributed">મરમેન</annotation>
+		<annotation cp="🧜‍♂" type="tts">મરમેન</annotation>
+		<annotation cp="🧜‍♀">મરમેઈડ</annotation>
+		<annotation cp="🧜‍♀" type="tts">મરમેઈડ</annotation>
 		<annotation cp="🧝">ઈલ્ફ</annotation>
-		<annotation cp="🧝" type="tts" draft="contributed">ઈલ્ફ</annotation>
-		<annotation cp="🧝‍♀">સ્ત્રી ઈલ્ફ</annotation>
-		<annotation cp="🧝‍♀" type="tts" draft="contributed">સ્ત્રી ઈલ્ફ</annotation>
+		<annotation cp="🧝" type="tts">ઈલ્ફ</annotation>
 		<annotation cp="🧝‍♂">પુરુષ ઈલ્ફ</annotation>
-		<annotation cp="🧝‍♂" type="tts" draft="contributed">પુરુષ ઈલ્ફ</annotation>
+		<annotation cp="🧝‍♂" type="tts">પુરુષ ઈલ્ફ</annotation>
+		<annotation cp="🧝‍♀">સ્ત્રી ઈલ્ફ</annotation>
+		<annotation cp="🧝‍♀" type="tts">સ્ત્રી ઈલ્ફ</annotation>
 		<annotation cp="🧞">જીની</annotation>
-		<annotation cp="🧞" type="tts" draft="contributed">જીની</annotation>
-		<annotation cp="🧞‍♀">સ્ત્રી જીની</annotation>
-		<annotation cp="🧞‍♀" type="tts" draft="contributed">સ્ત્રી જીની</annotation>
+		<annotation cp="🧞" type="tts">જીની</annotation>
 		<annotation cp="🧞‍♂">પુરુષ જીની</annotation>
-		<annotation cp="🧞‍♂" type="tts" draft="contributed">પુરુષ જીની</annotation>
+		<annotation cp="🧞‍♂" type="tts">પુરુષ જીની</annotation>
+		<annotation cp="🧞‍♀">સ્ત્રી જીની</annotation>
+		<annotation cp="🧞‍♀" type="tts">સ્ત્રી જીની</annotation>
 		<annotation cp="🧟">ઝોમ્બી</annotation>
-		<annotation cp="🧟" type="tts" draft="contributed">ઝોમ્બી</annotation>
-		<annotation cp="🧟‍♀">સ્ત્રી ઝોમ્બી</annotation>
-		<annotation cp="🧟‍♀" type="tts" draft="contributed">સ્ત્રી ઝોમ્બી</annotation>
+		<annotation cp="🧟" type="tts">ઝોમ્બી</annotation>
 		<annotation cp="🧟‍♂">પુરુષ ઝોમ્બી</annotation>
-		<annotation cp="🧟‍♂" type="tts" draft="contributed">પુરુષ ઝોમ્બી</annotation>
-		<annotation cp="🙍">ભવાં ચડાવવાં | ભવાં ચડાવેલ વ્યક્તિ | વ્યક્તિ | હાવભાવ</annotation>
-		<annotation cp="🙍" type="tts">ભવાં ચડાવેલ વ્યક્તિ</annotation>
-		<annotation cp="🙍‍♂">પુરુષ | ભવાં ચડાવવાં | ભવાં ચડાવવાંવાળો પુરુષ | હાવભાવ</annotation>
-		<annotation cp="🙍‍♂" type="tts">ભવાં ચડાવવાંવાળો પુરુષ</annotation>
-		<annotation cp="🙍‍♀">ભવાં ચડાવવાં | ભવાં ચડાવવાંવાળી સ્ત્રી | સ્ત્રી | હાવભાવ</annotation>
-		<annotation cp="🙍‍♀" type="tts">ભવાં ચડાવવાંવાળી સ્ત્રી</annotation>
-		<annotation cp="🙎">રિસાતી વ્યક્તિ | રિસાવું | વ્યક્તિ | હાવભાવ</annotation>
-		<annotation cp="🙎" type="tts">રિસાતી વ્યક્તિ</annotation>
-		<annotation cp="🙎‍♂">પુરુષ | રિસાયેલો પુરુષ | રિસાવું | હાવભાવ</annotation>
-		<annotation cp="🙎‍♂" type="tts">રિસાયેલો પુરુષ</annotation>
-		<annotation cp="🙎‍♀">રિસાયેલી સ્ત્રી | રિસાવું | સ્ત્રી | હાવભાવ</annotation>
-		<annotation cp="🙎‍♀" type="tts">રિસાયેલી સ્ત્રી</annotation>
-		<annotation cp="🙅">ચહેરો | નહીં | પ્રતિબંધિત | સારું નથી | સારું નહીંનો હાવભાવ | હાવભાવ</annotation>
-		<annotation cp="🙅" type="tts">સારું નહીંનો હાવભાવ</annotation>
-		<annotation cp="🙅‍♂">ચહેરો | નહીં | પુરુષ | પ્રતિબંધિત | સારું નથી | સારું નહીંનો હાવભાવ પુરુષ | હાવભાવ</annotation>
-		<annotation cp="🙅‍♂" type="tts">સારું નહીંનો હાવભાવ પુરુષ</annotation>
-		<annotation cp="🙅‍♀">ચહેરો | નહીં | પ્રતિબંધિત | સારું નથી | સારું નહીંનો હાવભાવ સ્ત્રી | સ્ત્રી | હાવભાવ</annotation>
-		<annotation cp="🙅‍♀" type="tts">સારું નહીંનો હાવભાવ સ્ત્રી</annotation>
-		<annotation cp="🙆">ઑકે હાવભાવ | ઑકેનો હાવભાવ | ચહેરો | બધું બરાબર છે | હાવભાવ</annotation>
-		<annotation cp="🙆" type="tts">ઑકેનો હાવભાવ</annotation>
-		<annotation cp="🙆‍♂">ઑકે હાવભાવ | ચહેરો | પુરુષ | પુરુષ ઑકેનો હાવભાવ | બધું બરાબર છે | હાવભાવ</annotation>
-		<annotation cp="🙆‍♂" type="tts">પુરુષ ઑકેનો હાવભાવ</annotation>
-		<annotation cp="🙆‍♀">ઑકે હાવભાવ | ચહેરો | બધું બરાબર છે | સ્ત્રી | સ્ત્રી, ઑકેનો હાવભાવ | હાવભાવ</annotation>
-		<annotation cp="🙆‍♀" type="tts">સ્ત્રી, ઑકેનો હાવભાવ</annotation>
-		<annotation cp="💁">માહિતી | માહિતી આપતી વ્યક્તિ | માહિતી ડેસ્ક | લોકો | સહાય</annotation>
-		<annotation cp="💁" type="tts">માહિતી આપતી વ્યક્તિ</annotation>
-		<annotation cp="💁‍♂">પુરુષ | માહિતી | માહિતી આપતો પુરુષ | માહિતી ડેસ્ક | સહાય</annotation>
-		<annotation cp="💁‍♂" type="tts">માહિતી આપતો પુરુષ</annotation>
-		<annotation cp="💁‍♀">માહિતી | માહિતી આપતી સ્ત્રી | માહિતી ડેસ્ક | સહાય | સ્ત્રી</annotation>
-		<annotation cp="💁‍♀" type="tts">માહિતી આપતી સ્ત્રી</annotation>
-		<annotation cp="🙋">ઉપર હાથ ઉઠાવવો | ખુશ | વ્યક્તિ | હાથ ઉપર ઉઠાવતી ખુશ વ્યક્તિ | હાથ ઉપર ઉઠાવેલ વ્યક્તિ | હાવભાવ</annotation>
-		<annotation cp="🙋" type="tts">હાથ ઉપર ઉઠાવતી ખુશ વ્યક્તિ</annotation>
-		<annotation cp="🙋‍♂">ઉપર હાથ ઉઠાવવો | પુરુષ | હાથ ઉપર ઉઠાવતો ખુશ પુરુષ | હાવભાવ</annotation>
-		<annotation cp="🙋‍♂" type="tts">હાથ ઉપર ઉઠાવતો ખુશ પુરુષ</annotation>
-		<annotation cp="🙋‍♀">ઉપર હાથ ઉઠાવવો | સ્ત્રી | હાથ ઉપર ઉઠાવતી ખુશ સ્ત્રી | હાવભાવ</annotation>
-		<annotation cp="🙋‍♀" type="tts">હાથ ઉપર ઉઠાવતી ખુશ સ્ત્રી</annotation>
-		<annotation cp="🙇">ઊંડેથી નમેલ | નમવું | મને માફ કરશો | માફ કરશો | વંદન કરતી વ્યક્તિ | વ્યક્તિ | હાવભાવ</annotation>
-		<annotation cp="🙇" type="tts">વંદન કરતી વ્યક્તિ</annotation>
-		<annotation cp="🙇‍♂">ઊંડેથી નમેલ | નમવું | પુરુષ | મને માફ કરશો | માફ કરશો | વંદન કરતો પુરુષ | હાવભાવ</annotation>
-		<annotation cp="🙇‍♂" type="tts">વંદન કરતો પુરુષ</annotation>
-		<annotation cp="🙇‍♀">ઊંડેથી નમેલ | નમવું | મને માફ કરશો | માફ કરશો | વંદન કરતી સ્ત્રી | સ્ત્રી | હાવભાવ</annotation>
-		<annotation cp="🙇‍♀" type="tts">વંદન કરતી સ્ત્રી</annotation>
-		<annotation cp="🤦">અવિશ્વાસ | ચહેરો | માથા ઉપર હાથ દેવો | રોષ | હાથ</annotation>
-		<annotation cp="🤦" type="tts">માથા ઉપર હાથ દેવો</annotation>
-		<annotation cp="🤦‍♂">અવિશ્વાસ | પુરુષ | માથા ઉપર હાથ દેતો પુરુષ | માથા ઉપર હાથ દેવો | રોષ | હાથ</annotation>
-		<annotation cp="🤦‍♂" type="tts">માથા ઉપર હાથ દેતો પુરુષ</annotation>
-		<annotation cp="🤦‍♀">અવિશ્વાસ | માથા ઉપર હાથ દેતી સ્ત્રી | માથા ઉપર હાથ દેવો | રોષ | સ્ત્રી | હાથ</annotation>
-		<annotation cp="🤦‍♀" type="tts">માથા ઉપર હાથ દેતી સ્ત્રી</annotation>
-		<annotation cp="🤷">અજ્ઞાન | બેદરકારી | લાપરવાઈ | શંકા</annotation>
-		<annotation cp="🤷" type="tts">બેદરકારી</annotation>
-		<annotation cp="🤷‍♂">અજ્ઞાન | પુરુષ | બેદરકારી | લાપરવાઈ | શંકા</annotation>
-		<annotation cp="🤷‍♂" type="tts">બેદરકારી પુરુષ</annotation>
-		<annotation cp="🤷‍♀">અજ્ઞાન | બેદરકારી | લાપરવાઈ | શંકા | સ્ત્રી</annotation>
-		<annotation cp="🤷‍♀" type="tts">બેદરકારી સ્ત્રી</annotation>
+		<annotation cp="🧟‍♂" type="tts">પુરુષ ઝોમ્બી</annotation>
+		<annotation cp="🧟‍♀">સ્ત્રી ઝોમ્બી</annotation>
+		<annotation cp="🧟‍♀" type="tts">સ્ત્રી ઝોમ્બી</annotation>
 		<annotation cp="💆">ફેસ મસાજ | મસાજ | સલુન</annotation>
 		<annotation cp="💆" type="tts">ફેસ મસાજ</annotation>
 		<annotation cp="💆‍♂">ચહેરો | પુરુષ | ફેસ મસાજ લેતો પુરુષ | મસાજ</annotation>
@@ -519,6 +853,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">પદયાત્રી કરતો પુરુષ</annotation>
 		<annotation cp="🚶‍♀">ચાલવું | પદયાત્રી કરતી સ્ત્રી | સ્ત્રી | હાઈક</annotation>
 		<annotation cp="🚶‍♀" type="tts">પદયાત્રી કરતી સ્ત્રી</annotation>
+		<annotation cp="🧍">ઊભા રહો | ઊભું | ઊભેલી વ્યક્તિ</annotation>
+		<annotation cp="🧍" type="tts">ઊભેલી વ્યક્તિ</annotation>
+		<annotation cp="🧍‍♂">ઊભો | ઊભો રહેલો પુરુષ | પુરુષ</annotation>
+		<annotation cp="🧍‍♂" type="tts">ઊભો રહેલો પુરુષ</annotation>
+		<annotation cp="🧍‍♀">ઊભી | ઊભી રહેલી સ્ત્રી | સ્ત્રી</annotation>
+		<annotation cp="🧍‍♀" type="tts">ઊભી રહેલી સ્ત્રી</annotation>
+		<annotation cp="🧎">ઘૂંટણ | ઘૂંટણ વાળીને બેસેલી વ્યક્તિ | ઘૂંટણિયે પડવું</annotation>
+		<annotation cp="🧎" type="tts">ઘૂંટણ વાળીને બેસેલી વ્યક્તિ</annotation>
+		<annotation cp="🧎‍♂">ઘૂંટણિયે બેસવું | ઘૂંટણિયે બેસેલો માણસ | પુરુષ</annotation>
+		<annotation cp="🧎‍♂" type="tts">ઘૂંટણિયે બેસેલો માણસ</annotation>
+		<annotation cp="🧎‍♀">ઘૂંટણ વાળીને બેસેલી સ્ત્રી | ઘૂંટણિયે બેસવું | સ્ત્રી</annotation>
+		<annotation cp="🧎‍♀" type="tts">ઘૂંટણ વાળીને બેસેલી સ્ત્રી</annotation>
+		<annotation cp="🧑‍🦯">અંધ | ઍક્સેસિબિલિટી | પ્રોબિંગ કૅન સાથેની વ્યક્તિ</annotation>
+		<annotation cp="🧑‍🦯" type="tts">પ્રોબિંગ કૅન સાથેની વ્યક્તિ</annotation>
+		<annotation cp="👨‍🦯">ઍક્સેસિબિલિટી | તપાસ માટેની લાકડી સાથે પુરુષ | દિવ્યાંગ | પુરુષ</annotation>
+		<annotation cp="👨‍🦯" type="tts">તપાસ માટેની લાકડી સાથે પુરુષ</annotation>
+		<annotation cp="👩‍🦯">ઍક્સેસિબિલિટી | તપાસ માટેની લાકડી સાથે સ્ત્રી | દિવ્યાંગ | સ્ત્રી</annotation>
+		<annotation cp="👩‍🦯" type="tts">તપાસ માટેની લાકડી સાથે સ્ત્રી</annotation>
+		<annotation cp="🧑‍🦼">ઍક્સેસિબિલિટી | મોટરથી ચાલતી વ્હીલચેરમાં બેઠેલી વ્યક્તિ | વ્હીલચેર</annotation>
+		<annotation cp="🧑‍🦼" type="tts">મોટરથી ચાલતી વ્હીલચેરમાં બેઠેલી વ્યક્તિ</annotation>
+		<annotation cp="👨‍🦼">ઍક્સેસિબિલિટી | દિવ્યાંગ | પુરુષ | મશીનથી ચાલતી વ્હીલચેરમાં પુરુષ | વ્હીલચેર</annotation>
+		<annotation cp="👨‍🦼" type="tts">મશીનથી ચાલતી વ્હીલચેરમાં પુરુષ</annotation>
+		<annotation cp="👩‍🦼">ઍક્સેસિબિલિટી | મશીનથી ચાલતી વ્હીલચેરમાં સ્ત્રી | વ્હીલચેર | સ્ત્રી</annotation>
+		<annotation cp="👩‍🦼" type="tts">મશીનથી ચાલતી વ્હીલચેરમાં સ્ત્રી</annotation>
+		<annotation cp="🧑‍🦽">ઍક્સેસિબિલિટી | વ્હીલચેર | હાથેથી ચલાવવાની વ્હીલચેરમાં બેઠેલી વ્યક્તિ</annotation>
+		<annotation cp="🧑‍🦽" type="tts">હાથેથી ચલાવવાની વ્હીલચેરમાં બેઠેલી વ્યક્તિ</annotation>
+		<annotation cp="👨‍🦽">ઍક્સેસિબિલિટી | પુરુષ | વ્હીલચેર | હાથથી ચાલતી વ્હીલચેરમાં પુરુષ</annotation>
+		<annotation cp="👨‍🦽" type="tts">હાથથી ચાલતી વ્હીલચેરમાં પુરુષ</annotation>
+		<annotation cp="👩‍🦽">ઍક્સેસિબિલિટી | વ્હીલચેર | સ્ત્રી | હાથથી ચાલતી વ્હીલચેરમાં સ્ત્રી</annotation>
+		<annotation cp="👩‍🦽" type="tts">હાથથી ચાલતી વ્હીલચેરમાં સ્ત્રી</annotation>
 		<annotation cp="🏃">ખેલ કૂદ | દોડ | દોડવીર | મેરાથોન</annotation>
 		<annotation cp="🏃" type="tts">દોડવીર</annotation>
 		<annotation cp="🏃‍♂">ખેલ કૂદ | દોડ | દોડતો પુરુષ | પુરુષ | મેરાથોન</annotation>
@@ -529,6 +893,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💃" type="tts">નૃત્યાંગના</annotation>
 		<annotation cp="🕺">ડાન્સ | ડાન્સ કરતો માણસ | માણસ</annotation>
 		<annotation cp="🕺" type="tts">ડાન્સ કરતો માણસ</annotation>
+		<annotation cp="🕴">પુરુષ | બિઝનેસ | વેપાર | વ્યવસાય | સૂટ | સૂટવાળો વ્યક્તિ</annotation>
+		<annotation cp="🕴" type="tts">સૂટવાળો વ્યક્તિ</annotation>
 		<annotation cp="👯">છોકરી | નૃત્યાંગના | પાર્ટી કરતી સ્ત્રીઓ | લોકો | સસલા જેવા કાન | સસલા જેવી લાગતી છોકરી | સ્ત્રી</annotation>
 		<annotation cp="👯" type="tts">પાર્ટી કરતી સ્ત્રીઓ</annotation>
 		<annotation cp="👯‍♂">ડાન્સર | નૃત્યાંગના | પાર્ટી | પાર્ટી કરતા પુરુષો | પુરુષો | સસલા જેવા કાન</annotation>
@@ -537,34 +903,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👯‍♀" type="tts">સ્ત્રીઓ પાર્ટી કરે છે</annotation>
 		<annotation cp="🧖">બાફવાળા રૂમમાં વ્યક્તિ | સૉના | સ્ટીમ રૂમ</annotation>
 		<annotation cp="🧖" type="tts">બાફવાળા રૂમમાં વ્યક્તિ</annotation>
-		<annotation cp="🧖‍♀">સૉના | સ્ટીમ રૂમ | સ્ટીમી રૂમમાં સ્ત્રી</annotation>
-		<annotation cp="🧖‍♀" type="tts">સ્ટીમી રૂમમાં સ્ત્રી</annotation>
 		<annotation cp="🧖‍♂">સૉના | સ્ટીમ રૂમ | સ્ટીમવાળા રૂમમાં પુરુષ</annotation>
 		<annotation cp="🧖‍♂" type="tts">સ્ટીમવાળા રૂમમાં પુરુષ</annotation>
+		<annotation cp="🧖‍♀">સૉના | સ્ટીમ રૂમ | સ્ટીમી રૂમમાં સ્ત્રી</annotation>
+		<annotation cp="🧖‍♀" type="tts">સ્ટીમી રૂમમાં સ્ત્રી</annotation>
 		<annotation cp="🧗">ઉપર ચઢનાર | વ્યક્તિ ચઢાઈ પર</annotation>
 		<annotation cp="🧗" type="tts">વ્યક્તિ ચઢાઈ પર</annotation>
-		<annotation cp="🧗‍♀">ઉપર ચઢનાર | સ્ત્રી ચઢાઈ પર</annotation>
-		<annotation cp="🧗‍♀" type="tts">સ્ત્રી ચઢાઈ પર</annotation>
 		<annotation cp="🧗‍♂">ઉપર ચઢનાર | પુરુષ ચઢાઈ પર</annotation>
 		<annotation cp="🧗‍♂" type="tts">પુરુષ ચઢાઈ પર</annotation>
-		<annotation cp="🧘">ધ્યાન | યોગ | વ્યક્તિ કમળ જેવી સ્થિતિમાં</annotation>
-		<annotation cp="🧘" type="tts">વ્યક્તિ કમળ જેવી સ્થિતિમાં</annotation>
-		<annotation cp="🧘‍♀">ધ્યાન | યોગ | સ્ત્રી કમળ જેવી સ્થિતિમાં</annotation>
-		<annotation cp="🧘‍♀" type="tts">સ્ત્રી કમળ જેવી સ્થિતિમાં</annotation>
-		<annotation cp="🧘‍♂">ધ્યાન | પુરુષ કમળ જેવી સ્થિતિમાં | યોગ</annotation>
-		<annotation cp="🧘‍♂" type="tts">પુરુષ કમળ જેવી સ્થિતિમાં</annotation>
-		<annotation cp="🛀">સ્નાન | સ્નાન કરતી વ્યક્તિ</annotation>
-		<annotation cp="🛀" type="tts">સ્નાન કરતી વ્યક્તિ</annotation>
-		<annotation cp="🛌">ઊંઘ | નિંદ્રા | પથારીમાં સૂતી વ્યક્તિ | હોટલ</annotation>
-		<annotation cp="🛌" type="tts">પથારીમાં સૂતી વ્યક્તિ</annotation>
-		<annotation cp="🕴">પુરુષ | બિઝનેસ | વેપાર | વ્યવસાય | સૂટ | સૂટવાળો વ્યક્તિ</annotation>
-		<annotation cp="🕴" type="tts">સૂટવાળો વ્યક્તિ</annotation>
-		<annotation cp="🗣">પાર્શ્વ ચિત્ર | બોલતો ચહેરો | બોલવું | બોલો | માથું | મુખ</annotation>
-		<annotation cp="🗣" type="tts">બોલતો ચહેરો</annotation>
-		<annotation cp="👤">પાર્શ્વચિત્ર | પેટથી ઉપલા ભાગનું પાર્શ્વચિત્ર | પેટથી ઉપલો ભાગ | લોકો</annotation>
-		<annotation cp="👤" type="tts">પેટથી ઉપલા ભાગનું પાર્શ્વચિત્ર</annotation>
-		<annotation cp="👥">પાર્શ્વચિત્ર | પેટથી ઉપલા ભાગના પાર્શ્વચિત્ર | પેટથી ઉપલા ભાગનું પાર્શ્વચિત્ર | પેટથી ઉપલો ભાગ | લોકો</annotation>
-		<annotation cp="👥" type="tts">પેટથી ઉપલા ભાગના પાર્શ્વચિત્ર</annotation>
+		<annotation cp="🧗‍♀">ઉપર ચઢનાર | સ્ત્રી ચઢાઈ પર</annotation>
+		<annotation cp="🧗‍♀" type="tts">સ્ત્રી ચઢાઈ પર</annotation>
 		<annotation cp="🤺">તલવાર | ફેન્સર | ફેન્સિંગ | માણસ | સ્પૉર્ટ</annotation>
 		<annotation cp="🤺" type="tts">ફેન્સર</annotation>
 		<annotation cp="🏇">ખેલ કૂદ | ઘોડા દોડ | ઘોડો | જોકી | દોડ | રેસનો ઘોડો</annotation>
@@ -621,12 +969,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">પર્વત ઉપર બાઇસિકલ ચલાવતો પુરુષ</annotation>
 		<annotation cp="🚵‍♀">પર્વત | પર્વત ઉપર બાઇસિકલ ચલાવતી સ્ત્રી | બાઇકિ | બાઇસિકલ | સાઇક્લિસ્ટ | સ્ત્રી</annotation>
 		<annotation cp="🚵‍♀" type="tts">પર્વત ઉપર બાઇસિકલ ચલાવતી સ્ત્રી</annotation>
-		<annotation cp="🏎">કાર | રેસિંગ</annotation>
-		<annotation cp="🏎" type="tts">રેસિંગ કાર</annotation>
-		<annotation cp="🏍">મોટરસાયકલ | રેસિંગ</annotation>
-		<annotation cp="🏍" type="tts">મોટરસાયકલ</annotation>
-		<annotation cp="🤸">કાર્ટવ્હીલ | જિમ્નેસ્ટિક્સ | માણસ | સ્પૉર્ટ</annotation>
-		<annotation cp="🤸" type="tts">કાર્ટવ્હીલ</annotation>
+		<annotation cp="🤸">કાર્ટવ્હીલ | કાર્ટવ્હીલ કરતી વ્યક્તિ | જિમ્નેસ્ટિક્સ | માણસ | સ્પૉર્ટ</annotation>
+		<annotation cp="🤸" type="tts">કાર્ટવ્હીલ કરતી વ્યક્તિ</annotation>
 		<annotation cp="🤸‍♂">કાર્ટવ્હીલ | કાર્ટવ્હીલ કરતો પુરુષ | જિમ્નેસ્ટિક્સ | પુરુષ | માણસ | સ્પૉર્ટ</annotation>
 		<annotation cp="🤸‍♂" type="tts">કાર્ટવ્હીલ કરતો પુરુષ</annotation>
 		<annotation cp="🤸‍♀">કાર્ટવ્હીલ | કાર્ટવ્હીલ કરતી સ્ત્રી | જિમ્નેસ્ટિક્સ | માણસ | સ્ત્રી | સ્પૉર્ટ</annotation>
@@ -655,110 +999,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤹‍♂" type="tts">જગલિંગ કરતો પુરુષ</annotation>
 		<annotation cp="🤹‍♀">જગલિંગ | જગલિંગ કરતી સ્ત્રી | મલ્ટીટાસ્ક | સ્ત્રી</annotation>
 		<annotation cp="🤹‍♀" type="tts">જગલિંગ કરતી સ્ત્રી</annotation>
-		<annotation cp="👫">એકબીજાનાં હાથ પકડવા | એકબીજાનાં હાથ પકડેલ પુરુષ અને સ્ત્રી | પુરુષ | પુરુષ અને સ્ત્રી | યુગલ | લોકો | સ્ત્રી</annotation>
-		<annotation cp="👫" type="tts">એકબીજાનાં હાથ પકડેલ પુરુષ અને સ્ત્રી</annotation>
-		<annotation cp="👬">એકબીજાના હાથ પકડેલા બે પુરુષો | પુરુષ | બે પુરુષ | યુગલ | લોકો | હાથ પકડવા</annotation>
-		<annotation cp="👬" type="tts">એકબીજાના હાથ પકડેલા બે પુરુષો</annotation>
+		<annotation cp="🧘">ધ્યાન | યોગ | વ્યક્તિ કમળ જેવી સ્થિતિમાં</annotation>
+		<annotation cp="🧘" type="tts">વ્યક્તિ કમળ જેવી સ્થિતિમાં</annotation>
+		<annotation cp="🧘‍♂">ધ્યાન | પુરુષ કમળ જેવી સ્થિતિમાં | યોગ</annotation>
+		<annotation cp="🧘‍♂" type="tts">પુરુષ કમળ જેવી સ્થિતિમાં</annotation>
+		<annotation cp="🧘‍♀">ધ્યાન | યોગ | સ્ત્રી કમળ જેવી સ્થિતિમાં</annotation>
+		<annotation cp="🧘‍♀" type="tts">સ્ત્રી કમળ જેવી સ્થિતિમાં</annotation>
+		<annotation cp="🛀">સ્નાન | સ્નાન કરતી વ્યક્તિ</annotation>
+		<annotation cp="🛀" type="tts">સ્નાન કરતી વ્યક્તિ</annotation>
+		<annotation cp="🛌">ઊંઘ | નિંદ્રા | પથારીમાં સૂતી વ્યક્તિ | હોટલ</annotation>
+		<annotation cp="🛌" type="tts">પથારીમાં સૂતી વ્યક્તિ</annotation>
+		<annotation cp="🧑‍🤝‍🧑">દંપતી | પકડવા | વ્યક્તિ | હાથ | હાથ પકડેલા | હાથ પકડેલા લોકો</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">હાથ પકડેલા લોકો</annotation>
 		<annotation cp="👭">એકબીજાનાં હાથ પકડેલી બે સ્ત્રીઓ | બે સ્ત્રી | યુગલ | લોકો | સ્ત્રી | હાથ પકડવા</annotation>
 		<annotation cp="👭" type="tts">એકબીજાનાં હાથ પકડેલી બે સ્ત્રીઓ</annotation>
+		<annotation cp="👫">એકબીજાનાં હાથ પકડવા | એકબીજાનાં હાથ પકડેલ પુરુષ અને સ્ત્રી | પુરુષ | પુરુષ અને સ્ત્રી | યુગલ | લોકો | સ્ત્રી</annotation>
+		<annotation cp="👫" type="tts">એકબીજાનાં હાથ પકડેલ પુરુષ અને સ્ત્રી</annotation>
+		<annotation cp="👬">એકબીજાના હાથ પકડેલા બે પુરુષો | જોડિયા | પુરુષ | બે પુરુષ | યુગલ | રાશિ | હાથ પકડવા</annotation>
+		<annotation cp="👬" type="tts">એકબીજાના હાથ પકડેલા બે પુરુષો</annotation>
 		<annotation cp="💏">ચુંબન | ચુંબન કરતાં | રોમાંસ | લોકો</annotation>
 		<annotation cp="💏" type="tts">ચુંબન</annotation>
 		<annotation cp="💑">દિલ | દિલ સાથેનું યુગલ | યુગલ | રોમાંસ | લોકો</annotation>
 		<annotation cp="💑" type="tts">દિલ સાથેનું યુગલ</annotation>
 		<annotation cp="👪">કુટુંબ | પિતા | બાળક | માતા | લોકો</annotation>
 		<annotation cp="👪" type="tts">કુટુંબ</annotation>
-		<annotation cp="🤳">કૅમરા | ફોન | સેલ્ફી</annotation>
-		<annotation cp="🤳" type="tts">સેલ્ફી</annotation>
-		<annotation cp="💪">ફલેક્સ | બાવડુ | મજબૂત | રમૂજી | સ્નાયુ</annotation>
-		<annotation cp="💪" type="tts">બાવડુ</annotation>
-		<annotation cp="🦵" draft="contributed">પગ</annotation>
-		<annotation cp="🦵" type="tts" draft="contributed">પગ</annotation>
-		<annotation cp="🦶" draft="contributed">પંજો</annotation>
-		<annotation cp="🦶" type="tts" draft="contributed">પંજો</annotation>
-		<annotation cp="👈">આંગળી | ડાબી આંગળી | ડાબી બાજુ ચીંધતી આંગળી | પહેલી આંગળી | હાથનો પાછલો ભાગ</annotation>
-		<annotation cp="👈" type="tts">ડાબી બાજુ ચીંધતી આંગળી</annotation>
-		<annotation cp="👉">આંગળી | જમણી આંગળી | જમણી બાજુ ચીંધતી આંગળી | પહેલી આંગળી | હાથનો પાછલો ભાગ</annotation>
-		<annotation cp="👉" type="tts">જમણી બાજુ ચીંધતી આંગળી</annotation>
-		<annotation cp="☝">આંગળી | ઉપર | ઉપર ચીંધતી તર્જની | ચીંધતી | પ્રથમ આંગળી | શરીર | હાથ</annotation>
-		<annotation cp="☝" type="tts">ઉપર ચીંધતી તર્જની</annotation>
-		<annotation cp="👆">આંગળી | ઉપર આંગળી | ઉપરની બાજુ ચીંધાયેલી આંગળી | પહેલી આંગળી | હાથની પાછલી બાજુએથી ઉપર ચીંધતી તર્જની | હાથનો પાછલો ભાગ</annotation>
-		<annotation cp="👆" type="tts">હાથની પાછલી બાજુએથી ઉપર ચીંધતી તર્જની</annotation>
-		<annotation cp="🖕">આંગળી | મધ્યમા | વચલી આંગળી | વચ્ચેની આંગળી | શરીર | હાથ</annotation>
-		<annotation cp="🖕" type="tts">મધ્યમા</annotation>
-		<annotation cp="👇">આંગળી | નીચી આંગળી | નીચેની બાજુ ચીંધાયેલી આંગળી | પહેલી આંગળી | હાથની પાછલી બાજુએથી નીચે ચીંધતી તર્જની | હાથનો પાછલો ભાગ</annotation>
-		<annotation cp="👇" type="tts">હાથની પાછલી બાજુએથી નીચે ચીંધતી તર્જની</annotation>
-		<annotation cp="✌">કાતર | વિજય | વિજયનું ચિહ્ન | વિજયી હાથ</annotation>
-		<annotation cp="✌" type="tts">વિજયનું ચિહ્ન</annotation>
-		<annotation cp="🤞">ક્રૉસ | ક્રૉસ્ડ ફિંગર્સ | ફિંગર | ભાગ્ય | હાથ</annotation>
-		<annotation cp="🤞" type="tts">ક્રૉસ્ડ ફિંગર્સ</annotation>
-		<annotation cp="🖖">આંગળી | વલ્કન | શરીર | સેલ્યુટની એક રીત | સ્પોઅક | હાથ</annotation>
-		<annotation cp="🖖" type="tts">સેલ્યુટની એક રીત</annotation>
-		<annotation cp="🤘">આંગળી | રોક-ઑન | શરીર | શિંગડાં | શિંગડાનું ચિહ્ન | હાથ</annotation>
-		<annotation cp="🤘" type="tts">શિંગડાનું ચિહ્ન</annotation>
-		<annotation cp="🤙">કૉલ | મને કૉલ કરો હાથ | હાથ</annotation>
-		<annotation cp="🤙" type="tts">મને કૉલ કરો હાથ</annotation>
-		<annotation cp="🖐">આંગળી | ફેલાવેલી આંગળી વાળો ઉઠાવેલો હાથ | ફેલાવેલું | શરીર | હાથ</annotation>
-		<annotation cp="🖐" type="tts">ફેલાવેલી આંગળી વાળો ઉઠાવેલો હાથ</annotation>
-		<annotation cp="✋">ઉઠાવેલો હાથ | હાથ</annotation>
-		<annotation cp="✋" type="tts">ઉઠાવેલો હાથ</annotation>
-		<annotation cp="👌">ચિહ્ન | બરાબર | હાથ</annotation>
-		<annotation cp="👌" type="tts">બરાબર ચિહ્ન</annotation>
-		<annotation cp="👍">અંગુઠો | ઉંચો | ચિહ્ન | થમ્બ્સ અપ | હાથ</annotation>
-		<annotation cp="👍" type="tts">થમ્બ્સ અપ</annotation>
-		<annotation cp="👎">અંગુઠો | ચિહ્ન | નીચો | નીચો અંગૂઠો | હાથ</annotation>
-		<annotation cp="👎" type="tts">નીચો અંગૂઠો</annotation>
-		<annotation cp="✊">ઉઠાવેલ મુઠ્ઠી | મુઠ્ઠી | હાથ</annotation>
-		<annotation cp="✊" type="tts">ઉઠાવેલ મુઠ્ઠી</annotation>
-		<annotation cp="👊">બંધ મુઠ્ઠી | મુઠ્ઠી | હાથ</annotation>
-		<annotation cp="👊" type="tts">બંધ મુઠ્ઠી</annotation>
-		<annotation cp="🤛">ડાબીબાજુ | ડાબીબાજુની મુઠ્ઠી | મુઠ્ઠી</annotation>
-		<annotation cp="🤛" type="tts">ડાબીબાજુની મુઠ્ઠી</annotation>
-		<annotation cp="🤜">જમણીબાજુ | જમણીબાજુની મુઠ્ઠી | મુઠ્ઠી</annotation>
-		<annotation cp="🤜" type="tts">જમણીબાજુની મુઠ્ઠી</annotation>
-		<annotation cp="🤚">બેકહેન્ડ | હાથ</annotation>
-		<annotation cp="🤚" type="tts">હાથ</annotation>
-		<annotation cp="👋">હલાવવા | હાથ</annotation>
-		<annotation cp="👋" type="tts">હાથ હલાવવા</annotation>
-		<annotation cp="🤟">હાવભાવ પ્રત્યે પ્રેમ</annotation>
-		<annotation cp="🤟" type="tts" draft="contributed">હાવભાવ પ્રત્યે પ્રેમ</annotation>
-		<annotation cp="✍">લખતો | લખવું | લખાણ | લખી રહેલો હાથ | શરીર | હાથ</annotation>
-		<annotation cp="✍" type="tts">લખી રહેલો હાથ</annotation>
-		<annotation cp="👏">ચિહ્ન | તાળી | તાળી પાડતાં હાથ | હાથ</annotation>
-		<annotation cp="👏" type="tts">તાળી પાડતાં હાથ</annotation>
-		<annotation cp="👐">ખુલ્લાં | ખુલ્લાં હાથનું ચિહ્ન | ચિહ્ન | હાથ</annotation>
-		<annotation cp="👐" type="tts">ખુલ્લાં હાથ</annotation>
-		<annotation cp="🙌">ઉજવણી | ઉજવણીમાં બંને હાથ ઉઠાવવા | બંને હાથ | હાથ ઉઠાવતી વ્યક્તિ | હુરરે</annotation>
-		<annotation cp="🙌" type="tts">હાથ ઉઠાવતી વ્યક્તિ</annotation>
-		<annotation cp="🤲">હથેળીઓ એક સાથે</annotation>
-		<annotation cp="🤲" type="tts" draft="contributed">હથેળીઓ એક સાથે</annotation>
-		<annotation cp="🙏">અદબ વાળેલા હાથ | પ્રાર્થના | પ્રાર્થના કરવી | વાળેલા હાથ | હાથ | હાવભાવ</annotation>
-		<annotation cp="🙏" type="tts">વાળેલા હાથ</annotation>
-		<annotation cp="🤝">કરાર | મિલાવવું | મીટિંગ | હાથ | હાથ મિલાવવો</annotation>
-		<annotation cp="🤝" type="tts">હાથ મિલાવવો</annotation>
-		<annotation cp="💅">કોસ્મેટિક્સ | નખ | નખની સંભાળ | નેઇલ પોલિશ | હાથ તથા નખની સાજસંભાળ</annotation>
-		<annotation cp="💅" type="tts">નેઇલ પોલિશ</annotation>
-		<annotation cp="👂">કાન | શરીર</annotation>
-		<annotation cp="👂" type="tts">કાન</annotation>
-		<annotation cp="👃">ચહેરો | નાક | શરીર</annotation>
-		<annotation cp="👃" type="tts">નાક</annotation>
+		<annotation cp="🗣">પાર્શ્વ ચિત્ર | બોલતો ચહેરો | બોલવું | બોલો | માથું | મુખ</annotation>
+		<annotation cp="🗣" type="tts">બોલતો ચહેરો</annotation>
+		<annotation cp="👤">પાર્શ્વચિત્ર | પેટથી ઉપલા ભાગનું પાર્શ્વચિત્ર | પેટથી ઉપલો ભાગ | લોકો</annotation>
+		<annotation cp="👤" type="tts">પેટથી ઉપલા ભાગનું પાર્શ્વચિત્ર</annotation>
+		<annotation cp="👥">પાર્શ્વચિત્ર | પેટથી ઉપલા ભાગના પાર્શ્વચિત્ર | પેટથી ઉપલા ભાગનું પાર્શ્વચિત્ર | પેટથી ઉપલો ભાગ | લોકો</annotation>
+		<annotation cp="👥" type="tts">પેટથી ઉપલા ભાગના પાર્શ્વચિત્ર</annotation>
 		<annotation cp="👣">નિશાન | પગ | પગનાં નિશાન | શરીર</annotation>
 		<annotation cp="👣" type="tts">પગનાં નિશાન</annotation>
-		<annotation cp="👀">આંખો | ચહેરો | શરીર</annotation>
-		<annotation cp="👀" type="tts">આંખો</annotation>
-		<annotation cp="👁">આંખ | શરીર</annotation>
-		<annotation cp="👁" type="tts">આંખ</annotation>
-		<annotation cp="👁‍🗨">આંખ | સાક્ષી | સ્પીચ બબલ</annotation>
-		<annotation cp="👁‍🗨" type="tts">સાક્ષી</annotation>
-		<annotation cp="🧠" draft="contributed">મગજ</annotation>
-		<annotation cp="🧠" type="tts" draft="contributed">મગજ</annotation>
-		<annotation cp="🦴" draft="contributed">હાડકાં</annotation>
-		<annotation cp="🦴" type="tts" draft="contributed">હાડકાં</annotation>
-		<annotation cp="🦷" draft="contributed">દાંત</annotation>
-		<annotation cp="🦷" type="tts" draft="contributed">દાંત</annotation>
-		<annotation cp="👅">ચહેરો | જીભ | શરીર</annotation>
-		<annotation cp="👅" type="tts">જીભ</annotation>
-		<annotation cp="👄">ચહેરો | મોઢું | શરીર | હોઠ</annotation>
-		<annotation cp="👄" type="tts">મોઢું</annotation>
 		<annotation cp="🦰">આછો કેસરી | લાલ વાળ | લાલમાથું</annotation>
 		<annotation cp="🦰" type="tts">લાલ વાળ</annotation>
 		<annotation cp="🦱">આફ્રિકન વાળ | વાંકડિયા | વાંકડિયા વાળ | વાંકડિયાવાળની લટ</annotation>
@@ -767,165 +1039,37 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">સફેદ વાળ</annotation>
 		<annotation cp="🦲">કીમોથેરાપી | ટકો | ટાલ | વાળ નહીં | વાળ વગર</annotation>
 		<annotation cp="🦲" type="tts">ટાલ</annotation>
-		<annotation cp="💋">ચુંબન | ચુંબનનું ચિહ્ન | રોમાંસ | હોઠ</annotation>
-		<annotation cp="💋" type="tts">ચુંબનનું ચિહ્ન</annotation>
-		<annotation cp="💘">તીર | તીર સાથેનું હૃદય | દિલ | દિલ અને તીર | પ્રેમ | લાગણી</annotation>
-		<annotation cp="💘" type="tts">તીર સાથેનું હૃદય</annotation>
-		<annotation cp="💝">દિલ | રિબન | રિબન સાથેનું દિલ | લાગણી | વેલેન્ટાઇન</annotation>
-		<annotation cp="💝" type="tts">રિબન સાથેનું દિલ</annotation>
-		<annotation cp="💖">ચળકતું | ચળકતું દિલ | પ્રેમ | રોમાંચિત | લાગણી</annotation>
-		<annotation cp="💖" type="tts">ચળકતું દિલ</annotation>
-		<annotation cp="💗">દિલ | પ્રેમ | મૂંઝાયેલું | રોમાંચિત | લાગણી | વધતું દિલ</annotation>
-		<annotation cp="💗" type="tts">વધતું દિલ</annotation>
-		<annotation cp="💓">દિલ | ધડકતું | ધડકન | પ્રેમ | લાગણી</annotation>
-		<annotation cp="💓" type="tts">ધડકતું દિલ</annotation>
-		<annotation cp="💞">આરાધ્ય | દિલ | પ્રેમ | ભમતા | લાગણી | સુંદર</annotation>
-		<annotation cp="💞" type="tts">ભમતા દિલ</annotation>
-		<annotation cp="💕">પ્રેમ | પ્રેમીઓ | બે દિલ | લાગણી</annotation>
-		<annotation cp="💕" type="tts">બે દિલ</annotation>
-		<annotation cp="💌">દિલ | દિલ સાથેનો મેઇલ | પત્ર | પ્રેમ પત્ર | રોમાંસ</annotation>
-		<annotation cp="💌" type="tts">પ્રેમ પત્ર</annotation>
-		<annotation cp="❣">ઉદ્ગારવાચક | ઉદ્ગારવાચક ચિહ્ન સાથેનું હૃદય | ચિહ્ન | વિરામચિહ્ન | હૃદય</annotation>
-		<annotation cp="❣" type="tts">ઉદ્ગારવાચક ચિહ્ન સાથેનું હૃદય</annotation>
-		<annotation cp="💔">તોડવું | ભગ્ન | લાગણી | હૃદય | હૃદય ભંગ</annotation>
-		<annotation cp="💔" type="tts">ભગ્ન હૃદય</annotation>
-		<annotation cp="❤">લાલ | હૃદય</annotation>
-		<annotation cp="❤" type="tts">લાલ હૃદય</annotation>
-		<annotation cp="🧡">નારંગી દિલ</annotation>
-		<annotation cp="🧡" type="tts" draft="contributed">નારંગી દિલ</annotation>
-		<annotation cp="💛">દિલ | પીળું | લાગણી</annotation>
-		<annotation cp="💛" type="tts">પીળું દિલ</annotation>
-		<annotation cp="💚">દિલ | લાગણી | લીલું</annotation>
-		<annotation cp="💚" type="tts">લીલું દિલ</annotation>
-		<annotation cp="💙">દિલ | લાગણી | વાદળી</annotation>
-		<annotation cp="💙" type="tts">વાદળી દિલ</annotation>
-		<annotation cp="💜">જાંબલી | દિલ | લાગણી</annotation>
-		<annotation cp="💜" type="tts">જાંબલી દિલ</annotation>
-		<annotation cp="🖤">કાળું | ખરાબ | હૃદય</annotation>
-		<annotation cp="🖤" type="tts">કાળું હૃદય</annotation>
-		<annotation cp="💟">દિલ | દિલનો શણગાર</annotation>
-		<annotation cp="💟" type="tts">દિલનો શણગાર</annotation>
-		<annotation cp="💤">ઊંઘતું | ઊંઘરેટી | નસકોરા | રમૂજી | લાગણી</annotation>
-		<annotation cp="💤" type="tts">નસકોરા</annotation>
-		<annotation cp="💢">કોમિક | ગુસ્સાનું ચિહ્ન | ગુસ્સે થયેલું | ગુસ્સો | લાગણી</annotation>
-		<annotation cp="💢" type="tts">ગુસ્સાનું ચિહ્ન</annotation>
-		<annotation cp="💣">બોમ્બ | રમૂજી | લાગણી</annotation>
-		<annotation cp="💣" type="tts">બોમ્બ</annotation>
-		<annotation cp="💥">ટક્કર | ટક્કરનું પ્રતીક | રમૂજી | લાગણી</annotation>
-		<annotation cp="💥" type="tts">ટક્કર</annotation>
-		<annotation cp="💦">પરસેવાનાં છાંટા | પરસેવાનાં ટીપા | પરસેવો | પ્રસ્વેદયુક્ત | રમૂજી | લાગણી</annotation>
-		<annotation cp="💦" type="tts">પરસેવાનાં ટીપા</annotation>
-		<annotation cp="💨">ચાલુ ડેશ | ડેશિંગ | દોડો | ભાગવું | રમૂજી | લાગણી</annotation>
-		<annotation cp="💨" type="tts">ડેશિંગ</annotation>
-		<annotation cp="💫">ચક્કર | તારા | તારા જોવા | રમૂજી | લાગણી</annotation>
-		<annotation cp="💫" type="tts">ચક્કર</annotation>
-		<annotation cp="💬">પરપોટો | ફુગ્ગો | ભાષણ પરપોટો | ભાષણ ફુગ્ગો | રમૂજી | સંવાદ</annotation>
-		<annotation cp="💬" type="tts">ભાષણ ફુગ્ગો</annotation>
-		<annotation cp="🗨">ડાબું સ્પીચ બબલ | વાણી | સંવાદ | સ્પીચ</annotation>
-		<annotation cp="🗨" type="tts">ડાબું સ્પીચ બબલ</annotation>
-		<annotation cp="🗯">ક્રોધ | જમણી તરફનું ગુસ્સાનું બબલ | પરપોટો | પાગલ | ફુગ્ગો | બબલ</annotation>
-		<annotation cp="🗯" type="tts">જમણી તરફનું ગુસ્સાનું બબલ</annotation>
-		<annotation cp="💭">પરપોટો | રમૂજી | વિચાર | વિચારનો પરપોટો | વિચારનો ફુગ્ગો</annotation>
-		<annotation cp="💭" type="tts">વિચારનો ફુગ્ગો</annotation>
-		<annotation cp="🕳">કાણું | છિદ્ર</annotation>
-		<annotation cp="🕳" type="tts">છિદ્ર</annotation>
-		<annotation cp="👓">આંખનાં ચશ્મા | કપડાં | ચશ્મા</annotation>
-		<annotation cp="👓" type="tts">ચશ્મા</annotation>
-		<annotation cp="🕶">આંખ | ચશ્માં | સનગ્લાસેસ</annotation>
-		<annotation cp="🕶" type="tts">સનગ્લાસેસ</annotation>
-		<annotation cp="🥽" draft="contributed">ગોગલ્સ</annotation>
-		<annotation cp="🥽" type="tts" draft="contributed">ગોગલ્સ</annotation>
-		<annotation cp="🥼" draft="contributed">લેબ કોટ</annotation>
-		<annotation cp="🥼" type="tts" draft="contributed">લેબ કોટ</annotation>
-		<annotation cp="👔">કપડાં | ટાઇ | નેકટાઇ</annotation>
-		<annotation cp="👔" type="tts">નેકટાઇ</annotation>
-		<annotation cp="👕">કપડાં | ટી-શર્ટ | શર્ટ</annotation>
-		<annotation cp="👕" type="tts">ટી-શર્ટ</annotation>
-		<annotation cp="👖">કપડાં | જીન્સ | ટ્રાઉઝર | પેન્ટ</annotation>
-		<annotation cp="👖" type="tts">જીન્સ</annotation>
-		<annotation cp="🧣" draft="contributed">સ્કાફ</annotation>
-		<annotation cp="🧣" type="tts" draft="contributed">સ્કાફ</annotation>
-		<annotation cp="🧤" draft="contributed">હાથના મોજાં</annotation>
-		<annotation cp="🧤" type="tts" draft="contributed">હાથના મોજાં</annotation>
-		<annotation cp="🧥" draft="contributed">કોટ</annotation>
-		<annotation cp="🧥" type="tts" draft="contributed">કોટ</annotation>
-		<annotation cp="🧦" draft="contributed">મોજાં</annotation>
-		<annotation cp="🧦" type="tts" draft="contributed">મોજાં</annotation>
-		<annotation cp="👗">કપડાં | ડ્રેસ | વન-પીસ</annotation>
-		<annotation cp="👗" type="tts">ડ્રેસ</annotation>
-		<annotation cp="👘">કપડાં | કિમોનો | ડ્રેસ</annotation>
-		<annotation cp="👘" type="tts">કિમોનો</annotation>
-		<annotation cp="👙">કપડાં | નાહવાનાં કપડાં | બિકીની</annotation>
-		<annotation cp="👙" type="tts">બિકીની</annotation>
-		<annotation cp="👚">કપડાં | સ્ત્રીનાં કપડાં</annotation>
-		<annotation cp="👚" type="tts">સ્ત્રીનાં કપડાં</annotation>
-		<annotation cp="👛">કપડાં | પર્સ | પાકીટ | પૈસા રાખવાનું પાકીટ | સિક્કો</annotation>
-		<annotation cp="👛" type="tts">પર્સ</annotation>
-		<annotation cp="👜">કપડાં | બેગ | હેન્ડબેગ</annotation>
-		<annotation cp="👜" type="tts">હેન્ડબેગ</annotation>
-		<annotation cp="👝">કપડાં | પાઉચ | બેગ</annotation>
-		<annotation cp="👝" type="tts">પાઉચ</annotation>
-		<annotation cp="🛍">ખરીદી | શોપિંગ | શોપિંગ બેગ્સ | હોટલ</annotation>
-		<annotation cp="🛍" type="tts">શોપિંગ બેગ્સ</annotation>
-		<annotation cp="🎒">દફતર | સ્કૂલ | સ્કૂલ બેગ | સ્કૂલનું દફતર</annotation>
-		<annotation cp="🎒" type="tts">સ્કૂલનું દફતર</annotation>
-		<annotation cp="👞">કપડાં | જૂતા | પુરુષના જૂતા</annotation>
-		<annotation cp="👞" type="tts">પુરુષના જૂતા</annotation>
-		<annotation cp="👟">કપડાં | ખેલકૂદ માટેનાં જૂતા | જૂતા | સ્નીકર</annotation>
-		<annotation cp="👟" type="tts">ખેલકૂદ માટેનાં જૂતા</annotation>
-		<annotation cp="🥾" draft="contributed">હાઈકીંગ બૂટ</annotation>
-		<annotation cp="🥾" type="tts" draft="contributed">હાઈકીંગ બૂટ</annotation>
-		<annotation cp="🥿" draft="contributed">સપાટ બૂટ</annotation>
-		<annotation cp="🥿" type="tts" draft="contributed">સપાટ બૂટ</annotation>
-		<annotation cp="👠">ઉંચી હિલ | ઉંચી હિલવાળા જૂતા | કપડાં | જૂતા</annotation>
-		<annotation cp="👠" type="tts">ઉંચી હિલવાળા જૂતા</annotation>
-		<annotation cp="👡">કપડાં | સેન્ડલ | સ્ત્રી | સ્ત્રીનાં સેન્ડલ</annotation>
-		<annotation cp="👡" type="tts">સ્ત્રીનાં સેન્ડલ</annotation>
-		<annotation cp="👢">કપડાં | બૂટ | સ્ત્રી | સ્ત્રીના બૂટ</annotation>
-		<annotation cp="👢" type="tts">સ્ત્રીના બૂટ</annotation>
-		<annotation cp="👑">કપડાં | મુકુટ | રાજા | રાણી</annotation>
-		<annotation cp="👑" type="tts">મુકુટ</annotation>
-		<annotation cp="👒">કપડાં | સ્ત્રીની હેટ | હેટ</annotation>
-		<annotation cp="👒" type="tts">સ્ત્રીની હેટ</annotation>
-		<annotation cp="🎩">ટોપ હેટ | મનોરજન | હેટ</annotation>
-		<annotation cp="🎩" type="tts">ટોપ હેટ</annotation>
-		<annotation cp="🎓">ઉજવણી | ટોપી | સ્નાતક</annotation>
-		<annotation cp="🎓" type="tts">સ્નાતક ટોપી</annotation>
-		<annotation cp="🧢">બિલવાળી કેપ</annotation>
-		<annotation cp="🧢" type="tts" draft="contributed">બિલવાળી કેપ</annotation>
-		<annotation cp="⛑">ક્રોસ | ચહેરો | ટોપી | મદદ | મુખ | સફેદ ક્રોસ સાથેની હેલ્મેટ | સહાય | હેલ્મેટ</annotation>
-		<annotation cp="⛑" type="tts">સફેદ ક્રોસ સાથેની હેલ્મેટ</annotation>
-		<annotation cp="📿">જાપ | જાપની માળા | ધર્મ | ધાર્મિક | પ્રાર્થના | મણકાં | માળા</annotation>
-		<annotation cp="📿" type="tts">જાપની માળા</annotation>
-		<annotation cp="💄">કોસ્મેટિક્સ | મેકઅપ | લિપસ્ટિક</annotation>
-		<annotation cp="💄" type="tts">લિપસ્ટિક</annotation>
-		<annotation cp="💍">ડાયમન્ડ | વીંટી</annotation>
-		<annotation cp="💍" type="tts">વીંટી</annotation>
-		<annotation cp="💎">જ્વેલ | ડાયમંડ | રત્ન | રત્ન પથ્થર</annotation>
-		<annotation cp="💎" type="tts">રત્ન</annotation>
 		<annotation cp="🐵">ચહેરો | પ્રાણી | વાંદરાનો ચહેરો | વાંદરો</annotation>
 		<annotation cp="🐵" type="tts">વાંદરાનો ચહેરો</annotation>
 		<annotation cp="🐒">પ્રાણી | વાનર</annotation>
 		<annotation cp="🐒" type="tts">વાનર</annotation>
 		<annotation cp="🦍">ગોરીલા | પ્રાણી</annotation>
 		<annotation cp="🦍" type="tts">ગોરીલા</annotation>
+		<annotation cp="🦧">ઑરાંગઊટાન | વાંદરો</annotation>
+		<annotation cp="🦧" type="tts">ઑરાંગઊટાન</annotation>
 		<annotation cp="🐶">ચહેરો | પ્રાણી | શ્વાન | શ્વાનનો ચહેરો</annotation>
 		<annotation cp="🐶" type="tts">શ્વાનનો ચહેરો</annotation>
 		<annotation cp="🐕">ગલૂડિયું | પ્રાણી | શ્વાન</annotation>
 		<annotation cp="🐕" type="tts">શ્વાન</annotation>
+		<annotation cp="🦮">ઍક્સેસિબિલિટી | ગાઇડ | દિવ્યાંગ | પથપ્રદર્શક શ્વાન</annotation>
+		<annotation cp="🦮" type="tts">પથપ્રદર્શક શ્વાન</annotation>
+		<annotation cp="🐕‍🦺">ઍક્સેસિબિલિટી | શ્વાન | સહાયતા | સેવા | સેવા આપતો શ્વાન</annotation>
+		<annotation cp="🐕‍🦺" type="tts">સેવા આપતો શ્વાન</annotation>
 		<annotation cp="🐩">કુતરો | પૂડલ | પ્રાણી</annotation>
 		<annotation cp="🐩" type="tts">પૂડલ</annotation>
-		<annotation cp="🐺">ચહેરો | પ્રાણી | વરુ | વરુનો ચહેરો</annotation>
-		<annotation cp="🐺" type="tts">વરુનો ચહેરો</annotation>
-		<annotation cp="🦊">ચહેરો | પ્રાણી | શિયાળ | શિયાળનો ચહેરો</annotation>
-		<annotation cp="🦊" type="tts">શિયાળનો ચહેરો</annotation>
+		<annotation cp="🐺">ચહેરો | વરુ | વરુનો ચહેરો</annotation>
+		<annotation cp="🐺" type="tts">વરુ</annotation>
+		<annotation cp="🦊">ચહેરો | શિયાળ | શિયાળનો ચહેરો</annotation>
+		<annotation cp="🦊" type="tts">શિયાળ</annotation>
 		<annotation cp="🦝">રકૂન | લુચ્ચું | વિચિત્ર</annotation>
 		<annotation cp="🦝" type="tts">રકૂન</annotation>
 		<annotation cp="🐱">ચહેરો | પ્રાણી | બિલાડી | બિલાડીનો ચહેરો</annotation>
 		<annotation cp="🐱" type="tts">બિલાડીનો ચહેરો</annotation>
 		<annotation cp="🐈">પ્રાણી | બિલાડી</annotation>
 		<annotation cp="🐈" type="tts">બિલાડી</annotation>
-		<annotation cp="🦁">રાશિ ચિહ્ન | સિંહ | સિંહનો ચહેરો</annotation>
+		<annotation cp="🐈‍⬛">અશુભ | કાળી | બિલાડી</annotation>
+		<annotation cp="🐈‍⬛" type="tts">કાળી બિલાડી</annotation>
+		<annotation cp="🦁">ચહેરો | રાશિ ચિહ્ન | સિંહ | સિંહનો ચહેરો</annotation>
 		<annotation cp="🦁" type="tts">સિંહનો ચહેરો</annotation>
 		<annotation cp="🐯">પ્રાણી | વાઘ | વાઘનો ચહેરો</annotation>
 		<annotation cp="🐯" type="tts">વાઘનો ચહેરો</annotation>
@@ -937,10 +1081,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐴" type="tts">ઘોડાનો ચહેરો</annotation>
 		<annotation cp="🐎">ઘોડો | પ્રાણી</annotation>
 		<annotation cp="🐎" type="tts">ઘોડો</annotation>
-		<annotation cp="🦄">એક શિંગડાવાળો કાલ્પનિક ઘોડો | ચહેરો | મુખ | યુનિકોર્ન | યુનિકોર્નનો ચહેરો</annotation>
-		<annotation cp="🦄" type="tts">યુનિકોર્નનો ચહેરો</annotation>
+		<annotation cp="🦄">એક શિંગડાવાળો કાલ્પનિક ઘોડો | ચહેરો | યુનિકોર્ન | યુનિકોર્નનો ચહેરો</annotation>
+		<annotation cp="🦄" type="tts">યુનિકોર્ન</annotation>
 		<annotation cp="🦓">ઝિબ્રા</annotation>
-		<annotation cp="🦓" type="tts" draft="contributed">ઝિબ્રા</annotation>
+		<annotation cp="🦓" type="tts">ઝિબ્રા</annotation>
 		<annotation cp="🦌">પ્રાણી | હરણ</annotation>
 		<annotation cp="🦌" type="tts">હરણ</annotation>
 		<annotation cp="🐮">ગાય | ગાયનો ચહેરો | ચહેરો | પ્રાણી</annotation>
@@ -972,7 +1116,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦙">આલ્પાકા | ઊન | ગ્યુનાકો | લામા | વીક્યુના</annotation>
 		<annotation cp="🦙" type="tts">લામા</annotation>
 		<annotation cp="🦒">જિરાફ</annotation>
-		<annotation cp="🦒" type="tts" draft="contributed">જિરાફ</annotation>
+		<annotation cp="🦒" type="tts">જિરાફ</annotation>
 		<annotation cp="🐘">પ્રાણી | હાથી</annotation>
 		<annotation cp="🐘" type="tts">હાથી</annotation>
 		<annotation cp="🦏">ગેંડો | પ્રાણી</annotation>
@@ -986,7 +1130,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐀">ઉંદર | પ્રાણી</annotation>
 		<annotation cp="🐀" type="tts">ઉંદર</annotation>
 		<annotation cp="🐹">ચહેરો | પ્રાણી | હેમ્સ્ટર | હેમ્સ્ટરનો ચહેરો</annotation>
-		<annotation cp="🐹" type="tts">હેમ્સ્ટરનો ચહેરો</annotation>
+		<annotation cp="🐹" type="tts">હેમ્સ્ટર</annotation>
 		<annotation cp="🐰">ચહેરો | પ્રાણી | સસલાનો ચહેરો | સસલું</annotation>
 		<annotation cp="🐰" type="tts">સસલાનો ચહેરો</annotation>
 		<annotation cp="🐇">પ્રાણી | સસલું</annotation>
@@ -994,15 +1138,23 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐿">ખિસકોલી | ચિપમંક</annotation>
 		<annotation cp="🐿" type="tts">ખિસકોલી</annotation>
 		<annotation cp="🦔">હેજહોગ</annotation>
-		<annotation cp="🦔" type="tts" draft="contributed">હેજહોગ</annotation>
+		<annotation cp="🦔" type="tts">હેજહોગ</annotation>
 		<annotation cp="🦇">ચામાચીડિયું | પ્રાણી | વૅમ્પાયર</annotation>
 		<annotation cp="🦇" type="tts">ચામાચીડિયું</annotation>
-		<annotation cp="🐻">ચહેરો | પ્રાણી | રીંછ | રીંછનો ચહેરો</annotation>
-		<annotation cp="🐻" type="tts">રીંછનો ચહેરો</annotation>
+		<annotation cp="🐻">ચહેરો | રીંછ | રીંછનો ચહેરો</annotation>
+		<annotation cp="🐻" type="tts">રીંછ</annotation>
+		<annotation cp="🐻‍❄">આર્કટિક | ધ્રુવીય રીંછ | રીંછ | સફેદ</annotation>
+		<annotation cp="🐻‍❄" type="tts">ધ્રુવીય રીંછ</annotation>
 		<annotation cp="🐨">કોઆલા | કોઆલા રીંછ | પ્રાણી</annotation>
 		<annotation cp="🐨" type="tts">કોઆલા</annotation>
-		<annotation cp="🐼">ચહેરો | પાન્ડા | પાન્ડાનો ચહેરો | પ્રાણી</annotation>
-		<annotation cp="🐼" type="tts">પાન્ડાનો ચહેરો</annotation>
+		<annotation cp="🐼">ચહેરો | પાન્ડા | પાન્ડાનો ચહેરો</annotation>
+		<annotation cp="🐼" type="tts">પાન્ડા</annotation>
+		<annotation cp="🦥">આળસું | ધીમું | સ્લૉથ</annotation>
+		<annotation cp="🦥" type="tts">સ્લૉથ</annotation>
+		<annotation cp="🦦">જળબિલાડી | માછીમારી | રમતિયાળ</annotation>
+		<annotation cp="🦦" type="tts">જળબિલાડી</annotation>
+		<annotation cp="🦨">દુર્ગંધ | સ્કન્ક</annotation>
+		<annotation cp="🦨" type="tts">સ્કન્ક</annotation>
 		<annotation cp="🦘">ઑસ્ટ્રેલિયા | કાંગારું | જમ્પ | માર્સૂપિઅલ | યુવાન કાંગારું</annotation>
 		<annotation cp="🦘" type="tts">કાંગારું</annotation>
 		<annotation cp="🦡">પજવણી કરનાર | બૅજર | હની બૅજર</annotation>
@@ -1035,12 +1187,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">હંસ</annotation>
 		<annotation cp="🦉">ઘુવડ | પક્ષી | બુદ્ધિમાન</annotation>
 		<annotation cp="🦉" type="tts">ઘુવડ</annotation>
+		<annotation cp="🦩">આકર્ષક | ઉષ્ણકટિબંધીય | સુરખાબ</annotation>
+		<annotation cp="🦩" type="tts">સુરખાબ</annotation>
 		<annotation cp="🦚">ઢેલ | પક્ષી | ભવ્ય | મોર | શાનદાર</annotation>
 		<annotation cp="🦚" type="tts">મોર</annotation>
 		<annotation cp="🦜">ચાંચિયો | પક્ષી | પોપટ | બોલતો પોપટ</annotation>
 		<annotation cp="🦜" type="tts">પોપટ</annotation>
-		<annotation cp="🐸">ચહેરો | દેડકાંનો ચહેરો | દેડકો | પ્રાણી</annotation>
-		<annotation cp="🐸" type="tts">દેડકાંનો ચહેરો</annotation>
+		<annotation cp="🐸">ચહેરો | દેડકાંનો ચહેરો | દેડકો</annotation>
+		<annotation cp="🐸" type="tts">દેડકો</annotation>
 		<annotation cp="🐊">પ્રાણી | મગર</annotation>
 		<annotation cp="🐊" type="tts">મગર</annotation>
 		<annotation cp="🐢">કાચબો | પ્રાણી</annotation>
@@ -1054,9 +1208,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐉">ડ્રેગન | પ્રાણી</annotation>
 		<annotation cp="🐉" type="tts">ડ્રેગન</annotation>
 		<annotation cp="🦕">સોરોપોડ</annotation>
-		<annotation cp="🦕" type="tts" draft="contributed">સોરોપોડ</annotation>
+		<annotation cp="🦕" type="tts">સોરોપોડ</annotation>
 		<annotation cp="🦖">ટી-રેક્સ</annotation>
-		<annotation cp="🦖" type="tts" draft="contributed">ટી-રેક્સ</annotation>
+		<annotation cp="🦖" type="tts">ટી-રેક્સ</annotation>
 		<annotation cp="🐳">પાણી ઉછાળતી વ્હેલ | પાણી ઉછાળવું | પ્રાણી | વ્હેલ</annotation>
 		<annotation cp="🐳" type="tts">પાણી ઉછાળતી વ્હેલ</annotation>
 		<annotation cp="🐋">પ્રાણી | વ્હેલ</annotation>
@@ -1075,14 +1229,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐙" type="tts">ઓક્ટોપસ</annotation>
 		<annotation cp="🐚">પ્રાણી | શેલ | સર્પાકાર શેલ</annotation>
 		<annotation cp="🐚" type="tts">સર્પાકાર શેલ</annotation>
-		<annotation cp="🦀">કરચલો | કર્ક | રાશિ</annotation>
-		<annotation cp="🦀" type="tts">કરચલો</annotation>
-		<annotation cp="🦞">નહોર | બિસ્ક | લૉબ્સ્ટર | સીફૂડ</annotation>
-		<annotation cp="🦞" type="tts">લૉબ્સ્ટર</annotation>
-		<annotation cp="🦐">કરચલો | ઝીંગું | નાનું | ભોજન</annotation>
-		<annotation cp="🦐" type="tts">ઝીંગું</annotation>
-		<annotation cp="🦑">ભોજન | સ્ક્વિડ</annotation>
-		<annotation cp="🦑" type="tts">સ્ક્વિડ</annotation>
 		<annotation cp="🐌">ગોકળગાય | પ્રાણી</annotation>
 		<annotation cp="🐌" type="tts">ગોકળગાય</annotation>
 		<annotation cp="🦋">જંતુ | બટરફ્લાઇ | સુંદર</annotation>
@@ -1096,7 +1242,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐞">પ્રાણી | ભમરો | માદા | માદા ભમરી | માદા માંકડ</annotation>
 		<annotation cp="🐞" type="tts">માદા ભમરી</annotation>
 		<annotation cp="🦗">કંસારી</annotation>
-		<annotation cp="🦗" type="tts" draft="contributed">કંસારી</annotation>
+		<annotation cp="🦗" type="tts">કંસારી</annotation>
 		<annotation cp="🕷">કરોળિયો | જંતુ</annotation>
 		<annotation cp="🕷" type="tts">કરોળિયો</annotation>
 		<annotation cp="🕸">કરોળિયાનું જાળું | કરોળિયો | જાળું</annotation>
@@ -1184,7 +1330,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🍅">ટામેટું | શાક</annotation>
 		<annotation cp="🍅" type="tts">ટામેટું</annotation>
 		<annotation cp="🥥">નારિયેળ</annotation>
-		<annotation cp="🥥" type="tts" draft="contributed">નારિયેળ</annotation>
+		<annotation cp="🥥" type="tts">નારિયેળ</annotation>
 		<annotation cp="🥑">ઍવકાડો | ફળ | ભોજન</annotation>
 		<annotation cp="🥑" type="tts">ઍવકાડો</annotation>
 		<annotation cp="🍆">બેંગન | રીંગણ | રીંગણ, શાક | શાક</annotation>
@@ -1202,7 +1348,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥬">કેલ | કોબી | બૉક ચોય | લીલા પાંદળાવાળા | લેટિસ</annotation>
 		<annotation cp="🥬" type="tts">લીલા પાંદળાવાળા</annotation>
 		<annotation cp="🥦">બ્રોકોલી</annotation>
-		<annotation cp="🥦" type="tts" draft="contributed">બ્રોકોલી</annotation>
+		<annotation cp="🥦" type="tts">બ્રોકોલી</annotation>
+		<annotation cp="🧄">ખાદ્યપદાર્થ | લસણ</annotation>
+		<annotation cp="🧄" type="tts">લસણ</annotation>
+		<annotation cp="🧅">ખાદ્યપદાર્થ | ડુંગળી</annotation>
+		<annotation cp="🧅" type="tts">ડુંગળી</annotation>
 		<annotation cp="🍄">ઝાડ | મશરુમ</annotation>
 		<annotation cp="🍄" type="tts">મશરુમ</annotation>
 		<annotation cp="🥜">અખરોટ | ભોજન | મગફળી | શાકભાજી</annotation>
@@ -1221,6 +1371,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥯" type="tts">બેગલ</annotation>
 		<annotation cp="🥞">પૅન્કેક | ભોજન | હૉટકેક</annotation>
 		<annotation cp="🥞" type="tts">પૅન્કેક</annotation>
+		<annotation cp="🧇">અનિર્ણાયક | આયર્ન | વૉફલ</annotation>
+		<annotation cp="🧇" type="tts">વૉફલ</annotation>
 		<annotation cp="🧀">ચીઝ | ચીઝનો ત્રિકોણાકાર ટુકડો | ટુકડો</annotation>
 		<annotation cp="🧀" type="tts">ચીઝનો ત્રિકોણાકાર ટુકડો</annotation>
 		<annotation cp="🍖">માંસ | રેસ્ટોરન્ટ | હાડકાં પરનું માંસ</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">બરિટો</annotation>
 		<annotation cp="🥙">કબાબ | ફલાફલ | ફલેટબ્રેડ | ભરેલી ફલેટબ્રેડ | ભરેલું | ભોજન</annotation>
 		<annotation cp="🥙" type="tts">ભરેલી ફલેટબ્રેડ</annotation>
+		<annotation cp="🧆">કાબુલી ચણા | ફલાફલ | મીટબૉલ</annotation>
+		<annotation cp="🧆" type="tts">ફલાફલ</annotation>
 		<annotation cp="🥚">ઈંડુ | ભોજન</annotation>
 		<annotation cp="🥚" type="tts">ઈંડુ</annotation>
 		<annotation cp="🍳">કડાઈ | રાંધવું | રેસ્ટોરન્ટ</annotation>
@@ -1261,6 +1415,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">લીલું સૅલડ</annotation>
 		<annotation cp="🍿">પૉપકોર્ન | મકાઈના શેકેલા દાણા</annotation>
 		<annotation cp="🍿" type="tts">પૉપકોર્ન</annotation>
+		<annotation cp="🧈">ડેરી | માખણ</annotation>
+		<annotation cp="🧈" type="tts">માખણ</annotation>
 		<annotation cp="🧂">મસાલાની ડબી | મસાલો | મીઠું</annotation>
 		<annotation cp="🧂" type="tts">મીઠું</annotation>
 		<annotation cp="🥫">કૅન | કેન્ડ ફૂડ</annotation>
@@ -1275,7 +1431,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🍚" type="tts">ભાત</annotation>
 		<annotation cp="🍛">કઢી | કઢી અને ભાત | ભાત | રેસ્ટોરેન્ટ</annotation>
 		<annotation cp="🍛" type="tts">કઢી અને ભાત</annotation>
-		<annotation cp="🍜">નુડલ | નુડલ્સ | નુડલ્સનો વાટકો | રમેન | રેસ્ટોરન્ટ | વરાળ નીકળતાં | વરાળ નીકળતો પ્યાલો | વાટકો</annotation>
+		<annotation cp="🍜">નુડલ | નુડલ્સ | નુડલ્સનો વાટકો | રમેન | રેસ્ટોરન્ટ | વરાળ નીકળતાં | વરાળ નીકળતો પ્યાલો | વરાળ નીકળતો વાટકો</annotation>
 		<annotation cp="🍜" type="tts">વરાળ નીકળતો પ્યાલો</annotation>
 		<annotation cp="🍝">પાસ્તા | રેસ્ટોરન્ટ | સ્પગેટી</annotation>
 		<annotation cp="🍝" type="tts">સ્પગેટી</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">ફૉર્ચુન કુકી</annotation>
 		<annotation cp="🥡">ઑઇસ્ટર પૈલ | ટેકઆઉટ બૉક્સ</annotation>
 		<annotation cp="🥡" type="tts">ટેકઆઉટ બૉક્સ</annotation>
+		<annotation cp="🦀">કરચલો | કર્ક | રાશિ</annotation>
+		<annotation cp="🦀" type="tts">કરચલો</annotation>
+		<annotation cp="🦞">નહોર | બિસ્ક | લૉબ્સ્ટર | સીફૂડ</annotation>
+		<annotation cp="🦞" type="tts">લૉબ્સ્ટર</annotation>
+		<annotation cp="🦐">કરચલો | ઝીંગું | નાનું | ભોજન</annotation>
+		<annotation cp="🦐" type="tts">ઝીંગું</annotation>
+		<annotation cp="🦑">ભોજન | સ્ક્વિડ</annotation>
+		<annotation cp="🦑" type="tts">સ્ક્વિડ</annotation>
+		<annotation cp="🦪">ઑઇસ્ટર | ડાઇવિંગ | મોતી</annotation>
+		<annotation cp="🦪" type="tts">ઑઇસ્ટર</annotation>
 		<annotation cp="🍦">આઇસ ક્રીમ | ક્રીમ | રેસ્ટોરન્ટ | સોફ્ટ આઇસ ક્રીમ | સોફ્ટ સર્વ</annotation>
 		<annotation cp="🍦" type="tts">સોફ્ટ આઇસ ક્રીમ</annotation>
 		<annotation cp="🍧">આઇસ | રેસ્ટોરન્ટ | શેવ્ડ | શેવ્ડ આઇસ ક્રીમ</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">ટમ્બ્લર ગ્લાસ</annotation>
 		<annotation cp="🥤">જૂસ | સોડા | સ્ટ્રૉ સાથે કપ</annotation>
 		<annotation cp="🥤" type="tts">સ્ટ્રૉ સાથે કપ</annotation>
+		<annotation cp="🧃">જ્યૂસ બૉક્સ | પીણાંનું ખોખું</annotation>
+		<annotation cp="🧃" type="tts">પીણાંનું ખોખું</annotation>
+		<annotation cp="🧉">પીણું | મૅટ</annotation>
+		<annotation cp="🧉" type="tts">મૅટ</annotation>
+		<annotation cp="🧊">આઇસ ક્યૂબ | ઠંડું | બરફનો ડુંગર</annotation>
+		<annotation cp="🧊" type="tts">આઇસ ક્યૂબ</annotation>
 		<annotation cp="🥢">ચૉપ્સ્ટિક્સ | હાશી</annotation>
 		<annotation cp="🥢" type="tts">ચૉપ્સ્ટિક્સ</annotation>
 		<annotation cp="🍽">કાંટો | છરી | થાળી | પ્લેટ | પ્લેટ સાથે છરી અને કાંટો | રસોઈ</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">ચર્ચ</annotation>
 		<annotation cp="🕌">ઇસ્લામ | ધર્મ | મસ્જિદ | મુસ્લિમ</annotation>
 		<annotation cp="🕌" type="tts">મસ્જિદ</annotation>
+		<annotation cp="🛕">મંદિર | હિન્દુ</annotation>
+		<annotation cp="🛕" type="tts">હિન્દુ મંદિર</annotation>
 		<annotation cp="🕍">ધર્મ | મંદિર | યહૂદી પ્રાર્થનાગૃહ</annotation>
 		<annotation cp="🕍" type="tts">યહૂદી પ્રાર્થનાગૃહ</annotation>
 		<annotation cp="⛩">જાપાની ધર્મસ્થળ | ધર્મ | શિંટો શ્રાઇન</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">રાતના સમયે બ્રિજ</annotation>
 		<annotation cp="♨">ઉકળતાં | ગરમ | ગરમ પાણીના ઝરા | ઝરા | વરાળ નીકળતાં</annotation>
 		<annotation cp="♨" type="tts">ગરમ પાણીના ઝરા</annotation>
-		<annotation cp="🌌">આકાશગંગા | દૂધિયું</annotation>
-		<annotation cp="🌌" type="tts">આકાશગંગા</annotation>
 		<annotation cp="🎠">ઘોડાની બેઠકવાળો ચકડોળ | ઘોડો | ચકડોળ | મનોરંજન</annotation>
 		<annotation cp="🎠" type="tts">ઘોડાની બેઠકવાળો ચકડોળ</annotation>
 		<annotation cp="🎡">એમ્યુઝમેન્ટ પાર્ક | ચગડોળ | પૈડું | ફેરીસ | ફેરીસ વ્હીલ</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">ખટારો</annotation>
 		<annotation cp="🚜">ટ્રેક્ટર | વાહન</annotation>
 		<annotation cp="🚜" type="tts">ટ્રેક્ટર</annotation>
+		<annotation cp="🏎">કાર | રેસિંગ</annotation>
+		<annotation cp="🏎" type="tts">રેસિંગ કાર</annotation>
+		<annotation cp="🏍">મોટરસાયકલ | રેસિંગ</annotation>
+		<annotation cp="🏍" type="tts">મોટરસાયકલ</annotation>
+		<annotation cp="🛵">મોટર | સ્કૂટર</annotation>
+		<annotation cp="🛵" type="tts">મોટર સ્કૂટર</annotation>
+		<annotation cp="🦽">ઍક્સેસિબિલિટી | હાથથી ચલાવાતી વ્હીલચેર</annotation>
+		<annotation cp="🦽" type="tts">હાથથી ચલાવાતી વ્હીલચેર</annotation>
+		<annotation cp="🦼">ઍક્સેસિબિલિટી | મશીનથી ચાલતી વ્હીલચેર</annotation>
+		<annotation cp="🦼" type="tts">મશીનથી ચાલતી વ્હીલચેર</annotation>
+		<annotation cp="🛺">ઑટો રિક્શા | ટક ટક</annotation>
+		<annotation cp="🛺" type="tts">ઑટો રિક્શા</annotation>
 		<annotation cp="🚲">બાઇક | બાઇસિકલ | વાહન | સાઇકલ</annotation>
 		<annotation cp="🚲" type="tts">બાઇસિકલ</annotation>
 		<annotation cp="🛴">કિક | સ્કૂટર</annotation>
 		<annotation cp="🛴" type="tts">કિક સ્કૂટર</annotation>
 		<annotation cp="🛹">બૉર્ડ | સ્કૅટબોર્ડ</annotation>
 		<annotation cp="🛹" type="tts">સ્કૅટબોર્ડ</annotation>
-		<annotation cp="🛵">મોટર | સ્કૂટર</annotation>
-		<annotation cp="🛵" type="tts">મોટર સ્કૂટર</annotation>
 		<annotation cp="🚏">બસ | સ્ટોપ</annotation>
 		<annotation cp="🚏" type="tts">બસ સ્ટોપ</annotation>
 		<annotation cp="🛣">માર્ગ | મોટરવે | રસ્તો | રોડ | હાઇવે</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">એરપ્લેનની રવાનગી</annotation>
 		<annotation cp="🛬">આવી રહ્યું છે | એરપ્લનનું આગમન | લેન્ડિંગ | વાહન</annotation>
 		<annotation cp="🛬" type="tts">એરપ્લનનું આગમન</annotation>
+		<annotation cp="🪂">પેરાશૂટ | પેરાસેલ | સ્કાયડાઇવ | હેંગ-ગ્લાઇડ</annotation>
+		<annotation cp="🪂" type="tts">પેરાશૂટ</annotation>
 		<annotation cp="💺">ખુરશી | બેઠક | સીટ</annotation>
 		<annotation cp="💺" type="tts">સીટ</annotation>
 		<annotation cp="🚁">વાહન | હેલિકોપ્ટર</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">પૂનમના ચંદ્રનો ચહેરો</annotation>
 		<annotation cp="🌞">ચહેરો | સૂર્ય | સૂર્યનો ચહેરો</annotation>
 		<annotation cp="🌞" type="tts">સૂર્યનો ચહેરો</annotation>
+		<annotation cp="🪐">ગ્રહ શનિ | ફરતે રિંગ ધરાવતો ગ્રહ | શનિ</annotation>
+		<annotation cp="🪐" type="tts">ફરતે રિંગ ધરાવતો ગ્રહ</annotation>
 		<annotation cp="⭐">તારો | મધ્યમ સફેદ તારો | સ્ટાર</annotation>
 		<annotation cp="⭐" type="tts">મધ્યમ સફેદ તારો</annotation>
 		<annotation cp="🌟">ચમકતો | ચમકદાર | ચમકનાર | ચળકવું | તારો</annotation>
 		<annotation cp="🌟" type="tts">ચમકતો તારો</annotation>
 		<annotation cp="🌠">ખરતો | તારો</annotation>
 		<annotation cp="🌠" type="tts">ખરતો તારો</annotation>
+		<annotation cp="🌌">આકાશગંગા | દૂધિયું</annotation>
+		<annotation cp="🌌" type="tts">આકાશગંગા</annotation>
 		<annotation cp="☁">વાદળ | હવામાન</annotation>
 		<annotation cp="☁" type="tts">વાદળ</annotation>
 		<annotation cp="⛅">વાદળ | વાદળ પાછળનો સૂર્ય | વાદળો સાથે સૂર્ય | સૂર્ય</annotation>
@@ -1781,7 +1969,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎇" type="tts">ફૂલઝર</annotation>
 		<annotation cp="🧨">ડાયનામાઇટ | ફટાકડા | વિસ્ફોટક</annotation>
 		<annotation cp="🧨" type="tts">ફટાકડા</annotation>
-		<annotation cp="✨">ચમકતા તારા | ચળકાટ | તારા | હીરો</annotation>
+		<annotation cp="✨">* | ચમકતા તારા | ચળકાટ | તારા | સ્ટાર</annotation>
 		<annotation cp="✨" type="tts">ચમકતા તારા</annotation>
 		<annotation cp="🎈">ઉજવણી | ફુગ્ગો</annotation>
 		<annotation cp="🎈" type="tts">ફુગ્ગો</annotation>
@@ -1869,6 +2057,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">આઇસ સ્કેટ</annotation>
 		<annotation cp="🎣">આનંદપ્રમોદ | કાંટો | મનોરંજન | માછલી | માછલી પકડવાનો કાંટો | માછલી પકડવાનો કાંટો અને માછલી | માછલી પકડવી</annotation>
 		<annotation cp="🎣" type="tts">માછલી પકડવાનો કાંટો</annotation>
+		<annotation cp="🤿">ડાઇવિંગ | ડાઇવિંગ માટેનું માસ્ક | સ્કુબા | સ્નોર્કલિંગ</annotation>
+		<annotation cp="🤿" type="tts">ડાઇવિંગ માટેનું માસ્ક</annotation>
 		<annotation cp="🎽">ખેલ કૂદ | ખેસ | ખેસ સાથેનો રનિંગ શર્ટ | દોડ | રનિંગ શર્ટ | શર્ટ</annotation>
 		<annotation cp="🎽" type="tts">રનિંગ શર્ટ</annotation>
 		<annotation cp="🎿">ખેલ કૂદ | બૂટ | સ્કી | સ્કી અને બૂટ</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">કર્લિંગ સ્ટોન</annotation>
 		<annotation cp="🎯">બળદની આંખ | રમત | લક્ષ્ય | લક્ષ્ય પર જ | સીધી જ હિટ | હિટ</annotation>
 		<annotation cp="🎯" type="tts">સીધી જ હિટ</annotation>
+		<annotation cp="🪀">બદલાયા કરવું | યો-યો | રમકડું</annotation>
+		<annotation cp="🪀" type="tts">યો-યો</annotation>
+		<annotation cp="🪁">ઊંચે ઊડવું | ઊડવું | પતંગ</annotation>
+		<annotation cp="🪁" type="tts">પતંગ</annotation>
 		<annotation cp="🎱">આઠ બોલ | બિલિયર્ડ | રમત</annotation>
 		<annotation cp="🎱" type="tts">બિલિયર્ડ</annotation>
 		<annotation cp="🔮">દડો | ભાગ્ય | ભાગ્ય કથન | સ્ફટિક | સ્ફટિકનો દડો</annotation>
@@ -1893,8 +2087,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎰" type="tts">સ્લોટ મશીન</annotation>
 		<annotation cp="🎲">પાસા | પાસાની રમત | પાસો | રમત | રમતનો પાસો</annotation>
 		<annotation cp="🎲" type="tts">રમતનો પાસો</annotation>
-		<annotation cp="🧩">ઇન્ટરલૉકિંગ | કડી | જીગ્સૉ | ટુકડો | પઝલ</annotation>
-		<annotation cp="🧩" type="tts">જીગ્સૉ</annotation>
+		<annotation cp="🧩">ઇન્ટરલૉકિંગ | કડી | જીગ્સૉ | ટુકડો | પઝલ | પઝલના પીસ</annotation>
+		<annotation cp="🧩" type="tts">પઝલના પીસ</annotation>
 		<annotation cp="🧸">ટેડી બિઅર | ભરેલું | રમકડું | સુંવાળું | હાથ રમકડું</annotation>
 		<annotation cp="🧸" type="tts">ટેડી બિઅર</annotation>
 		<annotation cp="♠">કાર્ડ | કાળી | કાળીનું પત્તું | પત્તું | રમત</annotation>
@@ -1923,6 +2117,92 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">દોરો</annotation>
 		<annotation cp="🧶">ઊનનો દડો | ગૂંથવું | ભરતગૂંથણ | સૂતર</annotation>
 		<annotation cp="🧶" type="tts">સૂતર</annotation>
+		<annotation cp="👓">આંખનાં ચશ્મા | કપડાં | ચશ્મા</annotation>
+		<annotation cp="👓" type="tts">ચશ્મા</annotation>
+		<annotation cp="🕶">આંખ | ચશ્માં | સનગ્લાસેસ</annotation>
+		<annotation cp="🕶" type="tts">સનગ્લાસેસ</annotation>
+		<annotation cp="🥽">ગોગલ્સ</annotation>
+		<annotation cp="🥽" type="tts">ગોગલ્સ</annotation>
+		<annotation cp="🥼">લેબ કોટ</annotation>
+		<annotation cp="🥼" type="tts">લેબ કોટ</annotation>
+		<annotation cp="🦺">કટોકટી | જેકેટ | સુરક્ષા</annotation>
+		<annotation cp="🦺" type="tts">સુરક્ષા જેકેટ</annotation>
+		<annotation cp="👔">કપડાં | ટાઇ | નેકટાઇ</annotation>
+		<annotation cp="👔" type="tts">નેકટાઇ</annotation>
+		<annotation cp="👕">કપડાં | ટી-શર્ટ | શર્ટ</annotation>
+		<annotation cp="👕" type="tts">ટી-શર્ટ</annotation>
+		<annotation cp="👖">કપડાં | જીન્સ | ટ્રાઉઝર | પેન્ટ</annotation>
+		<annotation cp="👖" type="tts">જીન્સ</annotation>
+		<annotation cp="🧣">સ્કાફ</annotation>
+		<annotation cp="🧣" type="tts">સ્કાફ</annotation>
+		<annotation cp="🧤">હાથના મોજાં</annotation>
+		<annotation cp="🧤" type="tts">હાથના મોજાં</annotation>
+		<annotation cp="🧥">કોટ</annotation>
+		<annotation cp="🧥" type="tts">કોટ</annotation>
+		<annotation cp="🧦">મોજાં</annotation>
+		<annotation cp="🧦" type="tts">મોજાં</annotation>
+		<annotation cp="👗">કપડાં | ડ્રેસ | વન-પીસ</annotation>
+		<annotation cp="👗" type="tts">ડ્રેસ</annotation>
+		<annotation cp="👘">કપડાં | કિમોનો | ડ્રેસ</annotation>
+		<annotation cp="👘" type="tts">કિમોનો</annotation>
+		<annotation cp="🥻">કપડાં | વસ્ત્ર | સાડી</annotation>
+		<annotation cp="🥻" type="tts">સાડી</annotation>
+		<annotation cp="🩱">બાથ સ્યૂટ | વન-પીસ સ્વીમસ્યૂટ</annotation>
+		<annotation cp="🩱" type="tts">વન-પીસ સ્વીમસ્યૂટ</annotation>
+		<annotation cp="🩲">અંડરવેયર | ચડ્ડી | બાથ સ્યૂટ | વન-પીસ | સ્વિમસ્યૂટ</annotation>
+		<annotation cp="🩲" type="tts">ચડ્ડી</annotation>
+		<annotation cp="🩳">અંડરવેયર | પેન્ટ | બાથ સ્યૂટ | શૉર્ટ્સ</annotation>
+		<annotation cp="🩳" type="tts">શૉર્ટ્સ</annotation>
+		<annotation cp="👙">કપડાં | નાહવાનાં કપડાં | બિકીની</annotation>
+		<annotation cp="👙" type="tts">બિકીની</annotation>
+		<annotation cp="👚">કપડાં | સ્ત્રીનાં કપડાં</annotation>
+		<annotation cp="👚" type="tts">સ્ત્રીનાં કપડાં</annotation>
+		<annotation cp="👛">કપડાં | પર્સ | પાકીટ | પૈસા રાખવાનું પાકીટ | સિક્કો</annotation>
+		<annotation cp="👛" type="tts">પર્સ</annotation>
+		<annotation cp="👜">કપડાં | બેગ | હેન્ડબેગ</annotation>
+		<annotation cp="👜" type="tts">હેન્ડબેગ</annotation>
+		<annotation cp="👝">કપડાં | પાઉચ | બેગ</annotation>
+		<annotation cp="👝" type="tts">પાઉચ</annotation>
+		<annotation cp="🛍">ખરીદી | શોપિંગ | શોપિંગ બેગ્સ | હોટલ</annotation>
+		<annotation cp="🛍" type="tts">શોપિંગ બેગ્સ</annotation>
+		<annotation cp="🎒">દફતર | સ્કૂલ | સ્કૂલ બેગ | સ્કૂલનું દફતર</annotation>
+		<annotation cp="🎒" type="tts">સ્કૂલનું દફતર</annotation>
+		<annotation cp="👞">કપડાં | જૂતા | પુરુષના જૂતા</annotation>
+		<annotation cp="👞" type="tts">પુરુષના જૂતા</annotation>
+		<annotation cp="👟">કપડાં | ખેલકૂદ માટેનાં જૂતા | જૂતા | સ્નીકર</annotation>
+		<annotation cp="👟" type="tts">ખેલકૂદ માટેનાં જૂતા</annotation>
+		<annotation cp="🥾">હાઈકીંગ બૂટ</annotation>
+		<annotation cp="🥾" type="tts">હાઈકીંગ બૂટ</annotation>
+		<annotation cp="🥿">સપાટ બૂટ</annotation>
+		<annotation cp="🥿" type="tts">સપાટ બૂટ</annotation>
+		<annotation cp="👠">ઉંચી હિલ | ઉંચી હિલવાળા જૂતા | કપડાં | જૂતા</annotation>
+		<annotation cp="👠" type="tts">ઉંચી હિલવાળા જૂતા</annotation>
+		<annotation cp="👡">કપડાં | સેન્ડલ | સ્ત્રી | સ્ત્રીનાં સેન્ડલ</annotation>
+		<annotation cp="👡" type="tts">સ્ત્રીનાં સેન્ડલ</annotation>
+		<annotation cp="🩰">નૃત્ય, ડાંસ | બેલે | બેલે શૂઝ</annotation>
+		<annotation cp="🩰" type="tts">બેલે શૂઝ</annotation>
+		<annotation cp="👢">કપડાં | બૂટ | સ્ત્રી | સ્ત્રીના બૂટ</annotation>
+		<annotation cp="👢" type="tts">સ્ત્રીના બૂટ</annotation>
+		<annotation cp="👑">કપડાં | મુકુટ | રાજા | રાણી</annotation>
+		<annotation cp="👑" type="tts">મુકુટ</annotation>
+		<annotation cp="👒">કપડાં | સ્ત્રીની હેટ | હેટ</annotation>
+		<annotation cp="👒" type="tts">સ્ત્રીની હેટ</annotation>
+		<annotation cp="🎩">ટોપ હેટ | મનોરજન | હેટ</annotation>
+		<annotation cp="🎩" type="tts">ટોપ હેટ</annotation>
+		<annotation cp="🎓">ઉજવણી | ટોપી | સ્નાતક</annotation>
+		<annotation cp="🎓" type="tts">સ્નાતક ટોપી</annotation>
+		<annotation cp="🧢">બિલવાળી કેપ</annotation>
+		<annotation cp="🧢" type="tts">બિલવાળી કેપ</annotation>
+		<annotation cp="⛑">ક્રોસ | ચહેરો | ટોપી | બચાવ કાર્યકરની હેલ્મેટ | મદદ | મુખ | સફેદ ક્રોસ સાથેની હેલ્મેટ | સહાય | હેલ્મેટ</annotation>
+		<annotation cp="⛑" type="tts">સફેદ ક્રોસ સાથેની હેલ્મેટ</annotation>
+		<annotation cp="📿">જાપ | જાપની માળા | ધર્મ | ધાર્મિક | પ્રાર્થના | મણકાં | માળા</annotation>
+		<annotation cp="📿" type="tts">જાપની માળા</annotation>
+		<annotation cp="💄">કોસ્મેટિક્સ | મેકઅપ | લિપસ્ટિક</annotation>
+		<annotation cp="💄" type="tts">લિપસ્ટિક</annotation>
+		<annotation cp="💍">ડાયમન્ડ | વીંટી</annotation>
+		<annotation cp="💍" type="tts">વીંટી</annotation>
+		<annotation cp="💎">જ્વેલ | ડાયમંડ | રત્ન | રત્ન પથ્થર</annotation>
+		<annotation cp="💎" type="tts">રત્ન</annotation>
 		<annotation cp="🔇">કૃપા કરી શાંત રહો | બોલશો નહીં | રદ કરેલા ચિહ્ન સાથેનું સ્પીકર | શાંત | સ્પીકર બંધ</annotation>
 		<annotation cp="🔇" type="tts">સ્પીકર બંધ</annotation>
 		<annotation cp="🔈">નરમ | સ્પીકર | સ્પીકર નીચું વૉલ્યૂમ | સ્પીકર લો વોલ્યુમ</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">તુરાઈ</annotation>
 		<annotation cp="🎻">વાદ્ય | વાયોલિન | સંગીત</annotation>
 		<annotation cp="🎻" type="tts">વાયોલિન</annotation>
+		<annotation cp="🪕">બેન્જો | વાદ્યયંત્રના તાર | સંગીત</annotation>
+		<annotation cp="🪕" type="tts">બેન્જો</annotation>
 		<annotation cp="🥁">ડ્રમ | ડ્રમસ્ટિક | સંગીત</annotation>
 		<annotation cp="🥁" type="tts">ડ્રમ</annotation>
 		<annotation cp="📱">ફોન | મોબાઇલ ફોન | સેલ ફોન</annotation>
@@ -1999,13 +2281,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🖱" type="tts">કમ્પ્યુટર માઉસ</annotation>
 		<annotation cp="🖲">કમ્પ્યુટર | ટ્રેકબોલ</annotation>
 		<annotation cp="🖲" type="tts">ટ્રેકબોલ</annotation>
-		<annotation cp="💽">MD | ડિસ્ક | મિનિ ડિસ્ક</annotation>
+		<annotation cp="💽">ઑપ્ટિકલ | કમ્પ્યુટર | ડિસ્ક | મિનિ ડિસ્ક</annotation>
 		<annotation cp="💽" type="tts">મિનિ ડિસ્ક</annotation>
 		<annotation cp="💾">ડિસ્ક | ફ્લોપી</annotation>
 		<annotation cp="💾" type="tts">ફ્લોપી ડિસ્ક</annotation>
-		<annotation cp="💿">CD | DVD | ઑપ્ટિકલ ડિસ્ક | ડિસ્ક | બ્લુ-રે</annotation>
+		<annotation cp="💿">cd | ઑપ્ટિકલ | કમ્પ્યુટર | ડિસ્ક</annotation>
 		<annotation cp="💿" type="tts">ઑપ્ટિકલ ડિસ્ક</annotation>
-		<annotation cp="📀">DVD | ડિસ્ક | ડીવીડી</annotation>
+		<annotation cp="📀">DVD | ઑપ્ટિકલ | કમ્પ્યુટર | ડિસ્ક | ડીવીડી | બ્લુ-રે</annotation>
 		<annotation cp="📀" type="tts">ડીવીડી</annotation>
 		<annotation cp="🧮">ગણતરી | મણકા ઘોડી</annotation>
 		<annotation cp="🧮" type="tts">મણકા ઘોડી</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">ફ્લેશલાઇટ</annotation>
 		<annotation cp="🏮">ઇઝાક્યા | ફાનસ | બાર | રેસ્ટોરન્ટ | લાલ</annotation>
 		<annotation cp="🏮" type="tts">લાલ ફાનસ</annotation>
+		<annotation cp="🪔">તેલ | દિવડો | દિવો</annotation>
+		<annotation cp="🪔" type="tts">દિવો</annotation>
 		<annotation cp="📔">કવર | નોટબુક | સુશોભનવાળી નોટબુક | સુશોભિત કવરવાળી નોટબુક | સુશોભિત નોટબુક</annotation>
 		<annotation cp="📔" type="tts">સુશોભિત કવરવાળી નોટબુક</annotation>
 		<annotation cp="📕">પુસ્તક | બંધ પુસ્તક</annotation>
@@ -2101,7 +2385,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📧" type="tts">ઇમેઇલ</annotation>
 		<annotation cp="📨">આવનારી | ઇમેઇલ | પત્ર | પરબીડિયું | પ્રાપ્ત મેઇલ | મેઇલ | સંચાર</annotation>
 		<annotation cp="📨" type="tts">આવનારી મેઇલ</annotation>
-		<annotation cp="📩">ઇમેઇલ | પત્ર | પરબીડિયું | બહાર જતી | બહાર જતી મેઇલ | મેઇલ | મોકલેલ મેઇલ | સંચાર</annotation>
+		<annotation cp="📩">ઇ-મેઇલ | ઇમેઇલ | તીર | તીર વાળું પરબીડિયું | પરબીડિયું | બહાર જતી | બહાર જતી મેઇલ</annotation>
 		<annotation cp="📩" type="tts">બહાર જતી મેઇલ</annotation>
 		<annotation cp="📤">આઉટબોક્સ | ટ્રે | બોક્સ | મેઇલ | મોકલેલ | સંચાર</annotation>
 		<annotation cp="📤" type="tts">આઉટબોક્સ ટ્રે</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">જૂની ચાવી</annotation>
 		<annotation cp="🔨">સાધન | હથોડી</annotation>
 		<annotation cp="🔨" type="tts">હથોડી</annotation>
+		<annotation cp="🪓">કાપો | કુહાડી | ટૂકડા કરો | લાકડું | હેશેટ</annotation>
+		<annotation cp="🪓" type="tts">કુહાડી</annotation>
 		<annotation cp="⛏">ખનન | તીકમ | સાધન</annotation>
 		<annotation cp="⛏" type="tts">તીકમ</annotation>
 		<annotation cp="⚒">તિકમ | સાધન | હથોડી | હથોડી અને તિકમ</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">ક્લેમ્પ</annotation>
 		<annotation cp="⚖">તરાજુ | તુલા | ન્યાય | માપ | રાશિ | વજન</annotation>
 		<annotation cp="⚖" type="tts">તરાજુ</annotation>
+		<annotation cp="🦯">ઍક્સેસિબિલિટી | તપાસ માટેની લાકડી | દિવ્યાંગ</annotation>
+		<annotation cp="🦯" type="tts">તપાસ માટેની લાકડી</annotation>
 		<annotation cp="🔗">બે રિંગ્સ | લિંક | લિંકનું ચિહ્ન | લિંક્સ</annotation>
 		<annotation cp="🔗" type="tts">લિંક</annotation>
 		<annotation cp="⛓">સાંકળ</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">સેટેલાઇટ એન્ટેના</annotation>
 		<annotation cp="💉">ડોક્ટર | દવા | શોટ | સીરિંજ | સોય</annotation>
 		<annotation cp="💉" type="tts">સીરિંજ</annotation>
+		<annotation cp="🩸">દવા | રક્ત દાન | રજોદર્શન | લોહીનું ટીપું</annotation>
+		<annotation cp="🩸" type="tts">લોહીનું ટીપું</annotation>
 		<annotation cp="💊">ગોળી | ગોળી, ટિકડી | ડોક્ટર | દવા</annotation>
 		<annotation cp="💊" type="tts">ગોળી, ટિકડી</annotation>
+		<annotation cp="🩹">એડહેસિવ બેન્ડેજ | બેન્ડેજ</annotation>
+		<annotation cp="🩹" type="tts">એડહેસિવ બેન્ડેજ</annotation>
+		<annotation cp="🩺">ડૉક્ટર | દવા | સ્ટેથોસ્કોપ | હૃદય</annotation>
+		<annotation cp="🩺" type="tts">સ્ટેથોસ્કોપ</annotation>
 		<annotation cp="🚪">દરવાજો</annotation>
 		<annotation cp="🚪" type="tts">દરવાજો</annotation>
 		<annotation cp="🛏">ઊંઘ | નિંદ્રા | પથારી | હોટલ</annotation>
 		<annotation cp="🛏" type="tts">પથારી</annotation>
 		<annotation cp="🛋">કાઉચ | કાઉચ અને લેમ્પ | લેમ્પ | સોફો | હોટલ</annotation>
 		<annotation cp="🛋" type="tts">કાઉચ અને લેમ્પ</annotation>
+		<annotation cp="🪑">ખુરશી | બેઠક | બેસો</annotation>
+		<annotation cp="🪑" type="tts">ખુરશી</annotation>
 		<annotation cp="🚽">ટૉઇલેટ</annotation>
 		<annotation cp="🚽" type="tts">ટૉઇલેટ</annotation>
 		<annotation cp="🚿">શાવર | શૉવર</annotation>
 		<annotation cp="🚿" type="tts">શાવર</annotation>
 		<annotation cp="🛁">નાહવું | બાથ | બાથ ટબ</annotation>
 		<annotation cp="🛁" type="tts">બાથ ટબ</annotation>
+		<annotation cp="🪒">તીક્ષ્ણ | રેઝર | શેવ</annotation>
+		<annotation cp="🪒" type="tts">રેઝર</annotation>
 		<annotation cp="🧴">મોઇસ્ચરાઇઝર | લોશન | લોશનની બોટલ | શેમ્પૂ | સનસ્ક્રીન</annotation>
 		<annotation cp="🧴" type="tts">લોશનની બોટલ</annotation>
 		<annotation cp="🧷">ડાયપર | પંક રૉક | સેફ્ટી પિન</annotation>
@@ -2337,7 +2635,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☢" type="tts">રેડિઓઍક્ટિવ</annotation>
 		<annotation cp="☣">બાયોહેઝાર્ડ | સંકેત</annotation>
 		<annotation cp="☣" type="tts">બાયોહેઝાર્ડ</annotation>
-		<annotation cp="⬆">ઉત્તર | ઉપર તીર | તીર | દિશા</annotation>
+		<annotation cp="⬆">ઉત્તર | ઉપર | તીર | દિશા | મુખ્ય</annotation>
 		<annotation cp="⬆" type="tts">ઉપર તીર</annotation>
 		<annotation cp="↗">ઉત્તરપૂર્વ | ઉપર-જમણું તીર | તીર | દિશા</annotation>
 		<annotation cp="↗" type="tts">ઉપર-જમણું તીર</annotation>
@@ -2349,7 +2647,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⬇" type="tts">નીચે તીર</annotation>
 		<annotation cp="↙">તીર | દક્ષિણપશ્ચિમ | નીચે-ડાબું તીર</annotation>
 		<annotation cp="↙" type="tts">નીચે-ડાબું તીર</annotation>
-		<annotation cp="⬅">ડાબું તીર | દિશા | પશ્ચિમ</annotation>
+		<annotation cp="⬅">ડાબું તીર | તીર | દિશા | પશ્ચિમ | મુખ્ય</annotation>
 		<annotation cp="⬅" type="tts">ડાબું તીર</annotation>
 		<annotation cp="↖">ઉપર-ડાબું તીર | પૂર્વપશ્ચિમ</annotation>
 		<annotation cp="↖" type="tts">ઉપર-ડાબું તીર</annotation>
@@ -2495,60 +2793,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📛" type="tts">નામનો બેજ</annotation>
 		<annotation cp="🔰">જાપાનીઝ | પ્રારંભકર્તા | પ્રારંભકર્તા માટે જાપાની પ્રતીક | લીલું અને પીળું | લીલું અને પીળું પાંદડુ</annotation>
 		<annotation cp="🔰" type="tts">પ્રારંભકર્તા માટે જાપાની પ્રતીક</annotation>
-		<annotation cp="⭕">o | ગોળ</annotation>
-		<annotation cp="⭕" type="tts">ગોળ</annotation>
-		<annotation cp="✅">ચેક | ચેક માર્ક | સફેદ ચેક માર્કનું ચિહ્ન | હેવી ચેક માર્ક</annotation>
-		<annotation cp="✅" type="tts">સફેદ ચેક માર્કનું ચિહ્ન</annotation>
-		<annotation cp="☑">ચેક | ચેક સાથે મત પત્રનું ચિહ્ન | પેટા | બોક્સ | મત</annotation>
-		<annotation cp="☑" type="tts">ચેક સાથે મત પત્રનું ચિહ્ન</annotation>
-		<annotation cp="✔">ઘાટું ચેક માર્કનું ચિહ્ન | ચિહ્ન | ચેક</annotation>
-		<annotation cp="✔" type="tts">ઘાટું ચેક માર્કનું ચિહ્ન</annotation>
-		<annotation cp="✖">ગુણાકાર | ઘાટું ગુણાકાર x નું ચિહ્ન | રદ કરો</annotation>
-		<annotation cp="✖" type="tts">ઘાટું ગુણાકાર x નું ચિહ્ન</annotation>
-		<annotation cp="❌">“X” | ક્રોસનું ચિહ્ન | ચોકડીનું ચિહ્ન</annotation>
+		<annotation cp="⭕">o | ગોળ | પોલું લાલ રંગનું ગોળ | મોટું | લાલ</annotation>
+		<annotation cp="⭕" type="tts">પોલું લાલ રંગનું ગોળ</annotation>
+		<annotation cp="✅">✓ | ચેક | ચેક માર્કના ચિહ્નવાળું બટન | બટન | માર્ક | સફેદ ચેક માર્કના ચિહ્નવાળું બટન</annotation>
+		<annotation cp="✅" type="tts">ચેક માર્કના ચિહ્નવાળું બટન</annotation>
+		<annotation cp="☑">✓ | ચેક | ચેક માર્કના ચિહ્નવાળું ચેક બૉક્સ | ચેકના ચિહ્નવાળું ચેક બૉક્સ | બૉક્સ</annotation>
+		<annotation cp="☑" type="tts">ચેક માર્કના ચિહ્નવાળું ચેક બૉક્સ</annotation>
+		<annotation cp="✔">✓ | ચેક | માર્ક</annotation>
+		<annotation cp="✔" type="tts">ચેક માર્ક</annotation>
+		<annotation cp="✖">× | x | ગુણાકાર | ગુણાકાર કરો | નિશાની | રદ કરો</annotation>
+		<annotation cp="✖" type="tts">ગુણાકાર</annotation>
+		<annotation cp="❌">× | x | ખોટું | ગુણાકાર | ગુણાકાર કરો | ચોકડી | ચોકડીનું ચિહ્ન | રદ કરો</annotation>
 		<annotation cp="❌" type="tts">ચોકડીનું ચિહ્ન</annotation>
-		<annotation cp="❎">ક્રોસનું ચિહ્ન | ચોકડીનું બટન | ચોરસમાં “X”</annotation>
+		<annotation cp="❎">× | x | ચિહ્ન | ચોકડીના ચિહ્નવાળું બટન | ચોકડીનું બટન | ચોરસ</annotation>
 		<annotation cp="❎" type="tts">ચોકડીનું બટન</annotation>
-		<annotation cp="➕">ઘાટું વત્તાનું ચિહ્ન | ચિહ્ન | ભારે વત્તાનું ચિહ્ન | વત્તા | વત્તાનું ચિહ્ન</annotation>
-		<annotation cp="➕" type="tts">ઘાટું વત્તાનું ચિહ્ન</annotation>
-		<annotation cp="➖">ઘાટું બાદબાકીનું ચિહ્ન | ચિહ્ન | બાદબાકી | બાદબાકીનું ચિહ્ન | ભારે બાદબાકીનું ચિહ્ન</annotation>
-		<annotation cp="➖" type="tts">ઘાટું બાદબાકીનું ચિહ્ન</annotation>
-		<annotation cp="➗">ઘાટું ભાગાકારનું ચિહ્ન | ચિહ્ન | ભાગાકાર | ભાગાકારનું ચિહ્ન | ભારે ભાગાકારનું ચિહ્ન</annotation>
-		<annotation cp="➗" type="tts">ઘાટું ભાગાકારનું ચિહ્ન</annotation>
+		<annotation cp="➕">+ | ગણિત | ચિહ્ન | વત્તા</annotation>
+		<annotation cp="➕" type="tts">વત્તા</annotation>
+		<annotation cp="➖">- | − | ગણિત | ચિહ્ન | બાદબાકી</annotation>
+		<annotation cp="➖" type="tts">બાદબાકી</annotation>
+		<annotation cp="➗">÷ | ગણિત | ચિહ્ન | ભાગાકાર</annotation>
+		<annotation cp="➗" type="tts">ભાગાકાર</annotation>
 		<annotation cp="➰">લૂપ | વળાંક | વાંકડિયુ લૂપ</annotation>
 		<annotation cp="➰" type="tts">વાંકડિયુ લૂપ</annotation>
 		<annotation cp="➿">જાપાન | ડબલ વાંકડિયું લૂપ | ફ્રી ડાયલ | વાંકડિયુ લૂપ</annotation>
 		<annotation cp="➿" type="tts">ડબલ વાંકડિયું લૂપ</annotation>
 		<annotation cp="〽">ચિહ્ન | જાપાની ચિહ્ન | ભાગ</annotation>
 		<annotation cp="〽" type="tts">જાપાની ચિહ્ન</annotation>
-		<annotation cp="✳">આઠ કિનારીવાળું તારાનું ચિહ્ન | તારો</annotation>
+		<annotation cp="✳">* | આઠ કિનારીવાળું તારાનું ચિહ્ન | તારો</annotation>
 		<annotation cp="✳" type="tts">આઠ કિનારીવાળું તારાનું ચિહ્ન</annotation>
-		<annotation cp="✴">આઠ કિનારીવાળો તારો | તારો</annotation>
+		<annotation cp="✴">* | આઠ કિનારીવાળો તારો | તારો</annotation>
 		<annotation cp="✴" type="tts">આઠ કિનારીવાળો તારો</annotation>
-		<annotation cp="❇">ચમક | સ્પાર્કલ</annotation>
+		<annotation cp="❇">* | ચમક | સ્પાર્કલ</annotation>
 		<annotation cp="❇" type="tts">ચમક</annotation>
-		<annotation cp="‼">ચિહ્ન | બે ઉદ્ગાર ચિહ્ન | વિરામચિહ્ન</annotation>
+		<annotation cp="‼">! | !! | ઉદ્ગારચિહ્ન | ચિહ્ન | બે ઉદ્ગાર ચિહ્ન | વિરામચિહ્ન</annotation>
 		<annotation cp="‼" type="tts">બે ઉદ્ગાર ચિહ્ન</annotation>
-		<annotation cp="⁉">ઉદ્ગાર પ્રશ્નાર્થ ચિહ્ન | પ્રશ્ન | વિરામચિહ્ન</annotation>
+		<annotation cp="⁉">! | !? | ? | ઉદ્ગાર પ્રશ્નાર્થ ચિહ્ન | ઉદ્ગારચિહ્ન | ચિહ્ન | પ્રશ્ન | પ્રશ્નાર્થ ચિહ્ન | વિરામચિહ્ન</annotation>
 		<annotation cp="⁉" type="tts">ઉદ્ગાર પ્રશ્નાર્થ ચિહ્ન</annotation>
-		<annotation cp="❓">પ્રશ્ન | પ્રશ્નાર્થ ચિહ્ન</annotation>
+		<annotation cp="❓">? | પ્રશ્ન | પ્રશ્નાર્થ ચિહ્ન | વિરામચિહ્ન</annotation>
 		<annotation cp="❓" type="tts">પ્રશ્નાર્થ ચિહ્ન</annotation>
-		<annotation cp="❔">પ્રશ્ન | પ્રશ્નાર્થ ચિહ્ન | સફેદ પ્રશ્નાર્થ ચિહ્ન</annotation>
+		<annotation cp="❔">? | ચિહ્ન | પ્રશ્ન | પ્રશ્નાર્થ ચિહ્ન | બાહ્યરેખાંકિત | વિરામચિહ્ન | સફેદ પ્રશ્નાર્થ ચિહ્ન</annotation>
 		<annotation cp="❔" type="tts">સફેદ પ્રશ્નાર્થ ચિહ્ન</annotation>
-		<annotation cp="❕">ઉદ્ગારવાચક | ઉદ્ગારવાચક ચિહ્ન | સફેદ ઉદ્ગાર ચિહ્ન</annotation>
+		<annotation cp="❕">! | ઉદ્ગારવાચક | ચિહ્ન | બાહ્યરેખાંકિત | વિરામચિહ્ન | સફેદ ઉદ્ગાર ચિહ્ન</annotation>
 		<annotation cp="❕" type="tts">સફેદ ઉદ્ગાર ચિહ્ન</annotation>
-		<annotation cp="❗">ઉદ્ગાર ચિહ્ન | વિરામચિહ્ન</annotation>
+		<annotation cp="❗">! | ઉદ્ગાર ચિહ્ન | ચિહ્ન | વિરામચિહ્ન</annotation>
 		<annotation cp="❗" type="tts">ઉદ્ગાર ચિહ્ન</annotation>
 		<annotation cp="〰">ડેશ | લહેરાતું | લહેરાતો ડેશ | લાંબું ધ્વનિ ચિહ્ન</annotation>
 		<annotation cp="〰" type="tts">લહેરાતો ડેશ</annotation>
-		<annotation cp="©">કૉપિરાઇટ | કૉપિરાઇટનું ચિહ્ન</annotation>
+		<annotation cp="©">c | કૉપિરાઇટ | કૉપિરાઇટનું ચિહ્ન</annotation>
 		<annotation cp="©" type="tts">કૉપિરાઇટનું ચિહ્ન</annotation>
-		<annotation cp="®">નોંધાયેલ | નોંધાયેલનું ચિહ્ન</annotation>
+		<annotation cp="®">r | નોંધાયેલ | નોંધાયેલનું ચિહ્ન</annotation>
 		<annotation cp="®" type="tts">નોંધાયેલનું ચિહ્ન</annotation>
 		<annotation cp="™">ચિહ્ન | ટ્રેડ માર્ક | ટ્રેડ માર્કનું ચિહ્ન</annotation>
 		<annotation cp="™" type="tts">ટ્રેડ માર્કનું ચિહ્ન</annotation>
-		<annotation cp="💯">100 | 100 પોઇન્ટ્સ | પૂર્ણ સ્કોર | સો પોઇન્ટ્સ | સ્કોર</annotation>
-		<annotation cp="💯" type="tts">સો પોઇન્ટ્સ</annotation>
 		<annotation cp="🔠">અપરકેસ | અપરકેસ અક્ષરો | અપરકેસ લેટિન ઇનપુટ કરો | લેટિન</annotation>
 		<annotation cp="🔠" type="tts">અપરકેસ લેટિન ઇનપુટ કરો</annotation>
 		<annotation cp="🔡">લેટિન | લોઅરકેસ | લોઅરકેસ અક્ષરો | લોઅરકેસ લેટિન ઇનપુટ કરો</annotation>
@@ -2595,62 +2891,86 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🆚" type="tts">વિ. નું ચિહ્ન</annotation>
 		<annotation cp="🈁">ચોરસમાં અહીં માટેનું જાપાની ચિહ્ન | જાપાની શબ્દ</annotation>
 		<annotation cp="🈁" type="tts">ચોરસમાં અહીં માટેનું જાપાની ચિહ્ન</annotation>
-		<annotation cp="🈂">ચોરસમાં અહીં હેતુ જાપાની ચિહ્ન | જાપાની શબ્દ</annotation>
-		<annotation cp="🈂" type="tts">ચોરસમાં અહીં હેતુ જાપાની ચિહ્ન</annotation>
-		<annotation cp="🈷">ચોરસમાં ચંદ્ર માટે જાપાની ચિહ્ન | જાપાની શબ્દ</annotation>
-		<annotation cp="🈷" type="tts">ચોરસમાં ચંદ્ર માટે જાપાની ચિહ્ન</annotation>
-		<annotation cp="🈶">ચોરસમાં અસ્તિત્વ માટે જાપાની ચિહ્ન | જાપાની શબ્દ</annotation>
-		<annotation cp="🈶" type="tts">ચોરસમાં અસ્તિત્વ માટે જાપાની ચિહ્ન</annotation>
-		<annotation cp="🈯">ચોરસમાં આંગળી માટે જાપાની શબ્દ | જાપાની શબ્દ</annotation>
-		<annotation cp="🈯" type="tts">ચોરસમાં આંગળી માટે જાપાની શબ્દ</annotation>
-		<annotation cp="🉐">ગોળમાં લાભ માટે જાપાની શબ્દ | જાપાની શબ્દ</annotation>
-		<annotation cp="🉐" type="tts">ગોળમાં લાભ માટે જાપાની શબ્દ</annotation>
-		<annotation cp="🈹">ચોરસમાં વિભાજન માટે જાપાની શબ્દ | જાપાની શબ્દ</annotation>
-		<annotation cp="🈹" type="tts">ચોરસમાં વિભાજન માટે જાપાની શબ્દ</annotation>
-		<annotation cp="🈚">ચોરસમાં નિષેધ માટે જાપાની શબ્દ | જાપાની &quot;નિઃશુલ્ક&quot; બટન | જાપાની શબ્દ</annotation>
+		<annotation cp="🈂">“સેવા શુલ્ક” | કટકાના | ચોરસમાં &quot;સેવા શુલ્ક&quot; હેતુ જાપાની ચિહ્ન | જાપાનીઝ | サ</annotation>
+		<annotation cp="🈂" type="tts">ચોરસમાં &quot;સેવા શુલ્ક&quot; હેતુ જાપાની ચિહ્ન</annotation>
+		<annotation cp="🈷">&quot;માસિક રકમ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | “માસિક રકમ” | જાપાનીઝ | ભાવચિત્ર | 月</annotation>
+		<annotation cp="🈷" type="tts">&quot;માસિક રકમ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="🈶">&quot;નિઃશુલ્ક નથી&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | “નિઃશુલ્ક નથી” | જાપાનીઝ | ભાવચિત્ર | 有</annotation>
+		<annotation cp="🈶" type="tts">&quot;નિઃશુલ્ક નથી&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="🈯">&quot;અનામત&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | “અનામત” | જાપાનીઝ | ભાવચિત્ર | 指</annotation>
+		<annotation cp="🈯" type="tts">&quot;અનામત&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="🉐">&quot;સોદો&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ગોળ બટન | “સોદો” | જાપાનીઝ | ભાવચિત્ર | 得</annotation>
+		<annotation cp="🉐" type="tts">&quot;સોદો&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ગોળ બટન</annotation>
+		<annotation cp="🈹">&quot;છૂટ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | “છૂટ” | જાપાનીઝ | ભાવચિત્ર | 割</annotation>
+		<annotation cp="🈹" type="tts">&quot;છૂટ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="🈚">ચોરસમાં નિઃશુલ્ક માટે જાપાનીઝ શબ્દ | જાપાની &quot;નિઃશુલ્ક&quot; બટન | જાપાનીઝ &quot;નિઃશુલ્ક&quot; બટન | જાપાનીઝ શબ્દ</annotation>
 		<annotation cp="🈚" type="tts">જાપાની &quot;નિઃશુલ્ક&quot; બટન</annotation>
 		<annotation cp="🈲">ચોરસમાં નિષિદ્ધ માટે જાપાની શબ્દ | ચોરસમાં નિષેધ માટે જાપાની શબ્દ | જાપાની &quot;નિષેધ&quot; બટન | જાપાની શબ્દ</annotation>
 		<annotation cp="🈲" type="tts">જાપાની &quot;નિષેધ&quot; બટન</annotation>
-		<annotation cp="🉑">ગોળમાં સ્વીકૃતિ માટે ચીની શબ્દ | ચીની શબ્દ</annotation>
-		<annotation cp="🉑" type="tts">ગોળમાં સ્વીકૃતિ માટે ચીની શબ્દ</annotation>
-		<annotation cp="🈸">ચીની શબ્દ | ચોરસમાં લાગુ કરો માટે ચીની શબ્દ</annotation>
-		<annotation cp="🈸" type="tts">ચોરસમાં લાગુ કરો માટે ચીની શબ્દ</annotation>
-		<annotation cp="🈴">ચીની શબ્દ | ચોરસમાં એકસાથે માટે ચીની શબ્દ</annotation>
-		<annotation cp="🈴" type="tts">ચોરસમાં એકસાથે માટે ચીની શબ્દ</annotation>
-		<annotation cp="🈳">ચીની શબ્દ | ચોરસમાં ખાલી માટે ચીની શબ્દ</annotation>
-		<annotation cp="🈳" type="tts">ચોરસમાં ખાલી માટે ચીની શબ્દ</annotation>
-		<annotation cp="㊗">આઇડિયોગ્રાફ | ગોળમાં અભિનંદન આપતો આઇડિયોગ્રાફ | ચીની‘ અભિનંદન</annotation>
+		<annotation cp="🉑">&quot;સ્વીકૃતિ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ગોળ બટન | “સ્વીકૃતિ” | જાપાનીઝ | ભાવચિત્ર | 可</annotation>
+		<annotation cp="🉑" type="tts">&quot;સ્વીકૃતિ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ગોળ બટન</annotation>
+		<annotation cp="🈸">&quot;લાગુ કરો&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | “લાગુ કરો” | જાપાનીઝ | ભાવચિત્ર | 申</annotation>
+		<annotation cp="🈸" type="tts">&quot;લાગુ કરો&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="🈴">&quot;પાસિંગ ગ્રેડ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | “પાસિંગ ગ્રેડ” | જાપાનીઝ | ભાવચિત્ર | 合</annotation>
+		<annotation cp="🈴" type="tts">&quot;પાસિંગ ગ્રેડ&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="🈳">&quot;ખાલી જગ્યા&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | “ખાલી જગ્યા” | જાપાનીઝ | ભાવચિત્ર | 空</annotation>
+		<annotation cp="🈳" type="tts">&quot;ખાલી જગ્યા&quot; માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="㊗">“અભિનંદન” | ગોળમાં અભિનંદન આપતો આઇડિયોગ્રાફ | જાપાનીઝ | જાપાનીઝ “અભિનંદન” શબ્દ સાથેનું ગોળ બટન | ભાવચિત્ર | 祝</annotation>
 		<annotation cp="㊗" type="tts">ગોળમાં અભિનંદન આપતો આઇડિયોગ્રાફ</annotation>
-		<annotation cp="㊙">આઇડિયોગ્રાફ | ગુપ્ત | ગોળમાં ગુપ્ત આઇડિયોગ્રાફ | ચીની</annotation>
+		<annotation cp="㊙">ગુપ્ત | ગોળમાં ગુપ્ત આઇડિયોગ્રાફ | ગોળમાં ગુપ્ત ભાવચિત્ર | જાપાનીઝ | ભાવચિત્ર</annotation>
 		<annotation cp="㊙" type="tts">ગોળમાં ગુપ્ત આઇડિયોગ્રાફ</annotation>
-		<annotation cp="🈺">ગોળમાં સંચાલન માટે ચીની શબ્દ | ચીની શબ્દ</annotation>
-		<annotation cp="🈺" type="tts">ગોળમાં સંચાલન માટે ચીની શબ્દ</annotation>
-		<annotation cp="🈵">ગોળમાં સંપૂર્ણતા માટે ચીની શબ્દ | ચીની શબ્દ</annotation>
-		<annotation cp="🈵" type="tts">ગોળમાં સંપૂર્ણતા માટે ચીની શબ્દ</annotation>
+		<annotation cp="🈺">“વ્યવસાય માટે ખુલ્લું” | “વ્યવસાય માટે ખુલ્લું” માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | જાપાનીઝ | ભાવચિત્ર | 営</annotation>
+		<annotation cp="🈺" type="tts">“વ્યવસાય માટે ખુલ્લું” માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
+		<annotation cp="🈵">“કોઈ ખાલી જગ્યા નથી” | “કોઈ ખાલી જગ્યા નથી” માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન | જાપાનીઝ | ભાવચિત્ર | 満</annotation>
+		<annotation cp="🈵" type="tts">“કોઈ ખાલી જગ્યા નથી” માટેના જાપાનીઝ શબ્દ સાથેનું ચોરસ બટન</annotation>
 		<annotation cp="🔴">મોટું લાલ વર્તુળ | મોટું વર્તુળ | લાલ | લાલ ગોળ | વર્તુળ</annotation>
 		<annotation cp="🔴" type="tts">લાલ ગોળ</annotation>
+		<annotation cp="🟠">નારંગી | વર્તુળ</annotation>
+		<annotation cp="🟠" type="tts">નારંગી વર્તુળ</annotation>
+		<annotation cp="🟡">પીળા રંગનું | પીળા રંગનું વર્તુળ | વર્તુળ</annotation>
+		<annotation cp="🟡" type="tts">પીળા રંગનું વર્તુળ</annotation>
+		<annotation cp="🟢">લીલા રંગનું વર્તુળ | લીલું | વર્તુળ</annotation>
+		<annotation cp="🟢" type="tts">લીલા રંગનું વર્તુળ</annotation>
 		<annotation cp="🔵">મોટું વર્તુળ | મોટું વાદળી વર્તુળ | વર્તુળ | વાદળી | વાદળી ગોળ</annotation>
 		<annotation cp="🔵" type="tts">વાદળી ગોળ</annotation>
-		<annotation cp="⚪">ગોળ | ભૌમિતિક | સફેદ ગોળ</annotation>
-		<annotation cp="⚪" type="tts">સફેદ ગોળ</annotation>
+		<annotation cp="🟣">જાંબલી | વર્તુળ</annotation>
+		<annotation cp="🟣" type="tts">જાંબલી વર્તુળ</annotation>
+		<annotation cp="🟤">કથ્થઈ | વર્તુળ</annotation>
+		<annotation cp="🟤" type="tts">કથ્થઈ વર્તુળ</annotation>
 		<annotation cp="⚫">કાળું ગોળ | ગોળ | ભૌમિતિક</annotation>
 		<annotation cp="⚫" type="tts">કાળું ગોળ</annotation>
-		<annotation cp="⬜">ચોરસ | ભૌમિતિક | સફેદ મોટો ચોરસ</annotation>
-		<annotation cp="⬜" type="tts">સફેદ મોટો ચોરસ</annotation>
+		<annotation cp="⚪">ગોળ | ભૌમિતિક | સફેદ ગોળ</annotation>
+		<annotation cp="⚪" type="tts">સફેદ ગોળ</annotation>
+		<annotation cp="🟥">ચોરસ | લાલ</annotation>
+		<annotation cp="🟥" type="tts">લાલ ચોરસ</annotation>
+		<annotation cp="🟧">ચોરસ | નારંગી</annotation>
+		<annotation cp="🟧" type="tts">નારંગી ચોરસ</annotation>
+		<annotation cp="🟨">ચોરસ | પીળા રંગનું ચોરસ | પીળું</annotation>
+		<annotation cp="🟨" type="tts">પીળા રંગનું ચોરસ</annotation>
+		<annotation cp="🟩">ચોરસ | લીલા રંગનું ચોરસ | લીલું</annotation>
+		<annotation cp="🟩" type="tts">લીલા રંગનું ચોરસ</annotation>
+		<annotation cp="🟦">ચોરસ | વાદળી</annotation>
+		<annotation cp="🟦" type="tts">વાદળી ચોરસ</annotation>
+		<annotation cp="🟪">ચોરસ | જાંબલી</annotation>
+		<annotation cp="🟪" type="tts">જાંબલી ચોરસ</annotation>
+		<annotation cp="🟫">કથ્થઈ | ચોરસ</annotation>
+		<annotation cp="🟫" type="tts">કથ્થઈ ચોરસ</annotation>
 		<annotation cp="⬛">કાળો મોટો ચોરસ | ચોરસ | ભૌમિતિક</annotation>
 		<annotation cp="⬛" type="tts">કાળો મોટો ચોરસ</annotation>
+		<annotation cp="⬜">ચોરસ | ભૌમિતિક | સફેદ મોટો ચોરસ</annotation>
+		<annotation cp="⬜" type="tts">સફેદ મોટો ચોરસ</annotation>
 		<annotation cp="◼">કાળો મધ્યમ ચોરસ | ચોરસ | ભૌમિતિક</annotation>
 		<annotation cp="◼" type="tts">કાળો મધ્યમ ચોરસ</annotation>
 		<annotation cp="◻">ચોરસ | ભૌમિતિક | સફેદ મધ્યમ ચોરસ</annotation>
 		<annotation cp="◻" type="tts">સફેદ મધ્યમ ચોરસ</annotation>
-		<annotation cp="◽">ચોરસ | ભૌમિતિક | સફેદ મધ્યમ-નાનો ચોરસ</annotation>
-		<annotation cp="◽" type="tts">સફેદ મધ્યમ-નાનો ચોરસ</annotation>
 		<annotation cp="◾">કાળો મધ્યમ-નાનો ચોરસ | ચોરસ | ભૌમિતિક</annotation>
 		<annotation cp="◾" type="tts">કાળો મધ્યમ-નાનો ચોરસ</annotation>
-		<annotation cp="▫">ચોરસ | ભૌમિતિક | સફેદ નાનો ચોરસ</annotation>
-		<annotation cp="▫" type="tts">સફેદ નાનો ચોરસ</annotation>
+		<annotation cp="◽">ચોરસ | ભૌમિતિક | સફેદ મધ્યમ-નાનો ચોરસ</annotation>
+		<annotation cp="◽" type="tts">સફેદ મધ્યમ-નાનો ચોરસ</annotation>
 		<annotation cp="▪">કાળો નાનો ચોરસ | ચોરસ | ભૌમિતિક</annotation>
 		<annotation cp="▪" type="tts">કાળો નાનો ચોરસ</annotation>
+		<annotation cp="▫">ચોરસ | ભૌમિતિક | સફેદ નાનો ચોરસ</annotation>
+		<annotation cp="▫" type="tts">સફેદ નાનો ચોરસ</annotation>
 		<annotation cp="🔶">નારંગી | મોટો નારંગી હીરો | મોટો હીરો | હીરો</annotation>
 		<annotation cp="🔶" type="tts">મોટો નારંગી હીરો</annotation>
 		<annotation cp="🔷">મોટો વાદળી હીરો | મોટો હીરો | વાદળી | હીરો</annotation>
@@ -2667,20 +2987,22 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">ડાયમંડ આકાર</annotation>
 		<annotation cp="🔘">બટન | રેડિઓ</annotation>
 		<annotation cp="🔘" type="tts">રેડિઓ બટન</annotation>
-		<annotation cp="🔲">કાળો ચોરસ બટન | ચોરસ | બટન</annotation>
-		<annotation cp="🔲" type="tts">કાળો ચોરસ બટન</annotation>
 		<annotation cp="🔳">ચોરસ | બટન | સફેદ ચોરસ બટન</annotation>
 		<annotation cp="🔳" type="tts">સફેદ ચોરસ બટન</annotation>
+		<annotation cp="🔲">કાળો ચોરસ બટન | ચોરસ | બટન</annotation>
+		<annotation cp="🔲" type="tts">કાળો ચોરસ બટન</annotation>
 		<annotation cp="🏁">ખેલ કૂદ | ચોકડીવાળો | ધ્વજ | હરીફાઈ</annotation>
 		<annotation cp="🏁" type="tts">ચોકડીવાળો ધ્વજ</annotation>
 		<annotation cp="🚩">ત્રિકોણ ધ્વજ | ત્રિકોણ સ્થાન ધ્વજ | ત્રિકોણાકાર ધ્વજ | ધ્વજ | સ્થાન</annotation>
 		<annotation cp="🚩" type="tts">ત્રિકોણાકાર ધ્વજ</annotation>
-		<annotation cp="🎌">ઉજવણી | ચોકડીવાળા ધ્વજ | ચોકડીવાળો | જાપાનનો ચોકડીવાળો ધ્વજ | ધ્વજ</annotation>
+		<annotation cp="🎌">ઉજવણી | ક્રૉસ | ક્રૉસ કરેલો । ક્રૉસ કરેલો ધ્વજ | ચોકડીવાળા ધ્વજ | જાપાનીઝ</annotation>
 		<annotation cp="🎌" type="tts">ચોકડીવાળા ધ્વજ</annotation>
 		<annotation cp="🏴">લહેરતો કાળો ઝંડો | લહેરવું</annotation>
 		<annotation cp="🏴" type="tts">લહેરતો કાળો ઝંડો</annotation>
 		<annotation cp="🏳">લહેરતો સફેદ ઝંડો | લહેરવું</annotation>
 		<annotation cp="🏳" type="tts">લહેરતો સફેદ ઝંડો</annotation>
+		<annotation cp="🏳‍⚧">ગુલાબી | ટ્રાન્સજેન્ડર | ધ્વજ | બ્લ્યૂ | સફેદ</annotation>
+		<annotation cp="🏳‍⚧" type="tts">ટ્રાન્સજેન્ડર ધ્વજ</annotation>
 		<annotation cp="🏳‍🌈">ઝંડો | સપ્તરંગી</annotation>
 		<annotation cp="🏳‍🌈" type="tts">સપ્તરંગી ઝંડો</annotation>
 		<annotation cp="🏴‍☠">ખજાનો | ચાંચિયો | જોલી રોજર | પાઇરેટ ધ્વજ | લૂંટ</annotation>

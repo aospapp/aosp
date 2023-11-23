@@ -31,6 +31,8 @@ import {
 
 const MARGIN_TOP = 5;
 const RECT_HEIGHT = 30;
+const TRACK_HEIGHT = MARGIN_TOP * 2 + RECT_HEIGHT;
+const SUMMARY_HEIGHT = TRACK_HEIGHT - MARGIN_TOP;
 
 class ProcessSchedulingTrack extends Track<Config, Data> {
   static readonly kind = PROCESS_SCHEDULING_TRACK_KIND;
@@ -45,26 +47,22 @@ class ProcessSchedulingTrack extends Track<Config, Data> {
     super(trackState);
   }
 
+  getHeight(): number {
+    return TRACK_HEIGHT;
+  }
+
   renderCanvas(ctx: CanvasRenderingContext2D): void {
     // TODO: fonts and colors should come from the CSS and not hardcoded here.
     const {timeScale, visibleWindowTime} = globals.frontendLocalState;
     const data = this.data();
 
-    // If there aren't enough cached slices data in |data| request more to
-    // the controller.
-    const inRange = data !== undefined &&
-        (visibleWindowTime.start >= data.start &&
-         visibleWindowTime.end <= data.end);
-    if (!inRange || data === undefined ||
-        data.resolution !== globals.getCurResolution()) {
-      globals.requestTrackData(this.trackState.id);
-    }
     if (data === undefined) return;  // Can't possibly draw anything.
 
     // If the cached trace slices don't fully cover the visible time range,
     // show a gray rectangle with a "Loading..." label.
     checkerboardExcept(
         ctx,
+        this.getHeight(),
         timeScale.timeToPx(visibleWindowTime.start),
         timeScale.timeToPx(visibleWindowTime.end),
         timeScale.timeToPx(data.start),
@@ -80,7 +78,7 @@ class ProcessSchedulingTrack extends Track<Config, Data> {
   renderSummary(ctx: CanvasRenderingContext2D, data: SummaryData): void {
     const {timeScale, visibleWindowTime} = globals.frontendLocalState;
     const startPx = Math.floor(timeScale.timeToPx(visibleWindowTime.start));
-    const bottomY = MARGIN_TOP + RECT_HEIGHT;
+    const bottomY = TRACK_HEIGHT;
 
     let lastX = startPx;
     let lastY = bottomY;
@@ -96,7 +94,7 @@ class ProcessSchedulingTrack extends Track<Config, Data> {
       lastX = Math.floor(timeScale.timeToPx(startTime));
 
       ctx.lineTo(lastX, lastY);
-      lastY = MARGIN_TOP + Math.round(RECT_HEIGHT * (1 - utilization));
+      lastY = MARGIN_TOP + Math.round(SUMMARY_HEIGHT * (1 - utilization));
       ctx.lineTo(lastX, lastY);
     }
     ctx.lineTo(lastX, bottomY);
@@ -109,7 +107,7 @@ class ProcessSchedulingTrack extends Track<Config, Data> {
     assertTrue(data.starts.length === data.ends.length);
     assertTrue(data.starts.length === data.utids.length);
 
-    const cpuTrackHeight = Math.floor(RECT_HEIGHT / data.numCpus);
+    const cpuTrackHeight = Math.floor(RECT_HEIGHT / data.maxCpu);
 
     for (let i = 0; i < data.starts.length; i++) {
       const tStart = data.starts[i];
@@ -149,27 +147,14 @@ class ProcessSchedulingTrack extends Track<Config, Data> {
     }
 
     const hoveredThread = globals.threads.get(this.utidHoveredInThisTrack);
-    if (hoveredThread !== undefined) {
-      let line1 = '';
-      let line2 = '';
+    if (hoveredThread !== undefined && this.mouseXpos !== undefined) {
+      const tidText = `T: ${hoveredThread.threadName} [${hoveredThread.tid}]`;
       if (hoveredThread.pid) {
-        line1 = `P: ${hoveredThread.procName} [${hoveredThread.pid}]`;
-        line2 = `T: ${hoveredThread.threadName} [${hoveredThread.tid}]`;
+        const pidText = `P: ${hoveredThread.procName} [${hoveredThread.pid}]`;
+        this.drawTrackHoverTooltip(ctx, this.mouseXpos, pidText, tidText);
       } else {
-        line1 = `T: ${hoveredThread.threadName} [${hoveredThread.tid}]`;
+        this.drawTrackHoverTooltip(ctx, this.mouseXpos, tidText);
       }
-
-      ctx.font = '10px Google Sans';
-      const line1Width = ctx.measureText(line1).width;
-      const line2Width = ctx.measureText(line2).width;
-      const width = Math.max(line1Width, line2Width);
-
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.fillRect(this.mouseXpos!, MARGIN_TOP, width + 16, RECT_HEIGHT);
-      ctx.fillStyle = 'hsl(200, 50%, 40%)';
-      ctx.textAlign = 'left';
-      ctx.fillText(line1, this.mouseXpos! + 8, 18);
-      ctx.fillText(line2, this.mouseXpos! + 8, 28);
     }
   }
 
@@ -183,7 +168,7 @@ class ProcessSchedulingTrack extends Track<Config, Data> {
       return;
     }
 
-    const cpuTrackHeight = Math.floor(RECT_HEIGHT / data.numCpus);
+    const cpuTrackHeight = Math.floor(RECT_HEIGHT / data.maxCpu);
     const cpu = Math.floor((y - MARGIN_TOP) / (cpuTrackHeight + 1));
     const {timeScale} = globals.frontendLocalState;
     const t = timeScale.pxToTime(x);

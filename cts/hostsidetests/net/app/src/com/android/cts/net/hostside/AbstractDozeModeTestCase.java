@@ -16,19 +16,24 @@
 
 package com.android.cts.net.hostside;
 
+import static com.android.cts.net.hostside.Property.DOZE_MODE;
+import static com.android.cts.net.hostside.Property.NOT_LOW_RAM_DEVICE;
+
 import android.os.SystemClock;
-import android.util.Log;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Base class for metered and non-metered Doze Mode tests.
  */
+@RequiredProperties({DOZE_MODE})
 abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetworkTestCase {
 
-    @Override
-    protected final void setUp() throws Exception {
+    @Before
+    public final void setUp() throws Exception {
         super.setUp();
-
-        if (!isSupported()) return;
 
         // Set initial state.
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
@@ -38,48 +43,15 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
         registerBroadcastReceiver();
     }
 
-    @Override
-    protected final void tearDown() throws Exception {
+    @After
+    public final void tearDown() throws Exception {
         super.tearDown();
 
-        if (!isSupported()) return;
-
-        try {
-            tearDownMeteredNetwork();
-        } finally {
-            setDozeMode(false);
-        }
+        setDozeMode(false);
     }
 
-    @Override
-    protected boolean isSupported() throws Exception {
-        boolean supported = isDozeModeEnabled();
-        if (!supported) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Doze Mode");
-        }
-        return supported;
-    }
-
-    /**
-     * Sets the initial (non) metered network state.
-     *
-     * <p>By default is empty - it's up to subclasses to override.
-     */
-    protected void setUpMeteredNetwork() throws Exception {
-    }
-
-    /**
-     * Resets the (non) metered network state.
-     *
-     * <p>By default is empty - it's up to subclasses to override.
-     */
-    protected void tearDownMeteredNetwork() throws Exception {
-    }
-
+    @Test
     public void testBackgroundNetworkAccess_enabled() throws Exception {
-        if (!isSupported()) return;
-
         setDozeMode(true);
         assertBackgroundNetworkAccess(false);
 
@@ -96,9 +68,8 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
         assertBackgroundNetworkAccess(false);
     }
 
+    @Test
     public void testBackgroundNetworkAccess_whitelisted() throws Exception {
-        if (!isSupported()) return;
-
         setDozeMode(true);
         assertBackgroundNetworkAccess(false);
 
@@ -118,19 +89,18 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
         assertBackgroundNetworkAccess(false);
     }
 
+    @Test
     public void testBackgroundNetworkAccess_disabled() throws Exception {
-        if (!isSupported()) return;
-
         assertBackgroundNetworkAccess(true);
 
         assertsForegroundAlwaysHasNetworkAccess();
         assertBackgroundNetworkAccess(true);
     }
 
+    @RequiredProperties({NOT_LOW_RAM_DEVICE})
+    @Test
     public void testBackgroundNetworkAccess_enabledButWhitelistedOnNotificationAction()
             throws Exception {
-        if (!isSupported() || isLowRamDevice()) return;
-
         setPendingIntentWhitelistDuration(NETWORK_TIMEOUT_MS);
         try {
             registerNotificationListenerService();

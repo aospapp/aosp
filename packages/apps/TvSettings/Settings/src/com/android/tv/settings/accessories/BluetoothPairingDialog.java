@@ -24,7 +24,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.text.Html;
 import android.text.InputFilter;
 import android.text.InputFilter.LengthFilter;
@@ -103,13 +102,6 @@ public class BluetoothPairingDialog extends DialogActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        if (Settings.Global.getInt(
-                getContentResolver(), Settings.Global.DEVICE_PROVISIONED, 0) == 0) {
-            Log.e(TAG, "Device not provisioned. finishing");
-            finish();
-            return;
-        }
 
         final Intent intent = getIntent();
         if (!BluetoothDevice.ACTION_PAIRING_REQUEST.equals(intent.getAction())) {
@@ -272,7 +264,7 @@ public class BluetoothPairingDialog extends DialogActivity {
         if (DEBUG) {
             Log.d(TAG, "cancelPairing");
         }
-        mDevice.cancelPairingUserInput();
+        mDevice.cancelPairing();
     }
 
     private void createUserEntryDialog() {
@@ -299,18 +291,13 @@ public class BluetoothPairingDialog extends DialogActivity {
         }
         switch (mType) {
             case BluetoothDevice.PAIRING_VARIANT_PIN:
-                byte[] pinBytes = BluetoothDevice.convertPinToBytes(value);
-                if (pinBytes == null) {
-                    return;
-                }
-                mDevice.setPin(pinBytes);
+                mDevice.setPin(value);
                 mPairingInProgress = true;
                 break;
 
             case BluetoothDevice.PAIRING_VARIANT_PASSKEY:
                 try {
                     int passkey = Integer.parseInt(value);
-                    mDevice.setPasskey(passkey);
                     mPairingInProgress = true;
                 } catch (NumberFormatException e) {
                     Log.d(TAG, "pass key " + value + " is not an integer");
@@ -329,7 +316,6 @@ public class BluetoothPairingDialog extends DialogActivity {
                 break;
 
             case BluetoothDevice.PAIRING_VARIANT_OOB_CONSENT:
-                mDevice.setRemoteOutOfBandData();
                 mPairingInProgress = true;
                 break;
 
@@ -484,8 +470,7 @@ public class BluetoothPairingDialog extends DialogActivity {
                     if (mType == BluetoothDevice.PAIRING_VARIANT_DISPLAY_PASSKEY) {
                         mDevice.setPairingConfirmation(true);
                     } else if (mType == BluetoothDevice.PAIRING_VARIANT_DISPLAY_PIN) {
-                        byte[] pinBytes = BluetoothDevice.convertPinToBytes(mPairingKey);
-                        mDevice.setPin(pinBytes);
+                        mDevice.setPin(mPairingKey);
                     }
                     break;
 

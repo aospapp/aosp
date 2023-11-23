@@ -155,7 +155,7 @@ public class MultiUserStorageTest extends AndroidTestCase {
         final File basePath = myPath.getParentFile();
         for (int i = 0; i < 128; i++) {
             if (i == myId) continue;
-            final File otherPath = new File(basePath,i + "/" + FILE_SINGLETON);
+            final File otherPath = new File(basePath,i + "/" + FILE_SINGLETON + ".mp3");
             assertFileNoAccess(otherPath);
 
             final String URI_MEDIA_STRING = "content://media/external/audio/media/";

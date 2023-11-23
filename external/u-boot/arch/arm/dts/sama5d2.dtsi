@@ -7,6 +7,7 @@
 	aliases {
 		spi0 = &spi0;
 		spi1 = &qspi0;
+		spi2 = &qspi1;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 	};
@@ -768,5 +769,10 @@
 				};
 			};
 		};
+	};
+
+	onewire_tm: onewire {
+		compatible = "w1-gpio";
+		status = "disabled";
 	};
 };

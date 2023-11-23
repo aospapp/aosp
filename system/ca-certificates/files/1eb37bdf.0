@@ -45,7 +45,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             a3:da:42:7e:a4:b1:ae:da
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=EU, L=Madrid (see current address at www.camerfirma.com/address)/serialNumber=A82743287, O=AC Camerfirma S.A., CN=Chambers of Commerce Root - 2008
         Validity
             Not Before: Aug  1 12:29:50 2008 GMT
@@ -53,7 +53,7 @@ Certificate:
         Subject: C=EU, L=Madrid (see current address at www.camerfirma.com/address)/serialNumber=A82743287, O=AC Camerfirma S.A., CN=Chambers of Commerce Root - 2008
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:af:00:cb:70:37:2b:80:5a:4a:3a:6c:78:94:7d:
                     a3:7f:1a:1f:f6:35:d5:bd:db:cb:0d:44:72:3e:26:

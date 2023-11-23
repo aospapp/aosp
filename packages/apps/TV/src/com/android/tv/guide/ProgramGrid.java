@@ -19,7 +19,7 @@ package com.android.tv.guide;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Rect;
-import android.support.v17.leanback.widget.VerticalGridView;
+import androidx.leanback.widget.VerticalGridView;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Range;
@@ -256,8 +256,19 @@ public class ProgramGrid extends VerticalGridView {
                 scrollToPosition(getAdapter().getItemCount() - 1);
                 return null;
             } else if (getSelectedPosition() == getAdapter().getItemCount() - 1) {
-                scrollToPosition(0);
-                return null;
+                int itemCount = getLayoutManager().getItemCount();
+                int childCount = getChildCount();
+                // b/129466363 For an item which overalps with previous layout GridLayoutManager
+                // will scroll to first child of current layout, instead of going to previous one.
+                // smoothscrollToPosition will invalidate all layouts and scroll to position 0.
+                // This condition checks for an item which overlaps with the first layout
+                if (itemCount > 2 * (childCount + 1) || itemCount <= childCount) {
+                    scrollToPosition(0);
+                    return null;
+                } else {
+                    smoothScrollToPosition(0);
+                    return getChildAt(0);
+                }
             }
             return focused;
         }

@@ -1,7 +1,4 @@
 
-on early-init
-    mount debugfs debugfs /sys/kernel/debug mode=755
-
 on init
 
 on boot
@@ -111,8 +108,7 @@ service fingerprintd /system/bin/fingerprintd
     class late_start
     user system
 
-service bugreport /system/bin/dumpstate -d -p -B \
-        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
+service bugreport /system/bin/dumpstate -d -p
     class main
     disabled
     oneshot

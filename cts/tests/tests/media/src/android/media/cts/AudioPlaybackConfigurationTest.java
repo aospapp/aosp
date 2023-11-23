@@ -33,6 +33,7 @@ import android.util.Log;
 import android.media.AudioPlaybackConfiguration;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
+import com.android.internal.annotations.GuardedBy;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -361,16 +362,16 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
     }
 
     private static class MyAudioPlaybackCallback extends AudioManager.AudioPlaybackCallback {
-        private int mCalled = 0;
-        private int mNbConfigs = 0;
-        private List<AudioPlaybackConfiguration> mConfigs;
         private final Object mCbLock = new Object();
+        @GuardedBy("mCbLock")
+        private int mCalled;
+        @GuardedBy("mCbLock")
+        private List<AudioPlaybackConfiguration> mConfigs;
 
         void reset() {
             synchronized (mCbLock) {
                 mCalled = 0;
-                mNbConfigs = 0;
-                mConfigs.clear();
+                mConfigs = new ArrayList<AudioPlaybackConfiguration>();
             }
         }
 
@@ -381,9 +382,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         }
 
         int getNbConfigs() {
-            synchronized (mCbLock) {
-                return mNbConfigs;
-            }
+            return getConfigs().size();
         }
 
         List<AudioPlaybackConfiguration> getConfigs() {
@@ -393,13 +392,13 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         }
 
         MyAudioPlaybackCallback() {
+            reset();
         }
 
         @Override
         public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
             synchronized (mCbLock) {
                 mCalled++;
-                mNbConfigs = configs.size();
                 mConfigs = configs;
             }
         }

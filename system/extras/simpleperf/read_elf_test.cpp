@@ -29,6 +29,8 @@
 #define ELF_NOTE_GNU "GNU"
 #define NT_GNU_BUILD_ID 3
 
+using namespace simpleperf;
+
 TEST(read_elf, GetBuildIdFromNoteSection) {
   BuildId build_id;
   std::vector<char> data;
@@ -137,7 +139,12 @@ TEST(read_elf, arm_mapping_symbol) {
   ASSERT_FALSE(IsArmMappingSymbol("$a_no_dot"));
 }
 
-TEST(read_elf, IsValidElfPath) {
+TEST(read_elf, ElfFile_Open) {
+  auto IsValidElfPath = [](const std::string& path) {
+    ElfStatus status;
+    ElfFile::Open(path, &status);
+    return status;
+  };
   ASSERT_NE(ElfStatus::NO_ERROR, IsValidElfPath("/dev/zero"));
   TemporaryFile tmp_file;
   ASSERT_EQ(ElfStatus::READ_FAILED, IsValidElfPath(tmp_file.path));
@@ -176,4 +183,18 @@ TEST(read_elf, ReadMinExecutableVirtualAddressFromElfFile) {
       GetTestData("libc.so"), BuildId(), &min_vaddr, &file_offset_of_min_vaddr));
   ASSERT_EQ(min_vaddr, 0x29000u);
   ASSERT_EQ(file_offset_of_min_vaddr, 0x29000u);
+}
+
+TEST(read_elf, NoUndefinedSymbol) {
+  // Check if we read undefined symbols (like dlerror) from libc.so.
+  bool has_dlerror = false;
+  auto parse_symbol = [&](const ElfFileSymbol& symbol) {
+    if (symbol.name == "dlerror") {
+      has_dlerror = true;
+    }
+  };
+
+  ASSERT_EQ(ElfStatus::NO_ERROR,
+            ParseSymbolsFromElfFile(GetTestData("libc.so"), BuildId(), parse_symbol));
+  ASSERT_FALSE(has_dlerror);
 }

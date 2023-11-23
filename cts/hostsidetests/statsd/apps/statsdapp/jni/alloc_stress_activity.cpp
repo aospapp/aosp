@@ -15,15 +15,16 @@
  *
  */
 
-#include <jni.h>
-#include <iostream>
-#include <tuple>
 #include <algorithm>
-#include <numeric>
-#include <string>
-#include <sstream>
 #include <cstring>
 #include <fstream>
+#include <iostream>
+#include <jni.h>
+#include <numeric>
+#include <sstream>
+#include <string>
+#include <tuple>
+#include <unistd.h>
 
 #include <android/log.h>
 #define LOG(...) __android_log_write(ANDROID_LOG_INFO, "ALLOC-STRESS", __VA_ARGS__)
@@ -31,17 +32,22 @@
 using namespace std;
 
 size_t s = 4 * (1 << 20); // 4 MB
+void *gptr;
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_android_server_cts_device_statsd_StatsdCtsBackgroundService_cmain(JNIEnv* , jobject /* this */)
 {
     long long allocCount = 0;
     while (1) {
-        char *ptr = (char *) malloc(s);
-        memset(ptr, (int) allocCount >> 10, s);
+        char *ptr = (char *)malloc(s);
+        memset(ptr, (int)allocCount >> 10, s);
+        for (int i = 0; i < s; i += 4096) {
+            *((long long *)&ptr[i]) = allocCount + i;
+        }
         std::stringstream ss;
-        ss << "total alloc: " << (allocCount >> 20) << endl;
+        ss << "total alloc: " << allocCount / (1 << 20);
         LOG(ss.str().c_str());
+        gptr = ptr;
         allocCount += s;
     }
 }

@@ -7,3 +7,30 @@
 
 #include "r8a7795-salvator-x.dts"
 #include "r8a7795-u-boot.dtsi"
+
+&sdhi0 {
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr104;
+	max-frequency = <208000000>;
+};
+
+&sdhi2 {
+	mmc-hs400-1_8v;
+	max-frequency = <200000000>;
+};
+
+&sdhi3 {
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr104;
+	max-frequency = <208000000>;
+};
+
+&vcc_sdhi0 {
+	u-boot,off-on-delay-us = <20000>;
+};
+
+&vcc_sdhi3 {
+	u-boot,off-on-delay-us = <20000>;
+};

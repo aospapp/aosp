@@ -104,7 +104,7 @@
     <string name="clear" msgid="3648880442502887163">"Vymazat"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vymazat všechny údaje a kontakty?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Přidáním zdravotních údajů a nouzových kontaktů pomůžete osobám zasahujícím v nouzové situaci.\n\nTyto informace si na obrazovce uzamčení může přečíst kdokoliv, aniž by telefon musel odemykat. Kontakty může vytočit klepnutím na příslušné jméno."</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"Přidejte nouzové informace"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Přidejte si nouzové informace"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Sdílejte své údaje s lidmi v nouzi"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Vyfotit"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Zvolit obrázek"</string>

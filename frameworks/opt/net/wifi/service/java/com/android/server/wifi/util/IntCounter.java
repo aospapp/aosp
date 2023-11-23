@@ -18,7 +18,7 @@ package com.android.server.wifi.util;
 
 import android.util.SparseIntArray;
 
-import com.android.server.wifi.nano.WifiMetricsProto.Int32Count;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.Int32Count;
 
 import java.lang.reflect.Array;
 import java.util.Iterator;

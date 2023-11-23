@@ -62,7 +62,7 @@ class SparseToDense : public OpKernel {
     // output_shape
     const Tensor& output_shape = c->input(1);
     OP_REQUIRES(
-        c, IsLegacyVector(output_shape.shape()),
+        c, TensorShapeUtils::IsVector(output_shape.shape()),
         errors::InvalidArgument("output_shape should be a vector, got shape ",
                                 output_shape.shape().DebugString()));
     OP_REQUIRES(c, output_shape.NumElements() == num_dims,
@@ -152,7 +152,7 @@ class SparseToDense : public OpKernel {
 
 TF_CALL_REAL_NUMBER_TYPES(REGISTER_KERNELS_ALL);
 REGISTER_KERNELS_ALL(bool);
-REGISTER_KERNELS_ALL(string);
+REGISTER_KERNELS_ALL(tstring);
 
 #undef REGISTER_KERNELS_ALL
 #undef REGISTER_KERNELS

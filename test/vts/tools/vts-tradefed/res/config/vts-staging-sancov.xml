@@ -35,7 +35,8 @@
   <option name="compatibility:include-filter" value="VtsHalSapV1_0Target" />
   <option name="compatibility:include-filter" value="VtsHalWifiHostapdV1_0Target" />
   <option name="compatibility:include-filter" value="VtsHalWifiHostapdV1_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_0Host" />
+  <option name="compatibility:include-filter" value="VtsHalWifiHostapdV1_2Target" />
+  <option name="compatibility:include-filter" value="VtsHalWifiV1_0Target" />
   <option name="compatibility:include-filter" value="VtsHalWifiV1_1Target" />
   <option name="compatibility:include-filter" value="VtsHalWifiNanV1_0Target" />
   <option name="compatibility:include-filter" value="VtsHalWifiOffloadV1_0Target" />
@@ -43,6 +44,7 @@
   <option name="compatibility:include-filter" value="VtsHalWifiSupplicantV1_1Host" />
   <option name="compatibility:include-filter" value="VtsHalWifiSupplicantP2pV1_0Target" />
   <option name="compatibility:include-filter" value="VtsHalWifiSupplicantP2pV1_2Target" />
+  <option name="compatibility:include-filter" value="VtsHalWifiSupplicantV1_3Host" />
 
   <option name="compatibility:include-filter" value="VtsHalAudioV2_0Target" />
   <option name="compatibility:include-filter" value="VtsHalAudioV4_0Target" />

@@ -77,14 +77,14 @@ public class MySSLContextSpi extends SSLContextSpi {
         return null;
     }
 
-    protected SSLParameters engineGetDefaultSSLParameters() {
+    public SSLParameters engineGetDefaultSSLParameters() {
         engineGetSocketFactory();
-        return null;
+        return super.engineGetDefaultSSLParameters();
     }
 
-    protected SSLParameters engineGetSupportedSSLParameters() {
+    public SSLParameters engineGetSupportedSSLParameters() {
         engineGetSocketFactory();
-        return null;
+        return super.engineGetSupportedSSLParameters();
     }
 
     /*

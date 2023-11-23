@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 
 /**
@@ -33,6 +34,7 @@ import java.util.Map;
 public class ApiClass extends ApiElement {
     private final List<ApiElement> mSuperClasses = new ArrayList<>();
     private final List<ApiElement> mInterfaces = new ArrayList<>();
+    private boolean mPackagePrivate = false;
 
     /**
      * If negative, never seen as public. The absolute value is the last api level it is seen as hidden in.
@@ -284,6 +286,28 @@ public class ApiClass extends ApiElement {
                         myFields.put(name, value);
                     }
                 }
+            }
+        }
+    }
+
+    public void removeHiddenSuperClasses(Map<String, ApiClass> api) {
+        // If we've included a package private class in the super class map (from the older android.jar files)
+        // remove these here and replace with the filtered super classes, updating API levels in the process
+        ListIterator<ApiElement> iterator = mSuperClasses.listIterator();
+        int min = Integer.MAX_VALUE;
+        while (iterator.hasNext()) {
+            ApiElement next = iterator.next();
+            min = Math.min(min, next.getSince());
+            ApiClass extendsClass = api.get(next.getName());
+            if (extendsClass != null && extendsClass.alwaysHidden()) {
+                int since = extendsClass.getSince();
+                iterator.remove();
+                for (ApiElement other : mSuperClasses) {
+                    if (other.getSince() >= since) {
+                        other.update(min);
+                    }
+                }
+                break;
             }
         }
     }

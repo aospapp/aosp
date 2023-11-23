@@ -27,7 +27,7 @@
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"마지막 사용일이 확실하지 않음"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> 확보"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"사진과 동영상을 백업함"</string>
-    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30일 이전"</string>
+    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30일 이상 경과"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
     <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"다운로드"</string>

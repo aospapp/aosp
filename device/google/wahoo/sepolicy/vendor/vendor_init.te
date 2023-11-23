@@ -22,17 +22,19 @@ userdebug_or_eng(`
 set_prop(vendor_init, vendor_bluetooth_prop)
 set_prop(vendor_init, camera_prop)
 set_prop(vendor_init, modem_diag_prop)
-set_prop(vendor_init, power_prop)
+set_prop(vendor_init, vendor_power_prop)
 set_prop(vendor_init, public_vendor_default_prop)
 set_prop(vendor_init, vendor_radio_prop)
-set_prop(vendor_init, thermal_prop)
+set_prop(vendor_init, vendor_thermal_prop)
 set_prop(vendor_init, vendor_charge_prop)
 
 dontaudit vendor_init unlabeled:dir getattr;
 dontaudit vendor_init unlabeled:file getattr;
 
-allow vendor_init debugfs_tracing_instances:dir create_dir_perms;
-allow vendor_init debugfs_tracing_instances:file w_file_perms;
-
 # Write to touch vrmode node
 allow vendor_init sysfs_touch:file w_file_perms;
+
+# Allow vendor_init to set property of logpersistd_logging_prop
+userdebug_or_eng(`
+  set_prop(vendor_init, logpersistd_logging_prop)
+')

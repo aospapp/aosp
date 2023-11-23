@@ -19,6 +19,8 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
 
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
+
     <!-- Install main test suite apk -->
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -42,6 +44,8 @@
         <option name="push" value="CtsAppThatRequestsLocationPermission29v4.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationPermission29v4.apk" />
         <option name="push" value="CtsAppThatRequestsLocationPermission28.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationPermission28.apk" />
         <option name="push" value="CtsAppThatRequestsLocationPermission22.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationPermission22.apk" />
+        <option name="push" value="CtsAppThatRequestsStoragePermission29.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsStoragePermission29.apk" />
+        <option name="push" value="CtsAppThatRequestsStoragePermission28.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsStoragePermission28.apk" />
         <option name="push" value="CtsAppThatRequestsLocationAndBackgroundPermission29.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationAndBackgroundPermission29.apk" />
         <option name="push" value="CtsAppThatAccessesLocationOnCommand.apk->/data/local/tmp/cts/permissions/CtsAppThatAccessesLocationOnCommand.apk" />
         <option name="push" value="AppThatDoesNotHaveBgLocationAccess.apk->/data/local/tmp/cts/permissions/AppThatDoesNotHaveBgLocationAccess.apk" />
@@ -50,12 +54,27 @@
         <option name="push" value="CtsAppWithSharedUidThatRequestsLocationPermission28.apk->/data/local/tmp/cts/permissions/CtsAppWithSharedUidThatRequestsLocationPermission28.apk" />
         <option name="push" value="CtsAppWithSharedUidThatRequestsLocationPermission29.apk->/data/local/tmp/cts/permissions/CtsAppWithSharedUidThatRequestsLocationPermission29.apk" />
         <option name="push" value="CtsAppThatRequestsCalendarContactsBodySensorCustomPermission.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsCalendarContactsBodySensorCustomPermission.apk" />
+        <option name="push" value="CtsAppThatRunsRationaleTests.apk->/data/local/tmp/cts/permissions/CtsAppThatRunsRationaleTests.apk" />
+        <option name="push" value="CtsAdversarialPermissionUserApp.apk->/data/local/tmp/cts/permissions/CtsAdversarialPermissionUserApp.apk" />
+        <option name="push" value="CtsAdversarialPermissionDefinerApp.apk->/data/local/tmp/cts/permissions/CtsAdversarialPermissionDefinerApp.apk" />
+        <option name="push" value="CtsVictimPermissionDefinerApp.apk->/data/local/tmp/cts/permissions/CtsVictimPermissionDefinerApp.apk" />
+        <option name="push" value="CtsRuntimePermissionDefinerApp.apk->/data/local/tmp/cts/permissions/CtsRuntimePermissionDefinerApp.apk" />
+        <option name="push" value="CtsRuntimePermissionUserApp.apk->/data/local/tmp/cts/permissions/CtsRuntimePermissionUserApp.apk" />
+        <option name="push" value="CtsInstalltimePermissionDefinerApp.apk->/data/local/tmp/cts/permissions/CtsInstalltimePermissionDefinerApp.apk" />
+        <option name="push" value="CtsInstalltimePermissionUserApp.apk->/data/local/tmp/cts/permissions/CtsInstalltimePermissionUserApp.apk" />
+        <option name="push" value="CtsAppThatRequestsOneTimePermission.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsOneTimePermission.apk" />
+        <option name="push" value="AppThatDefinesUndefinedPermissionGroupElement.apk->/data/local/tmp/cts/permissions/AppThatDefinesUndefinedPermissionGroupElement.apk" />
     </target_preparer>
 
     <!-- Remove additional apps if installed -->
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="teardown-command" value="pm uninstall android.permission.cts.appthatrequestpermission" />
         <option name="teardown-command" value="pm uninstall android.permission.cts.appthatrequestnopermission" />
+        <option name="teardown-command" value="pm uninstall android.permission.cts.revokepermissionwhenremoved.AdversarialPermissionDefinerApp" />
+        <option name="teardown-command" value="pm uninstall android.permission.cts.revokepermissionwhenremoved.VictimPermissionDefinerApp" />
+        <option name="teardown-command" value="pm uninstall android.permission.cts.revokepermissionwhenremoved.userapp" />
+        <option name="teardown-command" value="pm uninstall android.permission.cts.revokepermissionwhenremoved.runtimepermissiondefinerapp" />
+        <option name="teardown-command" value="pm uninstall android.permission.cts.revokepermissionwhenremoved.runtimepermissionuserapp" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

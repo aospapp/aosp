@@ -266,6 +266,26 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         }
 
         @Override
+        public void createConference(
+                PhoneAccountHandle connectionManagerPhoneAccount,
+                String id,
+                ConnectionRequest request,
+                boolean isIncoming,
+                boolean isUnknown,
+                Session.Info sessionInfo) { }
+
+        @Override
+        public void createConferenceComplete(String id, Session.Info sessionInfo) { }
+
+        @Override
+        public void createConferenceFailed(
+                PhoneAccountHandle connectionManagerPhoneAccount,
+                String callId,
+                ConnectionRequest request,
+                boolean isIncoming,
+                Session.Info sessionInfo) { }
+
+        @Override
         public void abort(String callId, Session.Info info) throws RemoteException { }
 
         @Override
@@ -280,7 +300,20 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 throws RemoteException { }
 
         @Override
+        public void transfer(String callId, Uri number, boolean isConfirmationRequired,
+                Session.Info info) throws RemoteException { }
+
+        @Override
+        public void consultativeTransfer(String callId, String otherCallId,
+                Session.Info info) throws RemoteException { }
+
+        @Override
         public void reject(String callId, Session.Info info) throws RemoteException {
+            rejectedCallIds.add(callId);
+        }
+
+        @Override public void rejectWithReason(java.lang.String callId, int rejectReason,
+                android.telecom.Logging.Session.Info sessionInfo) throws RemoteException {
             rejectedCallIds.add(callId);
         }
 
@@ -330,6 +363,12 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         @Override
         public void swapConference(String conferenceCallId,
                 Session.Info info) throws RemoteException { }
+
+        @Override
+        public void addConferenceParticipants(String CallId, List<Uri> participants,
+                Session.Info sessionInfo) throws RemoteException {
+
+        }
 
         @Override
         public void onPostDialContinue(String callId, boolean proceed,
@@ -422,6 +461,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         boolean isVoipAudioMode;
         Bundle extras;
         boolean isConferenceCreated;
+        int callerNumberVerificationStatus;
     }
 
     public class ConferenceInfo {
@@ -658,23 +698,29 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         mExtrasLock = new CountDownLatch(1);
     }
 
+    public void waitForHandlerToClear() {
+        mConnectionServiceDelegate.getHandler().removeCallbacksAndMessages(null);
+        final CountDownLatch lock = new CountDownLatch(1);
+        mConnectionServiceDelegate.getHandler().post(lock::countDown);
+        while (lock.getCount() > 0) {
+            try {
+                lock.await(TelecomSystemTest.TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                // do nothing
+            }
+        }
+    }
+
     private ParcelableConference parcelable(ConferenceInfo c) {
-        return new ParcelableConference(
-                c.phoneAccount,
-                c.state,
-                c.capabilities,
-                c.properties,
-                c.connectionIds,
-                c.videoProvider,
-                c.videoState,
-                c.connectTimeMillis,
-                c.connectElapsedTimeMillis,
-                c.statusHints,
-                c.extras,
-                null,
-                0,
-                null,
-                0);
+        return new ParcelableConference.Builder(c.phoneAccount, c.state)
+                .setConnectionCapabilities(c.capabilities)
+                .setConnectionProperties(c.properties)
+                .setConnectionIds(c.connectionIds)
+                .setVideoAttributes(c.videoProvider, c.videoState)
+                .setConnectTimeMillis(c.connectTimeMillis, c.connectElapsedTimeMillis)
+                .setStatusHints(c.statusHints)
+                .setExtras(c.extras)
+                .build();
     }
 
     private ParcelableConnection parcelable(ConnectionInfo c) {
@@ -697,6 +743,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 c.statusHints,
                 c.disconnectCause,
                 c.conferenceableConnectionIds,
-                c.extras);
+                c.extras,
+                c.callerNumberVerificationStatus);
     }
 }

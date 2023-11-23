@@ -34,12 +34,14 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.testtype.UiAutomatorTest;
 import com.android.tradefed.util.AbiUtils;
+import com.android.tradefed.util.FileUtil;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -49,6 +51,12 @@ import java.util.Set;
 /** Unit tests for {@link AtestRunner}. */
 @RunWith(JUnit4.class)
 public class AtestRunnerTest {
+
+    private static final String TEST_CONFIG =
+        "<configuration description=\"Runs a stub tests part of some suite\">\n"
+            + "    <test class=\"com.android.tradefed.testtype.suite.SuiteModuleLoaderTest"
+            + "$TestInject\" />\n"
+            + "</configuration>";
 
     private static final String ABI = "armeabi-v7a";
     private static final String TEST_NAME_FMT = ABI + " %s";
@@ -120,6 +128,55 @@ public class AtestRunnerTest {
         classFilters.add(classA);
         classFilters.add(classB + "#" + method1);
         assertEquals(classFilters, test.getClassNames());
+    }
+
+    @Test
+    public void testLoadTests_WithTFConfigSpecified() throws Exception {
+        setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("tf-config-path", "suite/base-suite1");
+        LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
+        assertEquals(1, configMap.size());
+        String testName = String.format(TEST_NAME_FMT, "suite/base-suite1");
+        assertTrue(configMap.containsKey(testName));
+    }
+
+    @Test
+    public void testLoadTests_WithModuleAndTFConfigSpecified() throws Exception {
+        File tmpDir = FileUtil.createTempDir("some-dir");
+        String filePath = createModuleConfig(tmpDir, "TestModule");
+        try {
+            mSpyRunner.setupFilters(tmpDir);
+            setter = new OptionSetter(mSpyRunner);
+            setter.setOptionValue("suite-config-prefix", "suite");
+            setter.setOptionValue("tf-config-path", "suite/base-suite1");
+            setter.setOptionValue("module-config-path", filePath);
+            LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
+            assertEquals(2, configMap.size());
+            String testName = String.format(TEST_NAME_FMT, "TestModule");
+            assertTrue(configMap.containsKey(testName));
+            testName = String.format(TEST_NAME_FMT, "suite/base-suite1");
+            assertTrue(configMap.containsKey(testName));
+        } finally {
+            FileUtil.recursiveDelete(tmpDir);
+        }
+    }
+
+    @Test
+    public void testLoadTests_WithModuleConfigSpecified() throws Exception {
+        File tmpDir = FileUtil.createTempDir("some-dir");
+        String filePath = createModuleConfig(tmpDir, "TestModule");
+        try {
+            mSpyRunner.setupFilters(tmpDir);
+            setter = new OptionSetter(mSpyRunner);
+            setter.setOptionValue("module-config-path", filePath);
+            LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
+            assertEquals(1, configMap.size());
+            String testName = String.format(TEST_NAME_FMT, "TestModule");
+            assertTrue(configMap.containsKey(testName));
+        } finally {
+            FileUtil.recursiveDelete(tmpDir);
+        }
     }
 
     @Test
@@ -211,5 +268,11 @@ public class AtestRunnerTest {
         setter.setOptionValue("subprocess-report-port", "55555");
         List<ITestInvocationListener> listeners = mSpyRunner.createModuleListeners();
         assertEquals(1, listeners.size());
+    }
+
+    private String createModuleConfig(File dir, String moduleName) throws IOException {
+        File moduleConfig = new File(dir, moduleName + SuiteModuleLoader.CONFIG_EXT);
+        FileUtil.writeToFile(TEST_CONFIG, moduleConfig);
+        return moduleConfig.getAbsolutePath();
     }
 }

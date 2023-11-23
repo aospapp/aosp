@@ -17,7 +17,6 @@
 package com.android.tv.common.feature;
 
 import android.content.Context;
-import com.android.tv.common.BuildConfig;
 import com.android.tv.common.util.CommonUtils;
 import java.util.Arrays;
 
@@ -70,23 +69,6 @@ public class FeatureUtils {
                 return "and(" + Arrays.asList(features) + ")";
             }
         };
-    }
-    /**
-     * A feature available in AOSP.
-     *
-     * @param googleFeature the feature used in non AOSP builds
-     * @param aospFeature the feature used in AOSP builds
-     */
-    public static Feature aospFeature(
-// AOSP_Comment_Out             final Feature googleFeature,
-            final Feature aospFeature) {
-        /* Begin_AOSP_Comment_Out
-        if (!BuildConfig.AOSP) {
-            return googleFeature;
-        } else {
-            End_AOSP_Comment_Out */
-            return aospFeature;
-// AOSP_Comment_Out         }
     }
 
     /**

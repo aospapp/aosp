@@ -19,7 +19,6 @@ package android.car.cts;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
@@ -28,6 +27,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
@@ -36,21 +36,28 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.FeatureUtil;
+import com.android.compatibility.common.util.RequiredFeatureRule;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
  * Contains the tests to prove compliance with android automotive specific bluetooth requirements.
  */
-@SmallTest
-@RequiresDevice
-@RunWith(AndroidJUnit4.class)
+// TODO(b/146663105): Fix hidden API
+//@SmallTest
+//@RequiresDevice
+//@RunWith(AndroidJUnit4.class)
 public class CarBluetoothTest {
+    @ClassRule
+    public static final RequiredFeatureRule sRequiredFeatureRule = new RequiredFeatureRule(
+            PackageManager.FEATURE_AUTOMOTIVE);
+
     private static final String TAG = "CarBluetoothTest";
     private static final boolean DBG = false;
     private Context mContext;
@@ -158,7 +165,8 @@ public class CarBluetoothTest {
             mConnected = false;
         }
     }
-
+// TODO(b/146663105): Fix hidden API
+/*
     // Automotive required profiles and meta data. Profile defaults to 'not connected' and name
     // is used in debug and error messages
     private static SparseArray<ProfileInfo> sRequiredBluetoothProfiles = new SparseArray();
@@ -303,9 +311,6 @@ public class CarBluetoothTest {
                     + (FeatureUtil.isAutomotive() ? "" : "not ") + "automotive");
         }
 
-        // Automotive only
-        assumeTrue(FeatureUtil.isAutomotive());
-
         // Get the context
         mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
@@ -358,4 +363,5 @@ public class CarBluetoothTest {
         waitForProfileConnections();
         checkProfileConnections();
     }
+*/
 }

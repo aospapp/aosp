@@ -17,9 +17,9 @@
 package com.android.car.settings.security;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.UserManager;
 
 import androidx.fragment.app.Fragment;
 import androidx.preference.Preference;
@@ -27,6 +27,7 @@ import androidx.preference.Preference;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.internal.widget.LockscreenCredential;
 
 /**
  * Business Logic for security lock preferences. It can be extended to change which fragment should
@@ -34,14 +35,14 @@ import com.android.car.settings.common.PreferenceController;
  */
 public abstract class LockTypeBasePreferenceController extends PreferenceController<Preference> {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
-    private byte[] mCurrentPassword;
+    private final UserManager mUserManager;
+    private LockscreenCredential mCurrentPassword;
     private int mCurrentPasswordQuality;
 
     public LockTypeBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
+        mUserManager = UserManager.get(context);
     }
 
 
@@ -79,13 +80,18 @@ public abstract class LockTypeBasePreferenceController extends PreferenceControl
     }
 
     /** Sets the current password so it can be provided in the bundle in the fragment. */
-    public void setCurrentPassword(byte[] currentPassword) {
+    public void setCurrentPassword(LockscreenCredential currentPassword) {
         mCurrentPassword = currentPassword;
     }
 
     /** Gets the current password. */
-    protected byte[] getCurrentPassword() {
+    protected LockscreenCredential getCurrentPassword() {
         return mCurrentPassword;
+    }
+
+    /** Gets the current password quality. */
+    protected int getCurrentPasswordQuality() {
+        return mCurrentPasswordQuality;
     }
 
     @Override
@@ -102,7 +108,7 @@ public abstract class LockTypeBasePreferenceController extends PreferenceControl
                 if (args == null) {
                     args = new Bundle();
                 }
-                args.putByteArray(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, mCurrentPassword);
+                args.putParcelable(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, mCurrentPassword);
                 fragment.setArguments(args);
             }
             getFragmentController().launchFragment(fragment);
@@ -111,9 +117,22 @@ public abstract class LockTypeBasePreferenceController extends PreferenceControl
         return false;
     }
 
+    /**
+     * Retrieve and set password and password quality
+     */
+    @Override
+    protected void onCreateInternal() {
+        if (getPreference().peekExtras() != null) {
+            setCurrentPassword(getPreference().peekExtras().getParcelable(
+                    PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK));
+            setCurrentPasswordQuality(getPreference().peekExtras().getInt(
+                    PasswordHelper.EXTRA_CURRENT_PASSWORD_QUALITY));
+        }
+    }
+
     @Override
     public int getAvailabilityStatus() {
-        return mCarUserManagerHelper.isCurrentProcessGuestUser() ? DISABLED_FOR_USER : AVAILABLE;
+        return mUserManager.isGuestUser() ? DISABLED_FOR_USER : AVAILABLE;
     }
 
     private CharSequence getSummary() {

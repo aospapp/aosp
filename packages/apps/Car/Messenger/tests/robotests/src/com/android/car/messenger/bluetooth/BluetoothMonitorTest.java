@@ -42,7 +42,7 @@ public class BluetoothMonitorTest {
         verify(mockBluetoothEventListener).onMapConnected(mockMapClient);
 
         mServiceListener.onServiceDisconnected(BluetoothProfile.MAP_CLIENT);
-        verify(mockBluetoothEventListener).onMapDisconnected(BluetoothProfile.MAP_CLIENT);
+        verify(mockBluetoothEventListener).onMapDisconnected();
     }
 
     @Test
@@ -50,7 +50,7 @@ public class BluetoothMonitorTest {
         assertThat(mBluetoothMonitor.registerListener(mockBluetoothEventListener)).isFalse();
         assertThat(mBluetoothMonitor.unregisterListener(mockBluetoothEventListener)).isTrue();
         assertThat(mBluetoothMonitor.registerListener(mockBluetoothEventListener)).isTrue();
-        mBluetoothMonitor.cleanup();
+        mBluetoothMonitor.onDestroy();
         assertThat(mBluetoothMonitor.registerListener(mockBluetoothEventListener)).isTrue();
     }
 }

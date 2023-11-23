@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"清除"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"透過 Wi-Fi Direct 連線"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"透過目前的網路 (<xliff:g id="IP_ADDRESS">%1$s</xliff:g>) 連線"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"預設列印服務會提供基本選項，這個印表機的其他選項則可能由其他列印服務提供。"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"建議的服務"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"選取即可安裝"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"選取即可啟用"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"管理服務"</string>
     <string name="security" msgid="2279008326210305401">"安全性"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"這台印表機提供新的安全性憑證，或有其他裝置冒用該印表機的身分。要接受新的憑證嗎？"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"這台印表機不再支援已加密的工作。要繼續列印嗎？"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"連線"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"預設列印服務需要你的位置資訊存取權，才能尋找附近的裝置。"</string>
     <string name="fix" msgid="7784394272611365393">"查看權限"</string>
+    <string name="print" msgid="7851318072404916362">"列印"</string>
 </resources>

@@ -36,13 +36,8 @@ import static android.server.wm.app.Components.TopActivity.EXTRA_TOP_WALLPAPER;
 import static org.junit.Assert.assertEquals;
 
 import android.content.ComponentName;
-import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 
-import androidx.test.filters.FlakyTest;
-
-import org.junit.Assume;
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -58,19 +53,7 @@ import org.junit.Test;
  *     atest CtsWindowManagerDeviceTestCases:TransitionSelectionTests
  */
 @Presubmit
-@FlakyTest(bugId = 71792333)
 public class TransitionSelectionTests extends ActivityManagerTestBase {
-
-    @Override
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-
-        // Transition selection tests are currently disabled on Wear because
-        // config_windowSwipeToDismiss is set to true, which breaks all kinds of assumptions in the
-        // transition selection logic.
-        Assume.assumeTrue(!isWatch());
-    }
 
     // Test activity open/close under normal timing
     @Test
@@ -118,7 +101,6 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
                 false /*slowStop*/, TRANSIT_TASK_OPEN);
     }
 
-    @FlakyTest(bugId = 71792333)
     @Test
     public void testCloseTask_NeitherWallpaper() {
         testCloseTask(false /*bottomWallpaper*/, false /*topWallpaper*/,
@@ -177,7 +159,6 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
     // Test task close -- bottom task top activity slow in stopping
     // These simulate the case where the bottom activity is resumed
     // before AM receives its activitiyStopped
-    @FlakyTest(bugId = 71792333)
     @Test
     public void testCloseTask_NeitherWallpaper_SlowStop() {
         testCloseTask(false /*bottomWallpaper*/, false /*topWallpaper*/,
@@ -223,7 +204,6 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
                 TRANSIT_TRANSLUCENT_ACTIVITY_CLOSE);
     }
 
-    @FlakyTest(bugId = 71792333)
     @Test
     public void testCloseTask_BottomWallpaper_Translucent() {
         testCloseTaskTranslucent(true /*bottomWallpaper*/, false /*topWallpaper*/,
@@ -291,7 +271,7 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
         }
         executeShellCommand(bottomStartCmd);
 
-        mAmWmState.computeState(BOTTOM_ACTIVITY);
+        mWmState.computeState(BOTTOM_ACTIVITY);
 
         final ComponentName topActivity = topTranslucent ? TRANSLUCENT_TOP_ACTIVITY : TOP_ACTIVITY;
         String topStartCmd = getAmStartCmd(topActivity);
@@ -306,14 +286,16 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
         }
         executeShellCommand(topStartCmd);
 
-        SystemClock.sleep(5000);
-        if (testOpen) {
-            mAmWmState.computeState(topActivity);
-        } else {
-            mAmWmState.computeState(BOTTOM_ACTIVITY);
-        }
-
+        Condition.waitFor("Retrieving correct transition", () -> {
+            if (testOpen) {
+                mWmState.computeState(topActivity);
+            } else {
+                mWmState.computeState(BOTTOM_ACTIVITY);
+            }
+            return expectedTransit.equals(
+                    mWmState.getDefaultDisplayLastTransition());
+        });
         assertEquals("Picked wrong transition", expectedTransit,
-                mAmWmState.getWmState().getDefaultDisplayLastTransition());
+                mWmState.getDefaultDisplayLastTransition());
     }
 }

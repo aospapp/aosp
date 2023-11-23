@@ -16,13 +16,19 @@ chr{
         " ꮼ ꮽ ꮾ ꮿ ᏸ ᏹ ᏺ ᏻ ᏼ]"
     }
     ExemplarCharactersIndex{"[Ꭰ Ꭶ Ꭽ Ꮃ Ꮉ Ꮎ Ꮖ Ꮜ Ꮣ Ꮬ Ꮳ Ꮹ Ꮿ]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
+    }
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
         latn{
             miscPatterns{
+                approximately{"~{0}"}
                 atLeast{"{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
@@ -213,7 +219,7 @@ chr{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.43.2"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -275,6 +281,53 @@ chr{
                 yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y – y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y – M/y GGGGG"}
+                    y{"M/y – M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, M/d/y – E, M/d/y GGGGG"}
+                    M{"E, M/d/y – E, M/d/y GGGGG"}
+                    d{"E, M/d/y – E, M/d/y GGGGG"}
+                    y{"E, M/d/y – E, M/d/y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, MMM d, y G – E, MMM d, y G"}
+                    M{"E, MMM d – E, MMM d, y G"}
+                    d{"E, MMM d – E, MMM d, y G"}
+                    y{"E, MMM d, y – E, MMM d, y G"}
+                }
+                GyMMMd{
+                    G{"MMM d, y G – MMM d, y G"}
+                    M{"MMM d – MMM d, y G"}
+                    d{"MMM d – d, y G"}
+                    y{"MMM d, y – MMM d, y G"}
+                }
+                GyMd{
+                    G{"M/d/y GGGGG – M/d/y GGGGG"}
+                    M{"M/d/y – M/d/y GGGGG"}
+                    d{"M/d/y – M/d/y GGGGG"}
+                    y{"M/d/y – M/d/y GGGGG"}
+                }
                 M{
                     M{"M – M"}
                 }
@@ -396,7 +449,7 @@ chr{
                 MMMEd{"E, MMM d"}
                 MMMMW{
                     one{"’ᏒᎾᏙᏓᏆᏍᏗ’ W ’ᎾᎿ’ MMMM"}
-                    other{"’ᏒᎾᏙᏓᏆᏍᏗ’ W ’ᎾᎿ’ MMM"}
+                    other{"’ᏒᎾᏙᏓᏆᏍᏗ’ W ’ᎾᎿ’ MMMM"}
                 }
                 MMMMd{"MMMM d"}
                 MMMd{"MMM d"}
@@ -562,6 +615,53 @@ chr{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y G – y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y – M/y GGGGG"}
+                    y{"M/y – M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, M/d/y GGGGG – E, M/d/y GGGGG"}
+                    M{"E, M/d/y – E, M/d/y GGGGG"}
+                    d{"E, M/d/y – E, M/d/y GGGGG"}
+                    y{"E, M/d/y – E, M/d/y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, MMM d, y G – E, MMM d, y G"}
+                    M{"E, MMM d – E, MMM d, y G"}
+                    d{"E, MMM d – E, MMM d, y G"}
+                    y{"E, MMM d, y – E, MMM d, y G"}
+                }
+                GyMMMd{
+                    G{"MMM d, y G – MMM d, y G"}
+                    M{"MMM d – MMM d, y G"}
+                    d{"MMM d – d, y G"}
+                    y{"MMM d, y – MMM d, y G"}
+                }
+                GyMd{
+                    G{"M/d/y GGGGG – M/d/y GGGGG"}
+                    M{"M/d/y – M/d/y GGGGG"}
+                    d{"M/d/y – M/d/y GGGGG"}
+                    y{"M/d/y – M/d/y GGGGG"}
+                }
                 H{
                     H{"HH – HH"}
                 }
@@ -1162,6 +1262,11 @@ chr{
         }
         month-narrow{
             dn{"ᎧᎸ."}
+            relative{
+                "-1"{"ᎧᎸ. ᏥᎨᏒ"}
+                "0"{"ᎯᎠ ᎧᎸ."}
+                "1"{"ᏔᎵᏁ ᎧᎸ."}
+            }
             relativeTime{
                 future{
                     one{"ᎾᎿ {0} ᎧᎸ."}
@@ -1175,6 +1280,11 @@ chr{
         }
         month-short{
             dn{"ᎧᎸ."}
+            relative{
+                "-1"{"ᎧᎸ. ᏥᎨᏒ"}
+                "0"{"ᎯᎠ ᎧᎸ."}
+                "1"{"ᎯᎠ ᎧᎸ."}
+            }
             relativeTime{
                 future{
                     one{"ᎾᎿ {0} ᎧᎸ."}
@@ -1548,6 +1658,11 @@ chr{
         }
         week-narrow{
             dn{"ᏒᎾ."}
+            relative{
+                "-1"{"ᏥᏛᎵᏱᎵᏒᎢ."}
+                "0"{"ᎯᎠ ᎠᎵᎵᏌ."}
+                "1"{"ᏐᏆᎴᏅᎲ."}
+            }
             relativePeriod{"Ꮎ ᏒᎾᏙᏓᏆᏍᏗ ᎾᏍᎩ {0}"}
             relativeTime{
                 future{
@@ -1562,6 +1677,11 @@ chr{
         }
         week-short{
             dn{"ᏒᎾ."}
+            relative{
+                "-1"{"ᏥᏛᎵᏱᎵᏒᎢ."}
+                "0"{"ᎯᎠ ᎠᎵᎵᏌ."}
+                "1"{"ᏐᏆᎴᏅᎲ."}
+            }
             relativePeriod{"Ꮎ ᏒᎾᏙᏓᏆᏍᏗ ᎾᏍᎩ {0}"}
             relativeTime{
                 future{
@@ -1621,6 +1741,11 @@ chr{
         }
         year-narrow{
             dn{"ᎤᏕ."}
+            relative{
+                "-1"{"ᎡᏘ. ᏥᎨᏒ"}
+                "0"{"ᎯᎠ ᏧᏕᏘᏴᏒᏘ."}
+                "1"{"ᎡᏘᏴᎢ."}
+            }
             relativeTime{
                 future{
                     one{"ᎾᎿ {0} ᎤᏕ."}
@@ -1634,6 +1759,11 @@ chr{
         }
         year-short{
             dn{"ᎤᏕ."}
+            relative{
+                "-1"{"ᎡᏘ. ᏥᎨᏒ"}
+                "0"{"ᎯᎠ ᏧᏕᏘᏴᏒᏘ."}
+                "1"{"ᎡᏘᏴᎢ."}
+            }
             relativeTime{
                 future{
                     one{"ᎾᎿ {0} ᎤᏕ."}
@@ -1668,11 +1798,12 @@ chr{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0}, {1}"}
+        }
         standard-short{
-            2{"{0} ᎠᎴ {1}"}
-            end{"{0}, ᎠᎴ {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} & {1}"}
+            end{"{0}, & {1}"}
         }
         unit{
             2{"{0}, {1}"}

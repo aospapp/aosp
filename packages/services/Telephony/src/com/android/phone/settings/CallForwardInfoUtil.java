@@ -82,6 +82,7 @@ public class CallForwardInfoUtil {
         phone.setCallForwardingOption(commandInterfaceCfAction,
                 info.reason,
                 info.number,
+                info.serviceClass,
                 info.timeSeconds,
                 message);
     }
@@ -93,10 +94,12 @@ public class CallForwardInfoUtil {
      */
     public static CallForwardInfo getCallForwardInfo(CallForwardInfo[] infos, int reason) {
         CallForwardInfo info = null;
-        for (int i = 0 ; i < infos.length; i++) {
-            if (isServiceClassVoice(infos[i])) {
-                info = infos[i];
-                break;
+        if (infos != null) {
+            for (int i = 0 ; i < infos.length; i++) {
+                if (isServiceClassVoice(infos[i])) {
+                    info = infos[i];
+                    break;
+                }
             }
         }
 

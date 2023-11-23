@@ -15,6 +15,9 @@
 -->
 
 <resources>
+    <style name="LauncherTheme" parent="DocumentsTheme">
+        <item name="android:windowBackground">@drawable/launcher_screen</item>
+    </style>
     <!-- DocumentsTheme is allow customize by run time overlay -->
     <style name="DocumentsTheme" parent="@android:style/Theme.DeviceDefault.DocumentsUI">
 
@@ -71,5 +74,9 @@
         <item name="materialAlertDialogTheme">@style/MaterialAlertDialogTheme</item>
         <item name="queryBackground">@color/menu_search_background</item>
         <item name="snackbarButtonStyle">@style/SnackbarButtonStyle</item>
+    </style>
+
+    <style name="TabTheme" parent="@style/Theme.MaterialComponents.DayNight">
+        <item name="colorPrimary">@color/edge_effect</item>
     </style>
 </resources>

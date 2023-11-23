@@ -50,7 +50,7 @@ class MapInfoGetLoadBiasTest : public ::testing::Test {
     process_memory_.reset(memory_);
     elf_ = new ElfFake(new MemoryFake);
     elf_container_.reset(elf_);
-    map_info_.reset(new MapInfo(nullptr, 0x1000, 0x20000, 0, PROT_READ | PROT_WRITE, ""));
+    map_info_.reset(new MapInfo(nullptr, nullptr, 0x1000, 0x20000, 0, PROT_READ | PROT_WRITE, ""));
   }
 
   void MultipleThreadTest(uint64_t expected_load_bias);
@@ -63,7 +63,7 @@ class MapInfoGetLoadBiasTest : public ::testing::Test {
 };
 
 TEST_F(MapInfoGetLoadBiasTest, no_elf_and_no_valid_elf_in_memory) {
-  MapInfo info(nullptr, 0x1000, 0x2000, 0, PROT_READ, "");
+  MapInfo info(nullptr, nullptr, 0x1000, 0x2000, 0, PROT_READ, "");
 
   EXPECT_EQ(0U, info.GetLoadBias(process_memory_));
 }
@@ -84,7 +84,7 @@ TEST_F(MapInfoGetLoadBiasTest, elf_exists) {
   elf_->FakeSetLoadBias(0);
   EXPECT_EQ(0U, map_info_->GetLoadBias(process_memory_));
 
-  map_info_->load_bias = static_cast<uint64_t>(-1);
+  map_info_->load_bias = INT64_MAX;
   elf_->FakeSetLoadBias(0x1000);
   EXPECT_EQ(0x1000U, map_info_->GetLoadBias(process_memory_));
 }
@@ -141,6 +141,7 @@ static void InitElfData(MemoryFake* memory, uint64_t offset) {
   phdr.p_type = PT_NULL;
   memory->SetMemory(offset + 0x5000, &phdr, sizeof(phdr));
   phdr.p_type = PT_LOAD;
+  phdr.p_flags = PF_X;
   phdr.p_offset = 0;
   phdr.p_vaddr = 0xe000;
   memory->SetMemory(offset + 0x5000 + sizeof(phdr), &phdr, sizeof(phdr));

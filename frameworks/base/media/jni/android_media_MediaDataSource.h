@@ -19,7 +19,7 @@
 
 #include "jni.h"
 
-#include <media/IDataSource.h>
+#include <android/IDataSource.h>
 #include <media/stagefright/foundation/ABase.h>
 #include <utils/Errors.h>
 #include <utils/Mutex.h>
@@ -47,7 +47,6 @@ public:
     virtual void close();
     virtual uint32_t getFlags();
     virtual String8 toString();
-    virtual sp<DecryptHandle> DrmInitialization(const char *mime);
 
 private:
     // Protect all member variables with mLock because this object will be

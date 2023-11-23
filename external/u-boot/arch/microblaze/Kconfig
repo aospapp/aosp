@@ -11,13 +11,22 @@ choice
 config TARGET_MICROBLAZE_GENERIC
 	bool "Support microblaze-generic"
 	select BOARD_LATE_INIT
-	select SUPPORT_SPL
-	select OF_CONTROL
 	select DM
 	select DM_SERIAL
-	select ENV_IS_IN_FLASH
+	select OF_CONTROL
+	select SUPPORT_SPL
+	select SYSRESET
+	imply CMD_DM
 
 endchoice
+
+config STACK_SIZE
+	hex "Define max stack size that can be used by u-boot"
+	default 0x200000
+	help
+	  Defines Max stack size that can be used by u-boot so that the
+	  initrd_high will be calculated as base stack pointer minus this
+	  stack size.
 
 source "board/xilinx/microblaze-generic/Kconfig"
 

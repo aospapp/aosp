@@ -24,7 +24,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             04:00:00:00:00:01:21:58:53:08:a2
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign
         Validity
             Not Before: Mar 18 10:00:00 2009 GMT
@@ -32,7 +32,7 @@ Certificate:
         Subject: OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:cc:25:76:90:79:06:78:22:16:f5:c0:83:b6:84:
                     ca:28:9e:fd:05:76:11:c5:ad:88:72:fc:46:02:43:

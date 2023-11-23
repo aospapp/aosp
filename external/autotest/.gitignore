@@ -11,6 +11,7 @@
 *.pyc
 *.so
 *~
+tags
 
 # Anything created as a result of running a test
 results.*/
@@ -75,3 +76,5 @@ hwid_key
 
 # Present on Skylab drones
 /swarming_state/
+
+.idea

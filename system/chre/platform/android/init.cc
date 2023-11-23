@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "chre/core/event_loop_manager.h"
 #include "chre/core/init.h"
+#include "chre/core/event_loop_manager.h"
 #include "chre/core/static_nanoapps.h"
 #include "chre/platform/android/host_link.h"
 #include "chre/platform/shared/platform_log.h"
@@ -40,7 +40,7 @@ void onMessageReceivedFromClient(uint16_t clientId, void *data, size_t length) {
   }
 }
 
-}
+}  // namespace
 
 int main(int argc, char **argv) {
   // Initilize CHRE.
@@ -52,8 +52,8 @@ int main(int argc, char **argv) {
 
   // Setup the socket server for communications with the HAL.
   std::thread socketServerThread([&]() {
-    chre::SocketServerSingleton::get()->run(
-        "chre", true, onMessageReceivedFromClient);
+    chre::SocketServerSingleton::get()->run("chre", true,
+                                            onMessageReceivedFromClient);
     EventLoopManagerSingleton::get()->getEventLoop().stop();
   });
 

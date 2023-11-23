@@ -37,6 +37,8 @@
 #include "common.h"
 #include "cpp_bindings.h"
 
+/* test mode flag for halutil only */
+bool halutil_mode = false;
 interface_info *getIfaceInfo(wifi_interface_handle handle)
 {
     return (interface_info *)handle;
@@ -261,3 +263,11 @@ wifi_error wifi_cancel_cmd(wifi_request_id id, wifi_interface_handle iface)
     return WIFI_ERROR_INVALID_ARGS;
 }
 
+void set_hautil_mode(bool util_mode)
+{
+    halutil_mode = util_mode;
+}
+bool get_halutil_mode()
+{
+    return halutil_mode;
+}

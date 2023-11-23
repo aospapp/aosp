@@ -60,7 +60,6 @@ public class AppStoragePreference extends AppActionPreference {
             setSummary(getContext().getString(R.string.device_apps_app_management_storage_used_desc,
                     mEntry.sizeStr, volumeDesc));
         }
-
     }
 
     private String getAppName() {

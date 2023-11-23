@@ -19,6 +19,7 @@ package com.googlecode.android_scripting.facade.wifi;
 import android.app.Service;
 import android.content.Context;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WifiScanner;
 import android.net.wifi.WifiScanner.BssidInfo;
 import android.net.wifi.WifiScanner.ChannelSpec;
@@ -56,6 +57,7 @@ public class WifiScannerFacade extends RpcReceiver {
     private final Service mService;
     private final EventFacade mEventFacade;
     private final WifiScanner mScan;
+    private final WifiManager mWifiManager;
     // These counters are just for indexing;
     // they do not represent the total number of listeners
     private static int WifiScanListenerCnt;
@@ -72,6 +74,7 @@ public class WifiScannerFacade extends RpcReceiver {
         super(manager);
         mService = manager.getService();
         mScan = (WifiScanner) mService.getSystemService(Context.WIFI_SCANNING_SERVICE);
+        mWifiManager = mService.getSystemService(WifiManager.class);
         mEventFacade = manager.getReceiver(EventFacade.class);
         scanListeners = new ConcurrentHashMap<Integer, WifiScanListener>();
         scanBackgroundListeners = new ConcurrentHashMap<Integer, WifiScanListener>();
@@ -550,25 +553,13 @@ public class WifiScannerFacade extends RpcReceiver {
     public void wifiScannerToggleAlwaysAvailable(
             @RpcParameter(name = "alwaysAvailable") @RpcOptional Boolean alwaysAvailable)
                     throws SettingNotFoundException {
-        int new_state = 0;
-        if (alwaysAvailable == null) {
-            int current_state = Global.getInt(mService.getContentResolver(),
-                    Global.WIFI_SCAN_ALWAYS_AVAILABLE);
-            new_state = current_state ^ 0x1;
-        } else {
-            new_state = alwaysAvailable ? 1 : 0;
-        }
-        Global.putInt(mService.getContentResolver(), Global.WIFI_SCAN_ALWAYS_AVAILABLE, new_state);
+        mWifiManager.setScanAlwaysAvailable(
+                alwaysAvailable == null ? !mWifiManager.isScanAlwaysAvailable() : alwaysAvailable);
     }
 
     @Rpc(description = "Returns true if WiFi scan is always available, false otherwise.")
     public Boolean wifiScannerIsAlwaysAvailable() throws SettingNotFoundException {
-        int current_state = Global.getInt(mService.getContentResolver(),
-                Global.WIFI_SCAN_ALWAYS_AVAILABLE);
-        if (current_state == 1) {
-            return true;
-        }
-        return false;
+        return mWifiManager.isScanAlwaysAvailable();
     }
 
     @Rpc(description = "Returns a list of mIndexes of existing listeners")

@@ -15,7 +15,6 @@
  */
 package android.packageinstaller.nopermission.cts
 
-import android.app.AppOpsManager.MODE_ALLOWED
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -33,7 +32,6 @@ import android.support.test.uiautomator.By
 import android.support.test.uiautomator.UiDevice
 import android.support.test.uiautomator.Until
 import androidx.core.content.FileProvider
-import com.android.compatibility.common.util.AppOpsUtils
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -54,7 +52,6 @@ private const val WM_DISMISS_KEYGUARD_COMMAND = "wm dismiss-keyguard"
 private const val ACTION = "NoPermissionTests.install_cb"
 
 private const val WAIT_FOR_UI_TIMEOUT = 5000L
-private const val APP_OP_STR = "REQUEST_INSTALL_PACKAGES"
 
 @RunWith(AndroidJUnit4::class)
 @MediumTest
@@ -72,7 +69,7 @@ class NoPermissionTests {
 
             if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
                 val activityIntent = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
-                activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(activityIntent)
             }
         }
@@ -89,12 +86,6 @@ class NoPermissionTests {
     @Before
     fun copyTestApk() {
         File(TEST_APK_EXTERNAL_LOCATION, TEST_APK_NAME).copyTo(target = apkFile, overwrite = true)
-    }
-
-    @Before
-    fun allowToInstallPackages() {
-        // To make sure no other blocking dialogs appear
-        AppOpsUtils.setOpMode(context.packageName, APP_OP_STR, MODE_ALLOWED)
     }
 
     @Before

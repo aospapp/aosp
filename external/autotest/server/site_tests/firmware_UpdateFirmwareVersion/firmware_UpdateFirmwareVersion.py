@@ -23,6 +23,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
     version = 1
 
     def check_firmware_version(self, expected_ver):
+        """Checks the firmware version."""
         actual_ver = self.faft_client.bios.get_version(
                 'b' if self.fw_vboot2 else 'a')
         actual_tpm_fwver = self.faft_client.tpm.get_firmware_version()
@@ -37,6 +38,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
                 actual_ver)
 
     def initialize(self, host, cmdline_args):
+        """Setup the test"""
         dict_args = utils.args_to_dict(cmdline_args)
         shellball_path = dict_args.get('shellball', None)
         super(firmware_UpdateFirmwareVersion, self).initialize(
@@ -53,7 +55,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
 
         self.setup_usbkey(usbkey=True)
 
-        self._fwid = self.faft_client.updater.get_fwid()
+        self._fwid = self.faft_client.updater.get_section_fwid()
 
         self.fw_ver_tpm = self.faft_client.tpm.get_firmware_version()
         actual_ver = self.faft_client.bios.get_version('a')
@@ -66,6 +68,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
         self.faft_client.updater.repack_shellball('test')
 
     def cleanup(self):
+        """Cleanup after the test"""
         try:
             if self.faft_client.tpm.get_firmware_version() != self.fw_ver_tpm:
                 self.reboot_and_reset_tpm()
@@ -76,6 +79,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
         super(firmware_UpdateFirmwareVersion, self).cleanup()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Update firmware with new version.")
         self.check_state((self.checkers.crossystem_checker, {
                           'fwid': self._fwid

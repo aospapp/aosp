@@ -51,19 +51,21 @@ public class ContextualViewModel extends AndroidViewModel {
 
     private final List<LiveData<ContextualInfo>> mInfoDelegates;
 
-    public ContextualViewModel(Application application) {
-        this(application, getCarProjectionManager(application));
-    }
+    private Car mCar;
 
-    private static CarProjectionManager getCarProjectionManager(Context context) {
-        return (CarProjectionManager)
-                Car.createCar(context).getCarManager(Car.PROJECTION_SERVICE);
+    public ContextualViewModel(Application application) {
+        this(application, null);
     }
 
     @VisibleForTesting
     ContextualViewModel(Application application, CarProjectionManager carProjectionManager) {
         super(application);
 
+        if (carProjectionManager == null) {
+            mCar = Car.createCar(application);
+            carProjectionManager =
+                    (CarProjectionManager) mCar.getCarManager(Car.PROJECTION_SERVICE);
+        }
 
         mInfoDelegates =
                 Collections.unmodifiableList(Arrays.asList(
@@ -75,6 +77,15 @@ public class ContextualViewModel extends AndroidViewModel {
         for (LiveData<ContextualInfo> delegate : mInfoDelegates) {
             mContextualInfo.addSource(delegate, observer);
         }
+    }
+
+    @Override
+    protected void onCleared() {
+        if (mCar != null && mCar.isConnected()) {
+            mCar.disconnect();
+            mCar = null;
+        }
+        super.onCleared();
     }
 
     private void updateLiveData() {

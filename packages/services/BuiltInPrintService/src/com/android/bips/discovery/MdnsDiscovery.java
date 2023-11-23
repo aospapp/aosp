@@ -107,7 +107,7 @@ public class MdnsDiscovery extends Discovery {
 
         // Must be IPv4
         if (!(info.getHost() instanceof Inet4Address)) {
-            if (DEBUG) Log.d(TAG, "Not IPv4" + info);
+            if (DEBUG) Log.d(TAG, "Not IPv4 " + info.getHost());
             return null;
         }
 

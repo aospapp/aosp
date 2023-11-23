@@ -20,6 +20,9 @@ import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.view.WindowManager;
 
+import androidx.annotation.NonNull;
+
+import com.android.wallpaper.util.BitmapProcessor;
 import com.android.wallpaper.util.ScreenSizeCalculator;
 import com.android.wallpaper.util.WallpaperCropUtils;
 
@@ -28,51 +31,43 @@ import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
 
 import java.security.MessageDigest;
 
-import androidx.annotation.NonNull;
-
 /**
  * Glide bitmap transformation which emulates the default preview positioning of a wallpaper image.
  */
 public class WallpaperPreviewBitmapTransformation extends BitmapTransformation {
 
-    private Point mDefaultCropSurfaceSize;
+    private final Context mContext;
     private Point mScreenSize;
     private boolean mIsRtl;
 
     public WallpaperPreviewBitmapTransformation(Context appContext, boolean isRtl) {
         WindowManager windowManager = (WindowManager)
                 appContext.getSystemService(Context.WINDOW_SERVICE);
-        mDefaultCropSurfaceSize = WallpaperCropUtils.getDefaultCropSurfaceSize(
-                appContext.getResources(), windowManager.getDefaultDisplay());
         mScreenSize =
                 ScreenSizeCalculator.getInstance().getScreenSize(windowManager.getDefaultDisplay());
         mIsRtl = isRtl;
+        mContext = appContext;
     }
 
     @Override
     protected Bitmap transform(@NonNull BitmapPool pool, @NonNull Bitmap toTransform,
-                               int outWidth, int outHeight) {
-
+            int outWidth, int outHeight) {
         // Transform the thumbnail bitmap to match the default MosaicView positioning.
-        float scale = Math.max((float) mDefaultCropSurfaceSize.x / toTransform.getWidth(),
-                (float) mDefaultCropSurfaceSize.y / toTransform.getHeight());
+        float scale = WallpaperCropUtils.calculateMinZoom(
+                new Point(toTransform.getWidth(), toTransform.getHeight()),
+                mScreenSize);
         Point scaledThumbnailSize = new Point(Math.round(toTransform.getWidth() * scale),
                 Math.round(toTransform.getHeight() * scale));
-        Point scaledThumbnailToCropSurface = WallpaperCropUtils.calculateCenterPosition(
-                scaledThumbnailSize, mDefaultCropSurfaceSize, false /* alignStart */, mIsRtl);
+        Point scaledThumbnailToScreenSize = WallpaperCropUtils.calculateCenterPosition(
+                scaledThumbnailSize, mScreenSize, false /* alignStart */, mIsRtl);
 
-        Point cropSurfaceToScreenSize = WallpaperCropUtils.calculateCenterPosition(
-                mDefaultCropSurfaceSize, mScreenSize, true /* alignStart */, mIsRtl);
-
-        Point scaledThumbnailToScreenSize = new Point(
-                scaledThumbnailToCropSurface.x + cropSurfaceToScreenSize.x,
-                scaledThumbnailToCropSurface.y + cropSurfaceToScreenSize.y);
-
-        return Bitmap.createBitmap(toTransform,
+        Bitmap cropped = Bitmap.createBitmap(toTransform,
                 Math.round(scaledThumbnailToScreenSize.x / scale),
                 Math.round(scaledThumbnailToScreenSize.y / scale),
                 Math.round(mScreenSize.x / scale),
                 Math.round(mScreenSize.y / scale));
+
+        return BitmapProcessor.blur(mContext, cropped, cropped.getWidth(), cropped.getHeight());
     }
 
     @Override

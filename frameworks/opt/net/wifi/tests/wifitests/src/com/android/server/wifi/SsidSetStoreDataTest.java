@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,6 +30,7 @@ import android.util.Xml;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -49,7 +51,7 @@ import java.util.Set;
  * Unit tests for {@link com.android.server.wifi.SsidSetStoreData}.
  */
 @SmallTest
-public class SsidSetStoreDataTest {
+public class SsidSetStoreDataTest extends WifiBaseTest {
     private static final String TEST_NOTIFIER_NAME = "TestNetwork";
     private static final String TEST_SSID1 = "SSID 1";
     private static final String TEST_SSID2 = "SSID 2";
@@ -80,7 +82,7 @@ public class SsidSetStoreDataTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mSsidSetStoreData.serializeData(out);
+        mSsidSetStoreData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
         out.flush();
         return outputStream.toByteArray();
     }
@@ -95,7 +97,9 @@ public class SsidSetStoreDataTest {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mSsidSetStoreData.deserializeData(in, in.getDepth());
+        mSsidSetStoreData.deserializeData(in, in.getDepth(),
+                WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                mock(WifiConfigStoreEncryptionUtil.class));
     }
 
     /**

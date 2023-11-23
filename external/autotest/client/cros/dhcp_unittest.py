@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -35,6 +35,12 @@ TEST_DOMAIN_SEARCH_LIST_PARSED = ("eng.google.com", "marketing.google.com")
 # This is correct and sufficient for our purposes.
 TEST_DOMAIN_SEARCH_LIST_EXPECTED = \
         "\x03eng\x06google\x03com\x00\x09marketing\x06google\x03com\x00"
+
+TEST_DOMAIN_SEARCH_LIST1 = \
+        "w\x10\x03eng\x06google\x03com\x00"
+
+TEST_DOMAIN_SEARCH_LIST2 = \
+        "w\x16\x09marketing\x06google\x03com\x00"
 
 def bin2hex(byte_str, justification=20):
     """
@@ -116,6 +122,20 @@ def test_domain_search_list_serialization():
     print "test_domain_search_list_serialization PASSED"
     return True
 
+def test_broken_domain_search_list_parsing():
+    byte_string = '\x00' * 240 + TEST_DOMAIN_SEARCH_LIST1 + TEST_DOMAIN_SEARCH_LIST2 + '\xff'
+    packet = dhcp_packet.DhcpPacket(byte_str=byte_string)
+    if len(packet._options) != 1:
+        print "Expected domain list of length 1"
+        return False
+    for k, v in packet._options.items():
+        if tuple(v) != TEST_DOMAIN_SEARCH_LIST_PARSED:
+            print ("Expected binary domain list and got %s but expected %s" %
+                    (tuple(v), TEST_DOMAIN_SEARCH_LIST_PARSED))
+            return False
+    print "test_broken_domain_search_list_parsing PASSED"
+    return True
+
 def receive_packet(a_socket, timeout_seconds=1.0):
     data = None
     start_time = time.time()
@@ -170,11 +190,11 @@ def test_simple_server_exchange(server):
     rules.append(dhcp_handling_rule.DhcpHandlingRule_RespondToDiscovery(
             intended_ip,
             server_ip,
-            dhcp_server_config))
+            dhcp_server_config, {}))
     rules.append(dhcp_handling_rule.DhcpHandlingRule_RespondToRequest(
             intended_ip,
             server_ip,
-            dhcp_server_config))
+            dhcp_server_config, {}))
     rules[-1].is_final_handler = True
     server.start_test(rules, test_timeout)
     # Because we don't want to require root permissions to run these tests,
@@ -224,7 +244,7 @@ def test_simple_server_exchange(server):
         print "Type of DHCP response is not acknowledgement."
         return False
 
-    if offer_packet.get_field(dhcp_packet.FIELD_YOUR_IP) != intended_ip:
+    if ack_packet.get_field(dhcp_packet.FIELD_YOUR_IP) != intended_ip:
         print "Server didn't give us the IP we expected."
         return False
 
@@ -265,6 +285,7 @@ def run_tests():
     retval &= test_classless_static_route_serialization()
     retval &= test_domain_search_list_parsing()
     retval &= test_domain_search_list_serialization()
+    retval &= test_broken_domain_search_list_parsing()
     retval &= test_server_dialogue()
     if retval:
         print "All tests PASSED."

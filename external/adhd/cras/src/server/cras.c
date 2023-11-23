@@ -18,12 +18,12 @@
 #include "cras_dsp.h"
 
 static struct option long_options[] = {
-	{"dsp_config", required_argument, 0, 'd'},
-	{"syslog_mask", required_argument, 0, 'l'},
-	{"device_config_dir", required_argument, 0, 'c'},
-	{"disable_profile", required_argument, 0, 'D'},
-	{"internal_ucm_suffix", required_argument, 0, 'u'},
-	{0, 0, 0, 0}
+	{ "dsp_config", required_argument, 0, 'd' },
+	{ "syslog_mask", required_argument, 0, 'l' },
+	{ "device_config_dir", required_argument, 0, 'c' },
+	{ "disable_profile", required_argument, 0, 'D' },
+	{ "internal_ucm_suffix", required_argument, 0, 'u' },
+	{ 0, 0, 0, 0 }
 };
 
 /* Ignores sigpipe, we'll notice when a read/write fails. */
@@ -73,13 +73,16 @@ int main(int argc, char **argv)
 		case 'D':
 			while ((optarg != NULL) && (*optarg != 0)) {
 				if (strncmp(optarg, "hfp", 3) == 0) {
-					profile_disable_mask |= CRAS_SERVER_PROFILE_MASK_HFP;
+					profile_disable_mask |=
+						CRAS_SERVER_PROFILE_MASK_HFP;
 				}
 				if (strncmp(optarg, "hsp", 3) == 0) {
-					profile_disable_mask |= CRAS_SERVER_PROFILE_MASK_HSP;
+					profile_disable_mask |=
+						CRAS_SERVER_PROFILE_MASK_HSP;
 				}
 				if (strncmp(optarg, "a2dp", 4) == 0) {
-					profile_disable_mask |= CRAS_SERVER_PROFILE_MASK_A2DP;
+					profile_disable_mask |=
+						CRAS_SERVER_PROFILE_MASK_A2DP;
 				}
 				optarg = strchr(optarg, ',');
 				if (optarg != NULL) {
@@ -97,40 +100,39 @@ int main(int argc, char **argv)
 	}
 
 	switch (log_mask) {
-		case LOG_EMERG: case LOG_ALERT: case LOG_CRIT: case LOG_ERR:
-		case LOG_WARNING: case LOG_NOTICE: case LOG_INFO:
-		case LOG_DEBUG:
-			break;
-		default:
-			fprintf(stderr,
-				"Unsupported syslog priority value: %d; using LOG_ERR=%d\n",
-				log_mask, LOG_ERR);
-			log_mask = LOG_ERR;
-			break;
+	case LOG_EMERG:
+	case LOG_ALERT:
+	case LOG_CRIT:
+	case LOG_ERR:
+	case LOG_WARNING:
+	case LOG_NOTICE:
+	case LOG_INFO:
+	case LOG_DEBUG:
+		break;
+	default:
+		fprintf(stderr,
+			"Unsupported syslog priority value: %d; using LOG_ERR=%d\n",
+			log_mask, LOG_ERR);
+		log_mask = LOG_ERR;
+		break;
 	}
 	setlogmask(LOG_UPTO(log_mask));
 
 	/* Initialize system. */
 	cras_server_init();
-        char *shm_name;
-        if (asprintf(&shm_name, "/cras-%d", getpid()) < 0)
+	char *shm_name;
+	if (asprintf(&shm_name, "/cras-%d", getpid()) < 0)
 		exit(-1);
 	int rw_shm_fd;
 	int ro_shm_fd;
-        struct cras_server_state *exp_state = (struct cras_server_state *)
-		cras_shm_setup(shm_name,
-			       sizeof(*exp_state),
-			       &rw_shm_fd,
-			       &ro_shm_fd);
+	struct cras_server_state *exp_state =
+		(struct cras_server_state *)cras_shm_setup(
+			shm_name, sizeof(*exp_state), &rw_shm_fd, &ro_shm_fd);
 	if (!exp_state)
 		exit(-1);
-	cras_system_state_init(device_config_dir,
-			       shm_name,
-			       rw_shm_fd,
-			       ro_shm_fd,
-			       exp_state,
-			       sizeof(*exp_state));
-        free(shm_name);
+	cras_system_state_init(device_config_dir, shm_name, rw_shm_fd,
+			       ro_shm_fd, exp_state, sizeof(*exp_state));
+	free(shm_name);
 	if (internal_ucm_suffix)
 		cras_system_state_set_internal_ucm_suffix(internal_ucm_suffix);
 	cras_dsp_init(dsp_config);

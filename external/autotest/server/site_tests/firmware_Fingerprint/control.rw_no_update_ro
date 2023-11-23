@@ -20,6 +20,9 @@ TEST_TYPE = "server"
 DEPENDENCIES = "servo, fingerprint"
 JOB_RETRIES = 0
 
+# This test uses futility and dev keys from autotest/files/server/cros/faft.
+REQUIRE_SSP = True
+
 DOC = """
 Enables hardware write protect, attempts to flash the RO fingerprint firmware,
 and verifies that the flashing fails.

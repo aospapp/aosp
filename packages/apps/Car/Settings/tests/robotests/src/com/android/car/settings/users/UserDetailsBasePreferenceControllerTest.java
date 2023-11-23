@@ -16,36 +16,35 @@
 
 package com.android.car.settings.users;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.testng.Assert.assertThrows;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.UserInfo;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowUserIconProvider;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowUserIconProvider.class})
+import java.util.Collections;
+import java.util.List;
+
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowUserIconProvider.class})
 public class UserDetailsBasePreferenceControllerTest {
 
     private static class TestUserDetailsBasePreferenceController extends
@@ -62,27 +61,22 @@ public class UserDetailsBasePreferenceControllerTest {
         }
     }
 
+    private static final List<String> LISTENER_ACTIONS =
+            Collections.singletonList(Intent.ACTION_USER_INFO_CHANGED);
+
     private PreferenceControllerTestHelper<TestUserDetailsBasePreferenceController>
             mPreferenceControllerHelper;
     private TestUserDetailsBasePreferenceController mController;
     private Preference mPreference;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
         Context context = RuntimeEnvironment.application;
         mPreferenceControllerHelper = new PreferenceControllerTestHelper<>(context,
                 TestUserDetailsBasePreferenceController.class);
         mController = mPreferenceControllerHelper.getController();
         mPreference = new Preference(context);
-    }
-
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
     }
 
     @Test
@@ -95,8 +89,9 @@ public class UserDetailsBasePreferenceControllerTest {
         mController.setUserInfo(new UserInfo());
         mPreferenceControllerHelper.setPreference(mPreference);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-        verify(mCarUserManagerHelper).registerOnUsersUpdateListener(any(CarUserManagerHelper
-                .OnUsersUpdateListener.class));
+
+        assertThat(BroadcastReceiverHelpers.getRegisteredReceiverWithActions(LISTENER_ACTIONS))
+                .isNotNull();
     }
 
     @Test
@@ -104,12 +99,9 @@ public class UserDetailsBasePreferenceControllerTest {
         mController.setUserInfo(new UserInfo());
         mPreferenceControllerHelper.setPreference(mPreference);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-        ArgumentCaptor<CarUserManagerHelper.OnUsersUpdateListener> listenerArgumentCaptor =
-                ArgumentCaptor.forClass(CarUserManagerHelper.OnUsersUpdateListener.class);
-        verify(mCarUserManagerHelper).registerOnUsersUpdateListener(
-                listenerArgumentCaptor.capture());
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_DESTROY);
-        verify(mCarUserManagerHelper).unregisterOnUsersUpdateListener(
-                listenerArgumentCaptor.getValue());
+
+        assertThat(BroadcastReceiverHelpers.getRegisteredReceiverWithActions(LISTENER_ACTIONS))
+                .isNull();
     }
 }

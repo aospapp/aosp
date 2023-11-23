@@ -20,8 +20,8 @@ enum34>=1.1.6
 singledispatch>=3.4.0.3
 typing>=3.6.4
 
-[all:python_version < "3.7" and platform_python_implementation != "PyPy"]
-unicodedata2>=11.0.0
+[all:python_version < "3.8" and platform_python_implementation != "PyPy"]
+unicodedata2>=12.0.0
 
 [all:sys_platform == "darwin"]
 xattr
@@ -63,8 +63,8 @@ enum34>=1.1.6
 
 [unicode]
 
-[unicode:python_version < "3.7" and platform_python_implementation != "PyPy"]
-unicodedata2>=11.0.0
+[unicode:python_version < "3.8" and platform_python_implementation != "PyPy"]
+unicodedata2>=12.0.0
 
 [woff]
 zopfli>=0.1.4

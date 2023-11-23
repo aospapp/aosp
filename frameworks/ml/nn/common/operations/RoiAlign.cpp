@@ -14,15 +14,19 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
 #include "OperationsUtils.h"
+#include "Tracing.h"
 
+#include <tensorflow/lite/kernels/internal/common.h>
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
-
-#include "Tracing.h"
-#include "tensorflow/lite/kernels/internal/common.h"
+#include <vector>
 
 namespace android {
 namespace nn {
@@ -46,6 +50,8 @@ constexpr uint32_t kNumOutputs = 1;
 constexpr uint32_t kOutputTensor = 0;
 
 namespace {
+
+using namespace hal;
 
 template <typename T_Input, typename T_Roi>
 inline bool roiAlignNhwc(const T_Input* inputData, const Shape& inputShape, const T_Roi* roiData,
@@ -172,14 +178,13 @@ inline bool roiAlignNhwc(const T_Input* inputData, const Shape& inputShape, cons
     return true;
 }
 
-template <>
-inline bool roiAlignNhwc<uint8_t, uint16_t>(const uint8_t* inputData, const Shape& inputShape,
-                                            const uint16_t* roiData, const Shape& roiShape,
-                                            const int32_t* batchSplitData,
-                                            const Shape& batchSplitShape, float heightStride,
-                                            float widthStride, int32_t heightSamplingRatio,
-                                            int32_t widthSamplingRatio, uint8_t* outputData,
-                                            const Shape& outputShape) {
+template <typename T_Input>
+inline bool roiAlignQuantNhwc(const T_Input* inputData, const Shape& inputShape,
+                              const uint16_t* roiData, const Shape& roiShape,
+                              const int32_t* batchSplitData, const Shape& batchSplitShape,
+                              float heightStride, float widthStride, int32_t heightSamplingRatio,
+                              int32_t widthSamplingRatio, T_Input* outputData,
+                              const Shape& outputShape) {
     NNTRACE_TRANS("RoiAlignQuant8");
 
     constexpr float wScale = 1.0f / 255.0f;
@@ -196,7 +201,7 @@ inline bool roiAlignNhwc<uint8_t, uint16_t>(const uint8_t* inputData, const Shap
     uint32_t numRois = getSizeOfDimension(roiShape, 0);
     uint32_t roiInfoLength = getSizeOfDimension(roiShape, 1);
 
-    uint8_t* outPtr = outputData;
+    T_Input* outPtr = outputData;
     const uint16_t* roiDataEnd = roiData + numRois * roiInfoLength;
     uint32_t roiIndex = 0;
     for (const uint16_t* roiInfo = roiData; roiInfo < roiDataEnd; roiInfo += kRoiDim, roiIndex++) {
@@ -240,7 +245,7 @@ inline bool roiAlignNhwc<uint8_t, uint16_t>(const uint8_t* inputData, const Shap
             return false;
         }
 
-        const uint8_t* batchBase = inputData + batchId * inHeight * inWidth * inDepth;
+        const T_Input* batchBase = inputData + batchId * inHeight * inWidth * inDepth;
         for (uint32_t i = 0; i < outHeight; i++) {
             for (uint32_t j = 0; j < outWidth; j++) {
                 float wStart = wStepSize * j + wRoiStart;
@@ -297,8 +302,7 @@ inline bool roiAlignNhwc<uint8_t, uint16_t>(const uint8_t* inputData, const Shap
                     int32_t raw_out = tflite::MultiplyByQuantizedMultiplier(
                                               outTemp[k], outputMultiplier, -outputShift) +
                                       outputShape.offset;
-                    int32_t clamped_out = std::min(255, std::max(0, raw_out));
-                    outPtr[k] = static_cast<uint8_t>(clamped_out);
+                    outPtr[k] = saturateCast<T_Input>(raw_out);
                 }
                 outPtr += inDepth;
             }
@@ -317,10 +321,18 @@ inline bool roiAlign(const T_Input* inputData, const Shape& inputShape, const T_
     OutputWithLayout<T_Input> output(useNchw);
     NN_RET_CHECK(input.initialize(inputData, inputShape));
     NN_RET_CHECK(output.initialize(outputData, outputShape));
-    NN_RET_CHECK(roiAlignNhwc(input.getNhwcBuffer(), input.getNhwcShape(), roiData, roiShape,
-                              batchSplitData, batchSplitShape, heightStride, widthStride,
-                              heightSamplingRatio, widthSamplingRatio, output.getNhwcBuffer(),
-                              output.getNhwcShape()));
+    if constexpr (std::is_same_v<T_Roi, uint16_t> &&
+                  (std::is_same_v<T_Input, uint8_t> || std::is_same_v<T_Input, int8_t>)) {
+        NN_RET_CHECK(roiAlignQuantNhwc<T_Input>(
+                input.getNhwcBuffer(), input.getNhwcShape(), roiData, roiShape, batchSplitData,
+                batchSplitShape, heightStride, widthStride, heightSamplingRatio, widthSamplingRatio,
+                output.getNhwcBuffer(), output.getNhwcShape()));
+    } else {
+        NN_RET_CHECK(roiAlignNhwc(input.getNhwcBuffer(), input.getNhwcShape(), roiData, roiShape,
+                                  batchSplitData, batchSplitShape, heightStride, widthStride,
+                                  heightSamplingRatio, widthSamplingRatio, output.getNhwcBuffer(),
+                                  output.getNhwcShape()));
+    }
     NN_RET_CHECK(output.commit());
     return true;
 }
@@ -344,8 +356,9 @@ bool validate(const IOperationValidationContext* context) {
                            OperandType::INT32,          OperandType::FLOAT16,
                            OperandType::FLOAT16,        OperandType::INT32,
                            OperandType::INT32,          OperandType::BOOL};
-    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM) {
-        inExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM,
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+               inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        inExpectedTypes = {inputType,
                            OperandType::TENSOR_QUANT16_ASYMM,
                            OperandType::TENSOR_INT32,
                            OperandType::INT32,
@@ -361,7 +374,11 @@ bool validate(const IOperationValidationContext* context) {
     }
     NN_RET_CHECK(validateInputTypes(context, inExpectedTypes));
     NN_RET_CHECK(validateOutputTypes(context, {inputType}));
-    return validateHalVersion(context, HalVersion::V1_2);
+    if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        return validateHalVersion(context, HalVersion::V1_3);
+    } else {
+        return validateHalVersion(context, HalVersion::V1_2);
+    }
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -467,6 +484,20 @@ bool execute(IOperationExecutionContext* context) {
                             context->getInputValue<int32_t>(kWidthSamplingRatioScalar),
                             context->getInputValue<bool>(kLayoutScalar),
                             context->getOutputBuffer<uint8_t>(kOutputTensor),
+                            context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return roiAlign(context->getInputBuffer<int8_t>(kInputTensor),
+                            context->getInputShape(kInputTensor),
+                            context->getInputBuffer<uint16_t>(kRoiTensor),
+                            context->getInputShape(kRoiTensor),
+                            context->getInputBuffer<int32_t>(kBatchSplitTensor),
+                            context->getInputShape(kBatchSplitTensor),
+                            context->getInputValue<float>(kHeightStrideSalar),
+                            context->getInputValue<float>(kWidthStrideScalar),
+                            context->getInputValue<int32_t>(kHeightSamplingRatioScalar),
+                            context->getInputValue<int32_t>(kWidthSamplingRatioScalar),
+                            context->getInputValue<bool>(kLayoutScalar),
+                            context->getOutputBuffer<int8_t>(kOutputTensor),
                             context->getOutputShape(kOutputTensor));
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;

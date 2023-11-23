@@ -55,21 +55,17 @@
 /*
  * Eth Configs
  */
-#define CONFIG_MII
 
 #define CONFIG_FEC_MXC
 #define IMX_FEC_BASE	FEC_BASE_ADDR
 #define CONFIG_FEC_MXC_PHYADDR	0x1F
 
 /* USB Configs */
-#define CONFIG_USB_EHCI_MX5
 #define CONFIG_MXC_USB_PORT	1
 #define CONFIG_MXC_USB_PORTSC	PORT_PTS_ULPI
 #define CONFIG_MXC_USB_FLAGS	MXC_EHCI_POWER_PINS_ENABLED
 
 /* Framebuffer and LCD */
-#define CONFIG_PREBOOT
-#define CONFIG_VIDEO_IPUV3
 #define CONFIG_VIDEO_BMP_RLE8
 #define CONFIG_SPLASH_SCREEN
 #define CONFIG_BMP_16BPP
@@ -167,7 +163,6 @@
 /*-----------------------------------------------------------------------
  * Physical Memory Map
  */
-#define CONFIG_NR_DRAM_BANKS	1
 #define PHYS_SDRAM_1		CSD0_BASE_ADDR
 #define PHYS_SDRAM_1_SIZE	(512 * 1024 * 1024)
 
@@ -187,8 +182,19 @@
 /*-----------------------------------------------------------------------
  * environment organization
  */
-#define CONFIG_ENV_OFFSET      (6 * 64 * 1024)
-#define CONFIG_ENV_SIZE        (8 * 1024)
+
+/*
+ * Environment starts at CONFIG_ENV_OFFSET=0xC0000 = 768k = 768 * 1024 = 786432
+ *
+ * Detect overlap between U-Boot image and environment area in build-time
+ *
+ * CONFIG_BOARD_SIZE_LIMIT = CONFIG_ENV_OFFSET - u-boot.imx offset
+ * CONFIG_BOARD_SIZE_LIMIT = 768k - 1k = 767k = 785408
+ *
+ * Currently CONFIG_BOARD_SIZE_LIMIT does not handle expressions, so
+ * write the direct value here
+ */
+#define CONFIG_BOARD_SIZE_LIMIT		785408
 #define CONFIG_SYS_MMC_ENV_DEV 0
 
 #endif

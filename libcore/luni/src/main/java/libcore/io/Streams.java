@@ -16,9 +16,8 @@
 
 package libcore.io;
 
-import libcore.util.ArrayUtils;
+import android.compat.annotation.UnsupportedAppUsage;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
@@ -27,6 +26,7 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.util.concurrent.atomic.AtomicReference;
+import libcore.util.ArrayUtils;
 
 /** @hide */
 @libcore.api.CorePlatformApi

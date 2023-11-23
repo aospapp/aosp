@@ -19,17 +19,25 @@ package android.media.tv.cts;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.media.tv.TvContentRating;
+import android.media.tv.TvInputHardwareInfo;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
+import android.media.tv.TvInputManager.Hardware;
+import android.media.tv.TvInputManager.HardwareCallback;
 import android.media.tv.TvInputService;
+import android.media.tv.TvStreamConfig;
 import android.os.Handler;
 import android.test.ActivityInstrumentationTestCase2;
 
 import com.android.compatibility.common.util.PollingCheck;
 
+import androidx.test.InstrumentationRegistry;
+
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.Executor;
 import java.util.List;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -53,6 +61,7 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
     private String mStubId;
     private TvInputManager mManager;
     private LoggingCallback mCallback = new LoggingCallback();
+    private TvInputInfo mStubTvInputInfo;
 
     private static TvInputInfo getInfoForClassName(List<TvInputInfo> list, String name) {
         for (TvInputInfo info : list) {
@@ -75,6 +84,8 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         mManager = (TvInputManager) getActivity().getSystemService(Context.TV_INPUT_SERVICE);
         mStubId = getInfoForClassName(
                 mManager.getTvInputList(), StubTvInputService2.class.getName()).getId();
+        mStubTvInputInfo = getInfoForClassName(
+                mManager.getTvInputList(), StubTvInputService2.class.getName());
     }
 
     public void testGetInputState() throws Exception {
@@ -245,6 +256,56 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         getInstrumentation().waitForIdleSync();
     }
 
+    public void testAcquireTvInputHardware() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+            .adoptShellPermissionIdentity("android.permission.TV_INPUT_HARDWARE",
+                    "android.permission.TUNER_RESOURCE_ACCESS");
+        if (mManager == null) {
+            return;
+        }
+        // Update hardware device list
+        int deviceId = 0;
+        boolean hardwareDeviceAdded = false;
+        List<TvInputHardwareInfo> hardwareList = mManager.getHardwareList();
+        if (hardwareList == null || hardwareList.isEmpty()) {
+            // Use the test api to add an HDMI hardware device
+            mManager.addHardwareDevice(deviceId);
+            hardwareDeviceAdded = true;
+        } else {
+            deviceId = hardwareList.get(0).getDeviceId();
+        }
+
+        // Acquire Hardware with a record client
+        HardwareCallback callback = new HardwareCallback() {
+            @Override
+            public void onReleased() {}
+
+            @Override
+            public void onStreamConfigChanged(TvStreamConfig[] configs) {}
+        };
+        CallbackExecutor executor = new CallbackExecutor();
+        Hardware hardware = mManager.acquireTvInputHardware(
+                deviceId, mStubTvInputInfo, null /*tvInputSessionId*/,
+                TvInputService.PRIORITY_HINT_USE_CASE_TYPE_PLAYBACK,
+                executor, callback);
+        assertNotNull(hardware);
+
+        // Acquire the same device with a LIVE client
+        Hardware hardwareAcquired = mManager.acquireTvInputHardware(
+                deviceId, mStubTvInputInfo, null /*tvInputSessionId*/,
+                TvInputService.PRIORITY_HINT_USE_CASE_TYPE_LIVE,
+                executor, callback);
+
+        assertNotNull(hardwareAcquired);
+
+        // Clean up
+        if (hardwareDeviceAdded) {
+            mManager.removeHardwareDevice(deviceId);
+        }
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+            .dropShellPermissionIdentity();
+    }
+
     private static class LoggingCallback extends TvInputManager.TvInputCallback {
         private final List<String> mAddedInputs = new ArrayList<>();
         private final List<String> mRemovedInputs = new ArrayList<>();
@@ -290,6 +351,13 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         @Override
         public Session onCreateSession(String inputId) {
             return null;
+        }
+    }
+
+    public class CallbackExecutor implements Executor {
+        @Override
+        public void execute(Runnable r) {
+            r.run();
         }
     }
 }

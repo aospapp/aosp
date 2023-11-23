@@ -27,6 +27,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.RadioButton;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import androidx.preference.Preference;
@@ -34,19 +35,32 @@ import androidx.preference.PreferenceViewHolder;
 
 import com.android.settings.R;
 
-public class ApnPreference extends Preference implements CompoundButton.OnCheckedChangeListener {
+/**
+ * Preference of APN UI entry
+ */
+public class ApnPreference extends Preference implements CompoundButton.OnCheckedChangeListener,
+        View.OnClickListener {
     final static String TAG = "ApnPreference";
 
     private int mSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
 
+    /**
+     * Constructor of Preference
+     */
     public ApnPreference(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
     }
 
+    /**
+     * Constructor of Preference
+     */
     public ApnPreference(Context context, AttributeSet attrs) {
         this(context, attrs, R.attr.apnPreferenceStyle);
     }
 
+    /**
+     * Constructor of Preference
+     */
     public ApnPreference(Context context) {
         this(context, null);
     }
@@ -61,13 +75,16 @@ public class ApnPreference extends Preference implements CompoundButton.OnChecke
     public void onBindViewHolder(PreferenceViewHolder view) {
         super.onBindViewHolder(view);
 
-        View widget = view.findViewById(R.id.apn_radiobutton);
+        final RelativeLayout textArea = (RelativeLayout) view.findViewById(R.id.text_layout);
+        textArea.setOnClickListener(this);
+
+        final View widget = view.findViewById(R.id.apn_radiobutton);
         if ((widget != null) && widget instanceof RadioButton) {
-            RadioButton rb = (RadioButton) widget;
+            final RadioButton rb = (RadioButton) widget;
             if (mSelectable) {
                 rb.setOnCheckedChangeListener(this);
 
-                boolean isChecked = getKey().equals(mSelectedKey);
+                final boolean isChecked = getKey().equals(mSelectedKey);
                 if (isChecked) {
                     mCurrentChecked = rb;
                     mSelectedKey = getKey();
@@ -111,21 +128,25 @@ public class ApnPreference extends Preference implements CompoundButton.OnChecke
     }
 
     @Override
-    protected void onClick() {
+    public void onClick(View layoutView) {
         super.onClick();
-        Context context = getContext();
-        if (context != null) {
-            if (mHideDetails) {
-                Toast.makeText(context, context.getString(
-                        R.string.cannot_change_apn_toast), Toast.LENGTH_LONG).show();
-                return;
-            }
-            int pos = Integer.parseInt(getKey());
-            Uri url = ContentUris.withAppendedId(Telephony.Carriers.CONTENT_URI, pos);
-            Intent editIntent = new Intent(Intent.ACTION_EDIT, url);
-            editIntent.putExtra(ApnSettings.SUB_ID, mSubId);
-            context.startActivity(editIntent);
+        final Context context = getContext();
+        final int pos = Integer.parseInt(getKey());
+        if (context == null) {
+            Log.w(TAG, "No context available for pos=" + pos);
+            return;
         }
+
+        if (mHideDetails) {
+            Toast.makeText(context, context.getString(
+                    R.string.cannot_change_apn_toast), Toast.LENGTH_LONG).show();
+            return;
+        }
+        final Uri url = ContentUris.withAppendedId(Telephony.Carriers.CONTENT_URI, pos);
+        final Intent editIntent = new Intent(Intent.ACTION_EDIT, url);
+        editIntent.putExtra(ApnSettings.SUB_ID, mSubId);
+        editIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        context.startActivity(editIntent);
     }
 
     public void setSelectable(boolean selectable) {

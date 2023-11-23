@@ -39,13 +39,15 @@ import java.util.Set;
 public class ScanTestUtil {
 
     public static void setupMockChannels(WifiNative wifiNative, int[] channels24, int[] channels5,
-            int[] channelsDfs) throws Exception {
+            int[] channelsDfs, int[] channels6) throws Exception {
         when(wifiNative.getChannelsForBand(WifiScanner.WIFI_BAND_24_GHZ))
                 .thenReturn(channels24);
         when(wifiNative.getChannelsForBand(WifiScanner.WIFI_BAND_5_GHZ))
                 .thenReturn(channels5);
         when(wifiNative.getChannelsForBand(WifiScanner.WIFI_BAND_5_GHZ_DFS_ONLY))
                 .thenReturn(channelsDfs);
+        when(wifiNative.getChannelsForBand(WifiScanner.WIFI_BAND_6_GHZ))
+                .thenReturn(channels6);
     }
 
     public static WifiScanner.ScanSettings createRequest(WifiScanner.ChannelSpec[] channels,
@@ -62,13 +64,13 @@ public class ScanTestUtil {
 
     public static WifiScanner.ScanSettings createRequest(int type, int band, int period, int batch,
             int bssidsPerScan, int reportEvents) {
-        return createRequest(WifiScanner.TYPE_HIGH_ACCURACY, band, period, 0, 0,
+        return createRequest(WifiScanner.SCAN_TYPE_HIGH_ACCURACY, band, period, 0, 0,
                 batch, bssidsPerScan, reportEvents);
     }
 
     public static WifiScanner.ScanSettings createRequest(int band, int period, int batch,
             int bssidsPerScan, int reportEvents) {
-        return createRequest(WifiScanner.TYPE_HIGH_ACCURACY, band, period, 0, 0, batch,
+        return createRequest(WifiScanner.SCAN_TYPE_HIGH_ACCURACY, band, period, 0, 0, batch,
                 bssidsPerScan, reportEvents);
     }
 
@@ -96,7 +98,7 @@ public class ScanTestUtil {
     public static class NativeScanSettingsBuilder {
         private final WifiNative.ScanSettings mSettings = new WifiNative.ScanSettings();
         public NativeScanSettingsBuilder() {
-            mSettings.scanType = WifiNative.SCAN_TYPE_LOW_LATENCY;
+            mSettings.scanType = WifiScanner.SCAN_TYPE_LOW_LATENCY;
             mSettings.buckets = new WifiNative.BucketSettings[0];
             mSettings.num_buckets = 0;
             mSettings.report_threshold_percent = 100;
@@ -181,20 +183,6 @@ public class ScanTestUtil {
 
     }
 
-    private static int getNativeScanType(int type) {
-        switch(type) {
-            case WifiScanner.TYPE_LOW_LATENCY:
-                return WifiNative.SCAN_TYPE_LOW_LATENCY;
-            case WifiScanner.TYPE_LOW_POWER:
-                return WifiNative.SCAN_TYPE_LOW_POWER;
-            case WifiScanner.TYPE_HIGH_ACCURACY:
-                return WifiNative.SCAN_TYPE_HIGH_ACCURACY;
-            default:
-                fail();
-                return -1;
-        }
-    }
-
     /**
      * Compute the expected native scan settings that are expected for the given
      * WifiScanner.ScanSettings.
@@ -207,7 +195,7 @@ public class ScanTestUtil {
                 .withMaxApPerScan(0)
                 .withMaxPercentToCache(0)
                 .withMaxScansToCache(0)
-                .withType(getNativeScanType(requestSettings.type));
+                .withType(requestSettings.type);
         if (requestSettings.band == WifiScanner.WIFI_BAND_UNSPECIFIED) {
             builder.addBucketWithChannels(0, reportEvents, requestSettings.channels);
         } else {
@@ -223,7 +211,7 @@ public class ScanTestUtil {
     public static WifiNative.ScanSettings createSingleScanNativeSettingsForChannels(
             int reportEvents, WifiScanner.ChannelSpec... channels) {
         return createSingleScanNativeSettingsForChannels(
-            WifiNative.SCAN_TYPE_LOW_LATENCY, reportEvents, channels);
+            WifiScanner.SCAN_TYPE_LOW_LATENCY, reportEvents, channels);
     }
 
     /**
@@ -417,12 +405,7 @@ public class ScanTestUtil {
         assertNotNull("actaul was null", actual);
         assertEquals("min5GHzRssi", expected.min5GHzRssi, actual.min5GHzRssi);
         assertEquals("min24GHzRssi", expected.min24GHzRssi, actual.min24GHzRssi);
-        assertEquals("initialScoreMax", expected.initialScoreMax, actual.initialScoreMax);
-        assertEquals("currentConnectionBonus", expected.currentConnectionBonus,
-                actual.currentConnectionBonus);
-        assertEquals("sameNetworkBonus", expected.sameNetworkBonus, actual.sameNetworkBonus);
-        assertEquals("secureBonus", expected.secureBonus, actual.secureBonus);
-        assertEquals("band5GHzBonus", expected.band5GHzBonus, actual.band5GHzBonus);
+        assertEquals("min6GHzRssi", expected.min6GHzRssi, actual.min6GHzRssi);
         assertEquals("isConnected", expected.isConnected, actual.isConnected);
         assertNotNull("expected networkList was null", expected.networkList);
         assertNotNull("actual networkList was null", actual.networkList);

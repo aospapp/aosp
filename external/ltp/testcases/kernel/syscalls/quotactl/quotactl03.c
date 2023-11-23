@@ -1,19 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2017 Fujitsu Ltd.
  * Author: Xiao Yang <yangx.jy@cn.fujitsu.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program, if not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -36,24 +24,17 @@
  */
 
 #define _GNU_SOURCE
+#include "config.h"
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/quota.h>
-#include "config.h"
-
-#if defined(HAVE_QUOTAV2) || defined(HAVE_QUOTAV1)
-# include <sys/quota.h>
-#endif
-
-#if defined(HAVE_XFS_QUOTA)
-# include <xfs/xqm.h>
-#endif
 
 #include "tst_test.h"
 #include "lapi/quotactl.h"
 
-#if defined(HAVE_XFS_QUOTA) && (defined(HAVE_QUOTAV2) || defined(HAVE_QUOTAV1))
+#ifdef HAVE_XFS_XQM_H
+# include <xfs/xqm.h>
 
 static const char mntpoint[] = "mnt_point";
 static uint32_t test_id = 0xfffffffc;
@@ -67,27 +48,30 @@ static void verify_quota(void)
 	TEST(quotactl(QCMD(Q_XGETNEXTQUOTA, USRQUOTA), tst_device->dev,
 		test_id, (void *)&res_dquota));
 	if (TST_RET != -1) {
-		tst_res(TFAIL, "quotactl() found the next active ID:"
-			" %u unexpectedly", res_dquota.d_id);
+		tst_res(TFAIL, "quotactl() found the next active ID: %u unexpectedly",
+				res_dquota.d_id);
 		return;
 	}
 
-	if (TST_ERR == EINVAL) {
+	if (TST_ERR == EINVAL)
 		tst_brk(TCONF | TTERRNO,
 			"Q_XGETNEXTQUOTA wasn't supported in quotactl()");
-	}
 
-	if (TST_ERR != ENOENT) {
-		tst_res(TFAIL | TTERRNO, "quotactl() failed unexpectedly with"
-			" %s expected ENOENT", tst_strerrno(TST_ERR));
-	} else {
+	if (TST_ERR != ENOENT)
+		tst_res(TFAIL | TTERRNO, "quotactl() failed unexpectedly with %s expected ENOENT",
+				tst_strerrno(TST_ERR));
+	else
 		tst_res(TPASS, "quotactl() failed with ENOENT as expected");
-	}
 }
 
+static const char *kconfigs[] = {
+	"CONFIG_XFS_QUOTA",
+	NULL
+};
+
 static struct tst_test test = {
-	.needs_tmpdir = 1,
 	.needs_root = 1,
+	.needs_kconfigs = kconfigs,
 	.test_all = verify_quota,
 	.mount_device = 1,
 	.dev_fs_type = "xfs",
@@ -96,5 +80,5 @@ static struct tst_test test = {
 };
 
 #else
-	TST_TEST_TCONF("This system didn't support quota or xfs quota");
+	TST_TEST_TCONF("System doesn't have <xfs/xqm.h>");
 #endif

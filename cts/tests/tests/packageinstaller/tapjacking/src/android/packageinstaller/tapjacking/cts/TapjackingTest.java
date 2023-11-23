@@ -70,19 +70,6 @@ public class TapjackingTest {
             mUiDevice.wakeUp();
         }
         mUiDevice.executeShellCommand(WM_DISMISS_KEYGUARD_COMMAND);
-        setUnknownSourcesEnabled(true);
-    }
-
-    private void setUnknownSourcesEnabled(boolean enabled) throws IOException {
-        setAppOpsMode(enabled ? "allow" : "default");
-    }
-
-    private void setAppOpsMode(String mode) throws IOException {
-        final StringBuilder commandBuilder = new StringBuilder("appops set");
-        commandBuilder.append(" " + mPackageName);
-        commandBuilder.append(" REQUEST_INSTALL_PACKAGES");
-        commandBuilder.append(" " + mode);
-        mUiDevice.executeShellCommand(commandBuilder.toString());
     }
 
     private void launchPackageInstaller() {
@@ -126,6 +113,5 @@ public class TapjackingTest {
     @After
     public void tearDown() throws Exception {
         mUiDevice.pressHome();
-        setUnknownSourcesEnabled(false);
     }
 }

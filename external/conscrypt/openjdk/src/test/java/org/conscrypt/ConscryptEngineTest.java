@@ -26,7 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.same;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
@@ -51,15 +51,13 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class ConscryptEngineTest {
     private static final int MESSAGE_SIZE = 4096;
     private static final int LARGE_MESSAGE_SIZE = 16413;
-    private static final String[] CIPHERS = TestUtils.getCommonCipherSuites();
-    private static final String RENEGOTIATION_CIPHER = CIPHERS[CIPHERS.length - 1];
 
     @SuppressWarnings("ImmutableEnumChecker")
     public enum BufferType {
@@ -158,10 +156,23 @@ public class ConscryptEngineTest {
         clientEngine.closeOutbound();
         serverEngine.closeOutbound();
 
-        assertFalse(clientEngine.isInboundDone());
+        // After closing the outbound direction, a shutdown alert should still be pending
+        assertFalse(clientEngine.isOutboundDone());
+        assertFalse(serverEngine.isOutboundDone());
+
+        ByteBuffer drain = bufferType.newBuffer(
+            Math.max(clientEngine.getSession().getPacketBufferSize(),
+                serverEngine.getSession().getPacketBufferSize()));
+        clientEngine.wrap(ByteBuffer.wrap(new byte[0]), drain);
+        drain.clear();
+        serverEngine.wrap(ByteBuffer.wrap(new byte[0]), drain);
+
         assertTrue(clientEngine.isOutboundDone());
-        assertFalse(serverEngine.isInboundDone());
         assertTrue(serverEngine.isOutboundDone());
+
+        // The inbound directions should still be open
+        assertFalse(clientEngine.isInboundDone());
+        assertFalse(serverEngine.isInboundDone());
     }
 
     @Test
@@ -308,7 +319,7 @@ public class ConscryptEngineTest {
 
         // Configure server selector
         ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
-        when(selector.selectApplicationProtocol(same(serverEngine), Matchers.anyListOf(String.class)))
+        when(selector.selectApplicationProtocol(same(serverEngine), ArgumentMatchers.<String>anyList()))
                 .thenReturn("spdy/2");
         Conscrypt.setApplicationProtocolSelector(serverEngine, selector);
 
@@ -327,7 +338,7 @@ public class ConscryptEngineTest {
 
         // Configure server selector
         ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
-        when(selector.selectApplicationProtocol(same(serverEngine), Matchers.anyListOf(String.class)))
+        when(selector.selectApplicationProtocol(same(serverEngine), ArgumentMatchers.<String>anyList()))
                 .thenReturn("h2");
         Conscrypt.setApplicationProtocolSelector(serverEngine, selector);
 
@@ -354,7 +365,8 @@ public class ConscryptEngineTest {
         exchangeMessage(newMessage(MESSAGE_SIZE), clientEngine, serverEngine);
 
         // Trigger a renegotiation from the server and send a message back from Server->Client
-        serverEngine.setEnabledCipherSuites(new String[] {RENEGOTIATION_CIPHER});
+        String[] ciphers = TestUtils.getCommonCipherSuites();
+        serverEngine.setEnabledCipherSuites(new String[] {ciphers[ciphers.length - 1]});
         serverEngine.beginHandshake();
         doHandshake(false);
 
@@ -363,16 +375,45 @@ public class ConscryptEngineTest {
 
     @Test
     public void savedSessionWorksAfterClose() throws Exception {
+        String alpnProtocol = "spdy/2";
+        String[] alpnProtocols = new String[]{alpnProtocol};
+
         setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+        Conscrypt.setApplicationProtocols(clientEngine, alpnProtocols);
+        Conscrypt.setApplicationProtocols(serverEngine, alpnProtocols);
+
         doHandshake(true);
 
         SSLSession session = clientEngine.getSession();
         String cipherSuite = session.getCipherSuite();
+        String protocol = session.getProtocol();
+        assertEquals(alpnProtocol, Conscrypt.getApplicationProtocol(clientEngine));
 
         clientEngine.closeOutbound();
         clientEngine.closeInbound();
 
         assertEquals(cipherSuite, session.getCipherSuite());
+        assertEquals(protocol, session.getProtocol());
+        assertEquals(alpnProtocol, Conscrypt.getApplicationProtocol(clientEngine));
+    }
+
+    @Test
+    // getApplicationProtocol should initially return null and not trigger handshake. b/146235331
+    public void getAlpnIsNullBeforeHandshake() throws Exception {
+        String alpnProtocol = "spdy/2";
+        String[] alpnProtocols = new String[]{alpnProtocol};
+
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+
+        assertNull(Conscrypt.getApplicationProtocol(clientEngine));
+        assertNull(Conscrypt.getApplicationProtocol(serverEngine));
+
+        Conscrypt.setApplicationProtocols(clientEngine, alpnProtocols);
+        Conscrypt.setApplicationProtocols(serverEngine, alpnProtocols);
+
+        doHandshake(true);
+
+        assertEquals(alpnProtocol, Conscrypt.getApplicationProtocol(clientEngine));
     }
 
     private void doMutualAuthHandshake(
@@ -416,7 +457,7 @@ public class ConscryptEngineTest {
             Provider provider, TestKeyStore keyStore, boolean client) {
         SSLContext serverContext = newContext(provider, keyStore);
         SSLEngine engine = serverContext.createSSLEngine();
-        engine.setEnabledCipherSuites(CIPHERS);
+        engine.setEnabledCipherSuites(TestUtils.getCommonCipherSuites());
         engine.setUseClientMode(client);
         if (Conscrypt.isConscrypt(engine)) {
             Conscrypt.setBufferAllocator(engine, bufferType.allocator);
@@ -469,7 +510,9 @@ public class ConscryptEngineTest {
                 case OK: {
                     break;
                 }
-                default: { throw new RuntimeException("Unexpected SSLEngine status: " + status); }
+                default: {
+                    throw new RuntimeException("Unexpected SSLEngine status: " + status);
+                }
             }
             int newPos = decryptedBuffer.position();
             int bytesProduced = unwrapResult.bytesProduced();

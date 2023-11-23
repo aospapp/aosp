@@ -21,6 +21,7 @@ that works:
     fb.setupHorizontalHeader()
     fb.setupNameTable(...)
     fb.setupOS2()
+    fb.addOpenTypeFeatures(...)
     fb.setupPost()
     fb.save(...)
 
@@ -30,6 +31,7 @@ Here is how to build a minimal TTF:
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
+
 def drawTestGlyph(pen):
     pen.moveTo((100, 100))
     pen.lineTo((100, 1000))
@@ -37,35 +39,39 @@ def drawTestGlyph(pen):
     pen.lineTo((500, 100))
     pen.closePath()
 
-fb = FontBuilder(1024, isTTF=True)
-fb.setupGlyphOrder([".notdef", ".null", "A", "a"])
-fb.setupCharacterMap({65: "A", 97: "a"})
 
-advanceWidths = {".notdef": 600, "A": 600, "a": 600, ".null": 600}
+fb = FontBuilder(1024, isTTF=True)
+fb.setupGlyphOrder([".notdef", ".null", "space", "A", "a"])
+fb.setupCharacterMap({32: "space", 65: "A", 97: "a"})
+advanceWidths = {".notdef": 600, "space": 500, "A": 600, "a": 600, ".null": 0}
 
 familyName = "HelloTestFont"
 styleName = "TotallyNormal"
-nameStrings = dict(familyName=dict(en="HelloTestFont", nl="HalloTestFont"),
-                   styleName=dict(en="TotallyNormal", nl="TotaalNormaal"))
-nameStrings['psName'] = familyName + "-" + styleName
+version = "0.1"
+
+nameStrings = dict(
+    familyName=dict(en=familyName, nl="HalloTestFont"),
+    styleName=dict(en=styleName, nl="TotaalNormaal"),
+    uniqueFontIdentifier="fontBuilder: " + familyName + "." + styleName,
+    fullName=familyName + "-" + styleName,
+    psName=familyName + "-" + styleName,
+    version="Version " + version,
+)
 
 pen = TTGlyphPen(None)
 drawTestGlyph(pen)
 glyph = pen.glyph()
-glyphs = {".notdef": glyph, "A": glyph, "a": glyph, ".null": glyph}
+glyphs = {".notdef": glyph, "space": glyph, "A": glyph, "a": glyph, ".null": glyph}
 fb.setupGlyf(glyphs)
-
 metrics = {}
 glyphTable = fb.font["glyf"]
 for gn, advanceWidth in advanceWidths.items():
     metrics[gn] = (advanceWidth, glyphTable[gn].xMin)
 fb.setupHorizontalMetrics(metrics)
-
-fb.setupHorizontalHeader(ascent=824, descent=200)
+fb.setupHorizontalHeader(ascent=824, descent=-200)
 fb.setupNameTable(nameStrings)
-fb.setupOS2()
+fb.setupOS2(sTypoAscender=824, usWinAscent=824, usWinDescent=200)
 fb.setupPost()
-
 fb.save("test.ttf")
 ```
 
@@ -75,6 +81,7 @@ And here's how to build a minimal OTF:
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.t2CharStringPen import T2CharStringPen
 
+
 def drawTestGlyph(pen):
     pen.moveTo((100, 100))
     pen.lineTo((100, 1000))
@@ -82,34 +89,45 @@ def drawTestGlyph(pen):
     pen.lineTo((500, 100))
     pen.closePath()
 
-fb = FontBuilder(1024, isTTF=False)
-fb.setupGlyphOrder([".notdef", ".null", "A", "a"])
-fb.setupCharacterMap({65: "A", 97: "a"})
 
-advanceWidths = {".notdef": 600, "A": 600, "a": 600, ".null": 600}
+fb = FontBuilder(1024, isTTF=False)
+fb.setupGlyphOrder([".notdef", ".null", "space", "A", "a"])
+fb.setupCharacterMap({32: "space", 65: "A", 97: "a"})
+advanceWidths = {".notdef": 600, "space": 500, "A": 600, "a": 600, ".null": 0}
 
 familyName = "HelloTestFont"
 styleName = "TotallyNormal"
-nameStrings = dict(familyName=dict(en="HelloTestFont", nl="HalloTestFont"),
-                   styleName=dict(en="TotallyNormal", nl="TotaalNormaal"))
-nameStrings['psName'] = familyName + "-" + styleName
+version = "0.1"
+
+nameStrings = dict(
+    familyName=dict(en=familyName, nl="HalloTestFont"),
+    styleName=dict(en=styleName, nl="TotaalNormaal"),
+    uniqueFontIdentifier="fontBuilder: " + familyName + "." + styleName,
+    fullName=familyName + "-" + styleName,
+    psName=familyName + "-" + styleName,
+    version="Version " + version,
+)
 
 pen = T2CharStringPen(600, None)
 drawTestGlyph(pen)
 charString = pen.getCharString()
-charStrings = {".notdef": charString, "A": charString, "a": charString, ".null": charString}
-fb.setupCFF(nameStrings['psName'], {"FullName": nameStrings['psName']}, charStrings, {})
-
+charStrings = {
+    ".notdef": charString,
+    "space": charString,
+    "A": charString,
+    "a": charString,
+    ".null": charString,
+}
+fb.setupCFF(nameStrings["psName"], {"FullName": nameStrings["psName"]}, charStrings, {})
+lsb = {gn: cs.calcBounds(None)[0] for gn, cs in charStrings.items()}
 metrics = {}
 for gn, advanceWidth in advanceWidths.items():
-    metrics[gn] = (advanceWidth, 100)  # XXX lsb from glyph
+    metrics[gn] = (advanceWidth, lsb[gn])
 fb.setupHorizontalMetrics(metrics)
-
 fb.setupHorizontalHeader(ascent=824, descent=200)
 fb.setupNameTable(nameStrings)
-fb.setupOS2()
+fb.setupOS2(sTypoAscender=824, usWinAscent=824, usWinDescent=200)
 fb.setupPost()
-
 fb.save("test.otf")
 ```
 """
@@ -298,7 +316,7 @@ _OS2Defaults = dict(
     sCapHeight = 0,
     usDefaultChar = 0,  # .notdef
     usBreakChar = 32,   # space
-    usMaxContext = 2,   # just kerning
+    usMaxContext = 0,
     usLowerOpticalPointSize = 0,
     usUpperOpticalPointSize = 0,
 )
@@ -690,8 +708,9 @@ class FontBuilder(object):
         """Create a new `post` table and initialize it with default values,
         which can be overridden by keyword arguments.
         """
+        isCFF2 = 'CFF2' in self.font
         postTable = self._initTableWithValues("post", _postDefaults, values)
-        if self.isTTF and keepGlyphNames:
+        if (self.isTTF or isCFF2) and keepGlyphNames:
             postTable.formatType = 2.0
             postTable.extraNames = []
             postTable.mapping = {}
@@ -709,25 +728,14 @@ class FontBuilder(object):
         self._initTableWithValues("maxp", defaults, {})
 
     def setupDummyDSIG(self):
-        """This adds a dummy DSIG table to the font to make some MS applications
+        """This adds an empty DSIG table to the font to make some MS applications
         happy. This does not properly sign the font.
         """
-        from .ttLib.tables.D_S_I_G_ import SignatureRecord
-
-        sig = SignatureRecord()
-        sig.ulLength = 20
-        sig.cbSignature = 12
-        sig.usReserved2 = 0
-        sig.usReserved1 = 0
-        sig.pkcs7 = b'\xd3M4\xd3M5\xd3M4\xd3M4'
-        sig.ulFormat = 1
-        sig.ulOffset = 20
-
         values = dict(
             ulVersion = 1,
-            usFlag = 1,
-            usNumSigs = 1,
-            signatureRecords = [sig],
+            usFlag = 0,
+            usNumSigs = 0,
+            signatureRecords = [],
         )
         self._initTableWithValues("DSIG", {}, values)
 

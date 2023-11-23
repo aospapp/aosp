@@ -24,7 +24,7 @@ enum MODE { DUMP_HISTORY, SET_OPTION };
 android::sp<Perfstatsd> perfstatsdSp;
 
 void *perfstatsdMain(void *) {
-    LOG_TO(SYSTEM, INFO) << "main thread started";
+    LOG(INFO) << "main thread started";
     perfstatsdSp = new Perfstatsd();
 
     while (true) {
@@ -49,7 +49,7 @@ int startService(void) {
     pthread_t perfstatsdMainThread;
     errno = pthread_create(&perfstatsdMainThread, NULL, perfstatsdMain, NULL);
     if (errno != 0) {
-        PLOG_TO(SYSTEM, ERROR) << "Failed to create main thread";
+        PLOG(ERROR) << "Failed to create main thread";
         return -1;
     } else {
         pthread_setname_np(perfstatsdMainThread, "perfstatsd_main");
@@ -58,10 +58,10 @@ int startService(void) {
     android::ProcessState::initWithDriver("/dev/vndbinder");
 
     if (PerfstatsdPrivateService::start() != android::OK) {
-        PLOG_TO(SYSTEM, ERROR) << "Failed to start perfstatsd service";
+        PLOG(ERROR) << "Failed to start perfstatsd service";
         return -1;
     } else
-        LOG_TO(SYSTEM, INFO) << "perfstatsd_pri_service started";
+        LOG(INFO) << "perfstatsd_pri_service started";
 
     android::ProcessState::self()->startThreadPool();
     android::IPCThreadState::self()->joinThreadPool();
@@ -74,7 +74,7 @@ int serviceCall(int mode, const std::string &key, const std::string &value) {
 
     android::sp<IPerfstatsdPrivate> perfstatsdPrivateService = getPerfstatsdPrivateService();
     if (perfstatsdPrivateService == NULL) {
-        PLOG_TO(SYSTEM, ERROR) << "Cannot find perfstatsd service.";
+        PLOG(ERROR) << "Cannot find perfstatsd service.";
         fprintf(stdout, "Cannot find perfstatsd service.\n");
         return -1;
     }
@@ -82,9 +82,9 @@ int serviceCall(int mode, const std::string &key, const std::string &value) {
     switch (mode) {
         case DUMP_HISTORY: {
             std::string history;
-            LOG_TO(SYSTEM, INFO) << "dump perfstats history.";
+            LOG(INFO) << "dump perfstats history.";
             if (!perfstatsdPrivateService->dumpHistory(&history).isOk() || history.empty()) {
-                PLOG_TO(SYSTEM, ERROR) << "perf stats history is not available";
+                PLOG(ERROR) << "perf stats history is not available";
                 fprintf(stdout, "perf stats history is not available\n");
                 return -1;
             }
@@ -92,12 +92,12 @@ int serviceCall(int mode, const std::string &key, const std::string &value) {
             break;
         }
         case SET_OPTION:
-            LOG_TO(SYSTEM, INFO) << "set option: " << key << " , " << value;
+            LOG(INFO) << "set option: " << key << " , " << value;
             if (!perfstatsdPrivateService
                      ->setOptions(std::forward<const std::string>(key),
                                   std::forward<const std::string>(value))
                      .isOk()) {
-                PLOG_TO(SYSTEM, ERROR) << "fail to set options";
+                PLOG(ERROR) << "fail to set options";
                 fprintf(stdout, "fail to set options\n");
                 return -1;
             }
@@ -112,6 +112,8 @@ int serviceCall(int mode) {
 }
 
 int main(int argc, char **argv) {
+    android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
+
     int c;
     while ((c = getopt(argc, argv, "sdo:h")) != -1) {
         switch (c) {

@@ -113,9 +113,9 @@ bool VtsTestabilityChecker::CheckFrameworkCompatibleHal(
     set<string>* instances) {
   CHECK(instances) << "instances set should not be NULL.";
 
-  auto matrix_instances = framework_comp_matrix_->getFqInstances(
+  auto matrix_instances = framework_comp_matrix_->getHidlFqInstances(
       hal_package_name, hal_version, hal_interface_name);
-  auto manifest_instances = device_hal_manifest_->getFqInstances(
+  auto manifest_instances = device_hal_manifest_->getHidlFqInstances(
       hal_package_name, hal_version, hal_interface_name);
 
   bool testable = false;
@@ -235,7 +235,7 @@ bool VtsTestabilityChecker::CheckManifestHal(const HalManifest* hal_manifest,
                                              set<string>* instances) {
   CHECK(instances) << "instances set should not be NULL.";
 
-  const auto& manifest_instances = hal_manifest->getFqInstances(
+  const auto& manifest_instances = hal_manifest->getHidlFqInstances(
       hal_package_name, hal_version, hal_interface_name);
 
   const auto& fq_instance_name =

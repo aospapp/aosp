@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -80,6 +80,33 @@ public default boolean replace(@libcore.util.NullFromTypeParam K key, @libcore.u
 @libcore.util.Nullable public default V compute(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull java.util.function.BiFunction<? super @libcore.util.NullFromTypeParam K,? super @libcore.util.Nullable V,? extends @libcore.util.Nullable V> remappingFunction) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.Nullable public default V merge(@libcore.util.NullFromTypeParam K key, @libcore.util.NonNull V value, @libcore.util.NonNull java.util.function.BiFunction<? super @libcore.util.NonNull V,? super @libcore.util.NonNull V,? extends @libcore.util.Nullable V> remappingFunction) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of() { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3, @libcore.util.NonNull K k4, @libcore.util.NonNull V v4) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3, @libcore.util.NonNull K k4, @libcore.util.NonNull V v4, @libcore.util.NonNull K k5, @libcore.util.NonNull V v5) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3, @libcore.util.NonNull K k4, @libcore.util.NonNull V v4, @libcore.util.NonNull K k5, @libcore.util.NonNull V v5, @libcore.util.NonNull K k6, @libcore.util.NonNull V v6) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3, @libcore.util.NonNull K k4, @libcore.util.NonNull V v4, @libcore.util.NonNull K k5, @libcore.util.NonNull V v5, @libcore.util.NonNull K k6, @libcore.util.NonNull V v6, @libcore.util.NonNull K k7, @libcore.util.NonNull V v7) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3, @libcore.util.NonNull K k4, @libcore.util.NonNull V v4, @libcore.util.NonNull K k5, @libcore.util.NonNull V v5, @libcore.util.NonNull K k6, @libcore.util.NonNull V v6, @libcore.util.NonNull K k7, @libcore.util.NonNull V v7, @libcore.util.NonNull K k8, @libcore.util.NonNull V v8) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3, @libcore.util.NonNull K k4, @libcore.util.NonNull V v4, @libcore.util.NonNull K k5, @libcore.util.NonNull V v5, @libcore.util.NonNull K k6, @libcore.util.NonNull V v6, @libcore.util.NonNull K k7, @libcore.util.NonNull V v7, @libcore.util.NonNull K k8, @libcore.util.NonNull V v8, @libcore.util.NonNull K k9, @libcore.util.NonNull V v9) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> of(@libcore.util.NonNull K k1, @libcore.util.NonNull V v1, @libcore.util.NonNull K k2, @libcore.util.NonNull V v2, @libcore.util.NonNull K k3, @libcore.util.NonNull V v3, @libcore.util.NonNull K k4, @libcore.util.NonNull V v4, @libcore.util.NonNull K k5, @libcore.util.NonNull V v5, @libcore.util.NonNull K k6, @libcore.util.NonNull V v6, @libcore.util.NonNull K k7, @libcore.util.NonNull V v7, @libcore.util.NonNull K k8, @libcore.util.NonNull V v8, @libcore.util.NonNull K k9, @libcore.util.NonNull V v9, @libcore.util.NonNull K k10, @libcore.util.NonNull V v10) { throw new RuntimeException("Stub!"); }
+
+@java.lang.SafeVarargs
+@libcore.util.NonNull public static <K, V>  java.util.Map<@libcore.util.NonNull K, @libcore.util.NonNull V> ofEntries(@libcore.util.NonNull java.util.Map.Entry<? extends @libcore.util.NonNull K,? extends @libcore.util.NonNull V>... entries) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <K, V>  java.util.Map.Entry<@libcore.util.NonNull K, @libcore.util.NonNull V> entry(@libcore.util.NonNull K k, @libcore.util.NonNull V v) { throw new RuntimeException("Stub!"); }
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public static interface Entry<K, V> {
 

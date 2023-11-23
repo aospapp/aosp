@@ -15,23 +15,38 @@
  */
 package com.android.wallpaper.picker.individual;
 
+import static com.android.wallpaper.picker.WallpaperPickerDelegate.PREVIEW_LIVE_WALLPAPER_REQUEST_CODE;
+import static com.android.wallpaper.picker.WallpaperPickerDelegate.PREVIEW_WALLPAPER_REQUEST_CODE;
+
+import android.app.Activity;
 import android.util.Log;
 import android.view.View;
 
+import com.android.wallpaper.model.InlinePreviewIntentFactory;
+import com.android.wallpaper.model.LiveWallpaperInfo;
+import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.UserEventLogger;
+import com.android.wallpaper.module.WallpaperPersister;
+import com.android.wallpaper.picker.PreviewActivity;
 
 /**
  * IndividualHolder subclass for a wallpaper tile in the RecyclerView for which a click should
  * show a full-screen preview of the wallpaper.
  */
 class PreviewIndividualHolder extends IndividualHolder implements View.OnClickListener {
-    private final static String TAG = "PreviewIndividualHolder";
+    private static final String TAG = "PreviewIndividualHolder";
+
+    private WallpaperPersister mWallpaperPersister;
+    private InlinePreviewIntentFactory mPreviewIntentFactory;
 
     public PreviewIndividualHolder(
-            IndividualPickerActivity hostActivity, int tileHeightPx, View itemView) {
+            Activity hostActivity, int tileHeightPx, View itemView) {
         super(hostActivity, tileHeightPx, itemView);
         mTileLayout.setOnClickListener(this);
+
+        mWallpaperPersister = InjectorProvider.getInjector().getWallpaperPersister(hostActivity);
+        mPreviewIntentFactory = new PreviewActivity.PreviewActivityIntentFactory();
     }
 
     @Override
@@ -44,6 +59,17 @@ class PreviewIndividualHolder extends IndividualHolder implements View.OnClickLi
                 InjectorProvider.getInjector().getUserEventLogger(mActivity);
         eventLogger.logIndividualWallpaperSelected(mWallpaper.getCollectionId(mActivity));
 
-        ((IndividualPickerActivity) mActivity).showPreview(mWallpaper);
+        showPreview(mWallpaper);
     }
+
+    /**
+     * Shows the preview activity for the given wallpaper.
+     */
+    private void showPreview(WallpaperInfo wallpaperInfo) {
+        mWallpaperPersister.setWallpaperInfoInPreview(wallpaperInfo);
+        wallpaperInfo.showPreview(mActivity, mPreviewIntentFactory,
+                wallpaperInfo instanceof LiveWallpaperInfo ? PREVIEW_LIVE_WALLPAPER_REQUEST_CODE
+                        : PREVIEW_WALLPAPER_REQUEST_CODE);
+    }
+
 }

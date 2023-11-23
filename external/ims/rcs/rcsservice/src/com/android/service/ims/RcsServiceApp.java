@@ -29,9 +29,8 @@
 package com.android.service.ims;
 
 import android.app.Application;
-import android.content.Context;
+
 import com.android.ims.internal.Logger;
-import android.os.SystemProperties;
 
 public class RcsServiceApp extends Application {
     private Logger logger = Logger.getLogger(this.getClass().getName());

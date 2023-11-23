@@ -6,6 +6,7 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <errno.h>
 #include <asm/io.h>
@@ -429,7 +430,7 @@ static int pch_gbe_phy_init(struct udevice *dev)
 	return 0;
 }
 
-int pch_gbe_probe(struct udevice *dev)
+static int pch_gbe_probe(struct udevice *dev)
 {
 	struct pch_gbe_priv *priv;
 	struct eth_pdata *plat = dev_get_platdata(dev);
@@ -464,7 +465,7 @@ int pch_gbe_probe(struct udevice *dev)
 	return pch_gbe_phy_init(dev);
 }
 
-int pch_gbe_remove(struct udevice *dev)
+static int pch_gbe_remove(struct udevice *dev)
 {
 	struct pch_gbe_priv *priv = dev_get_priv(dev);
 

@@ -113,10 +113,6 @@ public class LocalMediaBrowserService extends MediaBrowserService {
     public void onCreate() {
         super.onCreate();
 
-        if (!Utils.hasRequiredPermissions(this)) {
-            Utils.startPermissionRequest(this);
-        }
-
         mDataModel = new DataModel(this);
         addRootItems();
         mSession = new MediaSession(this, MEDIA_SESSION_TAG);

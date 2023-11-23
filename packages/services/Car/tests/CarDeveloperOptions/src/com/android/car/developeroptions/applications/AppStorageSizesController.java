@@ -23,8 +23,9 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.preference.Preference;
 
-import com.android.internal.util.Preconditions;
 import com.android.settingslib.applications.StorageStatsSource;
+
+import java.util.Objects;
 
 /**
  * Handles setting the sizes for the app info screen.
@@ -173,10 +174,10 @@ public class AppStorageSizesController {
 
         public AppStorageSizesController build() {
             return new AppStorageSizesController(
-                    Preconditions.checkNotNull(mTotalSize),
-                    Preconditions.checkNotNull(mAppSize),
-                    Preconditions.checkNotNull(mDataSize),
-                    Preconditions.checkNotNull(mCacheSize),
+                    Objects.requireNonNull(mTotalSize),
+                    Objects.requireNonNull(mAppSize),
+                    Objects.requireNonNull(mDataSize),
+                    Objects.requireNonNull(mCacheSize),
                     mComputing,
                     mError);
         }

@@ -29,12 +29,12 @@ import android.content.Intent;
  */
 public class WipeDataReceiver extends BroadcastReceiver {
 
-    private static final String ACTION_WIPE_DATA = "com.android.cts.managedprofile.WIPE_DATA";
-    private static final String ACTION_WIPE_DATA_WITH_REASON =
+    static final String ACTION_WIPE_DATA = "com.android.cts.managedprofile.WIPE_DATA";
+    static final String ACTION_WIPE_DATA_WITH_REASON =
             "com.android.cts.managedprofile.WIPE_DATA_WITH_REASON";
-    private static final String ACTION_WIPE_DATA_WITHOUT_REASON =
+    static final String ACTION_WIPE_DATA_WITHOUT_REASON =
             "com.android.cts.managedprofile.WIPE_DATA_WITHOUT_REASON";
-    private static final String TEST_WIPE_DATA_REASON = "cts test for WipeDataWithReason";
+    static final String TEST_WIPE_DATA_REASON = "cts test for WipeDataWithReason";
 
     @Override
     public void onReceive(Context context, Intent intent) {

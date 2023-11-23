@@ -40,6 +40,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+#include <bionic/reserved_signals.h>
 #include <cutils/sockets.h>
 #include <log/log.h>
 #include <private/android_filesystem_config.h>
@@ -254,7 +255,8 @@ static void ParseArgs(int argc, char** argv, pid_t* pseudothread_tid, DebuggerdD
 
 static void ReadCrashInfo(unique_fd& fd, siginfo_t* siginfo,
                           std::unique_ptr<unwindstack::Regs>* regs, uintptr_t* abort_msg_address,
-                          uintptr_t* fdsan_table_address) {
+                          uintptr_t* fdsan_table_address, uintptr_t* gwp_asan_state,
+                          uintptr_t* gwp_asan_metadata) {
   std::aligned_storage<sizeof(CrashInfo) + 1, alignof(CrashInfo)>::type buf;
   CrashInfo* crash_info = reinterpret_cast<CrashInfo*>(&buf);
   ssize_t rc = TEMP_FAILURE_RETRY(read(fd.get(), &buf, sizeof(buf)));
@@ -271,6 +273,10 @@ static void ReadCrashInfo(unique_fd& fd, siginfo_t* siginfo,
         expected_size = sizeof(CrashInfoHeader) + sizeof(CrashInfoDataV2);
         break;
 
+      case 3:
+        expected_size = sizeof(CrashInfoHeader) + sizeof(CrashInfoDataV3);
+        break;
+
       default:
         LOG(FATAL) << "unexpected CrashInfo version: " << crash_info->header.version;
         break;
@@ -283,7 +289,13 @@ static void ReadCrashInfo(unique_fd& fd, siginfo_t* siginfo,
   }
 
   *fdsan_table_address = 0;
+  *gwp_asan_state = 0;
+  *gwp_asan_metadata = 0;
   switch (crash_info->header.version) {
+    case 3:
+      *gwp_asan_state = crash_info->data.v3.gwp_asan_state;
+      *gwp_asan_metadata = crash_info->data.v3.gwp_asan_metadata;
+      FALLTHROUGH_INTENDED;
     case 2:
       *fdsan_table_address = crash_info->data.v2.fdsan_table_address;
       FALLTHROUGH_INTENDED;
@@ -415,6 +427,8 @@ int main(int argc, char** argv) {
   DebuggerdDumpType dump_type;
   uintptr_t abort_msg_address = 0;
   uintptr_t fdsan_table_address = 0;
+  uintptr_t gwp_asan_state = 0;
+  uintptr_t gwp_asan_metadata = 0;
 
   Initialize(argv);
   ParseArgs(argc, argv, &pseudothread_tid, &dump_type);
@@ -476,7 +490,7 @@ int main(int argc, char** argv) {
       if (thread == g_target_thread) {
         // Read the thread's registers along with the rest of the crash info out of the pipe.
         ReadCrashInfo(input_pipe, &siginfo, &info.registers, &abort_msg_address,
-                      &fdsan_table_address);
+                      &fdsan_table_address, &gwp_asan_state, &gwp_asan_metadata);
         info.siginfo = &siginfo;
         info.signo = info.siginfo->si_signo;
       } else {
@@ -511,13 +525,13 @@ int main(int argc, char** argv) {
 
   // Defer the message until later, for readability.
   bool wait_for_gdb = android::base::GetBoolProperty("debug.debuggerd.wait_for_gdb", false);
-  if (siginfo.si_signo == DEBUGGER_SIGNAL) {
+  if (siginfo.si_signo == BIONIC_SIGNAL_DEBUGGER) {
     wait_for_gdb = false;
   }
 
   // Detach from all of our attached threads before resuming.
   for (const auto& [tid, thread] : thread_info) {
-    int resume_signal = thread.signo == DEBUGGER_SIGNAL ? 0 : thread.signo;
+    int resume_signal = thread.signo == BIONIC_SIGNAL_DEBUGGER ? 0 : thread.signo;
     if (wait_for_gdb) {
       resume_signal = 0;
       if (tgkill(target_process, tid, SIGSTOP) != 0) {
@@ -555,10 +569,10 @@ int main(int argc, char** argv) {
             << " (target tid = " << g_target_thread << ")";
 
   int signo = siginfo.si_signo;
-  bool fatal_signal = signo != DEBUGGER_SIGNAL;
+  bool fatal_signal = signo != BIONIC_SIGNAL_DEBUGGER;
   bool backtrace = false;
 
-  // si_value is special when used with DEBUGGER_SIGNAL.
+  // si_value is special when used with BIONIC_SIGNAL_DEBUGGER.
   //   0: dump tombstone
   //   1: dump backtrace
   if (!fatal_signal) {
@@ -591,7 +605,8 @@ int main(int argc, char** argv) {
     {
       ATRACE_NAME("engrave_tombstone");
       engrave_tombstone(std::move(g_output_fd), &unwinder, thread_info, g_target_thread,
-                        abort_msg_address, &open_files, &amfd_data);
+                        abort_msg_address, &open_files, &amfd_data, gwp_asan_state,
+                        gwp_asan_metadata);
     }
   }
 

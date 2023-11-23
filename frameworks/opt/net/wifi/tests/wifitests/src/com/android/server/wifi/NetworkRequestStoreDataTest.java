@@ -19,7 +19,7 @@ package com.android.server.wifi;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
-import android.net.MacAddress;
+import android.net.util.MacAddressUtils;
 import android.net.wifi.WifiConfiguration;
 import android.util.Xml;
 
@@ -27,6 +27,7 @@ import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
 import com.android.server.wifi.WifiNetworkFactory.AccessPoint;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -49,7 +50,7 @@ import java.util.Set;
  * Unit tests for {@link com.android.server.wifi.NetworkRequestStoreData}.
  */
 @SmallTest
-public class NetworkRequestStoreDataTest {
+public class NetworkRequestStoreDataTest extends WifiBaseTest {
     private static final String TEST_PACKAGE_NAME_1 = "com.android.test.1";
     private static final String TEST_PACKAGE_NAME_2 = "com.android.test.2";
     private static final String TEST_CORRUPT_DATA_INVALID_SSID =
@@ -80,7 +81,7 @@ public class NetworkRequestStoreDataTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mNetworkRequestStoreData.serializeData(out);
+        mNetworkRequestStoreData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
         out.flush();
         return outputStream.toByteArray();
     }
@@ -92,7 +93,9 @@ public class NetworkRequestStoreDataTest {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mNetworkRequestStoreData.deserializeData(in, in.getDepth());
+        mNetworkRequestStoreData.deserializeData(in, in.getDepth(),
+                WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                mock(WifiConfigStoreEncryptionUtil.class));
     }
 
     /**
@@ -113,7 +116,7 @@ public class NetworkRequestStoreDataTest {
 
         AccessPoint accessPoint = new AccessPoint(
                 WifiConfigurationTestUtil.createPskNetwork().SSID,
-                MacAddress.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
+                MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
         Set<AccessPoint> accessPoints = new HashSet<AccessPoint>() {{
                         add(accessPoint);
                 }};
@@ -131,7 +134,7 @@ public class NetworkRequestStoreDataTest {
 
         AccessPoint accessPoint1 = new AccessPoint(
                 WifiConfigurationTestUtil.createPskNetwork().SSID,
-                MacAddress.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
+                MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
         Set<AccessPoint> accessPoints1 = new HashSet<AccessPoint>() {{
                         add(accessPoint1);
                 }};
@@ -139,7 +142,7 @@ public class NetworkRequestStoreDataTest {
 
         AccessPoint accessPoint2 = new AccessPoint(
                 WifiConfigurationTestUtil.createPskNetwork().SSID,
-                MacAddress.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
+                MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
         Set<AccessPoint> accessPoints2 = new HashSet<AccessPoint>() {{
                         add(accessPoint2);
                 }};
@@ -157,10 +160,10 @@ public class NetworkRequestStoreDataTest {
 
         AccessPoint accessPoint1 = new AccessPoint(
                 WifiConfigurationTestUtil.createPskNetwork().SSID,
-                MacAddress.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
+                MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_PSK);
         AccessPoint accessPoint2 = new AccessPoint(
                 WifiConfigurationTestUtil.createOpenNetwork().SSID,
-                MacAddress.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_OPEN);
+                MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_OPEN);
         Set<AccessPoint> accessPoints1 = new HashSet<AccessPoint>() {{
                         add(accessPoint1);
                         add(accessPoint2);
@@ -169,10 +172,10 @@ public class NetworkRequestStoreDataTest {
 
         AccessPoint accessPoint3 = new AccessPoint(
                 WifiConfigurationTestUtil.createSaeNetwork().SSID,
-                MacAddress.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_SAE);
+                MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_SAE);
         AccessPoint accessPoint4 = new AccessPoint(
                 WifiConfigurationTestUtil.createOpenNetwork().SSID,
-                MacAddress.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_OPEN);
+                MacAddressUtils.createRandomUnicastAddress(), WifiConfiguration.SECURITY_TYPE_OPEN);
         Set<AccessPoint> accessPoints2 = new HashSet<AccessPoint>() {{
                         add(accessPoint3);
                         add(accessPoint4);

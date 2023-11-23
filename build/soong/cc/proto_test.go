@@ -15,7 +15,6 @@
 package cc
 
 import (
-	"runtime"
 	"strings"
 	"testing"
 
@@ -30,7 +29,7 @@ func TestProto(t *testing.T) {
 			srcs: ["a.proto"],
 		}`)
 
-		proto := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_core_shared").Output("proto/a.pb.cc")
+		proto := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_shared").Output("proto/a.pb.cc")
 
 		if cmd := proto.RuleParams.Command; !strings.Contains(cmd, "--cpp_out=") {
 			t.Errorf("expected '--cpp_out' in %q", cmd)
@@ -38,9 +37,6 @@ func TestProto(t *testing.T) {
 	})
 
 	t.Run("plugin", func(t *testing.T) {
-		if runtime.GOOS != "linux" {
-			t.Skip("TODO(b/129763458): cc_binary_host tests fail on mac when trying to exec xcrun")
-		}
 		ctx := testCc(t, `
 		cc_binary_host {
 			name: "protoc-gen-foobar",
@@ -57,7 +53,7 @@ func TestProto(t *testing.T) {
 
 		buildOS := android.BuildOs.String()
 
-		proto := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_core_shared").Output("proto/a.pb.cc")
+		proto := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_shared").Output("proto/a.pb.cc")
 		foobar := ctx.ModuleForTests("protoc-gen-foobar", buildOS+"_x86_64")
 
 		cmd := proto.RuleParams.Command

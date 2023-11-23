@@ -29,7 +29,7 @@ import org.junit.Test;
  * unit tests for {@link com.android.server.wifi.SarInfo}.
  */
 @SmallTest
-public class SarInfoTest {
+public class SarInfoTest extends WifiBaseTest {
     private static final String TAG = "WifiSarInfoTest";
 
     private SarInfo mSarInfo;
@@ -147,78 +147,7 @@ public class SarInfoTest {
     }
 
     /**
-     * Test that setting sensor (with wifi disabled), shouldReport returns false.
-     */
-    @Test
-    public void testSarInfo_check_sensor_wifi_disabled() throws Exception {
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertFalse(mSarInfo.shouldReport());
-    }
-
-    /**
-     * Test that setting sensor (with some wifi mode enabled), shouldReport returns true.
-     */
-    @Test
-    public void testSarInfo_check_sensor_wifi_enabled() throws Exception {
-        mSarInfo.isWifiSapEnabled = true;
-        assertTrue(mSarInfo.shouldReport());
-        mSarInfo.reportingSuccessful();
-
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertTrue(mSarInfo.shouldReport());
-    }
-
-    /**
-     * Test that setting sensor (with some wifi mode enabled), shouldReport returns true
-     * only the first time, following attempts should return false (since sensor state
-     * did not change)
-     */
-    @Test
-    public void testSarInfo_check_sensor_multiple_wifi_enabled() throws Exception {
-        mSarInfo.isWifiScanOnlyEnabled = true;
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertTrue(mSarInfo.shouldReport());
-        mSarInfo.reportingSuccessful();
-
-        assertFalse(mSarInfo.shouldReport());
-    }
-
-    /**
-     * Test that setting sensor with different values (with wifi enabled),
-     * shouldReport returns true every time.
-     */
-    @Test
-    public void testSarInfo_check_sensor_multiple_values_wifi_enabled() throws Exception {
-        mSarInfo.isWifiClientEnabled = true;
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertTrue(mSarInfo.shouldReport());
-        mSarInfo.reportingSuccessful();
-
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_BODY;
-        assertTrue(mSarInfo.shouldReport());
-        mSarInfo.reportingSuccessful();
-
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertTrue(mSarInfo.shouldReport());
-    }
-
-    /**
-     * Test setting sensor while wifi is disabled, then enable wifi.
-     */
-    @Test
-    public void testSarInfo_change_sensors_while_wifi_disabled() throws Exception {
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertFalse(mSarInfo.shouldReport());
-
-        mSarInfo.isWifiClientEnabled = true;
-        assertTrue(mSarInfo.shouldReport());
-        mSarInfo.reportingSuccessful();
-    }
-
-    /**
      * Test having a voice call, shouldReport should return true
-     * Note: will need to report once before starting the call to remove
-     * the effect of sensor state change.
      */
     @Test
     public void testSarInfo_voice_call_wifi_enabled() throws Exception {
@@ -232,8 +161,6 @@ public class SarInfoTest {
 
     /**
      * Test a change in earpiece status, shouldReport should return true
-     * Note: will need to report once before making the change to remove
-     * the effect of sensor state change.
      */
     @Test
     public void testSarInfo_earpiece_wifi_enabled() throws Exception {
@@ -247,8 +174,6 @@ public class SarInfoTest {
 
     /**
      * Test starting SAP, shouldReport should return true
-     * Note: will need to report once before starting SAP to remove
-     * the effect of sensor state change.
      */
     @Test
     public void testSarInfo_sap_wifi_enabled() throws Exception {
@@ -258,45 +183,5 @@ public class SarInfoTest {
 
         mSarInfo.isWifiSapEnabled = true;
         assertTrue(mSarInfo.shouldReport());
-    }
-
-    /**
-     * Test that setting sensor (with wifi enabled), reporting not successful
-     * Then, we should expect that shouldReport returns true evne if we have
-     * no further changes until reporting is successful.
-     */
-    @Test
-    public void testSarInfo_check_sensor_reporting_no_success_reporting() throws Exception {
-        mSarInfo.isWifiClientEnabled = true;
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertTrue(mSarInfo.shouldReport());
-
-        /* No call to reportingSuccessful() will be done */
-        assertTrue(mSarInfo.shouldReport());
-
-        /* Now call reportingSuccessful() */
-        mSarInfo.reportingSuccessful();
-        assertFalse(mSarInfo.shouldReport());
-    }
-
-    /**
-     * Test that setting sensor (with wifi enabled), reporting successful
-     * Then, changing the sensor state with no successful reporting.
-     * Followed by reverting to the previous state.
-     */
-    @Test
-    public void testSarInfo_check_sensor_reporting_no_success_reporting_revert() throws Exception {
-        mSarInfo.isWifiClientEnabled = true;
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertTrue(mSarInfo.shouldReport());
-        mSarInfo.reportingSuccessful();
-
-        /* Changing the sensor state and fail to report */
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_BODY;
-        assertTrue(mSarInfo.shouldReport());
-
-        /* Changing the sensor back to the same value as last reported */
-        mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        assertFalse(mSarInfo.shouldReport());
     }
 }

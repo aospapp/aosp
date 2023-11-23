@@ -109,7 +109,7 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param version an API version for which the API element existed
      */
     public void update(int version) {
-        update(version, false);
+        update(version, isDeprecated());
     }
 
     /**

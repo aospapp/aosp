@@ -45,7 +45,8 @@ class platform_S3Cycle(FirmwareTest):
         # check S0 state transition
         if not self.wait_power_state('S0', POWER_STATE_RETRY_COUNT):
             raise error.TestFail('Platform failed to reach S0 state.')
-        self.faft_client.system.run_shell_command('echo mem > /sys/power/state &')
+        self.faft_client.system.run_shell_command(
+                'echo mem > /sys/power/state &')
         time.sleep(SUSPEND_WAIT_TIME_SECONDS);
         # check S3 state transition
         if not self.wait_power_state('S3', POWER_STATE_RETRY_COUNT):
@@ -73,6 +74,7 @@ class platform_S3Cycle(FirmwareTest):
             raise error.TestFail('Platform failed to reach S0 state.')
 
     def run_once(self):
+        """Main test logic"""
         if not self.faft_config.chrome_ec or not self.check_ec_capability():
             raise error.TestNAError('Chrome EC is not supported on this device.')
 

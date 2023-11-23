@@ -17,12 +17,8 @@
 
 set -e
 
-for s in wheezy stretch; do
+for s in bullseye; do
   for a in i386 amd64 armhf arm64; do
-
-    # Debian wheezy does not support arm64 architecture
-    [[ "${s}-${a}" != "wheezy-arm64" ]] || continue
-
     ./build_rootfs.sh -s "${s}" -a "${a}"
   done
 done

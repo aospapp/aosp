@@ -88,3 +88,7 @@ flock: 1
 # HCIGETDEVINFO
 ioctl: arg1 in 0xffff41ff && arg1 & 0x00004100 || arg1 in 0xffff55ff && arg1 & 0x00005500 || arg1 == 0x8008451b || arg1 == 0x81004506 || arg1 == 0x80084525 || arg1 == 0x800448d3
 getpid: 1
+prlimit64: 1
+tgkill: 1
+mremap: 1
+dup: 1

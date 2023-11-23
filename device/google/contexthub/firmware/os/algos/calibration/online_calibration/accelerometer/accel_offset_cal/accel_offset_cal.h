@@ -68,6 +68,9 @@ class AccelOffsetCal final
     return SensorType::kAccelerometerMps2;
   };
 
+  // Accessor for the runtime calibration object.
+  const AccelCal& get_accel_cal() const { return accel_cal_; }
+
  private:
   // Accelerometer offset calibration algorithm data structure.
   AccelCal accel_cal_;

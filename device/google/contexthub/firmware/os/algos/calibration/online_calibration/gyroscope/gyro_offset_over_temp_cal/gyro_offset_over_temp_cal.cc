@@ -16,7 +16,9 @@
 
 #include "calibration/online_calibration/gyroscope/gyro_offset_over_temp_cal/gyro_offset_over_temp_cal.h"
 
+#if defined(GYRO_CAL_DBG_ENABLED) || defined(OVERTEMPCAL_DBG_ENABLED)
 #include "calibration/util/cal_log.h"
+#endif  // GYRO_CAL_DBG_ENABLED || OVERTEMPCAL_DBG_ENABLE
 
 namespace online_calibration {
 
@@ -131,8 +133,10 @@ bool GyroOffsetOtcCal::SetInitialCalibration(
     const CalibrationDataThreeAxis& input_cal_data) {
   // Checks that the input calibration type matches the algorithm type.
   if (input_cal_data.type != get_sensor_type()) {
+#if defined(GYRO_CAL_DBG_ENABLED) || defined(OVERTEMPCAL_DBG_ENABLED)
     CAL_DEBUG_LOG("[GyroOffsetOtcCal]",
                   "SetInitialCalibration failed due to wrong sensor type.");
+#endif  // GYRO_CAL_DBG_ENABLED || OVERTEMPCAL_DBG_ENABLE
     return false;
   }
 

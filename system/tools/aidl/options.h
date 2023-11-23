@@ -63,6 +63,9 @@ class Options final {
 
   enum class Task { UNSPECIFIED, COMPILE, PREPROCESS, DUMP_API, CHECK_API, DUMP_MAPPINGS };
 
+  enum class Stability { UNSPECIFIED, VINTF };
+  bool StabilityFromString(const std::string& stability, Stability* out_stability);
+
   Options(int argc, const char* const argv[], Language default_lang = Language::UNSPECIFIED);
 
   static Options From(const string& cmdline);
@@ -73,6 +76,8 @@ class Options final {
   // implemented in Java). These interfaces aren't inherently stable but they have the
   // capacity to be stabilized.
   bool IsStructured() const { return structured_; }
+
+  Stability GetStability() const { return stability_; }
 
   Language TargetLanguage() const { return language_; }
   bool IsCppOutput() const { return language_ == Language::CPP || language_ == Language::NDK; }
@@ -116,7 +121,11 @@ class Options final {
 
   int Version() const { return version_; }
 
+  string Hash() const { return hash_; }
+
   bool GenLog() const { return gen_log_; }
+
+  bool GenParcelableToString() const { return gen_parcelable_to_string_; }
 
   bool Ok() const { return error_message_.stream_.str().empty(); }
 
@@ -136,7 +145,6 @@ class Options final {
   Options() = default;
 
   const string myname_;
-  bool structured_ = false;
   Language language_ = Language::UNSPECIFIED;
   Task task_ = Task::COMPILE;
   set<string> import_dirs_;
@@ -146,6 +154,8 @@ class Options final {
   bool gen_traces_ = false;
   bool gen_transaction_names_ = false;
   bool dependency_file_ninja_ = false;
+  bool structured_ = false;
+  Stability stability_ = Stability::UNSPECIFIED;
   string output_dir_;
   string output_header_dir_;
   bool fail_on_parcelable_ = false;
@@ -153,9 +163,11 @@ class Options final {
   vector<string> input_files_;
   string output_file_;
   int version_ = 0;
+  string hash_ = "";
   bool gen_log_ = false;
+  bool gen_parcelable_to_string_ = false;
   ErrorMessage error_message_;
 };
 
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

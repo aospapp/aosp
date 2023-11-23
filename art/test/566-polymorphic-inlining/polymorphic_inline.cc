@@ -46,11 +46,11 @@ static void do_checks(jclass cls, const char* method_name) {
       usleep(1000);
     }
     // Will either ensure it's compiled or do the compilation itself.
-    jit->CompileMethod(method, soa.Self(), /*baseline=*/ false, /*osr=*/ false);
+    jit->CompileMethod(method, soa.Self(), /*baseline=*/ false, /*osr=*/ false, /*prejit=*/ false);
   }
 
   CodeInfo info(header);
-  CHECK(info.HasInlineInfo());
+  CHECK(info.HasInlineInfo()) << method->PrettyMethod();
 }
 
 static void allocate_profiling_info(jclass cls, const char* method_name) {
@@ -66,8 +66,8 @@ extern "C" JNIEXPORT void JNICALL Java_Main_ensureProfilingInfo566(JNIEnv*, jcla
     return;
   }
 
-  allocate_profiling_info(cls, "testInvokeVirtual");
-  allocate_profiling_info(cls, "testInvokeInterface");
+  allocate_profiling_info(cls, "$noinline$testInvokeVirtual");
+  allocate_profiling_info(cls, "$noinline$testInvokeInterface");
   allocate_profiling_info(cls, "$noinline$testInlineToSameTarget");
 }
 
@@ -82,9 +82,9 @@ extern "C" JNIEXPORT void JNICALL Java_Main_ensureJittedAndPolymorphicInline566(
     return;
   }
 
-  do_checks(cls, "testInvokeVirtual");
-  do_checks(cls, "testInvokeInterface");
-  do_checks(cls, "testInvokeInterface2");
+  do_checks(cls, "$noinline$testInvokeVirtual");
+  do_checks(cls, "$noinline$testInvokeInterface");
+  do_checks(cls, "$noinline$testInvokeInterface2");
   do_checks(cls, "$noinline$testInlineToSameTarget");
 }
 

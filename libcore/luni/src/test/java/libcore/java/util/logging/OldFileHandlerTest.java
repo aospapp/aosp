@@ -74,12 +74,12 @@ public class OldFileHandlerTest extends TestCase {
         File file = new File(TEMPPATH + SEP + "log");
         file.mkdir();
         manager.readConfiguration(propertiesToInputStream(props));
-        handler = new FileHandler();
         r = new LogRecord(Level.CONFIG, "msg");
     }
 
     protected void tearDown() throws Exception {
         if (null != handler) {
+            // Close handler created in setup to ensure that its lock is released.
             handler.close();
         }
         reset(TEMPPATH + SEP + "log", "");
@@ -93,6 +93,7 @@ public class OldFileHandlerTest extends TestCase {
     }
 
     public void testFileHandler() throws Exception {
+        handler = new FileHandler();
         assertEquals("character encoding is non equal to actual value",
                 "iso-8859-1", handler.getEncoding());
         assertNotNull("Filter is null", handler.getFilter());
@@ -115,7 +116,6 @@ public class OldFileHandlerTest extends TestCase {
     }
 
     public void testFileHandler_1params() throws Exception {
-
         handler = new FileHandler("%t/log/string");
         assertEquals("character encoding is non equal to actual value",
                 "iso-8859-1", handler.getEncoding());
@@ -466,11 +466,10 @@ public class OldFileHandlerTest extends TestCase {
     }
 
     public void testClose() throws Exception {
-        FileHandler h = new FileHandler("%t/log/stringPublish");
-        h.publish(r);
-        h.close();
-        assertFileContent(TEMPPATH + SEP + "log", "stringPublish", h
-                .getFormatter());
+        handler = new FileHandler("%t/log/stringPublish");
+        handler.publish(r);
+        handler.close();
+        assertFileContent(TEMPPATH + SEP + "log", "stringPublish", handler.getFormatter());
     }
 
     /*

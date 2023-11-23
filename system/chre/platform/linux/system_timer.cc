@@ -37,7 +37,7 @@ void NanosecondsToTimespec(uint64_t ns, struct timespec *ts) {
 }  // anonymous namespace
 
 void SystemTimerBase::systemTimerNotifyCallback(union sigval cookie) {
-  SystemTimer *sysTimer = static_cast<SystemTimer*>(cookie.sival_ptr);
+  SystemTimer *sysTimer = static_cast<SystemTimer *>(cookie.sival_ptr);
   sysTimer->mCallback(sysTimer->mData);
 }
 
@@ -75,7 +75,7 @@ bool SystemTimer::init() {
 }
 
 bool SystemTimer::set(SystemTimerCallback *callback, void *data,
-    Nanoseconds delay) {
+                      Nanoseconds delay) {
   // 0 has a special meaning in POSIX, i.e. cancel the timer. In our API, a
   // value of 0 just means fire right away.
   if (delay.toRawNanoseconds() == 0) {

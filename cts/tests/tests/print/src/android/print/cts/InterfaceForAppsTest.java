@@ -209,7 +209,7 @@ public class InterfaceForAppsTest extends BasePrintTest {
 
         print(adapter, printJobName);
         waitForWriteAdapterCallback(1);
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         PrintJob job = getPrintJob(getPrintManager(getActivity()), printJobName);
 
@@ -259,7 +259,7 @@ public class InterfaceForAppsTest extends BasePrintTest {
         eventually(() -> assertEquals(PrintJobInfo.STATE_CREATED, job.getInfo().getState()));
 
         // Cancel printing by exiting print activity
-        getUiDevice().pressBack();
+        mPrintHelper.cancelPrinting();
         eventually(() -> assertTrue(job.isCancelled()));
 
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -286,7 +286,7 @@ public class InterfaceForAppsTest extends BasePrintTest {
 
         print(adapter, "testRestartFailedPrintJob");
         waitForWriteAdapterCallback(1);
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         PrintJob job = getPrintJob(getPrintManager(getActivity()), "testRestartFailedPrintJob");
 
@@ -310,7 +310,7 @@ public class InterfaceForAppsTest extends BasePrintTest {
 
         print(adapter, "testGetTwoPrintJobStates-block");
         waitForWriteAdapterCallback(1);
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
@@ -321,7 +321,7 @@ public class InterfaceForAppsTest extends BasePrintTest {
         adapter = setupPrint(PrintJobInfo.STATE_COMPLETED);
         print(adapter, "testGetTwoPrintJobStates-complete");
         waitForWriteAdapterCallback(2);
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         PrintJob job2 = getPrintJob(getPrintManager(getActivity()),
                 "testGetTwoPrintJobStates-complete");
@@ -373,7 +373,7 @@ public class InterfaceForAppsTest extends BasePrintTest {
         changeOrientation("Landscape");
 
         // Print and wait until it is completed
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
         eventually(job::isCompleted);
 

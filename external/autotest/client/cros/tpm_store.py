@@ -14,9 +14,6 @@ class TPMStore(object):
     CHAPS_CLIENT_COMMAND = 'chaps_client'
     CONVERT_TYPE_RSA = 'rsa'
     CONVERT_TYPE_X509 = 'x509'
-    CRYPTOHOME_ACTION_TAKE_OWNERSHIP = 'tpm_take_ownership'
-    CRYPTOHOME_ACTION_WAIT_OWNERSHIP = 'tpm_wait_ownership'
-    CRYPTOHOME_COMMAND = '/usr/sbin/cryptohome'
     OPENSSL_COMMAND = 'openssl'
     OUTPUT_TYPE_CERTIFICATE = 'cert'
     OUTPUT_TYPE_PRIVATE_KEY = 'privkey'
@@ -36,12 +33,6 @@ class TPMStore(object):
 
     def __exit__(self, exception, value, traceback):
         self.reset()
-
-
-    def _cryptohome_action(self, action):
-        """Set the TPM up for operation in tests."""
-        utils.system('%s --action=%s' % (self.CRYPTOHOME_COMMAND, action),
-                     ignore_status=True)
 
 
     def _install_object(self, pem, identifier, conversion_type, output_type):
@@ -82,8 +73,7 @@ class TPMStore(object):
     def reset(self):
         """Reset the crypto store and take ownership of the device."""
         utils.system('initctl restart chapsd')
-        self._cryptohome_action(self.CRYPTOHOME_ACTION_TAKE_OWNERSHIP)
-        self._cryptohome_action(self.CRYPTOHOME_ACTION_WAIT_OWNERSHIP)
+        cryptohome.take_tpm_ownership(wait_for_ownership=True)
 
 
     def install_certificate(self, certificate, identifier):

@@ -50,3 +50,15 @@ example = Example({
     i2: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
     o2: [1, 5, 2, 6, 9, 13, 10, 14, 3, 7, 4, 8, 11, 15, 12, 16]
 }).AddNchw(i2, o2, layout).AddVariations("relaxed", "float16", quant8)
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_1",
+                   "batch_to_space_v1_2_nhwc",
+                   "batch_to_space_v1_2_nhwc_2",
+                   "batch_to_space_v1_2_nhwc_all_inputs_as_internal",
+                   "batch_to_space_v1_2_nhwc_all_inputs_as_internal_2",
+                   "batch_to_space_v1_2_nhwc_quant8",
+                   "batch_to_space_v1_2_nhwc_quant8_2",
+                   "batch_to_space_v1_2_nhwc_quant8_all_inputs_as_internal",
+                   "batch_to_space_v1_2_nhwc_quant8_all_inputs_as_internal_2")

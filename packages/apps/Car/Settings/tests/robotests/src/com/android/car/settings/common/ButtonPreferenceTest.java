@@ -26,16 +26,16 @@ import android.view.View;
 
 import androidx.preference.PreferenceViewHolder;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ButtonPreference.OnButtonClickListener;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class ButtonPreferenceTest {
 
     private PreferenceViewHolder mViewHolder;
@@ -46,9 +46,9 @@ public class ButtonPreferenceTest {
         Context context = RuntimeEnvironment.application;
         Context themedContext = new ContextThemeWrapper(context, R.style.CarSettingTheme);
 
-        View rootView = View.inflate(themedContext, R.layout.two_action_preference, null);
-        mViewHolder = PreferenceViewHolder.createInstanceForTests(rootView);
         mButtonPreference = new ButtonPreference(context);
+        View rootView = View.inflate(themedContext, mButtonPreference.getLayoutResource(), null);
+        mViewHolder = PreferenceViewHolder.createInstanceForTests(rootView);
     }
 
     @Test

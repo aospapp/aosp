@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Kutumia mitandao ya ng\'ambo"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Unganisha huduma ya data wakati natumia mtandao wa ng\'ambo"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Ungependa kuruhusu matumizi ya mitandao ya ng\'ambo?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Huenda ukatozwa gharama kubwa."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Huenda ukatozwa ada za kutumia mitandao ya ng\'ambo."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Matumizi ya data"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Data ya msingi"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"Umetumia <xliff:g id="ID_2">^2</xliff:g> <xliff:g id="ID_1">^1</xliff:g>"</string>
@@ -80,7 +80,7 @@
     <string name="set_data_limit" msgid="7136539812414500084">"Weka kikomo cha data"</string>
     <string name="data_limit" msgid="227338836292511425">"Kikomo cha data"</string>
     <string name="data_usage_limit_dialog_title" msgid="1864716658371721883">"Kupunguza matumizi ya data"</string>
-    <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"Stereo ya dashibodi ya gari lako itazima data ya mtandao wa simu pindi itakapofikia kikomo cha data ulichoweka.\n\nKwa kuwa stereo ya dashibodi ndiyo hupima matumizi ya data na huenda kampuni inayokupa huduma za mtandao ikahesabu matumizi hayo kwa njia tofauti, unashauriwa kuweka kikomo kisicho kamili sana."</string>
+    <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"Stereo ya dashibodi ya gari lako itazima data ya mtandao wa simu pindi itakapofikia kikomo cha data ulichoweka.\n\nKwa kuwa stereo ya dashibodi ndiyo hupima matumizi ya data na huenda kampuni inayokupa huduma za mtandao ikahesabu matumizi hayo kwa njia tofauti, unashauriwa kuweka kikomo cha wastani."</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Weka onyo kwa matumizi ya data"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Weka kikomo cha matumizi ya data"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Weka"</string>
@@ -147,7 +147,7 @@
     <string name="wifi_ap_choose_auto" msgid="3779526909841604566">"Otomatiki"</string>
     <string name="wifi_ap_choose_2G" msgid="6356913773766753502">"Bendi ya GHz 2.4"</string>
     <string name="wifi_ap_choose_5G" msgid="8561440488455528673">"Bendi ya GHz 5.0"</string>
-    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"Imechagua Bendi ya GHz 5.0"</string>
+    <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"Bendi ya GHz 5.0 (inapendelewa)"</string>
     <string name="wifi_ap_2G" msgid="5364135697314262014">"GHz 2.4"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"GHz 5.0"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Chagua angalau bendi moja ya mtandaopepe wa Wi‑Fi:"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Chagua kifaa cha Bluetooth"</string>
     <string name="language_settings" msgid="2079258598337245546">"Lugha"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Lugha na uingizaji wa data"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Zinazopendekezwa"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Lugha zote"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Kibodi"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Dhibiti kibodi"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Matokeo ya kusoma maandishi kwa sauti"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Haijasakinishwa kwa ajili ya mtumiaji huyu"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Ruhusa"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Arifa"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Nafasi ya hifadhi na akiba"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Toleo: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Hakuna ruhusa zilizotolewa"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Hakuna ruhusa zilizoombwa"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s katika hifadhi ya mfumo"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Matumizi ya data"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Matumizi ya data ya programu"</string>
     <string name="computing_size" msgid="5791407621793083965">"Inahesabu…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Maombi ya Hivi Karibuni ya Kutambua Eneo"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Hamna maombi ya hivi karibuni ya kutambua eneo"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Ruhusa za kiwango cha programu"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Kutafuta"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Huduma za Mahali"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Kutafuta Wi-Fi"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Ruhusu programu na huduma zitafute mitandao ya Wi-Fi wakati wowote, hata wakati umezima Wi-Fi. Hali hii inaweza kutumika, kwa mfano, kuboresha huduma na vipengele vinavyohusiana na mahali."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Kutafuta Bluetooth"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Ruhusu programu na huduma itafute vifaa vilivyo karibu wakati wowote, hata wakati umezima Bluetooth. Hali hii inaweza kutumika, kwa mfano, kuboresha huduma na vipengele vinavyohusiana na mahali."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Mfumo"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Masasisho ya mfumo"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Toleo la Android"</string>
-    <string name="security_patch" msgid="4794276590178386903">"Kiwango cha rekebisho la usalama kwenye Android"</string>
-    <string name="model_info" msgid="4966408071657934452">"Muundo"</string>
+    <string name="security_patch" msgid="4794276590178386903">"Usasishaji wa rekebisho la usalama kwenye Android"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Muundo na maunzi"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Muundo: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Toleo la mitambo ya redio"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Toleo la kiini"</string>
     <string name="build_number" msgid="3997326631001009102">"Nambari ya muundo"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"Leseni za mfumo za Mwonekano wa Wavuti"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Mandhari"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Watoa huduma za picha za setilaiti: \n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Muundo"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Nambari ya ufuatiliaji"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Toleo la maunzi"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Leseni za watu wengine"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Kuna shida ya kupakia leseni."</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Jina"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Haijawekwa mipangilio"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Badilisha jina la mtumiaji"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Ni lazima ujaze sehemu hii."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Jina la mtumiaji uliloweka si sahihi."</string>
     <string name="users_list_title" msgid="770764290290240909">"Watumiaji"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Ruhusa zilizotolewa kwa %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Hifadhi"</string>
@@ -492,11 +497,13 @@
     <string name="storage_data_size_label" msgid="5022911581004239367">"Data ya mtumiaji"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"Akiba"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"Jumla"</string>
-    <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Futa hifadhi"</string>
+    <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Futa data ya hifadhi"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Futa akiba"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Ungependa kufuta data ya programu?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Data yote ya programu hii itafutwa kabisa. Hii inajumuisha faili, mipangilio, akaunti, hifadhidata zote na mengineyo."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Imeshindwa kufuta hifadhi ya programu."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> imeondolewa kwa usalama"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Imeshindwa kuondoa <xliff:g id="NAME">%1$s</xliff:g> kwa usalama"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Akaunti"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"Ongeza akaunti"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Hakuna akaunti zilizoongezwa"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Sawazisha sasa"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Ghairi usawazishaji"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Kwa sasa kipengele cha kusawazisha kina matatizo. Kitaanza kufanya kazi baada ya muda mfupi."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Faragha"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Usalama"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Kufunga skrini"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Hamna"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Haturuhusu mpangilio wa tarakimu wa kupanda, kushuka au kujirudia."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Chaguo za kufunga skrini"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : Siku <xliff:g id="NUM_DAYS">%3$s</xliff:g> zilizopita"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Ongeza kifaa unachokiamini"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Bluetooth itawaka ili kuongeza kifaa unachokiamini"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Vifaa unavyoviamini"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other">Vifaa <xliff:g id="COUNT_1">%d</xliff:g></item>
-      <item quantity="one">Kifaa <xliff:g id="COUNT_0">%d</xliff:g></item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> yako itafungua gari hili itakapounganishwa. Mtu akichukua <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> yako, huenda ataweza kufikia kifaa hiki."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Thibitisha"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Ondoa kifaa unachokiamini"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Nimemaliza"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Tumia programu inayotumika kudhibiti ili uweke mipangilio ya kifaa unachokiamini. Ukimaliza kuweka mipangilio, wasifu wako wa mtumiaji utafunguka kiotomatiki simu yako inapotambuliwa karibu na gari."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Pakua programu saidizi kwenye simu yako"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Chagua <xliff:g id="CAR_NAME">%1$s</xliff:g> kwenye simu yako ili uoanishe vifaa"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Kifaa unachokiamini kilicho karibu na gari lako kitafungua wasifu wa mtumiaji itakapowashwa, hata ikiwa kimebebwa na mtu mwingine."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Tafadhali thibitisha kuwa misimbo ya kuoanisha inalingana"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Umesajili kifaa bila tatizo"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"Imeshindwa kuandikisha <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Unatakiwa uweke njia ya kuthibitisha ili uongeze kifaa unachoamini katika hatua inayofuata. Kama huna kifaa unachoamini, uthibitishaji utataka idhini ya kufikia wasifu wako."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Kifaa kimeondolewa."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Futa hifadhi ya hati"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Ondoa vyeti vyote"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Ungependa kuondoa maudhui yote?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Hifadhi ya hati imefutwa."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Imeshindwa kufuta hifadhi ya hati."</string>
     <string name="forget" msgid="3971143908183848527">"Sahau"</string>
     <string name="connect" msgid="5861699594602380150">"Unganisha"</string>
     <string name="disconnect" msgid="6140789953324820336">"Tenganisha"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Hatua hii itafuta akaunti ya onyesho na kurejesha data ambayo kifaa kilitoka nayo kiwandani. Data yote ya mtumiaji itapotea."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Funga Onyesho"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ONDOA"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Kipengele hakipatikani unapoendesha gari."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Huwezi kuongeza mtumiaji unapoendesha gari."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Kipengele hakipatikani unapoendesha gari"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Huwezi kuongeza mtumiaji unapoendesha gari"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Tafuta"</string>
 </resources>

@@ -23,7 +23,7 @@
 
 #include "drmfb.h"
 #include "format.h"
-#include "hal_public.h"
+#include "img_gralloc1_public.h"
 
 DRMFramebuffer::DRMFramebuffer(int drm_fd, buffer_handle_t handle, bool is_overlay) :
     bo(), pitches(), offsets()

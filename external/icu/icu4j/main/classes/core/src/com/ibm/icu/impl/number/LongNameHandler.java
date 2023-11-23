@@ -97,7 +97,15 @@ public class LongNameHandler implements MicroPropsGenerator, ModifierStore {
         key.append("/");
         key.append(unit.getType());
         key.append("/");
-        key.append(unit.getSubtype());
+
+        // Map duration-year-person, duration-week-person, etc. to duration-year, duration-week, ...
+        // TODO(ICU-20400): Get duration-*-person data properly with aliases.
+        if (unit.getSubtype().endsWith("-person")) {
+            key.append(unit.getSubtype(), 0, unit.getSubtype().length() - 7);
+        } else {
+            key.append(unit.getSubtype());
+        }
+
         try {
             resource.getAllItemsWithFallback(key.toString(), sink);
         } catch (MissingResourceException e) {
@@ -178,7 +186,7 @@ public class LongNameHandler implements MicroPropsGenerator, ModifierStore {
         Map<StandardPlural, SimpleModifier> modifiers = new EnumMap<>(
                 StandardPlural.class);
         LongNameHandler result = new LongNameHandler(modifiers, rules, parent);
-        result.simpleFormatsToModifiers(simpleFormats, null);
+        result.simpleFormatsToModifiers(simpleFormats, NumberFormat.Field.CURRENCY);
         return result;
     }
 
@@ -202,12 +210,11 @@ public class LongNameHandler implements MicroPropsGenerator, ModifierStore {
 
         String[] simpleFormats = new String[ARRAY_LENGTH];
         getMeasureData(locale, unit, width, simpleFormats);
-        // TODO: What field to use for units?
         // TODO(ICU4J): Reduce the number of object creations here?
         Map<StandardPlural, SimpleModifier> modifiers = new EnumMap<>(
                 StandardPlural.class);
         LongNameHandler result = new LongNameHandler(modifiers, rules, parent);
-        result.simpleFormatsToModifiers(simpleFormats, null);
+        result.simpleFormatsToModifiers(simpleFormats, NumberFormat.Field.MEASURE_UNIT);
         return result;
     }
 
@@ -239,11 +246,10 @@ public class LongNameHandler implements MicroPropsGenerator, ModifierStore {
                     .trim();
             perUnitFormat = SimpleFormatterImpl.formatCompiledPattern(compiled, "{0}", secondaryString);
         }
-        // TODO: What field to use for units?
         Map<StandardPlural, SimpleModifier> modifiers = new EnumMap<>(
                 StandardPlural.class);
         LongNameHandler result = new LongNameHandler(modifiers, rules, parent);
-        result.multiSimpleFormatsToModifiers(primaryData, perUnitFormat, null);
+        result.multiSimpleFormatsToModifiers(primaryData, perUnitFormat, NumberFormat.Field.MEASURE_UNIT);
         return result;
     }
 
@@ -284,10 +290,8 @@ public class LongNameHandler implements MicroPropsGenerator, ModifierStore {
     @Override
     public MicroProps processQuantity(DecimalQuantity quantity) {
         MicroProps micros = parent.processQuantity(quantity);
-        // TODO: Avoid the copy here?
-        DecimalQuantity copy = quantity.createCopy();
-        micros.rounder.apply(copy);
-        micros.modOuter = modifiers.get(copy.getStandardPlural(rules));
+        StandardPlural pluralForm = RoundingUtils.getPluralSafe(micros.rounder, rules, quantity);
+        micros.modOuter = modifiers.get(pluralForm);
         return micros;
     }
 

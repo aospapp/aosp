@@ -244,7 +244,7 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                     return -EINVAL;
                 }
                 mSet = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]);
-                ALOGV("Supported feature set : %x", mSet);
+                ALOGV("Supported feature set : 0x%" PRIx64, mSet);
 
                 break;
             }
@@ -304,7 +304,7 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                         __func__);
                     for(i = 0; i < *mSetSizePtr; i++)
                     {
-                        ALOGV("%x", *(mConcurrencySet + i));
+                        ALOGV("0x%" PRIx64, *(mConcurrencySet + i));
                     }
                 }
             }
@@ -549,13 +549,13 @@ wifi_error WifihalGeneric::wifiParseCapabilities(struct nlattr **tbVendor)
         mCapa->roaming_capa.max_whitelist_size = mCapa->gscan_capa.max_number_of_white_listed_ssid;
     }
 
-    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_CAPABILITIES_MAX_NUM_BLACKLISTED_BSSID]) {
-        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX"
-            "_NUM_BLACKLIST_BSSID not found. Set to 0.", __FUNCTION__);
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_MAX_NUM_BLACKLISTED_BSSID]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_MAX_NUM_BLACKLISTED_BSSID not found. Set to 0.",
+              __FUNCTION__);
         mCapa->roaming_capa.max_blacklist_size = 0;
     } else {
         mCapa->roaming_capa.max_blacklist_size = nla_get_u32(tbVendor[
-                                      QCA_WLAN_VENDOR_ATTR_CAPABILITIES_MAX_NUM_BLACKLISTED_BSSID]);
+                                      QCA_WLAN_VENDOR_ATTR_GSCAN_MAX_NUM_BLACKLISTED_BSSID]);
     }
     return WIFI_SUCCESS;
 }

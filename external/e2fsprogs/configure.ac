@@ -1114,11 +1114,16 @@ AC_CHECK_MEMBER(struct sockaddr.sa_len,
 	[#include <sys/types.h>
 	 #include <sys/socket.h>])
 dnl
-dnl This will add -lblkid to the AC_CHECK_FUNCS search if we are using
-dnl the system-provided blkid library
+dnl If we are using the system-provided blkid library, check for
+dnl the functions added after migrating that library to util-linux
 dnl
 if test -n "$BLKID_CMT"; then
-  AC_SEARCH_LIBS([blkid_probe_all], [blkid])
+  AC_CHECK_LIB(blkid, blkid_probe_get_topology,
+		      AC_DEFINE(HAVE_BLKID_PROBE_GET_TOPOLOGY, 1,
+				[Define to 1 if blkid has blkid_probe_get_topology]))
+  AC_CHECK_LIB(blkid, blkid_probe_enable_partitions,
+		      AC_DEFINE(HAVE_BLKID_PROBE_ENABLE_PARTITIONS, 1,
+				[Define to 1 if blkid has blkid_probe_enable_partitions]))
 fi
 dnl
 if test -n "$DLOPEN_LIB" ; then
@@ -1128,8 +1133,6 @@ AC_CHECK_FUNCS(m4_flatten([
 	__secure_getenv
 	add_key
 	backtrace
-	blkid_probe_get_topology
-	blkid_probe_enable_partitions
 	chflags
 	dlopen
 	fadvise64
@@ -1315,6 +1318,10 @@ linux*)
 	;;
 esac
 dnl
+dnl Check the available mount options
+dnl
+AX_CHECK_MOUNT_OPT(nosuid)
+AX_CHECK_MOUNT_OPT(nodev)
 dnl Enable LTO for all packages
 dnl
 AC_ARG_ENABLE([lto],
@@ -1667,7 +1674,8 @@ AS_IF([test "x${with_crond_dir}" != "xno"],
 	AS_IF([test "x${with_crond_dir}" = "xyes"],
 	  [
 		AS_IF([test -d "/etc/cron.d"],
-		  [with_crond_dir="/etc/cron.d"])
+		  [with_crond_dir="/etc/cron.d"],
+		  [have_crond="no"; with_crond_dir=""])
 	  ])
 	AC_MSG_CHECKING([for system crontab dir])
 	crond_dir="${with_crond_dir}"

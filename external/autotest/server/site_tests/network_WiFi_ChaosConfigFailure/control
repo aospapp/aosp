@@ -27,7 +27,7 @@ from autotest_lib.server.cros.chaos_ap_configurators import ap_spec
 def run_chaos_config_failure(machine):
     args_dict = utils.args_to_dict(args)
     host = hosts.create_host(machine)
-    debug_aps = ['chromeos3-row2-rack1-host2',]
+    debug_aps = ['chromeos3-row2-rack1-host3',]
     tested_ap_spec = ap_spec.APSpec(hostnames=debug_aps)
     factory = ap_configurator_factory.APConfiguratorFactory()
     ap = factory.get_ap_configurators_by_spec(tested_ap_spec)[0]

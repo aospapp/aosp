@@ -16,14 +16,20 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-        package="com.android.car.carservice_unittest"
-        android:sharedUserId="android.uid.system" >
+        android:sharedUserId="com.google.android.car.uid.kitchensink"
+        package="com.android.car.carservice_unittest">
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.car.carservice_unittest"
             android:label="Unit Tests for Car APIs"/>
+    <uses-permission android:name="android.car.permission.CAR_ENROLL_TRUST" />
 
     <application android:label="CarServiceUnitTest"
             android:debuggable="true">
         <uses-library android:name="android.test.runner" />
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityA"/>
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityB"/>
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityC"/>
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$BlockingActivity"
+                  android:taskAffinity="com.android.car.carservice_unittest.block"/>
     </application>
 </manifest>

@@ -1,8 +1,9 @@
-/* A Bison parser, made by GNU Bison 3.0.4.  */
+/* A Bison parser, made by GNU Bison 3.4.1.  */
 
 /* Bison interface for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2019 Free Software Foundation,
+   Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -29,6 +30,9 @@
 
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
+
+/* Undocumented macros, especially those whose name start with YY_,
+   are private implementation details.  Do not rely on them.  */
 
 #ifndef YY_YY_Y_TAB_H_INCLUDED
 # define YY_YY_Y_TAB_H_INCLUDED
@@ -67,78 +71,79 @@ extern int yydebug;
     QUEST = 277,
     PLUS = 278,
     EMPTYRE = 279,
-    AND = 280,
-    BOR = 281,
-    APPEND = 282,
-    EQ = 283,
-    GE = 284,
-    GT = 285,
-    LE = 286,
-    LT = 287,
-    NE = 288,
-    IN = 289,
-    ARG = 290,
-    BLTIN = 291,
-    BREAK = 292,
-    CLOSE = 293,
-    CONTINUE = 294,
-    DELETE = 295,
-    DO = 296,
-    EXIT = 297,
-    FOR = 298,
-    FUNC = 299,
-    SUB = 300,
-    GSUB = 301,
-    IF = 302,
-    INDEX = 303,
-    LSUBSTR = 304,
-    MATCHFCN = 305,
-    NEXT = 306,
-    NEXTFILE = 307,
-    ADD = 308,
-    MINUS = 309,
-    MULT = 310,
-    DIVIDE = 311,
-    MOD = 312,
-    ASSIGN = 313,
-    ASGNOP = 314,
-    ADDEQ = 315,
-    SUBEQ = 316,
-    MULTEQ = 317,
-    DIVEQ = 318,
-    MODEQ = 319,
-    POWEQ = 320,
-    PRINT = 321,
-    PRINTF = 322,
-    SPRINTF = 323,
-    ELSE = 324,
-    INTEST = 325,
-    CONDEXPR = 326,
-    POSTINCR = 327,
-    PREINCR = 328,
-    POSTDECR = 329,
-    PREDECR = 330,
-    VAR = 331,
-    IVAR = 332,
-    VARNF = 333,
-    CALL = 334,
-    NUMBER = 335,
-    STRING = 336,
-    REGEXPR = 337,
-    GETLINE = 338,
-    RETURN = 339,
-    SPLIT = 340,
-    SUBSTR = 341,
-    WHILE = 342,
-    CAT = 343,
-    NOT = 344,
-    UMINUS = 345,
-    UPLUS = 346,
-    POWER = 347,
-    DECR = 348,
-    INCR = 349,
-    INDIRECT = 350,
-    LASTTOKEN = 351
+    ZERO = 280,
+    AND = 281,
+    BOR = 282,
+    APPEND = 283,
+    EQ = 284,
+    GE = 285,
+    GT = 286,
+    LE = 287,
+    LT = 288,
+    NE = 289,
+    IN = 290,
+    ARG = 291,
+    BLTIN = 292,
+    BREAK = 293,
+    CLOSE = 294,
+    CONTINUE = 295,
+    DELETE = 296,
+    DO = 297,
+    EXIT = 298,
+    FOR = 299,
+    FUNC = 300,
+    SUB = 301,
+    GSUB = 302,
+    IF = 303,
+    INDEX = 304,
+    LSUBSTR = 305,
+    MATCHFCN = 306,
+    NEXT = 307,
+    NEXTFILE = 308,
+    ADD = 309,
+    MINUS = 310,
+    MULT = 311,
+    DIVIDE = 312,
+    MOD = 313,
+    ASSIGN = 314,
+    ASGNOP = 315,
+    ADDEQ = 316,
+    SUBEQ = 317,
+    MULTEQ = 318,
+    DIVEQ = 319,
+    MODEQ = 320,
+    POWEQ = 321,
+    PRINT = 322,
+    PRINTF = 323,
+    SPRINTF = 324,
+    ELSE = 325,
+    INTEST = 326,
+    CONDEXPR = 327,
+    POSTINCR = 328,
+    PREINCR = 329,
+    POSTDECR = 330,
+    PREDECR = 331,
+    VAR = 332,
+    IVAR = 333,
+    VARNF = 334,
+    CALL = 335,
+    NUMBER = 336,
+    STRING = 337,
+    REGEXPR = 338,
+    GETLINE = 339,
+    RETURN = 340,
+    SPLIT = 341,
+    SUBSTR = 342,
+    WHILE = 343,
+    CAT = 344,
+    NOT = 345,
+    UMINUS = 346,
+    UPLUS = 347,
+    POWER = 348,
+    DECR = 349,
+    INCR = 350,
+    INDIRECT = 351,
+    LASTTOKEN = 352
   };
 #endif
 /* Tokens.  */
@@ -164,94 +169,94 @@ extern int yydebug;
 #define QUEST 277
 #define PLUS 278
 #define EMPTYRE 279
-#define AND 280
-#define BOR 281
-#define APPEND 282
-#define EQ 283
-#define GE 284
-#define GT 285
-#define LE 286
-#define LT 287
-#define NE 288
-#define IN 289
-#define ARG 290
-#define BLTIN 291
-#define BREAK 292
-#define CLOSE 293
-#define CONTINUE 294
-#define DELETE 295
-#define DO 296
-#define EXIT 297
-#define FOR 298
-#define FUNC 299
-#define SUB 300
-#define GSUB 301
-#define IF 302
-#define INDEX 303
-#define LSUBSTR 304
-#define MATCHFCN 305
-#define NEXT 306
-#define NEXTFILE 307
-#define ADD 308
-#define MINUS 309
-#define MULT 310
-#define DIVIDE 311
-#define MOD 312
-#define ASSIGN 313
-#define ASGNOP 314
-#define ADDEQ 315
-#define SUBEQ 316
-#define MULTEQ 317
-#define DIVEQ 318
-#define MODEQ 319
-#define POWEQ 320
-#define PRINT 321
-#define PRINTF 322
-#define SPRINTF 323
-#define ELSE 324
-#define INTEST 325
-#define CONDEXPR 326
-#define POSTINCR 327
-#define PREINCR 328
-#define POSTDECR 329
-#define PREDECR 330
-#define VAR 331
-#define IVAR 332
-#define VARNF 333
-#define CALL 334
-#define NUMBER 335
-#define STRING 336
-#define REGEXPR 337
-#define GETLINE 338
-#define RETURN 339
-#define SPLIT 340
-#define SUBSTR 341
-#define WHILE 342
-#define CAT 343
-#define NOT 344
-#define UMINUS 345
-#define UPLUS 346
-#define POWER 347
-#define DECR 348
-#define INCR 349
-#define INDIRECT 350
-#define LASTTOKEN 351
+#define ZERO 280
+#define AND 281
+#define BOR 282
+#define APPEND 283
+#define EQ 284
+#define GE 285
+#define GT 286
+#define LE 287
+#define LT 288
+#define NE 289
+#define IN 290
+#define ARG 291
+#define BLTIN 292
+#define BREAK 293
+#define CLOSE 294
+#define CONTINUE 295
+#define DELETE 296
+#define DO 297
+#define EXIT 298
+#define FOR 299
+#define FUNC 300
+#define SUB 301
+#define GSUB 302
+#define IF 303
+#define INDEX 304
+#define LSUBSTR 305
+#define MATCHFCN 306
+#define NEXT 307
+#define NEXTFILE 308
+#define ADD 309
+#define MINUS 310
+#define MULT 311
+#define DIVIDE 312
+#define MOD 313
+#define ASSIGN 314
+#define ASGNOP 315
+#define ADDEQ 316
+#define SUBEQ 317
+#define MULTEQ 318
+#define DIVEQ 319
+#define MODEQ 320
+#define POWEQ 321
+#define PRINT 322
+#define PRINTF 323
+#define SPRINTF 324
+#define ELSE 325
+#define INTEST 326
+#define CONDEXPR 327
+#define POSTINCR 328
+#define PREINCR 329
+#define POSTDECR 330
+#define PREDECR 331
+#define VAR 332
+#define IVAR 333
+#define VARNF 334
+#define CALL 335
+#define NUMBER 336
+#define STRING 337
+#define REGEXPR 338
+#define GETLINE 339
+#define RETURN 340
+#define SPLIT 341
+#define SUBSTR 342
+#define WHILE 343
+#define CAT 344
+#define NOT 345
+#define UMINUS 346
+#define UPLUS 347
+#define POWER 348
+#define DECR 349
+#define INCR 350
+#define INDIRECT 351
+#define LASTTOKEN 352
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-
 union YYSTYPE
 {
-#line 41 "awkgram.y" /* yacc.c:1909  */
+#line 41 "awkgram.y"
 
 	Node	*p;
 	Cell	*cp;
 	int	i;
 	char	*s;
 
-#line 253 "y.tab.h" /* yacc.c:1909  */
-};
+#line 258 "y.tab.h"
 
+};
 typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1

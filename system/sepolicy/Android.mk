@@ -49,17 +49,17 @@ endif
 #    - compile output binary policy file
 
 PLAT_PUBLIC_POLICY := $(LOCAL_PATH)/public
-ifneq ( ,$(BOARD_PLAT_PUBLIC_SEPOLICY_DIR))
-PLAT_PUBLIC_POLICY += $(BOARD_PLAT_PUBLIC_SEPOLICY_DIR)
-endif
 PLAT_PRIVATE_POLICY := $(LOCAL_PATH)/private
-ifneq ( ,$(BOARD_PLAT_PRIVATE_SEPOLICY_DIR))
-PLAT_PRIVATE_POLICY += $(BOARD_PLAT_PRIVATE_SEPOLICY_DIR)
-endif
 PLAT_VENDOR_POLICY := $(LOCAL_PATH)/vendor
 REQD_MASK_POLICY := $(LOCAL_PATH)/reqd_mask
+SYSTEM_EXT_PUBLIC_POLICY := $(BOARD_PLAT_PUBLIC_SEPOLICY_DIR)
+SYSTEM_EXT_PRIVATE_POLICY := $(BOARD_PLAT_PRIVATE_SEPOLICY_DIR)
 PRODUCT_PUBLIC_POLICY := $(PRODUCT_PUBLIC_SEPOLICY_DIRS)
 PRODUCT_PRIVATE_POLICY := $(PRODUCT_PRIVATE_SEPOLICY_DIRS)
+
+ifneq (,$(SYSTEM_EXT_PUBLIC_POLICY)$(SYSTEM_EXT_PRIVATE_POLICY))
+HAS_SYSTEM_EXT_SEPOLICY_DIR := true
+endif
 
 # TODO(b/119305624): Currently if the device doesn't have a product partition,
 # we install product sepolicy into /system/product. We do that because bits of
@@ -68,7 +68,7 @@ PRODUCT_PRIVATE_POLICY := $(PRODUCT_PRIVATE_SEPOLICY_DIRS)
 # it so that if no product partition is present, product sepolicy artifacts are
 # not built and installed at all.
 ifneq (,$(PRODUCT_PUBLIC_POLICY)$(PRODUCT_PRIVATE_POLICY))
-HAS_PRODUCT_SEPOLICY := true
+HAS_PRODUCT_SEPOLICY_DIR := true
 endif
 
 # TODO: move to README when doing the README update and finalizing versioning.
@@ -123,13 +123,6 @@ build_vendor_policy = $(call build_policy, $(1), $(PLAT_VENDOR_POLICY) $(BOARD_V
 # Builds paths for all policy files found in BOARD_ODM_SEPOLICY_DIRS.
 build_odm_policy = $(call build_policy, $(1), $(BOARD_ODM_SEPOLICY_DIRS))
 
-# Add a file containing only a newline in-between each policy configuration
-# 'contexts' file. This will allow OEM policy configuration files without a
-# final newline (0x0A) to be built correctly by the m4(1) macro processor.
-# $(1): the set of contexts file names.
-# $(2): the file containing only 0x0A.
-add_nl = $(foreach entry, $(1), $(subst $(entry), $(entry) $(2), $(entry)))
-
 sepolicy_build_files := security_classes \
                         initial_sids \
                         access_vectors \
@@ -152,6 +145,42 @@ sepolicy_build_files := security_classes \
                         genfs_contexts \
                         port_contexts
 
+# Security classes and permissions defined outside of system/sepolicy.
+security_class_extension_files := $(call build_policy, security_classes access_vectors, \
+  $(SYSTEM_EXT_PUBLIC_POLICY) $(SYSTEM_EXT_PRIVATE_POLICY) \
+  $(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY) \
+  $(BOARD_VENDOR_SEPOLICY_DIRS) $(BOARD_ODM_SEPOLICY_DIRS))
+
+ifneq (,$(strip $(security_class_extension_files)))
+  $(error Only platform SELinux policy may define classes and permissions: $(strip $(security_class_extension_files)))
+endif
+
+ifdef HAS_SYSTEM_EXT_SEPOLICY_DIR
+  # Checks if there are public system_ext policy files.
+  policy_files := $(call build_policy, $(sepolicy_build_files), $(SYSTEM_EXT_PUBLIC_POLICY))
+  ifneq (,$(strip $(policy_files)))
+    HAS_SYSTEM_EXT_PUBLIC_SEPOLICY := true
+  endif
+  # Checks if there are public/private system_ext policy files.
+  policy_files := $(call build_policy, $(sepolicy_build_files), $(SYSTEM_EXT_PUBLIC_POLICY) $(SYSTEM_EXT_PRIVATE_POLICY))
+  ifneq (,$(strip $(policy_files)))
+    HAS_SYSTEM_EXT_SEPOLICY := true
+  endif
+endif # ifdef HAS_SYSTEM_EXT_SEPOLICY_DIR
+
+ifdef HAS_PRODUCT_SEPOLICY_DIR
+  # Checks if there are public product policy files.
+  policy_files := $(call build_policy, $(sepolicy_build_files), $(PRODUCT_PUBLIC_POLICY))
+  ifneq (,$(strip $(policy_files)))
+    HAS_PRODUCT_PUBLIC_SEPOLICY := true
+  endif
+  # Checks if there are public/private product policy files.
+  policy_files := $(call build_policy, $(sepolicy_build_files), $(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY))
+  ifneq (,$(strip $(policy_files)))
+    HAS_PRODUCT_SEPOLICY := true
+  endif
+endif # ifdef HAS_PRODUCT_SEPOLICY_DIR
+
 # CIL files which contain workarounds for current limitation of human-readable
 # module policy language. These files are appended to the CIL files produced
 # from module language files.
@@ -173,6 +202,22 @@ with_native_coverage := false
 ifeq ($(NATIVE_COVERAGE),true)
   with_native_coverage := true
 endif
+ifeq ($(CLANG_COVERAGE),true)
+  with_native_coverage := true
+endif
+
+treble_sysprop_neverallow := true
+ifeq ($(BUILD_BROKEN_TREBLE_SYSPROP_NEVERALLOW),true)
+  treble_sysprop_neverallow := false
+endif
+
+ifeq ($(PRODUCT_SHIPPING_API_LEVEL),)
+  #$(warning no product shipping level defined)
+else ifneq ($(call math_lt,29,$(PRODUCT_SHIPPING_API_LEVEL)),)
+  ifneq ($(BUILD_BROKEN_TREBLE_SYSPROP_NEVERALLOW),)
+    $(error BUILD_BROKEN_TREBLE_SYSPROP_NEVERALLOW cannot be set on a device shipping with R or later, and this is tested by CTS.)
+  endif
+endif
 
 # Library extension for host-side tests
 ifeq ($(HOST_OS),darwin)
@@ -184,12 +229,12 @@ endif
 # Convert a file_context file for a non-flattened APEX into a file for
 # flattened APEX. /system/apex/<apex_name> path is prepended to the original paths
 # $(1): path to the input file_contexts file for non-flattened APEX
-# $(2): name of the APEX
-# $(3): path to the generated file_contexs file for flattened APEX
+# $(2): path to the flattened APEX
+# $(3): path to the generated file_contexts file for flattened APEX
 # $(4): variable where $(3) is added to
 define build_flattened_apex_file_contexts
 $(4) += $(3)
-$(3): PRIVATE_APEX_PATH := /system/apex/$(subst .,\\.,$(2))
+$(3): PRIVATE_APEX_PATH := $(subst .,\\.,$(2))
 $(3): $(1)
 	$(hide) awk '/object_r/{printf("$$(PRIVATE_APEX_PATH)%s\n",$$$$0)}' $$< > $$@
 endef
@@ -206,6 +251,10 @@ LOCAL_REQUIRED_MODULES += \
 
 include $(BUILD_PHONY_PACKAGE)
 
+# selinux_policy is a main goal and triggers lots of tests.
+# Most tests are FAKE modules, so aren'triggered on normal builds. (e.g. 'm')
+# By setting as droidcore's dependency, tests will run on normal builds.
+droidcore: selinux_policy
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := selinux_policy_system
@@ -213,7 +262,8 @@ LOCAL_MODULE := selinux_policy_system
 # divergence between Treble and non-Treble devices.
 LOCAL_REQUIRED_MODULES += \
     plat_mapping_file \
-    $(addsuffix .cil,$(PLATFORM_SEPOLICY_COMPAT_VERSIONS)) \
+    $(addprefix plat_,$(addsuffix .cil,$(PLATFORM_SEPOLICY_COMPAT_VERSIONS))) \
+    $(addsuffix .compat.cil,$(PLATFORM_SEPOLICY_COMPAT_VERSIONS)) \
     plat_sepolicy.cil \
     plat_sepolicy_and_mapping.sha256 \
     secilc \
@@ -221,11 +271,15 @@ LOCAL_REQUIRED_MODULES += \
 LOCAL_REQUIRED_MODULES += \
     build_sepolicy \
     plat_file_contexts \
+    plat_file_contexts_test \
     plat_mac_permissions.xml \
     plat_property_contexts \
+    plat_property_contexts_test \
     plat_seapp_contexts \
     plat_service_contexts \
+    plat_service_contexts_test \
     plat_hwservice_contexts \
+    plat_hwservice_contexts_test \
     searchpolicy \
 
 # This conditional inclusion closely mimics the conditional logic
@@ -242,10 +296,15 @@ ifneq ($(with_asan),true)
 ifneq ($(SELINUX_IGNORE_NEVERALLOWS),true)
 LOCAL_REQUIRED_MODULES += \
     sepolicy_tests \
+    $(addsuffix _compat_test,$(PLATFORM_SEPOLICY_COMPAT_VERSIONS)) \
+
+ifeq ($(PRODUCT_SEPOLICY_SPLIT),true)
+LOCAL_REQUIRED_MODULES += \
     $(addprefix treble_sepolicy_tests_,$(PLATFORM_SEPOLICY_COMPAT_VERSIONS)) \
 
-endif
-endif
+endif  # PRODUCT_SEPOLICY_SPLIT
+endif  # SELINUX_IGNORE_NEVERALLOWS
+endif  # with_asan
 
 ifneq ($(PLATFORM_SEPOLICY_VERSION),$(TOT_SEPOLICY_VERSION))
 LOCAL_REQUIRED_MODULES += \
@@ -265,6 +324,8 @@ ifneq ($(PRODUCT_PRECOMPILED_SEPOLICY),false)
 LOCAL_REQUIRED_MODULES += \
     precompiled_sepolicy \
     precompiled_sepolicy.plat_sepolicy_and_mapping.sha256 \
+    precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256 \
+    system_ext_sepolicy_and_mapping.sha256 \
     precompiled_sepolicy.product_sepolicy_and_mapping.sha256 \
     product_sepolicy_and_mapping.sha256 \
 
@@ -280,40 +341,83 @@ LOCAL_REQUIRED_MODULES += \
 
 LOCAL_REQUIRED_MODULES += \
     vendor_file_contexts \
+    vendor_file_contexts_test \
     vendor_mac_permissions.xml \
     vendor_property_contexts \
+    vendor_property_contexts_test \
     vendor_seapp_contexts \
+    vendor_service_contexts \
     vendor_hwservice_contexts \
+    vendor_hwservice_contexts_test \
     vndservice_contexts \
 
 ifdef BOARD_ODM_SEPOLICY_DIRS
 LOCAL_REQUIRED_MODULES += \
     odm_sepolicy.cil \
     odm_file_contexts \
+    odm_file_contexts_test \
     odm_seapp_contexts \
     odm_property_contexts \
+    odm_property_contexts_test \
     odm_hwservice_contexts \
+    odm_hwservice_contexts_test \
     odm_mac_permissions.xml
 endif
 
-ifdef HAS_PRODUCT_SEPOLICY
+ifdef HAS_SYSTEM_EXT_SEPOLICY
+LOCAL_REQUIRED_MODULES += system_ext_sepolicy.cil
+endif
+
+ifdef HAS_SYSTEM_EXT_PUBLIC_SEPOLICY
 LOCAL_REQUIRED_MODULES += \
-    product_sepolicy.cil \
+    system_ext_mapping_file \
+    $(addprefix system_ext_,$(addsuffix .cil,$(PLATFORM_SEPOLICY_COMPAT_VERSIONS))) \
+
+endif
+
+ifdef HAS_SYSTEM_EXT_SEPOLICY_DIR
+LOCAL_REQUIRED_MODULES += \
+    system_ext_file_contexts \
+    system_ext_file_contexts_test \
+    system_ext_hwservice_contexts \
+    system_ext_hwservice_contexts_test \
+    system_ext_property_contexts \
+    system_ext_property_contexts_test \
+    system_ext_seapp_contexts \
+    system_ext_service_contexts \
+    system_ext_service_contexts_test \
+    system_ext_mac_permissions.xml \
+
+endif
+
+ifdef HAS_PRODUCT_SEPOLICY
+LOCAL_REQUIRED_MODULES += product_sepolicy.cil
+endif
+
+ifdef HAS_PRODUCT_PUBLIC_SEPOLICY
+LOCAL_REQUIRED_MODULES += \
+    product_mapping_file \
+    $(addprefix product_,$(addsuffix .cil,$(PLATFORM_SEPOLICY_COMPAT_VERSIONS))) \
+
+endif
+
+ifdef HAS_PRODUCT_SEPOLICY_DIR
+LOCAL_REQUIRED_MODULES += \
     product_file_contexts \
+    product_file_contexts_test \
     product_hwservice_contexts \
+    product_hwservice_contexts_test \
     product_property_contexts \
+    product_property_contexts_test \
     product_seapp_contexts \
     product_service_contexts \
+    product_service_contexts_test \
     product_mac_permissions.xml \
-    product_mapping_file \
 
 endif
 
-ifneq ($(TARGET_BUILD_VARIANT), user)
 LOCAL_REQUIRED_MODULES += \
     selinux_denial_metadata \
-
-endif
 
 # Builds an addtional userdebug sepolicy into the debug ramdisk.
 LOCAL_REQUIRED_MODULES += \
@@ -325,14 +429,18 @@ include $(BUILD_PHONY_PACKAGE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := sepolicy_neverallows
-LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_CLASS := FAKE
 LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/selinux
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
 # sepolicy_policy.conf - All of the policy for the device.  This is only used to
 # check neverallow rules.
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) $(PLAT_VENDOR_POLICY) \
+  $(SYSTEM_EXT_PUBLIC_POLICY) $(SYSTEM_EXT_PRIVATE_POLICY) \
+  $(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY) \
+  $(BOARD_VENDOR_SEPOLICY_DIRS) $(BOARD_ODM_SEPOLICY_DIRS))
 sepolicy_policy.conf := $(intermediates)/policy.conf
 $(sepolicy_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(sepolicy_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -342,15 +450,18 @@ $(sepolicy_policy.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
 $(sepolicy_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
 $(sepolicy_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(sepolicy_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
-$(sepolicy_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) $(PLAT_VENDOR_POLICY) \
-$(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY) \
-$(BOARD_VENDOR_SEPOLICY_DIRS) $(BOARD_ODM_SEPOLICY_DIRS))
+$(sepolicy_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(sepolicy_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
 # sepolicy_policy_2.conf - All of the policy for the device.  This is only used to
 # check neverallow rules using sepolicy-analyze, similar to CTS.
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) $(PLAT_VENDOR_POLICY) \
+  $(SYSTEM_EXT_PUBLIC_POLICY) $(SYSTEM_EXT_PRIVATE_POLICY) \
+  $(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY) \
+  $(BOARD_VENDOR_SEPOLICY_DIRS) $(BOARD_ODM_SEPOLICY_DIRS))
 sepolicy_policy_2.conf := $(intermediates)/policy_2.conf
 $(sepolicy_policy_2.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(sepolicy_policy_2.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -361,10 +472,8 @@ $(sepolicy_policy_2.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
 $(sepolicy_policy_2.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
 $(sepolicy_policy_2.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(sepolicy_policy_2.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
-$(sepolicy_policy_2.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) $(PLAT_VENDOR_POLICY) \
-$(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY) \
-$(BOARD_VENDOR_SEPOLICY_DIRS) $(BOARD_ODM_SEPOLICY_DIRS))
+$(sepolicy_policy_2.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(sepolicy_policy_2.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
@@ -397,6 +506,7 @@ built_sepolicy_neverallows := $(LOCAL_BUILT_MODULE)
 # the compilation of public policy and subsequent removal of CIL policy that
 # should not be exported.
 
+policy_files := $(call build_policy, $(sepolicy_build_files), $(REQD_MASK_POLICY))
 reqd_policy_mask.conf := $(intermediates)/reqd_policy_mask.conf
 $(reqd_policy_mask.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(reqd_policy_mask.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -407,7 +517,9 @@ $(reqd_policy_mask.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_cove
 $(reqd_policy_mask.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(reqd_policy_mask.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
 $(reqd_policy_mask.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(reqd_policy_mask.conf): $(call build_policy, $(sepolicy_build_files), $(REQD_MASK_POLICY))
+$(reqd_policy_mask.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(reqd_policy_mask.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(reqd_policy_mask.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 # b/37755687
 CHECKPOLICY_ASAN_OPTIONS := ASAN_OPTIONS=detect_leaks=0
@@ -426,6 +538,21 @@ reqd_policy_mask.conf :=
 # policy that would not compile in checkpolicy on its own.  To get around this
 # limitation, add only the required files from private policy, which will
 # generate CIL policy that will then be filtered out by the reqd_policy_mask.
+#
+# There are three pub_policy.cil files below:
+#   - pub_policy.cil: exported 'product', 'system_ext' and 'system' policy.
+#   - system_ext_pub_policy.cil: exported 'system_ext' and 'system' policy.
+#   - plat_pub_policy.cil: exported 'system' policy.
+#
+# Those above files will in turn be used to generate the following versioned cil files:
+#   - product_mapping_file: the versioned, exported 'product' policy in product partition.
+#   - system_ext_mapping_file: the versioned, exported 'system_ext' policy in system_ext partition.
+#   - plat_mapping_file: the versioned, exported 'system' policy in system partition.
+#   - plat_pub_versioned.cil: the versioned, exported 'product', 'system_ext' and 'system'
+#                             policy in vendor partition.
+#
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(SYSTEM_EXT_PUBLIC_POLICY) $(PRODUCT_PUBLIC_POLICY) $(REQD_MASK_POLICY))
 pub_policy.conf := $(intermediates)/pub_policy.conf
 $(pub_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(pub_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -436,8 +563,9 @@ $(pub_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
 $(pub_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(pub_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
 $(pub_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(pub_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PRODUCT_PUBLIC_POLICY) $(REQD_MASK_POLICY))
+$(pub_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(pub_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(pub_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 pub_policy.cil := $(intermediates)/pub_policy.cil
 $(pub_policy.cil): PRIVATE_POL_CONF := $(pub_policy.conf)
@@ -452,6 +580,38 @@ $(HOST_OUT_EXECUTABLES)/build_sepolicy $(pub_policy.conf) $(reqd_policy_mask.cil
 pub_policy.conf :=
 
 ##################################
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(SYSTEM_EXT_PUBLIC_POLICY) $(REQD_MASK_POLICY))
+system_ext_pub_policy.conf := $(intermediates)/system_ext_pub_policy.conf
+$(system_ext_pub_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
+$(system_ext_pub_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
+$(system_ext_pub_policy.conf): PRIVATE_TARGET_BUILD_VARIANT := $(TARGET_BUILD_VARIANT)
+$(system_ext_pub_policy.conf): PRIVATE_TGT_ARCH := $(my_target_arch)
+$(system_ext_pub_policy.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
+$(system_ext_pub_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
+$(system_ext_pub_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
+$(system_ext_pub_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
+$(system_ext_pub_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
+$(system_ext_pub_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(system_ext_pub_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(system_ext_pub_policy.conf): $(policy_files) $(M4)
+	$(transform-policy-to-conf)
+
+system_ext_pub_policy.cil := $(intermediates)/system_ext_pub_policy.cil
+$(system_ext_pub_policy.cil): PRIVATE_POL_CONF := $(system_ext_pub_policy.conf)
+$(system_ext_pub_policy.cil): PRIVATE_REQD_MASK := $(reqd_policy_mask.cil)
+$(system_ext_pub_policy.cil): $(HOST_OUT_EXECUTABLES)/checkpolicy \
+$(HOST_OUT_EXECUTABLES)/build_sepolicy $(system_ext_pub_policy.conf) $(reqd_policy_mask.cil)
+	@mkdir -p $(dir $@)
+	$(hide) $(CHECKPOLICY_ASAN_OPTIONS) $< -C -M -c $(POLICYVERS) -o $@ $(PRIVATE_POL_CONF)
+	$(hide) $(HOST_OUT_EXECUTABLES)/build_sepolicy -a $(HOST_OUT_EXECUTABLES) filter_out \
+		-f $(PRIVATE_REQD_MASK) -t $@
+
+system_ext_pub_policy.conf :=
+
+##################################
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(REQD_MASK_POLICY))
 plat_pub_policy.conf := $(intermediates)/plat_pub_policy.conf
 $(plat_pub_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(plat_pub_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -462,8 +622,9 @@ $(plat_pub_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_cover
 $(plat_pub_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(plat_pub_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
 $(plat_pub_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(plat_pub_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(REQD_MASK_POLICY))
+$(plat_pub_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(plat_pub_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(plat_pub_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 
 plat_pub_policy.cil := $(intermediates)/plat_pub_policy.cil
@@ -478,21 +639,6 @@ $(HOST_OUT_EXECUTABLES)/build_sepolicy $(plat_pub_policy.conf) $(reqd_policy_mas
 
 plat_pub_policy.conf :=
 
-##################################
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := sectxfile_nl
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_TAGS := optional
-
-# Create a file containing newline only to add between context config files
-include $(BUILD_SYSTEM)/base_rules.mk
-$(LOCAL_BUILT_MODULE):
-	@mkdir -p $(dir $@)
-	$(hide) echo > $@
-
-built_nl := $(LOCAL_BUILT_MODULE)
-
 #################################
 include $(CLEAR_VARS)
 
@@ -506,6 +652,8 @@ include $(BUILD_SYSTEM)/base_rules.mk
 # plat_policy.conf - A combination of the private and public platform policy
 # which will ship with the device.  The platform will always reflect the most
 # recent platform version and is not currently being attributized.
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY))
 plat_policy.conf := $(intermediates)/plat_policy.conf
 $(plat_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(plat_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -516,8 +664,9 @@ $(plat_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
 $(plat_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(plat_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
 $(plat_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(plat_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY))
+$(plat_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(plat_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(plat_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
@@ -549,6 +698,8 @@ LOCAL_MODULE_PATH := $(TARGET_DEBUG_RAMDISK_OUT)
 include $(BUILD_SYSTEM)/base_rules.mk
 
 # userdebug_plat_policy.conf - the userdebug version plat_sepolicy.cil
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY))
 userdebug_plat_policy.conf := $(intermediates)/userdebug_plat_policy.conf
 $(userdebug_plat_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(userdebug_plat_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -559,8 +710,9 @@ $(userdebug_plat_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native
 $(userdebug_plat_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(userdebug_plat_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
 $(userdebug_plat_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(userdebug_plat_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY))
+$(userdebug_plat_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(userdebug_plat_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(userdebug_plat_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
@@ -583,35 +735,38 @@ userdebug_plat_policy.conf :=
 #################################
 include $(CLEAR_VARS)
 
-ifdef HAS_PRODUCT_SEPOLICY
-LOCAL_MODULE := product_sepolicy.cil
+ifdef HAS_SYSTEM_EXT_SEPOLICY
+LOCAL_MODULE := system_ext_sepolicy.cil
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_PATH := $(TARGET_OUT_PRODUCT)/etc/selinux
+LOCAL_MODULE_PATH := $(TARGET_OUT_SYSTEM_EXT)/etc/selinux
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
-# product_policy.conf - A combination of the private and public product policy
-# which will ship with the device. Product policy is not attributized.
-product_policy.conf := $(intermediates)/product_policy.conf
-$(product_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
-$(product_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
-$(product_policy.conf): PRIVATE_TARGET_BUILD_VARIANT := $(TARGET_BUILD_VARIANT)
-$(product_policy.conf): PRIVATE_TGT_ARCH := $(my_target_arch)
-$(product_policy.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
-$(product_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
-$(product_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
-$(product_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
-$(product_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(product_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) \
-$(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY))
+# system_ext_policy.conf - A combination of the private and public system_ext policy
+# which will ship with the device. System_ext policy is not attributized.
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) \
+  $(SYSTEM_EXT_PUBLIC_POLICY) $(SYSTEM_EXT_PRIVATE_POLICY))
+system_ext_policy.conf := $(intermediates)/system_ext_policy.conf
+$(system_ext_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
+$(system_ext_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
+$(system_ext_policy.conf): PRIVATE_TARGET_BUILD_VARIANT := $(TARGET_BUILD_VARIANT)
+$(system_ext_policy.conf): PRIVATE_TGT_ARCH := $(my_target_arch)
+$(system_ext_policy.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
+$(system_ext_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
+$(system_ext_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
+$(system_ext_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
+$(system_ext_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
+$(system_ext_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(system_ext_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(system_ext_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/dontaudit/d' $@ > $@.dontaudit
 
 $(LOCAL_BUILT_MODULE): PRIVATE_NEVERALLOW_ARG := $(NEVERALLOW_ARG)
 $(LOCAL_BUILT_MODULE): PRIVATE_PLAT_CIL := $(built_plat_cil)
-$(LOCAL_BUILT_MODULE): $(product_policy.conf) $(HOST_OUT_EXECUTABLES)/checkpolicy \
+$(LOCAL_BUILT_MODULE): $(system_ext_policy.conf) $(HOST_OUT_EXECUTABLES)/checkpolicy \
 $(HOST_OUT_EXECUTABLES)/build_sepolicy $(HOST_OUT_EXECUTABLES)/secilc $(built_plat_cil)
 	@mkdir -p $(dir $@)
 	$(hide) $(CHECKPOLICY_ASAN_OPTIONS) $(HOST_OUT_EXECUTABLES)/checkpolicy -M -C -c \
@@ -622,10 +777,67 @@ $(HOST_OUT_EXECUTABLES)/build_sepolicy $(HOST_OUT_EXECUTABLES)/secilc $(built_pl
 	# used for debugging, so we remove them.
 	$(hide) grep -v ';;' $@ > $@.tmp
 	$(hide) mv $@.tmp $@
-	# Combine plat_sepolicy.cil and product_sepolicy.cil to make sure that the
+	# Combine plat_sepolicy.cil and system_ext_sepolicy.cil to make sure that the
 	# latter doesn't accidentally depend on vendor/odm policies.
 	$(hide) $(HOST_OUT_EXECUTABLES)/secilc -m -M true -G -c $(POLICYVERS) \
 		$(PRIVATE_NEVERALLOW_ARG) $(PRIVATE_PLAT_CIL) $@ -o /dev/null -f /dev/null
+
+
+built_system_ext_cil := $(LOCAL_BUILT_MODULE)
+system_ext_policy.conf :=
+endif # ifdef HAS_SYSTEM_EXT_SEPOLICY
+
+#################################
+include $(CLEAR_VARS)
+
+ifdef HAS_PRODUCT_SEPOLICY
+LOCAL_MODULE := product_sepolicy.cil
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_PATH := $(TARGET_OUT_PRODUCT)/etc/selinux
+
+include $(BUILD_SYSTEM)/base_rules.mk
+
+# product_policy.conf - A combination of the private and public product policy
+# which will ship with the device. Product policy is not attributized.
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) \
+  $(SYSTEM_EXT_PUBLIC_POLICY) $(SYSTEM_EXT_PRIVATE_POLICY) \
+  $(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY))
+product_policy.conf := $(intermediates)/product_policy.conf
+$(product_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
+$(product_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
+$(product_policy.conf): PRIVATE_TARGET_BUILD_VARIANT := $(TARGET_BUILD_VARIANT)
+$(product_policy.conf): PRIVATE_TGT_ARCH := $(my_target_arch)
+$(product_policy.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
+$(product_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
+$(product_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
+$(product_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
+$(product_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
+$(product_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(product_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(product_policy.conf): $(policy_files) $(M4)
+	$(transform-policy-to-conf)
+	$(hide) sed '/dontaudit/d' $@ > $@.dontaudit
+
+$(LOCAL_BUILT_MODULE): PRIVATE_NEVERALLOW_ARG := $(NEVERALLOW_ARG)
+$(LOCAL_BUILT_MODULE): PRIVATE_PLAT_CIL_FILES := $(built_plat_cil) $(built_system_ext_cil)
+$(LOCAL_BUILT_MODULE): $(product_policy.conf) $(HOST_OUT_EXECUTABLES)/checkpolicy \
+$(HOST_OUT_EXECUTABLES)/build_sepolicy $(HOST_OUT_EXECUTABLES)/secilc \
+$(built_plat_cil) $(built_system_ext_cil)
+	@mkdir -p $(dir $@)
+	$(hide) $(CHECKPOLICY_ASAN_OPTIONS) $(HOST_OUT_EXECUTABLES)/checkpolicy -M -C -c \
+	$(POLICYVERS) -o $@ $<
+	$(hide) $(HOST_OUT_EXECUTABLES)/build_sepolicy -a $(HOST_OUT_EXECUTABLES) filter_out \
+		-f $(PRIVATE_PLAT_CIL_FILES) -t $@
+	# Line markers (denoted by ;;) are malformed after above cmd. They are only
+	# used for debugging, so we remove them.
+	$(hide) grep -v ';;' $@ > $@.tmp
+	$(hide) mv $@.tmp $@
+	# Combine plat_sepolicy.cil, system_ext_sepolicy.cil and product_sepolicy.cil to
+	# make sure that the latter doesn't accidentally depend on vendor/odm policies.
+	$(hide) $(HOST_OUT_EXECUTABLES)/secilc -m -M true -G -c $(POLICYVERS) \
+		$(PRIVATE_NEVERALLOW_ARG) $(PRIVATE_PLAT_CIL_FILES) $@ -o /dev/null -f /dev/null
 
 
 built_product_cil := $(LOCAL_BUILT_MODULE)
@@ -671,7 +883,33 @@ built_plat_mapping_cil := $(LOCAL_BUILT_MODULE)
 #################################
 include $(CLEAR_VARS)
 
-ifdef HAS_PRODUCT_SEPOLICY
+ifdef HAS_SYSTEM_EXT_PUBLIC_SEPOLICY
+LOCAL_MODULE := system_ext_mapping_file
+LOCAL_MODULE_STEM := $(PLATFORM_SEPOLICY_VERSION).cil
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_PATH := $(TARGET_OUT_SYSTEM_EXT)/etc/selinux/mapping
+
+include $(BUILD_SYSTEM)/base_rules.mk
+
+$(LOCAL_BUILT_MODULE) : PRIVATE_VERS := $(PLATFORM_SEPOLICY_VERSION)
+$(LOCAL_BUILT_MODULE) : PRIVATE_PLAT_MAPPING_CIL := $(built_plat_mapping_cil)
+$(LOCAL_BUILT_MODULE) : $(system_ext_pub_policy.cil) $(HOST_OUT_EXECUTABLES)/version_policy \
+$(built_plat_mapping_cil)
+	@mkdir -p $(dir $@)
+	# Generate system_ext mapping file as mapping file of 'system' (plat) and 'system_ext'
+	# sepolicy minus plat_mapping_file.
+	$(hide) $(HOST_OUT_EXECUTABLES)/version_policy -b $< -m -n $(PRIVATE_VERS) -o $@
+	$(hide) $(HOST_OUT_EXECUTABLES)/build_sepolicy -a $(HOST_OUT_EXECUTABLES) filter_out \
+		-f $(PRIVATE_PLAT_MAPPING_CIL) -t $@
+
+built_system_ext_mapping_cil := $(LOCAL_BUILT_MODULE)
+endif # ifdef HAS_SYSTEM_EXT_PUBLIC_SEPOLICY
+
+#################################
+include $(CLEAR_VARS)
+
+ifdef HAS_PRODUCT_PUBLIC_SEPOLICY
 LOCAL_MODULE := product_mapping_file
 LOCAL_MODULE_STEM := $(PLATFORM_SEPOLICY_VERSION).cil
 LOCAL_MODULE_CLASS := ETC
@@ -681,18 +919,18 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_PRODUCT)/etc/selinux/mapping
 include $(BUILD_SYSTEM)/base_rules.mk
 
 $(LOCAL_BUILT_MODULE) : PRIVATE_VERS := $(PLATFORM_SEPOLICY_VERSION)
-$(LOCAL_BUILT_MODULE) : PRIVATE_PLAT_MAPPING_CIL := $(built_plat_mapping_cil)
+$(LOCAL_BUILT_MODULE) : PRIVATE_FILTER_CIL_FILES := $(built_plat_mapping_cil) $(built_system_ext_mapping_cil)
 $(LOCAL_BUILT_MODULE) : $(pub_policy.cil) $(HOST_OUT_EXECUTABLES)/version_policy \
-$(built_plat_mapping_cil)
+$(built_plat_mapping_cil) $(built_system_ext_mapping_cil)
 	@mkdir -p $(dir $@)
 	# Generate product mapping file as mapping file of all public sepolicy minus
-	# plat_mapping_file.
+	# plat_mapping_file and system_ext_mapping_file.
 	$(hide) $(HOST_OUT_EXECUTABLES)/version_policy -b $< -m -n $(PRIVATE_VERS) -o $@
 	$(hide) $(HOST_OUT_EXECUTABLES)/build_sepolicy -a $(HOST_OUT_EXECUTABLES) filter_out \
-		-f $(PRIVATE_PLAT_MAPPING_CIL) -t $@
+		-f $(PRIVATE_FILTER_CIL_FILES) -t $@
 
 built_product_mapping_cil := $(LOCAL_BUILT_MODULE)
-endif # HAS_PRODUCT_SEPOLICY
+endif # ifdef HAS_PRODUCT_PUBLIC_SEPOLICY
 
 #################################
 include $(CLEAR_VARS)
@@ -709,11 +947,12 @@ include $(BUILD_SYSTEM)/base_rules.mk
 
 $(LOCAL_BUILT_MODULE) : PRIVATE_VERS := $(BOARD_SEPOLICY_VERS)
 $(LOCAL_BUILT_MODULE) : PRIVATE_TGT_POL := $(pub_policy.cil)
-$(LOCAL_BUILT_MODULE) : PRIVATE_DEP_CIL_FILES := $(built_plat_cil) $(built_product_cil)\
-$(built_plat_mapping_cil) $(built_product_mapping_cil)
+$(LOCAL_BUILT_MODULE) : PRIVATE_DEP_CIL_FILES := $(built_plat_cil) $(built_system_ext_cil) \
+$(built_product_cil) $(built_plat_mapping_cil) $(built_system_ext_mapping_cil) \
+$(built_product_mapping_cil)
 $(LOCAL_BUILT_MODULE) : $(pub_policy.cil) $(HOST_OUT_EXECUTABLES)/version_policy \
-  $(HOST_OUT_EXECUTABLES)/secilc $(built_plat_cil) $(built_product_cil) \
-  $(built_plat_mapping_cil) $(built_product_mapping_cil)
+  $(HOST_OUT_EXECUTABLES)/secilc $(built_plat_cil) $(built_system_ext_cil) $(built_product_cil) \
+  $(built_plat_mapping_cil) $(built_system_ext_mapping_cil) $(built_product_mapping_cil)
 	@mkdir -p $(dir $@)
 	$(HOST_OUT_EXECUTABLES)/version_policy -b $< -t $(PRIVATE_TGT_POL) -n $(PRIVATE_VERS) -o $@
 	$(hide) $(HOST_OUT_EXECUTABLES)/secilc -m -M true -G -N -c $(POLICYVERS) \
@@ -735,6 +974,9 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/selinux
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(SYSTEM_EXT_PUBLIC_POLICY) $(PRODUCT_PUBLIC_POLICY) \
+  $(REQD_MASK_POLICY) $(PLAT_VENDOR_POLICY) $(BOARD_VENDOR_SEPOLICY_DIRS))
 vendor_policy.conf := $(intermediates)/vendor_policy.conf
 $(vendor_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(vendor_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -745,9 +987,9 @@ $(vendor_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverag
 $(vendor_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(vendor_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
 $(vendor_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(vendor_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PRODUCT_PUBLIC_POLICY) $(REQD_MASK_POLICY) $(PLAT_VENDOR_POLICY) \
-$(BOARD_VENDOR_SEPOLICY_DIRS))
+$(vendor_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(vendor_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(vendor_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
@@ -755,13 +997,15 @@ $(LOCAL_BUILT_MODULE): PRIVATE_POL_CONF := $(vendor_policy.conf)
 $(LOCAL_BUILT_MODULE): PRIVATE_REQD_MASK := $(reqd_policy_mask.cil)
 $(LOCAL_BUILT_MODULE): PRIVATE_BASE_CIL := $(pub_policy.cil)
 $(LOCAL_BUILT_MODULE): PRIVATE_VERS := $(BOARD_SEPOLICY_VERS)
-$(LOCAL_BUILT_MODULE): PRIVATE_DEP_CIL_FILES := $(built_plat_cil) $(built_product_cil)\
-$(built_pub_vers_cil) $(built_plat_mapping_cil) $(built_product_mapping_cil)
+$(LOCAL_BUILT_MODULE): PRIVATE_DEP_CIL_FILES := $(built_plat_cil) $(built_system_ext_cil) \
+$(built_product_cil) $(built_pub_vers_cil) $(built_plat_mapping_cil) \
+$(built_system_ext_mapping_cil) $(built_product_mapping_cil)
 $(LOCAL_BUILT_MODULE): PRIVATE_FILTER_CIL := $(built_pub_vers_cil)
 $(LOCAL_BUILT_MODULE): $(HOST_OUT_EXECUTABLES)/build_sepolicy \
   $(vendor_policy.conf) $(reqd_policy_mask.cil) $(pub_policy.cil) \
-  $(built_plat_cil) $(built_product_cil) $(built_pub_vers_cil) \
-  $(built_plat_mapping_cil) $(built_product_mapping_cil)
+  $(built_plat_cil) $(built_system_ext_cil) $(built_product_cil) \
+  $(built_pub_vers_cil) $(built_plat_mapping_cil) $(built_system_ext_mapping_cil) \
+  $(built_product_mapping_cil)
 	@mkdir -p $(dir $@)
 	$(hide) $(HOST_OUT_EXECUTABLES)/build_sepolicy -a $(HOST_OUT_EXECUTABLES) build_cil \
 		-i $(PRIVATE_POL_CONF) -m $(PRIVATE_REQD_MASK) -c $(CHECKPOLICY_ASAN_OPTIONS) \
@@ -786,6 +1030,9 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_ODM)/etc/selinux
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(SYSTEM_EXT_PUBLIC_POLICY) $(PRODUCT_PUBLIC_POLICY) \
+  $(REQD_MASK_POLICY) $(PLAT_VENDOR_POLICY) $(BOARD_VENDOR_SEPOLICY_DIRS) $(BOARD_ODM_SEPOLICY_DIRS))
 odm_policy.conf := $(intermediates)/odm_policy.conf
 $(odm_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(odm_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -796,9 +1043,9 @@ $(odm_policy.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
 $(odm_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(odm_policy.conf): PRIVATE_SEPOLICY_SPLIT := $(PRODUCT_SEPOLICY_SPLIT)
 $(odm_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(odm_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-  $(PLAT_PUBLIC_POLICY) $(PRODUCT_PUBLIC_POLICY) $(REQD_MASK_POLICY) $(PLAT_VENDOR_POLICY) \
-  $(BOARD_VENDOR_SEPOLICY_DIRS) $(BOARD_ODM_SEPOLICY_DIRS))
+$(odm_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(odm_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(odm_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
@@ -806,14 +1053,15 @@ $(LOCAL_BUILT_MODULE): PRIVATE_POL_CONF := $(odm_policy.conf)
 $(LOCAL_BUILT_MODULE): PRIVATE_REQD_MASK := $(reqd_policy_mask.cil)
 $(LOCAL_BUILT_MODULE): PRIVATE_BASE_CIL := $(pub_policy.cil)
 $(LOCAL_BUILT_MODULE): PRIVATE_VERS := $(BOARD_SEPOLICY_VERS)
-$(LOCAL_BUILT_MODULE): PRIVATE_DEP_CIL_FILES := $(built_plat_cil) $(built_product_cil) \
-  $(built_pub_vers_cil) $(built_plat_mapping_cil) $(built_product_mapping_cil)\
-  $(built_vendor_cil)
+$(LOCAL_BUILT_MODULE): PRIVATE_DEP_CIL_FILES := $(built_plat_cil) $(built_system_ext_cil) \
+  $(built_product_cil) $(built_pub_vers_cil) $(built_plat_mapping_cil) \
+  $(built_system_ext_mapping_cil) $(built_product_mapping_cil) $(built_vendor_cil)
 $(LOCAL_BUILT_MODULE) : PRIVATE_FILTER_CIL_FILES := $(built_pub_vers_cil) $(built_vendor_cil)
 $(LOCAL_BUILT_MODULE): $(HOST_OUT_EXECUTABLES)/build_sepolicy \
   $(odm_policy.conf) $(reqd_policy_mask.cil) $(pub_policy.cil) \
-  $(built_plat_cil) $(built_product_cil) $(built_pub_vers_cil) \
-  $(built_plat_mapping_cil) $(built_product_mapping_cil) $(built_vendor_cil)
+  $(built_plat_cil) $(built_system_ext_cil) $(built_product_cil) $(built_pub_vers_cil) \
+  $(built_plat_mapping_cil) $(built_system_ext_mapping_cil) $(built_product_mapping_cil) \
+  $(built_vendor_cil)
 	@mkdir -p $(dir $@)
 	$(hide) $(HOST_OUT_EXECUTABLES)/build_sepolicy -a $(HOST_OUT_EXECUTABLES) build_cil \
 		-i $(PRIVATE_POL_CONF) -m $(PRIVATE_REQD_MASK) -c $(CHECKPOLICY_ASAN_OPTIONS) \
@@ -847,11 +1095,20 @@ all_cil_files := \
     $(built_pub_vers_cil) \
     $(built_vendor_cil)
 
-ifdef HAS_PRODUCT_SEPOLICY
-all_cil_files += \
-    $(built_product_cil) \
-    $(built_product_mapping_cil) \
+ifdef HAS_SYSTEM_EXT_SEPOLICY
+all_cil_files += $(built_system_ext_cil)
+endif
 
+ifdef HAS_SYSTEM_EXT_PUBLIC_SEPOLICY
+all_cil_files += $(built_system_ext_mapping_cil)
+endif
+
+ifdef HAS_PRODUCT_SEPOLICY
+all_cil_files += $(built_product_cil)
+endif
+
+ifdef HAS_PRODUCT_PUBLIC_SEPOLICY
+all_cil_files += $(built_product_mapping_cil)
 endif
 
 ifdef BOARD_ODM_SEPOLICY_DIRS
@@ -872,6 +1129,9 @@ all_cil_files :=
 # - plat_sepolicy_and_mapping.sha256 equals
 #   precompiled_sepolicy.plat_sepolicy_and_mapping.sha256
 # AND
+# - system_ext_sepolicy_and_mapping.sha256 equals
+#   precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256
+# AND
 # - product_sepolicy_and_mapping.sha256 equals
 #   precompiled_sepolicy.product_sepolicy_and_mapping.sha256
 # See system/core/init/selinux.cpp for details.
@@ -886,6 +1146,19 @@ LOCAL_MODULE_PATH = $(TARGET_OUT)/etc/selinux
 include $(BUILD_SYSTEM)/base_rules.mk
 
 $(LOCAL_BUILT_MODULE): $(built_plat_cil) $(built_plat_mapping_cil)
+	cat $^ | sha256sum | cut -d' ' -f1 > $@
+
+#################################
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := system_ext_sepolicy_and_mapping.sha256
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_PATH = $(TARGET_OUT_SYSTEM_EXT)/etc/selinux
+
+include $(BUILD_SYSTEM)/base_rules.mk
+
+$(LOCAL_BUILT_MODULE): $(built_system_ext_cil) $(built_system_ext_mapping_cil)
 	cat $^ | sha256sum | cut -d' ' -f1 > $@
 
 #################################
@@ -920,6 +1193,27 @@ include $(BUILD_SYSTEM)/base_rules.mk
 
 $(LOCAL_BUILT_MODULE): PRIVATE_CIL_FILES := $(built_plat_cil) $(built_plat_mapping_cil)
 $(LOCAL_BUILT_MODULE): $(built_precompiled_sepolicy) $(built_plat_cil) $(built_plat_mapping_cil)
+	cat $(PRIVATE_CIL_FILES) | sha256sum | cut -d' ' -f1 > $@
+
+#################################
+# SHA-256 digest of the system_ext_sepolicy.cil and system_ext_mapping_file against
+# which precompiled_policy was built.
+#################################
+include $(CLEAR_VARS)
+LOCAL_MODULE := precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := optional
+
+ifeq ($(BOARD_USES_ODMIMAGE),true)
+LOCAL_MODULE_PATH := $(TARGET_OUT_ODM)/etc/selinux
+else
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/selinux
+endif
+
+include $(BUILD_SYSTEM)/base_rules.mk
+
+$(LOCAL_BUILT_MODULE): PRIVATE_CIL_FILES := $(built_system_ext_cil) $(built_system_ext_mapping_cil)
+$(LOCAL_BUILT_MODULE): $(built_precompiled_sepolicy) $(built_system_ext_cil) $(built_system_ext_mapping_cil)
 	cat $(PRIVATE_CIL_FILES) | sha256sum | cut -d' ' -f1 > $@
 
 #################################
@@ -960,11 +1254,20 @@ all_cil_files := \
     $(built_pub_vers_cil) \
     $(built_vendor_cil)
 
-ifdef HAS_PRODUCT_SEPOLICY
-all_cil_files += \
-    $(built_product_cil) \
-    $(built_product_mapping_cil) \
+ifdef HAS_SYSTEM_EXT_SEPOLICY
+all_cil_files += $(built_system_ext_cil)
+endif
 
+ifdef HAS_SYSTEM_EXT_PUBLIC_SEPOLICY
+all_cil_files += $(built_system_ext_mapping_cil)
+endif
+
+ifdef HAS_PRODUCT_SEPOLICY
+all_cil_files += $(built_product_cil)
+endif
+
+ifdef HAS_PRODUCT_PUBLIC_SEPOLICY
+all_cil_files += $(built_product_mapping_cil)
 endif
 
 ifdef BOARD_ODM_SEPOLICY_DIRS
@@ -1004,6 +1307,12 @@ LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) \
+  $(SYSTEM_EXT_PUBLIC_POLICY) $(SYSTEM_EXT_PRIVATE_POLICY) \
+  $(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY) \
+  $(PLAT_VENDOR_POLICY) $(BOARD_VENDOR_SEPOLICY_DIRS) \
+  $(BOARD_ODM_SEPOLICY_DIRS))
 sepolicy.recovery.conf := $(intermediates)/sepolicy.recovery.conf
 $(sepolicy.recovery.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(sepolicy.recovery.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -1013,11 +1322,8 @@ $(sepolicy.recovery.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
 $(sepolicy.recovery.conf): PRIVATE_TGT_WITH_NATIVE_COVERAGE := $(with_native_coverage)
 $(sepolicy.recovery.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(sepolicy.recovery.conf): PRIVATE_TGT_RECOVERY := -D target_recovery=true
-$(sepolicy.recovery.conf): $(call build_policy, $(sepolicy_build_files), \
-                           $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY) \
-                           $(PRODUCT_PUBLIC_POLICY) $(PRODUCT_PRIVATE_POLICY) \
-                           $(PLAT_VENDOR_POLICY) $(BOARD_VENDOR_SEPOLICY_DIRS) \
-                           $(BOARD_ODM_SEPOLICY_DIRS))
+$(sepolicy.recovery.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(sepolicy.recovery.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
@@ -1055,6 +1361,8 @@ LOCAL_MODULE_TAGS := tests
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY))
 $(LOCAL_BUILT_MODULE): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(LOCAL_BUILT_MODULE): PRIVATE_MLS_CATS := $(MLS_CATS)
 $(LOCAL_BUILT_MODULE): PRIVATE_TARGET_BUILD_VARIANT := user
@@ -1062,9 +1370,10 @@ $(LOCAL_BUILT_MODULE): PRIVATE_TGT_ARCH := $(my_target_arch)
 $(LOCAL_BUILT_MODULE): PRIVATE_WITH_ASAN := false
 $(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY_SPLIT := cts
 $(LOCAL_BUILT_MODULE): PRIVATE_COMPATIBLE_PROPERTY := cts
+$(LOCAL_BUILT_MODULE): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := cts
 $(LOCAL_BUILT_MODULE): PRIVATE_EXCLUDE_BUILD_TEST := true
-$(LOCAL_BUILT_MODULE): $(call build_policy, $(sepolicy_build_files), \
-$(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY))
+$(LOCAL_BUILT_MODULE): PRIVATE_POLICY_FILES := $(policy_files)
+$(LOCAL_BUILT_MODULE): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
@@ -1097,7 +1406,11 @@ include $(BUILD_SYSTEM)/base_rules.mk
 
 local_fc_files := $(call build_policy, file_contexts, $(PLAT_PRIVATE_POLICY))
 
-ifdef HAS_PRODUCT_SEPOLICY
+ifdef HAS_SYSTEM_EXT_SEPOLICY_DIR
+local_fc_files += $(call build_policy, file_contexts, $(SYSTEM_EXT_PRIVATE_POLICY))
+endif
+
+ifdef HAS_PRODUCT_SEPOLICY_DIR
 local_fc_files += $(call build_policy, file_contexts, $(PRODUCT_PRIVATE_POLICY))
 endif
 
@@ -1107,20 +1420,22 @@ endif
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
   local_fc_files += $(wildcard $(addsuffix /file_contexts_overlayfs, $(PLAT_PRIVATE_POLICY)))
 endif
-ifeq ($(TARGET_FLATTEN_APEX),true)
-  apex_fc_files := $(wildcard $(LOCAL_PATH)/apex/*-file_contexts)
-  $(foreach _input,$(apex_fc_files),\
-    $(eval _output := $(intermediates)/$(notdir $(_input))-flattened)\
-    $(eval _apex_name := $(patsubst %-file_contexts,%,$(notdir $(_input))))\
-    $(eval $(call build_flattened_apex_file_contexts,$(_input),$(_apex_name),$(_output),local_fc_files))\
-   )
-endif
-local_fcfiles_with_nl := $(call add_nl, $(local_fc_files), $(built_nl))
+
+# Even if TARGET_FLATTEN_APEX is not turned on, "flattened" APEXes are installed
+$(foreach _tuple,$(APEX_FILE_CONTEXTS_INFOS),\
+  $(eval _apex_name := $(call word-colon,1,$(_tuple)))\
+  $(eval _apex_path := $(call word-colon,2,$(_tuple)))\
+  $(eval _fc_path := $(call word-colon,3,$(_tuple)))\
+  $(eval _input := $(_fc_path))\
+  $(eval _output := $(intermediates)/$(_apex_name)-flattened)\
+  $(eval $(call build_flattened_apex_file_contexts,$(_input),$(_apex_path),$(_output),local_fc_files))\
+  )
 
 file_contexts.local.tmp := $(intermediates)/file_contexts.local.tmp
-$(file_contexts.local.tmp): $(local_fcfiles_with_nl)
+$(file_contexts.local.tmp): PRIVATE_FC_FILES := $(local_fc_files)
+$(file_contexts.local.tmp): $(local_fc_files) $(M4)
 	@mkdir -p $(dir $@)
-	$(hide) m4 --fatal-warnings -s $^ > $@
+	$(hide) $(M4) --fatal-warnings -s $(PRIVATE_FC_FILES) > $@
 
 device_fc_files := $(call build_vendor_policy, file_contexts)
 
@@ -1128,13 +1443,12 @@ ifdef BOARD_ODM_SEPOLICY_DIRS
 device_fc_files += $(call build_odm_policy, file_contexts)
 endif
 
-device_fcfiles_with_nl := $(call add_nl, $(device_fc_files), $(built_nl))
-
 file_contexts.device.tmp := $(intermediates)/file_contexts.device.tmp
 $(file_contexts.device.tmp): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
-$(file_contexts.device.tmp): $(device_fcfiles_with_nl)
+$(file_contexts.device.tmp): PRIVATE_DEVICE_FC_FILES := $(device_fc_files)
+$(file_contexts.device.tmp): $(device_fc_files) $(M4)
 	@mkdir -p $(dir $@)
-	$(hide) m4 --fatal-warnings -s $(PRIVATE_ADDITIONAL_M4DEFS) $^ > $@
+	$(hide) $(M4) --fatal-warnings -s $(PRIVATE_ADDITIONAL_M4DEFS) $(PRIVATE_DEVICE_FC_FILES) > $@
 
 file_contexts.device.sorted.tmp := $(intermediates)/file_contexts.device.sorted.tmp
 $(file_contexts.device.sorted.tmp): PRIVATE_SEPOLICY := $(built_sepolicy)
@@ -1142,12 +1456,13 @@ $(file_contexts.device.sorted.tmp): $(file_contexts.device.tmp) $(built_sepolicy
   $(HOST_OUT_EXECUTABLES)/fc_sort $(HOST_OUT_EXECUTABLES)/checkfc
 	@mkdir -p $(dir $@)
 	$(hide) $(HOST_OUT_EXECUTABLES)/checkfc -e $(PRIVATE_SEPOLICY) $<
-	$(hide) $(HOST_OUT_EXECUTABLES)/fc_sort $< $@
+	$(hide) $(HOST_OUT_EXECUTABLES)/fc_sort -i $< -o $@
 
 file_contexts.concat.tmp := $(intermediates)/file_contexts.concat.tmp
-$(file_contexts.concat.tmp): $(file_contexts.local.tmp) $(file_contexts.device.sorted.tmp)
+$(file_contexts.concat.tmp): PRIVATE_CONTEXTS := $(file_contexts.local.tmp) $(file_contexts.device.sorted.tmp)
+$(file_contexts.concat.tmp): $(file_contexts.local.tmp) $(file_contexts.device.sorted.tmp) $(M4)
 	@mkdir -p $(dir $@)
-	$(hide) m4 --fatal-warnings -s $^ > $@
+	$(hide) $(M4) --fatal-warnings -s $(PRIVATE_CONTEXTS) > $@
 
 $(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
 $(LOCAL_BUILT_MODULE): $(file_contexts.concat.tmp) $(built_sepolicy) $(HOST_OUT_EXECUTABLES)/sefcontext_compile $(HOST_OUT_EXECUTABLES)/checkfc
@@ -1166,7 +1481,6 @@ file_contexts.device.tmp :=
 file_contexts.local.tmp :=
 
 ##################################
-ifneq ($(TARGET_BUILD_VARIANT), user)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := selinux_denial_metadata
@@ -1175,29 +1489,19 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/selinux
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
-bug_files := $(call build_policy, bug_map, $(LOCAL_PATH) $(PLAT_PRIVATE_POLICY) $(PLAT_VENDOR_POLICY) $(BOARD_SEPOLICY_DIRS) $(PLAT_PUBLIC_POLICY))
+bug_files := $(call build_policy, bug_map, $(LOCAL_PATH) $(PLAT_PRIVATE_POLICY) $(PLAT_VENDOR_POLICY) $(BOARD_VENDOR_SEPOLICY_DIRS) $(PLAT_PUBLIC_POLICY))
 
 $(LOCAL_BUILT_MODULE) : $(bug_files)
 	@mkdir -p $(dir $@)
 	cat $^ > $@
 
 bug_files :=
-endif
-
-##################################
-include $(LOCAL_PATH)/file_contexts.mk
 
 ##################################
 include $(LOCAL_PATH)/seapp_contexts.mk
 
 ##################################
-include $(LOCAL_PATH)/property_contexts.mk
-
-##################################
-include $(LOCAL_PATH)/service_contexts.mk
-
-##################################
-include $(LOCAL_PATH)/hwservice_contexts.mk
+include $(LOCAL_PATH)/contexts_tests.mk
 
 ##################################
 include $(CLEAR_VARS)
@@ -1214,9 +1518,9 @@ vnd_svcfiles := $(call build_policy, vndservice_contexts, $(PLAT_VENDOR_POLICY) 
 vndservice_contexts.tmp := $(intermediates)/vndservice_contexts.tmp
 $(vndservice_contexts.tmp): PRIVATE_SVC_FILES := $(vnd_svcfiles)
 $(vndservice_contexts.tmp): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
-$(vndservice_contexts.tmp): $(vnd_svcfiles)
+$(vndservice_contexts.tmp): $(vnd_svcfiles) $(M4)
 	@mkdir -p $(dir $@)
-	$(hide) m4 --fatal-warnings -s $(PRIVATE_ADDITIONAL_M4DEFS) $(PRIVATE_SVC_FILES) > $@
+	$(hide) $(M4) --fatal-warnings -s $(PRIVATE_ADDITIONAL_M4DEFS) $(PRIVATE_SVC_FILES) > $@
 
 $(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
 $(LOCAL_BUILT_MODULE): $(vndservice_contexts.tmp) $(built_sepolicy) $(HOST_OUT_EXECUTABLES)/checkfc $(ACP)
@@ -1233,24 +1537,27 @@ include $(LOCAL_PATH)/mac_permissions.mk
 #################################
 include $(CLEAR_VARS)
 LOCAL_MODULE := sepolicy_tests
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_TAGS := tests
+LOCAL_MODULE_CLASS := FAKE
+LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
-all_fc_files := $(built_plat_fc) $(built_vendor_fc)
-ifdef HAS_PRODUCT_SEPOLICY
-all_fc_args += $(built_product_fc)
+all_fc_files := $(TARGET_OUT)/etc/selinux/plat_file_contexts
+all_fc_files += $(TARGET_OUT_VENDOR)/etc/selinux/vendor_file_contexts
+ifdef HAS_SYSTEM_EXT_SEPOLICY_DIR
+all_fc_files += $(TARGET_OUT_SYSTEM_EXT)/etc/selinux/system_ext_file_contexts
+endif
+ifdef HAS_PRODUCT_SEPOLICY_DIR
+all_fc_files += $(TARGET_OUT_PRODUCT)/etc/selinux/product_file_contexts
 endif
 ifdef BOARD_ODM_SEPOLICY_DIRS
-all_fc_files += $(built_odm_fc)
+all_fc_files += $(TARGET_OUT_ODM)/etc/selinux/odm_file_contexts
 endif
 all_fc_args := $(foreach file, $(all_fc_files), -f $(file))
 
-sepolicy_tests := $(intermediates)/sepolicy_tests
-$(sepolicy_tests): ALL_FC_ARGS := $(all_fc_args)
-$(sepolicy_tests): PRIVATE_SEPOLICY := $(built_sepolicy)
-$(sepolicy_tests): $(HOST_OUT_EXECUTABLES)/sepolicy_tests $(all_fc_files) $(built_sepolicy)
+$(LOCAL_BUILT_MODULE): ALL_FC_ARGS := $(all_fc_args)
+$(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
+$(LOCAL_BUILT_MODULE): $(HOST_OUT_EXECUTABLES)/sepolicy_tests $(all_fc_files) $(built_sepolicy)
 	@mkdir -p $(dir $@)
 	$(hide) $(HOST_OUT_EXECUTABLES)/sepolicy_tests -l $(HOST_OUT)/lib64/libsepolwrap.$(SHAREDLIB_EXT) \
 		$(ALL_FC_ARGS)  -p $(PRIVATE_SEPOLICY)
@@ -1262,8 +1569,8 @@ intermediates := $(call intermediates-dir-for,ETC,built_plat_sepolicy,,,,)
 # plat_sepolicy - the current platform policy only, built into a policy binary.
 # TODO - this currently excludes partner extensions, but support should be added
 # to enable partners to add their own compatibility mapping
-BASE_PLAT_PUBLIC_POLICY := $(filter-out $(BOARD_PLAT_PUBLIC_SEPOLICY_DIR), $(PLAT_PUBLIC_POLICY))
-BASE_PLAT_PRIVATE_POLICY := $(filter-out $(BOARD_PLAT_PRIVATE_SEPOLICY_DIR), $(PLAT_PRIVATE_POLICY))
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(PLAT_PRIVATE_POLICY))
 base_plat_policy.conf := $(intermediates)/base_plat_policy.conf
 $(base_plat_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(base_plat_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -1273,18 +1580,19 @@ $(base_plat_policy.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
 $(base_plat_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(base_plat_policy.conf): PRIVATE_SEPOLICY_SPLIT := true
 $(base_plat_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(base_plat_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(BASE_PLAT_PUBLIC_POLICY) $(BASE_PLAT_PRIVATE_POLICY))
+$(base_plat_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(base_plat_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(base_plat_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 	$(hide) sed '/^\s*dontaudit.*;/d' $@ | sed '/^\s*dontaudit/,/;/d' > $@.dontaudit
 
 built_plat_sepolicy := $(intermediates)/built_plat_sepolicy
 $(built_plat_sepolicy): PRIVATE_ADDITIONAL_CIL_FILES := \
-  $(call build_policy, $(sepolicy_build_cil_workaround_files), $(BASE_PLAT_PRIVATE_POLICY))
+  $(call build_policy, $(sepolicy_build_cil_workaround_files), $(PLAT_PRIVATE_POLICY))
 $(built_plat_sepolicy): PRIVATE_NEVERALLOW_ARG := $(NEVERALLOW_ARG)
 $(built_plat_sepolicy): $(base_plat_policy.conf) $(HOST_OUT_EXECUTABLES)/checkpolicy \
 $(HOST_OUT_EXECUTABLES)/secilc \
-$(call build_policy, $(sepolicy_build_cil_workaround_files), $(BASE_PLAT_PRIVATE_POLICY)) \
+$(call build_policy, $(sepolicy_build_cil_workaround_files), $(PLAT_PRIVATE_POLICY)) \
 $(built_sepolicy_neverallows)
 	@mkdir -p $(dir $@)
 	$(hide) $(CHECKPOLICY_ASAN_OPTIONS) $(HOST_OUT_EXECUTABLES)/checkpolicy -M -C -c \
@@ -1292,6 +1600,8 @@ $(built_sepolicy_neverallows)
 	$(hide) cat $(PRIVATE_ADDITIONAL_CIL_FILES) >> $@
 	$(hide) $(HOST_OUT_EXECUTABLES)/secilc -m -M true -G -c $(POLICYVERS) $(PRIVATE_NEVERALLOW_ARG) $@ -o $@ -f /dev/null
 
+policy_files := $(call build_policy, $(sepolicy_build_files), \
+  $(PLAT_PUBLIC_POLICY) $(REQD_MASK_POLICY))
 base_plat_pub_policy.conf := $(intermediates)/base_plat_pub_policy.conf
 $(base_plat_pub_policy.conf): PRIVATE_MLS_SENS := $(MLS_SENS)
 $(base_plat_pub_policy.conf): PRIVATE_MLS_CATS := $(MLS_CATS)
@@ -1301,8 +1611,9 @@ $(base_plat_pub_policy.conf): PRIVATE_TGT_WITH_ASAN := $(with_asan)
 $(base_plat_pub_policy.conf): PRIVATE_ADDITIONAL_M4DEFS := $(LOCAL_ADDITIONAL_M4DEFS)
 $(base_plat_pub_policy.conf): PRIVATE_SEPOLICY_SPLIT := true
 $(base_plat_pub_policy.conf): PRIVATE_COMPATIBLE_PROPERTY := $(PRODUCT_COMPATIBLE_PROPERTY)
-$(base_plat_pub_policy.conf): $(call build_policy, $(sepolicy_build_files), \
-$(BASE_PLAT_PUBLIC_POLICY) $(REQD_MASK_POLICY))
+$(base_plat_pub_policy.conf): PRIVATE_TREBLE_SYSPROP_NEVERALLOW := $(treble_sysprop_neverallow)
+$(base_plat_pub_policy.conf): PRIVATE_POLICY_FILES := $(policy_files)
+$(base_plat_pub_policy.conf): $(policy_files) $(M4)
 	$(transform-policy-to-conf)
 
 base_plat_pub_policy.cil := $(intermediates)/base_plat_pub_policy.cil
@@ -1315,37 +1626,39 @@ $(HOST_OUT_EXECUTABLES)/build_sepolicy $(base_plat_pub_policy.conf) $(reqd_polic
 	$(hide) $(HOST_OUT_EXECUTABLES)/build_sepolicy -a $(HOST_OUT_EXECUTABLES) filter_out \
 		-f $(PRIVATE_REQD_MASK) -t $@
 
-all_fc_files := $(built_plat_fc) $(built_vendor_fc)
-ifdef HAS_PRODUCT_SEPOLICY
-all_fc_files += $(built_product_fc)
-endif
-ifdef BOARD_ODM_SEPOLICY_DIRS
-all_fc_files += $(built_odm_fc)
-endif
-all_fc_args := $(foreach file, $(all_fc_files), -f $(file))
-
+ifeq ($(PRODUCT_SEPOLICY_SPLIT),true)
 # Tests for Treble compatibility of current platform policy and vendor policy of
 # given release version.
 version_under_treble_tests := 26.0
 include $(LOCAL_PATH)/treble_sepolicy_tests_for_release.mk
-
 version_under_treble_tests := 27.0
 include $(LOCAL_PATH)/treble_sepolicy_tests_for_release.mk
-
 version_under_treble_tests := 28.0
 include $(LOCAL_PATH)/treble_sepolicy_tests_for_release.mk
+version_under_treble_tests := 29.0
+include $(LOCAL_PATH)/treble_sepolicy_tests_for_release.mk
+endif  # PRODUCT_SEPOLICY_SPLIT
 
-BASE_PLAT_PUBLIC_POLICY :=
-BASE_PLAT_PRIVATE_POLICY :=
+version_under_treble_tests := 26.0
+include $(LOCAL_PATH)/compat.mk
+version_under_treble_tests := 27.0
+include $(LOCAL_PATH)/compat.mk
+version_under_treble_tests := 28.0
+include $(LOCAL_PATH)/compat.mk
+version_under_treble_tests := 29.0
+include $(LOCAL_PATH)/compat.mk
+
 base_plat_policy.conf :=
 base_plat_pub_policy.conf :=
 plat_sepolicy :=
+all_fc_files :=
+all_fc_args :=
 
 #################################
 include $(CLEAR_VARS)
 LOCAL_MODULE := sepolicy_freeze_test
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_TAGS := tests
+LOCAL_MODULE_CLASS := FAKE
+LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
@@ -1379,37 +1692,30 @@ all_frozen_files :=
 #################################
 
 
-add_nl :=
 build_vendor_policy :=
 build_odm_policy :=
 build_policy :=
-built_plat_fc :=
-built_product_fc :=
-built_vendor_fc :=
-built_odm_fc :=
-built_nl :=
 built_plat_cil :=
+built_system_ext_cil :=
+built_product_cil :=
 built_pub_vers_cil :=
 built_plat_mapping_cil :=
+built_system_ext_mapping_cil :=
 built_product_mapping_cil :=
-built_plat_pc :=
-built_product_pc :=
 built_vendor_cil :=
-built_vendor_pc :=
-built_vendor_sc :=
 built_odm_cil :=
-built_odm_pc :=
-built_odm_sc :=
-built_plat_sc :=
 built_precompiled_sepolicy :=
 built_sepolicy :=
 built_sepolicy_neverallows :=
 built_plat_svc :=
 built_vendor_svc :=
 built_plat_sepolicy :=
+treble_sysprop_neverallow :=
 mapping_policy :=
 my_target_arch :=
 pub_policy.cil :=
+system_ext_pub_policy.cil :=
+plat_pub_policy.cil :=
 reqd_policy_mask.cil :=
 sepolicy_build_files :=
 sepolicy_build_cil_workaround_files :=

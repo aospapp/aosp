@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"ឧបករណ៍​ដែលបានភ្ជាប់"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"បញ្ចូល​ឧបករណ៍ដែលបានភ្ជាប់"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"ភ្ជាប់​ឧបករណ៍ដៃគូ"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"អ្នកអាច​ប្រើទូរសព្ទ​របស់អ្នក​ជាឧបករណ៍ដៃគូ ដើម្បីជួយគ្រប់គ្រងការបើកបរ​របស់អ្នក"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"សូមប្រាកដថា អ្នកបានដំឡើង"<b>"កម្មវិធីដៃគូ"</b>"នៅលើទូរសព្ទរបស់អ្នក"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"បញ្ជាក់កូដ​នៅលើ​ទូរសព្ទ"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"បញ្ជាក់ថា​កូដនេះ​ត្រូវគ្នាជាមួយ​កូដ​ដែលបង្ហាញ​នៅលើ​ទូរសព្ទ​របស់អ្នក"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"បានភ្ជាប់​ឧបករណ៍​ដោយជោគជ័យហើយ"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"បើកកម្មវិធី រួចភ្ជាប់ជាមួយ &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"បំភ្លេច &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt; ឬ?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"រថយន្តនេះ​នឹងមិនភ្ជាប់​ជាមួយឧបករណ៍នេះ​ទៀតទេ។ បន្ថែមពីនេះ អ្នកនឹងត្រូវ​លុបរថយន្តនេះ​ចេញពី​កម្មវិធីដៃគូ។"</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"បានបំភ្លេច <xliff:g id="PHONE_NAME">%1$s</xliff:g>"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"មិនអាច​បំភ្លេច <xliff:g id="PHONE_NAME">%1$s</xliff:g> បានទេ"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"បន្តការរៀបចំនៅលើទូរសព្ទរបស់អ្នក"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"មានអ្វីមួយខុសប្រក្រតី"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"គួរឱ្យសោកស្ដាយ អេក្រង់នេះ​មិនអាចបង្ហាញ​បានត្រឹមត្រូវទេ។ សូមព្យាយាមម្ដងទៀត។"</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"បើក​ប៊្លូធូស"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"ត្រូវបើកប៊្លូធូសនៅលើរថយន្តរបស់អ្នក ដើម្បីរៀបចំ​ទូរសព្ទរបស់អ្នក​ជាឧបករណ៍ដៃគូ។"</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"បើកប៊្លូធូសឬ?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"​ត្រូវបើកប៊្លូធូសនៅលើរថយន្តរបស់អ្នក ដើម្បីភ្ជាប់ជាមួយ​ឧបករណ៍ដៃគូ​របស់អ្នក។"</string>
+    <string name="accept" msgid="1454710793329618813">"យល់ព្រម"</string>
+    <string name="reject" msgid="4315432282758892890">"បដិសេធ"</string>
+    <string name="confirm" msgid="3748997214719276945">"បញ្ជាក់"</string>
+    <string name="cancel" msgid="4306609731174629323">"បោះបង់"</string>
+    <string name="remove" msgid="5513398257088729188">"លុបចេញ"</string>
+    <string name="ok" msgid="2825038997730899083">"យល់ព្រម"</string>
+    <string name="connection" msgid="2798490936433656846">"ការតភ្ជាប់"</string>
+    <string name="forget_title" msgid="3027608547243824729">"បំភ្លេច​ឧបករណ៍​នេះ"</string>
+    <string name="forget" msgid="2069897665699141222">"បំភ្លេច"</string>
+    <string name="disable" msgid="4619854429066283970">"បិទ"</string>
+    <string name="enable" msgid="7656386199154111316">"បើក"</string>
+    <string name="continue_button" msgid="2748318968566159950">"បន្ត"</string>
+    <string name="retry" msgid="3783419451480721367">"ព្យាយាមម្ដងទៀត"</string>
+    <string name="turn_on" msgid="4288754850470994812">"បើក"</string>
+    <string name="not_now" msgid="8764692269093707622">"កុំទាន់"</string>
+    <string name="connected" msgid="8051190714042020471">"បានភ្ជាប់"</string>
+    <string name="notDetected" msgid="4115229772085594506">"រកមិនឃើញទេ"</string>
+    <string name="disconnected" msgid="8526513868622591894">"បាន​ផ្ដាច់"</string>
+    <string name="unknown" msgid="555736316465118024">"មិនស្គាល់"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"សេវាកម្ម​សារជាអក្សរ​របស់ទូរសព្ទ​កំពុងដំណើរការ"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"សេវាកម្ម​ផ្ញើសារជាអក្សរ​របស់ទូរសព្ទ​កំពុងដំណើរការ"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"កំពុងទទួល​សារជាអក្សរ​តាមរយៈ​ឧបករណ៍ដៃគូ"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"ដោះសោ​កម្រងព័ត៌មាន​ដោយប្រើទូរសព្ទ"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"ពិនិត្យមើល​កម្មវិធីដៃគូ​របស់អ្នក ដើម្បី​កំណត់ជម្រើស​ដោះសោ"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"អនុញ្ញាតឱ្យ &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; ដោះសោ​កម្រងព័ត៌មាន​របស់ខ្ញុំ"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"ទូរសព្ទ​របស់អ្នក​ត្រូវតែភ្ជាប់​យ៉ាងសកម្ម"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"ដើម្បីបើក​មុខងារនេះ សូមប្រាកដថា​រថយន្ត និងទូរសព្ទ​របស់អ្នក​បានបើក​ប៊្លូធូស និងនៅជិតគ្នា"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"ឥឡូវនេះ &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; អាចដោះសោ​កម្រងព័ត៌មាន​របស់អ្នកបានហើយ"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"បង្កើត​ការចាក់សោ​កម្រងព័ត៌មានចម្បង"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"ដើម្បីប្រើទូរសព្ទ​របស់អ្នក​សម្រាប់ដោះសោ​កម្រងព័ត៌មាន​ អ្នកត្រូវការ​ការចាក់សោ​កម្រងព័ត៌មានចម្បង​សម្រាប់ជាការបម្រុង​ទុក"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"ដោះសោ​កម្រងព័ត៌មាន​របស់អ្នក ដើម្បីបញ្ចប់"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"អ្នកបានបង្កើតការចាក់សោកម្រងព័ត៌មានថ្មីហើយ។ បន្ទាប់មក សូមបញ្ចូលវាម្ដងទៀតដើម្បីបញ្ជាក់ថា ទូរសព្ទរបស់អ្នកអាចដោះសោកម្រងព័ត៌មានរបស់អ្នកដោយស្វ័យប្រវត្តិ"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"ផ្ដាច់​ឧបករណ៍​នេះ"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"ភ្ជាប់​ឧបករណ៍នេះ​ឡើងវិញ"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"ដោះសោ​ដោយប្រើទូរសព្ទ"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"អនុញ្ញាតឱ្យ​ទូរសព្ទរបស់អ្នក​ដោះសោ​កម្រងព័ត៌មាន​របស់អ្នក"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"ចុចត្រង់នេះ ដើម្បីផ្ដល់សិទ្ធិ​ឱ្យមុខងារនេះ"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"មានអ្វីមួយខុសប្រក្រតី"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"គួរឱ្យសោកស្ដាយ មិនអាចបើក​មុខងារនេះ​នៅពេលនេះ​បានទេ។ សូមព្យាយាមម្ដងទៀត។"</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"បង្កើត​ការចាក់សោអេក្រង់​នៅលើ​ទូរសព្ទ​របស់អ្នក"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"ទូរសព្ទ​របស់អ្នក​មិនបានកំណត់​ការចាក់សោ​អេក្រង់ទេ។ ដើម្បី​ដោះសោ​កម្រងព័ត៌មាន​រថយន្ត​ដោយប្រើទូរសព្ទរបស់អ្នក សូមបង្កើត​ការចាក់សោអេក្រង់ (ហៅថាលេខកូដសម្ងាត់) នៅក្នុង​ការកំណត់​ទូរសព្ទរបស់អ្នក​ជាមុនសិន។"</string>
+</resources>

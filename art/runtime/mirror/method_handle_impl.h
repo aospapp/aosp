@@ -28,6 +28,7 @@ namespace art {
 
 struct MethodHandleOffsets;
 struct MethodHandleImplOffsets;
+class ReflectiveValueVisitor;
 
 namespace mirror {
 
@@ -81,11 +82,13 @@ class MANAGED MethodHandle : public Object {
         GetField64(OFFSET_OF_OBJECT_MEMBER(MethodHandle, art_field_or_method_)));
   }
 
-  ALWAYS_INLINE ObjPtr<mirror::Class> GetTargetClass() REQUIRES_SHARED(Locks::mutator_lock_);
-
   // Gets the return type for a named invoke method, or nullptr if the invoke method is not
   // supported.
   static const char* GetReturnTypeDescriptor(const char* invoke_method_name);
+
+  // Used when classes become structurally obsolete to change the MethodHandle to refer to the new
+  // method or field.
+  void VisitTarget(ReflectiveValueVisitor* v) REQUIRES(Locks::mutator_lock_);
 
  protected:
   void Initialize(uintptr_t art_field_or_method, Kind kind, Handle<MethodType> method_type)

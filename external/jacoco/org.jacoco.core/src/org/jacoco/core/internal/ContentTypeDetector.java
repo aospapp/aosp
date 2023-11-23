@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -83,6 +83,13 @@ public class ContentTypeDetector {
 			case Opcodes.V1_7:
 			case Opcodes.V1_8:
 			case Opcodes.V9:
+			case Opcodes.V10:
+			case Opcodes.V11:
+			case Opcodes.V11 | Opcodes.V_PREVIEW:
+			case Opcodes.V12:
+			case Opcodes.V12 | Opcodes.V_PREVIEW:
+			case (Opcodes.V12 + 1):
+			case (Opcodes.V12 + 1) | Opcodes.V_PREVIEW:
 				return CLASSFILE;
 			}
 		}

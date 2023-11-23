@@ -20,7 +20,7 @@ import static androidx.core.util.Preconditions.checkArgument;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import android.content.ContentResolver;
+import android.content.Context;
 import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -163,6 +163,7 @@ public class DocumentStack implements Durable, Parcelable {
         // Add this for keep stack size is 1 on recent root.
         if (root.isRecents()) {
             DocumentInfo rootRecent = new DocumentInfo();
+            rootRecent.userId = root.userId;
             rootRecent.deriveFields();
             push(rootRecent);
         }
@@ -234,14 +235,14 @@ public class DocumentStack implements Durable, Parcelable {
      * Update a possibly stale restored stack against a live
      * {@link DocumentsProvider}.
      */
-    private void updateDocuments(ContentResolver resolver) throws FileNotFoundException {
+    private void updateDocuments(Context context) throws FileNotFoundException {
         for (DocumentInfo info : mList) {
-            info.updateSelf(resolver);
+            info.updateSelf(info.userId.getContentResolver(context), info.userId);
         }
     }
 
     public static @Nullable DocumentStack fromLastAccessedCursor(
-            Cursor cursor, Collection<RootInfo> matchingRoots, ContentResolver resolver)
+            Cursor cursor, Collection<RootInfo> matchingRoots, Context context)
             throws IOException {
 
         if (cursor.moveToFirst()) {
@@ -251,7 +252,7 @@ public class DocumentStack implements Durable, Parcelable {
             DurableUtils.readFromArray(rawStack, stack);
 
             stack.updateRoot(matchingRoots);
-            stack.updateDocuments(resolver);
+            stack.updateDocuments(context);
 
             return stack;
         }

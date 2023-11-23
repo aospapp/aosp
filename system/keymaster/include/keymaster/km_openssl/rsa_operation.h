@@ -188,7 +188,7 @@ class RsaOperationFactory : public OperationFactory {
     virtual keymaster_purpose_t purpose() const = 0;
 
     OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                 keymaster_error_t* error) const override {
+                                 keymaster_error_t* error) override {
         return OperationPtr(CreateRsaOperation(move(key), begin_params, error));
     }
     const keymaster_digest_t* SupportedDigests(size_t* digest_count) const override;
@@ -196,14 +196,13 @@ class RsaOperationFactory : public OperationFactory {
   protected:
     static EVP_PKEY* GetRsaKey(Key&& key, keymaster_error_t* error);
     virtual RsaOperation* CreateRsaOperation(Key&& key, const AuthorizationSet& begin_params,
-                                             keymaster_error_t* error) const;
+                                             keymaster_error_t* error);
 
   private:
     virtual RsaOperation* InstantiateOperation(AuthorizationSet&& hw_enforced,
                                                AuthorizationSet&& sw_enforced,
                                                keymaster_digest_t digest,
-                                               keymaster_padding_t padding,
-                                               EVP_PKEY* key) const = 0;
+                                               keymaster_padding_t padding, EVP_PKEY* key) = 0;
 };
 
 /**
@@ -221,7 +220,7 @@ class RsaDigestingOperationFactory : public RsaOperationFactory {
 class RsaCryptingOperationFactory : public RsaOperationFactory {
   public:
     RsaOperation* CreateRsaOperation(Key&& key, const AuthorizationSet& begin_params,
-                                     keymaster_error_t* error) const override;
+                                     keymaster_error_t* error) override;
     const keymaster_padding_t* SupportedPaddingModes(size_t* padding_mode_count) const override;
 };
 
@@ -233,7 +232,7 @@ class RsaSigningOperationFactory : public RsaDigestingOperationFactory {
     keymaster_purpose_t purpose() const override { return KM_PURPOSE_SIGN; }
     RsaOperation* InstantiateOperation(AuthorizationSet&& hw_enforced,
                                        AuthorizationSet&& sw_enforced, keymaster_digest_t digest,
-                                       keymaster_padding_t padding, EVP_PKEY* key) const override {
+                                       keymaster_padding_t padding, EVP_PKEY* key) override {
         return new (std::nothrow)
             RsaSignOperation(move(hw_enforced), move(sw_enforced), digest, padding, key);
     }
@@ -246,7 +245,7 @@ class RsaVerificationOperationFactory : public RsaDigestingOperationFactory {
     keymaster_purpose_t purpose() const override { return KM_PURPOSE_VERIFY; }
     RsaOperation* InstantiateOperation(AuthorizationSet&& hw_enforced,
                                        AuthorizationSet&& sw_enforced, keymaster_digest_t digest,
-                                       keymaster_padding_t padding, EVP_PKEY* key) const override {
+                                       keymaster_padding_t padding, EVP_PKEY* key) override {
         return new (std::nothrow)
             RsaVerifyOperation(move(hw_enforced), move(sw_enforced), digest, padding, key);
     }
@@ -259,7 +258,7 @@ class RsaEncryptionOperationFactory : public RsaCryptingOperationFactory {
     keymaster_purpose_t purpose() const override { return KM_PURPOSE_ENCRYPT; }
     RsaOperation* InstantiateOperation(AuthorizationSet&& hw_enforced,
                                        AuthorizationSet&& sw_enforced, keymaster_digest_t digest,
-                                       keymaster_padding_t padding, EVP_PKEY* key) const override {
+                                       keymaster_padding_t padding, EVP_PKEY* key) override {
         return new (std::nothrow)
             RsaEncryptOperation(move(hw_enforced), move(sw_enforced), digest, padding, key);
     }
@@ -272,7 +271,7 @@ class RsaDecryptionOperationFactory : public RsaCryptingOperationFactory {
     keymaster_purpose_t purpose() const override { return KM_PURPOSE_DECRYPT; }
     RsaOperation* InstantiateOperation(AuthorizationSet&& hw_enforced,
                                        AuthorizationSet&& sw_enforced, keymaster_digest_t digest,
-                                       keymaster_padding_t padding, EVP_PKEY* key) const override {
+                                       keymaster_padding_t padding, EVP_PKEY* key) override {
         return new (std::nothrow)
             RsaDecryptOperation(move(hw_enforced), move(sw_enforced), digest, padding, key);
     }

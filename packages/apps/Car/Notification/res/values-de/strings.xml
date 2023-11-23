@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"Wiedergeben"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"Stummschalten"</string>
-    <string name="action_mute_long" msgid="6846675719189989477">"Unterhaltung stummschalten"</string>
+    <string name="action_mute_long" msgid="6846675719189989477">"Unterhaltung ignorieren"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Stummschaltung aufheben"</string>
     <string name="action_unmute_long" msgid="22482625837159466">"Unterhaltung nicht mehr stummschalten"</string>
     <string name="action_canned_reply" msgid="4045960823021872834">"\"Ich fahre gerade.\""</string>

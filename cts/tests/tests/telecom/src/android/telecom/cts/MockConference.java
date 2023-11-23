@@ -40,7 +40,7 @@ public class MockConference extends Conference {
     }
 
     public MockConference(MockConnection a, MockConnection b) {
-        super(a.getPhoneAccountHandle());
+        super(a.getMockPhoneAccountHandle());
         addConnection(a);
         addConnection(b);
         // a is the primary connection, so inherit the properties from it.

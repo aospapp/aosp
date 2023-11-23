@@ -16,21 +16,7 @@
 
 package android.server.wm.displaysize;
 
-import static android.server.wm.displaysize.Components.SmallestWidthActivity.EXTRA_LAUNCH_ANOTHER_ACTIVITY;
-
 import android.app.Activity;
-import android.content.ComponentName;
-import android.content.Intent;
 
 public class SmallestWidthActivity extends Activity {
-
-    @Override
-    protected void onNewIntent(final Intent intent) {
-        super.onNewIntent(intent);
-
-        if (intent.hasExtra(EXTRA_LAUNCH_ANOTHER_ACTIVITY)) {
-            startActivity(new Intent().setComponent(ComponentName.unflattenFromString(
-                    intent.getStringExtra(EXTRA_LAUNCH_ANOTHER_ACTIVITY))));
-        }
-    }
 }

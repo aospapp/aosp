@@ -15,8 +15,6 @@
 package build
 
 import (
-	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,10 +29,11 @@ type Config struct{ *configImpl }
 
 type configImpl struct {
 	// From the environment
-	arguments []string
-	goma      bool
-	environ   *Environment
-	distDir   string
+	arguments     []string
+	goma          bool
+	environ       *Environment
+	distDir       string
+	buildDateTime string
 
 	// From the arguments
 	parallel   int
@@ -51,16 +50,46 @@ type configImpl struct {
 	targetDevice    string
 	targetDeviceDir string
 
+	// Autodetected
+	totalRAM uint64
+
 	pdkBuild bool
 
 	brokenDupRules     bool
-	brokenPhonyTargets bool
 	brokenUsesNetwork  bool
+	brokenNinjaEnvVars []string
 
 	pathReplaced bool
 }
 
 const srcDirFileCheck = "build/soong/root.bp"
+
+var buildFiles = []string{"Android.mk", "Android.bp"}
+
+type BuildAction uint
+
+const (
+	// Builds all of the modules and their dependencies of a specified directory, relative to the root
+	// directory of the source tree.
+	BUILD_MODULES_IN_A_DIRECTORY BuildAction = iota
+
+	// Builds all of the modules and their dependencies of a list of specified directories. All specified
+	// directories are relative to the root directory of the source tree.
+	BUILD_MODULES_IN_DIRECTORIES
+
+	// Build a list of specified modules. If none was specified, simply build the whole source tree.
+	BUILD_MODULES
+)
+
+// checkTopDir validates that the current directory is at the root directory of the source tree.
+func checkTopDir(ctx Context) {
+	if _, err := os.Stat(srcDirFileCheck); err != nil {
+		if os.IsNotExist(err) {
+			ctx.Fatalf("Current working directory must be the source tree. %q not found.", srcDirFileCheck)
+		}
+		ctx.Fatalln("Error verifying tree state:", err)
+	}
+}
 
 func NewConfig(ctx Context, args ...string) Config {
 	ret := &configImpl{
@@ -70,6 +99,8 @@ func NewConfig(ctx Context, args ...string) Config {
 	// Sane default matching ninja
 	ret.parallel = runtime.NumCPU() + 2
 	ret.keepGoing = 1
+
+	ret.totalRAM = detectTotalRAM(ctx)
 
 	ret.parseArgs(ctx, args)
 
@@ -119,6 +150,7 @@ func NewConfig(ctx Context, args ...string) Config {
 		"DIST_DIR",
 
 		// Variables that have caused problems in the past
+		"BASH_ENV",
 		"CDPATH",
 		"DISPLAY",
 		"GREP_OPTIONS",
@@ -154,46 +186,50 @@ func NewConfig(ctx Context, args ...string) Config {
 
 	ret.environ.Set("TMPDIR", absPath(ctx, ret.TempDir()))
 
+	// Always set ASAN_SYMBOLIZER_PATH so that ASAN-based tools can symbolize any crashes
+	symbolizerPath := filepath.Join("prebuilts/clang/host", ret.HostPrebuiltTag(),
+		"llvm-binutils-stable/llvm-symbolizer")
+	ret.environ.Set("ASAN_SYMBOLIZER_PATH", absPath(ctx, symbolizerPath))
+
 	// Precondition: the current directory is the top of the source tree
-	if _, err := os.Stat(srcDirFileCheck); err != nil {
-		if os.IsNotExist(err) {
-			log.Fatalf("Current working directory must be the source tree. %q not found", srcDirFileCheck)
-		}
-		log.Fatalln("Error verifying tree state:", err)
-	}
+	checkTopDir(ctx)
 
 	if srcDir := absPath(ctx, "."); strings.ContainsRune(srcDir, ' ') {
-		log.Println("You are building in a directory whose absolute path contains a space character:")
-		log.Println()
-		log.Printf("%q\n", srcDir)
-		log.Println()
-		log.Fatalln("Directory names containing spaces are not supported")
+		ctx.Println("You are building in a directory whose absolute path contains a space character:")
+		ctx.Println()
+		ctx.Printf("%q\n", srcDir)
+		ctx.Println()
+		ctx.Fatalln("Directory names containing spaces are not supported")
 	}
 
 	if outDir := ret.OutDir(); strings.ContainsRune(outDir, ' ') {
-		log.Println("The absolute path of your output directory ($OUT_DIR) contains a space character:")
-		log.Println()
-		log.Printf("%q\n", outDir)
-		log.Println()
-		log.Fatalln("Directory names containing spaces are not supported")
+		ctx.Println("The absolute path of your output directory ($OUT_DIR) contains a space character:")
+		ctx.Println()
+		ctx.Printf("%q\n", outDir)
+		ctx.Println()
+		ctx.Fatalln("Directory names containing spaces are not supported")
 	}
 
 	if distDir := ret.DistDir(); strings.ContainsRune(distDir, ' ') {
-		log.Println("The absolute path of your dist directory ($DIST_DIR) contains a space character:")
-		log.Println()
-		log.Printf("%q\n", distDir)
-		log.Println()
-		log.Fatalln("Directory names containing spaces are not supported")
+		ctx.Println("The absolute path of your dist directory ($DIST_DIR) contains a space character:")
+		ctx.Println()
+		ctx.Printf("%q\n", distDir)
+		ctx.Println()
+		ctx.Fatalln("Directory names containing spaces are not supported")
 	}
 
 	// Configure Java-related variables, including adding it to $PATH
 	java8Home := filepath.Join("prebuilts/jdk/jdk8", ret.HostPrebuiltTag())
 	java9Home := filepath.Join("prebuilts/jdk/jdk9", ret.HostPrebuiltTag())
+	java11Home := filepath.Join("prebuilts/jdk/jdk11", ret.HostPrebuiltTag())
 	javaHome := func() string {
 		if override, ok := ret.environ.Get("OVERRIDE_ANDROID_JAVA_HOME"); ok {
 			return override
 		}
-		return java9Home
+		if toolchain11, ok := ret.environ.Get("EXPERIMENTAL_USE_OPENJDK11_TOOLCHAIN"); ok && toolchain11 != "true" {
+			ctx.Fatalln("The environment variable EXPERIMENTAL_USE_OPENJDK11_TOOLCHAIN is no longer supported. An OpenJDK 11 toolchain is now the global default.")
+		}
+		return java11Home
 	}()
 	absJavaHome := absPath(ctx, javaHome)
 
@@ -203,31 +239,248 @@ func NewConfig(ctx Context, args ...string) Config {
 	if path, ok := ret.environ.Get("PATH"); ok && path != "" {
 		newPath = append(newPath, path)
 	}
+
 	ret.environ.Unset("OVERRIDE_ANDROID_JAVA_HOME")
 	ret.environ.Set("JAVA_HOME", absJavaHome)
 	ret.environ.Set("ANDROID_JAVA_HOME", javaHome)
 	ret.environ.Set("ANDROID_JAVA8_HOME", java8Home)
 	ret.environ.Set("ANDROID_JAVA9_HOME", java9Home)
+	ret.environ.Set("ANDROID_JAVA11_HOME", java11Home)
 	ret.environ.Set("PATH", strings.Join(newPath, string(filepath.ListSeparator)))
 
 	outDir := ret.OutDir()
 	buildDateTimeFile := filepath.Join(outDir, "build_date.txt")
-	var content string
 	if buildDateTime, ok := ret.environ.Get("BUILD_DATETIME"); ok && buildDateTime != "" {
-		content = buildDateTime
+		ret.buildDateTime = buildDateTime
 	} else {
-		content = strconv.FormatInt(time.Now().Unix(), 10)
+		ret.buildDateTime = strconv.FormatInt(time.Now().Unix(), 10)
 	}
+
 	if ctx.Metrics != nil {
-		ctx.Metrics.SetBuildDateTime(content)
-	}
-	err := ioutil.WriteFile(buildDateTimeFile, []byte(content), 0777)
-	if err != nil {
-		ctx.Fatalln("Failed to write BUILD_DATETIME to file:", err)
+		ctx.Metrics.SetBuildDateTime(ret.buildDateTime)
 	}
 	ret.environ.Set("BUILD_DATETIME_FILE", buildDateTimeFile)
 
 	return Config{ret}
+}
+
+// NewBuildActionConfig returns a build configuration based on the build action. The arguments are
+// processed based on the build action and extracts any arguments that belongs to the build action.
+func NewBuildActionConfig(action BuildAction, dir string, ctx Context, args ...string) Config {
+	return NewConfig(ctx, getConfigArgs(action, dir, ctx, args)...)
+}
+
+// getConfigArgs processes the command arguments based on the build action and creates a set of new
+// arguments to be accepted by Config.
+func getConfigArgs(action BuildAction, dir string, ctx Context, args []string) []string {
+	// The next block of code verifies that the current directory is the root directory of the source
+	// tree. It then finds the relative path of dir based on the root directory of the source tree
+	// and verify that dir is inside of the source tree.
+	checkTopDir(ctx)
+	topDir, err := os.Getwd()
+	if err != nil {
+		ctx.Fatalf("Error retrieving top directory: %v", err)
+	}
+	dir, err = filepath.EvalSymlinks(dir)
+	if err != nil {
+		ctx.Fatalf("Unable to evaluate symlink of %s: %v", dir, err)
+	}
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		ctx.Fatalf("Unable to find absolute path %s: %v", dir, err)
+	}
+	relDir, err := filepath.Rel(topDir, dir)
+	if err != nil {
+		ctx.Fatalf("Unable to find relative path %s of %s: %v", relDir, topDir, err)
+	}
+	// If there are ".." in the path, it's not in the source tree.
+	if strings.Contains(relDir, "..") {
+		ctx.Fatalf("Directory %s is not under the source tree %s", dir, topDir)
+	}
+
+	configArgs := args[:]
+
+	// If the arguments contains GET-INSTALL-PATH, change the target name prefix from MODULES-IN- to
+	// GET-INSTALL-PATH-IN- to extract the installation path instead of building the modules.
+	targetNamePrefix := "MODULES-IN-"
+	if inList("GET-INSTALL-PATH", configArgs) {
+		targetNamePrefix = "GET-INSTALL-PATH-IN-"
+		configArgs = removeFromList("GET-INSTALL-PATH", configArgs)
+	}
+
+	var targets []string
+
+	switch action {
+	case BUILD_MODULES:
+		// No additional processing is required when building a list of specific modules or all modules.
+	case BUILD_MODULES_IN_A_DIRECTORY:
+		// If dir is the root source tree, all the modules are built of the source tree are built so
+		// no need to find the build file.
+		if topDir == dir {
+			break
+		}
+
+		buildFile := findBuildFile(ctx, relDir)
+		if buildFile == "" {
+			ctx.Fatalf("Build file not found for %s directory", relDir)
+		}
+		targets = []string{convertToTarget(filepath.Dir(buildFile), targetNamePrefix)}
+	case BUILD_MODULES_IN_DIRECTORIES:
+		newConfigArgs, dirs := splitArgs(configArgs)
+		configArgs = newConfigArgs
+		targets = getTargetsFromDirs(ctx, relDir, dirs, targetNamePrefix)
+	}
+
+	// Tidy only override all other specified targets.
+	tidyOnly := os.Getenv("WITH_TIDY_ONLY")
+	if tidyOnly == "true" || tidyOnly == "1" {
+		configArgs = append(configArgs, "tidy_only")
+	} else {
+		configArgs = append(configArgs, targets...)
+	}
+
+	return configArgs
+}
+
+// convertToTarget replaces "/" to "-" in dir and pre-append the targetNamePrefix to the target name.
+func convertToTarget(dir string, targetNamePrefix string) string {
+	return targetNamePrefix + strings.ReplaceAll(dir, "/", "-")
+}
+
+// hasBuildFile returns true if dir contains an Android build file.
+func hasBuildFile(ctx Context, dir string) bool {
+	for _, buildFile := range buildFiles {
+		_, err := os.Stat(filepath.Join(dir, buildFile))
+		if err == nil {
+			return true
+		}
+		if !os.IsNotExist(err) {
+			ctx.Fatalf("Error retrieving the build file stats: %v", err)
+		}
+	}
+	return false
+}
+
+// findBuildFile finds a build file (makefile or blueprint file) by looking if there is a build file
+// in the current and any sub directory of dir. If a build file is not found, traverse the path
+// up by one directory and repeat again until either a build file is found or reached to the root
+// source tree. The returned filename of build file is "Android.mk". If one was not found, a blank
+// string is returned.
+func findBuildFile(ctx Context, dir string) string {
+	// If the string is empty or ".", assume it is top directory of the source tree.
+	if dir == "" || dir == "." {
+		return ""
+	}
+
+	found := false
+	for buildDir := dir; buildDir != "."; buildDir = filepath.Dir(buildDir) {
+		err := filepath.Walk(buildDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if found {
+				return filepath.SkipDir
+			}
+			if info.IsDir() {
+				return nil
+			}
+			for _, buildFile := range buildFiles {
+				if info.Name() == buildFile {
+					found = true
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			ctx.Fatalf("Error finding Android build file: %v", err)
+		}
+
+		if found {
+			return filepath.Join(buildDir, "Android.mk")
+		}
+	}
+
+	return ""
+}
+
+// splitArgs iterates over the arguments list and splits into two lists: arguments and directories.
+func splitArgs(args []string) (newArgs []string, dirs []string) {
+	specialArgs := map[string]bool{
+		"showcommands": true,
+		"snod":         true,
+		"dist":         true,
+		"checkbuild":   true,
+	}
+
+	newArgs = []string{}
+	dirs = []string{}
+
+	for _, arg := range args {
+		// It's a dash argument if it starts with "-" or it's a key=value pair, it's not a directory.
+		if strings.IndexRune(arg, '-') == 0 || strings.IndexRune(arg, '=') != -1 {
+			newArgs = append(newArgs, arg)
+			continue
+		}
+
+		if _, ok := specialArgs[arg]; ok {
+			newArgs = append(newArgs, arg)
+			continue
+		}
+
+		dirs = append(dirs, arg)
+	}
+
+	return newArgs, dirs
+}
+
+// getTargetsFromDirs iterates over the dirs list and creates a list of targets to build. If a
+// directory from the dirs list does not exist, a fatal error is raised. relDir is related to the
+// source root tree where the build action command was invoked. Each directory is validated if the
+// build file can be found and follows the format "dir1:target1,target2,...". Target is optional.
+func getTargetsFromDirs(ctx Context, relDir string, dirs []string, targetNamePrefix string) (targets []string) {
+	for _, dir := range dirs {
+		// The directory may have specified specific modules to build. ":" is the separator to separate
+		// the directory and the list of modules.
+		s := strings.Split(dir, ":")
+		l := len(s)
+		if l > 2 { // more than one ":" was specified.
+			ctx.Fatalf("%s not in proper directory:target1,target2,... format (\":\" was specified more than once)", dir)
+		}
+
+		dir = filepath.Join(relDir, s[0])
+		if _, err := os.Stat(dir); err != nil {
+			ctx.Fatalf("couldn't find directory %s", dir)
+		}
+
+		// Verify that if there are any targets specified after ":". Each target is separated by ",".
+		var newTargets []string
+		if l == 2 && s[1] != "" {
+			newTargets = strings.Split(s[1], ",")
+			if inList("", newTargets) {
+				ctx.Fatalf("%s not in proper directory:target1,target2,... format", dir)
+			}
+		}
+
+		// If there are specified targets to build in dir, an android build file must exist for the one
+		// shot build. For the non-targets case, find the appropriate build file and build all the
+		// modules in dir (or the closest one in the dir path).
+		if len(newTargets) > 0 {
+			if !hasBuildFile(ctx, dir) {
+				ctx.Fatalf("Couldn't locate a build file from %s directory", dir)
+			}
+		} else {
+			buildFile := findBuildFile(ctx, dir)
+			if buildFile == "" {
+				ctx.Fatalf("Build file not found for %s directory", dir)
+			}
+			newTargets = []string{convertToTarget(filepath.Dir(buildFile), targetNamePrefix)}
+		}
+
+		targets = append(targets, newTargets...)
+	}
+
+	return targets
 }
 
 func (c *configImpl) parseArgs(ctx Context, args []string) {
@@ -386,7 +639,7 @@ func (c *configImpl) Arguments() []string {
 
 func (c *configImpl) OutDir() string {
 	if outDir, ok := c.environ.Get("OUT_DIR"); ok {
-		return filepath.Clean(outDir)
+		return outDir
 	}
 	return "out"
 }
@@ -469,6 +722,40 @@ func (c *configImpl) Parallel() int {
 	return c.parallel
 }
 
+func (c *configImpl) HighmemParallel() int {
+	if i, ok := c.environ.GetInt("NINJA_HIGHMEM_NUM_JOBS"); ok {
+		return i
+	}
+
+	const minMemPerHighmemProcess = 8 * 1024 * 1024 * 1024
+	parallel := c.Parallel()
+	if c.UseRemoteBuild() {
+		// Ninja doesn't support nested pools, and when remote builds are enabled the total ninja parallelism
+		// is set very high (i.e. 500).  Using a large value here would cause the total number of running jobs
+		// to be the sum of the sizes of the local and highmem pools, which will cause extra CPU contention.
+		// Return 1/16th of the size of the local pool, rounding up.
+		return (parallel + 15) / 16
+	} else if c.totalRAM == 0 {
+		// Couldn't detect the total RAM, don't restrict highmem processes.
+		return parallel
+	} else if c.totalRAM <= 16*1024*1024*1024 {
+		// Less than 16GB of ram, restrict to 1 highmem processes
+		return 1
+	} else if c.totalRAM <= 32*1024*1024*1024 {
+		// Less than 32GB of ram, restrict to 2 highmem processes
+		return 2
+	} else if p := int(c.totalRAM / minMemPerHighmemProcess); p < parallel {
+		// If less than 8GB total RAM per process, reduce the number of highmem processes
+		return p
+	}
+	// No restriction on highmem processes
+	return parallel
+}
+
+func (c *configImpl) TotalRAM() uint64 {
+	return c.totalRAM
+}
+
 func (c *configImpl) UseGoma() bool {
 	if v, ok := c.environ.Get("USE_GOMA"); ok {
 		v = strings.TrimSpace(v)
@@ -493,14 +780,43 @@ func (c *configImpl) StartGoma() bool {
 	return true
 }
 
+func (c *configImpl) UseRBE() bool {
+	if v, ok := c.environ.Get("USE_RBE"); ok {
+		v = strings.TrimSpace(v)
+		if v != "" && v != "false" {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *configImpl) StartRBE() bool {
+	if !c.UseRBE() {
+		return false
+	}
+
+	if v, ok := c.environ.Get("NOSTART_RBE"); ok {
+		v = strings.TrimSpace(v)
+		if v != "" && v != "false" {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *configImpl) UseRemoteBuild() bool {
+	return c.UseGoma() || c.UseRBE()
+}
+
 // RemoteParallel controls how many remote jobs (i.e., commands which contain
 // gomacc) are run in parallel.  Note the parallelism of all other jobs is
 // still limited by Parallel()
 func (c *configImpl) RemoteParallel() int {
-	if v, ok := c.environ.Get("NINJA_REMOTE_NUM_JOBS"); ok {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
-		}
+	if !c.UseRemoteBuild() {
+		return 0
+	}
+	if i, ok := c.environ.GetInt("NINJA_REMOTE_NUM_JOBS"); ok {
+		return i
 	}
 	return 500
 }
@@ -615,20 +931,20 @@ func (c *configImpl) BuildBrokenDupRules() bool {
 	return c.brokenDupRules
 }
 
-func (c *configImpl) SetBuildBrokenPhonyTargets(val bool) {
-	c.brokenPhonyTargets = val
-}
-
-func (c *configImpl) BuildBrokenPhonyTargets() bool {
-	return c.brokenPhonyTargets
-}
-
 func (c *configImpl) SetBuildBrokenUsesNetwork(val bool) {
 	c.brokenUsesNetwork = val
 }
 
 func (c *configImpl) BuildBrokenUsesNetwork() bool {
 	return c.brokenUsesNetwork
+}
+
+func (c *configImpl) SetBuildBrokenNinjaUsesEnvVars(val []string) {
+	c.brokenNinjaEnvVars = val
+}
+
+func (c *configImpl) BuildBrokenNinjaUsesEnvVars() []string {
+	return c.brokenNinjaEnvVars
 }
 
 func (c *configImpl) SetTargetDeviceDir(dir string) {

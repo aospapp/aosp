@@ -163,7 +163,13 @@ public abstract class ThemeComponentOption implements CustomizationOption<ThemeC
             @DrawableRes int headerIcon) {
         TextView header = container.findViewById(R.id.theme_preview_card_header);
         header.setText(headerTextResId);
-        header.setCompoundDrawablesWithIntrinsicBounds(0, headerIcon, 0, 0);
+
+        Context context = container.getContext();
+        Drawable icon = context.getResources().getDrawable(headerIcon, context.getTheme());
+        int size = context.getResources().getDimensionPixelSize(R.dimen.card_header_icon_size);
+        icon.setBounds(0, 0, size, size);
+
+        header.setCompoundDrawables(null, icon, null, null);
         header.setCompoundDrawableTintList(ColorStateList.valueOf(
                 header.getCurrentTextColor()));
     }
@@ -373,10 +379,13 @@ public abstract class ThemeComponentOption implements CustomizationOption<ThemeC
             seekbar.setProgressBackgroundTintList(seekbarTintList);
             // Disable seekbar
             seekbar.setOnTouchListener((view, motionEvent) -> true);
+
+            int iconFgColor = res.getColor(R.color.tile_enabled_icon_color, null);
             if (!mIcons.isEmpty() && mShapeDrawable != null) {
                 for (int i = 0; i < COLOR_TILE_IDS.length; i++) {
                     Drawable icon = mIcons.get(COLOR_TILES_ICON_IDS[i][1]).getConstantState()
                             .newDrawable();
+                    icon.setTint(iconFgColor);
                     //TODO: load and set the shape.
                     Drawable bgShape = mShapeDrawable.getConstantState().newDrawable();
                     bgShape.setTint(accentColor);

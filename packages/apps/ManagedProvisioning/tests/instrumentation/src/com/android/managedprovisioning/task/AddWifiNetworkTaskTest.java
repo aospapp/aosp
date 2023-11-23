@@ -150,7 +150,7 @@ public class AddWifiNetworkTaskTest {
         when(mWifiManager.isWifiEnabled()).thenReturn(true);
 
         // GIVEN connected to wifi
-        when(mUtils.isConnectedToWifi(mContext)).thenReturn(true);
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(true);
 
         // GIVEN the connected SSID is the same as the wifi param
         when(mWifiManager.getConnectionInfo()).thenReturn(mWifiInfo);
@@ -173,7 +173,7 @@ public class AddWifiNetworkTaskTest {
         when(mWifiManager.isWifiEnabled()).thenReturn(true);
 
         // GIVEN connected to wifi
-        when(mUtils.isConnectedToWifi(mContext)).thenReturn(true);
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(true);
 
         // GIVEN the connected SSID is different from the one in wifi param
         when(mWifiManager.getConnectionInfo()).thenReturn(mWifiInfo);
@@ -201,7 +201,7 @@ public class AddWifiNetworkTaskTest {
         when(mWifiManager.isWifiEnabled()).thenReturn(true);
 
         // GIVEN connected to wifi
-        when(mUtils.isConnectedToWifi(mContext)).thenReturn(true);
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(true);
 
         // GIVEN the connected SSID is different from the one in wifi param
         when(mWifiManager.getConnectionInfo()).thenReturn(mWifiInfo);
@@ -231,7 +231,7 @@ public class AddWifiNetworkTaskTest {
         when(mWifiManager.isWifiEnabled()).thenReturn(true);
 
         // GIVEN connected to wifi
-        when(mUtils.isConnectedToWifi(mContext)).thenReturn(true);
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(true);
 
         // GIVEN the connected SSID is different from the one in wifi param
         when(mWifiManager.getConnectionInfo()).thenReturn(mWifiInfo);
@@ -267,7 +267,7 @@ public class AddWifiNetworkTaskTest {
         when(mWifiManager.isWifiEnabled()).thenReturn(true);
 
         // GIVEN connected to wifi
-        when(mUtils.isConnectedToWifi(mContext)).thenReturn(true);
+        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(true);
 
         // GIVEN the connected SSID is different from the one in wifi param
         when(mWifiManager.getConnectionInfo()).thenReturn(mWifiInfo);

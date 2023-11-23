@@ -1,14 +1,19 @@
 #include "android_common.h"
 #include <packagelistparser/packagelistparser.h>
 
-// For 'system', 'product' (optional), 'vendor' (mandatory) and/or 'odm' (optional).
-#define MAX_FILE_CONTEXT_SIZE 4
+// For 'system', 'system_ext' (optional), 'product' (optional), 'vendor' (mandatory)
+// and/or 'odm' (optional).
+#define MAX_FILE_CONTEXT_SIZE 5
 
 static const char *const sepolicy_file = "/sepolicy";
 
 static const struct selinux_opt seopts_file_plat[] = {
     { SELABEL_OPT_PATH, "/system/etc/selinux/plat_file_contexts" },
     { SELABEL_OPT_PATH, "/plat_file_contexts" }
+};
+static const struct selinux_opt seopts_file_system_ext[] = {
+    { SELABEL_OPT_PATH, "/system_ext/etc/selinux/system_ext_file_contexts" },
+    { SELABEL_OPT_PATH, "/system_ext_file_contexts" }
 };
 static const struct selinux_opt seopts_file_product[] = {
     { SELABEL_OPT_PATH, "/product/etc/selinux/product_file_contexts" },
@@ -26,26 +31,6 @@ static const struct selinux_opt seopts_file_odm[] = {
     { SELABEL_OPT_PATH, "/odm_file_contexts" }
 };
 
-static const struct selinux_opt seopts_prop_plat[] = {
-    { SELABEL_OPT_PATH, "/system/etc/selinux/plat_property_contexts" },
-    { SELABEL_OPT_PATH, "/plat_property_contexts" }
-};
-static const struct selinux_opt seopts_prop_product[] = {
-    { SELABEL_OPT_PATH, "/product/etc/selinux/product_property_contexts" },
-    { SELABEL_OPT_PATH, "/product_property_contexts" }
-};
-static const struct selinux_opt seopts_prop_vendor[] = {
-    { SELABEL_OPT_PATH, "/vendor/etc/selinux/vendor_property_contexts" },
-    { SELABEL_OPT_PATH, "/vendor_property_contexts" },
-    // TODO: remove nonplat* when no need to retain backward compatibility.
-    { SELABEL_OPT_PATH, "/vendor/etc/selinux/nonplat_property_contexts" },
-    { SELABEL_OPT_PATH, "/nonplat_property_contexts" }
-};
-static const struct selinux_opt seopts_prop_odm[] = {
-    { SELABEL_OPT_PATH, "/odm/etc/selinux/odm_property_contexts" },
-    { SELABEL_OPT_PATH, "/odm_property_contexts" }
-};
-
 /*
  * XXX Where should this configuration file be located?
  * Needs to be accessible by zygote and installd when
@@ -55,6 +40,10 @@ static const struct selinux_opt seopts_prop_odm[] = {
 static char const * const seapp_contexts_plat[] = {
 	"/system/etc/selinux/plat_seapp_contexts",
 	"/plat_seapp_contexts"
+};
+static char const * const seapp_contexts_system_ext[] = {
+	"/system_ext/etc/selinux/system_ext_seapp_contexts",
+	"/system_ext_seapp_contexts"
 };
 static char const * const seapp_contexts_product[] = {
 	"/product/etc/selinux/product_seapp_contexts",
@@ -72,76 +61,6 @@ static char const * const seapp_contexts_odm[] = {
 	"/odm_seapp_contexts"
 };
 
-uint8_t fc_digest[FC_DIGEST_SIZE];
-
-static bool compute_file_contexts_hash(uint8_t c_digest[], const struct selinux_opt *opts, unsigned nopts)
-{
-    int fd = -1;
-    void *map = MAP_FAILED;
-    bool ret = false;
-    uint8_t *fc_data = NULL;
-    size_t total_size = 0;
-    struct stat sb;
-    size_t i;
-
-    for (i = 0; i < nopts; i++) {
-        fd = open(opts[i].value, O_CLOEXEC | O_RDONLY);
-        if (fd < 0) {
-            selinux_log(SELINUX_ERROR, "SELinux:  Could not open %s:  %s\n",
-                    opts[i].value, strerror(errno));
-            goto cleanup;
-        }
-
-        if (fstat(fd, &sb) < 0) {
-            selinux_log(SELINUX_ERROR, "SELinux:  Could not stat %s:  %s\n",
-                    opts[i].value, strerror(errno));
-            goto cleanup;
-        }
-
-        if (sb.st_size == 0) {
-            selinux_log(SELINUX_WARNING, "SELinux:  Skipping %s:  empty file\n",
-                    opts[i].value);
-            goto nextfile;
-        }
-
-        map = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (map == MAP_FAILED) {
-            selinux_log(SELINUX_ERROR, "SELinux:  Could not map %s:  %s\n",
-                    opts[i].value, strerror(errno));
-            goto cleanup;
-        }
-
-        fc_data = realloc(fc_data, total_size + sb.st_size);
-        if (!fc_data) {
-            selinux_log(SELINUX_ERROR, "SELinux: Count not re-alloc for %s:  %s\n",
-                     opts[i].value, strerror(errno));
-            goto cleanup;
-        }
-
-        memcpy(fc_data + total_size, map, sb.st_size);
-        total_size += sb.st_size;
-
-        /* reset everything for next file */
-        munmap(map, sb.st_size);
-nextfile:
-        close(fd);
-        map = MAP_FAILED;
-        fd = -1;
-    }
-
-    SHA1(fc_data, total_size, c_digest);
-    ret = true;
-
-cleanup:
-    if (map != MAP_FAILED)
-        munmap(map, sb.st_size);
-    if (fd >= 0)
-        close(fd);
-    free(fc_data);
-
-    return ret;
-}
-
 static struct selabel_handle* selinux_android_file_context(const struct selinux_opt *opts,
                                                     unsigned nopts)
 {
@@ -158,10 +77,6 @@ static struct selabel_handle* selinux_android_file_context(const struct selinux_
                 __FUNCTION__, strerror(errno));
         return NULL;
     }
-    if (!compute_file_contexts_hash(fc_digest, opts, nopts)) {
-        selabel_close(sehandle);
-        return NULL;
-    }
 
     selinux_log(SELINUX_INFO, "SELinux: Loaded file_contexts\n");
 
@@ -176,6 +91,12 @@ struct selabel_handle* selinux_android_file_context_handle(void)
     for (i = 0; i < ARRAY_SIZE(seopts_file_plat); i++) {
         if (access(seopts_file_plat[i].value, R_OK) != -1) {
             seopts_file[size++] = seopts_file_plat[i];
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(seopts_file_system_ext); i++) {
+        if (access(seopts_file_system_ext[i].value, R_OK) != -1) {
+            seopts_file[size++] = seopts_file_system_ext[i];
             break;
         }
     }
@@ -198,49 +119,6 @@ struct selabel_handle* selinux_android_file_context_handle(void)
         }
     }
     return selinux_android_file_context(seopts_file, size);
-}
-
-struct selabel_handle* selinux_android_prop_context_handle(void)
-{
-    struct selabel_handle* sehandle;
-    struct selinux_opt seopts_prop[MAX_FILE_CONTEXT_SIZE];
-    int size = 0;
-    unsigned int i;
-    for (i = 0; i < ARRAY_SIZE(seopts_prop_plat); i++) {
-        if (access(seopts_prop_plat[i].value, R_OK) != -1) {
-            seopts_prop[size++] = seopts_prop_plat[i];
-            break;
-        }
-    }
-    for (i = 0; i < ARRAY_SIZE(seopts_prop_product); i++) {
-        if (access(seopts_prop_product[i].value, R_OK) != -1) {
-            seopts_prop[size++] = seopts_prop_product[i];
-            break;
-        }
-    }
-    for (i = 0; i < ARRAY_SIZE(seopts_prop_vendor); i++) {
-        if (access(seopts_prop_vendor[i].value, R_OK) != -1) {
-            seopts_prop[size++] = seopts_prop_vendor[i];
-            break;
-        }
-    }
-    for (i = 0; i < ARRAY_SIZE(seopts_prop_odm); i++) {
-        if (access(seopts_prop_odm[i].value, R_OK) != -1) {
-            seopts_prop[size++] = seopts_prop_odm[i];
-            break;
-        }
-    }
-
-    sehandle = selabel_open(SELABEL_CTX_ANDROID_PROP, seopts_prop, size);
-    if (!sehandle) {
-        selinux_log(SELINUX_ERROR, "%s: Error getting property context handle (%s)\n",
-                __FUNCTION__, strerror(errno));
-        return NULL;
-    }
-    selinux_log(SELINUX_INFO, "SELinux: Loaded property_contexts from %s & %s.\n",
-            seopts_prop[0].value, seopts_prop[1].value);
-
-    return sehandle;
 }
 
 enum levelFrom {
@@ -277,8 +155,6 @@ struct seapp_context {
 	bool isSystemServer;
 	bool isEphemeralAppSet;
 	bool isEphemeralApp;
-	bool isV2AppSet;
-	bool isV2App;
 	bool isOwnerSet;
 	bool isOwner;
 	struct prefix_str user;
@@ -327,12 +203,6 @@ static int seapp_context_cmp(const void *A, const void *B)
 	 * unspecified isEphemeral=. */
 	if (s1->isEphemeralAppSet != s2->isEphemeralAppSet)
 		return (s1->isEphemeralAppSet ? -1 : 1);
-
-	/* Give precedence to a specified isV2= over an
-	 * unspecified isV2=. */
-	if (s1->isV2AppSet != s2->isV2AppSet)
-		return (s1->isV2AppSet ? -1 : 1);
-
 
 	/* Give precedence to a specified isOwner= over an unspecified isOwner=. */
 	if (s1->isOwnerSet != s2->isOwnerSet)
@@ -421,7 +291,6 @@ static int seapp_context_cmp(const void *A, const void *B)
 		(s1->isPrivAppSet && s1->isPrivApp == s2->isPrivApp) &&
 		(s1->isOwnerSet && s1->isOwner == s2->isOwner) &&
 		(s1->isSystemServer && s1->isSystemServer == s2->isSystemServer) &&
-		(s1->isV2AppSet && s1->isV2App == s2->isV2App) &&
 		(s1->isEphemeralAppSet && s1->isEphemeralApp == s2->isEphemeralApp);
 
 	if (dup) {
@@ -485,6 +354,12 @@ int selinux_android_seapp_context_reload(void)
 	for (i = 0; i < ARRAY_SIZE(seapp_contexts_plat); i++) {
 		if (access(seapp_contexts_plat[i], R_OK) != -1) {
 			seapp_contexts_files[files_len++] = seapp_contexts_plat[i];
+			break;
+		}
+	}
+	for (i = 0; i < ARRAY_SIZE(seapp_contexts_system_ext); i++) {
+		if (access(seapp_contexts_system_ext[i], R_OK) != -1) {
+			seapp_contexts_files[files_len++] = seapp_contexts_system_ext[i];
 			break;
 		}
 	}
@@ -590,16 +465,6 @@ int selinux_android_seapp_context_reload(void)
 						cur->isEphemeralApp = true;
 					else if (!strcasecmp(value, "false"))
 						cur->isEphemeralApp = false;
-					else {
-						free_seapp_context(cur);
-						goto err;
-					}
-				} else if (!strcasecmp(name, "isV2App")) {
-					cur->isV2AppSet = true;
-					if (!strcasecmp(value, "true"))
-						cur->isV2App = true;
-					else if (!strcasecmp(value, "false"))
-						cur->isV2App = false;
 					else {
 						free_seapp_context(cur);
 						goto err;
@@ -762,7 +627,7 @@ int selinux_android_seapp_context_reload(void)
 					break;
 			}
 
-			if (cur->name.str &&
+			if (!cur->isPrivApp && cur->name.str &&
 			    (!cur->seinfo || !strcmp(cur->seinfo, "default"))) {
 				selinux_log(SELINUX_ERROR, "%s:  No specific seinfo value specified with name=\"%s\", on line %u:  insecure configuration!\n",
 					    seapp_contexts_files[i], cur->name.str, lineno);
@@ -789,12 +654,11 @@ int selinux_android_seapp_context_reload(void)
 		int i;
 		for (i = 0; i < nspec; i++) {
 			cur = seapp_contexts[i];
-			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s  isEphemeralApp=%s isV2App=%s isOwner=%s user=%s seinfo=%s "
+			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s  isEphemeralApp=%s isOwner=%s user=%s seinfo=%s "
 					"name=%s path=%s isPrivApp=%s minTargetSdkVersion=%d fromRunAs=%s -> domain=%s type=%s level=%s levelFrom=%s",
 				__FUNCTION__,
 				cur->isSystemServer ? "true" : "false",
 				cur->isEphemeralAppSet ? (cur->isEphemeralApp ? "true" : "false") : "null",
-				cur->isV2AppSet ? (cur->isV2App ? "true" : "false") : "null",
 				cur->isOwnerSet ? (cur->isOwner ? "true" : "false") : "null",
 				cur->user.str,
 				cur->seinfo, cur->name.str, cur->path.str,
@@ -855,7 +719,6 @@ enum seapp_kind {
 
 #define PRIVILEGED_APP_STR ":privapp"
 #define EPHEMERAL_APP_STR ":ephemeralapp"
-#define V2_APP_STR ":v2"
 #define TARGETSDKVERSION_STR ":targetSdkVersion="
 #define FROM_RUNAS_STR ":fromRunAs"
 static int32_t get_app_targetSdkVersion(const char *seinfo)
@@ -915,7 +778,6 @@ static int seapp_context_lookup(enum seapp_kind kind,
 	bool isPrivApp = false;
 	bool isEphemeralApp = false;
 	int32_t targetSdkVersion = 0;
-	bool isV2App = false;
 	bool fromRunAs = false;
 	char parsedseinfo[BUFSIZ];
 
@@ -926,7 +788,6 @@ static int seapp_context_lookup(enum seapp_kind kind,
 			goto err;
 		isPrivApp = strstr(seinfo, PRIVILEGED_APP_STR) ? true : false;
 		isEphemeralApp = strstr(seinfo, EPHEMERAL_APP_STR) ? true : false;
-		isV2App = strstr(seinfo, V2_APP_STR) ? true : false;
 		fromRunAs = strstr(seinfo, FROM_RUNAS_STR) ? true : false;
 		targetSdkVersion = get_app_targetSdkVersion(seinfo);
 		if (targetSdkVersion < 0) {
@@ -973,9 +834,6 @@ static int seapp_context_lookup(enum seapp_kind kind,
 			continue;
 
 		if (cur->isEphemeralAppSet && cur->isEphemeralApp != isEphemeralApp)
-			continue;
-
-		if (cur->isV2AppSet && cur->isV2App != isV2App)
 			continue;
 
 		if (cur->isOwnerSet && cur->isOwner != isOwner)
@@ -1095,64 +953,6 @@ err:
 	return -1;
 oom:
 	return -2;
-}
-
-int selinux_android_setfilecon(const char *pkgdir,
-				const char *pkgname,
-				const char *seinfo,
-				uid_t uid)
-{
-	char *orig_ctx_str = NULL;
-	char *ctx_str = NULL;
-	context_t ctx = NULL;
-	int rc = -1;
-
-	if (is_selinux_enabled() <= 0)
-		return 0;
-
-	rc = getfilecon(pkgdir, &ctx_str);
-	if (rc < 0)
-		goto err;
-
-	ctx = context_new(ctx_str);
-	orig_ctx_str = ctx_str;
-	if (!ctx)
-		goto oom;
-
-	rc = seapp_context_lookup(SEAPP_TYPE, uid, 0, seinfo, pkgname, NULL, ctx);
-	if (rc == -1)
-		goto err;
-	else if (rc == -2)
-		goto oom;
-
-	ctx_str = context_str(ctx);
-	if (!ctx_str)
-		goto oom;
-
-	rc = security_check_context(ctx_str);
-	if (rc < 0)
-		goto err;
-
-	if (strcmp(ctx_str, orig_ctx_str)) {
-		rc = setfilecon(pkgdir, ctx_str);
-		if (rc < 0)
-			goto err;
-	}
-
-	rc = 0;
-out:
-	freecon(orig_ctx_str);
-	context_free(ctx);
-	return rc;
-err:
-	selinux_log(SELINUX_ERROR, "%s:  Error setting context for pkgdir %s, uid %d: %s\n",
-		    __FUNCTION__, pkgdir, uid, strerror(errno));
-	rc = -1;
-	goto out;
-oom:
-	selinux_log(SELINUX_ERROR, "%s:  Out of memory\n", __FUNCTION__);
-	rc = -1;
-	goto out;
 }
 
 int selinux_android_setcon(const char *con)

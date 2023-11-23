@@ -135,6 +135,23 @@ TEST(OptionsTests, ParsesCompileJava) {
   EXPECT_EQ(string{kCompileCommandJavaOutput}, options->OutputFile());
   EXPECT_EQ(false, options->AutoDepFile());
   EXPECT_EQ(false, options->DependencyFileNinja());
+  EXPECT_EQ(false, options->GenParcelableToString());
+
+  const char* argv[] = {
+      "aidl",  "-b", kCompileCommandIncludePath, kCompileCommandInput, "--parcelable-to-string",
+      nullptr,
+  };
+  options = GetOptions(argv);
+  EXPECT_EQ(Options::Task::COMPILE, options->GetTask());
+  EXPECT_EQ(Options::Language::JAVA, options->TargetLanguage());
+  EXPECT_EQ(true, options->FailOnParcelable());
+  EXPECT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(0u, options->PreprocessedFiles().size());
+  EXPECT_EQ(string{kCompileCommandInput}, options->InputFiles().front());
+  EXPECT_EQ(string{kCompileCommandJavaOutput}, options->OutputFile());
+  EXPECT_EQ(false, options->AutoDepFile());
+  EXPECT_EQ(false, options->DependencyFileNinja());
+  EXPECT_EQ(true, options->GenParcelableToString());
 }
 
 TEST(OptionsTests, ParsesCompileJavaNinja) {
@@ -159,6 +176,27 @@ TEST(OptionsTests, ParsesCompileCpp) {
   EXPECT_EQ(kCompileCommandInput, options->InputFiles().front());
   EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
   EXPECT_EQ(kCompileCommandCppOutput, options->OutputFile());
+  EXPECT_EQ(false, options->GenParcelableToString());
+
+  const char* argv[] = {
+      "aidl-cpp",
+      kCompileCommandIncludePath,
+      kCompileDepFile,
+      kCompileCommandInput,
+      kCompileCommandHeaderDir,
+      kCompileCommandCppOutput,
+      "--parcelable-to-string",
+      nullptr,
+  };
+  options = GetOptions(argv, Options::Language::CPP);
+  ASSERT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2), *options->ImportDirs().begin());
+  EXPECT_EQ(string{kCompileDepFile}.substr(2), options->DependencyFile());
+  EXPECT_EQ(false, options->DependencyFileNinja());
+  EXPECT_EQ(kCompileCommandInput, options->InputFiles().front());
+  EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
+  EXPECT_EQ(kCompileCommandCppOutput, options->OutputFile());
+  EXPECT_EQ(true, options->GenParcelableToString());
 }
 
 TEST(OptionsTests, ParsesCompileCppNinja) {
@@ -276,5 +314,5 @@ TEST(OptionsTests, ParsesCompileCppInvalid) {
   EXPECT_EQ(false, GetOptions(arg_with_no_header_dir)->Ok());
 }
 
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

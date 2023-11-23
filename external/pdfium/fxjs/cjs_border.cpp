@@ -19,5 +19,5 @@ int CJS_Border::ObjDefnID = -1;
 void CJS_Border::DefineJSObjects(CFXJS_Engine* pEngine) {
   ObjDefnID =
       pEngine->DefineObj("border", FXJSOBJTYPE_STATIC, nullptr, nullptr);
-  DefineConsts(pEngine, ObjDefnID, ConstSpecs, FX_ArraySize(ConstSpecs));
+  DefineConsts(pEngine, ObjDefnID, ConstSpecs);
 }

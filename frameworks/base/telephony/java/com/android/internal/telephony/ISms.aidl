@@ -1,41 +1,31 @@
 /*
-** Copyright 2007, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ * Copyright 2007, The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package com.android.internal.telephony;
 
 import android.app.PendingIntent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.telephony.IFinancialSmsCallback;
 import com.android.internal.telephony.SmsRawData;
 
-/** Interface for applications to access the ICC phone book.
+/**
+ * Service interface to handle SMS API requests
  *
- * <p>The following code snippet demonstrates a static method to
- * retrieve the ISms interface from Android:</p>
- * <pre>private static ISms getSmsInterface()
-            throws DeadObjectException {
-    IServiceManager sm = ServiceManagerNative.getDefault();
-    ISms ss;
-    ss = ISms.Stub.asInterface(sm.getService("isms"));
-    return ss;
-}
- * </pre>
+ * See also SmsManager.java.
  */
-
 interface ISms {
     /**
      * Retrieves all messages currently stored on ICC.
@@ -96,37 +86,9 @@ interface ISms {
      *  raw pdu of the status report is in the extended data ("pdu").
      * @param subId the subId id.
      */
-    void sendDataForSubscriber(int subId, String callingPkg, in String destAddr,
-            in String scAddr, in int destPort, in byte[] data, in PendingIntent sentIntent,
-            in PendingIntent deliveryIntent);
-
-    /**
-     * Send a data SMS. Only for use internally.
-     *
-     * @param smsc the SMSC to send the message through, or NULL for the
-     *  default SMSC
-     * @param data the body of the message to send
-     * @param sentIntent if not NULL this <code>PendingIntent</code> is
-     *  broadcast when the message is sucessfully sent, or failed.
-     *  The result code will be <code>Activity.RESULT_OK<code> for success,
-     *  or one of these errors:<br>
-     *  <code>RESULT_ERROR_GENERIC_FAILURE</code><br>
-     *  <code>RESULT_ERROR_RADIO_OFF</code><br>
-     *  <code>RESULT_ERROR_NULL_PDU</code><br>
-     *  For <code>RESULT_ERROR_GENERIC_FAILURE</code> the sentIntent may include
-     *  the extra "errorCode" containing a radio technology specific value,
-     *  generally only useful for troubleshooting.<br>
-     *  The per-application based SMS control checks sentIntent. If sentIntent
-     *  is NULL the caller will be checked against all unknown applicaitons,
-     *  which cause smaller number of SMS to be sent in checking period.
-     * @param deliveryIntent if not NULL this <code>PendingIntent</code> is
-     *  broadcast when the message is delivered to the recipient.  The
-     *  raw pdu of the status report is in the extended data ("pdu").
-     * @param subId the subId id.
-     */
-    void sendDataForSubscriberWithSelfPermissions(int subId, String callingPkg, in String destAddr,
-            in String scAddr, in int destPort, in byte[] data, in PendingIntent sentIntent,
-            in PendingIntent deliveryIntent);
+    void sendDataForSubscriber(int subId, String callingPkg, String callingattributionTag,
+            in String destAddr, in String scAddr, in int destPort,in byte[] data,
+            in PendingIntent sentIntent, in PendingIntent deliveryIntent);
 
     /**
      * Send an SMS.
@@ -155,38 +117,13 @@ interface ISms {
      *   be automatically persisted in the SMS db. It only affects messages sent
      *   by a non-default SMS app. Currently only the carrier app can set this
      *   parameter to false to skip auto message persistence.
+     * @param messageId An id that uniquely identifies the message requested to be sent.
+     *   Used for logging and diagnostics purposes. The id may be 0.
      */
-    void sendTextForSubscriber(in int subId, String callingPkg, in String destAddr,
-            in String scAddr, in String text, in PendingIntent sentIntent,
-            in PendingIntent deliveryIntent, in boolean persistMessageForNonDefaultSmsApp);
-
-    /**
-     * Send an SMS. Internal use only.
-     *
-     * @param smsc the SMSC to send the message through, or NULL for the
-     *  default SMSC
-     * @param text the body of the message to send
-     * @param sentIntent if not NULL this <code>PendingIntent</code> is
-     *  broadcast when the message is sucessfully sent, or failed.
-     *  The result code will be <code>Activity.RESULT_OK<code> for success,
-     *  or one of these errors:<br>
-     *  <code>RESULT_ERROR_GENERIC_FAILURE</code><br>
-     *  <code>RESULT_ERROR_RADIO_OFF</code><br>
-     *  <code>RESULT_ERROR_NULL_PDU</code><br>
-     *  For <code>RESULT_ERROR_GENERIC_FAILURE</code> the sentIntent may include
-     *  the extra "errorCode" containing a radio technology specific value,
-     *  generally only useful for troubleshooting.<br>
-     *  The per-application based SMS control checks sentIntent. If sentIntent
-     *  is NULL the caller will be checked against all unknown applications,
-     *  which cause smaller number of SMS to be sent in checking period.
-     * @param deliveryIntent if not NULL this <code>PendingIntent</code> is
-     *  broadcast when the message is delivered to the recipient.  The
-     *  raw pdu of the status report is in the extended data ("pdu").
-     * @param subId the subId on which the SMS has to be sent.
-     */
-    void sendTextForSubscriberWithSelfPermissions(in int subId, String callingPkg,
+    void sendTextForSubscriber(in int subId, String callingPkg, String callingAttributionTag,
             in String destAddr, in String scAddr, in String text, in PendingIntent sentIntent,
-            in PendingIntent deliveryIntent, in boolean persistMessage);
+            in PendingIntent deliveryIntent, in boolean persistMessageForNonDefaultSmsApp,
+            in long messageId);
 
     /**
      * Send an SMS with options using Subscription Id.
@@ -234,10 +171,11 @@ interface ISms {
      *  Validity Period(Maximum) -> 635040 mins(i.e.63 weeks).
      *  Any Other values included Negative considered as Invalid Validity Period of the message.
      */
-    void sendTextForSubscriberWithOptions(in int subId, String callingPkg, in String destAddr,
-            in String scAddr, in String text, in PendingIntent sentIntent,
-            in PendingIntent deliveryIntent, in boolean persistMessageForNonDefaultSmsApp,
-            in int priority, in boolean expectMore, in int validityPeriod);
+    void sendTextForSubscriberWithOptions(in int subId, String callingPkg,
+            String callingAttributionTag, in String destAddr, in String scAddr, in String text,
+            in PendingIntent sentIntent, in PendingIntent deliveryIntent,
+            in boolean persistMessageForNonDefaultSmsApp, in int priority, in boolean expectMore,
+            in int validityPeriod);
 
     /**
      * Inject an SMS PDU into the android platform.
@@ -280,11 +218,14 @@ interface ISms {
      *   be automatically persisted in the SMS db. It only affects messages sent
      *   by a non-default SMS app. Currently only the carrier app can set this
      *   parameter to false to skip auto message persistence.
+     * @param messageId An id that uniquely identifies the message requested to be sent.
+     *   Used for logging and diagnostics purposes. The id may be 0.
      */
     void sendMultipartTextForSubscriber(in int subId, String callingPkg,
-            in String destinationAddress, in String scAddress,
+            String callingAttributionTag, in String destinationAddress, in String scAddress,
             in List<String> parts, in List<PendingIntent> sentIntents,
-            in List<PendingIntent> deliveryIntents, in boolean persistMessageForNonDefaultSmsApp);
+            in List<PendingIntent> deliveryIntents, in boolean persistMessageForNonDefaultSmsApp,
+            in long messageId);
 
     /**
      * Send a multi-part text based SMS with options using Subscription Id.
@@ -331,10 +272,10 @@ interface ISms {
      *  Any Other values included Negative considered as Invalid Validity Period of the message.
      */
     void sendMultipartTextForSubscriberWithOptions(in int subId, String callingPkg,
-            in String destinationAddress, in String scAddress, in List<String> parts,
-            in List<PendingIntent> sentIntents, in List<PendingIntent> deliveryIntents,
-            in boolean persistMessageForNonDefaultSmsApp, in int priority, in boolean expectMore,
-            in int validityPeriod);
+            String callingAttributionTag, in String destinationAddress, in String scAddress,
+            in List<String> parts, in List<PendingIntent> sentIntents,
+            in List<PendingIntent> deliveryIntents, in boolean persistMessageForNonDefaultSmsApp,
+            in int priority, in boolean expectMore, in int validityPeriod);
 
     /**
      * Enable reception of cell broadcast (SMS-CB) messages with the given
@@ -492,6 +433,7 @@ interface ISms {
      *
      * @param subId the SIM id.
      * @param callingPkg the package name of the calling app
+     * @param callingAttributionTag the attribution tag of calling context
      * @param messageUri the URI of the stored message
      * @param scAddress is the service center address or null to use the current default SMSC
      * @param sentIntent if not NULL this <code>PendingIntent</code> is
@@ -511,8 +453,9 @@ interface ISms {
      *  broadcast when the message is delivered to the recipient.  The
      *  raw pdu of the status report is in the extended data ("pdu").
      */
-    void sendStoredText(int subId, String callingPkg, in Uri messageUri, String scAddress,
-            in PendingIntent sentIntent, in PendingIntent deliveryIntent);
+    void sendStoredText(int subId, String callingPkg, String callingAttributionTag,
+            in Uri messageUri, String scAddress, in PendingIntent sentIntent,
+            in PendingIntent deliveryIntent);
 
     /**
      * Send a system stored multi-part text message.
@@ -524,6 +467,7 @@ interface ISms {
      *
      * @param subId the SIM id.
      * @param callingPkg the package name of the calling app
+     * @param callingAttributeTag the attribute tag of the calling context
      * @param messageUri the URI of the stored message
      * @param scAddress is the service center address or null to use
      *   the current default SMSC
@@ -547,9 +491,16 @@ interface ISms {
      *   to the recipient.  The raw pdu of the status report is in the
      *   extended data ("pdu").
      */
-    void sendStoredMultipartText(int subId, String callingPkg, in Uri messageUri,
-                String scAddress, in List<PendingIntent> sentIntents,
+    void sendStoredMultipartText(int subId, String callingPkg, String callingAttributeTag,
+                in Uri messageUri, String scAddress, in List<PendingIntent> sentIntents,
                 in List<PendingIntent> deliveryIntents);
+
+    /**
+     * Get carrier-dependent configuration values.
+     *
+     * @param subId the subscription Id
+     */
+    Bundle getCarrierConfigValuesForSubscriber(int subId);
 
     /**
      * Create an app-only incoming SMS request for the calling package.
@@ -579,20 +530,47 @@ interface ISms {
             int subId, String callingPkg, String prefixes, in PendingIntent intent);
 
     /**
-     * Get sms inbox messages for the calling financial app.
-     *
-     * @param subId the SIM id.
-     * @param callingPkg the package name of the calling app.
-     * @param params parameters to filter the sms messages.
-     * @param callback the callback interface to deliver the result.
-     */
-    void getSmsMessagesForFinancialApp(
-        int subId, String callingPkg, in Bundle params, in IFinancialSmsCallback callback);
-
-    /**
      * Check if the destination is a possible premium short code.
      *
      * @param destAddress the destination address to test for possible short code
      */
-    int checkSmsShortCodeDestination(int subId, String callingApk, String destAddress, String countryIso);
+    int checkSmsShortCodeDestination(int subId, String callingApk, String callingFeatureId,
+            String destAddress, String countryIso);
+
+    /**
+     * Gets the SMSC address from (U)SIM.
+     *
+     * @param subId the subscription Id.
+     * @param callingPackage the package name of the calling app.
+     * @return the SMSC address string, null if failed.
+     */
+    String getSmscAddressFromIccEfForSubscriber(int subId, String callingPackage);
+
+    /**
+     * Sets the SMSC address on (U)SIM.
+     *
+     * @param smsc the SMSC address string.
+     * @param subId the subscription Id.
+     * @param callingPackage the package name of the calling app.
+     * @return true for success, false otherwise.
+     */
+    boolean setSmscAddressOnIccEfForSubscriber(String smsc, int subId, String callingPackage);
+
+    /**
+     * Get the capacity count of sms on Icc card.
+     *
+     * @param subId for subId which getSmsCapacityOnIcc is queried.
+     * @return capacity of ICC
+     */
+    int getSmsCapacityOnIccForSubscriber(int subId);
+
+    /**
+     * Reset all cell broadcast ranges. Previously enabled ranges will become invalid after this.
+     *
+     * @param subId Subscription index
+     * @return {@code true} if succeeded, otherwise {@code false}.
+     *
+     * @hide
+     */
+    boolean resetAllCellBroadcastRanges(int subId);
 }

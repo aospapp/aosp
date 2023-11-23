@@ -16,6 +16,7 @@
 
 package com.github.javaparser.symbolsolver.javaparsermodel.contexts;
 
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.Expression;
@@ -53,7 +54,7 @@ public class LambdaExprContext extends AbstractJavaParserContext<LambdaExpr> {
     }
 
     @Override
-    public Optional<Value> solveSymbolAsValue(String name, TypeSolver typeSolver) {
+    public Optional<Value> solveSymbolAsValue(String name) {
         for (Parameter parameter : wrappedNode.getParameters()) {
             SymbolDeclarator sb = JavaParserFactory.getSymbolDeclarator(parameter, typeSolver);
             int index = 0;
@@ -134,11 +135,11 @@ public class LambdaExprContext extends AbstractJavaParserContext<LambdaExpr> {
         }
 
         // if nothing is found we should ask the parent context
-        return getParent().solveSymbolAsValue(name, typeSolver);
+        return getParent().solveSymbolAsValue(name);
     }
 
     @Override
-    public SymbolReference<? extends ResolvedValueDeclaration> solveSymbol(String name, TypeSolver typeSolver) {
+    public SymbolReference<? extends ResolvedValueDeclaration> solveSymbol(String name) {
         for (Parameter parameter : wrappedNode.getParameters()) {
             SymbolDeclarator sb = JavaParserFactory.getSymbolDeclarator(parameter, typeSolver);
             SymbolReference<ResolvedValueDeclaration> symbolReference = solveWith(sb, name);
@@ -148,25 +149,33 @@ public class LambdaExprContext extends AbstractJavaParserContext<LambdaExpr> {
         }
 
         // if nothing is found we should ask the parent context
-        return getParent().solveSymbol(name, typeSolver);
+        return getParent().solveSymbol(name);
     }
 
     @Override
-    public SymbolReference<ResolvedTypeDeclaration> solveType(String name, TypeSolver typeSolver) {
-        return getParent().solveType(name, typeSolver);
+    public SymbolReference<ResolvedTypeDeclaration> solveType(String name) {
+        return getParent().solveType(name);
     }
 
     @Override
     public SymbolReference<ResolvedMethodDeclaration> solveMethod(
-            String name, List<ResolvedType> argumentsTypes, boolean staticOnly, TypeSolver typeSolver) {
-        return getParent().solveMethod(name, argumentsTypes, false, typeSolver);
+            String name, List<ResolvedType> argumentsTypes, boolean staticOnly) {
+        return getParent().solveMethod(name, argumentsTypes, false);
+    }
+
+    @Override
+    public List<Parameter> parametersExposedToChild(Node child) {
+        if (child == wrappedNode.getBody()) {
+            return wrappedNode.getParameters();
+        }
+        return Collections.emptyList();
     }
 
     ///
     /// Protected methods
     ///
 
-    protected final Optional<Value> solveWithAsValue(SymbolDeclarator symbolDeclarator, String name, TypeSolver typeSolver) {
+    protected final Optional<Value> solveWithAsValue(SymbolDeclarator symbolDeclarator, String name) {
         for (ResolvedValueDeclaration decl : symbolDeclarator.getSymbolDeclarations()) {
             if (decl.getName().equals(name)) {
 

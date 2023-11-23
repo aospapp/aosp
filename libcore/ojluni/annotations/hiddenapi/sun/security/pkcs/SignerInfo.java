@@ -34,7 +34,7 @@ public class SignerInfo implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public SignerInfo(
             sun.security.x509.X500Name issuerName,
             java.math.BigInteger serial,
@@ -44,7 +44,7 @@ public class SignerInfo implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public SignerInfo(
             sun.security.x509.X500Name issuerName,
             java.math.BigInteger serial,
@@ -74,13 +74,13 @@ public class SignerInfo implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.security.cert.X509Certificate getCertificate(sun.security.pkcs.PKCS7 block)
             throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.util.ArrayList<java.security.cert.X509Certificate> getCertificateChain(
             sun.security.pkcs.PKCS7 block) throws java.io.IOException {
         throw new RuntimeException("Stub!");
@@ -115,7 +115,7 @@ public class SignerInfo implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.x509.AlgorithmId getDigestAlgorithmId() {
         throw new RuntimeException("Stub!");
     }
@@ -124,12 +124,12 @@ public class SignerInfo implements sun.security.util.DerEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.x509.AlgorithmId getDigestEncryptionAlgorithmId() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getEncryptedDigest() {
         throw new RuntimeException("Stub!");
     }

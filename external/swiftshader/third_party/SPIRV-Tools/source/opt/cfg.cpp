@@ -110,15 +110,26 @@ void CFG::ForEachBlockInPostOrder(BasicBlock* bb,
 
 void CFG::ForEachBlockInReversePostOrder(
     BasicBlock* bb, const std::function<void(BasicBlock*)>& f) {
+  WhileEachBlockInReversePostOrder(bb, [f](BasicBlock* b) {
+    f(b);
+    return true;
+  });
+}
+
+bool CFG::WhileEachBlockInReversePostOrder(
+    BasicBlock* bb, const std::function<bool(BasicBlock*)>& f) {
   std::vector<BasicBlock*> po;
   std::unordered_set<BasicBlock*> seen;
   ComputePostOrderTraversal(bb, &po, &seen);
 
   for (auto current_bb = po.rbegin(); current_bb != po.rend(); ++current_bb) {
     if (!IsPseudoExitBlock(*current_bb) && !IsPseudoEntryBlock(*current_bb)) {
-      f(*current_bb);
+      if (!f(*current_bb)) {
+        return false;
+      }
     }
   }
+  return true;
 }
 
 void CFG::ComputeStructuredSuccessors(Function* func) {
@@ -150,15 +161,25 @@ void CFG::ComputeStructuredSuccessors(Function* func) {
 void CFG::ComputePostOrderTraversal(BasicBlock* bb,
                                     std::vector<BasicBlock*>* order,
                                     std::unordered_set<BasicBlock*>* seen) {
-  seen->insert(bb);
-  static_cast<const BasicBlock*>(bb)->ForEachSuccessorLabel(
-      [&order, &seen, this](const uint32_t sbid) {
-        BasicBlock* succ_bb = id2block_[sbid];
-        if (!seen->count(succ_bb)) {
-          ComputePostOrderTraversal(succ_bb, order, seen);
-        }
-      });
-  order->push_back(bb);
+  std::vector<BasicBlock*> stack;
+  stack.push_back(bb);
+  while (!stack.empty()) {
+    bb = stack.back();
+    seen->insert(bb);
+    static_cast<const BasicBlock*>(bb)->WhileEachSuccessorLabel(
+        [&seen, &stack, this](const uint32_t sbid) {
+          BasicBlock* succ_bb = id2block_[sbid];
+          if (!seen->count(succ_bb)) {
+            stack.push_back(succ_bb);
+            return false;
+          }
+          return true;
+        });
+    if (stack.back() == bb) {
+      order->push_back(bb);
+      stack.pop_back();
+    }
+  }
 }
 
 BasicBlock* CFG::SplitLoopHeader(BasicBlock* bb) {

@@ -21,7 +21,7 @@
           android:versionCode="11"
           android:versionName="Q-initial">
     <application
-        android:label="NetworkStack"
+        android:label="@string/application_label"
         android:defaultToDeviceProtectedStorage="true"
         android:directBootAware="true"
         android:usesCleartextTraffic="true">

@@ -9,15 +9,21 @@
 #include "dsp_util.h"
 
 #ifndef max
-#define max(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a > _b ? _a : _b; })
+#define max(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a > _b ? _a : _b;                                             \
+	})
 #endif
 
 #ifndef min
-#define min(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a < _b ? _a : _b; })
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a < _b ? _a : _b;                                             \
+	})
 #endif
 
 #undef deinterleave_stereo
@@ -29,15 +35,16 @@
  * shorts to int with sign extension.
  */
 #ifdef __aarch64__
-static void deinterleave_stereo(int16_t *input, float *output1,
-				float *output2, int frames)
+static void deinterleave_stereo(int16_t *input, float *output1, float *output2,
+				int frames)
 {
 	int chunk = frames >> 3;
 	frames &= 7;
 	/* Process 8 frames (16 samples) each loop. */
 	/* L0 R0 L1 R1 L2 R2 L3 R3... -> L0 L1 L2 L3... R0 R1 R2 R3... */
 	if (chunk) {
-		__asm__ __volatile__ (
+		// clang-format off
+		__asm__ __volatile__(
 			"1:                                         \n"
 			"ld2  {v2.8h, v3.8h}, [%[input]], #32       \n"
 			"subs %w[chunk], %w[chunk], #1              \n"
@@ -59,8 +66,8 @@ static void deinterleave_stereo(int16_t *input, float *output1,
 			  [output2]"+r"(output2)
 			: /* input */
 			: /* clobber */
-			  "v0", "v1", "v2", "v3", "memory", "cc"
-			);
+			  "v0", "v1", "v2", "v3", "memory", "cc");
+		// clang-format on
 	}
 
 	/* The remaining samples. */
@@ -83,8 +90,8 @@ static void deinterleave_stereo(int16_t *input, float *output1,
  * to the min or max value that fits an int.
  * For other values, sqxtn clamps the output to -32768 to 32767 range.
  */
-static void interleave_stereo(float *input1, float *input2,
-			      int16_t *output, int frames)
+static void interleave_stereo(float *input1, float *input2, int16_t *output,
+			      int frames)
 {
 	/* Process 4 frames (8 samples) each loop. */
 	/* L0 L1 L2 L3, R0 R1 R2 R3 -> L0 R0 L1 R1, L2 R2 L3 R3 */
@@ -92,7 +99,8 @@ static void interleave_stereo(float *input1, float *input2,
 	frames &= 3;
 
 	if (chunk) {
-		__asm__ __volatile__ (
+		// clang-format off
+		__asm__ __volatile__(
 			"dup    v2.4s, %w[scale]                    \n"
 			"1:                                         \n"
 			"ld1    {v0.4s}, [%[input1]], #16           \n"
@@ -114,8 +122,8 @@ static void interleave_stereo(float *input1, float *input2,
 			: /* input */
 			  [scale]"r"(15 << 23)
 			: /* clobber */
-			  "v0", "v1", "v2", "memory", "cc"
-			);
+			  "v0", "v1", "v2", "memory", "cc");
+		// clang-format on
 	}
 
 	/* The remaining samples */
@@ -135,15 +143,16 @@ static void interleave_stereo(float *input1, float *input2,
 #ifdef __ARM_NEON__
 #include <arm_neon.h>
 
-static void deinterleave_stereo(int16_t *input, float *output1,
-				float *output2, int frames)
+static void deinterleave_stereo(int16_t *input, float *output1, float *output2,
+				int frames)
 {
 	/* Process 8 frames (16 samples) each loop. */
 	/* L0 R0 L1 R1 L2 R2 L3 R3... -> L0 L1 L2 L3... R0 R1 R2 R3... */
 	int chunk = frames >> 3;
 	frames &= 7;
 	if (chunk) {
-		__asm__ __volatile__ (
+		// clang-format off
+		__asm__ __volatile__(
 			"1:					    \n"
 			"vld2.16 {d0-d3}, [%[input]]!		    \n"
 			"subs %[chunk], #1			    \n"
@@ -165,8 +174,8 @@ static void deinterleave_stereo(int16_t *input, float *output1,
 			  [output2]"+r"(output2)
 			: /* input */
 			: /* clobber */
-			  "q0", "q1", "q2", "q3", "memory", "cc"
-			);
+			  "q0", "q1", "q2", "q3", "memory", "cc");
+		// clang-format on
 	}
 
 	/* The remaining samples. */
@@ -187,8 +196,8 @@ static void deinterleave_stereo(int16_t *input, float *output1,
  * to the min or max value that fits an int.
  * For other values, vqmovn clamps the output to -32768 to 32767 range.
  */
-static void interleave_stereo(float *input1, float *input2,
-			      int16_t *output, int frames)
+static void interleave_stereo(float *input1, float *input2, int16_t *output,
+			      int frames)
 {
 	/* Process 4 frames (8 samples) each loop. */
 	/* L0 L1 L2 L3, R0 R1 R2 R3 -> L0 R0 L1 R1, L2 R2 L3 R3 */
@@ -198,7 +207,8 @@ static void interleave_stereo(float *input1, float *input2,
 	frames &= 3;
 
 	if (chunk) {
-		__asm__ __volatile__ (
+		// clang-format off
+		__asm__ __volatile__(
 			"veor q0, q0, q0			    \n"
 			"1:					    \n"
 			"vld1.32 {d2-d3}, [%[input1]]!		    \n"
@@ -229,8 +239,8 @@ static void interleave_stereo(float *input1, float *input2,
 			  [pos]"w"(pos),
 			  [neg]"w"(neg)
 			: /* clobber */
-			  "q0", "q1", "q2", "q3", "q4", "memory", "cc"
-			);
+			  "q0", "q1", "q2", "q3", "q4", "memory", "cc");
+		// clang-format on
 	}
 
 	/* The remaining samples */
@@ -260,15 +270,16 @@ static void interleave_stereo(float *input1, float *input2,
  * mulps is used to normalize the range of the low and high words, adjusting
  * for high and low words being in different range.
  */
-static void deinterleave_stereo(int16_t *input, float *output1,
-				float *output2, int frames)
+static void deinterleave_stereo(int16_t *input, float *output1, float *output2,
+				int frames)
 {
 	/* Process 8 frames (16 samples) each loop. */
 	/* L0 R0 L1 R1 L2 R2 L3 R3... -> L0 L1 L2 L3... R0 R1 R2 R3... */
 	int chunk = frames >> 3;
 	frames &= 7;
 	if (chunk) {
-		__asm__ __volatile__ (
+		// clang-format off
+		__asm__ __volatile__(
 			"1:                                         \n"
 			"lddqu (%[input]), %%xmm0                   \n"
 			"lddqu 16(%[input]), %%xmm1                 \n"
@@ -304,8 +315,8 @@ static void deinterleave_stereo(int16_t *input, float *output1,
 			  [scale_2_n31]"x"(_mm_set1_ps(1.0f/(1<<15)/(1<<16))),
 			  [scale_2_n15]"x"(_mm_set1_ps(1.0f/(1<<15)))
 			: /* clobber */
-			  "xmm0", "xmm1", "xmm2", "xmm3", "memory", "cc"
-			);
+			  "xmm0", "xmm1", "xmm2", "xmm3", "memory", "cc");
+		// clang-format on
 	}
 
 	/* The remaining samples. */
@@ -322,8 +333,8 @@ static void deinterleave_stereo(int16_t *input, float *output1,
  * For very large values, beyond +/- 2 billion, cvtps2dq will produce
  * 0x80000000 and packssdw will clamp -32768.
  */
-static void interleave_stereo(float *input1, float *input2,
-			      int16_t *output, int frames)
+static void interleave_stereo(float *input1, float *input2, int16_t *output,
+			      int frames)
 {
 	/* Process 4 frames (8 samples) each loop. */
 	/* L0 L1 L2 L3, R0 R1 R2 R3 -> L0 R0 L1 R1, L2 R2 L3 R3 */
@@ -331,7 +342,8 @@ static void interleave_stereo(float *input1, float *input2,
 	frames &= 3;
 
 	if (chunk) {
-		__asm__ __volatile__ (
+		// clang-format off
+		__asm__ __volatile__(
 			"1:                                         \n"
 			"lddqu (%[input1]), %%xmm0                  \n"
 			"lddqu (%[input2]), %%xmm2                  \n"
@@ -358,8 +370,8 @@ static void interleave_stereo(float *input1, float *input2,
 			  [scale_2_15]"x"(_mm_set1_epi32(15 << 23)),
 			  [clamp_large]"x"(_mm_set1_ps(32767.0f))
 			: /* clobber */
-			  "xmm0", "xmm1", "xmm2", "memory", "cc"
-			);
+			  "xmm0", "xmm1", "xmm2", "memory", "cc");
+		// clang-format on
 	}
 
 	/* The remaining samples */
@@ -377,7 +389,7 @@ static void interleave_stereo(float *input1, float *input2,
 #endif
 
 static void dsp_util_deinterleave_s16le(int16_t *input, float *const *output,
-				 int channels, int frames)
+					int channels, int frames)
 {
 	float *output_ptr[channels];
 	int i, j;
@@ -397,7 +409,6 @@ static void dsp_util_deinterleave_s16le(int16_t *input, float *const *output,
 			*(output_ptr[j]++) = *input++ / 32768.0f;
 }
 
-
 static void dsp_util_deinterleave_s24le(int32_t *input, float *const *output,
 					int channels, int frames)
 {
@@ -409,8 +420,7 @@ static void dsp_util_deinterleave_s24le(int32_t *input, float *const *output,
 
 	for (i = 0; i < frames; i++)
 		for (j = 0; j < channels; j++, input++)
-			*(output_ptr[j]++) =
-				(*input << 8) / 2147483648.0f;
+			*(output_ptr[j]++) = (*input << 8) / 2147483648.0f;
 }
 
 static void dsp_util_deinterleave_s243le(uint8_t *input, float *const *output,
@@ -450,20 +460,19 @@ int dsp_util_deinterleave(uint8_t *input, float *const *output, int channels,
 {
 	switch (format) {
 	case SND_PCM_FORMAT_S16_LE:
-		dsp_util_deinterleave_s16le((int16_t *)input, output,
-					    channels, frames);
+		dsp_util_deinterleave_s16le((int16_t *)input, output, channels,
+					    frames);
 		break;
 	case SND_PCM_FORMAT_S24_LE:
-		dsp_util_deinterleave_s24le((int32_t *)input, output,
-					  channels, frames);
+		dsp_util_deinterleave_s24le((int32_t *)input, output, channels,
+					    frames);
 		break;
 	case SND_PCM_FORMAT_S24_3LE:
-		dsp_util_deinterleave_s243le(input, output,
-					     channels, frames);
+		dsp_util_deinterleave_s243le(input, output, channels, frames);
 		break;
 	case SND_PCM_FORMAT_S32_LE:
-		dsp_util_deinterleave_s32le((int32_t *)input, output,
-					     channels, frames);
+		dsp_util_deinterleave_s32le((int32_t *)input, output, channels,
+					    frames);
 		break;
 	default:
 		syslog(LOG_ERR, "Invalid format to deinterleave");
@@ -510,7 +519,7 @@ static void dsp_util_interleave_s24le(float *const *input, int32_t *output,
 			float f = *(input_ptr[j]++) * 2147483648.0f;
 			f += (f >= 0) ? 0.5f : -0.5f;
 			*output = max((float)INT_MIN, min((float)INT_MAX, f));
-			*output >>= 8;
+			*output = (*output >> 8) & 0x00ffffff;
 		}
 }
 
@@ -556,19 +565,19 @@ int dsp_util_interleave(float *const *input, uint8_t *output, int channels,
 {
 	switch (format) {
 	case SND_PCM_FORMAT_S16_LE:
-		dsp_util_interleave_s16le(input, (int16_t *)output,
-					  channels, frames);
+		dsp_util_interleave_s16le(input, (int16_t *)output, channels,
+					  frames);
 		break;
 	case SND_PCM_FORMAT_S24_LE:
-		dsp_util_interleave_s24le(input, (int32_t *)output,
-					  channels, frames);
+		dsp_util_interleave_s24le(input, (int32_t *)output, channels,
+					  frames);
 		break;
 	case SND_PCM_FORMAT_S24_3LE:
 		dsp_util_interleave_s243le(input, output, channels, frames);
 		break;
 	case SND_PCM_FORMAT_S32_LE:
-		dsp_util_interleave_s32le(input, (int32_t *)output,
-					  channels, frames);
+		dsp_util_interleave_s32le(input, (int32_t *)output, channels,
+					  frames);
 		break;
 	default:
 		syslog(LOG_ERR, "Invalid format to interleave");
@@ -585,19 +594,17 @@ void dsp_enable_flush_denormal_to_zero()
 	__builtin_ia32_ldmxcsr(mxcsr | 0x8040);
 #elif defined(__aarch64__)
 	uint64_t cw;
-	__asm__ __volatile__ (
-		"mrs    %0, fpcr			    \n"
-		"orr    %0, %0, #0x1000000		    \n"
-		"msr    fpcr, %0			    \n"
-		"isb					    \n"
-		: "=r"(cw) :: "memory");
+	__asm__ __volatile__("mrs    %0, fpcr			    \n"
+			     "orr    %0, %0, #0x1000000		    \n"
+			     "msr    fpcr, %0			    \n"
+			     "isb					    \n"
+			     : "=r"(cw)::"memory");
 #elif defined(__arm__)
 	uint32_t cw;
-	__asm__ __volatile__ (
-		"vmrs   %0, fpscr			    \n"
-		"orr    %0, %0, #0x1000000		    \n"
-		"vmsr   fpscr, %0			    \n"
-		: "=r"(cw) :: "memory");
+	__asm__ __volatile__("vmrs   %0, fpscr			    \n"
+			     "orr    %0, %0, #0x1000000		    \n"
+			     "vmsr   fpscr, %0			    \n"
+			     : "=r"(cw)::"memory");
 #else
 #warning "Don't know how to disable denorms. Performace may suffer."
 #endif

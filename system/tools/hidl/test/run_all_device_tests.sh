@@ -25,7 +25,7 @@ function run() {
 
     # TODO(b/129507417): build with supported configurations
     mkdir -p $ANDROID_PRODUCT_OUT/data/framework/hidl_test_java.jar || exit 1
-    cp $ANDROID_PRODUCT_OUT/testcases/hidl_test_java_java/arm64/hidl_test_java_java.jar \
+    cp $ANDROID_PRODUCT_OUT/testcases/hidl_test_java_java/*/hidl_test_java_java.jar \
        $ANDROID_PRODUCT_OUT/data/framework/hidl_test_java_java.jar || exit 1
 
     adb sync data || exit 1

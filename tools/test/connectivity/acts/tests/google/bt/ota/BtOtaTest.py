@@ -32,14 +32,14 @@ class BtOtaTest(BluetoothBaseTest):
 
         # Pairing devices
         if not pair_pri_to_sec(self.dut, self.android_devices[1]):
-            raise signals.TestSkipClass(
+            raise signals.TestAbortClass(
                 "Failed to bond devices prior to update")
 
         #Run OTA below, if ota fails then abort all tests
         try:
             ota_updater.update(self.dut)
         except Exception as err:
-            raise signals.TestSkipClass(
+            raise signals.TestAbortClass(
                 "Failed up apply OTA update. Aborting tests")
 
     @BluetoothBaseTest.bt_test_wrap

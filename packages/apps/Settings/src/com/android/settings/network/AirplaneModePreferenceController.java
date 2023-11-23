@@ -17,58 +17,73 @@ package com.android.settings.network;
 
 import static android.provider.SettingsSlicesContract.KEY_AIRPLANE_MODE;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.SystemProperties;
+import android.net.Uri;
+import android.provider.SettingsSlicesContract;
+import android.telephony.TelephonyManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 
-import com.android.internal.telephony.TelephonyIntents;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.settings.AirplaneModeEnabler;
 import com.android.settings.R;
 import com.android.settings.core.TogglePreferenceController;
-import com.android.settings.overlay.FeatureFactory;
-import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
-import com.android.settingslib.core.lifecycle.events.OnPause;
-import com.android.settingslib.core.lifecycle.events.OnResume;
+import com.android.settingslib.core.lifecycle.events.OnStart;
+import com.android.settingslib.core.lifecycle.events.OnStop;
 
 public class AirplaneModePreferenceController extends TogglePreferenceController
-        implements LifecycleObserver, OnResume, OnPause,
+        implements LifecycleObserver, OnStart, OnStop,
         AirplaneModeEnabler.OnAirplaneModeChangedListener {
 
     public static final int REQUEST_CODE_EXIT_ECM = 1;
 
+    /**
+     * Uri for Airplane mode Slice.
+     */
+    public static final Uri SLICE_URI = new Uri.Builder()
+            .scheme(ContentResolver.SCHEME_CONTENT)
+            .authority(SettingsSlicesContract.AUTHORITY)
+            .appendPath(SettingsSlicesContract.PATH_SETTING_ACTION)
+            .appendPath(SettingsSlicesContract.KEY_AIRPLANE_MODE)
+            .build();
     private static final String EXIT_ECM_RESULT = "exit_ecm_result";
 
     private Fragment mFragment;
-    private final MetricsFeatureProvider mMetricsFeatureProvider;
     private AirplaneModeEnabler mAirplaneModeEnabler;
     private SwitchPreference mAirplaneModePreference;
 
     public AirplaneModePreferenceController(Context context, String key) {
         super(context, key);
-        mMetricsFeatureProvider = FeatureFactory.getFactory(context).getMetricsFeatureProvider();
-        mAirplaneModeEnabler = new AirplaneModeEnabler(mContext, mMetricsFeatureProvider, this);
+
+        if (isAvailable(mContext)) {
+            mAirplaneModeEnabler = new AirplaneModeEnabler(mContext, this);
+        }
     }
 
     public void setFragment(Fragment hostFragment) {
         mFragment = hostFragment;
     }
 
+    @VisibleForTesting
+    void setAirplaneModeEnabler(AirplaneModeEnabler airplaneModeEnabler) {
+        mAirplaneModeEnabler = airplaneModeEnabler;
+    }
+
     @Override
     public boolean handlePreferenceTreeClick(Preference preference) {
-        if (KEY_AIRPLANE_MODE.equals(preference.getKey()) && Boolean.parseBoolean(
-                SystemProperties.get(TelephonyProperties.PROPERTY_INECM_MODE))) {
+        if (KEY_AIRPLANE_MODE.equals(preference.getKey())
+                && mAirplaneModeEnabler.isInEcmMode()) {
             // In ECM mode launch ECM app dialog
             if (mFragment != null) {
                 mFragment.startActivityForResult(
-                        new Intent(TelephonyIntents.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS, null),
+                        new Intent(TelephonyManager.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS, null),
                         REQUEST_CODE_EXIT_ECM);
             }
             return true;
@@ -78,11 +93,14 @@ public class AirplaneModePreferenceController extends TogglePreferenceController
     }
 
     @Override
+    public Uri getSliceUri() {
+        return SLICE_URI;
+    }
+
+    @Override
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
-        if (isAvailable()) {
-            mAirplaneModePreference = screen.findPreference(getPreferenceKey());
-        }
+        mAirplaneModePreference = screen.findPreference(getPreferenceKey());
     }
 
     public static boolean isAvailable(Context context) {
@@ -91,7 +109,7 @@ public class AirplaneModePreferenceController extends TogglePreferenceController
     }
 
     @Override
-    public boolean isSliceable() {
+    public boolean isPublicSlice() {
         return true;
     }
 
@@ -102,22 +120,22 @@ public class AirplaneModePreferenceController extends TogglePreferenceController
     }
 
     @Override
-    public void onResume() {
+    public void onStart() {
         if (isAvailable()) {
-            mAirplaneModeEnabler.resume();
+            mAirplaneModeEnabler.start();
         }
     }
 
     @Override
-    public void onPause() {
+    public void onStop() {
         if (isAvailable()) {
-            mAirplaneModeEnabler.pause();
+            mAirplaneModeEnabler.stop();
         }
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE_EXIT_ECM) {
-            Boolean isChoiceYes = data.getBooleanExtra(EXIT_ECM_RESULT, false);
+            final boolean isChoiceYes = data.getBooleanExtra(EXIT_ECM_RESULT, false);
             // Set Airplane mode based on the return value and checkbox state
             mAirplaneModeEnabler.setAirplaneModeInECM(isChoiceYes,
                     mAirplaneModePreference.isChecked());

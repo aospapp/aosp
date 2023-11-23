@@ -16,7 +16,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="android.car.cluster"
-    android:sharedUserId="android.uid.system">
+    coreApp="true"
+    android:process="android.car.cluster"
+    android:sharedUserId="android.uid.cluster">
 
     <uses-sdk android:targetSdkVersion="25" android:minSdkVersion="25"/>
 
@@ -67,6 +69,7 @@
             android:exported="false"
             android:showForAllUsers="true"
             android:theme="@style/Theme.ClusterTheme">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -78,8 +81,8 @@
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:launchMode="singleInstance"
             android:resizeableActivity="true"
-            android:permission="android.car.permission.CAR_DISPLAY_IN_CLUSTER"
             android:allowEmbedded="true">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
     </application>
 </manifest>

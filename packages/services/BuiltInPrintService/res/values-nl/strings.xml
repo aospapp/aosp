@@ -48,7 +48,7 @@
     <string name="no_printer_found" msgid="4777867380924351173">"Geen printer gevonden op dit adres"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"Printer niet ondersteund"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wifi Direct"</string>
-    <string name="find_wifi_direct" msgid="5270504288829123954">"Wifi Direct-printers vinden"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"Wifi Direct-printers zoeken"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Afdrukken via Wifi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wifi Direct-printers"</string>
     <string name="searching" msgid="2114018057619514587">"Zoeken…"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Vergeten"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Maakt verbinding via Wifi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Maakt verbinding via huidige netwerk op <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"De standaard afdrukservice biedt basisopties. Er kunnen andere opties voor deze printer beschikbaar zijn via een andere afdrukservice."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Aanbevolen services"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Selecteer om te installeren"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Selecteer om in te schakelen"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Services beheren"</string>
     <string name="security" msgid="2279008326210305401">"Beveiliging"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Deze printer biedt een nieuw beveiligingscertificaat aan, of een ander apparaat imiteert deze printer. Wil je het nieuwe certificaat accepteren?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Deze printer accepteert geen versleutelde taken meer. Doorgaan met afdrukken?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Verbindingen"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"De standaard afdrukservice heeft locatierechten nodig om apparaten in de buurt te vinden."</string>
     <string name="fix" msgid="7784394272611365393">"Rechten controleren"</string>
+    <string name="print" msgid="7851318072404916362">"Afdrukken"</string>
 </resources>

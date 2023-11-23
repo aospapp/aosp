@@ -1230,7 +1230,7 @@ namespace sw
 			: Surface(width, height, depth, format, pixels, pitch, slice) {}
 		SurfaceImplementation(Resource *texture, int width, int height, int depth, int border, int samples, Format format, bool lockable, bool renderTarget, int pitchP = 0)
 			: Surface(texture, width, height, depth, border, samples, format, lockable, renderTarget, pitchP) {}
-		~SurfaceImplementation() override {};
+		~SurfaceImplementation() override {}
 
 		void *lockInternal(int x, int y, int z, Lock lock, Accessor client) override
 		{
@@ -2670,14 +2670,18 @@ namespace sw
 			{
 				uint64_t size = (uint64_t)sliceB(width, height, border, format, true) * depth * samples;
 
-				// FIXME: Unpacking byte4 to short4 in the sampler currently involves reading 8 bytes,
+				// We can only sample buffers smaller than 2 GiB, due to signed 32-bit offset calculations.
+				// Force an out-of-memory if larger, or let the caller report an error.
+				if(size >= 0x80000000u)
+				{
+					return std::numeric_limits<size_t>::max();
+				}
+
+				// Unpacking byte4 to short4 in the sampler currently involves reading 8 bytes,
 				// and stencil operations also read 8 bytes per four 8-bit stencil values,
 				// so we have to allocate 4 extra bytes to avoid buffer overruns.
-				size += 4;
-
-				// We can only sample buffers smaller than 2 GiB.
-				// Force an out-of-memory if larger, or let the caller report an error.
-				return size < 0x80000000u ? (size_t)size : std::numeric_limits<size_t>::max();
+			    // TODO(b/145229887): Eliminate if possible, or don't hard-code.
+				return size + 4;
 			}
 		case FORMAT_YV12_BT601:
 		case FORMAT_YV12_BT709:

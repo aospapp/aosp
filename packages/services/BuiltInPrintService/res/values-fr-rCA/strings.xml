@@ -57,9 +57,14 @@
     <string name="failed_printer_connection" msgid="4196305972749960362">"Impossible de se connecter à l\'imprimante"</string>
     <string name="failed_connection" msgid="8068661997318286575">"Impossible de se connecter à <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
     <string name="saved_printers" msgid="4567534965213125526">"Imprimantes enregistrées"</string>
-    <string name="forget" msgid="892068061425802502">"Oublier"</string>
+    <string name="forget" msgid="892068061425802502">"Supprimer"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Se connecte par Wi-Fi direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Se connecte à l\'aide du réseau actuel, avec l\'adresse <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Le service d\'impression par défaut offre des options de base. Les autres options de cette imprimante pourraient être accessibles à l\'aide d\'un autre service d\'impression."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Services recommandés"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Sélectionnez un service pour l\'installer"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Sélectionnez un service pour l\'activer"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Gérer les services"</string>
     <string name="security" msgid="2279008326210305401">"Sécurité"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Cette imprimante a fourni un nouveau certificat de sécurité, ou bien un autre appareil tente d\'usurper son identité. Accepter le nouveau certificat?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Cette imprimante n\'accepte plus les tâches chiffrées. Continuer l\'impression?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Connexions"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Le service d\'impression par défaut a besoin de l\'autorisation de localisation pour trouver les imprimantes à proximité."</string>
     <string name="fix" msgid="7784394272611365393">"Examiner l\'autorisation"</string>
+    <string name="print" msgid="7851318072404916362">"Imprimer"</string>
 </resources>

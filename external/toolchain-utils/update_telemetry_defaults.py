@@ -1,6 +1,9 @@
-#!/usr/bin/env python2
-#
-# Copyright 2013 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Script to maintain the Telemetry benchmark default results file.
 
 This script allows the user to see and update the set of default
@@ -36,20 +39,20 @@ class TelemetryDefaults(object):
 
   def ReadDefaultsFile(self):
     if os.path.exists(self._filename):
-      with open(self._filename, 'r') as fp:
+      with open(self._filename, 'r', encoding='utf-8') as fp:
         self._defaults = json.load(fp)
 
   def WriteDefaultsFile(self):
-    with open(self._filename, 'w') as fp:
+    with open(self._filename, 'w', encoding='utf-8') as fp:
       json.dump(self._defaults, fp, indent=2)
 
-  def ListCurrentDefaults(self, benchmark=all):
+  def ListCurrentDefaults(self, benchmark='all'):
     # Show user current defaults. By default, show all.  The user
     # can specify the name of a particular benchmark to see only that
     # benchmark's default values.
     if len(self._defaults) == 0:
       print('The benchmark default results are currently empty.')
-    if benchmark == all:
+    if benchmark == 'all':
       for b in self._defaults.keys():
         results = self._defaults[b]
         out_str = b + ' : '
@@ -83,8 +86,8 @@ class TelemetryDefaults(object):
         print("Updated results set for '%s': " % benchmark)
         print('%s : %s' % (benchmark, repr(self._defaults[benchmark])))
       else:
-        print("'%s' is not in '%s's default results list." % (result,
-                                                              benchmark))
+        print(
+            "'%s' is not in '%s's default results list." % (result, benchmark))
     else:
       print("Cannot find benchmark named '%s'" % benchmark)
 
@@ -145,14 +148,14 @@ lower) does not matter, for the command (case of the result name DOES matter):
     words = inp.split(' ')
     option = words[0]
     option = option.lower()
-    if option == 'h' or option == 'help':
+    if option in ('h', 'help'):
       self.ShowOptions()
-    elif option == 'l' or option == 'list':
+    elif option in ('l', 'list'):
       if len(words) == 1:
         self.ListCurrentDefaults()
       else:
         self.ListCurrentDefaults(benchmark=words[1])
-    elif option == 'a' or option == 'add':
+    elif option in ('a', 'add'):
       if len(words) < 3:
         self.UsageError(inp)
       else:
@@ -160,31 +163,30 @@ lower) does not matter, for the command (case of the result name DOES matter):
         resultList = words[2:]
         for r in resultList:
           self.AddDefault(benchmark, r)
-    elif option == 'd' or option == 'delete':
+    elif option in ('d', 'delete'):
       if len(words) != 3:
         self.UsageError(inp)
       else:
         benchmark = words[1]
         result = words[2]
         self.RemoveDefault(benchmark, result)
-    elif option == 'r' or option == 'remove':
+    elif option in ('r', 'remove'):
       if len(words) != 2:
         self.UsageError(inp)
       else:
         benchmark = words[1]
         self.RemoveBenchmark(benchmark)
-    elif option == 'm' or option == 'move':
+    elif option in ('m', 'move'):
       if len(words) != 3:
         self.UsageError(inp)
       else:
         old_name = words[1]
         new_name = words[2]
         self.RenameBenchmark(old_name, new_name)
-    elif option == 'q' or option == 'quit':
+    elif option in ('q', 'quit'):
       self.WriteDefaultsFile()
 
-    return (option == 'q' or option == 'quit' or option == 't' or
-            option == 'terminate')
+    return option in ('q', 'quit', 't', 'terminate')
 
 
 def Main():

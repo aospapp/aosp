@@ -1,20 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2017-2018 Petr Vorel <pvorel@suse.cz>
-# Copyright (c) International Business Machines  Corp., 2006
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of
-# the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it would be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-#
+# Copyright (c) International Business Machines Corp., 2006
 # Author: Petr Vorel <pvorel@suse.cz>
 #
 # Setup script for multicast stress tests.
@@ -122,7 +109,7 @@ do_multicast_test_multiple_join()
 
 do_multicast_test_join_leave()
 {
-	local cnt define_src_addr filter params ret
+	local cnt define_src_addr filter params pid pids ret
 	local max="$1"
 	local maddr="$MCAST_IPV4_ADDR"
 	[ "$TST_IPV6" ] && maddr="$MCAST_IPV6_ADDR"
@@ -145,10 +132,11 @@ do_multicast_test_join_leave()
 		fi
 
 		$MCAST_LCMD -l $NS_TIMES -a $maddr $params &
+		pids="$! $pids"
 		cnt=$((cnt + 1))
 	done
 
-	wait
+	for pid in $pids; do wait $pid; done
 
 	tst_res TPASS "test is finished successfully"
 }

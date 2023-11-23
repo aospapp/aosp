@@ -15,29 +15,19 @@
 package com.android.systemui;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import android.os.Looper;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.systemui.Dependency.DependencyKey;
 import com.android.systemui.statusbar.policy.FlashlightController;
 
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.PrintWriter;
-
 @SmallTest
 public class DependencyTest extends SysuiTestCase {
-
-    public static final DependencyKey<Dumpable> DUMPABLE = new DependencyKey<>("dumpable");
-    public static final DependencyKey<ConfigurationChangedReceiver> CONFIGURATION_CHANGED_RECEIVER
-            = new DependencyKey<>("config_changed_receiver");
 
     @Test
     public void testClassDependency() {
@@ -54,26 +44,11 @@ public class DependencyTest extends SysuiTestCase {
     }
 
     @Test
-    public void testDump() {
-        Dumpable d = mock(Dumpable.class);
-        mDependency.injectTestDependency(DUMPABLE, d);
-        Dependency.get(DUMPABLE);
-        mDependency.dump(null, mock(PrintWriter.class), null);
-        verify(d).dump(eq(null), any(), eq(null));
-    }
-
-    @Test
-    public void testConfigurationChanged() {
-        ConfigurationChangedReceiver d = mock(ConfigurationChangedReceiver.class);
-        mDependency.injectTestDependency(CONFIGURATION_CHANGED_RECEIVER, d);
-        Dependency.get(CONFIGURATION_CHANGED_RECEIVER);
-        mDependency.onConfigurationChanged(null);
-        verify(d).onConfigurationChanged(eq(null));
-    }
-
-    @Test
     public void testInitDependency() {
         Dependency.clearDependencies();
-        Dependency.initDependencies(mContext);
+        Dependency dependency = new Dependency();
+        SystemUIFactory
+                .getInstance().getRootComponent().createDependency().createSystemUI(dependency);
+        dependency.start();
     }
 }

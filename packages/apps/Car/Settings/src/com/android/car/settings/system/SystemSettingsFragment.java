@@ -16,16 +16,44 @@
 
 package com.android.car.settings.system;
 
+import android.content.Context;
+import android.os.UserManager;
+
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities.SystemSettingsActivity;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.development.DevelopmentSettingsUtil;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Shows basic info about the system and provide some actions like update, reset etc.
  */
+@SearchIndexable
 public class SystemSettingsFragment extends SettingsFragment {
 
     @Override
     protected int getPreferenceScreenResId() {
         return R.xml.system_settings_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.system_settings_fragment,
+                    SystemSettingsActivity.class) {
+                @Override
+                public List<String> getNonIndexableKeys(Context context) {
+                    if (!DevelopmentSettingsUtil.isDevelopmentSettingsEnabled(context,
+                            UserManager.get(context))) {
+                        return Collections.singletonList(
+                                context.getString(R.string.pk_developer_options_entry));
+                    }
+                    return null;
+                }
+            };
 }

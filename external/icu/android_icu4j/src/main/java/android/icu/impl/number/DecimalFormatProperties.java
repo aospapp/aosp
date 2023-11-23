@@ -26,6 +26,7 @@ import android.icu.util.Currency.CurrencyUsage;
 /**
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.IntraCoreApi
 public class DecimalFormatProperties implements Cloneable, Serializable {
 
     private static final DecimalFormatProperties DEFAULT = new DecimalFormatProperties();
@@ -35,6 +36,7 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
 
     /** Controls the set of rules for parsing a string from the old DecimalFormat API. 
      * @hide Only a subset of ICU is exposed in Android*/
+    @libcore.api.IntraCoreApi
     public static enum ParseMode {
         /**
          * Lenient mode should be used if you want to accept malformed user input. It will use heuristics
@@ -66,6 +68,14 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
          * </ul>
          */
         STRICT,
+
+        /**
+         * Internal parse mode for increased compatibility with java.text.DecimalFormat.
+         * Used by Android libcore. To enable this feature, java.text.DecimalFormat holds an instance of
+         * ICU4J's DecimalFormat and enable it by calling setParseStrictMode(ParseMode.COMPATIBILITY).
+         */
+        @libcore.api.IntraCoreApi
+        JAVA_COMPATIBILITY,
     }
 
     // The setters in this class should NOT have any side-effects or perform any validation. It is
@@ -1401,8 +1411,8 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
         // Extra int for possible future use
         oos.writeInt(0);
 
-        ArrayList<Field> fieldsToSerialize = new ArrayList<Field>();
-        ArrayList<Object> valuesToSerialize = new ArrayList<Object>();
+        ArrayList<Field> fieldsToSerialize = new ArrayList<>();
+        ArrayList<Object> valuesToSerialize = new ArrayList<>();
         Field[] fields = DecimalFormatProperties.class.getDeclaredFields();
         for (Field field : fields) {
             if (Modifier.isStatic(field.getModifiers())) {

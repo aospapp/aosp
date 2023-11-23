@@ -11,12 +11,22 @@
 CPDF_Pattern::CPDF_Pattern(CPDF_Document* pDoc,
                            CPDF_Object* pObj,
                            const CFX_Matrix& parentMatrix)
-    : m_pDocument(pDoc), m_pPatternObj(pObj), m_ParentMatrix(parentMatrix) {}
+    : m_pDocument(pDoc), m_pPatternObj(pObj), m_ParentMatrix(parentMatrix) {
+  ASSERT(m_pDocument);
+  ASSERT(m_pPatternObj);
+}
 
-CPDF_Pattern::~CPDF_Pattern() {}
+CPDF_Pattern::~CPDF_Pattern() = default;
+
+CPDF_TilingPattern* CPDF_Pattern::AsTilingPattern() {
+  return nullptr;
+}
+
+CPDF_ShadingPattern* CPDF_Pattern::AsShadingPattern() {
+  return nullptr;
+}
 
 void CPDF_Pattern::SetPatternToFormMatrix() {
-  CPDF_Dictionary* pDict = pattern_obj()->GetDict();
-  m_Pattern2Form = pDict->GetMatrixFor("Matrix");
-  m_Pattern2Form.Concat(m_ParentMatrix);
+  const CPDF_Dictionary* pDict = pattern_obj()->GetDict();
+  m_Pattern2Form = pDict->GetMatrixFor("Matrix") * m_ParentMatrix;
 }

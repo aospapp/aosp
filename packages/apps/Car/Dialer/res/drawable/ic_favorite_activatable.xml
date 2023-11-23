@@ -15,7 +15,11 @@
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@drawable/ic_favorite_empty"
-          android:state_activated="false"/>
+          android:state_activated="false" android:state_enabled="true"/>
     <item android:drawable="@drawable/ic_favorite"
-          android:state_activated="true"/>
+          android:state_activated="true" android:state_enabled="true"/>
+    <item android:drawable="@drawable/ic_favorite"
+          android:state_activated="true" android:state_enabled="false"/>
+    <item android:drawable="@drawable/ic_imported_favorite"
+          android:state_activated="false" android:state_enabled="false"/>
 </selector>

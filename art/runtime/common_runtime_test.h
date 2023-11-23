@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <jni.h>
 
+#include <functional>
 #include <string>
 
 #include <android-base/logging.h>
@@ -38,8 +39,27 @@
 
 namespace art {
 
+class MethodReference;
+class TypeReference;
+
 using LogSeverity = android::base::LogSeverity;
 using ScopedLogSeverity = android::base::ScopedLogSeverity;
+
+template<class MirrorType>
+static inline ObjPtr<MirrorType> MakeObjPtr(MirrorType* ptr) {
+  return ptr;
+}
+
+template<class MirrorType>
+static inline ObjPtr<MirrorType> MakeObjPtr(ObjPtr<MirrorType> ptr) {
+  return ptr;
+}
+
+// OBJ pointer helpers to avoid needing .Decode everywhere.
+#define EXPECT_OBJ_PTR_EQ(a, b) EXPECT_EQ(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
+#define ASSERT_OBJ_PTR_EQ(a, b) ASSERT_EQ(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
+#define EXPECT_OBJ_PTR_NE(a, b) EXPECT_NE(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
+#define ASSERT_OBJ_PTR_NE(a, b) ASSERT_NE(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr())
 
 class ClassLinker;
 class CompilerCallbacks;
@@ -95,7 +115,26 @@ class CommonRuntimeTestImpl : public CommonArtTestImpl {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool StartDex2OatCommandLine(/*out*/std::vector<std::string>* argv,
-                               /*out*/std::string* error_msg);
+                               /*out*/std::string* error_msg,
+                               bool use_runtime_bcp_and_image = true);
+
+  bool CompileBootImage(const std::vector<std::string>& extra_args,
+                        const std::string& image_file_name_prefix,
+                        ArrayRef<const std::string> dex_files,
+                        ArrayRef<const std::string> dex_locations,
+                        std::string* error_msg,
+                        const std::string& use_fd_prefix = "");
+
+  bool CompileBootImage(const std::vector<std::string>& extra_args,
+                        const std::string& image_file_name_prefix,
+                        ArrayRef<const std::string> dex_files,
+                        std::string* error_msg,
+                        const std::string& use_fd_prefix = "") {
+    return CompileBootImage(
+        extra_args, image_file_name_prefix, dex_files, dex_files, error_msg, use_fd_prefix);
+  }
+
+  bool RunDex2Oat(const std::vector<std::string>& args, std::string* error_msg);
 
  protected:
   // Allow subclases such as CommonCompilerTest to add extra options.
@@ -118,12 +157,26 @@ class CommonRuntimeTestImpl : public CommonArtTestImpl {
   jobject LoadDexInPathClassLoader(const std::string& dex_name,
                                    jobject parent_loader,
                                    jobject shared_libraries = nullptr);
+  jobject LoadDexInPathClassLoader(const std::vector<std::string>& dex_names,
+                                   jobject parent_loader,
+                                   jobject shared_libraries = nullptr);
   jobject LoadDexInDelegateLastClassLoader(const std::string& dex_name, jobject parent_loader);
   jobject LoadDexInInMemoryDexClassLoader(const std::string& dex_name, jobject parent_loader);
-  jobject LoadDexInWellKnownClassLoader(const std::string& dex_name,
+  jobject LoadDexInWellKnownClassLoader(const std::vector<std::string>& dex_names,
                                         jclass loader_class,
                                         jobject parent_loader,
                                         jobject shared_libraries = nullptr);
+
+  void VisitDexes(ArrayRef<const std::string> dexes,
+                  const std::function<void(MethodReference)>& method_visitor,
+                  const std::function<void(TypeReference)>& class_visitor,
+                  size_t method_frequency = 1u,
+                  size_t class_frequency = 1u);
+
+  void GenerateProfile(ArrayRef<const std::string> dexes,
+                       File* out_file,
+                       size_t method_frequency = 1u,
+                       size_t type_frequency = 1u);
 
   std::unique_ptr<Runtime> runtime_;
 
@@ -152,6 +205,16 @@ class CommonRuntimeTestImpl : public CommonArtTestImpl {
   // Called to finish up runtime creation and filling test fields. By default runs root
   // initializers, initialize well-known classes, and creates the heap thread pool.
   virtual void FinalizeSetup();
+
+  // Returns the directory where the pre-compiled core.art can be found.
+  static std::string GetImageDirectory();
+  static std::string GetImageLocation();
+  static std::string GetSystemImageFile();
+
+  static void EnterTransactionMode();
+  static void ExitTransactionMode();
+  static void RollbackAndExitTransactionMode() REQUIRES_SHARED(Locks::mutator_lock_);
+  static bool IsTransactionAborted();
 };
 
 template <typename TestType>
@@ -195,6 +258,12 @@ class CheckJniAbortCatcher {
   DISALLOW_COPY_AND_ASSIGN(CheckJniAbortCatcher);
 };
 
+#define TEST_DISABLED() \
+  do { \
+    printf("WARNING: TEST DISABLED\n"); \
+    return; \
+  } while (false)
+
 #define TEST_DISABLED_FOR_ARM() \
   if (kRuntimeISA == InstructionSet::kArm || kRuntimeISA == InstructionSet::kThumb2) { \
     printf("WARNING: TEST DISABLED FOR ARM\n"); \
@@ -207,21 +276,15 @@ class CheckJniAbortCatcher {
     return; \
   }
 
-#define TEST_DISABLED_FOR_MIPS() \
-  if (kRuntimeISA == InstructionSet::kMips) { \
-    printf("WARNING: TEST DISABLED FOR MIPS\n"); \
-    return; \
-  }
-
-#define TEST_DISABLED_FOR_MIPS64() \
-  if (kRuntimeISA == InstructionSet::kMips64) { \
-    printf("WARNING: TEST DISABLED FOR MIPS64\n"); \
-    return; \
-  }
-
 #define TEST_DISABLED_FOR_X86() \
   if (kRuntimeISA == InstructionSet::kX86) { \
     printf("WARNING: TEST DISABLED FOR X86\n"); \
+    return; \
+  }
+
+#define TEST_DISABLED_FOR_X86_64() \
+  if (kRuntimeISA == InstructionSet::kX86_64) { \
+    printf("WARNING: TEST DISABLED FOR X86_64\n"); \
     return; \
   }
 
@@ -246,6 +309,12 @@ class CheckJniAbortCatcher {
 #define TEST_DISABLED_FOR_MEMORY_TOOL_WITH_HEAP_POISONING_WITHOUT_READ_BARRIERS() \
   if (kRunningOnMemoryTool && kPoisonHeapReferences && !kEmitCompilerReadBarrier) { \
     printf("WARNING: TEST DISABLED FOR MEMORY TOOL WITH HEAP POISONING WITHOUT READ BARRIERS\n"); \
+    return; \
+  }
+
+#define TEST_DISABLED_FOR_KERNELS_WITH_CACHE_SEGFAULT() \
+  if (CacheOperationsMaySegFault()) { \
+    printf("WARNING: TEST DISABLED ON KERNEL THAT SEGFAULT ON CACHE OPERATIONS\n"); \
     return; \
   }
 

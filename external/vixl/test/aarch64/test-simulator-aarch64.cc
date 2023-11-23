@@ -102,7 +102,6 @@ namespace aarch64 {
   /* The simulator can run every test. */                               \
   *skipped = false
 
-#define TEARDOWN()
 
 #else  // VIXL_INCLUDE_SIMULATOR_AARCH64
 
@@ -142,14 +141,15 @@ namespace aarch64 {
       *skipped = false;                                                       \
     } else {                                                                  \
       std::stringstream os;                                                   \
-      os << "Warning: skipping test due to missing CPU features.\n";          \
-      os << "  Missing: {" << requirements.Without(this_machine) << "}\n";    \
+      /* Note: This message needs to match REGEXP_MISSING_FEATURES from    */ \
+      /* tools/threaded_test.py.                                           */ \
+      os << "SKIPPED: Missing features: { ";                                  \
+      os << requirements.Without(this_machine) << " }\n";                     \
       printf("%s", os.str().c_str());                                         \
       *skipped = true;                                                        \
     }                                                                         \
   }
 
-#define TEARDOWN()
 
 #endif  // VIXL_INCLUDE_SIMULATOR_AARCH64
 
@@ -181,25 +181,25 @@ static double rawbits_to_fp(uint16_t bits) {
 
 
 // MacroAssembler member function pointers to pass to the test dispatchers.
-typedef void (MacroAssembler::*Test1OpFPHelper_t)(const FPRegister& fd,
-                                                  const FPRegister& fn);
-typedef void (MacroAssembler::*Test2OpFPHelper_t)(const FPRegister& fd,
-                                                  const FPRegister& fn,
-                                                  const FPRegister& fm);
-typedef void (MacroAssembler::*Test3OpFPHelper_t)(const FPRegister& fd,
-                                                  const FPRegister& fn,
-                                                  const FPRegister& fm,
-                                                  const FPRegister& fa);
-typedef void (MacroAssembler::*TestFPCmpHelper_t)(const FPRegister& fn,
-                                                  const FPRegister& fm);
-typedef void (MacroAssembler::*TestFPCmpZeroHelper_t)(const FPRegister& fn,
+typedef void (MacroAssembler::*Test1OpFPHelper_t)(const VRegister& fd,
+                                                  const VRegister& fn);
+typedef void (MacroAssembler::*Test2OpFPHelper_t)(const VRegister& fd,
+                                                  const VRegister& fn,
+                                                  const VRegister& fm);
+typedef void (MacroAssembler::*Test3OpFPHelper_t)(const VRegister& fd,
+                                                  const VRegister& fn,
+                                                  const VRegister& fm,
+                                                  const VRegister& fa);
+typedef void (MacroAssembler::*TestFPCmpHelper_t)(const VRegister& fn,
+                                                  const VRegister& fm);
+typedef void (MacroAssembler::*TestFPCmpZeroHelper_t)(const VRegister& fn,
                                                       double value);
 typedef void (MacroAssembler::*TestFPToIntHelper_t)(const Register& rd,
-                                                    const FPRegister& fn);
+                                                    const VRegister& fn);
 typedef void (MacroAssembler::*TestFPToFixedHelper_t)(const Register& rd,
-                                                      const FPRegister& fn,
+                                                      const VRegister& fn,
                                                       int fbits);
-typedef void (MacroAssembler::*TestFixedToFPHelper_t)(const FPRegister& fd,
+typedef void (MacroAssembler::*TestFixedToFPHelper_t)(const VRegister& fd,
                                                       const Register& rn,
                                                       int fbits);
 // TODO: 'Test2OpNEONHelper_t' and 'Test2OpFPHelper_t' can be
@@ -251,7 +251,11 @@ static void Test1Op_Helper(Test1OpFPHelper_t helper,
   VIXL_ASSERT((n_size == kDRegSize) || (n_size == kSRegSize) ||
               (n_size == kHRegSize));
 
-  SETUP_WITH_FEATURES(CPUFeatures::kFP, CPUFeatures::kFPHalf);
+  CPUFeatures features;
+  features.Combine(CPUFeatures::kFP, CPUFeatures::kFPHalf);
+  // For frint{32,64}{x,y} variants.
+  features.Combine(CPUFeatures::kFrintToFixedSizedInt);
+  SETUP_WITH_FEATURES(features);
   START();
 
   // Roll up the loop to keep the code size down.
@@ -263,8 +267,8 @@ static void Test1Op_Helper(Test1OpFPHelper_t helper,
   Register index_n = w3;
 
   int n_index_shift;
-  FPRegister fd;
-  FPRegister fn;
+  VRegister fd;
+  VRegister fn;
   if (n_size == kDRegSize) {
     n_index_shift = kDRegSizeInBytesLog2;
     fn = d1;
@@ -305,7 +309,6 @@ static void Test1Op_Helper(Test1OpFPHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -414,9 +417,9 @@ static void Test2Op_Helper(Test2OpFPHelper_t helper,
     index_shift = kHRegSizeInBytesLog2;
   }
 
-  FPRegister fd;
-  FPRegister fn;
-  FPRegister fm;
+  VRegister fd;
+  VRegister fn;
+  VRegister fm;
 
   if (double_op) {
     fd = d0;
@@ -460,7 +463,6 @@ static void Test2Op_Helper(Test2OpFPHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -565,10 +567,10 @@ static void Test3Op_Helper(Test3OpFPHelper_t helper,
   bool double_op = reg_size == kDRegSize;
   bool single_op = reg_size == kSRegSize;
   int index_shift;
-  FPRegister fd(0, reg_size);
-  FPRegister fn(1, reg_size);
-  FPRegister fm(2, reg_size);
-  FPRegister fa(3, reg_size);
+  VRegister fd(0, reg_size);
+  VRegister fn(1, reg_size);
+  VRegister fm(2, reg_size);
+  VRegister fa(3, reg_size);
   if (double_op) {
     index_shift = kDRegSizeInBytesLog2;
   } else if (single_op) {
@@ -613,7 +615,6 @@ static void Test3Op_Helper(Test3OpFPHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -724,8 +725,8 @@ static void TestCmp_Helper(TestFPCmpHelper_t helper,
   const int index_shift =
       double_op ? kDRegSizeInBytesLog2 : kSRegSizeInBytesLog2;
 
-  FPRegister fn = double_op ? d1 : s1;
-  FPRegister fm = double_op ? d2 : s2;
+  VRegister fn = double_op ? d1 : s1;
+  VRegister fm = double_op ? d2 : s2;
 
   __ Mov(out, results);
   __ Mov(inputs_base, inputs);
@@ -757,7 +758,6 @@ static void TestCmp_Helper(TestFPCmpHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -865,7 +865,7 @@ static void TestCmpZero_Helper(TestFPCmpZeroHelper_t helper,
   const int index_shift =
       double_op ? kDRegSizeInBytesLog2 : kSRegSizeInBytesLog2;
 
-  FPRegister fn = double_op ? d1 : s1;
+  VRegister fn = double_op ? d1 : s1;
 
   __ Mov(out, results);
   __ Mov(inputs_base, inputs);
@@ -889,7 +889,6 @@ static void TestCmpZero_Helper(TestFPCmpZeroHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -1002,7 +1001,7 @@ static void TestFPToFixed_Helper(TestFPToFixedHelper_t helper,
   }
 
   Register rd = (d_size == kXRegSize) ? Register(x10) : Register(w10);
-  FPRegister fn;
+  VRegister fn;
   if (n_size == kDRegSize) {
     fn = d1;
   } else if (n_size == kSRegSize) {
@@ -1033,7 +1032,6 @@ static void TestFPToFixed_Helper(TestFPToFixedHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -1071,7 +1069,7 @@ static void TestFPToInt_Helper(TestFPToIntHelper_t helper,
   }
 
   Register rd = (d_size == kXRegSize) ? Register(x10) : Register(w10);
-  FPRegister fn;
+  VRegister fn;
   if (n_size == kDRegSize) {
     fn = d1;
   } else if (n_size == kSRegSize) {
@@ -1100,7 +1098,6 @@ static void TestFPToInt_Helper(TestFPToIntHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -1455,10 +1452,14 @@ static void Test1OpNEON_Helper(Test1OpNEONHelper_t helper,
   VIXL_ASSERT(vd_form != kFormatUndefined);
   VIXL_ASSERT(vn_form != kFormatUndefined);
 
-  SETUP_WITH_FEATURES(CPUFeatures::kNEON,
-                      CPUFeatures::kFP,
-                      CPUFeatures::kRDM,
-                      CPUFeatures::kNEONHalf);
+  CPUFeatures features;
+  features.Combine(CPUFeatures::kNEON,
+                   CPUFeatures::kFP,
+                   CPUFeatures::kRDM,
+                   CPUFeatures::kNEONHalf);
+  // For frint{32,64}{x,y} variants.
+  features.Combine(CPUFeatures::kFrintToFixedSizedInt);
+  SETUP_WITH_FEATURES(features);
   START();
 
   // Roll up the loop to keep the code size down.
@@ -1526,7 +1527,6 @@ static void Test1OpNEON_Helper(Test1OpNEONHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -1736,7 +1736,6 @@ static void Test1OpAcrossNEON_Helper(Test1OpNEONHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 // Test NEON instructions. The inputs_*[] and expected[] arrays should be
@@ -1896,6 +1895,7 @@ static void Test2OpNEON_Helper(Test2OpNEONHelper_t helper,
   features.Combine(CPUFeatures::kFP);
   features.Combine(CPUFeatures::kRDM);
   features.Combine(CPUFeatures::kDotProduct);
+  features.Combine(CPUFeatures::kFHM);
   SETUP_WITH_FEATURES(features);
   START();
 
@@ -1989,7 +1989,6 @@ static void Test2OpNEON_Helper(Test2OpNEONHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -2148,6 +2147,7 @@ static void TestByElementNEON_Helper(TestByElementNEONHelper_t helper,
   features.Combine(CPUFeatures::kFP);
   features.Combine(CPUFeatures::kRDM);
   features.Combine(CPUFeatures::kDotProduct);
+  features.Combine(CPUFeatures::kFHM);
   SETUP_WITH_FEATURES(features);
 
   START();
@@ -2248,7 +2248,6 @@ static void TestByElementNEON_Helper(TestByElementNEONHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -2487,7 +2486,6 @@ void Test2OpImmNEON_Helper(
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -2711,7 +2709,6 @@ static void TestOpImmOpImmNEON_Helper(TestOpImmOpImmVdUpdateNEONHelper_t helper,
 
   END();
   TRY_RUN(skipped);
-  TEARDOWN();
 }
 
 
@@ -2922,6 +2919,10 @@ DEFINE_TEST_FP_FP16(fabs, 1Op, Basic)
 DEFINE_TEST_FP_FP16(fmov, 1Op, Basic)
 DEFINE_TEST_FP_FP16(fneg, 1Op, Basic)
 DEFINE_TEST_FP_FP16(fsqrt, 1Op, Basic)
+DEFINE_TEST_FP(frint32x, 1Op, Conversions)
+DEFINE_TEST_FP(frint64x, 1Op, Conversions)
+DEFINE_TEST_FP(frint32z, 1Op, Conversions)
+DEFINE_TEST_FP(frint64z, 1Op, Conversions)
 DEFINE_TEST_FP_FP16(frinta, 1Op, Conversions)
 DEFINE_TEST_FP_FP16(frinti, 1Op, Conversions)
 DEFINE_TEST_FP_FP16(frintm, 1Op, Conversions)
@@ -3518,6 +3519,26 @@ DEFINE_TEST_FP_TO_JS_INT(fjcvtzs, FPToS, Conversions)
                                 D,                           \
                                 kInputDoubleAccDestination,  \
                                 kInputDouble##input);        \
+  }
+
+#define DEFINE_TEST_NEON_FHM(mnemonic, input_d, input_n, input_m) \
+  TEST(mnemonic##_2S) {                                           \
+    CALL_TEST_NEON_HELPER_3DIFF(mnemonic,                         \
+                                2S,                               \
+                                2H,                               \
+                                2H,                               \
+                                kInputFloatAccDestination,        \
+                                kInputFloat16##input_n,           \
+                                kInputFloat16##input_m);          \
+  }                                                               \
+  TEST(mnemonic##_4S) {                                           \
+    CALL_TEST_NEON_HELPER_3DIFF(mnemonic,                         \
+                                4S,                               \
+                                4H,                               \
+                                4H,                               \
+                                kInputFloatAccDestination,        \
+                                kInputFloat16##input_n,           \
+                                kInputFloat16##input_m);          \
   }
 
 #define CALL_TEST_NEON_HELPER_3DIFF(                             \
@@ -4354,6 +4375,28 @@ DEFINE_TEST_FP_TO_JS_INT(fjcvtzs, FPToS, Conversions)
                                     kInputDIndices);                       \
   }
 
+#define DEFINE_TEST_NEON_FHM_BYELEMENT(mnemonic, input_d, input_n, input_m) \
+  TEST(mnemonic##_2S_2H_H) {                                                \
+    CALL_TEST_NEON_HELPER_BYELEMENT(mnemonic,                               \
+                                    2S,                                     \
+                                    2H,                                     \
+                                    H,                                      \
+                                    kInputFloatAccDestination,              \
+                                    kInputFloat16##input_n,                 \
+                                    kInputFloat16##input_m,                 \
+                                    kInputHIndices);                        \
+  }                                                                         \
+  TEST(mnemonic##_4S_4H_H) {                                                \
+    CALL_TEST_NEON_HELPER_BYELEMENT(mnemonic,                               \
+                                    4S,                                     \
+                                    4H,                                     \
+                                    H,                                      \
+                                    kInputFloatAccDestination,              \
+                                    kInputFloat16##input_n,                 \
+                                    kInputFloat16##input_m,                 \
+                                    kInputHIndices);                        \
+  }
+
 #define DEFINE_TEST_NEON_FP_BYELEMENT_SCALAR(mnemonic, inp_d, inp_n, inp_m) \
   TEST(mnemonic##_H_H_H) {                                                  \
     CALL_TEST_NEON_HELPER_BYELEMENT(mnemonic,                               \
@@ -4632,6 +4675,15 @@ DEFINE_TEST_NEON_3SAME_FP_SCALAR(fcmgt, Basic)
 DEFINE_TEST_NEON_3SAME_FP_SCALAR(facgt, Basic)
 
 
+// Advanced SIMD FHM instructions (FMLAL, FMLSL).
+// These are oddballs: they are encoded under the 3SAME group but behave
+// quite differently.
+DEFINE_TEST_NEON_FHM(fmlal, Basic, Basic, Basic)
+DEFINE_TEST_NEON_FHM(fmlal2, Basic, Basic, Basic)
+DEFINE_TEST_NEON_FHM(fmlsl, Basic, Basic, Basic)
+DEFINE_TEST_NEON_FHM(fmlsl2, Basic, Basic, Basic)
+
+
 // Advanced SIMD three different.
 DEFINE_TEST_NEON_3DIFF_LONG(saddl, Basic)
 DEFINE_TEST_NEON_3DIFF_WIDE(saddw, Basic)
@@ -4790,6 +4842,10 @@ DEFINE_TEST_NEON_2DIFF_NARROW(sqxtun, Basic)
 DEFINE_TEST_NEON_2OPIMM_LONG(shll, Basic, SHLL)
 DEFINE_TEST_NEON_2DIFF_NARROW(uqxtn, Basic)
 DEFINE_TEST_NEON_2DIFF_FP_NARROW_2S(fcvtxn, Conversions)
+DEFINE_TEST_NEON_2SAME_FP(frint32x, Conversions)
+DEFINE_TEST_NEON_2SAME_FP(frint64x, Conversions)
+DEFINE_TEST_NEON_2SAME_FP(frint32z, Conversions)
+DEFINE_TEST_NEON_2SAME_FP(frint64z, Conversions)
 DEFINE_TEST_NEON_2SAME_FP_FP16(frinta, Conversions)
 DEFINE_TEST_NEON_2SAME_FP_FP16(frintx, Conversions)
 DEFINE_TEST_NEON_2SAME_FP_FP16(fcvtnu, Conversions)
@@ -4911,6 +4967,12 @@ DEFINE_TEST_NEON_FP_BYELEMENT_SCALAR(fmul, Basic, Basic, Basic)
 DEFINE_TEST_NEON_FP_BYELEMENT_SCALAR(fmulx, Basic, Basic, Basic)
 
 
+DEFINE_TEST_NEON_FHM_BYELEMENT(fmlal, Basic, Basic, Basic)
+DEFINE_TEST_NEON_FHM_BYELEMENT(fmlal2, Basic, Basic, Basic)
+DEFINE_TEST_NEON_FHM_BYELEMENT(fmlsl, Basic, Basic, Basic)
+DEFINE_TEST_NEON_FHM_BYELEMENT(fmlsl2, Basic, Basic, Basic)
+
+
 #undef __
 #define __ masm->
 
@@ -4985,17 +5047,17 @@ Instruction* GenerateSum(MacroAssembler* masm) {
   masm->Reset();
 
   ABI abi;
-  FPRegister input_1 =
-      FPRegister(abi.GetNextParameterGenericOperand<float>().GetCPURegister());
+  VRegister input_1 =
+      VRegister(abi.GetNextParameterGenericOperand<float>().GetCPURegister());
   Register input_2 =
       Register(abi.GetNextParameterGenericOperand<int64_t>().GetCPURegister());
-  FPRegister input_3 =
-      FPRegister(abi.GetNextParameterGenericOperand<double>().GetCPURegister());
-  FPRegister result =
-      FPRegister(abi.GetReturnGenericOperand<double>().GetCPURegister());
+  VRegister input_3 =
+      VRegister(abi.GetNextParameterGenericOperand<double>().GetCPURegister());
+  VRegister result =
+      VRegister(abi.GetReturnGenericOperand<double>().GetCPURegister());
 
   UseScratchRegisterScope temps(masm);
-  FPRegister temp = temps.AcquireD();
+  VRegister temp = temps.AcquireD();
 
   __ Fcvt(input_1.D(), input_1);
   __ Scvtf(temp, input_2);

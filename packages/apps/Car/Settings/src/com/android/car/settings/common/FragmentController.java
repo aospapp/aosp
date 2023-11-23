@@ -25,7 +25,7 @@ import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 
 /**
- * Controls launching {@link Fragment} instances and back navigation.
+ * Encapsulates a subset of the operations possible from a {@link Fragment}.
  */
 public interface FragmentController {
 
@@ -40,11 +40,6 @@ public interface FragmentController {
      * Pops the top off the Fragment stack.
      */
     void goBack();
-
-    /**
-     * Shows a message to inform the user that the current feature is not available when driving.
-     */
-    void showBlockingMessage();
 
     /**
      * Shows dialog with given tag.

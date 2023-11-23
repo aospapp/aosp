@@ -21,29 +21,29 @@ import static com.android.settingslib.display.BrightnessUtils.convertGammaToLine
 import static com.android.settingslib.display.BrightnessUtils.convertLinearToGamma;
 
 import android.app.ActivityManager;
-import android.car.userlib.CarUserManagerHelper;
-import android.car.userlib.CarUserManagerHelper.OnUsersUpdateListener;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.ContentObserver;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.DisplayManager.DisplayListener;
+import android.hardware.input.InputManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
-import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
 import android.util.Log;
 import android.view.Display;
-import android.view.DisplayAddress;
-import android.view.IWindowManager;
+import android.view.InputDevice;
 
 import com.android.car.CarLog;
 import com.android.car.CarPowerManagementService;
+import com.android.internal.annotations.GuardedBy;
 
 /**
  * Interface that abstracts display operations
@@ -63,29 +63,27 @@ public interface DisplayInterface {
     void refreshDisplayBrightness();
 
     /**
-     * Reconfigure all secondary displays due to b/131909551
-     */
-    void reconfigureSecondaryDisplays();
-    /**
      * Default implementation of display operations
      */
-    class DefaultImpl implements DisplayInterface, OnUsersUpdateListener {
-        static final String TAG = DisplayInterface.class.getSimpleName();
-
+    class DefaultImpl implements DisplayInterface {
         private final ActivityManager mActivityManager;
         private final ContentResolver mContentResolver;
         private final Context mContext;
         private final DisplayManager mDisplayManager;
+        private final InputManager mInputManager;
+        private final Object mLock = new Object();
         private final int mMaximumBacklight;
         private final int mMinimumBacklight;
         private final PowerManager mPowerManager;
         private final WakeLockInterface mWakeLockInterface;
+        @GuardedBy("mLock")
         private CarPowerManagementService mService;
+        @GuardedBy("mLock")
         private boolean mDisplayStateSet;
-        private CarUserManagerHelper mCarUserManagerHelper;
+        @GuardedBy("mLock")
         private int mLastBrightnessLevel = -1;
 
-        private ContentObserver mBrightnessObserver =
+        private final ContentObserver mBrightnessObserver =
                 new ContentObserver(new Handler(Looper.getMainLooper())) {
                     @Override
                     public void onChange(boolean selfChange) {
@@ -112,39 +110,59 @@ public interface DisplayInterface {
             }
         };
 
+        private final BroadcastReceiver mUserChangeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                onUsersUpdate();
+            }
+        };
+
         DefaultImpl(Context context, WakeLockInterface wakeLockInterface) {
             mActivityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             mContext = context;
             mContentResolver = mContext.getContentResolver();
             mDisplayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+            mInputManager = (InputManager) mContext.getSystemService(Context.INPUT_SERVICE);
             mPowerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
             mMaximumBacklight = mPowerManager.getMaximumScreenBrightnessSetting();
             mMinimumBacklight = mPowerManager.getMinimumScreenBrightnessSetting();
             mWakeLockInterface = wakeLockInterface;
-            mCarUserManagerHelper = new CarUserManagerHelper(context);
-            mCarUserManagerHelper.registerOnUsersUpdateListener(this);
+
+            mContext.registerReceiverAsUser(
+                    mUserChangeReceiver,
+                    UserHandle.ALL,
+                    new IntentFilter(Intent.ACTION_USER_SWITCHED),
+                    null,
+                    null);
         }
 
         @Override
-        public synchronized void refreshDisplayBrightness() {
-            int gamma = GAMMA_SPACE_MAX;
-            try {
-                int linear = System.getIntForUser(
-                        mContentResolver,
-                        System.SCREEN_BRIGHTNESS,
-                        mActivityManager.getCurrentUser());
-                gamma = convertLinearToGamma(linear, mMinimumBacklight, mMaximumBacklight);
-            } catch (SettingNotFoundException e) {
-                Log.e(CarLog.TAG_POWER, "Could not get SCREEN_BRIGHTNESS:  " + e);
+        public void refreshDisplayBrightness() {
+            synchronized (mLock) {
+                if (mService == null) {
+                    Log.e(CarLog.TAG_POWER,
+                            "Could not set brightness: no CarPowerManagementService");
+                    return;
+                }
+                int gamma = GAMMA_SPACE_MAX;
+                try {
+                    int linear = System.getIntForUser(
+                            mContentResolver,
+                            System.SCREEN_BRIGHTNESS,
+                            ActivityManager.getCurrentUser());
+                    gamma = convertLinearToGamma(linear, mMinimumBacklight, mMaximumBacklight);
+                } catch (SettingNotFoundException e) {
+                    Log.e(CarLog.TAG_POWER, "Could not get SCREEN_BRIGHTNESS: " + e);
+                }
+                int percentBright = (gamma * 100 + ((GAMMA_SPACE_MAX + 1) / 2)) / GAMMA_SPACE_MAX;
+                mService.sendDisplayBrightness(percentBright);
             }
-            int percentBright = (gamma * 100 + ((GAMMA_SPACE_MAX + 1) / 2)) / GAMMA_SPACE_MAX;
-            mService.sendDisplayBrightness(percentBright);
         }
 
         private void handleMainDisplayChanged() {
             boolean isOn = isMainDisplayOn();
             CarPowerManagementService service;
-            synchronized (this) {
+            synchronized (mLock) {
                 if (mDisplayStateSet == isOn) { // same as what is set
                     return;
                 }
@@ -160,23 +178,25 @@ public interface DisplayInterface {
 
         @Override
         public void setDisplayBrightness(int percentBright) {
-            if (percentBright == mLastBrightnessLevel) {
-                // We have already set the value last time. Skipping
-                return;
+            synchronized (mLock) {
+                if (percentBright == mLastBrightnessLevel) {
+                    // We have already set the value last time. Skipping
+                    return;
+                }
+                mLastBrightnessLevel = percentBright;
             }
-            mLastBrightnessLevel = percentBright;
             int gamma = (percentBright * GAMMA_SPACE_MAX + 50) / 100;
             int linear = convertGammaToLinear(gamma, mMinimumBacklight, mMaximumBacklight);
             System.putIntForUser(
                     mContentResolver,
                     System.SCREEN_BRIGHTNESS,
                     linear,
-                    mActivityManager.getCurrentUser());
+                    ActivityManager.getCurrentUser());
         }
 
         @Override
         public void startDisplayStateMonitoring(CarPowerManagementService service) {
-            synchronized (this) {
+            synchronized (mLock) {
                 mService = service;
                 mDisplayStateSet = isMainDisplayOn();
             }
@@ -197,7 +217,7 @@ public interface DisplayInterface {
 
         @Override
         public void setDisplayState(boolean on) {
-            synchronized (this) {
+            synchronized (mLock) {
                 mDisplayStateSet = on;
             }
             if (on) {
@@ -209,44 +229,31 @@ public interface DisplayInterface {
                 Log.i(CarLog.TAG_POWER, "off display");
                 mPowerManager.goToSleep(SystemClock.uptimeMillis());
             }
-        }
-
-        @Override
-        public void onUsersUpdate() {
-            if (mService == null) {
-                // CarPowerManagementService is not connected yet
-                return;
-            }
-            // We need to reset last value
-            mLastBrightnessLevel = -1;
-            refreshDisplayBrightness();
-        }
-
-        @Override
-        public void reconfigureSecondaryDisplays() {
-            IWindowManager wm = IWindowManager.Stub
-                    .asInterface(ServiceManager.getService(Context.WINDOW_SERVICE));
-            if (wm == null) {
-                Log.e(TAG, "reconfigureSecondaryDisplays IWindowManager not available");
-                return;
-            }
-            Display[] displays = mDisplayManager.getDisplays();
-            for (Display display : displays) {
-                if (display.getDisplayId() == Display.DEFAULT_DISPLAY) { // skip main
-                    continue;
-                }
-                // Only use physical secondary displays
-                if (display.getAddress() instanceof DisplayAddress.Physical) {
-                    int displayId = display.getDisplayId();
-                    try {
-                        // Do not change the mode but this triggers reconfiguring.
-                        int windowingMode = wm.getWindowingMode(displayId);
-                        wm.setWindowingMode(displayId, windowingMode);
-                    } catch (RemoteException e) {
-                        Log.e(CarLog.TAG_SERVICE, "cannot access IWindowManager", e);
+            // Turn touchscreen input devices on or off, the same as the display
+            for (int deviceId : mInputManager.getInputDeviceIds()) {
+                InputDevice inputDevice = mInputManager.getInputDevice(deviceId);
+                if (inputDevice != null
+                        && (inputDevice.getSources() & InputDevice.SOURCE_TOUCHSCREEN)
+                        == InputDevice.SOURCE_TOUCHSCREEN) {
+                    if (on) {
+                        mInputManager.enableInputDevice(deviceId);
+                    } else {
+                        mInputManager.disableInputDevice(deviceId);
                     }
                 }
             }
+        }
+
+        private void onUsersUpdate() {
+            synchronized (mLock) {
+                if (mService == null) {
+                    // CarPowerManagementService is not connected yet
+                    return;
+                }
+                // We need to reset last value
+                mLastBrightnessLevel = -1;
+            }
+            refreshDisplayBrightness();
         }
     }
 }

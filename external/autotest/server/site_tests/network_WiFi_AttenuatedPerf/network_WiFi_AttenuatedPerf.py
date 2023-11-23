@@ -37,9 +37,6 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
                        netperf_runner.NetperfConfig.TEST_TYPE_UDP_MAERTS),
     ]
 
-    ATTENUATION_STEP = 4
-    FINAL_ATTENUATION = 100
-
     TSV_OUTPUT_DIR = 'tsvs'
 
     DataPoint = collections.namedtuple('DataPoint',
@@ -54,8 +51,10 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
         @param additional_params list of dicts describing router configs.
 
         """
-        self._ap_config = additional_params
+        self._ap_config = additional_params[0]
         self.series_note = None
+        self._attenuation_increment = additional_params[1]
+        self._final_attenuation = additional_params[2]
         if self.CMDLINE_SERIES_NOTE in commandline_args:
             self.series_note = commandline_args[self.CMDLINE_SERIES_NOTE]
 
@@ -81,8 +80,8 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
                                                  ignore_failures=True)
         session.warmup_stations()
         start_atten = self.context.attenuator.get_minimal_total_attenuation()
-        for atten in range(start_atten, self.FINAL_ATTENUATION,
-                           self.ATTENUATION_STEP):
+        for atten in range(start_atten, self._final_attenuation,
+                           self._attenuation_increment):
             atten_tag = 'atten%03d' % atten
             self.context.attenuator.set_total_attenuation(
                     atten, self._ap_config.frequency)
@@ -147,7 +146,8 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
 
         if max_atten is None:
             raise error.TestFail('Did not succeed at any atten level')
-        logging.info('Reached attenuation of: %d dB (signal %d)' % max_atten)
+        logging.info('Reached attenuation of: %d dB (signal %d)',
+                                max_atten[0], max_atten[1])
         self.write_perf_keyval({'ch%03d_max_atten' % self._ap_config.channel:
                                 max_atten[0]})
         self.write_perf_keyval({'ch%03d_min_signal' % self._ap_config.channel:

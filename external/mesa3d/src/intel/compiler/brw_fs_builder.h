@@ -114,11 +114,25 @@ namespace brw {
       fs_builder
       group(unsigned n, unsigned i) const
       {
-         assert(force_writemask_all ||
-                (n <= dispatch_width() && i < dispatch_width() / n));
          fs_builder bld = *this;
+
+         if (n <= dispatch_width() && i < dispatch_width() / n) {
+            bld._group += i * n;
+         } else {
+            /* The requested channel group isn't a subset of the channel group
+             * of this builder, which means that the resulting instructions
+             * would use (potentially undefined) channel enable signals not
+             * specified by the parent builder.  That's only valid if the
+             * instruction doesn't have per-channel semantics, in which case
+             * we should clear off the default group index in order to prevent
+             * emitting instructions with channel group not aligned to their
+             * own execution size.
+             */
+            assert(force_writemask_all);
+            bld._group = 0;
+         }
+
          bld._dispatch_width = n;
-         bld._group += i * n;
          return bld;
       }
 
@@ -235,14 +249,14 @@ namespace brw {
       src_reg
       sample_mask_reg() const
       {
-         assert(shader->stage != MESA_SHADER_FRAGMENT ||
-                group() + dispatch_width() <= 16);
          if (shader->stage != MESA_SHADER_FRAGMENT) {
             return brw_imm_d(0xffffffff);
          } else if (brw_wm_prog_data(shader->stage_prog_data)->uses_kill) {
             return brw_flag_reg(0, 1);
          } else {
-            return retype(brw_vec1_grf(1, 7), BRW_REGISTER_TYPE_UD);
+            assert(shader->devinfo->gen >= 6 && dispatch_width() <= 16);
+            return retype(brw_vec1_grf((_group >= 16 ? 2 : 1), 7),
+                          BRW_REGISTER_TYPE_UD);
          }
       }
 
@@ -308,10 +322,11 @@ namespace brw {
          case SHADER_OPCODE_INT_REMAINDER:
             return emit(instruction(opcode, dispatch_width(), dst,
                                     fix_math_operand(src0),
-                                    fix_math_operand(src1)));
+                                    fix_math_operand(fix_byte_src(src1))));
 
          default:
-            return emit(instruction(opcode, dispatch_width(), dst, src0, src1));
+            return emit(instruction(opcode, dispatch_width(), dst,
+                                    src0, fix_byte_src(src1)));
 
          }
       }
@@ -330,12 +345,12 @@ namespace brw {
          case BRW_OPCODE_LRP:
             return emit(instruction(opcode, dispatch_width(), dst,
                                     fix_3src_operand(src0),
-                                    fix_3src_operand(src1),
-                                    fix_3src_operand(src2)));
+                                    fix_3src_operand(fix_byte_src(src1)),
+                                    fix_3src_operand(fix_byte_src(src2))));
 
          default:
             return emit(instruction(opcode, dispatch_width(), dst,
-                                    src0, src1, src2));
+                                    src0, fix_byte_src(src1), fix_byte_src(src2)));
          }
       }
 
@@ -385,8 +400,11 @@ namespace brw {
       {
          assert(mod == BRW_CONDITIONAL_GE || mod == BRW_CONDITIONAL_L);
 
-         return set_condmod(mod, SEL(dst, fix_unsigned_negate(src0),
-                                     fix_unsigned_negate(src1)));
+         /* In some cases we can't have bytes as operand for src1, so use the
+          * same type for both operand.
+          */
+         return set_condmod(mod, SEL(dst, fix_unsigned_negate(fix_byte_src(src0)),
+                                     fix_unsigned_negate(fix_byte_src(src1))));
       }
 
       /**
@@ -406,10 +424,104 @@ namespace brw {
          const dst_reg chan_index = vgrf(BRW_REGISTER_TYPE_UD);
          const dst_reg dst = vgrf(src.type);
 
-         ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index);
+         ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index)->flag_subreg = 2;
          ubld.emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
 
          return src_reg(component(dst, 0));
+      }
+
+      src_reg
+      move_to_vgrf(const src_reg &src, unsigned num_components) const
+      {
+         src_reg *const src_comps = new src_reg[num_components];
+         for (unsigned i = 0; i < num_components; i++)
+            src_comps[i] = offset(src, dispatch_width(), i);
+
+         const dst_reg dst = vgrf(src.type, num_components);
+         LOAD_PAYLOAD(dst, src_comps, num_components, 0);
+
+         delete[] src_comps;
+
+         return src_reg(dst);
+      }
+
+      void
+      emit_scan(enum opcode opcode, const dst_reg &tmp,
+                unsigned cluster_size, brw_conditional_mod mod) const
+      {
+         assert(dispatch_width() >= 8);
+
+         /* The instruction splitting code isn't advanced enough to split
+          * these so we need to handle that ourselves.
+          */
+         if (dispatch_width() * type_sz(tmp.type) > 2 * REG_SIZE) {
+            const unsigned half_width = dispatch_width() / 2;
+            const fs_builder ubld = exec_all().group(half_width, 0);
+            dst_reg left = tmp;
+            dst_reg right = horiz_offset(tmp, half_width);
+            ubld.emit_scan(opcode, left, cluster_size, mod);
+            ubld.emit_scan(opcode, right, cluster_size, mod);
+            if (cluster_size > half_width) {
+               src_reg left_comp = component(left, half_width - 1);
+               set_condmod(mod, ubld.emit(opcode, right, left_comp, right));
+            }
+            return;
+         }
+
+         if (cluster_size > 1) {
+            const fs_builder ubld = exec_all().group(dispatch_width() / 2, 0);
+            const dst_reg left = horiz_stride(tmp, 2);
+            const dst_reg right = horiz_stride(horiz_offset(tmp, 1), 2);
+            set_condmod(mod, ubld.emit(opcode, right, left, right));
+         }
+
+         if (cluster_size > 2) {
+            if (type_sz(tmp.type) <= 4) {
+               const fs_builder ubld =
+                  exec_all().group(dispatch_width() / 4, 0);
+               src_reg left = horiz_stride(horiz_offset(tmp, 1), 4);
+
+               dst_reg right = horiz_stride(horiz_offset(tmp, 2), 4);
+               set_condmod(mod, ubld.emit(opcode, right, left, right));
+
+               right = horiz_stride(horiz_offset(tmp, 3), 4);
+               set_condmod(mod, ubld.emit(opcode, right, left, right));
+            } else {
+               /* For 64-bit types, we have to do things differently because
+                * the code above would land us with destination strides that
+                * the hardware can't handle.  Fortunately, we'll only be
+                * 8-wide in that case and it's the same number of
+                * instructions.
+                */
+               const fs_builder ubld = exec_all().group(2, 0);
+
+               for (unsigned i = 0; i < dispatch_width(); i += 4) {
+                  src_reg left = component(tmp, i + 1);
+                  dst_reg right = horiz_offset(tmp, i + 2);
+                  set_condmod(mod, ubld.emit(opcode, right, left, right));
+               }
+            }
+         }
+
+         if (cluster_size > 4) {
+            const fs_builder ubld = exec_all().group(4, 0);
+            src_reg left = component(tmp, 3);
+            dst_reg right = horiz_offset(tmp, 4);
+            set_condmod(mod, ubld.emit(opcode, right, left, right));
+
+            if (dispatch_width() > 8) {
+               left = component(tmp, 8 + 3);
+               right = horiz_offset(tmp, 8 + 4);
+               set_condmod(mod, ubld.emit(opcode, right, left, right));
+            }
+         }
+
+         if (cluster_size > 8 && dispatch_width() > 8) {
+            const fs_builder ubld = exec_all().group(8, 0);
+            src_reg left = component(tmp, 7);
+            dst_reg right = horiz_offset(tmp, 8);
+            set_condmod(mod, ubld.emit(opcode, right, left, right));
+         }
       }
 
       /**
@@ -458,7 +570,6 @@ namespace brw {
       ALU1(BFREV)
       ALU1(CBIT)
       ALU2(CMPN)
-      ALU3(CSEL)
       ALU1(DIM)
       ALU2(DP2)
       ALU2(DP3)
@@ -534,13 +645,34 @@ namespace brw {
       }
 
       /**
+       * CSEL: dst = src2 <op> 0.0f ? src0 : src1
+       */
+      instruction *
+      CSEL(const dst_reg &dst, const src_reg &src0, const src_reg &src1,
+           const src_reg &src2, brw_conditional_mod condition) const
+      {
+         /* CSEL only operates on floats, so we can't do integer </<=/>=/>
+          * comparisons.  Zero/non-zero (== and !=) comparisons almost work.
+          * 0x80000000 fails because it is -0.0, and -0.0 == 0.0.
+          */
+         assert(src2.type == BRW_REGISTER_TYPE_F);
+
+         return set_condmod(condition,
+                            emit(BRW_OPCODE_CSEL,
+                                 retype(dst, BRW_REGISTER_TYPE_F),
+                                 retype(src0, BRW_REGISTER_TYPE_F),
+                                 retype(fix_byte_src(src1), BRW_REGISTER_TYPE_F),
+                                 fix_byte_src(src2)));
+      }
+
+      /**
        * Emit a linear interpolation instruction.
        */
       instruction *
       LRP(const dst_reg &dst, const src_reg &x, const src_reg &y,
           const src_reg &a) const
       {
-         if (shader->devinfo->gen >= 6) {
+         if (shader->devinfo->gen >= 6 && shader->devinfo->gen <= 10) {
             /* The LRP instruction actually does op1 * op0 + op2 * (1 - op0), so
              * we need to reorder the operands.
              */
@@ -580,6 +712,22 @@ namespace brw {
 
       backend_shader *shader;
 
+      /**
+       * Byte sized operands are not supported for src1 on Gen11+.
+       */
+      src_reg
+      fix_byte_src(const src_reg &src) const
+      {
+         if ((shader->devinfo->gen < 11 && !shader->devinfo->is_geminilake) ||
+             type_sz(src.type) != 1)
+            return src;
+
+         dst_reg temp = vgrf(src.type == BRW_REGISTER_TYPE_UB ?
+                             BRW_REGISTER_TYPE_UD : BRW_REGISTER_TYPE_D);
+         MOV(temp, src);
+         return src_reg(temp);
+      }
+
    private:
       /**
        * Workaround for negation of UD registers.  See comment in
@@ -605,13 +753,26 @@ namespace brw {
       src_reg
       fix_3src_operand(const src_reg &src) const
       {
-         if (src.file == VGRF || src.file == UNIFORM || src.stride > 1) {
+         switch (src.file) {
+         case FIXED_GRF:
+            /* FINISHME: Could handle scalar region, other stride=1 regions */
+            if (src.vstride != BRW_VERTICAL_STRIDE_8 ||
+                src.width != BRW_WIDTH_8 ||
+                src.hstride != BRW_HORIZONTAL_STRIDE_1)
+               break;
+            /* fallthrough */
+         case ATTR:
+         case VGRF:
+         case UNIFORM:
+         case IMM:
             return src;
-         } else {
-            dst_reg expanded = vgrf(src.type);
-            MOV(expanded, src);
-            return expanded;
+         default:
+            break;
          }
+
+         dst_reg expanded = vgrf(src.type);
+         MOV(expanded, src);
+         return expanded;
       }
 
       /**

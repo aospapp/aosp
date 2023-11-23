@@ -37,6 +37,7 @@ cc_defaults {
         "-Wno-missing-field-initializers",
         "-Wno-sign-compare",
         "-Wno-deprecated-declarations",
+        "-Wno-ignored-attributes",
     ],
 
     cppflags: [
@@ -45,7 +46,7 @@ cc_defaults {
 
     rtti: true,
 
-    required: ["icu-data_host_runtime_apex"],
+    required: ["icu-data_host_i18n_apex"],
 
     target: {
         android: {
@@ -61,26 +62,40 @@ cc_defaults {
 cc_library_headers {
     name: "libicuuc_headers",
     host_supported: true,
-    header_libs: [ "icu4c_extra_headers" ],
-    export_header_lib_headers: [ "icu4c_extra_headers" ],
+    native_bridge_supported: true,
+    header_libs: ["icu4c_extra_headers"],
+    export_header_lib_headers: ["icu4c_extra_headers"],
     export_include_dirs: ["."],
     target: {
         windows: {
             enabled: true,
         },
     },
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 //
 // Build for the host and target.
+// Allow static builds for host so that they can be statically
+// linked into libandroid_runtime. That enables libandroid_runtime to
+// be shipped on desktops as one file which saves space and complexity.
 //
-cc_library_shared {
+cc_library {
     name: "libicuuc",
     host_supported: true,
+    native_bridge_supported: true,
     unique_host_soname: true,
     defaults: ["libicuuc_defaults"],
     target: {
         android: {
+            static: {
+                enabled: false,
+            },
             static_libs: ["libicuuc_stubdata"],
         },
         not_windows: {
@@ -92,6 +107,11 @@ cc_library_shared {
             shared_libs: ["libicuuc_stubdata"],
         },
     },
-    header_libs: [ "libicuuc_headers" ],
-    export_header_lib_headers: [ "libicuuc_headers" ],
+    header_libs: ["libicuuc_headers"],
+    export_header_lib_headers: ["libicuuc_headers"],
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }

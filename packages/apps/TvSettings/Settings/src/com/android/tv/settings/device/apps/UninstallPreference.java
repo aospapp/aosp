@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -36,9 +39,19 @@ public class UninstallPreference extends AppActionPreference {
         if (canUninstall()) {
             setVisible(true);
             setTitle(R.string.device_apps_app_management_uninstall);
+            this.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_UNINSTALL);
+                        return false;
+                    });
         } else if (canUninstallUpdates()) {
             setVisible(true);
             setTitle(R.string.device_apps_app_management_uninstall_updates);
+            this.setOnPreferenceClickListener(
+                    preference -> {
+                        logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_UNINSTALL_UPDATES);
+                        return false;
+                    });
         } else {
             setVisible(false);
         }

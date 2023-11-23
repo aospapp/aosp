@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #pylint: disable-msg=C0111
 """Unit Tests for autotest.client.common_lib.test"""
 
@@ -204,6 +204,18 @@ class Test_base_test_execute(TestTestCase):
         self.test.output_perf_value("Test", 1, units="ms", higher_is_better=True)
 
         f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms", "type": "scalar",
+                           "value": 1, "improvement_direction": "up"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+    def test_output_perf_value_with_custom_resultsdir(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        resultsdir = self.test.resultsdir + "/tests/tmp"
+        self.test.output_perf_value("Test", 1, units="ms",higher_is_better=True,
+                                    resultsdir=resultsdir)
+
+        f = open(self.test.resultsdir + "/tests/tmp/results-chart.json")
         expected_result = {"Test": {"summary": {"units": "ms", "type": "scalar",
                            "value": 1, "improvement_direction": "up"}}}
         self.assertDictEqual(expected_result, json.loads(f.read()))

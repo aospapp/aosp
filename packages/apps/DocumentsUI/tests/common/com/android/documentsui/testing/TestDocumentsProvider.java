@@ -117,7 +117,7 @@ public class TestDocumentsProvider extends DocumentsProvider {
     }
 
     private Cursor createDocumentsCursor(DocumentInfo... docs) {
-        MatrixCursor cursor = new MatrixCursor(DOCUMENTS_PROJECTION);
+        TestCursor cursor = new TestCursor(DOCUMENTS_PROJECTION);
         for (DocumentInfo doc : docs) {
             cursor.newRow()
                     .add(Document.COLUMN_DOCUMENT_ID, doc.documentId)

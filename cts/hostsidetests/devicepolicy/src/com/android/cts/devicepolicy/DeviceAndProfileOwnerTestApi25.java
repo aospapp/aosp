@@ -16,17 +16,9 @@
 
 package com.android.cts.devicepolicy;
 
-import android.platform.test.annotations.RequiresDevice;
+import android.platform.test.annotations.FlakyTest;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import org.junit.Test;
 
 /**
  * Set of tests for use cases that apply to profile and device owner with DPC
@@ -44,13 +36,10 @@ public abstract class DeviceAndProfileOwnerTestApi25 extends BaseDevicePolicyTes
     protected static final String ADMIN_RECEIVER_TEST_CLASS
             = ".BaseDeviceAdminTest$BasicAdminReceiver";
 
-    protected static final String RESET_PASSWORD_TEST_CLASS = ".ResetPasswordTest";
-    protected static final String FBE_HELPER_CLASS = ".FbeHelper";
-
     protected int mUserId;
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
             getDevice().uninstallPackage(TEST_APP_PKG);
@@ -63,36 +52,31 @@ public abstract class DeviceAndProfileOwnerTestApi25 extends BaseDevicePolicyTes
         super.tearDown();
     }
 
-    /** Test for resetPassword for all devices. */
-    public void testResetPassword() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
-        executeDeviceTestMethod(RESET_PASSWORD_TEST_CLASS, "testResetPassword");
-    }
-
-    /** Additional test for resetPassword for FBE-enabled devices. */
-    public void testResetPasswordFbe() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
-
-        // Lock FBE and verify resetPassword is disabled
-        executeDeviceTestMethod(FBE_HELPER_CLASS, "testSetPassword");
-        rebootAndWaitUntilReady();
-        executeDeviceTestMethod(RESET_PASSWORD_TEST_CLASS, "testResetPasswordDisabled");
-
-        // Unlock FBE and verify resetPassword is enabled again
-        executeDeviceTestMethod(FBE_HELPER_CLASS, "testUnlockFbe");
-        executeDeviceTestMethod(RESET_PASSWORD_TEST_CLASS, "testResetPassword");
-    }
-
+    @Test
     public void testPermissionGrantPreMApp() throws Exception {
         if (!mHasFeature) {
             return;
         }
         installAppAsUser(SIMPLE_PRE_M_APP_APK, mUserId);
         executeDeviceTestMethod(".PermissionsTest", "testPermissionGrantStateAppPreMDeviceAdminPreQ");
+    }
+
+    @Test
+    public void testPasswordRequirementsApi() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        executeDeviceTestMethod(".PasswordRequirementsTest",
+                "testPasswordConstraintsDoesntThrowAndPreservesValuesPreR");
+    }
+
+    @Test
+    public void testResetPasswordDeprecated() throws Exception {
+        if (!mHasFeature || !mHasSecureLockScreen) {
+            return;
+        }
+        executeDeviceTestMethod(".ResetPasswordTest", "testResetPasswordDeprecated");
     }
 
     protected void executeDeviceTestClass(String className) throws Exception {

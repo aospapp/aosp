@@ -18,7 +18,7 @@ package com.android.tools.metalava.model.psi
 
 import com.android.SdkConstants.DOT_CLASS
 import com.android.tools.lint.detector.api.ConstantEvaluator
-import com.android.tools.metalava.doclava1.Errors
+import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.canonicalizeFloatingPointString
@@ -66,7 +66,7 @@ open class CodePrinter(
     private val filterReference: Predicate<Item>? = null
 ) {
     open fun warning(message: String, psiElement: PsiElement? = null) {
-        reporter.report(Errors.INTERNAL_ERROR, psiElement, message)
+        reporter.report(Issues.INTERNAL_ERROR, psiElement, message)
     }
 
     open fun warning(message: String, uElement: UElement) {
@@ -134,7 +134,7 @@ open class CodePrinter(
                 return appendSourceLiteral(constant, sb, owner)
             }
         }
-        reporter.report(Errors.INTERNAL_ERROR, owner, "Unexpected annotation default value $value")
+        reporter.report(Issues.INTERNAL_ERROR, owner, "Unexpected annotation default value $value")
         return false
     }
 
@@ -207,7 +207,7 @@ open class CodePrinter(
                                 // This field is not visible: remove from typedef
                                 if (fld != null) {
                                     reporter.report(
-                                        Errors.HIDDEN_TYPEDEF_CONSTANT, fld,
+                                        Issues.HIDDEN_TYPEDEF_CONSTANT, fld,
                                         "Typedef class references hidden field $fld: removed from typedef metadata"
                                     )
                                 }
@@ -545,7 +545,7 @@ open class CodePrinter(
                     return true
                 }
                 else -> {
-                    reporter.report(Errors.INTERNAL_ERROR, owner, "Unexpected literal value $v")
+                    reporter.report(Issues.INTERNAL_ERROR, owner, "Unexpected literal value $v")
                 }
             }
 

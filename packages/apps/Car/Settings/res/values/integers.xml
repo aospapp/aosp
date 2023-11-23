@@ -45,4 +45,10 @@
 
     <!-- Maximum size in pixels of default app icons -->
     <integer name="default_app_safe_icon_size">500</integer>
+
+    <!-- Millisecond interval between app data update -->
+    <integer name="millisecond_app_data_update_interval">500</integer>
+
+    <!-- Millisecond interval between app data update -->
+    <integer name="millisecond_max_app_load_wait_interval">5000</integer>
 </resources>

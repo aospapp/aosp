@@ -20,9 +20,12 @@
     <!-- Instant apps can't have a sync adapter. -->
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <!-- Disable keyguard -->
+        <!-- Though keyguard is disabled globally in cts-preconditions.xml, the
+             following line should be kept to make atest behave correctly. -->
         <option name="run-command" value="locksettings set-disabled true" />
     </target_preparer>
 

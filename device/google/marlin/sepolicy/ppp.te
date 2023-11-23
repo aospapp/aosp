@@ -1,3 +1,0 @@
-# additional ioctls needed for VPN.
-allowxperm ppp self:udp_socket ioctl priv_sock_ioctls;
-allowxperm ppp mtp:socket ioctl ppp_ioctls;

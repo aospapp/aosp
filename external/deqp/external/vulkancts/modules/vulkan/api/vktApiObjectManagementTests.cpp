@@ -23,6 +23,7 @@
 
 #include "vktApiObjectManagementTests.hpp"
 #include "vktTestCaseUtil.hpp"
+#include "vktCustomInstancesDevices.hpp"
 
 #include "vkDefs.hpp"
 #include "vkRef.hpp"
@@ -234,6 +235,7 @@ struct Environment
 {
 	const PlatformInterface&		vkp;
 	deUint32						apiVersion;
+	const InstanceInterface&		instanceInterface;
 	VkInstance						instance;
 	const DeviceInterface&			vkd;
 	VkDevice						device;
@@ -241,10 +243,12 @@ struct Environment
 	const BinaryCollection&			programBinaries;
 	const VkAllocationCallbacks*	allocationCallbacks;
 	deUint32						maxResourceConsumers;		// Maximum number of objects using same Object::Resources concurrently
+	const tcu::CommandLine&			commandLine;
 
 	Environment (Context& context, deUint32 maxResourceConsumers_)
 		: vkp					(context.getPlatformInterface())
 		, apiVersion			(context.getUsedApiVersion())
+		, instanceInterface		(context.getInstanceInterface())
 		, instance				(context.getInstance())
 		, vkd					(context.getDeviceInterface())
 		, device				(context.getDevice())
@@ -252,20 +256,24 @@ struct Environment
 		, programBinaries		(context.getBinaryCollection())
 		, allocationCallbacks	(DE_NULL)
 		, maxResourceConsumers	(maxResourceConsumers_)
+		, commandLine			(context.getTestContext().getCommandLine())
 	{
 	}
 
 	Environment (const PlatformInterface&		vkp_,
 				 deUint32						apiVersion_,
+				 const InstanceInterface&		instanceInterface_,
 				 VkInstance						instance_,
 				 const DeviceInterface&			vkd_,
 				 VkDevice						device_,
 				 deUint32						queueFamilyIndex_,
 				 const BinaryCollection&		programBinaries_,
 				 const VkAllocationCallbacks*	allocationCallbacks_,
-				 deUint32						maxResourceConsumers_)
+				 deUint32						maxResourceConsumers_,
+				 const tcu::CommandLine&		commandLine_)
 		: vkp					(vkp_)
 		, apiVersion			(apiVersion_)
+		, instanceInterface		(instanceInterface_)
 		, instance				(instance_)
 		, vkd					(vkd_)
 		, device				(device_)
@@ -273,6 +281,7 @@ struct Environment
 		, programBinaries		(programBinaries_)
 		, allocationCallbacks	(allocationCallbacks_)
 		, maxResourceConsumers	(maxResourceConsumers_)
+		, commandLine			(commandLine_)
 	{
 	}
 };
@@ -315,7 +324,7 @@ T alignToPowerOfTwo (T value, T align)
 
 inline bool hasDeviceExtension (Context& context, const string name)
 {
-	return isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), name);
+	return context.isDeviceFunctionalitySupported(name);
 }
 
 VkDeviceSize getPageTableSize (const PlatformMemoryLimits& limits, VkDeviceSize allocationSize)
@@ -350,13 +359,15 @@ size_t computeSystemMemoryUsage (Context& context, const typename Object::Parame
 	AllocationCallbackRecorder			allocRecorder		(getSystemAllocator());
 	const Environment					env					(context.getPlatformInterface(),
 															 context.getUsedApiVersion(),
+															 context.getInstanceInterface(),
 															 context.getInstance(),
 															 context.getDeviceInterface(),
 															 context.getDevice(),
 															 context.getUniversalQueueFamilyIndex(),
 															 context.getBinaryCollection(),
 															 allocRecorder.getCallbacks(),
-															 1u);
+															 1u,
+															 context.getTestContext().getCommandLine());
 	const typename Object::Resources	res					(env, params);
 	const size_t						resourceMemoryUsage	= getCurrentSystemMemoryUsage(allocRecorder);
 
@@ -465,13 +476,14 @@ struct Instance
 	{
 		vector<const char*>					extensionNamePtrs;
 		const vector<VkExtensionProperties>	instanceExts = enumerateInstanceExtensionProperties(env.vkp, DE_NULL);
-		for (size_t extensionID = 0; extensionID < params.instanceExtensions.size(); extensionID++)
+		for (const auto& extName : params.instanceExtensions)
 		{
-			if (!isInstanceExtensionSupported(env.apiVersion, instanceExts, RequiredExtension(params.instanceExtensions[extensionID])))
-				TCU_THROW(NotSupportedError, (params.instanceExtensions[extensionID] + " is not supported").c_str());
+			bool extNotInCore = !isCoreInstanceExtension(env.apiVersion, extName);
+			if (extNotInCore && !isExtensionSupported(instanceExts.begin(), instanceExts.end(), RequiredExtension(extName)))
+				TCU_THROW(NotSupportedError, (extName + " is not supported").c_str());
 
-			if (!isCoreInstanceExtension(env.apiVersion, params.instanceExtensions[extensionID]))
-				extensionNamePtrs.push_back(params.instanceExtensions[extensionID].c_str());
+			if (extNotInCore)
+				extensionNamePtrs.push_back(extName.c_str());
 		}
 
 		const VkApplicationInfo		appInfo			=
@@ -577,6 +589,7 @@ struct Device
 				&queuePriority,						// pQueuePriorities
 			}
 		};
+
 		const VkDeviceCreateInfo		deviceInfo	=
 		{
 			VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -591,7 +604,7 @@ struct Device
 			DE_NULL,								// pEnabledFeatures
 		};
 
-		return createDevice(env.vkp, env.instance, res.vki, res.physicalDevice, &deviceInfo, env.allocationCallbacks);
+		return createCustomDevice(env.commandLine.isValidationEnabled(), env.vkp, env.instance, res.vki, res.physicalDevice, &deviceInfo, env.allocationCallbacks);
 	}
 };
 
@@ -704,7 +717,7 @@ struct DeviceGroup
 			DE_NULL,											// pEnabledFeatures
 		};
 
-		return createDevice(env.vkp, env.instance, res.vki, res.physicalDevices[params.deviceIndex], &deviceGroupCreateInfo, env.allocationCallbacks);
+		return createCustomDevice(env.commandLine.isValidationEnabled(), env.vkp, env.instance, res.vki, res.physicalDevices[params.deviceIndex], &deviceGroupCreateInfo, env.allocationCallbacks);
 	}
 };
 
@@ -2441,7 +2454,7 @@ struct EnvClone
 		: deviceRes	(parent, deviceParams)
 		, device	(Device::create(parent, deviceRes, deviceParams))
 		, vkd		(parent.vkp, parent.instance, *device)
-		, env		(parent.vkp, parent.apiVersion, parent.instance, vkd, *device, deviceRes.queueFamilyIndex, parent.programBinaries, parent.allocationCallbacks, maxResourceConsumers)
+		, env		(parent.vkp, parent.apiVersion, parent.instanceInterface, parent.instance, vkd, *device, deviceRes.queueFamilyIndex, parent.programBinaries, parent.allocationCallbacks, maxResourceConsumers, parent.commandLine)
 	{
 	}
 };
@@ -2493,13 +2506,15 @@ tcu::TestStatus createSingleAllocCallbacksTest (Context& context, typename Objec
 	// Root environment still uses default instance and device, created without callbacks
 	const Environment					rootEnv			(context.getPlatformInterface(),
 														 context.getUsedApiVersion(),
+														 context.getInstanceInterface(),
 														 context.getInstance(),
 														 context.getDeviceInterface(),
 														 context.getDevice(),
 														 context.getUniversalQueueFamilyIndex(),
 														 context.getBinaryCollection(),
 														 resCallbacks.getCallbacks(),
-														 1u);
+														 1u,
+														 context.getTestContext().getCommandLine());
 
 	{
 		// Test env has instance & device created with callbacks
@@ -2510,13 +2525,15 @@ tcu::TestStatus createSingleAllocCallbacksTest (Context& context, typename Objec
 		AllocationCallbackRecorder			objCallbacks(getSystemAllocator(), 128);
 		const Environment					objEnv		(resEnv.env.vkp,
 														 resEnv.env.apiVersion,
+														 resEnv.env.instanceInterface,
 														 resEnv.env.instance,
 														 resEnv.env.vkd,
 														 resEnv.env.device,
 														 resEnv.env.queueFamilyIndex,
 														 resEnv.env.programBinaries,
 														 objCallbacks.getCallbacks(),
-														 resEnv.env.maxResourceConsumers);
+														 resEnv.env.maxResourceConsumers,
+														 resEnv.env.commandLine);
 
 		{
 			Unique<typename Object::Type>	obj	(Object::create(objEnv, res, params));
@@ -2547,13 +2564,15 @@ tcu::TestStatus allocCallbackFailTest (Context& context, typename Object::Parame
 	AllocationCallbackRecorder			resCallbacks		(getSystemAllocator(), 128);
 	const Environment					rootEnv				(context.getPlatformInterface(),
 															 context.getUsedApiVersion(),
+															 context.getInstanceInterface(),
 															 context.getInstance(),
 															 context.getDeviceInterface(),
 															 context.getDevice(),
 															 context.getUniversalQueueFamilyIndex(),
 															 context.getBinaryCollection(),
 															 resCallbacks.getCallbacks(),
-															 1u);
+															 1u,
+															 context.getTestContext().getCommandLine());
 	deUint32							numPassingAllocs	= 0;
 	const deUint32						cmdLineIterCount	= (deUint32)context.getTestContext().getCommandLine().getTestIterationCount();
 	const deUint32						maxTries			= cmdLineIterCount != 0 ? cmdLineIterCount : getOomIterLimit<Object>();
@@ -2571,13 +2590,15 @@ tcu::TestStatus allocCallbackFailTest (Context& context, typename Object::Parame
 			AllocationCallbackRecorder			recorder	(objAllocator.getCallbacks(), 128);
 			const Environment					objEnv		(resEnv.env.vkp,
 															 resEnv.env.apiVersion,
+															 resEnv.env.instanceInterface,
 															 resEnv.env.instance,
 															 resEnv.env.vkd,
 															 resEnv.env.device,
 															 resEnv.env.queueFamilyIndex,
 															 resEnv.env.programBinaries,
 															 recorder.getCallbacks(),
-															 resEnv.env.maxResourceConsumers);
+															 resEnv.env.maxResourceConsumers,
+															 resEnv.env.commandLine);
 			bool								createOk	= false;
 
 			context.getTestContext().getLog()
@@ -2660,13 +2681,15 @@ tcu::TestStatus allocCallbackFailMultipleObjectsTest (Context& context, typename
 			AllocationCallbackRecorder			recorder	(objAllocator.getCallbacks(), 128);
 			const Environment					objEnv		(context.getPlatformInterface(),
 															 context.getUsedApiVersion(),
+															 context.getInstanceInterface(),
 															 context.getInstance(),
 															 context.getDeviceInterface(),
 															 context.getDevice(),
 															 context.getUniversalQueueFamilyIndex(),
 															 context.getBinaryCollection(),
 															 recorder.getCallbacks(),
-															 numObjects);
+															 numObjects,
+															 context.getTestContext().getCommandLine());
 
 			context.getTestContext().getLog()
 				<< TestLog::Message

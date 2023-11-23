@@ -15,9 +15,9 @@
   -->
 
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-        android:width="@dimen/car_primary_icon_size"
-        android:height="@dimen/car_primary_icon_size"
-        android:tint="@color/car_accent"
+        android:width="@dimen/car_ui_primary_icon_size"
+        android:height="@dimen/car_ui_primary_icon_size"
+        android:tint="?android:attr/colorAccent"
         android:viewportWidth="24.0"
         android:viewportHeight="24.0">
     <path

@@ -25,6 +25,7 @@ import android.database.sqlite.SQLiteConstraintException;
 import android.os.UserHandle;
 import android.provider.Telephony;
 import android.telephony.ImsiEncryptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -57,18 +58,16 @@ public class CarrierInfoManager {
      *         used for encryption.
      */
     public static ImsiEncryptionInfo getCarrierInfoForImsiEncryption(int keyType,
-                                                                     Context context) {
+                                                                     Context context,
+                                                                     String operatorNumeric) {
         String mcc = "";
         String mnc = "";
-        final TelephonyManager telephonyManager =
-                (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        String simOperator = telephonyManager.getSimOperator();
-        if (!TextUtils.isEmpty(simOperator)) {
-            mcc = simOperator.substring(0, 3);
-            mnc = simOperator.substring(3);
+        if (!TextUtils.isEmpty(operatorNumeric)) {
+            mcc = operatorNumeric.substring(0, 3);
+            mnc = operatorNumeric.substring(3);
             Log.i(LOG_TAG, "using values for mnc, mcc: " + mnc + "," + mcc);
         } else {
-            Log.e(LOG_TAG, "Invalid networkOperator: " + simOperator);
+            Log.e(LOG_TAG, "Invalid networkOperator: " + operatorNumeric);
             return null;
         }
         Cursor findCursor = null;
@@ -199,7 +198,7 @@ public class CarrierInfoManager {
         mLastAccessResetCarrierKey = now;
         deleteCarrierInfoForImsiEncryption(context);
         Intent resetIntent = new Intent(TelephonyIntents.ACTION_CARRIER_CERTIFICATE_DOWNLOAD);
-        resetIntent.putExtra(PhoneConstants.PHONE_KEY, mPhoneId);
+        SubscriptionManager.putPhoneIdAndSubIdExtra(resetIntent, mPhoneId);
         context.sendBroadcastAsUser(resetIntent, UserHandle.ALL);
     }
 

@@ -39,7 +39,7 @@ import java.util.List;
  * Unit tests for {@link WakeupLock}.
  */
 @SmallTest
-public class WakeupLockTest {
+public class WakeupLockTest extends WifiBaseTest {
 
     private static final String SSID_1 = "ssid1";
     private static final String SSID_2 = "ssid2";

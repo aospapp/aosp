@@ -92,3 +92,31 @@ example = Example({
          0, 1, 0, 0, 0, 7, 0, 0, 0, 2, 0, 0, 0, 8, 0, 0,
          0, 3, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0]
 }).AddNchw(i4, o4, layout).AddVariations("relaxed", "float16", quant8)
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_1",
+                   "space_to_batch_v1_2_nhwc",
+                   "space_to_batch_v1_2_nhwc_2",
+                   "space_to_batch_v1_2_nhwc_3",
+                   "space_to_batch_v1_2_nhwc_4",
+                   "space_to_batch_v1_2_nhwc_all_inputs_as_internal",
+                   "space_to_batch_v1_2_nhwc_all_inputs_as_internal_2",
+                   "space_to_batch_v1_2_nhwc_all_inputs_as_internal_3",
+                   "space_to_batch_v1_2_nhwc_all_inputs_as_internal_4",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs_2",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs_3",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs_4",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal_3",
+                   "space_to_batch_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal_4",
+                   "space_to_batch_v1_2_nhwc_quant8",
+                   "space_to_batch_v1_2_nhwc_quant8_2",
+                   "space_to_batch_v1_2_nhwc_quant8_all_inputs_as_internal",
+                   "space_to_batch_v1_2_nhwc_quant8_all_inputs_as_internal_2",
+                   "space_to_batch_v1_2_nhwc_quant8_all_tensors_as_inputs",
+                   "space_to_batch_v1_2_nhwc_quant8_all_tensors_as_inputs_2",
+                   "space_to_batch_v1_2_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "space_to_batch_v1_2_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal_2")

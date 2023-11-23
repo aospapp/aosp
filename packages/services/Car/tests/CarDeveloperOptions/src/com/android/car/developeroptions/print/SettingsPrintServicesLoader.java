@@ -24,9 +24,8 @@ import android.printservice.PrintServiceInfo;
 
 import androidx.loader.content.Loader;
 
-import com.android.internal.util.Preconditions;
-
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Loader for the list of print services. Can be parametrized to select a subset.
@@ -37,7 +36,7 @@ public class SettingsPrintServicesLoader extends Loader<List<PrintServiceInfo>> 
 
     public SettingsPrintServicesLoader(@NonNull PrintManager printManager, @NonNull Context context,
             int selectionFlags) {
-        super(Preconditions.checkNotNull(context));
+        super(Objects.requireNonNull(context));
 
         mLoader = new PrintServicesLoader(printManager, context, selectionFlags) {
             @Override

@@ -21,14 +21,14 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewStructure;
-import android.view.contentcapture.ContentCaptureSession;
 
 import androidx.annotation.NonNull;
 
 import com.android.compatibility.common.util.Visitor;
 
 /**
- * A view that can be used to emulate custom behavior (like virtual children)
+ * A view that can be used to emulate custom behavior (like virtual children) on
+ * {@link #onProvideContentCaptureStructure(ViewStructure, int)}.
  */
 public class CustomView extends View {
 
@@ -38,37 +38,29 @@ public class CustomView extends View {
 
     public CustomView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        setImportantForContentCapture(View.IMPORTANT_FOR_CONTENT_CAPTURE_YES);
     }
 
-    public void onProvideContentCaptureStructure(@NonNull ViewStructure structure) {
-        Log.v(TAG, "onProvideContentCaptureStructure(): delegate=" + mDelegate);
+    @Override
+    public void onProvideContentCaptureStructure(ViewStructure structure, int flags) {
         if (mDelegate != null) {
             Log.d(TAG, "onProvideContentCaptureStructure(): delegating");
             structure.setClassName(getAccessibilityClassName().toString());
             mDelegate.visit(structure);
             Log.d(TAG, "onProvideContentCaptureStructure(): delegated");
-        }
-        else {
-            Log.d(TAG, "onProvideContentCaptureStructure(): explicitly setting class name");
-            structure.setClassName(getAccessibilityClassName().toString());
-        }
-    }
-
-    @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        if (changed) {
-            final ContentCaptureSession session = getContentCaptureSession();
-            final ViewStructure structure = session.newViewStructure(this);
-            onProvideContentCaptureStructure(structure);
-            session.notifyViewAppeared(structure);
+        } else {
+            superOnProvideContentCaptureStructure(structure, flags);
         }
     }
 
     @Override
     public CharSequence getAccessibilityClassName() {
-        final String name = CustomView.class.getName();
-        Log.d(TAG, "getAccessibilityClassName(): " + name);
-        return name;
+        return CustomView.class.getName();
+    }
+
+    void superOnProvideContentCaptureStructure(@NonNull ViewStructure structure, int flags) {
+        Log.d(TAG, "calling super.onProvideContentCaptureStructure()");
+        super.onProvideContentCaptureStructure(structure, flags);
     }
 
     void setContentCaptureDelegate(@NonNull Visitor<ViewStructure> delegate) {

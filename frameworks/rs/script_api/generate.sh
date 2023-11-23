@@ -59,9 +59,9 @@ RS_API_LEVEL=24
 
 for ((i=11; i<=RS_API_LEVEL; i++))
   do
-    mv slangtest/all$i.rs ../../compile/slang/tests/P_all_api_$i
+    mv slangtest/all$i.rscript ../../compile/slang/tests/P_all_api_$i
 done
 rm -rf slangtest
 
 mv RSStubsWhiteList.cpp ../../compile/libbcc/lib/
-
+mv RSStubsWhiteList.h ../../compile/libbcc/lib/

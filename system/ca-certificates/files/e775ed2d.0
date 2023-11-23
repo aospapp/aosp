@@ -33,7 +33,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1 (0x1)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=US, O=GeoTrust Inc., CN=GeoTrust Universal CA
         Validity
             Not Before: Mar  4 05:00:00 2004 GMT
@@ -41,7 +41,7 @@ Certificate:
         Subject: C=US, O=GeoTrust Inc., CN=GeoTrust Universal CA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:a6:15:55:a0:a3:c6:e0:1f:8c:9d:21:50:d7:c1:
                     be:2b:5b:b5:a4:9e:a1:d9:72:58:bd:00:1b:4c:bf:

@@ -94,4 +94,24 @@
         car:icon="@*android:drawable/ic_audio_vol"
         car:titleText="@*android:string/volume_unknown"
         car:usage="unknown"/>
+    <item
+        car:icon="@*android:drawable/ic_audio_vol"
+        car:titleText="@*android:string/volume_unknown"
+        car:usage="call_assistant"/>
+    <item
+        car:icon="@*android:drawable/ic_audio_vol"
+        car:titleText="@*android:string/volume_unknown"
+        car:usage="emergency"/>
+    <item
+        car:icon="@*android:drawable/ic_audio_vol"
+        car:titleText="@*android:string/volume_unknown"
+        car:usage="safety"/>
+    <item
+        car:icon="@*android:drawable/ic_audio_vol"
+        car:titleText="@*android:string/volume_unknown"
+        car:usage="vehicle_status"/>
+    <item
+        car:icon="@*android:drawable/ic_audio_vol"
+        car:titleText="@*android:string/volume_unknown"
+        car:usage="announcement"/>
 </carVolumeItems>

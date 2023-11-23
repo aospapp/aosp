@@ -18,11 +18,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
+#include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "TestHarness.h"
 #include "TestNeuralNetworksWrapper.h"
 #include "fuzzing/OperationManager.h"
 #include "fuzzing/RandomGraphGeneratorUtils.h"
@@ -33,10 +38,11 @@ namespace nn {
 namespace fuzzing_test {
 
 using test_wrapper::Result;
-using test_wrapper::Type;
+using namespace test_helper;
 
 // Construct a RandomOperand from OperandSignature.
-RandomOperand::RandomOperand(const OperandSignature& operand, Type dataType, uint32_t rank)
+RandomOperand::RandomOperand(const OperandSignature& operand, TestOperandType dataType,
+                             uint32_t rank)
     : type(operand.type), finalizer(operand.finalizer) {
     NN_FUZZER_LOG << "Operand: " << toString(type);
     if (operand.constructor) operand.constructor(dataType, rank, this);
@@ -48,11 +54,16 @@ std::vector<uint32_t> RandomOperand::getDimensions() const {
     return result;
 }
 
+static bool areValuePropertiesCompatible(int guaranteed, int required) {
+    return !(~guaranteed & required);
+}
+
 // Check if an edge between [this, other] is valid. If yes, add the edge.
 bool RandomOperand::createEdgeIfValid(const RandomOperand& other) const {
     if (other.type != RandomOperandType::INPUT) return false;
     if (dataType != other.dataType || dimensions.size() != other.dimensions.size() ||
-        scale != other.scale || zeroPoint != other.zeroPoint || doNotConnect || other.doNotConnect)
+        scale != other.scale || zeroPoint != other.zeroPoint || doNotConnect ||
+        other.doNotConnect || !areValuePropertiesCompatible(valueProperties, other.valueProperties))
         return false;
     return RandomVariableNetwork::get()->setEqualIfCompatible(dimensions, other.dimensions);
 }
@@ -70,10 +81,10 @@ size_t RandomOperand::getBufferSize() const {
 // Construct a RandomOperation from OperationSignature.
 RandomOperation::RandomOperation(const OperationSignature& operation)
     : opType(operation.opType), finalizer(operation.finalizer) {
-    NN_FUZZER_LOG << "Operation: " << kOperationNames[static_cast<int32_t>(opType)];
+    NN_FUZZER_LOG << "Operation: " << toString(opType);
 
     // Determine the data type and rank of the operation and invoke the constructor.
-    Type dataType = getRandomChoice(operation.supportedDataTypes);
+    TestOperandType dataType = getRandomChoice(operation.supportedDataTypes);
     uint32_t rank = getRandomChoice(operation.supportedRanks);
 
     // Initialize operands and operation.
@@ -183,7 +194,8 @@ bool RandomGraph::generateValue() {
             if (operand->type == RandomOperandType::INPUT) numInputs--;
             operand->type = RandomOperandType::CONST;
         }
-        if (operand->type != RandomOperandType::INTERNAL) {
+        if (operand->type != RandomOperandType::INTERNAL &&
+            operand->type != RandomOperandType::NO_VALUE) {
             if (operand->buffer.empty()) operand->resizeBuffer<uint8_t>(operand->getBufferSize());
             // If operand is set by randomBuffer, copy the frozen values into buffer.
             if (!operand->randomBuffer.empty()) {
@@ -202,196 +214,81 @@ bool RandomGraph::generateValue() {
     return true;
 }
 
-void RandomGraph::createModel(test_wrapper::Model* model) {
-    NN_FUZZER_LOG << "Create Model";
+static TestOperandLifeTime convertToTestOperandLifeTime(RandomOperandType type) {
+    switch (type) {
+        case RandomOperandType::INPUT:
+            return TestOperandLifeTime::SUBGRAPH_INPUT;
+        case RandomOperandType::OUTPUT:
+            return TestOperandLifeTime::SUBGRAPH_OUTPUT;
+        case RandomOperandType::INTERNAL:
+            return TestOperandLifeTime::TEMPORARY_VARIABLE;
+        case RandomOperandType::CONST:
+            return TestOperandLifeTime::CONSTANT_COPY;
+        case RandomOperandType::NO_VALUE:
+            return TestOperandLifeTime::NO_VALUE;
+    }
+}
+
+TestModel RandomGraph::createTestModel() {
+    NN_FUZZER_LOG << "Create Test Model";
+    TestModel testModel;
 
     // Set model operands.
-    std::vector<uint32_t> modelInputs;
-    std::vector<uint32_t> modelOutputs;
     for (auto& operand : mOperands) {
-        // TODO: Model operands are always fully-specified at model construction time.
-        test_wrapper::OperandType type(operand->dataType, operand->getDimensions(), operand->scale,
-                                       operand->zeroPoint);
-        operand->opIndex = model->addOperand(&type);
+        operand->opIndex = testModel.main.operands.size();
+        TestOperand testOperand = {
+                .type = static_cast<TestOperandType>(operand->dataType),
+                .dimensions = operand->getDimensions(),
+                // It is safe to always set numberOfConsumers to 0 here because
+                // this field is not used in NDK.
+                .numberOfConsumers = 0,
+                .scale = operand->scale,
+                .zeroPoint = operand->zeroPoint,
+                .lifetime = convertToTestOperandLifeTime(operand->type),
+                .isIgnored = operand->doNotCheckAccuracy,
+        };
 
-        // For INPUT/OUTPUT, prepare vectors for identifyInputsAndOutputs(...).
-        // For CONST, set operand buffer.
-        if (operand->type == RandomOperandType::INPUT) {
-            operand->ioIndex = modelInputs.size();
-            modelInputs.push_back(operand->opIndex);
-        } else if (operand->type == RandomOperandType::OUTPUT) {
-            operand->ioIndex = modelOutputs.size();
-            modelOutputs.push_back(operand->opIndex);
-        } else if (operand->type == RandomOperandType::CONST) {
-            model->setOperandValue(operand->opIndex, operand->buffer.data(),
-                                   operand->getBufferSize());
+        // Test buffers.
+        switch (testOperand.lifetime) {
+            case TestOperandLifeTime::SUBGRAPH_OUTPUT:
+                testOperand.data = TestBuffer(operand->getBufferSize());
+                break;
+            case TestOperandLifeTime::SUBGRAPH_INPUT:
+            case TestOperandLifeTime::CONSTANT_COPY:
+            case TestOperandLifeTime::CONSTANT_REFERENCE:
+                testOperand.data = TestBuffer(operand->getBufferSize(), operand->buffer.data());
+                break;
+            case TestOperandLifeTime::TEMPORARY_VARIABLE:
+            case TestOperandLifeTime::NO_VALUE:
+                break;
+            default:
+                NN_FUZZER_CHECK(false) << "Unknown lifetime";
         }
+
+        // Input/Output indexes.
+        if (testOperand.lifetime == TestOperandLifeTime::SUBGRAPH_INPUT) {
+            testModel.main.inputIndexes.push_back(operand->opIndex);
+        } else if (testOperand.lifetime == TestOperandLifeTime::SUBGRAPH_OUTPUT) {
+            testModel.main.outputIndexes.push_back(operand->opIndex);
+        }
+        testModel.main.operands.push_back(std::move(testOperand));
     }
 
     // Set model operations.
     for (auto& operation : mOperations) {
-        NN_FUZZER_LOG << "Operation: " << kOperationNames[static_cast<int32_t>(operation.opType)];
-        std::vector<uint32_t> inputIndices, outputIndices;
+        NN_FUZZER_LOG << "Operation: " << toString(operation.opType);
+        TestOperation testOperation = {.type = static_cast<TestOperationType>(operation.opType)};
         for (auto& op : operation.inputs) {
             NN_FUZZER_LOG << toString(*op);
-            inputIndices.push_back(op->opIndex);
+            testOperation.inputs.push_back(op->opIndex);
         }
         for (auto& op : operation.outputs) {
             NN_FUZZER_LOG << toString(*op);
-            outputIndices.push_back(op->opIndex);
+            testOperation.outputs.push_back(op->opIndex);
         }
-        model->addOperation(operation.opType, inputIndices, outputIndices);
+        testModel.main.operations.push_back(std::move(testOperation));
     }
-
-    // Set model inputs and outputs.
-    model->identifyInputsAndOutputs(modelInputs, modelOutputs);
-}
-
-void RandomGraph::createRequest(test_wrapper::Execution* execution,
-                                std::vector<OperandBuffer>* buffers) {
-    NN_FUZZER_LOG << "Create Request";
-    if (buffers != nullptr) buffers->clear();
-    for (const auto& operand : mOperands) {
-        if (operand->type == RandomOperandType::INPUT) {
-            EXPECT_EQ(execution->setInput(operand->ioIndex, operand->buffer.data(),
-                                          operand->getBufferSize(), nullptr),
-                      Result::NO_ERROR);
-        } else if (operand->type == RandomOperandType::OUTPUT) {
-            if (buffers == nullptr) {
-                EXPECT_EQ(execution->setOutput(operand->ioIndex, operand->buffer.data(),
-                                               operand->getBufferSize(), nullptr),
-                          Result::NO_ERROR);
-            } else {
-                // The order of the output buffers corresponds to the order in mOperands.
-                buffers->emplace_back(operand->buffer.size());
-                EXPECT_EQ(execution->setOutput(operand->ioIndex, buffers->back().data(),
-                                               operand->getBufferSize(), nullptr),
-                          Result::NO_ERROR);
-            }
-        }
-    }
-}
-
-// Check if the actual results meet the accuracy criterion.
-constexpr uint32_t kMaxNumberOfPrintedErrors = 5;
-template <typename T>
-void expectNear(const RandomOperand& op, const OperandBuffer& test,
-                const AccuracyCriterion& criterion) {
-    constexpr uint32_t kMinNumberOfElementsToTestBiasMSE = 10;
-    const T* actualBuffer = reinterpret_cast<const T*>(test.data());
-    const T* expectedBuffer = reinterpret_cast<const T*>(op.buffer.data());
-    uint32_t len = op.getNumberOfElements();
-    uint32_t numSkip = 0, numErrors = 0;
-    double bias = 0.0f, mse = 0.0f;
-    for (uint32_t i = 0; i < len; i++) {
-        SCOPED_TRACE(testing::Message() << "When comparing element " << i);
-
-        // Compare all data types in double for precision and signed arithmetic.
-        double actual = static_cast<double>(actualBuffer[i]);
-        double expected = static_cast<double>(expectedBuffer[i]);
-        double tolerableRange = criterion.atol + criterion.rtol * std::fabs(expected);
-
-        // Skip invalid floating point values.
-        if (std::isnan(expected) || std::isinf(expected) || std::isnan(actual) ||
-            std::isinf(actual) || std::fabs(expected) > 1e3) {
-            numSkip++;
-            continue;
-        }
-
-        // Accumulate bias and MSE. Use relative bias and MSE for floating point values.
-        double diff = actual - expected;
-        if constexpr (NN_IS_FLOAT(T)) {
-            diff /= std::max(1.0, std::abs(expected));
-        }
-        bias += diff;
-        mse += diff * diff;
-
-        // Print at most kMaxNumberOfPrintedErrors errors by EXPECT_NEAR.
-        if (numErrors < kMaxNumberOfPrintedErrors) EXPECT_NEAR(expected, actual, tolerableRange);
-        if (!(std::fabs(diff) <= tolerableRange)) numErrors++;
-    }
-    EXPECT_EQ(numErrors, 0u);
-
-    // Test bias and MSE.
-    if (len < numSkip + kMinNumberOfElementsToTestBiasMSE) return;
-    bias /= static_cast<double>(len - numSkip);
-    mse /= static_cast<double>(len - numSkip);
-    EXPECT_LE(std::fabs(bias), criterion.bias);
-    EXPECT_LE(mse, criterion.mse);
-}
-
-// For boolean values, we expect the number of mismatches does not exceed a certain ratio.
-void expectBooleanNearlyEqual(const RandomOperand& op, const OperandBuffer& test,
-                              float allowedErrorRatio) {
-    const bool8* actual = reinterpret_cast<const bool8*>(test.data());
-    const bool8* expected = reinterpret_cast<const bool8*>(op.buffer.data());
-    uint32_t len = op.getNumberOfElements();
-    uint32_t numErrors = 0;
-    std::stringstream errorMsg;
-    for (uint32_t i = 0; i < len; i++) {
-        if (expected[i] != actual[i]) {
-            if (numErrors < kMaxNumberOfPrintedErrors)
-                errorMsg << "    Expected: " << expected[i] << ", actual: " << actual[i]
-                         << ", when comparing element " << i << "\n";
-            numErrors++;
-        }
-    }
-    // When |len| is small, the allowedErrorCount will intentionally ceil at 1, which allows for
-    // greater tolerance.
-    uint32_t allowedErrorCount = static_cast<uint32_t>(std::ceil(allowedErrorRatio * len));
-    EXPECT_LE(numErrors, allowedErrorCount) << errorMsg.str();
-}
-
-void RandomGraph::checkResults(const std::vector<OperandBuffer>& buffers,
-                               const AccuracyCriteria& criteria) const {
-    NN_FUZZER_LOG << "Check Results";
-    // Make sure to keep the same order as the buffers are created.
-    int i = 0;
-    for (const auto& op : mOperands) {
-        if (op->type == RandomOperandType::OUTPUT) {
-            SCOPED_TRACE(testing::Message()
-                         << "When comparing output " << op->ioIndex << " (op" << op->opIndex << ")"
-                         << " of type " << toString(op->dataType));
-            if (!op->doNotCheckAccuracy) {
-                switch (op->dataType) {
-                    case Type::TENSOR_FLOAT32:
-                        expectNear<float>(*op, buffers[i], criteria.float32);
-                        break;
-                    case Type::TENSOR_FLOAT16:
-                        expectNear<_Float16>(*op, buffers[i], criteria.float16);
-                        break;
-                    case Type::TENSOR_INT32:
-                        expectNear<int32_t>(*op, buffers[i], criteria.int32);
-                        break;
-                    case Type::TENSOR_QUANT8_ASYMM:
-                        expectNear<uint8_t>(*op, buffers[i], criteria.quant8Asymm);
-                        break;
-                    case Type::TENSOR_QUANT8_SYMM:
-                        expectNear<int8_t>(*op, buffers[i], criteria.quant8Symm);
-                        break;
-                    case Type::TENSOR_QUANT16_ASYMM:
-                        expectNear<uint16_t>(*op, buffers[i], criteria.quant16Asymm);
-                        break;
-                    case Type::TENSOR_QUANT16_SYMM:
-                        expectNear<int16_t>(*op, buffers[i], criteria.quant16Symm);
-                        break;
-                    case Type::TENSOR_BOOL8:
-                        expectBooleanNearlyEqual(*op, buffers[i], /*allowedErrorRatio=*/0.01);
-                        break;
-                    default:
-                        NN_FUZZER_CHECK(false) << "Data type not supported.";
-                }
-            }
-            i++;
-        }
-    }
-}
-
-void RandomGraph::dumpSpecFile(std::string filename, std::string testname = "") {
-    NN_FUZZER_LOG << "Dump Spec File to " << filename;
-    SpecWriter writer(filename, testname);
-    ASSERT_TRUE(writer.isOpen());
-    writer.dump(mOperations, mOperands);
+    return testModel;
 }
 
 }  // namespace fuzzing_test

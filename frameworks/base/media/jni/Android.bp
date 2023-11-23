@@ -1,9 +1,12 @@
 cc_library_shared {
     name: "libmedia_jni",
 
+    defaults: ["libcodec2-internal-defaults"],
+
     srcs: [
         "android_media_ImageWriter.cpp",
         "android_media_ImageReader.cpp",
+        "android_media_JetPlayer.cpp",
         "android_media_MediaCrypto.cpp",
         "android_media_MediaCodec.cpp",
         "android_media_MediaCodecList.cpp",
@@ -17,27 +20,31 @@ cc_library_shared {
         "android_media_MediaPlayer.cpp",
         "android_media_MediaProfiles.cpp",
         "android_media_MediaRecorder.cpp",
-        "android_media_MediaScanner.cpp",
         "android_media_MediaSync.cpp",
+        "android_media_MediaTranscodeManager.cpp",
         "android_media_ResampleInputStream.cpp",
         "android_media_Streams.cpp",
         "android_media_SyncParams.cpp",
         "android_mtp_MtpDatabase.cpp",
         "android_mtp_MtpDevice.cpp",
         "android_mtp_MtpServer.cpp",
+        "JetPlayer.cpp",
     ],
 
     shared_libs: [
         "libandroid_runtime",
+        "libaudioclient",
         "libnativehelper",
         "libnativewindow",
         "libutils",
         "libbinder",
         "libmedia",
+        "libmedia_codeclist",
         "libmedia_jni_utils",
         "libmedia_omx",
         "libmediametrics",
         "libmediadrm",
+        "libmediadrmmetrics_consumer",
         "libhwui",
         "libui",
         "liblog",
@@ -47,22 +54,28 @@ cc_library_shared {
         "libstagefright_foundation",
         "libcamera_client",
         "libmtp",
-        "libexif",
         "libpiex",
         "libprocessgroup",
         "libandroidfw",
         "libhidlallocatorutils",
         "libhidlbase",
-        "libhidltransport",
+        "libsonivox",
         "android.hardware.cas@1.0",
         "android.hardware.cas.native@1.0",
+        "android.hardware.drm@1.3",
         "android.hidl.memory@1.0",
         "android.hidl.token@1.0-utils",
     ],
 
-    header_libs: ["libhardware_headers"],
+    header_libs: [
+        "libhardware_headers",
+        "libmediadrm_headers",
+    ],
 
-    static_libs: ["libgrallocusage"],
+    static_libs: [
+        "libgrallocusage",
+        "libmedia_midiiowrapper",
+    ],
 
     include_dirs: [
         "frameworks/base/core/jni",
@@ -91,13 +104,14 @@ cc_library_shared {
         "android_media_Utils.cpp",
     ],
 
+    header_libs: [
+        "libgui_headers",
+    ],
+
     shared_libs: [
         "liblog",
-        "libgui",
-        "libnativewindow",
         "libui",
         "libutils",
-        "android.hidl.token@1.0-utils",
     ],
 
     include_dirs: [
@@ -116,72 +130,30 @@ cc_library_shared {
 }
 
 cc_library_shared {
-    name: "libmedia2_jni",
-
+    name: "libmedia_tv_tuner",
     srcs: [
-        "android_media_DataSourceCallback.cpp",
-        "android_media_MediaMetricsJNI.cpp",
-        "android_media_MediaPlayer2.cpp",
-        "android_media_SyncParams.cpp",
+        "android_media_tv_Tuner.cpp",
     ],
 
     shared_libs: [
-        // NDK or LLNDK or NDK-compliant
-        "libandroid",
-        "libbinder_ndk",
-        "libcgrouprc",
-        "libmediandk",
-        "libmediametrics",
-        "libnativehelper_compat_libc++",
+        "android.hardware.graphics.bufferqueue@2.0",
+        "android.hardware.tv.tuner@1.0",
+        "libandroid_runtime",
+        "libcutils",
+        "libfmq",
+        "libhidlbase",
         "liblog",
-        "libvndksupport",
+        "libmedia",
+        "libnativehelper",
+        "libutils",
+    ],
+    defaults: [
+        "libcodec2-impl-defaults",
     ],
 
     header_libs: [
-        "libhardware_headers",
-        "libnativewindow_headers",
-    ],
-
-    static_libs: [
-        // MediaCas
-        "android.hidl.allocator@1.0",
-        "android.hidl.memory@1.0",
-        "libhidlbase",
-        "libhidlmemory",
-        "libhidltransport",
-        "libbinderthreadstate",
-
-        // MediaPlayer2 implementation
-        "libbase",
-        "libcrypto",
-        "libcutils",
-        "libjsoncpp",
-        "libmedia_player2_util",
-        "libmediaplayer2",
-        "libmediaplayer2-protos",
-        "libmediandk_utils",
-        "libmediautils",
-        "libprocessgroup",
-        "libprotobuf-cpp-lite",
-        "libstagefright_esds",
-        "libstagefright_foundation_without_imemory",
-        "libstagefright_httplive",
-        "libstagefright_id3",
-        "libstagefright_mpeg2support",
-        "libstagefright_nuplayer2",
-        "libstagefright_player2",
-        "libstagefright_rtsp_player2",
-        "libstagefright_timedtext2",
-        "libutils",
-        "libmedia2_jni_core",
-    ],
-
-    group_static_libs: true,
-
-    include_dirs: [
-        "frameworks/base/core/jni",
-        "frameworks/native/include/media/openmax",
-        "system/media/camera/include",
+        "libcodec2_internal",
+        "libstagefright_foundation_headers",
     ],
 
     export_include_dirs: ["."],
@@ -192,13 +164,5 @@ cc_library_shared {
         "-Wno-error=deprecated-declarations",
         "-Wunused",
         "-Wunreachable-code",
-        "-fvisibility=hidden",
     ],
-
-    ldflags: ["-Wl,--exclude-libs=ALL,-error-limit=0"],
 }
-
-subdirs = [
-    "audioeffect",
-    "soundpool",
-]

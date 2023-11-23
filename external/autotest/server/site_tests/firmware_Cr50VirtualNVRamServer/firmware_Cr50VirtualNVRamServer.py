@@ -16,6 +16,7 @@ class firmware_Cr50VirtualNVRamServer(test.test):
     version = 1
 
     def run_once(self, host=None):
+        """Runs a single iteration of the test."""
         self.client = host
 
         # Skip the test if the TPM is unavailable.

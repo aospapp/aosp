@@ -68,7 +68,7 @@ package java.util;
  * constant time if their argument is also an enum set.
  *
  * <p>This class is a member of the
- * <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/collections/index.html">
+ * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
  * @author Josh Bloch

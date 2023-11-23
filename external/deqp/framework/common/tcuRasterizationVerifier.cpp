@@ -907,7 +907,7 @@ enum ClipMode
 	CLIPMODE_LAST
 };
 
-bool verifyMultisampleLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, ClipMode clipMode, VerifyTriangleGroupRasterizationLogStash* logStash = DE_NULL)
+bool verifyMultisampleLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, ClipMode clipMode, VerifyTriangleGroupRasterizationLogStash* logStash = DE_NULL, const bool vulkanLinesTest = false)
 {
 	// Multisampled line == 2 triangles
 
@@ -915,9 +915,20 @@ bool verifyMultisampleLineGroupRasterization (const tcu::Surface& surface, const
 	const float			halfLineWidth	= scene.lineWidth * 0.5f;
 	TriangleSceneSpec	triangleScene;
 
+	deUint32			stippleCounter	= 0;
+	float				leftoverPhase	= 0.0f;
+
 	triangleScene.triangles.resize(2 * scene.lines.size());
 	for (int lineNdx = 0; lineNdx < (int)scene.lines.size(); ++lineNdx)
 	{
+
+		if (!scene.isStrip)
+		{
+			// reset stipple at the start of each line segment
+			stippleCounter = 0;
+			leftoverPhase = 0;
+		}
+
 		// Transform to screen space, add pixel offsets, convert back to normalized device space, and test as triangles
 		tcu::Vec2 lineNormalizedDeviceSpace[2] =
 		{
@@ -939,31 +950,117 @@ bool verifyMultisampleLineGroupRasterization (const tcu::Surface& surface, const
 		const tcu::Vec2 lineDir			= tcu::normalize(lineScreenSpace[1] - lineScreenSpace[0]);
 		const tcu::Vec2 lineNormalDir	= tcu::Vec2(lineDir.y(), -lineDir.x());
 
-		const tcu::Vec2 lineQuadScreenSpace[4] =
+		if (scene.stippleEnable)
 		{
-			lineScreenSpace[0] + lineNormalDir * halfLineWidth,
-			lineScreenSpace[0] - lineNormalDir * halfLineWidth,
-			lineScreenSpace[1] - lineNormalDir * halfLineWidth,
-			lineScreenSpace[1] + lineNormalDir * halfLineWidth,
-		};
-		const tcu::Vec2 lineQuadNormalizedDeviceSpace[4] =
+			float lineLength			= tcu::distance(lineScreenSpace[0], lineScreenSpace[1]);
+			float lineOffset			= 0.0f;
+
+			while (lineOffset < lineLength)
+			{
+				float d0 = (float)lineOffset;
+				float d1 = d0 + 1.0f;
+
+				// "leftoverPhase" carries over a fractional stipple phase that was "unused"
+				// by the last line segment in the strip, if it wasn't an integer length.
+				if (leftoverPhase > lineLength)
+				{
+					DE_ASSERT(d0 == 0.0f);
+					d1 = lineLength;
+					leftoverPhase -= lineLength;
+				}
+				else if (leftoverPhase != 0.0f)
+				{
+					DE_ASSERT(d0 == 0.0f);
+					d1 = leftoverPhase;
+					leftoverPhase = 0.0f;
+				}
+				else
+				{
+					if (d0 + 1.0f > lineLength)
+					{
+						d1 = lineLength;
+						leftoverPhase = d0 + 1.0f - lineLength;
+					}
+					else
+						d1 = d0 + 1.0f;
+				}
+
+				// set offset for next iteration
+				lineOffset = d1;
+
+				int stippleBit = (stippleCounter / scene.stippleFactor) % 16;
+				bool stipplePass = (scene.stipplePattern & (1 << stippleBit)) != 0;
+
+				if (leftoverPhase == 0)
+					stippleCounter++;
+
+				if (!stipplePass)
+					continue;
+
+				d0 /= lineLength;
+				d1 /= lineLength;
+
+				tcu::Vec2 l0 = mix(lineScreenSpace[0], lineScreenSpace[1], d0);
+				tcu::Vec2 l1 = mix(lineScreenSpace[0], lineScreenSpace[1], d1);
+
+				const tcu::Vec2 lineQuadScreenSpace[4] =
+				{
+					l0 + lineNormalDir * halfLineWidth,
+					l0 - lineNormalDir * halfLineWidth,
+					l1 - lineNormalDir * halfLineWidth,
+					l1 + lineNormalDir * halfLineWidth,
+				};
+				const tcu::Vec2 lineQuadNormalizedDeviceSpace[4] =
+				{
+					lineQuadScreenSpace[0] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+					lineQuadScreenSpace[1] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+					lineQuadScreenSpace[2] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+					lineQuadScreenSpace[3] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+				};
+
+				TriangleSceneSpec::SceneTriangle tri;
+
+				tri.positions[0] = tcu::Vec4(lineQuadNormalizedDeviceSpace[0].x(), lineQuadNormalizedDeviceSpace[0].y(), 0.0f, 1.0f);	tri.sharedEdge[0] = (d0 != 0.0f);
+				tri.positions[1] = tcu::Vec4(lineQuadNormalizedDeviceSpace[1].x(), lineQuadNormalizedDeviceSpace[1].y(), 0.0f, 1.0f);	tri.sharedEdge[1] = false;
+				tri.positions[2] = tcu::Vec4(lineQuadNormalizedDeviceSpace[2].x(), lineQuadNormalizedDeviceSpace[2].y(), 0.0f, 1.0f);	tri.sharedEdge[2] = true;
+
+				triangleScene.triangles.push_back(tri);
+
+				tri.positions[0] = tcu::Vec4(lineQuadNormalizedDeviceSpace[0].x(), lineQuadNormalizedDeviceSpace[0].y(), 0.0f, 1.0f);	tri.sharedEdge[0] = true;
+				tri.positions[1] = tcu::Vec4(lineQuadNormalizedDeviceSpace[2].x(), lineQuadNormalizedDeviceSpace[2].y(), 0.0f, 1.0f);	tri.sharedEdge[1] = (d1 != 1.0f);
+				tri.positions[2] = tcu::Vec4(lineQuadNormalizedDeviceSpace[3].x(), lineQuadNormalizedDeviceSpace[3].y(), 0.0f, 1.0f);	tri.sharedEdge[2] = false;
+
+				triangleScene.triangles.push_back(tri);
+			}
+		}
+		else
 		{
-			lineQuadScreenSpace[0] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
-			lineQuadScreenSpace[1] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
-			lineQuadScreenSpace[2] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
-			lineQuadScreenSpace[3] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
-		};
+			const tcu::Vec2 lineQuadScreenSpace[4] =
+			{
+				lineScreenSpace[0] + lineNormalDir * halfLineWidth,
+				lineScreenSpace[0] - lineNormalDir * halfLineWidth,
+				lineScreenSpace[1] - lineNormalDir * halfLineWidth,
+				lineScreenSpace[1] + lineNormalDir * halfLineWidth,
+			};
+			const tcu::Vec2 lineQuadNormalizedDeviceSpace[4] =
+			{
+				lineQuadScreenSpace[0] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+				lineQuadScreenSpace[1] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+				lineQuadScreenSpace[2] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+				lineQuadScreenSpace[3] / viewportSize * 2.0f - tcu::Vec2(1.0f, 1.0f),
+			};
 
-		triangleScene.triangles[lineNdx*2 + 0].positions[0] = tcu::Vec4(lineQuadNormalizedDeviceSpace[0].x(), lineQuadNormalizedDeviceSpace[0].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 0].sharedEdge[0] = false;
-		triangleScene.triangles[lineNdx*2 + 0].positions[1] = tcu::Vec4(lineQuadNormalizedDeviceSpace[1].x(), lineQuadNormalizedDeviceSpace[1].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 0].sharedEdge[1] = false;
-		triangleScene.triangles[lineNdx*2 + 0].positions[2] = tcu::Vec4(lineQuadNormalizedDeviceSpace[2].x(), lineQuadNormalizedDeviceSpace[2].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 0].sharedEdge[2] = true;
+			triangleScene.triangles[lineNdx*2 + 0].positions[0] = tcu::Vec4(lineQuadNormalizedDeviceSpace[0].x(), lineQuadNormalizedDeviceSpace[0].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 0].sharedEdge[0] = false;
+			triangleScene.triangles[lineNdx*2 + 0].positions[1] = tcu::Vec4(lineQuadNormalizedDeviceSpace[1].x(), lineQuadNormalizedDeviceSpace[1].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 0].sharedEdge[1] = false;
+			triangleScene.triangles[lineNdx*2 + 0].positions[2] = tcu::Vec4(lineQuadNormalizedDeviceSpace[2].x(), lineQuadNormalizedDeviceSpace[2].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 0].sharedEdge[2] = true;
 
-		triangleScene.triangles[lineNdx*2 + 1].positions[0] = tcu::Vec4(lineQuadNormalizedDeviceSpace[0].x(), lineQuadNormalizedDeviceSpace[0].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 1].sharedEdge[0] = true;
-		triangleScene.triangles[lineNdx*2 + 1].positions[1] = tcu::Vec4(lineQuadNormalizedDeviceSpace[2].x(), lineQuadNormalizedDeviceSpace[2].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 1].sharedEdge[1] = false;
-		triangleScene.triangles[lineNdx*2 + 1].positions[2] = tcu::Vec4(lineQuadNormalizedDeviceSpace[3].x(), lineQuadNormalizedDeviceSpace[3].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 1].sharedEdge[2] = false;
+			triangleScene.triangles[lineNdx*2 + 1].positions[0] = tcu::Vec4(lineQuadNormalizedDeviceSpace[0].x(), lineQuadNormalizedDeviceSpace[0].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 1].sharedEdge[0] = true;
+			triangleScene.triangles[lineNdx*2 + 1].positions[1] = tcu::Vec4(lineQuadNormalizedDeviceSpace[2].x(), lineQuadNormalizedDeviceSpace[2].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 1].sharedEdge[1] = false;
+			triangleScene.triangles[lineNdx*2 + 1].positions[2] = tcu::Vec4(lineQuadNormalizedDeviceSpace[3].x(), lineQuadNormalizedDeviceSpace[3].y(), 0.0f, 1.0f);	triangleScene.triangles[lineNdx*2 + 1].sharedEdge[2] = false;
+		}
 	}
 
-	return verifyTriangleGroupRasterization(surface, triangleScene, args, log, VERIFICATIONMODE_STRICT, logStash);
+	return verifyTriangleGroupRasterization(surface, triangleScene, args, log, scene.verificationMode, logStash, vulkanLinesTest);
 }
 
 bool verifyMultisampleLineGroupInterpolation (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log)
@@ -1100,7 +1197,6 @@ bool verifySinglesampleLineGroupRasterization (const tcu::Surface& surface, cons
 	int						referenceFragments	= 0;
 	int						resultFragments		= 0;
 	int						lineWidth			= deFloorFloatToInt32(scene.lineWidth + 0.5f);
-	bool					imageShown			= false;
 	std::vector<bool>		lineIsXMajor		(scene.lines.size());
 	std::vector<tcu::Vec4>	screenspaceLines(scene.lines.size());
 
@@ -1110,9 +1206,9 @@ bool verifySinglesampleLineGroupRasterization (const tcu::Surface& surface, cons
 
 	genScreenSpaceLines(screenspaceLines, scene.lines, tcu::IVec2(surface.getWidth(), surface.getHeight()));
 
+	rr::SingleSampleLineRasterizer rasterizer(tcu::IVec4(0, 0, surface.getWidth(), surface.getHeight()), args.subpixelBits);
 	for (int lineNdx = 0; lineNdx < (int)scene.lines.size(); ++lineNdx)
 	{
-		rr::SingleSampleLineRasterizer rasterizer(tcu::IVec4(0, 0, surface.getWidth(), surface.getHeight()));
 		rasterizer.init(tcu::Vec4(screenspaceLines[lineNdx][0],
 								  screenspaceLines[lineNdx][1],
 								  0.0f,
@@ -1121,7 +1217,12 @@ bool verifySinglesampleLineGroupRasterization (const tcu::Surface& surface, cons
 								  screenspaceLines[lineNdx][3],
 								  0.0f,
 								  1.0f),
-						scene.lineWidth);
+						scene.lineWidth,
+						scene.stippleFactor,
+						scene.stipplePattern);
+
+		if (!scene.isStrip)
+			rasterizer.resetStipple();
 
 		// calculate majority of later use
 		lineIsXMajor[lineNdx] = isPackedSSLineXMajor(screenspaceLines[lineNdx]);
@@ -1209,13 +1310,7 @@ bool verifySinglesampleLineGroupRasterization (const tcu::Surface& surface, cons
 
 		if (missingFragments)
 		{
-			log << tcu::TestLog::Message << "Invalid deviation(s) found." << tcu::TestLog::EndMessage;
-			log << tcu::TestLog::ImageSet("Verification result", "Result of rendering")
-				<< tcu::TestLog::Image("Result", "Result",			surface)
-				<< tcu::TestLog::Image("ErrorMask", "ErrorMask",	errorMask)
-				<< tcu::TestLog::EndImageSet;
 
-			imageShown = true;
 			allOK = false;
 		}
 		else
@@ -1256,7 +1351,6 @@ bool verifySinglesampleLineGroupRasterization (const tcu::Surface& surface, cons
 					<< tcu::TestLog::EndImageSet;
 
 				allOK = false;
-				imageShown = true;
 			}
 			else
 			{
@@ -1303,7 +1397,6 @@ bool verifySinglesampleLineGroupRasterization (const tcu::Surface& surface, cons
 						{
 							if (lineID && lineID != nearbyID)
 								multipleNearbyLines = true;
-							lineID = nearbyID;
 						}
 					}
 
@@ -1461,9 +1554,16 @@ bool verifySinglesampleLineGroupRasterization (const tcu::Surface& surface, cons
 	//duplicate fragments, nor may any fragments be omitted so as to interrupt
 	//continuity of the connected segments.
 
-	if (!imageShown)
 	{
+		tcu::Surface reference(surface.getWidth(), surface.getHeight());
+		tcu::clear(reference.getAccess(), tcu::IVec4(0, 0, 0, 255));
+		for (int y = 0; y < surface.getHeight(); ++y)
+		for (int x = 0; x < surface.getWidth(); ++x)
+			if (referenceLineMap.getAccess().getPixelInt(x, y).x())
+				reference.setPixel(x, y, tcu::RGBA::white());
+		log << tcu::TestLog::Message << "Invalid fragment count in result image." << tcu::TestLog::EndMessage;
 		log << tcu::TestLog::ImageSet("Verification result", "Result of rendering")
+			<< tcu::TestLog::Image("Reference", "Reference",	reference)
 			<< tcu::TestLog::Image("Result", "Result", surface)
 			<< tcu::TestLog::EndImageSet;
 	}
@@ -1482,20 +1582,21 @@ struct SingleSampleNarrowLineCandidate
 	tcu::Vec3	valueRangeMax;
 };
 
-void setMaskMapCoverageBitForLine (int bitNdx, const tcu::Vec2& screenSpaceP0, const tcu::Vec2& screenSpaceP1, float lineWidth, tcu::PixelBufferAccess maskMap)
+void setMaskMapCoverageBitForLine (int bitNdx, const tcu::Vec2& screenSpaceP0, const tcu::Vec2& screenSpaceP1, float lineWidth, tcu::PixelBufferAccess maskMap, const int subpixelBits)
 {
 	enum
 	{
 		MAX_PACKETS = 32,
 	};
 
-	rr::SingleSampleLineRasterizer	rasterizer				(tcu::IVec4(0, 0, maskMap.getWidth(), maskMap.getHeight()));
+	rr::SingleSampleLineRasterizer	rasterizer				(tcu::IVec4(0, 0, maskMap.getWidth(), maskMap.getHeight()), subpixelBits);
 	int								numRasterized			= MAX_PACKETS;
 	rr::FragmentPacket				packets[MAX_PACKETS];
 
 	rasterizer.init(tcu::Vec4(screenSpaceP0.x(), screenSpaceP0.y(), 0.0f, 1.0f),
 					tcu::Vec4(screenSpaceP1.x(), screenSpaceP1.y(), 0.0f, 1.0f),
-					lineWidth);
+					lineWidth,
+					1, 0xFFFF);
 
 	while (numRasterized == MAX_PACKETS)
 	{
@@ -1522,14 +1623,14 @@ void setMaskMapCoverageBitForLine (int bitNdx, const tcu::Vec2& screenSpaceP0, c
 	}
 }
 
-void setMaskMapCoverageBitForLines (const std::vector<tcu::Vec4>& screenspaceLines, float lineWidth, tcu::PixelBufferAccess maskMap)
+void setMaskMapCoverageBitForLines (const std::vector<tcu::Vec4>& screenspaceLines, float lineWidth, tcu::PixelBufferAccess maskMap, const int subpixelBits)
 {
 	for (int lineNdx = 0; lineNdx < (int)screenspaceLines.size(); ++lineNdx)
 	{
 		const tcu::Vec2 pa = screenspaceLines[lineNdx].swizzle(0, 1);
 		const tcu::Vec2 pb = screenspaceLines[lineNdx].swizzle(2, 3);
 
-		setMaskMapCoverageBitForLine(lineNdx, pa, pb, lineWidth, maskMap);
+		setMaskMapCoverageBitForLine(lineNdx, pa, pb, lineWidth, maskMap, subpixelBits);
 	}
 }
 
@@ -1567,7 +1668,7 @@ bool verifyLineGroupPixelIndependentInterpolation (const tcu::Surface&				surfac
 	// prepare lookup map
 
 	genScreenSpaceLines(screenspaceLines, scene.lines, viewportSize);
-	setMaskMapCoverageBitForLines(screenspaceLines, scene.lineWidth, referenceLineMap.getAccess());
+	setMaskMapCoverageBitForLines(screenspaceLines, scene.lineWidth, referenceLineMap.getAccess(), args.subpixelBits);
 
 	// Find all possible lines with coverage, check pixel color matches one of them
 
@@ -1814,7 +1915,7 @@ bool verifySinglesampleWideLineGroupInterpolation (const tcu::Surface& surface, 
 		std::vector<tcu::Vec4> screenspaceLines(scene.lines.size());
 
 		genScreenSpaceLines(screenspaceLines, scene.lines, viewportSize);
-		setMaskMapCoverageBitForLines(screenspaceLines, scene.lineWidth, referenceLineMap.getAccess());
+		setMaskMapCoverageBitForLines(screenspaceLines, scene.lineWidth, referenceLineMap.getAccess(), args.subpixelBits);
 
 		for (int lineNdx = 0; lineNdx < (int)scene.lines.size(); ++lineNdx)
 		{
@@ -1854,7 +1955,7 @@ bool verifySinglesampleWideLineGroupInterpolation (const tcu::Surface& surface, 
 		{
 			const bool						isXMajor			= lineIsXMajor[lineNdx];
 			const int						majorSize			= (isXMajor) ? (surface.getWidth()) : (surface.getHeight());
-			rr::LineExitDiamondGenerator	diamondGenerator;
+			rr::LineExitDiamondGenerator	diamondGenerator	(args.subpixelBits);
 			rr::LineExitDiamond				diamonds[32];
 			int								numRasterized		= DE_LENGTH_OF_ARRAY(diamonds);
 
@@ -2103,7 +2204,7 @@ CoverageType calculateTriangleCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1
 	typedef tcu::Vector<deInt64, 2> I64Vec2;
 
 	const deUint64		numSubPixels						= ((deUint64)1) << subpixelBits;
-	const deUint64		pixelHitBoxSize						= (multisample) ? (numSubPixels) : (2+2);	//!< allow 4 central (2x2) for non-multisample pixels. Rounding may move edges 1 subpixel to any direction.
+	const deUint64		pixelHitBoxSize						= (multisample) ? (numSubPixels) : 5;		//!< 5 = ceil(6 * sqrt(2) / 2) to account for a 3 subpixel fuzz around pixel center
 	const bool			order								= isTriangleClockwise(p0, p1, p2);			//!< clockwise / counter-clockwise
 	const tcu::Vec4&	orderedP0							= p0;										//!< vertices of a clockwise triangle
 	const tcu::Vec4&	orderedP1							= (order) ? (p1) : (p2);
@@ -2137,12 +2238,13 @@ CoverageType calculateTriangleCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1
 
 	// Broad triangle - pixel area intersection
 	{
-		const I64Vec2 pixelCenterPosition = I64Vec2(pixel.x(), pixel.y()) * I64Vec2(numSubPixels, numSubPixels) + I64Vec2(numSubPixels / 2, numSubPixels / 2);
-		const I64Vec2 triangleSubPixelSpaceRound[3] =
+		const DVec2 pixelCenterPosition			=	DVec2((double)pixel.x(), (double)pixel.y()) * DVec2((double)numSubPixels, (double)numSubPixels) +
+													DVec2((double)numSubPixels / 2, (double)numSubPixels / 2);
+		const DVec2 triangleSubPixelSpace[3]	=
 		{
-			I64Vec2(deRoundFloatToInt32(triangleScreenSpace[0].x() * (float)numSubPixels), deRoundFloatToInt32(triangleScreenSpace[0].y() * (float)numSubPixels)),
-			I64Vec2(deRoundFloatToInt32(triangleScreenSpace[1].x() * (float)numSubPixels), deRoundFloatToInt32(triangleScreenSpace[1].y() * (float)numSubPixels)),
-			I64Vec2(deRoundFloatToInt32(triangleScreenSpace[2].x() * (float)numSubPixels), deRoundFloatToInt32(triangleScreenSpace[2].y() * (float)numSubPixels)),
+			DVec2(triangleScreenSpace[0].x() * (double)numSubPixels, triangleScreenSpace[0].y() * (double)numSubPixels),
+			DVec2(triangleScreenSpace[1].x() * (double)numSubPixels, triangleScreenSpace[1].y() * (double)numSubPixels),
+			DVec2(triangleScreenSpace[2].x() * (double)numSubPixels, triangleScreenSpace[2].y() * (double)numSubPixels),
 		};
 
 		// Check (using cross product) if pixel center is
@@ -2152,10 +2254,10 @@ CoverageType calculateTriangleCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1
 		for (int vtxNdx = 0; vtxNdx < 3; ++vtxNdx)
 		{
 			const int		otherVtxNdx				= (vtxNdx + 1) % 3;
-			const deInt64	maxPixelDistanceSquared	= pixelHitBoxSize*pixelHitBoxSize; // Max distance from the pixel center from within the pixel is (sqrt(2) * boxWidth/2). Use 2x value for rounding tolerance
-			const I64Vec2	edge					= triangleSubPixelSpaceRound[otherVtxNdx]	- triangleSubPixelSpaceRound[vtxNdx];
-			const I64Vec2	v						= pixelCenterPosition						- triangleSubPixelSpaceRound[vtxNdx];
-			const deInt64	crossProduct			= (edge.x() * v.y() - edge.y() * v.x());
+			const double	maxPixelDistanceSquared	= (double)(pixelHitBoxSize * pixelHitBoxSize); // Max distance from the pixel center from within the pixel is (sqrt(2) * boxWidth/2). Use 2x value for rounding tolerance
+			const DVec2		edge					= triangleSubPixelSpace[otherVtxNdx]	- triangleSubPixelSpace[vtxNdx];
+			const DVec2		v						= pixelCenterPosition					- triangleSubPixelSpace[vtxNdx];
+			const double	crossProduct			= (edge.x() * v.y() - edge.y() * v.x());
 
 			// distance from edge: (edge x v) / |edge|
 			//     (edge x v) / |edge| > maxPixelDistance
@@ -2181,12 +2283,14 @@ CoverageType calculateTriangleCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1
 			I64Vec2((pixel.x()+1) * numSubPixels, (pixel.y()+1) * numSubPixels),
 			I64Vec2((pixel.x()+0) * numSubPixels, (pixel.y()+1) * numSubPixels),
 		};
+
+		// 3 subpixel tolerance around pixel center to account for accumulated errors during various line rasterization methods
 		const I64Vec2 pixelCenterCorners[4] =
 		{
-			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 + 0, pixel.y() * numSubPixels + numSubPixels/2 + 0),
-			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 + 1, pixel.y() * numSubPixels + numSubPixels/2 + 0),
-			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 + 1, pixel.y() * numSubPixels + numSubPixels/2 + 1),
-			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 + 0, pixel.y() * numSubPixels + numSubPixels/2 + 1),
+			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 - 3, pixel.y() * numSubPixels + numSubPixels/2 - 3),
+			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 + 3, pixel.y() * numSubPixels + numSubPixels/2 - 3),
+			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 + 3, pixel.y() * numSubPixels + numSubPixels/2 + 3),
+			I64Vec2(pixel.x() * numSubPixels + numSubPixels/2 - 3, pixel.y() * numSubPixels + numSubPixels/2 + 3),
 		};
 
 		// both rounding directions
@@ -2268,7 +2372,7 @@ static void verifyTriangleGroupRasterizationLog (const tcu::Surface& surface, tc
 	}
 }
 
-bool verifyTriangleGroupRasterization (const tcu::Surface& surface, const TriangleSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, VerificationMode mode, VerifyTriangleGroupRasterizationLogStash* logStash)
+bool verifyTriangleGroupRasterization (const tcu::Surface& surface, const TriangleSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, VerificationMode mode, VerifyTriangleGroupRasterizationLogStash* logStash, const bool vulkanLinesTest)
 {
 	DE_ASSERT(mode < VERIFICATIONMODE_LAST);
 
@@ -2279,6 +2383,7 @@ bool verifyTriangleGroupRasterization (const tcu::Surface& surface, const Triang
 	const tcu::RGBA		partialPixelColor			= tcu::RGBA(255, 255, 0, 255);
 	const tcu::RGBA		primitivePixelColor			= tcu::RGBA(30, 30, 30, 255);
 	const int			weakVerificationThreshold	= 10;
+	const int			weakerVerificationThreshold	= 25;
 	const bool			multisampled				= (args.numSamples != 0);
 	const tcu::IVec2	viewportSize				= tcu::IVec2(surface.getWidth(), surface.getHeight());
 	int					missingPixels				= 0;
@@ -2381,8 +2486,30 @@ bool verifyTriangleGroupRasterization (const tcu::Surface& surface, const Triang
 				break;
 
 			case COVERAGE_PARTIAL:
-				// anything goes
-				errorMask.setPixel(x, y, partialPixelColor);
+				{
+					bool foundFragment = false;
+					if (vulkanLinesTest == true)
+					{
+						for (int dy = -1; dy < 2 && !foundFragment; ++dy)
+							for (int dx = -1; dx < 2 && !foundFragment; ++dx)
+							{
+								if (x + dx >= 0 && x + dx != surface.getWidth() && y + dy >= 0 && y + dy != surface.getHeight()
+									&& (CoverageType)coverageMap.getAccess().getPixelUint(x + dx, y + dy).x() != COVERAGE_NONE)
+								{
+									const tcu::RGBA color2 = surface.getPixel(x + dx , y + dy);
+									if (compareColors(color2, triangleColor, args.redBits, args.greenBits, args.blueBits))
+										foundFragment = true;
+								}
+							}
+					}
+					// anything goes
+					if (foundFragment == false)
+					{
+						errorMask.setPixel(x, y, partialPixelColor);
+						if (vulkanLinesTest == true)
+							++missingPixels;
+					}
+				}
 				break;
 
 			case COVERAGE_FULL:
@@ -2404,7 +2531,9 @@ bool verifyTriangleGroupRasterization (const tcu::Surface& surface, const Triang
 	}
 
 	if (((mode == VERIFICATIONMODE_STRICT) && (missingPixels + unexpectedPixels > 0)) ||
-		((mode == VERIFICATIONMODE_WEAK)   && (missingPixels + unexpectedPixels > weakVerificationThreshold)))
+		((mode == VERIFICATIONMODE_WEAK)   && (missingPixels + unexpectedPixels > weakVerificationThreshold)) ||
+		((mode == VERIFICATIONMODE_WEAKER) && (missingPixels + unexpectedPixels > weakerVerificationThreshold)) ||
+		((mode == VERIFICATIONMODE_SMOOTH) && (missingPixels > weakVerificationThreshold)))
 	{
 		result = false;
 	}
@@ -2447,12 +2576,12 @@ bool verifyClippedTriangulatedLineGroupRasterization (const tcu::Surface& surfac
 	return verifyMultisampleLineGroupRasterization(surface, scene, args, log, CLIPMODE_USE_CLIPPING_BOX, DE_NULL);
 }
 
-bool verifyRelaxedLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log)
+bool verifyRelaxedLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, const bool vulkanLinesTest)
 {
 	VerifyTriangleGroupRasterizationLogStash noClippingLogStash;
 	VerifyTriangleGroupRasterizationLogStash useClippingLogStash;
 
-	if (verifyMultisampleLineGroupRasterization(surface, scene, args, log, CLIPMODE_USE_CLIPPING_BOX, &useClippingLogStash))
+	if (verifyMultisampleLineGroupRasterization(surface, scene, args, log, CLIPMODE_USE_CLIPPING_BOX, &useClippingLogStash, vulkanLinesTest))
 	{
 		log << tcu::TestLog::Message << "Relaxed rasterization succeeded with CLIPMODE_USE_CLIPPING_BOX, details follow." << tcu::TestLog::EndMessage;
 
@@ -2460,7 +2589,7 @@ bool verifyRelaxedLineGroupRasterization (const tcu::Surface& surface, const Lin
 
 		return true;
 	}
-	else if (verifyMultisampleLineGroupRasterization(surface, scene, args, log, CLIPMODE_NO_CLIPPING, &noClippingLogStash))
+	else if (verifyMultisampleLineGroupRasterization(surface, scene, args, log, CLIPMODE_NO_CLIPPING, &noClippingLogStash, vulkanLinesTest))
 	{
 		log << tcu::TestLog::Message << "Relaxed rasterization succeeded with CLIPMODE_NO_CLIPPING, details follow." << tcu::TestLog::EndMessage;
 

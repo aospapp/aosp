@@ -26,7 +26,7 @@
 
 package java.lang;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class Enum<E extends java.lang.Enum<E>>

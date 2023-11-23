@@ -26,17 +26,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.UserInfo;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
+import com.android.car.settings.testutils.ShadowUserHelper;
 import com.android.car.settings.testutils.ShadowUserIconProvider;
 
 import org.junit.After;
@@ -45,11 +43,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowUserIconProvider.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowUserIconProvider.class, ShadowUserHelper.class})
 public class EditUserNameEntryPreferenceControllerTest {
 
     private static final String TEST_USERNAME = "Test Username";
@@ -60,12 +59,12 @@ public class EditUserNameEntryPreferenceControllerTest {
     private EditUserNameEntryPreferenceController mController;
     private ButtonPreference mButtonPreference;
     @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private UserHelper mUserHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
+        ShadowUserHelper.setInstance(mUserHelper);
         mContext = RuntimeEnvironment.application;
         mPreferenceControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 EditUserNameEntryPreferenceController.class);
@@ -78,13 +77,13 @@ public class EditUserNameEntryPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
+        ShadowUserHelper.reset();
     }
 
     @Test
     public void testOnButtonClick_isCurrentUser_launchesEditUsernameFragment() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, /* flags= */ 0);
-        when(mCarUserManagerHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        when(mUserHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
         mController.setUserInfo(userInfo);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mButtonPreference.performButtonClick();
@@ -95,7 +94,7 @@ public class EditUserNameEntryPreferenceControllerTest {
     @Test
     public void testOnButtonClick_isNotCurrentUser_doesNothing() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, /* flags= */ 0);
-        when(mCarUserManagerHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
+        when(mUserHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
         mController.setUserInfo(userInfo);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mButtonPreference.performButtonClick();
@@ -106,7 +105,7 @@ public class EditUserNameEntryPreferenceControllerTest {
     @Test
     public void testRefreshUi_elementHasTitle() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME, /* flags= */ 0);
-        when(mCarUserManagerHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
+        when(mUserHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
         mController.setUserInfo(userInfo);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mController.refreshUi();
@@ -136,7 +135,7 @@ public class EditUserNameEntryPreferenceControllerTest {
     public void testRefreshUi_isAdmin_notCurrentUser() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME,
                 FLAG_INITIALIZED | FLAG_ADMIN);
-        when(mCarUserManagerHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
+        when(mUserHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
         mController.setUserInfo(userInfo);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mController.refreshUi();
@@ -148,7 +147,7 @@ public class EditUserNameEntryPreferenceControllerTest {
     public void testRefreshUi_isAdmin_currentUser() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_USERNAME,
                 FLAG_INITIALIZED | FLAG_ADMIN);
-        when(mCarUserManagerHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        when(mUserHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
         mController.setUserInfo(userInfo);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mController.refreshUi();

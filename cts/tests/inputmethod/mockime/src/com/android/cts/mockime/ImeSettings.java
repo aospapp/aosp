@@ -39,14 +39,20 @@ public class ImeSettings {
 
     private static final String BACKGROUND_COLOR_KEY = "BackgroundColor";
     private static final String NAVIGATION_BAR_COLOR_KEY = "NavigationBarColor";
-    private static final String INPUT_VIEW_HEIGHT_WITHOUT_SYSTEM_WINDOW_INSET =
+    private static final String INPUT_VIEW_HEIGHT =
             "InputViewHeightWithoutSystemWindowInset";
+    private static final String DRAWS_BEHIND_NAV_BAR = "drawsBehindNavBar";
     private static final String WINDOW_FLAGS = "WindowFlags";
     private static final String WINDOW_FLAGS_MASK = "WindowFlagsMask";
     private static final String FULLSCREEN_MODE_ALLOWED = "FullscreenModeAllowed";
     private static final String INPUT_VIEW_SYSTEM_UI_VISIBILITY = "InputViewSystemUiVisibility";
+    private static final String WATERMARK_ENABLED = "WatermarkEnabled";
     private static final String HARD_KEYBOARD_CONFIGURATION_BEHAVIOR_ALLOWED =
             "HardKeyboardConfigurationBehaviorAllowed";
+    private static final String INLINE_SUGGESTIONS_ENABLED = "InlineSuggestionsEnabled";
+    private static final String INLINE_SUGGESTION_VIEW_CONTENT_DESC =
+            "InlineSuggestionViewContentDesc";
+    private static final String STRICT_MODE_ENABLED = "StrictModeEnabled";
 
     @NonNull
     private final PersistableBundle mBundle;
@@ -85,8 +91,12 @@ public class ImeSettings {
         return mBundle.getInt(NAVIGATION_BAR_COLOR_KEY);
     }
 
-    public int getInputViewHeightWithoutSystemWindowInset(int defaultHeight) {
-        return mBundle.getInt(INPUT_VIEW_HEIGHT_WITHOUT_SYSTEM_WINDOW_INSET, defaultHeight);
+    public int getInputViewHeight(int defaultHeight) {
+        return mBundle.getInt(INPUT_VIEW_HEIGHT, defaultHeight);
+    }
+
+    public boolean getDrawsBehindNavBar() {
+        return mBundle.getBoolean(DRAWS_BEHIND_NAV_BAR, false);
     }
 
     public int getWindowFlags(int defaultFlags) {
@@ -101,8 +111,25 @@ public class ImeSettings {
         return mBundle.getInt(INPUT_VIEW_SYSTEM_UI_VISIBILITY, defaultFlags);
     }
 
+    public boolean isWatermarkEnabled(boolean defaultValue) {
+        return mBundle.getBoolean(WATERMARK_ENABLED, defaultValue);
+    }
+
     public boolean getHardKeyboardConfigurationBehaviorAllowed(boolean defaultValue) {
         return mBundle.getBoolean(HARD_KEYBOARD_CONFIGURATION_BEHAVIOR_ALLOWED, defaultValue);
+    }
+
+    public boolean getInlineSuggestionsEnabled() {
+        return mBundle.getBoolean(INLINE_SUGGESTIONS_ENABLED);
+    }
+
+    @Nullable
+    public String getInlineSuggestionViewContentDesc(@Nullable String defaultValue) {
+        return mBundle.getString(INLINE_SUGGESTION_VIEW_CONTENT_DESC, defaultValue);
+    }
+
+    public boolean isStrictModeEnabled() {
+        return mBundle.getBoolean(STRICT_MODE_ENABLED, false);
     }
 
     static Bundle serializeToBundle(@NonNull String eventCallbackActionName,
@@ -153,12 +180,21 @@ public class ImeSettings {
         }
 
         /**
-         * Sets the input view height measured from the bottom system window inset.
-         * @param height height of the soft input view. This does not include the system window
-         *               inset such as navigation bar
+         * Sets the input view height measured from the bottom of the screen.
+         *
+         * @param height height of the soft input view. This includes the system window inset such
+         *               as navigation bar.
          */
-        public Builder setInputViewHeightWithoutSystemWindowInset(int height) {
-            mBundle.putInt(INPUT_VIEW_HEIGHT_WITHOUT_SYSTEM_WINDOW_INSET, height);
+        public Builder setInputViewHeight(int height) {
+            mBundle.putInt(INPUT_VIEW_HEIGHT, height);
+            return this;
+        }
+
+        /**
+         * Sets whether IME draws behind navigation bar.
+         */
+        public Builder setDrawsBehindNavBar(boolean drawsBehindNavBar) {
+            mBundle.putBoolean(DRAWS_BEHIND_NAV_BAR, drawsBehindNavBar);
             return this;
         }
 
@@ -193,6 +229,18 @@ public class ImeSettings {
         }
 
         /**
+         * Sets whether a unique watermark image needs to be shown on the software keyboard or not.
+         *
+         * <p>This needs to be enabled to use</p>
+         *
+         * @param enabled {@code true} when such a watermark image is requested.
+         */
+        public Builder setWatermarkEnabled(boolean enabled) {
+            mBundle.putBoolean(WATERMARK_ENABLED, enabled);
+            return this;
+        }
+
+        /**
          * Controls whether {@link MockIme} is allowed to change the behavior based on
          * {@link android.content.res.Configuration#keyboard} and
          * {@link android.content.res.Configuration#hardKeyboardHidden}.
@@ -212,6 +260,34 @@ public class ImeSettings {
          */
         public Builder setHardKeyboardConfigurationBehaviorAllowed(boolean allowed) {
             mBundle.putBoolean(HARD_KEYBOARD_CONFIGURATION_BEHAVIOR_ALLOWED, allowed);
+            return this;
+        }
+
+        /**
+         * Controls whether inline suggestions are enabled for {@link MockIme}. If enabled, a
+         * suggestion strip will be rendered at the top of the keyboard.
+         *
+         * @param enabled {@code true} when {@link MockIme} is enabled to show inline suggestions.
+         */
+        public Builder setInlineSuggestionsEnabled(boolean enabled) {
+            mBundle.putBoolean(INLINE_SUGGESTIONS_ENABLED, enabled);
+            return this;
+        }
+
+        /**
+         * Controls whether inline suggestions are enabled for {@link MockIme}. If enabled, a
+         * suggestion strip will be rendered at the top of the keyboard.
+         *
+         * @param contentDesc content description to be set to the inline suggestion View.
+         */
+        public Builder setInlineSuggestionViewContentDesc(@NonNull String contentDesc) {
+            mBundle.putString(INLINE_SUGGESTION_VIEW_CONTENT_DESC, contentDesc);
+            return this;
+        }
+
+        /** Sets whether to enable {@link android.os.StrictMode} or not. */
+        public Builder setStrictModeEnabled(boolean enabled) {
+            mBundle.putBoolean(STRICT_MODE_ENABLED, enabled);
             return this;
         }
     }

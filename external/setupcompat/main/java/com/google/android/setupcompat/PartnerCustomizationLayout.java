@@ -212,9 +212,7 @@ public class PartnerCustomizationLayout extends TemplateLayout {
 
       SetupMetricsLogger.logCustomEvent(
           getContext(),
-          CustomEvent.create(
-              MetricKey.get("SetupCompatMetrics", activity.getClass().getSimpleName()),
-              persistableBundle));
+          CustomEvent.create(MetricKey.get("SetupCompatMetrics", activity), persistableBundle));
     }
   }
 

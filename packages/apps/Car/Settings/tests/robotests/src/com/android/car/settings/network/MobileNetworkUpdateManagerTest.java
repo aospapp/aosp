@@ -24,7 +24,6 @@ import android.content.Context;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.BaseTestActivity;
 import com.android.car.settings.testutils.ShadowSubscriptionManager;
 import com.android.internal.telephony.TelephonyIntents;
@@ -34,6 +33,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
@@ -42,7 +42,7 @@ import org.robolectric.shadows.ShadowApplication;
 
 import java.util.Collections;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowSubscriptionManager.class})
 public class MobileNetworkUpdateManagerTest {
 
@@ -75,8 +75,8 @@ public class MobileNetworkUpdateManagerTest {
         boolean hasMatch = false;
         for (ShadowApplication.Wrapper wrapper :
                 ShadowApplication.getInstance().getRegisteredReceivers()) {
-            if (wrapper.getIntentFilter().getAction(0)
-                    == TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED) {
+            if (wrapper.getIntentFilter().matchAction(
+                    TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED)) {
                 hasMatch = true;
             }
         }
@@ -96,8 +96,8 @@ public class MobileNetworkUpdateManagerTest {
         boolean hasMatch = false;
         for (ShadowApplication.Wrapper wrapper :
                 ShadowApplication.getInstance().getRegisteredReceivers()) {
-            if (wrapper.getIntentFilter().getAction(0)
-                    == TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED) {
+            if (wrapper.getIntentFilter().matchAction(
+                    TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED)) {
                 hasMatch = true;
             }
         }

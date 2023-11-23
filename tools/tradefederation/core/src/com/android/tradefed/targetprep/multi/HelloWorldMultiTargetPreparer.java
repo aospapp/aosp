@@ -18,7 +18,7 @@ package com.android.tradefed.targetprep.multi;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.TargetSetupError;
 
@@ -28,14 +28,12 @@ import java.util.Map.Entry;
 /** An example implementation of a {@link IMultiTargetPreparer}. */
 public class HelloWorldMultiTargetPreparer extends BaseMultiTargetPreparer {
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void setUp(IInvocationContext context) throws TargetSetupError {
-        Map<ITestDevice, IBuildInfo> deviceBuildInfo = context.getDeviceBuildMap();
+    public void setUp(TestInformation testInfo) throws TargetSetupError {
+        Map<ITestDevice, IBuildInfo> deviceBuildInfo = testInfo.getContext().getDeviceBuildMap();
         if (deviceBuildInfo.entrySet().size() != 2) {
-            ITestDevice device = context.getDevices().get(0);
+            ITestDevice device = testInfo.getContext().getDevices().get(0);
             throw new TargetSetupError("The HelloWorldMultiTargetPreparer assumes 2 devices only.",
                     device.getDeviceDescriptor());
         }
@@ -47,13 +45,12 @@ public class HelloWorldMultiTargetPreparer extends BaseMultiTargetPreparer {
         }
         // Possible look up using the context instead: Getting all the device names configured in
         // the xml.
-        CLog.i("The device names configured are: %s", context.getDeviceConfigNames());
+        CLog.i("The device names configured are: %s", testInfo.getContext().getDeviceConfigNames());
     }
 
     @Override
-    public void tearDown(IInvocationContext context, Throwable e)
-            throws DeviceNotAvailableException {
-        Map<ITestDevice, IBuildInfo> deviceBuildInfo = context.getDeviceBuildMap();
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
+        Map<ITestDevice, IBuildInfo> deviceBuildInfo = testInfo.getContext().getDeviceBuildMap();
         for (Entry<ITestDevice, IBuildInfo> entry : deviceBuildInfo.entrySet()) {
             CLog.i("Hello World! multi tear down '%s' with build id '%s'",
                     entry.getKey().getSerialNumber(), entry.getValue().getBuildId());

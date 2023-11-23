@@ -21,7 +21,7 @@
 project(
   'libdrm',
   ['c'],
-  version : '2.4.91',
+  version : '2.4.99',
   license : 'MIT',
   meson_version : '>= 0.43',
   default_options : ['buildtype=debugoptimized', 'c_std=gnu99'],
@@ -157,7 +157,7 @@ if _vc4 != 'false'
   with_vc4 = _vc4 == 'true' or ['arm', 'aarch64'].contains(host_machine.cpu_family())
 endif
 
-# XXX: Aparently only freebsd and dragonfly bsd actually need this (and
+# XXX: Apparently only freebsd and dragonfly bsd actually need this (and
 # gnu/kfreebsd), not openbsd and netbsd
 with_libkms = false
 _libkms = get_option('libkms')
@@ -192,7 +192,7 @@ config.set10('HAVE_OPEN_MEMSTREAM', cc.has_function('open_memstream'))
 
 warn_c_args = []
 foreach a : ['-Wall', '-Wextra', '-Wsign-compare', '-Werror=undef',
-             '-Werror-implicit-function-declaration', '-Wpointer-arith',
+             '-Werror=implicit-function-declaration', '-Wpointer-arith',
              '-Wwrite-strings', '-Wstrict-prototypes', '-Wmissing-prototypes',
              '-Wmissing-declarations', '-Wnested-externs', '-Wpacked',
              '-Wswitch-enum', '-Wmissing-format-attribute',
@@ -210,6 +210,9 @@ foreach a : ['unused-parameter', 'attributes', 'long-long',
     warn_c_args += '-Wno-@0@'.format(a)
   endif
 endforeach
+
+# all c args:
+libdrm_c_args = warn_c_args + ['-fvisibility=hidden']
 
 
 dep_pciaccess = dependency('pciaccess', version : '>= 0.10', required : with_intel)
@@ -286,7 +289,7 @@ libdrm = shared_library(
    ),
    config_file,
   ],
-  c_args : warn_c_args,
+  c_args : libdrm_c_args,
   dependencies : [dep_valgrind, dep_rt, dep_m],
   include_directories : inc_drm,
   version : '2.4.0',
@@ -303,10 +306,11 @@ install_headers(
   'include/drm/drm.h', 'include/drm/drm_fourcc.h', 'include/drm/drm_mode.h',
   'include/drm/drm_sarea.h', 'include/drm/i915_drm.h',
   'include/drm/mach64_drm.h', 'include/drm/mga_drm.h',
-  'include/drm/nouveau_drm.h', 'include/drm/qxl_drm.h',
-  'include/drm/r128_drm.h', 'include/drm/radeon_drm.h',
-  'include/drm/amdgpu_drm.h', 'include/drm/savage_drm.h',
-  'include/drm/sis_drm.h', 'include/drm/tegra_drm.h', 'include/drm/vc4_drm.h',
+  'include/drm/msm_drm.h', 'include/drm/nouveau_drm.h',
+  'include/drm/qxl_drm.h', 'include/drm/r128_drm.h',
+  'include/drm/radeon_drm.h', 'include/drm/amdgpu_drm.h',
+  'include/drm/savage_drm.h', 'include/drm/sis_drm.h',
+  'include/drm/tegra_drm.h', 'include/drm/vc4_drm.h',
   'include/drm/via_drm.h', 'include/drm/virtgpu_drm.h',
   subdir : 'libdrm',
 )

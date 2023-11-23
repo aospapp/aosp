@@ -21,7 +21,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 29 (0x1d)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=FI, O=Sonera, CN=Sonera Class2 CA
         Validity
             Not Before: Apr  6 07:29:40 2001 GMT
@@ -29,7 +29,7 @@ Certificate:
         Subject: C=FI, O=Sonera, CN=Sonera Class2 CA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:90:17:4a:35:9d:ca:f0:0d:96:c7:44:fa:16:37:
                     fc:48:bd:bd:7f:80:2d:35:3b:e1:6f:a8:67:a9:bf:

@@ -19,8 +19,10 @@ package com.android.car.settings.accounts;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.UserInfo;
 import android.graphics.drawable.Drawable;
 import android.os.UserHandle;
@@ -32,6 +34,9 @@ import androidx.preference.PreferenceCategory;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.users.UserHelper;
+import com.android.car.ui.preference.CarUiPreference;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.settingslib.accounts.AuthenticatorHelper;
 
 import java.util.ArrayList;
@@ -49,21 +54,26 @@ import java.util.Set;
  */
 public class AccountListPreferenceController extends
         PreferenceController<PreferenceCategory> implements
-        AuthenticatorHelper.OnAccountsUpdateListener,
-        CarUserManagerHelper.OnUsersUpdateListener {
+        AuthenticatorHelper.OnAccountsUpdateListener {
     private static final String NO_ACCOUNT_PREF_KEY = "no_accounts_added";
 
     private final UserInfo mUserInfo;
-    private final CarUserManagerHelper mCarUserManagerHelper;
     private final ArrayMap<String, Preference> mPreferences = new ArrayMap<>();
     private AuthenticatorHelper mAuthenticatorHelper;
     private String[] mAuthorities;
+    private boolean mListenerRegistered = false;
+
+    private final BroadcastReceiver mUserUpdateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            onUsersUpdate();
+        }
+    };
 
     public AccountListPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
-        mUserInfo = mCarUserManagerHelper.getCurrentProcessUserInfo();
+        mUserInfo = UserHelper.getInstance(context).getCurrentProcessUserInfo();
         mAuthenticatorHelper = new AuthenticatorHelper(context,
                 mUserInfo.getUserHandle(), /* listener= */ this);
     }
@@ -85,8 +95,9 @@ public class AccountListPreferenceController extends
 
     @Override
     protected int getAvailabilityStatus() {
-        return mCarUserManagerHelper.canCurrentProcessModifyAccounts() ? AVAILABLE
-                : DISABLED_FOR_USER;
+        boolean canModifyAccounts = UserHelper.getInstance(getContext())
+                .canCurrentProcessModifyAccounts();
+        return canModifyAccounts ? AVAILABLE : DISABLED_FOR_USER;
     }
 
     /**
@@ -95,7 +106,8 @@ public class AccountListPreferenceController extends
     @Override
     protected void onStartInternal() {
         mAuthenticatorHelper.listenToAccountUpdates();
-        mCarUserManagerHelper.registerOnUsersUpdateListener(this);
+        registerForUserEvents();
+        mListenerRegistered = true;
     }
 
     /**
@@ -104,7 +116,8 @@ public class AccountListPreferenceController extends
     @Override
     protected void onStopInternal() {
         mAuthenticatorHelper.stopListeningToAccountUpdates();
-        mCarUserManagerHelper.unregisterOnUsersUpdateListener(this);
+        unregisterForUserEvents();
+        mListenerRegistered = false;
     }
 
     @Override
@@ -114,8 +127,8 @@ public class AccountListPreferenceController extends
         }
     }
 
-    @Override
-    public void onUsersUpdate() {
+    @VisibleForTesting
+    void onUsersUpdate() {
         forceUpdateAccountsCategory();
     }
 
@@ -133,8 +146,12 @@ public class AccountListPreferenceController extends
                 getContext().getString(R.string.account_list_title, mUserInfo.name));
 
         // Recreate the authentication helper to refresh the list of enabled accounts
+        mAuthenticatorHelper.stopListeningToAccountUpdates();
         mAuthenticatorHelper = new AuthenticatorHelper(getContext(), mUserInfo.getUserHandle(),
                 this);
+        if (mListenerRegistered) {
+            mAuthenticatorHelper.listenToAccountUpdates();
+        }
 
         Set<String> preferencesToRemove = new HashSet<>(mPreferences.keySet());
         List<? extends Preference> preferences = getAccountPreferences(preferencesToRemove);
@@ -212,13 +229,23 @@ public class AccountListPreferenceController extends
     }
 
     private Preference createNoAccountsAddedPreference() {
-        Preference emptyPreference = new Preference(getContext());
+        CarUiPreference emptyPreference = new CarUiPreference(getContext());
         emptyPreference.setTitle(R.string.no_accounts_added);
         emptyPreference.setKey(NO_ACCOUNT_PREF_KEY);
         emptyPreference.setSelectable(false);
 
         return emptyPreference;
     }
+
+    private void registerForUserEvents() {
+        IntentFilter filter = new IntentFilter(Intent.ACTION_USER_INFO_CHANGED);
+        getContext().registerReceiver(mUserUpdateReceiver, filter);
+    }
+
+    private void unregisterForUserEvents() {
+        getContext().unregisterReceiver(mUserUpdateReceiver);
+    }
+
 
     /**
      * Returns whether the account type has any of the authorities requested by the caller.
@@ -243,7 +270,7 @@ public class AccountListPreferenceController extends
         return false;
     }
 
-    private static class AccountPreference extends Preference {
+    private static class AccountPreference extends CarUiPreference {
         /** Account that this Preference represents. */
         private final Account mAccount;
         private final CharSequence mLabel;
@@ -258,6 +285,7 @@ public class AccountListPreferenceController extends
             setTitle(account.name);
             setSummary(label);
             setIcon(icon);
+            setShowChevron(false);
         }
 
         /**

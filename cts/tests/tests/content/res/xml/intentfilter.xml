@@ -20,6 +20,8 @@
     <action name="testAction"/>
     <cat name="testCategory" />
     <type name="vnd.android.cursor.dir/person"/>
+    <staticType name="text/plain"/>
+    <group name="testMimeGroup"/>
     <scheme name="testScheme"/>
     <auth host="testHost" port="80"/>
     <path name="testPath" literal="test"/>

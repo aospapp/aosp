@@ -51,8 +51,8 @@ class VtableEntry(object):
         self.value = value
         self.is_undefined = is_undefined
 
-    def __cmp__(self, other):
-        return cmp(self.offset, other.offset)
+    def __lt__(self, other):
+        return self.offset < other.offset
 
 
 class Vtable(object):
@@ -71,12 +71,12 @@ class Vtable(object):
         self.end_addr = end_addr
         self.entries = []
 
-    def __cmp__(self, other):
+    def __lt__(self, other):
         if isinstance(other, Vtable):
             key = other.begin_addr
         else:
             key = other
-        return cmp(self.begin_addr, key)
+        return self.begin_addr < key
 
     def __str__(self):
         msg = ('vtable {} {} entries begin_addr={:#x} size={:#x}'
@@ -264,7 +264,8 @@ class VtableDumper(elf_parser.ElfParser):
             The vtable whose begin_addr <= offset and offset < end_addr.
             None if no such vtable cound be found.
         """
-        idx = bisect.bisect(vtables, offset)
+        search_key = Vtable("", offset, offset)
+        idx = bisect.bisect(vtables, search_key)
         if idx <= 0:
             return None
         vtable = vtables[idx-1]

@@ -57,16 +57,25 @@ const uint8_t ProfileCompilationInfo::kProfileMagic[] = { 'p', 'r', 'o', '\0' };
 // profile_compilation_info object. All the profile line headers are now placed together
 // before corresponding method_encodings and class_ids.
 const uint8_t ProfileCompilationInfo::kProfileVersion[] = { '0', '1', '0', '\0' };
-const uint8_t ProfileCompilationInfo::kProfileVersionWithCounters[] = { '5', '0', '0', '\0' };
+const uint8_t ProfileCompilationInfo::kProfileVersionForBootImage[] = { '0', '1', '2', '\0' };
 
 static_assert(sizeof(ProfileCompilationInfo::kProfileVersion) == 4,
               "Invalid profile version size");
-static_assert(sizeof(ProfileCompilationInfo::kProfileVersionWithCounters) == 4,
+static_assert(sizeof(ProfileCompilationInfo::kProfileVersionForBootImage) == 4,
               "Invalid profile version size");
 
 // The name of the profile entry in the dex metadata file.
 // DO NOT CHANGE THIS! (it's similar to classes.dex in the apk files).
 const char ProfileCompilationInfo::kDexMetadataProfileEntry[] = "primary.prof";
+
+// A synthetic annotations that can be used to denote that no annotation should
+// be associated with the profile samples. We use the empty string for the package name
+// because that's an invalid package name and should never occur in practice.
+const ProfileCompilationInfo::ProfileSampleAnnotation
+  ProfileCompilationInfo::ProfileSampleAnnotation::kNone =
+      ProfileCompilationInfo::ProfileSampleAnnotation("");
+
+static constexpr char kSampleMetadataSeparator = ':';
 
 static constexpr uint16_t kMaxDexFileKeyLength = PATH_MAX;
 
@@ -85,36 +94,34 @@ static_assert(ProfileCompilationInfo::kIndividualInlineCacheSize < kIsMegamorphi
 static_assert(ProfileCompilationInfo::kIndividualInlineCacheSize < kIsMissingTypesEncoding,
               "InlineCache::kIndividualInlineCacheSize is larger than expected");
 
+static constexpr uint32_t kSizeWarningThresholdBytes = 500000U;
+static constexpr uint32_t kSizeErrorThresholdBytes = 1500000U;
+
+static constexpr uint32_t kSizeWarningThresholdBootBytes = 25000000U;
+static constexpr uint32_t kSizeErrorThresholdBootBytes = 100000000U;
+
 static bool ChecksumMatch(uint32_t dex_file_checksum, uint32_t checksum) {
   return kDebugIgnoreChecksum || dex_file_checksum == checksum;
 }
 
-// For storage efficiency we store aggregation counts of up to at most 2^16.
-static uint16_t IncrementAggregationCounter(uint16_t counter, uint16_t value) {
-  if (counter < (std::numeric_limits<uint16_t>::max() - value)) {
-    return counter + value;
-  } else {
-    return std::numeric_limits<uint16_t>::max();
-  }
-}
-
-ProfileCompilationInfo::ProfileCompilationInfo(ArenaPool* custom_arena_pool)
+ProfileCompilationInfo::ProfileCompilationInfo(ArenaPool* custom_arena_pool, bool for_boot_image)
     : default_arena_pool_(),
       allocator_(custom_arena_pool),
       info_(allocator_.Adapter(kArenaAllocProfile)),
-      profile_key_map_(std::less<const std::string>(), allocator_.Adapter(kArenaAllocProfile)),
-      aggregation_count_(0) {
-  InitProfileVersionInternal(kProfileVersion);
+      profile_key_map_(std::less<const std::string>(), allocator_.Adapter(kArenaAllocProfile)) {
+  memcpy(version_,
+         for_boot_image ? kProfileVersionForBootImage : kProfileVersion,
+         kProfileVersionSize);
 }
 
+ProfileCompilationInfo::ProfileCompilationInfo(ArenaPool* custom_arena_pool)
+    : ProfileCompilationInfo(custom_arena_pool, /*for_boot_image=*/ false) { }
+
 ProfileCompilationInfo::ProfileCompilationInfo()
-    : default_arena_pool_(),
-      allocator_(&default_arena_pool_),
-      info_(allocator_.Adapter(kArenaAllocProfile)),
-      profile_key_map_(std::less<const std::string>(), allocator_.Adapter(kArenaAllocProfile)),
-      aggregation_count_(0) {
-  InitProfileVersionInternal(kProfileVersion);
-}
+    : ProfileCompilationInfo(/*for_boot_image=*/ false) { }
+
+ProfileCompilationInfo::ProfileCompilationInfo(bool for_boot_image)
+    : ProfileCompilationInfo(&default_arena_pool_, for_boot_image) { }
 
 ProfileCompilationInfo::~ProfileCompilationInfo() {
   VLOG(profiler) << Dumpable<MemStats>(allocator_.GetMemStats());
@@ -149,11 +156,22 @@ void ProfileCompilationInfo::DexPcData::AddClass(uint16_t dex_profile_idx,
   classes.insert(ref);
 }
 
-// Transform the actual dex location into relative paths.
+// Transform the actual dex location into a key used to index the dex file in the profile.
+// See ProfileCompilationInfo#GetProfileDexFileBaseKey as well.
+std::string ProfileCompilationInfo::GetProfileDexFileAugmentedKey(
+      const std::string& dex_location,
+      const ProfileSampleAnnotation& annotation) {
+  std::string base_key = GetProfileDexFileBaseKey(dex_location);
+  return annotation == ProfileSampleAnnotation::kNone
+      ? base_key
+      : base_key + kSampleMetadataSeparator + annotation.GetOriginPackageName();;
+}
+
+// Transform the actual dex location into a base profile key (represented as relative paths).
 // Note: this is OK because we don't store profiles of different apps into the same file.
 // Apps with split apks don't cause trouble because each split has a different name and will not
 // collide with other entries.
-std::string ProfileCompilationInfo::GetProfileDexFileKey(const std::string& dex_location) {
+std::string ProfileCompilationInfo::GetProfileDexFileBaseKey(const std::string& dex_location) {
   DCHECK(!dex_location.empty());
   size_t last_sep_index = dex_location.find_last_of('/');
   if (last_sep_index == std::string::npos) {
@@ -164,41 +182,34 @@ std::string ProfileCompilationInfo::GetProfileDexFileKey(const std::string& dex_
   }
 }
 
-bool ProfileCompilationInfo::AddMethodIndex(MethodHotness::Flag flags, const MethodReference& ref) {
-  DexFileData* data = GetOrAddDexFileData(ref.dex_file);
-  if (data == nullptr) {
-    return false;
-  }
-  return data->AddMethod(flags, ref.index);
+std::string ProfileCompilationInfo::GetBaseKeyFromAugmentedKey(
+    const std::string& profile_key) {
+  size_t pos = profile_key.rfind(kSampleMetadataSeparator);
+  return (pos == std::string::npos) ? profile_key : profile_key.substr(0, pos);
 }
 
-bool ProfileCompilationInfo::AddMethodIndex(MethodHotness::Flag flags,
-                                            const std::string& dex_location,
-                                            uint32_t checksum,
-                                            uint16_t method_idx,
-                                            uint32_t num_method_ids) {
-  DexFileData* data = GetOrAddDexFileData(GetProfileDexFileKey(dex_location),
-                                          checksum,
-                                          num_method_ids);
-  if (data == nullptr) {
-    return false;
-  }
-  return data->AddMethod(flags, method_idx);
+std::string ProfileCompilationInfo::MigrateAnnotationInfo(
+    const std::string& base_key,
+    const std::string& augmented_key) {
+  size_t pos = augmented_key.rfind(kSampleMetadataSeparator);
+  return (pos == std::string::npos)
+      ? base_key
+      : base_key + augmented_key.substr(pos);
+}
+
+ProfileCompilationInfo::ProfileSampleAnnotation ProfileCompilationInfo::GetAnnotationFromKey(
+     const std::string& augmented_key) {
+  size_t pos = augmented_key.rfind(kSampleMetadataSeparator);
+  return (pos == std::string::npos)
+      ? ProfileSampleAnnotation::kNone
+      : ProfileSampleAnnotation(augmented_key.substr(pos + 1));
 }
 
 bool ProfileCompilationInfo::AddMethods(const std::vector<ProfileMethodInfo>& methods,
-                                        MethodHotness::Flag flags) {
+                                        MethodHotness::Flag flags,
+                                        const ProfileSampleAnnotation& annotation) {
   for (const ProfileMethodInfo& method : methods) {
-    if (!AddMethod(method, flags)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool ProfileCompilationInfo::AddClasses(const std::set<DexCacheResolvedClasses>& resolved_classes) {
-  for (const DexCacheResolvedClasses& dex_cache : resolved_classes) {
-    if (!AddResolvedClasses(dex_cache)) {
+    if (!AddMethod(method, flags, annotation)) {
       return false;
     }
   }
@@ -236,7 +247,7 @@ bool ProfileCompilationInfo::Load(const std::string& filename, bool clear_if_inv
   std::string error;
 
   if (!IsEmpty()) {
-    return kProfileLoadWouldOverwiteData;
+    return false;
   }
 
 #ifdef _WIN32
@@ -356,15 +367,13 @@ static constexpr size_t kLineHeaderSize =
 /**
  * Serialization format:
  * [profile_header, zipped[[profile_line_header1, profile_line_header2...],[profile_line_data1,
- *    profile_line_data2...]],global_aggregation_counter]
+ *    profile_line_data2...]]
  * profile_header:
  *   magic,version,number_of_dex_files,uncompressed_size_of_zipped_data,compressed_data_size
  * profile_line_header:
- *   dex_location,number_of_classes,methods_region_size,dex_location_checksum,num_method_ids
+ *   profile_key,number_of_classes,methods_region_size,dex_location_checksum,num_method_ids
  * profile_line_data:
- *   method_encoding_1,method_encoding_2...,class_id1,class_id2...,startup/post startup bitmap,
- *   num_classes,class_counters,num_methods,method_counters
- * The aggregation counters are only stored if the profile version is kProfileVersionWithCounters.
+ *   method_encoding_1,method_encoding_2...,class_id1,class_id2...,method_flags bitmap,
  * The method_encoding is:
  *    method_id,number_of_inline_caches,inline_cache1,inline_cache2...
  * The inline_cache is:
@@ -390,8 +399,9 @@ bool ProfileCompilationInfo::Save(int fd) {
   if (!WriteBuffer(fd, version_, sizeof(version_))) {
     return false;
   }
-  DCHECK_LE(info_.size(), std::numeric_limits<uint8_t>::max());
-  AddUintToBuffer(&buffer, static_cast<uint8_t>(info_.size()));
+
+  DCHECK_LE(info_.size(), MaxProfileIndex());
+  WriteProfileIndex(&buffer, static_cast<ProfileIndexType>(info_.size()));
 
   uint32_t required_capacity = 0;
   for (const DexFileData* dex_data_ptr : info_) {
@@ -402,23 +412,15 @@ bool ProfileCompilationInfo::Save(int fd) {
         sizeof(uint16_t) * dex_data.class_set.size() +
         methods_region_size +
         dex_data.bitmap_storage.size();
-    if (StoresAggregationCounters()) {
-      required_capacity += sizeof(uint16_t) +  // num class counters
-          sizeof(uint16_t) * dex_data.class_set.size() +
-          sizeof(uint16_t) +  // num method counter
-          sizeof(uint16_t) * dex_data_ptr->GetNumMethodCounters();
-    }
   }
-  if (StoresAggregationCounters()) {
-    required_capacity += sizeof(uint16_t);  // global counter
-  }
-
   // Allow large profiles for non target builds for the case where we are merging many profiles
   // to generate a boot image profile.
-  if (kIsTargetBuild && required_capacity > kProfileSizeErrorThresholdInBytes) {
+  VLOG(profiler) << "Required capacity: " << required_capacity << " bytes.";
+  if (required_capacity > GetSizeErrorThresholdBytes()) {
     LOG(ERROR) << "Profile data size exceeds "
-               << std::to_string(kProfileSizeErrorThresholdInBytes)
-               << " bytes. Profile will not be written to disk.";
+               << GetSizeErrorThresholdBytes()
+               << " bytes. Profile will not be written to disk."
+               << " It requires " << required_capacity << " bytes.";
     return false;
   }
   AddUintToBuffer(&buffer, required_capacity);
@@ -485,24 +487,6 @@ bool ProfileCompilationInfo::Save(int fd) {
     buffer.insert(buffer.end(),
                   dex_data.bitmap_storage.begin(),
                   dex_data.bitmap_storage.end());
-
-    if (StoresAggregationCounters()) {
-      AddUintToBuffer(&buffer, static_cast<uint16_t>(dex_data.class_set.size()));
-      for (const auto& class_id : dex_data.class_set) {
-        uint16_t type_idx = class_id.index_;
-        AddUintToBuffer(&buffer, dex_data.class_counters[type_idx]);
-      }
-      AddUintToBuffer(&buffer, dex_data.GetNumMethodCounters());
-      for (uint16_t method_idx = 0; method_idx < dex_data.num_method_ids; method_idx++) {
-        if (dex_data.GetHotnessInfo(method_idx).IsInProfile()) {
-          AddUintToBuffer(&buffer, dex_data.method_counters[method_idx]);
-        }
-      }
-    }
-  }
-
-  if (StoresAggregationCounters()) {
-    AddUintToBuffer(&buffer, aggregation_count_);
   }
 
   uint32_t output_size = 0;
@@ -510,9 +494,10 @@ bool ProfileCompilationInfo::Save(int fd) {
                                                                required_capacity,
                                                                &output_size);
 
-  if (output_size > kProfileSizeWarningThresholdInBytes) {
+  if (output_size > GetSizeWarningThresholdBytes()) {
     LOG(WARNING) << "Profile data size exceeds "
-                 << std::to_string(kProfileSizeWarningThresholdInBytes);
+        << GetSizeWarningThresholdBytes()
+        << " It has " << output_size << " bytes";
   }
 
   buffer.clear();
@@ -567,7 +552,7 @@ void ProfileCompilationInfo::AddInlineCacheToBuffer(std::vector<uint8_t>* buffer
     DCHECK_LT(classes.size(), ProfileCompilationInfo::kIndividualInlineCacheSize);
     DCHECK_NE(classes.size(), 0u) << "InlineCache contains a dex_pc with 0 classes";
 
-    SafeMap<uint8_t, std::vector<dex::TypeIndex>> dex_to_classes_map;
+    SafeMap<ProfileIndexType, std::vector<dex::TypeIndex>> dex_to_classes_map;
     // Group the classes by dex. We expect that most of the classes will come from
     // the same dex, so this will be more efficient than encoding the dex index
     // for each class reference.
@@ -575,10 +560,10 @@ void ProfileCompilationInfo::AddInlineCacheToBuffer(std::vector<uint8_t>* buffer
     // Add the dex map size.
     AddUintToBuffer(buffer, static_cast<uint8_t>(dex_to_classes_map.size()));
     for (const auto& dex_it : dex_to_classes_map) {
-      uint8_t dex_profile_index = dex_it.first;
+      ProfileIndexType dex_profile_index = dex_it.first;
       const std::vector<dex::TypeIndex>& dex_classes = dex_it.second;
       // Add the dex profile index.
-      AddUintToBuffer(buffer, dex_profile_index);
+      WriteProfileIndex(buffer, dex_profile_index);
       // Add the the number of classes for each dex profile index.
       AddUintToBuffer(buffer, static_cast<uint8_t>(dex_classes.size()));
       for (size_t i = 0; i < dex_classes.size(); i++) {
@@ -597,11 +582,11 @@ uint32_t ProfileCompilationInfo::GetMethodsRegionSize(const DexFileData& dex_dat
     size += sizeof(uint16_t) * inline_cache.size();  // dex_pc
     for (const auto& inline_cache_it : inline_cache) {
       const ClassSet& classes = inline_cache_it.second.classes;
-      SafeMap<uint8_t, std::vector<dex::TypeIndex>> dex_to_classes_map;
+      SafeMap<ProfileIndexType, std::vector<dex::TypeIndex>> dex_to_classes_map;
       GroupClassesByDex(classes, &dex_to_classes_map);
       size += sizeof(uint8_t);  // dex_to_classes_map size
       for (const auto& dex_it : dex_to_classes_map) {
-        size += sizeof(uint8_t);  // dex profile index
+        size += SizeOfProfileIndexType();  // dex profile index
         size += sizeof(uint8_t);  // number of classes
         const std::vector<dex::TypeIndex>& dex_classes = dex_it.second;
         size += sizeof(uint16_t) * dex_classes.size();  // the actual classes
@@ -613,7 +598,7 @@ uint32_t ProfileCompilationInfo::GetMethodsRegionSize(const DexFileData& dex_dat
 
 void ProfileCompilationInfo::GroupClassesByDex(
     const ClassSet& classes,
-    /*out*/SafeMap<uint8_t, std::vector<dex::TypeIndex>>* dex_to_classes_map) {
+    /*out*/SafeMap<ProfileIndexType, std::vector<dex::TypeIndex>>* dex_to_classes_map) {
   for (const auto& classes_it : classes) {
     auto dex_it = dex_to_classes_map->FindOrAdd(classes_it.dex_profile_index);
     dex_it->second.push_back(classes_it.type_index);
@@ -625,17 +610,18 @@ ProfileCompilationInfo::DexFileData* ProfileCompilationInfo::GetOrAddDexFileData
     uint32_t checksum,
     uint32_t num_method_ids) {
   const auto profile_index_it = profile_key_map_.FindOrAdd(profile_key, profile_key_map_.size());
-  if (profile_key_map_.size() > std::numeric_limits<uint8_t>::max()) {
-    // Allow only 255 dex files to be profiled. This allows us to save bytes
-    // when encoding. The number is well above what we expect for normal applications.
+  if (profile_key_map_.size() > MaxProfileIndex()) {
+    // Allow only a limited number dex files to be profiled. This allows us to save bytes
+    // when encoding. For regular profiles this 2^8, and for boot profiles is 2^16
+    // (well above what we expect for normal applications).
     if (kIsDebugBuild) {
-      LOG(ERROR) << "Exceeded the maximum number of dex files (255). Something went wrong";
+      LOG(ERROR) << "Exceeded the maximum number of dex file. Something went wrong";
     }
     profile_key_map_.erase(profile_key);
     return nullptr;
   }
 
-  uint8_t profile_index = profile_index_it->second;
+  ProfileIndexType profile_index = profile_index_it->second;
   if (info_.size() <= profile_index) {
     // This is a new addition. Add it to the info_ array.
     DexFileData* dex_file_data = new (&allocator_) DexFileData(
@@ -644,7 +630,7 @@ ProfileCompilationInfo::DexFileData* ProfileCompilationInfo::GetOrAddDexFileData
         checksum,
         profile_index,
         num_method_ids,
-        StoresAggregationCounters());
+        IsForBootImage());
     info_.push_back(dex_file_data);
   }
   DexFileData* result = info_[profile_index];
@@ -681,7 +667,7 @@ const ProfileCompilationInfo::DexFileData* ProfileCompilationInfo::FindDexData(
     return nullptr;
   }
 
-  uint8_t profile_index = profile_index_it->second;
+  ProfileIndexType profile_index = profile_index_it->second;
   const DexFileData* result = info_[profile_index];
   if (verify_checksum && !ChecksumMatch(result->checksum, checksum)) {
     return nullptr;
@@ -691,89 +677,62 @@ const ProfileCompilationInfo::DexFileData* ProfileCompilationInfo::FindDexData(
   return result;
 }
 
-bool ProfileCompilationInfo::AddResolvedClasses(const DexCacheResolvedClasses& classes) {
-  const std::string dex_location = GetProfileDexFileKey(classes.GetDexLocation());
-  const uint32_t checksum = classes.GetLocationChecksum();
-  DexFileData* const data = GetOrAddDexFileData(dex_location, checksum, classes.NumMethodIds());
-  if (data == nullptr) {
-    return false;
-  }
-  data->class_set.insert(classes.GetClasses().begin(), classes.GetClasses().end());
-  return true;
-}
-
-bool ProfileCompilationInfo::AddMethod(const std::string& dex_location,
-                                       uint32_t dex_checksum,
-                                       uint16_t method_index,
-                                       uint32_t num_method_ids,
-                                       const OfflineProfileMethodInfo& pmi,
-                                       MethodHotness::Flag flags) {
-  DexFileData* const data = GetOrAddDexFileData(GetProfileDexFileKey(dex_location),
-                                                dex_checksum,
-                                                num_method_ids);
-  if (data == nullptr) {
-    // The data is null if there is a mismatch in the checksum or number of method ids.
-    return false;
-  }
-
-  // Add the method.
-  InlineCacheMap* inline_cache = data->FindOrAddMethod(method_index);
-  if (inline_cache == nullptr) {
-    // Happens if the method index is outside the range (i.e. is greater then the number
-    // of methods in the dex file). This should not happen during normal execution,
-    // But tools (e.g. boot image aggregation tools) and tests stress this behaviour.
-    return false;
-  }
-
-  data->SetMethodHotness(method_index, flags);
-
-  if (pmi.inline_caches == nullptr) {
-    // If we don't have inline caches return success right away.
-    return true;
-  }
-  for (const auto& pmi_inline_cache_it : *pmi.inline_caches) {
-    uint16_t pmi_ic_dex_pc = pmi_inline_cache_it.first;
-    const DexPcData& pmi_ic_dex_pc_data = pmi_inline_cache_it.second;
-    DexPcData* dex_pc_data = FindOrAddDexPc(inline_cache, pmi_ic_dex_pc);
-    if (dex_pc_data->is_missing_types || dex_pc_data->is_megamorphic) {
-      // We are already megamorphic or we are missing types; no point in going forward.
-      continue;
-    }
-
-    if (pmi_ic_dex_pc_data.is_missing_types) {
-      dex_pc_data->SetIsMissingTypes();
-      continue;
-    }
-    if (pmi_ic_dex_pc_data.is_megamorphic) {
-      dex_pc_data->SetIsMegamorphic();
-      continue;
-    }
-
-    for (const ClassReference& class_ref : pmi_ic_dex_pc_data.classes) {
-      const DexReference& dex_ref = pmi.dex_references[class_ref.dex_profile_index];
-      DexFileData* class_dex_data = GetOrAddDexFileData(
-          GetProfileDexFileKey(dex_ref.dex_location),
-          dex_ref.dex_checksum,
-          dex_ref.num_method_ids);
-      if (class_dex_data == nullptr) {  // checksum mismatch
-        return false;
+const ProfileCompilationInfo::DexFileData* ProfileCompilationInfo::FindDexDataUsingAnnotations(
+      const DexFile* dex_file,
+      const ProfileSampleAnnotation& annotation) const {
+  if (annotation == ProfileSampleAnnotation::kNone) {
+    std::string profile_key = GetProfileDexFileBaseKey(dex_file->GetLocation());
+    for (const DexFileData* dex_data : info_) {
+      if (profile_key == GetBaseKeyFromAugmentedKey(dex_data->profile_key)) {
+        if (!ChecksumMatch(dex_data->checksum, dex_file->GetLocationChecksum())) {
+          return nullptr;
+        }
+        return dex_data;
       }
-      dex_pc_data->AddClass(class_dex_data->profile_index, class_ref.type_index);
     }
+  } else {
+    std::string profile_key = GetProfileDexFileAugmentedKey(dex_file->GetLocation(), annotation);
+    return FindDexData(profile_key, dex_file->GetLocationChecksum());
   }
-  return true;
+
+  return nullptr;
 }
 
-bool ProfileCompilationInfo::AddMethod(const ProfileMethodInfo& pmi, MethodHotness::Flag flags) {
-  DexFileData* const data = GetOrAddDexFileData(pmi.ref.dex_file);
+void ProfileCompilationInfo::FindAllDexData(
+    const DexFile* dex_file,
+    /*out*/ std::vector<const ProfileCompilationInfo::DexFileData*>* result) const {
+  std::string profile_key = GetProfileDexFileBaseKey(dex_file->GetLocation());
+  for (const DexFileData* dex_data : info_) {
+    if (profile_key == GetBaseKeyFromAugmentedKey(dex_data->profile_key)) {
+      if (ChecksumMatch(dex_data->checksum, dex_file->GetLocationChecksum())) {
+        result->push_back(dex_data);
+      }
+    }
+  }
+}
+
+bool ProfileCompilationInfo::AddMethod(const ProfileMethodInfo& pmi,
+                                       MethodHotness::Flag flags,
+                                       const ProfileSampleAnnotation& annotation) {
+  DexFileData* const data = GetOrAddDexFileData(pmi.ref.dex_file, annotation);
   if (data == nullptr) {  // checksum mismatch
     return false;
   }
-  InlineCacheMap* inline_cache = data->FindOrAddMethod(pmi.ref.index);
-  if (inline_cache == nullptr) {
+  if (!data->AddMethod(flags, pmi.ref.index)) {
     return false;
   }
-  data->SetMethodHotness(pmi.ref.index, flags);
+  if ((flags & MethodHotness::kFlagHot) == 0) {
+    // The method is not hot, do not add inline caches.
+    return true;
+  }
+
+  // Add inline caches. Do this only for regular profiles. The boot image profiles don't use
+  // them and they take up useless space.
+  if (IsForBootImage()) {
+    return true;  // early success return.
+  }
+  InlineCacheMap* inline_cache = data->FindOrAddHotMethod(pmi.ref.index);
+  DCHECK(inline_cache != nullptr);
 
   for (const ProfileMethodInfo::ProfileInlineCache& cache : pmi.inline_caches) {
     if (cache.is_missing_types) {
@@ -781,7 +740,7 @@ bool ProfileCompilationInfo::AddMethod(const ProfileMethodInfo& pmi, MethodHotne
       continue;
     }
     for (const TypeReference& class_ref : cache.classes) {
-      DexFileData* class_dex_data = GetOrAddDexFileData(class_ref.dex_file);
+      DexFileData* class_dex_data = GetOrAddDexFileData(class_ref.dex_file, annotation);
       if (class_dex_data == nullptr) {  // checksum mismatch
         return false;
       }
@@ -796,18 +755,6 @@ bool ProfileCompilationInfo::AddMethod(const ProfileMethodInfo& pmi, MethodHotne
   return true;
 }
 
-bool ProfileCompilationInfo::AddClassIndex(const std::string& dex_location,
-                                           uint32_t checksum,
-                                           dex::TypeIndex type_idx,
-                                           uint32_t num_method_ids) {
-  DexFileData* const data = GetOrAddDexFileData(dex_location, checksum, num_method_ids);
-  if (data == nullptr) {
-    return false;
-  }
-  data->class_set.insert(type_idx);
-  return true;
-}
-
 #define READ_UINT(type, buffer, dest, error)            \
   do {                                                  \
     if (!(buffer).ReadUintAndAdvance<type>(&(dest))) {  \
@@ -819,8 +766,8 @@ bool ProfileCompilationInfo::AddClassIndex(const std::string& dex_location,
 
 bool ProfileCompilationInfo::ReadInlineCache(
     SafeBuffer& buffer,
-    uint8_t number_of_dex_files,
-    const SafeMap<uint8_t, uint8_t>& dex_profile_index_remap,
+    ProfileIndexType number_of_dex_files,
+    const SafeMap<ProfileIndexType, ProfileIndexType>& dex_profile_index_remap,
     /*out*/ InlineCacheMap* inline_cache,
     /*out*/ std::string* error) {
   uint16_t inline_cache_size;
@@ -840,9 +787,12 @@ bool ProfileCompilationInfo::ReadInlineCache(
       continue;
     }
     for (; dex_to_classes_map_size > 0; dex_to_classes_map_size--) {
-      uint8_t dex_profile_index;
+      ProfileIndexType dex_profile_index;
       uint8_t dex_classes_size;
-      READ_UINT(uint8_t, buffer, dex_profile_index, error);
+      if (!ReadProfileIndex(buffer, &dex_profile_index)) {
+        *error = "Cannot read profile index";
+        return false;
+      }
       READ_UINT(uint8_t, buffer, dex_classes_size, error);
       if (dex_profile_index >= number_of_dex_files) {
         *error = "dex_profile_index out of bounds ";
@@ -866,28 +816,29 @@ bool ProfileCompilationInfo::ReadInlineCache(
   return true;
 }
 
-bool ProfileCompilationInfo::ReadMethods(SafeBuffer& buffer,
-                                         uint8_t number_of_dex_files,
-                                         const ProfileLineHeader& line_header,
-                                         const SafeMap<uint8_t, uint8_t>& dex_profile_index_remap,
-                                         /*out*/std::string* error) {
+bool ProfileCompilationInfo::ReadMethods(
+    SafeBuffer& buffer,
+    ProfileIndexType number_of_dex_files,
+    const ProfileLineHeader& line_header,
+    const SafeMap<ProfileIndexType, ProfileIndexType>& dex_profile_index_remap,
+    /*out*/std::string* error) {
   uint32_t unread_bytes_before_operation = buffer.CountUnreadBytes();
   if (unread_bytes_before_operation < line_header.method_region_size_bytes) {
     *error += "Profile EOF reached prematurely for ReadMethod";
-    return kProfileLoadBadData;
+    return false;
   }
   size_t expected_unread_bytes_after_operation = buffer.CountUnreadBytes()
       - line_header.method_region_size_bytes;
   uint16_t last_method_index = 0;
   while (buffer.CountUnreadBytes() > expected_unread_bytes_after_operation) {
-    DexFileData* const data = GetOrAddDexFileData(line_header.dex_location,
+    DexFileData* const data = GetOrAddDexFileData(line_header.profile_key,
                                                   line_header.checksum,
                                                   line_header.num_method_ids);
     uint16_t diff_with_last_method_index;
     READ_UINT(uint16_t, buffer, diff_with_last_method_index, error);
     uint16_t method_index = last_method_index + diff_with_last_method_index;
     last_method_index = method_index;
-    InlineCacheMap* inline_cache = data->FindOrAddMethod(method_index);
+    InlineCacheMap* inline_cache = data->FindOrAddHotMethod(method_index);
     if (inline_cache == nullptr) {
       return false;
     }
@@ -913,7 +864,7 @@ bool ProfileCompilationInfo::ReadClasses(SafeBuffer& buffer,
   size_t unread_bytes_before_op = buffer.CountUnreadBytes();
   if (unread_bytes_before_op < line_header.class_set_size) {
     *error += "Profile EOF reached prematurely for ReadClasses";
-    return kProfileLoadBadData;
+    return false;
   }
 
   uint16_t last_class_index = 0;
@@ -922,12 +873,14 @@ bool ProfileCompilationInfo::ReadClasses(SafeBuffer& buffer,
     READ_UINT(uint16_t, buffer, diff_with_last_class_index, error);
     uint16_t type_index = last_class_index + diff_with_last_class_index;
     last_class_index = type_index;
-    if (!AddClassIndex(line_header.dex_location,
-                       line_header.checksum,
-                       dex::TypeIndex(type_index),
-                       line_header.num_method_ids)) {
-      return false;
+
+    DexFileData* const data = GetOrAddDexFileData(line_header.profile_key,
+                                                  line_header.checksum,
+                                                  line_header.num_method_ids);
+    if (data == nullptr) {
+       return false;
     }
+    data->class_set.insert(dex::TypeIndex(type_index));
   }
   size_t total_bytes_read = unread_bytes_before_op - buffer.CountUnreadBytes();
   uint32_t expected_bytes_read = line_header.class_set_size * sizeof(uint16_t);
@@ -997,50 +950,56 @@ void ProfileCompilationInfo::SafeBuffer::Advance(size_t data_size) {
 
 ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::ReadProfileHeader(
       ProfileSource& source,
-      /*out*/uint8_t* number_of_dex_files,
+      /*out*/ProfileIndexType* number_of_dex_files,
       /*out*/uint32_t* uncompressed_data_size,
       /*out*/uint32_t* compressed_data_size,
       /*out*/std::string* error) {
   // Read magic and version
   const size_t kMagicVersionSize =
     sizeof(kProfileMagic) +
-    kProfileVersionSize +
-    sizeof(uint8_t) +  // number of dex files
-    sizeof(uint32_t) +  // size of uncompressed profile data
-    sizeof(uint32_t);  // size of compressed profile data
+    kProfileVersionSize;
+  SafeBuffer safe_buffer_version(kMagicVersionSize);
 
-  SafeBuffer safe_buffer(kMagicVersionSize);
-
-  ProfileLoadStatus status = safe_buffer.Fill(source, "ReadProfileHeader", error);
+  ProfileLoadStatus status = safe_buffer_version.Fill(source, "ReadProfileHeaderVersion", error);
   if (status != kProfileLoadSuccess) {
     return status;
   }
 
-  if (!safe_buffer.CompareAndAdvance(kProfileMagic, sizeof(kProfileMagic))) {
+  if (!safe_buffer_version.CompareAndAdvance(kProfileMagic, sizeof(kProfileMagic))) {
     *error = "Profile missing magic";
     return kProfileLoadVersionMismatch;
   }
-  if (safe_buffer.CountUnreadBytes() < kProfileVersionSize) {
+  if (safe_buffer_version.CountUnreadBytes() < kProfileVersionSize) {
      *error = "Cannot read profile version";
      return kProfileLoadBadData;
   }
-  memcpy(version_, safe_buffer.GetCurrentPtr(), kProfileVersionSize);
-  safe_buffer.Advance(kProfileVersionSize);
+  memcpy(version_, safe_buffer_version.GetCurrentPtr(), kProfileVersionSize);
   if ((memcmp(version_, kProfileVersion, kProfileVersionSize) != 0) &&
-      (memcmp(version_, kProfileVersionWithCounters, kProfileVersionSize) != 0)) {
+      (memcmp(version_, kProfileVersionForBootImage, kProfileVersionSize) != 0)) {
     *error = "Profile version mismatch";
     return kProfileLoadVersionMismatch;
   }
 
-  if (!safe_buffer.ReadUintAndAdvance<uint8_t>(number_of_dex_files)) {
+  const size_t kProfileHeaderDataSize =
+    SizeOfProfileIndexType() +  // number of dex files
+    sizeof(uint32_t) +  // size of uncompressed profile data
+    sizeof(uint32_t);  // size of compressed profile data
+  SafeBuffer safe_buffer_header_data(kProfileHeaderDataSize);
+
+  status = safe_buffer_header_data.Fill(source, "ReadProfileHeaderData", error);
+  if (status != kProfileLoadSuccess) {
+    return status;
+  }
+
+  if (!ReadProfileIndex(safe_buffer_header_data, number_of_dex_files)) {
     *error = "Cannot read the number of dex files";
     return kProfileLoadBadData;
   }
-  if (!safe_buffer.ReadUintAndAdvance<uint32_t>(uncompressed_data_size)) {
+  if (!safe_buffer_header_data.ReadUintAndAdvance<uint32_t>(uncompressed_data_size)) {
     *error = "Cannot read the size of uncompressed data";
     return kProfileLoadBadData;
   }
-  if (!safe_buffer.ReadUintAndAdvance<uint32_t>(compressed_data_size)) {
+  if (!safe_buffer_header_data.ReadUintAndAdvance<uint32_t>(compressed_data_size)) {
     *error = "Cannot read the size of compressed data";
     return kProfileLoadBadData;
   }
@@ -1048,10 +1007,10 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::ReadProfileHea
 }
 
 bool ProfileCompilationInfo::ReadProfileLineHeaderElements(SafeBuffer& buffer,
-                                                           /*out*/uint16_t* dex_location_size,
+                                                           /*out*/uint16_t* profile_key_size,
                                                            /*out*/ProfileLineHeader* line_header,
                                                            /*out*/std::string* error) {
-  READ_UINT(uint16_t, buffer, *dex_location_size, error);
+  READ_UINT(uint16_t, buffer, *profile_key_size, error);
   READ_UINT(uint16_t, buffer, line_header->class_set_size, error);
   READ_UINT(uint32_t, buffer, line_header->method_region_size_bytes, error);
   READ_UINT(uint32_t, buffer, line_header->checksum, error);
@@ -1068,41 +1027,41 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::ReadProfileLin
     return kProfileLoadBadData;
   }
 
-  uint16_t dex_location_size;
-  if (!ReadProfileLineHeaderElements(buffer, &dex_location_size, line_header, error)) {
+  uint16_t profile_key_size;
+  if (!ReadProfileLineHeaderElements(buffer, &profile_key_size, line_header, error)) {
     return kProfileLoadBadData;
   }
 
-  if (dex_location_size == 0 || dex_location_size > kMaxDexFileKeyLength) {
-    *error = "DexFileKey has an invalid size: " +
-        std::to_string(static_cast<uint32_t>(dex_location_size));
+  if (profile_key_size == 0 || profile_key_size > kMaxDexFileKeyLength) {
+    *error = "ProfileKey has an invalid size: " +
+        std::to_string(static_cast<uint32_t>(profile_key_size));
     return kProfileLoadBadData;
   }
 
-  if (buffer.CountUnreadBytes() < dex_location_size) {
+  if (buffer.CountUnreadBytes() < profile_key_size) {
     *error += "Profile EOF reached prematurely for ReadProfileHeaderDexLocation";
     return kProfileLoadBadData;
   }
   const uint8_t* base_ptr = buffer.GetCurrentPtr();
-  line_header->dex_location.assign(
-      reinterpret_cast<const char*>(base_ptr), dex_location_size);
-  buffer.Advance(dex_location_size);
+  line_header->profile_key.assign(
+      reinterpret_cast<const char*>(base_ptr), profile_key_size);
+  buffer.Advance(profile_key_size);
   return kProfileLoadSuccess;
 }
 
 ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::ReadProfileLine(
       SafeBuffer& buffer,
-      uint8_t number_of_dex_files,
+      ProfileIndexType number_of_dex_files,
       const ProfileLineHeader& line_header,
-      const SafeMap<uint8_t, uint8_t>& dex_profile_index_remap,
+      const SafeMap<ProfileIndexType, ProfileIndexType>& dex_profile_index_remap,
       bool merge_classes,
       /*out*/std::string* error) {
-  DexFileData* data = GetOrAddDexFileData(line_header.dex_location,
+  DexFileData* data = GetOrAddDexFileData(line_header.profile_key,
                                           line_header.checksum,
                                           line_header.num_method_ids);
   if (data == nullptr) {
     *error = "Error when reading profile file line header: checksum mismatch for "
-        + line_header.dex_location;
+        + line_header.profile_key;
     return kProfileLoadBadData;
   }
 
@@ -1126,48 +1085,7 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::ReadProfileLin
   std::copy_n(base_ptr, bytes, data->bitmap_storage.data());
   buffer.Advance(bytes);
 
-  if (StoresAggregationCounters()) {
-    ReadAggregationCounters(buffer, *data, error);
-  }
-
   return kProfileLoadSuccess;
-}
-
-bool ProfileCompilationInfo::ReadAggregationCounters(
-      SafeBuffer& buffer,
-      DexFileData& dex_data,
-      /*out*/std::string* error) {
-  size_t unread_bytes_before_op = buffer.CountUnreadBytes();
-  size_t expected_byte_count = sizeof(uint16_t) *
-      (dex_data.class_set.size() + dex_data.method_map.size() + 2);
-  if (unread_bytes_before_op < expected_byte_count) {
-    *error += "Profile EOF reached prematurely for ReadAggregationCounters";
-    return false;
-  }
-
-  uint16_t num_class_counters;
-  READ_UINT(uint16_t, buffer, num_class_counters, error);
-  if (num_class_counters != dex_data.class_set.size()) {
-    *error = "Invalid class size when reading counters";
-    return false;
-  }
-  for (const auto& class_it : dex_data.class_set) {
-    READ_UINT(uint16_t, buffer, dex_data.class_counters[class_it.index_], error);
-  }
-
-  uint16_t num_method_counters;
-  READ_UINT(uint16_t, buffer, num_method_counters, error);
-  if (num_method_counters != dex_data.GetNumMethodCounters()) {
-    *error = "Invalid class size when reading counters";
-    return false;
-  }
-  for (uint16_t method_idx = 0; method_idx < dex_data.num_method_ids; method_idx++) {
-    if (dex_data.GetHotnessInfo(method_idx).IsInProfile()) {
-      READ_UINT(uint16_t, buffer, dex_data.method_counters[method_idx], error);
-    }
-  }
-
-  return true;
 }
 
 // TODO(calin): Fix this API. ProfileCompilationInfo::Load should be static and
@@ -1189,10 +1107,11 @@ bool ProfileCompilationInfo::Load(
 bool ProfileCompilationInfo::VerifyProfileData(const std::vector<const DexFile*>& dex_files) {
   std::unordered_map<std::string, const DexFile*> key_to_dex_file;
   for (const DexFile* dex_file : dex_files) {
-    key_to_dex_file.emplace(GetProfileDexFileKey(dex_file->GetLocation()), dex_file);
+    key_to_dex_file.emplace(GetProfileDexFileBaseKey(dex_file->GetLocation()), dex_file);
   }
   for (const DexFileData* dex_data : info_) {
-    const auto it = key_to_dex_file.find(dex_data->profile_key);
+    // We need to remove any annotation from the key during verification.
+    const auto it = key_to_dex_file.find(GetBaseKeyFromAugmentedKey(dex_data->profile_key));
     if (it == key_to_dex_file.end()) {
       // It is okay if profile contains data for additional dex files.
       continue;
@@ -1235,13 +1154,13 @@ bool ProfileCompilationInfo::VerifyProfileData(const std::vector<const DexFile*>
         }
 
         const ClassSet &classes = dex_pc_data.classes;
-        SafeMap<uint8_t, std::vector<dex::TypeIndex>> dex_to_classes_map;
+        SafeMap<ProfileIndexType, std::vector<dex::TypeIndex>> dex_to_classes_map;
         // Group the classes by dex. We expect that most of the classes will come from
         // the same dex, so this will be more efficient than encoding the dex index
         // for each class reference.
         GroupClassesByDex(classes, &dex_to_classes_map);
         for (const auto &dex_it : dex_to_classes_map) {
-          uint8_t dex_profile_index = dex_it.first;
+          ProfileIndexType dex_profile_index = dex_it.first;
           const auto dex_file_inline_cache_it = key_to_dex_file.find(
               info_[dex_profile_index]->profile_key);
           if (dex_file_inline_cache_it == key_to_dex_file.end()) {
@@ -1391,7 +1310,7 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::LoadInternal(
   }
 
   // Read profile header: magic + version + number_of_dex_files.
-  uint8_t number_of_dex_files;
+  ProfileIndexType number_of_dex_files;
   uint32_t uncompressed_data_size;
   uint32_t compressed_data_size;
   status = ReadProfileHeader(*source,
@@ -1405,16 +1324,16 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::LoadInternal(
   }
   // Allow large profiles for non target builds for the case where we are merging many profiles
   // to generate a boot image profile.
-  if (kIsTargetBuild && uncompressed_data_size > kProfileSizeErrorThresholdInBytes) {
+  if (uncompressed_data_size > GetSizeErrorThresholdBytes()) {
     LOG(ERROR) << "Profile data size exceeds "
-               << std::to_string(kProfileSizeErrorThresholdInBytes)
-               << " bytes";
+               << GetSizeErrorThresholdBytes()
+               << " bytes. It has " << uncompressed_data_size << " bytes.";
     return kProfileLoadBadData;
   }
-  if (uncompressed_data_size > kProfileSizeWarningThresholdInBytes) {
+  if (uncompressed_data_size > GetSizeWarningThresholdBytes()) {
     LOG(WARNING) << "Profile data size exceeds "
-                 << std::to_string(kProfileSizeWarningThresholdInBytes)
-                 << " bytes";
+                 << GetSizeWarningThresholdBytes()
+                 << " bytes. It has " << uncompressed_data_size << " bytes.";
   }
 
   std::unique_ptr<uint8_t[]> compressed_data(new uint8_t[compressed_data_size]);
@@ -1443,7 +1362,7 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::LoadInternal(
 
   std::vector<ProfileLineHeader> profile_line_headers;
   // Read profile line headers.
-  for (uint8_t k = 0; k < number_of_dex_files; k++) {
+  for (ProfileIndexType k = 0; k < number_of_dex_files; k++) {
     ProfileLineHeader line_header;
 
     // First, read the line header to get the amount of data we need to read.
@@ -1454,18 +1373,19 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::LoadInternal(
     profile_line_headers.push_back(line_header);
   }
 
-  SafeMap<uint8_t, uint8_t> dex_profile_index_remap;
+  SafeMap<ProfileIndexType, ProfileIndexType> dex_profile_index_remap;
   if (!RemapProfileIndex(profile_line_headers, filter_fn, &dex_profile_index_remap)) {
     return kProfileLoadBadData;
   }
 
-  for (uint8_t k = 0; k < number_of_dex_files; k++) {
-    if (!filter_fn(profile_line_headers[k].dex_location, profile_line_headers[k].checksum)) {
+  for (ProfileIndexType k = 0; k < number_of_dex_files; k++) {
+    if (!filter_fn(profile_line_headers[k].profile_key, profile_line_headers[k].checksum)) {
       // We have to skip the line. Advanced the current pointer of the buffer.
       size_t profile_line_size =
            profile_line_headers[k].class_set_size * sizeof(uint16_t) +
            profile_line_headers[k].method_region_size_bytes +
-           DexFileData::ComputeBitmapStorage(profile_line_headers[k].num_method_ids);
+           DexFileData::ComputeBitmapStorage(IsForBootImage(),
+              profile_line_headers[k].num_method_ids);
       uncompressed_data.Advance(profile_line_size);
     } else {
       // Now read the actual profile line.
@@ -1478,13 +1398,6 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::LoadInternal(
       if (status != kProfileLoadSuccess) {
         return status;
       }
-    }
-  }
-
-  if (StoresAggregationCounters()) {
-    if (!uncompressed_data.ReadUintAndAdvance<uint16_t>(&aggregation_count_)) {
-      *error = "Cannot read the global aggregation count";
-      return kProfileLoadBadData;
     }
   }
 
@@ -1501,32 +1414,32 @@ ProfileCompilationInfo::ProfileLoadStatus ProfileCompilationInfo::LoadInternal(
 bool ProfileCompilationInfo::RemapProfileIndex(
     const std::vector<ProfileLineHeader>& profile_line_headers,
     const ProfileLoadFilterFn& filter_fn,
-    /*out*/SafeMap<uint8_t, uint8_t>* dex_profile_index_remap) {
+    /*out*/SafeMap<ProfileIndexType, ProfileIndexType>* dex_profile_index_remap) {
   // First verify that all checksums match. This will avoid adding garbage to
   // the current profile info.
   // Note that the number of elements should be very small, so this should not
   // be a performance issue.
   for (const ProfileLineHeader& other_profile_line_header : profile_line_headers) {
-    if (!filter_fn(other_profile_line_header.dex_location, other_profile_line_header.checksum)) {
+    if (!filter_fn(other_profile_line_header.profile_key, other_profile_line_header.checksum)) {
       continue;
     }
     // verify_checksum is false because we want to differentiate between a missing dex data and
     // a mismatched checksum.
-    const DexFileData* dex_data = FindDexData(other_profile_line_header.dex_location,
+    const DexFileData* dex_data = FindDexData(other_profile_line_header.profile_key,
                                               /* checksum= */ 0u,
                                               /* verify_checksum= */ false);
     if ((dex_data != nullptr) && (dex_data->checksum != other_profile_line_header.checksum)) {
-      LOG(WARNING) << "Checksum mismatch for dex " << other_profile_line_header.dex_location;
+      LOG(WARNING) << "Checksum mismatch for dex " << other_profile_line_header.profile_key;
       return false;
     }
   }
   // All checksums match. Import the data.
   uint32_t num_dex_files = static_cast<uint32_t>(profile_line_headers.size());
   for (uint32_t i = 0; i < num_dex_files; i++) {
-    if (!filter_fn(profile_line_headers[i].dex_location, profile_line_headers[i].checksum)) {
+    if (!filter_fn(profile_line_headers[i].profile_key, profile_line_headers[i].checksum)) {
       continue;
     }
-    const DexFileData* dex_data = GetOrAddDexFileData(profile_line_headers[i].dex_location,
+    const DexFileData* dex_data = GetOrAddDexFileData(profile_line_headers[i].profile_key,
                                                       profile_line_headers[i].checksum,
                                                       profile_line_headers[i].num_method_ids);
     if (dex_data == nullptr) {
@@ -1593,6 +1506,11 @@ int ProfileCompilationInfo::InflateBuffer(const uint8_t* in_buffer,
 
 bool ProfileCompilationInfo::MergeWith(const ProfileCompilationInfo& other,
                                        bool merge_classes) {
+  if (!SameVersion(other)) {
+    LOG(WARNING) << "Cannot merge different profile versions";
+    return false;
+  }
+
   // First verify that all checksums match. This will avoid adding garbage to
   // the current profile info.
   // Note that the number of elements should be very small, so this should not
@@ -1620,7 +1538,7 @@ bool ProfileCompilationInfo::MergeWith(const ProfileCompilationInfo& other,
 
   // First, build a mapping from other_dex_profile_index to this_dex_profile_index.
   // This will make sure that the ClassReferences  will point to the correct dex file.
-  SafeMap<uint8_t, uint8_t> dex_profile_index_remap;
+  SafeMap<ProfileIndexType, ProfileIndexType> dex_profile_index_remap;
   for (const DexFileData* other_dex_data : other.info_) {
     const DexFileData* dex_data = GetOrAddDexFileData(other_dex_data->profile_key,
                                                       other_dex_data->checksum,
@@ -1637,33 +1555,6 @@ bool ProfileCompilationInfo::MergeWith(const ProfileCompilationInfo& other,
                                                                  other_dex_data->checksum));
     DCHECK(dex_data != nullptr);
 
-    // Merge counters for methods and class. Must be done before we merge the bitmaps so that
-    // we can tell if the data is new or not.
-    if (StoresAggregationCounters()) {
-      // Class aggregation counters.
-      if (merge_classes) {
-        for (const dex::TypeIndex& type_idx : other_dex_data->class_set) {
-          uint16_t amount = other.StoresAggregationCounters()
-              ? other_dex_data->class_counters[type_idx.index_]
-              : (dex_data->ContainsClass(type_idx) ? 1 : 0);
-
-          dex_data->class_counters[type_idx.index_] =
-              IncrementAggregationCounter(dex_data->class_counters[type_idx.index_], amount);
-        }
-      }
-
-      // Method aggregation counters.
-      for (uint16_t method_idx = 0; method_idx < other_dex_data->num_method_ids; method_idx++) {
-        if (other_dex_data->GetHotnessInfo(method_idx).IsInProfile()) {
-          uint16_t amount = other.StoresAggregationCounters()
-              ? other_dex_data->method_counters[method_idx]
-              : (dex_data->GetHotnessInfo(method_idx).IsInProfile() ? 1 : 0);
-          dex_data->method_counters[method_idx] =
-              IncrementAggregationCounter(dex_data->method_counters[method_idx], amount);
-        }
-      }
-    }
-
     // Merge the classes.
     if (merge_classes) {
       dex_data->class_set.insert(other_dex_data->class_set.begin(),
@@ -1673,7 +1564,7 @@ bool ProfileCompilationInfo::MergeWith(const ProfileCompilationInfo& other,
     // Merge the methods and the inline caches.
     for (const auto& other_method_it : other_dex_data->method_map) {
       uint16_t other_method_index = other_method_it.first;
-      InlineCacheMap* inline_cache = dex_data->FindOrAddMethod(other_method_index);
+      InlineCacheMap* inline_cache = dex_data->FindOrAddHotMethod(other_method_index);
       if (inline_cache == nullptr) {
         return false;
       }
@@ -1699,54 +1590,22 @@ bool ProfileCompilationInfo::MergeWith(const ProfileCompilationInfo& other,
     dex_data->MergeBitmap(*other_dex_data);
   }
 
-  // Global aggregation counter.
-  if (StoresAggregationCounters()) {
-    uint16_t amount = other.StoresAggregationCounters() ? other.aggregation_count_ : 1;
-    aggregation_count_ = IncrementAggregationCounter(aggregation_count_, amount);
-  }
-
   return true;
 }
 
-const ProfileCompilationInfo::DexFileData* ProfileCompilationInfo::FindDexData(
-    const DexFile* dex_file) const {
-  return FindDexData(GetProfileDexFileKey(dex_file->GetLocation()),
-                     dex_file->GetLocationChecksum());
-}
-
 ProfileCompilationInfo::MethodHotness ProfileCompilationInfo::GetMethodHotness(
-    const MethodReference& method_ref) const {
-  const DexFileData* dex_data = FindDexData(method_ref.dex_file);
+    const MethodReference& method_ref,
+    const ProfileSampleAnnotation& annotation) const {
+  const DexFileData* dex_data = FindDexDataUsingAnnotations(method_ref.dex_file, annotation);
   return dex_data != nullptr
       ? dex_data->GetHotnessInfo(method_ref.index)
       : MethodHotness();
 }
 
-bool ProfileCompilationInfo::AddMethodHotness(const MethodReference& method_ref,
-                                              const MethodHotness& hotness) {
-  DexFileData* dex_data = GetOrAddDexFileData(method_ref.dex_file);
-  if (dex_data != nullptr) {
-    // TODO: Add inline caches.
-    return dex_data->AddMethod(
-        static_cast<MethodHotness::Flag>(hotness.GetFlags()), method_ref.index);
-  }
-  return false;
-}
-
-ProfileCompilationInfo::MethodHotness ProfileCompilationInfo::GetMethodHotness(
-    const std::string& dex_location,
-    uint32_t dex_checksum,
-    uint16_t dex_method_index) const {
-  const DexFileData* dex_data = FindDexData(GetProfileDexFileKey(dex_location), dex_checksum);
-  return dex_data != nullptr ? dex_data->GetHotnessInfo(dex_method_index) : MethodHotness();
-}
-
-
-std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> ProfileCompilationInfo::GetMethod(
-    const std::string& dex_location,
-    uint32_t dex_checksum,
-    uint16_t dex_method_index) const {
-  MethodHotness hotness(GetMethodHotness(dex_location, dex_checksum, dex_method_index));
+std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo>
+ProfileCompilationInfo::GetHotMethodInfo(const MethodReference& method_ref,
+                                         const ProfileSampleAnnotation& annotation) const {
+  MethodHotness hotness(GetMethodHotness(method_ref, annotation));
   if (!hotness.IsHot()) {
     return nullptr;
   }
@@ -1756,7 +1615,7 @@ std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> ProfileCompila
 
   pmi->dex_references.resize(info_.size());
   for (const DexFileData* dex_data : info_) {
-    pmi->dex_references[dex_data->profile_index].dex_location = dex_data->profile_key;
+    pmi->dex_references[dex_data->profile_index].profile_key = dex_data->profile_key;
     pmi->dex_references[dex_data->profile_index].dex_checksum = dex_data->checksum;
     pmi->dex_references[dex_data->profile_index].num_method_ids = dex_data->num_method_ids;
   }
@@ -1765,8 +1624,10 @@ std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> ProfileCompila
 }
 
 
-bool ProfileCompilationInfo::ContainsClass(const DexFile& dex_file, dex::TypeIndex type_idx) const {
-  const DexFileData* dex_data = FindDexData(&dex_file);
+bool ProfileCompilationInfo::ContainsClass(const DexFile& dex_file,
+                                           dex::TypeIndex type_idx,
+                                           const ProfileSampleAnnotation& annotation) const {
+  const DexFileData* dex_data = FindDexDataUsingAnnotations(&dex_file, annotation);
   return (dex_data != nullptr) && dex_data->ContainsClass(type_idx);
 }
 
@@ -1789,11 +1650,20 @@ uint32_t ProfileCompilationInfo::GetNumberOfResolvedClasses() const {
 std::string ProfileCompilationInfo::DumpInfo(const std::vector<const DexFile*>& dex_files,
                                              bool print_full_dex_location) const {
   std::ostringstream os;
-  if (info_.empty()) {
-    return "ProfileInfo: empty";
-  }
 
-  os << "ProfileInfo:";
+  os << "ProfileInfo [";
+
+  for (size_t k = 0; k <  kProfileVersionSize - 1; k++) {
+    // Iterate to 'kProfileVersionSize - 1' because the version_ ends with '\0'
+    // which we don't want to print.
+    os << static_cast<char>(version_[k]);
+  }
+  os << "]\n";
+
+  if (info_.empty()) {
+    os << "-empty-";
+    return os.str();
+  }
 
   const std::string kFirstDexFileKeySubstitute = "!classes.dex";
 
@@ -1803,14 +1673,15 @@ std::string ProfileCompilationInfo::DumpInfo(const std::vector<const DexFile*>& 
       os << dex_data->profile_key;
     } else {
       // Replace the (empty) multidex suffix of the first key with a substitute for easier reading.
-      std::string multidex_suffix = DexFileLoader::GetMultiDexSuffix(dex_data->profile_key);
+      std::string multidex_suffix = DexFileLoader::GetMultiDexSuffix(
+          GetBaseKeyFromAugmentedKey(dex_data->profile_key));
       os << (multidex_suffix.empty() ? kFirstDexFileKeySubstitute : multidex_suffix);
     }
     os << " [index=" << static_cast<uint32_t>(dex_data->profile_index) << "]";
     os << " [checksum=" << std::hex << dex_data->checksum << "]" << std::dec;
     const DexFile* dex_file = nullptr;
     for (const DexFile* current : dex_files) {
-      if (dex_data->profile_key == current->GetLocation() &&
+      if (GetBaseKeyFromAugmentedKey(dex_data->profile_key) == current->GetLocation() &&
           dex_data->checksum == current->GetLocationChecksum()) {
         dex_file = current;
       }
@@ -1875,9 +1746,10 @@ bool ProfileCompilationInfo::GetClassesAndMethods(
     /*out*/std::set<dex::TypeIndex>* class_set,
     /*out*/std::set<uint16_t>* hot_method_set,
     /*out*/std::set<uint16_t>* startup_method_set,
-    /*out*/std::set<uint16_t>* post_startup_method_method_set) const {
+    /*out*/std::set<uint16_t>* post_startup_method_method_set,
+    const ProfileSampleAnnotation& annotation) const {
   std::set<std::string> ret;
-  const DexFileData* dex_data = FindDexData(&dex_file);
+  const DexFileData* dex_data = FindDexDataUsingAnnotations(&dex_file, annotation);
   if (dex_data == nullptr) {
     return false;
   }
@@ -1899,10 +1771,14 @@ bool ProfileCompilationInfo::GetClassesAndMethods(
   return true;
 }
 
+bool ProfileCompilationInfo::SameVersion(const ProfileCompilationInfo& other) const {
+  return memcmp(version_, other.version_, kProfileVersionSize) == 0;
+}
+
 bool ProfileCompilationInfo::Equals(const ProfileCompilationInfo& other) {
   // No need to compare profile_key_map_. That's only a cache for fast search.
   // All the information is already in the info_ vector.
-  if (memcmp(version_, other.version_, kProfileVersionSize) != 0) {
+  if (!SameVersion(other)) {
     return false;
   }
   if (info_.size() != other.info_.size()) {
@@ -1915,39 +1791,8 @@ bool ProfileCompilationInfo::Equals(const ProfileCompilationInfo& other) {
       return false;
     }
   }
-  if (aggregation_count_ != other.aggregation_count_) {
-    return false;
-  }
-  return true;
-}
 
-std::set<DexCacheResolvedClasses> ProfileCompilationInfo::GetResolvedClasses(
-    const std::vector<const DexFile*>& dex_files) const {
-  std::unordered_map<std::string, const DexFile* > key_to_dex_file;
-  for (const DexFile* dex_file : dex_files) {
-    key_to_dex_file.emplace(GetProfileDexFileKey(dex_file->GetLocation()), dex_file);
-  }
-  std::set<DexCacheResolvedClasses> ret;
-  for (const DexFileData* dex_data : info_) {
-    const auto it = key_to_dex_file.find(dex_data->profile_key);
-    if (it != key_to_dex_file.end()) {
-      const DexFile* dex_file = it->second;
-      const std::string& dex_location = dex_file->GetLocation();
-      if (dex_data->checksum != it->second->GetLocationChecksum()) {
-        LOG(ERROR) << "Dex checksum mismatch when getting resolved classes from profile for "
-            << "location " << dex_location << " (checksum=" << dex_file->GetLocationChecksum()
-            << ", profile checksum=" << dex_data->checksum;
-        return std::set<DexCacheResolvedClasses>();
-      }
-      DexCacheResolvedClasses classes(dex_location,
-                                      dex_location,
-                                      dex_data->checksum,
-                                      dex_data->num_method_ids);
-      classes.AddClasses(dex_data->class_set.begin(), dex_data->class_set.end());
-      ret.insert(classes);
-    }
-  }
-  return ret;
+  return true;
 }
 
 // Naive implementation to generate a random profile file suitable for testing.
@@ -1973,8 +1818,9 @@ bool ProfileCompilationInfo::GenerateTestProfile(int fd,
 
   for (uint16_t i = 0; i < number_of_dex_files; i++) {
     std::string dex_location = DexFileLoader::GetMultiDexLocation(i, base_dex_location.c_str());
-    std::string profile_key = GetProfileDexFileKey(dex_location);
+    std::string profile_key = info.GetProfileDexFileBaseKey(dex_location);
 
+    DexFileData* const data = info.GetOrAddDexFileData(profile_key, /*checksum=*/ 0, max_method);
     for (uint16_t m = 0; m < number_of_methods; m++) {
       uint16_t method_idx = rand() % max_method;
       if (m < (number_of_methods / kFavorSplit)) {
@@ -1983,11 +1829,7 @@ bool ProfileCompilationInfo::GenerateTestProfile(int fd,
       // Alternate between startup and post startup.
       uint32_t flags = MethodHotness::kFlagHot;
       flags |= ((m & 1) != 0) ? MethodHotness::kFlagPostStartup : MethodHotness::kFlagStartup;
-      info.AddMethodIndex(static_cast<MethodHotness::Flag>(flags),
-                          profile_key,
-                          /*checksum=*/ 0,
-                          method_idx,
-                          max_method);
+      data->AddMethod(static_cast<MethodHotness::Flag>(flags), method_idx);
     }
 
     for (uint16_t c = 0; c < number_of_classes; c++) {
@@ -1995,7 +1837,7 @@ bool ProfileCompilationInfo::GenerateTestProfile(int fd,
       if (c < (number_of_classes / kFavorSplit)) {
         type_idx %= kFavorFirstN;
       }
-      info.AddClassIndex(profile_key, 0, dex::TypeIndex(type_idx), max_method);
+      data->class_set.insert(dex::TypeIndex(type_idx));
     }
   }
   return info.Save(fd);
@@ -2024,17 +1866,17 @@ bool ProfileCompilationInfo::GenerateTestProfile(
     return vec;
   };
   for (std::unique_ptr<const DexFile>& dex_file : dex_files) {
-    const std::string& location = dex_file->GetLocation();
+    const std::string& profile_key = dex_file->GetLocation();
     uint32_t checksum = dex_file->GetLocationChecksum();
 
     uint32_t number_of_classes = dex_file->NumClassDefs();
     uint32_t classes_required_in_profile = (number_of_classes * class_percentage) / 100;
+
+    DexFileData* const data = info.GetOrAddDexFileData(
+          profile_key, checksum, dex_file->NumMethodIds());
     for (uint32_t class_index : create_shuffled_range(classes_required_in_profile,
                                                       number_of_classes)) {
-      info.AddClassIndex(location,
-                         checksum,
-                         dex_file->GetClassDef(class_index).class_idx_,
-                         dex_file->NumMethodIds());
+      data->class_set.insert(dex_file->GetClassDef(class_index).class_idx_);
     }
 
     uint32_t number_of_methods = dex_file->NumMethodIds();
@@ -2046,8 +1888,7 @@ bool ProfileCompilationInfo::GenerateTestProfile(
       flags |= ((method_index & 1) != 0)
                    ? MethodHotness::kFlagPostStartup
                    : MethodHotness::kFlagStartup;
-      info.AddMethodIndex(static_cast<MethodHotness::Flag>(flags),
-                          MethodReference(dex_file.get(), method_index));
+      data->AddMethod(static_cast<MethodHotness::Flag>(flags), method_index);
     }
   }
   return info.Save(fd);
@@ -2094,13 +1935,77 @@ bool ProfileCompilationInfo::OfflineProfileMethodInfo::operator==(
   return true;
 }
 
+bool ProfileCompilationInfo::OfflineProfileMethodInfo::operator==(
+      const std::vector<ProfileMethodInfo::ProfileInlineCache>& runtime_caches) const {
+  if (inline_caches->size() != runtime_caches.size()) {
+    return false;
+  }
+
+  for (const auto& inline_cache_it : *inline_caches) {
+    uint16_t dex_pc = inline_cache_it.first;
+    const DexPcData dex_pc_data = inline_cache_it.second;
+
+    // Find the corresponding inline cahce.
+    const ProfileMethodInfo::ProfileInlineCache* runtime_cache = nullptr;
+    for (const ProfileMethodInfo::ProfileInlineCache& pic : runtime_caches) {
+      if (pic.dex_pc == dex_pc) {
+        runtime_cache = &pic;
+        break;
+      }
+    }
+    // If not found, returnb false.
+    if (runtime_cache == nullptr) {
+      return false;
+    }
+    // Check that the inline cache properties match up.
+    if (dex_pc_data.is_missing_types) {
+      if (!runtime_cache->is_missing_types) {
+        return false;
+      } else {
+        // If the inline cache is megamorphic do not check the classes (they don't matter).
+        continue;
+      }
+    }
+
+    if (dex_pc_data.is_megamorphic) {
+      if (runtime_cache->classes.size() < ProfileCompilationInfo::kIndividualInlineCacheSize) {
+        return false;
+      } else {
+        // If the inline cache is megamorphic do not check the classes (they don't matter).
+        continue;
+      }
+    }
+
+    if (dex_pc_data.classes.size() != runtime_cache->classes.size()) {
+      return false;
+    }
+    // Verify that all classes matches.
+    for (const ClassReference& class_ref : dex_pc_data.classes) {
+      bool found = false;
+      const DexReference& dex_ref = dex_references[class_ref.dex_profile_index];
+      for (const TypeReference& type_ref : runtime_cache->classes) {
+        if (class_ref.type_index == type_ref.TypeIndex() &&
+            dex_ref.MatchesDex(type_ref.dex_file)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        return false;
+      }
+    }
+  }
+  // If we didn't fail until now, then the two inline caches are equal.
+  return true;
+}
+
 bool ProfileCompilationInfo::IsEmpty() const {
   DCHECK_EQ(info_.empty(), profile_key_map_.empty());
   return info_.empty();
 }
 
 ProfileCompilationInfo::InlineCacheMap*
-ProfileCompilationInfo::DexFileData::FindOrAddMethod(uint16_t method_index) {
+ProfileCompilationInfo::DexFileData::FindOrAddHotMethod(uint16_t method_index) {
   if (method_index >= num_method_ids) {
     LOG(ERROR) << "Invalid method index " << method_index << ". num_method_ids=" << num_method_ids;
     return nullptr;
@@ -2120,7 +2025,7 @@ bool ProfileCompilationInfo::DexFileData::AddMethod(MethodHotness::Flag flags, s
   SetMethodHotness(index, flags);
 
   if ((flags & MethodHotness::kFlagHot) != 0) {
-    ProfileCompilationInfo::InlineCacheMap* result = FindOrAddMethod(index);
+    ProfileCompilationInfo::InlineCacheMap* result = FindOrAddHotMethod(index);
     DCHECK(result != nullptr);
   }
   return true;
@@ -2129,22 +2034,36 @@ bool ProfileCompilationInfo::DexFileData::AddMethod(MethodHotness::Flag flags, s
 void ProfileCompilationInfo::DexFileData::SetMethodHotness(size_t index,
                                                            MethodHotness::Flag flags) {
   DCHECK_LT(index, num_method_ids);
-  if ((flags & MethodHotness::kFlagStartup) != 0) {
-    method_bitmap.StoreBit(MethodBitIndex(/*startup=*/ true, index), /*value=*/ true);
-  }
-  if ((flags & MethodHotness::kFlagPostStartup) != 0) {
-    method_bitmap.StoreBit(MethodBitIndex(/*startup=*/ false, index), /*value=*/ true);
+  uint32_t lastFlag = is_for_boot_image
+      ? MethodHotness::kFlagLastBoot
+      : MethodHotness::kFlagLastRegular;
+  for (uint32_t flag = MethodHotness::kFlagFirst; flag <= lastFlag; flag = flag << 1) {
+    if (flag == MethodHotness::kFlagHot) {
+      // There's no bit for hotness in the bitmap.
+      // We store the hotness by recording the method in the method list.
+      continue;
+    }
+    if ((flags & flag) != 0) {
+      method_bitmap.StoreBit(MethodFlagBitmapIndex(
+          static_cast<MethodHotness::Flag>(flag), index), /*value=*/ true);
+    }
   }
 }
 
 ProfileCompilationInfo::MethodHotness ProfileCompilationInfo::DexFileData::GetHotnessInfo(
     uint32_t dex_method_index) const {
   MethodHotness ret;
-  if (method_bitmap.LoadBit(MethodBitIndex(/*startup=*/ true, dex_method_index))) {
-    ret.AddFlag(MethodHotness::kFlagStartup);
-  }
-  if (method_bitmap.LoadBit(MethodBitIndex(/*startup=*/ false, dex_method_index))) {
-    ret.AddFlag(MethodHotness::kFlagPostStartup);
+  uint32_t lastFlag = is_for_boot_image
+      ? MethodHotness::kFlagLastBoot
+      : MethodHotness::kFlagLastRegular;
+  for (uint32_t flag = MethodHotness::kFlagFirst; flag <= lastFlag; flag = flag << 1) {
+    if (flag == MethodHotness::kFlagHot) {
+      continue;
+    }
+    if (method_bitmap.LoadBit(MethodFlagBitmapIndex(
+          static_cast<MethodHotness::Flag>(flag), dex_method_index))) {
+      ret.AddFlag(static_cast<MethodHotness::Flag>(flag));
+    }
   }
   auto it = method_map.find(dex_method_index);
   if (it != method_map.end()) {
@@ -2154,41 +2073,41 @@ ProfileCompilationInfo::MethodHotness ProfileCompilationInfo::DexFileData::GetHo
   return ret;
 }
 
-int32_t ProfileCompilationInfo::DexFileData::GetMethodAggregationCounter(
-      uint16_t method_idx) const {
-  CHECK_GT(method_counters.size(), method_idx) << "Profile not prepared for aggregation counters";
-  if (!GetHotnessInfo(method_idx).IsInProfile()) {
-    return -1;
-  }
+// To simplify the implementation we use the MethodHotness flag values as indexes into the internal
+// bitmap representation. As such, they should never change unless the profile version is updated
+// and the implementation changed accordingly.
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagFirst == 1 << 0);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagHot == 1 << 0);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagStartup == 1 << 1);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagPostStartup == 1 << 2);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagLastRegular == 1 << 2);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlag32bit == 1 << 3);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlag64bit == 1 << 4);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagSensitiveThread == 1 << 5);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagAmStartup == 1 << 6);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagAmPostStartup == 1 << 7);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagBoot == 1 << 8);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagPostBoot == 1 << 9);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagStartupBin == 1 << 10);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagStartupMaxBin == 1 << 15);
+static_assert(ProfileCompilationInfo::MethodHotness::kFlagLastBoot == 1 << 15);
 
-  return method_counters[method_idx];
+size_t ProfileCompilationInfo::DexFileData::MethodFlagBitmapIndex(
+      MethodHotness::Flag flag, size_t method_index) const {
+  DCHECK_LT(method_index, num_method_ids);
+  // The format is [startup bitmap][post startup bitmap][AmStartup][...]
+  // This compresses better than ([startup bit][post startup bit])*
+  return method_index + FlagBitmapIndex(flag) * num_method_ids;
 }
 
-int32_t ProfileCompilationInfo::DexFileData::GetClassAggregationCounter(uint16_t type_idx) const {
-  CHECK_GT(class_counters.size(), type_idx) << "Profile not prepared for aggregation counters";
-  if (!ContainsClass(dex::TypeIndex(type_idx))) {
-    return -1;
-  }
-
-  return class_counters[type_idx];
-}
-
-int32_t ProfileCompilationInfo::GetMethodAggregationCounter(
-      const MethodReference& method_ref) const {
-  CHECK(StoresAggregationCounters()) << "Profile not prepared for aggregation counters";
-  const DexFileData* dex_data = FindDexData(method_ref.dex_file);
-  return dex_data == nullptr ? -1 : dex_data->GetMethodAggregationCounter(method_ref.index);
-}
-
-int32_t ProfileCompilationInfo::GetClassAggregationCounter(const TypeReference& type_ref) const {
-  CHECK(StoresAggregationCounters()) << "Profile not prepared for aggregation counters";
-  const DexFileData* dex_data = FindDexData(type_ref.dex_file);
-  return dex_data == nullptr ? -1 : dex_data->GetClassAggregationCounter(type_ref.index);
-}
-
-uint16_t ProfileCompilationInfo::GetAggregationCounter() const {
-  CHECK(StoresAggregationCounters()) << "Profile not prepared for aggregation counters";
-  return aggregation_count_;
+size_t ProfileCompilationInfo::DexFileData::FlagBitmapIndex(MethodHotness::Flag flag) {
+  DCHECK(flag != MethodHotness::kFlagHot);
+  DCHECK(IsPowerOfTwo(static_cast<uint32_t>(flag)));
+  // We arrange the method flags in order, starting with the startup flag.
+  // The kFlagHot is not encoded in the bitmap and thus not expected as an
+  // argument here. Since all the other flags start at 1 we have to subtract
+  // one for the power of 2.
+  return WhichPowerOf2(static_cast<uint32_t>(flag)) - 1;
 }
 
 ProfileCompilationInfo::DexPcData*
@@ -2197,10 +2116,11 @@ ProfileCompilationInfo::FindOrAddDexPc(InlineCacheMap* inline_cache, uint32_t de
 }
 
 HashSet<std::string> ProfileCompilationInfo::GetClassDescriptors(
-    const std::vector<const DexFile*>& dex_files) {
+    const std::vector<const DexFile*>& dex_files,
+    const ProfileSampleAnnotation& annotation) {
   HashSet<std::string> ret;
   for (const DexFile* dex_file : dex_files) {
-    const DexFileData* data = FindDexData(dex_file);
+    const DexFileData* data = FindDexDataUsingAnnotations(dex_file, annotation);
     if (data != nullptr) {
       for (dex::TypeIndex type_idx : data->class_set) {
         if (!dex_file->IsTypeIndexValid(type_idx)) {
@@ -2255,8 +2175,9 @@ bool ProfileCompilationInfo::UpdateProfileKeys(
     for (DexFileData* dex_data : info_) {
       if (dex_data->checksum == dex_file->GetLocationChecksum()
           && dex_data->num_method_ids == dex_file->NumMethodIds()) {
-        std::string new_profile_key = GetProfileDexFileKey(dex_file->GetLocation());
-        if (dex_data->profile_key != new_profile_key) {
+        std::string new_profile_key = GetProfileDexFileBaseKey(dex_file->GetLocation());
+        std::string dex_data_base_key = GetBaseKeyFromAugmentedKey(dex_data->profile_key);
+        if (dex_data_base_key != new_profile_key) {
           if (profile_key_map_.find(new_profile_key) != profile_key_map_.end()) {
             // We can't update the key if the new key belongs to a different dex file.
             LOG(ERROR) << "Cannot update profile key to " << new_profile_key
@@ -2264,7 +2185,10 @@ bool ProfileCompilationInfo::UpdateProfileKeys(
             return false;
           }
           profile_key_map_.erase(dex_data->profile_key);
-          profile_key_map_.Put(new_profile_key, dex_data->profile_index);
+          // Retain the annotation (if any) during the renaming by re-attaching the info
+          // form the old key.
+          profile_key_map_.Put(MigrateAnnotationInfo(new_profile_key, dex_data->profile_key),
+                               dex_data->profile_index);
           dex_data->profile_key = new_profile_key;
         }
       }
@@ -2287,46 +2211,185 @@ void ProfileCompilationInfo::ClearData() {
   profile_key_map_.clear();
 }
 
-bool ProfileCompilationInfo::StoresAggregationCounters() const {
-  return memcmp(version_, kProfileVersionWithCounters, sizeof(kProfileVersionWithCounters)) == 0;
+void ProfileCompilationInfo::ClearDataAndAdjustVersion(bool for_boot_image) {
+  ClearData();
+  memcpy(version_,
+         for_boot_image ? kProfileVersionForBootImage : kProfileVersion,
+         kProfileVersionSize);
 }
 
-void ProfileCompilationInfo::PrepareForAggregationCounters() {
-  InitProfileVersionInternal(kProfileVersionWithCounters);
-  for (DexFileData* dex_data : info_) {
-    dex_data->PrepareForAggregationCounters();
-  }
-}
-
-void ProfileCompilationInfo::DexFileData::PrepareForAggregationCounters() {
-  method_counters.resize(num_method_ids);
-  // TODO(calin): we should store the maximum number of types in the profile.
-  // It will simplify quite a few things and make this storage allocation
-  // more efficient.
-  size_t max_elems = 1 << (kBitsPerByte * sizeof(uint16_t));
-  class_counters.resize(max_elems);
+bool ProfileCompilationInfo::IsForBootImage() const {
+  return memcmp(version_, kProfileVersionForBootImage, sizeof(kProfileVersionForBootImage)) == 0;
 }
 
 const uint8_t* ProfileCompilationInfo::GetVersion() const {
   return version_;
 }
 
-void ProfileCompilationInfo::InitProfileVersionInternal(const uint8_t version[]) {
-  CHECK(
-      (memcmp(version, kProfileVersion, kProfileVersionSize) == 0) ||
-      (memcmp(version, kProfileVersionWithCounters, kProfileVersionSize) == 0));
-  memcpy(version_, version, kProfileVersionSize);
-}
-
-uint16_t ProfileCompilationInfo::DexFileData::GetNumMethodCounters() const {
-  uint16_t num_method_counters = 0;
-  for (uint16_t method_idx = 0; method_idx < num_method_ids; method_idx++) {
-    num_method_counters += GetHotnessInfo(method_idx).IsInProfile() ? 1 : 0;
-  }
-  return num_method_counters;
-}
-
 bool ProfileCompilationInfo::DexFileData::ContainsClass(const dex::TypeIndex type_index) const {
   return class_set.find(type_index) != class_set.end();
 }
+
+size_t ProfileCompilationInfo::GetSizeWarningThresholdBytes() const {
+  return IsForBootImage() ?  kSizeWarningThresholdBootBytes : kSizeWarningThresholdBytes;
+}
+
+size_t ProfileCompilationInfo::GetSizeErrorThresholdBytes() const {
+  return IsForBootImage() ?  kSizeErrorThresholdBootBytes : kSizeErrorThresholdBytes;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ProfileCompilationInfo::DexReference& dex_ref) {
+  stream << "[profile_key=" << dex_ref.profile_key
+         << ",dex_checksum=" << std::hex << dex_ref.dex_checksum << std::dec
+         << ",num_method_ids=" << dex_ref.num_method_ids
+         << "]";
+  return stream;
+}
+
+bool ProfileCompilationInfo::ProfileSampleAnnotation::operator==(
+      const ProfileSampleAnnotation& other) const {
+  return origin_package_name_ == other.origin_package_name_;
+}
+
+void ProfileCompilationInfo::WriteProfileIndex(
+    std::vector<uint8_t>* buffer, ProfileIndexType value) const {
+  if (IsForBootImage()) {
+    AddUintToBuffer(buffer, value);
+  } else {
+    AddUintToBuffer(buffer, static_cast<ProfileIndexTypeRegular>(value));
+  }
+}
+
+bool ProfileCompilationInfo::ReadProfileIndex(
+    SafeBuffer& safe_buffer, ProfileIndexType* value) const {
+  if (IsForBootImage()) {
+    return safe_buffer.ReadUintAndAdvance<ProfileIndexType>(value);
+  } else {
+    ProfileIndexTypeRegular out;
+    bool result = safe_buffer.ReadUintAndAdvance<ProfileIndexTypeRegular>(&out);
+    *value = out;
+    return result;
+  }
+}
+
+ProfileCompilationInfo::ProfileIndexType ProfileCompilationInfo::MaxProfileIndex() const {
+  return IsForBootImage()
+      ? std::numeric_limits<ProfileIndexType>::max()
+      : std::numeric_limits<ProfileIndexTypeRegular>::max();
+}
+
+uint32_t ProfileCompilationInfo::SizeOfProfileIndexType() const {
+  return IsForBootImage()
+    ? sizeof(ProfileIndexType)
+    : sizeof(ProfileIndexTypeRegular);
+}
+
+FlattenProfileData::FlattenProfileData() :
+    max_aggregation_for_methods_(0),
+    max_aggregation_for_classes_(0) {
+}
+
+FlattenProfileData::ItemMetadata::ItemMetadata() :
+    flags_(0) {
+}
+
+FlattenProfileData::ItemMetadata::ItemMetadata(const ItemMetadata& other) :
+    flags_(other.flags_),
+    annotations_(other.annotations_) {
+}
+
+std::unique_ptr<FlattenProfileData> ProfileCompilationInfo::ExtractProfileData(
+    const std::vector<std::unique_ptr<const DexFile>>& dex_files) const {
+
+  std::unique_ptr<FlattenProfileData> result(new FlattenProfileData());
+
+  auto create_metadata_fn = []() { return FlattenProfileData::ItemMetadata(); };
+
+  // Iterate through all the dex files, find the methods/classes associated with each of them,
+  // and add them to the flatten result.
+  for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
+    // Find all the dex data for the given dex file.
+    // We may have multiple dex data if the methods or classes were added using
+    // different annotations.
+    std::vector<const DexFileData*> all_dex_data;
+    FindAllDexData(dex_file.get(), &all_dex_data);
+    for (const DexFileData* dex_data : all_dex_data) {
+      // Extract the annotation from the key as we want to store it in the flatten result.
+      ProfileSampleAnnotation annotation = GetAnnotationFromKey(dex_data->profile_key);
+
+      // Check which methods from the current dex files are in the profile.
+      for (uint32_t method_idx = 0; method_idx < dex_data->num_method_ids; ++method_idx) {
+        MethodHotness hotness = dex_data->GetHotnessInfo(method_idx);
+        if (!hotness.IsInProfile()) {
+          // Not in the profile, continue.
+          continue;
+        }
+        // The method is in the profile, create metadata item for it and added to the result.
+        MethodReference ref(dex_file.get(), method_idx);
+        FlattenProfileData::ItemMetadata& metadata =
+            result->method_metadata_.GetOrCreate(ref, create_metadata_fn);
+        metadata.flags_ |= hotness.flags_;
+        metadata.annotations_.push_back(annotation);
+        // Update the max aggregation counter for methods.
+        // This is essentially a cache, to avoid traversing all the methods just to find out
+        // this value.
+        result->max_aggregation_for_methods_ = std::max(
+            result->max_aggregation_for_methods_,
+            static_cast<uint32_t>(metadata.annotations_.size()));
+      }
+
+      // Check which classes from the current dex files are in the profile.
+      for (const dex::TypeIndex& type_index : dex_data->class_set) {
+        TypeReference ref(dex_file.get(), type_index);
+        FlattenProfileData::ItemMetadata& metadata =
+            result->class_metadata_.GetOrCreate(ref, create_metadata_fn);
+        metadata.annotations_.push_back(annotation);
+        // Update the max aggregation counter for classes.
+        result->max_aggregation_for_classes_ = std::max(
+            result->max_aggregation_for_classes_,
+            static_cast<uint32_t>(metadata.annotations_.size()));
+      }
+    }
+  }
+
+  return result;
+}
+
+void FlattenProfileData::MergeData(const FlattenProfileData& other) {
+  auto create_metadata_fn = []() { return FlattenProfileData::ItemMetadata(); };
+  for (const auto& it : other.method_metadata_) {
+    const MethodReference& otherRef = it.first;
+    const FlattenProfileData::ItemMetadata otherData = it.second;
+    const std::list<ProfileCompilationInfo::ProfileSampleAnnotation>& other_annotations =
+        otherData.GetAnnotations();
+
+    FlattenProfileData::ItemMetadata& metadata =
+        method_metadata_.GetOrCreate(otherRef, create_metadata_fn);
+    metadata.flags_ |= otherData.GetFlags();
+    metadata.annotations_.insert(
+        metadata.annotations_.end(), other_annotations.begin(), other_annotations.end());
+
+    max_aggregation_for_methods_ = std::max(
+          max_aggregation_for_methods_,
+          static_cast<uint32_t>(metadata.annotations_.size()));
+  }
+  for (const auto& it : other.class_metadata_) {
+    const TypeReference& otherRef = it.first;
+    const FlattenProfileData::ItemMetadata otherData = it.second;
+    const std::list<ProfileCompilationInfo::ProfileSampleAnnotation>& other_annotations =
+        otherData.GetAnnotations();
+
+    FlattenProfileData::ItemMetadata& metadata =
+        class_metadata_.GetOrCreate(otherRef, create_metadata_fn);
+    metadata.flags_ |= otherData.GetFlags();
+    metadata.annotations_.insert(
+        metadata.annotations_.end(), other_annotations.begin(), other_annotations.end());
+
+    max_aggregation_for_classes_ = std::max(
+          max_aggregation_for_classes_,
+          static_cast<uint32_t>(metadata.annotations_.size()));
+  }
+}
+
 }  // namespace art

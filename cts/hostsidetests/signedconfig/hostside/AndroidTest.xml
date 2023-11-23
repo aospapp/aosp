@@ -17,6 +17,7 @@
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">

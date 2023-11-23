@@ -25,6 +25,7 @@
 
 #if defined(__arm__)
   LLVM_TARGET(ARM)
+  LLVM_TARGET(AArch64)
 #elif defined(__mips__)
   LLVM_TARGET(Mips)
 #elif defined(__i386__) || defined(__x86_64__)

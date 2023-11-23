@@ -20,7 +20,6 @@ import com.android.loganalysis.item.LogcatItem;
 import junit.framework.TestCase;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
@@ -36,21 +35,15 @@ public class LogcatParserFuncTest extends TestCase {
      * assist a developer in checking why a given logcat file might not be parsed correctly by
      * Brillopad.
      */
-    public void testParse() {
-        BufferedReader logcatReader = null;
-        try {
-            logcatReader = new BufferedReader(new FileReader(LOGCAT_PATH));
-        } catch (FileNotFoundException e) {
-            fail(String.format("File not found at %s", LOGCAT_PATH));
-        }
+    public void testParse() throws Exception {
+        BufferedReader logcatReader = new BufferedReader(new FileReader(LOGCAT_PATH));
+
         LogcatItem logcat = null;
         try {
             long start = System.currentTimeMillis();
             logcat = new LogcatParser().parse(logcatReader);
             long stop = System.currentTimeMillis();
             System.out.println(String.format("Logcat took %d ms to parse.", stop - start));
-        } catch (IOException e) {
-            fail(String.format("IOException: %s", e.toString()));
         } finally {
             if (logcatReader != null) {
                 try {

@@ -61,19 +61,9 @@ class WifiScannerScanTest(WifiBaseTest):
             "test_wifi_scanner_with_wifi_off",
             "test_single_scan_report_each_scan_for_channels_with_enumerated_params",
             "test_single_scan_report_each_scan_for_band_with_enumerated_params",
-            "test_wifi_scanner_batch_scan_channel_sanity",
-            "test_wifi_scanner_batch_scan_period_too_short",
-            "test_batch_scan_report_buffer_full_for_channels_with_enumerated_params",
-            "test_batch_scan_report_buffer_full_for_band_with_enumerated_params",
-            "test_batch_scan_report_each_scan_for_channels_with_enumerated_params",
-            "test_batch_scan_report_each_scan_for_band_with_enumerated_params",
             "test_single_scan_report_full_scan_for_channels_with_enumerated_params",
             "test_single_scan_report_full_scan_for_band_with_enumerated_params",
-            "test_batch_scan_report_full_scan_for_channels_with_enumerated_params",
-            "test_batch_scan_report_full_scan_for_band_with_enumerated_params",
-            "test_wifi_connection_while_single_scan",
             "test_single_scan_while_pno",
-            "test_wifi_connection_and_pno_while_batch_scan",
             "test_wifi_scanner_single_scan_in_isolated",
             "test_wifi_scanner_with_invalid_numBssidsPerScan",
             "test_wifi_scanner_dual_radio_low_latency",
@@ -105,9 +95,6 @@ class WifiScannerScanTest(WifiBaseTest):
         }
         self.log.debug("Run extended test: {}".format(self.run_extended_test))
         self.wifi_chs = wutils.WifiChannelUS(self.dut.model)
-        asserts.assert_true(self.dut.droid.wifiIsScannerSupported(),
-                            "Device %s doesn't support WifiScanner, abort." %
-                            self.dut.model)
         self.attenuators = wutils.group_attenuators(self.attenuators)
         self.attenuators[0].set_atten(0)
         self.attenuators[1].set_atten(0)
@@ -226,6 +213,11 @@ class WifiScannerScanTest(WifiBaseTest):
                 "timestamp"] + scan_time_mic
             self.log.debug("max_scan_interval: %s", max_scan_interval)
             for result in batch["ScanResults"]:
+                # Though the tests are run in shield box, there are leakes
+                # from outside environment. This would ignore any such SSIDs
+                ssid = result["SSID"]
+                if not ssid.startswith("2g_") or not ssid.startswith("5g_"):
+                    continue
                 if (result["frequency"] not in scan_channels or
                         result["timestamp"] > max_scan_interval or
                         result["timestamp"] < scan_rt * 1000 or
@@ -553,9 +545,10 @@ class WifiScannerScanTest(WifiBaseTest):
             band: wifi band."""
 
         r = self.dut.droid.wifiScannerGetAvailableChannels(band)
-        self.log.debug(band)
-        self.log.debug(r)
+        self.log.info("Band: %s" % band)
+        self.log.info("Available channels: %s" % r)
         expected = self.wifi_chs.band_to_freq(band)
+        self.log.info("Expected channels: %s" % expected)
         asserts.assert_equal(set(r), set(expected), "Band %s failed." % band)
 
     def connect_to_reference_network(self):
@@ -776,51 +769,8 @@ class WifiScannerScanTest(WifiBaseTest):
             len(scan_settings), scan_settings))
         self.wifi_scanner_batch_scan_full(scan_settings[0])
 
-    @test_tracker_info(uuid="740e1c18-911a-43d2-9317-3827ecf71d3b")
-    def test_wifi_connection_while_single_scan(self):
-        """Test configuring a connection parallel to wifi scanner single scan.
-
-         1. Start WifiScanner single scan for both band with default scan settings.
-         2. Configure a connection to reference network.
-         3. Verify that connection to reference network occurred.
-         2. Verify that scanner report single scan results.
-        """
-        self.attenuators[ATTENUATOR].set_atten(0)
-        data = wutils.start_wifi_single_scan(self.dut,
-                                             self.default_scan_setting)
-        idx = data["Index"]
-        scan_rt = data["ScanElapsedRealtime"]
-        self.log.info("Wifi single shot scan started with index: {}".format(
-            idx))
-        asserts.assert_true(self.connect_to_reference_network(), NETWORK_ERROR)
-        time.sleep(10)  #wait for connection to be active
-        asserts.assert_true(
-            wutils.validate_connection(self.dut, self.ping_addr),
-            "Error, No internet connection for current network")
-        #generating event wait time from scan setting plus leeway
-        scan_time, scan_channels = wutils.get_scan_time_and_channels(
-            self.wifi_chs, self.default_scan_setting, self.stime_channel)
-        wait_time = int(scan_time / 1000) + self.leeway
-        validity = False
-        try:
-            event_name = "{}{}onResults".format(EVENT_TAG, idx)
-            self.log.debug("Waiting for event: {} for time {}".format(
-                event_name, wait_time))
-            event = self.dut.ed.pop_event(event_name, wait_time)
-            self.log.debug("Event received: {}".format(event))
-            results = event["data"]["Results"]
-            bssids, validity = self.proces_and_valid_batch_scan_result(
-                results, scan_rt, event["data"][KEY_RET],
-                self.default_scan_setting)
-            self.log.info("Scan number Buckets: {}\nTotal BSSID: {}".format(
-                len(results), bssids))
-            asserts.assert_true(
-                len(results) == 1 and bssids >= 1, EMPTY_RESULT)
-        except queue.Empty as error:
-            raise AssertionError(
-                "Event did not triggered for single scan {}".format(error))
-
     @test_tracker_info(uuid="e9a7cfb5-21c4-4c40-8169-8d88b65a1dee")
+    @WifiBaseTest.wifi_test_wrap
     def test_single_scan_while_pno(self):
         """Test wifi scanner single scan parallel to PNO connection.
 
@@ -832,6 +782,13 @@ class WifiScannerScanTest(WifiBaseTest):
          6. Verify connection occurred through PNO.
         """
         self.log.info("Check connection through PNO for reference network")
+        self.attenuators[ATTENUATOR].set_atten(0)
+        asserts.assert_true(self.connect_to_reference_network(), NETWORK_ERROR)
+        time.sleep(10)  #wait for connection to be active
+        asserts.assert_true(
+            wutils.validate_connection(self.dut, self.ping_addr),
+            "Error, No internet connection for current network")
+
         current_network = self.dut.droid.wifiGetConnectionInfo()
         self.log.info("Current network: {}".format(current_network))
         asserts.assert_true('network_id' in current_network, NETWORK_ID_ERROR)
@@ -974,6 +931,7 @@ class WifiScannerScanTest(WifiBaseTest):
         self.wifi_scanner_single_scan(scan_setting)
 
     @test_tracker_info(uuid="7c8da0c4-dec7-4d04-abd4-f8ea467a5c6d")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scanner_dual_radio_low_latency(self):
         """Test WiFi scanner single scan for mix channel with default setting
            parameters.
@@ -993,6 +951,7 @@ class WifiScannerScanTest(WifiBaseTest):
         self.wifi_scanner_single_scan_full(scan_setting)
 
     @test_tracker_info(uuid="58b49b01-851b-4e45-b218-9fd27c0be921")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scanner_dual_radio_low_power(self):
         """Test WiFi scanner single scan for mix channel with default setting
            parameters.
@@ -1012,6 +971,7 @@ class WifiScannerScanTest(WifiBaseTest):
         self.wifi_scanner_single_scan_full(scan_setting)
 
     @test_tracker_info(uuid="3e7288bc-45e4-497c-bf3a-977eec4e896e")
+    @WifiBaseTest.wifi_test_wrap
     def test_wifi_scanner_dual_radio_high_accuracy(self):
         """Test WiFi scanner single scan for mix channel with default setting
            parameters.

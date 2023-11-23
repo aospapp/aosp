@@ -21,7 +21,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.support.test.uiautomator.UiWatcher;
 import java.io.IOException;
 
-public interface IAppHelper {
+public interface IAppHelper extends ITestHelper {
 
     /**
      * Setup expectation: On the launcher home screen.
@@ -78,11 +78,12 @@ public interface IAppHelper {
 
     /**
      * Setup expectations: None
-     * <p>
-     * Captures a screenshot and UI XML with the supplied name.
+     *
+     * <p>Captures a screenshot and UI XML with the supplied name.
+     *
      * @param name the screenshot prefix
      * @throws IOException if there is a capture failure
-     * @throws RuntimeException if creating the screenshot directory fails.
+     * @throws TestHelperException if creating the screenshot directory fails.
      */
     abstract boolean captureScreenshot(String name) throws IOException;
 

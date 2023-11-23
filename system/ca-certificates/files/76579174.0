@@ -28,7 +28,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             50:94:6c:ec:18:ea:d5:9c:4d:d5:97:ef:75:8f:a0:ad
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=US, OU=www.xrampsecurity.com, O=XRamp Security Services Inc, CN=XRamp Global Certification Authority
         Validity
             Not Before: Nov  1 17:14:04 2004 GMT
@@ -36,7 +36,7 @@ Certificate:
         Subject: C=US, OU=www.xrampsecurity.com, O=XRamp Security Services Inc, CN=XRamp Global Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:98:24:1e:bd:15:b4:ba:df:c7:8c:a5:27:b6:38:
                     0b:69:f3:b6:4e:a8:2c:2e:21:1d:5c:44:df:21:5d:

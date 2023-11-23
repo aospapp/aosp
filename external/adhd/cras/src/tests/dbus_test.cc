@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
+#include "dbus_test.h"
 
-#include <sys/select.h>
 #include <stdlib.h>
+#include <sys/select.h>
 #include <unistd.h>
 
-#include "dbus_test.h"
+#include <algorithm>
 
 namespace {
 
@@ -22,9 +22,7 @@ DBusMatch::DBusMatch()
       send_reply_(false),
       send_error_(false),
       expect_serial_(false),
-      matched_(false) {
-
-}
+      matched_(false) {}
 
 DBusMatch& DBusMatch::WithString(std::string value) {
   Arg arg;
@@ -104,7 +102,6 @@ DBusMatch& DBusMatch::AsPropertyDictionary() {
   return *this;
 }
 
-
 DBusMatch& DBusMatch::SendReply() {
   send_reply_ = true;
   expect_serial_ = true;
@@ -126,18 +123,14 @@ DBusMatch& DBusMatch::SendReplyNoWait() {
   return *this;
 }
 
-
 DBusMatch& DBusMatch::Send() {
-  DBusMessage *message;
+  DBusMessage* message;
   if (message_type_ == DBUS_MESSAGE_TYPE_SIGNAL)
-    message = dbus_message_new_signal(path_.c_str(),
-                                      interface_.c_str(),
+    message = dbus_message_new_signal(path_.c_str(), interface_.c_str(),
                                       member_.c_str());
   else if (message_type_ == DBUS_MESSAGE_TYPE_METHOD_CALL)
-    message = dbus_message_new_method_call(NULL,
-                                           path_.c_str(),
-                                           interface_.c_str(),
-                                           member_.c_str());
+    message = dbus_message_new_method_call(NULL, path_.c_str(),
+                                           interface_.c_str(), member_.c_str());
   else
     return *this;
 
@@ -149,7 +142,6 @@ DBusMatch& DBusMatch::Send() {
   return *this;
 }
 
-
 void DBusMatch::ExpectMethodCall(std::string path,
                                  std::string interface,
                                  std::string method) {
@@ -159,8 +151,7 @@ void DBusMatch::ExpectMethodCall(std::string path,
   member_ = method;
 }
 
-
-void DBusMatch::CreateSignal(DBusConnection *conn,
+void DBusMatch::CreateSignal(DBusConnection* conn,
                              std::string path,
                              std::string interface,
                              std::string signal_name) {
@@ -174,7 +165,7 @@ void DBusMatch::CreateSignal(DBusConnection *conn,
   matched_ = true;
 }
 
-void DBusMatch::CreateMessageCall(DBusConnection *conn,
+void DBusMatch::CreateMessageCall(DBusConnection* conn,
                                   std::string path,
                                   std::string interface,
                                   std::string method_name) {
@@ -188,22 +179,18 @@ void DBusMatch::CreateMessageCall(DBusConnection *conn,
   matched_ = true;
 }
 
-
-bool DBusMatch::MatchMessageArgs(DBusMessage *message,
-                                 std::vector<Arg> *args)
-{
+bool DBusMatch::MatchMessageArgs(DBusMessage* message, std::vector<Arg>* args) {
   DBusMessageIter iter;
   dbus_message_iter_init(message, &iter);
   for (std::vector<Arg>::iterator it = args->begin(); it != args->end(); ++it) {
-    Arg &arg = *it;
+    Arg& arg = *it;
 
     int type = dbus_message_iter_get_arg_type(&iter);
     if (type != arg.type)
       return false;
 
-    if (arg.type == DBUS_TYPE_STRING
-      || arg.type == DBUS_TYPE_OBJECT_PATH) {
-      const char *str_value;
+    if (arg.type == DBUS_TYPE_STRING || arg.type == DBUS_TYPE_OBJECT_PATH) {
+      const char* str_value;
       dbus_message_iter_get_basic(&iter, &str_value);
       if (strcmp(str_value, arg.string_value.c_str()) != 0)
         return false;
@@ -216,9 +203,8 @@ bool DBusMatch::MatchMessageArgs(DBusMessage *message,
   return true;
 }
 
-void DBusMatch::AppendArgsToMessage(DBusMessage *message,
-                                    std::vector<Arg> *args)
-{
+void DBusMatch::AppendArgsToMessage(DBusMessage* message,
+                                    std::vector<Arg>* args) {
   DBusMessageIter message_iter;
   DBusMessageIter dict_array_iter;
   DBusMessageIter struct_iter;
@@ -226,22 +212,20 @@ void DBusMatch::AppendArgsToMessage(DBusMessage *message,
 
   if (as_property_dictionary_) {
     dbus_message_iter_init_append(message, &message_iter);
-    dbus_message_iter_open_container(&message_iter,
-                                     DBUS_TYPE_ARRAY, "{sv}",
+    dbus_message_iter_open_container(&message_iter, DBUS_TYPE_ARRAY, "{sv}",
                                      &dict_array_iter);
   } else {
     dbus_message_iter_init_append(message, &iter);
   }
 
   for (std::vector<Arg>::iterator it = args->begin(); it != args->end(); ++it) {
-    Arg &arg = *it;
+    Arg& arg = *it;
 
     if (as_property_dictionary_) {
-      dbus_message_iter_open_container(&dict_array_iter,
-                                       DBUS_TYPE_DICT_ENTRY, NULL,
-                                       &struct_iter);
+      dbus_message_iter_open_container(&dict_array_iter, DBUS_TYPE_DICT_ENTRY,
+                                       NULL, &struct_iter);
 
-      const char *str_value = arg.string_value.c_str();
+      const char* str_value = arg.string_value.c_str();
       dbus_message_iter_append_basic(&struct_iter, arg.type, &str_value);
 
       arg = *(++it);
@@ -267,24 +251,21 @@ void DBusMatch::AppendArgsToMessage(DBusMessage *message,
     }
 
     if (as_property_dictionary_) {
-      dbus_message_iter_open_container(&struct_iter,
-                                       DBUS_TYPE_VARIANT,
+      dbus_message_iter_open_container(&struct_iter, DBUS_TYPE_VARIANT,
                                        arg.array ? array_type : element_type,
                                        &iter);
     }
 
     DBusMessageIter array_iter;
     if (arg.array) {
-      dbus_message_iter_open_container(&iter,
-                                       DBUS_TYPE_ARRAY, element_type,
+      dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, element_type,
                                        &array_iter);
 
-      if (arg.type == DBUS_TYPE_STRING
-          || arg.type == DBUS_TYPE_OBJECT_PATH) {
+      if (arg.type == DBUS_TYPE_STRING || arg.type == DBUS_TYPE_OBJECT_PATH) {
         for (std::vector<std::string>::const_iterator vit =
-                 arg.string_values.begin(); vit != arg.string_values.end();
-             ++vit) {
-          const char *str_value = vit->c_str();
+                 arg.string_values.begin();
+             vit != arg.string_values.end(); ++vit) {
+          const char* str_value = vit->c_str();
           dbus_message_iter_append_basic(&array_iter, arg.type, &str_value);
         }
       }
@@ -292,9 +273,8 @@ void DBusMatch::AppendArgsToMessage(DBusMessage *message,
 
       dbus_message_iter_close_container(&iter, &array_iter);
     } else {
-      if (arg.type == DBUS_TYPE_STRING
-          || arg.type == DBUS_TYPE_OBJECT_PATH) {
-        const char *str_value = arg.string_value.c_str();
+      if (arg.type == DBUS_TYPE_STRING || arg.type == DBUS_TYPE_OBJECT_PATH) {
+        const char* str_value = arg.string_value.c_str();
         dbus_message_iter_append_basic(&iter, arg.type, &str_value);
       } else if (arg.type == DBUS_TYPE_UNIX_FD) {
         dbus_message_iter_append_basic(&iter, arg.type, &arg.int_value);
@@ -312,7 +292,7 @@ void DBusMatch::AppendArgsToMessage(DBusMessage *message,
     dbus_message_iter_close_container(&message_iter, &dict_array_iter);
 }
 
-void DBusMatch::SendMessage(DBusConnection *conn, DBusMessage *message) {
+void DBusMatch::SendMessage(DBusConnection* conn, DBusMessage* message) {
   dbus_bool_t success;
   dbus_uint32_t serial;
   success = dbus_connection_send(conn, message, &serial);
@@ -321,17 +301,16 @@ void DBusMatch::SendMessage(DBusConnection *conn, DBusMessage *message) {
     expected_serials_.push_back(serial);
 }
 
-
-bool DBusMatch::HandleServerMessage(DBusConnection *conn,
-                                    DBusMessage *message) {
+bool DBusMatch::HandleServerMessage(DBusConnection* conn,
+                                    DBusMessage* message) {
   // Make sure we're expecting a method call or signal of this name
   if (message_type_ == DBUS_MESSAGE_TYPE_METHOD_CALL &&
-      !dbus_message_is_method_call(message,
-                                   interface_.c_str(), member_.c_str()))
+      !dbus_message_is_method_call(message, interface_.c_str(),
+                                   member_.c_str()))
     return false;
   else if (message_type_ == DBUS_MESSAGE_TYPE_SIGNAL &&
-           !dbus_message_is_signal(message,
-                                   interface_.c_str(), member_.c_str()))
+           !dbus_message_is_signal(message, interface_.c_str(),
+                                   member_.c_str()))
     return false;
 
   // Make sure the path is what we expected.
@@ -347,12 +326,11 @@ bool DBusMatch::HandleServerMessage(DBusConnection *conn,
   matched_ = true;
   if (send_reply_ || send_error_) {
     // Send out the reply
-    DBusMessage *reply = NULL;
+    DBusMessage* reply = NULL;
     if (send_reply_)
       reply = dbus_message_new_method_return(message);
     else if (send_error_)
-      reply = dbus_message_new_error(message,
-                                     error_name_.c_str(),
+      reply = dbus_message_new_error(message, error_name_.c_str(),
                                      error_message_.c_str());
 
     AppendArgsToMessage(reply, &reply_args_);
@@ -364,8 +342,8 @@ bool DBusMatch::HandleServerMessage(DBusConnection *conn,
   return true;
 }
 
-bool DBusMatch::HandleClientMessage(DBusConnection *conn,
-                                    DBusMessage *message) {
+bool DBusMatch::HandleClientMessage(DBusConnection* conn,
+                                    DBusMessage* message) {
   // From the client side we check whether the message has a serial number
   // we generated on our server side, and if so, remove it from the list of
   // those we're expecting to see.
@@ -384,17 +362,10 @@ bool DBusMatch::Complete() {
   return matched_ && expected_serials_.size() == 0;
 }
 
-
 DBusTest::DBusTest()
-    : conn_(NULL),
-      server_(NULL),
-      server_conn_(NULL),
-      dispatch_(false) {
-}
+    : conn_(NULL), server_(NULL), server_conn_(NULL), dispatch_(false) {}
 
-DBusTest::~DBusTest() {
-}
-
+DBusTest::~DBusTest() {}
 
 DBusMatch& DBusTest::ExpectMethodCall(std::string path,
                                       std::string interface,
@@ -403,11 +374,10 @@ DBusMatch& DBusTest::ExpectMethodCall(std::string path,
   match.ExpectMethodCall(path, interface, method);
   pthread_mutex_lock(&mutex_);
   matches_.push_back(match);
-  DBusMatch &ref = matches_.back();
+  DBusMatch& ref = matches_.back();
   pthread_mutex_unlock(&mutex_);
   return ref;
 }
-
 
 DBusMatch& DBusTest::CreateSignal(std::string path,
                                   std::string interface,
@@ -416,7 +386,7 @@ DBusMatch& DBusTest::CreateSignal(std::string path,
   match.CreateSignal(server_conn_, path, interface, signal_name);
   pthread_mutex_lock(&mutex_);
   matches_.push_back(match);
-  DBusMatch &ref = matches_.back();
+  DBusMatch& ref = matches_.back();
   pthread_mutex_unlock(&mutex_);
   return ref;
 }
@@ -428,11 +398,10 @@ DBusMatch& DBusTest::CreateMessageCall(std::string path,
   match.CreateMessageCall(server_conn_, path, interface, signal_name);
   pthread_mutex_lock(&mutex_);
   matches_.push_back(match);
-  DBusMatch &ref = matches_.back();
+  DBusMatch& ref = matches_.back();
   pthread_mutex_unlock(&mutex_);
   return ref;
 }
-
 
 void DBusTest::WaitForMatches() {
   for (;;) {
@@ -440,7 +409,7 @@ void DBusTest::WaitForMatches() {
     size_t incomplete_matches = 0;
     for (std::vector<DBusMatch>::iterator it = matches_.begin();
          it != matches_.end(); ++it) {
-      DBusMatch &match = *it;
+      DBusMatch& match = *it;
       if (!match.Complete())
         ++incomplete_matches;
     }
@@ -450,7 +419,7 @@ void DBusTest::WaitForMatches() {
       break;
 
     // Fish a message from the queue.
-    DBusMessage *message;
+    DBusMessage* message;
     while ((message = dbus_connection_borrow_message(conn_)) == NULL)
       dbus_connection_read_write(conn_, -1);
 
@@ -458,10 +427,10 @@ void DBusTest::WaitForMatches() {
     pthread_mutex_lock(&mutex_);
     for (std::vector<DBusMatch>::iterator it = matches_.begin();
          it != matches_.end(); ++it) {
-      DBusMatch &match = *it;
+      DBusMatch& match = *it;
 
       if (match.HandleClientMessage(conn_, message))
-          break;
+        break;
     }
     pthread_mutex_unlock(&mutex_);
 
@@ -475,7 +444,6 @@ void DBusTest::WaitForMatches() {
   pthread_mutex_unlock(&mutex_);
 }
 
-
 void DBusTest::SetUp() {
   dbus_threads_init_default();
 
@@ -484,22 +452,17 @@ void DBusTest::SetUp() {
   server_ = dbus_server_listen(kServerAddress, NULL);
   ASSERT_TRUE(server_ != NULL);
 
-  dbus_server_set_new_connection_function(server_, NewConnectionThunk,
-                                          this, NULL);
+  dbus_server_set_new_connection_function(server_, NewConnectionThunk, this,
+                                          NULL);
 
   dbus_bool_t success;
-  success = dbus_server_set_watch_functions(server_,
-                                            AddWatchThunk,
-                                            RemoveWatchThunk,
-                                            WatchToggledThunk,
-                                            this, NULL);
+  success = dbus_server_set_watch_functions(
+      server_, AddWatchThunk, RemoveWatchThunk, WatchToggledThunk, this, NULL);
   ASSERT_TRUE(success);
 
-  success = dbus_server_set_timeout_functions(server_,
-                                              AddTimeoutThunk,
+  success = dbus_server_set_timeout_functions(server_, AddTimeoutThunk,
                                               RemoveTimeoutThunk,
-                                              TimeoutToggledThunk,
-                                              this, NULL);
+                                              TimeoutToggledThunk, this, NULL);
   ASSERT_TRUE(success);
 
   // Open a connection to our server, this returns the "client" side of the
@@ -555,109 +518,100 @@ void DBusTest::TearDown() {
   dbus_shutdown();
 }
 
-void DBusTest::NewConnectionThunk(DBusServer *server,
-                                  DBusConnection *conn,
-                                  void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+void DBusTest::NewConnectionThunk(DBusServer* server,
+                                  DBusConnection* conn,
+                                  void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   test->NewConnection(server, conn);
 }
 
-void DBusTest::NewConnection(DBusServer *server, DBusConnection *conn) {
+void DBusTest::NewConnection(DBusServer* server, DBusConnection* conn) {
   ASSERT_TRUE(server_conn_ == NULL);
 
   dbus_bool_t success;
-  success = dbus_connection_set_watch_functions(conn,
-                                                AddWatchThunk,
-                                                RemoveWatchThunk,
-                                                WatchToggledThunk,
-                                                this, NULL);
+  success = dbus_connection_set_watch_functions(
+      conn, AddWatchThunk, RemoveWatchThunk, WatchToggledThunk, this, NULL);
   ASSERT_TRUE(success);
 
-  success = dbus_connection_set_timeout_functions(conn,
-                                                  AddTimeoutThunk,
-                                                  RemoveTimeoutThunk,
-                                                  TimeoutToggledThunk,
-                                                  this, NULL);
+  success = dbus_connection_set_timeout_functions(
+      conn, AddTimeoutThunk, RemoveTimeoutThunk, TimeoutToggledThunk, this,
+      NULL);
   ASSERT_TRUE(success);
 
-  success = dbus_connection_add_filter(conn,
-                                       HandleMessageThunk,
-                                       this, NULL);
+  success = dbus_connection_add_filter(conn, HandleMessageThunk, this, NULL);
   ASSERT_TRUE(success);
 
   server_conn_ = conn;
   dbus_connection_ref(server_conn_);
 }
 
-dbus_bool_t DBusTest::AddWatchThunk(DBusWatch *watch, void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+dbus_bool_t DBusTest::AddWatchThunk(DBusWatch* watch, void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   return test->AddWatch(watch);
 }
 
-dbus_bool_t DBusTest::AddWatch(DBusWatch *watch) {
+dbus_bool_t DBusTest::AddWatch(DBusWatch* watch) {
   watches_.push_back(watch);
   return TRUE;
 }
 
-void DBusTest::RemoveWatchThunk(DBusWatch *watch, void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+void DBusTest::RemoveWatchThunk(DBusWatch* watch, void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   test->RemoveWatch(watch);
 }
 
-void DBusTest::RemoveWatch(DBusWatch *watch) {
-  std::vector<DBusWatch *>::iterator it =
+void DBusTest::RemoveWatch(DBusWatch* watch) {
+  std::vector<DBusWatch*>::iterator it =
       find(watches_.begin(), watches_.end(), watch);
   if (it != watches_.end())
     watches_.erase(it);
 }
 
-void DBusTest::WatchToggledThunk(DBusWatch *watch, void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+void DBusTest::WatchToggledThunk(DBusWatch* watch, void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   test->WatchToggled(watch);
 }
 
-void DBusTest::WatchToggled(DBusWatch *watch) {
-}
+void DBusTest::WatchToggled(DBusWatch* watch) {}
 
-dbus_bool_t DBusTest::AddTimeoutThunk(DBusTimeout *timeout, void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+dbus_bool_t DBusTest::AddTimeoutThunk(DBusTimeout* timeout, void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   return test->AddTimeout(timeout);
 }
 
-dbus_bool_t DBusTest::AddTimeout(DBusTimeout *timeout) {
+dbus_bool_t DBusTest::AddTimeout(DBusTimeout* timeout) {
   timeouts_.push_back(timeout);
   return TRUE;
 }
 
-void DBusTest::RemoveTimeoutThunk(DBusTimeout *timeout, void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+void DBusTest::RemoveTimeoutThunk(DBusTimeout* timeout, void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   test->RemoveTimeout(timeout);
 }
 
-void DBusTest::RemoveTimeout(DBusTimeout *timeout) {
-  std::vector<DBusTimeout *>::iterator it =
+void DBusTest::RemoveTimeout(DBusTimeout* timeout) {
+  std::vector<DBusTimeout*>::iterator it =
       find(timeouts_.begin(), timeouts_.end(), timeout);
   if (it != timeouts_.end())
     timeouts_.erase(it);
 }
 
-void DBusTest::TimeoutToggledThunk(DBusTimeout *timeout, void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+void DBusTest::TimeoutToggledThunk(DBusTimeout* timeout, void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   test->TimeoutToggled(timeout);
 }
 
-void DBusTest::TimeoutToggled(DBusTimeout *timeout) {
-}
+void DBusTest::TimeoutToggled(DBusTimeout* timeout) {}
 
-DBusHandlerResult DBusTest::HandleMessageThunk(DBusConnection *conn,
-                                               DBusMessage *message,
-                                               void *data) {
-  DBusTest *test = static_cast<DBusTest *>(data);
+DBusHandlerResult DBusTest::HandleMessageThunk(DBusConnection* conn,
+                                               DBusMessage* message,
+                                               void* data) {
+  DBusTest* test = static_cast<DBusTest*>(data);
   return test->HandleMessage(conn, message);
 }
 
-DBusHandlerResult DBusTest::HandleMessage(DBusConnection *conn,
-                                          DBusMessage *message) {
+DBusHandlerResult DBusTest::HandleMessage(DBusConnection* conn,
+                                          DBusMessage* message) {
   if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
     dispatch_ = false;
     return DBUS_HANDLER_RESULT_HANDLED;
@@ -666,7 +620,7 @@ DBusHandlerResult DBusTest::HandleMessage(DBusConnection *conn,
   pthread_mutex_lock(&mutex_);
   for (std::vector<DBusMatch>::iterator it = matches_.begin();
        it != matches_.end(); ++it) {
-    DBusMatch &match = *it;
+    DBusMatch& match = *it;
 
     if (match.HandleServerMessage(conn, message)) {
       pthread_mutex_unlock(&mutex_);
@@ -678,13 +632,12 @@ DBusHandlerResult DBusTest::HandleMessage(DBusConnection *conn,
   return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-
-void *DBusTest::DispatchLoopThunk(void *ptr) {
-  DBusTest *test = static_cast<DBusTest *>(ptr);
+void* DBusTest::DispatchLoopThunk(void* ptr) {
+  DBusTest* test = static_cast<DBusTest*>(ptr);
   return test->DispatchLoop();
 }
 
-void *DBusTest::DispatchLoop() {
+void* DBusTest::DispatchLoop() {
   while (dispatch_)
     DispatchOnce();
 
@@ -702,9 +655,9 @@ void DBusTest::DispatchOnce() {
   FD_ZERO(&readfds);
   FD_ZERO(&writefds);
 
-  for (std::vector<DBusWatch *>::iterator it = watches_.begin();
+  for (std::vector<DBusWatch*>::iterator it = watches_.begin();
        it != watches_.end(); ++it) {
-    DBusWatch *watch = *it;
+    DBusWatch* watch = *it;
 
     if (!dbus_watch_get_enabled(watch))
       continue;
@@ -724,12 +677,12 @@ void DBusTest::DispatchOnce() {
   // isn't quite right according to the D-Bus spec, since the interval is
   // supposed to be since the time the timeout was added or toggled, but
   // it's good enough for the purposes of testing.
-  DBusTimeout *earliest_timeout = NULL;
+  DBusTimeout* earliest_timeout = NULL;
   struct timeval timeval;
 
-  for (std::vector<DBusTimeout *>::iterator it = timeouts_.begin();
+  for (std::vector<DBusTimeout*>::iterator it = timeouts_.begin();
        it != timeouts_.end(); ++it) {
-    DBusTimeout *timeout = *it;
+    DBusTimeout* timeout = *it;
 
     if (!dbus_timeout_get_enabled(timeout))
       continue;
@@ -757,10 +710,10 @@ void DBusTest::DispatchOnce() {
 
   // Handle the watches, use a copy of the vector since a watch handler
   // might remove other watches in the vector.
-  std::vector<DBusWatch *> immutable_watches = watches_;
-  for (std::vector<DBusWatch *>::iterator it = immutable_watches.begin();
+  std::vector<DBusWatch*> immutable_watches = watches_;
+  for (std::vector<DBusWatch*>::iterator it = immutable_watches.begin();
        it != immutable_watches.end(); ++it) {
-    DBusWatch *watch = *it;
+    DBusWatch* watch = *it;
 
     int fd = dbus_watch_get_unix_fd(watch);
     unsigned int flags = 0;

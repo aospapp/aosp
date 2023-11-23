@@ -31,10 +31,11 @@
 
 #include "util.h"
 
+using android::base::Dirname;
 using android::base::ReadFdToString;
 using android::base::StartsWith;
-using android::base::WriteStringToFd;
 using android::base::unique_fd;
+using android::base::WriteStringToFd;
 
 namespace android {
 namespace init {
@@ -69,7 +70,7 @@ Result<PersistentProperties> LoadLegacyPersistentProperties() {
             continue;
         }
 
-        unique_fd fd(openat(dirfd(dir.get()), entry->d_name, O_RDONLY | O_NOFOLLOW));
+        unique_fd fd(openat(dirfd(dir.get()), entry->d_name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
         if (fd == -1) {
             PLOG(ERROR) << "Unable to open persistent property file \"" << entry->d_name << "\"";
             continue;
@@ -148,7 +149,7 @@ Result<std::string> ReadPersistentPropertyFile() {
         unlink(temp_filename.c_str());
     }
     auto file_contents = ReadFile(persistent_property_filename);
-    if (!file_contents) {
+    if (!file_contents.ok()) {
         return Error() << "Unable to read persistent property file: " << file_contents.error();
     }
     return *file_contents;
@@ -158,7 +159,7 @@ Result<std::string> ReadPersistentPropertyFile() {
 
 Result<PersistentProperties> LoadPersistentPropertyFile() {
     auto file_contents = ReadPersistentPropertyFile();
-    if (!file_contents) return file_contents.error();
+    if (!file_contents.ok()) return file_contents.error();
 
     PersistentProperties persistent_properties;
     if (persistent_properties.ParseFromString(*file_contents)) return persistent_properties;
@@ -169,7 +170,7 @@ Result<PersistentProperties> LoadPersistentPropertyFile() {
     return Error() << "Unable to parse persistent property file: Could not parse protobuf";
 }
 
-Result<Success> WritePersistentPropertyFile(const PersistentProperties& persistent_properties) {
+Result<void> WritePersistentPropertyFile(const PersistentProperties& persistent_properties) {
     const std::string temp_filename = persistent_property_filename + ".tmp";
     unique_fd fd(TEMP_FAILURE_RETRY(
         open(temp_filename.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0600)));
@@ -191,7 +192,19 @@ Result<Success> WritePersistentPropertyFile(const PersistentProperties& persiste
         unlink(temp_filename.c_str());
         return Error(saved_errno) << "Unable to rename persistent property file";
     }
-    return Success();
+
+    // rename() is atomic with regards to the kernel's filesystem buffers, but the parent
+    // directories must be fsync()'ed otherwise, the rename is not necessarily written to storage.
+    // Note in this case, that the source and destination directories are the same, so only one
+    // fsync() is required.
+    auto dir = Dirname(persistent_property_filename);
+    auto dir_fd = unique_fd{open(dir.c_str(), O_DIRECTORY | O_RDONLY | O_CLOEXEC)};
+    if (dir_fd < 0) {
+        return ErrnoError() << "Unable to open persistent properties directory for fsync()";
+    }
+    fsync(dir_fd);
+
+    return {};
 }
 
 // Persistent properties are not written often, so we rather not keep any data in memory and read
@@ -199,7 +212,7 @@ Result<Success> WritePersistentPropertyFile(const PersistentProperties& persiste
 void WritePersistentProperty(const std::string& name, const std::string& value) {
     auto persistent_properties = LoadPersistentPropertyFile();
 
-    if (!persistent_properties) {
+    if (!persistent_properties.ok()) {
         LOG(ERROR) << "Recovering persistent properties from memory: "
                    << persistent_properties.error();
         persistent_properties = LoadPersistentPropertiesFromMemory();
@@ -214,7 +227,7 @@ void WritePersistentProperty(const std::string& name, const std::string& value) 
         AddPersistentProperty(name, value, &persistent_properties.value());
     }
 
-    if (auto result = WritePersistentPropertyFile(*persistent_properties); !result) {
+    if (auto result = WritePersistentPropertyFile(*persistent_properties); !result.ok()) {
         LOG(ERROR) << "Could not store persistent property: " << result.error();
     }
 }
@@ -222,16 +235,16 @@ void WritePersistentProperty(const std::string& name, const std::string& value) 
 PersistentProperties LoadPersistentProperties() {
     auto persistent_properties = LoadPersistentPropertyFile();
 
-    if (!persistent_properties) {
+    if (!persistent_properties.ok()) {
         LOG(ERROR) << "Could not load single persistent property file, trying legacy directory: "
                    << persistent_properties.error();
         persistent_properties = LoadLegacyPersistentProperties();
-        if (!persistent_properties) {
+        if (!persistent_properties.ok()) {
             LOG(ERROR) << "Unable to load legacy persistent properties: "
                        << persistent_properties.error();
             return {};
         }
-        if (auto result = WritePersistentPropertyFile(*persistent_properties); result) {
+        if (auto result = WritePersistentPropertyFile(*persistent_properties); result.ok()) {
             RemoveLegacyPersistentPropertyFiles();
         } else {
             LOG(ERROR) << "Unable to write single persistent property file: " << result.error();

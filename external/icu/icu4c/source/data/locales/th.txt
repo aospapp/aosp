@@ -20,8 +20,8 @@ th{
         "[ก ข ฃ ค ฅ ฆ ง จ ฉ ช ซ ฌ ญ ฎ ฏ ฐ ฑ ฒ ณ ด ต ถ ท ธ น บ ป ผ ฝ พ ฟ ภ ม ย ร ฤ ล ฦ"
         " ว ศ ษ ส ห ฬ อ ฮ]"
     }
-    ExemplarCharactersNumbers{"[% , \\- . ‰ + 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{"[! \u0022 # ' ( ) * , \\- . / \\: @ \\[ \\] ‐ – — ‘ ’ “ ” … ′ ″]"}
+    ExemplarCharactersNumbers{"[% , \\- . ‑ ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{"[! \u0022 # ' ( ) * , \\- . / \\: @ \\[ \\] ‐ ‑ – — ‘ ’ “ ” … ′ ″]"}
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -183,7 +183,7 @@ th{
         minimumGroupingDigits{"1"}
         native{"thai"}
     }
-    Version{"2.1.43.89"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -1064,6 +1064,47 @@ th{
                 yyyyQQQQ{"QQQQ G y"}
             }
             intervalFormats{
+                Bh{
+                    h{"h – h B"}
+                }
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                GyM{
+                    G{"MM/GGGGG y – MM/GGGGG y"}
+                    M{"M/y – M/y G"}
+                    y{"M/y – M/y G"}
+                }
+                GyMEd{
+                    G{"E d/MM/GGGGG y – E d/MM/GGGGG y"}
+                    M{"E d/M/y – E d/M/y G"}
+                    d{"E d/M/y – E d/M/y G"}
+                    y{"E d/M/y – E d/M/y G"}
+                }
+                GyMMM{
+                    G{"MMM G y – MMM G y"}
+                    M{"MMM – MMM G y"}
+                    y{"MMM G y – MMM y"}
+                }
+                GyMMMEd{
+                    G{"E d MMM G y – E d MMM G y"}
+                    M{"E d MMM – E d MMM G y"}
+                    d{"E d MMM – E d MMM G y"}
+                    y{"E d MMM G y – E d MMM y"}
+                }
+                GyMMMd{
+                    G{"d MMM G y – d MMM G y"}
+                    M{"d MMM – d MMM G y"}
+                    d{"d – d MMM G y"}
+                    y{"d MMM G y – d MMM y"}
+                }
+                GyMd{
+                    G{"d/MM/GGGGG y – d/MM/GGGGG y"}
+                    M{"d/M/y – d/M/y G"}
+                    d{"d/M/y – d/M/y G"}
+                    y{"d/M/y – d/M/y G"}
+                }
                 H{
                     H{"H–H"}
                 }
@@ -1416,7 +1457,7 @@ th{
                     "ค.ศ.",
                 }
                 abbreviated%variant{
-                    "ก.ส.ศ.",
+                    "ก่อน ส.ศ.",
                     "ส.ศ.",
                 }
                 narrow{
@@ -1437,6 +1478,47 @@ th{
                 }
             }
             intervalFormats{
+                Bh{
+                    h{"h – h B"}
+                }
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                GyM{
+                    G{"MM/GGGGG y – MM/GGGGG y"}
+                    M{"M/y – M/y"}
+                    y{"M/y – M/y"}
+                }
+                GyMEd{
+                    G{"E d/MM/GGGGG y – E d/MM/GGGGG y"}
+                    M{"E d/M/y – E d/M/y"}
+                    d{"E d/M/y – E d/M/y"}
+                    y{"E d/M/y – E d/M/y"}
+                }
+                GyMMM{
+                    G{"MMM G y – MMM G y"}
+                    M{"MMM – MMM G y"}
+                    y{"MMM G y – MMM G y"}
+                }
+                GyMMMEd{
+                    G{"E d MMM G y – E d MMM G y"}
+                    M{"E d MMM – E d MMM G y"}
+                    d{"E d MMM – E d MMM G y"}
+                    y{"E d MMM y – E d MMM y"}
+                }
+                GyMMMd{
+                    G{"d MMM G y – d MMM G y"}
+                    M{"d MMM – d MMM G y"}
+                    d{"d – d MMM G y"}
+                    y{"d MMM G y – d MMM y"}
+                }
+                GyMd{
+                    G{"d/MM/GGGGG y – d/MM/GGGGG y"}
+                    M{"d/M/y – d/M/y"}
+                    d{"d/M/y – d/M/y"}
+                    y{"d/M/y – d/M/y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -2760,7 +2842,7 @@ th{
             }
         }
         minute-narrow{
-            dn{"น."}
+            dn{"นาที"}
             relativeTime{
                 future{
                     other{"ใน {0} นาที"}
@@ -2771,7 +2853,6 @@ th{
             }
         }
         minute-short{
-            dn{"น."}
             relativeTime{
                 future{
                     other{"ใน {0} นาที"}
@@ -3326,14 +3407,22 @@ th{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        or-narrow{
+            2{"{0}หรือ{1}"}
+        }
+        or-short{
+            2{"{0}หรือ{1}"}
+        }
         standard{
             2{"{0}และ{1}"}
             end{"{0} และ{1}"}
             middle{"{0} {1}"}
             start{"{0} {1}"}
         }
+        standard-narrow{
+            2{"{0}และ{1}"}
+        }
         standard-short{
-            2{"{0} และ {1}"}
             end{"{0} และ{1}"}
             middle{"{0} {1}"}
             start{"{0} {1}"}

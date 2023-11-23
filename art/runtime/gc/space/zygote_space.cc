@@ -21,6 +21,7 @@
 #include "gc/accounting/card_table-inl.h"
 #include "gc/accounting/space_bitmap-inl.h"
 #include "gc/heap.h"
+#include "mirror/object-readbarrier-inl.h"
 #include "runtime.h"
 #include "thread-current-inl.h"
 
@@ -43,21 +44,28 @@ class CountObjectsAllocated {
 
 ZygoteSpace* ZygoteSpace::Create(const std::string& name,
                                  MemMap&& mem_map,
-                                 accounting::ContinuousSpaceBitmap* live_bitmap,
-                                 accounting::ContinuousSpaceBitmap* mark_bitmap) {
-  DCHECK(live_bitmap != nullptr);
-  DCHECK(mark_bitmap != nullptr);
+                                 accounting::ContinuousSpaceBitmap&& live_bitmap,
+                                 accounting::ContinuousSpaceBitmap&& mark_bitmap) {
+  DCHECK(live_bitmap.IsValid());
+  DCHECK(mark_bitmap.IsValid());
   size_t objects_allocated = 0;
   CountObjectsAllocated visitor(&objects_allocated);
   ReaderMutexLock mu(Thread::Current(), *Locks::heap_bitmap_lock_);
-  live_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(mem_map.Begin()),
-                                reinterpret_cast<uintptr_t>(mem_map.End()), visitor);
+  live_bitmap.VisitMarkedRange(reinterpret_cast<uintptr_t>(mem_map.Begin()),
+                               reinterpret_cast<uintptr_t>(mem_map.End()), visitor);
   ZygoteSpace* zygote_space = new ZygoteSpace(name, std::move(mem_map), objects_allocated);
-  CHECK(zygote_space->live_bitmap_.get() == nullptr);
-  CHECK(zygote_space->mark_bitmap_.get() == nullptr);
-  zygote_space->live_bitmap_.reset(live_bitmap);
-  zygote_space->mark_bitmap_.reset(mark_bitmap);
+  zygote_space->live_bitmap_ = std::move(live_bitmap);
+  zygote_space->mark_bitmap_ = std::move(mark_bitmap);
   return zygote_space;
+}
+
+void ZygoteSpace::SetMarkBitInLiveObjects() {
+  GetLiveBitmap()->VisitMarkedRange(reinterpret_cast<uintptr_t>(Begin()),
+                                    reinterpret_cast<uintptr_t>(Limit()),
+                                    [](mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+                                      bool success = obj->AtomicSetMarkBit(0, 1);
+                                      CHECK(success);
+                                    });
 }
 
 void ZygoteSpace::Clear() {

@@ -30,11 +30,8 @@ using namespace std;
  *                                      *
  ****************************************/
 
-/* // Assignment operator -- copy entire set of MBR data.
-MBRData & MBRData::operator=(const MBRData & orig) {
-   BasicMBRData::operator=(orig);
-   return *this;
-} // MBRData::operator=() */
+MBRData::~MBRData(void) {
+} // MBRData destructor
 
 // Assignment operator -- copy entire set of MBR data.
 MBRData & MBRData::operator=(const BasicMBRData & orig) {

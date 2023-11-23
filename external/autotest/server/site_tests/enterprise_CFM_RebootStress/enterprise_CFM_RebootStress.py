@@ -27,10 +27,7 @@ class enterprise_CFM_RebootStress(cfm_base_test.CfmBaseTest):
         for cycle in range(reboot_cycles):
             logging.info("Started reboot cycle %d.", cycle)
             boot_id = self._host.get_boot_id()
-            if is_meeting:
-                self.cfm_facade.wait_for_meetings_landing_page()
-            else:
-                self.cfm_facade.wait_for_hangouts_telemetry_commands()
+            self.cfm_facade.wait_for_telemetry_commands()
             self.cfm_facade.reboot_device_with_chrome_api()
             self._host.wait_for_restart(old_boot_id=boot_id)
             self.cfm_facade.restart_chrome_for_cfm()

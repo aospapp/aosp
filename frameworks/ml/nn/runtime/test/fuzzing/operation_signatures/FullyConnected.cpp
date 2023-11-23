@@ -22,7 +22,8 @@ namespace android {
 namespace nn {
 namespace fuzzing_test {
 
-static void fullyConnectedConstructor(Type, uint32_t rank, HalVersion ver, RandomOperation* op) {
+static void fullyConnectedConstructor(TestOperandType, uint32_t rank, TestHalVersion ver,
+                                      RandomOperation* op) {
     // Inputs, flattened to [batch_size, input_size]
     op->inputs[0]->dimensions.resize(rank);
     RandomVariable numElements = 1;
@@ -41,28 +42,40 @@ static void fullyConnectedConstructor(Type, uint32_t rank, HalVersion ver, Rando
     op->outputs[0]->dimensions = {numElements.exactDiv(op->inputs[1]->dimensions[1]),
                                   op->inputs[1]->dimensions[0]};
 
-    setConvFCScale(/*applyOutputScaleBound=*/ver == HalVersion::V1_0, op);
+    setConvFCScale(/*applyOutputScaleBound=*/ver == TestHalVersion::V1_0, op);
 }
 
 DEFINE_OPERATION_SIGNATURE(signature_FULLY_CONNECTED_V1_0){
-        .opType = ANEURALNETWORKS_FULLY_CONNECTED,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::FULLY_CONNECTED,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32,
+                               TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {2, 3, 4},
-        .version = HalVersion::V1_0,
+        .version = TestHalVersion::V1_0,
         .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_BIAS,
-                   PARAMETER_CHOICE(Type::INT32, 0, 1, 2, 3)},
+                   PARAMETER_CHOICE(TestOperandType::INT32, 0, 1, 2, 3)},
         .outputs = {OUTPUT_DEFAULT},
-        .constructor = std::bind(fullyConnectedConstructor, _1, _2, HalVersion::V1_0, _3)};
+        .constructor = std::bind(fullyConnectedConstructor, _1, _2, TestHalVersion::V1_0, _3)};
 
 DEFINE_OPERATION_SIGNATURE(signature_FULLY_CONNECTED_V1_2){
-        .opType = ANEURALNETWORKS_FULLY_CONNECTED,
-        .supportedDataTypes = {Type::TENSOR_QUANT8_ASYMM, Type::TENSOR_FLOAT16},
+        .opType = TestOperationType::FULLY_CONNECTED,
+        .supportedDataTypes = {TestOperandType::TENSOR_QUANT8_ASYMM,
+                               TestOperandType::TENSOR_FLOAT16},
         .supportedRanks = {2, 3, 4},
-        .version = HalVersion::V1_2,
+        .version = TestHalVersion::V1_2,
         .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_BIAS,
-                   PARAMETER_CHOICE(Type::INT32, 0, 1, 2, 3)},
+                   PARAMETER_CHOICE(TestOperandType::INT32, 0, 1, 2, 3)},
         .outputs = {OUTPUT_DEFAULT},
-        .constructor = std::bind(fullyConnectedConstructor, _1, _2, HalVersion::V1_2, _3)};
+        .constructor = std::bind(fullyConnectedConstructor, _1, _2, TestHalVersion::V1_2, _3)};
+
+DEFINE_OPERATION_SIGNATURE(signature_FULLY_CONNECTED_V1_3){
+        .opType = TestOperationType::FULLY_CONNECTED,
+        .supportedDataTypes = {TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED},
+        .supportedRanks = {2, 3, 4},
+        .version = TestHalVersion::V1_3,
+        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_BIAS,
+                   PARAMETER_CHOICE(TestOperandType::INT32, 0, 1, 2, 3)},
+        .outputs = {OUTPUT_DEFAULT},
+        .constructor = std::bind(fullyConnectedConstructor, _1, _2, TestHalVersion::V1_3, _3)};
 
 }  // namespace fuzzing_test
 }  // namespace nn

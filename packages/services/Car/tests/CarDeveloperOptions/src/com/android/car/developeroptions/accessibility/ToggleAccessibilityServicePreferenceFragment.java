@@ -38,11 +38,11 @@ import android.view.accessibility.AccessibilityManager;
 
 import androidx.appcompat.app.AlertDialog;
 
-import com.android.internal.widget.LockPatternUtils;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.password.ConfirmDeviceCredentialActivity;
 import com.android.car.developeroptions.widget.ToggleSwitch;
 import com.android.car.developeroptions.widget.ToggleSwitch.OnBeforeCheckedChangeListener;
+import com.android.internal.widget.LockPatternUtils;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 
 import java.util.List;

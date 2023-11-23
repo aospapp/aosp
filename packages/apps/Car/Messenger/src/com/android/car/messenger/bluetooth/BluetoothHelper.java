@@ -20,7 +20,7 @@ public class BluetoothHelper {
     /**
      * Returns a (potentially empty) immutable set of bonded (paired) devices.
      */
-    public static Set<BluetoothDevice> getPairedDevices() {
+    public static Set<BluetoothDevice> getBondedDevices() {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 
         if (adapter != null) {

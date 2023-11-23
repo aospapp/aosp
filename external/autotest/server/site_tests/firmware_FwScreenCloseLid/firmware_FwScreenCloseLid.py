@@ -78,28 +78,30 @@ class firmware_FwScreenCloseLid(FirmwareTest):
         if not self.faft_config.lid_wake_from_power_off:
             power_action = True
 
-        if (self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser'
-          and self.faft_config.fw_bypasser_type != 'tablet_detachable_bypasser'):
+        if self.faft_config.mode_switcher_type not in (
+                'keyboard_dev_switcher', 'tablet_detachable_switcher'):
             raise error.TestNAError("This test is only valid on devices with "
                                     "screens.")
 
-        if self.faft_config.chrome_ec and not self.check_ec_capability(['lid']):
-            raise error.TestNAError("TEST IT MANUALLY! ChromeEC can't control "
-                                    "lid on the device %s" %
-                                    self.faft_config.platform)
+        if self.faft_config.chrome_ec and not self.check_ec_capability(['lid'
+                                                                        ]):
+            raise error.TestNAError(
+                    "TEST IT MANUALLY! ChromeEC can't control "
+                    "lid on the device %s" % self.faft_config.platform)
 
         logging.info("Expected dev mode and reboot. "
                      "When the next DEVELOPER SCREEN shown, close lid "
                      "to make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                          'devsw_boot': '1',
-                          'mainfw_type': 'developer',
-                          }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_fw_screen_and_close_lid,
-                                  pre_power_action=self.servo.lid_open,
-                                  run_power_action=power_action,
-                                  post_power_action=self.switcher.bypass_dev_mode)
+        self.run_shutdown_process(
+                self.wait_fw_screen_and_close_lid,
+                pre_power_action=self.servo.lid_open,
+                run_power_action=power_action,
+                post_power_action=self.switcher.bypass_dev_mode)
         self.switcher.wait_for_client()
 
         logging.info("Reboot. When the developer screen shown, press "
@@ -107,70 +109,74 @@ class firmware_FwScreenCloseLid(FirmwareTest):
                      "RECOVERY INSERT screen (old). Then close lid to "
                      "make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                          'devsw_boot': '1',
-                          'mainfw_type': 'developer',
-                          }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_second_screen_and_close_lid,
-                                  pre_power_action=self.servo.lid_open,
-                                  run_power_action=power_action,
-                                  post_power_action=self.switcher.bypass_dev_mode,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+        self.run_shutdown_process(
+                self.wait_second_screen_and_close_lid,
+                pre_power_action=self.servo.lid_open,
+                run_power_action=power_action,
+                post_power_action=self.switcher.bypass_dev_mode,
+                shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
 
         logging.info("Request recovery boot. When the RECOVERY INSERT "
                      "screen shows, close lid to make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                          'devsw_boot': '1',
-                          'mainfw_type': 'developer',
-                          }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.faft_client.system.request_recovery_boot()
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_longer_fw_screen_and_close_lid,
-                                  pre_power_action=self.servo.lid_open,
-                                  run_power_action=power_action,
-                                  post_power_action=self.switcher.bypass_dev_mode,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+        self.run_shutdown_process(
+                self.wait_longer_fw_screen_and_close_lid,
+                pre_power_action=self.servo.lid_open,
+                run_power_action=power_action,
+                post_power_action=self.switcher.bypass_dev_mode,
+                shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
 
         logging.info("Request recovery boot again. When the recovery "
                      "insert screen shows, insert a corrupted USB and trigger "
                      "a YUCK SCREEN. Then close lid to make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                          'devsw_boot': '1',
-                          'mainfw_type': 'developer',
-                          }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.faft_client.system.request_recovery_boot()
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_yuck_screen_and_close_lid,
-                                  pre_power_action=self.servo.lid_open,
-                                  run_power_action=power_action,
-                                  post_power_action=self.switcher.bypass_dev_mode,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+        self.run_shutdown_process(
+                self.wait_yuck_screen_and_close_lid,
+                pre_power_action=self.servo.lid_open,
+                run_power_action=power_action,
+                post_power_action=self.switcher.bypass_dev_mode,
+                shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
 
         logging.info("Switch back to normal mode.")
         self.check_state((self.checkers.crossystem_checker, {
-                          'devsw_boot': '1',
-                          'mainfw_type': 'developer',
-                          }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.switcher.reboot_to_mode(to_mode='normal')
 
         logging.info("Expected normal mode and request recovery boot. "
                      "Because an USB stick is inserted, a RECOVERY REMOVE "
                      "screen shows. Close lid to make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                          'devsw_boot': '0',
-                          'mainfw_type': 'normal',
-                          }))
+                'devsw_boot': '0',
+                'mainfw_type': 'normal',
+        }))
         self.faft_client.system.request_recovery_boot()
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_longer_fw_screen_and_close_lid,
-                                  pre_power_action=self.servo.lid_open,
-                                  run_power_action=power_action,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+        self.run_shutdown_process(
+                self.wait_longer_fw_screen_and_close_lid,
+                pre_power_action=self.servo.lid_open,
+                run_power_action=power_action,
+                shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
         self.check_state((self.checkers.crossystem_checker, {
-                          'devsw_boot': '0',
-                          'mainfw_type': 'normal',
-                          }))
+                'devsw_boot': '0',
+                'mainfw_type': 'normal',
+        }))

@@ -20,7 +20,6 @@
  *	None
  */
 
-#define _XOPEN_SOURCE 600
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
@@ -30,6 +29,7 @@
 
 #include "tst_test.h"
 #include "lapi/syscalls.h"
+#include "lapi/abisize.h"
 
 char fname[] = "/bin/cat";	/* test executable to open */
 int fd = -1;			/* initialized in open */
@@ -41,7 +41,7 @@ int defined_advise[] = {
 	POSIX_FADV_SEQUENTIAL,
 	POSIX_FADV_RANDOM,
 	POSIX_FADV_WILLNEED,
-#if defined(__s390__) && __WORDSIZE == 32
+#if defined(__s390__) && defined(TST_ABI32)
 	/* POSIX_FADV_DONTNEED and POSIX_FADV_NOREUSE are 6,7 on 31bit s390,
 	 * but the kernel accepts 4,5 as well and rewrites them internally,
 	 * see Linux kernel commit 068e1b94bbd268f375349f68531829c8b7c210bc

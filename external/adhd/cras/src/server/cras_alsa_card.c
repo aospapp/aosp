@@ -77,13 +77,9 @@ struct cras_alsa_card {
  *    other negative error code otherwise.
  */
 struct cras_iodev *create_iodev_for_device(
-		struct cras_alsa_card *alsa_card,
-		struct cras_alsa_card_info *info,
-		const char *card_name,
-		const char *dev_name,
-		const char *dev_id,
-		unsigned device_index,
-		enum CRAS_STREAM_DIRECTION direction)
+	struct cras_alsa_card *alsa_card, struct cras_alsa_card_info *info,
+	const char *card_name, const char *dev_name, const char *dev_id,
+	unsigned device_index, enum CRAS_STREAM_DIRECTION direction)
 {
 	struct iodev_list_node *new_dev;
 	struct iodev_list_node *node;
@@ -91,7 +87,7 @@ struct cras_iodev *create_iodev_for_device(
 
 	/* Find whether this is the first device in this direction, and
 	 * avoid duplicate device indexes. */
-	DL_FOREACH(alsa_card->iodevs, node) {
+	DL_FOREACH (alsa_card->iodevs, node) {
 		if (node->direction != direction)
 			continue;
 		first = 0;
@@ -108,21 +104,11 @@ struct cras_iodev *create_iodev_for_device(
 		return NULL;
 
 	new_dev->direction = direction;
-	new_dev->iodev = alsa_iodev_create(info->card_index,
-					   card_name,
-					   device_index,
-					   dev_name,
-					   dev_id,
-					   info->card_type,
-					   first,
-					   alsa_card->mixer,
-					   alsa_card->config,
-					   alsa_card->ucm,
-					   alsa_card->hctl,
-					   direction,
-					   info->usb_vendor_id,
-					   info->usb_product_id,
-					   info->usb_serial_number);
+	new_dev->iodev = alsa_iodev_create(
+		info->card_index, card_name, device_index, dev_name, dev_id,
+		info->card_type, first, alsa_card->mixer, alsa_card->config,
+		alsa_card->ucm, alsa_card->hctl, direction, info->usb_vendor_id,
+		info->usb_product_id, info->usb_serial_number);
 	if (new_dev->iodev == NULL) {
 		syslog(LOG_ERR, "Couldn't create alsa_iodev for %u:%u\n",
 		       info->card_index, device_index);
@@ -132,8 +118,7 @@ struct cras_iodev *create_iodev_for_device(
 
 	syslog(LOG_DEBUG, "New %s device %u:%d",
 	       direction == CRAS_STREAM_OUTPUT ? "playback" : "capture",
-	       info->card_index,
-	       device_index);
+	       info->card_index, device_index);
 
 	DL_APPEND(alsa_card->iodevs, new_dev);
 	return new_dev->iodev;
@@ -146,7 +131,7 @@ static int card_has_hctl_jack(struct cras_alsa_card *alsa_card)
 	struct iodev_list_node *node;
 
 	/* Find the first device that has an hctl jack. */
-	DL_FOREACH(alsa_card->iodevs, node) {
+	DL_FOREACH (alsa_card->iodevs, node) {
 		if (alsa_iodev_has_hctl_jacks(node->iodev))
 			return 1;
 	}
@@ -161,11 +146,9 @@ static int should_ignore_dev(struct cras_alsa_card_info *info,
 			     size_t device_index)
 {
 	if (info->card_type == ALSA_CARD_TYPE_USB)
-		return cras_device_blacklist_check(blacklist,
-						   info->usb_vendor_id,
-						   info->usb_product_id,
-						   info->usb_desc_checksum,
-						   device_index);
+		return cras_device_blacklist_check(
+			blacklist, info->usb_vendor_id, info->usb_product_id,
+			info->usb_desc_checksum, device_index);
 	return 0;
 }
 
@@ -175,7 +158,7 @@ static struct mixer_name *filter_controls(struct cras_use_case_mgr *ucm,
 					  struct mixer_name *controls)
 {
 	struct mixer_name *control;
-	DL_FOREACH(controls, control) {
+	DL_FOREACH (controls, control) {
 		char *dev = ucm_get_dev_for_mixer(ucm, control->name,
 						  CRAS_STREAM_OUTPUT);
 		if (!dev)
@@ -203,12 +186,11 @@ static void alsa_control_event_pending(void *arg)
 	snd_hctl_handle_events(card->hctl);
 }
 
-static int add_controls_and_iodevs_by_matching(
-		struct cras_alsa_card_info *info,
-		struct cras_device_blacklist *blacklist,
-		struct cras_alsa_card *alsa_card,
-		const char *card_name,
-		snd_ctl_t *handle)
+static int
+add_controls_and_iodevs_by_matching(struct cras_alsa_card_info *info,
+				    struct cras_device_blacklist *blacklist,
+				    struct cras_alsa_card *alsa_card,
+				    const char *card_name, snd_ctl_t *handle)
 {
 	struct mixer_name *coupled_controls = NULL;
 	int dev_idx;
@@ -222,36 +204,32 @@ static int add_controls_and_iodevs_by_matching(
 		char *extra_main_volume;
 
 		/* Filter the extra output mixer names */
-		extra_controls =
-			filter_controls(alsa_card->ucm,
-				mixer_name_add(extra_controls, "IEC958",
-					       CRAS_STREAM_OUTPUT,
-					       MIXER_NAME_VOLUME));
+		extra_controls = filter_controls(
+			alsa_card->ucm,
+			mixer_name_add(extra_controls, "IEC958",
+				       CRAS_STREAM_OUTPUT, MIXER_NAME_VOLUME));
 
 		/* Get the extra main volume control. */
-		extra_main_volume = ucm_get_flag(alsa_card->ucm,
-						 "ExtraMainVolume");
+		extra_main_volume =
+			ucm_get_flag(alsa_card->ucm, "ExtraMainVolume");
 		if (extra_main_volume) {
-			extra_controls =
-				mixer_name_add(extra_controls,
-					       extra_main_volume,
-					       CRAS_STREAM_OUTPUT,
-					       MIXER_NAME_MAIN_VOLUME);
+			extra_controls = mixer_name_add(extra_controls,
+							extra_main_volume,
+							CRAS_STREAM_OUTPUT,
+							MIXER_NAME_MAIN_VOLUME);
 			free(extra_main_volume);
 		}
 		mixer_name_dump(extra_controls, "extra controls");
 
 		/* Check if coupled controls has been specified for speaker. */
-		coupled_controls = ucm_get_coupled_mixer_names(
-					alsa_card->ucm, "Speaker");
+		coupled_controls =
+			ucm_get_coupled_mixer_names(alsa_card->ucm, "Speaker");
 		mixer_name_dump(coupled_controls, "coupled controls");
 	}
 
 	/* Add controls to mixer by name matching. */
 	rc = cras_alsa_mixer_add_controls_by_name_matching(
-			alsa_card->mixer,
-			extra_controls,
-			coupled_controls);
+		alsa_card->mixer, extra_controls, coupled_controls);
 	if (rc) {
 		syslog(LOG_ERR, "Fail adding controls to mixer for %s.",
 		       alsa_card->name);
@@ -271,43 +249,31 @@ static int add_controls_and_iodevs_by_matching(
 		snd_pcm_info_set_subdevice(dev_info, 0);
 
 		/* Check for playback devices. */
-		snd_pcm_info_set_stream(
-			dev_info, SND_PCM_STREAM_PLAYBACK);
+		snd_pcm_info_set_stream(dev_info, SND_PCM_STREAM_PLAYBACK);
 		if (snd_ctl_pcm_info(handle, dev_info) == 0 &&
 		    !should_ignore_dev(info, blacklist, dev_idx)) {
-			struct cras_iodev *iodev =
-				create_iodev_for_device(
-					alsa_card,
-					info,
-					card_name,
-					snd_pcm_info_get_name(dev_info),
-					snd_pcm_info_get_id(dev_info),
-					dev_idx,
-					CRAS_STREAM_OUTPUT);
+			struct cras_iodev *iodev = create_iodev_for_device(
+				alsa_card, info, card_name,
+				snd_pcm_info_get_name(dev_info),
+				snd_pcm_info_get_id(dev_info), dev_idx,
+				CRAS_STREAM_OUTPUT);
 			if (iodev) {
-				rc = alsa_iodev_legacy_complete_init(
-					iodev);
+				rc = alsa_iodev_legacy_complete_init(iodev);
 				if (rc < 0)
 					goto error;
 			}
 		}
 
 		/* Check for capture devices. */
-		snd_pcm_info_set_stream(
-			dev_info, SND_PCM_STREAM_CAPTURE);
+		snd_pcm_info_set_stream(dev_info, SND_PCM_STREAM_CAPTURE);
 		if (snd_ctl_pcm_info(handle, dev_info) == 0) {
-			struct cras_iodev *iodev =
-				create_iodev_for_device(
-					alsa_card,
-					info,
-					card_name,
-					snd_pcm_info_get_name(dev_info),
-					snd_pcm_info_get_id(dev_info),
-					dev_idx,
-					CRAS_STREAM_INPUT);
+			struct cras_iodev *iodev = create_iodev_for_device(
+				alsa_card, info, card_name,
+				snd_pcm_info_get_name(dev_info),
+				snd_pcm_info_get_id(dev_info), dev_idx,
+				CRAS_STREAM_INPUT);
 			if (iodev) {
-				rc = alsa_iodev_legacy_complete_init(
-					iodev);
+				rc = alsa_iodev_legacy_complete_init(iodev);
 				if (rc < 0)
 					goto error;
 			}
@@ -319,13 +285,13 @@ error:
 	return rc;
 }
 
-static int add_controls_and_iodevs_with_ucm(
-		struct cras_alsa_card_info *info,
-		struct cras_alsa_card *alsa_card,
-		const char *card_name,
-		snd_ctl_t *handle)
+static int add_controls_and_iodevs_with_ucm(struct cras_alsa_card_info *info,
+					    struct cras_alsa_card *alsa_card,
+					    const char *card_name,
+					    snd_ctl_t *handle)
 {
 	snd_pcm_info_t *dev_info;
+	struct mixer_name *main_volume_control_names;
 	struct iodev_list_node *node;
 	int rc = 0;
 	struct ucm_section *section;
@@ -333,82 +299,95 @@ static int add_controls_and_iodevs_with_ucm(
 
 	snd_pcm_info_alloca(&dev_info);
 
+	main_volume_control_names = ucm_get_main_volume_names(alsa_card->ucm);
+	if (main_volume_control_names) {
+		rc = cras_alsa_mixer_add_main_volume_control_by_name(
+			alsa_card->mixer, main_volume_control_names);
+		if (rc) {
+			syslog(LOG_ERR,
+			       "Failed adding main volume controls to"
+			       " mixer for '%s'.'",
+			       card_name);
+			goto cleanup_names;
+		}
+	}
+
 	/* Get info on the devices specified in the UCM config. */
 	ucm_sections = ucm_get_sections(alsa_card->ucm);
 	if (!ucm_sections) {
 		syslog(LOG_ERR,
 		       "Could not retrieve any UCM SectionDevice"
-		       " info for '%s'.", card_name);
+		       " info for '%s'.",
+		       card_name);
 		rc = -ENOENT;
-		goto error;
+		goto cleanup_names;
 	}
 
 	/* Create all of the controls first. */
-	DL_FOREACH(ucm_sections, section) {
-		rc = cras_alsa_mixer_add_controls_in_section(
-				alsa_card->mixer, section);
+	DL_FOREACH (ucm_sections, section) {
+		rc = cras_alsa_mixer_add_controls_in_section(alsa_card->mixer,
+							     section);
 		if (rc) {
-			syslog(LOG_ERR, "Failed adding controls to"
-					" mixer for '%s:%s'",
-					card_name,
-					section->name);
-			goto error;
+			syslog(LOG_ERR,
+			       "Failed adding controls to"
+			       " mixer for '%s:%s'",
+			       card_name, section->name);
+			goto cleanup;
 		}
 	}
 
 	/* Create all of the devices. */
-	DL_FOREACH(ucm_sections, section) {
+	DL_FOREACH (ucm_sections, section) {
 		snd_pcm_info_set_device(dev_info, section->dev_idx);
 		snd_pcm_info_set_subdevice(dev_info, 0);
 		if (section->dir == CRAS_STREAM_OUTPUT)
-			snd_pcm_info_set_stream(
-				dev_info, SND_PCM_STREAM_PLAYBACK);
+			snd_pcm_info_set_stream(dev_info,
+						SND_PCM_STREAM_PLAYBACK);
 		else if (section->dir == CRAS_STREAM_INPUT)
-			snd_pcm_info_set_stream(
-				dev_info, SND_PCM_STREAM_CAPTURE);
+			snd_pcm_info_set_stream(dev_info,
+						SND_PCM_STREAM_CAPTURE);
 		else {
 			syslog(LOG_ERR, "Unexpected direction: %d",
 			       section->dir);
 			rc = -EINVAL;
-			goto error;
+			goto cleanup;
 		}
 
 		if (snd_ctl_pcm_info(handle, dev_info)) {
-			syslog(LOG_ERR,
-			       "Could not get info for device: %s",
+			syslog(LOG_ERR, "Could not get info for device: %s",
 			       section->name);
 			continue;
 		}
 
-		create_iodev_for_device(
-			alsa_card, info, card_name,
-			snd_pcm_info_get_name(dev_info),
-			snd_pcm_info_get_id(dev_info),
-			section->dev_idx, section->dir);
+		create_iodev_for_device(alsa_card, info, card_name,
+					snd_pcm_info_get_name(dev_info),
+					snd_pcm_info_get_id(dev_info),
+					section->dev_idx, section->dir);
 	}
 
 	/* Setup jacks and controls for the devices. */
-	DL_FOREACH(ucm_sections, section) {
-		DL_FOREACH(alsa_card->iodevs, node) {
+	DL_FOREACH (ucm_sections, section) {
+		DL_FOREACH (alsa_card->iodevs, node) {
 			if (node->direction == section->dir &&
-			    alsa_iodev_index(node->iodev) ==
-			    section->dev_idx)
+			    alsa_iodev_index(node->iodev) == section->dev_idx)
 				break;
 		}
 		if (node) {
-			rc = alsa_iodev_ucm_add_nodes_and_jacks(
-				node->iodev, section);
+			rc = alsa_iodev_ucm_add_nodes_and_jacks(node->iodev,
+								section);
 			if (rc < 0)
-				goto error;
+				goto cleanup;
 		}
 	}
 
-	DL_FOREACH(alsa_card->iodevs, node) {
+	DL_FOREACH (alsa_card->iodevs, node) {
 		alsa_iodev_ucm_complete_init(node->iodev);
 	}
 
-error:
+cleanup:
 	ucm_section_free_list(ucm_sections);
+cleanup_names:
+	mixer_name_free(main_volume_control_names);
 	return rc;
 }
 
@@ -420,16 +399,15 @@ static void configure_echo_reference_dev(struct cras_alsa_card *alsa_card)
 	if (!alsa_card->ucm)
 		return;
 
-	DL_FOREACH(alsa_card->iodevs, dev_node) {
+	DL_FOREACH (alsa_card->iodevs, dev_node) {
 		if (!dev_node->iodev->nodes)
 			continue;
 
 		echo_ref_name = ucm_get_echo_reference_dev_name_for_dev(
-				alsa_card->ucm,
-				dev_node->iodev->nodes->name);
+			alsa_card->ucm, dev_node->iodev->nodes->name);
 		if (!echo_ref_name)
 			continue;
-		DL_FOREACH(alsa_card->iodevs, echo_ref_node) {
+		DL_FOREACH (alsa_card->iodevs, echo_ref_node) {
 			if (echo_ref_node->iodev->nodes == NULL)
 				continue;
 			if (!strcmp(echo_ref_name,
@@ -438,7 +416,7 @@ static void configure_echo_reference_dev(struct cras_alsa_card *alsa_card)
 		}
 		if (echo_ref_node)
 			dev_node->iodev->echo_reference_dev =
-					echo_ref_node->iodev;
+				echo_ref_node->iodev;
 		else
 			syslog(LOG_ERR,
 			       "Echo ref dev %s doesn't exist on card %s",
@@ -452,10 +430,8 @@ static void configure_echo_reference_dev(struct cras_alsa_card *alsa_card)
  */
 
 struct cras_alsa_card *cras_alsa_card_create(
-		struct cras_alsa_card_info *info,
-		const char *device_config_dir,
-		struct cras_device_blacklist *blacklist,
-		const char *ucm_suffix)
+	struct cras_alsa_card_info *info, const char *device_config_dir,
+	struct cras_device_blacklist *blacklist, const char *ucm_suffix)
 {
 	snd_ctl_t *handle = NULL;
 	int rc, n;
@@ -464,9 +440,7 @@ struct cras_alsa_card *cras_alsa_card_create(
 	struct cras_alsa_card *alsa_card;
 
 	if (info->card_index >= MAX_ALSA_CARDS) {
-		syslog(LOG_ERR,
-		       "Invalid alsa card index %u",
-		       info->card_index);
+		syslog(LOG_ERR, "Invalid alsa card index %u", info->card_index);
 		return NULL;
 	}
 
@@ -477,9 +451,7 @@ struct cras_alsa_card *cras_alsa_card_create(
 		return NULL;
 	alsa_card->card_index = info->card_index;
 
-	snprintf(alsa_card->name,
-		 MAX_ALSA_PCM_NAME_LENGTH,
-		 "hw:%u",
+	snprintf(alsa_card->name, MAX_ALSA_PCM_NAME_LENGTH, "hw:%u",
 		 info->card_index);
 
 	rc = snd_ctl_open(&handle, alsa_card->name, 0);
@@ -501,8 +473,8 @@ struct cras_alsa_card *cras_alsa_card_create(
 	}
 
 	/* Read config file for this card if it exists. */
-	alsa_card->config = cras_card_config_create(device_config_dir,
-						    card_name);
+	alsa_card->config =
+		cras_card_config_create(device_config_dir, card_name);
 	if (alsa_card->config == NULL)
 		syslog(LOG_DEBUG, "No config file for %s", alsa_card->name);
 
@@ -514,36 +486,31 @@ struct cras_alsa_card *cras_alsa_card_create(
 			goto error_bail;
 		}
 		alsa_card->ucm = ucm_create(ucm_name);
-		syslog(LOG_INFO, "Card %s (%s) has UCM: %s",
-		       alsa_card->name, ucm_name,
-		       alsa_card->ucm ? "yes" : "no");
+		syslog(LOG_INFO, "Card %s (%s) has UCM: %s", alsa_card->name,
+		       ucm_name, alsa_card->ucm ? "yes" : "no");
 		free(ucm_name);
 	} else {
 		alsa_card->ucm = ucm_create(card_name);
-		syslog(LOG_INFO, "Card %s (%s) has UCM: %s",
-		       alsa_card->name, card_name,
-		       alsa_card->ucm ? "yes" : "no");
+		syslog(LOG_INFO, "Card %s (%s) has UCM: %s", alsa_card->name,
+		       card_name, alsa_card->ucm ? "yes" : "no");
 	}
 
-	rc = snd_hctl_open(&alsa_card->hctl,
-			   alsa_card->name,
-			   SND_CTL_NONBLOCK);
+	rc = snd_hctl_open(&alsa_card->hctl, alsa_card->name, SND_CTL_NONBLOCK);
 	if (rc < 0) {
-		syslog(LOG_DEBUG,
-		       "failed to get hctl for %s", alsa_card->name);
+		syslog(LOG_DEBUG, "failed to get hctl for %s", alsa_card->name);
 		alsa_card->hctl = NULL;
 	} else {
 		rc = snd_hctl_nonblock(alsa_card->hctl, 1);
 		if (rc < 0) {
-			syslog(LOG_ERR,
-			    "failed to nonblock hctl for %s", alsa_card->name);
+			syslog(LOG_ERR, "failed to nonblock hctl for %s",
+			       alsa_card->name);
 			goto error_bail;
 		}
 
 		rc = snd_hctl_load(alsa_card->hctl);
 		if (rc < 0) {
-			syslog(LOG_ERR,
-			       "failed to load hctl for %s", alsa_card->name);
+			syslog(LOG_ERR, "failed to load hctl for %s",
+			       alsa_card->name);
 			goto error_bail;
 		}
 	}
@@ -557,18 +524,18 @@ struct cras_alsa_card *cras_alsa_card_create(
 	}
 
 	if (alsa_card->ucm && ucm_has_fully_specified_ucm_flag(alsa_card->ucm))
-		rc = add_controls_and_iodevs_with_ucm(
-				info, alsa_card, card_name, handle);
+		rc = add_controls_and_iodevs_with_ucm(info, alsa_card,
+						      card_name, handle);
 	else
 		rc = add_controls_and_iodevs_by_matching(
-				info, blacklist, alsa_card, card_name, handle);
+			info, blacklist, alsa_card, card_name, handle);
 	if (rc)
 		goto error_bail;
 
 	configure_echo_reference_dev(alsa_card);
 
-	n = alsa_card->hctl ?
-		snd_hctl_poll_descriptors_count(alsa_card->hctl) : 0;
+	n = alsa_card->hctl ? snd_hctl_poll_descriptors_count(alsa_card->hctl) :
+			      0;
 	if (n != 0 && card_has_hctl_jack(alsa_card)) {
 		struct hctl_poll_fd *registered_fd;
 		struct pollfd *pollfds;
@@ -591,9 +558,8 @@ struct cras_alsa_card *cras_alsa_card_create(
 			registered_fd->fd = pollfds[i].fd;
 			DL_APPEND(alsa_card->hctl_poll_fds, registered_fd);
 			rc = cras_system_add_select_fd(
-					registered_fd->fd,
-					alsa_control_event_pending,
-					alsa_card);
+				registered_fd->fd, alsa_control_event_pending,
+				alsa_card);
 			if (rc < 0) {
 				DL_DELETE(alsa_card->hctl_poll_fds,
 					  registered_fd);
@@ -622,12 +588,12 @@ void cras_alsa_card_destroy(struct cras_alsa_card *alsa_card)
 	if (alsa_card == NULL)
 		return;
 
-	DL_FOREACH(alsa_card->iodevs, curr) {
+	DL_FOREACH (alsa_card->iodevs, curr) {
 		alsa_iodev_destroy(curr->iodev);
 		DL_DELETE(alsa_card->iodevs, curr);
 		free(curr);
 	}
-	DL_FOREACH(alsa_card->hctl_poll_fds, poll_fd) {
+	DL_FOREACH (alsa_card->hctl_poll_fds, poll_fd) {
 		cras_system_rm_select_fd(poll_fd->fd);
 		DL_DELETE(alsa_card->hctl_poll_fds, poll_fd);
 		free(poll_fd);

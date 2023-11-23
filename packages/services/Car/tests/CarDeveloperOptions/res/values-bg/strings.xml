@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Намаляване или уголемяване на текста на екрана."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Намаляване на размера"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Увеличаване на размера"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Примерен текст"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Вълшебникът от Оз"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"Глава 11: Удивителният изумруден град на Оз"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Защитете таблета си с опция за заключване на екрана, така че никой друг да не може да го използва, ако бъде изгубен или откраднат. Такава опция е нужна и за настройване на удостоверяването с лице. Докоснете „Отказ“, след което задайте ПИН код или изберете друга опция за заключване на екрана."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Защитете устройството си с опция за заключване на екрана, така че никой друг да не може да го използва, ако бъде изгубено или откраднато. Такава опция е нужна и за настройване на удостоверяването с лице. Докоснете „Отказ“, след което задайте ПИН код или изберете друга опция за заключване на екрана."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Защитете телефона си с опция за заключване на екрана, така че никой друг да не може да го използва, ако бъде изгубен или откраднат. Такава опция е нужна и за настройване на удостоверяването с лице. Докоснете „Отказ“, след което задайте ПИН код или изберете друга опция за заключване на екрана."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"Пропускане на настр. на ПИН?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Пропуск. на настр. на парола?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Пропуск. на настр. на фигура?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Заключване на екрана: Настройване"</string>
@@ -669,7 +667,6 @@
       <item quantity="other">Трябва да съдържа по-малко от <xliff:g id="NUMBER_1">%d</xliff:g> цифри</item>
       <item quantity="one">Трябва да съдържа по-малко от <xliff:g id="NUMBER_0">%d</xliff:g> цифра</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Трябва да съдържа само цифри (от 0 до 9)"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Администраторът на у-вото не разрешава ползването на скорошен ПИН"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"Често срещаните ПИН кодове се блокират от системния ви администратор. Опитайте с друг ПИН код."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"Не може да включва невалиден знак"</string>
@@ -700,6 +697,10 @@
       <item quantity="other">Трябва да съдържа поне <xliff:g id="COUNT">%d</xliff:g> небуквени знака</item>
       <item quantity="one">Трябва да съдържа поне 1 небуквен знак</item>
     </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="other">Трябва да съдържа поне <xliff:g id="COUNT">%d</xliff:g> нецифрени знака</item>
+      <item quantity="one">Трябва да съдържа поне 1 нецифрен знак</item>
+    </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Администраторът на у-вото не разрешава ползването на скорошна парола"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Често срещаните пароли се блокират от системния ви администратор. Опитайте с друга парола."</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="3902387296149848324">"Възходящите, низходящите и повтарящите се поредици от цифри не са разрешени"</string>
@@ -728,7 +729,7 @@
     <string name="bluetooth_settings" msgid="5228032727293770389">"Bluetooth"</string>
     <string name="bluetooth_settings_title" msgid="7261244857456521825">"Bluetooth"</string>
     <string name="bluetooth_settings_summary" msgid="1221689092429277887">"Управление на връзки, задаване на име и откриваемост на устройство"</string>
-    <string name="bluetooth_pairing_request" msgid="7221745525632573125">"Искате ли да сдвоите с/ъс „<xliff:g id="DEVICE_NAME">%1$s</xliff:g>“?"</string>
+    <string name="bluetooth_pairing_request" msgid="7221745525632573125">"Искате ли да сдвоите с(ъс) „<xliff:g id="DEVICE_NAME">%1$s</xliff:g>“?"</string>
     <string name="bluetooth_pairing_key_msg" msgid="1139230917419961975">"Код за сдвояване с Bluetooth"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="6205151011298670207">"Въведете кода за сдвояване, след което натиснете „Return“ или „Enter“"</string>
     <string name="bluetooth_enable_alphanumeric_pin" msgid="9138308197078115672">"ПИН кодът съдържа букви или символи"</string>
@@ -819,7 +820,7 @@
     <string name="wifi_ask_disable" msgid="2146839060110412974">"<xliff:g id="REQUESTER">%s</xliff:g> иска да изключи Wi-Fi"</string>
     <string name="art_verifier_for_debuggable_title" msgid="5223835619409464642">"Потвържд. на байткода за прил. с възможн. за отстр. на грешки"</string>
     <string name="art_verifier_for_debuggable_summary" msgid="2204242476996701111">"Разрешаване на ART да потвърждава байткода за приложенията с възможност за отстраняване на грешки"</string>
-    <string name="nfc_quick_toggle_title" msgid="4990697912813795002">"КБП"</string>
+    <string name="nfc_quick_toggle_title" msgid="4990697912813795002">"NFC"</string>
     <string name="nfc_quick_toggle_summary" product="tablet" msgid="983451155092850657">"Разрешаване на обмен на данни, когато таблетът докосва друго устройство"</string>
     <string name="nfc_quick_toggle_summary" product="default" msgid="7141056939052895142">"Разрешаване на обмен на данни, когато телефонът докосва друго устройство"</string>
     <string name="nfc_disclaimer_title" msgid="4860231267351602970">"Включване на КБП"</string>
@@ -934,13 +935,13 @@
     <string name="wifi_privacy_settings" msgid="4462092795794247809">"Поверителност"</string>
     <string name="wifi_privacy_settings_ephemeral_summary" msgid="2411375348287064283">"Рандомизиран MAC адрес"</string>
     <string name="wifi_dpp_add_device_to_network" msgid="8871041525483253430">"Добавяне на устройство"</string>
-    <string name="wifi_dpp_center_qr_code" msgid="3826108361797476758">"За да добавите устройството към „<xliff:g id="SSID">%1$s</xliff:g>“, центрирайте по-долу кода за бърза реакция"</string>
+    <string name="wifi_dpp_center_qr_code" msgid="3826108361797476758">"За да добавите устройството към <xliff:g id="SSID">%1$s</xliff:g>, центрирайте по-долу кода за бърза реакция"</string>
     <string name="wifi_dpp_scan_qr_code" msgid="6021600592661235546">"Сканиране на кода за бърза реакция"</string>
-    <string name="wifi_dpp_scan_qr_code_join_network" msgid="3085162928804379545">"За да се свържете с „<xliff:g id="SSID">%1$s</xliff:g>“, центрирайте по-долу кода за бърза реакция"</string>
+    <string name="wifi_dpp_scan_qr_code_join_network" msgid="3085162928804379545">"За да се свържете към <xliff:g id="SSID">%1$s</xliff:g>, центрирайте по-долу кода за бърза реакция"</string>
     <string name="wifi_dpp_scan_qr_code_join_unknown_network" msgid="5682308317067290738">"Присъединете се към  Wi‑Fi мрежата, като сканирате код за бърза реакция"</string>
     <string name="wifi_dpp_share_wifi" msgid="1724161216219646284">"Споделяне на Wi‑Fi мрежата"</string>
-    <string name="wifi_dpp_scan_qr_code_with_another_device" msgid="4357387474444884759">"Сканирайте този код за бърза реакция, за да се свържете към „<xliff:g id="SSID">%1$s</xliff:g>“ и да споделите паролата"</string>
-    <string name="wifi_dpp_scan_open_network_qr_code_with_another_device" msgid="572011882416511818">"Сканирайте този код за бърза реакция, за да се свържете към „<xliff:g id="SSID">%1$s</xliff:g>“"</string>
+    <string name="wifi_dpp_scan_qr_code_with_another_device" msgid="4357387474444884759">"Сканирайте този код за бърза реакция, за да се свържете към <xliff:g id="SSID">%1$s</xliff:g> и да споделите паролата"</string>
+    <string name="wifi_dpp_scan_open_network_qr_code_with_another_device" msgid="572011882416511818">"Сканирайте този код за бърза реакция, за да се свържете към <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_dpp_could_not_detect_valid_qr_code" msgid="27667719861826438">"Кодът за бърза реакция не можа да бъде прочетен. Центрирайте го отново и опитайте пак"</string>
     <string name="wifi_dpp_failure_authentication_or_configuration" msgid="9142051662156233679">"Опитайте отново. Ако проблемът не се отстрани, свържете се с производителя на устройството."</string>
     <string name="wifi_dpp_failure_not_compatible" msgid="4320027179973678283">"Нещо се обърка"</string>
@@ -950,11 +951,11 @@
     <string name="wifi_dpp_check_connection_try_again" msgid="7144663015219170999">"Проверете връзката и опитайте отново"</string>
     <string name="wifi_dpp_choose_network" msgid="6251424431594491691">"Избиране на мрежа"</string>
     <string name="wifi_dpp_choose_network_to_connect_device" msgid="6385259857886784285">"За да свържете устройството си, изберете мрежа"</string>
-    <string name="wifi_dpp_add_device_to_wifi" msgid="6454198064645462446">"Да се добави ли това устройство към „<xliff:g id="SSID">%1$s</xliff:g>“?"</string>
+    <string name="wifi_dpp_add_device_to_wifi" msgid="6454198064645462446">"Да се добави ли това устройство към <xliff:g id="SSID">%1$s</xliff:g>?"</string>
     <string name="wifi_dpp_wifi_shared_with_device" msgid="5713765471758272471">"Wi-Fi мрежата бе споделена с устройството"</string>
     <string name="wifi_dpp_add_another_device" msgid="3698441567235301565">"Добавяне на друго устройство"</string>
     <string name="wifi_dpp_choose_different_network" msgid="128515107488187050">"Избиране на друга мрежа"</string>
-    <string name="wifi_dpp_could_not_add_device" msgid="4966109556543584813">"Устройството не можа да се добави"</string>
+    <string name="wifi_dpp_could_not_add_device" msgid="4966109556543584813">"Устройството не бе добавено"</string>
     <string name="wifi_dpp_device_found" msgid="6488461467496850841">"Открито е устройство"</string>
     <string name="wifi_dpp_sharing_wifi_with_this_device" msgid="2540529164687476827">"Wi-Fi мрежата се споделя с това устройство…"</string>
     <string name="wifi_dpp_connecting" msgid="4229290407210299897">"Свързва се…"</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"Мобилни данни"</item>
+    <item msgid="6007360612667098926">"Само Wi-Fi"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"Мобилни данни"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"Използване на мобилната мрежа, ако няма достъп до Wi‑Fi"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"Използване на Wi‑Fi, ако мобилната мрежа не е налице"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Обаждане през Wi‑Fi. Ако връзката прекъсне, обаждането ще завърши."</string>
@@ -1202,7 +1209,7 @@
     <string name="adaptive_sleep_summary_on" msgid="6670369739228487082">"Вкл. – Екранът няма да се изключи, ако гледате в него"</string>
     <string name="adaptive_sleep_summary_off" msgid="2891586225954973431">"Изключено"</string>
     <string name="adaptive_sleep_description" msgid="812673735459170009">"Предотвратява изключването на екрана ви, ако гледате в него."</string>
-    <string name="adaptive_sleep_privacy" msgid="5706802215479902623">"Функцията „Адаптивен екран“ използва предната камера, за да види дали някой гледа в екрана. Тя работи на устройството и изображенията не се съхраняват, нито се изпращат до Google."</string>
+    <string name="adaptive_sleep_privacy" msgid="5706802215479902623">"Функцията „Адаптивен екран“ използва предната камера, за да установи дали някой гледа в екрана. Тя работи на устройството и изображенията не се съхраняват, нито се изпращат до Google."</string>
     <string name="night_display_title" msgid="1305002424893349814">"Нощно осветление"</string>
     <string name="night_display_text" msgid="5330502493684652527">"Функцията „Нощно осветление“ придава кехлибареножълт нюанс на екрана. Това подобрява видимостта му и четенето на него при слаба светлина и може да ви помогне да заспите по-лесно."</string>
     <string name="night_display_auto_mode_title" msgid="8493573087102481588">"График"</string>
@@ -1560,7 +1567,7 @@
     <string name="error_adding_apn_type" msgid="671634520340569678">"Операторът не позволява добавянето на имена на точки за достъп (APN) от типа „%s“."</string>
     <string name="restore_default_apn" msgid="7195266404077471007">"Стандартните настройки за името на точката за достъп (APN) се възстановяват."</string>
     <string name="menu_restore" msgid="3799288817317293115">"Възстановяване на стандартни"</string>
-    <string name="restore_default_apn_completed" msgid="5671734152740058937">"Възстановяването на стандартните настройките за името на точката за достъп (APN) завърши."</string>
+    <string name="restore_default_apn_completed" msgid="5671734152740058937">"Възстановяването на стандартните настройки за името на точката за достъп (APN) завърши."</string>
     <string name="reset_dashboard_title" msgid="7084966342252178530">"Опции за нулиране"</string>
     <string name="reset_dashboard_summary" msgid="8778383341461126642">"Мрежата, приложенията или устройството могат да бъдат нулирани"</string>
     <string name="reset_network_title" msgid="8944059136930806211">"Нулиране на настройките за Wi-Fi, мобилни данни и Bluetooth"</string>
@@ -2292,7 +2299,7 @@
     </plurals>
     <plurals name="battery_tip_restrict_summary" formatted="false" msgid="984148373944071669">
       <item quantity="other">%2$d приложения използват батерията интензивно на заден план</item>
-      <item quantity="one">%1$s приложение използва батерията интензивно на заден план</item>
+      <item quantity="one">Приложението %1$s използва батерията интензивно на заден план</item>
     </plurals>
     <plurals name="battery_tip_restrict_handled_summary" formatted="false" msgid="469696766640020557">
       <item quantity="other">Тези приложения не могат да се изпълняват на заден план</item>
@@ -2302,9 +2309,9 @@
       <item quantity="other">Да се ограничат ли %1$d приложения?</item>
       <item quantity="one">Да се ограничи ли приложението?</item>
     </plurals>
-    <string name="battery_tip_restrict_app_dialog_message" msgid="6905822297507947381">"За да не изразходвате батерията, спрете използването й на заден план от <xliff:g id="APP">%1$s</xliff:g>. Това приложение може да не работи правилно и е възможно да има забавяне на известията."</string>
-    <string name="battery_tip_restrict_apps_less_than_5_dialog_message" msgid="4225881888543582456">"За да не изразходвате батерията, спрете използването й на заден план от тези приложения. Ограничените приложения може да не работят правилно и е възможно да има забавяне на известията.\n\nПриложения:"</string>
-    <string name="battery_tip_restrict_apps_more_than_5_dialog_message" msgid="1748375562539446634">"За да не изразходвате батерията, спрете използването й на заден план от тези приложения. Ограничените приложения може да не работят правилно и е възможно да има забавяне на известията.\n\nПриложения:\n<xliff:g id="APP_LIST">%1$s</xliff:g>."</string>
+    <string name="battery_tip_restrict_app_dialog_message" msgid="6905822297507947381">"За да не изразходвате батерията, спрете използването ѝ на заден план от <xliff:g id="APP">%1$s</xliff:g>. Това приложение може да не работи правилно и е възможно да има забавяне на известията."</string>
+    <string name="battery_tip_restrict_apps_less_than_5_dialog_message" msgid="4225881888543582456">"За да не изразходвате батерията, спрете използването ѝ на заден план от тези приложения. Ограничените приложения може да не работят правилно и е възможно да има забавяне на известията.\n\nПриложения:"</string>
+    <string name="battery_tip_restrict_apps_more_than_5_dialog_message" msgid="1748375562539446634">"За да не изразходвате батерията, спрете използването ѝ на заден план от тези приложения. Ограничените приложения може да не работят правилно и е възможно да има забавяне на известията.\n\nПриложения:\n<xliff:g id="APP_LIST">%1$s</xliff:g>."</string>
     <string name="battery_tip_restrict_app_dialog_ok" msgid="2573410775701913487">"Ограничаване"</string>
     <string name="battery_tip_unrestrict_app_dialog_title" msgid="812458516399125710">"Да се премахне ли ограничението?"</string>
     <string name="battery_tip_unrestrict_app_dialog_message" msgid="8120081438825031335">"Това приложение ще може да използва батерията на заден план. Тя може да се изтощи по-рано от очакваното."</string>
@@ -2965,7 +2972,7 @@
     <string name="restriction_wifi_config_summary" msgid="2450206736438594690">"Разрешаване на промяна на настройките за Wi‑Fi и мобилни данни"</string>
     <string name="restriction_bluetooth_config_title" msgid="34551118506640221">"Bluetooth"</string>
     <string name="restriction_bluetooth_config_summary" msgid="5304900222614952895">"Разрешаване на промяна на сдвояванията и настройките на Bluetooth"</string>
-    <string name="restriction_nfc_enable_title" msgid="5146674482590550598">"КБП"</string>
+    <string name="restriction_nfc_enable_title" msgid="5146674482590550598">"NFC"</string>
     <string name="restriction_nfc_enable_summary_config" msgid="405349698260328073">"Разрешаване на обмен на данни, когато <xliff:g id="DEVICE_NAME">%1$s</xliff:g> докосне друго устройство с КБП"</string>
     <string name="restriction_nfc_enable_summary" product="tablet" msgid="3292205836938064931">"Разрешаване на обмен на данни, когато таблетът докосва друго устройство"</string>
     <string name="restriction_nfc_enable_summary" product="default" msgid="226439584043333608">"Разрешаване на обмен на данни, когато телефонът докосва друго устройство"</string>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"Тя ще забави телефона ви"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Налагане на пълно проследяване на измерванията с GNSS"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Проследяване на всички констелации и честоти на GNSS без използване на коефициент на запълване"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Отстраняване на грешки при превключването на потребителя"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Показване на подробна информация по време на превключването на потребителя"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Разрешаване на стартирания на активност на заден план"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Разрешава всички стартирания на активност на заден план"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Диалоговият прозорец за сривове да се показва винаги"</string>

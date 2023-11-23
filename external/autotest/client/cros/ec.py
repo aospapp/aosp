@@ -314,7 +314,8 @@ class EC_USBPD_Port(EC_Common):
         match = re.search(PORT_INFO_RE,
                           self.ec_command("usbpd %s" % (self.index)))
         if not match or int(match.group(1)) != self.index:
-            error.TestError('Unable to determine port %d info' % self.index)
+            raise error.TestError('Unable to determine port %d info' %
+                                  self.index)
 
         pinfo = dict(enabled=None, power_role=None, data_role=None,
                     is_reversed=None, state=None)

@@ -16,7 +16,6 @@
 
 package com.android.internal.telephony.dataconnection;
 
-import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_ADDRESS;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_DNS;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_GATEWAY;
@@ -31,15 +30,18 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.net.InetAddresses;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
-import android.net.NetworkUtils;
 import android.os.AsyncResult;
 import android.os.Handler;
-import android.os.HandlerThread;
+import android.os.Looper;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.data.ApnSetting;
 import android.telephony.data.DataCallResponse;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.testing.AndroidTestingRunner;
+import android.testing.TestableLooper;
 
 import com.android.internal.telephony.DctConstants;
 import com.android.internal.telephony.TelephonyTest;
@@ -50,6 +52,7 @@ import com.android.internal.util.StateMachine;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mock;
 
 import java.lang.reflect.Method;
@@ -57,6 +60,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@RunWith(AndroidTestingRunner.class)
+@TestableLooper.RunWithLooper
 public class DcControllerTest extends TelephonyTest {
 
     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT = 1;
@@ -72,24 +77,6 @@ public class DcControllerTest extends TelephonyTest {
     UpdateLinkPropertyResult mResult;
 
     private DcController mDcc;
-    private DcControllerTestHandler mDcControllerTestHandler;
-
-    private class DcControllerTestHandler extends HandlerThread {
-
-        private DcControllerTestHandler(String name) {
-            super(name);
-        }
-
-        private Handler mHandler;
-
-        @Override
-        public void onLooperPrepared() {
-            mHandler = new Handler();
-            mDcc = DcController.makeDcc(mPhone, mDcTracker, mDataServiceManager, mHandler, "");
-            mDcc.start();
-            setReady(true);
-        }
-    }
 
     private IState getCurrentState() {
         try {
@@ -113,15 +100,17 @@ public class DcControllerTest extends TelephonyTest {
         LinkProperties lp = new LinkProperties();
         mResult = new UpdateLinkPropertyResult(lp);
         doReturn(mResult).when(mDc).updateLinkProperty(any(DataCallResponse.class));
+        doReturn(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .when(mDataServiceManager).getTransportType();
 
-        mDcControllerTestHandler = new DcControllerTestHandler(TAG);
-        mDcControllerTestHandler.start();
-        waitUntilReady();
+        mDcc = DcController.makeDcc(mPhone, mDcTracker, mDataServiceManager,
+                new Handler(Looper.myLooper()), "");
+        mDcc.start();
+        processAllMessages();
     }
 
     @After
     public void tearDown() throws Exception {
-        mDcControllerTestHandler.quit();
         super.tearDown();
     }
 
@@ -129,22 +118,30 @@ public class DcControllerTest extends TelephonyTest {
     @SmallTest
     public void testDataDormant() throws Exception {
         assertEquals("DccDefaultState", getCurrentState().getName());
-        ArrayList<DataCallResponse> l = new ArrayList<DataCallResponse>();
-        DataCallResponse dcResponse = new DataCallResponse(0, -1, 1,
-                DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT, ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
-
+        ArrayList<DataCallResponse> l = new ArrayList<>();
+        DataCallResponse dcResponse = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(-1)
+                .setId(1)
+                .setLinkStatus(DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         l.add(dcResponse);
 
         mDc.mCid = 1;
         mDcc.addActiveDcByCid(mDc);
 
         mDcc.sendMessage(EVENT_DATA_STATE_CHANGED, new AsyncResult(null, l, null));
-        waitForMs(100);
+        processAllMessages();
 
         verify(mDcTracker, times(1)).sendStopNetStatPoll(eq(DctConstants.Activity.DORMANT));
     }

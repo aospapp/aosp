@@ -10,6 +10,7 @@
 #include "core/fxge/android/cfpf_skiafont.h"
 #include "core/fxge/android/cfpf_skiafontmgr.h"
 #include "core/fxge/cfx_fontmapper.h"
+#include "core/fxge/fx_font.h"
 
 CFX_AndroidFontInfo::CFX_AndroidFontInfo() : m_pFontMgr(nullptr) {}
 CFX_AndroidFontInfo::~CFX_AndroidFontInfo() {}
@@ -36,7 +37,7 @@ void* CFX_AndroidFontInfo::MapFont(int weight,
 
   uint32_t dwStyle = 0;
   if (weight >= 700)
-    dwStyle |= FXFONT_BOLD;
+    dwStyle |= FXFONT_FORCE_BOLD;
   if (bItalic)
     dwStyle |= FXFONT_ITALIC;
   if (FontFamilyIsFixedPitch(pitch_family))
@@ -45,8 +46,7 @@ void* CFX_AndroidFontInfo::MapFont(int weight,
     dwStyle |= FXFONT_SCRIPT;
   if (FontFamilyIsRoman(pitch_family))
     dwStyle |= FXFONT_SERIF;
-  return m_pFontMgr->CreateFont(face, charset, dwStyle,
-                                FPF_MATCHFONT_REPLACEANSI);
+  return m_pFontMgr->CreateFont(face, charset, dwStyle);
 }
 
 void* CFX_AndroidFontInfo::GetFont(const char* face) {
@@ -55,11 +55,10 @@ void* CFX_AndroidFontInfo::GetFont(const char* face) {
 
 uint32_t CFX_AndroidFontInfo::GetFontData(void* hFont,
                                           uint32_t table,
-                                          uint8_t* buffer,
-                                          uint32_t size) {
+                                          pdfium::span<uint8_t> buffer) {
   if (!hFont)
     return 0;
-  return static_cast<CFPF_SkiaFont*>(hFont)->GetFontData(table, buffer, size);
+  return static_cast<CFPF_SkiaFont*>(hFont)->GetFontData(table, buffer);
 }
 
 bool CFX_AndroidFontInfo::GetFaceName(void* hFont, ByteString* name) {
@@ -78,9 +77,4 @@ bool CFX_AndroidFontInfo::GetFontCharset(void* hFont, int* charset) {
   return false;
 }
 
-void CFX_AndroidFontInfo::DeleteFont(void* hFont) {
-  if (!hFont)
-    return;
-
-  static_cast<CFPF_SkiaFont*>(hFont)->Release();
-}
+void CFX_AndroidFontInfo::DeleteFont(void* hFont) {}

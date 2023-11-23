@@ -36,6 +36,7 @@ import java.io.IOException;
  */
 public class Sl4aClientTest {
 
+    private static final String DEVICE_SERIAL = "54321";
     private Sl4aClient mClient = null;
     private FakeSocketServerHelper mDeviceServer;
     private ITestDevice mMockDevice;
@@ -125,6 +126,7 @@ public class Sl4aClientTest {
      */
     private void setupStartExpectation() throws DeviceNotAvailableException {
         final String cmd = String.format(Sl4aClient.SL4A_LAUNCH_CMD, mDeviceServer.getPort());
+        EasyMock.expect(mMockDevice.getSerialNumber()).andStubReturn(DEVICE_SERIAL);
         EasyMock.expect(mMockDevice.executeShellCommand(cmd))
                 .andReturn("");
         EasyMock.expect(mMockDevice.executeShellCommand(Sl4aClient.IS_SL4A_RUNNING_CMD))

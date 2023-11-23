@@ -19,12 +19,13 @@ package android.appsecurity.cts.v3rotationtests;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
-import android.util.Log;
 import android.test.AndroidTestCase;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.lang.Override;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * On-device tests for APK Signature Scheme v3 based signing certificate rotation
@@ -83,6 +84,38 @@ public class V3RotationTest extends AndroidTestCase {
             + "a477acbe6eecc8d575511b2b77a3551f040ccf21792f74cd95c84e3ff87ad03851db81d164c836830e31"
             + "8208a52dcdc77e376f73b96d";
 
+    // These are the hex encodings of the der form of the pkgsigverify/ec-p256[_2] certs used to
+    // sign APKs that are part of this test.
+    private static final String EC_P256_FIRST_CERT_HEX =
+            "3082016c30820111a003020102020900ca0fb64dfb66e772300a06082a86"
+                    + "48ce3d04030230123110300e06035504030c0765632d70323536301e170d"
+                    + "3136303333313134353830365a170d3433303831373134353830365a3012"
+                    + "3110300e06035504030c0765632d703235363059301306072a8648ce3d02"
+                    + "0106082a8648ce3d03010703420004a65f113d22cb4913908307ac31ee2b"
+                    + "a0e9138b785fac6536d14ea2ce90d2b4bfe194b50cdc8e169f54a73a991e"
+                    + "f0fa76329825be078cc782740703da44b4d7eba350304e301d0603551d0e"
+                    + "04160414d4133568b95b30158b322071ea8c43ff5b05ccc8301f0603551d"
+                    + "23041830168014d4133568b95b30158b322071ea8c43ff5b05ccc8300c06"
+                    + "03551d13040530030101ff300a06082a8648ce3d04030203490030460221"
+                    + "00f504a0866caef029f417142c5cb71354c79ffcd1d640618dfca4f19e16"
+                    + "db78d6022100f8eea4829799c06cad08c6d3d2d2ec05e0574154e747ea0f"
+                    + "dbb8042cb655aadd";
+
+    private static final String EC_P256_SECOND_CERT_HEX =
+            "3082016d30820113a0030201020209008855bd1dd2b2b225300a06082a86"
+                    + "48ce3d04030230123110300e06035504030c0765632d70323536301e170d"
+                    + "3138303731333137343135315a170d3238303731303137343135315a3014"
+                    + "3112301006035504030c0965632d703235365f323059301306072a8648ce"
+                    + "3d020106082a8648ce3d030107034200041d4cca0472ad97ee3cecef0da9"
+                    + "3d62b450c6788333b36e7553cde9f74ab5df00bbba6ba950e68461d70bbc"
+                    + "271b62151dad2de2bf6203cd2076801c7a9d4422e1a350304e301d060355"
+                    + "1d0e041604147991d92b0208fc448bf506d4efc9fff428cb5e5f301f0603"
+                    + "551d23041830168014d4133568b95b30158b322071ea8c43ff5b05ccc830"
+                    + "0c0603551d13040530030101ff300a06082a8648ce3d0403020348003045"
+                    + "02202769abb1b49fc2f53479c4ae92a6631dabfd522c9acb0bba2b43ebeb"
+                    + "99c63011022100d260fb1d1f176cf9b7fa60098bfd24319f4905a3e5fda1"
+                    + "00a6fe1a2ab19ff09e";
+
     public void testHasPerm() throws Exception {
         PackageManager pm = getContext().getPackageManager();
         assertTrue(PERMISSION_NAME + " not granted to " + COMPANION_PKG,
@@ -139,6 +172,31 @@ public class V3RotationTest extends AndroidTestCase {
                 + FIRST_CERT_HEX, matchedFirst);
         assertTrue("Current signing certificate not found for " + PKG + " expected "
                 + SECOND_CERT_HEX, matchedSecond);
+    }
+
+    public void testGetApkContentsSignersShowsCurrent() throws Exception {
+        // The SigningInfo instance returned from GET_SIGNING_CERTIFICATES provides an option to
+        // obtain only the current signer through getApkContentsSigners.
+        PackageManager pm = getContext().getPackageManager();
+        PackageInfo pi = pm.getPackageInfo(PKG, PackageManager.GET_SIGNING_CERTIFICATES);
+        assertNotNull("Failed to get signatures in Package Info of " + PKG, pi.signingInfo);
+        assertFalse("Multiple signing certificates found in signing certificate history for " + PKG,
+                pi.signingInfo.hasMultipleSigners());
+        assertExpectedSignatures(pi.signingInfo.getApkContentsSigners(), EC_P256_SECOND_CERT_HEX);
+    }
+
+    public void testGetApkContentsSignersShowsMultipleSigners() throws Exception {
+        // Similar to the test above when GET_SIGNING_CERTIFICATES is used to obtain the signers
+        // getApkContentSigners should return all of the current signatures when there are multiple
+        // V1 / V2 signers.
+        PackageManager pm = getContext().getPackageManager();
+        PackageInfo pi = pm.getPackageInfo(PKG, PackageManager.GET_SIGNING_CERTIFICATES);
+        assertNotNull("Failed to get signatures in PackageInfo of " + PKG,
+                pi.signingInfo);
+        assertTrue("Multiple signing certificates should have been reported for " + PKG,
+                pi.signingInfo.hasMultipleSigners());
+        assertExpectedSignatures(pi.signingInfo.getApkContentsSigners(), EC_P256_FIRST_CERT_HEX,
+                EC_P256_SECOND_CERT_HEX);
     }
 
     public void testHasSigningCertificate() throws Exception {
@@ -225,5 +283,21 @@ public class V3RotationTest extends AndroidTestCase {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA256");
         messageDigest.update(data);
         return messageDigest.digest();
+    }
+
+    private static void assertExpectedSignatures(Signature[] signatures,
+            String... expectedSignatures) throws Exception {
+        int numSigners = signatures.length;
+        assertEquals("An unexpected number of signatures was returned, expected "
+                        + expectedSignatures.length + ", but received " + signatures.length,
+                expectedSignatures.length, numSigners);
+        Set<String> expectedSignatureSet = new HashSet<>(Arrays.asList(expectedSignatures));
+        for (int i = 0; i < numSigners; i++) {
+            String reportedCert = signatures[i].toCharsString();
+            // Remove the reported certificate from the set to ensure duplicates are not matched.
+            if (!expectedSignatureSet.remove(reportedCert)) {
+                fail("Received an unexpected signature during the test: " + reportedCert);
+            }
+        }
     }
 }

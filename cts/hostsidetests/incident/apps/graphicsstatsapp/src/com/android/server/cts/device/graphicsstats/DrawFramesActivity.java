@@ -123,6 +123,7 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
     }
 
     private void scheduleDraw() {
+        mColorView.invalidate();
         mChoreographer.postFrameCallback((long timestamp) -> {
             setupFrame();
             jankIf(FRAME_JANK_ANIMATION);
@@ -141,10 +142,6 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
             mFramesFinishedFence = null;
             mFramesToDraw = null;
         }
-    }
-
-    public void drawFrames(final int frameCount) throws InterruptedException, TimeoutException {
-        drawFrames(new int[frameCount]);
     }
 
     public void waitForReady() throws InterruptedException, TimeoutException {

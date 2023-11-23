@@ -16,6 +16,7 @@
 
 package libcore.java.text;
 
+import dalvik.system.VMRuntime;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -248,11 +249,29 @@ public class DecimalFormatTest extends junit.framework.TestCase {
       } catch (NullPointerException expected) {
       }
 
-      // These just ignore null.
-      df.setNegativePrefix(null);
-      df.setNegativeSuffix(null);
-      df.setPositivePrefix(null);
-      df.setPositiveSuffix(null);
+      try {
+        df.setNegativePrefix(null);
+        fail();
+      } catch (NullPointerException expected) {
+      }
+
+      try {
+        df.setNegativeSuffix(null);
+        fail();
+      } catch (NullPointerException expected) {
+      }
+
+      try {
+        df.setPositivePrefix(null);
+        fail();
+      } catch (NullPointerException expected) {
+      }
+
+      try {
+        df.setPositiveSuffix(null);
+        fail();
+      } catch (NullPointerException expected) {
+      }
 
       try {
         df.setRoundingMode(null);
@@ -582,7 +601,7 @@ public class DecimalFormatTest extends junit.framework.TestCase {
             // toLocalizedPattern() returns no pattern separator when input pattern has no prefix.
             // Add prefixes 'AAA'/'BBB' to force pattern separator in output pattern.
             df.applyLocalizedPattern("'AAA'+0;'BBB'-0");
-            assertEquals("'AAA'+#0;'BBB'-#0", df.toLocalizedPattern());
+            assertEquals("'AAA'+0;'BBB'-0", df.toLocalizedPattern());
             assertEquals("BBB-123", df.format(-123));
         }
         // Test a locale using non-ascii-semi-colon pattern separator.
@@ -591,7 +610,7 @@ public class DecimalFormatTest extends junit.framework.TestCase {
                 Locale.forLanguageTag("ar-EG"));
             assertEquals('\u061b', df.getDecimalFormatSymbols().getPatternSeparator());
             df.applyLocalizedPattern("'AAA'+\u0660\u061b'BBB'-\u0660");
-            assertEquals("'AAA'+#\u0660\u061b'BBB'-#\u0660", df.toLocalizedPattern());
+            assertEquals("'AAA'+\u0660\u061b'BBB'-\u0660", df.toLocalizedPattern());
             assertEquals("BBB-\u0661\u0662\u0663", df.format(-123));
         }
     }
@@ -635,8 +654,6 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         assertParsed("0; 0", " 1 ", -1, 2);
         // Leading space in prefix is accepted.
         assertParsed(" 0", " 1 ", 1, 2);
-        // Extra space after prefix with space is accepted.
-        assertParsed(" 0", "  1 ", 1, 3);
     }
 
     // http://b/68143370
@@ -653,6 +670,71 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         assertParseError("0", " 1");
         // Space in prefix is expected to be present.
         assertParseError(" 0", "1");
+        // Extra space after prefix with space is not tolerated.
+        assertParseError(" 0", "  1 ");
+    }
+
+    // Test that Bidi control character is not tolerated
+    public void testParseBidi() {
+        assertParseError("0", "\u200e1");
+        assertParsed("0", "1\u200e", 1, 1);
+        assertParseError("0%", "\u200e1%");
+    }
+
+    public void testParseGroupingSeparator() {
+        // Test that grouping separator is optional when the group separator is specified
+        assertParsedAndConsumedAll("#,##0", "9,999", 9999);
+        assertParsedAndConsumedAll("#,##0", "9999", 9999);
+        assertParsedAndConsumedAll("#,###0", "9,9999", 99999);
+
+        // Test that grouping size doesn't affect parsing at all
+        assertParsedAndConsumedAll("#,##0", "9,9999", 99999);
+        assertParsedAndConsumedAll("#,###0", "99,999", 99999);
+
+        assertParsedAndConsumedAll("###0", "9999", 9999);
+        assertParsedAndConsumedAll("###0", "99999", 99999);
+
+        // Test that grouping separator must not be present when the group separator is NOT specified
+        // Only the 1st character in front of separator , should be consumed.
+        assertParsed("###0", "9,9999", 9, 1);
+        assertParsed("###0", "9,999", 9, 1);
+    }
+
+    public void testParseScienificNotation() {
+        assertParsedAndConsumedAll("0.###E0", "1E-3", 0.001);
+        assertParsedAndConsumedAll("0.###E0", "1E0", 1);
+        assertParsedAndConsumedAll("0.###E0", "1E3", 1000);
+        assertParsedAndConsumedAll("0.###E0", "1.111E3", 1111);
+        assertParsedAndConsumedAll("0.###E0", "1.1E3", 1100);
+
+        // "0.###E0" is engineering notation, i.e. the exponent should be a multiple of 3
+        // for formatting. But it shouldn't affect parsing.
+        assertParsedAndConsumedAll("0.###E0", "1E1", 10);
+
+        // Test that exponent is not required for parsing
+        assertParsedAndConsumedAll("0.###E0", "1.1", 1.1);
+        assertParsedAndConsumedAll("0.###E0", "1100", 1100);
+
+        // Test that the max of fraction, integer or signficant digits don't affect parsing
+        // Note that the max of signficant digits is 4 = min integer digits (1)
+        //   + max fraction digits (3)
+        assertParsedAndConsumedAll("0.###E0", "1111.4E3", 1111400);
+        assertParsedAndConsumedAll("0.###E0", "1111.9999E3", 1111999.9);
+    }
+
+    /*
+     * ISO currency code parsing is case insensitive. http://b/112469513
+     */
+    public void testParseCurrencyIsoCode() {
+        assertParsedAndConsumedAll("¤¤0", "USD10", 10);
+        assertParsedAndConsumedAll("¤¤0", "usd10", 10);
+        assertParsedAndConsumedAll("¤¤0", "Usd10", 10);
+        assertParsedAndConsumedAll("¤¤0", "Usd10", 10);
+
+        // DecimalFormat.parse is only required to parse the local currency for the Locale
+        // associated with the DecimalFormat. assertParseError() uses Locale.US so it is expected to
+        // fail to parse valid ISO codes except for USD.
+        assertParseError("¤¤0", "GBP10");
     }
 
     // Test that getMaximumIntegerDigits should return value >= 309 by default, even though a
@@ -691,6 +773,13 @@ public class DecimalFormatTest extends junit.framework.TestCase {
             fail(String.format("Parsed <%s> using <%s>, should have failed: %s",
                     input, pattern, describeParseResult(result, pos)));
         }
+    }
+
+    /**
+     * Assert the expected number and the whole input string is consumed and parsed successfully.
+     */
+    private static void assertParsedAndConsumedAll(String pattern, String input, Number expected) {
+        assertParsed(pattern, input, expected, input.length());
     }
 
     private static void assertParsed(String pattern, String input, Number expected,

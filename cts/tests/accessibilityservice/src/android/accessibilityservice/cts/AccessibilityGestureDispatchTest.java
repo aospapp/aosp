@@ -14,17 +14,28 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibility.cts.common.InstrumentedAccessibilityService.enableService;
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityAndWaitForItToBeOnscreen;
 import static android.accessibilityservice.cts.utils.AsyncUtils.await;
 import static android.accessibilityservice.cts.utils.AsyncUtils.awaitCancellation;
-import static android.accessibilityservice.cts.utils.CtsTestUtils.runIfNotNull;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_CANCEL;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_DOWN;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_MOVE;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_POINTER_DOWN;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_POINTER_UP;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_UP;
 import static android.accessibilityservice.cts.utils.GestureUtils.add;
 import static android.accessibilityservice.cts.utils.GestureUtils.ceil;
 import static android.accessibilityservice.cts.utils.GestureUtils.click;
 import static android.accessibilityservice.cts.utils.GestureUtils.diff;
 import static android.accessibilityservice.cts.utils.GestureUtils.dispatchGesture;
+import static android.accessibilityservice.cts.utils.GestureUtils.isAtPoint;
 import static android.accessibilityservice.cts.utils.GestureUtils.longClick;
 import static android.accessibilityservice.cts.utils.GestureUtils.path;
 import static android.accessibilityservice.cts.utils.GestureUtils.times;
+import static android.view.KeyCharacterMap.VIRTUAL_KEYBOARD;
+
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.any;
@@ -32,13 +43,18 @@ import static org.hamcrest.CoreMatchers.both;
 import static org.hamcrest.CoreMatchers.everyItem;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
+import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
 import android.accessibilityservice.cts.activities.AccessibilityTestActivity;
+import android.app.Instrumentation;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Matrix;
@@ -47,7 +63,6 @@ import android.graphics.PointF;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.Display;
 import android.view.MotionEvent;
@@ -56,9 +71,15 @@ import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.widget.TextView;
 
-import org.hamcrest.Description;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.hamcrest.Matcher;
-import org.hamcrest.TypeSafeMatcher;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.RuleChain;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,26 +89,28 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Verify that gestures dispatched from an accessibility service show up in the current UI
  */
 @AppModeFull
-public class AccessibilityGestureDispatchTest extends
-        ActivityInstrumentationTestCase2<AccessibilityGestureDispatchTest.GestureDispatchActivity> {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityGestureDispatchTest {
     private static final String TAG = AccessibilityGestureDispatchTest.class.getSimpleName();
 
     private static final int GESTURE_COMPLETION_TIMEOUT = 5000; // millis
     private static final int MOTION_EVENT_TIMEOUT = 1000; // millis
 
-    private static final Matcher<MotionEvent> IS_ACTION_DOWN =
-            new MotionEventActionMatcher(MotionEvent.ACTION_DOWN);
-    private static final Matcher<MotionEvent> IS_ACTION_POINTER_DOWN =
-            new MotionEventActionMatcher(MotionEvent.ACTION_POINTER_DOWN);
-    private static final Matcher<MotionEvent> IS_ACTION_UP =
-            new MotionEventActionMatcher(MotionEvent.ACTION_UP);
-    private static final Matcher<MotionEvent> IS_ACTION_POINTER_UP =
-            new MotionEventActionMatcher(MotionEvent.ACTION_POINTER_UP);
-    private static final Matcher<MotionEvent> IS_ACTION_CANCEL =
-            new MotionEventActionMatcher(MotionEvent.ACTION_CANCEL);
-    private static final Matcher<MotionEvent> IS_ACTION_MOVE =
-            new MotionEventActionMatcher(MotionEvent.ACTION_MOVE);
+    private ActivityTestRule<GestureDispatchActivity> mActivityRule =
+            new ActivityTestRule<>(GestureDispatchActivity.class, false, false);
 
+    private InstrumentedAccessibilityServiceTestRule<StubGestureAccessibilityService> mServiceRule =
+            new InstrumentedAccessibilityServiceTestRule<>(
+                    StubGestureAccessibilityService.class, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            .around(mServiceRule)
+            .around(mDumpOnFailureRule);
 
     final List<MotionEvent> mMotionEvents = new ArrayList<>();
     StubGestureAccessibilityService mService;
@@ -100,27 +123,25 @@ public class AccessibilityGestureDispatchTest extends
     boolean mHasTouchScreen;
     boolean mHasMultiTouch;
 
-    public AccessibilityGestureDispatchTest() {
-        super(GestureDispatchActivity.class);
-    }
+    private GestureDispatchActivity mActivity;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
-        PackageManager pm = getInstrumentation().getContext().getPackageManager();
+        Instrumentation instrumentation = getInstrumentation();
+        PackageManager pm = instrumentation.getContext().getPackageManager();
         mHasTouchScreen = pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
                 || pm.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH);
         if (!mHasTouchScreen) {
             return;
         }
 
-        getActivity().waitForEnterAnimationComplete();
+        mActivity = launchActivityAndWaitForItToBeOnscreen(instrumentation,
+                instrumentation.getUiAutomation(), mActivityRule);
 
         mHasMultiTouch = pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN_MULTITOUCH)
                 || pm.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH_MULTITOUCH_DISTINCT);
 
-        mFullScreenTextView =
-                (TextView) getActivity().findViewById(R.id.full_screen_text_view);
+        mFullScreenTextView = mActivity.findViewById(R.id.full_screen_text_view);
         getInstrumentation().runOnMainSync(() -> {
             final int midX = mFullScreenTextView.getWidth() / 2;
             final int midY = mFullScreenTextView.getHeight() / 2;
@@ -129,22 +150,13 @@ public class AccessibilityGestureDispatchTest extends
             mStartPoint.set(mViewLocation[0] + midX, mViewLocation[1] + midY);
         });
 
-        mService = StubGestureAccessibilityService.enableSelf(getInstrumentation());
+        mService = mServiceRule.enableService();
 
         mMotionEvents.clear();
         mGotUpEvent = false;
     }
 
-    @Override
-    public void tearDown() throws Exception {
-        if (!mHasTouchScreen) {
-            return;
-        }
-
-        runIfNotNull(mService, service -> service.runOnServiceSync(service::disableSelf));
-        super.tearDown();
-    }
-
+    @Test
     public void testClickAt_producesDownThenUp() throws InterruptedException {
         if (!mHasTouchScreen) {
             return;
@@ -162,12 +174,12 @@ public class AccessibilityGestureDispatchTest extends
 
         // Verify other MotionEvent fields in this test to make sure they get initialized.
         assertEquals(0, clickDown.getActionIndex());
-        assertEquals(0, clickDown.getDeviceId());
+        assertEquals(VIRTUAL_KEYBOARD, clickDown.getDeviceId());
         assertEquals(0, clickDown.getEdgeFlags());
-        assertEquals(1F, clickDown.getXPrecision());
-        assertEquals(1F, clickDown.getYPrecision());
+        assertEquals(1F, clickDown.getXPrecision(), 0F);
+        assertEquals(1F, clickDown.getYPrecision(), 0F);
         assertEquals(1, clickDown.getPointerCount());
-        assertEquals(1F, clickDown.getPressure());
+        assertEquals(1F, clickDown.getPressure(), 0F);
 
         // Verify timing matches click
         assertEquals(clickDown.getDownTime(), clickDown.getEventTime());
@@ -178,6 +190,7 @@ public class AccessibilityGestureDispatchTest extends
                 > clickUp.getEventTime());
     }
 
+    @Test
     public void testLongClickAt_producesEventsWithLongClickTiming() throws InterruptedException {
         if (!mHasTouchScreen) {
             return;
@@ -198,11 +211,13 @@ public class AccessibilityGestureDispatchTest extends
         assertEquals(clickDown.getDownTime(), clickUp.getDownTime());
     }
 
+    @Test
     public void testSwipe_shouldContainPointsInALine() throws InterruptedException {
         if (!mHasTouchScreen) {
             return;
         }
 
+        float pointTolerance = 1f;
         PointF startPoint = new PointF(mStartPoint.x, mStartPoint.y);
         PointF endPoint = new PointF(mStartPoint.x + 10, mStartPoint.y + 20);
         int gestureTime = 500;
@@ -215,8 +230,9 @@ public class AccessibilityGestureDispatchTest extends
 
         MotionEvent downEvent = mMotionEvents.get(0);
         MotionEvent upEvent = mMotionEvents.get(numEvents - 1);
-        assertThat(downEvent, both(IS_ACTION_DOWN).and(isAtPoint(startPoint)));
-        assertThat(upEvent, both(IS_ACTION_UP).and(isAtPoint(endPoint)));
+        assertThat(downEvent, both(IS_ACTION_DOWN).and(isAtPoint(startPoint,
+                    pointTolerance)));
+        assertThat(upEvent, both(IS_ACTION_UP).and(isAtPoint(endPoint, pointTolerance)));
         assertEquals(gestureTime, upEvent.getEventTime() - downEvent.getEventTime());
 
         long lastEventTime = downEvent.getEventTime();
@@ -226,8 +242,9 @@ public class AccessibilityGestureDispatchTest extends
             float fractionOfSwipe =
                     ((float) (moveEvent.getEventTime() - downEvent.getEventTime())) / gestureTime;
             PointF intermediatePoint = add(startPoint,
-                    ceil(times(fractionOfSwipe, diff(endPoint, startPoint))));
-            assertThat(moveEvent, both(IS_ACTION_MOVE).and(isAtPoint(intermediatePoint)));
+                    times(fractionOfSwipe, diff(endPoint, startPoint)));
+            assertThat(moveEvent, both(IS_ACTION_MOVE).and(
+                isAtPoint(intermediatePoint, pointTolerance)));
             lastEventTime = moveEvent.getEventTime();
         }
     }
@@ -236,6 +253,7 @@ public class AccessibilityGestureDispatchTest extends
         await(dispatchGesture(mService, gesture), timeoutMs, MILLISECONDS);
     }
 
+    @Test
     public void testSlowSwipe_shouldNotContainMovesForTinyMovement() throws InterruptedException {
         if (!mHasTouchScreen) {
             return;
@@ -260,6 +278,7 @@ public class AccessibilityGestureDispatchTest extends
         assertThat(mMotionEvents.get(4), both(IS_ACTION_UP).and(isAtPoint(endPoint)));
     }
 
+    @Test
     public void testAngledPinch_looksReasonable() throws InterruptedException {
         if (!(mHasTouchScreen && mHasMultiTouch)) {
             return;
@@ -309,6 +328,7 @@ public class AccessibilityGestureDispatchTest extends
 
     // This test assumes device's screen contains its center (W/2, H/2) with some surroundings
     // and should work for rectangular, round and round with chin screens.
+    @Test
     public void testClickWhenMagnified_matchesActualTouch() throws InterruptedException {
         final float POINT_TOL = 2.0f;
         final float CLICK_OFFSET_X = 10;
@@ -318,7 +338,7 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        int displayId = getActivity().getWindow().getDecorView().getDisplay().getDisplayId();
+        int displayId = mActivity.getWindow().getDecorView().getDisplay().getDisplayId();
         if (displayId != Display.DEFAULT_DISPLAY) {
             Log.i(TAG, "Magnification is not supported on virtual displays.");
             return;
@@ -327,7 +347,7 @@ public class AccessibilityGestureDispatchTest extends
         final WindowManager wm = (WindowManager) getInstrumentation().getContext().getSystemService(
                 Context.WINDOW_SERVICE);
         final StubMagnificationAccessibilityService magnificationService =
-                StubMagnificationAccessibilityService.enableSelf(getInstrumentation());
+                enableService(StubMagnificationAccessibilityService.class);
         final AccessibilityService.MagnificationController
                 magnificationController = magnificationService.getMagnificationController();
 
@@ -392,6 +412,7 @@ public class AccessibilityGestureDispatchTest extends
                 both(IS_ACTION_UP).and(isAtPoint(magRegionOffsetPoint, POINT_TOL)));
     }
 
+    @Test
     public void testContinuedGestures_motionEventsContinue() throws Exception {
         if (!mHasTouchScreen) {
             return;
@@ -426,6 +447,7 @@ public class AccessibilityGestureDispatchTest extends
                 allOf(IS_ACTION_UP, isAtPoint(end)));
     }
 
+    @Test
     public void testContinuedGesture_withLineDisconnect_isCancelled() throws Exception {
         if (!mHasTouchScreen) {
             return;
@@ -454,6 +476,7 @@ public class AccessibilityGestureDispatchTest extends
         assertEquals(1, mMotionEvents.size());
     }
 
+    @Test
     public void testContinuedGesture_nextGestureDoesntContinue_isCancelled() throws Exception {
         if (!mHasTouchScreen) {
             return;
@@ -486,6 +509,7 @@ public class AccessibilityGestureDispatchTest extends
                 both(IS_ACTION_UP).and(isAtPoint(endPoint)));
     }
 
+    @Test
     public void testContinuingGesture_withNothingToContinue_isCancelled() {
         if (!mHasTouchScreen) {
             return;
@@ -630,43 +654,5 @@ public class AccessibilityGestureDispatchTest extends
                 .addStroke(new StrokeDescription(path1, 0, duration))
                 .addStroke(new StrokeDescription(path2, 0, duration))
                 .build();
-    }
-
-    private static class MotionEventActionMatcher extends TypeSafeMatcher<MotionEvent> {
-        int mAction;
-
-        MotionEventActionMatcher(int action) {
-            super();
-            mAction = action;
-        }
-
-        @Override
-        protected boolean matchesSafely(MotionEvent motionEvent) {
-            return motionEvent.getActionMasked() == mAction;
-        }
-
-        @Override
-        public void describeTo(Description description) {
-            description.appendText("Matching to action " + MotionEvent.actionToString(mAction));
-        }
-    }
-
-
-    Matcher<MotionEvent> isAtPoint(final PointF point) {
-        return isAtPoint(point, 0.01f);
-    }
-
-    Matcher<MotionEvent> isAtPoint(final PointF point, final float tol) {
-        return new TypeSafeMatcher<MotionEvent>() {
-            @Override
-            protected boolean matchesSafely(MotionEvent event) {
-                return Math.hypot(event.getX() - point.x, event.getY() - point.y) < tol;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("Matching to point " + point);
-            }
-        };
     }
 }

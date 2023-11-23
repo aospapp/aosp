@@ -27,6 +27,7 @@ class firmware_TryFwB(FirmwareTest):
         super(firmware_TryFwB, self).cleanup()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Set fwb_tries flag")
         self.check_state((self.checkers.fw_tries_checker, 'A'))
         self.try_fwb()

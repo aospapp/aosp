@@ -188,7 +188,7 @@ public class IllustrationVideoView extends TextureView
       mediaPlayer.setDataSource(getContext(), uri, null);
       mediaPlayer.prepareAsync();
     } catch (IOException e) {
-      Log.wtf(TAG, "Unable to set data source", e);
+      Log.e(TAG, "Unable to set video data source: " + videoRes, e);
     }
   }
 
@@ -350,7 +350,7 @@ public class IllustrationVideoView extends TextureView
     if (isPrepared()) {
       mp.start();
     } else {
-      Log.wtf(TAG, "Seek complete but media player not prepared");
+      Log.e(TAG, "Seek complete but media player not prepared");
     }
   }
 
@@ -366,6 +366,18 @@ public class IllustrationVideoView extends TextureView
   public boolean onError(MediaPlayer mediaPlayer, int what, int extra) {
     Log.w(TAG, "MediaPlayer error. what=" + what + " extra=" + extra);
     return false;
+  }
+
+  /**
+   * Seeks to specified time position.
+   *
+   * @param milliseconds the offset in milliseconds from the start to seek to
+   * @throws IllegalStateException if the internal player engine has not been initialized
+   */
+  public void seekTo(int milliseconds) {
+    if (mediaPlayer != null) {
+      mediaPlayer.seekTo(milliseconds);
+    }
   }
 
   @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)

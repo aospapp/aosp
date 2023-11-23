@@ -24,6 +24,7 @@
 
 #include "EmulatedCameraHotplugThread.h"
 #include "EmulatedCameraFactory.h"
+#include <qemu_pipe_bp.h>
 
 #define FAKE_HOTPLUG_FILE "/data/misc/media/emulator.camera.hotplug"
 
@@ -35,20 +36,12 @@
 namespace android {
 
 EmulatedCameraHotplugThread::EmulatedCameraHotplugThread(
-    const int* cameraIdArray,
-    size_t size) :
-        Thread(/*canCallJava*/false) {
+    std::vector<int> subscribedCameraIds) :
+        Thread(/*canCallJava*/false),
+        mSubscribedCameraIds(std::move(subscribedCameraIds)) {
 
     mRunning = true;
     mInotifyFd = 0;
-
-    for (size_t i = 0; i < size; ++i) {
-        int id = cameraIdArray[i];
-
-        if (createFileIfNotExists(id)) {
-            mSubscribedCameraIds.push_back(id);
-        }
-    }
 }
 
 EmulatedCameraHotplugThread::~EmulatedCameraHotplugThread() {
@@ -116,11 +109,7 @@ status_t EmulatedCameraHotplugThread::readyToRun() {
          * For each fake camera file, add a watch for when
          * the file is closed (if it was written to)
          */
-        Vector<int>::const_iterator it, end;
-        it = mSubscribedCameraIds.begin();
-        end = mSubscribedCameraIds.end();
-        for (; it != end; ++it) {
-            int cameraId = *it;
+        for (int cameraId: mSubscribedCameraIds) {
             if (!addWatch(cameraId)) {
                 mRunning = false;
                 break;
@@ -146,7 +135,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
     // If requestExit was already called, mRunning will be false
     while (mRunning) {
         char buffer[EVENT_BUF_LEN];
-        int length = TEMP_FAILURE_RETRY(
+        int length = QEMU_PIPE_RETRY(
                         read(mInotifyFd, buffer, EVENT_BUF_LEN));
 
         if (length < 0) {
@@ -223,39 +212,12 @@ String8 EmulatedCameraHotplugThread::getFilePath(int cameraId) const {
     return String8::format(FAKE_HOTPLUG_FILE ".%d", cameraId);
 }
 
-bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
-{
-    String8 filePath = getFilePath(cameraId);
-    // make sure this file exists and we have access to it
-    int fd = TEMP_FAILURE_RETRY(
-                open(filePath.string(), O_WRONLY | O_CREAT | O_TRUNC,
-                     /* mode = ug+rwx */ S_IRWXU | S_IRWXG ));
-    if (fd == -1) {
-        ALOGE("%s: Could not create file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
-        return false;
-    }
-
-    // File has '1' by default since we are plugged in by default
-    if (TEMP_FAILURE_RETRY(write(fd, "1\n", /*count*/2)) == -1) {
-        ALOGE("%s: Could not write '1' to file '%s', error: '%s' (%d)",
-             __FUNCTION__, filePath.string(), strerror(errno), errno);
-        return false;
-    }
-
-    close(fd);
-    return true;
-}
-
 int EmulatedCameraHotplugThread::getCameraId(const String8& filePath) const {
-    Vector<int>::const_iterator it, end;
-    it = mSubscribedCameraIds.begin();
-    end = mSubscribedCameraIds.end();
-    for (; it != end; ++it) {
-        String8 camPath = getFilePath(*it);
+    for (int cameraId: mSubscribedCameraIds) {
+        String8 camPath = getFilePath(cameraId);
 
         if (camPath == filePath) {
-            return *it;
+            return cameraId;
         }
     }
 
@@ -337,7 +299,7 @@ bool EmulatedCameraHotplugThread::removeWatch(int cameraId) {
 
 int EmulatedCameraHotplugThread::readFile(const String8& filePath) const {
 
-    int fd = TEMP_FAILURE_RETRY(
+    int fd = QEMU_PIPE_RETRY(
                 open(filePath.string(), O_RDONLY, /*mode*/0));
     if (fd == -1) {
         ALOGE("%s: Could not open file '%s', error: '%s' (%d)",
@@ -348,7 +310,7 @@ int EmulatedCameraHotplugThread::readFile(const String8& filePath) const {
     char buffer[1];
     int length;
 
-    length = TEMP_FAILURE_RETRY(
+    length = QEMU_PIPE_RETRY(
                     read(fd, buffer, sizeof(buffer)));
 
     int retval;

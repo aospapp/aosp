@@ -28,11 +28,13 @@ import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Path;
 import android.provider.DocumentsProvider;
+import android.provider.Settings;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.test.MoreAsserts;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.cts.documentclient.MyActivity.Result;
@@ -128,6 +130,14 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
 
     private UiObject findPositiveButton() throws UiObjectNotFoundException {
         return new UiObject(new UiSelector().resourceId("android:id/button1"));
+    }
+
+    private void assertToolbarTitleEquals(String label) throws UiObjectNotFoundException {
+        final UiObject title = new UiObject(new UiSelector().resourceId(
+                getDocumentsUiPackageId() + ":id/toolbar").childSelector(
+                new UiSelector().className("android.widget.TextView").text(label)));
+
+        assertTrue(title.waitForExists(TIMEOUT));
     }
 
     public void testOpenSimple() throws Exception {
@@ -345,6 +355,81 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
             fail("Somehow read document outside tree!");
         } catch (SecurityException expected) {
         }
+    }
+
+    public void testRestrictStorageAccessFrameworkEnabled_blockFromTree() throws Exception {
+        if (!supportedHardware()) return;
+
+        // Clear DocsUI's storage to avoid it opening stored last location.
+        clearDocumentsUi();
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+
+        // save button is disabled for the storage root
+        assertFalse(findSaveButton().isEnabled());
+
+        try {
+            findDocument("Download").click();
+            mDevice.waitForIdle();
+
+            // save button is disabled for Download folder
+            assertFalse(findSaveButton().isEnabled());
+        } catch(UiObjectNotFoundException e) {
+            // It might be possible that Download directory does not exist.
+        }
+
+        findRoot("CtsCreate").click();
+        mDevice.waitForIdle();
+
+        // save button is disabled for CtsCreate root
+        assertFalse(findSaveButton().isEnabled());
+
+        findDocument("DIR2").click();
+
+        mDevice.waitForIdle();
+        // save button is enabled for dir2
+        assertTrue(findSaveButton().isEnabled());
+    }
+
+    public void testRestrictStorageAccessFrameworkDisabled_notBlockFromTree() throws Exception {
+        if (!supportedHardware())
+            return;
+
+        // Clear DocsUI's storage to avoid it opening stored last location.
+        clearDocumentsUi();
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+
+        // save button is enabled for for the storage root
+        assertTrue(findSaveButton().isEnabled());
+
+        try {
+            findDocument("Download").click();
+            mDevice.waitForIdle();
+
+            // save button is enabled for Download folder
+            assertTrue(findSaveButton().isEnabled());
+        } catch (UiObjectNotFoundException e) {
+            // It might be possible that Download directory does not exist.
+        }
+
+        findRoot("CtsCreate").click();
+        mDevice.waitForIdle();
+
+        // save button is enabled for CtsCreate root
+        assertTrue(findSaveButton().isEnabled());
+
+        findDocument("DIR2").click();
+
+        mDevice.waitForIdle();
+        // save button is enabled for dir2
+        assertTrue(findSaveButton().isEnabled());
     }
 
     public void testGetContent_rootsShowing() throws Exception {
@@ -576,8 +661,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     public void testOpenDocumentAtInitialLocation() throws Exception {
         if (!supportedHardware()) return;
 
-        // Clear DocsUI's storage to avoid it opening stored last location
-        // which may make this test pass "luckily".
+        // Clear DocsUI's storage to avoid it opening stored last location.
         clearDocumentsUi();
 
         final Uri docUri = DocumentsContract.buildDocumentUri(PROVIDER_PACKAGE, "doc:file1");
@@ -595,8 +679,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     public void testOpenDocumentTreeAtInitialLocation() throws Exception {
         if (!supportedHardware()) return;
 
-        // Clear DocsUI's storage to avoid it opening stored last location
-        // which may make this test pass "luckily".
+        // Clear DocsUI's storage to avoid it opening stored last location.
         clearDocumentsUi();
 
         final Uri docUri = DocumentsContract.buildDocumentUri(PROVIDER_PACKAGE, "doc:dir2");
@@ -609,15 +692,39 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         assertTrue(findDocument("FILE4").exists());
     }
 
+    public void testOpenDocumentTreeWithScopedStorage() throws Exception {
+        if (!supportedHardware()) return;
+
+        // Clear DocsUI's storage to avoid it opening stored last location.
+        clearDocumentsUi();
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+        mDevice.waitForIdle();
+
+        final String deviceName = Settings.Global.getString(
+                mActivity.getContentResolver(), Settings.Global.DEVICE_NAME);
+
+        // Device name should always be set. In case it isn't, though,
+        // fall back to "Internal Storage".
+        final String title = !TextUtils.isEmpty(deviceName) ? deviceName : "Internal Storage";
+
+        // assert the default root is internal storage root
+        assertToolbarTitleEquals(title);
+
+        // no Downloads root
+        assertFalse(findRoot("Downloads").exists());
+    }
+
     public void testOpenRootWithoutRootIdAtInitialLocation() throws Exception {
         if (!supportedHardware()) return;
 
-        // Clear DocsUI's storage to avoid it opening stored last location
-        // which may make this test pass "luckily".
+        // Clear DocsUI's storage to avoid it opening stored last location.
         clearDocumentsUi();
 
         final Uri rootsUri = DocumentsContract.buildRootsUri(PROVIDER_PACKAGE);
         final Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setPackage(getDocumentsUiPackageId());
         intent.setDataAndType(rootsUri, "vnd.android.document/root");
         mActivity.startActivity(intent);
         mDevice.waitForIdle();
@@ -628,8 +735,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     public void testCreateDocumentAtInitialLocation() throws Exception {
         if (!supportedHardware()) return;
 
-        // Clear DocsUI's storage to avoid it opening stored last location
-        // which may make this test pass "luckily".
+        // Clear DocsUI's storage to avoid it opening stored last location.
         clearDocumentsUi();
 
         final Uri treeUri = DocumentsContract.buildTreeDocumentUri(PROVIDER_PACKAGE, "doc:local");

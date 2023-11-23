@@ -14,13 +14,13 @@
 #include <string.h>
 
 #include <algorithm>
-#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
 
 #include "core/fxcrt/fx_memory.h"
 #include "testing/image_diff/image_diff_png.h"
+#include "testing/utils/path_service.h"
 #include "third_party/base/logging.h"
 #include "third_party/base/numerics/safe_conversions.h"
 
@@ -29,13 +29,13 @@
 #endif
 
 // Return codes used by this utility.
-static const int kStatusSame = 0;
-static const int kStatusDifferent = 1;
-static const int kStatusError = 2;
+constexpr int kStatusSame = 0;
+constexpr int kStatusDifferent = 1;
+constexpr int kStatusError = 2;
 
 // Color codes.
-static const uint32_t RGBA_RED = 0x000000ff;
-static const uint32_t RGBA_ALPHA = 0xff000000;
+constexpr uint32_t RGBA_RED = 0x000000ff;
+constexpr uint32_t RGBA_ALPHA = 0xff000000;
 
 class Image {
  public:
@@ -45,31 +45,17 @@ class Image {
   bool has_image() const { return w_ > 0 && h_ > 0; }
   int w() const { return w_; }
   int h() const { return h_; }
-  const unsigned char* data() const { return &data_.front(); }
+  pdfium::span<const uint8_t> span() const { return data_; }
 
   // Creates the image from the given filename on disk, and returns true on
   // success.
   bool CreateFromFilename(const std::string& path) {
-    FILE* f = fopen(path.c_str(), "rb");
-    if (!f)
-      return false;
+    return CreateFromFilenameImpl(path, /*reverse_byte_order=*/false);
+  }
 
-    std::vector<unsigned char> compressed;
-    const size_t kBufSize = 1024;
-    unsigned char buf[kBufSize];
-    size_t num_read = 0;
-    while ((num_read = fread(buf, 1, kBufSize, f)) > 0) {
-      compressed.insert(compressed.end(), buf, buf + num_read);
-    }
-
-    fclose(f);
-
-    if (!image_diff_png::DecodePNG(compressed.data(), compressed.size(), &data_,
-                                   &w_, &h_)) {
-      Clear();
-      return false;
-    }
-    return true;
+  // Same as CreateFromFilename(), but with BGRA instead of RGBA ordering.
+  bool CreateFromFilenameWithReverseByteOrder(const std::string& path) {
+    return CreateFromFilenameImpl(path, /*reverse_byte_order=*/true);
   }
 
   void Clear() {
@@ -93,6 +79,30 @@ class Image {
   }
 
  private:
+  bool CreateFromFilenameImpl(const std::string& path,
+                              bool reverse_byte_order) {
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f)
+      return false;
+
+    std::vector<uint8_t> compressed;
+    const size_t kBufSize = 1024;
+    uint8_t buf[kBufSize];
+    size_t num_read = 0;
+    while ((num_read = fread(buf, 1, kBufSize, f)) > 0) {
+      compressed.insert(compressed.end(), buf, buf + num_read);
+    }
+
+    fclose(f);
+
+    data_ = image_diff_png::DecodePNG(compressed, reverse_byte_order, &w_, &h_);
+    if (data_.empty()) {
+      Clear();
+      return false;
+    }
+    return true;
+  }
+
   bool pixel_in_bounds(int x, int y) const {
     return x >= 0 && x < w_ && y >= 0 && y < h_;
   }
@@ -103,7 +113,7 @@ class Image {
   int w_;
   int h_;
 
-  std::vector<unsigned char> data_;
+  std::vector<uint8_t> data_;
 };
 
 float CalculateDifferencePercentage(const Image& actual, int pixels_different) {
@@ -158,7 +168,7 @@ float HistogramPercentageDifferent(const Image& baseline, const Image& actual) {
   int w = std::min(baseline.w(), actual.w());
   int h = std::min(baseline.h(), actual.h());
 
-  // Count occurences of each RGBA pixel value of baseline in the overlap.
+  // Count occurrences of each RGBA pixel value of baseline in the overlap.
   std::map<uint32_t, int32_t> baseline_histogram;
   for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
@@ -184,31 +194,42 @@ float HistogramPercentageDifferent(const Image& baseline, const Image& actual) {
   return CalculateDifferencePercentage(actual, pixels_different);
 }
 
-void PrintHelp() {
+void PrintHelp(const std::string& binary_name) {
   fprintf(
       stderr,
       "Usage:\n"
-      "  image_diff [--histogram] <compare file> <reference file>\n"
+      "  %s OPTIONS <compare file> <reference file>\n"
       "    Compares two files on disk, returning 0 when they are the same;\n"
-      "    passing \"--histogram\" additionally calculates a diff of the\n"
-      "    RGBA value histograms (which is resistant to shifts in layout)\n"
-      "  image_diff --diff <compare file> <reference file> <output file>\n"
+      "    Passing \"--histogram\" additionally calculates a diff of the\n"
+      "    RGBA value histograms. (which is resistant to shifts in layout)\n"
+      "    Passing \"--reverse-byte-order\" additionally assumes the compare\n"
+      "    file has BGRA byte ordering.\n"
+      "  %s --diff <compare file> <reference file> <output file>\n"
       "    Compares two files on disk, outputs an image that visualizes the\n"
-      "    difference to <output file>\n");
+      "    difference to <output file>\n",
+      binary_name.c_str(), binary_name.c_str());
 }
 
-int CompareImages(const std::string& file1,
+int CompareImages(const std::string& binary_name,
+                  const std::string& file1,
                   const std::string& file2,
-                  bool compare_histograms) {
+                  bool compare_histograms,
+                  bool reverse_byte_order) {
   Image actual_image;
   Image baseline_image;
 
-  if (!actual_image.CreateFromFilename(file1)) {
-    fprintf(stderr, "image_diff: Unable to open file \"%s\"\n", file1.c_str());
+  bool actual_load_result =
+      reverse_byte_order
+          ? actual_image.CreateFromFilenameWithReverseByteOrder(file1)
+          : actual_image.CreateFromFilename(file1);
+  if (!actual_load_result) {
+    fprintf(stderr, "%s: Unable to open file \"%s\"\n", binary_name.c_str(),
+            file1.c_str());
     return kStatusError;
   }
   if (!baseline_image.CreateFromFilename(file2)) {
-    fprintf(stderr, "image_diff: Unable to open file \"%s\"\n", file2.c_str());
+    fprintf(stderr, "%s: Unable to open file \"%s\"\n", binary_name.c_str(),
+            file2.c_str());
     return kStatusError;
   }
 
@@ -259,18 +280,21 @@ bool CreateImageDiff(const Image& image1, const Image& image2, Image* out) {
   return same;
 }
 
-int DiffImages(const std::string& file1,
+int DiffImages(const std::string& binary_name,
+               const std::string& file1,
                const std::string& file2,
                const std::string& out_file) {
   Image actual_image;
   Image baseline_image;
 
   if (!actual_image.CreateFromFilename(file1)) {
-    fprintf(stderr, "image_diff: Unable to open file \"%s\"\n", file1.c_str());
+    fprintf(stderr, "%s: Unable to open file \"%s\"\n", binary_name.c_str(),
+            file1.c_str());
     return kStatusError;
   }
   if (!baseline_image.CreateFromFilename(file2)) {
-    fprintf(stderr, "image_diff: Unable to open file \"%s\"\n", file2.c_str());
+    fprintf(stderr, "%s: Unable to open file \"%s\"\n", binary_name.c_str(),
+            file2.c_str());
     return kStatusError;
   }
 
@@ -279,10 +303,10 @@ int DiffImages(const std::string& file1,
   if (same)
     return kStatusSame;
 
-  std::vector<unsigned char> png_encoding;
-  image_diff_png::EncodeRGBAPNG(diff_image.data(), diff_image.w(),
-                                diff_image.h(), diff_image.w() * 4,
-                                &png_encoding);
+  std::vector<uint8_t> png_encoding = image_diff_png::EncodeRGBAPNG(
+      diff_image.span(), diff_image.w(), diff_image.h(), diff_image.w() * 4);
+  if (png_encoding.empty())
+    return kStatusError;
 
   FILE* f = fopen(out_file.c_str(), "wb");
   if (!f)
@@ -301,9 +325,14 @@ int main(int argc, const char* argv[]) {
 
   bool histograms = false;
   bool produce_diff_image = false;
+  bool reverse_byte_order = false;
   std::string filename1;
   std::string filename2;
   std::string diff_filename;
+
+  // Strip the path from the first arg
+  const char* last_separator = strrchr(argv[0], PATH_SEPARATOR);
+  std::string binary_name = last_separator ? last_separator + 1 : argv[0];
 
   int i;
   for (i = 1; i < argc; ++i) {
@@ -314,6 +343,8 @@ int main(int argc, const char* argv[]) {
       histograms = true;
     } else if (strcmp(arg, "--diff") == 0) {
       produce_diff_image = true;
+    } else if (strcmp(arg, "--reverse-byte-order") == 0) {
+      reverse_byte_order = true;
     }
   }
   if (i < argc)
@@ -325,12 +356,13 @@ int main(int argc, const char* argv[]) {
 
   if (produce_diff_image) {
     if (!diff_filename.empty()) {
-      return DiffImages(filename1, filename2, diff_filename);
+      return DiffImages(binary_name, filename1, filename2, diff_filename);
     }
   } else if (!filename2.empty()) {
-    return CompareImages(filename1, filename2, histograms);
+    return CompareImages(binary_name, filename1, filename2, histograms,
+                         reverse_byte_order);
   }
 
-  PrintHelp();
+  PrintHelp(binary_name);
   return kStatusError;
 }

@@ -20,7 +20,6 @@ class LucidSleepTestBase(wifi_cell_test_base.WiFiCellTestBase):
 
 
     def initialize(self, host):
-        super(LucidSleepTestBase, self).initialize(host)
         self._dr_utils = dark_resume_utils.DarkResumeUtils(host)
 
 

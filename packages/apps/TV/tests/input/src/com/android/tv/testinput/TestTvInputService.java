@@ -53,7 +53,7 @@ public class TestTvInputService extends TvInputService {
     private static final int REFRESH_DELAY_MS = 1000 / 5;
     private static final boolean DEBUG = false;
 
-    // Consider the command delivering time from Live TV.
+    // Consider the command delivering time from TV app.
     private static final long MAX_COMMAND_DELAY = TimeUnit.SECONDS.toMillis(3);
 
     private final TestInputControl mBackend = TestInputControl.getInstance();

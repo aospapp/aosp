@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import select
 import socket
 import subprocess
 
@@ -29,6 +30,7 @@ from functools import partial
 # pylint: disable=import-error
 import atest_utils
 import constants
+import result_reporter
 from event_handler import EventHandler
 from test_finders import test_info
 from test_runners import test_runner_base
@@ -37,14 +39,19 @@ POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
 SOCKET_QUEUE_MAX = 1
 SOCKET_BUFFER = 4096
+SELECT_TIMEOUT = 5
+
 # Socket Events of form FIRST_EVENT {JSON_DATA}\nSECOND_EVENT {JSON_DATA}
 # EVENT_RE has groups for the name and the data. "." does not match \n.
-EVENT_RE = re.compile(r'^(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?:\n|$)')
+EVENT_RE = re.compile(r'\n*(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?=\n|.)*')
 
 EXEC_DEPENDENCIES = ('adb', 'aapt')
 
-TRADEFED_EXIT_MSG = ('TradeFed subprocess exited early with exit code=%s.')
+TRADEFED_EXIT_MSG = 'TradeFed subprocess exited early with exit code=%s.'
 
+LOG_FOLDER_NAME = 'log'
+
+_INTEGRATION_FINDERS = frozenset(['', 'INTEGRATION', 'INTEGRATION_FILE_PATH'])
 
 class TradeFedExitError(Exception):
     """Raised when TradeFed exists before test run has finished."""
@@ -54,18 +61,31 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     """TradeFed Test Runner class."""
     NAME = 'AtestTradefedTestRunner'
     EXECUTABLE = 'atest_tradefed.sh'
-    _TF_TEMPLATE = 'template/local_min'
+    _TF_TEMPLATE = 'template/atest_local_min'
+    # Use --no-enable-granular-attempts to control reporter replay behavior.
+    # TODO(b/142630648): Enable option enable-granular-attempts in sharding mode.
+    _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
+                 '--no-enable-granular-attempts')
     _RUN_CMD = ('{exe} {template} --template:map '
-                'test=atest {args}')
+                'test=atest {tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
+    _RERUN_OPTION_GROUP = [constants.ITERATIONS,
+                           constants.RERUN_UNTIL_FAILURE,
+                           constants.RETRY_ANY_FAILURE]
 
     def __init__(self, results_dir, module_info=None, **kwargs):
         """Init stuff for base class."""
         super(AtestTradefedTestRunner, self).__init__(results_dir, **kwargs)
         self.module_info = module_info
+        self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
+        if not os.path.exists(self.log_path):
+            os.makedirs(self.log_path)
+        log_args = {'log_path': self.log_path}
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
-                             'args': ''}
+                             'tf_customize_template': '',
+                             'args': '',
+                             'log_args': self._LOG_ARGS.format(**log_args)}
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
 
@@ -87,10 +107,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         key_path = os.path.join(self.root_dir, ape_api_key)
         if ape_api_key and os.path.exists(key_path):
             logging.debug('Set APE_API_KEY: %s', ape_api_key)
-            os.environ['APE_API_KEY'] = ape_api_key
+            os.environ['APE_API_KEY'] = key_path
         else:
             logging.debug('APE_API_KEY not set, some GTS tests may fail'
-                          'without authentication.')
+                          ' without authentication.')
 
     def run_tests(self, test_infos, extra_args, reporter):
         """Run the list of test_infos. See base class for more.
@@ -103,6 +123,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         Returns:
             0 if tests succeed, non-zero otherwise.
         """
+        reporter.log_path = self.log_path
+        reporter.rerun_options = self._extract_rerun_options(extra_args)
         # Set google service key if it's available or found before running tests.
         self._try_set_gts_authentication_key()
         if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
@@ -126,7 +148,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         ret_code = constants.EXIT_CODE_SUCCESS
         for _ in range(iterations):
             run_cmds = self.generate_run_commands(test_infos, extra_args)
-            subproc = self.run(run_cmds[0], output_to_stdout=True)
+            subproc = self.run(run_cmds[0], output_to_stdout=True,
+                               env_vars=self.generate_env_vars(extra_args))
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
@@ -147,27 +170,103 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             server = self._start_socket_server()
             run_cmds = self.generate_run_commands(test_infos, extra_args,
                                                   server.getsockname()[1])
-            subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose)
-            event_handler = EventHandler(reporter, self.NAME)
+            subproc = self.run(run_cmds[0], output_to_stdout=self.is_verbose,
+                               env_vars=self.generate_env_vars(extra_args))
             self.handle_subprocess(subproc, partial(self._start_monitor,
                                                     server,
                                                     subproc,
-                                                    event_handler))
+                                                    reporter))
             server.close()
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
-    def _start_monitor(self, server, tf_subproc, event_handler):
+    # pylint: disable=too-many-branches
+    def _start_monitor(self, server, tf_subproc, reporter):
         """Polling and process event.
 
         Args:
             server: Socket server object.
             tf_subproc: The tradefed subprocess to poll.
-            event_handler: EventHandler object.
+            reporter: Result_Reporter object.
         """
-        conn, addr = self._exec_with_tf_polling(server.accept, tf_subproc)
-        logging.debug('Accepted connection from %s', addr)
-        self._process_connection(conn, event_handler)
+        inputs = [server]
+        event_handlers = {}
+        data_map = {}
+        inv_socket = None
+        while inputs:
+            try:
+                readable, _, _ = select.select(inputs, [], [], SELECT_TIMEOUT)
+                for socket_object in readable:
+                    if socket_object is server:
+                        conn, addr = socket_object.accept()
+                        logging.debug('Accepted connection from %s', addr)
+                        conn.setblocking(False)
+                        inputs.append(conn)
+                        data_map[conn] = ''
+                        # The First connection should be invocation level reporter.
+                        if not inv_socket:
+                            inv_socket = conn
+                    else:
+                        # Count invocation level reporter events
+                        # without showing real-time information.
+                        if inv_socket == socket_object:
+                            reporter.silent = True
+                            event_handler = event_handlers.setdefault(
+                                socket_object, EventHandler(reporter, self.NAME))
+                        else:
+                            event_handler = event_handlers.setdefault(
+                                socket_object, EventHandler(
+                                    result_reporter.ResultReporter(), self.NAME))
+                        recv_data = self._process_connection(data_map,
+                                                             socket_object,
+                                                             event_handler)
+                        if not recv_data:
+                            inputs.remove(socket_object)
+                            socket_object.close()
+            finally:
+                # Subprocess ended and all socket client closed.
+                if tf_subproc.poll() is not None and len(inputs) == 1:
+                    inputs.pop().close()
+                    if not data_map:
+                        raise TradeFedExitError(TRADEFED_EXIT_MSG
+                                                % tf_subproc.returncode)
+
+    def _process_connection(self, data_map, conn, event_handler):
+        """Process a socket connection betwen TF and ATest.
+
+        Expect data of form EVENT_NAME {JSON_DATA}.  Multiple events will be
+        \n deliminated.  Need to buffer data in case data exceeds socket
+        buffer.
+        E.q.
+            TEST_RUN_STARTED {runName":"hello_world_test","runAttempt":0}\n
+            TEST_STARTED {"start_time":2172917, "testName":"PrintHelloWorld"}\n
+        Args:
+            data_map: The data map of all connections.
+            conn: Socket connection.
+            event_handler: EventHandler object.
+
+        Returns:
+            True if conn.recv() has data , False otherwise.
+        """
+        # Set connection into blocking mode.
+        conn.settimeout(None)
+        data = conn.recv(SOCKET_BUFFER)
+        logging.debug('received: %s', data)
+        if data:
+            data_map[conn] += data
+            while True:
+                match = EVENT_RE.match(data_map[conn])
+                if not match:
+                    break
+                try:
+                    event_data = json.loads(match.group('json_data'))
+                except ValueError:
+                    logging.debug('Json incomplete, wait for more data')
+                    break
+                event_name = match.group('event_name')
+                event_handler.process_event(event_name, event_data)
+                data_map[conn] = data_map[conn][match.end():]
+        return bool(data)
 
     def _start_socket_server(self):
         """Start a TCP server."""
@@ -181,59 +280,14 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                       server.getsockname()[1])
         return server
 
-    def _exec_with_tf_polling(self, socket_func, tf_subproc):
-        """Check for TF subproc exit during blocking socket func.
-
-        Args:
-            socket_func: A blocking socket function, e.g. recv(), accept().
-            tf_subproc: The tradefed subprocess to poll.
-        """
-        while True:
-            try:
-                return socket_func()
-            except socket.timeout:
-                logging.debug('Polling TF subproc for early exit.')
-                if tf_subproc.poll() is not None:
-                    logging.debug('TF subproc exited early')
-                    raise TradeFedExitError(TRADEFED_EXIT_MSG
-                                            % tf_subproc.returncode)
-
-    def _process_connection(self, conn, event_handler):
-        """Process a socket connection from TradeFed.
-
-        Expect data of form EVENT_NAME {JSON_DATA}.  Multiple events will be
-        \n deliminated.  Need to buffer data in case data exceeds socket
-        buffer.
-
-        Args:
-            conn: A socket connection.
-            event_handler: EventHandler object.
-        """
-        conn.settimeout(None)
-        buf = ''
-        while True:
-            logging.debug('Waiting to receive data')
-            data = conn.recv(SOCKET_BUFFER)
-            logging.debug('received: %s', data)
-            if data:
-                buf += data
-                while True:
-                    match = EVENT_RE.match(buf)
-                    if match:
-                        try:
-                            event_data = json.loads(match.group('json_data'))
-                        except ValueError:
-                            # Json incomplete, wait for more data.
-                            break
-                        event_name = match.group('event_name')
-                        buf = buf[match.end():]
-                        event_handler.process_event(event_name, event_data)
-                        continue
-                    break
-            else:
-                # client sent empty string, so no more data.
-                conn.close()
-                break
+    def generate_env_vars(self, extra_args):
+        """Convert extra args into env vars."""
+        env_vars = os.environ.copy()
+        debug_port = extra_args.get(constants.TF_DEBUG, '')
+        if debug_port:
+            env_vars['TF_DEBUG'] = 'true'
+            env_vars['TF_DEBUG_PORT'] = str(debug_port)
+        return env_vars
 
     def host_env_check(self):
         """Check that host env has everything we need.
@@ -280,6 +334,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 build_req.add(executable)
         return build_req
 
+    # pylint: disable=too-many-branches
+    # pylint: disable=too-many-statements
     @staticmethod
     def _parse_extra_args(extra_args):
         """Convert the extra args into something tf can understand.
@@ -303,6 +359,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--serial')
                 args_to_append.append(extra_args[arg])
                 continue
+            if constants.SHARDING == arg:
+                args_to_append.append('--shard-count')
+                args_to_append.append(str(extra_args[arg]))
+                continue
             if constants.DISABLE_TEARDOWN == arg:
                 args_to_append.append('--disable-teardown')
                 continue
@@ -325,6 +385,36 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 args_to_append.append('--enable-parameterized-modules')
                 args_to_append.append('--module-parameter')
                 args_to_append.append('instant_app')
+                continue
+            if constants.USER_TYPE == arg:
+                args_to_append.append('--enable-parameterized-modules')
+                args_to_append.append('--enable-optional-parameterization')
+                args_to_append.append('--module-parameter')
+                args_to_append.append(extra_args[arg])
+                continue
+            if constants.ITERATIONS == arg:
+                args_to_append.append('--retry-strategy')
+                args_to_append.append(constants.ITERATIONS)
+                args_to_append.append('--max-testcase-run-count')
+                args_to_append.append(str(extra_args[arg]))
+                continue
+            if constants.RERUN_UNTIL_FAILURE == arg:
+                args_to_append.append('--retry-strategy')
+                args_to_append.append(constants.RERUN_UNTIL_FAILURE)
+                args_to_append.append('--max-testcase-run-count')
+                args_to_append.append(str(extra_args[arg]))
+                continue
+            if constants.RETRY_ANY_FAILURE == arg:
+                args_to_append.append('--retry-strategy')
+                args_to_append.append(constants.RETRY_ANY_FAILURE)
+                args_to_append.append('--max-testcase-run-count')
+                args_to_append.append(str(extra_args[arg]))
+                continue
+            if constants.COLLECT_TESTS_ONLY == arg:
+                args_to_append.append('--collect-tests-only')
+                continue
+            if constants.TF_DEBUG == arg:
+                print("Please attach process to your IDE...")
                 continue
             args_not_supported.append(arg)
         return args_to_append, args_not_supported
@@ -370,7 +460,10 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if metrics_folder:
             test_args.extend(['--metrics-folder', metrics_folder])
             logging.info('Saved metrics in: %s', metrics_folder)
-        log_level = 'VERBOSE' if self.is_verbose else 'WARN'
+        log_level = 'WARN'
+        if self.is_verbose:
+            log_level = 'VERBOSE'
+            test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
 
         args_to_add, args_not_supported = self._parse_extra_args(extra_args)
@@ -388,8 +481,13 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             logging.info('%s does not support the following args %s',
                          self.EXECUTABLE, args_not_supported)
 
-        test_args.extend(atest_utils.get_result_server_args())
+        # Only need to check one TestInfo to determine if the tests are
+        # configured in TEST_MAPPING.
+        for_test_mapping = test_infos and test_infos[0].from_test_mapping
+        test_args.extend(atest_utils.get_result_server_args(for_test_mapping))
         self.run_cmd_dict['args'] = ' '.join(test_args)
+        self.run_cmd_dict['tf_customize_template'] = (
+            self._extract_customize_tf_templates(extra_args))
         return [self._RUN_CMD.format(**self.run_cmd_dict)]
 
     def _flatten_test_infos(self, test_infos):
@@ -421,6 +519,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             no_filters = False
             filters = set()
             test_runner = None
+            test_finder = None
             build_targets = set()
             data = {}
             module_args = []
@@ -429,6 +528,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 # Extend data with constants.TI_MODULE_ARG instead of overwriting.
                 module_args.extend(test_info_i.data.get(constants.TI_MODULE_ARG, []))
                 test_runner = test_info_i.test_runner
+                test_finder = test_info_i.test_finder
                 build_targets |= test_info_i.build_targets
                 test_filters = test_info_i.data.get(constants.TI_FILTER)
                 if not test_filters or no_filters:
@@ -443,6 +543,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             results.add(
                 test_info.TestInfo(test_name=module,
                                    test_runner=test_runner,
+                                   test_finder=test_finder,
                                    build_targets=build_targets,
                                    data=data))
         return results
@@ -495,13 +596,17 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if not test_infos:
             return []
 
-        # Only need to check one TestInfo to determine if the tests are
-        # configured in TEST_MAPPING.
-        if test_infos[0].from_test_mapping:
-            args.extend(constants.TEST_MAPPING_RESULT_SERVER_ARGS)
         test_infos = self._flatten_test_infos(test_infos)
-
+        # In order to do dry-run verification, sort it to make each run has the
+        # same result
+        test_infos = list(test_infos)
+        test_infos.sort()
+        has_integration_test = False
         for info in test_infos:
+            # Integration test exists in TF's jar, so it must have the option
+            # if it's integration finder.
+            if info.test_finder in _INTEGRATION_FINDERS:
+                has_integration_test = True
             args.extend([constants.TF_INCLUDE_FILTER, info.test_name])
             filters = set()
             for test_filter in info.data.get(constants.TI_FILTER, []):
@@ -527,4 +632,32 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                             test_name=info.test_name, option_name=option[0],
                             option_value=option[1]))
                     args.extend([constants.TF_MODULE_ARG, module_arg])
+        # TODO (b/141090547) Pass the config path to TF to load configs.
+        # Compile option in TF if finder is not INTEGRATION or not set.
+        if not has_integration_test:
+            args.append(constants.TF_SKIP_LOADING_CONFIG_JAR)
         return args
+
+    def _extract_rerun_options(self, extra_args):
+        """Extract rerun options to a string for output.
+
+        Args:
+            extra_args: Dict of extra args for test runners to use.
+
+        Returns: A string of rerun options.
+        """
+        extracted_options = ['{} {}'.format(arg, extra_args[arg])
+                             for arg in extra_args
+                             if arg in self._RERUN_OPTION_GROUP]
+        return ' '.join(extracted_options)
+
+    def _extract_customize_tf_templates(self, extra_args):
+        """Extract tradefed template options to a string for output.
+
+        Args:
+            extra_args: Dict of extra args for test runners to use.
+
+        Returns: A string of tradefed template options.
+        """
+        return ''.join(['--template:map %s '
+                        % x for x in extra_args.get(constants.TF_TEMPLATE, [])])

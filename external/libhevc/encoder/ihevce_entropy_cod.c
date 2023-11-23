@@ -388,11 +388,15 @@ WORD32 ihevce_ent_coding_thrd(void *pv_frm_proc_thrd_ctxt)
                             ps_enc_ctxt->ps_stat_prms->s_tgt_lyr_prms.as_tgt_params[0]
                                 .i4_codec_level;
                         WORD32 codec_level_index = ihevce_get_level_index(codec_level);
+                        WORD32 codec_tier =
+                            ps_enc_ctxt->ps_stat_prms->s_out_strm_prms.i4_codec_tier;
 
                         i4_buffersize =
-                            (UWORD32)g_as_level_data[codec_level_index].i4_max_cpb[HIGH_TIER];
+                            (UWORD32)g_as_level_data[codec_level_index].i4_max_cpb[codec_tier] *
+                            CBP_VCL_FACTOR;
                         i4_trgt_bit_rate =
-                            (UWORD32)g_as_level_data[codec_level_index].i4_max_bit_rate[HIGH_TIER];
+                            (UWORD32)g_as_level_data[codec_level_index].i4_max_bit_rate[codec_tier] *
+                            CBP_VCL_FACTOR;
                         i4_dbf = i4_buffersize;
                     }
 

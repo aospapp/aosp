@@ -44,24 +44,25 @@ func TestDexpreoptBootJars(t *testing.T) {
 		}
 	`
 
-	config := testConfig(nil)
+	config := testConfig(nil, bp, nil)
 
-	pathCtx := android.PathContextForTesting(config, nil)
+	pathCtx := android.PathContextForTesting(config)
 	dexpreoptConfig := dexpreopt.GlobalConfigForTests(pathCtx)
-	dexpreoptConfig.RuntimeApexJars = []string{"foo", "bar", "baz"}
-	setDexpreoptTestGlobalConfig(config, dexpreoptConfig)
+	dexpreoptConfig.BootJars = []string{"foo", "bar", "baz"}
+	dexpreopt.SetTestGlobalConfig(config, dexpreoptConfig)
 
-	ctx := testContext(config, bp, nil)
+	ctx := testContext()
 
-	ctx.RegisterSingletonType("dex_bootjars", android.SingletonFactoryAdaptor(dexpreoptBootJarsFactory))
+	RegisterDexpreoptBootJarsComponents(ctx)
 
 	run(t, ctx, config)
 
 	dexpreoptBootJars := ctx.SingletonForTests("dex_bootjars")
 
-	bootArt := dexpreoptBootJars.Output("boot.art")
+	bootArt := dexpreoptBootJars.Output("boot-foo.art")
 
 	expectedInputs := []string{
+		"dex_artjars/apex/com.android.art/javalib/arm64/boot.art",
 		"dex_bootjars_input/foo.jar",
 		"dex_bootjars_input/bar.jar",
 		"dex_bootjars_input/baz.jar",
@@ -82,19 +83,19 @@ func TestDexpreoptBootJars(t *testing.T) {
 	expectedOutputs := []string{
 		"dex_bootjars/system/framework/arm64/boot.invocation",
 
-		"dex_bootjars/system/framework/arm64/boot.art",
+		"dex_bootjars/system/framework/arm64/boot-foo.art",
 		"dex_bootjars/system/framework/arm64/boot-bar.art",
 		"dex_bootjars/system/framework/arm64/boot-baz.art",
 
-		"dex_bootjars/system/framework/arm64/boot.oat",
+		"dex_bootjars/system/framework/arm64/boot-foo.oat",
 		"dex_bootjars/system/framework/arm64/boot-bar.oat",
 		"dex_bootjars/system/framework/arm64/boot-baz.oat",
 
-		"dex_bootjars/system/framework/arm64/boot.vdex",
+		"dex_bootjars/system/framework/arm64/boot-foo.vdex",
 		"dex_bootjars/system/framework/arm64/boot-bar.vdex",
 		"dex_bootjars/system/framework/arm64/boot-baz.vdex",
 
-		"dex_bootjars_unstripped/system/framework/arm64/boot.oat",
+		"dex_bootjars_unstripped/system/framework/arm64/boot-foo.oat",
 		"dex_bootjars_unstripped/system/framework/arm64/boot-bar.oat",
 		"dex_bootjars_unstripped/system/framework/arm64/boot-baz.oat",
 	}

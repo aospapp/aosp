@@ -18,10 +18,10 @@ kk{
         "[А Ә Б В Г Ғ Д Е Ё Ж З И Й К Қ Л М Н Ң О Ө П Р С Т У Ұ Ү Ф Х Һ Ц Ч Ш Щ Ъ Ы І"
         " Ь Э Ю Я]"
     }
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” « » ( ) \\[ \\] \\{ \\} § @ * / "
-        "\\& #]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” « » ( ) \\[ \\] \\{ \\} § @ * "
+        "/ \\& #]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -221,7 +221,7 @@ kk{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -283,6 +283,27 @@ kk{
                 yyyyQQQQ{"G y 'ж'. QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                GyMMMEd{
+                    G{"G y 'ж'. d MMM, E – G y 'ж'. d MMM, E"}
+                    M{"G y 'ж'. d MMM, E – d MMM, E"}
+                    d{"G y 'ж'. d MMM, E – d MMM, E"}
+                    y{"G y 'ж'. d MMM, E – y 'ж'. d MMM, E"}
+                }
+                GyMMMd{
+                    G{"G y 'ж'. d MMM – G y 'ж'. d MMM"}
+                    M{"G y 'ж'. d MMM – d MMM"}
+                    d{"G y 'ж'. d–d MMM"}
+                    y{"G y 'ж'. d MMM – y 'ж'. d MMM"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -431,8 +452,8 @@ kk{
                 MMM{"LLL"}
                 MMMEd{"d MMM, E"}
                 MMMMW{
-                    one{"MMM 'айының' W-'аптасы'"}
-                    other{"MMM 'айының' W-'аптасы'"}
+                    one{"MMMM 'айының' W-'аптасы'"}
+                    other{"MMMM 'айының' W-'аптасы'"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -602,6 +623,10 @@ kk{
                     "б.з.д.",
                     "б.з.",
                 }
+                abbreviated%variant{
+                    "BCE",
+                    "CE",
+                }
                 wide{
                     "Біздің заманымызға дейін",
                     "біздің заманымыз",
@@ -612,6 +637,27 @@ kk{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                GyMMMEd{
+                    G{"G y 'ж'. d MMM, E – G y 'ж'. d MMM, E"}
+                    M{"G y 'ж'. d MMM, E – d MMM, E"}
+                    d{"G y 'ж'. d MMM, E – d MMM, E"}
+                    y{"G y 'ж'. d MMM, E – y 'ж'. d MMM, E"}
+                }
+                GyMMMd{
+                    G{"G y 'ж'. d MMM – G y 'ж'. d MMM"}
+                    M{"G y 'ж'. d MMM – d MMM"}
+                    d{"G y 'ж'. d–d MMM"}
+                    y{"G y 'ж'. d MMM – y 'ж'. d MMM"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1746,9 +1792,6 @@ kk{
         }
         standard-short{
             2{"{0} және {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         unit{
             2{"{0} {1}"}

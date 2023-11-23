@@ -31,6 +31,7 @@ import com.android.compatibility.common.util.ResultUnit;
 
 import java.util.ArrayList;
 
+@NonMediaMainlineTest
 public class AudioTrack_ListenerTest extends CtsAndroidTestCase {
     private final static String TAG = "AudioTrack_ListenerTest";
     private static final String REPORT_LOG_NAME = "CtsMediaTestCases";

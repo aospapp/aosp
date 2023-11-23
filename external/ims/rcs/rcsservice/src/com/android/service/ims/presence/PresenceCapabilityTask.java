@@ -28,23 +28,11 @@
 
 package com.android.service.ims.presence;
 
-import java.util.Set;
-import java.util.HashMap;
-import java.util.List;
-import java.util.ArrayList;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.app.PendingIntent;
-import android.content.IntentFilter;
-import android.os.RemoteException;
-import android.app.AlarmManager;
 import android.os.SystemClock;
-
-import com.android.ims.internal.uce.presence.PresCmdStatus;
-
-import com.android.ims.RcsManager.ResultCode;
-import com.android.ims.RcsPresenceInfo;
-import com.android.ims.IRcsPresenceListener;
 
 import com.android.ims.internal.Logger;
 import com.android.service.ims.TaskManager;
@@ -58,6 +46,9 @@ public class PresenceCapabilityTask extends PresenceTask{
      */
     private Logger logger = Logger.getLogger(this.getClass().getName());
 
+    /**
+     * PendingIntent Action that will be scheduled via AlarmManager as a task timeout.
+     */
     public static final String ACTION_TASK_TIMEOUT_ALARM =
             "com.android.service.ims.presence.task.timeout";
 
@@ -80,7 +71,7 @@ public class PresenceCapabilityTask extends PresenceTask{
     private long mTimeout;
 
     public PresenceCapabilityTask(Context context, int taskId, int cmdId,
-            IRcsPresenceListener listener, String[] contacts,
+            ContactCapabilityResponse listener, String[] contacts,
             long timeout){
         super(taskId, cmdId, listener, contacts);
         mContext = context;
@@ -115,7 +106,7 @@ public class PresenceCapabilityTask extends PresenceTask{
         }
 
         Intent intent = new Intent(ACTION_TASK_TIMEOUT_ALARM);
-        intent.setClass(mContext, AlarmBroadcastReceiver.class);
+        intent.setPackage(mContext.getPackageName());
         intent.putExtra("taskId", mTaskId);
         PendingIntent mAlarmIntent = PendingIntent.getBroadcast(mContext, 0, intent,
                 PendingIntent.FLAG_ONE_SHOT);
@@ -143,14 +134,9 @@ public class PresenceCapabilityTask extends PresenceTask{
 
     public void onTimeout(){
         logger.debug("onTimeout, taskId=" + mTaskId);
-        try{
-            if(mListener != null){
-                mListener.onTimeout(mTaskId);
-            }
-        }catch (RemoteException e){
-            logger.error("RemoteException", e);
+        if(mListener != null){
+            mListener.onTimeout(mTaskId);
         }
-
         TaskManager.getDefault().removeTask(mTaskId);
     }
 
@@ -169,12 +155,8 @@ public class PresenceCapabilityTask extends PresenceTask{
         }
 
         cancelTimer();
-        try{
-            if(mListener != null){
-                mListener.onFinish(mTaskId);
-            }
-        }catch (RemoteException e){
-            logger.error("RemoteException", e);
+        if(mListener != null){
+            mListener.onFinish(mTaskId);
         }
 
         TaskManager.getDefault().removeTask(mTaskId);

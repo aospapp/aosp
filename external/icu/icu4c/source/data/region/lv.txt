@@ -183,7 +183,7 @@ lv{
         MF{"Senmartēna"}
         MG{"Madagaskara"}
         MH{"Māršala salas"}
-        MK{"bijusī Dienvidslāvijas Maķedonijas Republika"}
+        MK{"Ziemeļmaķedonija"}
         ML{"Mali"}
         MM{"Mjanma (Birma)"}
         MN{"Mongolija"}
@@ -253,7 +253,7 @@ lv{
         SV{"Salvadora"}
         SX{"Sintmārtena"}
         SY{"Sīrija"}
-        SZ{"Svazilenda"}
+        SZ{"Svatini"}
         TA{"Tristana da Kuņas salas"}
         TC{"Tērksas un Kaikosas salas"}
         TD{"Čada"}
@@ -287,6 +287,8 @@ lv{
         VU{"Vanuatu"}
         WF{"Volisa un Futunas salas"}
         WS{"Samoa"}
+        XA{"pseidoakcenti"}
+        XB{"pseidodivvirzienu"}
         XK{"Kosova"}
         YE{"Jemena"}
         YT{"Majota"}
@@ -305,6 +307,8 @@ lv{
         CG{"Kongo (Republika)"}
         CI{"Ziloņkaula krasts"}
         CZ{"Čehijas Republika"}
+        SZ{"Svazilenda"}
+        TL{"Austrumtimora"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

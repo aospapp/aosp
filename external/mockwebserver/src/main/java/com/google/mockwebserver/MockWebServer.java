@@ -517,6 +517,14 @@ public final class MockWebServer {
 
         InputStream in = response.getBodyStream();
         if (in == null) return;
+        long bodyDelayTimeMs = response.getBodyDelayTimeMs();
+        if (bodyDelayTimeMs > 0) {
+            try {
+                Thread.sleep(bodyDelayTimeMs);
+            } catch (InterruptedException e) {
+                throw new AssertionError();
+            }
+        }
         throttledTransfer(response, in, out, Long.MAX_VALUE);
     }
 

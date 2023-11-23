@@ -121,6 +121,9 @@
             </intent-filter>
         </provider>
         <service android:name=".SomeService"/>
+
+        <activity android:name=".StartForResultActivity" android:exported="false" />
+
     </application>
 
     <instrumentation

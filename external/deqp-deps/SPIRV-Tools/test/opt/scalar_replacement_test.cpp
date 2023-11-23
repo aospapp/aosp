@@ -1149,7 +1149,6 @@ TEST_F(ScalarReplacementTest, NoPartialAccesses2) {
 ; CHECK: OpVariable [[float_ptr]] Function
 ; CHECK: OpVariable [[float_ptr]] Function
 ; CHECK: OpVariable [[float_ptr]] Function
-; CHECK: OpVariable [[float_ptr]] Function
 ; CHECK-NOT: OpVariable
 ;
 OpCapability Shader
@@ -1553,6 +1552,351 @@ OpFunctionEnd
   auto result =
       SinglePassRunAndDisassemble<ScalarReplacementPass>(text, true, false, 0);
   EXPECT_EQ(Pass::Status::SuccessWithChange, std::get<1>(result));
+}
+
+TEST_F(ScalarReplacementTest, AmbigousPointer) {
+  const std::string text = R"(
+; CHECK: [[s1:%\w+]] = OpTypeStruct %uint
+; CHECK: [[s2:%\w+]] = OpTypeStruct %uint
+; CHECK: [[s3:%\w+]] = OpTypeStruct [[s2]]
+; CHECK: [[s3_const:%\w+]] = OpConstantComposite [[s3]]
+; CHECK: [[s2_ptr:%\w+]] = OpTypePointer Function [[s2]]
+; CHECK: OpCompositeExtract [[s2]] [[s3_const]]
+
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource ESSL 310
+       %void = OpTypeVoid
+          %5 = OpTypeFunction %void
+       %uint = OpTypeInt 32 0
+  %_struct_7 = OpTypeStruct %uint
+  %_struct_8 = OpTypeStruct %uint
+  %_struct_9 = OpTypeStruct %_struct_8
+     %uint_1 = OpConstant %uint 1
+         %11 = OpConstantComposite %_struct_8 %uint_1
+         %12 = OpConstantComposite %_struct_9 %11
+%_ptr_Function__struct_9 = OpTypePointer Function %_struct_9
+%_ptr_Function__struct_7 = OpTypePointer Function %_struct_7
+          %2 = OpFunction %void None %5
+         %15 = OpLabel
+        %var = OpVariable %_ptr_Function__struct_9 Function
+               OpStore %var %12
+         %ld = OpLoad %_struct_9 %var
+         %ex = OpCompositeExtract %_struct_8 %ld 0
+               OpReturn
+               OpFunctionEnd
+  )";
+
+  SinglePassRunAndMatch<ScalarReplacementPass>(text, true);
+}
+
+// Test that scalar replacement does not crash when there is an OpAccessChain
+// with no index.  If we choose to handle this case in the future, then the
+// result can change.
+TEST_F(ScalarReplacementTest, TestAccessChainWithNoIndexes) {
+  const std::string text = R"(
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %1 "main"
+               OpExecutionMode %1 OriginLowerLeft
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+      %float = OpTypeFloat 32
+  %_struct_5 = OpTypeStruct %float
+%_ptr_Function__struct_5 = OpTypePointer Function %_struct_5
+          %1 = OpFunction %void None %3
+          %7 = OpLabel
+          %8 = OpVariable %_ptr_Function__struct_5 Function
+          %9 = OpAccessChain %_ptr_Function__struct_5 %8
+               OpReturn
+               OpFunctionEnd
+  )";
+
+  auto result =
+      SinglePassRunAndDisassemble<ScalarReplacementPass>(text, true, false);
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
+}
+
+// Test that id overflow is handled gracefully.
+TEST_F(ScalarReplacementTest, IdBoundOverflow1) {
+  const std::string text = R"(
+OpCapability ImageQuery
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %4 "main"
+OpExecutionMode %4 OriginUpperLeft
+OpDecorate %4194302 DescriptorSet 1073495039
+%2 = OpTypeVoid
+%3 = OpTypeFunction %2
+%6 = OpTypeFloat 32
+%7 = OpTypeStruct %6 %6
+%557056 = OpTypeStruct %7
+%9 = OpTypePointer Function %7
+%18 = OpTypeFunction %7 %9
+%4 = OpFunction %2 Pure|Const %3
+%1836763 = OpLabel
+%4194302 = OpVariable %9 Function
+%10 = OpVariable %9 Function
+OpKill
+%4194301 = OpLabel
+%524296 = OpLoad %7 %4194302
+OpKill
+OpFunctionEnd
+  )";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+
+  std::vector<Message> messages = {
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."}};
+  SetMessageConsumer(GetTestMessageConsumer(messages));
+  auto result = SinglePassRunToBinary<ScalarReplacementPass>(text, true, false);
+  EXPECT_EQ(Pass::Status::Failure, std::get<1>(result));
+}
+
+// Test that id overflow is handled gracefully.
+TEST_F(ScalarReplacementTest, IdBoundOverflow2) {
+  const std::string text = R"(
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %4 "main" %17
+OpExecutionMode %4 OriginUpperLeft
+%2 = OpTypeVoid
+%3 = OpTypeFunction %2
+%6 = OpTypeFloat 32
+%7 = OpTypeVector %6 4
+%8 = OpTypeStruct %7
+%9 = OpTypePointer Function %8
+%16 = OpTypePointer Output %7
+%21 = OpTypeInt 32 1
+%22 = OpConstant %21 0
+%23 = OpTypePointer Function %7
+%17 = OpVariable %16 Output
+%4 = OpFunction %2 None %3
+%5 = OpLabel
+%4194300 = OpVariable %23 Function
+%10 = OpVariable %9 Function
+%4194301 = OpAccessChain %23 %10 %22
+%4194302 = OpLoad %7 %4194301
+OpStore %4194300 %4194302
+%15 = OpLoad %7 %4194300
+OpStore %17 %15
+OpReturn
+OpFunctionEnd
+  )";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+
+  std::vector<Message> messages = {
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."}};
+  SetMessageConsumer(GetTestMessageConsumer(messages));
+  auto result = SinglePassRunToBinary<ScalarReplacementPass>(text, true, false);
+  EXPECT_EQ(Pass::Status::Failure, std::get<1>(result));
+}
+
+// Test that id overflow is handled gracefully.
+TEST_F(ScalarReplacementTest, IdBoundOverflow3) {
+  const std::string text = R"(
+OpCapability InterpolationFunction
+OpExtension "z"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %4 "main"
+OpExecutionMode %4 OriginUpperLeft
+%2 = OpTypeVoid
+%3 = OpTypeFunction %2
+%6 = OpTypeFloat 32
+%7 = OpTypeStruct %6 %6
+%9 = OpTypePointer Function %7
+%18 = OpTypeFunction %7 %9
+%21 = OpTypeInt 32 0
+%22 = OpConstant %21 4293000676
+%4194302 = OpConstantNull %6
+%4 = OpFunction %2 Inline|Pure %3
+%786464 = OpLabel
+%4194298 = OpVariable %9 Function
+%10 = OpVariable %9 Function
+%4194299 = OpUDiv %21 %22 %22
+%4194300 = OpLoad %7 %10
+%50959 = OpLoad %7 %4194298
+OpKill
+OpFunctionEnd
+%1 = OpFunction %7 None %18
+%19 = OpFunctionParameter %9
+%147667 = OpLabel
+%2044391 = OpUDiv %21 %22 %22
+%25 = OpLoad %7 %19
+OpReturnValue %25
+OpFunctionEnd
+%4194295 = OpFunction %2 None %3
+%4194296 = OpLabel
+OpKill
+OpFunctionEnd
+  )";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+
+  std::vector<Message> messages = {
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."},
+      {SPV_MSG_ERROR, "", 0, 0, "ID overflow. Try running compact-ids."}};
+  SetMessageConsumer(GetTestMessageConsumer(messages));
+  auto result = SinglePassRunToBinary<ScalarReplacementPass>(text, true, false);
+  EXPECT_EQ(Pass::Status::Failure, std::get<1>(result));
+}
+
+// Test that replacements for OpAccessChain do not go out of bounds.
+// https://github.com/KhronosGroup/SPIRV-Tools/issues/2609.
+TEST_F(ScalarReplacementTest, OutOfBoundOpAccessChain) {
+  const std::string text = R"(
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %main "main" %_GLF_color
+               OpExecutionMode %main OriginUpperLeft
+               OpSource ESSL 310
+               OpName %main "main"
+               OpName %a "a"
+               OpName %_GLF_color "_GLF_color"
+               OpDecorate %_GLF_color Location 0
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+        %int = OpTypeInt 32 1
+%_ptr_Function_int = OpTypePointer Function %int
+      %int_1 = OpConstant %int 1
+      %float = OpTypeFloat 32
+       %uint = OpTypeInt 32 0
+     %uint_1 = OpConstant %uint 1
+%_arr_float_uint_1 = OpTypeArray %float %uint_1
+%_ptr_Function__arr_float_uint_1 = OpTypePointer Function %_arr_float_uint_1
+%_ptr_Function_float = OpTypePointer Function %float
+%_ptr_Output_float = OpTypePointer Output %float
+ %_GLF_color = OpVariable %_ptr_Output_float Output
+       %main = OpFunction %void None %3
+          %5 = OpLabel
+          %a = OpVariable %_ptr_Function__arr_float_uint_1 Function
+         %21 = OpAccessChain %_ptr_Function_float %a %int_1
+         %22 = OpLoad %float %21
+               OpStore %_GLF_color %22
+               OpReturn
+               OpFunctionEnd
+  )";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+
+  auto result =
+      SinglePassRunAndDisassemble<ScalarReplacementPass>(text, true, false);
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
+}
+
+TEST_F(ScalarReplacementTest, CharIndex) {
+  const std::string text = R"(
+; CHECK: [[int:%\w+]] = OpTypeInt 32 0
+; CHECK: [[ptr:%\w+]] = OpTypePointer Function [[int]]
+; CHECK: OpVariable [[ptr]] Function
+OpCapability Shader
+OpCapability Int8
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %main "main"
+OpExecutionMode %main LocalSize 1 1 1
+%void = OpTypeVoid
+%int = OpTypeInt 32 0
+%int_1024 = OpConstant %int 1024
+%char = OpTypeInt 8 0
+%char_1 = OpConstant %char 1
+%array = OpTypeArray %int %int_1024
+%ptr_func_array = OpTypePointer Function %array
+%ptr_func_int = OpTypePointer Function %int
+%void_fn = OpTypeFunction %void
+%main = OpFunction %void None %void_fn
+%entry = OpLabel
+%var = OpVariable %ptr_func_array Function
+%gep = OpAccessChain %ptr_func_int %var %char_1
+OpStore %gep %int_1024
+OpReturn
+OpFunctionEnd
+)";
+
+  SinglePassRunAndMatch<ScalarReplacementPass>(text, true, 0);
+}
+
+TEST_F(ScalarReplacementTest, OutOfBoundsOpAccessChainNegative) {
+  const std::string text = R"(
+OpCapability Shader
+OpCapability Int8
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %main "main"
+OpExecutionMode %main LocalSize 1 1 1
+%void = OpTypeVoid
+%int = OpTypeInt 32 0
+%int_1024 = OpConstant %int 1024
+%char = OpTypeInt 8 1
+%char_n1 = OpConstant %char -1
+%array = OpTypeArray %int %int_1024
+%ptr_func_array = OpTypePointer Function %array
+%ptr_func_int = OpTypePointer Function %int
+%void_fn = OpTypeFunction %void
+%main = OpFunction %void None %void_fn
+%entry = OpLabel
+%var = OpVariable %ptr_func_array Function
+%gep = OpAccessChain %ptr_func_int %var %char_n1
+OpStore %gep %int_1024
+OpReturn
+OpFunctionEnd
+)";
+
+  auto result =
+      SinglePassRunAndDisassemble<ScalarReplacementPass>(text, true, true, 0);
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
+}
+
+TEST_F(ScalarReplacementTest, RelaxedPrecisionMemberDecoration) {
+  const std::string text = R"(
+; CHECK: OpDecorate {{%\w+}} RelaxedPrecision
+; CHECK: OpDecorate [[new_var:%\w+]] RelaxedPrecision
+; CHECK: [[new_var]] = OpVariable %_ptr_Function_v3float Function
+; CHECK: OpLoad %v3float [[new_var]]
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %1 "Draw2DTexCol_VS" %2 %3
+               OpSource HLSL 600
+               OpDecorate %2 Location 0
+               OpDecorate %3 Location 1
+               OpDecorate %3 RelaxedPrecision
+               OpMemberDecorate %_struct_4 1 RelaxedPrecision
+      %float = OpTypeFloat 32
+        %int = OpTypeInt 32 1
+      %int_1 = OpConstant %int 1
+    %v3float = OpTypeVector %float 3
+%_ptr_Input_v3float = OpTypePointer Input %v3float
+       %void = OpTypeVoid
+         %11 = OpTypeFunction %void
+  %_struct_4 = OpTypeStruct %v3float %v3float
+%_ptr_Function__struct_4 = OpTypePointer Function %_struct_4
+%_ptr_Function_v3float = OpTypePointer Function %v3float
+          %2 = OpVariable %_ptr_Input_v3float Input
+          %3 = OpVariable %_ptr_Input_v3float Input
+          %1 = OpFunction %void None %11
+         %14 = OpLabel
+         %15 = OpVariable %_ptr_Function__struct_4 Function
+         %16 = OpLoad %v3float %2
+         %17 = OpLoad %v3float %3
+         %18 = OpCompositeConstruct %_struct_4 %16 %17
+               OpStore %15 %18
+         %19 = OpAccessChain %_ptr_Function_v3float %15 %int_1
+         %20 = OpLoad %v3float %19
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SinglePassRunAndMatch<ScalarReplacementPass>(text, true);
 }
 
 }  // namespace

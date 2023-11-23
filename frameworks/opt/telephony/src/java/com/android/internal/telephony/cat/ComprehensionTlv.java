@@ -16,12 +16,12 @@
 
 package com.android.internal.telephony.cat;
 
-import android.annotation.UnsupportedAppUsage;
-import android.telephony.Rlog;
+import android.compat.annotation.UnsupportedAppUsage;
+
+import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
 import java.util.List;
-
 
 /**
  * Class for representing COMPREHENSION-TLV objects.

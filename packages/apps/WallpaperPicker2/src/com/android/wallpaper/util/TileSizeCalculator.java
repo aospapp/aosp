@@ -23,10 +23,14 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
 
+import androidx.annotation.NonNull;
+
+import com.android.systemui.shared.system.QuickStepContract;
 import com.android.wallpaper.R;
 import com.android.wallpaper.module.FormFactorChecker;
 import com.android.wallpaper.module.FormFactorChecker.FormFactor;
 import com.android.wallpaper.module.InjectorProvider;
+
 
 /**
  * Simple utility class that calculates tile sizes relative to the size of the display.
@@ -37,7 +41,7 @@ public class TileSizeCalculator {
     /**
      * The number of columns for a "fewer columns" configuration of the category tiles grid.
      */
-    private static final int CATEGORY_FEWER_COLUMNS = 2;
+    private static final int CATEGORY_FEWER_COLUMNS = 3;
 
     /**
      * The number of columns for a "more columns" configuration of the category tiles grid.
@@ -65,7 +69,7 @@ public class TileSizeCalculator {
      * Returns the number of columns for a grid of category tiles. Selects from fewer and more columns
      * based on the width of the activity.
      */
-    public static int getNumCategoryColumns(Activity activity) {
+    public static int getNumCategoryColumns(@NonNull Activity activity) {
         int windowWidthPx = getActivityWindowWidthPx(activity);
         return getNumCategoryColumns(activity, windowWidthPx);
     }
@@ -74,7 +78,7 @@ public class TileSizeCalculator {
      * Returns the number of columns for a grid of individual tiles. Selects from fewer and more
      * columns based on the width of the activity.
      */
-    public static int getNumIndividualColumns(Activity activity) {
+    public static int getNumIndividualColumns(@NonNull Activity activity) {
         int windowWidthPx = getActivityWindowWidthPx(activity);
         return getNumIndividualColumns(activity, windowWidthPx);
     }
@@ -109,23 +113,23 @@ public class TileSizeCalculator {
     /**
      * Returns the size of a category grid tile in px.
      */
-    public static Point getCategoryTileSize(Activity activity) {
+    public static Point getCategoryTileSize(@NonNull Activity activity) {
         Context appContext = activity.getApplicationContext();
         int windowWidthPx = getActivityWindowWidthPx(activity);
 
         int columnCount = getNumCategoryColumns(activity, windowWidthPx);
-        return getTileSize(appContext, columnCount, windowWidthPx);
+        return getSquareTileSize(appContext, columnCount, windowWidthPx);
     }
 
     /**
      * Returns the size of an individual grid tile for the given activity in px.
      */
-    public static Point getIndividualTileSize(Activity activity) {
+    public static Point getIndividualTileSize(@NonNull Activity activity) {
         Context appContext = activity.getApplicationContext();
         int windowWidthPx = getActivityWindowWidthPx(activity);
 
         int columnCount = getNumIndividualColumns(activity, windowWidthPx);
-        return getTileSize(appContext, columnCount, windowWidthPx);
+        return getSquareTileSize(appContext, columnCount, windowWidthPx);
     }
 
     /**
@@ -133,13 +137,22 @@ public class TileSizeCalculator {
      * category or individual tile on any-sized activity on the device. This size matches the
      * individual tile size when an activity takes up the entire screen's width.
      */
-    public static Point getSuggestedThumbnailSize(Context appContext) {
+    public static Point getSuggestedThumbnailSize(@NonNull Context appContext) {
         // Category tiles are larger than individual tiles, so get the number of columns for categories
         // and then calculate a tile size for when the app window takes up the entire display.
         int windowWidthPx = getDeviceDisplayWidthPx(appContext);
         int columnCount = getNumColumns(
                 appContext, windowWidthPx, INDIVIDUAL_FEWER_COLUMNS, INDIVIDUAL_MORE_COLUMNS);
         return getTileSize(appContext, columnCount, windowWidthPx);
+    }
+
+    /**
+     * Returns the corner radius to use in a wallpaper preview view so that it's proportional
+     * to the screen's corner radius
+     */
+    public static float getPreviewCornerRadius(@NonNull Activity activity, int previewWidth) {
+        return QuickStepContract.getWindowCornerRadius(Resources.getSystem())
+                / ((float) getActivityWindowWidthPx(activity) / previewWidth);
     }
 
     /**
@@ -176,6 +189,24 @@ public class TileSizeCalculator {
                 * res.getDimensionPixelSize(R.dimen.grid_tile_aspect_height)
                 / res.getDimensionPixelSize(R.dimen.grid_tile_aspect_width));
         return new Point(widthPx, heightPx);
+    }
+
+    /**
+     * Returns the size of a grid tile with the given "fewer" count and "more" count, on the given
+     * display. The size is determined by these counts with the aspect ratio of 1:1 and is in units
+     * of px.
+     */
+    private static Point getSquareTileSize(Context context, int columnCount, int windowWidthPx) {
+        Resources res = context.getResources();
+        int gridPaddingPx = res.getDimensionPixelSize(R.dimen.grid_padding);
+        int gridEdgeSpacePx = res.getDimensionPixelSize(R.dimen.grid_edge_space);
+
+        int availableWidthPx = windowWidthPx
+                - gridPaddingPx * 2 * columnCount // Item's left and right padding * column count
+                - gridEdgeSpacePx * 2; // Grid view's left and right edge's space
+        int widthPx = Math.round((float) availableWidthPx / columnCount);
+
+        return new Point(widthPx, widthPx);
     }
 
     /**

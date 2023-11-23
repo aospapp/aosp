@@ -1,10 +1,10 @@
 # evs_mock mock hardware driver service
-type hal_evs_driver, domain, coredomain;
+type hal_evs_driver, domain;
 hal_server_domain(hal_evs_driver, hal_evs)
 hal_client_domain(hal_evs_driver, hal_evs)
 
 # allow init to launch processes in this context
-type hal_evs_driver_exec, exec_type, file_type, system_file_type;
+type hal_evs_driver_exec, exec_type, file_type, vendor_file_type;
 init_daemon_domain(hal_evs_driver)
 binder_use(hal_evs_driver)
 
@@ -22,3 +22,8 @@ allow hal_evs_driver ion_device:chr_file r_file_perms;
 
 # Allow the driver to access kobject uevents
 allow hal_evs_driver self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+
+# Allow the driver to use automotive display proxy service
+allow hal_evs_driver automotive_display_service_server:binder call;
+allow hal_evs_driver fwk_automotive_display_hwservice:hwservice_manager find;
+

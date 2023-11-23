@@ -19,6 +19,7 @@ android_test {
         "compatibility-device-util-axt",
         "ub-uiautomator",
         "androidx.test.rules",
+        "cts-wm-util",
     ],
     libs: ["android.test.base.stubs"],
     srcs: [
@@ -28,7 +29,7 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
     // sdk_version: "current",

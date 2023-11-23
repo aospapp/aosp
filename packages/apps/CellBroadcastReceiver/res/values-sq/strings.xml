@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"Sinjalizimet e urgjencës"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"Sinjalizimet e urgjencës"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Cilësimet e transmetimit celular nuk janë të disponueshme për këtë përdorues"</string>
+    <string name="app_label" msgid="2008319089248760277">"Sinjalizimet me valë të urgjencës"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"Sinjalizimet me valë të urgjencës"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Cilësimet e sinjalizimeve me valë të urgjencës nuk ofrohen për këtë përdorues"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"Në rregull"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"Asnjë alarm i mëparshëm"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Fshi transmetimet"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"Shiko detajet"</string>
     <string name="menu_delete" msgid="128380070910799366">"Fshi transmetimin"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Detajet e alarmit"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"Detajet e sinjalizimeve për korrigjimin"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Të fshihet ky transmetim?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Të fshihen të gjitha mesazhet e marra nga transmetimi?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Fshi"</string>
@@ -51,11 +52,11 @@
     <string name="emergency_alerts_title" msgid="6605036374197485429">"Sinjalizimet"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Mesazhet e transmetimit"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"Sinjalizimet e urgjencës"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"Sinjalizimet e urgjencës në telefonatë zanore"</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"Lejo sinjalizimet"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"Merr njoftimet e urgjencës"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"Tingulli i alarmeve rikujtuese"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Dëgjo mesazhin e alarmit"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Përdor konvertimin e tekstit në të folur, për të dëgjuar mesazhet e alarmit të urgjencës"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"Merr njoftimet e sinjalizimeve me valë të urgjencës"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alarmet rikujtuese"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"Një tingull alarmi rikujtues do të luhet me volum të rregullt"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"Historiku i sinjalizimeve të urgjencës"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"Preferencat për sinjalizimet"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"Transmetimet provë të ETWS-së"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Merr mesazhe testimi nga autoritetet shtetërore dhe lokale"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Sinjalizimet e urgjencës"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Paralajmëro për ngjarje kërcënuese për jetën"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"Kërkohet testi mujor"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"Merr mesazhe testimi për sistemin e sinjalizimeve të sigurisë"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Sinjalizime testimi"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Merr testet e operatorit celular dhe testet mujore nga sistemi i sinjalizimeve të sigurisë"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"Dridhje"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"Përdor volumin e plotë"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"Shpërfill volumin tjetër dhe preferencat e \"Mos shqetëso\""</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"Gjithmonë sinjalizo me volum të plotë"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"Shpërfill \"Mos shqetëso\" dhe cilësimet e tjera të volumit"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"Transmetimet e përditësimeve për zonën"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"Shfaq informacionet e përditësimit në statusin e kartës SIM"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Opsionet e zhvilluesit"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Kategoria e alarmit:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Gjeofizik"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorologjik"</string>
@@ -118,7 +118,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Alarme të reja"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Shfaq dialogun e tërheqjes pas shfaqjes së sinjalizimit të parë (përveç \"Sinjalizimit presidencial\")."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Shfaq dialogun e tërheqjes"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Aktualisht po merr \"Alarme urgjence\". Dëshiron që të vazhdosh të marrësh \"Alarme urgjence\"?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Po merr aktualisht sinjalizime me valë të urgjencës. Dëshiron të vazhdosh të marrësh sinjalizimet me valë të urgjencës?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Po"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Jo"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Historiku i sinjalizimeve të urgjencës"</string>
@@ -127,7 +127,26 @@
     <item msgid="9097229303902157183">"Çdo 2 minuta"</item>
     <item msgid="5718214950343391480">"Çdo 5 minuta"</item>
     <item msgid="3863339891188103437">"Çdo 15 minuta"</item>
-    <item msgid="6868848414437854609">"Joaktiv"</item>
+    <item msgid="7388573183644474611">"Asnjëherë"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Sinjalizimet me valë të urgjencës"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"Sinjalizimet presidenciale"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"Mesazhe paralajmëruese kombëtare të lëshuara nga Presidenti. Nuk mund të çaktivizohen."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"Modaliteti i testimit për transmetimin celular është aktivizuar."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"Modaliteti i testimit për transmetimin celular është çaktivizuar."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"Shfaq të gjitha mesazhet"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"Shfaq mesazhet e zakonshme"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"Identifikuesi:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"Numri i serisë:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"Skema e kodimit të të dhënave:"</string>
+    <string name="message_content" msgid="6204502929879474632">"Përmbajtja e mesazhit:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"Koha e kontrollit të vendndodhjes:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"Mesazhi i shfaqur:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"Koordinatat:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"Koha maksimale e pritjes:"</string>
+    <string name="seconds" msgid="141450721520515025">"sekonda"</string>
+    <string name="message_copied" msgid="6922953753733166675">"Mesazhi u kopjua"</string>
 </resources>

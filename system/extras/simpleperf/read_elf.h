@@ -84,11 +84,28 @@ ElfStatus ReadMinExecutableVirtualAddressFromEmbeddedElfFile(const std::string& 
 ElfStatus ReadSectionFromElfFile(const std::string& filename, const std::string& section_name,
                                  std::string* content);
 
-// Expose the following functions for unit tests.
+namespace llvm {
+class MemoryBuffer;
+}
+
+namespace simpleperf {
+
+class ElfFile {
+ public:
+  static std::unique_ptr<ElfFile> Open(const std::string& filename, ElfStatus* status);
+  virtual ~ElfFile() {}
+
+  virtual llvm::MemoryBuffer* GetMemoryBuffer() = 0;
+
+ protected:
+  ElfFile() {}
+};
+
+}  // namespace simpleperf
+
 bool IsArmMappingSymbol(const char* name);
-ElfStatus IsValidElfFile(int fd);
+ElfStatus IsValidElfFile(int fd, uint64_t file_offset = 0);
 bool IsValidElfFileMagic(const char* buf, size_t buf_size);
-ElfStatus IsValidElfPath(const std::string& filename);
 bool GetBuildIdFromNoteSection(const char* section, size_t section_size, BuildId* build_id);
 
 #endif  // SIMPLE_PERF_READ_ELF_H_

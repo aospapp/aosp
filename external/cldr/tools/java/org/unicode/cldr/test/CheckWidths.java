@@ -19,6 +19,10 @@ public class CheckWidths extends CheckCLDR {
     private static CoverageLevel2 coverageLevel;
     private Level requiredLevel;
 
+    /**
+     * Controls for the warning about too many components, and for when to cause error. 
+     */
+    public static final int WARN_COMPONENTS_PER_ANNOTATION = 7;
     public static final int MAX_COMPONENTS_PER_ANNOTATION = 16;
     
     SupplementalDataInfo supplementalData;
@@ -161,27 +165,28 @@ public class CheckWidths extends CheckCLDR {
 
     // WARNING: errors must occur before warnings!!
     // we allow unusual units and English units to be a little longer
-    static final String ALLOW_LONGER = "(area-acre" +
-        "|area-square-foot" +
-        "|area-square-mile" +
-        "|length-foot" +
-        "|length-inch" +
-        "|length-mile" +
-        "|length-light-year" +
-        "|length-yard" +
-        "|mass-ounce" +
-        "|mass-pound" +
-        "|power-horsepower" +
-        "|pressure-inch-hg" +
-        "|pressure-millimeter-of-mercury" +
-        "|speed-mile-per-hour" +
-        "|temperature-fahrenheit" +
-        "|volume-cubic-mile" +
-        "|acceleration-g-force" +
-        "|speed-kilometer-per-hour" +
-        "|speed-meter-per-second" +
-        "|pressure-pound-per-square-inch" +
-        ")";
+    static final String ALLOW_LONGER = "(area-acre"
+        + "|area-square-foot"
+        + "|area-square-mile"
+        + "|length-foot"
+        + "|length-inch"
+        + "|length-mile"
+        + "|length-light-year"
+        + "|length-yard"
+        + "|mass-ounce"
+        + "|mass-pound"
+        + "|power-horsepower"
+        + "|pressure-inch-hg"
+        + "|pressure-millimeter-of-mercury"
+        + "|speed-mile-per-hour"
+        + "|temperature-fahrenheit"
+        + "|volume-cubic-mile"
+        + "|acceleration-g-force"
+        + "|speed-kilometer-per-hour"
+        + "|speed-meter-per-second"
+        + "|pressure-pound-per-square-inch"
+        + "|energy-therm-us"
+        + ")";
 
     static final String ALLOW_LONGEST = "consumption-liter-per-100kilometers";
 
@@ -267,7 +272,11 @@ public class CheckWidths extends CheckCLDR {
         // \"(?!am|pm)[^\"]+\"\\
 
         // Compact number formats
-
+// pattern[@type="100000000000000"]
+        .add("//ldml/numbers/decimalFormats[@numberSystem=%A]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=%A]/pattern[@type=\"100000000000000",
+            new Limit[] {
+                new Limit(4 * EM, 6 * EM, Measure.DISPLAY_WIDTH, LimitType.MAXIMUM, Special.NUMBERFORMAT)
+        })
         .add("//ldml/numbers/decimalFormats[@numberSystem=%A]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=%A]/pattern[@type=\"1",
             new Limit[] {
                 new Limit(4 * EM, 5 * EM, Measure.DISPLAY_WIDTH, LimitType.MAXIMUM, Special.NUMBERFORMAT)
@@ -304,7 +313,7 @@ public class CheckWidths extends CheckCLDR {
             new Limit(20 * EM, 100 * EM, Measure.DISPLAY_WIDTH, LimitType.MAXIMUM, Special.NONE),
         })
         .add("//ldml/annotations/annotation[@cp=%A]", new Limit[] {
-            new Limit(5, MAX_COMPONENTS_PER_ANNOTATION, Measure.SET_ELEMENTS, LimitType.MAXIMUM, Special.BARS) // Allow up to 5 with no warning, up to 7 with no error.
+            new Limit(WARN_COMPONENTS_PER_ANNOTATION, MAX_COMPONENTS_PER_ANNOTATION, Measure.SET_ELEMENTS, LimitType.MAXIMUM, Special.BARS) // Allow up to 5 with no warning, up to 7 with no error.
         })
         ;
 

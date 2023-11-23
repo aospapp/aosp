@@ -29,6 +29,8 @@ JOB_REPO_URL = 'job_repo_url'
 VERSION_PREFIX = 'cros-version:'
 BOARD_PREFIX = 'board:'
 MODEL_LABEL = 'model'
+DEVICE_SKU_LABEL = 'device-sku'
+BRAND_CODE_LABEL = 'brand-code'
 OS_PREFIX = 'os'
 
 # Bug filing
@@ -61,7 +63,15 @@ PARENT_JOB_ID = 'parent_job_id'
 # Keys of keyvals inherited from a suite job to test jobs.
 KEYVAL_CIDB_BUILD_ID = 'cidb_build_id'
 KEYVAL_CIDB_BUILD_STAGE_ID = 'cidb_build_stage_id'
+KEYVAL_BRANCH = 'branch'
+KEYVAL_BUILDER_NAME = 'build_config'
+KEYVAL_MASTER_BUILDER_NAME = 'master_build_config'
+SUITE_NAME = 'suite'
 INHERITED_KEYVALS = (
     KEYVAL_CIDB_BUILD_ID,
     KEYVAL_CIDB_BUILD_STAGE_ID,
+    KEYVAL_BRANCH,
+    KEYVAL_BUILDER_NAME,
+    KEYVAL_MASTER_BUILDER_NAME,
+    SUITE_NAME,
 )

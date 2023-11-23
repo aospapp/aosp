@@ -16,13 +16,15 @@
 
 package com.android.server.wifi.hotspot2;
 
+import android.annotation.Nullable;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.text.TextUtils;
+import android.util.Log;
 
-import com.android.internal.util.XmlUtils;
-import com.android.server.wifi.SIMAccessor;
+import com.android.server.wifi.WifiCarrierInfoManager;
 import com.android.server.wifi.WifiConfigStore;
 import com.android.server.wifi.WifiKeyStore;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtil;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -51,6 +53,7 @@ import java.util.List;
  *
  */
 public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
+    private static final String TAG = "PasspointConfigUserStoreData";
     private static final String XML_TAG_SECTION_HEADER_PASSPOINT_CONFIG_DATA =
             "PasspointConfigData";
     private static final String XML_TAG_SECTION_HEADER_PASSPOINT_PROVIDER_LIST =
@@ -65,15 +68,16 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
     private static final String XML_TAG_PACKAGE_NAME = "PackageName";
     private static final String XML_TAG_CA_CERTIFICATE_ALIASES = "CaCertificateAliases";
     private static final String XML_TAG_CA_CERTIFICATE_ALIAS = "CaCertificateAlias";
-    private static final String XML_TAG_CLIENT_CERTIFICATE_ALIAS = "ClientCertificateAlias";
-    private static final String XML_TAG_CLIENT_PRIVATE_KEY_ALIAS = "ClientPrivateKeyAlias";
+    private static final String XML_TAG_CLIENT_PRIVATE_KEY_AND_CERT_ALIAS = "ClientPrivateKeyAlias";
     private static final String XML_TAG_REMEDIATION_CA_CERTIFICATE_ALIAS =
             "RemediationCaCertificateAlias";
 
     private static final String XML_TAG_HAS_EVER_CONNECTED = "HasEverConnected";
+    private static final String XML_TAG_IS_FROM_SUGGESTION = "IsFromSuggestion";
+    private static final String XML_TAG_IS_TRUSTED = "IsTrusted";
 
     private final WifiKeyStore mKeyStore;
-    private final SIMAccessor mSimAccessor;
+    private final WifiCarrierInfoManager mWifiCarrierInfoManager;
     private final DataSource mDataSource;
 
     /**
@@ -95,21 +99,24 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         void setProviders(List<PasspointProvider> providers);
     }
 
-    PasspointConfigUserStoreData(WifiKeyStore keyStore, SIMAccessor simAccessor,
-            DataSource dataSource) {
+    PasspointConfigUserStoreData(WifiKeyStore keyStore,
+            WifiCarrierInfoManager wifiCarrierInfoManager, DataSource dataSource) {
         mKeyStore = keyStore;
-        mSimAccessor = simAccessor;
+        mWifiCarrierInfoManager = wifiCarrierInfoManager;
         mDataSource = dataSource;
     }
 
     @Override
-    public void serializeData(XmlSerializer out)
+    public void serializeData(XmlSerializer out,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         serializeUserData(out);
     }
 
     @Override
-    public void deserializeData(XmlPullParser in, int outerTagDepth)
+    public void deserializeData(XmlPullParser in, int outerTagDepth,
+            @WifiConfigStore.Version int version,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         // Ignore empty reads.
         if (in == null) {
@@ -169,9 +176,6 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         }
         XmlUtil.writeNextSectionStart(out, XML_TAG_SECTION_HEADER_PASSPOINT_PROVIDER_LIST);
         for (PasspointProvider provider : providerList) {
-            if (provider.isEphemeral()) {
-                continue;
-            }
             serializeProvider(out, provider);
         }
         XmlUtil.writeNextSectionEnd(out, XML_TAG_SECTION_HEADER_PASSPOINT_PROVIDER_LIST);
@@ -195,11 +199,11 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         }
         XmlUtil.writeNextValue(out, XML_TAG_CA_CERTIFICATE_ALIASES,
                 provider.getCaCertificateAliases());
-        XmlUtil.writeNextValue(out, XML_TAG_CLIENT_CERTIFICATE_ALIAS,
-                provider.getClientCertificateAlias());
-        XmlUtil.writeNextValue(out, XML_TAG_CLIENT_PRIVATE_KEY_ALIAS,
-                provider.getClientPrivateKeyAlias());
+        XmlUtil.writeNextValue(out, XML_TAG_CLIENT_PRIVATE_KEY_AND_CERT_ALIAS,
+                provider.getClientPrivateKeyAndCertificateAlias());
         XmlUtil.writeNextValue(out, XML_TAG_HAS_EVER_CONNECTED, provider.getHasEverConnected());
+        XmlUtil.writeNextValue(out, XML_TAG_IS_FROM_SUGGESTION, provider.isFromSuggestion());
+        XmlUtil.writeNextValue(out, XML_TAG_IS_TRUSTED, provider.isTrusted());
         if (provider.getConfig() != null) {
             XmlUtil.writeNextSectionStart(out, XML_TAG_SECTION_HEADER_PASSPOINT_CONFIGURATION);
             PasspointXmlUtils.serializePasspointConfiguration(out, provider.getConfig());
@@ -227,8 +231,8 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
                     mDataSource.setProviders(deserializeProviderList(in, outerTagDepth + 1));
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown Passpoint user store data "
-                            + headerName[0]);
+                    Log.w(TAG, "Ignoring unknown Passpoint user store data " + headerName[0]);
+                    break;
             }
         }
     }
@@ -267,14 +271,15 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         int creatorUid = Integer.MIN_VALUE;
         List<String> caCertificateAliases = null;
         String caCertificateAlias = null;
-        String clientCertificateAlias = null;
-        String clientPrivateKeyAlias = null;
+        String clientPrivateKeyAndCertificateAlias = null;
         String remediationCaCertificateAlias = null;
         String packageName = null;
         boolean hasEverConnected = false;
+        boolean isFromSuggestion = false;
         boolean shared = false;
+        boolean isTrusted = true;
         PasspointConfiguration config = null;
-        while (XmlUtils.nextElementWithin(in, outerTagDepth)) {
+        while (XmlUtil.nextElementWithin(in, outerTagDepth)) {
             if (in.getAttributeValue(null, "name") != null) {
                 // Value elements.
                 String[] name = new String[1];
@@ -297,11 +302,8 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
                         // uses this alias.
                         caCertificateAlias = (String) value;
                         break;
-                    case XML_TAG_CLIENT_CERTIFICATE_ALIAS:
-                        clientCertificateAlias = (String) value;
-                        break;
-                    case XML_TAG_CLIENT_PRIVATE_KEY_ALIAS:
-                        clientPrivateKeyAlias = (String) value;
+                    case XML_TAG_CLIENT_PRIVATE_KEY_AND_CERT_ALIAS:
+                        clientPrivateKeyAndCertificateAlias = (String) value;
                         break;
                     case XML_TAG_REMEDIATION_CA_CERTIFICATE_ALIAS:
                         remediationCaCertificateAlias = (String) value;
@@ -309,15 +311,25 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
                     case XML_TAG_HAS_EVER_CONNECTED:
                         hasEverConnected = (boolean) value;
                         break;
+                    case XML_TAG_IS_FROM_SUGGESTION:
+                        isFromSuggestion = (boolean) value;
+                        break;
+                    case XML_TAG_IS_TRUSTED:
+                        isTrusted = (boolean) value;
+                        break;
+                    default:
+                        Log.w(TAG, "Ignoring unknown value name found " + name[0]);
+                        break;
                 }
             } else {
-                if (!TextUtils.equals(in.getName(),
+                if (TextUtils.equals(in.getName(),
                         XML_TAG_SECTION_HEADER_PASSPOINT_CONFIGURATION)) {
-                    throw new XmlPullParserException("Unexpected section under Provider: "
+                    config = PasspointXmlUtils.deserializePasspointConfiguration(in,
+                            outerTagDepth + 1);
+                } else {
+                    Log.w(TAG, "Ignoring unexpected section under Provider: "
                             + in.getName());
                 }
-                config = PasspointXmlUtils.deserializePasspointConfiguration(in,
-                        outerTagDepth + 1);
             }
         }
         if (providerId == Long.MIN_VALUE) {
@@ -333,13 +345,18 @@ public class PasspointConfigUserStoreData implements WifiConfigStore.StoreData {
         if (caCertificateAlias != null) {
             caCertificateAliases = Arrays.asList(caCertificateAlias);
         }
-
         if (config == null) {
             throw new XmlPullParserException("Missing Passpoint configuration");
         }
-        return new PasspointProvider(config, mKeyStore, mSimAccessor, providerId, creatorUid,
-                packageName, caCertificateAliases, clientCertificateAlias, clientPrivateKeyAlias,
-                remediationCaCertificateAlias, hasEverConnected, shared);
+        PasspointProvider provider =  new PasspointProvider(config, mKeyStore,
+                mWifiCarrierInfoManager,
+                providerId, creatorUid, packageName, isFromSuggestion, caCertificateAliases,
+                clientPrivateKeyAndCertificateAlias, remediationCaCertificateAlias,
+                hasEverConnected, shared);
+        if (isFromSuggestion) {
+            provider.setTrusted(isTrusted);
+        }
+        return provider;
     }
 }
 

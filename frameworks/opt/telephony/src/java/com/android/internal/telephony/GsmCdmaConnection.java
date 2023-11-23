@@ -15,7 +15,7 @@
  */
 
 package com.android.internal.telephony;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Handler;
@@ -28,15 +28,16 @@ import android.os.SystemClock;
 import android.telephony.CarrierConfigManager;
 import android.telephony.DisconnectCause;
 import android.telephony.PhoneNumberUtils;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.cdma.CdmaCallWaitingNotification;
 import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
+import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 import com.android.internal.telephony.uicc.UiccCardApplication;
+import com.android.telephony.Rlog;
 
 /**
  * {@hide}
@@ -79,9 +80,6 @@ public class GsmCdmaConnection extends Connection {
     // The cached delay to be used between DTMF tones fetched from carrier config.
     private int mDtmfToneDelay = 0;
 
-    // Store the current audio codec
-    private int mAudioCodec = DriverCall.AUDIO_QUALITY_UNSPECIFIED;
-
     private TelephonyMetrics mMetrics = TelephonyMetrics.getInstance();
 
     //***** Event Constants
@@ -94,7 +92,7 @@ public class GsmCdmaConnection extends Connection {
     //***** Constants
     static final int PAUSE_DELAY_MILLIS_GSM = 3 * 1000;
     static final int PAUSE_DELAY_MILLIS_CDMA = 2 * 1000;
-    static final int WAKE_LOCK_TIMEOUT_MILLIS = 60*1000;
+    static final int WAKE_LOCK_TIMEOUT_MILLIS = 60 * 1000;
 
     //***** Inner Classes
 
@@ -380,6 +378,18 @@ public class GsmCdmaConnection extends Connection {
     public void deflect(String number) throws CallStateException {
         // Deflect is not supported.
         throw new CallStateException ("deflect is not supported for CS");
+    }
+
+    @Override
+    public void transfer(String number, boolean isConfirmationRequired) throws CallStateException {
+        // Transfer is not supported.
+        throw new CallStateException("Transfer is not supported for CS");
+    }
+
+    @Override
+    public void consultativeTransfer(Connection other) throws CallStateException {
+        // Transfer is not supported.
+        throw new CallStateException("Transfer is not supported for CS");
     }
 
     @Override
@@ -681,6 +691,7 @@ public class GsmCdmaConnection extends Connection {
         if (dc.audioQuality != mAudioCodec) {
             mAudioCodec = dc.audioQuality;
             mMetrics.writeAudioCodecGsmCdma(mOwner.getPhone().getPhoneId(), dc.audioQuality);
+            mOwner.getPhone().getVoiceCallSessionStats().onAudioCodecChanged(this, dc.audioQuality);
         }
 
         // A null cnapName should be the same as ""
@@ -1004,8 +1015,8 @@ public class GsmCdmaConnection extends Connection {
      * @param s new PostDialState
      */
     private void setPostDialState(PostDialState s) {
-        if (s == PostDialState.STARTED ||
-                s == PostDialState.PAUSE) {
+        if (s == PostDialState.STARTED
+                || s == PostDialState.PAUSE) {
             synchronized (mPartialWakeLock) {
                 if (mPartialWakeLock.isHeld()) {
                     mHandler.removeMessages(EVENT_WAKE_LOCK_TIMEOUT);
@@ -1202,6 +1213,20 @@ public class GsmCdmaConnection extends Connection {
         }
 
         return false;
+    }
+
+    /**
+     * Get the corresponding EmergencyNumberTracker associated with the connection.
+     * @return the EmergencyNumberTracker
+     */
+    public EmergencyNumberTracker getEmergencyNumberTracker() {
+        if (mOwner != null) {
+            Phone phone = mOwner.getPhone();
+            if (phone != null) {
+                return phone.getEmergencyNumberTracker();
+            }
+        }
+        return null;
     }
 
     /**

@@ -42,6 +42,5 @@
   <!-- option name="compatibility:include-filter" value="LinuxKselftestTestPresubmit" / -->
   <!-- option name="compatibility:include-filter" value="ShellBinaryCrashTest" / -->
   <!-- option name="compatibility:include-filter" value="LibcTest" / -->
-  <!-- option name="compatibility:include-filter" value="SyscallExistenceTest" / -->
 
 </configuration>

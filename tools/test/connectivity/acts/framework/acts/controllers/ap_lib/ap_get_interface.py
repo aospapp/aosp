@@ -30,7 +30,6 @@ class ApInterfaces(object):
     """Class to get network interface information for the device.
 
     """
-
     def __init__(self, ap):
         """Initialize the ApInterface class.
 
@@ -175,7 +174,7 @@ class ApInterfaces(object):
         Returns:
             network_status: the connectivity status of the interface
         """
-        PING = 'ping -c 1 -I %s 8.8.8.8' % iface
+        PING = 'ping -c 3 -I %s 8.8.8.8' % iface
         try:
             self.ssh.run(PING)
             return 1

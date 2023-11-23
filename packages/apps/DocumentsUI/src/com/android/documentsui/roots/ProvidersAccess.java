@@ -21,9 +21,12 @@ import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,10 +42,10 @@ public interface ProvidersAccess {
 
     /**
      * Return the requested {@link RootInfo}, but only loading the roots for the
-     * requested authority. This is useful when we want to load fast without
+     * requested user and authority. This is useful when we want to load fast without
      * waiting for all the other roots to come back.
      */
-    RootInfo getRootOneshot(String authority, String rootId);
+    RootInfo getRootOneshot(UserId userId, String authority, String rootId);
 
     Collection<RootInfo> getMatchingRootsBlocking(State state);
 
@@ -50,17 +53,17 @@ public interface ProvidersAccess {
 
     RootInfo getDefaultRootBlocking(State state);
 
-    RootInfo getRecentsRoot();
+    RootInfo getRecentsRoot(UserId userId);
 
-    String getApplicationName(String authority);
+    String getApplicationName(UserId userId, String authority);
 
-    String getPackageName(String authority);
+    String getPackageName(UserId userId, String authority);
 
     /**
-     * Returns a list of roots for the specified authority. If not found, then
+     * Returns a list of roots for the specified user and authority. If not found, then
      * an empty list is returned.
      */
-    Collection<RootInfo> getRootsForAuthorityBlocking(String authority);
+    Collection<RootInfo> getRootsForAuthorityBlocking(UserId userId, String authority);
 
     public static List<RootInfo> getMatchingRoots(Collection<RootInfo> roots, State state) {
 
@@ -95,19 +98,8 @@ public interface ProvidersAccess {
                 continue;
             }
 
-            if (!state.showAdvanced && root.isAdvanced()) {
-                if (VERBOSE) Log.v(tag, "Excluding root because: unwanted advanced device.");
-                continue;
-            }
-
             if (state.localOnly && !root.isLocalOnly()) {
                 if (VERBOSE) Log.v(tag, "Excluding root because: unwanted non-local device.");
-                continue;
-            }
-
-            if (state.directoryCopy && root.isDownloads()) {
-                if (VERBOSE) Log.v(
-                        tag, "Excluding downloads root because: unsupported directory copy.");
                 continue;
             }
 
@@ -118,6 +110,13 @@ public interface ProvidersAccess {
 
             if (state.action == State.ACTION_GET_CONTENT && root.isEmpty()) {
                 if (VERBOSE) Log.v(tag, "Excluding empty root because: ACTION_GET_CONTENT.");
+                continue;
+            }
+
+            if (!UserId.CURRENT_USER.equals(root.userId) && !state.supportsCrossProfile()) {
+                if (VERBOSE) {
+                    Log.v(tag, "Excluding root because: action does not support cross profile.");
+                }
                 continue;
             }
 
@@ -144,4 +143,20 @@ public interface ProvidersAccess {
         }
         return matching;
     }
+
+    /**
+     * Returns the root should default show on current state.
+     */
+    static @Nullable RootInfo getDefaultRoot(Collection<RootInfo> roots, State state) {
+        for (RootInfo root : ProvidersAccess.getMatchingRoots(roots, state)) {
+            if (root.isExternalStorage() && state.action == State.ACTION_OPEN_TREE) {
+                return root;
+            }
+            if (root.isDownloads()) {
+                return root;
+            }
+        }
+        return null;
+    }
+
 }

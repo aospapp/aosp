@@ -16,6 +16,9 @@
 
 package android.systemui.cts;
 
+import static android.server.wm.BarTestUtils.assumeHasColoredNavigationBar;
+import static android.server.wm.BarTestUtils.assumeHasColoredStatusBar;
+
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertTrue;
@@ -56,6 +59,13 @@ public class LightBarTests extends LightBarTestBase {
      */
     private static final int COLOR_COMPONENT_ERROR_MARGIN = 20;
 
+    /**
+     * It's possible for the device to have color sampling enabled in the nav bar -- in that
+     * case we need to pick a background color that would result in the same dark icon tint
+     * that matches the default visibility flags used when color sampling is not enabled.
+     */
+    private static final int LIGHT_BG_COLOR = Color.rgb(255, 128, 128);
+
     private final String NOTIFICATION_TAG = "TEST_TAG";
     private final String NOTIFICATION_CHANNEL_ID = "test_channel";
     private final String NOTIFICATION_GROUP_KEY = "test_group";
@@ -89,11 +99,11 @@ public class LightBarTests extends LightBarTestBase {
             mNm.notify(NOTIFICATION_TAG, i, noti1.build());
         }
 
-        requestLightBars(Color.RED /* background */);
+        requestLightBars(LIGHT_BG_COLOR);
         Thread.sleep(WAIT_TIME);
 
         Bitmap bitmap = takeStatusBarScreenshot(mActivityRule.getActivity());
-        Stats s = evaluateLightBarBitmap(bitmap, Color.RED /* background */, 0);
+        Stats s = evaluateLightBarBitmap(bitmap, LIGHT_BG_COLOR, 0);
         assertLightStats(bitmap, s);
 
         mNm.cancelAll();
@@ -104,7 +114,7 @@ public class LightBarTests extends LightBarTestBase {
     public void testLightNavigationBar() throws Throwable {
         assumeHasColoredNavigationBar(mActivityRule);
 
-        requestLightBars(Color.RED /* background */);
+        requestLightBars(LIGHT_BG_COLOR);
         Thread.sleep(WAIT_TIME);
 
         // Inject a cancelled interaction with the nav bar to ensure it is at full opacity.
@@ -115,7 +125,7 @@ public class LightBarTests extends LightBarTestBase {
 
         LightBarActivity activity = mActivityRule.getActivity();
         Bitmap bitmap = takeNavigationBarScreenshot(activity);
-        Stats s = evaluateLightBarBitmap(bitmap, Color.RED /* background */, activity.getBottom());
+        Stats s = evaluateLightBarBitmap(bitmap, LIGHT_BG_COLOR, activity.getBottom());
         assertLightStats(bitmap, s);
     }
 

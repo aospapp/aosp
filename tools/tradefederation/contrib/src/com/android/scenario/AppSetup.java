@@ -41,6 +41,12 @@ public class AppSetup extends AndroidJUnitTest {
     )
     private List<String> mAppsToKillWhenFinished = new ArrayList<>();
 
+    @Option(
+            name = "disable",
+            description = "Set it to true to disable AppSetup test."
+        )
+    private boolean mDisable = false;
+
     static final String DROP_CACHE_COMMAND = "echo 3 > /proc/sys/vm/drop_caches";
     static final String KILL_APP_COMMAND_TEMPLATE = "am force-stop %s";
 
@@ -56,6 +62,9 @@ public class AppSetup extends AndroidJUnitTest {
      */
     @Override
     public void run(final ITestInvocationListener listener) throws DeviceNotAvailableException {
+        if(mDisable) {
+            return;
+        }
         runTest(listener);
 
         // TODO(harrytczhang@): Switch to a solution based on test rule injection after b/123281375.

@@ -21,14 +21,14 @@
 #include <stdint.h>
 
 //! @see nanoappStart()
-typedef bool (chreNanoappStartFunction)();
+typedef bool(chreNanoappStartFunction)();
 
 //! @see nanoappHandleEvent()
-typedef void (chreNanoappHandleEventFunction)(uint32_t senderInstanceId,
-                                              uint16_t eventType,
-                                              const void *eventData);
+typedef void(chreNanoappHandleEventFunction)(uint32_t senderInstanceId,
+                                             uint16_t eventType,
+                                             const void *eventData);
 
 //! @see nanoappEnd()
-typedef void (chreNanoappEndFunction)();
+typedef void(chreNanoappEndFunction)();
 
 #endif  // CHRE_UTIL_ENTRY_POINTS_H_

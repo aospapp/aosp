@@ -38,6 +38,9 @@ public class SendTestBroadcastActivity extends Activity {
     /** Whether to delay before sending test message. */
     private boolean mDelayBeforeSending;
 
+    /** Whether to send additional language alerts for GSM CMAS. */
+    private boolean mIsAdditionalLangAlert;
+
     /** Delay time before sending test message (when box is checked). */
     private static final int DELAY_BEFORE_SENDING_MSEC = 5000;
 
@@ -256,103 +259,141 @@ public class SendTestBroadcastActivity extends Activity {
 
         /* Send a GSM CMAS presidential alert to app. */
         Button GsmCmasPresAlertButton = findViewById(R.id.button_gsm_cmas_pres_alert);
-        GsmCmasPresAlertButton.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                if (mDelayBeforeSending && v != null) {
-                    Message msg = mDelayHandler.obtainMessage(0, this);
-                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
-                } else {
-                    SendGsmCmasMessages.testSendCmasPresAlert(SendTestBroadcastActivity.this,
-                            getSerialNumber());
-                }
-            }
-        });
+        GsmCmasPresAlertButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendCmasPresAlert(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM CMAS extreme alert to app. */
         Button GsmCmasExtremeAlertButton = findViewById(R.id.button_gsm_cmas_extreme_alert);
-        GsmCmasExtremeAlertButton.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                if (mDelayBeforeSending && v != null) {
-                    Message msg = mDelayHandler.obtainMessage(0, this);
-                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
-                } else {
-                    SendGsmCmasMessages.testSendCmasExtremeAlert(SendTestBroadcastActivity.this,
-                            getSerialNumber());
-                }
-            }
-        });
+        GsmCmasExtremeAlertButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendCmasExtremeAlert(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM CMAS severe alert to app. */
         Button GsmCmasSevereAlertButton = findViewById(R.id.button_gsm_cmas_severe_alert);
-        GsmCmasSevereAlertButton.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                if (mDelayBeforeSending && v != null) {
-                    Message msg = mDelayHandler.obtainMessage(0, this);
-                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
-                } else {
-                    SendGsmCmasMessages.testSendCmasSevereAlert(SendTestBroadcastActivity.this,
-                            getSerialNumber());
-                }
-            }
-        });
+        GsmCmasSevereAlertButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendCmasSevereAlert(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM CMAS AMBER alert to app. */
         Button GsmCmasAmberAlertButton = findViewById(R.id.button_gsm_cmas_amber_alert);
-        GsmCmasAmberAlertButton.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                if (mDelayBeforeSending && v != null) {
-                    Message msg = mDelayHandler.obtainMessage(0, this);
-                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
-                } else {
-                    SendGsmCmasMessages.testSendCmasAmberAlert(SendTestBroadcastActivity.this,
-                            getSerialNumber());
-                }
-            }
-        });
+        GsmCmasAmberAlertButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendCmasAmberAlert(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM CMAS monthly test alert to app. */
         Button GsmCmasMonthlyTestButton = findViewById(R.id.button_gsm_cmas_monthly_test);
-        GsmCmasMonthlyTestButton.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                if (mDelayBeforeSending && v != null) {
-                    Message msg = mDelayHandler.obtainMessage(0, this);
-                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
-                } else {
-                    SendGsmCmasMessages.testSendCmasMonthlyTest(SendTestBroadcastActivity.this,
-                            getSerialNumber());
-                }
-            }
-        });
+        GsmCmasMonthlyTestButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendCmasMonthlyTest(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
+
+        /* Send a GSM CMAS exercise test alert to app. */
+        Button GsmCmasExerciseTestButton = findViewById(R.id.button_gsm_cmas_exercise_test);
+        GsmCmasExerciseTestButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendCmasExerciseTest(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM public safety messages to app. */
         Button GsmPublicSafetyMessagesAlertTestButton = findViewById(
                 R.id.button_gsm_public_safety_message);
-        GsmPublicSafetyMessagesAlertTestButton.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                if (mDelayBeforeSending && v != null) {
-                    Message msg = mDelayHandler.obtainMessage(0, this);
-                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
-                } else {
-                    SendGsmCmasMessages.testSendPublicSafetyMessagesAlert(
-                            SendTestBroadcastActivity.this, getSerialNumber());
-                }
-            }
-        });
+        GsmPublicSafetyMessagesAlertTestButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendPublicSafetyMessagesAlert(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM state/local test alert to app. */
         Button GsmStateLocalTestAlertButton = findViewById(
                 R.id.button_gsm_state_local_test_alert);
-        GsmStateLocalTestAlertButton.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                if (mDelayBeforeSending && v != null) {
-                    Message msg = mDelayHandler.obtainMessage(0, this);
-                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
-                } else {
-                    SendGsmCmasMessages.testSendStateLocalTestAlert(
-                            SendTestBroadcastActivity.this, getSerialNumber());
-                }
-            }
-        });
+        GsmStateLocalTestAlertButton.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        if (mDelayBeforeSending && v != null) {
+                            Message msg = mDelayHandler.obtainMessage(0, this);
+                            mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                        } else {
+                            SendGsmCmasMessages.testSendStateLocalTestAlert(
+                                    SendTestBroadcastActivity.this,
+                                    getSerialNumber(),
+                                    mIsAdditionalLangAlert);
+                        }
+                    }
+                });
 
         /* Send a GSM 7-bit broadcast message to app. */
         Button gsm7bitTypeButton = (Button) findViewById(R.id.button_gsm_7bit_type);
@@ -566,5 +607,15 @@ public class SendTestBroadcastActivity extends Activity {
                 mDelayBeforeSending = delayCheckbox.isChecked();
             }
         });
+
+        /* Update boolean to set channel for addtional language alerts when box is checked. */
+        final CheckBox additionalLangCheckbox =
+                (CheckBox) findViewById(R.id.button_additional_lang_broadcast);
+        additionalLangCheckbox.setOnClickListener(
+                new OnClickListener() {
+                    public void onClick(View v) {
+                        mIsAdditionalLangAlert = additionalLangCheckbox.isChecked();
+                    }
+                });
     }
 }

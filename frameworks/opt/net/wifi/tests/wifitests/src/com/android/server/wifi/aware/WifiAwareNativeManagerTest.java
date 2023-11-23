@@ -18,6 +18,7 @@ package com.android.server.wifi.aware;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -34,6 +35,7 @@ import android.os.Handler;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.HalDeviceManager;
+import com.android.server.wifi.WifiBaseTest;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -48,7 +50,7 @@ import org.mockito.MockitoAnnotations;
  * Unit test harness for WifiAwareNativeManager.
  */
 @SmallTest
-public class WifiAwareNativeManagerTest {
+public class WifiAwareNativeManagerTest extends WifiBaseTest {
     private WifiAwareNativeManager mDut;
     @Mock private WifiAwareStateManager mWifiAwareStateManagerMock;
     @Mock private HalDeviceManager mHalDeviceManager;
@@ -289,5 +291,9 @@ public class WifiAwareNativeManagerTest {
                 any());
         mInOrder.verify(mIWifiNanIface12Mock).registerEventCallback_1_2(any());
         assertEquals("Interface mismatch", mIWifiNanIface12Mock, mDut.getWifiNanIface());
+
+        // 3. receive Availability Change, has interface, should ignore
+        mAvailListenerCaptor.getValue().onAvailabilityChanged(false);
+        assertTrue("AwareNativeAvailable mismatch ", mDut.isAwareNativeAvailable());
     }
 }

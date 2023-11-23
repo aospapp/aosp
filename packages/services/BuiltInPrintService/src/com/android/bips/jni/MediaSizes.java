@@ -43,7 +43,7 @@ public class MediaSizes {
     private static final String OM_CARD = "om_card_54x86mm";
     private static final String JIS_B4 = "jis_b4_257x364mm";
     private static final String JIS_B5 = "jis_b5_182x257mm";
-    private static final String OE_PHOTO_L = "oe_photo-l_3.5x5in";
+    public static final String OE_PHOTO_L = "oe_photo-l_3.5x5in";
     private static final String NA_GOVT_LETTER = "na_govt-letter_8x10in";
 
     /** The backend string name for the default media size */

@@ -15,14 +15,15 @@
  */
 package android.car.storagemonitoring;
 
+import static java.util.Objects.requireNonNull;
+
 import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import java.time.Instant;
 import java.util.Objects;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Change in wear-out information.
@@ -35,15 +36,15 @@ import static java.util.Objects.requireNonNull;
 @SystemApi
 public final class WearEstimateChange implements Parcelable {
     public static final Parcelable.Creator<WearEstimateChange> CREATOR =
-        new Parcelable.Creator<WearEstimateChange>() {
-            public WearEstimateChange createFromParcel(Parcel in) {
-                return new WearEstimateChange(in);
-            }
+            new Parcelable.Creator<WearEstimateChange>() {
+        public WearEstimateChange createFromParcel(Parcel in) {
+            return new WearEstimateChange(in);
+        }
 
-            public WearEstimateChange[] newArray(int size) {
+        public WearEstimateChange[] newArray(int size) {
                 return new WearEstimateChange[size];
             }
-        };
+    };
 
     /**
      * The previous wear estimate.
@@ -110,12 +111,12 @@ public final class WearEstimateChange implements Parcelable {
     @Override
     public boolean equals(Object other) {
         if (other instanceof WearEstimateChange) {
-            WearEstimateChange wo = (WearEstimateChange)other;
-            return wo.isAcceptableDegradation == isAcceptableDegradation &&
-                wo.uptimeAtChange == uptimeAtChange &&
-                wo.dateAtChange.equals(dateAtChange) &&
-                wo.oldEstimate.equals(oldEstimate) &&
-                wo.newEstimate.equals(newEstimate);
+            WearEstimateChange wo = (WearEstimateChange) other;
+            return wo.isAcceptableDegradation == isAcceptableDegradation
+                    && wo.uptimeAtChange == uptimeAtChange
+                    && wo.dateAtChange.equals(dateAtChange)
+                    && wo.oldEstimate.equals(oldEstimate)
+                    && wo.newEstimate.equals(newEstimate);
         }
         return false;
     }

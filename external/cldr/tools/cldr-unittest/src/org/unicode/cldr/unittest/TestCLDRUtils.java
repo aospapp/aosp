@@ -8,23 +8,15 @@
  */
 package org.unicode.cldr.unittest;
 
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.Map;
-import java.util.TreeMap;
 
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRLocale;
 import org.unicode.cldr.util.CLDRLocale.CLDRFormatter;
 import org.unicode.cldr.util.CLDRLocale.FormatBehavior;
-import org.unicode.cldr.util.CLDRPaths;
-import org.unicode.cldr.util.Factory;
-import org.unicode.cldr.util.FileReaders;
 import org.unicode.cldr.util.SimpleFactory;
-import org.unicode.cldr.util.XMLFileReader;
-import org.unicode.cldr.util.XPathParts;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.Transform;
@@ -36,15 +28,8 @@ import com.ibm.icu.util.ULocale;
  */
 public class TestCLDRUtils extends TestFmwk {
 
-    /**
-     *
-     */
-    public TestCLDRUtils() {
-        // TODO Auto-generated constructor stub
-    }
-
     static Transform<String, String> SHORT_ALT_PICKER = new Transform<String, String>() {
-        public String transform(String source) {
+        public String transform(@SuppressWarnings("unused") String source) {
             return "short";
         }
     };
@@ -52,13 +37,17 @@ public class TestCLDRUtils extends TestFmwk {
     public void TestVariantName() {
         CLDRFile english = CLDRConfig.getInstance().getEnglish();
 
-        checkNames(english, "en_US_POSIX", "American English (Computer)",
-            "US English (Computer)", "English (United States, Computer)",
+        checkNames(english, "en_US_POSIX", 
+            "American English (Computer)",
+            "US English (Computer)", 
+            "English (United States, Computer)",
             "English (US, Computer)");
 
         checkNames(english, new ULocale("en_US_POSIX").toLanguageTag(),
-            "American English (Computer)", "US English (Computer)",
-            "English (United States, Computer)", "English (US, Computer)");
+            "American English (POSIX Compliant Locale)",
+            "US English (POSIX Compliant Locale)", 
+            "English (United States, POSIX Compliant Locale)",
+            "English (US, POSIX Compliant Locale)");
 
         checkNames(english, "en_HK", "English (Hong Kong SAR China)",
             "English (Hong Kong)", "English (Hong Kong SAR China)",
@@ -151,76 +140,6 @@ public class TestCLDRUtils extends TestFmwk {
             .getDefault()));
     }
 
-    // Disable this test, because we now require known DtdTypes
-    public void oldTestCLDRLocaleDataDriven() throws IOException {
-        XMLFileReader myReader = new XMLFileReader();
-        final Factory cldrFactory = Factory
-            .make(CLDRPaths.MAIN_DIRECTORY, ".*");
-        final CLDRFile engFile = cldrFactory.make("en", true);
-        final CLDRFormatter engFormat = new CLDRFormatter(engFile);
-        final XPathParts xpp = new XPathParts(null, null);
-        final Map<String, String> attrs = new TreeMap<String, String>();
-        myReader.setHandler(new XMLFileReader.SimpleHandler() {
-            public void handlePathValue(String path, String value) {
-                xpp.clear();
-                xpp.initialize(path);
-                attrs.clear();
-                for (String k : xpp.getAttributeKeys(-1)) {
-                    attrs.put(k, xpp.getAttributeValue(-1, k));
-                }
-                String elem = xpp.getElement(-1);
-                logln("* <" + elem + " " + attrs.toString() + ">" + value
-                    + "</" + elem + ">");
-                String loc = attrs.get("locale");
-                CLDRLocale locale = CLDRLocale.getInstance(loc);
-                if (elem.equals("format")) {
-                    String type = attrs.get("type");
-                    String result = null;
-                    boolean combined = Boolean.parseBoolean(attrs
-                        .get("combined"));
-                    Transform<String, String> picker = attrs.get("alt")
-                        .equalsIgnoreCase("short") ? SHORT_ALT_PICKER
-                            : null;
-                    if (type.equals("region")) {
-                        result = locale.getDisplayCountry(engFormat);
-                    } else if (type.equals("all")) {
-                        result = locale.getDisplayName(engFormat, combined,
-                            picker);
-                    } else {
-                        errln("Unknown test type: " + type);
-                        return;
-                    }
-
-                    if (result == null) {
-                        errln("Null result!");
-                        return;
-                    }
-                    logln("  result=" + result);
-                    if (!result.equals(value)) {
-                        errln("For format test " + attrs.toString()
-                            + " expected '" + value + "' got '" + result
-                            + "'");
-                    }
-                } else if (elem.equals("echo")) {
-                    logln("*** \"" + value.trim() + "\"");
-                } else {
-                    throw new IllegalArgumentException(
-                        "Unknown test element type " + elem);
-                }
-            };
-            // public void handleComment(String path, String comment) {};
-            // public void handleElementDecl(String name, String model) {};
-            // public void handleAttributeDecl(String eName, String aName,
-            // String type, String mode, String value) {};
-        });
-        String fileName = "TestCLDRLocale" + ".xml";
-        logln("Reading" + fileName);
-        myReader.read(TestCLDRUtils.class.getResource("data/" + fileName)
-            .toString(), FileReaders.openFile(TestCLDRUtils.class, "data/"
-                + fileName),
-            -1, true);
-    }
-
     public void TestCLDRLocaleInheritance() {
         CLDRLocale ml = CLDRLocale.getInstance("ml");
         CLDRLocale ml_IN = CLDRLocale.getInstance("ml_IN");
@@ -250,8 +169,10 @@ public class TestCLDRUtils extends TestFmwk {
     }
 
     public void TestCLDRLocaleEquivalence() {
-        assertEquals("root is caseless", CLDRLocale.getInstance("root"), CLDRLocale.getInstance("RoOt"));
-        assertEquals("root = empty", CLDRLocale.getInstance("root"), CLDRLocale.getInstance(""));
+        assertSame("root is caseless", CLDRLocale.getInstance("root"), CLDRLocale.getInstance("RoOt"));
+        assertSame("root = empty", CLDRLocale.getInstance("root"), CLDRLocale.getInstance(""));
+        assertEquals("ROOT.basename = root", "root", CLDRLocale.ROOT.getBaseName());
+        assertSame("instance of root = ROOT", CLDRLocale.getInstance("root"), CLDRLocale.ROOT);
         String test = "zh-TW-u-co-pinyin";
         assertEquals(test, test, CLDRLocale.getInstance(test).toLanguageTag());
     }

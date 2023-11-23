@@ -40,7 +40,7 @@ import sys
 SCRIPTS_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(SCRIPTS_PATH)
 from simpleperf_report_lib import ReportLib
-from utils import log_exit, log_info, AdbHelper, open_report_in_browser
+from utils import log_exit, log_fatal, log_info, AdbHelper, open_report_in_browser
 
 from data_types import Process
 from svg_renderer import get_proper_scaled_time_string, render_svg
@@ -143,7 +143,7 @@ def parse_samples(process, args, sample_filter_fn):
 
     for thread in process.threads.values():
         min_event_count = thread.num_events * args.min_callchain_percentage * 0.01
-        thread.flamegraph.trim_callchain(min_event_count)
+        thread.flamegraph.trim_callchain(min_event_count, args.max_callchain_depth)
 
     log_info("Parsed %s callchains." % process.num_samples)
 
@@ -289,6 +289,11 @@ def main():
                               It is used to limit nodes shown in the flamegraph. For example,
                               when set to 0.01, only callchains taking >= 0.01%% of the event
                               count of the owner thread are collected in the report.""")
+    report_group.add_argument('--max_callchain_depth', default=1000000000, type=int, help="""
+                              Set maximum depth of callchains shown in the report. It is used
+                              to limit the nodes shown in the flamegraph and avoid processing
+                              limits. For example, when set to 10, callstacks will be cut after
+                              the tenth frame.""")
     report_group.add_argument('--no_browser', action='store_true', help="""Don't open report
                               in browser.""")
     report_group.add_argument('-o', '--report_path', default='report.html', help="""Set report
@@ -343,11 +348,16 @@ def main():
             args.title = ''
         args.title += '(One Flamegraph)'
 
-    parse_samples(process, args, sample_filter_fn)
-    generate_threads_offsets(process)
-    report_path = output_report(process, args)
-    if not args.no_browser:
-        open_report_in_browser(report_path)
+    try:
+        parse_samples(process, args, sample_filter_fn)
+        generate_threads_offsets(process)
+        report_path = output_report(process, args)
+        if not args.no_browser:
+            open_report_in_browser(report_path)
+    except RuntimeError as r:
+        if 'maximum recursion depth' in r.__str__():
+            log_fatal("Recursion limit exceeded (%s), try --max_callchain_depth." % r)
+        raise r
 
     log_info("Flamegraph generated at '%s'." % report_path)
 

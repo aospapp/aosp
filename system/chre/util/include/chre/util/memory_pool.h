@@ -45,7 +45,7 @@ namespace chre {
  * minimize allocation/deallocation latency, the free list is built at
  * construction time.
  */
-template<typename ElementType, size_t kSize>
+template <typename ElementType, size_t kSize>
 class MemoryPool : public NonCopyable {
  public:
   /**
@@ -62,8 +62,8 @@ class MemoryPool : public NonCopyable {
    * @return A pointer to a constructed object or nullptr if the allocation
    *         fails.
    */
-  template<typename... Args>
-  ElementType *allocate(Args&&... args);
+  template <typename... Args>
+  ElementType *allocate(Args &&... args);
 
   /**
    * Releases the memory of a previously allocated element. The pointer provided
@@ -108,7 +108,7 @@ class MemoryPool : public NonCopyable {
   //! Storage for memory pool blocks. To avoid static initialization of members,
   //! std::aligned_storage is used.
   typename std::aligned_storage<sizeof(MemoryPoolBlock),
-      alignof(MemoryPoolBlock)>::type mBlocks[kSize];
+                                alignof(MemoryPoolBlock)>::type mBlocks[kSize];
 
   //! The index of the head of the free slot list.
   size_t mNextFreeBlockIndex = 0;

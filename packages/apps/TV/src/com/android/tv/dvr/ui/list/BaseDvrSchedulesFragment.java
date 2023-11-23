@@ -17,8 +17,8 @@
 package com.android.tv.dvr.ui.list;
 
 import android.os.Bundle;
-import android.support.v17.leanback.app.DetailsFragment;
-import android.support.v17.leanback.widget.ClassPresenterSelector;
+import androidx.leanback.app.DetailsFragment;
+import androidx.leanback.widget.ClassPresenterSelector;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;

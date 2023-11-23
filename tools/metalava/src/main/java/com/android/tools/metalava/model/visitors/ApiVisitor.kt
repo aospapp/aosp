@@ -21,6 +21,7 @@ import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
+import com.android.tools.metalava.model.VisitCandidate
 import com.android.tools.metalava.options
 import java.util.function.Predicate
 
@@ -109,12 +110,64 @@ open class ApiVisitor(
     // this property keeps track of whether we've already visited the current package
     var visitingPackage = false
 
+    /**
+     * @return Whether this class is generally one that we want to recurse into
+     */
     open fun include(cls: ClassItem): Boolean {
+        if (skip(cls)) {
+            return false
+        }
         val filter = options.stubPackages
         if (filter != null && !filter.matches(cls.containingPackage())) {
             return false
         }
 
         return cls.emit || cls.codebase.preFiltered
+    }
+
+    /**
+     * @return Whether the given VisitCandidate's visitor should recurse into the given
+     * VisitCandidate's class
+     */
+    fun include(vc: VisitCandidate): Boolean {
+        if (!include(vc.cls)) {
+            return false
+        }
+        return shouldEmitClassBody(vc) || shouldEmitInnerClasses(vc)
+    }
+
+    /**
+     * @return Whether this class should be visited
+     * Note that if [include] returns true then we will still visit classes that are contained by this one
+     */
+    open fun shouldEmitClass(vc: VisitCandidate): Boolean {
+        return vc.cls.emit && (includeEmptyOuterClasses || shouldEmitClassBody(vc))
+    }
+
+    /**
+     * @return Whether the body of this class (everything other than the inner classes) emits anything
+     */
+    fun shouldEmitClassBody(vc: VisitCandidate): Boolean {
+        return if (filterEmit.test(vc.cls)) {
+            true
+        } else if (vc.nonEmpty()) {
+            filterReference.test(vc.cls)
+        } else {
+            false
+        }
+    }
+
+    /**
+     * @return Whether the inner classes of this class will emit anything
+     */
+    fun shouldEmitInnerClasses(vc: VisitCandidate): Boolean {
+        return vc.innerClasses.any { shouldEmitAnyClass(it) }
+    }
+
+    /**
+     * @return Whether this class will emit anything
+     */
+    fun shouldEmitAnyClass(vc: VisitCandidate): Boolean {
+        return shouldEmitClassBody(vc) || shouldEmitInnerClasses(vc)
     }
 }

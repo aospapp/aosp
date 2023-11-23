@@ -50,14 +50,20 @@ class Metric(object):
         """
         return samples
 
+    def _store_sample(self, sample):
+        self._samples.append(sample)
+
     def pre_collect(self):
         """
         Hook called before metrics are being collected.
         """
         pass
 
-    def _store_sample(self, sample):
-        self._samples.append(sample)
+    def post_collect(self):
+        """
+        Hook called after metrics has been collected.
+        """
+        pass
 
     def collect_metric(self):
         """
@@ -158,13 +164,13 @@ class AllocatedFileHandlesMetric(Metric):
     def collect_metric(self):
         self._store_sample(self.system_facade.get_num_allocated_file_handles())
 
-class StorageWrittenMetric(Metric):
+class StorageWrittenAmountMetric(Metric):
     """
-    Metric that collects amount of data written to persistent storage.
+    Metric that collects amount of kB written to persistent storage.
     """
     def __init__(self, system_facade):
-        super(StorageWrittenMetric, self).__init__(
-                'storage_written', units='kB')
+        super(StorageWrittenAmountMetric, self).__init__(
+                'storage_written_amount', units='kB')
         self.last_written_kb = None
         self.system_facade = system_facade
 
@@ -181,6 +187,29 @@ class StorageWrittenMetric(Metric):
         written_period = written_kb - self.last_written_kb
         self._store_sample(written_period)
         self.last_written_kb = written_kb
+
+class StorageWrittenCountMetric(Metric):
+    """
+    Metric that collects the number of writes to persistent storage.
+    """
+    def __init__(self, system_facade):
+        super(StorageWrittenCountMetric, self).__init__(
+                'storage_written_count', units='count')
+        self.system_facade = system_facade
+
+    def pre_collect(self):
+        command = ('/usr/sbin/fatrace', '--timestamp', '--filter=W')
+        self.system_facade.start_bg_worker(command)
+
+    def collect_metric(self):
+        output = self.system_facade.get_and_discard_bg_worker_output()
+        # fatrace outputs a line of text for each file it detects being written
+        # to.
+        written_count = output.count('\n')
+        self._store_sample(written_count)
+
+    def post_collect(self):
+        self.system_facade.stop_bg_worker()
 
 class TemperatureMetric(Metric):
     """
@@ -203,21 +232,25 @@ def create_default_metric_set(system_facade):
     cpu = CpuUsageMetric(system_facade)
     mem = MemUsageMetric(system_facade)
     file_handles = AllocatedFileHandlesMetric(system_facade)
-    storage_written = StorageWrittenMetric(system_facade)
+    storage_written_amount = StorageWrittenAmountMetric(system_facade)
+    storage_written_count = StorageWrittenCountMetric(system_facade)
     temperature = TemperatureMetric(system_facade)
     peak_cpu = PeakMetric.from_metric(cpu)
     peak_mem = PeakMetric.from_metric(mem)
     peak_temperature = PeakMetric.from_metric(temperature)
-    sum_storage_written = SumMetric.from_metric(storage_written)
+    sum_storage_written_amount = SumMetric.from_metric(storage_written_amount)
+    sum_storage_written_count = SumMetric.from_metric(storage_written_count)
     return [cpu,
             mem,
             file_handles,
-            storage_written,
+            storage_written_amount,
+            storage_written_count,
             temperature,
             peak_cpu,
             peak_mem,
             peak_temperature,
-            sum_storage_written]
+            sum_storage_written_amount,
+            sum_storage_written_count]
 
 class SystemMetricsCollector(object):
     """
@@ -241,6 +274,13 @@ class SystemMetricsCollector(object):
         """
         for metric in self.metrics:
             metric.pre_collect()
+
+    def post_collect(self):
+        """
+        Calls post hook of metrics.
+        """
+        for metric in self.metrics:
+            metric.post_collect()
 
     def collect_snapshot(self):
         """

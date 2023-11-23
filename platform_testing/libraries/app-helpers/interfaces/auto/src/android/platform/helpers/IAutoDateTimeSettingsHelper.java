@@ -26,7 +26,7 @@ public interface IAutoDateTimeSettingsHelper extends IAppHelper {
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Set the device date
+     * <p>Set the device date.
      *
      * @param date - input LocalDate object
      */
@@ -35,33 +35,44 @@ public interface IAutoDateTimeSettingsHelper extends IAppHelper {
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Get the current date displayed on the UI in LocalDate object
+     * <p>Get the current date displayed on the UI in LocalDate object.
      */
     LocalDate getDate();
 
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Set the device time
+     * <p>Set the device time in 12-hour format
      *
      * @param hour - input hour
      * @param minute - input minute
-     * @param AM_PM - input am/pm
+     * @param is_am - input am/pm
      */
-    void setTime(int hour, int minute, boolean is_am);
+    void setTimeInTwelveHourFormat(int hour, int minute, boolean is_am);
 
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Get the current time displayed on the UI
-     * The return string format will match the UI format exactly
+     * <p>Set the device time in 24-hour format
+     *
+     * @param hour - input hour
+     * @param minute - input minute
+     */
+    void setTimeInTwentyFourHourFormat(int hour, int minute);
+
+    /**
+     * Setup expectation: Date & time setting is open
+     *
+     * <p>Get the current time displayed on the UI.
+     *
+     * @return returned time format will match the UI format exactly
      */
     String getTime();
 
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Set the device time zone
+     * <p>Set the device time zone.
      *
      * @param timezone - city selected for timezone
      */
@@ -70,21 +81,21 @@ public interface IAutoDateTimeSettingsHelper extends IAppHelper {
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Get the current timezone displayed on the UI
+     * <p>Get the current timezone displayed on the UI.
      */
     String getTimeZone();
 
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Check if the 24 hour format menu switch widget is toggoled on
+     * <p>Check if the 24 hour format is enabled
      */
-    boolean isUseTwentyFourHourFormatSwitchWidgetOn();
+    boolean isTwentyFourHourFormatEnabled();
 
     /**
      * Setup expectation: Date & time setting is open
      *
-     * Toggle on/off 24 hour format widget switch
+     * <p>Toggle on/off 24 hour format widget switch.
      */
     boolean toggleTwentyFourHourFormatSwitch();
 }

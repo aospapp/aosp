@@ -18,11 +18,11 @@ package android.accessibilityservice.cts;
 
 import static android.accessibilityservice.cts.utils.AsyncUtils.await;
 import static android.accessibilityservice.cts.utils.AsyncUtils.waitOn;
-import static android.accessibilityservice.cts.utils.CtsTestUtils.runIfNotNull;
 import static android.accessibilityservice.cts.utils.GestureUtils.add;
 import static android.accessibilityservice.cts.utils.GestureUtils.click;
 import static android.accessibilityservice.cts.utils.GestureUtils.dispatchGesture;
 import static android.accessibilityservice.cts.utils.GestureUtils.distance;
+import static android.accessibilityservice.cts.utils.GestureUtils.doubleTap;
 import static android.accessibilityservice.cts.utils.GestureUtils.drag;
 import static android.accessibilityservice.cts.utils.GestureUtils.endTimeOf;
 import static android.accessibilityservice.cts.utils.GestureUtils.lastPointOf;
@@ -31,21 +31,17 @@ import static android.accessibilityservice.cts.utils.GestureUtils.pointerDown;
 import static android.accessibilityservice.cts.utils.GestureUtils.pointerUp;
 import static android.accessibilityservice.cts.utils.GestureUtils.startingAt;
 import static android.accessibilityservice.cts.utils.GestureUtils.swipe;
+import static android.accessibilityservice.cts.utils.GestureUtils.tripleTap;
 import static android.view.MotionEvent.ACTION_DOWN;
 import static android.view.MotionEvent.ACTION_MOVE;
 import static android.view.MotionEvent.ACTION_UP;
 
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibility.cts.common.InstrumentedAccessibilityService;
+import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
 import android.accessibilityservice.cts.AccessibilityGestureDispatchTest.GestureDispatchActivity;
@@ -53,10 +49,9 @@ import android.accessibilityservice.cts.utils.EventCapturingTouchListener;
 import android.app.Instrumentation;
 import android.content.pm.PackageManager;
 import android.graphics.PointF;
-import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
-import android.view.MotionEvent;
+import android.view.ViewConfiguration;
 import android.widget.TextView;
 
 import androidx.test.InstrumentationRegistry;
@@ -67,11 +62,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 
 /**
  * Class for testing magnification.
@@ -95,14 +87,25 @@ public class MagnificationGestureHandlerTest {
 
     private final Object mZoomLock = new Object();
 
-    @Rule
-    public ActivityTestRule<GestureDispatchActivity> mActivityRule =
+    private ActivityTestRule<GestureDispatchActivity> mActivityRule =
             new ActivityTestRule<>(GestureDispatchActivity.class);
+
+    private InstrumentedAccessibilityServiceTestRule<StubMagnificationAccessibilityService>
+            mServiceRule = new InstrumentedAccessibilityServiceTestRule<>(
+                    StubMagnificationAccessibilityService.class, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            .around(mServiceRule)
+            .around(mDumpOnFailureRule);
 
     @Before
     public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
-
         PackageManager pm = mInstrumentation.getContext().getPackageManager();
         mHasTouchscreen = pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
                 || pm.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH);
@@ -113,7 +116,7 @@ public class MagnificationGestureHandlerTest {
                         Settings.Secure.ACCESSIBILITY_DISPLAY_MAGNIFICATION_ENABLED, 0) == 1;
         setMagnificationEnabled(true);
 
-        mService = StubMagnificationAccessibilityService.enableSelf(mInstrumentation);
+        mService = mServiceRule.enableService();
         mService.getMagnificationController().addListener(
                 (controller, region, scale, centerX, centerY) -> {
                     mCurrentScale = scale;
@@ -140,8 +143,6 @@ public class MagnificationGestureHandlerTest {
         if (!mHasTouchscreen) return;
 
         setMagnificationEnabled(mOriginalIsMagnificationEnabled);
-
-        runIfNotNull(mService, service -> service.runOnServiceSync(service::disableSelfAndRemove));
     }
 
     @Test
@@ -178,7 +179,11 @@ public class MagnificationGestureHandlerTest {
 
     @Test
     public void testPanning() {
-        if (!mHasTouchscreen) return;
+        //The minimum movement to transit to panningState.
+        final float minSwipeDistance = ViewConfiguration.get(
+                mInstrumentation.getContext()).getScaledTouchSlop();
+        final boolean screenBigEnough = mPan > minSwipeDistance;
+        if (!mHasTouchscreen || !screenBigEnough) return;
         assertFalse(isZoomed());
 
         setZoomByTripleTapping(true);
@@ -189,16 +194,17 @@ public class MagnificationGestureHandlerTest {
                 swipe(mTapLocation2, add(mTapLocation2, -mPan, 0)));
 
         waitOn(mZoomLock,
-                () -> (mCurrentZoomCenter.x - oldCenter.x >= mPan / mCurrentScale * 0.9));
+                () -> (mCurrentZoomCenter.x - oldCenter.x
+                        >= (mPan - minSwipeDistance) / mCurrentScale * 0.9));
 
         setZoomByTripleTapping(false);
     }
 
     private void setZoomByTripleTapping(boolean desiredZoomState) {
         if (isZoomed() == desiredZoomState) return;
-        dispatch(tripleTap());
+        dispatch(tripleTap(mTapLocation));
         waitOn(mZoomLock, () -> isZoomed() == desiredZoomState);
-        assertNoTouchInputPropagated();
+        mTouchListener.assertNonePropagated();
     }
 
     private void tripleTapAndDragViewport() {
@@ -210,10 +216,10 @@ public class MagnificationGestureHandlerTest {
         dispatch(drag);
         waitOn(mZoomLock, () -> distance(mCurrentZoomCenter, oldCenter) >= mPan / 5);
         assertTrue(isZoomed());
-        assertNoTouchInputPropagated();
+        mTouchListener.assertNonePropagated();
 
         dispatch(pointerUp(drag));
-        assertNoTouchInputPropagated();
+        mTouchListener.assertNonePropagated();
     }
 
     private StrokeDescription tripleTapAndHold() {
@@ -227,22 +233,18 @@ public class MagnificationGestureHandlerTest {
 
     private void assertGesturesPropagateToView() {
         dispatch(click(mTapLocation));
-        assertPropagated(ACTION_DOWN, ACTION_UP);
+        mTouchListener.assertPropagated(ACTION_DOWN, ACTION_UP);
 
         dispatch(longClick(mTapLocation));
-        assertPropagated(ACTION_DOWN, ACTION_UP);
+        mTouchListener.assertPropagated(ACTION_DOWN, ACTION_UP);
 
-        dispatch(doubleTap());
-        assertPropagated(ACTION_DOWN, ACTION_UP, ACTION_DOWN, ACTION_UP);
+        dispatch(doubleTap(mTapLocation));
+        mTouchListener.assertPropagated(ACTION_DOWN, ACTION_UP, ACTION_DOWN, ACTION_UP);
 
         dispatch(swipe(
                 mTapLocation,
                 add(mTapLocation, 0, 29)));
-        assertPropagated(ACTION_DOWN, ACTION_MOVE, ACTION_UP);
-    }
-
-    private void assertNoTouchInputPropagated() {
-        assertThat(prettyPrintable(mTouchListener.events), is(empty()));
+        mTouchListener.assertPropagated(ACTION_DOWN, ACTION_MOVE, ACTION_UP);
     }
 
     private void setMagnificationEnabled(boolean enabled) {
@@ -252,50 +254,6 @@ public class MagnificationGestureHandlerTest {
 
     private boolean isZoomed() {
         return mCurrentScale >= MIN_SCALE;
-    }
-
-    private void assertPropagated(int... eventTypes) {
-        MotionEvent ev;
-        try {
-            while (true) {
-                if (eventTypes.length == 0) return;
-                int expectedEventType = eventTypes[0];
-                long startedPollingAt = SystemClock.uptimeMillis();
-                ev = mTouchListener.events.poll(5, SECONDS);
-                assertNotNull("Expected "
-                        + MotionEvent.actionToString(expectedEventType)
-                        + " but none present after "
-                        + (SystemClock.uptimeMillis() - startedPollingAt) + "ms",
-                        ev);
-                int action = ev.getActionMasked();
-                if (action == expectedEventType) {
-                    eventTypes = Arrays.copyOfRange(eventTypes, 1, eventTypes.length);
-                } else {
-                    if (action != ACTION_MOVE) fail("Unexpected event: " + ev);
-                }
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private GestureDescription doubleTap() {
-        return multiTap(2);
-    }
-
-    private GestureDescription tripleTap() {
-        return multiTap(3);
-    }
-
-    private GestureDescription multiTap(int taps) {
-        GestureDescription.Builder builder = new GestureDescription.Builder();
-        long time = 0;
-        for (int i = 0; i < taps; i++) {
-            StrokeDescription stroke = click(mTapLocation);
-            builder.addStroke(startingAt(time, stroke));
-            time += stroke.getDuration() + 20;
-        }
-        return builder.build();
     }
 
     public void dispatch(StrokeDescription firstStroke, StrokeDescription... rest) {
@@ -309,18 +267,5 @@ public class MagnificationGestureHandlerTest {
 
     public void dispatch(GestureDescription gesture) {
         await(dispatchGesture(mService, gesture));
-    }
-
-    private static <T> Collection<T> prettyPrintable(Collection<T> c) {
-        return new ArrayList<T>(c) {
-
-            @Override
-            public String toString() {
-                return stream()
-                        .map(t -> "\n" + t)
-                        .reduce(String::concat)
-                        .orElse("");
-            }
-        };
     }
 }

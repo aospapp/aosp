@@ -39,7 +39,6 @@ import android.view.ActionMode;
 import android.view.textclassifier.ExtrasUtils;
 import android.view.textclassifier.SelectionEvent;
 import android.view.textclassifier.SelectionEvent.InvocationMethod;
-import android.view.textclassifier.SelectionSessionLogger;
 import android.view.textclassifier.TextClassification;
 import android.view.textclassifier.TextClassificationConstants;
 import android.view.textclassifier.TextClassificationContext;
@@ -87,11 +86,11 @@ public final class SelectionActionModeHelper {
     private final SmartSelectSprite mSmartSelectSprite;
 
     SelectionActionModeHelper(@NonNull Editor editor) {
-        mEditor = Preconditions.checkNotNull(editor);
+        mEditor = Objects.requireNonNull(editor);
         mTextView = mEditor.getTextView();
         mTextClassificationHelper = new TextClassificationHelper(
                 mTextView.getContext(),
-                mTextView::getTextClassifier,
+                mTextView::getTextClassificationSession,
                 getText(mTextView),
                 0, 1, mTextView.getTextLocales());
         mSelectionTracker = new SelectionTracker(mTextView);
@@ -105,16 +104,43 @@ public final class SelectionActionModeHelper {
     }
 
     /**
+     * Swap the selection index if the start index is greater than end index.
+     *
+     * @return the swap result, index 0 is the start index and index 1 is the end index.
+     */
+    private static int[] sortSelctionIndices(int selectionStart, int selectionEnd) {
+        if (selectionStart < selectionEnd) {
+            return new int[]{selectionStart, selectionEnd};
+        }
+        return new int[]{selectionEnd, selectionStart};
+    }
+
+    /**
+     * The {@link TextView} selection start and end index may not be sorted, this method will swap
+     * the {@link TextView} selection index if the start index is greater than end index.
+     *
+     * @param textView the selected TextView.
+     * @return the swap result, index 0 is the start index and index 1 is the end index.
+     */
+    private static int[] sortSelctionIndicesFromTextView(TextView textView) {
+        int selectionStart = textView.getSelectionStart();
+        int selectionEnd = textView.getSelectionEnd();
+
+        return sortSelctionIndices(selectionStart, selectionEnd);
+    }
+
+    /**
      * Starts Selection ActionMode.
      */
     public void startSelectionActionModeAsync(boolean adjustSelection) {
         // Check if the smart selection should run for editable text.
         adjustSelection &= getTextClassificationSettings().isSmartSelectionEnabled();
+        int[] sortedSelectionIndices = sortSelctionIndicesFromTextView(mTextView);
 
         mSelectionTracker.onOriginalSelection(
                 getText(mTextView),
-                mTextView.getSelectionStart(),
-                mTextView.getSelectionEnd(),
+                sortedSelectionIndices[0],
+                sortedSelectionIndices[1],
                 false /*isLink*/);
         cancelAsyncTask();
         if (skipTextClassification()) {
@@ -139,12 +165,14 @@ public final class SelectionActionModeHelper {
      * Starts Link ActionMode.
      */
     public void startLinkActionModeAsync(int start, int end) {
-        mSelectionTracker.onOriginalSelection(getText(mTextView), start, end, true /*isLink*/);
+        int[] indexResult = sortSelctionIndices(start, end);
+        mSelectionTracker.onOriginalSelection(getText(mTextView), indexResult[0], indexResult[1],
+                true /*isLink*/);
         cancelAsyncTask();
         if (skipTextClassification()) {
             startLinkActionMode(null);
         } else {
-            resetTextClassificationHelper(start, end);
+            resetTextClassificationHelper(indexResult[0], indexResult[1]);
             mTextClassificationAsyncTask = new TextClassificationAsyncTask(
                     mTextView,
                     mTextClassificationHelper.getTimeoutDuration(),
@@ -173,19 +201,23 @@ public final class SelectionActionModeHelper {
 
     /** Reports a selection action event. */
     public void onSelectionAction(int menuItemId, @Nullable String actionLabel) {
+        int[] sortedSelectionIndices = sortSelctionIndicesFromTextView(mTextView);
         mSelectionTracker.onSelectionAction(
-                mTextView.getSelectionStart(), mTextView.getSelectionEnd(),
+                sortedSelectionIndices[0], sortedSelectionIndices[1],
                 getActionType(menuItemId), actionLabel, mTextClassification);
     }
 
     public void onSelectionDrag() {
+        int[] sortedSelectionIndices = sortSelctionIndicesFromTextView(mTextView);
         mSelectionTracker.onSelectionAction(
-                mTextView.getSelectionStart(), mTextView.getSelectionEnd(),
+                sortedSelectionIndices[0], sortedSelectionIndices[1],
                 SelectionEvent.ACTION_DRAG, /* actionLabel= */ null, mTextClassification);
     }
 
     public void onTextChanged(int start, int end) {
-        mSelectionTracker.onTextChanged(start, end, mTextClassification);
+        int[] sortedSelectionIndices = sortSelctionIndices(start, end);
+        mSelectionTracker.onTextChanged(sortedSelectionIndices[0], sortedSelectionIndices[1],
+                mTextClassification);
     }
 
     public boolean resetSelection(int textIndex) {
@@ -302,10 +334,10 @@ public final class SelectionActionModeHelper {
             startSelectionActionMode(startSelectionResult);
         };
         // TODO do not trigger the animation if the change included only non-printable characters
+        int[] sortedSelectionIndices = sortSelctionIndicesFromTextView(mTextView);
         final boolean didSelectionChange =
-                result != null && (mTextView.getSelectionStart() != result.mStart
-                        || mTextView.getSelectionEnd() != result.mEnd);
-
+                result != null && (sortedSelectionIndices[0] != result.mStart
+                        || sortedSelectionIndices[1] != result.mEnd);
         if (!didSelectionChange) {
             onAnimationEndCallback.run();
             return;
@@ -454,19 +486,21 @@ public final class SelectionActionModeHelper {
         if (actionMode != null) {
             actionMode.invalidate();
         }
+        final int[] sortedSelectionIndices = sortSelctionIndicesFromTextView(mTextView);
         mSelectionTracker.onSelectionUpdated(
-                mTextView.getSelectionStart(), mTextView.getSelectionEnd(), mTextClassification);
+                sortedSelectionIndices[0], sortedSelectionIndices[1], mTextClassification);
         mTextClassificationAsyncTask = null;
     }
 
     private void resetTextClassificationHelper(int selectionStart, int selectionEnd) {
         if (selectionStart < 0 || selectionEnd < 0) {
             // Use selection indices
-            selectionStart = mTextView.getSelectionStart();
-            selectionEnd = mTextView.getSelectionEnd();
+            int[] sortedSelectionIndices = sortSelctionIndicesFromTextView(mTextView);
+            selectionStart = sortedSelectionIndices[0];
+            selectionEnd = sortedSelectionIndices[1];
         }
         mTextClassificationHelper.init(
-                mTextView::getTextClassifier,
+                mTextView::getTextClassificationSession,
                 getText(mTextView),
                 selectionStart, selectionEnd,
                 mTextView.getTextLocales());
@@ -500,7 +534,7 @@ public final class SelectionActionModeHelper {
         private final LogAbandonRunnable mDelayedLogAbandon = new LogAbandonRunnable();
 
         SelectionTracker(TextView textView) {
-            mTextView = Preconditions.checkNotNull(textView);
+            mTextView = Objects.requireNonNull(textView);
             mLogger = new SelectionMetricsLogger(textView);
         }
 
@@ -603,10 +637,11 @@ public final class SelectionActionModeHelper {
                 mAllowReset = false;
                 boolean selected = editor.selectCurrentWord();
                 if (selected) {
-                    mSelectionStart = editor.getTextView().getSelectionStart();
-                    mSelectionEnd = editor.getTextView().getSelectionEnd();
+                    final int[] sortedSelectionIndices = sortSelctionIndicesFromTextView(textView);
+                    mSelectionStart = sortedSelectionIndices[0];
+                    mSelectionEnd = sortedSelectionIndices[1];
                     mLogger.logSelectionAction(
-                            textView.getSelectionStart(), textView.getSelectionEnd(),
+                            sortedSelectionIndices[0], sortedSelectionIndices[1],
                             SelectionEvent.ACTION_RESET,
                             /* actionLabel= */ null, /* classification= */ null);
                 }
@@ -703,9 +738,9 @@ public final class SelectionActionModeHelper {
         private String mText;
 
         SelectionMetricsLogger(TextView textView) {
-            Preconditions.checkNotNull(textView);
+            Objects.requireNonNull(textView);
             mEditTextLogger = textView.isTextEditable();
-            mTokenIterator = SelectionSessionLogger.getTokenIterator(textView.getTextLocale());
+            mTokenIterator = BreakIterator.getWordInstance(textView.getTextLocale());
         }
 
         public void logSelectionStarted(
@@ -714,7 +749,7 @@ public final class SelectionActionModeHelper {
                 CharSequence text, int index,
                 @InvocationMethod int invocationMethod) {
             try {
-                Preconditions.checkNotNull(text);
+                Objects.requireNonNull(text);
                 Preconditions.checkArgumentInRange(index, 0, text.length(), "index");
                 if (mText == null || !mText.contentEquals(text)) {
                     mText = text.toString();
@@ -936,7 +971,8 @@ public final class SelectionActionModeHelper {
             return new TextClassifierEvent.LanguageDetectionEvent.Builder(eventType)
                     .setEventContext(classificationContext)
                     .setResultId(classification.getId())
-                    .setEntityTypes(language)
+                    // b/158481016: Disable language logging.
+                    //.setEntityTypes(language)
                     .setScores(score)
                     .setActionIndices(classification.getActions().indexOf(translateAction))
                     .setModelName(model)
@@ -972,11 +1008,11 @@ public final class SelectionActionModeHelper {
                 @NonNull Consumer<SelectionResult> selectionResultCallback,
                 @NonNull Supplier<SelectionResult> timeOutResultSupplier) {
             super(textView != null ? textView.getHandler() : null);
-            mTextView = Preconditions.checkNotNull(textView);
+            mTextView = Objects.requireNonNull(textView);
             mTimeOutDuration = timeOut;
-            mSelectionResultSupplier = Preconditions.checkNotNull(selectionResultSupplier);
-            mSelectionResultCallback = Preconditions.checkNotNull(selectionResultCallback);
-            mTimeOutResultSupplier = Preconditions.checkNotNull(timeOutResultSupplier);
+            mSelectionResultSupplier = Objects.requireNonNull(selectionResultSupplier);
+            mSelectionResultCallback = Objects.requireNonNull(selectionResultCallback);
+            mTimeOutResultSupplier = Objects.requireNonNull(timeOutResultSupplier);
             // Make a copy of the original text.
             mOriginalText = getText(mTextView).toString();
         }
@@ -999,6 +1035,7 @@ public final class SelectionActionModeHelper {
         }
 
         private void onTimeOut() {
+            Log.d(LOG_TAG, "Timeout in TextClassificationAsyncTask");
             if (getStatus() == Status.RUNNING) {
                 onPostExecute(mTimeOutResultSupplier.get());
             }
@@ -1050,14 +1087,14 @@ public final class SelectionActionModeHelper {
         TextClassificationHelper(Context context, Supplier<TextClassifier> textClassifier,
                 CharSequence text, int selectionStart, int selectionEnd, LocaleList locales) {
             init(textClassifier, text, selectionStart, selectionEnd, locales);
-            mContext = Preconditions.checkNotNull(context);
+            mContext = Objects.requireNonNull(context);
         }
 
         @UiThread
         public void init(Supplier<TextClassifier> textClassifier, CharSequence text,
                 int selectionStart, int selectionEnd, LocaleList locales) {
-            mTextClassifier = Preconditions.checkNotNull(textClassifier);
-            mText = Preconditions.checkNotNull(text).toString();
+            mTextClassifier = Objects.requireNonNull(textClassifier);
+            mText = Objects.requireNonNull(text).toString();
             mLastClassificationText = null; // invalidate.
             Preconditions.checkArgument(selectionEnd > selectionStart);
             mSelectionStart = selectionStart;
@@ -1178,8 +1215,9 @@ public final class SelectionActionModeHelper {
 
         SelectionResult(int start, int end,
                 @Nullable TextClassification classification, @Nullable TextSelection selection) {
-            mStart = start;
-            mEnd = end;
+            int[] sortedIndices = sortSelctionIndices(start, end);
+            mStart = sortedIndices[0];
+            mEnd = sortedIndices[1];
             mClassification = classification;
             mSelection = selection;
         }

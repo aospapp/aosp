@@ -25,6 +25,7 @@ import android.os.test.TestLooper;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.FakeWifiLog;
+import com.android.server.wifi.WifiBaseTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,7 +37,7 @@ import org.mockito.Spy;
 /** Unit tests for {@link WifiHandler}. */
 @RunWith(JUnit4.class)
 @SmallTest
-public class WifiHandlerTest {
+public class WifiHandlerTest extends WifiBaseTest {
     private static final String TAG = "WifiHandlerTest";
     private WifiHandler mCodeUnderTest;
     @Spy FakeWifiLog mWifiLog;

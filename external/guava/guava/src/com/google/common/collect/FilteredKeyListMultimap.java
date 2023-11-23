@@ -18,18 +18,16 @@ package com.google.common.collect;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.base.Predicate;
-
 import java.util.List;
-
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Implementation of {@link Multimaps#filterKeys(ListMultimap, Predicate)}.
- * 
+ *
  * @author Louis Wasserman
  */
 @GwtCompatible
-final class FilteredKeyListMultimap<K, V> extends FilteredKeyMultimap<K, V> 
+final class FilteredKeyListMultimap<K, V> extends FilteredKeyMultimap<K, V>
     implements ListMultimap<K, V> {
   FilteredKeyListMultimap(ListMultimap<K, V> unfiltered, Predicate<? super K> keyPredicate) {
     super(unfiltered, keyPredicate);

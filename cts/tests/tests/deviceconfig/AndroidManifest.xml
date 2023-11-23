@@ -22,6 +22,12 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
+    <!--
+       - Must set INTERACT_ACROSS_USERS because DeviceConfig always run as user 0, and the CTS tests
+       - might be running as a secondary user
+      -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.deviceconfig.cts"
                      android:label="CTS tests for DeviceConfig API">

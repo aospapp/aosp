@@ -253,33 +253,66 @@ public class ShadowImageDecoder {
 
   // native method implementations...
 
-  @Implementation
+  @Implementation(maxSdk = Build.VERSION_CODES.Q)
   protected static ImageDecoder nCreate(long asset, Source source) throws IOException {
     return ImageDecoder_nCreateAsset(asset, source);
   }
 
-  @Implementation
+  @Implementation(maxSdk = Build.VERSION_CODES.Q)
   protected static ImageDecoder nCreate(ByteBuffer buffer, int position,
       int limit, Source src) throws IOException {
     return ImageDecoder_nCreateByteBuffer(buffer, position, limit, src);
   }
 
-  @Implementation
+  @Implementation(maxSdk = Build.VERSION_CODES.Q)
   protected static ImageDecoder nCreate(byte[] data, int offset, int length,
       Source src) throws IOException {
     return ImageDecoder_nCreateByteArray(data, offset, length, src);
   }
 
-  @Implementation
+  @Implementation(maxSdk = Build.VERSION_CODES.Q)
   protected static ImageDecoder nCreate(InputStream is, byte[] storage, Source source) {
     return ImageDecoder_nCreateInputStream(is, storage, source);
   }
 
   // The fd must be seekable.
-  @Implementation
+  @Implementation(maxSdk = Build.VERSION_CODES.Q)
   protected static ImageDecoder nCreate(FileDescriptor fd, Source src) throws IOException {
     return ImageDecoder_nCreateFd(fd, src);
   }
+
+  // BEGIN-INTERNAL
+  @Implementation(minSdk = Build.VERSION_CODES.R)
+  protected static ImageDecoder nCreate(long asset, boolean preferAnimation, Source source)
+      throws IOException {
+    return ImageDecoder_nCreateAsset(asset, source);
+  }
+
+  @Implementation(minSdk = Build.VERSION_CODES.R)
+  protected static ImageDecoder nCreate(ByteBuffer buffer, int position,
+      int limit, boolean preferAnimation, Source src) throws IOException {
+    return ImageDecoder_nCreateByteBuffer(buffer, position, limit, src);
+  }
+
+  @Implementation(minSdk = Build.VERSION_CODES.R)
+  protected static ImageDecoder nCreate(byte[] data, int offset, int length,
+      boolean preferAnimation, Source src) throws IOException {
+    return ImageDecoder_nCreateByteArray(data, offset, length, src);
+  }
+
+  @Implementation(minSdk = Build.VERSION_CODES.R)
+  protected static ImageDecoder nCreate(InputStream is, byte[] storage, boolean preferAnimation,
+      Source source) {
+    return ImageDecoder_nCreateInputStream(is, storage, source);
+  }
+
+  // The fd must be seekable.
+  @Implementation(minSdk = Build.VERSION_CODES.R)
+  protected static ImageDecoder nCreate(FileDescriptor fd, boolean preferAnimation, Source src)
+      throws IOException {
+    return ImageDecoder_nCreateFd(fd, src);
+  }
+  // END-INTERNAL
 
   @Implementation(maxSdk = Build.VERSION_CODES.P)
   protected static Bitmap nDecodeBitmap(long nativePtr,

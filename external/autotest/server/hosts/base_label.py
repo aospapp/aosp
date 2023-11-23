@@ -102,6 +102,25 @@ class BaseLabel(object):
         return prefix_labels, full_labels
 
 
+    def update_for_task(self, task_name):
+        """
+        This method helps to check which labels need to be updated.
+        State config labels are updated only for repair task.
+        Lab config labels are updated only for deploy task.
+        All labels are updated for any task.
+
+        It is the responsibility of the subclass to override this method
+        to differentiate itself as a state config label or a lab config label
+        and return the appropriate boolean value.
+
+        If the subclass doesn't override this method then that label will
+        always be updated for any type of task.
+
+        @returns True if labels should be updated for the task with given name
+        """
+        return True
+
+
 class StringLabel(BaseLabel):
     """
     This class represents a string label that is dynamically generated.
@@ -174,12 +193,14 @@ class StringPrefixLabel(StringLabel):
 class LabelRetriever(object):
     """This class will assist in retrieving/updating the host labels."""
 
-    def _populate_known_labels(self, label_list):
+    def _populate_known_labels(self, label_list, task_name):
         """Create a list of known labels that is created through this class."""
         for label_instance in label_list:
-            prefixed_labels, full_labels = label_instance.get_all_labels()
-            self.label_prefix_names.update(prefixed_labels)
-            self.label_full_names.update(full_labels)
+            # populate only the labels that need to be updated for this task.
+            if label_instance.update_for_task(task_name):
+                prefixed_labels, full_labels = label_instance.get_all_labels()
+                self.label_prefix_names.update(prefixed_labels)
+                self.label_full_names.update(full_labels)
 
 
     def __init__(self, label_list):
@@ -201,6 +222,29 @@ class LabelRetriever(object):
             logging.info('checking label %s', label.__class__.__name__)
             try:
                 labels.extend(label.get(host))
+            except Exception:
+                logging.exception('error getting label %s.',
+                                  label.__class__.__name__)
+        return labels
+
+
+    def get_labels_for_update(self, host, task_name):
+        """
+        Retrieve the labels for the host which needs to be updated.
+
+        @param host: The host to get the labels for updating.
+        @param task_name: task name(repair/deploy) for the operation.
+
+        @returns labels to be updated
+        """
+        labels = []
+        for label in self._labels:
+            try:
+                # get only the labels which need to be updated for this task.
+                if label.update_for_task(task_name):
+                    logging.info('checking label update %s',
+                                 label.__class__.__name__)
+                    labels.extend(label.get(host))
             except Exception:
                 logging.exception('error getting label %s.',
                                   label.__class__.__name__)
@@ -253,7 +297,7 @@ class LabelRetriever(object):
         host.host_info_store.commit(new_info)
 
 
-    def update_labels(self, host, keep_pool=False):
+    def update_labels(self, host, task_name='', keep_pool=False):
         """
         Retrieve the labels from the host and update if needed.
 
@@ -261,17 +305,18 @@ class LabelRetriever(object):
         """
         # If we haven't yet grabbed our list of known labels, do so now.
         if not self.label_full_names and not self.label_prefix_names:
-            self._populate_known_labels(self._labels)
+            self._populate_known_labels(self._labels, task_name)
 
         # Label detection hits the DUT so it can be slow. Do it before reading
         # old labels from HostInfoStore to minimize the time between read and
         # commit of the HostInfo.
-        new_labels = self.get_labels(host)
+        new_labels = self.get_labels_for_update(host, task_name)
         old_info = host.host_info_store.get()
         self._carry_over_unknown_labels(old_info.labels, new_labels)
         new_info = host_info.HostInfo(
                 labels=new_labels,
                 attributes=old_info.attributes,
+                stable_versions=old_info.stable_versions,
         )
         if old_info != new_info:
             self._commit_info(host, new_info, keep_pool)

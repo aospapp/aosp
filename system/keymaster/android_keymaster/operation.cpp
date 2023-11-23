@@ -114,8 +114,17 @@ bool OperationFactory::GetAndValidatePadding(const AuthorizationSet& begin_param
 bool OperationFactory::GetAndValidateDigest(const AuthorizationSet& begin_params, const Key& key,
                                             keymaster_digest_t* digest,
                                             keymaster_error_t* error) const {
+    return GetAndValidateDigest(begin_params, key, digest, error, false);
+}
+
+bool OperationFactory::GetAndValidateDigest(const AuthorizationSet& begin_params, const Key& key,
+                                            keymaster_digest_t* digest, keymaster_error_t* error,
+                                            bool require_explicit_digest) const {
     *error = KM_ERROR_UNSUPPORTED_DIGEST;
     if (!begin_params.GetTagValue(TAG_DIGEST, digest)) {
+        if (require_explicit_digest) {
+            return false;
+        }
         if (key.authorizations().Contains(TAG_DIGEST, KM_DIGEST_NONE)) {
             *digest = KM_DIGEST_NONE;
         } else {

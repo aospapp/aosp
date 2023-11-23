@@ -61,8 +61,8 @@ static void lr4_split(struct lr4 *lp, struct lr4 *hp, int count, float *data0,
 	for (i = 0; i < count; i++) {
 		float x, y, z;
 		x = data0[i];
-		y = lb0*x + lb1*lx1 + lb2*lx2 - la1*ly1 - la2*ly2;
-		z = lb0*y + lb1*ly1 + lb2*ly2 - la1*lz1 - la2*lz2;
+		y = lb0 * x + lb1 * lx1 + lb2 * lx2 - la1 * ly1 - la2 * ly2;
+		z = lb0 * y + lb1 * ly1 + lb2 * ly2 - la1 * lz1 - la2 * lz2;
 		lx2 = lx1;
 		lx1 = x;
 		ly2 = ly1;
@@ -71,8 +71,8 @@ static void lr4_split(struct lr4 *lp, struct lr4 *hp, int count, float *data0,
 		lz1 = z;
 		data0[i] = z;
 
-		y = hb0*x + hb1*hx1 + hb2*hx2 - ha1*hy1 - ha2*hy2;
-		z = hb0*y + hb1*hy1 + hb2*hy2 - ha1*hz1 - ha2*hz2;
+		y = hb0 * x + hb1 * hx1 + hb2 * hx2 - ha1 * hy1 - ha2 * hy2;
+		z = hb0 * y + hb1 * hy1 + hb2 * hy2 - ha1 * hz1 - ha2 * hz2;
 		hx2 = hx1;
 		hx1 = x;
 		hy2 = hy1;
@@ -134,8 +134,8 @@ static void lr4_merge(struct lr4 *lp, struct lr4 *hp, int count, float *data)
 	for (i = 0; i < count; i++) {
 		float x, y, z;
 		x = data[i];
-		y = lb0*x + lb1*lx1 + lb2*lx2 - la1*ly1 - la2*ly2;
-		z = lb0*y + lb1*ly1 + lb2*ly2 - la1*lz1 - la2*lz2;
+		y = lb0 * x + lb1 * lx1 + lb2 * lx2 - la1 * ly1 - la2 * ly2;
+		z = lb0 * y + lb1 * ly1 + lb2 * ly2 - la1 * lz1 - la2 * lz2;
 		lx2 = lx1;
 		lx1 = x;
 		ly2 = ly1;
@@ -143,8 +143,8 @@ static void lr4_merge(struct lr4 *lp, struct lr4 *hp, int count, float *data)
 		lz2 = lz1;
 		lz1 = z;
 
-		y = hb0*x + hb1*hx1 + hb2*hx2 - ha1*hy1 - ha2*hy2;
-		z = hb0*y + hb1*hy1 + hb2*hy2 - ha1*hz1 - ha2*hz2;
+		y = hb0 * x + hb1 * hx1 + hb2 * hx2 - ha1 * hy1 - ha2 * hy2;
+		z = hb0 * y + hb1 * hy1 + hb2 * hy2 - ha1 * hz1 - ha2 * hz2;
 		hx2 = hx1;
 		hx1 = x;
 		hy2 = hy1;

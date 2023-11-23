@@ -23,7 +23,7 @@
         <option name="test-module-name" value="VtsHalCasV1_1Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalCasV1_1TargetTest/VtsHalCasV1_1TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalCasV1_1TargetTest/VtsHalCasV1_1TargetTest"/>
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="exclude-coverage-path" value="frameworks/av/media" />
         <option name="test-timeout" value="1m"/>

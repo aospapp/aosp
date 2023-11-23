@@ -45,3 +45,4 @@
 #$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/*)
 
 $(call add-clean-step, rm -rf $(SOONG_OUT_DIR)/.intermediates/hardware/interfaces/tests/extension)
+$(call add-clean-step, find $(SOONG_OUT_DIR)/.intermediates -name "*adapter_genc*" -print0 | xargs -0 rm -rf)

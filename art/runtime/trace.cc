@@ -19,6 +19,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include "android-base/macros.h"
 #include "android-base/stringprintf.h"
 
 #include "art_method-inl.h"
@@ -336,7 +337,7 @@ void Trace::Start(int trace_fd,
     Thread::Current()->ThrowNewException("Ljava/lang/RuntimeException;", msg.c_str());
     return;
   }
-  std::unique_ptr<File> file(new File(trace_fd, "tracefile"));
+  std::unique_ptr<File> file(new File(trace_fd, /* path= */ "tracefile", /* check_usage= */ true));
   Start(std::move(file), buffer_size, flags, output_mode, trace_mode, interval_us);
 }
 
@@ -649,9 +650,9 @@ void Trace::FinishTracing() {
   os << StringPrintf("vm=art\n");
   os << StringPrintf("pid=%d\n", getpid());
   if ((flags_ & kTraceCountAllocs) != 0) {
-    os << StringPrintf("alloc-count=%d\n", Runtime::Current()->GetStat(KIND_ALLOCATED_OBJECTS));
-    os << StringPrintf("alloc-size=%d\n", Runtime::Current()->GetStat(KIND_ALLOCATED_BYTES));
-    os << StringPrintf("gc-count=%d\n", Runtime::Current()->GetStat(KIND_GC_INVOCATIONS));
+    os << "alloc-count=" << Runtime::Current()->GetStat(KIND_ALLOCATED_OBJECTS) << "\n";
+    os << "alloc-size=" << Runtime::Current()->GetStat(KIND_ALLOCATED_BYTES) << "\n";
+    os << "gc-count=" <<  Runtime::Current()->GetStat(KIND_GC_INVOCATIONS) << "\n";
   }
   os << StringPrintf("%cthreads\n", kTraceTokenChar);
   DumpThreadList(os);
@@ -746,12 +747,16 @@ void Trace::MethodExited(Thread* thread,
                          Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
                          ArtMethod* method,
                          uint32_t dex_pc ATTRIBUTE_UNUSED,
-                         const JValue& return_value ATTRIBUTE_UNUSED) {
+                         instrumentation::OptionalFrame frame ATTRIBUTE_UNUSED,
+                         JValue& return_value ATTRIBUTE_UNUSED) {
   uint32_t thread_clock_diff = 0;
   uint32_t wall_clock_diff = 0;
   ReadClocks(thread, &thread_clock_diff, &wall_clock_diff);
-  LogMethodTraceEvent(thread, method, instrumentation::Instrumentation::kMethodExited,
-                      thread_clock_diff, wall_clock_diff);
+  LogMethodTraceEvent(thread,
+                      method,
+                      instrumentation::Instrumentation::kMethodExited,
+                      thread_clock_diff,
+                      wall_clock_diff);
 }
 
 void Trace::MethodUnwind(Thread* thread,

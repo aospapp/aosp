@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
 
 import java.util.concurrent.TimeUnit;
 
-/** Unit tests for {@link LogcatUpdaterEventParser}. */
+/** Unit tests for {@link LogcatEventParser}. */
 @RunWith(JUnit4.class)
 public class LogcatEventParserTest {
 

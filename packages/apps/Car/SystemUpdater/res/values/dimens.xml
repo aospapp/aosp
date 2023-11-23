@@ -17,4 +17,9 @@
 <resources>
   <dimen name="action_bar_end_widget_margin_end">46dp</dimen>
   <dimen name="toggle_ripple">90dp</dimen>
+  <dimen name="button_min_width">56dp</dimen>
+  <dimen name="ripple_mask_radius">4dp</dimen>
+  <dimen name="keyline_1">24dp</dimen>
+  <dimen name="auto_content_margin">20dp</dimen>
+  <dimen name="folder_list_start_margin">20dp</dimen>
 </resources>

@@ -1,4 +1,7 @@
+import aQute.bnd.gradle.BundleTaskConvention
 import org.codehaus.groovy.runtime.InvokerHelper
+
+apply plugin: 'biz.aQute.bnd.builder'
 
 description = 'Conscrypt: OpenJdk'
 
@@ -58,6 +61,7 @@ sourceSets {
             srcDirs += "${rootDir}/common/src/test/java"
         }
         resources {
+            srcDirs += "${rootDir}/common/src/test/resources"
             // This shouldn't be needed but seems to help IntelliJ locate the native artifact.
             srcDirs += preferredNativeFileDir
         }
@@ -66,22 +70,9 @@ sourceSets {
     // Add the source sets for each of the native build
     nativeClassifiers.each { nativeClassifier ->
         def sourceSetName = sourceSetName(nativeClassifier)
-        def testSourceSetName = testSourceSetName(nativeClassifier)
 
         // Main sources for the native build
         "$sourceSetName" {
-            output.dir(nativeResourcesDir(nativeClassifier), builtBy: "copyNativeLib${sourceSetName}")
-        }
-
-        // Test sources for the native build
-        "$testSourceSetName" {
-            java {
-                // Include the test source.
-                srcDirs = test.java.srcDirs
-            }
-            resources {
-                srcDirs = ["src/test/resources"]
-            }
             output.dir(nativeResourcesDir(nativeClassifier), builtBy: "copyNativeLib${sourceSetName}")
         }
     }
@@ -157,17 +148,25 @@ artifacts {
     platform platformJar
 }
 
+apply from: "$rootDir/gradle/publishing.gradle"
+publishing.publications.maven {
+    artifact sourcesJar
+    artifact javadocJar
+}
+
 jar.manifest {
     attributes ('BoringSSL-Version' : boringSslVersion,
-                'Automatic-Module-Name' : 'org.conscrypt')
+                'Automatic-Module-Name' : 'org.conscrypt',
+                'Bundle-SymbolicName': 'org.conscrypt',
+                '-exportcontents': 'org.conscrypt.*')
 }
 
 dependencies {
     // This is used for the @Internal annotation processing in JavaDoc
     publicApiDocs project(':conscrypt-api-doclet')
 
-    compileOnly project(':conscrypt-constants'),
-                configurations.publicApiDocs
+    // This is listed as compile-only, but we absorb its contents.
+    compileOnly project(':conscrypt-constants')
 
     testImplementation project(':conscrypt-constants'),
             project(':conscrypt-testing'),
@@ -176,18 +175,6 @@ dependencies {
 
     testRuntimeClasspath sourceSets["$preferredSourceSet"].output
 
-    // Configure the dependencies for the native tests.
-    nativeClassifiers.each { nativeClassifier ->
-        def testCompileConfigName = testSourceSet(nativeClassifier).compileConfigurationName
-        "${testCompileConfigName}" (
-                sourceSets.main.output, // Explicitly add the main classes
-                project(':conscrypt-constants'),
-                project(':conscrypt-testing'),
-                libraries.junit,
-                libraries.mockito
-        )
-    }
-
     platformCompileOnly sourceSets.main.output
 }
 
@@ -195,12 +182,8 @@ nativeClassifiers.each { nativeClassifier ->
     // Create the JAR task and add it's output to the published archives for this project
     addNativeJar(nativeClassifier)
 
-    // Create the test task and have it auto run whenever the test task runs.
-    addNativeTest(nativeClassifier)
-
     // Build the classes as part of the standard build.
     classes.dependsOn sourceSet(nativeClassifier).classesTaskName
-    testClasses.dependsOn testSourceSet(nativeClassifier).classesTaskName
 }
 
 // Adds a JAR task for the native library.
@@ -208,13 +191,19 @@ def addNativeJar(nativeClassifier) {
     // Create a JAR for this configuration and add it to the output archives.
     SourceSet sourceSet = sourceSet(nativeClassifier)
     def jarTaskName = sourceSet.jarTaskName
-    task "$jarTaskName"(type: Jar) {
+    task "$jarTaskName"(type: Jar) { Jar t ->
         // Depend on the regular classes task
         dependsOn classes
         manifest = jar.manifest
         classifier = nativeClassifier
 
         from sourceSet.output + sourceSets.main.output
+
+        // add OSGI headers
+        t.convention.plugins.bundle = new BundleTaskConvention(t)
+        t.doLast {
+            t.buildBundle()
+        }
     }
 
     def jarTask = tasks["$jarTaskName"]
@@ -222,56 +211,52 @@ def addNativeJar(nativeClassifier) {
     // Add the jar task to the standard build.
     jar.dependsOn jarTask
 
-    // Add it to the 'archives' configuration so that the artifact will be automatically built and
-    // installed/deployed.
-    artifacts.add('archives', jarTask)
+    // Add it to the publishing archives list.
+    publishing.publications.maven.artifact jarTask
 }
 
-// Optionally adds a test task for the given platform
-def addNativeTest(nativeClassifier) {
-    SourceSet testSourceSet = testSourceSet(nativeClassifier)
 
-    // Just use the same name as the source set for the task.
-    def testTaskName = "${testSourceSet.name}"
-    def javaExecutable
-    def javaArchFlag
-    if (testSourceSet.name.endsWith("${arch32Name}Test")) {
-        // 32-bit test
-        javaExecutable = javaExecutable32 != null ? javaExecutable32 : test.executable
-        javaArchFlag = '-d32'
-    } else {
-        // 64-bit test
-        javaExecutable = javaExecutable64 != null ? javaExecutable64 : test.executable
-        javaArchFlag = '-d64'
-    }
-
-    // Execute the java executable to see if it supports the architecture flag.
-    def javaError = new ByteArrayOutputStream()
-    exec {
-        System.out.println("Running tests with java executable: " + javaExecutable + ".")
-        executable javaExecutable
-        args = ["$javaArchFlag", '-version']
-        ignoreExitValue true
-        errorOutput = javaError
-    }
-
-    // Only add the test if the javaArchFlag is supported for the selected JVM
-    def archSupported = !javaError.toString().toLowerCase().contains('error')
-    if (archSupported) {
-        task "$testTaskName"(type: Test) {
-            mustRunAfter test
-            jvmArgs javaArchFlag
-            executable = javaExecutable
-            InvokerHelper.setProperties(testLogging, test.testLogging.properties)
-            systemProperties = test.systemProperties
-        }
-        check.dependsOn "$testTaskName"
-    }
+// Check which version
+def javaError = new ByteArrayOutputStream()
+exec {
+    executable test.executable
+    System.out.println("Running tests with java executable: " + test.executable + ".")
+    args = ['-version']
+    ignoreExitValue true
+    errorOutput = javaError
 }
 
-// Exclude all test classes from the default test suite.
-// We will test each available native artifact separately (see nativeClassifiers).
-test.exclude("**")
+def suiteClass = (javaError.toString() =~ /"1[.]7[.].*"/) ?
+        "org/conscrypt/ConscryptJava7Suite.class" : "org/conscrypt/ConscryptSuite.class";
+
+test {
+    include suiteClass, "org/conscrypt/ConscryptOpenJdkSuite.class"
+}
+
+task testEngineSocket(type: Test) {
+    include suiteClass, "org/conscrypt/ConscryptOpenJdkSuite.class"
+    InvokerHelper.setProperties(testLogging, test.testLogging.properties)
+    systemProperties = test.systemProperties
+    systemProperty "org.conscrypt.useEngineSocketByDefault", true
+}
+check.dependsOn testEngineSocket
+
+// Tests that involve interoperation with the OpenJDK TLS provider (generally to
+// test renegotiation, since we don't support initiating renegotiation but do
+// support peer-initiated renegotiation).  The JDK TLS provider doesn't work
+// if Conscrypt is installed as the default provider, so these need to live in
+// a different task than the other tests, most of which need Conscrypt to be
+// installed to function.
+task testInterop(type: Test) {
+    include "org/conscrypt/ConscryptEngineTest.class"
+    include "org/conscrypt/RenegotiationTest.class"
+}
+check.dependsOn testInterop
+
+jacocoTestReport {
+    additionalSourceDirs.from files("$rootDir/openjdk/src/test/java", "$rootDir/common/src/main/java")
+    executionData tasks.withType(Test)
+}
 
 javadoc {
     dependsOn(configurations.publicApiDocs)
@@ -464,19 +449,11 @@ SourceSet sourceSet(classifier) {
     sourceSets[sourceSetName(classifier)]
 }
 
-SourceSet testSourceSet(classifier) {
-    sourceSets[testSourceSetName(classifier)]
-}
-
 static String classifierFor(osName, archName) {
     "${osName}-${archName}"
 }
 
 static String sourceSetName(classifier) {
     classifier.replaceAll("-", "_")
-}
-
-static String testSourceSetName(classifier) {
-    "${sourceSetName(classifier)}Test"
 }
 

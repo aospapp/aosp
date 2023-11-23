@@ -28,4 +28,4 @@ Nanoseconds SystemTime::getUptime() {
   return getMonotonicTime() - gStartTime;
 }
 
-}
+}  // namespace chre

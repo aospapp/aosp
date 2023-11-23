@@ -16,6 +16,10 @@
 
 package com.android.tv.settings.system;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -114,29 +118,43 @@ public class CaptionFragment extends SettingsPreferenceFragment implements
         }
         switch (key) {
             case KEY_CAPTIONS_DISPLAY:
+                logToggleInteracted(
+                        TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_DISPLAY_ON_OFF,
+                        ((TwoStatePreference) preference).isChecked());
                 setCaptionsEnabled(((TwoStatePreference) preference).isChecked());
                 return true;
+            case KEY_CAPTIONS_LANGUAGE:
+                logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_LANGUAGE);
+                return super.onPreferenceTreeClick(preference);
+            case KEY_CAPTIONS_TEXT_SIZE:
+                logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_TEXT_SIZE);
+                return super.onPreferenceTreeClick(preference);
             case KEY_CAPTIONS_STYLE_0:
+                logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_WHITE_ON_BLACK);
                 setCaptionsStyle(0);
                 mCaptionsStyle0Pref.setChecked(true);
                 mCaptionsStyle0Pref.clearOtherRadioPreferences(mCaptionsStyleGroup);
                 return true;
             case KEY_CAPTIONS_STYLE_1:
+                logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_BLACK_ON_WHITE);
                 setCaptionsStyle(1);
                 mCaptionsStyle1Pref.setChecked(true);
                 mCaptionsStyle1Pref.clearOtherRadioPreferences(mCaptionsStyleGroup);
                 return true;
             case KEY_CAPTIONS_STYLE_2:
+                logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_YELLOW_ON_BLACK);
                 setCaptionsStyle(2);
                 mCaptionsStyle2Pref.setChecked(true);
                 mCaptionsStyle2Pref.clearOtherRadioPreferences(mCaptionsStyleGroup);
                 return true;
             case KEY_CAPTIONS_STYLE_3:
+                logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_YELLOW_ON_BLUE);
                 setCaptionsStyle(3);
                 mCaptionsStyle3Pref.setChecked(true);
                 mCaptionsStyle3Pref.clearOtherRadioPreferences(mCaptionsStyleGroup);
                 return true;
             case KEY_CAPTIONS_STYLE_CUSTOM:
+                logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_CAPTIONS_CUSTOM);
                 setCaptionsStyle(-1);
                 mCaptionsStyleCustomPref.setChecked(true);
                 mCaptionsStyleCustomPref.clearOtherRadioPreferences(mCaptionsStyleGroup);
@@ -254,5 +272,10 @@ public class CaptionFragment extends SettingsPreferenceFragment implements
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ACCESSIBILITY_CAPTION_PROPERTIES;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_A11Y_CAPTIONS;
     }
 }

@@ -15,10 +15,14 @@
  */
 package android.contentcaptureservice.cts;
 
+import static android.contentcaptureservice.cts.Assertions.assertDecorViewAppeared;
 import static android.contentcaptureservice.cts.Assertions.assertRightActivity;
 import static android.contentcaptureservice.cts.Assertions.assertSessionPaused;
 import static android.contentcaptureservice.cts.Assertions.assertSessionResumed;
+import static android.contentcaptureservice.cts.Assertions.assertViewAppeared;
 import static android.contentcaptureservice.cts.Assertions.assertViewTextChanged;
+import static android.contentcaptureservice.cts.Assertions.assertViewTreeFinished;
+import static android.contentcaptureservice.cts.Assertions.assertViewTreeStarted;
 import static android.contentcaptureservice.cts.Assertions.assertViewWithUnknownParentAppeared;
 import static android.contentcaptureservice.cts.Assertions.assertVirtualViewAppeared;
 import static android.contentcaptureservice.cts.Assertions.assertVirtualViewDisappeared;
@@ -107,6 +111,65 @@ public class CustomViewActivityTest extends
     }
 
     /**
+     * Test for session lifecycle events.
+     */
+    @Test
+    public void testSessionLifecycleEvents() throws Exception {
+        final CtsContentCaptureService service = enableService();
+        final ActivityWatcher watcher = startWatcher();
+        final AtomicReference<CustomView> customViewRef = new AtomicReference<>();
+
+        CustomViewActivity.setCustomViewDelegate((customView, structure) -> {
+            customViewRef.set(customView);
+            final ContentCaptureSession session = customView.getContentCaptureSession();
+            session.notifySessionResumed();
+            session.notifySessionPaused();
+        });
+
+        final CustomViewActivity activity = launchActivity();
+        watcher.waitFor(RESUMED);
+
+        activity.finish();
+        watcher.waitFor(DESTROYED);
+
+        final Session session = service.getOnlyFinishedSession();
+        Log.v(TAG, "session id: " + session.id);
+
+        assertRightActivity(session, session.id, activity);
+
+        final View grandpa1 = (View) activity.mCustomView.getParent();
+        final View grandpa2 = (View) grandpa1.getParent();
+        final View decorView = activity.getDecorView();
+        final AutofillId customViewId = activity.mCustomView.getAutofillId();
+        Log.v(TAG, "assertJustInitialViewsAppeared(): grandpa1=" + grandpa1.getAutofillId()
+                + ", grandpa2=" + grandpa2.getAutofillId() + ", decor="
+                + decorView.getAutofillId() + "customView=" + customViewId);
+
+        final List<ContentCaptureEvent> events = session.getEvents();
+        Log.v(TAG, "events(" + events.size() + "): " + events);
+        final int additionalEvents = 2;
+
+        assertThat(events.size()).isAtLeast(CustomViewActivity.MIN_EVENTS + additionalEvents);
+
+        // Assert just the relevant events
+        assertSessionResumed(events, 0);
+        assertViewTreeStarted(events, 1);
+        assertDecorViewAppeared(events, 2, decorView);
+        assertViewAppeared(events, 3, grandpa2, decorView.getAutofillId());
+        assertViewAppeared(events, 4, grandpa1, grandpa2.getAutofillId());
+
+        // Assert for session lifecycle events.
+        assertSessionResumed(events, 5);
+        assertSessionPaused(events, 6);
+
+        assertViewWithUnknownParentAppeared(events, 7, session.id, customViewRef.get());
+        assertViewTreeFinished(events, 8);
+        assertSessionPaused(events, 9);
+
+        activity.assertInitialViewsDisappeared(events, additionalEvents);
+    }
+
+    /**
      * Tests when the view has virtual children but it doesn't return right away and calls
      * the session notification methods instead - this is wrong because the main view will be
      * notified last, but we cannot prevent the apps from doing so...
@@ -160,15 +223,20 @@ public class CustomViewActivityTest extends
 
         // Assert just the relevant events
         assertSessionResumed(events, 0);
+        assertViewTreeStarted(events, 1);
+        assertDecorViewAppeared(events, 2, decorView);
+        assertViewAppeared(events, 3, grandpa2, decorView.getAutofillId());
+        assertViewAppeared(events, 4, grandpa1, grandpa2.getAutofillId());
 
         final ContentCaptureSession mainSession = activity.mCustomView.getContentCaptureSession();
-        assertVirtualViewAppeared(events, 1, mainSession, customViewId, 1, "child");
-        assertVirtualViewDisappeared(events, 2, customViewId, mainSession, 1);
+        assertVirtualViewAppeared(events, 5, mainSession, customViewId, 1, "child");
+        assertVirtualViewDisappeared(events, 6, customViewId, mainSession, 1);
 
         // This is the "wrong" part - the parent is notified last
-        assertViewWithUnknownParentAppeared(events, 3, session.id, activity.mCustomView);
+        assertViewWithUnknownParentAppeared(events, 7, session.id, activity.mCustomView);
 
-        assertSessionPaused(events, 4);
+        assertViewTreeFinished(events, 8);
+        assertSessionPaused(events, 9);
 
         activity.assertInitialViewsDisappeared(events, additionalEvents);
     }

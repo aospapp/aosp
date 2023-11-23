@@ -16,81 +16,78 @@
 
 package com.android.car.dialer.ui.common;
 
-import android.app.ActionBar;
 import android.app.Activity;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.View;
 
+import androidx.annotation.CallSuper;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.ViewModelProviders;
 
-import com.android.car.apps.common.util.Themes;
 import com.android.car.dialer.R;
-import com.android.car.dialer.ui.TelecomActivity;
+import com.android.car.dialer.ui.TelecomActivityViewModel;
+import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.baselayout.InsetsChangedListener;
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.ToolbarController;
 
-/** The base class for top level dialer content {@link Fragment}s. */
-public abstract class DialerBaseFragment extends Fragment {
+/**
+ * The base class for top level dialer content {@link Fragment}s.
+ */
+public abstract class DialerBaseFragment extends Fragment implements InsetsChangedListener {
 
     /**
      * Interface for Dialer top level fragment's parent to implement.
      */
     public interface DialerFragmentParent {
 
-        /** Sets the background drawable. */
-        void setBackground(Drawable background);
-
-        /** Push a fragment to the back stack. Update action bar accordingly. */
+        /**
+         * Push a fragment to the back stack. Update action bar accordingly.
+         */
         void pushContentFragment(Fragment fragment, String fragmentTag);
     }
 
+    @CallSuper
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setHasOptionsMenu(true);
-    }
-
-    @Override
-    public void onResume() {
-        setFullScreenBackground();
-
-        Activity parentActivity = getActivity();
-        ActionBar actionBar = parentActivity.getActionBar();
-        if (actionBar != null) {
-            setupActionBar(actionBar);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        ToolbarController toolbar = CarUi.getToolbar(requireActivity());
+        // Null check for unit tests to pass
+        if (toolbar != null) {
+            setupToolbar(toolbar);
         }
 
-        super.onResume();
-    }
-
-    /**
-     * Sets a fullscreen background to its parent Activity.
-     */
-    protected void setFullScreenBackground() {
-        Activity parentActivity = getActivity();
-        if (parentActivity instanceof DialerFragmentParent) {
-            ((DialerFragmentParent) parentActivity).setBackground(getFullScreenBackgroundColor());
+        Insets insets = CarUi.getInsets(requireActivity());
+        // Null check for unit tests to pass
+        if (insets != null) {
+            onCarUiInsetsChanged(insets);
         }
     }
 
-    /** Customizes the action bar. Can be overridden in subclasses. */
-    protected void setupActionBar(@NonNull ActionBar actionBar) {
-        actionBar.setTitle(getActionBarTitle());
-        actionBar.setCustomView(null);
-        setActionBarBackground(getContext().getDrawable(R.color.app_bar_background_color));
+    /**
+     * Customizes the tool bar. Can be overridden in subclasses.
+     */
+    protected void setupToolbar(@NonNull ToolbarController toolbar) {
+        TelecomActivityViewModel viewModel = ViewModelProviders.of(requireActivity()).get(
+                TelecomActivityViewModel.class);
+        LiveData<String> toolbarTitleLiveData = viewModel.getToolbarTitle();
+        toolbarTitleLiveData.observe(this, toolbar::setTitle);
+
+        toolbar.setState(getToolbarState());
+        toolbar.setLogo(getToolbarState() == Toolbar.State.HOME
+                ? requireActivity().getDrawable(R.drawable.ic_app_icon)
+                : null);
+
+        toolbar.setMenuItems(R.xml.menuitems);
     }
 
     /**
-     * Returns the full screen background for its parent Activity. Override this function to
-     * change the background.
+     * Push a fragment to the back stack. Update action bar accordingly.
      */
-    protected Drawable getFullScreenBackgroundColor() {
-        return new ColorDrawable(Themes.getAttrColor(getContext(), android.R.attr.background));
-    }
-
-    /** Push a fragment to the back stack. Update action bar accordingly. */
     protected void pushContentFragment(@NonNull Fragment fragment, String fragmentTag) {
         Activity parentActivity = getActivity();
         if (parentActivity instanceof DialerFragmentParent) {
@@ -98,29 +95,13 @@ public abstract class DialerBaseFragment extends Fragment {
         }
     }
 
-    /** Return the action bar title. */
-    protected CharSequence getActionBarTitle() {
-        return getString(R.string.default_toolbar_title);
+    protected Toolbar.State getToolbarState() {
+        return Toolbar.State.HOME;
     }
 
-    protected int getTopBarHeight() {
-        View toolbar = getActivity().findViewById(R.id.car_toolbar);
-
-        int backStackEntryCount =
-                getActivity().getSupportFragmentManager().getBackStackEntryCount();
-        int topBarHeight = Themes.getAttrDimensionPixelSize(getContext(),
-                android.R.attr.actionBarSize);
-        // Tabs are not child of the toolbar and tabs are visible.
-        if (toolbar.findViewById(R.id.tab_layout) == null && backStackEntryCount == 1) {
-            topBarHeight += topBarHeight;
-        }
-        return topBarHeight;
-    }
-
-    protected final void setActionBarBackground(@Nullable Drawable drawable) {
-        Activity activity = getActivity();
-        if (activity instanceof TelecomActivity) {
-            ((TelecomActivity) activity).setActionBarBackground(drawable);
-        }
+    @Override
+    public void onCarUiInsetsChanged(Insets insets) {
+        requireView().setPadding(insets.getLeft(), insets.getTop(),
+                insets.getRight(), insets.getBottom());
     }
 }

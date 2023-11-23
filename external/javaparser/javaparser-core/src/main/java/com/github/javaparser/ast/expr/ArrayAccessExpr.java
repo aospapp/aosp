@@ -29,10 +29,10 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.ArrayAccessExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
 import java.util.Optional;
+import com.github.javaparser.ast.Generated;
 
 /**
  * Array brackets [] being used to get a value from an array.
@@ -40,7 +40,7 @@ import java.util.Optional;
  *
  * @author Julio Vilmar Gesser
  */
-public final class ArrayAccessExpr extends Expression {
+public class ArrayAccessExpr extends Expression {
 
     private Expression name;
 

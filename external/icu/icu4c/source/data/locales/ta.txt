@@ -18,7 +18,11 @@ ta{
         "[அ ஆ இ ஈ உ ஊ எ ஏ ஐ ஒ ஓ ஔ க ங ச ஞ ட ண த ந ப ம ய ர ல வ ழ ள ற ன ஜ ஶ ஷ ஸ ஹ {க"
         "\u0BCDஷ}]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0௦ 1௧ 2௨ 3௩ 4௪ 5௫ 6௬ 7௭ 8௮ 9௯]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0௦ 1௧ 2௨ 3௩ 4௪ 5௫ 6௬ 7௭ 8௮ 9௯]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
+    }
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -238,7 +242,7 @@ ta{
         }
         traditional{"taml"}
     }
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -738,8 +742,8 @@ ta{
                 MMM{"LLL"}
                 MMMEd{"MMM d, E"}
                 MMMMW{
-                    one{"MMM W -ஆம் வாரம்"}
-                    other{"MMM W -ஆம் வாரம்"}
+                    one{"MMMM W -ஆம் வாரம்"}
+                    other{"MMMM W -ஆம் வாரம்"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"MMM d"}
@@ -2429,6 +2433,12 @@ ta{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0} மற்றும் {1}"}
+            end{"{0} மற்றும் {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         standard-short{
             2{"{0} மற்றும் {1}"}
             end{"{0} மற்றும் {1}"}
@@ -2436,8 +2446,6 @@ ta{
             start{"{0}, {1}"}
         }
         unit{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
@@ -2448,8 +2456,6 @@ ta{
             start{"{0} {1}"}
         }
         unit-short{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }

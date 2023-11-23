@@ -13,12 +13,13 @@
 #include "core/fxcrt/retain_ptr.h"
 #include "core/fxcrt/unowned_ptr.h"
 #include "core/fxge/dib/cfx_scanlinecompositor.h"
-#include "core/fxge/dib/ifx_scanlinecomposer.h"
+#include "core/fxge/dib/scanlinecomposer_iface.h"
+#include "core/fxge/fx_dib.h"
 
 class CFX_ClipRgn;
 class CFX_DIBitmap;
 
-class CFX_BitmapComposer : public IFX_ScanlineComposer {
+class CFX_BitmapComposer final : public ScanlineComposerIface {
  public:
   CFX_BitmapComposer();
   ~CFX_BitmapComposer() override;
@@ -32,10 +33,9 @@ class CFX_BitmapComposer : public IFX_ScanlineComposer {
                bool bFlipX,
                bool bFlipY,
                bool bRgbByteOrder,
-               int alpha_flag,
-               int blend_type);
+               BlendMode blend_type);
 
-  // IFX_ScanlineComposer
+  // ScanlineComposerIface
   bool SetInfo(int width,
                int height,
                FXDIB_Format src_format,
@@ -70,9 +70,8 @@ class CFX_BitmapComposer : public IFX_ScanlineComposer {
   bool m_bVertical;
   bool m_bFlipX;
   bool m_bFlipY;
-  int m_AlphaFlag;
-  bool m_bRgbByteOrder;
-  int m_BlendType;
+  bool m_bRgbByteOrder = false;
+  BlendMode m_BlendType = BlendMode::kNormal;
   std::vector<uint8_t> m_pScanlineV;
   std::vector<uint8_t> m_pClipScanV;
   std::vector<uint8_t> m_pAddClipScan;

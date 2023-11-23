@@ -48,12 +48,6 @@
 #define _JBLEN 64
 #elif defined(__i386__)
 #define _JBLEN 10
-#elif defined(__mips__)
-  #if defined(__LP64__)
-  #define _JBLEN 25
-  #else
-  #define _JBLEN 157
-  #endif
 #elif defined(__x86_64__)
 #define _JBLEN 11
 #endif
@@ -65,18 +59,16 @@ typedef long jmp_buf[_JBLEN];
 
 __BEGIN_DECLS
 
-int _setjmp(jmp_buf __env);
-void _longjmp(jmp_buf __env, int __value);
+int _setjmp(jmp_buf __env) __returns_twice;
+__noreturn void _longjmp(jmp_buf __env, int __value);
 
-int setjmp(jmp_buf __env);
-void longjmp(jmp_buf __env, int __value);
+int setjmp(jmp_buf __env) __returns_twice;
+__noreturn void longjmp(jmp_buf __env, int __value);
 
 #define setjmp(__env) setjmp(__env)
 
-int sigsetjmp(sigjmp_buf __env, int __save_signal_mask)
-    __INTRODUCED_IN_ARM(9) __INTRODUCED_IN_MIPS(12) __INTRODUCED_IN_X86(12);
-void siglongjmp(sigjmp_buf __env, int __value)
-    __INTRODUCED_IN_ARM(9) __INTRODUCED_IN_MIPS(12) __INTRODUCED_IN_X86(12);
+int sigsetjmp(sigjmp_buf __env, int __save_signal_mask);
+__noreturn void siglongjmp(sigjmp_buf __env, int __value);
 
 __END_DECLS
 

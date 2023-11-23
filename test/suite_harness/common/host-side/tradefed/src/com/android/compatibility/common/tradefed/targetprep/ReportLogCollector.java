@@ -22,19 +22,21 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetCleaner;
+import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 
-/**
- * An {@link ITargetCleaner} that prepares and pulls report logs.
- */
-public class ReportLogCollector implements ITargetCleaner {
+/** An {@link ITargetPreparer} that prepares and pulls report logs. */
+public class ReportLogCollector extends BaseTargetPreparer {
 
     @Option(name= "src-dir", description = "The directory to copy to the results dir")
     private String mSrcDir;
@@ -52,12 +54,12 @@ public class ReportLogCollector implements ITargetCleaner {
     }
 
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException {
-        prepareReportLogContainers(device, buildInfo);
+    public void setUp(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        prepareReportLogContainers(testInfo.getBuildInfo());
     }
 
-    private void prepareReportLogContainers(ITestDevice device, IBuildInfo buildInfo) {
+    private void prepareReportLogContainers(IBuildInfo buildInfo) {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
         try {
             File resultDir = buildHelper.getResultDir();
@@ -70,12 +72,22 @@ public class ReportLogCollector implements ITargetCleaner {
                 return;
             }
         } catch (FileNotFoundException fnfe) {
-            fnfe.printStackTrace();
+            CLog.e(fnfe);
         }
     }
 
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e) {
+    public void tearDown(TestInformation testInfo, Throwable e) {
+        if (e instanceof DeviceNotAvailableException) {
+            CLog.e("Invocation finished with DeviceNotAvailable, skipping collecting logs.");
+            return;
+        }
+        ITestDevice device = testInfo.getDevice();
+        IBuildInfo buildInfo = testInfo.getBuildInfo();
+        if (device.getIDevice() instanceof StubDevice) {
+            CLog.d("Skipping ReportLogCollector, it requires a device.");
+            return;
+        }
         // Pull report log files from device.
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
         try {
@@ -98,12 +110,11 @@ public class ReportLogCollector implements ITargetCleaner {
                 CLog.e("%s is not a directory", hostReportDir.getAbsolutePath());
                 return;
             }
-            String resultPath = resultDir.getAbsolutePath();
-            CollectorUtil.pullFromDevice(device, mSrcDir, resultPath);
+            device.pullDir(mSrcDir, resultDir);
             CollectorUtil.pullFromHost(hostReportDir, resultDir);
             CollectorUtil.reformatRepeatedStreams(resultDir);
-        } catch (Exception exception) {
-            exception.printStackTrace();
+        } catch (DeviceNotAvailableException | IOException exception) {
+            CLog.e(exception);
         }
     }
 }

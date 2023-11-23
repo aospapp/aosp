@@ -2,8 +2,8 @@
  * Vulkan Conformance Tests
  * ------------------------
  *
- * Copyright (c) 2017 The Khronos Group Inc.
- * Copyright (c) 2018 NVIDIA Corporation
+ * Copyright (c) 2017-2019 The Khronos Group Inc.
+ * Copyright (c) 2018-2019 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "vktMemoryModelTests.hpp"
+#include "vktMemoryModelPadding.hpp"
 
 #include "vkBufferWithMemory.hpp"
 #include "vkImageWithMemory.hpp"
@@ -30,6 +31,8 @@
 #include "vkBuilderUtil.hpp"
 #include "vkCmdUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkObjUtil.hpp"
+
 #include "vktTestGroupUtil.hpp"
 #include "vktTestCase.hpp"
 
@@ -74,6 +77,7 @@ typedef enum
 	SC_BUFFER = 0,
 	SC_IMAGE,
 	SC_WORKGROUP,
+	SC_PHYSBUFFER,
 } StorageClass;
 
 typedef enum
@@ -114,6 +118,8 @@ struct CaseDef
 	SyncType syncType;
 	Stage stage;
 	DataType dataType;
+	bool transitive;
+	bool transitiveVis;
 };
 
 class MemoryModelTestInstance : public TestInstance
@@ -148,6 +154,7 @@ class MemoryModelTestCase : public TestCase
 								MemoryModelTestCase		(tcu::TestContext& context, const char* name, const char* desc, const CaseDef data);
 								~MemoryModelTestCase	(void);
 	virtual	void				initPrograms		(SourceCollections& programCollection) const;
+	virtual	void				initProgramsTransitive(SourceCollections& programCollection) const;
 	virtual TestInstance*		createInstance		(Context& context) const;
 	virtual void				checkSupport		(Context& context) const;
 
@@ -205,6 +212,25 @@ void MemoryModelTestCase::checkSupport(Context& context) const
 		{
 			TCU_THROW(NotSupportedError, "Subgroup features not supported");
 		}
+
+		VkShaderStageFlags stage= VK_SHADER_STAGE_COMPUTE_BIT;
+		if (m_data.stage == STAGE_VERTEX)
+		{
+			stage = VK_SHADER_STAGE_VERTEX_BIT;
+		}
+		else if (m_data.stage == STAGE_COMPUTE)
+		{
+			stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		}
+		else if (m_data.stage == STAGE_FRAGMENT)
+		{
+			stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		}
+
+		if((subgroupProperties.supportedStages & stage)==0)
+		{
+			TCU_THROW(NotSupportedError, "Device does not support subgroup operations for this stage");
+		}
 	}
 	if (m_data.dataType == DATA_TYPE_UINT64)
 	{
@@ -213,7 +239,7 @@ void MemoryModelTestCase::checkSupport(Context& context) const
 			TCU_THROW(NotSupportedError, "64-bit integer in shaders not supported");
 		}
 		if (!context.getShaderAtomicInt64Features().shaderBufferInt64Atomics &&
-			m_data.guardSC == SC_BUFFER)
+			(m_data.guardSC == SC_BUFFER || m_data.guardSC == SC_PHYSBUFFER))
 		{
 			TCU_THROW(NotSupportedError, "64-bit integer buffer atomics not supported");
 		}
@@ -223,6 +249,14 @@ void MemoryModelTestCase::checkSupport(Context& context) const
 			TCU_THROW(NotSupportedError, "64-bit integer shared atomics not supported");
 		}
 	}
+
+	if (m_data.transitive &&
+		!context.getVulkanMemoryModelFeatures().vulkanMemoryModelAvailabilityVisibilityChains)
+		TCU_THROW(NotSupportedError, "vulkanMemoryModelAvailabilityVisibilityChains not supported");
+
+	if ((m_data.payloadSC == SC_PHYSBUFFER || m_data.guardSC == SC_PHYSBUFFER) && !context.isBufferDeviceAddressSupported())
+		TCU_THROW(NotSupportedError, "Physical storage buffer pointers not supported");
+
 	if (m_data.stage == STAGE_VERTEX)
 	{
 		if (!context.getDeviceFeatures().vertexPipelineStoresAndAtomics)
@@ -242,6 +276,13 @@ void MemoryModelTestCase::checkSupport(Context& context) const
 
 void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) const
 {
+	if (m_data.transitive)
+	{
+		initProgramsTransitive(programCollection);
+		return;
+	}
+	DE_ASSERT(!m_data.transitiveVis);
+
 	Scope invocationMapping = m_data.scope;
 	if ((m_data.scope == SCOPE_DEVICE || m_data.scope == SCOPE_QUEUEFAMILY) &&
 		(m_data.payloadSC == SC_WORKGROUP || m_data.guardSC == SC_WORKGROUP))
@@ -269,6 +310,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 	switch (m_data.payloadSC)
 	{
 	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: // fall through
 	case SC_BUFFER:		storageSemanticsRelease << "gl_StorageSemanticsBuffer"; break;
 	case SC_IMAGE:		storageSemanticsRelease << "gl_StorageSemanticsImage"; break;
 	case SC_WORKGROUP:	storageSemanticsRelease << "gl_StorageSemanticsShared"; break;
@@ -280,6 +322,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		switch (m_data.guardSC)
 		{
 		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
 		case SC_BUFFER:		storageSemanticsRelease << " | gl_StorageSemanticsBuffer"; break;
 		case SC_IMAGE:		storageSemanticsRelease << " | gl_StorageSemanticsImage"; break;
 		case SC_WORKGROUP:	storageSemanticsRelease << " | gl_StorageSemanticsShared"; break;
@@ -290,6 +333,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		switch (m_data.guardSC)
 		{
 		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
 		case SC_BUFFER:		storageSemanticsAcquire << " | gl_StorageSemanticsBuffer"; break;
 		case SC_IMAGE:		storageSemanticsAcquire << " | gl_StorageSemanticsImage"; break;
 		case SC_WORKGROUP:	storageSemanticsAcquire << " | gl_StorageSemanticsShared"; break;
@@ -321,6 +365,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		"#extension GL_KHR_shader_subgroup_ballot : enable\n"
 		"#extension GL_KHR_memory_scope_semantics : enable\n"
 		"#extension GL_ARB_gpu_shader_int64 : enable\n"
+		"#extension GL_EXT_buffer_reference : enable\n"
 		"// DIM/NUM_WORKGROUP_EACH_DIM overriden by spec constants\n"
 		"layout(constant_id = 0) const int DIM = 1;\n"
 		"layout(constant_id = 1) const int NUM_WORKGROUP_EACH_DIM = 1;\n"
@@ -357,10 +402,14 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		memqual = "nonprivate";
 	}
 
+	stringstream pushConstMembers;
+
 	// Declare payload, guard, and fail resources
 	switch (m_data.payloadSC)
 	{
 	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: css << "layout(buffer_reference) buffer PayloadRef { " << typeStr << " x[]; };\n";
+						pushConstMembers << "   layout(offset = 0) PayloadRef payloadref;\n"; break;
 	case SC_BUFFER:		css << "layout(set=0, binding=0) " << memqual << " buffer Payload { " << typeStr << " x[]; } payload;\n"; break;
 	case SC_IMAGE:		css << "layout(set=0, binding=0, r32ui) uniform " << memqual << " uimage2D payload;\n"; break;
 	case SC_WORKGROUP:	css << "shared S payload;\n"; break;
@@ -371,6 +420,8 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		switch (m_data.guardSC)
 		{
 		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: css << "layout(buffer_reference) buffer GuardRef { " << typeStr << " x[]; };\n";
+							pushConstMembers << "layout(offset = 8) GuardRef guard;\n"; break;
 		case SC_BUFFER:		css << "layout(set=0, binding=1) buffer Guard { " << typeStr << " x[]; } guard;\n"; break;
 		case SC_IMAGE:		css << "layout(set=0, binding=1, r32ui) uniform uimage2D guard;\n"; break;
 		case SC_WORKGROUP:	css << "shared S guard;\n"; break;
@@ -379,11 +430,18 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 
 	css << "layout(set=0, binding=2) buffer Fail { uint x[]; } fail;\n";
 
+	if (pushConstMembers.str().size() != 0) {
+		css << "layout (push_constant, std430) uniform PC {\n" << pushConstMembers.str() << "};\n";
+	}
+
 	css <<
 		"void main()\n"
 		"{\n"
 		"   bool pass = true;\n"
 		"   bool skip = false;\n";
+
+	if (m_data.payloadSC == SC_PHYSBUFFER)
+		css << "   " << memqual << " PayloadRef payload = payloadref;\n";
 
 	if (m_data.stage == STAGE_FRAGMENT)
 	{
@@ -521,6 +579,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		switch (m_data.payloadSC)
 		{
 		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
 		case SC_BUFFER:		css << "   payload.x[bufferCoord] = bufferCoord + (payload.x[partnerBufferCoord]>>31);\n"; break;
 		case SC_IMAGE:		css << "   imageStore(payload, imageCoord, uvec4(bufferCoord + (imageLoad(payload, partnerImageCoord).x>>31), 0, 0, 0));\n"; break;
 		case SC_WORKGROUP:	css << "   payload.x[sharedCoord] = bufferCoord + (payload.x[partnerSharedCoord]>>31);\n"; break;
@@ -533,6 +592,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		switch (m_data.payloadSC)
 		{
 		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
 		case SC_BUFFER:		css << "   " << typeStr << " r = payload.x[partnerBufferCoord];\n"; break;
 		case SC_IMAGE:		css << "   " << typeStr << " r = imageLoad(payload, partnerImageCoord).x;\n"; break;
 		case SC_WORKGROUP:	css << "   " << typeStr << " r = payload.x[partnerSharedCoord];\n"; break;
@@ -571,6 +631,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 			switch (m_data.guardSC)
 			{
 			default: DE_ASSERT(0); // fall through
+			case SC_PHYSBUFFER: // fall through
 			case SC_BUFFER:		css << "   atomicExchange(guard.x[bufferCoord], " << typeStr << "(1u), " << scopeStr << atomicReleaseSemantics.str() << ");\n"; break;
 			case SC_IMAGE:		css << "   imageAtomicExchange(guard, imageCoord, (1u), " << scopeStr << atomicReleaseSemantics.str() << ");\n"; break;
 			case SC_WORKGROUP:	css << "   atomicExchange(guard.x[sharedCoord], " << typeStr << "(1u), " << scopeStr << atomicReleaseSemantics.str() << ");\n"; break;
@@ -581,6 +642,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 			switch (m_data.guardSC)
 			{
 			default: DE_ASSERT(0); // fall through
+			case SC_PHYSBUFFER: // fall through
 			case SC_BUFFER:		css << "   atomicStore(guard.x[bufferCoord], " << typeStr << "(1u), " << scopeStr << atomicReleaseSemantics.str() << ");\n"; break;
 			case SC_IMAGE:		css << "   imageAtomicStore(guard, imageCoord, (1u), " << scopeStr << atomicReleaseSemantics.str() << ");\n"; break;
 			case SC_WORKGROUP:	css << "   atomicStore(guard.x[sharedCoord], " << typeStr << "(1u), " << scopeStr << atomicReleaseSemantics.str() << ");\n"; break;
@@ -602,6 +664,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 			switch (m_data.guardSC)
 			{
 			default: DE_ASSERT(0); // fall through
+			case SC_PHYSBUFFER: // fall through
 			case SC_BUFFER:		css << "   skip = atomicExchange(guard.x[partnerBufferCoord], 2u, " << scopeStr << atomicAcquireSemantics.str() << ") == 0;\n"; break;
 			case SC_IMAGE:		css << "   skip = imageAtomicExchange(guard, partnerImageCoord, 2u, " << scopeStr << atomicAcquireSemantics.str() << ") == 0;\n"; break;
 			case SC_WORKGROUP:	css << "   skip = atomicExchange(guard.x[partnerSharedCoord], 2u, " << scopeStr << atomicAcquireSemantics.str() << ") == 0;\n"; break;
@@ -611,6 +674,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 			switch (m_data.guardSC)
 			{
 			default: DE_ASSERT(0); // fall through
+			case SC_PHYSBUFFER: // fall through
 			case SC_BUFFER:		css << "   skip = atomicLoad(guard.x[partnerBufferCoord], " << scopeStr << atomicAcquireSemantics.str() << ") == 0;\n"; break;
 			case SC_IMAGE:		css << "   skip = imageAtomicLoad(guard, partnerImageCoord, " << scopeStr << atomicAcquireSemantics.str() << ") == 0;\n"; break;
 			case SC_WORKGROUP:	css << "   skip = atomicLoad(guard.x[partnerSharedCoord], " << scopeStr << atomicAcquireSemantics.str() << ") == 0;\n"; break;
@@ -628,6 +692,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		switch (m_data.payloadSC)
 		{
 		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
 		case SC_BUFFER:		css << "   " << typeStr << " r = payload.x[partnerBufferCoord];\n"; break;
 		case SC_IMAGE:		css << "   " << typeStr << " r = imageLoad(payload, partnerImageCoord).x;\n"; break;
 		case SC_WORKGROUP:	css << "   " << typeStr << " r = payload.x[partnerSharedCoord];\n"; break;
@@ -644,6 +709,7 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 		switch (m_data.payloadSC)
 		{
 		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
 		case SC_BUFFER:		css << "   payload.x[bufferCoord] = bufferCoord;\n"; break;
 		case SC_IMAGE:		css << "   imageStore(payload, imageCoord, uvec4(bufferCoord, 0, 0, 0));\n"; break;
 		case SC_WORKGROUP:	css << "   payload.x[sharedCoord] = bufferCoord;\n"; break;
@@ -679,42 +745,217 @@ void MemoryModelTestCase::initPrograms (SourceCollections& programCollection) co
 	}
 }
 
+
+void MemoryModelTestCase::initProgramsTransitive (SourceCollections& programCollection) const
+{
+	Scope invocationMapping = m_data.scope;
+
+	const char *typeStr = m_data.dataType == DATA_TYPE_UINT64 ? "uint64_t" : "uint";
+
+	// Construct storageSemantics strings. Both release and acquire
+	// always have the payload storage class. They only include the
+	// guard storage class if they're using FENCE for that side of the
+	// sync.
+	std::stringstream storageSemanticsPayload;
+	switch (m_data.payloadSC)
+	{
+	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: // fall through
+	case SC_BUFFER:		storageSemanticsPayload << "gl_StorageSemanticsBuffer"; break;
+	case SC_IMAGE:		storageSemanticsPayload << "gl_StorageSemanticsImage"; break;
+	}
+	std::stringstream storageSemanticsGuard;
+	switch (m_data.guardSC)
+	{
+	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: // fall through
+	case SC_BUFFER:		storageSemanticsGuard << "gl_StorageSemanticsBuffer"; break;
+	case SC_IMAGE:		storageSemanticsGuard << "gl_StorageSemanticsImage"; break;
+	}
+	std::stringstream storageSemanticsAll;
+	storageSemanticsAll << storageSemanticsPayload.str() << " | " << storageSemanticsGuard.str();
+
+	std::stringstream css;
+	css << "#version 450 core\n";
+	css << "#pragma use_vulkan_memory_model\n";
+	css <<
+		"#extension GL_KHR_shader_subgroup_basic : enable\n"
+		"#extension GL_KHR_shader_subgroup_shuffle : enable\n"
+		"#extension GL_KHR_shader_subgroup_ballot : enable\n"
+		"#extension GL_KHR_memory_scope_semantics : enable\n"
+		"#extension GL_ARB_gpu_shader_int64 : enable\n"
+		"#extension GL_EXT_buffer_reference : enable\n"
+		"// DIM/NUM_WORKGROUP_EACH_DIM overriden by spec constants\n"
+		"layout(constant_id = 0) const int DIM = 1;\n"
+		"layout(constant_id = 1) const int NUM_WORKGROUP_EACH_DIM = 1;\n"
+		"shared bool sharedSkip;\n";
+
+	css << "layout(local_size_x_id = 0, local_size_y_id = 0, local_size_z = 1) in;\n";
+
+	const char *memqual = "";
+	const char *semAvail = "";
+	const char *semVis = "";
+	if (m_data.coherent)
+	{
+		memqual = "workgroupcoherent";
+	}
+	else
+	{
+		memqual = "nonprivate";
+		semAvail = " | gl_SemanticsMakeAvailable";
+		semVis = " | gl_SemanticsMakeVisible";
+	}
+
+	stringstream pushConstMembers;
+
+	// Declare payload, guard, and fail resources
+	switch (m_data.payloadSC)
+	{
+	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: css << "layout(buffer_reference) buffer PayloadRef { " << typeStr << " x[]; };\n";
+						pushConstMembers << "   layout(offset = 0) PayloadRef payloadref;\n"; break;
+	case SC_BUFFER:		css << "layout(set=0, binding=0) " << memqual << " buffer Payload { " << typeStr << " x[]; } payload;\n"; break;
+	case SC_IMAGE:		css << "layout(set=0, binding=0, r32ui) uniform " << memqual << " uimage2D payload;\n"; break;
+	}
+	// The guard variable is only accessed with atomics and need not be declared coherent.
+	switch (m_data.guardSC)
+	{
+	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: css << "layout(buffer_reference) buffer GuardRef { " << typeStr << " x[]; };\n";
+						pushConstMembers << "layout(offset = 8) GuardRef guard;\n"; break;
+	case SC_BUFFER:		css << "layout(set=0, binding=1) buffer Guard { " << typeStr << " x[]; } guard;\n"; break;
+	case SC_IMAGE:		css << "layout(set=0, binding=1, r32ui) uniform uimage2D guard;\n"; break;
+	}
+
+	css << "layout(set=0, binding=2) buffer Fail { uint x[]; } fail;\n";
+
+	if (pushConstMembers.str().size() != 0) {
+		css << "layout (push_constant, std430) uniform PC {\n" << pushConstMembers.str() << "};\n";
+	}
+
+	css <<
+		"void main()\n"
+		"{\n"
+		"   bool pass = true;\n"
+		"   bool skip = false;\n"
+		"   sharedSkip = false;\n";
+
+	if (m_data.payloadSC == SC_PHYSBUFFER)
+		css << "   " << memqual << " PayloadRef payload = payloadref;\n";
+
+	// Compute coordinates based on the storage class and scope.
+	switch (invocationMapping)
+	{
+	default: DE_ASSERT(0); // fall through
+	case SCOPE_DEVICE:
+		css <<
+		"   ivec2 globalId          = ivec2(gl_GlobalInvocationID.xy);\n"
+		"   ivec2 partnerGlobalId   = ivec2(DIM*NUM_WORKGROUP_EACH_DIM-1) - ivec2(gl_GlobalInvocationID.xy);\n"
+		"   uint bufferCoord        = globalId.y * DIM*NUM_WORKGROUP_EACH_DIM + globalId.x;\n"
+		"   uint partnerBufferCoord = partnerGlobalId.y * DIM*NUM_WORKGROUP_EACH_DIM + partnerGlobalId.x;\n"
+		"   ivec2 imageCoord        = globalId;\n"
+		"   ivec2 partnerImageCoord = partnerGlobalId;\n"
+		"   ivec2 globalId00          = ivec2(DIM) * ivec2(gl_WorkGroupID.xy);\n"
+		"   ivec2 partnerGlobalId00   = ivec2(DIM) * (ivec2(NUM_WORKGROUP_EACH_DIM-1) - ivec2(gl_WorkGroupID.xy));\n"
+		"   uint bufferCoord00        = globalId00.y * DIM*NUM_WORKGROUP_EACH_DIM + globalId00.x;\n"
+		"   uint partnerBufferCoord00 = partnerGlobalId00.y * DIM*NUM_WORKGROUP_EACH_DIM + partnerGlobalId00.x;\n"
+		"   ivec2 imageCoord00        = globalId00;\n"
+		"   ivec2 partnerImageCoord00 = partnerGlobalId00;\n";
+		break;
+	}
+
+	// Store payload
+	switch (m_data.payloadSC)
+	{
+	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: // fall through
+	case SC_BUFFER:		css << "   payload.x[bufferCoord] = bufferCoord + (payload.x[partnerBufferCoord]>>31);\n"; break;
+	case SC_IMAGE:		css << "   imageStore(payload, imageCoord, uvec4(bufferCoord + (imageLoad(payload, partnerImageCoord).x>>31), 0, 0, 0));\n"; break;
+	}
+
+	// Sync to other threads in the workgroup
+	css << "   controlBarrier(gl_ScopeWorkgroup, "
+							 "gl_ScopeWorkgroup, " <<
+							  storageSemanticsPayload.str() << " | gl_StorageSemanticsShared, "
+							 "gl_SemanticsAcquireRelease" << semAvail << ");\n";
+
+	// Device-scope release/availability in invocation(0,0)
+	css << "   if (all(equal(gl_LocalInvocationID.xy, ivec2(0,0)))) {\n";
+	if (m_data.syncType == ST_ATOMIC_ATOMIC || m_data.syncType == ST_ATOMIC_FENCE) {
+		switch (m_data.guardSC)
+		{
+		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
+		case SC_BUFFER:		css << "       atomicStore(guard.x[bufferCoord], " << typeStr << "(1u), gl_ScopeDevice, " << storageSemanticsPayload.str() << ", gl_SemanticsRelease | gl_SemanticsMakeAvailable);\n"; break;
+		case SC_IMAGE:		css << "       imageAtomicStore(guard, imageCoord, (1u), gl_ScopeDevice, " << storageSemanticsPayload.str() << ", gl_SemanticsRelease | gl_SemanticsMakeAvailable);\n"; break;
+		}
+	} else {
+		css << "       memoryBarrier(gl_ScopeDevice, " << storageSemanticsAll.str() << ", gl_SemanticsRelease | gl_SemanticsMakeAvailable);\n";
+		switch (m_data.guardSC)
+		{
+		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
+		case SC_BUFFER:		css << "       atomicStore(guard.x[bufferCoord], " << typeStr << "(1u), gl_ScopeDevice, 0, 0);\n"; break;
+		case SC_IMAGE:		css << "       imageAtomicStore(guard, imageCoord, (1u), gl_ScopeDevice, 0, 0);\n"; break;
+		}
+	}
+
+	// Device-scope acquire/visibility either in invocation(0,0) or in every invocation
+	if (!m_data.transitiveVis) {
+		css << "   }\n";
+	}
+	if (m_data.syncType == ST_ATOMIC_ATOMIC || m_data.syncType == ST_FENCE_ATOMIC) {
+		switch (m_data.guardSC)
+		{
+		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
+		case SC_BUFFER:		css << "       skip = atomicLoad(guard.x[partnerBufferCoord00], gl_ScopeDevice, " << storageSemanticsPayload.str() << ", gl_SemanticsAcquire | gl_SemanticsMakeVisible) == 0;\n"; break;
+		case SC_IMAGE:		css << "       skip = imageAtomicLoad(guard, partnerImageCoord00, gl_ScopeDevice, " << storageSemanticsPayload.str() << ", gl_SemanticsAcquire | gl_SemanticsMakeVisible) == 0;\n"; break;
+		}
+	} else {
+		switch (m_data.guardSC)
+		{
+		default: DE_ASSERT(0); // fall through
+		case SC_PHYSBUFFER: // fall through
+		case SC_BUFFER:		css << "       skip = atomicLoad(guard.x[partnerBufferCoord00], gl_ScopeDevice, 0, 0) == 0;\n"; break;
+		case SC_IMAGE:		css << "       skip = imageAtomicLoad(guard, partnerImageCoord00, gl_ScopeDevice, 0, 0) == 0;\n"; break;
+		}
+		css << "       memoryBarrier(gl_ScopeDevice, " << storageSemanticsAll.str() << ", gl_SemanticsAcquire | gl_SemanticsMakeVisible);\n";
+	}
+
+	// If invocation(0,0) did the acquire then store "skip" to shared memory and
+	// synchronize with the workgroup
+	if (m_data.transitiveVis) {
+		css << "       sharedSkip = skip;\n";
+		css << "   }\n";
+
+		css << "   controlBarrier(gl_ScopeWorkgroup, "
+								 "gl_ScopeWorkgroup, " <<
+								  storageSemanticsPayload.str() << " | gl_StorageSemanticsShared, "
+								 "gl_SemanticsAcquireRelease" << semVis << ");\n";
+		css << "   skip = sharedSkip;\n";
+	}
+
+	// Load payload
+	switch (m_data.payloadSC)
+	{
+	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER: // fall through
+	case SC_BUFFER:		css << "   " << typeStr << " r = payload.x[partnerBufferCoord];\n"; break;
+	case SC_IMAGE:		css << "   " << typeStr << " r = imageLoad(payload, partnerImageCoord).x;\n"; break;
+	}
+	css <<
+		"   if (!skip && r != partnerBufferCoord) { fail.x[bufferCoord] = 1; }\n"
+		"}\n";
+
+	const vk::ShaderBuildOptions	buildOptions	(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_3, 0u);
+
+	programCollection.glslSources.add("test") << glu::ComputeSource(css.str()) << buildOptions;
+}
+
 TestInstance* MemoryModelTestCase::createInstance (Context& context) const
 {
 	return new MemoryModelTestInstance(context, m_data);
-}
-
-VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			bufferSize,
-										 const VkBufferUsageFlags	usage)
-{
-	const VkBufferCreateInfo bufferCreateInfo =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
-		DE_NULL,								// const void*			pNext;
-		(VkBufferCreateFlags)0,					// VkBufferCreateFlags	flags;
-		bufferSize,								// VkDeviceSize			size;
-		usage,									// VkBufferUsageFlags	usage;
-		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
-		0u,										// deUint32				queueFamilyIndexCount;
-		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
-	};
-	return bufferCreateInfo;
-}
-
-Move<VkDescriptorSet> makeDescriptorSet (const DeviceInterface&			vk,
-										 const VkDevice					device,
-										 const VkDescriptorPool			descriptorPool,
-										 const VkDescriptorSetLayout	setLayout)
-{
-	const VkDescriptorSetAllocateInfo allocateParams =
-	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,		// VkStructureType				sType;
-		DE_NULL,											// const void*					pNext;
-		descriptorPool,										// VkDescriptorPool				descriptorPool;
-		1u,													// deUint32						setLayoutCount;
-		&setLayout,											// const VkDescriptorSetLayout*	pSetLayouts;
-	};
-	return allocateDescriptorSet(vk, device, &allocateParams);
 }
 
 tcu::TestStatus MemoryModelTestInstance::iterate (void)
@@ -751,19 +992,35 @@ tcu::TestStatus MemoryModelTestInstance::iterate (void)
 			elementSize = sizeof(deUint32);
 		bufferSizes[i] = NUM_INVOCATIONS * elementSize;
 
+		vk::VkFlags usageFlags = vk::VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+		bool memoryDeviceAddress = false;
+
 		bool local;
 		switch (i)
 		{
 		default: DE_ASSERT(0); // fall through
 		case 0:
-			if (m_data.payloadSC != SC_BUFFER)
+			if (m_data.payloadSC != SC_BUFFER && m_data.payloadSC != SC_PHYSBUFFER)
 				continue;
 			local = m_data.payloadMemLocal;
+			if (m_data.payloadSC == SC_PHYSBUFFER)
+			{
+				usageFlags |= vk::VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+				if (m_context.isDeviceFunctionalitySupported("VK_KHR_buffer_device_address"))
+					memoryDeviceAddress = true;
+			}
 			break;
 		case 1:
-			if (m_data.guardSC != SC_BUFFER)
+			if (m_data.guardSC != SC_BUFFER && m_data.guardSC != SC_PHYSBUFFER)
 				continue;
 			local = m_data.guardMemLocal;
+			if (m_data.guardSC == SC_PHYSBUFFER)
+			{
+				usageFlags |= vk::VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+				if (m_context.isDeviceFunctionalitySupported("VK_KHR_buffer_device_address"))
+					memoryDeviceAddress = true;
+			}
 			break;
 		case 2: local = true; break;
 		}
@@ -771,8 +1028,9 @@ tcu::TestStatus MemoryModelTestInstance::iterate (void)
 		try
 		{
 			buffers[i] = de::MovePtr<BufferWithMemory>(new BufferWithMemory(
-				vk, device, allocator, makeBufferCreateInfo(bufferSizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_TRANSFER_SRC_BIT),
-				local ? MemoryRequirement::Local : MemoryRequirement::NonLocal));
+				vk, device, allocator, makeBufferCreateInfo(bufferSizes[i], usageFlags),
+				(memoryDeviceAddress ? MemoryRequirement::DeviceAddress : MemoryRequirement::Any) |
+				(local ? MemoryRequirement::Local : MemoryRequirement::NonLocal)));
 		}
 		catch (const tcu::NotSupportedError&)
 		{
@@ -915,6 +1173,7 @@ tcu::TestStatus MemoryModelTestInstance::iterate (void)
 	switch (m_data.payloadSC)
 	{
 	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER:
 	case SC_WORKGROUP:
 		break;
 	case SC_BUFFER:
@@ -929,6 +1188,7 @@ tcu::TestStatus MemoryModelTestInstance::iterate (void)
 	switch (m_data.guardSC)
 	{
 	default: DE_ASSERT(0); // fall through
+	case SC_PHYSBUFFER:
 	case SC_WORKGROUP:
 		break;
 	case SC_BUFFER:
@@ -945,6 +1205,12 @@ tcu::TestStatus MemoryModelTestInstance::iterate (void)
 
 	setUpdateBuilder.update(vk, device);
 
+	const VkPushConstantRange pushConstRange =
+	{
+		allShaderStages,		// VkShaderStageFlags	stageFlags
+		0,						// deUint32				offset
+		16						// deUint32				size
+	};
 
 	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
 	{
@@ -953,8 +1219,8 @@ tcu::TestStatus MemoryModelTestInstance::iterate (void)
 		(VkPipelineLayoutCreateFlags)0,
 		1,															// setLayoutCount
 		&descriptorSetLayout.get(),									// pSetLayouts
-		0u,															// pushConstantRangeCount
-		DE_NULL,													// pPushConstantRanges
+		1u,															// pushConstantRangeCount
+		&pushConstRange,											// pPushConstantRanges
 	};
 
 	Move<VkPipelineLayout> pipelineLayout = createPipelineLayout(vk, device, &pipelineLayoutCreateInfo, NULL);
@@ -1183,114 +1449,161 @@ tcu::TestStatus MemoryModelTestInstance::iterate (void)
 		pipeline = createGraphicsPipeline(vk, device, DE_NULL, &graphicsPipelineCreateInfo);
 	}
 
-	const VkQueue				queue				= m_context.getUniversalQueue();
-	Move<VkCommandPool>				cmdPool					= createCommandPool(vk, device, 0, m_context.getUniversalQueueFamilyIndex());
+	const VkQueue					queue					= m_context.getUniversalQueue();
+	Move<VkCommandPool>				cmdPool					= createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, m_context.getUniversalQueueFamilyIndex());
 	Move<VkCommandBuffer>			cmdBuffer				= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-	beginCommandBuffer(vk, *cmdBuffer, 0u);
-
-	vk.cmdFillBuffer(*cmdBuffer, **buffers[2], 0, bufferSizes[2], 0);
-
-	for (deUint32 i = 0; i < 2; ++i)
-	{
-		if (!images[i])
-			continue;
-
-		const VkImageMemoryBarrier imageBarrier =
+	VkBufferDeviceAddressInfo addrInfo =
 		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,				// VkStructureType		sType
-			DE_NULL,											// const void*			pNext
-			0u,													// VkAccessFlags		srcAccessMask
-			VK_ACCESS_TRANSFER_WRITE_BIT,						// VkAccessFlags		dstAccessMask
-			VK_IMAGE_LAYOUT_UNDEFINED,							// VkImageLayout		oldLayout
-			VK_IMAGE_LAYOUT_GENERAL,							// VkImageLayout		newLayout
-			VK_QUEUE_FAMILY_IGNORED,							// uint32_t				srcQueueFamilyIndex
-			VK_QUEUE_FAMILY_IGNORED,							// uint32_t				dstQueueFamilyIndex
-			**images[i],										// VkImage				image
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspectMask
-				0u,										// uint32_t				baseMipLevel
-				1u,										// uint32_t				mipLevels,
-				0u,										// uint32_t				baseArray
-				1u,										// uint32_t				arraySize
-			}
+			VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,	// VkStructureType	sType;
+			DE_NULL,										// const void*		 pNext;
+			0,												// VkBuffer			buffer
 		};
-
-		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-							 (VkDependencyFlags)0,
-							  0, (const VkMemoryBarrier*)DE_NULL,
-							  0, (const VkBufferMemoryBarrier*)DE_NULL,
-							  1, &imageBarrier);
-	}
-
-	vk.cmdBindDescriptorSets(*cmdBuffer, bindPoint, *pipelineLayout, 0u, 1, &*descriptorSet, 0u, DE_NULL);
-	vk.cmdBindPipeline(*cmdBuffer, bindPoint, *pipeline);
 
 	VkImageSubresourceRange range = makeImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u);
 	VkClearValue clearColor = makeClearValueColorU32(0,0,0,0);
 
 	VkMemoryBarrier					memBarrier =
-	{
-		VK_STRUCTURE_TYPE_MEMORY_BARRIER,	// sType
-		DE_NULL,							// pNext
-		0u,									// srcAccessMask
-		0u,									// dstAccessMask
-	};
+		{
+			VK_STRUCTURE_TYPE_MEMORY_BARRIER,	// sType
+			DE_NULL,							// pNext
+			0u,									// srcAccessMask
+			0u,									// dstAccessMask
+		};
 
-	for (deUint32 iters = 0; iters < 200; ++iters)
+	const VkBufferCopy	copyParams =
+		{
+			(VkDeviceSize)0u,						// srcOffset
+			(VkDeviceSize)0u,						// dstOffset
+			bufferSizes[2]							// size
+		};
+
+	deUint32 NUM_SUBMITS = 2;
+
+	for (deUint32 x = 0; x < NUM_SUBMITS; ++x)
 	{
+		beginCommandBuffer(vk, *cmdBuffer, 0u);
+
+		if (x == 0)
+			vk.cmdFillBuffer(*cmdBuffer, **buffers[2], 0, bufferSizes[2], 0);
+
 		for (deUint32 i = 0; i < 2; ++i)
 		{
-			if (buffers[i])
-				vk.cmdFillBuffer(*cmdBuffer, **buffers[i], 0, bufferSizes[i], 0);
-			if (images[i])
-				vk.cmdClearColorImage(*cmdBuffer, **images[i], VK_IMAGE_LAYOUT_GENERAL, &clearColor.color, 1, &range);
-		}
+			if (!images[i])
+				continue;
 
-		memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		memBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-		vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, allPipelineStages,
-			0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
-
-		if (m_data.stage == STAGE_COMPUTE)
-		{
-			vk.cmdDispatch(*cmdBuffer, NUM_WORKGROUP_EACH_DIM, NUM_WORKGROUP_EACH_DIM, 1);
-		}
-		else
-		{
-			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer,
-							makeRect2D(DIM*NUM_WORKGROUP_EACH_DIM, DIM*NUM_WORKGROUP_EACH_DIM),
-							0, DE_NULL, VK_SUBPASS_CONTENTS_INLINE);
-			// Draw a point cloud for vertex shader testing, and a single quad for fragment shader testing
-			if (m_data.stage == STAGE_VERTEX)
+			const VkImageMemoryBarrier imageBarrier =
 			{
-				vk.cmdDraw(*cmdBuffer, DIM*DIM*NUM_WORKGROUP_EACH_DIM*NUM_WORKGROUP_EACH_DIM, 1u, 0u, 0u);
+				VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,				// VkStructureType		sType
+				DE_NULL,											// const void*			pNext
+				0u,													// VkAccessFlags		srcAccessMask
+				VK_ACCESS_TRANSFER_WRITE_BIT,						// VkAccessFlags		dstAccessMask
+				VK_IMAGE_LAYOUT_UNDEFINED,							// VkImageLayout		oldLayout
+				VK_IMAGE_LAYOUT_GENERAL,							// VkImageLayout		newLayout
+				VK_QUEUE_FAMILY_IGNORED,							// uint32_t				srcQueueFamilyIndex
+				VK_QUEUE_FAMILY_IGNORED,							// uint32_t				dstQueueFamilyIndex
+				**images[i],										// VkImage				image
+				{
+					VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspectMask
+					0u,										// uint32_t				baseMipLevel
+					1u,										// uint32_t				mipLevels,
+					0u,										// uint32_t				baseArray
+					1u,										// uint32_t				arraySize
+				}
+			};
+
+			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+								 (VkDependencyFlags)0,
+								  0, (const VkMemoryBarrier*)DE_NULL,
+								  0, (const VkBufferMemoryBarrier*)DE_NULL,
+								  1, &imageBarrier);
+		}
+
+		vk.cmdBindDescriptorSets(*cmdBuffer, bindPoint, *pipelineLayout, 0u, 1, &*descriptorSet, 0u, DE_NULL);
+		vk.cmdBindPipeline(*cmdBuffer, bindPoint, *pipeline);
+
+		if (m_data.payloadSC == SC_PHYSBUFFER)
+		{
+			const bool useKHR = m_context.isDeviceFunctionalitySupported("VK_KHR_buffer_device_address");
+			addrInfo.buffer = **buffers[0];
+			VkDeviceAddress addr;
+			if (useKHR)
+				addr = vk.getBufferDeviceAddress(device, &addrInfo);
+			else
+				addr = vk.getBufferDeviceAddressEXT(device, &addrInfo);
+			vk.cmdPushConstants(*cmdBuffer, *pipelineLayout, allShaderStages,
+								0, sizeof(VkDeviceSize), &addr);
+		}
+		if (m_data.guardSC == SC_PHYSBUFFER)
+		{
+			const bool useKHR = m_context.isDeviceFunctionalitySupported("VK_KHR_buffer_device_address");
+			addrInfo.buffer = **buffers[1];
+			VkDeviceAddress addr;
+			if (useKHR)
+				addr = vk.getBufferDeviceAddress(device, &addrInfo);
+			else
+				addr = vk.getBufferDeviceAddressEXT(device, &addrInfo);
+			vk.cmdPushConstants(*cmdBuffer, *pipelineLayout, allShaderStages,
+								8, sizeof(VkDeviceSize), &addr);
+		}
+
+		for (deUint32 iters = 0; iters < 100; ++iters)
+		{
+			for (deUint32 i = 0; i < 2; ++i)
+			{
+				if (buffers[i])
+					vk.cmdFillBuffer(*cmdBuffer, **buffers[i], 0, bufferSizes[i], 0);
+				if (images[i])
+					vk.cmdClearColorImage(*cmdBuffer, **images[i], VK_IMAGE_LAYOUT_GENERAL, &clearColor.color, 1, &range);
+			}
+
+			memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			memBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, allPipelineStages,
+				0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
+
+			if (m_data.stage == STAGE_COMPUTE)
+			{
+				vk.cmdDispatch(*cmdBuffer, NUM_WORKGROUP_EACH_DIM, NUM_WORKGROUP_EACH_DIM, 1);
 			}
 			else
 			{
-				vk.cmdDraw(*cmdBuffer, 4u, 1u, 0u, 0u);
+				beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer,
+								makeRect2D(DIM*NUM_WORKGROUP_EACH_DIM, DIM*NUM_WORKGROUP_EACH_DIM),
+								0, DE_NULL, VK_SUBPASS_CONTENTS_INLINE);
+				// Draw a point cloud for vertex shader testing, and a single quad for fragment shader testing
+				if (m_data.stage == STAGE_VERTEX)
+				{
+					vk.cmdDraw(*cmdBuffer, DIM*DIM*NUM_WORKGROUP_EACH_DIM*NUM_WORKGROUP_EACH_DIM, 1u, 0u, 0u);
+				}
+				else
+				{
+					vk.cmdDraw(*cmdBuffer, 4u, 1u, 0u, 0u);
+				}
+				endRenderPass(vk, *cmdBuffer);
 			}
-			endRenderPass(vk, *cmdBuffer);
+
+			memBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+			memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+			vk.cmdPipelineBarrier(*cmdBuffer, allPipelineStages, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 		}
 
-		memBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-		memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-		vk.cmdPipelineBarrier(*cmdBuffer, allPipelineStages, VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
+		if (x == NUM_SUBMITS - 1)
+		{
+			vk.cmdCopyBuffer(*cmdBuffer, **buffers[2], **copyBuffer, 1, &copyParams);
+			memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			memBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+				0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
+		}
+
+		endCommandBuffer(vk, *cmdBuffer);
+
+		submitCommandsAndWait(vk, device, queue, cmdBuffer.get());
+
+		vk.resetCommandBuffer(*cmdBuffer, 0x00000000);
 	}
-
-	const VkBufferCopy	copyParams =
-	{
-		(VkDeviceSize)0u,						// srcOffset
-		(VkDeviceSize)0u,						// dstOffset
-		bufferSizes[2]							// size
-	};
-
-	vk.cmdCopyBuffer(*cmdBuffer, **buffers[2], **copyBuffer, 1, &copyParams);
-
-	endCommandBuffer(vk, *cmdBuffer);
-
-	submitCommandsAndWait(vk, device, queue, cmdBuffer.get());
 
 	tcu::TestLog& log = m_context.getTestContext().getLog();
 
@@ -1393,6 +1706,7 @@ tcu::TestCaseGroup*	createTests (tcu::TestContext& testCtx)
 		{ SC_BUFFER,	"buffer",		"payload variable in buffer memory"			},
 		{ SC_IMAGE,		"image",		"payload variable in image memory"			},
 		{ SC_WORKGROUP,	"workgroup",	"payload variable in workgroup memory"		},
+		{ SC_PHYSBUFFER,"physbuffer",	"payload variable in physical storage buffer memory"	},
 	};
 
 	TestGroupCase glCases[] =
@@ -1406,6 +1720,7 @@ tcu::TestCaseGroup*	createTests (tcu::TestContext& testCtx)
 		{ SC_BUFFER,	"buffer",		"guard variable in buffer memory"			},
 		{ SC_IMAGE,		"image",		"guard variable in image memory"			},
 		{ SC_WORKGROUP,	"workgroup",	"guard variable in workgroup memory"		},
+		{ SC_PHYSBUFFER,"physbuffer",	"guard variable in physical storage buffer memory"	},
 	};
 
 	TestGroupCase stageCases[] =
@@ -1465,20 +1780,25 @@ tcu::TestCaseGroup*	createTests (tcu::TestContext& testCtx)
 														(SyncType)stCases[stNdx].value,			// SyncType syncType;
 														(Stage)stageCases[stageNdx].value,		// Stage stage;
 														(DataType)dtCases[dtNdx].value,			// DataType dataType;
+														false,									// bool transitive;
+														false,									// bool transitiveVis;
 													};
 
 													// Mustpass11 tests should only exercise things we expect to work on
 													// existing implementations. Exclude noncoherent tests which require
 													// new extensions, and assume atomic synchronization wouldn't work
 													// (i.e. atomics may be implemented as relaxed atomics). Exclude
-													// queuefamily scope which doesn't exist in Vulkan 1.1.
+													// queuefamily scope which doesn't exist in Vulkan 1.1. Exclude
+													// physical storage buffer which doesn't support the legacy decorations.
 													if (c.core11 &&
 														(c.coherent == 0 ||
 														c.syncType == ST_FENCE_ATOMIC ||
 														c.syncType == ST_ATOMIC_FENCE ||
 														c.syncType == ST_ATOMIC_ATOMIC ||
 														c.dataType == DATA_TYPE_UINT64 ||
-														c.scope == SCOPE_QUEUEFAMILY))
+														c.scope == SCOPE_QUEUEFAMILY ||
+														c.payloadSC == SC_PHYSBUFFER ||
+														c.guardSC == SC_PHYSBUFFER))
 													{
 														continue;
 													}
@@ -1555,6 +1875,78 @@ tcu::TestCaseGroup*	createTests (tcu::TestContext& testCtx)
 		}
 		group->addChild(ttGroup.release());
 	}
+
+	TestGroupCase transVisCases[] =
+	{
+		{ 0,	"nontransvis",		"destination invocation acquires"		},
+		{ 1,	"transvis",			"invocation 0,0 acquires"				},
+	};
+
+	de::MovePtr<tcu::TestCaseGroup> transGroup(new tcu::TestCaseGroup(testCtx, "transitive", "transitive"));
+	for (int cohNdx = 0; cohNdx < DE_LENGTH_OF_ARRAY(cohCases); cohNdx++)
+	{
+		de::MovePtr<tcu::TestCaseGroup> cohGroup(new tcu::TestCaseGroup(testCtx, cohCases[cohNdx].name, cohCases[cohNdx].description));
+		for (int stNdx = 0; stNdx < DE_LENGTH_OF_ARRAY(stCases); stNdx++)
+		{
+			de::MovePtr<tcu::TestCaseGroup> stGroup(new tcu::TestCaseGroup(testCtx, stCases[stNdx].name, stCases[stNdx].description));
+			for (int plNdx = 0; plNdx < DE_LENGTH_OF_ARRAY(plCases); plNdx++)
+			{
+				de::MovePtr<tcu::TestCaseGroup> plGroup(new tcu::TestCaseGroup(testCtx, plCases[plNdx].name, plCases[plNdx].description));
+				for (int pscNdx = 0; pscNdx < DE_LENGTH_OF_ARRAY(pscCases); pscNdx++)
+				{
+					de::MovePtr<tcu::TestCaseGroup> pscGroup(new tcu::TestCaseGroup(testCtx, pscCases[pscNdx].name, pscCases[pscNdx].description));
+					for (int glNdx = 0; glNdx < DE_LENGTH_OF_ARRAY(glCases); glNdx++)
+					{
+						de::MovePtr<tcu::TestCaseGroup> glGroup(new tcu::TestCaseGroup(testCtx, glCases[glNdx].name, glCases[glNdx].description));
+						for (int gscNdx = 0; gscNdx < DE_LENGTH_OF_ARRAY(gscCases); gscNdx++)
+						{
+							de::MovePtr<tcu::TestCaseGroup> gscGroup(new tcu::TestCaseGroup(testCtx, gscCases[gscNdx].name, gscCases[gscNdx].description));
+							for (int visNdx = 0; visNdx < DE_LENGTH_OF_ARRAY(transVisCases); visNdx++)
+							{
+								CaseDef c =
+								{
+									!!plCases[plNdx].value,					// bool payloadMemLocal;
+									!!glCases[glNdx].value,					// bool guardMemLocal;
+									!!cohCases[cohNdx].value,				// bool coherent;
+									false,									// bool core11;
+									false,									// bool atomicRMW;
+									TT_MP,									// TestType testType;
+									(StorageClass)pscCases[pscNdx].value,	// StorageClass payloadSC;
+									(StorageClass)gscCases[gscNdx].value,	// StorageClass guardSC;
+									SCOPE_DEVICE,							// Scope scope;
+									(SyncType)stCases[stNdx].value,			// SyncType syncType;
+									STAGE_COMPUTE,							// Stage stage;
+									DATA_TYPE_UINT,							// DataType dataType;
+									true,									// bool transitive;
+									!!transVisCases[visNdx].value,			// bool transitiveVis;
+								};
+								if (c.payloadSC == SC_WORKGROUP || c.guardSC == SC_WORKGROUP)
+								{
+									continue;
+								}
+								if (c.syncType == ST_CONTROL_BARRIER || c.syncType == ST_CONTROL_AND_MEMORY_BARRIER)
+								{
+									continue;
+								}
+								gscGroup->addChild(new MemoryModelTestCase(testCtx, transVisCases[visNdx].name, transVisCases[visNdx].description, c));
+							}
+							glGroup->addChild(gscGroup.release());
+						}
+						pscGroup->addChild(glGroup.release());
+					}
+					plGroup->addChild(pscGroup.release());
+				}
+				stGroup->addChild(plGroup.release());
+			}
+			cohGroup->addChild(stGroup.release());
+		}
+		transGroup->addChild(cohGroup.release());
+	}
+	group->addChild(transGroup.release());
+
+	// Padding tests.
+	group->addChild(createPaddingTests(testCtx));
+
 	return group.release();
 }
 

@@ -49,7 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Printerit ei toetata"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct-printerite leidmine"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Directi printimine"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct-printimine"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Directi funktsiooniga printerid"</string>
     <string name="searching" msgid="2114018057619514587">"Otsimine …"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Peate selle ühenduse võib-olla kinnitama printeri esipaneelil"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Unusta"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Ühendab funktsiooni Wi-Fi Direct kaudu"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Ühendab praeguse võrgu kaudu IP-aadressil <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Printimise vaiketeenus hõlmab põhivalikuid. Printeri muud valikud võivad olla saadaval muu printimisteenuse kaudu."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Soovitatud teenused"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Valige installitavad teenused"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Valige lubamiseks"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Teenuste haldamine"</string>
     <string name="security" msgid="2279008326210305401">"Turvalisus"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"See printer esitas uue turvasertifikaadi mõni teine seade esineb selle printerina. Kas nõustuda uue sertifikaadiga?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"See printer ei aktsepteeri enam krüpteeritud töid. Kas jätkata printimist?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Ühendused"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Printimise vaiketeenus vajab läheduses olevate seadmete leidmiseks asukohale juurdepääsu luba."</string>
     <string name="fix" msgid="7784394272611365393">"Loa ülevaatamine"</string>
+    <string name="print" msgid="7851318072404916362">"Prindi"</string>
 </resources>

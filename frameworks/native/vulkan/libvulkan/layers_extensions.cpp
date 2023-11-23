@@ -38,13 +38,7 @@
 #include <utils/Trace.h>
 #include <ziparchive/zip_archive.h>
 
-// TODO(jessehall): The whole way we deal with extensions is pretty hokey, and
-// not a good long-term solution. Having a hard-coded enum of extensions is
-// bad, of course. Representing sets of extensions (requested, supported, etc.)
-// as a bitset isn't necessarily bad, if the mapping from extension to bit were
-// dynamic. Need to rethink this completely when there's a little more time.
-
-// TODO(jessehall): This file currently builds up global data structures as it
+// TODO(b/143296676): This file currently builds up global data structures as it
 // loads, and never cleans them up. This means we're doing heap allocations
 // without going through an app-provided allocator, but worse, we'll leak those
 // allocations if the loader is unloaded.
@@ -101,9 +95,7 @@ class LayerLibrary {
     bool EnumerateLayers(size_t library_idx,
                          std::vector<Layer>& instance_layers) const;
 
-    void* GetGPA(const Layer& layer,
-                 const char* gpa_name,
-                 size_t gpa_name_len) const;
+    void* GetGPA(const Layer& layer, const std::string_view gpa_name) const;
 
     const std::string GetFilename() { return filename_; }
 
@@ -226,9 +218,8 @@ bool LayerLibrary::EnumerateLayers(size_t library_idx,
     }
 
     // get layer properties
-    VkLayerProperties* properties = static_cast<VkLayerProperties*>(alloca(
-        (num_instance_layers + num_device_layers) * sizeof(VkLayerProperties)));
-    result = enumerate_instance_layers(&num_instance_layers, properties);
+    std::vector<VkLayerProperties> properties(num_instance_layers + num_device_layers);
+    result = enumerate_instance_layers(&num_instance_layers, properties.data());
     if (result != VK_SUCCESS) {
         ALOGE("vkEnumerateInstanceLayerProperties failed for library '%s': %d",
               path_.c_str(), result);
@@ -236,7 +227,7 @@ bool LayerLibrary::EnumerateLayers(size_t library_idx,
     }
     if (num_device_layers > 0) {
         result = enumerate_device_layers(VK_NULL_HANDLE, &num_device_layers,
-                                         properties + num_instance_layers);
+                                         &properties[num_instance_layers]);
         if (result != VK_SUCCESS) {
             ALOGE(
                 "vkEnumerateDeviceLayerProperties failed for library '%s': %d",
@@ -321,21 +312,11 @@ bool LayerLibrary::EnumerateLayers(size_t library_idx,
     return true;
 }
 
-void* LayerLibrary::GetGPA(const Layer& layer,
-                           const char* gpa_name,
-                           size_t gpa_name_len) const {
-    void* gpa;
-    size_t layer_name_len =
-        std::max(size_t{2}, strlen(layer.properties.layerName));
-    char* name = static_cast<char*>(alloca(layer_name_len + gpa_name_len + 1));
-    strcpy(name, layer.properties.layerName);
-    strcpy(name + layer_name_len, gpa_name);
-    if (!(gpa = GetTrampoline(name))) {
-        strcpy(name, "vk");
-        strcpy(name + 2, gpa_name);
-        gpa = GetTrampoline(name);
-    }
-    return gpa;
+void* LayerLibrary::GetGPA(const Layer& layer, const std::string_view gpa_name) const {
+    std::string layer_name { layer.properties.layerName };
+    if (void* gpa = GetTrampoline((layer_name.append(gpa_name).c_str())))
+        return gpa;
+    return GetTrampoline((std::string {"vk"}.append(gpa_name)).c_str());
 }
 
 // ----------------------------------------------------------------------------
@@ -388,9 +369,8 @@ void ForEachFileInZip(const std::string& zipname,
         return;
     }
     std::string prefix(dir_in_zip + "/");
-    const ZipString prefix_str(prefix.c_str());
     void* iter_cookie = nullptr;
-    if ((err = StartIteration(zip, &iter_cookie, &prefix_str, nullptr)) != 0) {
+    if ((err = StartIteration(zip, &iter_cookie, prefix, "")) != 0) {
         ALOGE("failed to iterate entries in apk '%s': %d", zipname.c_str(),
               err);
         CloseArchive(zip);
@@ -399,11 +379,9 @@ void ForEachFileInZip(const std::string& zipname,
     ALOGD("searching for layers in '%s!/%s'", zipname.c_str(),
           dir_in_zip.c_str());
     ZipEntry entry;
-    ZipString name;
+    std::string name;
     while (Next(iter_cookie, &entry, &name) == 0) {
-        std::string filename(
-            reinterpret_cast<const char*>(name.name) + prefix.length(),
-            name.name_length - prefix.length());
+        std::string filename(name.substr(prefix.length()));
         // only enumerate direct entries of the directory, not subdirectories
         if (filename.find('/') != filename.npos)
             continue;
@@ -473,10 +451,9 @@ const VkExtensionProperties* FindExtension(
 }
 
 void* GetLayerGetProcAddr(const Layer& layer,
-                          const char* gpa_name,
-                          size_t gpa_name_len) {
+                          const std::string_view gpa_name) {
     const LayerLibrary& library = g_layer_libraries[layer.library_idx];
-    return library.GetGPA(layer, gpa_name, gpa_name_len);
+    return library.GetGPA(layer, gpa_name);
 }
 
 }  // anonymous namespace
@@ -484,8 +461,7 @@ void* GetLayerGetProcAddr(const Layer& layer,
 void DiscoverLayers() {
     ATRACE_CALL();
 
-    if (property_get_bool("ro.debuggable", false) &&
-        prctl(PR_GET_DUMPABLE, 0, 0, 0, 0)) {
+    if (android::GraphicsEnv::getInstance().isDebuggable()) {
         DiscoverLayersInPathList(kSystemLayerLibraryDir);
     }
     if (!android::GraphicsEnv::getInstance().getLayerPaths().empty())
@@ -559,13 +535,13 @@ LayerRef::LayerRef(LayerRef&& other) noexcept : layer_(other.layer_) {
 
 PFN_vkGetInstanceProcAddr LayerRef::GetGetInstanceProcAddr() const {
     return layer_ ? reinterpret_cast<PFN_vkGetInstanceProcAddr>(
-                        GetLayerGetProcAddr(*layer_, "GetInstanceProcAddr", 19))
+                        GetLayerGetProcAddr(*layer_, "GetInstanceProcAddr"))
                   : nullptr;
 }
 
 PFN_vkGetDeviceProcAddr LayerRef::GetGetDeviceProcAddr() const {
     return layer_ ? reinterpret_cast<PFN_vkGetDeviceProcAddr>(
-                        GetLayerGetProcAddr(*layer_, "GetDeviceProcAddr", 17))
+                        GetLayerGetProcAddr(*layer_, "GetDeviceProcAddr"))
                   : nullptr;
 }
 

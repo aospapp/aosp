@@ -32,7 +32,7 @@ include $(build_list_dir)/vts_bin_package_list.mk
 include $(build_list_dir)/vts_lib_package_list.mk
 include $(build_utils_dir)/vts_package_utils.mk
 
-# Packaging rule for android-vts.zip's testcases dir (DATA subdir).
+# Packaging rule for android-vts10.zip's testcases dir (DATA subdir).
 vtf_target_native_modules := \
     $(vts_apk_packages) \
     $(vts_bin_packages) \
@@ -51,7 +51,7 @@ target_hostdriven_copy_pairs := \
   $(call host-native-copy-pairs,$(target_hostdriven_modules),$(VTF_TESTCASES_OUT))
 
 host_additional_deps_copy_pairs := \
-  test/vts/tools/vts-tradefed/etc/vts-tradefed_win.bat:$(VTF_TOOLS_OUT)/vts-tradefed_win.bat \
+  test/vts/tools/vts-tradefed/etc/vts10-tradefed_win.bat:$(VTF_TOOLS_OUT)/vts10-tradefed_win.bat \
   test/vts/tools/vts-tradefed/DynamicConfig.xml:$(VTF_TESTCASES_OUT)/cts.dynamic
 
 # Packaging rule for host-side Python logic, configs, and data files
@@ -110,13 +110,6 @@ target_script_copy_pairs := \
   $(foreach f,$(target_script_files),\
     test/vts/script/target/$(f):$(VTF_TESTCASES_OUT)/script/target/$(f))
 
-acts_framework_files := \
-  $(call find-files-in-subdirs,tools/test/connectivity/acts/framework/acts,"*.py" -and -type f,.)
-
-acts_framework_copy_pairs := \
-  $(foreach f,$(acts_framework_files),\
-    tools/test/connectivity/acts/framework/acts/$(f):$(VTF_TESTCASES_OUT)/acts/$(f))
-
 vtf_copy_pairs := \
   $(call copy-many-files,$(host_framework_copy_pairs)) \
   $(call copy-many-files,$(host_additional_deps_copy_pairs)) \
@@ -125,7 +118,6 @@ vtf_copy_pairs := \
   $(call copy-many-files,$(vtf_target_native_copy_pairs)) \
   $(call copy-many-files,$(target_hostdriven_copy_pairs)) \
   $(call copy-many-files,$(target_hal_hash_copy_pairs)) \
-  $(call copy-many-files,$(acts_framework_copy_pairs)) \
   $(call copy-many-files,$(target_script_copy_pairs)) \
 
 .PHONY: vts-test-core

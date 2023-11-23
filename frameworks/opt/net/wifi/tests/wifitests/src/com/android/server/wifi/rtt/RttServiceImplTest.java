@@ -17,6 +17,7 @@
 
 package com.android.server.wifi.rtt;
 
+import static com.android.server.wifi.WifiSettingsConfigStore.WIFI_VERBOSE_LOGGING_ENABLED;
 import static com.android.server.wifi.rtt.RttTestUtils.compareListContentsNoOrdering;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -27,11 +28,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -48,12 +48,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.hardware.wifi.V1_0.RttResult;
 import android.location.LocationManager;
 import android.net.MacAddress;
 import android.net.wifi.aware.IWifiAwareMacAddressProvider;
-import android.net.wifi.aware.IWifiAwareManager;
 import android.net.wifi.aware.PeerHandle;
+import android.net.wifi.aware.WifiAwareManager;
 import android.net.wifi.rtt.IRttCallback;
 import android.net.wifi.rtt.RangingRequest;
 import android.net.wifi.rtt.RangingResult;
@@ -63,20 +62,23 @@ import android.net.wifi.rtt.WifiRttManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.IPowerManager;
+import android.os.IThermalService;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.WorkSource;
 import android.os.test.TestLooper;
-import android.provider.Settings;
 import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.Clock;
-import com.android.server.wifi.FrameworkFacade;
-import com.android.server.wifi.nano.WifiMetricsProto;
+import com.android.server.wifi.MockResources;
+import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.WifiSettingsConfigStore;
+import com.android.server.wifi.proto.nano.WifiMetricsProto;
 import com.android.server.wifi.util.WifiPermissionsUtil;
+import com.android.wifi.resources.R;
 
 import org.junit.After;
 import org.junit.Before;
@@ -98,9 +100,10 @@ import java.util.Set;
  * Unit test harness for the RttServiceImpl class.
  */
 @SmallTest
-public class RttServiceImplTest {
+public class RttServiceImplTest extends WifiBaseTest {
 
-    private static final long BACKGROUND_PROCESS_EXEC_GAP_MS = 10 * 60 * 1000;  // 10 minutes.
+    private static final int BACKGROUND_PROCESS_EXEC_GAP_MS = 10 * 60 * 1000;  // 10 minutes.
+    private static final int MEASUREMENT_DURATION = 1000;
 
     private RttServiceImplSpy mDut;
     private TestLooper mMockLooper;
@@ -108,8 +111,10 @@ public class RttServiceImplTest {
     private PowerManager mMockPowerManager;
     private BroadcastReceiver mPowerBcastReceiver;
     private BroadcastReceiver mLocationModeReceiver;
+    private MockResources mMockResources = new MockResources();
 
     private final String mPackageName = "some.package.name.for.rtt.app";
+    private final String mFeatureId = "some.feature.name.for.rtt.app";
     private int mDefaultUid = 1500;
     private WorkSource mDefaultWs = new WorkSource(mDefaultUid);
 
@@ -141,7 +146,7 @@ public class RttServiceImplTest {
     public RttMetrics mockMetrics;
 
     @Mock
-    public IWifiAwareManager mockAwareManagerBinder;
+    public WifiAwareManager mockAwareManager;
 
     @Mock
     public WifiPermissionsUtil mockPermissionUtil;
@@ -153,7 +158,7 @@ public class RttServiceImplTest {
     public IRttCallback mockCallback;
 
     @Mock
-    FrameworkFacade mFrameworkFacade;
+    WifiSettingsConfigStore mWifiSettingsConfigStore;
 
     /**
      * Using instead of spy to avoid native crash failures - possibly due to
@@ -188,14 +193,11 @@ public class RttServiceImplTest {
                 android.Manifest.permission.LOCATION_HARDWARE)).thenReturn(
                 PackageManager.PERMISSION_GRANTED);
 
+        when(mockContext.getResources()).thenReturn(mMockResources);
+        mMockResources.setInteger(
+                R.integer.config_wifiRttBackgroundExecGapMs, BACKGROUND_PROCESS_EXEC_GAP_MS);
+
         mAlarmManager = new TestAlarmManager();
-        doNothing().when(mFrameworkFacade).registerContentObserver(eq(mockContext), any(),
-                anyBoolean(), any());
-        when(mFrameworkFacade.getLongSetting(
-            eq(mockContext),
-            eq(Settings.Global.WIFI_RTT_BACKGROUND_EXEC_GAP_MS),
-            anyLong()))
-            .thenReturn(BACKGROUND_PROCESS_EXEC_GAP_MS);
         when(mockContext.getSystemService(Context.ALARM_SERVICE))
                 .thenReturn(mAlarmManager.getAlarmManager());
         mInOrder = inOrder(mAlarmManager.getAlarmManager(), mockContext);
@@ -205,15 +207,16 @@ public class RttServiceImplTest {
         when(mockActivityManager.getUidImportance(anyInt())).thenReturn(
                 ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE);
 
-        when(mockPermissionUtil.checkCallersLocationPermission(eq(mPackageName),
-                anyInt(), anyBoolean())).thenReturn(true);
+        when(mockPermissionUtil.checkCallersLocationPermission(eq(mPackageName), eq(mFeatureId),
+                anyInt(), anyBoolean(), nullable(String.class))).thenReturn(true);
         when(mockPermissionUtil.isLocationModeEnabled()).thenReturn(true);
         when(mockNative.isReady()).thenReturn(true);
         when(mockNative.rangeRequest(anyInt(), any(RangingRequest.class), anyBoolean())).thenReturn(
                 true);
+        when(mWifiSettingsConfigStore.get(eq(WIFI_VERBOSE_LOGGING_ENABLED))).thenReturn(true);
 
         mMockPowerManager = new PowerManager(mockContext, mock(IPowerManager.class),
-                new Handler(mMockLooper.getLooper()));
+                mock(IThermalService.class), new Handler(mMockLooper.getLooper()));
         when(mMockPowerManager.isDeviceIdleMode()).thenReturn(false);
         when(mockContext.getSystemServiceName(PowerManager.class)).thenReturn(
                 Context.POWER_SERVICE);
@@ -222,8 +225,8 @@ public class RttServiceImplTest {
         doAnswer(mBinderLinkToDeathCounter).when(mockIbinder).linkToDeath(any(), anyInt());
         doAnswer(mBinderUnlinkToDeathCounter).when(mockIbinder).unlinkToDeath(any(), anyInt());
 
-        mDut.start(mMockLooper.getLooper(), mockClock, mockAwareManagerBinder, mockNative,
-                mockMetrics, mockPermissionUtil, mFrameworkFacade);
+        mDut.start(mMockLooper.getLooper(), mockClock, mockAwareManager, mockNative,
+                mockMetrics, mockPermissionUtil, mWifiSettingsConfigStore);
         mMockLooper.dispatchAll();
         ArgumentCaptor<BroadcastReceiver> bcastRxCaptor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
@@ -252,7 +255,7 @@ public class RttServiceImplTest {
     public void testRangingFlow() throws Exception {
         int numIter = 10;
         RangingRequest[] requests = new RangingRequest[numIter];
-        List<Pair<List<RttResult>, List<RangingResult>>> results = new ArrayList<>();
+        List<Pair<List<RangingResult>, List<RangingResult>>> results = new ArrayList<>();
 
         for (int i = 0; i < numIter; ++i) { // even: MC, non-MC, Aware, odd: MC only
             if (i % 2 == 0) {
@@ -263,19 +266,24 @@ public class RttServiceImplTest {
             results.add(RttTestUtils.getDummyRangingResults(requests[i]));
         }
 
+        ClockAnswer clock = new ClockAnswer();
+        doAnswer(clock).when(mockClock).getWallClockMillis();
+        clock.time = 100;
         // (1) request 10 ranging operations
         for (int i = 0; i < numIter; ++i) {
-            mDut.startRanging(mockIbinder, mPackageName, null, requests[i], mockCallback);
+            mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, requests[i],
+                    mockCallback);
         }
         mMockLooper.dispatchAll();
 
         for (int i = 0; i < numIter; ++i) {
+            clock.time += MEASUREMENT_DURATION;
             // (2) verify that request issued to native
             verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(requests[i]), eq(true));
             verifyWakeupSet(i % 2 != 0, 0);
 
             // (3) native calls back with result
-            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).first);
+            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).second);
             mMockLooper.dispatchAll();
 
             // (4) verify that results dispatched
@@ -283,14 +291,15 @@ public class RttServiceImplTest {
             verifyWakeupCancelled();
 
             // (5) replicate results - shouldn't dispatch another callback
-            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).first);
+            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).second);
             mMockLooper.dispatchAll();
         }
 
         // verify metrics
         for (int i = 0; i < numIter; ++i) {
             verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(requests[i]));
-            verify(mockMetrics).recordResult(eq(requests[i]), eq(results.get(i).first));
+            verify(mockMetrics).recordResult(eq(requests[i]), eq(results.get(i).second),
+                    eq(MEASUREMENT_DURATION));
         }
         verify(mockMetrics, times(numIter)).recordOverallStatus(
                 WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
@@ -321,10 +330,13 @@ public class RttServiceImplTest {
 
         AwareTranslatePeerHandlesToMac answer = new AwareTranslatePeerHandlesToMac(mDefaultUid,
                 peerHandleToMacMap);
-        doAnswer(answer).when(mockAwareManagerBinder).requestMacAddresses(anyInt(), any(), any());
+        doAnswer(answer).when(mockAwareManager).requestMacAddresses(anyInt(), any(), any());
 
         // issue request
-        mDut.startRanging(mockIbinder, mPackageName, null, request, mockCallback);
+        ClockAnswer clock = new ClockAnswer();
+        doAnswer(clock).when(mockClock).getWallClockMillis();
+        clock.time = 100;
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request, mockCallback);
         mMockLooper.dispatchAll();
 
         // verify that requested with MAC address translated from the PeerHandle issued to Native
@@ -341,13 +353,14 @@ public class RttServiceImplTest {
                 finalRequest.mRttPeers.get(finalRequest.mRttPeers.size() - 1).macAddress);
 
         // issue results - but remove the one for peer #2
-        Pair<List<RttResult>, List<RangingResult>> results =
+        Pair<List<RangingResult>, List<RangingResult>> results =
                 RttTestUtils.getDummyRangingResults(mRequestCaptor.getValue());
         results.first.remove(results.first.size() - 1);
         RangingResult removed = results.second.remove(results.second.size() - 1);
         results.second.add(
                 new RangingResult(RangingResult.STATUS_FAIL, removed.getPeerHandle(), 0, 0, 0, 0, 0,
                         null, null, null, 0));
+        clock.time += MEASUREMENT_DURATION;
         mDut.onRangingResults(mIntCaptor.getValue(), results.first);
         mMockLooper.dispatchAll();
 
@@ -356,11 +369,13 @@ public class RttServiceImplTest {
         verify(mockCallback).onRangingResults(mListCaptor.capture());
         verifyWakeupCancelled();
 
+        assertEquals(results.second, mListCaptor.getValue());
         assertTrue(compareListContentsNoOrdering(results.second, mListCaptor.getValue()));
 
         // verify metrics
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request));
-        verify(mockMetrics).recordResult(eq(finalRequest), eq(results.first));
+        verify(mockMetrics).recordResult(eq(finalRequest), eq(results.first),
+                eq(MEASUREMENT_DURATION));
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
 
         verify(mockNative, atLeastOnce()).isReady();
@@ -375,7 +390,7 @@ public class RttServiceImplTest {
     public void testRangingFlowNativeFailure() throws Exception {
         int numIter = 10;
         RangingRequest[] requests = new RangingRequest[numIter];
-        List<Pair<List<RttResult>, List<RangingResult>>> results = new ArrayList<>();
+        List<Pair<List<RangingResult>, List<RangingResult>>> results = new ArrayList<>();
 
         for (int i = 0; i < numIter; ++i) {
             requests[i] = RttTestUtils.getDummyRangingRequest((byte) i);
@@ -385,13 +400,14 @@ public class RttServiceImplTest {
         // (1) request 10 ranging operations: fail the first one
         when(mockNative.rangeRequest(anyInt(), any(RangingRequest.class), anyBoolean())).thenReturn(
                 false);
-        mDut.startRanging(mockIbinder, mPackageName, null, requests[0], mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, requests[0], mockCallback);
         mMockLooper.dispatchAll();
 
         when(mockNative.rangeRequest(anyInt(), any(RangingRequest.class), anyBoolean())).thenReturn(
                 true);
         for (int i = 1; i < numIter; ++i) {
-            mDut.startRanging(mockIbinder, mPackageName, null, requests[i], mockCallback);
+            mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, requests[i],
+                    mockCallback);
         }
         mMockLooper.dispatchAll();
 
@@ -408,7 +424,7 @@ public class RttServiceImplTest {
 
             // (4) on failed HAL: even if native calls back with result we shouldn't dispatch
             // callback, otherwise expect result
-            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).first);
+            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).second);
             mMockLooper.dispatchAll();
 
             if (i != 0) {
@@ -421,7 +437,8 @@ public class RttServiceImplTest {
         for (int i = 0; i < numIter; ++i) {
             verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(requests[i]));
             if (i != 0) {
-                verify(mockMetrics).recordResult(eq(requests[i]), eq(results.get(i).first));
+                verify(mockMetrics).recordResult(eq(requests[i]), eq(results.get(i).second),
+                        anyInt());
             }
         }
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_HAL_FAILURE);
@@ -439,11 +456,11 @@ public class RttServiceImplTest {
     @Test
     public void testRangingRequestWithoutRuntimePermission() throws Exception {
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, null, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request, mockCallback);
         mMockLooper.dispatchAll();
 
         // (2) verify that request issued to native
@@ -451,10 +468,10 @@ public class RttServiceImplTest {
         verifyWakeupSet(true, 0);
 
         // (3) native calls back with result - should get a FAILED callback
-        when(mockPermissionUtil.checkCallersLocationPermission(eq(mPackageName),
-                anyInt(), anyBoolean())).thenReturn(false);
+        when(mockPermissionUtil.checkCallersLocationPermission(eq(mPackageName), eq(mFeatureId),
+                anyInt(), anyBoolean(), nullable(String.class))).thenReturn(false);
 
-        mDut.onRangingResults(mIntCaptor.getValue(), results.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), results.second);
         mMockLooper.dispatchAll();
 
         verify(mockCallback).onRangingFailure(eq(RangingResultCallback.STATUS_CODE_FAIL));
@@ -478,7 +495,7 @@ public class RttServiceImplTest {
     public void testBinderDeathOfRangingApp() throws Exception {
         int numIter = 10;
         RangingRequest[] requests = new RangingRequest[numIter];
-        List<Pair<List<RttResult>, List<RangingResult>>> results = new ArrayList<>();
+        List<Pair<List<RangingResult>, List<RangingResult>>> results = new ArrayList<>();
 
         for (int i = 0; i < numIter; ++i) {
             requests[i] = RttTestUtils.getDummyRangingRequest((byte) i);
@@ -488,7 +505,8 @@ public class RttServiceImplTest {
         // (1) request 10 ranging operations: even/odd with different UIDs
         for (int i = 0; i < numIter; ++i) {
             mDut.fakeUid = mDefaultUid + i % 2;
-            mDut.startRanging(mockIbinder, mPackageName, null, requests[i], mockCallback);
+            mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, requests[i],
+                    mockCallback);
         }
         mMockLooper.dispatchAll();
 
@@ -522,7 +540,7 @@ public class RttServiceImplTest {
             // (5) native calls back with all results - should get requests for the odd attempts and
             // should only get callbacks for the odd attempts (the non-dead UID), but this simulates
             // invalid results (or possibly the firmware not cancelling some requests)
-            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).first);
+            mDut.onRangingResults(mIntCaptor.getValue(), results.get(i).second);
             mMockLooper.dispatchAll();
             if (i == 0) {
                 verifyWakeupCancelled(); // as the first (dispatched) request is aborted
@@ -539,7 +557,8 @@ public class RttServiceImplTest {
             verify(mockMetrics).recordRequest(eq((i % 2) == 0 ? mDefaultWs : oddWs),
                     eq(requests[i]));
             if (i % 2 == 1) {
-                verify(mockMetrics).recordResult(eq(requests[i]), eq(results.get(i).first));
+                verify(mockMetrics).recordResult(eq(requests[i]), eq(results.get(i).second),
+                        anyInt());
             }
         }
         verify(mockMetrics, times(numIter / 2)).recordOverallStatus(
@@ -559,11 +578,11 @@ public class RttServiceImplTest {
         WorkSource ws = new WorkSource(100);
 
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, ws, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, ws, request, mockCallback);
         mMockLooper.dispatchAll();
 
         verify(mockIbinder).linkToDeath(mDeathRecipientCaptor.capture(), anyInt());
@@ -578,7 +597,7 @@ public class RttServiceImplTest {
         verifyWakeupCancelled();
 
         // (3) provide results back - should be ignored
-        mDut.onRangingResults(mIntCaptor.getValue(), results.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), results.second);
         mMockLooper.dispatchAll();
 
         // verify metrics
@@ -609,12 +628,16 @@ public class RttServiceImplTest {
         worksourceCancel.createWorkChain().addNode(uid4, "foo");
 
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, worksourceRequest, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, worksourceRequest, request,
+                mockCallback);
         mMockLooper.dispatchAll();
+
+        // verify metrics
+        verify(mockMetrics).recordRequest(eq(worksourceRequest), eq(request));
 
         // (2) verify that request issued to native
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request), eq(true));
@@ -628,11 +651,8 @@ public class RttServiceImplTest {
         verifyWakeupCancelled();
 
         // (4) send results back from native
-        mDut.onRangingResults(mIntCaptor.getValue(), results.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), results.second);
         mMockLooper.dispatchAll();
-
-        // verify metrics
-        verify(mockMetrics).recordRequest(eq(worksourceRequest), eq(request));
 
         verify(mockNative, atLeastOnce()).isReady();
         verifyNoMoreInteractions(mockNative, mockMetrics, mockCallback,
@@ -655,12 +675,16 @@ public class RttServiceImplTest {
         worksourceCancel.add(uid2);
 
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, worksourceRequest, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, worksourceRequest, request,
+                mockCallback);
         mMockLooper.dispatchAll();
+
+        // verify metrics
+        verify(mockMetrics).recordRequest(eq(worksourceRequest), eq(request));
 
         // (2) verify that request issued to native
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request), eq(true));
@@ -670,15 +694,14 @@ public class RttServiceImplTest {
         mDut.cancelRanging(worksourceCancel);
 
         // (4) send results back from native
-        mDut.onRangingResults(mIntCaptor.getValue(), results.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), results.second);
         mMockLooper.dispatchAll();
 
         verify(mockCallback).onRangingResults(results.second);
         verifyWakeupCancelled();
 
         // verify metrics
-        verify(mockMetrics).recordRequest(eq(worksourceRequest), eq(request));
-        verify(mockMetrics).recordResult(eq(request), eq(results.first));
+        verify(mockMetrics).recordResult(eq(request), eq(results.second), anyInt());
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
 
         verify(mockNative, atLeastOnce()).isReady();
@@ -693,11 +716,11 @@ public class RttServiceImplTest {
     @Test
     public void testUnexpectedResult() throws Exception {
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, null, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request, mockCallback);
         mMockLooper.dispatchAll();
 
         // (2) verify that request issued to native
@@ -706,11 +729,11 @@ public class RttServiceImplTest {
 
         // (3) native calls back with result - but wrong ID
         mDut.onRangingResults(mIntCaptor.getValue() + 1,
-                RttTestUtils.getDummyRangingResults(null).first);
+                RttTestUtils.getDummyRangingResults(null).second);
         mMockLooper.dispatchAll();
 
         // (4) now send results with correct ID (different set of results to differentiate)
-        mDut.onRangingResults(mIntCaptor.getValue(), results.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), results.second);
         mMockLooper.dispatchAll();
 
         // (5) verify that results dispatched
@@ -719,7 +742,7 @@ public class RttServiceImplTest {
 
         // verify metrics
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request));
-        verify(mockMetrics).recordResult(eq(request), eq(results.first));
+        verify(mockMetrics).recordResult(eq(request), eq(results.second), anyInt());
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
 
         verify(mockNative, atLeastOnce()).isReady();
@@ -734,10 +757,10 @@ public class RttServiceImplTest {
     @Test
     public void testMissingResults() throws Exception {
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
-        results.first.remove(2); // remove a direct AWARE request
-        RangingResult removed = results.second.remove(2);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
+        results.first.remove(1); // remove a direct AWARE request
+        RangingResult removed = results.second.remove(1);
         results.second.add(
                 new RangingResult(RangingResult.STATUS_FAIL, removed.getMacAddress(), 0, 0, 0, 0, 0,
                         null, null, null, 0));
@@ -748,7 +771,7 @@ public class RttServiceImplTest {
                         null, null, null, 0));
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, null, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request, mockCallback);
         mMockLooper.dispatchAll();
 
         // (2) verify that request issued to native
@@ -756,7 +779,7 @@ public class RttServiceImplTest {
         verifyWakeupSet(true, 0);
 
         // (3) return results with missing entries
-        mDut.onRangingResults(mIntCaptor.getValue(), results.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), results.second);
         mMockLooper.dispatchAll();
 
         // (5) verify that (full) results dispatched
@@ -766,7 +789,7 @@ public class RttServiceImplTest {
 
         // verify metrics
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request));
-        verify(mockMetrics).recordResult(eq(request), eq(results.first));
+        verify(mockMetrics).recordResult(eq(request), eq(results.second), anyInt());
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
 
         verify(mockNative, atLeastOnce()).isReady();
@@ -781,8 +804,8 @@ public class RttServiceImplTest {
     @Test
     public void testMissingAllResults() throws Exception {
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
         List<RangingResult> allFailResults = new ArrayList<>();
         for (RangingResult result : results.second) {
             allFailResults.add(
@@ -791,7 +814,7 @@ public class RttServiceImplTest {
         }
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, null, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request, mockCallback);
         mMockLooper.dispatchAll();
 
         // (2) verify that request issued to native
@@ -809,7 +832,7 @@ public class RttServiceImplTest {
 
         // verify metrics
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request));
-        verify(mockMetrics).recordResult(eq(request), eq(new ArrayList<RttResult>()));
+        verify(mockMetrics).recordResult(eq(request), eq(new ArrayList<>()), anyInt());
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
 
         verify(mockNative, atLeastOnce()).isReady();
@@ -825,8 +848,8 @@ public class RttServiceImplTest {
     @Test
     public void testMissingResultsForNonSupportOf80211mc() throws Exception {
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 0);
-        Pair<List<RttResult>, List<RangingResult>> results = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> results =
+                RttTestUtils.getDummyRangingResults(request);
         results.first.remove(1); // remove the entry which doesn't support 802.11mc
         RangingResult removed = results.second.remove(1);
         results.second.add(
@@ -844,7 +867,7 @@ public class RttServiceImplTest {
                 PackageManager.PERMISSION_DENIED);
 
         // (1) request ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, null, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request, mockCallback);
         mMockLooper.dispatchAll();
 
         // (2) verify that request issued to native
@@ -852,7 +875,7 @@ public class RttServiceImplTest {
         verifyWakeupSet(true, 0);
 
         // (3) return results with missing entries
-        mDut.onRangingResults(mIntCaptor.getValue(), results.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), results.second);
         mMockLooper.dispatchAll();
 
         // (5) verify that (full) results dispatched
@@ -862,7 +885,7 @@ public class RttServiceImplTest {
 
         // verify metrics
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request));
-        verify(mockMetrics).recordResult(eq(request), eq(results.first));
+        verify(mockMetrics).recordResult(eq(request), eq(results.second), anyInt());
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
 
         verify(mockNative, atLeastOnce()).isReady();
@@ -878,14 +901,14 @@ public class RttServiceImplTest {
     public void testRangingTimeout() throws Exception {
         RangingRequest request1 = RttTestUtils.getDummyRangingRequest((byte) 1);
         RangingRequest request2 = RttTestUtils.getDummyRangingRequest((byte) 2);
-        Pair<List<RttResult>, List<RangingResult>> result1 = RttTestUtils.getDummyRangingResults(
-                request1);
-        Pair<List<RttResult>, List<RangingResult>> result2 = RttTestUtils.getDummyRangingResults(
-                request2);
+        Pair<List<RangingResult>, List<RangingResult>> result1 =
+                RttTestUtils.getDummyRangingResults(request1);
+        Pair<List<RangingResult>, List<RangingResult>> result2 =
+                RttTestUtils.getDummyRangingResults(request2);
 
         // (1) request 2 ranging operation
-        mDut.startRanging(mockIbinder, mPackageName, null, request1, mockCallback);
-        mDut.startRanging(mockIbinder, mPackageName, null, request2, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request1, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request2, mockCallback);
         mMockLooper.dispatchAll();
 
         // verify that request 1 issued to native
@@ -904,8 +927,8 @@ public class RttServiceImplTest {
         verifyWakeupSet(true, 0);
 
         // (3) send both result 1 and result 2
-        mDut.onRangingResults(cmdId1, result1.first);
-        mDut.onRangingResults(mIntCaptor.getValue(), result2.first);
+        mDut.onRangingResults(cmdId1, result1.second);
+        mDut.onRangingResults(mIntCaptor.getValue(), result2.second);
         mMockLooper.dispatchAll();
 
         // verify that only result 2 is forwarded to client
@@ -915,7 +938,7 @@ public class RttServiceImplTest {
         // verify metrics
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request1));
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request2));
-        verify(mockMetrics).recordResult(eq(request2), eq(result2.first));
+        verify(mockMetrics).recordResult(eq(request2), eq(result2.second), anyInt());
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_TIMEOUT);
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
 
@@ -940,12 +963,12 @@ public class RttServiceImplTest {
         RangingRequest request4 = RttTestUtils.getDummyRangingRequest((byte) 4);
         RangingRequest request5 = RttTestUtils.getDummyRangingRequest((byte) 5);
 
-        Pair<List<RttResult>, List<RangingResult>> result1 = RttTestUtils.getDummyRangingResults(
-                request1);
-        Pair<List<RttResult>, List<RangingResult>> result3 = RttTestUtils.getDummyRangingResults(
-                request3);
-        Pair<List<RttResult>, List<RangingResult>> result4 = RttTestUtils.getDummyRangingResults(
-                request4);
+        Pair<List<RangingResult>, List<RangingResult>> result1 =
+                RttTestUtils.getDummyRangingResults(request1);
+        Pair<List<RangingResult>, List<RangingResult>> result3 =
+                RttTestUtils.getDummyRangingResults(request3);
+        Pair<List<RangingResult>, List<RangingResult>> result4 =
+                RttTestUtils.getDummyRangingResults(request4);
 
         InOrder cbInorder = inOrder(mockCallback);
 
@@ -956,14 +979,14 @@ public class RttServiceImplTest {
 
         // (1) issue a request at time t1: should be dispatched since first one!
         clock.time = 100;
-        mDut.startRanging(mockIbinder, mPackageName, null, request1, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request1, mockCallback);
         mMockLooper.dispatchAll();
 
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request1), eq(true));
         verifyWakeupSet(true, clock.time);
 
         // (1.1) get result
-        mDut.onRangingResults(mIntCaptor.getValue(), result1.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), result1.second);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingResults(result1.second);
@@ -971,21 +994,21 @@ public class RttServiceImplTest {
 
         // (2) issue a request at time t2 = t1 + 0.5 gap: should be rejected (throttled)
         clock.time = 100 + BACKGROUND_PROCESS_EXEC_GAP_MS / 2;
-        mDut.startRanging(mockIbinder, mPackageName, null, request2, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request2, mockCallback);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingFailure(RangingResultCallback.STATUS_CODE_FAIL);
 
         // (3) issue a request at time t3 = t1 + 1.1 gap: should be dispatched since enough time
         clock.time = 100 + BACKGROUND_PROCESS_EXEC_GAP_MS * 11 / 10;
-        mDut.startRanging(mockIbinder, mPackageName, null, request3, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request3, mockCallback);
         mMockLooper.dispatchAll();
 
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request3), eq(true));
         verifyWakeupSet(true, clock.time);
 
         // (3.1) get result
-        mDut.onRangingResults(mIntCaptor.getValue(), result3.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), result3.second);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingResults(result3.second);
@@ -996,14 +1019,14 @@ public class RttServiceImplTest {
                 ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
 
         clock.time = clock.time + 5;
-        mDut.startRanging(mockIbinder, mPackageName, null, request4, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request4, mockCallback);
         mMockLooper.dispatchAll();
 
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request4), eq(true));
         verifyWakeupSet(true, clock.time);
 
         // (4.1) get result
-        mDut.onRangingResults(mIntCaptor.getValue(), result4.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), result4.second);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingResults(result4.second);
@@ -1014,7 +1037,7 @@ public class RttServiceImplTest {
                 ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
 
         clock.time = clock.time + 5;
-        mDut.startRanging(mockIbinder, mPackageName, null, request5, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request5, mockCallback);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingFailure(RangingResultCallback.STATUS_CODE_FAIL);
@@ -1025,9 +1048,9 @@ public class RttServiceImplTest {
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request3));
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request4));
         verify(mockMetrics).recordRequest(eq(mDefaultWs), eq(request5));
-        verify(mockMetrics).recordResult(eq(request1), eq(result1.first));
-        verify(mockMetrics).recordResult(eq(request3), eq(result3.first));
-        verify(mockMetrics).recordResult(eq(request4), eq(result4.first));
+        verify(mockMetrics).recordResult(eq(request1), eq(result1.second), anyInt());
+        verify(mockMetrics).recordResult(eq(request3), eq(result3.second), anyInt());
+        verify(mockMetrics).recordResult(eq(request4), eq(result4.second), anyInt());
         verify(mockMetrics, times(2)).recordOverallStatus(
                 WifiMetricsProto.WifiRttLog.OVERALL_THROTTLE);
         verify(mockMetrics, times(3)).recordOverallStatus(
@@ -1073,10 +1096,10 @@ public class RttServiceImplTest {
         RangingRequest request2 = RttTestUtils.getDummyRangingRequest((byte) 2);
         RangingRequest request3 = RttTestUtils.getDummyRangingRequest((byte) 3);
 
-        Pair<List<RttResult>, List<RangingResult>> result1 = RttTestUtils.getDummyRangingResults(
-                request1);
-        Pair<List<RttResult>, List<RangingResult>> result2 = RttTestUtils.getDummyRangingResults(
-                request2);
+        Pair<List<RangingResult>, List<RangingResult>> result1 =
+                RttTestUtils.getDummyRangingResults(request1);
+        Pair<List<RangingResult>, List<RangingResult>> result2 =
+                RttTestUtils.getDummyRangingResults(request2);
 
         InOrder cbInorder = inOrder(mockCallback);
 
@@ -1087,14 +1110,14 @@ public class RttServiceImplTest {
 
         // (1) issue a request at time t1 for {10}: should be dispatched since first one!
         clock.time = 100;
-        mDut.startRanging(mockIbinder, mPackageName, wsReq1, request1, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, wsReq1, request1, mockCallback);
         mMockLooper.dispatchAll();
 
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request1), eq(true));
         verifyWakeupSet(true, clock.time);
 
         // (1.1) get result
-        mDut.onRangingResults(mIntCaptor.getValue(), result1.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), result1.second);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingResults(result1.second);
@@ -1103,14 +1126,14 @@ public class RttServiceImplTest {
         // (2) issue a request at time t2 = t1 + 0.5 gap for {10,20}: should be dispatched since
         //     uid=20 should not be throttled
         clock.time = 100 + BACKGROUND_PROCESS_EXEC_GAP_MS / 2;
-        mDut.startRanging(mockIbinder, mPackageName, wsReq2, request2, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, wsReq2, request2, mockCallback);
         mMockLooper.dispatchAll();
 
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request2), eq(true));
         verifyWakeupSet(true, clock.time);
 
         // (2.1) get result
-        mDut.onRangingResults(mIntCaptor.getValue(), result2.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), result2.second);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingResults(result2.second);
@@ -1118,7 +1141,7 @@ public class RttServiceImplTest {
 
         // (3) issue a request at t3 = t1 + 1.1 * gap for {10}: should be rejected (throttled)
         clock.time = 100 + BACKGROUND_PROCESS_EXEC_GAP_MS * 11 / 10;
-        mDut.startRanging(mockIbinder, mPackageName, wsReq1, request3, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, wsReq1, request3, mockCallback);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingFailure(RangingResultCallback.STATUS_CODE_FAIL);
@@ -1127,8 +1150,8 @@ public class RttServiceImplTest {
         verify(mockMetrics).recordRequest(eq(wsReq1), eq(request1));
         verify(mockMetrics).recordRequest(eq(wsReq2), eq(request2));
         verify(mockMetrics).recordRequest(eq(wsReq1), eq(request3));
-        verify(mockMetrics).recordResult(eq(request1), eq(result1.first));
-        verify(mockMetrics).recordResult(eq(request2), eq(result2.first));
+        verify(mockMetrics).recordResult(eq(request1), eq(result1.second), anyInt());
+        verify(mockMetrics).recordResult(eq(request2), eq(result2.second), anyInt());
         verify(mockMetrics).recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_THROTTLE);
         verify(mockMetrics, times(2)).recordOverallStatus(
                 WifiMetricsProto.WifiRttLog.OVERALL_SUCCESS);
@@ -1172,7 +1195,7 @@ public class RttServiceImplTest {
         WorkSource ws = new WorkSource(10);
 
         // 1. issue a request
-        mDut.startRanging(mockIbinder, mPackageName, ws, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, ws, request, mockCallback);
         mMockLooper.dispatchAll();
 
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request), eq(true));
@@ -1182,7 +1205,8 @@ public class RttServiceImplTest {
         for (int i = 0; i < RttServiceImpl.MAX_QUEUED_PER_UID + 10; ++i) {
             WorkSource wsExtra = new WorkSource(ws);
             wsExtra.add(11 + i);
-            mDut.startRanging(mockIbinder, mPackageName, wsExtra, request, mockCallback);
+            mDut.startRanging(mockIbinder, mPackageName, mFeatureId, wsExtra, request,
+                    mockCallback);
         }
         mMockLooper.dispatchAll();
 
@@ -1192,8 +1216,8 @@ public class RttServiceImplTest {
 
         verifyWakeupCancelled();
         verify(mockNative).rangeCancel(eq(mIntCaptor.getValue()), any());
-        verify(mockCallback, times(RttServiceImpl.MAX_QUEUED_PER_UID + 11)).onRangingFailure(
-                RangingResultCallback.STATUS_CODE_FAIL_RTT_NOT_AVAILABLE);
+        verify(mockCallback, times(RttServiceImpl.MAX_QUEUED_PER_UID + 11))
+                .onRangingFailure(RangingResultCallback.STATUS_CODE_FAIL_RTT_NOT_AVAILABLE);
 
         // verify metrics
         for (int i = 0; i < RttServiceImpl.MAX_QUEUED_PER_UID + 11; ++i) {
@@ -1203,8 +1227,8 @@ public class RttServiceImplTest {
             }
             verify(mockMetrics).recordRequest(eq(wsExtra), eq(request));
         }
-        verify(mockMetrics, times(RttServiceImpl.MAX_QUEUED_PER_UID + 11)).recordOverallStatus(
-                WifiMetricsProto.WifiRttLog.OVERALL_RTT_NOT_AVAILABLE);
+        verify(mockMetrics, times(RttServiceImpl.MAX_QUEUED_PER_UID + 11))
+                .recordOverallStatus(WifiMetricsProto.WifiRttLog.OVERALL_RTT_NOT_AVAILABLE);
 
         verify(mockNative, atLeastOnce()).isReady();
         verifyNoMoreInteractions(mockNative, mockMetrics, mockCallback,
@@ -1220,8 +1244,8 @@ public class RttServiceImplTest {
     private void runFloodRequestsTest(boolean useUids, boolean useChainedWorkSources)
             throws Exception {
         RangingRequest request = RttTestUtils.getDummyRangingRequest((byte) 1);
-        Pair<List<RttResult>, List<RangingResult>> result = RttTestUtils.getDummyRangingResults(
-                request);
+        Pair<List<RangingResult>, List<RangingResult>> result =
+                RttTestUtils.getDummyRangingResults(request);
 
         WorkSource ws = new WorkSource();
         if (useChainedWorkSources) {
@@ -1238,7 +1262,8 @@ public class RttServiceImplTest {
         InOrder nativeInorder = inOrder(mockNative);
 
         // 1. issue a request
-        mDut.startRanging(mockIbinder, mPackageName, useUids ? null : ws, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, useUids ? null : ws, request,
+                mockCallback);
         mMockLooper.dispatchAll();
 
         nativeInorder.verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request), eq(true));
@@ -1246,7 +1271,7 @@ public class RttServiceImplTest {
 
         // 2. issue FLOOD LEVEL requests + 10: should get 11 failures (10 extra + 1 original)
         for (int i = 0; i < RttServiceImpl.MAX_QUEUED_PER_UID + 10; ++i) {
-            mDut.startRanging(mockIbinder, mPackageName, useUids ? null : ws, request,
+            mDut.startRanging(mockIbinder, mPackageName, mFeatureId, useUids ? null : ws, request,
                     mockCallback);
         }
         mMockLooper.dispatchAll();
@@ -1255,7 +1280,7 @@ public class RttServiceImplTest {
                 RangingResultCallback.STATUS_CODE_FAIL);
 
         // 3. provide results
-        mDut.onRangingResults(mIntCaptor.getValue(), result.first);
+        mDut.onRangingResults(mIntCaptor.getValue(), result.second);
         mMockLooper.dispatchAll();
 
         cbInorder.verify(mockCallback).onRangingResults(result.second);
@@ -1265,7 +1290,8 @@ public class RttServiceImplTest {
         verifyWakeupSet(true, 0);
 
         // 4. issue a request: don't expect a failure
-        mDut.startRanging(mockIbinder, mPackageName, useUids ? null : ws, request, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, useUids ? null : ws, request,
+                mockCallback);
         mMockLooper.dispatchAll();
 
         // 5. clear queue
@@ -1280,7 +1306,7 @@ public class RttServiceImplTest {
         // verify metrics
         verify(mockMetrics, times(RttServiceImpl.MAX_QUEUED_PER_UID + 12)).recordRequest(
                 eq(useUids ? mDefaultWs : ws), eq(request));
-        verify(mockMetrics).recordResult(eq(request), eq(result.first));
+        verify(mockMetrics).recordResult(eq(request), eq(result.second), anyInt());
         verify(mockMetrics, times(11)).recordOverallStatus(
                 WifiMetricsProto.WifiRttLog.OVERALL_THROTTLE);
         verify(mockMetrics, times(RttServiceImpl.MAX_QUEUED_PER_UID)).recordOverallStatus(
@@ -1337,8 +1363,8 @@ public class RttServiceImplTest {
         IRttCallback mockCallback3 = mock(IRttCallback.class);
 
         // (1) request 2 ranging operations: request 1 should be sent to HAL
-        mDut.startRanging(mockIbinder, mPackageName, null, request1, mockCallback);
-        mDut.startRanging(mockIbinder, mPackageName, null, request2, mockCallback2);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request1, mockCallback);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request2, mockCallback2);
         mMockLooper.dispatchAll();
 
         verify(mockNative).rangeRequest(mIntCaptor.capture(), eq(request1), eq(true));
@@ -1366,7 +1392,7 @@ public class RttServiceImplTest {
         verifyWakeupCancelled();
 
         // (3) issue another request: it should fail
-        mDut.startRanging(mockIbinder, mPackageName, null, request3, mockCallback3);
+        mDut.startRanging(mockIbinder, mPackageName, mFeatureId, null, request3, mockCallback3);
         mMockLooper.dispatchAll();
 
         verify(mockCallback3).onRangingFailure(

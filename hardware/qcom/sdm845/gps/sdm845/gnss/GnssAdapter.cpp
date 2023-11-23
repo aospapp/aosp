@@ -655,14 +655,14 @@ GnssAdapter::setSuplHostServer(const char* server, int port)
         int32_t length = -1;
         const char noHost[] = "NONE";
 
-        locErr = LOCATION_ERROR_INVALID_PARAMETER;
-
         if ((NULL == server) || (server[0] == 0) ||
                 (strncasecmp(noHost, server, sizeof(noHost)) == 0)) {
             serverUrl[0] = '\0';
             length = 0;
         } else if (port > 0) {
             length = snprintf(serverUrl, sizeof(serverUrl), "%s:%u", server, port);
+        } else {
+            locErr = LOCATION_ERROR_INVALID_PARAMETER;
         }
 
         if (length >= 0 && strncasecmp(getServerUrl().c_str(),
@@ -694,7 +694,7 @@ GnssAdapter::setConfigCommand()
         inline virtual void proc() const {
             if (ContextBase::mGps_conf.AGPS_CONFIG_INJECT) {
                 mApi.setSUPLVersion(mAdapter.convertSuplVersion(ContextBase::mGps_conf.SUPL_VER));
-                mApi.setLPPConfig(mAdapter.convertLppProfile(ContextBase::mGps_conf.LPP_PROFILE));
+                // mApi.setLPPConfig(mAdapter.convertLppProfile(ContextBase::mGps_conf.LPP_PROFILE));
                 mApi.setAGLONASSProtocol(ContextBase::mGps_conf.A_GLONASS_POS_PROTOCOL_SELECT);
             }
             mAdapter.setSuplHostServer(ContextBase::mGps_conf.SUPL_HOST,
@@ -875,6 +875,8 @@ GnssAdapter::gnssUpdateConfigCommand(GnssConfig config)
                     errs[index++] = err;
                 }
             }
+
+            /* Comment out LPP injection as it's configured by MBN.
             if (mConfig.flags & GNSS_CONFIG_FLAGS_LPP_PROFILE_VALID_BIT) {
                 uint32_t newLppProfile = mAdapter.convertLppProfile(mConfig.lppProfile);
                 if (newLppProfile != ContextBase::mGps_conf.LPP_PROFILE &&
@@ -888,6 +890,8 @@ GnssAdapter::gnssUpdateConfigCommand(GnssConfig config)
                     errs[index++] = err;
                 }
             }
+            */
+
             if (mConfig.flags & GNSS_CONFIG_FLAGS_LPPE_CONTROL_PLANE_VALID_BIT) {
                 uint32_t newLppeControlPlaneMask =
                     mAdapter.convertLppeCp(mConfig.lppeControlPlaneMask);
@@ -1370,8 +1374,8 @@ LocationError
 GnssAdapter::gnssSvTypeConfigUpdate()
 {
     LocationError err = LOCATION_ERROR_GENERAL_FAILURE;
-    LOC_LOGd("constellations blacklisted 0x%" PRIx64 ", enabled 0x%" PRIx64,
-             mGnssSvTypeConfig.blacklistedSvTypesMask, mGnssSvTypeConfig.enabledSvTypesMask);
+    LOC_LOGd("size %zu constellations blacklisted 0x%" PRIx64 ", enabled 0x%" PRIx64,
+             mGnssSvTypeConfig.size, mGnssSvTypeConfig.blacklistedSvTypesMask, mGnssSvTypeConfig.enabledSvTypesMask);
 
     if (mGnssSvTypeConfig.size == sizeof(mGnssSvTypeConfig)) {
         GnssSvIdConfig blacklistConfig = {};
@@ -1408,7 +1412,6 @@ GnssAdapter::gnssSvTypeConfigUpdate()
             }
         }
     } else {
-        LOC_LOGE("Invalid GnssSvTypeConfig size");
         err = LOCATION_ERROR_SUCCESS;
     }
 
@@ -3597,6 +3600,8 @@ void GnssAdapter::dataConnOpenCommand(
             LOC_LOGV("AgpsMsgAtlOpenSuccess");
             if (mApnName == nullptr) {
                 LOC_LOGE("%s] new allocation failed, fatal error.", __func__);
+                // Reporting the failure here
+                mAgpsManager->reportAtlClosed(mAgpsType);
                 return;
             }
             memcpy(mApnName, apnName, apnLen);
@@ -3613,9 +3618,16 @@ void GnssAdapter::dataConnOpenCommand(
             mAgpsManager->reportAtlOpenSuccess(mAgpsType, mApnName, mApnLen, mBearerType);
         }
     };
-
-    sendMsg( new AgpsMsgAtlOpenSuccess(
-            &mAgpsManager, agpsType, apnName, apnLen, bearerType));
+    // Added inital length checks for apnlen check to avoid security issues
+    // In case of failure reporting the same
+    if (NULL == apnName || apnLen <= 0 || apnLen > MAX_APN_LEN ||
+            (strlen(apnName) != (unsigned)apnLen)) {
+        LOC_LOGe("%s]: incorrect apnlen length or incorrect apnName", __func__);
+        mAgpsManager.reportAtlClosed(agpsType);
+    } else {
+        sendMsg( new AgpsMsgAtlOpenSuccess(
+                    &mAgpsManager, agpsType, apnName, apnLen, bearerType));
+    }
 }
 
 void GnssAdapter::dataConnClosedCommand(AGpsExtType agpsType){

@@ -17,7 +17,7 @@
 %                                December 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -119,6 +119,9 @@ static SemaphoreInfo
 
 static WSADATA
   *wsaData = (WSADATA*) NULL;
+
+static size_t
+  long_paths_enabled = 2;
 
 struct
 {
@@ -1224,8 +1227,8 @@ static int NTLocateGhostscript(DWORD flags,int *root_index,
   return(status);
 }
 
-static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,
-  char *value,const size_t length)
+static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,char *value,
+  const size_t length)
 {
   char
     buffer[MagickPathExtent],
@@ -1235,16 +1238,16 @@ static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,
     extent;
 
   static const char
-    *product_family=(const char *) NULL;
+    *product_family = (const char *) NULL;
 
   static BOOL
-    is_64_bit_version=FALSE;
+    is_64_bit_version = FALSE;
 
   static int
-    flags=0,
-    major_version=0,
-    minor_version=0,
-    root_index=0;
+    flags = 0,
+    major_version = 0,
+    minor_version = 0,
+    root_index = 0;
 
   /*
     Get a string from the installed Ghostscript.
@@ -1315,8 +1318,7 @@ static int NTGhostscriptGetString(const char *name,BOOL *is_64_bit,
   (void) FormatLocaleString(buffer,MagickPathExtent,"SOFTWARE\\%s\\%d.%02d",
     product_family,major_version,minor_version);
   extent=(int) length;
-  if (NTGetRegistryValue(registry_roots[root_index].hkey,buffer,flags,name,
-    value,&extent) == 0)
+  if (NTGetRegistryValue(registry_roots[root_index].hkey,buffer,flags,name,value,&extent) == 0)
     {
       (void) LogMagickEvent(ConfigureEvent,GetMagickModule(),
         "registry: \"%s\\%s\\%s\"=\"%s\"",registry_roots[root_index].name,
@@ -1338,7 +1340,6 @@ MagickPrivate int NTGhostscriptDLL(char *path,int length)
   if ((*dll == '\0') &&
       (NTGhostscriptGetString("GS_DLL",&is_64_bit_version,dll,sizeof(dll)) == FALSE))
     return(FALSE);
-
 #if defined(_WIN64)
   if (!is_64_bit_version)
     return(FALSE);
@@ -1460,7 +1461,7 @@ MagickPrivate int NTGhostscriptEXE(char *path,int length)
 %
 %  The format of the NTGhostscriptFonts method is:
 %
-%      int NTGhostscriptFonts(char *path, int length)
+%      int NTGhostscriptFonts(char *path,int length)
 %
 %  A description of each parameter follows:
 %
@@ -1499,6 +1500,10 @@ MagickPrivate int NTGhostscriptFonts(char *path,int length)
     if (q != (char *) NULL)
       *q='\0';
     (void) FormatLocaleString(filename,MagickPathExtent,"%s%sfonts.dir",path,
+      DirectorySeparator);
+    if (IsPathAccessible(filename) != MagickFalse)
+      return(TRUE);
+    (void) FormatLocaleString(filename,MagickPathExtent,"%s%sn019003l.pfb",path,
       DirectorySeparator);
     if (IsPathAccessible(filename) != MagickFalse)
       return(TRUE);
@@ -1686,6 +1691,72 @@ MagickPrivate void NTInitializeWinsock(MagickBooleanType use_lock)
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%   N T L o n g P a t h s E n a b l e d                                       %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  NTLongPathsEnabled() returns a boolean indicating whether long paths are
+$  enabled.
+%
+%  The format of the NTLongPathsEnabled method is:
+%
+%      MagickBooleanType NTLongPathsEnabled()
+%
+*/
+MagickExport MagickBooleanType NTLongPathsEnabled()
+{
+  if (long_paths_enabled == 2)
+    {
+      DWORD
+        size,
+        type,
+        value;
+
+      HKEY
+        registry_key;
+
+      LONG
+        status;
+
+      registry_key=(HKEY) INVALID_HANDLE_VALUE;
+      status=RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+        "SYSTEM\\CurrentControlSet\\Control\\FileSystem",0,KEY_READ,
+        &registry_key);
+      if (status != ERROR_SUCCESS)
+        {
+          RegCloseKey(registry_key);
+          long_paths_enabled=0;
+          return(MagickFalse);
+        }
+      value=0;
+      status=RegQueryValueExA(registry_key,"LongPathsEnabled",0,&type,NULL,
+        NULL);
+      if ((status != ERROR_SUCCESS) || (type != REG_DWORD))
+        {
+          RegCloseKey(registry_key);
+          long_paths_enabled=0;
+          return(MagickFalse);
+        }
+      status=RegQueryValueExA(registry_key,"LongPathsEnabled",0,&type,
+        (LPBYTE) &value,&size);
+      RegCloseKey(registry_key);
+      if (status != ERROR_SUCCESS)
+        {
+          long_paths_enabled=0;
+          return(MagickFalse);
+        }
+      long_paths_enabled=(size_t) value;
+    }
+  return(long_paths_enabled == 1 ? MagickTrue : MagickFalse);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 +  N T M a p M e m o r y                                                      %
 %                                                                             %
 %                                                                             %
@@ -1802,7 +1873,7 @@ MagickPrivate DIR *NTOpenDirectory(const char *path)
   if (length == 0)
     return((DIR *) NULL);
   if (wcsncat(file_specification,(const wchar_t*) DirectorySeparator,
-        MagickPathExtent-wcslen(file_specification)-1) == (wchar_t*) NULL)
+        MagickPathExtent-wcslen(file_specification)-1) == (wchar_t *) NULL)
     return((DIR *) NULL);
   entry=(DIR *) AcquireCriticalMemory(sizeof(DIR));
   entry->firsttime=TRUE;
@@ -1810,7 +1881,7 @@ MagickPrivate DIR *NTOpenDirectory(const char *path)
   if (entry->hSearch == INVALID_HANDLE_VALUE)
     {
       if(wcsncat(file_specification,L"*.*",
-        MagickPathExtent-wcslen(file_specification)-1) == (wchar_t*) NULL)
+        MagickPathExtent-wcslen(file_specification)-1) == (wchar_t *) NULL)
         {
           entry=(DIR *) RelinquishMagickMemory(entry);
           return((DIR *) NULL);
@@ -2573,6 +2644,7 @@ MagickPrivate ssize_t NTSystemConfiguration(int name)
 */
 MagickPrivate ssize_t NTTellDirectory(DIR *entry)
 {
+  magick_unreferenced(entry);
   assert(entry != (DIR *) NULL);
   return(0);
 }

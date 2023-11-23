@@ -16,7 +16,13 @@
 
 package libcore.java.lang;
 
+import dalvik.system.InMemoryDexClassLoader;
+
+import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.lang.Thread.UncaughtExceptionHandler;
+import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
@@ -28,6 +34,7 @@ import junit.framework.TestCase;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 
+import libcore.io.Streams;
 import libcore.java.lang.ref.FinalizationTester;
 
 public final class ThreadTest extends TestCase {
@@ -137,6 +144,85 @@ public final class ThreadTest extends TestCase {
         assertSame(Thread.currentThread().getContextClassLoader(), other.getContextClassLoader());
     }
 
+    public void testSetPriority_unstarted() throws Exception {
+        Thread thread = new Thread();
+        checkSetPriority_inBounds_succeeds(thread);
+        checkSetPriority_outOfBounds_fails(thread);
+    }
+
+    public void testSetPriority_starting() throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        Thread thread = new Thread("starting thread") {
+            @Override public void run() { try { latch.await(); } catch (Exception e) { } }
+        };
+        // priority set while thread was not started should carry over to started thread
+        int priority = thread.getPriority() + 1;
+        if (priority > Thread.MAX_PRIORITY) {
+            priority = Thread.MIN_PRIORITY;
+        }
+        thread.setPriority(priority);
+        thread.start();
+        assertEquals(priority, thread.getPriority());
+        latch.countDown();
+        thread.join();
+    }
+
+    public void testSetPriority_started() throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        Thread startedThread = new Thread("started thread") {
+            @Override public void run() { try { latch.await(); } catch (Exception e) { } }
+        };
+        startedThread.start();
+        checkSetPriority_inBounds_succeeds(startedThread);
+        checkSetPriority_outOfBounds_fails(startedThread);
+        latch.countDown();
+        startedThread.join();
+    }
+
+    public void testSetPriority_joined() throws Exception {
+        Thread joinedThread = new Thread();
+        joinedThread.start();
+        joinedThread.join();
+
+        int originalPriority = joinedThread.getPriority();
+        for (int p = Thread.MIN_PRIORITY; p <= Thread.MAX_PRIORITY; p++) {
+            joinedThread.setPriority(p);
+            // setting the priority of a not-alive Thread should not succeed
+            assertEquals(originalPriority, joinedThread.getPriority());
+        }
+        checkSetPriority_outOfBounds_fails(joinedThread);
+    }
+
+    private static void checkSetPriority_inBounds_succeeds(Thread thread) {
+        int oldPriority = thread.getPriority();
+        try {
+            for (int priority = Thread.MIN_PRIORITY; priority <= Thread.MAX_PRIORITY; priority++) {
+                thread.setPriority(priority);
+                assertEquals(priority, thread.getPriority());
+            }
+        } finally {
+            thread.setPriority(oldPriority);
+        }
+        assertEquals(oldPriority, thread.getPriority());
+    }
+
+    private static void checkSetPriority_outOfBounds_fails(Thread thread) {
+        checkSetPriority_outOfBounds_fails(thread, Thread.MIN_PRIORITY - 1);
+        checkSetPriority_outOfBounds_fails(thread, Thread.MAX_PRIORITY + 1);
+        checkSetPriority_outOfBounds_fails(thread, Integer.MIN_VALUE);
+        checkSetPriority_outOfBounds_fails(thread, Integer.MAX_VALUE);
+    }
+
+    private static void checkSetPriority_outOfBounds_fails(Thread thread, int invalidPriority) {
+        int oldPriority = thread.getPriority();
+        try {
+            thread.setPriority(invalidPriority);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+        assertEquals(oldPriority, thread.getPriority()); // priority shouldn't have changed
+    }
+
     public void testUncaughtExceptionPreHandler_calledBeforeDefaultHandler() {
         UncaughtExceptionHandler initialHandler = Mockito.mock(UncaughtExceptionHandler.class);
         UncaughtExceptionHandler defaultHandler = Mockito.mock(UncaughtExceptionHandler.class);
@@ -201,6 +287,84 @@ public final class ThreadTest extends TestCase {
         assertTrue(trace.getClassName().contains("ThreadTest")
                 && trace.getMethodName().equals("doSomething"));
         t1.join();
+    }
+
+    /**
+     * Checks that a stacktrace reports the expected debug metadata
+     * (source-filename, line number) hard-coded in a class loaded from
+     * pre-built test resources.
+     */
+    public void testGetStackTrace_debugInfo() throws Exception {
+        StackTraceElement ste = getStackTraceElement("debugInfo");
+
+        // Verify that this StackTraceElement appears as we expect it to
+        // e.g. when an exception is printed.
+        assertEquals("java.lang.ThreadTestHelper.debugInfo(ThreadTestHelper.java:9)",
+                ste.toString());
+
+        // Since we emit debug information for ThreadTestHelper.debugInfo,
+        // the Runtime will symbolicate this frame with the correct file name.
+        assertEquals("ThreadTestHelper.java", ste.getFileName());
+
+        // We explicitly specify this in the test resource.
+        assertEquals(9, ste.getLineNumber());
+    }
+
+    /**
+     * Checks that a stacktrace reports the expected dex PC in place of
+     * a line number when debug info is missing for a method; the method is
+     * declared on a class loaded from pre-built test resources.
+     */
+    public void testGetStackTrace_noDebugInfo() throws Exception {
+        StackTraceElement ste = getStackTraceElement("noDebugInfo");
+
+        // Verify that this StackTraceElement appears as we expect it to
+        // e.g. when an exception is printed.
+        assertEquals("java.lang.ThreadTestHelper.noDebugInfo(Unknown Source:3)", ste.toString());
+
+        // Since we don't have any debug info for this method, the Runtime
+        // doesn't symbolicate this with a file name (even though the
+        // enclosing class may have the file name specified).
+        assertEquals(null, ste.getFileName());
+
+        // In the test resource we emit 3 nops before generating a stack
+        // trace; each nop advances the dex PC by 1 because a nop is a
+        // single code unit wide.
+        assertEquals(3, ste.getLineNumber());
+    }
+
+    /**
+     * Calls the given static method declared on ThreadTestHelper, which
+     * is loaded from precompiled test resources.
+     *
+     * @param methodName either {@quote "debugInfo"} or {@quote "noDebugInfo"}
+     * @return the StackTraceElement corresponding to said method's frame
+     */
+    private static StackTraceElement getStackTraceElement(String methodName) throws Exception {
+        final String className = "java.lang.ThreadTestHelper";
+        byte[] data;
+        try (InputStream is =
+                ThreadTest.class.getClassLoader().getResourceAsStream("core-tests-smali.dex")) {
+            data = Streams.readFullyNoClose(is);
+        }
+        ClassLoader imcl = new InMemoryDexClassLoader(ByteBuffer.wrap(data),
+                ThreadTest.class.getClassLoader());
+        Class<?> helper = imcl.loadClass(className);
+        Method m = helper.getDeclaredMethod(methodName);
+        StackTraceElement[] stes = (StackTraceElement[]) m.invoke(null);
+
+        // The top of the stack trace looks like:
+        // - VMStack.getThreadStackTrace()
+        // - Thread.getStackTrace()
+        // - ThreadTestHelper.createStackTrace()
+        // - ThreadTestHelper.{debugInfo,noDebugInfo}
+        StackTraceElement result = stes[3];
+
+        // Sanity check before we return
+        assertEquals(result.getClassName(), className);
+        assertEquals(result.getMethodName(), methodName);
+        assertFalse(result.isNativeMethod());
+        return result;
     }
 
     public void testGetAllStackTracesIncludesAllGroups() throws Exception {

@@ -839,6 +839,11 @@ void UnstartedRuntime::UnstartedSystemArraycopy(
     return;
   }
 
+  if (Runtime::Current()->IsActiveTransaction() && !CheckWriteConstraint(self, dst_obj)) {
+    DCHECK(self->IsExceptionPending());
+    return;
+  }
+
   // Type checking.
   ObjPtr<mirror::Class> src_type = shadow_frame->GetVRegReference(arg_offset)->GetClass()->
       GetComponentType();
@@ -1358,7 +1363,8 @@ void UnstartedRuntime::UnstartedStringFactoryNewStringFromChars(
       hs.NewHandle(shadow_frame->GetVRegReference(arg_offset + 2)->AsCharArray()));
   Runtime* runtime = Runtime::Current();
   gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentAllocator();
-  result->SetL(mirror::String::AllocFromCharArray<true>(self, char_count, h_char_array, offset, allocator));
+  result->SetL(
+      mirror::String::AllocFromCharArray(self, char_count, h_char_array, offset, allocator));
 }
 
 // This allows creating the new style of String objects during compilation.
@@ -1373,8 +1379,8 @@ void UnstartedRuntime::UnstartedStringFactoryNewStringFromString(
   Handle<mirror::String> h_string(hs.NewHandle(to_copy));
   Runtime* runtime = Runtime::Current();
   gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentAllocator();
-  result->SetL(mirror::String::AllocFromString<true>(self, h_string->GetLength(), h_string, 0,
-                                                     allocator));
+  result->SetL(
+      mirror::String::AllocFromString(self, h_string->GetLength(), h_string, 0, allocator));
 }
 
 void UnstartedRuntime::UnstartedStringFastSubstring(
@@ -1390,19 +1396,21 @@ void UnstartedRuntime::UnstartedStringFastSubstring(
   DCHECK_LE(start + length, h_string->GetLength());
   Runtime* runtime = Runtime::Current();
   gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentAllocator();
-  result->SetL(mirror::String::AllocFromString<true>(self, length, h_string, start, allocator));
+  result->SetL(mirror::String::AllocFromString(self, length, h_string, start, allocator));
 }
 
 // This allows getting the char array for new style of String objects during compilation.
 void UnstartedRuntime::UnstartedStringToCharArray(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  ObjPtr<mirror::String> string = shadow_frame->GetVRegReference(arg_offset)->AsString();
+  StackHandleScope<1> hs(self);
+  Handle<mirror::String> string =
+      hs.NewHandle(shadow_frame->GetVRegReference(arg_offset)->AsString());
   if (string == nullptr) {
     AbortTransactionOrFail(self, "String.charAt with null object");
     return;
   }
-  result->SetL(string->ToCharArray(self));
+  result->SetL(mirror::String::ToCharArray(string, self));
 }
 
 // This allows statically initializing ConcurrentHashMap and SynchronousQueue.
@@ -1458,6 +1466,10 @@ void UnstartedRuntime::UnstartedUnsafeCompareAndSwapLong(
   bool success;
   // Check whether we're in a transaction, call accordingly.
   if (Runtime::Current()->IsActiveTransaction()) {
+    if (!CheckWriteConstraint(self, obj)) {
+      DCHECK(self->IsExceptionPending());
+      return;
+    }
     success = obj->CasFieldStrongSequentiallyConsistent64<true>(MemberOffset(offset),
                                                                 expectedValue,
                                                                 newValue);
@@ -1479,7 +1491,7 @@ void UnstartedRuntime::UnstartedUnsafeCompareAndSwapObject(
   }
   int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
   mirror::Object* expected_value = shadow_frame->GetVRegReference(arg_offset + 4);
-  mirror::Object* newValue = shadow_frame->GetVRegReference(arg_offset + 5);
+  mirror::Object* new_value = shadow_frame->GetVRegReference(arg_offset + 5);
 
   // Must use non transactional mode.
   if (kUseReadBarrier) {
@@ -1500,15 +1512,19 @@ void UnstartedRuntime::UnstartedUnsafeCompareAndSwapObject(
   bool success;
   // Check whether we're in a transaction, call accordingly.
   if (Runtime::Current()->IsActiveTransaction()) {
+    if (!CheckWriteConstraint(self, obj) || !CheckWriteValueConstraint(self, new_value)) {
+      DCHECK(self->IsExceptionPending());
+      return;
+    }
     success = obj->CasFieldObject<true>(MemberOffset(offset),
                                         expected_value,
-                                        newValue,
+                                        new_value,
                                         CASMode::kStrong,
                                         std::memory_order_seq_cst);
   } else {
     success = obj->CasFieldObject<false>(MemberOffset(offset),
                                          expected_value,
-                                         newValue,
+                                         new_value,
                                          CASMode::kStrong,
                                          std::memory_order_seq_cst);
   }
@@ -1541,6 +1557,10 @@ void UnstartedRuntime::UnstartedUnsafePutObjectVolatile(
   int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
   mirror::Object* value = shadow_frame->GetVRegReference(arg_offset + 4);
   if (Runtime::Current()->IsActiveTransaction()) {
+    if (!CheckWriteConstraint(self, obj) || !CheckWriteValueConstraint(self, value)) {
+      DCHECK(self->IsExceptionPending());
+      return;
+    }
     obj->SetFieldObjectVolatile<true>(MemberOffset(offset), value);
   } else {
     obj->SetFieldObjectVolatile<false>(MemberOffset(offset), value);
@@ -1557,12 +1577,16 @@ void UnstartedRuntime::UnstartedUnsafePutOrderedObject(
     return;
   }
   int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
-  mirror::Object* newValue = shadow_frame->GetVRegReference(arg_offset + 4);
+  mirror::Object* new_value = shadow_frame->GetVRegReference(arg_offset + 4);
   std::atomic_thread_fence(std::memory_order_release);
   if (Runtime::Current()->IsActiveTransaction()) {
-    obj->SetFieldObject<true>(MemberOffset(offset), newValue);
+    if (!CheckWriteConstraint(self, obj) || !CheckWriteValueConstraint(self, new_value)) {
+      DCHECK(self->IsExceptionPending());
+      return;
+    }
+    obj->SetFieldObject<true>(MemberOffset(offset), new_value);
   } else {
-    obj->SetFieldObject<false>(MemberOffset(offset), newValue);
+    obj->SetFieldObject<false>(MemberOffset(offset), new_value);
   }
 }
 
@@ -1720,11 +1744,8 @@ void UnstartedRuntime::UnstartedJNIVMRuntimeNewUnpaddedArray(
       runtime->GetClassLinker()->FindArrayClass(self, element_class->AsClass());
   DCHECK(array_class != nullptr);
   gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentAllocator();
-  result->SetL(mirror::Array::Alloc<true, true>(self,
-                                                array_class,
-                                                length,
-                                                array_class->GetComponentSizeShift(),
-                                                allocator));
+  result->SetL(mirror::Array::Alloc</*kIsInstrumented=*/ true, /*kFillUsable=*/ true>(
+      self, array_class, length, array_class->GetComponentSizeShift(), allocator));
 }
 
 void UnstartedRuntime::UnstartedJNIVMStackGetCallingClassLoader(
@@ -1799,7 +1820,9 @@ void UnstartedRuntime::UnstartedJNIFloatIntBitsToFloat(
 void UnstartedRuntime::UnstartedJNIObjectInternalClone(
     Thread* self, ArtMethod* method ATTRIBUTE_UNUSED, mirror::Object* receiver,
     uint32_t* args ATTRIBUTE_UNUSED, JValue* result) {
-  result->SetL(receiver->Clone(self));
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Object> h_receiver = hs.NewHandle(receiver);
+  result->SetL(mirror::Object::Clone(h_receiver, self));
 }
 
 void UnstartedRuntime::UnstartedJNIObjectNotifyAll(
@@ -1891,6 +1914,10 @@ void UnstartedRuntime::UnstartedJNIUnsafeCompareAndSwapInt(
   jint newValue = args[4];
   bool success;
   if (Runtime::Current()->IsActiveTransaction()) {
+    if (!CheckWriteConstraint(self, obj)) {
+      DCHECK(self->IsExceptionPending());
+      return;
+    }
     success = obj->CasField32<true>(MemberOffset(offset),
                                     expectedValue,
                                     newValue,
@@ -1932,11 +1959,15 @@ void UnstartedRuntime::UnstartedJNIUnsafePutObject(Thread* self,
     return;
   }
   jlong offset = (static_cast<uint64_t>(args[2]) << 32) | args[1];
-  ObjPtr<mirror::Object> newValue = reinterpret_cast32<mirror::Object*>(args[3]);
+  ObjPtr<mirror::Object> new_value = reinterpret_cast32<mirror::Object*>(args[3]);
   if (Runtime::Current()->IsActiveTransaction()) {
-    obj->SetFieldObject<true>(MemberOffset(offset), newValue);
+    if (!CheckWriteConstraint(self, obj) || !CheckWriteValueConstraint(self, new_value)) {
+      DCHECK(self->IsExceptionPending());
+      return;
+    }
+    obj->SetFieldObject<true>(MemberOffset(offset), new_value);
   } else {
-    obj->SetFieldObject<false>(MemberOffset(offset), newValue);
+    obj->SetFieldObject<false>(MemberOffset(offset), new_value);
   }
 }
 

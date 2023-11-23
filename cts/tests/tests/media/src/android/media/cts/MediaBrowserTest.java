@@ -29,6 +29,7 @@ import java.util.List;
 /**
  * Test {@link android.media.browse.MediaBrowser}.
  */
+@NonMediaMainlineTest
 public class MediaBrowserTest extends InstrumentationTestCase {
     // The maximum time to wait for an operation.
     private static final long TIME_OUT_MS = 3000L;

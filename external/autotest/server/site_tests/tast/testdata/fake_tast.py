@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -38,7 +38,7 @@ def main():
         raise RuntimeError('Unexpected command "%s"' % args.command)
 
     for arg in cmd.get('required_args', []):
-        name, expected_value = arg.split('=')
+        name, expected_value = arg.split('=', 1)
         # argparse puts the repeated "pattern" args into a list of lists
         # instead of a single list. Pull the args back out in this case.
         val = getattr(args, name)
@@ -107,6 +107,11 @@ def parse_args():
     run_parser.add_argument('-resultsdir')
     run_parser.add_argument('-waituntilready')
     run_parser.add_argument('-timeout')
+    run_parser.add_argument('-continueafterfailure', type=to_bool,
+                            default=False, nargs='?')
+    run_parser.add_argument('-var', action='append', default=[])
+    run_parser.add_argument('-defaultvarsdir')
+    run_parser.add_argument('-varsfile', action='append', default=[])
 
     return parser.parse_args()
 

@@ -62,7 +62,7 @@ import android.telephony.TelephonyManager;
 import androidx.test.filters.SmallTest;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
-import com.android.org.conscrypt.TrustManagerImpl;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiMetrics;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
@@ -97,16 +97,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 /**
  * Unit tests for {@link PasspointProvisioner}.
  */
 @SmallTest
-public class PasspointProvisionerTest {
+public class PasspointProvisionerTest extends WifiBaseTest {
     private static final int TEST_UID = 1500;
     private static final int STEP_INIT = 0;
     private static final int STEP_AP_CONNECT = 1;
@@ -122,11 +122,9 @@ public class PasspointProvisionerTest {
     private static final String TEST_LANGUAGE = "en";
     private static final String TEST_SESSION_ID = "123456";
     private static final String TEST_URL = "https://127.0.0.1/session_id=" + TEST_SESSION_ID;
-    private static final String TEST_HW_VERSION = "Test HW 1.0";
     private static final String TEST_MAC_ADDR = "11:22:33:44:55:66";
     private static final String TEST_IMSI = "310150123456789";
     private static final String TEST_SW_VERSION = "Android Test 1.0";
-    private static final String TEST_FW_VERSION = "Test FW 1.0";
     private static final String TEST_REDIRECT_URL = "http://127.0.0.1:12345/index.htm";
     private static final String TEST_SSID = "TestSSID";
     private static final String TEST_BSSID_STRING = "11:22:33:44:55:66";
@@ -134,7 +132,7 @@ public class PasspointProvisionerTest {
     private static final String TEST_BSSID_STRING2 = "11:22:33:44:55:77";
     private static final String TEST_SSID3 = "TestSSID3";
     private static final String TEST_BSSID_STRING3 = "11:22:33:44:55:88";
-    private static final String OSU_APP_PACKAGE = "com.android.hotspot2";
+    private static final String OSU_APP_PACKAGE = "com.android.hotspot2.osulogin";
     private static final String OSU_APP_NAME = "OsuLogin";
 
     private static final byte[] TEST_OSU_SSID_BYTES = "OSU_SSID".getBytes(StandardCharsets.UTF_8);
@@ -165,7 +163,7 @@ public class PasspointProvisionerTest {
             ArgumentCaptor.forClass(RedirectListener.RedirectCallback.class);
     private ArgumentCaptor<Handler> mHandlerCaptor = ArgumentCaptor.forClass(Handler.class);
     private OsuProvider mOsuProvider;
-    private TrustManagerImpl mDelegate;
+    private TrustManagerFactory mDelegate;
     private URL mTestUrl;
     private MockitoSession mSession;
 
@@ -215,7 +213,6 @@ public class PasspointProvisionerTest {
         when(mWfaKeyStore.get()).thenReturn(mKeyStore);
         when(mObjectFactory.makeWfaKeyStore()).thenReturn(mWfaKeyStore);
         when(mObjectFactory.getSSLContext(any(String.class))).thenReturn(mTlsContext);
-        when(mObjectFactory.getTrustManagerImpl(any(KeyStore.class))).thenReturn(mDelegate);
         when(mObjectFactory.getSystemInfo(any(Context.class), any(WifiNative.class))).thenReturn(
                 mSystemInfo);
         doReturn(mWifiManager).when(mContext)
@@ -224,23 +221,22 @@ public class PasspointProvisionerTest {
                 mPasspointManager, mWifiMetrics);
         when(mOsuNetworkConnection.connect(any(WifiSsid.class), any(), any())).thenReturn(true);
         when(mOsuServerConnection.connect(any(URL.class), any(Network.class))).thenReturn(true);
-        when(mOsuServerConnection.validateProvider(any(Locale.class),
-                any(String.class))).thenReturn(true);
+        when(mOsuServerConnection.validateProvider(
+                anyMap())).thenReturn(true);
         when(mOsuServerConnection.canValidateServer()).thenReturn(true);
         mPasspointProvisioner.enableVerboseLogging(1);
         mOsuProvider = PasspointProvisioningTestUtil.generateOsuProvider(true);
-        mDelegate = new TrustManagerImpl(PasspointProvisioningTestUtil.createFakeKeyStore());
-        when(mObjectFactory.getTrustManagerImpl(any(KeyStore.class))).thenReturn(mDelegate);
+        mDelegate = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        mDelegate.init(PasspointProvisioningTestUtil.createFakeKeyStore());
+        when(mObjectFactory.getTrustManagerFactory(any(KeyStore.class))).thenReturn(mDelegate);
         when(mContext.getSystemService(TelephonyManager.class)).thenReturn(mTelephonyManager);
         when(mTelephonyManager.createForSubscriptionId(anyInt())).thenReturn(mDataTelephonyManager);
         when(mSystemInfo.getDeviceModel()).thenReturn(TEST_MODEL);
         when(mSystemInfo.getLanguage()).thenReturn(TEST_LANGUAGE);
         when(mSystemInfo.getDeviceId()).thenReturn(TEST_DEV_ID);
         when(mSystemInfo.getDeviceManufacturer()).thenReturn(TEST_MANUFACTURER);
-        when(mSystemInfo.getHwVersion()).thenReturn(TEST_HW_VERSION);
         when(mSystemInfo.getMacAddress(any(String.class))).thenReturn(TEST_MAC_ADDR);
         when(mSystemInfo.getSoftwareVersion()).thenReturn(TEST_SW_VERSION);
-        when(mSystemInfo.getFirmwareVersion()).thenReturn(TEST_FW_VERSION);
         when(mDataTelephonyManager.getSubscriberId()).thenReturn(TEST_IMSI);
 
         when(mExchangeCompleteMessage.getMessageType()).thenReturn(
@@ -265,8 +261,8 @@ public class PasspointProvisionerTest {
         resolveInfo.activityInfo.applicationInfo = new ApplicationInfo();
         resolveInfo.activityInfo.name = OSU_APP_NAME;
         resolveInfo.activityInfo.applicationInfo.packageName = OSU_APP_PACKAGE;
-        when(mPackageManager.resolveActivity(any(Intent.class),
-                eq(PackageManager.MATCH_DEFAULT_ONLY))).thenReturn(resolveInfo);
+        when(mPackageManager.queryIntentActivities(any(Intent.class), anyInt()))
+                .thenReturn(Arrays.asList(resolveInfo));
 
         Map<String, byte[]> trustCertInfo = new HashMap<>();
         trustCertInfo.put("https://testurl.com", "testData".getBytes());
@@ -509,10 +505,10 @@ public class PasspointProvisionerTest {
             }
         }).when(mPasspointManager).getANQPElements(any(ScanResult.class));
         OsuProviderInfo info = OsuProviderInfoTestUtil.TEST_OSU_PROVIDER_INFO;
-        mOsuProvider = new OsuProvider(null, info.getFriendlyNames(),
+        mOsuProvider = new OsuProvider((WifiSsid) null, info.getFriendlyNames(),
                 info.getServiceDescription(),
                 info.getServerUri(),
-                info.getNetworkAccessIdentifier(), info.getMethodList(), null);
+                info.getNetworkAccessIdentifier(), info.getMethodList());
 
         stopAfterStep(STEP_INIT);
         ArgumentCaptor<WifiSsid> wifiSsidArgumentCaptor = ArgumentCaptor.forClass(WifiSsid.class);
@@ -631,7 +627,7 @@ public class PasspointProvisionerTest {
         verifyNoMoreInteractions(mCallback);
     }
 
-   /**
+    /**
      * Verifies that the right provisioning callbacks are invoked as the provisioner connects
      * to OSU AP and OSU server and that invalid server URL generates the right error callback.
      */
@@ -728,8 +724,8 @@ public class PasspointProvisionerTest {
      */
     @Test
     public void verifyProviderVerificationFailure() throws RemoteException {
-        when(mOsuServerConnection.validateProvider(any(Locale.class),
-                any(String.class))).thenReturn(false);
+        when(mOsuServerConnection.validateProvider(
+                anyMap())).thenReturn(false);
         stopAfterStep(STEP_SERVER_CONNECT);
 
         // Wait for OSU server validation callback
@@ -781,8 +777,7 @@ public class PasspointProvisionerTest {
     @Test
     public void verifyNoOsuActivityFoundFailure() throws RemoteException {
         // There is no activity found for the intent
-        when(mPackageManager.resolveActivity(any(Intent.class),
-                eq(PackageManager.MATCH_DEFAULT_ONLY))).thenReturn(null);
+        when(mPackageManager.queryIntentActivities(any(Intent.class), anyInt())).thenReturn(null);
         stopAfterStep(STEP_SERVER_CONNECT);
 
         // Server validation passed

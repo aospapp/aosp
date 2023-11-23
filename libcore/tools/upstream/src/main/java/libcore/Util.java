@@ -26,6 +26,7 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,6 +35,23 @@ import java.util.List;
  */
 class Util {
     private Util() {
+    }
+
+    public static Path pathFromEnvOrThrow(String name) {
+        String envValue = getEnvOrThrow(name);
+        Path result = Paths.get(envValue);
+        if (!result.toFile().exists()) {
+            throw new IllegalArgumentException("Path not found: " + result);
+        }
+        return result;
+    }
+
+    private static String getEnvOrThrow(String name) {
+        String result = System.getenv(name);
+        if (result == null) {
+            throw new IllegalStateException("Environment variable undefined: " + name);
+        }
+        return result;
     }
 
     public static Lines readLines(Reader reader) throws IOException {

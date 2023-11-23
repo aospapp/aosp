@@ -1,5 +1,4 @@
 .*\.pyc
-*.rej
 html/
 mock\.egg-info/
 mock\.wpu
@@ -13,8 +12,6 @@ runtox
 *.pyc
 .testrepository
 .*.swp
-AUTHORS
-ChangeLog
-.eggs
-README.saved
 README.html
+.coverage
+.coverage.*

@@ -143,6 +143,9 @@ public class ViewNodeTest {
 
         assertThrows(NullPointerException.class, () -> structure.setTextIdEntry(null));
         assertThat(node.getTextIdEntry()).isNull();
+
+        assertThrows(NullPointerException.class, () -> structure.setHintIdEntry(null));
+        assertThat(node.getHintIdEntry()).isNull();
     }
 
     @Test
@@ -363,6 +366,7 @@ public class ViewNodeTest {
         structure.setText("IGNORE ME!");
         structure.setText("Now we're talking!", 4, 8);
         structure.setHint("Soylent Green is SPOILER ALERT");
+        structure.setHintIdEntry("HINT ID ENTRY");
         structure.setTextStyle(15.0f, 16, 23, 42);
         structure.setTextLines(new int[] {4,  8, 15} , new int[] {16, 23, 42});
         return structure;
@@ -377,6 +381,7 @@ public class ViewNodeTest {
         assertThat(node.getTextSelectionStart()).isEqualTo(4);
         assertThat(node.getTextSelectionEnd()).isEqualTo(8);
         assertThat(node.getHint()).isEqualTo("Soylent Green is SPOILER ALERT");
+        assertThat(node.getHintIdEntry()).isEqualTo("HINT ID ENTRY");
         assertThat(node.getTextSize()).isWithin(1.0e-10f).of(15.0f);
         assertThat(node.getTextColor()).isEqualTo(16);
         assertThat(node.getTextBackgroundColor()).isEqualTo(23);

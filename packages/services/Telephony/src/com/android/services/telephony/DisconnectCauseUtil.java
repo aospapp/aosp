@@ -18,10 +18,15 @@ package com.android.services.telephony;
 
 import android.content.Context;
 import android.media.ToneGenerator;
+import android.os.PersistableBundle;
+import android.provider.Settings;
 import android.telecom.DisconnectCause;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 
 import com.android.internal.telephony.CallFailCause;
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.ImsUtil;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.common.R;
@@ -102,7 +107,7 @@ public class DisconnectCauseUtil {
                         telephonyPerciseDisconnectCause),
                 toTelecomDisconnectCauseDescription(context, telephonyDisconnectCause, phoneId),
                 toTelecomDisconnectReason(context,telephonyDisconnectCause, reason, phoneId),
-                toTelecomDisconnectCauseTone(telephonyDisconnectCause));
+                toTelecomDisconnectCauseTone(telephonyDisconnectCause, phoneId));
     }
 
     /**
@@ -113,6 +118,8 @@ public class DisconnectCauseUtil {
     private static int toTelecomDisconnectCauseCode(int telephonyDisconnectCause) {
         switch (telephonyDisconnectCause) {
             case android.telephony.DisconnectCause.LOCAL:
+            //  The call was still disconnected locally, so this is not an error condition.
+            case android.telephony.DisconnectCause.OUTGOING_EMERGENCY_CALL_PLACED:
                 return DisconnectCause.LOCAL;
 
             case android.telephony.DisconnectCause.NORMAL:
@@ -166,6 +173,8 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.POWER_OFF:
             case android.telephony.DisconnectCause.LOW_BATTERY:
             case android.telephony.DisconnectCause.DIAL_LOW_BATTERY:
+            case android.telephony.DisconnectCause.EMERGENCY_CALL_OVER_WFC_NOT_AVAILABLE:
+            case android.telephony.DisconnectCause.WFC_SERVICE_NOT_AVAILABLE_IN_THIS_LOCATION:
             case android.telephony.DisconnectCause.SERVER_ERROR:
             case android.telephony.DisconnectCause.SERVER_UNREACHABLE:
             case android.telephony.DisconnectCause.TIMED_OUT:
@@ -193,6 +202,7 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.WIFI_LOST:
             case android.telephony.DisconnectCause.IMS_ACCESS_BLOCKED:
             case android.telephony.DisconnectCause.IMS_SIP_ALTERNATE_EMERGENCY_CALL:
+            case android.telephony.DisconnectCause.MEDIA_TIMEOUT:
                 return DisconnectCause.ERROR;
 
             case android.telephony.DisconnectCause.DIALED_MMI:
@@ -338,6 +348,9 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.DATA_LIMIT_REACHED:
                 resourceId = R.string.callFailed_data_limit_reached;
                 break;
+            case android.telephony.DisconnectCause.WIFI_LOST:
+                resourceId = R.string.callFailed_wifi_lost;
+                break;
             case android.telephony.DisconnectCause.ALREADY_DIALING:
                 resourceId = R.string.callFailed_already_dialing;
                 break;
@@ -351,10 +364,21 @@ public class DisconnectCauseUtil {
                 resourceId = R.string.callFailed_too_many_calls;
                 break;
             case android.telephony.DisconnectCause.IMS_SIP_ALTERNATE_EMERGENCY_CALL:
-                resourceId = R.string.incall_error_power_off;
+                int airplaneMode = Settings.Global.getInt(context.getContentResolver(),
+                        Settings.Global.AIRPLANE_MODE_ON, 0);
+                resourceId = R.string.incall_error_call_failed;
+                if (airplaneMode != 0) {
+                    resourceId = R.string.incall_error_power_off;
+                }
                 break;
             case android.telephony.DisconnectCause.OTASP_PROVISIONING_IN_PROCESS:
                 resourceId = R.string.callFailed_otasp_provisioning_in_process;
+                break;
+            case android.telephony.DisconnectCause.EMERGENCY_CALL_OVER_WFC_NOT_AVAILABLE:
+                resourceId = R.string.callFailed_emergency_call_over_wfc_not_available;
+                break;
+            case android.telephony.DisconnectCause.WFC_SERVICE_NOT_AVAILABLE_IN_THIS_LOCATION:
+                resourceId = R.string.callFailed_wfc_service_not_available_in_this_location;
                 break;
             default:
                 break;
@@ -738,10 +762,21 @@ public class DisconnectCauseUtil {
                 resourceId = R.string.callFailed_too_many_calls;
                 break;
             case android.telephony.DisconnectCause.IMS_SIP_ALTERNATE_EMERGENCY_CALL:
-                resourceId = R.string.incall_error_power_off;
+                int airplaneMode = Settings.Global.getInt(context.getContentResolver(),
+                        Settings.Global.AIRPLANE_MODE_ON, 0);
+                resourceId = R.string.incall_error_call_failed;
+                if (airplaneMode != 0) {
+                    resourceId = R.string.incall_error_power_off;
+                }
                 break;
             case android.telephony.DisconnectCause.OTASP_PROVISIONING_IN_PROCESS:
                 resourceId = R.string.callFailed_otasp_provisioning_in_process;
+                break;
+            case android.telephony.DisconnectCause.EMERGENCY_CALL_OVER_WFC_NOT_AVAILABLE:
+                resourceId = R.string.callFailed_emergency_call_over_wfc_not_available;
+                break;
+            case android.telephony.DisconnectCause.WFC_SERVICE_NOT_AVAILABLE_IN_THIS_LOCATION:
+                resourceId = R.string.callFailed_wfc_service_not_available_in_this_location;
                 break;
             default:
                 break;
@@ -778,6 +813,8 @@ public class DisconnectCauseUtil {
                 break;
             case android.telephony.DisconnectCause.IMS_ACCESS_BLOCKED:
                 return DisconnectCause.REASON_IMS_ACCESS_BLOCKED;
+            case android.telephony.DisconnectCause.OUTGOING_EMERGENCY_CALL_PLACED:
+                return DisconnectCause.REASON_EMERGENCY_CALL_PLACED;
         }
 
         // If no specific code-mapping found, then fall back to using the reason.
@@ -792,11 +829,22 @@ public class DisconnectCauseUtil {
     /**
      * Returns the tone to play for the disconnect cause, or UNKNOWN if none should be played.
      */
-    private static int toTelecomDisconnectCauseTone(int telephonyDisconnectCause) {
-        switch (telephonyDisconnectCause) {
-            case android.telephony.DisconnectCause.BUSY:
+    private static int toTelecomDisconnectCauseTone(int telephonyDisconnectCause, int phoneId) {
+        Phone phone = PhoneFactory.getPhone(phoneId);
+        PersistableBundle config;
+        if (phone != null) {
+            config = PhoneGlobals.getInstance().getCarrierConfigForSubId(phone.getSubId());
+        } else {
+            config = PhoneGlobals.getInstance().getCarrierConfig();
+        }
+        int[] busyToneArray = config.getIntArray(
+                CarrierConfigManager.KEY_DISCONNECT_CAUSE_PLAY_BUSYTONE_INT_ARRAY);
+        for (int busyTone : busyToneArray) {
+            if (busyTone == telephonyDisconnectCause) {
                 return ToneGenerator.TONE_SUP_BUSY;
-
+            }
+        }
+        switch (telephonyDisconnectCause) {
             case android.telephony.DisconnectCause.CONGESTION:
                 return ToneGenerator.TONE_SUP_CONGESTION;
 
@@ -813,17 +861,18 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.UNOBTAINABLE_NUMBER:
                 return ToneGenerator.TONE_SUP_ERROR;
 
+            case android.telephony.DisconnectCause.IMS_MERGED_SUCCESSFULLY:
+                // Do not play any tones if disconnected because of a successful merge.
+                return -1;
+
             case android.telephony.DisconnectCause.ERROR_UNSPECIFIED:
             case android.telephony.DisconnectCause.LOCAL:
             case android.telephony.DisconnectCause.NORMAL:
             case android.telephony.DisconnectCause.NORMAL_UNSPECIFIED:
             case android.telephony.DisconnectCause.VIDEO_CALL_NOT_ALLOWED_WHILE_TTY_ENABLED:
-                return ToneGenerator.TONE_PROP_PROMPT;
-
-            case android.telephony.DisconnectCause.IMS_MERGED_SUCCESSFULLY:
-                // Do not play any tones if disconnected because of a successful merge.
+            case android.telephony.DisconnectCause.WIFI_LOST:
             default:
-                return ToneGenerator.TONE_UNKNOWN;
+                return ToneGenerator.TONE_PROP_PROMPT;
         }
     }
 }

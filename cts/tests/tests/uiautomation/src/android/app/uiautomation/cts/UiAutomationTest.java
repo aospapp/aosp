@@ -17,13 +17,13 @@
 package android.app.uiautomation.cts;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.Manifest;
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -71,8 +71,8 @@ public class UiAutomationTest {
     private static final int TIMEOUT_FOR_SERVICE_ENABLE = 10000; // millis; 10s
 
     @Rule
-    public final UiAutomationLogRule mLogRule = new UiAutomationLogRule(
-            UiAutomationTest.class.getSimpleName());
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
 
     @Before
     public void setUp() throws Exception {
@@ -99,7 +99,7 @@ public class UiAutomationTest {
         }
         try {
             packageManager.grantRuntimePermission(context.getPackageName(),
-                    Manifest.permission.CAMERA, Process.myUserHandle());
+                    Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle());
             fail("Should not be able to access APIs protected by a permission apps cannot get");
         } catch (SecurityException e) {
             /* expected */
@@ -113,17 +113,17 @@ public class UiAutomationTest {
             activityManager.getPackageImportance("foo.bar.baz");
 
             // Grant ourselves a runtime permission (was granted at install)
-            assertSame(packageManager.checkPermission(Manifest.permission.CAMERA,
+            assertSame(packageManager.checkPermission(Manifest.permission.ANSWER_PHONE_CALLS,
                     context.getPackageName()), PackageManager.PERMISSION_DENIED);
             packageManager.grantRuntimePermission(context.getPackageName(),
-                    Manifest.permission.CAMERA, Process.myUserHandle());
+                    Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle());
         } catch (SecurityException e) {
             fail("Should be able to access APIs protected by a permission apps cannot get");
         } finally {
             getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
         }
         // Make sure the grant worked
-        assertSame(packageManager.checkPermission(Manifest.permission.CAMERA,
+        assertSame(packageManager.checkPermission(Manifest.permission.ANSWER_PHONE_CALLS,
                 context.getPackageName()), PackageManager.PERMISSION_GRANTED);
 
 
@@ -136,7 +136,7 @@ public class UiAutomationTest {
         }
         try {
             packageManager.revokeRuntimePermission(context.getPackageName(),
-                    Manifest.permission.CAMERA, Process.myUserHandle());
+                    Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle());
             fail("Should not be able to access APIs protected by a permission apps cannot get");
         } catch (SecurityException e) {
             /* expected */

@@ -25,12 +25,22 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
+import com.android.tradefed.testtype.ITestInformationReceiver;
 import com.android.tradefed.util.FileUtil;
+
+import org.junit.Assert;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileFilter;
@@ -53,18 +63,12 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlPullParserFactory;
 
 /**
  * Test that verifies video bitstreams decode pixel perfectly
  */
 @OptionClass(alias="media-bitstreams-test")
-public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiReceiver {
+public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiReceiver, ITestInformationReceiver {
 
     @Option(name = MediaBitstreams.OPT_HOST_BITSTREAMS_PATH,
             description = "Absolute path of Ittiam bitstreams (host)",
@@ -132,6 +136,7 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
 
     private IAbi mAbi;
     private ITestDevice mDevice;
+    private TestInformation mTestInfo;
 
     static File getDefaultBitstreamsDir() {
         File mediaDir = MediaPreparer.getDefaultMediaDir();
@@ -237,6 +242,16 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
     @Override
     public ITestDevice getDevice() {
         return mDevice;
+    }
+
+    @Override
+    public void setTestInformation(TestInformation testInformation) {
+        mTestInfo = testInformation;
+    }
+
+    @Override
+    public TestInformation getTestInformation() {
+        return mTestInfo;
     }
 
     /*
@@ -453,6 +468,7 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
     public void testGetBitstreamsFormats() throws DeviceNotAvailableException, IOException {
         ReportProcessor processor = new ProcessBitstreamsFormats();
         processor.processDeviceReport(
+                getTestInformation(),
                 getDevice(),
                 getCurrentMethod(),
                 MediaBitstreams.KEY_BITSTREAMS_FORMATS_XML);
@@ -497,6 +513,7 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
         SupportedBitstreamsProcessor preparer;
         preparer = new SupportedBitstreamsProcessor(prefix, mDebugTargetDevice);
         preparer.processDeviceReport(
+                getTestInformation(),
                 device,
                 MediaBitstreams.K_TEST_GET_SUPPORTED_BITSTREAMS,
                 MediaBitstreams.KEY_SUPPORTED_BITSTREAMS_TXT);
@@ -547,6 +564,7 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
                 ReportProcessor processor;
                 processor = new ProcessBitstreamsValidation(toPush, curMethod);
                 processor.processDeviceReport(
+                        getTestInformation(),
                         device,
                         curMethod,
                         MediaBitstreams.KEY_BITSTREAMS_VALIDATION_TXT);

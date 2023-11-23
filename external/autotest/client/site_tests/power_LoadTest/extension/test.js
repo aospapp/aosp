@@ -10,12 +10,14 @@ var log_lines = [];
 var error_codes = {}; //for each active tabId
 var page_timestamps = [];
 var page_timestamps_recorder = {};
-var unique_url_salt = 1;
+var keys_values = [];
 
 function setupTest() {
   //adding these listeners to track request failure codes
   chrome.webRequest.onCompleted.addListener(capture_completed_status,
                                             {urls: ["<all_urls>"]});
+  task_monitor.bind();
+
   chrome.windows.getAll(null, function(windows) {
     preexisting_windows = windows;
     for (var i = 0; i < tasks.length; i++) {
@@ -25,6 +27,7 @@ function setupTest() {
     log_lines = [];
     page_timestamps = [];
     page_timestamps_recorder = {};
+    keys_values = [];
     record_log_entry(dateToString(new Date()) + " Loop started");
     setTimeout(send_summary, end);
   });
@@ -91,7 +94,7 @@ function cycle_navigate(cycle) {
   cycle_tabs[cycle.id] = cycle;
   var url = cycle.urls[cycle.idx];
   // Resetting the error codes.
-  // TODO(coconutruben) Verify if reseeting here might give us
+  // TODO(coconutruben) Verify if reseting here might give us
   // garbage data since some requests/responses might still come
   // in before we update the tab, but we'll register them as
   // information about the subsequent url
@@ -167,7 +170,7 @@ function launch_task(task) {
         setTimeout(function(win_id) {
           record_end_browse_time_for_window(win_id);
           chrome.windows.remove(win_id);
-        }, task.duration / time_ratio, win.id);
+        }, (task.duration / time_ratio), win.id);
       });
     });
   } else if (task.type == 'cycle' && task.urls) {
@@ -230,25 +233,22 @@ function record_log_entry(entry) {
   log_lines.push(entry);
 }
 
+function record_key_values(dictionary) {
+  keys_values.push(dictionary);
+}
+
 function send_log_entries() {
   var post = [];
-  log_lines.forEach(function (item, index, array) {
+  log_lines.forEach(function (item, index) {
     var entry = encodeURIComponent(item);
-    post.push('url'+ index + '=' + entry);
+    post.push('log'+ index + '=' + entry);
   });
 
   var log_url = 'http://localhost:8001/log';
-  //  TODO(coconutruben): code-snippet below is shared
-  //  across record_log_entry and send_keyvals. Consider
-  //  pull into helper if we use more urls.
-  var req = new XMLHttpRequest();
-  req.open('POST', log_url, true);
-  req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-  req.send(post.join("&"));
-  console.log(post.join("&"));
+  send_post_data(post, log_url)
 }
 
-function send_keyvals() {
+function send_status() {
   var post = ["status=good"];
 
   for (var name in cycles) {
@@ -260,33 +260,42 @@ function send_keyvals() {
   chrome.runtime.onMessage.removeListener(testListener);
 
   var status_url = 'http://localhost:8001/status';
-  var req = new XMLHttpRequest();
-  req.open('POST', status_url, true);
-  req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-  req.send(post.join("&"));
-  console.log(post.join("&"));
+  send_post_data(post, status_url)
 }
 
 function send_raw_page_time_info() {
   var post = [];
-  page_timestamps.forEach(function (item) {
-    var unique_url = (unique_url_salt++) + item.url;
-    var key = encodeURIComponent(unique_url);
-    post.push(key + "=" + JSON.stringify(item));
+  page_timestamps.forEach(function (item, index) {
+    post.push('page_time_data'+ index + "=" + JSON.stringify(item));
   })
 
   var pagetime_info_url = 'http://localhost:8001/pagetime';
+  send_post_data(post, pagetime_info_url)
+}
+
+function send_key_values() {
+  var post = [];
+  keys_values.forEach(function (item, index) {
+    post.push("keyval" + index + "=" + JSON.stringify(item));
+  })
+  var key_values_info_url = 'http://localhost:8001/keyvalues';
+  send_post_data(post, key_values_info_url)
+}
+
+function send_post_data(post, url) {
   var req = new XMLHttpRequest();
-  req.open('POST', pagetime_info_url, true);
+  req.open('POST', url, true);
   req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
   req.send(post.join("&"));
   console.log(post.join("&"));
 }
 
 function send_summary() {
-  send_log_entries();
   send_raw_page_time_info();
-  send_keyvals();
+  task_monitor.unbind();
+  send_key_values();
+  send_status();
+  send_log_entries();
 }
 
 function startTest() {

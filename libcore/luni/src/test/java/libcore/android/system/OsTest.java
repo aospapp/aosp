@@ -56,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import junit.framework.TestCase;
 
 import libcore.io.IoUtils;
+import libcore.testing.io.TestIoUtils;
 
 import static android.system.OsConstants.*;
 
@@ -81,8 +82,47 @@ public class OsTest extends TestCase {
             int flags = Os.fcntlVoid(fis.getFD(), F_GETFD);
             assertTrue((flags & FD_CLOEXEC) != 0);
         } finally {
-            IoUtils.closeQuietly(fis);
+            TestIoUtils.closeQuietly(fis);
             f.delete();
+        }
+    }
+
+    public void testFcntlInt_udpSocket() throws Exception {
+        final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
+        try {
+            assertEquals(0, (Os.fcntlVoid(fd, F_GETFL) & O_NONBLOCK));
+
+            // Verify that we can set file descriptor flags on sockets
+            Os.fcntlInt(fd, F_SETFL, SOCK_DGRAM | O_NONBLOCK);
+            assertTrue((Os.fcntlVoid(fd, F_GETFL) & O_NONBLOCK) != 0);
+
+            // Check that we can turn it off also.
+            Os.fcntlInt(fd, F_SETFL, SOCK_DGRAM);
+            assertEquals(0, (Os.fcntlVoid(fd, F_GETFL) & O_NONBLOCK));
+        } finally {
+            Os.close(fd);
+        }
+    }
+
+    public void testFcntlInt_invalidCmd() throws Exception {
+        final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
+        try {
+            final int unknownCmd = -1;
+            Os.fcntlInt(fd, unknownCmd, 0);
+            fail("Expected failure due to invalid cmd");
+        } catch (ErrnoException expected) {
+            assertEquals(EINVAL, expected.errno);
+        } finally {
+            Os.close(fd);
+        }
+    }
+
+    public void testFcntlInt_nullFd() throws Exception {
+        try {
+            Os.fcntlInt(null, F_SETFL, O_NONBLOCK);
+            fail("Expected failure due to null file descriptor");
+        } catch (ErrnoException expected) {
+            assertEquals(EBADF, expected.errno);
         }
     }
 
@@ -537,10 +577,14 @@ public class OsTest extends TestCase {
 
     public void test_NetlinkSocket() throws Exception {
         FileDescriptor nlSocket = Os.socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-        Os.bind(nlSocket, new NetlinkSocketAddress());
-        NetlinkSocketAddress address = (NetlinkSocketAddress) Os.getsockname(nlSocket);
-        assertTrue(address.getPortId() > 0);
-        assertEquals(0, address.getGroupsMask());
+        try {
+            Os.bind(nlSocket, new NetlinkSocketAddress());
+            // Non-system processes should not be allowed to bind() to NETLINK_ROUTE sockets.
+            // http://b/141455849
+            fail("bind() on NETLINK_ROUTE socket succeeded");
+        } catch (ErrnoException expectedException) {
+            assertEquals(expectedException.errno, EACCES);
+        }
 
         NetlinkSocketAddress nlKernel = new NetlinkSocketAddress();
         Os.connect(nlSocket, nlKernel);
@@ -550,14 +594,18 @@ public class OsTest extends TestCase {
         Os.close(nlSocket);
     }
 
+    // This test is excluded from CTS via the knownfailures.txt because it requires extra
+    // permissions not available in CTS. To run it you have to use an -eng build and use a tool like
+    // vogar that runs the Android runtime as a privileged user.
     public void test_PacketSocketAddress() throws Exception {
         NetworkInterface lo = NetworkInterface.getByName("lo");
         FileDescriptor fd = Os.socket(AF_PACKET, SOCK_DGRAM, ETH_P_IPV6);
-        PacketSocketAddress addr = new PacketSocketAddress((short) ETH_P_IPV6, lo.getIndex());
+        PacketSocketAddress addr =
+                new PacketSocketAddress(ETH_P_IPV6, lo.getIndex(), null /* sll_addr */);
         Os.bind(fd, addr);
 
         PacketSocketAddress bound = (PacketSocketAddress) Os.getsockname(fd);
-        assertEquals((short) ETH_P_IPV6, bound.sll_protocol);  // ETH_P_IPV6 is an int.
+        assertEquals(ETH_P_IPV6, bound.sll_protocol);
         assertEquals(lo.getIndex(), bound.sll_ifindex);
         assertEquals(ARPHRD_LOOPBACK, bound.sll_hatype);
         assertEquals(0, bound.sll_pkttype);
@@ -568,6 +616,57 @@ public class OsTest extends TestCase {
         for (int i = 0; i < 6; i++) {
             assertEquals(0, bound.sll_addr[i]);
         }
+
+        // The following checks that the packet socket address was constructed correctly in a form
+        // that the kernel understands. If the address is correct, the bind should result in a
+        // socket that is listening only for IPv6 packets, and only on loopback.
+
+        // Send an IPv4 packet on loopback.
+        // We send ourselves an IPv4 packet first. If we don't receive it, that (with high
+        // probability) ensures that the packet socket does not see IPv4 packets.
+        try (DatagramSocket s = new DatagramSocket()) {
+            byte[] packet = new byte[64];
+            s.send(new DatagramPacket(packet, 0, packet.length, Inet4Address.LOOPBACK,
+                    53 /* arbitrary port */));
+        }
+
+        // Send an IPv6 packet on loopback.
+        // Sending ourselves an IPv6 packet should cause the socket to receive a packet.
+        // The idea is that if the code gets sll_protocol wrong, then the packet socket will receive
+        // no packets and the test will fail.
+        try (DatagramSocket s = new DatagramSocket()) {
+            byte[] packet = new byte[64];
+            s.send(new DatagramPacket(packet, 0, packet.length, Inet6Address.LOOPBACK,
+                    53 /* arbitrary port */));
+        }
+
+        // Check that the socket associated with fd has received an IPv6 packet, not necessarily the
+        // UDP one we sent above. IPv6 packets always begin with the nibble 6. If we get anything
+        // else it means we're catching non-IPv6 or non-loopback packets unexpectedly. Since the
+        // socket is not discriminating it may catch packets unrelated to this test from things
+        // happening on the device at the same time, so we can't assert too much about the received
+        // packet, i.e. no length / content check.
+        {
+            byte[] receivedPacket = new byte[4096];
+            Os.read(fd, receivedPacket, 0, receivedPacket.length);
+            assertEquals(6, (receivedPacket[0] & 0xf0) >> 4);
+
+            byte[] sourceAddress = getIPv6AddressBytesAtOffset(receivedPacket, 8);
+            assertArrayEquals(Inet6Address.LOOPBACK.getAddress(), sourceAddress);
+
+            byte[] destAddress = getIPv6AddressBytesAtOffset(receivedPacket, 24);
+            assertArrayEquals(Inet6Address.LOOPBACK.getAddress(), destAddress);
+        }
+
+        Os.close(fd);
+    }
+
+    private static byte[] getIPv6AddressBytesAtOffset(byte[] packet, int offsetIndex) {
+        byte[] address = new byte[16];
+        for (int i = 0; i < 16; i++) {
+            address[i] = packet[i + offsetIndex];
+        }
+        return address;
     }
 
     public void test_byteBufferPositions_sendto_recvfrom_af_inet() throws Exception {
@@ -885,7 +984,7 @@ public class OsTest extends TestCase {
 
         // ENOTSUP, Extended attributes are not supported by the filesystem, or are disabled.
         // Since kernel version 4.9 (or some other version after 4.4), *xattr() methods
-        // may set errno to EACCESS instead. This behavior change is likely related to
+        // may set errno to EACCES instead. This behavior change is likely related to
         // https://patchwork.kernel.org/patch/9294421/ which reimplemented getxattr, setxattr,
         // and removexattr on top of generic handlers.
         final String path = "/proc/self/stat";
@@ -1133,7 +1232,7 @@ public class OsTest extends TestCase {
     }
 
     public void test_readlink() throws Exception {
-        File path = new File(IoUtils.createTemporaryDirectory("test_readlink"), "symlink");
+        File path = new File(TestIoUtils.createTemporaryDirectory("test_readlink"), "symlink");
 
         // ext2 and ext4 have PAGE_SIZE limits on symlink targets.
         // If file encryption is enabled, there's extra overhead to store the
@@ -1251,7 +1350,7 @@ public class OsTest extends TestCase {
                 android.system.Os.sendfile(outFd, inFd, offset, maxBytes);
                 assertEquals(expectedEndOffset, offset == null ? null : offset.value);
             }
-            return IoUtils.readFileAsString(out.getPath());
+            return TestIoUtils.readFileAsString(out.getPath());
         } finally {
             out.delete();
         }
@@ -1307,7 +1406,7 @@ public class OsTest extends TestCase {
             assertEquals(5, offOut.value);
         }
 
-        assertEquals("oobar", IoUtils.readFileAsString(out.getPath()));
+        assertEquals("oobar", TestIoUtils.readFileAsString(out.getPath()));
 
         Os.close(pipe[0]);
         Os.close(pipe[1]);
@@ -1413,5 +1512,84 @@ public class OsTest extends TestCase {
         String srcAddress = "10.1";
         InetAddress inetAddress = Os.inet_pton(AF_INET, srcAddress);
         assertNull(inetAddress);
+    }
+
+    /**
+     * Verifies the {@link OsConstants#MAP_ANONYMOUS}.
+     */
+    public void testMapAnonymous() throws Exception {
+        final long size = 4096;
+        final long address = Os.mmap(0, size, PROT_READ,
+                MAP_PRIVATE | MAP_ANONYMOUS, new FileDescriptor(), 0);
+        assertTrue(address > 0);
+        Os.munmap(address, size);
+    }
+
+    public void testMemfdCreate() throws Exception {
+        FileDescriptor fd = null;
+        try {
+            fd = Os.memfd_create("test_memfd", 0);
+            assertNotNull(fd);
+            assertTrue(fd.valid());
+
+            StructStat stat = Os.fstat(fd);
+            assertEquals(0, stat.st_size);
+
+            final byte[] expected = new byte[] {1, 2, 3, 4};
+            Os.write(fd, expected, 0, expected.length);
+            stat = Os.fstat(fd);
+            assertEquals(expected.length, stat.st_size);
+
+            byte[] actual = new byte[expected.length];
+            // should be seekable
+            Os.lseek(fd, 0, SEEK_SET);
+            Os.read(fd, actual, 0, actual.length);
+            assertArrayEquals(expected, actual);
+        } finally {
+            if (fd != null) {
+                Os.close(fd);
+                fd = null;
+            }
+        }
+    }
+
+    public void testMemfdCreateFlags() throws Exception {
+        FileDescriptor fd = null;
+
+        // test that MFD_CLOEXEC is obeyed
+        try {
+            fd = Os.memfd_create("test_memfd", 0);
+            assertNotNull(fd);
+            assertTrue(fd.valid());
+            int flags = Os.fcntlVoid(fd, F_GETFD);
+            assertTrue("Expected flags to not include " + FD_CLOEXEC + ", actual value: " + flags,
+                    0 == (flags & FD_CLOEXEC));
+        } finally {
+            if (fd != null) {
+                Os.close(fd);
+                fd = null;
+            }
+        }
+        try {
+            fd = Os.memfd_create("test_memfd", MFD_CLOEXEC);
+            assertNotNull(fd);
+            assertTrue(fd.valid());
+            int flags = Os.fcntlVoid(fd, F_GETFD);
+            assertTrue("Expected flags to include " + FD_CLOEXEC + ", actual value: " + flags,
+                    0 != (flags & FD_CLOEXEC));
+        } finally {
+            if (fd != null) {
+                Os.close(fd);
+                fd = null;
+            }
+        }
+    }
+
+    public void testMemfdCreateErrno() throws Exception {
+        expectException(() -> Os.memfd_create(null, 0), NullPointerException.class, null,
+                "memfd_create(null, 0)");
+
+        expectException(() -> Os.memfd_create("test_memfd", 0xffff), ErrnoException.class, EINVAL,
+                "memfd_create(\"test_memfd\", 0xffff)");
     }
 }

@@ -270,8 +270,6 @@ public class RemoteDevicesTest {
         when(mAdapterService.getState()).thenReturn(BluetoothAdapter.STATE_ON);
         mRemoteDevices.aclStateChangeCallback(0, Utils.getByteAddress(mDevice1),
                 AbstractionLayer.BT_ACL_STATE_DISCONNECTED);
-        verify(mAdapterService).getState();
-        verify(mAdapterService).getConnectionState(mDevice1);
         // Verify ACTION_ACL_DISCONNECTED and BATTERY_LEVEL_CHANGED intent are sent
         verify(mAdapterService, times(3)).sendBroadcast(mIntentArgument.capture(),
                 mStringArgument.capture());
@@ -294,8 +292,6 @@ public class RemoteDevicesTest {
                 mStringArgument.capture());
         verifyBatteryLevelChangedIntent(mDevice1, batteryLevel, mIntentArgument);
         Assert.assertEquals(AdapterService.BLUETOOTH_PERM, mStringArgument.getValue());
-
-        verifyNoMoreInteractions(mAdapterService);
     }
 
     @Test

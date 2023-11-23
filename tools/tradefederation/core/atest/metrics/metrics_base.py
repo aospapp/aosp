@@ -15,12 +15,16 @@
 """
 Metrics base class.
 """
+
+from __future__ import print_function
+
 import logging
 import random
+import socket
+import subprocess
 import time
 import uuid
 
-import atest_utils
 import asuite_metrics
 import constants
 
@@ -43,6 +47,42 @@ ATEST_LOG_SOURCE = {
     EXTERNAL_USER: 934
 }
 
+
+def get_user_type():
+    """Get user type.
+
+    Determine the internal user by passing at least one check:
+      - whose git mail domain is from google
+      - whose hostname is from google
+    Otherwise is external user.
+
+    Returns:
+        INTERNAL_USER if user is internal, EXTERNAL_USER otherwise.
+    """
+    try:
+        output = subprocess.check_output(['git', 'config', '--get', 'user.email'],
+                                         universal_newlines=True)
+        if output and output.strip().endswith(constants.INTERNAL_EMAIL):
+            return INTERNAL_USER
+    except OSError:
+        # OSError can be raised when running atest_unittests on a host
+        # without git being set up.
+        logging.debug('Unable to determine if this is an external run, git is '
+                      'not found.')
+    except subprocess.CalledProcessError:
+        logging.debug('Unable to determine if this is an external run, email '
+                      'is not found in git config.')
+    try:
+        hostname = socket.getfqdn()
+        if (hostname and
+                any([(x in hostname) for x in constants.INTERNAL_HOSTNAME])):
+            return INTERNAL_USER
+    except IOError:
+        logging.debug('Unable to determine if this is an external run, '
+                      'hostname is not found.')
+    return EXTERNAL_USER
+
+
 class MetricsBase(object):
     """Class for separating allowed fields and sending metric."""
 
@@ -53,8 +93,7 @@ class MetricsBase(object):
     #pylint: disable=broad-except
     except Exception:
         _user_key = asuite_metrics.DUMMY_UUID
-    _user_type = (EXTERNAL_USER if atest_utils.is_external_run()
-                  else INTERNAL_USER)
+    _user_type = get_user_type()
     _log_source = ATEST_LOG_SOURCE[_user_type]
     cc = clearcut_client.Clearcut(_log_source)
     tool_name = None

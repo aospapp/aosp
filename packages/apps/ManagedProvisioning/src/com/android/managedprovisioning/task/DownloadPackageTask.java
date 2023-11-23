@@ -15,6 +15,8 @@
  */
 package com.android.managedprovisioning.task;
 
+import static android.provider.Settings.Secure.MANAGED_PROVISIONING_DPC_DOWNLOADED;
+
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_DOWNLOAD_PACKAGE_TASK_MS;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
@@ -29,6 +31,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
@@ -110,6 +113,9 @@ public class DownloadPackageTask extends AbstractProvisioningTask {
             error(ERROR_OTHER);
             return;
         }
+
+        setDpcDownloadedSetting(mContext);
+
         mReceiver = createDownloadReceiver();
         // register the receiver on the worker thread to avoid threading issues with respect to
         // the location variable
@@ -142,6 +148,16 @@ public class DownloadPackageTask extends AbstractProvisioningTask {
         mDownloadId = mDownloadManager.enqueue(request);
     }
 
+    /**
+     * Set MANAGED_PROVISIONING_DPC_DOWNLOADED to 1, which will prevent restarting setup-wizard.
+     *
+     * <p>See b/132261064.
+     */
+    private static void setDpcDownloadedSetting(Context context) {
+        Settings.Secure.putInt(
+                context.getContentResolver(), MANAGED_PROVISIONING_DPC_DOWNLOADED, 1);
+    }
+
     @Override
     protected int getMetricsCategory() {
         return PROVISIONING_DOWNLOAD_PACKAGE_TASK_MS;
@@ -163,7 +179,8 @@ public class DownloadPackageTask extends AbstractProvisioningTask {
                             c.close();
                             onDownloadSuccess();
                         } else if (DownloadManager.STATUS_FAILED == c.getInt(columnIndex)) {
-                            int reason = c.getColumnIndex(DownloadManager.COLUMN_REASON);
+                            final int reason =
+                                    c.getInt(c.getColumnIndex(DownloadManager.COLUMN_REASON));
                             c.close();
                             onDownloadFail(reason);
                         }
@@ -194,9 +211,8 @@ public class DownloadPackageTask extends AbstractProvisioningTask {
     }
 
     private void onDownloadFail(int errorCode) {
-        ProvisionLogger.loge("Downloading package failed.");
-        ProvisionLogger.loge("COLUMN_REASON in DownloadManager response has value: "
-                + errorCode);
+        ProvisionLogger.loge("Downloading package failed (download id " + mDownloadId
+                + "). COLUMN_REASON in DownloadManager response has value: " + errorCode);
         error(ERROR_DOWNLOAD_FAILED);
     }
 

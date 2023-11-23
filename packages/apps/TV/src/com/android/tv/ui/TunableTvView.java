@@ -54,11 +54,13 @@ import android.view.View;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+
 import com.android.tv.InputSessionManager;
 import com.android.tv.InputSessionManager.TvViewSession;
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
+import com.android.tv.common.BuildConfig;
 import com.android.tv.common.CommonConstants;
 import com.android.tv.common.compat.TvInputConstantCompat;
 import com.android.tv.common.compat.TvViewCompat.TvInputCallbackCompat;
@@ -67,11 +69,11 @@ import com.android.tv.common.util.CommonUtils;
 import com.android.tv.common.util.Debug;
 import com.android.tv.common.util.DurationTimer;
 import com.android.tv.common.util.PermissionUtils;
-import com.android.tv.data.Program;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.data.StreamInfo;
 import com.android.tv.data.WatchedHistoryManager;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.features.TvFeatures;
 import com.android.tv.parental.ContentRatingsManager;
 import com.android.tv.parental.ParentalControlSettings;
@@ -81,6 +83,9 @@ import com.android.tv.util.NetworkUtils;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
 import com.android.tv.util.images.ImageLoader;
+
+import com.android.tv.common.flags.LegacyFlags;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
@@ -285,12 +290,12 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
                                         if (mVideoWidth <= 0 || mVideoHeight <= 0) {
                                             mVideoDisplayAspectRatio = 0.0f;
                                         } else {
-                                            float VideoPixelAspectRatio =
+                                            float videoPixelAspectRatio =
                                                     track.getVideoPixelAspectRatio();
-                                            mVideoDisplayAspectRatio =
-                                                    VideoPixelAspectRatio
-                                                            * mVideoWidth
-                                                            / mVideoHeight;
+                                            mVideoDisplayAspectRatio = (float) mVideoWidth
+                                                    / mVideoHeight;
+                                            mVideoDisplayAspectRatio *= videoPixelAspectRatio > 0 ?
+                                                    videoPixelAspectRatio : 1;
                                         }
                                     } else if (type == TvTrackInfo.TYPE_AUDIO) {
                                         mAudioChannelCount = track.getAudioChannelCount();
@@ -317,7 +322,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
                     if (DEBUG) Log.d(TAG, "onVideoAvailable: {inputId=" + inputId + "}");
                     Debug.getTimer(Debug.TAG_START_UP_TIMER)
                             .log(
-                                    "Start up of Live TV ends,"
+                                    "Start up of TV app ends,"
                                             + " TunableTvView.onVideoAvailable resets timer");
                     Debug.getTimer(Debug.TAG_START_UP_TIMER).reset();
                     Debug.removeTimer(Debug.TAG_START_UP_TIMER);
@@ -473,8 +478,12 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
     }
 
     public void initialize(
-            ProgramDataManager programDataManager, TvInputManagerHelper tvInputManagerHelper) {
+            ProgramDataManager programDataManager,
+            TvInputManagerHelper tvInputManagerHelper,
+            LegacyFlags mLegacyFlags) {
         mTvView = findViewById(R.id.tv_view);
+        mTvView.setUseSecureSurface(!BuildConfig.ENG && !mLegacyFlags.enableDeveloperFeatures());
+
         mProgramDataManager = programDataManager;
         mInputManagerHelper = tvInputManagerHelper;
         mContentRatingsManager = tvInputManagerHelper.getContentRatingsManager();
@@ -553,7 +562,9 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
     }
 
     public void setMain() {
-        mTvView.setMain();
+        if (PermissionUtils.hasChangeHdmiCecActiveSource(getContext())) {
+            mTvView.setMain();
+        }
     }
 
     public void setWatchedHistoryManager(WatchedHistoryManager watchedHistoryManager) {
@@ -653,16 +664,21 @@ public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvV
         // To reduce the IPCs, unregister the callback here and register it when necessary.
         mTvView.setTimeShiftPositionCallback(null);
         setTimeShiftAvailable(false);
-        if (needSurfaceSizeUpdate && mFixedSurfaceWidth > 0 && mFixedSurfaceHeight > 0) {
-            // When the input is changed, TvView recreates its SurfaceView internally.
-            // So we need to call SurfaceHolder.setFixedSize for the new SurfaceView.
-            getSurfaceView().getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
-        }
         mVideoUnavailableReason = TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING;
         if (mTvViewSession != null) {
             mTvViewSession.tune(channel, params, listener);
         } else {
             mTvView.tune(mInputInfo.getId(), mCurrentChannel.getUri(), params);
+        }
+        if (needSurfaceSizeUpdate && mFixedSurfaceWidth > 0 && mFixedSurfaceHeight > 0) {
+            // When the input is changed, TvView recreates its SurfaceView internally.
+            // So we need to call SurfaceHolder.setFixedSize for the new SurfaceView.
+            SurfaceView surfaceView = getSurfaceView();
+            if (surfaceView != null) {
+                surfaceView.getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
+            } else {
+                Log.w(TAG, "Failed to set fixed size for surface view: Null surface view");
+            }
         }
         updateBlockScreenAndMuting();
         if (mOnTuneListener != null) {

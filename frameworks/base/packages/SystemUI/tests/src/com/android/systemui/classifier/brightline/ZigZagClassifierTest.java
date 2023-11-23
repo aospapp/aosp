@@ -20,9 +20,10 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
 import android.testing.AndroidTestingRunner;
-import android.testing.TestableLooper;
 
 import androidx.test.filters.SmallTest;
+
+import com.android.systemui.util.DeviceConfigProxyFake;
 
 import org.junit.After;
 import org.junit.Before;
@@ -33,7 +34,6 @@ import java.util.Random;
 
 @SmallTest
 @RunWith(AndroidTestingRunner.class)
-@TestableLooper.RunWithLooper
 public class ZigZagClassifierTest extends ClassifierTest {
 
     private FalsingClassifier mClassifier;
@@ -41,7 +41,7 @@ public class ZigZagClassifierTest extends ClassifierTest {
     @Before
     public void setup() {
         super.setup();
-        mClassifier = new ZigZagClassifier(getDataProvider());
+        mClassifier = new ZigZagClassifier(getDataProvider(), new DeviceConfigProxyFake());
     }
 
     @After
@@ -133,8 +133,8 @@ public class ZigZagClassifierTest extends ClassifierTest {
         // This test looks just like testPass_horizontalZigZagVerticalStraight but with
         // a shorter y range, making it look more crooked.
         appendMoveEvent(0, 0);
-        appendMoveEvent(5, 10);
-        appendMoveEvent(-5, 20);
+        appendMoveEvent(6, 10);
+        appendMoveEvent(-6, 20);
         assertThat(mClassifier.isFalseTouch(), is(true));
     }
 

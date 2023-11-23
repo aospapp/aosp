@@ -36,12 +36,11 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
     default_timeout = 10
     scan_discovery_time = 5
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.droid_ad = self.android_devices[0]
         self.droid1_ad = self.android_devices[1]
 
-    def setup_class(self):
         return setup_multiple_devices_for_bt_test(self.android_devices)
 
     def setup_test(self):

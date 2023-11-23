@@ -17,7 +17,6 @@
 package android.graphics.cts;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -31,7 +30,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
 import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.Rect;
 import android.os.ParcelFileDescriptor;
@@ -40,6 +38,8 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.BitmapUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -124,9 +124,6 @@ public class BitmapRegionDecoderTest {
 
     // MSE margin for WebP Region-Decoding for 'Config.RGB_565' is little bigger.
     private static final int MSE_MARGIN_WEB_P_CONFIG_RGB_565 = 8;
-
-    private final int[] mExpectedColors = new int [TILE_SIZE * TILE_SIZE];
-    private final int[] mActualColors = new int [TILE_SIZE * TILE_SIZE];
 
     private ArrayList<File> mFilesCreated = new ArrayList<>(NAMES_TEMP_FILES.length);
 
@@ -426,7 +423,8 @@ public class BitmapRegionDecoderTest {
                             Rect crop = new Rect(0 ,0, cropWidth, cropHeight);
                             Bitmap reuseCropped = cropBitmap(reuseResult, crop);
                             Bitmap defaultCropped = cropBitmap(defaultResult, crop);
-                            compareBitmaps(reuseCropped, defaultCropped, 0, true);
+                            BitmapUtils.assertBitmapsMse(reuseCropped, defaultCropped, 0, true,
+                                    false);
                         }
                     }
                 }
@@ -684,7 +682,7 @@ public class BitmapRegionDecoderTest {
                 Rect expectedRect = new Rect(left, top, left + actual.getWidth(),
                         top + actual.getHeight());
                 expected = cropBitmap(wholeImage, expectedRect);
-                compareBitmaps(expected, actual, mseMargin, true);
+                BitmapUtils.assertBitmapsMse(expected, actual, mseMargin, true, false);
                 actual.recycle();
                 expected.recycle();
             }
@@ -743,56 +741,5 @@ public class BitmapRegionDecoderTest {
             throws IOException {
         File file = new File(path);
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
-    }
-
-
-    // Compare expected to actual to see if their diff is less then mseMargin.
-    // lessThanMargin is to indicate whether we expect the diff to be
-    // "less than" or "no less than".
-    private void compareBitmaps(Bitmap expected, Bitmap actual,
-            int mseMargin, boolean lessThanMargin) {
-        assertEquals("mismatching widths", expected.getWidth(),
-                actual.getWidth());
-        assertEquals("mismatching heights", expected.getHeight(),
-                actual.getHeight());
-
-        double mse = 0;
-        int width = expected.getWidth();
-        int height = expected.getHeight();
-        int[] expectedColors;
-        int[] actualColors;
-        if (width == TILE_SIZE && height == TILE_SIZE) {
-            expectedColors = mExpectedColors;
-            actualColors = mActualColors;
-        } else {
-            expectedColors = new int [width * height];
-            actualColors = new int [width * height];
-        }
-
-        expected.getPixels(expectedColors, 0, width, 0, 0, width, height);
-        actual.getPixels(actualColors, 0, width, 0, 0, width, height);
-
-        for (int row = 0; row < height; ++row) {
-            for (int col = 0; col < width; ++col) {
-                int idx = row * width + col;
-                mse += distance(expectedColors[idx], actualColors[idx]);
-            }
-        }
-        mse /= width * height;
-
-        if (lessThanMargin) {
-            assertTrue("MSE too large for normal case: " + mse,
-                    mse <= mseMargin);
-        } else {
-            assertFalse("MSE too small for abnormal case: " + mse,
-                    mse <= mseMargin);
-        }
-    }
-
-    private static double distance(int exp, int actual) {
-        int r = Color.red(actual) - Color.red(exp);
-        int g = Color.green(actual) - Color.green(exp);
-        int b = Color.blue(actual) - Color.blue(exp);
-        return r * r + g * g + b * b;
     }
 }

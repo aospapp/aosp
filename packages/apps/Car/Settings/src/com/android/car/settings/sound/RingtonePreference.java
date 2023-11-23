@@ -24,6 +24,8 @@ import android.util.AttributeSet;
 
 import androidx.preference.Preference;
 
+import com.android.car.ui.preference.CarUiPreference;
+
 /**
  * A {@link Preference} which extracts relevant ringtone attributes from XML. When used in
  * conjunction with {@link RingtonePreferenceController}, it can be used to select a default
@@ -32,7 +34,7 @@ import androidx.preference.Preference;
  * @attr ref android.R.styleable#RingtonePreference_ringtoneType
  * @attr ref android.R.styleable#RingtonePreference_showSilent
  */
-public class RingtonePreference extends Preference {
+public class RingtonePreference extends CarUiPreference {
 
     private boolean mShowSilent;
     private int mRingtoneType;

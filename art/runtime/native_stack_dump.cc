@@ -39,6 +39,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include "android-base/file.h"
 #include "android-base/stringprintf.h"
 #include "android-base/strings.h"
 
@@ -233,12 +234,17 @@ static void Addr2line(const std::string& map_src,
                       std::ostream& os,
                       const char* prefix,
                       std::unique_ptr<Addr2linePipe>* pipe /* inout */) {
-  DCHECK(pipe != nullptr);
-
-  if (map_src == "[vdso]" || android::base::EndsWith(map_src, ".vdex")) {
+  std::array<const char*, 3> kIgnoreSuffixes{ ".dex", ".jar", ".vdex" };
+  for (const char* ignore_suffix : kIgnoreSuffixes) {
+    if (android::base::EndsWith(map_src, ignore_suffix)) {
+      // Ignore file names that do not have map information addr2line can consume. e.g. vdex
+      // files are special frames injected for the interpreter so they don't have any line
+      // number information available.
+      return;
+    }
+  }
+  if (map_src == "[vdso]") {
     // addr2line will not work on the vdso.
-    // vdex files are special frames injected for the interpreter
-    // so they don't have any line number information available.
     return;
   }
 
@@ -410,44 +416,6 @@ void DumpNativeStack(std::ostream& os,
   }
 }
 
-void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool include_count) {
-  if (tid == GetTid()) {
-    // There's no point showing that we're reading our stack out of /proc!
-    return;
-  }
-
-  std::string kernel_stack_filename(StringPrintf("/proc/self/task/%d/stack", tid));
-  std::string kernel_stack;
-  if (!ReadFileToString(kernel_stack_filename, &kernel_stack)) {
-    os << prefix << "(couldn't read " << kernel_stack_filename << ")\n";
-    return;
-  }
-
-  std::vector<std::string> kernel_stack_frames;
-  Split(kernel_stack, '\n', &kernel_stack_frames);
-  if (kernel_stack_frames.empty()) {
-    os << prefix << "(" << kernel_stack_filename << " is empty)\n";
-    return;
-  }
-  // We skip the last stack frame because it's always equivalent to "[<ffffffff>] 0xffffffff",
-  // which looking at the source appears to be the kernel's way of saying "that's all, folks!".
-  kernel_stack_frames.pop_back();
-  for (size_t i = 0; i < kernel_stack_frames.size(); ++i) {
-    // Turn "[<ffffffff8109156d>] futex_wait_queue_me+0xcd/0x110"
-    // into "futex_wait_queue_me+0xcd/0x110".
-    const char* text = kernel_stack_frames[i].c_str();
-    const char* close_bracket = strchr(text, ']');
-    if (close_bracket != nullptr) {
-      text = close_bracket + 2;
-    }
-    os << prefix;
-    if (include_count) {
-      os << StringPrintf("#%02zd ", i);
-    }
-    os << text << std::endl;
-  }
-}
-
 #elif defined(__APPLE__)
 
 void DumpNativeStack(std::ostream& os ATTRIBUTE_UNUSED,
@@ -457,12 +425,6 @@ void DumpNativeStack(std::ostream& os ATTRIBUTE_UNUSED,
                      ArtMethod* current_method ATTRIBUTE_UNUSED,
                      void* ucontext_ptr ATTRIBUTE_UNUSED,
                      bool skip_frames ATTRIBUTE_UNUSED) {
-}
-
-void DumpKernelStack(std::ostream& os ATTRIBUTE_UNUSED,
-                     pid_t tid ATTRIBUTE_UNUSED,
-                     const char* prefix ATTRIBUTE_UNUSED,
-                     bool include_count ATTRIBUTE_UNUSED) {
 }
 
 #else

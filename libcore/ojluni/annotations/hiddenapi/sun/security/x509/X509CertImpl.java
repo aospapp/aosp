@@ -25,11 +25,6 @@
 
 package sun.security.x509;
 
-import java.security.*;
-import java.security.cert.*;
-import java.util.*;
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X509CertImpl extends java.security.cert.X509Certificate
         implements sun.security.util.DerEncoder {
@@ -38,17 +33,17 @@ public class X509CertImpl extends java.security.cert.X509Certificate
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertImpl(byte[] certData) throws java.security.cert.CertificateException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertImpl(sun.security.x509.X509CertInfo certInfo) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertImpl(sun.security.util.DerValue derVal)
             throws java.security.cert.CertificateException {
         throw new RuntimeException("Stub!");
@@ -72,7 +67,7 @@ public class X509CertImpl extends java.security.cert.X509Certificate
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getEncodedInternal() throws java.security.cert.CertificateEncodingException {
         throw new RuntimeException("Stub!");
     }
@@ -106,7 +101,7 @@ public class X509CertImpl extends java.security.cert.X509Certificate
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void sign(java.security.PrivateKey key, java.lang.String algorithm)
             throws java.security.cert.CertificateException, java.security.InvalidKeyException,
                     java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException,
@@ -134,7 +129,7 @@ public class X509CertImpl extends java.security.cert.X509Certificate
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.Object get(java.lang.String name)
             throws java.security.cert.CertificateParsingException {
         throw new RuntimeException("Stub!");
@@ -366,7 +361,7 @@ public class X509CertImpl extends java.security.cert.X509Certificate
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void parse(sun.security.util.DerValue val)
             throws java.security.cert.CertificateException, java.io.IOException {
         throw new RuntimeException("Stub!");
@@ -460,7 +455,7 @@ public class X509CertImpl extends java.security.cert.X509Certificate
 
     public static final java.lang.String VERSION = "x509.info.version.number";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected sun.security.x509.AlgorithmId algId;
+    @android.compat.annotation.UnsupportedAppUsage protected sun.security.x509.AlgorithmId algId;
 
     private java.util.Set<sun.security.x509.AccessDescription> authInfoAccess;
 
@@ -472,13 +467,13 @@ public class X509CertImpl extends java.security.cert.X509Certificate
 
     private java.util.Collection<java.util.List<?>> issuerAlternativeNames;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private boolean readOnly = false;
+    @android.compat.annotation.UnsupportedAppUsage private boolean readOnly = false;
 
     private static final long serialVersionUID = -3457612960190864406L; // 0xd0041754f90963eaL
 
-    @dalvik.annotation.compat.UnsupportedAppUsage protected byte[] signature;
+    @android.compat.annotation.UnsupportedAppUsage protected byte[] signature;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private byte[] signedCert;
+    @android.compat.annotation.UnsupportedAppUsage private byte[] signedCert;
 
     private java.util.Collection<java.util.List<?>> subjectAlternativeNames;
 

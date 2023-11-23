@@ -24,45 +24,51 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 
 public class AccessLocationOnCommand extends Service {
     // Longer than the STATE_SETTLE_TIME in AppOpsManager
     private static final long BACKGROUND_ACCESS_SETTLE_TIME = 11000;
 
-    private void getLocation() {
-        Criteria crit = new Criteria();
-        crit.setAccuracy(ACCURACY_FINE);
+    private IAccessLocationOnCommand.Stub mBinder = new IAccessLocationOnCommand.Stub() {
+        public void accessLocation() {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                Criteria crit = new Criteria();
+                crit.setAccuracy(ACCURACY_FINE);
 
-        getSystemService(LocationManager.class).requestSingleUpdate(crit, new LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-            }
+                AccessLocationOnCommand.this.getSystemService(LocationManager.class)
+                        .requestSingleUpdate(crit, new LocationListener() {
+                            @Override
+                            public void onLocationChanged(Location location) {
+                            }
 
-            @Override
-            public void onStatusChanged(String provider, int status, Bundle extras) {
-            }
+                            @Override
+                            public void onStatusChanged(String provider, int status,
+                                    Bundle extras) {
+                            }
 
-            @Override
-            public void onProviderEnabled(String provider) {
-            }
+                            @Override
+                            public void onProviderEnabled(String provider) {
+                            }
 
-            @Override
-            public void onProviderDisabled(String provider) {
-            }
-        }, null);
-    }
+                            @Override
+                            public void onProviderDisabled(String provider) {
+                            }
+                        }, null);
+            }, BACKGROUND_ACCESS_SETTLE_TIME);
+        }
+    };
 
     @Override
     public IBinder onBind(Intent intent) {
-        return new Binder();
+        return mBinder;
     }
 
     @Override
     public boolean onUnbind(Intent intent) {
-        return (new Handler()).postDelayed(this::getLocation, BACKGROUND_ACCESS_SETTLE_TIME);
+        return true;
     }
 }

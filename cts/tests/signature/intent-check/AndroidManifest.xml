@@ -18,9 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.signature.cts.intent">
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-    <application>
+    <application android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner"/>
     </application>
 

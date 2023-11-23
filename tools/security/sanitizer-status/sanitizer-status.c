@@ -20,6 +20,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <paths.h>
+#include <pthread.h>
 #include <pwd.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -33,7 +34,7 @@
 void test_crash_malloc() {
   volatile char* heap = malloc(32);
   heap[32] = heap[32];
-  printf("ASAN: Heap Test Failed\n");
+  printf("(HW)ASAN: Heap Test Failed\n");
 }
 
 // crashes if built with -fsanitize=address
@@ -41,7 +42,13 @@ void test_crash_stack() {
   volatile char stack[32];
   volatile char* p_stack = stack;
   p_stack[32] = p_stack[32];
-  printf("ASAN: Stack Test Failed\n");
+  printf("(HW)ASAN: Stack Test Failed\n");
+}
+
+void test_crash_pthread_mutex_unlock() {
+  volatile char* heap = malloc(32);
+  pthread_mutex_unlock((void*)&heap[32]);
+  printf("HWASAN: Libc Test Failed\n");
 }
 
 int data_asan_exists() {
@@ -91,6 +98,23 @@ int test_kasan() {
     return 1;
   }
   return 0;
+}
+
+// Number of iterations required to reliably guarantee a GWP-ASan crash.
+// GWP-ASan's sample rate is not truly nondeterministic, it initialises a
+// thread-local counter at 2*SampleRate, and decrements on each malloc(). Once
+// the counter reaches zero, we provide a sampled allocation. GWP-ASan's current
+// default sample rate is 1/5000.
+#define GWP_ASAN_ITERATIONS_TO_ENSURE_CRASH (0x10000)
+
+// crashes with GWP-ASan
+void test_crash_gwp_asan() {
+  for (unsigned i = 0; i < GWP_ASAN_ITERATIONS_TO_ENSURE_CRASH; ++i ) {
+    volatile char *x = malloc(1);
+    free((void*) x);
+    *x = 0;
+  }
+  printf("GWP-ASan: Use after Free Failed\n");
 }
 
 // executes a test that is expected to crash
@@ -143,7 +167,7 @@ int sanitizer_status(int argc, const char** argv) {
   if (test_everything || have_option("asan", argv, argc)) {
     int asan_failures = 0;
 
-#if !defined(ANDROID_SANITIZE_ADDRESS) && !defined(ANDROID_SANITIZE_HWADDRESS)
+#if !defined(ANDROID_SANITIZE_ADDRESS)
     asan_failures += 1;
     printf("ASAN: Compiler flags failed!\n");
 #endif
@@ -156,6 +180,24 @@ int sanitizer_status(int argc, const char** argv) {
       printf("ASAN: OK\n");
 
     failures += asan_failures;
+  }
+
+  if (test_everything || have_option("hwasan", argv, argc)) {
+    int hwasan_failures = 0;
+
+#if !defined(ANDROID_SANITIZE_HWADDRESS)
+    hwasan_failures += 1;
+    printf("HWASAN: Compiler flags failed!\n");
+#endif
+
+    hwasan_failures += test(test_crash_malloc);
+    hwasan_failures += test(test_crash_stack);
+    hwasan_failures += test(test_crash_pthread_mutex_unlock);
+
+    if (!hwasan_failures)
+      printf("HWASAN: OK\n");
+
+    failures += hwasan_failures;
   }
 
   if(test_everything || have_option("cov", argv, argc)) {
@@ -214,6 +256,17 @@ int sanitizer_status(int argc, const char** argv) {
       printf("UBSAN: OK\n");
 
     failures += ubsan_failures;
+  }
+
+  if (test_everything || have_option("gwp_asan", argv, argc)) {
+    int gwp_asan_failures = 0;
+
+    gwp_asan_failures += test(test_crash_gwp_asan);
+
+    if (!gwp_asan_failures)
+      printf("GWP-ASan: OK\n");
+
+    failures += gwp_asan_failures;
   }
 
   return failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS;

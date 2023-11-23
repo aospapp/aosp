@@ -50,7 +50,8 @@ typedef enum {
 typedef enum {
     WIFI_RTT_PREAMBLE_LEGACY = 0x1,
     WIFI_RTT_PREAMBLE_HT     = 0x2,
-    WIFI_RTT_PREAMBLE_VHT    = 0x4
+    WIFI_RTT_PREAMBLE_VHT    = 0x4,
+    WIFI_RTT_PREAMBLE_HE     = 0x8
 } wifi_rtt_preamble;
 
 /* RTT Type */
@@ -184,6 +185,7 @@ wifi_error wifi_rtt_channel_map_clear(wifi_request_id id,  wifi_interface_handle
 #define PREAMBLE_LEGACY 0x1
 #define PREAMBLE_HT     0x2
 #define PREAMBLE_VHT    0x4
+#define PREAMBLE_HE     0x8
 
 // BW definition for bit mask used in wifi_rtt_capabilities
 #define BW_5_SUPPORT   0x1

@@ -73,6 +73,7 @@ public class ChannelsRow extends ItemListRow {
             mTvRecommendation = null;
         }
         mChannelsPosterPrefetcher.cancel();
+        mChannelsAdapter.release();
     }
 
     /** Handle the update event of the recent channel. */

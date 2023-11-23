@@ -16,6 +16,7 @@
 
 #include <inttypes.h>
 
+#include <limits>
 #include <memory>
 
 #include <android-base/strings.h>
@@ -112,6 +113,7 @@ class ReportSampleCommand : public Command {
   bool OpenRecordFile();
   bool PrintMetaInfo();
   bool ProcessRecord(std::unique_ptr<Record> record);
+  void UpdateThreadName(uint32_t pid, uint32_t tid);
   bool ProcessSampleRecord(const SampleRecord& r);
   bool PrintSampleRecordInProtobuf(const SampleRecord& record,
                                    const std::vector<CallEntry>& entries);
@@ -136,12 +138,12 @@ class ReportSampleCommand : public Command {
   size_t sample_count_;
   size_t lost_count_;
   bool trace_offcpu_;
-  std::unique_ptr<ScopedEventTypes> scoped_event_types_;
   std::vector<std::string> event_types_;
-  std::unordered_map<std::string, std::string> meta_info_;
   bool remove_unknown_kernel_symbols_;
   bool kernel_symbols_available_;
   bool show_art_frames_;
+  // map from <pid, tid> to thread name
+  std::map<uint64_t, const char*> thread_names_;
 };
 
 bool ReportSampleCommand::Run(const std::vector<std::string>& args) {
@@ -421,22 +423,12 @@ bool ReportSampleCommand::OpenRecordFile() {
     return false;
   }
   record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_);
-  if (record_file_reader_->HasFeature(PerfFileFormat::FEAT_META_INFO)) {
-    if (!record_file_reader_->ReadMetaInfoFeature(&meta_info_)) {
-      return false;
-    }
-    auto it = meta_info_.find("event_type_info");
-    if (it != meta_info_.end()) {
-      scoped_event_types_.reset(new ScopedEventTypes(it->second));
-    }
-    it = meta_info_.find("trace_offcpu");
-    if (it != meta_info_.end()) {
-      trace_offcpu_ = it->second == "true";
-    }
-    it = meta_info_.find("kernel_symbols_available");
-    if (it != meta_info_.end()) {
-      kernel_symbols_available_ = it->second == "true";
-    }
+  auto& meta_info = record_file_reader_->GetMetaInfoFeature();
+  if (auto it = meta_info.find("trace_offcpu"); it != meta_info.end()) {
+    trace_offcpu_ = it->second == "true";
+  }
+  if (auto it = meta_info.find("kernel_symbols_available"); it != meta_info.end()) {
+    kernel_symbols_available_ = it->second == "true";
   }
   for (EventAttrWithId& attr : record_file_reader_->AttrSection()) {
     event_types_.push_back(GetEventNameByAttr(*attr.attr));
@@ -445,8 +437,9 @@ bool ReportSampleCommand::OpenRecordFile() {
 }
 
 bool ReportSampleCommand::PrintMetaInfo() {
-  auto it = meta_info_.find("app_package_name");
-  std::string app_package_name = it != meta_info_.end() ? it->second : "";
+  auto& meta_info = record_file_reader_->GetMetaInfoFeature();
+  auto it = meta_info.find("app_package_name");
+  std::string app_package_name = it != meta_info.end() ? it->second : "";
   if (use_protobuf_) {
     proto::Record proto_record;
     proto::MetaInfo* meta_info = proto_record.mutable_meta_info();
@@ -525,6 +518,8 @@ bool ReportSampleCommand::ProcessSampleRecord(const SampleRecord& r) {
     entries.push_back(entry);
   }
   if (use_protobuf_) {
+    uint64_t key = (static_cast<uint64_t>(r.tid_data.pid) << 32) | r.tid_data.tid;
+    thread_names_[key] = thread->comm;
     return PrintSampleRecordInProtobuf(r, entries);
   }
   return PrintSampleRecord(r, entries);
@@ -646,17 +641,14 @@ bool ReportSampleCommand::PrintFileInfoInProtobuf() {
 }
 
 bool ReportSampleCommand::PrintThreadInfoInProtobuf() {
-  std::vector<const ThreadEntry*> threads = thread_tree_.GetAllThreads();
-  auto compare_thread_id = [](const ThreadEntry* t1, const ThreadEntry* t2) {
-    return t1->tid < t2->tid;
-  };
-  std::sort(threads.begin(), threads.end(), compare_thread_id);
-  for (auto& thread : threads) {
+  for (const auto& p : thread_names_) {
+    uint32_t pid = p.first >> 32;
+    uint32_t tid = p.first & std::numeric_limits<uint32_t>::max();
     proto::Record proto_record;
     proto::Thread* proto_thread = proto_record.mutable_thread();
-    proto_thread->set_thread_id(thread->tid);
-    proto_thread->set_process_id(thread->pid);
-    proto_thread->set_thread_name(thread->comm);
+    proto_thread->set_thread_id(tid);
+    proto_thread->set_process_id(pid);
+    proto_thread->set_thread_name(p.second);
     if (!WriteRecordInProtobuf(proto_record)) {
       return false;
     }

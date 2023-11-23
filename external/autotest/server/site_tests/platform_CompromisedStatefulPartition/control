@@ -30,6 +30,6 @@ test_that -b <board> --args "servo_host=<servo_ip>" <dut_ip> platform_Compromise
 def run(machine):
     host = hosts.create_host(machine)
     job.run_test("platform_CompromisedStatefulPartition", host=host,
-                 disable_sysinfo=True, client_autotest="desktopui_SimpleLogin")
+                 disable_sysinfo=True, client_test="desktopui_SimpleLogin")
 
 parallel_simple(run, machines)

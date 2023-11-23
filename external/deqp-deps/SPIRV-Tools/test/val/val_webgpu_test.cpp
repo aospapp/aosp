@@ -54,117 +54,170 @@ TEST_F(ValidateWebGPU, OpUndefIsDisallowed) {
   EXPECT_THAT(getDiagnosticString(), HasSubstr("OpUndef is disallowed"));
 }
 
-TEST_F(ValidateWebGPU, OpNameIsDisallowed) {
+TEST_F(ValidateWebGPU, OpNameIsAllowed) {
   std::string spirv = R"(
-     OpCapability Shader
-     OpCapability VulkanMemoryModelKHR
-     OpExtension "SPV_KHR_vulkan_memory_model"
-     OpMemoryModel Logical VulkanKHR
-     OpName %1 "foo"
-%1 = OpTypeFloat 32
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+            OpName %1 "foo"
+       %1 = OpTypeFloat 32
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
 )";
 
   CompileSuccessfully(spirv);
-
-  EXPECT_EQ(SPV_ERROR_INVALID_BINARY, ValidateInstructions(SPV_ENV_WEBGPU_0));
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Debugging instructions are not allowed in the WebGPU "
-                        "execution environment.\n  OpName %foo \"foo\"\n"));
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
 }
 
-TEST_F(ValidateWebGPU, OpMemberNameIsDisallowed) {
+TEST_F(ValidateWebGPU, OpMemberNameIsAllowed) {
   std::string spirv = R"(
-     OpCapability Shader
-     OpCapability VulkanMemoryModelKHR
-     OpExtension "SPV_KHR_vulkan_memory_model"
-     OpMemoryModel Logical VulkanKHR
-     OpMemberName %2 0 "foo"
-%1 = OpTypeFloat 32
-%2 = OpTypeStruct %1
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+            OpMemberName %2 0 "foo"
+       %1 = OpTypeFloat 32
+       %2 = OpTypeStruct %1
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
+
 )";
 
   CompileSuccessfully(spirv);
-
-  EXPECT_EQ(SPV_ERROR_INVALID_BINARY, ValidateInstructions(SPV_ENV_WEBGPU_0));
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Debugging instructions are not allowed in the WebGPU "
-                        "execution environment.\n  OpMemberName %_struct_1 0 "
-                        "\"foo\"\n"));
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
 }
 
-TEST_F(ValidateWebGPU, OpSourceIsDisallowed) {
+TEST_F(ValidateWebGPU, OpSourceIsAllowed) {
   std::string spirv = R"(
-     OpCapability Shader
-     OpCapability VulkanMemoryModelKHR
-     OpExtension "SPV_KHR_vulkan_memory_model"
-     OpMemoryModel Logical VulkanKHR
-     OpSource GLSL 450
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+            OpSource GLSL 450
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
 )";
 
   CompileSuccessfully(spirv);
-
-  EXPECT_EQ(SPV_ERROR_INVALID_BINARY, ValidateInstructions(SPV_ENV_WEBGPU_0));
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Debugging instructions are not allowed in the WebGPU "
-                        "execution environment.\n  OpSource GLSL 450\n"));
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
 }
 
-// OpSourceContinued does not have a test case, because it requires being
-// preceded by OpSource, which will cause a validation error.
-
-TEST_F(ValidateWebGPU, OpSourceExtensionIsDisallowed) {
+TEST_F(ValidateWebGPU, OpSourceContinuedIsAllowed) {
   std::string spirv = R"(
-     OpCapability Shader
-     OpCapability VulkanMemoryModelKHR
-     OpExtension "SPV_KHR_vulkan_memory_model"
-     OpMemoryModel Logical VulkanKHR
-     OpSourceExtension "bar"
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+            OpSource GLSL 450
+            OpSourceContinued "I am a happy shader! Yay! ;"
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
 )";
 
   CompileSuccessfully(spirv);
-
-  EXPECT_EQ(SPV_ERROR_INVALID_BINARY, ValidateInstructions(SPV_ENV_WEBGPU_0));
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Debugging instructions are not allowed in the WebGPU "
-                        "execution environment.\n  OpSourceExtension "
-                        "\"bar\"\n"));
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
 }
 
-TEST_F(ValidateWebGPU, OpStringIsDisallowed) {
+TEST_F(ValidateWebGPU, OpSourceExtensionIsAllowed) {
   std::string spirv = R"(
-     OpCapability Shader
-     OpCapability VulkanMemoryModelKHR
-     OpExtension "SPV_KHR_vulkan_memory_model"
-     OpMemoryModel Logical VulkanKHR
-%1 = OpString "foo"
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+            OpSourceExtension "bar"
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
 )";
 
   CompileSuccessfully(spirv);
-
-  EXPECT_EQ(SPV_ERROR_INVALID_BINARY, ValidateInstructions(SPV_ENV_WEBGPU_0));
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Debugging instructions are not allowed in the WebGPU "
-                        "execution environment.\n  %1 = OpString \"foo\"\n"));
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
 }
 
-// OpLine does not have a test case, because it requires being preceded by
-// OpString, which will cause a validation error.
-
-TEST_F(ValidateWebGPU, OpNoLineDisallowed) {
+TEST_F(ValidateWebGPU, OpStringIsAllowed) {
   std::string spirv = R"(
-     OpCapability Shader
-     OpCapability VulkanMemoryModelKHR
-     OpExtension "SPV_KHR_vulkan_memory_model"
-     OpMemoryModel Logical VulkanKHR
-     OpNoLine
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+       %1 = OpString "foo"
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
 )";
 
   CompileSuccessfully(spirv);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
+}
 
-  EXPECT_EQ(SPV_ERROR_INVALID_BINARY, ValidateInstructions(SPV_ENV_WEBGPU_0));
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Debugging instructions are not allowed in the WebGPU "
-                        "execution environment.\n  OpNoLine\n"));
+TEST_F(ValidateWebGPU, OpLineIsAllowed) {
+  std::string spirv = R"(
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+       %1 = OpString "minimal.vert"
+            OpLine %1 1 1
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
+)";
+
+  CompileSuccessfully(spirv);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
+}
+
+TEST_F(ValidateWebGPU, OpNoLineIsAllowed) {
+  std::string spirv = R"(
+            OpCapability Shader
+            OpCapability VulkanMemoryModelKHR
+            OpExtension "SPV_KHR_vulkan_memory_model"
+            OpMemoryModel Logical VulkanKHR
+            OpEntryPoint Vertex %func "shader"
+            OpNoLine
+  %void   = OpTypeVoid
+  %void_f = OpTypeFunction %void
+  %func   = OpFunction %void None %void_f
+  %label  = OpLabel
+            OpReturn
+            OpFunctionEnd
+)";
+
+  CompileSuccessfully(spirv);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
 }
 
 TEST_F(ValidateWebGPU, LogicalAddressingVulkanKHRMemoryGood) {
@@ -183,25 +236,7 @@ TEST_F(ValidateWebGPU, LogicalAddressingVulkanKHRMemoryGood) {
 )";
 
   CompileSuccessfully(spirv);
-
   EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
-}
-
-TEST_F(ValidateWebGPU, NonLogicalAddressingModelBad) {
-  std::string spirv = R"(
-     OpCapability Shader
-     OpCapability VulkanMemoryModelKHR
-     OpExtension "SPV_KHR_vulkan_memory_model"
-     OpMemoryModel Physical32 VulkanKHR
-)";
-
-  CompileSuccessfully(spirv);
-
-  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Addressing model must be Logical for WebGPU "
-                        "environment.\n  OpMemoryModel Physical32 "
-                        "VulkanKHR\n"));
 }
 
 TEST_F(ValidateWebGPU, NonVulkanKHRMemoryModelBad) {
@@ -274,6 +309,63 @@ TEST_F(ValidateWebGPU, NonVulkanKHRMemoryModelExtensionBad) {
               HasSubstr("For WebGPU, the only valid parameter to OpExtension "
                         "is \"SPV_KHR_vulkan_memory_model\".\n  OpExtension "
                         "\"SPV_KHR_8bit_storage\"\n"));
+}
+
+spv_binary GenerateTrivialBinary(bool need_little_endian) {
+  // Smallest possible valid WebGPU SPIR-V binary in little endian. Contains all
+  // the required boilerplate and a trivial entry point function.
+  static const uint8_t binary_bytes[] = {
+      // clang-format off
+    0x03, 0x02, 0x23, 0x07, 0x00, 0x03, 0x01, 0x00, 0x00, 0x00, 0x07, 0x00,
+    0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x02, 0x00,
+    0x01, 0x00, 0x00, 0x00, 0x11, 0x00, 0x02, 0x00, 0xE1, 0x14, 0x00, 0x00,
+    0x0A, 0x00, 0x08, 0x00, 0x53, 0x50, 0x56, 0x5F, 0x4B, 0x48, 0x52, 0x5F,
+    0x76, 0x75, 0x6C, 0x6B, 0x61, 0x6E, 0x5F, 0x6D, 0x65, 0x6D, 0x6F, 0x72,
+    0x79, 0x5F, 0x6D, 0x6F, 0x64, 0x65, 0x6C, 0x00, 0x0E, 0x00, 0x03, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x05, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x73, 0x68, 0x61, 0x64,
+    0x65, 0x72, 0x00, 0x00, 0x13, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00,
+    0x21, 0x00, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+    0x36, 0x00, 0x05, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0xF8, 0x00, 0x02, 0x00,
+    0x04, 0x00, 0x00, 0x00, 0xFD, 0x00, 0x01, 0x00, 0x38, 0x00, 0x01, 0x00
+      // clang-format on
+  };
+  static const size_t word_count = sizeof(binary_bytes) / sizeof(uint32_t);
+  std::unique_ptr<spv_binary_t> result(new spv_binary_t);
+  if (!result) return nullptr;
+
+  result->wordCount = word_count;
+  result->code = new uint32_t[word_count];
+  if (!result->code) return nullptr;
+
+  if (need_little_endian) {
+    memcpy(result->code, binary_bytes, sizeof(binary_bytes));
+  } else {
+    uint8_t* code_bytes = reinterpret_cast<uint8_t*>(result->code);
+    for (size_t word = 0; word < word_count; ++word) {
+      code_bytes[4 * word] = binary_bytes[4 * word + 3];
+      code_bytes[4 * word + 1] = binary_bytes[4 * word + 2];
+      code_bytes[4 * word + 2] = binary_bytes[4 * word + 1];
+      code_bytes[4 * word + 3] = binary_bytes[4 * word];
+    }
+  }
+
+  return result.release();
+}
+
+TEST_F(ValidateWebGPU, LittleEndianGood) {
+  DestroyBinary();
+  binary_ = GenerateTrivialBinary(true);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
+}
+
+TEST_F(ValidateWebGPU, BigEndianBad) {
+  DestroyBinary();
+  binary_ = GenerateTrivialBinary(false);
+  EXPECT_EQ(SPV_ERROR_INVALID_BINARY, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("WebGPU requires SPIR-V to be little endian."));
 }
 
 }  // namespace

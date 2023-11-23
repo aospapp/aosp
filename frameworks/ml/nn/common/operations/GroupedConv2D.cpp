@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-#include "CpuOperationUtils.h"
-#include "Operations.h"
+#define LOG_TAG "Operations"
 
+#include <tensorflow/lite/kernels/internal/common.h>
+
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <vector>
 
+#include "CpuOperationUtils.h"
+#include "Operations.h"
 #include "Tracing.h"
-#include "tensorflow/lite/kernels/internal/common.h"
 
 namespace android {
 namespace nn {
@@ -96,11 +100,12 @@ bool groupedConvFloat32(const float* inputData, const Shape& inputShape, const f
     return true;
 }
 
-bool groupedConvQuant8(const uint8_t* inputData, const Shape& inputShape, const uint8_t* filterData,
+template <typename T>
+bool groupedConvQuant8(const T* inputData, const Shape& inputShape, const T* filterData,
                        const Shape& filterShape, const int32_t* biasData, const Shape& biasShape,
                        int32_t padding_left, int32_t padding_right, int32_t padding_top,
                        int32_t padding_bottom, int32_t stride_width, int32_t stride_height,
-                       int32_t numGroups, int32_t activation, uint8_t* outputData,
+                       int32_t numGroups, int32_t activation, T* outputData,
                        const Shape& outputShape) {
     NNTRACE_TRANS("groupConvQuant8");
     ANDROID_NN_GROUPED_CONV_PARAMETERS
@@ -119,15 +124,15 @@ bool groupedConvQuant8(const uint8_t* inputData, const Shape& inputShape, const 
     outputShift = -exponent;
 
     int32_t output_activation_min = 0, output_activation_max = 0;
-    CalculateActivationRangeUint8(activation, outputShape, &output_activation_min,
-                                  &output_activation_max);
+    CalculateActivationRange<T>(activation, outputShape, &output_activation_min,
+                                &output_activation_max);
 
-    const uint8_t* inputBase = inputData;
-    uint8_t* outPtr = outputData;
+    const T* inputBase = inputData;
+    T* outPtr = outputData;
     for (uint32_t b = 0; b < numBatches; b++) {
         for (uint32_t h = 0; h < outputHeight; h++) {
             for (uint32_t w = 0; w < outputWidth; w++) {
-                const uint8_t* filterBase = filterData;
+                const T* filterBase = filterData;
                 for (uint32_t g = 0; g < numGroups; g++) {
                     for (uint32_t d = 0; d < outputGroupDepth; d++) {
                         int32_t wInputOrigin =
@@ -160,7 +165,7 @@ bool groupedConvQuant8(const uint8_t* inputData, const Shape& inputShape, const 
                                                                     -outputShift);
                         sum += outputOffset;
                         sum = std::max(std::min(sum, output_activation_max), output_activation_min);
-                        outPtr[d] = static_cast<uint8_t>(sum);
+                        outPtr[d] = static_cast<T>(sum);
                         filterBase += filterHeight * filterWidth * filterDepth;
                     }
                     outPtr += outputGroupDepth;
@@ -173,14 +178,32 @@ bool groupedConvQuant8(const uint8_t* inputData, const Shape& inputShape, const 
     return true;
 }
 
-bool groupedConvQuant8PerChannel(const uint8_t* inputData, const Shape& inputShape,
+template bool groupedConvQuant8<int8_t>(const int8_t* inputData, const Shape& inputShape,
+                                        const int8_t* filterData, const Shape& filterShape,
+                                        const int32_t* biasData, const Shape& biasShape,
+                                        int32_t padding_left, int32_t padding_right,
+                                        int32_t padding_top, int32_t padding_bottom,
+                                        int32_t stride_width, int32_t stride_height,
+                                        int32_t numGroups, int32_t activation, int8_t* outputData,
+                                        const Shape& outputShape);
+
+template bool groupedConvQuant8<uint8_t>(const uint8_t* inputData, const Shape& inputShape,
+                                         const uint8_t* filterData, const Shape& filterShape,
+                                         const int32_t* biasData, const Shape& biasShape,
+                                         int32_t padding_left, int32_t padding_right,
+                                         int32_t padding_top, int32_t padding_bottom,
+                                         int32_t stride_width, int32_t stride_height,
+                                         int32_t numGroups, int32_t activation, uint8_t* outputData,
+                                         const Shape& outputShape);
+
+template <typename T>
+bool groupedConvQuant8PerChannel(const T* inputData, const Shape& inputShape,
                                  const int8_t* filterData, const Shape& filterShape,
                                  const float* filterScales, const int32_t* biasData,
                                  const Shape& biasShape, int32_t padding_left,
                                  int32_t padding_right, int32_t padding_top, int32_t padding_bottom,
                                  int32_t stride_width, int32_t stride_height, int32_t numGroups,
-                                 int32_t activation, uint8_t* outputData,
-                                 const Shape& outputShape) {
+                                 int32_t activation, T* outputData, const Shape& outputShape) {
     NNTRACE_TRANS("groupConvQuant8");
     ANDROID_NN_GROUPED_CONV_PARAMETERS
 
@@ -205,11 +228,11 @@ bool groupedConvQuant8PerChannel(const uint8_t* inputData, const Shape& inputSha
     }
 
     int32_t output_activation_min = 0, output_activation_max = 0;
-    CalculateActivationRangeUint8(activation, outputShape, &output_activation_min,
-                                  &output_activation_max);
+    CalculateActivationRange<T>(activation, outputShape, &output_activation_min,
+                                &output_activation_max);
 
-    const uint8_t* inputBase = inputData;
-    uint8_t* outPtr = outputData;
+    const T* inputBase = inputData;
+    T* outPtr = outputData;
     for (uint32_t b = 0; b < numBatches; b++) {
         for (uint32_t h = 0; h < outputHeight; h++) {
             for (uint32_t w = 0; w < outputWidth; w++) {
@@ -246,7 +269,7 @@ bool groupedConvQuant8PerChannel(const uint8_t* inputData, const Shape& inputSha
                                 sum, outputMultiplier[channelIndex], -outputShift[channelIndex]);
                         sum += outputOffset;
                         sum = std::max(std::min(sum, output_activation_max), output_activation_min);
-                        outPtr[d] = static_cast<uint8_t>(sum);
+                        outPtr[d] = static_cast<T>(sum);
                         filterBase += filterHeight * filterWidth * filterDepth;
                     }
                     outPtr += outputGroupDepth;
@@ -284,6 +307,20 @@ bool groupedConvFloat16(const _Float16* inputData, const Shape& inputShape,
 
     return true;
 }
+
+template bool groupedConvQuant8PerChannel<uint8_t>(
+        const uint8_t* inputData, const Shape& inputShape, const int8_t* filterData,
+        const Shape& filterShape, const float* filterScales, const int32_t* biasData,
+        const Shape& biasShape, int32_t padding_left, int32_t padding_right, int32_t padding_top,
+        int32_t padding_bottom, int32_t stride_width, int32_t stride_height, int32_t numGroups,
+        int32_t activation, uint8_t* outputData, const Shape& outputShape);
+
+template bool groupedConvQuant8PerChannel<int8_t>(
+        const int8_t* inputData, const Shape& inputShape, const int8_t* filterData,
+        const Shape& filterShape, const float* filterScales, const int32_t* biasData,
+        const Shape& biasShape, int32_t padding_left, int32_t padding_right, int32_t padding_top,
+        int32_t padding_bottom, int32_t stride_width, int32_t stride_height, int32_t numGroups,
+        int32_t activation, int8_t* outputData, const Shape& outputShape);
 
 #undef ANDROID_NN_GROUPED_CONV_PARAMETERS
 }  // namespace nn

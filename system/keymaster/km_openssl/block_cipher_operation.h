@@ -52,7 +52,7 @@ class BlockCipherOperationFactory : public OperationFactory {
     }
 
     OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                 keymaster_error_t* error) const override;
+                                 keymaster_error_t* error) override;
 
     const keymaster_block_mode_t* SupportedBlockModes(size_t* block_mode_count) const override {
         return GetCipherDescription().SupportedBlockModes(block_mode_count);

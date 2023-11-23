@@ -16,13 +16,12 @@
 
 package android.telephony;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.os.ServiceManager;
-
-import android.annotation.UnsupportedAppUsage;
 import android.telephony.cdma.CdmaCellLocation;
 import android.telephony.gsm.GsmCellLocation;
+
 import com.android.internal.telephony.ITelephony;
 import com.android.internal.telephony.PhoneConstants;
 
@@ -38,7 +37,11 @@ public abstract class CellLocation {
      */
     public static void requestLocationUpdate() {
         try {
-            ITelephony phone = ITelephony.Stub.asInterface(ServiceManager.getService("phone"));
+            ITelephony phone = ITelephony.Stub.asInterface(
+                    TelephonyFrameworkInitializer
+                            .getTelephonyServiceManager()
+                            .getTelephonyServiceRegisterer()
+                            .get());
             if (phone != null) {
                 phone.updateServiceLocation();
             }
@@ -50,8 +53,7 @@ public abstract class CellLocation {
     /**
      * Create a new CellLocation from a intent notifier Bundle
      *
-     * This method is used by PhoneStateIntentReceiver and maybe by
-     * external applications.
+     * This method maybe used by external applications.
      *
      * @param bundle Bundle from intent notifier
      * @return newly created CellLocation

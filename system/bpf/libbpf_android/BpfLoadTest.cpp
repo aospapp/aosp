@@ -27,7 +27,7 @@ using ::testing::Test;
 
 constexpr const char tp_prog_path[] =
         "/sys/fs/bpf/prog_bpf_load_tp_prog_tracepoint_sched_sched_switch";
-constexpr const char tp_map_path[] = "/sys/fs/bpf/map_bpf_load_tp_prog_cpu_pid";
+constexpr const char tp_map_path[] = "/sys/fs/bpf/map_bpf_load_tp_prog_cpu_pid_map";
 
 namespace android {
 namespace bpf {
@@ -35,7 +35,7 @@ namespace bpf {
 class BpfLoadTest : public testing::Test {
   protected:
     BpfLoadTest() {}
-    int mProgFd, mMapFd;
+    int mProgFd;
 
     void SetUp() {
         SKIP_IF_BPF_NOT_SUPPORTED;
@@ -43,13 +43,12 @@ class BpfLoadTest : public testing::Test {
         unlink(tp_prog_path);
         unlink(tp_map_path);
 
-        EXPECT_EQ(android::bpf::loadProg("/system/etc/bpf/bpf_load_tp_prog.o"), 0);
+        bool critical = true;
+        EXPECT_EQ(android::bpf::loadProg("/system/etc/bpf/bpf_load_tp_prog.o", &critical), 0);
+        EXPECT_EQ(false, critical);
 
         mProgFd = bpf_obj_get(tp_prog_path);
         EXPECT_GT(mProgFd, 0);
-
-        mMapFd = bpf_obj_get(tp_map_path);
-        EXPECT_GT(mMapFd, 0);
 
         int ret = bpf_attach_tracepoint(mProgFd, "sched", "sched_switch");
         EXPECT_NE(ret, 0);
@@ -59,7 +58,6 @@ class BpfLoadTest : public testing::Test {
         SKIP_IF_BPF_NOT_SUPPORTED;
 
         close(mProgFd);
-        close(mMapFd);
         unlink(tp_prog_path);
         unlink(tp_map_path);
     }
@@ -67,7 +65,7 @@ class BpfLoadTest : public testing::Test {
     void checkMapNonZero() {
         // The test program installs a tracepoint on sched:sched_switch
         // and expects the kernel to populate a PID corresponding to CPU
-        android::bpf::BpfMap<uint32_t, uint32_t> m(mMapFd);
+        android::bpf::BpfMap<uint32_t, uint32_t> m(tp_map_path);
 
         // Wait for program to run a little
         sleep(1);
@@ -81,10 +79,10 @@ class BpfLoadTest : public testing::Test {
 
             UNUSED(key);
             UNUSED(map);
-            return android::netdutils::status::ok;
+            return base::Result<void>();
         };
 
-        EXPECT_OK(m.iterateWithValue(iterFunc));
+        EXPECT_RESULT_OK(m.iterateWithValue(iterFunc));
         EXPECT_EQ(non_zero, 1);
     }
 };

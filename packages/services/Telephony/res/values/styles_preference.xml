@@ -19,26 +19,22 @@
 <!-- Things unrelated to preference framework UI customization should go to other styles files -->
 <resources>
     <!-- Preferences -->
-    <style name="SettingsPreference" parent="@*android:style/Preference.DeviceDefault">
+    <style name="SettingsPreference" parent="@style/Preference.Material">
         <item name="android:singleLineTitle">false</item>
         <item name="android:iconSpaceReserved">true</item>
     </style>
 
-    <style name="SettingsSwitchPreference" parent="@*android:style/Preference.DeviceDefault.SwitchPreference">
+    <style name="SettingsSwitchPreference" parent="@style/Preference.SwitchPreference.Material">
         <item name="android:iconSpaceReserved">true</item>
         <item name="android:singleLineTitle">false</item>
     </style>
 
-    <style name="SettingsPreferenceCategory" parent="@*android:style/Preference.DeviceDefault.Category">
-        <item name="android:layout">@layout/preference_category_material_settings_with_divider</item>
-    </style>
-
-    <style name="SettingsDialogPreference" parent="@*android:style/Preference.DeviceDefault.DialogPreference">
+    <style name="SettingsDialogPreference" parent="@style/Preference.DialogPreference.Material">
         <item name="android:singleLineTitle">false</item>
         <item name="android:iconSpaceReserved">true</item>
     </style>
 
-    <style name="SettingsPreferenceScreen" parent="@*android:style/Preference.DeviceDefault.PreferenceScreen">
+    <style name="SettingsPreferenceScreen" parent="@style/Preference.PreferenceScreen.Material">
         <item name="android:singleLineTitle">false</item>
         <item name="android:iconSpaceReserved">true</item>
     </style>

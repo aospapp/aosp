@@ -7,12 +7,12 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/zserge/jsmn/archive/18e9fe42cbfe21d65076f5c77ae2be379ad1270f.zip"
+    value: "https://github.com/zserge/jsmn/archive/fdcef3ebf886fa210d14956d3c068a653e76a24e.zip"
   }
-  version: "18e9fe42cbfe21d65076f5c77ae2be379ad1270f"
+  version: "fdcef3ebf886fa210d14956d3c068a653e76a24e"
   last_upgrade_date {
     year: 2019
-    month: 2
-    day: 1
+    month: 5
+    day: 2
   }
 }

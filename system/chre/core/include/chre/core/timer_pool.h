@@ -57,9 +57,8 @@ class TimerPool : public NonCopyable {
    * @return TimerHandle of the requested timer. Returns CHRE_TIMER_INVALID if
    *         not successful.
    */
-  TimerHandle setNanoappTimer(
-      const Nanoapp *nanoapp, Nanoseconds duration, const void *cookie,
-      bool isOneShot) {
+  TimerHandle setNanoappTimer(const Nanoapp *nanoapp, Nanoseconds duration,
+                              const void *cookie, bool isOneShot) {
     CHRE_ASSERT(nanoapp != nullptr);
     return setTimer(nanoapp->getInstanceId(), duration, nullptr /* callback */,
                     CHRE_EVENT_TIMER, cookie, isOneShot);
@@ -81,9 +80,10 @@ class TimerPool : public NonCopyable {
    * @param cookie A cookie to pass to this callback.
    * @return TimerHandle of the requested timer.
    */
-  TimerHandle setSystemTimer(
-      Nanoseconds duration, SystemCallbackFunction *callback,
-      SystemCallbackType callbackType, const void *cookie);
+  TimerHandle setSystemTimer(Nanoseconds duration,
+                             SystemCallbackFunction *callback,
+                             SystemCallbackType callbackType,
+                             const void *cookie);
 
   /**
    * Cancels a timer given a handle.
@@ -143,7 +143,7 @@ class TimerPool : public NonCopyable {
      * @return Returns true if this request is greater than the provided
      *         request.
      */
-    bool operator>(const TimerRequest& request) const;
+    bool operator>(const TimerRequest &request) const;
   };
 
   //! The queue of outstanding timer requests.
@@ -190,10 +190,9 @@ class TimerPool : public NonCopyable {
    * @return TimerHandle of the requested timer. Returns CHRE_TIMER_INVALID if
    *         not successful.
    */
-  TimerHandle setTimer(
-      uint32_t instanceId, Nanoseconds duration,
-      SystemCallbackFunction *callback, uint16_t eventType,
-      const void *cookie, bool isOneShot);
+  TimerHandle setTimer(uint32_t instanceId, Nanoseconds duration,
+                       SystemCallbackFunction *callback, uint16_t eventType,
+                       const void *cookie, bool isOneShot);
 
   /**
    * Cancels a timer given a handle.
@@ -216,7 +215,7 @@ class TimerPool : public NonCopyable {
    * @return A pointer to a TimerRequest or nullptr if no match is found.
    */
   TimerRequest *getTimerRequestByTimerHandleLocked(TimerHandle timerHandle,
-      size_t *index = nullptr);
+                                                   size_t *index = nullptr);
 
   /**
    * Obtains a unique timer handle to return to an app requesting a timer.
@@ -253,7 +252,7 @@ class TimerPool : public NonCopyable {
    * @param timerRequest The timer request being inserted into the list.
    * @return true if insertion of timer succeeds.
    */
-  bool insertTimerRequestLocked(const TimerRequest& timerRequest);
+  bool insertTimerRequestLocked(const TimerRequest &timerRequest);
 
   /**
    * Pops the TimerRequest at the front of the list. mMutex must be acquired

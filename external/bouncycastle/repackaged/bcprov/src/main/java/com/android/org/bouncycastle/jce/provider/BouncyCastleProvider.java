@@ -152,7 +152,7 @@ public final class BouncyCastleProvider extends Provider
      * using runtime registration of the provider using the
      * <code>Security.addProvider()</code> mechanism.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public BouncyCastleProvider()
     {

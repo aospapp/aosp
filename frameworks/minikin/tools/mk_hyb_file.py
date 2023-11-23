@@ -266,7 +266,8 @@ class Hyph:
                 dedup_ix[ix] = ix
             dupmap[s] = dedup_ix[ix]
         uniques.reverse()
-        print(len(uniques), 'unique nodes,', len(self.bfs_order), 'total')
+        if VERBOSE:
+            print(len(uniques), 'unique nodes,', len(self.bfs_order), 'total')
         return dedup_ix, uniques
 
 

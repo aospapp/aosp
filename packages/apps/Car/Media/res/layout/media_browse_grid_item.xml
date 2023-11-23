@@ -20,10 +20,10 @@
     android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="@dimen/media_browse_grid_item_padding"
     android:focusable="true"
     android:clickable="true"
     android:foreground="@drawable/grid_item_background"
+    android:padding="@dimen/media_browse_grid_item_padding"
     android:layout_marginBottom="@dimen/media_browse_grid_item_margin_bottom">
 
     <com.android.car.media.common.FixedRatioImageView
@@ -65,6 +65,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/media_browse_grid_item_text_margin_top"
         android:singleLine="true"
+        android:includeFontPadding="false"
         android:duplicateParentState="true"
         app:layout_constraintStart_toEndOf="@+id/explicit_icon_with_title"
         app:layout_constraintTop_toBottomOf="@+id/thumbnail"
@@ -97,7 +98,9 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:singleLine="true"
+        android:includeFontPadding="false"
         android:duplicateParentState="true"
+        android:layout_marginTop="@dimen/media_browse_subtitle_margin_top"
         app:layout_constraintTop_toBottomOf="@+id/title"
         app:layout_constraintStart_toEndOf="@+id/explicit_icon_with_subtitle"
         app:layout_constraintEnd_toEndOf="parent"/>

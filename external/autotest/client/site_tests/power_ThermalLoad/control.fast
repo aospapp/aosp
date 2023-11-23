@@ -1,4 +1,4 @@
-AUTHOR = "Chrome OS Team"
+AUTHOR = "puthik"
 NAME = "power_ThermalLoad.fast"
 PURPOSE = "Run thermal workload and log temperature."
 CRITERIA = "This test is a benchmark."
@@ -14,4 +14,4 @@ This test makes sure that power_ThermalLoad is working fine.
 args_dict = utils.args_to_dict(args)
 pdash_note = args_dict.get('pdash_note', '')
 job.run_test('power_ThermalLoad', duration=180, tag=NAME.split('.')[1],
-             pdash_note=pdash_note)
+             pdash_note=pdash_note, second_period=1.)

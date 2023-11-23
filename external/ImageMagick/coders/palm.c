@@ -771,7 +771,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
   {
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
     count=GetNumberColors(image,NULL,exception);
-    for (bits_per_pixel=1;  (one << bits_per_pixel) < count; bits_per_pixel*=2) ;
+    for (bits_per_pixel=1; (one << bits_per_pixel) < count; bits_per_pixel*=2) ;
     if (bits_per_pixel > 16)
       bits_per_pixel=16;
     else
@@ -876,7 +876,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
     last_row=(unsigned char *) NULL;
     if (image_info->compression == FaxCompression)
       {
-        last_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row,
+        last_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row+256,
           sizeof(*last_row));
         if (last_row == (unsigned char *) NULL)
           {
@@ -884,7 +884,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
             ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
           }
       }
-    one_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row,
+    one_row=(unsigned char *) AcquireQuantumMemory(bytes_per_row+256,
       sizeof(*one_row));
     if (one_row == (unsigned char *) NULL)
       {
@@ -904,10 +904,10 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
         {
           for (x=0; x < (ssize_t) image->columns; x++)
           {
-            color16=(unsigned short) ((((31*(size_t) GetPixelRed(image,p))/
-              (size_t) QuantumRange) << 11) | (((63*(size_t)
-              GetPixelGreen(image,p))/(size_t) QuantumRange) << 5) |
-              ((31*(size_t) GetPixelBlue(image,p))/(size_t) QuantumRange));
+            color16=(unsigned short) ((((31*(ssize_t) GetPixelRed(image,p))/
+              (ssize_t) QuantumRange) << 11) | (((63*(ssize_t)
+              GetPixelGreen(image,p))/(ssize_t) QuantumRange) << 5) |
+              ((31*(ssize_t) GetPixelBlue(image,p))/(ssize_t) QuantumRange));
             if (GetPixelAlpha(image,p) == (Quantum) TransparentAlpha)
               {
                 transpix.red=(MagickRealType) GetPixelRed(image,p);

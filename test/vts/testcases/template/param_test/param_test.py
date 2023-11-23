@@ -90,14 +90,12 @@ class ParamTestClass(base_test.BaseTestClass):
             The test results object of this class.
         """
         logging.info("==========> %s <==========", self.test_module_name)
-        # Get the original tests.
-        tests = self.getTests(test_names)
+        original_tests = self.getTests(test_names)
         # Run the set of original tests against each parameter.
         for param in self.params:
             self.cur_param = param
-            for idx, (test_name, test_func) in enumerate(tests):
-                param_test_name = str(test_name + self.getParamTag(param))
-                tests[idx] = (param_test_name, test_func)
+            tests = [(str(test_name + self.getParamTag(param)), test_func)
+                     for (test_name, test_func) in original_tests]
             if not self.run_as_vts_self_test:
                 self.results.requested = [
                     records.TestResultRecord(test_name, self.test_module_name)

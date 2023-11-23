@@ -15,5 +15,6 @@
   limitations under the License.
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:color="@color/icon_tint" />
+    <item android:state_enabled="false" android:color="@color/media_button_tint_disabled"/>
+    <item android:color="@color/media_button_tint" />
 </selector>

@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Tests for SubtitleData.
  */
+@NonMediaMainlineTest
 public class SubtitleDataTest extends AndroidTestCase {
     private static final String SUBTITLE_RAW_DATA = "RAW_DATA";
 

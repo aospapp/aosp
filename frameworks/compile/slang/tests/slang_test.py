@@ -129,8 +129,8 @@ def ReportIfDifferFromExpected(tests, name, file1, file2):
 
 
 def GetRSFiles():
-  """Returns a list of files in cwd with extension '.rs' or '.fs'."""
-  rs_files = glob.glob('*.rs')
+  """Returns a list of files in cwd with extension '.rscript' or '.fs'."""
+  rs_files = glob.glob('*.rscript')
   fs_files = glob.glob('*.fs')
   rs_files += fs_files
   rs_files.sort()
@@ -170,7 +170,7 @@ def CreateCmd():
   rs_files = GetRSFiles()
 
   # Extra command line arguments can be placed as // comments at the start of
-  # any .rs file. We automatically bundle up all of these extra args and invoke
+  # any .rscript file. We automatically bundle up all of these extra args and invoke
   # llvm-rs-cc with them.
   extra_args_str = ''
   for rs_file in rs_files:

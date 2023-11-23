@@ -32,15 +32,15 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.github.javaparser.utils.Utils.*;
-import static com.github.javaparser.utils.Utils.nextWord;
 
 /**
- * The class responsible for parsing the content of JavadocComments and produce JavadocDocuments.
+ * The class responsible for parsing the content of JavadocComments and producing JavadocDocuments.
+ * <a href="https://docs.oracle.com/javase/1.5.0/docs/tooldocs/windows/javadoc.html">The Javadoc specification.</a>
  */
 class JavadocParser {
 
     private static String BLOCK_TAG_PREFIX = "@";
-    private static Pattern BLOCK_PATTERN = Pattern.compile("^" + BLOCK_TAG_PREFIX, Pattern.MULTILINE);
+    private static Pattern BLOCK_PATTERN = Pattern.compile("^\\s*" + BLOCK_TAG_PREFIX, Pattern.MULTILINE);
 
     public static Javadoc parse(JavadocComment comment) {
         return parse(comment.getContent());
@@ -72,7 +72,7 @@ class JavadocParser {
             //then needs to be added again so that the block parsers handles everything correctly.
             blockLines = BLOCK_PATTERN
                 .splitAsStream(tagBlock)
-                .filter(STRING_NOT_EMPTY)
+                .filter(s1 -> !s1.isEmpty())
                 .map(s -> BLOCK_TAG_PREFIX + s)
                 .collect(Collectors.toList());
         }

@@ -17,11 +17,16 @@ my_target_retval := $(intermediates)/$(my_filename_stem)-retval.txt
 # to write a file that is never produced.
 my_target_nocache := $(intermediates)/$(my_filename_stem)-nocache
 
+# OpenJDK 10+ java binaries include v54+ classfiles which require ASM 7.0 or higher.
+# While this build is still using ASM 6.0, pin to an OpenJDK 9 java binary:
+my_require_v53_or_lower_class_files := true
+
 # Private variables.
 $(my_target_output): PRIVATE_MODULE := $(LOCAL_MODULE)
 $(my_target_output): PRIVATE_TESTS := $(my_tests)
 $(my_target_output): PRIVATE_JARS := $(my_jars)
 $(my_target_output): PRIVATE_JAVA_ARGS := $(my_java_args)
+$(my_target_output): PRIVATE_JAVA_PATH := $(if $(my_require_v53_or_lower_class_files),$(ANDROID_JAVA9_HOME)/bin:,)
 $(my_target_output): PRIVATE_ROBOLECTRIC_PATH := $(my_robolectric_path)
 $(my_target_output): PRIVATE_ROBOLECTRIC_SCRIPT_PATH := $(my_robolectric_script_path)
 $(my_target_output): PRIVATE_TARGET_MESSAGE := $(my_target_message)
@@ -50,6 +55,8 @@ $(my_target_output): $(my_jars)
 	  PRIVATE_TESTS="$(PRIVATE_TESTS)" \
 	  XML_OUTPUT_FILE="$(PRIVATE_XML_OUTPUT_FILE)" \
 	  TEST_WORKSPACE="$(PRIVATE_MODULE)" \
+	  EVENT_FILE_ROBOLECTRIC="$(EVENT_FILE_ROBOLECTRIC)" \
+	  PATH=$(PRIVATE_JAVA_PATH)$${PATH} \
 	  $(PRIVATE_ROBOLECTRIC_SCRIPT_PATH)/wrapper.sh \
 	    "$(PRIVATE_MODULE)" \
 	    "$(PRIVATE_TARGET_OUTPUT)" \
@@ -91,3 +98,4 @@ my_target_retval :=
 my_target_xml :=
 my_target_nocache :=
 my_filename_stem :=
+my_require_v53_or_lower_class_files :=

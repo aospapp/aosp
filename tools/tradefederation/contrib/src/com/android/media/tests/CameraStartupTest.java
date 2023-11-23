@@ -19,6 +19,7 @@ package com.android.media.tests;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -75,15 +76,15 @@ public class CameraStartupTest extends CameraTestBase {
         setTestTimeoutMs(60 * 60 * 1000);   // 1 hour
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        runMultipleInstrumentationTests(listener, mNumTestRuns);
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        runMultipleInstrumentationTests(testInfo, listener, mNumTestRuns);
     }
 
-    private void runMultipleInstrumentationTests(ITestInvocationListener listener, int numTestRuns)
+    private void runMultipleInstrumentationTests(
+            TestInformation testInfo, ITestInvocationListener listener, int numTestRuns)
             throws DeviceNotAvailableException {
         Assert.assertTrue(numTestRuns > 0);
 
@@ -91,7 +92,7 @@ public class CameraStartupTest extends CameraTestBase {
         for (int i = 0; i < numTestRuns; ++i) {
             CLog.v("Running multiple instrumentation tests... [%d/%d]", i + 1, numTestRuns);
             CollectingListener singleRunListener = new CollectingListener(listener);
-            runInstrumentationTest(listener, singleRunListener);
+            runInstrumentationTest(testInfo, listener, singleRunListener);
             mTestRunsDurationMs += getTestDurationMs();
 
             if (singleRunListener.hasFailedTests() ||
@@ -100,7 +101,7 @@ public class CameraStartupTest extends CameraTestBase {
                 return;
             }
             if (i + 1 < numTestRuns) {  // Skipping preparation on the last run
-                postSetupTestRun();
+                postSetupTestRun(testInfo);
             }
         }
 
@@ -121,7 +122,7 @@ public class CameraStartupTest extends CameraTestBase {
                 TfMetricProtoUtil.upgradeConvert(getAverageMultipleRunMetrics()));
     }
 
-    private void postSetupTestRun() throws DeviceNotAvailableException {
+    private void postSetupTestRun(TestInformation testInfo) throws DeviceNotAvailableException {
         // Reboot for a cold start up of Camera application
         CLog.d("Cold start: Rebooting...");
         getDevice().reboot();
@@ -135,7 +136,7 @@ public class CameraStartupTest extends CameraTestBase {
             if (preparer instanceof TemperatureThrottlingWaiter) {
                 usedTemperatureThrottlingWaiter = true;
                 try {
-                    preparer.setUp(getDevice(), null);
+                    preparer.setUp(testInfo);
                 } catch (TargetSetupError e) {
                     CLog.w("No-op even when temperature is still high after wait timeout. "
                         + "error: %s", e.getMessage());
@@ -185,7 +186,7 @@ public class CameraStartupTest extends CameraTestBase {
     /**
      * A listener to collect the output from test run and fatal errors
      */
-    private class CollectingListener extends DefaultCollectingListener {
+    private class CollectingListener extends CameraTestMetricsCollectionListener.DefaultCollectingListener {
 
         public CollectingListener(ITestInvocationListener listener) {
             super(listener);

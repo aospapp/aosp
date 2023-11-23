@@ -107,6 +107,7 @@ et{
         car{"kariibi"}
         cay{"kajuka"}
         cch{"aitšami"}
+        ccp{"tšaakma"}
         ce{"tšetšeeni"}
         ceb{"sebu"}
         cgg{"tšiga"}
@@ -250,7 +251,7 @@ et{
         id{"indoneesia"}
         ie{"interlingue"}
         ig{"ibo"}
-        ii{"Sichuani jii"}
+        ii{"nuosu"}
         ik{"injupiaki"}
         ilo{"iloko"}
         inh{"inguši"}
@@ -339,7 +340,7 @@ et{
         lrc{"põhjaluri"}
         lt{"leedu"}
         ltg{"latgali"}
-        lu{"luba"}
+        lu{"Katanga luba"}
         lua{"lulua"}
         lui{"luisenjo"}
         lun{"lunda"}
@@ -422,7 +423,7 @@ et{
         nwc{"vananevari"}
         ny{"njandža"}
         nym{"njamvesi"}
-        nyn{"nkole"}
+        nyn{"njankole"}
         nyo{"njoro"}
         nzi{"nzima"}
         oc{"oksitaani"}
@@ -598,7 +599,7 @@ et{
         vro{"võru"}
         vun{"vundžo"}
         wa{"vallooni"}
-        wae{"walseri"}
+        wae{"valsi"}
         wal{"volaita"}
         war{"varai"}
         was{"vašo"}
@@ -630,6 +631,14 @@ et{
         zun{"sunji"}
         zxx{"mittekeeleline"}
         zza{"zaza"}
+    }
+    Languages%long{
+        zh_Hans{"lihtsustatud mandariinihiina"}
+        zh_Hant{"traditsiooniline mandariinihiina"}
+    }
+    Languages%menu{
+        yue{"kantoni hiina"}
+        zh{"mandariinihiina"}
     }
     Languages%short{
         az{"aseri"}
@@ -799,6 +808,7 @@ et{
         Vaii{"vai"}
         Visp{"nähtava kõne"}
         Wara{"hoo"}
+        Wcho{"vantšo"}
         Wole{"voleai"}
         Xpeo{"vanapärsia"}
         Xsux{"sumeri-akadi kiilkiri"}
@@ -994,6 +1004,7 @@ et{
             traditional{"traditsioonilised numbrid"}
             vaii{"vai numbrid"}
             wara{"hoo numbrid"}
+            wcho{"vantšo numbrid"}
         }
     }
     Variants{
@@ -1036,7 +1047,7 @@ et{
         VALENCIA{"valentsia"}
         WADEGILE{"Wade’i-Gilesi latinisatsioon"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     characterLabelPattern{
         all{"{0} – kõik"}
         category-list{"{0}: {1}"}

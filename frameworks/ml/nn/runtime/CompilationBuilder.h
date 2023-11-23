@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_RUNTIME_COMPILATION_BUILDER_H
-#define ANDROID_ML_NN_RUNTIME_COMPILATION_BUILDER_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_COMPILATION_BUILDER_H
+#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_COMPILATION_BUILDER_H
+
+#include <chrono>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include "ExecutionPlan.h"
 #include "NeuralNetworks.h"
-
-#include <memory>
-#include <vector>
 
 namespace android {
 namespace nn {
@@ -32,7 +35,7 @@ class ExecutionBuilder;
 class ModelBuilder;
 
 class CompilationBuilder {
-public:
+   public:
     friend class ExecutionBuilder;  // TODO remove this
 
     // explicitDeviceList is true if the list of devices was provided explicitly
@@ -48,15 +51,26 @@ public:
 
     int setCaching(const std::string& cacheDir, const uint8_t* token);
 
+    int setPriority(int32_t priority);
+
+    int setTimeoutDuration(uint64_t duration);
+
     int finish();
 
     int createExecution(ExecutionBuilder** execution);
 
     int createBurst(BurstBuilder** burst);
 
+    const ModelBuilder* getModel() const { return mModel; }
+
+    int forEachStepRoleOfInput(uint32_t index, const StepRoleCallback& callback) const;
+    int forEachStepRoleOfOutput(uint32_t index, const StepRoleCallback& callback) const;
+
     const ExecutionPlan& forTest_getExecutionPlan() const { return mPlan; }
 
-private:
+    bool createdWithExplicitDeviceList() const { return mExplicitDeviceList; }
+
+   private:
     const ModelBuilder* mModel;
 
     ExecutionPlan mPlan;
@@ -86,9 +100,15 @@ private:
     std::string mCacheDir;
     uint8_t mToken[ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN];
     bool mIsCacheInfoProvided = false;
+
+    // Compilation priority information.
+    int32_t mPriority = ANEURALNETWORKS_PRIORITY_DEFAULT;
+
+    // Amount of time to complete or abort the execution.
+    std::optional<uint64_t> mTimeoutDuration;
 };
 
-} // namespace nn
-} // namespace android
+}  // namespace nn
+}  // namespace android
 
-#endif // ANDROID_ML_NN_RUNTIME_COMPILATION_BUILDER_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_COMPILATION_BUILDER_H

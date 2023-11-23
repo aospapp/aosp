@@ -16,7 +16,11 @@
 
 package android.bluetooth;
 
-import android.annotation.UnsupportedAppUsage;
+import android.Manifest;
+import android.annotation.NonNull;
+import android.annotation.RequiresPermission;
+import android.annotation.SystemApi;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.Binder;
 import android.os.Bundle;
@@ -124,6 +128,17 @@ public final class BluetoothHeadsetClient implements BluetoothProfile {
      */
     public static final String ACTION_RESULT =
             "android.bluetooth.headsetclient.profile.action.RESULT";
+
+    /**
+     * Intent that notifies about vendor specific event arrival. Events not defined in
+     * HFP spec will be matched with supported vendor event list and this intent will
+     * be broadcasted upon a match. Supported vendor events are of format of
+     * of "+eventCode" or "+eventCode=xxxx" or "+eventCode:=xxxx".
+     * Vendor event can be a response to an vendor specific command or unsolicited.
+     *
+     */
+    public static final String ACTION_VENDOR_SPECIFIC_HEADSETCLIENT_EVENT =
+            "android.bluetooth.headsetclient.profile.action.VENDOR_SPECIFIC_EVENT";
 
     /**
      * Intent that notifies about the number attached to the last voice tag
@@ -242,6 +257,28 @@ public final class BluetoothHeadsetClient implements BluetoothProfile {
      */
     public static final String EXTRA_CME_CODE =
             "android.bluetooth.headsetclient.extra.CME_CODE";
+
+    /**
+     * Extra for VENDOR_SPECIFIC_HEADSETCLIENT_EVENT intent that
+     * indicates vendor ID.
+     */
+    public static final String EXTRA_VENDOR_ID =
+            "android.bluetooth.headsetclient.extra.VENDOR_ID";
+
+     /**
+     * Extra for VENDOR_SPECIFIC_HEADSETCLIENT_EVENT intent that
+     * indicates vendor event code.
+     */
+    public static final String EXTRA_VENDOR_EVENT_CODE =
+            "android.bluetooth.headsetclient.extra.VENDOR_EVENT_CODE";
+
+     /**
+     * Extra for VENDOR_SPECIFIC_HEADSETCLIENT_EVENT intent that
+     * contains full vendor event including event code and full arguments.
+     */
+    public static final String EXTRA_VENDOR_EVENT_FULL_ARGS =
+            "android.bluetooth.headsetclient.extra.VENDOR_EVENT_FULL_ARGS";
+
 
     /* Extras for AG_FEATURES, extras type is boolean */
     // TODO verify if all of those are actually useful
@@ -406,6 +443,8 @@ public final class BluetoothHeadsetClient implements BluetoothProfile {
      * @param device a remote device we want connect to
      * @return <code>true</code> if command has been issued successfully; <code>false</code>
      * otherwise; upon completion HFP sends {@link #ACTION_CONNECTION_STATE_CHANGED} intent.
+     *
+     * @hide
      */
     @UnsupportedAppUsage
     public boolean connect(BluetoothDevice device) {
@@ -430,6 +469,8 @@ public final class BluetoothHeadsetClient implements BluetoothProfile {
      * @param device a remote device we want disconnect
      * @return <code>true</code> if command has been issued successfully; <code>false</code>
      * otherwise; upon completion HFP sends {@link #ACTION_CONNECTION_STATE_CHANGED} intent.
+     *
+     * @hide
      */
     @UnsupportedAppUsage
     public boolean disconnect(BluetoothDevice device) {
@@ -520,19 +561,46 @@ public final class BluetoothHeadsetClient implements BluetoothProfile {
     /**
      * Set priority of the profile
      *
-     * The device should already be paired.
+     * <p> The device should already be paired.
+     * Priority can be one of {@link #PRIORITY_ON} or {@link #PRIORITY_OFF}
+     *
+     * @param device Paired bluetooth device
+     * @param priority
+     * @return true if priority is set, false on error
+     * @hide
      */
+    @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
     public boolean setPriority(BluetoothDevice device, int priority) {
         if (DBG) log("setPriority(" + device + ", " + priority + ")");
+        return setConnectionPolicy(device, BluetoothAdapter.priorityToConnectionPolicy(priority));
+    }
+
+    /**
+     * Set connection policy of the profile
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of {@link #CONNECTION_POLICY_ALLOWED},
+     * {@link #CONNECTION_POLICY_FORBIDDEN}, {@link #CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
+    public boolean setConnectionPolicy(@NonNull BluetoothDevice device,
+            @ConnectionPolicy int connectionPolicy) {
+        if (DBG) log("setConnectionPolicy(" + device + ", " + connectionPolicy + ")");
         final IBluetoothHeadsetClient service =
                 getService();
         if (service != null && isEnabled() && isValidDevice(device)) {
-            if (priority != BluetoothProfile.PRIORITY_OFF
-                    && priority != BluetoothProfile.PRIORITY_ON) {
+            if (connectionPolicy != BluetoothProfile.CONNECTION_POLICY_FORBIDDEN
+                    && connectionPolicy != BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
                 return false;
             }
             try {
-                return service.setPriority(device, priority);
+                return service.setConnectionPolicy(device, connectionPolicy);
             } catch (RemoteException e) {
                 Log.e(TAG, Log.getStackTraceString(new Throwable()));
                 return false;
@@ -544,21 +612,47 @@ public final class BluetoothHeadsetClient implements BluetoothProfile {
 
     /**
      * Get the priority of the profile.
+     *
+     * <p> The priority can be any of:
+     * {@link #PRIORITY_OFF}, {@link #PRIORITY_ON}, {@link #PRIORITY_UNDEFINED}
+     *
+     * @param device Bluetooth device
+     * @return priority of the device
+     * @hide
      */
+    @RequiresPermission(Manifest.permission.BLUETOOTH)
     public int getPriority(BluetoothDevice device) {
         if (VDBG) log("getPriority(" + device + ")");
+        return BluetoothAdapter.connectionPolicyToPriority(getConnectionPolicy(device));
+    }
+
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link #CONNECTION_POLICY_ALLOWED}, {@link #CONNECTION_POLICY_FORBIDDEN},
+     * {@link #CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.BLUETOOTH)
+    public @ConnectionPolicy int getConnectionPolicy(@NonNull BluetoothDevice device) {
+        if (VDBG) log("getConnectionPolicy(" + device + ")");
         final IBluetoothHeadsetClient service =
                 getService();
         if (service != null && isEnabled() && isValidDevice(device)) {
             try {
-                return service.getPriority(device);
+                return service.getConnectionPolicy(device);
             } catch (RemoteException e) {
                 Log.e(TAG, Log.getStackTraceString(new Throwable()));
-                return PRIORITY_OFF;
+                return BluetoothProfile.CONNECTION_POLICY_FORBIDDEN;
             }
         }
         if (service == null) Log.w(TAG, "Proxy not attached to service");
-        return PRIORITY_OFF;
+        return BluetoothProfile.CONNECTION_POLICY_FORBIDDEN;
     }
 
     /**
@@ -579,6 +673,31 @@ public final class BluetoothHeadsetClient implements BluetoothProfile {
         if (service != null && isEnabled() && isValidDevice(device)) {
             try {
                 return service.startVoiceRecognition(device);
+            } catch (RemoteException e) {
+                Log.e(TAG, Log.getStackTraceString(new Throwable()));
+            }
+        }
+        if (service == null) Log.w(TAG, "Proxy not attached to service");
+        return false;
+    }
+
+    /**
+     * Send vendor specific AT command.
+     *
+     * @param device remote device
+     * @param vendorId vendor number by Bluetooth SIG
+     * @param atCommand command to be sent. It start with + prefix and only one command at one time.
+     * @return <code>true</code> if command has been issued successfully; <code>false</code>
+     * otherwise.
+     */
+    public boolean sendVendorAtCommand(BluetoothDevice device, int vendorId,
+                                             String atCommand) {
+        if (DBG) log("sendVendorSpecificCommand()");
+        final IBluetoothHeadsetClient service =
+                getService();
+        if (service != null && isEnabled() && isValidDevice(device)) {
+            try {
+                return service.sendVendorAtCommand(device, vendorId, atCommand);
             } catch (RemoteException e) {
                 Log.e(TAG, Log.getStackTraceString(new Throwable()));
             }

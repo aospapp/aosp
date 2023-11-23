@@ -75,7 +75,6 @@
     </style>
 
     <style name="HvacButton.FanDirection" parent="HvacButton">
-        <item name="android:alpha">0.5</item>
         <item name="android:layout_gravity">center</item>
         <item name="android:scaleType">fitCenter</item>
     </style>

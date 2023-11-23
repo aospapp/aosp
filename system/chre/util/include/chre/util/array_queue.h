@@ -29,7 +29,7 @@ namespace chre {
  * A fixed-size FIFO queue for storing elements. When the FIFO is full, new
  * element will not be able to be pushed in.
  */
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 class ArrayQueue : public NonCopyable {
  public:
   /**
@@ -64,8 +64,8 @@ class ArrayQueue : public NonCopyable {
    *
    * @return The front element.
    */
-  ElementType& front();
-  const ElementType& front() const;
+  ElementType &front();
+  const ElementType &front() const;
 
   /**
    * Obtains the last element in the queue. Illegal to call when empty() is
@@ -73,8 +73,8 @@ class ArrayQueue : public NonCopyable {
    *
    * @return The last element in the queue.
    */
-  ElementType& back();
-  const ElementType& back() const;
+  ElementType &back();
+  const ElementType &back() const;
 
   /**
    * Obtains an element of the array queue given an index. It is illegal to
@@ -85,7 +85,7 @@ class ArrayQueue : public NonCopyable {
    * @param index Requested index in range [0,size()-1]
    * @return The element.
    */
-  ElementType& operator[](size_t index);
+  ElementType &operator[](size_t index);
 
   /**
    * Obtains an element of the array queue given an index. It is illegal to
@@ -96,7 +96,7 @@ class ArrayQueue : public NonCopyable {
    * @param index Requested index in range [0,size()-1]
    * @return The element.
    */
-  const ElementType& operator[](size_t index) const;
+  const ElementType &operator[](size_t index) const;
 
   /**
    * Pushes an element onto the back of the array queue via copy or move
@@ -106,8 +106,8 @@ class ArrayQueue : public NonCopyable {
    * @param element The element to push onto the array queue.
    * @return true if the element is pushed successfully.
    */
-  bool push(const ElementType& element);
-  bool push(ElementType&& element);
+  bool push(const ElementType &element);
+  bool push(ElementType &&element);
 
   /**
    * Pushes an element onto the back of the array queue via copy or move
@@ -116,8 +116,8 @@ class ArrayQueue : public NonCopyable {
    *
    * @param element The element to push onto the array queue.
    */
-  void kick_push(const ElementType& element);
-  void kick_push(ElementType&& element);
+  void kick_push(const ElementType &element);
+  void kick_push(ElementType &&element);
 
   /**
    * Removes the front element from the array queue if the array queue is not
@@ -152,8 +152,8 @@ class ArrayQueue : public NonCopyable {
    * @param The arguments to the constructor
    * @return true if the element is constructed successfully.
    */
-  template<typename... Args>
-  bool emplace(Args&&... args);
+  template <typename... Args>
+  bool emplace(Args &&... args);
 
   /**
    * Removes all the elements of the queue.
@@ -163,29 +163,28 @@ class ArrayQueue : public NonCopyable {
   /**
    * A template class that implements a forward iterator for the array queue.
    */
-  template<typename ValueType>
+  template <typename ValueType>
   class ArrayQueueIterator {
    public:
     typedef ValueType value_type;
-    typedef ValueType& reference;
-    typedef ValueType* pointer;
+    typedef ValueType &reference;
+    typedef ValueType *pointer;
     typedef std::ptrdiff_t difference_type;
     typedef std::forward_iterator_tag iterator_category;
 
     ArrayQueueIterator() = default;
-    ArrayQueueIterator(
-        ValueType *pointer, ValueType *base, size_t tail)
+    ArrayQueueIterator(ValueType *pointer, ValueType *base, size_t tail)
         : mPointer(pointer), mBase(base), mTail(tail) {}
 
-    bool operator==(const ArrayQueueIterator& right) const {
+    bool operator==(const ArrayQueueIterator &right) const {
       return (mPointer == right.mPointer);
     }
 
-    bool operator!=(const ArrayQueueIterator& right) const {
+    bool operator!=(const ArrayQueueIterator &right) const {
       return (mPointer != right.mPointer);
     }
 
-    ValueType& operator*() {
+    ValueType &operator*() {
       return *mPointer;
     }
 
@@ -193,7 +192,7 @@ class ArrayQueue : public NonCopyable {
       return mPointer;
     }
 
-    ArrayQueueIterator& operator++() {
+    ArrayQueueIterator &operator++() {
       if (mPointer == (mBase + mTail)) {
         // Jump to end() if at tail
         mPointer = mBase + kCapacity;
@@ -248,8 +247,8 @@ class ArrayQueue : public NonCopyable {
    * Storage for array queue elements. To avoid static initialization of
    * members, std::aligned_storage is used.
    */
-  typename std::aligned_storage<sizeof(ElementType),
-                                alignof(ElementType)>::type mData[kCapacity];
+  typename std::aligned_storage<sizeof(ElementType), alignof(ElementType)>::type
+      mData[kCapacity];
 
   /*
    * Initialize mTail to be (kCapacity-1). When an element is pushed in,

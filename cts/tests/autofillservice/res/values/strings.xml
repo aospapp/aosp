@@ -29,4 +29,7 @@
     <string name="username_string">Username</string>
     <string name="password_string">Password</string>
 
+    <string name="username_hint">Hint for username</string>
+    <string name="password_hint">Hint for password</string>
+
 </resources>

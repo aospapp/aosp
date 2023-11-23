@@ -13,23 +13,27 @@
 #include "core/fxcrt/string_pool_template.h"
 #include "core/fxcrt/weak_ptr.h"
 
-class CPDF_Name : public CPDF_Object {
+class CPDF_Name final : public CPDF_Object {
  public:
-  CPDF_Name(WeakPtr<ByteStringPool> pPool, const ByteString& str);
-  ~CPDF_Name() override;
+  template <typename T, typename... Args>
+  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
 
   // CPDF_Object:
   Type GetType() const override;
-  std::unique_ptr<CPDF_Object> Clone() const override;
+  RetainPtr<CPDF_Object> Clone() const override;
   ByteString GetString() const override;
   WideString GetUnicodeText() const override;
   void SetString(const ByteString& str) override;
   bool IsName() const override;
   CPDF_Name* AsName() override;
   const CPDF_Name* AsName() const override;
-  bool WriteTo(IFX_ArchiveStream* archive) const override;
+  bool WriteTo(IFX_ArchiveStream* archive,
+               const CPDF_Encryptor* encryptor) const override;
 
- protected:
+ private:
+  CPDF_Name(WeakPtr<ByteStringPool> pPool, const ByteString& str);
+  ~CPDF_Name() override;
+
   ByteString m_Name;
 };
 

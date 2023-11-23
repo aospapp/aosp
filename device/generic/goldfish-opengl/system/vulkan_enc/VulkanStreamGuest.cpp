@@ -14,6 +14,7 @@
 #include "VulkanStreamGuest.h"
 
 #include "IOStream.h"
+#include "ResourceTracker.h"
 
 #include "android/base/Pool.h"
 #include "android/base/Tracing.h"
@@ -27,7 +28,10 @@ namespace goldfish_vk {
 
 class VulkanStreamGuest::Impl : public android::base::Stream {
 public:
-    Impl(IOStream* stream) : mStream(stream) { unsetHandleMapping(); }
+    Impl(IOStream* stream) : mStream(stream) {
+        unsetHandleMapping();
+        mFeatureBits = ResourceTracker::get()->getStreamFeatures();
+    }
 
     ~Impl() { }
 
@@ -49,8 +53,7 @@ public:
     }
 
     ssize_t read(void *buffer, size_t size) override {
-        commitWrite();
-        if (!mStream->readFully(buffer, size)) {
+        if (!mStream->readback(buffer, size)) {
             ALOGE("FATAL: Could not read back %zu bytes", size);
             abort();
         }
@@ -75,6 +78,10 @@ public:
 
     void flush() {
         commitWrite();
+    }
+
+    uint32_t getFeatureBits() const {
+        return mFeatureBits;
     }
 
 private:
@@ -107,6 +114,7 @@ private:
     IOStream* mStream = nullptr;
     DefaultHandleMapping mDefaultHandleMapping;
     VulkanHandleMapping* mCurrentHandleMapping;
+    uint32_t mFeatureBits = 0;
 };
 
 VulkanStreamGuest::VulkanStreamGuest(IOStream *stream) :
@@ -176,6 +184,10 @@ VulkanHandleMapping* VulkanStreamGuest::handleMapping() const {
 
 void VulkanStreamGuest::flush() {
     mImpl->flush();
+}
+
+uint32_t VulkanStreamGuest::getFeatureBits() const {
+    return mImpl->getFeatureBits();
 }
 
 VulkanCountingStream::VulkanCountingStream() : VulkanStreamGuest(nullptr) { }

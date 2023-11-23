@@ -19,6 +19,7 @@ package com.android.tradefed.util;
 import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IFileDownloader;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.storage.Storage;
@@ -32,6 +33,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.SocketException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -189,11 +192,16 @@ public class GCSFileDownloader extends GCSCommon implements IFileDownloader {
         }
         for (String subRemoteFolder : subRemoteFolders) {
             String subFolderName = Paths.get(subRemoteFolder).getFileName().toString();
-            if (!recursiveCheckFolderFreshness(
-                    bucketName, subRemoteFolder, new File(localFolder, subFolderName))) {
+            File subFolder = new File(localFolder, subFolderName);
+            if (new File(localFolder, subFolderName).exists()
+                    && !new File(localFolder, subFolderName).isDirectory()) {
+                CLog.w("%s exists as a non-directory.", subFolder);
+                subFolder = new File(localFolder, subFolderName + "_folder");
+            }
+            if (!recursiveCheckFolderFreshness(bucketName, subRemoteFolder, subFolder)) {
                 return false;
             }
-            subFilenames.remove(subFolderName);
+            subFilenames.remove(subFolder.getName());
         }
         return subFilenames.isEmpty();
     }
@@ -235,7 +243,8 @@ public class GCSFileDownloader extends GCSCommon implements IFileDownloader {
         Matcher m = GCS_PATH_PATTERN.matcher(remotePath);
         if (!m.find()) {
             throw new BuildRetrievalError(
-                    String.format("Only GCS path is supported, %s is not supported", remotePath));
+                    String.format("Only GCS path is supported, %s is not supported", remotePath),
+                    InfraErrorIdentifier.ARTIFACT_UNSUPPORTED_PATH);
         }
         return new String[] {m.group(1), m.group(2)};
     }
@@ -272,13 +281,28 @@ public class GCSFileDownloader extends GCSCommon implements IFileDownloader {
     @VisibleForTesting
     void downloadFile(String bucketName, String remoteFilename, File localFile)
             throws BuildRetrievalError {
+        int i = 0;
         try {
-            if (!isRemoteFolder(bucketName, remoteFilename)) {
-                fetchRemoteFile(bucketName, remoteFilename, localFile);
-                return;
-            }
-            remoteFilename = sanitizeDirectoryName(remoteFilename);
-            recursiveDownloadFolder(bucketName, remoteFilename, localFile);
+            do {
+                i++;
+                try {
+                    if (!isRemoteFolder(bucketName, remoteFilename)) {
+                        fetchRemoteFile(bucketName, remoteFilename, localFile);
+                        return;
+                    }
+                    remoteFilename = sanitizeDirectoryName(remoteFilename);
+                    recursiveDownloadFolder(bucketName, remoteFilename, localFile);
+                    return;
+                } catch (SocketException se) {
+                    // Allow one retry in case of flaky connection.
+                    if (i >= 2) {
+                        throw se;
+                    }
+                    CLog.e(
+                            "Error '%s' while downloading gs://%s/%s. retrying.",
+                            se.getMessage(), bucketName, remoteFilename);
+                }
+            } while (true);
         } catch (IOException e) {
             CLog.e("Failed to download gs://%s/%s, clean up.", bucketName, remoteFilename);
             throw new BuildRetrievalError(e.getMessage(), e);
@@ -287,10 +311,12 @@ public class GCSFileDownloader extends GCSCommon implements IFileDownloader {
 
     private void fetchRemoteFile(String bucketName, String remoteFilename, File localFile)
             throws IOException {
-        getStorage()
-                .objects()
-                .get(bucketName, remoteFilename)
-                .executeMediaAndDownloadTo(new FileOutputStream(localFile));
+        try (OutputStream writeStream = new FileOutputStream(localFile)) {
+            getStorage()
+                    .objects()
+                    .get(bucketName, remoteFilename)
+                    .executeMediaAndDownloadTo(writeStream);
+        }
     }
 
     /**
@@ -307,6 +333,14 @@ public class GCSFileDownloader extends GCSCommon implements IFileDownloader {
         if (!localFolder.exists()) {
             FileUtil.mkdirsRWX(localFolder);
         }
+        if (!localFolder.isDirectory()) {
+            String error =
+                    String.format(
+                            "%s is not a folder. (gs://%s/%s)",
+                            localFolder, bucketName, remoteFolderName);
+            CLog.e(error);
+            throw new IOException(error);
+        }
         Set<String> subFilenames = new HashSet<>(Arrays.asList(localFolder.list()));
         List<String> subRemoteFolders = new ArrayList<>();
         List<StorageObject> subRemoteFiles = new ArrayList<>();
@@ -319,9 +353,14 @@ public class GCSFileDownloader extends GCSCommon implements IFileDownloader {
         }
         for (String subRemoteFolder : subRemoteFolders) {
             String subFolderName = Paths.get(subRemoteFolder).getFileName().toString();
-            recursiveDownloadFolder(
-                    bucketName, subRemoteFolder, new File(localFolder, subFolderName));
-            subFilenames.remove(subFolderName);
+            File subFolder = new File(localFolder, subFolderName);
+            if (new File(localFolder, subFolderName).exists()
+                    && !new File(localFolder, subFolderName).isDirectory()) {
+                CLog.w("%s exists as a non-directory.", subFolder);
+                subFolder = new File(localFolder, subFolderName + "_folder");
+            }
+            recursiveDownloadFolder(bucketName, subRemoteFolder, subFolder);
+            subFilenames.remove(subFolder.getName());
         }
         for (String subFilename : subFilenames) {
             FileUtil.recursiveDelete(new File(localFolder, subFilename));

@@ -53,9 +53,9 @@ public class CurrentPositionMediatorTest extends BaseMainActivityTestCase {
     public void testOnSeekRequested() {
         long seekToTimeMs = System.currentTimeMillis() - REQUEST_TIMEOUT_MS * 3;
         mMediator.onSeekRequested(seekToTimeMs);
-        assertWithMessage("Seek request time")
-                .that(mMediator.mSeekRequestTimeMs)
-                .isNotSameAs(INVALID_TIME);
+    assertWithMessage("Seek request time")
+        .that(mMediator.mSeekRequestTimeMs)
+        .isNotSameInstanceAs(INVALID_TIME);
         assertWithMessage("Current position")
                 .that(mMediator.mCurrentPositionMs)
                 .isEqualTo(seekToTimeMs);
@@ -68,15 +68,15 @@ public class CurrentPositionMediatorTest extends BaseMainActivityTestCase {
         long newCurrentTimeMs = seekToTimeMs + REQUEST_TIMEOUT_MS;
         mMediator.onSeekRequested(seekToTimeMs);
         mMediator.onCurrentPositionChanged(newCurrentTimeMs);
-        assertWithMessage("Seek request time")
-                .that(mMediator.mSeekRequestTimeMs)
-                .isNotSameAs(INVALID_TIME);
-        assertWithMessage("Current position")
-                .that(mMediator.mCurrentPositionMs)
-                .isNotSameAs(seekToTimeMs);
-        assertWithMessage("Current position")
-                .that(mMediator.mCurrentPositionMs)
-                .isNotSameAs(newCurrentTimeMs);
+    assertWithMessage("Seek request time")
+        .that(mMediator.mSeekRequestTimeMs)
+        .isNotSameInstanceAs(INVALID_TIME);
+    assertWithMessage("Current position")
+        .that(mMediator.mCurrentPositionMs)
+        .isNotSameInstanceAs(seekToTimeMs);
+    assertWithMessage("Current position")
+        .that(mMediator.mCurrentPositionMs)
+        .isNotSameInstanceAs(newCurrentTimeMs);
     }
 
     @UiThreadTest

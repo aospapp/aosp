@@ -118,7 +118,7 @@ class ScopeTimer {
         if (!mDisabled) {
             std::string msg;
             dump(&msg);
-            LOG_TO(SYSTEM, INFO) << msg;
+            LOG(INFO) << msg;
         }
     }
     void setEnabled(bool enabled) { mDisabled = !enabled; }

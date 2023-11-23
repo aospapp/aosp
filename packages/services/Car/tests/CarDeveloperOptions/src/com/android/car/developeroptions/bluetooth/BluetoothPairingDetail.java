@@ -29,9 +29,9 @@ import android.widget.Toast;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.car.developeroptions.R;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.widget.FooterPreference;
 
 /**

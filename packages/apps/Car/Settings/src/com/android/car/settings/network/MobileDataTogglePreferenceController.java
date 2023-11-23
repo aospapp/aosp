@@ -98,12 +98,17 @@ public class MobileDataTogglePreferenceController extends
     protected void onCreateInternal() {
         ConfirmationDialogFragment.resetListeners(
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
-                        DISABLE_DIALOG_TAG), mConfirmDisableListener, mRejectRefreshListener);
+                        DISABLE_DIALOG_TAG),
+                mConfirmDisableListener,
+                mRejectRefreshListener,
+                /* neutralListener= */ null);
 
         ConfirmationDialogFragment.resetListeners(
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
-                        ENABLE_MULTISIM_DIALOG_TAG), mConfirmMultiSimListener,
-                mRejectRefreshListener);
+                        ENABLE_MULTISIM_DIALOG_TAG),
+                mConfirmMultiSimListener,
+                mRejectRefreshListener,
+                /* neutralListener= */ null);
     }
 
     @Override

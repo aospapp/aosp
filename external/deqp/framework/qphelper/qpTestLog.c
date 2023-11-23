@@ -242,6 +242,12 @@ static const qpKeyStringMap s_qpShaderTypeMap[] =
 	{ QP_SHADER_TYPE_TESS_CONTROL,		"TessControlShader"		},
 	{ QP_SHADER_TYPE_TESS_EVALUATION,	"TessEvaluationShader"	},
 	{ QP_SHADER_TYPE_COMPUTE,			"ComputeShader"			},
+	{ QP_SHADER_TYPE_RAYGEN,			"RaygenShader"			},
+	{ QP_SHADER_TYPE_ANY_HIT,			"AnyHitShader"			},
+	{ QP_SHADER_TYPE_CLOSEST_HIT,		"ClosestHitShader"		},
+	{ QP_SHADER_TYPE_MISS,				"MissShader"			},
+	{ QP_SHADER_TYPE_INTERSECTION,		"IntersectionShader"	},
+	{ QP_SHADER_TYPE_CALLABLE,			"CallableShader"		},
 
 	{ QP_SHADER_TYPE_LAST,				DE_NULL					}
 };
@@ -263,7 +269,8 @@ static void qpTestLog_flushFile (qpTestLog* log)
 static const char* qpLookupString (const qpKeyStringMap* keyMap, int keyMapSize, int key)
 {
 	DE_ASSERT(keyMap);
-	DE_ASSERT(deInBounds32(key, 0, keyMapSize));
+	DE_ASSERT(deInBounds32(key, 0, keyMapSize - 1)); /* Last element in map is assumed to be terminator */
+	DE_ASSERT(keyMap[keyMapSize - 1].string == DE_NULL); /* Ensure map is properly completed, *_LAST element is not missing */
 	DE_ASSERT(keyMap[key].key == key);
 	DE_UNREF(keyMapSize); /* for asserting only */
 	return keyMap[key].string;
@@ -289,7 +296,7 @@ DE_INLINE void doubleToString (double value, char* buf, size_t bufSize)
 	deSprintf(buf, bufSize, "%f", value);
 }
 
-static deBool beginSession (qpTestLog* log)
+static deBool beginSession (qpTestLog* log, int argc, char** argv)
 {
 	DE_ASSERT(log && !log->isSessionOpen);
 
@@ -297,6 +304,14 @@ static deBool beginSession (qpTestLog* log)
 	fprintf(log->outputFile, "#sessionInfo releaseName %s\n", qpGetReleaseName());
 	fprintf(log->outputFile, "#sessionInfo releaseId 0x%08x\n", qpGetReleaseId());
 	fprintf(log->outputFile, "#sessionInfo targetName \"%s\"\n", qpGetTargetName());
+	fprintf(log->outputFile, "#sessionInfo commandLineParameters \"");
+	for (int i = 0; i < argc && argv != NULL; ++i)
+	{
+		fprintf(log->outputFile, "%s", argv[i]);
+		if (i < argc-1)
+			fprintf(log->outputFile, " ");
+	}
+	fprintf(log->outputFile, "\"\n");
 
     /* Write out #beginSession. */
 	fprintf(log->outputFile, "#beginSession\n");
@@ -328,7 +343,7 @@ static deBool endSession (qpTestLog* log)
  * \param fileName Name of the file where to put logs
  * \return qpTestLog instance, or DE_NULL if cannot create file
  *//*--------------------------------------------------------------------*/
-qpTestLog* qpTestLog_createFileLog (const char* fileName, deUint32 flags)
+qpTestLog* qpTestLog_createFileLog (const char* fileName, int argc, char** argv, deUint32 flags)
 {
 	qpTestLog* log = (qpTestLog*)deCalloc(sizeof(qpTestLog));
 	if (!log)
@@ -371,7 +386,7 @@ qpTestLog* qpTestLog_createFileLog (const char* fileName, deUint32 flags)
 		return DE_NULL;
 	}
 
-	beginSession(log);
+	beginSession(log, argc, argv);
 
 	return log;
 }

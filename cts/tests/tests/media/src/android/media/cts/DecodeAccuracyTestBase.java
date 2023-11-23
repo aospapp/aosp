@@ -392,7 +392,7 @@ public class DecodeAccuracyTestBase {
                         mediaFormat.setString(MediaFormat.KEY_FRAME_RATE, null);
                     }
                     if (mediaCodecList == null) {
-                        mediaCodecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+                        mediaCodecList = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
                     }
                     decoder = MediaCodec.createByCodecName(
                             mediaCodecList.findDecoderForFormat(mediaFormat));

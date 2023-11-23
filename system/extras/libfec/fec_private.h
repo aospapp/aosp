@@ -19,19 +19,20 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <memory>
-#include <new>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <string>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#include <memory>
+#include <string>
 #include <vector>
 
 #include <crypto_utils/android_pubkey.h>
 #include <fec/ecc.h>
 #include <fec/io.h>
+#include <openssl/obj_mac.h>
 #include <openssl/sha.h>
 #include <utils/Compat.h>
 
@@ -74,26 +75,59 @@ struct ecc_info {
     uint64_t start; /* offset in file */
 };
 
+struct hashtree_info {
+    // The number of the input data blocks to compute the hashtree.
+    uint64_t data_blocks;
+    // The offset of hashtree in the final image.
+    uint64_t hash_start;
+    // The hash concatenation of the input data, i.e. lowest level of the
+    // hashtree.
+    std::vector<uint8_t> hash_data;
+    std::vector<uint8_t> salt;
+    std::vector<uint8_t> zero_hash;
+
+    // Initialize the hashtree offsets and properties with the input parameters.
+    int initialize(uint64_t hash_start, uint64_t data_blocks,
+                   const std::vector<uint8_t> &salt, int nid);
+
+    // Checks if the bytes in 'block' has the expected hash. And the 'index' is
+    // the block number of is the input block in the filesystem.
+    bool check_block_hash_with_index(uint64_t index, const uint8_t *block);
+
+    // Reads the verity hash tree, validates it against the root hash in `root',
+    // corrects errors if necessary, and copies valid data blocks for later use
+    // to 'hashtree'.
+    int verify_tree(const fec_handle *f, const uint8_t *root);
+
+   private:
+    bool ecc_read_hashes(fec_handle *f, uint64_t hash_offset, uint8_t *hash,
+                         uint64_t data_offset, uint8_t *data);
+
+    // Computes the hash for FEC_BLOCKSIZE bytes from buffer 'block' and
+    // compares it to the expected value in 'expected'.
+    bool check_block_hash(const uint8_t *expected, const uint8_t *block);
+
+    // Computes the hash of 'block' and put the result in 'hash'.
+    int get_hash(const uint8_t *block, uint8_t *hash);
+
+    int nid_;  // NID for the hash algorithm.
+    uint32_t digest_length_;
+    uint32_t padded_digest_length_;
+};
+
 struct verity_info {
     bool disabled;
-    char *table;
-    uint32_t hash_data_blocks;
-    uint32_t hash_size;
-    uint64_t hash_data_offset;
-    uint64_t hash_start;
-    uint8_t *hash;
-    uint32_t salt_size;
-    uint8_t *salt;
-    uint64_t data_blocks;
+    std::string table;
     uint64_t metadata_start; /* offset in file */
-    uint8_t zero_hash[SHA256_DIGEST_LENGTH];
+    hashtree_info hashtree;
     verity_header header;
     verity_header ecc_header;
 };
 
-struct verity_block_info {
-    uint64_t index;
-    bool valid;
+struct avb_info {
+    bool valid = false;
+    std::vector<uint8_t> vbmeta;
+    hashtree_info hashtree;
 };
 
 struct fec_handle {
@@ -106,14 +140,18 @@ struct fec_handle {
     uint64_t data_size;
     uint64_t pos;
     uint64_t size;
+    // TODO(xunchang) switch to std::optional
     verity_info verity;
+    avb_info avb;
+
+    hashtree_info hashtree() const {
+        return avb.valid ? avb.hashtree : verity.hashtree;
+    }
 };
 
 /* I/O helpers */
-extern bool raw_pread(fec_handle *f, void *buf, size_t count,
-        uint64_t offset);
-extern bool raw_pwrite(fec_handle *f, const void *buf, size_t count,
-        uint64_t offset);
+extern bool raw_pread(int fd, void *buf, size_t count, uint64_t offset);
+extern bool raw_pwrite(int fd, const void *buf, size_t count, uint64_t offset);
 
 /* processing functions */
 typedef ssize_t (*read_func)(fec_handle *f, uint8_t *dest, size_t count,
@@ -124,12 +162,10 @@ extern ssize_t process(fec_handle *f, uint8_t *buf, size_t count,
 
 /* verity functions */
 extern uint64_t verity_get_size(uint64_t file_size, uint32_t *verity_levels,
-        uint32_t *level_hashes);
+                                uint32_t *level_hashes,
+                                uint32_t padded_digest_size);
 
 extern int verity_parse_header(fec_handle *f, uint64_t offset);
-
-extern bool verity_check_block(fec_handle *f, const uint8_t *expected,
-        const uint8_t *block);
 
 /* helper macros */
 #ifndef unlikely

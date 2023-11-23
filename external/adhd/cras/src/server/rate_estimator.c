@@ -94,12 +94,12 @@ int rate_estimator_check(struct rate_estimator *re, int level,
 	least_square_add_sample(&re->lsq,
 				td.tv_sec + (double)td.tv_nsec / 1000000000L,
 				re->window_frames);
-	if (timespec_after(&td, &re->window_size) &&
-	    re->lsq.num_samples > 1) {
+	if (timespec_after(&td, &re->window_size) && re->lsq.num_samples > 1) {
 		double rate = least_square_best_fit_slope(&re->lsq);
 		if (fabs(re->estimated_rate - rate) < MAX_RATE_SKEW)
-			re->estimated_rate = rate * (1 - re->smooth_factor) +
-					re->smooth_factor * re->estimated_rate;
+			re->estimated_rate =
+				rate * (1 - re->smooth_factor) +
+				re->smooth_factor * re->estimated_rate;
 		least_square_reset(&re->lsq);
 		re->window_start_ts = *now;
 		re->window_frames = 0;

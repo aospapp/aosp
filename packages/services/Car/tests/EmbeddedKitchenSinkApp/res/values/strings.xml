@@ -113,6 +113,12 @@
     <string name="media_play" translatable="false">Media Play</string>
     <string name="hw_audio_source_title" translatable="false">HwAudioSource</string>
     <string name="hw_audio_source_not_found" translatable="false">Not found</string>
+    <string name="media_with_delayed_focus" translatable="false">Media With Delayed Focus</string>
+    <string name="player_not_started" translatable="false">Player Not Started</string>
+    <string name="player_paused" translatable="false">Player Paused</string>
+    <string name="player_started" translatable="false">Player Started</string>
+    <string name="player_delayed" translatable="false">Player Delayed</string>
+    <string name="player_stopped" translatable="false">Player Stopped</string>
     <string name="nav_play" translatable="false">Nav Play</string>
     <string name="vr_play" translatable="false">VR Play</string>
     <string name="system_play" translatable="false">System Play</string>
@@ -131,8 +137,15 @@
     <string name="microphone_off" translatable="false">Mic Off</string>
     <string name="mock_audio_on" translatable="false">Audio Mocking On</string>
     <string name="mock_audio_off" translatable="false">Audio Mocking Off</string>
-    <string name="select_zone" translatable="false">Select Zone</string>
-    <string name="select_display" translatable="false">Select Display</string>
+    <string name="select_zone_to_hear_on_speaker" translatable="false">Select Zone to hear on speaker</string>
+    <string name="select_device" translatable="false">Select Device</string>
+    <string name="activity_current_zone_id" translatable="false">Activity\'s current audio zone id</string>
+    <string name="no_zone" translatable="false">none</string>
+    <string name="phone_audio_player" translatable="false">Phone Player</string>
+
+    <!-- Audio Input-->
+    <string name="play_audio_input" translatable="false">Play</string>
+    <string name="stop_audio_input" translatable="false">Stop</string>
 
     <!-- keyboard test fragment -->
     <string name="keyboard_test_title" translatable="false">Keyboard Test</string>
@@ -177,6 +190,14 @@
     <string name="sw_down" translatable="false">Down</string>
     <string name="sw_center" translatable="false">Center</string>
     <string name="sw_back" translatable="false">Back</string>
+
+    <!-- package info test -->
+    <string name="select_user" translatable="false">Select user</string>
+    <string name="checkbox_activities" translatable="false">contains only activities</string>
+    <string name="checkbox_services" translatable="false">services are not exported</string>
+    <string name="checkbox_permissions" translatable="false"> does not require selected permissions</string>
+    <string name="checkbox_shareduid" translatable="false">sharedUserId is not system</string>
+    <string name="button_show" translatable="false">Show</string>
 
     <!-- power test -->
     <string name="power_request_shutdown" translatable="false">Request Shutdown</string>
@@ -249,7 +270,9 @@
     <string name="sms_connect" translatable="false">Connect</string>
     <string name="sms_disconnect" translatable="false">Disconnect</string>
     <string name="sms_send_message" translatable="false">Send</string>
-    <string name="sms_new_message_button" translatable="false">Send new message</string>
+    <string name="sms_new_message_button" translatable="false">Send new message (Short)</string>
+    <string name="mms_new_message_button" translatable="false">Send new message (Long)</string>
+    <string name="reset_message_counter_button" translatable="false">Reset message counter</string>
     <string name="sms_notifications" translatable="false">Toggle Notifications</string>
     <string name="sms_listing_button" translatable="false">List SMS</string>
     <string name="sms_listing_label_folder" translatable="false">Folder</string>
@@ -321,4 +344,26 @@
 
     <!-- Users -->
     <string name="users_apply_button" translatable="false">Apply</string>
+
+    <!-- carapi -->
+    <string name="createandconnect" translatable="false">createCarAndConnect</string>
+    <string name="disconnect" translatable="false">disconnect</string>
+    <string name="createcar" translatable="false">createCar</string>
+    <string name="createcar_with_status_change" translatable="false">createCarWithStatusChange</string>
+
+    <!-- UserNoiticeDemoUiService -->
+    <string name="usernotice" translatable="false">This screen is for showing initial user notice and is not for product. Plz change config_userNoticeUiService in CarService before shipping.</string>
+    <string name="dismiss_now" translatable="false">Dismiss for now</string>
+    <string name="dismiss_forever" translatable="false">Do not show again</string>
+
+    <!-- [AlwaysCrashing|NoCrash|Empty]Activity -->
+    <string name="always_crashing_activity" translatable="false">Always Crash Activity</string>
+    <string name="no_crash_activity" translatable="false">No Crash Activity</string>
+    <string name="empty_activity" translatable="false">Empty Activity</string>
+
+    <!-- ExperimentalFeatureTest -->
+    <string name="experimental_ping" translatable="false">Ping Service</string>
+
+    <!-- User Profile -->
+    <string name="status_message_title">Status Message</string>
 </resources>

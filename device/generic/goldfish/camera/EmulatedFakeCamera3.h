@@ -50,7 +50,7 @@ class EmulatedFakeCamera3 : public EmulatedCamera3,
 public:
 
     EmulatedFakeCamera3(int cameraId, bool facingBack,
-            struct hw_module_t* module);
+            struct hw_module_t* module, GraphicBufferMapper* gbm);
 
     virtual ~EmulatedFakeCamera3();
 
@@ -160,6 +160,8 @@ private:
     int32_t            mSensorHeight;
 
     SortedVector<AvailableCapabilities> mCapabilities;
+
+    GraphicBufferMapper* mGBM;
 
     /**
      * Cache for default templates. Once one is requested, the pointer must be

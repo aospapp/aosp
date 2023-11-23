@@ -31,7 +31,8 @@ MAX_TIME=3600
 
 NAME=`while read dev dir type opt; do
   if [ /data = ${dir} -a f2fs = ${type} ]; then
-    echo ${dev##*/}
+    real_dev=$(realpath $dev)
+    echo ${real_dev##*/}
     break
   fi
 done < /proc/mounts`

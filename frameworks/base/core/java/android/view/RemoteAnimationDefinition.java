@@ -19,12 +19,15 @@ package android.view;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
 
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.app.WindowConfiguration;
 import android.app.WindowConfiguration.ActivityType;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.os.IBinder;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.RemoteException;
 import android.util.ArraySet;
+import android.util.Slog;
 import android.util.SparseArray;
 import android.view.WindowManager.TransitionType;
 
@@ -118,9 +121,23 @@ public class RemoteAnimationDefinition implements Parcelable {
      * To be called by system_server to keep track which pid is running the remote animations inside
      * this definition.
      */
-    public void setCallingPid(int pid) {
+    public void setCallingPidUid(int pid, int uid) {
         for (int i = mTransitionAnimationMap.size() - 1; i >= 0; i--) {
-            mTransitionAnimationMap.valueAt(i).adapter.setCallingPid(pid);
+            mTransitionAnimationMap.valueAt(i).adapter.setCallingPidUid(pid, uid);
+        }
+    }
+
+    /**
+     * Links the death of the runner to the provided death recipient.
+     */
+    public void linkToDeath(IBinder.DeathRecipient deathRecipient) {
+        try {
+            for (int i = 0; i < mTransitionAnimationMap.size(); i++) {
+                mTransitionAnimationMap.valueAt(i).adapter.getRunner().asBinder()
+                        .linkToDeath(deathRecipient, 0 /* flags */);
+            }
+        } catch (RemoteException e) {
+            Slog.e("RemoteAnimationDefinition", "Failed to link to death recipient");
         }
     }
 

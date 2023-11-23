@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -347,6 +347,7 @@ static const struct ReferenceFormats
     { "TIFF64", UndefinedCompression, 0.0 },
     { "TILE", UndefinedCompression, 0.0 },
     { "TIM", UndefinedCompression, 0.0 },
+    { "TIM2", UndefinedCompression, 0.0 },
     { "TTC", UndefinedCompression, 0.0 },
     { "TTF", UndefinedCompression, 0.0 },
     { "TXT", UndefinedCompression, 0.0 },

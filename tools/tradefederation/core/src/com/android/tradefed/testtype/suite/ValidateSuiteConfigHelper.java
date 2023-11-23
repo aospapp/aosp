@@ -98,7 +98,7 @@ public class ValidateSuiteConfigHelper {
                             Configuration.RESULT_REPORTER_TYPE_NAME));
         }
         // For now we do not allow pre-multi target preparers in modules.
-        if (config.getMultiPreTargetPreparers().size() > 0) {
+        if (!config.getMultiPreTargetPreparers().isEmpty()) {
             throwRuntime(
                     config,
                     String.format(
@@ -120,6 +120,14 @@ public class ValidateSuiteConfigHelper {
                                 Configuration.DEVICE_METRICS_COLLECTOR_TYPE_NAME,
                                 ALLOWED_COLLECTOR_IN_MODULE));
             }
+        }
+
+        if (!config.getPostProcessors().isEmpty()) {
+            throwRuntime(
+                    config,
+                    String.format(
+                            "%s objects are not allowed in module.",
+                            Configuration.METRIC_POST_PROCESSOR_TYPE_NAME));
         }
 
         // Check that we validate the module_controller.

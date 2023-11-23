@@ -342,6 +342,18 @@ struct TargetX8664Traits {
     return ByteRegs[RegNum];
   }
 
+  static bool isXmm(RegNumT RegNum) {
+    static const bool IsXmm [RegisterSet::Reg_NUM] = {
+#define X(val, encode, name, base, scratch, preserved, stackptr, frameptr,     \
+          sboxres, isGPR, is64, is32, is16, is8, isXmm, is64To8, is32To8,      \
+          is16To8, isTrunc8Rcvr, isAhRcvr, aliases)                            \
+        isXmm,
+        REGX8664_TABLE
+#undef X
+    };
+    return IsXmm[RegNum];
+  }
+
   static XmmRegister getEncodedXmm(RegNumT RegNum) {
     static const XmmRegister XmmRegs[RegisterSet::Reg_NUM] = {
 #define X(val, encode, name, base, scratch, preserved, stackptr, frameptr,     \
@@ -533,7 +545,7 @@ public:
       // still be used by the Target Lowering (e.g., base pointer), so the
       // register alias table still needs to be defined.
       (*RegisterAliases)[Entry.Val].resize(RegisterSet::Reg_NUM);
-      for (int J = 0; J < Entry.NumAliases; ++J) {
+      for (Ice::SizeT J = 0; J < Entry.NumAliases; ++J) {
         SizeT Alias = Entry.Aliases[J];
         assert(!(*RegisterAliases)[Entry.Val][Alias] && "Duplicate alias");
         (*RegisterAliases)[Entry.Val].set(Alias);
@@ -730,6 +742,15 @@ public:
     assert(Ty == IceType_i64 || Ty == IceType_i32);
     return getGprForType(Ty, GprForArgNum[ArgNum]);
   }
+  // Given the absolute argument position and argument position by type, return
+  // the register index to assign it to.
+  static SizeT getArgIndex(SizeT argPos, SizeT argPosByType) {
+    // Microsoft x64 ABI: register is selected by arg position (e.g. 1st int as
+    // 2nd param goes into 2nd int reg)
+    (void)argPosByType;
+    return argPos;
+  };
+
 #else
   // System V x86-64 calling convention:
   //
@@ -761,6 +782,12 @@ public:
                   "Mismatch between MAX_GPR_ARGS and GprForArgNum.");
     assert(Ty == IceType_i64 || Ty == IceType_i32);
     return getGprForType(Ty, GprForArgNum[ArgNum]);
+  }
+  // Given the absolute argument position and argument position by type, return
+  // the register index to assign it to.
+  static SizeT getArgIndex(SizeT argPos, SizeT argPosByType) {
+    (void)argPos;
+    return argPosByType;
   }
 #endif
 

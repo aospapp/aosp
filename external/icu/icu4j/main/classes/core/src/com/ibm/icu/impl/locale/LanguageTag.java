@@ -169,9 +169,20 @@ public class LanguageTag {
 
         // Check if the tag is grandfathered
         String[] gfmap = GRANDFATHERED.get(new AsciiUtil.CaseInsensitiveKey(languageTag));
+        // Language tag is at least 2 alpha so we can skip searching the first 2 chars.
+        int dash = 2;
+        while (gfmap == null && (dash = languageTag.indexOf('-', dash + 1)) != -1) {
+            gfmap = GRANDFATHERED.get(new AsciiUtil.CaseInsensitiveKey(languageTag.substring(0, dash)));
+        }
+
         if (gfmap != null) {
-            // use preferred mapping
-            itr = new StringTokenIterator(gfmap[1], SEP);
+            if (gfmap[0].length() == languageTag.length()) {
+                // use preferred mapping
+                itr = new StringTokenIterator(gfmap[1], SEP);
+            } else {
+                // append the rest of the tag.
+                itr = new StringTokenIterator(gfmap[1] + languageTag.substring(dash), SEP);
+            }
             isGrandfathered = true;
         } else {
             itr = new StringTokenIterator(languageTag, SEP);
@@ -313,7 +324,11 @@ public class LanguageTag {
             if (_variants.isEmpty()) {
                 _variants = new ArrayList<String>(3);
             }
-            _variants.add(s);
+            // Ignore repeated variant
+            s = s.toUpperCase();
+            if (!_variants.contains(s)) {
+                _variants.add(s);
+            }
             sts._parseLength = itr.currentEnd();
             itr.next();
         }
@@ -332,7 +347,7 @@ public class LanguageTag {
             String s = itr.current();
             if (isExtensionSingleton(s)) {
                 int start = itr.currentStart();
-                String singleton = s;
+                String singleton = s.toLowerCase();
                 StringBuilder sb = new StringBuilder(singleton);
 
                 itr.next();
@@ -356,7 +371,14 @@ public class LanguageTag {
                 if (_extensions.size() == 0) {
                     _extensions = new ArrayList<String>(4);
                 }
-                _extensions.add(sb.toString());
+                // Ignore the extension if it is already in _extensions.
+                boolean alreadyHas = false;
+                for (String extension : _extensions) {
+                    alreadyHas |= extension.charAt(0) == sb.charAt(0);
+                }
+                if (!alreadyHas) {
+                  _extensions.add(sb.toString());
+                }
                 found = true;
             } else {
                 break;
@@ -622,7 +644,7 @@ public class LanguageTag {
         //               / %x79-7A             ; y - z
 
         return (s.length() == 1)
-                && AsciiUtil.isAlphaString(s)
+                && AsciiUtil.isAlphaNumericString(s)
                 && !AsciiUtil.caseIgnoreMatch(PRIVATEUSE, s);
     }
 

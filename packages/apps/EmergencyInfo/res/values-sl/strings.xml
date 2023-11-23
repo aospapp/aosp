@@ -104,7 +104,7 @@
     <string name="clear" msgid="3648880442502887163">"Izbriši"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Želite izbrisati vse informacije in stike?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Zdravstveni podatki in stiki za nujne primere, ki jih dodate v telefon, so lahko koristni za osebe, ki prve priskočijo na pomoč v nujnih primerih.\n\nTe podatke lahko vsakdo prebere na zaklenjenem zaslonu in pokliče stike tako, da se dotakne njihovih imen, ne da bi pred tem moral odkleniti telefon."</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodajanje podatkov za nujne primere"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodajte podatke za nujne primere"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Omogočite prikaz svojih podatkov reševalcem"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Fotografiranje"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Izbira slike"</string>

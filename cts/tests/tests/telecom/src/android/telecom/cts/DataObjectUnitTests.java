@@ -130,11 +130,14 @@ public class DataObjectUnitTests extends InstrumentationTestCase {
         extras.putString(
                 TelecomManager.GATEWAY_PROVIDER_PACKAGE,
                 PACKAGE);
-        ConnectionRequest request = new ConnectionRequest(
-                accountHandle,
-                Uri.parse("tel:555-TEST"),
-                extras,
-                VideoProfile.STATE_AUDIO_ONLY);
+        String telecomCallId = "TC@103";
+        ConnectionRequest request = new ConnectionRequest.Builder()
+                .setAccountHandle(accountHandle)
+                .setAddress(Uri.parse("tel:555-TEST"))
+                .setExtras(extras)
+                .setVideoState(VideoProfile.STATE_AUDIO_ONLY)
+                .setTelecomCallId(telecomCallId)
+                .build();
         assertEquals(accountHandle, request.getAccountHandle());
         assertEquals(Uri.parse("tel:555-TEST"), request.getAddress());
         assertEquals(extras.getString(
@@ -142,6 +145,7 @@ public class DataObjectUnitTests extends InstrumentationTestCase {
                 request.getExtras().getString(TelecomManager.GATEWAY_PROVIDER_PACKAGE));
         assertEquals(VideoProfile.STATE_AUDIO_ONLY, request.getVideoState());
         assertEquals(0, request.describeContents());
+        assertEquals(telecomCallId, request.getTelecomCallId());
 
         // Create a parcel of the object and recreate the object back
         // from the parcel.
@@ -155,6 +159,7 @@ public class DataObjectUnitTests extends InstrumentationTestCase {
                 extras.getString(TelecomManager.GATEWAY_PROVIDER_PACKAGE),
                 parcelRequest.getExtras().getString(TelecomManager.GATEWAY_PROVIDER_PACKAGE));
         assertEquals(VideoProfile.STATE_AUDIO_ONLY, parcelRequest.getVideoState());
+        assertEquals(telecomCallId, request.getTelecomCallId());
         assertEquals(0, parcelRequest.describeContents());
         p.recycle();
     }

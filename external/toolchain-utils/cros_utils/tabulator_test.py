@@ -1,4 +1,9 @@
-# Copyright 2012 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Tests for the tabulator module."""
 
 from __future__ import print_function
@@ -9,7 +14,7 @@ __author__ = 'asharif@google.com (Ahmad Sharif)'
 import unittest
 
 # Local modules
-import tabulator
+from cros_utils import tabulator
 
 
 class TabulatorTest(unittest.TestCase):
@@ -68,16 +73,24 @@ class TabulatorTest(unittest.TestCase):
     a = [1.0e+308] * 3
     # pylint: disable=protected-access
     b = tabulator.Result()._GetGmean(a)
-    self.assertTrue(b >= 0.99e+308 and b <= 1.01e+308)
+    self.assertTrue(0.99e+308 <= b <= 1.01e+308)
+
+  def testIgnoreMinMax(self):
+    amr = tabulator.AmeanResult(ignore_min_max=True)
+    cell = tabulator.Cell()
+    values = [1, 2]
+    amr.Compute(cell, values, None)
+    self.assertTrue(cell.value == 1.5)
+    values = [1, 2, 8]
+    amr.Compute(cell, values, None)
+    self.assertTrue(cell.value == 2)
 
   def testTableGenerator(self):
-    runs = [[{'k1': '10',
-              'k2': '12'}, {'k1': '13',
-                            'k2': '14',
-                            'k3': '15'}], [{'k1': '50',
-                                            'k2': '51',
-                                            'k3': '52',
-                                            'k4': '53'}]]
+    # yapf: disable
+    runs = [[{'k1': '10', 'k2': '12'},
+             {'k1': '13', 'k2': '14', 'k3': '15'}],
+            [{'k1': '50', 'k2': '51', 'k3': '52', 'k4': '53'}]]
+    # yapf: enable
     labels = ['vanilla', 'modified']
     tg = tabulator.TableGenerator(runs, labels)
     table = tg.GetTable()
@@ -102,6 +115,52 @@ class TabulatorTest(unittest.TestCase):
     tf = tabulator.TableFormatter(table, columns)
     table = tf.GetCellTable()
     self.assertTrue(table)
+
+  def testSamplesTableGenerator(self):
+    # yapf: disable
+    keyvals = {
+        'bench1': [[{'samples': 1}, {'samples': 2}],
+                   [{'samples': 3}, {'samples': 4}]],
+        'bench2': [[{'samples': 5}, {}],
+                   [{'samples': 6}, {'samples': 7}]]
+    }
+    # yapf: enable
+    weights = {'bench1': 0.2, 'bench2': 0.7}
+    iter_counts = {'bench1': 2, 'bench2': 2}
+    labels = ['vanilla', 'modified']
+    tg = tabulator.SamplesTableGenerator(keyvals, labels, iter_counts, weights)
+    (table, new_keyvals, new_iter_counts) = tg.GetTable()
+
+    columns = [
+        tabulator.Column(tabulator.IterationResult(), tabulator.Format()),
+        tabulator.Column(tabulator.AmeanResult(), tabulator.Format()),
+        tabulator.Column(tabulator.AmeanRatioResult(),
+                         tabulator.PercentFormat()),
+    ]
+    # This is the function to load column info.
+    tf = tabulator.TableFormatter(table, columns, samples_table=True)
+    # This is the function where to do all weighting calculation.
+    cell_table = tf.GetCellTable('summary')
+    self.assertTrue(cell_table)
+
+    header = table.pop(0)
+    self.assertTrue(header == ['Benchmarks', 'Weights', 'vanilla', 'modified'])
+    row = table.pop(0)
+    # yapf: disable
+    self.assertTrue(row == ['bench1', 0.2,
+                            ((2, 0), [1 * 0.2, 2 * 0.2]),
+                            ((2, 0), [3 * 0.2, 4 * 0.2])])
+    row = table.pop(0)
+    self.assertTrue(row == ['bench2', 0.7,
+                            ((1, 1), [5 * 0.7, None]),
+                            ((2, 0), [6 * 0.7, 7 * 0.7])])
+    row = table.pop(0)
+    self.assertTrue(row == ['Composite Benchmark (samples)', 'N/A',
+                            ((1, 1), [1 * 0.2 + 5 * 0.7, None]),
+                            ((2, 0), [3 * 0.2 + 6 * 0.7, 4 * 0.2 + 7 * 0.7])])
+    # yapf: enable
+    self.assertTrue('Composite Benchmark' in new_keyvals.keys())
+    self.assertTrue('Composite Benchmark' in new_iter_counts.keys())
 
   def testColspan(self):
     simple_table = [

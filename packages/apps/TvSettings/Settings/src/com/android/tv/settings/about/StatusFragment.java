@@ -16,6 +16,7 @@
 
 package com.android.tv.settings.about;
 
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 
 import androidx.annotation.Keep;
@@ -76,6 +77,10 @@ public class StatusFragment extends PreferenceControllerFragment {
         controllers.add(new AdminUserAndPhoneOnlyPreferenceController(context, KEY_IMEI_INFO));
 
         return controllers;
+    }
+
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_ABOUT_STATUS;
     }
 
     private static class AdminUserAndPhoneOnlyPreferenceController

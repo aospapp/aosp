@@ -127,7 +127,7 @@ public final class TraceCmdCollectorTest {
                 EasyMock.eq(1L),
                 EasyMock.anyObject(),
                 EasyMock.eq(1));
-        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException());
+        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException("test", "serial"));
 
         EasyMock.replay(mMockDevice);
 

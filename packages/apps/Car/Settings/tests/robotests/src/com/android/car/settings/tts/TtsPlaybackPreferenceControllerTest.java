@@ -36,7 +36,6 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ActivityResultCallback;
 import com.android.car.settings.common.LogicalPreferenceGroup;
@@ -55,19 +54,21 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 
 import java.util.Locale;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowTextToSpeech.class, ShadowTtsEngines.class,
         ShadowSecureSettings.class})
 public class TtsPlaybackPreferenceControllerTest {
 
     private static final String DEFAULT_ENGINE_NAME = "com.android.car.settings.tts.test.default";
     private static final TextToSpeech.EngineInfo ENGINE_INFO = new TextToSpeech.EngineInfo();
-    private static final Voice VOICE = new Voice("Test Name", Locale.ENGLISH, /* quality= */0,
+    private static final Voice VOICE = new Voice("Test Name", Locale.ENGLISH, /* quality= */ 0,
             /* latency= */ 0, /* requiresNetworkConnection= */ true, /* features= */ null);
 
     static {
@@ -141,6 +142,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void onCreate_startsCheckVoiceData() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         ArgumentCaptor<Intent> intent = ArgumentCaptor.forClass(Intent.class);
         verify(mControllerHelper.getMockFragmentController()).startActivityForResult(
@@ -199,6 +202,7 @@ public class TtsPlaybackPreferenceControllerTest {
         ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
         mController.processActivityResult(TtsPlaybackPreferenceController.VOICE_DATA_CHECK,
                 TextToSpeech.Engine.CHECK_VOICE_DATA_PASS, data);
+        waitForBackgroundTasksToComplete();
 
         // Length is 3 languages + default language.
         assertThat(mDefaultLanguagePreference.getEntries().length).isEqualTo(4);
@@ -243,6 +247,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void defaultLanguage_handlePreferenceChanged_passEmptyValue_setsDefault() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         Intent data = new Intent();
         data.putStringArrayListExtra(TextToSpeech.Engine.EXTRA_AVAILABLE_VOICES,
@@ -253,6 +259,7 @@ public class TtsPlaybackPreferenceControllerTest {
                 ));
         mController.processActivityResult(TtsPlaybackPreferenceController.VOICE_DATA_CHECK,
                 TextToSpeech.Engine.CHECK_VOICE_DATA_PASS, data);
+        waitForBackgroundTasksToComplete();
 
         // Test change listener.
         mDefaultLanguagePreference.callChangeListener("");
@@ -263,6 +270,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void defaultLanguage_handlePreferenceChanged_passLocale_setsLocale() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         Intent data = new Intent();
         data.putStringArrayListExtra(TextToSpeech.Engine.EXTRA_AVAILABLE_VOICES,
@@ -273,6 +282,7 @@ public class TtsPlaybackPreferenceControllerTest {
                 ));
         mController.processActivityResult(TtsPlaybackPreferenceController.VOICE_DATA_CHECK,
                 TextToSpeech.Engine.CHECK_VOICE_DATA_PASS, data);
+        waitForBackgroundTasksToComplete();
 
         // Test change listener.
         mDefaultLanguagePreference.callChangeListener(Locale.ENGLISH.toString());
@@ -283,6 +293,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void defaultLanguage_handlePreferenceChanged_passLocale_setsSummary() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         Intent data = new Intent();
         data.putStringArrayListExtra(TextToSpeech.Engine.EXTRA_AVAILABLE_VOICES,
@@ -293,6 +305,8 @@ public class TtsPlaybackPreferenceControllerTest {
                 ));
         mController.processActivityResult(TtsPlaybackPreferenceController.VOICE_DATA_CHECK,
                 TextToSpeech.Engine.CHECK_VOICE_DATA_PASS, data);
+        waitForBackgroundTasksToComplete();
+
         mDefaultLanguagePreference.callChangeListener(Locale.ENGLISH.toString());
 
         assertThat(mDefaultLanguagePreference.getSummary()).isEqualTo(
@@ -302,6 +316,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void speechRate_handlePreferenceChanged_updatesSecureSettings() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         int newSpeechRate = TextToSpeech.Engine.DEFAULT_RATE + 40;
         mSpeechRatePreference.callChangeListener(newSpeechRate);
@@ -314,6 +330,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void speechRate_handlePreferenceChanged_updatesTts() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         int newSpeechRate = TextToSpeech.Engine.DEFAULT_RATE + 40;
         mSpeechRatePreference.callChangeListener(newSpeechRate);
@@ -325,6 +343,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void speechRate_handlePreferenceChanged_speaksSampleText() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         int newSpeechRate = TextToSpeech.Engine.DEFAULT_RATE + 40;
         mSpeechRatePreference.callChangeListener(newSpeechRate);
@@ -335,6 +355,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void voicePitch_handlePreferenceChanged_updatesSecureSettings() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         int newVoicePitch = TextToSpeech.Engine.DEFAULT_PITCH + 40;
         mVoicePitchPreference.callChangeListener(newVoicePitch);
@@ -347,6 +369,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void voicePitch_handlePreferenceChanged_updatesTts() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         int newVoicePitch = TextToSpeech.Engine.DEFAULT_PITCH + 40;
         mVoicePitchPreference.callChangeListener(newVoicePitch);
@@ -358,6 +382,8 @@ public class TtsPlaybackPreferenceControllerTest {
     @Test
     public void voicePitch_handlePreferenceChanged_speaksSampleText() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         int newVoicePitch = TextToSpeech.Engine.DEFAULT_PITCH + 40;
         mVoicePitchPreference.callChangeListener(newVoicePitch);
@@ -372,6 +398,8 @@ public class TtsPlaybackPreferenceControllerTest {
         mController.refreshUi();
 
         assertThat(mDefaultLanguagePreference.isEnabled()).isFalse();
+        // Default language preference is always hidden
+        assertThat(mDefaultLanguagePreference.isVisible()).isFalse();
         assertThat(mSpeechRatePreference.isEnabled()).isFalse();
         assertThat(mVoicePitchPreference.isEnabled()).isFalse();
         assertThat(mResetPreference.isEnabled()).isFalse();
@@ -383,10 +411,13 @@ public class TtsPlaybackPreferenceControllerTest {
 
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         mController.refreshUi();
 
         assertThat(mDefaultLanguagePreference.isEnabled()).isFalse();
+        // Default language preference is always hidden
+        assertThat(mDefaultLanguagePreference.isVisible()).isFalse();
         assertThat(mSpeechRatePreference.isEnabled()).isFalse();
         assertThat(mVoicePitchPreference.isEnabled()).isFalse();
         assertThat(mResetPreference.isEnabled()).isFalse();
@@ -396,6 +427,7 @@ public class TtsPlaybackPreferenceControllerTest {
     public void refreshUi_defaultLocaleNotSupported_disablesPreferencesExceptLanguage() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         Intent data = new Intent();
         data.putStringArrayListExtra(TextToSpeech.Engine.EXTRA_AVAILABLE_VOICES,
@@ -406,10 +438,13 @@ public class TtsPlaybackPreferenceControllerTest {
                 ));
         mController.processActivityResult(TtsPlaybackPreferenceController.VOICE_DATA_CHECK,
                 TextToSpeech.Engine.CHECK_VOICE_DATA_PASS, data);
+        waitForBackgroundTasksToComplete();
 
         mController.refreshUi();
 
         assertThat(mDefaultLanguagePreference.isEnabled()).isTrue();
+        // Default language preference is always hidden
+        assertThat(mDefaultLanguagePreference.isVisible()).isFalse();
         assertThat(mSpeechRatePreference.isEnabled()).isFalse();
         assertThat(mVoicePitchPreference.isEnabled()).isFalse();
         assertThat(mResetPreference.isEnabled()).isFalse();
@@ -419,6 +454,7 @@ public class TtsPlaybackPreferenceControllerTest {
     public void refreshUi_initialized_defaultLocaleSupported_enablesPreference() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         ShadowTextToSpeech.callInitializationCallbackWithStatus(TextToSpeech.SUCCESS);
+        waitForBackgroundTasksToComplete();
 
         Intent data = new Intent();
         data.putStringArrayListExtra(TextToSpeech.Engine.EXTRA_AVAILABLE_VOICES,
@@ -429,13 +465,21 @@ public class TtsPlaybackPreferenceControllerTest {
                 ));
         mController.processActivityResult(TtsPlaybackPreferenceController.VOICE_DATA_CHECK,
                 TextToSpeech.Engine.CHECK_VOICE_DATA_PASS, data);
+        waitForBackgroundTasksToComplete();
 
         mController.refreshUi();
 
         assertThat(mPreferenceGroup.isEnabled()).isTrue();
         assertThat(mDefaultLanguagePreference.isEnabled()).isTrue();
+        // Default language preference is always hidden
+        assertThat(mDefaultLanguagePreference.isVisible()).isFalse();
         assertThat(mSpeechRatePreference.isEnabled()).isTrue();
         assertThat(mVoicePitchPreference.isEnabled()).isTrue();
         assertThat(mResetPreference.isEnabled()).isTrue();
+    }
+
+    private void waitForBackgroundTasksToComplete() {
+        Shadows.shadowOf(mController.mBackgroundHandler.getLooper())
+                .getScheduler().advanceToLastPostedRunnable();
     }
 }

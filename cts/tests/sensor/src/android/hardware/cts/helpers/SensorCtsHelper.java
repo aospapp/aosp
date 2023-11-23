@@ -17,7 +17,13 @@ package android.hardware.cts.helpers;
 
 import android.hardware.Sensor;
 import android.os.Environment;
+import android.os.Process;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.SystemUtil;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -328,7 +334,7 @@ public class SensorCtsHelper {
         return "";
     }
 
-    public static boolean hasResolutionRequirement(Sensor sensor, boolean hasHifiSensors) {
+    public static boolean hasMaxResolutionRequirement(Sensor sensor, boolean hasHifiSensors) {
         switch (sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
             case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
@@ -336,6 +342,15 @@ public class SensorCtsHelper {
             case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
             case Sensor.TYPE_MAGNETIC_FIELD:
             case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
+            case Sensor.TYPE_HINGE_ANGLE:
+            case Sensor.TYPE_PROXIMITY:
+            case Sensor.TYPE_SIGNIFICANT_MOTION:
+            case Sensor.TYPE_STEP_DETECTOR:
+            case Sensor.TYPE_STEP_COUNTER:
+            case Sensor.TYPE_HEART_RATE:
+            case Sensor.TYPE_STATIONARY_DETECT:
+            case Sensor.TYPE_MOTION_DETECT:
+            case Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT:
                 return true;
 
             case Sensor.TYPE_PRESSURE:
@@ -345,7 +360,7 @@ public class SensorCtsHelper {
         return false;
     }
 
-    public static float getRequiredResolutionForSensor(Sensor sensor) {
+    public static float getRequiredMaxResolutionForSensor(Sensor sensor) {
         switch (sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
             case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
@@ -368,8 +383,55 @@ public class SensorCtsHelper {
                 // equivalent to 0.0125 hPa / LSB. Allow for a small margin of
                 // error due to rounding errors.
                 return 1.01f * (1.0f / 80.0f);
+            case Sensor.TYPE_HINGE_ANGLE:
+                // Hinge angle sensor must have a resolution the same or smaller
+                // than 360 degrees.
+                return 360f;
         }
-        return 0.0f;
+
+        // Any sensor not specified above must use a resolution of 1.
+        return 1.0f;
+    }
+
+    public static boolean hasMinResolutionRequirement(Sensor sensor) {
+        switch (sensor.getType()) {
+            case Sensor.TYPE_ACCELEROMETER:
+            case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
+            case Sensor.TYPE_GYROSCOPE:
+            case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+            case Sensor.TYPE_MAGNETIC_FIELD:
+            case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
+            case Sensor.TYPE_SIGNIFICANT_MOTION:
+            case Sensor.TYPE_STEP_DETECTOR:
+            case Sensor.TYPE_STEP_COUNTER:
+            case Sensor.TYPE_HEART_RATE:
+            case Sensor.TYPE_STATIONARY_DETECT:
+            case Sensor.TYPE_MOTION_DETECT:
+            case Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT:
+                return true;
+        }
+        return false;
+    }
+
+    public static float getRequiredMinResolutionForSensor(Sensor sensor) {
+        switch (sensor.getType()) {
+            case Sensor.TYPE_ACCELEROMETER:
+            case Sensor.TYPE_ACCELEROMETER_UNCALIBRATED:
+            case Sensor.TYPE_GYROSCOPE:
+            case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+            case Sensor.TYPE_MAGNETIC_FIELD:
+            case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
+                // Accelerometer, gyroscope, and mag are expected to have at most 24 bits of
+                // resolution. The minimum resolution calculation uses slightly more than twice
+                // the maximum range because:
+                //   1) the sensor must be able to report values from [-maxRange, maxRange] without
+                //      saturating
+                //   2) to allow for slight rounding errors
+                return (float)(2.001f * sensor.getMaximumRange() / Math.pow(2, 24));
+        }
+
+        // Any sensor not specified above must use a resolution of 1.
+        return 1.0f;
     }
 
     public static String sensorTypeShortString(int type) {
@@ -462,5 +524,19 @@ public class SensorCtsHelper {
             hexChars[i * 3 + 2] = ' ';
         }
         return new String(hexChars);
+    }
+
+    public static void makeMyPackageActive() throws IOException {
+        final String command = "cmd sensorservice reset-uid-state "
+                +  InstrumentationRegistry.getTargetContext().getPackageName()
+                + " --user " + Process.myUserHandle().getIdentifier();
+        SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
+    }
+
+    public static void makeMyPackageIdle() throws IOException {
+        final String command = "cmd sensorservice set-uid-state "
+                + InstrumentationRegistry.getTargetContext().getPackageName() + " idle"
+                + " --user " + Process.myUserHandle().getIdentifier();
+        SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 }

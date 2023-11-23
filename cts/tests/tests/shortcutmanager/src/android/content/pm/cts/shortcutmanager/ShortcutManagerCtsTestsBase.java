@@ -22,6 +22,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.LocusId;
 import android.content.pm.LauncherApps;
 import android.content.pm.LauncherApps.ShortcutQuery;
 import android.content.pm.PackageManager;
@@ -391,10 +392,24 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
         return makeShortcut(id, "Title-" + id);
     }
 
+    /**
+     * Make a shortcut with an ID and explicit rank.
+     */
     protected ShortcutInfo makeShortcutWithRank(String id, int rank) {
         return makeShortcut(
                 id, "Title-" + id, /* activity =*/ null, /* icon =*/ null,
-                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), rank);
+                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), rank, /* locusId =*/ null,
+                /* longLived =*/ false);
+    }
+
+    /**
+     * Make a shortcut with an ID and a locus ID.
+     */
+    protected ShortcutInfo makeShortcutWithLocusId(String id, String locusId) {
+        return makeShortcut(
+                id, "Title-" + id, /* activity =*/ null, /* icon =*/ null,
+                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0,
+                new LocusId(locusId), /* longLived =*/ false);
     }
 
     /**
@@ -403,13 +418,15 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
     protected ShortcutInfo makeShortcut(String id, String shortLabel) {
         return makeShortcut(
                 id, shortLabel, /* activity =*/ null, /* icon =*/ null,
-                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0);
+                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0,
+                /* locusId =*/ null, /* longLived =*/ false);
     }
 
     protected ShortcutInfo makeShortcut(String id, ComponentName activity) {
         return makeShortcut(
                 id, "Title-" + id, activity, /* icon =*/ null,
-                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0);
+                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0,
+                /* locusId =*/ null, /* longLived =*/ false);
     }
 
     /**
@@ -418,7 +435,18 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
     protected ShortcutInfo makeShortcutWithIcon(String id, Icon icon) {
         return makeShortcut(
                 id, "Title-" + id, /* activity =*/ null, icon,
-                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0);
+                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0,
+                /* locusId =*/ null, /* longLived =*/ false);
+    }
+
+    /**
+     * Make a long-lived shortcut with an ID.
+     */
+    protected ShortcutInfo makeLongLivedShortcut(String id) {
+        return makeShortcut(
+                id, "Title-" + id, /* activity =*/ null, /* icon =*/ null,
+                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0,
+                /* locusId =*/ null, /* longLived =*/ true);
     }
 
     /**
@@ -432,6 +460,19 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
         return ret;
     }
 
+    /**
+     * Makes an array of shortcut IDs.
+     * For example, makeIds("sX", 4, 9) will return {"sX4", "sX5", "sX6", "sX7", "sX8", "sX9"}.
+     */
+    protected String[] makeIds(String prefix, int first, int last) {
+        final int len = last - first + 1;
+        final String[] ret = new String[len];
+        for (int i = 0; i < len; i++) {
+            ret[i] = prefix + (first + i);
+        }
+        return ret;
+    }
+
     protected ShortcutInfo.Builder makeShortcutBuilder(String id) {
         return new ShortcutInfo.Builder(getCurrentCallerContext(), id);
     }
@@ -440,11 +481,12 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
      * Make a shortcut with details.
      */
     protected ShortcutInfo makeShortcut(String id, String shortLabel, ComponentName activity,
-            Icon icon, Intent intent, int rank) {
+            Icon icon, Intent intent, int rank, LocusId locusId, boolean longLived) {
         final ShortcutInfo.Builder b = makeShortcutBuilder(id)
                 .setShortLabel(shortLabel)
                 .setRank(rank)
-                .setIntent(intent);
+                .setIntent(intent)
+                .setLongLived(longLived);
         if (activity != null) {
             b.setActivity(activity);
         } else if (mTargetActivityOverride != null) {
@@ -452,6 +494,9 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
         }
         if (icon != null) {
             b.setIcon(icon);
+        }
+        if (locusId != null) {
+            b.setLocusId(locusId);
         }
         return b.build();
     }
@@ -550,12 +595,12 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
     }
 
     protected List<ShortcutInfo> getShortcutsAsLauncher(int flags, String packageName) {
-        return getShortcutsAsLauncher(flags, packageName, null, 0, null);
+        return getShortcutsAsLauncher(flags, packageName, null, 0, null, null);
     }
 
     protected List<ShortcutInfo> getShortcutsAsLauncher(
             int flags, String packageName, String activityName,
-            long changedSince, List<String> ids) {
+            long changedSince, List<String> ids, List<LocusId> locusIds) {
         final ShortcutQuery q = new ShortcutQuery();
         q.setQueryFlags(flags);
         if (packageName != null) {
@@ -568,6 +613,9 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
         q.setChangedSince(changedSince);
         if (ids != null && ids.size() > 0) {
             q.setShortcutIds(ids);
+        }
+        if (locusIds != null && locusIds.size() > 0) {
+            q.setLocusIds(locusIds);
         }
         return getLauncherApps().getShortcuts(q, getUserHandle());
     }

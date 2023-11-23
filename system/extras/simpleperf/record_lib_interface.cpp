@@ -39,7 +39,7 @@ std::vector<std::string> GetAllEvents() {
   }
   for (auto& type : GetAllEventTypes()) {
     perf_event_attr attr = CreateDefaultPerfEventAttr(type);
-    if (IsEventAttrSupported(attr)) {
+    if (IsEventAttrSupported(attr, type.name)) {
       result.push_back(type.name);
     }
   }
@@ -55,7 +55,7 @@ bool IsEventSupported(const std::string& name) {
     return false;
   }
   perf_event_attr attr = CreateDefaultPerfEventAttr(type->event_type);
-  return IsEventAttrSupported(attr);
+  return IsEventAttrSupported(attr, type->name);
 }
 
 class PerfEventSetImpl : public PerfEventSet {

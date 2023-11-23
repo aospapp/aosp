@@ -8,7 +8,6 @@ USE_FALLOCATE(NEWTOY(fallocate, ">1l#|o#", TOYFLAG_USR|TOYFLAG_BIN))
 
 config FALLOCATE
   bool "fallocate"
-  depends on TOYBOX_FALLOCATE
   default y
   help
     usage: fallocate [-l size] [-o offset] file
@@ -20,14 +19,12 @@ config FALLOCATE
 #include "toys.h"
 
 GLOBALS(
-  long offset;
-  long size;
+  long o, l;
 )
 
 void fallocate_main(void)
 {
   int fd = xcreate(*toys.optargs, O_RDWR | O_CREAT, 0644);
-  if ((errno = posix_fallocate(fd, TT.offset, TT.size)))
-    perror_exit("fallocate");
+  if ((errno = posix_fallocate(fd, TT.o, TT.l))) perror_exit("fallocate");
   if (CFG_TOYBOX_FREE) close(fd);
 }

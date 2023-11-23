@@ -17,7 +17,7 @@
 # This makefile contains the product partition contents for
 # a generic phone or tablet device. Only add something here if
 # it definitely doesn't belong on other types of devices (if it
-# does, use base_vendor.mk).
+# does, use base_product.mk).
 $(call inherit-product, $(SRC_TARGET_DIR)/product/media_product.mk)
 
 # /product packages
@@ -27,19 +27,13 @@ PRODUCT_PACKAGES += \
     Camera2 \
     Contacts \
     DeskClock \
-    Email \
     Gallery2 \
     LatinIME \
-    Launcher3QuickStep \
     Music \
     OneTimeInitializer \
-    Provision \
+    preinstalled-packages-platform-handheld-product.xml \
     QuickSearchBox \
-    Settings \
     SettingsIntelligence \
-    StorageManager \
-    SystemUI \
-    WallpaperCropper \
     frameworks-base-overlays
 
 PRODUCT_PACKAGES_DEBUG += \

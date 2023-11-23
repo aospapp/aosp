@@ -22,7 +22,7 @@
     <string name="edit_info" msgid="5973929805855224805">"Edytuj informacje alarmowe"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informacje"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontakty"</string>
-    <string name="name" msgid="4286267457738861977">"Imię i nazwisko"</string>
+    <string name="name" msgid="4286267457738861977">"Imię (lub pseudonim)"</string>
     <string name="unknown_name" msgid="2834802479170495056">"Brak informacji"</string>
     <string name="address" msgid="6449303483151189969">"Adres"</string>
     <string name="unknown_address" msgid="4212576729941786121">"Brak informacji"</string>
@@ -104,7 +104,7 @@
     <string name="clear" msgid="3648880442502887163">"Usuń"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Usunąć wszystkie informacje i kontakty?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Dodanie informacji medycznych i kontaktów alarmowych może pomóc ratownikom w sytuacji alarmowej.\n\nKażdy będzie mógł odczytać te informacje na ekranie blokady oraz zadzwonić do Twoich kontaktów bez konieczności odblokowywania telefonu – wystarczy, że kliknie nazwę kontaktu."</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodawanie informacji alarmowych"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodaj informacje alarmowe"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Ratownicy będą mogli zobaczyć informacje o Tobie"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Zrób zdjęcie"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Wybierz obraz"</string>

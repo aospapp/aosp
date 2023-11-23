@@ -1,4 +1,4 @@
-/* This program is copyright (c) 2009-2013 by Roderick W. Smith. It is distributed
+/* This program is copyright (c) 2009-2018 by Roderick W. Smith. It is distributed
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
 
 #include <stdint.h>
@@ -8,7 +8,7 @@
 #ifndef __GPTSUPPORT
 #define __GPTSUPPORT
 
-#define GPTFDISK_VERSION "0.8.10.2"
+#define GPTFDISK_VERSION "1.0.4"
 
 #if defined (__FreeBSD__) || defined (__FreeBSD_kernel__) || defined (__APPLE__)
 // Darwin (Mac OS) & FreeBSD: disk IOCTLs are different, and there is no lseek64
@@ -72,7 +72,7 @@
 using namespace std;
 
 string ReadString(void);
-int GetNumber(int low, int high, int def, const string & prompt);
+uint64_t GetNumber(uint64_t low, uint64_t high, uint64_t def, const string & prompt);
 char GetYN(void);
 uint64_t GetSectorNum(uint64_t low, uint64_t high, uint64_t def, uint64_t sSize, const std::string& prompt);
 uint64_t IeeeToInt(string IeeeValue, uint64_t sSize, uint64_t low, uint64_t high, uint64_t def = 0);

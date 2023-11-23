@@ -22,6 +22,8 @@
 #include "bit_utils.h"
 #include "memory_tool.h"
 
+#include <array>
+
 namespace art {
 
 // Bit memory region is a bit offset subregion of a normal memoryregion. This is useful for
@@ -37,11 +39,9 @@ class BitMemoryRegion final : public ValueObject {
   BitMemoryRegion() = default;
   ALWAYS_INLINE BitMemoryRegion(uint8_t* data, ssize_t bit_start, size_t bit_size) {
     // Normalize the data pointer. Note that bit_start may be negative.
-    uint8_t* aligned_data = AlignDown(data + (bit_start >> kBitsPerByteLog2), sizeof(uintptr_t));
-    data_ = reinterpret_cast<uintptr_t*>(aligned_data);
-    bit_start_ = bit_start + kBitsPerByte * (data - aligned_data);
+    data_ = AlignDown(data + (bit_start >> kBitsPerByteLog2), kPageSize);
+    bit_start_ = bit_start + kBitsPerByte * (data - data_);
     bit_size_ = bit_size;
-    DCHECK_LT(bit_start_, static_cast<size_t>(kBitsPerIntPtrT));
   }
   ALWAYS_INLINE explicit BitMemoryRegion(MemoryRegion region)
     : BitMemoryRegion(region.begin(), /* bit_start */ 0, region.size_in_bits()) {
@@ -55,7 +55,7 @@ class BitMemoryRegion final : public ValueObject {
 
   const uint8_t* data() const {
     DCHECK_ALIGNED(bit_start_, kBitsPerByte);
-    return reinterpret_cast<const uint8_t*>(data_) + bit_start_ / kBitsPerByte;
+    return data_ + bit_start_ / kBitsPerByte;
   }
 
   size_t size_in_bits() const {
@@ -87,42 +87,51 @@ class BitMemoryRegion final : public ValueObject {
   // significant bit in the first byte.
   ALWAYS_INLINE bool LoadBit(size_t bit_offset) const {
     DCHECK_LT(bit_offset, bit_size_);
-    uint8_t* data = reinterpret_cast<uint8_t*>(data_);
     size_t index = (bit_start_ + bit_offset) / kBitsPerByte;
     size_t shift = (bit_start_ + bit_offset) % kBitsPerByte;
-    return ((data[index] >> shift) & 1) != 0;
+    return ((data_[index] >> shift) & 1) != 0;
   }
 
   ALWAYS_INLINE void StoreBit(size_t bit_offset, bool value) {
     DCHECK_LT(bit_offset, bit_size_);
-    uint8_t* data = reinterpret_cast<uint8_t*>(data_);
     size_t index = (bit_start_ + bit_offset) / kBitsPerByte;
     size_t shift = (bit_start_ + bit_offset) % kBitsPerByte;
-    data[index] &= ~(1 << shift);  // Clear bit.
-    data[index] |= (value ? 1 : 0) << shift;  // Set bit.
+    data_[index] &= ~(1 << shift);  // Clear bit.
+    data_[index] |= (value ? 1 : 0) << shift;  // Set bit.
     DCHECK_EQ(value, LoadBit(bit_offset));
   }
 
   // Load `bit_length` bits from `data` starting at given `bit_offset`.
   // The least significant bit is stored in the smallest memory offset.
+  template<typename Result = size_t>
   ATTRIBUTE_NO_SANITIZE_ADDRESS  // We might touch extra bytes due to the alignment.
-  ALWAYS_INLINE uint32_t LoadBits(size_t bit_offset, size_t bit_length) const {
-    DCHECK(IsAligned<sizeof(uintptr_t)>(data_));
+  ATTRIBUTE_NO_SANITIZE_HWADDRESS  // The hwasan uses different attribute.
+  ALWAYS_INLINE Result LoadBits(size_t bit_offset, size_t bit_length) const {
+    static_assert(std::is_integral<Result>::value, "Result must be integral");
+    static_assert(std::is_unsigned<Result>::value, "Result must be unsigned");
+    DCHECK(IsAligned<sizeof(Result)>(data_));
     DCHECK_LE(bit_offset, bit_size_);
     DCHECK_LE(bit_length, bit_size_ - bit_offset);
-    DCHECK_LE(bit_length, BitSizeOf<uint32_t>());
+    DCHECK_LE(bit_length, BitSizeOf<Result>());
     if (bit_length == 0) {
       return 0;
     }
-    uintptr_t mask = std::numeric_limits<uintptr_t>::max() >> (kBitsPerIntPtrT - bit_length);
-    size_t index = (bit_start_ + bit_offset) / kBitsPerIntPtrT;
-    size_t shift = (bit_start_ + bit_offset) % kBitsPerIntPtrT;
-    uintptr_t value = data_[index] >> shift;
-    size_t finished_bits = kBitsPerIntPtrT - shift;
-    if (finished_bits < bit_length) {
-      value |= data_[index + 1] << finished_bits;
-    }
-    return value & mask;
+    // Load naturally-aligned value which contains the least significant bit.
+    Result* data = reinterpret_cast<Result*>(data_);
+    size_t width = BitSizeOf<Result>();
+    size_t index = (bit_start_ + bit_offset) / width;
+    size_t shift = (bit_start_ + bit_offset) % width;
+    Result value = data[index] >> shift;
+    // Load extra value containing the most significant bit (it might be the same one).
+    // We can not just load the following value as that could potentially cause SIGSEGV.
+    Result extra = data[index + (shift + (bit_length - 1)) / width];
+    // Mask to clear unwanted bits (the 1s are needed to avoid avoid undefined shift).
+    Result clear = (std::numeric_limits<Result>::max() << 1) << (bit_length - 1);
+    // Prepend the extra value.  We add explicit '& (width - 1)' so that the shift is defined.
+    // It is a no-op for `shift != 0` and if `shift == 0` then `value == extra` because of
+    // bit_length <= width causing the `value` and `extra` to be read from the same location.
+    // The '& (width - 1)' is implied by the shift instruction on ARM and removed by compiler.
+    return (value | (extra << ((width - shift) & (width - 1)))) & ~clear;
   }
 
   // Store `bit_length` bits in `data` starting at given `bit_offset`.
@@ -137,16 +146,15 @@ class BitMemoryRegion final : public ValueObject {
     }
     // Write data byte by byte to avoid races with other threads
     // on bytes that do not overlap with this region.
-    uint8_t* data = reinterpret_cast<uint8_t*>(data_);
     uint32_t mask = std::numeric_limits<uint32_t>::max() >> (BitSizeOf<uint32_t>() - bit_length);
     size_t index = (bit_start_ + bit_offset) / kBitsPerByte;
     size_t shift = (bit_start_ + bit_offset) % kBitsPerByte;
-    data[index] &= ~(mask << shift);  // Clear bits.
-    data[index] |= (value << shift);  // Set bits.
+    data_[index] &= ~(mask << shift);  // Clear bits.
+    data_[index] |= (value << shift);  // Set bits.
     size_t finished_bits = kBitsPerByte - shift;
     for (int i = 1; finished_bits < bit_length; i++, finished_bits += kBitsPerByte) {
-      data[index + i] &= ~(mask >> finished_bits);  // Clear bits.
-      data[index + i] |= (value >> finished_bits);  // Set bits.
+      data_[index + i] &= ~(mask >> finished_bits);  // Clear bits.
+      data_[index + i] |= (value >> finished_bits);  // Set bits.
     }
     DCHECK_EQ(value, LoadBits(bit_offset, bit_length));
   }
@@ -201,14 +209,13 @@ class BitMemoryRegion final : public ValueObject {
   }
 
  private:
-  // The data pointer must be naturally aligned. This makes loading code faster.
-  uintptr_t* data_ = nullptr;
+  uint8_t* data_ = nullptr;  // The pointer is page aligned.
   size_t bit_start_ = 0;
   size_t bit_size_ = 0;
 };
 
-constexpr uint32_t kVarintHeaderBits = 4;
-constexpr uint32_t kVarintSmallValue = 11;  // Maximum value which is stored as-is.
+constexpr uint32_t kVarintBits = 4;  // Minimum number of bits used for varint.
+constexpr uint32_t kVarintMax = 11;  // Maximum value which is stored "inline".
 
 class BitMemoryReader {
  public:
@@ -232,8 +239,9 @@ class BitMemoryReader {
     return finished_region_.Subregion(bit_offset, bit_length);
   }
 
-  ALWAYS_INLINE uint32_t ReadBits(size_t bit_length) {
-    return ReadRegion(bit_length).LoadBits(/* bit_offset */ 0, bit_length);
+  template<typename Result = size_t>
+  ALWAYS_INLINE Result ReadBits(size_t bit_length) {
+    return ReadRegion(bit_length).LoadBits<Result>(/* bit_offset */ 0, bit_length);
   }
 
   ALWAYS_INLINE bool ReadBit() {
@@ -245,11 +253,29 @@ class BitMemoryReader {
   //   Values 0..11 represent the result as-is, with no further following bits.
   //   Values 12..15 mean the result is in the next 8/16/24/32-bits respectively.
   ALWAYS_INLINE uint32_t ReadVarint() {
-    uint32_t x = ReadBits(kVarintHeaderBits);
-    if (x > kVarintSmallValue) {
-      x = ReadBits((x - kVarintSmallValue) * kBitsPerByte);
+    uint32_t x = ReadBits(kVarintBits);
+    return (x <= kVarintMax) ? x : ReadBits((x - kVarintMax) * kBitsPerByte);
+  }
+
+  // Read N 'interleaved' varints (different to just reading consecutive varints).
+  // All small values are stored first and the large values are stored after them.
+  // This requires fewer bit-reads compared to indidually storing the varints.
+  template<size_t N>
+  ALWAYS_INLINE std::array<uint32_t, N> ReadInterleavedVarints() {
+    static_assert(N * kVarintBits <= sizeof(uint64_t) * kBitsPerByte, "N too big");
+    std::array<uint32_t, N> values;
+    // StackMap BitTable uses over 8 varints in the header, so we need uint64_t.
+    uint64_t data = ReadBits<uint64_t>(N * kVarintBits);
+    for (size_t i = 0; i < N; i++) {
+      values[i] = BitFieldExtract(data, i * kVarintBits, kVarintBits);
     }
-    return x;
+    // Do the second part in its own loop as that seems to produce better code in clang.
+    for (size_t i = 0; i < N; i++) {
+      if (UNLIKELY(values[i] > kVarintMax)) {
+        values[i] = ReadBits((values[i] - kVarintMax) * kBitsPerByte);
+      }
+    }
+    return values;
   }
 
  private:
@@ -296,16 +322,26 @@ class BitMemoryWriter {
     Allocate(1).StoreBit(/* bit_offset */ 0, value);
   }
 
-  // Write variable-length bit-packed integer.
-  ALWAYS_INLINE void WriteVarint(uint32_t value) {
-    if (value <= kVarintSmallValue) {
-      WriteBits(value, kVarintHeaderBits);
-    } else {
-      uint32_t num_bits = RoundUp(MinimumBitsToStore(value), kBitsPerByte);
-      uint32_t header = kVarintSmallValue + num_bits / kBitsPerByte;
-      WriteBits(header, kVarintHeaderBits);
-      WriteBits(value, num_bits);
+  template<size_t N>
+  ALWAYS_INLINE void WriteInterleavedVarints(std::array<uint32_t, N> values) {
+    // Write small values (or the number of bytes needed for the large values).
+    for (uint32_t value : values) {
+      if (value > kVarintMax) {
+        WriteBits(kVarintMax + BitsToBytesRoundUp(MinimumBitsToStore(value)), kVarintBits);
+      } else {
+        WriteBits(value, kVarintBits);
+      }
     }
+    // Write large values.
+    for (uint32_t value : values) {
+      if (value > kVarintMax) {
+        WriteBits(value, BitsToBytesRoundUp(MinimumBitsToStore(value)) * kBitsPerByte);
+      }
+    }
+  }
+
+  ALWAYS_INLINE void WriteVarint(uint32_t value) {
+    WriteInterleavedVarints<1>({value});
   }
 
   ALWAYS_INLINE void ByteAlign() {

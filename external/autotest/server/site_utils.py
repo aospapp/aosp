@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 
+import collections
 import contextlib
 import grp
 import httplib
@@ -341,6 +342,7 @@ def check_lab_status(build):
 
 
 def host_in_lab(hostname):
+    """Check if the execution is against a host in the lab"""
     return (not utils.in_moblab_ssp()
             and not lsbrelease_utils.is_moblab()
             and utils.host_is_in_lab_zone(hostname))
@@ -388,8 +390,12 @@ def get_test_views_from_tko(suite_job_id, tko):
 
     @param suite_job_id: ID of suite job.
     @param tko: an instance of TKO as defined in server/frontend.py.
-    @return: A dictionary of test status keyed by test name, e.g.,
-             {'dummy_Fail.Error': 'ERROR', 'dummy_Fail.NAError': 'TEST_NA'}
+    @return: A defaultdict where keys are test names and values are
+             lists of test statuses, e.g.,
+             {'dummy_Fail.Error': ['ERROR'. 'ERROR'],
+              'dummy_Fail.NAError': ['TEST_NA'],
+              'dummy_Fail.RetrySuccess': ['ERROR', 'GOOD'],
+              }
     @raise: Exception when there is no test view found.
 
     """
@@ -398,10 +404,9 @@ def get_test_views_from_tko(suite_job_id, tko):
     if not relevant_views:
         raise Exception('Failed to retrieve job results.')
 
-    test_views = {}
+    test_views = collections.defaultdict(list)
     for view in relevant_views:
-        test_views[view['test_name']] = view['status']
-
+        test_views[view['test_name']].append(view['status'])
     return test_views
 
 
@@ -609,24 +614,10 @@ def get_hqe_exec_path(tag, execution_subdir):
 def is_inside_chroot():
     """Check if the process is running inside chroot.
 
-    This is a wrapper around chromite.lib.cros_build_lib.IsInsideChroot(). The
-    method checks if cros_build_lib can be imported first.
-
-    @return: True if the process is running inside chroot or cros_build_lib
-             cannot be imported.
+    @return: True if the process is running inside chroot.
 
     """
-    try:
-        # TODO(crbug.com/739466) This module import is delayed because it adds
-        # 1-2 seconds to the module import time and most users of site_utils
-        # don't need it. The correct fix is to break apart site_utils into more
-        # meaningful chunks.
-        from chromite.lib import cros_build_lib
-    except ImportError:
-        logging.warn('Unable to import chromite. Can not detect chroot. '
-                     'Defaulting to False')
-        return False
-    return cros_build_lib.IsInsideChroot()
+    return os.path.exists('/etc/cros_chroot_version')
 
 
 def parse_job_name(name):

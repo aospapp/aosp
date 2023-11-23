@@ -18,7 +18,7 @@ package com.android.car.settings.wifi;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.net.NetworkInfo;
-import android.net.wifi.WifiConfiguration;
+import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiManager;
 
 import androidx.annotation.UiThread;
@@ -172,17 +172,17 @@ public class CarWifiManager implements WifiTracker.WifiListener {
     }
 
     /**
-     * Gets {@link WifiConfiguration} for tethering
+     * Gets {@link SoftApConfiguration} for tethering
      */
-    public WifiConfiguration getWifiApConfig() {
-        return mWifiManager.getWifiApConfiguration();
+    public SoftApConfiguration getSoftApConfig() {
+        return mWifiManager.getSoftApConfiguration();
     }
 
     /**
-     * Sets {@link WifiConfiguration} for tethering
+     * Sets {@link SoftApConfiguration} for tethering
      */
-    public void setWifiApConfig(WifiConfiguration config) {
-        mWifiManager.setWifiApConfiguration(config);
+    public void setSoftApConfig(SoftApConfiguration config) {
+        mWifiManager.setSoftApConfiguration(config);
     }
 
     /**
@@ -193,18 +193,10 @@ public class CarWifiManager implements WifiTracker.WifiListener {
     }
 
     /**
-     * Checks if the chipset supports dual frequency band (2.4 GHz and 5 GHz).
+     * Checks if the chipset supports 5GHz frequency band.
      */
-    public boolean isDualBandSupported() {
-        return mWifiManager.isDualBandSupported();
-    }
-
-    /**
-     * Check if the chipset requires conversion of 5GHz Only apBand to ANY.
-     * @return {@code true} if required, {@code false} otherwise.
-     */
-    public boolean isDualModeSupported() {
-        return mWifiManager.isDualModeSupported();
+    public boolean is5GhzBandSupported() {
+        return mWifiManager.is5GHzBandSupported();
     }
 
     /** Gets the wifi state from {@link WifiManager}. */

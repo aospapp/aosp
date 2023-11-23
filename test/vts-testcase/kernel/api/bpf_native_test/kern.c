@@ -18,6 +18,7 @@
 #include <linux/bpf.h>
 #include <stdint.h>
 #include "bpf_helpers.h"
+#include "bpf_net_helpers.h"
 
 DEFINE_BPF_MAP(test_configuration_map, HASH, uint32_t, uint32_t, 1)
 DEFINE_BPF_MAP(test_stats_map_A, HASH, uint64_t, stats_value, NUM_SOCKETS)
@@ -55,4 +56,4 @@ int ingress_prog(struct __sk_buff* skb) {
   return skb->len;
 }
 
-char _license[] SEC("license") = "Apache 2.0";
+LICENSE("Apache 2.0");

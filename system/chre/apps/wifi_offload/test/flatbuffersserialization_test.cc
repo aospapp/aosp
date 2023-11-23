@@ -21,8 +21,8 @@
 
 #include "include/utility.h"
 
-using wifi_offload::fbs::Serialize;
 using wifi_offload::fbs::Deserialize;
+using wifi_offload::fbs::Serialize;
 
 template <typename TestType>
 class FlatbuffersSerializationTest : public testing::Test {

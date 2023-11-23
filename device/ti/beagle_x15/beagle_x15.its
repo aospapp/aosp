@@ -33,6 +33,23 @@
 			compression = "none";
 			load = <0x83000000>;
 		};
+		fdt@2 {
+			description = "AM57xx-evm-common overlay";
+			data = /incbin/("am57xx-evm-common.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83080000>;
+		};
+		fdt@3 {
+			description = "AM57xx-evm-reva3 overlay";
+			data = /incbin/("am57xx-evm-reva3.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83090000>;
+		};
+
 	};
 
 	configurations {
@@ -42,6 +59,12 @@
 			kernel = "kernel@1";
 			ramdisk = "ramdisk@1";
 			fdt = "fdt@1";
+		};
+		am57xx-evm-reva3.dtb {
+			description = "AM57xx EVM rev A3";
+			kernel = "kernel@1";
+			ramdisk = "ramdisk@1";
+			fdt = "fdt@1", "fdt@2", "fdt@3";
 		};
 	};
 };

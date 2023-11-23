@@ -16,6 +16,8 @@
 
 package android.server.wm.lifecycle;
 
+import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.StateLogger.log;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_ACTIVITY_RESULT;
@@ -33,9 +35,13 @@ import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_TOP_P
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_TOP_POSITION_LOST;
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.PRE_ON_CREATE;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import static org.hamcrest.Matchers.lessThan;
+import static org.junit.Assert.fail;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.PictureInPictureParams;
 import android.content.ComponentName;
 import android.content.Context;
@@ -43,74 +49,52 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.os.Handler;
+import android.os.Looper;
 import android.server.wm.MultiDisplayTestBase;
+import android.server.wm.ObjectTracker;
 import android.server.wm.lifecycle.LifecycleLog.ActivityCallback;
+import android.transition.Transition;
+import android.transition.TransitionListenerAdapter;
 import android.util.Pair;
 
+import android.server.wm.cts.R;
+
+import androidx.annotation.NonNull;
 import androidx.test.rule.ActivityTestRule;
 
+import com.android.compatibility.common.util.SystemUtil;
+
+import org.junit.Assert;
 import org.junit.Before;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 /** Base class for device-side tests that verify correct activity lifecycle transitions. */
 public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
 
+    /**
+     * Activity launch time is evaluated. It is expected to be less than 5 seconds. Otherwise, it's
+     * likely there is a timeout.
+     */
+    private static final long ACTIVITY_LAUNCH_TIMEOUT = 5 * 1000;
+
     static final String EXTRA_RECREATE = "recreate";
+    static final String EXTRA_FINISH_IN_ON_CREATE = "finish_in_on_create";
+    static final String EXTRA_FINISH_IN_ON_START = "finish_in_on_start";
     static final String EXTRA_FINISH_IN_ON_RESUME = "finish_in_on_resume";
-    static final String EXTRA_FINISH_AFTER_RESUME = "finish_after_resume";
+    static final String EXTRA_FINISH_IN_ON_PAUSE = "finish_in_on_pause";
+    static final String EXTRA_FINISH_IN_ON_STOP = "finish_in_on_stop";
+    static final String EXTRA_START_ACTIVITY_IN_ON_CREATE = "start_activity_in_on_create";
+    static final String EXTRA_START_ACTIVITY_WHEN_IDLE = "start_activity_when_idle";
 
     static final ComponentName CALLBACK_TRACKING_ACTIVITY =
             getComponentName(CallbackTrackingActivity.class);
 
     static final ComponentName CONFIG_CHANGE_HANDLING_ACTIVITY =
             getComponentName(ConfigChangeHandlingActivity.class);
-
-    final ActivityTestRule mFirstActivityTestRule = new ActivityTestRule<>(FirstActivity.class,
-            true /* initialTouchMode */, false /* launchActivity */);
-
-    final ActivityTestRule mSecondActivityTestRule = new ActivityTestRule<>(SecondActivity.class,
-            true /* initialTouchMode */, false /* launchActivity */);
-
-    final ActivityTestRule mThirdActivityTestRule = new ActivityTestRule<>(ThirdActivity.class,
-            true /* initialTouchMode */, false /* launchActivity */);
-
-    final ActivityTestRule mTranslucentActivityTestRule = new ActivityTestRule<>(
-            TranslucentActivity.class, true /* initialTouchMode */, false /* launchActivity */);
-
-    final ActivityTestRule mSecondTranslucentActivityTestRule = new ActivityTestRule<>(
-            SecondTranslucentActivity.class, true /* initialTouchMode */,
-            false /* launchActivity */);
-
-    final ActivityTestRule mLaunchForResultActivityTestRule = new ActivityTestRule<>(
-             LaunchForResultActivity.class, true /* initialTouchMode */, false /* launchActivity */);
-
-    final ActivityTestRule mCallbackTrackingActivityTestRule = new ActivityTestRule<>(
-            CallbackTrackingActivity.class, true /* initialTouchMode */,
-            false /* launchActivity */);
-
-    final ActivityTestRule mTranslucentCallbackTrackingActivityTestRule = new ActivityTestRule<>(
-            TranslucentCallbackTrackingActivity.class, true /* initialTouchMode */,
-            false /* launchActivity */);
-
-    final ActivityTestRule mShowWhenLockedCallbackTrackingActivityTestRule = new ActivityTestRule<>(
-            ShowWhenLockedCallbackTrackingActivity.class, true /* initialTouchMode */,
-            false /* launchActivity */);
-
-    final ActivityTestRule mSingleTopActivityTestRule = new ActivityTestRule<>(
-            SingleTopActivity.class, true /* initialTouchMode */, false /* launchActivity */);
-
-    final ActivityTestRule mConfigChangeHandlingActivityTestRule = new ActivityTestRule<>(
-            ConfigChangeHandlingActivity.class, true /* initialTouchMode */,
-            false /* launchActivity */);
-
-    final ActivityTestRule mPipActivityTestRule = new ActivityTestRule<>(
-            PipActivity.class, true /* initialTouchMode */, false /* launchActivity */);
-
-    final ActivityTestRule mAlwaysFocusableActivityTestRule = new ActivityTestRule<>(
-            AlwaysFocusablePipActivity.class, true /* initialTouchMode */,
-            false /* launchActivity */);
 
     final ActivityTestRule mSlowActivityTestRule = new ActivityTestRule<>(
             SlowActivity.class, true /* initialTouchMode */, false /* launchActivity */);
@@ -134,10 +118,137 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
         mLifecycleTracker = new LifecycleTracker(mLifecycleLog);
     }
 
-    /** Launch an activity given a class. */
-    protected Activity launchActivity(Class<? extends Activity> activityClass) {
-        final Intent intent = new Intent(mTargetContext, activityClass);
-        return getInstrumentation().startActivitySync(intent);
+    /** Activity launch builder for lifecycle tests. */
+    class Launcher implements ObjectTracker.Consumable {
+        private int mFlags;
+        private ActivityCallback mExpectedState;
+        private List<String> mExtraFlags = new ArrayList<>();
+        private Consumer<Intent> mPostIntentSetup;
+        private ActivityOptions mOptions;
+        private boolean mNoInstance;
+        private final Class<? extends Activity> mActivityClass;
+        private boolean mSkipLaunchTimeCheck;
+
+        private boolean mLaunchCalled = false;
+
+        /**
+         * @param activityClass Class of the activity to launch.
+         */
+        Launcher(@NonNull Class<? extends Activity> activityClass) {
+            mActivityClass = activityClass;
+            mObjectTracker.track(this);
+        }
+
+        /**
+         * Perform the activity launch. Will wait for an instance of the activity if needed and will
+         * verify the launch time.
+         */
+        Activity launch() throws Exception {
+            mLaunchCalled = true;
+
+            // Prepare the intent
+            final Intent intent = new Intent(mTargetContext, mActivityClass);
+            if (mFlags != 0) {
+                intent.setFlags(mFlags);
+            } else {
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+            for (String flag : mExtraFlags) {
+                intent.putExtra(flag, true);
+            }
+            if (mPostIntentSetup != null) {
+                mPostIntentSetup.accept(intent);
+            }
+            final Bundle optionsBundle = mOptions != null ? mOptions.toBundle() : null;
+
+            // Start measuring time spent on starting the activity
+            final long startTime = System.currentTimeMillis();
+            final Activity activity = SystemUtil.callWithShellPermissionIdentity(() -> {
+                if (mNoInstance) {
+                    mTargetContext.startActivity(intent, optionsBundle);
+                    return null;
+                }
+                return getInstrumentation().startActivitySync(
+                        intent, optionsBundle);
+            });
+            if (!mNoInstance && activity == null) {
+                fail("Must have returned an instance of Activity after launch.");
+            }
+            // Wait for activity to reach the desired state and verify launch time.
+            if (mExpectedState == null) {
+                mExpectedState = CallbackTrackingActivity.class.isAssignableFrom(mActivityClass)
+                        ? ON_TOP_POSITION_GAINED : ON_RESUME;
+            }
+            waitAndAssertActivityStates(state(mActivityClass, mExpectedState));
+            if (!mSkipLaunchTimeCheck) {
+                Assert.assertThat(System.currentTimeMillis() - startTime,
+                        lessThan(ACTIVITY_LAUNCH_TIMEOUT));
+            }
+
+            return activity;
+        }
+
+        /** Set intent flags for launch. */
+        public Launcher setFlags(int flags) {
+            mFlags = flags;
+            return this;
+        }
+
+        /**
+         * Set the expected lifecycle state to verify. Will be inferred automatically if not set.
+         */
+        public Launcher setExpectedState(ActivityCallback expectedState) {
+            mExpectedState = expectedState;
+            return this;
+        }
+
+        /** Allow the caller to customize the intent right before starting activity. */
+        public Launcher customizeIntent(Consumer<Intent> intentSetup) {
+            mPostIntentSetup = intentSetup;
+            return this;
+        }
+
+        /** Set extra flags to pass as boolean values through the intent. */
+        public Launcher setExtraFlags(String... extraFlags) {
+            mExtraFlags.addAll(Arrays.asList(extraFlags));
+            return this;
+        }
+
+        /** Set the activity options to use for the launch. */
+        public Launcher setOptions(ActivityOptions options) {
+            mOptions = options;
+            return this;
+        }
+
+        /**
+         * Indicate that no instance should be returned. Usually used for activity launches that are
+         * expected to end up in not-active state and when the synchronous instrumentation launch
+         * can timeout.
+         */
+        Launcher setNoInstance() {
+            mNoInstance = true;
+            return this;
+        }
+
+        /** Indicate that launch time verification should not be performed. */
+        Launcher setSkipLaunchTimeCheck() {
+            mSkipLaunchTimeCheck = true;
+            return this;
+        }
+
+        @Override
+        public boolean isConsumed() {
+            return mLaunchCalled;
+        }
+    }
+
+    /**
+     * Launch an activity given a class. Will wait for the launch to finish and verify the launch
+     * time.
+     * @return The launched Activity instance.
+     */
+    Activity launchActivityAndWait(Class<? extends Activity> activityClass) throws Exception {
+        return new Launcher(activityClass).launch();
     }
 
     /**
@@ -227,30 +338,66 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
             mLifecycleLogClient = LifecycleLog.LifecycleLogClient.create(this);
             mLifecycleLogClient.onActivityCallback(PRE_ON_CREATE);
             mLifecycleLogClient.onActivityCallback(ON_CREATE);
+
+            final Intent intent = getIntent();
+            final Intent startOnCreate =
+                    intent.getParcelableExtra(EXTRA_START_ACTIVITY_IN_ON_CREATE);
+            if (startOnCreate != null) {
+                startActivity(startOnCreate);
+            }
+
+            final Intent startOnIdle = intent.getParcelableExtra(EXTRA_START_ACTIVITY_WHEN_IDLE);
+            if (startOnIdle != null) {
+                Looper.getMainLooper().getQueue().addIdleHandler(() -> {
+                    startActivity(startOnIdle);
+                    return false;
+                });
+            }
+
+            if (intent.getBooleanExtra(EXTRA_FINISH_IN_ON_CREATE, false)) {
+                finish();
+            }
         }
 
         @Override
         protected void onStart() {
             super.onStart();
             mLifecycleLogClient.onActivityCallback(ON_START);
+
+            if (getIntent().getBooleanExtra(EXTRA_FINISH_IN_ON_START, false)) {
+                finish();
+            }
         }
 
         @Override
         protected void onResume() {
             super.onResume();
             mLifecycleLogClient.onActivityCallback(ON_RESUME);
+
+            final Intent intent = getIntent();
+            if (intent.getBooleanExtra(EXTRA_FINISH_IN_ON_RESUME, false)) {
+                finish();
+            }
         }
 
         @Override
         protected void onPause() {
             super.onPause();
             mLifecycleLogClient.onActivityCallback(ON_PAUSE);
+
+            if (getIntent().getBooleanExtra(EXTRA_FINISH_IN_ON_PAUSE, false)) {
+                finish();
+            }
         }
 
         @Override
         protected void onStop() {
             super.onStop();
             mLifecycleLogClient.onActivityCallback(ON_STOP);
+
+            if (getIntent().getBooleanExtra(EXTRA_FINISH_IN_ON_STOP, false)) {
+                finish();
+            }
         }
 
         @Override
@@ -322,6 +469,10 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
         }
     }
 
+    // Just another callback tracking activity, nothing special.
+    public static class SecondCallbackTrackingActivity extends CallbackTrackingActivity {
+    }
+
     // Translucent callback tracking test activity
     public static class TranslucentCallbackTrackingActivity extends CallbackTrackingActivity {
     }
@@ -339,31 +490,76 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
      * Test activity that launches {@link ResultActivity} for result.
      */
     public static class LaunchForResultActivity extends CallbackTrackingActivity {
+        private static final String EXTRA_FORWARD_EXTRAS = "FORWARD_EXTRAS";
+        public static final String EXTRA_LAUNCH_ON_RESULT = "LAUNCH_ON_RESULT";
+        public static final String EXTRA_LAUNCH_ON_RESUME_AFTER_RESULT =
+                "LAUNCH_ON_RESUME_AFTER_RESULT";
+
+        boolean mReceivedResultOk;
+
+        /** Adds the flag to the extra of intent which will forward to {@link ResultActivity}. */
+        static Consumer<Intent> forwardFlag(String flag) {
+            return intent -> {
+                final Bundle data = new Bundle();
+                data.putBoolean(flag, true);
+                intent.putExtra(EXTRA_FORWARD_EXTRAS, data);
+            };
+        }
 
         @Override
         protected void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
-            startForResult();
-        }
-
-        private void startForResult() {
             final Intent intent = new Intent(this, ResultActivity.class);
-            intent.putExtras(getIntent());
+            final Bundle forwardExtras = getIntent().getBundleExtra(EXTRA_FORWARD_EXTRAS);
+            if (forwardExtras != null) {
+                intent.putExtras(forwardExtras);
+            }
             startActivityForResult(intent, 1 /* requestCode */);
         }
-    }
 
-    /** Test activity that is started for result and finishes itself in ON_RESUME. */
-    public static class ResultActivity extends CallbackTrackingActivity {
         @Override
         protected void onResume() {
             super.onResume();
+            if (mReceivedResultOk
+                    && getIntent().getBooleanExtra(EXTRA_LAUNCH_ON_RESUME_AFTER_RESULT, false)) {
+                startActivity(new Intent(this, CallbackTrackingActivity.class));
+            }
+        }
+
+        @Override
+        protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+            super.onActivityResult(requestCode, resultCode, data);
+            mReceivedResultOk = resultCode == RESULT_OK;
+            if (mReceivedResultOk && getIntent().getBooleanExtra(EXTRA_LAUNCH_ON_RESULT, false)) {
+                startActivity(new Intent(this, CallbackTrackingActivity.class));
+            }
+        }
+    }
+
+    /** Test activity that is started for result. */
+    public static class ResultActivity extends CallbackTrackingActivity {
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
             setResult(RESULT_OK);
-            final Intent intent = getIntent();
-            if (intent.getBooleanExtra(EXTRA_FINISH_IN_ON_RESUME, false)) {
-                finish();
-            } else if (intent.getBooleanExtra(EXTRA_FINISH_AFTER_RESUME, false)) {
-                new Handler().postDelayed(() -> finish(), 2000);
+            super.onCreate(savedInstanceState);
+        }
+    }
+
+    /** Test activity with NoDisplay theme that can finish itself. */
+    public static class NoDisplayActivity extends ResultActivity {
+        static final String EXTRA_LAUNCH_ACTIVITY = "extra_launch_activity";
+        static final String EXTRA_NEW_TASK = "extra_new_task";
+
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+
+            if (getIntent().getBooleanExtra(EXTRA_LAUNCH_ACTIVITY, false)) {
+                final Intent intent = new Intent(this, CallbackTrackingActivity.class);
+                if (getIntent().getBooleanExtra(EXTRA_NEW_TASK, false)) {
+                    intent.setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK);
+                }
+                startActivity(intent);
             }
         }
     }
@@ -445,6 +641,41 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    public static class DifferentAffinityActivity extends LifecycleTrackingActivity {
+    }
+
+    public static class TransitionSourceActivity extends LifecycleTrackingActivity {
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setContentView(R.layout.transition_source_layout);
+        }
+
+        void launchActivityWithTransition() {
+            final ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(this,
+                    findViewById(R.id.transitionView), "sharedTransition");
+            final Intent intent = new Intent(this, TransitionDestinationActivity.class);
+            startActivity(intent, options.toBundle());
+        }
+    }
+
+    public static class TransitionDestinationActivity extends LifecycleTrackingActivity {
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setContentView(R.layout.transition_destination_layout);
+            final Transition sharedElementEnterTransition =
+                    getWindow().getSharedElementEnterTransition();
+            sharedElementEnterTransition.addListener(new TransitionListenerAdapter() {
+                @Override
+                public void onTransitionEnd(Transition transition) {
+                    super.onTransitionEnd(transition);
+                    finishAfterTransition();
+                }
+            });
         }
     }
 

@@ -24,6 +24,7 @@ import time
 from queue import Empty
 from subprocess import call
 
+from acts import asserts
 from acts.test_utils.bt.bt_constants import adv_fail
 from acts.test_utils.bt.bt_constants import adv_succ
 from acts.test_utils.bt.bt_constants import batch_scan_not_supported_list
@@ -58,7 +59,6 @@ from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.utils import exe_cmd
 
-from acts import context
 from acts import utils
 
 log = logging
@@ -79,18 +79,20 @@ def _add_android_device_to_dictionary(android_device, profile_list,
         profile_list: The list of profiles the Android device supports.
     """
     for profile in profile_list:
-        if profile in selector_dict and android_device not in selector_dict[profile]:
+        if profile in selector_dict and android_device not in selector_dict[
+                profile]:
             selector_dict[profile].append(android_device)
         else:
             selector_dict[profile] = [android_device]
 
 
-def bluetooth_enabled_check(ad):
+def bluetooth_enabled_check(ad, timeout_sec=5):
     """Checks if the Bluetooth state is enabled, if not it will attempt to
     enable it.
 
     Args:
         ad: The Android device list to enable Bluetooth on.
+        timeout_sec: number of seconds to wait for toggle to take effect.
 
     Returns:
         True if successful, false if unsuccessful.
@@ -110,7 +112,10 @@ def bluetooth_enabled_check(ad):
                 return True
             ad.log.error(".. actual state is OFF")
             return False
-    return True
+    end_time = time.time() + timeout_sec
+    while not ad.droid.bluetoothCheckState() and time.time() < end_time:
+        time.sleep(1)
+    return ad.droid.bluetoothCheckState()
 
 
 def check_device_supported_profiles(droid):
@@ -160,7 +165,7 @@ def cleanup_scanners_and_advertisers(scn_android_device, scn_callback_list,
     except Exception as err:
         adv_android_device.log.debug(
             "Failed to stop LE advertisement... reseting Bluetooth. Error {}".
-                format(err))
+            format(err))
         reset_bluetooth([adv_android_device])
 
 
@@ -193,7 +198,9 @@ def clear_bonded_devices(ad):
     return True
 
 
-def connect_phone_to_headset(android, headset, timeout=bt_default_timeout,
+def connect_phone_to_headset(android,
+                             headset,
+                             timeout=bt_default_timeout,
                              connection_check_period=10):
     """Connects android phone to bluetooth headset.
     Headset object must have methods power_on and enter_pairing_mode,
@@ -210,23 +217,29 @@ def connect_phone_to_headset(android, headset, timeout=bt_default_timeout,
         connected (bool): True if devices are paired and connected by end of
         method. False otherwise.
     """
-    connected = is_a2dp_src_device_connected(android, headset.mac_address)
+    headset_mac_address = headset.mac_address
+    connected = is_a2dp_src_device_connected(android, headset_mac_address)
     log.info('Devices connected before pair attempt: %s' % connected)
+    if not connected:
+        # Turn on headset and initiate pairing mode.
+        headset.enter_pairing_mode()
+        android.droid.bluetoothStartPairingHelper()
     start_time = time.time()
     # If already connected, skip pair and connect attempt.
     while not connected and (time.time() - start_time < timeout):
-        bonded_info = android.droid.bluetoothA2dpGetConnectedDevices()
-        if headset.mac_address not in [info["address"] for info in bonded_info]:
-            # Turn on headset and initiate pairing mode.
-            headset.enter_pairing_mode()
+        bonded_info = android.droid.bluetoothGetBondedDevices()
+        if headset.mac_address not in [
+                info["address"] for info in bonded_info
+        ]:
             # Use SL4A to pair and connect with headset.
-            android.droid.bluetoothDiscoverAndBond(headset.mac_address)
+            headset.enter_pairing_mode()
+            android.droid.bluetoothDiscoverAndBond(headset_mac_address)
         else:  # Device is bonded but not connected
-            android.droid.bluetoothConnectBonded(headset.mac_address)
+            android.droid.bluetoothConnectBonded(headset_mac_address)
         log.info('Waiting for connection...')
         time.sleep(connection_check_period)
         # Check for connection.
-        connected = is_a2dp_src_device_connected(android, headset.mac_address)
+        connected = is_a2dp_src_device_connected(android, headset_mac_address)
     log.info('Devices connected after pair attempt: %s' % connected)
     return connected
 
@@ -387,12 +400,13 @@ def determine_max_advertisements(android_device):
         advertise_callback = android_device.droid.bleGenBleAdvertiseCallback()
         advertise_callback_list.append(advertise_callback)
 
-        android_device.droid.bleStartBleAdvertising(
-            advertise_callback, advertise_data, advertise_settings)
+        android_device.droid.bleStartBleAdvertising(advertise_callback,
+                                                    advertise_data,
+                                                    advertise_settings)
 
         regex = "(" + adv_succ.format(
             advertise_callback) + "|" + adv_fail.format(
-            advertise_callback) + ")"
+                advertise_callback) + ")"
         # wait for either success or failure event
         evt = android_device.ed.pop_events(regex, bt_default_timeout,
                                            small_timeout)
@@ -578,10 +592,9 @@ def generate_ble_scan_objects(droid):
     return filter_list, scan_settings, scan_callback
 
 
-def generate_id_by_size(
-        size,
-        chars=(
-                string.ascii_lowercase + string.ascii_uppercase + string.digits)):
+def generate_id_by_size(size,
+                        chars=(string.ascii_lowercase +
+                               string.ascii_uppercase + string.digits)):
     """Generate random ascii characters of input size and input char types
 
     Args:
@@ -641,6 +654,148 @@ def get_advanced_droid_list(android_devices):
 def get_bluetooth_crash_count(android_device):
     out = android_device.adb.shell("dumpsys bluetooth_manager")
     return int(re.search("crashed(.*\d)", out).group(1))
+
+
+def get_bt_metric(ad_list, duration=1, tag="bt_metric", processed=True):
+    """ Function to get the bt metric from logcat.
+
+    Captures logcat for the specified duration and returns the bqr results.
+    Takes list of android objects as input. If a single android object is given,
+    converts it into a list.
+
+    Args:
+        ad_list: list of android_device objects
+        duration: time duration (seconds) for which the logcat is parsed.
+        tag: tag to be appended to the logcat dump.
+        processed: flag to process bqr output.
+
+    Returns:
+        metrics_dict: dict of metrics for each android device.
+    """
+
+    # Defining bqr quantitites and their regex to extract
+    regex_dict = {"pwlv": "PwLv:\s(\S+)", "rssi": "RSSI:\s[-](\d+)"}
+    metrics_dict = {"rssi": {}, "pwlv": {}}
+
+    # Converting a single android device object to list
+    if not isinstance(ad_list, list):
+        ad_list = [ad_list]
+
+    #Time sync with the test machine
+    for ad in ad_list:
+        ad.droid.setTime(int(round(time.time() * 1000)))
+        time.sleep(0.5)
+
+    begin_time = utils.get_current_epoch_time()
+    time.sleep(duration)
+    end_time = utils.get_current_epoch_time()
+
+    for ad in ad_list:
+        bt_rssi_log = ad.cat_adb_log(tag, begin_time, end_time)
+        bqr_tag = "Monitoring , Handle:"
+
+        # Extracting supporting bqr quantities
+        for metric, regex in regex_dict.items():
+            bqr_metric = []
+            file_bt_log = open(bt_rssi_log, "r")
+            for line in file_bt_log:
+                if bqr_tag in line:
+                    if re.findall(regex, line):
+                        m = re.findall(regex, line)[0].strip(",")
+                        bqr_metric.append(m)
+            metrics_dict[metric][ad.serial] = bqr_metric
+
+        # Formatting the raw data
+        metrics_dict["rssi"][ad.serial] = [
+            (-1) * int(x) for x in metrics_dict["rssi"][ad.serial]
+        ]
+        metrics_dict["pwlv"][ad.serial] = [
+            int(x, 16) for x in metrics_dict["pwlv"][ad.serial]
+        ]
+
+        # Processing formatted data if processing is required
+        if processed:
+            # Computes the average RSSI
+            metrics_dict["rssi"][ad.serial] = round(
+                sum(metrics_dict["rssi"][ad.serial]) /
+                len(metrics_dict["rssi"][ad.serial]), 2)
+            # Returns last noted value for power level
+            metrics_dict["pwlv"][ad.serial] = metrics_dict["pwlv"][
+                ad.serial][-1]
+
+    return metrics_dict
+
+
+def get_bt_rssi(ad, duration=1, processed=True):
+    """Function to get average bt rssi from logcat.
+
+    This function returns the average RSSI for the given duration. RSSI values are
+    extracted from BQR.
+
+    Args:
+        ad: (list of) android_device object.
+        duration: time duration(seconds) for which logcat is parsed.
+
+    Returns:
+        avg_rssi: average RSSI on each android device for the given duration.
+    """
+    function_tag = "get_bt_rssi"
+    bqr_results = get_bt_metric(ad,
+                                duration,
+                                tag=function_tag,
+                                processed=processed)
+    return bqr_results["rssi"]
+
+
+def enable_bqr(
+        ad_list,
+        bqr_interval=10,
+        bqr_event_mask=15,
+):
+    """Sets up BQR reporting.
+
+       Sets up BQR to report BT metrics at the requested frequency and toggles
+       airplane mode for the bqr settings to take effect.
+
+    Args:
+        ad_list: an android_device or list of android devices.
+    """
+    # Converting a single android device object to list
+    if not isinstance(ad_list, list):
+        ad_list = [ad_list]
+
+    for ad in ad_list:
+        #Setting BQR parameters
+        ad.adb.shell("setprop persist.bluetooth.bqr.event_mask {}".format(
+            bqr_event_mask))
+        ad.adb.shell("setprop persist.bluetooth.bqr.min_interval_ms {}".format(
+            bqr_interval))
+
+        ## Toggle airplane mode
+        ad.droid.connectivityToggleAirplaneMode(True)
+        ad.droid.connectivityToggleAirplaneMode(False)
+
+
+def disable_bqr(ad_list):
+    """Disables BQR reporting.
+
+    Args:
+        ad_list: an android_device or list of android devices.
+    """
+    # Converting a single android device object to list
+    if not isinstance(ad_list, list):
+        ad_list = [ad_list]
+
+    DISABLE_BQR_MASK = 0
+
+    for ad in ad_list:
+        #Disabling BQR
+        ad.adb.shell("setprop persist.bluetooth.bqr.event_mask {}".format(
+            DISABLE_BQR_MASK))
+
+        ## Toggle airplane mode
+        ad.droid.connectivityToggleAirplaneMode(True)
+        ad.droid.connectivityToggleAirplaneMode(False)
 
 
 def get_device_selector_dictionary(android_device_list):
@@ -726,8 +881,8 @@ def get_mac_address_of_generic_advertisement(scan_ad, adv_ad):
     adv_ad.droid.bleStartBleAdvertising(advertise_callback, advertise_data,
                                         advertise_settings)
     try:
-        adv_ad.ed.pop_event(
-            adv_succ.format(advertise_callback), bt_default_timeout)
+        adv_ad.ed.pop_event(adv_succ.format(advertise_callback),
+                            bt_default_timeout)
     except Empty as err:
         raise BtTestUtilsError(
             "Advertiser did not start successfully {}".format(err))
@@ -966,8 +1121,8 @@ def orchestrate_bluetooth_socket_connection(
     client_ad.droid.bluetoothStartPairingHelper()
 
     server_ad.droid.bluetoothSocketConnBeginAcceptThreadUuid(
-        (bluetooth_socket_conn_test_uuid
-         if uuid is None else uuid), accept_timeout_ms)
+        (bluetooth_socket_conn_test_uuid if uuid is None else uuid),
+        accept_timeout_ms)
     client_ad.droid.bluetoothSocketConnBeginConnectThreadUuid(
         server_ad.droid.bluetoothGetLocalAddress(),
         (bluetooth_socket_conn_test_uuid if uuid is None else uuid))
@@ -1031,12 +1186,14 @@ def pair_pri_to_sec(pri_ad, sec_ad, attempts=2, auto_confirm=True):
         # Wait 2 seconds before unbound
         time.sleep(2)
         if not clear_bonded_devices(pri_ad):
-            log.error("Failed to clear bond for primary device at attempt {}"
-                      .format(str(curr_attempts)))
+            log.error(
+                "Failed to clear bond for primary device at attempt {}".format(
+                    str(curr_attempts)))
             return False
         if not clear_bonded_devices(sec_ad):
-            log.error("Failed to clear bond for secondary device at attempt {}"
-                      .format(str(curr_attempts)))
+            log.error(
+                "Failed to clear bond for secondary device at attempt {}".
+                format(str(curr_attempts)))
             return False
         # Wait 2 seconds after unbound
         time.sleep(2)
@@ -1134,8 +1291,8 @@ def scan_and_verify_n_advertisements(scn_ad, max_advertisements):
     while (start_time + bt_default_timeout) > time.time():
         event = None
         try:
-            event = scn_ad.ed.pop_event(
-                scan_result.format(scan_callback), bt_default_timeout)
+            event = scn_ad.ed.pop_event(scan_result.format(scan_callback),
+                                        bt_default_timeout)
         except Empty as error:
             raise BtTestUtilsError(
                 "Failed to find scan event: {}".format(error))
@@ -1149,13 +1306,12 @@ def scan_and_verify_n_advertisements(scn_ad, max_advertisements):
     return test_result
 
 
-def set_bluetooth_codec(
-        android_device,
-        codec_type,
-        sample_rate,
-        bits_per_sample,
-        channel_mode,
-        codec_specific_1=0):
+def set_bluetooth_codec(android_device,
+                        codec_type,
+                        sample_rate,
+                        bits_per_sample,
+                        channel_mode,
+                        codec_specific_1=0):
     """Sets the A2DP codec configuration on the AndroidDevice.
 
     Args:
@@ -1174,31 +1330,26 @@ def set_bluetooth_codec(
         bool: True if the codec config was successfully changed to the desired
             values. Else False.
     """
-    message = (
-        "Set Android Device A2DP Bluetooth codec configuration:\n"
-        "\tCodec: {codec_type}\n"
-        "\tSample Rate: {sample_rate}\n"
-        "\tBits per Sample: {bits_per_sample}\n"
-        "\tChannel Mode: {channel_mode}".format(
-            codec_type=codec_type,
-            sample_rate=sample_rate,
-            bits_per_sample=bits_per_sample,
-            channel_mode=channel_mode
-        )
-    )
+    message = ("Set Android Device A2DP Bluetooth codec configuration:\n"
+               "\tCodec: {codec_type}\n"
+               "\tSample Rate: {sample_rate}\n"
+               "\tBits per Sample: {bits_per_sample}\n"
+               "\tChannel Mode: {channel_mode}".format(
+                   codec_type=codec_type,
+                   sample_rate=sample_rate,
+                   bits_per_sample=bits_per_sample,
+                   channel_mode=channel_mode))
     android_device.log.info(message)
 
     # Send SL4A command
     droid, ed = android_device.droid, android_device.ed
     if not droid.bluetoothA2dpSetCodecConfigPreference(
-        codec_types[codec_type],
-        sample_rates[str(sample_rate)],
-        bits_per_samples[str(bits_per_sample)],
-        channel_modes[channel_mode],
-        codec_specific_1
-    ):
-        android_device.log.warning("SL4A command returned False. Codec was not "
-                                   "changed.")
+            codec_types[codec_type], sample_rates[str(sample_rate)],
+            bits_per_samples[str(bits_per_sample)],
+            channel_modes[channel_mode], codec_specific_1):
+        android_device.log.warning(
+            "SL4A command returned False. Codec was not "
+            "changed.")
     else:
         try:
             ed.pop_event(bluetooth_a2dp_codec_config_changed,
@@ -1216,14 +1367,10 @@ def set_bluetooth_codec(
         android_device.log.warning("Could not verify codec config change "
                                    "through ADB.")
     elif split_out[1].strip().upper() != codec_type:
-        android_device.log.error(
-            "Codec config was not changed.\n"
-            "\tExpected codec: {exp}\n"
-            "\tActual codec: {act}".format(
-                exp=codec_type,
-                act=split_out[1].strip()
-            )
-        )
+        android_device.log.error("Codec config was not changed.\n"
+                                 "\tExpected codec: {exp}\n"
+                                 "\tActual codec: {act}".format(
+                                     exp=codec_type, act=split_out[1].strip()))
         return False
     android_device.log.info("Bluetooth codec successfully changed.")
     return True
@@ -1329,8 +1476,8 @@ def setup_multiple_devices_for_bt_test(android_devices):
     threads = []
     try:
         for a in android_devices:
-            thread = threading.Thread(
-                target=factory_reset_bluetooth, args=([[a]]))
+            thread = threading.Thread(target=factory_reset_bluetooth,
+                                      args=([[a]]))
             threads.append(thread)
             thread.start()
         for t in threads:
@@ -1352,9 +1499,9 @@ def setup_multiple_devices_for_bt_test(android_devices):
                 a.log.info("Removing bond for device {}".format(b['address']))
                 d.bluetoothUnbond(b['address'])
         for a in android_devices:
-            a.adb.shell("setprop persist.bluetooth.btsnoopenable true")
-            getprop_result = bool(
-                a.adb.shell("getprop persist.bluetooth.btsnoopenable"))
+            a.adb.shell("setprop persist.bluetooth.btsnooplogmode full")
+            getprop_result = a.adb.shell(
+                "getprop persist.bluetooth.btsnooplogmode") == "full"
             if not getprop_result:
                 a.log.warning("Failed to enable Bluetooth Hci Snoop Logging.")
     except Exception as err:
@@ -1384,8 +1531,8 @@ def setup_n_advertisements(adv_ad, num_advertisements):
         adv_ad.droid.bleStartBleAdvertising(advertise_callback, advertise_data,
                                             advertise_settings)
         try:
-            adv_ad.ed.pop_event(
-                adv_succ.format(advertise_callback), bt_default_timeout)
+            adv_ad.ed.pop_event(adv_succ.format(advertise_callback),
+                                bt_default_timeout)
             adv_ad.log.info("Advertisement {} started.".format(i + 1))
         except Empty as error:
             adv_ad.log.error("Advertisement {} failed to start.".format(i + 1))
@@ -1413,7 +1560,7 @@ def take_btsnoop_log(ad, testcase, testname):
     device_model = device_model.replace(" ", "")
     out_name = ','.join((testname, device_model, serial))
     snoop_path = os.path.join(ad.device_log_path, 'BluetoothSnoopLogs')
-    utils.create_dir(snoop_path)
+    os.makedirs(snoop_path, exist_ok=True)
     cmd = ''.join(("adb -s ", serial, " pull ", btsnoop_log_path_on_device,
                    " ", snoop_path + '/' + out_name, ".btsnoop_hci.log"))
     exe_cmd(cmd)
@@ -1536,8 +1683,9 @@ def _wait_for_passkey_match(pri_ad, sec_ad):
             timeout=bt_default_timeout)
         sec_variant = sec_pairing_req["data"]["PairingVariant"]
         sec_pin = sec_pairing_req["data"]["Pin"]
-        sec_ad.log.info("Secondary device received Pin: {}, Variant: {}"
-                        .format(sec_pin, sec_variant))
+        sec_ad.log.info(
+            "Secondary device received Pin: {}, Variant: {}".format(
+                sec_pin, sec_variant))
     except Empty as err:
         log.error("Wait for pin error: {}".format(err))
         log.error("Pairing request state, Primary: {}, Secondary: {}".format(
@@ -1598,3 +1746,54 @@ def write_read_verify_data(client_ad, server_ad, msg, binary=False):
         return False
     return True
 
+
+class MediaControlOverSl4a(object):
+    """Media control using sl4a facade for general purpose.
+
+    """
+    def __init__(self, android_device, music_file):
+        """Initialize the media_control class.
+
+        Args:
+            android_dut: android_device object
+            music_file: location of the music file
+        """
+        self.android_device = android_device
+        self.music_file = music_file
+
+    def play(self):
+        """Play media.
+
+        """
+        self.android_device.droid.mediaPlayOpen('file://%s' % self.music_file,
+                                                'default', True)
+        playing = self.android_device.droid.mediaIsPlaying()
+        asserts.assert_true(playing,
+                            'Failed to play music %s' % self.music_file)
+
+    def pause(self):
+        """Pause media.
+
+        """
+        self.android_device.droid.mediaPlayPause('default')
+        paused = not self.android_device.droid.mediaIsPlaying()
+        asserts.assert_true(paused,
+                            'Failed to pause music %s' % self.music_file)
+
+    def resume(self):
+        """Resume media.
+
+        """
+        self.android_device.droid.mediaPlayStart('default')
+        playing = self.android_device.droid.mediaIsPlaying()
+        asserts.assert_true(playing,
+                            'Failed to play music %s' % self.music_file)
+
+    def stop(self):
+        """Stop media.
+
+        """
+        self.android_device.droid.mediaPlayStop('default')
+        stopped = not self.android_device.droid.mediaIsPlaying()
+        asserts.assert_true(stopped,
+                            'Failed to stop music %s' % self.music_file)

@@ -56,6 +56,7 @@ from acts.test_utils.tel.tel_defines import \
     WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING
 from acts.test_utils.tel.tel_defines import WAIT_TIME_TETHERING_AFTER_REBOOT
 from acts.test_utils.tel.tel_data_utils import airplane_mode_test
+from acts.test_utils.tel.tel_data_utils import browsing_test
 from acts.test_utils.tel.tel_data_utils import change_data_sim_and_verify_data
 from acts.test_utils.tel.tel_data_utils import data_connectivity_single_bearer
 from acts.test_utils.tel.tel_data_utils import tethering_check_internet_connection
@@ -81,6 +82,7 @@ from acts.test_utils.tel.tel_test_utils import set_call_state_listen_level
 from acts.test_utils.tel.tel_test_utils import set_mobile_data_usage_limit
 from acts.test_utils.tel.tel_test_utils import setup_sim
 from acts.test_utils.tel.tel_test_utils import stop_wifi_tethering
+from acts.test_utils.tel.tel_test_utils import start_wifi_tethering
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts.test_utils.tel.tel_test_utils import toggle_volte
@@ -118,6 +120,7 @@ from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_csfb
 from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_general
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
+from acts.test_utils.tel.tel_voice_utils import phone_setup_4g
 from acts.utils import disable_doze
 from acts.utils import enable_doze
 from acts.utils import rand_ascii_str
@@ -125,8 +128,8 @@ from acts.utils import adb_shell_ping
 
 
 class TelLiveDataTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
 
         self.stress_test_number = self.get_stress_test_number()
         self.provider = self.android_devices[0]
@@ -138,6 +141,62 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     def teardown_class(self):
         TelephonyBaseTest.teardown_class(self)
+
+
+    """ Tests Begin """
+
+
+    @test_tracker_info(uuid="ba24f9a3-0126-436c-8a5c-9f88859c273c")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_data_browsing_for_single_phone(self):
+        """ Browsing websites on cellular.
+
+        Ensure phone attach, data on, WiFi off
+        Verify 5 websites on cellular.
+
+        Returns:
+            True if pass; False if fail.
+        """
+        ad = self.android_devices[0]
+        wifi_toggle_state(ad.log, ad, False)
+        for iteration in range(3):
+            ad.log.info("Attempt %d", iteration + 1)
+            if test_data_browsing_success_using_sl4a(ad.log, ad):
+                ad.log.info("Call test PASS in iteration %d", iteration + 1)
+                return True
+            time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
+        ad.log.info("Data Browsing test FAIL for all 3 iterations")
+        return False
+
+
+    @test_tracker_info(uuid="0679214b-9002-476d-83a7-3532b3cca209")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_wifi_browsing_for_single_phone(self):
+        """ Browsing websites on wifi.
+
+        Ensure phone attach, data on, WiFi On, WiFi Connected.
+        Verify 5 websites on WiFi.
+
+        Returns:
+            True if pass; False if fail.
+        """
+        ad = self.android_devices[0]
+        wifi_toggle_state(ad.log, ad, True)
+        if not ensure_wifi_connected(ad.log, ad, self.wifi_network_ssid,
+                                     self.wifi_network_pass):
+            ad.log.error("WiFi connect fail.")
+            return False
+        for iteration in range(3):
+            ad.log.info("Attempt %d", iteration + 1)
+            if test_data_browsing_success_using_sl4a(ad.log, ad):
+                ad.log.info("Call test PASS in iteration %d", iteration + 1)
+                wifi_toggle_state(ad.log, ad, False)
+                return True
+            time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
+        ad.log.info("Data Browsing test FAIL for all 3 iterations")
+        wifi_toggle_state(ad.log, ad, False)
+        return False
+
 
     @test_tracker_info(uuid="1b0354f3-8668-4a28-90a5-3b3d2b2756d3")
     @TelephonyBaseTest.tel_test_wrap
@@ -494,8 +553,8 @@ class TelLiveDataTest(TelephonyBaseTest):
                         self.log, self.android_devices[0], False):
                     raise _LocalException("Failed to Disable Cellular Data")
 
-                if verify_internet_connection(self.log,
-                                              self.android_devices[0]):
+                if not verify_internet_connection(self.log,
+                                              self.android_devices[0], expected_state=False):
                     raise _LocalException("Internet Accessible when Disabled")
 
                 self.log.info("Step5 Re-enable data.")
@@ -1613,7 +1672,7 @@ class TelLiveDataTest(TelephonyBaseTest):
                 "Disable Data on Provider, verify no data on Client.")
             self.provider.droid.telephonyToggleDataConnection(False)
             time.sleep(WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING)
-            if verify_internet_connection(self.log, self.provider):
+            if not verify_internet_connection(self.log, self.provider, expected_state=False):
                 self.provider.log.error("Disable data on provider failed.")
                 return False
             if not self.provider.droid.wifiIsApEnabled():
@@ -1820,7 +1879,7 @@ class TelLiveDataTest(TelephonyBaseTest):
             if self.provider.droid.wifiIsApEnabled():
                 self.provider.log.error("Provider WiFi tethering not stopped.")
                 return False
-            if verify_internet_connection(self.log, self.clients[0]):
+            if not verify_internet_connection(self.log, self.clients[0], expected_state=False):
                 self.clients[0].log.error(
                     "Client should not have Internet connection.")
                 return False
@@ -3223,6 +3282,47 @@ class TelLiveDataTest(TelephonyBaseTest):
             resume_internet_with_sl4a_port(dut, sl4a_port)
 
 
+    def _test_airplane_mode_stress(self):
+        ad = self.android_devices[0]
+        total_iteration = self.stress_test_number
+        fail_count = collections.defaultdict(int)
+        current_iteration = 1
+        for i in range(1, total_iteration + 1):
+            msg = "Airplane mode test Iteration: <%s> / <%s>" % (i, total_iteration)
+            self.log.info(msg)
+            if not airplane_mode_test(self.log, ad):
+                fail_count["apm_run"] += 1
+                ad.log.error(">----Iteration : %d/%d failed.----<",
+                             i, total_iteration)
+            ad.log.info(">----Iteration : %d/%d succeeded.----<",
+                        i, total_iteration)
+            current_iteration += 1
+        test_result = True
+        for failure, count in fail_count.items():
+            if count:
+                ad.log.error("%s: %s %s failures in %s iterations",
+                             self.test_name, count, failure,
+                             total_iteration)
+                test_result = False
+        return test_result
+
+
+    @test_tracker_info(uuid="3a82728f-18b5-4a35-9eab-4e6cf55271d9")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_apm_toggle_stress(self):
+        """ Test airplane mode toggle
+
+        1. Start with airplane mode off
+        2. Toggle airplane mode on
+        3. Toggle airplane mode off
+        4. Repeat above steps
+
+        Returns:
+            True if pass; False if fail.
+        """
+        return self._test_airplane_mode_stress()
+
+
     @test_tracker_info(uuid="fda33416-698a-408f-8ddc-b5cde13b1f83")
     @TelephonyBaseTest.tel_test_wrap
     def test_data_stall_detection_cellular(self):
@@ -3263,4 +3363,31 @@ class TelLiveDataTest(TelephonyBaseTest):
         return self._test_data_stall_detection_recovery(nw_type="cellular",
                                                 validation_type="recovery")
 
-        """ Tests End """
+    @test_tracker_info(uuid="d705d653-c810-42eb-bd07-3313f99be2fa")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_browsing_4g(self):
+        ad = self.android_devices[0]
+        self.log.info("Connect to LTE and verify internet connection.")
+        if not phone_setup_4g(self.log, ad):
+            return False
+        if not verify_internet_connection(self.log, ad):
+            return False
+
+        return browsing_test(self.log, self.android_devices[0])
+
+    @test_tracker_info(uuid="71088cb1-5ccb-4d3a-8e6a-03fac9bf31cc")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_browsing_wifi(self):
+        ad = self.android_devices[0]
+        self.log.info("Connect to Wi-Fi and verify internet connection.")
+        if not ensure_wifi_connected(self.log, ad, self.wifi_network_ssid,
+                                     self.wifi_network_pass):
+            return False
+        if not wait_for_wifi_data_connection(self.log, ad, True):
+            return False
+        if not verify_internet_connection(self.log, ad):
+            return False
+
+        return browsing_test(self.log, self.android_devices[0], wifi_ssid=self.wifi_network_ssid)
+
+    """ Tests End """

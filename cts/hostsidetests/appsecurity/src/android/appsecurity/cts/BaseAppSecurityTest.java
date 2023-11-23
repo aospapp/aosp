@@ -28,7 +28,7 @@ import java.util.HashMap;
 /**
  * Base class.
  */
-abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
+public abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
 
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
@@ -59,7 +59,7 @@ abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
             userId = mPrimaryUserId;
         }
         new InstallMultiple(instant)
-                .addApk(apk)
+                .addFile(apk)
                 .allowTest()
                 .forUser(userId)
                 .run();
@@ -92,8 +92,12 @@ abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
             this(false);
         }
         public InstallMultiple(boolean instant) {
-            super(getDevice(), getBuild(), getAbi());
+            this(instant, true);
+        }
+        public InstallMultiple(boolean instant, boolean grantPermissions) {
+            super(getDevice(), getBuild(), getAbi(), grantPermissions);
             addArg(instant ? "--instant" : "");
+            addArg("--force-queryable");
         }
     }
 }

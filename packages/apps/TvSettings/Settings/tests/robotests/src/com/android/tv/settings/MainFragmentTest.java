@@ -69,7 +69,7 @@ public class MainFragmentTest {
     }
 
     @Test
-    public void testUpdateWifi_NoNetwork() {
+    public void testUpdateConnectivity_NoNetwork() {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
@@ -80,13 +80,13 @@ public class MainFragmentTest {
         doReturn(false).when(listener).isEthernetConnected();
         doReturn(false).when(listener).isWifiEnabledOrEnabling();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_off_white);
     }
 
     @Test
-    public void testUpdateWifi_hasEthernet() {
+    public void testUpdateConnectivity_hasEthernet() {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
@@ -97,13 +97,13 @@ public class MainFragmentTest {
         doReturn(false).when(listener).isEthernetConnected();
         doReturn(false).when(listener).isWifiEnabledOrEnabling();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_off_white);
     }
 
     @Test
-    public void testUpdateWifi_hasEthernetConnected() {
+    public void testUpdateConnectivity_hasEthernetConnected() {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
@@ -114,13 +114,13 @@ public class MainFragmentTest {
         doReturn(true).when(listener).isEthernetConnected();
         doReturn(false).when(listener).isWifiEnabledOrEnabling();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_ethernet_white);
     }
 
     @Test
-    public void testUpdateWifi_wifiSignal() {
+    public void testUpdateConnectivity_wifiSignal() {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
@@ -133,43 +133,43 @@ public class MainFragmentTest {
         doReturn(true).when(listener).isWifiConnected();
         doReturn(0).when(listener).getWifiSignalStrength(anyInt());
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_0_white);
 
         doReturn(1).when(listener).getWifiSignalStrength(anyInt());
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_1_white);
 
         doReturn(2).when(listener).getWifiSignalStrength(anyInt());
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_2_white);
 
         doReturn(3).when(listener).getWifiSignalStrength(anyInt());
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_3_white);
 
         doReturn(4).when(listener).getWifiSignalStrength(anyInt());
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_4_white);
 
         doReturn(false).when(listener).isWifiConnected();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_not_connected);
     }
 
     @Test
-    public void testUpdateWifi_notConnected() {
+    public void testUpdateConnectivity_notConnected() {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
@@ -180,13 +180,13 @@ public class MainFragmentTest {
         doReturn(false).when(listener).isEthernetConnected();
         doReturn(false).when(listener).isWifiEnabledOrEnabling();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_wifi_signal_off_white);
     }
 
     @Test
-    public void testUpdateWifi_cellSignal() {
+    public void testUpdateConnectivity_cellSignal() {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
@@ -199,41 +199,41 @@ public class MainFragmentTest {
         doReturn(SignalStrength.SIGNAL_STRENGTH_NONE_OR_UNKNOWN)
                 .when(listener).getCellSignalStrength();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_cell_signal_0_white);
 
         doReturn(SignalStrength.SIGNAL_STRENGTH_POOR)
                 .when(listener).getCellSignalStrength();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_cell_signal_1_white);
 
         doReturn(SignalStrength.SIGNAL_STRENGTH_MODERATE)
                 .when(listener).getCellSignalStrength();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_cell_signal_2_white);
 
         doReturn(SignalStrength.SIGNAL_STRENGTH_GOOD)
                 .when(listener).getCellSignalStrength();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_cell_signal_3_white);
 
         doReturn(SignalStrength.SIGNAL_STRENGTH_GREAT)
                 .when(listener).getCellSignalStrength();
 
-        mMainFragment.updateWifi();
+        mMainFragment.updateConnectivity();
 
         verify(networkPref, atLeastOnce()).setIcon(R.drawable.ic_cell_signal_4_white);
     }
 
     @Test
-    public void testUpdateAccountPref_hasOneAccount() {
+    public void testUpdateAccountPrefInfo_hasOneAccount() {
         final Preference accountsPref = mock(Preference.class);
         doReturn(accountsPref).when(mMainFragment)
                     .findPreference(MainFragment.KEY_ACCOUNTS_AND_SIGN_IN);
@@ -241,7 +241,7 @@ public class MainFragmentTest {
         ShadowAccountManager am = extract(AccountManager.get(RuntimeEnvironment.application));
         am.addAccount(new Account("test", "test"));
 
-        mMainFragment.updateAccountPref();
+        mMainFragment.updateAccountPrefInfo();
 
         verify(accountsPref, atLeastOnce()).setIcon(R.drawable.ic_accounts_and_sign_in);
         verify(accountsPref, atLeastOnce()).setSummary("test");
@@ -249,13 +249,13 @@ public class MainFragmentTest {
     }
 
     @Test
-    public void testUpdateAccountPref_hasNoAccount() {
+    public void testUpdateAccountPrefInfo_hasNoAccount() {
         final Preference accountsPref = mock(Preference.class);
         doReturn(accountsPref).when(mMainFragment)
                     .findPreference(MainFragment.KEY_ACCOUNTS_AND_SIGN_IN);
         doReturn(true).when(accountsPref).isVisible();
 
-        mMainFragment.updateAccountPref();
+        mMainFragment.updateAccountPrefInfo();
 
         verify(accountsPref, atLeastOnce()).setIcon(R.drawable.ic_add_an_account);
         verify(accountsPref, atLeastOnce())
@@ -264,7 +264,7 @@ public class MainFragmentTest {
     }
 
     @Test
-    public void testUpdateAccountPref_hasMoreThanOneAccount() {
+    public void testUpdateAccountPrefInfo_hasMoreThanOneAccount() {
         final Preference accountsPref = mock(Preference.class);
         doReturn(RuntimeEnvironment.application.getResources()).when(mMainFragment).getResources();
         doReturn(accountsPref).when(mMainFragment)
@@ -274,7 +274,7 @@ public class MainFragmentTest {
         am.addAccount(new Account("test", "test"));
         am.addAccount(new Account("test2", "test2"));
 
-        mMainFragment.updateAccountPref();
+        mMainFragment.updateAccountPrefInfo();
 
         verify(accountsPref, atLeastOnce()).setIcon(R.drawable.ic_accounts_and_sign_in);
         String summary = RuntimeEnvironment.application.getResources()
@@ -305,7 +305,7 @@ public class MainFragmentTest {
         mMainFragment.mBtAdapter = mock(BluetoothAdapter.class);
         Set<BluetoothDevice> set = new HashSet<>();
         BluetoothDevice device = mock(BluetoothDevice.class);
-        doReturn("testDevice").when(device).getAliasName();
+        doReturn("testDevice").when(device).getAlias();
         set.add(device);
         doReturn(set).when(mMainFragment.mBtAdapter).getBondedDevices();
 

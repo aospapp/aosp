@@ -23,18 +23,16 @@ import android.content.pm.ResolveInfo;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.Message;
-import android.os.RemoteException;
 import android.service.carrier.CarrierMessagingService;
-import android.service.carrier.ICarrierMessagingCallback;
-import android.service.carrier.ICarrierMessagingService;
+import android.service.carrier.CarrierMessagingServiceWrapper;
+import android.service.carrier.CarrierMessagingServiceWrapper.CarrierMessagingCallbackWrapper;
 import android.service.carrier.MessagePdu;
-import android.telephony.CarrierMessagingServiceManager;
-import android.telephony.Rlog;
 import android.util.LocalLog;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.uicc.UiccCard;
 import com.android.internal.telephony.uicc.UiccController;
+import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,6 +62,7 @@ public class CarrierServicesSmsFilter {
     private final String mLogTag;
     private final CallbackTimeoutHandler mCallbackTimeoutHandler;
     private final LocalLog mLocalLog;
+    private final long mMessageId;
     private FilterAggregator mFilterAggregator;
 
     @VisibleForTesting
@@ -75,7 +74,8 @@ public class CarrierServicesSmsFilter {
             String pduFormat,
             CarrierServicesSmsFilterCallbackInterface carrierServicesSmsFilterCallback,
             String logTag,
-            LocalLog localLog) {
+            LocalLog localLog,
+            long msgId) {
         mContext = context;
         mPhone = phone;
         mPdus = pdus;
@@ -85,6 +85,7 @@ public class CarrierServicesSmsFilter {
         mLogTag = logTag;
         mCallbackTimeoutHandler = new CallbackTimeoutHandler();
         mLocalLog = localLog;
+        mMessageId = msgId;
     }
 
     /**
@@ -104,7 +105,8 @@ public class CarrierServicesSmsFilter {
         }
 
         if (mFilterAggregator != null) {
-            String errMsg = "Cannot reuse the same CarrierServiceSmsFilter object for filtering.";
+            String errMsg = "filter: Cannot reuse the same CarrierServiceSmsFilter object for "
+                    + "filtering";
             loge(errMsg);
             throw new RuntimeException(errMsg);
         }
@@ -133,10 +135,11 @@ public class CarrierServicesSmsFilter {
                     mContext.getPackageManager(),
                     new Intent(CarrierMessagingService.SERVICE_INTERFACE));
         } else {
-            Rlog.e(mLogTag, "UiccCard not initialized.");
+            loge("getCarrierAppPackageForFiltering: UiccCard not initialized");
         }
         if (carrierPackages != null && carrierPackages.size() == 1) {
-            log("Found carrier package.");
+            log("getCarrierAppPackageForFiltering: Found carrier package: "
+                    + carrierPackages.get(0));
             return Optional.of(carrierPackages.get(0));
         }
 
@@ -146,21 +149,22 @@ public class CarrierServicesSmsFilter {
                 getSystemAppForIntent(new Intent(CarrierMessagingService.SERVICE_INTERFACE));
 
         if (systemPackages != null && systemPackages.size() == 1) {
-            log("Found system package.");
+            log("getCarrierAppPackageForFiltering: Found system package: " + systemPackages.get(0));
             return Optional.of(systemPackages.get(0));
         }
-        logv("Unable to find carrier package: " + carrierPackages
-                + ", nor systemPackages: " + systemPackages);
+        logv("getCarrierAppPackageForFiltering: Unable to find carrierPackages: " + carrierPackages
+                + " or systemPackages: " + systemPackages);
         return Optional.empty();
     }
 
     private void filterWithPackage(String packageName, FilterAggregator filterAggregator) {
-        CarrierSmsFilter smsFilter = new CarrierSmsFilter(mPdus, mDestPort, mPduFormat);
+        CarrierSmsFilter smsFilter = new CarrierSmsFilter(mPdus, mDestPort, mPduFormat,
+                packageName);
         CarrierSmsFilterCallback smsFilterCallback =
-                new CarrierSmsFilterCallback(filterAggregator, smsFilter);
+                new CarrierSmsFilterCallback(filterAggregator, smsFilter, packageName);
         filterAggregator.addToCallbacks(smsFilterCallback);
 
-        smsFilter.filterSms(packageName, smsFilterCallback);
+        smsFilter.filterSms(smsFilterCallback);
     }
 
     private List<String> getSystemAppForIntent(Intent intent) {
@@ -171,7 +175,7 @@ public class CarrierServicesSmsFilter {
 
         for (ResolveInfo info : receivers) {
             if (info.serviceInfo == null) {
-                loge("Can't get service information from " + info);
+                loge("getSystemAppForIntent: Can't get service information from " + info);
                 continue;
             }
             String packageName = info.serviceInfo.packageName;
@@ -185,15 +189,15 @@ public class CarrierServicesSmsFilter {
     }
 
     private void log(String message) {
-        Rlog.d(mLogTag, message);
+        Rlog.d(mLogTag, message + ", id: " + mMessageId);
     }
 
     private void loge(String message) {
-        Rlog.e(mLogTag, message);
+        Rlog.e(mLogTag, message + ", id: " + mMessageId);
     }
 
     private void logv(String message) {
-        Rlog.e(mLogTag, message);
+        Rlog.v(mLogTag, message + ", id: " + mMessageId);
     }
 
     /**
@@ -209,30 +213,33 @@ public class CarrierServicesSmsFilter {
      * instructed to do so by the carrier messaging service. A new instance must be used for every
      * message.
      */
-    private final class CarrierSmsFilter extends CarrierMessagingServiceManager {
+    private final class CarrierSmsFilter extends CarrierMessagingServiceWrapper {
         private final byte[][] mPdus;
         private final int mDestPort;
         private final String mSmsFormat;
         // Instantiated in filterSms.
         private volatile CarrierSmsFilterCallback mSmsFilterCallback;
+        private final String mPackageName;
 
-        CarrierSmsFilter(byte[][] pdus, int destPort, String smsFormat) {
+        CarrierSmsFilter(byte[][] pdus, int destPort, String smsFormat, String packageName) {
             mPdus = pdus;
             mDestPort = destPort;
             mSmsFormat = smsFormat;
+            mPackageName = packageName;
         }
 
         /**
-         * Attempts to bind to a {@link ICarrierMessagingService}. Filtering is initiated
-         * asynchronously once the service is ready using {@link #onServiceReady}.
+         * Attempts to bind to a {@link CarrierMessagingService}. Filtering is initiated
+         * asynchronously once the service is ready using {@link #onServiceReady()}.
          */
-        void filterSms(String carrierPackageName, CarrierSmsFilterCallback smsFilterCallback) {
+        void filterSms(CarrierSmsFilterCallback smsFilterCallback) {
             mSmsFilterCallback = smsFilterCallback;
-            if (!bindToCarrierMessagingService(mContext, carrierPackageName)) {
-                loge("bindService() for carrier messaging service failed");
+            if (!bindToCarrierMessagingService(mContext, mPackageName)) {
+                loge("CarrierSmsFilter::filterSms: bindService() for failed for " + mPackageName);
                 smsFilterCallback.onFilterComplete(CarrierMessagingService.RECEIVE_OPTIONS_DEFAULT);
             } else {
-                logv("bindService() for carrier messaging service succeeded");
+                logv("CarrierSmsFilter::filterSms: bindService() for succeeded for "
+                        + mPackageName);
             }
         }
 
@@ -241,14 +248,13 @@ public class CarrierServicesSmsFilter {
          * delivered to {@code smsFilterCallback}.
          */
         @Override
-        protected void onServiceReady(ICarrierMessagingService carrierMessagingService) {
+        public void onServiceReady() {
             try {
-                log("onServiceReady: calling filterSms");
-                carrierMessagingService.filterSms(
-                        new MessagePdu(Arrays.asList(mPdus)), mSmsFormat, mDestPort,
+                log("onServiceReady: calling filterSms on " + mPackageName);
+                filterSms(new MessagePdu(Arrays.asList(mPdus)), mSmsFormat, mDestPort,
                         mPhone.getSubId(), mSmsFilterCallback);
-            } catch (RemoteException e) {
-                loge("Exception filtering the SMS: " + e);
+            } catch (RuntimeException e) {
+                loge("Exception filtering the SMS with " + mPackageName + ": " + e);
                 mSmsFilterCallback.onFilterComplete(
                         CarrierMessagingService.RECEIVE_OPTIONS_DEFAULT);
             }
@@ -259,16 +265,18 @@ public class CarrierServicesSmsFilter {
      * A callback used to notify the platform of the carrier messaging app filtering result. Once
      * the result is ready, the carrier messaging service connection is disposed.
      */
-    private final class CarrierSmsFilterCallback extends ICarrierMessagingCallback.Stub {
+    private final class CarrierSmsFilterCallback extends CarrierMessagingCallbackWrapper {
         private final FilterAggregator mFilterAggregator;
-        private final CarrierMessagingServiceManager mCarrierMessagingServiceManager;
+        private final CarrierMessagingServiceWrapper mCarrierMessagingServiceWrapper;
         private boolean mIsOnFilterCompleteCalled;
+        private final String mPackageName;
 
         CarrierSmsFilterCallback(FilterAggregator filterAggregator,
-                CarrierMessagingServiceManager carrierMessagingServiceManager) {
+                CarrierMessagingServiceWrapper carrierMessagingServiceWrapper, String packageName) {
             mFilterAggregator = filterAggregator;
-            mCarrierMessagingServiceManager = carrierMessagingServiceManager;
+            mCarrierMessagingServiceWrapper = carrierMessagingServiceWrapper;
             mIsOnFilterCompleteCalled = false;
+            mPackageName = packageName;
         }
 
         /**
@@ -276,34 +284,39 @@ public class CarrierServicesSmsFilter {
          */
         @Override
         public void onFilterComplete(int result) {
-            log("onFilterComplete called with result: " + result);
+            log("CarrierSmsFilterCallback::onFilterComplete: Called from " + mPackageName
+                    + " with result: " + result);
             // in the case that timeout has already passed and triggered, but the initial callback
             // is run afterwards, we should not follow through
             if (!mIsOnFilterCompleteCalled) {
                 mIsOnFilterCompleteCalled = true;
-                mCarrierMessagingServiceManager.disposeConnection(mContext);
+                mCarrierMessagingServiceWrapper.disposeConnection(mContext);
                 mFilterAggregator.onFilterComplete(result);
             }
         }
 
         @Override
         public void onSendSmsComplete(int result, int messageRef) {
-            loge("Unexpected onSendSmsComplete call with result: " + result);
+            loge("onSendSmsComplete: Unexpected call from " + mPackageName
+                    + " with result: " + result);
         }
 
         @Override
         public void onSendMultipartSmsComplete(int result, int[] messageRefs) {
-            loge("Unexpected onSendMultipartSmsComplete call with result: " + result);
+            loge("onSendMultipartSmsComplete: Unexpected call from " + mPackageName
+                    + " with result: " + result);
         }
 
         @Override
         public void onSendMmsComplete(int result, byte[] sendConfPdu) {
-            loge("Unexpected onSendMmsComplete call with result: " + result);
+            loge("onSendMmsComplete: Unexpected call from " + mPackageName
+                    + " with result: " + result);
         }
 
         @Override
         public void onDownloadMmsComplete(int result) {
-            loge("Unexpected onDownloadMmsComplete call with result: " + result);
+            loge("onDownloadMmsComplete: Unexpected call from " + mPackageName
+                    + " with result: " + result);
         }
     }
 
@@ -335,10 +348,12 @@ public class CarrierServicesSmsFilter {
                     }
                     //all onFilterCompletes called before timeout has triggered
                     //remove the pending message
-                    log("onFilterComplete: called successfully with result = " + result);
+                    log("FilterAggregator::onFilterComplete: called successfully with result = "
+                            + result);
                     mCallbackTimeoutHandler.removeMessages(EVENT_ON_FILTER_COMPLETE_NOT_CALLED);
                 } else {
-                    log("onFilterComplete: waiting for pending filters " + mNumPendingFilters);
+                    log("FilterAggregator::onFilterComplete: waiting for pending filters "
+                            + mNumPendingFilters);
                 }
             }
         }
@@ -360,7 +375,7 @@ public class CarrierServicesSmsFilter {
         @Override
         public void handleMessage(Message msg) {
             if (DBG) {
-                log("CallbackTimeoutHandler handleMessage(" + msg.what + ")");
+                log("CallbackTimeoutHandler: handleMessage(" + msg.what + ")");
             }
 
             switch(msg.what) {

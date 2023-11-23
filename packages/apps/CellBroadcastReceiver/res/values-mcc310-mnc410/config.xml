@@ -15,8 +15,14 @@
 -->
 
 <resources>
-    <!-- Whether to compare message body when performing message duplicate dection -->
-    <bool name="duplicate_compare_body">true</bool>
-    <!-- Whether to reset alert message duplicate detection after toggling airplane mode -->
-    <bool name="reset_duplicate_detection_on_airplane_mode">true</bool>
+    <!-- Whether to display presidential alert in the settings -->
+    <bool name="show_presidential_alerts_settings">true</bool>
+    <!-- Show timestamp of the alert -->
+    <bool name="show_date_time_title">true</bool>
+    <!-- Whether to show CMAS messages by in a different order than received by prioritizing them -->
+    <bool name="show_cmas_messages_in_priority_order">true</bool>
+    <!-- Whether allowing testing mode on user build or not -->
+    <bool name="allow_testing_mode_on_user_build">true</bool>
+    <!-- Whether to show test settings -->
+    <bool name="show_test_settings">false</bool>
 </resources>

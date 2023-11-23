@@ -22,11 +22,10 @@
 #include <binder/Parcel.h>
 #include <binder/Parcelable.h>
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 class HiddenNetwork : public ::android::Parcelable {
  public:
@@ -40,10 +39,9 @@ class HiddenNetwork : public ::android::Parcelable {
   std::vector<uint8_t> ssid_;
 };
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com
 
 #endif  // WIFICOND_SCANNING_HIDDEN_NETWORK_H_

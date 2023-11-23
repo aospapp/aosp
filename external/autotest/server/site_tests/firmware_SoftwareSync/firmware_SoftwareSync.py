@@ -20,6 +20,11 @@ class firmware_SoftwareSync(FirmwareTest):
         # This test tries to corrupt EC firmware. Should disable EC WP.
         super(firmware_SoftwareSync, self).initialize(host, cmdline_args,
                                                       ec_wp=False)
+
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
+
         # In order to test software sync, it must be enabled.
         self.clear_set_gbb_flags(vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC, 0)
         self.backup_firmware()
@@ -72,6 +77,7 @@ class firmware_SoftwareSync(FirmwareTest):
             time.sleep(self.faft_config.software_sync_update)
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Corrupt EC firmware RW body.")
         self.check_state((self.checkers.ec_act_copy_checker, 'RW'))
         self.record_hash()

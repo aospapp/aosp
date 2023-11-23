@@ -22,11 +22,14 @@
 
 #include <thread>
 
+#include "cmd_stat_impl.h"
 #include "command.h"
 #include "environment.h"
 #include "event_selection_set.h"
 #include "get_test_data.h"
 #include "test_util.h"
+
+using namespace simpleperf;
 
 static std::unique_ptr<Command> StatCmd() {
   return CreateCommandInstance("stat");
@@ -69,6 +72,22 @@ TEST(stat_cmd, rN_event) {
   }
   std::string event_name = android::base::StringPrintf("r%zx", event_number);
   ASSERT_TRUE(StatCmd()->Run({"-e", event_name, "sleep", "1"}));
+}
+
+TEST(stat_cmd, pmu_event) {
+  TEST_REQUIRE_PMU_COUNTER();
+  TEST_REQUIRE_HW_COUNTER();
+  std::string event_string;
+  if (GetBuildArch() == ARCH_X86_64) {
+    event_string = "cpu/instructions/";
+  } else if (GetBuildArch() == ARCH_ARM64) {
+    event_string = "armv8_pmuv3/inst_retired/";
+  } else {
+    GTEST_LOG_(INFO) << "Omit arch " << GetBuildArch();
+    return;
+  }
+  TEST_IN_ROOT(ASSERT_TRUE(
+      StatCmd()->Run({"-a", "-e", event_string, "sleep", "1"})));
 }
 
 TEST(stat_cmd, event_modifier) {
@@ -296,10 +315,236 @@ static void TestStatingApps(const std::string& app_name) {
 
 TEST(stat_cmd, app_option_for_debuggable_app) {
   TEST_REQUIRE_APPS();
+  SetRunInAppToolForTesting(true, false);
+  TestStatingApps("com.android.simpleperf.debuggable");
+  SetRunInAppToolForTesting(false, true);
   TestStatingApps("com.android.simpleperf.debuggable");
 }
 
 TEST(stat_cmd, app_option_for_profileable_app) {
   TEST_REQUIRE_APPS();
+  SetRunInAppToolForTesting(false, true);
   TestStatingApps("com.android.simpleperf.profileable");
+}
+
+TEST(stat_cmd, use_devfreq_counters_option) {
+#if defined(__ANDROID__)
+  TEST_IN_ROOT(StatCmd()->Run({"--use-devfreq-counters", "sleep", "0.1"}));
+#else
+  GTEST_LOG_(INFO) << "This test tests an option only available on Android.";
+#endif
+}
+
+TEST(stat_cmd, per_thread_option) {
+  ASSERT_TRUE(StatCmd()->Run({"--per-thread", "sleep", "0.1"}));
+  TEST_IN_ROOT(StatCmd()->Run({"--per-thread", "-a", "--duration", "0.1"}));
+}
+
+TEST(stat_cmd, per_core_option) {
+  ASSERT_TRUE(StatCmd()->Run({"--per-core", "sleep", "0.1"}));
+  TEST_IN_ROOT(StatCmd()->Run({"--per-core", "-a", "--duration", "0.1"}));
+}
+
+TEST(stat_cmd, counter_sum) {
+  PerfCounter counter;
+  counter.value = 1;
+  counter.time_enabled = 2;
+  counter.time_running = 3;
+  CounterSum a;
+  a.FromCounter(counter);
+  ASSERT_EQ(a.value, 1);
+  ASSERT_EQ(a.time_enabled, 2);
+  ASSERT_EQ(a.time_running, 3);
+  CounterSum b = a + a;
+  ASSERT_EQ(b.value, 2);
+  ASSERT_EQ(b.time_enabled, 4);
+  ASSERT_EQ(b.time_running, 6);
+  CounterSum c = a - a;
+  ASSERT_EQ(c.value, 0);
+  ASSERT_EQ(c.time_enabled, 0);
+  ASSERT_EQ(c.time_running, 0);
+  b.ToCounter(counter);
+  ASSERT_EQ(counter.value, 2);
+  ASSERT_EQ(counter.time_enabled, 4);
+  ASSERT_EQ(counter.time_running, 6);
+}
+
+class StatCmdSummaryBuilderTest : public ::testing::Test {
+ protected:
+  void AddCounter(int event_id, pid_t tid, int cpu, int value, int time_enabled, int time_running) {
+    if (thread_map_.count(tid) == 0) {
+      ThreadInfo& thread = thread_map_[tid];
+      thread.pid = thread.tid = tid;
+      thread.name = "thread" + std::to_string(tid);
+    }
+    if (event_id >= counters_.size()) {
+      counters_.resize(event_id + 1);
+      counters_[event_id].group_id = 0;
+      counters_[event_id].event_name = "event" + std::to_string(event_id);
+    }
+    CountersInfo& info = counters_[event_id];
+    info.counters.resize(info.counters.size() + 1);
+    CounterInfo& counter = info.counters.back();
+    counter.tid = tid;
+    counter.cpu = cpu;
+    counter.counter.id = 0;
+    counter.counter.value = value;
+    counter.counter.time_enabled = time_enabled;
+    counter.counter.time_running = time_running;
+  }
+
+  std::vector<CounterSummary> BuildSummary(bool report_per_thread, bool report_per_core) {
+    CounterSummaryBuilder builder(report_per_thread, report_per_core, false, thread_map_);
+    for (auto& info : counters_) {
+      builder.AddCountersForOneEventType(info);
+    }
+    return builder.Build();
+  }
+
+  std::unordered_map<pid_t, ThreadInfo> thread_map_;
+  std::vector<CountersInfo> counters_;
+};
+
+TEST_F(StatCmdSummaryBuilderTest, multiple_events) {
+  AddCounter(0, 0, 0, 1, 1, 1);
+  AddCounter(1, 0, 0, 2, 2, 2);
+  std::vector<CounterSummary> summaries = BuildSummary(false, false);
+  ASSERT_EQ(summaries.size(), 2);
+  ASSERT_EQ(summaries[0].type_name, "event0");
+  ASSERT_EQ(summaries[0].count, 1);
+  ASSERT_NEAR(summaries[0].scale, 1.0, 1e-5);
+  ASSERT_EQ(summaries[1].type_name, "event1");
+  ASSERT_EQ(summaries[1].count, 2);
+  ASSERT_NEAR(summaries[1].scale, 1.0, 1e-5);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, default_aggregate) {
+  AddCounter(0, 0, 0, 1, 1, 1);
+  AddCounter(0, 0, 1, 1, 1, 1);
+  AddCounter(0, 1, 0, 1, 1, 1);
+  AddCounter(0, 1, 1, 2, 2, 1);
+  std::vector<CounterSummary> summaries = BuildSummary(false, false);
+  ASSERT_EQ(summaries.size(), 1);
+  ASSERT_EQ(summaries[0].count, 5);
+  ASSERT_NEAR(summaries[0].scale, 1.25, 1e-5);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, per_thread_aggregate) {
+  AddCounter(0, 0, 0, 1, 1, 1);
+  AddCounter(0, 0, 1, 1, 1, 1);
+  AddCounter(0, 1, 0, 1, 1, 1);
+  AddCounter(0, 1, 1, 2, 2, 1);
+  std::vector<CounterSummary> summaries = BuildSummary(true, false);
+  ASSERT_EQ(summaries.size(), 2);
+  ASSERT_EQ(summaries[0].thread->tid, 1);
+  ASSERT_EQ(summaries[0].cpu, -1);
+  ASSERT_EQ(summaries[0].count, 3);
+  ASSERT_NEAR(summaries[0].scale, 1.5, 1e-5);
+  ASSERT_EQ(summaries[1].thread->tid, 0);
+  ASSERT_EQ(summaries[0].cpu, -1);
+  ASSERT_EQ(summaries[1].count, 2);
+  ASSERT_NEAR(summaries[1].scale, 1.0, 1e-5);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, per_core_aggregate) {
+  AddCounter(0, 0, 0, 1, 1, 1);
+  AddCounter(0, 0, 1, 1, 1, 1);
+  AddCounter(0, 1, 0, 1, 1, 1);
+  AddCounter(0, 1, 1, 2, 2, 1);
+  std::vector<CounterSummary> summaries = BuildSummary(false, true);
+  ASSERT_EQ(summaries.size(), 2);
+  ASSERT_TRUE(summaries[0].thread == nullptr);
+  ASSERT_EQ(summaries[0].cpu, 1);
+  ASSERT_EQ(summaries[0].count, 3);
+  ASSERT_NEAR(summaries[0].scale, 1.5, 1e-5);
+  ASSERT_TRUE(summaries[1].thread == nullptr);
+  ASSERT_EQ(summaries[1].cpu, 0);
+  ASSERT_EQ(summaries[1].count, 2);
+  ASSERT_NEAR(summaries[1].scale, 1.0, 1e-5);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, per_thread_core_aggregate) {
+  AddCounter(0, 0, 0, 1, 1, 1);
+  AddCounter(0, 0, 1, 2, 1, 1);
+  AddCounter(0, 1, 0, 3, 1, 1);
+  AddCounter(0, 1, 1, 4, 2, 1);
+  std::vector<CounterSummary> summaries = BuildSummary(true, true);
+  ASSERT_EQ(summaries.size(), 4);
+  ASSERT_EQ(summaries[0].thread->tid, 1);
+  ASSERT_EQ(summaries[0].cpu, 1);
+  ASSERT_EQ(summaries[0].count, 4);
+  ASSERT_NEAR(summaries[0].scale, 2.0, 1e-5);
+  ASSERT_EQ(summaries[1].thread->tid, 1);
+  ASSERT_EQ(summaries[1].cpu, 0);
+  ASSERT_EQ(summaries[1].count, 3);
+  ASSERT_NEAR(summaries[1].scale, 1.0, 1e-5);
+  ASSERT_EQ(summaries[2].thread->tid, 0);
+  ASSERT_EQ(summaries[2].cpu, 1);
+  ASSERT_EQ(summaries[2].count, 2);
+  ASSERT_NEAR(summaries[2].scale, 1.0, 1e-5);
+  ASSERT_EQ(summaries[3].thread->tid, 0);
+  ASSERT_EQ(summaries[3].cpu, 0);
+  ASSERT_EQ(summaries[3].count, 1);
+  ASSERT_NEAR(summaries[3].scale, 1.0, 1e-5);
+}
+
+class StatCmdSummariesTest : public ::testing::Test {
+ protected:
+  void AddSummary(const std::string event_name, pid_t tid, int cpu, uint64_t count,
+                  uint64_t runtime_in_ns) {
+    ThreadInfo* thread = nullptr;
+    if (tid != -1) {
+      thread = &thread_map_[tid];
+    }
+    summary_v_.emplace_back(event_name, "", 0, thread, cpu, count, runtime_in_ns, 1.0, false,
+                            false);
+  }
+
+  const std::string* GetComment(size_t index) {
+    if (!summaries_) {
+      summaries_.reset(new CounterSummaries(std::move(summary_v_), false));
+      summaries_->GenerateComments(1.0);
+    }
+    if (index < summaries_->Summaries().size()) {
+      return &(summaries_->Summaries()[index].comment);
+    }
+    return nullptr;
+  }
+
+  std::unordered_map<pid_t, ThreadInfo> thread_map_;
+  std::vector<CounterSummary> summary_v_;
+  std::unique_ptr<CounterSummaries> summaries_;
+};
+
+TEST_F(StatCmdSummariesTest, task_clock_comment) {
+  AddSummary("task-clock", -1, -1, 1e9, 0);
+  AddSummary("task-clock", 0, -1, 2e9, 0);
+  AddSummary("task-clock", -1, 0, 0.5e9, 0);
+  AddSummary("task-clock", 1, 1, 3e9, 0);
+  ASSERT_EQ(*GetComment(0), "1.000000 cpus used");
+  ASSERT_EQ(*GetComment(1), "2.000000 cpus used");
+  ASSERT_EQ(*GetComment(2), "0.500000 cpus used");
+  ASSERT_EQ(*GetComment(3), "3.000000 cpus used");
+}
+
+TEST_F(StatCmdSummariesTest, cpu_cycles_comment) {
+  AddSummary("cpu-cycles", -1, -1, 100, 100);
+  AddSummary("cpu-cycles", 0, -1, 200, 100);
+  AddSummary("cpu-cycles", -1, 0, 50, 100);
+  AddSummary("cpu-cycles", 1, 1, 300, 100);
+  ASSERT_EQ(*GetComment(0), "1.000000 GHz");
+  ASSERT_EQ(*GetComment(1), "2.000000 GHz");
+  ASSERT_EQ(*GetComment(2), "0.500000 GHz");
+  ASSERT_EQ(*GetComment(3), "3.000000 GHz");
+}
+
+TEST_F(StatCmdSummariesTest, rate_comment) {
+  AddSummary("branch-misses", -1, -1, 1e9, 1e9);
+  AddSummary("branch-misses", 0, -1, 1e6, 1e9);
+  AddSummary("branch-misses", -1, 0, 1e3, 1e9);
+  AddSummary("branch-misses", 1, 1, 1, 1e9);
+  ASSERT_EQ(*GetComment(0), "1.000 G/sec");
+  ASSERT_EQ(*GetComment(1), "1.000 M/sec");
+  ASSERT_EQ(*GetComment(2), "1.000 K/sec");
+  ASSERT_EQ(*GetComment(3), "1.000 /sec");
 }

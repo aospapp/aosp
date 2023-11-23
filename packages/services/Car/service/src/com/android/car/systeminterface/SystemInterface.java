@@ -17,6 +17,8 @@
 package com.android.car.systeminterface;
 
 import android.content.Context;
+import android.content.Intent;
+import android.os.UserHandle;
 
 import com.android.car.CarPowerManagementService;
 import com.android.car.procfsinspector.ProcessInfo;
@@ -34,9 +36,11 @@ import java.util.Objects;
  * This class contains references to all the different wrapper interfaces between
  * CarService and the Android OS APIs.
  */
-public class SystemInterface implements DisplayInterface, IOInterface,
-        StorageMonitoringInterface, SystemStateInterface, TimeInterface,
+public class SystemInterface implements ActivityManagerInterface,
+        DisplayInterface, IOInterface, StorageMonitoringInterface,
+        SystemStateInterface, TimeInterface,
         WakeLockInterface {
+    private final ActivityManagerInterface mActivityManagerInterface;
     private final DisplayInterface mDisplayInterface;
     private final IOInterface mIOInterface;
     private final StorageMonitoringInterface mStorageMonitoringInterface;
@@ -44,12 +48,14 @@ public class SystemInterface implements DisplayInterface, IOInterface,
     private final TimeInterface mTimeInterface;
     private final WakeLockInterface mWakeLockInterface;
 
-    SystemInterface(DisplayInterface displayInterface,
+    SystemInterface(ActivityManagerInterface activityManagerInterface,
+            DisplayInterface displayInterface,
             IOInterface ioInterface,
             StorageMonitoringInterface storageMonitoringInterface,
             SystemStateInterface systemStateInterface,
             TimeInterface timeInterface,
             WakeLockInterface wakeLockInterface) {
+        mActivityManagerInterface = activityManagerInterface;
         mDisplayInterface = displayInterface;
         mIOInterface = ioInterface;
         mStorageMonitoringInterface = storageMonitoringInterface;
@@ -58,6 +64,9 @@ public class SystemInterface implements DisplayInterface, IOInterface,
         mWakeLockInterface = wakeLockInterface;
     }
 
+    public ActivityManagerInterface getActivityManagerInterface() {
+        return mActivityManagerInterface;
+    }
     public DisplayInterface getDisplayInterface() { return mDisplayInterface; }
     public IOInterface getIOInterface() { return mIOInterface; }
     public SystemStateInterface getSystemStateInterface() { return mSystemStateInterface; }
@@ -65,6 +74,11 @@ public class SystemInterface implements DisplayInterface, IOInterface,
     public WakeLockInterface getWakeLockInterface() { return mWakeLockInterface; }
     public void setCarServiceHelper(ICarServiceHelper helper) {
         mSystemStateInterface.setCarServiceHelper(helper);
+    }
+
+    @Override
+    public void sendBroadcastAsUser(Intent intent, UserHandle user) {
+        mActivityManagerInterface.sendBroadcastAsUser(intent, user);
     }
 
     @Override
@@ -123,11 +137,6 @@ public class SystemInterface implements DisplayInterface, IOInterface,
     }
 
     @Override
-    public void reconfigureSecondaryDisplays() {
-        mDisplayInterface.reconfigureSecondaryDisplays();
-    }
-
-    @Override
     public void startDisplayStateMonitoring(CarPowerManagementService service) {
         mDisplayInterface.startDisplayStateMonitoring(service);
     }
@@ -183,6 +192,7 @@ public class SystemInterface implements DisplayInterface, IOInterface,
     }
 
     public final static class Builder {
+        private ActivityManagerInterface mActivityManagerInterface;
         private DisplayInterface mDisplayInterface;
         private IOInterface mIOInterface;
         private StorageMonitoringInterface mStorageMonitoringInterface;
@@ -199,6 +209,7 @@ public class SystemInterface implements DisplayInterface, IOInterface,
         public static Builder defaultSystemInterface(Context context) {
             Objects.requireNonNull(context);
             Builder builder = newSystemInterface();
+            builder.withActivityManagerInterface(new ActivityManagerInterface.DefaultImpl(context));
             builder.withWakeLockInterface(new WakeLockInterface.DefaultImpl(context));
             builder.withDisplayInterface(new DisplayInterface.DefaultImpl(context,
                     builder.mWakeLockInterface));
@@ -210,12 +221,19 @@ public class SystemInterface implements DisplayInterface, IOInterface,
 
         public static Builder fromBuilder(Builder otherBuilder) {
             return newSystemInterface()
+                    .withActivityManagerInterface(otherBuilder.mActivityManagerInterface)
                     .withDisplayInterface(otherBuilder.mDisplayInterface)
                     .withIOInterface(otherBuilder.mIOInterface)
                     .withStorageMonitoringInterface(otherBuilder.mStorageMonitoringInterface)
                     .withSystemStateInterface(otherBuilder.mSystemStateInterface)
                     .withTimeInterface(otherBuilder.mTimeInterface)
                     .withWakeLockInterface(otherBuilder.mWakeLockInterface);
+        }
+
+        public Builder withActivityManagerInterface(ActivityManagerInterface
+                activityManagerInterface) {
+            mActivityManagerInterface = activityManagerInterface;
+            return this;
         }
 
         public Builder withDisplayInterface(DisplayInterface displayInterface) {
@@ -250,7 +268,8 @@ public class SystemInterface implements DisplayInterface, IOInterface,
         }
 
         public SystemInterface build() {
-            return new SystemInterface(Objects.requireNonNull(mDisplayInterface),
+            return new SystemInterface(Objects.requireNonNull(mActivityManagerInterface),
+                Objects.requireNonNull(mDisplayInterface),
                 Objects.requireNonNull(mIOInterface),
                 Objects.requireNonNull(mStorageMonitoringInterface),
                 Objects.requireNonNull(mSystemStateInterface),

@@ -20,8 +20,9 @@ num_bits = 2
 
 model = Model()
 
-hhash = Parameter("hash", "TENSOR_FLOAT32", "{%d, %d}" % (num_hash, num_bits),
-                  [0.123, 0.456, -0.321, -0.654, 1.234, 5.678, -4.321, -8.765])
+hhash = Parameter(
+    "hash", "TENSOR_FLOAT32", "{%d, %d}" % (num_hash, num_bits),
+    [0.123, 0.456, -0.321, -0.654, 1.234, 5.678, -4.321, -8.765]).ShouldNeverBeInternal()
 lookup = Input("lookup", "TENSOR_INT32", "{%d, %d}" % (num_input, num_bits))
 weight = Input("weight", "TENSOR_FLOAT32", "{%d}" % (num_input))
 type_param = Int32Scalar("type_param", 1)  # SPARSE

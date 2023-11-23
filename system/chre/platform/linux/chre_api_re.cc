@@ -16,9 +16,9 @@
 
 #include <cinttypes>
 
-#include "chre_api/chre/re.h"
 #include "chre/platform/log.h"
 #include "chre/util/macros.h"
+#include "chre_api/chre/re.h"
 
 DLL_EXPORT void chreLog(enum chreLogLevel level, const char *formatStr, ...) {
   char logBuf[512];

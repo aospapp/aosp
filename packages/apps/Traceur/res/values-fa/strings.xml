@@ -25,6 +25,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"رد درحال ضبط شدن است"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"برای توقف ردیابی، ضربه بزنید"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"پاک کردن ردهای ذخیره‌شده"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"ردها بعد از یک ماه پاک می‌شوند"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"همه ردیابی‌های ذخیره‌شده پاک شوند؟"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"‏همه ردیابی‌ها از /data/local/traces حذف می‌شوند"</string>
     <string name="clear" msgid="5484761795406948056">"پاک کردن"</string>

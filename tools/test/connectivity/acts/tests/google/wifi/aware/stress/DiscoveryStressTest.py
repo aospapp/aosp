@@ -32,9 +32,6 @@ class DiscoveryStressTest(AwareBaseTest):
     # Number of iterations on create/destroy Discovery sessions
     DISCOVERY_ITERATIONS = 40
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     ####################################################################
 
     @test_tracker_info(uuid="783791e5-7726-44e0-ac5b-98c1dbf493cb")

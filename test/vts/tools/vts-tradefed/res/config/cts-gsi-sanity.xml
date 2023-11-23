@@ -17,7 +17,7 @@
 
     <include name="cts" />
     <option name="compatibility-build-provider:url-suite-name-override" value="CTS" />
-    <option name="dynamic-config-pusher:dynamic-resource-name" value="vts-tradefed" />
+    <option name="dynamic-config-pusher:dynamic-resource-name" value="vts10-tradefed" />
 
 
     <option name="plan" value="cts-gsi-sanity" />

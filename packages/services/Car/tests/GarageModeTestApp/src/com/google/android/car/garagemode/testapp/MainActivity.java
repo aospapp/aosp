@@ -17,6 +17,7 @@ package com.google.android.car.garagemode.testapp;
 
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.view.View;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -30,7 +31,6 @@ public class MainActivity extends FragmentActivity {
     private final List<MenuEntry> mMenuEntries = new ArrayList<MenuEntry>() {
         {
             add("Offcar testing", OffcarTestingFragment.class);
-            add("Incar testing", IncarTestingFragment.class);
             add("Quit", MainActivity.this::finish);
         }
 
@@ -47,13 +47,14 @@ public class MainActivity extends FragmentActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_activity);
+        // Until we have more than one fragment, hide the selection button
+        findViewById(R.id.offcar_test_btn).setVisibility(View.INVISIBLE);
 
         mMenuEntries.get(0).onClick();
 
         findViewById(R.id.offcar_test_btn).setOnClickListener((v) -> mMenuEntries.get(0).onClick());
-        findViewById(R.id.incar_test_btn).setOnClickListener((v) -> mMenuEntries.get(1).onClick());
         findViewById(R.id.exit_button_container).setOnClickListener(
-                (v) -> mMenuEntries.get(2).onClick());
+                (v) -> mMenuEntries.get(1).onClick());
     }
 
     @Override

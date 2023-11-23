@@ -19,6 +19,8 @@ import static org.junit.Assert.fail;
 
 import com.android.tradefed.config.ConfigurationException;
 
+import com.google.common.collect.ImmutableSet;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -42,7 +45,16 @@ import java.util.jar.JarFile;
 public class DupFileTest {
 
     // We ignore directories part of the common java and google packages.
-    private static final String[] IGNORE_DIRS = new String[] {"android/", "javax/annotation/"};
+    private static final String[] IGNORE_DIRS =
+            new String[] {
+                "android/",
+                "javax/annotation/",
+                "com/google/protobuf/",
+                "kotlin/",
+                "perfetto/protos/"
+            };
+    // Temporarily exclude some Tradefed jar while we work on unbundling them.
+    private static final Set<String> IGNORE_JARS = ImmutableSet.of("tradefed-test-framework.jar");
 
     /** test if there are duplicate files in different jars. */
     @Test
@@ -81,6 +93,9 @@ public class DupFileTest {
         List<String> jarFileList;
         // Map all the files from all the jars.
         for (File jar : jars) {
+            if (IGNORE_JARS.contains(jar.getName())) {
+                continue;
+            }
             jarFile = new JarFile(jar);
             jarFileList = getListOfFiles(jarFile);
             jarFile.close();

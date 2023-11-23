@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"לפתיחת הקישור"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"‏אירעה שגיאת קריאה של NFC. יש לנסות שוב."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"‏אין אפליקציה תומכת לתג NFC זה"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"‏ייתכן שה-NFC חסום"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"יש להקיש כדי לראות איך לפתור את הבעיה."</string>
 </resources>

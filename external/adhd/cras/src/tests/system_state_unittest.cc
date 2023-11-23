@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <stdio.h>
 #include <gtest/gtest.h>
+#include <stdio.h>
 
 extern "C" {
 #include "cras_alert.h"
@@ -20,14 +20,14 @@ static size_t add_stub_called;
 static size_t rm_stub_called;
 static size_t add_task_stub_called;
 static size_t callback_stub_called;
-static void *select_data_value;
-static void *task_data_value;
+static void* select_data_value;
+static void* task_data_value;
 static size_t add_callback_called;
 static cras_alert_cb add_callback_cb;
-static void *add_callback_arg;
+static void* add_callback_arg;
 static size_t rm_callback_called;
 static cras_alert_cb rm_callback_cb;
-static void *rm_callback_arg;
+static void* rm_callback_arg;
 static size_t alert_pending_called;
 static char* device_config_dir;
 static const char* cras_alsa_card_config_dir;
@@ -59,49 +59,44 @@ static void ResetStubData() {
   cras_observer_notify_num_active_streams_called = 0;
 }
 
-static int add_stub(int fd, void (*cb)(void *data),
-                    void *callback_data, void *select_data) {
+static int add_stub(int fd,
+                    void (*cb)(void* data),
+                    void* callback_data,
+                    void* select_data) {
   add_stub_called++;
   select_data_value = select_data;
   return 0;
 }
 
-static void rm_stub(int fd, void *select_data) {
+static void rm_stub(int fd, void* select_data) {
   rm_stub_called++;
   select_data_value = select_data;
 }
 
-static int add_task_stub(void (*cb)(void *data),
-                         void *callback_data,
-                         void *task_data)
-{
+static int add_task_stub(void (*cb)(void* data),
+                         void* callback_data,
+                         void* task_data) {
   add_task_stub_called++;
   task_data_value = task_data;
   return 0;
 }
 
-static void callback_stub(void *data) {
+static void callback_stub(void* data) {
   callback_stub_called++;
 }
 
 static void do_sys_init() {
-  char *shm_name;
+  char* shm_name;
   ASSERT_GT(asprintf(&shm_name, "/cras-%d", getpid()), 0);
   int rw_shm_fd;
   int ro_shm_fd;
-  struct cras_server_state *exp_state = (struct cras_server_state *)
-    cras_shm_setup(shm_name,
-                   sizeof(*exp_state),
-                   &rw_shm_fd,
-                   &ro_shm_fd);
+  struct cras_server_state* exp_state =
+      (struct cras_server_state*)cras_shm_setup(shm_name, sizeof(*exp_state),
+                                                &rw_shm_fd, &ro_shm_fd);
   if (!exp_state)
     exit(-1);
-  cras_system_state_init(device_config_dir,
-                         shm_name,
-                         rw_shm_fd,
-                         ro_shm_fd,
-                         exp_state,
-                         sizeof(*exp_state));
+  cras_system_state_init(device_config_dir, shm_name, rw_shm_fd, ro_shm_fd,
+                         exp_state, sizeof(*exp_state));
   free(shm_name);
 }
 
@@ -356,8 +351,8 @@ TEST(SystemStateSuite, AddCard) {
 }
 
 TEST(SystemSettingsRegisterSelectDescriptor, AddSelectFd) {
-  void *stub_data = reinterpret_cast<void *>(44);
-  void *select_data = reinterpret_cast<void *>(33);
+  void* stub_data = reinterpret_cast<void*>(44);
+  void* select_data = reinterpret_cast<void*>(33);
   int rc;
 
   ResetStubData();
@@ -386,8 +381,8 @@ TEST(SystemSettingsRegisterSelectDescriptor, AddSelectFd) {
 }
 
 TEST(SystemSettingsAddTask, AddTask) {
-  void *stub_data = reinterpret_cast<void *>(44);
-  void *task_data = reinterpret_cast<void *>(33);
+  void* stub_data = reinterpret_cast<void*>(44);
+  void* task_data = reinterpret_cast<void*>(33);
   int rc;
 
   do_sys_init();
@@ -430,29 +425,23 @@ TEST(SystemSettingsStreamCount, StreamCountByDirection) {
   cras_system_state_stream_added(CRAS_STREAM_OUTPUT);
   cras_system_state_stream_added(CRAS_STREAM_INPUT);
   cras_system_state_stream_added(CRAS_STREAM_POST_MIX_PRE_DSP);
-  EXPECT_EQ(1,
-	cras_system_state_get_active_streams_by_direction(
-		CRAS_STREAM_OUTPUT));
-  EXPECT_EQ(1,
-	cras_system_state_get_active_streams_by_direction(
-		CRAS_STREAM_INPUT));
-  EXPECT_EQ(1,
-	cras_system_state_get_active_streams_by_direction(
-		CRAS_STREAM_POST_MIX_PRE_DSP));
+  EXPECT_EQ(
+      1, cras_system_state_get_active_streams_by_direction(CRAS_STREAM_OUTPUT));
+  EXPECT_EQ(
+      1, cras_system_state_get_active_streams_by_direction(CRAS_STREAM_INPUT));
+  EXPECT_EQ(1, cras_system_state_get_active_streams_by_direction(
+                   CRAS_STREAM_POST_MIX_PRE_DSP));
   EXPECT_EQ(3, cras_system_state_get_active_streams());
   EXPECT_EQ(3, cras_observer_notify_num_active_streams_called);
   cras_system_state_stream_removed(CRAS_STREAM_OUTPUT);
   cras_system_state_stream_removed(CRAS_STREAM_INPUT);
   cras_system_state_stream_removed(CRAS_STREAM_POST_MIX_PRE_DSP);
-  EXPECT_EQ(0,
-	cras_system_state_get_active_streams_by_direction(
-		CRAS_STREAM_OUTPUT));
-  EXPECT_EQ(0,
-	cras_system_state_get_active_streams_by_direction(
-		CRAS_STREAM_INPUT));
-  EXPECT_EQ(0,
-	cras_system_state_get_active_streams_by_direction(
-		CRAS_STREAM_POST_MIX_PRE_DSP));
+  EXPECT_EQ(
+      0, cras_system_state_get_active_streams_by_direction(CRAS_STREAM_OUTPUT));
+  EXPECT_EQ(
+      0, cras_system_state_get_active_streams_by_direction(CRAS_STREAM_INPUT));
+  EXPECT_EQ(0, cras_system_state_get_active_streams_by_direction(
+                   CRAS_STREAM_POST_MIX_PRE_DSP));
   EXPECT_EQ(0, cras_system_state_get_active_streams());
   EXPECT_EQ(6, cras_observer_notify_num_active_streams_called);
 
@@ -461,110 +450,98 @@ TEST(SystemSettingsStreamCount, StreamCountByDirection) {
 
 extern "C" {
 
-
-struct cras_alsa_card *cras_alsa_card_create(struct cras_alsa_card_info *info,
-	const char *device_config_dir,
-	struct cras_device_blacklist *blacklist) {
+struct cras_alsa_card* cras_alsa_card_create(
+    struct cras_alsa_card_info* info,
+    const char* device_config_dir,
+    struct cras_device_blacklist* blacklist) {
   cras_alsa_card_create_called++;
   cras_alsa_card_config_dir = device_config_dir;
   return kFakeAlsaCard;
 }
 
-void cras_alsa_card_destroy(struct cras_alsa_card *alsa_card) {
+void cras_alsa_card_destroy(struct cras_alsa_card* alsa_card) {
   cras_alsa_card_destroy_called++;
 }
 
-size_t cras_alsa_card_get_index(const struct cras_alsa_card *alsa_card) {
+size_t cras_alsa_card_get_index(const struct cras_alsa_card* alsa_card) {
   return 0;
 }
 
-struct cras_device_blacklist *cras_device_blacklist_create(
-		const char *config_path)
-{
-	return NULL;
-}
-
-void cras_device_blacklist_destroy(struct cras_device_blacklist *blacklist)
-{
-}
-
-struct cras_alert *cras_alert_create(cras_alert_prepare prepare,
-                                     unsigned int flags)
-{
+struct cras_device_blacklist* cras_device_blacklist_create(
+    const char* config_path) {
   return NULL;
 }
 
-void cras_alert_destroy(struct cras_alert *alert)
-{
+void cras_device_blacklist_destroy(struct cras_device_blacklist* blacklist) {}
+
+struct cras_alert* cras_alert_create(cras_alert_prepare prepare,
+                                     unsigned int flags) {
+  return NULL;
 }
 
-int cras_alert_add_callback(struct cras_alert *alert, cras_alert_cb cb,
-			    void *arg)
-{
+void cras_alert_destroy(struct cras_alert* alert) {}
+
+int cras_alert_add_callback(struct cras_alert* alert,
+                            cras_alert_cb cb,
+                            void* arg) {
   add_callback_called++;
   add_callback_cb = cb;
   add_callback_arg = arg;
   return 0;
 }
 
-int cras_alert_rm_callback(struct cras_alert *alert, cras_alert_cb cb,
-			   void *arg)
-{
+int cras_alert_rm_callback(struct cras_alert* alert,
+                           cras_alert_cb cb,
+                           void* arg) {
   rm_callback_called++;
   rm_callback_cb = cb;
   rm_callback_arg = arg;
   return 0;
 }
 
-void cras_alert_pending(struct cras_alert *alert)
-{
+void cras_alert_pending(struct cras_alert* alert) {
   alert_pending_called++;
 }
 
-cras_tm *cras_tm_init() {
+cras_tm* cras_tm_init() {
   return static_cast<cras_tm*>(malloc(sizeof(unsigned int)));
 }
 
-void cras_tm_deinit(cras_tm *tm) {
+void cras_tm_deinit(cras_tm* tm) {
   free(tm);
 }
 
-void cras_observer_notify_output_volume(int32_t volume)
-{
+void cras_observer_notify_output_volume(int32_t volume) {
   cras_observer_notify_output_volume_called++;
 }
 
-void cras_observer_notify_output_mute(int muted, int user_muted,
-				      int mute_locked)
-{
+void cras_observer_notify_output_mute(int muted,
+                                      int user_muted,
+                                      int mute_locked) {
   cras_observer_notify_output_mute_called++;
 }
 
-void cras_observer_notify_capture_gain(int32_t gain)
-{
+void cras_observer_notify_capture_gain(int32_t gain) {
   cras_observer_notify_capture_gain_called++;
 }
 
-void cras_observer_notify_capture_mute(int muted, int mute_locked)
-{
+void cras_observer_notify_capture_mute(int muted, int mute_locked) {
   cras_observer_notify_capture_mute_called++;
 }
 
-void cras_observer_notify_suspend_changed(int suspended)
-{
+void cras_observer_notify_suspend_changed(int suspended) {
   cras_observer_notify_suspend_changed_called++;
 }
 
 void cras_observer_notify_num_active_streams(enum CRAS_STREAM_DIRECTION dir,
-					     uint32_t num_active_streams)
-{
+                                             uint32_t num_active_streams) {
   cras_observer_notify_num_active_streams_called++;
 }
 
 }  // extern "C"
 }  // namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

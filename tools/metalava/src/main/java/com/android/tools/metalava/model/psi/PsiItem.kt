@@ -16,6 +16,8 @@
 
 package com.android.tools.metalava.model.psi
 
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
 import com.android.tools.metalava.model.DefaultItem
 import com.android.tools.metalava.model.MutableModifierList
 import com.android.tools.metalava.model.ParameterItem
@@ -43,17 +45,35 @@ abstract class PsiItem(
     @Suppress("LeakingThis")
     override var removed = documentation.contains("@removed")
 
-    @Suppress("LeakingThis")
-    override var originallyHidden =
+    // a property with a lazily calculated default value
+    inner class lazyDelegate<T>(
+        val defaultValueProvider: () -> T
+    ) : ReadWriteProperty<PsiItem, T> {
+        private var currentValue: T? = null
+
+        override operator fun setValue(thisRef: PsiItem, property: KProperty<*>, value: T) {
+            currentValue = value
+        }
+        override operator fun getValue(thisRef: PsiItem, property: KProperty<*>): T {
+            if (currentValue == null) {
+                currentValue = defaultValueProvider()
+            }
+
+            return currentValue!!
+        }
+    }
+
+    override var originallyHidden: Boolean by lazyDelegate({
         documentation.contains('@') &&
+
             (documentation.contains("@hide") ||
                 documentation.contains("@pending") ||
                 // KDoc:
                 documentation.contains("@suppress")) ||
             modifiers.hasHideAnnotations()
+    })
 
-    @Suppress("LeakingThis")
-    override var hidden = originallyHidden && !modifiers.hasShowAnnotation()
+    override var hidden: Boolean by lazyDelegate({ originallyHidden && !modifiers.hasShowAnnotation() })
 
     override fun psi(): PsiElement? = element
 
@@ -163,6 +183,10 @@ abstract class PsiItem(
             documentation[end - 1] != '\n') {
             end--
         }
+        // The comment ends with:
+        // * some comment here */
+        var insertNewLine: Boolean = documentation[end - 1] != '\n'
+
         var indent: String
         var linePrefix = ""
         val secondLine = documentation.indexOf('\n')
@@ -184,7 +208,7 @@ abstract class PsiItem(
                 linePrefix = "* "
             }
         }
-        val s = documentation.substring(0, end) + indent + linePrefix + tagSection + " " + commentLine + "\n" + indent + " */"
+        val s = documentation.substring(0, end) + (if (insertNewLine) "\n" else "") + indent + linePrefix + tagSection + " " + commentLine + "\n" + indent + " */"
         return s
     }
 

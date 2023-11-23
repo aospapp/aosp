@@ -7,14 +7,13 @@
 #ifndef FXJS_CJS_STYLE_H_
 #define FXJS_CJS_STYLE_H_
 
-#include "fxjs/JS_Define.h"
+#include "fxjs/cjs_object.h"
 
-class CJS_Style : public CJS_Object {
+class CJS_Style final : public CJS_Object {
  public:
   static void DefineJSObjects(CFXJS_Engine* pEngine);
 
-  explicit CJS_Style(v8::Local<v8::Object> pObject) : CJS_Object(pObject) {}
-  ~CJS_Style() override {}
+  CJS_Style() = delete;
 
  private:
   static int ObjDefnID;

@@ -3,18 +3,16 @@
 # found in the LICENSE file.
 
 import contextlib
-import dbus
-import glob
 import logging
 import json
 import os
+import pwd
 import tempfile
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.cros_disks import CrosDisksTester
-from autotest_lib.client.cros.cros_disks import ExceptionSuppressor
 from autotest_lib.client.cros.cros_disks import VirtualFilesystemImage
 from autotest_lib.client.cros.cros_disks import DefaultFilesystemTestContent
 
@@ -28,6 +26,7 @@ class CrosDisksFilesystemTester(CrosDisksTester):
     def __init__(self, test, test_configs):
         super(CrosDisksFilesystemTester, self).__init__(test)
         self._test_configs = test_configs
+        self._chronos_uid = pwd.getpwnam('chronos').pw_uid
 
     @contextlib.contextmanager
     def _set_timezone(self, new_zone):
@@ -42,6 +41,21 @@ class CrosDisksFilesystemTester(CrosDisksTester):
         finally:
           utils.system('restart cros-disks')
           self.reconnect_client(self.RECONNECT_TIMEOUT_SECONDS)
+
+    @contextlib.contextmanager
+    def _switch_user(self, config):
+        as_root = config.get('as_root')
+        if as_root:
+            yield
+        else:
+            old_uid = os.geteuid()
+            try:
+                logging.info('setting uid to %d', self._chronos_uid)
+                os.setresuid(self._chronos_uid, self._chronos_uid, old_uid)
+                yield
+            finally:
+                logging.info('restoring uid to %d', old_uid)
+                os.setresuid(old_uid, old_uid, old_uid)
 
     def _run_test_config(self, config):
         logging.info('Testing "%s"', config['description'])
@@ -84,13 +98,20 @@ class CrosDisksFilesystemTester(CrosDisksTester):
 
             actual_mount_path = result['mount_path']
 
-            # If it is a write test, create the test content on the filesystem
-            # after it is mounted by CrosDisks.
-            if is_write_test and not test_content.create(actual_mount_path):
-                raise error.TestFail("Failed to create filesystem test content")
+            # Unless opt-ed out by the test, switch to the 'chronos' user to
+            # simulate a real user accessing files through the Files App, which
+            # runs in the browser process.
+            with self._switch_user(config):
+                # If it is a write test, create the test content on the
+                # filesystem after it is mounted by CrosDisks.
+                if is_write_test and not test_content.create(actual_mount_path):
+                    raise error.TestFail(
+                        "Failed to create filesystem test content")
 
-            if not test_content.verify(actual_mount_path):
-                raise error.TestFail("Failed to verify filesystem test content")
+                if not test_content.verify(actual_mount_path):
+                    raise error.TestFail(
+                        "Failed to verify filesystem test content")
+
             self.cros_disks.unmount(device_file, ['lazy'])
 
     def test_using_virtual_filesystem_image(self):

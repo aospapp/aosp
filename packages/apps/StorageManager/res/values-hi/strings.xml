@@ -45,7 +45,7 @@
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"कम उपयोग किए जाने वाले ऐप्लिकेशन"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
-    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"स्वचालित"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"अपने-आप"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"मैन्युअल"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"जगह अभी खाली करें"</string>
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"मेमोरी का अपने आप प्रबंधन करने वाली सेवा"</string>

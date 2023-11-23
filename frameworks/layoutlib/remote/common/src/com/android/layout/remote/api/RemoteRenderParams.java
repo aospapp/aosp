@@ -42,9 +42,7 @@ public interface RemoteRenderParams extends Remote {
 
     RemoteLayoutLog getLog() throws RemoteException;
 
-    boolean isBgColorOverridden() throws RemoteException;
-
-    int getOverrideBgColor() throws RemoteException;
+    boolean isTransparentBackground() throws RemoteException;
 
     long getTimeout() throws RemoteException;
 

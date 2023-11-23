@@ -90,6 +90,10 @@ class MnsObexServer extends ServerRequestHandler {
         if (VDBG) {
             Log.v(TAG, "onDisconnect");
         }
+        MceStateMachine currentStateMachine = mStateMachineReference.get();
+        if (currentStateMachine != null) {
+            currentStateMachine.disconnect();
+        }
     }
 
     @Override

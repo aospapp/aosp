@@ -19,6 +19,7 @@ package android.content.om.cts;
 import static android.content.om.OverlayInfo.CREATOR;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
@@ -48,6 +49,14 @@ public class OverlayInfoTest {
                 CATEGORY, BASE_CODE_PATH,
                 0, 0, 0, true);
         assertNotNull(info);
+    }
+
+    @Test
+    public void testEnsureState_disabled() {
+        OverlayInfo info = new OverlayInfo(PKG_NAME, TARGET_PKG_NAME, TARGET_OVERLAYABLE_NAME,
+                CATEGORY, BASE_CODE_PATH,
+                0, 0, 0, true);
+        assertFalse(info.isEnabled());
     }
 
     @Test
@@ -99,6 +108,6 @@ public class OverlayInfoTest {
         assertEquals(info.state, copyInfo.state);
         assertEquals(info.userId, copyInfo.userId);
         assertEquals(info.priority, copyInfo.priority);
-        assertEquals(info.isStatic, copyInfo.isStatic);
+        assertEquals(info.isMutable, copyInfo.isMutable);
     }
 }

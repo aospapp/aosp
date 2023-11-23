@@ -41,7 +41,7 @@ public class JarIndex {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public JarIndex(java.lang.String[] files) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -83,7 +83,7 @@ public class JarIndex {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void write(java.io.OutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

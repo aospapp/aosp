@@ -16,6 +16,7 @@
 
 package com.android.server.wm;
 
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
@@ -23,6 +24,7 @@ import android.os.RemoteException;
 import android.util.MergedConfiguration;
 import android.view.DisplayCutout;
 import android.view.DragEvent;
+import android.view.IScrollCaptureController;
 import android.view.IWindow;
 import android.view.InsetsSourceControl;
 import android.view.InsetsState;
@@ -36,10 +38,14 @@ public class TestIWindow extends IWindow.Stub {
     }
 
     @Override
-    public void resized(Rect frame, Rect overscanInsets, Rect contentInsets, Rect visibleInsets,
-            Rect stableInsets, Rect outsets, boolean reportDraw, MergedConfiguration mergedConfig,
+    public void resized(Rect frame, Rect contentInsets, Rect visibleInsets,
+            Rect stableInsets, boolean reportDraw, MergedConfiguration mergedConfig,
             Rect backDropFrame, boolean forceLayout, boolean alwaysConsumeSystemBars, int displayId,
             DisplayCutout.ParcelableWrapper displayCutout) throws RemoteException {
+    }
+
+    @Override
+    public void locationInParentDisplayChanged(Point offset) throws RemoteException {
     }
 
     @Override
@@ -72,7 +78,8 @@ public class TestIWindow extends IWindow.Stub {
     }
 
     @Override
-    public void dispatchWallpaperOffsets(float x, float y, float xStep, float yStep, boolean sync)
+    public void dispatchWallpaperOffsets(float x, float y, float xStep, float yStep, float zoom,
+            boolean sync)
             throws RemoteException {
     }
 
@@ -80,7 +87,6 @@ public class TestIWindow extends IWindow.Stub {
     public void dispatchWallpaperCommand(String action, int x, int y, int z, Bundle extras,
             boolean sync) throws RemoteException {
     }
-
     @Override
     public void dispatchDragEvent(DragEvent event) throws RemoteException {
     }
@@ -105,5 +111,17 @@ public class TestIWindow extends IWindow.Stub {
 
     @Override
     public void dispatchPointerCaptureChanged(boolean hasCapture) {
+    }
+
+    @Override
+    public void requestScrollCapture(IScrollCaptureController controller) throws RemoteException {
+    }
+
+    @Override
+    public void showInsets(int types, boolean fromIme) throws RemoteException {
+    }
+
+    @Override
+    public void hideInsets(int types, boolean fromIme) throws RemoteException {
     }
 }

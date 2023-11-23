@@ -19,9 +19,9 @@ import (
 	"os"
 	"strconv"
 
-	"android/soong/ui/metrics/metrics_proto"
-
 	"github.com/golang/protobuf/proto"
+
+	soong_metrics_proto "android/soong/ui/metrics/metrics_proto"
 )
 
 const (
@@ -30,22 +30,23 @@ const (
 	RunSoong     = "soong"
 	PrimaryNinja = "ninja"
 	TestRun      = "test"
+	Total        = "total"
 )
 
 type Metrics struct {
-	metrics    metrics_proto.MetricsBase
+	metrics    soong_metrics_proto.MetricsBase
 	TimeTracer TimeTracer
 }
 
 func New() (metrics *Metrics) {
 	m := &Metrics{
-		metrics:    metrics_proto.MetricsBase{},
+		metrics:    soong_metrics_proto.MetricsBase{},
 		TimeTracer: &timeTracerImpl{},
 	}
 	return m
 }
 
-func (m *Metrics) SetTimeMetrics(perf metrics_proto.PerfInfo) {
+func (m *Metrics) SetTimeMetrics(perf soong_metrics_proto.PerfInfo) {
 	switch perf.GetName() {
 	case RunKati:
 		m.metrics.KatiRuns = append(m.metrics.KatiRuns, &perf)
@@ -56,6 +57,8 @@ func (m *Metrics) SetTimeMetrics(perf metrics_proto.PerfInfo) {
 	case PrimaryNinja:
 		m.metrics.NinjaRuns = append(m.metrics.NinjaRuns, &perf)
 		break
+	case Total:
+		m.metrics.Total = &perf
 	default:
 		// ignored
 	}
@@ -76,11 +79,11 @@ func (m *Metrics) SetMetadataMetrics(metadata map[string]string) {
 		case "TARGET_BUILD_VARIANT":
 			switch v {
 			case "user":
-				m.metrics.TargetBuildVariant = metrics_proto.MetricsBase_USER.Enum()
+				m.metrics.TargetBuildVariant = soong_metrics_proto.MetricsBase_USER.Enum()
 			case "userdebug":
-				m.metrics.TargetBuildVariant = metrics_proto.MetricsBase_USERDEBUG.Enum()
+				m.metrics.TargetBuildVariant = soong_metrics_proto.MetricsBase_USERDEBUG.Enum()
 			case "eng":
-				m.metrics.TargetBuildVariant = metrics_proto.MetricsBase_ENG.Enum()
+				m.metrics.TargetBuildVariant = soong_metrics_proto.MetricsBase_ENG.Enum()
 			default:
 				// ignored
 			}
@@ -112,18 +115,18 @@ func (m *Metrics) SetMetadataMetrics(metadata map[string]string) {
 	}
 }
 
-func (m *Metrics) getArch(arch string) *metrics_proto.MetricsBase_ARCH {
+func (m *Metrics) getArch(arch string) *soong_metrics_proto.MetricsBase_Arch {
 	switch arch {
 	case "arm":
-		return metrics_proto.MetricsBase_ARM.Enum()
+		return soong_metrics_proto.MetricsBase_ARM.Enum()
 	case "arm64":
-		return metrics_proto.MetricsBase_ARM64.Enum()
+		return soong_metrics_proto.MetricsBase_ARM64.Enum()
 	case "x86":
-		return metrics_proto.MetricsBase_X86.Enum()
+		return soong_metrics_proto.MetricsBase_X86.Enum()
 	case "x86_64":
-		return metrics_proto.MetricsBase_X86_64.Enum()
+		return soong_metrics_proto.MetricsBase_X86_64.Enum()
 	default:
-		return metrics_proto.MetricsBase_UNKNOWN.Enum()
+		return soong_metrics_proto.MetricsBase_UNKNOWN.Enum()
 	}
 }
 
@@ -137,18 +140,37 @@ func (m *Metrics) SetBuildDateTime(date_time string) {
 	}
 }
 
-func (m *Metrics) Serialize() (data []byte, err error) {
-	return proto.Marshal(&m.metrics)
-}
-
 // exports the output to the file at outputPath
 func (m *Metrics) Dump(outputPath string) (err error) {
-	data, err := m.Serialize()
+	return writeMessageToFile(&m.metrics, outputPath)
+}
+
+type CriticalUserJourneysMetrics struct {
+	cujs soong_metrics_proto.CriticalUserJourneysMetrics
+}
+
+func NewCriticalUserJourneysMetrics() *CriticalUserJourneysMetrics {
+	return &CriticalUserJourneysMetrics{}
+}
+
+func (c *CriticalUserJourneysMetrics) Add(name string, metrics *Metrics) {
+	c.cujs.Cujs = append(c.cujs.Cujs, &soong_metrics_proto.CriticalUserJourneyMetrics{
+		Name:    proto.String(name),
+		Metrics: &metrics.metrics,
+	})
+}
+
+func (c *CriticalUserJourneysMetrics) Dump(outputPath string) (err error) {
+	return writeMessageToFile(&c.cujs, outputPath)
+}
+
+func writeMessageToFile(pb proto.Message, outputPath string) (err error) {
+	data, err := proto.Marshal(pb)
 	if err != nil {
 		return err
 	}
 	tempPath := outputPath + ".tmp"
-	err = ioutil.WriteFile(tempPath, []byte(data), 0777)
+	err = ioutil.WriteFile(tempPath, []byte(data), 0644)
 	if err != nil {
 		return err
 	}

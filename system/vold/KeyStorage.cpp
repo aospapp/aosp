@@ -16,10 +16,10 @@
 
 #include "KeyStorage.h"
 
+#include "Checkpoint.h"
 #include "Keymaster.h"
 #include "ScryptParameters.h"
 #include "Utils.h"
-#include "Checkpoint.h"
 
 #include <thread>
 #include <vector>
@@ -37,14 +37,14 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
-#include <android-base/unique_fd.h>
 #include <android-base/properties.h>
+#include <android-base/unique_fd.h>
 
 #include <cutils/properties.h>
 
 #include <hardware/hw_auth_token.h>
-#include <keymasterV4_0/authorization_set.h>
-#include <keymasterV4_0/keymaster_utils.h>
+#include <keymasterV4_1/authorization_set.h>
+#include <keymasterV4_1/keymaster_utils.h>
 
 extern "C" {
 
@@ -122,11 +122,42 @@ static bool generateKeymasterKey(Keymaster& keymaster, const KeyAuthentication& 
             return false;
         }
         const hw_auth_token_t* at = reinterpret_cast<const hw_auth_token_t*>(auth.token.data());
-        paramBuilder.Authorization(km::TAG_USER_SECURE_ID, at->user_id);
+        auto user_id = at->user_id;  // Make a copy because at->user_id is unaligned.
+        paramBuilder.Authorization(km::TAG_USER_SECURE_ID, user_id);
         paramBuilder.Authorization(km::TAG_USER_AUTH_TYPE, km::HardwareAuthenticatorType::PASSWORD);
         paramBuilder.Authorization(km::TAG_AUTH_TIMEOUT, AUTH_TIMEOUT);
     }
-    return keymaster.generateKey(paramBuilder, key);
+
+    auto paramsWithRollback = paramBuilder;
+    paramsWithRollback.Authorization(km::TAG_ROLLBACK_RESISTANCE);
+
+    // Generate rollback-resistant key if possible.
+    return keymaster.generateKey(paramsWithRollback, key) ||
+           keymaster.generateKey(paramBuilder, key);
+}
+
+bool generateWrappedStorageKey(KeyBuffer* key) {
+    Keymaster keymaster;
+    if (!keymaster) return false;
+    std::string key_temp;
+    auto paramBuilder = km::AuthorizationSetBuilder().AesEncryptionKey(AES_KEY_BYTES * 8);
+    paramBuilder.Authorization(km::TAG_ROLLBACK_RESISTANCE);
+    paramBuilder.Authorization(km::TAG_STORAGE_KEY);
+    if (!keymaster.generateKey(paramBuilder, &key_temp)) return false;
+    *key = KeyBuffer(key_temp.size());
+    memcpy(reinterpret_cast<void*>(key->data()), key_temp.c_str(), key->size());
+    return true;
+}
+
+bool exportWrappedStorageKey(const KeyBuffer& kmKey, KeyBuffer* key) {
+    Keymaster keymaster;
+    if (!keymaster) return false;
+    std::string key_temp;
+
+    if (!keymaster.exportKey(kmKey, &key_temp)) return false;
+    *key = KeyBuffer(key_temp.size());
+    memcpy(reinterpret_cast<void*>(key->data()), key_temp.c_str(), key->size());
+    return true;
 }
 
 static std::pair<km::AuthorizationSet, km::HardwareAuthToken> beginParams(

@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Ekstraheer sertifikaat"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Onttrek tans..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Uittreksel uit %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Benoem die sertifikaat"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Sertifikaatnaam:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Gee hierdie sertifikaat \'n naam"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Sertifikaatnaam"</string>
     <string name="credential_password" msgid="3520176519550993326">"Tik die wagwoord in om die sertifikate te onttrek."</string>
     <string name="credential_info" msgid="2436768402308470397">"Die pakket bevat:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Sertifikate in PKCS12-sleutelware."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Die sertifikaat is ongeldig."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Private sleutel word vereis om \'n sertifikaat te installeer"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Sertifikaat word vereis om \'n private sleutel te installeer"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> is geïnstalleer."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Kies \'n sertifikaattipe"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Installeer CA-sertifikate in Instellings"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Hierdie sertifikaat van <xliff:g id="REQUESTING_APP">%1$s</xliff:g> af moet in Instellings geïnstalleer word. Installeer net CA-sertifikate vanaf organisasies wat jy vertrou."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Maak toe"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Kan nie hierdie lêer gebruik nie"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Maak toe"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Hierdie lêer kan nie as \'n <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> gebruik word nie"</string>
+    <string name="certificate" msgid="8790577925509962529">"Sertifikaat"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA-sertifikaat"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN- en programgebruikersertifikaat"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi-sertifikaat"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA-sertifikaat is geïnstalleer"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Gebruikersertifikaat is geïnstalleer"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Wi‑Fi-sertifikaat is geïnstalleer"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Kon nie installeer nie omdat die sertifikaat te groot is."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Kon nie installeer nie omdat die sertifikaatlêer nie gevind kon word nie."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Kon nie installeer nie omdat die sertifikaatlêer nie gelees kon word nie."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Tydelike mislukking. Probeer later weer."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Slegs die eienaar van hierdie toestel kan sertifikate installeer."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Eiebewysgebruik:"</string>
   <string-array name="credential_usage">

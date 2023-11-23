@@ -26,6 +26,7 @@
 
 #if defined(__arm__)
   LLVM_DISASSEMBLER(ARM)
+  LLVM_DISASSEMBLER(AArch64)
 #elif defined(__mips__)
   LLVM_DISASSEMBLER(Mips)
 #elif defined(__i386__) || defined(__x86_64__)

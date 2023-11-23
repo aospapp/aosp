@@ -29,6 +29,7 @@
 #define SCR_EL3_HCE_EN		(1 << 8)  /* Hypervisor Call enable          */
 #define SCR_EL3_SMD_DIS		(1 << 7)  /* Secure Monitor Call disable     */
 #define SCR_EL3_RES1		(3 << 4)  /* Reserved, RES1                  */
+#define SCR_EL3_EA_EN		(1 << 3)  /* External aborts taken to EL3    */
 #define SCR_EL3_NS_EN		(1 << 0)  /* EL0 and EL1 in Non-scure state  */
 
 /*
@@ -514,6 +515,21 @@ enum {
  * \param stop		stop address of update in page table
  */
 void mmu_page_table_flush(unsigned long start, unsigned long stop);
+
+#ifdef CONFIG_ARMV7_PSCI
+void psci_arch_cpu_entry(void);
+u32 psci_version(void);
+s32 psci_features(u32 function_id, u32 psci_fid);
+s32 psci_cpu_off(void);
+s32 psci_cpu_on(u32 function_id, u32 target_cpu, u32 pc,
+		u32 context_id);
+s32 psci_affinity_info(u32 function_id, u32 target_affinity,
+		       u32  lowest_affinity_level);
+u32 psci_migrate_info_type(void);
+void psci_system_off(void);
+void psci_system_reset(void);
+s32 psci_features(u32 function_id, u32 psci_fid);
+#endif
 
 #endif /* __ASSEMBLY__ */
 

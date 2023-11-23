@@ -26,7 +26,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -93,7 +93,8 @@ public final class TestActivity extends Activity {
         sInitializer.set(activityInitializer);
         final Intent intent = new Intent()
                 .setAction(Intent.ACTION_MAIN)
-                .setClass(InstrumentationRegistry.getContext(), TestActivity.class)
+                .setClass(InstrumentationRegistry.getInstrumentation().getContext(),
+                        TestActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 .addFlags(additionalFlags);

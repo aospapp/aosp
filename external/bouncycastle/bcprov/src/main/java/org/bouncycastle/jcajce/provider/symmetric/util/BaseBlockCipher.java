@@ -300,18 +300,23 @@ public class BaseBlockCipher
     {
         modeName = Strings.toUpperCase(mode);
 
-        if (modeName.equals("ECB"))
+        // Android-changed: Ignore case since modes are case insensitive
+        // https://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html
+        if (modeName.equalsIgnoreCase("ECB"))
         {
             ivLength = 0;
             cipher = new BufferedGenericBlockCipher(baseEngine);
         }
-        else if (modeName.equals("CBC"))
+        // Android-changed: Ignore case since modes are case insensitive
+        // https://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html
+        else if (modeName.equalsIgnoreCase("CBC"))
         {
             ivLength = baseEngine.getBlockSize();
             cipher = new BufferedGenericBlockCipher(
                             new CBCBlockCipher(baseEngine));
         }
-        else if (modeName.startsWith("OFB"))
+        // Android-changed: Use equals instead of startsWith to avoid unintentional matches
+        else if (modeName.equalsIgnoreCase("OFB"))
         {
             ivLength = baseEngine.getBlockSize();
             if (modeName.length() != 3)
@@ -327,7 +332,8 @@ public class BaseBlockCipher
                         new OFBBlockCipher(baseEngine, 8 * baseEngine.getBlockSize()));
             }
         }
-        else if (modeName.startsWith("CFB"))
+        // Android-changed: Use equals instead of startsWith to avoid unintentional matches
+        else if (modeName.equalsIgnoreCase("CFB"))
         {
             ivLength = baseEngine.getBlockSize();
             if (modeName.length() != 3)
@@ -372,7 +378,8 @@ public class BaseBlockCipher
         }
         */
         // END Android-removed: Unsupported modes
-        else if (modeName.startsWith("CTR"))
+        // Android-changed: Use equals instead of startsWith to avoid unintentional matches
+        else if (modeName.equalsIgnoreCase("CTR"))
         {
             ivLength = baseEngine.getBlockSize();
             fixedIv = false;
@@ -408,12 +415,14 @@ public class BaseBlockCipher
         }
         */
         // END Android-removed: Unsupported modes
-        else if (modeName.startsWith("CTS"))
+        // Android-changed: Use equals instead of startsWith to avoid unintentional matches
+        else if (modeName.equalsIgnoreCase("CTS"))
         {
             ivLength = baseEngine.getBlockSize();
             cipher = new BufferedGenericBlockCipher(new CTSBlockCipher(new CBCBlockCipher(baseEngine)));
         }
-        else if (modeName.startsWith("CCM"))
+        // Android-changed: Use equals instead of startsWith to avoid unintentional matches
+        else if (modeName.equalsIgnoreCase("CCM"))
         {
             ivLength = 12; // CCM nonce 7..13 bytes
             // BEGIN Android-removed: Unsupported algorithms
@@ -454,7 +463,8 @@ public class BaseBlockCipher
         }
         */
         // END Android-removed: Unsupported modes
-        else if (modeName.startsWith("GCM"))
+        // Android-changed: Use equals instead of startsWith to not catch GCM-SIV
+        else if (modeName.equalsIgnoreCase("GCM"))
         {
             ivLength = baseEngine.getBlockSize();
             // BEGIN Android-removed: Unsupported algorithms

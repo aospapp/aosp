@@ -17,7 +17,6 @@
 package com.android.car.settings.testutils;
 
 import android.car.userlib.CarUserManagerHelper;
-import android.car.userlib.CarUserManagerHelper.OnUsersUpdateListener;
 import android.content.pm.UserInfo;
 
 import org.robolectric.annotation.Implementation;
@@ -25,7 +24,6 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.Resetter;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -49,118 +47,13 @@ public class ShadowCarUserManagerHelper {
     }
 
     @Implementation
-    protected void setUserName(UserInfo user, String name) {
-        sMockInstance.setUserName(user, name);
-    }
-
-    @Implementation
-    protected UserInfo getCurrentProcessUserInfo() {
-        return sMockInstance.getCurrentProcessUserInfo();
-    }
-
-    @Implementation
-    protected UserInfo getCurrentForegroundUserInfo() {
-        return sMockInstance.getCurrentForegroundUserInfo();
-    }
-
-    @Implementation
-    protected int getCurrentProcessUserId() {
-        return sMockInstance.getCurrentProcessUserId();
-    }
-
-    @Implementation
-    protected boolean isCurrentProcessUser(UserInfo userInfo) {
-        return sMockInstance.isCurrentProcessUser(userInfo);
-    }
-
-    @Implementation
-    protected List<UserInfo> getAllSwitchableUsers() {
-        return sMockInstance.getAllSwitchableUsers();
-    }
-
-    @Implementation
-    protected List<UserInfo> getAllUsers() {
-        return sMockInstance.getAllUsers();
-    }
-
-    @Implementation
-    protected List<UserInfo> getAllPersistentUsers() {
-        return sMockInstance.getAllPersistentUsers();
-    }
-
-    @Implementation
     protected UserInfo createNewNonAdminUser(String userName) {
         return sMockInstance.createNewNonAdminUser(userName);
     }
 
     @Implementation
-    protected void registerOnUsersUpdateListener(OnUsersUpdateListener listener) {
-        sMockInstance.registerOnUsersUpdateListener(listener);
-    }
-
-    @Implementation
-    protected void unregisterOnUsersUpdateListener(OnUsersUpdateListener listener) {
-        sMockInstance.unregisterOnUsersUpdateListener(listener);
-    }
-
-    @Implementation
-    protected boolean isUserLimitReached() {
-        return sMockInstance.isUserLimitReached();
-    }
-
-    @Implementation
-    protected boolean canCurrentProcessModifyAccounts() {
-        return sMockInstance.canCurrentProcessModifyAccounts();
-    }
-
-    @Implementation
-    protected boolean canCurrentProcessAddUsers() {
-        return sMockInstance.canCurrentProcessAddUsers();
-    }
-
-    @Implementation
-    protected int getMaxSupportedRealUsers() {
-        return sMockInstance.getMaxSupportedRealUsers();
-    }
-
-    @Implementation
-    protected boolean canCurrentProcessRemoveUsers() {
-        return sMockInstance.canCurrentProcessRemoveUsers();
-    }
-
-    @Implementation
-    protected boolean canUserBeRemoved(UserInfo userInfo) {
-        return sMockInstance.canUserBeRemoved(userInfo);
-    }
-
-    @Implementation
     protected void grantAdminPermissions(UserInfo user) {
         sMockInstance.grantAdminPermissions(user);
-    }
-
-    @Implementation
-    protected boolean isCurrentProcessDemoUser() {
-        return sMockInstance.isCurrentProcessDemoUser();
-    }
-
-    @Implementation
-    protected boolean isCurrentProcessAdminUser() {
-        return sMockInstance.isCurrentProcessAdminUser();
-    }
-
-    @Implementation
-    protected boolean isCurrentProcessGuestUser() {
-        return sMockInstance.isCurrentProcessGuestUser();
-    }
-
-    @Implementation
-    protected boolean isCurrentProcessUserHasRestriction(String restriction) {
-        return sMockInstance.isCurrentProcessUserHasRestriction(restriction);
-    }
-
-    @Implementation
-    protected boolean removeUser(UserInfo userInfo, String guestUserName) {
-        return sMockInstance.removeUser(userInfo, guestUserName);
     }
 
     @Implementation

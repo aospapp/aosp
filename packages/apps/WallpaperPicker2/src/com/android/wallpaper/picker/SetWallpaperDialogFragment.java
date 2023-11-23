@@ -17,10 +17,12 @@ package com.android.wallpaper.picker;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
@@ -44,6 +46,7 @@ public class SetWallpaperDialogFragment extends DialogFragment {
     private boolean mLockAvailable = true;
     private Listener mListener;
     private int mTitleResId;
+    private boolean mWithItemSelected;
 
     public SetWallpaperDialogFragment() {
         setRetainInstance(true);
@@ -68,28 +71,22 @@ public class SetWallpaperDialogFragment extends DialogFragment {
                 .create();
 
         mSetHomeWallpaperButton = layout.findViewById(R.id.set_home_wallpaper_button);
-        mSetHomeWallpaperButton.setOnClickListener(v -> {
-            mListener.onSet(WallpaperPersister.DEST_HOME_SCREEN);
-            dismiss();
-        });
+        mSetHomeWallpaperButton.setOnClickListener(
+                v -> onSetWallpaperButtonClick(WallpaperPersister.DEST_HOME_SCREEN));
         ButtonDrawableSetterCompat.setDrawableToButtonStart(
                 mSetHomeWallpaperButton,
                 context.getDrawable(R.drawable.ic_home_24px));
 
         mSetLockWallpaperButton = layout.findViewById(R.id.set_lock_wallpaper_button);
-        mSetLockWallpaperButton.setOnClickListener(v -> {
-            mListener.onSet(WallpaperPersister.DEST_LOCK_SCREEN);
-            dismiss();
-        });
+        mSetLockWallpaperButton.setOnClickListener(
+                v -> onSetWallpaperButtonClick(WallpaperPersister.DEST_LOCK_SCREEN));
         ButtonDrawableSetterCompat.setDrawableToButtonStart(
                 mSetLockWallpaperButton,
                 context.getDrawable(R.drawable.ic_lock_outline_24px));
 
         mSetBothWallpaperButton = layout.findViewById(R.id.set_both_wallpaper_button);
-        mSetBothWallpaperButton.setOnClickListener(v -> {
-            mListener.onSet(WallpaperPersister.DEST_BOTH);
-            dismiss();
-        });
+        mSetBothWallpaperButton.setOnClickListener(
+                v -> onSetWallpaperButtonClick(WallpaperPersister.DEST_BOTH));
         ButtonDrawableSetterCompat.setDrawableToButtonStart(
                 mSetBothWallpaperButton,
                 context.getDrawable(R.drawable.ic_smartphone_24px));
@@ -97,6 +94,14 @@ public class SetWallpaperDialogFragment extends DialogFragment {
         updateButtonsVisibility();
 
         return dialog;
+    }
+
+    @Override
+    public void onDismiss(@NonNull DialogInterface dialog) {
+        super.onDismiss(dialog);
+        if (mListener != null) {
+            mListener.onDialogDismissed(mWithItemSelected);
+        }
     }
 
     public void setHomeOptionAvailable(boolean homeAvailable) {
@@ -126,11 +131,25 @@ public class SetWallpaperDialogFragment extends DialogFragment {
         }
     }
 
+    private void onSetWallpaperButtonClick(int destination) {
+        mWithItemSelected = true;
+        mListener.onSet(destination);
+        dismiss();
+    }
+
     /**
-     * Interface which clients of this DialogFragment should implement in order to handle user actions
-     * on the dialog's clickable elements.
+     * Interface which clients of this DialogFragment should implement in order to handle user
+     * actions on the dialog's clickable elements.
      */
     public interface Listener {
         void onSet(int destination);
+
+        /**
+         * Called when the dialog is closed, both because of dismissal and for a selection
+         * being set, so it'll be called even after onSet is called.
+         *
+         * @param withItemSelected true if the dialog is dismissed with item selected
+         */
+        default void onDialogDismissed(boolean withItemSelected) {}
     }
 }

@@ -2,8 +2,8 @@
 ## 1. Compile VTS and LTP source code
 `$ make vts -j12`
 
-## 2. Start VTS-TradeFed
-`$ vts-tradefed`
+## 2. Start VTS10-TradeFed
+`$ vts10-tradefed`
 
 ## 3. Run individual LTP test from VTS-TradeFed console
 `> run vts-kernel -m VtsKernelLtp -t <testname1,testname2,...>`

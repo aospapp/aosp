@@ -53,7 +53,7 @@
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"हे डिव्हाइस एंक्रिप्ट करायचे?"</string>
     <string name="encrypt" msgid="1749320161747489212">"एंक्रिप्ट करा"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"एंक्रिप्शन पूर्ण"</string>
-    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"तुमचे कार्य प्रोफाईल सेट करणे सुरु ठेवण्यासाठी टॅप करा"</string>
+    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"तुमचे कार्य प्रोफाईल सेट करणे सुरू ठेवण्यासाठी टॅप करा"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"तुमचे कार्य प्रोफाईल सेट करणे शक्य झाले नाही. आपल्या IT विभागाशी संपर्क साधा किंवा नंतर पुन्हा प्रयत्न करा."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"कार्य प्रोफाइल जोडू शकत नाही"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"कामाची प्रोफाइल बदलू किंवा काढू शकत नाही"</string>
@@ -68,8 +68,8 @@
     <string name="progress_data_process" msgid="1707745321954672971">"सेटअप डेटावर प्रक्रिया करत आहे..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"वाय-फाय ला कनेक्ट करत आहे..."</string>
     <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"मोबाईल नेटवर्कशी कनेक्ट करत आहे…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"प्रशासन अ‍ॅप डाउनलोड करत आहे..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"प्रशासन अ‍ॅप इंस्टॉल करत आहे..."</string>
+    <string name="progress_download" msgid="3522436271691064624">"ॲडमिन अ‍ॅप डाउनलोड करत आहे..."</string>
+    <string name="progress_install" msgid="2258045670385866183">"ॲडमिन अ‍ॅप इंस्टॉल करत आहे..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"आवश्यक-नसलेले सिस्टम अ‍ॅप्स काढत आहे..."</string>
     <string name="progress_finishing_touches" msgid="9037776404089697198">"अखेरच्या सुधारणा करत आहे..."</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"डिव्हाइस मालक सेट करत आहे..."</string>
@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"रीसेट करा"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"प्रोफाइल सेट करू शकत नाही"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"डिव्हाइस सेट करू शकत नाही"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"काहीतरी चूक झाली"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"डिव्हाइस सेट करता आले नाही. मदतीसाठी, तुमच्या IT ॲडमिनशी संपर्क साधा."</string>
-    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"मदतीसाठी तुमच्या IT अॅडमिनशी संपर्क साधा"</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"मदतीसाठी तुमच्या IT ॲडमिनशी संपर्क साधा"</string>
+    <string name="reset_device" msgid="5483853913241939262">"हे डिव्हाइस रीसेट करा आणि पुन्हा सेट करण्याचा प्रयत्न करा"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"डिव्हाइस आधीच सेट केले आहे"</string>
     <string name="error_wifi" msgid="1850288843966836571">"वाय-फाय शी कनेक्ट करता आले नाही"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"तुमच्या डिव्हाइसचे रीसेट संरक्षण सुरू केलेले आहे. मदतीसाठी, तुमच्या IT अ‍ॅडमिनशी संपर्क साधा."</string>
@@ -124,7 +126,7 @@
     <string name="set_up_your_device" msgid="1896651520959894681">"तुमचे डिव्हाइस सेट करा"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"तुम्ही ज्या पद्धतीने कार्य करता ती पद्धत बदला"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"वैैयक्तिक मधून कार्य स्वतंत्र करा"</string>
-    <string name="one_place_for_work_apps" msgid="2595597562302953960">"कार्यसंबंधित अॅप्ससाठी एक ठिकाण"</string>
+    <string name="one_place_for_work_apps" msgid="2595597562302953960">"कार्यसंबंधित ॲप्ससाठी एक ठिकाण"</string>
     <string name="info_anim_title_2" msgid="4629781398620470204">"तुमचे काम पूर्ण झाल्‍यानंतर बंद करा"</string>
     <string name="provisioning" msgid="4512493827019163451">"तरतूद"</string>
     <string name="copying_certs" msgid="5697938664953550881">"CA प्रमाणपत्रे सेट करत आहे"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"तुमचे ऑफिसचे डिव्हाइस सेट करण्यासाठी तयार होत आहे…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ॲडमिन अ‍ॅप सेट करत आहे"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"बाकीचे सर्व सेट करा"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"आता, बाकीचे सर्व सेट करूया"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"तुमच्या डिव्हाइसमधून आणखी सेवा मिळवण्यासाठी एखादे वैयक्तिक खाते जोडा"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"तुमची कार्य प्रोफाइल आता तयार झाल्यामुळे तुम्ही तुमची ॲप्स आणि आशय अ‍ॅक्सेस करण्यासाठी एखादे वैयक्तिक Google खाते सुद्धा जोडू शकता."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"हे डिव्हाइस तुमच्या संस्थेचे आहे"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"हा फोन व्यवस्थापित आणि मॉनिटर करण्यासाठी पुढील अ‍ॅप वापरले जाईल"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"कार्य सेटअपसाठी तयार करत आहे…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"पहिल्यांदा, तुमचे कार्य प्रोफाईल सेट करूया"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"चला, तुमची कार्य प्रोफाइल सेट करू या"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"कार्य अ‍ॅप्स तुमच्या कार्य प्रोफाइलमध्ये ठेवली जातात"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"तुमचे काम संपल्यावर कार्य अ‍ॅप्स थांबवा"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"तुमच्या IT अ‍ॅडमिनला तुमच्या कार्य प्रोफाइलमधील फक्त डेटा दिसतो"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"तुमच्या आयटी अ‍ॅडमिनला तुमच्या कार्य प्रोफाइलमधील डेटा दिसतो"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"तुमचे कार्य प्रोफाइल सेट करत आहे…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"कार्य अ‍ॅप्स तुमच्या कार्य प्रोफाइलमध्ये ठेवली जातात. तुमचे काम संपल्यावर तुम्ही तुमची कार्य अ‍ॅप्स थांबवू शकता. तुमच्या IT अ‍ॅडमिनला तुमच्या कार्य प्रोफाइलमधील फक्त डेटा दिसतो."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"कार्य अ‍ॅप्स तुमच्या कार्य प्रोफाइलमध्ये ठेवली जातात. तुमचे काम संपल्यावर तुम्ही तुमची कार्य अ‍ॅप्स थांबवू शकता. तुमच्या आयटी अ‍ॅडमिनला तुमच्या कार्य प्रोफाइलमधील डेटा दिसतो."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"चला तुमचे कार्य डिव्हाइस सेट करू या"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"तुमची कार्य अ‍ॅप्स तुमच्या हाताशी ठेवा"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"हे डिव्हाइस खाजगी नाही"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"तुमच्या IT अ‍ॅडमिनला कदाचित या डिव्हाइसवरील तुमचा डेटा आणि अ‍ॅक्टिव्हिटी पाहता येईल."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"तुमचे डिव्हाइस सेट करत आहे…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"तुमची ऑफिस अ‍ॅप्स सहजपणे अ‍ॅक्सेस करण्यासाठी हे डिव्हाइस वापरा. हे डिव्हाइस खाजगी नाही, त्यामुळे तुमच्या IT अ‍ॅडमिनला कदाचित तुमचा डेटा आणि अ‍ॅक्टिव्हिटी पाहता येईल. अधिक जाणून घेण्यासाठी, तुमच्या IT ॲडमिनशी संपर्क साधा."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"तुमची कार्य अ‍ॅप्स सहजपणे अ‍ॅक्सेस करण्यासाठी हे डिव्हाइस वापरा. हे डिव्हाइस खाजगी नाही, त्यामुळे तुमच्या IT अ‍ॅडमिनला कदाचित तुमचा डेटा आणि अ‍ॅक्टिव्हिटी पाहता येईल. अधिक जाणून घेण्यासाठी, तुमच्या IT ॲडमिनशी संपर्क साधा."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"कार्य प्रोफाइलमध्ये ठेवलेली तुमची कार्य अ‍ॅप्स आयटी ॲडमिन व्यवस्थापित करतात"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"वैयक्तिक अ‍ॅप्स कामासंबंधी अ‍ॅप्सहून वेगळी व लपवलेली असतात"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"तुमचा आयटी ॲडमिन हे डिव्हाइस नियंत्रित व काही ॲप्स ब्लॉक करू शकतो"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"कार्य अ‍ॅप्स तुमच्या कार्य प्रोफाईलमध्ये ठेवली जातात आणि तुमच्या आयटी ॲडमिनद्वारे व्यवस्थापित केली जातात. वैयक्तिक अ‍ॅप्स कार्य अ‍ॅप्सपासून वेगळे आणि लपवलेले असतात. तुमचा आयटी ॲडमिन हे डिव्हाइस नियंत्रित आणि विशिष्ट ॲप्स ब्लॉक करू शकतो."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"फक्त एक सेकंद…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"गोपनीयता रिमाइंडर"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"तुमच्या IT अ‍ॅडमिनला कदाचित या डिव्हाइसवरील तुमचा डेटा आणि अ‍ॅक्टिव्हिटी पाहता येईल"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"तुमचे डिव्हाइस वापरण्यासाठी तयार आहे!"</string>
     <string name="done" msgid="7755227776955952318">"पूर्ण झाले"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"हे डिव्हाइस <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> कडून क्रेडिटवर खरेदी केले आहे"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> करू शकते:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ॲप इंस्टॉल करू शकते जेणेकरून तुम्ही या डिव्हाइसचे पेमेंट करू शकाल"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"तुम्ही पेमेंट केली नाहीत तर या डिव्हाइसचा अ‍ॅक्सेस प्रतिबंधित करू शकते"</string>
 </resources>

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os
+import logging, os, time
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import cros_ui, upstart
@@ -13,11 +13,19 @@ _COLLECTION_ERROR_SIGNATURE = 'crash_reporter-user-collection'
 _CORE2MD_PATH = '/usr/bin/core2md'
 _LEAVE_CORE_PATH = '/root/.leave_core'
 _MAX_CRASH_DIRECTORY_SIZE = 32
+_CRASH_REPORTER_ENABLED_PATH = '/var/lib/crash_reporter/crash-handling-enabled'
 
 
 class logging_UserCrash(user_crash_test.UserCrashTest):
     """Verifies crash reporting for user processes."""
     version = 1
+
+
+    def _get_uptime(self):
+        with open('/proc/uptime', 'r') as f:
+            uptime_seconds = float(f.readline().split()[0])
+
+        return uptime_seconds
 
 
     def _test_reporter_startup(self):
@@ -31,9 +39,22 @@ class logging_UserCrash(user_crash_test.UserCrashTest):
             raise error.TestFail('core pattern should have been %s, not %s' %
                                  (expected_core_pattern, output))
 
-        self._log_reader.set_start_by_reboot(-1)
-
-        if not self._log_reader.can_find('Enabling user crash handling'):
+        # Check that we wrote out the file indicating that crash_reporter is
+        # enabled AFTER the system was booted. This replaces the old technique
+        # of looking for the log message which was flakey when the logs got
+        # flooded.
+        # NOTE: This technique doesn't need to be highly accurate, we are only
+        # verifying that the flag was written after boot and there are multiple
+        # seconds between those steps, and a file from a prior boot will almost
+        # always have been written out much further back in time than our
+        # current boot time.
+        if not os.path.isfile(_CRASH_REPORTER_ENABLED_PATH):
+            raise error.TestFail(
+                'crash reporter enabled file flag is not present at %s' %
+                _CRASH_REPORTER_ENABLED_PATH)
+        flag_time = time.time() - os.path.getmtime(_CRASH_REPORTER_ENABLED_PATH)
+        uptime = self._get_uptime()
+        if (flag_time > uptime):
             raise error.TestFail(
                 'user space crash handling was not started during last boot')
 
@@ -211,7 +232,8 @@ class logging_UserCrash(user_crash_test.UserCrashTest):
         contents = utils.read_file(result['log'])
         if contents != 'hello world\n':
             raise error.TestFail('Crash log contents unexpected: %s' % contents)
-        if not ('log=' + result['log']) in utils.read_file(result['meta']):
+        if ('log=' + os.path.basename(result['log']) not in
+                utils.read_file(result['meta'])):
             raise error.TestFail('Meta file does not reference log')
 
 

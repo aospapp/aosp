@@ -17,8 +17,8 @@ package com.android.car;
 
 import android.app.Service;
 import android.car.ICarBluetoothUserService;
-import android.car.ICarUserService;
 import android.car.ILocationManagerProxy;
+import android.car.IPerUserCarService;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
@@ -33,20 +33,20 @@ import android.util.Log;
  */
 public class PerUserCarService extends Service {
     private static final boolean DBG = true;
-    private static final String TAG = "CarUserService";
+    private static final String TAG = "PerUserCarService";
     private volatile CarBluetoothUserService mCarBluetoothUserService;
     private volatile LocationManagerProxy mLocationManagerProxy;
-    private CarUserServiceBinder mCarUserServiceBinder;
+    private PerUserCarServiceBinder mPerUserCarServiceBinder;
 
     @Override
     public IBinder onBind(Intent intent) {
         if (DBG) {
             Log.d(TAG, "onBind()");
         }
-        if (mCarUserServiceBinder == null) {
+        if (mPerUserCarServiceBinder == null) {
             Log.e(TAG, "UserSvcBinder null");
         }
-        return mCarUserServiceBinder;
+        return mPerUserCarServiceBinder;
     }
 
     @Override
@@ -62,7 +62,7 @@ public class PerUserCarService extends Service {
         if (DBG) {
             Log.d(TAG, "onCreate()");
         }
-        mCarUserServiceBinder = new CarUserServiceBinder();
+        mPerUserCarServiceBinder = new PerUserCarServiceBinder();
         mCarBluetoothUserService = new CarBluetoothUserService(this);
         mLocationManagerProxy = new LocationManagerProxy(this);
         super.onCreate();
@@ -73,14 +73,14 @@ public class PerUserCarService extends Service {
         if (DBG) {
             Log.d(TAG, "onDestroy()");
         }
-        mCarUserServiceBinder = null;
+        mPerUserCarServiceBinder = null;
     }
 
     /**
      * Other Services in CarService can create their own Binder interface and receive that interface
-     * through this CarUserService binder.
+     * through this PerUserCarService binder.
      */
-    private final class CarUserServiceBinder extends ICarUserService.Stub {
+    private final class PerUserCarServiceBinder extends IPerUserCarService.Stub {
         @Override
         public ICarBluetoothUserService getBluetoothUserService() {
             return mCarBluetoothUserService;

@@ -16,9 +16,9 @@
 
 #include "chre/platform/shared/nanoapp_dso_util.h"
 
+#include <chre/version.h>
 #include <cinttypes>
 #include <cstring>
-#include <chre/version.h>
 
 #include "chre/platform/log.h"
 
@@ -27,8 +27,8 @@ namespace chre {
 bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
                      const struct chreNslNanoappInfo *appInfo) {
   uint32_t ourApiMajorVersion = CHRE_EXTRACT_MAJOR_VERSION(chreGetApiVersion());
-  uint32_t targetApiMajorVersion = CHRE_EXTRACT_MAJOR_VERSION(
-      appInfo->targetApiVersion);
+  uint32_t targetApiMajorVersion =
+      CHRE_EXTRACT_MAJOR_VERSION(appInfo->targetApiVersion);
 
   bool success = false;
   if (appInfo->magic != CHRE_NSL_NANOAPP_INFO_MAGIC) {
@@ -37,14 +37,17 @@ bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
   } else if (appInfo->appId == 0) {
     LOGE("Rejecting invalid app ID 0");
   } else if (expectedAppId != 0 && expectedAppId != appInfo->appId) {
-    LOGE("Expected app ID (0x%016" PRIx64 ") doesn't match internal one (0x%016"
-         PRIx64 ")", expectedAppId, appInfo->appId);
+    LOGE("Expected app ID (0x%016" PRIx64
+         ") doesn't match internal one (0x%016" PRIx64 ")",
+         expectedAppId, appInfo->appId);
   } else if (expectedAppVersion != appInfo->appVersion) {
-    LOGE("Expected app version (0x%" PRIx32 ") doesn't match internal one (0x%"
-         PRIx32 ")", expectedAppVersion, appInfo->appVersion);
+    LOGE("Expected app version (0x%" PRIx32
+         ") doesn't match internal one (0x%" PRIx32 ")",
+         expectedAppVersion, appInfo->appVersion);
   } else if (targetApiMajorVersion != ourApiMajorVersion) {
-    LOGE("App targets a different major API version (%" PRIu32 ") than what we "
-         "provide (%" PRIu32 ")", targetApiMajorVersion, ourApiMajorVersion);
+    LOGE("App targets a different major API version (%" PRIu32
+         ") than what we provide (%" PRIu32 ")",
+         targetApiMajorVersion, ourApiMajorVersion);
   } else if (strlen(appInfo->name) > CHRE_NSL_DSO_NANOAPP_STRING_MAX_LEN) {
     LOGE("App name is too long");
   } else if (strlen(appInfo->vendor) > CHRE_NSL_DSO_NANOAPP_STRING_MAX_LEN) {

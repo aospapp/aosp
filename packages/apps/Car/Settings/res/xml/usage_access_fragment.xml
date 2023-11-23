@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/usage_access_title">
+    android:title="@string/usage_access_title"
+    android:key="@string/psk_usage_access">
     <Preference
         android:key="@string/pk_usage_access_description"
         android:selectable="false"

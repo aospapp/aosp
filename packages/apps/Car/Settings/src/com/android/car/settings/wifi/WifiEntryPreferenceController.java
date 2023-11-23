@@ -27,14 +27,14 @@ import com.android.car.settings.common.PreferenceController;
  * Controller which determines if the top level entry into Wi-Fi settings should be displayed
  * based on device capabilities.
  */
-public class WifiEntryPreferenceController extends PreferenceController<MasterSwitchPreference> {
+public class WifiEntryPreferenceController extends PreferenceController<MasterSwitchPreference>
+        implements CarWifiManager.Listener {
 
     private CarWifiManager mCarWifiManager;
 
     public WifiEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarWifiManager = new CarWifiManager(context);
     }
 
     @Override
@@ -44,6 +44,7 @@ public class WifiEntryPreferenceController extends PreferenceController<MasterSw
 
     @Override
     protected void onCreateInternal() {
+        mCarWifiManager = new CarWifiManager(getContext());
         getPreference().setSwitchToggleListener((preference, isChecked) -> {
             if (isChecked != mCarWifiManager.isWifiEnabled()) {
                 mCarWifiManager.setWifiEnabled(isChecked);
@@ -52,12 +53,36 @@ public class WifiEntryPreferenceController extends PreferenceController<MasterSw
     }
 
     @Override
+    protected void onStartInternal() {
+        mCarWifiManager.addListener(this);
+        mCarWifiManager.start();
+        getPreference().setSwitchChecked(mCarWifiManager.isWifiEnabled());
+    }
+
+    @Override
+    protected void onStopInternal() {
+        mCarWifiManager.removeListener(this);
+        mCarWifiManager.stop();
+    }
+
+    @Override
+    protected void onDestroyInternal() {
+        mCarWifiManager.destroy();
+    }
+
+    @Override
     protected int getAvailabilityStatus() {
         return WifiUtil.isWifiAvailable(getContext()) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
     }
 
     @Override
-    protected void updateState(MasterSwitchPreference preference) {
-        preference.setSwitchChecked(mCarWifiManager.isWifiEnabled());
+    public void onWifiStateChanged(int state) {
+        getPreference().setSwitchChecked(mCarWifiManager.isWifiEnabled());
+    }
+
+    @Override
+    public void onAccessPointsChanged() {
+        // don't care.
+        return;
     }
 }

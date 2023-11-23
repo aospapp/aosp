@@ -19,6 +19,7 @@
 #include "a2dp_aac_encoder.h"
 
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -56,8 +57,8 @@ typedef struct {
 
 typedef struct {
   uint32_t counter;
-  uint32_t bytes_per_tick; /* pcm bytes read each media task tick */
-  uint64_t last_frame_us;
+  uint32_t bytes_per_tick;              // pcm bytes read each media task tick
+  uint64_t last_frame_timestamp_100ns;  // values in 1/10 microseconds
 } tA2DP_AAC_FEEDING_STATE;
 
 typedef struct {
@@ -92,6 +93,8 @@ typedef struct {
 
   a2dp_aac_encoder_stats_t stats;
 } tA2DP_AAC_ENCODER_CB;
+
+static uint32_t a2dp_aac_encoder_interval_ms = A2DP_AAC_ENCODER_INTERVAL_MS;
 
 static tA2DP_AAC_ENCODER_CB a2dp_aac_encoder_cb;
 
@@ -218,7 +221,6 @@ static void a2dp_aac_encoder_update(uint16_t peer_mtu,
   LOG_DEBUG(LOG_TAG, "%s: sample_rate=%u bits_per_sample=%u channel_count=%u",
             __func__, p_feeding_params->sample_rate,
             p_feeding_params->bits_per_sample, p_feeding_params->channel_count);
-  a2dp_aac_feeding_reset();
 
   // The codec parameters
   p_encoder_params->sample_rate =
@@ -451,6 +453,9 @@ static void a2dp_aac_encoder_update(uint16_t peer_mtu,
             __func__, p_encoder_params->frame_length,
             p_encoder_params->input_channels_n,
             p_encoder_params->max_encoded_buffer_bytes);
+
+  // After encoder params ready, reset the feeding state and its interval.
+  a2dp_aac_feeding_reset();
 }
 
 void a2dp_aac_encoder_cleanup(void) {
@@ -460,6 +465,23 @@ void a2dp_aac_encoder_cleanup(void) {
 }
 
 void a2dp_aac_feeding_reset(void) {
+  auto frame_length = a2dp_aac_encoder_cb.aac_encoder_params.frame_length;
+  auto sample_rate = a2dp_aac_encoder_cb.feeding_params.sample_rate;
+  if (frame_length == 0 || sample_rate == 0) {
+    LOG_WARN(LOG_TAG, "%s: AAC encoder is not configured", __func__);
+    a2dp_aac_encoder_interval_ms = A2DP_AAC_ENCODER_INTERVAL_MS;
+  } else {
+    // PCM data size per AAC frame (bits)
+    // = aac_encoder_params.frame_length * feeding_params.bits_per_sample
+    //   * feeding_params.channel_count
+    // = feeding_params.sample_rate * feeding_params.bits_per_sample
+    //   * feeding_params.channel_count * (T_interval_ms / 1000);
+    // Here we use the nearest integer not greater than the value.
+    a2dp_aac_encoder_interval_ms = frame_length * 1000 / sample_rate;
+    if (a2dp_aac_encoder_interval_ms < A2DP_AAC_ENCODER_INTERVAL_MS)
+      a2dp_aac_encoder_interval_ms = A2DP_AAC_ENCODER_INTERVAL_MS;
+  }
+
   /* By default, just clear the entire state */
   memset(&a2dp_aac_encoder_cb.aac_feeding_state, 0,
          sizeof(a2dp_aac_encoder_cb.aac_feeding_state));
@@ -468,11 +490,12 @@ void a2dp_aac_feeding_reset(void) {
       (a2dp_aac_encoder_cb.feeding_params.sample_rate *
        a2dp_aac_encoder_cb.feeding_params.bits_per_sample / 8 *
        a2dp_aac_encoder_cb.feeding_params.channel_count *
-       A2DP_AAC_ENCODER_INTERVAL_MS) /
+       a2dp_aac_encoder_interval_ms) /
       1000;
 
-  LOG_DEBUG(LOG_TAG, "%s: PCM bytes per tick %u", __func__,
-            a2dp_aac_encoder_cb.aac_feeding_state.bytes_per_tick);
+  LOG_INFO(LOG_TAG, "%s: PCM bytes %u per tick %u ms", __func__,
+           a2dp_aac_encoder_cb.aac_feeding_state.bytes_per_tick,
+           a2dp_aac_encoder_interval_ms);
 }
 
 void a2dp_aac_feeding_flush(void) {
@@ -480,7 +503,7 @@ void a2dp_aac_feeding_flush(void) {
 }
 
 uint64_t a2dp_aac_get_encoder_interval_ms(void) {
-  return A2DP_AAC_ENCODER_INTERVAL_MS;
+  return a2dp_aac_encoder_interval_ms;
 }
 
 void a2dp_aac_send_frames(uint64_t timestamp_us) {
@@ -515,16 +538,30 @@ static void a2dp_aac_get_num_frame_iteration(uint8_t* num_of_iterations,
   LOG_VERBOSE(LOG_TAG, "%s: pcm_bytes_per_frame %u", __func__,
               pcm_bytes_per_frame);
 
-  uint32_t us_this_tick = A2DP_AAC_ENCODER_INTERVAL_MS * 1000;
-  uint64_t now_us = timestamp_us;
-  if (a2dp_aac_encoder_cb.aac_feeding_state.last_frame_us != 0)
-    us_this_tick =
-        (now_us - a2dp_aac_encoder_cb.aac_feeding_state.last_frame_us);
-  a2dp_aac_encoder_cb.aac_feeding_state.last_frame_us = now_us;
+  uint32_t hecto_ns_this_tick = a2dp_aac_encoder_interval_ms * 10000;
+  uint64_t* last_100ns =
+      &a2dp_aac_encoder_cb.aac_feeding_state.last_frame_timestamp_100ns;
+  uint64_t now_100ns = timestamp_us * 10;
+  if (*last_100ns != 0) {
+    hecto_ns_this_tick = (now_100ns - *last_100ns);
+  }
+  *last_100ns = now_100ns;
 
-  a2dp_aac_encoder_cb.aac_feeding_state.counter +=
-      a2dp_aac_encoder_cb.aac_feeding_state.bytes_per_tick * us_this_tick /
-      (A2DP_AAC_ENCODER_INTERVAL_MS * 1000);
+  uint32_t bytes_this_tick =
+      a2dp_aac_encoder_cb.aac_feeding_state.bytes_per_tick *
+      hecto_ns_this_tick / (a2dp_aac_encoder_interval_ms * 10000);
+  a2dp_aac_encoder_cb.aac_feeding_state.counter += bytes_this_tick;
+  // Without this erratum, there was a three microseocnd shift per tick which
+  // would cause one frame mismatched after every 180 seconds
+  uint32_t erratum_100ns =
+      ceil(1.0f * bytes_this_tick * a2dp_aac_encoder_interval_ms * 10000 /
+           a2dp_aac_encoder_cb.aac_feeding_state.bytes_per_tick);
+  if (erratum_100ns < hecto_ns_this_tick) {
+    LOG_VERBOSE(LOG_TAG,
+                "%s: hecto_ns_this_tick=%d, bytes=%d, erratum_100ns=%d",
+                __func__, hecto_ns_this_tick, bytes_this_tick, erratum_100ns);
+    *last_100ns -= hecto_ns_this_tick - erratum_100ns;
+  }
 
   result = a2dp_aac_encoder_cb.aac_feeding_state.counter / pcm_bytes_per_frame;
   a2dp_aac_encoder_cb.aac_feeding_state.counter -= result * pcm_bytes_per_frame;

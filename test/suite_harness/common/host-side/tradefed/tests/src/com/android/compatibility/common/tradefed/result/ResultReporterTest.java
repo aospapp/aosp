@@ -71,7 +71,6 @@ public class ResultReporterTest extends TestCase {
     private static final String RESULT_DIR = "result123";
     private static final String[] FORMATTING_FILES = {
         "compatibility_result.css",
-        "compatibility_result.xsd",
         "compatibility_result.xsl",
         "logo.png"};
 
@@ -548,5 +547,76 @@ public class ResultReporterTest extends TestCase {
                 String.format("Expected pass for %s", TEST_1),
                 TestStatus.PASS,
                 result1.getResultStatus());
+    }
+
+    /** Ensure that the run history of the current run is added to previous run history. */
+    public void testRetryWithRunHistory() throws Exception {
+        mReporter.invocationStarted(mContext);
+
+        // Set up IInvocationResult with existing results from previous session
+        mReporter.testRunStarted(ID, 2);
+        IInvocationResult invocationResult = mReporter.getResult();
+        IModuleResult moduleResult = invocationResult.getOrCreateModule(ID);
+        ICaseResult caseResult = moduleResult.getOrCreateResult(CLASS);
+        ITestResult testResult1 = caseResult.getOrCreateResult(METHOD_1);
+        testResult1.setResultStatus(TestStatus.PASS);
+        testResult1.setRetry(true);
+        ITestResult testResult2 = caseResult.getOrCreateResult(METHOD_2);
+        testResult2.setResultStatus(TestStatus.FAIL);
+        testResult2.setStackTrace(STACK_TRACE);
+        testResult2.setRetry(true);
+        // Set up IInvocationResult with the run history of previous runs.
+        invocationResult.addInvocationInfo(
+                "run_history", "[{\"startTime\":1,\"endTime\":2},{\"startTime\":3,\"endTime\":4}]");
+
+        // Flip results for the current session
+        TestDescription test1 = new TestDescription(CLASS, METHOD_1);
+        mReporter.testStarted(test1);
+        mReporter.testFailed(test1, STACK_TRACE);
+        mReporter.testEnded(test1, new HashMap<String, Metric>());
+        TestDescription test2 = new TestDescription(CLASS, METHOD_2);
+        mReporter.testStarted(test2);
+        mReporter.testEnded(test2, new HashMap<String, Metric>());
+
+        mReporter.testRunEnded(10, new HashMap<String, Metric>());
+        mReporter.invocationEnded(10);
+
+        // Verification that results have been overwritten.
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 1 pass", 1, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 1 failure", 1, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+        List<ICaseResult> cases = module.getResults();
+        assertEquals("Expected 1 test case", 1, cases.size());
+        ICaseResult case1 = cases.get(0);
+        List<ITestResult> testResults = case1.getResults();
+        assertEquals("Expected 2 tests", 2, testResults.size());
+
+        long startTime = mReporter.getResult().getStartTime();
+        String expectedRunHistory =
+                String.format(
+                        "[{\"startTime\":1,\"endTime\":2},"
+                                + "{\"startTime\":3,\"endTime\":4},{\"startTime\":%d,\"endTime\":%d}]",
+                        startTime, startTime + 10);
+        assertEquals(expectedRunHistory, invocationResult.getInvocationInfo().get("run_history"));
+
+        // Test 1 details
+        ITestResult finalTestResult1 = case1.getResult(METHOD_1);
+        assertNotNull(String.format("Expected result for %s", TEST_1), finalTestResult1);
+        assertEquals(
+                String.format("Expected fail for %s", TEST_1),
+                TestStatus.FAIL,
+                finalTestResult1.getResultStatus());
+        assertEquals(finalTestResult1.getStackTrace(), STACK_TRACE);
+
+        // Test 2 details
+        ITestResult finalTestResult2 = case1.getResult(METHOD_2);
+        assertNotNull(String.format("Expected result for %s", TEST_2), finalTestResult2);
+        assertEquals(
+                String.format("Expected pass for %s", TEST_2),
+                TestStatus.PASS,
+                finalTestResult2.getResultStatus());
     }
 }

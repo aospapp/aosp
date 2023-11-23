@@ -3110,8 +3110,8 @@ int main(WORD32 argc, CHAR *argv[])
         {
             ithread_join(s_app_ctx.display_thread_handle, NULL);
         }
-        free(s_app_ctx.display_thread_handle);
     }
+    free(s_app_ctx.display_thread_handle);
 
     {
         iv_retrieve_mem_rec_ip_t s_retrieve_dec_ip;

@@ -30,13 +30,15 @@
 
     <uses-sdk
         android:minSdkVersion="21"
-        android:targetSdkVersion="10000" />
+        android:targetSdkVersion="28" />
 
     <uses-feature
         android:name="android.hardware.camera.front"
         android:required="false" />
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
 
     <application
         android:icon="@mipmap/launcher_testingcamera2"

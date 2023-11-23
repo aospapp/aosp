@@ -181,6 +181,8 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter.addAction(KeyChainTestActivity.ACTION_KEYCHAIN);
         filter.addAction(CommandReceiverActivity.ACTION_EXECUTE_COMMAND);
         filter.addAction(WorkProfileWidgetActivity.ACTION_TEST_WORK_PROFILE_WIDGET);
+        filter.addAction(
+                CrossProfilePermissionControlActivity.ACTION_CROSS_PROFILE_PERMISSION_CONTROL);
         dpm.addCrossProfileIntentFilter(getWho(context), filter,
                 DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT);
 
@@ -192,17 +194,19 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter.addAction(ByodFlowTestActivity.ACTION_TEST_RESULT);
         filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE_TO_PERSONAL);
         filter.addAction(LocationListenerActivity.ACTION_SET_LOCATION_AND_CHECK_UPDATES);
+
         dpm.addCrossProfileIntentFilter(getWho(context), filter,
                 DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED);
 
-        Intent intent = new Intent(context, ByodHelperActivity.class);
-        intent.setAction(ByodHelperActivity.ACTION_PROFILE_PROVISIONED);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        context.startActivity(intent);
         // Disable the work profile instance of this activity, because it is a helper activity for
         // the work -> primary direction.
         context.getPackageManager().setComponentEnabledSetting(
                 new ComponentName(context, ByodPrimaryHelperActivity.class.getName()),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+
+        // Disable the work profile instance of ByodFlowTestActivity
+        context.getPackageManager().setComponentEnabledSetting(
+                new ComponentName(context, ByodFlowTestActivity.class),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
     }
 

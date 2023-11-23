@@ -80,7 +80,7 @@ public final class PathMeasure_Delegate {
     /*package*/ static boolean native_getPosTan(long native_instance, float distance, float pos[],
             float tan[]) {
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "PathMeasure.getPostTan is not supported.", null, null);
+                "PathMeasure.getPostTan is not supported.", null, null, null);
         return false;
     }
 
@@ -88,14 +88,14 @@ public final class PathMeasure_Delegate {
     /*package*/ static boolean native_getMatrix(long native_instance, float distance, long
             native_matrix, int flags) {
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "PathMeasure.getMatrix is not supported.", null, null);
+                "PathMeasure.getMatrix is not supported.", null, null, null);
         return false;
     }
 
     @LayoutlibDelegate
     /*package*/ static boolean native_nextContour(long native_instance) {
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "PathMeasure.nextContour is not supported.", null, null);
+                "PathMeasure.nextContour is not supported.", null, null, null);
         return false;
     }
 

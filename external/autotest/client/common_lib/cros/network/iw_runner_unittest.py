@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
-# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -67,7 +67,7 @@ class IwRunnerTest(unittest.TestCase):
 
     HT20_IW_BSS = iw_runner.IwBss('aa:aa:aa:aa:aa:aa', 2412,
                                   'support_ht20', iw_runner.SECURITY_OPEN,
-                                  iw_runner.HT20, -50.00)
+                                  iw_runner.WIDTH_HT20, -50.00)
 
     HT20_2 = str('BSS 11:11:11:11:11:11 (on wlan0)\n'
         '     freq: 2462\n'
@@ -79,7 +79,7 @@ class IwRunnerTest(unittest.TestCase):
 
     HT20_2_IW_BSS = iw_runner.IwBss('11:11:11:11:11:11', 2462,
                                     'support_ht20', iw_runner.SECURITY_WPA,
-                                    iw_runner.HT40_BELOW, -42.00)
+                                    iw_runner.WIDTH_HT40_MINUS, -42.00)
 
     HT40_ABOVE = str('BSS bb:bb:bb:bb:bb:bb (on wlan0)\n'
         '    freq: 5180\n'
@@ -92,7 +92,7 @@ class IwRunnerTest(unittest.TestCase):
     HT40_ABOVE_IW_BSS = iw_runner.IwBss('bb:bb:bb:bb:bb:bb', 5180,
                                         'support_ht40_above',
                                         iw_runner.SECURITY_WPA2,
-                                        iw_runner.HT40_ABOVE, -55.00)
+                                        iw_runner.WIDTH_HT40_PLUS, -55.00)
 
     HT40_BELOW = str('BSS cc:cc:cc:cc:cc:cc (on wlan0)\n'
         '    freq: 2462\n'
@@ -106,7 +106,7 @@ class IwRunnerTest(unittest.TestCase):
     HT40_BELOW_IW_BSS = iw_runner.IwBss('cc:cc:cc:cc:cc:cc', 2462,
                                         'support_ht40_below',
                                         iw_runner.SECURITY_MIXED,
-                                        iw_runner.HT40_BELOW, -44.00)
+                                        iw_runner.WIDTH_HT40_MINUS, -44.00)
 
     NO_HT = str('BSS dd:dd:dd:dd:dd:dd (on wlan0)\n'
         '    freq: 2412\n'
@@ -116,6 +116,78 @@ class IwRunnerTest(unittest.TestCase):
     NO_HT_IW_BSS = iw_runner.IwBss('dd:dd:dd:dd:dd:dd', 2412,
                                    'no_ht_support', iw_runner.SECURITY_OPEN,
                                    None, -45.00)
+
+    VHT_CAPA_20 = str('BSS ff:ff:ff:ff:ff:ff (on wlan0)\n'
+        '    freq: 2462\n'
+        '    signal: -44.00 dBm\n'
+        '    SSID: vht_capable_20\n'
+        '    HT operation:\n'
+        '        * secondary channel offset: no secondary\n'
+        '    VHT capabilities:\n'
+        '            VHT Capabilities (0x0f8369b1):\n'
+        '                Max MPDU length: 7991\n'
+        '                Supported Channel Width: neither 160 nor 80+80\n'
+        '    VHT operation:\n'
+        '        * channel width: 0 (20 or 40 MHz)\n'
+        '        * center freq segment 1: 11\n')
+
+    VHT_CAPA_20_IW_BSS = iw_runner.IwBss('ff:ff:ff:ff:ff:ff', 2462,
+                                         'vht_capable_20',
+                                         iw_runner.SECURITY_OPEN,
+                                         iw_runner.WIDTH_HT20, -44.00)
+
+    VHT80 =  str('BSS ff:ff:ff:ff:ff:ff (on wlan0)\n'
+        '    freq: 2462\n'
+        '    signal: -44.00 dBm\n'
+        '    SSID: support_vht80\n'
+        '    HT operation:\n'
+        '        * secondary channel offset: below\n'
+        '    VHT capabilities:\n'
+        '            VHT Capabilities (0x0f8369b1):\n'
+        '                Max MPDU length: 7991\n'
+        '                Supported Channel Width: neither 160 nor 80+80\n'
+        '    VHT operation:\n'
+        '        * channel width: 1 (80 MHz)\n'
+        '        * center freq segment 1: 11\n'
+        '        * center freq segment 2: 0\n')
+
+    VHT80_IW_BSS = iw_runner.IwBss('ff:ff:ff:ff:ff:ff', 2462,
+                                   'support_vht80', iw_runner.SECURITY_OPEN,
+                                   iw_runner.WIDTH_VHT80, -44.00)
+
+    VHT160 =  str('BSS 12:34:56:78:90:aa (on wlan0)\n'
+        '    freq: 5180\n'
+        '    signal: -44.00 dBm\n'
+        '    SSID: support_vht160\n'
+        '    HT operation:\n'
+        '        * secondary channel offset: below\n'
+        '    VHT capabilities:\n'
+        '            VHT Capabilities (0x0f8369b1):\n'
+        '                Max MPDU length: 7991\n'
+        '                Supported Channel Width: 160 MHz\n'
+        '    VHT operation:\n'
+        '        * channel width: 1 (80 MHz)\n'
+        '        * center freq segment 1: 42\n'
+        '        * center freq segment 2: 50\n')
+
+    VHT160_IW_BSS = iw_runner.IwBss('12:34:56:78:90:aa', 5180,
+                                    'support_vht160', iw_runner.SECURITY_OPEN,
+                                    iw_runner.WIDTH_VHT160, -44.00)
+
+    VHT80_80 =  str('BSS ab:cd:ef:fe:dc:ba (on wlan0)\n'
+        '    freq: 5180\n'
+        '    signal: -44.00 dBm\n'
+        '    SSID: support_vht80_80\n'
+        '    HT operation:\n'
+        '        * secondary channel offset: below\n'
+        '    VHT operation:\n'
+        '        * channel width: 1 (80 MHz)\n'
+        '        * center freq segment 1: 42\n'
+        '        * center freq segment 2: 106\n')
+
+    VHT80_80_IW_BSS = iw_runner.IwBss('ab:cd:ef:fe:dc:ba', 5180,
+                                    'support_vht80_80', iw_runner.SECURITY_OPEN,
+                                    iw_runner.WIDTH_VHT80_80, -44.00)
 
     HIDDEN_SSID = str('BSS ee:ee:ee:ee:ee:ee (on wlan0)\n'
         '    freq: 2462\n'
@@ -130,7 +202,7 @@ class IwRunnerTest(unittest.TestCase):
 
     HIDDEN_SSID_IW_BSS = iw_runner.IwBss('ee:ee:ee:ee:ee:ee', 2462,
                                          None, iw_runner.SECURITY_OPEN,
-                                         iw_runner.HT20, -70.00)
+                                         iw_runner.WIDTH_HT20, -70.00)
 
     STATION_LINK_INFORMATION = str(
         'Connected to 12:34:56:ab:cd:ef (on wlan0)\n'
@@ -331,6 +403,181 @@ class IwRunnerTest(unittest.TestCase):
 
     PHY_FRAGMENTATION_THRESHOLD = 256
 
+    VHT_IW_INFO = str(
+        'Wiphy phy0\n'
+        '    max # scan SSIDs: 20\n'
+        '    max scan IEs length: 425 bytes\n'
+        '    max # sched scan SSIDs: 20\n'
+        '    max # match sets: 11\n'
+        '    Retry short limit: 7\n'
+        '    Retry long limit: 4\n'
+        '    Coverage class: 0 (up to 0m)\n'
+        '    Device supports RSN-IBSS.\n'
+        '    Device supports AP-side u-APSD.\n'
+        '    Device supports T-DLS.\n'
+        '    Supported Ciphers:\n'
+        '        * WEP40 (00-0f-ac:1)\n'
+        '        * WEP104 (00-0f-ac:5)\n'
+        '        * TKIP (00-0f-ac:2)\n'
+        '        * CCMP-128 (00-0f-ac:4)\n'
+        '        * CMAC (00-0f-ac:6)\n'
+        '    Available Antennas: TX 0 RX 0\n'
+        '    Supported interface modes:\n'
+        '         * IBSS\n'
+        '         * managed\n'
+        '         * AP\n'
+        '         * AP/VLAN\n'
+        '         * monitor\n'
+        '         * P2P-client\n'
+        '         * P2P-GO\n'
+        '         * P2P-device\n'
+        '    Band 1:\n'
+        '        Capabilities: 0x11ef\n'
+        '            RX LDPC\n'
+        '            HT20/HT40\n'
+        '            SM Power Save disabled\n'
+        '            RX HT20 SGI\n'
+        '            RX HT40 SGI\n'
+        '            TX STBC\n'
+        '            RX STBC 1-stream\n'
+        '            Max AMSDU length: 3839 bytes\n'
+        '            DSSS/CCK HT40\n'
+        '        Maximum RX AMPDU length 65535 bytes (exponent: 0x003)\n'
+        '        Minimum RX AMPDU time spacing: 4 usec (0x05)\n'
+        '        HT Max RX data rate: 300 Mbps\n'
+        '        HT TX/RX MCS rate indexes supported: 0-15\n'
+        '    Band 2:\n'
+        '        Capabilities: 0x11ef\n'
+        '            RX LDPC\n'
+        '            HT20/HT40\n'
+        '            SM Power Save disabled\n'
+        '            RX HT20 SGI\n'
+        '            RX HT40 SGI\n'
+        '            TX STBC\n'
+        '            RX STBC 1-stream\n'
+        '            Max AMSDU length: 3839 bytes\n'
+        '            DSSS/CCK HT40\n'
+        '        Maximum RX AMPDU length 65535 bytes (exponent: 0x003)\n'
+        '        Minimum RX AMPDU time spacing: 4 usec (0x05)\n'
+        '        HT Max RX data rate: 300 Mbps\n'
+        '        HT TX/RX MCS rate indexes supported: 0-15\n'
+        '        VHT Capabilities (0x038071b0):\n'
+        '            Max MPDU length: 3895\n'
+        '            Supported Channel Width: neither 160 nor 80+80\n'
+        '            RX LDPC\n'
+        '            short GI (80 MHz)\n'
+        '            TX STBC\n'
+        '            SU Beamformee\n')
+
+    HE_IW_INFO = str(
+        'Wiphy phy0\n'
+        '    max # scan SSIDs: 20\n'
+        '    max scan IEs length: 365 bytes\n'
+        '    max # sched scan SSIDs: 20\n'
+        '    max # match sets: 11\n'
+        '    max # scan plans: 2\n'
+        '    max scan plan interval: 65535\n'
+        '    max scan plan iterations: 254\n'
+        '    Retry short limit: 7\n'
+        '    Retry long limit: 4\n'
+        '    Coverage class: 0 (up to 0m)\n'
+        '    Device supports RSN-IBSS.\n'
+        '    Device supports AP-side u-APSD.\n'
+        '    Device supports T-DLS.\n'
+        '    Supported Ciphers:\n'
+        '        * WEP40 (00-0f-ac:1)\n'
+        '        * WEP104 (00-0f-ac:5)\n'
+        '        * TKIP (00-0f-ac:2)\n'
+        '        * CCMP-128 (00-0f-ac:4)\n'
+        '        * GCMP-128 (00-0f-ac:8)\n'
+        '        * GCMP-256 (00-0f-ac:9)\n'
+        '        * CMAC (00-0f-ac:6)\n'
+        '        * GMAC-128 (00-0f-ac:11)\n'
+        '        * GMAC-256 (00-0f-ac:12)\n'
+        '    Available Antennas: TX 0 RX 0\n'
+        '    Supported interface modes:\n'
+        '         * IBSS\n'
+        '         * managed\n'
+        '         * AP\n'
+        '         * AP/VLAN\n'
+        '         * monitor\n'
+        '         * P2P-client\n'
+        '         * P2P-GO\n'
+        '         * P2P-device\n'
+        '    Band 1:\n'
+        '        Capabilities: 0x19ef\n'
+        '            RX LDPC\n'
+        '            HT20/HT40\n'
+        '            SM Power Save disabled\n'
+        '            RX HT20 SGI\n'
+        '            RX HT40 SGI\n'
+        '            TX STBC\n'
+        '            RX STBC 1-stream\n'
+        '            Max AMSDU length: 7935 bytes\n'
+        '            DSSS/CCK HT40\n'
+        '        Maximum RX AMPDU length 65535 bytes (exponent: 0x003)\n'
+        '        Minimum RX AMPDU time spacing: 4 usec (0x05)\n'
+        '        HT Max RX data rate: 300 Mbps\n'
+        '        HT TX/RX MCS rate indexes supported: 0-15\n'
+        '        HE Iftypes: Station\n'
+        '            HE MAC Capabilities (0x780112a0abc0):\n'
+        '                +HTC HE Supported\n'
+        '            HE PHY Capabilities: (0x0e3f0200fd09800ecff200):\n'
+        '                HE40/2.4GHz\n'
+        '                HE40/HE80/5GHz\n'
+        '                HE160/5GHz\n'
+        '    Band 2:\n'
+        '        Capabilities: 0x19ef\n'
+        '            RX LDPC\n'
+        '            HT20/HT40\n'
+        '            SM Power Save disabled\n'
+        '            RX HT20 SGI\n'
+        '            RX HT40 SGI\n'
+        '            TX STBC\n'
+        '            RX STBC 1-stream\n'
+        '            Max AMSDU length: 7935 bytes\n'
+        '            DSSS/CCK HT40\n'
+        '        Maximum RX AMPDU length 65535 bytes (exponent: 0x003)\n'
+        '        Minimum RX AMPDU time spacing: 4 usec (0x05)\n'
+        '        HT Max RX data rate: 300 Mbps\n'
+        '        HT TX/RX MCS rate indexes supported: 0-15\n'
+        '        VHT Capabilities (0x039071f6):\n'
+        '            Max MPDU length: 11454\n'
+        '            Supported Channel Width: 160 MHz\n'
+        '            RX LDPC\n'
+        '            short GI (80 MHz)\n'
+        '            short GI (160/80+80 MHz)\n'
+        '            TX STBC\n'
+        '            SU Beamformee\n'
+        '            MU Beamformee\n'
+        '        VHT RX MCS set:\n'
+        '            1 streams: MCS 0-9\n'
+        '            2 streams: MCS 0-9\n'
+        '            3 streams: not supported\n'
+        '            4 streams: not supported\n'
+        '            5 streams: not supported\n'
+        '            6 streams: not supported\n'
+        '            7 streams: not supported\n'
+        '            8 streams: not supported\n'
+        '        VHT RX highest supported: 0 Mbps\n'
+        '        VHT TX MCS set:\n'
+        '            1 streams: MCS 0-9\n'
+        '            2 streams: MCS 0-9\n'
+        '            3 streams: not supported\n'
+        '            4 streams: not supported\n'
+        '            5 streams: not supported\n'
+        '            6 streams: not supported\n'
+        '            7 streams: not supported\n'
+        '            8 streams: not supported\n'
+        '        VHT TX highest supported: 0 Mbps\n'
+        '        HE Iftypes: Station\n'
+        '            HE MAC Capabilities (0x780112a0abc0):\n'
+        '                +HTC HE Supported\n'
+        '            HE PHY Capabilities: (0x0e3f0200fd09800ecff200):\n'
+        '                HE40/2.4GHz\n'
+        '                HE40/HE80/5GHz\n'
+        '                HE160/5GHz\n')
+
 
     def verify_values(self, iw_bss_1, iw_bss_2):
         """Checks all of the IWBss values
@@ -339,11 +586,12 @@ class IwRunnerTest(unittest.TestCase):
         @param iw_bss_2: an IWBss object
 
         """
+
         self.assertEquals(iw_bss_1.bss, iw_bss_2.bss)
         self.assertEquals(iw_bss_1.ssid, iw_bss_2.ssid)
         self.assertEquals(iw_bss_1.frequency, iw_bss_2.frequency)
         self.assertEquals(iw_bss_1.security, iw_bss_2.security)
-        self.assertEquals(iw_bss_1.ht, iw_bss_2.ht)
+        self.assertEquals(iw_bss_1.width, iw_bss_2.width)
         self.assertEquals(iw_bss_1.signal, iw_bss_2.signal)
 
 
@@ -395,6 +643,29 @@ class IwRunnerTest(unittest.TestCase):
         """Test with a network that doesn't have ht."""
         scan_output = self.HT20 + self.NO_HT + self.HT40_ABOVE
         self.search_by_bss(scan_output, self.NO_HT_IW_BSS)
+
+
+    def test_vht_20(self):
+        """Test with a network that supports vht but is 20 MHz wide."""
+        scan_output = self.HT20 + self.NO_HT + self.VHT_CAPA_20
+        self.search_by_bss(scan_output, self.VHT_CAPA_20_IW_BSS)
+
+
+    def test_vht80(self):
+        """Test with a VHT80 network."""
+        scan_output = self.HT20 + self.VHT80 + self.HT40_ABOVE
+        self.search_by_bss(scan_output, self.VHT80_IW_BSS)
+
+
+    def test_vht160(self):
+        """Test with a VHT160 network."""
+        scan_output = self.VHT160 + self.VHT80 + self.HT40_ABOVE
+        self.search_by_bss(scan_output, self.VHT160_IW_BSS)
+
+    def test_vht80_80(self):
+        """Test with a VHT80+80 network."""
+        scan_output = self.VHT160 + self.VHT80_80
+        self.search_by_bss(scan_output, self.VHT80_80_IW_BSS)
 
 
     def test_hidden_ssid(self):
@@ -493,6 +764,20 @@ class IwRunnerTest(unittest.TestCase):
         self.assertEquals(
             runner.get_fragmentation_threshold(self.INFO_PHY),
             self.PHY_FRAGMENTATION_THRESHOLD)
+
+
+    def test_vht_supported(self):
+        """Test VHT support parsing."""
+        host = self.host(self.VHT_IW_INFO)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(runner.vht_supported(), True)
+
+
+    def test_he_supported(self):
+        """Test HE support parsing."""
+        host = self.host(self.HE_IW_INFO)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(runner.he_supported(), True)
 
 
 if __name__ == '__main__':

@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.media.AudioSystem;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -34,6 +35,8 @@ import org.junit.runner.RunWith;
  * Java applications should use the client facing AudioManager APIs for Audio management.
  */
 
+@Presubmit
+@NonMediaMainlineTest
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 @AppModeFull(reason = "Instant applications do not have permission MODIFY_AUDIO_SETTINGS")

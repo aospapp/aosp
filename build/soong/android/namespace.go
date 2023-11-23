@@ -26,12 +26,6 @@ import (
 	"github.com/google/blueprint"
 )
 
-// This file implements namespaces
-const (
-	namespacePrefix = "//"
-	modulePrefix    = ":"
-)
-
 func init() {
 	RegisterModuleType("soong_namespace", NamespaceFactory)
 }
@@ -168,6 +162,12 @@ func (r *NameResolver) findNamespace(path string) (namespace *Namespace) {
 	return namespace
 }
 
+// A NamelessModule can never be looked up by name.  It must still implement Name(), but the return
+// value doesn't have to be unique.
+type NamelessModule interface {
+	Nameless()
+}
+
 func (r *NameResolver) NewModule(ctx blueprint.NamespaceContext, moduleGroup blueprint.ModuleGroup, module blueprint.Module) (namespace blueprint.Namespace, errs []error) {
 	// if this module is a namespace, then save it to our list of namespaces
 	newNamespace, ok := module.(*NamespaceModule)
@@ -176,6 +176,10 @@ func (r *NameResolver) NewModule(ctx blueprint.NamespaceContext, moduleGroup blu
 		if err != nil {
 			return nil, []error{err}
 		}
+		return nil, nil
+	}
+
+	if _, ok := module.(NamelessModule); ok {
 		return nil, nil
 	}
 
@@ -191,6 +195,7 @@ func (r *NameResolver) NewModule(ctx blueprint.NamespaceContext, moduleGroup blu
 	if ok {
 		// inform the module whether its namespace is one that we want to export to Make
 		amod.base().commonProperties.NamespaceExportedToMake = ns.exportToKati
+		amod.base().commonProperties.DebugName = module.Name()
 	}
 
 	return ns, nil
@@ -215,11 +220,11 @@ func (r *NameResolver) AllModules() []blueprint.ModuleGroup {
 // parses a fully-qualified path (like "//namespace_path:module_name") into a namespace name and a
 // module name
 func (r *NameResolver) parseFullyQualifiedName(name string) (namespaceName string, moduleName string, ok bool) {
-	if !strings.HasPrefix(name, namespacePrefix) {
+	if !strings.HasPrefix(name, "//") {
 		return "", "", false
 	}
-	name = strings.TrimPrefix(name, namespacePrefix)
-	components := strings.Split(name, modulePrefix)
+	name = strings.TrimPrefix(name, "//")
+	components := strings.Split(name, ":")
 	if len(components) != 2 {
 		return "", "", false
 	}
@@ -228,6 +233,11 @@ func (r *NameResolver) parseFullyQualifiedName(name string) (namespaceName strin
 }
 
 func (r *NameResolver) getNamespacesToSearchForModule(sourceNamespace *Namespace) (searchOrder []*Namespace) {
+	if sourceNamespace.visibleNamespaces == nil {
+		// When handling dependencies before namespaceMutator, assume they are non-Soong Blueprint modules and give
+		// access to all namespaces.
+		return r.sortedNamespaces.sortedItems()
+	}
 	return sourceNamespace.visibleNamespaces
 }
 

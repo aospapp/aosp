@@ -75,7 +75,19 @@ const uint8_t kFakeExtFeaturesForLowPowerScan[] = {0x0, 0x0, 0x80};
 const uint8_t kFakeExtFeaturesForHighAccuracy[] = {0x0, 0x0, 0x0, 0x1};
 const uint8_t kFakeExtFeaturesForAllScanType[] = {0x0, 0x0, 0xC0, 0x1};
 const uint8_t kFakeFrame[] = {0x00, 0x01, 0x02, 0x03};
-
+constexpr bool k11nSupported = true;
+constexpr bool k11acSupported = true;
+constexpr bool k11axSupported = true;
+constexpr uint8_t kMaxTxStreams = 4;
+constexpr uint8_t kMaxRxStreams = 5;
+constexpr bool k160MHzSupported = true;
+constexpr bool k80p80MHzSupported = false;
+const uint8_t kHtMcsSet[] = {0xff, 0xff, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+                             0x0, 0x0, 0x0, 0x0, 0xf, 0x0, 0x0, 0x0};
+const uint8_t kVhtMcsSet[] = {0xaa, 0xfe, 0xff, 0xff, 0xaa, 0xff, 0xff, 0xff};
+const uint8_t kHeMcsSet[] = {0xaa, 0xfe, 0xaa, 0xff};
+const uint8_t kVhtCap[] = {0x4, 0x0, 0x0, 0x0};
+const uint8_t kHeCapPhy[] = {0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
 // Currently, control messages are only created by the kernel and sent to us.
 // Therefore NL80211Packet doesn't have corresponding constructor.
@@ -121,6 +133,56 @@ void AppendScanCapabilitiesAttributes(NL80211Packet* packet,
   }
 }
 
+
+NL80211Attr<std::vector<uint8_t>> GenerateBandsAttributeForHtCapa() {
+  std::vector<uint8_t> ht_cap(2, 0);
+  return NL80211Attr<std::vector<uint8_t>>(NL80211_BAND_ATTR_HT_CAPA,
+                                           ht_cap);
+}
+
+
+NL80211Attr<std::vector<uint8_t>> GenerateBandsAttributeForVhtCapa() {
+  std::vector<uint8_t> vht_cap(kVhtCap, kVhtCap + sizeof(kVhtCap));
+  return NL80211Attr<std::vector<uint8_t>>(NL80211_BAND_ATTR_VHT_CAPA,
+                                           vht_cap);
+}
+
+NL80211Attr<std::vector<uint8_t>> GenerateBandsAttributeForHtMcsSet() {
+  std::vector<uint8_t> ht_mcs_set(kHtMcsSet, kHtMcsSet + sizeof(kHtMcsSet));
+  return NL80211Attr<std::vector<uint8_t>>(NL80211_BAND_ATTR_HT_MCS_SET,
+                                           ht_mcs_set);
+}
+
+NL80211Attr<std::vector<uint8_t>> GenerateBandsAttributeForVhtMcsSet() {
+  std::vector<uint8_t> vht_mcs_set(kVhtMcsSet, kVhtMcsSet + sizeof(kVhtMcsSet));
+  return NL80211Attr<std::vector<uint8_t>>(NL80211_BAND_ATTR_VHT_MCS_SET,
+                                           vht_mcs_set);
+}
+
+NL80211NestedAttr GenerateBandsAttributeForIfTypeData() {
+  NL80211NestedAttr if_type_data(NL80211_BAND_ATTR_IFTYPE_DATA);
+
+  NL80211NestedAttr if_type_data1(1);
+  std::vector<uint8_t> he_cap_phy(kHeCapPhy, kHeCapPhy + sizeof(kHeCapPhy));
+  std::vector<uint8_t> he_mcs_set(kHeMcsSet, kHeMcsSet + sizeof(kHeMcsSet));
+
+  if_type_data1.AddAttribute(NL80211Attr<std::vector<uint8_t>>(
+      NL80211_BAND_IFTYPE_ATTR_HE_CAP_PHY, he_cap_phy));
+  if_type_data1.AddAttribute(NL80211Attr<std::vector<uint8_t>>(
+      NL80211_BAND_IFTYPE_ATTR_HE_CAP_MCS_SET, he_mcs_set));
+  if_type_data.AddAttribute(if_type_data1);
+  return if_type_data;
+}
+
+void AppendBandPhyAttributes(NL80211NestedAttr* band_attr) {
+  band_attr->AddAttribute(GenerateBandsAttributeForHtCapa());
+  band_attr->AddAttribute(GenerateBandsAttributeForHtMcsSet());
+  band_attr->AddAttribute(GenerateBandsAttributeForVhtCapa());
+  band_attr->AddAttribute(GenerateBandsAttributeForVhtMcsSet());
+
+  band_attr->AddAttribute(GenerateBandsAttributeForIfTypeData());
+}
+
 NL80211NestedAttr GenerateBandsAttributeFor2g() {
   NL80211NestedAttr freq_2g_1(1);
   NL80211NestedAttr freq_2g_2(2);
@@ -139,6 +201,7 @@ NL80211NestedAttr GenerateBandsAttributeFor2g() {
 
   NL80211NestedAttr band_2g_attr(1);
   band_2g_attr.AddAttribute(band_2g_freqs);
+  AppendBandPhyAttributes(&band_2g_attr);
 
   NL80211NestedAttr band_attr(NL80211_ATTR_WIPHY_BANDS);
   band_attr.AddAttribute(band_2g_attr);
@@ -177,6 +240,7 @@ NL80211NestedAttr GenerateBandsAttributeFor5gAndDfs() {
 
   NL80211NestedAttr band_5g_attr(1);
   band_5g_attr.AddAttribute(band_5g_freqs);
+  AppendBandPhyAttributes(&band_5g_attr);
 
   NL80211NestedAttr band_attr(NL80211_ATTR_WIPHY_BANDS);
   band_attr.AddAttribute(band_5g_attr);
@@ -187,6 +251,7 @@ void AppendBandInfoAttributes(NL80211Packet* packet) {
   NL80211NestedAttr attr_2g = GenerateBandsAttributeFor2g();
   NL80211NestedAttr attr_5g_and_dfs = GenerateBandsAttributeFor5gAndDfs();
   attr_2g.Merge(attr_5g_and_dfs);
+
   packet->AddAttribute(attr_2g);
 }
 
@@ -267,6 +332,13 @@ void VerifyBandInfo(const BandInfo& band_info) {
   EXPECT_EQ(band_info.band_2g, band_2g_expected);
   EXPECT_EQ(band_info.band_5g, band_5g_expected);
   EXPECT_EQ(band_info.band_dfs, band_dfs_expected);
+  EXPECT_EQ(band_info.is_80211n_supported, k11nSupported);
+  EXPECT_EQ(band_info.is_80211ac_supported, k11acSupported);
+  EXPECT_EQ(band_info.is_80211ax_supported, k11axSupported);
+  EXPECT_EQ(band_info.is_160_mhz_supported, k160MHzSupported);
+  EXPECT_EQ(band_info.is_80p80_mhz_supported, k80p80MHzSupported);
+  EXPECT_EQ(band_info.max_tx_streams, kMaxTxStreams);
+  EXPECT_EQ(band_info.max_rx_streams, kMaxRxStreams);
 }
 
 void VerifyWiphyFeatures(const WiphyFeatures& wiphy_features) {

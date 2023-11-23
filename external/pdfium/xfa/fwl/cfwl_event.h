@@ -7,20 +7,13 @@
 #ifndef XFA_FWL_CFWL_EVENT_H_
 #define XFA_FWL_CFWL_EVENT_H_
 
-#include "core/fxcrt/fx_coordinates.h"
-#include "core/fxcrt/fx_string.h"
-#include "core/fxcrt/fx_system.h"
-#include "xfa/fwl/cfwl_messagekey.h"
-#include "xfa/fwl/cfwl_messagemouse.h"
-
-class CXFA_Graphics;
-class CFWL_Widget;
+#include "core/fxcrt/observed_ptr.h"
+#include "xfa/fwl/cfwl_widget.h"
 
 class CFWL_Event {
  public:
   enum class Type {
     CheckStateChanged,
-    CheckWord,
     Click,
     Close,
     EditChanged,
@@ -29,7 +22,7 @@ class CFWL_Event {
     PreDropDown,
     Scroll,
     SelectChanged,
-    TextChanged,
+    TextWillChange,
     TextFull,
     Validate
   };
@@ -40,12 +33,13 @@ class CFWL_Event {
   virtual ~CFWL_Event();
 
   Type GetType() const { return m_type; }
-
-  CFWL_Widget* m_pSrcTarget;
-  CFWL_Widget* m_pDstTarget;
+  CFWL_Widget* GetSrcTarget() const { return m_pSrcTarget.Get(); }
+  CFWL_Widget* GetDstTarget() const { return m_pDstTarget.Get(); }
 
  private:
-  Type m_type;
+  const Type m_type;
+  ObservedPtr<CFWL_Widget> const m_pSrcTarget;
+  ObservedPtr<CFWL_Widget> const m_pDstTarget;
 };
 
 #endif  // XFA_FWL_CFWL_EVENT_H_

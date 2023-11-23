@@ -52,7 +52,7 @@ enum MethodImplType {
 using MethodImpl = std::map<MethodImplType, std::function<void(Formatter &)>>;
 
 struct Method : DocCommentable {
-    Method(const char* name, std::vector<NamedReference<Type>*>* args,
+    Method(const std::string& name, std::vector<NamedReference<Type>*>* args,
            std::vector<NamedReference<Type>*>* results, bool oneway,
            std::vector<Annotation*>* annotations, const Location& location);
 
@@ -72,9 +72,6 @@ struct Method : DocCommentable {
 
     std::vector<Reference<Type>*> getStrongReferences();
     std::vector<const Reference<Type>*> getStrongReferences() const;
-
-    std::vector<ConstantExpression*> getConstantExpressions();
-    std::vector<const ConstantExpression*> getConstantExpressions() const;
 
     // Make a copy with the same name, args, results, oneway, annotations.
     // Implementations, serial are not copied.
@@ -101,10 +98,11 @@ struct Method : DocCommentable {
 
     void emitJavaArgSignature(Formatter &out) const;
     void emitJavaResultSignature(Formatter &out) const;
+    void emitJavaSignature(Formatter& out) const;
+
+    void emitHidlDefinition(Formatter& out) const;
 
     const NamedReference<Type>* canElideCallback() const;
-
-    void dumpAnnotations(Formatter &out) const;
 
     bool deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const;
 

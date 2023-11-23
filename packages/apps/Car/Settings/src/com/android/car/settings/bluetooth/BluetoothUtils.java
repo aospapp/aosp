@@ -16,7 +16,6 @@
 
 package com.android.car.settings.bluetooth;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
@@ -25,6 +24,7 @@ import android.widget.Toast;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
+import com.android.car.ui.AlertDialogBuilder;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 import com.android.settingslib.bluetooth.LocalBluetoothManager.BluetoothManagerCallback;
@@ -69,7 +69,7 @@ final class BluetoothUtils {
         String message = context.getString(messageResId, name);
         Context activity = manager.getForegroundActivity();
         if (manager.isForegroundActivity()) {
-            new AlertDialog.Builder(activity)
+            new AlertDialogBuilder(activity)
                     .setTitle(R.string.bluetooth_error_title)
                     .setMessage(message)
                     .setPositiveButton(android.R.string.ok, null)

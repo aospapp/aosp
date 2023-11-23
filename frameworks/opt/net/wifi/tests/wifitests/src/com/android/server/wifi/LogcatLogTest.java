@@ -29,7 +29,7 @@ import org.junit.Test;
  * Unit tests for {@link LogcatLog}.
  */
 @SmallTest
-public class LogcatLogTest {
+public class LogcatLogTest extends WifiBaseTest {
     private static final String TAG = "LogcatLogTest";
     private LogcatLog mLogger;
 

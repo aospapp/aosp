@@ -24,6 +24,11 @@
 #include <binder/BinderService.h>
 #include <binder/IPCThreadState.h>
 #include <include/binder/request_id.h>
+#include <utils/Printer.h>
+
+#include <codecvt>
+#include <locale>
+#include <utility>
 
 /*
  * Definitions for the IIorap binder native service implementation.
@@ -76,10 +81,42 @@ static std::atomic<bool> s_service_params_ready_{false};
 static ServiceParams s_service_params_;
 static std::atomic<ServiceParams*> s_service_params_atomic_;
 
+// Convert an android::String16 (UTF-16) to a UTF-8 std::string.
+static std::string String16ToStdString(const ::android::String16& s16) {
+  std::u16string u16{s16.string()};
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>,char16_t> convert;
+
+  std::string res = convert.to_bytes(u16);
+  return res;
+}
+
 }  // namespace anonymous
 
 class IIorapImpl::Impl {
+  // ITaskListener implementation for iorap::manager::EventManager.
+  struct EventManagerTaskCallbacks : public iorap::manager::TaskResultCallbacks {
+    explicit EventManagerTaskCallbacks(iorap::borrowed<IIorapImpl::Impl*> impl) {
+      CHECK(impl != nullptr);
+      impl_ = impl;
+    }
+
+    virtual void OnProgress(iorap::binder::RequestId request_id, iorap::binder::TaskResult task_result) override {
+      impl_->ReplyWithResult(request_id, /*completed*/false, std::move(task_result));
+    }
+    virtual void OnComplete(iorap::binder::RequestId request_id, iorap::binder::TaskResult task_result) override {
+      impl_->ReplyWithResult(request_id, /*completed*/true, std::move(task_result));
+    }
+
+    virtual ~EventManagerTaskCallbacks() {}
+
+    iorap::borrowed<IIorapImpl::Impl*> impl_;
+  };
+
  public:
+  ~Impl() {
+    package_manager_->UnregisterPackageChangeObserver(package_change_observer_);
+  }
+
   void SetTaskListener(const ::android::sp<ITaskListener>& listener) {
     ::android::sp<ITaskListener> old_listener = listener_;
     if (old_listener != nullptr && listener != nullptr) {
@@ -93,7 +130,7 @@ class IIorapImpl::Impl {
     if (listener == nullptr) {
       // No listener. Cannot send anything back to the client.
       // This could be normal, e.g. client had set listener to null before disconnecting.
-      LOG(WARNING) << "Drop result, no listener registered.";
+      LOG(DEBUG) << "Drop result, no listener registered.";
       // TODO: print the result with ostream operator<<
       return;
     }
@@ -111,6 +148,26 @@ class IIorapImpl::Impl {
     }
   }
 
+  void ReplyWithResult(const RequestId& request_id, bool completed, TaskResult result) {
+    ::android::sp<ITaskListener> listener = listener_;
+    if (listener == nullptr) {
+      // No listener. Cannot send anything back to the client.
+      // This could be normal, e.g. client had set listener to null before disconnecting.
+      LOG(DEBUG) << "Drop result, no listener registered.";
+      // TODO: print the result with ostream operator<<
+      return;
+    }
+
+    // TODO: verbose, not info.
+    if (completed) {
+      LOG(VERBOSE) << "ITaskListener::onComplete (request_id=" << request_id.request_id << ")";
+      listener->onComplete(request_id, result);
+    } else {
+      LOG(VERBOSE) << "ITaskListener::onProgress (request_id=" << request_id.request_id << ")";
+      listener->onProgress(request_id, result);
+    }
+  }
+
   bool OnAppLaunchEvent(const RequestId& request_id,
                         const AppLaunchEvent& event) {
     if (MaybeHandleFakeBehavior(request_id)) {
@@ -118,6 +175,89 @@ class IIorapImpl::Impl {
     }
 
     return service_params_.event_manager_->OnAppLaunchEvent(request_id, event);
+  }
+
+  bool OnDexOptEvent(const RequestId& request_id, const DexOptEvent& event) {
+    if (MaybeHandleFakeBehavior(request_id)) {
+      return true;
+    }
+
+    return service_params_.event_manager_->OnDexOptEvent(request_id, event);
+  }
+
+  bool  OnJobScheduledEvent(const RequestId& request_id,
+                            const JobScheduledEvent& event) {
+    if (MaybeHandleFakeBehavior(request_id)) {
+      return true;
+    }
+
+    return service_params_.event_manager_->OnJobScheduledEvent(request_id, event);
+  }
+
+  void Dump(/*borrow*/::android::Printer& printer,
+            const ::android::Vector<::android::String16>& args) {
+
+    if (args.size() == 0) {
+      service_params_.event_manager_->Dump(/*borrow*/printer);
+      return;
+    }
+
+    ::android::String16 arg_prev;
+    for (const ::android::String16& arg : args) {
+      bool unknown = false;
+      if (arg == ::android::String16("--all") || arg == ::android::String16("-a")) {
+        // using 'dumpsys' or 'bugreport' passes a single '-a' flag to this function.
+        service_params_.event_manager_->Dump(/*borrow*/printer);
+      } else if (arg == ::android::String16("--refresh-properties")) {
+        service_params_.event_manager_->RefreshSystemProperties(/*borrow*/printer);
+        printer.printLine("System properties refreshed.");
+      } else if (arg == ::android::String16("--compile-package")) {
+        // Intentionally left blank.
+      } else if (arg_prev == ::android::String16("--compile-package")) {
+        std::string package_name = String16ToStdString(arg);
+
+        if (!service_params_.event_manager_->CompilePackage(/*borrow*/printer, package_name)) {
+          printer.printFormatLine("Failed to compile package %s.", package_name.c_str());
+        } else {
+          printer.printFormatLine("Package %s compiled.", package_name.c_str());
+        }
+      } else if (arg == ::android::String16("--purge-package")) {
+        // Intentionally left blank.
+      } else if (arg_prev == ::android::String16("--purge-package")) {
+        std::string package_name = String16ToStdString(arg);
+
+        if (!service_params_.event_manager_->PurgePackage(/*borrow*/printer, package_name)) {
+          printer.printFormatLine("Failed to purge package %s.", package_name.c_str());
+        } else {
+          printer.printFormatLine("Package %s purged.", package_name.c_str());
+        }
+      } else {
+        unknown = true;
+      }
+
+      if (unknown && arg != ::android::String16("--help")) {
+        printer.printLine("Invalid arguments.");
+        printer.printLine("");
+
+        printer.printLine("Arguments were:");
+        for (const ::android::String16& arg16 : args) {
+          printer.printFormatLine("  '%s'", String16ToStdString(arg16).c_str());
+        }
+        printer.printLine("");
+      }
+
+      if (unknown || arg == ::android::String16("--help")) {
+        printer.printLine("Iorapd dumpsys commands:");
+        printer.printLine("  (none),--all,-a: Print state information for debugging iorapd.");
+        printer.printLine("  --help: Display this help menu");
+        printer.printLine("  --compile-package <name>: Compile single package on device");
+        printer.printLine("  --purge-package <name>: Delete database entries/files for package");
+        printer.printLine("  --refresh-properties: Refresh system properties");
+        return;
+      }
+
+      arg_prev = arg;
+    }
   }
 
   void HandleFakeBehavior(const RequestId& request_id) {
@@ -141,11 +281,36 @@ class IIorapImpl::Impl {
 
   ::android::sp<ITaskListener> listener_;
 
-  Impl(ServiceParams p) : service_params_{std::move(p)} {
+  Impl(ServiceParams p) : service_params_{std::move(p)}, event_manager_callbacks_{new EventManagerTaskCallbacks{this}} {
     CHECK(service_params_.event_manager_ != nullptr);
+
+    service_params_.event_manager_->SetTaskResultCallbacks(
+      std::static_pointer_cast<manager::TaskResultCallbacks>(event_manager_callbacks_));
+
+    // Init the package change observer.
+    package_manager_ = PackageManagerRemote::Create();
+
+    if (package_manager_ == nullptr) {
+      LOG(FATAL) << "Failed to get package manager service in IIorapImpl::Impl";
+      return;
+    }
+
+    package_change_observer_ =
+        new PackageChangeObserver(service_params_.event_manager_);
+    package_manager_death_recipient_ =
+        new PackageManagerDeathRecipient(package_manager_, package_change_observer_);
+
+    package_manager_->RegisterPackageChangeObserver(package_change_observer_);
+    package_manager_->
+        RegisterPackageManagerDeathRecipient(package_manager_death_recipient_);
+
   }
 
   ServiceParams service_params_;
+  std::shared_ptr<EventManagerTaskCallbacks> event_manager_callbacks_;
+  android::sp<PackageChangeObserver> package_change_observer_;
+  android::sp<PackageManagerDeathRecipient> package_manager_death_recipient_;
+  std::shared_ptr<PackageManagerRemote> package_manager_;
 };
 
 using Impl = IIorapImpl::Impl;
@@ -203,7 +368,19 @@ bool IIorapImpl::Start(std::shared_ptr<manager::EventManager> event_manager) {
   // Release edge synchronizes-with the top of this function.
   s_service_started_.store(true);
 
+  // TODO: IIRC thread-start(t1) synchronizes-with t1.main, so we should be able
+  // to delete the majority of atomics for any pre-thread-start initialization...
+
   return true;
+}
+
+::android::status_t IIorapImpl::dump(int fd, const ::android::Vector<::android::String16>& args) {
+
+  ::android::FdPrinter printer{fd};
+
+  impl_->Dump(printer, args);
+
+  return ::android::NO_ERROR;
 }
 
 namespace {
@@ -245,6 +422,48 @@ Status SendArgs(const char* function_name,
   MAYBE_HAVE_FAKE_BEHAVIOR(self, request_id);
 
   if (self->OnAppLaunchEvent(request_id, app_launch_event)) {
+    return Status::ok();
+  } else {
+    // TODO: I suppose this should write out an exception back,
+    // like a service-specific error or something.
+    //
+    // It depends on whether or not we even have any synchronous
+    // errors.
+    //
+    // Most of the work here is done async, so it should handle
+    // async callbacks.
+    return Status::fromStatusT(::android::BAD_VALUE);
+  }
+}
+
+template <typename ... Args>
+Status SendArgs(const char* function_name,
+                Impl* self,
+                const RequestId& request_id,
+                const DexOptEvent& event) {
+  DCHECK_EQ(std::string(function_name), "onDexOptEvent");
+  LOG(VERBOSE) << "IIorap::onDexOptEvent";
+
+  MAYBE_HAVE_FAKE_BEHAVIOR(self, request_id);
+
+  if (self->OnDexOptEvent(request_id, event)) {
+    return Status::ok();
+  } else {
+    return Status::fromStatusT(::android::BAD_VALUE);
+  }
+}
+
+template <typename ... Args>
+Status SendArgs(const char* function_name,
+                Impl* self,
+                const RequestId& request_id,
+                const JobScheduledEvent& event) {
+  DCHECK_EQ(std::string(function_name), "onJobScheduledEvent");
+  LOG(VERBOSE) << "IIorap::onJobScheduledEvent";
+
+  MAYBE_HAVE_FAKE_BEHAVIOR(self, request_id);
+
+  if (self->OnJobScheduledEvent(request_id, event)) {
     return Status::ok();
   } else {
     // TODO: I suppose this should write out an exception back,

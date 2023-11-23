@@ -34,6 +34,7 @@ import com.android.internal.util.Preconditions;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Information about where text selection should be.
@@ -163,7 +164,7 @@ public final class TextSelection implements Parcelable {
         public Builder setEntityType(
                 @NonNull @EntityType String type,
                 @FloatRange(from = 0.0, to = 1.0) float confidenceScore) {
-            Preconditions.checkNotNull(type);
+            Objects.requireNonNull(type);
             mEntityConfidence.put(type, confidenceScore);
             return this;
         }
@@ -210,7 +211,7 @@ public final class TextSelection implements Parcelable {
         @Nullable private final LocaleList mDefaultLocales;
         private final boolean mDarkLaunchAllowed;
         private final Bundle mExtras;
-        @Nullable private String mCallingPackageName;
+        @Nullable private SystemTextClassifierMetadata mSystemTcMetadata;
 
         private Request(
                 CharSequence text,
@@ -272,23 +273,33 @@ public final class TextSelection implements Parcelable {
         }
 
         /**
-         * Sets the name of the package that is sending this request.
-         * <p>
-         * Package-private for SystemTextClassifier's use.
-         * @hide
-         */
-        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-        public void setCallingPackageName(@Nullable String callingPackageName) {
-            mCallingPackageName = callingPackageName;
-        }
-
-        /**
          * Returns the name of the package that sent this request.
          * This returns {@code null} if no calling package name is set.
          */
         @Nullable
         public String getCallingPackageName() {
-            return mCallingPackageName;
+            return mSystemTcMetadata != null ? mSystemTcMetadata.getCallingPackageName() : null;
+        }
+
+        /**
+         * Sets the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+        public void setSystemTextClassifierMetadata(
+                @Nullable SystemTextClassifierMetadata systemTcMetadata) {
+            mSystemTcMetadata = systemTcMetadata;
+        }
+
+        /**
+         * Returns the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        @Nullable
+        public SystemTextClassifierMetadata getSystemTextClassifierMetadata() {
+            return mSystemTcMetadata;
         }
 
         /**
@@ -393,8 +404,8 @@ public final class TextSelection implements Parcelable {
             dest.writeInt(mStartIndex);
             dest.writeInt(mEndIndex);
             dest.writeParcelable(mDefaultLocales, flags);
-            dest.writeString(mCallingPackageName);
             dest.writeBundle(mExtras);
+            dest.writeParcelable(mSystemTcMetadata, flags);
         }
 
         private static Request readFromParcel(Parcel in) {
@@ -402,12 +413,12 @@ public final class TextSelection implements Parcelable {
             final int startIndex = in.readInt();
             final int endIndex = in.readInt();
             final LocaleList defaultLocales = in.readParcelable(null);
-            final String callingPackageName = in.readString();
             final Bundle extras = in.readBundle();
+            final SystemTextClassifierMetadata systemTcMetadata = in.readParcelable(null);
 
             final Request request = new Request(text, startIndex, endIndex, defaultLocales,
                     /* darkLaunchAllowed= */ false, extras);
-            request.setCallingPackageName(callingPackageName);
+            request.setSystemTextClassifierMetadata(systemTcMetadata);
             return request;
         }
 

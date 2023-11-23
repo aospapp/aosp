@@ -72,8 +72,8 @@ class TelLabSmsTest(TelephonyBaseTest):
     phoneNumber = "911"
     SETTLING_TIME = 15
 
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad = self.android_devices[0]
         self.md8475a_ip_address = self.user_params[
             "anritsu_md8475a_ip_address"]
@@ -81,10 +81,9 @@ class TelLabSmsTest(TelephonyBaseTest):
         self.wlan_option = self.user_params.get("anritsu_wlan_option", False)
         self.md8475_version = self.user_params.get("md8475", "A")
 
-    def setup_class(self):
         try:
-            self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option, self.md8475_version)
+            self.anritsu = MD8475A(self.md8475a_ip_address, self.wlan_option,
+                                   self.md8475_version)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False

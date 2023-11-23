@@ -19,6 +19,7 @@ package com.android.cts.deviceandprofileowner;
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
 
 import android.app.admin.DevicePolicyManager;
+import android.keystore.cts.KeyGenerationUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,6 +32,9 @@ public class DelegatedCertInstallerHelper extends BaseDeviceAdminTest {
     private static final String CERT_INSTALLER_PACKAGE = "com.android.cts.certinstaller";
 
     private static final List<String> CERT_INSTALL_SCOPES = Arrays.asList(DELEGATION_CERT_INSTALL);
+
+    // MUST match the alias in PreSelectedKeyAccessTest
+    private static final String PRE_SELECTED_ALIAS = "pre-selected-rsa";
 
     private DevicePolicyManager mDpm;
 
@@ -56,5 +60,20 @@ public class DelegatedCertInstallerHelper extends BaseDeviceAdminTest {
         mDpm.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, CERT_INSTALLER_PACKAGE, Arrays.asList());
         assertFalse(mDpm.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
                 DELEGATION_CERT_INSTALL).contains(CERT_INSTALLER_PACKAGE));
+    }
+
+    public void testManualGenerateKeyAndGrantAccess() {
+        KeyGenerationUtils.generateRsaKey(mDpm, ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS);
+        assertTrue(mDpm.grantKeyPairToApp(ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS,
+                    CERT_INSTALLER_PACKAGE));
+    }
+
+    public void testManualRemoveKeyGrant() {
+        assertTrue(mDpm.revokeKeyPairFromApp(ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS,
+                CERT_INSTALLER_PACKAGE));
+    }
+
+    public void testManualClearGeneratedKey() {
+        assertTrue(mDpm.removeKeyPair(ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS));
     }
 }

@@ -196,7 +196,7 @@ public class CallRedirectionProcessor implements CallRedirectionCallback {
                     synchronized (mTelecomLock) {
                         mRedirectionGatewayInfo = mCallRedirectionProcessorHelper
                                 .getGatewayInfoFromGatewayUri(mComponentName.getPackageName(),
-                                        gatewayUri, mDestinationUri);
+                                        gatewayUri, mDestinationUri, mPostDialDigits);
                         mPhoneAccountHandle = targetPhoneAccount;
                         // If carrier redirects call, we should skip to notify users about
                         // the user-defined call redirection service.
@@ -247,6 +247,12 @@ public class CallRedirectionProcessor implements CallRedirectionCallback {
     private Uri mProcessedDestinationUri;
 
     /**
+     * The post dial digits which were removed from {@link #mDestinationUri} when determining
+     * {@link #mProcessedDestinationUri}.
+     */
+    private String mPostDialDigits;
+
+    /**
      * Indicates if Telecom should cancel the call when the whole call redirection finishes.
      */
     private boolean mShouldCancelCall = false;
@@ -293,6 +299,7 @@ public class CallRedirectionProcessor implements CallRedirectionCallback {
                 context, callsManager, phoneAccountRegistrar);
         mProcessedDestinationUri = mCallRedirectionProcessorHelper.formatNumberForRedirection(
                 mDestinationUri);
+        mPostDialDigits = mCallRedirectionProcessorHelper.getPostDialDigits(mDestinationUri);
     }
 
     @Override

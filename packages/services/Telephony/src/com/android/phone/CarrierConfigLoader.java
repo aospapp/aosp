@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2015, The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,8 @@ import static android.service.carrier.CarrierService.ICarrierServiceWrapper.KEY_
 import static android.service.carrier.CarrierService.ICarrierServiceWrapper.RESULT_ERROR;
 
 import android.annotation.NonNull;
-import android.app.ActivityManager;
+import android.annotation.Nullable;
+import android.app.AppOpsManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -37,9 +38,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.PersistableBundle;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
-import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.preference.PreferenceManager;
 import android.service.carrier.CarrierIdentifier;
@@ -47,7 +48,10 @@ import android.service.carrier.CarrierService;
 import android.service.carrier.ICarrierService;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyFrameworkInitializer;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
+import android.util.ArraySet;
 import android.util.LocalLog;
 import android.util.Log;
 
@@ -57,12 +61,8 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.SubscriptionInfoUpdater;
 import com.android.internal.telephony.TelephonyPermissions;
-import com.android.internal.util.FastXmlSerializer;
+import com.android.internal.telephony.util.ArrayUtils;
 import com.android.internal.util.IndentingPrintWriter;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -76,11 +76,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * CarrierConfigLoader binds to privileged carrier apps to fetch carrier config overlays.
  */
-
 public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     private static final String LOG_TAG = "CarrierConfigLoader";
 
@@ -95,12 +95,18 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     private PersistableBundle[] mConfigFromDefaultApp;
     // Carrier configs from privileged carrier config app, indexed by phoneID.
     private PersistableBundle[] mConfigFromCarrierApp;
+    // Persistent Carrier configs that are provided via the override test API, indexed by phone ID.
+    private PersistableBundle[] mPersistentOverrideConfigs;
     // Carrier configs that are provided via the override test API, indexed by phone ID.
     private PersistableBundle[] mOverrideConfigs;
     // Service connection for binding to config app.
     private CarrierServiceConnection[] mServiceConnection;
-    // Whether we have sent config change bcast for each phone id.
+    // Whether we are bound to a service for each phone
+    private boolean[] mServiceBound;
+    // Whether we have sent config change broadcast for each phone id.
     private boolean[] mHasSentConfigChange;
+    // Whether the broadcast was sent from EVENT_SYSTEM_UNLOCKED, to track rebroadcasts
+    private boolean[] mFromSystemUnlocked;
     // SubscriptionInfoUpdater
     private final SubscriptionInfoUpdater mSubscriptionInfoUpdater;
 
@@ -108,7 +114,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     private final BroadcastReceiver mBootReceiver = new ConfigLoaderBroadcastReceiver();
     // Broadcast receiver for SIM and pkg intents, register intent filter in constructor.
     private final BroadcastReceiver mPackageReceiver = new ConfigLoaderBroadcastReceiver();
-    private final LocalLog mCarrierConfigLoadingLog = new LocalLog(50);
+    private final LocalLog mCarrierConfigLoadingLog = new LocalLog(100);
 
 
     // Message codes; see mHandler below.
@@ -142,16 +148,24 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     private static final int EVENT_FETCH_CARRIER_TIMEOUT = 15;
     // SubscriptionInfoUpdater has finished updating the sub for the carrier config.
     private static final int EVENT_SUBSCRIPTION_INFO_UPDATED = 16;
+    // Multi-SIM config changed.
+    private static final int EVENT_MULTI_SIM_CONFIG_CHANGED = 17;
 
     private static final int BIND_TIMEOUT_MILLIS = 30000;
 
-    // Tags used for saving and restoring XML documents.
-    private static final String TAG_DOCUMENT = "carrier_config";
-    private static final String TAG_VERSION = "package_version";
-    private static final String TAG_BUNDLE = "bundle_data";
+    // Keys used for saving and restoring config bundle from file.
+    private static final String KEY_VERSION = "__carrier_config_package_version__";
+
+    private static final String OVERRIDE_PACKAGE_ADDITION = "-override";
 
     // SharedPreferences key for last known build fingerprint.
     private static final String KEY_FINGERPRINT = "build_fingerprint";
+
+    // Argument for #dump that indicates we should also call the default and specified carrier
+    // service's #dump method. In multi-SIM devices, it's possible that carrier A is on SIM 1 and
+    // carrier B is on SIM 2, in which case we should not dump carrier B's service when carrier A
+    // requested the dump.
+    private static final String DUMP_ARG_REQUESTING_PACKAGE = "--requesting-package";
 
     // Handler to process various events.
     //
@@ -174,58 +188,62 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         @Override
         public void handleMessage(Message msg) {
             final int phoneId = msg.arg1;
-            logWithLocalLog("mHandler: " + msg.what + " phoneId: " + phoneId);
+            logdWithLocalLog("mHandler: " + msg.what + " phoneId: " + phoneId);
+            if (!SubscriptionManager.isValidPhoneId(phoneId)
+                    && msg.what != EVENT_MULTI_SIM_CONFIG_CHANGED) {
+                return;
+            }
             switch (msg.what) {
-                case EVENT_CLEAR_CONFIG:
-                {
-                    /* Ignore clear configuration request if device is being shutdown. */
-                    Phone phone = PhoneFactory.getPhone(phoneId);
-                    if (phone != null) {
-                        if (phone.isShuttingDown()) {
-                            break;
-                        }
-                    }
-
-                    mConfigFromDefaultApp[phoneId] = null;
-                    mConfigFromCarrierApp[phoneId] = null;
-                    mServiceConnection[phoneId] = null;
-                    broadcastConfigChangedIntent(phoneId, false);
+                case EVENT_CLEAR_CONFIG: {
+                    clearConfigForPhone(phoneId, true);
                     break;
                 }
 
-                case EVENT_SYSTEM_UNLOCKED:
-                {
-                    for (int i = 0; i < TelephonyManager.from(mContext).getPhoneCount(); ++i) {
-                        // When user unlock device, we should only try to send broadcast again if we
-                        // have sent it before unlock. This will avoid we try to load carrier config
-                        // when SIM is still loading when unlock happens.
+                case EVENT_SYSTEM_UNLOCKED: {
+                    for (int i = 0; i < TelephonyManager.from(mContext).getActiveModemCount();
+                            ++i) {
+                        // When the user unlocks the device, send the broadcast again (with a
+                        // rebroadcast extra) if we have sent it before unlock. This will avoid
+                        // trying to load the carrier config when the SIM is still loading when the
+                        // unlock happens.
                         if (mHasSentConfigChange[i]) {
+                            logdWithLocalLog("System unlocked");
+                            mFromSystemUnlocked[i] = true;
                             updateConfigForPhoneId(i);
                         }
                     }
                     break;
                 }
 
-                case EVENT_PACKAGE_CHANGED:
-                {
+                case EVENT_PACKAGE_CHANGED: {
                     final String carrierPackageName = (String) msg.obj;
                     // Only update if there are cached config removed to avoid updating config for
                     // unrelated packages.
                     if (clearCachedConfigForPackage(carrierPackageName)) {
-                        int numPhones = TelephonyManager.from(mContext).getPhoneCount();
+                        int numPhones = TelephonyManager.from(mContext).getActiveModemCount();
                         for (int i = 0; i < numPhones; ++i) {
+                            logdWithLocalLog("Package changed: " + carrierPackageName
+                                    + ", phone=" + i);
                             updateConfigForPhoneId(i);
                         }
                     }
                     break;
                 }
 
-                case EVENT_DO_FETCH_DEFAULT:
-                {
-                    final PersistableBundle config =
-                            restoreConfigFromXml(mPlatformCarrierConfigPackage, phoneId);
+                case EVENT_DO_FETCH_DEFAULT: {
+                    // Restore persistent override values.
+                    PersistableBundle config = restoreConfigFromXml(
+                            mPlatformCarrierConfigPackage, OVERRIDE_PACKAGE_ADDITION, phoneId);
                     if (config != null) {
-                        log(
+                        logd("Loaded persistent override config from XML. package="
+                                + mPlatformCarrierConfigPackage
+                                + " phoneId=" + phoneId);
+                        mPersistentOverrideConfigs[phoneId] = config;
+                    }
+
+                    config = restoreConfigFromXml(mPlatformCarrierConfigPackage, "", phoneId);
+                    if (config != null) {
+                        logd(
                                 "Loaded config from XML. package="
                                         + mPlatformCarrierConfigPackage
                                         + " phoneId="
@@ -255,13 +273,12 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                     break;
                 }
 
-                case EVENT_CONNECTED_TO_DEFAULT:
-                {
+                case EVENT_CONNECTED_TO_DEFAULT: {
                     removeMessages(EVENT_BIND_DEFAULT_TIMEOUT);
                     final CarrierServiceConnection conn = (CarrierServiceConnection) msg.obj;
                     // If new service connection has been created, unbind.
                     if (mServiceConnection[phoneId] != conn || conn.service == null) {
-                        mContext.unbindService(conn);
+                        unbindIfBound(mContext, conn, phoneId);
                         break;
                     }
                     final CarrierIdentifier carrierId = getCarrierIdentifierForPhoneId(phoneId);
@@ -270,7 +287,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                             new ResultReceiver(this) {
                                 @Override
                                 public void onReceiveResult(int resultCode, Bundle resultData) {
-                                    mContext.unbindService(conn);
+                                    unbindIfBound(mContext, conn, phoneId);
                                     // If new service connection has been created, this is stale.
                                     if (mServiceConnection[phoneId] != conn) {
                                         loge("Received response for stale request.");
@@ -285,8 +302,8 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                                     }
                                     PersistableBundle config =
                                             resultData.getParcelable(KEY_CONFIG_BUNDLE);
-                                    saveConfigToXml(
-                                            mPlatformCarrierConfigPackage, phoneId, config);
+                                    saveConfigToXml(mPlatformCarrierConfigPackage, "", phoneId,
+                                            carrierId, config);
                                     mConfigFromDefaultApp[phoneId] = config;
                                     sendMessage(
                                             obtainMessage(
@@ -298,13 +315,13 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                         ICarrierService carrierService =
                                 ICarrierService.Stub.asInterface(conn.service);
                         carrierService.getCarrierConfig(carrierId, resultReceiver);
-                        logWithLocalLog("fetch config for default app: "
+                        logdWithLocalLog("Fetch config for default app: "
                                 + mPlatformCarrierConfigPackage
                                 + " carrierid: " + carrierId.toString());
                     } catch (RemoteException e) {
                         loge("Failed to get carrier config from default app: " +
                                 mPlatformCarrierConfigPackage + " err: " + e.toString());
-                        mContext.unbindService(conn);
+                        unbindIfBound(mContext, conn, phoneId);
                         break; // So we don't set a timeout.
                     }
                     sendMessageDelayed(
@@ -314,9 +331,8 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                 }
 
                 case EVENT_BIND_DEFAULT_TIMEOUT:
-                case EVENT_FETCH_DEFAULT_TIMEOUT:
-                {
-                    loge("bind/fetch time out from " + mPlatformCarrierConfigPackage);
+                case EVENT_FETCH_DEFAULT_TIMEOUT: {
+                    loge("Bind/fetch time out from " + mPlatformCarrierConfigPackage);
                     removeMessages(EVENT_FETCH_DEFAULT_TIMEOUT);
                     // If we attempted to bind to the app, but the service connection is null due to
                     // the race condition that clear config event happens before bind/fetch complete
@@ -324,15 +340,14 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                     if (mServiceConnection[phoneId] != null) {
                         // If a ResponseReceiver callback is in the queue when this happens, we will
                         // unbind twice and throw an exception.
-                        mContext.unbindService(mServiceConnection[phoneId]);
+                        unbindIfBound(mContext, mServiceConnection[phoneId], phoneId);
                         broadcastConfigChangedIntent(phoneId);
                     }
                     notifySubscriptionInfoUpdater(phoneId);
                     break;
                 }
 
-                case EVENT_FETCH_DEFAULT_DONE:
-                {
+                case EVENT_FETCH_DEFAULT_DONE: {
                     // If we attempted to bind to the app, but the service connection is null, then
                     // config was cleared while we were waiting and we should not continue.
                     if (!msg.getData().getBoolean("loaded_from_xml", false)
@@ -341,7 +356,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                     }
                     final String carrierPackageName = getCarrierPackageForPhoneId(phoneId);
                     if (carrierPackageName != null) {
-                        log("Found carrier config app: " + carrierPackageName);
+                        logd("Found carrier config app: " + carrierPackageName);
                         sendMessage(obtainMessage(EVENT_DO_FETCH_CARRIER, phoneId, -1));
                     } else {
                         notifySubscriptionInfoUpdater(phoneId);
@@ -349,13 +364,12 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                     break;
                 }
 
-                case EVENT_DO_FETCH_CARRIER:
-                {
+                case EVENT_DO_FETCH_CARRIER: {
                     final String carrierPackageName = getCarrierPackageForPhoneId(phoneId);
                     final PersistableBundle config =
-                            restoreConfigFromXml(carrierPackageName, phoneId);
+                            restoreConfigFromXml(carrierPackageName, "", phoneId);
                     if (config != null) {
-                        log(
+                        logd(
                                 "Loaded config from XML. package="
                                         + carrierPackageName
                                         + " phoneId="
@@ -366,31 +380,27 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                         sendMessage(newMsg);
                     } else {
                         // No cached config, so fetch it from a carrier app.
-                        if (carrierPackageName != null
-                                && bindToConfigPackage(
-                                        carrierPackageName,
-                                        phoneId,
-                                        EVENT_CONNECTED_TO_CARRIER)) {
+                        if (carrierPackageName != null && bindToConfigPackage(carrierPackageName,
+                                phoneId, EVENT_CONNECTED_TO_CARRIER)) {
                             sendMessageDelayed(
                                     obtainMessage(EVENT_BIND_CARRIER_TIMEOUT, phoneId, -1),
                                     BIND_TIMEOUT_MILLIS);
                         } else {
                             // Send broadcast if bind fails.
                             broadcastConfigChangedIntent(phoneId);
-                            loge("bind to carrier app: " + carrierPackageName + " fails");
+                            loge("Bind to carrier app: " + carrierPackageName + " fails");
                             notifySubscriptionInfoUpdater(phoneId);
                         }
                     }
                     break;
                 }
 
-                case EVENT_CONNECTED_TO_CARRIER:
-                {
+                case EVENT_CONNECTED_TO_CARRIER: {
                     removeMessages(EVENT_BIND_CARRIER_TIMEOUT);
                     final CarrierServiceConnection conn = (CarrierServiceConnection) msg.obj;
                     // If new service connection has been created, unbind.
                     if (mServiceConnection[phoneId] != conn || conn.service == null) {
-                        mContext.unbindService(conn);
+                        unbindIfBound(mContext, conn, phoneId);
                         break;
                     }
                     final CarrierIdentifier carrierId = getCarrierIdentifierForPhoneId(phoneId);
@@ -399,7 +409,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                             new ResultReceiver(this) {
                                 @Override
                                 public void onReceiveResult(int resultCode, Bundle resultData) {
-                                    mContext.unbindService(conn);
+                                    unbindIfBound(mContext, conn, phoneId);
                                     // If new service connection has been created, this is stale.
                                     if (mServiceConnection[phoneId] != conn) {
                                         loge("Received response for stale request.");
@@ -416,8 +426,8 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                                     }
                                     PersistableBundle config =
                                             resultData.getParcelable(KEY_CONFIG_BUNDLE);
-                                    saveConfigToXml(
-                                            getCarrierPackageForPhoneId(phoneId), phoneId, config);
+                                    saveConfigToXml(getCarrierPackageForPhoneId(phoneId), "",
+                                            phoneId, carrierId, config);
                                     mConfigFromCarrierApp[phoneId] = config;
                                     sendMessage(
                                             obtainMessage(
@@ -429,12 +439,12 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                         ICarrierService carrierService =
                                 ICarrierService.Stub.asInterface(conn.service);
                         carrierService.getCarrierConfig(carrierId, resultReceiver);
-                        logWithLocalLog("fetch config for carrier app: "
+                        logdWithLocalLog("Fetch config for carrier app: "
                                 + getCarrierPackageForPhoneId(phoneId)
                                 + " carrierid: " + carrierId.toString());
                     } catch (RemoteException e) {
                         loge("Failed to get carrier config: " + e.toString());
-                        mContext.unbindService(conn);
+                        unbindIfBound(mContext, conn, phoneId);
                         break; // So we don't set a timeout.
                     }
                     sendMessageDelayed(
@@ -444,9 +454,8 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                 }
 
                 case EVENT_BIND_CARRIER_TIMEOUT:
-                case EVENT_FETCH_CARRIER_TIMEOUT:
-                {
-                    loge("bind/fetch from carrier app timeout");
+                case EVENT_FETCH_CARRIER_TIMEOUT: {
+                    loge("Bind/fetch from carrier app timeout");
                     removeMessages(EVENT_FETCH_CARRIER_TIMEOUT);
                     // If we attempted to bind to the app, but the service connection is null due to
                     // the race condition that clear config event happens before bind/fetch complete
@@ -454,14 +463,13 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                     if (mServiceConnection[phoneId] != null) {
                         // If a ResponseReceiver callback is in the queue when this happens, we will
                         // unbind twice and throw an exception.
-                        mContext.unbindService(mServiceConnection[phoneId]);
+                        unbindIfBound(mContext, mServiceConnection[phoneId], phoneId);
                         broadcastConfigChangedIntent(phoneId);
                     }
                     notifySubscriptionInfoUpdater(phoneId);
                     break;
                 }
-                case EVENT_FETCH_CARRIER_DONE:
-                {
+                case EVENT_FETCH_CARRIER_DONE: {
                     // If we attempted to bind to the app, but the service connection is null, then
                     // config was cleared while we were waiting and we should not continue.
                     if (!msg.getData().getBoolean("loaded_from_xml", false)
@@ -472,13 +480,12 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                     break;
                 }
 
-                case EVENT_CHECK_SYSTEM_UPDATE:
-                {
+                case EVENT_CHECK_SYSTEM_UPDATE: {
                     SharedPreferences sharedPrefs =
                             PreferenceManager.getDefaultSharedPreferences(mContext);
                     final String lastFingerprint = sharedPrefs.getString(KEY_FINGERPRINT, null);
                     if (!Build.FINGERPRINT.equals(lastFingerprint)) {
-                        log(
+                        logd(
                                 "Build fingerprint changed. old: "
                                         + lastFingerprint
                                         + " new: "
@@ -494,6 +501,9 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
 
                 case EVENT_SUBSCRIPTION_INFO_UPDATED:
                     broadcastConfigChangedIntent(phoneId);
+                    break;
+                case EVENT_MULTI_SIM_CONFIG_CHANGED:
+                    onMultiSimConfigChanged();
                     break;
             }
         }
@@ -522,17 +532,21 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         pkgFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         pkgFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
         pkgFilter.addDataScheme("package");
-        context.registerReceiverAsUser(mPackageReceiver, UserHandle.ALL, pkgFilter, null, null);
+        context.registerReceiver(mPackageReceiver, pkgFilter);
 
-        int numPhones = TelephonyManager.from(context).getPhoneCount();
+        int numPhones = TelephonyManager.from(context).getSupportedModemCount();
         mConfigFromDefaultApp = new PersistableBundle[numPhones];
         mConfigFromCarrierApp = new PersistableBundle[numPhones];
+        mPersistentOverrideConfigs = new PersistableBundle[numPhones];
         mOverrideConfigs = new PersistableBundle[numPhones];
         mServiceConnection = new CarrierServiceConnection[numPhones];
+        mServiceBound = new boolean[numPhones];
         mHasSentConfigChange = new boolean[numPhones];
+        mFromSystemUnlocked = new boolean[numPhones];
         // Make this service available through ServiceManager.
-        ServiceManager.addService(Context.CARRIER_CONFIG_SERVICE, this);
-        log("CarrierConfigLoader has started");
+        TelephonyFrameworkInitializer
+                .getTelephonyServiceManager().getCarrierConfigServiceRegisterer().register(this);
+        logd("CarrierConfigLoader has started");
         mSubscriptionInfoUpdater = PhoneFactory.getSubscriptionInfoUpdater();
         mHandler.sendEmptyMessage(EVENT_CHECK_SYSTEM_UPDATE);
     }
@@ -554,6 +568,23 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         }
     }
 
+    private void clearConfigForPhone(int phoneId, boolean sendBroadcast) {
+        /* Ignore clear configuration request if device is being shutdown. */
+        Phone phone = PhoneFactory.getPhone(phoneId);
+        if (phone != null) {
+            if (phone.isShuttingDown()) {
+                return;
+            }
+        }
+
+        mConfigFromDefaultApp[phoneId] = null;
+        mConfigFromCarrierApp[phoneId] = null;
+        mServiceConnection[phoneId] = null;
+        mHasSentConfigChange[phoneId] = false;
+
+        if (sendBroadcast) broadcastConfigChangedIntent(phoneId, false);
+    }
+
     private void notifySubscriptionInfoUpdater(int phoneId) {
         String configPackagename;
         PersistableBundle configToSend;
@@ -567,6 +598,18 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             configPackagename = mPlatformCarrierConfigPackage;
             configToSend = mConfigFromDefaultApp[phoneId];
         }
+
+        if (configToSend == null) {
+            configToSend = new PersistableBundle();
+        }
+
+        // mOverrideConfigs is for testing. And it will override current configs.
+        PersistableBundle config = mOverrideConfigs[phoneId];
+        if (config != null) {
+            configToSend = new PersistableBundle(configToSend);
+            configToSend.putAll(config);
+        }
+
         mSubscriptionInfoUpdater.updateSubscriptionByCarrierConfigAndNotifyComplete(
                 phoneId, configPackagename, configToSend,
                 mHandler.obtainMessage(EVENT_SUBSCRIPTION_INFO_UPDATED, phoneId, -1));
@@ -579,33 +622,54 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     private void broadcastConfigChangedIntent(int phoneId, boolean addSubIdExtra) {
         Intent intent = new Intent(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT |
-                Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND |
                 Intent.FLAG_RECEIVER_FOREGROUND);
-        // Include subId/carrier id extra only if SIM records are loaded
-        TelephonyManager telephonyManager = TelephonyManager.from(mContext);
-        int simApplicationState = telephonyManager.getSimApplicationState();
-        if (addSubIdExtra && (simApplicationState != TelephonyManager.SIM_STATE_UNKNOWN
-                && simApplicationState != TelephonyManager.SIM_STATE_NOT_READY)) {
-            SubscriptionManager.putPhoneIdAndSubIdExtra(intent, phoneId);
-            intent.putExtra(TelephonyManager.EXTRA_SPECIFIC_CARRIER_ID,
-                    getSpecificCarrierIdForPhoneId(phoneId));
-            intent.putExtra(TelephonyManager.EXTRA_CARRIER_ID, getCarrierIdForPhoneId(phoneId));
+        if (addSubIdExtra) {
+            int simApplicationState = TelephonyManager.SIM_STATE_UNKNOWN;
+            int[] subIds = SubscriptionManager.getSubId(phoneId);
+            if (!ArrayUtils.isEmpty(subIds)) {
+                TelephonyManager telMgr = TelephonyManager.from(mContext)
+                        .createForSubscriptionId(subIds[0]);
+                simApplicationState = telMgr.getSimApplicationState();
+            }
+            logd("Broadcast CARRIER_CONFIG_CHANGED for phone " + phoneId
+                    + " simApplicationState " + simApplicationState);
+            // Include subId/carrier id extra only if SIM records are loaded
+            if (simApplicationState != TelephonyManager.SIM_STATE_UNKNOWN
+                    && simApplicationState != TelephonyManager.SIM_STATE_NOT_READY) {
+                SubscriptionManager.putPhoneIdAndSubIdExtra(intent, phoneId);
+                intent.putExtra(TelephonyManager.EXTRA_SPECIFIC_CARRIER_ID,
+                        getSpecificCarrierIdForPhoneId(phoneId));
+                intent.putExtra(TelephonyManager.EXTRA_CARRIER_ID, getCarrierIdForPhoneId(phoneId));
+            }
         }
         intent.putExtra(CarrierConfigManager.EXTRA_SLOT_INDEX, phoneId);
-        log("Broadcast CARRIER_CONFIG_CHANGED for phone " + phoneId);
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.USER_ALL);
+        intent.putExtra(CarrierConfigManager.EXTRA_REBROADCAST_ON_UNLOCK,
+                mFromSystemUnlocked[phoneId]);
+        mContext.sendBroadcastAsUser(intent, UserHandle.ALL);
+        int[] subIds = SubscriptionManager.getSubId(phoneId);
+        if (subIds != null && subIds.length > 0) {
+            logd("Broadcast CARRIER_CONFIG_CHANGED for phone " + phoneId + ", subId=" + subIds[0]);
+        } else {
+            logd("Broadcast CARRIER_CONFIG_CHANGED for phone " + phoneId);
+        }
         mHasSentConfigChange[phoneId] = true;
+        mFromSystemUnlocked[phoneId] = false;
     }
 
     /** Binds to the default or carrier config app. */
     private boolean bindToConfigPackage(String pkgName, int phoneId, int eventId) {
-        logWithLocalLog("Binding to " + pkgName + " for phone " + phoneId);
+        logdWithLocalLog("Binding to " + pkgName + " for phone " + phoneId);
         Intent carrierService = new Intent(CarrierService.CARRIER_SERVICE_INTERFACE);
         carrierService.setPackage(pkgName);
-        mServiceConnection[phoneId] = new CarrierServiceConnection(phoneId, eventId);
+        mServiceConnection[phoneId] = new CarrierServiceConnection(phoneId, pkgName, eventId);
         try {
-            return mContext.bindService(carrierService, mServiceConnection[phoneId],
-                    Context.BIND_AUTO_CREATE);
+            if (mContext.bindService(carrierService, mServiceConnection[phoneId],
+                    Context.BIND_AUTO_CREATE)) {
+                mServiceBound[phoneId] = true;
+                return true;
+            } else {
+                return false;
+            }
         } catch (SecurityException ex) {
             return false;
         }
@@ -704,10 +768,13 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
      * In case of errors or invalid input, no file will be written.
      *
      * @param packageName the name of the package from which we fetched this bundle.
-     * @param phoneId the phone ID.
-     * @param config the bundle to be written. Null will be treated as an empty bundle.
+     * @param extraString An extra string to be used in the XML file name.
+     * @param phoneId     the phone ID.
+     * @param carrierId   contains all carrier-identifying information.
+     * @param config      the bundle to be written. Null will be treated as an empty bundle.
      */
-    private void saveConfigToXml(String packageName, int phoneId, PersistableBundle config) {
+    private void saveConfigToXml(String packageName, @NonNull String extraString, int phoneId,
+            CarrierIdentifier carrierId, PersistableBundle config) {
         if (SubscriptionManager.getSimStateForSlotIndex(phoneId)
                 != TelephonyManager.SIM_STATE_LOADED) {
             loge("Skip save config because SIM records are not loaded.");
@@ -715,7 +782,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         }
 
         final String iccid = getIccIdForPhoneId(phoneId);
-        final int cid = getSpecificCarrierIdForPhoneId(phoneId);
+        final int cid = carrierId.getSpecificCarrierId();
         if (packageName == null || iccid == null) {
             loge("Cannot save config with null packageName or iccid.");
             return;
@@ -735,32 +802,19 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             return;
         }
 
-        logWithLocalLog("save config to xml, packagename: " + packageName + " phoneId: " + phoneId);
+        logdWithLocalLog(
+                "Save config to xml, packagename: " + packageName + " phoneId: " + phoneId);
 
         FileOutputStream outFile = null;
         try {
             outFile = new FileOutputStream(
                     new File(mContext.getFilesDir(),
-                            getFilenameForConfig(packageName, iccid, cid)));
-            FastXmlSerializer out = new FastXmlSerializer();
-            out.setOutput(outFile, "utf-8");
-            out.startDocument("utf-8", true);
-            out.startTag(null, TAG_DOCUMENT);
-            out.startTag(null, TAG_VERSION);
-            out.text(version);
-            out.endTag(null, TAG_VERSION);
-            out.startTag(null, TAG_BUNDLE);
-            config.saveToXml(out);
-            out.endTag(null, TAG_BUNDLE);
-            out.endTag(null, TAG_DOCUMENT);
-            out.endDocument();
-            out.flush();
+                            getFilenameForConfig(packageName, extraString, iccid, cid)));
+            config.putString(KEY_VERSION, version);
+            config.writeToStream(outFile);
+            outFile.flush();
             outFile.close();
-        }
-        catch (IOException e) {
-            loge(e.toString());
-        }
-        catch (XmlPullParserException e) {
+        } catch (IOException e) {
             loge(e.toString());
         }
     }
@@ -775,11 +829,13 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
      * current version, then null will be returned.
      *
      * @param packageName the name of the package from which we fetched this bundle.
-     * @param phoneId the phone ID.
+     * @param extraString An extra string to be used in the XML file name.
+     * @param phoneId     the phone ID.
      * @return the bundle from the XML file. Returns null if there is no saved config, the saved
-     *         version does not match, or reading config fails.
+     * version does not match, or reading config fails.
      */
-    private PersistableBundle restoreConfigFromXml(String packageName, int phoneId) {
+    private PersistableBundle restoreConfigFromXml(String packageName, @NonNull String extraString,
+            int phoneId) {
         final String version = getPackageVersion(packageName);
         if (version == null) {
             loge("Failed to get package version for: " + packageName);
@@ -799,38 +855,28 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         }
 
         PersistableBundle restoredBundle = null;
+        File file = null;
         FileInputStream inFile = null;
         try {
-            inFile = new FileInputStream(
-                    new File(mContext.getFilesDir(),
-                            getFilenameForConfig(packageName, iccid, cid)));
-            XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
-            parser.setInput(inFile, "utf-8");
+            file = new File(mContext.getFilesDir(),
+                    getFilenameForConfig(packageName, extraString, iccid, cid));
+            inFile = new FileInputStream(file);
 
-            int event;
-            while (((event = parser.next()) != XmlPullParser.END_DOCUMENT)) {
+            restoredBundle = PersistableBundle.readFromStream(inFile);
+            String savedVersion = restoredBundle.getString(KEY_VERSION);
+            restoredBundle.remove(KEY_VERSION);
 
-                if (event == XmlPullParser.START_TAG && TAG_VERSION.equals(parser.getName())) {
-                    String savedVersion = parser.nextText();
-                    if (!version.equals(savedVersion)) {
-                        loge("Saved version mismatch: " + version + " vs " + savedVersion);
-                        break;
-                    }
-                }
-
-                if (event == XmlPullParser.START_TAG && TAG_BUNDLE.equals(parser.getName())) {
-                    restoredBundle = PersistableBundle.restoreFromXml(parser);
-                }
+            if (!version.equals(savedVersion)) {
+                loge("Saved version mismatch: " + version + " vs " + savedVersion);
+                restoredBundle = null;
             }
+
             inFile.close();
-        }
-        catch (FileNotFoundException e) {
-            loge(e.toString());
-        }
-        catch (XmlPullParserException e) {
-            loge(e.toString());
-        }
-        catch (IOException e) {
+        } catch (FileNotFoundException e) {
+            // Missing file is normal occurrence that might occur with a new sim or when restoring
+            // an override file during boot and should not be treated as an error.
+            if (file != null) logd("File not found: " + file.getPath());
+        } catch (IOException e) {
             loge(e.toString());
         }
 
@@ -859,20 +905,20 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         });
         if (packageFiles == null || packageFiles.length < 1) return false;
         for (File f : packageFiles) {
-            log("deleting " + f.getName());
+            logd("Deleting " + f.getName());
             f.delete();
         }
         return true;
     }
 
     /** Builds a canonical file name for a config file. */
-    private String getFilenameForConfig(@NonNull String packageName, @NonNull String iccid,
-                                        int cid) {
+    private String getFilenameForConfig(@NonNull String packageName, @NonNull String extraString,
+            @NonNull String iccid, int cid) {
         // the same carrier should have a single copy of XML file named after carrier id.
         // However, it's still possible that platform doesn't recognize the current sim carrier,
         // we will use iccid + carrierid as the canonical file name. carrierid can also handle the
         // cases SIM OTA resolves to different carrier while iccid remains the same.
-        return "carrierconfig-" + packageName + "-" + iccid + "-" + cid + ".xml";
+        return "carrierconfig-" + packageName + extraString + "-" + iccid + "-" + cid + ".xml";
     }
 
     /** Return the current version code of a package, or null if the name is not found. */
@@ -902,10 +948,25 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         mHandler.sendMessage(mHandler.obtainMessage(EVENT_DO_FETCH_DEFAULT, phoneId, -1));
     }
 
+    private void onMultiSimConfigChanged() {
+        for (int i = TelephonyManager.from(mContext).getActiveModemCount();
+                i < mConfigFromDefaultApp.length; i++) {
+            clearConfigForPhone(i, false);
+        }
+    }
+
     @Override
-    public @NonNull PersistableBundle getConfigForSubId(int subId, String callingPackage) {
-        if (!TelephonyPermissions.checkCallingOrSelfReadPhoneState(
-                mContext, subId, callingPackage, "getCarrierConfig")) {
+    @NonNull
+    public PersistableBundle getConfigForSubId(int subId, String callingPackage) {
+        return getConfigForSubIdWithFeature(subId, callingPackage, null);
+    }
+
+    @Override
+    @NonNull
+    public PersistableBundle getConfigForSubIdWithFeature(int subId, String callingPackage,
+            String callingFeatureId) {
+        if (!TelephonyPermissions.checkCallingOrSelfReadPhoneState(mContext, subId, callingPackage,
+                callingFeatureId, "getCarrierConfig")) {
             return new PersistableBundle();
         }
 
@@ -915,9 +976,17 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             PersistableBundle config = mConfigFromDefaultApp[phoneId];
             if (config != null) {
                 retConfig.putAll(config);
-                retConfig.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
+                if (getCarrierPackageForPhoneId(phoneId) == null) {
+                    retConfig.putBoolean(
+                            CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
+                }
             }
             config = mConfigFromCarrierApp[phoneId];
+            if (config != null) {
+                retConfig.putAll(config);
+                retConfig.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
+            }
+            config = mPersistentOverrideConfigs[phoneId];
             if (config != null) {
                 retConfig.putAll(config);
                 retConfig.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
@@ -925,39 +994,59 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             config = mOverrideConfigs[phoneId];
             if (config != null) {
                 retConfig.putAll(config);
-                retConfig.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
             }
         }
         return retConfig;
     }
 
     @Override
-    public void overrideConfig(int subscriptionId, PersistableBundle overrides) {
+    public void overrideConfig(int subscriptionId, @Nullable PersistableBundle overrides,
+            boolean persistent) {
         mContext.enforceCallingOrSelfPermission(
                 android.Manifest.permission.MODIFY_PHONE_STATE, null);
         //TODO: Also check for SHELL UID to restrict this method to testing only (b/131326259)
         int phoneId = SubscriptionManager.getPhoneId(subscriptionId);
         if (!SubscriptionManager.isValidPhoneId(phoneId)) {
-            log("Ignore invalid phoneId: " + phoneId + " for subId: " + subscriptionId);
+            logd("Ignore invalid phoneId: " + phoneId + " for subId: " + subscriptionId);
             return;
         }
+        overrideConfig(mOverrideConfigs, phoneId, overrides);
 
-        if (overrides == null) {
-            mOverrideConfigs[phoneId] = new PersistableBundle();
-        } else if (mOverrideConfigs[phoneId] == null) {
-            mOverrideConfigs[phoneId] = overrides;
-        } else {
-            mOverrideConfigs[phoneId].putAll(overrides);
+        if (persistent) {
+            overrideConfig(mPersistentOverrideConfigs, phoneId, overrides);
+
+            if (overrides != null) {
+                final CarrierIdentifier carrierId = getCarrierIdentifierForPhoneId(phoneId);
+                saveConfigToXml(mPlatformCarrierConfigPackage, OVERRIDE_PACKAGE_ADDITION, phoneId,
+                        carrierId, mPersistentOverrideConfigs[phoneId]);
+            } else {
+                final String iccid = getIccIdForPhoneId(phoneId);
+                final int cid = getSpecificCarrierIdForPhoneId(phoneId);
+                String fileName = getFilenameForConfig(mPlatformCarrierConfigPackage,
+                        OVERRIDE_PACKAGE_ADDITION, iccid, cid);
+                File fileToDelete = new File(mContext.getFilesDir(), fileName);
+                fileToDelete.delete();
+            }
         }
-
         notifySubscriptionInfoUpdater(phoneId);
+    }
+
+    private void overrideConfig(@NonNull PersistableBundle[] currentOverrides, int phoneId,
+            @Nullable PersistableBundle overrides) {
+        if (overrides == null) {
+            currentOverrides[phoneId] = new PersistableBundle();
+        } else if (currentOverrides[phoneId] == null) {
+            currentOverrides[phoneId] = overrides;
+        } else {
+            currentOverrides[phoneId].putAll(overrides);
+        }
     }
 
     @Override
     public void notifyConfigChangedForSubId(int subId) {
         int phoneId = SubscriptionManager.getPhoneId(subId);
         if (!SubscriptionManager.isValidPhoneId(phoneId)) {
-            log("Ignore invalid phoneId: " + phoneId + " for subId: " + subId);
+            logd("Ignore invalid phoneId: " + phoneId + " for subId: " + subId);
             return;
         }
 
@@ -979,7 +1068,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     public void updateConfigForPhoneId(int phoneId, String simState) {
         mContext.enforceCallingOrSelfPermission(
                 android.Manifest.permission.MODIFY_PHONE_STATE, null);
-        logWithLocalLog("update config for phoneId: " + phoneId + " simState: " + simState);
+        logdWithLocalLog("Update config for phoneId: " + phoneId + " simState: " + simState);
         if (!SubscriptionManager.isValidPhoneId(phoneId)) {
             return;
         }
@@ -989,6 +1078,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             case IccCardConstants.INTENT_VALUE_ICC_CARD_IO_ERROR:
             case IccCardConstants.INTENT_VALUE_ICC_CARD_RESTRICTED:
             case IccCardConstants.INTENT_VALUE_ICC_UNKNOWN:
+            case IccCardConstants.INTENT_VALUE_ICC_NOT_READY:
                 mHandler.sendMessage(mHandler.obtainMessage(EVENT_CLEAR_CONFIG, phoneId, -1));
                 break;
             case IccCardConstants.INTENT_VALUE_ICC_LOADED:
@@ -1000,45 +1090,84 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
 
     @Override
     public String getDefaultCarrierServicePackageName() {
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+                "getDefaultCarrierServicePackageName");
         return mPlatformCarrierConfigPackage;
     }
 
+    private void unbindIfBound(Context context, CarrierServiceConnection conn,
+            int phoneId) {
+        if (mServiceBound[phoneId]) {
+            mServiceBound[phoneId] = false;
+            context.unbindService(conn);
+        }
+    }
+
+    /**
+     * If {@code args} contains {@link #DUMP_ARG_REQUESTING_PACKAGE} and a following package name,
+     * we'll also call {@link IBinder#dump} on the default carrier service (if bound) and the
+     * specified carrier service (if bound). Typically, this is done for connectivity bug reports
+     * where we don't call {@code dumpsys activity service all-non-platform} because that contains
+     * too much info, but we still want to let carrier apps include their diagnostics.
+     */
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+        IndentingPrintWriter indentPW = new IndentingPrintWriter(pw, "    ");
         if (mContext.checkCallingOrSelfPermission(android.Manifest.permission.DUMP)
                 != PackageManager.PERMISSION_GRANTED) {
-            pw.println("Permission Denial: can't dump carrierconfig from from pid="
+            indentPW.println("Permission Denial: can't dump carrierconfig from from pid="
                     + Binder.getCallingPid() + ", uid=" + Binder.getCallingUid());
             return;
         }
-        pw.println("CarrierConfigLoader: " + this);
-        for (int i = 0; i < TelephonyManager.getDefault().getPhoneCount(); i++) {
-            pw.println("Phone Id = " + i);
-            // display default values in CarrierConfigManager
-            printConfig(CarrierConfigManager.getDefaultConfig(), pw,
-                    "Default Values from CarrierConfigManager");
-            pw.println("");
-            // display ConfigFromDefaultApp
-            printConfig(mConfigFromDefaultApp[i], pw, "mConfigFromDefaultApp");
-            pw.println("");
-            // display ConfigFromCarrierApp
-            printConfig(mConfigFromCarrierApp[i], pw, "mConfigFromCarrierApp");
-            pw.println("");
-            printConfig(mOverrideConfigs[i], pw, "mOverrideConfigs");
+        String requestingPackage = null;
+        int requestingPackageIndex = ArrayUtils.indexOf(args, DUMP_ARG_REQUESTING_PACKAGE);
+        if (requestingPackageIndex >= 0 && requestingPackageIndex < args.length - 1
+                && !TextUtils.isEmpty(args[requestingPackageIndex + 1])) {
+            requestingPackage = args[requestingPackageIndex + 1];
+            // Throws a SecurityException if the caller is impersonating another app in an effort to
+            // dump extra info (which may contain PII the caller doesn't have a right to).
+            enforceCallerIsSystemOrRequestingPackage(requestingPackage);
         }
 
-        pw.println("CarrierConfigLoadingLog=");
-        mCarrierConfigLoadingLog.dump(fd, pw, args);
+        indentPW.println("CarrierConfigLoader: " + this);
+        for (int i = 0; i < TelephonyManager.from(mContext).getActiveModemCount(); i++) {
+            indentPW.println("Phone Id = " + i);
+            // display default values in CarrierConfigManager
+            printConfig(CarrierConfigManager.getDefaultConfig(), indentPW,
+                    "Default Values from CarrierConfigManager");
+            // display ConfigFromDefaultApp
+            printConfig(mConfigFromDefaultApp[i], indentPW, "mConfigFromDefaultApp");
+            // display ConfigFromCarrierApp
+            printConfig(mConfigFromCarrierApp[i], indentPW, "mConfigFromCarrierApp");
+            printConfig(mPersistentOverrideConfigs[i], indentPW, "mPersistentOverrideConfigs");
+            printConfig(mOverrideConfigs[i], indentPW, "mOverrideConfigs");
+        }
+
+        indentPW.println("CarrierConfigLoadingLog=");
+        mCarrierConfigLoadingLog.dump(fd, indentPW, args);
+
+        if (requestingPackage != null) {
+            logd("Including default and requesting package " + requestingPackage
+                    + " carrier services in dump");
+            indentPW.println("");
+            indentPW.println("Connected services");
+            dumpCarrierServiceIfBound(fd, indentPW, "Default config package",
+                    mPlatformCarrierConfigPackage, false /* considerCarrierPrivileges */);
+            dumpCarrierServiceIfBound(fd, indentPW, "Requesting package", requestingPackage,
+                    true /* considerCarrierPrivileges */);
+        }
     }
 
-    private void printConfig(PersistableBundle configApp, PrintWriter pw, String name) {
-        IndentingPrintWriter indentPW = new IndentingPrintWriter(pw, "    ");
+    private void printConfig(PersistableBundle configApp, IndentingPrintWriter indentPW,
+            String name) {
+        indentPW.increaseIndent();
         if (configApp == null) {
-            indentPW.increaseIndent();
             indentPW.println(name + " : null ");
+            indentPW.decreaseIndent();
+            indentPW.println("");
             return;
         }
-        indentPW.increaseIndent();
         indentPW.println(name + " : ");
         List<String> sortedKeys = new ArrayList<String>(configApp.keySet());
         Collections.sort(sortedKeys);
@@ -1054,27 +1183,162 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                 indentPW.println(key + " = " + configApp.get(key));
             }
         }
+        indentPW.decreaseIndent();
+        indentPW.decreaseIndent();
+        indentPW.decreaseIndent();
+        indentPW.println("");
+    }
+
+    /**
+     * Passes without problem when one of these conditions is true:
+     * - The caller is a privileged UID (e.g. for dumpstate.cpp generating a bug report, where the
+     * system knows the true caller plumbed in through the {@link android.os.BugreportManager} API).
+     * - The caller's UID matches the supplied package.
+     *
+     * @throws SecurityException if none of the above conditions are met.
+     */
+    private void enforceCallerIsSystemOrRequestingPackage(String requestingPackage)
+            throws SecurityException {
+        final int callingUid = Binder.getCallingUid();
+        if (callingUid == Process.ROOT_UID || callingUid == Process.SYSTEM_UID
+                || callingUid == Process.SHELL_UID || callingUid == Process.PHONE_UID) {
+            // Bug reports (dumpstate.cpp) run as SHELL, and let some other privileged UIDs through
+            // as well.
+            return;
+        }
+        // An app is trying to dump extra detail, block it if they aren't who they claim to be.
+        AppOpsManager appOps = mContext.getSystemService(AppOpsManager.class);
+        if (appOps == null) {
+            throw new SecurityException("No AppOps");
+        }
+        // Will throw a SecurityException if the UID and package don't match.
+        appOps.checkPackage(callingUid, requestingPackage);
+    }
+
+    /**
+     * Searches for one or more appropriate {@link CarrierService} instances to dump based on the
+     * current connections.
+     *
+     * @param targetPkgName             the target package name to dump carrier services for
+     * @param considerCarrierPrivileges if true, allow a carrier service to be dumped if it shares
+     *                                  carrier privileges with {@code targetPkgName};
+     *                                  otherwise, only dump a carrier service if it is {@code
+     *                                  targetPkgName}
+     */
+    private void dumpCarrierServiceIfBound(FileDescriptor fd, IndentingPrintWriter indentPW,
+            String prefix, String targetPkgName, boolean considerCarrierPrivileges) {
+        // Null package is possible if it's early in the boot process, there was a recent crash, we
+        // loaded the config from XML most recently, or a SIM slot is empty. Carrier apps with
+        // long-lived bindings should typically get dumped here regardless. Even if an app is being
+        // used for multiple phoneIds, we assume that it's smart enough to handle that on its own,
+        // and that in most cases we'd just be dumping duplicate information and bloating a report.
+        indentPW.increaseIndent();
+        indentPW.println(prefix + " : " + targetPkgName);
+        Set<String> dumpedPkgNames = new ArraySet<>(mServiceConnection.length);
+        for (CarrierServiceConnection connection : mServiceConnection) {
+            if (connection == null || !SubscriptionManager.isValidPhoneId(connection.phoneId)
+                    || TextUtils.isEmpty(connection.pkgName)) {
+                continue;
+            }
+            final String servicePkgName = connection.pkgName;
+            // Note: we intentionally ignore system components here because we should NOT match the
+            // shell caller that's typically used for bug reports via non-BugreportManager triggers.
+            final boolean exactPackageMatch = TextUtils.equals(targetPkgName, servicePkgName);
+            final boolean carrierPrivilegesMatch =
+                    considerCarrierPrivileges && hasCarrierPrivileges(targetPkgName,
+                            connection.phoneId);
+            if (!exactPackageMatch && !carrierPrivilegesMatch) continue;
+            // Make sure this service is actually alive before trying to dump it. We don't pay
+            // attention to mServiceBound[connection.phoneId] because typically carrier apps will
+            // request long-lived bindings, and even if we unbind the app, it may still be alive due
+            // to CarrierServiceBindHelper. Pull it out as a reference so even if it gets set to
+            // null within the ServiceConnection during unbinding we can avoid an NPE.
+            final IBinder service = connection.service;
+            if (service == null || !service.isBinderAlive() || !service.pingBinder()) continue;
+            // We've got a live service. Last check is just to make sure we don't dump a package
+            // multiple times.
+            if (!dumpedPkgNames.add(servicePkgName)) continue;
+            if (!exactPackageMatch) {
+                logd(targetPkgName + " has carrier privileges on phoneId " + connection.phoneId
+                        + ", service provided by " + servicePkgName);
+                indentPW.increaseIndent();
+                indentPW.println("Proxy : " + servicePkgName);
+                indentPW.decreaseIndent();
+            }
+            // Flush before we let the app output anything to ensure correct ordering of output.
+            // Internally, Binder#dump calls flush on its printer after finishing so we don't
+            // need to do anything after.
+            indentPW.flush();
+            try {
+                logd("Dumping " + servicePkgName);
+                // We don't need to give the carrier service any args.
+                connection.service.dump(fd, null /* args */);
+                logd("Done with " + servicePkgName);
+            } catch (RemoteException e) {
+                logd("RemoteException from " + servicePkgName, e);
+                indentPW.increaseIndent();
+                indentPW.println("RemoteException");
+                indentPW.increaseIndent();
+                e.printStackTrace(indentPW);
+                indentPW.decreaseIndent();
+                indentPW.decreaseIndent();
+                // We won't retry this package again because now it's in dumpedPkgNames.
+            }
+            indentPW.println("");
+        }
+        if (dumpedPkgNames.isEmpty()) {
+            indentPW.increaseIndent();
+            indentPW.println("Not bound");
+            indentPW.decreaseIndent();
+            indentPW.println("");
+        }
+        indentPW.decreaseIndent();
+    }
+
+    private boolean hasCarrierPrivileges(String pkgName, int phoneId) {
+        int[] subIds = SubscriptionManager.getSubId(phoneId);
+        if (ArrayUtils.isEmpty(subIds)) {
+            return false;
+        }
+        return TelephonyManager.from(mContext).createForSubscriptionId(
+                subIds[0]).checkCarrierPrivilegesForPackage(pkgName)
+                == TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS;
     }
 
     private class CarrierServiceConnection implements ServiceConnection {
-        int phoneId;
-        int eventId;
+        final int phoneId;
+        final String pkgName;
+        final int eventId;
         IBinder service;
 
-        public CarrierServiceConnection(int phoneId, int eventId) {
+        CarrierServiceConnection(int phoneId, String pkgName, int eventId) {
             this.phoneId = phoneId;
+            this.pkgName = pkgName;
             this.eventId = eventId;
         }
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            log("Connected to config app: " + name.flattenToString());
+            logd("Connected to config app: " + name.flattenToShortString());
             this.service = service;
             mHandler.sendMessage(mHandler.obtainMessage(eventId, phoneId, -1, this));
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            logd("Disconnected from config app: " + name.flattenToShortString());
+            this.service = null;
+        }
+
+        @Override
+        public void onBindingDied(ComponentName name) {
+            logd("Binding died from config app: " + name.flattenToShortString());
+            this.service = null;
+        }
+
+        @Override
+        public void onNullBinding(ComponentName name) {
+            logd("Null binding from config app: " + name.flattenToShortString());
             this.service = null;
         }
     }
@@ -1085,8 +1349,9 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             String action = intent.getAction();
             boolean replace = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false);
             // If replace is true, only care ACTION_PACKAGE_REPLACED.
-            if (replace && !Intent.ACTION_PACKAGE_REPLACED.equals(action))
+            if (replace && !Intent.ACTION_PACKAGE_REPLACED.equals(action)) {
                 return;
+            }
 
             switch (action) {
                 case Intent.ACTION_BOOT_COMPLETED:
@@ -1108,11 +1373,15 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         }
     }
 
-    private void log(String msg) {
+    private void logd(String msg) {
         Log.d(LOG_TAG, msg);
     }
 
-    private void logWithLocalLog(String msg) {
+    private void logd(String msg, Throwable tr) {
+        Log.d(LOG_TAG, msg, tr);
+    }
+
+    private void logdWithLocalLog(String msg) {
         Log.d(LOG_TAG, msg);
         mCarrierConfigLoadingLog.log(msg);
     }

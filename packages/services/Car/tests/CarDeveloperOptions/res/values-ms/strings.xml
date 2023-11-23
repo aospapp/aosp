@@ -83,8 +83,7 @@
     <string name="font_size_summary" msgid="9120023206321191067">"Kecilkan atau besarkan teks pada skrin."</string>
     <string name="font_size_make_smaller_desc" msgid="5780829318985556969">"Kecilkan"</string>
     <string name="font_size_make_larger_desc" msgid="2907824418252785875">"Besarkan"</string>
-    <!-- no translation found for font_size_preview_text (360019784926073822) -->
-    <skip />
+    <string name="font_size_preview_text" msgid="360019784926073822">"Servez à ce monsieur une bière et des kiwis."</string>
     <string name="font_size_preview_text_headline" msgid="8038650525913995091">"Teks contoh"</string>
     <string name="font_size_preview_text_title" msgid="2593520249400910305">"Ahli Sihir Oz yang Menakjubkan"</string>
     <string name="font_size_preview_text_subtitle" msgid="6106782964143379331">"Bab 11: Oz, Kota Zamrud yang Menakjubkan"</string>
@@ -481,8 +480,7 @@
     <string name="face_lock_screen_setup_skip_dialog_text" product="tablet" msgid="2998863111689476550">"Lindungi tablet anda dengan pilihan kunci skrin supaya tiada sesiapa yang dapat menggunakan tablet itu jika hilang atau dicuri. Anda juga memerlukan pilihan kunci skrin untuk menyediakan pengesahan wajah. Ketik Batal, kemudian tetapkan PIN atau buat pilihan kunci skrin yang lain."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="device" msgid="6780557259734235952">"Lindungi peranti anda dengan pilihan kunci skrin supaya tiada sesiapa yang dapat menggunakan peranti itu jika hilang atau dicuri. Anda juga memerlukan pilihan kunci skrin untuk menyediakan pengesahan wajah. Ketik Batal, kemudian tetapkan PIN atau buat pilihan kunci skrin yang lain."</string>
     <string name="face_lock_screen_setup_skip_dialog_text" product="default" msgid="8541640018478926775">"Lindungi telefon anda dengan pilihan kunci skrin supaya tiada sesiapa yang dapat menggunakan telefon itu jika hilang atau dicuri. Anda juga memerlukan pilihan kunci skrin untuk menyediakan pengesahan wajah. Ketik Batal, kemudian tetapkan PIN atau buat pilihan kunci skrin yang lain."</string>
-    <!-- no translation found for lock_screen_pin_skip_title (8217519439213393785) -->
-    <skip />
+    <string name="lock_screen_pin_skip_title" msgid="8217519439213393785">"Langkau Persediaan PIN?"</string>
     <string name="lock_screen_password_skip_title" msgid="3725788215672959827">"Langkau Persediaan Kta Laluan?"</string>
     <string name="lock_screen_pattern_skip_title" msgid="4237030500353932005">"Langkau Persediaan Corak?"</string>
     <string name="security_settings_fingerprint_enroll_setup_screen_lock" msgid="9036983528330627756">"Sediakan kunci skrin"</string>
@@ -669,7 +667,6 @@
       <item quantity="other">Mesti kurang daripada <xliff:g id="NUMBER_1">%d</xliff:g> digit</item>
       <item quantity="one">Mesti kurang daripada <xliff:g id="NUMBER_0">%d</xliff:g> digit</item>
     </plurals>
-    <string name="lockpassword_pin_contains_non_digits" msgid="1501729742023195556">"Mesti mengandungi angka 0-9 sahaja"</string>
     <string name="lockpassword_pin_recently_used" msgid="5556148774911741103">"Pentadbir peranti tidak membenarkan penggunaan PIN terbaharu"</string>
     <string name="lockpassword_pin_blacklisted_by_admin" msgid="2752037810571200697">"PIN lazim disekat oleh pentadbir IT anda. Cuba PIN yang lain."</string>
     <string name="lockpassword_illegal_character" msgid="3577712947676261351">"Tidak boleh menyertakan aksara yang tidak sah"</string>
@@ -699,6 +696,10 @@
     <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="3692485784007607387">
       <item quantity="other">Mesti mengandungi sekurang-kurangnya <xliff:g id="COUNT">%d</xliff:g> aksara bukan huruf</item>
       <item quantity="one">Mesti mengandungi sekurang-kurangnya 1 aksara bukan huruf</item>
+    </plurals>
+    <plurals name="lockpassword_password_requires_nonnumerical" formatted="false" msgid="6943707011152180150">
+      <item quantity="other">Mesti mengandungi sekurang-kurangnya <xliff:g id="COUNT">%d</xliff:g> aksara bukan angka</item>
+      <item quantity="one">Mesti mengandungi sekurang-kurangnya 1 aksara bukan angka</item>
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="6944729699375087431">"Pentadbir peranti tidak membenarkan penggunaan kata laluan terbaharu"</string>
     <string name="lockpassword_password_blacklisted_by_admin" msgid="4988166770148440755">"Kata laluan lazim disekat oleh pentadbir IT anda. Cuba kata laluan yang lain."</string>
@@ -848,7 +849,7 @@
     <string name="wifi_notify_open_networks" msgid="4782239203624619655">"Pemberitahuan rangkaian terbuka"</string>
     <string name="wifi_notify_open_networks_summary" msgid="1383681260705466715">"Beritahu apabila rangkaian awam berkualiti tinggi tersedia"</string>
     <string name="wifi_wakeup" msgid="4963732992164721548">"Hidupkan Wi-Fi secara automatik"</string>
-    <string name="wifi_wakeup_summary" msgid="1152699417411690">"Wi-Fi akan dihidupkan kembali berdekatan dengan rangkaian disimpan yang berkualiti tinggi, seperti rangkaian rumah"</string>
+    <string name="wifi_wakeup_summary" msgid="1152699417411690">"Wi-Fi akan dihidupkan kembali apabila berdekatan dengan rangkaian disimpan yang berkualiti tinggi, seperti rangkaian rumah"</string>
     <string name="wifi_wakeup_summary_no_location" msgid="3007457288587966962">"Tidak tersedia kerana lokasi dimatikan. Hidupkan "<annotation id="link">"lokasi"</annotation>"."</string>
     <string name="wifi_wakeup_summary_scanning_disabled" msgid="6820040651529910914">"Tidak tersedia kerana pengimbasan Wi-Fi dimatikan"</string>
     <string name="wifi_wakeup_summary_scoring_disabled" msgid="7067018832237903151">"Untuk menggunakan ciri, pilih pembekal penilaian rangkaian"</string>
@@ -879,7 +880,7 @@
     <string name="wifi_configure_settings_preference_summary_wakeup_off" msgid="286904094152909651">"Wi-Fi tidak dihidupkan kembali secara automatik"</string>
     <string name="wifi_access_points" msgid="1647976498906871869">"Rangkaian Wi-Fi"</string>
     <string name="wifi_menu_more_options" msgid="8318269834264035524">"Lagi pilihan"</string>
-    <string name="wifi_menu_p2p" msgid="4945665601551289791">"Wi-Fi Langsung"</string>
+    <string name="wifi_menu_p2p" msgid="4945665601551289791">"Wi-Fi Direct"</string>
     <string name="wifi_menu_scan" msgid="9082691677803181629">"Imbas"</string>
     <string name="wifi_menu_advanced" msgid="5984484498045511072">"Terperinci"</string>
     <string name="wifi_menu_configure" msgid="52192491120701266">"Konfigurasikan"</string>
@@ -926,7 +927,7 @@
     <string name="wifi_ap_choose_auto" msgid="7927637960569365785">"Automatik"</string>
     <string name="wifi_ap_choose_2G" msgid="43198403259714736">"Jalur 2.4 GHz"</string>
     <string name="wifi_ap_choose_5G" msgid="2624859713183683146">"Jalur 5.0 GHz"</string>
-    <string name="wifi_ap_prefer_5G" msgid="8339172330471170142">"Lajur 5.0 GHz diutamakan"</string>
+    <string name="wifi_ap_prefer_5G" msgid="8339172330471170142">"Jalur 5.0 GHz diutamakan"</string>
     <string name="wifi_ap_2G" msgid="5793110086517338494">"2.4 GHz"</string>
     <string name="wifi_ap_5G" msgid="4584892544393675403">"5.0 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="4409754936554360355">"Pilih sekurang-kurangnya satu jalur untuk tempat liputan Wi-Fi:"</string>
@@ -1039,7 +1040,7 @@
     <string name="wifi_dns2" msgid="1905876166783761641">"DNS 2"</string>
     <string name="wifi_gateway" msgid="7455334454444443397">"Get laluan"</string>
     <string name="wifi_network_prefix_length" msgid="1941206966133010633">"Panjang awalan rangkaian"</string>
-    <string name="wifi_p2p_settings_title" msgid="3213180637906683308">"Wi-Fi Langsung"</string>
+    <string name="wifi_p2p_settings_title" msgid="3213180637906683308">"Wi-Fi Direct"</string>
     <string name="wifi_p2p_device_info" msgid="4717490498956029237">"Maklumat peranti"</string>
     <string name="wifi_p2p_persist_network" msgid="1110453878886476660">"Ingat sambungan ini"</string>
     <string name="wifi_p2p_menu_search" msgid="8207638860263805291">"Mencari peranti"</string>
@@ -1092,13 +1093,19 @@
     <item msgid="2552412793005571845">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
     <item msgid="742811521969300868">"@*android:string/wfc_mode_wifi_only_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2:0 (9149346657812979257) -->
-    <!-- no translation found for wifi_calling_mode_choices_v2:2 (6007360612667098926) -->
+  <string-array name="wifi_calling_mode_choices_v2">
+    <item msgid="9149346657812979257">"Wi-Fi"</item>
+    <item msgid="4421333712484542489">"Mudah alih"</item>
+    <item msgid="6007360612667098926">"Wi-Fi sahaja"</item>
+  </string-array>
   <string-array name="wifi_calling_mode_choices_without_wifi_only">
     <item msgid="3658897985297386665">"@*android:string/wfc_mode_wifi_preferred_summary"</item>
     <item msgid="4191802193352447215">"@*android:string/wfc_mode_cellular_preferred_summary"</item>
   </string-array>
-    <!-- no translation found for wifi_calling_mode_choices_v2_without_wifi_only:0 (6452246499629557266) -->
+  <string-array name="wifi_calling_mode_choices_v2_without_wifi_only">
+    <item msgid="6452246499629557266">"Wi-Fi"</item>
+    <item msgid="2271962426654621656">"Mudah alih"</item>
+  </string-array>
     <string name="wifi_calling_mode_wifi_preferred_summary" msgid="8298294808362169798">"Jika Wi-Fi tidak tersedia, gunakan rangkaian mudah alih"</string>
     <string name="wifi_calling_mode_cellular_preferred_summary" msgid="4906499810156794061">"Jika rangkaian mudah alih tidak tersedia, gunakan Wi-Fi"</string>
     <string name="wifi_calling_mode_wifi_only_summary" msgid="6928556021002500522">"Panggil melalui Wi‑Fi. Jika Wi-Fi terputus, panggilan akan ditamatkan."</string>
@@ -2042,7 +2049,7 @@
     <string name="feature_flags_dashboard_title" msgid="3153034144122754381">"Bendera ciri"</string>
     <string name="talkback_title" msgid="3717960404234260050">"Talkback"</string>
     <string name="talkback_summary" msgid="6602857105831641574">"Pembaca skrin terutamanya untuk orang yang buta dan rabun"</string>
-    <string name="select_to_speak_summary" msgid="7514180457557735421">"Ketik item pada skrn anda untuk mendengar item itu dibaca"</string>
+    <string name="select_to_speak_summary" msgid="7514180457557735421">"Ketik item pada skrin anda untuk mendengar item itu dibaca"</string>
     <string name="accessibility_captioning_title" msgid="5878371993023439642">"Kapsyen"</string>
     <string name="accessibility_screen_magnification_title" msgid="7250949681883917360">"Pembesaran"</string>
     <string name="accessibility_screen_magnification_gestures_title" msgid="9199287875401817974">"Besarkan dengan tiga ketikan"</string>
@@ -2623,7 +2630,7 @@
     <string name="header_add_an_account" msgid="8482614556580804956">"Tambah akaun"</string>
     <string name="really_remove_account_title" msgid="4166512362915154319">"Alih keluar akaun?"</string>
     <string name="really_remove_account_message" product="tablet" msgid="7403843371045856719">"Mengalih keluar akaun ini akan memadamkan semua mesej, kenalan dan data lain daripada tablet!"</string>
-    <string name="really_remove_account_message" product="default" msgid="8951224626153163914">"Mengalih keluar akaun ini akan memadamkan semua mesej, kenalan dan data lainnya daripada telefon!"</string>
+    <string name="really_remove_account_message" product="default" msgid="8951224626153163914">"Pengalihan keluar akaun ini akan memadamkan semua mesej, kenalan dan data lainnya daripada telefon!"</string>
     <string name="really_remove_account_message" product="device" msgid="3751798556257519916">"Pengalihan keluar akaun ini akan memadamkan semua mesej, kenalan dan data lainnya daripada peranti!"</string>
     <string name="remove_account_failed" msgid="491458185327106966">"Perubahan ini tidak dibenarkan oleh pentadbir anda"</string>
     <string name="cant_sync_dialog_title" msgid="5483419398223189881">"Tidak boleh menyegerakkan secara manual"</string>
@@ -3155,7 +3162,7 @@
     <string name="emergency_tone_vibrate" msgid="5020068066905681181">"Getaran"</string>
     <string name="boot_sounds_title" msgid="7583926202411353620">"Bunyi semasa kuasa dihidupkan"</string>
     <string name="live_caption_title" msgid="7926591158657997051">"Sari Kata Langsung"</string>
-    <string name="live_caption_summary" msgid="9064771862352393125">"Kapsyen media automatik"</string>
+    <string name="live_caption_summary" msgid="9064771862352393125">"Sari kata media automatik"</string>
     <string name="zen_mode_settings_summary_off" msgid="6929319200478424962">"Jangan sekali-kali"</string>
     <plurals name="zen_mode_settings_summary_on" formatted="false" msgid="6061723291126091396">
       <item quantity="other"><xliff:g id="ON_COUNT">%d</xliff:g> didayakan</item>
@@ -4272,6 +4279,8 @@
     <string name="disabled_feature_reason_slow_down_phone" msgid="1819157849156814583">"Ciri akan memperlahan telefon ini"</string>
     <string name="enable_gnss_raw_meas_full_tracking" msgid="3397182995626655581">"Paksa ukuran GNSS penuh"</string>
     <string name="enable_gnss_raw_meas_full_tracking_summary" msgid="2469305990718976105">"Jejak semua gugusan dan kekerapan GNSS tanpa kitaran tugas"</string>
+    <string name="enable_user_switch_message" msgid="8613014373053051092">"Nyahpepijat penukaran pengguna"</string>
+    <string name="enable_user_switch_message_summary" msgid="3354160264601132060">"Tunjukkan maklumat terperinci semasa penukaran pengguna"</string>
     <string name="allow_background_activity_starts" msgid="6754016668813082728">"Benarkan aktiviti latar belakang bermula"</string>
     <string name="allow_background_activity_starts_summary" msgid="8170749270869606692">"Membenarkan semua aktiviti latar belakang bermula"</string>
     <string name="show_first_crash_dialog" msgid="3682063068903692710">"Sentiasa tunjukkan dialog ranap sistem"</string>
@@ -4465,7 +4474,7 @@
     <string name="privacy_dashboard_summary" msgid="7916431309860824945">"Kebenaran, aktiviti akaun, data peribadi"</string>
     <string name="contextual_card_dismiss_remove" msgid="1750420285615827309">"Alih keluar"</string>
     <string name="contextual_card_dismiss_keep" msgid="3204450672928193661">"Simpan"</string>
-    <string name="contextual_card_dismiss_confirm_message" msgid="2352465079667730312">"Alih keluarkan cadangan ini?"</string>
+    <string name="contextual_card_dismiss_confirm_message" msgid="2352465079667730312">"Alih keluar cadangan ini?"</string>
     <string name="contextual_card_removed_message" msgid="4047307820743366876">"Cadangan dialih keluar"</string>
     <string name="contextual_card_undo_dismissal_text" msgid="5009245286931852012">"Buat asal"</string>
     <string name="low_storage_summary" msgid="4562224870189133400">"Storan tinggal sedikit. <xliff:g id="PERCENTAGE">%1$s</xliff:g> digunakan - <xliff:g id="FREE_SPACE">%2$s</xliff:g> kosong"</string>

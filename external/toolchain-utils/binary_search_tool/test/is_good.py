@@ -1,4 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Check to see if the working set produces a good executable."""
 
 from __future__ import print_function
@@ -6,7 +11,7 @@ from __future__ import print_function
 import os
 import sys
 
-import common
+from binary_search_tool.test import common
 
 
 def Main():

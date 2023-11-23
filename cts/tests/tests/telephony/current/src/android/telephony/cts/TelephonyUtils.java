@@ -16,9 +16,32 @@
 
 package android.telephony.cts;
 
+import android.app.Instrumentation;
+import android.os.ParcelFileDescriptor;
 import android.telephony.TelephonyManager;
 
-class TelephonyUtils {
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+
+public class TelephonyUtils {
+    private static final String COMMAND_ADD_TEST_EMERGENCY_NUMBER =
+            "cmd phone emergency-number-test-mode -a ";
+
+    private static final String COMMAND_REMOVE_TEST_EMERGENCY_NUMBER =
+            "cmd phone emergency-number-test-mode -r ";
+
+    public static void addTestEmergencyNumber(Instrumentation instr, String testNumber)
+            throws Exception {
+        executeShellCommand(instr, COMMAND_ADD_TEST_EMERGENCY_NUMBER + testNumber);
+    }
+
+    public static void removeTestEmergencyNumber(Instrumentation instr, String testNumber)
+            throws Exception {
+        executeShellCommand(instr, COMMAND_REMOVE_TEST_EMERGENCY_NUMBER + testNumber);
+    }
 
     public static boolean isSkt(TelephonyManager telephonyManager) {
         return isOperator(telephonyManager, "45005");
@@ -35,6 +58,40 @@ class TelephonyUtils {
         return simOperator != null && simOperator.equals(operator);
     }
 
-    private TelephonyUtils() {
+    /**
+     * Executes the given shell command and returns the output in a string. Note that even
+     * if we don't care about the output, we have to read the stream completely to make the
+     * command execute.
+     */
+    public static String executeShellCommand(Instrumentation instrumentation,
+            String command) throws Exception {
+        final ParcelFileDescriptor pfd =
+                instrumentation.getUiAutomation().executeShellCommand(command);
+        BufferedReader br = null;
+        try (InputStream in = new FileInputStream(pfd.getFileDescriptor())) {
+            br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            String str = null;
+            StringBuilder out = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                out.append(str);
+            }
+            return out.toString();
+        } finally {
+            if (br != null) {
+                closeQuietly(br);
+            }
+            closeQuietly(pfd);
+        }
+    }
+
+    private static void closeQuietly(AutoCloseable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (RuntimeException rethrown) {
+                throw rethrown;
+            } catch (Exception ignored) {
+            }
+        }
     }
 }

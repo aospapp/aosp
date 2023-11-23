@@ -14,14 +14,14 @@
 # limitations under the License.
 #
 
-# Please use this when your VTS module can't be part of general-tests.
+# Please use this when your VTS10 module can't be part of general-tests.
 LOCAL_MODULE_CLASS := FAKE
 LOCAL_IS_HOST_MODULE := true
-LOCAL_COMPATIBILITY_SUITE := vts
+LOCAL_COMPATIBILITY_SUITE := vts10
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
 $(LOCAL_BUILT_MODULE):
-	@echo "VTS host-driven test target: $(PRIVATE_MODULE)"
+	@echo "VTS10 host-driven test target: $(PRIVATE_MODULE)"
 	$(hide) touch $@
 

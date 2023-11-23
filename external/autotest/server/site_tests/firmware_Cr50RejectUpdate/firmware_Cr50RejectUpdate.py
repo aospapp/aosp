@@ -26,7 +26,7 @@ class firmware_Cr50RejectUpdate(Cr50Test):
     def initialize(self, host, cmdline_args, full_args):
         """Initialize servo and download images"""
         super(firmware_Cr50RejectUpdate, self).initialize(host, cmdline_args,
-                full_args, restore_cr50_state=True)
+                full_args, restore_cr50_image=True)
 
         if not hasattr(self, 'cr50'):
             raise error.TestNAError('Test can only be run on devices with '
@@ -98,13 +98,16 @@ class firmware_Cr50RejectUpdate(Cr50Test):
 
         # Cr50 will accept images with the same header version if -u is omitted.
         # original_path is the image already on cr50, so this won't have any
-        # real effect. It will just reboot the device.
+        # real effect. It will just reboot Cr50.
         self.try_update('', self.original_path, stdout='image updated')
+        if not self.faft_config.ap_up_after_cr50_reboot:
+            self.servo.get_power_state_controller().reset()
         # After reboot, if the DUT hasn't responded within 45 seconds, it's not
         # going to.
         time.sleep(45)
         if not self.host.is_up_fast():
             raise error.TestError('DUT did not respond')
+
         # Wait for the host to respond to ping. Make sure it responded within
         # 60 seconds. The whole point of this case is that cr50 will reject
         # images in the first 60 seconds of boot, so it won't work if cr50

@@ -40,7 +40,11 @@ output0 = {out0: # output 0
 Example((input0, output0)).AddVariations("relaxed", "float16", quant8_mult_gt_1)
 
 # FULLY_CONNECTED of data type TENSOR_FLOAT32 is introduced in V1_0.
-Example.SetVersion("V1_0", "fully_connected_v1_2")
+Example.SetVersion("V1_0",
+                   "fully_connected_v1_2",
+                   "fully_connected_v1_2_all_inputs_as_internal",
+                   "fully_connected_v1_2_all_tensors_as_inputs",
+                   "fully_connected_v1_2_all_tensors_as_inputs_all_inputs_as_internal")
 
 # TEST 2: FULLY_CONNECTED, zero-sized input
 
@@ -77,10 +81,9 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1, 2, 3],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, layout).AddVariations("relaxed", quant8, "float16")

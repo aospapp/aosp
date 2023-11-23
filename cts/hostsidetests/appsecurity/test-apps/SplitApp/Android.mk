@@ -31,7 +31,7 @@ LOCAL_MIN_SDK_VERSION := 4
 LOCAL_PACKAGE_SPLITS := mdpi-v4 hdpi-v4 xhdpi-v4 xxhdpi-v4 v7 fr de
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
 
@@ -64,7 +64,7 @@ LOCAL_PACKAGE_NAME := CtsSplitAppDiffRevision
 LOCAL_PACKAGE_SPLITS := v7
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_MANIFEST_FILE := revision/AndroidManifest.xml
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
@@ -94,7 +94,7 @@ LOCAL_PACKAGE_NAME := CtsSplitAppDiffVersion
 LOCAL_PACKAGE_SPLITS := v7
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
 LOCAL_AAPT_FLAGS := --version-code 101 --version-name OneHundredOne --replace-version
@@ -123,7 +123,7 @@ LOCAL_PACKAGE_NAME := CtsSplitAppDiffCert
 LOCAL_PACKAGE_SPLITS := v7
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey2
 LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-version
@@ -150,7 +150,7 @@ LOCAL_SDK_VERSION := current
 LOCAL_MIN_SDK_VERSION := 4
 LOCAL_PACKAGE_SPLITS := xxhdpi-v4
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
 

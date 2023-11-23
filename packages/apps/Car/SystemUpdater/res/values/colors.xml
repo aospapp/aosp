@@ -16,8 +16,7 @@
 -->
 <resources>
     <!-- The default color for all activities in the Settings. -->
-    <color name="windowBackground">@color/car_grey_50</color>
+    <color name="windowBackground">#fff8f9fa</color>
 
-    <!-- The color of the status bar. -->
-    <color name="colorPrimaryDark">@color/car_grey_300</color>
+    <color name="icon_tint">#fff8f9fa</color>
 </resources>

@@ -16,6 +16,12 @@
 
 package android.apievolution.cts;
 
+import android.telephony.CellIdentity;
+import android.telephony.CellIdentityNr;
+import android.telephony.CellInfoNr;
+import android.telephony.CellSignalStrength;
+import android.telephony.CellSignalStrengthNr;
+
 import org.junit.Test;
 
 import java.lang.annotation.Annotation;
@@ -70,7 +76,7 @@ public class ApiEvolutionTest {
     @Test
     public void testCovariantReturnTypeMethods_annotation_concurrentHashMap() throws Exception {
         assertSyntheticMethodOverloadExists(ConcurrentHashMap.class, "keySet", null, Set.class,
-                ConcurrentHashMap.KeySetView.class, true);
+                ConcurrentHashMap.KeySetView.class, true /* requireIdenticalExceptions */);
     }
 
     @Test public void testCovariantReturnTypeMethods_annotation_byteBuffer() throws Exception {
@@ -99,6 +105,26 @@ public class ApiEvolutionTest {
 
     @Test public void testCovariantReturnTypeMethods_annotation_shortBuffer() throws Exception {
         assertSyntheticBufferMethodOverloadsExists(ShortBuffer.class);
+    }
+
+    /**
+     * Ensures that {@link CellInfoNr#getCellIdentity()} returns a {@link CellIdentityNr}.
+     * This is not a libcore/ API but testing it here avoids duplicating test support code.
+     */
+    @Test public void testCellIdentityNr_Override() throws Exception {
+        assertSyntheticMethodOverloadExists(CellInfoNr.class, "getCellIdentity", null,
+            CellIdentity.class, CellIdentityNr.class, true /* requireIdenticalExceptions */);
+    }
+
+    /**
+     * Ensures that {@link CellInfoNr#getCellSignalStrength()} returns a {@link
+     * CellSignalStrengthNr}. This is not a libcore/ API but testing it here avoids duplicating
+     * test support code.
+     */
+    @Test public void testCellCellSignalStrength_Override() throws Exception {
+        assertSyntheticMethodOverloadExists(CellInfoNr.class, "getCellSignalStrength", null,
+            CellSignalStrength.class, CellSignalStrengthNr.class,
+            true /* requireIdenticalExceptions */);
     }
 
     /**

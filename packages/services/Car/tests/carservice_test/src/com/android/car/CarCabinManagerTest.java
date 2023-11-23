@@ -33,8 +33,9 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.util.MutableInt;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.vehiclehal.VehiclePropValueBuilder;
 import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
@@ -131,7 +132,7 @@ public class CarCabinManagerTest extends MockedCarTestBase {
                 errorLatch.countDown();
             }
         });
-
+        mCarCabinManager.setBooleanProperty(PROP, AREA, true);
         getMockedVehicleHal().injectError(ERR_CODE, PROP, AREA);
         assertTrue(errorLatch.await(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
         assertEquals(PROP, propertyIdReceived.value);
@@ -141,6 +142,7 @@ public class CarCabinManagerTest extends MockedCarTestBase {
 
     // Test an event
     @Test
+    @FlakyTest
     public void testEvent() throws Exception {
         mCarCabinManager.registerCallback(new EventListener());
         // Wait for two events generated on registration

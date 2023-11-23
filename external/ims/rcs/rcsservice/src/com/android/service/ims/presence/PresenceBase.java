@@ -28,71 +28,110 @@
 
 package com.android.service.ims.presence;
 
-import java.lang.String;
-import android.content.ContentResolver;
-import android.content.ContentValues;
+import android.annotation.IntDef;
 import android.content.Context;
-import android.os.RemoteException;
 import android.content.Intent;
-import com.android.internal.telephony.TelephonyIntents;
-import android.content.ComponentName;
+import android.telephony.ims.ImsManager;
 
-import com.android.ims.internal.uce.common.StatusCode;
-import com.android.ims.internal.uce.common.StatusCode;
-import com.android.ims.internal.uce.presence.PresCmdStatus;
-import com.android.ims.internal.uce.presence.PresResInfo;
-import com.android.ims.internal.uce.presence.PresSipResponse;
-
-import com.android.ims.RcsManager.ResultCode;
-import com.android.ims.RcsPresence.PublishState;
-import com.android.ims.RcsPresenceInfo;
-
+import com.android.ims.ResultCode;
 import com.android.ims.internal.Logger;
 import com.android.service.ims.Task;
-import com.android.service.ims.RcsUtils;
 import com.android.service.ims.TaskManager;
 
-public abstract class PresenceBase{
-    /*
-     * The logger
-     */
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+public class PresenceBase {
     static private Logger logger = Logger.getLogger("PresenceBase");
 
-    protected Context mContext = null;
+    protected Context mContext;
 
-    public PresenceBase() {
+    /**
+     * The phone is PUBLISH_STATE_200_OK when
+     * the response of the last publish is "200 OK"
+     */
+    public static final int PUBLISH_STATE_200_OK = 0;
+
+    /**
+     * The phone didn't publish after power on.
+     * the phone didn't get any publish response yet.
+     */
+    public static final int PUBLISH_STATE_NOT_PUBLISHED = 1;
+
+    /**
+     * The phone is PUBLISH_STATE_VOLTE_PROVISION_ERROR when the response is one of items
+     * in config_volte_provision_error_on_publish_response for PUBLISH or
+     * in config_volte_provision_error_on_subscribe_response for SUBSCRIBE.
+     */
+    public static final int PUBLISH_STATE_VOLTE_PROVISION_ERROR = 2;
+
+    /**
+     * The phone is PUBLISH_STATE_RCS_PROVISION_ERROR when the response is one of items
+     * in config_rcs_provision_error_on_publish_response for PUBLISH or
+     * in config_rcs_provision_error_on_subscribe_response for SUBSCRIBE.Publ
+     */
+    public static final int PUBLISH_STATE_RCS_PROVISION_ERROR = 3;
+
+    /**
+     * The phone is PUBLISH_STATE_REQUEST_TIMEOUT when
+     * The response of the last publish is "408 Request Timeout".
+     */
+    public static final int PUBLISH_STATE_REQUEST_TIMEOUT = 4;
+
+    /**
+     * The phone is PUBLISH_STATE_OTHER_ERROR when
+     * the response of the last publish is other temp error. Such as
+     * 503 Service Unavailable
+     * Device shall retry with exponential back-off
+     *
+     * 423 Interval Too Short. Requested expiry interval too short and server rejects it
+     * Device shall re-attempt subscription after changing the expiration interval in
+     * the Expires header field to be equal to or greater than the expiration interval
+     * within the Min-Expires header field of the 423 response.
+     */
+    public static final int PUBLISH_STATE_OTHER_ERROR = 5;
+
+    @IntDef(value = {
+            PUBLISH_STATE_200_OK,
+            PUBLISH_STATE_NOT_PUBLISHED,
+            PUBLISH_STATE_VOLTE_PROVISION_ERROR,
+            PUBLISH_STATE_RCS_PROVISION_ERROR,
+            PUBLISH_STATE_REQUEST_TIMEOUT,
+            PUBLISH_STATE_OTHER_ERROR
+    }, prefix="PUBLISH_STATE_")
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PresencePublishState {}
+
+    public PresenceBase(Context context) {
+        mContext = context;
     }
 
-    protected void handleCallback(Task task, int resultCode, boolean forCmdStatus){
-        if(task == null){
+    protected void handleCallback(Task task, int resultCode, boolean forCmdStatus) {
+        if (task == null) {
             logger.debug("task == null");
             return;
         }
 
-        if(task.mListener != null){
-            try{
-                if(resultCode >= ResultCode.SUCCESS){
-                    if(!forCmdStatus){
-                        task.mListener.onSuccess(task.mTaskId);
-                    }
-                }else{
-                    task.mListener.onError(task.mTaskId, resultCode);
+        if (task.mListener != null) {
+            if(resultCode >= ResultCode.SUCCESS){
+                if(!forCmdStatus){
+                    task.mListener.onSuccess(task.mTaskId);
                 }
-            }catch(RemoteException e){
-                logger.debug("Failed to send the status to client.");
+            }else{
+                task.mListener.onError(task.mTaskId, resultCode);
             }
         }
 
         // remove task when error
         // remove task when SIP response success.
         // For list capability polling we will waiting for the terminated notify or timeout.
-        if(resultCode != ResultCode.SUCCESS){
+        if (resultCode != ResultCode.SUCCESS) {
             if(task instanceof PresencePublishTask){
                 PresencePublishTask publishTask = (PresencePublishTask) task;
                 logger.debug("handleCallback for publishTask=" + publishTask);
-                if(resultCode == PublishState.PUBLISH_STATE_VOLTE_PROVISION_ERROR) {
+                if(resultCode == PUBLISH_STATE_VOLTE_PROVISION_ERROR) {
                     // retry 3 times for "403 Not Authorized for Presence".
-                    if(publishTask.getRetryCount() >= 3) {
+                    if (publishTask.getRetryCount() >= 3) {
                         //remove capability after try 3 times by PresencePolling
                         logger.debug("handleCallback remove task=" + task);
                         TaskManager.getDefault().removeTask(task.mTaskId);
@@ -131,16 +170,10 @@ public abstract class PresenceBase{
         }
     }
 
-    public void handleCmdStatus(PresCmdStatus pCmdStatus){
-        if(pCmdStatus == null){
-            logger.error("handleCallbackForCmdStatus pCmdStatus=null");
-            return;
-        }
-
-        Task task = TaskManager.getDefault().getTask(pCmdStatus.getUserData());
-        int resultCode = RcsUtils.statusCodeToResultCode(pCmdStatus.getStatus().getStatusCode());
-        if(task != null){
-            task.mSipRequestId = pCmdStatus.getRequestId();
+    public void onCommandStatusUpdated(int taskId, int requestId, int resultCode) {
+        Task task = TaskManager.getDefault().getTask(taskId);
+        if (task != null){
+            task.mSipRequestId = requestId;
             task.mCmdStatus = resultCode;
             TaskManager.getDefault().putTask(task.mTaskId, task);
         }
@@ -151,16 +184,15 @@ public abstract class PresenceBase{
     protected void notifyDm() {
         logger.debug("notifyDm");
         Intent intent = new Intent(
-                TelephonyIntents.ACTION_FORBIDDEN_NO_SERVICE_AUTHORIZATION);
+                ImsManager.ACTION_FORBIDDEN_NO_SERVICE_AUTHORIZATION);
         intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
 
         mContext.sendBroadcast(intent);
     }
 
-    protected boolean isInConfigList(int errorNo, String phrase, int configId) {
+    protected boolean isInConfigList(int errorNo, String phrase, String[] errorArray) {
         String inErrorString = ("" + errorNo).trim();
 
-        String[] errorArray = mContext.getResources().getStringArray(configId);
         logger.debug("errorArray length=" + errorArray.length + " errorArray=" + errorArray);
         for (String errorStr : errorArray) {
             if (errorStr != null && errorStr.startsWith(inErrorString)) {
@@ -178,7 +210,5 @@ public abstract class PresenceBase{
         }
         return false;
     }
-
-    abstract public void handleSipResponse(PresSipResponse pSipResponse);
 }
 

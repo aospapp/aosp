@@ -98,6 +98,7 @@ struct wps_device_data {
 	u16 config_methods;
 	struct wpabuf *vendor_ext_m1;
 	struct wpabuf *vendor_ext[MAX_WPS_VENDOR_EXTENSIONS];
+	struct wpabuf *application_ext;
 
 	int p2p;
 	u8 multi_ap_ext;
@@ -344,6 +345,14 @@ struct wps_registrar_config {
 				 const char *dev_name);
 
 	/**
+	 * lookup_pskfile_cb - Callback for searching for PSK in wpa_psk_file
+	 * @ctx: Higher layer context data (cb_ctx)
+	 * @addr: Enrollee's MAC address
+	 * @psk: Pointer to found PSK (output arg)
+	 */
+	int (*lookup_pskfile_cb)(void *ctx, const u8 *mac_addr, const u8 **psk);
+
+	/**
 	 * cb_ctx: Higher layer context data for Registrar callbacks
 	 */
 	void *cb_ctx;
@@ -384,11 +393,6 @@ struct wps_registrar_config {
 	 * to be set with a suitable Credential and skip_cred_build being used.
 	 */
 	int disable_auto_conf;
-
-	/**
-	 * static_wep_only - Whether the BSS supports only static WEP
-	 */
-	int static_wep_only;
 
 	/**
 	 * dualband - Whether this is a concurrent dualband AP
@@ -733,7 +737,7 @@ struct wps_context {
 	 * uses this when acting as an Enrollee to notify Registrar of the
 	 * current configuration.
 	 *
-	 * When using WPA/WPA2-Person, this key can be either the ASCII
+	 * When using WPA/WPA2-Personal, this key can be either the ASCII
 	 * passphrase (8..63 characters) or the 32-octet PSK (64 hex
 	 * characters). When this is set to the ASCII passphrase, the PSK can
 	 * be provided in the psk buffer and used per-Enrollee to control which

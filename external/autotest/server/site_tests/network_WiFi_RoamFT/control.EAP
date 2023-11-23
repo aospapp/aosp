@@ -34,7 +34,7 @@ def run(machine):
                  tag=NAME.split('.')[1],
                  host=host,
                  raw_cmdline_args=args,
-                 additional_params=ft_eap_config)
+                 additional_params=[ft_eap_config])
 
 
 parallel_simple(run, machines)

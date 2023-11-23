@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <binder/BufferedTextOutput.h>
+#include "BufferedTextOutput.h"
 #include <binder/Debug.h>
 
 #include <cutils/atomic.h>
@@ -23,11 +23,11 @@
 #include <utils/RefBase.h>
 #include <utils/Vector.h>
 
-#include <private/binder/Static.h>
-
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "Static.h"
 
 // ---------------------------------------------------------------------------
 
@@ -49,9 +49,10 @@ struct BufferedTextOutput::BufferState : public RefBase
     }
     
     status_t append(const char* txt, size_t len) {
+        if (len > SIZE_MAX - bufferPos) return NO_MEMORY; // overflow
         if ((len+bufferPos) > bufferSize) {
+            if ((len + bufferPos) > SIZE_MAX / 3) return NO_MEMORY; // overflow
             size_t newSize = ((len+bufferPos)*3)/2;
-            if (newSize < (len+bufferPos)) return NO_MEMORY;    // overflow
             void* b = realloc(buffer, newSize);
             if (!b) return NO_MEMORY;
             buffer = (char*)b;
@@ -280,4 +281,4 @@ BufferedTextOutput::BufferState* BufferedTextOutput::getBuffer() const
     return mGlobalState;
 }
 
-}; // namespace android
+} // namespace android

@@ -21,7 +21,7 @@
 
 #include <android-base/logging.h>
 
-#include "../apps/weaver/include/ese/app/weaver.h"
+#include <ese/app/weaver.h>
 #include "ScopedEseConnection.h"
 
 namespace android {

@@ -4,7 +4,7 @@
 
 AUTHOR = "usanghi"
 NAME = "platform_CryptohomeKeyEviction"
-PURPOSE = "Verify that crypthome correctly reloads evicted TPM keys."
+PURPOSE = "Verify that cryptohome correctly reloads evicted TPM keys."
 CRITERIA = "Fails if any operations fail."
 ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"

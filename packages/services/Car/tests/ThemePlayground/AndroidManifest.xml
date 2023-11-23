@@ -58,6 +58,10 @@
                   android:label="@string/recycler_view"
                   android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
+        <activity android:name=".CarUiRecyclerViewSamples"
+            android:label="@string/car_ui_recycler_view"
+            android:parentActivityName="com.android.car.themeplayground.TextSamples">
+        </activity>
         <activity android:name=".DefaultThemeSamples"
                   android:label="@string/default_themes"
                   android:parentActivityName="com.android.car.themeplayground.TextSamples">

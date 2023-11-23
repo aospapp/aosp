@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/wifi_preferences_title">
+    android:title="@string/wifi_preferences_title"
+    android:key="@string/psk_wifi_preferences">
     <SwitchPreference
         android:key="@string/pk_enable_wifi_wakeup"
         android:title="@string/wifi_wakeup"

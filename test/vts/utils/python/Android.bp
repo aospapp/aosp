@@ -13,10 +13,28 @@
 // limitations under the License.
 
 python_library_host {
-  name: "vts_runner_utils_python",
-  srcs: [
-    "**/*.py",
-  ],
-  defaults: ["py2_only"],
+    name: "vndk_utils",
+    pkg_path: "vts/utils/python",
+    srcs: [
+        "android/__init__.py",
+        "android/api.py",
+        "library/__init__.py",
+        "library/elf_parser.py",
+        "library/elf/__init__.py",
+        "library/elf/consts.py",
+        "library/elf/utils.py",
+        "library/elf/structs.py",
+        "library/vtable/__init__.py",
+        "library/vtable/vtable_dumper.py",
+        "vndk/__init__.py",
+        "vndk/vndk_utils.py",
+    ],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: true,
+        },
+    },
 }
-

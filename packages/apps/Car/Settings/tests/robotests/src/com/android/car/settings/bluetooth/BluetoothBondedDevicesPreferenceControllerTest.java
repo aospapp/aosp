@@ -29,18 +29,18 @@ import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.car.userlib.CarUserManagerHelper;
+import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -51,22 +51,21 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowUserManager;
 import org.robolectric.util.ReflectionHelpers;
 
 import java.util.Arrays;
 
 /** Unit test for {@link BluetoothBondedDevicesPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowBluetoothAdapter.class,
-        ShadowBluetoothPan.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowBluetoothAdapter.class, ShadowBluetoothPan.class})
 public class BluetoothBondedDevicesPreferenceControllerTest {
 
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
     @Mock
     private CachedBluetoothDevice mBondedCachedDevice;
     @Mock
@@ -79,14 +78,16 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     private PreferenceControllerTestHelper<BluetoothBondedDevicesPreferenceController>
             mControllerHelper;
     private BluetoothBondedDevicesPreferenceController mController;
+    private Context mContext;
+    private UserHandle mMyUserHandle;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
-        Context context = RuntimeEnvironment.application;
+        mContext = RuntimeEnvironment.application;
+        mMyUserHandle = UserHandle.of(UserHandle.myUserId());
 
-        mLocalBluetoothManager = LocalBluetoothManager.getInstance(context, /* onInitCallback= */
+        mLocalBluetoothManager = LocalBluetoothManager.getInstance(mContext, /* onInitCallback= */
                 null);
         mSaveRealCachedDeviceManager = mLocalBluetoothManager.getCachedDeviceManager();
         ReflectionHelpers.setField(mLocalBluetoothManager, "mCachedDeviceManager",
@@ -103,20 +104,19 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
                 Arrays.asList(mBondedCachedDevice, unbondedCachedDevice));
 
         // Make sure controller is available.
-        Shadows.shadowOf(context.getPackageManager()).setSystemFeature(
+        Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
         BluetoothAdapter.getDefaultAdapter().enable();
         getShadowBluetoothAdapter().setState(BluetoothAdapter.STATE_ON);
 
-        mPreferenceGroup = new LogicalPreferenceGroup(context);
-        mControllerHelper = new PreferenceControllerTestHelper<>(context,
+        mPreferenceGroup = new LogicalPreferenceGroup(mContext);
+        mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 BluetoothBondedDevicesPreferenceController.class, mPreferenceGroup);
         mController = mControllerHelper.getController();
     }
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowBluetoothAdapter.reset();
         ReflectionHelpers.setField(mLocalBluetoothManager, "mCachedDeviceManager",
                 mSaveRealCachedDeviceManager);
@@ -171,8 +171,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
 
     @Test
     public void devicePreferenceButtonClicked_noUserRestrictions_launchesDetailsFragment() {
-        when(mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH)).thenReturn(false);
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_CONFIG_BLUETOOTH, false);
         mControllerHelper.markState(Lifecycle.State.STARTED);
         BluetoothDevicePreference devicePreference =
                 (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
@@ -186,8 +185,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
 
     @Test
     public void devicePreferenceButton_disallowConfigBluetooth_actionStaysHidden() {
-        when(mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH)).thenReturn(true);
+        getShadowUserManager().setUserRestriction(mMyUserHandle, DISALLOW_CONFIG_BLUETOOTH, true);
         mControllerHelper.markState(Lifecycle.State.STARTED);
         BluetoothDevicePreference devicePreference =
                 (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
@@ -195,7 +193,41 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
         assertThat(devicePreference.isActionShown()).isFalse();
     }
 
+    @Test
+    public void onUxRestrictionsChanged_hasRestrictions_buttonHidden() {
+        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+        BluetoothDevicePreference devicePreference =
+                (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
+
+        CarUxRestrictions restrictions = new CarUxRestrictions.Builder(
+                true, CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP, 0).build();
+        mController.onUxRestrictionsChanged(restrictions);
+
+        assertThat(devicePreference.isActionShown()).isFalse();
+    }
+
+    @Test
+    public void onUxRestrictionsChanged_restrictionToggled_buttonShown() {
+        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
+        BluetoothDevicePreference devicePreference =
+                (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
+
+        CarUxRestrictions restrictions = new CarUxRestrictions.Builder(
+                true, CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP, 0).build();
+        mController.onUxRestrictionsChanged(restrictions);
+
+        CarUxRestrictions noRestrictions = new CarUxRestrictions.Builder(
+                true, CarUxRestrictions.UX_RESTRICTIONS_BASELINE, 0).build();
+        mController.onUxRestrictionsChanged(noRestrictions);
+
+        assertThat(devicePreference.isActionShown()).isTrue();
+    }
+
     private ShadowBluetoothAdapter getShadowBluetoothAdapter() {
         return (ShadowBluetoothAdapter) Shadow.extract(BluetoothAdapter.getDefaultAdapter());
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadow.extract(UserManager.get(mContext));
     }
 }

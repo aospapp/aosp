@@ -160,6 +160,8 @@ public class GenerateMaximalLocales {
      */
     // Many of the overrides below can be removed once the language/pop/country data is updated.
     private static final Map<String, String> LANGUAGE_OVERRIDES = CldrUtility.asMap(new String[][] {
+        { "cic", "cic_Latn_US" },
+        { "cic_Latn", "cic_Latn_US" },
         { "eo", "eo_Latn_001" },
         { "eo_Latn", "eo_Latn_001" },
         { "es", "es_Latn_ES" },
@@ -234,6 +236,7 @@ public class GenerateMaximalLocales {
         { "und_SS", "en_Latn_SS" },
         { "und_TK", "tkl_Latn_TK" },
         { "und_UN", "en_Latn_UN" },
+        { "und_005", "pt_Latn_BR" },
         { "vo", "vo_Latn_001" },
         { "vo_Latn", "vo_Latn_001" },
         { "yi", "yi_Hebr_001" },
@@ -279,6 +282,8 @@ public class GenerateMaximalLocales {
 //        {"ccp", "ccp_Cakm_BD"},
 //        {"blt", "blt_Tavt_VN"},
         { "mis_Medf", "mis_Medf_NG" },
+
+        { "ku_Yezi", "ku_Yezi_GE" },
     });
 
     /**

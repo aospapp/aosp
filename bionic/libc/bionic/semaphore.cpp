@@ -221,7 +221,7 @@ int sem_wait(sem_t* sem) {
     }
 
     int result = __futex_wait_ex(sem_count_ptr, shared, shared | SEMCOUNT_MINUS_ONE, false, nullptr);
-    if (android_get_application_target_sdk_version() >= __ANDROID_API_N__) {
+    if (android_get_application_target_sdk_version() >= 24) {
       if (result ==-EINTR) {
         errno = EINTR;
         return -1;
@@ -273,6 +273,17 @@ int sem_timedwait(sem_t* sem, const timespec* abs_timeout) {
 
 int sem_timedwait_monotonic_np(sem_t* sem, const timespec* abs_timeout) {
   return __sem_timedwait(sem, abs_timeout, false);
+}
+
+int sem_clockwait(sem_t* sem, clockid_t clock, const timespec* abs_timeout) {
+  switch (clock) {
+    case CLOCK_MONOTONIC:
+      return sem_timedwait_monotonic_np(sem, abs_timeout);
+    case CLOCK_REALTIME:
+      return sem_timedwait(sem, abs_timeout);
+    default:
+      return EINVAL;
+  }
 }
 
 int sem_post(sem_t* sem) {

@@ -21,8 +21,9 @@
 namespace chre {
 
 EventRefQueue::~EventRefQueue() {
-  CHRE_ASSERT_LOG(empty(), "Potentially leaking events if queue not empty "
-                  "when destroyed");
+  CHRE_ASSERT_LOG(empty(),
+                  "Potentially leaking events if queue not empty when "
+                  "destroyed");
 }
 
 bool EventRefQueue::push(Event *event) {

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="Permissions">Permissions</string>
-    <string name="Deny">Deny</string>
-    <string name="Allow">Allow</string>
-    <string name="AllowAll">Allow all the time</string>
-</resources>

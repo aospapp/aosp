@@ -26,11 +26,12 @@ namespace android {
 namespace media {
 namespace eco {
 
-static const char* kDebugLogsLevelProperty = "media.ecoservice.log.level";
-static const char* kDebugLogStats = "media.ecoservice.log.stats";
-static const char* kDebugLogStatsSize = "media.ecoservice.log.stats.size";
-static const char* kDebugLogInfos = "media.ecoservice.log.info";
-static const char* kDebugLogInfosSize = "media.ecoservice.log.info.size";
+static const char* kDisableEcoServiceProperty = "vendor.media.ecoservice.disable";
+static const char* kDebugLogsLevelProperty = "vendor.media.ecoservice.log.level";
+static const char* kDebugLogStats = "vendor.media.ecoservice.log.stats";
+static const char* kDebugLogStatsSize = "vendor.media.ecoservice.log.stats.size";
+static const char* kDebugLogInfos = "vendor.media.ecoservice.log.info";
+static const char* kDebugLogInfosSize = "vendor.media.ecoservice.log.info.size";
 
 // A debug variable that should only be accessed by ECOService through updateLogLevel. It is rare
 // that this variable will have race condition. But if so, it is ok as this is just for debugging.

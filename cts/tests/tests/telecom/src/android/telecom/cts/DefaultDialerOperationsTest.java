@@ -19,12 +19,21 @@ package android.telecom.cts;
 import android.content.ComponentName;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.os.Process;
 import android.provider.VoicemailContract.Voicemails;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.Until;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
+
+import androidx.test.InstrumentationRegistry;
+import com.android.compatibility.common.util.ShellIdentityUtils;
 
 import java.util.List;
 
@@ -33,8 +42,13 @@ import java.util.List;
  * Verifies that certain privileged operations can only be performed by the default dialer.
  */
 public class DefaultDialerOperationsTest extends InstrumentationTestCase {
+    private static final int ACTIVITY_LAUNCHING_TIMEOUT_MILLIS = 20000;  // 20 seconds
+    private static final String ACTION_EMERGENCY_DIAL = "com.android.phone.EmergencyDialer.DIAL";
+
     private Context mContext;
+    private UiDevice mUiDevice;
     private TelecomManager mTelecomManager;
+    private PackageManager mPackageManager;
     private PhoneAccountHandle mPhoneAccountHandle;
     private String mPreviousDefaultDialer = null;
     private String mSystemDialer = null;
@@ -43,6 +57,7 @@ public class DefaultDialerOperationsTest extends InstrumentationTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getContext();
+        mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
         if (!TestUtils.shouldTestTelecom(mContext)) {
             return;
@@ -55,6 +70,7 @@ public class DefaultDialerOperationsTest extends InstrumentationTestCase {
             TestUtils.setDefaultDialer(getInstrumentation(), mSystemDialer);
         }
         mTelecomManager = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
+        mPackageManager = mContext.getPackageManager();
         final List<PhoneAccountHandle> accounts = mTelecomManager.getCallCapablePhoneAccounts();
         if (accounts != null && !accounts.isEmpty()) {
             mPhoneAccountHandle = accounts.get(0);
@@ -78,6 +94,51 @@ public class DefaultDialerOperationsTest extends InstrumentationTestCase {
         assertEquals(mSystemDialer, mTelecomManager.getDefaultDialerPackage());
         TestUtils.setDefaultDialer(getInstrumentation(), TestUtils.PACKAGE);
         assertEquals(TestUtils.PACKAGE, mTelecomManager.getDefaultDialerPackage());
+        assertEquals(mTelecomManager.getDefaultDialerPackage(),
+                ShellIdentityUtils.invokeMethodWithShellPermissions(mTelecomManager,
+                        tm -> tm.getDefaultDialerPackage(Process.myUserHandle())));
+    }
+
+    /** Default dialer should be the default package handling ACTION_DIAL. */
+    public void testActionDialHandling() throws Exception {
+        if (!TestUtils.shouldTestTelecom(mContext)) {
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_DIAL);
+        ResolveInfo info =
+                mPackageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        assertEquals(info.activityInfo.packageName, mTelecomManager.getDefaultDialerPackage());
+    }
+
+    /** The package handling Intent ACTION_DIAL should be the same package showing the UI. */
+    public void testDialerUI() throws Exception {
+        if (!TestUtils.shouldTestTelecom(mContext)) {
+            return;
+        }
+        // Find which package handling the intent
+        Intent intent = new Intent(Intent.ACTION_DIAL);
+        ResolveInfo info =
+                mPackageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        assertTrue(info != null); // Default dialer should always handle it
+
+        verifySamePackageForIntentHandlingAndUI(intent, info);
+    }
+
+    /** The package handling Intent emergency dail should be the same package showing the UI. */
+    public void testEmergencyDialerUI() throws Exception {
+        if (!TestUtils.shouldTestTelecom(mContext)) {
+            return;
+        }
+        // Find which package handling the intent
+        Intent intent = new Intent(ACTION_EMERGENCY_DIAL);
+        ResolveInfo info =
+                mPackageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        if (info == null) {
+            // Skip the test if no package handles ACTION_EMERGENCY_DIAL
+            return;
+        }
+
+        verifySamePackageForIntentHandlingAndUI(intent, info);
     }
 
     public void testVoicemailReadWritePermissions() throws Exception {
@@ -194,11 +255,12 @@ public class DefaultDialerOperationsTest extends InstrumentationTestCase {
         if (!TestUtils.shouldTestTelecom(mContext)) {
             return;
         }
-        final PackageManager pm = mContext.getPackageManager();
         final ComponentName name = new ComponentName(mContext,
                 "android.telecom.cts.MockDialerActivity");
         try {
-            pm.setComponentEnabledSetting(name, PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            mPackageManager.setComponentEnabledSetting(
+                    name,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP);
             TestUtils.setDefaultDialer(getInstrumentation(), TestUtils.PACKAGE);
             final String result = TestUtils.getDefaultDialer(getInstrumentation());
@@ -206,7 +268,9 @@ public class DefaultDialerOperationsTest extends InstrumentationTestCase {
             assertTrue("Expected failure indicating that this was not an installed dialer app",
                     result.contains("is not an installed Dialer app"));
         } finally {
-            pm.setComponentEnabledSetting(name, PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            mPackageManager.setComponentEnabledSetting(
+                    name,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                     PackageManager.DONT_KILL_APP);
         }
 
@@ -228,5 +292,25 @@ public class DefaultDialerOperationsTest extends InstrumentationTestCase {
         }
         String reportedDialer = mTelecomManager.getSystemDialerPackage();
         assertEquals(mSystemDialer, reportedDialer);
+    }
+
+    private void verifySamePackageForIntentHandlingAndUI(Intent intent, ResolveInfo info) {
+        String packageName = info.activityInfo.packageName;
+        assertTrue(!TextUtils.isEmpty(packageName));
+
+        mUiDevice.pressHome();
+        mUiDevice.waitForIdle();
+        try {
+            mContext.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+
+            // The package handles the intent should be foreground
+            mUiDevice.wait(
+                    Until.hasObject(By.pkg(packageName).depth(0)),
+                    ACTIVITY_LAUNCHING_TIMEOUT_MILLIS);
+            mUiDevice.waitForIdle();
+        } finally {
+            mUiDevice.pressHome();
+            mUiDevice.waitForIdle();
+        }
     }
 }

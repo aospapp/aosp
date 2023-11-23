@@ -185,6 +185,9 @@ public class ContactsContract_Wipe extends AndroidTestCase {
             @Override
             public void onChange(boolean selfChange, Uri uri) {
                 Log.i(TAG, "Received notification on " + uri);
+                if (uri == null || !uri.equals(ProviderStatus.CONTENT_URI)) {
+                    return; // we only care about a change to ProviderStatus.CONTENT_URI
+                }
                 notifiedUri.set(uri);
                 latch.countDown();
             }

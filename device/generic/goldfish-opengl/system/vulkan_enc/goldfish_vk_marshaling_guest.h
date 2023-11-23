@@ -3388,6 +3388,20 @@ void unmarshal_VkImportPhysicalAddressGOOGLE(
 #define OP_vkBeginCommandBufferAsyncGOOGLE 20321
 #define OP_vkEndCommandBufferAsyncGOOGLE 20322
 #define OP_vkResetCommandBufferAsyncGOOGLE 20323
+#define OP_vkCommandBufferHostSyncGOOGLE 20324
 #endif
+#ifdef VK_GOOGLE_create_resources_with_requirements
+#define OP_vkCreateImageWithRequirementsGOOGLE 20325
+#define OP_vkCreateBufferWithRequirementsGOOGLE 20326
+#endif
+#ifdef VK_GOOGLE_address_space_info
+#define OP_vkGetMemoryHostAddressInfoGOOGLE 20327
+#endif
+#ifdef VK_GOOGLE_free_memory_sync
+#define OP_vkFreeMemorySyncGOOGLE 20328
+#endif
+const char* api_opcode_to_string(
+    const uint32_t opcode);
+
 
 } // namespace goldfish_vk

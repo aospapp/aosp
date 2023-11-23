@@ -21,6 +21,7 @@ import static android.server.wm.UiDeviceUtils.dragPointer;
 import static android.server.wm.dndsourceapp.Components.DRAG_SOURCE;
 import static android.server.wm.dndtargetapp.Components.DROP_TARGET;
 import static android.server.wm.dndtargetappsdk23.Components.DROP_TARGET_SDK23;
+import static android.view.Display.DEFAULT_DISPLAY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -30,11 +31,10 @@ import static org.junit.Assume.assumeTrue;
 import android.content.ComponentName;
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.hardware.display.DisplayManager;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.ActivityManagerState.ActivityTask;
+import android.server.wm.WindowManagerState.ActivityTask;
 import android.util.Log;
 import android.view.Display;
 import java.util.Map;
@@ -92,8 +92,6 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
     private static final String EXTRA_MODE = "mode";
     private static final String EXTRA_LOGTAG = "logtag";
 
-    protected DisplayManager mDm;
-
     private Map<String, String> mSourceResults;
     private Map<String, String> mTargetResults;
 
@@ -112,14 +110,12 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
         mSourceLogTag = SOURCE_LOG_TAG + mSessionId;
         mTargetLogTag = TARGET_LOG_TAG + mSessionId;
 
-        mDm = mContext.getSystemService(DisplayManager.class);
         cleanupState();
+        mUseTaskOrganizer = false;
     }
 
     @After
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
+    public void tearDown() {
         cleanupState();
     }
 
@@ -127,7 +123,7 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
      * Make sure that the special activity stacks are removed and the ActivityManager/WindowManager
      * is in a good state.
      */
-    private void cleanupState() throws Exception {
+    private void cleanupState() {
         stopTestPackage(DRAG_SOURCE.getPackageName());
         stopTestPackage(DROP_TARGET.getPackageName());
         stopTestPackage(DROP_TARGET_SDK23.getPackageName());
@@ -144,6 +140,8 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
         Point topLeft = new Point(leftSide ? 0 : displaySize.x / 2, 0);
         Point bottomRight = new Point(leftSide ? displaySize.x / 2 : displaySize.x, displaySize.y);
         resizeActivityTask(componentName, topLeft.x, topLeft.y, bottomRight.x, bottomRight.y);
+        waitAndAssertTopResumedActivity(componentName, DEFAULT_DISPLAY,
+                "Activity launched as freeform should be resumed");
     }
 
     private void injectInput(Point from, Point to, int steps) throws Exception {
@@ -157,7 +155,7 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
     }
 
     private Point getWindowCenter(ComponentName name) throws Exception {
-        final ActivityTask sideTask = mAmWmState.getAmState().getTaskByActivity(name);
+        final ActivityTask sideTask = mWmState.getTaskByActivity(name);
         Rect bounds = sideTask.getBounds();
         if (bounds != null) {
             return new Point(bounds.centerX(), bounds.centerY());

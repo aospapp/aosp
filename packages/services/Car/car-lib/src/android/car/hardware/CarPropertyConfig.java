@@ -203,10 +203,23 @@ public final class CarPropertyConfig<T> implements Parcelable {
     }
 
     /**
-     * @return Value type of VehicleProperty.
-     * @hide
+     * Returns the value type of the vehicle property.
+     * <p>The value type could be one of the following:
+     * <ul>
+     *   <li>Boolean</li>
+     *   <li>Float</li>
+     *   <li>Float[]</li>
+     *   <li>Integer</li>
+     *   <li>Integer[]</li>
+     *   <li>Long</li>
+     *   <li>Long[]</li>
+     *   <li>String</li>
+     *   <li>byte[]</li>
+     *   <li>Object[]</li>
+     * </ul>
+     *
+     * @return the value type of the vehicle property.
      */
-    @SystemApi
     @NonNull
     public Class<T> getPropertyType() {
         return mType;
@@ -421,8 +434,8 @@ public final class CarPropertyConfig<T> implements Parcelable {
             mMaxValue = maxValue;
         }
 
-        public static final Parcelable.Creator<AreaConfig<Object>> CREATOR
-                = getCreator(Object.class);
+        public static final Parcelable.Creator<AreaConfig<Object>> CREATOR =
+                getCreator(Object.class);
 
         private static <E> Parcelable.Creator<AreaConfig<E>> getCreator(final Class<E> clazz) {
             return new Creator<AreaConfig<E>>() {
@@ -444,8 +457,13 @@ public final class CarPropertyConfig<T> implements Parcelable {
             mMaxValue = (T) in.readValue(getClass().getClassLoader());
         }
 
-        @Nullable public T getMinValue() { return mMinValue; }
-        @Nullable public T getMaxValue() { return mMaxValue; }
+        @Nullable public T getMinValue() {
+            return mMinValue;
+        }
+
+        @Nullable public T getMaxValue() {
+            return mMaxValue;
+        }
 
         @Override
         public int describeContents() {
@@ -460,10 +478,10 @@ public final class CarPropertyConfig<T> implements Parcelable {
 
         @Override
         public String toString() {
-            return "CarAreaConfig{" +
-                    "mMinValue=" + mMinValue +
-                    ", mMaxValue=" + mMaxValue +
-                    '}';
+            return "CarAreaConfig{"
+                    + "mMinValue=" + mMinValue
+                    + ", mMaxValue=" + mMaxValue
+                    + '}';
         }
     }
 
@@ -616,6 +634,9 @@ public final class CarPropertyConfig<T> implements Parcelable {
             return this;
         }
 
+        /**
+         * Builds a new {@link CarPropertyConfig}.
+         */
         public CarPropertyConfig<T> build() {
             return new CarPropertyConfig<>(mAccess, mAreaType, mChangeMode, mConfigArray,
                                            mConfigString, mMaxSampleRate, mMinSampleRate,

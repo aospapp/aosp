@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Notification legacy test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <!-- Not testing features backed by native code, so only need to run against one ABI -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsLegacyNotificationTestCases.apk" />

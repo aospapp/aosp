@@ -16,7 +16,7 @@
 
 package com.android.internal.telephony.cat;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.graphics.Bitmap;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -40,7 +40,7 @@ public class TextMessage implements Parcelable {
     private TextMessage(Parcel in) {
         title = in.readString();
         text = in.readString();
-        icon = in.readParcelable(null);
+        icon = in.readParcelable(Bitmap.class.getClassLoader());
         iconSelfExplanatory = in.readInt() == 1 ? true : false;
         isHighPriority = in.readInt() == 1 ? true : false;
         responseNeeded = in.readInt() == 1 ? true : false;

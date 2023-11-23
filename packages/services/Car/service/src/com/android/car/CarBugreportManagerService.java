@@ -30,6 +30,7 @@ import android.content.pm.PackageManager;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
@@ -50,6 +51,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Bugreport service for cars.
@@ -69,7 +71,11 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     private static final String OK_PREFIX = "OK:";
     private static final String FAIL_PREFIX = "FAIL:";
 
+    /**
+     * The services are defined in {@code packages/services/Car/car-bugreportd/car-bugreportd.rc}.
+     */
     private static final String BUGREPORTD_SERVICE = "car-bugreportd";
+    private static final String DUMPSTATEZ_SERVICE = "car-dumpstatez";
 
     // The socket definitions must match the actual socket names defined in car_bugreportd service
     // definition.
@@ -83,9 +89,10 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     private final Context mContext;
     private final Object mLock = new Object();
 
-    private HandlerThread mHandlerThread;
-    private Handler mHandler;
-    private boolean mIsServiceRunning;
+    private final HandlerThread mHandlerThread = CarServiceUtils.getHandlerThread(
+            getClass().getSimpleName());
+    private final Handler mHandler = new Handler(mHandlerThread.getLooper());
+    private final AtomicBoolean mIsServiceRunning = new AtomicBoolean(false);
 
     /**
      * Create a CarBugreportManagerService instance.
@@ -98,79 +105,116 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
 
     @Override
     public void init() {
-        mHandlerThread = new HandlerThread(TAG);
-        mHandlerThread.start();
-        mHandler = new Handler(mHandlerThread.getLooper());
+        // nothing to do
     }
 
     @Override
     public void release() {
-        mHandlerThread.quitSafely();
+        // nothing to do
     }
 
     @Override
     @RequiresPermission(android.Manifest.permission.DUMP)
     public void requestBugreport(ParcelFileDescriptor output, ParcelFileDescriptor extraOutput,
             ICarBugreportCallback callback) {
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.DUMP, "requestBugreport");
+        ensureTheCallerIsSignedWithPlatformKeys();
+        ensureTheCallerIsDesignatedBugReportApp();
+        synchronized (mLock) {
+            if (mIsServiceRunning.getAndSet(true)) {
+                Slog.w(TAG, "Bugreport Service already running");
+                reportError(callback, CarBugreportManagerCallback.CAR_BUGREPORT_IN_PROGRESS);
+                return;
+            }
+            requestBugReportLocked(output, extraOutput, callback);
+        }
+    }
 
-        // Check the caller has proper permission
-        mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DUMP,
-                "requestZippedBugreport");
-        // Check the caller is signed with platform keys
+    @Override
+    @RequiresPermission(android.Manifest.permission.DUMP)
+    public void cancelBugreport() {
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.DUMP, "cancelBugreport");
+        ensureTheCallerIsSignedWithPlatformKeys();
+        ensureTheCallerIsDesignatedBugReportApp();
+        synchronized (mLock) {
+            if (!mIsServiceRunning.getAndSet(false)) {
+                Slog.i(TAG, "Failed to cancel. Service is not running.");
+                return;
+            }
+            Slog.i(TAG, "Cancelling the running bugreport");
+            mHandler.removeCallbacksAndMessages(/* token= */ null);
+            // This tells init to cancel the services. Note that this is achieved through
+            // setting a system property which is not thread-safe. So the lock here offers
+            // thread-safety only among callers of the API.
+            try {
+                SystemProperties.set("ctl.stop", BUGREPORTD_SERVICE);
+            } catch (RuntimeException e) {
+                Slog.e(TAG, "Failed to stop " + BUGREPORTD_SERVICE, e);
+            }
+            try {
+                // Stop DUMPSTATEZ_SERVICE service too, because stopping BUGREPORTD_SERVICE doesn't
+                // guarantee stopping DUMPSTATEZ_SERVICE.
+                SystemProperties.set("ctl.stop", DUMPSTATEZ_SERVICE);
+            } catch (RuntimeException e) {
+                Slog.e(TAG, "Failed to stop " + DUMPSTATEZ_SERVICE, e);
+            }
+        }
+    }
+
+    private void ensureTheCallerIsSignedWithPlatformKeys() {
         PackageManager pm = mContext.getPackageManager();
         int callingUid = Binder.getCallingUid();
         if (pm.checkSignatures(Process.myUid(), callingUid) != PackageManager.SIGNATURE_MATCH) {
             throw new SecurityException("Caller " + pm.getNameForUid(callingUid)
                             + " does not have the right signature");
         }
-        // Check if the caller is the designated bugreport app
+    }
+
+    /** Checks only on user builds. */
+    private void ensureTheCallerIsDesignatedBugReportApp() {
+        if (Build.IS_DEBUGGABLE) {
+            // Per https://source.android.com/setup/develop/new-device, user builds are debuggable=0
+            return;
+        }
         String defaultAppPkgName = mContext.getString(R.string.config_car_bugreport_application);
+        int callingUid = Binder.getCallingUid();
+        PackageManager pm = mContext.getPackageManager();
         String[] packageNamesForCallerUid = pm.getPackagesForUid(callingUid);
-        boolean found = false;
         if (packageNamesForCallerUid != null) {
             for (String packageName : packageNamesForCallerUid) {
                 if (defaultAppPkgName.equals(packageName)) {
-                    found = true;
-                    break;
+                    return;
                 }
             }
         }
-        if (!found) {
-            throw new SecurityException("Caller " +  pm.getNameForUid(callingUid)
-                    + " is not a designated bugreport app");
-        }
-
-        synchronized (mLock) {
-            requestBugReportLocked(output, extraOutput, callback);
-        }
+        throw new SecurityException("Caller " +  pm.getNameForUid(callingUid)
+                + " is not a designated bugreport app");
     }
 
     @GuardedBy("mLock")
     private void requestBugReportLocked(ParcelFileDescriptor output,
             ParcelFileDescriptor extraOutput, ICarBugreportCallback callback) {
-        if (mIsServiceRunning) {
-            Slog.w(TAG, "Bugreport Service already running");
-            reportError(callback, CarBugreportManagerCallback.CAR_BUGREPORT_IN_PROGRESS);
-            return;
-        }
-        mIsServiceRunning = true;
-        mHandler.post(() -> startBugreportd(output, extraOutput, callback));
-    }
-
-    private void startBugreportd(ParcelFileDescriptor output, ParcelFileDescriptor extraOutput,
-            ICarBugreportCallback callback) {
         Slog.i(TAG, "Starting " + BUGREPORTD_SERVICE);
         try {
+            // This tells init to start the service. Note that this is achieved through
+            // setting a system property which is not thread-safe. So the lock here offers
+            // thread-safety only among callers of the API.
             SystemProperties.set("ctl.start", BUGREPORTD_SERVICE);
         } catch (RuntimeException e) {
+            mIsServiceRunning.set(false);
             Slog.e(TAG, "Failed to start " + BUGREPORTD_SERVICE, e);
             reportError(callback, CAR_BUGREPORT_DUMPSTATE_FAILED);
             return;
         }
-        processBugreportSockets(output, extraOutput, callback);
-        synchronized (mLock) {
-            mIsServiceRunning = false;
-        }
+        mHandler.post(() -> {
+            try {
+                processBugreportSockets(output, extraOutput, callback);
+            } finally {
+                mIsServiceRunning.set(false);
+            }
+        });
     }
 
     private void handleProgress(String line, ICarBugreportCallback callback) {
@@ -232,11 +276,10 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
             reportError(callback, CAR_BUGREPORT_DUMPSTATE_CONNECTION_FAILED);
             return;
         }
-
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(localSocket.getInputStream()))) {
             String line;
-            while ((line = reader.readLine()) != null) {
+            while (mIsServiceRunning.get() && (line = reader.readLine()) != null) {
                 if (line.startsWith(PROGRESS_PREFIX)) {
                     handleProgress(line, callback);
                 } else if (line.startsWith(FAIL_PREFIX)) {
@@ -285,7 +328,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
         try {
             callback.onError(errorCode);
         } catch (RemoteException e) {
-            Slog.e(TAG, "onError() failed: " + e.getMessage());
+            Slog.e(TAG, "onError() failed", e);
         }
     }
 
@@ -310,7 +353,17 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
             // Therefore we are generous in setting the timeout. Most cases should not even
             // come close to the timeouts, but since bugreports are taken when there is a
             // system issue, it is hard to guess.
-            SystemClock.sleep(SOCKET_CONNECTION_RETRY_DELAY_IN_MS);
+            // The following lines waits for SOCKET_CONNECTION_RETRY_DELAY_IN_MS or until
+            // mIsServiceRunning becomes false.
+            for (int i = 0; i < SOCKET_CONNECTION_RETRY_DELAY_IN_MS / 50; i++) {
+                if (!mIsServiceRunning.get()) {
+                    Slog.i(TAG, "Failed to connect to socket " + socketName
+                            + ". The service is prematurely cancelled.");
+                    return null;
+                }
+                SystemClock.sleep(50);  // Millis.
+            }
+
             try {
                 socket.connect(new LocalSocketAddress(socketName,
                         LocalSocketAddress.Namespace.RESERVED));
@@ -321,7 +374,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
                             + " after " + retryCount + " retries", e);
                     return null;
                 }
-                Log.i(TAG, "Failed to connect to " + socketName + ". Will try again "
+                Log.i(TAG, "Failed to connect to " + socketName + ". Will try again. "
                         + e.getMessage());
             }
         }

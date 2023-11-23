@@ -18,7 +18,7 @@
 %                    Based on kmiya's sixel (2014-03-28)                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -203,7 +203,8 @@ static unsigned char *get_params(unsigned char *p, int *param, int *len)
         }
         if (isdigit((int) ((unsigned char) *p))) {
             for (n = 0; isdigit((int) ((unsigned char) *p)); p++) {
-                n = (int) ((ssize_t) n * 10 + (*p - '0'));
+                if (n <= (INT_MAX/10))
+                  n = (int) ((ssize_t) n * 10 + (*p - '0'));
             }
             if (*len < 10) {
                 param[(*len)++] = n;
@@ -1054,10 +1055,12 @@ static Image *ReadSIXELImage(const ImageInfo *image_info,ExceptionInfo *exceptio
   /*
     Decode SIXEL
   */
+  sixel_pixels=(unsigned char *) NULL;
   if (sixel_decode(image,(unsigned char *) sixel_buffer,&sixel_pixels,&image->columns,&image->rows,&sixel_palette,&image->colors,exception) == MagickFalse)
     {
       sixel_buffer=(char *) RelinquishMagickMemory(sixel_buffer);
-      sixel_pixels=(unsigned char *) RelinquishMagickMemory(sixel_pixels);
+      if (sixel_pixels != (unsigned char *) NULL)
+        sixel_pixels=(unsigned char *) RelinquishMagickMemory(sixel_pixels);
       ThrowReaderException(CorruptImageError,"CorruptImage");
     }
   sixel_buffer=(char *) RelinquishMagickMemory(sixel_buffer);

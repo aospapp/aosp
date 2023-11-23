@@ -18,12 +18,16 @@
 
 #if defined(__linux__)
 
-#include <backtrace/Backtrace.h>
-#include <backtrace/BacktraceMap.h>
-
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
 
+#include "unwindstack/Regs.h"
+#include "unwindstack/RegsGetLocal.h"
+#include "unwindstack/Memory.h"
+#include "unwindstack/Unwinder.h"
+
+#include "base/bit_utils.h"
+#include "entrypoints/runtime_asm_entrypoints.h"
 #include "thread-inl.h"
 
 #else
@@ -35,46 +39,83 @@
 
 namespace art {
 
-// We only really support libbacktrace on linux which is unfortunate but since this is only for
+// We only really support libunwindstack on linux which is unfortunate but since this is only for
 // gcstress this isn't a huge deal.
 #if defined(__linux__)
 
-static const char* kBacktraceCollectorTlsKey = "BacktraceCollectorTlsKey";
+struct UnwindHelper : public TLSData {
+  static constexpr const char* kTlsKey = "UnwindHelper::kTlsKey";
 
-struct BacktraceMapHolder : public TLSData {
-  BacktraceMapHolder() : map_(BacktraceMap::Create(getpid())) {}
+  explicit UnwindHelper(size_t max_depth)
+      : memory_(unwindstack::Memory::CreateProcessMemory(getpid())),
+        jit_(memory_),
+        dex_(memory_),
+        unwinder_(max_depth, &maps_, memory_) {
+    CHECK(maps_.Parse());
+    unwinder_.SetJitDebug(&jit_, unwindstack::Regs::CurrentArch());
+    unwinder_.SetDexFiles(&dex_, unwindstack::Regs::CurrentArch());
+    unwinder_.SetResolveNames(false);
+    unwindstack::Elf::SetCachingEnabled(true);
+  }
 
-  std::unique_ptr<BacktraceMap> map_;
+  // Reparse process mmaps to detect newly loaded libraries.
+  bool Reparse() { return maps_.Reparse(); }
+
+  static UnwindHelper* Get(Thread* self, size_t max_depth) {
+    UnwindHelper* tls = reinterpret_cast<UnwindHelper*>(self->GetCustomTLS(kTlsKey));
+    if (tls == nullptr) {
+      tls = new UnwindHelper(max_depth);
+      self->SetCustomTLS(kTlsKey, tls);
+    }
+    return tls;
+  }
+
+  unwindstack::Unwinder* Unwinder() { return &unwinder_; }
+
+ private:
+  unwindstack::LocalUpdatableMaps maps_;
+  std::shared_ptr<unwindstack::Memory> memory_;
+  unwindstack::JitDebug jit_;
+  unwindstack::DexFiles dex_;
+  unwindstack::Unwinder unwinder_;
 };
 
-static BacktraceMap* GetMap(Thread* self) {
-  BacktraceMapHolder* map_holder =
-      reinterpret_cast<BacktraceMapHolder*>(self->GetCustomTLS(kBacktraceCollectorTlsKey));
-  if (map_holder == nullptr) {
-    map_holder = new BacktraceMapHolder;
-    // We don't care about the function names. Turning this off makes everything significantly
-    // faster.
-    map_holder->map_->SetResolveNames(false);
-    // Only created and queried on Thread::Current so no sync needed.
-    self->SetCustomTLS(kBacktraceCollectorTlsKey, map_holder);
+void BacktraceCollector::Collect() {
+  if (!CollectImpl()) {
+    // Reparse process mmaps to detect newly loaded libraries and retry.
+    UnwindHelper::Get(Thread::Current(), max_depth_)->Reparse();
+    if (!CollectImpl()) {
+      // Failed to unwind stack. Ignore for now.
+    }
   }
-
-  return map_holder->map_.get();
 }
 
-void BacktraceCollector::Collect() {
-  std::unique_ptr<Backtrace> backtrace(Backtrace::Create(BACKTRACE_CURRENT_PROCESS,
-                                                         BACKTRACE_CURRENT_THREAD,
-                                                         GetMap(Thread::Current())));
-  backtrace->SetSkipFrames(true);
-  if (!backtrace->Unwind(skip_count_, nullptr)) {
-    return;
+bool BacktraceCollector::CollectImpl() {
+  unwindstack::Unwinder* unwinder = UnwindHelper::Get(Thread::Current(), max_depth_)->Unwinder();
+  std::unique_ptr<unwindstack::Regs> regs(unwindstack::Regs::CreateFromLocal());
+  RegsGetLocal(regs.get());
+  unwinder->SetRegs(regs.get());
+  unwinder->Unwind();
+
+  num_frames_ = 0;
+  if (unwinder->NumFrames() > skip_count_) {
+    for (auto it = unwinder->frames().begin() + skip_count_; it != unwinder->frames().end(); ++it) {
+      CHECK_LT(num_frames_, max_depth_);
+      out_frames_[num_frames_++] = static_cast<uintptr_t>(it->pc);
+
+      // Expected early end: Instrumentation breaks unwinding (b/138296821).
+      size_t align = GetInstructionSetAlignment(kRuntimeISA);
+      if (RoundUp(it->pc, align) == reinterpret_cast<uintptr_t>(GetQuickInstrumentationExitPc())) {
+        return true;
+      }
+    }
   }
-  for (Backtrace::const_iterator it = backtrace->begin();
-       max_depth_ > num_frames_ && it != backtrace->end();
-       ++it) {
-    out_frames_[num_frames_++] = static_cast<uintptr_t>(it->pc);
+
+  if (unwinder->LastErrorCode() == unwindstack::ERROR_INVALID_MAP) {
+    return false;
   }
+
+  return true;
 }
 
 #else

@@ -26,15 +26,18 @@ cc_library {
         "libbpf_android",
         "liblog",
         "libnetdutils",
-        "libutils",
     ],
     export_include_dirs: ["include"],
     defaults: ["netd_defaults"],
+    sanitize: {
+        cfi: true,
+    },
 }
 
 cc_test {
     name: "libnetdbpf_test",
     test_suites: ["device-tests"],
+    require_root: true,
     srcs: [
         "BpfNetworkStatsTest.cpp",
     ],

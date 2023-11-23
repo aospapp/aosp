@@ -16,6 +16,8 @@
 
 package com.android.car.radio;
 
+import static com.android.car.ui.core.CarUi.requireInsets;
+
 import android.hardware.radio.RadioManager.ProgramInfo;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -25,11 +27,13 @@ import android.view.ViewGroup;
 import androidx.fragment.app.Fragment;
 
 import com.android.car.radio.bands.ProgramType;
+import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.baselayout.InsetsChangedListener;
 
 /**
  * Fragment that allows tuning to a specific frequency using a keypad
  */
-public class ManualTunerFragment extends Fragment {
+public class ManualTunerFragment extends Fragment implements InsetsChangedListener {
 
     private ManualTunerController mController;
     private RadioController mRadioController;
@@ -52,6 +56,24 @@ public class ManualTunerFragment extends Fragment {
         ProgramInfo current = mRadioController.getCurrentProgram().getValue();
         if (current == null) return;
         mController.switchProgramType(ProgramType.fromSelector(current.getSelector()));
+        if (isVisibleToUser) {
+            mRadioController.setSkipMode(SkipMode.TUNE);
+        }
+    }
+
+    @Override
+    public void onCarUiInsetsChanged(Insets insets) {
+        View view = requireView();
+        view.setPadding(insets.getLeft(), insets.getTop(),
+                insets.getRight(), insets.getBottom());
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // This is needed to apply the inset changes that happened before this fragment was visible
+        onCarUiInsetsChanged(requireInsets(getActivity()));
     }
 
     static ManualTunerFragment newInstance(RadioController radioController) {

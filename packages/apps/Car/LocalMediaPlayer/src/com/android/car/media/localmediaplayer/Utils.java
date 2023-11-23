@@ -27,6 +27,12 @@ public class Utils {
         android.Manifest.permission.READ_EXTERNAL_STORAGE
     };
 
+    static final String ERROR_RESOLUTION_ACTION_INTENT =
+            "android.media.extras.ERROR_RESOLUTION_ACTION_INTENT";
+
+    static final String ERROR_RESOLUTION_ACTION_LABEL =
+            "android.media.extras.ERROR_RESOLUTION_ACTION_LABEL";
+
     static Uri getUriForResource(Context context, int id) {
         Resources res = context.getResources();
         return Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE
@@ -42,13 +48,5 @@ public class Utils {
             }
         }
         return true;
-    }
-
-    static void startPermissionRequest(Context context) {
-        if (!Utils.hasRequiredPermissions(context)) {
-            Intent intent = new Intent(context, PermissionsActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-        }
     }
 }

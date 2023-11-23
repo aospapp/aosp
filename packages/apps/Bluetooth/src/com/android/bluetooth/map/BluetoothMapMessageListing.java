@@ -103,7 +103,7 @@ public class BluetoothMapMessageListing {
                 xmlMsgElement.setOutput(sw);
                 xmlMsgElement.text("\n");
             } else {
-                xmlMsgElement = new FastXmlSerializer();
+                xmlMsgElement = new FastXmlSerializer(0);
                 xmlMsgElement.setOutput(sw);
                 xmlMsgElement.startDocument("UTF-8", true);
                 xmlMsgElement.setFeature(

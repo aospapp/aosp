@@ -22,7 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import android.net.MacAddress;
 import android.net.MatchAllNetworkSpecifier;
-import android.net.NetworkRequest;
 import android.os.Parcel;
 import android.os.PatternMatcher;
 import android.util.Pair;
@@ -36,10 +35,6 @@ import org.junit.Test;
  */
 @SmallTest
 public class WifiNetworkAgentSpecifierTest {
-    private static final int TEST_UID = 5;
-    private static final int TEST_UID_1 = 8;
-    private static final String TEST_PACKAGE = "com.test";
-    private static final String TEST_PACKAGE_1 = "com.test.1";
     private static final String TEST_SSID = "Test123";
     private static final String TEST_SSID_PATTERN = "Test";
     private static final String TEST_SSID_1 = "456test";
@@ -71,16 +66,6 @@ public class WifiNetworkAgentSpecifierTest {
     }
 
     /**
-     * Validate that the NetworkAgentSpecifier cannot be used in a {@link NetworkRequest} by apps.
-     */
-    @Test(expected = IllegalStateException.class)
-    public void testWifiNetworkAgentSpecifierNotUsedInNetworkRequest() {
-        WifiNetworkAgentSpecifier specifier = createDefaultNetworkAgentSpecifier();
-
-        specifier.assertValidFromUid(TEST_UID);
-    }
-
-    /**
      * Validate NetworkAgentSpecifier equals with itself.
      * a) Create network agent specifier 1 for WPA_PSK network
      * b) Create network agent specifier 2 with the same params as specifier 1.
@@ -105,15 +90,13 @@ public class WifiNetworkAgentSpecifierTest {
         WifiConfiguration wifiConfiguration1 = createDefaultWifiConfiguration();
         WifiNetworkAgentSpecifier specifier1 =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfiguration1,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfiguration1);
 
         WifiConfiguration wifiConfiguration2 = new WifiConfiguration(wifiConfiguration1);
         wifiConfiguration2.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
         WifiNetworkAgentSpecifier specifier2 =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfiguration2,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfiguration2);
 
         assertFalse(specifier2.equals(specifier1));
     }
@@ -129,15 +112,13 @@ public class WifiNetworkAgentSpecifierTest {
         WifiConfiguration wifiConfiguration1 = createDefaultWifiConfiguration();
         WifiNetworkAgentSpecifier specifier1 =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfiguration1,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfiguration1);
 
         WifiConfiguration wifiConfiguration2 = new WifiConfiguration(wifiConfiguration1);
         wifiConfiguration2.SSID = TEST_SSID_1;
         WifiNetworkAgentSpecifier specifier2 =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfiguration2,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfiguration2);
 
         assertFalse(specifier2.equals(specifier1));
     }
@@ -153,15 +134,13 @@ public class WifiNetworkAgentSpecifierTest {
         WifiConfiguration wifiConfiguration1 = createDefaultWifiConfiguration();
         WifiNetworkAgentSpecifier specifier1 =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfiguration1,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfiguration1);
 
         WifiConfiguration wifiConfiguration2 = new WifiConfiguration(wifiConfiguration1);
         wifiConfiguration2.BSSID = TEST_BSSID_1;
         WifiNetworkAgentSpecifier specifier2 =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfiguration2,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfiguration2);
 
         assertFalse(specifier2.equals(specifier1));
     }
@@ -176,8 +155,8 @@ public class WifiNetworkAgentSpecifierTest {
     public void testWifiNetworkAgentSpecifierSatisifiesNullAndAllMatch() {
         WifiNetworkAgentSpecifier specifier = createDefaultNetworkAgentSpecifier();
 
-        assertTrue(specifier.satisfiedBy(null));
-        assertTrue(specifier.satisfiedBy(new MatchAllNetworkSpecifier()));
+        assertTrue(specifier.canBeSatisfiedBy(null));
+        assertTrue(specifier.canBeSatisfiedBy(new MatchAllNetworkSpecifier()));
     }
 
     /**
@@ -191,7 +170,7 @@ public class WifiNetworkAgentSpecifierTest {
         WifiNetworkAgentSpecifier specifier1 = createDefaultNetworkAgentSpecifier();
         WifiNetworkAgentSpecifier specifier2 = createDefaultNetworkAgentSpecifier();
 
-        assertTrue(specifier2.satisfiedBy(specifier1));
+        assertTrue(specifier2.canBeSatisfiedBy(specifier1));
     }
 
     /**
@@ -208,18 +187,17 @@ public class WifiNetworkAgentSpecifierTest {
         PatternMatcher ssidPattern =
                 new PatternMatcher(TEST_SSID_PATTERN, PatternMatcher.PATTERN_PREFIX);
         Pair<MacAddress, MacAddress> bssidPattern =
-                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS);
+                Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS, WifiManager.ALL_ZEROS_MAC_ADDRESS);
         WifiConfiguration wificonfigurationNetworkSpecifier = new WifiConfiguration();
         wificonfigurationNetworkSpecifier.allowedKeyManagement
                 .set(WifiConfiguration.KeyMgmt.WPA_PSK);
         WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
                 ssidPattern,
                 bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID, TEST_PACKAGE);
+                wificonfigurationNetworkSpecifier);
 
-        assertTrue(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertTrue(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
+        assertTrue(wifiNetworkSpecifier.canBeSatisfiedBy(wifiNetworkAgentSpecifier));
+        assertTrue(wifiNetworkAgentSpecifier.canBeSatisfiedBy(wifiNetworkSpecifier));
     }
 
     /**
@@ -244,11 +222,10 @@ public class WifiNetworkAgentSpecifierTest {
         WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
                 ssidPattern,
                 bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID, TEST_PACKAGE);
+                wificonfigurationNetworkSpecifier);
 
-        assertTrue(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertTrue(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
+        assertTrue(wifiNetworkSpecifier.canBeSatisfiedBy(wifiNetworkAgentSpecifier));
+        assertTrue(wifiNetworkAgentSpecifier.canBeSatisfiedBy(wifiNetworkSpecifier));
     }
 
     /**
@@ -273,11 +250,10 @@ public class WifiNetworkAgentSpecifierTest {
         WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
                 ssidPattern,
                 bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID, TEST_PACKAGE);
+                wificonfigurationNetworkSpecifier);
 
-        assertTrue(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertTrue(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
+        assertTrue(wifiNetworkSpecifier.canBeSatisfiedBy(wifiNetworkAgentSpecifier));
+        assertTrue(wifiNetworkAgentSpecifier.canBeSatisfiedBy(wifiNetworkSpecifier));
     }
 
     /**
@@ -293,24 +269,22 @@ public class WifiNetworkAgentSpecifierTest {
         wifiConfigurationNetworkAgent.SSID = "\"" + TEST_SSID_1 + "\"";
         WifiNetworkAgentSpecifier wifiNetworkAgentSpecifier =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfigurationNetworkAgent,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfigurationNetworkAgent);
 
         PatternMatcher ssidPattern =
                 new PatternMatcher(TEST_SSID_PATTERN, PatternMatcher.PATTERN_PREFIX);
         Pair<MacAddress, MacAddress> bssidPattern =
-                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS);
+                Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS, WifiManager.ALL_ZEROS_MAC_ADDRESS);
         WifiConfiguration wificonfigurationNetworkSpecifier = new WifiConfiguration();
         wificonfigurationNetworkSpecifier.allowedKeyManagement
                 .set(WifiConfiguration.KeyMgmt.WPA_PSK);
         WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
                 ssidPattern,
                 bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID, TEST_PACKAGE);
+                wificonfigurationNetworkSpecifier);
 
-        assertFalse(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertFalse(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
+        assertFalse(wifiNetworkSpecifier.canBeSatisfiedBy(wifiNetworkAgentSpecifier));
+        assertFalse(wifiNetworkAgentSpecifier.canBeSatisfiedBy(wifiNetworkSpecifier));
     }
 
     /**
@@ -326,8 +300,7 @@ public class WifiNetworkAgentSpecifierTest {
         wifiConfigurationNetworkAgent.BSSID = TEST_BSSID_1;
         WifiNetworkAgentSpecifier wifiNetworkAgentSpecifier =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfigurationNetworkAgent,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfigurationNetworkAgent);
 
         PatternMatcher ssidPattern =
                 new PatternMatcher(".*", PatternMatcher.PATTERN_SIMPLE_GLOB);
@@ -340,11 +313,10 @@ public class WifiNetworkAgentSpecifierTest {
         WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
                 ssidPattern,
                 bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID, TEST_PACKAGE);
+                wificonfigurationNetworkSpecifier);
 
-        assertFalse(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertFalse(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
+        assertFalse(wifiNetworkSpecifier.canBeSatisfiedBy(wifiNetworkAgentSpecifier));
+        assertFalse(wifiNetworkAgentSpecifier.canBeSatisfiedBy(wifiNetworkSpecifier));
     }
 
     /**
@@ -360,8 +332,7 @@ public class WifiNetworkAgentSpecifierTest {
         wifiConfigurationNetworkAgent.BSSID = TEST_BSSID_1;
         WifiNetworkAgentSpecifier wifiNetworkAgentSpecifier =
                 new WifiNetworkAgentSpecifier(
-                        wifiConfigurationNetworkAgent,
-                        TEST_UID, TEST_PACKAGE);
+                        wifiConfigurationNetworkAgent);
 
         PatternMatcher ssidPattern =
                 new PatternMatcher(TEST_SSID_PATTERN, PatternMatcher.PATTERN_PREFIX);
@@ -374,11 +345,10 @@ public class WifiNetworkAgentSpecifierTest {
         WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
                 ssidPattern,
                 bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID, TEST_PACKAGE);
+                wificonfigurationNetworkSpecifier);
 
-        assertFalse(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertFalse(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
+        assertFalse(wifiNetworkSpecifier.canBeSatisfiedBy(wifiNetworkAgentSpecifier));
+        assertFalse(wifiNetworkAgentSpecifier.canBeSatisfiedBy(wifiNetworkSpecifier));
     }
 
     /**
@@ -402,41 +372,12 @@ public class WifiNetworkAgentSpecifierTest {
         WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
                 ssidPattern,
                 bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID, TEST_PACKAGE);
+                wificonfigurationNetworkSpecifier);
 
-        assertFalse(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertFalse(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
+        assertFalse(wifiNetworkSpecifier.canBeSatisfiedBy(wifiNetworkAgentSpecifier));
+        assertFalse(wifiNetworkAgentSpecifier.canBeSatisfiedBy(wifiNetworkSpecifier));
     }
 
-    /**
-     * Validate {@link WifiNetworkAgentSpecifier} with {@link WifiNetworkSpecifier} matching.
-     * a) Create network agent specifier for WPA_PSK network
-     * b) Create network specifier with matching SSID and BSSID pattern, but different UID.
-     * c) Ensure that the agent specifier is not satisfied by specifier.
-     */
-    @Test
-    public void
-            testWifiNetworkAgentSpecifierDoesNotSatisfyNetworkSpecifierWithDifferentUid() {
-        WifiNetworkAgentSpecifier wifiNetworkAgentSpecifier = createDefaultNetworkAgentSpecifier();
-
-        PatternMatcher ssidPattern =
-                new PatternMatcher(TEST_SSID_PATTERN, PatternMatcher.PATTERN_PREFIX);
-        Pair<MacAddress, MacAddress> bssidPattern =
-                Pair.create(MacAddress.fromString(TEST_BSSID_OUI_BASE_ADDRESS),
-                        MacAddress.fromString(TEST_BSSID_OUI_MASK));
-        WifiConfiguration wificonfigurationNetworkSpecifier = new WifiConfiguration();
-        wificonfigurationNetworkSpecifier.allowedKeyManagement
-                .set(WifiConfiguration.KeyMgmt.WPA_PSK);
-        WifiNetworkSpecifier wifiNetworkSpecifier = new WifiNetworkSpecifier(
-                ssidPattern,
-                bssidPattern,
-                wificonfigurationNetworkSpecifier,
-                TEST_UID_1, TEST_PACKAGE_1);
-
-        assertFalse(wifiNetworkSpecifier.satisfiedBy(wifiNetworkAgentSpecifier));
-        assertFalse(wifiNetworkAgentSpecifier.satisfiedBy(wifiNetworkSpecifier));
-    }
 
     private WifiConfiguration createDefaultWifiConfiguration() {
         WifiConfiguration wifiConfiguration = new WifiConfiguration();
@@ -448,8 +389,7 @@ public class WifiNetworkAgentSpecifierTest {
     }
 
     private WifiNetworkAgentSpecifier createDefaultNetworkAgentSpecifier() {
-        return new WifiNetworkAgentSpecifier(createDefaultWifiConfiguration(), TEST_UID,
-                TEST_PACKAGE);
+        return new WifiNetworkAgentSpecifier(createDefaultWifiConfiguration());
     }
 
 }

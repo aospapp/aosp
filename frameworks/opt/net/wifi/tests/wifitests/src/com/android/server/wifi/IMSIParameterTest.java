@@ -31,7 +31,12 @@ import java.util.Map;
  * Unit tests for {@link com.android.server.wifi.IMSIParameter}.
  */
 @SmallTest
-public class IMSIParameterTest {
+public class IMSIParameterTest extends WifiBaseTest {
+    private static final String VALID_FULL_IMSI = "123456789012345";
+    private static final String VALID_MCC_MNC = "12345";
+    private static final String VALID_MCC_MNC_6 = "123456";
+    private static final String INVALID_MCC_MNC = "1234";
+
     /**
      * Data points for testing function {@link IMSIParameter#build}.
      */
@@ -40,9 +45,12 @@ public class IMSIParameterTest {
         BUILD_PARAM_TEST_MAP.put(null, null);
         BUILD_PARAM_TEST_MAP.put("", null);
         BUILD_PARAM_TEST_MAP.put("1234a123", null);    // IMSI contained invalid character.
-        BUILD_PARAM_TEST_MAP.put("1234567890123451", null);   // IMSI exceeding max length.
+        BUILD_PARAM_TEST_MAP.put("1234567890123451", null);   // IMSI is over full IMSI length.
         BUILD_PARAM_TEST_MAP.put("123456789012345", new IMSIParameter("123456789012345", false));
-        BUILD_PARAM_TEST_MAP.put("1234*", new IMSIParameter("1234", true));
+        BUILD_PARAM_TEST_MAP.put("1234*", null);
+        BUILD_PARAM_TEST_MAP.put("12345*", new IMSIParameter("12345", true));
+        BUILD_PARAM_TEST_MAP.put("123456*", new IMSIParameter("123456", true));
+        BUILD_PARAM_TEST_MAP.put("1234567*", null);
     }
 
     /**
@@ -65,7 +73,7 @@ public class IMSIParameterTest {
      */
     @Test
     public void matchesNullImsi() throws Exception {
-        IMSIParameter param = new IMSIParameter("1234", false);
+        IMSIParameter param = new IMSIParameter("12345", false);
         assertFalse(param.matchesImsi(null));
     }
 
@@ -77,12 +85,12 @@ public class IMSIParameterTest {
      */
     @Test
     public void matchesImsiWithFullImsi() throws Exception {
-        IMSIParameter param = new IMSIParameter("1234", false);
+        IMSIParameter param = new IMSIParameter(VALID_FULL_IMSI, false);
 
         // Full IMSI requires exact matching.
-        assertFalse(param.matchesImsi("123"));
-        assertFalse(param.matchesImsi("12345"));
-        assertTrue(param.matchesImsi("1234"));
+        assertFalse(param.matchesImsi(INVALID_MCC_MNC));
+        assertFalse(param.matchesImsi(VALID_MCC_MNC));
+        assertTrue(param.matchesImsi(VALID_FULL_IMSI));
     }
 
     /**
@@ -93,12 +101,11 @@ public class IMSIParameterTest {
      */
     @Test
     public void matchesImsiWithPrefixImsi() throws Exception {
-        IMSIParameter param = new IMSIParameter("1234", true);
+        IMSIParameter param = new IMSIParameter(VALID_MCC_MNC, true);
 
-        // Prefix IMSI will match any IMSI that starts with the same prefix.
-        assertFalse(param.matchesImsi("123"));
-        assertTrue(param.matchesImsi("12345"));
-        assertTrue(param.matchesImsi("1234"));
+        // Prefix IMSI will match any full IMSI that starts with the same prefix.
+        assertFalse(param.matchesImsi(INVALID_MCC_MNC));
+        assertTrue(param.matchesImsi(VALID_FULL_IMSI));
     }
 
     /**
@@ -109,7 +116,7 @@ public class IMSIParameterTest {
      */
     @Test
     public void matchesNullMccMnc() throws Exception {
-        IMSIParameter param = new IMSIParameter("1234", false);
+        IMSIParameter param = new IMSIParameter(VALID_MCC_MNC, true);
         assertFalse(param.matchesMccMnc(null));
     }
 
@@ -121,41 +128,23 @@ public class IMSIParameterTest {
      */
     @Test
     public void matchesMccMncFullImsi() throws Exception {
-        IMSIParameter param = new IMSIParameter("1234567890", false);
+        IMSIParameter param = new IMSIParameter(VALID_FULL_IMSI, false);
 
-        assertFalse(param.matchesMccMnc("1234567"));    // Invalid length for MCC-MNC
-        assertFalse(param.matchesMccMnc("12345"));      // Invalid length for MCC-MNC
-        assertTrue(param.matchesMccMnc("123456"));
+        assertFalse(param.matchesMccMnc(INVALID_MCC_MNC));    // Invalid length for MCC-MNC
+        assertTrue(param.matchesMccMnc(VALID_MCC_MNC));
+        assertTrue(param.matchesMccMnc(VALID_MCC_MNC_6));
     }
 
     /**
-     * Verify that an IMSIParameter containing an IMSI prefix that's less than 6 digits
-     * will match against any 6-digit MCC-MNC that starts with the same prefix.
+     * Verify that an IMSIParameter containing an IMSI prefix whose length is different from
+     * that of matching MccMnc, it should return false.
      *
      * @throws Exception
      */
     @Test
-    public void matchesMccMncWithPrefixImsiLessThanMccMncLength() throws Exception {
-        IMSIParameter param = new IMSIParameter("12345", true);
+    public void matchesMccMncWithPrefixImsiWithDifferentMccMncLength() throws Exception {
+        IMSIParameter param = new IMSIParameter(VALID_MCC_MNC, true);
 
-        assertFalse(param.matchesMccMnc("123448"));     // Prefix mismatch
-        assertFalse(param.matchesMccMnc("12345"));      // Invalid length for MCC-MNC
-        assertFalse(param.matchesMccMnc("1234567"));    // Invalid length for MCC-MNC
-        assertTrue(param.matchesMccMnc("123457"));
-        assertTrue(param.matchesMccMnc("123456"));
-    }
-
-    /**
-     * Verify that an IMSIParameter containing an IMSI prefix that's more than 6 digits
-     * will only match against a 6-digit MCC-MNC that matches the first 6-digit of the prefix.
-     *
-     * @throws Exception
-     */
-    @Test
-    public void matchesMccMncWithPrefixImsiMoreThanMccMncLength() throws Exception {
-        IMSIParameter param = new IMSIParameter("1234567890", true);
-        assertFalse(param.matchesMccMnc("12345"));      // Invalid length for MCC-MNC
-        assertFalse(param.matchesMccMnc("1234567"));    // Invalid length for MCC-MNC
-        assertTrue(param.matchesMccMnc("123456"));
+        assertFalse(param.matchesMccMnc(VALID_MCC_MNC_6));     // length of Prefix mismatch
     }
 }

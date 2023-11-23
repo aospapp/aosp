@@ -17,9 +17,10 @@ package com.android.tradefed.invoker.shard;
 
 import com.android.annotations.VisibleForTesting;
 import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.DynamicRemoteFileResolver;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -28,7 +29,7 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.cloud.NestedRemoteDevice;
 import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.device.metric.IMetricCollectorReceiver;
-import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.shard.token.ITokenProvider;
 import com.android.tradefed.invoker.shard.token.ITokenRequest;
 import com.android.tradefed.invoker.shard.token.TokenProperty;
@@ -44,7 +45,6 @@ import com.android.tradefed.suite.checker.ISystemStatusCheckerReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
-import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IReportNotExecuted;
 import com.android.tradefed.util.StreamUtil;
@@ -70,10 +70,6 @@ import java.util.concurrent.CountDownLatch;
 public final class TestsPoolPoller
         implements IRemoteTest,
                 IConfigurationReceiver,
-                IDeviceTest,
-                IBuildReceiver,
-                IMultiDeviceTest,
-                IInvocationContextReceiver,
                 ISystemStatusCheckerReceiver,
                 IMetricCollectorReceiver {
 
@@ -84,10 +80,7 @@ public final class TestsPoolPoller
     private CountDownLatch mTracker;
     private Set<ITokenRequest> mRejectedToken;
 
-    private ITestDevice mDevice;
-    private IBuildInfo mBuildInfo;
-    private IInvocationContext mContext;
-    private Map<ITestDevice, IBuildInfo> mDeviceInfos;
+    private TestInformation mTestInfo;
     private IConfiguration mConfig;
     private List<ISystemStatusChecker> mSystemStatusCheckers;
     private List<IMetricCollector> mCollectors;
@@ -179,11 +172,13 @@ public final class TestsPoolPoller
 
     /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation info, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        mTestInfo = info;
         try {
             ITestInvocationListener listenerWithCollectors = listener;
             for (IMetricCollector collector : mCollectors) {
-                listenerWithCollectors = collector.init(mContext, listenerWithCollectors);
+                listenerWithCollectors = collector.init(info.getContext(), listenerWithCollectors);
             }
             while (true) {
                 IRemoteTest test = poll();
@@ -191,19 +186,13 @@ public final class TestsPoolPoller
                     return;
                 }
                 if (test instanceof IBuildReceiver) {
-                    ((IBuildReceiver) test).setBuild(mBuildInfo);
-                }
-                if (test instanceof IConfigurationReceiver) {
-                    ((IConfigurationReceiver) test).setConfiguration(mConfig);
+                    ((IBuildReceiver) test).setBuild(info.getBuildInfo());
                 }
                 if (test instanceof IDeviceTest) {
-                    ((IDeviceTest) test).setDevice(mDevice);
+                    ((IDeviceTest) test).setDevice(info.getDevice());
                 }
                 if (test instanceof IInvocationContextReceiver) {
-                    ((IInvocationContextReceiver) test).setInvocationContext(mContext);
-                }
-                if (test instanceof IMultiDeviceTest) {
-                    ((IMultiDeviceTest) test).setDeviceInfos(mDeviceInfos);
+                    ((IInvocationContextReceiver) test).setInvocationContext(info.getContext());
                 }
                 if (test instanceof ISystemStatusCheckerReceiver) {
                     ((ISystemStatusCheckerReceiver) test)
@@ -214,14 +203,24 @@ public final class TestsPoolPoller
                     // At this point only the <test> object needs to be validated for options, this
                     // ensures that the object is fine before running it.
                     validationConfig.setTest(test);
-                    validationConfig.validateOptions(true);
+                    validationConfig.validateOptions();
+                    DynamicRemoteFileResolver resolver = new DynamicRemoteFileResolver();
+                    resolver.addExtraArgs(
+                            validationConfig.getCommandOptions().getDynamicDownloadArgs());
+                    resolver.setDevice(info.getDevice());
+                    validationConfig.resolveDynamicOptions(resolver);
+                    // Set the configuration after the validation, otherwise we override the config
+                    // available to the test.
+                    if (test instanceof IConfigurationReceiver) {
+                        ((IConfigurationReceiver) test).setConfiguration(mConfig);
+                    }
                     // Run the test itself and prevent random exception from stopping the poller.
                     if (test instanceof IMetricCollectorReceiver) {
                         ((IMetricCollectorReceiver) test).setMetricCollectors(mCollectors);
                         // If test can receive collectors then let it handle the how to set them up
-                        test.run(listener);
+                        test.run(info, listener);
                     } else {
-                        test.run(listenerWithCollectors);
+                        test.run(info, listenerWithCollectors);
                     }
                 } catch (RuntimeException e) {
                     CLog.e(
@@ -238,13 +237,13 @@ public final class TestsPoolPoller
                     CLog.w("Proceeding to the next test.");
                 } catch (DeviceNotAvailableException dnae) {
                     HandleDeviceNotAvailable(listener, dnae, test);
-                } catch (ConfigurationException e) {
+                } catch (ConfigurationException | BuildRetrievalError e) {
                     CLog.w(
                             "Failed to validate the @options of test: %s. Proceeding to next test.",
                             test.getClass());
                     CLog.w(e);
                 } finally {
-                    validationConfig.cleanDynamicOptionFiles();
+                    validationConfig.cleanConfigurationData();
                 }
             }
         } finally {
@@ -264,23 +263,18 @@ public final class TestsPoolPoller
     void HandleDeviceNotAvailable(
             ITestLogger logger, DeviceNotAvailableException originalException, IRemoteTest test)
             throws DeviceNotAvailableException {
+        ITestDevice device = mTestInfo.getDevice();
         try {
-            if (mDevice instanceof NestedRemoteDevice) {
+            if (device instanceof NestedRemoteDevice) {
                 // If it's not the last device, reset it.
-                if (((NestedRemoteDevice) mDevice)
-                        .resetVirtualDevice(logger, mBuildInfo, /* Collect the logs */ true)) {
-                    CLog.d("Successful virtual device reset.");
-                    return;
-                }
-                // Original exception will be thrown below
-                CLog.e("Virtual device %s reset failed.", mDevice.getSerialNumber());
+                // TODO: Attempt reset when fixed
             } else if (mTracker.getCount() > 1) {
                 CLog.d(
                         "Wait %s for device to maybe come back online.",
                         TimeUtil.formatElapsedTime(WAIT_RECOVERY_TIME));
-                mDevice.waitForDeviceAvailable(WAIT_RECOVERY_TIME);
-                mDevice.reboot();
-                CLog.d("TestPoller was recovered after %s went offline", mDevice.getSerialNumber());
+                device.waitForDeviceAvailable(WAIT_RECOVERY_TIME);
+                device.reboot();
+                CLog.d("TestPoller was recovered after %s went offline", device.getSerialNumber());
                 return;
             }
         } catch (DeviceNotAvailableException e) {
@@ -291,11 +285,11 @@ public final class TestsPoolPoller
         CLog.e(
                 "Test %s threw DeviceNotAvailableException. Test poller associated with "
                         + "device %s is terminating.",
-                test.getClass(), mDevice.getSerialNumber());
+                test.getClass(), device.getSerialNumber());
         // Log an event to track more easily the failure
         logDeviceEvent(
                 EventType.SHARD_POLLER_EARLY_TERMINATION,
-                mDevice.getSerialNumber(),
+                device.getSerialNumber(),
                 originalException);
         throw originalException;
     }
@@ -354,7 +348,7 @@ public final class TestsPoolPoller
                 CLog.e("No provider for token %s", prop);
                 return false;
             }
-            if (!provider.hasToken(mDevice, prop)) {
+            if (!provider.hasToken(mTestInfo.getDevice(), prop)) {
                 return false;
             }
         }
@@ -364,31 +358,6 @@ public final class TestsPoolPoller
     @VisibleForTesting
     public void setLogRegistry(ILogRegistry registry) {
         mRegistry = registry;
-    }
-
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mBuildInfo = buildInfo;
-    }
-
-    @Override
-    public void setDevice(ITestDevice device) {
-        mDevice = device;
-    }
-
-    @Override
-    public ITestDevice getDevice() {
-        return mDevice;
-    }
-
-    @Override
-    public void setInvocationContext(IInvocationContext invocationContext) {
-        mContext = invocationContext;
-    }
-
-    @Override
-    public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
-        mDeviceInfos = deviceInfos;
     }
 
     @Override

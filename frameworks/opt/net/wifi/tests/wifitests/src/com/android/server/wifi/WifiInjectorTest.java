@@ -16,10 +16,6 @@
 
 package com.android.server.wifi;
 
-import static org.mockito.Mockito.*;
-
-import android.content.Context;
-
 import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
@@ -29,9 +25,9 @@ import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link WifiInjector}. */
 @SmallTest
-public class WifiInjectorTest {
+public class WifiInjectorTest extends WifiBaseTest {
 
-    @Mock private Context mContext;
+    @Mock private WifiContext mContext;
     private WifiInjector mInjector;
 
     /**

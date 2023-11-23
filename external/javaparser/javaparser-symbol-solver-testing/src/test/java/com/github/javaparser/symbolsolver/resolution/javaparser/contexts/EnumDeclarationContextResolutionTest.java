@@ -16,7 +16,6 @@
 
 package com.github.javaparser.symbolsolver.resolution.javaparser.contexts;
 
-import com.github.javaparser.ParseException;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import com.github.javaparser.symbolsolver.core.resolution.Context;
@@ -28,87 +27,87 @@ import com.github.javaparser.symbolsolver.model.resolution.Value;
 import com.github.javaparser.symbolsolver.resolution.AbstractResolutionTest;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.MemoryTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * @author Federico Tomassetti
  */
-public class EnumDeclarationContextResolutionTest extends AbstractResolutionTest {
+class EnumDeclarationContextResolutionTest extends AbstractResolutionTest {
 
     private TypeSolver typeSolver;
 
-    @Before
-    public void setup() {
+    @BeforeEach
+    void setup() {
         typeSolver = new ReflectionTypeSolver();
     }
 
     @Test
-    public void solveSymbolReferringToDeclaredInstanceField() {
+    void solveSymbolReferringToDeclaredInstanceField() {
         CompilationUnit cu = parseSample("AnEnum");
         com.github.javaparser.ast.body.EnumDeclaration enumDeclaration = Navigator.demandEnum(cu, "MyEnum");
         Context context = new EnumDeclarationContext(enumDeclaration, typeSolver);
 
-        SymbolReference<? extends ResolvedValueDeclaration> ref = context.solveSymbol("i", new MemoryTypeSolver());
+        SymbolReference<? extends ResolvedValueDeclaration> ref = context.solveSymbol("i");
         assertEquals(true, ref.isSolved());
         assertEquals("int", ref.getCorrespondingDeclaration().getType().describe());
     }
 
     @Test
-    public void solveSymbolReferringToDeclaredStaticField() {
+    void solveSymbolReferringToDeclaredStaticField() {
         CompilationUnit cu = parseSample("AnEnum");
         com.github.javaparser.ast.body.EnumDeclaration enumDeclaration = Navigator.demandEnum(cu, "MyEnum");
         Context context = new EnumDeclarationContext(enumDeclaration, typeSolver);
 
-        SymbolReference<? extends ResolvedValueDeclaration> ref = context.solveSymbol("j", new MemoryTypeSolver());
+        SymbolReference<? extends ResolvedValueDeclaration> ref = context.solveSymbol("j");
         assertEquals(true, ref.isSolved());
         assertEquals("long", ref.getCorrespondingDeclaration().getType().describe());
     }
 
     @Test
-    public void solveSymbolReferringToValue() {
+    void solveSymbolReferringToValue() {
         CompilationUnit cu = parseSample("AnEnum");
         com.github.javaparser.ast.body.EnumDeclaration enumDeclaration = Navigator.demandEnum(cu, "MyEnum");
-        Context context = new EnumDeclarationContext(enumDeclaration, typeSolver);
+        Context context = new EnumDeclarationContext(enumDeclaration, new MemoryTypeSolver());
 
-        SymbolReference<? extends ResolvedValueDeclaration> ref = context.solveSymbol("E1", new MemoryTypeSolver());
+        SymbolReference<? extends ResolvedValueDeclaration> ref = context.solveSymbol("E1");
         assertEquals(true, ref.isSolved());
         assertEquals("MyEnum", ref.getCorrespondingDeclaration().getType().describe());
     }
 
     @Test
-    public void solveSymbolAsValueReferringToDeclaredInstanceField() {
+    void solveSymbolAsValueReferringToDeclaredInstanceField() {
         CompilationUnit cu = parseSample("AnEnum");
         com.github.javaparser.ast.body.EnumDeclaration enumDeclaration = Navigator.demandEnum(cu, "MyEnum");
         Context context = new EnumDeclarationContext(enumDeclaration, typeSolver);
 
-        Optional<Value> ref = context.solveSymbolAsValue("i", new MemoryTypeSolver());
+        Optional<Value> ref = context.solveSymbolAsValue("i");
         assertEquals(true, ref.isPresent());
         assertEquals("int", ref.get().getType().describe());
     }
 
     @Test
-    public void solveSymbolAsValueReferringToDeclaredStaticField() {
+    void solveSymbolAsValueReferringToDeclaredStaticField() {
         CompilationUnit cu = parseSample("AnEnum");
         com.github.javaparser.ast.body.EnumDeclaration enumDeclaration = Navigator.demandEnum(cu, "MyEnum");
         Context context = new EnumDeclarationContext(enumDeclaration, typeSolver);
 
-        Optional<Value> ref = context.solveSymbolAsValue("j", new MemoryTypeSolver());
+        Optional<Value> ref = context.solveSymbolAsValue("j");
         assertEquals(true, ref.isPresent());
         assertEquals("long", ref.get().getType().describe());
     }
 
     @Test
-    public void solveSymbolAsValueReferringToValue() {
+    void solveSymbolAsValueReferringToValue() {
         CompilationUnit cu = parseSample("AnEnum");
         com.github.javaparser.ast.body.EnumDeclaration enumDeclaration = Navigator.demandEnum(cu, "MyEnum");
         Context context = new EnumDeclarationContext(enumDeclaration, typeSolver);
 
-        Optional<Value> ref = context.solveSymbolAsValue("E1", new MemoryTypeSolver());
+        Optional<Value> ref = context.solveSymbolAsValue("E1");
         assertEquals(true, ref.isPresent());
         assertEquals("MyEnum", ref.get().getType().describe());
     }

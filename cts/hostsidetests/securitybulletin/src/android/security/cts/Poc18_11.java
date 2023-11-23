@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,24 +17,19 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import static org.junit.Assert.*;
 
-@SecurityTest
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc18_11 extends SecurityTestCase {
-
-    /**
-     *  b/111330641
-     */
-    @SecurityTest(minPatchLevel = "2018-11")
-    public void testPocCVE_2018_9525() throws Exception {
-        assertTrue(AdbUtils.runCommandGetExitCode(
-                "pm dump com.android.settings | grep SliceBroadcastReceiver", getDevice()) != 0);
-    }
 
     /**
      *  b/113027383
      */
+    @Test
     @SecurityTest(minPatchLevel = "2018-11")
     public void testPocCVE_2018_9539() throws Exception {
         AdbUtils.runPocAssertExitStatusNotVulnerable("CVE-2018-9539", getDevice(), 300);

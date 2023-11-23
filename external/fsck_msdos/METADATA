@@ -11,7 +11,7 @@ third_party {
     type: GIT
     value: "https://github.com/freebsd/freebsd.git"
   }
-  version: "9131ba637f003fb5894e3f6343a27d6322205f18"
-  last_upgrade_date { year: 2018 month: 9 day: 13 }
+  version: "b60894b10adb071a8dc2b6fea5f9867c24bc9c47"
+  last_upgrade_date { year: 2020 month: 1 day: 13 }
   license_type: NOTICE
 }

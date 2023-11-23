@@ -9,6 +9,7 @@ import logging
 import os
 import time
 import urlparse
+import xmlrpclib
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -58,6 +59,7 @@ class CFMFacadeNative(object):
             "auto_login": False,
             "disable_gaia_services": False,
             "extra_browser_args": extra_browser_args})
+
         enrollment.RemoraEnrollment(self._resource._browser, self._USER_ID,
                 self._PWD)
         # Timeout to allow for the device to stablize and go back to the
@@ -221,7 +223,7 @@ class CFMFacadeNative(object):
         # handle available and up-to-date.
         self.restart_chrome_for_cfm()
         self.check_hangout_extension_context()
-        self.wait_for_hangouts_telemetry_commands()
+        self.wait_for_telemetry_commands()
         self.wait_for_oobe_start_page()
         self.skip_oobe_screen()
 
@@ -246,37 +248,25 @@ class CFMFacadeNative(object):
                              self._webview_context.GetUrl())
 
 
-    #TODO: This is a legacy api. Deprecate this api and update existing hotrod
-    #      tests to use the new wait_for_hangouts_telemetry_commands api.
     def wait_for_telemetry_commands(self):
         """Wait for telemetry commands."""
         logging.info('Wait for Hangouts telemetry commands')
-        self.wait_for_hangouts_telemetry_commands()
-
-
-    def wait_for_hangouts_telemetry_commands(self):
-        """Wait for Hangouts App telemetry commands."""
         self._webview_context.WaitForJavaScriptCondition(
-                "typeof window.hrOobIsStartPageForTest == 'function'",
-                timeout=self._DEFAULT_TIMEOUT)
-
-
-    def wait_for_meetings_telemetry_commands(self):
-        """Wait for Meet App telemetry commands """
-        self._webview_context.WaitForJavaScriptCondition(
-                'window.hasOwnProperty("hrTelemetryApi")',
-                timeout=self._DEFAULT_TIMEOUT)
+            """typeof window.hrOobIsStartPageForTest == 'function'
+               || typeof window.hrTelemetryApi != 'undefined'
+            """,
+            timeout=self._DEFAULT_TIMEOUT)
 
 
     def wait_for_meetings_in_call_page(self):
         """Waits for the in-call page to launch."""
-        self.wait_for_meetings_telemetry_commands()
+        self.wait_for_telemetry_commands()
         self._cfmApi.wait_for_meetings_in_call_page()
 
 
     def wait_for_meetings_landing_page(self):
         """Waits for the landing page screen."""
-        self.wait_for_meetings_telemetry_commands()
+        self.wait_for_telemetry_commands()
         self._cfmApi.wait_for_meetings_landing_page()
 
 
@@ -533,6 +523,20 @@ class CFMFacadeNative(object):
         """
         self._cfmApi.move_camera(camera_motion)
 
+    def _convert_large_integers(self, o):
+        if type(o) is list:
+            return [self._convert_large_integers(x) for x in o]
+        elif type(o) is dict:
+            return {
+                    k: self._convert_large_integers(v)
+                    for k, v in o.iteritems()
+            }
+        else:
+            if type(o) is int and o > xmlrpclib.MAXINT:
+                return float(o)
+            else:
+                return o
+
     def get_media_info_data_points(self):
         """
         Gets media info data points containing media stats.
@@ -568,9 +572,5 @@ class CFMFacadeNative(object):
             get_data_points_js_script)
         # XML RCP gives overflow errors when trying to send too large
         # integers or longs so we convert media stats to floats.
-        for data_point in data_points:
-            for media in data_point['media']:
-                for k, v in media.iteritems():
-                    if type(v) == int:
-                        media[k] = float(v)
+        data_points = self._convert_large_integers(data_points)
         return data_points

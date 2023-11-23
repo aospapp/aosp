@@ -18,8 +18,6 @@
     <!-- Intentionally unset. Vendors should set this in an overlay. -->
     <string name="trusted_quick_viewer_package" translatable="false"></string>
 
-    <bool name="show_documents_root">false</bool>
-
     <!-- Indicates if DocumentsUI should handle VIEW_DOWNLOADS Intent.
     on ARC++ devices, there exists another handler which handles VIEW_DOWNLOADS Intent. -->
     <bool name="handle_view_downloads_intent">true</bool>
@@ -30,6 +28,9 @@
 
     <!-- Indicates if showing as search bar design -->
     <bool name="show_search_bar">false</bool>
+
+    <!-- Indicates if showing hidden files by default -->
+    <bool name="show_hidden_files_by_default">false</bool>
 
     <string name="default_root_uri" translatable="false">content://com.android.providers.downloads.documents/root/downloads</string>
     <!-- The value is used in sorting process on Drawer menu. If the root's package name
@@ -59,9 +60,6 @@
     <bool name="feature_virtual_files_sharing">true</bool>
     <bool name="feature_inspector">true</bool>
     <bool name="feature_debug_mode">false</bool>
-    <!-- If this value is true, the default root on action browse will be the root from
-    "default_root_uri". Otherwise, the default root will be the recent root.-->
-    <bool name="feature_default_root_in_browse">false</bool>
 
     <!-- Indicates if internal storage is shown as default or not. -->
     <bool name="config_default_show_device_root">false</bool>

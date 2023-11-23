@@ -29,9 +29,8 @@ from acts.test_decorators import test_tracker_info
 from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 WifiEnums = wutils.WifiEnums
-# Default timeout used for reboot, toggle WiFi and Airplane mode,
-# for the system to settle down after the operation.
-DEFAULT_TIMEOUT = 10
+# Timeout used for crash recovery.
+RECOVERY_TIMEOUT = 15
 WIFICOND_KILL_SHELL_COMMAND = "killall wificond"
 WIFI_VENDOR_HAL_KILL_SHELL_COMMAND = "killall android.hardware.wifi@1.0-service vendor.google.wifi_ext@1.0-service-vendor"
 SUPPLICANT_KILL_SHELL_COMMAND = "killall wpa_supplicant"
@@ -44,10 +43,9 @@ class WifiCrashTest(WifiBaseTest):
     * One Wi-Fi network visible to the device.
     """
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
         req_params = []
@@ -101,7 +99,7 @@ class WifiCrashTest(WifiBaseTest):
         self.dut.restart_runtime()
         # We won't get the disconnect broadcast because framework crashed.
         # wutils.wait_for_disconnect(self.dut)
-        time.sleep(DEFAULT_TIMEOUT)
+        time.sleep(RECOVERY_TIMEOUT)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         if wifi_info[WifiEnums.SSID_KEY] != self.network[WifiEnums.SSID_KEY]:
             raise signals.TestFailure("Device did not connect to the"
@@ -124,7 +122,7 @@ class WifiCrashTest(WifiBaseTest):
         self.log.info("Crashing wificond")
         self.dut.adb.shell(WIFICOND_KILL_SHELL_COMMAND)
         wutils.wait_for_disconnect(self.dut)
-        time.sleep(DEFAULT_TIMEOUT)
+        time.sleep(RECOVERY_TIMEOUT)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         if wifi_info[WifiEnums.SSID_KEY] != self.network[WifiEnums.SSID_KEY]:
             raise signals.TestFailure("Device did not connect to the"
@@ -147,7 +145,7 @@ class WifiCrashTest(WifiBaseTest):
         self.log.info("Crashing wifi HAL")
         self.dut.adb.shell(WIFI_VENDOR_HAL_KILL_SHELL_COMMAND)
         wutils.wait_for_disconnect(self.dut)
-        time.sleep(DEFAULT_TIMEOUT)
+        time.sleep(RECOVERY_TIMEOUT)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         if wifi_info[WifiEnums.SSID_KEY] != self.network[WifiEnums.SSID_KEY]:
             raise signals.TestFailure("Device did not connect to the"
@@ -170,7 +168,7 @@ class WifiCrashTest(WifiBaseTest):
         self.log.info("Crashing wpa_supplicant")
         self.dut.adb.shell(SUPPLICANT_KILL_SHELL_COMMAND)
         wutils.wait_for_disconnect(self.dut)
-        time.sleep(DEFAULT_TIMEOUT)
+        time.sleep(RECOVERY_TIMEOUT)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         if wifi_info[WifiEnums.SSID_KEY] != self.network[WifiEnums.SSID_KEY]:
             raise signals.TestFailure("Device did not connect to the"

@@ -105,3 +105,18 @@ TEST_F(ThreadTreeTest, jit_maps_before_fork) {
   ASSERT_TRUE(map != nullptr);
   ASSERT_EQ(map->flags, map_flags::PROT_JIT_SYMFILE_MAP);
 }
+
+TEST_F(ThreadTreeTest, reused_tid) {
+  // Process 1 has thread 1 and 2.
+  thread_tree_.ForkThread(1, 2, 1, 1);
+  // Thread 2 exits.
+  thread_tree_.ExitThread(1, 2);
+  // Thread 1 forks process 2.
+  thread_tree_.ForkThread(2, 2, 1, 1);
+}
+
+TEST_F(ThreadTreeTest, reused_tid_without_thread_exit) {
+  // Similar to the above test, but the thread exit record is missing.
+  thread_tree_.ForkThread(1, 2, 1, 1);
+  thread_tree_.ForkThread(2, 2, 1, 1);
+}

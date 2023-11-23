@@ -31,6 +31,7 @@ import java.lang.annotation.RetentionPolicy;
 public class DummyEncryptionRunner implements EncryptionRunner {
 
     private static final String KEY = "key";
+    private static final byte[] DUMMY_MESSAGE = "Dummy Message".getBytes();
     @VisibleForTesting
     public static final String INIT = "init";
     @VisibleForTesting
@@ -48,6 +49,9 @@ public class DummyEncryptionRunner implements EncryptionRunner {
         int SERVER = 2;
     }
 
+    private boolean mIsReconnect;
+    private boolean mInitReconnectVerification;
+    private Key mCurrentDummyKey;
     @Mode
     private int mMode;
     @HandshakeMessage.HandshakeState
@@ -90,12 +94,16 @@ public class DummyEncryptionRunner implements EncryptionRunner {
         if (mState != HandshakeMessage.HandshakeState.IN_PROGRESS) {
             throw new HandshakeException("not waiting for response but got one");
         }
-        switch(mMode) {
+        switch (mMode) {
             case Mode.SERVER:
                 if (!CLIENT_RESPONSE.equals(new String(response))) {
                     throw new HandshakeException("unexpected response: " + new String(response));
                 }
                 mState = HandshakeMessage.HandshakeState.VERIFICATION_NEEDED;
+                if (mIsReconnect) {
+                    verifyPin();
+                    mState = HandshakeMessage.HandshakeState.RESUMING_SESSION;
+                }
                 return HandshakeMessage.newBuilder()
                         .setVerificationCode(VERIFICATION_CODE)
                         .setHandshakeState(mState)
@@ -105,14 +113,41 @@ public class DummyEncryptionRunner implements EncryptionRunner {
                     throw new HandshakeException("unexpected response: " + new String(response));
                 }
                 mState = HandshakeMessage.HandshakeState.VERIFICATION_NEEDED;
+                if (mIsReconnect) {
+                    verifyPin();
+                    mState = HandshakeMessage.HandshakeState.RESUMING_SESSION;
+                }
                 return HandshakeMessage.newBuilder()
                         .setHandshakeState(mState)
                         .setNextMessage(CLIENT_RESPONSE.getBytes())
                         .setVerificationCode(VERIFICATION_CODE)
                         .build();
             default:
-                throw new IllegalStateException("unexpected state: "  + mState);
+                throw new IllegalStateException("unexpected role: " + mMode);
         }
+    }
+
+    @Override
+    public HandshakeMessage authenticateReconnection(byte[] message, byte[] previousKey)
+            throws HandshakeException {
+        mCurrentDummyKey = new DummyKey();
+        // Blindly verify the reconnection because this is a dummy encryption runner.
+        return HandshakeMessage.newBuilder()
+                .setHandshakeState(HandshakeMessage.HandshakeState.FINISHED)
+                .setKey(mCurrentDummyKey)
+                .setNextMessage(mInitReconnectVerification ? null : DUMMY_MESSAGE)
+                .build();
+    }
+
+    @Override
+    public HandshakeMessage initReconnectAuthentication(byte[] previousKey)
+            throws HandshakeException {
+        mInitReconnectVerification = true;
+        mState = HandshakeMessage.HandshakeState.RESUMING_SESSION;
+        return HandshakeMessage.newBuilder()
+                .setHandshakeState(mState)
+                .setNextMessage(DUMMY_MESSAGE)
+                .build();
     }
 
     @Override
@@ -126,10 +161,8 @@ public class DummyEncryptionRunner implements EncryptionRunner {
             throw new IllegalStateException("asking to verify pin, state = " + mState);
         }
         mState = HandshakeMessage.HandshakeState.FINISHED;
-        return HandshakeMessage.newBuilder()
-                .setHandshakeState(mState)
-                .setKey(new DummyKey())
-                .build();
+        return HandshakeMessage.newBuilder().setKey(new DummyKey()).setHandshakeState(
+                mState).build();
     }
 
     @Override
@@ -137,8 +170,12 @@ public class DummyEncryptionRunner implements EncryptionRunner {
         mState = HandshakeMessage.HandshakeState.INVALID;
     }
 
-    private class DummyKey implements Key {
+    @Override
+    public void setIsReconnect(boolean isReconnect) {
+        mIsReconnect = isReconnect;
+    }
 
+    private class DummyKey implements Key {
         @Override
         public byte[] asBytes() {
             return KEY.getBytes();
@@ -152,6 +189,11 @@ public class DummyEncryptionRunner implements EncryptionRunner {
         @Override
         public byte[] decryptData(byte[] encryptedData) {
             return encryptedData;
+        }
+
+        @Override
+        public byte[] getUniqueSession() {
+            return KEY.getBytes();
         }
     }
 }

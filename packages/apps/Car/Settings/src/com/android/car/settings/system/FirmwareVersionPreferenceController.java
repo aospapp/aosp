@@ -42,6 +42,11 @@ public class FirmwareVersionPreferenceController extends PreferenceController<Pr
     @Override
     protected void updateState(Preference preference) {
         preference.setSummary(
-                getContext().getString(R.string.about_summary, Build.VERSION.RELEASE));
+                getContext().getString(R.string.about_summary, Build.VERSION.RELEASE_OR_CODENAME));
+    }
+
+    @Override
+    protected int getAvailabilityStatus() {
+        return AVAILABLE_FOR_VIEWING;
     }
 }

@@ -39,15 +39,15 @@ namespace android {
 //
 // NNCache definition
 //
-NNCache::NNCache() :
-    mInitialized(false),
-    mMaxKeySize(0), mMaxValueSize(0), mMaxTotalSize(0),
-    mPolicy(defaultPolicy()),
-    mSavePending(false) {
-}
+NNCache::NNCache()
+    : mInitialized(false),
+      mMaxKeySize(0),
+      mMaxValueSize(0),
+      mMaxTotalSize(0),
+      mPolicy(defaultPolicy()),
+      mSavePending(false) {}
 
-NNCache::~NNCache() {
-}
+NNCache::~NNCache() {}
 
 NNCache NNCache::sCache;
 
@@ -72,8 +72,7 @@ void NNCache::terminate() {
     mInitialized = false;
 }
 
-void NNCache::setBlob(const void* key, ssize_t keySize,
-        const void* value, ssize_t valueSize) {
+void NNCache::setBlob(const void* key, ssize_t keySize, const void* value, ssize_t valueSize) {
     std::lock_guard<std::mutex> lock(mMutex);
 
     if (keySize < 0 || valueSize < 0) {
@@ -100,8 +99,7 @@ void NNCache::setBlob(const void* key, ssize_t keySize,
     }
 }
 
-ssize_t NNCache::getBlob(const void* key, ssize_t keySize,
-        void* value, ssize_t valueSize) {
+ssize_t NNCache::getBlob(const void* key, ssize_t keySize, void* value, ssize_t valueSize) {
     std::lock_guard<std::mutex> lock(mMutex);
 
     if (keySize < 0 || valueSize < 0) {
@@ -116,8 +114,8 @@ ssize_t NNCache::getBlob(const void* key, ssize_t keySize,
     return 0;
 }
 
-ssize_t NNCache::getBlob(const void* key, ssize_t keySize,
-        void** value, std::function<void*(size_t)> alloc) {
+ssize_t NNCache::getBlob(const void* key, ssize_t keySize, void** value,
+                         std::function<void*(size_t)> alloc) {
     std::lock_guard<std::mutex> lock(mMutex);
 
     if (keySize < 0) {
@@ -175,26 +173,23 @@ void NNCache::saveBlobCacheLocked() {
                 // The file exists, delete it and try again.
                 if (unlink(fname) == -1) {
                     // No point in retrying if the unlink failed.
-                    ALOGE("error unlinking cache file %s: %s (%d)", fname,
-                            strerror(errno), errno);
+                    ALOGE("error unlinking cache file %s: %s (%d)", fname, strerror(errno), errno);
                     return;
                 }
                 // Retry now that we've unlinked the file.
                 fd = open(fname, O_CREAT | O_EXCL | O_RDWR, 0);
             }
             if (fd == -1) {
-                ALOGE("error creating cache file %s: %s (%d)", fname,
-                        strerror(errno), errno);
+                ALOGE("error creating cache file %s: %s (%d)", fname, strerror(errno), errno);
                 return;
             }
         }
 
         size_t fileSize = headerSize + cacheSize;
 
-        uint8_t* buf = new uint8_t [fileSize];
+        uint8_t* buf = new uint8_t[fileSize];
         if (!buf) {
-            ALOGE("error allocating buffer for cache contents: %s (%d)",
-                    strerror(errno), errno);
+            ALOGE("error allocating buffer for cache contents: %s (%d)", strerror(errno), errno);
             close(fd);
             unlink(fname);
             return;
@@ -202,9 +197,8 @@ void NNCache::saveBlobCacheLocked() {
 
         int err = mBlobCache->flatten(buf + headerSize, cacheSize);
         if (err < 0) {
-            ALOGE("error writing cache contents: %s (%d)", strerror(-err),
-                    -err);
-            delete [] buf;
+            ALOGE("error writing cache contents: %s (%d)", strerror(-err), -err);
+            delete[] buf;
             close(fd);
             unlink(fname);
             return;
@@ -216,15 +210,14 @@ void NNCache::saveBlobCacheLocked() {
         *crc = crc32c(buf + headerSize, cacheSize);
 
         if (write(fd, buf, fileSize) == -1) {
-            ALOGE("error writing cache file: %s (%d)", strerror(errno),
-                    errno);
-            delete [] buf;
+            ALOGE("error writing cache file: %s (%d)", strerror(errno), errno);
+            delete[] buf;
             close(fd);
             unlink(fname);
             return;
         }
 
-        delete [] buf;
+        delete[] buf;
         fchmod(fd, S_IRUSR);
         close(fd);
     }
@@ -237,8 +230,8 @@ void NNCache::loadBlobCacheLocked() {
         int fd = open(mFilename.c_str(), O_RDONLY, 0);
         if (fd == -1) {
             if (errno != ENOENT) {
-                ALOGE("error opening cache file %s: %s (%d)", mFilename.c_str(),
-                        strerror(errno), errno);
+                ALOGE("error opening cache file %s: %s (%d)", mFilename.c_str(), strerror(errno),
+                      errno);
             }
             return;
         }
@@ -253,17 +246,15 @@ void NNCache::loadBlobCacheLocked() {
         // Sanity check the size before trying to mmap it.
         size_t fileSize = statBuf.st_size;
         if (fileSize > mMaxTotalSize * 2) {
-            ALOGE("cache file is too large: %#" PRIx64,
-                  static_cast<off64_t>(statBuf.st_size));
+            ALOGE("cache file is too large: %#" PRIx64, static_cast<off64_t>(statBuf.st_size));
             close(fd);
             return;
         }
 
-        uint8_t* buf = reinterpret_cast<uint8_t*>(mmap(NULL, fileSize,
-                PROT_READ, MAP_PRIVATE, fd, 0));
+        uint8_t* buf =
+                reinterpret_cast<uint8_t*>(mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd, 0));
         if (buf == MAP_FAILED) {
-            ALOGE("error mmaping cache file: %s (%d)", strerror(errno),
-                    errno);
+            ALOGE("error mmaping cache file: %s (%d)", strerror(errno), errno);
             close(fd);
             return;
         }
@@ -284,8 +275,7 @@ void NNCache::loadBlobCacheLocked() {
 
         int err = mBlobCache->unflatten(buf + headerSize, cacheSize);
         if (err < 0) {
-            ALOGE("error reading cache contents: %s (%d)", strerror(-err),
-                    -err);
+            ALOGE("error reading cache contents: %s (%d)", strerror(-err), -err);
             munmap(buf, fileSize);
             close(fd);
             return;
@@ -297,5 +287,5 @@ void NNCache::loadBlobCacheLocked() {
 }
 
 // ----------------------------------------------------------------------------
-}; // namespace android
+};  // namespace android
 // ----------------------------------------------------------------------------

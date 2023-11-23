@@ -176,13 +176,13 @@ function(protobuf_generate_grpc_cpp)
              "${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}_mock.grpc.pb.h"
              "${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}.pb.cc"
              "${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}.pb.h"
-      COMMAND ${_gRPC_PROTOBUF_PROTOC_EXECUTABLE}
+      COMMAND ${gRPC_PROTOBUF_PROTOC_EXECUTABLE}
       ARGS --grpc_out=generate_mock_code=true:${_gRPC_PROTO_GENS_DIR}
            --cpp_out=${_gRPC_PROTO_GENS_DIR}
-           --plugin=protoc-gen-grpc=$<TARGET_FILE:grpc_cpp_plugin>
+           --plugin=protoc-gen-grpc=${gRPC_CPP_PLUGIN}
            ${_protobuf_include_path}
            ${REL_FIL}
-      DEPENDS ${ABS_FIL} ${_gRPC_PROTOBUF_PROTOC} grpc_cpp_plugin
+      DEPENDS ${ABS_FIL} ${gRPC_PROTOBUF_PROTOC} ${gRPC_CPP_PLUGIN}
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMENT "Running gRPC C++ protocol buffer compiler on ${FIL}"
       VERBATIM)
@@ -190,6 +190,17 @@ function(protobuf_generate_grpc_cpp)
       set_source_files_properties("${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}.grpc.pb.cc" "${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}.grpc.pb.h"  "${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}_mock.grpc.pb.h" "${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}.pb.cc" "${_gRPC_PROTO_GENS_DIR}/${RELFIL_WE}.pb.h" PROPERTIES GENERATED TRUE)
   endforeach()
 endfunction()
+
+#if cross-compiling or nativesdk, find host plugin
+if(CMAKE_CROSSCOMPILING)
+    find_program(gRPC_CPP_PLUGIN protoc-gen-grpc-cpp-plugin)  # Android GRPC plugin
+    find_program(gRPC_PROTOBUF_PROTOC_EXECUTABLE aprotoc)  # Android Protoc
+    set(gRPC_PROTOBUF_PROTOC ${gRPC_PROTOBUF_PROTOC_EXECUTABLE})
+else()
+    set(gRPC_CPP_PLUGIN $<TARGET_FILE:grpc_cpp_plugin>)
+    set(gRPC_PROTOBUF_PROTOC ${_gRPC_PROTOBUF_PROTOC})
+    set(gRPC_PROTOBUF_PROTOC_EXECUTABLE ${_gRPC_PROTOBUF_PROTOC_EXECUTABLE})
+endif()
 
 add_custom_target(plugins
   DEPENDS

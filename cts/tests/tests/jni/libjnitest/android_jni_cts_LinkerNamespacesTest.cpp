@@ -34,6 +34,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <nativehelper/JNIHelp.h>
@@ -47,13 +48,14 @@
 #endif
 
 static const std::string kSystemLibraryPath = "/system/" LIB_DIR;
-static const std::string kRuntimeApexLibraryPath = "/apex/com.android.runtime/" LIB_DIR;
+static const std::string kArtApexLibraryPath = "/apex/com.android.art/" LIB_DIR;
 static const std::string kVendorLibraryPath = "/vendor/" LIB_DIR;
 static const std::string kProductLibraryPath = "/product/" LIB_DIR;
 
 static const std::vector<std::regex> kSystemPathRegexes = {
     std::regex("/system/lib(64)?"),
     std::regex("/apex/com\\.android\\.[^/]*/lib(64)?"),
+    std::regex("/system/lib/arm(64)?"), // when CTS runs in ARM ABI on non-ARM CPU. http://b/149852946
 };
 
 static const std::string kWebViewPlatSupportLib = "libwebviewchromium_plat_support.so";
@@ -186,7 +188,18 @@ static bool check_lib(JNIEnv* env,
 
   std::string baselib = basename(path.c_str());
   bool is_public = public_library_basenames.find(baselib) != public_library_basenames.end();
-  bool is_in_search_path = is_library_on_path(library_search_paths, baselib, path);
+
+  // Special casing for symlinks in APEXes. For bundled APEXes, some files in
+  // the APEXes could be symlinks pointing to libraries in /system/lib to save
+  // storage. In that case, use the realpath so that `is_in_search_path` is
+  // correctly determined
+  bool is_in_search_path;
+  std::string realpath;
+  if (android::base::StartsWith(path, "/apex/") && android::base::Realpath(path, &realpath)) {
+    is_in_search_path = is_library_on_path(library_search_paths, baselib, realpath);
+  } else {
+    is_in_search_path = is_library_on_path(library_search_paths, baselib, path);
+  }
 
   if (is_public) {
     if (is_in_search_path) {
@@ -377,7 +390,7 @@ extern "C" JNIEXPORT jstring JNICALL
   // These paths should be tested too - this is because apps may rely on some
   // libraries being available there.
   system_library_search_paths.insert(kSystemLibraryPath);
-  system_library_search_paths.insert(kRuntimeApexLibraryPath);
+  system_library_search_paths.insert(kArtApexLibraryPath);
 
   if (!check_path(env, clazz, kSystemLibraryPath, system_library_search_paths,
                   system_public_libraries,
@@ -391,7 +404,7 @@ extern "C" JNIEXPORT jstring JNICALL
   bool check_absence = !android::base::GetBoolProperty("ro.vndk.lite", false);
 
   // Check the runtime libraries.
-  if (!check_path(env, clazz, kRuntimeApexLibraryPath, {kRuntimeApexLibraryPath},
+  if (!check_path(env, clazz, kArtApexLibraryPath, {kArtApexLibraryPath},
                   runtime_public_libraries,
                   // System.loadLibrary("icuuc") would fail since a copy exists in /system.
                   // TODO(b/124218500): Change to true when the bug is resolved.
@@ -437,4 +450,20 @@ extern "C" JNIEXPORT jstring JNICALL Java_android_jni_cts_LinkerNamespacesHelper
       return env->NewStringUTF(error_str.c_str());
     }
     return nullptr;
+}
+
+extern "C" JNIEXPORT jint JNICALL Java_android_jni_cts_LinkerNamespacesHelper_getLibAbi(
+        JNIEnv* env,
+        jclass clazz) {
+#ifdef __aarch64__
+    return 1; // ARM64
+#elif __arm__
+    return 2;
+#elif __x86_64__
+    return 3;
+#elif i386
+    return 4;
+#else
+    return 0;
+#endif
 }

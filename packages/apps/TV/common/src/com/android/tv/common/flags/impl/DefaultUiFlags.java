@@ -17,7 +17,7 @@ package com.android.tv.common.flags.impl;
 
 import com.android.tv.common.flags.UiFlags;
 
-/** Default Flags for Live TV UI */
+/** Default Flags for TV app UI */
 public class DefaultUiFlags implements UiFlags {
 
     @Override
@@ -26,17 +26,22 @@ public class DefaultUiFlags implements UiFlags {
     }
 
     @Override
-    public boolean uhideLauncher() {
-        return false;
-    }
-
-    @Override
-    public boolean useLeanbackPinPicker() {
+    public boolean enableCriticRatings() {
         return false;
     }
 
     @Override
     public long maxHistoryDays() {
-        return 7;
+        return 0;
+    }
+
+    @Override
+    public String moreChannelsUrl() {
+        return "";
+    }
+
+    @Override
+    public boolean unhideLauncher() {
+        return false;
     }
 }

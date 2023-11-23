@@ -25,6 +25,7 @@ import grp
 import logging
 import os
 import platform
+import shlex
 import shutil
 import signal
 import struct
@@ -35,10 +36,14 @@ import tarfile
 import tempfile
 import time
 import uuid
+import webbrowser
 import zipfile
+
+import six
 
 from acloud import errors
 from acloud.internal import constants
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +79,6 @@ AVD_PORT_DICT = {
 
 _VNC_BIN = "ssvnc"
 _CMD_KILL = ["pkill", "-9", "-f"]
-_CMD_PGREP = "pgrep"
 _CMD_SG = "sg "
 _CMD_START_VNC = "%(bin)s vnc://127.0.0.1:%(port)d"
 _CMD_INSTALL_SSVNC = "sudo apt-get --assume-yes install ssvnc"
@@ -82,6 +86,10 @@ _ENV_DISPLAY = "DISPLAY"
 _SSVNC_ENV_VARS = {"SSVNC_NO_ENC_WARN": "1", "SSVNC_SCALE": "auto", "VNCVIEWER_X11CURSOR": "1"}
 _DEFAULT_DISPLAY_SCALE = 1.0
 _DIST_DIR = "DIST_DIR"
+
+# For webrtc
+_WEBRTC_URL = "https://"
+_WEBRTC_PORT = "8443"
 
 _CONFIRM_CONTINUE = ("In order to display the screen to the AVD, we'll need to "
                      "install a vnc client (ssvnc). \nWould you like acloud to "
@@ -92,6 +100,7 @@ _EvaluatedResult = collections.namedtuple("EvaluatedResult",
 # dict of supported system and their distributions.
 _SUPPORTED_SYSTEMS_AND_DISTS = {"Linux": ["Ubuntu", "Debian"]}
 _DEFAULT_TIMEOUT_ERR = "Function did not complete within %d secs."
+_SSVNC_VIEWER_PATTERN = "vnc://127.0.0.1:%(vnc_port)d"
 
 
 class TempDir(object):
@@ -301,42 +310,8 @@ def MakeTarFile(src_dict, dest):
     """
     logger.info("Compressing %s into %s.", src_dict.keys(), dest)
     with tarfile.open(dest, "w:gz") as tar:
-        for src, arcname in src_dict.iteritems():
+        for src, arcname in six.iteritems(src_dict):
             tar.add(src, arcname=arcname)
-
-
-def ScpPullFile(src_file, dst_file, host_name, user_name=None,
-                rsa_key_file=None):
-    """Scp pull file from remote.
-
-    Args:
-        src_file: The source file path to be pulled.
-        dst_file: The destiation file path the file is pulled to.
-        host_name: The device host_name or ip to pull file from.
-        user_name: The user_name for scp session.
-        rsa_key_file: The rsa key file.
-    Raises:
-        errors.DeviceConnectionError if scp failed.
-    """
-    scp_cmd_list = SCP_CMD[:]
-    if rsa_key_file:
-        scp_cmd_list.extend(["-i", rsa_key_file])
-    else:
-        logger.warning(
-            "Rsa key file is not specified. "
-            "Will use default rsa key set in user environment")
-    if user_name:
-        scp_cmd_list.append("%s@%s:%s" % (user_name, host_name, src_file))
-    else:
-        scp_cmd_list.append("%s:%s" % (host_name, src_file))
-    scp_cmd_list.append(dst_file)
-    try:
-        subprocess.check_call(scp_cmd_list)
-    except subprocess.CalledProcessError as e:
-        raise errors.DeviceConnectionError(
-            "Failed to pull file %s from %s with '%s': %s" % (
-                src_file, host_name, " ".join(scp_cmd_list), e))
-
 
 def CreateSshKeyPairIfNotExist(private_key_path, public_key_path):
     """Create the ssh key pair if they don't exist.
@@ -519,7 +494,7 @@ def InteractWithQuestion(question, colors=TextColors.WARNING):
     Returns:
         String, input from user.
     """
-    return str(raw_input(colors + question + TextColors.ENDC).strip())
+    return str(six.moves.input(colors + question + TextColors.ENDC).strip())
 
 
 def GetUserAnswerYes(question):
@@ -607,7 +582,7 @@ class BatchHttpRequestExecutor(object):
         self._final_results.update(results)
         # Clear pending_requests
         self._pending_requests.clear()
-        for request_id, result in results.iteritems():
+        for request_id, result in six.iteritems(results):
             exception = result[1]
             if exception is not None and self._ShoudRetry(exception):
                 # If this is a retriable exception, put it in pending_requests
@@ -771,7 +746,7 @@ class TimeExecute(object):
                 return result
             except:
                 if self._print_status:
-                    PrintColorString("Fail! (%ds)" % (time.time()-timestart),
+                    PrintColorString("Fail! (%ds)" % (time.time() - timestart),
                                      TextColors.FAIL)
                 raise
         return DecoratorFunction
@@ -790,6 +765,24 @@ def PickFreePort():
     return port
 
 
+def CheckPortFree(port):
+    """Check the availablity of the tcp port.
+
+    Args:
+        Integer, a port number.
+
+    Raises:
+        PortOccupied: This port is not available.
+    """
+    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        tcp_socket.bind(("", port))
+    except socket.error:
+        raise errors.PortOccupied("Port (%d) is taken, please choose another "
+                                  "port." % port)
+    tcp_socket.close()
+
+
 def _ExecuteCommand(cmd, args):
     """Execute command.
 
@@ -800,7 +793,7 @@ def _ExecuteCommand(cmd, args):
     Raises:
         errors.NoExecuteBin: Can't find the execute bin file.
     """
-    bin_path = find_executable(cmd)
+    bin_path = FindExecutable(cmd)
     if not bin_path:
         raise errors.NoExecuteCmd("unable to locate %s" % cmd)
     command = [bin_path] + args
@@ -809,8 +802,10 @@ def _ExecuteCommand(cmd, args):
         subprocess.check_call(command, stderr=dev_null, stdout=dev_null)
 
 
+# TODO(147337696): create ssh tunnels tear down as adb and vnc.
 # pylint: disable=too-many-locals
-def AutoConnect(ip_addr, rsa_key_file, target_vnc_port, target_adb_port, ssh_user):
+def AutoConnect(ip_addr, rsa_key_file, target_vnc_port, target_adb_port,
+                ssh_user, client_adb_port=None, extra_args_ssh_tunnel=None):
     """Autoconnect to an AVD instance.
 
     Args:
@@ -821,37 +816,42 @@ def AutoConnect(ip_addr, rsa_key_file, target_vnc_port, target_adb_port, ssh_use
         target_vnc_port: Integer of target vnc port number.
         target_adb_port: Integer of target adb port number.
         ssh_user: String of user login into the instance.
+        client_adb_port: Integer, Specified adb port to establish connection.
+        extra_args_ssh_tunnel: String, extra args for ssh tunnel connection.
 
     Returns:
         NamedTuple of (vnc_port, adb_port) SSHTUNNEL of the connect, both are
         integers.
     """
     local_free_vnc_port = PickFreePort()
-    local_free_adb_port = PickFreePort()
+    local_adb_port = client_adb_port or PickFreePort()
     try:
         ssh_tunnel_args = _SSH_TUNNEL_ARGS % {
             "rsa_key_file": rsa_key_file,
             "vnc_port": local_free_vnc_port,
-            "adb_port": local_free_adb_port,
+            "adb_port": local_adb_port,
             "target_vnc_port": target_vnc_port,
             "target_adb_port": target_adb_port,
             "ssh_user": ssh_user,
             "ip_addr": ip_addr}
-        _ExecuteCommand(constants.SSH_BIN, ssh_tunnel_args.split())
-    except subprocess.CalledProcessError:
-        PrintColorString("Failed to create ssh tunnels, retry with '#acloud "
-                         "reconnect'.", TextColors.FAIL)
+        ssh_tunnel_args_list = shlex.split(ssh_tunnel_args)
+        if extra_args_ssh_tunnel:
+            ssh_tunnel_args_list.extend(shlex.split(extra_args_ssh_tunnel))
+        _ExecuteCommand(constants.SSH_BIN, ssh_tunnel_args_list)
+    except subprocess.CalledProcessError as e:
+        PrintColorString("\n%s\nFailed to create ssh tunnels, retry with '#acloud "
+                         "reconnect'." % e, TextColors.FAIL)
         return ForwardedPorts(vnc_port=None, adb_port=None)
 
     try:
-        adb_connect_args = _ADB_CONNECT_ARGS % {"adb_port": local_free_adb_port}
+        adb_connect_args = _ADB_CONNECT_ARGS % {"adb_port": local_adb_port}
         _ExecuteCommand(constants.ADB_BIN, adb_connect_args.split())
     except subprocess.CalledProcessError:
         PrintColorString("Failed to adb connect, retry with "
                          "'#acloud reconnect'", TextColors.FAIL)
 
     return ForwardedPorts(vnc_port=local_free_vnc_port,
-                          adb_port=local_free_adb_port)
+                          adb_port=local_adb_port)
 
 
 def GetAnswerFromList(answer_list, enable_choose_all=False):
@@ -878,7 +878,7 @@ def GetAnswerFromList(answer_list, enable_choose_all=False):
 
     while True:
         try:
-            choice = raw_input("Enter your choice[0-%d]: " % max_choice)
+            choice = six.moves.input("Enter your choice[0-%d]: " % max_choice)
             choice = int(choice)
         except ValueError:
             print("'%s' is not a valid integer.", choice)
@@ -912,6 +912,31 @@ def LaunchVNCFromReport(report, avd_spec, no_prompts=False):
             PrintColorString("No VNC port specified, skipping VNC startup.",
                              TextColors.FAIL)
 
+def LaunchBrowserFromReport(report):
+    """Open browser when autoconnect to webrtc according to the instances report.
+
+    Args:
+        report: Report object, that stores and generates report.
+    """
+    PrintColorString("(This is an experimental project for webrtc, and since "
+                     "the certificate is self-signed, Chrome will mark it as "
+                     "an insecure website. keep going.)",
+                     TextColors.WARNING)
+
+    for device in report.data.get("devices", []):
+        if device.get("ip"):
+            webrtc_link = "%s%s:%s" % (_WEBRTC_URL, device.get("ip"),
+                                       _WEBRTC_PORT)
+            if os.environ.get(_ENV_DISPLAY, None):
+                webbrowser.open_new_tab(webrtc_link)
+            else:
+                PrintColorString("Remote terminal can't support launch webbrowser.",
+                                 TextColors.FAIL)
+                PrintColorString("Open %s to remotely control AVD on the "
+                                 "browser." % webrtc_link)
+        else:
+            PrintColorString("Auto-launch devices webrtc in browser failed!",
+                             TextColors.FAIL)
 
 def LaunchVncClient(port, avd_width=None, avd_height=None, no_prompts=False):
     """Launch ssvnc.
@@ -929,7 +954,7 @@ def LaunchVncClient(port, avd_width=None, avd_height=None, no_prompts=False):
                          "Skipping VNC startup.", TextColors.FAIL)
         return
 
-    if not find_executable(_VNC_BIN):
+    if IsSupportedPlatform() and not FindExecutable(_VNC_BIN):
         if no_prompts or GetUserAnswerYes(_CONFIRM_CONTINUE):
             try:
                 PrintColorString("Installing ssvnc vnc client... ", end="")
@@ -950,15 +975,15 @@ def LaunchVncClient(port, avd_width=None, avd_height=None, no_prompts=False):
         ssvnc_env["SSVNC_SCALE"] = str(scale_ratio)
         logger.debug("SSVNC_SCALE:%s", scale_ratio)
 
-    ssvnc_args = _CMD_START_VNC % {"bin": find_executable(_VNC_BIN),
+    ssvnc_args = _CMD_START_VNC % {"bin": FindExecutable(_VNC_BIN),
                                    "port": port}
     subprocess.Popen(ssvnc_args.split(), env=ssvnc_env)
 
 
 def PrintDeviceSummary(report):
-    """Display summary of devices created.
+    """Display summary of devices.
 
-    -Display created device details from the report instance.
+    -Display device details from the report instance.
         report example:
             'data': [{'devices':[{'instance_name': 'ins-f6a397-none-53363',
                                   'ip': u'35.234.10.162'}]}]
@@ -968,7 +993,7 @@ def PrintDeviceSummary(report):
         report: A Report instance.
     """
     PrintColorString("\n")
-    PrintColorString("Device(s) created:")
+    PrintColorString("Device summary:")
     for device in report.data.get("devices", []):
         adb_serial = "(None)"
         adb_port = device.get("adb_port")
@@ -980,6 +1005,7 @@ def PrintDeviceSummary(report):
             instance_name, instance_ip)
         PrintColorString(" - device serial: %s %s" % (adb_serial,
                                                       instance_details))
+        PrintColorString("   export ANDROID_SERIAL=%s" % adb_serial)
 
     # TODO(b/117245508): Help user to delete instance if it got created.
     if report.errors:
@@ -1034,7 +1060,7 @@ def IsCommandRunning(command):
     """
     try:
         with open(os.devnull, "w") as dev_null:
-            subprocess.check_call([_CMD_PGREP, "-f", command],
+            subprocess.check_call([constants.CMD_PGREP, "-af", command],
                                   stderr=dev_null, stdout=dev_null)
         return True
     except subprocess.CalledProcessError:
@@ -1110,6 +1136,8 @@ def IsSupportedPlatform(print_warning=False):
         Boolean, True if user is using supported platform.
     """
     system = platform.system()
+    # TODO(b/143197659): linux_distribution() deprecated in python 3. To fix it
+    # try to use another package "import distro".
     dist = platform.linux_distribution()[0]
     platform_supported = (system in _SUPPORTED_SYSTEMS_AND_DISTS and
                           dist in _SUPPORTED_SYSTEMS_AND_DISTS[system])
@@ -1205,3 +1233,40 @@ def GetBuildEnvironmentVariable(variable_name):
             "Try to run 'source build/envsetup.sh && lunch <target>'"
             % variable_name
         )
+
+
+# pylint: disable=no-member
+def FindExecutable(filename):
+    """A compatibility function to find execution file path.
+
+    Args:
+        filename: String of execution filename.
+
+    Returns:
+        String: execution file path.
+    """
+    return find_executable(filename) if six.PY2 else shutil.which(filename)
+
+
+def GetDictItems(namedtuple_object):
+    """A compatibility function to access the OrdereDict object from the given namedtuple object.
+
+    Args:
+        namedtuple_object: namedtuple object.
+
+    Returns:
+        collections.namedtuple.__dict__.items() when using python2.
+        collections.namedtuple._asdict().items() when using python3.
+    """
+    return (namedtuple_object.__dict__.items() if six.PY2
+            else namedtuple_object._asdict().items())
+
+
+def CleanupSSVncviewer(vnc_port):
+    """Cleanup the old disconnected ssvnc viewer.
+
+    Args:
+        vnc_port: Integer, port number of vnc.
+    """
+    ssvnc_viewer_pattern = _SSVNC_VIEWER_PATTERN % {"vnc_port":vnc_port}
+    CleanupProcess(ssvnc_viewer_pattern)

@@ -34,7 +34,13 @@
 #include <android/binder_status.h>
 
 __BEGIN_DECLS
-#if __ANDROID_API__ >= __ANDROID_API_Q__
+
+#ifndef __ANDROID_API__
+#error Android builds must be compiled against a specific API. If this is an \
+ android platform host build, you must use libbinder_ndk_host_user.
+#endif
+
+#if __ANDROID_API__ >= 29
 
 // Also see TF_* in kernel's binder.h
 typedef uint32_t binder_flags_t;
@@ -165,6 +171,8 @@ typedef binder_status_t (*AIBinder_Class_onTransact)(AIBinder* binder, transacti
  *
  * None of these parameters can be null.
  *
+ * Available since API level 29.
+ *
  * \param interfaceDescriptor this is a unique identifier for the class. This is used internally for
  * sanity checks on transactions.
  * \param onCreate see AIBinder_Class_onCreate.
@@ -199,6 +207,8 @@ typedef binder_status_t (*AIBinder_onDump)(AIBinder* binder, int fd, const char*
  * If this isn't set, nothing will be dumped when dump is called (for instance with
  * android.os.Binder#dump). Must be called before any instance of the class is created.
  *
+ * Available since API level 29.
+ *
  * \param dump function to call when an instance of this binder class is being dumped.
  */
 void AIBinder_Class_setOnDump(AIBinder_Class* clazz, AIBinder_onDump onDump) __INTRODUCED_IN(29);
@@ -220,6 +230,8 @@ void AIBinder_Class_setOnDump(AIBinder_Class* clazz, AIBinder_onDump onDump) __I
  * these two objects are actually equal using the AIBinder pointer alone (which they should be able
  * to do). Also see the suggested memory ownership model suggested above.
  *
+ * Available since API level 29.
+ *
  * \param clazz the type of the object to be created.
  * \param args the args to pass to AIBinder_onCreate for that class.
  *
@@ -230,6 +242,8 @@ __attribute__((warn_unused_result)) AIBinder* AIBinder_new(const AIBinder_Class*
 
 /**
  * If this is hosted in a process other than the current one.
+ *
+ * Available since API level 29.
  *
  * \param binder the binder being queried.
  *
@@ -244,6 +258,8 @@ bool AIBinder_isRemote(const AIBinder* binder) __INTRODUCED_IN(29);
  * updated as the result of a transaction made using AIBinder_transact, but it will also be updated
  * based on the results of bookkeeping or other transactions made internally.
  *
+ * Available since API level 29.
+ *
  * \param binder the binder being queried.
  *
  * \return true if the binder is alive.
@@ -255,6 +271,8 @@ bool AIBinder_isAlive(const AIBinder* binder) __INTRODUCED_IN(29);
  * return. Usually this is used to make sure that a binder is alive, as a placeholder call, or as a
  * sanity check.
  *
+ * Available since API level 29.
+ *
  * \param binder the binder being queried.
  *
  * \return STATUS_OK if the ping succeeds.
@@ -264,7 +282,9 @@ binder_status_t AIBinder_ping(AIBinder* binder) __INTRODUCED_IN(29);
 /**
  * Built-in transaction for all binder objects. This dumps information about a given binder.
  *
- * See also AIBinder_Class_setOnDump, AIBinder_onDump
+ * See also AIBinder_Class_setOnDump, AIBinder_onDump.
+ *
+ * Available since API level 29.
  *
  * \param binder the binder to dump information about
  * \param fd where information should be dumped to
@@ -287,6 +307,8 @@ binder_status_t AIBinder_dump(AIBinder* binder, int fd, const char** args, uint3
  *
  * If binder is local, this will return STATUS_INVALID_OPERATION.
  *
+ * Available since API level 29.
+ *
  * \param binder the binder object you want to receive death notifications from.
  * \param recipient the callback that will receive notifications when/if the binder dies.
  * \param cookie the value that will be passed to the death recipient on death.
@@ -306,6 +328,8 @@ binder_status_t AIBinder_linkToDeath(AIBinder* binder, AIBinder_DeathRecipient* 
  * If the binder dies, it will automatically unlink. If the binder is deleted, it will be
  * automatically unlinked.
  *
+ * Available since API level 29.
+ *
  * \param binder the binder object to remove a previously linked death recipient from.
  * \param recipient the callback to remove.
  * \param cookie the cookie used to link to death.
@@ -322,9 +346,11 @@ binder_status_t AIBinder_unlinkToDeath(AIBinder* binder, AIBinder_DeathRecipient
  * This can be used with higher-level system services to determine the caller's identity and check
  * permissions.
  *
+ * Available since API level 29.
+ *
  * \return calling uid or the current process's UID if this thread isn't processing a transaction.
  */
-uid_t AIBinder_getCallingUid();
+uid_t AIBinder_getCallingUid() __INTRODUCED_IN(29);
 
 /**
  * This returns the calling PID assuming that this thread is called from a thread that is processing
@@ -335,13 +361,17 @@ uid_t AIBinder_getCallingUid();
  * calling process dies and is replaced with another process with elevated permissions and the same
  * PID.
  *
+ * Available since API level 29.
+ *
  * \return calling pid or the current process's PID if this thread isn't processing a transaction.
  * If the transaction being processed is a oneway transaction, then this method will return 0.
  */
-pid_t AIBinder_getCallingPid();
+pid_t AIBinder_getCallingPid() __INTRODUCED_IN(29);
 
 /**
  * This can only be called if a strong reference to this object already exists in process.
+ *
+ * Available since API level 29.
  *
  * \param binder the binder object to add a refcount to.
  */
@@ -350,12 +380,16 @@ void AIBinder_incStrong(AIBinder* binder) __INTRODUCED_IN(29);
 /**
  * This will delete the object and call onDestroy once the refcount reaches zero.
  *
+ * Available since API level 29.
+ *
  * \param binder the binder object to remove a refcount from.
  */
 void AIBinder_decStrong(AIBinder* binder) __INTRODUCED_IN(29);
 
 /**
  * For debugging only!
+ *
+ * Available since API level 29.
  *
  * \param binder the binder object to retrieve the refcount of.
  *
@@ -373,6 +407,8 @@ int32_t AIBinder_debugGetRefCount(AIBinder* binder) __INTRODUCED_IN(29);
  * This returns true if the class association succeeds. If it fails, no change is made to the
  * binder object.
  *
+ * Available since API level 29.
+ *
  * \param binder the object to attach the class to.
  * \param clazz the clazz to attach to binder.
  *
@@ -382,6 +418,8 @@ bool AIBinder_associateClass(AIBinder* binder, const AIBinder_Class* clazz) __IN
 
 /**
  * Returns the class that this binder was constructed with or associated with.
+ *
+ * Available since API level 29.
  *
  * \param binder the object that is being queried.
  *
@@ -393,6 +431,8 @@ const AIBinder_Class* AIBinder_getClass(AIBinder* binder) __INTRODUCED_IN(29);
 /**
  * Value returned by onCreate for a local binder. For stateless classes (if onCreate returns
  * null), this also returns null. For a remote binder, this will always return null.
+ *
+ * Available since API level 29.
  *
  * \param binder the object that is being queried.
  *
@@ -422,6 +462,8 @@ void* AIBinder_getUserData(AIBinder* binder) __INTRODUCED_IN(29);
  * AIBinder_transact. Alternatively, if there is an error while filling out the parcel, it can be
  * deleted with AParcel_delete.
  *
+ * Available since API level 29.
+ *
  * \param binder the binder object to start a transaction on.
  * \param in out parameter for input data to the transaction.
  *
@@ -442,6 +484,8 @@ binder_status_t AIBinder_prepareTransaction(AIBinder* binder, AParcel** in) __IN
  * This does not affect the ownership of binder. The out parcel's ownership is passed to the caller
  * and must be released with AParcel_delete when finished reading.
  *
+ * Available since API level 29.
+ *
  * \param binder the binder object to transact on.
  * \param code the implementation-specific code representing which transaction should be taken.
  * \param in the implementation-specific input data to this transaction.
@@ -459,6 +503,8 @@ binder_status_t AIBinder_transact(AIBinder* binder, transaction_code_t code, APa
  * This does not take any ownership of the input binder, but it can be used to retrieve it if
  * something else in some process still holds a reference to it.
  *
+ * Available since API level 29.
+ *
  * \param binder object to create a weak pointer to.
  *
  * \return object representing a weak pointer to binder (or null if binder is null).
@@ -469,6 +515,8 @@ __attribute__((warn_unused_result)) AIBinder_Weak* AIBinder_Weak_new(AIBinder* b
 /**
  * Deletes the weak reference. This will have no impact on the lifetime of the binder.
  *
+ * Available since API level 29.
+ *
  * \param weakBinder object created with AIBinder_Weak_new.
  */
 void AIBinder_Weak_delete(AIBinder_Weak* weakBinder) __INTRODUCED_IN(29);
@@ -476,6 +524,8 @@ void AIBinder_Weak_delete(AIBinder_Weak* weakBinder) __INTRODUCED_IN(29);
 /**
  * If promotion succeeds, result will have one strong refcount added to it. Otherwise, this returns
  * null.
+ *
+ * Available since API level 29.
  *
  * \param weakBinder weak pointer to attempt retrieving the original object from.
  *
@@ -487,12 +537,16 @@ __attribute__((warn_unused_result)) AIBinder* AIBinder_Weak_promote(AIBinder_Wea
 /**
  * This function is executed on death receipt. See AIBinder_linkToDeath/AIBinder_unlinkToDeath.
  *
+ * Available since API level 29.
+ *
  * \param cookie the cookie passed to AIBinder_linkToDeath.
  */
 typedef void (*AIBinder_DeathRecipient_onBinderDied)(void* cookie) __INTRODUCED_IN(29);
 
 /**
  * Creates a new binder death recipient. This can be attached to multiple different binder objects.
+ *
+ * Available since API level 29.
  *
  * \param onBinderDied the callback to call when this death recipient is invoked.
  *
@@ -505,11 +559,87 @@ __attribute__((warn_unused_result)) AIBinder_DeathRecipient* AIBinder_DeathRecip
  * Deletes a binder death recipient. It is not necessary to call AIBinder_unlinkToDeath before
  * calling this as these will all be automatically unlinked.
  *
+ * Available since API level 29.
+ *
  * \param recipient the binder to delete (previously created with AIBinder_DeathRecipient_new).
  */
 void AIBinder_DeathRecipient_delete(AIBinder_DeathRecipient* recipient) __INTRODUCED_IN(29);
 
-#endif  //__ANDROID_API__ >= __ANDROID_API_Q__
+#endif  //__ANDROID_API__ >= 29
+
+#if __ANDROID_API__ >= 30
+
+/**
+ * Gets the extension registered with AIBinder_setExtension.
+ *
+ * See AIBinder_setExtension.
+ *
+ * Available since API level 30.
+ *
+ * \param binder the object to get the extension of.
+ * \param outExt the returned extension object. Will be null if there is no extension set or
+ * non-null with one strong ref count.
+ *
+ * \return error of getting the interface (may be a transaction error if this is
+ * remote binder). STATUS_UNEXPECTED_NULL if binder is null.
+ */
+binder_status_t AIBinder_getExtension(AIBinder* binder, AIBinder** outExt) __INTRODUCED_IN(30);
+
+/**
+ * Gets the extension of a binder interface. This allows a downstream developer to add
+ * an extension to an interface without modifying its interface file. This should be
+ * called immediately when the object is created before it is passed to another thread.
+ * No thread safety is required.
+ *
+ * For instance, imagine if we have this interface:
+ *     interface IFoo { void doFoo(); }
+ *
+ * A). Historical option that has proven to be BAD! Only the original
+ *     author of an interface should change an interface. If someone
+ *     downstream wants additional functionality, they should not ever
+ *     change the interface or use this method.
+ *
+ *    BAD TO DO:  interface IFoo {                       BAD TO DO
+ *    BAD TO DO:      void doFoo();                      BAD TO DO
+ *    BAD TO DO: +    void doBar(); // adding a method   BAD TO DO
+ *    BAD TO DO:  }                                      BAD TO DO
+ *
+ * B). Option that this method enables.
+ *     Leave the original interface unchanged (do not change IFoo!).
+ *     Instead, create a new interface in a downstream package:
+ *
+ *         package com.<name>; // new functionality in a new package
+ *         interface IBar { void doBar(); }
+ *
+ *     When registering the interface, add:
+ *         std::shared_ptr<MyFoo> foo = new MyFoo; // class in AOSP codebase
+ *         std::shared_ptr<MyBar> bar = new MyBar; // custom extension class
+ *         ... = AIBinder_setExtension(foo->asBinder().get(), bar->asBinder().get());
+ *         // handle error
+ *
+ *     Then, clients of IFoo can get this extension:
+ *         SpAIBinder binder = ...;
+ *         std::shared_ptr<IFoo> foo = IFoo::fromBinder(binder); // handle if null
+ *         SpAIBinder barBinder;
+ *         ... = AIBinder_getExtension(barBinder.get());
+ *         // handle error
+ *         std::shared_ptr<IBar> bar = IBar::fromBinder(barBinder);
+ *         // type is checked with AIBinder_associateClass
+ *         // if bar is null, then there is no extension or a different
+ *         // type of extension
+ *
+ * Available since API level 30.
+ *
+ * \param binder the object to get the extension on. Must be local.
+ * \param ext the extension to set (binder will hold a strong reference to this)
+ *
+ * \return OK on success, STATUS_INVALID_OPERATION if binder is not local, STATUS_UNEXPECTED_NULL
+ * if either binder is null.
+ */
+binder_status_t AIBinder_setExtension(AIBinder* binder, AIBinder* ext) __INTRODUCED_IN(30);
+
+#endif  //__ANDROID_API__ >= 30
+
 __END_DECLS
 
 /** @} */

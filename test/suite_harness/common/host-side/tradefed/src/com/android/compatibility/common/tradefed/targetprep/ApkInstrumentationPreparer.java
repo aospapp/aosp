@@ -18,18 +18,19 @@ package com.android.compatibility.common.tradefed.targetprep;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestResult;
 import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.testtype.AndroidJUnitTest;
 
@@ -37,11 +38,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Map.Entry;
 
-/**
- * Target preparer that instruments an APK.
- */
-@OptionClass(alias="apk-instrumentation-preparer")
-public class ApkInstrumentationPreparer extends PreconditionPreparer implements ITargetCleaner {
+/** Target preparer that instruments an APK. */
+@OptionClass(alias = "apk-instrumentation-preparer")
+public class ApkInstrumentationPreparer extends PreconditionPreparer
+        implements IConfigurationReceiver {
 
     @Option(name = "apk", description = "Name of the apk to instrument", mandatory = true)
     protected String mApkFileName = null;
@@ -59,17 +59,24 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
     @Option(name = "throw-error", description = "Whether to throw error for device test failure")
     protected boolean mThrowError = true;
 
-    /**
-     * {@inheritDoc}
-     */
+    private IConfiguration mConfiguration = null;
+
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            BuildError, DeviceNotAvailableException {
+    public void setConfiguration(IConfiguration configuration) {
+        mConfiguration = configuration;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void run(TestInformation testInfo)
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
         if (mWhen == When.AFTER) {
             return;
         }
+        ITestDevice device = testInfo.getDevice();
         try {
-            if (instrument(device, buildInfo)) {
+            if (instrument(testInfo)) {
                 CLog.d("Target preparation successful");
             } else if (mThrowError) {
                 throw new TargetSetupError("Not all target preparation steps completed",
@@ -81,12 +88,9 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         if (e instanceof DeviceNotAvailableException) {
             return;
         }
@@ -94,22 +98,24 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
             return;
         }
         try {
-            instrument(device, buildInfo);
+            instrument(testInfo);
         } catch (FileNotFoundException e1) {
             CLog.e("Couldn't find apk to instrument");
             CLog.e(e1);
         }
     }
 
-    private boolean instrument(ITestDevice device, IBuildInfo buildInfo)
+    private boolean instrument(TestInformation testInfo)
             throws DeviceNotAvailableException, FileNotFoundException {
-        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
+        CompatibilityBuildHelper buildHelper =
+                new CompatibilityBuildHelper(testInfo.getBuildInfo());
 
         File apkFile = buildHelper.getTestFile(mApkFileName);
         if (!apkFile.exists()) {
             throw new FileNotFoundException(String.format("%s not found", mApkFileName));
         }
 
+        ITestDevice device = testInfo.getDevice();
         if (device.getAppPackageInfo(mPackageName) != null) {
             CLog.i("Package %s already present on the device, uninstalling ...", mPackageName);
             device.uninstallPackage(mPackageName);
@@ -118,6 +124,7 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
         CLog.i("Instrumenting package: %s", mPackageName);
         CollectingTestListener listener = new CollectingTestListener();
         AndroidJUnitTest instrTest = new AndroidJUnitTest();
+        instrTest.setConfiguration(mConfiguration);
         instrTest.setDevice(device);
         instrTest.setInstallFile(apkFile);
         instrTest.setPackageName(mPackageName);
@@ -125,7 +132,7 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
         instrTest.setReRunUsingTestFile(false);
         // TODO: Make this configurable.
         instrTest.setIsolatedStorage(false);
-        instrTest.run(listener);
+        instrTest.run(testInfo, listener);
         TestRunResult result = listener.getCurrentRunResults();
 
         for (Entry<TestDescription, TestResult> results : result.getTestResults().entrySet()) {

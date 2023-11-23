@@ -25,6 +25,7 @@ public class MockResources extends android.test.mock.MockResources {
     private HashMap<Integer, String>  mStringValues;
     private HashMap<Integer, CharSequence> mTextValues;
     private HashMap<Integer, int[]> mIntArrayValues;
+    private HashMap<Integer, String[]> mStringArrayValues;
 
     public MockResources() {
         mBooleanValues = new HashMap<Integer, Boolean>();
@@ -32,6 +33,7 @@ public class MockResources extends android.test.mock.MockResources {
         mStringValues  = new HashMap<Integer, String>();
         mTextValues    = new HashMap<Integer, CharSequence>();
         mIntArrayValues = new HashMap<Integer, int[]>();
+        mStringArrayValues = new HashMap<Integer, String[]>();
     }
 
     @Override
@@ -79,6 +81,15 @@ public class MockResources extends android.test.mock.MockResources {
         }
     }
 
+    @Override
+    public String[] getStringArray(int id) {
+        if (mStringArrayValues.containsKey(id))  {
+            return mStringArrayValues.get(id);
+        } else {
+            return null;
+        }
+    }
+
     public void setBoolean(int id, boolean value) {
         mBooleanValues.put(id, value);
     }
@@ -97,5 +108,9 @@ public class MockResources extends android.test.mock.MockResources {
 
     public void setIntArray(int id, int[] value) {
         mIntArrayValues.put(id, value);
+    }
+
+    public void setStringArray(int id, String[] value) {
+        mStringArrayValues.put(id, value);
     }
 }

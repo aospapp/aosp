@@ -18,6 +18,8 @@ The \fIsrc\fR path must be an absolute path.
 If \fIdest\fR is not specified, it will default to \fIsrc\fR.
 If the destination does not exist, it will be created as a file or directory
 based on the \fIsrc\fR type (including missing parent directories).
+To create a writable bind-mount set \fIwritable\fR to \fB1\fR. If not specified
+it will default to \fB0\fR (read-only).
 .TP
 \fB-B <mask>\fR
 Skip setting securebits in \fImask\fR when restricting capabilities (\fB-c\fR).
@@ -57,14 +59,18 @@ network namespace specified by \fIfile\fR which is typically of the form
 \fB-f <file>\fR
 Write the pid of the jailed process to \fIfile\fR.
 .TP
-\fB-g <group>\fR
-Change groups to \fIgroup\fR, which may be either a group name or a numeric
-group ID.
+\fB-g <group|gid>
+Change groups to the specified \fIgroup\fR name, or numeric group ID \fIgid\fR.
 .TP
 \fB-G\fR
 Inherit all the supplementary groups of the user specified with \fB-u\fR. It
 is an error to use this option without having specified a \fBuser name\fR to
 \fB-u\fR.
+.TP
+\fB--add-suppl-group <group|gid>\fR
+Add the specified \fIgroup\fR name, or numeric group ID \fIgid\fR,
+to the process' supplementary groups list. Can be specified
+multiple times to add several groups. Incompatible with -y and -G.
 .TP
 \fB-h\fR
 Print a help message.
@@ -155,9 +161,13 @@ Run inside a new IPC namespace. This option makes the program's System V IPC
 namespace independent.
 .TP
 \fB-L\fR
-Report blocked syscalls to syslog when using seccomp filter. This option will
-force certain syscalls to be allowed in order to achieve this, depending on the
-system.
+Report blocked syscalls when using a seccomp filter. On kernels with support for
+SECCOMP_RET_LOG, every blocked syscall will be reported through the audit
+subsystem (see \fBseccomp\fR(2) for more details on SECCOMP_RET_LOG
+availability.) On all other kernels, the first failing syscall will be logged to
+syslog. This latter case will also force certain syscalls to be allowed in order
+to write to syslog. Note: this option is disabled and ignored for release
+builds.
 .TP
 \fB-m[<uid> <loweruid> <count>[,<uid> <loweruid> <count>]]\fR
 Set the uid mapping of a user namespace (implies \fB-pU\fR). Same arguments as
@@ -235,9 +245,8 @@ program is executed. Type 'dynamic' will force minijail0 to preload
 \fIlibminijailpreload.so\fR to setup hooks, but will fail on actually
 statically-linked binaries.
 .TP
-\fB-u <user>\fR
-Change users to \fIuser\fR, which may be either a user name or a numeric user
-ID.
+\fB-u <user|uid>\fR
+Change users to the specified \fIuser\fR name, or numeric user ID \fIuid\fR.
 .TP
 \fB-U\fR
 Enter a new user namespace (implies \fB-p\fR).
@@ -276,7 +285,10 @@ namespace to \fIhostname\fR.
 .TP
 \fB--logging=<system>\fR
 Use \fIsystem\fR as the logging system. \fIsystem\fR must be one of
-\fBsyslog\fR (the default) or \fBstderr\fR.
+\fBauto\fR (the default), \fBsyslog\fR, or \fBstderr\fR.
+
+\fBauto\fR will use \fBstderr\fR if connected to a tty (e.g. run directly by a
+user), otherwise it will use \fBsyslog\fR.
 .TP
 \fB--profile <profile>\fR
 Choose from one of the available sandboxing profiles, which are simple way to
@@ -300,6 +312,10 @@ The following sandboxing profiles are supported:
 \fBminimalistic-mountns\fR
 Set up a minimalistic mount namespace.  Equivalent to \fB-v -P /var/empty
 -b / -b /proc -b /dev/log -t -r --mount-dev\fR.
+.TP
+\fBminimalistic-mountns-nodev\fR
+Set up a minimalistic mount namespace with an empty /dev path.  Equivalent to
+\fB-v -P /var/empty -b/ -b/proc -t -r\fR.
 .SH IMPLEMENTATION
 This program is broken up into two parts: \fBminijail0\fR (the frontend) and a helper
 library called \fBlibminijailpreload\fR.  Some jailings can only be achieved
@@ -343,4 +359,6 @@ The Chromium OS Authors <chromiumos-dev@chromium.org>
 Copyright \(co 2011 The Chromium OS Authors
 License BSD-like.
 .SH "SEE ALSO"
-\fBlibminijail.h\fR \fBminijail0\fR(5)
+.BR libminijail.h ,
+.BR minijail0 (5),
+.BR seccomp (2)

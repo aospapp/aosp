@@ -28,13 +28,8 @@ TODO: The following APIs have not been implemented
 """
 
 from __future__ import print_function
-import datetime
 import logging
 import os
-
-# pylint: disable=import-error
-import dateutil.parser
-import dateutil.tz
 
 from acloud import errors
 from acloud.public import avd
@@ -46,6 +41,8 @@ from acloud.internal.lib import android_build_client
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import gstorage_client
 from acloud.internal.lib import utils
+from acloud.internal.lib.adb_tools import AdbTools
+
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +155,7 @@ class AndroidVirtualDevicePool(object):
                                         disk_image_id)
         return image_name
 
+    # pylint: disable=too-many-locals
     def CreateDevices(self,
                       num,
                       build_target=None,
@@ -336,19 +334,18 @@ def _FetchSerialLogsFromDevices(compute_client, instance_names, output_file,
 
 
 # pylint: disable=too-many-locals
-def CreateAndroidVirtualDevices(cfg,
-                                build_target=None,
-                                build_id=None,
-                                num=1,
-                                gce_image=None,
-                                local_disk_image=None,
-                                cleanup=True,
-                                serial_log_file=None,
-                                logcat_file=None,
-                                autoconnect=False,
-                                report_internal_ip=False,
-                                avd_spec=None):
-    """Creates one or multiple android devices.
+def CreateGCETypeAVD(cfg,
+                     build_target=None,
+                     build_id=None,
+                     num=1,
+                     gce_image=None,
+                     local_disk_image=None,
+                     cleanup=True,
+                     serial_log_file=None,
+                     autoconnect=False,
+                     report_internal_ip=False,
+                     avd_spec=None):
+    """Creates one or multiple gce android devices.
 
     Args:
         cfg: An AcloudConfig instance.
@@ -364,7 +361,6 @@ def CreateAndroidVirtualDevices(cfg,
                  disk image in storage after creating the instance.
         serial_log_file: A path to a file where serial output should
                          be saved to.
-        logcat_file: A path to a file where logcat logs should be saved.
         autoconnect: Create ssh tunnel(s) and adb connect after device creation.
         report_internal_ip: Boolean to report the internal ip instead of
                             external ip.
@@ -403,13 +399,17 @@ def CreateAndroidVirtualDevices(cfg,
             }
             if autoconnect:
                 forwarded_ports = utils.AutoConnect(
-                    ip,
-                    cfg.ssh_private_key_path,
-                    constants.GCE_VNC_PORT,
-                    constants.GCE_ADB_PORT,
-                    _SSH_USER)
+                    ip_addr=ip,
+                    rsa_key_file=cfg.ssh_private_key_path,
+                    target_vnc_port=constants.GCE_VNC_PORT,
+                    target_adb_port=constants.GCE_ADB_PORT,
+                    ssh_user=_SSH_USER,
+                    client_adb_port=avd_spec.client_adb_port,
+                    extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel)
                 device_dict[constants.VNC_PORT] = forwarded_ports.vnc_port
                 device_dict[constants.ADB_PORT] = forwarded_ports.adb_port
+                if avd_spec.unlock_screen:
+                    AdbTools(forwarded_ports.adb_port).AutoUnlockScreen()
             if device.instance_name in failures:
                 r.AddData(key="devices_failing_boot", value=device_dict)
                 r.AddError(str(failures[device.instance_name]))
@@ -420,19 +420,13 @@ def CreateAndroidVirtualDevices(cfg,
         else:
             r.SetStatus(report.Status.SUCCESS)
 
-        # Dump serial and logcat logs.
+        # Dump serial logs.
         if serial_log_file:
             _FetchSerialLogsFromDevices(
                 compute_client,
                 instance_names=[d.instance_name for d in device_pool.devices],
                 port=constants.DEFAULT_SERIAL_PORT,
                 output_file=serial_log_file)
-        if logcat_file:
-            _FetchSerialLogsFromDevices(
-                compute_client,
-                instance_names=[d.instance_name for d in device_pool.devices],
-                port=constants.LOGCAT_SERIAL_PORT,
-                output_file=logcat_file)
     except errors.DriverError as e:
         r.AddError(str(e))
         r.SetStatus(report.Status.FAIL)
@@ -450,127 +444,28 @@ def DeleteAndroidVirtualDevices(cfg, instance_names, default_report=None):
     Returns:
         A Report instance.
     """
+    # delete, failed, error_msgs are used to record result.
+    deleted = []
+    failed = []
+    error_msgs = []
+
     r = default_report if default_report else report.Report(command="delete")
     credentials = auth.CreateCredentials(cfg)
     compute_client = android_compute_client.AndroidComputeClient(cfg,
                                                                  credentials)
+    zone_instances = compute_client.GetZonesByInstances(instance_names)
+
     try:
-        deleted, failed, error_msgs = compute_client.DeleteInstances(
-            instance_names, cfg.zone)
+        for zone, instances in zone_instances.items():
+            deleted_ins, failed_ins, error_ins = compute_client.DeleteInstances(
+                instances, zone)
+            deleted.extend(deleted_ins)
+            failed.extend(failed_ins)
+            error_msgs.extend(error_ins)
         AddDeletionResultToReport(
             r, deleted,
             failed, error_msgs,
             resource_name="instance")
-        if r.status == report.Status.UNKNOWN:
-            r.SetStatus(report.Status.SUCCESS)
-    except errors.DriverError as e:
-        r.AddError(str(e))
-        r.SetStatus(report.Status.FAIL)
-    return r
-
-
-def _FindOldItems(items, cut_time, time_key):
-    """Finds items from |items| whose timestamp is earlier than |cut_time|.
-
-    Args:
-        items: A list of items. Each item is a dictionary represent
-               the properties of the item. It should has a key as noted
-               by time_key.
-        cut_time: A datetime.datatime object.
-        time_key: String, key for the timestamp.
-
-    Returns:
-        A list of those from |items| whose timestamp is earlier than cut_time.
-    """
-    cleanup_list = []
-    for item in items:
-        t = dateutil.parser.parse(item[time_key])
-        if t < cut_time:
-            cleanup_list.append(item)
-    return cleanup_list
-
-
-def Cleanup(cfg, expiration_mins):
-    """Cleans up stale gce images, gce instances, and disk images in storage.
-
-    Args:
-        cfg: An AcloudConfig instance.
-        expiration_mins: Integer, resources older than |expiration_mins| will
-                         be cleaned up.
-
-    Returns:
-        A Report instance.
-    """
-    r = report.Report(command="cleanup")
-    try:
-        cut_time = (datetime.datetime.now(dateutil.tz.tzlocal()) -
-                    datetime.timedelta(minutes=expiration_mins))
-        logger.info(
-            "Cleaning up any gce images/instances and cached build artifacts."
-            "in google storage that are older than %s", cut_time)
-        credentials = auth.CreateCredentials(cfg)
-        compute_client = android_compute_client.AndroidComputeClient(
-            cfg, credentials)
-        storage_client = gstorage_client.StorageClient(credentials)
-
-        # Cleanup expired instances
-        items = compute_client.ListInstances(zone=cfg.zone)
-        cleanup_list = [
-            item["name"]
-            for item in _FindOldItems(items, cut_time, "creationTimestamp")
-        ]
-        logger.info("Found expired instances: %s", cleanup_list)
-        for i in range(0, len(cleanup_list), MAX_BATCH_CLEANUP_COUNT):
-            result = compute_client.DeleteInstances(
-                instances=cleanup_list[i:i + MAX_BATCH_CLEANUP_COUNT],
-                zone=cfg.zone)
-            AddDeletionResultToReport(r, *result, resource_name="instance")
-
-        # Cleanup expired images
-        items = compute_client.ListImages()
-        skip_list = cfg.precreated_data_image_map.viewvalues()
-        cleanup_list = [
-            item["name"]
-            for item in _FindOldItems(items, cut_time, "creationTimestamp")
-            if item["name"] not in skip_list
-        ]
-        logger.info("Found expired images: %s", cleanup_list)
-        for i in range(0, len(cleanup_list), MAX_BATCH_CLEANUP_COUNT):
-            result = compute_client.DeleteImages(
-                image_names=cleanup_list[i:i + MAX_BATCH_CLEANUP_COUNT])
-            AddDeletionResultToReport(r, *result, resource_name="image")
-
-        # Cleanup expired disks
-        # Disks should have been attached to instances with autoDelete=True.
-        # However, sometimes disks may not be auto deleted successfully.
-        items = compute_client.ListDisks(zone=cfg.zone)
-        cleanup_list = [
-            item["name"]
-            for item in _FindOldItems(items, cut_time, "creationTimestamp")
-            if not item.get("users")
-        ]
-        logger.info("Found expired disks: %s", cleanup_list)
-        for i in range(0, len(cleanup_list), MAX_BATCH_CLEANUP_COUNT):
-            result = compute_client.DeleteDisks(
-                disk_names=cleanup_list[i:i + MAX_BATCH_CLEANUP_COUNT],
-                zone=cfg.zone)
-            AddDeletionResultToReport(r, *result, resource_name="disk")
-
-        # Cleanup expired google storage
-        items = storage_client.List(bucket_name=cfg.storage_bucket_name)
-        cleanup_list = [
-            item["name"]
-            for item in _FindOldItems(items, cut_time, "timeCreated")
-        ]
-        logger.info("Found expired cached artifacts: %s", cleanup_list)
-        for i in range(0, len(cleanup_list), MAX_BATCH_CLEANUP_COUNT):
-            result = storage_client.DeleteFiles(
-                bucket_name=cfg.storage_bucket_name,
-                object_names=cleanup_list[i:i + MAX_BATCH_CLEANUP_COUNT])
-            AddDeletionResultToReport(
-                r, *result, resource_name="cached_build_artifact")
-
-        # Everything succeeded, write status to report.
         if r.status == report.Status.UNKNOWN:
             r.SetStatus(report.Status.SUCCESS)
     except errors.DriverError as e:

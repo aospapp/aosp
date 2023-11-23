@@ -1,0 +1,55 @@
+Build Mainline u-boot - bl33:
+=============================
+
+Main Wiki Page : https://gitlab.com/baylibre/amlogic/atv/u-boot/wikis/home
+
+Download the toolchain : gcc-linaro-7.2.1-2017.11-x86_64_aarch64-elf
+        http://releases.linaro.org/components/toolchain/binaries/7.2-2017.11/aarch64-elf/gcc-linaro-7.2.1-2017.11-x86_64_aarch64-elf.tar.xz
+
+Download U-Boot Source Code From :
+        https://gitlab.com/baylibre/amlogic/atv/u-boot.git
+
+actual tag : u-boot/v2019.10/sei610-20190905-fix
+dev branch :  u-boot/v2019.10/sei610 (NOT COMPATIBLE with Actual AOSP, this branch have changes for A/B support + android10 bootflow)
+
+link to U-Boot aosp release wiki page :
+https://gitlab.com/baylibre/amlogic/atv/u-boot/wikis/U-Boot-for-Yukawa-Release
+
+Compile:
+
+        export PATH=<path-to-toolchain>/gcc-linaro-7.2.1-2017.11-x86_64_aarch64-elf/bin:$PATH
+        export CROSS_COMPILE=aarch64-elf-
+        git clone https://gitlab.com/baylibre/amlogic/atv/u-boot.git
+        cd u-boot
+        git checkout u-boot/v2019.10/sei610-20190905-fix
+        make [sei510|sei610]_defconfig
+        make
+
+Generate fip binary
+===================
+
+use tarball in fip_packages folder and untar it
+
+- For sei510 (yukawa_sei510):
+        tar -xaf fip-collect-g12a-g12a_u200_v1-amlogic-dev_9.2.1811_21-20191203-113239.tar.gz
+
+- For sei610 (yukawa):
+        tar -xaf fip-collect-g12a-sm1_ac214_v1-amlogic-dev_9.2.1811_21-20191204-161855.tar.gz
+
+- For VIM3L (yukawa):
+        tar -xaf fip-collect-sm1-kvim3l-khadas-vims-v2015.01-20191204-095738.tar.gz
+
+Then launch script:
+
+        ./generate-bins-new.sh <fip-collect-directory> <target-bl33-binary>
+
+flash result with:
+        fastboot flash bootloader uboot-bins/u-boot.bin
+        fastboot erase bootenv
+        fastboot reboot bootloader
+
+after reboot if partitions table need to be updated:
+        fastboot oem format
+
+More informations to update and flash bootloader on Yukawa:
+https://gitlab.com/baylibre/amlogic/atv/u-boot/wikis/U-Boot-for-Yukawa

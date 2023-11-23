@@ -8,6 +8,7 @@
             "AndroidDevice": "*"
         }
     ],
+    "skip_read_factory_mac": 1,
     "network_name": "DIRECT-xy-Hello",
     "passphrase": "P2pWorld1234",
     "group_band": "2",

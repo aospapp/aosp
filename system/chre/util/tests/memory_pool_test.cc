@@ -76,8 +76,8 @@ TEST(MemoryPool, ExhaustPoolThenRandomDeallocate) {
     // Exhaust the memory pool.
     for (size_t j = 0; j < kMemoryPoolSize; j++) {
       AllocationExpectedValuePair allocation = {
-        .allocation = memoryPool.allocate(),
-        .expectedValue = j,
+          .allocation = memoryPool.allocate(),
+          .expectedValue = j,
       };
 
       *allocation.allocation = j;
@@ -89,8 +89,8 @@ TEST(MemoryPool, ExhaustPoolThenRandomDeallocate) {
     std::mt19937 randomGenerator(i);
 
     while (!allocations.empty()) {
-      // Generate a number with a uniform distribution between zero and the number
-      // of allocations remaining.
+      // Generate a number with a uniform distribution between zero and the
+      // number of allocations remaining.
       std::uniform_int_distribution<> distribution(0, allocations.size() - 1);
       size_t deallocateIndex = distribution(randomGenerator);
 
@@ -104,4 +104,3 @@ TEST(MemoryPool, ExhaustPoolThenRandomDeallocate) {
     }
   }
 }
-

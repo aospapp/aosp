@@ -16,6 +16,8 @@
 
 package com.android.compatibility.common.util;
 
+import static org.junit.Assert.assertTrue;
+
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -56,6 +58,14 @@ public class BitmapUtils {
                     + "bmp2=(" + bmp2.getWidth() + "x" + bmp2.getHeight() + ")");
             return Boolean.FALSE;
         }
+
+        if (bmp1.getConfig() != bmp2.getConfig()) {
+            Log.d(TAG, "compareBitmaps() failed because configs don't match "
+                    + "bmp1=(" + bmp1.getConfig() + "), "
+                    + "bmp2=(" + bmp2.getConfig() + ")");
+            return Boolean.FALSE;
+        }
+
         return null;
     }
 
@@ -175,6 +185,80 @@ public class BitmapUtils {
             fileStream.flush();
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    // Compare expected to actual to see if their diff is less than mseMargin.
+    // lessThanMargin is to indicate whether we expect the diff to be
+    // "less than" or "no less than".
+    public static boolean compareBitmapsMse(Bitmap expected, Bitmap actual,
+            int mseMargin, boolean lessThanMargin, boolean isPremultiplied) {
+        final Boolean basicComparison = compareBasicBitmapsInfo(expected, actual);
+        if (basicComparison != null) return basicComparison.booleanValue();
+
+        double mse = 0;
+        int width = expected.getWidth();
+        int height = expected.getHeight();
+
+        // Bitmap.getPixels() returns colors with non-premultiplied ARGB values.
+        int[] expColors = new int [width * height];
+        expected.getPixels(expColors, 0, width, 0, 0, width, height);
+
+        int[] actualColors = new int [width * height];
+        actual.getPixels(actualColors, 0, width, 0, 0, width, height);
+
+        for (int row = 0; row < height; ++row) {
+            for (int col = 0; col < width; ++col) {
+                int idx = row * width + col;
+                mse += distance(expColors[idx], actualColors[idx], isPremultiplied);
+            }
+        }
+        mse /= width * height;
+
+        Log.i(TAG, "MSE: " + mse);
+        if (lessThanMargin) {
+            if (mse > mseMargin) {
+                Log.d(TAG, "MSE too large for normal case: " + mse);
+                return false;
+            }
+            return true;
+        } else {
+            if (mse <= mseMargin) {
+                Log.d(TAG, "MSE too small for abnormal case: " + mse);
+                return false;
+            }
+            return true;
+        }
+    }
+
+    // Same as above, but asserts compareBitmapsMse's return value.
+    public static void assertBitmapsMse(Bitmap expected, Bitmap actual,
+            int mseMargin, boolean lessThanMargin, boolean isPremultiplied) {
+        assertTrue(compareBitmapsMse(expected, actual, mseMargin, lessThanMargin, isPremultiplied));
+    }
+
+    private static int multiplyAlpha(int color, int alpha) {
+        return (color * alpha + 127) / 255;
+    }
+
+    // For the Bitmap with Alpha, multiply the Alpha values to get the effective
+    // RGB colors and then compute the color-distance.
+    private static double distance(int expect, int actual, boolean isPremultiplied) {
+        if (isPremultiplied) {
+            final int a1 = Color.alpha(actual);
+            final int a2 = Color.alpha(expect);
+            final int r = multiplyAlpha(Color.red(actual), a1) -
+                    multiplyAlpha(Color.red(expect), a2);
+            final int g = multiplyAlpha(Color.green(actual), a1) -
+                    multiplyAlpha(Color.green(expect), a2);
+            final int b = multiplyAlpha(Color.blue(actual), a1) -
+                    multiplyAlpha(Color.blue(expect), a2);
+            return r * r + g * g + b * b;
+        } else {
+            int r = Color.red(actual) - Color.red(expect);
+            int g = Color.green(actual) - Color.green(expect);
+            int b = Color.blue(actual) - Color.blue(expect);
+            return r * r + g * g + b * b;
         }
     }
 }

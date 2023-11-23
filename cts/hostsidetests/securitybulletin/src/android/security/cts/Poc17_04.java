@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,42 +17,51 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc17_04 extends SecurityTestCase {
 
-  /**
-   * b/32342065
-   */
-  @SecurityTest(minPatchLevel = "2017-04")
-  public void testPocCVE_2017_0553() throws Exception {
-    // Error code of 139 represents segmentation fault
-    getDevice().executeShellCommand("chmod +x /data/local/tmp/CVE-2017-0553");
-    assertFalse("Segfault found",
-        AdbUtils.runCommandGetExitCode("/data/local/tmp/CVE-2017-0553", getDevice())==139);
-  }
+    /**
+     * b/32342065
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2017-04")
+    public void testPocCVE_2017_0553() throws Exception {
+      // Error code of 139 represents segmentation fault
+      getDevice().executeShellCommand("chmod +x /data/local/tmp/CVE-2017-0553");
+      assertFalse("Segfault found",
+          AdbUtils.runCommandGetExitCode("/data/local/tmp/CVE-2017-0553", getDevice())==139);
+    }
 
-  /**
-   * b/72460737
-   */
-  @SecurityTest(minPatchLevel = "2017-04")
-  public void testPocCVE_2014_3145() throws Exception {
-    assertFalse("VULNERABLE DEVICE DETECTED",
-                AdbUtils.runPocCheckExitCode("CVE-2014-3145", getDevice(), 60));
-  }
+    /**
+     * b/72460737
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2017-04")
+    public void testPocCVE_2014_3145() throws Exception {
+      assertFalse("VULNERABLE DEVICE DETECTED",
+                  AdbUtils.runPocCheckExitCode("CVE-2014-3145", getDevice(), 60));
+    }
 
-  /**
-   * b/32813456
-   */
-  @SecurityTest(minPatchLevel = "2017-04")
-  public void testPocCVE_2016_10229() throws Exception {
-    String out = AdbUtils.runPoc("CVE-2016-10229", getDevice());
-    assertNotMatchesMultiLine("OVERWRITE", out);
-  }
+    /**
+     * b/32813456
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2017-04")
+    public void testPocCVE_2016_10229() throws Exception {
+      String out = AdbUtils.runPoc("CVE-2016-10229", getDevice());
+      assertNotMatchesMultiLine("OVERWRITE", out);
+    }
 
     /**
      * b/33621647
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-04")
     public void testPocCVE_2017_0477() throws Exception {
         AdbUtils.pushResource("/CVE-2017-0477.gif", "/data/local/tmp/CVE-2017-0477.gif",

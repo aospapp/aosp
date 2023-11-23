@@ -22,7 +22,7 @@
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
-
+    <uses-sdk android:minSdkVersion="29"   android:targetSdkVersion="29" />
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.mediastress.cts.preconditions.app"
             android:label="Device-side CTS mediastress preparation" />

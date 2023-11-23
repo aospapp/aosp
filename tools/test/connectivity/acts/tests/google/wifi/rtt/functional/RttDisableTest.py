@@ -30,9 +30,8 @@ class RttDisableTest(WifiBaseTest, RttBaseTest):
     MODE_ENABLE_DOZE = 1
     MODE_DISABLE_LOCATIONING = 2
 
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
-        RttBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
 

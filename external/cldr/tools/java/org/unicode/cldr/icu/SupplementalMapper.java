@@ -31,7 +31,7 @@ import com.ibm.icu.util.Calendar;
 import com.ibm.icu.util.GregorianCalendar;
 import com.ibm.icu.util.Output;
 import com.ibm.icu.util.TimeZone;
-import com.ibm.icu.util.ULocale;  // Android patch (CLDR ticket #11025).
+import com.ibm.icu.util.ULocale;
 
 /**
  * A mapper that converts supplemental LDML data from CLDR to the ICU data
@@ -308,10 +308,10 @@ public class SupplementalMapper {
         XMLFileReader.loadPathValues(inputFile, contents, true);
         RegexLookup<RegexResult> pathConverter = regexMapper.getPathConverter();
         fifoCounter = 0; // Helps to keep unsorted rb paths in order.
-        XPathParts parts = new XPathParts();
         for (Pair<String, String> pair : contents) {
             Output<Finder> matcher = new Output<Finder>();
-            String fullPath = parts.set(pair.getFirst()).toString();
+            XPathParts parts = XPathParts.getFrozenInstance(pair.getFirst());
+            String fullPath = parts.toString();
             // Only convert contributed or higher data
             if (parts.containsAttributeValue("draft", "provisional") ||
                 parts.containsAttributeValue("draft", "unconfirmed")) {
@@ -427,12 +427,10 @@ public class SupplementalMapper {
     private static long getMilliSeconds(String dateStr, DateFieldType type)
         throws ParseException {
         int count = countHyphens(dateStr);
-        // Android patch (CLDR ticket #11025) begin.
         if (count != 2) {
             throw new RuntimeException("Tried to parse invalid date: " + dateStr);
         }
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", ULocale.ROOT);
-        // Android patch (CLDR ticket #11025) end.
         TimeZone timezone = TimeZone.getTimeZone("GMT");
         format.setTimeZone(timezone);
         Date date = format.parse(dateStr);

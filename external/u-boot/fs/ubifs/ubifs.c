@@ -12,10 +12,13 @@
  */
 
 #include <common.h>
+#include <env.h>
+#include <gzip.h>
 #include <memalign.h>
 #include "ubifs.h"
 #include <u-boot/zlib.h>
 
+#include <linux/compat.h>
 #include <linux/err.h>
 #include <linux/lzo.h>
 
@@ -68,24 +71,6 @@ struct ubifs_compressor *ubifs_compressors[UBIFS_COMPR_TYPES_CNT];
 
 
 #ifdef __UBOOT__
-/* from mm/util.c */
-
-/**
- * kmemdup - duplicate region of memory
- *
- * @src: memory region to duplicate
- * @len: memory region length
- * @gfp: GFP mask to use
- */
-void *kmemdup(const void *src, size_t len, gfp_t gfp)
-{
-	void *p;
-
-	p = kmalloc(len, gfp);
-	if (p)
-		memcpy(p, src, len);
-	return p;
-}
 
 struct crypto_comp {
 	int compressor;
@@ -125,6 +110,7 @@ crypto_comp_decompress(const struct ubifs_info *c, struct crypto_comp *tfm,
 {
 	struct ubifs_compressor *compr = ubifs_compressors[tfm->compressor];
 	int err;
+	size_t tmp_len = *dlen;
 
 	if (compr->compr_type == UBIFS_COMPR_NONE) {
 		memcpy(dst, src, slen);
@@ -132,11 +118,12 @@ crypto_comp_decompress(const struct ubifs_info *c, struct crypto_comp *tfm,
 		return 0;
 	}
 
-	err = compr->decompress(src, slen, dst, (size_t *)dlen);
+	err = compr->decompress(src, slen, dst, &tmp_len);
 	if (err)
 		ubifs_err(c, "cannot decompress %d bytes, compressor %s, "
 			  "error %d", slen, compr->name, err);
 
+	*dlen = tmp_len;
 	return err;
 
 	return 0;

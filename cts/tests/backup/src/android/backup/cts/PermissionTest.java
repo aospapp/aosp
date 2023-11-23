@@ -29,6 +29,7 @@ import static android.content.pm.PackageManager.FLAG_PERMISSION_USER_FIXED;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_USER_SET;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+import static android.permission.cts.PermissionUtils.grantPermission;
 
 import static com.android.compatibility.common.util.BackupUtils.LOCAL_TRANSPORT_TOKEN;
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
@@ -93,7 +94,7 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of regular runtime permission.
      */
     public void testGrantDeniedRuntimePermission() throws Exception {
-        grantRuntimePermission(APP, ACCESS_FINE_LOCATION);
+        grantPermission(APP, ACCESS_FINE_LOCATION);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
         resetApp(APP);
@@ -126,7 +127,7 @@ public class PermissionTest extends BaseBackupCtsTest {
      */
     public void testNoTriStateRuntimePermission() throws Exception {
         // Set a marker
-        grantRuntimePermission(APP, WRITE_CONTACTS);
+        grantPermission(APP, WRITE_CONTACTS);
 
         // revoked is the default state. Hence mark the permissions as user set, so the permissions
         // are even backed up
@@ -164,8 +165,7 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of foreground runtime permission.
      */
     public void testGrantForegroundRuntimePermission() throws Exception {
-        grantRuntimePermission(APP, ACCESS_FINE_LOCATION);
-        setAppOp(APP, ACCESS_FINE_LOCATION, MODE_FOREGROUND);
+        grantPermission(APP, ACCESS_FINE_LOCATION);
 
         // revoked is the default state. Hence mark the permission as user set, so the permissions
         // are even backed up
@@ -199,8 +199,8 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of foreground runtime permission.
      */
     public void testGrantForegroundAndBackgroundRuntimePermission() throws Exception {
-        grantRuntimePermission(APP, ACCESS_FINE_LOCATION);
-        grantRuntimePermission(APP, ACCESS_BACKGROUND_LOCATION);
+        grantPermission(APP, ACCESS_FINE_LOCATION);
+        grantPermission(APP, ACCESS_BACKGROUND_LOCATION);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
         resetApp(APP);
@@ -218,7 +218,7 @@ public class PermissionTest extends BaseBackupCtsTest {
      */
     public void testGrantForegroundAndBackgroundRuntimePermission22() throws Exception {
         // Set a marker
-        setAppOp(APP, WRITE_CONTACTS, MODE_IGNORED);
+        setAppOp(APP22, WRITE_CONTACTS, MODE_IGNORED);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
         resetApp(APP22);
@@ -226,9 +226,9 @@ public class PermissionTest extends BaseBackupCtsTest {
 
         eventually(() -> {
             // Wait for marker
-            assertEquals(MODE_IGNORED, getAppOp(APP, WRITE_CONTACTS));
+            assertEquals(MODE_IGNORED, getAppOp(APP22, WRITE_CONTACTS));
 
-            assertEquals(MODE_ALLOWED, getAppOp(APP, ACCESS_FINE_LOCATION));
+            assertEquals(MODE_ALLOWED, getAppOp(APP22, ACCESS_FINE_LOCATION));
         });
     }
 
@@ -288,8 +288,8 @@ public class PermissionTest extends BaseBackupCtsTest {
     /**
      * Test backup and delayed restore of regular runtime permission.
      */
-    public void testDelayedRestore() throws IOException {
-        grantRuntimePermission(APP, ACCESS_FINE_LOCATION);
+    public void testDelayedRestore() throws Exception {
+        grantPermission(APP, ACCESS_FINE_LOCATION);
 
         setAppOp(APP22, READ_CONTACTS, MODE_IGNORED);
 
@@ -379,13 +379,6 @@ public class PermissionTest extends BaseBackupCtsTest {
 
     private int checkPermission(String app, String permission) {
         return sContext.getPackageManager().checkPermission(permission, app);
-    }
-
-    private void grantRuntimePermission(String app, String permission) {
-        if (checkPermission(app, permission) != PERMISSION_GRANTED) {
-            getInstrumentation().getUiAutomation().grantRuntimePermission(app, permission);
-            assertEquals(PERMISSION_GRANTED, checkPermission(app, permission));
-        }
     }
 
     private void setAppOp(String app, String permission, int mode) {

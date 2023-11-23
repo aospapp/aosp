@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0+
 
 # Copyright (c) 2016 Google, Inc
@@ -9,32 +9,61 @@
 
 """See README for more information"""
 
+from __future__ import print_function
+
+from distutils.sysconfig import get_python_lib
 import glob
+import multiprocessing
 import os
+import site
 import sys
 import traceback
 import unittest
 
-# Bring in the patman and dtoc libraries
+# Bring in the patman and dtoc libraries (but don't override the first path
+# in PYTHONPATH)
 our_path = os.path.dirname(os.path.realpath(__file__))
-for dirname in ['../patman', '../dtoc', '..']:
-    sys.path.insert(0, os.path.join(our_path, dirname))
+for dirname in ['../patman', '../dtoc', '..', '../concurrencytest']:
+    sys.path.insert(2, os.path.join(our_path, dirname))
 
 # Bring in the libfdt module
-sys.path.insert(0, 'scripts/dtc/pylibfdt')
+sys.path.insert(2, 'scripts/dtc/pylibfdt')
+sys.path.insert(2, os.path.join(our_path,
+                '../../build-sandbox_spl/scripts/dtc/pylibfdt'))
+
+# When running under python-coverage on Ubuntu 16.04, the dist-packages
+# directories are dropped from the python path. Add them in so that we can find
+# the elffile module. We could use site.getsitepackages() here but unfortunately
+# that is not available in a virtualenv.
+sys.path.append(get_python_lib())
 
 import cmdline
 import command
+use_concurrent = True
+try:
+    from concurrencytest import ConcurrentTestSuite, fork_for_tests
+except:
+    use_concurrent = False
 import control
+import test_util
 
-def RunTests(debug, args):
+def RunTests(debug, verbosity, processes, test_preserve_dirs, args, toolpath):
     """Run the functional tests and any embedded doctests
 
     Args:
         debug: True to enable debugging, which shows a full stack trace on error
+        verbosity: Verbosity level to use
+        test_preserve_dirs: True to preserve the input directory used by tests
+            so that it can be examined afterwards (only useful for debugging
+            tests). If a single test is selected (in args[0]) it also preserves
+            the output directory for this test. Both directories are displayed
+            on the command line.
+        processes: Number of processes to use to run tests (None=same as #CPUs)
         args: List of positional args provided to binman. This can hold a test
-            name to execute (as in 'binman -t testSections', for example)
+            name to execute (as in 'binman test testSections', for example)
+        toolpath: List of paths to use for tools
     """
+    import cbfs_util_test
     import elf_test
     import entry_test
     import fdt_test
@@ -51,105 +80,123 @@ def RunTests(debug, args):
     sys.argv = [sys.argv[0]]
     if debug:
         sys.argv.append('-D')
+    if verbosity:
+        sys.argv.append('-v%d' % verbosity)
+    if toolpath:
+        for path in toolpath:
+            sys.argv += ['--toolpath', path]
 
     # Run the entry tests first ,since these need to be the first to import the
     # 'entry' module.
-    suite = unittest.TestLoader().loadTestsFromTestCase(entry_test.TestEntry)
-    suite.run(result)
     test_name = args and args[0] or None
-    for module in (ftest.TestFunctional, fdt_test.TestFdt, elf_test.TestElf,
-                   image_test.TestImage):
+    suite = unittest.TestSuite()
+    loader = unittest.TestLoader()
+    for module in (entry_test.TestEntry, ftest.TestFunctional, fdt_test.TestFdt,
+                   elf_test.TestElf, image_test.TestImage,
+                   cbfs_util_test.TestCbfs):
+        # Test the test module about our arguments, if it is interested
+        if hasattr(module, 'setup_test_args'):
+            setup_test_args = getattr(module, 'setup_test_args')
+            setup_test_args(preserve_indir=test_preserve_dirs,
+                preserve_outdirs=test_preserve_dirs and test_name is not None,
+                toolpath=toolpath, verbosity=verbosity)
         if test_name:
             try:
-                suite = unittest.TestLoader().loadTestsFromName(args[0], module)
+                suite.addTests(loader.loadTestsFromName(test_name, module))
             except AttributeError:
                 continue
         else:
-            suite = unittest.TestLoader().loadTestsFromTestCase(module)
+            suite.addTests(loader.loadTestsFromTestCase(module))
+    if use_concurrent and processes != 1:
+        concurrent_suite = ConcurrentTestSuite(suite,
+                fork_for_tests(processes or multiprocessing.cpu_count()))
+        concurrent_suite.run(result)
+    else:
         suite.run(result)
 
-    print result
+    # Remove errors which just indicate a missing test. Since Python v3.5 If an
+    # ImportError or AttributeError occurs while traversing name then a
+    # synthetic test that raises that error when run will be returned. These
+    # errors are included in the errors accumulated by result.errors.
+    if test_name:
+        errors = []
+        for test, err in result.errors:
+            if ("has no attribute '%s'" % test_name) not in err:
+                errors.append((test, err))
+            result.testsRun -= 1
+        result.errors = errors
+
+    print(result)
     for test, err in result.errors:
-        print test.id(), err
+        print(test.id(), err)
     for test, err in result.failures:
-        print err, result.failures
+        print(err, result.failures)
+    if result.skipped:
+        print('%d binman test%s SKIPPED:' %
+              (len(result.skipped), 's' if len(result.skipped) > 1 else ''))
+        for skip_info in result.skipped:
+            print('%s: %s' % (skip_info[0], skip_info[1]))
     if result.errors or result.failures:
-      print 'binman tests FAILED'
-      return 1
+        print('binman tests FAILED')
+        return 1
     return 0
+
+def GetEntryModules(include_testing=True):
+    """Get a set of entry class implementations
+
+    Returns:
+        Set of paths to entry class filenames
+    """
+    glob_list = glob.glob(os.path.join(our_path, 'etype/*.py'))
+    return set([os.path.splitext(os.path.basename(item))[0]
+                for item in glob_list
+                if include_testing or '_testing' not in item])
 
 def RunTestCoverage():
     """Run the tests and check that we get 100% coverage"""
-    # This uses the build output from sandbox_spl to get _libfdt.so
-    cmd = ('PYTHONPATH=$PYTHONPATH:%s/sandbox_spl/tools coverage run '
-            '--include "tools/binman/*.py" --omit "*test*,*binman.py" '
-            'tools/binman/binman.py -t' % options.build_dir)
-    os.system(cmd)
-    stdout = command.Output('coverage', 'report')
-    lines = stdout.splitlines()
+    glob_list = GetEntryModules(False)
+    all_set = set([os.path.splitext(os.path.basename(item))[0]
+                   for item in glob_list if '_testing' not in item])
+    test_util.RunTestCoverage('tools/binman/binman.py', None,
+            ['*test*', '*binman.py', 'tools/patman/*', 'tools/dtoc/*'],
+            args.build_dir, all_set)
 
-    test_set= set([os.path.basename(line.split()[0])
-                     for line in lines if '/etype/' in line])
-    glob_list = glob.glob(os.path.join(our_path, 'etype/*.py'))
-    all_set = set([os.path.basename(item) for item in glob_list])
-    missing_list = all_set
-    missing_list.difference_update(test_set)
-    missing_list.remove('_testing.py')
-    coverage = lines[-1].split(' ')[-1]
-    ok = True
-    if missing_list:
-        print 'Missing tests for %s' % (', '.join(missing_list))
-        ok = False
-    if coverage != '100%':
-        print stdout
-        print "Type 'coverage html' to get a report in htmlcov/index.html"
-        print 'Coverage error: %s, but should be 100%%' % coverage
-        ok = False
-    if not ok:
-      raise ValueError('Test coverage failure')
-
-def RunBinman(options, args):
+def RunBinman(args):
     """Main entry point to binman once arguments are parsed
 
     Args:
-        options: Command-line options
-        args: Non-option arguments
+        args: Command line arguments Namespace object
     """
     ret_code = 0
 
-    # For testing: This enables full exception traces.
-    #options.debug = True
-
-    if not options.debug:
+    if not args.debug:
         sys.tracebacklimit = 0
 
-    if options.test:
-        ret_code = RunTests(options.debug, args[1:])
+    if args.cmd == 'test':
+        if args.test_coverage:
+            RunTestCoverage()
+        else:
+            ret_code = RunTests(args.debug, args.verbosity, args.processes,
+                                args.test_preserve_dirs, args.tests,
+                                args.toolpath)
 
-    elif options.test_coverage:
-        RunTestCoverage()
-
-    elif options.full_help:
-        pager = os.getenv('PAGER')
-        if not pager:
-            pager = 'more'
-        fname = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])),
-                            'README')
-        command.Run(pager, fname)
+    elif args.cmd == 'entry-docs':
+        control.WriteEntryDocs(GetEntryModules())
 
     else:
         try:
-            ret_code = control.Binman(options, args)
+            ret_code = control.Binman(args)
         except Exception as e:
-            print 'binman: %s' % e
-            if options.debug:
-                print
+            print('binman: %s' % e)
+            if args.debug:
+                print()
                 traceback.print_exc()
             ret_code = 1
     return ret_code
 
 
 if __name__ == "__main__":
-    (options, args) = cmdline.ParseArgs(sys.argv)
-    ret_code = RunBinman(options, args)
+    args = cmdline.ParseArgs(sys.argv[1:])
+
+    ret_code = RunBinman(args)
     sys.exit(ret_code)

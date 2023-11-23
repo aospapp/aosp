@@ -12,16 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "structured_loop_to_selection_reduction_opportunity.h"
+#include "source/reduce/structured_loop_to_selection_reduction_opportunity.h"
+
 #include "source/opt/aggressive_dead_code_elim_pass.h"
 #include "source/opt/ir_context.h"
+#include "source/reduce/reduction_util.h"
 
 namespace spvtools {
 namespace reduce {
 
+using opt::BasicBlock;
+using opt::IRContext;
+using opt::Instruction;
+using opt::Operand;
+
 namespace {
 const uint32_t kMergeNodeIndex = 0;
-const uint32_t kContinueNodeIndex = 1;
 }  // namespace
 
 bool StructuredLoopToSelectionReductionOpportunity::PreconditionHolds() {
@@ -41,15 +47,11 @@ void StructuredLoopToSelectionReductionOpportunity::Apply() {
 
   // (1) Redirect edges that point to the loop's continue target to their
   // closest merge block.
-  RedirectToClosestMergeBlock(
-      loop_construct_header_->GetLoopMergeInst()->GetSingleWordOperand(
-          kContinueNodeIndex));
+  RedirectToClosestMergeBlock(loop_construct_header_->ContinueBlockId());
 
   // (2) Redirect edges that point to the loop's merge block to their closest
   // merge block (which might be that of an enclosing selection, for instance).
-  RedirectToClosestMergeBlock(
-      loop_construct_header_->GetLoopMergeInst()->GetSingleWordOperand(
-          kMergeNodeIndex));
+  RedirectToClosestMergeBlock(loop_construct_header_->MergeBlockId());
 
   // (3) Turn the loop construct header into a selection.
   ChangeLoopToSelection();
@@ -125,12 +127,8 @@ void StructuredLoopToSelectionReductionOpportunity::RedirectEdge(
 
   // original_target_id must either be the merge target or continue construct
   // for the loop being operated on.
-  assert(original_target_id ==
-             loop_construct_header_->GetMergeInst()->GetSingleWordOperand(
-                 kMergeNodeIndex) ||
-         original_target_id ==
-             loop_construct_header_->GetMergeInst()->GetSingleWordOperand(
-                 kContinueNodeIndex));
+  assert(original_target_id == loop_construct_header_->MergeBlockId() ||
+         original_target_id == loop_construct_header_->ContinueBlockId());
 
   auto terminator = context_->cfg()->block(source_id)->terminator();
 
@@ -170,28 +168,11 @@ void StructuredLoopToSelectionReductionOpportunity::RedirectEdge(
 }
 
 void StructuredLoopToSelectionReductionOpportunity::
-    AdaptPhiInstructionsForRemovedEdge(uint32_t from_id, BasicBlock* to_block) {
-  to_block->ForEachPhiInst([&from_id](Instruction* phi_inst) {
-    Instruction::OperandList new_in_operands;
-    // Go through the OpPhi's input operands in (variable, parent) pairs.
-    for (uint32_t index = 0; index < phi_inst->NumInOperands(); index += 2) {
-      // Keep all pairs where the parent is not the block from which the edge
-      // is being removed.
-      if (phi_inst->GetInOperand(index + 1).words[0] != from_id) {
-        new_in_operands.push_back(phi_inst->GetInOperand(index));
-        new_in_operands.push_back(phi_inst->GetInOperand(index + 1));
-      }
-    }
-    phi_inst->SetInOperands(std::move(new_in_operands));
-  });
-}
-
-void StructuredLoopToSelectionReductionOpportunity::
     AdaptPhiInstructionsForAddedEdge(uint32_t from_id, BasicBlock* to_block) {
   to_block->ForEachPhiInst([this, &from_id](Instruction* phi_inst) {
     // Add to the phi operand an (undef, from_id) pair to reflect the added
     // edge.
-    auto undef_id = FindOrCreateGlobalUndef(phi_inst->type_id());
+    auto undef_id = FindOrCreateGlobalUndef(context_, phi_inst->type_id());
     phi_inst->AddOperand(Operand(SPV_OPERAND_TYPE_ID, {undef_id}));
     phi_inst->AddOperand(Operand(SPV_OPERAND_TYPE_ID, {from_id}));
   });
@@ -215,11 +196,11 @@ void StructuredLoopToSelectionReductionOpportunity::ChangeLoopToSelection() {
   // the "else" branch be the merge block.
   auto terminator = loop_construct_header_->terminator();
   if (terminator->opcode() == SpvOpBranch) {
-    analysis::Bool temp;
-    const analysis::Bool* bool_type =
+    opt::analysis::Bool temp;
+    const opt::analysis::Bool* bool_type =
         context_->get_type_mgr()->GetRegisteredType(&temp)->AsBool();
     auto const_mgr = context_->get_constant_mgr();
-    auto true_const = const_mgr->GetConstant(bool_type, {true});
+    auto true_const = const_mgr->GetConstant(bool_type, {1});
     auto true_const_result_id =
         const_mgr->GetDefiningInstruction(true_const)->result_id();
     auto original_branch_id = terminator->GetSingleWordOperand(0);
@@ -248,6 +229,10 @@ void StructuredLoopToSelectionReductionOpportunity::FixNonDominatedIdUses() {
       context_->get_def_use_mgr()->ForEachUse(&def, [this, &block, &def](
                                                         Instruction* use,
                                                         uint32_t index) {
+        // Ignore uses outside of blocks, such as in OpDecorate.
+        if (context_->get_instr_block(use) == nullptr) {
+          return;
+        }
         // If a use is not appropriately dominated by its definition,
         // replace the use with an OpUndef, unless the definition is an
         // access chain, in which case replace it with some (possibly fresh)
@@ -273,7 +258,8 @@ void StructuredLoopToSelectionReductionOpportunity::FixNonDominatedIdUses() {
                 break;
             }
           } else {
-            use->SetOperand(index, {FindOrCreateGlobalUndef(def.type_id())});
+            use->SetOperand(index,
+                            {FindOrCreateGlobalUndef(context_, def.type_id())});
           }
         }
       });
@@ -294,26 +280,6 @@ bool StructuredLoopToSelectionReductionOpportunity::
   // In non-phi cases, a use needs to be dominated by its definition.
   return context_->GetDominatorAnalysis(enclosing_function_)
       ->Dominates(def, use);
-}
-
-uint32_t StructuredLoopToSelectionReductionOpportunity::FindOrCreateGlobalUndef(
-    uint32_t type_id) {
-  for (auto& inst : context_->module()->types_values()) {
-    if (inst.opcode() != SpvOpUndef) {
-      continue;
-    }
-    if (inst.type_id() == type_id) {
-      return inst.result_id();
-    }
-  }
-  // TODO(2182): this is adapted from MemPass::Type2Undef.  In due course it
-  // would be good to factor out this duplication.
-  const uint32_t undef_id = context_->TakeNextId();
-  std::unique_ptr<Instruction> undef_inst(
-      new Instruction(context_, SpvOpUndef, type_id, undef_id, {}));
-  assert(undef_id == undef_inst->result_id());
-  context_->module()->AddGlobalValue(std::move(undef_inst));
-  return undef_id;
 }
 
 uint32_t

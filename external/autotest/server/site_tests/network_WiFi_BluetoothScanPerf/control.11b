@@ -4,6 +4,7 @@
 
 AUTHOR = 'bfreed'
 NAME = 'network_WiFi_BluetoothScanPerf.11b'
+ATTRIBUTES = 'suite:bluetooth_wifi_coex'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'

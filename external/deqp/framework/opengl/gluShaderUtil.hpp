@@ -75,10 +75,18 @@ enum ShaderType
 	SHADERTYPE_TESSELLATION_EVALUATION,
 	SHADERTYPE_COMPUTE,
 
+	SHADERTYPE_RAYGEN,
+	SHADERTYPE_ANY_HIT,
+	SHADERTYPE_CLOSEST_HIT,
+	SHADERTYPE_MISS,
+	SHADERTYPE_INTERSECTION,
+	SHADERTYPE_CALLABLE,
+
 	SHADERTYPE_LAST
 };
 
-const char*	getShaderTypeName (ShaderType shaderType);
+const char*		getShaderTypeName		(ShaderType shaderType);
+std::string		getShaderTypePostfix	(ShaderType shaderType);
 
 // Precision
 
@@ -91,7 +99,8 @@ enum Precision
 	PRECISION_LAST
 };
 
-const char* getPrecisionName (Precision precision);
+const char* getPrecisionName	(Precision precision);
+std::string getPrecisionPostfix	(Precision precision);
 
 // DataType
 
@@ -263,6 +272,7 @@ DataType		getDataTypeFromGLType		(deUint32 glType);
 inline bool		isDataTypeFloat16OrVec				(DataType dataType)	{ return (dataType >= TYPE_FLOAT16)    && (dataType <= TYPE_FLOAT16_MAT4); }
 inline bool		isDataTypeFloatOrVec				(DataType dataType)	{ return (dataType >= TYPE_FLOAT)      && (dataType <= TYPE_FLOAT_VEC4);   }
 inline bool		isDataTypeFloatType					(DataType dataType)	{ return (dataType >= TYPE_FLOAT)      && (dataType <= TYPE_FLOAT_MAT4);   }
+inline bool		isDataTypeDoubleType				(DataType dataType)	{ return (dataType >= TYPE_DOUBLE)     && (dataType <= TYPE_DOUBLE_MAT4);  }
 inline bool		isDataTypeDoubleOrDVec				(DataType dataType)	{ return (dataType >= TYPE_DOUBLE)     && (dataType <= TYPE_DOUBLE_VEC4);  }
 inline bool		isDataTypeMatrix					(DataType dataType)	{
 																			return ((dataType >= TYPE_FLOAT_MAT2) && (dataType <= TYPE_FLOAT_MAT4))
@@ -324,7 +334,8 @@ inline bool		isDataTypeExplicitPrecision			(DataType dataType)	{
 																				|| deInRange32(dataType, TYPE_INT8, TYPE_INT8_VEC4)
 																				|| deInRange32(dataType, TYPE_UINT16, TYPE_UINT16_VEC4)
 																				|| deInRange32(dataType, TYPE_INT16, TYPE_INT16_VEC4)
-																				|| deInRange32(dataType, TYPE_FLOAT16, TYPE_FLOAT16_VEC4)
+																				|| deInRange32(dataType, TYPE_FLOAT16, TYPE_FLOAT16_MAT4)
+																				|| deInRange32(dataType, TYPE_DOUBLE, TYPE_DOUBLE_MAT4)
 																				;
 																		}
 inline bool		dataTypeSupportsPrecisionModifier	(DataType dataType)	{ return !isDataTypeBoolOrBVec(dataType) && !isDataTypeExplicitPrecision(dataType);    }

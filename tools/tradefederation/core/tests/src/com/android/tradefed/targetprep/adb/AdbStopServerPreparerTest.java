@@ -22,6 +22,8 @@ import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.IDeviceManager;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -45,6 +47,7 @@ public class AdbStopServerPreparerTest {
     private IRunUtil mMockRunUtil;
     private IDeviceManager mMockManager;
 
+    private TestInformation mTestInfo;
     private ITestDevice mMockDevice;
     private IBuildInfo mMockBuild;
     private File mFakeAdbFile;
@@ -79,6 +82,10 @@ public class AdbStopServerPreparerTest {
 
         mMockRunUtil.sleep(2000);
         EasyMock.expect(mMockDevice.getDeviceDescriptor()).andStubReturn(null);
+        InvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mMockDevice);
+        context.addDeviceBuildInfo("device", mMockBuild);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     @After
@@ -105,8 +112,8 @@ public class AdbStopServerPreparerTest {
         // tear down
         mockTearDown();
         EasyMock.replay(mMockRunUtil, mMockManager, mMockDevice);
-        mPreparer.setUp(mMockDevice, mMockBuild);
-        mPreparer.tearDown(mMockDevice, mMockBuild, null);
+        mPreparer.setUp(mTestInfo);
+        mPreparer.tearDown(mTestInfo, null);
         EasyMock.verify(mMockRunUtil, mMockManager, mMockDevice);
     }
 
@@ -133,12 +140,12 @@ public class AdbStopServerPreparerTest {
         mockTearDown();
         EasyMock.replay(mMockRunUtil, mMockManager, mMockDevice);
         try {
-            mPreparer.setUp(mMockDevice, mMockBuild);
+            mPreparer.setUp(mTestInfo);
             fail("Should have thrown an exception.");
         } catch (TargetSetupError expected) {
             // Expected
         }
-        mPreparer.tearDown(mMockDevice, mMockBuild, null);
+        mPreparer.tearDown(mTestInfo, null);
         EasyMock.verify(mMockRunUtil, mMockManager, mMockDevice);
     }
 
@@ -160,7 +167,11 @@ public class AdbStopServerPreparerTest {
                 .andReturn(result);
         EasyMock.replay(mMockRunUtil, mMockManager, mMockDevice);
         try {
-            mPreparer.setUp(mMockDevice, new BuildInfo());
+            InvocationContext context = new InvocationContext();
+            context.addAllocatedDevice("device", mMockDevice);
+            context.addDeviceBuildInfo("device", new BuildInfo());
+            mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
+            mPreparer.setUp(mTestInfo);
             fail("Should have thrown an exception.");
         } catch (TargetSetupError expected) {
             // Expected
@@ -198,8 +209,8 @@ public class AdbStopServerPreparerTest {
             // tear down
             mockTearDown();
             EasyMock.replay(mMockRunUtil, mMockManager, mMockDevice);
-            mPreparer.setUp(mMockDevice, mMockBuild);
-            mPreparer.tearDown(mMockDevice, mMockBuild, null);
+            mPreparer.setUp(mTestInfo);
+            mPreparer.tearDown(mTestInfo, null);
             EasyMock.verify(mMockRunUtil, mMockManager, mMockDevice);
         } finally {
             FileUtil.recursiveDelete(tmpDir);

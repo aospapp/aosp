@@ -16,19 +16,24 @@
 
 package com.android.certinstaller;
 
+import static android.security.KeyStore.UID_SELF;
+
 import android.app.KeyguardManager;
 import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.security.Credentials;
-import android.security.KeyChain;
 import android.security.IKeyChainService;
+import android.security.KeyChain;
 import android.text.Html;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.org.bouncycastle.asn1.ASN1InputStream;
 import com.android.org.bouncycastle.asn1.ASN1Sequence;
 import com.android.org.bouncycastle.asn1.DEROctetString;
@@ -38,9 +43,9 @@ import com.android.org.conscrypt.TrustedCertificateStore;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.KeyStore.PasswordProtection;
 import java.security.KeyStore.PrivateKeyEntry;
-import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
@@ -63,6 +68,7 @@ class CredentialHelper {
     private static final String DATA_KEY = "data";
     private static final String CERTS_KEY = "crts";
     private static final String USER_KEY_ALGORITHM = "user_key_algorithm";
+    private static final String SETTINGS_PACKAGE = "com.android.settings";
 
     private static final String TAG = "CredentialHelper";
 
@@ -70,6 +76,8 @@ class CredentialHelper {
     private HashMap<String, byte[]> mBundle = new HashMap<String, byte[]>();
 
     private String mName = "";
+    private String mCertUsageSelected = "";
+    private String mReferrer = "";
     private int mUid = -1;
     private PrivateKey mUserKey;
     private X509Certificate mUserCert;
@@ -90,8 +98,20 @@ class CredentialHelper {
             mName = name;
         }
 
-        mUid = bundle.getInt(Credentials.EXTRA_INSTALL_AS_UID, -1);
+        String certUsageSelected = bundle.getString(Credentials.EXTRA_CERTIFICATE_USAGE);
+        bundle.remove(Credentials.EXTRA_CERTIFICATE_USAGE);
+        if (certUsageSelected != null) {
+            setCertUsageSelectedAndUid(certUsageSelected);
+        } else {
+            mUid = bundle.getInt(Credentials.EXTRA_INSTALL_AS_UID, -1);
+        }
         bundle.remove(Credentials.EXTRA_INSTALL_AS_UID);
+
+        String referrer = bundle.getString(Intent.EXTRA_REFERRER);
+        bundle.remove(Intent.EXTRA_REFERRER);
+        if (referrer != null) {
+            mReferrer = referrer;
+        }
 
         Log.d(TAG, "# extras: " + bundle.size());
         for (String key : bundle.keySet()) {
@@ -195,6 +215,14 @@ class CredentialHelper {
         return mBundle.containsKey(Credentials.EXTRA_PRIVATE_KEY);
     }
 
+    int getUidFromCertificateUsage(String certUsage) {
+        if (Credentials.CERTIFICATE_USAGE_WIFI.equals(certUsage)) {
+            return Process.WIFI_UID;
+        } else {
+            return UID_SELF;
+        }
+    }
+
     boolean hasUserCertificate() {
         return (mUserCert != null);
     }
@@ -261,41 +289,37 @@ class CredentialHelper {
         return mName;
     }
 
-    void setInstallAsUid(int uid) {
-        mUid = uid;
+    void setCertUsageSelectedAndUid(String certUsageSelected) {
+        mCertUsageSelected = certUsageSelected;
+        mUid = getUidFromCertificateUsage(certUsageSelected);
     }
 
-    boolean isInstallAsUidSet() {
-        return mUid != -1;
+    String getCertUsageSelected() {
+        return mCertUsageSelected;
     }
 
-    int getInstallAsUid() {
-        return mUid;
+    boolean calledBySettings() {
+        return mReferrer != null && mReferrer.equals(SETTINGS_PACKAGE);
     }
 
     Intent createSystemInstallIntent(final Context context) {
         Intent intent = new Intent("com.android.credentials.INSTALL");
         // To prevent the private key from being sniffed, we explicitly spell
         // out the intent receiver class.
-        intent.setClassName(
-                Util.SETTINGS_PACKAGE, "com.android.settings.security.CredentialStorage");
+        intent.setComponent(ComponentName.unflattenFromString(
+                context.getString(R.string.config_system_install_component)));
         intent.putExtra(Credentials.EXTRA_INSTALL_AS_UID, mUid);
+        intent.putExtra(Credentials.EXTRA_USER_KEY_ALIAS, mName);
         try {
             if (mUserKey != null) {
-                intent.putExtra(Credentials.EXTRA_USER_PRIVATE_KEY_NAME,
-                        Credentials.USER_PRIVATE_KEY + mName);
                 intent.putExtra(Credentials.EXTRA_USER_PRIVATE_KEY_DATA,
                         mUserKey.getEncoded());
             }
             if (mUserCert != null) {
-                intent.putExtra(Credentials.EXTRA_USER_CERTIFICATE_NAME,
-                        Credentials.USER_CERTIFICATE + mName);
                 intent.putExtra(Credentials.EXTRA_USER_CERTIFICATE_DATA,
                         Credentials.convertToPem(mUserCert));
             }
             if (!mCaCerts.isEmpty()) {
-                intent.putExtra(Credentials.EXTRA_CA_CERTIFICATES_NAME,
-                        Credentials.CA_CERTIFICATE + mName);
                 X509Certificate[] caCerts
                         = mCaCerts.toArray(new X509Certificate[mCaCerts.size()]);
                 intent.putExtra(Credentials.EXTRA_CA_CERTIFICATES_DATA,
@@ -339,12 +363,8 @@ class CredentialHelper {
     }
 
     private void maybeApproveCaCert(Context context, String alias) {
-        // Some CTS verifier test asks testers to reset auto approved CA cert by removing
-        // lock sreen, but it's not possible if we don't have Android lock screen. (e.g.
-        // Android is running in the container).  In this case, disable auto cert approval.
         final KeyguardManager keyguardManager = context.getSystemService(KeyguardManager.class);
-        if (keyguardManager.isDeviceSecure(UserHandle.myUserId())
-                && context.getResources().getBoolean(R.bool.config_auto_cert_approval)) {
+        if (keyguardManager.isDeviceSecure(UserHandle.myUserId())) {
             // Since the cert is installed by real user, the cert is approved by the user
             final DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
             dpm.approveCaCert(alias, UserHandle.myUserId(), true);
@@ -431,14 +451,14 @@ class CredentialHelper {
     }
 
     /**
-     * Returns whether this credential contains CA certificates to be used as trust anchors
+     * Returns true if this credential contains _only_ CA certificates to be used as trust anchors
      * for VPN and apps.
      */
-    public boolean includesVpnAndAppsTrustAnchors() {
+    public boolean hasOnlyVpnAndAppsTrustAnchors() {
         if (!hasCaCerts()) {
             return false;
         }
-        if (getInstallAsUid() != android.security.KeyStore.UID_SELF) {
+        if (mUid != UID_SELF) {
             // VPN and Apps trust anchors can only be installed under UID_SELF
             return false;
         }
@@ -450,5 +470,9 @@ class CredentialHelper {
         } else {
             return true;
         }
+    }
+
+    public String getReferrer() {
+        return mReferrer;
     }
 }

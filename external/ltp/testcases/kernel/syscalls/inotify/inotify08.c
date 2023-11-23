@@ -1,26 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2018 CTERA Networks.  All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 or any later of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Started by Amir Goldstein <amir73il@gmail.com>
+ * Author: Amir Goldstein <amir73il@gmail.com>
  *
  * DESCRIPTION
  *     Check that inotify work for an overlayfs file after copy up and
@@ -32,7 +13,6 @@
  *
  *     The problem has been fixed by commit:
  *       764baba80168 "ovl: hash non-dir by lower inode for fsnotify"
- *
  *
  * ALGORITHM
  *     Add watch on an overlayfs lower file then chmod file and drop dentry
@@ -74,14 +54,11 @@ struct event_t {
 	unsigned int mask;
 };
 
-#define OVL_MNT "ovl"
 #define FILE_NAME "test_file"
 #define FILE_PATH OVL_MNT"/"FILE_NAME
 
-static int ovl_mounted;
-
+static const char mntpoint[] = OVL_BASE_MNTPOINT;
 static struct event_t event_set[EVENT_MAX];
-
 static char event_buf[EVENT_BUF_LEN];
 
 void verify_inotify(void)
@@ -104,8 +81,8 @@ void verify_inotify(void)
 	test_cnt++;
 
 	/* Make sure events on upper/lower do not show in overlay watch */
-	SAFE_TOUCH("lower/"FILE_NAME, 0644, NULL);
-	SAFE_TOUCH("upper/"FILE_NAME, 0644, NULL);
+	SAFE_TOUCH(OVL_LOWER"/"FILE_NAME, 0644, NULL);
+	SAFE_TOUCH(OVL_UPPER"/"FILE_NAME, 0644, NULL);
 
 	int len = read(fd_notify, event_buf, EVENT_BUF_LEN);
 	if (len == -1 && errno != EAGAIN) {
@@ -154,47 +131,18 @@ void verify_inotify(void)
 static void setup(void)
 {
 	struct stat buf;
-	int ret;
 
 	/* Setup an overlay mount with lower file */
-	SAFE_MKDIR("lower", 0755);
-	SAFE_TOUCH("lower/"FILE_NAME, 0644, NULL);
-	SAFE_MKDIR("upper", 0755);
-	SAFE_MKDIR("work", 0755);
-	SAFE_MKDIR(OVL_MNT, 0755);
-	ret = mount("overlay", OVL_MNT, "overlay", 0,
-		    "lowerdir=lower,upperdir=upper,workdir=work");
-	if (ret < 0) {
-		if (errno == ENODEV) {
-			tst_brk(TCONF,
-				"overlayfs is not configured in this kernel.");
-		} else {
-			tst_brk(TBROK | TERRNO,
-				"overlayfs mount failed");
-		}
-	}
-	ovl_mounted = 1;
+	SAFE_UMOUNT(OVL_MNT);
+	SAFE_TOUCH(OVL_LOWER"/"FILE_NAME, 0644, NULL);
+	SAFE_MOUNT_OVERLAY();
 
-	fd_notify = myinotify_init1(O_NONBLOCK);
-	if (fd_notify < 0) {
-		if (errno == ENOSYS) {
-			tst_brk(TCONF,
-				"inotify is not configured in this kernel.");
-		} else {
-			tst_brk(TBROK | TERRNO,
-				"inotify_init () failed");
-		}
-	}
+	fd_notify = SAFE_MYINOTIFY_INIT1(O_NONBLOCK);
 
 	/* Setup a watch on an overlayfs lower file */
-	if ((wd = myinotify_add_watch(fd_notify, FILE_PATH,
-				IN_ATTRIB | IN_OPEN | IN_CLOSE_WRITE)) < 0) {
-		tst_brk(TBROK | TERRNO,
-			"inotify_add_watch (%d, " FILE_PATH ", "
-			"IN_ATTRIB | IN_OPEN | IN_CLOSE_WRITE) failed",
-			fd_notify);
-		reap_wd = 1;
-	};
+	wd = SAFE_MYINOTIFY_ADD_WATCH(fd_notify, FILE_PATH,
+				IN_ATTRIB | IN_OPEN | IN_CLOSE_WRITE);
+	reap_wd = 1;
 
 	SAFE_STAT(FILE_PATH, &buf);
 	tst_res(TINFO, FILE_PATH " ino=%lu, dev=%u:%u", buf.st_ino,
@@ -217,19 +165,17 @@ static void cleanup(void)
 	if (reap_wd && myinotify_rm_watch(fd_notify, wd) < 0) {
 		tst_res(TWARN,
 			"inotify_rm_watch (%d, %d) failed,", fd_notify, wd);
-
 	}
 
 	if (fd_notify > 0)
 		SAFE_CLOSE(fd_notify);
-
-	if (ovl_mounted)
-		SAFE_UMOUNT(OVL_MNT);
 }
 
 static struct tst_test test = {
 	.needs_root = 1,
-	.needs_tmpdir = 1,
+	.mount_device = 1,
+	.needs_overlay = 1,
+	.mntpoint = mntpoint,
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = verify_inotify,

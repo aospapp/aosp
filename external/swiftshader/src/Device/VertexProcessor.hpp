@@ -15,199 +15,96 @@
 #ifndef sw_VertexProcessor_hpp
 #define sw_VertexProcessor_hpp
 
-#include "Matrix.hpp"
 #include "Context.hpp"
+#include "Memset.hpp"
 #include "RoutineCache.hpp"
-#include "Pipeline/VertexShader.hpp"
+#include "Vertex.hpp"
 #include "Pipeline/SpirvShader.hpp"
 
-namespace sw
+namespace sw {
+
+struct DrawData;
+
+// Basic direct mapped vertex cache.
+struct VertexCache
 {
-	struct DrawData;
+	static constexpr uint32_t SIZE = 64;            // TODO: Variable size?
+	static constexpr uint32_t TAG_MASK = SIZE - 1;  // Size must be power of 2.
 
-	struct VertexCache   // FIXME: Variable size
+	void clear();
+
+	Vertex vertex[SIZE];
+	uint32_t tag[SIZE];
+
+	// Identifier of the draw call for the cache data. If this cache is
+	// used with a different draw call, then the cache should be invalidated
+	// before use.
+	int drawCall = -1;
+};
+
+struct VertexTask
+{
+	unsigned int vertexCount;
+	unsigned int primitiveStart;
+	VertexCache vertexCache;
+};
+
+using VertexRoutineFunction = FunctionT<void(Vertex *output, unsigned int *batch, VertexTask *vertextask, DrawData *draw)>;
+
+class VertexProcessor
+{
+public:
+	struct States : Memset<States>
 	{
-		void clear();
+		States()
+		    : Memset(this, 0)
+		{}
 
-		Vertex vertex[16][4];
-		unsigned int tag[16];
+		uint32_t computeHash();
 
-		int drawCall;
-	};
+		uint64_t shaderID;
 
-	struct VertexTask
-	{
-		unsigned int vertexCount;
-		unsigned int primitiveStart;
-		VertexCache vertexCache;
-	};
-
-	class VertexProcessor
-	{
-	public:
-		struct States
+		struct Input
 		{
-			unsigned int computeHash();
-
-			uint64_t shaderID;
-
-			bool fixedFunction             : 1;   // TODO: Eliminate by querying shader.
-			bool textureSampling           : 1;   // TODO: Eliminate by querying shader.
-			unsigned int positionRegister  : BITS(MAX_VERTEX_OUTPUTS);   // TODO: Eliminate by querying shader.
-			unsigned int pointSizeRegister : BITS(MAX_VERTEX_OUTPUTS);   // TODO: Eliminate by querying shader.
-
-			bool transformFeedbackQueryEnabled                : 1;
-			uint64_t transformFeedbackEnabled                 : 64;
-			unsigned char verticesPerPrimitive                : 2; // 1 (points), 2 (lines) or 3 (triangles)
-
-			bool multiSampling  : 1;
-
-			Sampler::State sampler[VERTEX_TEXTURE_IMAGE_UNITS];
-
-			struct Input
+			operator bool() const  // Returns true if stream contains data
 			{
-				operator bool() const   // Returns true if stream contains data
-				{
-					return count != 0;
-				}
+				return format != VK_FORMAT_UNDEFINED;
+			}
 
-				StreamType type    : BITS(STREAMTYPE_LAST);
-				unsigned int count : 3;
-				bool normalized    : 1;
-				unsigned int attribType : BITS(SpirvShader::ATTRIBTYPE_LAST);
-			};
-
-			struct Output
-			{
-				union
-				{
-					unsigned char write : 4;
-
-					struct
-					{
-						unsigned char xWrite : 1;
-						unsigned char yWrite : 1;
-						unsigned char zWrite : 1;
-						unsigned char wWrite : 1;
-					};
-				};
-
-				union
-				{
-					unsigned char clamp : 4;
-
-					struct
-					{
-						unsigned char xClamp : 1;
-						unsigned char yClamp : 1;
-						unsigned char zClamp : 1;
-						unsigned char wClamp : 1;
-					};
-				};
-			};
-
-			Input input[MAX_VERTEX_INPUTS];
-			Output output[MAX_VERTEX_OUTPUTS];
+			VkFormat format;  // TODO(b/148016460): Could be restricted to VK_FORMAT_END_RANGE
+			unsigned int attribType : BITS(SpirvShader::ATTRIBTYPE_LAST);
 		};
 
-		struct State : States
-		{
-			State();
-
-			bool operator==(const State &state) const;
-
-			unsigned int hash;
-		};
-
-		typedef void (*RoutinePointer)(Vertex *output, unsigned int *batch, VertexTask *vertexTask, DrawData *draw);
-
-		VertexProcessor(Context *context);
-
-		virtual ~VertexProcessor();
-
-		void setInputStream(int index, const Stream &stream);
-		void resetInputStreams();
-
-		void setFloatConstant(unsigned int index, const float value[4]);
-		void setIntegerConstant(unsigned int index, const int integer[4]);
-		void setBooleanConstant(unsigned int index, int boolean);
-
-		void setUniformBuffer(int index, sw::Resource* uniformBuffer, int offset);
-		void lockUniformBuffers(byte** u, sw::Resource* uniformBuffers[]);
-
-		void setTransformFeedbackBuffer(int index, sw::Resource* transformFeedbackBuffer, int offset, unsigned int reg, unsigned int row, unsigned int col, unsigned int stride);
-		void lockTransformFeedbackBuffers(byte** t, unsigned int* v, unsigned int* r, unsigned int* c, unsigned int* s, sw::Resource* transformFeedbackBuffers[]);
-
-		void setInstanceID(int instanceID);
-
-		void setTextureFilter(unsigned int sampler, FilterType textureFilter);
-		void setMipmapFilter(unsigned int sampler, MipmapType mipmapFilter);
-		void setGatherEnable(unsigned int sampler, bool enable);
-		void setAddressingModeU(unsigned int sampler, AddressingMode addressingMode);
-		void setAddressingModeV(unsigned int sampler, AddressingMode addressingMode);
-		void setAddressingModeW(unsigned int sampler, AddressingMode addressingMode);
-		void setReadSRGB(unsigned int sampler, bool sRGB);
-		void setMipmapLOD(unsigned int sampler, float bias);
-		void setBorderColor(unsigned int sampler, const Color<float> &borderColor);
-		void setMaxAnisotropy(unsigned int stage, float maxAnisotropy);
-		void setHighPrecisionFiltering(unsigned int sampler, bool highPrecisionFiltering);
-		void setSwizzleR(unsigned int sampler, SwizzleType swizzleR);
-		void setSwizzleG(unsigned int sampler, SwizzleType swizzleG);
-		void setSwizzleB(unsigned int sampler, SwizzleType swizzleB);
-		void setSwizzleA(unsigned int sampler, SwizzleType swizzleA);
-		void setCompareFunc(unsigned int sampler, CompareFunc compare);
-		void setBaseLevel(unsigned int sampler, int baseLevel);
-		void setMaxLevel(unsigned int sampler, int maxLevel);
-		void setMinLod(unsigned int sampler, float minLod);
-		void setMaxLod(unsigned int sampler, float maxLod);
-
-		void setPointSizeMin(float pointSizeMin);
-		void setPointSizeMax(float pointSizeMax);
-
-		void setTransformFeedbackQueryEnabled(bool enable);
-		void enableTransformFeedback(uint64_t enable);
-
-	protected:
-		const State update(DrawType drawType);
-		Routine *routine(const State &state);
-
-		void setRoutineCacheSize(int cacheSize);
-
-		// Shader constants
-		float4 c[VERTEX_UNIFORM_VECTORS + 1];   // One extra for indices out of range, c[VERTEX_UNIFORM_VECTORS] = {0, 0, 0, 0}
-		int4 i[16];
-		bool b[16];
-
-		float pointSizeMin;
-		float pointSizeMax;
-
-	private:
-		struct UniformBufferInfo
-		{
-			UniformBufferInfo();
-
-			Resource* buffer;
-			int offset;
-		};
-		UniformBufferInfo uniformBufferInfo[MAX_UNIFORM_BUFFER_BINDINGS];
-
-		struct TransformFeedbackInfo
-		{
-			TransformFeedbackInfo();
-
-			Resource* buffer;
-			unsigned int offset;
-			unsigned int reg;
-			unsigned int row;
-			unsigned int col;
-			unsigned int stride;
-		};
-		TransformFeedbackInfo transformFeedbackInfo[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS];
-
-		Context *const context;
-
-		RoutineCache<State> *routineCache;
+		Input input[MAX_INTERFACE_COMPONENTS / 4];
+		bool robustBufferAccess : 1;
+		bool isPoint : 1;
 	};
-}
 
-#endif   // sw_VertexProcessor_hpp
+	struct State : States
+	{
+		bool operator==(const State &state) const;
+
+		uint32_t hash;
+	};
+
+	using RoutineType = VertexRoutineFunction::RoutineType;
+
+	VertexProcessor();
+
+	virtual ~VertexProcessor();
+
+protected:
+	const State update(const sw::Context *context);
+	RoutineType routine(const State &state, vk::PipelineLayout const *pipelineLayout,
+	                    SpirvShader const *vertexShader, const vk::DescriptorSet::Bindings &descriptorSets);
+
+	void setRoutineCacheSize(int cacheSize);
+
+private:
+	using RoutineCacheType = RoutineCacheT<State, VertexRoutineFunction::CFunctionType>;
+	RoutineCacheType *routineCache;
+};
+
+}  // namespace sw
+
+#endif  // sw_VertexProcessor_hpp

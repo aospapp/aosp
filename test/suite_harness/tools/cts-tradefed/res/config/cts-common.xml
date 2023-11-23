@@ -47,6 +47,13 @@
         <option name="expected-value" value="en-US"/> <!-- Device locale should be US English -->
         <option name="throw-error" value="false"/> <!-- Only print warning if not en-US -->
     </target_preparer>
+
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.PropertyCheck">
+        <option name="property-name" value="persist.sys.test_harness" />
+        <option name="expected-value" value="false"/> <!-- Device shouldn't be in test harness mode -->
+        <option name="throw-error" value="true"/>
+    </target_preparer>
+
     <template-include name="reporters" default="basic-reporters" />
 
     <!-- Include additional test metadata output. -->

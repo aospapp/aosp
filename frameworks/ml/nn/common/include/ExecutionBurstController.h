@@ -14,21 +14,28 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_RUNTIME_EXECUTION_BURST_CONTROLLER_H
-#define ANDROID_ML_NN_RUNTIME_EXECUTION_BURST_CONTROLLER_H
-
-#include "HalInterfaces.h"
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_EXECUTION_BURST_CONTROLLER_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_EXECUTION_BURST_CONTROLLER_H
 
 #include <android-base/macros.h>
+#include <android/hardware/neuralnetworks/1.0/types.h>
+#include <android/hardware/neuralnetworks/1.1/types.h>
+#include <android/hardware/neuralnetworks/1.2/IBurstCallback.h>
+#include <android/hardware/neuralnetworks/1.2/IBurstContext.h>
+#include <android/hardware/neuralnetworks/1.2/IPreparedModel.h>
+#include <android/hardware/neuralnetworks/1.2/types.h>
 #include <fmq/MessageQueue.h>
 #include <hidl/MQDescriptor.h>
 
 #include <atomic>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <stack>
 #include <tuple>
+#include <utility>
+#include <vector>
 
 namespace android::nn {
 
@@ -48,8 +55,9 @@ constexpr const size_t kExecutionBurstChannelLength = 1024;
  *     request.
  * @return Serialized FMQ request data.
  */
-std::vector<FmqRequestDatum> serialize(const Request& request, MeasureTiming measure,
-                                       const std::vector<int32_t>& slots);
+std::vector<hardware::neuralnetworks::V1_2::FmqRequestDatum> serialize(
+        const hardware::neuralnetworks::V1_0::Request& request,
+        hardware::neuralnetworks::V1_2::MeasureTiming measure, const std::vector<int32_t>& slots);
 
 /**
  * Deserialize the FMQ result data.
@@ -60,8 +68,18 @@ std::vector<FmqRequestDatum> serialize(const Request& request, MeasureTiming mea
  * @param data Serialized FMQ result data.
  * @return Result object if successfully deserialized, std::nullopt otherwise.
  */
-std::optional<std::tuple<ErrorStatus, std::vector<OutputShape>, Timing>> deserialize(
-        const std::vector<FmqResultDatum>& data);
+std::optional<std::tuple<hardware::neuralnetworks::V1_0::ErrorStatus,
+                         std::vector<hardware::neuralnetworks::V1_2::OutputShape>,
+                         hardware::neuralnetworks::V1_2::Timing>>
+deserialize(const std::vector<hardware::neuralnetworks::V1_2::FmqResultDatum>& data);
+
+/**
+ * Convert result code to error status.
+ *
+ * @param resultCode Result code to be converted.
+ * @return ErrorStatus Resultant error status.
+ */
+hardware::neuralnetworks::V1_0::ErrorStatus legacyConvertResultCodeToErrorStatus(int resultCode);
 
 /**
  * ResultChannelReceiver is responsible for waiting on the channel until the
@@ -70,12 +88,13 @@ std::optional<std::tuple<ErrorStatus, std::vector<OutputShape>, Timing>> deseria
  *
  * Because the receiver can wait on a packet that may never come (e.g., because
  * the sending side of the packet has been closed), this object can be
- * invalidating, unblocking the receiver.
+ * invalidated, unblocking the receiver.
  */
 class ResultChannelReceiver {
-    using FmqResultDescriptor = ::android::hardware::MQDescriptorSync<FmqResultDatum>;
-    using FmqResultChannel =
-            hardware::MessageQueue<FmqResultDatum, hardware::kSynchronizedReadWrite>;
+    using FmqResultDescriptor =
+            hardware::MQDescriptorSync<hardware::neuralnetworks::V1_2::FmqResultDatum>;
+    using FmqResultChannel = hardware::MessageQueue<hardware::neuralnetworks::V1_2::FmqResultDatum,
+                                                    hardware::kSynchronizedReadWrite>;
 
    public:
     /**
@@ -84,13 +103,15 @@ class ResultChannelReceiver {
      * Prefer this call over the constructor.
      *
      * @param channelLength Number of elements in the FMQ.
-     * @param blocking 'true' if FMQ should use futex, 'false' if it should
-     *     spin-wait.
+     * @param pollingTimeWindow How much time (in microseconds) the
+     *     ResultChannelReceiver is allowed to poll the FMQ before waiting on
+     *     the blocking futex. Polling may result in lower latencies at the
+     *     potential cost of more power usage.
      * @return A pair of ResultChannelReceiver and the FMQ descriptor on
      *     successful creation, both nullptr otherwise.
      */
     static std::pair<std::unique_ptr<ResultChannelReceiver>, const FmqResultDescriptor*> create(
-            size_t channelLength, bool blocking);
+            size_t channelLength, std::chrono::microseconds pollingTimeWindow);
 
     /**
      * Get the result from the channel.
@@ -102,7 +123,10 @@ class ResultChannelReceiver {
      * @return Result object if successfully received, std::nullopt if error or
      *     if the receiver object was invalidated.
      */
-    std::optional<std::tuple<ErrorStatus, std::vector<OutputShape>, Timing>> getBlocking();
+    std::optional<std::tuple<hardware::neuralnetworks::V1_0::ErrorStatus,
+                             std::vector<hardware::neuralnetworks::V1_2::OutputShape>,
+                             hardware::neuralnetworks::V1_2::Timing>>
+    getBlocking();
 
     /**
      * Method to mark the channel as invalid, unblocking any current or future
@@ -111,14 +135,15 @@ class ResultChannelReceiver {
     void invalidate();
 
     // prefer calling ResultChannelReceiver::getBlocking
-    std::optional<std::vector<FmqResultDatum>> getPacketBlocking();
+    std::optional<std::vector<hardware::neuralnetworks::V1_2::FmqResultDatum>> getPacketBlocking();
 
-    ResultChannelReceiver(std::unique_ptr<FmqResultChannel> fmqResultChannel, bool blocking);
+    ResultChannelReceiver(std::unique_ptr<FmqResultChannel> fmqResultChannel,
+                          std::chrono::microseconds pollingTimeWindow);
 
    private:
     const std::unique_ptr<FmqResultChannel> mFmqResultChannel;
     std::atomic<bool> mValid{true};
-    const bool mBlocking;
+    const std::chrono::microseconds kPollingTimeWindow;
 };
 
 /**
@@ -127,9 +152,11 @@ class ResultChannelReceiver {
  * available.
  */
 class RequestChannelSender {
-    using FmqRequestDescriptor = ::android::hardware::MQDescriptorSync<FmqRequestDatum>;
+    using FmqRequestDescriptor =
+            hardware::MQDescriptorSync<hardware::neuralnetworks::V1_2::FmqRequestDatum>;
     using FmqRequestChannel =
-            hardware::MessageQueue<FmqRequestDatum, hardware::kSynchronizedReadWrite>;
+            hardware::MessageQueue<hardware::neuralnetworks::V1_2::FmqRequestDatum,
+                                   hardware::kSynchronizedReadWrite>;
 
    public:
     /**
@@ -138,13 +165,11 @@ class RequestChannelSender {
      * Prefer this call over the constructor.
      *
      * @param channelLength Number of elements in the FMQ.
-     * @param blocking 'true' if FMQ should use futex, 'false' if it should
-     *     spin-wait.
      * @return A pair of ResultChannelReceiver and the FMQ descriptor on
      *     successful creation, both nullptr otherwise.
      */
     static std::pair<std::unique_ptr<RequestChannelSender>, const FmqRequestDescriptor*> create(
-            size_t channelLength, bool blocking);
+            size_t channelLength);
 
     /**
      * Send the request to the channel.
@@ -155,7 +180,9 @@ class RequestChannelSender {
      *     the request.
      * @return 'true' on successful send, 'false' otherwise.
      */
-    bool send(const Request& request, MeasureTiming measure, const std::vector<int32_t>& slots);
+    bool send(const hardware::neuralnetworks::V1_0::Request& request,
+              hardware::neuralnetworks::V1_2::MeasureTiming measure,
+              const std::vector<int32_t>& slots);
 
     /**
      * Method to mark the channel as invalid, causing all future calls to
@@ -165,14 +192,13 @@ class RequestChannelSender {
     void invalidate();
 
     // prefer calling RequestChannelSender::send
-    bool sendPacket(const std::vector<FmqRequestDatum>& packet);
+    bool sendPacket(const std::vector<hardware::neuralnetworks::V1_2::FmqRequestDatum>& packet);
 
-    RequestChannelSender(std::unique_ptr<FmqRequestChannel> fmqRequestChannel, bool blocking);
+    RequestChannelSender(std::unique_ptr<FmqRequestChannel> fmqRequestChannel);
 
    private:
     const std::unique_ptr<FmqRequestChannel> mFmqRequestChannel;
     std::atomic<bool> mValid{true};
-    const bool mBlocking;
 };
 
 /**
@@ -200,13 +226,14 @@ class ExecutionBurstController {
      * efficiency, if two hidl_memory objects represent the same underlying
      * buffer, they must use the same key.
      */
-    class ExecutionBurstCallback : public IBurstCallback {
+    class ExecutionBurstCallback : public hardware::neuralnetworks::V1_2::IBurstCallback {
         DISALLOW_COPY_AND_ASSIGN(ExecutionBurstCallback);
 
        public:
         ExecutionBurstCallback() = default;
 
-        Return<void> getMemories(const hidl_vec<int32_t>& slots, getMemories_cb cb) override;
+        hardware::Return<void> getMemories(const hardware::hidl_vec<int32_t>& slots,
+                                           getMemories_cb cb) override;
 
         /**
          * This function performs one of two different actions:
@@ -224,7 +251,7 @@ class ExecutionBurstController {
          * @return Unique slot identifiers where each returned slot element
          *     corresponds to a memory resource element in "memories".
          */
-        std::vector<int32_t> getSlots(const hidl_vec<hidl_memory>& memories,
+        std::vector<int32_t> getSlots(const hardware::hidl_vec<hardware::hidl_memory>& memories,
                                       const std::vector<intptr_t>& keys);
 
         /*
@@ -242,13 +269,13 @@ class ExecutionBurstController {
         std::pair<bool, int32_t> freeMemory(intptr_t key);
 
        private:
-        int32_t getSlotLocked(const hidl_memory& memory, intptr_t key);
+        int32_t getSlotLocked(const hardware::hidl_memory& memory, intptr_t key);
         int32_t allocateSlotLocked();
 
         std::mutex mMutex;
         std::stack<int32_t, std::vector<int32_t>> mFreeSlots;
         std::map<intptr_t, int32_t> mMemoryIdToSlot;
-        std::vector<hidl_memory> mMemoryCache;
+        std::vector<hardware::hidl_memory> mMemoryCache;
     };
 
     /**
@@ -257,20 +284,20 @@ class ExecutionBurstController {
      * Prefer this over ExecutionBurstController's constructor.
      *
      * @param preparedModel Model prepared for execution to execute on.
-     * @param blocking 'true' if the FMQ should use a futex to perform blocking
-     *     until data is available in a less responsive, but more energy
-     *     efficient manner. 'false' if the FMQ should use spin-looping to
-     *     wait until data is available in a more responsive, but less energy
-     *     efficient manner.
+     * @param pollingTimeWindow How much time (in microseconds) the
+     *     ExecutionBurstController is allowed to poll the FMQ before waiting on
+     *     the blocking futex. Polling may result in lower latencies at the
+     *     potential cost of more power usage.
      * @return ExecutionBurstController Execution burst controller object.
      */
-    static std::unique_ptr<ExecutionBurstController> create(const sp<IPreparedModel>& preparedModel,
-                                                            bool blocking);
+    static std::unique_ptr<ExecutionBurstController> create(
+            const sp<hardware::neuralnetworks::V1_2::IPreparedModel>& preparedModel,
+            std::chrono::microseconds pollingTimeWindow);
 
     // prefer calling ExecutionBurstController::create
     ExecutionBurstController(const std::shared_ptr<RequestChannelSender>& requestChannelSender,
                              const std::shared_ptr<ResultChannelReceiver>& resultChannelReceiver,
-                             const sp<IBurstContext>& burstContext,
+                             const sp<hardware::neuralnetworks::V1_2::IBurstContext>& burstContext,
                              const sp<ExecutionBurstCallback>& callback,
                              const sp<hardware::hidl_death_recipient>& deathHandler = nullptr);
 
@@ -285,34 +312,17 @@ class ExecutionBurstController {
      * @param memoryIds Identifiers corresponding to each memory object in the
      *     request's pools.
      * @return A tuple of:
-     *     - status of the execution
-     *     - dynamic output shapes from the execution
-     *     - any execution time measurements of the execution
-     */
-    std::tuple<ErrorStatus, std::vector<OutputShape>, Timing> compute(
-            const Request& request, MeasureTiming measure, const std::vector<intptr_t>& memoryIds);
-
-    // TODO: combine "compute" and "tryCompute" back into a single function.
-    // "tryCompute" was created later to return the "fallback" boolean. This
-    // could not be done directly in "compute" because the VTS test cases (which
-    // test burst using "compute") had already been locked down and could not be
-    // changed.
-    /**
-     * Execute a request on a model.
-     *
-     * @param request Arguments to be executed on a model.
-     * @param measure Whether to collect timing measurements, either YES or NO
-     * @param memoryIds Identifiers corresponding to each memory object in the
-     *     request's pools.
-     * @return A tuple of:
-     *     - status of the execution
+     *     - result code of the execution
      *     - dynamic output shapes from the execution
      *     - any execution time measurements of the execution
      *     - whether or not a failed burst execution should be re-run using a
      *       different path (e.g., IPreparedModel::executeSynchronously)
      */
-    std::tuple<ErrorStatus, std::vector<OutputShape>, Timing, bool> tryCompute(
-            const Request& request, MeasureTiming measure, const std::vector<intptr_t>& memoryIds);
+    std::tuple<int, std::vector<hardware::neuralnetworks::V1_2::OutputShape>,
+               hardware::neuralnetworks::V1_2::Timing, bool>
+    compute(const hardware::neuralnetworks::V1_0::Request& request,
+            hardware::neuralnetworks::V1_2::MeasureTiming measure,
+            const std::vector<intptr_t>& memoryIds);
 
     /**
      * Propagate a user's freeing of memory to the service.
@@ -325,11 +335,11 @@ class ExecutionBurstController {
     std::mutex mMutex;
     const std::shared_ptr<RequestChannelSender> mRequestChannelSender;
     const std::shared_ptr<ResultChannelReceiver> mResultChannelReceiver;
-    const sp<IBurstContext> mBurstContext;
+    const sp<hardware::neuralnetworks::V1_2::IBurstContext> mBurstContext;
     const sp<ExecutionBurstCallback> mMemoryCache;
     const sp<hardware::hidl_death_recipient> mDeathHandler;
 };
 
 }  // namespace android::nn
 
-#endif  // ANDROID_ML_NN_RUNTIME_EXECUTION_BURST_CONTROLLER_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_EXECUTION_BURST_CONTROLLER_H

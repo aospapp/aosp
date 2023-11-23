@@ -59,6 +59,13 @@ public class AccessibilityEventFilterUtils {
                 new WindowTitleMatcher(uiAutomation, title))::matches;
     }
 
+    public static AccessibilityEventFilter filterWindowsChangTypesAndWindowId(int windowId,
+            int changeTypes) {
+        return allOf(new AccessibilityEventTypeMatcher(AccessibilityEvent.TYPE_WINDOWS_CHANGED),
+                new WindowChangesMatcher(changeTypes),
+                new WindowIdMatcher(windowId))::matches;
+    }
+
     public static class AccessibilityEventTypeMatcher extends TypeSafeMatcher<AccessibilityEvent> {
         private int mType;
 
@@ -165,6 +172,25 @@ public class AccessibilityEventFilterUtils {
         @Override
         public void describeTo(Description description) {
             description.appendText("With window title " + mTitle);
+        }
+    }
+
+    public static class WindowIdMatcher extends TypeSafeMatcher<AccessibilityEvent> {
+        private int mWindowId;
+
+        public WindowIdMatcher(int windowId) {
+            super();
+            mWindowId = windowId;
+        }
+
+        @Override
+        protected boolean matchesSafely(AccessibilityEvent event) {
+            return event.getWindowId() == mWindowId;
+        }
+
+        @Override
+        public void describeTo(Description description) {
+            description.appendText("With window Id " + mWindowId);
         }
     }
 }

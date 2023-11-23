@@ -32,16 +32,18 @@ endobj
 endobj
 % JS program to exexute
 {{object 11 0}} <<
+  {{streamlen}}
 >>
 stream
-var obj = new this.constructor;
-obj.author = 3;
+try {
+  var obj = new this.constructor;
+  obj.author = 3;
+} catch (e) {
+}
 app.alert('Done!');
 endstream
 endobj
 {{xref}}
-trailer <<
-  /Root 1 0 R
->>
+{{trailer}}
 {{startxref}}
 %%EOF

@@ -20,7 +20,7 @@ import android.os.SystemClock;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.wifi.nano.WifiMetricsProto.WifiWakeStats;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiWakeStats;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;

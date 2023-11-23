@@ -41,7 +41,7 @@ class FdToString {
 public:
     /**
      * \param prefix is the prefix string prepended to each new line.
-     * \param timeout is the total timeout to wait for obtaining data.
+     * \param timeoutMs is the total timeout to wait for obtaining data in milliseconds.
      */
     explicit FdToString(const std::string &prefix = "- ", int timeoutMs = 200)
             : mPrefix(prefix)

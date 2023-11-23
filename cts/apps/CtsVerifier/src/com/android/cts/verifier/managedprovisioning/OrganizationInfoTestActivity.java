@@ -17,11 +17,9 @@
 package com.android.cts.verifier.managedprovisioning;
 
 import android.content.Intent;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.Toast;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
@@ -33,9 +31,6 @@ public class OrganizationInfoTestActivity extends PassFailButtons.Activity
         implements View.OnClickListener {
 
     public static final String EXTRA_ORGANIZATION_NAME = "extra_organization_name";
-    public static final String EXTRA_ORGANIZATION_COLOR = "extra_organization_color";
-
-    private int mOrganizationColor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,25 +52,10 @@ public class OrganizationInfoTestActivity extends PassFailButtons.Activity
                     R.id.organization_name_edit_text);
             Intent intent = new Intent(ByodHelperActivity.ACTION_SET_ORGANIZATION_INFO);
             intent.putExtra(EXTRA_ORGANIZATION_NAME, organizationNameEditText.getText().toString());
-            if (isOrganizationColorSet()) {
-                intent.putExtra(EXTRA_ORGANIZATION_COLOR, mOrganizationColor);
-            }
             startActivity(intent);
         } else if (view.getId() == R.id.go_button) {
             Intent intent = new Intent(ByodHelperActivity.ACTION_LAUNCH_CONFIRM_WORK_CREDENTIALS);
             startActivity(intent);
         }
-    }
-
-    private boolean isOrganizationColorSet() {
-        EditText organizationColorEditText = (EditText) findViewById(
-                R.id.organization_color_edit_text);
-        try {
-            mOrganizationColor = Color.parseColor(organizationColorEditText.getText().toString());
-        } catch (Exception e) {
-            Toast.makeText(this, "Not a valid Color value", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        return true;
     }
 }

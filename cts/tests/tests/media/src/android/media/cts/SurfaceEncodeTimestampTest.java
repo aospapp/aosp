@@ -27,16 +27,19 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaFormat;
 import android.opengl.GLES20;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import androidx.test.filters.SmallTest;
+import androidx.test.filters.SdkSuppress;
 
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
@@ -44,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+@Presubmit
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 @SmallTest
 @RequiresDevice
@@ -63,6 +67,7 @@ public class SurfaceEncodeTimestampTest extends AndroidTestCase {
             Color.valueOf(0.64f, 0.64f, 0.0f),
     };
     private static final int BORDER_WIDTH = 16;
+    private static final int OUTPUT_FRAME_RATE = 30;
 
     private Handler mHandler;
     private HandlerThread mHandlerThread;
@@ -139,6 +144,42 @@ public class SurfaceEncodeTimestampTest extends AndroidTestCase {
         long[] expectedOutputPts = {16667, 50000, 83333};
         doTest(inputPts, expectedOutputPts, (format) -> {
             format.setFloat(MediaFormat.KEY_MAX_FPS_TO_ENCODER, 30.0f);
+        });
+    }
+
+    /*
+     * Test KEY_CAPTURE_RATE
+     *
+     * Input frames are timestamped at various capture fps to simulate slow-motion
+     * or timelapse recording scenarios. The key is supposed to adjust (stretch or
+     * compress) the output timestamp so that the output fps becomes that specified
+     * by  KEY_FRAME_RATE.
+     */
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
+    public void testCaptureFps() throws Throwable {
+        // test slow motion
+        testCaptureFps(120, false /*useFloatKey*/);
+        testCaptureFps(240, true /*useFloatKey*/);
+
+        // test timelapse
+        testCaptureFps(1, false /*useFloatKey*/);
+    }
+
+    private void testCaptureFps(int captureFps, final boolean useFloatKey) throws Throwable {
+        long[] inputPts = new long[4];
+        long[] expectedOutputPts = new long[4];
+        final long bastPts = 1000000;
+        for (int i = 0; i < inputPts.length; i++) {
+            inputPts[i] = bastPts + (int)(i * 1000000.0f / captureFps + 0.5f);
+            expectedOutputPts[i] = inputPts[i] * captureFps / OUTPUT_FRAME_RATE;
+        }
+
+        doTest(inputPts, expectedOutputPts, (format) -> {
+            if (useFloatKey) {
+                format.setFloat(MediaFormat.KEY_CAPTURE_RATE, captureFps);
+            } else {
+                format.setInteger(MediaFormat.KEY_CAPTURE_RATE, captureFps);
+            }
         });
     }
 
@@ -287,7 +328,7 @@ public class SurfaceEncodeTimestampTest extends AndroidTestCase {
             codecFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 0);
             codecFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     CodecCapabilities.COLOR_FormatSurface);
-            codecFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+            codecFormat.setInteger(MediaFormat.KEY_FRAME_RATE, OUTPUT_FRAME_RATE);
             codecFormat.setInteger(MediaFormat.KEY_BITRATE_MODE,
                     MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR);
             codecFormat.setInteger(MediaFormat.KEY_BIT_RATE, 6000000);

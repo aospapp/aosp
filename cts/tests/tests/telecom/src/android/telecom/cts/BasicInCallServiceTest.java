@@ -18,16 +18,23 @@ package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.shouldTestTelecom;
 
-import android.telecom.cts.MockInCallService.InCallServiceCallbacks;
-
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.telecom.Call;
 import android.telecom.InCallService;
+import android.telecom.TelecomManager;
+import android.telecom.cts.MockInCallService.InCallServiceCallbacks;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.Test;
+
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -54,6 +61,32 @@ public class BasicInCallServiceTest extends InstrumentationTestCase {
             TestUtils.setDefaultDialer(getInstrumentation(), mPreviousDefaultDialer);
         }
         super.tearDown();
+    }
+
+    @CddTest(requirement = "7.4.1.2/C-1-3")
+    public void testResolveInCallIntent() {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        PackageManager packageManager = mContext.getPackageManager();
+        Intent serviceIntent = new Intent(InCallService.SERVICE_INTERFACE);
+        List<ResolveInfo> resolveInfo = packageManager.queryIntentServices(serviceIntent,
+                PackageManager.GET_META_DATA);
+
+        assertNotNull(resolveInfo);
+        assertTrue(resolveInfo.size() >= 1);
+
+        // Ensure at least one InCallService is able to handle the UI for calls.
+        assertTrue(resolveInfo
+                .stream()
+                .filter(r -> r.serviceInfo != null
+                        && r.serviceInfo.metaData != null
+                        && r.serviceInfo.metaData.containsKey(
+                                TelecomManager.METADATA_IN_CALL_SERVICE_UI)
+                        && r.serviceInfo.permission.equals(
+                                android.Manifest.permission.BIND_INCALL_SERVICE)
+                        && r.serviceInfo.name != null)
+                .count() >= 1);
     }
 
     /**

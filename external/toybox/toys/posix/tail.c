@@ -20,23 +20,16 @@ config TAIL
     -n	Output the last NUMBER lines (default 10), +X counts from start
     -c	Output the last NUMBER bytes, +NUMBER counts from start
     -f	Follow FILE(s), waiting for more data to be appended
-
-config TAIL_SEEK
-  bool "tail seek support"
-  default y
-  depends on TAIL
-  help
-    This version uses lseek, which is faster on large files.
 */
 
 #define FOR_tail
 #include "toys.h"
-#include <sys/inotify.h>
 
 GLOBALS(
   long n, c;
 
-  int file_no, ffd, *files;
+  int file_no, last_fd;
+  struct xnotify *not;
 )
 
 struct line_list {
@@ -45,7 +38,7 @@ struct line_list {
   int len;
 };
 
-static struct line_list *get_chunk(int fd, int len)
+static struct line_list *read_chunk(int fd, int len)
 {
   struct line_list *line = xmalloc(sizeof(struct line_list)+len);
 
@@ -61,7 +54,7 @@ static struct line_list *get_chunk(int fd, int len)
   return line;
 }
 
-static void dump_chunk(void *ptr)
+static void write_chunk(void *ptr)
 {
   struct line_list *list = ptr;
 
@@ -101,7 +94,7 @@ static int try_lseek(int fd, long bytes, long lines)
       perror_msg("seek failed");
       break;
     }
-    if (!(temp = get_chunk(fd, chunk))) break;
+    if (!(temp = read_chunk(fd, chunk))) break;
     temp->next = list;
     list = temp;
 
@@ -123,7 +116,7 @@ static int try_lseek(int fd, long bytes, long lines)
   }
 
   // Output stored data
-  llist_traverse(list, dump_chunk);
+  llist_traverse(list, write_chunk);
 
   // In case of -f
   lseek(fd, bytes, SEEK_SET);
@@ -137,16 +130,14 @@ static void do_tail(int fd, char *name)
   int linepop = 1;
 
   if (FLAG(f)) {
-    int f = TT.file_no*2;
     char *s = name;
 
     if (!fd) sprintf(s = toybuf, "/proc/self/fd/%d", fd);
-    TT.files[f++] = fd;
-    if (0 > (TT.files[f] = inotify_add_watch(TT.ffd, s, IN_MODIFY)))
-      perror_msg("bad -f on '%s'", name);
+    if (xnotify_add(TT.not, fd, s)) perror_exit("-f on '%s' failed", s);
   }
 
   if (TT.file_no++) xputc('\n');
+  TT.last_fd = fd;
   if (toys.optc > 1) xprintf("==> %s <==\n", name);
 
   // Are we measuring from the end of the file?
@@ -156,12 +147,12 @@ static void do_tail(int fd, char *name)
 
     // The slow codepath is always needed, and can handle all input,
     // so make lseek support optional.
-    if (CFG_TAIL_SEEK && try_lseek(fd, bytes, lines)) return;
+    if (try_lseek(fd, bytes, lines)) return;
 
     // Read data until we run out, keep a trailing buffer
     for (;;) {
       // Read next page of data, appending to linked list in order
-      if (!(new = get_chunk(fd, sizeof(toybuf)))) break;
+      if (!(new = read_chunk(fd, sizeof(toybuf)))) break;
       dlist_add_nomalloc((void *)&list, (void *)new);
 
       // If tracing bytes, add until we have enough, discarding overflow.
@@ -201,7 +192,7 @@ static void do_tail(int fd, char *name)
     }
 
     // Output/free the buffer.
-    llist_traverse(list, dump_chunk);
+    llist_traverse(list, write_chunk);
 
   // Measuring from the beginning of the file.
   } else for (;;) {
@@ -236,29 +227,19 @@ void tail_main(void)
     }
   }
 
-  // Allocate 2 ints per optarg for -f
-  if (FLAG(f)) {
-    if ((TT.ffd = inotify_init()) < 0) perror_exit("inotify_init");
-    TT.files = xmalloc(toys.optc*8);
-  }
+  if (FLAG(f)) TT.not = xnotify_init(toys.optc);
   loopfiles_rw(args, O_RDONLY|WARN_ONLY|(O_CLOEXEC*!FLAG(f)), 0, do_tail);
 
   if (FLAG(f) && TT.file_no) {
-    int len, last_fd = TT.files[(TT.file_no-1)*2], i, fd;
-    struct inotify_event ev;
-
     for (;;) {
-      if (sizeof(ev)!=read(TT.ffd, &ev, sizeof(ev))) perror_exit("inotify");
-
-      for (i = 0; i<TT.file_no && ev.wd!=TT.files[(i*2)+1]; i++);
-      if (i==TT.file_no) continue;
-      fd = TT.files[i*2];
+      char *path;
+      int fd = xnotify_wait(TT.not, &path), len;
 
       // Read new data.
       while ((len = read(fd, toybuf, sizeof(toybuf)))>0) {
-        if (last_fd != fd) {
-          last_fd = fd;
-          xprintf("\n==> %s <==\n", args[i]);
+        if (TT.last_fd != fd) {
+          TT.last_fd = fd;
+          xprintf("\n==> %s <==\n", path);
         }
 
         xwrite(1, toybuf, len);

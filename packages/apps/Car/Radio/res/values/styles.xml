@@ -18,6 +18,10 @@ limitations under the License.
     <style name="RadioButton">
         <item name="android:background">?android:attr/selectableItemBackground</item>
         <item name="android:padding">@dimen/radio_controls_button_padding</item>
+        <!-- Added paddingStart/End explicitly since padding does not override paddingStart/End
+             when RTL support is enabled -->
+        <item name="android:paddingStart">@dimen/radio_controls_button_padding</item>
+        <item name="android:paddingEnd">@dimen/radio_controls_button_padding</item>
         <item name="android:scaleType">center</item>
     </style>
 
@@ -27,6 +31,10 @@ limitations under the License.
         <item name="android:layout_height">@dimen/dialpad_button_size</item>
         <item name="android:layout_marginBottom">@dimen/dialpad_space_vertical</item>
         <item name="android:padding">@dimen/dialpad_button_padding</item>
+        <!-- Added paddingStart/End explicitly since padding does not override paddingStart/End
+             when RTL support is enabled -->
+        <item name="android:paddingStart">@dimen/dialpad_button_padding</item>
+        <item name="android:paddingEnd">@dimen/dialpad_button_padding</item>
         <item name="android:gravity">center</item>
         <item name="android:layout_gravity">center</item>
         <item name="android:background">?android:attr/selectableItemBackground</item>

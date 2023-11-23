@@ -21,16 +21,15 @@ import android.annotation.ColorInt;
 import android.annotation.Nullable;
 import android.app.Notification;
 import android.content.Context;
-import android.service.notification.StatusBarNotification;
 import android.view.View;
 
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.car.notification.AlertEntry;
 import com.android.car.notification.NotificationClickHandlerFactory;
 import com.android.car.notification.NotificationUtils;
 import com.android.car.notification.R;
-import com.android.car.notification.ThemesUtil;
 
 /**
  * The base view holder class that all template view holders should extend.
@@ -67,7 +66,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     @ColorInt
     private int mBackgroundColor;
 
-    private StatusBarNotification mStatusBarNotification;
+    private AlertEntry mAlertEntry;
     private boolean mIsAnimating;
     private boolean mHasColor;
     private boolean mIsColorized;
@@ -81,8 +80,8 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
      **/
     private boolean mInitializedColors;
 
-    CarNotificationBaseViewHolder(
-            View itemView, NotificationClickHandlerFactory clickHandlerFactory) {
+    CarNotificationBaseViewHolder(View itemView,
+            NotificationClickHandlerFactory clickHandlerFactory) {
         super(itemView);
         mContext = itemView.getContext();
         mClickHandlerFactory = clickHandlerFactory;
@@ -91,8 +90,10 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
         mHeaderView = itemView.findViewById(R.id.notification_header);
         mBodyView = itemView.findViewById(R.id.notification_body);
         mActionsView = itemView.findViewById(R.id.notification_actions);
-        mDefaultBackgroundColor = ThemesUtil.getAttrColor(mContext, android.R.attr.colorPrimary);
-        mDefaultCarAccentColor = ThemesUtil.getAttrColor(mContext, android.R.attr.colorAccent);
+        mDefaultBackgroundColor = NotificationUtils.getAttrColor(mContext,
+                android.R.attr.colorPrimary);
+        mDefaultCarAccentColor = NotificationUtils.getAttrColor(mContext,
+                android.R.attr.colorAccent);
         mDefaultPrimaryForegroundColor = mContext.getColor(R.color.primary_text_color);
         mDefaultSecondaryForegroundColor = mContext.getColor(R.color.secondary_text_color);
         mEnableCardBackgroundColorForCategoryNavigation =
@@ -106,25 +107,22 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     }
 
     /**
-     * Binds a {@link StatusBarNotification} to a notification template. Base class sets the
+     * Binds a {@link AlertEntry} to a notification template. Base class sets the
      * clicking event for the card view and calls recycling methods.
      *
-     * @param statusBarNotification the notification to be bound.
+     * @param alertEntry the notification to be bound.
      * @param isInGroup whether this notification is part of a grouped notification.
      */
     @CallSuper
-    public void bind(StatusBarNotification statusBarNotification, boolean isInGroup,
-            boolean isHeadsUp) {
+    public void bind(AlertEntry alertEntry, boolean isInGroup, boolean isHeadsUp) {
         reset();
-        mStatusBarNotification = statusBarNotification;
+        mAlertEntry = alertEntry;
 
         if (isInGroup) {
             mInnerView.setBackgroundColor(mDefaultBackgroundColor);
-            mInnerView.setOnClickListener(
-                    mClickHandlerFactory.getClickHandler(mStatusBarNotification));
-        } else {
-            mCardView.setOnClickListener(
-                    mClickHandlerFactory.getClickHandler(mStatusBarNotification));
+            mInnerView.setOnClickListener(mClickHandlerFactory.getClickHandler(alertEntry));
+        } else if (mCardView != null) {
+            mCardView.setOnClickListener(mClickHandlerFactory.getClickHandler(alertEntry));
         }
 
         bindCardView(mCardView, isInGroup);
@@ -133,7 +131,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     }
 
     /**
-     * Binds a {@link StatusBarNotification} to a notification template's card.
+     * Binds a {@link AlertEntry} to a notification template's card.
      *
      * @param cardView the CardView the notification should be bound to.
      * @param isInGroup whether this notification is part of a grouped notification.
@@ -141,13 +139,17 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     void bindCardView(CardView cardView, boolean isInGroup) {
         initializeColors(isInGroup);
 
+        if (cardView == null) {
+            return;
+        }
+
         if (canChangeCardBackgroundColor() && mHasColor && mIsColorized && !isInGroup) {
             cardView.setCardBackgroundColor(mBackgroundColor);
         }
     }
 
     /**
-     * Binds a {@link StatusBarNotification} to a notification template's header.
+     * Binds a {@link AlertEntry} to a notification template's header.
      *
      * @param headerView the CarNotificationHeaderView the notification should be bound to.
      * @param isInGroup whether this notification is part of a grouped notification.
@@ -162,7 +164,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     }
 
     /**
-     * Binds a {@link StatusBarNotification} to a notification template's body.
+     * Binds a {@link AlertEntry} to a notification template's body.
      *
      * @param bodyView the CarNotificationBodyView the notification should be bound to.
      * @param isInGroup whether this notification is part of a grouped notification.
@@ -178,7 +180,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
 
     private void initializeColors(boolean isInGroup) {
         if (mInitializedColors) return;
-        Notification notification = getStatusBarNotification().getNotification();
+        Notification notification = getAlertEntry().getNotification();
 
         mHasColor = notification.color != Notification.COLOR_DEFAULT;
         mIsColorized = notification.extras.getBoolean(Notification.EXTRA_COLORIZED, false);
@@ -187,9 +189,9 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
         mCalculatedSecondaryForegroundColor = mDefaultSecondaryForegroundColor;
         if (canChangeCardBackgroundColor() && mHasColor && mIsColorized && !isInGroup) {
             mBackgroundColor = notification.color;
-            mCalculatedPrimaryForegroundColor = NotificationColorUtil.resolveContrastColor(
+            mCalculatedPrimaryForegroundColor = NotificationUtils.resolveContrastColor(
                     mDefaultPrimaryForegroundColor, mBackgroundColor);
-            mCalculatedSecondaryForegroundColor = NotificationColorUtil.resolveContrastColor(
+            mCalculatedSecondaryForegroundColor = NotificationUtils.resolveContrastColor(
                     mDefaultSecondaryForegroundColor, mBackgroundColor);
         }
         mSmallIconColor =
@@ -198,13 +200,14 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
         mInitializedColors = true;
     }
 
+
     private boolean canChangeCardBackgroundColor() {
-        Notification notification = getStatusBarNotification().getNotification();
+        Notification notification = getAlertEntry().getNotification();
 
         boolean isSystemApp = mEnableCardBackgroundColorForSystemApp &&
-                NotificationUtils.isSystemApp(mContext, getStatusBarNotification());
+                NotificationUtils.isSystemApp(mContext, getAlertEntry().getStatusBarNotification());
         boolean isSignedWithPlatformKey = NotificationUtils.isSignedWithPlatformKey(mContext,
-                getStatusBarNotification());
+                getAlertEntry().getStatusBarNotification());
         boolean isNavigationCategory = mEnableCardBackgroundColorForCategoryNavigation &&
                 Notification.CATEGORY_NAVIGATION.equals(notification.category);
         return isSystemApp || isNavigationCategory || isSignedWithPlatformKey;
@@ -215,7 +218,8 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
      */
     @ColorInt
     int getAccentColor() {
-        int color = getStatusBarNotification().getNotification().color;
+
+        int color = getAlertEntry().getNotification().color;
         if (mEnableSmallIconAccentColor && color != Notification.COLOR_DEFAULT) {
             return color;
         }
@@ -237,7 +241,7 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
      */
     @CallSuper
     void reset() {
-        mStatusBarNotification = null;
+        mAlertEntry = null;
         mBackgroundColor = mDefaultBackgroundColor;
         mInitializedColors = false;
 
@@ -263,22 +267,22 @@ public abstract class CarNotificationBaseViewHolder extends RecyclerView.ViewHol
     }
 
     /**
-     * Returns the current {@link StatusBarNotification} that this view holder is holding.
+     * Returns the current {@link AlertEntry} that this view holder is holding.
      * Note that any child class that is not calling {@link #bind} has to override this method.
      */
-    public StatusBarNotification getStatusBarNotification() {
-        return mStatusBarNotification;
+    public AlertEntry getAlertEntry() {
+        return mAlertEntry;
     }
 
     /**
      * Returns true if the notification contained in this view holder can be swiped away.
      */
     public boolean isDismissible() {
-        if (mStatusBarNotification == null) {
+        if (mAlertEntry == null) {
             return true;
         }
 
-        return (mStatusBarNotification.getNotification().flags
+        return (getAlertEntry().getNotification().flags
                 & (Notification.FLAG_FOREGROUND_SERVICE | Notification.FLAG_ONGOING_EVENT)) == 0;
     }
 

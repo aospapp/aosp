@@ -29,7 +29,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
     RECORD_SECONDS = 5
     RESUME_TIMEOUT_SECS = 60
     SHORT_WAIT = 2
-    SUSPEND_SECONDS = 30
+    SUSPEND_SECONDS = 40
 
 
     def action_plug_jack(self, plug_state):
@@ -40,11 +40,18 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
         """
         logging.debug('Plugging' if plug_state else 'Unplugging')
         jack_plugger = self.audio_board.get_jack_plugger()
-        if jack_plugger == None:
+
+        # It is not required for the test to have jack plugger.
+        # We'll ignore the plug/unplug action and assume the target device
+        # is all time plugged/unplugged if there is no jack plugger.
+        if jack_plugger is None:
             logging.debug('Jack plugger is NOT present!')
             return
+
         if plug_state:
             jack_plugger.plug()
+            audio_test_utils.check_plugged_nodes_contain(self.audio_facade,
+                                                         self.audio_nodes)
         else:
             jack_plugger.unplug()
         time.sleep(self.SHORT_WAIT)
@@ -75,7 +82,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
         thread = threading.Thread(target=self.action_suspend)
         thread.start()
         try:
-            self.host.test_wait_for_sleep(self.SUSPEND_SECONDS / 3)
+            self.host.test_wait_for_sleep(3 * self.SUSPEND_SECONDS / 4)
         except error.TestFail, ex:
             self.errors.append("%s - %s" % (test_case, str(ex)))
 
@@ -262,6 +269,12 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
 
             # Active (plugged for external) state after resume
             self.action_plug_jack(plugged_after_resume)
+
+            # Explicitly select the node as there is a known issue
+            # that the selected node might change after a suspension.
+            # We should remove this after the issue is addressed(crbug:987529).
+            self.audio_facade.set_selected_node_types(self.audio_nodes[0],
+                                                      self.audio_nodes[1])
 
             if binder_widget != None:
                 with chameleon_audio_helper.bind_widgets(binder_widget):

@@ -24,10 +24,12 @@ import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 import android.annotation.NonNull;
 import android.content.res.AssetManager;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
+import java.nio.ByteOrder;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 
 import libcore.util.NativeAllocationRegistry_Delegate;
 
@@ -46,10 +48,7 @@ import libcore.util.NativeAllocationRegistry_Delegate;
 public class Font_Builder_Delegate {
     protected static final DelegateManager<Font_Builder_Delegate> sBuilderManager =
             new DelegateManager<>(Font_Builder_Delegate.class);
-    private static final DelegateManager<String> sAssetManager =
-            new DelegateManager<>(String.class);
     private static long sFontFinalizer = -1;
-    private static long sAssetFinalizer = -1;
 
     protected ByteBuffer mBuffer;
     protected int mWeight;
@@ -63,36 +62,23 @@ public class Font_Builder_Delegate {
     }
 
     @LayoutlibDelegate
-    /*package*/ static long nGetNativeAsset(
-            @NonNull AssetManager am, @NonNull String path, boolean isAsset, int cookie) {
-        return sAssetManager.addNewDelegate(path);
-    }
+    /*package*/ static ByteBuffer createBuffer(@NonNull AssetManager am, @NonNull String path,
+            boolean isAsset, int cookie) throws IOException {
+        try (InputStream assetStream = isAsset ? am.open(path, AssetManager.ACCESS_BUFFER)
+                : am.openNonAsset(cookie, path, AssetManager.ACCESS_BUFFER)) {
 
-    @LayoutlibDelegate
-    /*package*/ static ByteBuffer nGetAssetBuffer(long nativeAsset) {
-        String fullPath = sAssetManager.getDelegate(nativeAsset);
-        if (fullPath == null) {
-            return null;
-        }
-        try {
-            byte[] byteArray = Files.readAllBytes(new File(fullPath).toPath());
-            return ByteBuffer.wrap(byteArray);
-        } catch (IOException e) {
-            Bridge.getLog().error(LayoutLog.TAG_MISSING_ASSET,
-                    "Error mapping font file " + fullPath, null, null, null);
-            return null;
-        }
-    }
+            int capacity = assetStream.available();
+            ByteBuffer buffer = ByteBuffer.allocateDirect(capacity);
+            buffer.order(ByteOrder.nativeOrder());
+            ReadableByteChannel channel = Channels.newChannel(assetStream);
+            channel.read(buffer);
 
-    @LayoutlibDelegate
-    /*package*/ static long nGetReleaseNativeAssetFunc() {
-        synchronized (Font_Builder_Delegate.class) {
-            if (sAssetFinalizer == -1) {
-                sAssetFinalizer = NativeAllocationRegistry_Delegate.createFinalizer(
-                        sAssetManager::removeJavaReferenceFor);
+            if (assetStream.read() != -1) {
+                throw new IOException("Unable to access full contents of " + path);
             }
+
+            return buffer;
         }
-        return sAssetFinalizer;
     }
 
     @LayoutlibDelegate

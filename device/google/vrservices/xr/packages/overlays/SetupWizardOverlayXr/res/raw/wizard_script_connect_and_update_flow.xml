@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    This file is a modified version of
+    "google3/java/com/google/android/apps/vr/setupwizard/res/raw/wizard_script_connect_and_update_flow.xml"
+    that is customized for GSI XR.
+
+    Current changes:
+    * The OTA update is skipped, because currently it hangs: b/137600556
+-->
+
+<WizardScript xmlns:wizard="http://schemas.android.com/apk/res/com.google.android.setupwizard"
+    wizard:firstAction="network_settings">
+
+  <!-- Network selection, Users must be given the opportunity to set up an internet connection,
+        using the given screens or a custom flow. -->
+  <WizardAction id="network_settings"
+      wizard:uri="intent:#Intent;action=com.android.setupwizard.NETWORK_SETTINGS;end">
+    <result wizard:name="see_all_wifi"
+        wizard:resultCode="102"
+        wizard:action="wifi_settings" />
+    <result wizard:action="captive_portal" />
+  </WizardAction>
+
+  <!-- Wi-Fi setup -->
+  <WizardAction id="wifi_settings"
+      wizard:uri="intent:#Intent;action=com.android.setupwizard.WIFI_SETTINGS;end">
+    <result wizard:action="captive_portal" />
+  </WizardAction>
+
+  <!-- Resolve captive portal access, and wait for check-in [REQUIRED] -->
+  <WizardAction id="captive_portal"
+      wizard:uri="intent:#Intent;action=com.android.setupwizard.CAPTIVE_PORTAL;end">
+    <result wizard:action="gms_checkin" />
+  </WizardAction>
+
+  <WizardAction id="gms_checkin"
+      wizard:uri="intent:#Intent;action=com.google.android.setupwizard.GMS_CHECKIN;end">
+    <result wizard:action="oem_post_setup" />
+  </WizardAction>
+
+  <!-- Update system packages [REQUIRED] -->
+  <WizardAction id="ota_update"
+      wizard:uri="intent:#Intent;action=com.google.android.setupwizard.OTA_UPDATE;end">
+    <result wizard:name="skip"
+        wizard:resultCode="1"
+        wizard:action="early_update" />
+    <result wizard:action="system_update" />
+  </WizardAction>
+
+  <!-- System update should cause a reboot, but if it returns unexpectedly, continue on to
+      early update -->
+  <WizardAction id="system_update"
+      wizard:uri="intent:#Intent;action=android.settings.SYSTEM_UPDATE_SETTINGS;end">
+    <result wizard:action="early_update" />
+  </WizardAction>
+
+  <!-- Update other important packages [REQUIRED] -->
+  <WizardAction id="early_update"
+      wizard:uri="intent:#Intent;action=com.google.android.setupwizard.EARLY_UPDATE;end" />
+  <result wizard:action="zero_touch" />
+</WizardScript>

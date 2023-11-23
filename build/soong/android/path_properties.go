@@ -35,18 +35,17 @@ func pathDepsMutator(ctx BottomUpMutatorContext) {
 
 	props := m.base().generalProperties
 
+	var pathProperties []string
 	for _, ps := range props {
-		pathProperties := pathPropertiesForPropertyStruct(ctx, ps)
-		pathProperties = FirstUniqueStrings(pathProperties)
+		pathProperties = append(pathProperties, pathPropertiesForPropertyStruct(ctx, ps)...)
+	}
 
-		var deps []string
-		for _, s := range pathProperties {
-			if m := SrcIsModule(s); m != "" {
-				deps = append(deps, m)
-			}
+	pathProperties = FirstUniqueStrings(pathProperties)
+
+	for _, s := range pathProperties {
+		if m, t := SrcIsModuleWithTag(s); m != "" {
+			ctx.AddDependency(ctx.Module(), sourceOrOutputDepTag(t), m)
 		}
-
-		ctx.AddDependency(ctx.Module(), SourceDepTag, deps...)
 	}
 }
 

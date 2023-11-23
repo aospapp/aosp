@@ -465,7 +465,7 @@ public class NotificationChannelSlice implements CustomSliceable {
                 return true;
             }
 
-            return channel.isBlockableSystem()
+            return channel.isBlockable()
                     || channel.getImportance() == IMPORTANCE_NONE;
         }
 

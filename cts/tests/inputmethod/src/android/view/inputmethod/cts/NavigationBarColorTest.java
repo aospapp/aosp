@@ -47,13 +47,15 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.NavigationBarInfo;
 import android.view.inputmethod.cts.util.TestActivity;
+import android.view.inputmethod.cts.util.UnlockScreenRule;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.ImeAwareEditText;
@@ -64,6 +66,7 @@ import com.android.cts.mockime.MockImeSession;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -76,6 +79,9 @@ public class NavigationBarColorTest extends EndToEndImeTestBase {
     private static final long LAYOUT_STABLE_THRESHOLD = TimeUnit.SECONDS.toMillis(3);
 
     private static final String TEST_MARKER = "android.view.inputmethod.cts.NavigationBarColorTest";
+
+    @Rule
+    public final UnlockScreenRule mUnlockScreenRule = new UnlockScreenRule();
 
     private static void updateSystemUiVisibility(@NonNull View view, int flags, int mask) {
         final int currentFlags = view.getSystemUiVisibility();
@@ -246,7 +252,7 @@ public class NavigationBarColorTest extends EndToEndImeTestBase {
         final UiAutomation uiAutomation =
                 InstrumentationRegistry.getInstrumentation().getUiAutomation();
         try (MockImeSession imeSession = MockImeSession.create(
-                InstrumentationRegistry.getContext(), uiAutomation, builder)) {
+                InstrumentationRegistry.getInstrumentation().getContext(), uiAutomation, builder)) {
             final ImeEventStream stream = imeSession.openEventStream();
 
             final TestActivity activity = launchTestActivity(
@@ -303,6 +309,7 @@ public class NavigationBarColorTest extends EndToEndImeTestBase {
                         DimmingTestMode.NO_DIMMING_DIALOG));
     }
 
+    @FlakyTest(bugId = 148768026)
     @Test
     public void testLightNavigationBar() throws Exception {
         final NavigationBarInfo info = NavigationBarInfo.getInstance();

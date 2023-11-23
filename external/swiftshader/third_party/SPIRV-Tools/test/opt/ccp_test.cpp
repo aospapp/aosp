@@ -570,10 +570,10 @@ TEST_F(CCPTest, SkipSpecConstantInstrucitons) {
          %10 = OpSpecConstantFalse %bool
        %main = OpFunction %void None %4
          %11 = OpLabel
-         %12 = OpBranchConditional %10 %l1 %l2
-         %l1 = OpLabel
+               OpBranchConditional %10 %L1 %L2
+         %L1 = OpLabel
                OpReturn
-         %l2 = OpLabel
+         %L2 = OpLabel
                OpReturn
                OpFunctionEnd
   )";
@@ -891,6 +891,35 @@ OpBranch %2
 %3 = OpLabel
 OpReturn
 OpFunctionEnd
+)";
+
+  SinglePassRunAndMatch<CCPPass>(text, true);
+}
+
+TEST_F(CCPTest, FoldWithDecoration) {
+  const std::string text = R"(
+; CHECK: OpCapability
+; CHECK-NOT: OpDecorate
+; CHECK: OpFunctionEnd
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource ESSL 310
+               OpDecorate %3 RelaxedPrecision
+       %void = OpTypeVoid
+          %5 = OpTypeFunction %void
+      %float = OpTypeFloat 32
+    %v3float = OpTypeVector %float 3
+    %float_0 = OpConstant %float 0
+    %v4float = OpTypeVector %float 4
+         %10 = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
+          %2 = OpFunction %void None %5
+         %11 = OpLabel
+          %3 = OpVectorShuffle %v3float %10 %10 0 1 2
+               OpReturn
+               OpFunctionEnd
 )";
 
   SinglePassRunAndMatch<CCPPass>(text, true);

@@ -18,7 +18,8 @@ package android.net.dhcp;
 
 import static android.net.InetAddresses.parseNumericAddress;
 import static android.net.dhcp.DhcpServingParams.MTU_UNSET;
-import static android.net.shared.Inet4AddressUtils.inet4AddressToIntHTH;
+
+import static com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTH;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
@@ -28,16 +29,17 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.net.LinkAddress;
 import android.net.dhcp.DhcpServingParams.InvalidParameterException;
-import android.net.shared.Inet4AddressUtils;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.net.module.util.Inet4AddressUtils;
+import com.android.testutils.MiscAssertsKt;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.lang.reflect.Modifier;
 import java.net.Inet4Address;
 import java.util.Arrays;
 import java.util.Collection;
@@ -56,11 +58,13 @@ public class DhcpServingParamsTest {
     private static final Set<Inet4Address> TEST_DNS_SERVERS = new HashSet<>(
             Arrays.asList(parseAddr("192.168.0.126"), parseAddr("192.168.0.127")));
     private static final Inet4Address TEST_SERVER_ADDR = parseAddr("192.168.0.2");
+    private static final Inet4Address TEST_CLIENT_ADDR = parseAddr("192.168.0.42");
     private static final LinkAddress TEST_LINKADDR = new LinkAddress(TEST_SERVER_ADDR, 20);
     private static final int TEST_MTU = 1500;
     private static final Set<Inet4Address> TEST_EXCLUDED_ADDRS = new HashSet<>(
             Arrays.asList(parseAddr("192.168.0.200"), parseAddr("192.168.0.201")));
     private static final boolean TEST_METERED = true;
+    private static final boolean TEST_CHANGE_PREFIX_ON_DECLINE = true;
 
     @Before
     public void setUp() {
@@ -71,7 +75,9 @@ public class DhcpServingParamsTest {
                 .setServerAddr(TEST_LINKADDR)
                 .setLinkMtu(TEST_MTU)
                 .setExcludedAddrs(TEST_EXCLUDED_ADDRS)
-                .setMetered(TEST_METERED);
+                .setMetered(TEST_METERED)
+                .setSingleClientAddr(TEST_CLIENT_ADDR)
+                .setChangePrefixOnDecline(TEST_CHANGE_PREFIX_ON_DECLINE);
     }
 
     @Test
@@ -98,6 +104,7 @@ public class DhcpServingParamsTest {
         assertEquals(TEST_LINKADDR, params.serverAddr);
         assertEquals(TEST_MTU, params.linkMtu);
         assertEquals(TEST_METERED, params.metered);
+        assertEquals(TEST_CHANGE_PREFIX_ON_DECLINE, params.changePrefixOnDecline);
 
         assertContains(params.excludedAddrs, TEST_EXCLUDED_ADDRS);
         assertContains(params.excludedAddrs, TEST_DEFAULT_ROUTERS);
@@ -178,6 +185,8 @@ public class DhcpServingParamsTest {
         parcel.linkMtu = TEST_MTU;
         parcel.excludedAddrs = toIntArray(TEST_EXCLUDED_ADDRS);
         parcel.metered = TEST_METERED;
+        parcel.singleClientAddr = inet4AddressToIntHTH(TEST_CLIENT_ADDR);
+        parcel.changePrefixOnDecline = TEST_CHANGE_PREFIX_ON_DECLINE;
         final DhcpServingParams parceled = DhcpServingParams.fromParcelableObject(parcel);
 
         assertEquals(params.defaultRouters, parceled.defaultRouters);
@@ -187,12 +196,10 @@ public class DhcpServingParamsTest {
         assertEquals(params.linkMtu, parceled.linkMtu);
         assertEquals(params.excludedAddrs, parceled.excludedAddrs);
         assertEquals(params.metered, parceled.metered);
+        assertEquals(params.singleClientAddr, parceled.singleClientAddr);
+        assertEquals(params.changePrefixOnDecline, parceled.changePrefixOnDecline);
 
-        // Ensure that we do not miss any field if added in the future
-        final long numFields = Arrays.stream(DhcpServingParams.class.getDeclaredFields())
-                .filter(f -> !Modifier.isStatic(f.getModifiers()))
-                .count();
-        assertEquals(7, numFields);
+        MiscAssertsKt.assertFieldCountEquals(10, DhcpServingParamsParcel.class);
     }
 
     @Test(expected = InvalidParameterException.class)

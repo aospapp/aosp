@@ -34,14 +34,12 @@ class RSScreenFunctionsPass : public llvm::ModulePass {
 private:
   static char ID;
 
-  std::vector<std::string> &whiteList = stubList;
-
-  bool isPresent(std::vector<std::string> &list, const std::string &name) {
-    auto lower = std::lower_bound(list.begin(),
-                                  list.end(),
+  bool isPresent(const std::string &name) {
+    auto lower = std::lower_bound(stubList.begin(),
+                                  stubList.end(),
                                   name);
 
-    if (lower != list.end() && name.compare(*lower) == 0)
+    if (lower != stubList.end() && name.compare(*lower) == 0)
       return true;
     return false;
   }
@@ -59,7 +57,7 @@ private:
     if (FName.startswith("llvm."))
       return true;
 
-    if (isPresent(whiteList, FName.str()))
+    if (isPresent(FName.str()))
       return true;
 
     return false;
@@ -68,7 +66,7 @@ private:
 public:
   RSScreenFunctionsPass()
     : ModulePass (ID) {
-      std::sort(whiteList.begin(), whiteList.end());
+      std::sort(stubList.begin(), stubList.end());
   }
 
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {

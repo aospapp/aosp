@@ -1,3 +1,2 @@
-# Default code reviewers picked from top 3 or more developers.
-# Please update this list if you find better candidates.
-include platform/frameworks/rs:/OWNERS
+dneto@google.com
+jessehall@google.com

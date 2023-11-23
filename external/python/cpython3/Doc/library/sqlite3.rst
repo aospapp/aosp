@@ -224,6 +224,8 @@ Module functions and constants
    More information about this feature, including a list of recognized options, can
    be found in the `SQLite URI documentation <https://www.sqlite.org/uri.html>`_.
 
+   .. audit-event:: sqlite3.connect database sqlite3.connect
+
    .. versionchanged:: 3.4
       Added the *uri* parameter.
 
@@ -337,16 +339,23 @@ Connection Objects
       :meth:`~Cursor.executescript` method with the given *sql_script*, and
       returns the cursor.
 
-   .. method:: create_function(name, num_params, func)
+   .. method:: create_function(name, num_params, func, *, deterministic=False)
 
       Creates a user-defined function that you can later use from within SQL
       statements under the function name *name*. *num_params* is the number of
       parameters the function accepts (if *num_params* is -1, the function may
       take any number of arguments), and *func* is a Python callable that is
-      called as the SQL function.
+      called as the SQL function. If *deterministic* is true, the created function
+      is marked as `deterministic <https://sqlite.org/deterministic.html>`_, which
+      allows SQLite to perform additional optimizations. This flag is supported by
+      SQLite 3.8.3 or higher, :exc:`NotSupportedError` will be raised if used
+      with older versions.
 
       The function can return any of the types supported by SQLite: bytes, str, int,
       float and ``None``.
+
+      .. versionchanged:: 3.8
+         The *deterministic* parameter was added.
 
       Example:
 
@@ -530,6 +539,7 @@ Connection Objects
          with open('dump.sql', 'w') as f:
              for line in con.iterdump():
                  f.write('%s\n' % line)
+         con.close()
 
 
    .. method:: backup(target, *, pages=0, progress=None, name="main", sleep=0.250)
@@ -566,8 +576,11 @@ Connection Objects
              print(f'Copied {total-remaining} of {total} pages...')
 
          con = sqlite3.connect('existing_db.db')
-         with sqlite3.connect('backup.db') as bck:
+         bck = sqlite3.connect('backup.db')
+         with bck:
              con.backup(bck, pages=1, progress=progress)
+         bck.close()
+         con.close()
 
       Example 2, copy an existing database into a transient copy::
 

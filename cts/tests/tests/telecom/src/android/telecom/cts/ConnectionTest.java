@@ -389,6 +389,26 @@ public class ConnectionTest extends AndroidTestCase {
         assertEquals(videoProvider, connection.getVideoProvider());
     }
 
+    public void testCallerNumberVerificationStatus() {
+        if (!shouldTestTelecom(getContext())) {
+            return;
+        }
+
+        final Semaphore lock = new Semaphore(0);
+        Connection connection = createConnection(lock);
+        waitForStateChange(lock);
+
+        connection.setCallerNumberVerificationStatus(Connection.VERIFICATION_STATUS_FAILED);
+        assertEquals(Connection.VERIFICATION_STATUS_FAILED,
+                connection.getCallerNumberVerificationStatus());
+        connection.setCallerNumberVerificationStatus(Connection.VERIFICATION_STATUS_NOT_VERIFIED);
+        assertEquals(Connection.VERIFICATION_STATUS_NOT_VERIFIED,
+                connection.getCallerNumberVerificationStatus());
+        connection.setCallerNumberVerificationStatus(Connection.VERIFICATION_STATUS_PASSED);
+        assertEquals(Connection.VERIFICATION_STATUS_PASSED,
+                connection.getCallerNumberVerificationStatus());
+    }
+
     public void testStateToString() {
         if (!shouldTestTelecom(getContext())) {
             return;

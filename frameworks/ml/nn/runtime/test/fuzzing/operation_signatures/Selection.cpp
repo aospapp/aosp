@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <utility>
+#include <vector>
+
 #include "fuzzing/operation_signatures/OperationSignatureUtils.h"
 
 namespace android {
 namespace nn {
 namespace fuzzing_test {
 
-static void embeddingLookupConstructor(Type, uint32_t rank, RandomOperation* op) {
+static void embeddingLookupConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     setFreeDimensions(op->inputs[0], /*rank=*/1);
     setFreeDimensions(op->inputs[1], rank);
     op->outputs[0]->dimensions.resize(rank);
@@ -40,17 +44,24 @@ static void embeddingLookupFinalizer(RandomOperation* op) {
     }
 }
 
-DEFINE_OPERATION_SIGNATURE(EMBEDDING_LOOKUP_V1_0){
-        .opType = ANEURALNETWORKS_EMBEDDING_LOOKUP,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_INT32, Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {2, 3, 4},
-        .version = HalVersion::V1_0,
-        .inputs = {PARAMETER_NONE(Type::TENSOR_INT32), INPUT_DEFAULT},
-        .outputs = {OUTPUT_DEFAULT},
-        .constructor = embeddingLookupConstructor,
-        .finalizer = embeddingLookupFinalizer};
+#define DEFINE_EMBEDDING_LOOKUP_SIGNATURE(ver, ...)                                   \
+    DEFINE_OPERATION_SIGNATURE(EMBEDDING_LOOKUP_##ver){                               \
+            .opType = TestOperationType::EMBEDDING_LOOKUP,                            \
+            .supportedDataTypes = {__VA_ARGS__},                                      \
+            .supportedRanks = {2, 3, 4},                                              \
+            .version = TestHalVersion::ver,                                           \
+            .inputs = {PARAMETER_NONE(TestOperandType::TENSOR_INT32), INPUT_DEFAULT}, \
+            .outputs = {OUTPUT_DEFAULT},                                              \
+            .constructor = embeddingLookupConstructor,                                \
+            .finalizer = embeddingLookupFinalizer};
 
-static void hashtableLookupConstructor(Type, uint32_t rank, RandomOperation* op) {
+DEFINE_EMBEDDING_LOOKUP_SIGNATURE(V1_0, TestOperandType::TENSOR_FLOAT32);
+DEFINE_EMBEDDING_LOOKUP_SIGNATURE(V1_2, TestOperandType::TENSOR_INT32,
+                                  TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_EMBEDDING_LOOKUP_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED,
+                                  TestOperandType::TENSOR_FLOAT16);
+
+static void hashtableLookupConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     op->inputs[0]->dimensions = {RandomVariableType::FREE};
     op->inputs[1]->dimensions = {RandomVariableType::FREE};
     op->inputs[2]->dimensions.resize(rank);
@@ -82,24 +93,26 @@ static void hashtableLookupFinalizer(RandomOperation* op) {
 
 // The hits tensor in HASHTABLE_LOOKUP.
 static const OperandSignature hitsTensor_HASHTABLE_LOOKUP = {
-        .type = RandomOperandType::OUTPUT, .constructor = [](Type, uint32_t, RandomOperand* op) {
-            op->dataType = Type::TENSOR_QUANT8_ASYMM;
+        .type = RandomOperandType::OUTPUT,
+        .constructor = [](TestOperandType, uint32_t, RandomOperand* op) {
+            op->dataType = TestOperandType::TENSOR_QUANT8_ASYMM;
             op->scale = 1.0f;
             op->zeroPoint = 0;
         }};
 
 DEFINE_OPERATION_SIGNATURE(HASHTABLE_LOOKUP_V1_0){
-        .opType = ANEURALNETWORKS_HASHTABLE_LOOKUP,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_INT32, Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::HASHTABLE_LOOKUP,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32, TestOperandType::TENSOR_INT32,
+                               TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {2, 3, 4},
-        .version = HalVersion::V1_0,
-        .inputs = {PARAMETER_NONE(Type::TENSOR_INT32), PARAMETER_NONE(Type::TENSOR_INT32),
-                   INPUT_DEFAULT},
+        .version = TestHalVersion::V1_0,
+        .inputs = {PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::TENSOR_INT32), INPUT_DEFAULT},
         .outputs = {OUTPUT_DEFAULT, hitsTensor_HASHTABLE_LOOKUP},
         .constructor = hashtableLookupConstructor,
         .finalizer = hashtableLookupFinalizer};
 
-static void gatherConstructor(Type, uint32_t rank, RandomOperation* op) {
+static void gatherConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     // Generate value for "axis" scalar.
     int32_t axis = getUniform<int32_t>(-rank, rank - 1);
     op->inputs[1]->setScalarValue<int32_t>(axis);
@@ -133,18 +146,23 @@ static void gatherFinalizer(RandomOperation* op) {
     }
 }
 
-DEFINE_OPERATION_SIGNATURE(GATHER_V1_2){
-        .opType = ANEURALNETWORKS_GATHER,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16, Type::TENSOR_INT32,
-                               Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {1, 2, 3, 4, 5},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(Type::INT32), PARAMETER_NONE(Type::TENSOR_INT32)},
-        .outputs = {OUTPUT_DEFAULT},
-        .constructor = gatherConstructor,
-        .finalizer = gatherFinalizer};
+#define DEFINE_GATHER_SIGNATURE(ver, ...)                                     \
+    DEFINE_OPERATION_SIGNATURE(GATHER_##ver){                                 \
+            .opType = TestOperationType::GATHER,                              \
+            .supportedDataTypes = {__VA_ARGS__},                              \
+            .supportedRanks = {1, 2, 3, 4, 5},                                \
+            .version = TestHalVersion::ver,                                   \
+            .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32), \
+                       PARAMETER_NONE(TestOperandType::TENSOR_INT32)},        \
+            .outputs = {OUTPUT_DEFAULT},                                      \
+            .constructor = gatherConstructor,                                 \
+            .finalizer = gatherFinalizer};
 
-static void selectConstructor(Type, uint32_t rank, RandomOperation* op) {
+DEFINE_GATHER_SIGNATURE(V1_2, TestOperandType::TENSOR_FLOAT32, TestOperandType::TENSOR_FLOAT16,
+                        TestOperandType::TENSOR_INT32, TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_GATHER_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
+
+static void selectConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     setFreeDimensions(op->inputs[0], rank);
     op->inputs[1]->dimensions = op->inputs[0]->dimensions;
     op->inputs[2]->dimensions = op->inputs[0]->dimensions;
@@ -153,17 +171,21 @@ static void selectConstructor(Type, uint32_t rank, RandomOperation* op) {
     setSameQuantization(op->outputs[0], op->inputs[1]);
 }
 
-DEFINE_OPERATION_SIGNATURE(SELECT_V1_2){
-        .opType = ANEURALNETWORKS_SELECT,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16, Type::TENSOR_INT32,
-                               Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_TYPED(Type::TENSOR_BOOL8), INPUT_DEFAULT, INPUT_DEFAULT},
-        .outputs = {OUTPUT_DEFAULT},
-        .constructor = selectConstructor};
+#define DEFINE_SELECT_SIGNATURE(ver, ...)                                                         \
+    DEFINE_OPERATION_SIGNATURE(SELECT_##ver){                                                     \
+            .opType = TestOperationType::SELECT,                                                  \
+            .supportedDataTypes = {__VA_ARGS__},                                                  \
+            .supportedRanks = {1, 2, 3, 4},                                                       \
+            .version = TestHalVersion::ver,                                                       \
+            .inputs = {INPUT_TYPED(TestOperandType::TENSOR_BOOL8), INPUT_DEFAULT, INPUT_DEFAULT}, \
+            .outputs = {OUTPUT_DEFAULT},                                                          \
+            .constructor = selectConstructor};
 
-static void topKConstructor(Type, uint32_t rank, RandomOperation* op) {
+DEFINE_SELECT_SIGNATURE(V1_2, TestOperandType::TENSOR_FLOAT32, TestOperandType::TENSOR_FLOAT16,
+                        TestOperandType::TENSOR_INT32, TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_SELECT_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
+
+static void topKConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     setFreeDimensions(op->inputs[0], rank);
     op->outputs[0]->dimensions.resize(rank);
     op->outputs[1]->dimensions.resize(rank);
@@ -186,17 +208,21 @@ static void topKConstructor(Type, uint32_t rank, RandomOperation* op) {
     op->outputs[1]->doNotConnect = true;
 }
 
-DEFINE_OPERATION_SIGNATURE(TOPK_V2_V1_2){
-        .opType = ANEURALNETWORKS_TOPK_V2,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16, Type::TENSOR_INT32,
-                               Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, RANDOM_INT_FREE},
-        .outputs = {OUTPUT_DEFAULT, OUTPUT_TYPED(Type::TENSOR_INT32)},
-        .constructor = topKConstructor};
+#define DEFINE_TOPK_SIGNATURE(ver, ...)                                               \
+    DEFINE_OPERATION_SIGNATURE(TOPK_V2_##ver){                                        \
+            .opType = TestOperationType::TOPK_V2,                                     \
+            .supportedDataTypes = {__VA_ARGS__},                                      \
+            .supportedRanks = {1, 2, 3, 4},                                           \
+            .version = TestHalVersion::ver,                                           \
+            .inputs = {INPUT_DEFAULT, RANDOM_INT_FREE},                               \
+            .outputs = {OUTPUT_DEFAULT, OUTPUT_TYPED(TestOperandType::TENSOR_INT32)}, \
+            .constructor = topKConstructor};
 
-static void sliceConstructor(Type, uint32_t rank, RandomOperation* op) {
+DEFINE_TOPK_SIGNATURE(V1_2, TestOperandType::TENSOR_FLOAT32, TestOperandType::TENSOR_FLOAT16,
+                      TestOperandType::TENSOR_INT32, TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_TOPK_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
+
+static void sliceConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     op->inputs[1]->dimensions = {rank};
     op->inputs[2]->dimensions = {rank};
     setFreeDimensions(op->inputs[0], rank);
@@ -221,17 +247,21 @@ static void sliceFinalizer(RandomOperation* op) {
     }
 }
 
-DEFINE_OPERATION_SIGNATURE(SLICE_V1_2){
-        .opType = ANEURALNETWORKS_SLICE,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16, Type::TENSOR_INT32,
-                               Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(Type::TENSOR_INT32),
-                   PARAMETER_NONE(Type::TENSOR_INT32)},
-        .outputs = {OUTPUT_DEFAULT},
-        .constructor = sliceConstructor,
-        .finalizer = sliceFinalizer};
+#define DEFINE_SLICE_SIGNATURE(ver, ...)                                             \
+    DEFINE_OPERATION_SIGNATURE(SLICE_##ver){                                         \
+            .opType = TestOperationType::SLICE,                                      \
+            .supportedDataTypes = {__VA_ARGS__},                                     \
+            .supportedRanks = {1, 2, 3, 4},                                          \
+            .version = TestHalVersion::ver,                                          \
+            .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::TENSOR_INT32), \
+                       PARAMETER_NONE(TestOperandType::TENSOR_INT32)},               \
+            .outputs = {OUTPUT_DEFAULT},                                             \
+            .constructor = sliceConstructor,                                         \
+            .finalizer = sliceFinalizer};
+
+DEFINE_SLICE_SIGNATURE(V1_2, TestOperandType::TENSOR_FLOAT32, TestOperandType::TENSOR_FLOAT16,
+                       TestOperandType::TENSOR_INT32, TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_SLICE_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
 
 inline int32_t convertToBitMask(const std::vector<bool>& flags) {
     int32_t mask = 0, bit = 1;
@@ -242,7 +272,7 @@ inline int32_t convertToBitMask(const std::vector<bool>& flags) {
     return mask;
 }
 
-static void stridedSliceConstructor(Type, uint32_t rank, RandomOperation* op) {
+static void stridedSliceConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     op->inputs[1]->dimensions = {rank};
     op->inputs[2]->dimensions = {rank};
     op->inputs[3]->dimensions = {rank};
@@ -250,8 +280,7 @@ static void stridedSliceConstructor(Type, uint32_t rank, RandomOperation* op) {
     setFreeDimensions(op->inputs[0], rank);
     std::vector<bool> shrinkMask(rank, false);
     for (uint32_t i = 0; i < rank; i++) {
-        // TODO: Currently shrinkMask is always set to false.
-        shrinkMask[i] = false;
+        shrinkMask[i] = getBernoulli(0.2f);
         int32_t stride = getUniform<int32_t>(1, 3);
         op->inputs[3]->value<int32_t>(i) = stride;
         if (!shrinkMask[i]) {
@@ -273,7 +302,8 @@ static void stridedSliceFinalizer(RandomOperation* op) {
     for (uint32_t i = 0, o = 0; i < rank; i++) {
         int32_t inputSize = op->inputs[0]->dimensions[i].getValue();
         int32_t stride = op->inputs[3]->value<int32_t>(i);
-        if ((shrinkMask & (1 << i)) == 0) {
+        bool shrink = shrinkMask & (1 << i);
+        if (!shrink) {
             int32_t outputSize = op->outputs[0]->dimensions[o++].getValue();
             int32_t maxStart = inputSize - (outputSize - 1) * stride - 1;
             begin[i] = getUniform<int32_t>(0, maxStart);
@@ -290,22 +320,22 @@ static void stridedSliceFinalizer(RandomOperation* op) {
             // arbitrary value.
             if (beginMask[i]) begin[i] = getUniform<int32_t>(-inputSize, inputSize - 1);
             if (endMask[i]) end[i] = getUniform<int32_t>(-inputSize, inputSize - 1);
+
+            // Switch to negative stride.
+            if (getBernoulli(0.2f)) {
+                op->inputs[3]->value<int32_t>(i) = -stride;
+                std::swap(begin[i], end[i]);
+                std::swap(beginMask[i], endMask[i]);
+                begin[i]--;
+                end[i]--;
+                // end = -1 will be interpreted to inputSize - 1 if not setting endMask.
+                if (end[i] < 0) endMask[i] = true;
+            }
         } else {
             // When shrink mask is set, the begin and end must define a slice of size 1, e.g.
             // begin[i] = x, end[i] = x + 1.
             begin[i] = getUniform<int32_t>(0, inputSize - 1);
             end[i] = begin[i] + 1;
-        }
-
-        // Switch to negative stride.
-        if (getBernoulli(0.2f)) {
-            op->inputs[3]->value<int32_t>(i) = -stride;
-            std::swap(begin[i], end[i]);
-            std::swap(beginMask[i], endMask[i]);
-            begin[i]--;
-            end[i]--;
-            // end = -1 will be intepreted to inputSize - 1 if not setting endMask.
-            if (end[i] < 0) endMask[i] = true;
         }
     }
     op->inputs[4]->setScalarValue<int32_t>(convertToBitMask(beginMask));
@@ -313,27 +343,45 @@ static void stridedSliceFinalizer(RandomOperation* op) {
 }
 
 DEFINE_OPERATION_SIGNATURE(STRIDED_SLICE_V1_1){
-        .opType = ANEURALNETWORKS_STRIDED_SLICE,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::STRIDED_SLICE,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32,
+                               TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_1,
-        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(Type::TENSOR_INT32),
-                   PARAMETER_NONE(Type::TENSOR_INT32), PARAMETER_NONE(Type::TENSOR_INT32),
-                   PARAMETER_CHOICE(Type::INT32, 0), PARAMETER_CHOICE(Type::INT32, 0),
-                   PARAMETER_CHOICE(Type::INT32, 0)},
+        .version = TestHalVersion::V1_1,
+        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_CHOICE(TestOperandType::INT32, 0),
+                   PARAMETER_CHOICE(TestOperandType::INT32, 0),
+                   PARAMETER_CHOICE(TestOperandType::INT32, 0)},
         .outputs = {OUTPUT_DEFAULT},
         .constructor = stridedSliceConstructor,
         .finalizer = stridedSliceFinalizer};
 
 DEFINE_OPERATION_SIGNATURE(STRIDED_SLICE_V1_2){
-        .opType = ANEURALNETWORKS_STRIDED_SLICE,
-        .supportedDataTypes = {Type::TENSOR_FLOAT16},
+        .opType = TestOperationType::STRIDED_SLICE,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT16},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(Type::TENSOR_INT32),
-                   PARAMETER_NONE(Type::TENSOR_INT32), PARAMETER_NONE(Type::TENSOR_INT32),
-                   PARAMETER_NONE(Type::INT32), PARAMETER_NONE(Type::INT32),
-                   PARAMETER_NONE(Type::INT32)},
+        .version = TestHalVersion::V1_2,
+        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::INT32), PARAMETER_NONE(TestOperandType::INT32),
+                   PARAMETER_NONE(TestOperandType::INT32)},
+        .outputs = {OUTPUT_DEFAULT},
+        .constructor = stridedSliceConstructor,
+        .finalizer = stridedSliceFinalizer};
+
+DEFINE_OPERATION_SIGNATURE(STRIDED_SLICE_V1_3){
+        .opType = TestOperationType::STRIDED_SLICE,
+        .supportedDataTypes = {TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED},
+        .supportedRanks = {1, 2, 3, 4},
+        .version = TestHalVersion::V1_3,
+        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::TENSOR_INT32),
+                   PARAMETER_NONE(TestOperandType::INT32), PARAMETER_NONE(TestOperandType::INT32),
+                   PARAMETER_NONE(TestOperandType::INT32)},
         .outputs = {OUTPUT_DEFAULT},
         .constructor = stridedSliceConstructor,
         .finalizer = stridedSliceFinalizer};

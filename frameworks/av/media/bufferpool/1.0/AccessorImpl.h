@@ -61,7 +61,6 @@ private:
     // ConnectionId = pid : (timestamp_created + seqId)
     // in order to guarantee uniqueness for each connection
     static uint32_t sSeqId;
-    static int32_t sPid;
 
     const std::shared_ptr<BufferPoolAllocator> mAllocator;
 
@@ -94,6 +93,7 @@ private:
 
         std::map<BufferId, std::unique_ptr<InternalBuffer>> mBuffers;
         std::set<BufferId> mFreeBuffers;
+        std::set<ConnectionId> mConnectionIds;
 
         /// Buffer pool statistics which tracks allocation and transfer statistics.
         struct Stats {

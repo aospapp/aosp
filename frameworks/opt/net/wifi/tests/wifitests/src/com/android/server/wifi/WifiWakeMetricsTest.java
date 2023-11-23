@@ -24,13 +24,13 @@ import static junit.framework.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.server.wifi.nano.WifiMetricsProto.WifiWakeStats;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiWakeStats;
 
 import org.junit.Before;
 import org.junit.Test;
 
 @SmallTest
-public class WifiWakeMetricsTest {
+public class WifiWakeMetricsTest extends WifiBaseTest {
 
     private WifiWakeMetrics mWifiWakeMetrics;
 

@@ -797,6 +797,10 @@ bool chreWifiConfigureScanMonitorAsync(bool enable, const void *cookie);
  * which arrive consecutively without any other scan results in between)
  * of type CHRE_EVENT_WIFI_SCAN_RESULT.
  *
+ * WiFi scanning must be disabled if both "WiFi scanning" and "WiFi" settings are
+ * disabled at the Android level. In this case, the CHRE implementation is
+ * expected to return a result with CHRE_ERROR_FUNCTION_DISABLED.
+ *
  * It is not valid for a client to request a new scan while a result is pending
  * based on a previous scan request from the same client. In this situation, the
  * CHRE implementation is expected to return a result with CHRE_ERROR_BUSY.
@@ -848,6 +852,12 @@ static inline bool chreWifiRequestScanAsyncDefault(const void *cookie) {
  * event of type CHRE_EVENT_WIFI_ASYNC_RESULT. The result must be delivered
  * within CHRE_WIFI_RANGING_RESULT_TIMEOUT_NS of the this request. Refer to the
  * note in {@link #chreAsyncResult} for more details.
+ *
+ * WiFi RTT ranging must be disabled if any of the following is true:
+ * - Both "WiFi" and "WiFi Scanning" settings are disabled at the Android level.
+ * - The "Location" setting is disabled at the Android level.
+ * In this case, the CHRE implementation is expected to return a result with
+ * CHRE_ERROR_FUNCTION_DISABLED.
  *
  * A successful result provided in CHRE_EVENT_WIFI_ASYNC_RESULT indicates that
  * the results of ranging will be delivered in a subsequent event of type

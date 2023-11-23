@@ -34,6 +34,7 @@ java_library {
     srcs: [
         "pixelatoms.proto",
     ],
+    sdk_version: "current",
 }
 
 cc_library {
@@ -43,8 +44,11 @@ cc_library {
 
   srcs: [
     "DropDetect.cpp",
+    "OrientationCollector.cpp",
     "SysfsCollector.cpp",
     "UeventListener.cpp",
+    "WlcReporter.cpp",
+    "BatteryCapacityReporter.cpp",
   ],
   cflags: [
     "-Wall",
@@ -56,9 +60,9 @@ cc_library {
     "libbinder",
     "libcutils",
     "libhidlbase",
-    "libhidltransport",
     "liblog",
     "libutils",
+    "libsensorndkbridge",
     "pixelatoms-cpp",
   ],
   export_shared_lib_headers: [

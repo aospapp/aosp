@@ -83,6 +83,8 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
         setInfoResources(R.string.usbaudio_buttons_test, R.string.usbaudio_buttons_info, -1);
 
         showDisableAssistantDialog();
+
+        connectUSBPeripheralUI();
     }
 
     private void showButtonsState() {

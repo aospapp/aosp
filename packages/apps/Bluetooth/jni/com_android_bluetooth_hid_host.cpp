@@ -18,13 +18,12 @@
 
 #define LOG_NDEBUG 1
 
-#include "android_runtime/AndroidRuntime.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_hh.h"
 #include "utils/Log.h"
 
 #include <string.h>
-
+#include <shared_mutex>
 namespace android {
 
 static jmethodID method_onConnectStateChanged;
@@ -36,6 +35,7 @@ static jmethodID method_onGetIdleTime;
 
 static const bthh_interface_t* sBluetoothHidInterface = NULL;
 static jobject mCallbacksObj = NULL;
+static std::shared_timed_mutex mCallbacks_mutex;
 
 static jbyteArray marshall_bda(RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
@@ -53,6 +53,7 @@ static jbyteArray marshall_bda(RawAddress* bd_addr) {
 
 static void connection_state_callback(RawAddress* bd_addr,
                                       bthh_connection_state_t state) {
+  std::shared_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
@@ -72,6 +73,7 @@ static void connection_state_callback(RawAddress* bd_addr,
 static void get_protocol_mode_callback(RawAddress* bd_addr,
                                        bthh_status_t hh_status,
                                        bthh_protocol_mode_t mode) {
+  std::shared_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
@@ -95,6 +97,7 @@ static void get_protocol_mode_callback(RawAddress* bd_addr,
 
 static void get_report_callback(RawAddress* bd_addr, bthh_status_t hh_status,
                                 uint8_t* rpt_data, int rpt_size) {
+  std::shared_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
@@ -126,6 +129,7 @@ static void get_report_callback(RawAddress* bd_addr, bthh_status_t hh_status,
 static void virtual_unplug_callback(RawAddress* bd_addr,
                                     bthh_status_t hh_status) {
   ALOGV("call to virtual_unplug_callback");
+  std::shared_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
@@ -142,6 +146,7 @@ static void virtual_unplug_callback(RawAddress* bd_addr,
 }
 
 static void handshake_callback(RawAddress* bd_addr, bthh_status_t hh_status) {
+  std::shared_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
@@ -160,6 +165,7 @@ static void handshake_callback(RawAddress* bd_addr, bthh_status_t hh_status) {
 
 static void get_idle_time_callback(RawAddress* bd_addr, bthh_status_t hh_status,
                                    int idle_time) {
+  std::shared_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -198,6 +204,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static void initializeNative(JNIEnv* env, jobject object) {
+  std::unique_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
@@ -234,6 +241,7 @@ static void initializeNative(JNIEnv* env, jobject object) {
 }
 
 static void cleanupNative(JNIEnv* env, jobject object) {
+  std::unique_lock<std::shared_timed_mutex> lock(mCallbacks_mutex);
   const bt_interface_t* btInf = getBluetoothInterface();
 
   if (btInf == NULL) {

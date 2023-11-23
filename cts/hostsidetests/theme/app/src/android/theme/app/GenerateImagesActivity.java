@@ -52,6 +52,12 @@ public class GenerateImagesActivity extends Activity {
     private String mFinishReason;
     private boolean mFinishSuccess;
 
+    class CompressOutputThread extends Thread {
+        public void run() {
+            compressOutput();
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,12 +65,39 @@ public class GenerateImagesActivity extends Activity {
         // Useful for local testing. Not required for CTS harness.
         getWindow().addFlags(LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        mOutputDir = setupOutputDirectory();
-        if (mOutputDir == null) {
-            finish("Failed to create output directory " + mOutputDir.getAbsolutePath(), false);
+        // Make sure the device has reasonable assets.
+        String assetDensityFailureMsg = checkAssetDensity();
+        if (assetDensityFailureMsg != null) {
+            finish("Failed to verify device assets: "+ assetDensityFailureMsg, false);
         } else {
-            generateNextImage();
+            mOutputDir = setupOutputDirectory();
+            if (mOutputDir == null) {
+                finish("Failed to create output directory: " + OUT_DIR, false);
+            } else {
+                generateNextImage();
+            }
         }
+    }
+
+    private String checkAssetDensity() {
+        AssetBucketVerifier.Result result = AssetBucketVerifier.verifyAssetBucket(this);
+
+        String message;
+        if (result.foundAtDensity.contains(result.expectedAtDensity)) {
+            message = null;
+        } else if (result.foundAtDensity.isEmpty()) {
+            message = "Failed to find expected device assets at any density";
+        } else {
+            StringBuilder foundAtDensityStr = new StringBuilder(result.foundAtDensity.get(0));
+            for (int i = 1; i < result.foundAtDensity.size(); i++) {
+                foundAtDensityStr.append(", ");
+                foundAtDensityStr.append(result.foundAtDensity.get(i));
+            }
+            message = "Failed to find device assets at expected density ("
+                    + result.expectedAtDensity + "), but found at " + foundAtDensityStr;
+        }
+
+        return message;
     }
 
     private File setupOutputDirectory() {
@@ -99,15 +132,15 @@ public class GenerateImagesActivity extends Activity {
     private void generateNextImage() {
         // Keep trying themes until one works.
         boolean success = false;
-        while (++mCurrentTheme < THEMES.length && !success) {
+        while (mCurrentTheme < THEMES.length && !success) {
             success = launchThemeDeviceActivity();
+            mCurrentTheme++;
         }
 
         // If we ran out of themes, we're done.
         if (!success) {
-            compressOutput();
-
-            finish("Image generation complete!", true);
+            CompressOutputThread compressOutputThread = new CompressOutputThread();
+            compressOutputThread.start();
         }
     }
 
@@ -154,6 +187,9 @@ public class GenerateImagesActivity extends Activity {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        runOnUiThread(() -> {
+            finish("Image generation complete!", true);
+        });
     }
 
     private void finish(String reason, boolean success) {

@@ -27,6 +27,7 @@
 #include "vktSpvAsmGraphicsShaderTestUtil.hpp"
 
 #include "tcuStringTemplate.hpp"
+#include "tcuVectorUtil.hpp"
 
 namespace vkt
 {
@@ -81,7 +82,7 @@ void addComputeIndexingStructTests (tcu::TestCaseGroup* group)
 
 	indexSelectorData.reserve(numItems);
 	for (deUint32 numIdx = 0; numIdx < numItems; ++numIdx)
-		indexSelectorData.push_back(UVec4(rnd.getUint32() % 32, rnd.getUint32() % 32, rnd.getUint32() % 4, rnd.getUint32() % 4));
+		indexSelectorData.push_back(tcu::randomVector<deUint32, 4>(rnd, UVec4(0), UVec4(31, 31, 3, 3)));
 
 	for (int chainOpIdx = 0; chainOpIdx < CHAIN_OP_LAST; ++chainOpIdx)
 	{
@@ -297,7 +298,7 @@ void addGraphicsIndexingStructTests (tcu::TestCaseGroup* group)
 
 	indexSelectorData.reserve(numItems);
 	for (deUint32 numIdx = 0; numIdx < numItems; ++numIdx)
-		indexSelectorData.push_back(UVec4(rnd.getUint32() % 32, rnd.getUint32() % 32, rnd.getUint32() % 4, rnd.getUint32() % 4));
+		indexSelectorData.push_back(tcu::randomVector<deUint32, 4>(rnd, UVec4(0), UVec4(31, 31, 3, 3)));
 
 	getDefaultColors(defaultColors);
 
@@ -486,6 +487,9 @@ void addGraphicsIndexingStructTests (tcu::TestCaseGroup* group)
 
 				resources.outputs.push_back(Resource(BufferSp(new Float32Buffer(outputData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
+				vulkanFeatures.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				vulkanFeatures.coreFeatures.fragmentStoresAndAtomics		= true;
+
 				fragments["pre_main"]	= preMain.specialize(specs);
 				fragments["decoration"]	= decoration.specialize(specs);
 				fragments["testfun"]	= testFun.specialize(specs);
@@ -527,6 +531,7 @@ void addGraphicsOutputComponentIndexingTests (tcu::TestCaseGroup* testGroup)
 		"          %ip_a3u32 = OpTypePointer Input %a3u32\n"
 		"%v4f32_u32_function = OpTypeFunction %v4f32 %u32\n";
 
+	fragments["interface_op_call"] = "OpFunctionCall %v4f32 %interface_op_func";
 	fragments["interface_op_func"] =
 		"%interface_op_func = OpFunction %v4f32 None %v4f32_u32_function\n"
 		"        %io_param1 = OpFunctionParameter %u32\n"

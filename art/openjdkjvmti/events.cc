@@ -29,9 +29,15 @@
  * questions.
  */
 
+#include <android-base/thread_annotations.h>
+
+#include "alloc_manager.h"
+#include "base/locks.h"
+#include "base/mutex.h"
 #include "events-inl.h"
 
 #include <array>
+#include <functional>
 #include <sys/time.h>
 
 #include "arch/context.h"
@@ -41,21 +47,31 @@
 #include "base/mutex.h"
 #include "deopt_manager.h"
 #include "dex/dex_file_types.h"
+#include "events.h"
 #include "gc/allocation_listener.h"
 #include "gc/gc_pause_listener.h"
 #include "gc/heap.h"
 #include "gc/scoped_gc_critical_section.h"
 #include "handle_scope-inl.h"
+#include "indirect_reference_table.h"
 #include "instrumentation.h"
+#include "interpreter/shadow_frame.h"
 #include "jni/jni_env_ext-inl.h"
 #include "jni/jni_internal.h"
+#include "jvalue-inl.h"
+#include "jvalue.h"
+#include "jvmti.h"
 #include "mirror/class.h"
 #include "mirror/object-inl.h"
 #include "monitor-inl.h"
 #include "nativehelper/scoped_local_ref.h"
+#include "reflective_handle.h"
+#include "reflective_handle_scope-inl.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
+#include "scoped_thread_state_change.h"
 #include "stack.h"
+#include "thread.h"
 #include "thread-inl.h"
 #include "thread_list.h"
 #include "ti_phase.h"
@@ -79,8 +95,14 @@ void ArtJvmtiEventCallbacks::CopyExtensionsFrom(const ArtJvmtiEventCallbacks* cb
 
 jvmtiError ArtJvmtiEventCallbacks::Set(jint index, jvmtiExtensionEvent cb) {
   switch (index) {
+    case static_cast<jint>(ArtJvmtiEvent::kObsoleteObjectCreated):
+      ObsoleteObjectCreated = reinterpret_cast<ArtJvmtiEventObsoleteObjectCreated>(cb);
+      return OK;
     case static_cast<jint>(ArtJvmtiEvent::kDdmPublishChunk):
       DdmPublishChunk = reinterpret_cast<ArtJvmtiEventDdmPublishChunk>(cb);
+      return OK;
+    case static_cast<jint>(ArtJvmtiEvent::kStructuralDexFileLoadHook):
+      StructuralDexFileLoadHook = reinterpret_cast<ArtJvmtiEventStructuralDexFileLoadHook>(cb);
       return OK;
     default:
       return ERR(ILLEGAL_ARGUMENT);
@@ -97,6 +119,8 @@ bool IsExtensionEvent(jint e) {
 bool IsExtensionEvent(ArtJvmtiEvent e) {
   switch (e) {
     case ArtJvmtiEvent::kDdmPublishChunk:
+    case ArtJvmtiEvent::kObsoleteObjectCreated:
+    case ArtJvmtiEvent::kStructuralDexFileLoadHook:
       return true;
     default:
       return false;
@@ -230,6 +254,7 @@ static bool IsThreadControllable(ArtJvmtiEvent event) {
     case ArtJvmtiEvent::kCompiledMethodUnload:
     case ArtJvmtiEvent::kDynamicCodeGenerated:
     case ArtJvmtiEvent::kDataDumpRequest:
+    case ArtJvmtiEvent::kObsoleteObjectCreated:
       return false;
 
     default:
@@ -288,9 +313,9 @@ class JvmtiDdmChunkListener : public art::DdmCallback {
   DISALLOW_COPY_AND_ASSIGN(JvmtiDdmChunkListener);
 };
 
-class JvmtiAllocationListener : public art::gc::AllocationListener {
+class JvmtiEventAllocationListener : public AllocationManager::AllocationCallback {
  public:
-  explicit JvmtiAllocationListener(EventHandler* handler) : handler_(handler) {}
+  explicit JvmtiEventAllocationListener(EventHandler* handler) : handler_(handler) {}
 
   void ObjectAllocated(art::Thread* self, art::ObjPtr<art::mirror::Object>* obj, size_t byte_count)
       override REQUIRES_SHARED(art::Locks::mutator_lock_) {
@@ -325,15 +350,14 @@ class JvmtiAllocationListener : public art::gc::AllocationListener {
   EventHandler* handler_;
 };
 
-static void SetupObjectAllocationTracking(art::gc::AllocationListener* listener, bool enable) {
+static void SetupObjectAllocationTracking(bool enable) {
   // We must not hold the mutator lock here, but if we're in FastJNI, for example, we might. For
   // now, do a workaround: (possibly) acquire and release.
   art::ScopedObjectAccess soa(art::Thread::Current());
-  art::ScopedThreadSuspension sts(soa.Self(), art::ThreadState::kSuspended);
   if (enable) {
-    art::Runtime::Current()->GetHeap()->SetAllocationListener(listener);
+    AllocationManager::Get()->EnableAllocationCallback(soa.Self());
   } else {
-    art::Runtime::Current()->GetHeap()->RemoveAllocationListener();
+    AllocationManager::Get()->DisableAllocationCallback(soa.Self());
   }
 }
 
@@ -571,7 +595,34 @@ static void SetupGcPauseTracking(JvmtiGcPauseListener* listener, ArtJvmtiEvent e
 
 class JvmtiMethodTraceListener final : public art::instrumentation::InstrumentationListener {
  public:
-  explicit JvmtiMethodTraceListener(EventHandler* handler) : event_handler_(handler) {}
+  explicit JvmtiMethodTraceListener(EventHandler* handler)
+      : event_handler_(handler),
+        non_standard_exits_lock_("JVMTI NonStandard Exits list lock",
+                                 art::LockLevel::kGenericBottomLock) {}
+
+  void AddDelayedNonStandardExitEvent(const art::ShadowFrame* frame, bool is_object, jvalue val)
+      REQUIRES_SHARED(art::Locks::mutator_lock_)
+          REQUIRES(art::Locks::user_code_suspension_lock_, art::Locks::thread_list_lock_) {
+    art::Thread* self = art::Thread::Current();
+    jobject to_cleanup = nullptr;
+    jobject new_val = is_object ? self->GetJniEnv()->NewGlobalRef(val.l) : nullptr;
+    {
+      art::MutexLock mu(self, non_standard_exits_lock_);
+      NonStandardExitEventInfo saved{ nullptr, { .j = 0 } };
+      if (is_object) {
+        saved.return_val_obj_ = new_val;
+        saved.return_val_.l = saved.return_val_obj_;
+      } else {
+        saved.return_val_.j = val.j;
+      }
+      // only objects need cleanup.
+      if (UNLIKELY(is_object && non_standard_exits_.find(frame) != non_standard_exits_.end())) {
+        to_cleanup = non_standard_exits_.find(frame)->second.return_val_obj_;
+      }
+      non_standard_exits_.insert_or_assign(frame, saved);
+    }
+    self->GetJniEnv()->DeleteGlobalRef(to_cleanup);
+  }
 
   // Call-back for when a method is entered.
   void MethodEntered(art::Thread* self,
@@ -589,15 +640,44 @@ class JvmtiMethodTraceListener final : public art::instrumentation::Instrumentat
     }
   }
 
+  // TODO Maybe try to combine this with below using templates?
   // Callback for when a method is exited with a reference return value.
   void MethodExited(art::Thread* self,
                     art::Handle<art::mirror::Object> this_object ATTRIBUTE_UNUSED,
                     art::ArtMethod* method,
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
-                    art::Handle<art::mirror::Object> return_value)
+                    art::instrumentation::OptionalFrame frame,
+                    art::MutableHandle<art::mirror::Object>& return_value)
       REQUIRES_SHARED(art::Locks::mutator_lock_) override {
-    if (!method->IsRuntimeMethod() &&
-        event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kMethodExit)) {
+    if (method->IsRuntimeMethod()) {
+      return;
+    }
+    if (frame.has_value() && UNLIKELY(event_handler_->IsEventEnabledAnywhere(
+                                 ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue))) {
+      DCHECK(!frame->get().GetSkipMethodExitEvents());
+      bool has_return = false;
+      jobject ret_val = nullptr;
+      {
+        art::MutexLock mu(self, non_standard_exits_lock_);
+        const art::ShadowFrame* sframe = &frame.value().get();
+        const auto it = non_standard_exits_.find(sframe);
+        if (it != non_standard_exits_.end()) {
+          ret_val = it->second.return_val_obj_;
+          non_standard_exits_.erase(it);
+          has_return = true;
+        }
+      }
+      if (has_return) {
+        return_value.Assign(self->DecodeJObject(ret_val));
+        ScopedLocalRef<jthread> thr(self->GetJniEnv(),
+                                    self->GetJniEnv()->NewLocalRef(self->GetPeer()));
+        art::ScopedThreadSuspension sts(self, art::ThreadState::kNative);
+        self->GetJniEnv()->DeleteGlobalRef(ret_val);
+        event_handler_->SetInternalEvent(
+            thr.get(), ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue, JVMTI_DISABLE);
+      }
+    }
+    if (event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kMethodExit)) {
       DCHECK_EQ(
           method->GetInterfaceMethodIfProxy(art::kRuntimePointerSize)->GetReturnTypePrimitive(),
           art::Primitive::kPrimNot) << method->PrettyMethod();
@@ -621,14 +701,36 @@ class JvmtiMethodTraceListener final : public art::instrumentation::Instrumentat
                     art::Handle<art::mirror::Object> this_object ATTRIBUTE_UNUSED,
                     art::ArtMethod* method,
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
-                    const art::JValue& return_value)
-      REQUIRES_SHARED(art::Locks::mutator_lock_) override {
-    if (!method->IsRuntimeMethod() &&
-        event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kMethodExit)) {
+                    art::instrumentation::OptionalFrame frame,
+                    art::JValue& return_value) REQUIRES_SHARED(art::Locks::mutator_lock_) override {
+    if (frame.has_value() &&
+        UNLIKELY(event_handler_->IsEventEnabledAnywhere(
+            ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue))) {
+      DCHECK(!frame->get().GetSkipMethodExitEvents());
+      bool has_return = false;
+      {
+        art::MutexLock mu(self, non_standard_exits_lock_);
+        const art::ShadowFrame* sframe = &frame.value().get();
+        const auto it = non_standard_exits_.find(sframe);
+        if (it != non_standard_exits_.end()) {
+          return_value.SetJ(it->second.return_val_.j);
+          non_standard_exits_.erase(it);
+          has_return = true;
+        }
+      }
+      if (has_return) {
+        ScopedLocalRef<jthread> thr(self->GetJniEnv(),
+                                    self->GetJniEnv()->NewLocalRef(self->GetPeer()));
+        art::ScopedThreadSuspension sts(self, art::ThreadState::kNative);
+        event_handler_->SetInternalEvent(
+            thr.get(), ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue, JVMTI_DISABLE);
+      }
+    }
+    if (event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kMethodExit)) {
       DCHECK_NE(
           method->GetInterfaceMethodIfProxy(art::kRuntimePointerSize)->GetReturnTypePrimitive(),
           art::Primitive::kPrimNot) << method->PrettyMethod();
-      DCHECK(!self->IsExceptionPending());
+      DCHECK(!self->IsExceptionPending()) << self->GetException()->Dump();
       jvalue val;
       art::JNIEnvExt* jnienv = self->GetJniEnv();
       // 64bit integer is the largest value in the union so we should be fine simply copying it into
@@ -704,11 +806,14 @@ class JvmtiMethodTraceListener final : public art::instrumentation::Instrumentat
   // Call-back for when we read from a field.
   void FieldRead(art::Thread* self,
                  art::Handle<art::mirror::Object> this_object,
-                 art::ArtMethod* method,
+                 art::ArtMethod* method_p,
                  uint32_t dex_pc,
-                 art::ArtField* field)
+                 art::ArtField* field_p)
       REQUIRES_SHARED(art::Locks::mutator_lock_) override {
     if (event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kFieldAccess)) {
+      art::StackReflectiveHandleScope<1, 1> rhs(self);
+      art::ReflectiveHandle<art::ArtField> field(rhs.NewHandle(field_p));
+      art::ReflectiveHandle<art::ArtMethod> method(rhs.NewHandle(method_p));
       art::JNIEnvExt* jnienv = self->GetJniEnv();
       // DCHECK(!self->IsExceptionPending());
       ScopedLocalRef<jobject> this_ref(jnienv, AddLocalRef<jobject>(jnienv, this_object.Get()));
@@ -728,13 +833,16 @@ class JvmtiMethodTraceListener final : public art::instrumentation::Instrumentat
 
   void FieldWritten(art::Thread* self,
                     art::Handle<art::mirror::Object> this_object,
-                    art::ArtMethod* method,
+                    art::ArtMethod* method_p,
                     uint32_t dex_pc,
-                    art::ArtField* field,
+                    art::ArtField* field_p,
                     art::Handle<art::mirror::Object> new_val)
       REQUIRES_SHARED(art::Locks::mutator_lock_) override {
     if (event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kFieldModification)) {
       art::JNIEnvExt* jnienv = self->GetJniEnv();
+      art::StackReflectiveHandleScope<1, 1> rhs(self);
+      art::ReflectiveHandle<art::ArtField> field(rhs.NewHandle(field_p));
+      art::ReflectiveHandle<art::ArtMethod> method(rhs.NewHandle(method_p));
       // DCHECK(!self->IsExceptionPending());
       ScopedLocalRef<jobject> this_ref(jnienv, AddLocalRef<jobject>(jnienv, this_object.Get()));
       ScopedLocalRef<jobject> fklass(jnienv,
@@ -760,13 +868,16 @@ class JvmtiMethodTraceListener final : public art::instrumentation::Instrumentat
   // Call-back for when we write into a field.
   void FieldWritten(art::Thread* self,
                     art::Handle<art::mirror::Object> this_object,
-                    art::ArtMethod* method,
+                    art::ArtMethod* method_p,
                     uint32_t dex_pc,
-                    art::ArtField* field,
+                    art::ArtField* field_p,
                     const art::JValue& field_value)
       REQUIRES_SHARED(art::Locks::mutator_lock_) override {
     if (event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kFieldModification)) {
       art::JNIEnvExt* jnienv = self->GetJniEnv();
+      art::StackReflectiveHandleScope<1, 1> rhs(self);
+      art::ReflectiveHandle<art::ArtField> field(rhs.NewHandle(field_p));
+      art::ReflectiveHandle<art::ArtMethod> method(rhs.NewHandle(method_p));
       DCHECK(!self->IsExceptionPending());
       ScopedLocalRef<jobject> this_ref(jnienv, AddLocalRef<jobject>(jnienv, this_object.Get()));
       ScopedLocalRef<jobject> fklass(jnienv,
@@ -944,23 +1055,65 @@ class JvmtiMethodTraceListener final : public art::instrumentation::Instrumentat
   }
 
  private:
+  struct NonStandardExitEventInfo {
+    // if non-null is a GlobalReference to the returned value.
+    jobject return_val_obj_;
+    // The return-value to be passed to the MethodExit event.
+    jvalue return_val_;
+  };
+
   EventHandler* const event_handler_;
+
+  mutable art::Mutex non_standard_exits_lock_
+      ACQUIRED_BEFORE(art::Locks::instrument_entrypoints_lock_);
+
+  std::unordered_map<const art::ShadowFrame*, NonStandardExitEventInfo> non_standard_exits_
+      GUARDED_BY(non_standard_exits_lock_);
 };
 
-static uint32_t GetInstrumentationEventsFor(ArtJvmtiEvent event) {
+uint32_t EventHandler::GetInstrumentationEventsFor(ArtJvmtiEvent event) {
   switch (event) {
     case ArtJvmtiEvent::kMethodEntry:
       return art::instrumentation::Instrumentation::kMethodEntered;
-    case ArtJvmtiEvent::kMethodExit:
-      return art::instrumentation::Instrumentation::kMethodExited |
-             art::instrumentation::Instrumentation::kMethodUnwind;
+    case ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue:
+      // TODO We want to do this but supporting only having a single one is difficult.
+      // return art::instrumentation::Instrumentation::kMethodExited;
+    case ArtJvmtiEvent::kMethodExit: {
+      DCHECK(event == ArtJvmtiEvent::kMethodExit ||
+            event == ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue)
+          << "event = " << static_cast<uint32_t>(event);
+      ArtJvmtiEvent other = event == ArtJvmtiEvent::kMethodExit
+                                ? ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue
+                                : ArtJvmtiEvent::kMethodExit;
+      if (LIKELY(!IsEventEnabledAnywhere(other))) {
+        return art::instrumentation::Instrumentation::kMethodExited |
+               art::instrumentation::Instrumentation::kMethodUnwind;
+      } else {
+        // The event needs to be kept around/is already enabled by the other jvmti event that uses
+        // the same instrumentation event.
+        return 0u;
+      }
+    }
     case ArtJvmtiEvent::kFieldModification:
       return art::instrumentation::Instrumentation::kFieldWritten;
     case ArtJvmtiEvent::kFieldAccess:
       return art::instrumentation::Instrumentation::kFieldRead;
     case ArtJvmtiEvent::kBreakpoint:
-    case ArtJvmtiEvent::kSingleStep:
-      return art::instrumentation::Instrumentation::kDexPcMoved;
+    case ArtJvmtiEvent::kSingleStep: {
+      // Need to skip adding the listeners if the event is breakpoint/single-step since those events
+      // share the same art-instrumentation underlying event. We need to give them their own deopt
+      // request though so the test waits until here.
+      DCHECK(event == ArtJvmtiEvent::kBreakpoint || event == ArtJvmtiEvent::kSingleStep);
+      ArtJvmtiEvent other = event == ArtJvmtiEvent::kBreakpoint ? ArtJvmtiEvent::kSingleStep
+                                                                : ArtJvmtiEvent::kBreakpoint;
+      if (LIKELY(!IsEventEnabledAnywhere(other))) {
+        return art::instrumentation::Instrumentation::kDexPcMoved;
+      } else {
+        // The event needs to be kept around/is already enabled by the other jvmti event that uses
+        // the same instrumentation event.
+        return 0u;
+      }
+    }
     case ArtJvmtiEvent::kFramePop:
       return art::instrumentation::Instrumentation::kWatchedFramePop;
     case ArtJvmtiEvent::kException:
@@ -999,6 +1152,7 @@ static DeoptRequirement GetDeoptRequirement(ArtJvmtiEvent event, jthread thread)
     case ArtJvmtiEvent::kFieldAccess:
     case ArtJvmtiEvent::kSingleStep:
     case ArtJvmtiEvent::kFramePop:
+    case ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue:
       return thread == nullptr ? DeoptRequirement::kFull : DeoptRequirement::kThread;
     case ArtJvmtiEvent::kVmInit:
     case ArtJvmtiEvent::kVmDeath:
@@ -1024,6 +1178,8 @@ static DeoptRequirement GetDeoptRequirement(ArtJvmtiEvent event, jthread thread)
     case ArtJvmtiEvent::kVmObjectAlloc:
     case ArtJvmtiEvent::kClassFileLoadHookRetransformable:
     case ArtJvmtiEvent::kDdmPublishChunk:
+    case ArtJvmtiEvent::kObsoleteObjectCreated:
+    case ArtJvmtiEvent::kStructuralDexFileLoadHook:
       return DeoptRequirement::kNone;
   }
 }
@@ -1076,18 +1232,8 @@ void EventHandler::SetupTraceListener(JvmtiMethodTraceListener* listener,
                                       bool enable) {
   // Add the actual listeners.
   uint32_t new_events = GetInstrumentationEventsFor(event);
-  if (new_events == art::instrumentation::Instrumentation::kDexPcMoved) {
-    // Need to skip adding the listeners if the event is breakpoint/single-step since those events
-    // share the same art-instrumentation underlying event. We need to give them their own deopt
-    // request though so the test waits until here.
-    DCHECK(event == ArtJvmtiEvent::kBreakpoint || event == ArtJvmtiEvent::kSingleStep);
-    ArtJvmtiEvent other = event == ArtJvmtiEvent::kBreakpoint ? ArtJvmtiEvent::kSingleStep
-                                                              : ArtJvmtiEvent::kBreakpoint;
-    if (IsEventEnabledAnywhere(other)) {
-      // The event needs to be kept around/is already enabled by the other jvmti event that uses the
-      // same instrumentation event.
-      return;
-    }
+  if (new_events == 0) {
+    return;
   }
   art::ScopedThreadStateChange stsc(art::Thread::Current(), art::ThreadState::kNative);
   art::instrumentation::Instrumentation* instr = art::Runtime::Current()->GetInstrumentation();
@@ -1181,7 +1327,7 @@ void EventHandler::HandleEventType(ArtJvmtiEvent event, bool enable) {
       SetupDdmTracking(ddm_listener_.get(), enable);
       return;
     case ArtJvmtiEvent::kVmObjectAlloc:
-      SetupObjectAllocationTracking(alloc_listener_.get(), enable);
+      SetupObjectAllocationTracking(enable);
       return;
     case ArtJvmtiEvent::kGarbageCollectionStart:
     case ArtJvmtiEvent::kGarbageCollectionFinish:
@@ -1204,6 +1350,7 @@ void EventHandler::HandleEventType(ArtJvmtiEvent event, bool enable) {
     case ArtJvmtiEvent::kExceptionCatch:
     case ArtJvmtiEvent::kBreakpoint:
     case ArtJvmtiEvent::kSingleStep:
+    case ArtJvmtiEvent::kForceEarlyReturnUpdateReturnValue:
       SetupTraceListener(method_trace_listener_.get(), event, enable);
       return;
     case ArtJvmtiEvent::kMonitorContendedEnter:
@@ -1278,6 +1425,90 @@ static bool HasAssociatedCapability(ArtJvmTiEnv* env,
   }
 }
 
+static bool IsInternalEvent(ArtJvmtiEvent event) {
+  return static_cast<uint32_t>(event) >=
+         static_cast<uint32_t>(ArtJvmtiEvent::kMinInternalEventTypeVal);
+}
+
+jvmtiError EventHandler::SetInternalEvent(jthread thread,
+                                          ArtJvmtiEvent event,
+                                          jvmtiEventMode mode) {
+  CHECK(IsInternalEvent(event)) << static_cast<uint32_t>(event);
+
+  art::Thread* self = art::Thread::Current();
+  art::Thread* target = nullptr;
+  ScopedNoUserCodeSuspension snucs(self);
+  // The overall state across all threads and jvmtiEnvs. This is used to control the state of the
+  // instrumentation handlers since we only want each added once.
+  bool old_state;
+  bool new_state;
+  // The state for just the current 'thread' (including null) across all jvmtiEnvs. This is used to
+  // control the deoptimization state since we do refcounting for that and need to perform different
+  // actions depending on if the event is limited to a single thread or global.
+  bool old_thread_state;
+  bool new_thread_state;
+  {
+    // From now on we know we cannot get suspended by user-code.
+    // NB This does a SuspendCheck (during thread state change) so we need to
+    // make sure we don't have the 'suspend_lock' locked here.
+    art::ScopedObjectAccess soa(self);
+    art::WriterMutexLock el_mu(self, envs_lock_);
+    art::MutexLock tll_mu(self, *art::Locks::thread_list_lock_);
+    jvmtiError err = ERR(INTERNAL);
+    if (!ThreadUtil::GetAliveNativeThread(thread, soa, &target, &err)) {
+      return err;
+    } else if (target->IsStillStarting() || target->GetState() == art::ThreadState::kStarting) {
+      target->Dump(LOG_STREAM(WARNING) << "Is not alive: ");
+      return ERR(THREAD_NOT_ALIVE);
+    }
+
+    // Make sure we have a valid jthread to pass to deopt-manager.
+    ScopedLocalRef<jthread> thread_lr(
+        soa.Env(), thread != nullptr ? nullptr : soa.AddLocalReference<jthread>(target->GetPeer()));
+    if (thread == nullptr) {
+      thread = thread_lr.get();
+    }
+    CHECK(thread != nullptr);
+
+    {
+      DCHECK_GE(GetInternalEventRefcount(event) + (mode == JVMTI_ENABLE ? 1 : -1), 0)
+        << "Refcount: " << GetInternalEventRefcount(event);
+      DCHECK_GE(GetInternalEventThreadRefcount(event, target) + (mode == JVMTI_ENABLE ? 1 : -1), 0)
+        << "Refcount: " << GetInternalEventThreadRefcount(event, target);
+      DCHECK_GE(GetInternalEventRefcount(event), GetInternalEventThreadRefcount(event, target));
+      old_state = GetInternalEventRefcount(event) > 0;
+      old_thread_state = GetInternalEventThreadRefcount(event, target) > 0;
+      if (mode == JVMTI_ENABLE) {
+        new_state = IncrInternalEventRefcount(event) > 0;
+        new_thread_state = IncrInternalEventThreadRefcount(event, target) > 0;
+      } else {
+        new_state = DecrInternalEventRefcount(event) > 0;
+        new_thread_state = DecrInternalEventThreadRefcount(event, target) > 0;
+      }
+      if (old_state != new_state) {
+        global_mask.Set(event, new_state);
+      }
+    }
+  }
+  // Handle any special work required for the event type. We still have the
+  // user_code_suspend_count_lock_ so there won't be any interleaving here.
+  if (new_state != old_state) {
+    HandleEventType(event, mode == JVMTI_ENABLE);
+  }
+  if (old_thread_state != new_thread_state) {
+    HandleEventDeopt(event, thread, new_thread_state);
+  }
+  return OK;
+}
+
+static bool IsDirectlySettableEvent(ArtJvmtiEvent event) {
+  return !IsInternalEvent(event);
+}
+
+static bool EventIsNormal(ArtJvmtiEvent event) {
+  return EventMask::EventIsInRange(event) && IsDirectlySettableEvent(event);
+}
+
 jvmtiError EventHandler::SetEvent(ArtJvmTiEnv* env,
                                   jthread thread,
                                   ArtJvmtiEvent event,
@@ -1286,7 +1517,7 @@ jvmtiError EventHandler::SetEvent(ArtJvmTiEnv* env,
     return ERR(ILLEGAL_ARGUMENT);
   }
 
-  if (!EventMask::EventIsInRange(event)) {
+  if (!EventIsNormal(event)) {
     return ERR(INVALID_EVENT_TYPE);
   }
 
@@ -1385,6 +1616,46 @@ void EventHandler::HandleBreakpointEventsChanged(bool added) {
   }
 }
 
+void EventHandler::AddDelayedNonStandardExitEvent(const art::ShadowFrame *frame,
+                                                  bool is_object,
+                                                  jvalue val) {
+  method_trace_listener_->AddDelayedNonStandardExitEvent(frame, is_object, val);
+}
+
+static size_t GetInternalEventIndex(ArtJvmtiEvent event) {
+  CHECK(IsInternalEvent(event));
+  return static_cast<size_t>(event) - static_cast<size_t>(ArtJvmtiEvent::kMinInternalEventTypeVal);
+}
+
+int32_t EventHandler::DecrInternalEventThreadRefcount(ArtJvmtiEvent event, art::Thread* target) {
+  return --GetInternalEventThreadRefcount(event, target);
+}
+
+int32_t EventHandler::IncrInternalEventThreadRefcount(ArtJvmtiEvent event, art::Thread* target) {
+  return ++GetInternalEventThreadRefcount(event, target);
+}
+
+int32_t& EventHandler::GetInternalEventThreadRefcount(ArtJvmtiEvent event, art::Thread* target) {
+  auto& refs = internal_event_thread_refcount_[GetInternalEventIndex(event)];
+  UniqueThread target_ut{target, target->GetTid()};
+  if (refs.find(target_ut) == refs.end()) {
+    refs.insert({target_ut, 0});
+  }
+  return refs.at(target_ut);
+}
+
+int32_t EventHandler::DecrInternalEventRefcount(ArtJvmtiEvent event) {
+  return --internal_event_refcount_[GetInternalEventIndex(event)];
+}
+
+int32_t EventHandler::IncrInternalEventRefcount(ArtJvmtiEvent event) {
+  return ++internal_event_refcount_[GetInternalEventIndex(event)];
+}
+
+int32_t EventHandler::GetInternalEventRefcount(ArtJvmtiEvent event) const {
+  return internal_event_refcount_[GetInternalEventIndex(event)];
+}
+
 void EventHandler::Shutdown() {
   // Need to remove the method_trace_listener_ if it's there.
   art::Thread* self = art::Thread::Current();
@@ -1394,12 +1665,15 @@ void EventHandler::Shutdown() {
   art::ScopedSuspendAll ssa("jvmti method tracing uninstallation");
   // Just remove every possible event.
   art::Runtime::Current()->GetInstrumentation()->RemoveListener(method_trace_listener_.get(), ~0);
+  AllocationManager::Get()->RemoveAllocListener();
 }
 
 EventHandler::EventHandler()
   : envs_lock_("JVMTI Environment List Lock", art::LockLevel::kPostMutatorTopLockLevel),
-    frame_pop_enabled(false) {
-  alloc_listener_.reset(new JvmtiAllocationListener(this));
+    frame_pop_enabled(false),
+    internal_event_refcount_({0}) {
+  alloc_listener_.reset(new JvmtiEventAllocationListener(this));
+  AllocationManager::Get()->SetAllocListener(alloc_listener_.get());
   ddm_listener_.reset(new JvmtiDdmChunkListener(this));
   gc_pause_listener_.reset(new JvmtiGcPauseListener(this));
   method_trace_listener_.reset(new JvmtiMethodTraceListener(this));

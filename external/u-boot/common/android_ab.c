@@ -1,199 +1,234 @@
+// SPDX-License-Identifier: BSD-2-Clause
 /*
  * Copyright (C) 2017 The Android Open Source Project
- *
- * SPDX-License-Identifier: BSD-2-Clause
  */
-
-#include <android_ab.h>
-
-#include <android_bootloader_message.h>
 #include <common.h>
-#include <malloc.h>
+#include <android_ab.h>
+#include <android_bootloader_message.h>
+#include <linux/err.h>
+#include <memalign.h>
+#include <u-boot/crc.h>
 #include <u-boot/crc.h>
 
-/** android_boot_control_compute_crc - Compute the CRC-32 of the bootloader
- * control struct. Only the bytes up to the crc32_le field are considered for
- * the CRC-32 calculation.
+/**
+ * Compute the CRC-32 of the bootloader control struct.
+ *
+ * Only the bytes up to the crc32_le field are considered for the CRC-32
+ * calculation.
+ *
+ * @param[in] abc bootloader control block
+ *
+ * @return crc32 sum
  */
-static uint32_t android_boot_control_compute_crc(
-		struct android_bootloader_control *abc)
+static uint32_t ab_control_compute_crc(struct bootloader_control *abc)
 {
 	return crc32(0, (void *)abc, offsetof(typeof(*abc), crc32_le));
 }
 
-/** android_boot_control_default - Initialize android_bootloader_control to the
- * default value which allows to boot all slots in order from the first one.
- * This value should be used when the bootloader message is corrupted, but not
- * when a valid message indicates that all slots are unbootable.
+/**
+ * Initialize bootloader_control to the default value.
+ *
+ * It allows us to boot all slots in order from the first one. This value
+ * should be used when the bootloader message is corrupted, but not when
+ * a valid message indicates that all slots are unbootable.
+ *
+ * @param[in] abc bootloader control block
+ *
+ * @return 0 on success and a negative on error
  */
-void android_boot_control_default(struct android_bootloader_control *abc)
+static int ab_control_default(struct bootloader_control *abc)
 {
 	int i;
-	const struct android_slot_metadata metadata = {
+	const struct slot_metadata metadata = {
 		.priority = 15,
 		.tries_remaining = 7,
 		.successful_boot = 0,
 		.verity_corrupted = 0,
 		.reserved = 0
 	};
+
+	if (!abc)
+		return -EFAULT;
+
 	memcpy(abc->slot_suffix, "a\0\0\0", 4);
-	abc->magic = ANDROID_BOOT_CTRL_MAGIC;
-	abc->version = ANDROID_BOOT_CTRL_VERSION;
-	abc->nb_slot = ANDROID_NUM_SLOTS;
+	abc->magic = BOOT_CTRL_MAGIC;
+	abc->version = BOOT_CTRL_VERSION;
+	abc->nb_slot = NUM_SLOTS;
 	memset(abc->reserved0, 0, sizeof(abc->reserved0));
-	for (i = 0; i < abc->nb_slot; ++i) {
+	for (i = 0; i < abc->nb_slot; ++i)
 		abc->slot_info[i] = metadata;
-	}
+
 	memset(abc->reserved1, 0, sizeof(abc->reserved1));
-	abc->crc32_le = android_boot_control_compute_crc(abc);
-}
+	abc->crc32_le = ab_control_compute_crc(abc);
 
-/** android_boot_control_create_from_disk
- * Load the boot_control struct from disk into newly allocated memory. This
- * function allocates and returns an integer number of disk blocks, based on the
- * block size of the passed device to help performing a read-modify-write
- * operation on the boot_control struct. The boot_control struct offset (2 KiB)
- * must be a multiple of the device block size, for simplicity.
- * @dev_desc: device where to read the boot_control struct from.
- * @part_info: partition in 'dev_desc' where to read from, normally the "misc"
- *             partition should be used.
- */
-static void *android_boot_control_create_from_disk(
-		struct blk_desc *dev_desc,
-		const disk_partition_t *part_info)
-{
-	ulong abc_offset, abc_blocks;
-	void *buf;
-
-	abc_offset = offsetof(struct android_bootloader_message_ab,
-			      slot_suffix);
-	if (abc_offset % part_info->blksz) {
-		printf("ANDROID: Boot control block not block aligned.\n");
-		return NULL;
-	}
-	abc_offset /= part_info->blksz;
-
-	abc_blocks = DIV_ROUND_UP(sizeof(struct android_bootloader_control),
-				  part_info->blksz);
-	if (abc_offset + abc_blocks > part_info->size) {
-		printf("ANDROID: boot control partition too small. Need at"
-		       " least %lu blocks but have %lu blocks.\n",
-		       abc_offset + abc_blocks, part_info->size);
-		return NULL;
-	}
-	buf = malloc(abc_blocks * part_info->blksz);
-	if (!buf)
-		return NULL;
-
-	if (blk_dread(dev_desc, part_info->start + abc_offset, abc_blocks,
-		      buf) != abc_blocks) {
-		printf("ANDROID: Could not read from boot control partition\n");
-		free(buf);
-		return NULL;
-	}
-	debug("ANDROID: Loaded ABC, %lu blocks.\n", abc_blocks);
-	return buf;
-}
-
-/** android_boot_control_store
- * Store the loaded boot_control block back to the same location it was read
- * from with android_boot_control_create_from_misc().
- *
- * @abc_data_block: pointer to the boot_control struct and the extra bytes after
- *                  it up to the nearest block boundary.
- * @dev_desc: device where we should write the boot_control struct.
- * @part_info: partition on the 'dev_desc' where to write.
- * @return 0 on success and -1 on error.
- */
-static int android_boot_control_store(void *abc_data_block,
-				      struct blk_desc *dev_desc,
-				      const disk_partition_t *part_info)
-{
-	ulong abc_offset, abc_blocks;
-
-	abc_offset = offsetof(struct android_bootloader_message_ab,
-			      slot_suffix) / part_info->blksz;
-	abc_blocks = DIV_ROUND_UP(sizeof(struct android_bootloader_control),
-				  part_info->blksz);
-	if (blk_dwrite(dev_desc, part_info->start + abc_offset, abc_blocks,
-		       abc_data_block) != abc_blocks) {
-		printf("ANDROID: Could not write back the misc partition\n");
-		return -1;
-	}
 	return 0;
 }
 
-/** android_boot_compare_slots - compares two slots returning which slot is
- * should we boot from among the two.
- * @a: The first bootable slot metadata
- * @b: The second bootable slot metadata
- * @return negative if the slot "a" is better, positive of the slot "b" is
- * better or 0 if they are equally good.
+/**
+ * Load the boot_control struct from disk into newly allocated memory.
+ *
+ * This function allocates and returns an integer number of disk blocks,
+ * based on the block size of the passed device to help performing a
+ * read-modify-write operation on the boot_control struct.
+ * The boot_control struct offset (2 KiB) must be a multiple of the device
+ * block size, for simplicity.
+ *
+ * @param[in] dev_desc Device where to read the boot_control struct from
+ * @param[in] part_info Partition in 'dev_desc' where to read from, normally
+ *			the "misc" partition should be used
+ * @param[out] pointer to pointer to bootloader_control data
+ * @return 0 on success and a negative on error
  */
-static int android_ab_compare_slots(const struct android_slot_metadata *a,
-				    const struct android_slot_metadata *b)
+static int ab_control_create_from_disk(struct blk_desc *dev_desc,
+				       const disk_partition_t *part_info,
+				       struct bootloader_control **abc)
+{
+	ulong abc_offset, abc_blocks, ret;
+
+	abc_offset = offsetof(struct bootloader_message_ab, slot_suffix);
+	if (abc_offset % part_info->blksz) {
+		log_err("ANDROID: Boot control block not block aligned.\n");
+		return -EINVAL;
+	}
+	abc_offset /= part_info->blksz;
+
+	abc_blocks = DIV_ROUND_UP(sizeof(struct bootloader_control),
+				  part_info->blksz);
+	if (abc_offset + abc_blocks > part_info->size) {
+		log_err("ANDROID: boot control partition too small. Need at");
+		log_err(" least %lu blocks but have %lu blocks.\n",
+			abc_offset + abc_blocks, part_info->size);
+		return -EINVAL;
+	}
+	*abc = malloc_cache_aligned(abc_blocks * part_info->blksz);
+	if (!*abc)
+		return -ENOMEM;
+
+	ret = blk_dread(dev_desc, part_info->start + abc_offset, abc_blocks,
+			*abc);
+	if (IS_ERR_VALUE(ret)) {
+		log_err("ANDROID: Could not read from boot ctrl partition\n");
+		free(*abc);
+		return -EIO;
+	}
+
+	log_debug("ANDROID: Loaded ABC, %lu blocks\n", abc_blocks);
+
+	return 0;
+}
+
+/**
+ * Store the loaded boot_control block.
+ *
+ * Store back to the same location it was read from with
+ * ab_control_create_from_misc().
+ *
+ * @param[in] dev_desc Device where we should write the boot_control struct
+ * @param[in] part_info Partition on the 'dev_desc' where to write
+ * @param[in] abc Pointer to the boot control struct and the extra bytes after
+ *                it up to the nearest block boundary
+ * @return 0 on success and a negative on error
+ */
+static int ab_control_store(struct blk_desc *dev_desc,
+			    const disk_partition_t *part_info,
+			    struct bootloader_control *abc)
+{
+	ulong abc_offset, abc_blocks, ret;
+
+	abc_offset = offsetof(struct bootloader_message_ab, slot_suffix) /
+		     part_info->blksz;
+	abc_blocks = DIV_ROUND_UP(sizeof(struct bootloader_control),
+				  part_info->blksz);
+	ret = blk_dwrite(dev_desc, part_info->start + abc_offset, abc_blocks,
+			 abc);
+	if (IS_ERR_VALUE(ret)) {
+		log_err("ANDROID: Could not write back the misc partition\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+/**
+ * Compare two slots.
+ *
+ * The function determines slot which is should we boot from among the two.
+ *
+ * @param[in] a The first bootable slot metadata
+ * @param[in] b The second bootable slot metadata
+ * @return Negative if the slot "a" is better, positive of the slot "b" is
+ *         better or 0 if they are equally good.
+ */
+static int ab_compare_slots(const struct slot_metadata *a,
+			    const struct slot_metadata *b)
 {
 	/* Higher priority is better */
 	if (a->priority != b->priority)
 		return b->priority - a->priority;
 
-	/* Higher successful_boot value is better, in case of same priority. */
+	/* Higher successful_boot value is better, in case of same priority */
 	if (a->successful_boot != b->successful_boot)
 		return b->successful_boot - a->successful_boot;
 
-	/* Higher tries_remaining is better to ensure round-robin. */
+	/* Higher tries_remaining is better to ensure round-robin */
 	if (a->tries_remaining != b->tries_remaining)
 		return b->tries_remaining - a->tries_remaining;
 
 	return 0;
 }
 
-int android_ab_select(struct blk_desc *dev_desc, disk_partition_t *part_info)
+int ab_select_slot(struct blk_desc *dev_desc, disk_partition_t *part_info)
 {
-	struct android_bootloader_control *abc;
+	struct bootloader_control *abc = NULL;
 	u32 crc32_le;
-	int slot, i;
+	int slot, i, ret;
 	bool store_needed = false;
 	char slot_suffix[4];
 
-	abc = android_boot_control_create_from_disk(dev_desc, part_info);
-	if (!abc) {
-		/* This condition represents an actual problem with the code
-		 * or the board setup, like an invalid partition information.
-		 * Signal a repair mode and do not try to boot from either
-		 * slot.
+	ret = ab_control_create_from_disk(dev_desc, part_info, &abc);
+	if (ret < 0) {
+		/*
+		 * This condition represents an actual problem with the code or
+		 * the board setup, like an invalid partition information.
+		 * Signal a repair mode and do not try to boot from either slot.
 		 */
-		return -1;
+		return ret;
 	}
 
-	crc32_le = android_boot_control_compute_crc(abc);
+	crc32_le = ab_control_compute_crc(abc);
 	if (abc->crc32_le != crc32_le) {
-		printf("ANDROID: Invalid CRC-32 (expected %.8x, found %.8x), "
-		       "re-initializing A/B metadata.\n",
-		       crc32_le, abc->crc32_le);
-		android_boot_control_default(abc);
+		log_err("ANDROID: Invalid CRC-32 (expected %.8x, found %.8x),",
+			crc32_le, abc->crc32_le);
+		log_err("re-initializing A/B metadata.\n");
+
+		ret = ab_control_default(abc);
+		if (ret < 0) {
+			free(abc);
+			return -ENODATA;
+		}
 		store_needed = true;
 	}
 
-	if (abc->magic != ANDROID_BOOT_CTRL_MAGIC) {
-		printf("ANDROID: Unknown A/B metadata: %.8x\n", abc->magic);
+	if (abc->magic != BOOT_CTRL_MAGIC) {
+		log_err("ANDROID: Unknown A/B metadata: %.8x\n", abc->magic);
 		free(abc);
-		return -1;
+		return -ENODATA;
 	}
 
-	if (abc->version > ANDROID_BOOT_CTRL_VERSION) {
-		printf("ANDROID: Unsupported A/B metadata version: %.8x\n",
-		       abc->version);
+	if (abc->version > BOOT_CTRL_VERSION) {
+		log_err("ANDROID: Unsupported A/B metadata version: %.8x\n",
+			abc->version);
 		free(abc);
-		return -1;
+		return -ENODATA;
 	}
 
-	/* At this point a valid boot control metadata is stored in abc,
-	 * followed by other reserved data in the same block.
-	 * We select a with the higher priority slot that
+	/*
+	 * At this point a valid boot control metadata is stored in abc,
+	 * followed by other reserved data in the same block. We select a with
+	 * the higher priority slot that
 	 *  - is not marked as corrupted and
 	 *  - either has tries_remaining > 0 or successful_boot is true.
-	 * If the slot selected has a false successful_boot, we also decrement
+	 * If the selected slot has a false successful_boot, we also decrement
 	 * the tries_remaining until it eventually becomes unbootable because
 	 * tries_remaining reaches 0. This mechanism produces a bootloader
 	 * induced rollback, typically right after a failed update.
@@ -209,43 +244,42 @@ int android_ab_select(struct blk_desc *dev_desc, disk_partition_t *part_info)
 	for (i = 0; i < abc->nb_slot; ++i) {
 		if (abc->slot_info[i].verity_corrupted ||
 		    !abc->slot_info[i].tries_remaining) {
-			debug("ANDROID: unbootable slot %d tries: %d, "
-			      "corrupt: %d\n",
-			      i,
-			      abc->slot_info[i].tries_remaining,
-			      abc->slot_info[i].verity_corrupted);
+			log_debug("ANDROID: unbootable slot %d tries: %d, ",
+				  i, abc->slot_info[i].tries_remaining);
+			log_debug("corrupt: %d\n",
+				  abc->slot_info[i].verity_corrupted);
 			continue;
 		}
-		debug("ANDROID: bootable slot %d pri: %d, tries: %d, "
-		      "corrupt: %d, successful: %d\n",
-		      i,
-		      abc->slot_info[i].priority,
-		      abc->slot_info[i].tries_remaining,
-		      abc->slot_info[i].verity_corrupted,
-		      abc->slot_info[i].successful_boot);
+		log_debug("ANDROID: bootable slot %d pri: %d, tries: %d, ",
+			  i, abc->slot_info[i].priority,
+			  abc->slot_info[i].tries_remaining);
+		log_debug("corrupt: %d, successful: %d\n",
+			  abc->slot_info[i].verity_corrupted,
+			  abc->slot_info[i].successful_boot);
 
 		if (slot < 0 ||
-		    android_ab_compare_slots(&abc->slot_info[i],
-					     &abc->slot_info[slot]) < 0) {
+		    ab_compare_slots(&abc->slot_info[i],
+				     &abc->slot_info[slot]) < 0) {
 			slot = i;
 		}
 	}
 
 	if (slot >= 0 && !abc->slot_info[slot].successful_boot) {
-		printf("ANDROID: Attempting slot %c, tries remaining %d\n",
-		       ANDROID_BOOT_SLOT_NAME(slot),
-		       abc->slot_info[slot].tries_remaining);
+		log_err("ANDROID: Attempting slot %c, tries remaining %d\n",
+			BOOT_SLOT_NAME(slot),
+			abc->slot_info[slot].tries_remaining);
 		abc->slot_info[slot].tries_remaining--;
 		store_needed = true;
 	}
 
 	if (slot >= 0) {
-		/* Legacy user-space requires this field to be set in the BCB.
-		 * Newer releases load this the slot suffix from the command
-		 * line or the device tree.
+		/*
+		 * Legacy user-space requires this field to be set in the BCB.
+		 * Newer releases load this slot suffix from the command line
+		 * or the device tree.
 		 */
 		memset(slot_suffix, 0, sizeof(slot_suffix));
-		slot_suffix[0] = ANDROID_BOOT_SLOT_NAME(slot);
+		slot_suffix[0] = BOOT_SLOT_NAME(slot);
 		if (memcmp(abc->slot_suffix, slot_suffix,
 			   sizeof(slot_suffix))) {
 			memcpy(abc->slot_suffix, slot_suffix,
@@ -255,12 +289,13 @@ int android_ab_select(struct blk_desc *dev_desc, disk_partition_t *part_info)
 	}
 
 	if (store_needed) {
-		abc->crc32_le = android_boot_control_compute_crc(abc);
-		android_boot_control_store(abc, dev_desc, part_info);
+		abc->crc32_le = ab_control_compute_crc(abc);
+		ab_control_store(dev_desc, part_info, abc);
 	}
 	free(abc);
 
 	if (slot < 0)
-		return -1;
+		return -EINVAL;
+
 	return slot;
 }

@@ -35,12 +35,14 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
+import androidx.preference.SwitchPreference;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.location.RecentLocationApps;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppManagementFragment;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -59,6 +61,7 @@ public class LocationFragment extends SettingsPreferenceFragment implements
     private static final String LOCATION_MODE_OFF = "off";
 
     private static final String KEY_LOCATION_MODE = "locationMode";
+    private static final String KEY_WIFI_ALWAYS_SCAN = "wifi_always_scan";
 
     private static final String MODE_CHANGING_ACTION =
             "com.android.settings.location.MODE_CHANGING";
@@ -66,6 +69,7 @@ public class LocationFragment extends SettingsPreferenceFragment implements
     private static final String NEW_MODE_KEY = "NEW_MODE";
 
     private ListPreference mLocationMode;
+    private SwitchPreference mAlwaysScan;
 
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -108,10 +112,17 @@ public class LocationFragment extends SettingsPreferenceFragment implements
         final UserManager um = UserManager.get(getContext());
         mLocationMode.setEnabled(!um.hasUserRestriction(UserManager.DISALLOW_SHARE_LOCATION));
 
+        if (FeatureFactory.getFactory(getContext()).isTwoPanelLayout()) {
+            mAlwaysScan = new SwitchPreference(themedContext);
+            mAlwaysScan.setKey(KEY_WIFI_ALWAYS_SCAN);
+            mAlwaysScan.setTitle(R.string.wifi_setting_always_scan);
+            mAlwaysScan.setSummary(R.string.wifi_setting_always_scan_context);
+            screen.addPreference(mAlwaysScan);
+            mAlwaysScan.setOnPreferenceChangeListener(this);
+        }
         final PreferenceCategory recentRequests = new PreferenceCategory(themedContext);
         screen.addPreference(recentRequests);
         recentRequests.setTitle(R.string.location_category_recent_location_requests);
-        recentRequests.setLayoutResource(R.layout.preference_category_compact_layout);
 
         List<RecentLocationApps.Request> recentLocationRequests =
                 new RecentLocationApps(themedContext).getAppList(true);
@@ -164,6 +175,12 @@ public class LocationFragment extends SettingsPreferenceFragment implements
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        updateConnectivity();
+    }
+
+    @Override
     public void onDestroy() {
         super.onDestroy();
         getActivity().unregisterReceiver(mReceiver);
@@ -195,6 +212,17 @@ public class LocationFragment extends SettingsPreferenceFragment implements
         return true;
     }
 
+    @Override
+    public boolean onPreferenceTreeClick(Preference preference) {
+        if (TextUtils.equals(preference.getKey(), KEY_WIFI_ALWAYS_SCAN)) {
+            Settings.Global.putInt(getActivity().getContentResolver(),
+                    Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE,
+                    mAlwaysScan.isChecked() ? 1 : 0);
+            updateConnectivity();
+        }
+        return super.onPreferenceTreeClick(preference);
+    }
+
     private void writeLocationMode(int mode) {
         int currentMode = Settings.Secure.getInt(getActivity().getContentResolver(),
                 Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF);
@@ -215,6 +243,14 @@ public class LocationFragment extends SettingsPreferenceFragment implements
             mLocationMode.setValue(LOCATION_MODE_WIFI);
         } else {
             mLocationMode.setValue(LOCATION_MODE_OFF);
+        }
+    }
+
+    private void updateConnectivity() {
+        if (FeatureFactory.getFactory(getContext()).isTwoPanelLayout()) {
+            int scanAlwaysAvailable = Settings.Global.getInt(getActivity().getContentResolver(),
+                    Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE, 0);
+            mAlwaysScan.setChecked(scanAlwaysAvailable == 1);
         }
     }
 

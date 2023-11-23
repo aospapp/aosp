@@ -49,13 +49,13 @@ public interface ILeveledLogOutput extends ILogOutput {
 
     /**
      * Grabs a snapshot stream of the log data.
-     * <p/>
-     * Must not be called after {@link ILeveledLogOutput#closeLog()}.
-     * <p/>
-     * The returned stream is not guaranteed to have optimal performance. Callers may wish to
+     *
+     * <p>Must not be called after {@link ILeveledLogOutput#closeLog()}.
+     *
+     * <p>The returned stream is not guaranteed to have optimal performance. Callers may wish to
      * wrap result in a {@link BufferedInputStream}.
      *
-     * @return a {@link InputStreamSource} of the log data
+     * @return a {@link InputStreamSource} of the log data. May return null if not supported.
      * @throws IllegalStateException if called when log has been closed.
      */
     public InputStreamSource getLog();

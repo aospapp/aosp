@@ -49,6 +49,7 @@ class DiskIO {
    protected:
       string userFilename;
       string realFilename;
+      string modelName;
       int isOpen;
       int openForWrite;
 #ifdef _WIN32
@@ -71,6 +72,8 @@ class DiskIO {
       int Write(void* buffer, int numBytes);
       int DiskSync(void); // resync disk caches to use new partitions
       int GetBlockSize(void);
+      int GetPhysBlockSize(void);
+      string GetModel(void) {return modelName;}
       uint32_t GetNumHeads(void);
       uint32_t GetNumSecsPerTrack(void);
       int IsOpen(void) {return isOpen;}

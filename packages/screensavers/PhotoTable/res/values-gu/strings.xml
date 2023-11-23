@@ -22,7 +22,7 @@
     <string name="posts_album_name" msgid="5628151551239729515">"પોસ્ટ્સમાંથી ફોટો"</string>
     <string name="unknown_album_name" msgid="2135521368192091267">"અનામાંકિત આલ્બમ"</string>
     <string name="stock_photo_album_name" msgid="3150527596227525460">"સ્ટોક ફોટો"</string>
-    <string name="local_source_name" msgid="6487253091085518505">"ઉપકરણ પરના ફોટો"</string>
+    <string name="local_source_name" msgid="6487253091085518505">"ડિવાઇસ પરના ફોટો"</string>
     <string name="need_to_configure" msgid="1269102638159389032">"કોઈ ફોટો પસંદ કરેલ નથી."</string>
     <string name="photodream_select_all" msgid="6364858563337927827">"બધા પસંદ કરો"</string>
     <string name="photodream_select_none" msgid="8816452124894525861">"તમામની પસંદગી હટાવો"</string>

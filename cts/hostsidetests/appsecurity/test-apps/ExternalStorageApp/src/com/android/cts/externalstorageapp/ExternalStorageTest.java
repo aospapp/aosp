@@ -49,10 +49,6 @@ import java.util.List;
  */
 public class ExternalStorageTest extends AndroidTestCase {
 
-    public void testPrimaryNoAccess() throws Exception {
-        assertDirNoAccess(Environment.getExternalStorageDirectory());
-    }
-
     /**
      * Verify that above our package directories we always have no access.
      */

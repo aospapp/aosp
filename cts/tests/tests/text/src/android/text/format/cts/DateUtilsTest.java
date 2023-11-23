@@ -29,6 +29,7 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,14 +44,23 @@ import java.util.TimeZone;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class DateUtilsTest {
+    private TimeZone mDefaultTimeZone;
     private long mBaseTime;
     private Context mContext;
 
     @Before
     public void setup() {
         mContext = InstrumentationRegistry.getTargetContext();
+        mDefaultTimeZone = TimeZone.getDefault();
+        // All tests in this class can assume the device time zone is set to GMT.
         TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
         mBaseTime = System.currentTimeMillis();
+    }
+
+    @After
+    public void tearDown() {
+        // Set the default time zone back to what it was before setup().
+        TimeZone.setDefault(mDefaultTimeZone);
     }
 
     @Test
@@ -249,9 +259,25 @@ public class DateUtilsTest {
 
     @Test
     public void testIsToday() {
-        final long ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
-        assertTrue(DateUtils.isToday(mBaseTime));
+        // This test assumes TimeZone.getDefault() returns GMT. See setup() and comments below for
+        // details.
+
+        final int ONE_HOUR_IN_MS = 60 * 60 * 1000;
+        final int ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS;
+
+        // mBaseTime < System.currentTimeMillis(), so subtracting 24 hours is guaranteed to
+        // be yesterday because this test uses GMT, i.e. no DST to consider.
         assertFalse(DateUtils.isToday(mBaseTime - ONE_DAY_IN_MS));
+
+        // We can assume mBaseTime is within a few seconds of the current system clock so adding
+        // one day plus one hour is more than sufficient to ensure isToday() == false.
+        assertFalse(DateUtils.isToday(mBaseTime + ONE_DAY_IN_MS + ONE_HOUR_IN_MS));
+
+        // This assertion is flaky because the method under test uses the system clock. If mBaseTime
+        // is set just before midnight (GMT) and isToday() is run just after midnight (GMT), this
+        // assertion will fail.
+        assertTrue("mBaseTime=" + mBaseTime + ", System.currentTimeMillis() after failure="
+                + System.currentTimeMillis(), DateUtils.isToday(mBaseTime));
     }
 
     @Test

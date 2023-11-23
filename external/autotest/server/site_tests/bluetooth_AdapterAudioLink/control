@@ -4,14 +4,14 @@
 
 AUTHOR = 'yshavit@chromium.org'
 NAME = 'bluetooth_AdapterAudioLink'
-ATTRIBUTES = "suite:bluetooth"
+ATTRIBUTES = 'suite:bluetooth_flaky'
 # The default net duration of the test (excluding initializations)
 # is 1 minute (12 interations of 5 seconds audio).
 # Initialization time varies, usualy it takes about 2 minutes.
 TIME = 'SHORT'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'Server'
-DEPENDENCIES = 'bluetooth'
+DEPENDENCIES = 'bluetooth, chameleon:bt_a2dp_sink'
 
 DOC = """
 Bluetooth audio test to verify that audio connection can be established

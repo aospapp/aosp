@@ -67,7 +67,6 @@ public class Colors extends DreamService implements SurfaceHolder.Callback {
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
         setInteractive(false);
-        setLowProfile(true);
         setFullscreen(true);
         setContentView(mSurfaceView);
     }

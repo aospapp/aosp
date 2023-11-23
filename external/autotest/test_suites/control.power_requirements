@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "Chrome OS Team"
-NAME = "Power Requirements Test Suite"
+NAME = "power_requirements"
 TIME = "LONG"
 TEST_CATEGORY = "General"
 TEST_CLASS = "suite"
@@ -38,7 +38,7 @@ _BUG_TEMPLATE = {
 
 args_dict['add_experimental'] = True
 args_dict['bug_template'] = _BUG_TEMPLATE
-args_dict['name'] = 'power_requirements'
+args_dict['name'] = NAME
 args_dict['job'] = job
 
 dynamic_suite.reimage_and_run(**args_dict)

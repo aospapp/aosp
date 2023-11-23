@@ -19,15 +19,17 @@ package com.android.server.wifi;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import android.os.BatteryStatsManager;
+import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.os.WorkSource;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.internal.app.IBatteryStats;
-
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -36,12 +38,12 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for {@link com.android.server.wifi.WifiConfigStoreData}.
  */
 @SmallTest
-public class WifiMulticastLockManagerTest {
+public class WifiMulticastLockManagerTest extends WifiBaseTest {
     private static final String WL_1_TAG = "Wakelock-1";
     private static final String WL_2_TAG = "Wakelock-2";
 
     @Mock WifiMulticastLockManager.FilterController mHandler;
-    @Mock IBatteryStats mBatteryStats;
+    @Mock BatteryStatsManager mBatteryStats;
     WifiMulticastLockManager mManager;
 
     /**
@@ -74,11 +76,16 @@ public class WifiMulticastLockManagerTest {
         verify(mHandler).stopFilteringMulticastPackets();
         mManager.initializeFiltering();
         verify(mHandler, times(0)).startFilteringMulticastPackets();
-        verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
-        verify(mBatteryStats, times(0)).noteWifiMulticastDisabled(anyInt());
+        ArgumentCaptor<WorkSource> wsCaptor = ArgumentCaptor.forClass(WorkSource.class);
+        verify(mBatteryStats).reportWifiMulticastEnabled(wsCaptor.capture());
+        assertNotNull(wsCaptor.getValue());
+        assertEquals(Binder.getCallingUid(), wsCaptor.getValue().getAttributionUid());
+        verify(mBatteryStats, times(0)).reportWifiMulticastDisabled(any());
 
         mManager.releaseLock(WL_1_TAG);
-        verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        verify(mBatteryStats).reportWifiMulticastDisabled(wsCaptor.capture());
+        assertNotNull(wsCaptor.getValue());
+        assertEquals(Binder.getCallingUid(), wsCaptor.getValue().getAttributionUid());
         assertFalse(mManager.isMulticastEnabled());
     }
 
@@ -93,11 +100,11 @@ public class WifiMulticastLockManagerTest {
         verify(mHandler).stopFilteringMulticastPackets();
         mManager.initializeFiltering();
         verify(mHandler, never()).startFilteringMulticastPackets();
-        verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
-        verify(mBatteryStats, never()).noteWifiMulticastDisabled(anyInt());
+        verify(mBatteryStats).reportWifiMulticastEnabled(any());
+        verify(mBatteryStats, never()).reportWifiMulticastDisabled(any());
 
         mManager.releaseLock(WL_2_TAG);
-        verify(mBatteryStats, never()).noteWifiMulticastDisabled(anyInt());
+        verify(mBatteryStats, never()).reportWifiMulticastDisabled(any());
         assertTrue(mManager.isMulticastEnabled());
     }
 
@@ -113,12 +120,12 @@ public class WifiMulticastLockManagerTest {
 
         mManager.acquireLock(binder, WL_1_TAG);
         inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastEnabled(any());
         assertTrue(mManager.isMulticastEnabled());
 
         mManager.acquireLock(binder, WL_2_TAG);
         inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastEnabled(any());
         assertTrue(mManager.isMulticastEnabled());
 
         mManager.initializeFiltering();
@@ -126,12 +133,12 @@ public class WifiMulticastLockManagerTest {
 
         mManager.releaseLock(WL_2_TAG);
         inOrderHandler.verify(mHandler, never()).startFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastDisabled(any());
         assertTrue(mManager.isMulticastEnabled());
 
         mManager.releaseLock(WL_1_TAG);
         inOrderHandler.verify(mHandler).startFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastDisabled(any());
         assertFalse(mManager.isMulticastEnabled());
     }
 
@@ -147,12 +154,12 @@ public class WifiMulticastLockManagerTest {
 
         mManager.acquireLock(binder, WL_1_TAG);
         inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastEnabled(any());
         assertTrue(mManager.isMulticastEnabled());
 
         mManager.acquireLock(binder, WL_2_TAG);
         inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastEnabled(any());
         assertTrue(mManager.isMulticastEnabled());
 
         mManager.initializeFiltering();
@@ -160,12 +167,12 @@ public class WifiMulticastLockManagerTest {
 
         mManager.releaseLock(WL_1_TAG);
         inOrderHandler.verify(mHandler, never()).startFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastDisabled(any());
         assertTrue(mManager.isMulticastEnabled());
 
         mManager.releaseLock(WL_2_TAG);
         inOrderHandler.verify(mHandler).startFilteringMulticastPackets();
-        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        inOrderBatteryStats.verify(mBatteryStats).reportWifiMulticastDisabled(any());
         assertFalse(mManager.isMulticastEnabled());
     }
 }

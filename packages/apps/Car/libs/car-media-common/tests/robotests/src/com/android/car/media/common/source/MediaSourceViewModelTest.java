@@ -16,13 +16,14 @@
 
 package com.android.car.media.common.source;
 
+import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.robolectric.RuntimeEnvironment.application;
 
-import android.annotation.NonNull;
 import android.app.Application;
 import android.car.Car;
 import android.car.media.CarMediaManager;
@@ -31,12 +32,12 @@ import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.car.arch.common.testing.CaptureObserver;
 import com.android.car.arch.common.testing.InstantTaskExecutorRule;
 import com.android.car.arch.common.testing.TestLifecycleOwner;
-import com.android.car.media.common.TestConfig;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -46,10 +47,8 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class MediaSourceViewModelTest {
 
     private static final String BROWSER_CONTROLLER_PACKAGE_NAME = "browser";
@@ -90,7 +89,8 @@ public class MediaSourceViewModelTest {
     }
 
     private void initializeViewModel() {
-        mViewModel = new MediaSourceViewModel(application, new MediaSourceViewModel.InputFactory() {
+        mViewModel = new MediaSourceViewModel(application, MEDIA_SOURCE_MODE_PLAYBACK,
+                new MediaSourceViewModel.InputFactory() {
             @Override
             public MediaBrowserConnector createMediaBrowserConnector(
                     @NonNull Application application,
@@ -122,7 +122,7 @@ public class MediaSourceViewModelTest {
             }
 
             @Override
-            public MediaSource getMediaSource(String packageName) {
+            public MediaSource getMediaSource(ComponentName componentName) {
                 return mMediaSource;
             }
         });

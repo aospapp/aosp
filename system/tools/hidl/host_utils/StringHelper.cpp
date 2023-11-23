@@ -16,18 +16,23 @@
 
 #include "StringHelper.h"
 
-#include <sstream>
+#include <cctype>
 #include <regex>
+#include <sstream>
+#include <string>
+#include <vector>
 
-#include <android-base/macros.h>
 #include <android-base/logging.h>
+#include <android-base/macros.h>
 
-#define UPPERCASE  "[A-Z0-9]+"
-#define LOWERCASE "[a-z0-9]+"
-#define CAPCASE "[A-Z0-9][a-z0-9]*"
+#define UPPERCASE "[A-Z0-9]"
+#define LOWERCASE "[a-z][a-z0-9]*"
+#define NUMCASE "[0-9]"
+#define CAPCASE "[A-Z][a-z][a-z0-9]*"
 static const std::regex kStartUppercase("^" UPPERCASE);
 static const std::regex kStartLowercase("^" LOWERCASE);
 static const std::regex kStartCapcase("^" CAPCASE);
+static const std::regex kStartNumcase("^" CAPCASE);
 
 namespace android {
 
@@ -61,41 +66,73 @@ std::string StringHelper::Capitalize(const std::string &in) {
     return out;
 }
 
-void StringHelper::Tokenize(const std::string &in,
-        std::vector<std::string> *vec) {
+// Combines multiple single character upper case tokens together
+// {"U", "I", "Error"} becomes {"UI", "Error"}
+static void combineSingleCharTokens(const std::vector<std::string>& from,
+                                    std::vector<std::string>* to) {
+    std::string current;
+    for (const std::string& str : from) {
+        if (str.size() == 1 && (isupper(str[0]) || isdigit(str[0]))) {
+            current += str;
+        } else {
+            if (!current.empty()) {
+                to->push_back(current);
+                current = "";
+            }
 
-    std::smatch match;
-    if (in.empty()) {
-        vec->clear();
+            to->push_back(str);
+        }
+    }
+
+    if (!current.empty()) to->push_back(current);
+}
+
+// Tokenizes strings first based on "_"s and then based on case
+// PascalCase (CAPCASE) regex is given the highest priority and the remaining uppercase characters
+// are grouped together. Digits are added to the preceding group, whichever it may be.
+// Ipv4Addr => {"Ipv4", "Addr"}, V3Bool => {"V3", "Bool"}
+void StringHelper::Tokenize(const std::string& in, std::vector<std::string>* vec) {
+    vec->clear();
+    if (in.empty()) return;
+
+    if (in.find('_') != std::string::npos) {
+        std::vector<std::string> snakeCaseComponents;
+        SplitString(in, '_', &snakeCaseComponents);
+        for (const std::string& comp : snakeCaseComponents) {
+            std::vector<std::string> tokens;
+            Tokenize(comp, &tokens);
+
+            vec->insert(vec->end(), tokens.begin(), tokens.end());
+        }
+
         return;
     }
-    std::string copy(in);
-    vec->clear();
-    std::vector<std::string> matches;
 
-    copy = RTrimAll(copy, "_");
-    while(!copy.empty()) {
-        copy = LTrimAll(copy, "_");
-        if (std::regex_search(copy, match, kStartLowercase))
-            matches.push_back(match.str(0));
-        if (std::regex_search(copy, match, kStartCapcase))
-            matches.push_back(match.str(0));
-        if (std::regex_search(copy, match, kStartUppercase))
-            matches.push_back(match.str(0));
+    std::smatch match;
+    std::string copy(in);
+    std::vector<std::string> matches;
+    std::vector<std::string> tmpVec;
+    while (!copy.empty()) {
+        if (std::regex_search(copy, match, kStartLowercase)) matches.push_back(match.str(0));
+        if (std::regex_search(copy, match, kStartCapcase)) matches.push_back(match.str(0));
+        if (std::regex_search(copy, match, kStartUppercase)) matches.push_back(match.str(0));
+        if (std::regex_search(copy, match, kStartNumcase)) matches.push_back(match.str(0));
+
         if (!matches.empty()) {
-            std::string &maxmatch = matches[0];
-            for (std::string &match : matches)
-                if(match.length() > maxmatch.length())
-                    maxmatch = match;
-            vec->push_back(maxmatch);
+            std::string& maxmatch = matches[0];
+            for (std::string& match : matches)
+                if (match.length() > maxmatch.length()) maxmatch = match;
+            tmpVec.push_back(maxmatch);
             copy = copy.substr(maxmatch.length());
             matches.clear();
-            continue;
+        } else {
+            LOG(WARNING) << "Could not stylize \"" << in << "\"";
+            // don't know what to do, so push back the rest of the string.
+            tmpVec.push_back(copy);
         }
-        LOG(WARNING) << "Could not stylize \"" << in << "\"";
-        // don't know what to do, so push back the rest of the string.
-        vec->push_back(copy);
     }
+
+    combineSingleCharTokens(tmpVec, vec);
 }
 
 std::string StringHelper::ToCamelCase(const std::string &in) {

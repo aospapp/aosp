@@ -86,21 +86,33 @@ namespace wrap {
 
 #endif
 
-#define ROCFFT_ROUTINE_EACH(__macro)                                           \
-  __macro(hipfftDestroy) __macro(hipfftSetStream) __macro(hipfftPlan1d)        \
-      __macro(hipfftPlan2d) __macro(hipfftPlan3d) __macro(hipfftPlanMany)      \
-          __macro(hipfftCreate) __macro(hipfftSetAutoAllocation)               \
-              __macro(hipfftSetWorkArea) __macro(hipfftGetSize1d)              \
-                  __macro(hipfftMakePlan1d) __macro(hipfftGetSize2d)           \
-                      __macro(hipfftMakePlan2d) __macro(hipfftGetSize3d)       \
-                          __macro(hipfftMakePlan3d) __macro(hipfftGetSizeMany) \
-                              __macro(hipfftMakePlanMany)                      \
-                                  __macro(hipfftExecD2Z)                       \
-                                      __macro(hipfftExecZ2D)                   \
-                                          __macro(hipfftExecC2C)               \
-                                              __macro(hipfftExecC2R)           \
-                                                  __macro(hipfftExecZ2Z)       \
-                                                      __macro(hipfftExecR2C)
+// clang-format off
+#define ROCFFT_ROUTINE_EACH(__macro) \
+  __macro(hipfftDestroy)             \
+  __macro(hipfftSetStream)           \
+  __macro(hipfftPlan1d)              \
+  __macro(hipfftPlan2d)              \
+  __macro(hipfftPlan3d)              \
+  __macro(hipfftPlanMany)            \
+  __macro(hipfftCreate)              \
+  __macro(hipfftSetAutoAllocation)   \
+  __macro(hipfftSetWorkArea)         \
+  __macro(hipfftGetSize1d)           \
+  __macro(hipfftMakePlan1d)          \
+  __macro(hipfftGetSize2d)           \
+  __macro(hipfftMakePlan2d)          \
+  __macro(hipfftGetSize3d)           \
+  __macro(hipfftMakePlan3d)          \
+  __macro(hipfftGetSizeMany)         \
+  __macro(hipfftMakePlanMany)        \
+  __macro(hipfftExecD2Z)             \
+  __macro(hipfftExecZ2D)             \
+  __macro(hipfftExecC2C)             \
+  __macro(hipfftExecC2R)             \
+  __macro(hipfftExecZ2Z)             \
+  __macro(hipfftExecR2C)
+
+// clang-format on
 
 ROCFFT_ROUTINE_EACH(STREAM_EXECUTOR_ROCFFT_WRAP)
 
@@ -260,8 +272,7 @@ port::Status ROCMFftPlan::Initialize(
       // TODO(yangzihao): refactor this code and the one with the same function
       // in the batch mode.
       if (size_in_bytes != 0) {
-        auto allocated =
-            scratch_allocator->AllocateBytes(stream, size_in_bytes);
+        auto allocated = scratch_allocator->AllocateBytes(size_in_bytes);
         if (!allocated.ok() || (scratch_ = allocated.ValueOrDie()) == nullptr) {
           LOG(ERROR) << "failed to allocate work area.";
           return allocated.status();
@@ -287,14 +298,14 @@ port::Status ROCMFftPlan::Initialize(
       if (ret != HIPFFT_SUCCESS) {
         LOG(ERROR) << "failed to create rocFFT batched plan:" << ret;
         return port::Status{port::error::INTERNAL,
-                            "Failed to create rocFFT bacthed plan."};
+                            "Failed to create rocFFT batched plan."};
       }
     } else {
       auto ret = wrap::hipfftCreate(parent, &plan_);
       if (ret != HIPFFT_SUCCESS) {
         LOG(ERROR) << "failed to create rocFFT batched plan:" << ret;
         return port::Status{port::error::INTERNAL,
-                            "Failed to create rocFFT bacthed plan."};
+                            "Failed to create rocFFT batched plan."};
       }
       ret = wrap::hipfftSetAutoAllocation(parent, plan_, 0);
       if (ret != HIPFFT_SUCCESS) {
@@ -302,7 +313,7 @@ port::Status ROCMFftPlan::Initialize(
                    << ret;
         return port::Status{
             port::error::INTERNAL,
-            "Failed to set auto allocation for rocFFT bacthed plan."};
+            "Failed to set auto allocation for rocFFT batched plan."};
       }
       size_t size_in_bytes;
       ret = wrap::hipfftMakePlanMany(
@@ -313,11 +324,10 @@ port::Status ROCMFftPlan::Initialize(
       if (ret != HIPFFT_SUCCESS) {
         LOG(ERROR) << "failed to make rocFFT batched plan:" << ret;
         return port::Status{port::error::INTERNAL,
-                            "Failed to make rocFFT bacthed plan."};
+                            "Failed to make rocFFT batched plan."};
       }
       if (size_in_bytes != 0) {
-        auto allocated =
-            scratch_allocator->AllocateBytes(stream, size_in_bytes);
+        auto allocated = scratch_allocator->AllocateBytes(size_in_bytes);
         if (!allocated.ok() || (scratch_ = allocated.ValueOrDie()) == nullptr) {
           LOG(ERROR) << "failed to allocate work area.";
           return allocated.status();
@@ -328,7 +338,7 @@ port::Status ROCMFftPlan::Initialize(
       if (ret != HIPFFT_SUCCESS) {
         LOG(ERROR) << "failed to set work area for rocFFT batched plan:" << ret;
         return port::Status{port::error::INTERNAL,
-                            "Failed to set work area for rocFFT bacthed plan."};
+                            "Failed to set work area for rocFFT batched plan."};
       }
     }
   }

@@ -25,7 +25,7 @@
 
 package java.util.zip;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CRC32 implements java.util.zip.Checksum {

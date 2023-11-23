@@ -19,6 +19,8 @@
 
 #include <ctype.h>
 #include <inttypes.h>
+#include <algorithm>
+#include <map>
 #include <memory>
 #include <stdint.h>
 #include <stdlib.h>
@@ -31,9 +33,10 @@
 #include "MPEG4Extractor.h"
 #include "SampleTable.h"
 #include "ItemTable.h"
-#include "include/ESDS.h"
 
-#include <media/DataSourceBase.h>
+#include <ESDS.h>
+#include <ID3.h>
+#include <media/stagefright/DataSourceBase.h>
 #include <media/ExtractorUtils.h>
 #include <media/stagefright/foundation/ABitReader.h>
 #include <media/stagefright/foundation/ABuffer.h>
@@ -52,7 +55,6 @@
 #include <utils/String8.h>
 
 #include <byteswap.h>
-#include "include/ID3.h"
 
 #ifndef UINT32_MAX
 #define UINT32_MAX       (4294967295U)
@@ -83,7 +85,8 @@ public:
                 const Trex *trex,
                 off64_t firstMoofOffset,
                 const sp<ItemTable> &itemTable,
-                uint64_t elstShiftStartTicks);
+                uint64_t elstShiftStartTicks,
+                uint64_t elstInitialEmptyEditTicks);
     virtual status_t init();
 
     virtual media_status_t start();
@@ -111,6 +114,7 @@ private:
     const Trex *mTrex;
     off64_t mFirstMoofOffset;
     off64_t mCurrentMoofOffset;
+    off64_t mCurrentMoofSize;
     off64_t mNextMoofOffset;
     uint32_t mCurrentTime; // in media timescale ticks
     int32_t mLastParsedTrackId;
@@ -133,6 +137,7 @@ private:
 
     bool mIsAVC;
     bool mIsHEVC;
+    bool mIsDolbyVision;
     bool mIsAC4;
     bool mIsPcm;
     size_t mNALLengthSize;
@@ -145,11 +150,17 @@ private:
 
     bool mIsHeif;
     bool mIsAudio;
+    bool mIsUsac = false;
     sp<ItemTable> mItemTable;
 
-    // Start offset from composition time to presentation time.
-    // Support shift only for video tracks through mElstShiftStartTicks for now.
+    /* Shift start offset (move to earlier time) when media_time > 0,
+     * in media time scale.
+     */
     uint64_t mElstShiftStartTicks;
+    /* Initial start offset (move to later time), empty edit list entry
+     * in media time scale.
+     */
+    uint64_t mElstInitialEmptyEditTicks;
 
     size_t parseNALSize(const uint8_t *data) const;
     status_t parseChunk(off64_t *offset);
@@ -157,8 +168,9 @@ private:
     status_t parseTrackFragmentRun(off64_t offset, off64_t size);
     status_t parseSampleAuxiliaryInformationSizes(off64_t offset, off64_t size);
     status_t parseSampleAuxiliaryInformationOffsets(off64_t offset, off64_t size);
-    status_t parseClearEncryptedSizes(off64_t offset, bool isSubsampleEncryption, uint32_t flags);
-    status_t parseSampleEncryption(off64_t offset);
+    status_t parseClearEncryptedSizes(off64_t offset, bool isSampleEncryption,
+            uint32_t flags, off64_t size);
+    status_t parseSampleEncryption(off64_t offset, off64_t size);
     // returns -1 for invalid layer ID
     int32_t parseHEVCLayerId(const uint8_t *data, size_t size);
 
@@ -194,6 +206,7 @@ private:
         Vector<size_t> encryptedsizes;
     };
     Vector<Sample> mCurrentSamples;
+    std::map<off64_t, uint32_t> mDrmOffsets;
 
     MPEG4Source(const MPEG4Source &);
     MPEG4Source &operator=(const MPEG4Source &);
@@ -337,6 +350,14 @@ static const char *FourCC2MIME(uint32_t fourcc) {
         case FOURCC("hvc1"):
         case FOURCC("hev1"):
             return MEDIA_MIMETYPE_VIDEO_HEVC;
+
+        case FOURCC("dvav"):
+        case FOURCC("dva1"):
+        case FOURCC("dvhe"):
+        case FOURCC("dvh1"):
+        case FOURCC("dav1"):
+            return MEDIA_MIMETYPE_VIDEO_DOLBY_VISION;
+
         case FOURCC("ac-4"):
             return MEDIA_MIMETYPE_AUDIO_AC4;
         case FOURCC("Opus"):
@@ -475,12 +496,11 @@ media_status_t MPEG4Extractor::getTrackMetaData(
         int64_t duration;
         int32_t samplerate;
         // Only for audio track.
-        if (track->has_elst && mHeaderTimescale != 0 &&
-                AMediaFormat_getInt64(track->meta, AMEDIAFORMAT_KEY_DURATION, &duration) &&
-                AMediaFormat_getInt32(track->meta, AMEDIAFORMAT_KEY_SAMPLE_RATE, &samplerate)) {
-
+        if (track->elst_needs_processing && mHeaderTimescale != 0 &&
+            AMediaFormat_getInt64(track->meta, AMEDIAFORMAT_KEY_DURATION, &duration) &&
+            AMediaFormat_getInt32(track->meta, AMEDIAFORMAT_KEY_SAMPLE_RATE, &samplerate)) {
             // Elst has to be processed only the first time this function is called.
-            track->has_elst = false;
+            track->elst_needs_processing = false;
 
             if (track->elst_segment_duration > INT64_MAX) {
                 return;
@@ -1060,8 +1080,72 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                     // drop it now to reduce our footprint
                     free(mLastTrack->mTx3gBuffer);
                     mLastTrack->mTx3gBuffer = NULL;
+                    mLastTrack->mTx3gFilled = 0;
+                    mLastTrack->mTx3gSize = 0;
                 }
 
+                const char *mime;
+                AMediaFormat_getString(mLastTrack->meta, AMEDIAFORMAT_KEY_MIME, &mime);
+
+                if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION)) {
+                    void *data;
+                    size_t size;
+
+                    if (AMediaFormat_getBuffer(mLastTrack->meta, AMEDIAFORMAT_KEY_CSD_2, &data, &size)) {
+                        const uint8_t *ptr = (const uint8_t *)data;
+                        const uint8_t profile = ptr[2] >> 1;
+                        const uint8_t bl_compatibility_id = (ptr[4]) >> 4;
+                        bool create_two_tracks = false;
+
+                        if (bl_compatibility_id && bl_compatibility_id != 15) {
+                            create_two_tracks = true;
+                        }
+
+                        if (4 == profile || 7 == profile ||
+                                (profile >= 8 && profile < 11 && create_two_tracks)) {
+                            // we need a backward compatible track
+                            ALOGV("Adding new backward compatible track");
+                            Track *track_b = new Track;
+
+                            track_b->timescale = mLastTrack->timescale;
+                            track_b->sampleTable = mLastTrack->sampleTable;
+                            track_b->includes_expensive_metadata = mLastTrack->includes_expensive_metadata;
+                            track_b->skipTrack = mLastTrack->skipTrack;
+                            track_b->elst_needs_processing = mLastTrack->elst_needs_processing;
+                            track_b->elst_media_time = mLastTrack->elst_media_time;
+                            track_b->elst_segment_duration = mLastTrack->elst_segment_duration;
+                            track_b->elst_shift_start_ticks = mLastTrack->elst_shift_start_ticks;
+                            track_b->elst_initial_empty_edit_ticks = mLastTrack->elst_initial_empty_edit_ticks;
+                            track_b->subsample_encryption = mLastTrack->subsample_encryption;
+
+                            track_b->mTx3gBuffer = mLastTrack->mTx3gBuffer;
+                            track_b->mTx3gSize = mLastTrack->mTx3gSize;
+                            track_b->mTx3gFilled = mLastTrack->mTx3gFilled;
+
+                            track_b->meta = AMediaFormat_new();
+                            AMediaFormat_copy(track_b->meta, mLastTrack->meta);
+
+                            mLastTrack->next = track_b;
+                            track_b->next = NULL;
+
+                            auto id = track_b->meta->mFormat->findEntryByName(AMEDIAFORMAT_KEY_CSD_2);
+                            track_b->meta->mFormat->removeEntryAt(id);
+
+                            if (4 == profile || 7 == profile || 8 == profile ) {
+                                AMediaFormat_setString(track_b->meta,
+                                        AMEDIAFORMAT_KEY_MIME, MEDIA_MIMETYPE_VIDEO_HEVC);
+                            } else if (9 == profile) {
+                                AMediaFormat_setString(track_b->meta,
+                                        AMEDIAFORMAT_KEY_MIME, MEDIA_MIMETYPE_VIDEO_AVC);
+                            } else if (10 == profile) {
+                                AMediaFormat_setString(track_b->meta,
+                                        AMEDIAFORMAT_KEY_MIME, MEDIA_MIMETYPE_VIDEO_AV1);
+                            } // Should never get to else part
+
+                            mLastTrack = track_b;
+                        }
+                    }
+                }
             } else if (chunk_type == FOURCC("moov")) {
                 mInitCheck = OK;
 
@@ -1134,39 +1218,73 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 return ERROR_IO;
             }
 
-            if (entry_count != 1) {
-                // we only support a single entry at the moment, for gapless playback
-                // or start offset
+            if (entry_count > 2) {
+                /* We support a single entry for gapless playback or negating offset for
+                 * reordering B frames, two entries (empty edit) for start offset at the moment.
+                 */
                 ALOGW("ignoring edit list with %d entries", entry_count);
             } else {
                 off64_t entriesoffset = data_offset + 8;
                 uint64_t segment_duration;
                 int64_t media_time;
-
-                if (version == 1) {
-                    if (!mDataSource->getUInt64(entriesoffset, &segment_duration) ||
-                            !mDataSource->getUInt64(entriesoffset + 8, (uint64_t*)&media_time)) {
-                        return ERROR_IO;
-                    }
-                } else if (version == 0) {
-                    uint32_t sd;
-                    int32_t mt;
-                    if (!mDataSource->getUInt32(entriesoffset, &sd) ||
+                bool empty_edit_present = false;
+                for (int i = 0; i < entry_count; ++i) {
+                    switch (version) {
+                    case 0: {
+                        uint32_t sd;
+                        int32_t mt;
+                        if (!mDataSource->getUInt32(entriesoffset, &sd) ||
                             !mDataSource->getUInt32(entriesoffset + 4, (uint32_t*)&mt)) {
-                        return ERROR_IO;
+                            return ERROR_IO;
+                        }
+                        segment_duration = sd;
+                        media_time = mt;
+                        // 4(segment duration) + 4(media time) + 4(media rate)
+                        entriesoffset += 12;
+                        break;
                     }
-                    segment_duration = sd;
-                    media_time = mt;
-                } else {
-                    return ERROR_IO;
+                    case 1: {
+                        if (!mDataSource->getUInt64(entriesoffset, &segment_duration) ||
+                            !mDataSource->getUInt64(entriesoffset + 8, (uint64_t*)&media_time)) {
+                            return ERROR_IO;
+                        }
+                        // 8(segment duration) + 8(media time) + 4(media rate)
+                        entriesoffset += 20;
+                        break;
+                    }
+                    default:
+                        return ERROR_IO;
+                        break;
+                    }
+                    // Empty edit entry would have to be first entry.
+                    if (media_time == -1 && i == 0) {
+                        empty_edit_present = true;
+                        ALOGV("initial empty edit ticks: %" PRIu64, segment_duration);
+                        /* In movie header timescale, and needs to be converted to media timescale
+                         * after we get that from a track's 'mdhd' atom,
+                         * which at times come after 'elst'.
+                         */
+                        mLastTrack->elst_initial_empty_edit_ticks = segment_duration;
+                    } else if (media_time >= 0 && i == 0) {
+                        ALOGV("first edit list entry - from gapless playback files");
+                        mLastTrack->elst_media_time = media_time;
+                        mLastTrack->elst_segment_duration = segment_duration;
+                        ALOGV("segment_duration: %" PRIu64 " media_time: %" PRId64,
+                              segment_duration, media_time);
+                        // media_time is in media timescale as are STTS/CTTS entries.
+                        mLastTrack->elst_shift_start_ticks = media_time;
+                    } else if (empty_edit_present && i == 1) {
+                        // Process second entry only when the first entry was an empty edit entry.
+                        ALOGV("second edit list entry");
+                        mLastTrack->elst_shift_start_ticks = media_time;
+                    } else {
+                        ALOGW("for now, unsupported entry in edit list %" PRIu32, entry_count);
+                    }
                 }
-
                 // save these for later, because the elst atom might precede
                 // the atoms that actually gives us the duration and sample rate
                 // needed to calculate the padding and delay values
-                mLastTrack->has_elst = true;
-                mLastTrack->elst_media_time = media_time;
-                mLastTrack->elst_segment_duration = segment_duration;
+                mLastTrack->elst_needs_processing = true;
             }
             break;
         }
@@ -1561,8 +1679,12 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
         {
             *offset += chunk_size;
 
-            if (mLastTrack == NULL)
+            // the absolute minimum size of a compliant mett box is 11 bytes:
+            // 6 byte reserved, 2 byte index, null byte, one char mime_format, null byte
+            // The resulting mime_format would be invalid at that size though.
+            if (mLastTrack == NULL || chunk_data_size < 11) {
                 return ERROR_MALFORMED;
+            }
 
             auto buffer = heapbuffer<uint8_t>(chunk_data_size);
             if (buffer.get() == NULL) {
@@ -1574,10 +1696,24 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 return ERROR_IO;
             }
 
+            // ISO-14496-12:
+            // int8 reserved[6];               // should be all zeroes
+            // int16_t data_reference_index;
+            // char content_encoding[];        // null terminated, optional (= just the null byte)
+            // char mime_format[];             // null terminated, mandatory
+            // optional other boxes
+            //
+            // API < 29:
+            // char mime_format[];             // null terminated
+            //
+            // API >= 29
+            // char mime_format[];             // null terminated
+            // char mime_format[];             // null terminated
+
             // Prior to API 29, the metadata track was not compliant with ISO/IEC
             // 14496-12-2015. This led to some ISO-compliant parsers failing to read the
             // metatrack. As of API 29 and onwards, a change was made to metadata track to
-            // make it compliant with the standard. The workaround is to write the
+            // make it somewhat compatible with the standard. The workaround is to write the
             // null-terminated mime_format string twice. This allows compliant parsers to
             // read the missing reserved, data_reference_index, and content_encoding fields
             // from the first mime_type string. The actual mime_format field would then be
@@ -1586,27 +1722,27 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             // as it would only read the first null-terminated mime_format string. To enable
             // reading metadata tracks generated from both the non-compliant and compliant
             // formats, a check needs to be done to see which format is used.
-            int null_pos = 0;
-            const unsigned char *str = buffer.get();
-            while (null_pos < chunk_data_size) {
-              if (*(str + null_pos) == '\0') {
-                break;
-              }
-              ++null_pos;
-            }
+            const char *str = (const char*) buffer.get();
+            size_t string_length = strnlen(str, chunk_data_size);
 
-            if (null_pos == chunk_data_size - 1) {
-              // This is not a standard ompliant metadata track.
-              String8 mimeFormat((const char *)(buffer.get()), chunk_data_size);
-              AMediaFormat_setString(mLastTrack->meta,
-                  AMEDIAFORMAT_KEY_MIME, mimeFormat.string());
+            if (string_length == chunk_data_size - 1) {
+                // This is likely a pre API 29 file, since it's a single null terminated
+                // string filling the entire box.
+                AMediaFormat_setString(mLastTrack->meta, AMEDIAFORMAT_KEY_MIME, str);
             } else {
-              // This is a standard compliant metadata track.
-              String8 contentEncoding((const char *)(buffer.get() + 8));
-              String8 mimeFormat((const char *)(buffer.get() + 8 + contentEncoding.size() + 1),
-                  chunk_data_size - 8 - contentEncoding.size() - 1);
-              AMediaFormat_setString(mLastTrack->meta,
-                  AMEDIAFORMAT_KEY_MIME, mimeFormat.string());
+                // This might be a fully compliant metadata track, a "double mime" compatibility
+                // track, or anything else, including a single non-terminated string, so we need
+                // to determine the length of each string we want to parse out of the box.
+                size_t encoding_length = strnlen(str + 8, chunk_data_size - 8);
+                if (encoding_length + 8 >= chunk_data_size - 2) {
+                    // the encoding extends to the end of the box, so there's no mime_format
+                    return ERROR_MALFORMED;
+                }
+                String8 contentEncoding(str + 8, encoding_length);
+                String8 mimeFormat(str + 8 + encoding_length + 1,
+                        chunk_data_size - 8 - encoding_length - 1);
+                AMediaFormat_setString(mLastTrack->meta,
+                        AMEDIAFORMAT_KEY_MIME, mimeFormat.string());
             }
             break;
         }
@@ -1830,6 +1966,11 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
         case FOURCC("avc1"):
         case FOURCC("hvc1"):
         case FOURCC("hev1"):
+        case FOURCC("dvav"):
+        case FOURCC("dva1"):
+        case FOURCC("dvhe"):
+        case FOURCC("dvh1"):
+        case FOURCC("dav1"):
         case FOURCC("av01"):
         {
             uint8_t buffer[78];
@@ -1984,7 +2125,8 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                     // for audio, use 128KB
                     max_size = 1024 * 128;
                 } else if (!strcmp(mime, MEDIA_MIMETYPE_VIDEO_AVC)
-                        || !strcmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC)) {
+                        || !strcmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC)
+                        || !strcmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION)) {
                     // AVC & HEVC requires compression ratio of at least 2, and uses
                     // macroblocks
                     max_size = ((width + 15) / 16) * ((height + 15) / 16) * 192;
@@ -2315,6 +2457,33 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             *offset += chunk_size;
             break;
         }
+        case FOURCC("dvcC"):
+        case FOURCC("dvvC"): {
+
+            CHECK_EQ(chunk_data_size, 24);
+
+            auto buffer = heapbuffer<uint8_t>(chunk_data_size);
+
+            if (buffer.get() == NULL) {
+                ALOGE("b/28471206");
+                return NO_MEMORY;
+            }
+
+            if (mDataSource->readAt(data_offset, buffer.get(), chunk_data_size) < chunk_data_size) {
+                return ERROR_IO;
+            }
+
+            if (mLastTrack == NULL)
+                return ERROR_MALFORMED;
+
+            AMediaFormat_setBuffer(mLastTrack->meta, AMEDIAFORMAT_KEY_CSD_2,
+                                   buffer.get(), chunk_data_size);
+            AMediaFormat_setString(mLastTrack->meta, AMEDIAFORMAT_KEY_MIME,
+                                   MEDIA_MIMETYPE_VIDEO_DOLBY_VISION);
+
+            *offset += chunk_size;
+            break;
+        }
         case FOURCC("d263"):
         {
             *offset += chunk_size;
@@ -2621,6 +2790,10 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             // if those apps are compensating for it, we'd break them with such a change
             //
 
+            if (mLastTrack->mTx3gBuffer == NULL) {
+                mLastTrack->mTx3gSize = 0;
+                mLastTrack->mTx3gFilled = 0;
+            }
             if (mLastTrack->mTx3gSize - mLastTrack->mTx3gFilled < chunk_size) {
                 size_t growth = kTx3gGrowth;
                 if (growth < chunk_size) {
@@ -2728,7 +2901,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 return ERROR_MALFORMED;
             }
 
-            parseID3v2MetaData(data_offset + 6);
+            parseID3v2MetaData(data_offset + 6, chunk_data_size - 6);
 
             break;
         }
@@ -3644,43 +3817,44 @@ status_t MPEG4Extractor::parseITunesMetaData(off64_t offset, size_t size) {
     switch ((int32_t)mPath[4]) {
         case FOURCC("\251alb"):
         {
-            metadataKey = "album";
+            metadataKey = AMEDIAFORMAT_KEY_ALBUM;
             break;
         }
         case FOURCC("\251ART"):
         {
-            metadataKey = "artist";
+            metadataKey = AMEDIAFORMAT_KEY_ARTIST;
             break;
         }
         case FOURCC("aART"):
         {
-            metadataKey = "albumartist";
+            metadataKey = AMEDIAFORMAT_KEY_ALBUMARTIST;
             break;
         }
         case FOURCC("\251day"):
         {
-            metadataKey = "year";
+            metadataKey = AMEDIAFORMAT_KEY_YEAR;
             break;
         }
         case FOURCC("\251nam"):
         {
-            metadataKey = "title";
+            metadataKey = AMEDIAFORMAT_KEY_TITLE;
             break;
         }
         case FOURCC("\251wrt"):
         {
-            metadataKey = "writer";
+            // various open source taggers agree that the "©wrt" tag is for composer, not writer
+            metadataKey = AMEDIAFORMAT_KEY_COMPOSER;
             break;
         }
         case FOURCC("covr"):
         {
-            metadataKey = "albumart";
+            metadataKey = AMEDIAFORMAT_KEY_ALBUMART;
             break;
         }
         case FOURCC("gnre"):
         case FOURCC("\251gen"):
         {
-            metadataKey = "genre";
+            metadataKey = AMEDIAFORMAT_KEY_GENRE;
             break;
         }
         case FOURCC("cpil"):
@@ -3785,7 +3959,7 @@ status_t MPEG4Extractor::parseITunesMetaData(off64_t offset, size_t size) {
         if (!strcmp(metadataKey, "albumart")) {
             AMediaFormat_setBuffer(mFileMetaData, metadataKey,
                     buffer + 8, size - 8);
-        } else if (!strcmp(metadataKey, "genre")) {
+        } else if (!strcmp(metadataKey, AMEDIAFORMAT_KEY_GENRE)) {
             if (flags == 0) {
                 // uint8_t genre code, iTunes genre codes are
                 // the standard id3 codes, except they start
@@ -3999,8 +4173,19 @@ status_t MPEG4Extractor::parse3GPPMetaData(off64_t offset, size_t size, int dept
     return OK;
 }
 
-void MPEG4Extractor::parseID3v2MetaData(off64_t offset) {
-    ID3 id3(mDataSource, true /* ignorev1 */, offset);
+void MPEG4Extractor::parseID3v2MetaData(off64_t offset, uint64_t size) {
+    uint8_t *buffer = new (std::nothrow) uint8_t[size];
+    if (buffer == NULL) {
+        return;
+    }
+    if (mDataSource->readAt(offset, buffer, size) != (ssize_t)size) {
+        delete[] buffer;
+        buffer = NULL;
+        return;
+    }
+
+    ID3 id3(buffer, size, true /* ignorev1 */);
+    delete[] buffer;
 
     if (id3.isValid()) {
         struct Map {
@@ -4127,7 +4312,20 @@ MediaTrackHelper *MPEG4Extractor::getTrack(size_t index) {
         if (!strcasecmp(mime, MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC)) {
             itemTable = mItemTable;
         }
-    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AV1)) {
+    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION)) {
+        void *data;
+        size_t size;
+        if (!AMediaFormat_getBuffer(track->meta, AMEDIAFORMAT_KEY_CSD_2, &data, &size)) {
+            return NULL;
+        }
+
+        const uint8_t *ptr = (const uint8_t *)data;
+
+        // dv_major.dv_minor Should be 1.0 or 2.1
+        if (size != 24 || ((ptr[0] != 1 || ptr[1] != 0) && (ptr[0] != 2 || ptr[1] != 1))) {
+            return NULL;
+        }
+   } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AV1)) {
         void *data;
         size_t size;
         if (!AMediaFormat_getBuffer(track->meta, AMEDIAFORMAT_KEY_CSD_0, &data, &size)) {
@@ -4141,15 +4339,28 @@ MediaTrackHelper *MPEG4Extractor::getTrack(size_t index) {
         }
     }
 
-    if (track->has_elst and !strncasecmp("video/", mime, 6) and track->elst_media_time > 0) {
-        track->elstShiftStartTicks = track->elst_media_time;
-        ALOGV("video track->elstShiftStartTicks :%" PRIu64, track->elstShiftStartTicks);
-    }
+    ALOGV("track->elst_shift_start_ticks :%" PRIu64, track->elst_shift_start_ticks);
 
-    MPEG4Source *source =  new MPEG4Source(
-            track->meta, mDataSource, track->timescale, track->sampleTable,
-            mSidxEntries, trex, mMoofOffset, itemTable,
-            track->elstShiftStartTicks);
+    uint64_t elst_initial_empty_edit_ticks = 0;
+    if (mHeaderTimescale != 0) {
+        // Convert empty_edit_ticks from movie timescale to media timescale.
+        uint64_t elst_initial_empty_edit_ticks_mul = 0, elst_initial_empty_edit_ticks_add = 0;
+        if (__builtin_mul_overflow(track->elst_initial_empty_edit_ticks, track->timescale,
+                                   &elst_initial_empty_edit_ticks_mul) ||
+            __builtin_add_overflow(elst_initial_empty_edit_ticks_mul, (mHeaderTimescale / 2),
+                                   &elst_initial_empty_edit_ticks_add)) {
+            ALOGE("track->elst_initial_empty_edit_ticks overflow");
+            return nullptr;
+        }
+        elst_initial_empty_edit_ticks = elst_initial_empty_edit_ticks_add / mHeaderTimescale;
+    }
+    ALOGV("elst_initial_empty_edit_ticks in MediaTimeScale :%" PRIu64,
+          elst_initial_empty_edit_ticks);
+
+    MPEG4Source* source =
+            new MPEG4Source(track->meta, mDataSource, track->timescale, track->sampleTable,
+                            mSidxEntries, trex, mMoofOffset, itemTable,
+                            track->elst_shift_start_ticks, elst_initial_empty_edit_ticks);
     if (source->init() != OK) {
         delete source;
         return NULL;
@@ -4170,6 +4381,10 @@ status_t MPEG4Extractor::verifyTrack(Track *track) {
         }
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC)) {
         if (!AMediaFormat_getBuffer(track->meta, AMEDIAFORMAT_KEY_CSD_HEVC, &data, &size)) {
+            return ERROR_MALFORMED;
+        }
+    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION)) {
+        if (!AMediaFormat_getBuffer(track->meta, AMEDIAFORMAT_KEY_CSD_2, &data, &size)) {
             return ERROR_MALFORMED;
         }
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AV1)) {
@@ -4243,7 +4458,7 @@ typedef enum {
     //AOT_SLS              = 38, /**< SLS                                       */
     //AOT_ER_AAC_ELD       = 39, /**< AAC Enhanced Low Delay                    */
 
-    //AOT_USAC             = 42, /**< USAC                                      */
+    AOT_USAC               = 42, /**< USAC                                      */
     //AOT_SAOC             = 43, /**< SAOC                                      */
     //AOT_LD_MPEGS         = 44, /**< Low Delay MPEG Surround                   */
 
@@ -4391,7 +4606,7 @@ status_t MPEG4Extractor::updateAudioTrackInfoFromESDS_MPEG4Audio(
     ABitReader br(csd, csd_size);
     uint32_t objectType = br.getBits(5);
 
-    if (objectType == 31) {  // AAC-ELD => additional 6 bits
+    if (objectType == AOT_ESCAPE) {  // AAC-ELD => additional 6 bits
         objectType = 32 + br.getBits(6);
     }
 
@@ -4638,7 +4853,8 @@ MPEG4Source::MPEG4Source(
         const Trex *trex,
         off64_t firstMoofOffset,
         const sp<ItemTable> &itemTable,
-        uint64_t elstShiftStartTicks)
+        uint64_t elstShiftStartTicks,
+        uint64_t elstInitialEmptyEditTicks)
     : mFormat(format),
       mDataSource(dataSource),
       mTimescale(timeScale),
@@ -4649,6 +4865,7 @@ MPEG4Source::MPEG4Source(
       mTrex(trex),
       mFirstMoofOffset(firstMoofOffset),
       mCurrentMoofOffset(firstMoofOffset),
+      mCurrentMoofSize(0),
       mNextMoofOffset(-1),
       mCurrentTime(0),
       mDefaultEncryptedByteBlock(0),
@@ -4659,6 +4876,7 @@ MPEG4Source::MPEG4Source(
       mCurrentSampleInfoOffsets(NULL),
       mIsAVC(false),
       mIsHEVC(false),
+      mIsDolbyVision(false),
       mIsAC4(false),
       mIsPcm(false),
       mNALLengthSize(0),
@@ -4667,7 +4885,8 @@ MPEG4Source::MPEG4Source(
       mSrcBuffer(NULL),
       mIsHeif(itemTable != NULL),
       mItemTable(itemTable),
-      mElstShiftStartTicks(elstShiftStartTicks) {
+      mElstShiftStartTicks(elstShiftStartTicks),
+      mElstInitialEmptyEditTicks(elstInitialEmptyEditTicks) {
 
     memset(&mTrackFragmentHeaderInfo, 0, sizeof(mTrackFragmentHeaderInfo));
 
@@ -4698,6 +4917,7 @@ MPEG4Source::MPEG4Source(
     mIsHEVC = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC) ||
               !strcasecmp(mime, MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC);
     mIsAC4 = !strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AC4);
+    mIsDolbyVision = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION);
 
     if (mIsAVC) {
         void *data;
@@ -4722,10 +4942,52 @@ MPEG4Source::MPEG4Source(
         CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
 
         mNALLengthSize = 1 + (ptr[14 + 7] & 3);
+    } else if (mIsDolbyVision) {
+        ALOGV("%s DolbyVision stream detected", __FUNCTION__);
+        void *data;
+        size_t size;
+        CHECK(AMediaFormat_getBuffer(format, AMEDIAFORMAT_KEY_CSD_2, &data, &size));
+
+        const uint8_t *ptr = (const uint8_t *)data;
+
+        CHECK(size == 24);
+
+        // dv_major.dv_minor Should be 1.0 or 2.1
+        CHECK(!((ptr[0] != 1 || ptr[1] != 0) && (ptr[0] != 2 || ptr[1] != 1)));
+
+        const uint8_t profile = ptr[2] >> 1;
+        // profile == (unknown,1,9) --> AVC; profile = (2,3,4,5,6,7,8) --> HEVC;
+        // profile == (10) --> AV1
+        if (profile > 1 && profile < 9) {
+            CHECK(AMediaFormat_getBuffer(format, AMEDIAFORMAT_KEY_CSD_HEVC, &data, &size));
+
+            const uint8_t *ptr = (const uint8_t *)data;
+
+            CHECK(size >= 22);
+            CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
+
+            mNALLengthSize = 1 + (ptr[14 + 7] & 3);
+        } else if (10 == profile) {
+            /* AV1 profile nothing to do */
+        } else {
+            CHECK(AMediaFormat_getBuffer(format, AMEDIAFORMAT_KEY_CSD_AVC, &data, &size));
+            const uint8_t *ptr = (const uint8_t *)data;
+
+            CHECK(size >= 7);
+            CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
+            // The number of bytes used to encode the length of a NAL unit.
+            mNALLengthSize = 1 + (ptr[4] & 3);
+        }
     }
 
     mIsPcm = !strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_RAW);
     mIsAudio = !strncasecmp(mime, "audio/", 6);
+
+    int32_t aacObjectType = -1;
+
+    if (AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_AAC_PROFILE, &aacObjectType)) {
+        mIsUsac = (aacObjectType == AOT_USAC);
+    }
 
     if (mIsPcm) {
         int32_t numChannels = 0;
@@ -4749,35 +5011,14 @@ MPEG4Source::MPEG4Source(
     }
 
     CHECK(AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_TRACK_ID, &mTrackId));
-
 }
 
 status_t MPEG4Source::init() {
-    status_t err = OK;
-    const char *mime;
-    CHECK(AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime));
     if (mFirstMoofOffset != 0) {
         off64_t offset = mFirstMoofOffset;
-        err = parseChunk(&offset);
-        if(err == OK && !strncasecmp("video/", mime, 6)
-            && !mCurrentSamples.isEmpty()) {
-            // Start offset should be less or equal to composition time of first sample.
-            // ISO : sample_composition_time_offset, version 0 (unsigned) for major brands.
-            mElstShiftStartTicks = std::min(mElstShiftStartTicks,
-                                            (uint64_t)(*mCurrentSamples.begin()).compositionOffset);
-        }
-        return err;
+        return parseChunk(&offset);
     }
-
-    if (!strncasecmp("video/", mime, 6)) {
-        uint64_t firstSampleCTS = 0;
-        err = mSampleTable->getMetaDataForSample(0, NULL, NULL, &firstSampleCTS);
-        // Start offset should be less or equal to composition time of first sample.
-        // Composition time stamp of first sample cannot be negative.
-        mElstShiftStartTicks = std::min(mElstShiftStartTicks, firstSampleCTS);
-    }
-
-    return err;
+    return OK;
 }
 
 MPEG4Source::~MPEG4Source() {
@@ -4881,6 +5122,9 @@ status_t MPEG4Source::parseChunk(off64_t *offset) {
         case FOURCC("moof"): {
             off64_t stop_offset = *offset + chunk_size;
             *offset = data_offset;
+            if (chunk_type == FOURCC("moof")) {
+                mCurrentMoofSize = chunk_data_size;
+            }
             while (*offset < stop_offset) {
                 status_t err = parseChunk(offset);
                 if (err != OK) {
@@ -4919,6 +5163,9 @@ status_t MPEG4Source::parseChunk(off64_t *offset) {
                     if (chunk_type == FOURCC("moof")) {
                         mNextMoofOffset = *offset;
                         break;
+                    } else if (chunk_type == FOURCC("mdat")) {
+                        parseChunk(offset);
+                        continue;
                     } else if (chunk_size == 0) {
                         break;
                     }
@@ -4969,7 +5216,7 @@ status_t MPEG4Source::parseChunk(off64_t *offset) {
 
         case FOURCC("senc"): {
             status_t err;
-            if ((err = parseSampleEncryption(data_offset)) != OK) {
+            if ((err = parseSampleEncryption(data_offset, chunk_data_size)) != OK) {
                 return err;
             }
             *offset += chunk_size;
@@ -4980,6 +5227,22 @@ status_t MPEG4Source::parseChunk(off64_t *offset) {
             // parse DRM info if present
             ALOGV("MPEG4Source::parseChunk mdat");
             // if saiz/saoi was previously observed, do something with the sampleinfos
+            status_t err = OK;
+            auto kv = mDrmOffsets.lower_bound(*offset);
+            if (kv != mDrmOffsets.end()) {
+                auto drmoffset = kv->first;
+                auto flags = kv->second;
+                mDrmOffsets.erase(kv);
+                ALOGV("mdat chunk_size %" PRIu64 " drmoffset %" PRId64 " offset %" PRId64,
+                        chunk_size, drmoffset, *offset);
+                if (chunk_size >= drmoffset - *offset) {
+                    err = parseClearEncryptedSizes(drmoffset, false, flags,
+                        chunk_size - (drmoffset - *offset));
+                }
+            }
+            if (err != OK) {
+                return err;
+            }
             *offset += chunk_size;
             break;
         }
@@ -4993,8 +5256,11 @@ status_t MPEG4Source::parseChunk(off64_t *offset) {
 }
 
 status_t MPEG4Source::parseSampleAuxiliaryInformationSizes(
-        off64_t offset, off64_t /* size */) {
+        off64_t offset, off64_t size) {
     ALOGV("parseSampleAuxiliaryInformationSizes");
+    if (size < 9) {
+        return -EINVAL;
+    }
     // 14496-12 8.7.12
     uint8_t version;
     if (mDataSource->readAt(
@@ -5007,25 +5273,32 @@ status_t MPEG4Source::parseSampleAuxiliaryInformationSizes(
         return ERROR_UNSUPPORTED;
     }
     offset++;
+    size--;
 
     uint32_t flags;
     if (!mDataSource->getUInt24(offset, &flags)) {
         return ERROR_IO;
     }
     offset += 3;
+    size -= 3;
 
     if (flags & 1) {
+        if (size < 13) {
+            return -EINVAL;
+        }
         uint32_t tmp;
         if (!mDataSource->getUInt32(offset, &tmp)) {
             return ERROR_MALFORMED;
         }
         mCurrentAuxInfoType = tmp;
         offset += 4;
+        size -= 4;
         if (!mDataSource->getUInt32(offset, &tmp)) {
             return ERROR_MALFORMED;
         }
         mCurrentAuxInfoTypeParameter = tmp;
         offset += 4;
+        size -= 4;
     }
 
     uint8_t defsize;
@@ -5034,6 +5307,7 @@ status_t MPEG4Source::parseSampleAuxiliaryInformationSizes(
     }
     mCurrentDefaultSampleInfoSize = defsize;
     offset++;
+    size--;
 
     uint32_t smplcnt;
     if (!mDataSource->getUInt32(offset, &smplcnt)) {
@@ -5041,10 +5315,15 @@ status_t MPEG4Source::parseSampleAuxiliaryInformationSizes(
     }
     mCurrentSampleInfoCount = smplcnt;
     offset += 4;
-
+    size -= 4;
     if (mCurrentDefaultSampleInfoSize != 0) {
         ALOGV("@@@@ using default sample info size of %d", mCurrentDefaultSampleInfoSize);
         return OK;
+    }
+    if(smplcnt > size) {
+        ALOGW("b/124525515 - smplcnt(%u) > size(%ld)", (unsigned int)smplcnt, (unsigned long)size);
+        android_errorWriteLog(0x534e4554, "124525515");
+        return -EINVAL;
     }
     if (smplcnt > mCurrentSampleInfoAllocSize) {
         uint8_t * newPtr =  (uint8_t*) realloc(mCurrentSampleInfoSizes, smplcnt);
@@ -5061,26 +5340,32 @@ status_t MPEG4Source::parseSampleAuxiliaryInformationSizes(
 }
 
 status_t MPEG4Source::parseSampleAuxiliaryInformationOffsets(
-        off64_t offset, off64_t /* size */) {
+        off64_t offset, off64_t size) {
     ALOGV("parseSampleAuxiliaryInformationOffsets");
+    if (size < 8) {
+        return -EINVAL;
+    }
     // 14496-12 8.7.13
     uint8_t version;
     if (mDataSource->readAt(offset, &version, sizeof(version)) != 1) {
         return ERROR_IO;
     }
     offset++;
+    size--;
 
     uint32_t flags;
     if (!mDataSource->getUInt24(offset, &flags)) {
         return ERROR_IO;
     }
     offset += 3;
+    size -= 3;
 
     uint32_t entrycount;
     if (!mDataSource->getUInt32(offset, &entrycount)) {
         return ERROR_IO;
     }
     offset += 4;
+    size -= 4;
     if (entrycount == 0) {
         return OK;
     }
@@ -5106,19 +5391,31 @@ status_t MPEG4Source::parseSampleAuxiliaryInformationOffsets(
 
     for (size_t i = 0; i < entrycount; i++) {
         if (version == 0) {
+            if (size < 4) {
+                ALOGW("b/124526959");
+                android_errorWriteLog(0x534e4554, "124526959");
+                return -EINVAL;
+            }
             uint32_t tmp;
             if (!mDataSource->getUInt32(offset, &tmp)) {
                 return ERROR_IO;
             }
             mCurrentSampleInfoOffsets[i] = tmp;
             offset += 4;
+            size -= 4;
         } else {
+            if (size < 8) {
+                ALOGW("b/124526959");
+                android_errorWriteLog(0x534e4554, "124526959");
+                return -EINVAL;
+            }
             uint64_t tmp;
             if (!mDataSource->getUInt64(offset, &tmp)) {
                 return ERROR_IO;
             }
             mCurrentSampleInfoOffsets[i] = tmp;
             offset += 8;
+            size -= 8;
         }
     }
 
@@ -5127,12 +5424,14 @@ status_t MPEG4Source::parseSampleAuxiliaryInformationOffsets(
     off64_t drmoffset = mCurrentSampleInfoOffsets[0]; // from moof
 
     drmoffset += mCurrentMoofOffset;
+    mDrmOffsets[drmoffset] = flags;
+    ALOGV("saio drmoffset %" PRId64 " flags %u", drmoffset, flags);
 
-    return parseClearEncryptedSizes(drmoffset, false, 0);
+    return OK;
 }
 
 status_t MPEG4Source::parseClearEncryptedSizes(
-        off64_t offset, bool isSubsampleEncryption, uint32_t flags) {
+        off64_t offset, bool isSampleEncryption, uint32_t flags, off64_t size) {
 
     int32_t ivlength;
     if (!AMediaFormat_getInt32(mFormat, AMEDIAFORMAT_KEY_CRYPTO_DEFAULT_IV_SIZE, &ivlength)) {
@@ -5146,11 +5445,15 @@ status_t MPEG4Source::parseClearEncryptedSizes(
     }
 
     uint32_t sampleCount = mCurrentSampleInfoCount;
-    if (isSubsampleEncryption) {
+    if (isSampleEncryption) {
+        if (size < 4) {
+            return ERROR_MALFORMED;
+        }
         if (!mDataSource->getUInt32(offset, &sampleCount)) {
             return ERROR_IO;
         }
         offset += 4;
+        size -= 4;
     }
 
     // read CencSampleAuxiliaryDataFormats
@@ -5165,14 +5468,18 @@ status_t MPEG4Source::parseClearEncryptedSizes(
         }
 
         memset(smpl->iv, 0, 16);
+        if (size < ivlength) {
+            return ERROR_MALFORMED;
+        }
         if (mDataSource->readAt(offset, smpl->iv, ivlength) != ivlength) {
             return ERROR_IO;
         }
 
         offset += ivlength;
+        size -= ivlength;
 
         bool readSubsamples;
-        if (isSubsampleEncryption) {
+        if (isSampleEncryption) {
             readSubsamples = flags & 2;
         } else {
             int32_t smplinfosize = mCurrentDefaultSampleInfoSize;
@@ -5184,13 +5491,20 @@ status_t MPEG4Source::parseClearEncryptedSizes(
 
         if (readSubsamples) {
             uint16_t numsubsamples;
+            if (size < 2) {
+                return ERROR_MALFORMED;
+            }
             if (!mDataSource->getUInt16(offset, &numsubsamples)) {
                 return ERROR_IO;
             }
             offset += 2;
+            size -= 2;
             for (size_t j = 0; j < numsubsamples; j++) {
                 uint16_t numclear;
                 uint32_t numencrypted;
+                if (size < 6) {
+                    return ERROR_MALFORMED;
+                }
                 if (!mDataSource->getUInt16(offset, &numclear)) {
                     return ERROR_IO;
                 }
@@ -5199,6 +5513,7 @@ status_t MPEG4Source::parseClearEncryptedSizes(
                     return ERROR_IO;
                 }
                 offset += 4;
+                size -= 6;
                 smpl->clearsizes.add(numclear);
                 smpl->encryptedsizes.add(numencrypted);
             }
@@ -5211,12 +5526,15 @@ status_t MPEG4Source::parseClearEncryptedSizes(
     return OK;
 }
 
-status_t MPEG4Source::parseSampleEncryption(off64_t offset) {
+status_t MPEG4Source::parseSampleEncryption(off64_t offset, off64_t chunk_data_size) {
     uint32_t flags;
+    if (chunk_data_size < 4) {
+        return ERROR_MALFORMED;
+    }
     if (!mDataSource->getUInt32(offset, &flags)) { // actually version + flags
         return ERROR_MALFORMED;
     }
-    return parseClearEncryptedSizes(offset + 4, true, flags);
+    return parseClearEncryptedSizes(offset + 4, true, flags, chunk_data_size - 4);
 }
 
 status_t MPEG4Source::parseTrackFragmentHeader(off64_t offset, off64_t size) {
@@ -5405,20 +5723,30 @@ status_t MPEG4Source::parseTrackFragmentRun(off64_t offset, off64_t size) {
 
     if (flags & kSampleSizePresent) {
         bytesPerSample += 4;
-    } else if (mTrackFragmentHeaderInfo.mFlags
-            & TrackFragmentHeaderInfo::kDefaultSampleSizePresent) {
-        sampleSize = mTrackFragmentHeaderInfo.mDefaultSampleSize;
     } else {
         sampleSize = mTrackFragmentHeaderInfo.mDefaultSampleSize;
+#ifdef VERY_VERY_VERBOSE_LOGGING
+        // We don't expect this, but also want to avoid spamming the log if
+        // we hit this case.
+        if (!(mTrackFragmentHeaderInfo.mFlags
+              & TrackFragmentHeaderInfo::kDefaultSampleSizePresent)) {
+            ALOGW("No sample size specified");
+        }
+#endif
     }
 
     if (flags & kSampleFlagsPresent) {
         bytesPerSample += 4;
-    } else if (mTrackFragmentHeaderInfo.mFlags
-            & TrackFragmentHeaderInfo::kDefaultSampleFlagsPresent) {
-        sampleFlags = mTrackFragmentHeaderInfo.mDefaultSampleFlags;
     } else {
         sampleFlags = mTrackFragmentHeaderInfo.mDefaultSampleFlags;
+#ifdef VERY_VERY_VERBOSE_LOGGING
+        // We don't expect this, but also want to avoid spamming the log if
+        // we hit this case.
+        if (!(mTrackFragmentHeaderInfo.mFlags
+              & TrackFragmentHeaderInfo::kDefaultSampleFlagsPresent)) {
+            ALOGW("No sample flags specified");
+        }
+#endif
     }
 
     if (flags & kSampleCompositionTimeOffsetPresent) {
@@ -5440,16 +5768,12 @@ status_t MPEG4Source::parseTrackFragmentRun(off64_t offset, off64_t size) {
 
         // apply some sanity (vs strict legality) checks
         //
-        // clamp the count of entries in the trun box, to avoid spending forever parsing
-        // this box. Clamping (vs error) lets us play *something*.
-        // 1 million is about 400 msecs on a Pixel3, should be no more than a couple seconds
-        // on the slowest devices.
-        static constexpr uint32_t kMaxTrunSampleCount = 1000000;
+        static constexpr uint32_t kMaxTrunSampleCount = 10000;
         if (sampleCount > kMaxTrunSampleCount) {
-            ALOGW("b/123389881 clamp sampleCount(%u) @ kMaxTrunSampleCount(%u)",
+            ALOGW("b/123389881 sampleCount(%u) > kMaxTrunSampleCount(%u)",
                   sampleCount, kMaxTrunSampleCount);
             android_errorWriteLog(0x534e4554, "124389881 count");
-
+            return -EINVAL;
         }
     }
 
@@ -5493,7 +5817,12 @@ status_t MPEG4Source::parseTrackFragmentRun(off64_t offset, off64_t size) {
         tmp.duration = sampleDuration;
         tmp.compositionOffset = sampleCtsOffset;
         memset(tmp.iv, 0, sizeof(tmp.iv));
-        mCurrentSamples.add(tmp);
+        if (mCurrentSamples.add(tmp) < 0) {
+            ALOGW("b/123389881 failed saving sample(n=%zu)", mCurrentSamples.size());
+            android_errorWriteLog(0x534e4554, "124389881 allocation");
+            mCurrentSamples.clear();
+            return NO_MEMORY;
+        }
 
         dataOffset += sampleSize;
     }
@@ -5580,8 +5909,9 @@ media_status_t MPEG4Source::read(
 
     int64_t seekTimeUs;
     ReadOptions::SeekMode mode;
-    if (options && options->getSeekTo(&seekTimeUs, &mode)) {
 
+    if (options && options->getSeekTo(&seekTimeUs, &mode)) {
+        ALOGV("seekTimeUs:%" PRId64, seekTimeUs);
         if (mIsHeif) {
             CHECK(mSampleTable == NULL);
             CHECK(mItemTable != NULL);
@@ -5620,7 +5950,22 @@ media_status_t MPEG4Source::read(
                     break;
             }
             if( mode != ReadOptions::SEEK_FRAME_INDEX) {
-                seekTimeUs += ((long double)mElstShiftStartTicks * 1000000) / mTimescale;
+                int64_t elstInitialEmptyEditUs = 0, elstShiftStartUs = 0;
+                if (mElstInitialEmptyEditTicks > 0) {
+                    elstInitialEmptyEditUs = ((long double)mElstInitialEmptyEditTicks * 1000000) /
+                                             mTimescale;
+                    /* Sample's composition time from ctts/stts entries are non-negative(>=0).
+                     * Hence, lower bound on seekTimeUs is 0.
+                     */
+                    seekTimeUs = std::max(seekTimeUs - elstInitialEmptyEditUs, (int64_t)0);
+                }
+                if (mElstShiftStartTicks > 0) {
+                    elstShiftStartUs = ((long double)mElstShiftStartTicks * 1000000) / mTimescale;
+                    seekTimeUs += elstShiftStartUs;
+                }
+                ALOGV("shifted seekTimeUs:%" PRId64 ", elstInitialEmptyEditUs:%" PRIu64
+                      ", elstShiftStartUs:%" PRIu64, seekTimeUs, elstInitialEmptyEditUs,
+                      elstShiftStartUs);
             }
 
             uint32_t sampleIndex;
@@ -5637,10 +5982,10 @@ media_status_t MPEG4Source::read(
             }
 
             uint32_t syncSampleIndex = sampleIndex;
-            // assume every audio sample is a sync sample. This works around
+            // assume every non-USAC audio sample is a sync sample. This works around
             // seek issues with files that were incorrectly written with an
             // empty or single-sample stss block for the audio track
-            if (err == OK && !mIsAudio) {
+            if (err == OK && (!mIsAudio || mIsUsac)) {
                 err = mSampleTable->findSyncSampleNear(
                         sampleIndex, &syncSampleIndex, findFlags);
             }
@@ -5666,7 +6011,16 @@ media_status_t MPEG4Source::read(
 
             if (mode == ReadOptions::SEEK_CLOSEST
                 || mode == ReadOptions::SEEK_FRAME_INDEX) {
-                sampleTime -= mElstShiftStartTicks;
+                if (mElstInitialEmptyEditTicks > 0) {
+                    sampleTime += mElstInitialEmptyEditTicks;
+                }
+                if (mElstShiftStartTicks > 0){
+                    if (sampleTime > mElstShiftStartTicks) {
+                        sampleTime -= mElstShiftStartTicks;
+                    } else {
+                        sampleTime = 0;
+                    }
+                }
                 targetSampleTimeUs = (sampleTime * 1000000ll) / mTimescale;
             }
 
@@ -5695,7 +6049,8 @@ media_status_t MPEG4Source::read(
 
     off64_t offset = 0;
     size_t size = 0;
-    uint64_t cts, stts;
+    int64_t cts;
+    uint64_t stts;
     bool isSyncSample;
     bool newBuffer = false;
     if (mBuffer == NULL) {
@@ -5703,16 +6058,17 @@ media_status_t MPEG4Source::read(
 
         status_t err;
         if (!mIsHeif) {
-            err = mSampleTable->getMetaDataForSample(
-                    mCurrentSampleIndex, &offset, &size, &cts, &isSyncSample, &stts);
+            err = mSampleTable->getMetaDataForSample(mCurrentSampleIndex, &offset, &size,
+                                                    (uint64_t*)&cts, &isSyncSample, &stts);
             if(err == OK) {
-                /* Composition Time Stamp cannot be negative. Some files have video Sample
-                * Time(STTS)delta with zero value(b/117402420).  Hence subtract only
-                * min(cts, mElstShiftStartTicks), so that audio tracks can be played.
-                */
-                cts -= std::min(cts, mElstShiftStartTicks);
+                if (mElstInitialEmptyEditTicks > 0) {
+                    cts += mElstInitialEmptyEditTicks;
+                }
+                if (mElstShiftStartTicks > 0) {
+                    // cts can be negative. for example, initial audio samples for gapless playback.
+                    cts -= (int64_t)mElstShiftStartTicks;
+                }
             }
-
         } else {
             err = mItemTable->getImageOffsetAndSize(
                     options && options->getSeekTo(&seekTimeUs, &mode) ?
@@ -5744,7 +6100,7 @@ media_status_t MPEG4Source::read(
         }
     }
 
-    if (!mIsAVC && !mIsHEVC && !mIsAC4) {
+    if (!mIsAVC && !mIsHEVC && !(mIsDolbyVision && mNALLengthSize) && !mIsAC4) {
         if (newBuffer) {
             if (mIsPcm) {
                 // The twos' PCM block reader assumes that all samples has the same size.
@@ -5775,11 +6131,11 @@ media_status_t MPEG4Source::read(
                       meta, AMEDIAFORMAT_KEY_TIME_US, ((long double)cts * 1000000) / mTimescale);
                 AMediaFormat_setInt32(meta, AMEDIAFORMAT_KEY_IS_SYNC_FRAME, 1);
 
-                int32_t byteOrder;
-                AMediaFormat_getInt32(mFormat,
+                int32_t byteOrder = 0;
+                bool isGetBigEndian = AMediaFormat_getInt32(mFormat,
                         AMEDIAFORMAT_KEY_PCM_BIG_ENDIAN, &byteOrder);
 
-                if (byteOrder == 1) {
+                if (isGetBigEndian && byteOrder == 1) {
                     // Big-endian -> little-endian
                     uint16_t *dstData = (uint16_t *)buf;
                     uint16_t *srcData = (uint16_t *)buf;
@@ -5992,10 +6348,23 @@ media_status_t MPEG4Source::fragmentedRead(
     int64_t seekTimeUs;
     ReadOptions::SeekMode mode;
     if (options && options->getSeekTo(&seekTimeUs, &mode)) {
-
-        seekTimeUs += ((long double)mElstShiftStartTicks * 1000000) / mTimescale;
-        ALOGV("shifted seekTimeUs :%" PRId64 ", mElstShiftStartTicks:%" PRIu64, seekTimeUs,
-              mElstShiftStartTicks);
+        ALOGV("seekTimeUs:%" PRId64, seekTimeUs);
+        int64_t elstInitialEmptyEditUs = 0, elstShiftStartUs = 0;
+        if (mElstInitialEmptyEditTicks > 0) {
+            elstInitialEmptyEditUs = ((long double)mElstInitialEmptyEditTicks * 1000000) /
+                                     mTimescale;
+            /* Sample's composition time from ctts/stts entries are non-negative(>=0).
+             * Hence, lower bound on seekTimeUs is 0.
+             */
+            seekTimeUs = std::max(seekTimeUs - elstInitialEmptyEditUs, (int64_t)0);
+        }
+        if (mElstShiftStartTicks > 0){
+            elstShiftStartUs = ((long double)mElstShiftStartTicks * 1000000) / mTimescale;
+            seekTimeUs += elstShiftStartUs;
+        }
+        ALOGV("shifted seekTimeUs:%" PRId64 ", elstInitialEmptyEditUs:%" PRIu64
+              ", elstShiftStartUs:%" PRIu64, seekTimeUs, elstInitialEmptyEditUs,
+              elstShiftStartUs);
 
         int numSidxEntries = mSegments.size();
         if (numSidxEntries != 0) {
@@ -6051,7 +6420,7 @@ media_status_t MPEG4Source::fragmentedRead(
 
     off64_t offset = 0;
     size_t size = 0;
-    uint64_t cts = 0;
+    int64_t cts = 0;
     bool isSyncSample = false;
     bool newBuffer = false;
     if (mBuffer == NULL || mCurrentSampleIndex >= mCurrentSamples.size()) {
@@ -6083,11 +6452,14 @@ media_status_t MPEG4Source::fragmentedRead(
         offset = smpl->offset;
         size = smpl->size;
         cts = mCurrentTime + smpl->compositionOffset;
-        /* Composition Time Stamp cannot be negative. Some files have video Sample
-        * Time(STTS)delta with zero value(b/117402420).  Hence subtract only
-        * min(cts, mElstShiftStartTicks), so that audio tracks can be played.
-        */
-        cts -= std::min(cts, mElstShiftStartTicks);
+
+        if (mElstInitialEmptyEditTicks > 0) {
+            cts += mElstInitialEmptyEditTicks;
+        }
+        if (mElstShiftStartTicks > 0) {
+            // cts can be negative. for example, initial audio samples for gapless playback.
+            cts -= (int64_t)mElstShiftStartTicks;
+        }
 
         mCurrentTime += smpl->duration;
         isSyncSample = (mCurrentSampleIndex == 0);
@@ -6134,7 +6506,7 @@ media_status_t MPEG4Source::fragmentedRead(
         AMediaFormat_setBuffer(bufmeta, AMEDIAFORMAT_KEY_CRYPTO_IV, iv, ivlength);
     }
 
-    if (!mIsAVC && !mIsHEVC) {
+    if (!mIsAVC && !mIsHEVC && !(mIsDolbyVision && mNALLengthSize)) {
         if (newBuffer) {
             if (!isInRange((size_t)0u, mBuffer->size(), size)) {
                 mBuffer->release();
@@ -6408,6 +6780,12 @@ static bool BetterSniffMPEG4(DataSourceHelper *source, float *confidence) {
                 // The smallest valid chunk is 16 bytes long in this case.
                 return false;
             }
+            if (chunkSize > INT64_MAX) {
+                // reject overly large chunk sizes that could
+                // be interpreted as negative
+                ALOGE("chunk size too large");
+                return false;
+            }
 
         } else if (chunkSize < 8) {
             // The smallest valid chunk is 8 bytes long.
@@ -6463,7 +6841,10 @@ static bool BetterSniffMPEG4(DataSourceHelper *source, float *confidence) {
 
             case FOURCC("moov"):
             {
-                moovAtomEndOffset = offset + chunkSize;
+                if (__builtin_add_overflow(offset, chunkSize, &moovAtomEndOffset)) {
+                    ALOGE("chunk size + offset would overflow");
+                    return false;
+                }
 
                 done = true;
                 break;
@@ -6473,7 +6854,10 @@ static bool BetterSniffMPEG4(DataSourceHelper *source, float *confidence) {
                 break;
         }
 
-        offset += chunkSize;
+        if (__builtin_add_overflow(offset, chunkSize, &offset)) {
+            ALOGE("chunk size + offset would overflow");
+            return false;
+        }
     }
 
     if (!foundGoodFileType) {

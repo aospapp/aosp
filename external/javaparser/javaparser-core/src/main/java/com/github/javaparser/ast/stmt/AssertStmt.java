@@ -32,17 +32,17 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.AssertStmtMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import com.github.javaparser.metamodel.OptionalProperty;
 import java.util.function.Consumer;
+import com.github.javaparser.ast.Generated;
 
 /**
  * A usage of the keyword "assert"
  * <br/>In <code>assert dead : "Wasn't expecting to be dead here";</code> the check is "dead" and the message is the string.
  * @author Julio Vilmar Gesser
  */
-public final class AssertStmt extends Statement {
+public class AssertStmt extends Statement {
 
     private Expression check;
 

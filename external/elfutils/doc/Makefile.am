@@ -1,7 +1,7 @@
 ## Process this file with automake to create Makefile.in
 ## Configure input file for elfutils.
 ##
-## Copyright (C) 1996-2001, 2002, 2005 Red Hat, Inc.
+## Copyright (C) 1996-2001, 2002, 2005, 2019 Red Hat, Inc.
 ## This file is part of elfutils.
 ##
 ## This file is free software; you can redistribute it and/or modify
@@ -16,17 +16,15 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
-EXTRA_DIST = elfutils.sgml
+EXTRA_DIST = COPYING-GFDL README
+dist_man1_MANS=readelf.1 elfclassify.1
+notrans_dist_man3_MANS=elf_update.3 elf_getdata.3 elf_clone.3 elf_begin.3
+notrans_dist_man8_MANS=
+notrans_dist_man1_MANS=
 
-CLEANFILES = elfutils.dvi
+if DEBUGINFOD
+notrans_dist_man8_MANS += debuginfod.8
+notrans_dist_man3_MANS += debuginfod_find_debuginfo.3 debuginfod_find_source.3 debuginfod_find_executable.3 debuginfod_set_progressfn.3
+notrans_dist_man1_MANS += debuginfod-find.1
+endif
 
-# We need only a few special rules to generate the various output formats
-# from the SGML sources.
-.PHONY: dvi pdf html
-pdf: $(srcdir)elfutils.pdf
-dvi: $(srcdir)elfutils.dvi
-
-$(srcdir)%.dvi: %.sgml
-	db2dvi $^
-$(srcdir)%.pdf: %.sgml
-	db2pdf $^

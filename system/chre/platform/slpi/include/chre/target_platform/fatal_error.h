@@ -22,6 +22,12 @@
 #include "chre/util/macros.h"
 
 #define FATAL_ERROR_QUIT() \
-  ERR_FATAL("CHRE fatal@" CHRE_FILENAME ":" STRINGIFY(__LINE__), 0, 0, 0)
+  chre::fatalErrorQuit("CHRE fatal@" CHRE_FILENAME ":" STRINGIFY(__LINE__))
+
+namespace chre {
+
+void fatalErrorQuit(const char *errorString);
+
+}  // namespace chre
 
 #endif  // CHRE_PLATFORM_SLPI_FATAL_ERROR_H_

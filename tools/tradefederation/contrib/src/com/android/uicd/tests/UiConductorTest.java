@@ -20,18 +20,23 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.MultiMap;
 import com.android.tradefed.util.RunUtil;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -41,9 +46,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * The class enables user to run their pre-recorded UICD tests on tradefed. Go to
@@ -51,7 +53,7 @@ import org.json.JSONObject;
  * and extract the jar and apks required for the tests. Please look at the sample xmls in
  * res/config/uicd to configure your tests.
  */
-public class UiConductorTest implements IMultiDeviceTest, IRemoteTest {
+public class UiConductorTest implements IRemoteTest {
 
     @Option(
         name = "uicd-cli-jar",
@@ -129,12 +131,9 @@ public class UiConductorTest implements IMultiDeviceTest, IRemoteTest {
     Map<ITestDevice, IBuildInfo> deviceInfos;
 
     @Override
-    public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
-        this.deviceInfos = deviceInfos;
-    }
-
-    @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        deviceInfos = testInfo.getContext().getDeviceBuildMap();
         CLog.i("Starting the UIConductor tests:\n");
         String runId = UUID.randomUUID().toString();
         baseFilePath = Paths.get(baseFilePath, runId).toString();
@@ -164,7 +163,7 @@ public class UiConductorTest implements IMultiDeviceTest, IRemoteTest {
                 FileUtil.chmod(binary, EXECUTABLE);
             }
         } catch (IOException ex) {
-            throw new DeviceNotAvailableException(ex.getMessage());
+            throw new RuntimeException(ex);
         }
 
         RunUtil rUtil = new RunUtil();

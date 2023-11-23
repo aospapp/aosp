@@ -17,8 +17,6 @@
 package android.server.wm;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
 
@@ -49,7 +47,6 @@ public class DialogFrameTestActivity extends Activity {
             "ExplicitSizeBottomRightGravity";
     static final String TEST_EXPLICIT_SIZE_TOP_LEFT_GRAVITY = "ExplicitSizeTopLeftGravity";
     static final String TEST_MATCH_PARENT = "MatchParent";
-    static final String TEST_MATCH_PARENT_LAYOUT_IN_OVERSCAN = "MatchParentLayoutInOverscan";
     static final String TEST_NO_FOCUS = "NoFocus";
     static final String TEST_OVER_SIZED_DIMENSIONS = "OversizedDimensions";
     static final String TEST_OVER_SIZED_DIMENSIONS_NO_LIMITS = "OversizedDimensionsNoLimits";
@@ -74,9 +71,6 @@ public class DialogFrameTestActivity extends Activity {
         switch (testCase) {
             case TEST_MATCH_PARENT:
                 testMatchParent();
-                break;
-            case TEST_MATCH_PARENT_LAYOUT_IN_OVERSCAN:
-                testMatchParentLayoutInOverscan();
                 break;
             case TEST_EXPLICIT_SIZE:
                 testExplicitSize();
@@ -129,15 +123,6 @@ public class DialogFrameTestActivity extends Activity {
         doLayoutParamTest(params -> {
             params.width = MATCH_PARENT;
             params.height = MATCH_PARENT;
-        });
-    }
-
-    private void testMatchParentLayoutInOverscan() {
-        doLayoutParamTest(params -> {
-            params.width = MATCH_PARENT;
-            params.height = MATCH_PARENT;
-            params.flags |= FLAG_LAYOUT_IN_SCREEN;
-            params.flags |= FLAG_LAYOUT_IN_OVERSCAN;
         });
     }
 
@@ -207,8 +192,8 @@ public class DialogFrameTestActivity extends Activity {
     private void testWithMargins() {
         doLayoutParamTest(params -> {
             params.gravity = Gravity.LEFT | Gravity.TOP;
-            params.horizontalMargin = .25f;
-            params.verticalMargin = .35f;
+            params.horizontalMargin = .10f;
+            params.verticalMargin = .15f;
             params.width = 200;
             params.height = 200;
             params.x = 0;

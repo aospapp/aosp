@@ -22,7 +22,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.core.text.BidiFormatter;
@@ -58,7 +57,7 @@ public class WifiInfoPreferenceController extends AbstractPreferenceController
         super(context);
         mWifiManager = wifiManager;
         mFilter = new IntentFilter();
-        mFilter.addAction(WifiManager.LINK_CONFIGURATION_CHANGED_ACTION);
+        mFilter.addAction(WifiManager.ACTION_LINK_CONFIGURATION_CHANGED);
         mFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
 
         lifecycle.addObserver(this);
@@ -98,8 +97,8 @@ public class WifiInfoPreferenceController extends AbstractPreferenceController
     public void updateWifiInfo() {
         if (mWifiMacAddressPref != null) {
             final WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
-            final boolean macRandomizationSupported = mContext.getResources().getBoolean(
-                com.android.internal.R.bool.config_wifi_connected_mac_randomization_supported);
+            final boolean macRandomizationSupported =
+                    mWifiManager.isConnectedMacRandomizationSupported();
             final String macAddress = wifiInfo == null ? null : wifiInfo.getMacAddress();
 
             if (macRandomizationSupported && WifiInfo.DEFAULT_MAC_ADDRESS.equals(macAddress)) {
@@ -123,8 +122,8 @@ public class WifiInfoPreferenceController extends AbstractPreferenceController
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (action.equals(WifiManager.LINK_CONFIGURATION_CHANGED_ACTION) ||
-                    action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
+            if (action.equals(WifiManager.ACTION_LINK_CONFIGURATION_CHANGED)
+                    || action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
                 updateWifiInfo();
             }
         }

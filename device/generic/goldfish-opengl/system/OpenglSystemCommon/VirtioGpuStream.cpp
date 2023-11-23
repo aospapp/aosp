@@ -52,25 +52,7 @@ struct VirtioGpuCmd {
     unsigned char buf[0];
 } __attribute__((packed));
 
-uint32_t CrosGralloc::getHostHandle(native_handle_t const* handle_)
-{
-    uint32_t id = 0;
-
-    if (m_fd >= 0) {
-        cros_gralloc_handle const* handle =
-          reinterpret_cast<cros_gralloc_handle const*>(handle_);
-        drmPrimeFDToHandle(m_fd, handle->fds[0], &id);
-    }
-
-    return id;
-}
-
-int CrosGralloc::getFormat(native_handle_t const* handle)
-{
-    return ((cros_gralloc_handle *)handle)->droid_format;
-}
-
-bool VirtioGpuProcessPipe::processPipeInit(renderControl_encoder_context_t *rcEnc)
+bool VirtioGpuProcessPipe::processPipeInit(HostConnectionType, renderControl_encoder_context_t *rcEnc)
 {
   union {
       uint64_t proto;
@@ -187,7 +169,6 @@ int VirtioGpuStream::connect()
         }
     }
 
-    m_gralloc.setFd(m_fd);
     return 0;
 }
 

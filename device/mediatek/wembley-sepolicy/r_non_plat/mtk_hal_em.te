@@ -1,0 +1,6 @@
+# HwBinder IPC from client to server, and callbacks
+binder_call(mtk_hal_em_client, mtk_hal_em_server)
+binder_call(mtk_hal_em_server, mtk_hal_em_client)
+
+add_hwservice(mtk_hal_em_server, mtk_hal_em_hwservice)
+allow mtk_hal_em_client mtk_hal_em_hwservice:hwservice_manager find;

@@ -37,6 +37,7 @@ import java.util.Set;
 /**
  * Tests for {@link RemoteController}.
  */
+@NonMediaMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class RemoteControllerTest extends InstrumentationTestCase {
 

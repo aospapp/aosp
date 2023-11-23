@@ -23,16 +23,20 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
+import android.provider.Settings;
 
 import androidx.loader.app.LoaderManager;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 import java.util.Arrays;
 import java.util.List;
 
 /** Fragment which shows the settings for storage. */
+@SearchIndexable
 public class StorageSettingsFragment extends SettingsFragment {
 
     private StorageSettingsManager mStorageSettingsManager;
@@ -72,4 +76,8 @@ public class StorageSettingsFragment extends SettingsFragment {
         LoaderManager loaderManager = LoaderManager.getInstance(this);
         mStorageSettingsManager.startLoading(loaderManager);
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.storage_settings_fragment,
+                    Settings.ACTION_INTERNAL_STORAGE_SETTINGS);
 }

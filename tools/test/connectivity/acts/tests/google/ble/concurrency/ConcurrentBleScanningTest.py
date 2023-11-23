@@ -39,8 +39,8 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
     default_timeout = 20
     max_concurrent_scans = 27
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
 

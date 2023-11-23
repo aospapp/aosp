@@ -91,7 +91,7 @@
     <string name="add_emergency_contact" msgid="4063577069613981029">"Дадаць кантакт"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Не атрымалася знайсці сродак выбару кантактаў"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Немагчыма паказаць кантакт"</string>
-    <string name="remove_contact" msgid="6934983445723096759">"Выдаліць <xliff:g id="CONTACT_NAME">%1$s</xliff:g> з кантактаў для экстранных сітуацый?"</string>
+    <string name="remove_contact" msgid="6934983445723096759">"Выдаліць кантакт \"<xliff:g id="CONTACT_NAME">%1$s</xliff:g>\" з кантактаў для экстранных сітуацый?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Выдаліць кантакт"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"Немагчыма правільна прачытаць кантактную інфармацыю"</string>
     <string name="remove" msgid="1243949503772376064">"Выдаліць"</string>

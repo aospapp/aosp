@@ -17,9 +17,7 @@
 package android.app.stubs;
 
 import android.content.ComponentName;
-import android.os.Debug;
 import android.service.quicksettings.TileService;
-import android.util.Log;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -49,20 +47,24 @@ public class TestTileService extends TileService {
         super.onCreate();
     }
 
-    public static TileService getInstance() {
-        return sTestTileService;
+    public static TestTileService getInstance() {
+        return TestTileService.sTestTileService;
+    }
+
+    public void setInstance(TestTileService tile) {
+        sTestTileService = tile;
     }
 
     public static boolean isConnected() {
-        return sTestTileService != null && sTestTileService.isConnected.get();
+        return getInstance() != null && getInstance().isConnected.get();
     }
 
     public static boolean isListening() {
-        return sTestTileService.isListening.get();
+        return getInstance().isListening.get();
     }
 
     public static boolean hasBeenClicked() {
-        return sTestTileService.hasBeenClicked.get();
+        return getInstance().hasBeenClicked.get();
     }
 
     @Override
@@ -86,14 +88,14 @@ public class TestTileService extends TileService {
     @Override
     public void onTileAdded() {
         super.onTileAdded();
-        sTestTileService = this;
+        setInstance(this);
         isConnected.set(true);
     }
 
     @Override
     public void onTileRemoved() {
         super.onTileRemoved();
-        sTestTileService = null;
+        setInstance(null);
         isConnected.set(false);
         isListening.set(false);
         hasBeenClicked.set(false);

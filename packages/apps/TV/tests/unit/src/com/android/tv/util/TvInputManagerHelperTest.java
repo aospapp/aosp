@@ -20,18 +20,23 @@ import static androidx.test.InstrumentationRegistry.getContext;
 
 import android.content.pm.ResolveInfo;
 import android.media.tv.TvInputInfo;
+
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
 import com.android.tv.testing.ComparatorTester;
 import com.android.tv.testing.utils.TestUtils;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 /** Test for {@link TvInputManagerHelper} */
 @SmallTest
@@ -87,13 +92,13 @@ public class TvInputManagerHelperTest {
 
         TvInputManagerHelper manager = createMockTvInputManager();
 
-        ComparatorTester<TvInputInfo> comparatorTester =
-                ComparatorTester.withoutEqualsTest(
-                        new TvInputManagerHelper.InputComparatorInternal(manager));
+        ComparatorTester comparatorTester =
+                new ComparatorTester(new TvInputManagerHelper.InputComparatorInternal(manager))
+                        .permitInconsistencyWithEquals();
         for (TvInputInfo input : inputs) {
-            comparatorTester.addComparableGroup(input);
+            comparatorTester.addEqualityGroup(input);
         }
-        comparatorTester.test();
+        comparatorTester.testCompare();
     }
 
     @Test
@@ -143,15 +148,17 @@ public class TvInputManagerHelperTest {
 
         TvInputManagerHelper manager = createMockTvInputManager();
 
-        ComparatorTester<TvInputInfo> comparatorTester =
-                ComparatorTester.withoutEqualsTest(
-                        new TvInputManagerHelper.HardwareInputComparator(getContext(), manager));
+        ComparatorTester comparatorTester =
+                new ComparatorTester(
+                                new TvInputManagerHelper.HardwareInputComparator(
+                                        getContext(), manager))
+                        .permitInconsistencyWithEquals();
         comparatorTester
-                .addComparableGroup(hdmi3)
-                .addComparableGroup(hdmi2)
-                .addComparableGroup(hdmi1)
-                .addComparableGroup(hdmi4)
-                .test();
+                .addEqualityGroup(hdmi3)
+                .addEqualityGroup(hdmi2)
+                .addEqualityGroup(hdmi1)
+                .addEqualityGroup(hdmi4)
+                .testCompare();
     }
 
     @Test
@@ -202,10 +209,12 @@ public class TvInputManagerHelperTest {
 
         TvInputManagerHelper manager = createMockTvInputManager();
 
-        ComparatorTester<TvInputInfo> comparatorTester =
-                ComparatorTester.withoutEqualsTest(
-                        new TvInputManagerHelper.HardwareInputComparator(getContext(), manager));
-        comparatorTester.addComparableGroup(cec1).addComparableGroup(cec2).test();
+        ComparatorTester comparatorTester =
+                new ComparatorTester(
+                                new TvInputManagerHelper.HardwareInputComparator(
+                                        getContext(), manager))
+                        .permitInconsistencyWithEquals();
+        comparatorTester.addEqualityGroup(cec1).addEqualityGroup(cec2).testCompare();
     }
 
     private TvInputManagerHelper createMockTvInputManager() {
@@ -219,7 +228,7 @@ public class TvInputManagerHelperTest {
                             }
                         })
                 .when(manager)
-                .isPartnerInput(Mockito.<TvInputInfo>any());
+                .isPartnerInput(ArgumentMatchers.<TvInputInfo>any());
         Mockito.doAnswer(
                         new Answer<String>() {
                             @Override
@@ -229,7 +238,7 @@ public class TvInputManagerHelperTest {
                             }
                         })
                 .when(manager)
-                .loadLabel(Mockito.<TvInputInfo>any());
+                .loadLabel(ArgumentMatchers.<TvInputInfo>any());
         Mockito.doAnswer(
                         new Answer<String>() {
                             @Override
@@ -239,7 +248,7 @@ public class TvInputManagerHelperTest {
                             }
                         })
                 .when(manager)
-                .loadCustomLabel(Mockito.<TvInputInfo>any());
+                .loadCustomLabel(ArgumentMatchers.<TvInputInfo>any());
         Mockito.doAnswer(
                         new Answer<TvInputInfo>() {
                             @Override
@@ -251,7 +260,7 @@ public class TvInputManagerHelperTest {
                             }
                         })
                 .when(manager)
-                .getTvInputInfo(Mockito.<String>any());
+                .getTvInputInfo(ArgumentMatchers.<String>any());
         return manager;
     }
 

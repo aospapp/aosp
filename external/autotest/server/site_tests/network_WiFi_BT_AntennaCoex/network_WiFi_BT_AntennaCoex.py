@@ -127,7 +127,7 @@ class network_WiFi_BT_AntennaCoex(
         # exception in the flow with 2.4 GHz and terminates abruptly,
         # we have the 5 GHz data-point to compare against. WiFi is
         # alone on 5 GHz, 2.4 GHz is the band with wifi-bt co-ex.
-        frequencies = [5180, 5745, 2412, 2472]
+        frequencies = [5180, 5745, 2412, 2462]
 
         for freq in frequencies:
             mode_n = hostap_config.HostapConfig.MODE_11N_PURE
@@ -145,6 +145,6 @@ class network_WiFi_BT_AntennaCoex(
             self.wifi_context.router.deconfig()
 
     def cleanup(self):
+        super(network_WiFi_BT_AntennaCoex, self).cleanup()
         if hasattr(self, 'wifi_context'):
             self.wifi_context.teardown()
-        super(network_WiFi_BT_AntennaCoex, self).cleanup()

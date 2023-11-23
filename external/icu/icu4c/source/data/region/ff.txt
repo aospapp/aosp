@@ -127,7 +127,6 @@ ff{
         MD{"Moldawii"}
         MG{"Madagaskaar"}
         MH{"Duuɗe Marsaal"}
-        MK{"Meceduwaan"}
         ML{"Maali"}
         MM{"Miyamaar"}
         MN{"Monngolii"}
@@ -227,5 +226,5 @@ ff{
         ZM{"Sammbi"}
         ZW{"Simbaabuwe"}
     }
-    Version{"2.1.39.11"}
+    Version{"36.1"}
 }

@@ -32,7 +32,7 @@ class network_TwoShills(test.test):
 
         """
         cmd_result = utils.run(
-            "ip route show default match 0/0 | awk '{print $5}'")
+            "ip route show default match 0/0 table 0 | awk '{print $5}'")
         return cmd_result.stdout
 
 

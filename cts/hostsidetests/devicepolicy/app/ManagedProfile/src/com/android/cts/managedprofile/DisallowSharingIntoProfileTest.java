@@ -17,6 +17,7 @@
 package com.android.cts.managedprofile;
 
 import static com.android.cts.managedprofile.BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
@@ -33,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Verify that certain cross profile intent filters are disallowed when the device admin sets
@@ -176,7 +176,7 @@ public class DisallowSharingIntoProfileTest extends InstrumentationTestCase {
                         UserManager.DISALLOW_SHARE_INTO_MANAGED_PROFILE);
             }
             // Wait for the restriction to apply
-            assertTrue("Restriction not applied after 5 seconds", latch.await(5, TimeUnit.SECONDS));
+            assertTrue("Restriction not applied after 60 seconds", latch.await(60, SECONDS));
         } finally {
             mContext.unregisterReceiver(receiver);
         }

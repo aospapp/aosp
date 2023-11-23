@@ -83,7 +83,10 @@ public class NetworkScanApiTest {
     private NetworkScanRequest mNetworkScanRequest;
     private NetworkScanCallbackImpl mNetworkScanCallback;
     private static final int MAX_CELLINFO_WAIT_MILLIS = 5000; // 5 seconds
-    private static final int MAX_INIT_WAIT_MS = 60000; // 60 seconds
+    private static final int SCAN_SEARCH_TIME_SECONDS = 60;
+    // Wait one second longer than the max scan search time to give the test time to receive the
+    // results.
+    private static final int MAX_INIT_WAIT_MS = (SCAN_SEARCH_TIME_SECONDS + 1) * 1000;
     private Object mLock = new Object();
     private boolean mReady;
     private int mErrorCode;
@@ -404,7 +407,7 @@ public class NetworkScanApiTest {
                 NetworkScanRequest.SCAN_TYPE_ONE_SHOT /* scan type */,
                 radioAccessSpecifier.toArray(radioAccessSpecifierArray),
                 5 /* search periodicity */,
-                60 /* max search time */,
+                SCAN_SEARCH_TIME_SECONDS /* max search time */,
                 true /*enable incremental results*/,
                 5 /* incremental results periodicity */,
                 null /* List of PLMN ids (MCC-MNC) */);

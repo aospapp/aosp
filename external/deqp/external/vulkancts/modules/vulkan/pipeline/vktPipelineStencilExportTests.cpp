@@ -132,17 +132,6 @@ bool isSupportedDepthStencilFormat (const InstanceInterface& instanceInterface, 
 	return (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0;
 }
 
-inline Move<VkBuffer> makeBuffer (const DeviceInterface& vk, const VkDevice device, const VkDeviceSize bufferSize, const VkBufferUsageFlags usage)
-{
-	const VkBufferCreateInfo	bufferCreateInfo	= makeBufferCreateInfo(bufferSize, usage);
-	return createBuffer(vk, device, &bufferCreateInfo);
-}
-
-inline vk::Move<vk::VkImage> makeImage (const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkImageCreateInfo& createInfo)
-{
-	return createImage(vk, device, &createInfo);
-}
-
 VkImageCreateInfo makeImageCreateInfo (const VkFormat format, const UVec2& size, VkImageUsageFlags usage)
 {
 	const VkImageCreateInfo imageParams =
@@ -435,29 +424,6 @@ Move<VkPipeline> makeGraphicsPipeline (const DeviceInterface&		vk,
 	return createGraphicsPipeline(vk, device, DE_NULL, &graphicsPipelineInfo);
 }
 
-Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&		vk,
-									 const VkDevice				device,
-									 const VkRenderPass			renderPass,
-									 const deUint32				attachmentCount,
-									 const VkImageView*			pAttachments,
-									 const deUint32				width,
-									 const deUint32				height)
-{
-	const VkFramebufferCreateInfo framebufferInfo = {
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,		// VkStructureType                             sType;
-		DE_NULL,										// const void*                                 pNext;
-		(VkFramebufferCreateFlags)0,					// VkFramebufferCreateFlags                    flags;
-		renderPass,										// VkRenderPass                                renderPass;
-		attachmentCount,								// uint32_t                                    attachmentCount;
-		pAttachments,									// const VkImageView*                          pAttachments;
-		width,											// uint32_t                                    width;
-		height,											// uint32_t                                    height;
-		1u,												// uint32_t                                    layers;
-	};
-
-	return createFramebuffer(vk, device, &framebufferInfo);
-}
-
 tcu::TextureLevel generateReferenceImage (const tcu::TextureFormat	format,
 										  const UVec2&				renderSize,
 										  const deUint32			patternSize,
@@ -578,9 +544,7 @@ tcu::TestStatus testStencilExportReplace (Context& context)
 
 void checkSupport (Context& context)
 {
-	const std::vector<std::string>&	extensions = context.getDeviceExtensions();
-	if (!isDeviceExtensionSupported(context.getUsedApiVersion(), extensions, "VK_EXT_shader_stencil_export"))
-		TCU_THROW(NotSupportedError, "Extension VK_EXT_shader_stencil_export not supported");
+	context.requireDeviceFunctionality("VK_EXT_shader_stencil_export");
 
 	const VkFormat stencilFormat = VK_FORMAT_S8_UINT;
 	if (!isSupportedDepthStencilFormat(context.getInstanceInterface(), context.getPhysicalDevice(), stencilFormat))

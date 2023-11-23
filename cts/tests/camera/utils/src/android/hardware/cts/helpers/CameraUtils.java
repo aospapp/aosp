@@ -20,13 +20,21 @@ import android.content.Context;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
+import android.os.Bundle;
+
+import androidx.test.InstrumentationRegistry;
 
 import java.util.Comparator;
+import java.util.stream.IntStream;
 
 /**
  * Utility class containing helper functions for the Camera CTS tests.
  */
 public class CameraUtils {
+
+    private static final String CAMERA_ID_INSTR_ARG_KEY = "camera-id";
+    private static final Bundle mBundle = InstrumentationRegistry.getArguments();
+    public static final String mOverrideCameraId = mBundle.getString(CAMERA_ID_INSTR_ARG_KEY);
 
     /**
      * Returns {@code true} if this device only supports {@code LEGACY} mode operation in the
@@ -38,7 +46,19 @@ public class CameraUtils {
      */
     public static boolean isLegacyHAL(Context context, int cameraId) throws Exception {
         CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-        String cameraIdStr = manager.getCameraIdList()[cameraId];
+        String cameraIdStr = manager.getCameraIdListNoLazy()[cameraId];
+        return isLegacyHAL(manager, cameraIdStr);
+    }
+
+    /**
+     * Returns {@code true} if this device only supports {@code LEGACY} mode operation in the
+     * Camera2 API for the given camera ID.
+     *
+     * @param manager The {@link CameraManager} used to retrieve camera characteristics.
+     * @param cameraId the ID of the camera device to check.
+     * @return {@code true} if this device only supports {@code LEGACY} mode.
+     */
+    public static boolean isLegacyHAL(CameraManager manager, String cameraIdStr) throws Exception {
         CameraCharacteristics characteristics =
                 manager.getCameraCharacteristics(cameraIdStr);
 
@@ -56,7 +76,7 @@ public class CameraUtils {
      */
     public static boolean isExternal(Context context, int cameraId) throws Exception {
         CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-        String cameraIdStr = manager.getCameraIdList()[cameraId];
+        String cameraIdStr = manager.getCameraIdListNoLazy()[cameraId];
         CameraCharacteristics characteristics =
                 manager.getCameraCharacteristics(cameraIdStr);
 
@@ -92,4 +112,19 @@ public class CameraUtils {
         }
     }
 
+    public static int[] deriveCameraIdsUnderTest() throws Exception {
+        int numberOfCameras = Camera.getNumberOfCameras();
+        int[] cameraIds;
+        if (mOverrideCameraId == null) {
+            cameraIds = IntStream.range(0, numberOfCameras).toArray();
+        } else {
+            int overrideCameraId = Integer.parseInt(mOverrideCameraId);
+            if (overrideCameraId >= 0 && overrideCameraId < numberOfCameras) {
+                cameraIds = new int[]{overrideCameraId};
+            } else {
+                cameraIds = new int[]{};
+            }
+        }
+        return cameraIds;
+    }
 }

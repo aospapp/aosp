@@ -20,6 +20,7 @@ import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREG
 
 import static com.android.server.wifi.ScanRequestProxy.SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS;
 import static com.android.server.wifi.ScanRequestProxy.SCAN_REQUEST_THROTTLE_TIME_WINDOW_FG_APPS_MS;
+import static com.android.server.wifi.WifiSettingsConfigStore.WIFI_SCAN_THROTTLE_ENABLED;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -28,14 +29,16 @@ import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
-import android.database.ContentObserver;
+import android.net.wifi.IScanResultsCallback;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiScanner;
+import android.net.wifi.WifiScanner.ScanSettings.HiddenNetwork;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.UserHandle;
 import android.os.WorkSource;
-import android.provider.Settings;
+import android.os.test.TestLooper;
 
 import androidx.test.filters.SmallTest;
 
@@ -50,21 +53,27 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * Unit tests for {@link com.android.server.wifi.ScanRequestProxy}.
  */
 @SmallTest
-public class ScanRequestProxyTest {
+public class ScanRequestProxyTest extends WifiBaseTest {
     private static final int TEST_UID = 5;
     private static final String TEST_PACKAGE_NAME_1 = "com.test.1";
     private static final String TEST_PACKAGE_NAME_2 = "com.test.2";
-    private static final List<WifiScanner.ScanSettings.HiddenNetwork> TEST_HIDDEN_NETWORKS_LIST =
-            new ArrayList<WifiScanner.ScanSettings.HiddenNetwork>() {{
-                add(new WifiScanner.ScanSettings.HiddenNetwork("test_ssid_1"));
-                add(new WifiScanner.ScanSettings.HiddenNetwork("test_ssid_2"));
+    private static final List<HiddenNetwork> TEST_HIDDEN_NETWORKS_LIST =
+            new ArrayList<HiddenNetwork>() {{
+                add(new HiddenNetwork("test_ssid_1"));
+                add(new HiddenNetwork("test_ssid_2"));
 
+            }};
+    private static final List<HiddenNetwork> TEST_HIDDEN_NETWORKS_LIST_NS =
+            new ArrayList<HiddenNetwork>() {{
+                add(new HiddenNetwork("test_ssid_3"));
+                add(new HiddenNetwork("test_ssid_4"));
             }};
 
     @Mock private Context mContext;
@@ -76,7 +85,14 @@ public class ScanRequestProxyTest {
     @Mock private WifiPermissionsUtil mWifiPermissionsUtil;
     @Mock private WifiMetrics mWifiMetrics;
     @Mock private Clock mClock;
-    @Mock private FrameworkFacade mFrameworkFacade;
+    @Mock private WifiSettingsConfigStore mWifiSettingsConfigStore;
+    @Mock private WifiNetworkSuggestionsManager mWifiNetworkSuggestionsManager;
+    @Mock private IScanResultsCallback mScanResultsCallback;
+    @Mock private IScanResultsCallback mAnotherScanResultsCallback;
+    @Mock private TestLooper mLooper;
+    @Mock private IBinder mBinder;
+    @Mock private IBinder mAnotherBinder;
+
     private ArgumentCaptor<WorkSource> mWorkSourceArgumentCaptor =
             ArgumentCaptor.forClass(WorkSource.class);
     private ArgumentCaptor<WifiScanner.ScanSettings> mScanSettingsArgumentCaptor =
@@ -85,8 +101,6 @@ public class ScanRequestProxyTest {
             ArgumentCaptor.forClass(WifiScanner.ScanListener.class);
     private ArgumentCaptor<WifiScanner.ScanListener> mGlobalScanListenerArgumentCaptor =
             ArgumentCaptor.forClass(WifiScanner.ScanListener.class);
-    private ArgumentCaptor<ContentObserver> mThrottleEnabledSettingObservorCaptor =
-            ArgumentCaptor.forClass(ContentObserver.class);
     private WifiScanner.ScanData[] mTestScanDatas1;
     private WifiScanner.ScanData[] mTestScanDatas2;
     private InOrder mInOrder;
@@ -98,32 +112,40 @@ public class ScanRequestProxyTest {
         MockitoAnnotations.initMocks(this);
 
         when(mWifiInjector.getWifiScanner()).thenReturn(mWifiScanner);
+        when(mWifiInjector.getWifiNetworkSuggestionsManager())
+                .thenReturn(mWifiNetworkSuggestionsManager);
         when(mWifiConfigManager.retrieveHiddenNetworkList()).thenReturn(TEST_HIDDEN_NETWORKS_LIST);
+        when(mWifiNetworkSuggestionsManager.retrieveHiddenNetworkList())
+                .thenReturn(TEST_HIDDEN_NETWORKS_LIST_NS);
         doNothing().when(mWifiScanner).registerScanListener(
+                any(),
                 mGlobalScanListenerArgumentCaptor.capture());
         doNothing().when(mWifiScanner).startScan(
                 mScanSettingsArgumentCaptor.capture(),
+                any(),
                 mScanRequestListenerArgumentCaptor.capture(),
                 mWorkSourceArgumentCaptor.capture());
 
-        mInOrder = inOrder(mWifiScanner, mWifiConfigManager, mContext);
+        mInOrder = inOrder(mWifiScanner, mWifiConfigManager,
+                mContext, mWifiNetworkSuggestionsManager);
         mTestScanDatas1 =
                 ScanTestUtil.createScanDatas(new int[][]{{ 2417, 2427, 5180, 5170 }},
                         new int[]{0},
-                        new int[]{WifiScanner.WIFI_BAND_BOTH_WITH_DFS});
+                        new int[]{WifiScanner.WIFI_BAND_ALL});
         mTestScanDatas2 =
                 ScanTestUtil.createScanDatas(new int[][]{{ 2412, 2422, 5200, 5210 }},
                         new int[]{0},
-                        new int[]{WifiScanner.WIFI_BAND_BOTH_WITH_DFS});
+                        new int[]{WifiScanner.WIFI_BAND_ALL});
 
         // Scan throttling is enabled by default.
-        when(mFrameworkFacade.getIntegerSetting(
-                eq(mContext), eq(Settings.Global.WIFI_SCAN_THROTTLE_ENABLED), anyInt()))
-                .thenReturn(1);
+        when(mWifiSettingsConfigStore.get(eq(WIFI_SCAN_THROTTLE_ENABLED))).thenReturn(true);
+        mLooper = new TestLooper();
         mScanRequestProxy =
             new ScanRequestProxy(mContext, mAppOps, mActivityManager, mWifiInjector,
                     mWifiConfigManager, mWifiPermissionsUtil, mWifiMetrics, mClock,
-                    mFrameworkFacade, mock(Handler.class));
+                    new Handler(mLooper.getLooper()), mWifiSettingsConfigStore);
+        when(mScanResultsCallback.asBinder()).thenReturn(mBinder);
+        when(mAnotherScanResultsCallback.asBinder()).thenReturn(mAnotherBinder);
     }
 
     @After
@@ -132,13 +154,23 @@ public class ScanRequestProxyTest {
         validateMockitoUsage();
     }
 
+    private void enableScanning() {
+        // Enable scanning
+        mScanRequestProxy.enableScanning(true, false);
+        mInOrder.verify(mWifiScanner).registerScanListener(any(), any());
+        mInOrder.verify(mWifiScanner).setScanningEnabled(true);
+        validateScanAvailableBroadcastSent(true);
+
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(782L);
+    }
+
     /**
      * Verify scan enable sequence.
      */
     @Test
     public void testEnableScanning() {
         mScanRequestProxy.enableScanning(true, false);
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
+        mInOrder.verify(mWifiScanner).registerScanListener(any(), any());
         mInOrder.verify(mWifiScanner).setScanningEnabled(true);
         validateScanAvailableBroadcastSent(true);
     }
@@ -149,7 +181,7 @@ public class ScanRequestProxyTest {
     @Test
     public void testDisableScanning() {
         mScanRequestProxy.enableScanning(false, false);
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
+        mInOrder.verify(mWifiScanner).registerScanListener(any(), any());
         mInOrder.verify(mWifiScanner).setScanningEnabled(false);
         validateScanAvailableBroadcastSent(false);
     }
@@ -169,9 +201,9 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testStartScanSuccess() {
+        enableScanning();
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         assertTrue(mWorkSourceArgumentCaptor.getValue().equals(
                 new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1)));
@@ -185,10 +217,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testStartScanSuccessFromAppWithNetworkSettings() {
+        enableScanning();
         when(mWifiPermissionsUtil.checkNetworkSettingsPermission(TEST_UID)).thenReturn(true);
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         assertTrue(mWorkSourceArgumentCaptor.getValue().equals(
                 new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1)));
@@ -200,13 +232,13 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testStartScanSuccessFromAppWithNetworkSetupWizard() {
+        enableScanning();
         when(mWifiPermissionsUtil.checkNetworkSetupWizardPermission(TEST_UID)).thenReturn(true);
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
-        assertTrue(mWorkSourceArgumentCaptor.getValue().equals(
-                new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1)));
+        assertEquals(mWorkSourceArgumentCaptor.getValue(),
+                new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1));
         validateScanSettings(mScanSettingsArgumentCaptor.getValue(), false, true);
     }
 
@@ -216,16 +248,17 @@ public class ScanRequestProxyTest {
     @Test
     public void testStartScanWithHiddenNetworkScanningDisabled() {
         mScanRequestProxy.enableScanning(true, false);
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
+        mInOrder.verify(mWifiScanner).registerScanListener(any(), any());
         mInOrder.verify(mWifiScanner).setScanningEnabled(true);
         validateScanAvailableBroadcastSent(true);
 
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
         mInOrder.verify(mWifiConfigManager, never()).retrieveHiddenNetworkList();
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiNetworkSuggestionsManager, never()).retrieveHiddenNetworkList();
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
-        assertTrue(mWorkSourceArgumentCaptor.getValue().equals(
-                new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1)));
+        assertEquals(mWorkSourceArgumentCaptor.getValue(),
+                new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1));
         validateScanSettings(mScanSettingsArgumentCaptor.getValue(), false);
 
         verify(mWifiMetrics).incrementExternalAppOneshotScanRequestsCount();
@@ -237,16 +270,18 @@ public class ScanRequestProxyTest {
     @Test
     public void testStartScanWithHiddenNetworkScanningEnabled() {
         mScanRequestProxy.enableScanning(true, true);
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
+        mInOrder.verify(mWifiScanner).registerScanListener(any(), any());
         mInOrder.verify(mWifiScanner).setScanningEnabled(true);
         validateScanAvailableBroadcastSent(true);
 
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiConfigManager).retrieveHiddenNetworkList();
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
 
-        assertTrue(mWorkSourceArgumentCaptor.getValue().equals(
-                new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1)));
+        mInOrder.verify(mWifiConfigManager).retrieveHiddenNetworkList();
+        mInOrder.verify(mWifiNetworkSuggestionsManager).retrieveHiddenNetworkList();
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
+
+        assertEquals(mWorkSourceArgumentCaptor.getValue(),
+                new WorkSource(TEST_UID, TEST_PACKAGE_NAME_1));
         validateScanSettings(mScanSettingsArgumentCaptor.getValue(), true);
 
         verify(mWifiMetrics).incrementExternalAppOneshotScanRequestsCount();
@@ -295,10 +330,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testScanSuccessOverwritesPreviousResults() {
+        enableScanning();
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Verify the scan results processing for request 1.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
         validateScanResultsAvailableBroadcastSent(true);
@@ -309,7 +344,7 @@ public class ScanRequestProxyTest {
 
         // Make scan request 2.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Verify the scan results processing for request 2.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas2);
         validateScanResultsAvailableBroadcastSent(true);
@@ -326,10 +361,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testScanFailureDoesNotOverwritePreviousResults() {
+        enableScanning();
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Verify the scan results processing for request 1.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
         validateScanResultsAvailableBroadcastSent(true);
@@ -340,7 +375,7 @@ public class ScanRequestProxyTest {
 
         // Make scan request 2.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Verify the scan failure processing.
         mScanRequestListenerArgumentCaptor.getValue().onFailure(0, "failed");
         validateScanResultsAvailableBroadcastSent(false);
@@ -358,10 +393,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testNewScanRequestAfterPreviousScanSucceeds() {
+        enableScanning();
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Now send the scan results for request 1.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
         validateScanResultsAvailableBroadcastSent(true);
@@ -373,7 +408,7 @@ public class ScanRequestProxyTest {
         // Make scan request 2.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
         // Ensure that we did send a second scan request to scanner.
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Now send the scan results for request 2.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas2);
         validateScanResultsAvailableBroadcastSent(true);
@@ -392,10 +427,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testNewScanRequestAfterPreviousScanSucceedsWithInvalidScanDatas() {
+        enableScanning();
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         // Now send scan success for request 1, but with invalid scan datas.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(
@@ -407,7 +442,7 @@ public class ScanRequestProxyTest {
         // Make scan request 2.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
         // Ensure that we did send a second scan request to scanner.
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Now send the scan results for request 2.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas2);
         validateScanResultsAvailableBroadcastSent(true);
@@ -426,10 +461,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testNewScanRequestAfterPreviousScanFailure() {
+        enableScanning();
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         // Now send scan failure for request 1.
         mScanRequestListenerArgumentCaptor.getValue().onFailure(0, "failed");
@@ -440,7 +475,7 @@ public class ScanRequestProxyTest {
         // Make scan request 2.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
         // Ensure that we did send a second scan request to scanner.
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Now send the scan results for request 2.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas2);
         validateScanResultsAvailableBroadcastSent(true);
@@ -459,13 +494,13 @@ public class ScanRequestProxyTest {
     public void testToggleScanStateClearsScanResults() {
         // Enable scanning
         mScanRequestProxy.enableScanning(true, false);
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
+        mInOrder.verify(mWifiScanner).registerScanListener(any(), any());
         mInOrder.verify(mWifiScanner).setScanningEnabled(true);
         validateScanAvailableBroadcastSent(true);
 
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Verify the scan results processing for request 1.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
         validateScanResultsAvailableBroadcastSent(true);
@@ -489,18 +524,18 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestsDontUseSameListener() {
+        enableScanning();
         WifiScanner.ScanListener listener1;
         WifiScanner.ScanListener listener2;
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         listener1 = mScanRequestListenerArgumentCaptor.getValue();
 
         // Make scan request 2.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
         // Ensure that we did send a second scan request to scanner.
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         listener2 = mScanRequestListenerArgumentCaptor.getValue();
 
         assertNotEquals(listener1, listener2);
@@ -515,15 +550,13 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromSameFgAppThrottled() {
+        enableScanning();
         long firstRequestMs = 782;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            if (i == 0) {
-                mInOrder.verify(mWifiScanner).registerScanListener(any());
-            }
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         // Make next scan request from the same package name & ensure that it is throttled.
         assertFalse(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
@@ -541,21 +574,19 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromSameFgAppNotThrottled() {
+        enableScanning();
         long firstRequestMs = 782;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            if (i == 0) {
-                mInOrder.verify(mWifiScanner).registerScanListener(any());
-            }
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         long lastRequestMs = firstRequestMs + SCAN_REQUEST_THROTTLE_TIME_WINDOW_FG_APPS_MS + 1;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(lastRequestMs);
         // Make next scan request from the same package name & ensure that it is not throttled.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         verify(mWifiMetrics, times(SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS + 1))
                 .incrementExternalAppOneshotScanRequestsCount();
@@ -567,6 +598,7 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromSameAppWithNetworkSettingsPermissionNotThrottled() {
+        enableScanning();
         when(mWifiPermissionsUtil.checkNetworkSettingsPermission(TEST_UID)).thenReturn(true);
 
         long firstRequestMs = 782;
@@ -574,14 +606,11 @@ public class ScanRequestProxyTest {
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            if (i == 0) {
-                mInOrder.verify(mWifiScanner).registerScanListener(any());
-            }
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         // Make next scan request from the same package name & ensure that it is not throttled.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
     }
 
     /**
@@ -590,6 +619,7 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromSameAppWithNetworkSetupWizardPermissionNotThrottled() {
+        enableScanning();
         when(mWifiPermissionsUtil.checkNetworkSetupWizardPermission(TEST_UID)).thenReturn(true);
 
         long firstRequestMs = 782;
@@ -597,14 +627,11 @@ public class ScanRequestProxyTest {
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            if (i == 0) {
-                mInOrder.verify(mWifiScanner).registerScanListener(any());
-            }
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         // Make next scan request from the same package name & ensure that it is not throttled.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
     }
 
     /**
@@ -615,26 +642,19 @@ public class ScanRequestProxyTest {
     public void testSuccessiveScanRequestFromSameAppWhenThrottlingIsDisabledNotThrottled() {
         // Triggers the scan throttle setting registration.
         testEnableScanning();
-        verify(mFrameworkFacade).registerContentObserver(any(),
-                eq(Settings.Global.getUriFor(Settings.Global.WIFI_SCAN_THROTTLE_ENABLED)),
-                anyBoolean(), mThrottleEnabledSettingObservorCaptor.capture());
-        assertNotNull(mThrottleEnabledSettingObservorCaptor);
-        // Disable scan throttling & invoke the content observer callback.
-        when(mFrameworkFacade.getIntegerSetting(
-                eq(mContext), eq(Settings.Global.WIFI_SCAN_THROTTLE_ENABLED), anyInt()))
-                .thenReturn(0);
-        mThrottleEnabledSettingObservorCaptor.getValue().onChange(false);
+        mScanRequestProxy.setScanThrottleEnabled(false);
+        verify(mWifiSettingsConfigStore).put(WIFI_SCAN_THROTTLE_ENABLED, false);
 
         long firstRequestMs = 782;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         // Make next scan request from the same package name & ensure that it is not throttled.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
     }
 
     /**
@@ -642,26 +662,24 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromDifferentFgAppsNotThrottled() {
+        enableScanning();
         long firstRequestMs = 782;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS / 2; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            if (i == 0) {
-                mInOrder.verify(mWifiScanner).registerScanListener(any());
-            }
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS / 2; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         // Make next scan request from both the package name & ensure that it is not throttled.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         verify(mWifiMetrics, times(SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS + 2))
                 .incrementExternalAppOneshotScanRequestsCount();
@@ -674,15 +692,13 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromSameAppAfterRemovalAndReinstallNotThrottled() {
+        enableScanning();
         long firstRequestMs = 782;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            if (i == 0) {
-                mInOrder.verify(mWifiScanner).registerScanListener(any());
-            }
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         // Now simulate removing the app.
         mScanRequestProxy.clearScanRequestTimestampsForApp(TEST_PACKAGE_NAME_1, TEST_UID);
@@ -690,7 +706,7 @@ public class ScanRequestProxyTest {
         // Make next scan request from the same package name (simulating a reinstall) & ensure that
         // it is not throttled.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         verify(mWifiMetrics, times(SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS + 1))
                 .incrementExternalAppOneshotScanRequestsCount();
@@ -703,15 +719,13 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromSameAppAfterRemovalOnAnotherUserThrottled() {
+        enableScanning();
         long firstRequestMs = 782;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; i++) {
             when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs + i);
             assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-            if (i == 0) {
-                mInOrder.verify(mWifiScanner).registerScanListener(any());
-            }
-            mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+            mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         }
         // Now simulate removing the app for another user (User 1).
         mScanRequestProxy.clearScanRequestTimestampsForApp(
@@ -733,6 +747,7 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromBgAppsThrottled() {
+        enableScanning();
         when(mActivityManager.getPackageImportance(TEST_PACKAGE_NAME_1))
                 .thenReturn(IMPORTANCE_FOREGROUND_SERVICE + 1);
         when(mActivityManager.getPackageImportance(TEST_PACKAGE_NAME_2))
@@ -742,8 +757,7 @@ public class ScanRequestProxyTest {
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         // Make scan request 2 from the different package name & ensure that it is throttled.
         assertFalse(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
@@ -759,6 +773,7 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testSuccessiveScanRequestFromBgAppsNotThrottled() {
+        enableScanning();
         when(mActivityManager.getPackageImportance(TEST_PACKAGE_NAME_1))
                 .thenReturn(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND + 1);
         when(mActivityManager.getPackageImportance(TEST_PACKAGE_NAME_2))
@@ -768,15 +783,14 @@ public class ScanRequestProxyTest {
         when(mClock.getElapsedSinceBootMillis()).thenReturn(firstRequestMs);
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         long secondRequestMs =
                 firstRequestMs + ScanRequestProxy.SCAN_REQUEST_THROTTLE_INTERVAL_BG_APPS_MS + 1;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(secondRequestMs);
         // Make scan request 2 from the different package name & ensure that it is throttled.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_2));
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
 
         verify(mWifiMetrics, times(2)).incrementExternalAppOneshotScanRequestsCount();
     }
@@ -787,10 +801,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testFullInternalScanResultsOverwritesPreviousResults() {
+        enableScanning();
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Verify the scan results processing for request 1.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
         validateScanResultsAvailableBroadcastSent(true);
@@ -817,10 +831,10 @@ public class ScanRequestProxyTest {
      */
     @Test
     public void testPartialInternalScanResultsDoesNotOverwritePreviousResults() {
+        enableScanning();
         // Make scan request 1.
         assertTrue(mScanRequestProxy.startScan(TEST_UID, TEST_PACKAGE_NAME_1));
-        mInOrder.verify(mWifiScanner).registerScanListener(any());
-        mInOrder.verify(mWifiScanner).startScan(any(), any(), any());
+        mInOrder.verify(mWifiScanner).startScan(any(), any(), any(), any());
         // Verify the scan results processing for request 1.
         mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
         validateScanResultsAvailableBroadcastSent(true);
@@ -852,30 +866,32 @@ public class ScanRequestProxyTest {
                                       boolean expectHiddenNetworks,
                                       boolean expectHighAccuracyType) {
         assertNotNull(scanSettings);
-        assertEquals(WifiScanner.WIFI_BAND_BOTH_WITH_DFS, scanSettings.band);
+        assertEquals(WifiScanner.WIFI_BAND_ALL, scanSettings.band);
         if (expectHighAccuracyType) {
-            assertEquals(WifiScanner.TYPE_HIGH_ACCURACY, scanSettings.type);
+            assertEquals(WifiScanner.SCAN_TYPE_HIGH_ACCURACY, scanSettings.type);
         } else {
-            assertEquals(WifiScanner.TYPE_LOW_LATENCY, scanSettings.type);
+            assertEquals(WifiScanner.SCAN_TYPE_LOW_LATENCY, scanSettings.type);
         }
         assertEquals(WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN
                 | WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT, scanSettings.reportEvents);
+        List<HiddenNetwork> hiddenNetworkList =
+                new ArrayList<>();
+        hiddenNetworkList.addAll(TEST_HIDDEN_NETWORKS_LIST);
+        hiddenNetworkList.addAll(TEST_HIDDEN_NETWORKS_LIST_NS);
         if (expectHiddenNetworks) {
-            assertNotNull(scanSettings.hiddenNetworks);
-            assertEquals(TEST_HIDDEN_NETWORKS_LIST.size(), scanSettings.hiddenNetworks.length);
-            for (int i = 0; i < scanSettings.hiddenNetworks.length; i++) {
-                validateHiddenNetworkInList(scanSettings.hiddenNetworks[i],
-                        TEST_HIDDEN_NETWORKS_LIST);
+            assertEquals(hiddenNetworkList.size(), scanSettings.hiddenNetworks.size());
+            for (HiddenNetwork hiddenNetwork : scanSettings.hiddenNetworks) {
+                validateHiddenNetworkInList(hiddenNetwork, hiddenNetworkList);
             }
         } else {
-            assertNull(scanSettings.hiddenNetworks);
+            assertEquals(Collections.emptyList(), scanSettings.hiddenNetworks);
         }
     }
 
     private void validateHiddenNetworkInList(
-            WifiScanner.ScanSettings.HiddenNetwork expectedHiddenNetwork,
-            List<WifiScanner.ScanSettings.HiddenNetwork> hiddenNetworkList) {
-        for (WifiScanner.ScanSettings.HiddenNetwork hiddenNetwork : hiddenNetworkList) {
+            HiddenNetwork expectedHiddenNetwork,
+            List<HiddenNetwork> hiddenNetworkList) {
+        for (HiddenNetwork hiddenNetwork : hiddenNetworkList) {
             if (hiddenNetwork.ssid.equals(expectedHiddenNetwork.ssid)) {
                 return;
             }
@@ -924,11 +940,75 @@ public class ScanRequestProxyTest {
         assertEquals(userHandleCaptor.getValue(), UserHandle.ALL);
 
         Intent intent = intentCaptor.getValue();
-        assertEquals(WifiManager.WIFI_SCAN_AVAILABLE, intent.getAction());
+        assertEquals(WifiManager.ACTION_WIFI_SCAN_AVAILABILITY_CHANGED, intent.getAction());
         assertEquals(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT, intent.getFlags());
-        int scanState = intent.getIntExtra(WifiManager.EXTRA_SCAN_AVAILABLE,
-                WifiManager.WIFI_STATE_DISABLED);
-        boolean scanAvailable = scanState == WifiManager.WIFI_STATE_ENABLED;
+        boolean scanAvailable = intent.getBooleanExtra(WifiManager.EXTRA_SCAN_AVAILABLE, false);
         assertEquals(expectedScanAvailable, scanAvailable);
+    }
+
+    /**
+     * Test register two different scan result Callback, all of them will receive the event.
+     */
+    @Test
+    public void testScanSuccessWithMultipleCallback() throws Exception {
+        mScanRequestProxy.registerScanResultsCallback(mScanResultsCallback);
+        mScanRequestProxy.registerScanResultsCallback(mAnotherScanResultsCallback);
+        testStartScanSuccess();
+        // Verify the scan results processing.
+        mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
+        mLooper.dispatchAll();
+        validateScanResultsAvailableBroadcastSent(true);
+
+        mScanRequestProxy.unregisterScanResultsCallback(mScanResultsCallback);
+        mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas2);
+        mLooper.dispatchAll();
+        validateScanResultsAvailableBroadcastSent(true);
+        verify(mScanResultsCallback).onScanResultsAvailable();
+        verify(mAnotherScanResultsCallback, times(2)).onScanResultsAvailable();
+    }
+
+    /**
+     * Verify that registering twice with same Callback will replace the first Callback.
+     */
+    @Test
+    public void testReplacesOldListenerWithNewCallbackWhenRegisteringTwice() throws Exception {
+        mScanRequestProxy.registerScanResultsCallback(mScanResultsCallback);
+        mScanRequestProxy.registerScanResultsCallback(mScanResultsCallback);
+        mLooper.dispatchAll();
+        // Verify old listener is replaced.
+        verify(mBinder, times(2)).linkToDeath(any(), anyInt());
+        verify(mBinder).unlinkToDeath(any(), anyInt());
+        testStartScanSuccess();
+        // Verify the scan results processing.
+        mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
+        mLooper.dispatchAll();
+        verify(mScanResultsCallback).onScanResultsAvailable();
+        validateScanResultsAvailableBroadcastSent(true);
+    }
+
+    /**
+     * Test registered scan result Callback will be unregistered when calling binder is died.
+     */
+    @Test
+    public void testUnregisterScanResultCallbackOnBinderDied() throws Exception {
+        ArgumentCaptor<IBinder.DeathRecipient> drCaptor =
+                ArgumentCaptor.forClass(IBinder.DeathRecipient.class);
+        mScanRequestProxy.registerScanResultsCallback(mScanResultsCallback);
+        verify(mBinder).linkToDeath(drCaptor.capture(), anyInt());
+        testStartScanSuccess();
+        // Verify the scan results processing.
+        mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
+        mLooper.dispatchAll();
+        validateScanResultsAvailableBroadcastSent(true);
+        verify(mScanResultsCallback).onScanResultsAvailable();
+        drCaptor.getValue().binderDied();
+        mLooper.dispatchAll();
+        reset(mScanResultsCallback);
+        // Verify the scan results processing.
+        mGlobalScanListenerArgumentCaptor.getValue().onResults(mTestScanDatas1);
+        mLooper.dispatchAll();
+        validateScanResultsAvailableBroadcastSent(true);
+        verify(mScanResultsCallback, never()).onScanResultsAvailable();
+
     }
 }

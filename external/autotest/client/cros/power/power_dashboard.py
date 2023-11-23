@@ -33,6 +33,7 @@ _HTML_CHART_STR = '''
         var data = google.visualization.arrayToDataTable([
 {data}
         ]);
+        var numDataCols = data.getNumberOfColumns() - 1;
         var unit = '{unit}';
         var options = {{
             width: 1600,
@@ -46,6 +47,14 @@ _HTML_CHART_STR = '''
         var chart;
         if (unit == 'percent') {{
             options['isStacked'] = true;
+            if (numDataCols == 2) {{
+                options['colors'] = ['#d32f2f', '#43a047']
+            }} else if (numDataCols <= 4) {{
+                options['colors'] = ['#d32f2f', '#f4c7c3', '#cddc39','#43a047'];
+            }} else if (numDataCols <= 9) {{
+                options['colors'] = ['#d32f2f', '#e57373', '#f4c7c3', '#ffccbc',
+                        '#f0f4c3', '#c8e6c9', '#cddc39', '#81c784', '#43a047'];
+            }}
             chart = new google.visualization.SteppedAreaChart(element);
         }} else {{
             chart = new google.visualization.LineChart(element);
@@ -353,7 +362,7 @@ class ClientTestDashboard(BaseDashboard):
                 # Round the battery size to nearest tenth because it is
                 # fluctuated for platform without battery nominal voltage data.
                 dut_info_dict['sku']['battery_size'] = round(
-                        status.battery[0].energy_full_design, 1)
+                        status.battery.energy_full_design, 1)
                 dut_info_dict['sku']['battery_shutdown_percent'] = \
                         power_utils.get_low_battery_shutdown_percent()
         return dut_info_dict
@@ -414,7 +423,7 @@ class MeasurementLoggerDashboard(ClientTestDashboard):
             return None
 
         power_dict = collections.defaultdict(dict, {
-            'sample_count': len(self._logger.readings) - 1,
+            'sample_count': len(self._logger.readings),
             'sample_duration': 0,
             'average': dict(),
             'data': dict(),
@@ -422,7 +431,7 @@ class MeasurementLoggerDashboard(ClientTestDashboard):
         if power_dict['sample_count'] > 1:
             total_duration = self._logger.times[-1] - self._logger.times[0]
             power_dict['sample_duration'] = \
-                    1.0 * total_duration / power_dict['sample_count']
+                    1.0 * total_duration / (power_dict['sample_count'] - 1)
 
         self._create_padded_domains()
         for i, domain_readings in enumerate(zip(*self._logger.readings)):
@@ -430,8 +439,7 @@ class MeasurementLoggerDashboard(ClientTestDashboard):
                 domain = self._padded_domains[i]
             else:
                 domain = self._logger.domains[i]
-            # Remove first item because that is the log before the test begin.
-            power_dict['data'][domain] = domain_readings[1:]
+            power_dict['data'][domain] = domain_readings
             power_dict['average'][domain] = \
                     numpy.average(power_dict['data'][domain])
             if self._unit:
@@ -458,7 +466,7 @@ class PowerLoggerDashboard(MeasurementLoggerDashboard):
 
 
 class TempLoggerDashboard(MeasurementLoggerDashboard):
-    """Dashboard class for power_status.PowerLogger.
+    """Dashboard class for power_status.TempLogger.
     """
 
     def __init__(self, logger, testname, resultsdir=None, uploadurl=None,
@@ -602,3 +610,16 @@ class CPUStatsLoggerDashboard(MeasurementLoggerDashboard):
 
             # Run "cpuidle_C{:_>2s}E-SKL".format("1") to get "cpuidle_C.1E-SKL"
             self._padded_domains.append(formatter_str.format(number_strs[i]))
+
+
+class VideoFpsLoggerDashboard(MeasurementLoggerDashboard):
+    """Dashboard class for power_status.VideoFpsLogger."""
+
+    def __init__(self, logger, testname, resultsdir=None, uploadurl=None,
+                 note=''):
+        if uploadurl is None:
+            uploadurl = 'http://chrome-power.appspot.com/rapl'
+        super(VideoFpsLoggerDashboard, self).__init__(
+            logger, testname, resultsdir, uploadurl, note)
+        self._unit = 'fps'
+        self._type = 'fps'

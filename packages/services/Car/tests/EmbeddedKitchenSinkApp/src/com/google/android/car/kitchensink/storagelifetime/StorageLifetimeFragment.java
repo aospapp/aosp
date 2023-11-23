@@ -213,13 +213,19 @@ public class StorageLifetimeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        if (!mActivity.getCar().isFeatureEnabled(Car.STORAGE_MONITORING_SERVICE)) {
+            Log.w(TAG, "STORAGE_MONITORING_SERVICE not supported");
+            return;
+        }
         reloadInfo();
         registerListener();
     }
 
     @Override
     public void onPause() {
-        unregisterListener();
+        if (mActivity.getCar().isFeatureEnabled(Car.STORAGE_MONITORING_SERVICE)) {
+            unregisterListener();
+        }
         super.onPause();
     }
 }

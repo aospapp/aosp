@@ -16,9 +16,11 @@
 
 package com.android.server.net;
 
-import static android.Manifest.permission.CONNECTIVITY_INTERNAL;
+import static android.Manifest.permission.NETWORK_STACK;
 import static android.provider.Settings.ACTION_VPN_SETTINGS;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -32,7 +34,7 @@ import android.net.LinkProperties;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.NetworkInfo.State;
-import android.os.INetworkManagementService;
+import android.os.Handler;
 import android.security.Credentials;
 import android.security.KeyStore;
 import android.text.TextUtils;
@@ -43,12 +45,12 @@ import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
 import com.android.internal.net.VpnConfig;
 import com.android.internal.net.VpnProfile;
 import com.android.internal.notification.SystemNotificationChannels;
-import com.android.internal.util.Preconditions;
 import com.android.server.ConnectivityService;
 import com.android.server.EventLogTags;
 import com.android.server.connectivity.Vpn;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * State tracker for lockdown mode. Watches for normal {@link NetworkInfo} to be
@@ -63,22 +65,19 @@ public class LockdownVpnTracker {
 
     private static final String ACTION_LOCKDOWN_RESET = "com.android.server.action.LOCKDOWN_RESET";
 
-    private static final int ROOT_UID = 0;
+    @NonNull private final Context mContext;
+    @NonNull private final ConnectivityService mConnService;
+    @NonNull private final Handler mHandler;
+    @NonNull private final Vpn mVpn;
+    @NonNull private final VpnProfile mProfile;
 
-    private final Context mContext;
-    private final INetworkManagementService mNetService;
-    private final ConnectivityService mConnService;
-    private final Vpn mVpn;
-    private final VpnProfile mProfile;
+    @NonNull private final Object mStateLock = new Object();
 
-    private final Object mStateLock = new Object();
+    @NonNull private final PendingIntent mConfigIntent;
+    @NonNull private final PendingIntent mResetIntent;
 
-    private final PendingIntent mConfigIntent;
-    private final PendingIntent mResetIntent;
-
+    @Nullable
     private String mAcceptedEgressIface;
-    private String mAcceptedIface;
-    private List<LinkAddress> mAcceptedSourceAddr;
 
     private int mErrorCount;
 
@@ -86,13 +85,16 @@ public class LockdownVpnTracker {
         return KeyStore.getInstance().contains(Credentials.LOCKDOWN_VPN);
     }
 
-    public LockdownVpnTracker(Context context, INetworkManagementService netService,
-            ConnectivityService connService, Vpn vpn, VpnProfile profile) {
-        mContext = Preconditions.checkNotNull(context);
-        mNetService = Preconditions.checkNotNull(netService);
-        mConnService = Preconditions.checkNotNull(connService);
-        mVpn = Preconditions.checkNotNull(vpn);
-        mProfile = Preconditions.checkNotNull(profile);
+    public LockdownVpnTracker(@NonNull Context context,
+            @NonNull ConnectivityService connService,
+            @NonNull Handler handler,
+            @NonNull Vpn vpn,
+            @NonNull VpnProfile profile) {
+        mContext = Objects.requireNonNull(context);
+        mConnService = Objects.requireNonNull(connService);
+        mHandler = Objects.requireNonNull(handler);
+        mVpn = Objects.requireNonNull(vpn);
+        mProfile = Objects.requireNonNull(profile);
 
         final Intent configIntent = new Intent(ACTION_VPN_SETTINGS);
         mConfigIntent = PendingIntent.getActivity(mContext, 0, configIntent, 0);
@@ -136,7 +138,7 @@ public class LockdownVpnTracker {
 
         if (egressDisconnected || egressChanged) {
             mAcceptedEgressIface = null;
-            mVpn.stopLegacyVpnPrivileged();
+            mVpn.stopVpnRunnerPrivileged();
         }
         if (egressDisconnected) {
             hideNotification();
@@ -176,11 +178,6 @@ public class LockdownVpnTracker {
             final String iface = vpnConfig.interfaze;
             final List<LinkAddress> sourceAddrs = vpnConfig.addresses;
 
-            if (TextUtils.equals(iface, mAcceptedIface)
-                  && sourceAddrs.equals(mAcceptedSourceAddr)) {
-                return;
-            }
-
             Slog.d(TAG, "VPN connected using iface=" + iface +
                     ", sourceAddr=" + sourceAddrs.toString());
             EventLogTags.writeLockdownVpnConnected(egressType);
@@ -205,8 +202,7 @@ public class LockdownVpnTracker {
         mVpn.setLockdown(true);
 
         final IntentFilter resetFilter = new IntentFilter(ACTION_LOCKDOWN_RESET);
-        mContext.registerReceiver(mResetReceiver, resetFilter, CONNECTIVITY_INTERNAL, null);
-
+        mContext.registerReceiver(mResetReceiver, resetFilter, NETWORK_STACK, mHandler);
         handleStateChangedLocked();
     }
 
@@ -222,7 +218,7 @@ public class LockdownVpnTracker {
         mAcceptedEgressIface = null;
         mErrorCount = 0;
 
-        mVpn.stopLegacyVpnPrivileged();
+        mVpn.stopVpnRunnerPrivileged();
         mVpn.setLockdown(false);
         hideNotification();
 

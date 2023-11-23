@@ -23,7 +23,4 @@ java_library_host {
         "javaparser-core/src/main/javacc-support/**/*.java",
         "javaparser-core/generated-sources/**/*.java",
     ],
-    openjdk9: {
-        javacflags: ["--add-modules=java.xml.ws.annotation"],
-    }
 }

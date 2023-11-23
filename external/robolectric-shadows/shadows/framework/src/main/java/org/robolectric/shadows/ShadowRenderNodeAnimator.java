@@ -7,7 +7,7 @@ import static org.robolectric.shadow.api.Shadow.directlyOn;
 
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
-import android.view.RenderNodeAnimator;
+import android.graphics.animation.RenderNodeAnimator;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;

@@ -33,6 +33,7 @@
  */
 
 
+#include "main/errors.h"
 #include "main/macros.h"
 #include "main/texcompress.h"
 #include "main/texcompress_fxt1.h"
@@ -256,6 +257,7 @@ texfetch_funcs[] =
    FETCH_FUNCS(A8L8_SRGB),
 
    /* Array sRGB formats */
+   FETCH_FUNCS(R_SRGB8),
    FETCH_FUNCS(L_SRGB8),
    FETCH_FUNCS(BGR_SRGB8),
 
@@ -462,7 +464,11 @@ texfetch_funcs[] =
    FETCH_NULL(SRGB8_ALPHA8_ASTC_5x5x5),
    FETCH_NULL(SRGB8_ALPHA8_ASTC_6x5x5),
    FETCH_NULL(SRGB8_ALPHA8_ASTC_6x6x5),
-   FETCH_NULL(SRGB8_ALPHA8_ASTC_6x6x6)
+   FETCH_NULL(SRGB8_ALPHA8_ASTC_6x6x6),
+
+   FETCH_NULL(ATC_RGB),
+   FETCH_NULL(ATC_RGBA_EXPLICIT),
+   FETCH_NULL(ATC_RGBA_INTERPOLATED)
 };
 
 

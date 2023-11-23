@@ -23,7 +23,6 @@ import com.android.loganalysis.item.MonkeyLogItem.DroppedCategory;
 import junit.framework.TestCase;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
@@ -39,21 +38,14 @@ public class MonkeyLogParserFuncTest extends TestCase {
      * assist a developer in checking why a given monkey log file might not be parsed correctly by
      * Brillopad.
      */
-    public void testParse() {
-        BufferedReader monkeyLogReader = null;
-        try {
-            monkeyLogReader = new BufferedReader(new FileReader(MONKEY_LOG_PATH));
-        } catch (FileNotFoundException e) {
-            fail(String.format("File not found at %s", MONKEY_LOG_PATH));
-        }
+    public void testParse() throws Exception {
+        BufferedReader monkeyLogReader = new BufferedReader(new FileReader(MONKEY_LOG_PATH));
         MonkeyLogItem monkeyLog = null;
         try {
             long start = System.currentTimeMillis();
             monkeyLog = new MonkeyLogParser().parse(monkeyLogReader);
             long stop = System.currentTimeMillis();
             System.out.println(String.format("Monkey log took %d ms to parse.", stop - start));
-        } catch (IOException e) {
-            fail(String.format("IOException: %s", e.toString()));
         } finally {
             if (monkeyLogReader != null) {
                 try {

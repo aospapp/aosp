@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Kifaa Kilichounganishwa"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Weka Kifaa Kinachounganishwa"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Unganisha kifaa kisaidizi"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Unaweza kutumia simu yako kama kifaa kisaidizi ili kukusaidia kudhibiti hali yako ya kuendesha gari"</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Hakikisha kuwa umesakinisha "<b>"Programu Saidizi"</b>" kwenye simu"</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Thibitisha msimbo kwenye simu"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Thibitisha kuwa msimbo huu unalingana na msimbo unaoonyeshwa kwenye simu yako"</string>
+    <string name="associated_device_success" msgid="584760065696870256">"Kifaa kimeunganishwa"</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Fungua programu uunganishe na &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"Ondoa &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"Gari hili halitaunganishwa tena na kifaa hiki. Bado utahitaji kuondoa gari hili kwenye Progamu saidizi."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> imeondolewa"</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"Imeshindwa kuondoa <xliff:g id="PHONE_NAME">%1$s</xliff:g>"</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Endelea kuweka mipangilio kwenye simu yako"</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Hitilafu fulani imetokea"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Samahani, skrini hii imeshindwa kuonyesha vizuri. Tafadhali jaribu tena."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Washa Bluetooth"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"Ili uweke simu yako kama kifaa kisaidizi, linahitaji Bluetooth."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Ungependa kuwasha Bluetooth?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"Ili uunganishe kifaa chako kisaidizi, gari lako linahitaji Bluetooth."</string>
+    <string name="accept" msgid="1454710793329618813">"Kubali"</string>
+    <string name="reject" msgid="4315432282758892890">"Kataa"</string>
+    <string name="confirm" msgid="3748997214719276945">"Thibitisha"</string>
+    <string name="cancel" msgid="4306609731174629323">"Ghairi"</string>
+    <string name="remove" msgid="5513398257088729188">"Ondoa"</string>
+    <string name="ok" msgid="2825038997730899083">"Sawa"</string>
+    <string name="connection" msgid="2798490936433656846">"Muunganisho"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Ondoa kifaa hiki"</string>
+    <string name="forget" msgid="2069897665699141222">"Ondoa"</string>
+    <string name="disable" msgid="4619854429066283970">"Zima"</string>
+    <string name="enable" msgid="7656386199154111316">"Washa"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Endelea"</string>
+    <string name="retry" msgid="3783419451480721367">"Jaribu tena"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Washa"</string>
+    <string name="not_now" msgid="8764692269093707622">"Si sasa"</string>
+    <string name="connected" msgid="8051190714042020471">"Kimeunganishwa"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Haijagunduliwa"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Kimetenganishwa"</string>
+    <string name="unknown" msgid="555736316465118024">"Haijulikani"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Huduma ya SMS za simu inafanya kazi"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Huduma ya SMS za simu inatumika"</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"Inapokea SMS kupitia kifaa kisaidizi"</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Fungua wasifu ukitumia simu"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Angalia Programu Saidizi ili uweke mipangilio ya chaguo za kufungua"</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"Ruhusu &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; ifungue wasifu wangu"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"Ni lazima simu yako iwe imeunganishwa"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Ili uwashe kipengele hiki, hakikisha kuwa Bluetooth imewashwa kwenye gari na simu yako na zimekaribiana"</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"&lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; sasa inaweza kufungua wasifu wako"</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Weka mbinu ya msingi ya kufunga wasifu"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Ili utumie simu yako kufungua wasifu, unahitaji mbinu ya msingi ya kufunga wasifu kama njia mbadala"</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Fungua wasifu wako ili ukamilishe"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Umeweka mbinu mpya ya kufunga wasifu. Kisha, iweke tena ili uthibitishe kuwa simu yako inaweza kufungua wasifu kiotomatiki"</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Tenganisha kifaa hiki"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Unganisha tena kifaa hiki"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Fungua ukitumia simu"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Ruhusu simu yako ifungue wasifu wako"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Gusa hapa ili uidhinishe kipengele hiki"</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Hitilafu fulani imetokea"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"Samahani, imeshindwa kuwasha kipengele hiki wakati huu. Tafadhali jaribu tena."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Weka mbinu ya kufunga skrini kwenye simu yako"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"Hujaweka mipangilio ya kufunga skrini kwenye simu yako. Ili ufungue wasifu wa gari ukitumia simu yako, weka kwanza mbinu ya kufunga skrini (inajulikana pia kama nambari ya siri) katika mipangilio ya simu yako."</string>
+</resources>

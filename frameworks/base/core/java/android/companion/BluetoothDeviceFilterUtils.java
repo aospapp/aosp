@@ -21,9 +21,9 @@ import static android.text.TextUtils.firstNotEmpty;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanFilter;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.net.wifi.ScanResult;
 import android.os.ParcelUuid;
 import android.os.Parcelable;
@@ -49,13 +49,6 @@ public class BluetoothDeviceFilterUtils {
     @Nullable
     static Pattern patternFromString(@Nullable String s) {
         return s == null ? null : Pattern.compile(s);
-    }
-
-    static boolean matches(ScanFilter filter, BluetoothDevice device) {
-        boolean result = matchesAddress(filter.getDeviceAddress(), device)
-                && matchesServiceUuid(filter.getServiceUuid(), filter.getServiceUuidMask(), device);
-        if (DEBUG) debugLogMatchResult(result, device, filter);
-        return result;
     }
 
     static boolean matchesAddress(String deviceAddress, BluetoothDevice device) {
@@ -129,7 +122,7 @@ public class BluetoothDeviceFilterUtils {
 
     @UnsupportedAppUsage
     public static String getDeviceDisplayNameInternal(@NonNull BluetoothDevice device) {
-        return firstNotEmpty(device.getAliasName(), device.getAddress());
+        return firstNotEmpty(device.getAlias(), device.getAddress());
     }
 
     @UnsupportedAppUsage

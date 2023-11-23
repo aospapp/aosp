@@ -35,23 +35,27 @@ import com.android.documentsui.sidebar.RootsFragment;
 
 import java.util.List;
 import java.util.function.IntFunction;
+import java.util.function.IntSupplier;
 
 public abstract class MenuManager {
     private final static String TAG = "MenuManager";
 
-    final protected SearchViewManager mSearchManager;
-    final protected State mState;
-    final protected DirectoryDetails mDirDetails;
+    protected final SearchViewManager mSearchManager;
+    protected final State mState;
+    protected final DirectoryDetails mDirDetails;
+    protected final IntSupplier mFilesCountSupplier;
 
     protected Menu mOptionMenu;
 
     public MenuManager(
             SearchViewManager searchManager,
             State displayState,
-            DirectoryDetails dirDetails) {
+            DirectoryDetails dirDetails,
+            IntSupplier filesCountSupplier) {
         mSearchManager = searchManager;
         mState = displayState;
         mDirDetails = dirDetails;
+        mFilesCountSupplier = filesCountSupplier;
     }
 
     /** @see ActionModeController */
@@ -61,7 +65,8 @@ public abstract class MenuManager {
         updateShare(menu.findItem(R.id.action_menu_share), selection);
         updateRename(menu.findItem(R.id.action_menu_rename), selection);
         updateSelect(menu.findItem(R.id.action_menu_select), selection);
-        updateSelectAll(menu.findItem(R.id.action_menu_select_all));
+        updateSelectAll(menu.findItem(R.id.action_menu_select_all), selection);
+        updateDeselectAll(menu.findItem(R.id.action_menu_deselect_all), selection);
         updateMoveTo(menu.findItem(R.id.action_menu_move_to), selection);
         updateCopyTo(menu.findItem(R.id.action_menu_copy_to), selection);
         updateCompress(menu.findItem(R.id.action_menu_compress), selection);
@@ -87,10 +92,11 @@ public abstract class MenuManager {
         updateSettings(mOptionMenu.findItem(R.id.option_menu_settings));
         updateSelectAll(mOptionMenu.findItem(R.id.option_menu_select_all));
         updateNewWindow(mOptionMenu.findItem(R.id.option_menu_new_window));
-        updateAdvanced(mOptionMenu.findItem(R.id.option_menu_advanced));
         updateDebug(mOptionMenu.findItem(R.id.option_menu_debug));
         updateInspect(mOptionMenu.findItem(R.id.option_menu_inspect));
         updateSort(mOptionMenu.findItem(R.id.option_menu_sort));
+        updateLauncher(mOptionMenu.findItem(R.id.option_menu_launcher));
+        updateShowHiddenFiles(mOptionMenu.findItem(R.id.option_menu_show_hidden_files));
 
         Menus.disableHiddenItems(mOptionMenu);
         mSearchManager.updateMenu();
@@ -114,7 +120,15 @@ public abstract class MenuManager {
         // Pickers don't have any context menu at this moment.
     }
 
-    public void inflateContextMenuForContainer(Menu menu, MenuInflater inflater) {
+    /**
+     * Called when container context menu needs to be inflated.
+     *
+     * @param menu context menu from activity or fragment
+     * @param inflater the MenuInflater
+     * @param selectionDetails selection of files
+     */
+    public void inflateContextMenuForContainer(
+            Menu menu, MenuInflater inflater, SelectionDetails selectionDetails) {
         throw new UnsupportedOperationException("Pickers don't allow context menu.");
     }
 
@@ -194,11 +208,11 @@ public abstract class MenuManager {
         final boolean canCopy =
                 selectionDetails.size() > 0 && !selectionDetails.containsPartialFiles();
         final boolean canDelete = selectionDetails.canDelete();
-        cut.setEnabled(canCopy && canDelete);
-        copy.setEnabled(canCopy);
-        delete.setEnabled(canDelete);
+        Menus.setEnabledAndVisible(cut, canCopy && canDelete);
+        Menus.setEnabledAndVisible(copy, canCopy);
+        Menus.setEnabledAndVisible(delete, canDelete);
 
-        inspect.setEnabled(selectionDetails.size() == 1);
+        Menus.setEnabledAndVisible(inspect, selectionDetails.size() == 1);
     }
 
     /**
@@ -207,14 +221,17 @@ public abstract class MenuManager {
      * Called when user tries to generate a context menu anchored to an empty pane.
      */
     @VisibleForTesting
-    public void updateContextMenuForContainer(Menu menu) {
+    public void updateContextMenuForContainer(Menu menu, SelectionDetails selectionDetails) {
         MenuItem paste = menu.findItem(R.id.dir_menu_paste_from_clipboard);
         MenuItem selectAll = menu.findItem(R.id.dir_menu_select_all);
+        MenuItem deselectAll = menu.findItem(R.id.dir_menu_deselect_all);
         MenuItem createDir = menu.findItem(R.id.dir_menu_create_dir);
         MenuItem inspect = menu.findItem(R.id.dir_menu_inspect);
 
-        paste.setEnabled(mDirDetails.hasItemsToPaste() && mDirDetails.canCreateDoc());
-        updateSelectAll(selectAll);
+        Menus.setEnabledAndVisible(paste,
+                mDirDetails.hasItemsToPaste() && mDirDetails.canCreateDoc());
+        updateSelectAll(selectAll, selectionDetails);
+        updateDeselectAll(deselectAll, selectionDetails);
         updateCreateDir(createDir);
         updateInspect(inspect);
     }
@@ -238,68 +255,75 @@ public abstract class MenuManager {
             List<KeyboardShortcutGroup> data, IntFunction<String> stringSupplier);
 
     protected void updateModePicker(MenuItem grid, MenuItem list) {
-        grid.setVisible(mState.derivedMode != State.MODE_GRID);
-        list.setVisible(mState.derivedMode != State.MODE_LIST);
+        // The order of enabling disabling menu item in wrong order removed accessibility focus.
+        if (mState.derivedMode != State.MODE_LIST) {
+            Menus.setEnabledAndVisible(list, mState.derivedMode != State.MODE_LIST);
+            Menus.setEnabledAndVisible(grid, mState.derivedMode != State.MODE_GRID);
+        } else {
+            Menus.setEnabledAndVisible(grid, mState.derivedMode != State.MODE_GRID);
+            Menus.setEnabledAndVisible(list, mState.derivedMode != State.MODE_LIST);
+        }
     }
 
-    protected void updateAdvanced(MenuItem advanced) {
-        advanced.setVisible(mState.showDeviceStorageOption);
-        advanced.setTitle(mState.showDeviceStorageOption && mState.showAdvanced
-                ? R.string.menu_advanced_hide : R.string.menu_advanced_show);
+    protected void updateShowHiddenFiles(MenuItem showHidden) {
+        Menus.setEnabledAndVisible(showHidden, true);
+        showHidden.setTitle(mState.showHiddenFiles
+                ? R.string.menu_hide_hidden_files
+                : R.string.menu_show_hidden_files);
     }
 
     protected void updateSort(MenuItem sort) {
-        sort.setVisible(true);
+        Menus.setEnabledAndVisible(sort, true);
     }
 
     protected void updateDebug(MenuItem debug) {
-        debug.setVisible(mState.debugMode);
+        Menus.setEnabledAndVisible(debug, mState.debugMode);
     }
 
     protected void updateSettings(MenuItem settings) {
-        settings.setVisible(false);
+        Menus.setEnabledAndVisible(settings, false);
     }
 
     protected void updateSettings(MenuItem settings, RootInfo root) {
-        settings.setVisible(false);
+        Menus.setEnabledAndVisible(settings, false);
     }
 
     protected void updateEject(MenuItem eject, RootInfo root) {
-        eject.setVisible(false);
+        Menus.setEnabledAndVisible(eject, false);
     }
 
     protected void updateNewWindow(MenuItem newWindow) {
-        newWindow.setVisible(false);
+        Menus.setEnabledAndVisible(newWindow, false);
     }
 
     protected void updateSelect(MenuItem select, SelectionDetails selectionDetails) {
-        select.setVisible(false);
+        Menus.setEnabledAndVisible(select, false);
     }
 
     protected void updateOpenWith(MenuItem openWith, SelectionDetails selectionDetails) {
-        openWith.setVisible(false);
+        Menus.setEnabledAndVisible(openWith, false);
     }
 
     protected void updateOpenInNewWindow(
             MenuItem openInNewWindow, SelectionDetails selectionDetails) {
-        openInNewWindow.setVisible(false);
+        Menus.setEnabledAndVisible(openInNewWindow, false);
     }
 
     protected void updateOpenInNewWindow(
             MenuItem openInNewWindow, RootInfo root) {
-        openInNewWindow.setVisible(false);
+        Menus.setEnabledAndVisible(openInNewWindow, false);
     }
 
     protected void updateShare(MenuItem share, SelectionDetails selectionDetails) {
-        share.setVisible(false);
+        Menus.setEnabledAndVisible(share, false);
     }
 
     protected void updateDelete(MenuItem delete, SelectionDetails selectionDetails) {
-        delete.setVisible(false);
+        Menus.setEnabledAndVisible(delete, false);
     }
 
     protected void updateRename(MenuItem rename, SelectionDetails selectionDetails) {
-        rename.setVisible(false);
+        Menus.setEnabledAndVisible(rename, false);
     }
 
     /**
@@ -307,49 +331,56 @@ public abstract class MenuManager {
      * to when there is a selection.
      */
     protected void updateInspect(MenuItem inspector) {
-        inspector.setVisible(false);
+        Menus.setEnabledAndVisible(inspector, false);
     }
 
     /**
      * This method is called for action mode, when a selection exists.
      */
     protected void updateInspect(MenuItem inspect, SelectionDetails selectionDetails) {
-        inspect.setVisible(false);
+        Menus.setEnabledAndVisible(inspect, false);
     }
 
     protected void updateViewInOwner(MenuItem view, SelectionDetails selectionDetails) {
-        view.setVisible(false);
+        Menus.setEnabledAndVisible(view, false);
     }
 
     protected void updateMoveTo(MenuItem moveTo, SelectionDetails selectionDetails) {
-        moveTo.setVisible(false);
+        Menus.setEnabledAndVisible(moveTo, false);
     }
 
     protected void updateCopyTo(MenuItem copyTo, SelectionDetails selectionDetails) {
-        copyTo.setVisible(false);
+        Menus.setEnabledAndVisible(copyTo, false);
     }
 
     protected void updateCompress(MenuItem compress, SelectionDetails selectionDetails) {
-        compress.setVisible(false);
+        Menus.setEnabledAndVisible(compress, false);
     }
 
     protected void updateExtractTo(MenuItem extractTo, SelectionDetails selectionDetails) {
-        extractTo.setVisible(false);
+        Menus.setEnabledAndVisible(extractTo, false);
     }
 
     protected void updatePasteInto(MenuItem pasteInto, SelectionDetails selectionDetails) {
-        pasteInto.setVisible(false);
+        Menus.setEnabledAndVisible(pasteInto, false);
     }
 
     protected void updatePasteInto(MenuItem pasteInto, RootInfo root, DocumentInfo docInfo) {
-        pasteInto.setVisible(false);
+        Menus.setEnabledAndVisible(pasteInto, false);
     }
 
     protected void updateOpenInContextMenu(MenuItem open, SelectionDetails selectionDetails) {
-        open.setVisible(false);
+        Menus.setEnabledAndVisible(open, false);
+    }
+
+    protected void updateLauncher(MenuItem launcher) {
+        Menus.setEnabledAndVisible(launcher, false);
     }
 
     protected abstract void updateSelectAll(MenuItem selectAll);
+    protected abstract void updateSelectAll(MenuItem selectAll, SelectionDetails selectionDetails);
+    protected abstract void updateDeselectAll(
+            MenuItem deselectAll, SelectionDetails selectionDetails);
     protected abstract void updateCreateDir(MenuItem createDir);
 
     /**

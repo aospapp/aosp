@@ -29,6 +29,7 @@ import com.android.compatibility.common.util.InvocationResult;
 import com.android.compatibility.common.util.ITestResult;
 import com.android.compatibility.common.util.MetricsXmlSerializer;
 import com.android.compatibility.common.util.ReportLog;
+import com.android.compatibility.common.util.TestResultHistory;
 import com.android.compatibility.common.util.TestStatus;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
@@ -38,9 +39,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * Helper class for creating an {@code InvocationResult} for CTS result generation.
@@ -104,7 +112,7 @@ class TestResultsReport {
                 Build.CPU_ABI2, abis, abis32, abis64, Build.BOARD, Build.BRAND, Build.DEVICE,
                 Build.FINGERPRINT, null, Build.ID, Build.MANUFACTURER, Build.MODEL, Build.PRODUCT,
                 referenceFingerprint, Build.getSerial(), Build.TAGS, Build.TYPE, versionBaseOs,
-                Build.VERSION.RELEASE, Integer.toString(Build.VERSION.SDK_INT),
+                Build.VERSION.RELEASE_OR_CODENAME, Integer.toString(Build.VERSION.SDK_INT),
                 versionSecurityPatch, Build.VERSION.INCREMENTAL);
 
         // add device properties to the result with a prefix tag for each key
@@ -129,11 +137,33 @@ class TestResultsReport {
                 }
                 currentTestResult.setResultStatus(resultStatus);
                 // TODO: report test details with Extended Device Info (EDI) or CTS metrics
-                // String details = mAdapter.getTestDetails(i);
+                String details = mAdapter.getTestDetails(i);
+                currentTestResult.setMessage(details);
 
                 ReportLog reportLog = mAdapter.getReportLog(i);
                 if (reportLog != null) {
                     currentTestResult.setReportLog(reportLog);
+                }
+
+                TestResultHistoryCollection historyCollection = mAdapter.getHistoryCollection(i);
+                if (historyCollection != null) {
+                    // Get non-terminal prefixes.
+                    Set<String> prefixes = new HashSet<>();
+                    for (TestResultHistory history: historyCollection.asSet()) {
+                        Arrays.stream(history.getTestName().split(":")).reduce(
+                            (total, current) -> { prefixes.add(total);
+                            return total + ":" + current;
+                        });
+                    }
+
+                    // Filter out non-leaf test histories.
+                    List<TestResultHistory> leafTestHistories = new ArrayList<TestResultHistory>();
+                    for (TestResultHistory history: historyCollection.asSet()) {
+                        if (!prefixes.contains(history.getTestName())) {
+                            leafTestHistories.add(history);
+                        }
+                    }
+                    currentTestResult.setTestResultHistories(leafTestHistories);
                 }
             }
         }

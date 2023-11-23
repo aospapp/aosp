@@ -16,6 +16,14 @@
 
 package android.opengl.cts;
 
+import static android.opengl.EGL14.EGL_HEIGHT;
+import static android.opengl.EGL14.EGL_NONE;
+import static android.opengl.EGL14.EGL_WIDTH;
+import static android.opengl.EGL14.eglCreatePbufferSurface;
+import static android.opengl.EGL14.eglMakeCurrent;
+import static android.opengl.GLES20.GL_MAX_TEXTURE_SIZE;
+import static android.opengl.GLES20.glGetIntegerv;
+
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -23,14 +31,15 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
+import android.os.SystemProperties;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Utilities to test EGL APIs.
+ * Utilities to test EGL APIs in CTS test suites
  */
-final class Egl14Utils {
+public final class Egl14Utils {
     private Egl14Utils() {
     }
 
@@ -165,5 +174,42 @@ final class Egl14Utils {
         if ((errorCode = GLES20.glGetError()) != GLES20.GL_NO_ERROR) {
             throw new RuntimeException("gl error: " + Integer.toHexString(errorCode));
         }
+    }
+
+    static int retrieveCapableTextureSize() {
+        int error;
+        EGL14.eglReleaseThread();
+        error = EGL14.eglGetError();
+
+        final int[] attrs = {EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE};
+        final int[] maxSize = new int[1];
+
+        EGLDisplay eglDisplay = createEglDisplay();
+        EGLContext eglContext = createEglContext(eglDisplay);
+        EGLSurface eglSurface =
+                eglCreatePbufferSurface(eglDisplay, getEglConfig(eglDisplay, 2), attrs,
+                        0 /* offset */);
+        eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, maxSize, 0 /* offset */);
+
+        destroyEglContext(eglDisplay, eglContext);
+        releaseAndTerminate(eglDisplay);
+
+        if (error != EGL14.EGL_SUCCESS) {
+            throw new RuntimeException("error retrieveTextureSizeFromGL: " + error);
+        }
+        return maxSize[0];
+    }
+
+    /**
+     * Retrieve the max of capable texture size that GPU can support, and the value used in
+     * WallpaperManagerTest.suggestDesiredDimensionsTest() to validate assertion
+     *
+     * @return maxTextureSize the max texture size from OpenGL GL_MAX_TEXTURE_SIZE
+     */
+    public static int getMaxTextureSize() {
+        int maxTextureSize = SystemProperties.getInt("sys.max_texture_size", 0);
+        maxTextureSize = maxTextureSize > 0 ? maxTextureSize : retrieveCapableTextureSize();
+        return maxTextureSize;
     }
 }

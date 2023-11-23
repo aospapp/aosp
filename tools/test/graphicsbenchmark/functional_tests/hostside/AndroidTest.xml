@@ -16,7 +16,7 @@
     <option name="test-suite-tag" value="gts" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-        <option name="test-file-name" value="GameQualificationAllocstress.apk" />
+        <option name="test-file-name" value="GameCoreAllocStress.apk" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >

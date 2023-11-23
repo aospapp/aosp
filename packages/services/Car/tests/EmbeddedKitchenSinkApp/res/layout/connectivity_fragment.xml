@@ -14,122 +14,168 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent">
+<androidx.viewpager.widget.ViewPager
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/connectivity_pager"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.google.android.material.tabs.TabLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top" />
 
     <LinearLayout
+        android:tag="WiFi Control"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="4dp">
 
-        <TextView
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="20dp"
                 android:text="Wifi:" />
 
-        <Button android:id="@+id/startWifi"
+            <Button android:id="@+id/startWifi"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="5dp"
                 android:text="Start" />
 
-        <Button android:id="@+id/stopWifi"
+            <Button android:id="@+id/stopWifi"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="20dp"
                 android:text="Stop" />
 
-        <TextView
+            <TextView
                 android:id="@+id/wifiStatusPolled"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
-    </LinearLayout>
+        </LinearLayout>
 
-    <LinearLayout
+        <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="4dp">
 
-        <TextView
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="20dp"
                 android:text="Tethering:" />
 
-        <Button android:id="@+id/startTethering"
+            <Button android:id="@+id/startTethering"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="5dp"
                 android:text="Start" />
 
-        <Button android:id="@+id/stopTethering"
+            <Button android:id="@+id/stopTethering"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="20dp"
                 android:text="Stop" />
 
-        <TextView
+            <TextView
                 android:id="@+id/tetheringStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="5dp" />
 
-        <TextView
+            <TextView
                 android:id="@+id/tetheringStatusPolled"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
-    </LinearLayout>
+        </LinearLayout>
 
-    <LinearLayout
+        <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="4dp">
 
-        <TextView
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="20dp"
                 android:text="LocalOnly:" />
 
-        <Button android:id="@+id/startLocalOnly"
+            <Button android:id="@+id/startLocalOnly"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="5dp"
                 android:text="Start" />
 
-        <Button android:id="@+id/stopLocalOnly"
+            <Button android:id="@+id/stopLocalOnly"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginRight="20dp"
                 android:text="Stop" />
 
-        <TextView
+            <TextView
                 android:id="@+id/localOnlyStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp">
+            <Button android:id="@+id/networkEnableWifiIntent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enable Wifi Intent"/>
+            <Button android:id="@+id/networkDisableWifiIntent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Disable Wifi Intent"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp">
+            <Button android:id="@+id/networkEnableBluetoothIntent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enable Bluetooth Intent"/>
+            <Button android:id="@+id/networkDisableBluetoothIntent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Disable Bluetooth Intent"/>
+            <Button android:id="@+id/networkDiscoverableBluetoothIntent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Discoverable Bluetooth Intent"/>
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- List(s) of networks (right now only have view all, may do a search UI)
-    -->
     <LinearLayout
-            android:orientation="vertical"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
+        android:tag="Network list"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
         <!-- Header for table -->
         <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingLeft="4dp"
-                android:background="#3C3F41"
-                android:weightSum="12">
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingLeft="4dp"
+            android:background="#3C3F41"
+            android:weightSum="12">
 
             <TextView
                 android:layout_width="0dp"
@@ -138,8 +184,7 @@
                 android:textSize="32sp"
                 android:textColor="#d4d4d4"
                 android:textStyle="bold"
-                android:text="Net ID">
-            </TextView>
+                android:text="Net ID" />
 
             <TextView
                 android:layout_width="0dp"
@@ -148,8 +193,7 @@
                 android:textSize="32sp"
                 android:textColor="#d4d4d4"
                 android:textStyle="bold"
-                android:text="Details">
-            </TextView>
+                android:text="Details" />
 
             <TextView
                 android:layout_width="0dp"
@@ -158,8 +202,7 @@
                 android:textSize="32sp"
                 android:textColor="#d4d4d4"
                 android:textStyle="bold"
-                android:text="Functions">
-            </TextView>
+                android:text="Functions" />
 
         </LinearLayout>
 
@@ -171,47 +214,12 @@
 
             <!-- Filled in code with network_item.xml -->
             <ListView
-                    android:id="@+id/networks"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-            </ListView>
+                android:id="@+id/networks"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
 
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     </LinearLayout>
 
-    <LinearLayout
-        android:orientation="horizontal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="4dp">
-        <Button android:id="@+id/networkEnableWifiIntent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Enable Wifi Intent"/>
-        <Button android:id="@+id/networkDisableWifiIntent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Disable Wifi Intent"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:orientation="horizontal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="4dp">
-        <Button android:id="@+id/networkEnableBluetoothIntent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Enable Bluetooth Intent"/>
-        <Button android:id="@+id/networkDisableBluetoothIntent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Disable Bluetooth Intent"/>
-        <Button android:id="@+id/networkDiscoverableBluetoothIntent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Discoverable Bluetooth Intent"/>
-    </LinearLayout>
-
-</LinearLayout>
+</androidx.viewpager.widget.ViewPager>

@@ -21,8 +21,6 @@ import android.app.Instrumentation;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.hardware.camera2.cts.PerformanceTest;
-import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
-import android.hardware.cts.CameraTestCase;
 import android.hardware.cts.LegacyCameraPerformanceTest;
 import android.os.Bundle;
 import android.util.Log;
@@ -35,12 +33,9 @@ import com.android.cts.verifier.DialogTestListActivity;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestResult;
 
-import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
-
 import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
+import org.junit.runner.Request;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
@@ -48,7 +43,6 @@ import org.junit.runner.notification.RunListener;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -67,7 +61,7 @@ public class CameraPerformanceActivity extends DialogTestListActivity {
     private CameraTestInstrumentation mCameraInstrumentation = new CameraTestInstrumentation();
     private Instrumentation mCachedInstrumentation;
     private Bundle mCachedInstrumentationArgs;
-    private HashMap<String, TestCase> mTestCaseMap = new HashMap<String, TestCase>();
+    private HashMap<String, Class> mTestCaseMap = new HashMap<String, Class>();
     private ProgressDialog mSpinnerDialog;
     private AlertDialog mResultDialog;
     private ArrayList<Metric> mResults = new ArrayList<Metric>();
@@ -77,10 +71,12 @@ public class CameraPerformanceActivity extends DialogTestListActivity {
                 R.string.camera_performance_test_info, R.string.camera_performance_test_info);
     }
 
-    private void executeTest(TestCase testCase) {
+    private void executeTest(Class testClass, String testName) {
         JUnitCore testRunner = new JUnitCore();
+        Log.v(TAG, String.format("Execute Test: %s#%s", testClass.getSimpleName(), testName));
+        Request request = Request.method(testClass, testName);
         testRunner.addListener(new CameraRunListener());
-        testRunner.run(testCase);
+        testRunner.run(request);
     }
 
     private class MetricListener implements CameraTestInstrumentation.MetricListener {
@@ -124,8 +120,8 @@ public class CameraPerformanceActivity extends DialogTestListActivity {
                         StringBuilder message = new StringBuilder();
                         for (Metric m : mResults) {
                             message.append(String.format("%s : %5.2f %s\n",
-                                        m.getMessage().replaceAll("_", " "), m.getValues()[0],
-                                        m.getUnit()));
+                                    m.getMessage().replaceAll("_", " "), m.getValues()[0],
+                                    m.getUnit()));
                         }
                         mResultDialog.setMessage(message);
                         mResultDialog.show();
@@ -193,42 +189,15 @@ public class CameraPerformanceActivity extends DialogTestListActivity {
     }
 
     private void initializeTestCases(Context ctx) {
-        TestSuite suite = new TestSuite(TEST_CLASSES);
-        Enumeration<Test> testSuite = suite.tests();
-        while (testSuite.hasMoreElements()) {
-            Test s = testSuite.nextElement();
-            if (s instanceof TestSuite) {
-                Enumeration<Test> tests = ((TestSuite) s).tests();
-                while (tests.hasMoreElements()) {
-                    Test test = tests.nextElement();
-                    if (test instanceof Camera2AndroidTestCase) {
-                        Camera2AndroidTestCase testCase = (Camera2AndroidTestCase) test;
-
-                        // The base case class has one internal test that can
-                        // be ignored for the purpose of this test activity.
-                        try {
-                            Method method = testCase.getClass().getMethod(testCase.getName());
-                            Annotation an = method.getAnnotation(
-                                    android.test.suitebuilder.annotation.Suppress.class);
-                            if (an != null) {
-                                continue;
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            continue;
-                        }
-
-                        testCase.setContext(ctx);
-                        mTestCaseMap.put(testCase.getName(), testCase);
-                    } else if (test instanceof CameraTestCase) {
-                        TestCase testCase = (CameraTestCase) test;
-                        mTestCaseMap.put(testCase.getName(), testCase);
-                    } else {
-                        Log.d(TAG, "Test is not instance of any known camera test cases");
-                    }
+        for (Class testClass : TEST_CLASSES) {
+            Log.v(TAG, String.format("Test class: %s", testClass.getSimpleName()));
+            for (Method method : testClass.getMethods()) {
+                Annotation an = method.getAnnotation((Class) org.junit.Test.class);
+                Log.v(TAG, String.format("Test method: %s; Annotation: %s", method.getName(), an));
+                if (an == null) {
+                    continue;
                 }
-            } else {
-                Log.d(TAG, "Test is not instance of TestSuite");
+                mTestCaseMap.put(method.getName(), testClass);
             }
         }
     }
@@ -264,8 +233,8 @@ public class CameraPerformanceActivity extends DialogTestListActivity {
 
         @Override
         public void performTest(DialogTestListActivity activity) {
-            TestCase testCase = mTestCaseMap.get(mTestId);
-            if (testCase == null) {
+            Class testClass = mTestCaseMap.get(mTestId);
+            if (testClass == null) {
                 Log.e(TAG, "Test case with name: " + mTestId + " not found!");
                 return;
             }
@@ -273,7 +242,7 @@ public class CameraPerformanceActivity extends DialogTestListActivity {
             mExecutorService.execute(new Runnable() {
                 @Override
                 public void run() {
-                    executeTest(testCase);
+                    executeTest(testClass, mTestId);
                 }
             });
         }

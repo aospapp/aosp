@@ -77,6 +77,10 @@ def PrintStatisticsSummary(reader, dirlist, keytype, keylist):
       valuepct = int(100 * valuedev / valueavg + 0.5)
       if prevstat:
         (deltaavg, deltadev) = keyset.DeltaStatistics(prevstat, stat)
+        if deltaavg == 0:
+          deltaavg=1
+          print "deltaavg is zero! (delta is %s to %s)" % (prevstat, stat)
+
         deltapct = int(100 * deltadev / deltaavg + 0.5)
       else:
         deltapct = valuepct

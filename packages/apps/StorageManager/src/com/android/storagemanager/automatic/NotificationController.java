@@ -150,6 +150,12 @@ public class NotificationController extends BroadcastReceiver {
     }
 
     private boolean shouldShowNotification(Context context) {
+        boolean showNotificationConfigEnabled =
+                context.getResources().getBoolean(R.bool.enable_low_storage_notification);
+        if (!showNotificationConfigEnabled) {
+            return false;
+        }
+
         SharedPreferences sp = context.getSharedPreferences(
                 SHARED_PREFERENCES_NAME,
                 Context.MODE_PRIVATE);

@@ -23,10 +23,6 @@ from acts.test_utils.wifi.aware import aware_test_utils as autils
 
 
 class AwareBaseTest(BaseTestClass):
-    def __init__(self, controllers):
-        if not hasattr(self, 'android_devices'):
-            super(AwareBaseTest, self).__init__(controllers)
-
     # message ID counter to make sure all uses are unique
     msg_id = 0
 
@@ -36,7 +32,8 @@ class AwareBaseTest(BaseTestClass):
     device_startup_offset = 2
 
     def setup_test(self):
-        required_params = ("aware_default_power_mode", )
+        required_params = ("aware_default_power_mode",
+                           "dbs_supported_models",)
         self.unpack_userparams(required_params)
 
         for ad in self.android_devices:
@@ -44,24 +41,24 @@ class AwareBaseTest(BaseTestClass):
                 not ad.droid.doesDeviceSupportWifiAwareFeature(),
                 "Device under test does not support Wi-Fi Aware - skipping test"
             )
-            wutils.wifi_toggle_state(ad, True)
-            ad.droid.wifiP2pClose()
-            utils.set_location_service(ad, True)
             aware_avail = ad.droid.wifiIsAwareAvailable()
+            ad.droid.wifiP2pClose()
+            wutils.wifi_toggle_state(ad, True)
+            utils.set_location_service(ad, True)
             if not aware_avail:
                 self.log.info('Aware not available. Waiting ...')
                 autils.wait_for_event(ad,
                                       aconsts.BROADCAST_WIFI_AWARE_AVAILABLE)
-            ad.ed.clear_all_events()
             ad.aware_capabilities = autils.get_aware_capabilities(ad)
             self.reset_device_parameters(ad)
             self.reset_device_statistics(ad)
             self.set_power_mode_parameters(ad)
-            ad.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+            wutils.set_wifi_country_code(ad, wutils.WifiEnums.CountryCode.US)
             autils.configure_ndp_allow_any_override(ad, True)
             # set randomization interval to 0 (disable) to reduce likelihood of
             # interference in tests
             autils.configure_mac_random_interval(ad, 0)
+            ad.ed.clear_all_events()
 
     def teardown_test(self):
         for ad in self.android_devices:

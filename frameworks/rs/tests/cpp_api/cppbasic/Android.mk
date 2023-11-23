@@ -7,7 +7,7 @@ LOCAL_SDK_VERSION := 21
 LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_SRC_FILES:= \
-	mono.rs \
+	mono.rscript \
 	compute.cpp
 
 LOCAL_STATIC_LIBRARIES := \

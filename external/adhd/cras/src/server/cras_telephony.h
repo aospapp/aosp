@@ -36,15 +36,14 @@ struct cras_telephony_handle {
 	DBusConnection *dbus_conn;
 };
 
-
 void cras_telephony_start(DBusConnection *conn);
 
 void cras_telephony_stop();
 
-struct cras_telephony_handle* cras_telephony_get();
+struct cras_telephony_handle *cras_telephony_get();
 
 /* Stores dial number in telephony module. */
-void cras_telephony_store_dial_number(int len, const char* num);
+void cras_telephony_store_dial_number(int len, const char *num);
 
 /* Handles answer call event from dbus or HF */
 int cras_telephony_event_answer_call();

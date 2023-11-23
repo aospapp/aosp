@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-android_test {
+android_test_helper_app {
     name: "CtsDocumentClient",
     defaults: ["cts_support_defaults"],
     sdk_version: "test_current",
@@ -32,8 +32,9 @@ android_test {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
+        "mts",
     ],
     certificate: ":cts-testkey2",
     optimize: {
@@ -42,4 +43,6 @@ android_test {
     dex_preopt: {
         enabled: false,
     },
+    min_sdk_version: "29",
+    target_sdk_version: "29",
 }

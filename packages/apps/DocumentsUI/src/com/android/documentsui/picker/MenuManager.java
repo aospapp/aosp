@@ -30,21 +30,26 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 import com.android.documentsui.Model;
+import com.android.documentsui.R;
+import com.android.documentsui.base.Menus;
 import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.State;
 import com.android.documentsui.queries.SearchViewManager;
 
 import java.util.List;
 import java.util.function.IntFunction;
-import com.android.documentsui.R;
+import java.util.function.IntSupplier;
 
 public final class MenuManager extends com.android.documentsui.MenuManager {
 
     private boolean mOnlyDirectory;
 
-    public MenuManager(SearchViewManager searchManager, State displayState, DirectoryDetails dirDetails) {
-        super(searchManager, displayState, dirDetails);
-
+    public MenuManager(
+            SearchViewManager searchManager,
+            State displayState,
+            DirectoryDetails dirDetails,
+            IntSupplier filesCountSupplier) {
+        super(searchManager, displayState, dirDetails, filesCountSupplier);
     }
 
     @Override
@@ -66,6 +71,10 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
             // May already be hidden because the root
             // doesn't support search.
             mSearchManager.showMenu(null);
+
+            // Show on toolbar because there are only two menu items while ACTION_OPEN_TREE.
+            menu.findItem(R.id.option_menu_sort).setShowAsAction(mState.action == ACTION_OPEN_TREE
+                    ? MenuItem.SHOW_AS_ACTION_ALWAYS : MenuItem.SHOW_AS_ACTION_NEVER);
         }
     }
 
@@ -86,8 +95,8 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     protected void updateModePicker(MenuItem grid, MenuItem list) {
         // No display options in recent directories
         if (picking() && mDirDetails.isInRecents()) {
-            grid.setVisible(false);
-            list.setVisible(false);
+            Menus.setEnabledAndVisible(grid, false);
+            Menus.setEnabledAndVisible(list, false);
         } else {
             super.updateModePicker(grid, list);
         }
@@ -95,23 +104,38 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
 
     @Override
     protected void updateSelectAll(MenuItem selectAll) {
-        boolean visible = mState.allowMultiple;
-        boolean enabled = visible && !mOnlyDirectory;
-        selectAll.setVisible(visible);
-        selectAll.setEnabled(enabled);
+        boolean visible = mState.allowMultiple && !mOnlyDirectory;
+        Menus.setEnabledAndVisible(selectAll, visible);
+    }
+
+    @Override
+    protected void updateSelectAll(MenuItem selectAll, SelectionDetails selectionDetails) {
+        final boolean visible = mState.allowMultiple
+                && selectionDetails.size() < mFilesCountSupplier.getAsInt()
+                && !mOnlyDirectory;
+        Menus.setEnabledAndVisible(selectAll, visible);
+    }
+
+    @Override
+    protected void updateDeselectAll(MenuItem deselectAll, SelectionDetails selectionDetails) {
+        final boolean visible = mState.allowMultiple
+                && selectionDetails.size() == mFilesCountSupplier.getAsInt()
+                && !mOnlyDirectory;
+        Menus.setEnabledAndVisible(deselectAll, visible);
     }
 
     @Override
     protected void updateCreateDir(MenuItem createDir) {
-        createDir.setVisible(picking());
-        createDir.setEnabled(picking() && mDirDetails.canCreateDirectory());
+        createDir.setShowAsAction(picking()
+                ? MenuItem.SHOW_AS_ACTION_ALWAYS : MenuItem.SHOW_AS_ACTION_NEVER);
+        Menus.setEnabledAndVisible(createDir, picking() && mDirDetails.canCreateDirectory());
     }
 
     @Override
     protected void updateSelect(MenuItem select, SelectionDetails selectionDetails) {
-        select.setVisible(mState.action == ACTION_GET_CONTENT
-                || mState.action == ACTION_OPEN);
-        select.setEnabled(selectionDetails.size() > 0);
+        Menus.setEnabledAndVisible(select, (mState.action == ACTION_GET_CONTENT
+                || mState.action == ACTION_OPEN)
+                && selectionDetails.size() > 0);
         select.setTitle(R.string.menu_select);
     }
 }

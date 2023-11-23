@@ -42,9 +42,6 @@ func genKatiSuffix(ctx Context, config Config) {
 	if args := config.KatiArgs(); len(args) > 0 {
 		katiSuffix += "-" + spaceSlashReplacer.Replace(strings.Join(args, "_"))
 	}
-	if oneShot, ok := config.Environment().Get("ONE_SHOT_MAKEFILE"); ok {
-		katiSuffix += "-" + spaceSlashReplacer.Replace(oneShot)
-	}
 
 	// If the suffix is too long, replace it with a md5 hash and write a
 	// file that contains the original suffix.
@@ -81,12 +78,19 @@ func runKati(ctx Context, config Config, extraSuffix string, args []string, envF
 		"--werror_suffix_rules",
 		"--warn_real_to_phony",
 		"--warn_phony_looks_real",
+		"--werror_real_to_phony",
+		"--werror_phony_looks_real",
+		"--werror_writable",
 		"--top_level_phony",
 		"--kati_stats",
 	}, args...)
 
 	if config.Environment().IsEnvTrue("EMPTY_NINJA_FILE") {
 		args = append(args, "--empty_ninja_file")
+	}
+
+	if config.UseRemoteBuild() {
+		args = append(args, "--default_pool=local_pool")
 	}
 
 	cmd := Command(ctx, config, "ckati", executable, args...)
@@ -138,13 +142,6 @@ func runKatiBuild(ctx Context, config Config) {
 		args = append(args, "--werror_overriding_commands")
 	}
 
-	if !config.BuildBrokenPhonyTargets() {
-		args = append(args,
-			"--werror_real_to_phony",
-			"--werror_phony_looks_real",
-			"--werror_writable")
-	}
-
 	args = append(args, config.KatiArgs()...)
 
 	args = append(args,
@@ -154,6 +151,63 @@ func runKatiBuild(ctx Context, config Config) {
 		"KATI_PACKAGE_MK_DIR="+config.KatiPackageMkDir())
 
 	runKati(ctx, config, katiBuildSuffix, args, func(env *Environment) {})
+
+	cleanCopyHeaders(ctx, config)
+	cleanOldInstalledFiles(ctx, config)
+}
+
+func cleanCopyHeaders(ctx Context, config Config) {
+	ctx.BeginTrace("clean", "clean copy headers")
+	defer ctx.EndTrace()
+
+	data, err := ioutil.ReadFile(filepath.Join(config.ProductOut(), ".copied_headers_list"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		ctx.Fatalf("Failed to read copied headers list: %v", err)
+	}
+
+	headers := strings.Fields(string(data))
+	if len(headers) < 1 {
+		ctx.Fatal("Failed to parse copied headers list: %q", string(data))
+	}
+	headerDir := headers[0]
+	headers = headers[1:]
+
+	filepath.Walk(headerDir,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if !inList(path, headers) {
+				ctx.Printf("Removing obsolete header %q", path)
+				if err := os.Remove(path); err != nil {
+					ctx.Fatalf("Failed to remove obsolete header %q: %v", path, err)
+				}
+			}
+			return nil
+		})
+}
+
+func cleanOldInstalledFiles(ctx Context, config Config) {
+	ctx.BeginTrace("clean", "clean old installed files")
+	defer ctx.EndTrace()
+
+	// We shouldn't be removing files from one side of the two-step asan builds
+	var suffix string
+	if v, ok := config.Environment().Get("SANITIZE_TARGET"); ok {
+		if sanitize := strings.Fields(v); inList("address", sanitize) {
+			suffix = "_asan"
+		}
+	}
+
+	cleanOldFiles(ctx, config.ProductOut(), ".installable_files"+suffix)
+
+	cleanOldFiles(ctx, config.HostOut(), ".installable_test_files")
 }
 
 func runKatiPackage(ctx Context, config Config) {
@@ -162,11 +216,8 @@ func runKatiPackage(ctx Context, config Config) {
 
 	args := []string{
 		"--writable", config.DistDir() + "/",
-		"--werror_writable",
 		"--werror_implicit_rules",
 		"--werror_overriding_commands",
-		"--werror_real_to_phony",
-		"--werror_phony_looks_real",
 		"-f", "build/make/packaging/main.mk",
 		"KATI_PACKAGE_MK_DIR=" + config.KatiPackageMkDir(),
 	}
@@ -181,6 +232,7 @@ func runKatiPackage(ctx Context, config Config) {
 			"TMPDIR",
 
 			// Tool configs
+			"ASAN_SYMBOLIZER_PATH",
 			"JAVA_HOME",
 			"PYTHONDONTWRITEBYTECODE",
 
@@ -202,11 +254,8 @@ func runKatiCleanSpec(ctx Context, config Config) {
 	defer ctx.EndTrace()
 
 	runKati(ctx, config, katiCleanspecSuffix, []string{
-		"--werror_writable",
 		"--werror_implicit_rules",
 		"--werror_overriding_commands",
-		"--werror_real_to_phony",
-		"--werror_phony_looks_real",
 		"-f", "build/make/core/cleanbuild.mk",
 		"SOONG_MAKEVARS_MK=" + config.SoongMakeVarsMk(),
 		"TARGET_DEVICE_DIR=" + config.TargetDeviceDir(),

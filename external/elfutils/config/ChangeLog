@@ -1,3 +1,51 @@
+2019-11-26  Mark Wielaard  <mark@klomp.org>
+
+	* elfutils.spec.in: Remove Group tags, remove fedora and rhel
+	specifics, introduce elfutils-libs subpackage, move Requires
+	and BuildRequires around for new subpackage, remove dot at end
+	of Summary tags, add post/postun ldconfig for libs and
+	debuginfod-client, remove default defattr(-,root,root) for file
+	lists, order binaries by name.
+
+2019-11-25  Mark Wielaard  <mark@klomp.org>
+
+	* elfutils.spec.in: Add BuildRequires curl.
+
+2019-10-28  Frank Ch. Eigler  <fche@redhat.com>
+
+	* eu.am (AM_CXXFLAGS): Clone & amend AM_CFLAGS for c++11 code.
+	* debuginfod.service, debuginfod.sysconfig: New files: systemd.
+	* Makefile.am: Install them.
+	* elfutils.spec.in: Add debuginfod and debuginfod-client subrpms.
+
+2019-08-29  Mark Wielaard  <mark@klomp.org>
+
+	* elfutils.spec.in (%description devel): Remove libebl text.
+	(%install): Don't touch backend lib.*.so* files.
+	(%files): Remove backends dir and so files.
+	(%files devel): Remove libebl.h and libebl.a
+
+2019-08-28  Mark Wielaard  <mark@klomp.org>
+
+	* elfutils.spec.in (License): Add GFDL.
+	(%install): Correct sub-shell syntax, use (), not {}.
+	(%files): Add man1/eu-*.1*.
+	Add eu-stack. Add COPYING-GFDL.
+	(%files libelf-devel): Add man3/elf_*.3*.
+
+2019-08-14  Dmitry V. Levin  <ldv@altlinux.org>
+
+	* elfutils.spec.in (%files): Add %{_bindir}/eu-elfclassify.
+
+2019-08-13  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (elfutils.spec.in): Use git --get user.name and
+	user.email.
+
+2019-04-15  Mark Wielaard  <mark@klomp.org>
+
+	* upload-release.sh: Add git tag --verify.
+
 2019-02-14  Mark Wielaard  <mark@klomp.org>
 
 	* elfutils.spec.in: Update for 0.176.

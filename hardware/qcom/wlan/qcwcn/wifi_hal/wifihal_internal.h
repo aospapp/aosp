@@ -35,6 +35,8 @@
  */
 
 #include "wifi_hal.h"
+#include "list.h"
+#include "sys/un.h"
 
 #define WIFIHAL_LOWI_MAJOR_VERSION      2
 #define WIFIHAL_LOWI_MINOR_VERSION      1
@@ -44,6 +46,25 @@
 #define ONE_SIDED_RANGING_SUPPORTED   0x00000001
 #define DUAL_SIDED_RANGING_SUPPORED   0x00000002
 #define GSCAN_SUPPORTED               0x00000004
+
+typedef struct wifihal_mon_sock_s {
+
+  struct list_head list;
+  //! Family name
+  uint32_t family_name;
+  //! command ID
+  uint32_t cmd_id;
+  //! monitor sock len
+  uint32_t monsock_len;
+  //! monitor sock
+  struct sockaddr_un monsock;
+  //! match buff length
+  uint32_t match_len;
+  //! reserved byte
+  uint32_t reserved[4];
+  //! match buff
+  char match[0];
+} wifihal_mon_sock_t;
 
 /*
  * This structure is a table of function pointers to the functions

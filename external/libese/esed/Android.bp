@@ -47,8 +47,6 @@ cc_binary {
         "libese_cpp_nxp_pn80t_nq_nci",
         "libese-app-weaver",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "liblog",
         "libutils",
     ],

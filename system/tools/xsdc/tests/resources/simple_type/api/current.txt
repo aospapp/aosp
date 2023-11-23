@@ -3,6 +3,7 @@ package simple.type {
 
   public enum EnumType {
     method public String getRawName();
+    enum_constant public static final simple.type.EnumType EMPTY;
     enum_constant public static final simple.type.EnumType NO;
     enum_constant @Deprecated public static final simple.type.EnumType YES;
   }
@@ -18,10 +19,9 @@ package simple.type {
     ctor public SimpleTypes();
     method public java.util.List<java.lang.Integer> getListInt();
     method public java.util.List<java.lang.String> getUnionTest();
-    method public simple.type.EnumType getYesOrNo();
+    method public java.util.List<simple.type.EnumType> getYesOrNo();
     method public void setListInt(java.util.List<java.lang.Integer>);
     method public void setUnionTest(java.util.List<java.lang.String>);
-    method public void setYesOrNo(simple.type.EnumType);
   }
 
   public class SingleChoice {

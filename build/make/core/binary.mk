@@ -54,6 +54,7 @@ my_asflags := $(LOCAL_ASFLAGS)
 my_cc := $(LOCAL_CC)
 my_cc_wrapper := $(CC_WRAPPER)
 my_cxx := $(LOCAL_CXX)
+my_cxx_link := $(LOCAL_CXX)
 my_cxx_ldlibs :=
 my_cxx_wrapper := $(CXX_WRAPPER)
 my_c_includes := $(LOCAL_C_INCLUDES)
@@ -63,8 +64,19 @@ my_export_c_include_dirs := $(LOCAL_EXPORT_C_INCLUDE_DIRS)
 my_export_c_include_deps := $(LOCAL_EXPORT_C_INCLUDE_DEPS)
 my_arflags :=
 
-ifneq (,$(strip $(foreach dir,$(COVERAGE_PATHS),$(filter $(dir)%,$(LOCAL_PATH)))))
-ifeq (,$(strip $(foreach dir,$(COVERAGE_EXCLUDE_PATHS),$(filter $(dir)%,$(LOCAL_PATH)))))
+# Configure the pool to use for clang rules.
+# If LOCAL_CC or LOCAL_CXX is set don't use goma or RBE.
+my_pool :=
+ifeq (,$(strip $(my_cc))$(strip $(my_cxx)))
+  my_pool := $(GOMA_OR_RBE_POOL)
+endif
+
+# TODO(b/158212027): Remove `$(COVERAGE_PATHS)` from this condition when all users have been moved
+# to `NATIVE_COVERAGE_PATHS`.
+ifneq (,$(strip $(foreach dir,$(COVERAGE_PATHS) $(NATIVE_COVERAGE_PATHS),$(filter $(dir)%,$(LOCAL_PATH)))))
+# TODO(b/158212027): Remove `$(COVERAGE_EXCLUDE_PATHS)` from this condition when all users have been
+# moved to `NATIVE_COVERAGE_EXCLUDE_PATHS`.
+ifeq (,$(strip $(foreach dir,$(COVERAGE_EXCLUDE_PATHS) $(NATIVE_COVERAGE_EXCLUDE_PATHS),$(filter $(dir)%,$(LOCAL_PATH)))))
   my_native_coverage := true
 else
   my_native_coverage := false
@@ -76,30 +88,10 @@ ifneq ($(NATIVE_COVERAGE),true)
   my_native_coverage := false
 endif
 
-ifneq ($(strip $(ENABLE_XOM)),false)
-  ifndef LOCAL_IS_HOST_MODULE
-    my_xom := true
-    # Disable XOM in excluded paths.
-    combined_xom_exclude_paths := $(XOM_EXCLUDE_PATHS) \
-                                  $(PRODUCT_XOM_EXCLUDE_PATHS)
-    ifneq ($(strip $(foreach dir,$(subst $(comma),$(space),$(combined_xom_exclude_paths)),\
-           $(filter $(dir)%,$(LOCAL_PATH)))),)
-      my_xom := false
-    endif
-
-    # Allow LOCAL_XOM to override the above
-    ifdef LOCAL_XOM
-      my_xom := $(LOCAL_XOM)
-    endif
-
-    ifeq ($(strip $(my_xom)),true)
-      ifeq (arm64,$(TARGET_$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH))
-        ifeq ($(my_use_clang_lld),true)
-          my_ldflags += -Wl,-execute-only
-        endif
-      endif
-    endif
-  endif
+# Exclude directories from checking allowed manual binder interface lists.
+# TODO(b/145621474): Move this check into IInterface.h when clang-tidy no longer uses absolute paths.
+ifneq (,$(filter $(addsuffix %,$(ALLOWED_MANUAL_INTERFACE_PATHS)),$(LOCAL_PATH)))
+  my_cflags += -DDO_NOT_CHECK_MANUAL_BINDER_INTERFACES
 endif
 
 my_allow_undefined_symbols := $(strip $(LOCAL_ALLOW_UNDEFINED_SYMBOLS))
@@ -112,6 +104,8 @@ endif
 my_ndk_sysroot :=
 my_ndk_sysroot_include :=
 my_ndk_sysroot_lib :=
+my_api_level := 10000
+
 ifneq ($(LOCAL_SDK_VERSION),)
   ifdef LOCAL_IS_HOST_MODULE
     $(error $(LOCAL_PATH): LOCAL_SDK_VERSION cannot be used in host module)
@@ -147,19 +141,13 @@ ifneq ($(LOCAL_SDK_VERSION),)
     my_ndk_api := $(call math_max,$(my_ndk_api),$(my_min_sdk_version))
   endif
 
-  my_ndk_api_def := $(my_ndk_api)
   my_ndk_hist_api := $(my_ndk_api)
   ifeq ($(my_ndk_api),current)
-    my_ndk_api_def := __ANDROID_API_FUTURE__
     # The last API level supported by the old prebuilt NDKs.
     my_ndk_hist_api := 24
+  else
+    my_api_level := $(my_ndk_api)
   endif
-
-
-  # Traditionally this has come from android/api-level.h, but with the libc
-  # headers unified it must be set by the build system since we don't have
-  # per-API level copies of that header now.
-  my_cflags += -D__ANDROID_API__=$(my_ndk_api_def)
 
   my_ndk_source_root := \
       $(HISTORICAL_NDK_VERSIONS_ROOT)/$(LOCAL_NDK_VERSION)/sources
@@ -267,16 +255,33 @@ ifneq ($(LOCAL_SDK_VERSION),)
   endif
 endif
 
+ifeq ($(NATIVE_COVERAGE),true)
+  ifndef LOCAL_IS_HOST_MODULE
+    my_ldflags += -Wl,--wrap,getenv
+
+    ifneq ($(LOCAL_MODULE_CLASS),STATIC_LIBRARIES)
+      ifeq ($(LOCAL_SDK_VERSION),)
+        my_whole_static_libraries += libprofile-extras
+      else
+        my_whole_static_libraries += libprofile-extras_ndk
+      endif
+    endif
+  endif
+endif
+
 ifneq ($(LOCAL_USE_VNDK),)
   # Required VNDK version for vendor modules is BOARD_VNDK_VERSION.
-  my_vndk_version := $(BOARD_VNDK_VERSION)
-  ifeq ($(my_vndk_version),current)
+  my_api_level := $(BOARD_VNDK_VERSION)
+  ifeq ($(my_api_level),current)
     # Build with current PLATFORM_VNDK_VERSION.
     # If PLATFORM_VNDK_VERSION has a CODENAME, it will return
     # __ANDROID_API_FUTURE__.
-    my_vndk_version := $(call codename-or-sdk-to-sdk,$(PLATFORM_VNDK_VERSION))
+    my_api_level := $(call codename-or-sdk-to-sdk,$(PLATFORM_VNDK_VERSION))
+  else
+    # Build with current BOARD_VNDK_VERSION.
+    my_api_level := $(call codename-or-sdk-to-sdk,$(BOARD_VNDK_VERSION))
   endif
-  my_cflags += -D__ANDROID_API__=$(my_vndk_version) -D__ANDROID_VNDK__
+  my_cflags += -D__ANDROID_VNDK__
 endif
 
 ifndef LOCAL_IS_HOST_MODULE
@@ -417,15 +422,6 @@ my_header_libraries := $(LOCAL_HEADER_LIBRARIES_$($(my_prefix)$(LOCAL_2ND_ARCH_V
 
 include $(BUILD_SYSTEM)/cxx_stl_setup.mk
 
-# Add static HAL libraries
-ifdef LOCAL_HAL_STATIC_LIBRARIES
-$(foreach lib, $(LOCAL_HAL_STATIC_LIBRARIES), \
-    $(eval b_lib := $(filter $(lib).%,$(BOARD_HAL_STATIC_LIBRARIES)))\
-    $(if $(b_lib), $(eval my_static_libraries += $(b_lib)),\
-                   $(eval my_static_libraries += $(lib).default)))
-b_lib :=
-endif
-
 ifneq ($(strip $(CUSTOM_$(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)LINKER)),)
   my_linker := $(CUSTOM_$(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)LINKER)
 else
@@ -458,8 +454,8 @@ ifneq ($(filter true always, $(LOCAL_FDO_SUPPORT)),)
   endif
   # Disable ccache (or other compiler wrapper) except gomacc, which
   # can handle -fprofile-use properly.
-  my_cc_wrapper := $(filter $(GOMA_CC),$(my_cc_wrapper))
-  my_cxx_wrapper := $(filter $(GOMA_CC),$(my_cxx_wrapper))
+  my_cc_wrapper := $(filter $(GOMA_CC) $(RBE_WRAPPER),$(my_cc_wrapper))
+  my_cxx_wrapper := $(filter $(GOMA_CC) $(RBE_WRAPPER),$(my_cxx_wrapper))
 endif
 
 ###########################################################
@@ -560,7 +556,7 @@ ALL_GENERATED_SOURCES += $(my_generated_sources)
 ## Compile RenderScript with reflected C++
 ####################################################
 
-renderscript_sources := $(filter %.rs %.fs,$(my_src_files))
+renderscript_sources := $(filter %.rscript %.fs,$(my_src_files))
 
 ifneq (,$(renderscript_sources))
 my_soong_problems += rs
@@ -604,7 +600,7 @@ renderscript_includes := $(LOCAL_RENDERSCRIPT_INCLUDES_OVERRIDE)
 endif
 
 bc_dep_files := $(addprefix $(renderscript_intermediate)/, \
-    $(patsubst %.fs,%.d, $(patsubst %.rs,%.d, $(notdir $(renderscript_sources)))))
+    $(patsubst %.fs,%.d, $(patsubst %.rscript,%.d, $(notdir $(renderscript_sources)))))
 
 $(RenderScript_file_stamp): PRIVATE_RS_INCLUDES := $(renderscript_includes)
 $(RenderScript_file_stamp): PRIVATE_RS_CC := $(LOCAL_RENDERSCRIPT_CC)
@@ -622,7 +618,7 @@ $(call include-depfile,$(RenderScript_file_stamp).d,$(RenderScript_file_stamp))
 LOCAL_INTERMEDIATE_TARGETS += $(RenderScript_file_stamp)
 
 rs_generated_cpps := $(addprefix \
-    $(renderscript_intermediate)/ScriptC_,$(patsubst %.fs,%.cpp, $(patsubst %.rs,%.cpp, \
+    $(renderscript_intermediate)/ScriptC_,$(patsubst %.fs,%.cpp, $(patsubst %.rscript,%.cpp, \
     $(notdir $(renderscript_sources)))))
 
 $(call track-src-file-gen,$(renderscript_sources),$(rs_generated_cpps))
@@ -801,7 +797,7 @@ y_yacc_cs := $(addprefix \
     $(intermediates)/,$(y_yacc_sources:.y=.c))
 ifneq ($(y_yacc_cs),)
 $(y_yacc_cs): $(intermediates)/%.c: \
-    $(TOPDIR)$(LOCAL_PATH)/%.y $(BISON) $(BISON_DATA) \
+    $(TOPDIR)$(LOCAL_PATH)/%.y $(BISON) $(BISON_DATA) $(M4) \
     $(my_additional_dependencies)
 	$(call transform-y-to-c-or-cpp)
 $(call track-src-file-gen,$(y_yacc_sources),$(y_yacc_cs))
@@ -814,7 +810,7 @@ yy_yacc_cpps := $(addprefix \
     $(intermediates)/,$(yy_yacc_sources:.yy=$(LOCAL_CPP_EXTENSION)))
 ifneq ($(yy_yacc_cpps),)
 $(yy_yacc_cpps): $(intermediates)/%$(LOCAL_CPP_EXTENSION): \
-    $(TOPDIR)$(LOCAL_PATH)/%.yy $(BISON) $(BISON_DATA) \
+    $(TOPDIR)$(LOCAL_PATH)/%.yy $(BISON) $(BISON_DATA) $(M4) \
     $(my_additional_dependencies)
 	$(call transform-y-to-c-or-cpp)
 $(call track-src-file-gen,$(yy_yacc_sources),$(yy_yacc_cpps))
@@ -830,6 +826,7 @@ l_lex_sources := $(filter %.l,$(my_src_files))
 l_lex_cs := $(addprefix \
     $(intermediates)/,$(l_lex_sources:.l=.c))
 ifneq ($(l_lex_cs),)
+$(l_lex_cs): $(LEX) $(M4)
 $(l_lex_cs): $(intermediates)/%.c: \
     $(TOPDIR)$(LOCAL_PATH)/%.l
 	$(transform-l-to-c-or-cpp)
@@ -842,6 +839,7 @@ ll_lex_sources := $(filter %.ll,$(my_src_files))
 ll_lex_cpps := $(addprefix \
     $(intermediates)/,$(ll_lex_sources:.ll=$(LOCAL_CPP_EXTENSION)))
 ifneq ($(ll_lex_cpps),)
+$(ll_lex_cpps): $(LEX) $(M4)
 $(ll_lex_cpps): $(intermediates)/%$(LOCAL_CPP_EXTENSION): \
     $(TOPDIR)$(LOCAL_PATH)/%.ll
 	$(transform-l-to-c-or-cpp)
@@ -863,7 +861,8 @@ dotdot_objects :=
 $(foreach s,$(dotdot_sources),\
   $(eval $(call compile-dotdot-cpp-file,$(s),\
     $(my_additional_dependencies),\
-    dotdot_objects)))
+    dotdot_objects,\
+    $(my_pool))))
 $(call track-src-file-obj,$(dotdot_sources),$(dotdot_objects))
 
 cpp_normal_sources := $(filter-out ../%,$(filter %$(LOCAL_CPP_EXTENSION),$(my_src_files)))
@@ -874,9 +873,10 @@ $(dotdot_objects) $(cpp_objects): PRIVATE_ARM_MODE := $(normal_objects_mode)
 $(dotdot_objects) $(cpp_objects): PRIVATE_ARM_CFLAGS := $(normal_objects_cflags)
 
 ifneq ($(strip $(cpp_objects)),)
+$(cpp_objects): .KATI_NINJA_POOL := $(my_pool)
 $(cpp_objects): $(intermediates)/%.o: \
     $(TOPDIR)$(LOCAL_PATH)/%$(LOCAL_CPP_EXTENSION) \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG_CXX)
 	$(transform-$(PRIVATE_HOST)cpp-to-o)
 $(call include-depfiles-for-objs, $(cpp_objects))
 endif
@@ -893,11 +893,12 @@ $(call track-gen-file-obj,$(gen_cpp_sources),$(gen_cpp_objects))
 
 ifneq ($(strip $(gen_cpp_objects)),)
 # Compile all generated files as thumb.
+$(gen_cpp_objects): .KATI_NINJA_POOL := $(my_pool)
 $(gen_cpp_objects): PRIVATE_ARM_MODE := $(normal_objects_mode)
 $(gen_cpp_objects): PRIVATE_ARM_CFLAGS := $(normal_objects_cflags)
 $(gen_cpp_objects): $(intermediates)/%.o: \
     $(intermediates)/%$(LOCAL_CPP_EXTENSION) \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG_CXX)
 	$(transform-$(PRIVATE_HOST)cpp-to-o)
 $(call include-depfiles-for-objs, $(gen_cpp_objects))
 endif
@@ -911,8 +912,9 @@ gen_S_objects := $(gen_S_sources:%.S=%.o)
 $(call track-gen-file-obj,$(gen_S_sources),$(gen_S_objects))
 
 ifneq ($(strip $(gen_S_sources)),)
+$(gen_S_objects): .KATI_NINJA_POOL := $(my_pool)
 $(gen_S_objects): $(intermediates)/%.o: $(intermediates)/%.S \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG)
 	$(transform-$(PRIVATE_HOST)s-to-o)
 $(call include-depfiles-for-objs, $(gen_S_objects))
 endif
@@ -922,8 +924,9 @@ gen_s_objects := $(gen_s_sources:%.s=%.o)
 $(call track-gen-file-obj,$(gen_s_sources),$(gen_s_objects))
 
 ifneq ($(strip $(gen_s_objects)),)
+$(gen_s_objects): .KATI_NINJA_POOL := $(my_pool)
 $(gen_s_objects): $(intermediates)/%.o: $(intermediates)/%.s \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG)
 	$(transform-$(PRIVATE_HOST)s-to-o)
 endif
 
@@ -949,7 +952,8 @@ dotdot_objects :=
 $(foreach s, $(dotdot_sources),\
   $(eval $(call compile-dotdot-c-file,$(s),\
     $(my_additional_dependencies),\
-    dotdot_objects)))
+    dotdot_objects,\
+    $(my_pool))))
 $(call track-src-file-obj,$(dotdot_sources),$(dotdot_objects))
 
 c_normal_sources := $(filter-out ../%,$(filter %.c,$(my_src_files)))
@@ -960,8 +964,9 @@ $(dotdot_objects) $(c_objects): PRIVATE_ARM_MODE := $(normal_objects_mode)
 $(dotdot_objects) $(c_objects): PRIVATE_ARM_CFLAGS := $(normal_objects_cflags)
 
 ifneq ($(strip $(c_objects)),)
+$(c_objects): .KATI_NINJA_POOL := $(my_pool)
 $(c_objects): $(intermediates)/%.o: $(TOPDIR)$(LOCAL_PATH)/%.c \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG)
 	$(transform-$(PRIVATE_HOST)c-to-o)
 $(call include-depfiles-for-objs, $(c_objects))
 endif
@@ -978,10 +983,11 @@ $(call track-gen-file-obj,$(gen_c_sources),$(gen_c_objects))
 
 ifneq ($(strip $(gen_c_objects)),)
 # Compile all generated files as thumb.
+$(gen_c_objects): .KATI_NINJA_POOL := $(my_pool)
 $(gen_c_objects): PRIVATE_ARM_MODE := $(normal_objects_mode)
 $(gen_c_objects): PRIVATE_ARM_CFLAGS := $(normal_objects_cflags)
 $(gen_c_objects): $(intermediates)/%.o: $(intermediates)/%.c \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG)
 	$(transform-$(PRIVATE_HOST)c-to-o)
 $(call include-depfiles-for-objs, $(gen_c_objects))
 endif
@@ -996,8 +1002,9 @@ $(call track-src-file-obj,$(objc_sources),$(objc_objects))
 
 ifneq ($(strip $(objc_objects)),)
 my_soong_problems += objc
+$(objc_objects): .KATI_NINJA_POOL := $(my_pool)
 $(objc_objects): $(intermediates)/%.o: $(TOPDIR)$(LOCAL_PATH)/%.m \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG)
 	$(transform-$(PRIVATE_HOST)m-to-o)
 $(call include-depfiles-for-objs, $(objc_objects))
 endif
@@ -1011,8 +1018,9 @@ objcpp_objects := $(addprefix $(intermediates)/,$(objcpp_sources:.mm=.o))
 $(call track-src-file-obj,$(objcpp_sources),$(objcpp_objects))
 
 ifneq ($(strip $(objcpp_objects)),)
+$(objcpp_objects): .KATI_NINJA_POOL := $(my_pool)
 $(objcpp_objects): $(intermediates)/%.o: $(TOPDIR)$(LOCAL_PATH)/%.mm \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG_CXX)
 	$(transform-$(PRIVATE_HOST)mm-to-o)
 $(call include-depfiles-for-objs, $(objcpp_objects))
 endif
@@ -1031,12 +1039,14 @@ dotdot_objects_S :=
 $(foreach s,$(dotdot_sources),\
   $(eval $(call compile-dotdot-s-file,$(s),\
     $(my_additional_dependencies),\
-    dotdot_objects_S)))
+    dotdot_objects_S,\
+    $(my_pool))))
 $(call track-src-file-obj,$(dotdot_sources),$(dotdot_objects_S))
 
 ifneq ($(strip $(asm_objects_S)),)
+$(asm_objects_S): .KATI_NINJA_POOL := $(my_pool)
 $(asm_objects_S): $(intermediates)/%.o: $(TOPDIR)$(LOCAL_PATH)/%.S \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG)
 	$(transform-$(PRIVATE_HOST)s-to-o)
 $(call include-depfiles-for-objs, $(asm_objects_S))
 endif
@@ -1051,12 +1061,14 @@ dotdot_objects_s :=
 $(foreach s,$(dotdot_sources),\
   $(eval $(call compile-dotdot-s-file-no-deps,$(s),\
     $(my_additional_dependencies),\
-    dotdot_objects_s)))
+    dotdot_objects_s,\
+    $(my_pool))))
 $(call track-src-file-obj,$(dotdot_sources),$(dotdot_objects_s))
 
 ifneq ($(strip $(asm_objects_s)),)
+$(asm_objects_s): .KATI_NINJA_POOL := $(my_pool)
 $(asm_objects_s): $(intermediates)/%.o: $(TOPDIR)$(LOCAL_PATH)/%.s \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(CLANG)
 	$(transform-$(PRIVATE_HOST)s-to-o)
 endif
 
@@ -1069,7 +1081,7 @@ asm_sources_asm := $(filter %.asm,$(my_src_files))
 ifneq ($(strip $(asm_sources_asm)),)
 asm_objects_asm := $(addprefix $(intermediates)/,$(asm_sources_asm:.asm=.o))
 $(asm_objects_asm): $(intermediates)/%.o: $(TOPDIR)$(LOCAL_PATH)/%.asm \
-    $(my_additional_dependencies)
+    $(my_additional_dependencies) $(YASM)
 	$(transform-asm-to-o)
 $(call track-src-file-obj,$(asm_sources_asm),$(asm_objects_asm))
 
@@ -1114,22 +1126,35 @@ endif
 ## When compiling against the VNDK, use LL-NDK libraries
 ###########################################################
 ifneq ($(LOCAL_USE_VNDK),)
-  ####################################################
-  ## Soong modules may be built twice, once for /system
-  ## and once for /vendor. If we're using the VNDK,
-  ## switch all soong libraries over to the /vendor
-  ## variant.
-  ####################################################
-  my_whole_static_libraries := $(foreach l,$(my_whole_static_libraries),\
-    $(if $(SPLIT_VENDOR.STATIC_LIBRARIES.$(l)),$(l).vendor,$(l)))
-  my_static_libraries := $(foreach l,$(my_static_libraries),\
-    $(if $(SPLIT_VENDOR.STATIC_LIBRARIES.$(l)),$(l).vendor,$(l)))
-  my_shared_libraries := $(foreach l,$(my_shared_libraries),\
-    $(if $(SPLIT_VENDOR.SHARED_LIBRARIES.$(l)),$(l).vendor,$(l)))
-  my_system_shared_libraries := $(foreach l,$(my_system_shared_libraries),\
-    $(if $(SPLIT_VENDOR.SHARED_LIBRARIES.$(l)),$(l).vendor,$(l)))
-  my_header_libraries := $(foreach l,$(my_header_libraries),\
-    $(if $(SPLIT_VENDOR.HEADER_LIBRARIES.$(l)),$(l).vendor,$(l)))
+  #####################################################
+  ## Soong modules may be built three times, once for
+  ## /system, once for /vendor and once for /product.
+  ## If we're using the VNDK, switch all soong
+  ## libraries over to the /vendor or /product variant.
+  #####################################################
+  ifeq ($(LOCAL_USE_VNDK_PRODUCT),true)
+    my_whole_static_libraries := $(foreach l,$(my_whole_static_libraries),\
+      $(if $(SPLIT_PRODUCT.STATIC_LIBRARIES.$(l)),$(l).product,$(l)))
+    my_static_libraries := $(foreach l,$(my_static_libraries),\
+      $(if $(SPLIT_PRODUCT.STATIC_LIBRARIES.$(l)),$(l).product,$(l)))
+    my_shared_libraries := $(foreach l,$(my_shared_libraries),\
+      $(if $(SPLIT_PRODUCT.SHARED_LIBRARIES.$(l)),$(l).product,$(l)))
+    my_system_shared_libraries := $(foreach l,$(my_system_shared_libraries),\
+      $(if $(SPLIT_PRODUCT.SHARED_LIBRARIES.$(l)),$(l).product,$(l)))
+    my_header_libraries := $(foreach l,$(my_header_libraries),\
+      $(if $(SPLIT_PRODUCT.HEADER_LIBRARIES.$(l)),$(l).product,$(l)))
+  else
+    my_whole_static_libraries := $(foreach l,$(my_whole_static_libraries),\
+      $(if $(SPLIT_VENDOR.STATIC_LIBRARIES.$(l)),$(l).vendor,$(l)))
+    my_static_libraries := $(foreach l,$(my_static_libraries),\
+      $(if $(SPLIT_VENDOR.STATIC_LIBRARIES.$(l)),$(l).vendor,$(l)))
+    my_shared_libraries := $(foreach l,$(my_shared_libraries),\
+      $(if $(SPLIT_VENDOR.SHARED_LIBRARIES.$(l)),$(l).vendor,$(l)))
+    my_system_shared_libraries := $(foreach l,$(my_system_shared_libraries),\
+      $(if $(SPLIT_VENDOR.SHARED_LIBRARIES.$(l)),$(l).vendor,$(l)))
+    my_header_libraries := $(foreach l,$(my_header_libraries),\
+      $(if $(SPLIT_VENDOR.HEADER_LIBRARIES.$(l)),$(l).vendor,$(l)))
+  endif
 endif
 
 # Platform can use vendor public libraries. If a required shared lib is one of
@@ -1137,6 +1162,18 @@ endif
 ifeq ($(LOCAL_USE_VNDK),)
   my_shared_libraries := $(foreach l,$(my_shared_libraries),\
     $(if $(filter $(l),$(VENDOR_PUBLIC_LIBRARIES)),$(l).vendorpublic,$(l)))
+endif
+
+###########################################################
+## When compiling against the NDK, use SDK variants of Soong libraries
+###########################################################
+
+ifneq ($(LOCAL_SDK_VERSION),)
+  my_whole_static_libraries := $(call use_soong_sdk_libraries,$(my_whole_static_libraries))
+  my_static_libraries := $(call use_soong_sdk_libraries,$(my_static_libraries))
+  my_shared_libraries := $(call use_soong_sdk_libraries,$(my_shared_libraries))
+  my_system_shared_libraries := $(call use_soong_sdk_libraries,$(my_system_shared_libraries))
+  my_header_libraries := $(call use_soong_sdk_libraries,$(my_header_libraries))
 endif
 
 ##########################################################
@@ -1164,31 +1201,6 @@ endif
 
 
 ####################################################
-## Import includes
-####################################################
-import_includes := $(intermediates)/import_includes
-import_includes_deps := $(strip \
-    $(if $(LOCAL_USE_VNDK),\
-      $(call intermediates-dir-for,HEADER_LIBRARIES,device_kernel_headers,$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes) \
-    $(foreach l, $(installed_shared_library_module_names), \
-      $(call intermediates-dir-for,SHARED_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes) \
-    $(foreach l, $(my_static_libraries) $(my_whole_static_libraries), \
-      $(call intermediates-dir-for,STATIC_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes) \
-    $(foreach l, $(my_header_libraries), \
-      $(call intermediates-dir-for,HEADER_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes))
-$(import_includes): PRIVATE_IMPORT_EXPORT_INCLUDES := $(import_includes_deps)
-$(import_includes) : $(import_includes_deps)
-	@echo Import includes file: $@
-	$(hide) mkdir -p $(dir $@) && rm -f $@
-ifdef import_includes_deps
-	$(hide) for f in $(PRIVATE_IMPORT_EXPORT_INCLUDES); do \
-	  cat $$f >> $@; \
-	done
-else
-	$(hide) touch $@
-endif
-
-####################################################
 ## Verify that NDK-built libraries only link against
 ## other NDK-built libraries
 ####################################################
@@ -1201,6 +1213,7 @@ my_warn_types := $(my_warn_ndk_types)
 my_allowed_types := $(my_allowed_ndk_types)
 else ifdef LOCAL_USE_VNDK
     _name := $(patsubst %.vendor,%,$(LOCAL_MODULE))
+    _name := $(patsubst %.product,%,$(LOCAL_MODULE))
     ifneq ($(filter $(_name),$(VNDK_CORE_LIBRARIES) $(VNDK_SAMEPROCESS_LIBRARIES) $(LLNDK_LIBRARIES)),)
         ifeq ($(filter $(_name),$(VNDK_PRIVATE_LIBRARIES)),)
             my_link_type := native:vndk
@@ -1209,6 +1222,12 @@ else ifdef LOCAL_USE_VNDK
         endif
         my_warn_types :=
         my_allowed_types := native:vndk native:vndk_private
+    else ifeq ($(LOCAL_USE_VNDK_PRODUCT),true)
+        # Modules installed to /product cannot directly depend on modules marked
+        # with vendor_available: false
+        my_link_type := native:product
+        my_warn_types :=
+        my_allowed_types := native:product native:vndk native:platform_vndk
     else
         # Modules installed to /vendor cannot directly depend on modules marked
         # with vendor_available: false
@@ -1289,9 +1308,15 @@ ifeq ($(LOCAL_SDK_VERSION)$(LOCAL_USE_VNDK),)
   my_c_includes += $(JNI_H_INCLUDE)
 endif
 
-my_outside_includes := $(filter-out $(OUT_DIR)/%,$(filter /%,$(my_c_includes)))
+my_c_includes := $(foreach inc,$(my_c_includes),$(call clean-path,$(inc)))
+
+my_outside_includes := $(filter-out $(OUT_DIR)/%,$(filter /%,$(my_c_includes)) $(filter ../%,$(my_c_includes)))
 ifneq ($(my_outside_includes),)
-$(error $(LOCAL_MODULE_MAKEFILE): $(LOCAL_MODULE): C_INCLUDES must be under the source or output directories: $(my_outside_includes))
+  ifeq ($(BUILD_BROKEN_OUTSIDE_INCLUDE_DIRS),true)
+    $(call pretty-warning,C_INCLUDES must be under the source or output directories: $(my_outside_includes))
+  else
+    $(call pretty-error,C_INCLUDES must be under the source or output directories: $(my_outside_includes))
+  endif
 endif
 
 # all_objects includes gen_o_objects which were part of LOCAL_GENERATED_SOURCES;
@@ -1299,7 +1324,6 @@ endif
 # that custom build rules which generate .o files don't consume other generated
 # sources as input (or if they do they take care of that dependency themselves).
 $(normal_objects) : | $(my_generated_sources)
-$(all_objects) : $(import_includes)
 ALL_C_CPP_ETC_OBJECTS += $(all_objects)
 
 
@@ -1362,6 +1386,10 @@ built_shared_libraries += \
     $(my_ndk_shared_libraries_fullpath) \
     $(my_system_shared_libraries_fullpath) \
 
+built_shared_library_deps += \
+    $(my_ndk_shared_libraries_fullpath) \
+    $(my_system_shared_libraries_fullpath) \
+
 else
 built_shared_libraries := \
     $(foreach lib,$(installed_shared_library_module_names), \
@@ -1389,15 +1417,9 @@ built_whole_libraries := \
 # libraries have already been linked into the module at that point.
 # We do, however, care about the NOTICE files for any static
 # libraries that we use. (see notice_files.mk)
-#
-# Don't do this in mm, since many of the targets won't exist.
-ifeq ($(ONE_SHOT_MAKEFILE),)
 installed_static_library_notice_file_targets := \
     $(foreach lib,$(my_static_libraries) $(my_whole_static_libraries), \
       NOTICE-$(if $(LOCAL_IS_HOST_MODULE),HOST$(if $(my_host_cross),_CROSS,),TARGET)-STATIC_LIBRARIES-$(lib))
-else
-installed_static_library_notice_file_targets :=
-endif
 
 $(notice_target): | $(installed_static_library_notice_file_targets)
 $(LOCAL_INSTALLED_MODULE): | $(notice_target)
@@ -1458,10 +1480,10 @@ endif
 
 # Check if -Werror or -Wno-error is used in C compiler flags.
 # Header libraries do not need cflags.
+my_all_cflags := $(my_cflags) $(my_cppflags) $(my_cflags_no_override)
 ifneq (HEADER_LIBRARIES,$(LOCAL_MODULE_CLASS))
   # Prebuilt modules do not need cflags.
   ifeq (,$(LOCAL_PREBUILT_MODULE_FILE))
-    my_all_cflags := $(my_cflags) $(my_cppflags) $(my_cflags_no_override)
     # Issue warning if -Wno-error is used.
     ifneq (,$(filter -Wno-error,$(my_all_cflags)))
       $(eval MODULES_USING_WNO_ERROR := $(MODULES_USING_WNO_ERROR) $(LOCAL_MODULE_MAKEFILE):$(LOCAL_MODULE))
@@ -1477,6 +1499,13 @@ ifneq (HEADER_LIBRARIES,$(LOCAL_MODULE_CLASS))
         endif
       endif
     endif
+  endif
+endif
+
+ifneq (,$(filter -Weverything,$(my_all_cflags)))
+  ifeq (,$(ANDROID_TEMPORARILY_ALLOW_WEVERYTHING))
+    $(call pretty-error, -Weverything is not allowed in Android.mk files.\
+      Build with `m ANDROID_TEMPORARILY_ALLOW_WEVERYTHING=true` to experiment locally with -Weverything.)
   endif
 endif
 
@@ -1535,11 +1564,10 @@ my_tidy_checks := $(subst $(space),,$(my_tidy_checks))
 
 # Add dependency of clang-tidy and clang-tidy.sh
 ifneq ($(my_tidy_checks),)
-  my_clang_tidy_programs := $(PATH_TO_CLANG_TIDY) $(PATH_TO_CLANG_TIDY_SHELL)
-  $(cpp_objects): $(intermediates)/%.o: $(my_clang_tidy_programs)
-  $(c_objects): $(intermediates)/%.o: $(my_clang_tidy_programs)
-  $(gen_cpp_objects): $(intermediates)/%.o: $(my_clang_tidy_programs)
-  $(gen_c_objects): $(intermediates)/%.o: $(my_clang_tidy_programs)
+  $(cpp_objects): $(intermediates)/%.o: $(PATH_TO_CLANG_TIDY)
+  $(c_objects): $(intermediates)/%.o: $(PATH_TO_CLANG_TIDY)
+  $(gen_cpp_objects): $(intermediates)/%.o: $(PATH_TO_CLANG_TIDY)
+  $(gen_c_objects): $(intermediates)/%.o: $(PATH_TO_CLANG_TIDY)
 endif
 
 # Move -l* entries from ldflags to ldlibs, and everything else to ldflags
@@ -1601,12 +1629,24 @@ my_target_global_cppflags := $($(LOCAL_2ND_ARCH_VAR_PREFIX)CLANG_$(my_prefix)GLO
 ifeq ($(my_use_clang_lld),true)
   my_target_global_ldflags := $($(LOCAL_2ND_ARCH_VAR_PREFIX)CLANG_$(my_prefix)GLOBAL_LLDFLAGS)
   include $(BUILD_SYSTEM)/pack_dyn_relocs_setup.mk
-  ifeq ($(my_pack_module_relocations),false)
+  ifeq ($(my_pack_module_relocations),true)
+    my_target_global_ldflags += -Wl,--pack-dyn-relocs=android+relr -Wl,--use-android-relr-tags
+  else
     my_target_global_ldflags += -Wl,--pack-dyn-relocs=none
   endif
 else
   my_target_global_ldflags := $($(LOCAL_2ND_ARCH_VAR_PREFIX)CLANG_$(my_prefix)GLOBAL_LDFLAGS)
 endif # my_use_clang_lld
+
+my_target_triple := $($(LOCAL_2ND_ARCH_VAR_PREFIX)CLANG_$(my_prefix)TRIPLE)
+ifndef LOCAL_IS_HOST_MODULE
+  my_target_triple_flag := -target $(my_target_triple)$(my_api_level)
+else
+  my_target_triple_flag := -target $(my_target_triple)
+endif
+my_asflags += $(my_target_triple_flag)
+my_cflags += $(my_target_triple_flag)
+my_ldflags += $(my_target_triple_flag)
 
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_GLOBAL_C_INCLUDES := $(my_target_global_c_includes)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_GLOBAL_C_SYSTEM_INCLUDES := $(my_target_global_c_system_includes)
@@ -1659,6 +1699,22 @@ ifeq ($(NATIVE_COVERAGE),true)
     $(LOCAL_INTERMEDIATE_TARGETS): $(my_coverage_lib)
 endif
 
+####################################################
+## Import includes
+####################################################
+imported_includes := $(strip \
+    $(if $(LOCAL_USE_VNDK),\
+      $(call intermediates-dir-for,HEADER_LIBRARIES,device_kernel_headers,$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))) \
+    $(foreach l, $(installed_shared_library_module_names), \
+      $(call intermediates-dir-for,SHARED_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))) \
+    $(foreach l, $(my_static_libraries) $(my_whole_static_libraries), \
+      $(call intermediates-dir-for,STATIC_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))) \
+    $(foreach l, $(my_header_libraries), \
+      $(call intermediates-dir-for,HEADER_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))))
+
+$(foreach dep,$(imported_includes),\
+  $(eval EXPORTS.$$(dep).USERS := $$(EXPORTS.$$(dep).USERS) $$(all_objects)))
+
 ###########################################################
 ## Define PRIVATE_ variables used by multiple module types
 ###########################################################
@@ -1693,13 +1749,20 @@ ifeq ($(strip $(my_cxx)),)
   my_cxx := $(my_cxx_wrapper) $(CLANG_CXX)
 endif
 
+ifeq ($(strip $(my_cxx_link)),)
+  my_cxx_link := $(CLANG_CXX)
+endif
+
 ifneq ($(LOCAL_NO_STATIC_ANALYZER),true)
   my_cxx := CCC_CXX=$(CLANG_CXX) CLANG_CXX=$(CLANG_CXX) \
             $(SYNTAX_TOOLS_PREFIX)/c++-analyzer
+  my_cxx_link := CCC_CXX=$(CLANG_CXX) CLANG_CXX=$(CLANG_CXX) \
+                 $(SYNTAX_TOOLS_PREFIX)/c++-analyzer
 endif
 
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_LINKER := $(my_linker)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_CXX := $(my_cxx)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_CXX_LINK := $(my_cxx_link)
 
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_YACCFLAGS := $(LOCAL_YACCFLAGS)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_ASFLAGS := $(my_asflags)
@@ -1711,7 +1774,7 @@ $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_CPPFLAGS_NO_OVERRIDE := $(my_cppflags_no_
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_RTTI_FLAG := $(LOCAL_RTTI_FLAG)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_DEBUG_CFLAGS := $(debug_cflags)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_C_INCLUDES := $(my_c_includes)
-$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_IMPORT_INCLUDES := $(import_includes)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_IMPORTED_INCLUDES := $(imported_includes)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_LDFLAGS := $(my_ldflags)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_LDLIBS := $(my_ldlibs)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_TIDY_CHECKS := $(my_tidy_checks)
@@ -1738,51 +1801,30 @@ all_libraries := \
 ###########################################################
 # Export includes
 ###########################################################
-export_includes := $(intermediates)/export_includes
-export_cflags := $(foreach d,$(my_export_c_include_dirs),-I $(d))
-$(export_includes): PRIVATE_EXPORT_CFLAGS := $(export_cflags)
+
 # Headers exported by whole static libraries are also exported by this library.
 export_include_deps := $(strip \
    $(foreach l,$(my_whole_static_libraries), \
-     $(call intermediates-dir-for,STATIC_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes))
+     $(call intermediates-dir-for,STATIC_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))))
 # Re-export requested headers from shared libraries.
 export_include_deps += $(strip \
    $(foreach l,$(LOCAL_EXPORT_SHARED_LIBRARY_HEADERS), \
-     $(call intermediates-dir-for,SHARED_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes))
+     $(call intermediates-dir-for,SHARED_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))))
 # Re-export requested headers from static libraries.
 export_include_deps += $(strip \
    $(foreach l,$(LOCAL_EXPORT_STATIC_LIBRARY_HEADERS), \
-     $(call intermediates-dir-for,STATIC_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes))
+     $(call intermediates-dir-for,STATIC_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))))
 # Re-export requested headers from header libraries.
 export_include_deps += $(strip \
    $(foreach l,$(LOCAL_EXPORT_HEADER_LIBRARY_HEADERS), \
-     $(call intermediates-dir-for,HEADER_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))/export_includes))
-$(export_includes): PRIVATE_REEXPORTED_INCLUDES := $(export_include_deps)
-# By adding $(my_generated_sources) it makes sure the headers get generated
-# before any dependent source files get compiled.
-$(export_includes) : $(my_export_c_include_deps) $(my_generated_sources) $(export_include_deps) $(LOCAL_EXPORT_C_INCLUDE_DEPS)
-	@echo Export includes file: $< -- $@
-	$(hide) mkdir -p $(dir $@) && rm -f $@.tmp && touch $@.tmp
-ifdef export_cflags
-	$(hide) echo "$(PRIVATE_EXPORT_CFLAGS)" >>$@.tmp
-endif
-ifdef export_include_deps
-	$(hide) for f in $(PRIVATE_REEXPORTED_INCLUDES); do \
-		cat $$f >> $@.tmp; \
-		done
-endif
-	$(hide) if cmp -s $@.tmp $@ ; then \
-	  rm $@.tmp ; \
-	else \
-	  mv $@.tmp $@ ; \
-	fi
-export_cflags :=
+     $(call intermediates-dir-for,HEADER_LIBRARIES,$(l),$(my_kind),,$(LOCAL_2ND_ARCH_VAR_PREFIX),$(my_host_cross))))
 
-# Kati adds restat=1 to ninja. GNU make does nothing for this.
-.KATI_RESTAT: $(export_includes)
-
-# Make sure export_includes gets generated when you are running mm/mmm
-$(LOCAL_BUILT_MODULE) : | $(export_includes)
+ifneq ($(strip $(my_export_c_include_dirs)$(export_include_deps)),)
+  EXPORTS_LIST += $(intermediates)
+  EXPORTS.$(intermediates).FLAGS := $(foreach d,$(my_export_c_include_dirs),-I $(call clean-path,$(d)))
+  EXPORTS.$(intermediates).REEXPORT := $(export_include_deps)
+  EXPORTS.$(intermediates).DEPS := $(my_export_c_include_deps) $(my_generated_sources) $(LOCAL_EXPORT_C_INCLUDE_DEPS)
+endif
 
 ifneq (,$(filter-out $(LOCAL_PATH)/%,$(my_export_c_include_dirs)))
 my_soong_problems += non_local__export_c_include_dirs

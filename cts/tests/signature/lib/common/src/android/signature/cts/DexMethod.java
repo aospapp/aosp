@@ -24,8 +24,13 @@ import java.util.stream.Collectors;
 public class DexMethod extends DexMember {
   private final List<String> mParamTypeList;
 
+  private enum ParseType {
+      DEX_TYPE_LIST,
+      DEX_RETURN_TYPE,
+  }
+
   public DexMethod(String className, String name, String signature, String[] flags) {
-      super(className, name, parseDexReturnType(signature), flags);
+      super(className, name, parseSignature(signature, ParseType.DEX_RETURN_TYPE), flags);
       mParamTypeList = parseDexTypeList(signature);
   }
 
@@ -51,20 +56,24 @@ public class DexMethod extends DexMember {
               + "(" + String.join(", ", getJavaParameterTypes()) + ")";
   }
 
-  private static Matcher matchSignature(String signature) {
-      Matcher m = Pattern.compile("^\\((.*)\\)(.*)$").matcher(signature);
-      if (!m.matches()) {
+  private static String parseSignature(String signature, ParseType type) {
+      // Form of signature:
+      //   (DexTypeList)DexReturnType
+      int length = signature.length();
+      int paren = signature.indexOf(')', 1);
+      if (length < 2 || signature.charAt(0) != '(' || paren == -1) {
           throw new RuntimeException("Could not parse method signature: " + signature);
       }
-      return m;
-  }
-
-  private static String parseDexReturnType(String signature) {
-      return matchSignature(signature).group(2);
+      if (type == ParseType.DEX_TYPE_LIST) {
+          return signature.substring(1, paren);
+      } else {
+          // ParseType.DEX_RETURN_TYPE
+          return signature.substring(paren + 1, length);
+      }
   }
 
   private static List<String> parseDexTypeList(String signature) {
-      String typeSequence = matchSignature(signature).group(1);
+      String typeSequence = parseSignature(signature, ParseType.DEX_TYPE_LIST);
       List<String> list = new ArrayList<String>();
       while (!typeSequence.isEmpty()) {
           String type = firstDexTypeFromList(typeSequence);

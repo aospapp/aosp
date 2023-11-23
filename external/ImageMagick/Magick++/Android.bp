@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_defaults {
-    name: "Magick++_defaults",
+cc_library_static {
+    name: "Magick++",
 
     srcs: ["lib/*.cpp"],
 
@@ -29,17 +29,7 @@ cc_defaults {
     header_libs: ["Magick_headers"],
     export_header_lib_headers: ["Magick_headers"],
     export_include_dirs: ["lib"],
-}
-
-cc_library_static {
-    name: "Magick++_platform",
-    defaults: ["Magick++_defaults"],
-    stl: "libc++_static",
-}
-
-cc_library_static {
-    name: "Magick++",
-    defaults: ["Magick++_defaults"],
     sdk_version: "24",
     stl: "c++_static",
+    visibility: ["//vendor:__subpackages__"],
 }

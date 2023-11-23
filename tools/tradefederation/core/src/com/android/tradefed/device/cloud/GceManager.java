@@ -15,7 +15,6 @@
  */
 package com.android.tradefed.device.cloud;
 
-import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.device.TestDeviceOptions;
@@ -49,7 +48,9 @@ import com.google.common.net.HostAndPort;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.ProcessBuilder.Redirect;
 import java.security.GeneralSecurityException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -57,6 +58,9 @@ import java.util.regex.Pattern;
 
 /** Helper that manages the GCE calls to start/stop and collect logs from GCE. */
 public class GceManager {
+    public static final String GCE_INSTANCE_NAME_KEY = "gce-instance-name";
+    public static final String GCE_INSTANCE_CLEANED_KEY = "gce-instance-clean-called";
+
     private static final long BUGREPORT_TIMEOUT = 15 * 60 * 1000L;
     private static final long REMOTE_FILE_OP_TIMEOUT = 10 * 60 * 1000L;
     private static final Pattern BUGREPORTZ_RESPONSE_PATTERN = Pattern.compile("(OK:)(.*)");
@@ -66,7 +70,6 @@ public class GceManager {
     private DeviceDescriptor mDeviceDescriptor;
     private TestDeviceOptions mDeviceOptions;
     private IBuildInfo mBuildInfo;
-    private List<IBuildInfo> mTestResourceBuildInfos;
 
     private String mGceInstanceName = null;
     private String mGceHost = null;
@@ -78,17 +81,43 @@ public class GceManager {
      * @param deviceDesc The {@link DeviceDescriptor} that will be associated with the GCE device.
      * @param deviceOptions A {@link TestDeviceOptions} associated with the device.
      * @param buildInfo A {@link IBuildInfo} describing the gce build to start.
-     * @param testResourceBuildInfos A list {@link IBuildInfo} describing test resources
      */
+    public GceManager(
+            DeviceDescriptor deviceDesc, TestDeviceOptions deviceOptions, IBuildInfo buildInfo) {
+        mDeviceDescriptor = deviceDesc;
+        mDeviceOptions = deviceOptions;
+        mBuildInfo = buildInfo;
+
+        if (!deviceOptions.allowGceCmdTimeoutOverride()) {
+            return;
+        }
+        int index = deviceOptions.getGceDriverParams().lastIndexOf("--boot-timeout");
+        if (index != -1 && deviceOptions.getGceDriverParams().size() > index + 1) {
+            String driverTimeoutStringSec = deviceOptions.getGceDriverParams().get(index + 1);
+            try {
+                // Add some extra time on top of Acloud: acloud boot the device then we expect
+                // the Tradefed online check to take a bit of time, use 3min as a safe overhead
+                long driverTimeoutMs =
+                        Long.parseLong(driverTimeoutStringSec) * 1000 + 3 * 60 * 1000;
+                long gceCmdTimeoutMs = deviceOptions.getGceCmdTimeout();
+                deviceOptions.setGceCmdTimeout(driverTimeoutMs);
+                CLog.i(
+                        "Replacing --gce-boot-timeout %s by --boot-timeout %s.",
+                        gceCmdTimeoutMs, driverTimeoutMs);
+            } catch (NumberFormatException e) {
+                CLog.e(e);
+            }
+        }
+    }
+
+    /** @deprecated Use other constructors, we keep this temporarily for backward compatibility. */
+    @Deprecated
     public GceManager(
             DeviceDescriptor deviceDesc,
             TestDeviceOptions deviceOptions,
             IBuildInfo buildInfo,
             List<IBuildInfo> testResourceBuildInfos) {
-        mDeviceDescriptor = deviceDesc;
-        mDeviceOptions = deviceOptions;
-        mBuildInfo = buildInfo;
-        mTestResourceBuildInfos = testResourceBuildInfos;
+        this(deviceDesc, deviceOptions, buildInfo);
     }
 
     /**
@@ -97,7 +126,6 @@ public class GceManager {
      * @param deviceDesc The {@link DeviceDescriptor} that will be associated with the GCE device.
      * @param deviceOptions A {@link TestDeviceOptions} associated with the device
      * @param buildInfo A {@link IBuildInfo} describing the gce build to start.
-     * @param testResourceBuildInfos A list {@link IBuildInfo} describing test resources
      * @param gceInstanceName The instance name to use.
      * @param gceHost The host name or ip of the instance to use.
      */
@@ -105,12 +133,15 @@ public class GceManager {
             DeviceDescriptor deviceDesc,
             TestDeviceOptions deviceOptions,
             IBuildInfo buildInfo,
-            List<IBuildInfo> testResourceBuildInfos,
             String gceInstanceName,
             String gceHost) {
-        this(deviceDesc, deviceOptions, buildInfo, testResourceBuildInfos);
+        this(deviceDesc, deviceOptions, buildInfo);
         mGceInstanceName = gceInstanceName;
         mGceHost = gceHost;
+    }
+
+    public GceAvdInfo startGce() throws TargetSetupError {
+        return startGce(null);
     }
 
     /**
@@ -119,7 +150,7 @@ public class GceManager {
      * @return a {@link GceAvdInfo} describing the GCE instance. Could be a BOOT_FAIL instance.
      * @throws TargetSetupError
      */
-    public GceAvdInfo startGce() throws TargetSetupError {
+    public GceAvdInfo startGce(String ipDevice) throws TargetSetupError {
         mGceAvdInfo = null;
         // For debugging purposes bypass.
         if (mGceHost != null && mGceInstanceName != null) {
@@ -134,7 +165,17 @@ public class GceManager {
         File reportFile = null;
         try {
             reportFile = FileUtil.createTempFile("gce_avd_driver", ".json");
-            List<String> gceArgs = buildGceCmd(reportFile, mBuildInfo);
+            List<String> gceArgs = buildGceCmd(reportFile, mBuildInfo, ipDevice);
+
+            long driverTimeoutMs = getTestDeviceOptions().getGceCmdTimeout();
+            if (!getTestDeviceOptions().allowGceCmdTimeoutOverride()) {
+                long driverTimeoutSec =
+                        Duration.ofMillis(driverTimeoutMs - 3 * 60 * 1000).toSeconds();
+                // --boot-timeout takes a value in seconds
+                gceArgs.add("--boot-timeout");
+                gceArgs.add(Long.toString(driverTimeoutSec));
+                driverTimeoutMs = driverTimeoutSec * 1000;
+            }
 
             CLog.i("Launching GCE with %s", gceArgs.toString());
             CommandResult cmd =
@@ -145,15 +186,15 @@ public class GceManager {
             CLog.i("GCE driver stderr: %s", cmd.getStderr());
             String instanceName = extractInstanceName(cmd.getStderr());
             if (instanceName != null) {
-                mBuildInfo.addBuildAttribute("gce-instance-name", instanceName);
+                mBuildInfo.addBuildAttribute(GCE_INSTANCE_NAME_KEY, instanceName);
             } else {
                 CLog.w("Could not extract an instance name for the gce device.");
             }
             if (CommandStatus.TIMED_OUT.equals(cmd.getStatus())) {
                 String errors =
                         String.format(
-                                "acloud errors: timeout after %dms, " + "acloud did not return",
-                                getTestDeviceOptions().getGceCmdTimeout());
+                                "acloud errors: timeout after %dms, acloud did not return",
+                                driverTimeoutMs);
                 if (instanceName != null) {
                     // If we managed to parse the instance name, report the boot failure so it
                     // can be shutdown.
@@ -198,7 +239,7 @@ public class GceManager {
      */
     protected String extractInstanceName(String bootupLogs) {
         if (bootupLogs != null) {
-            final String pattern = "'name': '(((gce-)|(ins-))(.*?))'";
+            final String pattern = "'name': u?'(((gce-)|(ins-))(.*?))'";
             Pattern namePattern = Pattern.compile(pattern);
             Matcher matcher = namePattern.matcher(bootupLogs);
             if (matcher.find()) {
@@ -209,9 +250,19 @@ public class GceManager {
     }
 
     /** Build and return the command to launch GCE. Exposed for testing. */
-    protected List<String> buildGceCmd(File reportFile, IBuildInfo b) {
-        List<String> gceArgs =
-                ArrayUtil.list(getTestDeviceOptions().getAvdDriverBinary().getAbsolutePath());
+    protected List<String> buildGceCmd(File reportFile, IBuildInfo b, String ipDevice) {
+        File avdDriverFile = getTestDeviceOptions().getAvdDriverBinary();
+        if (!avdDriverFile.exists()) {
+            throw new RuntimeException(
+                    String.format(
+                            "Could not find the Acloud driver at %s",
+                            avdDriverFile.getAbsolutePath()));
+        }
+        if (!avdDriverFile.canExecute()) {
+            // Set the executable bit if needed
+            FileUtil.chmodGroupRWX(avdDriverFile);
+        }
+        List<String> gceArgs = ArrayUtil.list(avdDriverFile.getAbsolutePath());
         gceArgs.add(
                 TestDeviceOptions.getCreateCommandByInstanceType(
                         getTestDeviceOptions().getInstanceType()));
@@ -222,6 +273,14 @@ public class GceManager {
                 getTestDeviceOptions().getInstanceType())) {
             gceArgs.add("--avd-type");
             gceArgs.add("cheeps");
+
+            if (getTestDeviceOptions().getCrosUser() != null
+                    && getTestDeviceOptions().getCrosPassword() != null) {
+                gceArgs.add("--user");
+                gceArgs.add(getTestDeviceOptions().getCrosUser());
+                gceArgs.add("--password");
+                gceArgs.add(getTestDeviceOptions().getCrosPassword());
+            }
         }
 
         // If args passed by gce-driver-param do not contain build_id or branch,
@@ -246,11 +305,17 @@ public class GceManager {
                 TestDeviceOptions.getExtraParamsByInstanceType(
                         getTestDeviceOptions().getInstanceType(),
                         getTestDeviceOptions().getBaseImage()));
-        gceArgs.add("--config_file");
-        gceArgs.add(getAvdConfigFile().getAbsolutePath());
-        if (getTestDeviceOptions().getSerivceAccountJsonKeyFile() != null) {
-            gceArgs.add("--service_account_json_private_key_path");
-            gceArgs.add(getTestDeviceOptions().getSerivceAccountJsonKeyFile().getAbsolutePath());
+        if (ipDevice == null) {
+            gceArgs.add("--config_file");
+            gceArgs.add(getAvdConfigFile().getAbsolutePath());
+            if (getTestDeviceOptions().getServiceAccountJsonKeyFile() != null) {
+                gceArgs.add("--service_account_json_private_key_path");
+                gceArgs.add(
+                        getTestDeviceOptions().getServiceAccountJsonKeyFile().getAbsolutePath());
+            }
+        } else {
+            gceArgs.add("--host");
+            gceArgs.add(ipDevice);
         }
         gceArgs.add("--report_file");
         gceArgs.add(reportFile.getAbsolutePath());
@@ -273,8 +338,12 @@ public class GceManager {
         return gceArgs;
     }
 
-    /** Shutdown the Gce instance associated with the {@link #startGce()}. */
-    public void shutdownGce() {
+    /**
+     * Shutdown the Gce instance associated with the {@link #startGce()}.
+     *
+     * @return returns true if gce shutdown was requested as non-blocking.
+     */
+    public boolean shutdownGce() {
         if (!getTestDeviceOptions().getAvdDriverBinary().canExecute()) {
             mGceAvdInfo = null;
             throw new RuntimeException(
@@ -282,50 +351,93 @@ public class GceManager {
                             "GCE launcher %s is invalid",
                             getTestDeviceOptions().getAvdDriverBinary()));
         }
-        if (mGceAvdInfo == null) {
-            CLog.d("No instance to shutdown.");
-            return;
+        String instanceName = null;
+        boolean notFromGceAvd = false;
+        if (mGceAvdInfo != null) {
+            instanceName = mGceAvdInfo.instanceName();
         }
-        List<String> gceArgs =
-                ArrayUtil.list(getTestDeviceOptions().getAvdDriverBinary().getAbsolutePath());
+        if (instanceName == null) {
+            instanceName = mBuildInfo.getBuildAttributes().get(GCE_INSTANCE_NAME_KEY);
+            notFromGceAvd = true;
+        }
+        if (instanceName == null) {
+            CLog.d("No instance to shutdown.");
+            return false;
+        }
+        try {
+            boolean res = AcloudShutdown(getTestDeviceOptions(), getRunUtil(), instanceName);
+            // Be more lenient if instance name was not reported officially and we still attempt
+            // to clean it.
+            if (res || notFromGceAvd) {
+                mBuildInfo.addBuildAttribute(GCE_INSTANCE_CLEANED_KEY, "true");
+            }
+            return res;
+        } finally {
+            mGceAvdInfo = null;
+        }
+    }
+
+    /**
+     * Actual Acloud run to shutdown the virtual device.
+     *
+     * @param options The {@link TestDeviceOptions} for the Acloud options
+     * @param runUtil The {@link IRunUtil} to run Acloud
+     * @param instanceName The instance to shutdown.
+     * @return True if successful
+     */
+    public static boolean AcloudShutdown(
+            TestDeviceOptions options, IRunUtil runUtil, String instanceName) {
+        List<String> gceArgs = ArrayUtil.list(options.getAvdDriverBinary().getAbsolutePath());
         gceArgs.add("delete");
         // Add extra args.
         File f = null;
+        File config = null;
         try {
+            config = FileUtil.createTempFile(options.getAvdConfigFile().getName(), "config");
             gceArgs.add("--instance_names");
-            gceArgs.add(mGceAvdInfo.instanceName());
+            gceArgs.add(instanceName);
             gceArgs.add("--config_file");
-            gceArgs.add(getAvdConfigFile().getAbsolutePath());
-            if (getTestDeviceOptions().getSerivceAccountJsonKeyFile() != null) {
+            // Copy the config in case it comes from a dynamic file. In order to ensure Acloud has
+            // the file until it's done with it.
+            FileUtil.copyFile(options.getAvdConfigFile(), config);
+            gceArgs.add(config.getAbsolutePath());
+            if (options.getServiceAccountJsonKeyFile() != null) {
                 gceArgs.add("--service_account_json_private_key_path");
-                gceArgs.add(
-                        getTestDeviceOptions().getSerivceAccountJsonKeyFile().getAbsolutePath());
+                gceArgs.add(options.getServiceAccountJsonKeyFile().getAbsolutePath());
             }
             f = FileUtil.createTempFile("gce_avd_driver", ".json");
             gceArgs.add("--report_file");
             gceArgs.add(f.getAbsolutePath());
             CLog.i("Tear down of GCE with %s", gceArgs.toString());
-            if (getTestDeviceOptions().waitForGceTearDown()) {
+            if (options.waitForGceTearDown()) {
                 CommandResult cmd =
-                        getRunUtil()
-                                .runTimedCmd(
-                                        getTestDeviceOptions().getGceCmdTimeout(),
-                                        gceArgs.toArray(new String[gceArgs.size()]));
+                        runUtil.runTimedCmd(
+                                options.getGceCmdTimeout(),
+                                gceArgs.toArray(new String[gceArgs.size()]));
+                FileUtil.deleteFile(config);
                 if (!CommandStatus.SUCCESS.equals(cmd.getStatus())) {
                     CLog.w(
-                            "Failed to tear down GCE %s with the following arg, %s",
-                            mGceAvdInfo.instanceName(), gceArgs);
+                            "Failed to tear down GCE %s with the following arg: %s."
+                                    + "\nstdout:%s\nstderr:%s",
+                            instanceName, gceArgs, cmd.getStdout(), cmd.getStderr());
+                    return false;
                 }
             } else {
-                getRunUtil().runCmdInBackground(gceArgs.toArray(new String[gceArgs.size()]));
+                // Discard the output so the process is not linked to the parent and doesn't die
+                // if the JVM exit.
+                Process p = runUtil.runCmdInBackground(Redirect.DISCARD, gceArgs);
+                AcloudDeleteCleaner cleaner = new AcloudDeleteCleaner(p, config);
+                cleaner.start();
             }
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             CLog.e("failed to create log file for GCE Teardown");
             CLog.e(e);
+            FileUtil.deleteFile(config);
+            return false;
         } finally {
             FileUtil.deleteFile(f);
-            mGceAvdInfo = null;
         }
+        return true;
     }
 
     /**
@@ -369,16 +481,18 @@ public class GceManager {
      */
     public static File getNestedDeviceSshBugreportz(
             GceAvdInfo gceAvd, TestDeviceOptions options, IRunUtil runUtil) throws IOException {
-        String output = "";
-        // Retry a couple of time because adb might not be started for that user.
-        // FIXME: See if we can use vsoc-01 directly to avoid this
-        for (int i = 0; i < 3; i++) {
-            output = remoteSshCommandExec(gceAvd, options, runUtil, "adb", "shell", "bugreportz");
-            Matcher match = BUGREPORTZ_RESPONSE_PATTERN.matcher(output);
-            if (match.find()) {
-                break;
-            }
+        if (gceAvd == null || gceAvd.hostAndPort() == null) {
+            return null;
         }
+        String output =
+                remoteSshCommandExec(
+                        gceAvd,
+                        options,
+                        runUtil,
+                        "./bin/adb",
+                        "wait-for-device",
+                        "shell",
+                        "bugreportz");
         Matcher match = BUGREPORTZ_RESPONSE_PATTERN.matcher(output);
         if (!match.find()) {
             CLog.e("Something went wrong during bugreportz collection: '%s'", output);
@@ -386,7 +500,7 @@ public class GceManager {
         }
         String deviceFilePath = match.group(2);
         String pullOutput =
-                remoteSshCommandExec(gceAvd, options, runUtil, "adb", "pull", deviceFilePath);
+                remoteSshCommandExec(gceAvd, options, runUtil, "./bin/adb", "pull", deviceFilePath);
         CLog.d(pullOutput);
         String remoteFilePath = "./" + new File(deviceFilePath).getName();
         File localTmpFile = FileUtil.createTempFile("bugreport-ssh", ".zip");
@@ -490,12 +604,15 @@ public class GceManager {
             GceAvdInfo gceAvd, TestDeviceOptions options, IRunUtil runUtil, String... command) {
         CommandResult res =
                 remoteSshCommandExecution(gceAvd, options, runUtil, BUGREPORT_TIMEOUT, command);
-        if (!CommandStatus.SUCCESS.equals(res.getStatus())) {
-            CLog.e("issue when attempting to execute '%s':", Arrays.asList(command));
-            CLog.e("%s", res.getStderr());
-        }
         // We attempt to get a clean output from our command
         String output = res.getStdout().trim();
+        if (!CommandStatus.SUCCESS.equals(res.getStatus())) {
+            CLog.e("issue when attempting to execute '%s':", Arrays.asList(command));
+            CLog.e("Stderr: %s", res.getStderr());
+        } else if (output.isEmpty()) {
+            CLog.e("Stdout from '%s' was empty", Arrays.asList(command));
+            CLog.e("Stderr: %s", res.getStderr());
+        }
         return output;
     }
 
@@ -578,7 +695,7 @@ public class GceManager {
                 GceManager.getInstanceSerialLog(
                         infos,
                         getAvdConfigFile(),
-                        getTestDeviceOptions().getSerivceAccountJsonKeyFile(),
+                        getTestDeviceOptions().getServiceAccountJsonKeyFile(),
                         getRunUtil());
         if (output == null) {
             CLog.w("Failed to collect the instance serial logs.");
@@ -622,10 +739,32 @@ public class GceManager {
 
     @VisibleForTesting
     File getAvdConfigFile() {
-        if (getTestDeviceOptions().getAvdConfigTestResourceName() != null) {
-            return BuildInfo.getTestResource(
-                    mTestResourceBuildInfos, getTestDeviceOptions().getAvdConfigTestResourceName());
-        }
         return getTestDeviceOptions().getAvdConfigFile();
+    }
+
+    /**
+     * Thread that helps cleaning the copied config when the process is done. This ensures acloud is
+     * not missing its config until its done.
+     */
+    private static class AcloudDeleteCleaner extends Thread {
+        private Process mProcess;
+        private File mConfigFile;
+
+        public AcloudDeleteCleaner(Process p, File config) {
+            setDaemon(true);
+            setName("acloud-delete-cleaner");
+            mProcess = p;
+            mConfigFile = config;
+        }
+
+        @Override
+        public void run() {
+            try {
+                mProcess.waitFor();
+            } catch (InterruptedException e) {
+                CLog.e(e);
+            }
+            FileUtil.deleteFile(mConfigFile);
+        }
     }
 }

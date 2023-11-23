@@ -75,8 +75,8 @@ int init_a2dp(struct a2dp_info *a2dp, a2dp_sbc_t *sbc)
 	a2dp->codesize = cras_sbc_get_codesize(a2dp->codec);
 	a2dp->frame_length = cras_sbc_get_frame_length(a2dp->codec);
 
-	a2dp->a2dp_buf_used = sizeof(struct rtp_header)
-			+ sizeof(struct rtp_payload);
+	a2dp->a2dp_buf_used =
+		sizeof(struct rtp_header) + sizeof(struct rtp_payload);
 	a2dp->frame_count = 0;
 	a2dp->seq_num = 0;
 	a2dp->samples = 0;
@@ -106,8 +106,8 @@ int a2dp_queued_frames(const struct a2dp_info *a2dp)
 
 void a2dp_drain(struct a2dp_info *a2dp)
 {
-	a2dp->a2dp_buf_used = sizeof(struct rtp_header)
-			+ sizeof(struct rtp_payload);
+	a2dp->a2dp_buf_used =
+		sizeof(struct rtp_header) + sizeof(struct rtp_payload);
 	a2dp->samples = 0;
 	a2dp->seq_num = 0;
 	a2dp->frame_count = 0;

@@ -21,24 +21,20 @@ import static com.android.car.settings.common.PreferenceController.CONDITIONALLY
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
-
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.database.ContentObserver;
 import android.net.Uri;
+import android.os.UserHandle;
 import android.provider.Settings;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowSecureSettings;
 
 import com.google.common.collect.Iterables;
@@ -47,8 +43,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -57,8 +53,8 @@ import org.robolectric.shadows.ShadowContentResolver;
 import java.util.Collections;
 import java.util.List;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowSecureSettings.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowSecureSettings.class})
 public class AssistConfigBasePreferenceControllerTest {
 
     private static class TestAssistConfigBasePreferenceController extends
@@ -88,23 +84,19 @@ public class AssistConfigBasePreferenceControllerTest {
         }
     }
 
-    private static final int TEST_USER_ID = 10;
     private static final String TEST_PACKAGE_NAME = "com.test.package";
     private static final String TEST_SERVICE = "TestService";
+    private final int mUserId = UserHandle.myUserId();
 
     private Context mContext;
     private TwoStatePreference mTwoStatePreference;
     private PreferenceControllerTestHelper<TestAssistConfigBasePreferenceController>
             mControllerHelper;
     private TestAssistConfigBasePreferenceController mController;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
-        when(mCarUserManagerHelper.getCurrentProcessUserId()).thenReturn(TEST_USER_ID);
 
         mContext = RuntimeEnvironment.application;
         mTwoStatePreference = new SwitchPreference(mContext);
@@ -115,7 +107,6 @@ public class AssistConfigBasePreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowSecureSettings.reset();
     }
 
@@ -123,7 +114,7 @@ public class AssistConfigBasePreferenceControllerTest {
     public void getAvailabilityStatus_hasAssistComponent_isAvailable() {
         String key = new ComponentName(TEST_PACKAGE_NAME, TEST_SERVICE).flattenToString();
         Settings.Secure.putStringForUser(mContext.getContentResolver(), Settings.Secure.ASSISTANT,
-                key, TEST_USER_ID);
+                key, mUserId);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
     }
@@ -137,7 +128,7 @@ public class AssistConfigBasePreferenceControllerTest {
     public void onStart_registersObserver() {
         String key = new ComponentName(TEST_PACKAGE_NAME, TEST_SERVICE).flattenToString();
         Settings.Secure.putStringForUser(mContext.getContentResolver(), Settings.Secure.ASSISTANT,
-                key, TEST_USER_ID);
+                key, mUserId);
 
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
 
@@ -151,7 +142,7 @@ public class AssistConfigBasePreferenceControllerTest {
     public void onStop_unregistersObserver() {
         String key = new ComponentName(TEST_PACKAGE_NAME, TEST_SERVICE).flattenToString();
         Settings.Secure.putStringForUser(mContext.getContentResolver(), Settings.Secure.ASSISTANT,
-                key, TEST_USER_ID);
+                key, mUserId);
 
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_STOP);
@@ -166,7 +157,7 @@ public class AssistConfigBasePreferenceControllerTest {
     public void onChange_changeRegisteredSetting_callsRefreshUi() {
         String key = new ComponentName(TEST_PACKAGE_NAME, TEST_SERVICE).flattenToString();
         Settings.Secure.putStringForUser(mContext.getContentResolver(), Settings.Secure.ASSISTANT,
-                key, TEST_USER_ID);
+                key, mUserId);
 
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
 

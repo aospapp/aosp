@@ -20,24 +20,27 @@ import android.app.Fragment;
 import android.content.Context;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
-import android.support.v17.leanback.widget.VerticalGridView;
-import android.support.v7.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
+import androidx.leanback.widget.VerticalGridView;
+
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.analytics.HasTrackerLabel;
 import com.android.tv.analytics.Tracker;
+import com.android.tv.common.dev.DeveloperPreferences;
 import com.android.tv.common.util.DurationTimer;
-import com.android.tv.common.util.SystemProperties;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.util.ViewCache;
+
 import java.util.List;
 
 public abstract class SideFragment<T extends Item> extends Fragment implements HasTrackerLabel {
@@ -56,7 +59,7 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
             new RecyclerView.RecycledViewPool();
 
     private VerticalGridView mListView;
-    private ItemAdapter mAdapter;
+    private ItemAdapter<T> mAdapter;
     private SideFragmentListener mListener;
     private ChannelDataManager mChannelDataManager;
     private ProgramDataManager mProgramDataManager;
@@ -65,6 +68,7 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
 
     private final int mHideKey;
     private final int mDebugHideKey;
+    private Context mContext;
 
     public SideFragment() {
         this(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.KEYCODE_UNKNOWN);
@@ -73,7 +77,7 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
     /**
      * @param hideKey the KeyCode used to hide the fragment
      * @param debugHideKey the KeyCode used to hide the fragment if {@link
-     *     SystemProperties#USE_DEBUG_KEYS}.
+     *     DeveloperPreferences#USE_DEBUG_KEYS}.
      */
     public SideFragment(int hideKey, int debugHideKey) {
         mHideKey = hideKey;
@@ -83,6 +87,7 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        mContext = context;
         mChannelDataManager = getMainActivity().getChannelDataManager();
         mProgramDataManager = getMainActivity().getProgramDataManager();
         mTracker = TvSingletons.getSingletons(context).getTracker();
@@ -129,7 +134,8 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
     }
 
     public final boolean isHideKeyForThisPanel(int keyCode) {
-        boolean debugKeysEnabled = SystemProperties.USE_DEBUG_KEYS.getValue();
+        boolean debugKeysEnabled =
+                DeveloperPreferences.USE_DEBUG_KEYS.getDefaultIfContextNull(mContext);
         return mHideKey != KeyEvent.KEYCODE_UNKNOWN
                 && (mHideKey == keyCode || (debugKeysEnabled && mDebugHideKey == keyCode));
     }

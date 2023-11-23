@@ -32,6 +32,7 @@
 
 package com.android.bluetooth.opp;
 
+import android.bluetooth.AlertActivity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
@@ -39,8 +40,6 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.android.bluetooth.R;
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
 
 /**
  * This class is designed to show BT error messages;
@@ -48,30 +47,26 @@ import com.android.internal.app.AlertController;
 public class BluetoothOppBtErrorActivity extends AlertActivity
         implements DialogInterface.OnClickListener {
 
-    private String mErrorContent;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
-        String mErrorTitle = intent.getStringExtra("title");
-        mErrorContent = intent.getStringExtra("content");
+        String errorTitle = intent.getStringExtra("title");
+        String errorContent = intent.getStringExtra("content");
 
         // Set up the "dialog"
-        final AlertController.AlertParams p = mAlertParams;
-        p.mIconAttrId = android.R.attr.alertDialogIcon;
-        p.mTitle = mErrorTitle;
-        p.mView = createView();
-        p.mPositiveButtonText = getString(R.string.bt_error_btn_ok);
-        p.mPositiveButtonListener = this;
+        mAlertBuilder.setIconAttribute(android.R.attr.alertDialogIcon);
+        mAlertBuilder.setTitle(errorTitle);
+        mAlertBuilder.setView(createView(errorContent));
+        mAlertBuilder.setPositiveButton(R.string.bt_error_btn_ok, this);
         setupAlert();
     }
 
-    private View createView() {
+    private View createView(String errorContent) {
         View view = getLayoutInflater().inflate(R.layout.confirm_dialog, null);
         TextView contentView = (TextView) view.findViewById(R.id.content);
-        contentView.setText(mErrorContent);
+        contentView.setText(errorContent);
         return view;
     }
 

@@ -33,7 +33,7 @@ static inline int finit_module(int fd, const char *uargs, int flags)
 }
 #endif
 
-#if !HAVE_DECL_STRNDUPA
+#if (!HAVE_DECL_STRNDUPA && !defined(__APPLE__))
 #define strndupa(s, n)							\
 	({								\
 		const char *__old = (s);				\

@@ -26,6 +26,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <chre/toolchain.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,7 +37,7 @@ extern "C" {
  * preprocessor defines via the build system.
  *
  * CHRE_MESSAGE_TO_HOST_MAX_SIZE: The maximum size, in bytes, allowed for
- *     a message sent to chreSendMessageToHost().  This must be at least
+ *     a message sent to chreSendMessageToHostEndpoint().  This must be at least
  *     CHRE_MESSAGE_TO_HOST_MINIMUM_MAX_SIZE.
  */
 
@@ -127,6 +129,18 @@ extern "C" {
  * @since v1.2
  */
 #define CHRE_EVENT_HOST_ASLEEP  UINT16_C(0x0006)
+
+/**
+ * nanoappHandleEvent argument: NULL
+ *
+ * Indicates that CHRE is collecting debug dumps. Nanoapps can call
+ * chreDebugDumpLog() to log their debug data while handling this event.
+ *
+ * @see chreConfigureDebugDumpEvent
+ * @see chreDebugDumpLog
+ * @since v1.4
+ */
+#define CHRE_EVENT_DEBUG_DUMP  UINT16_C(0x0007)
 
 /**
  * First possible value for CHRE_EVENT_SENSOR events.
@@ -331,26 +345,23 @@ typedef void (chreEventCompleteFunction)(uint16_t eventType, void *eventData);
 /**
  * Callback which frees a message.
  *
- * This callback is (optionally) provided to the chreSendMessageToHost() method
- * as a means for freeing the message.  When this callback is invoked,
+ * This callback is (optionally) provided to the chreSendMessageToHostEndpoint()
+ * method as a means for freeing the message.  When this callback is invoked,
  * 'message' is no longer needed and can be released.  Note that this in
  * no way assures that said message did or did not make it to the host, simply
  * that this memory is no longer needed.
  *
- * @param message  The 'message' argument from chreSendMessageToHost().
- * @param messageSize  The 'messageSize' argument from chreSendMessageToHost().
+ * @param message  The 'message' argument from chreSendMessageToHostEndpoint().
+ * @param messageSize  The 'messageSize' argument from
+ *     chreSendMessageToHostEndpoint().
  *
- * @see chreSendMessageToHost
+ * @see chreSendMessageToHostEndpoint
  */
 typedef void (chreMessageFreeFunction)(void *message, size_t messageSize);
 
 
 /**
  * Enqueue an event to be sent to another nanoapp.
- *
- * Note: This version of the API does not give an easy means to discover
- * another nanoapp's instance ID.  For now, events will need to be sent to/from
- * the host to initially discover these IDs.
  *
  * @param eventType  This is a user-defined event type, of at least the
  *     value CHRE_EVENT_FIRST_USER_VALUE.  It is illegal to attempt to use any
@@ -366,7 +377,8 @@ typedef void (chreMessageFreeFunction)(void *message, size_t messageSize);
  *     being dropped), this callback will be invoked.  This argument is allowed
  *     to be NULL, in which case no callback will be invoked.
  * @param targetInstanceId  The ID of the instance we're delivering this event
- *     to.  Note that this is allowed to be our own instance.
+ *     to.  Note that this is allowed to be our own instance.  The instance ID
+ *     of a nanoapp can be retrieved by using chreGetNanoappInfoByInstanceId().
  * @returns true if the event was enqueued, false otherwise.  Note that even
  *     if this method returns 'false', the 'freeCallback' will be invoked,
  *     if non-NULL.  Note in the 'false' case, the 'freeCallback' may be
@@ -392,7 +404,8 @@ bool chreSendEvent(uint16_t eventType, void *eventData,
  */
 bool chreSendMessageToHost(void *message, uint32_t messageSize,
                            uint32_t messageType,
-                           chreMessageFreeFunction *freeCallback);
+                           chreMessageFreeFunction *freeCallback)
+    CHRE_DEPRECATED("Use chreSendMessageToHostEndpoint instead");
 
 /**
  * Send a message to the host, waking it up if it is currently asleep.
@@ -443,8 +456,8 @@ bool chreSendMessageToHost(void *message, uint32_t messageSize,
  * @returns true if the message was accepted for transmission, false otherwise.
  *     Note that even if this method returns 'false', the 'freeCallback' will
  *     be invoked, if non-NULL.  In either case, the 'freeCallback' may be
- *     invoked directly from within chreSendMessageToHost(), so it's necessary
- *     for nanoapp authors to avoid possible recursion with this.
+ *     invoked directly from within chreSendMessageToHostEndpoint(), so it's
+ *     necessary for nanoapp authors to avoid possible recursion with this.
  *
  * @see chreMessageFreeFunction
  *
@@ -550,6 +563,21 @@ void chreConfigureHostSleepStateEvents(bool enable);
  * @since v1.2
  */
 bool chreIsHostAwake(void);
+
+/**
+ * Configures whether this nanoapp will be notified when CHRE is collecting
+ * debug dumps, via CHRE_EVENT_DEBUG_DUMP. This event is disabled by default,
+ * and if a nanoapp is not interested in logging its debug data, then it does
+ * not need to register for it.
+ *
+ * @param enable true to enable receipt of this event, false to disable.
+ *
+ * @see CHRE_EVENT_DEBUG_DUMP
+ * @see chreDebugDumpLog
+ *
+ * @since v1.4
+ */
+void chreConfigureDebugDumpEvent(bool enable);
 
 #ifdef __cplusplus
 }

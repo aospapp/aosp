@@ -141,8 +141,8 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case 'u': {
-                UsbPortOverheatEvent event = {.maxTemperatureDeciC = 220,
-                                              .plugTemperatureDeciC = 210,
+                UsbPortOverheatEvent event = {.plugTemperatureDeciC = 210,
+                                              .maxTemperatureDeciC = 220,
                                               .timeToOverheat = 1,
                                               .timeToHysteresis = 2,
                                               .timeToInactive = 3};

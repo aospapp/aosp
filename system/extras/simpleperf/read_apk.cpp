@@ -96,11 +96,7 @@ std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByOffsetWithoutCache(
   }
 
   // We found something in the zip file at the right spot. Is it an ELF?
-  if (lseek(ahelper->GetFd(), found_entry.offset, SEEK_SET) != found_entry.offset) {
-    PLOG(ERROR) << "lseek() failed in " << apk_path << " offset " << found_entry.offset;
-    return nullptr;
-  }
-  if (IsValidElfFile(ahelper->GetFd()) != ElfStatus::NO_ERROR) {
+  if (IsValidElfFile(ahelper->GetFd(), found_entry.offset) != ElfStatus::NO_ERROR) {
     // Omit files that are not ELF files.
     return nullptr;
   }

@@ -18,13 +18,14 @@ package com.android.tradefed.command;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
-import com.android.tradefed.device.metric.AutoLogCollector;
 import com.android.tradefed.config.OptionCopier;
-import com.android.tradefed.config.OptionUpdateRule;
+import com.android.tradefed.device.metric.AutoLogCollector;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.UniqueMultiMap;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -40,9 +41,6 @@ public class CommandOptions implements ICommandOptions {
     @Option(name = "help-all", description = "display the full help text for all options.",
             importance = Importance.ALWAYS)
     private boolean mFullHelpMode = false;
-
-    @Option(name = "json-help", description = "display the full help in json format.")
-    private boolean mJsonHelpMode = false;
 
     public static final String DRY_RUN_OPTION = "dry-run";
     public static final String NOISY_DRY_RUN_OPTION = "noisy-dry-run";
@@ -69,14 +67,9 @@ public class CommandOptions implements ICommandOptions {
             "the minimum invocation time in ms when in loop mode.")
     private Long mMinLoopTime = 10L * 60L * 1000L;
 
-    @Option(name = "max-random-loop-time", description =
-            "the maximum time to wait between invocation attempts when in loop mode. " +
-            "when set, the actual value will be a random number between min-loop-time and this " +
-            "number.",
-            updateRule = OptionUpdateRule.LEAST)
-    private Long mMaxRandomLoopTime = null;
+    public static final String TEST_TAG_OPTION = "test-tag";
 
-    @Option(name = "test-tag", description = "Identifier for the invocation during reporting.")
+    @Option(name = TEST_TAG_OPTION, description = "Identifier for the invocation during reporting.")
     private String mTestTag = "stub";
 
     @Option(name = "test-tag-suffix", description = "suffix for test-tag. appended to test-tag to "
@@ -122,14 +115,6 @@ public class CommandOptions implements ICommandOptions {
     private boolean mTokenSharding = false;
 
     @Option(
-        name = "skip-pre-device-setup",
-        description =
-                "allow TestInvocation to skip calling device.preInvocationSetup. This is for "
-                        + "delaying device setup when the test runs with VersionedTfLauncher."
-    )
-    private boolean mSkipPreDeviceSetup = false;
-
-    @Option(
         name = "dynamic-sharding",
         description =
                 "Allow to dynamically move IRemoteTest from one shard to another. Only for local "
@@ -169,12 +154,33 @@ public class CommandOptions implements ICommandOptions {
     )
     private boolean mUseRemoteSandbox = false;
 
+    @Deprecated
     @Option(
-        name = "parallel-remote-setup",
-        description =
-                "For remote sharded invocation, whether or not to attempt the setup in parallel."
-    )
+            name = "parallel-remote-setup",
+            description =
+                    "For remote sharded invocation, whether or not to attempt the setup in parallel.")
     private boolean mUseParallelRemoteSetup = false;
+
+    @Option(
+            name = "replicate-parent-setup",
+            description =
+                    "For remote sharded invocation, whether or not to replicate parent setup on "
+                            + "all devices.")
+    private boolean mReplicateParentSetup = false;
+
+    @Option(
+        name = "report-module-progression",
+        description = "For remote invocation, whether or not to report progress at module level."
+    )
+    private boolean mReportModuleProgression = false;
+
+    @Deprecated
+    @Option(
+            name = "extra-postsubmit-remote-instance",
+            description =
+                    "Option that allows to run more instances in the remote VM in postsubmit. "
+                            + "Used for experimentation.")
+    private int mExtraRemoteInstancePostsubmit = 0;
 
     @Option(
         name = "auto-collect",
@@ -201,6 +207,18 @@ public class CommandOptions implements ICommandOptions {
     )
     private String mHostLogSuffix = null;
 
+    @Option(
+            name = "early-device-release",
+            description = "Feature flag to release the device as soon as done with it.")
+    private boolean mEnableEarlyDeviceRelease = true;
+
+    @Option(
+            name = "dynamic-download-args",
+            description =
+                    "Extra args passed to the IRemoteFileResolver interface for dynamic download "
+                            + "in the queryArgs.")
+    private Map<String, String> mDynamicDownloadArgs = new LinkedHashMap<>();
+
     /**
      * Set the help mode for the config.
      * <p/>
@@ -224,23 +242,6 @@ public class CommandOptions implements ICommandOptions {
     @Override
     public boolean isFullHelpMode() {
         return mFullHelpMode;
-    }
-
-    /**
-     * Set the json help mode for the config.
-     * <p/>
-     * Exposed for testing.
-     */
-    void setJsonHelpMode(boolean jsonHelpMode) {
-        mJsonHelpMode = jsonHelpMode;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isJsonHelpMode() {
-        return mJsonHelpMode;
     }
 
     /**
@@ -295,28 +296,9 @@ public class CommandOptions implements ICommandOptions {
 
     /**
      * {@inheritDoc}
-     * @deprecated use {@link #getLoopTime()} instead
-     */
-    @Deprecated
-    @Override
-    public long getMinLoopTime() {
-        return mMinLoopTime;
-    }
-
-    /**
-     * {@inheritDoc}
      */
     @Override
     public long getLoopTime() {
-        if (mMaxRandomLoopTime != null) {
-            long randomizedValue = mMaxRandomLoopTime - mMinLoopTime;
-            if (randomizedValue > 0) {
-                return mMinLoopTime + Math.round(randomizedValue * Math.random());
-            } else {
-                CLog.e("max loop time %d is less than min loop time %d", mMaxRandomLoopTime,
-                        mMinLoopTime);
-            }
-        }
         return mMinLoopTime;
     }
 
@@ -448,13 +430,6 @@ public class CommandOptions implements ICommandOptions {
 
     /** {@inheritDoc} */
     @Override
-
-    public boolean shouldSkipPreDeviceSetup() {
-        return mSkipPreDeviceSetup;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public boolean shouldUseDynamicSharding() {
         return mDynamicSharding;
     }
@@ -535,5 +510,41 @@ public class CommandOptions implements ICommandOptions {
     @Override
     public boolean shouldUseParallelRemoteSetup() {
         return mUseParallelRemoteSetup;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean shouldUseReplicateSetup() {
+        return mReplicateParentSetup;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setReplicateSetup(boolean replicate) {
+        mReplicateParentSetup = replicate;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean shouldReportModuleProgression() {
+        return mReportModuleProgression;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getExtraRemotePostsubmitInstance() {
+        return mExtraRemoteInstancePostsubmit;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean earlyDeviceRelease() {
+        return mEnableEarlyDeviceRelease;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Map<String, String> getDynamicDownloadArgs() {
+        return mDynamicDownloadArgs;
     }
 }

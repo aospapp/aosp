@@ -166,7 +166,7 @@ class LegacyConsentUiHelper implements ConsentUiHelper {
         Drawable packageIcon = null;
         if (mUtils.isProfileOwnerAction(uiParams.provisioningAction)) {
             titleResId = R.string.setup_profile;
-            headerResId = R.string.work_profile_provisioning_accept_header;
+            headerResId = R.string.work_profile_provisioning_accept_header_post_suw;
             layoutResId = R.layout.intro_profile_owner;
         } else if (mUtils.isDeviceOwnerAction(uiParams.provisioningAction)) {
             titleResId = R.string.setup_device;

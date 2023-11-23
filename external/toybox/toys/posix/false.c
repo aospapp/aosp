@@ -4,12 +4,14 @@
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/false.html
 
-USE_FALSE(NEWTOY(false, NULL, TOYFLAG_BIN|TOYFLAG_NOHELP))
+USE_FALSE(NEWTOY(false, NULL, TOYFLAG_BIN|TOYFLAG_NOHELP|TOYFLAG_MAYFORK))
 
 config FALSE
   bool "false"
   default y
   help
+    usage: false
+
     Return nonzero.
 */
 

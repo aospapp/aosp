@@ -5,7 +5,7 @@
  *
  * See: http://cm.bell-labs.com/cm/cs/cstr/41.pdf
 
-USE_DIFF(NEWTOY(diff, "<2>2(color)B(ignore-blank-lines)d(minimal)b(ignore-space-change)ut(expand-tabs)w(ignore-all-space)i(ignore-case)T(initial-tab)s(report-identical-files)q(brief)a(text)L(label)*S(starting-file):N(new-file)r(recursive)U(unified)#<0=3", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
+USE_DIFF(NEWTOY(diff, "<2>2(color)(strip-trailing-cr)B(ignore-blank-lines)d(minimal)b(ignore-space-change)ut(expand-tabs)w(ignore-all-space)i(ignore-case)T(initial-tab)s(report-identical-files)q(brief)a(text)L(label)*S(starting-file):N(new-file)r(recursive)U(unified)#<0=3", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
 
 config DIFF
   bool "diff"
@@ -13,23 +13,25 @@ config DIFF
   help
   usage: diff [-abBdiNqrTstw] [-L LABEL] [-S FILE] [-U LINES] FILE1 FILE2
 
-  -a  Treat all files as text
-  -b  Ignore changes in the amount of whitespace
-  -B  Ignore changes whose lines are all blank
-  -d  Try hard to find a smaller set of changes
-  -i  Ignore case differences
-  -L  Use LABEL instead of the filename in the unified header
-  -N  Treat absent files as empty
-  -q  Output only whether files differ
-  -r  Recurse
-  -S  Start with FILE when comparing directories
-  -T  Make tabs line up by prefixing a tab when necessary
-  -s  Report when two files are the same
-  -t  Expand tabs to spaces in output
-  -U  Output LINES lines of context
-  -w  Ignore all whitespace
+  -a	Treat all files as text
+  -b	Ignore changes in the amount of whitespace
+  -B	Ignore changes whose lines are all blank
+  -d	Try hard to find a smaller set of changes
+  -i	Ignore case differences
+  -L	Use LABEL instead of the filename in the unified header
+  -N	Treat absent files as empty
+  -q	Output only whether files differ
+  -r	Recurse
+  -S	Start with FILE when comparing directories
+  -T	Make tabs line up by prefixing a tab when necessary
+  -s	Report when two files are the same
+  -t	Expand tabs to spaces in output
+  -u	Unified diff
+  -U	Output LINES lines of context
+  -w	Ignore all whitespace
 
-  --color  Colored output
+  --color              Colored output
+  --strip-trailing-cr  Strip trailing '\r's from input lines
 */
 
 #define FOR_diff
@@ -180,20 +182,13 @@ static void  do_merge(struct candidate **K, int *k, int i,
 
 static FILE* read_stdin()
 {
-  char tmp_name[] = "/tmp/diffXXXXXX";
-  int rd, wr, tmpfd = mkstemp(tmp_name);
+  char *tmp_name;
+  int tmpfd = xtempfile("stdin", &tmp_name);
 
-  if (tmpfd == -1) perror_exit("mkstemp");
   unlink(tmp_name);
+  free(tmp_name);
 
-  while (1) {
-    rd = xread(STDIN_FILENO, toybuf, sizeof(toybuf));
-
-    if (!rd) break;
-    if (rd < 0) perror_exit("read error");
-    wr = writeall(tmpfd, toybuf, rd);
-    if (wr < 0) perror_exit("write");
-  }
+  xsendfile(0, tmpfd);
   return fdopen(tmpfd, "r");
 }
 
@@ -203,8 +198,18 @@ static int read_tok(FILE *fp, off_t *off, int tok)
 
   tok |= empty;
   while (!(tok & eol)) {
-
     t = fgetc(fp);
+
+    if (FLAG(strip_trailing_cr) && t == '\r') {
+      int t2 = fgetc(fp);
+      if (t2 == '\n') {
+        t = t2;
+        if (off) (*off)++;
+      } else {
+        ungetc(t2, fp);
+      }
+    }
+
     if (off && t != EOF) *off += 1;
     is_space = isspace(t) || (t == EOF);
     tok |= (t & (eof + eol)); //set tok eof+eol when t is eof
@@ -519,12 +524,64 @@ static int cmp(const void *p1, const void *p2)
    return strcmp(* (char * const *)p1, * (char * const *)p2);
 }
 
+// quote and escape filenames that have awkward characters
+char *quote_filename(char *filename)
+{
+  char *to = "abfnrtv\"\\", *from = "\a\b\f\n\r\t\v\"\\";
+  char *result, *s, *t;
+  size_t len = 0;
+  int quote = 0;
+
+  // calculate memory usage and presence of quotes
+  for (s = filename; *s; s++) {
+    if (*s == '\a' || *s == '\b' || *s == '\f' || *s == '\r' || *s == '\v'
+      || *s == '\n' || *s == '\t' || *s == '"' || *s == '\\')
+    {
+      quote = 1;
+      len += 2;
+    } else if (*s == ' ') {
+      quote = 1;
+      len++;
+    } else if (*s < 0x20 || *s >= 0x80) {
+      quote = 1;
+      len += 4;
+    } else {
+      len++;
+    }
+  }
+
+  // construct the new string
+  result = xmalloc(len + (quote ? 2 : 0) + 1);
+  t = result;
+  if (quote) *t++ = '"';
+  for (s = filename; *s; s++) {
+    if (*s == '\a' || *s == '\b' || *s == '\f' || *s == '\r' || *s == '\v'
+      || *s == '\n' || *s == '\t' || *s == '"' || *s == '\\')
+    {
+      *t = '\\';
+      t[1] = to[strchr(from, *s) - from];
+      t += 2;
+    } else if (*s < 0x20 || *s >= 0x80) {
+      sprintf(t, "\\%.3o", *s);
+      t += 4;
+    } else {
+      *t++ = *s;
+    }
+  }
+  if (quote) *t++ = '"';
+  *t = 0;
+  return result;
+}
+
 static void show_label(char *prefix, char *filename, struct stat *sb)
 {
   char date[36];
+  char *quoted_file;
 
-  printf("%s %s\t%s\n", prefix, filename,
+  quoted_file = quote_filename(filename);
+  printf("%s %s\t%s\n", prefix, quoted_file,
     format_iso_time(date, sizeof(date), &sb->st_mtim));
+  free(quoted_file);
 }
 
 static void do_diff(char **files)

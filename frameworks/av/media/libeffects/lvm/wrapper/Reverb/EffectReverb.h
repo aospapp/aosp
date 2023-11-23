@@ -20,10 +20,6 @@
 #include <audio_effects/effect_environmentalreverb.h>
 #include <audio_effects/effect_presetreverb.h>
 
-#if __cplusplus
-extern "C" {
-#endif
-
 #define MAX_NUM_BANDS           5
 #define MAX_CALL_SIZE           256
 #define LVREV_MAX_T60           7000
@@ -31,16 +27,11 @@ extern "C" {
 #define LVREV_MAX_FRAME_SIZE    2560
 #define LVREV_CUP_LOAD_ARM9E    470    // Expressed in 0.1 MIPS
 #define LVREV_MEM_USAGE         (71+(LVREV_MAX_FRAME_SIZE>>7))     // Expressed in kB
-//#define LVM_PCM
 
 typedef struct _LPFPair_t
 {
     int16_t Room_HF;
     int16_t LPF;
 } LPFPair_t;
-#if __cplusplus
-}  // extern "C"
-#endif
-
 
 #endif /*ANDROID_EFFECTREVERB_H_*/

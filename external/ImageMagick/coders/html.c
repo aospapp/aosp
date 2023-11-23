@@ -18,7 +18,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -94,7 +94,7 @@ static MagickBooleanType
 */
 static MagickBooleanType IsHTML(const unsigned char *magick,const size_t length)
 {
-  if (length < 5)
+  if (length < 6)
     return(MagickFalse);
   if (LocaleNCompare((char *) magick+1,"html",5) == 0)
     return(MagickTrue);

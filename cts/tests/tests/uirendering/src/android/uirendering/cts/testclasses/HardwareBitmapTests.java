@@ -225,6 +225,7 @@ public class HardwareBitmapTests extends ActivityTestBase {
             NinePatchDrawable ninePatch = (NinePatchDrawable) Drawable.createFromResourceStream(
                     mRes, null, is, null, HARDWARE_OPTIONS);
             ninePatch.setBounds(0, 0, width, height);
+            ninePatch.setFilterBitmap(false);
             ninePatch.draw(canvas);
         }, true).runWithVerifier(new GoldenImageVerifier(getActivity(),
                 R.drawable.golden_hardwaretest_ninepatch, new MSSIMComparer(0.95)));

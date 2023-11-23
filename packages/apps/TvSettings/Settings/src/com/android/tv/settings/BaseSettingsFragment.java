@@ -17,6 +17,9 @@
 package com.android.tv.settings;
 
 import android.app.Fragment;
+import android.content.ContentProviderClient;
+import android.net.Uri;
+import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.leanback.preference.LeanbackSettingsFragment;
@@ -27,6 +30,8 @@ import androidx.preference.PreferenceScreen;
 
 import com.android.tv.settings.system.LeanbackPickerDialogFragment;
 import com.android.tv.settings.system.LeanbackPickerDialogPreference;
+import com.android.tv.twopanelsettings.slices.SlicePreference;
+import com.android.tv.twopanelsettings.slices.SlicesConstants;
 
 /**
  * Base class for settings fragments. Handles launching fragments and dialogs in a reasonably
@@ -36,6 +41,17 @@ import com.android.tv.settings.system.LeanbackPickerDialogPreference;
 public abstract class BaseSettingsFragment extends LeanbackSettingsFragment {
     @Override
     public final boolean onPreferenceStartFragment(PreferenceFragment caller, Preference pref) {
+        if (pref.getFragment() != null) {
+            if (pref instanceof SlicePreference) {
+                SlicePreference slicePref = (SlicePreference) pref;
+                if (slicePref.getUri() == null || !isUriValid(slicePref.getUri())) {
+                    return false;
+                }
+                Bundle b = pref.getExtras();
+                b.putString(SlicesConstants.TAG_TARGET_URI, slicePref.getUri());
+                b.putCharSequence(SlicesConstants.TAG_SCREEN_TITLE, slicePref.getTitle());
+            }
+        }
         final Fragment f =
                 Fragment.instantiate(getActivity(), pref.getFragment(), pref.getExtras());
         f.setTargetFragment(caller, 0);
@@ -45,6 +61,20 @@ public abstract class BaseSettingsFragment extends LeanbackSettingsFragment {
             startImmersiveFragment(f);
         }
         return true;
+    }
+
+    private boolean isUriValid(String uri) {
+        if (uri == null) {
+            return false;
+        }
+        ContentProviderClient client =
+                getContext().getContentResolver().acquireContentProviderClient(Uri.parse(uri));
+        if (client != null) {
+            client.close();
+            return true;
+        } else {
+            return false;
+        }
     }
 
     @Override

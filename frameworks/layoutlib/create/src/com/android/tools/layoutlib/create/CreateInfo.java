@@ -153,7 +153,6 @@ public final class CreateInfo implements ICreateInfo {
         "android.content.res.Resources$Theme#obtainStyledAttributes",
         "android.content.res.Resources$Theme#resolveAttribute",
         "android.content.res.Resources$Theme#resolveAttributes",
-        "android.content.res.AssetManager#open",
         "android.content.res.AssetManager#nativeCreate",
         "android.content.res.AssetManager#nativeDestroy",
         "android.content.res.AssetManager#nativeThemeCreate",
@@ -168,9 +167,11 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.drawable.AnimatedVectorDrawable$VectorDrawableAnimatorRT#onDraw",
         "android.graphics.drawable.GradientDrawable#buildRing",
         "android.graphics.drawable.AdaptiveIconDrawable#<init>",
+        "android.graphics.drawable.DrawableInflater#inflateFromClass",
         "android.graphics.FontFamily#addFont",
         "android.graphics.Typeface#create",
         "android.graphics.Typeface$Builder#createAssetUid",
+        "android.graphics.fonts.Font$Builder#createBuffer",
         "android.graphics.fonts.SystemFonts#buildSystemFallback",
         "android.os.Binder#getNativeBBinderHolder",
         "android.os.Binder#getNativeFinalizer",
@@ -189,6 +190,7 @@ public final class CreateInfo implements ICreateInfo {
         "android.view.LayoutInflater#rInflate",
         "android.view.LayoutInflater#parseInclude",
         "android.view.View#draw",
+        "android.view.View#dispatchDetachedFromWindow",
         "android.view.View#layout",
         "android.view.View#measure",
         "android.view.View#getWindowToken",
@@ -287,6 +289,7 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.SumPathEffect",
         "android.graphics.SweepGradient",
         "android.graphics.Typeface",
+        "android.graphics.animation.NativeInterpolatorFactory",
         "android.graphics.drawable.AnimatedVectorDrawable",
         "android.graphics.drawable.VectorDrawable",
         "android.graphics.fonts.Font$Builder",
@@ -299,7 +302,6 @@ public final class CreateInfo implements ICreateInfo {
         "android.util.PathParser",
         "android.view.Display",
         "com.android.internal.util.VirtualRefBasePtr",
-        "com.android.internal.view.animation.NativeInterpolatorFactoryHelper",
         "libcore.icu.ICU",
     };
 
@@ -311,9 +313,9 @@ public final class CreateInfo implements ICreateInfo {
         new String[] {
             "android.os.ServiceManager",                       "android.os._Original_ServiceManager",
             "android.view.textservice.TextServicesManager",    "android.view.textservice._Original_TextServicesManager",
-            "android.util.LruCache",                           "android.util._Original_LruCache",
             "android.view.SurfaceView",                        "android.view._Original_SurfaceView",
             "android.view.accessibility.AccessibilityManager", "android.view.accessibility._Original_AccessibilityManager",
+            "android.view.accessibility.AccessibilityNodeIdManager", "android.view.accessibility._Original_AccessibilityNodeIdManager",
             "android.webkit.WebView",                          "android.webkit._Original_WebView",
             "android.graphics.ImageDecoder",                   "android.graphics._Original_ImageDecoder",
         };
@@ -325,6 +327,7 @@ public final class CreateInfo implements ICreateInfo {
      */
     private final static String[] JAVA_PKG_CLASSES =
         new String[] {
+                "sun.misc.Cleaner",                                "com.android.layoutlib.bridge.libcore.util.Cleaner",
         };
 
     /**
@@ -344,6 +347,7 @@ public final class CreateInfo implements ICreateInfo {
             "android.preference.PreferenceActivity",
             "java.**",
             "org.kxml2.io.KXmlParser",
+            "org.xmlpull.**",
             "sun.**",
         };
 
@@ -358,14 +362,13 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.Typeface#DEFAULT_FAMILY",
         "android.graphics.Typeface#sDynamicTypefaceCache",
         "android.graphics.drawable.AdaptiveIconDrawable#sMask",
+        "android.graphics.drawable.DrawableInflater#mRes",
         "android.animation.PropertyValuesHolder#sSetterPropertyMap",
         "android.animation.PropertyValuesHolder#sGetterPropertyMap",
         "android.animation.PropertyValuesHolder$IntPropertyValuesHolder#sJNISetterPropertyMap",
         "android.animation.PropertyValuesHolder$FloatPropertyValuesHolder#sJNISetterPropertyMap",
         "android.animation.PropertyValuesHolder$MultiFloatValuesHolder#sJNISetterPropertyMap",
         "android.animation.PropertyValuesHolder$MultiIntValuesHolder#sJNISetterPropertyMap",
-        "libcore.util.NativeAllocationRegistry#freeFunction",
-        "libcore.util.NativeAllocationRegistry#size",
     };
 
     /**
@@ -373,8 +376,6 @@ public final class CreateInfo implements ICreateInfo {
      * if possible.
      */
     private final static String[] PROMOTED_CLASSES = new String[] {
-        "libcore.util.NativeAllocationRegistry$CleanerRunner",
-        "libcore.util.NativeAllocationRegistry$CleanerThunk",
     };
 
     /**

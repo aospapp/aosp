@@ -17,9 +17,11 @@
 #define LOG_TAG "power"
 #define ATRACE_TAG ATRACE_TAG_POWER
 
+#include <hardware_legacy/power.h>
+#include <wakelock/wakelock.h>
+
 #include <android-base/logging.h>
 #include <android/system/suspend/1.0/ISystemSuspend.h>
-#include <hardware_legacy/power.h>
 #include <utils/Trace.h>
 
 #include <mutex>
@@ -44,6 +46,7 @@ int acquire_wake_lock(int, const char* id) {
     ATRACE_CALL();
     const auto& suspendService = getSystemSuspendServiceOnce();
     if (!suspendService) {
+        LOG(ERROR) << "ISystemSuspend::getService() failed.";
         return -1;
     }
 
@@ -77,3 +80,34 @@ int release_wake_lock(const char* id) {
     }
     return -1;
 }
+
+namespace android {
+namespace wakelock {
+
+class WakeLock::WakeLockImpl {
+  public:
+    WakeLockImpl(const std::string& name);
+    ~WakeLockImpl();
+
+  private:
+    sp<IWakeLock> mWakeLock;
+};
+
+WakeLock::WakeLock(const std::string& name) : mImpl(std::make_unique<WakeLockImpl>(name)) {}
+
+WakeLock::~WakeLock() = default;
+
+WakeLock::WakeLockImpl::WakeLockImpl(const std::string& name) : mWakeLock(nullptr) {
+    static sp<ISystemSuspend> suspendService = ISystemSuspend::getService();
+    mWakeLock = suspendService->acquireWakeLock(WakeLockType::PARTIAL, name);
+}
+
+WakeLock::WakeLockImpl::~WakeLockImpl() {
+    auto ret = mWakeLock->release();
+    if (!ret.isOk()) {
+        LOG(ERROR) << "IWakeLock::release() call failed: " << ret.description();
+    }
+}
+
+}  // namespace wakelock
+}  // namespace android

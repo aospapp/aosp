@@ -58,6 +58,7 @@ sq{
         bug{"buginezisht"}
         byn{"blinisht"}
         ca{"katalonisht"}
+        ccp{"çakmaisht"}
         ce{"çeçenisht"}
         ceb{"sebuanisht"}
         cgg{"çigisht"}
@@ -413,6 +414,10 @@ sq{
         zxx{"nuk ka përmbajtje gjuhësore"}
         zza{"zazaisht"}
     }
+    Languages%menu{
+        yue{"kinezishte kantoneze"}
+        zh{"kinezishte mandarine"}
+    }
     Languages%short{
         az{"azerisht"}
         en_GB{"anglishte e Mbretërisë së Bashkuar"}
@@ -557,7 +562,7 @@ sq{
             tibt{"shifra tibetiane"}
         }
     }
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — Të gjitha"}
         category-list{"{0}: {1}"}

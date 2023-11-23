@@ -11,10 +11,12 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.systemui.statusbar.policy;
+
+import android.annotation.NonNull;
 
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
 
@@ -45,5 +47,5 @@ public interface OnHeadsUpChangedListener {
      * @param entry     the entry of the changed notification
      * @param isHeadsUp whether the notification is now a headsUp notification
      */
-    default void onHeadsUpStateChanged(NotificationEntry entry, boolean isHeadsUp) {}
+    default void onHeadsUpStateChanged(@NonNull NotificationEntry entry, boolean isHeadsUp) {}
 }

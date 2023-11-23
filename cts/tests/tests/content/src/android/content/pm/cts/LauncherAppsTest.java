@@ -17,8 +17,10 @@
 package android.content.pm.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.app.PendingIntent;
 import android.app.usage.UsageStatsManager;
@@ -26,12 +28,10 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.LauncherApps;
+import android.content.pm.PackageManager;
 import android.os.Process;
 import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
-
-import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -45,7 +45,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
-/** Tests in this class are ignored until b/126946674 is fixed. */
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+/** Some tests in this class are ignored until b/126946674 is fixed. */
 @RunWith(AndroidJUnit4.class)
 public class LauncherAppsTest {
 
@@ -57,6 +60,13 @@ public class LauncherAppsTest {
 
     private static final String PACKAGE_NAME = "android.content.cts";
     private static final String FULL_CLASS_NAME = "android.content.pm.cts.LauncherMockActivity";
+    private static final ComponentName FULL_COMPONENT_NAME = new ComponentName(
+            PACKAGE_NAME, FULL_CLASS_NAME);
+
+    private static final String FULL_DISABLED_CLASS_NAME =
+            "android.content.pm.cts.MockActivity_Disabled";
+    private static final ComponentName FULL_DISABLED_COMPONENT_NAME = new ComponentName(
+            PACKAGE_NAME, FULL_DISABLED_CLASS_NAME);
 
     private static final int DEFAULT_OBSERVER_ID = 0;
     private static final String SETTINGS_PACKAGE = "com.android.settings";
@@ -153,6 +163,50 @@ public class LauncherAppsTest {
                 SETTINGS_PACKAGE, USER_HANDLE);
         assertNotNull("An observer with an exhaused time limit was not registered.", limit);
         assertEquals("Usage remaining expected to be 0.", 0, limit.getUsageRemaining());
+    }
+
+
+    @Test
+    @AppModeFull(reason = "Need special permission")
+    public void testIsActivityEnabled() {
+        assertTrue(mLauncherApps.isActivityEnabled(FULL_COMPONENT_NAME, USER_HANDLE));
+        assertFalse(mLauncherApps.isActivityEnabled(FULL_DISABLED_COMPONENT_NAME, USER_HANDLE));
+
+        mContext.getPackageManager().setComponentEnabledSetting(
+                FULL_COMPONENT_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+        mContext.getPackageManager().setComponentEnabledSetting(
+                FULL_DISABLED_COMPONENT_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+
+        assertFalse(mLauncherApps.isActivityEnabled(FULL_COMPONENT_NAME, USER_HANDLE));
+        assertFalse(mLauncherApps.isActivityEnabled(FULL_DISABLED_COMPONENT_NAME, USER_HANDLE));
+
+        mContext.getPackageManager().setComponentEnabledSetting(
+                FULL_COMPONENT_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP);
+        mContext.getPackageManager().setComponentEnabledSetting(
+                FULL_DISABLED_COMPONENT_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP);
+
+        assertTrue(mLauncherApps.isActivityEnabled(FULL_COMPONENT_NAME, USER_HANDLE));
+        assertTrue(mLauncherApps.isActivityEnabled(FULL_DISABLED_COMPONENT_NAME, USER_HANDLE));
+
+        mContext.getPackageManager().setComponentEnabledSetting(
+                FULL_COMPONENT_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                PackageManager.DONT_KILL_APP);
+        mContext.getPackageManager().setComponentEnabledSetting(
+                FULL_DISABLED_COMPONENT_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                PackageManager.DONT_KILL_APP);
+
+        assertTrue(mLauncherApps.isActivityEnabled(FULL_COMPONENT_NAME, USER_HANDLE));
+        assertFalse(mLauncherApps.isActivityEnabled(FULL_DISABLED_COMPONENT_NAME, USER_HANDLE));
     }
 
     @After

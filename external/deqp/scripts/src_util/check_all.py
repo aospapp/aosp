@@ -24,6 +24,7 @@ import	sys
 from	argparse				import	ArgumentParser
 from	common					import	getChangedFiles, getAllProjectFiles
 from	check_include_guards	import	checkIncludeGuards
+from	check_encoding			import	checkEncoding
 from	check_whitespace		import	checkWhitespace
 from	check_license			import	checkLicense
 from	check_boms				import	checkBOMs
@@ -42,8 +43,12 @@ if __name__ == "__main__":
 	else:
 		files = getAllProjectFiles()
 
+	# filter out original Vulkan header sources
+	files = [f for f in files if "vulkancts/scripts/src" not in f.replace("\\", "/")]
+
 	error = not all([
 		checkBOMs(files, args.fixBOMs),
+		checkEncoding(files),
 		checkWhitespace(files),
 		checkIncludeGuards(files),
 		checkLicense(files),
@@ -52,7 +57,7 @@ if __name__ == "__main__":
 		])
 
 	if	error:
-		print	"One or more checks failed"
+		print("One or more checks failed")
 		sys.exit(1)
 	if	not	args.onlyErrors:
-		print	"All checks passed"
+		print("All checks passed")

@@ -19,16 +19,20 @@ package com.android.tradefed.command.remote;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.IDevice.DeviceState;
 import com.android.tradefed.device.DeviceAllocationState;
+import com.android.tradefed.device.TestDeviceState;
 
-/**
- * A class containing information describing a device under test.
- */
-public class DeviceDescriptor {
+import java.io.Serializable;
+
+/** A class containing information describing a device under test. */
+public class DeviceDescriptor implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private final String mSerial;
+    private final String mDisplaySerial;
     private final boolean mIsStubDevice;
-    private final DeviceState mDeviceState;
+    private final DeviceState mDeviceState; // Ddmlib updated state.
     private final DeviceAllocationState mState;
+    private final TestDeviceState mTestDeviceState; // Tradefed updated state.
     private final String mProduct;
     private final String mProductVariant;
     private final String mSdkVersion;
@@ -58,9 +62,11 @@ public class DeviceDescriptor {
             String simOperator) {
         this(
                 serial,
+                null,
                 isStubDevice,
                 null,
                 state,
+                null,
                 product,
                 productVariant,
                 sdkVersion,
@@ -90,9 +96,11 @@ public class DeviceDescriptor {
             IDevice idevice) {
         this(
                 serial,
+                null,
                 isStubDevice,
                 null,
                 state,
+                null,
                 product,
                 productVariant,
                 sdkVersion,
@@ -123,9 +131,11 @@ public class DeviceDescriptor {
             IDevice idevice) {
         this(
                 serial,
+                null,
                 isStubDevice,
                 deviceState,
                 state,
+                null,
                 product,
                 productVariant,
                 sdkVersion,
@@ -141,9 +151,11 @@ public class DeviceDescriptor {
 
     public DeviceDescriptor(
             String serial,
+            String displaySerial,
             boolean isStubDevice,
             DeviceState deviceState,
             DeviceAllocationState state,
+            TestDeviceState testDeviceState,
             String product,
             String productVariant,
             String sdkVersion,
@@ -156,8 +168,10 @@ public class DeviceDescriptor {
             boolean isTemporary,
             IDevice idevice) {
         mSerial = serial;
+        mDisplaySerial = displaySerial;
         mIsStubDevice = isStubDevice;
         mDeviceState = deviceState;
+        mTestDeviceState = testDeviceState;
         mState = state;
         mProduct = product;
         mProductVariant = productVariant;
@@ -176,9 +190,33 @@ public class DeviceDescriptor {
     public DeviceDescriptor(DeviceDescriptor d, DeviceAllocationState state) {
         this(
                 d.getSerial(),
+                d.getDisplaySerial(),
                 d.isStubDevice(),
                 d.getDeviceState(),
                 state,
+                d.getTestDeviceState(),
+                d.getProduct(),
+                d.getProductVariant(),
+                d.getSdkVersion(),
+                d.getBuildId(),
+                d.getBatteryLevel(),
+                d.getDeviceClass(),
+                d.getMacAddress(),
+                d.getSimState(),
+                d.getSimOperator(),
+                d.isTemporary(),
+                d.getIDevice());
+    }
+
+    /** Used for easy state updating of serial for placeholder devices. */
+    public DeviceDescriptor(DeviceDescriptor d, String serial, String displaySerial) {
+        this(
+                serial,
+                displaySerial,
+                d.isStubDevice(),
+                d.getDeviceState(),
+                d.getState(),
+                d.getTestDeviceState(),
                 d.getProduct(),
                 d.getProductVariant(),
                 d.getSdkVersion(),
@@ -196,6 +234,10 @@ public class DeviceDescriptor {
         return mSerial;
     }
 
+    public String getDisplaySerial() {
+        return mDisplaySerial;
+    }
+
     public boolean isStubDevice() {
         return mIsStubDevice;
     }
@@ -206,6 +248,10 @@ public class DeviceDescriptor {
 
     public DeviceAllocationState getState() {
         return mState;
+    }
+
+    public TestDeviceState getTestDeviceState() {
+        return mTestDeviceState;
     }
 
     public String getProduct() {

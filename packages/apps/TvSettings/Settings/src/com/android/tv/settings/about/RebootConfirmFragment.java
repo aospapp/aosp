@@ -60,14 +60,14 @@ public class RebootConfirmFragment extends GuidedStepFragment {
             return new GuidanceStylist.Guidance(
                     getString(R.string.reboot_safemode_confirm),
                     getString(R.string.reboot_safemode_desc),
-                    getString(R.string.about_preference),
+                    null,
                     getActivity().getDrawable(R.drawable.ic_warning_132dp)
             );
         } else {
             return new GuidanceStylist.Guidance(
                     getString(R.string.system_reboot_confirm),
                     null,
-                    getString(R.string.about_preference),
+                    null,
                     getActivity().getDrawable(R.drawable.ic_warning_132dp)
             );
         }

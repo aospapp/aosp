@@ -16,6 +16,8 @@
 
 import unittest
 
+from mobly.records import ControllerInfoRecord
+
 from acts import records
 from acts import signals
 
@@ -169,17 +171,19 @@ class ActsRecordsTest(unittest.TestCase):
         record1.test_pass(s)
         tr1 = records.TestResult()
         tr1.add_record(record1)
-        tr1.add_controller_info("MockDevice", ["magicA", "magicB"])
+        device1 = ControllerInfoRecord('TestClass', 'MockDevice', 'device1')
+        tr1.add_controller_info_record(device1)
         record2 = records.TestResultRecord(self.tn)
         record2.test_begin()
         s = signals.TestPass(self.details, self.json_extra)
         record2.test_pass(s)
         tr2 = records.TestResult()
         tr2.add_record(record2)
-        tr2.add_controller_info("MockDevice", ["magicC"])
+        device2 = ControllerInfoRecord('TestClass', 'MockDevice', 'device2')
+        tr2.add_controller_info_record(device2)
         tr2 += tr1
         self.assertTrue(tr2.passed, [tr1, tr2])
-        self.assertTrue(tr2.controller_info, {"MockDevice": ["magicC"]})
+        self.assertTrue(tr2.controller_info, [device1, device2])
 
     def test_result_add_operator_type_mismatch(self):
         record1 = records.TestResultRecord(self.tn)

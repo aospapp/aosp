@@ -20,13 +20,13 @@ import android.net.wifi.AnqpInformationElement;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiSsid;
 
+import com.android.server.wifi.hotspot2.NetworkDetail;
+import com.android.server.wifi.hotspot2.Utils;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.Constants;
 import com.android.server.wifi.hotspot2.anqp.HSFriendlyNameElement;
 import com.android.server.wifi.hotspot2.anqp.RawByteElement;
 import com.android.server.wifi.hotspot2.anqp.VenueNameElement;
-import com.android.server.wifi.hotspot2.NetworkDetail;
-import com.android.server.wifi.hotspot2.Utils;
 
 import java.util.List;
 import java.util.Map;
@@ -38,10 +38,12 @@ public class ScanDetail {
     private final ScanResult mScanResult;
     private volatile NetworkDetail mNetworkDetail;
     private long mSeen = 0;
+    private byte[] mInformationElementRawData;
 
     public ScanDetail(NetworkDetail networkDetail, WifiSsid wifiSsid, String bssid,
             String caps, int level, int frequency, long tsf,
-            ScanResult.InformationElement[] informationElements, List<String> anqpLines) {
+            ScanResult.InformationElement[] informationElements, List<String> anqpLines,
+            byte[] informationElementRawData) {
         mNetworkDetail = networkDetail;
         mScanResult = new ScanResult(wifiSsid, bssid, networkDetail.getHESSID(),
                 networkDetail.getAnqpDomainID(), networkDetail.getOsuProviders(),
@@ -56,9 +58,10 @@ public class ScanDetail {
         if (networkDetail.is80211McResponderSupport()) {
             mScanResult.setFlag(ScanResult.FLAG_80211mc_RESPONDER);
         }
-        if (networkDetail.isInterworking()) {
+        if (networkDetail.isInterworking() && networkDetail.getHSRelease() != null) {
             mScanResult.setFlag(ScanResult.FLAG_PASSPOINT_NETWORK);
         }
+        mInformationElementRawData = informationElementRawData;
     }
 
     public ScanDetail(WifiSsid wifiSsid, String bssid, String caps, int level, int frequency,
@@ -158,6 +161,13 @@ public class ScanDetail {
         mSeen = System.currentTimeMillis();
         mScanResult.seen = mSeen;
         return mSeen;
+    }
+
+    /**
+     * Return the network information element raw data.
+     */
+    public byte[] getInformationElementRawData() {
+        return mInformationElementRawData;
     }
 
     @Override

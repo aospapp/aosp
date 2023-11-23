@@ -25,25 +25,23 @@
 
 package sun.security.provider.certpath;
 
-import java.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X509CertPath extends java.security.cert.CertPath {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertPath(java.util.List<? extends java.security.cert.Certificate> certs)
             throws java.security.cert.CertificateException {
         super(null);
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertPath(java.io.InputStream is) throws java.security.cert.CertificateException {
         super(null);
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CertPath(java.io.InputStream is, java.lang.String encoding)
             throws java.security.cert.CertificateException {
         super(null);
@@ -81,7 +79,7 @@ public class X509CertPath extends java.security.cert.CertPath {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static java.util.Iterator<java.lang.String> getEncodingsStatic() {
         throw new RuntimeException("Stub!");
     }
@@ -100,7 +98,7 @@ public class X509CertPath extends java.security.cert.CertPath {
 
     private static final java.lang.String PKIPATH_ENCODING = "PkiPath";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private java.util.List<java.security.cert.X509Certificate> certs;
 
     private static final java.util.Collection<java.lang.String> encodingList;

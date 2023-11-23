@@ -24,7 +24,7 @@ class firmware_PDResetSoft(FirmwareTest):
 
 
     def _test_soft_reset(self, port_pair):
-        """Tests soft reset initated by both Plankton and the DUT
+        """Tests soft reset initated by both PDTester and the DUT
 
         @param port_pair: list of 2 connected PD devices
         """
@@ -37,12 +37,13 @@ class firmware_PDResetSoft(FirmwareTest):
                     logging.warn('Device cant soft reset ... skipping')
                     break
 
-    def initialize(self, host, cmdline_args):
+    def initialize(self, host, cmdline_args, flip_cc=False):
         super(firmware_PDResetSoft, self).initialize(host, cmdline_args)
+        self.setup_pdtester(flip_cc)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         # Turn off console prints, except for USBPD.
-        self.usbpd.send_command('chan 0x08000000')
+        self.usbpd.enable_console_channel('usbpd')
 
     def cleanup(self):
         self.usbpd.send_command('chan 0xffffffff')
@@ -61,7 +62,7 @@ class firmware_PDResetSoft(FirmwareTest):
 
         """
         # Create list of available UART consoles
-        consoles = [self.usbpd, self.plankton]
+        consoles = [self.usbpd, self.pdtester]
         port_partner = pd_device.PDPortPartner(consoles)
         # Identify a valid test port pair
         port_pair = port_partner.identify_pd_devices()
@@ -70,13 +71,28 @@ class firmware_PDResetSoft(FirmwareTest):
 
         # Test soft resets initiated by both ends
         self._test_soft_reset(port_pair)
-        # Attempt to swap power roles
-        try:
-            if port_pair[0].pr_swap() == False:
-                logging.warn('Power role not swapped, ending test')
-                return
-        except NotImplementedError:
-            logging.warn('device cant send power role swap command, end test')
-            return
-        # Power role has been swapped, retest.
-        self._test_soft_reset(port_pair)
+
+        # Swap power roles (if possible). Note the pr swap is attempted
+        # for both devices in the connection. This ensures that a device
+        # such as Plankton, which is dualrole capable, but has this mode
+        # disabled by default, won't prevent the device pair from role swapping.
+        swappable_dev = None;
+        for dev in port_pair:
+            try:
+                if dev.pr_swap():
+                    swappable_dev = dev
+                    break
+            except NotImplementedError:
+                logging.warn('Power role swap not supported on the device')
+
+        if swappable_dev:
+            try:
+                # Power role has been swapped, retest.
+                self._test_soft_reset(port_pair)
+            finally:
+                # Swap power role again, back to the original
+                if not swappable_dev.pr_swap():
+                    logging.error('Failed to swap power role to the original')
+        else:
+            logging.warn('Device pair could not perform power role swap, '
+                         'ending test')

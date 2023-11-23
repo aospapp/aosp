@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -25,6 +26,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"android/soong/makedeps"
 )
 
 var (
@@ -33,6 +36,7 @@ var (
 	outputRoot    string
 	keepOutDir    bool
 	depfileOut    string
+	inputHash     string
 )
 
 func init() {
@@ -48,6 +52,8 @@ func init() {
 	flag.StringVar(&depfileOut, "depfile-out", "",
 		"file path of the depfile to generate. This value will replace '__SBOX_DEPFILE__' in the command and will be treated as an output but won't be added to __SBOX_OUT_FILES__")
 
+	flag.StringVar(&inputHash, "input-hash", "",
+		"This option is ignored. Typical usage is to supply a hash of the list of input names so that the module will be rebuilt if the list (and thus the hash) changes.")
 }
 
 func usageViolation(violation string) {
@@ -56,7 +62,7 @@ func usageViolation(violation string) {
 	}
 
 	fmt.Fprintf(os.Stderr,
-		"Usage: sbox -c <commandToRun> --sandbox-path <sandboxPath> --output-root <outputRoot> --overwrite [--depfile-out depFile] <outputFile> [<outputFile>...]\n"+
+		"Usage: sbox -c <commandToRun> --sandbox-path <sandboxPath> --output-root <outputRoot> [--depfile-out depFile] [--input-hash hash] <outputFile> [<outputFile>...]\n"+
 			"\n"+
 			"Deletes <outputRoot>,"+
 			"runs <commandToRun>,"+
@@ -152,9 +158,6 @@ func run() error {
 			return err
 		}
 		allOutputs = append(allOutputs, sandboxedDepfile)
-		if !strings.Contains(rawCommand, "__SBOX_DEPFILE__") {
-			return fmt.Errorf("the --depfile-out argument only makes sense if the command contains the text __SBOX_DEPFILE__")
-		}
 		rawCommand = strings.Replace(rawCommand, "__SBOX_DEPFILE__", filepath.Join(tempDir, sandboxedDepfile), -1)
 
 	}
@@ -276,6 +279,26 @@ func run() error {
 		}
 
 		err = os.Rename(tempPath, destPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Rewrite the depfile so that it doesn't include the (randomized) sandbox directory
+	if depfileOut != "" {
+		in, err := ioutil.ReadFile(depfileOut)
+		if err != nil {
+			return err
+		}
+
+		deps, err := makedeps.Parse(depfileOut, bytes.NewBuffer(in))
+		if err != nil {
+			return err
+		}
+
+		deps.Output = "outputfile"
+
+		err = ioutil.WriteFile(depfileOut, deps.Print(), 0666)
 		if err != nil {
 			return err
 		}

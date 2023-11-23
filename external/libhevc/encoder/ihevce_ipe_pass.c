@@ -201,7 +201,6 @@ void ihevce_ipe_recompute_lambda_from_min_8x8_act_in_ctb(
     ihevce_ipe_ctxt_t *ps_ctxt, ihevce_ed_ctb_l1_t *ps_ed_ctb_l1)
 {
     WORD32 i4_cu_qp = 0;
-    WORD32 i4_mod_factor_num;
 #if MODULATE_LAMDA_WHEN_SPATIAL_MOD_ON
     WORD32 i4_activity;
 #endif
@@ -209,28 +208,14 @@ void ihevce_ipe_recompute_lambda_from_min_8x8_act_in_ctb(
     WORD32 i4_curr_satd;
     long double ld_avg_satd;
 
-#if MODULATE_LAMDA_WHEN_SPATIAL_MOD_ON
-    WORD32 i4_mod_factor_denom = QP_MOD_FACTOR_DEN;
-#endif
-
-    if(ISLICE == ps_ctxt->i4_slice_type)
-    {
-        i4_mod_factor_num = INTRA_QP_MOD_FACTOR_NUM;
-    }
-    else
-    {
-        i4_mod_factor_num = INTER_QP_MOD_FACTOR_NUM;
-    }
-
 #if LAMDA_BASED_ON_QUANT
     i4_curr_satd = ps_ed_ctb_l1->i4_32x32_satd[0][2];
     i8_avg_satd = ps_ctxt->i8_curr_frame_32x32_avg_act[2];
 #else
     i4_curr_satd = ps_ed_ctb_l1->i4_32x32_satd[0][3];
-
     ld_avg_satd = 2.0 + ps_ctxt->ld_curr_frame_16x16_log_avg[0];
-
 #endif
+
     if(ps_ctxt->i4_l0ipe_qp_mod)
     {
 #if MODULATE_LAMDA_WHEN_SPATIAL_MOD_ON
@@ -956,13 +941,7 @@ void ihevce_ipe_process_row(
 
         if(ps_ctxt->u1_use_lambda_derived_from_min_8x8_act_in_ctb)
         {
-            /*HACK : MAMATHA, This function assumes that data is accumalated
-            for all probable CU-TU combinations for INcomplete CTB, which is currently not the case,
-            hence not recomputing lamda for the incomplete CTB */
-            if((ps_ctb_node->u1_width == u1_ctb_size) && (ps_ctb_node->u1_height == u1_ctb_size))
-            {
-                ihevce_ipe_recompute_lambda_from_min_8x8_act_in_ctb(ps_ctxt, ps_ed_ctb_l1);
-            }
+            ihevce_ipe_recompute_lambda_from_min_8x8_act_in_ctb(ps_ctxt, ps_ed_ctb_l1);
         }
 
         ihevce_ipe_process_ctb(
@@ -1449,7 +1428,6 @@ void ihevce_populate_ipe_ol_cu_lambda_prms(
 *
 *****************************************************************************
 */
-#define MAX_64BIT_VAL 0x7fffffffffffffff
 void ihevce_populate_ipe_frame_init(
     void *pv_ctxt,
     ihevce_static_cfg_params_t *ps_stat_prms,

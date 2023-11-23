@@ -19,9 +19,9 @@ hu{
         "[A Á B C {CS} D {DZ} {DZS} E É F G {GY} H I Í J K L {LY} M N {NY} O Ó Ö Ő P "
         "Q R S {SZ} T {TY} U Ú Ü Ű V W X Y Z {ZS}]"
     }
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- – , ; \\: ! ? . … ' ’ \u0022 ” „ « » ( ) \\[ \\] \\{ \\} ⟨ ⟩ § @ * / "
+        "[\\- ‑ – , ; \\: ! ? . … ' ’ \u0022 ” „ « » ( ) \\[ \\] \\{ \\} ⟨ ⟩ § @ * / "
         "\\& # ~ ⁒]"
     }
     MoreInformation{"?"}
@@ -220,10 +220,10 @@ hu{
                 other{"A kosár tartalma: {0} X. Megveszi őket?"}
             }
         }
-        minimumGroupingDigits{"4"}
+        minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -541,6 +541,9 @@ hu{
                 yyyyQQQQ{"G y. QQQQ"}
             }
             intervalFormats{
+                Bhm{
+                    m{"h:mm – h:mm B"}
+                }
                 H{
                     H{"H–H"}
                 }
@@ -693,8 +696,8 @@ hu{
                 MMM{"LLL"}
                 MMMEd{"MMM d., E"}
                 MMMMW{
-                    one{"MMM W. 'hete'"}
-                    other{"MMM W. 'hete'"}
+                    one{"MMMM W. 'hete'"}
+                    other{"MMMM W. 'hete'"}
                 }
                 MMMMd{"MMMM d."}
                 MMMd{"MMM d."}
@@ -1712,7 +1715,7 @@ hu{
             }
         }
         hour-narrow{
-            dn{"óra"}
+            dn{"ó"}
             relativeTime{
                 future{
                     one{"{0} óra múlva"}
@@ -1754,7 +1757,7 @@ hu{
             }
         }
         minute-narrow{
-            dn{"perc"}
+            dn{"p"}
             relativeTime{
                 future{
                     one{"{0} perc múlva"}
@@ -2006,7 +2009,7 @@ hu{
             }
         }
         second-narrow{
-            dn{"másodperc"}
+            dn{"mp"}
             relativeTime{
                 future{
                     one{"{0} másodperc múlva"}
@@ -2399,8 +2402,6 @@ hu{
         standard-short{
             2{"{0} és {1}"}
             end{"{0} és {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         unit{
             2{"{0} és {1}"}

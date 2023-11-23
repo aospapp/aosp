@@ -22,6 +22,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.wifi.Clock;
 import com.android.server.wifi.hotspot2.anqp.Constants;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -72,12 +73,12 @@ public class ANQPRequestManager {
             Constants.ANQPElementType.ANQPIPAddrAvailability,
             Constants.ANQPElementType.ANQPNAIRealm,
             Constants.ANQPElementType.ANQP3GPPNetwork,
-            Constants.ANQPElementType.ANQPDomName);
-
-    private static final List<Constants.ANQPElementType> R2_ANQP_BASE_SET = Arrays.asList(
+            Constants.ANQPElementType.ANQPDomName,
             Constants.ANQPElementType.HSFriendlyName,
             Constants.ANQPElementType.HSWANMetrics,
-            Constants.ANQPElementType.HSConnCapability,
+            Constants.ANQPElementType.HSConnCapability);
+
+    private static final List<Constants.ANQPElementType> R2_ANQP_BASE_SET = Arrays.asList(
             Constants.ANQPElementType.HSOSUProviders);
 
     /**
@@ -112,19 +113,19 @@ public class ANQPRequestManager {
      * @param anqpNetworkKey The unique network key associated with this request
      * @param rcOIs Flag indicating the inclusion of roaming consortium OIs. When set to true,
      *              Roaming Consortium ANQP element will be requested
-     * @param hsReleaseR2 Flag indicating the support of Hotspot 2.0 Release 2. When set to true,
+     * @param hsReleaseVer Indicates Hotspot 2.0 Release version. When set to R2 or higher,
      *              the Release 2 ANQP elements {@link #R2_ANQP_BASE_SET} will be requested
      * @return true if a request was sent successfully
      */
     public boolean requestANQPElements(long bssid, ANQPNetworkKey anqpNetworkKey, boolean rcOIs,
-            boolean hsReleaseR2) {
+            NetworkDetail.HSRelease hsReleaseVer) {
         // Check if we are allow to send the request now.
         if (!canSendRequestNow(bssid)) {
             return false;
         }
 
         // No need to hold off future requests for send failures.
-        if (!mPasspointHandler.requestANQP(bssid, getRequestElementIDs(rcOIs, hsReleaseR2))) {
+        if (!mPasspointHandler.requestANQP(bssid, getRequestElementIDs(rcOIs, hsReleaseVer))) {
             return false;
         }
 
@@ -161,8 +162,9 @@ public class ANQPRequestManager {
         long currentTime = mClock.getElapsedSinceBootMillis();
         HoldOffInfo info = mHoldOffInfo.get(bssid);
         if (info != null && info.holdOffExpirationTime > currentTime) {
-            Log.d(TAG, "Not allowed to send ANQP request to " + bssid + " for another "
-                    + (info.holdOffExpirationTime - currentTime) / 1000 + " seconds");
+            Log.d(TAG, "Not allowed to send ANQP request to " + Utils.macToString(bssid)
+                    + " for another " + (info.holdOffExpirationTime - currentTime) / 1000
+                    + " seconds");
             return false;
         }
 
@@ -192,20 +194,52 @@ public class ANQPRequestManager {
      * and the ANQP OI count indicated in the Information Element.
      *
      * @param rcOIs Flag indicating the inclusion of roaming consortium OIs
-     * @param hsReleaseR2 Flag indicating support of Hotspot 2.0 Release 2
+     * @param hsRelease Hotspot 2.0 Release version of the AP
      * @return List of ANQP Element ID
      */
     private static List<Constants.ANQPElementType> getRequestElementIDs(boolean rcOIs,
-            boolean hsReleaseR2) {
+            NetworkDetail.HSRelease hsRelease) {
         List<Constants.ANQPElementType> requestList = new ArrayList<>();
         requestList.addAll(R1_ANQP_BASE_SET);
         if (rcOIs) {
             requestList.add(Constants.ANQPElementType.ANQPRoamingConsortium);
         }
 
-        if (hsReleaseR2) {
-            requestList.addAll(R2_ANQP_BASE_SET);
+        if (hsRelease == NetworkDetail.HSRelease.R1) {
+            // Return R1 ANQP request list
+            return requestList;
         }
+
+        requestList.addAll(R2_ANQP_BASE_SET);
+
+        // Return R2+ ANQP request list. This also includes the Unknown version, which may imply
+        // a future version.
         return requestList;
+    }
+
+    /**
+     * Dump the current state of ANQPRequestManager to the provided output stream.
+     *
+     * @param pw The output stream to write to
+     */
+    public void dump(PrintWriter pw) {
+        pw.println("ANQPRequestManager - Begin ---");
+        for (Map.Entry<Long, HoldOffInfo> holdOffInfo : mHoldOffInfo.entrySet()) {
+            long bssid = holdOffInfo.getKey();
+            pw.println("For BBSID: " + Utils.macToString(bssid));
+            pw.println("holdOffCount: " + holdOffInfo.getValue().holdOffCount);
+            pw.println("Not allowed to send ANQP request for another "
+                    + (holdOffInfo.getValue().holdOffExpirationTime
+                    - mClock.getElapsedSinceBootMillis()) / 1000 + " seconds");
+        }
+        pw.println("ANQPRequestManager - End ---");
+    }
+
+    /**
+     * Clear all pending ANQP requests
+     */
+    public void clear() {
+        mPendingQueries.clear();
+        mHoldOffInfo.clear();
     }
 }

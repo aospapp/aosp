@@ -26,16 +26,20 @@ import android.database.MatrixCursor;
 import android.database.MatrixCursor.RowBuilder;
 import android.graphics.Point;
 import android.net.Uri;
-import android.os.*;
+import android.os.Bundle;
+import android.os.CancellationSignal;
+import android.os.FileUtils;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
-import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
-import android.os.FileUtils;
+import androidx.annotation.VisibleForTesting;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -183,7 +187,23 @@ public class StubProvider extends DocumentsProvider {
     public boolean isChildDocument(String parentDocId, String docId) {
         final StubDocument parentDocument = mStorage.get(parentDocId);
         final StubDocument childDocument = mStorage.get(docId);
-        return FileUtils.contains(parentDocument.file, childDocument.file);
+
+        if (parentDocument.file == null || childDocument.file == null) {
+            return false;
+        }
+
+        return contains(
+                parentDocument.file.getAbsolutePath(), childDocument.file.getAbsolutePath());
+    }
+
+    private static boolean contains(String dirPath, String filePath) {
+        if (dirPath.equals(filePath)) {
+            return true;
+        }
+        if (!dirPath.endsWith("/")) {
+            dirPath += "/";
+        }
+        return filePath.startsWith(dirPath);
     }
 
     @Override

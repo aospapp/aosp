@@ -17,6 +17,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.annotation.TestApi;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -26,6 +27,7 @@ import java.lang.annotation.RetentionPolicy;
  * Value type of VehicleProperty
  * @hide
  */
+@TestApi
 public class VehiclePropertyType {
     public static final int STRING          = 0x00100000;
     public static final int BOOLEAN         = 0x00200000;
@@ -50,10 +52,10 @@ public class VehiclePropertyType {
             FLOAT,
             FLOAT_VEC,
             BYTES,
-            /**
+            /*
              * Any combination of scalar or vector types. The exact format must be
              * provided in the description of the property.
-            */
+             */
             MIXED,
             MASK
     })

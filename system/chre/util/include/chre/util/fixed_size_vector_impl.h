@@ -26,112 +26,111 @@
 
 namespace chre {
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 FixedSizeVector<ElementType, kCapacity>::~FixedSizeVector() {
   destroy(data(), size());
 }
 
-template<typename ElementType, size_t kCapacity>
-ElementType& FixedSizeVector<ElementType, kCapacity>::back() {
+template <typename ElementType, size_t kCapacity>
+ElementType &FixedSizeVector<ElementType, kCapacity>::back() {
   CHRE_ASSERT(mSize > 0);
   return data()[mSize - 1];
 }
 
-template<typename ElementType, size_t kCapacity>
-const ElementType& FixedSizeVector<ElementType, kCapacity>::back() const {
+template <typename ElementType, size_t kCapacity>
+const ElementType &FixedSizeVector<ElementType, kCapacity>::back() const {
   CHRE_ASSERT(mSize > 0);
   return data()[mSize - 1];
 }
 
-template<typename ElementType, size_t kCapacity>
-ElementType& FixedSizeVector<ElementType, kCapacity>::front() {
+template <typename ElementType, size_t kCapacity>
+ElementType &FixedSizeVector<ElementType, kCapacity>::front() {
   CHRE_ASSERT(mSize > 0);
   return data()[0];
 }
 
-template<typename ElementType, size_t kCapacity>
-const ElementType& FixedSizeVector<ElementType, kCapacity>::front() const {
+template <typename ElementType, size_t kCapacity>
+const ElementType &FixedSizeVector<ElementType, kCapacity>::front() const {
   CHRE_ASSERT(mSize > 0);
   return data()[0];
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 ElementType *FixedSizeVector<ElementType, kCapacity>::data() {
   return reinterpret_cast<ElementType *>(mData);
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 const ElementType *FixedSizeVector<ElementType, kCapacity>::data() const {
   return reinterpret_cast<const ElementType *>(mData);
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 size_t FixedSizeVector<ElementType, kCapacity>::size() const {
   return mSize;
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 size_t FixedSizeVector<ElementType, kCapacity>::capacity() const {
   return kCapacity;
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 bool FixedSizeVector<ElementType, kCapacity>::empty() const {
   return (mSize == 0);
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 bool FixedSizeVector<ElementType, kCapacity>::full() const {
   return (mSize == kCapacity);
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 void FixedSizeVector<ElementType, kCapacity>::push_back(
-    const ElementType& element) {
+    const ElementType &element) {
   CHRE_ASSERT(!full());
   if (!full()) {
     new (&data()[mSize++]) ElementType(element);
   }
 }
 
-template<typename ElementType, size_t kCapacity>
-template<typename... Args>
-void FixedSizeVector<ElementType, kCapacity>::emplace_back(Args&&... args) {
+template <typename ElementType, size_t kCapacity>
+template <typename... Args>
+void FixedSizeVector<ElementType, kCapacity>::emplace_back(Args &&... args) {
   CHRE_ASSERT(!full());
   if (!full()) {
     new (&data()[mSize++]) ElementType(std::forward<Args>(args)...);
   }
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 void FixedSizeVector<ElementType, kCapacity>::pop_back() {
   CHRE_ASSERT(!empty());
   erase(mSize - 1);
 }
 
-template<typename ElementType, size_t kCapacity>
-ElementType& FixedSizeVector<ElementType, kCapacity>::operator[](
-    size_t index) {
+template <typename ElementType, size_t kCapacity>
+ElementType &FixedSizeVector<ElementType, kCapacity>::operator[](size_t index) {
   CHRE_ASSERT(index < mSize);
-  if (index >= mSize) {
-    index = mSize - 1;
+  if (index >= kCapacity) {
+    index = kCapacity - 1;
   }
 
   return data()[index];
 }
 
-template<typename ElementType, size_t kCapacity>
-const ElementType& FixedSizeVector<ElementType, kCapacity>::operator[](
+template <typename ElementType, size_t kCapacity>
+const ElementType &FixedSizeVector<ElementType, kCapacity>::operator[](
     size_t index) const {
   CHRE_ASSERT(index < mSize);
-  if (index >= mSize) {
-    index = mSize - 1;
+  if (index >= kCapacity) {
+    index = kCapacity - 1;
   }
 
   return data()[index];
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 void FixedSizeVector<ElementType, kCapacity>::erase(size_t index) {
   CHRE_ASSERT(index < mSize);
   if (index < mSize) {
@@ -144,57 +143,57 @@ void FixedSizeVector<ElementType, kCapacity>::erase(size_t index) {
   }
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 void FixedSizeVector<ElementType, kCapacity>::swap(size_t index0,
                                                    size_t index1) {
   CHRE_ASSERT(index0 < mSize && index1 < mSize);
   if (index0 < mSize && index1 < mSize && index0 != index1) {
     typename std::aligned_storage<sizeof(ElementType),
-        alignof(ElementType)>::type tempStorage;
-    ElementType& temp = *reinterpret_cast<ElementType *>(&tempStorage);
+                                  alignof(ElementType)>::type tempStorage;
+    ElementType &temp = *reinterpret_cast<ElementType *>(&tempStorage);
     uninitializedMoveOrCopy(&data()[index0], 1, &temp);
     moveOrCopyAssign(data()[index0], data()[index1]);
     moveOrCopyAssign(data()[index1], temp);
   }
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 typename FixedSizeVector<ElementType, kCapacity>::iterator
-    FixedSizeVector<ElementType, kCapacity>::begin() {
+FixedSizeVector<ElementType, kCapacity>::begin() {
   return data();
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 typename FixedSizeVector<ElementType, kCapacity>::iterator
-    FixedSizeVector<ElementType, kCapacity>::end() {
+FixedSizeVector<ElementType, kCapacity>::end() {
   return (data() + mSize);
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 typename FixedSizeVector<ElementType, kCapacity>::const_iterator
-    FixedSizeVector<ElementType, kCapacity>::begin() const {
+FixedSizeVector<ElementType, kCapacity>::begin() const {
   return cbegin();
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 typename FixedSizeVector<ElementType, kCapacity>::const_iterator
-    FixedSizeVector<ElementType, kCapacity>::end() const {
+FixedSizeVector<ElementType, kCapacity>::end() const {
   return cend();
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 typename FixedSizeVector<ElementType, kCapacity>::const_iterator
-    FixedSizeVector<ElementType, kCapacity>::cbegin() const {
+FixedSizeVector<ElementType, kCapacity>::cbegin() const {
   return data();
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 typename FixedSizeVector<ElementType, kCapacity>::const_iterator
-    FixedSizeVector<ElementType, kCapacity>::cend() const {
+FixedSizeVector<ElementType, kCapacity>::cend() const {
   return (data() + mSize);
 }
 
-template<typename ElementType, size_t kCapacity>
+template <typename ElementType, size_t kCapacity>
 void FixedSizeVector<ElementType, kCapacity>::resize(size_t newSize) {
   CHRE_ASSERT(newSize <= kCapacity);
   if (newSize > kCapacity) {

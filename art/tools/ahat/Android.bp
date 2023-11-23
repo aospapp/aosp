@@ -19,9 +19,6 @@ droiddoc_host {
     ],
     custom_template: "droiddoc-templates-sdk",
     args: "-stubpackages com.android.ahat:com.android.ahat.*",
-    api_tag_name: "AHAT",
-    api_filename: "ahat_api.txt",
-    removed_api_filename: "ahat_removed_api.txt",
     check_api: {
         current: {
             api_file: "etc/ahat_api.txt",
@@ -31,10 +28,34 @@ droiddoc_host {
 }
 
 // --- ahat.jar ----------------
-java_library_host {
+java_binary_host {
     name: "ahat",
+    visibility: [
+        "//libcore/metrictests/memory/host",
+    ],
+    wrapper: "ahat",
     srcs: ["src/main/**/*.java"],
     manifest: "etc/ahat.mf",
     java_resources: ["etc/style.css"],
     javacflags: ["-Xdoclint:all/protected"],
+}
+
+// --- ahat-test-dump.jar --------------
+java_test_helper_library {
+    name: "ahat-test-dump",
+    srcs: ["src/test-dump/**/*.java"],
+    sdk_version: "core_platform",
+    optimize: {
+        obfuscate: true,
+        enabled: true,
+        proguard_flags_files: ["etc/test-dump.pro"],
+    },
+}
+
+// --- ahat-ri-test-dump.jar -------
+java_test_helper_library {
+    host_supported: true,
+    device_supported: false,
+    name: "ahat-ri-test-dump",
+    srcs: ["src/ri-test-dump/**/*.java"],
 }

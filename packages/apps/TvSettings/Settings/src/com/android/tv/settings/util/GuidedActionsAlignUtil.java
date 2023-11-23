@@ -99,6 +99,10 @@ public class GuidedActionsAlignUtil {
                 v.setBackground(null);
                 return new GuidedActionsAlignUtil.SetupViewHolder(v);
             }
+            @Override
+            public int onProvideItemLayoutId() {
+                return R.layout.device_name_input_item;
+            }
         };
     }
 

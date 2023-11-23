@@ -18,7 +18,8 @@ from autotest_lib.client.common_lib import utils
 # Need separate list for client and server test due to how these test work.
 CLIENT_TESTS = [
     ('power_Standby', {
-        'tag' : '36sec', 'sample_hours' : 0.01, 'test_hours' : 0.01}),
+        'tag' : '36sec', 'sample_hours' : 0.01, 'test_hours' : 0.01,
+        'bypass_check' : True}),
     ('power_LoadTest', {
         'tag' : 'fast', 'loop_time' : 180, 'loop_count' : 1,
         'test_low_batt_p' : 6, 'check_network': False, 'ac_ok' : True,
@@ -26,10 +27,10 @@ CLIENT_TESTS = [
     ('power_Idle', {
         'tag' : 'fast', 'warmup_secs' : 2, 'idle_secs' : 10}),
     ('power_VideoPlayback', {
-        'tag' : 'fast', 'secs_per_video' : 2}),
+        'tag' : 'fast', 'secs_per_video' : 10, 'fast' : True }),
     ('power_VideoPlayback', {
         'tag' : 'sw_decoder_fast', 'use_hw_decode' : False,
-        'secs_per_video' : 2}),
+        'secs_per_video' : 10, 'fast' : True }),
     ('power_Display', {
         'tag' : 'fast', 'secs_per_page' : 2}),
     ('power_WebGL', {

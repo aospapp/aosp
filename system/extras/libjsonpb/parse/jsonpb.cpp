@@ -27,7 +27,6 @@ namespace jsonpb {
 
 using google::protobuf::DescriptorPool;
 using google::protobuf::Message;
-using google::protobuf::scoped_ptr;
 using google::protobuf::util::NewTypeResolverForDescriptorPool;
 using google::protobuf::util::TypeResolver;
 
@@ -38,7 +37,7 @@ std::string GetTypeUrl(const Message& message) {
 }
 
 ErrorOr<std::string> MessageToJsonString(const Message& message) {
-    scoped_ptr<TypeResolver> resolver(
+    std::unique_ptr<TypeResolver> resolver(
             NewTypeResolverForDescriptorPool(kTypeUrlPrefix, DescriptorPool::generated_pool()));
 
     google::protobuf::util::JsonOptions options;
@@ -56,7 +55,7 @@ ErrorOr<std::string> MessageToJsonString(const Message& message) {
 
 namespace internal {
 ErrorOr<std::monostate> JsonStringToMessage(const std::string& content, Message* message) {
-    scoped_ptr<TypeResolver> resolver(
+    std::unique_ptr<TypeResolver> resolver(
             NewTypeResolverForDescriptorPool(kTypeUrlPrefix, DescriptorPool::generated_pool()));
 
     std::string binary;

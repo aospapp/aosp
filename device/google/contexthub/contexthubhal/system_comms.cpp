@@ -267,33 +267,33 @@ int SystemComm::MemInfoSession::handleRx(MessageBuf &buf, uint32_t transactionId
         if (mi.sharedSz != NANOHUB_MEM_SZ_UNKNOWN &&
             mi.sharedUse != NANOHUB_MEM_SZ_UNKNOWN)
             ranges.push_back({
-                .type = HUB_MEM_TYPE_MAIN,
                 .total_bytes = mi.sharedSz,
                 .free_bytes = mi.sharedSz - mi.sharedUse,
+                .type = HUB_MEM_TYPE_MAIN,
             });
 
         if (mi.osSz != NANOHUB_MEM_SZ_UNKNOWN &&
             mi.osUse != NANOHUB_MEM_SZ_UNKNOWN)
             ranges.push_back({
-                .type = HUB_MEM_TYPE_OS,
                 .total_bytes = mi.osSz,
                 .free_bytes = mi.osSz - mi.osUse,
+                .type = HUB_MEM_TYPE_OS,
             });
 
         if (mi.eeSz != NANOHUB_MEM_SZ_UNKNOWN &&
             mi.eeUse != NANOHUB_MEM_SZ_UNKNOWN)
             ranges.push_back({
-                .type = HUB_MEM_TYPE_EEDATA,
                 .total_bytes = mi.eeSz,
                 .free_bytes = mi.eeSz - mi.eeUse,
+                .type = HUB_MEM_TYPE_EEDATA,
             });
 
         if (mi.ramSz != NANOHUB_MEM_SZ_UNKNOWN &&
             mi.ramUse != NANOHUB_MEM_SZ_UNKNOWN)
             ranges.push_back({
-                .type = HUB_MEM_TYPE_RAM,
                 .total_bytes = mi.ramSz,
                 .free_bytes = mi.ramSz - mi.ramUse,
+                .type = HUB_MEM_TYPE_RAM,
             });
     }
 

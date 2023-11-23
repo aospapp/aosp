@@ -29,13 +29,13 @@ public class WebViewTestActivity extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        try {
-            super.onCreate(savedInstanceState);
-            mWebView = new WebView(this);
-            setContentView(mWebView);
-        } catch (Exception e) {
-            NullWebViewUtils.determineIfWebViewAvailable(this, e);
-        }
+        super.onCreate(savedInstanceState);
+
+        // Only create the WebView if the device is supposed to have a WebView implementation.
+        if (!NullWebViewUtils.isWebViewAvailable()) return;
+
+        mWebView = new WebView(this);
+        setContentView(mWebView);
     }
 
     public WebView getWebView() {

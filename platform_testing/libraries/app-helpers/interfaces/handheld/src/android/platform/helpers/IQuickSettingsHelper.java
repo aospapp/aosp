@@ -30,13 +30,13 @@ public interface IQuickSettingsHelper extends IAppHelper {
 
     /** Represents a Quick Setting switch that can be toggled ON and OFF during a test. */
     public enum Setting {
-        AIRPLANE("Airplane", 1000),
-        AUTO_ROTATE("Auto-rotate", 1000),
-        BLUETOOTH("Bluetooth", 10000),
-        DO_NOT_DISTURB("Do Not Disturb", 1000),
-        FLASHLIGHT("Flashlight", 1000),
-        NIGHT_LIGHT("Night Light", 1000),
-        WIFI("Wi-Fi", 5000);
+        AIRPLANE("Airplane", 2000),
+        AUTO_ROTATE("Auto-rotate", 2000),
+        BLUETOOTH("Bluetooth", 15000),
+        DO_NOT_DISTURB("Do Not Disturb", 2000),
+        FLASHLIGHT("Flashlight", 5000),
+        NIGHT_LIGHT("Night Light", 2000),
+        WIFI("Wi-Fi", 10000);
 
         private final String mContentDescSubstring;
         private final long mExpectedWait;

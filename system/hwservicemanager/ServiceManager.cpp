@@ -246,12 +246,16 @@ bool ServiceManager::PackageInterfaceMap::removeServiceListener(const wp<IBase>&
 static void tryStartService(const std::string& fqName, const std::string& name) {
     using ::android::base::SetProperty;
 
-    std::thread([=] {
-        bool success = SetProperty("ctl.interface_start", fqName + "/" + name);
+    // The "happy path" here is starting up a service that is configured as a
+    // lazy HAL, but we aren't sure that is the case. If the service doesn't
+    // have an 'interface' entry in its .rc file OR if the service is already
+    // running, then this will be a no-op. So, for instance, if a service is
+    // deadlocked during startup, you will see this message repeatedly.
+    LOG(INFO) << "Since " << fqName << "/" << name
+              << " is not registered, trying to start it as a lazy HAL.";
 
-        if (!success) {
-            LOG(ERROR) << "Failed to set property for starting " << fqName << "/" << name;
-        }
+    std::thread([=] {
+        (void)SetProperty("ctl.interface_start", fqName + "/" + name);
     }).detach();
 }
 
@@ -280,6 +284,12 @@ Return<sp<IBase>> ServiceManager::get(const hidl_string& hidlFqName,
     // Let HidlService know that we handed out a client. If the client drops the service before the
     // next time handleClientCallbacks is called, it will still know that the service had been handed out.
     hidlService->guaranteeClient();
+    forEachExistingService([&] (HidlService *otherService) {
+        if (otherService != hidlService && interfacesEqual(service, otherService->getService())) {
+            otherService->guaranteeClient();
+        }
+        return true;
+    });
 
     // This is executed immediately after the binder driver confirms the transaction. The driver
     // will update the appropriate data structures to reflect the fact that the client now has the
@@ -287,7 +297,7 @@ Return<sp<IBase>> ServiceManager::get(const hidl_string& hidlFqName,
     // time. This will run before anything else can modify the HidlService which is owned by this
     // object, so it will be in the same state that it was when this function returns.
     hardware::addPostCommandTask([hidlService] {
-        hidlService->handleClientCallbacks(false /* isCalledOnInterval */);
+        hidlService->handleClientCallbacks(false /* isCalledOnInterval */, 1 /*knownClientCount*/);
     });
 
     return service;
@@ -301,6 +311,11 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
     }
 
     auto pidcon = getBinderCallingContext();
+
+    if (!mAcl.canAdd(IBase::descriptor, pidcon)) {
+        LOG(ERROR) << "Missing permissions to add IBase";
+        return false;
+    }
 
     auto ret = service->interfaceChain([&](const auto &interfaceChain) {
         addSuccess = addImpl(name, service, interfaceChain, pidcon);
@@ -593,7 +608,10 @@ Return<bool> ServiceManager::registerClientCallback(const hidl_string& hidlFqNam
         return false;
     }
 
-    registered->addClientCallback(cb);
+    // knownClientCount
+    // - one from binder transaction (base here)
+    // - one from hwservicemanager
+    registered->addClientCallback(cb, 2 /*knownClientCount*/);
 
     return true;
 }
@@ -616,7 +634,8 @@ Return<bool> ServiceManager::unregisterClientCallback(const sp<IBase>& server,
 
 void ServiceManager::handleClientCallbacks() {
     forEachServiceEntry([&] (HidlService *service) {
-        service->handleClientCallbacks(true /* isCalledOnInterval */);
+        // hwservicemanager will hold one reference, so knownClientCount is 1.
+        service->handleClientCallbacks(true /* isCalledOnInterval */, 1 /*knownClientCount*/);
         return true;  // continue
     });
 }
@@ -679,14 +698,12 @@ Return<bool> ServiceManager::tryUnregister(const hidl_string& hidlFqName,
         return false;
     }
 
-    int clients = registered->forceHandleClientCallbacks(false /* isCalledOnInterval */);
+    // knownClientCount
+    // - one from binder transaction (base here)
+    // - one from hwservicemanager
+    bool clients = registered->forceHandleClientCallbacks(false /*isCalledOnInterval*/, 2 /*knownClientCount*/);
 
-    // clients < 0: feature not implemented or other error. Assume clients.
-    // Otherwise:
-    // - kernel driver will hold onto one refcount (during this transaction)
-    // - hwservicemanager has a refcount (guaranteed by this transaction)
-    // So, if clients > 2, then at least one other service on the system must hold a refcount.
-    if (clients < 0 || clients > 2) {
+    if (clients) {
         // client callbacks are either disabled or there are other clients
         LOG(INFO) << "Tried to unregister for " << fqName << "/" << name
             << " but there are clients: " << clients;
@@ -721,9 +738,9 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
         }
 
         list.push_back({
-            .pid = service->getDebugPid(),
             .interfaceName = service->getInterfaceName(),
             .instanceName = service->getInstanceName(),
+            .pid = service->getDebugPid(),
             .clientPids = clientPids,
             .arch = ::android::hidl::base::V1_0::DebugInfo::Architecture::UNKNOWN
         });

@@ -1,20 +1,22 @@
 # Live TV
 
-__Live TV__ is the Open Source reference application for watching TV on Android TVs.
+__Live TV__ is the Open Source reference application for watching TV on Android
+TVs.
 
-## Source
+Live TV is a system app for Android TV. It should be compiled with Android TV
+platform.
 
-The source of truth is an internal google repository (aka google3) at
-cs/third_party/java_src/android_app/live_channels
+How to build:
 
-Changes are made in the google3 repository and automatically pushed here.
+1.  Enable the feature PackageManager.FEATURE_LIVE_TV.
+2.  Put this project under Android platform repository if required.
+3.  Include this package inside platform build.
+4.  Build the platform. https://source.android.com/source/building.html
 
-The following files are only in the android repository and must be changed there.
+NOTE: This is a reference application and should not be used with further
+hardening.
 
-* *.mk
-* \*\*/lib/\*.\*
-
-## AOSP instructions
+## Build just Live Tv
 
 To install LiveTv
 

@@ -15,11 +15,10 @@ CFLAGS += -DCONFIG_HS20
 CFLAGS += -DCONFIG_INTERWORKING
 CFLAGS += -DCONFIG_IEEE80211R
 CFLAGS += -DCONFIG_IEEE80211R_AP
-CFLAGS += -DCONFIG_IEEE80211W
 CFLAGS += -DCONFIG_WPS
 CFLAGS += -DCONFIG_PROXYARP
 CFLAGS += -DCONFIG_IPV6
-CFLAGS += -DCONFIG_IAPP
+CFLAGS += -DCONFIG_AIRTIME_POLICY
 
 LIB_OBJS= \
 	accounting.o \
@@ -27,6 +26,7 @@ LIB_OBJS= \
 	ap_drv_ops.o \
 	ap_list.o \
 	ap_mlme.o \
+	airtime_policy.o \
 	authsrv.o \
 	beacon.o \
 	bss_load.o \
@@ -40,7 +40,6 @@ LIB_OBJS= \
 	hostapd.o \
 	hs20.o \
 	hw_features.o \
-	iapp.o \
 	ieee802_11_auth.o \
 	ieee802_11.o \
 	ieee802_11_ht.o \

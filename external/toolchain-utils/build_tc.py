@@ -1,8 +1,9 @@
-#!/usr/bin/env python2
-#
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Script to build the ChromeOS toolchain.
 
 This script sets up the toolchain if you give it the gcctools directory.
@@ -59,8 +60,7 @@ class ToolchainPart(object):
     cross_symlink = os.path.join(self._chromeos_root, 'chroot',
                                  'usr/local/bin/emerge-%s' % self._board)
     if not os.path.exists(cross_symlink):
-      command = ('%s/setup_board --board=%s' % (misc.CHROMEOS_SCRIPTS_DIR,
-                                                self._board))
+      command = 'setup_board --board=%s' % self._board
       self._ce.ChrootRunCommand(self._chromeos_root, command)
 
   def Build(self):
@@ -101,8 +101,9 @@ class ToolchainPart(object):
     command = 'mkdir -p %s' % build_dir
     self._ce.RunCommand(command)
 
-    mounted_build_dir = os.path.join(self._chromeos_root, 'chroot', '%s-%s' %
-                                     (self._chroot_source_path, build_suffix))
+    mounted_build_dir = os.path.join(
+        self._chromeos_root, 'chroot',
+        '%s-%s' % (self._chroot_source_path, build_suffix))
     build_mp = tc_enter_chroot.MountPoint(build_dir, mounted_build_dir,
                                           getpass.getuser())
     mount_points.append(build_mp)
@@ -149,10 +150,10 @@ class ToolchainPart(object):
     if self._name == 'gcc' and not self._gcc_enable_ccache:
       env['USE'] += ' -wrapper_ccache'
 
-    env['%s_SOURCE_PATH' % self._name.upper()] = (os.path.join(
-        '/', self._chroot_source_path))
+    env['%s_SOURCE_PATH' % self._name.upper()] = (
+        os.path.join('/', self._chroot_source_path))
     env['ACCEPT_KEYWORDS'] = '~*'
-    env_string = ' '.join(["%s=\"%s\"" % var for var in env.items()])
+    env_string = ' '.join(['%s="%s"' % var for var in env.items()])
     command = 'emerge =cross-%s/%s-9999' % (self._ctarget, self._name)
     full_command = 'sudo %s %s' % (env_string, command)
     rv = self._ce.ChrootRunCommand(self._chromeos_root, full_command)

@@ -17,7 +17,6 @@
 package com.android.tv.settings.connectivity.setup;
 
 import android.content.Context;
-import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.LayoutInflater;
@@ -34,8 +33,8 @@ import androidx.leanback.widget.GuidedAction;
 import androidx.leanback.widget.GuidedActionsStylist;
 import androidx.lifecycle.ViewModelProviders;
 
-import com.android.settingslib.wifi.AccessPoint;
 import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.security.WifiSecurityHelper;
 import com.android.tv.settings.connectivity.util.GuidedActionsAlignUtil;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
@@ -48,13 +47,22 @@ import java.util.List;
 public class EnterPasswordState implements State {
     private final FragmentActivity mActivity;
     private Fragment mFragment;
+    private static final int ACTION_ID_CHECKBOX = 999;
+    private UserChoiceInfo mUserChoiceInfo;
+    private StateMachine mStateMachine;
 
     public EnterPasswordState(FragmentActivity activity) {
         mActivity = activity;
+        mUserChoiceInfo = ViewModelProviders.of(mActivity).get(UserChoiceInfo.class);
+        mStateMachine = ViewModelProviders.of(mActivity).get(StateMachine.class);
     }
 
     @Override
     public void processForward() {
+        if (!mUserChoiceInfo.isVisible(UserChoiceInfo.PASSWORD)) {
+            mStateMachine.getListener().onComplete(StateMachine.OPTIONS_OR_CONNECT);
+            return;
+        }
         mFragment = new EnterPasswordFragment();
         FragmentChangeListener listener = (FragmentChangeListener) mActivity;
         listener.onFragmentChange(mFragment, true);
@@ -62,6 +70,10 @@ public class EnterPasswordState implements State {
 
     @Override
     public void processBackward() {
+        if (!mUserChoiceInfo.isVisible(UserChoiceInfo.PASSWORD)) {
+            mStateMachine.getListener().onComplete(StateMachine.CANCEL);
+            return;
+        }
         mFragment = new EnterPasswordFragment();
         FragmentChangeListener listener = (FragmentChangeListener) mActivity;
         listener.onFragmentChange(mFragment, false);
@@ -82,13 +94,15 @@ public class EnterPasswordState implements State {
         private StateMachine mStateMachine;
         private EditText mTextInput;
         private CheckBox mCheckBox;
+        private GuidedAction mPasswordAction;
+        private boolean mEditFocused = false;
 
         @NonNull
         @Override
         public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
             String title = getString(
                     R.string.wifi_setup_input_password,
-                    mUserChoiceInfo.getWifiConfiguration().getPrintableSsid());
+                    WifiSecurityHelper.getSsid(getActivity()));
             return new GuidanceStylist.Guidance(
                     title,
                     null,
@@ -103,29 +117,51 @@ public class EnterPasswordState implements State {
                 public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
                     LayoutInflater inflater = LayoutInflater.from(parent.getContext());
                     View v = inflater.inflate(onProvideItemLayoutId(viewType), parent, false);
-                    return new PasswordViewHolder(v);
+                    if (viewType == ACTION_ID_CHECKBOX) {
+                        return new PasswordViewHolder(v);
+                    }
+                    return new GuidedActionsAlignUtil.SetupViewHolder(v);
+                }
+
+                @Override
+                public int getItemViewType(GuidedAction action) {
+                    return (int) action.getId();
                 }
 
                 @Override
                 public void onBindViewHolder(ViewHolder vh, GuidedAction action) {
                     super.onBindViewHolder(vh, action);
-                    if (action.getId() == GuidedAction.ACTION_ID_CONTINUE) {
-                        PasswordViewHolder viewHolder = (PasswordViewHolder) vh;
-                        mTextInput = (EditText) viewHolder.getTitleView();
-                        mCheckBox = viewHolder.mCheckbox;
-                        mCheckBox.setOnClickListener(view -> {
-                            updatePasswordInputObfuscation();
-                            EnterPasswordFragment.this.openInEditMode(action);
+                    if (action.getId() == ACTION_ID_CHECKBOX) {
+                        PasswordViewHolder checkBoxVH = (PasswordViewHolder) vh;
+                        mCheckBox = checkBoxVH.mCheckbox;
+                        checkBoxVH.itemView.setOnClickListener(view -> {
+                            mCheckBox.setChecked(!mCheckBox.isChecked());
+                            if (mPasswordAction != null) {
+                                setSelectedActionPosition(0);
+                            }
                         });
                         mCheckBox.setChecked(mUserChoiceInfo.isPasswordHidden());
-                        updatePasswordInputObfuscation();
+                    } else if (action.getId() == GuidedAction.ACTION_ID_CONTINUE) {
+                        mTextInput = (EditText) vh.itemView.findViewById(
+                                R.id.guidedactions_item_title);
                         openInEditMode(action);
                     }
                 }
 
                 @Override
-                public int onProvideItemLayoutId() {
-                    return R.layout.setup_password_item;
+                protected void onEditingModeChange(ViewHolder vh, boolean editing,
+                        boolean withTransition) {
+                    super.onEditingModeChange(vh, editing, withTransition);
+                    updatePasswordInputObfuscation();
+                }
+
+                @Override
+                public int onProvideItemLayoutId(int viewType) {
+                    if (viewType == ACTION_ID_CHECKBOX) {
+                        return R.layout.password_checkbox;
+                    } else {
+                        return R.layout.setup_password_item;
+                    }
                 }
             };
         }
@@ -147,7 +183,7 @@ public class EnterPasswordState implements State {
             Context context = getActivity();
             CharSequence prevPassword = mUserChoiceInfo.getPageSummary(UserChoiceInfo.PASSWORD);
             boolean isPasswordHidden = mUserChoiceInfo.isPasswordHidden();
-            actions.add(new GuidedAction.Builder(context)
+            mPasswordAction = new GuidedAction.Builder(context)
                     .title(prevPassword == null ? "" : prevPassword)
                     .editInputType(InputType.TYPE_CLASS_TEXT
                             | (isPasswordHidden
@@ -155,7 +191,12 @@ public class EnterPasswordState implements State {
                             : InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD))
                     .id(GuidedAction.ACTION_ID_CONTINUE)
                     .editable(true)
-                    .build());
+                    .build();
+            actions.add(mPasswordAction);
+            GuidedAction checkboxAction = new GuidedAction.Builder(context)
+                    .id(ACTION_ID_CHECKBOX)
+                    .build();
+            actions.add(checkboxAction);
         }
 
         @Override
@@ -165,11 +206,19 @@ public class EnterPasswordState implements State {
                 if (password.length() >= WEP_MIN_LENGTH) {
                     mUserChoiceInfo.put(UserChoiceInfo.PASSWORD, action.getTitle().toString());
                     mUserChoiceInfo.setPasswordHidden(mCheckBox.isChecked());
-                    setWifiConfigurationPassword(password);
                     mStateMachine.getListener().onComplete(StateMachine.OPTIONS_OR_CONNECT);
                 }
             }
             return action.getId();
+        }
+
+        @Override
+        public void onGuidedActionFocused(GuidedAction action) {
+            boolean newEditFocused = action == mPasswordAction;
+            if (!mEditFocused && newEditFocused) {
+                openInEditMode(action);
+            }
+            mEditFocused = newEditFocused;
         }
 
         private void updatePasswordInputObfuscation() {
@@ -179,30 +228,6 @@ public class EnterPasswordState implements State {
                     : InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD));
         }
 
-        private void setWifiConfigurationPassword(String password) {
-            int wifiSecurity = mUserChoiceInfo.getWifiSecurity();
-            WifiConfiguration wifiConfiguration = mUserChoiceInfo.getWifiConfiguration();
-            if (wifiSecurity == AccessPoint.SECURITY_WEP) {
-                int length = password.length();
-                // WEP-40, WEP-104, and 256-bit WEP (WEP-232?)
-                if ((length == 10 || length == 26 || length == 32 || length == 58)
-                        && password.matches("[0-9A-Fa-f]*")) {
-                    wifiConfiguration.wepKeys[0] = password;
-                } else if (length == 5 || length == 13 || length == 16 || length == 29) {
-                    wifiConfiguration.wepKeys[0] = '"' + password + '"';
-                }
-            } else {
-                if (wifiSecurity == AccessPoint.SECURITY_PSK
-                        && password.length() < PSK_MIN_LENGTH) {
-                    return;
-                }
-                if (password.matches("[0-9A-Fa-f]{64}")) {
-                    wifiConfiguration.preSharedKey = password;
-                } else {
-                    wifiConfiguration.preSharedKey = '"' + password + '"';
-                }
-            }
-        }
 
         private static class PasswordViewHolder extends GuidedActionsAlignUtil.SetupViewHolder {
             CheckBox mCheckbox;

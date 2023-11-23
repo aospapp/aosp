@@ -22,6 +22,10 @@
          untrusted_app_27 selinux domain -->
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="27" />
 
+    <!-- INTERNET permission allows apps with targetSdkValue==27 to list the
+         device's network interfaces -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
@@ -34,4 +38,3 @@
     </instrumentation>
 
 </manifest>
-

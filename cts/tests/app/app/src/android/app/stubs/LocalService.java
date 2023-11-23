@@ -48,12 +48,17 @@ public class LocalService extends Service {
     public static final int GET_UID_CODE = 9;
     public static final int GET_PPID_CODE = 10;
     public static final int GET_ZYGOTE_PRELOAD_CALLED = 11;
+    public static final int STOP_SELF_CODE = 12;
+    public static final int STOP_SELF_RESULT_CODE = 13;
+    public static final int STOP_SELF_SUCCESS_UNBIND_CODE = 14;
 
     public static Context sServiceContext = null;
 
     private IBinder mReportObject;
     private int mStartCount = 1;
     private int mValue = 0;
+    private int mStartId = -1;
+    private boolean mIsStoppedSelfSuccess;
 
     private final IBinder mBinder = new Binder() {
         @Override
@@ -88,6 +93,12 @@ public class LocalService extends Service {
                     data.enforceInterface(SERVICE_LOCAL);
                     reply.writeBoolean(ZygotePreload.preloadCalled());
                     return true;
+                case STOP_SELF_RESULT_CODE:
+                    mIsStoppedSelfSuccess = stopSelfResult(mStartId);
+                    return true;
+                case STOP_SELF_CODE:
+                    stopSelf(mStartId);
+                    return true;
                 default:
                     return super.onTransact(code, data, reply, flags);
             }
@@ -99,6 +110,7 @@ public class LocalService extends Service {
 
     @Override
     public void onStart(Intent intent, int startId) {
+        mStartId = startId;
         if (intent.getExtras() != null) {
             IBinderParcelable parcelable
                     = (IBinderParcelable) intent.getExtras().getParcelable(REPORT_OBJ_NAME);
@@ -130,7 +142,11 @@ public class LocalService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         if (mReportObject != null) {
-            bindAction(UNBIND_CODE);
+            if (mIsStoppedSelfSuccess) {
+                bindAction(STOP_SELF_SUCCESS_UNBIND_CODE);
+            } else {
+                bindAction(UNBIND_CODE);
+            }
         }
         return true;
     }

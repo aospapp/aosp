@@ -22,20 +22,17 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Bundle;
-import android.os.RemoteException;
+import android.provider.BlockedNumberContract;
 import android.provider.Telephony;
 import android.service.carrier.CarrierMessagingService;
-import android.service.carrier.ICarrierMessagingService;
-import android.telephony.CarrierMessagingServiceManager;
-import android.telephony.PhoneNumberUtils;
+import android.service.carrier.CarrierMessagingServiceWrapper;
 import android.telephony.SmsManager;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
-import com.android.internal.telephony.AsyncEmergencyContactNotifier;
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.SmsApplication;
 import com.android.internal.telephony.SmsNumberUtils;
 import com.android.mms.service.exception.MmsHttpException;
@@ -60,8 +57,9 @@ public class SendRequest extends MmsRequest {
     private final PendingIntent mSentIntent;
 
     public SendRequest(RequestManager manager, int subId, Uri contentUri, String locationUrl,
-            PendingIntent sentIntent, String creator, Bundle configOverrides, Context context) {
-        super(manager, subId, creator, configOverrides, context);
+            PendingIntent sentIntent, String creator, Bundle configOverrides, Context context,
+            long messageId) {
+        super(manager, subId, creator, configOverrides, context, messageId);
         mPduUri = contentUri;
         mPduData = null;
         mLocationUrl = locationUrl;
@@ -74,8 +72,9 @@ public class SendRequest extends MmsRequest {
         final String requestId = getRequestId();
         final MmsHttpClient mmsHttpClient = netMgr.getOrCreateHttpClient();
         if (mmsHttpClient == null) {
-            LogUtil.e(requestId, "MMS network is not ready!");
-            throw new MmsHttpException(0/*statusCode*/, "MMS network is not ready");
+            String notReady = "MMS network is not ready! messageId: " + mMessageId;
+            LogUtil.e(requestId, notReady);
+            throw new MmsHttpException(0/*statusCode*/, notReady);
         }
         final GenericPdu parsedPdu = parsePdu();
         notifyIfEmergencyContactNoThrow(parsedPdu);
@@ -96,14 +95,14 @@ public class SendRequest extends MmsRequest {
         final String requestId = getRequestId();
         try {
             if (mPduData == null) {
-                LogUtil.w(requestId, "Empty PDU raw data");
+                LogUtil.w(requestId, "Empty PDU raw data. messageId: " + mMessageId);
                 return null;
             }
             final boolean supportContentDisposition =
                     mMmsConfig.getBoolean(SmsManager.MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION);
             return new PduParser(mPduData, supportContentDisposition).parse();
         } catch (final Exception e) {
-            LogUtil.w(requestId, "Failed to parse PDU raw data");
+            LogUtil.w(requestId, "Failed to parse PDU raw data. messageId: " + mMessageId);
         }
         return null;
     }
@@ -116,7 +115,7 @@ public class SendRequest extends MmsRequest {
         try {
             notifyIfEmergencyContact(parsedPdu);
         } catch (Exception e) {
-            LogUtil.w(getRequestId(), "Error in notifyIfEmergencyContact", e);
+            LogUtil.w(getRequestId(), "Error in notifyIfEmergencyContact. messageId: " + mMessageId, e);
         }
     }
 
@@ -125,8 +124,22 @@ public class SendRequest extends MmsRequest {
             SendReq sendReq = (SendReq) parsedPdu;
             for (EncodedStringValue encodedStringValue : sendReq.getTo()) {
                 if (isEmergencyNumber(encodedStringValue.getString())) {
-                    LogUtil.i(getRequestId(), "Notifying emergency contact");
-                    new AsyncEmergencyContactNotifier(mContext).execute();
+                    LogUtil.i(getRequestId(), "Notifying emergency contact. messageId: "
+                            + mMessageId);
+                    new AsyncTask<Void, Void, Void>() {
+                        @Override
+                        protected Void doInBackground(Void... voids) {
+                            try {
+                                BlockedNumberContract.SystemContract
+                                        .notifyEmergencyContact(mContext);
+                            } catch (Exception e) {
+                                LogUtil.e(getRequestId(),
+                                    "Exception notifying emergency contact. messageId: "
+                                            + mMessageId + e);
+                            }
+                            return null;
+                        }
+                    }.execute();
                     return;
                 }
             }
@@ -134,7 +147,12 @@ public class SendRequest extends MmsRequest {
     }
 
     private boolean isEmergencyNumber(String address) {
-        return !TextUtils.isEmpty(address) && PhoneNumberUtils.isEmergencyNumber(mSubId, address);
+        if (!TextUtils.isEmpty(address)) {
+            TelephonyManager telephonyManager = ((TelephonyManager) mContext
+                .getSystemService(Context.TELEPHONY_SERVICE)).createForSubscriptionId(mSubId);
+            return telephonyManager.isEmergencyNumber(address);
+        }
+        return false;
     }
 
     @Override
@@ -154,9 +172,9 @@ public class SendRequest extends MmsRequest {
             // Not required to persist
             return null;
         }
-        LogUtil.d(requestId, "persistIfRequired");
+        LogUtil.d(requestId, "persistIfRequired. messageId: " + mMessageId);
         if (mPduData == null) {
-            LogUtil.e(requestId, "persistIfRequired: empty PDU");
+            LogUtil.e(requestId, "persistIfRequired: empty PDU. messageId: " + mMessageId);
             return null;
         }
         final long identity = Binder.clearCallingIdentity();
@@ -166,11 +184,12 @@ public class SendRequest extends MmsRequest {
             // Persist the request PDU first
             GenericPdu pdu = (new PduParser(mPduData, supportContentDisposition)).parse();
             if (pdu == null) {
-                LogUtil.e(requestId, "persistIfRequired: can't parse input PDU");
+                LogUtil.e(requestId, "persistIfRequired: can't parse input PDU. messageId: "
+                        + mMessageId);
                 return null;
             }
             if (!(pdu instanceof SendReq)) {
-                LogUtil.d(requestId, "persistIfRequired: not SendReq");
+                LogUtil.d(requestId, "persistIfRequired: not SendReq. messageId: " + mMessageId);
                 return null;
             }
             final PduPersister persister = PduPersister.getPduPersister(context);
@@ -181,7 +200,8 @@ public class SendRequest extends MmsRequest {
                     true/*groupMmsEnabled*/,
                     null/*preOpenedFiles*/);
             if (messageUri == null) {
-                LogUtil.e(requestId, "persistIfRequired: can not persist message");
+                LogUtil.e(requestId, "persistIfRequired: can not persist message. messageId: "
+                        + mMessageId);
                 return null;
             }
             // Update the additional columns based on the send result
@@ -219,13 +239,16 @@ public class SendRequest extends MmsRequest {
             values.put(Telephony.Mms.SUBSCRIPTION_ID, mSubId);
             if (SqliteWrapper.update(context, context.getContentResolver(), messageUri, values,
                     null/*where*/, null/*selectionArg*/) != 1) {
-                LogUtil.e(requestId, "persistIfRequired: failed to update message");
+                LogUtil.e(requestId, "persistIfRequired: failed to update message. messageId: "
+                        + mMessageId);
             }
             return messageUri;
         } catch (MmsException e) {
-            LogUtil.e(requestId, "persistIfRequired: can not persist message", e);
+            LogUtil.e(requestId, "persistIfRequired: can not persist message. messageId: "
+                    + mMessageId, e);
         } catch (RuntimeException e) {
-            LogUtil.e(requestId, "persistIfRequired: unexpected parsing failure", e);
+            LogUtil.e(requestId, "persistIfRequired: unexpected parsing failure. messageId: "
+                    + mMessageId, e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -240,11 +263,12 @@ public class SendRequest extends MmsRequest {
     private void updateDestinationAddress(final GenericPdu pdu) {
         final String requestId = getRequestId();
         if (pdu == null) {
-            LogUtil.e(requestId, "updateDestinationAddress: can't parse input PDU");
+            LogUtil.e(requestId, "updateDestinationAddress: can't parse input PDU. messageId: "
+                    + mMessageId);
             return ;
         }
         if (!(pdu instanceof SendReq)) {
-            LogUtil.i(requestId, "updateDestinationAddress: not SendReq");
+            LogUtil.i(requestId, "updateDestinationAddress: not SendReq. messageId: " + mMessageId);
             return;
         }
 
@@ -278,13 +302,12 @@ public class SendRequest extends MmsRequest {
         if (recipientNumbers != null) {
             int nNumberCount = recipientNumbers.length;
             if (nNumberCount > 0) {
-                Phone phone = PhoneFactory.getDefaultPhone();
                 EncodedStringValue[] newNumbers = new EncodedStringValue[nNumberCount];
                 String toNumber;
                 String newToNumber;
                 for (int i = 0; i < nNumberCount; i++) {
                     toNumber = recipientNumbers[i].getString();
-                    newToNumber = SmsNumberUtils.filterDestAddr(phone, toNumber);
+                    newToNumber = SmsNumberUtils.filterDestAddr(mContext, mSubId, toNumber);
                     if (!TextUtils.equals(toNumber, newToNumber)) {
                         isUpdated = true;
                         newNumbers[i] = new EncodedStringValue(newToNumber);
@@ -370,7 +393,7 @@ public class SendRequest extends MmsRequest {
     /**
      * Sends the MMS through through the carrier app.
      */
-    private final class CarrierSendManager extends CarrierMessagingServiceManager {
+    private final class CarrierSendManager extends CarrierMessagingServiceWrapper {
         // Initialized in sendMms
         private volatile CarrierSendCompleteCallback mCarrierSendCompleteCallback;
 
@@ -378,9 +401,11 @@ public class SendRequest extends MmsRequest {
                 CarrierSendCompleteCallback carrierSendCompleteCallback) {
             mCarrierSendCompleteCallback = carrierSendCompleteCallback;
             if (bindToCarrierMessagingService(context, carrierMessagingServicePackage)) {
-                LogUtil.v("bindService() for carrier messaging service succeeded");
+                LogUtil.v("bindService() for carrier messaging service succeeded. messageId: "
+                        + mMessageId);
             } else {
-                LogUtil.e("bindService() for carrier messaging service failed");
+                LogUtil.e("bindService() for carrier messaging service failed. messageId: "
+                        + mMessageId);
                 carrierSendCompleteCallback.onSendMmsComplete(
                         CarrierMessagingService.SEND_STATUS_RETRY_ON_CARRIER_NETWORK,
                         null /* no sendConfPdu */);
@@ -388,16 +413,16 @@ public class SendRequest extends MmsRequest {
         }
 
         @Override
-        protected void onServiceReady(ICarrierMessagingService carrierMessagingService) {
+        public void onServiceReady() {
             try {
                 Uri locationUri = null;
                 if (mLocationUrl != null) {
                     locationUri = Uri.parse(mLocationUrl);
                 }
-                carrierMessagingService.sendMms(mPduUri, mSubId, locationUri,
-                        mCarrierSendCompleteCallback);
-            } catch (RemoteException e) {
-                LogUtil.e("Exception sending MMS using the carrier messaging service: " + e, e);
+                sendMms(mPduUri, mSubId, locationUri, mCarrierSendCompleteCallback);
+            } catch (RuntimeException e) {
+                LogUtil.e("Exception sending MMS using the carrier messaging service. messageId: "
+                        + mMessageId + e, e);
                 mCarrierSendCompleteCallback.onSendMmsComplete(
                         CarrierMessagingService.SEND_STATUS_RETRY_ON_CARRIER_NETWORK,
                         null /* no sendConfPdu */);
@@ -421,7 +446,7 @@ public class SendRequest extends MmsRequest {
 
         @Override
         public void onSendMmsComplete(int result, byte[] sendConfPdu) {
-            LogUtil.d("Carrier app result for send: " + result);
+            LogUtil.d("Carrier app result for sending messageId " + mMessageId + ": " + result);
             mCarrierSendManager.disposeConnection(mContext);
 
             if (!maybeFallbackToRegularDelivery(result)) {
@@ -432,7 +457,8 @@ public class SendRequest extends MmsRequest {
 
         @Override
         public void onDownloadMmsComplete(int result) {
-            LogUtil.e("Unexpected onDownloadMmsComplete call with result: " + result);
+            LogUtil.e("Unexpected onDownloadMmsComplete call for messageId " + mMessageId
+                    + " with result: " + result);
         }
     }
 }

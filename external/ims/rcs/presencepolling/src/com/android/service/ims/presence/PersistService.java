@@ -43,7 +43,6 @@ import android.content.ContentValues;
 import android.text.TextUtils;
 
 import com.android.ims.internal.Logger;
-import com.android.ims.RcsManager.ResultCode;
 import com.android.ims.RcsPresence;
 import com.android.ims.RcsPresenceInfo;
 

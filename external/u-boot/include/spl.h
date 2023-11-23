@@ -11,6 +11,7 @@
 /* Platform-specific defines */
 #include <linux/compiler.h>
 #include <asm/spl.h>
+#include <handoff.h>
 
 /* Value in r0 indicates we booted from U-Boot */
 #define UBOOT_NOT_LOADED_FROM_SPL	0x13578642
@@ -21,17 +22,129 @@
 #define MMCSD_MODE_FS		2
 #define MMCSD_MODE_EMMCBOOT	3
 
+/*
+ * u_boot_first_phase() - check if this is the first U-Boot phase
+ *
+ * U-Boot has up to three phases: TPL, SPL and U-Boot proper. Depending on the
+ * build flags we can determine whether the current build is for the first
+ * phase of U-Boot or not. If there is no SPL, then this is U-Boot proper. If
+ * there is SPL but no TPL, the the first phase is SPL. If there is TPL, then
+ * it is the first phase.
+ *
+ * @returns true if this is the first phase of U-Boot
+ *
+ */
+static inline bool u_boot_first_phase(void)
+{
+	if (IS_ENABLED(CONFIG_TPL)) {
+		if (IS_ENABLED(CONFIG_TPL_BUILD))
+			return true;
+	} else if (IS_ENABLED(CONFIG_SPL)) {
+		if (IS_ENABLED(CONFIG_SPL_BUILD))
+			return true;
+	} else {
+		return true;
+	}
+
+	return false;
+}
+
+enum u_boot_phase {
+	PHASE_TPL,	/* Running in TPL */
+	PHASE_SPL,	/* Running in SPL */
+	PHASE_BOARD_F,	/* Running in U-Boot before relocation */
+	PHASE_BOARD_R,	/* Running in U-Boot after relocation */
+};
+
+/**
+ * spl_phase() - Find out the phase of U-Boot
+ *
+ * This can be used to avoid #ifdef logic and use if() instead.
+ *
+ * For example, to include code only in TPL, you might do:
+ *
+ *    #ifdef CONFIG_TPL_BUILD
+ *    ...
+ *    #endif
+ *
+ * but with this you can use:
+ *
+ *    if (spl_phase() == PHASE_TPL) {
+ *       ...
+ *    }
+ *
+ * To include code only in SPL, you might do:
+ *
+ *    #if defined(CONFIG_SPL_BUILD) && !defined(CONFIG_TPL_BUILD)
+ *    ...
+ *    #endif
+ *
+ * but with this you can use:
+ *
+ *    if (spl_phase() == PHASE_SPL) {
+ *       ...
+ *    }
+ *
+ * To include code only in U-Boot proper, you might do:
+ *
+ *    #ifndef CONFIG_SPL_BUILD
+ *    ...
+ *    #endif
+ *
+ * but with this you can use:
+ *
+ *    if (spl_phase() == PHASE_BOARD_F) {
+ *       ...
+ *    }
+ *
+ * @return U-Boot phase
+ */
+static inline enum u_boot_phase spl_phase(void)
+{
+#ifdef CONFIG_TPL_BUILD
+	return PHASE_TPL;
+#elif CONFIG_SPL_BUILD
+	return PHASE_SPL;
+#else
+	DECLARE_GLOBAL_DATA_PTR;
+
+	if (!(gd->flags & GD_FLG_RELOC))
+		return PHASE_BOARD_F;
+	else
+		return PHASE_BOARD_R;
+#endif
+}
+
+/* A string name for SPL or TPL */
+#ifdef CONFIG_SPL_BUILD
+# ifdef CONFIG_TPL_BUILD
+#  define SPL_TPL_NAME	"TPL"
+# else
+#  define SPL_TPL_NAME	"SPL"
+# endif
+# define SPL_TPL_PROMPT	SPL_TPL_NAME ": "
+#else
+# define SPL_TPL_NAME	""
+# define SPL_TPL_PROMPT	""
+#endif
+
 struct spl_image_info {
 	const char *name;
 	u8 os;
 	uintptr_t load_addr;
 	uintptr_t entry_point;
-#if CONFIG_IS_ENABLED(LOAD_FIT)
+#if CONFIG_IS_ENABLED(LOAD_FIT) || CONFIG_IS_ENABLED(LOAD_FIT_FULL)
 	void *fdt_addr;
 #endif
+	u32 boot_device;
 	u32 size;
 	u32 flags;
 	void *arg;
+#ifdef CONFIG_SPL_LEGACY_IMAGE_CRC_CHECK
+	ulong dcrc_data;
+	ulong dcrc_length;
+	ulong dcrc;
+#endif
 };
 
 /*
@@ -59,7 +172,16 @@ struct spl_load_info {
  * image is found. For * example if u-boot.img is used we don't check that
  * spl_parse_image_header() can parse a valid header.
  */
-binman_sym_extern(ulong, u_boot_any, pos);
+binman_sym_extern(ulong, u_boot_any, image_pos);
+
+/**
+ * spl_load_simple_fit_skip_processing() - Hook to allow skipping the FIT
+ *	image processing during spl_load_simple_fit().
+ *
+ * Return true to skip FIT processing, false to preserve the full code flow
+ * of spl_load_simple_fit().
+ */
+bool spl_load_simple_fit_skip_processing(void);
 
 /**
  * spl_load_simple_fit() - Loads a fit image from a device.
@@ -76,6 +198,19 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 			struct spl_load_info *info, ulong sector, void *fdt);
 
 #define SPL_COPY_PAYLOAD_ONLY	1
+#define SPL_FIT_FOUND		2
+
+/**
+ * spl_load_imx_container() - Loads a imx container image from a device.
+ * @spl_image:	Image description to set up
+ * @info:	Structure containing the information required to load data.
+ * @sector:	Sector number where container image is located in the device
+ *
+ * Reads the container image @sector in the device. Loads u-boot image to
+ * specified load address.
+ */
+int spl_load_imx_container(struct spl_image_info *spl_image,
+			   struct spl_load_info *info, ulong sector);
 
 /* SPL common functions */
 void preloader_console_init(void);
@@ -197,14 +332,14 @@ struct spl_image_loader {
  */
 #ifdef CONFIG_SPL_LIBCOMMON_SUPPORT
 #define SPL_LOAD_IMAGE_METHOD(_name, _priority, _boot_device, _method) \
-	SPL_LOAD_IMAGE(_method ## _priority ## _boot_device) = { \
+	SPL_LOAD_IMAGE(_boot_device ## _priority ## _method) = { \
 		.name = _name, \
 		.boot_device = _boot_device, \
 		.load_image = _method, \
 	}
 #else
 #define SPL_LOAD_IMAGE_METHOD(_name, _priority, _boot_device, _method) \
-	SPL_LOAD_IMAGE(_method ## _priority ## _boot_device) = { \
+	SPL_LOAD_IMAGE(_boot_device ## _priority ## _method) = { \
 		.boot_device = _boot_device, \
 		.load_image = _method, \
 	}
@@ -283,9 +418,47 @@ int spl_mmc_load_image(struct spl_image_info *spl_image,
 		       struct spl_boot_device *bootdev);
 
 /**
+ * spl_mmc_load() - Load an image file from MMC/SD media
+ *
+ * @param spl_image	Image data filled in by loading process
+ * @param bootdev	Describes which device to load from
+ * @param filename	Name of file to load (in FS mode)
+ * @param raw_part	Partition to load from (in RAW mode)
+ * @param raw_sect	Sector to load from (in RAW mode)
+ *
+ * @return 0 on success, otherwise error code
+ */
+int spl_mmc_load(struct spl_image_info *spl_image,
+		 struct spl_boot_device *bootdev,
+		 const char *filename,
+		 int raw_part,
+		 unsigned long raw_sect);
+
+int spl_ymodem_load_image(struct spl_image_info *spl_image,
+			  struct spl_boot_device *bootdev);
+
+/**
  * spl_invoke_atf - boot using an ARM trusted firmware image
  */
 void spl_invoke_atf(struct spl_image_info *spl_image);
+
+/**
+ * spl_optee_entry - entry function for optee
+ *
+ * args defind in op-tee project
+ * https://github.com/OP-TEE/optee_os/
+ * core/arch/arm/kernel/generic_entry_a32.S
+ * @arg0: pagestore
+ * @arg1: (ARMv7 standard bootarg #1)
+ * @arg2: device tree address, (ARMv7 standard bootarg #2)
+ * @arg3: non-secure entry address (ARMv7 bootarg #0)
+ */
+void spl_optee_entry(void *arg0, void *arg1, void *arg2, void *arg3);
+
+/**
+ * spl_invoke_opensbi - boot using a RISC-V OpenSBI image
+ */
+void spl_invoke_opensbi(struct spl_image_info *spl_image);
 
 /**
  * board_return_to_bootrom - allow for boards to continue with the boot ROM
@@ -295,5 +468,33 @@ void spl_invoke_atf(struct spl_image_info *spl_image);
  * stage wants to return to the ROM code to continue booting, boards
  * can implement 'board_return_to_bootrom'.
  */
-void board_return_to_bootrom(void);
+int board_return_to_bootrom(struct spl_image_info *spl_image,
+			    struct spl_boot_device *bootdev);
+
+/**
+ * board_spl_fit_post_load - allow process images after loading finished
+ *
+ */
+void board_spl_fit_post_load(ulong load_addr, size_t length);
+
+/**
+ * board_spl_fit_size_align - specific size align before processing payload
+ *
+ */
+ulong board_spl_fit_size_align(ulong size);
+
+/**
+ * spl_perform_fixups() - arch/board-specific callback before processing
+ *                        the boot-payload
+ */
+void spl_perform_fixups(struct spl_image_info *spl_image);
+
+/*
+ * spl_get_load_buffer() - get buffer for loading partial image data
+ *
+ * Returns memory area which can be populated by partial image data,
+ * ie. uImage or fitImage header.
+ */
+struct image_header *spl_get_load_buffer(ssize_t offset, size_t size);
+
 #endif

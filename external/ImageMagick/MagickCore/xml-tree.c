@@ -23,7 +23,7 @@
 %                               December 2004                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -1484,18 +1484,20 @@ static char *ParseEntities(char *xml,char **entities,int state)
                     offset=(ssize_t) (xml-p);
                     extent=(size_t) (offset+length+strlen(entity));
                     if (p != q)
-                      p=(char *) ResizeQuantumMemory(p,extent,sizeof(*p));
+                      {
+                        p=(char *) ResizeQuantumMemory(p,extent+1,sizeof(*p));
+                        p[extent]='\0';
+                      }
                     else
                       {
                         char
                           *extent_xml;
 
-                        extent_xml=(char *) AcquireQuantumMemory(extent,
+                        extent_xml=(char *) AcquireQuantumMemory(extent+1,
                           sizeof(*extent_xml));
                         if (extent_xml != (char *) NULL)
                           {
-                            memset(extent_xml,0,extent*
-                              sizeof(*extent_xml));
+                            memset(extent_xml,0,extent*sizeof(*extent_xml));
                             (void) CopyMagickString(extent_xml,p,extent*
                               sizeof(*extent_xml));
                           }
@@ -1729,6 +1731,8 @@ static MagickBooleanType ParseInternalDoctype(XMLTreeRoot *root,char *xml,
         if ((isalpha((int) ((unsigned char) *n)) == 0) && (*n != '_'))
           break;
         xml=n+strcspn(n,XMLWhitespace);
+        if (*xml == '\0')
+          break;
         *xml=';';
         v=xml+strspn(xml+1,XMLWhitespace)+1;
         q=(*v);
@@ -2019,7 +2023,7 @@ MagickExport XMLTreeInfo *NewXMLTree(const char *xml,ExceptionInfo *exception)
     attributes=(char **) sentinel;
     tag=p;
     c=(*p);
-    if ((isalpha((int) ((unsigned char) *p)) !=0) || (*p == '_') ||
+    if ((isalpha((int) ((unsigned char) *p)) != 0) || (*p == '_') ||
         (*p == ':') || (c < '\0'))
       {
         /*
@@ -2058,8 +2062,8 @@ MagickExport XMLTreeInfo *NewXMLTree(const char *xml,ExceptionInfo *exception)
                 attributes=(char **) AcquireQuantumMemory(4,
                   sizeof(*attributes));
               else
-                attributes=(char **) ResizeQuantumMemory(attributes,
-                  (size_t) (l+4),sizeof(*attributes));
+                attributes=(char **) ResizeQuantumMemory(attributes,(size_t)
+                  (l+4),sizeof(*attributes));
               if (attributes == (char **) NULL)
                 {
                   (void) ThrowMagickException(exception,GetMagickModule(),

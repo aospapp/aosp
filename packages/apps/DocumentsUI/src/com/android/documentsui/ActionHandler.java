@@ -16,7 +16,6 @@
 
 package com.android.documentsui;
 
-import androidx.annotation.IntDef;
 import android.app.PendingIntent;
 import android.content.ContentProvider;
 import android.content.Intent;
@@ -24,15 +23,18 @@ import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.view.DragEvent;
 
+import androidx.annotation.IntDef;
 import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
 
 import com.android.documentsui.base.BooleanConsumer;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
@@ -87,13 +89,17 @@ public interface ActionHandler {
      */
     void startAuthentication(PendingIntent intent);
 
-    void showAppDetails(ResolveInfo info);
+    void requestQuietModeDisabled(RootInfo info, UserId userId);
+
+    void showAppDetails(ResolveInfo info, UserId userId);
 
     void openRoot(RootInfo root);
 
-    void openRoot(ResolveInfo app);
+    void openRoot(ResolveInfo app, UserId userId);
 
-    void loadRoot(Uri uri);
+    void loadRoot(Uri uri, UserId userId);
+
+    void loadCrossProfileRoot(RootInfo info, UserId selectedUser);
 
     void loadFirstRoot(Uri uri);
 
@@ -104,6 +110,11 @@ public interface ActionHandler {
     void pasteIntoFolder(RootInfo root);
 
     void selectAllFiles();
+
+    /**
+     * Attempts to deselect all selected files.
+     */
+    void deselectAllFiles();
 
     void showCreateDirectoryDialog();
 
@@ -137,9 +148,14 @@ public interface ActionHandler {
     void copyToClipboard();
 
     /**
-     * In general, selected = selection or single focused item
+     * Show delete dialog
      */
-    void deleteSelectedDocuments();
+    void showDeleteDialog();
+
+    /**
+     * Delete the selected document(s)
+     */
+    void deleteSelectedDocuments(List<DocumentInfo> docs, DocumentInfo srcParent);
 
     void shareSelectedDocuments();
 
@@ -161,6 +177,11 @@ public interface ActionHandler {
     void showDebugMessage();
 
     void showSortDialog();
+
+    /**
+     * Switch launch icon show/hide status.
+     */
+    void switchLauncherIcon();
 
     /**
      * Allow action handler to be initialized in a new scope.

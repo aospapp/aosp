@@ -36,6 +36,7 @@ import java.util.Set;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import libcore.libcore.util.SerializationTester;
+import libcore.net.InetAddressUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -281,10 +282,17 @@ public class InetAddressTest {
     public void test_isReachable_by_ICMP() throws Exception {
         InetAddress[] inetAddresses = InetAddress.getAllByName("www.google.com");
         for (InetAddress ia : inetAddresses) {
-            // ICMP is not reliable, allow 5 attempts before failing.
-            assertTrue(ia.isReachableByICMP(5 * 1000 /* ICMP timeout */));
+            // ICMP is not reliable, allow 5 attempts to each IP address before failing.
+            // If any address is reachable then that's sufficient.
+            if (ia.isReachableByICMP(5 * 1000 /* ICMP timeout */)) {
+                return;
+            }
         }
+        fail();
+    }
 
+    @Test
+    public void test_inUnreachable() throws Exception {
         // IPv6 discard prefix. RFC 6666.
         final InetAddress blackholeAddress = InetAddress.getByName("100::1");
         assertFalse(blackholeAddress.isReachable(1000));
@@ -312,8 +320,12 @@ public class InetAddressTest {
     public void test_getByName_invalid(String invalid) throws Exception {
         try {
             InetAddress.getByName(invalid);
-            fail("Invalid IP address incorrectly recognized as valid: "
-                + invalid);
+            String msg = "Invalid IP address incorrectly recognized as valid: \"" + invalid + "\"";
+            if (InetAddressUtils.parseNumericAddressNoThrowStripOptionalBrackets(invalid) == null) {
+                msg += " (it was probably unexpectedly resolved by this network's DNS)";
+            }
+            msg += ".";
+            fail(msg);
         } catch (UnknownHostException expected) {
         }
 

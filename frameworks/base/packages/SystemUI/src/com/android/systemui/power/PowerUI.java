@@ -45,6 +45,8 @@ import com.android.settingslib.utils.ThreadUtils;
 import com.android.systemui.Dependency;
 import com.android.systemui.R;
 import com.android.systemui.SystemUI;
+import com.android.systemui.broadcast.BroadcastDispatcher;
+import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.phone.StatusBar;
 
 import java.io.FileDescriptor;
@@ -53,7 +55,13 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.Future;
 
-public class PowerUI extends SystemUI {
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+import dagger.Lazy;
+
+@Singleton
+public class PowerUI extends SystemUI implements CommandQueue.Callbacks {
 
     static final String TAG = "PowerUI";
     static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
@@ -64,6 +72,8 @@ public class PowerUI extends SystemUI {
     private static final int CHARGE_CYCLE_PERCENT_RESET = 45;
     private static final long SIX_HOURS_MILLIS = Duration.ofHours(6).toMillis();
     public static final int NO_ESTIMATE_AVAILABLE = -1;
+    private static final String BOOT_COUNT_KEY = "boot_count";
+    private static final String PREFS = "powerui_prefs";
 
     private final Handler mHandler = new Handler();
     @VisibleForTesting
@@ -71,6 +81,7 @@ public class PowerUI extends SystemUI {
 
     private PowerManager mPowerManager;
     private WarningsUI mWarnings;
+    private InattentiveSleepWarningView mOverlayView;
     private final Configuration mLastConfiguration = new Configuration();
     private int mPlugType = 0;
     private int mInvalidCharger = 0;
@@ -95,6 +106,18 @@ public class PowerUI extends SystemUI {
 
     private IThermalEventListener mSkinThermalEventListener;
     private IThermalEventListener mUsbThermalEventListener;
+    private final BroadcastDispatcher mBroadcastDispatcher;
+    private final CommandQueue mCommandQueue;
+    private final Lazy<StatusBar> mStatusBarLazy;
+
+    @Inject
+    public PowerUI(Context context, BroadcastDispatcher broadcastDispatcher,
+            CommandQueue commandQueue, Lazy<StatusBar> statusBarLazy) {
+        super(context);
+        mBroadcastDispatcher = broadcastDispatcher;
+        mCommandQueue = commandQueue;
+        mStatusBarLazy = statusBarLazy;
+    }
 
     public void start() {
         mPowerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
@@ -118,7 +141,7 @@ public class PowerUI extends SystemUI {
 
         // Check to see if we need to let the user know that the phone previously shut down due
         // to the temperature being too high.
-        showThermalShutdownDialog();
+        showWarnOnThermalShutdown();
 
         // Register an observer to configure mEnableSkinTemperatureWarning and perform the
         // registration of skin thermal event listener upon Settings change.
@@ -143,6 +166,7 @@ public class PowerUI extends SystemUI {
                     }
                 });
         initThermalEventListeners();
+        mCommandQueue.addCallback(this);
     }
 
     @Override
@@ -201,6 +225,8 @@ public class PowerUI extends SystemUI {
     @VisibleForTesting
     final class Receiver extends BroadcastReceiver {
 
+        private boolean mHasReceivedBattery = false;
+
         public void init() {
             // Register for Intent broadcasts for...
             IntentFilter filter = new IntentFilter();
@@ -209,7 +235,18 @@ public class PowerUI extends SystemUI {
             filter.addAction(Intent.ACTION_SCREEN_OFF);
             filter.addAction(Intent.ACTION_SCREEN_ON);
             filter.addAction(Intent.ACTION_USER_SWITCHED);
-            mContext.registerReceiver(this, filter, null, mHandler);
+            mBroadcastDispatcher.registerReceiverWithHandler(this, filter, mHandler);
+            // Force get initial values. Relying on Sticky behavior until API for getting info.
+            if (!mHasReceivedBattery) {
+                // Get initial state
+                Intent intent = mContext.registerReceiver(
+                        null,
+                        new IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+                );
+                if (intent != null) {
+                    onReceive(mContext, intent);
+                }
+            }
         }
 
         @Override
@@ -222,6 +259,7 @@ public class PowerUI extends SystemUI {
                     }
                 });
             } else if (Intent.ACTION_BATTERY_CHANGED.equals(action)) {
+                mHasReceivedBattery = true;
                 final int oldBatteryLevel = mBatteryLevel;
                 mBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 100);
                 final int oldBatteryStatus = mBatteryStatus;
@@ -350,8 +388,10 @@ public class PowerUI extends SystemUI {
             BatteryStateSnapshot lastSnapshot) {
         // if we are now over 45% battery & 6 hours remaining so we can trigger hybrid
         // notification again
+        final long timeRemainingMillis = currentSnapshot.getTimeRemainingMillis();
         if (currentSnapshot.getBatteryLevel() >= CHARGE_CYCLE_PERCENT_RESET
-                && currentSnapshot.getTimeRemainingMillis() > SIX_HOURS_MILLIS) {
+                && (timeRemainingMillis > SIX_HOURS_MILLIS
+                || timeRemainingMillis == NO_ESTIMATE_AVAILABLE)) {
             mLowWarningShownThisChargeCycle = false;
             mSevereWarningShownThisChargeCycle = false;
             if (DEBUG) {
@@ -366,8 +406,8 @@ public class PowerUI extends SystemUI {
             mWarnings.showLowBatteryWarning(playSound);
             // mark if we've already shown a warning this cycle. This will prevent the notification
             // trigger from spamming users by only showing low/critical warnings once per cycle
-            if (currentSnapshot.getTimeRemainingMillis()
-                    <= currentSnapshot.getSevereThresholdMillis()
+            if ((timeRemainingMillis != NO_ESTIMATE_AVAILABLE
+                    && timeRemainingMillis <= currentSnapshot.getSevereThresholdMillis())
                     || currentSnapshot.getBatteryLevel()
                     <= currentSnapshot.getSevereLevelThreshold()) {
                 mSevereWarningShownThisChargeCycle = true;
@@ -402,15 +442,18 @@ public class PowerUI extends SystemUI {
             return false;
         }
 
+        final long timeRemainingMillis = snapshot.getTimeRemainingMillis();
         // Only show the low warning if enabled once per charge cycle & no battery saver
         final boolean canShowWarning = snapshot.isLowWarningEnabled()
                 && !mLowWarningShownThisChargeCycle && !snapshot.isPowerSaver()
-                && (snapshot.getTimeRemainingMillis() < snapshot.getLowThresholdMillis()
+                && ((timeRemainingMillis != NO_ESTIMATE_AVAILABLE
+                && timeRemainingMillis < snapshot.getLowThresholdMillis())
                 || snapshot.getBatteryLevel() <= snapshot.getLowLevelThreshold());
 
         // Only show the severe warning once per charge cycle
         final boolean canShowSevereWarning = !mSevereWarningShownThisChargeCycle
-                && (snapshot.getTimeRemainingMillis() < snapshot.getSevereThresholdMillis()
+                && ((timeRemainingMillis != NO_ESTIMATE_AVAILABLE
+                && timeRemainingMillis < snapshot.getSevereThresholdMillis())
                 || snapshot.getBatteryLevel() <= snapshot.getSevereLevelThreshold());
 
         final boolean canShow = canShowWarning || canShowSevereWarning;
@@ -542,10 +585,39 @@ public class PowerUI extends SystemUI {
         }
     }
 
-    private void showThermalShutdownDialog() {
-        if (mPowerManager.getLastShutdownReason()
-                == PowerManager.SHUTDOWN_REASON_THERMAL_SHUTDOWN) {
-            mWarnings.showThermalShutdownWarning();
+    private void showWarnOnThermalShutdown() {
+        int bootCount = -1;
+        int lastReboot = mContext.getSharedPreferences(PREFS, 0).getInt(BOOT_COUNT_KEY, -1);
+        try {
+            bootCount = Settings.Global.getInt(mContext.getContentResolver(),
+                    Settings.Global.BOOT_COUNT);
+        } catch (Settings.SettingNotFoundException e) {
+            Slog.e(TAG, "Failed to read system boot count from Settings.Global.BOOT_COUNT");
+        }
+        // Only show the thermal shutdown warning when there is a thermal reboot.
+        if (bootCount > lastReboot) {
+            mContext.getSharedPreferences(PREFS, 0).edit().putInt(BOOT_COUNT_KEY,
+                    bootCount).apply();
+            if (mPowerManager.getLastShutdownReason()
+                    == PowerManager.SHUTDOWN_REASON_THERMAL_SHUTDOWN) {
+                mWarnings.showThermalShutdownWarning();
+            }
+        }
+    }
+
+    @Override
+    public void showInattentiveSleepWarning() {
+        if (mOverlayView == null) {
+            mOverlayView = new InattentiveSleepWarningView(mContext);
+        }
+
+        mOverlayView.show();
+    }
+
+    @Override
+    public void dismissInattentiveSleepWarning(boolean animated) {
+        if (mOverlayView != null) {
+            mOverlayView.dismiss(animated);
         }
     }
 
@@ -638,8 +710,7 @@ public class PowerUI extends SystemUI {
             int status = temp.getStatus();
 
             if (status >= Temperature.THROTTLING_EMERGENCY) {
-                StatusBar statusBar = getComponent(StatusBar.class);
-                if (statusBar != null && !statusBar.isDeviceInVrMode()) {
+                if (!mStatusBarLazy.get().isDeviceInVrMode()) {
                     mWarnings.showHighTemperatureWarning();
                     Slog.d(TAG, "SkinThermalEventListener: notifyThrottling was called "
                             + ", current skin status = " + status

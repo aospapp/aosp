@@ -22,7 +22,6 @@ cc_defaults {
     cflags: ["-Wall", "-Werror", "-Wno-unused-parameter"],
     cppflags: [
         "-std=c++14",
-        "-nostdinc++",
         "-fexceptions",
         "-DLIBCXX_BUILDING_LIBCXXABI",
         "-D_LIBCPP_BUILDING_LIBRARY",
@@ -56,7 +55,15 @@ cc_library_static {
     name: "libc++_static",
     defaults: ["libc++ defaults"],
     vendor_available: true,
+    ramdisk_available: true,
     recovery_available: true,
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    // being part of updatable apexes, this should work on older releases
+    min_sdk_version: "apex_inherit",
+    native_bridge_supported: true,
     srcs: [
         "src/algorithm.cpp",
         "src/any.cpp",
@@ -106,32 +113,32 @@ cc_library_shared {
     name: "libc++",
     host_supported: true,
     vendor_available: true,
+    native_bridge_supported: true,
     vndk: {
         enabled: true,
         support_system_process: true,
     },
+    ramdisk_available: true,
     recovery_available: true,
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    // being part of updatable apexes, this should work on older releases
+    min_sdk_version: "apex_inherit",
     whole_static_libs: ["libc++_static"],
     stl: "none",
 
     target: {
-        android_arm: {
-            static_libs: ["libunwind_llvm"],
-            ldflags: ["-Wl,--exclude-libs,libunwind_llvm.a"],
-        },
         darwin: {
             unexported_symbols_list: "lib/libc++unexp.exp",
             force_symbols_not_weak_list: "lib/notweak.exp",
             force_symbols_weak_list: "lib/weak.exp",
             ldflags: [
-                "-nodefaultlibs",
                 "-Wl,-undefined,dynamic_lookup",
             ],
         },
 
-        linux_glibc: {
-            ldflags: ["-nodefaultlibs"],
-        },
         linux_bionic: {
             enabled: true,
         },

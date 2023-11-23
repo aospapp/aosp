@@ -8,7 +8,7 @@ CarrierIdentifier objects, rather than just mcc/mnc. per-network configuration f
 folder. Two ways to configure per-network configuration. Preferred way is
 carrier_config_carrierid_<carrierid>_<carriername>.xml
 AOSP carrier ID assignments can be found at
-https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/master/assets/carrier_list.textpb
+https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/master/assets/latest_carrier_id/carrier_list.textpb
 use carrier_config_mccmnc_<mccmnc>.xml only if there is no matching carrier id.
 
 This app uses a CarrierIdentifier to read the appropriate config snippets from the assets folder.

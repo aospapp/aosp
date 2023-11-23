@@ -17,4 +17,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="4052407641316309322">"മുന്നറിയിപ്പ് സന്ദേശം"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"പ്രതിമാസ പരിശോധന ആവശ്യമാണ്"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"സുരക്ഷാ മുന്നറിയിപ്പ് സിസ്റ്റത്തിനുള്ള പരീക്ഷണ സന്ദേശങ്ങൾ സ്വീകരിക്കുക"</string>
 </resources>

@@ -58,6 +58,7 @@ public class ByodFlowTestHelper {
                 AuthenticationBoundKeyTestActivity.class.getName(),
                 VpnTestActivity.class.getName(),
                 AlwaysOnVpnSettingsTestActivity.class.getName(),
+                CrossProfilePermissionControlActivity.class.getName(),
                 IntermediateRecentActivity.class.getName(),
                 CommandReceiverActivity.class.getName(),
                 SetSupportMessageActivity.class.getName(),

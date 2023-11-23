@@ -67,6 +67,7 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
     private static final String LINE_SEPARATOR = "\\n";
     private static final String MEM_AVAIL_PATTERN = "^MemAvailable.*";
     private static final String MEM_TOTAL = "^\\s+TOTAL\\s+.*";
+    private static final String FLOAT_DATA = "^([+-]?(\\d+\\.)?\\d+)$";
 
     @Option(
             name = "post-app-launch-delay",
@@ -221,9 +222,9 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
                         mMetrics.put(dataSplit[0] + ":PSS_TOTAL", dataSplit[2]);
                         mMetrics.put(dataSplit[0] + ":SHARED_DIRTY", dataSplit[4]);
                         mMetrics.put(dataSplit[0] + ":PRIVATE_DIRTY", dataSplit[5]);
-                        mMetrics.put(dataSplit[0] + ":HEAP_TOTAL", dataSplit[9]);
-                        mMetrics.put(dataSplit[0] + ":HEAP_ALLOC", dataSplit[10]);
-                    } else {
+                        mMetrics.put(dataSplit[0] + ":HEAP_TOTAL", dataSplit[10]);
+                        mMetrics.put(dataSplit[0] + ":HEAP_ALLOC", dataSplit[11]);
+                    } else if (dataSplit[1].matches(FLOAT_DATA)) {
                         mMetrics.put(dataSplit[0] + ":PSS", dataSplit[1]);
                     }
                 }
@@ -255,7 +256,7 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
                 mMetrics.put("System_" + dataSplit[0], dataSplit[1]);
             }
         }
-        mMetrics.put("System_Kernal_Firmware", String.valueOf((mTotalMemory - memTotal)));
+        mMetrics.put("System_Kernel_Firmware", String.valueOf((mTotalMemory - memTotal)));
         mMetrics.put("System_Framework_Apps", String.valueOf((memTotal - (memFree + cached))));
     }
 
@@ -275,11 +276,11 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
         int cacheProcDirty = Integer.parseInt(memAvailable[1]);
 
         String cachedProcesses = mTestDevice.executeShellCommand(CACHED_PROCESSES);
-        String processes[] = cachedProcesses.split(LINE_SEPARATOR);
+        String processes[] = cachedProcesses.split("\\n{2}")[0].split(LINE_SEPARATOR);
         StringBuilder processesDumpsysInfo = new StringBuilder();
         for (String process : processes) {
             Matcher match = null;
-            if (((match = matches(PID_PATTERN, process))) != null) {
+            if ((match = matches(PID_PATTERN, process)) != null) {
                 String processId = match.group("processid");
                 processesDumpsysInfo.append(
                         String.format("Process Name : %s - PID : %s", process, processId));

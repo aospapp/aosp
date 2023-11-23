@@ -54,6 +54,8 @@ import java.util.Set;
 
 public class ItsUtils {
     public static final String TAG = ItsUtils.class.getSimpleName();
+    // The tokenizer must be the same as CAMERA_ID_TOKENIZER in device.py
+    public static final String CAMERA_ID_TOKENIZER = ".";
 
     public static ByteBuffer jsonToByteBuffer(JSONObject jsonObj) {
         return ByteBuffer.wrap(jsonObj.toString().getBytes(Charset.defaultCharset()));
@@ -375,7 +377,7 @@ public class ItsUtils {
 
                     CameraCharacteristics physicalChar =
                             manager.getCameraCharacteristics(physicalId);
-                    hwLevel = characteristics.get(
+                    hwLevel = physicalChar.get(
                             CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
                     if (hwLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY ||
                             hwLevel ==
@@ -384,6 +386,18 @@ public class ItsUtils {
                         continue;
                     }
 
+                    int[] physicalActualCapabilities = physicalChar.get(
+                            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+                    boolean physicalHaveBC = false;
+                    for (int capability : physicalActualCapabilities) {
+                        if (capability == BACKWARD_COMPAT) {
+                            physicalHaveBC = true;
+                            break;
+                        }
+                    }
+                    if (!physicalHaveBC) {
+                        continue;
+                    }
                     // To reduce duplicate tests, only additionally test hidden physical cameras
                     // with different focal length compared to the default focal length of the
                     // logical camera.
@@ -391,7 +405,7 @@ public class ItsUtils {
                             CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
                     if (defaultFocalLength != physicalFocalLengths[0]) {
                         outList.mCameraIds.add(physicalId);
-                        outList.mCameraIdCombos.add(id + ":" + physicalId);
+                        outList.mCameraIdCombos.add(id + CAMERA_ID_TOKENIZER + physicalId);
                     }
                 }
 

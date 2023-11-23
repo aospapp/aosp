@@ -41,7 +41,7 @@ def produce_stats(trace, print_detail=False, total_times=False, per_execution=Fa
     sep = ""
   for [task, pid, tgid, time, mark, line, lineno] in parsed:
     if ("HIDL::IDevice" in mark) or ("[NN_" in mark):
-        assert tracker_map.get(pid)
+        assert tracker_map.get(pid), "Cannot find PID %s in tracker_map" % pid
     if tracker_map.get(pid):
         if "[NN_LA_PO]" in mark:
           # Next run

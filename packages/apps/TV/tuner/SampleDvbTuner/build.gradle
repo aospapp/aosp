@@ -19,48 +19,39 @@
  * Experimental gradle configuration.  This file may not be up to date.
  */
 
-buildscript {
-    repositories {
-        mavenCentral()
-        google()
-        jcenter()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.4'
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.5'
-    }
-}
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.protobuf'
-android {
-    compileSdkVersion 26
-    buildToolsVersion '28.0.2'
 
-    dexOptions {
-        preDexLibraries = false
-        additionalParameters=['--core-library']
-        javaMaxHeapSize "6g"
-    }
-    android {
-        defaultConfig {
-            resConfigs "en"
-        }
-    }
-    defaultConfig {
-        minSdkVersion 23
-        targetSdkVersion 26
-        versionCode 1
-        versionName "1.0"
-    }
-    buildTypes {
-        debug {
-            minifyEnabled false
-        }
-    }
+android {
+    compileSdkVersion 29
+    buildToolsVersion '29.0.2'
+
     compileOptions() {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    defaultConfig {
+        minSdkVersion 23
+        resConfigs "en"
+        targetSdkVersion 29
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled true
+        }
+    }
+
     sourceSets {
         main {
             res.srcDirs = ['res']
@@ -70,22 +61,19 @@ android {
     }
 }
 
-repositories {
-    mavenCentral()
-    jcenter()
-    google()
-}
-
-final String SUPPORT_LIBS_VERSION = '26.1.0'
 dependencies {
-    implementation 'com.google.android.exoplayer:exoplayer-core:2.9.0'
-    implementation 'com.google.android.exoplayer:exoplayer:r1.5.16'
-    implementation "com.android.support:palette-v7:${SUPPORT_LIBS_VERSION}"
-    implementation "com.android.support:leanback-v17:${SUPPORT_LIBS_VERSION}"
-    implementation "com.android.support:support-tv-provider:${SUPPORT_LIBS_VERSION}"
-    /*Not building with  latest one (1.6.2)*/
-    annotationProcessor 'com.google.auto.value:auto-value:1.5.4'
-    implementation 'com.google.auto.value:auto-value:1.5.4'
-    implementation project(':common')
-    implementation project(':tuner')
+    implementation      'androidx.leanback:leanback:1.1.0-alpha02'
+    implementation      'androidx.palette:palette:1.0.0'
+    implementation      'androidx.tvprovider:tvprovider:1.0.0'
+
+    implementation      'com.google.android.exoplayer:exoplayer-ui:2.10.1'
+    annotationProcessor 'com.google.auto.value:auto-value:1.5.3'
+    implementation      'com.google.auto.value:auto-value:1.5.3'
+    implementation      'com.google.dagger:dagger:2.23'
+    implementation      'com.google.dagger:dagger-android:2.23'
+    annotationProcessor 'com.google.dagger:dagger-android-processor:2.23'
+    annotationProcessor 'com.google.dagger:dagger-compiler:2.23'
+
+    implementation      project(':common')
+    implementation      project(':tuner')
 }

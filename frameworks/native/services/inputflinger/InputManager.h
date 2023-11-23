@@ -21,15 +21,14 @@
  * Native input manager.
  */
 
-#include "EventHub.h"
-#include "InputReaderBase.h"
 #include "InputClassifier.h"
-#include "InputDispatcher.h"
-#include "InputReader.h"
+#include "InputReaderBase.h"
 
+#include <InputDispatcherInterface.h>
+#include <InputDispatcherPolicyInterface.h>
+#include <input/ISetInputWindowsListener.h>
 #include <input/Input.h>
 #include <input/InputTransport.h>
-#include <input/ISetInputWindowsListener.h>
 
 #include <input/IInputFlinger.h>
 #include <utils/Errors.h>
@@ -39,19 +38,20 @@
 
 namespace android {
 class InputChannel;
+class InputDispatcherThread;
 
 /*
  * The input manager is the core of the system event processing.
  *
- * The input manager uses two threads.
+ * The input manager has two components.
  *
- * 1. The InputReaderThread (called "InputReader") reads and preprocesses raw input events,
- *    applies policy, and posts messages to a queue managed by the DispatcherThread.
- * 2. The InputDispatcherThread (called "InputDispatcher") thread waits for new events on the
+ * 1. The InputReader class starts a thread that reads and preprocesses raw input events, applies
+ *    policy, and posts messages to a queue managed by the InputDispatcherThread.
+ * 2. The InputDispatcher class starts a thread that waits for new events on the
  *    queue and asynchronously dispatches them to applications.
  *
- * By design, the InputReaderThread class and InputDispatcherThread class do not share any
- * internal state.  Moreover, all communication is done one way from the InputReaderThread
+ * By design, the InputReader class and InputDispatcher class do not share any
+ * internal state.  Moreover, all communication is done one way from the InputReader
  * into the InputDispatcherThread and never the reverse.  Both classes may interact with the
  * InputDispatchPolicy, however.
  *
@@ -65,10 +65,10 @@ protected:
     virtual ~InputManagerInterface() { }
 
 public:
-    /* Starts the input manager threads. */
+    /* Starts the input threads. */
     virtual status_t start() = 0;
 
-    /* Stops the input manager threads and waits for them to exit. */
+    /* Stops the input threads and waits for them to exit. */
     virtual status_t stop() = 0;
 
     /* Gets the input reader. */
@@ -96,21 +96,18 @@ public:
 
     virtual void setInputWindows(const std::vector<InputWindowInfo>& handles,
             const sp<ISetInputWindowsListener>& setInputWindowsListener);
-    virtual void transferTouchFocus(const sp<IBinder>& fromToken, const sp<IBinder>& toToken);
 
     virtual void registerInputChannel(const sp<InputChannel>& channel);
     virtual void unregisterInputChannel(const sp<InputChannel>& channel);
 
+    void setMotionClassifierEnabled(bool enabled);
+
 private:
     sp<InputReaderInterface> mReader;
-    sp<InputReaderThread> mReaderThread;
 
     sp<InputClassifierInterface> mClassifier;
 
     sp<InputDispatcherInterface> mDispatcher;
-    sp<InputDispatcherThread> mDispatcherThread;
-
-    void initialize();
 };
 
 } // namespace android

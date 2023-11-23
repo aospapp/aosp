@@ -16,13 +16,8 @@
 
 package com.android.cts.devicepolicy;
 
-import android.platform.test.annotations.RequiresDevice;
-
-import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
-
-import junit.framework.AssertionFailedError;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Set of tests for device owner use cases that also apply to profile owners.
@@ -31,7 +26,7 @@ import junit.framework.AssertionFailedError;
 public class MixedDeviceOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         if (mHasFeature) {
@@ -49,7 +44,7 @@ public class MixedDeviceOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             assertTrue("Failed to remove device owner",
                     removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId));

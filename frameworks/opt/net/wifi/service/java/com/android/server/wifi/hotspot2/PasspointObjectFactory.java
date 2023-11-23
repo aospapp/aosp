@@ -19,17 +19,18 @@ package com.android.server.wifi.hotspot2;
 import android.content.Context;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 
-import com.android.org.conscrypt.TrustManagerImpl;
 import com.android.server.wifi.Clock;
-import com.android.server.wifi.SIMAccessor;
+import com.android.server.wifi.WifiCarrierInfoManager;
 import com.android.server.wifi.WifiKeyStore;
 import com.android.server.wifi.WifiMetrics;
 import com.android.server.wifi.WifiNative;
 
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 /**
  * Factory class for creating Passpoint related objects. Useful for mocking object creations
@@ -58,23 +59,24 @@ public class PasspointObjectFactory{
      * @return {@link PasspointProvider}
      */
     public PasspointProvider makePasspointProvider(PasspointConfiguration config,
-            WifiKeyStore keyStore, SIMAccessor simAccessor, long providerId, int creatorUid,
-            String packageName) {
-        return new PasspointProvider(config, keyStore, simAccessor, providerId, creatorUid,
-                packageName);
+            WifiKeyStore keyStore, WifiCarrierInfoManager wifiCarrierInfoManager, long providerId,
+            int creatorUid, String packageName, boolean isFromSuggestion) {
+        return new PasspointProvider(config, keyStore, wifiCarrierInfoManager, providerId,
+                creatorUid, packageName, isFromSuggestion);
     }
 
     /**
      * Create a {@link PasspointConfigUserStoreData} instance.
      *
      * @param keyStore Instance of {@link WifiKeyStore}
-     * @param simAccessor Instance of {@link SIMAccessor}
+     * @param wifiCarrierInfoManager Instance of {@link WifiCarrierInfoManager}
      * @param dataSource Passpoint configuration data source
      * @return {@link PasspointConfigUserStoreData}
      */
     public PasspointConfigUserStoreData makePasspointConfigUserStoreData(WifiKeyStore keyStore,
-            SIMAccessor simAccessor, PasspointConfigUserStoreData.DataSource dataSource) {
-        return new PasspointConfigUserStoreData(keyStore, simAccessor, dataSource);
+            WifiCarrierInfoManager wifiCarrierInfoManager,
+            PasspointConfigUserStoreData.DataSource dataSource) {
+        return new PasspointConfigUserStoreData(keyStore, wifiCarrierInfoManager, dataSource);
     }
 
     /**
@@ -106,15 +108,6 @@ public class PasspointObjectFactory{
      */
     public ANQPRequestManager makeANQPRequestManager(PasspointEventHandler handler, Clock clock) {
         return new ANQPRequestManager(handler, clock);
-    }
-
-    /**
-     * Create an instance of {@link CertificateVerifier}.
-     *
-     * @return {@link CertificateVerifier}
-     */
-    public CertificateVerifier makeCertificateVerifier() {
-        return new CertificateVerifier();
     }
 
     /**
@@ -176,13 +169,20 @@ public class PasspointObjectFactory{
     }
 
     /**
-     * Create an instance of {@link TrustManagerImpl}.
+     * Create an instance of {@link TrustManagerFactory}.
      *
      * @param ks KeyStore used to get root certs
-     * @return TrustManagerImpl an instance for delegating root cert validation
+     * @return TrustManagerFactory an instance for root cert validation
      */
-    public TrustManagerImpl getTrustManagerImpl(KeyStore ks) {
-        return new TrustManagerImpl(ks);
+    public TrustManagerFactory getTrustManagerFactory(KeyStore ks) {
+        try {
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory
+                    .getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(ks);
+            return trustManagerFactory;
+        } catch (NoSuchAlgorithmException | KeyStoreException e) {
+            return null;
+        }
     }
 
     /**

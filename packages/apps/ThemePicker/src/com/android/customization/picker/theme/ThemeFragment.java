@@ -15,6 +15,8 @@
  */
 package com.android.customization.picker.theme;
 
+import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+
 import android.app.Activity;
 import android.app.WallpaperColors;
 import android.content.Context;
@@ -58,13 +60,14 @@ import com.android.customization.picker.TimeTicker;
 import com.android.customization.picker.theme.ThemePreviewPage.ThemeCoverPage;
 import com.android.customization.picker.theme.ThemePreviewPage.TimeContainer;
 import com.android.customization.widget.OptionSelectorController;
-import com.android.customization.widget.PreviewPager;
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
+import com.android.wallpaper.asset.Asset.CenterCropBitmapTask;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.CurrentWallpaperInfoFactory;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.picker.ToolbarFragment;
+import com.android.wallpaper.widget.PreviewPager;
 
 import java.util.List;
 
@@ -116,8 +119,20 @@ public class ThemeFragment extends ToolbarFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(
-                R.layout.fragment_theme_picker, container, /* attachToRoot */ false);
+        View view;
+        if (ADD_SCALABLE_HEADER) {
+            // TODO(b/147780560): Once the temporary flag (ADD_SCALABLE_HEADER) is removed,
+            // we should have a layout with the same name for portrait and landscape.
+            int orientation = getResources().getConfiguration().orientation;
+            view = inflater.inflate(
+                    orientation == ORIENTATION_LANDSCAPE
+                            ? R.layout.fragment_theme_picker
+                            : R.layout.fragment_theme_scalable_picker,
+                    container, /* attachToRoot */ false);
+        } else {
+            view = inflater.inflate(
+                    R.layout.fragment_theme_picker, container, /* attachToRoot */ false);
+        }
         setUpToolbar(view);
 
         mContent = view.findViewById(R.id.content_section);
@@ -453,10 +468,12 @@ public class ThemeFragment extends ToolbarFragment {
                         // Disable seekbar
                         seekbar.setOnTouchListener((view, motionEvent) -> true);
 
+                        int iconFgColor = res.getColor(R.color.tile_enabled_icon_color, null);
                         for (int i = 0; i < mColorTileIds.length && i < previewInfo.icons.size();
                                 i++) {
                             Drawable icon = previewInfo.icons.get(mColorTileIconIds[i][1])
                                     .getConstantState().newDrawable().mutate();
+                            icon.setTint(iconFgColor);
                             Drawable bgShape =
                                     previewInfo.shapeDrawable.getConstantState().newDrawable();
                             bgShape.setTint(accentColor);
@@ -552,7 +569,9 @@ public class ThemeFragment extends ToolbarFragment {
                     if (wallpaperPreviewAsset != null) {
                         wallpaperPreviewAsset.decodeBitmap(
                                 targetWidth, targetHeight,
-                                bitmap -> setWallpaperBitmap(view, bitmap));
+                                bitmap -> new CenterCropBitmapTask(bitmap, view,
+                                        croppedBitmap -> setWallpaperBitmap(view, croppedBitmap))
+                                .execute());
                     }
                     view.removeOnLayoutChangeListener(this);
                 }

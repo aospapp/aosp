@@ -1,0 +1,13 @@
+# Date: W18.32
+# Operation : dontaudit writing to timerslack_ns
+dontaudit system_server appdomain:file w_file_perms;
+allow system_server ota_package_file:dir getattr;
+allow uncrypt uncrypt:capability fowner;
+
+# Purpose: receive dropbox message
+allow system_server crash_dump:fifo_file w_file_perms;
+allow system_server crash_dump:fd use;
+
+#Date:2019/10/10
+#Operation:Q Migration
+allow system_server mddb_filter_data_file:dir getattr;

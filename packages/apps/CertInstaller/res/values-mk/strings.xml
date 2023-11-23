@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Извлечи сертификат"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Се извлекуваат..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Извлечи од %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Именувај го сертификатот"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Име на сертификатот:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Именувајте го сертификатов"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Име на сертификатот"</string>
     <string name="credential_password" msgid="3520176519550993326">"Внесете ја лозинката за да ги извлечите сертификатите."</string>
     <string name="credential_info" msgid="2436768402308470397">"Пакетот содржи:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Сертификати во продавница за клучеви PKCS12."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Сертификатот е неважечки."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Потребен е приватен клуч за инсталирање сертификат"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Потребен е сертификат за инсталирање приватен клуч"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> е инсталиран."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Изберете тип сертификат"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Инсталирајте сертификати CA во „Поставки“"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Овој сертификат од <xliff:g id="REQUESTING_APP">%1$s</xliff:g> мора да се инсталира во „Поставки“. Инсталирајте сертификати CA само од организации во кои имате доверба."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Затвори"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Не може да се користи датотекава"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Затвори"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Датотекава не може да се користи како <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Сертификат"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"Сертификат CA"</string>
+    <string name="user_certificate" msgid="514888069820553128">"Кориснички сертификат за VPN и апликации"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Сертификат за Wi‑Fi"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Сертификат CA е инсталиран"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Корисничкиот сертификат е инсталиран"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Сертификатот за Wi‑Fi е инсталиран"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Не можеше да се инсталира зашто сертификатот е преголем."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Не можеше да се инсталира зашто датотеката со сертификат не можеше да се лоцира."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Не можеше да се инсталира зашто датотеката со сертификат не можеше да се прочита."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Привремен проблем. Обидете се подоцна."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Само сопственикот на овој уред може да инсталира сертификати."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Употреба на акредитив:"</string>
   <string-array name="credential_usage">

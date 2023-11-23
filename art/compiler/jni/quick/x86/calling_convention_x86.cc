@@ -19,6 +19,7 @@
 #include <android-base/logging.h>
 
 #include "arch/instruction_set.h"
+#include "arch/x86/jni_frame_x86.h"
 #include "handle_scope-inl.h"
 #include "utils/x86/managed_register_x86.h"
 
@@ -26,7 +27,6 @@ namespace art {
 namespace x86 {
 
 static_assert(kX86PointerSize == PointerSize::k32, "Unexpected x86 pointer size");
-static_assert(kStackAlignment >= 16u, "IA-32 cdecl requires at least 16 byte stack alignment");
 
 static constexpr ManagedRegister kCalleeSaveRegisters[] = {
     // Core registers.
@@ -36,10 +36,12 @@ static constexpr ManagedRegister kCalleeSaveRegisters[] = {
     // No hard float callee saves.
 };
 
-static constexpr uint32_t CalculateCoreCalleeSpillMask() {
+template <size_t size>
+static constexpr uint32_t CalculateCoreCalleeSpillMask(
+    const ManagedRegister (&callee_saves)[size]) {
   // The spilled PC gets a special marker.
   uint32_t result = 1 << kNumberOfCpuRegisters;
-  for (auto&& r : kCalleeSaveRegisters) {
+  for (auto&& r : callee_saves) {
     if (r.AsX86().IsCpuRegister()) {
       result |= (1 << r.AsX86().AsCpuRegister());
     }
@@ -47,16 +49,29 @@ static constexpr uint32_t CalculateCoreCalleeSpillMask() {
   return result;
 }
 
-static constexpr uint32_t kCoreCalleeSpillMask = CalculateCoreCalleeSpillMask();
+static constexpr uint32_t kCoreCalleeSpillMask = CalculateCoreCalleeSpillMask(kCalleeSaveRegisters);
 static constexpr uint32_t kFpCalleeSpillMask = 0u;
+
+static constexpr ManagedRegister kNativeCalleeSaveRegisters[] = {
+    // Core registers.
+    X86ManagedRegister::FromCpuRegister(EBX),
+    X86ManagedRegister::FromCpuRegister(EBP),
+    X86ManagedRegister::FromCpuRegister(ESI),
+    X86ManagedRegister::FromCpuRegister(EDI),
+    // No hard float callee saves.
+};
+
+static constexpr uint32_t kNativeCoreCalleeSpillMask =
+    CalculateCoreCalleeSpillMask(kNativeCalleeSaveRegisters);
+static constexpr uint32_t kNativeFpCalleeSpillMask = 0u;
 
 // Calling convention
 
-ManagedRegister X86ManagedRuntimeCallingConvention::InterproceduralScratchRegister() {
+ManagedRegister X86ManagedRuntimeCallingConvention::InterproceduralScratchRegister() const {
   return X86ManagedRegister::FromCpuRegister(ECX);
 }
 
-ManagedRegister X86JniCallingConvention::InterproceduralScratchRegister() {
+ManagedRegister X86JniCallingConvention::InterproceduralScratchRegister() const {
   return X86ManagedRegister::FromCpuRegister(ECX);
 }
 
@@ -205,47 +220,85 @@ X86JniCallingConvention::X86JniCallingConvention(bool is_static,
 }
 
 uint32_t X86JniCallingConvention::CoreSpillMask() const {
-  return kCoreCalleeSpillMask;
+  return is_critical_native_ ? 0u : kCoreCalleeSpillMask;
 }
 
 uint32_t X86JniCallingConvention::FpSpillMask() const {
-  return kFpCalleeSpillMask;
+  return is_critical_native_ ? 0u : kFpCalleeSpillMask;
 }
 
-size_t X86JniCallingConvention::FrameSize() {
+size_t X86JniCallingConvention::FrameSize() const {
+  if (is_critical_native_) {
+    CHECK(!SpillsMethod());
+    CHECK(!HasLocalReferenceSegmentState());
+    CHECK(!HasHandleScope());
+    CHECK(!SpillsReturnValue());
+    return 0u;  // There is no managed frame for @CriticalNative.
+  }
+
   // Method*, PC return address and callee save area size, local reference segment state
+  CHECK(SpillsMethod());
   const size_t method_ptr_size = static_cast<size_t>(kX86PointerSize);
   const size_t pc_return_addr_size = kFramePointerSize;
   const size_t callee_save_area_size = CalleeSaveRegisters().size() * kFramePointerSize;
-  size_t frame_data_size = method_ptr_size + pc_return_addr_size + callee_save_area_size;
+  size_t total_size = method_ptr_size + pc_return_addr_size + callee_save_area_size;
 
-  if (LIKELY(HasLocalReferenceSegmentState())) {                     // local ref. segment state
-    // Local reference segment state is sometimes excluded.
-    frame_data_size += kFramePointerSize;
-  }
+  CHECK(HasLocalReferenceSegmentState());
+  total_size += kFramePointerSize;
 
-  // References plus link_ (pointer) and number_of_references_ (uint32_t) for HandleScope header
-  const size_t handle_scope_size = HandleScope::SizeOf(kX86PointerSize, ReferenceCount());
-
-  size_t total_size = frame_data_size;
-  if (LIKELY(HasHandleScope())) {
-    // HandleScope is sometimes excluded.
-    total_size += handle_scope_size;                                 // handle scope size
-  }
+  CHECK(HasHandleScope());
+  total_size += HandleScope::SizeOf(kX86_64PointerSize, ReferenceCount());
 
   // Plus return value spill area size
+  CHECK(SpillsReturnValue());
   total_size += SizeOfReturnValue();
 
   return RoundUp(total_size, kStackAlignment);
-  // TODO: Same thing as x64 except using different pointer size. Refactor?
 }
 
-size_t X86JniCallingConvention::OutArgSize() {
-  return RoundUp(NumberOfOutgoingStackArgs() * kFramePointerSize, kStackAlignment);
+size_t X86JniCallingConvention::OutArgSize() const {
+  // Count param args, including JNIEnv* and jclass*; count 8-byte args twice.
+  size_t all_args = NumberOfExtraArgumentsForJni() + NumArgs() + NumLongOrDoubleArgs();
+  // The size of outgoiong arguments.
+  size_t size = all_args * kFramePointerSize;
+
+  // @CriticalNative can use tail call as all managed callee saves are preserved by AAPCS.
+  static_assert((kCoreCalleeSpillMask & ~kNativeCoreCalleeSpillMask) == 0u);
+  static_assert((kFpCalleeSpillMask & ~kNativeFpCalleeSpillMask) == 0u);
+
+  if (UNLIKELY(IsCriticalNative())) {
+    // Add return address size for @CriticalNative.
+    // For normal native the return PC is part of the managed stack frame instead of out args.
+    size += kFramePointerSize;
+    // For @CriticalNative, we can make a tail call if there are no stack args
+    // and the return type is not FP type (needs moving from ST0 to MMX0) and
+    // we do not need to extend the result.
+    bool return_type_ok = GetShorty()[0] == 'I' || GetShorty()[0] == 'J' || GetShorty()[0] == 'V';
+    DCHECK_EQ(
+        return_type_ok,
+        GetShorty()[0] != 'F' && GetShorty()[0] != 'D' && !RequiresSmallResultTypeExtension());
+    if (return_type_ok && size == kFramePointerSize) {
+      // Note: This is not aligned to kNativeStackAlignment but that's OK for tail call.
+      static_assert(kFramePointerSize < kNativeStackAlignment);
+      DCHECK_EQ(kFramePointerSize, GetCriticalNativeOutArgsSize(GetShorty(), NumArgs() + 1u));
+      return kFramePointerSize;
+    }
+  }
+
+  size_t out_args_size = RoundUp(size, kNativeStackAlignment);
+  if (UNLIKELY(IsCriticalNative())) {
+    DCHECK_EQ(out_args_size, GetCriticalNativeOutArgsSize(GetShorty(), NumArgs() + 1u));
+  }
+  return out_args_size;
 }
 
 ArrayRef<const ManagedRegister> X86JniCallingConvention::CalleeSaveRegisters() const {
-  return ArrayRef<const ManagedRegister>(kCalleeSaveRegisters);
+  if (UNLIKELY(IsCriticalNative())) {
+    // Do not spill anything, whether tail call or not (return PC is already on the stack).
+    return ArrayRef<const ManagedRegister>();
+  } else {
+    return ArrayRef<const ManagedRegister>(kCalleeSaveRegisters);
+  }
 }
 
 bool X86JniCallingConvention::IsCurrentParamInRegister() {
@@ -265,15 +318,21 @@ FrameOffset X86JniCallingConvention::CurrentParamStackOffset() {
   return FrameOffset(displacement_.Int32Value() - OutArgSize() + (itr_slots_ * kFramePointerSize));
 }
 
-size_t X86JniCallingConvention::NumberOfOutgoingStackArgs() {
-  size_t static_args = HasSelfClass() ? 1 : 0;  // count jclass
-  // regular argument parameters and this
-  size_t param_args = NumArgs() + NumLongOrDoubleArgs();
-  // count JNIEnv* and return pc (pushed after Method*)
-  size_t internal_args = 1 /* return pc */ + (HasJniEnv() ? 1 : 0 /* jni env */);
-  // No register args.
-  size_t total_args = static_args + param_args + internal_args;
-  return total_args;
+ManagedRegister X86JniCallingConvention::HiddenArgumentRegister() const {
+  CHECK(IsCriticalNative());
+  // EAX is neither managed callee-save, nor argument register, nor scratch register.
+  DCHECK(std::none_of(kCalleeSaveRegisters,
+                      kCalleeSaveRegisters + std::size(kCalleeSaveRegisters),
+                      [](ManagedRegister callee_save) constexpr {
+                        return callee_save.Equals(X86ManagedRegister::FromCpuRegister(EAX));
+                      }));
+  DCHECK(!InterproceduralScratchRegister().Equals(X86ManagedRegister::FromCpuRegister(EAX)));
+  return X86ManagedRegister::FromCpuRegister(EAX);
+}
+
+bool X86JniCallingConvention::UseTailCall() const {
+  CHECK(IsCriticalNative());
+  return OutArgSize() == kFramePointerSize;
 }
 
 }  // namespace x86

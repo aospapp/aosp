@@ -14,14 +14,13 @@
 #include "rk_mipi.h"
 #include <syscon.h>
 #include <asm/gpio.h>
-#include <asm/hardware.h>
 #include <asm/io.h>
 #include <dm/uclass-internal.h>
 #include <linux/kernel.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/cru_rk3399.h>
-#include <asm/arch/grf_rk3399.h>
-#include <asm/arch/rockchip_mipi_dsi.h>
+#include <asm/arch-rockchip/clock.h>
+#include <asm/arch-rockchip/cru_rk3399.h>
+#include <asm/arch-rockchip/grf_rk3399.h>
+#include <asm/arch-rockchip/rockchip_mipi_dsi.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -106,7 +105,7 @@ int rk_mipi_dsi_enable(struct udevice *dev,
 	rk_mipi_dsi_write(regs, VSYNC_ACTIVE_LOW, val);
 
 	val = (timing->flags & DISPLAY_FLAGS_DE_LOW) ? 1 : 0;
-	rk_mipi_dsi_write(regs, DISPLAY_FLAGS_DE_LOW, val);
+	rk_mipi_dsi_write(regs, DATAEN_ACTIVE_LOW, val);
 
 	val = (timing->flags & DISPLAY_FLAGS_PIXDATA_NEGEDGE) ? 1 : 0;
 	rk_mipi_dsi_write(regs, COLORM_ACTIVE_LOW, val);
@@ -241,7 +240,7 @@ int rk_mipi_phy_enable(struct udevice *dev)
 
 	/* select the suitable value for fsfreqrang reg */
 	for (i = 0; i < ARRAY_SIZE(freq_rang); i++) {
-		if (ddr_clk / (MHz) >= freq_rang[i][0])
+		if (ddr_clk / (MHz) <= freq_rang[i][0])
 			break;
 	}
 	if (i == ARRAY_SIZE(freq_rang)) {

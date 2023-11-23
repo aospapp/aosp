@@ -7,6 +7,12 @@ cc_defaults {
         "-DAPF_FRAME_HEADER_SIZE=14",
         "-Wall",
         "-Werror",
+        "-Werror=implicit-fallthrough",
+        "-Wnullable-to-nonnull-conversion",
+        "-Wsign-compare",
+        "-Wthread-safety",
+        "-Wunused-parameter",
+        "-Wuninitialized",
     ],
 }
 
@@ -14,13 +20,16 @@ cc_library_static {
     name: "libapf",
     defaults: ["apf_defaults"],
     srcs: ["apf_interpreter.c"],
-
+    sdk_version: "24",
 }
 
 cc_binary_host {
     name: "apf_disassembler",
     defaults: ["apf_defaults"],
-    srcs: ["apf_disassembler.c"],
+    srcs: [
+        "apf_disassembler.c",
+        "disassembler.c",
+    ],
 }
 
 cc_binary_host {
@@ -32,12 +41,31 @@ cc_binary_host {
     srcs: [
         "apf_run.c",
         "apf_interpreter.c",
+        "disassembler.c",
     ],
     cflags: [
         "-DAPF_TRACE_HOOK=apf_trace_hook",
     ],
     target: {
         darwin: {
+            enabled: false,
+        },
+    },
+}
+
+sh_test_host {
+    name: "apf_run_test",
+    src: "apf_run_test.sh",
+    filename: "apf_run_test.sh",
+    test_suites: ["general-tests"],
+    test_config: "apf_run_test.xml",
+    required: [":apf_run"],
+    data: ["testdata/*"],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+        windows: {
             enabled: false,
         },
     },

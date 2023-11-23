@@ -30,7 +30,13 @@
         app:titleEnabled="false"
         app:layout_scrollFlags="scroll|enterAlways|enterAlwaysCollapsed">
 
-        <include layout="@layout/directory_header"/>
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <include layout="@layout/directory_header"/>
+
+        </androidx.core.widget.NestedScrollView>
 
         <View
             android:id="@+id/toolbar_background_layout"
@@ -48,6 +54,7 @@
             android:theme="?actionBarTheme"
             android:popupTheme="?actionBarPopupTheme"
             android:elevation="3dp"
+            app:collapseContentDescription="@string/button_back"
             app:titleTextAppearance="@style/ToolbarTitle"
             app:layout_collapseMode="pin">
 
@@ -58,15 +65,6 @@
                 android:gravity="center_vertical"
                 android:text="@string/search_bar_hint"
                 android:textAppearance="@style/SearchBarTitle"/>
-
-            <com.android.documentsui.DropdownBreadcrumb
-                android:id="@+id/dropdown_breadcrumb"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginStart="4dp"
-                android:popupTheme="?actionBarPopupTheme"
-                android:background="@android:color/transparent"
-                android:overlapAnchor="true"/>
 
         </androidx.appcompat.widget.Toolbar>
 

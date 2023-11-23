@@ -26,6 +26,8 @@
 #include <log/log.h>
 
 #include <media/EffectsConfig.h>
+#include <media/TypeConverter.h>
+#include <system/audio_config.h>
 
 using namespace tinyxml2;
 
@@ -100,6 +102,7 @@ constexpr std::pair<audio_stream_type_t, const char*> STREAM_NAME_MAP<audio_stre
         {AUDIO_STREAM_ENFORCED_AUDIBLE, "enforced_audible"},
         {AUDIO_STREAM_DTMF, "dtmf"},
         {AUDIO_STREAM_TTS, "tts"},
+        {AUDIO_STREAM_ASSISTANT, "assistant"},
 };
 
 /** All input stream types which support effects.
@@ -116,6 +119,8 @@ constexpr std::pair<audio_source_t, const char*> STREAM_NAME_MAP<audio_source_t>
         {AUDIO_SOURCE_VOICE_COMMUNICATION, "voice_communication"},
         {AUDIO_SOURCE_UNPROCESSED, "unprocessed"},
         {AUDIO_SOURCE_VOICE_PERFORMANCE, "voice_performance"},
+        {AUDIO_SOURCE_ECHO_REFERENCE, "echo_reference"},
+        {AUDIO_SOURCE_FM_TUNER, "fm_tuner"},
 };
 
 /** Find the stream type enum corresponding to the stream type name or return false */
@@ -129,6 +134,11 @@ bool stringToStreamType(const char *streamName, Type* type)
         }
     }
     return false;
+}
+
+template <>
+bool stringToStreamType(const char *streamName, audio_devices_t* type) {
+    return deviceFromString(streamName, *type);
 }
 
 /** Parse a library xml note and push the result in libraries or return false on failure. */
@@ -218,7 +228,7 @@ bool parseEffect(const XMLElement& xmlEffect, Libraries& libraries, Effects* eff
     return true;
 }
 
-/** Parse an stream from an xml element describing it.
+/** Parse an <Output|Input>stream or a device from an xml element describing it.
  * @return true and pushes the stream in streams on success,
  *         false on failure. */
 template <class Stream>
@@ -230,14 +240,14 @@ bool parseStream(const XMLElement& xmlStream, Effects& effects, std::vector<Stre
     }
     Stream stream;
     if (!stringToStreamType(streamType, &stream.type)) {
-        ALOGE("Invalid stream type %s: %s", streamType, dump(xmlStream));
+        ALOGE("Invalid <stream|device> type %s: %s", streamType, dump(xmlStream));
         return false;
     }
 
     for (auto& xmlApply : getChildren(xmlStream, "apply")) {
         const char* effectName = xmlApply.get().Attribute("effect");
         if (effectName == nullptr) {
-            ALOGE("stream/apply must have reference an effect: %s", dump(xmlApply));
+            ALOGE("<stream|device>/apply must have reference an effect: %s", dump(xmlApply));
             return false;
         }
         auto* effect = findByName(effectName, effects);
@@ -248,6 +258,21 @@ bool parseStream(const XMLElement& xmlStream, Effects& effects, std::vector<Stre
         stream.effects.emplace_back(*effect);
     }
     streams->push_back(std::move(stream));
+    return true;
+}
+
+bool parseDeviceEffects(
+        const XMLElement& xmlDevice, Effects& effects, std::vector<DeviceEffects>* deviceEffects) {
+
+    const char* address = xmlDevice.Attribute("address");
+    if (address == nullptr) {
+        ALOGE("device must have an address: %s", dump(xmlDevice));
+        return false;
+    }
+    if (!parseStream(xmlDevice, effects, deviceEffects)) {
+        return false;
+    }
+    deviceEffects->back().address = address;
     return true;
 }
 
@@ -295,6 +320,14 @@ ParsingResult parseWithPath(std::string&& path) {
                 registerFailure(parseStream(xmlStream, config->effects, &config->postprocess));
             }
         }
+
+        // Parse device effect chains
+        for (auto& xmlDeviceEffects : getChildren(xmlConfig, "deviceEffects")) {
+            for (auto& xmlDevice : getChildren(xmlDeviceEffects, "devicePort")) {
+                registerFailure(
+                            parseDeviceEffects(xmlDevice, config->effects, &config->deviceprocess));
+            }
+        }
     }
     return {std::move(config), nbSkippedElements, std::move(path)};
 }
@@ -306,7 +339,7 @@ ParsingResult parse(const char* path) {
         return parseWithPath(path);
     }
 
-    for (const std::string& location : DEFAULT_LOCATIONS) {
+    for (const std::string& location : audio_get_configuration_paths()) {
         std::string defaultPath = location + '/' + DEFAULT_NAME;
         if (access(defaultPath.c_str(), R_OK) != 0) {
             continue;

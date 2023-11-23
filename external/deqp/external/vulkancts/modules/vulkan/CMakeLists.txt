@@ -32,8 +32,12 @@ add_subdirectory(subgroups)
 add_subdirectory(ycbcr)
 add_subdirectory(protected_memory)
 add_subdirectory(memory_model)
+add_subdirectory(transform_feedback)
 add_subdirectory(util)
-add_subdirectory(vkrunner)
+add_subdirectory(amber)
+add_subdirectory(imageless_framebuffer)
+add_subdirectory(descriptor_indexing)
+add_subdirectory(fragment_shader_interlock)
 
 include_directories(
 	api
@@ -68,8 +72,12 @@ include_directories(
 	ycbcr
 	protected_memory
 	memory_model
+	transform_feedback
 	util
-	vkrunner
+	amber
+	imageless_framebuffer
+	descriptor_indexing
+	fragment_shader_interlock
 	)
 
 set(DEQP_VK_SRCS
@@ -86,6 +94,8 @@ set(DEQP_VK_SRCS
 	vktTestGroupUtil.hpp
 	vktInfoTests.cpp
 	vktInfoTests.hpp
+	vktCustomInstancesDevices.cpp
+	vktCustomInstancesDevices.hpp
 	)
 
 set(DEQP_VK_LIBS
@@ -124,7 +134,11 @@ set(DEQP_VK_LIBS
 	deqp-vk-ycbcr
 	deqp-vk-protected-memory
 	deqp-vk-memory-model
-	deqp-vk-vkrunner
+	deqp-vk-amber
+	deqp-vk-imageless-framebuffer
+	deqp-vk-transform-feedback
+	deqp-vk-descriptor-indexing
+	deqp-vk-fragment-shader-interlock
 	)
 
 if (DE_COMPILER_IS_MSC AND (DE_PTR_SIZE EQUAL 4))

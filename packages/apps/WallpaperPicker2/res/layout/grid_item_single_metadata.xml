@@ -83,7 +83,7 @@
                     android:layout_marginTop="@dimen/single_metadata_pane_wallpaper_label_margin_top"
                     android:textColor="@color/currently_set_presentation_mode_text_color"
                     android:textSize="@dimen/abc_text_size_subhead_material"
-                    android:textAppearance="@style/HeaderTextAppearance"
+                    android:textAppearance="@style/TitleTextAppearance"
                     android:textStyle="bold"
                     android:textAlignment="viewStart"
                     android:ellipsize="end"

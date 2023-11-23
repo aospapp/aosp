@@ -105,7 +105,7 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Бүкіл ақпаратты және контактілерді тазалау керек пе?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Медициналық ақпарат пен төтенше жағдай контактілері алғашқы жәрдем берушілерге көмектеседі.\n\nБұл ақпаратты кез келген адам құлыптау экранынан оқи алады және телефон құлпын ашпастан аттарды түрте отырып, контактілерге хабарласа алады."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Төтенше жағдайға арналған ақпаратты енгізу"</string>
-    <string name="settings_suggestion_body" msgid="5559349261345837716">"Алдымен жауап берушілерге ақпаратты көруге мүмкіндік беріңіз"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Алғашқы көмек көрсетуге қажет ақпаратты беріңіз."</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Суретке түсіру"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Кескін таңдау"</string>
     <string name="user_image_photo_selector" msgid="8941966433899876760">"Сурет таңдау"</string>

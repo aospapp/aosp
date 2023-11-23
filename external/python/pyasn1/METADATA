@@ -1,7 +1,5 @@
 name: "pyasn1"
-description:
-    "ASN.1 types and codecs"
-
+description: "ASN.1 types and codecs"
 third_party {
   url {
     type: HOMEPAGE
@@ -11,6 +9,10 @@ third_party {
     type: GIT
     value: "https://github.com/etingof/pyasn1"
   }
-  version: "0.4.3"
-  last_upgrade_date { year: 2018 month: 5 day: 23 }
+  version: "v0.4.7"
+  last_upgrade_date {
+    year: 2019
+    month: 9
+    day: 3
+  }
 }

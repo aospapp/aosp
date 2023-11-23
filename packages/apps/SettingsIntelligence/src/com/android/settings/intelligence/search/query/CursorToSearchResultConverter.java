@@ -27,7 +27,9 @@ import android.graphics.drawable.Drawable;
 import android.os.BadParcelableException;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
 
+import com.android.settings.intelligence.R;
 import com.android.settings.intelligence.search.ResultPayload;
 import com.android.settings.intelligence.search.ResultPayloadUtils;
 import com.android.settings.intelligence.search.SearchResult;
@@ -162,7 +164,11 @@ public class CursorToSearchResultConverter {
         Context packageContext = contextMap.get(pkgName);
         if (packageContext == null) {
             try {
-                packageContext = mContext.createPackageContext(pkgName, 0);
+                final Context themedAppContext = new ContextThemeWrapper(
+                        mContext, R.style.Theme_Settings);
+                packageContext = new ContextThemeWrapper(
+                        themedAppContext.createPackageContext(pkgName, 0),
+                        themedAppContext.getTheme());
                 contextMap.put(pkgName, packageContext);
             } catch (PackageManager.NameNotFoundException e) {
                 Log.e(TAG, "Cannot create Context for package: " + pkgName);

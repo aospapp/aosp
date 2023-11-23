@@ -27,7 +27,7 @@
 #define FUSE_IGNORE_C 0x3aabadac  // baked in rom!
 #define INFO_IGNORE_C 0xa5c35a3c  // baked in rom!
 
-// D2 chips
+// Dauntless chips
 #define FUSE_IGNORE_D 0xdaa3baca  // baked in rom!
 #define INFO_IGNORE_D 0x5a3ca5c3  // baked in rom!
 
@@ -44,7 +44,7 @@
 
 #define SIGNED_HEADER_MAGIC_HAVEN (-1u)
 #define SIGNED_HEADER_MAGIC_CITADEL (-2u)
-#define SIGNED_HEADER_MAGIC_D2 (-3u)
+#define SIGNED_HEADER_MAGIC_DAUNTLESS (-3u)
 
 /* Default value for _pad[] words */
 #define SIGNED_HEADER_PADDING 0x33333333
@@ -100,7 +100,7 @@ typedef struct SignedHeader {
     switch (magic) {
       case SIGNED_HEADER_MAGIC_HAVEN:
       case SIGNED_HEADER_MAGIC_CITADEL:
-      case SIGNED_HEADER_MAGIC_D2:
+      case SIGNED_HEADER_MAGIC_DAUNTLESS:
         break;
       default:
         return false;
@@ -121,8 +121,8 @@ typedef struct SignedHeader {
       case SIGNED_HEADER_MAGIC_CITADEL:
         printf("Citadel");
         break;
-      case SIGNED_HEADER_MAGIC_D2:
-        printf("D2");
+      case SIGNED_HEADER_MAGIC_DAUNTLESS:
+        printf("Dauntless");
         break;
       default:
         printf("?");
@@ -142,6 +142,7 @@ typedef struct SignedHeader {
     printf("hdr.minor          : %08x\n", minor_);
     printf("hdr.timestamp      : %016" PRIx64 ", %s", timestamp_,
            asctime(localtime(reinterpret_cast<const time_t*>(&timestamp_))));
+    printf("hdr.img_size       : %08x\n", image_size);
     printf("hdr.img_chk        : %08x\n", be32toh(img_chk_));
     printf("hdr.fuses_chk      : %08x\n", be32toh(fuses_chk_));
     printf("hdr.info_chk       : %08x\n", be32toh(info_chk_));
@@ -150,8 +151,10 @@ typedef struct SignedHeader {
     printf("hdr.err_response   : %08x\n", err_response_);
     printf("hdr.expect_response: %08x\n", expect_response_);
 
-    if (dev_id0_) printf("hdr.dev_id0        : %08x (%d)\n", dev_id0_, dev_id0_);
-    if (dev_id1_) printf("hdr.dev_id1        : %08x (%d)\n", dev_id1_, dev_id1_);
+    if (dev_id0_)
+      printf("hdr.dev_id0        : %08x (%d)\n", dev_id0_, dev_id0_);
+    if (dev_id1_)
+      printf("hdr.dev_id1        : %08x (%d)\n", dev_id1_, dev_id1_);
 
     printf("hdr.fusemap        : ");
     for (size_t i = 0; i < sizeof(fusemap) / sizeof(fusemap[0]); ++i) {
@@ -163,6 +166,11 @@ typedef struct SignedHeader {
       printf("%08X", infomap[i]);
     }
     printf("\n");
+
+    printf("hdr.board_id       : %08x %08x %08x\n",
+           SIGNED_HEADER_PADDING ^ board_id_.type,
+           SIGNED_HEADER_PADDING ^ board_id_.type_mask,
+           SIGNED_HEADER_PADDING ^ board_id_.flags);
   }
 #endif  // __cplusplus
 
@@ -191,25 +199,12 @@ typedef struct SignedHeader {
   uint32_t expect_response_;  // action to take when expectation is violated
 
   union {
-    // 2nd FIPS signature (gnubby RW)
+    // 2nd FIPS signature (cr51/cr52 RW)
     struct {
       uint32_t keyid;
       uint32_t r[8];
       uint32_t s[8];
     } ext_sig;
-
-    // FLASH trim override (D2 RO)
-    // iff config1_ & 65536
-    struct {
-      uint32_t FSH_SMW_SETTING_OPTION3;
-      uint32_t FSH_SMW_SETTING_OPTION2;
-      uint32_t FSH_SMW_SETTING_OPTIONA;
-      uint32_t FSH_SMW_SETTING_OPTIONB;
-      uint32_t FSH_SMW_SMP_WHV_OPTION1;
-      uint32_t FSH_SMW_SMP_WHV_OPTION0;
-      uint32_t FSH_SMW_SME_WHV_OPTION1;
-      uint32_t FSH_SMW_SME_WHV_OPTION0;
-    } fsh;
   } u;
 
   // Spare space
@@ -244,6 +239,9 @@ static_assert(sizeof(SignedHeader) == 1024,
 static_assert(offsetof(SignedHeader, info_chk_) == 1020,
               "SignedHeader should be 1024 bytes");
 #endif  // GOOGLE3
+#else
+_Static_assert(sizeof(SignedHeader) == 1024,
+              "SignedHeader should be 1024 bytes");
 #endif  // __cplusplus
 
 #endif  // __EC_UTIL_SIGNER_COMMON_SIGNED_HEADER_H

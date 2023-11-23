@@ -875,7 +875,7 @@ public class AutoCompleteTextViewTest {
         });
         assertFalse(mAutoCompleteTextView.isPerformingCompletion());
 
-        // Key is ENTER or DPAD_ENTER, will invoke completion
+        // Key is ENTER, will invoke completion
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN);
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER);
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mAutoCompleteTextView, null);
@@ -885,9 +885,19 @@ public class AutoCompleteTextViewTest {
 
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mAutoCompleteTextView,
                 mAutoCompleteTextView::showDropDown);
+        // Key is NUMPAD_ENTER, will invoke completion
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN);
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_NUMPAD_ENTER);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mAutoCompleteTextView, null);
+        verify(mockItemClickListener, times(2)).onItemClick(any(AdapterView.class), any(View.class),
+                eq(0), eq(0L));
+        assertEquals(WORDS[0], mAutoCompleteTextView.getText().toString());
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mAutoCompleteTextView,
+                mAutoCompleteTextView::showDropDown);
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN);
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER);
-        verify(mockItemClickListener, times(2)).onItemClick(any(AdapterView.class), any(View.class),
+        verify(mockItemClickListener, times(3)).onItemClick(any(AdapterView.class), any(View.class),
                 eq(0), eq(0L));
         assertEquals(WORDS[0], mAutoCompleteTextView.getText().toString());
         assertFalse(mAutoCompleteTextView.isPerformingCompletion());

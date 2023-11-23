@@ -26,6 +26,7 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Point;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.TextUtils;
@@ -33,9 +34,13 @@ import android.text.method.ArrowKeyMovementMethod;
 import android.text.method.MovementMethod;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.SparseArray;
 import android.util.TypedValue;
 import android.util.Xml;
+import android.view.KeyEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.TextView.BufferType;
 
 import androidx.test.InstrumentationRegistry;
@@ -44,11 +49,18 @@ import androidx.test.filters.SmallTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.CtsKeyEventUtil;
+import com.android.compatibility.common.util.CtsTouchUtils;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -72,6 +84,11 @@ public class EditTextTest {
 
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.edittext_layout);
         mAttributeSet = Xml.asAttributeSet(parser);
+    }
+
+    @After
+    public void teardown() throws Throwable {
+        mActivityRule.runOnUiThread(() -> mEditText1.setSingleLine(false));
     }
 
     @Test
@@ -366,6 +383,22 @@ public class EditTextTest {
         assertEquals(Layout.BREAK_STRATEGY_SIMPLE, editText.getBreakStrategy());
     }
 
+    @UiThreadTest
+    @Test
+    public void testOnInitializeA11yNodeInfo_hasAccessibilityActions() {
+        mEditText1.setText("android");
+        final AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
+        mEditText1.onInitializeAccessibilityNodeInfo(info);
+        List<AccessibilityNodeInfo.AccessibilityAction> actionList = info.getActionList();
+        assertTrue("info's isLongClickable should be true",
+                info.isLongClickable());
+        assertTrue("info should have ACTION_LONG_CLICK",
+                actionList.contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_LONG_CLICK));
+        assertTrue("info should have ACTION_SET_TEXT",
+                actionList.contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT));
+
+    }
+
     private class MockEditText extends EditText {
         public MockEditText(Context context) {
             super(context);
@@ -429,5 +462,69 @@ public class EditTextTest {
             // constructors.
             Editable text = getText();
         }
+    }
+
+    @Test
+    public void testCursorDrag() throws Exception {
+        AtomicReference<SparseArray<Point>> dragStartEnd = new AtomicReference<>();
+        String text = "Hello world, how are you doing today?";
+        mInstrumentation.runOnMainSync(() -> {
+            mEditText1.setText(text);
+            mEditText1.requestFocus();
+            mEditText1.setSelection(text.length());
+            dragStartEnd.set(getScreenCoords(mEditText1, text.indexOf("y?"), text.indexOf("el")));
+        });
+        assertCursorPosition(mEditText1, text.length());
+        assertTrue(mEditText1.hasFocus());
+
+        // Simulate a drag gesture. The cursor should end up at the position where the finger is
+        // lifted.
+        CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule, dragStartEnd.get());
+        assertCursorPosition(mEditText1, text.indexOf("el"));
+    }
+
+    private static void assertCursorPosition(TextView textView, int expectedOffset) {
+        assertEquals(expectedOffset, textView.getSelectionStart());
+        assertEquals(expectedOffset, textView.getSelectionEnd());
+    }
+
+    private static SparseArray<Point> getScreenCoords(TextView textView, int ... offsets) {
+        SparseArray<Point> result  = new SparseArray<>(offsets.length);
+        for (int i = 0; i < offsets.length; i++) {
+            result.append(i, getScreenCoords(textView, offsets[i]));
+        }
+        return result;
+    }
+
+    private static Point getScreenCoords(TextView textView, int offset) {
+        // Get the x,y coordinates for the given offset in the text. These are relative to the view.
+        int x = (int) textView.getLayout().getPrimaryHorizontal(offset);
+        int line = textView.getLayout().getLineForOffset(offset);
+        int yTop = textView.getLayout().getLineTop(line);
+        int yBottom = textView.getLayout().getLineBottom(line);
+        int y = (yTop + yBottom) / 2;
+
+        // Get the x,y coordinates of the view.
+        final int[] viewOnScreenXY = new int[2];
+        textView.getLocationOnScreen(viewOnScreenXY);
+
+        // Return the absolute screen coordinates for the given offset in the text.
+        return new Point(viewOnScreenXY[0] + x, viewOnScreenXY[1] + y);
+    }
+
+    @Test
+    public void testEnterKey() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mEditText1.setSingleLine(true);
+            mEditText1.requestFocus();
+        });
+
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mEditText1, KeyEvent.KEYCODE_ENTER);
+        mInstrumentation.waitForIdleSync();
+        assertTrue(mEditText2.hasFocus());
+
+        mActivityRule.runOnUiThread(() -> mEditText1.requestFocus());
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mEditText1, KeyEvent.KEYCODE_NUMPAD_ENTER);
+        assertTrue(mEditText2.hasFocus());
     }
 }

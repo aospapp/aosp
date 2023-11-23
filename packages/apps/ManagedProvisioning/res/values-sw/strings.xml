@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Weka upya"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Imeshindwa kuweka wasifu"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Imeshindwa kuweka mipangilio ya kifaa"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Hitilafu fulani imetokea"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Imeshindwa kuweka mipangilio ya kifaa. Ili upate usaidizi, wasiliana na msimamizi wako wa TEHAMA."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Badilisha mipangilio ya kifaa hiki na ujaribu kuiweka tena."</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Tayari umeweka mipangilio ya kifaa"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Imeshindwa kuunganisha kwenye Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Kipengele cha kuweka upya mipangilio kimewashwa katika kifaa chako. Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Inajiandaa kuweka mipangilio kwenye kifaa cha kazini…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Inaweka mipangilio ya programu ya msimamizi"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Weka mipangilio ya kila kitu"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Sasa, acha tuweke mipangilio ya kila kitu"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Weka akaunti ya binafsi ili unufaike zaidi na kifaa chako"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Kwa kuwa sasa wasifu wako wa kazini uko tayari, unaweza pia kuweka Akaunti ya binafsi ya Google ili ufikie programu na maudhui yako."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Kifaa hiki kinamilikiwa na shirika lako"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Programu ifuatayo itatumika kudhiiti na kufuatilia simu hii"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Inajiandaa ili kuweka mipangilio ya kazini…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Kwanza, acha tuweke wasifu wako wa kazini"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Turuhusu tuweke wasifu wako wa kazini"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Programu za kazini zinawekwa kwenye wasifu wako wa kazini"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Simamisha programu za kazini unapoondoka kazini"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Data iliyo kwenye wasifu wako wa kazini pekee ndiyo inayoonekana na msimamizi wako wa TEHAMA"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Inaweka mipangilio ya wasifu wako wa kazi…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Programu za kazini zinawekwa kwenye wasifu wako wa kazini. Unaweza kusimamisha programu zako za kazini unapoondoka kazini. Data iliyo kwenye wasifu wako wa kazini pekee ndiyo inayoonekana na msimamizi wako wa TEHAMA."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Msimamizi wako wa TEHAMA anaona data iliyo kwenye wasifu wako wa kazini"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Wasifu wako wa kazi unawekwa…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Programu za kazini zinawekwa kwenye wasifu wako wa kazini. Unaweza kusimamisha programu zako za kazini unapoondoka kazini. Msimamizi wako wa TEHAMA anaona data iliyo kwenye wasifu wako wa kazini."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Tuweke mipangilio kwenye kifaa chako cha kazini"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Tumia programu zako za kazini popote ulipo"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Kifaa hiki si cha faragha"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako kwenye kifaa hiki."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Inaweka mipangilio ya kifaa chako…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Tumia kifaa hiki kufikia programu zako za kazini kwa urahisi. Kifaa hiki si cha faragha, kwa hivyo msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako. Ili upate maelezo zaidi, wasiliana na msimamizi wako wa TEHAMA."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Programu za kazini huwa kwenye wasifu wako wa kazini na hudhibitiwa na msimamizi TEHAMA"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Programu za binafsi huwa kando na hazionyeshwi kwenye za kazini"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Msimamizi wa TEHAMA anaweza kudhibiti kifaa hiki na kuzuia baadhi ya programu"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Programu za kazini huwekwa kwenye wasifu wako wa kazini na kudhibitiwa na msimamizi wako wa TEHAMA. Programu za binafsi ni tofauti na hazionyeshwi kwenye programu za kazini. Msimamizi wako wa TEHAMA anaweza kudhibiti kifaa hiki na kuzuia programu fulani."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Subiri kidogo…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Kikumbusho cha faragha"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Msimamizi wako wa TEHAMA anaweza kuona data na shughuli zako kwenye kifaa hiki"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Kifaa chako kiko tayari kutumika!"</string>
     <string name="done" msgid="7755227776955952318">"Nimemaliza"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Kifaa hiki kilinunuliwa kwa mkopo kutoka <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> inaweza:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Kusakinisha programu ya <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ili ulipie kifaa hiki"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Kuzuia uwezo wa kufikia kifaa hiki usipokilipia"</string>
 </resources>

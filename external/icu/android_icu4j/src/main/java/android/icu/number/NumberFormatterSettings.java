@@ -25,8 +25,6 @@ import android.icu.util.ULocale;
  * for public subclassing.
  *
  * @see NumberFormatter
- * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
 public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<?>> {
 
@@ -85,7 +83,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The notation strategy to use.
      * @return The fluent chain.
      * @see Notation
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T notation(Notation notation) {
         return create(KEY_NOTATION, notation);
@@ -132,17 +129,12 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      * <p>
      * See {@link #perUnit} for information on how to format strings like "5 meters per second".
      *
-     * <p>
-     * The default is to render without units (equivalent to {@link NoUnit#BASE}).
-     *
      * @param unit
      *            The unit to render.
      * @return The fluent chain.
      * @see MeasureUnit
      * @see Currency
-     * @see NoUnit
      * @see #perUnit
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T unit(MeasureUnit unit) {
         return create(KEY_UNIT, unit);
@@ -169,7 +161,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The unit to render in the denominator.
      * @return The fluent chain
      * @see #unit
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T perUnit(MeasureUnit perUnit) {
         return create(KEY_PER_UNIT, perUnit);
@@ -203,19 +194,9 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The rounding precision to use.
      * @return The fluent chain.
      * @see Precision
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T precision(Precision precision) {
         return create(KEY_PRECISION, precision);
-    }
-
-    /**
-     * @deprecated ICU 62 Use precision() instead. This method is for backwards compatibility and will be
-     *             removed in ICU 64. See http://bugs.icu-project.org/trac/ticket/13746
-     */
-    @Deprecated
-    public T rounding(Precision rounder) {
-        return precision(rounder);
     }
 
     /**
@@ -236,7 +217,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The rounding mode to use.
      * @return The fluent chain.
      * @see Precision
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T roundingMode(RoundingMode roundingMode) {
         return create(KEY_ROUNDING_MODE, roundingMode);
@@ -268,7 +248,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The grouping strategy to use.
      * @return The fluent chain.
      * @see GroupingStrategy
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T grouping(GroupingStrategy strategy) {
         return create(KEY_GROUPING, strategy);
@@ -296,7 +275,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The integer width to use.
      * @return The fluent chain.
      * @see IntegerWidth
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T integerWidth(IntegerWidth style) {
         return create(KEY_INTEGER, style);
@@ -340,7 +318,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The DecimalFormatSymbols to use.
      * @return The fluent chain.
      * @see DecimalFormatSymbols
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T symbols(DecimalFormatSymbols symbols) {
         symbols = (DecimalFormatSymbols) symbols.clone();
@@ -375,7 +352,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The NumberingSystem to use.
      * @return The fluent chain.
      * @see NumberingSystem
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T symbols(NumberingSystem ns) {
         return create(KEY_SYMBOLS, ns);
@@ -404,7 +380,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The width to use when rendering numbers.
      * @return The fluent chain
      * @see UnitWidth
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T unitWidth(UnitWidth style) {
         return create(KEY_UNIT_WIDTH, style);
@@ -433,7 +408,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The sign display strategy to use when rendering numbers.
      * @return The fluent chain
      * @see SignDisplay
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T sign(SignDisplay style) {
         return create(KEY_SIGN, style);
@@ -462,7 +436,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            The decimal separator display strategy to use when rendering numbers.
      * @return The fluent chain
      * @see DecimalSeparatorDisplay
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T decimal(DecimalSeparatorDisplay style) {
         return create(KEY_DECIMAL, style);
@@ -491,7 +464,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      *            An amount to be multiplied against numbers before formatting.
      * @return The fluent chain
      * @see Scale
-     * @hide draft / provisional / internal are hidden on Android
      */
     public T scale(Scale scale) {
         return create(KEY_SCALE, scale);
@@ -545,7 +517,7 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
      * @return A number skeleton string with behavior corresponding to this number formatter.
      * @throws UnsupportedOperationException
      *             If the number formatter has an option that cannot be represented in a skeleton string.
-     * @hide draft / provisional / internal are hidden on Android
+     * @hide unsupported on Android
      */
     public String toSkeleton() {
         return NumberSkeletonImpl.generate(resolve());
@@ -654,8 +626,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
 
     /**
      * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public int hashCode() {
@@ -664,8 +634,6 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
 
     /**
      * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public boolean equals(Object other) {

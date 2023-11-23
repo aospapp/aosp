@@ -21,6 +21,8 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -32,7 +34,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.NAIRealmElement}.
  */
 @SmallTest
-public class NAIRealmElementTest {
+public class NAIRealmElementTest extends WifiBaseTest {
     /**
      * Helper function for returning a ByteBuffer containing raw bytes for NAI Realm Element
      * with specified number of NAI Realm Data.

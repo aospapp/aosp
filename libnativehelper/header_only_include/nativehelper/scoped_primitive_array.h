@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef SCOPED_PRIMITIVE_ARRAY_H_
-#define SCOPED_PRIMITIVE_ARRAY_H_
+#ifndef LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_PRIMITIVE_ARRAY_H_
+#define LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_PRIMITIVE_ARRAY_H_
 
 #include "jni.h"
 #include "nativehelper_utils.h"
@@ -47,7 +47,7 @@
                 mJavaArray = NULL; \
                 mSize = 0; \
                 mRawArray = NULL; \
-                jniThrowNullPointerException(mEnv, NULL); \
+                jniThrowNullPointerException(mEnv); \
             } else { \
                 reset(javaArray); \
             } \
@@ -104,7 +104,7 @@ INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RO(jshort, Short);
         Scoped ## NAME ## ArrayRW(JNIEnv* env, PRIMITIVE_TYPE ## Array javaArray) \
         : mEnv(env), mJavaArray(javaArray), mRawArray(NULL) { \
             if (mJavaArray == NULL) { \
-                jniThrowNullPointerException(mEnv, NULL); \
+                jniThrowNullPointerException(mEnv); \
             } else { \
                 mRawArray = mEnv->Get ## NAME ## ArrayElements(mJavaArray, NULL); \
             } \
@@ -144,4 +144,4 @@ INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RW(jshort, Short);
 #undef POINTER_TYPE
 #undef REFERENCE_TYPE
 
-#endif  // SCOPED_PRIMITIVE_ARRAY_H_
+#endif  // LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_PRIMITIVE_ARRAY_H_

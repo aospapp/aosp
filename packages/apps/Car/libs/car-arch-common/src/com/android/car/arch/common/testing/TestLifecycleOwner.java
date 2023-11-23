@@ -16,8 +16,7 @@
 
 package com.android.car.arch.common.testing;
 
-import android.annotation.NonNull;
-
+import androidx.annotation.NonNull;
 import androidx.annotation.RestrictTo;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;

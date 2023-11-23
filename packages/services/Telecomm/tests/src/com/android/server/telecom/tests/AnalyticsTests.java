@@ -25,6 +25,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.os.Build;
@@ -39,6 +40,8 @@ import android.telecom.TelecomAnalytics;
 import android.telecom.TelecomManager;
 import android.telecom.VideoCallImpl;
 import android.telecom.VideoProfile;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Base64;
@@ -60,6 +63,7 @@ import org.junit.runners.JUnit4;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -70,10 +74,16 @@ import java.util.concurrent.TimeUnit;
 
 @RunWith(JUnit4.class)
 public class AnalyticsTests extends TelecomSystemTest {
+    private SubscriptionManager mSubscriptionManager;
+
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        // this is a mock
+        mSubscriptionManager = mContext.getSystemService(SubscriptionManager.class);
+        when(mSubscriptionManager.getActiveSubscriptionInfoList())
+                .thenReturn(Collections.emptyList());
     }
 
     @Override
@@ -253,7 +263,7 @@ public class AnalyticsTests extends TelecomSystemTest {
 
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        Analytics.dumpToEncodedProto(pw, new String[]{});
+        Analytics.dumpToEncodedProto(mContext, pw, new String[]{});
         TelecomLogClass.TelecomLog analyticsProto =
                 TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
 
@@ -300,6 +310,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     @Test
     public void testAnalyticsDumpToProto() throws Exception {
         Analytics.reset();
+        setupCarrierIds();
         IdPair testCall = startAndMakeActiveIncomingCall(
                 "650-555-1212",
                 mPhoneAccountA0.getAccountHandle(),
@@ -311,10 +322,11 @@ public class AnalyticsTests extends TelecomSystemTest {
 
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        Analytics.dumpToEncodedProto(pw, new String[]{});
+        Analytics.dumpToEncodedProto(mContext, pw, new String[]{});
         TelecomLogClass.TelecomLog analyticsProto =
                 TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
 
+        assertEquals(1, analyticsProto.getCarrierId());
         assertEquals(1, analyticsProto.callLogs.length);
         TelecomLogClass.CallLog callLog = analyticsProto.callLogs[0];
 
@@ -413,7 +425,7 @@ public class AnalyticsTests extends TelecomSystemTest {
 
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        Analytics.dumpToEncodedProto(pw, new String[]{});
+        Analytics.dumpToEncodedProto(mContext, pw, new String[]{});
         TelecomLogClass.TelecomLog analyticsProto =
                 TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
 
@@ -432,7 +444,7 @@ public class AnalyticsTests extends TelecomSystemTest {
 
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        Analytics.dumpToEncodedProto(pw, new String[]{});
+        Analytics.dumpToEncodedProto(mContext, pw, new String[]{});
         TelecomLogClass.TelecomLog analyticsProto =
                 TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
 
@@ -444,5 +456,18 @@ public class AnalyticsTests extends TelecomSystemTest {
 
     private void assertIsRoundedToOneSigFig(long x) {
         assertEquals(x, Analytics.roundToOneSigFig(x));
+    }
+
+    private void setupCarrierIds() {
+        SubscriptionInfo subInfo1 = mock(SubscriptionInfo.class);
+        SubscriptionInfo subInfo2 = mock(SubscriptionInfo.class);
+        when(subInfo1.getCarrierId()).thenReturn(1);
+        when(subInfo2.getCarrierId()).thenReturn(2);
+        when(subInfo1.isOpportunistic()).thenReturn(false);
+        when(subInfo2.isOpportunistic()).thenReturn(true);
+        when(subInfo1.getSimSlotIndex()).thenReturn(0);
+        when(subInfo2.getSimSlotIndex()).thenReturn(1);
+        when(mSubscriptionManager.getActiveSubscriptionInfoList())
+                .thenReturn(Arrays.asList(subInfo2, subInfo1));
     }
 }

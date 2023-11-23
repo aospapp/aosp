@@ -11,14 +11,14 @@
  *
  * No Standard
 
-USE_KILL(NEWTOY(kill, "?ls: ", TOYFLAG_BIN))
+USE_KILL(NEWTOY(kill, "?ls: ", TOYFLAG_BIN|TOYFLAG_MAYFORK))
 USE_KILLALL5(NEWTOY(killall5, "?o*ls: [!lo][!ls]", TOYFLAG_SBIN))
 
 config KILL
   bool "kill"
   default y
   help
-    usage: kill [-l [SIGNAL] | -s SIGNAL | -SIGNAL] pid...
+    usage: kill [-l [SIGNAL] | -s SIGNAL | -SIGNAL] PID...
 
     Send signal to process(es).
 
@@ -41,6 +41,7 @@ config KILLALL5
 
 // This has to match the filename:
 #define FOR_kill
+#define FORCE_FLAGS
 #include "toys.h"
 
 GLOBALS(
@@ -61,14 +62,16 @@ void kill_main(void)
   pid_t pid;
 
   // list signal(s)
-  if (toys.optflags & FLAG_l) {
+  if (FLAG(l)) {
     if (*args) {
       int signum = sig_to_num(*args);
-      char *s = NULL;
+      char *s = 0;
 
       if (signum>=0) s = num_to_sig(signum&127);
-      puts(s ? s : "UNKNOWN");
-    } else sig_to_num(NULL);
+      if (isdigit(**args)) puts(s ? s : "UNKNOWN");
+      else printf("%d\n", signum);
+    } else list_signals();
+
     return;
   }
 
@@ -78,6 +81,7 @@ void kill_main(void)
   if (TT.s) {
     char *arg;
     int i = strtol(TT.s, &arg, 10);
+
     if (!*arg) arg = num_to_sig(i);
     else arg = TT.s;
 
@@ -93,7 +97,7 @@ void kill_main(void)
     long *olist = 0, ocount = 0;
 
     // parse omit list
-    if (toys.optflags & FLAG_o) {
+    if (FLAG(o)) {
       struct arg_list *ptr;
 
       for (ptr = TT.o; ptr; ptr = ptr->next) ocount++;
@@ -104,7 +108,10 @@ void kill_main(void)
 
     sid = getsid(pid = getpid());
 
-    if (!(dp = opendir("/proc"))) perror_exit("/proc");
+    if (!(dp = opendir("/proc"))) {
+      free(olist);
+      perror_exit("/proc");
+    }
     while ((entry = readdir(dp))) {
       int count, procpid, procsid;
 
@@ -126,10 +133,8 @@ void kill_main(void)
 
       kill(procpid, signum);
     }
-    if (CFG_TOYBOX_FREE) {
-      closedir(dp);
-      free(olist);
-    }
+    closedir(dp);
+    free(olist);
 
   // is it kill?
   } else {

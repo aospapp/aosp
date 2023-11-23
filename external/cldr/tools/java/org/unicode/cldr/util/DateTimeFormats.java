@@ -1,5 +1,6 @@
 package org.unicode.cldr.util;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
@@ -15,13 +16,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.unicode.cldr.draft.FileUtilities;
+import org.unicode.cldr.tool.ChartDelta;
+import org.unicode.cldr.tool.FormattedFileWriter;
 import org.unicode.cldr.tool.Option;
 import org.unicode.cldr.tool.Option.Options;
+import org.unicode.cldr.tool.ShowData;
 import org.unicode.cldr.util.ICUServiceBuilder.Context;
 import org.unicode.cldr.util.ICUServiceBuilder.Width;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo.Count;
 
+import com.google.common.collect.ImmutableMap;
 import com.ibm.icu.impl.Row.R3;
 import com.ibm.icu.text.DateFormat;
 import com.ibm.icu.text.DateIntervalFormat;
@@ -41,6 +46,7 @@ import com.ibm.icu.util.TimeZone;
 import com.ibm.icu.util.ULocale;
 
 public class DateTimeFormats {
+    private static final Date SAMPLE_DATE_DEFAULT_END = new Date(2099 - 1900, 0, 13, 14, 45, 59);
     private static final String DIR = CLDRPaths.CHART_DIRECTORY + "/verify/dates/";
     private static SupplementalDataInfo sdi = SupplementalDataInfo.getInstance();
     private static Map<String, PreferredAndAllowedHour> timeData = sdi.getTimeData();
@@ -78,19 +84,32 @@ public class DateTimeFormats {
 
     private static final String SAMPLE_DATE_STRING = CldrUtility.isoFormat(SAMPLE_DATE);
 
-    private static final Date[] SAMPLE_DATE_END = {
-        // "G", "y", "M",
-        null, new Date(2013 - 1900, 0, 13, 14, 45, 59), new Date(2012 - 1900, 1, 13, 14, 45, 59),
-        // "w", "W", "d",
-        null, null, new Date(2012 - 1900, 0, 14, 14, 45, 59),
-        // "D", "E", "F",
-        null, new Date(2012 - 1900, 0, 14, 14, 45, 59), null,
-        // "a", "h", "H",
-        new Date(2012 - 1900, 0, 13, 2, 45, 59), new Date(2012 - 1900, 0, 13, 15, 45, 59),
-        new Date(2012 - 1900, 0, 13, 15, 45, 59),
-        // "m",
-        new Date(2012 - 1900, 0, 13, 14, 46, 59)
-    };;
+    private static final Map<String,Date> SAMPLE_DATE_END = ImmutableMap.<String,Date>builder()
+        .put("G", SAMPLE_DATE_DEFAULT_END)
+        .put("y", new Date(2013 - 1900, 0, 13, 14, 45, 59))
+        .put("M", new Date(2012 - 1900, 1, 13, 14, 45, 59))
+        .put("w", SAMPLE_DATE_DEFAULT_END)
+        .put("W", SAMPLE_DATE_DEFAULT_END)
+        .put("d", new Date(2012 - 1900, 0, 14, 14, 45, 59))
+        .put("D", SAMPLE_DATE_DEFAULT_END)
+        .put("E", new Date(2012 - 1900, 0, 14, 14, 45, 59))
+        .put("F", SAMPLE_DATE_DEFAULT_END)
+        .put("a", new Date(2012 - 1900, 0, 13, 2, 45, 59))
+        .put("h", new Date(2012 - 1900, 0, 13, 15, 45, 59))
+        .put("H", new Date(2012 - 1900, 0, 13, 15, 45, 59))
+        .put("m", SAMPLE_DATE_DEFAULT_END)
+        .build();
+//        // "G", "y", "M",
+//        null, new Date(2013 - 1900, 0, 13, 14, 45, 59), new Date(2012 - 1900, 1, 13, 14, 45, 59),
+//        // "w", "W", "d",
+//        null, null, new Date(2012 - 1900, 0, 14, 14, 45, 59),
+//        // "D", "E", "F",
+//        null, new Date(2012 - 1900, 0, 14, 14, 45, 59), null,
+//        // "a", "h", "H",
+//        new Date(2012 - 1900, 0, 13, 2, 45, 59), new Date(2012 - 1900, 0, 13, 15, 45, 59),
+//        new Date(2012 - 1900, 0, 13, 15, 45, 59),
+//        // "m",
+//        new Date(2012 - 1900, 0, 13, 14, 46, 59)
 
     private DateTimePatternGenerator generator;
     private ULocale locale;
@@ -129,7 +148,6 @@ public class DateTimeFormats {
             icuServiceBuilder = new ICUServiceBuilder().setCldrFile(file);
         }
         PatternInfo returnInfo = new PatternInfo();
-        XPathParts parts = new XPathParts();
         generator = DateTimePatternGenerator.getEmptyInstance();
         this.calendarID = calendarID;
         boolean haveDefaultHourChar = false;
@@ -178,7 +196,8 @@ public class DateTimeFormats {
         // appendItems result.setAppendItemFormat(getAppendFormatNumber(formatName), value);
         for (String path : With.in(file.iterator("//ldml/dates/calendars/calendar[@type=\"" + calendarID
             + "\"]/dateTimeFormats/appendItems/appendItem"))) {
-            String request = parts.set(path).getAttributeValue(-1, "request");
+            XPathParts parts = XPathParts.getFrozenInstance(path);
+            String request = parts.getAttributeValue(-1, "request");
             int requestNumber = DateTimePatternGenerator.getAppendFormatNumber(request);
             String value = file.getStringValue(path);
             generator.setAppendItemFormat(requestNumber, value);
@@ -194,7 +213,8 @@ public class DateTimeFormats {
             if (!path.contains("displayName")) {
                 continue;
             }
-            String type = parts.set(path).getAttributeValue(-2, "type");
+            XPathParts parts = XPathParts.getFrozenInstance(path);
+            String type = parts.getAttributeValue(-2, "type");
             int requestNumber = find(FIELD_NAMES, type);
 
             String value = file.getStringValue(path);
@@ -207,7 +227,8 @@ public class DateTimeFormats {
 
         for (String path : With.in(file.iterator("//ldml/dates/calendars/calendar[@type=\"" + calendarID
             + "\"]/dateTimeFormats/availableFormats/dateFormatItem"))) {
-            String key = parts.set(path).getAttributeValue(-1, "id");
+            XPathParts parts = XPathParts.getFrozenInstance(path);
+            String key = parts.getAttributeValue(-1, "id");
             String value = file.getStringValue(path);
             if (key.equals(DEBUG_SKELETON)) {
                 int debug = 0;
@@ -225,8 +246,9 @@ public class DateTimeFormats {
         // ldml/dates/calendars/calendar[@type=\"gregorian\"]/dateTimeFormats/intervalFormats/intervalFormatItem[@id=\"yMMMEd\"]/greatestDifference[@id=\"d\"]
         for (String path : With.in(file.iterator("//ldml/dates/calendars/calendar[@type=\"" + calendarID
             + "\"]/dateTimeFormats/intervalFormats/intervalFormatItem"))) {
-            String skeleton = parts.set(path).getAttributeValue(-2, "id");
-            String diff = parts.set(path).getAttributeValue(-1, "id");
+            XPathParts parts = XPathParts.getFrozenInstance(path);
+            String skeleton = parts.getAttributeValue(-2, "id");
+            String diff = parts.getAttributeValue(-1, "id");
             int diffNumber = find(CALENDAR_FIELD_TO_PATTERN_LETTER, diff);
             String intervalPattern = file.getStringValue(path);
             dateIntervalInfo.setIntervalPattern(skeleton, diffNumber, intervalPattern);
@@ -501,8 +523,8 @@ public class DateTimeFormats {
                 DateIntervalFormat dateIntervalFormat = new DateIntervalFormat(mainSkeleton, dateIntervalInfo,
                     icuServiceBuilder.getDateFormat(calendarID, generator.getBestPattern(mainSkeleton)));
                 String diffString = skeleton.substring(slashPos + 1).replace('j', 'H');
-                int diffNumber = find(CALENDAR_FIELD_TO_PATTERN_LETTER, diffString);
-                Date endDate = SAMPLE_DATE_END[diffNumber];
+//                int diffNumber = find(CALENDAR_FIELD_TO_PATTERN_LETTER, diffString);
+                Date endDate = SAMPLE_DATE_END.get(diffString);
                 try {
                     example = dateIntervalFormat.format(new DateInterval(SAMPLE_DATE.getTime(), endDate.getTime()));
                 } catch (Exception e) {
@@ -820,6 +842,11 @@ public class DateTimeFormats {
         Factory factory = Factory.make(CLDRPaths.MAIN_DIRECTORY, LOCALES);
         System.out.println("Total locales: " + factory.getAvailableLanguages().size());
         DateTimeFormats english = new DateTimeFormats().set(englishFile, "gregorian");
+        
+        new File(DIR).mkdirs();
+        FileCopier.copy(ShowData.class, "verify-index.html", CLDRPaths.VERIFY_DIR, "index.html");
+        FileCopier.copy(ChartDelta.class, "index.css", CLDRPaths.VERIFY_DIR, "index.css");
+        FormattedFileWriter.copyIncludeHtmls(CLDRPaths.VERIFY_DIR);
         PrintWriter index = openIndex(DIR, "Date/Time");
 
         Map<String, String> sorted = new TreeMap<String, String>();

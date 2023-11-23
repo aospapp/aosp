@@ -171,6 +171,43 @@ TEST(IPAddressTest, forString) {
     EXPECT_EQ(IPAddress(FE80_1, 1), IPAddress::forString("fe80::1%lo"));
 }
 
+TEST(IPPrefixTest, forString) {
+    IPPrefix prefix;
+
+    EXPECT_FALSE(IPPrefix::forString("", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("invalid", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("192.0.2.0", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001::db8::", &prefix));
+
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8:://32", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/32z", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/32/", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/0x20", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8:: /32", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/ 32", &prefix));
+    EXPECT_FALSE(IPPrefix::forString(" 2001:db8::/32", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/32 ", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/+32", &prefix));
+
+    EXPECT_FALSE(IPPrefix::forString("192.0.2.0/33", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/129", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("192.0.2.0/-1", &prefix));
+    EXPECT_FALSE(IPPrefix::forString("2001:db8::/-1", &prefix));
+
+    EXPECT_TRUE(IPPrefix::forString("2001:db8::/32", &prefix));
+    EXPECT_EQ("2001:db8::/32", prefix.toString());
+    EXPECT_EQ(IPPrefix(IPAddress::forString("2001:db8::"), 32), prefix);
+
+    EXPECT_EQ(IPPrefix(), IPPrefix::forString("invalid"));
+
+    EXPECT_EQ("0.0.0.0/0", IPPrefix::forString("0.0.0.0/0").toString());
+    EXPECT_EQ("::/0", IPPrefix::forString("::/0").toString());
+    EXPECT_EQ("192.0.2.128/25", IPPrefix::forString("192.0.2.131/25").toString());
+    EXPECT_EQ("2001:db8:1:2:3:4:5:4/126",
+              IPPrefix::forString("2001:db8:1:2:3:4:5:6/126").toString());
+}
+
 TEST(IPPrefixTest, IPv4Truncation) {
     const auto prefixStr = [](int length) -> std::string {
         return IPPrefix(IPAddress(IPV4_ONES), length).toString();

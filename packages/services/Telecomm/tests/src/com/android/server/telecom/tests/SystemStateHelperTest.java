@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -132,8 +134,10 @@ public class SystemStateHelperTest extends TelecomTestCase {
         verify(mContext).registerReceiver(any(BroadcastReceiver.class), intentFilter.capture());
 
         assertEquals(2, intentFilter.getValue().countActions());
-        assertEquals(UiModeManager.ACTION_ENTER_CAR_MODE, intentFilter.getValue().getAction(0));
-        assertEquals(UiModeManager.ACTION_EXIT_CAR_MODE, intentFilter.getValue().getAction(1));
+        assertEquals(UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED,
+                intentFilter.getValue().getAction(0));
+        assertEquals(UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED,
+                intentFilter.getValue().getAction(1));
     }
 
     @SmallTest
@@ -145,13 +149,13 @@ public class SystemStateHelperTest extends TelecomTestCase {
 
         verify(mContext).registerReceiver(receiver.capture(), any(IntentFilter.class));
 
-        when(mIntentEnter.getAction()).thenReturn(UiModeManager.ACTION_ENTER_CAR_MODE);
+        when(mIntentEnter.getAction()).thenReturn(UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED);
         receiver.getValue().onReceive(mContext, mIntentEnter);
-        verify(mSystemStateListener).onCarModeChanged(true);
+        verify(mSystemStateListener).onCarModeChanged(anyInt(), isNull(), eq(true));
 
-        when(mIntentExit.getAction()).thenReturn(UiModeManager.ACTION_EXIT_CAR_MODE);
+        when(mIntentExit.getAction()).thenReturn(UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED);
         receiver.getValue().onReceive(mContext, mIntentExit);
-        verify(mSystemStateListener).onCarModeChanged(false);
+        verify(mSystemStateListener).onCarModeChanged(anyInt(), isNull(), eq(false));
 
         receiver.getValue().onReceive(mContext, new Intent("invalid action"));
     }

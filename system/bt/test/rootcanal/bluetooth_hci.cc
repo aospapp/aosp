@@ -14,23 +14,22 @@
 // limitations under the License.
 //
 
-#define LOG_TAG "android.hardware.bluetooth@1.0.sim"
+#define LOG_TAG "android.hardware.bluetooth@1.1.sim"
 
 #include "bluetooth_hci.h"
 
-#include <base/logging.h>
+#include "log/log.h"
 #include <cutils/properties.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <string.h>
-#include <utils/Log.h>
 
 #include "hci_internals.h"
 
 namespace android {
 namespace hardware {
 namespace bluetooth {
-namespace V1_0 {
+namespace V1_1 {
 namespace sim {
 
 using android::hardware::hidl_vec;
@@ -51,8 +50,10 @@ class BluetoothDeathRecipient : public hidl_death_recipient {
  public:
   BluetoothDeathRecipient(const sp<IBluetoothHci> hci) : mHci(hci) {}
 
-  virtual void serviceDied(uint64_t /* cookie */, const wp<::android::hidl::base::V1_0::IBase>& /* who */) {
-    ALOGE("BluetoothDeathRecipient::serviceDied - Bluetooth service died");
+  void serviceDied(
+      uint64_t /* cookie */,
+      const wp<::android::hidl::base::V1_0::IBase>& /* who */) override {
+    LOG_ERROR("BluetoothDeathRecipient::serviceDied - Bluetooth service died");
     has_died_ = true;
     mHci->close();
   }
@@ -70,59 +71,114 @@ class BluetoothDeathRecipient : public hidl_death_recipient {
 
 BluetoothHci::BluetoothHci() : death_recipient_(new BluetoothDeathRecipient(this)) {}
 
-Return<void> BluetoothHci::initialize(const sp<IBluetoothHciCallbacks>& cb) {
-  ALOGI("%s", __func__);
+Return<void> BluetoothHci::initialize(
+    const sp<V1_0::IBluetoothHciCallbacks>& cb) {
+  return initialize_impl(cb, nullptr);
+}
 
+Return<void> BluetoothHci::initialize_1_1(
+    const sp<V1_1::IBluetoothHciCallbacks>& cb) {
+  return initialize_impl(cb, cb);
+}
+
+Return<void> BluetoothHci::initialize_impl(
+    const sp<V1_0::IBluetoothHciCallbacks>& cb,
+    const sp<V1_1::IBluetoothHciCallbacks>& cb_1_1) {
+  LOG_INFO("%s", __func__);
   if (cb == nullptr) {
-    ALOGE("cb == nullptr! -> Unable to call initializationComplete(ERR)");
+    LOG_ERROR("cb == nullptr! -> Unable to call initializationComplete(ERR)");
     return Void();
   }
 
   death_recipient_->setHasDied(false);
-  cb->linkToDeath(death_recipient_, 0);
+  auto link_ret = cb->linkToDeath(death_recipient_, 0);
+  CHECK(link_ret.isOk()) << "Error calling linkToDeath.";
 
-  test_channel_transport_.RegisterCommandHandler([this](const std::string& name, const std::vector<std::string>& args) {
-    async_manager_.ExecAsync(std::chrono::milliseconds(0),
-                             [this, name, args]() { test_channel_.HandleCommand(name, args); });
-  });
+  test_channel_transport_.RegisterCommandHandler(
+      [this](const std::string& name, const std::vector<std::string>& args) {
+        async_manager_.ExecAsync(
+            std::chrono::milliseconds(0),
+            [this, name, args]() { test_channel_.HandleCommand(name, args); });
+      });
 
   controller_ = std::make_shared<DualModeController>();
 
-  controller_->Initialize({"dmc", "3C:5A:B4:01:02:03"});
+  char mac_property[PROPERTY_VALUE_MAX] = "";
+  property_get("bt.rootcanal_mac_address", mac_property, "3C:5A:B4:01:02:03");
+  controller_->Initialize({"dmc", std::string(mac_property)});
 
-  controller_->RegisterEventChannel([cb](std::shared_ptr<std::vector<uint8_t>> packet) {
-    hidl_vec<uint8_t> hci_event(packet->begin(), packet->end());
-    cb->hciEventReceived(hci_event);
-  });
+  controller_->RegisterEventChannel(
+      [this, cb](std::shared_ptr<std::vector<uint8_t>> packet) {
+        hidl_vec<uint8_t> hci_event(packet->begin(), packet->end());
+        auto ret = cb->hciEventReceived(hci_event);
+        if (!ret.isOk()) {
+          CHECK(death_recipient_->getHasDied())
+              << "Error sending event callback, but no death notification.";
+        }
+      });
 
-  controller_->RegisterAclChannel([cb](std::shared_ptr<std::vector<uint8_t>> packet) {
-    hidl_vec<uint8_t> acl_packet(packet->begin(), packet->end());
-    cb->aclDataReceived(acl_packet);
-  });
+  controller_->RegisterAclChannel(
+      [this, cb](std::shared_ptr<std::vector<uint8_t>> packet) {
+        hidl_vec<uint8_t> acl_packet(packet->begin(), packet->end());
+        auto ret = cb->aclDataReceived(acl_packet);
+        if (!ret.isOk()) {
+          CHECK(death_recipient_->getHasDied())
+              << "Error sending acl callback, but no death notification.";
+        }
+      });
 
-  controller_->RegisterScoChannel([cb](std::shared_ptr<std::vector<uint8_t>> packet) {
-    hidl_vec<uint8_t> sco_packet(packet->begin(), packet->end());
-    cb->aclDataReceived(sco_packet);
-  });
+  controller_->RegisterScoChannel(
+      [this, cb](std::shared_ptr<std::vector<uint8_t>> packet) {
+        hidl_vec<uint8_t> sco_packet(packet->begin(), packet->end());
+        auto ret = cb->aclDataReceived(sco_packet);
+        if (!ret.isOk()) {
+          CHECK(death_recipient_->getHasDied())
+              << "Error sending sco callback, but no death notification.";
+        }
+      });
 
-  controller_->RegisterTaskScheduler([this](std::chrono::milliseconds delay, const TaskCallback& task) {
-    return async_manager_.ExecAsync(delay, task);
-  });
+  if (cb_1_1 != nullptr) {
+    controller_->RegisterIsoChannel(
+        [this, cb_1_1](std::shared_ptr<std::vector<uint8_t>> packet) {
+          hidl_vec<uint8_t> iso_packet(packet->begin(), packet->end());
+          auto ret = cb_1_1->isoDataReceived(iso_packet);
+          if (!ret.isOk()) {
+            CHECK(death_recipient_->getHasDied())
+                << "Error sending iso callback, but no death notification.";
+          }
+        });
+  }
+
+  controller_->RegisterTaskScheduler(
+      [this](std::chrono::milliseconds delay, const TaskCallback& task) {
+        return async_manager_.ExecAsync(delay, task);
+      });
 
   controller_->RegisterPeriodicTaskScheduler(
-      [this](std::chrono::milliseconds delay, std::chrono::milliseconds period, const TaskCallback& task) {
+      [this](std::chrono::milliseconds delay, std::chrono::milliseconds period,
+             const TaskCallback& task) {
         return async_manager_.ExecAsyncPeriodically(delay, period, task);
       });
 
-  controller_->RegisterTaskCancel([this](AsyncTaskId task) { async_manager_.CancelAsyncTask(task); });
+  controller_->RegisterTaskCancel(
+      [this](AsyncTaskId task) { async_manager_.CancelAsyncTask(task); });
 
   test_model_.Reset();
+
   // Add the controller as a device in the model.
-  test_model_.Add(controller_);
+  size_t controller_index = test_model_.Add(controller_);
+  size_t low_energy_phy_index =
+      test_model_.AddPhy(test_vendor_lib::Phy::Type::LOW_ENERGY);
+  size_t classic_phy_index =
+      test_model_.AddPhy(test_vendor_lib::Phy::Type::BR_EDR);
+  test_model_.AddDeviceToPhy(controller_index, low_energy_phy_index);
+  test_model_.AddDeviceToPhy(controller_index, classic_phy_index);
+  test_model_.SetTimerPeriod(std::chrono::milliseconds(10));
+  test_model_.StartTimer();
 
   // Send responses to logcat if the test channel is not configured.
   test_channel_.RegisterSendResponse([](const std::string& response) {
-    ALOGI("No test channel yet: %s", response.c_str());
+    LOG_INFO("No test channel yet: %s", response.c_str());
   });
 
   if (BtTestConsoleEnabled()) {
@@ -131,32 +187,43 @@ Return<void> BluetoothHci::initialize(const sp<IBluetoothHciCallbacks>& cb) {
                    [this](int fd) { test_model_.IncomingHciConnection(fd); });
     SetUpLinkLayerServer(
         6311, [this](int fd) { test_model_.IncomingLinkLayerConnection(fd); });
+  } else {
+    // This should be configurable in the future.
+    LOG_INFO("Adding Beacons so the scan list is not empty.");
+    test_channel_.Add({"beacon", "be:ac:10:00:00:01", "1000"});
+    test_model_.AddDeviceToPhy(controller_index + 1, low_energy_phy_index);
+    test_channel_.Add({"beacon", "be:ac:10:00:00:02", "1000"});
+    test_model_.AddDeviceToPhy(controller_index + 2, low_energy_phy_index);
+    test_channel_.Add(
+        {"scripted_beacon", "5b:ea:c1:00:00:03",
+         "/data/vendor/bluetooth/bluetooth_sim_ble_playback_file",
+         "/data/vendor/bluetooth/bluetooth_sim_ble_playback_events"});
+    test_model_.AddDeviceToPhy(controller_index + 3, low_energy_phy_index);
+    test_channel_.List({});
   }
 
-  // Add some default devices for easier debugging
-  test_channel_.AddDefaults();
-
-  // This should be configurable in the future.
-  ALOGI("Adding Beacons so the scan list is not empty.");
-  test_channel_.Add({"beacon", "be:ac:10:00:00:01", "1000"});
-  test_channel_.AddDeviceToPhy({"1", "0"});
-  test_channel_.Add({"beacon", "be:ac:10:00:00:02", "1000"});
-  test_channel_.AddDeviceToPhy({"2", "0"});
-  test_channel_.SetTimerPeriod({"1000"});
-
-  unlink_cb_ = [cb](sp<BluetoothDeathRecipient>& death_recipient) {
+  unlink_cb_ = [this, cb](sp<BluetoothDeathRecipient>& death_recipient) {
     if (death_recipient->getHasDied())
-      ALOGI("Skipping unlink call, service died.");
-    else
-      cb->unlinkToDeath(death_recipient);
+      LOG_INFO("Skipping unlink call, service died.");
+    else {
+      auto ret = cb->unlinkToDeath(death_recipient);
+      if (!ret.isOk()) {
+        CHECK(death_recipient_->getHasDied())
+            << "Error calling unlink, but no death notification.";
+      }
+    }
   };
 
-  cb->initializationComplete(Status::SUCCESS);
+  auto init_ret = cb->initializationComplete(V1_0::Status::SUCCESS);
+  if (!init_ret.isOk()) {
+    CHECK(death_recipient_->getHasDied())
+        << "Error sending init callback, but no death notification.";
+  }
   return Void();
 }
 
 Return<void> BluetoothHci::close() {
-  ALOGI("%s", __func__);
+  LOG_INFO("%s", __func__);
   return Void();
 }
 
@@ -187,21 +254,31 @@ Return<void> BluetoothHci::sendScoData(const hidl_vec<uint8_t>& packet) {
   return Void();
 }
 
+Return<void> BluetoothHci::sendIsoData(const hidl_vec<uint8_t>& packet) {
+  async_manager_.ExecAsync(std::chrono::milliseconds(0), [this, packet]() {
+    std::shared_ptr<std::vector<uint8_t>> packet_copy =
+        std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(packet));
+    controller_->HandleIso(packet_copy);
+  });
+  return Void();
+}
+
 void BluetoothHci::SetUpHciServer(int port, const std::function<void(int)>& connection_callback) {
   int socket_fd = remote_hci_transport_.SetUp(port);
 
-  test_channel_.RegisterSendResponse(
-      [](const std::string& response) { ALOGI("No HCI Response channel: %s", response.c_str()); });
+  test_channel_.RegisterSendResponse([](const std::string& response) {
+    LOG_INFO("No HCI Response channel: %s", response.c_str());
+  });
 
   if (socket_fd == -1) {
-    ALOGE("Remote HCI channel SetUp(%d) failed.", port);
+    LOG_ERROR("Remote HCI channel SetUp(%d) failed.", port);
     return;
   }
 
   async_manager_.WatchFdForNonBlockingReads(socket_fd, [this, connection_callback](int socket_fd) {
     int conn_fd = remote_hci_transport_.Accept(socket_fd);
     if (conn_fd < 0) {
-      ALOGE("Error watching remote HCI channel fd.");
+      LOG_ERROR("Error watching remote HCI channel fd.");
       return;
     }
     int flags = fcntl(conn_fd, F_GETFL, NULL);
@@ -216,18 +293,19 @@ void BluetoothHci::SetUpHciServer(int port, const std::function<void(int)>& conn
 void BluetoothHci::SetUpLinkLayerServer(int port, const std::function<void(int)>& connection_callback) {
   int socket_fd = remote_link_layer_transport_.SetUp(port);
 
-  test_channel_.RegisterSendResponse(
-      [](const std::string& response) { ALOGI("No LinkLayer Response channel: %s", response.c_str()); });
+  test_channel_.RegisterSendResponse([](const std::string& response) {
+    LOG_INFO("No LinkLayer Response channel: %s", response.c_str());
+  });
 
   if (socket_fd == -1) {
-    ALOGE("Remote LinkLayer channel SetUp(%d) failed.", port);
+    LOG_ERROR("Remote LinkLayer channel SetUp(%d) failed.", port);
     return;
   }
 
   async_manager_.WatchFdForNonBlockingReads(socket_fd, [this, connection_callback](int socket_fd) {
     int conn_fd = remote_link_layer_transport_.Accept(socket_fd);
     if (conn_fd < 0) {
-      ALOGE("Error watching remote LinkLayer channel fd.");
+      LOG_ERROR("Error watching remote LinkLayer channel fd.");
       return;
     }
     int flags = fcntl(conn_fd, F_GETFL, NULL);
@@ -241,14 +319,15 @@ void BluetoothHci::SetUpLinkLayerServer(int port, const std::function<void(int)>
 int BluetoothHci::ConnectToRemoteServer(const std::string& server, int port) {
   int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (socket_fd < 1) {
-    ALOGI("socket() call failed: %s", strerror(errno));
+    LOG_INFO("socket() call failed: %s", strerror(errno));
     return -1;
   }
 
   struct hostent* host;
   host = gethostbyname(server.c_str());
   if (host == NULL) {
-    ALOGI("gethostbyname() failed for %s: %s", server.c_str(), strerror(errno));
+    LOG_INFO("gethostbyname() failed for %s: %s", server.c_str(),
+             strerror(errno));
     return -1;
   }
 
@@ -260,7 +339,8 @@ int BluetoothHci::ConnectToRemoteServer(const std::string& server, int port) {
 
   int result = connect(socket_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
   if (result < 0) {
-    ALOGI("connect() failed for %s@%d: %s", server.c_str(), port, strerror(errno));
+    LOG_INFO("connect() failed for %s@%d: %s", server.c_str(), port,
+             strerror(errno));
     return -1;
   }
 
@@ -274,22 +354,23 @@ int BluetoothHci::ConnectToRemoteServer(const std::string& server, int port) {
 void BluetoothHci::SetUpTestChannel(int port) {
   int socket_fd = test_channel_transport_.SetUp(port);
 
-  test_channel_.RegisterSendResponse(
-      [](const std::string& response) { ALOGI("No test channel: %s", response.c_str()); });
+  test_channel_.RegisterSendResponse([](const std::string& response) {
+    LOG_INFO("No test channel: %s", response.c_str());
+  });
 
   if (socket_fd == -1) {
-    ALOGE("Test channel SetUp(%d) failed.", port);
+    LOG_ERROR("Test channel SetUp(%d) failed.", port);
     return;
   }
 
-  ALOGI("Test channel SetUp() successful");
+  LOG_INFO("Test channel SetUp() successful");
   async_manager_.WatchFdForNonBlockingReads(socket_fd, [this](int socket_fd) {
     int conn_fd = test_channel_transport_.Accept(socket_fd);
     if (conn_fd < 0) {
-      ALOGE("Error watching test channel fd.");
+      LOG_ERROR("Error watching test channel fd.");
       return;
     }
-    ALOGI("Test channel connection accepted.");
+    LOG_INFO("Test channel connection accepted.");
     test_channel_.RegisterSendResponse(
         [this, conn_fd](const std::string& response) { test_channel_transport_.SendResponse(conn_fd, response); });
 
@@ -306,7 +387,7 @@ IBluetoothHci* HIDL_FETCH_IBluetoothHci(const char* /* name */) {
 }
 
 }  // namespace sim
-}  // namespace V1_0
+}  // namespace V1_1
 }  // namespace bluetooth
 }  // namespace hardware
 }  // namespace android

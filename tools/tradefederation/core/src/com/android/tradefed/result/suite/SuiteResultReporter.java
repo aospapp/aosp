@@ -326,16 +326,20 @@ public class SuiteResultReporter extends CollectingTestListener {
     }
 
     private void printModuleRetriesInformation() {
-        if (mModuleRetrySuccess.isEmpty() || mTotalRetrySuccess == 0L) {
+        if (mModuleRetrySuccess.isEmpty() || mTotalRetryTime == 0L) {
             return;
         }
         mSummary.append("============== Modules Retries Information ==============\n");
         for (String t : mModuleRetrySuccess.keySet()) {
+            if (mModuleRetryTime.get(t) == 0L) {
+                continue;
+            }
             mSummary.append(
                     String.format(
-                            "    %s: Retry Success (Failed test became Pass) = %s\n"
-                                    + "        Retry Failure (Fail test stayed Fail)   = %s\n"
-                                    + "        Retry Time                              = %s\n",
+                            "    %s:\n"
+                                    + "        Retry Success (Failed test became Pass)   = %s\n"
+                                    + "        Retry Failure (Failed test stayed Failed) = %s\n"
+                                    + "        Retry Time                                = %s\n",
                             t,
                             mModuleRetrySuccess.get(t),
                             mModuleRetryFail.get(t),
@@ -345,8 +349,8 @@ public class SuiteResultReporter extends CollectingTestListener {
         mSummary.append(
                 String.format(
                         "Total Retry Success (Failed test became Pass) = %s\n"
-                                + "Total Retry Failure (Fail test stayed Fail)   = %s\n"
-                                + "Total Retry Time                              = %s\n",
+                                + "Total Retry Failure (Failed test stayed Failed) = %s\n"
+                                + "Total Retry Time                                = %s\n",
                         mTotalRetrySuccess,
                         mTotalRetryFail,
                         TimeUtil.formatElapsedTime(mTotalRetryTime)));

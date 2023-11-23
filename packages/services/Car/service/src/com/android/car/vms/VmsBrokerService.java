@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,438 +16,367 @@
 
 package com.android.car.vms;
 
-import android.car.vms.IVmsSubscriberClient;
+import static com.android.car.ICarImpl.assertAnyVmsPermission;
+import static com.android.car.ICarImpl.assertVmsPublisherPermission;
+import static com.android.car.ICarImpl.assertVmsSubscriberPermission;
+
+import android.car.vms.IVmsBrokerService;
+import android.car.vms.IVmsClientCallback;
+import android.car.vms.VmsAssociatedLayer;
 import android.car.vms.VmsAvailableLayers;
 import android.car.vms.VmsLayer;
+import android.car.vms.VmsLayerDependency;
 import android.car.vms.VmsLayersOffering;
-import android.car.vms.VmsOperationRecorder;
+import android.car.vms.VmsProviderInfo;
+import android.car.vms.VmsRegistrationInfo;
 import android.car.vms.VmsSubscriptionState;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
-import android.os.Process;
+import android.os.RemoteException;
+import android.os.SharedMemory;
+import android.util.ArrayMap;
+import android.util.ArraySet;
 import android.util.Log;
 
-import com.android.car.VmsLayersAvailability;
-import com.android.car.VmsPublishersInfo;
-import com.android.car.VmsRouting;
+import com.android.car.CarServiceBase;
+import com.android.car.stats.CarStatsService;
+import com.android.car.stats.VmsClientLogger;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.FunctionalUtils.ThrowingConsumer;
 
-import java.util.HashMap;
-import java.util.HashSet;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.IntSupplier;
+import java.util.stream.Collectors;
 
 /**
- * Broker service facilitating subscription handling and message passing between
- * VmsPublisherService, VmsSubscriberService, and VmsHalService.
+ * Message broker service for routing Vehicle Map Service messages between clients.
+ *
+ * This service is also responsible for tracking VMS client connections and broadcasting
+ * notifications to clients about layer offering or subscription state changes.
  */
-public class VmsBrokerService {
-    private static final boolean DBG = true;
-    private static final String TAG = "VmsBrokerService";
+public class VmsBrokerService extends IVmsBrokerService.Stub implements CarServiceBase {
+    private static final boolean DBG = false;
+    private static final String TAG = VmsBrokerService.class.getSimpleName();
 
-    @VisibleForTesting
-    static final String HAL_CLIENT = "HalClient";
+    private final Context mContext;
+    private final PackageManager mPackageManager;
+    private final CarStatsService mStatsService;
+    private final IntSupplier mGetCallingUid;
 
-    @VisibleForTesting
-    static final String UNKNOWN_PACKAGE = "UnknownPackage";
-
-    private CopyOnWriteArrayList<PublisherListener> mPublisherListeners =
-            new CopyOnWriteArrayList<>();
-    private CopyOnWriteArrayList<SubscriberListener> mSubscriberListeners =
-            new CopyOnWriteArrayList<>();
-    private PackageManager mPackageManager;
-    private IntSupplier mGetCallingPid;
-    private IntSupplier mGetCallingUid;
+    private final VmsProviderInfoStore mProviderInfoStore = new VmsProviderInfoStore();
+    private final VmsLayerAvailability mAvailableLayers = new VmsLayerAvailability();
 
     private final Object mLock = new Object();
     @GuardedBy("mLock")
-    private final VmsRouting mRouting = new VmsRouting();
+    private final Map<IBinder /* clientToken */, VmsClientInfo> mClientMap = new ArrayMap<>();
     @GuardedBy("mLock")
-    private final Map<IBinder, String> mBinderPackage = new HashMap<>();
+    private Set<VmsLayersOffering> mAllOfferings = Collections.emptySet();
     @GuardedBy("mLock")
-    private final Map<IBinder, Map<Integer, VmsLayersOffering>> mOfferings = new HashMap<>();
-    @GuardedBy("mLock")
-    private final VmsLayersAvailability mAvailableLayers = new VmsLayersAvailability();
-    @GuardedBy("mLock")
-    private final VmsPublishersInfo mPublishersInfo = new VmsPublishersInfo();
+    private VmsSubscriptionState mSubscriptionState = new VmsSubscriptionState(0,
+            Collections.emptySet(), Collections.emptySet());
 
-    /**
-     * The VMS publisher service implements this interface to receive publisher callbacks.
-     */
-    public interface PublisherListener {
-        /**
-         * Callback triggered when publisher subscription state changes.
-         *
-         * @param subscriptionState Current subscription state.
-         */
-        void onSubscriptionChange(VmsSubscriptionState subscriptionState);
-    }
-
-    /**
-     * The VMS subscriber service implements this interface to receive subscriber callbacks.
-     */
-    public interface SubscriberListener {
-        /**
-         * Callback triggered when data is published for a given layer.
-         *
-         * @param layer       Layer data is being published for
-         * @param publisherId Publisher of data
-         * @param payload     Layer data
-         */
-        void onMessageReceived(VmsLayer layer, int publisherId, byte[] payload);
-
-        /**
-         * Callback triggered when the layers available for subscription changes.
-         *
-         * @param availableLayers Current layer availability
-         */
-        void onLayersAvailabilityChange(VmsAvailableLayers availableLayers);
-    }
-
-    /**
-     * Constructs new broker service.
-     */
-    public VmsBrokerService(PackageManager packageManager) {
-        this(packageManager, Binder::getCallingPid, Binder::getCallingUid);
+    public VmsBrokerService(Context context, CarStatsService statsService) {
+        this(context, statsService, Binder::getCallingUid);
     }
 
     @VisibleForTesting
-    VmsBrokerService(PackageManager packageManager, IntSupplier getCallingPid,
+    VmsBrokerService(
+            Context context,
+            CarStatsService statsService,
             IntSupplier getCallingUid) {
-        if (DBG) Log.d(TAG, "Started VmsBrokerService!");
-        mPackageManager = packageManager;
-        mGetCallingPid = getCallingPid;
+        mContext = context;
+        mPackageManager = context.getPackageManager();
+        mStatsService = statsService;
         mGetCallingUid = getCallingUid;
     }
 
-    /**
-     * Adds a listener for publisher callbacks.
-     *
-     * @param listener Publisher callback listener
-     */
-    public void addPublisherListener(PublisherListener listener) {
-        mPublisherListeners.add(listener);
+    @Override
+    public void init() {
     }
 
-    /**
-     * Adds a listener for subscriber callbacks.
-     *
-     * @param listener Subscriber callback listener
-     */
-    public void addSubscriberListener(SubscriberListener listener) {
-        mSubscriberListeners.add(listener);
+    @Override
+    public void release() {
     }
 
-    /**
-     * Removes a listener for publisher callbacks.
-     *
-     * @param listener Publisher callback listener
-     */
-    public void removePublisherListener(PublisherListener listener) {
-        mPublisherListeners.remove(listener);
-    }
-
-    /**
-     * Removes a listener for subscriber callbacks.
-     *
-     * @param listener Subscriber callback listener
-     */
-    public void removeSubscriberListener(SubscriberListener listener) {
-        mSubscriberListeners.remove(listener);
-    }
-
-    /**
-     * Adds a subscription to all layers.
-     *
-     * @param subscriber Subscriber client to send layer data
-     */
-    public void addSubscription(IVmsSubscriberClient subscriber) {
+    @Override
+    public void dump(PrintWriter writer) {
+        writer.println("*" + TAG + "*");
         synchronized (mLock) {
-            mRouting.addSubscription(subscriber);
-            // Add mapping from binder to package name of subscriber.
-            mBinderPackage.computeIfAbsent(subscriber.asBinder(), k -> getCallingPackage());
+            writer.println("mAvailableLayers: " + mAvailableLayers.getAvailableLayers());
+            writer.println();
+            writer.println("mSubscriptionState: " + mSubscriptionState);
+            writer.println();
+            writer.println("mClientMap:");
+            mClientMap.values().stream()
+                    .sorted(Comparator.comparingInt(VmsClientInfo::getUid))
+                    .forEach(client -> client.dump(writer, "  "));
         }
     }
 
-    /**
-     * Removes a subscription to all layers.
-     *
-     * @param subscriber Subscriber client to remove subscription for
-     */
-    public void removeSubscription(IVmsSubscriberClient subscriber) {
+    @Override
+    public VmsRegistrationInfo registerClient(IBinder clientToken, IVmsClientCallback callback,
+            boolean legacyClient) {
+        assertAnyVmsPermission(mContext);
+        int clientUid = mGetCallingUid.getAsInt();
+        String clientPackage = mPackageManager.getNameForUid(clientUid);
+        if (DBG) Log.d(TAG, "registerClient uid: " + clientUid + " package: " + clientPackage);
+
+        mStatsService.getVmsClientLogger(clientUid)
+                .logConnectionState(VmsClientLogger.ConnectionState.CONNECTED);
+
+        IBinder.DeathRecipient deathRecipient;
+        try {
+            deathRecipient = () -> unregisterClient(clientToken,
+                    VmsClientLogger.ConnectionState.DISCONNECTED);
+            callback.asBinder().linkToDeath(deathRecipient, 0);
+        } catch (RemoteException e) {
+            mStatsService.getVmsClientLogger(clientUid)
+                    .logConnectionState(VmsClientLogger.ConnectionState.DISCONNECTED);
+            throw new IllegalStateException("Client callback is already dead");
+        }
+
         synchronized (mLock) {
-            mRouting.removeSubscription(subscriber);
+            mClientMap.put(clientToken, new VmsClientInfo(clientUid, clientPackage, callback,
+                    legacyClient, deathRecipient));
+            return new VmsRegistrationInfo(
+                    mAvailableLayers.getAvailableLayers(),
+                    mSubscriptionState);
         }
     }
 
-    /**
-     * Adds a layer subscription.
-     *
-     * @param subscriber Subscriber client to send layer data
-     * @param layer      Layer to send
-     */
-    public void addSubscription(IVmsSubscriberClient subscriber, VmsLayer layer) {
-        boolean firstSubscriptionForLayer;
-        if (DBG) Log.d(TAG, "Checking for first subscription. Layer: " + layer);
+    @Override
+    public void unregisterClient(IBinder clientToken) {
+        assertAnyVmsPermission(mContext);
+        unregisterClient(clientToken, VmsClientLogger.ConnectionState.TERMINATED);
+    }
+
+    @Override
+    public VmsProviderInfo getProviderInfo(IBinder clientToken, int providerId) {
+        assertAnyVmsPermission(mContext);
+        getClient(clientToken); // Assert that the client is registered
+        return new VmsProviderInfo(mProviderInfoStore.getProviderInfo(providerId));
+    }
+
+    @Override
+    public void setSubscriptions(IBinder clientToken, List<VmsAssociatedLayer> layers) {
+        assertVmsSubscriberPermission(mContext);
+        getClient(clientToken).setSubscriptions(layers);
+        updateSubscriptionState();
+    }
+
+    @Override
+    public void setMonitoringEnabled(IBinder clientToken, boolean enabled) {
+        assertVmsSubscriberPermission(mContext);
+        getClient(clientToken).setMonitoringEnabled(enabled);
+    }
+
+    @Override
+    public int registerProvider(IBinder clientToken, VmsProviderInfo providerInfo) {
+        assertVmsPublisherPermission(mContext);
+        VmsClientInfo client = getClient(clientToken);
+        int providerId;
         synchronized (mLock) {
-            // Check if publishers need to be notified about this change in subscriptions.
-            firstSubscriptionForLayer = !mRouting.hasLayerSubscriptions(layer);
-
-            // Add the listeners subscription to the layer
-            mRouting.addSubscription(subscriber, layer);
-
-            // Add mapping from binder to package name of subscriber.
-            mBinderPackage.computeIfAbsent(subscriber.asBinder(), k -> getCallingPackage());
+            providerId = mProviderInfoStore.getProviderId(providerInfo.getDescription());
         }
-        if (firstSubscriptionForLayer) {
-            notifyOfSubscriptionChange();
+        client.addProviderId(providerId);
+        return providerId;
+    }
+
+    @Override
+    public void setProviderOfferings(IBinder clientToken, int providerId,
+            List<VmsLayerDependency> offerings) {
+        assertVmsPublisherPermission(mContext);
+        VmsClientInfo client = getClient(clientToken);
+        if (!client.hasProviderId(providerId) && !client.isLegacyClient()) {
+            throw new IllegalArgumentException("Client not registered to offer layers as "
+                    + providerId);
+        }
+        if (client.setProviderOfferings(providerId, offerings)) {
+            updateAvailableLayers();
         }
     }
 
-    /**
-     * Removes a layer subscription.
-     *
-     * @param subscriber Subscriber client to remove subscription for
-     * @param layer      Layer to remove
-     */
-    public void removeSubscription(IVmsSubscriberClient subscriber, VmsLayer layer) {
-        boolean layerHasSubscribers;
+    @Override
+    public void publishPacket(IBinder clientToken, int providerId, VmsLayer layer, byte[] packet) {
+        assertVmsPublisherPermission(mContext);
+        deliverToSubscribers(clientToken, providerId, layer, packet.length,
+                callback -> callback.onPacketReceived(providerId, layer, packet));
+    }
+
+    @Override
+    public void publishLargePacket(IBinder clientToken, int providerId, VmsLayer layer,
+            SharedMemory packet) {
+        try (SharedMemory largePacket = packet) {
+            assertVmsPublisherPermission(mContext);
+            deliverToSubscribers(clientToken, providerId, layer, packet.getSize(),
+                    callback -> callback.onLargePacketReceived(providerId, layer, largePacket));
+        }
+    }
+
+    private void deliverToSubscribers(IBinder clientToken, int providerId, VmsLayer layer,
+            int packetLength, ThrowingConsumer<IVmsClientCallback> callbackConsumer) {
+        VmsClientInfo client = getClient(clientToken);
+        if (!client.hasOffering(providerId, layer) && !client.isLegacyClient()) {
+            throw new IllegalArgumentException("Client does not offer " + layer + " as "
+                    + providerId);
+        }
+
+        mStatsService.getVmsClientLogger(client.getUid())
+                .logPacketSent(layer, packetLength);
+
+        Collection<VmsClientInfo> subscribers;
         synchronized (mLock) {
-            if (!mRouting.hasLayerSubscriptions(layer)) {
-                if (DBG) Log.d(TAG, "Trying to remove a layer with no subscription: " + layer);
+            subscribers = mClientMap.values().stream()
+                    .filter(subscriber -> subscriber.isSubscribed(providerId, layer))
+                    .collect(Collectors.toList());
+        }
+
+        if (DBG) Log.d(TAG, String.format("Number of subscribers: %d", subscribers.size()));
+
+        if (subscribers.isEmpty()) {
+            // A negative UID signals that the packet had zero subscribers
+            mStatsService.getVmsClientLogger(-1).logPacketDropped(layer, packetLength);
+            return;
+        }
+
+        for (VmsClientInfo subscriber : subscribers) {
+            try {
+                callbackConsumer.accept(subscriber.getCallback());
+                mStatsService.getVmsClientLogger(subscriber.getUid())
+                        .logPacketReceived(layer, packetLength);
+            } catch (RuntimeException e) {
+                mStatsService.getVmsClientLogger(subscriber.getUid())
+                        .logPacketDropped(layer, packetLength);
+                Log.e(TAG, String.format("Unable to publish to listener: %s",
+                        subscriber.getPackageName()), e);
+            }
+        }
+    }
+
+    private void unregisterClient(IBinder clientToken, int connectionState) {
+        VmsClientInfo client;
+        synchronized (mLock) {
+            client = mClientMap.remove(clientToken);
+        }
+        if (client != null) {
+            client.getCallback().asBinder().unlinkToDeath(client.getDeathRecipient(), 0);
+            mStatsService.getVmsClientLogger(client.getUid())
+                    .logConnectionState(connectionState);
+            updateAvailableLayers();
+            updateSubscriptionState();
+        }
+    }
+
+    private VmsClientInfo getClient(IBinder clientToken) {
+        synchronized (mLock) {
+            VmsClientInfo client = mClientMap.get(clientToken);
+            if (client == null) {
+                throw new IllegalStateException("Unknown client token");
+            }
+            return client;
+        }
+    }
+
+    private Collection<VmsClientInfo> getActiveClients() {
+        synchronized (mLock) {
+            return new ArrayList<>(mClientMap.values());
+        }
+    }
+
+    private void updateAvailableLayers() {
+        synchronized (mLock) {
+            // Fuse layer offerings
+            Set<VmsLayersOffering> allOfferings = mClientMap.values().stream()
+                    .map(VmsClientInfo::getAllOfferings)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toCollection(ArraySet::new));
+
+            // Ignore update if offerings are unchanged
+            if (mAllOfferings.equals(allOfferings)) {
                 return;
             }
 
-            // Remove the listeners subscription to the layer
-            mRouting.removeSubscription(subscriber, layer);
-
-            // Check if publishers need to be notified about this change in subscriptions.
-            layerHasSubscribers = mRouting.hasLayerSubscriptions(layer);
+            // Update offerings and compute available layers
+            mAllOfferings = allOfferings;
+            mAvailableLayers.setPublishersOffering(allOfferings);
         }
-        if (!layerHasSubscribers) {
-            notifyOfSubscriptionChange();
+        notifyOfAvailabilityChange(mAvailableLayers.getAvailableLayers());
+    }
+
+    private void notifyOfAvailabilityChange(VmsAvailableLayers availableLayers) {
+        Log.i(TAG, "Notifying clients of layer availability change: " + availableLayers);
+        for (VmsClientInfo client : getActiveClients()) {
+            try {
+                client.getCallback().onLayerAvailabilityChanged(availableLayers);
+            } catch (RemoteException e) {
+                Log.w(TAG, "onLayersAvailabilityChanged failed: " + client.getPackageName(),
+                        e);
+            }
         }
     }
 
-    /**
-     * Adds a publisher-specific layer subscription.
-     *
-     * @param subscriber  Subscriber client to send layer data
-     * @param layer       Layer to send
-     * @param publisherId Publisher of layer
-     */
-    public void addSubscription(IVmsSubscriberClient subscriber, VmsLayer layer, int publisherId) {
-        boolean firstSubscriptionForLayer;
+    private void updateSubscriptionState() {
+        VmsSubscriptionState subscriptionState;
         synchronized (mLock) {
-            // Check if publishers need to be notified about this change in subscriptions.
-            firstSubscriptionForLayer = !(mRouting.hasLayerSubscriptions(layer)
-                    || mRouting.hasLayerFromPublisherSubscriptions(layer, publisherId));
+            Set<VmsLayer> layerSubscriptions = new ArraySet<>();
+            Map<VmsLayer, Set<Integer>> layerAndProviderSubscriptions = new ArrayMap<>();
+            // Fuse subscriptions
+            for (VmsClientInfo client : mClientMap.values()) {
+                layerSubscriptions.addAll(client.getLayerSubscriptions());
+                client.getLayerAndProviderSubscriptions().forEach((layer, providerIds) -> {
+                    Set<Integer> providerSubscriptions =
+                            layerAndProviderSubscriptions.computeIfAbsent(
+                                    layer,
+                                    ignored -> new ArraySet<>());
+                    providerSubscriptions.addAll(providerIds);
+                });
+            }
 
-            // Add the listeners subscription to the layer
-            mRouting.addSubscription(subscriber, layer, publisherId);
+            // Remove global layer subscriptions from provider-specific subscription state
+            layerSubscriptions.forEach(layerAndProviderSubscriptions::remove);
 
-            // Add mapping from binder to package name of subscriber.
-            mBinderPackage.computeIfAbsent(subscriber.asBinder(), k -> getCallingPackage());
-        }
-        if (firstSubscriptionForLayer) {
-            notifyOfSubscriptionChange();
-        }
-    }
+            // Transform provider-specific subscriptions into VmsAssociatedLayers
+            Set<VmsAssociatedLayer> associatedLayers =
+                    layerAndProviderSubscriptions.entrySet().stream()
+                            .map(entry -> new VmsAssociatedLayer(entry.getKey(), entry.getValue()))
+                            .collect(Collectors.toCollection(ArraySet::new));
 
-    /**
-     * Removes a publisher-specific layer subscription.
-     *
-     * @param subscriber  Subscriber client to remove subscription for
-     * @param layer       Layer to remove
-     * @param publisherId Publisher of layer
-     */
-    public void removeSubscription(IVmsSubscriberClient subscriber, VmsLayer layer,
-            int publisherId) {
-        boolean layerHasSubscribers;
-        synchronized (mLock) {
-            if (!mRouting.hasLayerFromPublisherSubscriptions(layer, publisherId)) {
-                Log.i(TAG, "Trying to remove a layer with no subscription: "
-                        + layer + ", publisher ID:" + publisherId);
+            // Ignore update if subscriptions are unchanged
+            if (mSubscriptionState.getLayers().equals(layerSubscriptions)
+                    && mSubscriptionState.getAssociatedLayers().equals(associatedLayers)) {
                 return;
             }
 
-            // Remove the listeners subscription to the layer
-            mRouting.removeSubscription(subscriber, layer, publisherId);
-
-            // Check if publishers need to be notified about this change in subscriptions.
-            layerHasSubscribers = mRouting.hasLayerSubscriptions(layer)
-                    || mRouting.hasLayerFromPublisherSubscriptions(layer, publisherId);
+            // Update subscription state
+            subscriptionState = new VmsSubscriptionState(
+                    mSubscriptionState.getSequenceNumber() + 1,
+                    layerSubscriptions,
+                    associatedLayers);
+            mSubscriptionState = subscriptionState;
         }
-        if (!layerHasSubscribers) {
-            notifyOfSubscriptionChange();
-        }
+        // Notify clients of update
+        notifyOfSubscriptionChange(subscriptionState);
     }
 
-    /**
-     * Removes a disconnected subscriber's subscriptions
-     *
-     * @param subscriber Subscriber that was disconnected
-     */
-    public void removeDeadSubscriber(IVmsSubscriberClient subscriber) {
-        boolean subscriptionStateChanged;
-        synchronized (mLock) {
-            subscriptionStateChanged = mRouting.removeDeadSubscriber(subscriber);
-
-            // Remove mapping from binder to package name of subscriber.
-            mBinderPackage.remove(subscriber.asBinder());
-        }
-        if (subscriptionStateChanged) {
-            notifyOfSubscriptionChange();
-        }
-    }
-
-    /**
-     * Gets all subscribers for a specific layer/publisher combination.
-     *
-     * @param layer       Layer to query
-     * @param publisherId Publisher of layer
-     */
-    public Set<IVmsSubscriberClient> getSubscribersForLayerFromPublisher(VmsLayer layer,
-            int publisherId) {
-        synchronized (mLock) {
-            return mRouting.getSubscribersForLayerFromPublisher(layer, publisherId);
-        }
-    }
-
-    /**
-     * Gets the state of all layer subscriptions.
-     */
-    public VmsSubscriptionState getSubscriptionState() {
-        synchronized (mLock) {
-            return mRouting.getSubscriptionState();
-        }
-    }
-
-    /**
-     * Assigns an idempotent ID for publisherInfo and stores it. The idempotency in this case means
-     * that the same publisherInfo will always, within a trip of the vehicle, return the same ID.
-     * The publisherInfo should be static for a binary and should only change as part of a software
-     * update. The publisherInfo is a serialized proto message which VMS clients can interpret.
-     */
-    public int getPublisherId(byte[] publisherInfo) {
-        if (DBG) Log.i(TAG, "Getting publisher static ID");
-        synchronized (mLock) {
-            return mPublishersInfo.getIdForInfo(publisherInfo);
-        }
-    }
-
-    /**
-     * Gets the publisher information data registered in {@link #getPublisherId(byte[])}
-     *
-     * @param publisherId Publisher ID to query
-     * @return Publisher information
-     */
-    public byte[] getPublisherInfo(int publisherId) {
-        if (DBG) Log.i(TAG, "Getting information for publisher ID: " + publisherId);
-        synchronized (mLock) {
-            return mPublishersInfo.getPublisherInfo(publisherId);
-        }
-    }
-
-    /**
-     * Sets the layers offered by the publisher with the given publisher token.
-     *
-     * @param publisherToken Identifier token of publisher
-     * @param offering       Layers offered by publisher
-     */
-    public void setPublisherLayersOffering(IBinder publisherToken, VmsLayersOffering offering) {
-        synchronized (mLock) {
-            Map<Integer, VmsLayersOffering> publisherOfferings = mOfferings.computeIfAbsent(
-                    publisherToken, k -> new HashMap<>());
-            publisherOfferings.put(offering.getPublisherId(), offering);
-            updateLayerAvailability();
-        }
-        VmsOperationRecorder.get().setPublisherLayersOffering(offering);
-        notifyOfAvailabilityChange();
-    }
-
-    /**
-     * Removes a disconnected publisher's offerings
-     *
-     * @param publisherToken Identifier token of publisher to be removed
-     */
-    public void removeDeadPublisher(IBinder publisherToken) {
-        synchronized (mLock) {
-            mOfferings.remove(publisherToken);
-            updateLayerAvailability();
-        }
-        notifyOfAvailabilityChange();
-    }
-
-    /**
-     * Gets all layers available for subscription.
-     *
-     * @return All available layers
-     */
-    public VmsAvailableLayers getAvailableLayers() {
-        synchronized (mLock) {
-            return mAvailableLayers.getAvailableLayers();
-        }
-    }
-
-    /**
-     * Gets the package name for a given IVmsSubscriberClient
-     */
-    public String getPackageName(IVmsSubscriberClient subscriber) {
-        synchronized (mLock) {
-            return mBinderPackage.get(subscriber.asBinder());
-        }
-    }
-
-    private void updateLayerAvailability() {
-        Set<VmsLayersOffering> allPublisherOfferings = new HashSet<>();
-        synchronized (mLock) {
-            for (Map<Integer, VmsLayersOffering> offerings : mOfferings.values()) {
-                allPublisherOfferings.addAll(offerings.values());
+    private void notifyOfSubscriptionChange(VmsSubscriptionState subscriptionState) {
+        Log.i(TAG, "Notifying clients of subscription state change: " + subscriptionState);
+        for (VmsClientInfo client : getActiveClients()) {
+            try {
+                client.getCallback().onSubscriptionStateChanged(subscriptionState);
+            } catch (RemoteException e) {
+                Log.w(TAG, "onSubscriptionStateChanged failed: " + client.getPackageName(),
+                        e);
             }
-            if (DBG) Log.d(TAG, "New layer availability: " + allPublisherOfferings);
-            mAvailableLayers.setPublishersOffering(allPublisherOfferings);
-        }
-    }
-
-    private void notifyOfSubscriptionChange() {
-        if (DBG) Log.d(TAG, "Notifying publishers on subscriptions");
-
-        VmsSubscriptionState subscriptionState = getSubscriptionState();
-        // Notify the App publishers
-        for (PublisherListener listener : mPublisherListeners) {
-            listener.onSubscriptionChange(subscriptionState);
-        }
-    }
-
-    private void notifyOfAvailabilityChange() {
-        if (DBG) Log.d(TAG, "Notifying subscribers on layers availability");
-
-        VmsAvailableLayers availableLayers = getAvailableLayers();
-        // Notify the App subscribers
-        for (SubscriberListener listener : mSubscriberListeners) {
-            listener.onLayersAvailabilityChange(availableLayers);
-        }
-    }
-
-    // If we're in a binder call, returns back the package name of the caller of the binder call.
-    private String getCallingPackage() {
-        int callingPid = mGetCallingPid.getAsInt();
-        // Since the HAL lives in the same process, if the callingPid is equal to this process's
-        // PID, we know it's the HAL client.
-        if (callingPid == Process.myPid()) {
-            return HAL_CLIENT;
-        }
-        int callingUid = mGetCallingUid.getAsInt();
-        String packageName = mPackageManager.getNameForUid(callingUid);
-        if (packageName == null) {
-            return UNKNOWN_PACKAGE;
-        } else {
-            return packageName;
         }
     }
 }

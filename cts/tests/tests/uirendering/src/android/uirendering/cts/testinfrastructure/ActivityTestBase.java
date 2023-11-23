@@ -223,6 +223,7 @@ public abstract class ActivityTestBase {
                 mBitmapAsserter.assertBitmapsAreSimilar(idealBitmap, testCaseBitmap, bitmapComparer,
                         getName(), testCase.getDebugString());
             }
+            getActivity().reset();
         }
 
         /**
@@ -271,6 +272,7 @@ public abstract class ActivityTestBase {
                             getName(), testCase.getDebugString());
                 }
             }
+            getActivity().reset();
         }
 
         /**

@@ -29,18 +29,20 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.android.internal.widget.LockPatternUtils;
+import com.android.systemui.R;
 
 public class NumPadKey extends ViewGroup {
     // list of "ABC", etc per digit, starting with '0'
     static String sKlondike[];
 
+    private final TextView mDigitText;
+    private final TextView mKlondikeText;
+    private final LockPatternUtils mLockPatternUtils;
+    private final PowerManager mPM;
+
     private int mDigit = -1;
     private int mTextViewResId;
     private PasswordTextView mTextView;
-    private TextView mDigitText;
-    private TextView mKlondikeText;
-    private boolean mEnableHaptics;
-    private PowerManager mPM;
 
     private View.OnClickListener mListener = new View.OnClickListener() {
         @Override
@@ -90,8 +92,7 @@ public class NumPadKey extends ViewGroup {
         setOnClickListener(mListener);
         setOnHoverListener(new LiftToActivateListener(context));
 
-        mEnableHaptics = new LockPatternUtils(context).isTactileFeedbackEnabled();
-
+        mLockPatternUtils = new LockPatternUtils(context);
         mPM = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
         LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
@@ -162,7 +163,7 @@ public class NumPadKey extends ViewGroup {
 
     // Cause a VIRTUAL_KEY vibration
     public void doHapticKeyClick() {
-        if (mEnableHaptics) {
+        if (mLockPatternUtils.isTactileFeedbackEnabled()) {
             performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,
                     HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING
                     | HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);

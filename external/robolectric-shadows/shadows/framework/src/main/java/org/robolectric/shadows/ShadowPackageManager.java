@@ -107,6 +107,7 @@ public class ShadowPackageManager {
   static final Map<String, String> packageInstallerMap = new HashMap<>();
   static final Map<Integer, String[]> packagesForUid = new HashMap<>();
   static final Map<String, Integer> uidForPackage = new HashMap<>();
+  static final Map<Integer, List<String>> packagesForUserId = new HashMap<>();
   static final Map<Integer, String> namesForUid = new HashMap<>();
   static final Map<Integer, Integer> verificationResults = new HashMap<>();
   static final Map<Integer, Long> verificationTimeoutExtension = new HashMap<>();
@@ -572,6 +573,13 @@ public class ShadowPackageManager {
   @Nullable
   protected String[] getPackagesForUid(int uid) {
     return packagesForUid.get(uid);
+  }
+
+  public void setInstalledPackagesForUserId(int userId, List<String> packages) {
+    packagesForUserId.put(userId, packages);
+    for (String packageName : packages) {
+      addPackage(packageName);
+    }
   }
 
   public void setPackageArchiveInfo(String archiveFilePath, PackageInfo packageInfo) {
@@ -1115,6 +1123,7 @@ public class ShadowPackageManager {
     pendingDeleteCallbacks.clear();
     hiddenPackages.clear();
     sequenceNumberChangedPackagesMap.clear();
+    packagesForUserId.clear();
 
     packageSettings.clear();
   }

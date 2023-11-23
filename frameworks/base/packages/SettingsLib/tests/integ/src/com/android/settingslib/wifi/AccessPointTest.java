@@ -28,6 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -39,7 +40,7 @@ import android.net.ScoredNetwork;
 import android.net.WifiKey;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.WifiConfiguration.KeyMgmt;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkScoreCache;
@@ -82,7 +83,6 @@ import java.util.concurrent.CountDownLatch;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class AccessPointTest {
-
     private static final String TEST_SSID = "\"test_ssid\"";
     private static final String ROAMING_SSID = "\"roaming_ssid\"";
     private static final String OSU_FRIENDLY_NAME = "osu_friendly_name";
@@ -94,9 +94,10 @@ public class AccessPointTest {
             new RssiCurve(-150, 10, new byte[]{Speed.FAST});
     public static final String TEST_BSSID = "00:00:00:00:00:00";
     private static final long MAX_SCORE_CACHE_AGE_MILLIS =
-            20 * DateUtils.MINUTE_IN_MILLIS;;
+            20 * DateUtils.MINUTE_IN_MILLIS;
 
     private Context mContext;
+    private int mMaxSignalLevel;
     private WifiInfo mWifiInfo;
     @Mock private Context mMockContext;
     @Mock private WifiManager mMockWifiManager;
@@ -120,13 +121,14 @@ public class AccessPointTest {
     private OsuProvider createOsuProvider() {
         Map<String, String> friendlyNames = new HashMap<>();
         friendlyNames.put("en", OSU_FRIENDLY_NAME);
-        return new OsuProvider(null, friendlyNames, null, null, null, null, null);
+        return new OsuProvider((WifiSsid) null, friendlyNames, null, null, null, null);
     }
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         mContext = InstrumentationRegistry.getTargetContext();
+        mMaxSignalLevel = mContext.getSystemService(WifiManager.class).getMaxSignalLevel();
         mWifiInfo = new WifiInfo();
         mWifiInfo.setSSID(WifiSsid.createFromAsciiEncoded(TEST_SSID));
         mWifiInfo.setBSSID(TEST_BSSID);
@@ -179,7 +181,7 @@ public class AccessPointTest {
 
     @Test
     public void testCompareTo_GivesHighLevelBeforeLowLevel() {
-        final int highLevel = AccessPoint.SIGNAL_LEVELS - 1;
+        final int highLevel = mMaxSignalLevel;
         final int lowLevel = 1;
         assertThat(highLevel).isGreaterThan(lowLevel);
 
@@ -225,7 +227,7 @@ public class AccessPointTest {
                 .setReachable(true).build();
         AccessPoint saved = new TestAccessPointBuilder(mContext).setSaved(true).build();
         AccessPoint highLevelAndReachable = new TestAccessPointBuilder(mContext)
-                .setLevel(AccessPoint.SIGNAL_LEVELS - 1).build();
+                .setLevel(mMaxSignalLevel).build();
         AccessPoint firstName = new TestAccessPointBuilder(mContext).setSsid("a").build();
         AccessPoint lastname = new TestAccessPointBuilder(mContext).setSsid("z").build();
 
@@ -459,60 +461,18 @@ public class AccessPointTest {
 
     @Test
     public void testSummaryString_showsWrongPasswordLabel() {
-        WifiConfiguration configuration = createWifiConfiguration();
-        configuration.getNetworkSelectionStatus().setNetworkSelectionStatus(
-                WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_PERMANENTLY_DISABLED);
-        configuration.getNetworkSelectionStatus().setNetworkSelectionDisableReason(
+        WifiConfiguration configuration = spy(createWifiConfiguration());
+        WifiConfiguration.NetworkSelectionStatus status =
+                mock(WifiConfiguration.NetworkSelectionStatus.class);
+        when(configuration.getNetworkSelectionStatus()).thenReturn(status);
+        when(status.getNetworkSelectionStatus()).thenReturn(
+                WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_TEMPORARY_DISABLED);
+        when(status.getNetworkSelectionDisableReason()).thenReturn(
                 WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD);
         AccessPoint ap = new AccessPoint(mContext, configuration);
 
         assertThat(ap.getSummary()).isEqualTo(mContext.getString(
                 R.string.wifi_check_password_try_again));
-    }
-
-    @Test
-    public void testSummaryString_showsAvaiableViaCarrier() {
-        String carrierName = "Test Carrier";
-        ScanResult result = new ScanResult();
-        result.BSSID = "00:11:22:33:44:55";
-        result.capabilities = "EAP";
-        result.isCarrierAp = true;
-        result.carrierApEapType = WifiEnterpriseConfig.Eap.SIM;
-        result.carrierName = carrierName;
-
-        AccessPoint ap = new AccessPoint(mContext, Collections.singletonList(result));
-        assertThat(ap.getSummary()).isEqualTo(String.format(mContext.getString(
-                R.string.available_via_carrier), carrierName));
-        assertThat(ap.isCarrierAp()).isEqualTo(true);
-        assertThat(ap.getCarrierApEapType()).isEqualTo(WifiEnterpriseConfig.Eap.SIM);
-        assertThat(ap.getCarrierName()).isEqualTo(carrierName);
-    }
-
-    @Test
-    public void testSummaryString_showsConnectedViaCarrier() {
-        int networkId = 123;
-        int rssi = -55;
-        String carrierName = "Test Carrier";
-        WifiConfiguration config = new WifiConfiguration();
-        config.networkId = networkId;
-        WifiInfo wifiInfo = new WifiInfo();
-        wifiInfo.setNetworkId(networkId);
-        wifiInfo.setRssi(rssi);
-
-        NetworkInfo networkInfo =
-                new NetworkInfo(ConnectivityManager.TYPE_WIFI, 0 /* subtype */, "WIFI", "");
-        networkInfo.setDetailedState(NetworkInfo.DetailedState.CONNECTED, "", "");
-
-        AccessPoint ap = new TestAccessPointBuilder(mContext)
-                .setNetworkInfo(networkInfo)
-                .setNetworkId(networkId)
-                .setRssi(rssi)
-                .setWifiInfo(wifiInfo)
-                .setIsCarrierAp(true)
-                .setCarrierName(carrierName)
-                .build();
-        assertThat(ap.getSummary()).isEqualTo(String.format(mContext.getString(
-                R.string.connected_via_carrier), carrierName));
     }
 
     @Test
@@ -549,7 +509,7 @@ public class AccessPointTest {
         WifiInfo wifiInfo = new WifiInfo();
         wifiInfo.setSSID(WifiSsid.createFromAsciiEncoded(TEST_SSID));
         wifiInfo.setEphemeral(true);
-        wifiInfo.setNetworkSuggestionOrSpecifierPackageName(appPackageName);
+        wifiInfo.setRequestingPackageName(appPackageName);
         wifiInfo.setRssi(rssi);
 
         Context context = mock(Context.class);
@@ -563,6 +523,8 @@ public class AccessPointTest {
         when(packageManager.getApplicationInfoAsUser(eq(appPackageName), anyInt(), anyInt()))
                 .thenReturn(applicationInfo);
         when(applicationInfo.loadLabel(packageManager)).thenReturn(appLabel);
+        when(context.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        when(mMockWifiManager.calculateSignalLevel(rssi)).thenReturn(4);
 
         NetworkInfo networkInfo =
                 new NetworkInfo(ConnectivityManager.TYPE_WIFI, 0 /* subtype */, "WIFI", "");
@@ -576,31 +538,6 @@ public class AccessPointTest {
                 .setWifiInfo(wifiInfo)
                 .build();
         assertThat(ap.getSummary()).isEqualTo("Connected via Test App");
-    }
-
-    @Test
-    public void testSetScanResultWithCarrierInfo() {
-        String ssid = "ssid";
-        AccessPoint ap = new TestAccessPointBuilder(mContext).setSsid(ssid).build();
-        assertThat(ap.isCarrierAp()).isEqualTo(false);
-        assertThat(ap.getCarrierApEapType()).isEqualTo(WifiEnterpriseConfig.Eap.NONE);
-        assertThat(ap.getCarrierName()).isEqualTo(null);
-
-        int carrierApEapType = WifiEnterpriseConfig.Eap.SIM;
-        String carrierName = "Test Carrier";
-        ScanResult scanResult = new ScanResult();
-        scanResult.SSID = ssid;
-        scanResult.BSSID = "00:11:22:33:44:55";
-        scanResult.capabilities = "";
-        scanResult.isCarrierAp = true;
-        scanResult.carrierApEapType = carrierApEapType;
-        scanResult.carrierName = carrierName;
-
-
-        ap.setScanResults(Collections.singletonList(scanResult));
-        assertThat(ap.isCarrierAp()).isEqualTo(true);
-        assertThat(ap.getCarrierApEapType()).isEqualTo(carrierApEapType);
-        assertThat(ap.getCarrierName()).isEqualTo(carrierName);
     }
 
     private ScoredNetwork buildScoredNetworkWithMockBadgeCurve() {
@@ -704,14 +641,14 @@ public class AccessPointTest {
     public void testBuilder_setLevel() {
         AccessPoint testAp;
 
-        for (int i = 0; i < AccessPoint.SIGNAL_LEVELS; i++) {
+        for (int i = 0; i <= mMaxSignalLevel; i++) {
             testAp = new TestAccessPointBuilder(mContext).setLevel(i).build();
             assertThat(testAp.getLevel()).isEqualTo(i);
         }
 
         // numbers larger than the max level should be set to max
-        testAp = new TestAccessPointBuilder(mContext).setLevel(AccessPoint.SIGNAL_LEVELS).build();
-        assertThat(testAp.getLevel()).isEqualTo(AccessPoint.SIGNAL_LEVELS - 1);
+        testAp = new TestAccessPointBuilder(mContext).setLevel(mMaxSignalLevel + 1).build();
+        assertThat(testAp.getLevel()).isEqualTo(mMaxSignalLevel);
 
         // numbers less than 0 should give level 0
         testAp = new TestAccessPointBuilder(mContext).setLevel(-100).build();
@@ -721,7 +658,7 @@ public class AccessPointTest {
     @Test
     public void testBuilder_settingReachableAfterLevelDoesNotAffectLevel() {
         int level = 1;
-        assertThat(level).isLessThan(AccessPoint.SIGNAL_LEVELS - 1);
+        assertThat(level).isLessThan(mMaxSignalLevel);
 
         AccessPoint testAp =
                 new TestAccessPointBuilder(mContext).setLevel(level).setReachable(true).build();
@@ -1272,7 +1209,7 @@ public class AccessPointTest {
     @Test
     public void testGetKey_matchesKeysCorrectly() {
         AccessPoint ap = new AccessPoint(mContext, mScanResults);
-        assertThat(ap.getKey()).isEqualTo(AccessPoint.getKey(mScanResults.get(0)));
+        assertThat(ap.getKey()).isEqualTo(AccessPoint.getKey(mContext, mScanResults.get(0)));
 
         WifiConfiguration spyConfig = spy(new WifiConfiguration());
         when(spyConfig.isPasspoint()).thenReturn(true);
@@ -1291,6 +1228,44 @@ public class AccessPointTest {
         OsuProvider provider = createOsuProvider();
         AccessPoint osuAp = new AccessPoint(mContext, provider, mScanResults);
         assertThat(osuAp.getKey()).isEqualTo(AccessPoint.getKey(provider));
+    }
+
+    /**
+     * Test that getKey returns a key of SAE type for a PSK/SAE transition mode ScanResult.
+     */
+    @Test
+    public void testGetKey_supportSaeTransitionMode_shouldGetSaeKey() {
+        ScanResult scanResult = createScanResult(TEST_SSID, TEST_BSSID, DEFAULT_RSSI);
+        scanResult.capabilities =
+                "[WPA2-FT/PSK-CCMP][RSN-FT/PSK+PSK-SHA256+SAE+FT/SAE-CCMP][ESS][WPS]";
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(true);
+        when(mMockContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        StringBuilder key = new StringBuilder();
+        key.append(AccessPoint.KEY_PREFIX_AP);
+        key.append(TEST_SSID);
+        key.append(',');
+        key.append(AccessPoint.SECURITY_SAE);
+
+        assertThat(AccessPoint.getKey(mMockContext, scanResult)).isEqualTo(key.toString());
+    }
+
+    /**
+     * Test that getKey returns a key of PSK type for a PSK/SAE transition mode ScanResult.
+     */
+    @Test
+    public void testGetKey_notSupportSaeTransitionMode_shouldGetPskKey() {
+        ScanResult scanResult = createScanResult(TEST_SSID, TEST_BSSID, DEFAULT_RSSI);
+        scanResult.capabilities =
+                "[WPA2-FT/PSK-CCMP][RSN-FT/PSK+PSK-SHA256+SAE+FT/SAE-CCMP][ESS][WPS]";
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(false);
+        when(mMockContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        StringBuilder key = new StringBuilder();
+        key.append(AccessPoint.KEY_PREFIX_AP);
+        key.append(TEST_SSID);
+        key.append(',');
+        key.append(AccessPoint.SECURITY_PSK);
+
+        assertThat(AccessPoint.getKey(mMockContext, scanResult)).isEqualTo(key.toString());
     }
 
     /**
@@ -1395,7 +1370,14 @@ public class AccessPointTest {
      */
     @Test
     public void testOsuAccessPointSummary_showsProvisioningUpdates() {
-        AccessPoint osuAccessPoint = new AccessPoint(mContext, createOsuProvider(),
+        OsuProvider provider = createOsuProvider();
+        Context spyContext = spy(new ContextWrapper(mContext));
+        when(spyContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        Map<OsuProvider, PasspointConfiguration> osuProviderConfigMap = new HashMap<>();
+        osuProviderConfigMap.put(provider, null);
+        when(mMockWifiManager.getMatchingPasspointConfigsForOsuProviders(
+                Collections.singleton(provider))).thenReturn(osuProviderConfigMap);
+        AccessPoint osuAccessPoint = new AccessPoint(spyContext, provider,
                 mScanResults);
 
         osuAccessPoint.setListener(mMockAccessPointListener);
@@ -1521,5 +1503,173 @@ public class AccessPointTest {
         provisioningCallback.onProvisioningComplete();
 
         verify(mMockConnectListener).onFailure(anyInt());
+    }
+
+    /**
+     * Verifies that isOpenNetwork returns true for SECURITY_NONE, SECURITY_OWE, and
+     * SECURITY_OWE_TRANSITION.
+     */
+    @Test
+    public void testIsOpenNetwork_returnValidResult() {
+        final Bundle bundle = new Bundle();
+        AccessPoint ap;
+
+        for (int i = 0; i < AccessPoint.SECURITY_MAX_VAL; i++) {
+            bundle.putInt("key_security", i);
+            ap = new AccessPoint(InstrumentationRegistry.getTargetContext(), bundle);
+
+            if (i == AccessPoint.SECURITY_NONE || i == AccessPoint.SECURITY_OWE) {
+                assertThat(ap.isOpenNetwork()).isTrue();
+            } else {
+                assertThat(ap.isOpenNetwork()).isFalse();
+            }
+        }
+    }
+
+    /**
+     * Verifies that matches(AccessPoint other) matches a PSK/SAE transition mode AP to a PSK or a
+     * SAE AP.
+     */
+    @Test
+    public void testMatches1_transitionModeApMatchesNotTransitionModeAp_shouldMatchCorrectly() {
+        when(mMockContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(true);
+        AccessPoint pskSaeTransitionModeAp = getPskSaeTransitionModeAp();
+
+        // Transition mode AP matches a SAE AP.
+        AccessPoint saeAccessPoint = new TestAccessPointBuilder(mContext)
+                .setSsid(AccessPoint.removeDoubleQuotes(TEST_SSID))
+                .setSecurity(AccessPoint.SECURITY_SAE)
+                .build();
+        assertThat(pskSaeTransitionModeAp.matches(saeAccessPoint)).isTrue();
+
+        // Transition mode AP matches a PSK AP.
+        AccessPoint pskAccessPoint = new TestAccessPointBuilder(mContext)
+                .setSsid(AccessPoint.removeDoubleQuotes(TEST_SSID))
+                .setSecurity(AccessPoint.SECURITY_PSK)
+                .build();
+
+        assertThat(pskSaeTransitionModeAp.matches(pskAccessPoint)).isTrue();
+
+        // Transition mode AP does not match a SAE AP if the device does not support SAE.
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(false);
+        pskSaeTransitionModeAp = getPskSaeTransitionModeAp();
+        saeAccessPoint = new TestAccessPointBuilder(mContext)
+            .setSsid(AccessPoint.removeDoubleQuotes(TEST_SSID))
+            .setSecurity(AccessPoint.SECURITY_SAE)
+            .build();
+
+        assertThat(pskSaeTransitionModeAp.matches(saeAccessPoint)).isFalse();
+    }
+
+    /**
+     * Verifies that matches(WifiConfiguration config) matches a PSK/SAE transition mode AP to a PSK
+     * or a SAE WifiConfiguration.
+     */
+    @Test
+    public void testMatches2_transitionModeApMatchesNotTransitionModeAp_shouldMatchCorrectly() {
+        when(mMockContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(true);
+        AccessPoint pskSaeTransitionModeAp = getPskSaeTransitionModeAp();
+
+        // Transition mode AP matches a SAE WifiConfiguration.
+        WifiConfiguration saeConfig = new WifiConfiguration();
+        saeConfig.SSID = TEST_SSID;
+        saeConfig.allowedKeyManagement.set(KeyMgmt.SAE);
+
+        assertThat(pskSaeTransitionModeAp.matches(saeConfig)).isTrue();
+
+        // Transition mode AP matches a PSK WifiConfiguration.
+        WifiConfiguration pskConfig = new WifiConfiguration();
+        pskConfig.SSID = TEST_SSID;
+        pskConfig.allowedKeyManagement.set(KeyMgmt.WPA_PSK);
+
+        assertThat(pskSaeTransitionModeAp.matches(pskConfig)).isTrue();
+
+        // Transition mode AP does not matches a SAE WifiConfiguration if the device does not
+        // support SAE.
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(false);
+        pskSaeTransitionModeAp = getPskSaeTransitionModeAp();
+
+        assertThat(pskSaeTransitionModeAp.matches(saeConfig)).isFalse();
+    }
+
+    /**
+     * Verifies that matches(ScanResult scanResult) matches a PSK/SAE transition mode AP to a PSK
+     * or a SAE ScanResult.
+     */
+    @Test
+    public void testMatches3_transitionModeApMatchesNotTransitionModeAp_shouldMatchCorrectly() {
+        when(mMockContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(true);
+        AccessPoint pskSaeTransitionModeAp = getPskSaeTransitionModeAp();
+
+        // Transition mode AP matches a SAE ScanResult.
+        ScanResult saeScanResult = createScanResult(AccessPoint.removeDoubleQuotes(TEST_SSID),
+                TEST_BSSID, DEFAULT_RSSI);
+        saeScanResult.capabilities = "[SAE-CCMP][ESS][WPS]";
+
+        assertThat(pskSaeTransitionModeAp.matches(saeScanResult)).isTrue();
+
+        // Transition mode AP matches a PSK ScanResult.
+        ScanResult pskScanResult = createScanResult(AccessPoint.removeDoubleQuotes(TEST_SSID),
+                TEST_BSSID, DEFAULT_RSSI);
+        pskScanResult.capabilities = "[RSN-PSK-CCMP][ESS][WPS]";
+
+        assertThat(pskSaeTransitionModeAp.matches(pskScanResult)).isTrue();
+
+        // Transition mode AP does not matches a SAE ScanResult if the device does not support SAE.
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(false);
+        pskSaeTransitionModeAp = getPskSaeTransitionModeAp();
+
+        assertThat(pskSaeTransitionModeAp.matches(saeScanResult)).isFalse();
+    }
+
+    @Test
+    public void testGetSecurityString_oweTransitionMode_shouldReturnCorrectly() {
+        when(mMockContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        when(mMockWifiManager.isEnhancedOpenSupported()).thenReturn(true);
+        AccessPoint oweTransitionModeAp = getOweTransitionModeAp();
+
+        assertThat(oweTransitionModeAp.getSecurityString(true /* concise */))
+                .isEqualTo(mContext.getString(R.string.wifi_security_short_none_owe));
+        assertThat(oweTransitionModeAp.getSecurityString(false /* concise */))
+                .isEqualTo(mContext.getString(R.string.wifi_security_none_owe));
+    }
+
+    private AccessPoint getPskSaeTransitionModeAp() {
+        ScanResult scanResult = createScanResult(AccessPoint.removeDoubleQuotes(TEST_SSID),
+                TEST_BSSID, DEFAULT_RSSI);
+        scanResult.capabilities =
+                "[WPA2-FT/PSK-CCMP][RSN-FT/PSK+PSK-SHA256+SAE+FT/SAE-CCMP][ESS][WPS]";
+        return new TestAccessPointBuilder(mMockContext)
+                .setScanResults(new ArrayList<ScanResult>(Arrays.asList(scanResult)))
+                .build();
+    }
+
+    private AccessPoint getOweTransitionModeAp() {
+        ScanResult scanResult = createScanResult(AccessPoint.removeDoubleQuotes(TEST_SSID),
+                TEST_BSSID, DEFAULT_RSSI);
+        scanResult.capabilities = "[OWE_TRANSITION]";
+        return new TestAccessPointBuilder(mContext)
+                .setScanResults(new ArrayList<ScanResult>(Arrays.asList(scanResult)))
+                .build();
+    }
+
+    @Test
+    public void testGenerateOpenNetworkConfig_oweNotSupported_shouldGetCorrectSecurity() {
+        when(mMockContext.getSystemService(Context.WIFI_SERVICE)).thenReturn(mMockWifiManager);
+        AccessPoint oweAccessPoint = new TestAccessPointBuilder(mMockContext)
+                .setSecurity(AccessPoint.SECURITY_OWE).build();
+        AccessPoint noneAccessPoint = new TestAccessPointBuilder(mMockContext)
+                .setSecurity(AccessPoint.SECURITY_NONE).build();
+
+        oweAccessPoint.generateOpenNetworkConfig();
+        noneAccessPoint.generateOpenNetworkConfig();
+
+        assertThat(oweAccessPoint.getConfig().allowedKeyManagement.get(KeyMgmt.NONE)).isFalse();
+        assertThat(oweAccessPoint.getConfig().allowedKeyManagement.get(KeyMgmt.OWE)).isTrue();
+        assertThat(noneAccessPoint.getConfig().allowedKeyManagement.get(KeyMgmt.NONE)).isTrue();
+        assertThat(noneAccessPoint.getConfig().allowedKeyManagement.get(KeyMgmt.OWE)).isFalse();
     }
 }

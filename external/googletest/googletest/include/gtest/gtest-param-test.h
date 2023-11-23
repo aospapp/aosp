@@ -100,7 +100,7 @@ INSTANTIATE_TEST_SUITE_P(InstantiationName,
                          Values("meeny", "miny", "moe"));
 
 // To distinguish different instances of the pattern, (yes, you
-// can instantiate it more then once) the first argument to the
+// can instantiate it more than once) the first argument to the
 // INSTANTIATE_TEST_SUITE_P macro is a prefix that will be added to the
 // actual test suite name. Remember to pick unique prefixes for different
 // instantiations. The tests from the instantiation above will have
@@ -174,6 +174,7 @@ TEST_P(DerivedTest, DoesBlah) {
 
 #endif  // 0
 
+#include <iterator>
 #include <utility>
 
 #include "gtest/internal/gtest-internal.h"
@@ -292,10 +293,9 @@ internal::ParamGenerator<T> Range(T start, T end) {
 //
 template <typename ForwardIterator>
 internal::ParamGenerator<
-  typename ::testing::internal::IteratorTraits<ForwardIterator>::value_type>
+    typename std::iterator_traits<ForwardIterator>::value_type>
 ValuesIn(ForwardIterator begin, ForwardIterator end) {
-  typedef typename ::testing::internal::IteratorTraits<ForwardIterator>
-      ::value_type ParamType;
+  typedef typename std::iterator_traits<ForwardIterator>::value_type ParamType;
   return internal::ParamGenerator<ParamType>(
       new internal::ValuesInIteratorRangeGenerator<ParamType>(begin, end));
 }
@@ -416,14 +416,14 @@ internal::CartesianProductHolder<Generator...> Combine(const Generator&... g) {
       : public test_suite_name {                                               \
    public:                                                                     \
     GTEST_TEST_CLASS_NAME_(test_suite_name, test_name)() {}                    \
-    virtual void TestBody();                                                   \
+    void TestBody() override;                                                  \
                                                                                \
    private:                                                                    \
     static int AddToRegistry() {                                               \
       ::testing::UnitTest::GetInstance()                                       \
           ->parameterized_test_registry()                                      \
           .GetTestSuitePatternHolder<test_suite_name>(                         \
-              #test_suite_name,                                                \
+              GTEST_STRINGIFY_(test_suite_name),                               \
               ::testing::internal::CodeLocation(__FILE__, __LINE__))           \
           ->AddTestPattern(                                                    \
               GTEST_STRINGIFY_(test_suite_name), GTEST_STRINGIFY_(test_name),  \
@@ -483,10 +483,11 @@ internal::CartesianProductHolder<Generator...> Combine(const Generator&... g) {
           ::testing::UnitTest::GetInstance()                                  \
               ->parameterized_test_registry()                                 \
               .GetTestSuitePatternHolder<test_suite_name>(                    \
-                  #test_suite_name,                                           \
+                  GTEST_STRINGIFY_(test_suite_name),                          \
                   ::testing::internal::CodeLocation(__FILE__, __LINE__))      \
               ->AddTestSuiteInstantiation(                                    \
-                  #prefix, &gtest_##prefix##test_suite_name##_EvalGenerator_, \
+                  GTEST_STRINGIFY_(prefix),                                   \
+                  &gtest_##prefix##test_suite_name##_EvalGenerator_,          \
                   &gtest_##prefix##test_suite_name##_EvalGenerateName_,       \
                   __FILE__, __LINE__)
 

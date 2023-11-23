@@ -619,6 +619,13 @@ void MemMap::DoReset() {
   Invalidate();
 }
 
+void MemMap::ResetInForkedProcess() {
+  // This should be called on a map that has MADV_DONTFORK.
+  // The kernel has already unmapped this.
+  already_unmapped_ = true;
+  Reset();
+}
+
 void MemMap::Invalidate() {
   DCHECK(IsValid());
 
@@ -745,10 +752,10 @@ MemMap MemMap::RemapAtEnd(uint8_t* new_end,
                                                           fd,
                                                           offset));
   if (actual == MAP_FAILED) {
-    PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
-    *error_msg = StringPrintf("map(%p, %zd, 0x%x, 0x%x, %d, 0) failed. See process "
+    *error_msg = StringPrintf("map(%p, %zd, 0x%x, 0x%x, %d, 0) failed: %s. See process "
                               "maps in the log.", tail_base_begin, tail_base_size, tail_prot, flags,
-                              fd);
+                              fd, strerror(errno));
+    PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
     return Invalid();
   }
   // Update *this.
@@ -822,6 +829,15 @@ void MemMap::MadviseDontNeedAndZero() {
     }
 #endif
   }
+}
+
+int MemMap::MadviseDontFork() {
+#if defined(__linux__)
+  if (base_begin_ != nullptr || base_size_ != 0) {
+    return madvise(base_begin_, base_size_, MADV_DONTFORK);
+  }
+#endif
+  return -1;
 }
 
 bool MemMap::Sync() {

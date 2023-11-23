@@ -1,16 +1,19 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import __builtin__
 import Queue
+import json
 import logging
 import os
 import shutil
 import signal
 import stat
+import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import unittest
@@ -54,6 +57,21 @@ def is_fifo(path):
   @param path: fifo path string.
   """
   return stat.S_ISFIFO(os.lstat(path).st_mode)
+
+
+def _get_fake_process():
+  return FakeProcess()
+
+
+class FakeProcess(object):
+    """Fake process object."""
+
+    def __init__(self):
+        self.returncode = 0
+
+
+    def wait(self):
+        return True
 
 
 class OffloaderOptionsTests(mox.MoxTestBase):
@@ -354,9 +372,10 @@ class CommandListTests(unittest.TestCase):
 
         gs_offloader.USE_RSYNC_ENABLED = use_rsync
 
+        gs_path = os.path.join(test_bucket_uri, job.queue_args[1])
+
         command = gs_offloader._get_cmd_list(
-                multi, job.queue_args[0],
-                os.path.join(test_bucket_uri, job.queue_args[1]))
+                multi, job.queue_args[0], gs_path)
 
         self.assertEqual(command[0], 'gsutil')
         if multi:
@@ -371,6 +390,13 @@ class CommandListTests(unittest.TestCase):
             self.assertTrue('cp' in command)
             self.assertEqual(command[-1],
                              os.path.join(test_bucket_uri, job.queue_args[1]))
+
+        finish_command = gs_offloader._get_finish_cmd_list(gs_path)
+        self.assertEqual(finish_command[0], 'gsutil')
+        self.assertEqual(finish_command[1], 'cp')
+        self.assertEqual(finish_command[2], '/dev/null')
+        self.assertEqual(finish_command[3],
+                         os.path.join(gs_path, '.finished_offload'))
 
 
     def test__get_cmd_list_regular(self):
@@ -440,7 +466,7 @@ class _TempResultsDirTestCase(unittest.TestCase):
                       `self._resultsroot`.
 
         """
-        os.mkdir(jobdir)
+        os.makedirs(jobdir)
         return _MockJobDirectory(jobdir)
 
 
@@ -553,6 +579,7 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         alarm.start()
         self.addCleanup(alarm.stop)
         self.mox.StubOutWithMock(models.test, 'parse_job_keyval')
+        self.should_remove_sarming_req_dir = False
 
 
     def tearDown(self):
@@ -608,6 +635,11 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         self.mox.VerifyAll()
         self.assertEqual(not should_succeed,
                          os.path.isdir(self._job.queue_args[0]))
+        swarming_req_dir = gs_offloader._get_swarming_req_dir(
+                self._job.queue_args[0])
+        if swarming_req_dir:
+            self.assertEqual(not self.should_remove_sarming_req_dir,
+                             os.path.exists(swarming_req_dir))
 
 
     def test_offload_success(self):
@@ -624,6 +656,33 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         self._mock_offload_dir_calls(['test', '!', '-d'],
                                      self._job.queue_args)
         self._run_offload_dir(False, 0)
+
+
+    def test_offload_swarming_req_dir_remove(self):
+        """Test that `offload_dir()` can prune the empty swarming task dir."""
+        should_remove = os.path.join('results', 'swarming-123abc0')
+        self._job = self.make_job(os.path.join(should_remove, '1'))
+        self._mock_offload_dir_calls(['test', '-d'],
+                                     self._job.queue_args)
+
+        os.path.isfile(mox.IgnoreArg()).AndReturn(True)
+        self.should_remove_sarming_req_dir = True
+        self._mock_create_marker_file()
+        self._run_offload_dir(True, 0)
+
+
+    def test_offload_swarming_req_dir_exist(self):
+        """Test that `offload_dir()` keeps the non-empty swarming task dir."""
+        should_not_remove = os.path.join('results', 'swarming-456edf0')
+        self._job = self.make_job(os.path.join(should_not_remove, '1'))
+        self.make_job(os.path.join(should_not_remove, '2'))
+        self._mock_offload_dir_calls(['test', '-d'],
+                                     self._job.queue_args)
+
+        os.path.isfile(mox.IgnoreArg()).AndReturn(True)
+        self.should_remove_sarming_req_dir = False
+        self._mock_create_marker_file()
+        self._run_offload_dir(True, 0)
 
 
     def test_sanitize_dir(self):
@@ -746,6 +805,8 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         self.assertTrue(gs_offloader._is_valid_result(
             release_build, gs_offloader.CTS_RESULT_PATTERN, 'test_that_wrapper'))
         self.assertTrue(gs_offloader._is_valid_result(
+            release_build, gs_offloader.CTS_RESULT_PATTERN, 'cros_test_platform'))
+        self.assertTrue(gs_offloader._is_valid_result(
             release_build, gs_offloader.CTS_RESULT_PATTERN, 'bvt-arc'))
         self.assertFalse(gs_offloader._is_valid_result(
             release_build, gs_offloader.CTS_RESULT_PATTERN, 'bvt-cq'))
@@ -782,6 +843,25 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         timestamp_cts_v2_folder = os.path.join(cts_v2_result_folder, timestamp_str)
         timestamp_gts_folder = os.path.join(gts_result_folder, timestamp_str)
 
+        # Build host keyvals set to parse model info.
+        host_info_path = os.path.join(host_folder, 'host_keyvals')
+        dir_to_create = '/'
+        for tdir in host_info_path.split('/'):
+            dir_to_create = os.path.join(dir_to_create, tdir)
+            if not os.path.exists(dir_to_create):
+                os.mkdir(dir_to_create)
+        with open(os.path.join(host_info_path, 'chromeos4-row9-rack11-host22'), 'w') as store_file:
+            store_file.write('labels=board%3Acoral,hw_video_acc_vp9,cros,'+
+                             'hw_jpeg_acc_dec,bluetooth,model%3Arobo360,'+
+                             'accel%3Acros-ec,'+
+                             'sku%3Arobo360_IntelR_CeleronR_CPU_N3450_1_10GHz_4Gb')
+
+        # .autoserv_execute file is needed for the test results package to look
+        # legit.
+        autoserve_path = os.path.join(host_folder, '.autoserv_execute')
+        with open(autoserve_path, 'w') as temp_file:
+            temp_file.write(' ')
+
         # Test results in cts_result_folder with a different time-stamp.
         timestamp_str_2 = '2016.04.28_10.41.44'
         timestamp_cts_folder_2 = os.path.join(cts_result_folder, timestamp_str_2)
@@ -793,7 +873,9 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
 
         path_pattern_pair = [(timestamp_cts_folder, gs_offloader.CTS_RESULT_PATTERN),
                              (timestamp_cts_folder_2, gs_offloader.CTS_RESULT_PATTERN),
+                             (timestamp_cts_folder_2, gs_offloader.CTS_COMPRESSED_RESULT_PATTERN),
                              (timestamp_cts_v2_folder, gs_offloader.CTS_V2_RESULT_PATTERN),
+                             (timestamp_cts_v2_folder, gs_offloader.CTS_V2_COMPRESSED_RESULT_PATTERN),
                              (timestamp_gts_folder, gs_offloader.CTS_V2_RESULT_PATTERN)]
 
         # Create timestamp.zip file_path.
@@ -806,15 +888,29 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         cts_result_file = os.path.join(timestamp_cts_folder, 'testResult.xml')
         cts_result_file_2 = os.path.join(timestamp_cts_folder_2,
                                          'testResult.xml')
+        cts_result_compressed_file_2 = os.path.join(timestamp_cts_folder_2,
+                                                     'testResult.xml.tgz')
         gts_result_file = os.path.join(timestamp_gts_folder, 'test_result.xml')
         cts_v2_result_file = os.path.join(timestamp_cts_v2_folder,
                                          'test_result.xml')
+        cts_v2_result_compressed_file = os.path.join(timestamp_cts_v2_folder,
+                                         'test_result.xml.tgz')
 
         for file_path in [cts_zip_file, cts_zip_file_2, cts_v2_zip_file,
                           gts_zip_file, cts_result_file, cts_result_file_2,
-                          gts_result_file, cts_v2_result_file]:
-            with open(file_path, 'w') as f:
-                f.write('test')
+                          cts_result_compressed_file_2, gts_result_file,
+                          cts_v2_result_file, cts_v2_result_compressed_file]:
+          if file_path.endswith('tgz'):
+              test_result_file = gs_offloader.CTS_COMPRESSED_RESULT_TYPES[
+                      os.path.basename(file_path)]
+              with open(test_result_file, 'w') as f:
+                  f.write('test')
+              with tarfile.open(file_path, 'w:gz') as tar_file:
+                  tar_file.add(test_result_file)
+              os.remove(test_result_file)
+          else:
+              with open(file_path, 'w') as f:
+                  f.write('test')
 
         return (results_folder, host_folder, path_pattern_pair)
 
@@ -843,6 +939,29 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         shutil.rmtree(results_folder)
 
 
+    def test_parse_cts_job_results_file_path(self):
+        # A autotest path
+        path = ('/317739475-chromeos-test/chromeos4-row9-rack11-host22/'
+                'cheets_CTS.android.dpi/results/cts-results/'
+                '2016.04.28_01.41.44')
+        job_id, package, timestamp = \
+            gs_offloader._parse_cts_job_results_file_path(path)
+        self.assertEqual('317739475-chromeos-test', job_id)
+        self.assertEqual('cheets_CTS.android.dpi', package)
+        self.assertEqual('2016.04.28_01.41.44', timestamp)
+
+
+        # A skylab path
+        path = ('/swarming-458e3a3a7fc6f210/1/autoserv_test/'
+                'cheets_CTS.android.dpi/results/cts-results/'
+                '2016.04.28_01.41.44')
+        job_id, package, timestamp = \
+            gs_offloader._parse_cts_job_results_file_path(path)
+        self.assertEqual('swarming-458e3a3a7fc6f210-1', job_id)
+        self.assertEqual('cheets_CTS.android.dpi', package)
+        self.assertEqual('2016.04.28_01.41.44', timestamp)
+
+
     def test_upload_files(self):
         """Test upload_files"""
         results_folder, host_folder, path_pattern_pair = self.create_results_folder()
@@ -850,6 +969,7 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
         for path, pattern in path_pattern_pair:
             models.test.parse_job_keyval(mox.IgnoreArg()).AndReturn({
                 'build': 'veyron_minnie-cheets-release/R52-8248.0.0',
+                'hostname': 'chromeos4-row9-rack11-host22',
                 'parent_job_id': 'p_id',
                 'suite': 'arc-cts'
             })
@@ -887,6 +1007,92 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
             self.mox.VerifyAll()
         finally:
             shutil.rmtree(results_folder)
+
+
+class OffladerConfigTests(_TempResultsDirTestBase):
+    """Tests for the `Offloader` to follow side_effect config."""
+
+    def setUp(self):
+        super(OffladerConfigTests, self).setUp()
+        gs_offloader.GS_OFFLOADING_ENABLED = True
+        gs_offloader.GS_OFFLOADER_MULTIPROCESSING = True
+        self.dest_path = '/results'
+        self.mox.StubOutWithMock(gs_offloader, '_get_metrics_fields')
+        self.mox.StubOutWithMock(gs_offloader, '_OffloadError')
+        self.mox.StubOutWithMock(gs_offloader, '_upload_cts_testresult')
+        self.mox.StubOutWithMock(gs_offloader, '_emit_offload_metrics')
+        self.mox.StubOutWithMock(gs_offloader, '_get_cmd_list')
+        self.mox.StubOutWithMock(subprocess, 'Popen')
+        self.mox.StubOutWithMock(gs_offloader, '_emit_gs_returncode_metric')
+
+
+    def _run(self, results_dir, gs_bucket, expect_dest, cts_enabled):
+        stdout = os.path.join(results_dir, 'std.log')
+        stderr = os.path.join(results_dir, 'std.err')
+        config = {
+            'tko': {
+                'proxy_socket': '/file-system/foo-socket',
+                'mysql_user': 'foo-user',
+                'mysql_password_file': '/file-system/foo-password-file'
+            },
+            'google_storage': {
+                'bucket': gs_bucket,
+                'credentials_file': '/foo-creds'
+            },
+            'cts': {
+                'enabled': cts_enabled,
+            },
+            'this_field_is_ignored': True
+        }
+        path = os.path.join(results_dir, 'side_effects_config.json')
+        with open(path, 'w') as f:
+            f.write(json.dumps(config))
+        gs_offloader._get_metrics_fields(results_dir)
+        if cts_enabled:
+            gs_offloader._upload_cts_testresult(results_dir, True)
+        gs_offloader._get_cmd_list(
+            True,
+            mox.IgnoreArg(),
+            expect_dest).AndReturn(['test', '-d', expect_dest])
+        subprocess.Popen(mox.IgnoreArg(),
+                         stdout=stdout,
+                         stderr=stderr).AndReturn(_get_fake_process())
+        gs_offloader._OffloadError(mox.IgnoreArg())
+        gs_offloader._emit_gs_returncode_metric(mox.IgnoreArg()).AndReturn(True)
+        gs_offloader._emit_offload_metrics(mox.IgnoreArg()).AndReturn(True)
+        sub_offloader = gs_offloader.GSOffloader(results_dir, True, 0, None)
+        subprocess.Popen(mox.IgnoreArg(),
+                         stdout=stdout,
+                         stderr=stderr).AndReturn(_get_fake_process())
+        self.mox.ReplayAll()
+        sub_offloader._try_offload(results_dir, self.dest_path, stdout, stderr)
+        self.mox.VerifyAll()
+        self.mox.ResetAll()
+        shutil.rmtree(results_dir)
+
+
+    def test_upload_files_to_dev(self):
+        """Test upload results to dev gs bucket and skip cts uploading."""
+        res = tempfile.mkdtemp()
+        gs_bucket = 'dev-bucket'
+        expect_dest = 'gs://' + gs_bucket + self.dest_path
+        self._run(res, gs_bucket, expect_dest, False)
+
+
+    def test_upload_files_prod(self):
+        """Test upload results to the prod gs bucket and also upload to cts."""
+        res = tempfile.mkdtemp()
+        gs_bucket = 'prod-bucket'
+        expect_dest = 'gs://' + gs_bucket + self.dest_path
+        self._run(res, gs_bucket, expect_dest, True)
+
+
+    def test_skip_gs_prefix(self):
+        """Test skip the 'gs://' prefix if already presented."""
+        res = tempfile.mkdtemp()
+        gs_bucket = 'gs://prod-bucket'
+        expect_dest = gs_bucket + self.dest_path
+        self._run(res, gs_bucket, expect_dest, True)
 
 
 class JobDirectoryOffloadTests(_TempResultsDirTestBase):

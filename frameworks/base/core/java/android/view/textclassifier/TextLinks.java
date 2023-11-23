@@ -40,12 +40,14 @@ import com.android.internal.util.Preconditions;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -107,10 +109,9 @@ public final class TextLinks implements Parcelable {
 
     /**
      * Returns the text that was used to generate these links.
-     * @hide
      */
     @NonNull
-    public String getText() {
+    public CharSequence getText() {
         return mFullText;
     }
 
@@ -153,7 +154,7 @@ public final class TextLinks implements Parcelable {
             @NonNull Spannable text,
             @ApplyStrategy int applyStrategy,
             @Nullable Function<TextLink, TextLinkSpan> spanFactory) {
-        Preconditions.checkNotNull(text);
+        Objects.requireNonNull(text);
         return new TextLinksParams.Builder()
                 .setApplyStrategy(applyStrategy)
                 .setSpanFactory(spanFactory)
@@ -221,10 +222,10 @@ public final class TextLinks implements Parcelable {
          */
         private TextLink(int start, int end, @NonNull EntityConfidence entityConfidence,
                 @NonNull Bundle extras, @Nullable URLSpan urlSpan) {
-            Preconditions.checkNotNull(entityConfidence);
+            Objects.requireNonNull(entityConfidence);
             Preconditions.checkArgument(!entityConfidence.getEntities().isEmpty());
             Preconditions.checkArgument(start <= end);
-            Preconditions.checkNotNull(extras);
+            Objects.requireNonNull(extras);
             mStart = start;
             mEnd = end;
             mEntityScores = entityConfidence;
@@ -337,19 +338,22 @@ public final class TextLinks implements Parcelable {
         @Nullable private final LocaleList mDefaultLocales;
         @Nullable private final EntityConfig mEntityConfig;
         private final boolean mLegacyFallback;
-        @Nullable private String mCallingPackageName;
         private final Bundle mExtras;
+        @Nullable private final ZonedDateTime mReferenceTime;
+        @Nullable private SystemTextClassifierMetadata mSystemTcMetadata;
 
         private Request(
                 CharSequence text,
                 LocaleList defaultLocales,
                 EntityConfig entityConfig,
                 boolean legacyFallback,
+                ZonedDateTime referenceTime,
                 Bundle extras) {
             mText = text;
             mDefaultLocales = defaultLocales;
             mEntityConfig = entityConfig;
             mLegacyFallback = legacyFallback;
+            mReferenceTime = referenceTime;
             mExtras = extras;
         }
 
@@ -362,8 +366,8 @@ public final class TextLinks implements Parcelable {
         }
 
         /**
-         * @return ordered list of locale preferences that can be used to disambiguate
-         *      the provided text
+         * Returns an ordered list of locale preferences that can be used to disambiguate the
+         * provided text.
          */
         @Nullable
         public LocaleList getDefaultLocales() {
@@ -371,7 +375,8 @@ public final class TextLinks implements Parcelable {
         }
 
         /**
-         * @return The config representing the set of entities to look for
+         * Returns the config representing the set of entities to look for
+         *
          * @see Builder#setEntityConfig(EntityConfig)
          */
         @Nullable
@@ -390,14 +395,12 @@ public final class TextLinks implements Parcelable {
         }
 
         /**
-         * Sets the name of the package that is sending this request.
-         * <p>
-         * Package-private for SystemTextClassifier's use.
-         * @hide
+         * Returns reference time based on which relative dates (e.g. "tomorrow") should be
+         * interpreted.
          */
-        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-        public void setCallingPackageName(@Nullable String callingPackageName) {
-            mCallingPackageName = callingPackageName;
+        @Nullable
+        public ZonedDateTime getReferenceTime() {
+            return mReferenceTime;
         }
 
         /**
@@ -406,7 +409,28 @@ public final class TextLinks implements Parcelable {
          */
         @Nullable
         public String getCallingPackageName() {
-            return mCallingPackageName;
+            return mSystemTcMetadata != null ? mSystemTcMetadata.getCallingPackageName() : null;
+        }
+
+        /**
+         * Sets the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+        public void setSystemTextClassifierMetadata(
+                @Nullable SystemTextClassifierMetadata systemTcMetadata) {
+            mSystemTcMetadata = systemTcMetadata;
+        }
+
+        /**
+         * Returns the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        @Nullable
+        public SystemTextClassifierMetadata getSystemTextClassifierMetadata() {
+            return mSystemTcMetadata;
         }
 
         /**
@@ -430,12 +454,16 @@ public final class TextLinks implements Parcelable {
             @Nullable private EntityConfig mEntityConfig;
             private boolean mLegacyFallback = true; // Use legacy fall back by default.
             @Nullable private Bundle mExtras;
+            @Nullable private ZonedDateTime mReferenceTime;
 
             public Builder(@NonNull CharSequence text) {
-                mText = Preconditions.checkNotNull(text);
+                mText = Objects.requireNonNull(text);
             }
 
             /**
+             * Sets ordered list of locale preferences that may be used to disambiguate the
+             * provided text.
+             *
              * @param defaultLocales ordered list of locale preferences that may be used to
              *                       disambiguate the provided text. If no locale preferences exist,
              *                       set this to null or an empty locale list.
@@ -487,13 +515,28 @@ public final class TextLinks implements Parcelable {
             }
 
             /**
+             * Sets the reference time based on which relative dates (e.g.
+             * "tomorrow") should be interpreted.
+             *
+             * @param referenceTime reference time based on which relative dates. This should
+             *                      usually be the time when the text was originally composed.
+             *
+             * @return this builder
+             */
+            @NonNull
+            public Builder setReferenceTime(@Nullable ZonedDateTime referenceTime) {
+                mReferenceTime = referenceTime;
+                return this;
+            }
+
+            /**
              * Builds and returns the request object.
              */
             @NonNull
             public Request build() {
                 return new Request(
                         mText, mDefaultLocales, mEntityConfig,
-                        mLegacyFallback,
+                        mLegacyFallback, mReferenceTime,
                         mExtras == null ? Bundle.EMPTY : mExtras);
             }
         }
@@ -508,20 +551,24 @@ public final class TextLinks implements Parcelable {
             dest.writeString(mText.toString());
             dest.writeParcelable(mDefaultLocales, flags);
             dest.writeParcelable(mEntityConfig, flags);
-            dest.writeString(mCallingPackageName);
             dest.writeBundle(mExtras);
+            dest.writeString(mReferenceTime == null ? null : mReferenceTime.toString());
+            dest.writeParcelable(mSystemTcMetadata, flags);
         }
 
         private static Request readFromParcel(Parcel in) {
             final String text = in.readString();
             final LocaleList defaultLocales = in.readParcelable(null);
             final EntityConfig entityConfig = in.readParcelable(null);
-            final String callingPackageName = in.readString();
             final Bundle extras = in.readBundle();
+            final String referenceTimeString = in.readString();
+            final ZonedDateTime referenceTime = referenceTimeString == null
+                    ? null : ZonedDateTime.parse(referenceTimeString);
+            final SystemTextClassifierMetadata systemTcMetadata = in.readParcelable(null);
 
             final Request request = new Request(text, defaultLocales, entityConfig,
-                    /* legacyFallback= */ true, extras);
-            request.setCallingPackageName(callingPackageName);
+                    /* legacyFallback= */ true, referenceTime, extras);
+            request.setSystemTextClassifierMetadata(systemTcMetadata);
             return request;
         }
 
@@ -628,7 +675,7 @@ public final class TextLinks implements Parcelable {
          * @param fullText The full text to annotate with links
          */
         public Builder(@NonNull String fullText) {
-            mFullText = Preconditions.checkNotNull(fullText);
+            mFullText = Objects.requireNonNull(fullText);
             mLinks = new ArrayList<>();
         }
 
@@ -659,6 +706,8 @@ public final class TextLinks implements Parcelable {
         }
 
         /**
+         * Adds a TextLink.
+         *
          * @see #addLink(int, int, Map)
          * @param urlSpan An optional URLSpan to delegate to. NOTE: Not parcelled.
          */

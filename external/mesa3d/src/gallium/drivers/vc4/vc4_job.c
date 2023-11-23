@@ -32,13 +32,6 @@
 #include "util/hash_table.h"
 
 static void
-remove_from_ht(struct hash_table *ht, void *key)
-{
-        struct hash_entry *entry = _mesa_hash_table_search(ht, key);
-        _mesa_hash_table_remove(ht, entry);
-}
-
-static void
 vc4_job_free(struct vc4_context *vc4, struct vc4_job *job)
 {
         struct vc4_bo **referenced_bos = job->bo_pointers.base;
@@ -46,22 +39,26 @@ vc4_job_free(struct vc4_context *vc4, struct vc4_job *job)
                 vc4_bo_unreference(&referenced_bos[i]);
         }
 
-        remove_from_ht(vc4->jobs, &job->key);
+        _mesa_hash_table_remove_key(vc4->jobs, &job->key);
 
         if (job->color_write) {
-                remove_from_ht(vc4->write_jobs, job->color_write->texture);
+                _mesa_hash_table_remove_key(vc4->write_jobs,
+                                            job->color_write->texture);
                 pipe_surface_reference(&job->color_write, NULL);
         }
         if (job->msaa_color_write) {
-                remove_from_ht(vc4->write_jobs, job->msaa_color_write->texture);
+                _mesa_hash_table_remove_key(vc4->write_jobs,
+                                            job->msaa_color_write->texture);
                 pipe_surface_reference(&job->msaa_color_write, NULL);
         }
         if (job->zs_write) {
-                remove_from_ht(vc4->write_jobs, job->zs_write->texture);
+                _mesa_hash_table_remove_key(vc4->write_jobs,
+                                            job->zs_write->texture);
                 pipe_surface_reference(&job->zs_write, NULL);
         }
         if (job->msaa_zs_write) {
-                remove_from_ht(vc4->write_jobs, job->msaa_zs_write->texture);
+                _mesa_hash_table_remove_key(vc4->write_jobs,
+                                            job->msaa_zs_write->texture);
                 pipe_surface_reference(&job->msaa_zs_write, NULL);
         }
 
@@ -92,6 +89,9 @@ vc4_job_create(struct vc4_context *vc4)
 
         job->last_gem_handle_hindex = ~0;
 
+        if (vc4->perfmon)
+                job->perfmon = vc4->perfmon;
+
         return job;
 }
 
@@ -115,7 +115,6 @@ vc4_flush_jobs_reading_resource(struct vc4_context *vc4,
 
         vc4_flush_jobs_writing_resource(vc4, prsc);
 
-        struct hash_entry *entry;
         hash_table_foreach(vc4->jobs, entry) {
                 struct vc4_job *job = entry->data;
 
@@ -455,6 +454,8 @@ vc4_job_submit(struct vc4_context *vc4, struct vc4_job *job)
         submit.shader_rec_count = job->shader_rec_count;
         submit.uniforms = (uintptr_t)job->uniforms.base;
         submit.uniforms_size = cl_offset(&job->uniforms);
+	if (job->perfmon)
+		submit.perfmonid = job->perfmon->id;
 
         assert(job->draw_min_x != ~0 && job->draw_min_y != ~0);
         submit.min_x_tile = job->draw_min_x / job->tile_width;
@@ -472,14 +473,23 @@ vc4_job_submit(struct vc4_context *vc4, struct vc4_job *job)
         }
         submit.flags |= job->flags;
 
+        if (vc4->screen->has_syncobj) {
+                submit.out_sync = vc4->job_syncobj;
+
+                if (vc4->in_fence_fd >= 0) {
+                        /* This replaces the fence in the syncobj. */
+                        drmSyncobjImportSyncFile(vc4->fd, vc4->in_syncobj,
+                                                 vc4->in_fence_fd);
+                        submit.in_sync = vc4->in_syncobj;
+                        close(vc4->in_fence_fd);
+                        vc4->in_fence_fd = -1;
+                }
+        }
+
         if (!(vc4_debug & VC4_DEBUG_NORAST)) {
                 int ret;
 
-#ifndef USE_VC4_SIMULATOR
-                ret = drmIoctl(vc4->fd, DRM_IOCTL_VC4_SUBMIT_CL, &submit);
-#else
-                ret = vc4_simulator_flush(vc4, &submit, job);
-#endif
+                ret = vc4_ioctl(vc4->fd, DRM_IOCTL_VC4_SUBMIT_CL, &submit);
                 static bool warned = false;
                 if (ret && !warned) {
                         fprintf(stderr, "Draw call returned %s.  "
@@ -487,6 +497,8 @@ vc4_job_submit(struct vc4_context *vc4, struct vc4_job *job)
                         warned = true;
                 } else if (!ret) {
                         vc4->last_emit_seqno = submit.seqno;
+                        if (job->perfmon)
+                                job->perfmon->last_seqno = submit.seqno;
                 }
         }
 
@@ -523,7 +535,7 @@ vc4_job_hash(const void *key)
         return _mesa_hash_data(key, sizeof(struct vc4_job_key));
 }
 
-void
+int
 vc4_job_init(struct vc4_context *vc4)
 {
         vc4->jobs = _mesa_hash_table_create(vc4,
@@ -532,5 +544,24 @@ vc4_job_init(struct vc4_context *vc4)
         vc4->write_jobs = _mesa_hash_table_create(vc4,
                                                   _mesa_hash_pointer,
                                                   _mesa_key_pointer_equal);
+
+        if (vc4->screen->has_syncobj) {
+                /* Create the syncobj as signaled since with no job executed
+                 * there is nothing to wait on.
+                 */
+                int ret = drmSyncobjCreate(vc4->fd,
+                                           DRM_SYNCOBJ_CREATE_SIGNALED,
+                                           &vc4->job_syncobj);
+                if (ret) {
+                        /* If the screen indicated syncobj support, we should
+                         * be able to create a signaled syncobj.
+                         * At this point it is too late to pretend the screen
+                         * has no syncobj support.
+                         */
+                        return ret;
+                }
+        }
+
+        return 0;
 }
 

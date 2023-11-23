@@ -44,10 +44,10 @@ cc_defaults {
         "libandroid_runtime_lazy",
         "libbase",
         "libbinder",
+        "libbinder_ndk",
         "libutils",
     ],
     static_libs: [
-        "libbinder_ndk",
         "test_libbinder_ndk_library",
     ],
 }
@@ -56,14 +56,54 @@ cc_defaults {
 // specifically the parts which are outside of the NDK. Actual users should
 // also instead use AIDL to generate these stubs. See android.binder.cts.
 cc_test {
-    name: "libbinder_ndk_test_client",
+    name: "libbinder_ndk_unit_test",
     defaults: ["test_libbinder_ndk_test_defaults"],
-    srcs: ["main_client.cpp"],
+    srcs: ["libbinder_ndk_unit_test.cpp"],
+    static_libs: [
+        "IBinderNdkUnitTest-cpp",
+        "IBinderNdkUnitTest-ndk_platform",
+    ],
+    test_suites: ["general-tests"],
+    require_root: true,
+
+    // force since binderVendorDoubleLoadTest has its own
+    auto_gen_config: true,
 }
 
 cc_test {
-    name: "libbinder_ndk_test_server",
-    defaults: ["test_libbinder_ndk_test_defaults"],
-    srcs: ["main_server.cpp"],
-    gtest: false,
+    name: "binderVendorDoubleLoadTest",
+    vendor: true,
+    srcs: [
+        "binderVendorDoubleLoadTest.cpp",
+    ],
+    static_libs: [
+        "IBinderVendorDoubleLoadTest-cpp",
+        "IBinderVendorDoubleLoadTest-ndk_platform",
+        "libbinder_aidl_test_stub-ndk_platform",
+    ],
+    shared_libs: [
+        "libbase",
+        "libbinder",
+        "libbinder_ndk",
+        "libutils",
+    ],
+    test_suites: ["general-tests"],
+}
+
+aidl_interface {
+    name: "IBinderVendorDoubleLoadTest",
+    unstable: true,
+    vendor: true,
+    srcs: [
+        "IBinderVendorDoubleLoadTest.aidl",
+    ],
+}
+
+aidl_interface {
+    name: "IBinderNdkUnitTest",
+    unstable: true,
+    srcs: [
+        "IBinderNdkUnitTest.aidl",
+        "IEmpty.aidl",
+    ],
 }

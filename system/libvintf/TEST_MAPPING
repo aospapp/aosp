@@ -13,6 +13,9 @@
     {
       "name": "vintf_object_test",
       "host": true
+    },
+    {
+      "name": "lshal_test"
     }
   ]
 }

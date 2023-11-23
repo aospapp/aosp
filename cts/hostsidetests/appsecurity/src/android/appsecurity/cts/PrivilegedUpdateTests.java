@@ -17,21 +17,22 @@
 package android.appsecurity.cts;
 
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.LargeTest;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.util.AbiFormatter;
-import com.android.tradefed.util.AbiUtils;
 
 /**
  * Tests that verify intent filters.
  */
+@LargeTest
 @AppModeFull(reason="Instant applications can never be system or privileged")
 public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
     private static final String TAG = "PrivilegedUpdateTests";
@@ -145,6 +146,28 @@ public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceive
             getDevice().executeShellCommand("pm disable-user " + SHIM_PKG);
             runDeviceTests(TEST_PKG, ".PrivilegedAppDisableTest", "testUpdatedPrivAppAndDisabled");
             getDevice().executeShellCommand("pm enable " + SHIM_PKG);
+            runDeviceTests(TEST_PKG, ".PrivilegedAppDisableTest", "testUpdatedPrivAppAndEnabled");
+        } finally {
+            getDevice().uninstallPackage(SHIM_PKG);
+        }
+    }
+
+    public void testUpdatedSystemAppPreservedOnReboot() throws Exception {
+        if (!isDefaultAbi()) {
+            Log.w(TAG, "Skipping test for non-default abi.");
+            return;
+        }
+
+        getDevice().executeShellCommand("pm enable " + SHIM_PKG);
+        runDeviceTests(TEST_PKG, ".PrivilegedAppDisableTest", "testPrivAppAndEnabled");
+        try {
+            assertNull(getDevice().installPackage(
+                    mBuildHelper.getTestFile(SHIM_UPDATE_APK), true));
+            getDevice().executeShellCommand("pm enable " + SHIM_PKG);
+            runDeviceTests(TEST_PKG, ".PrivilegedAppDisableTest", "testUpdatedPrivAppAndEnabled");
+
+            getDevice().reboot();
+
             runDeviceTests(TEST_PKG, ".PrivilegedAppDisableTest", "testUpdatedPrivAppAndEnabled");
         } finally {
             getDevice().uninstallPackage(SHIM_PKG);

@@ -18,6 +18,8 @@ package com.android.compatibility.common.util;
 import static com.android.compatibility.common.util.SettingsUtils.putGlobalSetting;
 import static com.android.compatibility.common.util.TestUtils.waitUntil;
 
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.BatteryManager;
 import android.os.PowerManager;
@@ -72,6 +74,12 @@ public class BatteryUtils {
         SystemUtil.runShellCommandForNoOutput(("cmd battery reset"));
 
         Log.d(TAG, "Battery RESET");
+    }
+
+    public static void enableAdaptiveBatterySaver(boolean enabled) {
+        final String setting = enabled ? "true" : "false";
+        SystemUtil.runShellCommandForNoOutput(
+                "cmd power set-adaptive-power-saver-enabled " + setting);
     }
 
     /**
@@ -129,6 +137,13 @@ public class BatteryUtils {
 
     /** @return true if the device supports battery saver. */
     public static boolean isBatterySaverSupported() {
+        final Intent batteryInfo = InstrumentationRegistry.getContext().registerReceiver(
+                null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if (!batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true)) {
+            // Devices without battery does not support battery saver.
+            return false;
+        }
+
         final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
         return !(pm.hasSystemFeature(PackageManager.FEATURE_WATCH) ||
             pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE));

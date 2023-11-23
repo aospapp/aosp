@@ -60,20 +60,20 @@ class IPerfClientModuleTest(unittest.TestCase):
 class IPerfClientBaseTest(unittest.TestCase):
     """Tests acts.controllers.iperf_client.IPerfClientBase."""
 
-    @mock.patch('acts.utils.create_dir')
-    def test_get_full_file_path_creates_parent_directory(self, mock_create_dir):
+    @mock.patch('os.makedirs')
+    def test_get_full_file_path_creates_parent_directory(self, mock_makedirs):
         # Will never actually be created/used.
         logging.log_path = '/tmp/unit_test_garbage'
 
         full_file_path = IPerfClientBase._get_full_file_path(0)
 
         self.assertTrue(
-            mock_create_dir.called,
+            mock_makedirs.called,
             'Did not attempt to create a directory.'
         )
         self.assertEqual(
             os.path.dirname(full_file_path),
-            mock_create_dir.call_args[ARGS][0],
+            mock_makedirs.call_args[ARGS][0],
             'The parent directory of the full file path was not created.'
         )
 
@@ -128,13 +128,11 @@ class IPerfClientOverAdbTest(unittest.TestCase):
 
         with mock.patch('acts.controllers.iperf_client.'
                         'IPerfClientOverAdb._android_device') as adb_device:
-            adb_device.run_iperf_client.return_value = ('', [expected_output])
+            adb_device.adb.shell.return_value = 'output'
             client.start('127.0.0.1', 'IPERF_ARGS', 'TAG')
 
         mock_open.assert_called_with(file_path, 'w')
-        mock_open().__enter__().write.assert_called_with(
-            expected_output
-        )
+        mock_open().__enter__().write.assert_called_with('output')
 
 
 if __name__ == '__main__':

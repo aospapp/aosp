@@ -14,8 +14,6 @@
 
 #define CONFIG_MACH_TYPE		MACH_TYPE_DEVKIT3250
 
-#define CONFIG_SYS_ICACHE_OFF
-#define CONFIG_SYS_DCACHE_OFF
 #if !defined(CONFIG_SPL_BUILD)
 #define CONFIG_SKIP_LOWLEVEL_INIT
 #endif
@@ -23,7 +21,6 @@
 /*
  * Memory configurations
  */
-#define CONFIG_NR_DRAM_BANKS		1
 #define CONFIG_SYS_MALLOC_LEN		SZ_1M
 #define CONFIG_SYS_SDRAM_BASE		EMC_DYCS0_BASE
 #define CONFIG_SYS_SDRAM_SIZE		SZ_64M
@@ -79,12 +76,10 @@
 #define CONFIG_SYS_MAX_FLASH_SECT	71
 #define CONFIG_SYS_FLASH_BASE		EMC_CS0_BASE
 #define CONFIG_SYS_FLASH_SIZE		SZ_4M
-#define CONFIG_SYS_FLASH_CFI
 
 /*
  * NAND controller
  */
-#define CONFIG_NAND_LPC32XX_SLC
 #define CONFIG_SYS_NAND_BASE		SLC_NAND_BASE
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
 #define CONFIG_SYS_NAND_BASE_LIST	{ CONFIG_SYS_NAND_BASE }
@@ -103,7 +98,6 @@
 
 #define CONFIG_SYS_NAND_BLOCK_SIZE		0x20000
 #define CONFIG_SYS_NAND_PAGE_SIZE		NAND_LARGE_BLOCK_PAGE_SIZE
-#define CONFIG_SYS_NAND_USE_FLASH_BBT
 
 /*
  * USB
@@ -124,8 +118,6 @@
 /*
  * Environment
  */
-#define CONFIG_ENV_SIZE			SZ_128K
-#define CONFIG_ENV_OFFSET		0x000A0000
 
 #define CONFIG_BOOTCOMMAND			\
 	"dhcp; "				\
@@ -160,7 +152,6 @@
  * SPL specific defines
  */
 /* SPL will be executed at offset 0 */
-#define CONFIG_SPL_TEXT_BASE		0x00000000
 
 /* SPL will use SRAM as stack */
 #define CONFIG_SPL_STACK		0x0000FFF8

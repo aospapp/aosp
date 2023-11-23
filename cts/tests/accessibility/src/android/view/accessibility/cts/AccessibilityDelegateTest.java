@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
@@ -36,6 +37,7 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 /**
@@ -47,9 +49,17 @@ public class AccessibilityDelegateTest {
     private LinearLayout mParentView;
     private View mChildView;
 
-    @Rule
-    public ActivityTestRule<DummyActivity> mActivityRule =
+    private ActivityTestRule<DummyActivity> mActivityRule =
             new ActivityTestRule<>(DummyActivity.class, false, false);
+
+    private AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
+
+    @Rule
+    public final RuleChain mRuleChain = RuleChain
+            .outerRule(mActivityRule)
+            // Inner rule capture failure and dump data before finishing activity
+            .around(mDumpOnFailureRule);
 
     @Before
     public void setUp() throws Exception {

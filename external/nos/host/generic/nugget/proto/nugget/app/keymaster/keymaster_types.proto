@@ -109,3 +109,18 @@ enum AttestationSelector {
   ATTEST_BATCH = 1;
   ATTEST_INDIVIDUAL = 2;
 }
+
+message VigoKey {
+  bytes x = 1;
+}
+
+message VigoSignature {
+  bytes r = 1;
+  bytes s = 2;
+}
+
+message VigoSecret {
+  bytes material = 1;
+  bytes iv = 2;
+  bytes tag = 3;
+}

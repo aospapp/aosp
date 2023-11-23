@@ -50,6 +50,7 @@ class PerfMetricsCollector(object):
         Stops metrics collection.
         """
         self._stop.set()
+        self._system_metrics_collector.post_collect()
 
     def upload_metrics(self):
         """

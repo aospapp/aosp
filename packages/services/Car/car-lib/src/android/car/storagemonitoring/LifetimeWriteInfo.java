@@ -101,10 +101,10 @@ public final class LifetimeWriteInfo implements Parcelable {
     @Override
     public boolean equals(Object other) {
         if (other instanceof LifetimeWriteInfo) {
-            LifetimeWriteInfo lifetime = (LifetimeWriteInfo)other;
-            return partition.equals(lifetime.partition) &&
-                    fstype.equals(lifetime.fstype) &&
-                    writtenBytes == lifetime.writtenBytes;
+            LifetimeWriteInfo lifetime = (LifetimeWriteInfo) other;
+            return partition.equals(lifetime.partition)
+                    && fstype.equals(lifetime.fstype)
+                    && writtenBytes == lifetime.writtenBytes;
         }
 
         return false;

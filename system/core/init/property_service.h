@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _INIT_PROPERTY_H
-#define _INIT_PROPERTY_H
+#pragma once
 
 #include <sys/socket.h>
 
@@ -26,22 +25,15 @@
 namespace android {
 namespace init {
 
+static constexpr const char kRestoreconProperty[] = "selinux.restorecon_recursive";
+
 bool CanReadProperty(const std::string& source_context, const std::string& name);
 
-extern uint32_t (*property_set)(const std::string& name, const std::string& value);
+void PropertyInit();
+void StartPropertyService(int* epoll_socket);
 
-uint32_t HandlePropertySet(const std::string& name, const std::string& value,
-                           const std::string& source_context, const ucred& cr, std::string* error);
-
-extern bool PropertyChildReap(pid_t pid);
-
-void property_init(void);
-void property_load_boot_defaults(bool);
-void load_persist_props(void);
-void load_system_props(void);
-void StartPropertyService(Epoll* epoll);
+void StartSendingMessages();
+void StopSendingMessages();
 
 }  // namespace init
 }  // namespace android
-
-#endif  /* _INIT_PROPERTY_H */

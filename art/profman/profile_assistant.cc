@@ -33,20 +33,20 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
         const std::vector<ScopedFlock>& profile_files,
         const ScopedFlock& reference_profile_file,
         const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn,
-        bool store_aggregation_counters) {
+        const Options& options) {
   DCHECK(!profile_files.empty());
 
-  ProfileCompilationInfo info;
+  ProfileCompilationInfo info(options.IsBootImageMerge());
+
   // Load the reference profile.
   if (!info.Load(reference_profile_file->Fd(), /*merge_classes=*/ true, filter_fn)) {
     LOG(WARNING) << "Could not load reference profile file";
     return kErrorBadProfiles;
   }
 
-  // If we need to store aggregation counters (e.g. for the boot image profile),
-  // prepare the reference profile now.
-  if (store_aggregation_counters) {
-    info.PrepareForAggregationCounters();
+  if (options.IsBootImageMerge() && !info.IsForBootImage()) {
+    LOG(WARNING) << "Requested merge for boot image profile but the reference profile is regular.";
+    return kErrorBadProfiles;
   }
 
   // Store the current state of the reference profile before merging with the current profiles.
@@ -58,25 +58,50 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
     ProfileCompilationInfo cur_info;
     if (!cur_info.Load(profile_files[i]->Fd(), /*merge_classes=*/ true, filter_fn)) {
       LOG(WARNING) << "Could not load profile file at index " << i;
+      if (options.IsForceMerge()) {
+        // If we have to merge forcefully, ignore load failures.
+        // This is useful for boot image profiles to ignore stale profiles which are
+        // cleared lazily.
+        continue;
+      }
       return kErrorBadProfiles;
     }
+
+    // Check version mismatch.
+    // This may happen during profile analysis if one profile is regular and
+    // the other one is for the boot image. For example when switching on-off
+    // the boot image profiles.
+    if (!info.SameVersion(cur_info)) {
+      if (options.IsForceMerge()) {
+        // If we have to merge forcefully, ignore the current profile and
+        // continue to the next one.
+        continue;
+      } else {
+        // Otherwise, return an error.
+        return kErrorDifferentVersions;
+      }
+    }
+
     if (!info.MergeWith(cur_info)) {
       LOG(WARNING) << "Could not merge profile file at index " << i;
       return kErrorBadProfiles;
     }
   }
 
-  uint32_t min_change_in_methods_for_compilation = std::max(
-      (kMinNewMethodsPercentChangeForCompilation * number_of_methods) / 100,
-      kMinNewMethodsForCompilation);
-  uint32_t min_change_in_classes_for_compilation = std::max(
-      (kMinNewClassesPercentChangeForCompilation * number_of_classes) / 100,
-      kMinNewClassesForCompilation);
-  // Check if there is enough new information added by the current profiles.
-  if (((info.GetNumberOfMethods() - number_of_methods) < min_change_in_methods_for_compilation) &&
-      ((info.GetNumberOfResolvedClasses() - number_of_classes)
-          < min_change_in_classes_for_compilation)) {
-    return kSkipCompilation;
+  // If we perform a forced merge do not analyze the difference between profiles.
+  if (!options.IsForceMerge()) {
+    uint32_t min_change_in_methods_for_compilation = std::max(
+        (kMinNewMethodsPercentChangeForCompilation * number_of_methods) / 100,
+        kMinNewMethodsForCompilation);
+    uint32_t min_change_in_classes_for_compilation = std::max(
+        (kMinNewClassesPercentChangeForCompilation * number_of_classes) / 100,
+        kMinNewClassesForCompilation);
+    // Check if there is enough new information added by the current profiles.
+    if (((info.GetNumberOfMethods() - number_of_methods) < min_change_in_methods_for_compilation) &&
+        ((info.GetNumberOfResolvedClasses() - number_of_classes)
+            < min_change_in_classes_for_compilation)) {
+      return kSkipCompilation;
+    }
   }
 
   // We were successful in merging all profile information. Update the reference profile.
@@ -89,7 +114,7 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
     return kErrorIO;
   }
 
-  return kCompile;
+  return options.IsForceMerge() ? kSuccess : kCompile;
 }
 
 class ScopedFlockList {
@@ -132,7 +157,7 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
         const std::vector<int>& profile_files_fd,
         int reference_profile_file_fd,
         const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn,
-        bool store_aggregation_counters) {
+        const Options& options) {
   DCHECK_GE(reference_profile_file_fd, 0);
 
   std::string error;
@@ -156,14 +181,14 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
   return ProcessProfilesInternal(profile_files.Get(),
                                  reference_profile_file,
                                  filter_fn,
-                                 store_aggregation_counters);
+                                 options);
 }
 
 ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
         const std::vector<std::string>& profile_files,
         const std::string& reference_profile_file,
         const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn,
-        bool store_aggregation_counters) {
+        const Options& options) {
   std::string error;
 
   ScopedFlockList profile_files_list(profile_files.size());
@@ -182,7 +207,7 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
   return ProcessProfilesInternal(profile_files_list.Get(),
                                  locked_reference_profile_file,
                                  filter_fn,
-                                 store_aggregation_counters);
+                                 options);
 }
 
 }  // namespace art

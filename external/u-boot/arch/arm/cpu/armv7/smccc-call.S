@@ -7,6 +7,10 @@
 #include <asm/opcodes-sec.h>
 #include <asm/opcodes-virt.h>
 
+#ifdef CONFIG_EFI_LOADER
+	.section	.text.efi_runtime
+#endif
+
 #define UNWIND(x...)
 	/*
 	 * Wrap c macros in asm macros to delay expansion until after the

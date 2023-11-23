@@ -55,8 +55,7 @@ public class UserDetailsPermissionsFragment extends UserDetailsBaseFragment {
     @Override
     protected String getTitleText() {
         return getContext().getString(R.string.user_details_admin_title,
-                UserUtils.getUserDisplayName(getContext(), getCarUserManagerHelper(),
-                        getUserInfo()));
+                UserUtils.getUserDisplayName(getContext(), getUserInfo()));
     }
 }
 

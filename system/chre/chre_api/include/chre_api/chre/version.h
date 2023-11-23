@@ -73,14 +73,26 @@ extern "C" {
 /**
  * Value for version 1.3 of the Context Hub Runtime Environment API interface.
  *
- * The version of the CHRE API shipped with the Android Q release.
+ * The version of the CHRE API shipped with the Android Q release. It adds
+ * support for GNSS location altitude/speed/bearing accuracy. It also adds step
+ * detect as a standard CHRE sensor and supports bias event delivery and sensor
+ * data flushing.
+ *
+ * @see CHRE_API_VERSION
+ */
+#define CHRE_API_VERSION_1_3  UINT32_C(0x01030000)
+
+/**
+ * Value for version 1.4 of the Context Hub Runtime Environment API interface.
+ *
+ * The version of the CHRE API shipped with the Android R release.
  *
  * @note This version of the CHRE API has not been finalized yet, and is
  * currently considered a preview that is subject to change.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_3  UINT32_C(0x01030000)
+#define CHRE_API_VERSION_1_4  UINT32_C(0x01040000)
 
 /**
  * Major and Minor Version of this Context Hub Runtime Environment API.
@@ -99,7 +111,7 @@ extern "C" {
  * Note that version numbers can always be numerically compared with
  * expected results, so 1.0.0 < 1.0.4 < 1.1.0 < 2.0.300 < 3.5.0.
  */
-#define CHRE_API_VERSION CHRE_API_VERSION_1_3
+#define CHRE_API_VERSION CHRE_API_VERSION_1_4
 
 /**
  * Utility macro to extract only the API major version of a composite CHRE

@@ -42,8 +42,8 @@ import static org.junit.Assert.assertTrue;
  */
 public class StepSensorPermissionTestActivity extends SensorCtsVerifierTestActivity
         implements SensorEventListener {
-    private static final int STEP_DETECT_DELAY_SECONDS = 2;
-    private static final int STEP_COUNT_DELAY_SECONDS = 10;
+    private static final int STEP_DETECT_DELAY_SECONDS = 30;
+    private static final int STEP_COUNT_DELAY_SECONDS = 30;
     // Additional amount of time to give for receiving either a step detect or
     // count event in case the user hasn't started walking at the time the test
     // starts.

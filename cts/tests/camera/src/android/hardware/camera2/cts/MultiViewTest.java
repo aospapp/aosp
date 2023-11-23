@@ -50,11 +50,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.junit.Test;
 
 /**
  * CameraDevice test by using combination of SurfaceView, TextureView and ImageReader
  */
+
+@RunWith(Parameterized.class)
 public class MultiViewTest extends Camera2MultiViewTestCase {
     private static final String TAG = "MultiViewTest";
     private final static long WAIT_FOR_COMMAND_TO_COMPLETE = 5000; //ms
@@ -67,7 +71,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
     @Test
     public void testTextureViewPreview() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             Exception prior = null;
 
             try {
@@ -96,7 +100,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
     @Test
     public void testTextureViewPreviewWithImageReader() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             Exception prior = null;
 
             ImageVerifierListener yuvListener;
@@ -144,7 +148,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
     @Test
     public void testDualTextureViewPreview() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             Exception prior = null;
             try {
                 openCamera(cameraId);
@@ -177,7 +181,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
     @Test
     public void testDualTextureViewAndImageReaderPreview() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             Exception prior = null;
 
             ImageVerifierListener yuvListener;
@@ -223,31 +227,31 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     @Test
     public void testDualCameraPreview() throws Exception {
         final int NUM_CAMERAS_TESTED = 2;
-        if (mCameraIds.length < NUM_CAMERAS_TESTED) {
+        if (mCameraIdsUnderTest.length < NUM_CAMERAS_TESTED) {
             return;
         }
 
         try {
             for (int i = 0; i < NUM_CAMERAS_TESTED; i++) {
-                openCamera(mCameraIds[i]);
-                if (!getStaticInfo(mCameraIds[i]).isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                openCamera(mCameraIdsUnderTest[i]);
+                if (!getStaticInfo(mCameraIdsUnderTest[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
                 List<TextureView> views = Arrays.asList(mTextureView[i]);
 
-                startTextureViewPreview(mCameraIds[i], views, /*ImageReader*/null);
+                startTextureViewPreview(mCameraIdsUnderTest[i], views, /*ImageReader*/null);
             }
             // TODO: check the framerate is correct
             SystemClock.sleep(PREVIEW_TIME_MS);
             for (int i = 0; i < NUM_CAMERAS_TESTED; i++) {
-                if (!getStaticInfo(mCameraIds[i]).isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                if (!getStaticInfo(mCameraIdsUnderTest[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
-                stopPreview(mCameraIds[i]);
+                stopPreview(mCameraIdsUnderTest[i]);
             }
         } catch (BlockingOpenException e) {
             // The only error accepted is ERROR_MAX_CAMERAS_IN_USE, which means HAL doesn't support
@@ -257,7 +261,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
             Log.i(TAG, "Camera HAL does not support dual camera preview. Skip the test");
         } finally {
             for (int i = 0; i < NUM_CAMERAS_TESTED; i++) {
-                closeCamera(mCameraIds[i]);
+                closeCamera(mCameraIdsUnderTest[i]);
             }
         }
     }
@@ -267,7 +271,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
      */
     @Test
     public void testSharedSurfaceBasic() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             try {
                 openCamera(cameraId);
                 if (getStaticInfo(cameraId).isHardwareLevelLegacy()) {
@@ -409,7 +413,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
      */
     @Test
     public void testSharedSurfaceImageReaderSwitch() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             try {
                 openCamera(cameraId);
                 if (getStaticInfo(cameraId).isHardwareLevelLegacy()) {
@@ -501,7 +505,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         int YUVFormats[] = {ImageFormat.YUV_420_888, ImageFormat.YUV_422_888,
             ImageFormat.YUV_444_888, ImageFormat.YUY2, ImageFormat.YV12,
             ImageFormat.NV16, ImageFormat.NV21};
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             try {
                 openCamera(cameraId);
                 if (getStaticInfo(cameraId).isHardwareLevelLegacy()) {
@@ -629,7 +633,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
      */
     @Test
     public void testSharedSurfaceLimit() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             try {
                 openCamera(cameraId);
                 if (getStaticInfo(cameraId).isHardwareLevelLegacy()) {
@@ -732,7 +736,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
             }
         }
         //Remove all previously added shared outputs in one call
-        updateRepeatingRequest(cameraId, outputConfigurations, resultListener);
+        updateRepeatingRequest(cameraId, outputConfigurations, new SimpleCaptureCallback());
         long lastSequenceFrameNumber = resultListener.getCaptureSequenceLastFrameNumber(
                 sequenceId, PREVIEW_TIME_MS);
         checkForLastFrameInSequence(lastSequenceFrameNumber, resultListener);
@@ -747,7 +751,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
      */
     @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
     public void testSharedSurfaceSwitch() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             try {
                 openCamera(cameraId);
                 if (getStaticInfo(cameraId).isHardwareLevelLegacy()) {
@@ -826,7 +830,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
             //Wait for all pending requests to arrive and remove the shared output during active
             //streaming
-            updateRepeatingRequest(cameraId, outputConfigurations, resultListener);
+            updateRepeatingRequest(cameraId, outputConfigurations, new SimpleCaptureCallback());
             long lastSequenceFrameNumber = resultListener.getCaptureSequenceLastFrameNumber(
                     sequenceId, PREVIEW_TIME_MS);
             checkForLastFrameInSequence(lastSequenceFrameNumber, resultListener);
@@ -848,7 +852,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
      */
     @Test
     public void testTextureImageWriterReaderOperation() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             ImageReader reader = null;
             ImageWriter writer = null;
             Surface writerOutput = null;
@@ -1037,7 +1041,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
      */
     @Test
     public void testSharedSurfaces() throws Exception {
-        for (String cameraId : mCameraIds) {
+        for (String cameraId : mCameraIdsUnderTest) {
             try {
                 openCamera(cameraId);
                 if (getStaticInfo(cameraId).isHardwareLevelLegacy()) {

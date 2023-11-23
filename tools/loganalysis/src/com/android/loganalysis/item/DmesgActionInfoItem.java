@@ -27,12 +27,14 @@ import java.util.Set;
 public class DmesgActionInfoItem extends GenericItem {
 
     /** Constant for JSON output */
+    public static final String SOURCE_NAME = "SOURCE_NAME";
+    /** Constant for JSON output */
     public static final String ACTION_NAME = "ACTION_NAME";
     /** Constant for JSON output */
     public static final String ACTION_START_TIME = "ACTION_START_TIME";
 
     private static final Set<String> ATTRIBUTES = new HashSet<String>(Arrays.asList(
-            ACTION_NAME, ACTION_START_TIME));
+            SOURCE_NAME, ACTION_NAME, ACTION_START_TIME));
 
     /**
      * The constructor for {@link DmesgActionInfoItem}.
@@ -44,10 +46,25 @@ public class DmesgActionInfoItem extends GenericItem {
     /**
      * The constructor for {@link DmesgActionInfoItem}.
      */
-    public DmesgActionInfoItem(String name, Long startTime) {
+    public DmesgActionInfoItem(String source, String name, Long startTime) {
         super(ATTRIBUTES);
+        setAttribute(SOURCE_NAME, source);
         setAttribute(ACTION_NAME, name);
         setAttribute(ACTION_START_TIME, startTime);
+    }
+
+    /**
+     * Get the name of the source
+     */
+    public String getSourceName() {
+        return (String) getAttribute(SOURCE_NAME);
+    }
+
+    /**
+     * Set the name of the source
+     */
+    public void setSourceName(String sourceName) {
+        setAttribute(SOURCE_NAME, sourceName);
     }
 
     /**
@@ -80,8 +97,11 @@ public class DmesgActionInfoItem extends GenericItem {
 
     @Override
     public String toString() {
-        return "ActionInfoItem [getActionName()=" + getActionName() + ", getStartTime()="
-                + getStartTime() + "]";
+        return "ActionInfoItem ["
+                + "getSourceName()=" + getSourceName()
+                + ", getActionName()=" + getActionName()
+                + ", getStartTime()=" + getStartTime()
+                + "]";
     }
 
 }

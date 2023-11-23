@@ -206,8 +206,13 @@ public class EventReport {
         MEMORY_FULL("MemoryFull"),
         MEMORY_AVAILABLE("MemoryAvailable"),
         MESSAGE_DELETED("MessageDeleted"),
-        MESSAGE_SHIFT("MessageShift");
-
+        MESSAGE_SHIFT("MessageShift"),
+        READ_STATUS_CHANGED("ReadStatusChanged"),
+        MESSAGE_REMOVED("MessageRemoved"),
+        MESSAGE_EXTENDED_DATA_CHANGED("MessageExtendedDataChanged"),
+        PARTICIPANT_PRESENCE_CHANGED("ParticipantPresenceChanged"),
+        PARTICIPANT_CHAT_STATE_CHANGED("ParticipantChatStateChanged"),
+        CONCERSATION_CHANGED("ConversationChanged");
         private final String mSpecName;
 
         Type(String specName) {

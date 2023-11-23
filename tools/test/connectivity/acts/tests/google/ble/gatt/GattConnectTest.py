@@ -58,8 +58,8 @@ class GattConnectTest(BluetoothBaseTest):
     default_timeout = 10
     default_discovery_timeout = 3
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.cen_ad = self.android_devices[0]
         self.per_ad = self.android_devices[1]
 

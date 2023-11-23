@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
-import android.os.Looper;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.testing.TestableLooper.RunWithLooper;
@@ -39,6 +38,7 @@ import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
+import com.android.settingslib.bluetooth.LocalBluetoothProfile;
 import com.android.settingslib.bluetooth.LocalBluetoothProfileManager;
 import com.android.systemui.SysuiTestCase;
 
@@ -78,6 +78,7 @@ public class BluetoothControllerImplTest extends SysuiTestCase {
 
         mBluetoothControllerImpl = new BluetoothControllerImpl(mContext,
                 mTestableLooper.getLooper(),
+                mTestableLooper.getLooper(),
                 mMockBluetoothManager);
     }
 
@@ -109,18 +110,13 @@ public class BluetoothControllerImplTest extends SysuiTestCase {
         BluetoothController.Callback callback = mock(BluetoothController.Callback.class);
         mBluetoothControllerImpl.addCallback(callback);
 
-        // Grab the main looper, we'll need it later.
-        TestableLooper mainLooper = new TestableLooper(Looper.getMainLooper());
-
         // Trigger the state getting.
         assertEquals(BluetoothDevice.BOND_NONE, mBluetoothControllerImpl.getBondState(device));
 
-        mTestableLooper.processMessages(1);
-        mainLooper.processAllMessages();
+        mTestableLooper.processAllMessages();
 
         assertEquals(BluetoothDevice.BOND_BONDED, mBluetoothControllerImpl.getBondState(device));
         verify(callback).onBluetoothDevicesChanged();
-        mainLooper.destroy();
     }
 
     @Test
@@ -130,20 +126,15 @@ public class BluetoothControllerImplTest extends SysuiTestCase {
         BluetoothController.Callback callback = mock(BluetoothController.Callback.class);
         mBluetoothControllerImpl.addCallback(callback);
 
-        // Grab the main looper, we'll need it later.
-        TestableLooper mainLooper = new TestableLooper(Looper.getMainLooper());
-
         // Trigger the state getting.
         assertEquals(BluetoothProfile.STATE_DISCONNECTED,
                 mBluetoothControllerImpl.getMaxConnectionState(device));
 
-        mTestableLooper.processMessages(1);
-        mainLooper.processAllMessages();
+        mTestableLooper.processAllMessages();
 
         assertEquals(BluetoothProfile.STATE_CONNECTED,
                 mBluetoothControllerImpl.getMaxConnectionState(device));
         verify(callback).onBluetoothDevicesChanged();
-        mainLooper.destroy();
     }
 
     @Test
@@ -153,19 +144,11 @@ public class BluetoothControllerImplTest extends SysuiTestCase {
         BluetoothController.Callback callback = mock(BluetoothController.Callback.class);
         mBluetoothControllerImpl.addCallback(callback);
 
-        // Grab the main looper, we'll need it later.
-        TestableLooper mainLooper = new TestableLooper(Looper.getMainLooper());
+        // Trigger the state getting.
+        assertEquals(BluetoothProfile.STATE_DISCONNECTED,
+                mBluetoothControllerImpl.getMaxConnectionState(null));
 
-        try {
-            // Trigger the state getting.
-            assertEquals(BluetoothProfile.STATE_DISCONNECTED,
-                    mBluetoothControllerImpl.getMaxConnectionState(null));
-
-            mTestableLooper.processMessages(1);
-            mainLooper.processAllMessages();
-        } finally {
-            mainLooper.destroy();
-        }
+        mTestableLooper.processAllMessages();
     }
 
     @Test
@@ -217,16 +200,33 @@ public class BluetoothControllerImplTest extends SysuiTestCase {
         mBluetoothControllerImpl.onAclConnectionStateChanged(device,
                 BluetoothProfile.STATE_CONNECTED);
 
-        // Grab the main looper, we'll need it later.
-        TestableLooper mainLooper = new TestableLooper(Looper.getMainLooper());
+        mTestableLooper.processAllMessages();
 
-        try {
-            mTestableLooper.processAllMessages();
-            mainLooper.processAllMessages();
-        } finally {
-            mainLooper.destroy();
-        }
         assertTrue(mBluetoothControllerImpl.isBluetoothConnected());
         verify(callback, atLeastOnce()).onBluetoothStateChange(anyBoolean());
+    }
+
+    @Test
+    public void testOnActiveDeviceChanged_updatesAudioActive() {
+        assertFalse(mBluetoothControllerImpl.isBluetoothAudioActive());
+        assertFalse(mBluetoothControllerImpl.isBluetoothAudioProfileOnly());
+
+        CachedBluetoothDevice device = mock(CachedBluetoothDevice.class);
+        mDevices.add(device);
+        when(device.isActiveDevice(BluetoothProfile.HEADSET)).thenReturn(true);
+
+        List<LocalBluetoothProfile> profiles = new ArrayList<>();
+        LocalBluetoothProfile profile = mock(LocalBluetoothProfile.class);
+        profiles.add(profile);
+        when(profile.getProfileId()).thenReturn(BluetoothProfile.HEADSET);
+        when(device.getProfiles()).thenReturn(profiles);
+        when(device.isConnectedProfile(profile)).thenReturn(true);
+
+        mBluetoothControllerImpl.onAclConnectionStateChanged(device,
+                BluetoothProfile.STATE_CONNECTED);
+        mBluetoothControllerImpl.onActiveDeviceChanged(device, BluetoothProfile.HEADSET);
+
+        assertTrue(mBluetoothControllerImpl.isBluetoothAudioActive());
+        assertTrue(mBluetoothControllerImpl.isBluetoothAudioProfileOnly());
     }
 }

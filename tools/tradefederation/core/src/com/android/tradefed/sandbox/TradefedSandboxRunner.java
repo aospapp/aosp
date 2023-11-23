@@ -28,6 +28,7 @@ import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.proto.InvocationContext.Context;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.SerializationUtil;
 
 import org.json.JSONException;
@@ -36,6 +37,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +46,7 @@ import java.util.Map;
 /** Runner associated with a {@link TradefedSandbox} that will allow executing the sandbox. */
 public class TradefedSandboxRunner {
     public static final String EXCEPTION_KEY = "serialized_exception";
+    public static final String DEBUG_THREAD_KEY = "debug_thread";
 
     private ICommandScheduler mScheduler;
     private ExitCode mErrorCode = ExitCode.NO_ERROR;
@@ -77,6 +80,7 @@ public class TradefedSandboxRunner {
             json.put(EXCEPTION_KEY, serializedException.getAbsolutePath());
             System.err.println(json.toString());
         } catch (IOException | JSONException io) {
+            io.printStackTrace();
             FileUtil.deleteFile(serializedException);
         }
     }
@@ -87,6 +91,9 @@ public class TradefedSandboxRunner {
      * @param args the config name to run and its options
      */
     public void run(String[] args) {
+        if (System.getenv(DEBUG_THREAD_KEY) != null) {
+            new DebugThread().start();
+        }
         List<String> argList = new ArrayList<>(Arrays.asList(args));
         IInvocationContext context = null;
 
@@ -159,5 +166,61 @@ public class TradefedSandboxRunner {
                 IInvocationContext metadata, Map<ITestDevice, FreeDeviceState> devicesStates) {
             // do nothing
         }
+    }
+
+    private class DebugThread extends Thread {
+
+        DebugThread() {
+            setDaemon(true);
+            setName("TradefedSandboxRunner-DebugThread");
+        }
+
+        @Override
+        public void run() {
+            System.out.println("Starting the DebugThread");
+            try {
+                File dumpStack = FileUtil.createTempFile("debugger-thread-stacks", ".txt");
+                while (true) {
+                    RunUtil.getDefault().sleep(300000L);
+                    try (PrintStream ps = new PrintStream(dumpStack)) {
+                        dumpStacks(ps);
+                    }
+
+                    printMemoryMessage();
+                }
+            } catch (IOException e) {
+                System.err.println(e);
+            }
+        }
+    }
+
+    private void dumpStacks(PrintStream ps) {
+        Map<Thread, StackTraceElement[]> threadMap = Thread.getAllStackTraces();
+        for (Map.Entry<Thread, StackTraceElement[]> threadEntry : threadMap.entrySet()) {
+            dumpThreadStack(threadEntry.getKey(), threadEntry.getValue(), ps);
+        }
+    }
+
+    private void dumpThreadStack(Thread thread, StackTraceElement[] trace, PrintStream ps) {
+        printLine(String.format("%s", thread), ps);
+        for (int i = 0; i < trace.length; i++) {
+            printLine(String.format("\t%s", trace[i]), ps);
+        }
+        printLine("", ps);
+    }
+
+    private void printLine(String output, PrintStream pw) {
+        pw.print(output);
+        pw.println();
+    }
+
+    private void printMemoryMessage() {
+        long diff = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        System.out.println(
+                String.format(
+                        "=====\nTotal: %s, Free: %s, Diff: %s\n=====",
+                        Runtime.getRuntime().totalMemory(),
+                        Runtime.getRuntime().freeMemory(),
+                        diff));
     }
 }

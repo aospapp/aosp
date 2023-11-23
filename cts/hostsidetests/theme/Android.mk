@@ -18,6 +18,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+# TODO: the following hinders conversion of this makefile to a blueprint.
 # Special handling for pre-release builds where the SDK version has not been
 # updated, in which case we'll use the version codename (ex. "O").
 ifeq (REL,$(PLATFORM_VERSION_CODENAME))
@@ -38,8 +39,7 @@ LOCAL_CTS_TEST_PACKAGE := android.host.theme
 LOCAL_SDK_VERSION := current
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 
-include $(call all-makefiles-under,$(LOCAL_PATH))

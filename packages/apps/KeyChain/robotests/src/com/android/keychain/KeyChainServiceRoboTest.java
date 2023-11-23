@@ -130,7 +130,7 @@ public final class KeyChainServiceRoboTest {
         mKeyChain.installCaCertificate(TEST_CA.getBytes());
 
         verify(mockInjector, times(1)).writeSecurityEvent(
-                SecurityLog.TAG_CERT_AUTHORITY_INSTALLED, 1 /* success */, mSubject);
+                SecurityLog.TAG_CERT_AUTHORITY_INSTALLED, 1 /* success */, mSubject, 0);
     }
 
     @Test
@@ -147,7 +147,7 @@ public final class KeyChainServiceRoboTest {
         }
 
         verify(mockInjector, times(1)).writeSecurityEvent(
-                SecurityLog.TAG_CERT_AUTHORITY_INSTALLED, 0 /* failure */, mSubject);
+                SecurityLog.TAG_CERT_AUTHORITY_INSTALLED, 0 /* failure */, mSubject, 0);
     }
 
     @Test
@@ -159,7 +159,7 @@ public final class KeyChainServiceRoboTest {
         mKeyChain.deleteCaCertificate("alias");
 
         verify(mockInjector, times(1)).writeSecurityEvent(
-                SecurityLog.TAG_CERT_AUTHORITY_REMOVED, 1 /* success */, mSubject);
+                SecurityLog.TAG_CERT_AUTHORITY_REMOVED, 1 /* success */, mSubject, 0);
     }
 
     @Test
@@ -172,7 +172,7 @@ public final class KeyChainServiceRoboTest {
         mKeyChain.deleteCaCertificate("alias");
 
         verify(mockInjector, times(1)).writeSecurityEvent(
-                SecurityLog.TAG_CERT_AUTHORITY_REMOVED, 0 /* failure */, mSubject);
+                SecurityLog.TAG_CERT_AUTHORITY_REMOVED, 0 /* failure */, mSubject, 0);
     }
 
     @Test

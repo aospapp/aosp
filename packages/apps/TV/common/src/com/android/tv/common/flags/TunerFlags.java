@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
+
 package com.android.tv.common.flags;
 
 /** Flags for tuner */
@@ -25,9 +26,6 @@ public interface TunerFlags {
      * code generation.
      */
     boolean compiled();
-
-    /** Tune using current recording if available. */
-    boolean tuneUsingRecording();
 
     /** Enable using exoplayer V2 */
     boolean useExoplayerV2();

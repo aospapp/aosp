@@ -28,7 +28,7 @@ class network_WiFi_SimpleConnect(wifi_cell_test_base.WiFiCellTestBase):
         for router_conf, client_conf in self._configurations:
             self.context.configure(router_conf)
             self.context.capture_host.start_capture(router_conf.frequency,
-                    ht_type=router_conf.ht_packet_capture_mode)
+                    width_type=router_conf.packet_capture_mode)
             client_conf.ssid = self.context.router.get_ssid()
             assoc_result = self.context.assert_connect_wifi(client_conf)
             if client_conf.expect_failure:

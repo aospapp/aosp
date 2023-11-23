@@ -20,6 +20,7 @@ import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -35,13 +36,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.os.AsyncResult;
-import android.os.HandlerThread;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Telephony;
 import android.test.mock.MockContentResolver;
 import android.test.suitebuilder.annotation.MediumTest;
+import android.testing.AndroidTestingRunner;
+import android.testing.TestableLooper;
 
 import androidx.test.filters.FlakyTest;
 
@@ -58,12 +60,15 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
+@RunWith(AndroidTestingRunner.class)
+@TestableLooper.RunWithLooper
 public class CdmaInboundSmsHandlerTest extends TelephonyTest {
     @Mock
     private SmsStorageMonitor mSmsStorageMonitor;
@@ -73,25 +78,11 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
     private SmsMessage mCdmaSmsMessage;
 
     private CdmaInboundSmsHandler mCdmaInboundSmsHandler;
-    private CdmaInboundSmsHandlerTestHandler mCdmaInboundSmsHandlerTestHandler;
     private SmsEnvelope mSmsEnvelope = new SmsEnvelope();
     private FakeSmsContentProvider mContentProvider;
     private InboundSmsTracker mInboundSmsTracker;
     private byte[] mSmsPdu = new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
-
-    private class CdmaInboundSmsHandlerTestHandler extends HandlerThread {
-
-        private CdmaInboundSmsHandlerTestHandler(String name) {
-            super(name);
-        }
-
-        @Override
-        public void onLooperPrepared() {
-            mCdmaInboundSmsHandler = CdmaInboundSmsHandler.makeInboundSmsHandler(mContext,
-                    mSmsStorageMonitor, mPhone, null);
-            setReady(true);
-        }
-    }
+    private int mSubId0 = 0;
 
     private IState getCurrentState() {
         try {
@@ -129,6 +120,7 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         doReturn(true).when(mSmsStorageMonitor).isStorageAvailable();
 
         mInboundSmsTracker = new InboundSmsTracker(
+                mContext,
                 mSmsPdu, /* pdu */
                 System.currentTimeMillis(), /* timestamp */
                 -1, /* destPort */
@@ -137,26 +129,30 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
                 "1234567890", /* address */
                 "1234567890", /* displayAddress */
                 "This is the message body of a single-part message" /* messageBody */,
-                false /* isClass0 */);
+                false, /* isClass0 */
+                mSubId0);
 
         doReturn(mInboundSmsTracker).when(mTelephonyComponentFactory)
-                .makeInboundSmsTracker(nullable(byte[].class), anyLong(), anyInt(), anyBoolean(),
+                .makeInboundSmsTracker(any(Context.class), nullable(byte[].class), anyLong(),
+                anyInt(), anyBoolean(),
                 anyBoolean(), nullable(String.class), nullable(String.class),
-                nullable(String.class), anyBoolean());
+                nullable(String.class), anyBoolean(), anyInt());
         doReturn(mInboundSmsTracker).when(mTelephonyComponentFactory)
-                .makeInboundSmsTracker(nullable(byte[].class), anyLong(), anyInt(), anyBoolean(),
+                .makeInboundSmsTracker(any(Context.class), nullable(byte[].class), anyLong(),
+                anyInt(), anyBoolean(),
                 nullable(String.class), nullable(String.class), anyInt(), anyInt(),
-                anyInt(), anyBoolean(), nullable(String.class), anyBoolean());
+                anyInt(), anyBoolean(), nullable(String.class), anyBoolean(), anyInt());
         doReturn(mInboundSmsTracker).when(mTelephonyComponentFactory)
-                .makeInboundSmsTracker(nullable(Cursor.class), anyBoolean());
+                .makeInboundSmsTracker(any(Context.class), nullable(Cursor.class), anyBoolean());
 
         mContentProvider = new FakeSmsContentProvider();
         ((MockContentResolver)mContext.getContentResolver()).addProvider(
                 Telephony.Sms.CONTENT_URI.getAuthority(), mContentProvider);
 
-        mCdmaInboundSmsHandlerTestHandler = new CdmaInboundSmsHandlerTestHandler(TAG);
-        mCdmaInboundSmsHandlerTestHandler.start();
-        waitUntilReady();
+        mCdmaInboundSmsHandler = CdmaInboundSmsHandler.makeInboundSmsHandler(mContext,
+            mSmsStorageMonitor, mPhone, null);
+        monitorTestableLooper(new TestableLooper(mCdmaInboundSmsHandler.getHandler().getLooper()));
+        processAllMessages();
     }
 
     @After
@@ -164,13 +160,13 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         // wait for wakelock to be released; timeout at 10s
         int i = 0;
         while (mCdmaInboundSmsHandler.getWakeLock().isHeld() && i < 100) {
+            processAllMessages();
             waitForMs(100);
             i++;
         }
         assertFalse(mCdmaInboundSmsHandler.getWakeLock().isHeld());
         mCdmaInboundSmsHandler = null;
         mContentProvider.shutdown();
-        mCdmaInboundSmsHandlerTestHandler.quit();
         super.tearDown();
     }
 
@@ -180,7 +176,7 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
 
         // trigger transition to IdleState
         mCdmaInboundSmsHandler.sendMessage(InboundSmsHandler.EVENT_START_ACCEPTING_SMS);
-        waitForMs(50);
+        processAllMessages();
 
         assertEquals("IdleState", getCurrentState().getName());
     }
@@ -196,12 +192,16 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         doReturn(SmsEnvelope.TELESERVICE_WMT).when(mCdmaSmsMessage).getTeleService();
         mCdmaInboundSmsHandler.sendMessage(InboundSmsHandler.EVENT_NEW_SMS,
                 new AsyncResult(null, mSmsMessage, null));
-        waitForMs(100);
+        processAllMessages();
 
         ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(Intent.class);
         verify(mContext).sendBroadcast(intentArgumentCaptor.capture());
         assertEquals(Telephony.Sms.Intents.SMS_DELIVER_ACTION,
                 intentArgumentCaptor.getValue().getAction());
+
+        // verify a message id was created on receive.
+        assertNotEquals(0L,
+                intentArgumentCaptor.getValue().getLongExtra("messageId", 0L));
         assertEquals("WaitingState", getCurrentState().getName());
 
         mContextFixture.sendBroadcastToOrderedBroadcastReceivers();
@@ -213,7 +213,7 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         assertEquals("WaitingState", getCurrentState().getName());
 
         mContextFixture.sendBroadcastToOrderedBroadcastReceivers();
-        waitForMs(50);
+        processAllMessages();
 
         assertEquals("IdleState", getCurrentState().getName());
     }
@@ -224,6 +224,7 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
     public void testNewSmsFromBlockedNumber_noBroadcastsSent() {
         String blockedNumber = "123456789";
         mInboundSmsTracker = new InboundSmsTracker(
+                mContext,
                 mSmsPdu, /* pdu */
                 System.currentTimeMillis(), /* timestamp */
                 -1, /* destPort */
@@ -232,11 +233,13 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
                 "1234567890", /* address */
                 blockedNumber, /* displayAddress */
                 "This is the message body of a single-part message" /* messageBody */,
-                false /* isClass0 */);
+                false, /* isClass0 */
+                mSubId0);
         doReturn(mInboundSmsTracker).when(mTelephonyComponentFactory)
-                .makeInboundSmsTracker(nullable(byte[].class), anyLong(), anyInt(), anyBoolean(),
+                .makeInboundSmsTracker(any(Context.class), nullable(byte[].class), anyLong(),
+                anyInt(), anyBoolean(),
                 anyBoolean(), nullable(String.class), nullable(String.class),
-                nullable(String.class), anyBoolean());
+                nullable(String.class), anyBoolean(), anyInt());
         mFakeBlockedNumberContentProvider.mBlockedNumbers.add(blockedNumber);
 
         transitionFromStartupToIdle();
@@ -244,7 +247,7 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         doReturn(SmsEnvelope.TELESERVICE_WMT).when(mCdmaSmsMessage).getTeleService();
         mCdmaInboundSmsHandler.sendMessage(InboundSmsHandler.EVENT_NEW_SMS,
                 new AsyncResult(null, mSmsMessage, null));
-        waitForMs(100);
+        processAllMessages();
 
         verify(mContext, never()).sendBroadcast(any(Intent.class));
         assertEquals("IdleState", getCurrentState().getName());

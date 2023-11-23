@@ -6,41 +6,52 @@
 
 #include "fxjs/global_timer.h"
 
-GlobalTimer::GlobalTimer(app* pObj,
-                         CPDFSDK_FormFillEnvironment* pFormFillEnv,
+#include <map>
+
+#include "core/fxcrt/timerhandler_iface.h"
+#include "fxjs/cjs_app.h"
+#include "third_party/base/no_destructor.h"
+
+namespace {
+
+using TimerMap = std::map<int32_t, GlobalTimer*>;
+TimerMap& GetGlobalTimerMap() {
+  static pdfium::base::NoDestructor<TimerMap> timer_map;
+  return *timer_map;
+}
+
+}  // namespace
+
+GlobalTimer::GlobalTimer(CJS_App* pObj,
                          CJS_Runtime* pRuntime,
-                         int nType,
+                         Type nType,
                          const WideString& script,
                          uint32_t dwElapse,
                          uint32_t dwTimeOut)
-    : m_nTimerID(0),
-      m_pEmbedObj(pObj),
-      m_bProcessing(false),
-      m_nType(nType),
+    : m_nType(nType),
+      m_nTimerID(pRuntime->GetTimerHandler()->SetTimer(dwElapse, Trigger)),
       m_dwTimeOut(dwTimeOut),
       m_swJScript(script),
       m_pRuntime(pRuntime),
-      m_pFormFillEnv(pFormFillEnv) {
-  CFX_SystemHandler* pHandler = m_pFormFillEnv->GetSysHandler();
-  m_nTimerID = pHandler->SetTimer(dwElapse, Trigger);
-  if (m_nTimerID)
-    (*GetGlobalTimerMap())[m_nTimerID] = this;
+      m_pEmbedApp(pObj) {
+  if (HasValidID())
+    GetGlobalTimerMap()[m_nTimerID] = this;
 }
 
 GlobalTimer::~GlobalTimer() {
-  if (!m_nTimerID)
+  if (!HasValidID())
     return;
 
-  if (GetRuntime())
-    m_pFormFillEnv->GetSysHandler()->KillTimer(m_nTimerID);
+  if (m_pRuntime && m_pRuntime->GetTimerHandler())
+    m_pRuntime->GetTimerHandler()->KillTimer(m_nTimerID);
 
-  GetGlobalTimerMap()->erase(m_nTimerID);
+  GetGlobalTimerMap().erase(m_nTimerID);
 }
 
 // static
-void GlobalTimer::Trigger(int nTimerID) {
-  auto it = GetGlobalTimerMap()->find(nTimerID);
-  if (it == GetGlobalTimerMap()->end())
+void GlobalTimer::Trigger(int32_t nTimerID) {
+  auto it = GetGlobalTimerMap().find(nTimerID);
+  if (it == GetGlobalTimerMap().end())
     return;
 
   GlobalTimer* pTimer = it->second;
@@ -48,33 +59,30 @@ void GlobalTimer::Trigger(int nTimerID) {
     return;
 
   pTimer->m_bProcessing = true;
-  if (pTimer->m_pEmbedObj)
-    pTimer->m_pEmbedObj->TimerProc(pTimer);
+  if (pTimer->m_pEmbedApp)
+    pTimer->m_pEmbedApp->TimerProc(pTimer);
 
   // Timer proc may have destroyed timer, find it again.
-  it = GetGlobalTimerMap()->find(nTimerID);
-  if (it == GetGlobalTimerMap()->end())
+  it = GetGlobalTimerMap().find(nTimerID);
+  if (it == GetGlobalTimerMap().end())
     return;
 
   pTimer = it->second;
   pTimer->m_bProcessing = false;
   if (pTimer->IsOneShot())
-    pTimer->m_pEmbedObj->CancelProc(pTimer);
+    pTimer->m_pEmbedApp->CancelProc(pTimer);
 }
 
 // static
-void GlobalTimer::Cancel(int nTimerID) {
-  auto it = GetGlobalTimerMap()->find(nTimerID);
-  if (it == GetGlobalTimerMap()->end())
+void GlobalTimer::Cancel(int32_t nTimerID) {
+  auto it = GetGlobalTimerMap().find(nTimerID);
+  if (it == GetGlobalTimerMap().end())
     return;
 
   GlobalTimer* pTimer = it->second;
-  pTimer->m_pEmbedObj->CancelProc(pTimer);
+  pTimer->m_pEmbedApp->CancelProc(pTimer);
 }
 
-// static
-GlobalTimer::TimerMap* GlobalTimer::GetGlobalTimerMap() {
-  // Leak the timer array at shutdown.
-  static auto* s_TimerMap = new TimerMap;
-  return s_TimerMap;
+bool GlobalTimer::HasValidID() const {
+  return m_nTimerID != TimerHandlerIface::kInvalidTimerID;
 }

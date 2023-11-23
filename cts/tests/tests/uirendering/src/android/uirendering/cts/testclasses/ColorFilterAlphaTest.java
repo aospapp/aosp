@@ -26,10 +26,11 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.drawable.ColorDrawable;
 import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
+import android.uirendering.cts.runner.SkipPresubmit;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 
-import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -38,7 +39,8 @@ import org.junit.runners.Parameterized;
 
 import java.util.List;
 
-@LargeTest // Temporarily hidden from presubmit
+@SkipPresubmit // Temporarily hidden from presubmit
+@MediumTest
 @RunWith(Parameterized.class)
 public class ColorFilterAlphaTest extends ActivityTestBase {
     // We care about one point in each of the four rectangles of different alpha values, as well as

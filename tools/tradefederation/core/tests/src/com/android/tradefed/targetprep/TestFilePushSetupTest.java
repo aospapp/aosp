@@ -16,8 +16,6 @@
 
 package com.android.tradefed.targetprep;
 
-import com.google.common.io.Files;
-
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -25,6 +23,8 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.FakeTestsZipFolder;
 import com.android.tradefed.util.FakeTestsZipFolder.ItemType;
 import com.android.tradefed.util.FileUtil;
+
+import com.google.common.io.Files;
 
 import junit.framework.TestCase;
 
@@ -132,76 +132,6 @@ public class TestFilePushSetupTest extends TestCase {
     }
 
     /**
-     * Test that the artifact path resolution logic correctly uses alt dir as override
-     */
-    public void testAltDirOverride() throws Exception {
-        TestFilePushSetup setup = new TestFilePushSetup();
-        setup.setAltDirBehavior(AltDirBehavior.OVERRIDE);
-        DeviceBuildInfo info = new DeviceBuildInfo();
-        info.setTestsDir(mFakeTestsZipFolder.getBasePath(), "0");
-        setup.setAltDir(mAltDirFile1.getParentFile());
-        File apk = setup.getLocalPathForFilename(info, ALT_FILENAME1, mMockDevice);
-        assertEquals(mAltDirFile1.getAbsolutePath(), apk.getAbsolutePath());
-    }
-
-    /**
-     * Test that the artifact path resolution logic correctly throws if alt dir behavior is invalid
-     */
-    public void testAltDirOverride_null() throws Exception {
-        TestFilePushSetup setup = new TestFilePushSetup();
-        setup.setAltDirBehavior(null);
-        DeviceBuildInfo info = new DeviceBuildInfo();
-        try {
-            setup.getLocalPathForFilename(info, ALT_FILENAME1, mMockDevice);
-            fail("Should have thrown an exception");
-        } catch (TargetSetupError expected) {
-            assertEquals("Missing handler for alt-dir-behavior: null null", expected.getMessage());
-        }
-    }
-
-    /**
-     * Test that the artifact path resolution logic correctly throws if alt dir is empty.
-     */
-    public void testAltDirOverride_empty() throws Exception {
-        TestFilePushSetup setup = new TestFilePushSetup();
-        setup.setAltDirBehavior(AltDirBehavior.OVERRIDE);
-        DeviceBuildInfo info = new DeviceBuildInfo();
-        try {
-            setup.getLocalPathForFilename(info, ALT_FILENAME1, mMockDevice);
-            fail("Should have thrown an exception");
-        } catch (TargetSetupError expected) {
-            assertEquals("Provided buildInfo does not contain a valid tests directory and no "
-                    + "alternative directories were provided null", expected.getMessage());
-        }
-    }
-
-    /**
-     * Test that the artifact path resolution logic correctly favors the one in test dir
-     */
-    public void testAltDirNoFallback() throws Exception {
-        TestFilePushSetup setup = new TestFilePushSetup();
-        DeviceBuildInfo info = new DeviceBuildInfo();
-        info.setTestsDir(mFakeTestsZipFolder.getBasePath(), "0");
-        setup.setAltDir(mAltDirFile1.getParentFile());
-        File apk = setup.getLocalPathForFilename(info, ALT_FILENAME1, mMockDevice);
-        File apkInTestDir = new File(
-                new File(mFakeTestsZipFolder.getBasePath(), "DATA"), ALT_FILENAME1);
-        assertEquals(apkInTestDir.getAbsolutePath(), apk.getAbsolutePath());
-    }
-
-    /**
-     * Test that the artifact path resolution logic correctly falls back to alt dir
-     */
-    public void testAltDirFallback() throws Exception {
-        TestFilePushSetup setup = new TestFilePushSetup();
-        DeviceBuildInfo info = new DeviceBuildInfo();
-        info.setTestsDir(mFakeTestsZipFolder.getBasePath(), "0");
-        setup.setAltDir(mAltDirFile2.getParentFile());
-        File apk = setup.getLocalPathForFilename(info, ALT_FILENAME2, mMockDevice);
-        assertEquals(mAltDirFile2.getAbsolutePath(), apk.getAbsolutePath());
-    }
-
-    /**
      * Test that an exception is thrown if the file doesn't exist in extracted test dir
      */
     public void testThrowIfNotFound() throws Exception {
@@ -217,7 +147,7 @@ public class TestFilePushSetupTest extends TestCase {
         } catch (TargetSetupError expected) {
             assertEquals(
                     "Could not find test file file-not-in-test-zip "
-                            + "directory in extracted tests.zip null",
+                            + "directory in extracted tests.zip",
                     expected.getMessage());
         }
     }

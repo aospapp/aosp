@@ -35,7 +35,7 @@ phLibNfc_NdefInfo_t NdefInfo;
 #if (NFC_NXP_NOT_OPEN_INCLUDED == TRUE)
 pthread_mutex_t SharedDataMutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
-uint8_t current_key[6] = {0};
+uint8_t current_key[PHLIBNFC_MFC_AUTHKEYLEN] = {0};
 phNci_mfc_auth_cmd_t gAuthCmdBuf;
 static NFCSTATUS phNciNfc_SendMfReq(phNciNfc_TransceiveInfo_t tTranscvInfo,
                                     uint8_t* buff, uint16_t* buffSz);
@@ -637,9 +637,7 @@ NFCSTATUS Mfc_ReadNdef(void) {
     /* Set Completion Routine for ReadNdef */
     NdefMap->CompletionRoutine[1].CompletionRoutine =
         Mfc_ReadNdef_Completion_Routine;
-    NdefInfo.NdefContinueRead = (uint8_t)((phLibNfc_Ndef_EBegin == Offset)
-                                              ? PH_FRINFC_NDEFMAP_SEEK_BEGIN
-                                              : PH_FRINFC_NDEFMAP_SEEK_CUR);
+    NdefInfo.NdefContinueRead = (uint8_t)(PH_FRINFC_NDEFMAP_SEEK_BEGIN);
   }
 
   PacketData = NdefInfo.psUpperNdefMsg->buffer;
@@ -854,12 +852,14 @@ static NFCSTATUS phFriNfc_NdefSmtCrd_Reset__(
 *******************************************************************************/
 NFCSTATUS Mfc_FormatNdef(uint8_t* secretkey, uint8_t len) {
   NFCSTATUS status = NFCSTATUS_FAILED;
-  uint8_t mif_std_key[6] = {0};
+  uint8_t mif_std_key[PHLIBNFC_MFC_AUTHKEYLEN] = {0};
   //    static uint8_t   Index;
   //    /*commented to eliminate unused variable warning*/
   uint8_t sak = 0;
 
   EXTNS_SetCallBackFlag(false);
+
+  if (len != PHLIBNFC_MFC_AUTHKEYLEN) return NFCSTATUS_FAILED;
 
   memcpy(mif_std_key, secretkey, len);
   memcpy(current_key, secretkey, len);
@@ -1179,7 +1179,11 @@ static NFCSTATUS phNciNfc_RecvMfResp(phNciNfc_Buff_t* RspBuffInfo,
             }
             gAuthCmdBuf.auth_status = true;
             status = NFCSTATUS_SUCCESS;
-
+            if ((PHNCINFC_EXTNID_SIZE + PHNCINFC_EXTNSTATUS_SIZE) >
+                RspBuffInfo->wLen) {
+              android_errorWriteLog(0x534e4554, "126204073");
+              return NFCSTATUS_FAILED;
+            }
             /* DataLen = TotalRecvdLen - (sizeof(RspId) + sizeof(Status)) */
             wPldDataSize = ((RspBuffInfo->wLen) -
                             (PHNCINFC_EXTNID_SIZE + PHNCINFC_EXTNSTATUS_SIZE));
@@ -1520,12 +1524,6 @@ static void phLibNfc_CalSectorAddress(uint8_t* Sector_Address) {
 static NFCSTATUS phLibNfc_GetKeyNumberMFC(uint8_t* buffer, uint8_t* bKey) {
   int32_t sdwStat = 0X00;
   NFCSTATUS wStatus = NFCSTATUS_INVALID_PARAMETER;
-
-  /*Key Configuration
-    uint8_t NdefKey[PHLIBNFC_MFC_AUTHKEYLEN] = {0xD3,0XF7,0xD3,0XF7,0xD3,0XF7};
-    uint8_t RawKey[PHLIBNFC_MFC_AUTHKEYLEN] = {0xFF,0XFF,0xFF,0XFF,0xFF,0XFF};
-    uint8_t MadKey[PHLIBNFC_MFC_AUTHKEYLEN] = {0xA0,0XA1,0xA2,0XA3,0xA4,0XA5};
-    uint8_t Key[PHLIBNFC_MFC_AUTHKEYLEN] = {0x00,0x00,0x00,0x00,0x00,0x00}; */ /*Key used during ndef format*/
 
   uint8_t bIndex = 0x00;
   uint8_t bNoOfKeys = 0x00;

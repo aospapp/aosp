@@ -121,7 +121,6 @@ extern UWORD8 gau1_inter_tu_shft_amt[4];
 extern WORD32 g_i4_ip_funcs[MAX_NUM_IP_MODES];
 extern const UWORD8 gau1_chroma422_intra_angle_mapping[36];
 extern const UWORD32 gau4_nbr_flags_8x8_4x4blks[64];
-extern const UWORD8 gau1_modes_to_eval[11];
 
 extern WORD32 gai4_subBlock2csbfId_map4x4TU[1];
 extern WORD32 gai4_subBlock2csbfId_map8x8TU[4];

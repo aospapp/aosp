@@ -15,10 +15,14 @@
  */
 package com.android.car.apps.common;
 
+import static android.content.pm.PackageManager.MATCH_ALL;
+
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent.ShortcutIconResource;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ProviderInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -50,6 +54,11 @@ public final class UriUtils {
      * Non instantiable.
      */
     private UriUtils() {}
+
+    /** Returns true if the uri is null or empty. */
+    public static boolean isEmpty(@Nullable Uri uri) {
+        return (uri == null || TextUtils.isEmpty(uri.toString()));
+    }
 
     /**
      * Gets resource uri representation for a resource of a package
@@ -172,6 +181,18 @@ public final class UriUtils {
     }
 
     /**
+     * Finds the packageName of the application to which the content authority of the given uri
+     * belongs to.
+     */
+    @Nullable
+    public static String getPackageName(Context context, Uri uri) {
+        PackageManager pm = context.getPackageManager();
+        ProviderInfo info = pm.resolveContentProvider(uri.getAuthority(), MATCH_ALL);
+        // Info can be null when the app doesn't define a provider.
+        return (info != null) ? info.packageName : uri.getAuthority();
+    }
+
+    /**
      * Returns {@code true} if the URI refers to a content URI which can be opened via
      * {@link ContentResolver#openInputStream(Uri)}.
      */
@@ -190,21 +211,24 @@ public final class UriUtils {
     /**
      * Creates a shortcut icon resource object from an Android resource URI.
      */
-    public static ShortcutIconResource getIconResource(Uri uri) {
+    public static ShortcutIconResource getIconResource(Context context, Uri uri) {
         if(isAndroidResourceUri(uri)) {
             ShortcutIconResource iconResource = new ShortcutIconResource();
-            iconResource.packageName = uri.getAuthority();
-            // Trim off the scheme + 3 extra for "://", then replace the first "/" with a ":"
-            iconResource.resourceName = uri.toString().substring(
-                    ContentResolver.SCHEME_ANDROID_RESOURCE.length() + SCHEME_DELIMITER.length())
-                    .replaceFirst(URI_PATH_DELIMITER, URI_PACKAGE_DELIMITER);
+            iconResource.packageName = getPackageName(context, uri);
+            // Trim off the scheme + 3 extra for "://" + authority, then replace the first "/"
+            // with a ":" and add to packageName.
+            int resStart = ContentResolver.SCHEME_ANDROID_RESOURCE.length()
+                    + SCHEME_DELIMITER.length() + uri.getAuthority().length();
+            iconResource.resourceName = iconResource.packageName
+                    + uri.toString().substring(resStart)
+                            .replaceFirst(URI_PATH_DELIMITER, URI_PACKAGE_DELIMITER);
             return iconResource;
         } else if(isShortcutIconResourceUri(uri)) {
             ShortcutIconResource iconResource = new ShortcutIconResource();
-            iconResource.packageName = uri.getAuthority();
+            iconResource.packageName = getPackageName(context, uri);
             iconResource.resourceName = uri.toString().substring(
                     SCHEME_SHORTCUT_ICON_RESOURCE.length() + SCHEME_DELIMITER.length()
-                    + iconResource.packageName.length() + URI_PATH_DELIMITER.length())
+                    + uri.getAuthority().length() + URI_PATH_DELIMITER.length())
                     .replaceFirst(URI_PATH_DELIMITER, URI_PACKAGE_DELIMITER);
             return iconResource;
         } else {

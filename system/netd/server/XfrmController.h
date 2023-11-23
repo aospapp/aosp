@@ -55,7 +55,8 @@ class TransportModeSecurityAssociation;
 
 class XfrmSocket {
 public:
-    virtual void close() {
+    // called from destructor and thus cannot be virtual
+    void close() {
         if (mSock >= 0) {
             ::close(mSock);
         }
@@ -370,7 +371,7 @@ public:
     static netdutils::Status deleteSecurityAssociation(const XfrmCommonInfo& record,
                                                        const XfrmSocket& sock);
     static int fillUserSaId(const XfrmCommonInfo& record, xfrm_usersa_id* said);
-    static int fillUserTemplate(const XfrmSpInfo& record, xfrm_user_tmpl* tmpl);
+    static void fillUserTemplate(const XfrmSpInfo& record, xfrm_user_tmpl* tmpl);
 
     static int fillUserSpInfo(const XfrmSpInfo& record, XfrmDirection direction,
                               xfrm_userpolicy_info* usersp);

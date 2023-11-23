@@ -57,8 +57,21 @@ module: "odm.invalid.prop.name"
 prop {
     api_name: "!@#$"
     type: Integer
-    scope: System
+    scope: Public
     access: ReadWrite
+}
+)";
+
+constexpr const char* kInvalidPropName =
+    R"(
+owner: Vendor
+module: "vendor.module.name"
+prop {
+    api_name: "foo"
+    type: Integer
+    scope: Internal
+    access: Readonly
+    prop_name: "foo$bar"
 }
 )";
 
@@ -104,9 +117,10 @@ constexpr const char* kInvalidNamespaceForPlatform =
 owner: Platform
 module: "android.PlatformProperties"
 prop {
-    api_name: "vendor.build.utc_long"
+    api_name: "vendor_build_utc_long"
+    prop_name: "vendor.build.utc_long"
     type: Long
-    scope: System
+    scope: Public
     access: ReadWrite
 }
 )";
@@ -118,7 +132,7 @@ module: "com.android.VendorProp"
 prop {
     api_name: "i_am_readwrite"
     type: Long
-    scope: System
+    scope: Public
     prop_name: "ro.vendor.i_am_readwrite"
     access: ReadWrite
 }
@@ -150,7 +164,7 @@ module: "com.android.OdmProp"
 prop {
     api_name: "i.am.readonly"
     type: Long
-    scope: System
+    scope: Public
     prop_name: "odm.i_am_readwrite"
     access: Readonly
 }
@@ -161,6 +175,7 @@ constexpr const char* kTestCasesAndExpectedErrors[][2] = {
     {kDuplicatedField, "Duplicated API name \"dup\""},
     {kEmptyProp, "There is no defined property"},
     {kInvalidApiName, "Invalid API name \"!@#$\""},
+    {kInvalidPropName, "Invalid prop name \"foo$bar\""},
     {kEmptyEnumValues, "Invalid enum value \"\" for API \"empty_enum_value\""},
     {kDuplicatedEnumValue, "Duplicated enum value \"On\" for API \"status\""},
     {kInvalidModuleName, "Invalid module name \"\""},
@@ -187,9 +202,8 @@ TEST(SyspropTest, InvalidSyspropTest) {
 
   for (auto [test_case, expected_error] : kTestCasesAndExpectedErrors) {
     ASSERT_TRUE(android::base::WriteStringToFile(test_case, file.path));
-    std::string err;
-    sysprop::Properties props;
-    EXPECT_FALSE(ParseProps(file.path, &props, &err));
-    EXPECT_EQ(err, expected_error);
+    auto res = ParseProps(file.path);
+    EXPECT_FALSE(res.ok());
+    EXPECT_EQ(res.error().message(), expected_error);
   }
 }

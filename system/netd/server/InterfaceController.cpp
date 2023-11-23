@@ -30,7 +30,6 @@
 #include <android-base/strings.h>
 #include <linux/if_ether.h>
 #include <log/log.h>
-#include <logwrap/logwrap.h>
 #include <netutils/ifc.h>
 
 #include <android/net/INetd.h>
@@ -55,13 +54,6 @@ using android::netdutils::statusFromErrno;
 using android::netdutils::StatusOr;
 using android::netdutils::toString;
 using android::netdutils::status::ok;
-
-#define RETURN_STATUS_IF_IFCERROR(exp)                           \
-    do {                                                         \
-        if ((exp) == -1) {                                       \
-            return statusFromErrno(errno, "Failed to add addr"); \
-        }                                                        \
-    } while (0);
 
 namespace {
 
@@ -290,9 +282,9 @@ Status InterfaceController::setIPv6AddrGenMode(const std::string& interface, int
 
     switch (mode) {
         case INetd::IPV6_ADDR_GEN_MODE_EUI64:
-            // Ignore return value. If /proc/.../stable_secret is
+            // Ignore return value. If /proc/.../addr_gen_mode is
             // missing we're probably in EUI64 mode already.
-            writeValueToPath(ipv6_proc_path, interface.c_str(), "stable_secret", "");
+            writeValueToPath(ipv6_proc_path, interface.c_str(), "addr_gen_mode", "0");
             break;
         case INetd::IPV6_ADDR_GEN_MODE_STABLE_PRIVACY: {
             return enableStablePrivacyAddresses(interface, getProperty, setProperty);
@@ -368,11 +360,13 @@ int InterfaceController::setMtu(const char *interface, const char *mtu)
     return writeValueToPath(sys_net_path, interface, "mtu", mtu);
 }
 
+// Returns zero on success and negative errno on failure.
 int InterfaceController::addAddress(const char *interface,
         const char *addrString, int prefixLength) {
     return ifc_add_address(interface, addrString, prefixLength);
 }
 
+// Returns zero on success and negative errno on failure.
 int InterfaceController::delAddress(const char *interface,
         const char *addrString, int prefixLength) {
     return ifc_del_address(interface, addrString, prefixLength);
@@ -505,8 +499,9 @@ Status InterfaceController::setCfg(const InterfaceConfigurationParcel& cfg) {
         }
     }
 
-    RETURN_STATUS_IF_IFCERROR(
-            ifc_add_address(cfg.ifName.c_str(), cfg.ipv4Addr.c_str(), cfg.prefixLength));
+    if (int ret = ifc_add_address(cfg.ifName.c_str(), cfg.ipv4Addr.c_str(), cfg.prefixLength)) {
+        return statusFromErrno(-ret, "Failed to add addr");
+    }
 
     return ok;
 }

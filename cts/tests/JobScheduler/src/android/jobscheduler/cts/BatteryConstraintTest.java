@@ -17,17 +17,10 @@
 package android.jobscheduler.cts;
 
 
-import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.job.JobInfo;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
 import android.os.SystemClock;
 import android.provider.Settings;
@@ -35,14 +28,11 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.SystemUtil;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 /**
  * Schedules jobs with the {@link android.app.job.JobScheduler} that have battery constraints.
  */
 @TargetApi(26)
-public class BatteryConstraintTest extends ConstraintTest {
+public class BatteryConstraintTest extends BaseJobSchedulerTest {
     private static final String TAG = "BatteryConstraintTest";
 
     private String FEATURE_WATCH = "android.hardware.type.watch";
@@ -88,6 +78,8 @@ public class BatteryConstraintTest extends ConstraintTest {
             Settings.Global.putInt(getContext().getContentResolver(),
                     Settings.Global.LOW_POWER_MODE_TRIGGER_LEVEL, mPreviousLowPowerTriggerLevel);
         }
+
+        super.tearDown();
     }
 
     boolean hasBattery() throws Exception {
@@ -117,19 +109,15 @@ public class BatteryConstraintTest extends ConstraintTest {
             Thread.sleep(50);
             curSeq = Integer.parseInt(SystemUtil.runShellCommand(getInstrumentation(),
                     "cmd jobscheduler get-battery-seq").trim());
-            // The job scheduler actually looks at the charging/discharging state,
-            // which is currently determined by battery stats in response to the low-level
-            // plugged/unplugged events.  So we can get this updated after the last seq
-            // is received, so we need to make sure that has correctly changed.
             curCharging = Boolean.parseBoolean(SystemUtil.runShellCommand(getInstrumentation(),
                     "cmd jobscheduler get-battery-charging").trim());
-            if (curSeq == seq && curCharging == plugged) {
+            if (curSeq >= seq && curCharging == plugged) {
                 return;
             }
         } while ((SystemClock.elapsedRealtime() - startTime) < 5000);
 
         fail("Timed out waiting for job scheduler: expected seq=" + seq + ", cur=" + curSeq
-                + ", plugged=" + plugged + " curCharging=" + curCharging);
+                + ", expected plugged=" + plugged + " curCharging=" + curCharging);
     }
 
     void verifyChargingState(boolean charging) throws Exception {
@@ -164,13 +152,6 @@ public class BatteryConstraintTest extends ConstraintTest {
         assertJobNotReady(BATTERY_JOB_ID);
     }
 
-    static void waitFor(long waitMillis) throws Exception {
-        final long deadline = SystemClock.uptimeMillis() + waitMillis;
-        do {
-            Thread.sleep(500L);
-        } while (SystemClock.uptimeMillis() < deadline);
-    }
-
     // --------------------------------------------------------------------------------------------
     // Positives - schedule jobs under conditions that require them to pass.
     // --------------------------------------------------------------------------------------------
@@ -199,7 +180,7 @@ public class BatteryConstraintTest extends ConstraintTest {
      */
     public void testBatteryNotLowConstraintExecutes_withPower() throws Exception {
         setBatteryState(true, 100);
-        waitFor(2_000);
+        Thread.sleep(2_000);
         verifyChargingState(true);
         verifyBatteryNotLowState(true);
 
@@ -224,7 +205,7 @@ public class BatteryConstraintTest extends ConstraintTest {
         }
 
         setBatteryState(false, 100);
-        waitFor(2_000);
+        Thread.sleep(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(true);
 
@@ -295,9 +276,9 @@ public class BatteryConstraintTest extends ConstraintTest {
         if (!hasBattery()) {
             return;
         }
-        if(getInstrumentation().getContext().getPackageManager().hasSystemFeature(FEATURE_WATCH) &&
-               getInstrumentation().getContext().getPackageManager().hasSystemFeature(
-               TWM_HARDWARE_FEATURE)) {
+        if (getInstrumentation().getContext().getPackageManager().hasSystemFeature(FEATURE_WATCH)
+                && getInstrumentation().getContext().getPackageManager().hasSystemFeature(
+                TWM_HARDWARE_FEATURE)) {
             return;
         }
 
@@ -305,7 +286,7 @@ public class BatteryConstraintTest extends ConstraintTest {
         // setBatteryState() waited for the charging/not-charging state to formally settle,
         // but battery level reporting lags behind that.  wait a moment to let that happen
         // before proceeding.
-        waitFor(2_000);
+        Thread.sleep(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(false);
 
@@ -326,7 +307,7 @@ public class BatteryConstraintTest extends ConstraintTest {
         kTestEnvironment.setExpectedWaitForRun();
         kTestEnvironment.setContinueAfterStart();
         setBatteryState(false, 50);
-        waitFor(2_000);
+        Thread.sleep(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(true);
         kTestEnvironment.setExpectedStopped();
@@ -338,7 +319,7 @@ public class BatteryConstraintTest extends ConstraintTest {
         // And check that the job is stopped if battery goes low again.
         setBatteryState(false, 5);
         setBatteryState(false, 4);
-        waitFor(2_000);
+        Thread.sleep(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(false);
         assertTrue("Job with not low constraint did not stop when battery went low.",

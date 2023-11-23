@@ -405,6 +405,7 @@ public class MockInCallService extends InCallService {
         Log.i(LOG_TAG, "Service has been unbound");
         assertTrue(mIsServiceBound);
         mIsServiceBound = false;
+        mCalls.clear();
         return super.onUnbind(intent);
     }
 

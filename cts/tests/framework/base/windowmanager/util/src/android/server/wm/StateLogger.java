@@ -16,6 +16,7 @@
 
 package android.server.wm;
 
+import android.os.Build;
 import android.util.Log;
 
 /**
@@ -23,7 +24,7 @@ import android.util.Log;
  */
 public class StateLogger {
 
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = "eng".equals(Build.TYPE);
     private static String TAG = "AMWM";
 
     /**

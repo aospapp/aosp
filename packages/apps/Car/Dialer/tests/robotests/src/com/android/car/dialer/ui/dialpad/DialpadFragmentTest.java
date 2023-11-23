@@ -18,6 +18,8 @@ package com.android.car.dialer.ui.dialpad;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -26,15 +28,21 @@ import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import androidx.lifecycle.MutableLiveData;
+
 import com.android.car.dialer.CarDialerRobolectricTestRunner;
 import com.android.car.dialer.FragmentTestActivity;
 import com.android.car.dialer.R;
 import com.android.car.dialer.TestDialerApplication;
 import com.android.car.dialer.telecom.UiCallManager;
+import com.android.car.dialer.testutils.ShadowAndroidViewModelFactory;
 import com.android.car.dialer.testutils.ShadowCallLogCalls;
 import com.android.car.dialer.testutils.ShadowInMemoryPhoneBook;
+import com.android.car.dialer.ui.common.ContactResultsLiveData;
+import com.android.car.dialer.ui.search.ContactResultsViewModel;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.InMemoryPhoneBook;
+import com.android.car.telephony.common.PhoneNumber;
 import com.android.car.telephony.common.TelecomUtils;
 
 import org.junit.After;
@@ -48,8 +56,11 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
+import java.util.List;
+
 @RunWith(CarDialerRobolectricTestRunner.class)
-@Config(shadows = {ShadowCallLogCalls.class, ShadowInMemoryPhoneBook.class})
+@Config(shadows = {ShadowCallLogCalls.class, ShadowInMemoryPhoneBook.class,
+        ShadowAndroidViewModelFactory.class})
 public class DialpadFragmentTest {
     private static final String DIAL_NUMBER = "6505551234";
     private static final String DIAL_NUMBER_LONG = "650555123465055512346505551234";
@@ -57,7 +68,12 @@ public class DialpadFragmentTest {
     private static final String SPEC_CHAR = "123=_=%^&";
     private static final String DISPALY_NAME = "Display Name";
 
+    private Context mContext;
     private DialpadFragment mDialpadFragment;
+    private MutableLiveData<List<ContactResultsLiveData.ContactResultListItem>>
+            mContactResultsLiveData;
+    @Mock
+    private ContactResultsViewModel mMockContactResultsViewModel;
     @Mock
     private Contact mMockContact;
 
@@ -65,10 +81,16 @@ public class DialpadFragmentTest {
     public void setup() {
         MockitoAnnotations.initMocks(this);
 
-        Context context = RuntimeEnvironment.application;
-        ((TestDialerApplication) context).setupInCallServiceImpl();
-        ((TestDialerApplication) context).initUiCallManager();
-        InMemoryPhoneBook.init(context);
+        mContext = RuntimeEnvironment.application;
+        ((TestDialerApplication) mContext).setupInCallServiceImpl();
+        ((TestDialerApplication) mContext).initUiCallManager();
+        InMemoryPhoneBook.init(mContext);
+
+        mContactResultsLiveData = new MutableLiveData<>();
+        when(mMockContactResultsViewModel.getContactSearchResults())
+                .thenReturn(mContactResultsLiveData);
+        ShadowAndroidViewModelFactory.add(
+                ContactResultsViewModel.class, mMockContactResultsViewModel);
     }
 
     @After
@@ -201,6 +223,7 @@ public class DialpadFragmentTest {
     public void testDisplayName() {
         ShadowInMemoryPhoneBook phoneBook = Shadow.extract(InMemoryPhoneBook.get());
         when(mMockContact.getDisplayName()).thenReturn(DISPALY_NAME);
+        when(mMockContact.getPhoneNumber(any(), any())).thenReturn(mock(PhoneNumber.class));
         phoneBook.add(DIAL_NUMBER, mMockContact);
 
         mDialpadFragment = DialpadFragment.newPlaceCallDialpad();
@@ -208,7 +231,13 @@ public class DialpadFragmentTest {
         mDialpadFragment.setDialedNumber(DIAL_NUMBER);
 
         TextView displayName = mDialpadFragment.getView().findViewById(R.id.display_name);
-        assertThat(displayName.getText()).isEqualTo(DISPALY_NAME);
+        if (!mContext.getResources().getBoolean(R.bool.config_show_type_down_list_on_dialpad)
+                && mContext.getResources()
+                .getBoolean(R.bool.config_show_type_down_list_on_dialpad)) {
+            assertThat(displayName.getText()).isEqualTo(DISPALY_NAME);
+        } else {
+            assertThat(displayName.getText()).isEqualTo("");
+        }
     }
 
     private void startPlaceCallActivity() {

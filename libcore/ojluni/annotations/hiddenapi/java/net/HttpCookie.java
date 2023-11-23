@@ -26,7 +26,7 @@
 
 package java.net;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class HttpCookie implements java.lang.Cloneable {
@@ -256,7 +256,8 @@ public final class HttpCookie implements java.lang.Cloneable {
         header = null;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(
+        publicAlternatives = "Use {@link #setHttpOnly()}/{@link #isHttpOnly()} instead.")
     private boolean httpOnly;
 
     @UnsupportedAppUsage

@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // The tool used to create time zone distro.zip files.
-java_library_host {
+java_binary_host {
     name: "create_time_zone_distro",
-
+    main_class: "com.android.timezone.distro.tools.CreateTimeZoneDistro",
     srcs: ["src/main/**/*.java"],
-    libs: [
+    static_libs: [
         "time_zone_distro",
     ],
 }
@@ -31,5 +31,5 @@ java_library {
     libs: [
         "time_zone_distro",
     ],
-    no_framework_libs: true,
+    sdk_version: "core_platform",
 }

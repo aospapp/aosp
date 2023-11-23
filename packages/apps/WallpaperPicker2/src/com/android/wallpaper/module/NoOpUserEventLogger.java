@@ -57,6 +57,14 @@ public class NoOpUserEventLogger implements UserEventLogger {
     }
 
     @Override
+    public void logLiveWallpaperInfoSelected(String collectionId, String wallpaperId) {
+    }
+
+    @Override
+    public void logLiveWallpaperCustomizeSelected(String collectionId, String wallpaperId) {
+    }
+
+    @Override
     public void logWallpaperSet(String collectionId, String wallpaperId) {
     }
 

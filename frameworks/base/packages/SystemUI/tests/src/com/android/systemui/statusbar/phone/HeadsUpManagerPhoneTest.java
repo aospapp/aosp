@@ -29,13 +29,18 @@ import android.view.View;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.systemui.bubbles.BubbleController;
+import com.android.systemui.plugins.statusbar.StatusBarStateController;
 import com.android.systemui.statusbar.AlertingNotificationManager;
 import com.android.systemui.statusbar.AlertingNotificationManagerTest;
 import com.android.systemui.statusbar.notification.VisualStabilityManager;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
+import com.android.systemui.statusbar.notification.collection.NotificationEntryBuilder;
 import com.android.systemui.statusbar.policy.AccessibilityManagerWrapper;
+import com.android.systemui.statusbar.policy.ConfigurationController;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,15 +57,26 @@ public class HeadsUpManagerPhoneTest extends AlertingNotificationManagerTest {
     private HeadsUpManagerPhone mHeadsUpManager;
 
     @Mock private NotificationGroupManager mGroupManager;
-    @Mock private View mStatusBarWindowView;
+    @Mock private View mNotificationShadeWindowView;
     @Mock private VisualStabilityManager mVSManager;
     @Mock private StatusBar mBar;
+    @Mock private StatusBarStateController mStatusBarStateController;
+    @Mock private KeyguardBypassController mBypassController;
+    @Mock private ConfigurationControllerImpl mConfigurationController;
+    private boolean mLivesPastNormalTime;
 
     private final class TestableHeadsUpManagerPhone extends HeadsUpManagerPhone {
-        TestableHeadsUpManagerPhone(Context context, View statusBarWindowView,
-                NotificationGroupManager groupManager, StatusBar bar,
-                VisualStabilityManager vsManager) {
-            super(context, statusBarWindowView, groupManager, bar, vsManager);
+        TestableHeadsUpManagerPhone(
+                Context context,
+                NotificationGroupManager groupManager,
+                VisualStabilityManager vsManager,
+                StatusBarStateController statusBarStateController,
+                KeyguardBypassController keyguardBypassController,
+                ConfigurationController configurationController
+        ) {
+            super(context, statusBarStateController, keyguardBypassController,
+                    groupManager, configurationController);
+            setup(vsManager);
             mMinimumDisplayTime = TEST_MINIMUM_DISPLAY_TIME;
             mAutoDismissNotificationDecay = TEST_AUTO_DISMISS_TIME;
         }
@@ -72,13 +88,16 @@ public class HeadsUpManagerPhoneTest extends AlertingNotificationManagerTest {
 
     @Before
     public void setUp() {
-        AccessibilityManagerWrapper mAccessibilityMgr =
+        AccessibilityManagerWrapper accessibilityMgr =
                 mDependency.injectMockDependency(AccessibilityManagerWrapper.class);
-        when(mAccessibilityMgr.getRecommendedTimeoutMillis(anyInt(), anyInt()))
+        when(accessibilityMgr.getRecommendedTimeoutMillis(anyInt(), anyInt()))
                 .thenReturn(TEST_AUTO_DISMISS_TIME);
         when(mVSManager.isReorderingAllowed()).thenReturn(true);
-        mHeadsUpManager = new TestableHeadsUpManagerPhone(mContext, mStatusBarWindowView,
-                mGroupManager, mBar, mVSManager);
+        mDependency.injectMockDependency(BubbleController.class);
+        mDependency.injectMockDependency(NotificationShadeWindowController.class);
+        mDependency.injectMockDependency(ConfigurationController.class);
+        mHeadsUpManager = new TestableHeadsUpManagerPhone(mContext, mGroupManager, mVSManager,
+                mStatusBarStateController, mBypassController, mConfigurationController);
         super.setUp();
         mHeadsUpManager.mHandler = mTestHandler;
     }
@@ -89,37 +108,60 @@ public class HeadsUpManagerPhoneTest extends AlertingNotificationManagerTest {
 
         mHeadsUpManager.snooze();
 
-        assertTrue(mHeadsUpManager.isSnoozed(mEntry.notification.getPackageName()));
+        assertTrue(mHeadsUpManager.isSnoozed(mEntry.getSbn().getPackageName()));
     }
 
     @Test
     public void testSwipedOutNotification() {
         mHeadsUpManager.showNotification(mEntry);
-        mHeadsUpManager.addSwipedOutNotification(mEntry.key);
+        mHeadsUpManager.addSwipedOutNotification(mEntry.getKey());
 
         // Remove should succeed because the notification is swiped out
-        mHeadsUpManager.removeNotification(mEntry.key, false /* releaseImmediately */);
+        mHeadsUpManager.removeNotification(mEntry.getKey(), false /* releaseImmediately */);
 
-        assertFalse(mHeadsUpManager.isAlerting(mEntry.key));
+        assertFalse(mHeadsUpManager.isAlerting(mEntry.getKey()));
     }
 
     @Test
     public void testCanRemoveImmediately_swipedOut() {
         mHeadsUpManager.showNotification(mEntry);
-        mHeadsUpManager.addSwipedOutNotification(mEntry.key);
+        mHeadsUpManager.addSwipedOutNotification(mEntry.getKey());
 
         // Notification is swiped so it can be immediately removed.
-        assertTrue(mHeadsUpManager.canRemoveImmediately(mEntry.key));
+        assertTrue(mHeadsUpManager.canRemoveImmediately(mEntry.getKey()));
     }
 
+    @Ignore("b/141538055")
     @Test
     public void testCanRemoveImmediately_notTopEntry() {
-        NotificationEntry laterEntry = new NotificationEntry(createNewNotification(1));
+        NotificationEntry laterEntry = new NotificationEntryBuilder()
+                .setSbn(createNewNotification(1))
+                .build();
         laterEntry.setRow(mRow);
         mHeadsUpManager.showNotification(mEntry);
         mHeadsUpManager.showNotification(laterEntry);
 
         // Notification is "behind" a higher priority notification so we can remove it immediately.
-        assertTrue(mHeadsUpManager.canRemoveImmediately(mEntry.key));
+        assertTrue(mHeadsUpManager.canRemoveImmediately(mEntry.getKey()));
+    }
+
+
+    @Test
+    public void testExtendHeadsUp() {
+        mHeadsUpManager.showNotification(mEntry);
+        Runnable pastNormalTimeRunnable =
+                () -> mLivesPastNormalTime = mHeadsUpManager.isAlerting(mEntry.getKey());
+        mTestHandler.postDelayed(pastNormalTimeRunnable,
+                TEST_AUTO_DISMISS_TIME + mHeadsUpManager.mExtensionTime / 2);
+        mTestHandler.postDelayed(TEST_TIMEOUT_RUNNABLE, TEST_TIMEOUT_TIME);
+
+        mHeadsUpManager.extendHeadsUp();
+
+        // Wait for normal time runnable and extended remove runnable and process them on arrival.
+        TestableLooper.get(this).processMessages(2);
+
+        assertFalse("Test timed out", mTimedOut);
+        assertTrue("Pulse was not extended", mLivesPastNormalTime);
+        assertFalse(mHeadsUpManager.isAlerting(mEntry.getKey()));
     }
 }

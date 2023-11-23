@@ -70,6 +70,9 @@ def translate_hidl_mark_to_nn_and_tag(mark):
     else:
       # Call "down" in to driver
       layer = LAYER_DRIVER
+  elif "::passthrough" in mark:
+    # In process hidl call, treating it as IPC
+    layer = LAYER_IPC
   elif ("getCapabilities" in mark) or ("getSupportedOperations" in mark):
     layer = LAYER_DRIVER
   elif "HIDL" not in mark:

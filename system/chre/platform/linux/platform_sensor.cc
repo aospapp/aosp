@@ -18,82 +18,38 @@
 
 namespace chre {
 
-PlatformSensor::PlatformSensor(PlatformSensor&& other) {
-  *this = std::move(other);
-}
-
-PlatformSensor::~PlatformSensor() {}
-
-void PlatformSensor::init() {
-  // TODO: Implement this. Probably we would open some files provided to mock
-  // sensor data. Perhaps from command-line arguemnts.
-}
-
-void PlatformSensor::deinit() {
-  // TODO: Implement this. Probably we would close the files opened previously
-  // by init.
-}
-
-bool PlatformSensor::getSensors(DynamicVector<Sensor> *sensors) {
-  CHRE_ASSERT(sensors);
-
-  // TODO: Implement this. Perhaps look at all sensor trace files provided and
-  // return the list of sensor data available.
-  return false;
-}
-
-bool PlatformSensor::applyRequest(const SensorRequest& request) {
-  // TODO: Implement this. Perhaps consider the request and start to pass in
-  // sensor samples from mock sensor data once the sensor has transitioned to
-  // being enabled. Maybe consider resampling input data if the provided mock
-  // data rate is higher than requested.
-  return false;
-}
-
-bool PlatformSensor::flushAsync() {
-  // TODO: Implement this
-  return false;
-}
-
-SensorType PlatformSensor::getSensorType() const {
-  // TODO: Implement this.
-  return SensorType::Unknown;
+uint8_t PlatformSensor::getSensorType() const {
+  return mSensorInfo->sensorType;
 }
 
 uint64_t PlatformSensor::getMinInterval() const {
-  // TODO: Implement this.
-  return 0;
+  return mSensorInfo->minInterval;
+}
+
+bool PlatformSensor::reportsBiasEvents() const {
+  return mSensorInfo->reportsBiasEvents == 1;
+}
+
+bool PlatformSensor::supportsPassiveMode() const {
+  return mSensorInfo->supportsPassiveMode == 1;
 }
 
 const char *PlatformSensor::getSensorName() const {
-  // TODO: Implement this.
-  return "";
+  return mSensorInfo->sensorName;
 }
 
-PlatformSensor& PlatformSensor::operator=(PlatformSensor&& other) {
-  // TODO: Implement this.
+PlatformSensor::PlatformSensor(PlatformSensor &&other) {
+  *this = std::move(other);
+}
+
+PlatformSensor &PlatformSensor::operator=(PlatformSensor &&other) {
+  // Note: if this implementation is ever changed to depend on "this" containing
+  // initialized values, the move constructor implementation must be updated.
+  mSensorHandle = other.mSensorHandle;
+  mSensorInfo = other.mSensorInfo;
+  other.mSensorInfo = nullptr;
+
   return *this;
-}
-
-ChreSensorData *PlatformSensor::getLastEvent() const {
-  // TODO: Implement this.
-  return nullptr;
-}
-
-bool PlatformSensor::getSamplingStatus(
-    struct chreSensorSamplingStatus *status) const {
-  // TODO: Implement this.
-  return false;
-}
-
-bool PlatformSensor::getThreeAxisBias(
-    struct chreSensorThreeAxisData *bias) const {
-  // TODO: Implement this.
-  return false;
-}
-
-void PlatformSensorBase::setLastEvent(const ChreSensorData *event) {
-  // TODO: Implement this.
 }
 
 }  // namespace chre

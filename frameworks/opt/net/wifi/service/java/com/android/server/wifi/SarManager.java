@@ -24,22 +24,20 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
+import android.media.AudioAttributes;
+import android.media.AudioDeviceAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
-import android.media.AudioSystem;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
+import android.os.HandlerExecutor;
 import android.os.Looper;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.internal.R;
 import com.android.server.wifi.util.WifiHandler;
+import com.android.wifi.resources.R;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -52,12 +50,25 @@ import java.util.List;
  * - Tracking the SAP state through calls from SoftApManager
  * - Tracking the Scan-Only state through ScanOnlyModeManager
  * - Tracking the state of the Cellular calls or data.
- * - Tracking the sensor indicating proximity to user head/hand/body.
  * - It constructs the sar info and send it towards the HAL
  */
 public class SarManager {
     // Period for checking on voice steam active (in ms)
     private static final int CHECK_VOICE_STREAM_INTERVAL_MS = 5000;
+
+    /**
+     * @hide constants copied over from {@link AudioManager}
+     * TODO(b/144250387): Migrate to public API
+     */
+    private static final String STREAM_DEVICES_CHANGED_ACTION =
+            "android.media.stream_devices_changed_action";
+    private static final String EXTRA_VOLUME_STREAM_TYPE = "android.media.EXTRA_VOLUME_STREAM_TYPE";
+    private static final String EXTRA_VOLUME_STREAM_DEVICES =
+            "android.media.EXTRA_VOLUME_STREAM_DEVICES";
+    private static final String EXTRA_PREV_VOLUME_STREAM_DEVICES =
+            "android.media.EXTRA_PREV_VOLUME_STREAM_DEVICES";
+    private static final int DEVICE_OUT_EARPIECE = 0x1;
+
     /* For Logging */
     private static final String TAG = "WifiSarManager";
     private boolean mVerboseLoggingEnabled = true;
@@ -68,12 +79,6 @@ public class SarManager {
     private boolean mSupportSarTxPowerLimit;
     private boolean mSupportSarVoiceCall;
     private boolean mSupportSarSoftAp;
-    private boolean mSupportSarSensor;
-    /* Sensor event definitions */
-    private int mSarSensorEventFreeSpace;
-    private int mSarSensorEventNearBody;
-    private int mSarSensorEventNearHand;
-    private int mSarSensorEventNearHead;
 
     // Device starts with screen on
     private boolean mScreenOn = false;
@@ -84,13 +89,11 @@ public class SarManager {
      */
     private final Context mContext;
     private final TelephonyManager mTelephonyManager;
+    private final AudioManager mAudioManager;
     private final WifiPhoneStateListener mPhoneStateListener;
     private final WifiNative mWifiNative;
-    private final SarSensorEventListener mSensorListener;
-    private final SensorManager mSensorManager;
     private final Handler mHandler;
     private final Looper mLooper;
-    private final WifiMetrics mWifiMetrics;
 
     /**
      * Create new instance of SarManager.
@@ -98,19 +101,20 @@ public class SarManager {
     SarManager(Context context,
                TelephonyManager telephonyManager,
                Looper looper,
-               WifiNative wifiNative,
-               SensorManager sensorManager,
-               WifiMetrics wifiMetrics) {
+               WifiNative wifiNative) {
         mContext = context;
         mTelephonyManager = telephonyManager;
         mWifiNative = wifiNative;
         mLooper = looper;
+        mAudioManager = mContext.getSystemService(AudioManager.class);
         mHandler = new WifiHandler(TAG, looper);
-        mSensorManager = sensorManager;
-        mWifiMetrics = wifiMetrics;
         mPhoneStateListener = new WifiPhoneStateListener(looper);
-        mSensorListener = new SarSensorEventListener();
+    }
 
+    /**
+     * Handle boot completed, read config flags.
+     */
+    public void handleBootCompleted() {
         readSarConfigs();
         if (mSupportSarTxPowerLimit) {
             mSarInfo = new SarInfo();
@@ -149,14 +153,22 @@ public class SarManager {
     }
 
     private boolean isVoiceCallOnEarpiece() {
-        AudioManager audioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-
-        return (audioManager.getDevicesForStream(AudioManager.STREAM_VOICE_CALL)
-                == AudioManager.DEVICE_OUT_EARPIECE);
+        final AudioAttributes voiceCallAttr = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .build();
+        List<AudioDeviceAttributes> devices = mAudioManager.getDevicesForAttributes(voiceCallAttr);
+        for (AudioDeviceAttributes device : devices) {
+            if (device.getRole() == AudioDeviceAttributes.ROLE_OUTPUT
+                    && device.getType() == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isVoiceCallStreamActive() {
-        return AudioSystem.isStreamActive(AudioManager.STREAM_VOICE_CALL, 0);
+        int mode = mAudioManager.getMode();
+        return mode == AudioManager.MODE_IN_COMMUNICATION || mode == AudioManager.MODE_IN_CALL;
     }
 
     private void checkAudioDevice() {
@@ -201,7 +213,6 @@ public class SarManager {
         if (!mSupportSarTxPowerLimit) {
             mSupportSarVoiceCall = false;
             mSupportSarSoftAp = false;
-            mSupportSarSensor = false;
             return;
         }
 
@@ -210,27 +221,11 @@ public class SarManager {
 
         mSupportSarSoftAp = mContext.getResources().getBoolean(
                 R.bool.config_wifi_framework_enable_soft_ap_sar_tx_power_limit);
-
-        mSupportSarSensor = mContext.getResources().getBoolean(
-                R.bool.config_wifi_framework_enable_body_proximity_sar_tx_power_limit);
-
-        /* Read the sar sensor event Ids */
-        if (mSupportSarSensor) {
-            mSarSensorEventFreeSpace = mContext.getResources().getInteger(
-                    R.integer.config_wifi_framework_sar_free_space_event_id);
-            mSarSensorEventNearBody = mContext.getResources().getInteger(
-                    R.integer.config_wifi_framework_sar_near_body_event_id);
-            mSarSensorEventNearHand = mContext.getResources().getInteger(
-                    R.integer.config_wifi_framework_sar_near_hand_event_id);
-            mSarSensorEventNearHead = mContext.getResources().getInteger(
-                    R.integer.config_wifi_framework_sar_near_head_event_id);
-        }
     }
 
     private void setSarConfigsInInfo() {
         mSarInfo.sarVoiceCallSupported = mSupportSarVoiceCall;
         mSarInfo.sarSapSupported = mSupportSarSoftAp;
-        mSarInfo.sarSensorSupported = mSupportSarSensor;
     }
 
     private void registerListeners() {
@@ -239,17 +234,6 @@ public class SarManager {
             registerPhoneStateListener();
             registerVoiceStreamListener();
         }
-
-        /* Only listen for SAR sensor if supported */
-        if (mSupportSarSensor) {
-            /* Register the SAR sensor listener.
-             * If this fails, we will assume worst case (near head) */
-            if (!registerSensorListener()) {
-                Log.e(TAG, "Failed to register sensor listener, setting Sensor to NearHead");
-                mSarInfo.sensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-                mWifiMetrics.incrementNumSarSensorRegistrationFailures();
-            }
-        }
     }
 
     private void registerVoiceStreamListener() {
@@ -257,7 +241,7 @@ public class SarManager {
 
         // Register for listening to transitions of change of voice stream devices
         IntentFilter filter = new IntentFilter();
-        filter.addAction(AudioManager.STREAM_DEVICES_CHANGED_ACTION);
+        filter.addAction(STREAM_DEVICES_CHANGED_ACTION);
 
         mContext.registerReceiver(
                 new BroadcastReceiver() {
@@ -271,21 +255,19 @@ public class SarManager {
 
                         String action = intent.getAction();
                         int streamType =
-                                intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
-                        int device = intent.getIntExtra(
-                                AudioManager.EXTRA_VOLUME_STREAM_DEVICES, -1);
-                        int oldDevice = intent.getIntExtra(
-                                AudioManager.EXTRA_PREV_VOLUME_STREAM_DEVICES, -1);
+                                intent.getIntExtra(EXTRA_VOLUME_STREAM_TYPE, -1);
+                        int device = intent.getIntExtra(EXTRA_VOLUME_STREAM_DEVICES, -1);
+                        int oldDevice = intent.getIntExtra(EXTRA_PREV_VOLUME_STREAM_DEVICES, -1);
 
                         if (streamType == AudioManager.STREAM_VOICE_CALL) {
                             boolean earPieceActive = mSarInfo.isEarPieceActive;
-                            if (device == AudioManager.DEVICE_OUT_EARPIECE) {
+                            if (device == DEVICE_OUT_EARPIECE) {
                                 if (mVerboseLoggingEnabled) {
                                     Log.d(TAG, "Switching to earpiece : HEAD ON");
                                     Log.d(TAG, "Old device = " + oldDevice);
                                 }
                                 earPieceActive = true;
-                            } else if (oldDevice == AudioManager.DEVICE_OUT_EARPIECE) {
+                            } else if (oldDevice == DEVICE_OUT_EARPIECE) {
                                 if (mVerboseLoggingEnabled) {
                                     Log.d(TAG, "Switching from earpiece : HEAD OFF");
                                     Log.d(TAG, "New device = " + device);
@@ -309,14 +291,6 @@ public class SarManager {
         Log.i(TAG, "Registering for telephony call state changes");
         mTelephonyManager.listen(
                 mPhoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
-    }
-
-    /**
-     * Register the body/hand/head proximity sensor.
-     */
-    private boolean registerSensorListener() {
-        Log.i(TAG, "Registering for Sensor notification Listener");
-        return mSensorListener.register();
     }
 
     /**
@@ -429,32 +403,6 @@ public class SarManager {
     }
 
     /**
-     * Report an event from the SAR sensor
-     */
-    private void onSarSensorEvent(int sarSensorEvent) {
-        int newSensorState;
-        if (sarSensorEvent == mSarSensorEventFreeSpace) {
-            newSensorState = SarInfo.SAR_SENSOR_FREE_SPACE;
-        } else if (sarSensorEvent == mSarSensorEventNearBody) {
-            newSensorState = SarInfo.SAR_SENSOR_NEAR_BODY;
-        } else if (sarSensorEvent == mSarSensorEventNearHand) {
-            newSensorState = SarInfo.SAR_SENSOR_NEAR_HAND;
-        } else if (sarSensorEvent == mSarSensorEventNearHead) {
-            newSensorState = SarInfo.SAR_SENSOR_NEAR_HEAD;
-        } else {
-            Log.e(TAG, "Invalid SAR sensor event id: " + sarSensorEvent);
-            return;
-        }
-
-        /* Report change to HAL if needed */
-        if (mSarInfo.sensorState != newSensorState) {
-            Log.d(TAG, "Setting Sensor state to " + SarInfo.sensorStateToString(newSensorState));
-            mSarInfo.sensorState = newSensorState;
-            updateSarScenario();
-        }
-    }
-
-    /**
      * Enable/disable verbose logging.
      */
     public void enableVerboseLogging(int verbose) {
@@ -474,7 +422,6 @@ public class SarManager {
         pw.println("isSarSupported: " + mSupportSarTxPowerLimit);
         pw.println("isSarVoiceCallSupported: " + mSupportSarVoiceCall);
         pw.println("isSarSoftApSupported: " + mSupportSarSoftAp);
-        pw.println("isSarSensorSupported: " + mSupportSarSensor);
         pw.println("");
         if (mSarInfo != null) {
             mSarInfo.dump(fd, pw, args);
@@ -486,12 +433,12 @@ public class SarManager {
      */
     private class WifiPhoneStateListener extends PhoneStateListener {
         WifiPhoneStateListener(Looper looper) {
-            super(looper);
+            super(new HandlerExecutor(new Handler(looper)));
         }
 
         /**
          * onCallStateChanged()
-         * This callback is called when a SAR sensor event is received
+         * This callback is called when a call state event is received
          * Note that this runs in the WifiCoreHandlerThread
          * since the corresponding Looper was passed to the WifiPhoneStateListener constructor.
          */
@@ -504,62 +451,6 @@ public class SarManager {
                 return;
             }
             onCellStateChangeEvent(state);
-        }
-    }
-
-    private class SarSensorEventListener implements SensorEventListener {
-
-        private Sensor mSensor;
-
-        /**
-         * Register the SAR listener to get SAR sensor events
-         */
-        private boolean register() {
-            /* Get the sensor type from configuration */
-            String sensorType = mContext.getResources().getString(
-                    R.string.config_wifi_sar_sensor_type);
-            if (TextUtils.isEmpty(sensorType)) {
-                Log.e(TAG, "Empty SAR sensor type");
-                return false;
-            }
-
-            /* Get the sensor object */
-            Sensor sensor = null;
-            List<Sensor> sensorList = mSensorManager.getSensorList(Sensor.TYPE_ALL);
-            for (Sensor s : sensorList) {
-                if (sensorType.equals(s.getStringType())) {
-                    sensor = s;
-                    break;
-                }
-            }
-            if (sensor == null) {
-                Log.e(TAG, "Failed to Find the SAR Sensor");
-                return false;
-            }
-
-            /* Now register the listener */
-            if (!mSensorManager.registerListener(this, sensor,
-                    SensorManager.SENSOR_DELAY_NORMAL)) {
-                Log.e(TAG, "Failed to register SAR Sensor Listener");
-                return false;
-            }
-
-            return true;
-        }
-
-        /**
-         * onSensorChanged()
-         * This callback is called when a SAR sensor event is received
-         * Note that this runs in the WifiCoreHandlerThread
-         * since, the corresponding Looper was passed to the SensorManager instance.
-         */
-        @Override
-        public void onSensorChanged(SensorEvent event) {
-            onSarSensorEvent((int) event.values[0]);
-        }
-
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
     }
 

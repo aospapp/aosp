@@ -498,6 +498,18 @@ class NetperfRunner(object):
             self._server_host = client_proxy.host
             self._client_host = server_proxy.host
             self._target_ip = client_proxy.wifi_ip
+
+        # Assume minijail0 is on ${PATH}, but raise exception if it's not
+        # available on both server and client.
+        self._minijail = 'minijail0'
+        path_utils.must_be_installed(self._minijail, host=self._server_host)
+        path_utils.must_be_installed(self._minijail, host=self._client_host)
+        # Bind mount a tmpfs over /tmp, since netserver hard-codes the /tmp
+        # path. netserver's log files aren't useful anyway.
+        self._minijail = ("%s -v -k 'tmpfs,/tmp,tmpfs,"
+                          "MS_NODEV|MS_NOEXEC|MS_NOSUID,mode=755,size=10M'"
+                          % self._minijail)
+
         self._command_netserv = path_utils.must_be_installed(
                 'netserver', host=self._server_host)
         self._command_netperf = path_utils.must_be_installed(
@@ -525,8 +537,9 @@ class NetperfRunner(object):
     def _restart_netserv(self):
         logging.info('Starting netserver...')
         self._kill_netserv()
-        self._server_host.run('%s -p %d' %
-                              (self._command_netserv, self.NETPERF_PORT))
+        self._server_host.run('%s %s -p %d' %
+                              (self._minijail, self._command_netserv,
+                               self.NETPERF_PORT))
         startup_time = time.time()
         self._client_proxy.firewall_open('tcp', self._server_proxy.wifi_ip)
         self._client_proxy.firewall_open('udp', self._server_proxy.wifi_ip)

@@ -30,66 +30,48 @@
         ]
     },
     "initialState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$TaskAffinity1Activity",
-                                "state": "RESUMED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$TaskAffinity1Activity",
+                        "state": "RESUMED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$TaskAffinity1Activity"
+                ]
             },
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity",
-                                "state": "STOPPED"
-                            },
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$TaskAffinity1Activity",
-                                "state": "STOPPED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$RegularActivity",
+                        "state": "STOPPED"
+                    },
+                    {
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$TaskAffinity1Activity",
+                        "state": "STOPPED"
                     }
                 ]
             }
         ]
     },
     "endState": {
-        "stacks": [
+        "tasks": [
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$TaskAffinity1Activity",
-                                "state": "RESUMED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$TaskAffinity1Activity",
+                        "state": "RESUMED"
                     }
-                ],
-                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$TaskAffinity1Activity"
+                ]
             },
             {
-                "tasks": [
+                "activities": [
                     {
-                        "activities": [
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity",
-                                "state": "STOPPED"
-                            },
-                            {
-                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$TaskAffinity1Activity",
-                                "state": "STOPPED"
-                            }
-                        ]
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$RegularActivity",
+                        "state": "STOPPED"
+                    },
+                    {
+                        "name": "android.server.wm.cts/android.server.wm.intent.Activities$TaskAffinity1Activity",
+                        "state": "STOPPED"
                     }
                 ]
             }

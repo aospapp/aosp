@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Simple utility to trigger a Repair job on a bunch of hosts.
 #
 # CAVEAT:  no error checking; if any argument isn't a valid

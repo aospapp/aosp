@@ -20,7 +20,11 @@ art_cc_binary {
     shared_libs: [
         "libdexfile",
         "libartbase",
-        "libbase"
+        "libbase",
+    ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
     ],
 }
 

@@ -1,12 +1,12 @@
-# AOSP Presubmit Hooks
-
-[TOC]
+# AOSP Preupload Hooks
 
 This repo holds hooks that get run by repo during the upload phase.  They
 perform various checks automatically such as running linters on your code.
 
 Note: Currently all hooks are disabled by default.  Each repo must explicitly
 turn on any hook it wishes to enforce.
+
+[TOC]
 
 ## Usage
 
@@ -49,12 +49,15 @@ settings on top.
 
 ## PREUPLOAD.cfg
 
-This file are checked in the top of a specific git repository.  Stacking them
+This file is checked in the top of a specific git repository.  Stacking them
 in subdirectories (to try and override parent settings) is not supported.
 
 ## Example
 
 ```
+# Per-project `repo upload` hook settings.
+# https://android.googlesource.com/platform/tools/repohooks
+
 [Options]
 ignore_merged_commits = true
 
@@ -100,6 +103,10 @@ such will be expanded correctly via argument positions, so do not try to
 force your own quote handling.
 
 * `${PREUPLOAD_FILES}`: List of files to operate on.
+* `${PREUPLOAD_FILES_PREFIXED}`: A list of files to operate on.
+   Any string preceding/attached to the keyword ${PREUPLOAD_FILES_PREFIXED}
+   will be repeated for each file automatically. If no string is preceding/attached
+   to the keyword, the previous argument will be repeated before each file.
 * `${PREUPLOAD_COMMIT}`: Commit hash.
 * `${PREUPLOAD_COMMIT_MESSAGE}`: Commit message.
 
@@ -109,6 +116,22 @@ are automatically expanded for you:
 * `${REPO_ROOT}`: The absolute path of the root of the repo checkout.
 * `${BUILD_OS}`: The string `darwin-x86` for macOS and the string `linux-x86`
   for Linux/x86.
+
+### Examples
+
+Here are some examples of using the placeholders.
+Consider this sample config file.
+```
+[Hook Scripts]
+lister = ls ${PREUPLOAD_FILES}
+checker prefix = check --file=${PREUPLOAD_FILES_PREFIXED}
+checker flag = check --file ${PREUPLOAD_FILES_PREFIXED}
+```
+With a commit that changes `path1/file1` and `path2/file2`, then this will run
+programs with the arguments:
+* ['ls', 'path1/file1', 'path2/file2']
+* ['check', '--file=path1/file1', '--file=path2/file2']
+* ['check', '--file', 'path1/file1', '--file', 'path2/file2']
 
 ## [Options]
 
@@ -126,13 +149,20 @@ The key can be any name (as long as the syntax is valid), as can the program
 that is executed. The key is used as the name of the hook for reporting purposes,
 so it should be at least somewhat descriptive.
 
+Whitespace in the key name is OK!
+
+The keys must be unique as duplicates will silently clobber earlier values.
+
+You do not need to send stderr to stdout.  The tooling will take care of
+merging them together for you automatically.
+
 ```
 [Hook Scripts]
-my_first_hook = program --gogog ${PREUPLOAD_FILES}
-another_hook = funtimes --i-need "some space" ${PREUPLOAD_FILES}
-some_fish = linter --ate-a-cat ${PREUPLOAD_FILES}
-some_cat = formatter --cat-commit ${PREUPLOAD_COMMIT}
-some_dog = tool --no-cat-in-commit-message ${PREUPLOAD_COMMIT_MESSAGE}
+my first hook = program --gogog ${PREUPLOAD_FILES}
+another hook = funtimes --i-need "some space" ${PREUPLOAD_FILES}
+some fish = linter --ate-a-cat ${PREUPLOAD_FILES}
+some cat = formatter --cat-commit ${PREUPLOAD_COMMIT}
+some dog = tool --no-cat-in-commit-message ${PREUPLOAD_COMMIT_MESSAGE}
 ```
 
 ## [Builtin Hooks]
@@ -140,6 +170,7 @@ some_dog = tool --no-cat-in-commit-message ${PREUPLOAD_COMMIT_MESSAGE}
 This section allows for turning on common/builtin hooks.  There are a bunch of
 canned hooks already included geared towards AOSP style guidelines.
 
+* `bpfmt`: Run Blueprint files (.bp) through `bpfmt`.
 * `checkpatch`: Run commits through the Linux kernel's `checkpatch.pl` script.
 * `clang_format`: Run git-clang-format against the commit. The default style is
   `file`.
@@ -147,13 +178,22 @@ canned hooks already included geared towards AOSP style guidelines.
 * `commit_msg_changeid_field`: Require a valid `Change-Id:` Gerrit line.
 * `commit_msg_prebuilt_apk_fields`: Require badging and build information for
   prebuilt APKs.
+* `commit_msg_relnote_field_format`: Check for possible misspellings of the
+  `Relnote:` field and that multiline release notes are properly formatted with
+  quotes.
+* `commit_msg_relnote_for_current_txt`: Check that CLs with changes to
+  current.txt or public_plus_experimental_current.txt also contain a
+  `Relnote:` field in the commit message.
 * `commit_msg_test_field`: Require a `Test:` line.
 * `cpplint`: Run through the cpplint tool (for C++ code).
 * `gofmt`: Run Go code through `gofmt`.
 * `google_java_format`: Run Java code through
   [`google-java-format`](https://github.com/google/google-java-format)
 * `jsonlint`: Verify JSON code is sane.
-* `pylint`: Run Python code through `pylint`.
+* `pylint`: Alias of `pylint2`.  Will change to `pylint3` by end of 2019.
+* `pylint2`: Run Python code through `pylint` using Python 2.
+* `pylint3`: Run Python code through `pylint` using Python 3.
+* `rustfmt`: Run Rust code through `rustfmt`.
 * `xmllint`: Run XML code through `xmllint`.
 * `android_test_mapping_format`: Validate TEST_MAPPING files in Android source
   code. Refer to go/test-mapping for more details.
@@ -195,6 +235,7 @@ executables can be overridden through `[Tool Paths]`.  This is helpful to
 provide consistent behavior for developers across different OS and Linux
 distros/versions.  The following tools are recognized:
 
+* `bpfmt`: used for the `bpfmt` builtin hook.
 * `clang-format`: used for the `clang_format` builtin hook.
 * `cpplint`: used for the `cpplint` builtin hook.
 * `git-clang-format`: used for the `clang_format` builtin hook.
@@ -202,6 +243,7 @@ distros/versions.  The following tools are recognized:
 * `google-java-format`: used for the `google_java_format` builtin hook.
 * `google-java-format-diff`: used for the `google_java_format` builtin hook.
 * `pylint`: used for the `pylint` builtin hook.
+* `rustfmt`: used for the `rustfmt` builtin hook.
 * `android-test-mapping-format`: used for the `android_test_mapping_format`
   builtin hook.
 
@@ -226,13 +268,13 @@ These are notes for people updating the `pre-upload.py` hook itself:
 * New hooks can be added in `rh/hooks.py`.  Be sure to keep the list up-to-date
   with the documentation in this file.
 
-### Warnings
+## Warnings
 
 If the return code of a hook is 77, then it is assumed to be a warning.  The
 output will be printed to the terminal, but uploading will still be allowed
 without a bypass being required.
 
-## TODO/Limitations
+# TODO/Limitations
 
 * `pylint` should support per-directory pylintrc files.
 * Some checkers operate on the files as they exist in the filesystem.  This is

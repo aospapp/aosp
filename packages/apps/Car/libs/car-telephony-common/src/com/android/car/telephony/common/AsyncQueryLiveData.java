@@ -19,13 +19,16 @@ package com.android.car.telephony.common;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
-import android.os.HandlerThread;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.lifecycle.LiveData;
+
+import com.android.car.apps.common.log.L;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 /**
  * Asynchronously queries a {@link ContentResolver} for a given query and observes the loaded data
@@ -36,19 +39,21 @@ import androidx.lifecycle.LiveData;
 public abstract class AsyncQueryLiveData<T> extends LiveData<T> {
 
     private static final String TAG = "CD.AsyncQueryLiveData";
-    private static HandlerThread sHandlerThread;
-
-    static {
-        sHandlerThread = new HandlerThread(AsyncQueryLiveData.class.getName());
-        sHandlerThread.start();
-    }
+    private final ExecutorService mExecutorService;
 
     private final ObservableAsyncQuery mObservableAsyncQuery;
     private CursorRunnable mCurrentCursorRunnable;
+    private Future<?> mCurrentRunnableFuture;
 
     public AsyncQueryLiveData(Context context, QueryParam.Provider provider) {
+        this(context, provider, WorkerExecutor.getInstance().getSingleThreadExecutor());
+    }
+
+    public AsyncQueryLiveData(Context context, QueryParam.Provider provider,
+            ExecutorService executorService) {
         mObservableAsyncQuery = new ObservableAsyncQuery(provider, context.getContentResolver(),
                 this::onCursorLoaded);
+        mExecutorService = executorService;
     }
 
     @Override
@@ -62,6 +67,7 @@ public abstract class AsyncQueryLiveData<T> extends LiveData<T> {
         super.onInactive();
         if (mCurrentCursorRunnable != null) {
             mCurrentCursorRunnable.closeCursorIfNecessary();
+            mCurrentRunnableFuture.cancel(false);
         }
         mObservableAsyncQuery.stopQuery();
     }
@@ -73,12 +79,13 @@ public abstract class AsyncQueryLiveData<T> extends LiveData<T> {
     protected abstract T convertToEntity(@NonNull Cursor cursor);
 
     private void onCursorLoaded(Cursor cursor) {
-        Log.d(TAG, "onCursorLoaded: " + this);
+        L.d(TAG, "onCursorLoaded: " + this);
         if (mCurrentCursorRunnable != null) {
             mCurrentCursorRunnable.closeCursorIfNecessary();
+            mCurrentRunnableFuture.cancel(false);
         }
         mCurrentCursorRunnable = new CursorRunnable(cursor);
-        sHandlerThread.getThreadHandler().post(mCurrentCursorRunnable);
+        mCurrentRunnableFuture = mExecutorService.submit(mCurrentCursorRunnable);
     }
 
     private class CursorRunnable implements Runnable {

@@ -15,13 +15,13 @@
      limitations under the License.
 -->
 
-<android.support.v17.leanback.widget.GuidedActionItemContainer
+<androidx.leanback.widget.GuidedActionItemContainer
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     style="?attr/guidedActionItemContainerStyle"
     android:foreground="@null"
     android:outlineProvider="background">
-    <android.support.v17.leanback.widget.CheckableImageView
+    <androidx.leanback.widget.CheckableImageView
         android:id="@+id/guidedactions_item_checkmark"
         style="?attr/guidedActionItemCheckmarkStyle"
         tools:ignore="ContentDescription" />
@@ -30,16 +30,16 @@
         style="?attr/guidedActionItemIconStyle"
         tools:ignore="ContentDescription" />
 
-    <android.support.v17.leanback.widget.NonOverlappingLinearLayout
+    <androidx.leanback.widget.NonOverlappingLinearLayout
         android:id="@+id/guidedactions_item_content"
         style="?attr/guidedActionItemContentStyle" >
-        <android.support.v17.leanback.widget.GuidedActionEditText
+        <androidx.leanback.widget.GuidedActionEditText
             android:id="@+id/guidedactions_item_title"
             style="?attr/guidedActionItemTitleStyle" />
-        <android.support.v17.leanback.widget.GuidedActionEditText
+        <androidx.leanback.widget.GuidedActionEditText
             android:id="@+id/guidedactions_item_description"
             style="?attr/guidedActionItemDescriptionStyle" />
-    </android.support.v17.leanback.widget.NonOverlappingLinearLayout>
+    </androidx.leanback.widget.NonOverlappingLinearLayout>
 
     <ImageView
         android:id="@+id/guidedactions_item_chevron"
@@ -53,4 +53,4 @@
         android:adjustViewBounds="true"
         android:src="@drawable/ic_draggable_white"
         tools:ignore="ContentDescription" />
-</android.support.v17.leanback.widget.GuidedActionItemContainer>
+</androidx.leanback.widget.GuidedActionItemContainer>

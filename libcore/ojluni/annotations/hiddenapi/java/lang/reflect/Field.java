@@ -26,7 +26,7 @@
 
 package java.lang.reflect;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Field extends java.lang.reflect.AccessibleObject
@@ -165,10 +165,6 @@ public final class Field extends java.lang.reflect.AccessibleObject
 
     public native java.lang.annotation.Annotation[] getDeclaredAnnotations();
 
-    public int getDexFieldIndex() {
-        throw new RuntimeException("Stub!");
-    }
-
     @UnsupportedAppUsage
     public int getOffset() {
         throw new RuntimeException("Stub!");
@@ -181,7 +177,7 @@ public final class Field extends java.lang.reflect.AccessibleObject
 
     private java.lang.Class<?> declaringClass;
 
-    private int dexFieldIndex;
+    private int artFieldIndex;
 
     private int offset;
 

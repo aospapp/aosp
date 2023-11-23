@@ -38,7 +38,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 7667447206703254355 (0x6a683e9c519bcb53)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=TR, L=Ankara, O=E-Tu\xC4\x9Fra EBG Bili\xC5\x9Fim Teknolojileri ve Hizmetleri A.\xC5\x9E., OU=E-Tugra Sertifikasyon Merkezi, CN=E-Tugra Certification Authority
         Validity
             Not Before: Mar  5 12:09:48 2013 GMT
@@ -46,7 +46,7 @@ Certificate:
         Subject: C=TR, L=Ankara, O=E-Tu\xC4\x9Fra EBG Bili\xC5\x9Fim Teknolojileri ve Hizmetleri A.\xC5\x9E., OU=E-Tugra Sertifikasyon Merkezi, CN=E-Tugra Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:e2:f5:3f:93:05:51:1e:85:62:54:5e:7a:0b:f5:
                     18:07:83:ae:7e:af:7c:f7:d4:8a:6b:a5:63:43:39:

@@ -5,10 +5,10 @@ third_party {
     type: GIT
     value: "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
   }
-  version: "2.0.2"
+  version: "2.0.3"
   last_upgrade_date {
     year: 2019
-    month: 3
-    day: 15
+    month: 9
+    day: 4
   }
 }

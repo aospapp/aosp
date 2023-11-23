@@ -21,7 +21,7 @@ import static com.android.settingslib.display.BrightnessUtils.GAMMA_SPACE_MAX;
 import static com.android.settingslib.display.BrightnessUtils.convertGammaToLinear;
 import static com.android.settingslib.display.BrightnessUtils.convertLinearToGamma;
 
-import android.car.userlib.CarUserManagerHelper;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.os.PowerManager;
 import android.provider.Settings.SettingNotFoundException;
@@ -35,14 +35,12 @@ import com.android.car.settings.common.Logger;
  */
 public class BrightnessTile implements QuickSettingGridAdapter.SeekbarTile {
     private static final Logger LOG = new Logger(BrightnessTile.class);
-    private CarUserManagerHelper mCarUserManagerHelper;
     private final Context mContext;
     private final int mMaximumBacklight;
     private final int mMinimumBacklight;
 
     public BrightnessTile(Context context) {
         mContext = context;
-        mCarUserManagerHelper = new CarUserManagerHelper(mContext);
         PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         mMaximumBacklight = powerManager.getMaximumScreenBrightnessSetting();
         mMinimumBacklight = powerManager.getMinimumScreenBrightnessSetting();
@@ -62,7 +60,7 @@ public class BrightnessTile implements QuickSettingGridAdapter.SeekbarTile {
     public void onProgressChanged(SeekBar seekBar, int gamma, boolean fromUser) {
         int linear = convertGammaToLinear(gamma, mMinimumBacklight, mMaximumBacklight);
         System.putIntForUser(mContext.getContentResolver(), SCREEN_BRIGHTNESS, linear,
-                             mCarUserManagerHelper.getCurrentForegroundUserId());
+                ActivityManager.getCurrentUser());
     }
 
     @Override
@@ -83,7 +81,7 @@ public class BrightnessTile implements QuickSettingGridAdapter.SeekbarTile {
         int gamma = GAMMA_SPACE_MAX;
         try {
             int linear = System.getIntForUser(mContext.getContentResolver(), SCREEN_BRIGHTNESS,
-                                              mCarUserManagerHelper.getCurrentForegroundUserId());
+                    ActivityManager.getCurrentUser());
             gamma = convertLinearToGamma(linear, mMinimumBacklight, mMaximumBacklight);
         } catch (SettingNotFoundException e) {
             LOG.w("Can't find setting for SCREEN_BRIGHTNESS.");

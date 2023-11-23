@@ -20,6 +20,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.SystemClock;
+
 import com.android.documentsui.Metrics;
 
 // load & update mime type & repeatedly pick count in background
@@ -62,4 +63,12 @@ public class UpdatePickResultTask extends AsyncTask<Void, Void, Void> {
         Metrics.logPickResult(mPickResult);
     }
 
+    /**
+     * Check the status and only execute if task is pending.
+     */
+    public void safeExecute() {
+        if (getStatus() == Status.PENDING) {
+            execute();
+        }
+    }
 }

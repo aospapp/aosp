@@ -17,7 +17,7 @@
 %                                 May 2001                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -109,7 +109,7 @@
   Declare type map.
 */
 static const char
-  *TypeMap = (const char *)
+  TypeMap[] =
     "<?xml version=\"1.0\"?>"
     "<typemap>"
     "  <type stealth=\"True\" name=\"fixed\" family=\"helvetica\"/>"
@@ -199,7 +199,7 @@ static SplayTreeInfo *AcquireTypeCache(const char *filename,
   cache=NewSplayTree(CompareSplayTreeString,(void *(*)(void *)) NULL,
     DestroyTypeNode);
   status=MagickTrue;
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     char
       *font_path,
@@ -327,8 +327,8 @@ MagickExport const TypeInfo *GetTypeInfoByFamily(const char *family,
   typedef struct _Fontmap
   {
     const char
-      *name,
-      *substitute;
+      name[17],
+      substitute[10];
   } Fontmap;
 
   const TypeInfo
@@ -352,8 +352,7 @@ MagickExport const TypeInfo *GetTypeInfoByFamily(const char *family,
       { "news gothic", "helvetica" },
       { "system", "courier" },
       { "terminal", "courier" },
-      { "wingdings", "symbol" },
-      { NULL, NULL }
+      { "wingdings", "symbol" }
     };
 
   size_t
@@ -475,7 +474,7 @@ MagickExport const TypeInfo *GetTypeInfoByFamily(const char *family,
   /*
     Check for table-based substitution match.
   */
-  for (i=0; fontmap[i].name != (char *) NULL; i++)
+  for (i=0; i < (ssize_t) (sizeof(fontmap)/sizeof(fontmap[0])); i++)
   {
     if (family == (const char *) NULL)
       {
@@ -1109,7 +1108,7 @@ static MagickBooleanType LoadTypeCache(SplayTreeInfo *cache,const char *xml,
     /*
       Interpret XML.
     */
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     if (*token == '\0')
       break;
     (void) CopyMagickString(keyword,token,MagickPathExtent);
@@ -1119,7 +1118,7 @@ static MagickBooleanType LoadTypeCache(SplayTreeInfo *cache,const char *xml,
           Doctype element.
         */
         while ((LocaleNCompare(q,"]>",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleNCompare(keyword,"<!--",4) == 0)
@@ -1128,7 +1127,7 @@ static MagickBooleanType LoadTypeCache(SplayTreeInfo *cache,const char *xml,
           Comment element.
         */
         while ((LocaleNCompare(q,"->",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleCompare(keyword,"<include") == 0)
@@ -1139,10 +1138,10 @@ static MagickBooleanType LoadTypeCache(SplayTreeInfo *cache,const char *xml,
         while (((*token != '/') && (*(token+1) != '>')) && (*q != '\0'))
         {
           (void) CopyMagickString(keyword,token,MagickPathExtent);
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (*token != '=')
             continue;
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"file") == 0)
             {
               if (depth > MagickMaxRecursionDepth)
@@ -1203,11 +1202,11 @@ static MagickBooleanType LoadTypeCache(SplayTreeInfo *cache,const char *xml,
         type_info=(TypeInfo *) NULL;
         continue;
       }
-    GetNextToken(q,(const char **) NULL,extent,token);
+    (void) GetNextToken(q,(const char **) NULL,extent,token);
     if (*token != '=')
       continue;
-    GetNextToken(q,&q,extent,token);
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     switch (*keyword)
     {
       case 'E':

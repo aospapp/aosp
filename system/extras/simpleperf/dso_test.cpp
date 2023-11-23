@@ -46,6 +46,14 @@ TEST(DebugElfFileFinder, use_build_id_list) {
   unlink(build_id_list_file.c_str());
 }
 
+static std::string ConvertPathSeparator(const std::string& path) {
+  std::string result = path;
+  if (OS_PATH_SEPARATOR != '/') {
+    std::replace(result.begin(), result.end(), '/', OS_PATH_SEPARATOR);
+  }
+  return result;
+}
+
 TEST(DebugElfFileFinder, concatenating_symfs_dir) {
   DebugElfFileFinder finder;
   ASSERT_TRUE(finder.SetSymFsDir(GetTestDataDir()));
@@ -57,8 +65,7 @@ TEST(DebugElfFileFinder, concatenating_symfs_dir) {
   BuildId build_id(ELF_FILE_BUILD_ID);
   ASSERT_EQ(finder.FindDebugFile(ELF_FILE, false, build_id), GetTestDataDir() + ELF_FILE);
   std::string native_lib_in_apk = APK_FILE + "!/" + NATIVELIB_IN_APK;
-  std::string apk_path = APK_FILE;
-  std::replace(apk_path.begin(), apk_path.end(), '/', OS_PATH_SEPARATOR);
+  std::string apk_path = ConvertPathSeparator(APK_FILE);
   ASSERT_EQ(finder.FindDebugFile(native_lib_in_apk, false, native_lib_build_id),
             GetTestDataDir() + apk_path + "!/" + NATIVELIB_IN_APK);
 }
@@ -78,11 +85,52 @@ TEST(DebugElfFileFinder, add_symbol_dir) {
   DebugElfFileFinder finder;
   ASSERT_FALSE(finder.AddSymbolDir(GetTestDataDir() + "dir_not_exist"));
   ASSERT_EQ(finder.FindDebugFile("elf", false, CHECK_ELF_FILE_BUILD_ID), "elf");
-  std::string symfs_dir = GetTestDataDir() + CORRECT_SYMFS_FOR_BUILD_ID_CHECK;
-  std::replace(symfs_dir.begin(), symfs_dir.end(), '/', OS_PATH_SEPARATOR);
+  std::string symfs_dir = ConvertPathSeparator(GetTestDataDir() + CORRECT_SYMFS_FOR_BUILD_ID_CHECK);
   ASSERT_TRUE(finder.AddSymbolDir(symfs_dir));
   ASSERT_EQ(finder.FindDebugFile("elf", false, CHECK_ELF_FILE_BUILD_ID),
             symfs_dir + OS_PATH_SEPARATOR + "elf_for_build_id_check");
+}
+
+TEST(DebugElfFileFinder, build_id_list) {
+  DebugElfFileFinder finder;
+  // Find file in symfs dir with correct build_id_list.
+  std::string symfs_dir = ConvertPathSeparator(GetTestDataDir() + "data/symfs_with_build_id_list");
+  ASSERT_TRUE(finder.SetSymFsDir(symfs_dir));
+  ASSERT_EQ(finder.FindDebugFile("elf", false, CHECK_ELF_FILE_BUILD_ID),
+            symfs_dir + OS_PATH_SEPARATOR + "elf_for_build_id_check");
+
+  // Find file in symfs_dir with wrong build_id_list.
+  symfs_dir = ConvertPathSeparator(GetTestDataDir() + "data/symfs_with_wrong_build_id_list");
+  finder.Reset();
+  ASSERT_TRUE(finder.SetSymFsDir(symfs_dir));
+  ASSERT_EQ(finder.FindDebugFile("elf", false, CHECK_ELF_FILE_BUILD_ID), "elf");
+}
+
+TEST(DebugElfFileFinder, no_build_id) {
+  DebugElfFileFinder finder;
+  // If not given a build id, we should match an elf in symfs without build id.
+  std::string symfs_dir = ConvertPathSeparator(GetTestDataDir() + "data/symfs_without_build_id");
+  ASSERT_TRUE(finder.SetSymFsDir(symfs_dir));
+  BuildId build_id;
+  ASSERT_EQ(finder.FindDebugFile("elf", false, build_id), symfs_dir + OS_PATH_SEPARATOR + "elf");
+}
+
+TEST(DebugElfFileFinder, find_basename_in_symfs_dir) {
+  DebugElfFileFinder finder;
+  // Find normal elf file.
+  finder.SetSymFsDir(GetTestDataDir());
+  BuildId build_id(ELF_FILE_BUILD_ID);
+  ASSERT_EQ(finder.FindDebugFile("random_dir/elf", false, build_id), GetTestData("elf"));
+
+  // Find embedded native library.
+  ASSERT_EQ(finder.FindDebugFile("base.apk!/lib/x86_64/elf", false, build_id), GetTestData("elf"));
+
+  // Find elf file without build id.
+  std::string symfs_dir = ConvertPathSeparator(GetTestDataDir() + "data/symfs_without_build_id");
+  finder.SetSymFsDir(symfs_dir);
+  build_id = BuildId();
+  ASSERT_EQ(finder.FindDebugFile("random_dir/elf", false, build_id),
+            symfs_dir + OS_PATH_SEPARATOR + "elf");
 }
 
 TEST(dso, dex_file_dso) {

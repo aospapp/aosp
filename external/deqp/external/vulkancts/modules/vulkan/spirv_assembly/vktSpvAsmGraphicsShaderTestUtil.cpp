@@ -275,6 +275,7 @@ InstanceContext::InstanceContext (const RGBA						(&inputs)[4],
 	, failResult					(QP_TEST_RESULT_FAIL)
 	, failMessageTemplate			("${reason}")
 	, renderFullSquare				(false)
+	, splitRenderArea				(false)
 {
 	inputColors[0]		= inputs[0];
 	inputColors[1]		= inputs[1];
@@ -302,6 +303,7 @@ InstanceContext::InstanceContext (const InstanceContext& other)
 	, failResult					(other.failResult)
 	, failMessageTemplate			(other.failMessageTemplate)
 	, renderFullSquare				(other.renderFullSquare)
+	, splitRenderArea				(other.splitRenderArea)
 {
 	inputColors[0]		= other.inputColors[0];
 	inputColors[1]		= other.inputColors[1];
@@ -319,6 +321,80 @@ string InstanceContext::getSpecializedFailMessage (const string& failureReason)
 	map<string, string>		parameters;
 	parameters["reason"]	= failureReason;
 	return StringTemplate(failMessageTemplate).specialize(parameters);
+}
+
+InstanceContext createInstanceContext (const std::vector<ShaderElement>&			elements,
+									   const tcu::RGBA								(&inputColors)[4],
+									   const tcu::RGBA								(&outputColors)[4],
+									   const std::map<std::string, std::string>&	testCodeFragments,
+									   const StageToSpecConstantMap&				specConstants,
+									   const PushConstants&							pushConstants,
+									   const GraphicsResources&						resources,
+									   const GraphicsInterfaces&					interfaces,
+									   const std::vector<std::string>&				extensions,
+									   VulkanFeatures								vulkanFeatures,
+									   VkShaderStageFlags							customizedStages,
+									   const qpTestResult							failResult,
+									   const std::string&							failMessageTemplate)
+{
+	InstanceContext ctx (inputColors, outputColors, testCodeFragments, specConstants, pushConstants, resources, interfaces, extensions, vulkanFeatures, customizedStages);
+	for (size_t i = 0; i < elements.size(); ++i)
+	{
+		ctx.moduleMap[elements[i].moduleName].push_back(std::make_pair(elements[i].entryName, elements[i].stage));
+		ctx.requiredStages = static_cast<VkShaderStageFlagBits>(ctx.requiredStages | elements[i].stage);
+	}
+	ctx.failResult				= failResult;
+	if (!failMessageTemplate.empty())
+		ctx.failMessageTemplate	= failMessageTemplate;
+	return ctx;
+}
+
+InstanceContext createInstanceContext (const std::vector<ShaderElement>&			elements,
+									   tcu::RGBA									(&inputColors)[4],
+									   const tcu::RGBA								(&outputColors)[4],
+									   const std::map<std::string, std::string>&	testCodeFragments)
+{
+	return createInstanceContext(elements, inputColors, outputColors, testCodeFragments,
+								 StageToSpecConstantMap(), PushConstants(), GraphicsResources(),
+								 GraphicsInterfaces(), std::vector<std::string>(),
+								 VulkanFeatures(), vk::VK_SHADER_STAGE_ALL);
+}
+
+InstanceContext createInstanceContext (const std::vector<ShaderElement>&			elements,
+									   const std::map<std::string, std::string>&	testCodeFragments)
+{
+	tcu::RGBA defaultColors[4];
+	getDefaultColors(defaultColors);
+	return createInstanceContext(elements, defaultColors, defaultColors, testCodeFragments);
+}
+
+UnusedVariableContext createUnusedVariableContext(const ShaderTaskArray& shaderTasks, const VariableLocation& location)
+{
+	for (size_t i = 0; i < DE_LENGTH_OF_ARRAY(shaderTasks); ++i)
+	{
+		DE_ASSERT(shaderTasks[i] >= 0 && shaderTasks[i] < SHADER_TASK_LAST);
+	}
+
+	std::vector<ShaderElement> elements;
+
+	DE_ASSERT(shaderTasks[SHADER_TASK_INDEX_VERTEX]		!= SHADER_TASK_NONE);
+	DE_ASSERT(shaderTasks[SHADER_TASK_INDEX_FRAGMENT]	!= SHADER_TASK_NONE);
+	elements.push_back(ShaderElement("vert", "main", vk::VK_SHADER_STAGE_VERTEX_BIT));
+	elements.push_back(ShaderElement("frag", "main", vk::VK_SHADER_STAGE_FRAGMENT_BIT));
+
+	if (shaderTasks[SHADER_TASK_INDEX_GEOMETRY] != SHADER_TASK_NONE)
+		elements.push_back(ShaderElement("geom", "main", vk::VK_SHADER_STAGE_GEOMETRY_BIT));
+
+	if (shaderTasks[SHADER_TASK_INDEX_TESS_CONTROL] != SHADER_TASK_NONE)
+		elements.push_back(ShaderElement("tessc", "main", vk::VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT));
+
+	if (shaderTasks[SHADER_TASK_INDEX_TESS_EVAL] != SHADER_TASK_NONE)
+		elements.push_back(ShaderElement("tesse", "main", vk::VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT));
+
+	return UnusedVariableContext(
+		createInstanceContext(elements, map<string, string>()),
+		shaderTasks,
+		location);
 }
 
 ShaderElement::ShaderElement (const string&				moduleName_,
@@ -431,7 +507,7 @@ string makeVertexShaderAssembly (const map<string, string>& fragments)
 		"%BP_gl_InstanceIndex = OpVariable %ip_i32 Input\n"
 		"${pre_main:opt}\n"
 		"${IF_variable:opt}\n"
-		"%BP_main = OpFunction %void None %fun\n"
+		"%BP_main = OpFunction %void None %voidf\n"
 		"%BP_label = OpLabel\n"
 		"${IF_carryforward:opt}\n"
 		"${post_interface_op_vert:opt}\n"
@@ -531,7 +607,7 @@ string makeTessControlShaderAssembly (const map<string, string>& fragments)
 		"${pre_main:opt}\n"
 		"${IF_variable:opt}\n"
 
-		"%BP_main = OpFunction %void None %fun\n"
+		"%BP_main = OpFunction %void None %voidf\n"
 		"%BP_label = OpLabel\n"
 		"%BP_gl_Invoc = OpLoad %i32 %BP_gl_InvocationID\n"
 		"${IF_carryforward:opt}\n"
@@ -648,7 +724,7 @@ string makeTessEvalShaderAssembly (const map<string, string>& fragments)
 		"%BP_in_color = OpVariable %ip_a32v4f32 Input\n"
 		"${pre_main:opt}\n"
 		"${IF_variable:opt}\n"
-		"%BP_main = OpFunction %void None %fun\n"
+		"%BP_main = OpFunction %void None %voidf\n"
 		"%BP_label = OpLabel\n"
 		"${IF_carryforward:opt}\n"
 		"${post_interface_op_tesse:opt}\n"
@@ -758,8 +834,9 @@ string makeGeometryShaderAssembly (const map<string, string>& fragments)
 		"${capability:opt}\n"
 		"${extension:opt}\n"
 		"OpMemoryModel Logical GLSL450\n"
-		"OpEntryPoint Geometry %BP_main \"main\" %BP_out_gl_position %BP_gl_PrimitiveID %BP_gl_in %BP_out_color %BP_in_color ${IF_entrypoint:opt} \n"
+		"OpEntryPoint Geometry %BP_main \"main\" %BP_out_gl_position %BP_gl_PrimitiveID %BP_gl_in %BP_out_color %BP_in_color ${IF_entrypoint:opt} ${GL_entrypoint:opt} \n"
 		"OpExecutionMode %BP_main Triangles\n"
+		"OpExecutionMode %BP_main Invocations 1\n"
 		"OpExecutionMode %BP_main OutputTriangleStrip\n"
 		"OpExecutionMode %BP_main OutputVertices 3\n"
 		"${execution_mode:opt}\n"
@@ -794,7 +871,7 @@ string makeGeometryShaderAssembly (const map<string, string>& fragments)
 		"${pre_main:opt}\n"
 		"${IF_variable:opt}\n"
 
-		"%BP_main = OpFunction %void None %fun\n"
+		"%BP_main = OpFunction %void None %voidf\n"
 		"%BP_label = OpLabel\n"
 
 		"${IF_carryforward:opt}\n"
@@ -898,7 +975,7 @@ string makeFragmentShaderAssembly (const map<string, string>& fragments)
 		"%BP_vtxColor = OpVariable %ip_v4f32 Input\n"
 		"${pre_main:opt}\n"
 		"${IF_variable:opt}\n"
-		"%BP_main = OpFunction %void None %fun\n"
+		"%BP_main = OpFunction %void None %voidf\n"
 		"%BP_label_main = OpLabel\n"
 		"${IF_carryforward:opt}\n"
 		"${post_interface_op_frag:opt}\n"
@@ -933,12 +1010,8 @@ map<string, string> passthruInterface (const IFDataType& data_type)
 	map<string, string>	fragments	= passthruFragments();
 	const string		functype	= string("%") + var_type + "_" + var_type + "_function";
 
-	fragments["interface_op_func"]	=
-		string("%interface_op_func = OpFunction %") + var_type + " None " + functype + "\n"
-		"               %io_param1 = OpFunctionParameter %" + var_type + "\n"
-		"                %IF_label = OpLabel\n"
-		"                            OpReturnValue %io_param1\n"
-		"                            OpFunctionEnd\n";
+	fragments["interface_op_call"]  = "OpCopyObject %" + var_type;
+	fragments["interface_op_func"]	= "";
 	fragments["input_type"]			= var_type;
 	fragments["output_type"]		= var_type;
 	fragments["pre_main"]			= "";
@@ -1012,7 +1085,7 @@ map<string, string> fillInterfacePlaceholderVert (void)
 		"OpDecorate %IF_output Location 2\n";
 	fragments["IF_carryforward"]	=
 		"%IF_input_val = OpLoad %${input_type} %IF_input\n"
-		"   %IF_result = OpFunctionCall %${output_type} %interface_op_func %IF_input_val\n"
+		"   %IF_result = ${interface_op_call} %IF_input_val\n"
 		"                OpStore %IF_output %IF_result\n";
 
 	// Make sure the rest still need to be instantialized.
@@ -1023,6 +1096,7 @@ map<string, string> fillInterfacePlaceholderVert (void)
 	fragments["decoration"]				= "${decoration:opt}";
 	fragments["pre_main"]				= "${pre_main:opt}";
 	fragments["testfun"]				= "${testfun}";
+	fragments["interface_op_call"]    = "${interface_op_call}";
 	fragments["interface_op_func"]		= "${interface_op_func}";
 	fragments["post_interface_op_vert"]	= "${post_interface_op_vert:opt}";
 
@@ -1049,7 +1123,7 @@ map<string, string> fillInterfacePlaceholderFrag (void)
 		"OpDecorate %IF_output Location 1\n";  // Fragment shader should write to location #1.
 	fragments["IF_carryforward"]	=
 		"%IF_input_val = OpLoad %${input_type} %IF_input\n"
-		"   %IF_result = OpFunctionCall %${output_type} %interface_op_func %IF_input_val\n"
+		"   %IF_result = ${interface_op_call} %IF_input_val\n"
 		"                OpStore %IF_output %IF_result\n";
 
 	// Make sure the rest still need to be instantialized.
@@ -1060,6 +1134,7 @@ map<string, string> fillInterfacePlaceholderFrag (void)
 	fragments["decoration"]				= "${decoration:opt}";
 	fragments["pre_main"]				= "${pre_main:opt}";
 	fragments["testfun"]				= "${testfun}";
+	fragments["interface_op_call"]		= "${interface_op_call}";
 	fragments["interface_op_func"]		= "${interface_op_func}";
 	fragments["post_interface_op_frag"]	= "${post_interface_op_frag:opt}";
 
@@ -1094,9 +1169,9 @@ map<string, string> fillInterfacePlaceholderTessCtrl (void)
 		"%IF_input_val0 = OpLoad %${input_type} %IF_input_ptr0\n"
 		"%IF_input_val1 = OpLoad %${input_type} %IF_input_ptr1\n"
 		"%IF_input_val2 = OpLoad %${input_type} %IF_input_ptr2\n"
-		"%IF_input_res0 = OpFunctionCall %${output_type} %interface_op_func %IF_input_val0\n"
-		"%IF_input_res1 = OpFunctionCall %${output_type} %interface_op_func %IF_input_val1\n"
-		"%IF_input_res2 = OpFunctionCall %${output_type} %interface_op_func %IF_input_val2\n"
+		"%IF_input_res0 = ${interface_op_call} %IF_input_val0\n"
+		"%IF_input_res1 = ${interface_op_call} %IF_input_val1\n"
+		"%IF_input_res2 = ${interface_op_call} %IF_input_val2\n"
 		"OpStore %IF_output_ptr0 %IF_input_res0\n"
 		"OpStore %IF_output_ptr1 %IF_input_res1\n"
 		"OpStore %IF_output_ptr2 %IF_input_res2\n";
@@ -1110,6 +1185,7 @@ map<string, string> fillInterfacePlaceholderTessCtrl (void)
 	fragments["decoration_tessc"]			= "${decoration_tessc:opt}";
 	fragments["pre_main"]					= "${pre_main:opt}";
 	fragments["testfun"]					= "${testfun}";
+	fragments["interface_op_call"]			= "${interface_op_call}";
 	fragments["interface_op_func"]			= "${interface_op_func}";
 	fragments["post_interface_op_tessc"]	= "${post_interface_op_tessc:opt}";
 
@@ -1138,7 +1214,7 @@ map<string, string> fillInterfacePlaceholderTessEvalGeom (void)
 		// Only get the first value since all three values are the same anyway.
 		" %IF_input_ptr0 = OpAccessChain %ip_${input_type} %IF_input %c_i32_0\n"
 		" %IF_input_val0 = OpLoad %${input_type} %IF_input_ptr0\n"
-		" %IF_input_res0 = OpFunctionCall %${output_type} %interface_op_func %IF_input_val0\n"
+		" %IF_input_res0 = ${interface_op_call} %IF_input_val0\n"
 		"OpStore %IF_output %IF_input_res0\n";
 
 	// Make sure the rest still need to be instantialized.
@@ -1149,6 +1225,7 @@ map<string, string> fillInterfacePlaceholderTessEvalGeom (void)
 	fragments["decoration"]					= "${decoration:opt}";
 	fragments["pre_main"]					= "${pre_main:opt}";
 	fragments["testfun"]					= "${testfun}";
+	fragments["interface_op_call"]			= "${interface_op_call}";
 	fragments["interface_op_func"]			= "${interface_op_func}";
 	fragments["post_interface_op_tesse"]	= "${post_interface_op_tesse:opt}";
 	fragments["post_interface_op_geom"]		= "${post_interface_op_geom:opt}";
@@ -1391,6 +1468,7 @@ void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx)
 	if (useGeometry)
 	{
 		combinedModule <<	"OpExecutionMode %geom_main Triangles\n"
+							"OpExecutionMode %geom_main Invocations 1\n"
 							"OpExecutionMode %geom_main OutputTriangleStrip\n"
 							"OpExecutionMode %geom_main OutputVertices 3\n";
 	}
@@ -1525,7 +1603,7 @@ void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx)
 						"%frag_vtxColor = OpVariable %ip_v4f32 Input\n"
 
 						"; Vertex Entry\n"
-						"%vert_main = OpFunction %void None %fun\n"
+						"%vert_main = OpFunction %void None %voidf\n"
 						"%vert_label = OpLabel\n"
 						"%vert_tmp_position = OpLoad %v4f32 %vert_Position\n";
 
@@ -1545,7 +1623,7 @@ void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx)
 	if (useGeometry)
 	{
 		combinedModule <<	"; Geometry Entry\n"
-							"%geom_main = OpFunction %void None %fun\n"
+							"%geom_main = OpFunction %void None %voidf\n"
 							"%geom_label = OpLabel\n"
 							"%geom_gl_in_0_gl_position = OpAccessChain %ip_v4f32 %geom_gl_in %c_i32_0 %c_i32_0\n"
 							"%geom_gl_in_1_gl_position = OpAccessChain %ip_v4f32 %geom_gl_in %c_i32_1 %c_i32_0\n"
@@ -1576,7 +1654,7 @@ void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx)
 	if (useTessellation)
 	{
 		combinedModule <<	"; Tessellation Control Entry\n"
-							"%tessc_main = OpFunction %void None %fun\n"
+							"%tessc_main = OpFunction %void None %voidf\n"
 							"%tessc_label = OpLabel\n"
 							"%tessc_invocation_id = OpLoad %i32 %tessc_gl_InvocationID\n"
 							"%tessc_in_color_ptr = OpAccessChain %ip_v4f32 %tessc_in_color %tessc_invocation_id\n"
@@ -1605,7 +1683,7 @@ void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx)
 							"OpFunctionEnd\n"
 
 							"; Tessellation Evaluation Entry\n"
-							"%tesse_main = OpFunction %void None %fun\n"
+							"%tesse_main = OpFunction %void None %voidf\n"
 							"%tesse_label = OpLabel\n"
 							"%tesse_tc_0_ptr = OpAccessChain %ip_f32 %tesse_gl_tessCoord %c_u32_0\n"
 							"%tesse_tc_1_ptr = OpAccessChain %ip_f32 %tesse_gl_tessCoord %c_u32_1\n"
@@ -1643,7 +1721,7 @@ void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx)
 	}
 
 	combinedModule	<<	"; Fragment Entry\n"
-						"%frag_main = OpFunction %void None %fun\n"
+						"%frag_main = OpFunction %void None %voidf\n"
 						"%frag_label_main = OpLabel\n"
 						"%frag_tmp1 = OpLoad %v4f32 %frag_vtxColor\n"
 						"OpStore %frag_fragColor %frag_tmp1\n"
@@ -1651,6 +1729,461 @@ void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx)
 						"OpFunctionEnd\n";
 
 	dst.spirvAsmSources.add("module") << combinedModule.str();
+}
+
+void createUnusedVariableModules (vk::SourceCollections& dst, UnusedVariableContext ctx)
+{
+	if (ctx.shaderTasks[SHADER_TASK_INDEX_VERTEX] != SHADER_TASK_NONE)
+	{
+		std::ostringstream	shader;
+		bool				tessellation = (ctx.shaderTasks[SHADER_TASK_INDEX_TESS_CONTROL] != SHADER_TASK_NONE
+											|| ctx.shaderTasks[SHADER_TASK_INDEX_TESS_EVAL] != SHADER_TASK_NONE);
+		const ShaderTask&	task = ctx.shaderTasks[SHADER_TASK_INDEX_VERTEX];
+
+		shader	<< "OpCapability Shader\n"
+				<< "OpMemoryModel Logical GLSL450\n";
+
+		// Entry point depends on if tessellation is enabled or not to provide the vertex position.
+		shader	<< "OpEntryPoint Vertex %main \"main\" %Position %vtxColor %color "
+				<< (tessellation ? "%vtxPosition" : "%vtx_glPerVertex")
+				<< " %vertex_id %instance_id\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader << getUnusedEntryPoint();
+		}
+
+		// Decorations.
+		shader	<< "OpDecorate %Position Location 0\n"
+				<< "OpDecorate %vtxColor Location 1\n"
+				<< "OpDecorate %color Location 1\n"
+				<< "OpDecorate %vertex_id BuiltIn VertexIndex\n"
+				<< "OpDecorate %instance_id BuiltIn InstanceIndex\n";
+		if (tessellation)
+		{
+			shader	<< "OpDecorate %vtxPosition Location 2\n";
+		}
+		else
+		{
+			shader	<< "OpMemberDecorate %vert_per_vertex_out 0 BuiltIn Position\n"
+					<< "OpMemberDecorate %vert_per_vertex_out 1 BuiltIn PointSize\n"
+					<< "OpMemberDecorate %vert_per_vertex_out 2 BuiltIn ClipDistance\n"
+					<< "OpMemberDecorate %vert_per_vertex_out 3 BuiltIn CullDistance\n"
+					<< "OpDecorate %vert_per_vertex_out Block\n";
+		}
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedDecorations(ctx.variableLocation);
+		}
+
+		// Standard types, constants and arrays.
+		shader	<< "; Start of standard types, constants and arrays\n"
+				<< SPIRV_ASSEMBLY_TYPES
+				<< SPIRV_ASSEMBLY_CONSTANTS
+				<< SPIRV_ASSEMBLY_ARRAYS
+				<< "; End of standard types, constants and arrays\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedTypesAndConstants();
+		}
+
+		// Variables.
+		if (tessellation)
+		{
+			shader	<< "%vtxPosition = OpVariable %op_v4f32 Output\n";
+		}
+		else
+		{
+			shader	<< "%vert_per_vertex_out = OpTypeStruct %v4f32 %f32 %a1f32 %a1f32\n"
+					<< "%vert_op_per_vertex_out = OpTypePointer Output %vert_per_vertex_out\n"
+					<< "%vtx_glPerVertex = OpVariable %vert_op_per_vertex_out Output\n";
+		}
+		shader	<< "%Position = OpVariable %ip_v4f32 Input\n"
+				<< "%vtxColor = OpVariable %op_v4f32 Output\n"
+				<< "%color = OpVariable %ip_v4f32 Input\n"
+				<< "%vertex_id = OpVariable %ip_i32 Input\n"
+				<< "%instance_id = OpVariable %ip_i32 Input\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedBuffer();
+		}
+
+		// Vertex main function.
+		shader	<< "%main = OpFunction %void None %voidf\n"
+				<< "%label = OpLabel\n"
+				<< "%tmp_position = OpLoad %v4f32 %Position\n";
+		if (tessellation)
+		{
+			shader	<< "OpStore %vtxPosition %tmp_position\n";
+		}
+		else
+		{
+			shader	<< "%vert_out_pos_ptr = OpAccessChain %op_v4f32 %vtx_glPerVertex %c_i32_0\n"
+					<< "OpStore %vert_out_pos_ptr %tmp_position\n";
+		}
+		shader	<< "%tmp_color = OpLoad %v4f32 %color\n"
+				<< "OpStore %vtxColor %tmp_color\n"
+				<< "OpReturn\n"
+				<< "OpFunctionEnd\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedFunctionBody();
+		}
+
+		dst.spirvAsmSources.add("vert") << shader.str();
+	}
+
+	if (ctx.shaderTasks[SHADER_TASK_INDEX_GEOMETRY] != SHADER_TASK_NONE)
+	{
+		const ShaderTask&	task = ctx.shaderTasks[SHADER_TASK_INDEX_GEOMETRY];
+		std::ostringstream	shader;
+
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader << getOpCapabilityShader();
+		}
+		shader	<< "OpCapability Geometry\n"
+				<< "OpMemoryModel Logical GLSL450\n";
+
+		// Entry points.
+		shader	<< "OpEntryPoint Geometry %geom1_main \"main\" %out_gl_position %gl_in %out_color %in_color\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedEntryPoint();
+		}
+		shader	<< "OpExecutionMode %geom1_main Triangles\n"
+				<< "OpExecutionMode %geom1_main OutputTriangleStrip\n"
+				<< "OpExecutionMode %geom1_main OutputVertices 3\n";
+
+		// Decorations.
+		shader	<< "OpDecorate %out_gl_position BuiltIn Position\n"
+				<< "OpMemberDecorate %per_vertex_in 0 BuiltIn Position\n"
+				<< "OpMemberDecorate %per_vertex_in 1 BuiltIn PointSize\n"
+				<< "OpMemberDecorate %per_vertex_in 2 BuiltIn ClipDistance\n"
+				<< "OpMemberDecorate %per_vertex_in 3 BuiltIn CullDistance\n"
+				<< "OpDecorate %per_vertex_in Block\n"
+				<< "OpDecorate %out_color Location 1\n"
+				<< "OpDecorate %in_color Location 1\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedDecorations(ctx.variableLocation);
+		}
+
+		// Standard types, constants and arrays.
+		shader	<< "; Start of standard types, constants and arrays\n"
+				<< SPIRV_ASSEMBLY_TYPES
+				<< SPIRV_ASSEMBLY_CONSTANTS
+				<< SPIRV_ASSEMBLY_ARRAYS
+				<< "; End of standard types, constants and arrays\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedTypesAndConstants();
+		}
+
+		// Variables.
+		shader	<< "%per_vertex_in = OpTypeStruct %v4f32 %f32 %a1f32 %a1f32\n"
+				<< "%a3_per_vertex_in = OpTypeArray %per_vertex_in %c_u32_3\n"
+				<< "%ip_a3_per_vertex_in = OpTypePointer Input %a3_per_vertex_in\n"
+				<< "%gl_in = OpVariable %ip_a3_per_vertex_in Input\n"
+				<< "%out_color = OpVariable %op_v4f32 Output\n"
+				<< "%in_color = OpVariable %ip_a3v4f32 Input\n"
+				<< "%out_gl_position = OpVariable %op_v4f32 Output\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader << getUnusedBuffer();
+		}
+
+		// Main function.
+		shader	<< "%geom1_main = OpFunction %void None %voidf\n"
+				<< "%geom1_label = OpLabel\n"
+				<< "%geom1_gl_in_0_gl_position = OpAccessChain %ip_v4f32 %gl_in %c_i32_0 %c_i32_0\n"
+				<< "%geom1_gl_in_1_gl_position = OpAccessChain %ip_v4f32 %gl_in %c_i32_1 %c_i32_0\n"
+				<< "%geom1_gl_in_2_gl_position = OpAccessChain %ip_v4f32 %gl_in %c_i32_2 %c_i32_0\n"
+				<< "%geom1_in_position_0 = OpLoad %v4f32 %geom1_gl_in_0_gl_position\n"
+				<< "%geom1_in_position_1 = OpLoad %v4f32 %geom1_gl_in_1_gl_position\n"
+				<< "%geom1_in_position_2 = OpLoad %v4f32 %geom1_gl_in_2_gl_position \n"
+				<< "%geom1_in_color_0_ptr = OpAccessChain %ip_v4f32 %in_color %c_i32_0\n"
+				<< "%geom1_in_color_1_ptr = OpAccessChain %ip_v4f32 %in_color %c_i32_1\n"
+				<< "%geom1_in_color_2_ptr = OpAccessChain %ip_v4f32 %in_color %c_i32_2\n"
+				<< "%geom1_in_color_0 = OpLoad %v4f32 %geom1_in_color_0_ptr\n"
+				<< "%geom1_in_color_1 = OpLoad %v4f32 %geom1_in_color_1_ptr\n"
+				<< "%geom1_in_color_2 = OpLoad %v4f32 %geom1_in_color_2_ptr\n"
+				<< "OpStore %out_gl_position %geom1_in_position_0\n"
+				<< "OpStore %out_color %geom1_in_color_0\n"
+				<< "OpEmitVertex\n"
+				<< "OpStore %out_gl_position %geom1_in_position_1\n"
+				<< "OpStore %out_color %geom1_in_color_1\n"
+				<< "OpEmitVertex\n"
+				<< "OpStore %out_gl_position %geom1_in_position_2\n"
+				<< "OpStore %out_color %geom1_in_color_2\n"
+				<< "OpEmitVertex\n"
+				<< "OpEndPrimitive\n"
+				<< "OpReturn\n"
+				<< "OpFunctionEnd\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedFunctionBody();
+		}
+
+		dst.spirvAsmSources.add("geom") << shader.str();
+	}
+
+	if (ctx.shaderTasks[SHADER_TASK_INDEX_TESS_CONTROL]	!= SHADER_TASK_NONE)
+	{
+		const ShaderTask&	task = ctx.shaderTasks[SHADER_TASK_INDEX_TESS_CONTROL];
+		std::ostringstream	shader;
+
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getOpCapabilityShader();
+		}
+		shader	<< "OpCapability Tessellation\n"
+				<< "OpMemoryModel Logical GLSL450\n";
+
+		// Entry point.
+		shader	<< "OpEntryPoint TessellationControl %tessc1_main \"main\" %out_color %gl_InvocationID %in_color %out_position %in_position %gl_TessLevelOuter %gl_TessLevelInner\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedEntryPoint();
+		}
+		shader	<< "OpExecutionMode %tessc1_main OutputVertices 3\n";
+
+		// Decorations.
+		shader	<< "OpDecorate %out_color Location 1\n"
+				<< "OpDecorate %gl_InvocationID BuiltIn InvocationId\n"
+				<< "OpDecorate %in_color Location 1\n"
+				<< "OpDecorate %out_position Location 2\n"
+				<< "OpDecorate %in_position Location 2\n"
+				<< "OpDecorate %gl_TessLevelOuter Patch\n"
+				<< "OpDecorate %gl_TessLevelOuter BuiltIn TessLevelOuter\n"
+				<< "OpDecorate %gl_TessLevelInner Patch\n"
+				<< "OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedDecorations(ctx.variableLocation);
+		}
+
+		// Standard types, constants and arrays.
+		shader	<< "; Start of standard types, constants and arrays\n"
+				<< SPIRV_ASSEMBLY_TYPES
+				<< SPIRV_ASSEMBLY_CONSTANTS
+				<< SPIRV_ASSEMBLY_ARRAYS
+				<< "; End of standard types, constants and arrays\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedTypesAndConstants();
+		}
+
+		// Variables.
+		shader	<< "%out_color = OpVariable %op_a3v4f32 Output\n"
+				<< "%gl_InvocationID = OpVariable %ip_i32 Input\n"
+				<< "%in_color = OpVariable %ip_a32v4f32 Input\n"
+				<< "%out_position = OpVariable %op_a3v4f32 Output\n"
+				<< "%in_position = OpVariable %ip_a32v4f32 Input\n"
+				<< "%gl_TessLevelOuter = OpVariable %op_a4f32 Output\n"
+				<< "%gl_TessLevelInner = OpVariable %op_a2f32 Output\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader << getUnusedBuffer();
+		}
+
+		// Main entry point.
+		shader	<< "%tessc1_main = OpFunction %void None %voidf\n"
+				<< "%tessc1_label = OpLabel\n"
+				<< "%tessc1_invocation_id = OpLoad %i32 %gl_InvocationID\n"
+				<< "%tessc1_in_color_ptr = OpAccessChain %ip_v4f32 %in_color %tessc1_invocation_id\n"
+				<< "%tessc1_in_position_ptr = OpAccessChain %ip_v4f32 %in_position %tessc1_invocation_id\n"
+				<< "%tessc1_in_color_val = OpLoad %v4f32 %tessc1_in_color_ptr\n"
+				<< "%tessc1_in_position_val = OpLoad %v4f32 %tessc1_in_position_ptr\n"
+				<< "%tessc1_out_color_ptr = OpAccessChain %op_v4f32 %out_color %tessc1_invocation_id\n"
+				<< "%tessc1_out_position_ptr = OpAccessChain %op_v4f32 %out_position %tessc1_invocation_id\n"
+				<< "OpStore %tessc1_out_color_ptr %tessc1_in_color_val\n"
+				<< "OpStore %tessc1_out_position_ptr %tessc1_in_position_val\n"
+				<< "%tessc1_is_first_invocation = OpIEqual %bool %tessc1_invocation_id %c_i32_0\n"
+				<< "OpSelectionMerge %tessc1_merge_label None\n"
+				<< "OpBranchConditional %tessc1_is_first_invocation %tessc1_first_invocation %tessc1_merge_label\n"
+				<< "%tessc1_first_invocation = OpLabel\n"
+				<< "%tessc1_tess_outer_0 = OpAccessChain %op_f32 %gl_TessLevelOuter %c_i32_0\n"
+				<< "%tessc1_tess_outer_1 = OpAccessChain %op_f32 %gl_TessLevelOuter %c_i32_1\n"
+				<< "%tessc1_tess_outer_2 = OpAccessChain %op_f32 %gl_TessLevelOuter %c_i32_2\n"
+				<< "%tessc1_tess_inner = OpAccessChain %op_f32 %gl_TessLevelInner %c_i32_0\n"
+				<< "OpStore %tessc1_tess_outer_0 %c_f32_1\n"
+				<< "OpStore %tessc1_tess_outer_1 %c_f32_1\n"
+				<< "OpStore %tessc1_tess_outer_2 %c_f32_1\n"
+				<< "OpStore %tessc1_tess_inner %c_f32_1\n"
+				<< "OpBranch %tessc1_merge_label\n"
+				<< "%tessc1_merge_label = OpLabel\n"
+				<< "OpReturn\n"
+				<< "OpFunctionEnd\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedFunctionBody();
+		}
+
+		dst.spirvAsmSources.add("tessc") << shader.str();
+	}
+
+	if (ctx.shaderTasks[SHADER_TASK_INDEX_TESS_EVAL] != SHADER_TASK_NONE)
+	{
+		const ShaderTask&	task = ctx.shaderTasks[SHADER_TASK_INDEX_TESS_EVAL];
+		std::ostringstream	shader;
+
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getOpCapabilityShader();
+		}
+		shader	<< "OpCapability Tessellation\n"
+				<< "OpMemoryModel Logical GLSL450\n";
+
+		// Entry point.
+		shader	<< "OpEntryPoint TessellationEvaluation %tesse1_main \"main\" %stream %gl_tessCoord %in_position %out_color %in_color \n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedEntryPoint();
+		}
+		shader	<< "OpExecutionMode %tesse1_main Triangles\n"
+				<< "OpExecutionMode %tesse1_main SpacingEqual\n"
+				<< "OpExecutionMode %tesse1_main VertexOrderCcw\n";
+
+		// Decorations.
+		shader	<< "OpMemberDecorate %per_vertex_out 0 BuiltIn Position\n"
+				<< "OpMemberDecorate %per_vertex_out 1 BuiltIn PointSize\n"
+				<< "OpMemberDecorate %per_vertex_out 2 BuiltIn ClipDistance\n"
+				<< "OpMemberDecorate %per_vertex_out 3 BuiltIn CullDistance\n"
+				<< "OpDecorate %per_vertex_out Block\n"
+				<< "OpDecorate %gl_tessCoord BuiltIn TessCoord\n"
+				<< "OpDecorate %in_position Location 2\n"
+				<< "OpDecorate %out_color Location 1\n"
+				<< "OpDecorate %in_color Location 1\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedDecorations(ctx.variableLocation);
+		}
+
+		// Standard types, constants and arrays.
+		shader	<< "; Start of standard types, constants and arrays\n"
+				<< SPIRV_ASSEMBLY_TYPES
+				<< SPIRV_ASSEMBLY_CONSTANTS
+				<< SPIRV_ASSEMBLY_ARRAYS
+				<< "; End of standard types, constants and arrays\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedTypesAndConstants();
+		}
+
+		// Variables.
+		shader	<< "%per_vertex_out = OpTypeStruct %v4f32 %f32 %a1f32 %a1f32\n"
+				<< "%op_per_vertex_out = OpTypePointer Output %per_vertex_out\n"
+				<< "%stream = OpVariable %op_per_vertex_out Output\n"
+				<< "%gl_tessCoord = OpVariable %ip_v3f32 Input\n"
+				<< "%in_position = OpVariable %ip_a32v4f32 Input\n"
+				<< "%out_color = OpVariable %op_v4f32 Output\n"
+				<< "%in_color = OpVariable %ip_a32v4f32 Input\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader << getUnusedBuffer();
+		}
+
+		// Main entry point.
+		shader	<< "%tesse1_main = OpFunction %void None %voidf\n"
+				<< "%tesse1_label = OpLabel\n"
+				<< "%tesse1_tc_0_ptr = OpAccessChain %ip_f32 %gl_tessCoord %c_u32_0\n"
+				<< "%tesse1_tc_1_ptr = OpAccessChain %ip_f32 %gl_tessCoord %c_u32_1\n"
+				<< "%tesse1_tc_2_ptr = OpAccessChain %ip_f32 %gl_tessCoord %c_u32_2\n"
+				<< "%tesse1_tc_0 = OpLoad %f32 %tesse1_tc_0_ptr\n"
+				<< "%tesse1_tc_1 = OpLoad %f32 %tesse1_tc_1_ptr\n"
+				<< "%tesse1_tc_2 = OpLoad %f32 %tesse1_tc_2_ptr\n"
+				<< "%tesse1_in_pos_0_ptr = OpAccessChain %ip_v4f32 %in_position %c_i32_0\n"
+				<< "%tesse1_in_pos_1_ptr = OpAccessChain %ip_v4f32 %in_position %c_i32_1\n"
+				<< "%tesse1_in_pos_2_ptr = OpAccessChain %ip_v4f32 %in_position %c_i32_2\n"
+				<< "%tesse1_in_pos_0 = OpLoad %v4f32 %tesse1_in_pos_0_ptr\n"
+				<< "%tesse1_in_pos_1 = OpLoad %v4f32 %tesse1_in_pos_1_ptr\n"
+				<< "%tesse1_in_pos_2 = OpLoad %v4f32 %tesse1_in_pos_2_ptr\n"
+				<< "%tesse1_in_pos_0_weighted = OpVectorTimesScalar %v4f32 %tesse1_in_pos_0 %tesse1_tc_0\n"
+				<< "%tesse1_in_pos_1_weighted = OpVectorTimesScalar %v4f32 %tesse1_in_pos_1 %tesse1_tc_1\n"
+				<< "%tesse1_in_pos_2_weighted = OpVectorTimesScalar %v4f32 %tesse1_in_pos_2 %tesse1_tc_2\n"
+				<< "%tesse1_out_pos_ptr = OpAccessChain %op_v4f32 %stream %c_i32_0\n"
+				<< "%tesse1_in_pos_0_plus_pos_1 = OpFAdd %v4f32 %tesse1_in_pos_0_weighted %tesse1_in_pos_1_weighted\n"
+				<< "%tesse1_computed_out = OpFAdd %v4f32 %tesse1_in_pos_0_plus_pos_1 %tesse1_in_pos_2_weighted\n"
+				<< "OpStore %tesse1_out_pos_ptr %tesse1_computed_out\n"
+				<< "%tesse1_in_clr_0_ptr = OpAccessChain %ip_v4f32 %in_color %c_i32_0\n"
+				<< "%tesse1_in_clr_1_ptr = OpAccessChain %ip_v4f32 %in_color %c_i32_1\n"
+				<< "%tesse1_in_clr_2_ptr = OpAccessChain %ip_v4f32 %in_color %c_i32_2\n"
+				<< "%tesse1_in_clr_0 = OpLoad %v4f32 %tesse1_in_clr_0_ptr\n"
+				<< "%tesse1_in_clr_1 = OpLoad %v4f32 %tesse1_in_clr_1_ptr\n"
+				<< "%tesse1_in_clr_2 = OpLoad %v4f32 %tesse1_in_clr_2_ptr\n"
+				<< "%tesse1_in_clr_0_weighted = OpVectorTimesScalar %v4f32 %tesse1_in_clr_0 %tesse1_tc_0\n"
+				<< "%tesse1_in_clr_1_weighted = OpVectorTimesScalar %v4f32 %tesse1_in_clr_1 %tesse1_tc_1\n"
+				<< "%tesse1_in_clr_2_weighted = OpVectorTimesScalar %v4f32 %tesse1_in_clr_2 %tesse1_tc_2\n"
+				<< "%tesse1_in_clr_0_plus_col_1 = OpFAdd %v4f32 %tesse1_in_clr_0_weighted %tesse1_in_clr_1_weighted\n"
+				<< "%tesse1_computed_clr = OpFAdd %v4f32 %tesse1_in_clr_0_plus_col_1 %tesse1_in_clr_2_weighted\n"
+				<< "OpStore %out_color %tesse1_computed_clr\n"
+				<< "OpReturn\n"
+				<< "OpFunctionEnd\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedFunctionBody();
+		}
+
+		dst.spirvAsmSources.add("tesse") << shader.str();
+	}
+
+	if (ctx.shaderTasks[SHADER_TASK_INDEX_FRAGMENT] != SHADER_TASK_NONE)
+	{
+		const ShaderTask&	task = ctx.shaderTasks[SHADER_TASK_INDEX_FRAGMENT];
+		std::ostringstream	shader;
+
+		shader	<< "OpCapability Shader\n"
+				<< "OpMemoryModel Logical GLSL450\n";
+
+		// Entry point.
+		shader	<< "OpEntryPoint Fragment %main \"main\" %vtxColor %fragColor\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedEntryPoint();
+		}
+		shader	<< "OpExecutionMode %main OriginUpperLeft\n";
+
+		// Decorations.
+		shader	<< "OpDecorate %fragColor Location 0\n"
+				<< "OpDecorate %vtxColor Location 1\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedDecorations(ctx.variableLocation);
+		}
+
+		// Standard types, constants and arrays.
+		shader	<< "; Start of standard types, constants and arrays\n"
+				<< SPIRV_ASSEMBLY_TYPES
+				<< SPIRV_ASSEMBLY_CONSTANTS
+				<< SPIRV_ASSEMBLY_ARRAYS
+				<< "; End of standard types, constants and arrays\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader	<< getUnusedTypesAndConstants();
+		}
+
+		// Variables.
+		shader	<< "%fragColor = OpVariable %op_v4f32 Output\n"
+				<< "%vtxColor = OpVariable %ip_v4f32 Input\n";
+		if (task != SHADER_TASK_NORMAL)
+		{
+			shader << getUnusedBuffer();
+		}
+
+		// Main entry point.
+		shader	<< "%main = OpFunction %void None %voidf\n"
+				<< "%label_main = OpLabel\n"
+				<< "%tmp1 = OpLoad %v4f32 %vtxColor\n"
+				<< "OpStore %fragColor %tmp1\n"
+				<< "OpReturn\n"
+				<< "OpFunctionEnd\n";
+		if (task == SHADER_TASK_UNUSED_FUNC)
+		{
+			shader	<< getUnusedFunctionBody();
+		}
+
+		dst.spirvAsmSources.add("frag") << shader.str();
+	}
 }
 
 void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
@@ -1680,7 +2213,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"%vertex_id = OpVariable %ip_i32 Input\n"
 		"%instance_id = OpVariable %ip_i32 Input\n"
 
-		"%main = OpFunction %void None %fun\n"
+		"%main = OpFunction %void None %voidf\n"
 		"%label = OpLabel\n"
 		"%tmp_position = OpLoad %v4f32 %Position\n"
 		"OpStore %vtxPosition %tmp_position\n"
@@ -1689,7 +2222,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"OpReturn\n"
 		"OpFunctionEnd\n"
 
-		"%main2 = OpFunction %void None %fun\n"
+		"%main2 = OpFunction %void None %voidf\n"
 		"%label2 = OpLabel\n"
 		"%tmp_position2 = OpLoad %v4f32 %Position\n"
 		"OpStore %vtxPosition %tmp_position2\n"
@@ -1720,14 +2253,14 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"%fragColor = OpVariable %op_v4f32 Output\n"
 		"%vtxColor = OpVariable %ip_v4f32 Input\n"
 
-		"%main = OpFunction %void None %fun\n"
+		"%main = OpFunction %void None %voidf\n"
 		"%label_main = OpLabel\n"
 		"%tmp1 = OpLoad %v4f32 %vtxColor\n"
 		"OpStore %fragColor %tmp1\n"
 		"OpReturn\n"
 		"OpFunctionEnd\n"
 
-		"%main2 = OpFunction %void None %fun\n"
+		"%main2 = OpFunction %void None %voidf\n"
 		"%label_main2 = OpLabel\n"
 		"%tmp2 = OpLoad %v4f32 %vtxColor\n"
 		"%tmp3 = OpFSub %v4f32 %cval %tmp2\n"
@@ -1767,7 +2300,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"%in_color = OpVariable %ip_a3v4f32 Input\n"
 		"%out_gl_position = OpVariable %op_v4f32 Output\n"
 
-		"%geom1_main = OpFunction %void None %fun\n"
+		"%geom1_main = OpFunction %void None %voidf\n"
 		"%geom1_label = OpLabel\n"
 		"%geom1_gl_in_0_gl_position = OpAccessChain %ip_v4f32 %gl_in %c_i32_0 %c_i32_0\n"
 		"%geom1_gl_in_1_gl_position = OpAccessChain %ip_v4f32 %gl_in %c_i32_1 %c_i32_0\n"
@@ -1794,7 +2327,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"OpReturn\n"
 		"OpFunctionEnd\n"
 
-		"%geom2_main = OpFunction %void None %fun\n"
+		"%geom2_main = OpFunction %void None %voidf\n"
 		"%geom2_label = OpLabel\n"
 		"%geom2_gl_in_0_gl_position = OpAccessChain %ip_v4f32 %gl_in %c_i32_0 %c_i32_0\n"
 		"%geom2_gl_in_1_gl_position = OpAccessChain %ip_v4f32 %gl_in %c_i32_1 %c_i32_0\n"
@@ -1855,7 +2388,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"%gl_TessLevelOuter = OpVariable %op_a4f32 Output\n"
 		"%gl_TessLevelInner = OpVariable %op_a2f32 Output\n"
 
-		"%tessc1_main = OpFunction %void None %fun\n"
+		"%tessc1_main = OpFunction %void None %voidf\n"
 		"%tessc1_label = OpLabel\n"
 		"%tessc1_invocation_id = OpLoad %i32 %gl_InvocationID\n"
 		"%tessc1_in_color_ptr = OpAccessChain %ip_v4f32 %in_color %tessc1_invocation_id\n"
@@ -1883,7 +2416,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"OpReturn\n"
 		"OpFunctionEnd\n"
 
-		"%tessc2_main = OpFunction %void None %fun\n"
+		"%tessc2_main = OpFunction %void None %voidf\n"
 		"%tessc2_label = OpLabel\n"
 		"%tessc2_invocation_id = OpLoad %i32 %gl_InvocationID\n"
 		"%tessc2_in_color_ptr = OpAccessChain %ip_v4f32 %in_color %tessc2_invocation_id\n"
@@ -1945,7 +2478,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"%out_color = OpVariable %op_v4f32 Output\n"
 		"%in_color = OpVariable %ip_a32v4f32 Input\n"
 
-		"%tesse1_main = OpFunction %void None %fun\n"
+		"%tesse1_main = OpFunction %void None %voidf\n"
 		"%tesse1_label = OpLabel\n"
 		"%tesse1_tc_0_ptr = OpAccessChain %ip_f32 %gl_tessCoord %c_u32_0\n"
 		"%tesse1_tc_1_ptr = OpAccessChain %ip_f32 %gl_tessCoord %c_u32_1\n"
@@ -1981,7 +2514,7 @@ void createMultipleEntries (vk::SourceCollections& dst, InstanceContext)
 		"OpReturn\n"
 		"OpFunctionEnd\n"
 
-		"%tesse2_main = OpFunction %void None %fun\n"
+		"%tesse2_main = OpFunction %void None %voidf\n"
 		"%tesse2_label = OpLabel\n"
 		"%tesse2_tc_0_ptr = OpAccessChain %ip_f32 %gl_tessCoord %c_u32_0\n"
 		"%tesse2_tc_1_ptr = OpAccessChain %ip_f32 %gl_tessCoord %c_u32_1\n"
@@ -2454,6 +2987,11 @@ VkImageAspectFlags getImageAspectFlags (VkFormat format)
 	return aspectFlags;
 };
 
+TestStatus runAndVerifyUnusedVariablePipeline (Context &context, UnusedVariableContext unusedVariableContext)
+{
+	return runAndVerifyDefaultPipeline(context, unusedVariableContext.instanceContext);
+}
+
 TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instance)
 {
 	if (getMinRequiredVulkanVersion(instance.resources.spirvVersion) > context.getUsedApiVersion())
@@ -2470,7 +3008,9 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 	Allocator&									allocator				= context.getDefaultAllocator();
 	vector<ModuleHandleSp>						modules;
 	map<VkShaderStageFlagBits, VkShaderModule>	moduleByStage;
-	const tcu::UVec2							renderSize				(256, 256);
+	const deUint32								fullRenderSize			= 256;
+	const deUint32								quarterRenderSize		= 64;
+	const tcu::UVec2							renderSize				(fullRenderSize, fullRenderSize);
 	const int									testSpecificSeed		= 31354125;
 	const int									seed					= context.getTestContext().getCommandLine().getBaseSeed() ^ testSpecificSeed;
 	bool										supportsGeometry		= false;
@@ -2482,6 +3022,10 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 	const bool									needInterface			= !instance.interfaces.empty();
 	const VkPhysicalDeviceFeatures&				features				= context.getDeviceFeatures();
 	const Vec4									defaulClearColor		(0.125f, 0.25f, 0.75f, 1.0f);
+	bool										splitRenderArea			= instance.splitRenderArea;
+
+	const deUint32								renderDimension			= splitRenderArea ? quarterRenderSize : fullRenderSize;
+	const int									numRenderSegments		= splitRenderArea ? 4 : 1;
 
 	supportsGeometry		= features.geometryShader == VK_TRUE;
 	supportsTessellation	= features.tessellationShader == VK_TRUE;
@@ -3164,7 +3708,7 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 						VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,		// VkSamplerAddressMode		addressModeV;
 						VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,		// VkSamplerAddressMode		addressModeW;
 						0.0f,										// float					mipLodBias;
-						VK_FALSE,									// VkBool32					anistoropyÉnable;
+						VK_FALSE,									// VkBool32					anistoropyEnable;
 						1.0f,										// float					maxAnisotropy;
 						(hasDepthComponent) ? VK_TRUE : VK_FALSE,	// VkBool32					compareEnable;
 						VK_COMPARE_OP_LESS,							// VkCompareOp				compareOp;
@@ -3419,7 +3963,7 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 		+1.0f,														//	float				maxDepthBounds;
 	};
 	const VkViewport							viewport0				= makeViewport(renderSize);
-	const VkRect2D								scissor0				= makeRect2D(renderSize);
+	const VkRect2D								scissor0				= makeRect2D(0u, 0u);
 	const VkPipelineViewportStateCreateInfo		viewportParams			=
 	{
 		VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,		//	VkStructureType		sType;
@@ -3583,6 +4127,20 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 		3u
 	};
 
+	const	VkDynamicState							dynamicStates[]				=
+	{
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	const VkPipelineDynamicStateCreateInfo			dynamicStateCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,  // sType
+		DE_NULL,											   // pNext
+		0u,													   // flags
+		DE_LENGTH_OF_ARRAY(dynamicStates),					   // dynamicStateCount
+		dynamicStates										   // pDynamicStates
+	};
+
 	const VkPipelineTessellationStateCreateInfo* tessellationInfo	=	hasTessellation ? &tessellationState: DE_NULL;
 	const VkGraphicsPipelineCreateInfo		pipelineParams			=
 	{
@@ -3599,7 +4157,7 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 		&multisampleParams,										//	const VkPipelineMultisampleStateCreateInfo*		pMultisampleState;
 		&depthStencilParams,									//	const VkPipelineDepthStencilStateCreateInfo*	pDepthStencilState;
 		&blendParams,											//	const VkPipelineColorBlendStateCreateInfo*		pColorBlendState;
-		(const VkPipelineDynamicStateCreateInfo*)DE_NULL,		//	const VkPipelineDynamicStateCreateInfo*			pDynamicState;
+		&dynamicStateCreateInfo,								//	const VkPipelineDynamicStateCreateInfo*			pDynamicState;
 		*pipelineLayout,										//	VkPipelineLayout								layout;
 		*renderPass,											//	VkRenderPass									renderPass;
 		0u,														//	deUint32										subpass;
@@ -3656,227 +4214,247 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 
 	const Unique<VkFramebuffer>				framebuffer				(createFramebuffer(vk, device, &framebufferParams));
 
-	// Record commands
-	beginCommandBuffer(vk, *cmdBuf);
+	bool firstPass = true;
 
+	for (int x = 0; x < numRenderSegments; x++)
 	{
-		const VkMemoryBarrier			vertFlushBarrier	=
+		for (int y = 0; y < numRenderSegments; y++)
 		{
-			VK_STRUCTURE_TYPE_MEMORY_BARRIER,			//	VkStructureType		sType;
-			DE_NULL,									//	const void*			pNext;
-			VK_ACCESS_HOST_WRITE_BIT,					//	VkMemoryOutputFlags	outputMask;
-			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,		//	VkMemoryInputFlags	inputMask;
-		};
-		vector<VkImageMemoryBarrier>	colorAttBarriers;
+			// Record commands
+			beginCommandBuffer(vk, *cmdBuf);
 
-		VkImageMemoryBarrier			imgBarrier          =
-		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		//	VkStructureType			sType;
-			DE_NULL,									//	const void*				pNext;
-			0u,											//	VkMemoryOutputFlags		outputMask;
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,		//	VkMemoryInputFlags		inputMask;
-			VK_IMAGE_LAYOUT_UNDEFINED,					//	VkImageLayout			oldLayout;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	//	VkImageLayout			newLayout;
-			queueFamilyIndex,							//	deUint32				srcQueueFamilyIndex;
-			queueFamilyIndex,							//	deUint32				destQueueFamilyIndex;
-			*image,										//	VkImage					image;
 			{
-				VK_IMAGE_ASPECT_COLOR_BIT,					//	VkImageAspect	aspect;
-				0u,											//	deUint32		baseMipLevel;
-				1u,											//	deUint32		mipLevels;
-				0u,											//	deUint32		baseArraySlice;
-				1u,											//	deUint32		arraySize;
-			}											//	VkImageSubresourceRange	subresourceRange;
-		};
-		colorAttBarriers.push_back(imgBarrier);
-		if (needInterface)
-		{
-			imgBarrier.image = *fragOutputImage;
-			colorAttBarriers.push_back(imgBarrier);
-			vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, (VkDependencyFlags)0, 1, &vertFlushBarrier, 0, (const VkBufferMemoryBarrier*)DE_NULL, 2, colorAttBarriers.data());
-		}
-		else
-		{
-			vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, (VkDependencyFlags)0, 1, &vertFlushBarrier, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, colorAttBarriers.data());
-		}
-	}
+				const VkMemoryBarrier			vertFlushBarrier	=
+				{
+					VK_STRUCTURE_TYPE_MEMORY_BARRIER,			//	VkStructureType		sType;
+					DE_NULL,									//	const void*			pNext;
+					VK_ACCESS_HOST_WRITE_BIT,					//	VkMemoryOutputFlags	outputMask;
+					VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,		//	VkMemoryInputFlags	inputMask;
+				};
+				vector<VkImageMemoryBarrier>	colorAttBarriers;
 
-	{
-		vector<VkClearValue>			clearValue;
-		clearValue.push_back(makeClearValueColorF32(defaulClearColor[0], defaulClearColor[1], defaulClearColor[2], defaulClearColor[3]));
-		if (needInterface)
-		{
-			clearValue.push_back(makeClearValueColorU32(0, 0, 0, 0));
-		}
-		beginRenderPass(vk, *cmdBuf, *renderPass, *framebuffer, makeRect2D(0, 0, renderSize.x(), renderSize.y()), (deUint32)clearValue.size(), clearValue.data());
-	}
+				VkImageMemoryBarrier			imgBarrier          =
+				{
+					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		//	VkStructureType			sType;
+					DE_NULL,									//	const void*				pNext;
+					0u,											//	VkMemoryOutputFlags		outputMask;
+					VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,		//	VkMemoryInputFlags		inputMask;
+					VK_IMAGE_LAYOUT_UNDEFINED,					//	VkImageLayout			oldLayout;
+					VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	//	VkImageLayout			newLayout;
+					queueFamilyIndex,							//	deUint32				srcQueueFamilyIndex;
+					queueFamilyIndex,							//	deUint32				destQueueFamilyIndex;
+					*image,										//	VkImage					image;
+					{
+						VK_IMAGE_ASPECT_COLOR_BIT,					//	VkImageAspect	aspect;
+						0u,											//	deUint32		baseMipLevel;
+						1u,											//	deUint32		mipLevels;
+						0u,											//	deUint32		baseArraySlice;
+						1u,											//	deUint32		arraySize;
+					}											//	VkImageSubresourceRange	subresourceRange;
+				};
+				colorAttBarriers.push_back(imgBarrier);
+				if (needInterface)
+				{
+					imgBarrier.image = *fragOutputImage;
+					colorAttBarriers.push_back(imgBarrier);
+					vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, (VkDependencyFlags)0, 1, &vertFlushBarrier, 0, (const VkBufferMemoryBarrier*)DE_NULL, 2, colorAttBarriers.data());
+				}
+				else
+				{
+					vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, (VkDependencyFlags)0, 1, &vertFlushBarrier, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, colorAttBarriers.data());
+				}
+			}
 
-	vk.cmdBindPipeline(*cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
-	{
-		const VkDeviceSize bindingOffset = 0;
-		vk.cmdBindVertexBuffers(*cmdBuf, 0u, 1u, &vertexBuffer.get(), &bindingOffset);
-	}
-	if (needInterface)
-	{
-		const VkDeviceSize bindingOffset = 0;
-		vk.cmdBindVertexBuffers(*cmdBuf, 1u, 1u, &vertexInputBuffer.get(), &bindingOffset);
-	}
-	if (hasPushConstants)
-	{
-		vector<deUint8> pushConstantsBytes;
-		instance.pushConstants.getBuffer()->getBytes(pushConstantsBytes);
-
-		const deUint32	size	= static_cast<deUint32>(pushConstantsBytes.size());
-		const void*		data	= &pushConstantsBytes.front();
-
-		vk.cmdPushConstants(*cmdBuf, *pipelineLayout, VK_SHADER_STAGE_ALL_GRAPHICS, 0, size, data);
-	}
-	if (numResources != 0)
-	{
-		// Bind to set number 0.
-		vk.cmdBindDescriptorSets(*cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0, 1, &rawSet, 0, DE_NULL);
-	}
-	vk.cmdDraw(*cmdBuf, deUint32(vertexCount), 1u /*run pipeline once*/, 0u /*first vertex*/, 0u /*first instanceIndex*/);
-	endRenderPass(vk, *cmdBuf);
-
-	{
-		vector<VkImageMemoryBarrier>	renderFinishBarrier;
-		VkImageMemoryBarrier			imgBarrier				=
-		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		//	VkStructureType			sType;
-			DE_NULL,									//	const void*				pNext;
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,		//	VkMemoryOutputFlags		outputMask;
-			VK_ACCESS_TRANSFER_READ_BIT,				//	VkMemoryInputFlags		inputMask;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	//	VkImageLayout			oldLayout;
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,		//	VkImageLayout			newLayout;
-			queueFamilyIndex,							//	deUint32				srcQueueFamilyIndex;
-			queueFamilyIndex,							//	deUint32				destQueueFamilyIndex;
-			*image,										//	VkImage					image;
 			{
-				VK_IMAGE_ASPECT_COLOR_BIT,					//	VkImageAspectFlags	aspectMask;
-				0u,											//	deUint32			baseMipLevel;
-				1u,											//	deUint32			mipLevels;
-				0u,											//	deUint32			baseArraySlice;
-				1u,											//	deUint32			arraySize;
-			}											//	VkImageSubresourceRange	subresourceRange;
-		};
-		renderFinishBarrier.push_back(imgBarrier);
+				vector<VkClearValue>			clearValue;
+				clearValue.push_back(makeClearValueColorF32(defaulClearColor[0], defaulClearColor[1], defaulClearColor[2], defaulClearColor[3]));
+				if (needInterface)
+				{
+					clearValue.push_back(makeClearValueColorU32(0, 0, 0, 0));
+				}
 
-		if (needInterface)
-		{
-			imgBarrier.image = *fragOutputImage;
-			renderFinishBarrier.push_back(imgBarrier);
-			vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 2, renderFinishBarrier.data());
-		}
-		else
-		{
-			vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, renderFinishBarrier.data());
-		}
-	}
 
-	{
-		const VkBufferImageCopy	copyParams	=
-		{
-			(VkDeviceSize)0u,						//	VkDeviceSize			bufferOffset;
-			(deUint32)renderSize.x(),				//	deUint32				bufferRowLength;
-			(deUint32)renderSize.y(),				//	deUint32				bufferImageHeight;
+				vk::VkRect2D scissor = makeRect2D(x * renderDimension, y * renderDimension, renderDimension, renderDimension);
+				vk.cmdSetScissor(*cmdBuf, 0u, 1u, &scissor);
+
+				beginRenderPass(vk, *cmdBuf, *renderPass, *framebuffer, scissor, (deUint32)clearValue.size(), clearValue.data());
+			}
+
+			vk.cmdBindPipeline(*cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 			{
-				VK_IMAGE_ASPECT_COLOR_BIT,				//	VkImageAspect		aspect;
-				0u,										//	deUint32			mipLevel;
-				0u,										//	deUint32			arrayLayer;
-				1u,										//	deUint32			arraySize;
-			},										//	VkImageSubresourceCopy	imageSubresource;
-			{ 0u, 0u, 0u },							//	VkOffset3D				imageOffset;
-			{ renderSize.x(), renderSize.y(), 1u }	//	VkExtent3D				imageExtent;
-		};
-		vk.cmdCopyImageToBuffer(*cmdBuf, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *readImageBuffer, 1u, &copyParams);
+				const VkDeviceSize bindingOffset = 0;
+				vk.cmdBindVertexBuffers(*cmdBuf, 0u, 1u, &vertexBuffer.get(), &bindingOffset);
+			}
+			if (needInterface)
+			{
+				const VkDeviceSize bindingOffset = 0;
+				vk.cmdBindVertexBuffers(*cmdBuf, 1u, 1u, &vertexInputBuffer.get(), &bindingOffset);
+			}
+			if (hasPushConstants)
+			{
+				vector<deUint8> pushConstantsBytes;
+				instance.pushConstants.getBuffer()->getBytes(pushConstantsBytes);
 
-		if (needInterface)
-		{
-			vk.cmdCopyImageToBuffer(*cmdBuf, *fragOutputImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *fragOutputBuffer, 1u, &copyParams);
+				const deUint32	size	= static_cast<deUint32>(pushConstantsBytes.size());
+				const void*		data	= &pushConstantsBytes.front();
+
+				vk.cmdPushConstants(*cmdBuf, *pipelineLayout, VK_SHADER_STAGE_ALL_GRAPHICS, 0, size, data);
+			}
+			if (numResources != 0)
+			{
+				// Bind to set number 0.
+				vk.cmdBindDescriptorSets(*cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0, 1, &rawSet, 0, DE_NULL);
+			}
+			vk.cmdDraw(*cmdBuf, deUint32(vertexCount), 1u /*run pipeline once*/, 0u /*first vertex*/, 0u /*first instanceIndex*/);
+			endRenderPass(vk, *cmdBuf);
+
+			{
+				vector<VkImageMemoryBarrier>	renderFinishBarrier;
+				VkImageMemoryBarrier			imgBarrier				=
+				{
+					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		//	VkStructureType			sType;
+					DE_NULL,									//	const void*				pNext;
+					VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,		//	VkMemoryOutputFlags		outputMask;
+					VK_ACCESS_TRANSFER_READ_BIT,				//	VkMemoryInputFlags		inputMask;
+					VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	//	VkImageLayout			oldLayout;
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,		//	VkImageLayout			newLayout;
+					queueFamilyIndex,							//	deUint32				srcQueueFamilyIndex;
+					queueFamilyIndex,							//	deUint32				destQueueFamilyIndex;
+					*image,										//	VkImage					image;
+					{
+						VK_IMAGE_ASPECT_COLOR_BIT,					//	VkImageAspectFlags	aspectMask;
+						0u,											//	deUint32			baseMipLevel;
+						1u,											//	deUint32			mipLevels;
+						0u,											//	deUint32			baseArraySlice;
+						1u,											//	deUint32			arraySize;
+					}											//	VkImageSubresourceRange	subresourceRange;
+				};
+				renderFinishBarrier.push_back(imgBarrier);
+
+				if (needInterface)
+				{
+					imgBarrier.image = *fragOutputImage;
+					renderFinishBarrier.push_back(imgBarrier);
+					vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 2, renderFinishBarrier.data());
+				}
+				else
+				{
+					vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, renderFinishBarrier.data());
+				}
+			}
+
+			if ( x ==  numRenderSegments -1 && y == numRenderSegments - 1)
+			{
+				{
+					const VkBufferImageCopy	copyParams	=
+					{
+						(VkDeviceSize)0u,						//	VkDeviceSize			bufferOffset;
+						(deUint32)renderSize.x(),				//	deUint32				bufferRowLength;
+						(deUint32)renderSize.y(),				//	deUint32				bufferImageHeight;
+						{
+							VK_IMAGE_ASPECT_COLOR_BIT,				//	VkImageAspect		aspect;
+							0u,										//	deUint32			mipLevel;
+							0u,										//	deUint32			arrayLayer;
+							1u,										//	deUint32			arraySize;
+						},										//	VkImageSubresourceCopy	imageSubresource;
+						{ 0u, 0u, 0u },							//	VkOffset3D				imageOffset;
+						{ renderSize.x(), renderSize.y(), 1u }
+					};
+					vk.cmdCopyImageToBuffer(*cmdBuf, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *readImageBuffer, 1u, &copyParams);
+
+					if (needInterface)
+					{
+					vk.cmdCopyImageToBuffer(*cmdBuf, *fragOutputImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *fragOutputBuffer, 1u, &copyParams);
+					}
+				}
+
+				{
+					vector<VkBufferMemoryBarrier>	cpFinishBarriers;
+					VkBufferMemoryBarrier			copyFinishBarrier	=
+					{
+						VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	//	VkStructureType		sType;
+						DE_NULL,									//	const void*			pNext;
+						VK_ACCESS_TRANSFER_WRITE_BIT,				//	VkMemoryOutputFlags	outputMask;
+						VK_ACCESS_HOST_READ_BIT,					//	VkMemoryInputFlags	inputMask;
+						queueFamilyIndex,							//	deUint32			srcQueueFamilyIndex;
+						queueFamilyIndex,							//	deUint32			destQueueFamilyIndex;
+						*readImageBuffer,							//	VkBuffer			buffer;
+						0u,											//	VkDeviceSize		offset;
+						imageSizeBytes								//	VkDeviceSize		size;
+					};
+					cpFinishBarriers.push_back(copyFinishBarrier);
+
+					if (needInterface)
+					{
+						copyFinishBarrier.buffer	= *fragOutputBuffer;
+						copyFinishBarrier.size		= VK_WHOLE_SIZE;
+						cpFinishBarriers.push_back(copyFinishBarrier);
+
+						vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 2, cpFinishBarriers.data(), 0, (const VkImageMemoryBarrier*)DE_NULL);
+					}
+					else
+					{
+						vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, cpFinishBarriers.data(), 0, (const VkImageMemoryBarrier*)DE_NULL);
+					}
+				}
+				}
+
+			endCommandBuffer(vk, *cmdBuf);
+
+			if (firstPass)
+			{
+				// Upload vertex data
+				{
+					void* vertexBufPtr = vertexBufferMemory->getHostPtr();
+					deMemcpy(vertexBufPtr, &vertexData[0], vertexDataSize);
+					flushAlloc(vk, device, *vertexBufferMemory);
+				}
+
+				if (needInterface)
+				{
+					vector<deUint8> inputBufferBytes;
+					instance.interfaces.getInputBuffer()->getBytes(inputBufferBytes);
+
+					const deUint32				typNumBytes		= instance.interfaces.getInputType().getNumBytes();
+					const deUint32				bufNumBytes		= static_cast<deUint32>(inputBufferBytes.size());
+
+					// Require that the test instantation provides four output values.
+					DE_ASSERT(bufNumBytes == 4 * typNumBytes);
+
+					// We have four triangles. Because interpolation happens before executing the fragment shader,
+					// we need to provide the same vertex attribute for the same triangle. That means, duplicate each
+					// value three times for all four values.
+
+					const deUint8*				provided		= static_cast<const deUint8*>(&inputBufferBytes.front());
+					vector<deUint8>				data;
+
+					data.reserve(3 * bufNumBytes);
+
+					for (deUint32 offset = 0; offset < bufNumBytes; offset += typNumBytes)
+						for (deUint32 vertexNdx = 0; vertexNdx < 3; ++vertexNdx)
+							for (deUint32 byteNdx = 0; byteNdx < typNumBytes; ++byteNdx)
+								data.push_back(provided[offset + byteNdx]);
+
+					deMemcpy(vertexInputMemory->getHostPtr(), data.data(), data.size());
+
+					const VkMappedMemoryRange	range			=
+					{
+						VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,	//	VkStructureType	sType;
+						DE_NULL,								//	const void*		pNext;
+						vertexInputMemory->getMemory(),			//	VkDeviceMemory	mem;
+						0,										//	VkDeviceSize	offset;
+						VK_WHOLE_SIZE,							//	VkDeviceSize	size;
+					};
+
+					VK_CHECK(vk.flushMappedMemoryRanges(device, 1u, &range));
+				}
+				firstPass = false;
+			}
+
+			// Submit & wait for completion
+			submitCommandsAndWait(vk, device, queue, cmdBuf.get());
 		}
 	}
-
-	{
-		vector<VkBufferMemoryBarrier> cpFinishBarriers;
-		VkBufferMemoryBarrier			copyFinishBarrier	=
-		{
-			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	//	VkStructureType		sType;
-			DE_NULL,									//	const void*			pNext;
-			VK_ACCESS_TRANSFER_WRITE_BIT,				//	VkMemoryOutputFlags	outputMask;
-			VK_ACCESS_HOST_READ_BIT,					//	VkMemoryInputFlags	inputMask;
-			queueFamilyIndex,							//	deUint32			srcQueueFamilyIndex;
-			queueFamilyIndex,							//	deUint32			destQueueFamilyIndex;
-			*readImageBuffer,							//	VkBuffer			buffer;
-			0u,											//	VkDeviceSize		offset;
-			imageSizeBytes								//	VkDeviceSize		size;
-		};
-		cpFinishBarriers.push_back(copyFinishBarrier);
-
-		if (needInterface)
-		{
-			copyFinishBarrier.buffer	= *fragOutputBuffer;
-			copyFinishBarrier.size		= VK_WHOLE_SIZE;
-			cpFinishBarriers.push_back(copyFinishBarrier);
-
-			vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 2, cpFinishBarriers.data(), 0, (const VkImageMemoryBarrier*)DE_NULL);
-		}
-		else
-		{
-			vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, cpFinishBarriers.data(), 0, (const VkImageMemoryBarrier*)DE_NULL);
-		}
-	}
-
-	endCommandBuffer(vk, *cmdBuf);
-
-	// Upload vertex data
-	{
-		void* vertexBufPtr = vertexBufferMemory->getHostPtr();
-		deMemcpy(vertexBufPtr, &vertexData[0], vertexDataSize);
-		flushAlloc(vk, device, *vertexBufferMemory);
-	}
-
-	if (needInterface)
-	{
-		vector<deUint8> inputBufferBytes;
-		instance.interfaces.getInputBuffer()->getBytes(inputBufferBytes);
-
-		const deUint32				typNumBytes		= instance.interfaces.getInputType().getNumBytes();
-		const deUint32				bufNumBytes		= static_cast<deUint32>(inputBufferBytes.size());
-
-		// Require that the test instantation provides four output values.
-		DE_ASSERT(bufNumBytes == 4 * typNumBytes);
-
-		// We have four triangles. Because interpolation happens before executing the fragment shader,
-		// we need to provide the same vertex attribute for the same triangle. That means, duplicate each
-		// value three times for all four values.
-
-		const deUint8*				provided		= static_cast<const deUint8*>(&inputBufferBytes.front());
-		vector<deUint8>				data;
-
-		data.reserve(3 * bufNumBytes);
-
-		for (deUint32 offset = 0; offset < bufNumBytes; offset += typNumBytes)
-			for (deUint32 vertexNdx = 0; vertexNdx < 3; ++vertexNdx)
-				for (deUint32 byteNdx = 0; byteNdx < typNumBytes; ++byteNdx)
-					data.push_back(provided[offset + byteNdx]);
-
-		deMemcpy(vertexInputMemory->getHostPtr(), data.data(), data.size());
-
-		const VkMappedMemoryRange	range			=
-		{
-			VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,	//	VkStructureType	sType;
-			DE_NULL,								//	const void*		pNext;
-			vertexInputMemory->getMemory(),			//	VkDeviceMemory	mem;
-			0,										//	VkDeviceSize	offset;
-			VK_WHOLE_SIZE,							//	VkDeviceSize	size;
-		};
-
-		VK_CHECK(vk.flushMappedMemoryRanges(device, 1u, &range));
-	}
-
-	// Submit & wait for completion
-	submitCommandsAndWait(vk, device, queue, cmdBuf.get());
 
 	const void* imagePtr	= readImageBufferMemory->getHostPtr();
 	const tcu::ConstPixelBufferAccess pixelBuffer(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8),
@@ -4070,7 +4648,33 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 			expected->getBytes(expectedBytes);
 
 			if (deMemCmp(&expectedBytes.front(), outResourceMemories[outputNdx]->getHostPtr(), expectedBytes.size()))
-				return tcu::TestStatus::fail("Resource returned doesn't match bitwisely with expected");
+			{
+				// Some *variable_pointers* tests store counters in buffer
+				// whose value may vary if the same vertex shader may be executed for multiple times
+				// in this case the output value can be expected value + non-negative integer N
+				if (instance.customizedStages == VK_SHADER_STAGE_VERTEX_BIT)
+				{
+					const size_t	numExpectedEntries	= expectedBytes.size() / sizeof(float);
+					const float*	expectedFloats		= reinterpret_cast<const float*>(&expectedBytes.front());
+					const float*	outputFloats		= reinterpret_cast<const float*>(outResourceMemories[outputNdx]->getHostPtr());
+					float			diff				= 0.0f;
+
+					for (size_t expectedNdx = 0; expectedNdx < numExpectedEntries; ++expectedNdx)
+					{
+						if (deFloatIsInf(outputFloats[expectedNdx]) || deFloatIsNaN(outputFloats[expectedNdx]))
+							return tcu::TestStatus::fail("Value returned is invalid");
+
+						diff = outputFloats[expectedNdx] - expectedFloats[expectedNdx];
+
+						if ((diff < 0.0f) || (deFloatFloor(diff) != diff))
+							return tcu::TestStatus::fail("Value returned should be equal to expected value plus non-negative integer");
+					}
+				}
+				else
+				{
+					return tcu::TestStatus::fail("Resource returned doesn't match bitwisely with expected");
+				}
+			}
 
 		}
 	}
@@ -4167,7 +4771,8 @@ void createTestForStage (vk::VkShaderStageFlagBits	stage,
 						 tcu::TestCaseGroup*		tests,
 						 const qpTestResult			failResult,
 						 const string&				failMessageTemplate,
-						 const bool					renderFullSquare)
+						 const bool					renderFullSquare,
+						 const bool					splitRenderArea)
 {
 	const StageData&				stageData			= getStageData(stage);
 	DE_ASSERT(stageData.getPipelineFn || stageData.initProgramsFn);
@@ -4178,6 +4783,7 @@ void createTestForStage (vk::VkShaderStageFlagBits	stage,
 		specConstantMap[stage] = specConstants;
 
 	InstanceContext					ctx					(inputColors, outputColors, testCodeFragments, specConstantMap, pushConstants, resources, interfaces, extensions, vulkanFeatures, stage);
+	ctx.splitRenderArea = splitRenderArea;
 	for (size_t i = 0; i < pipeline.size(); ++i)
 	{
 		ctx.moduleMap[pipeline[i].moduleName].push_back(std::make_pair(pipeline[i].entryName, pipeline[i].stage));
@@ -4189,6 +4795,7 @@ void createTestForStage (vk::VkShaderStageFlagBits	stage,
 		ctx.failMessageTemplate = failMessageTemplate;
 
 	ctx.renderFullSquare = renderFullSquare;
+	ctx.splitRenderArea	= splitRenderArea;
 	addFunctionCaseWithPrograms<InstanceContext>(tests, name, "", stageData.initProgramsFn, runAndVerifyDefaultPipeline, ctx);
 }
 
@@ -4204,7 +4811,8 @@ void createTestsForAllStages (const std::string&			name,
 							  VulkanFeatures				vulkanFeatures,
 							  tcu::TestCaseGroup*			tests,
 							  const qpTestResult			failResult,
-							  const string&					failMessageTemplate)
+							  const string&					failMessageTemplate,
+							  const bool					splitRenderArea)
 {
 	createTestForStage(VK_SHADER_STAGE_VERTEX_BIT, name + "_vert",
 					   inputColors, outputColors, testCodeFragments, specConstants, pushConstants, resources,
@@ -4224,7 +4832,7 @@ void createTestsForAllStages (const std::string&			name,
 
 	createTestForStage(VK_SHADER_STAGE_FRAGMENT_BIT, name + "_frag",
 					   inputColors, outputColors, testCodeFragments, specConstants, pushConstants, resources,
-					   interfaces, extensions, vulkanFeatures, tests, failResult, failMessageTemplate);
+					   interfaces, extensions, vulkanFeatures, tests, failResult, failMessageTemplate, false, splitRenderArea);
 }
 
 void addTessCtrlTest (tcu::TestCaseGroup* group, const char* name, const map<string, string>& fragments)

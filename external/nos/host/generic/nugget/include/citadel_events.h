@@ -44,46 +44,65 @@ extern "C" {
  * instead of changing things.
  */
 
+/*
+ * Event priority.  Stored events of lower priority will be evicted to store
+ * higher-priority events if the queue is full.
+ */
+enum event_priority {
+  EVENT_PRIORITY_LOW = 0,
+  EVENT_PRIORITY_MEDIUM = 1,
+  EVENT_PRIORITY_HIGH = 2,
+};
+
+/*
+ * Event ID values live forever.
+ * Add to the list, but NEVER change or delete existing entries.
+ */
+enum event_id {
+  EVENT_NONE = 0,      // Unused ID, used as empty marker.
+  EVENT_ALERT = 1,     // Globalsec alert fired.
+  EVENT_REBOOTED = 2,  // Device rebooted.
+  EVENT_UPGRADED = 3,  // Device has upgraded.
+  EVENT_ALERT_V2 = 4,  // Globalsec Alertv2 fired
+};
+
 /* Please do not change the size of this struct */
 #define EVENT_RECORD_SIZE 64
 struct event_record {
   uint64_t reset_count;                 /* zeroed by Citadel power cycle */
   uint64_t uptime_usecs;                /* since last Citadel reset */
   uint32_t id;
+  uint32_t priority;
   union {
     /* id-specific information goes here */
     struct {
       uint32_t intr_sts[3];
     } alert;
     struct {
-      uint32_t bad_thing;
-    } citadel;
+      uint32_t rstsrc;
+      uint32_t exitpd;
+      uint32_t which0;
+      uint32_t which1;
+    } rebooted;
     struct {
-      uint32_t okay_thing;
-    } info;
+      uint32_t alert_grp[4];
+      uint16_t camo_breaches[2];
+      uint16_t temp_min;
+      uint16_t temp_max;
+      uint32_t bus_err;
+    } alert_v2;
 
     /* uninterpreted */
     union {
-      uint32_t w[11];
-      uint16_t h[22];
-      uint8_t  b[44];
+      uint32_t w[10];
+      uint16_t h[20];
+      uint8_t b[40];
     } raw;
-  } u;
+  } event;
 } __packed;
 /* Please do not change the size of this struct */
 static_assert(sizeof(struct event_record) == EVENT_RECORD_SIZE,
               "Muting the Immutable");
-
-/*
- * Event ID values live forever.
- * Add to the list, but NEVER change or delete existing entries.
-*/
-enum event_id {
-  EVENT_NONE = 0,                       /* No valid event exists with this ID */
-  EVENT_ALERT = 1,                      /* Security alert reported */
-  EVENT_CITADEL = 2,                    /* Bad: panic, stack overflow, etc. */
-  EVENT_INFO = 3,                       /* FYI: normal reboot, etc. */
-};
 
 #ifdef __cplusplus
 }

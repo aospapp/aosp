@@ -38,7 +38,7 @@
 static long huge_free;
 static long huge_free2;
 static long hugepages;
-static long orig_shmmax, new_shmmax;
+static long orig_shmmax = -1, new_shmmax;
 
 static void shared_hugepage(void);
 
@@ -99,14 +99,15 @@ static void setup(void)
 
 	hpage_size = SAFE_READ_MEMINFO("Hugepagesize:") * 1024;
 
-	hugepages = (orig_hugepages * hpage_size + SIZE) / hpage_size;
+	hugepages = orig_hugepages + SIZE / hpage_size;
 	set_sys_tune("nr_hugepages", hugepages, 1);
 }
 
 static void cleanup(void)
 {
 	restore_nr_hugepages();
-	SAFE_FILE_PRINTF(PATH_SHMMAX, "%ld", orig_shmmax);
+	if (orig_shmmax != -1)
+		SAFE_FILE_PRINTF(PATH_SHMMAX, "%ld", orig_shmmax);
 }
 
 static struct tst_test test = {

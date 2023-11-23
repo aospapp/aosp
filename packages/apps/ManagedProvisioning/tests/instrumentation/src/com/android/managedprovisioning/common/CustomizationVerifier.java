@@ -103,13 +103,6 @@ public class CustomizationVerifier {
         return logo;
     }
 
-    private Drawable makeExpectedTopInfoDrawable(int color) {
-        int swiperTheme = new SwiperThemeMatcher(mActivity, new ColorMatcher()).findTheme(color);
-        ContextThemeWrapper wrapper = new ContextThemeWrapper(mActivity, swiperTheme);
-        return mActivity.getResources().getDrawable(
-                R.drawable.topinfo_animation, wrapper.getTheme());
-    }
-
     private Drawable extractLogo() {
         return ((ImageView) mActivity.findViewById(R.id.sud_layout_icon)).getDrawable();
     }

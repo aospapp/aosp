@@ -1,6 +1,6 @@
 {
   "FLAGS": "browsable",
-  "BROWSABLE_HINT": "LIST",
+  "BROWSABLE_HINT": "GRID_CATEGORY",
 
   "METADATA": {
     "MEDIA_ID": "album_art/art_nodes",
@@ -52,6 +52,25 @@
         "DISPLAY_TITLE": "Nature 1024"
       },
       "INCLUDE":"media_items/album_art/nature/art_nature_1024.json"
+    },
+    {
+      "FLAGS": "browsable",
+      "PLAYABLE_HINT": "GRID",
+      "METADATA": {
+        "MEDIA_ID": "album_art/art_nodes nature files",
+        "DISPLAY_TITLE": "Nature files"
+      },
+      "INCLUDE":"media_items/album_art/nature/art_nature_files.json"
+    },
+    {
+      "FLAGS": "browsable",
+      "PLAYABLE_HINT": "GRID",
+      "METADATA": {
+        "MEDIA_ID": "album_art/art_nodes nature self updating",
+        "DISPLAY_TITLE": "Nature self updating"
+      },
+      "SELF_UPDATE_MS": "2000",
+      "INCLUDE":"media_items/album_art/nature/art_nature_512.json"
     }
   ]
 }

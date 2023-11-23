@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef SCOPED_STRING_CHARS_H_included
-#define SCOPED_STRING_CHARS_H_included
+#ifndef LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDSTRINGCHARS_H_
+#define LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDSTRINGCHARS_H_
 
 #include "JNIHelp.h"
 #include <nativehelper/scoped_string_chars.h>
 
-#endif  // SCOPED_STRING_CHARS_H_included
+#endif  // LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDSTRINGCHARS_H_

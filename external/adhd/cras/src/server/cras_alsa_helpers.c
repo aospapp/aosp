@@ -16,8 +16,8 @@
  * alsa-lib since 1.0.27) and CRAS_CHANNEL, values of which are
  * of the same order but shifted by 3.
  */
-#define CH_TO_ALSA(ch) ((ch) + 3)
-#define CH_TO_CRAS(ch) ((ch) - 3)
+#define CH_TO_ALSA(ch) ((ch) + (3))
+#define CH_TO_CRAS(ch) ((ch) - (3))
 
 /* Assert the channel is defined in CRAS_CHANNELS. */
 #define ALSA_CH_VALID(ch) ((ch >= SND_CHMAP_FL) && (ch <= SND_CHMAP_FRC))
@@ -33,44 +33,24 @@ static const size_t ALSA_SUSPENDED_SLEEP_TIME_US = 250000;
 /* What rates should we check for on this dev?
  * Listed in order of preference. 0 terminalted. */
 static const size_t test_sample_rates[] = {
-	44100,
-	48000,
-	32000,
-	96000,
-	22050,
-	16000,
-	8000,
-	4000,
-	192000,
-	0
+	44100, 48000, 32000, 96000, 22050, 16000, 8000, 4000, 192000, 0,
 };
 
 /* What channel counts shoud be checked on this dev?
  * Listed in order of preference. 0 terminalted. */
-static const size_t test_channel_counts[] = {
-	10,
-	6,
-	4,
-	2,
-	1,
-	8,
-	0
-};
+static const size_t test_channel_counts[] = { 10, 6, 4, 2, 1, 8, 0 };
 
 static const snd_pcm_format_t test_formats[] = {
-	SND_PCM_FORMAT_S16_LE,
-	SND_PCM_FORMAT_S24_LE,
-	SND_PCM_FORMAT_S32_LE,
-	SND_PCM_FORMAT_S24_3LE,
-	(snd_pcm_format_t)0
+	SND_PCM_FORMAT_S16_LE, SND_PCM_FORMAT_S24_LE, SND_PCM_FORMAT_S32_LE,
+	SND_PCM_FORMAT_S24_3LE, (snd_pcm_format_t)0
 };
 
 /* Looks up the list of channel map for the one can exactly matches
  * the layout specified in fmt.
  */
-static snd_pcm_chmap_query_t *cras_chmap_caps_match(
-		snd_pcm_chmap_query_t **chmaps,
-		struct cras_audio_format *fmt)
+static snd_pcm_chmap_query_t *
+cras_chmap_caps_match(snd_pcm_chmap_query_t **chmaps,
+		      struct cras_audio_format *fmt)
 {
 	size_t ch, i;
 	int idx, matches;
@@ -135,7 +115,7 @@ static snd_pcm_chmap_query_t *cras_chmap_caps_match(
 
 			if (fmt->channel_layout[ch] + 1 !=
 			    fmt->channel_layout[CH_TO_CRAS(
-					    (*chmap)->map.pos[i + 1])]) {
+				    (*chmap)->map.pos[i + 1])]) {
 				matches = 0;
 				break;
 			}
@@ -151,17 +131,17 @@ static snd_pcm_chmap_query_t *cras_chmap_caps_match(
  * channel map which can be supported by means of channel conversion
  * matrix.
  */
-static snd_pcm_chmap_query_t *cras_chmap_caps_conv_matrix(
-		snd_pcm_chmap_query_t **chmaps,
-		struct cras_audio_format *fmt)
+static snd_pcm_chmap_query_t *
+cras_chmap_caps_conv_matrix(snd_pcm_chmap_query_t **chmaps,
+			    struct cras_audio_format *fmt)
 {
 	float **conv_mtx;
 	size_t i;
 	snd_pcm_chmap_query_t **chmap;
 	struct cras_audio_format *conv_fmt;
 
-	conv_fmt = cras_audio_format_create(fmt->format,
-			fmt->frame_rate, fmt->num_channels);
+	conv_fmt = cras_audio_format_create(fmt->format, fmt->frame_rate,
+					    fmt->num_channels);
 
 	for (chmap = chmaps; *chmap; chmap++) {
 		if ((*chmap)->map.channels != fmt->num_channels)
@@ -172,7 +152,7 @@ static snd_pcm_chmap_query_t *cras_chmap_caps_conv_matrix(
 			if (!ALSA_CH_VALID((*chmap)->map.pos[i]))
 				continue;
 			conv_fmt->channel_layout[CH_TO_CRAS(
-					(*chmap)->map.pos[i])] = i;
+				(*chmap)->map.pos[i])] = i;
 		}
 
 		/* Examine channel map by test creating a conversion matrix
@@ -182,8 +162,8 @@ static snd_pcm_chmap_query_t *cras_chmap_caps_conv_matrix(
 		 */
 		conv_mtx = cras_channel_conv_matrix_create(fmt, conv_fmt);
 		if (conv_mtx) {
-			cras_channel_conv_matrix_destroy(conv_mtx,
-						 conv_fmt->num_channels);
+			cras_channel_conv_matrix_destroy(
+				conv_mtx, conv_fmt->num_channels);
 			cras_audio_format_destroy(conv_fmt);
 			return *chmap;
 		}
@@ -196,10 +176,9 @@ static snd_pcm_chmap_query_t *cras_chmap_caps_conv_matrix(
 /* Finds the best channel map for given format and list of channel
  * map capability.
  */
-static snd_pcm_chmap_query_t *cras_chmap_caps_best(
-		snd_pcm_t *handle,
-		snd_pcm_chmap_query_t **chmaps,
-		struct cras_audio_format *fmt)
+static snd_pcm_chmap_query_t *
+cras_chmap_caps_best(snd_pcm_t *handle, snd_pcm_chmap_query_t **chmaps,
+		     struct cras_audio_format *fmt)
 {
 	snd_pcm_chmap_query_t **chmap;
 	snd_pcm_chmap_query_t *match;
@@ -231,13 +210,10 @@ int cras_alsa_pcm_open(snd_pcm_t **handle, const char *dev,
 	static const unsigned int OPEN_RETRY_DELAY_US = 100000;
 
 retry_open:
-	rc = snd_pcm_open(handle,
-			  dev,
-			  stream,
-			  SND_PCM_NONBLOCK |
-			  SND_PCM_NO_AUTO_RESAMPLE |
-			  SND_PCM_NO_AUTO_CHANNELS |
-			  SND_PCM_NO_AUTO_FORMAT);
+	rc = snd_pcm_open(handle, dev, stream,
+			  SND_PCM_NONBLOCK | SND_PCM_NO_AUTO_RESAMPLE |
+				  SND_PCM_NO_AUTO_CHANNELS |
+				  SND_PCM_NO_AUTO_FORMAT);
 	if (rc == -EBUSY && --retries) {
 		usleep(OPEN_RETRY_DELAY_US);
 		goto retry_open;
@@ -302,8 +278,7 @@ int cras_alsa_resume_appl_ptr(snd_pcm_t *handle, snd_pcm_uframes_t ahead)
 	return 0;
 }
 
-int cras_alsa_set_channel_map(snd_pcm_t *handle,
-			      struct cras_audio_format *fmt)
+int cras_alsa_set_channel_map(snd_pcm_t *handle, struct cras_audio_format *fmt)
 {
 	size_t i, ch;
 	snd_pcm_chmap_query_t **chmaps;
@@ -343,8 +318,7 @@ done:
 	return 0;
 }
 
-int cras_alsa_get_channel_map(snd_pcm_t *handle,
-			      struct cras_audio_format *fmt)
+int cras_alsa_get_channel_map(snd_pcm_t *handle, struct cras_audio_format *fmt)
 {
 	snd_pcm_chmap_query_t **chmaps;
 	snd_pcm_chmap_query_t *match;
@@ -383,8 +357,8 @@ done:
 	return rc;
 }
 
-int cras_alsa_fill_properties(snd_pcm_t *handle,
-			      size_t **rates, size_t **channel_counts,
+int cras_alsa_fill_properties(snd_pcm_t *handle, size_t **rates,
+			      size_t **channel_counts,
 			      snd_pcm_format_t **formats)
 {
 	int rc;
@@ -501,7 +475,7 @@ int cras_alsa_set_hwparams(snd_pcm_t *handle, struct cras_audio_format *format,
 		unsigned int original = dma_period_time;
 
 		err = snd_pcm_hw_params_set_period_time_near(
-				handle, hwparams, &dma_period_time, &dir);
+			handle, hwparams, &dma_period_time, &dir);
 		if (err < 0) {
 			syslog(LOG_ERR, "could not set period time: %s",
 			       snd_strerror(err));
@@ -512,8 +486,7 @@ int cras_alsa_set_hwparams(snd_pcm_t *handle, struct cras_audio_format *format,
 		}
 	}
 	/* Set the sample format. */
-	err = snd_pcm_hw_params_set_format(handle, hwparams,
-					   format->format);
+	err = snd_pcm_hw_params_set_format(handle, hwparams, format->format);
 	if (err < 0) {
 		syslog(LOG_ERR, "set format %s\n", snd_strerror(err));
 		return err;
@@ -541,8 +514,7 @@ int cras_alsa_set_hwparams(snd_pcm_t *handle, struct cras_audio_format *format,
 
 	/* Make sure buffer frames is even, or snd_pcm_hw_params will
 	 * return invalid argument error. */
-	err = snd_pcm_hw_params_get_buffer_size_max(hwparams,
-						    buffer_frames);
+	err = snd_pcm_hw_params_get_buffer_size_max(hwparams, buffer_frames);
 	if (err < 0)
 		syslog(LOG_WARNING, "get buffer max %s\n", snd_strerror(err));
 
@@ -560,9 +532,11 @@ int cras_alsa_set_hwparams(snd_pcm_t *handle, struct cras_audio_format *format,
 	/* Finally, write the parameters to the device. */
 	err = snd_pcm_hw_params(handle, hwparams);
 	if (err < 0) {
-		syslog(LOG_ERR, "hw_params: %s: rate: %u, ret_rate: %u, "
-		       "channel: %zu, format: %u\n", snd_strerror(err), rate,
-		       ret_rate, format->num_channels, format->format);
+		syslog(LOG_ERR,
+		       "hw_params: %s: rate: %u, ret_rate: %u, "
+		       "channel: %zu, format: %u\n",
+		       snd_strerror(err), rate, ret_rate, format->num_channels,
+		       format->format);
 		return err;
 	}
 	return 0;
@@ -608,15 +582,14 @@ int cras_alsa_set_swparams(snd_pcm_t *handle, int *enable_htimestamp)
 	if (*enable_htimestamp) {
 		/* Use MONOTONIC_RAW time-stamps. */
 		err = snd_pcm_sw_params_set_tstamp_type(
-				handle, swparams,
-				SND_PCM_TSTAMP_TYPE_MONOTONIC_RAW);
+			handle, swparams, SND_PCM_TSTAMP_TYPE_MONOTONIC_RAW);
 		if (err < 0) {
 			syslog(LOG_ERR, "set_tstamp_type: %s\n",
 			       snd_strerror(err));
 			return err;
 		}
-		err = snd_pcm_sw_params_set_tstamp_mode(
-				handle, swparams, SND_PCM_TSTAMP_ENABLE);
+		err = snd_pcm_sw_params_set_tstamp_mode(handle, swparams,
+							SND_PCM_TSTAMP_ENABLE);
 		if (err < 0) {
 			syslog(LOG_ERR, "set_tstamp_mode: %s\n",
 			       snd_strerror(err));
@@ -634,15 +607,14 @@ int cras_alsa_set_swparams(snd_pcm_t *handle, int *enable_htimestamp)
 		       "MONOTONIC_RAW timestamps are not supported.");
 
 		err = snd_pcm_sw_params_set_tstamp_type(
-				handle, swparams,
-				SND_PCM_TSTAMP_TYPE_GETTIMEOFDAY);
+			handle, swparams, SND_PCM_TSTAMP_TYPE_GETTIMEOFDAY);
 		if (err < 0) {
 			syslog(LOG_ERR, "set_tstamp_type: %s\n",
 			       snd_strerror(err));
 			return err;
 		}
-		err = snd_pcm_sw_params_set_tstamp_mode(
-				handle, swparams, SND_PCM_TSTAMP_NONE);
+		err = snd_pcm_sw_params_set_tstamp_mode(handle, swparams,
+							SND_PCM_TSTAMP_NONE);
 		if (err < 0) {
 			syslog(LOG_ERR, "set_tstamp_mode: %s\n",
 			       snd_strerror(err));
@@ -661,14 +633,13 @@ int cras_alsa_set_swparams(snd_pcm_t *handle, int *enable_htimestamp)
 
 int cras_alsa_get_avail_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
 			       snd_pcm_uframes_t severe_underrun_frames,
-			       const char *dev_name,
-			       snd_pcm_uframes_t *avail,
+			       const char *dev_name, snd_pcm_uframes_t *avail,
 			       struct timespec *tstamp)
 {
 	snd_pcm_sframes_t frames;
 	int rc = 0;
-	static struct timespec tstamp_last_underrun_log =
-			{.tv_sec = 0, .tv_nsec = 0};
+	static struct timespec tstamp_last_underrun_log = { .tv_sec = 0,
+							    .tv_nsec = 0 };
 
 	/* Use snd_pcm_avail still to ensure that the hardware pointer is
 	 * up to date. Otherwise, we could use the deprecated snd_pcm_hwsync().
@@ -684,8 +655,8 @@ int cras_alsa_get_avail_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
 		rc = 0;
 		goto error;
 	} else if (rc < 0) {
-		syslog(LOG_ERR, "pcm_avail error %s, %s\n",
-		       dev_name, snd_strerror(rc));
+		syslog(LOG_ERR, "pcm_avail error %s, %s\n", dev_name,
+		       snd_strerror(rc));
 		goto error;
 	} else if (frames > (snd_pcm_sframes_t)buf_size) {
 		struct timespec tstamp_now;
@@ -818,7 +789,7 @@ int cras_alsa_mmap_begin(snd_pcm_t *handle, unsigned int format_bytes,
 		 * case.
 		 */
 		if (snd_pcm_stream(handle) == SND_PCM_STREAM_PLAYBACK &&
-				*frames == 0) {
+		    *frames == 0) {
 			syslog(LOG_INFO, "mmap_begin set frames to 0.");
 			return -EIO;
 		}

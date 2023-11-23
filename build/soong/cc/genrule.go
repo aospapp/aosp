@@ -25,10 +25,9 @@ func init() {
 
 type GenruleExtraProperties struct {
 	Vendor_available   *bool
+	Ramdisk_available  *bool
 	Recovery_available *bool
-
-	// This genrule is for recovery variant
-	InRecovery bool `blueprint:"mutated"`
+	Sdk_version        *string
 }
 
 // cc_genrule is a genrule that can depend on other cc_* objects.
@@ -37,10 +36,74 @@ type GenruleExtraProperties struct {
 func genRuleFactory() android.Module {
 	module := genrule.NewGenRule()
 
-	module.Extra = &GenruleExtraProperties{}
+	extra := &GenruleExtraProperties{}
+	module.Extra = extra
+	module.ImageInterface = extra
 	module.AddProperties(module.Extra)
 
 	android.InitAndroidArchModule(module, android.HostAndDeviceSupported, android.MultilibBoth)
 
+	android.InitApexModule(module)
+
 	return module
+}
+
+var _ android.ImageInterface = (*GenruleExtraProperties)(nil)
+
+func (g *GenruleExtraProperties) ImageMutatorBegin(ctx android.BaseModuleContext) {}
+
+func (g *GenruleExtraProperties) CoreVariantNeeded(ctx android.BaseModuleContext) bool {
+	if ctx.DeviceConfig().VndkVersion() == "" {
+		return true
+	}
+
+	if ctx.DeviceConfig().ProductVndkVersion() != "" && ctx.ProductSpecific() {
+		return false
+	}
+
+	return Bool(g.Vendor_available) || !(ctx.SocSpecific() || ctx.DeviceSpecific())
+}
+
+func (g *GenruleExtraProperties) RamdiskVariantNeeded(ctx android.BaseModuleContext) bool {
+	return Bool(g.Ramdisk_available)
+}
+
+func (g *GenruleExtraProperties) RecoveryVariantNeeded(ctx android.BaseModuleContext) bool {
+	return Bool(g.Recovery_available)
+}
+
+func (g *GenruleExtraProperties) ExtraImageVariations(ctx android.BaseModuleContext) []string {
+	if ctx.DeviceConfig().VndkVersion() == "" {
+		return nil
+	}
+
+	var variants []string
+	if Bool(g.Vendor_available) || ctx.SocSpecific() || ctx.DeviceSpecific() {
+		vndkVersion := ctx.DeviceConfig().VndkVersion()
+		// If vndkVersion is current, we can always use PlatformVndkVersion.
+		// If not, we assume modules under proprietary paths are compatible for
+		// BOARD_VNDK_VERSION. The other modules are regarded as AOSP, that is
+		// PLATFORM_VNDK_VERSION.
+		if vndkVersion == "current" || !isVendorProprietaryPath(ctx.ModuleDir()) {
+			variants = append(variants, VendorVariationPrefix+ctx.DeviceConfig().PlatformVndkVersion())
+		} else {
+			variants = append(variants, VendorVariationPrefix+vndkVersion)
+		}
+	}
+
+	if ctx.DeviceConfig().ProductVndkVersion() == "" {
+		return variants
+	}
+
+	if Bool(g.Vendor_available) || ctx.ProductSpecific() {
+		variants = append(variants, ProductVariationPrefix+ctx.DeviceConfig().PlatformVndkVersion())
+		if vndkVersion := ctx.DeviceConfig().ProductVndkVersion(); vndkVersion != "current" {
+			variants = append(variants, ProductVariationPrefix+vndkVersion)
+		}
+	}
+
+	return variants
+}
+
+func (g *GenruleExtraProperties) SetImageVariation(ctx android.BaseModuleContext, variation string, module android.Module) {
 }

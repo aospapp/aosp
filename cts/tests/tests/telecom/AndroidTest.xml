@@ -18,6 +18,8 @@
     <option name="config-descriptor:metadata" key="component" value="telecom" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="hidden-api-checks" value="false" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.TokenRequirement">
         <option name="token" value="sim-card" />
     </target_preparer>
@@ -26,7 +28,10 @@
         <option name="test-file-name" value="CallRedirectionServiceTestApp.apk" />
         <option name="test-file-name" value="CtsTelecomTestCases.apk" />
         <option name="test-file-name" value="ThirdPtyInCallServiceTestApp.apk" />
+        <option name="test-file-name" value="Api29InCallServiceTestApp.apk" />
         <option name="test-file-name" value="CallScreeningServiceTestApp.apk" />
+        <option name="test-file-name" value="CarModeTestApp.apk" />
+        <option name="test-file-name" value="CarModeTestAppTwo.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.telecom.cts" />

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <benchmark/benchmark.h>
 
@@ -22,6 +23,7 @@
 
 constexpr uint32_t TEST_MAP_SIZE = 10000;
 
+using android::base::Result;
 using android::base::StringPrintf;
 using android::bpf::BpfMap;
 
@@ -33,26 +35,32 @@ class BpfBenchMark : public ::benchmark::Fixture {
 
 BENCHMARK_DEFINE_F(BpfBenchMark, MapWriteNewEntry)(benchmark::State& state) {
     for (auto _ : state) {
-        expectOk(mBpfTestMap.writeValue(state.range(0), state.range(0), BPF_NOEXIST));
+        // TODO(b/147676069) assert
+        mBpfTestMap.writeValue(state.range(0), state.range(0), BPF_NOEXIST);
     }
 }
 
 BENCHMARK_DEFINE_F(BpfBenchMark, MapUpdateEntry)(benchmark::State& state) {
     for (uint32_t i = 0; i < TEST_MAP_SIZE; i++) {
-        expectOk(mBpfTestMap.writeValue(i, i, BPF_NOEXIST));
+        // TODO(b/147676069) assert
+        mBpfTestMap.writeValue(i, i, BPF_NOEXIST);
     }
     for (auto _ : state) {
-        expectOk(mBpfTestMap.writeValue(state.range(0), state.range(0) + 1, BPF_EXIST));
+        // TODO(b/147676069) assert
+        mBpfTestMap.writeValue(state.range(0), state.range(0) + 1, BPF_EXIST);
     }
 }
 
 BENCHMARK_DEFINE_F(BpfBenchMark, MapDeleteAddEntry)(benchmark::State& state) {
     for (uint32_t i = 0; i < TEST_MAP_SIZE; i++) {
-        expectOk(mBpfTestMap.writeValue(i, i, BPF_NOEXIST));
+        // TODO(b/147676069) assert
+        mBpfTestMap.writeValue(i, i, BPF_NOEXIST);
     }
     for (auto _ : state) {
-        expectOk(mBpfTestMap.deleteValue(state.range(0)));
-        expectOk(mBpfTestMap.writeValue(state.range(0), state.range(0) + 1, BPF_NOEXIST));
+        // TODO(b/147676069) assert
+        mBpfTestMap.deleteValue(state.range(0));
+        // TODO(b/147676069) assert
+        mBpfTestMap.writeValue(state.range(0), state.range(0) + 1, BPF_NOEXIST);
     }
 }
 

@@ -17,7 +17,7 @@
 package com.android.tv.dvr.ui.browse;
 
 import android.content.Context;
-import android.support.v17.leanback.widget.ListRowPresenter;
+import androidx.leanback.widget.ListRowPresenter;
 import android.view.ViewGroup;
 import com.android.tv.R;
 

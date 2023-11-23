@@ -29,6 +29,7 @@ import org.mockito.exceptions.base.MockitoException;
 import org.mockito.internal.util.reflection.LenientCopyTool;
 import org.mockito.invocation.MockHandler;
 import org.mockito.mock.MockCreationSettings;
+import org.mockito.plugins.InlineMockMaker;
 import org.mockito.plugins.InstantiatorProvider2;
 import org.mockito.plugins.MockMaker;
 
@@ -54,7 +55,7 @@ import java.util.Set;
  * <p>This is done by transforming the byte code of the classes to add method entry hooks.
  */
 
-public final class InlineDexmakerMockMaker implements MockMaker {
+public final class InlineDexmakerMockMaker implements InlineMockMaker {
     private static final String DISPATCHER_CLASS_NAME =
             "com.android.dx.mockito.inline.MockMethodDispatcher";
     private static final String DISPATCHER_JAR = "dispatcher.jar";
@@ -179,7 +180,8 @@ public final class InlineDexmakerMockMaker implements MockMaker {
             throw new RuntimeException(
                     "Could not initialize inline mock maker.\n"
                     + "\n"
-                    + "Release: Android " + Build.VERSION.RELEASE + " " + Build.VERSION.INCREMENTAL
+                    + "Release: Android " + Build.VERSION.RELEASE_OR_CODENAME + " "
+                    + Build.VERSION.INCREMENTAL
                     + "Device: " + Build.BRAND + " " + Build.MODEL, INITIALIZATION_ERROR);
         }
 
@@ -343,6 +345,16 @@ public final class InlineDexmakerMockMaker implements MockMaker {
                 return "not handled type";
             }
         };
+    }
+
+    @Override
+    public void clearMock(Object mock) {
+        mocks.remove(mock);
+    }
+
+    @Override
+    public void clearAllMocks() {
+        mocks.clear();
     }
 
     @Override

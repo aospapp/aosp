@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <keymaster/new>
+#include <keymaster/new.h>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/logger.h>
@@ -463,9 +463,20 @@ bool AuthorizationSet::DeserializeElementsData(const uint8_t** buf_ptr, const ui
 
     // Note that the following validation of elements_count is weak, but it prevents allocation of
     // elems_ arrays which are clearly too large to be reasonable.
+    size_t elems_refs_size;
+    size_t elems_alloc_size;
+    bool refs_size_overflow = __builtin_mul_overflow(elements_count, sizeof(uint32_t),
+                                                     &elems_refs_size);
+    bool alloc_size_overflow = __builtin_mul_overflow(elements_count, sizeof(*elems_),
+                                                      &elems_alloc_size);
+        /* elements_size must fit in the buffer */
     if (static_cast<ptrdiff_t>(elements_size) > end - *buf_ptr ||
-        elements_count * sizeof(uint32_t) > elements_size ||
-        *buf_ptr + (elements_count * sizeof(*elems_)) < *buf_ptr) {
+        /* The element refs must all fit within elements_size */
+        elems_refs_size > elements_size ||
+        /* If our pointer math would overflow, bail */
+        refs_size_overflow ||
+        /* If the resulting allocation would overflow, bail */
+        alloc_size_overflow) {
         LOG_E("Malformed data found in AuthorizationSet deserialization", 0);
         set_invalid(MALFORMED_DATA);
         return false;
@@ -511,8 +522,8 @@ bool AuthorizationSet::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) 
 }
 
 void AuthorizationSet::Clear() {
-    memset_s(elems_, 0, elems_size_ * sizeof(keymaster_key_param_t));
-    memset_s(indirect_data_, 0, indirect_data_size_);
+    memset_s(elems_, 0, elems_capacity_ * sizeof(keymaster_key_param_t));
+    memset_s(indirect_data_, 0, indirect_data_capacity_);
     elems_size_ = 0;
     indirect_data_size_ = 0;
     error_ = OK;

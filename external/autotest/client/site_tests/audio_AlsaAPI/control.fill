@@ -4,7 +4,7 @@
 
 AUTHOR = 'The Chromium OS Authors,chromeos-audio@google.com'
 NAME = 'audio_AlsaAPI.fill'
-ATTRIBUTES = "suite:audio"
+ATTRIBUTES = ""
 PURPOSE = 'Test that simple ALSA API succeeds to fill audio buffer with zeros.'
 CRITERIA = """
 Check that the ALSA API succeeds.

@@ -49,6 +49,8 @@ public class GoogleBenchmarkResultParserTest {
     private static final String GBENCH_OUTPUT_FILE_3 = "gbench_output3.json";
     private static final String GBENCH_OUTPUT_FILE_4 = "gbench_output4.json";
     private static final String GBENCH_OUTPUT_FILE_5 = "gbench_output5.json";
+    private static final String GBENCH_OUTPUT_FILE_6 = "gbench_output6.json";
+    private static final String GBENCH_OUTPUT_FILE_7 = "gbench_output7.json";
 
     private static final String TEST_RUN = "test_run";
 
@@ -152,7 +154,7 @@ public class GoogleBenchmarkResultParserTest {
         mMockInvocationListener.testEnded(
                 (TestDescription) EasyMock.anyObject(), EasyMock.capture(capture));
         mMockInvocationListener.testEnded(
-                EasyMock.anyObject(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mMockInvocationListener);
         CollectingOutputReceiver contents =  readInFile(GBENCH_OUTPUT_FILE_2);
         GoogleBenchmarkResultParser resultParser =
@@ -199,6 +201,33 @@ public class GoogleBenchmarkResultParserTest {
         EasyMock.verify(mMockInvocationListener);
     }
 
+    /** Tests that errors reported in JSON are parsed and appropriately reported */
+    @Test
+    public void testParse_benchmarkError() throws Exception {
+        ITestInvocationListener mMockInvocationListener =
+                EasyMock.createMock(ITestInvocationListener.class);
+
+        mMockInvocationListener.testStarted((TestDescription) EasyMock.anyObject());
+        EasyMock.expectLastCall().times(4);
+        mMockInvocationListener.testEnded(
+                EasyMock.anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
+        EasyMock.expectLastCall().times(4);
+        Capture<String> capture = new Capture<>();
+        mMockInvocationListener.testFailed(
+                (TestDescription) EasyMock.anyObject(), EasyMock.capture(capture));
+        EasyMock.expectLastCall().times(1);
+
+        EasyMock.replay(mMockInvocationListener);
+        CollectingOutputReceiver contents = readInFile(GBENCH_OUTPUT_FILE_7);
+        GoogleBenchmarkResultParser resultParser =
+                new GoogleBenchmarkResultParser(TEST_RUN, mMockInvocationListener);
+        resultParser.parse(contents);
+        EasyMock.verify(mMockInvocationListener);
+        assertEquals(
+                "Benchmark reported an error: synchronizeKernelRCU() failed with errno=13",
+                capture.getValue());
+    }
+
     /** Test for {@link GoogleBenchmarkResultParser#parseJsonToMap(JSONObject)} */
     @Test
     public void testJsonParse() throws JSONException {
@@ -239,6 +268,32 @@ public class GoogleBenchmarkResultParserTest {
         assertEquals("44930", results.get("real_time").getMeasurements().getSingleString());
         assertEquals("BM_addInts", results.get("name").getMeasurements().getSingleString());
         assertEquals("36464", results.get("iterations").getMeasurements().getSingleString());
+        assertEquals("ns", results.get("time_unit").getMeasurements().getSingleString());
+    }
+
+    /** When iterations is 0 it means the test was skipped. */
+    @Test
+    public void testParse_ignore() throws Exception {
+        ITestInvocationListener mMockInvocationListener =
+                EasyMock.createMock(ITestInvocationListener.class);
+        mMockInvocationListener.testStarted((TestDescription) EasyMock.anyObject());
+        mMockInvocationListener.testIgnored(EasyMock.anyObject());
+        Capture<HashMap<String, Metric>> capture = new Capture<>();
+        mMockInvocationListener.testEnded(
+                (TestDescription) EasyMock.anyObject(), EasyMock.capture(capture));
+        EasyMock.replay(mMockInvocationListener);
+        CollectingOutputReceiver contents = readInFile(GBENCH_OUTPUT_FILE_6);
+        GoogleBenchmarkResultParser resultParser =
+                new GoogleBenchmarkResultParser(TEST_RUN, mMockInvocationListener);
+        resultParser.parse(contents);
+        EasyMock.verify(mMockInvocationListener);
+
+        HashMap<String, Metric> results = capture.getValue();
+        assertEquals(5, results.size());
+        assertEquals("19361", results.get("cpu_time").getMeasurements().getSingleString());
+        assertEquals("44930", results.get("real_time").getMeasurements().getSingleString());
+        assertEquals("BM_addInts", results.get("name").getMeasurements().getSingleString());
+        assertEquals("0", results.get("iterations").getMeasurements().getSingleString());
         assertEquals("ns", results.get("time_unit").getMeasurements().getSingleString());
     }
 }

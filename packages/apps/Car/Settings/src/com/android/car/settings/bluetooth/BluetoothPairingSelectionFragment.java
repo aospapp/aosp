@@ -18,9 +18,6 @@ package com.android.car.settings.bluetooth;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.os.Bundle;
-import android.view.View;
-import android.widget.ProgressBar;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
@@ -42,18 +39,12 @@ public class BluetoothPairingSelectionFragment extends SettingsFragment {
         @Override
         public void onDeviceBondStateChanged(CachedBluetoothDevice cachedDevice, int bondState) {
             if (bondState == BluetoothDevice.BOND_BONDED) {
-                // We are in a dispatch loop from event manager to all listeners. goBack will pop
-                // immediately, stopping this fragment causing an unregister from the event manager
-                // and a ConcurrentModificationException. Wait until the dispatch is done to go
-                // back.
-                requireActivity().getMainThreadHandler().post(
-                        BluetoothPairingSelectionFragment.this::goBack);
+                goBack();
             }
         }
     };
 
     private LocalBluetoothManager mManager;
-    private ProgressBar mProgressBar;
 
     @Override
     protected int getPreferenceScreenResId() {
@@ -70,17 +61,11 @@ public class BluetoothPairingSelectionFragment extends SettingsFragment {
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        mProgressBar = requireActivity().findViewById(R.id.progress_bar);
-    }
-
-    @Override
     public void onStart() {
         super.onStart();
         mManager.setForegroundActivity(requireActivity());
         mManager.getEventManager().registerCallback(mCallback);
-        mProgressBar.setVisibility(View.VISIBLE);
+        getToolbar().getProgressBar().setVisible(true);
     }
 
     @Override
@@ -88,6 +73,6 @@ public class BluetoothPairingSelectionFragment extends SettingsFragment {
         super.onStop();
         mManager.setForegroundActivity(null);
         mManager.getEventManager().unregisterCallback(mCallback);
-        mProgressBar.setVisibility(View.GONE);
+        getToolbar().getProgressBar().setVisible(false);
     }
 }

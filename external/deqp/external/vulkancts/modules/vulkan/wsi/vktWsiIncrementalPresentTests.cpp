@@ -25,6 +25,7 @@
 
 #include "vktTestCaseUtil.hpp"
 #include "vktTestGroupUtil.hpp"
+#include "vktCustomInstancesDevices.hpp"
 #include "vkRefUtil.hpp"
 #include "vkWsiPlatform.hpp"
 #include "vkWsiUtil.hpp"
@@ -41,6 +42,7 @@
 #include "tcuPlatform.hpp"
 #include "tcuResultCollector.hpp"
 #include "tcuTestLog.hpp"
+#include "tcuCommandLine.hpp"
 
 #include <vector>
 #include <string>
@@ -78,10 +80,9 @@ void checkAllSupported (const Extensions& supportedExtensions, const vector<stri
 	}
 }
 
-vk::Move<vk::VkInstance> createInstanceWithWsi (const vk::PlatformInterface&		vkp,
-												deUint32							version,
-												const Extensions&					supportedExtensions,
-												vk::wsi::Type						wsiType)
+CustomInstance createInstanceWithWsi (Context&							context,
+									  const Extensions&					supportedExtensions,
+									  vk::wsi::Type						wsiType)
 {
 	vector<string>	extensions;
 
@@ -90,7 +91,7 @@ vk::Move<vk::VkInstance> createInstanceWithWsi (const vk::PlatformInterface&		vk
 
 	checkAllSupported(supportedExtensions, extensions);
 
-	return vk::createDefaultInstance(vkp, version, vector<string>(), extensions);
+	return vkt::createCustomInstanceWithExtensions(context, extensions);
 }
 
 vk::VkPhysicalDeviceFeatures getDeviceNullFeatures (void)
@@ -100,39 +101,6 @@ vk::VkPhysicalDeviceFeatures getDeviceNullFeatures (void)
 	return features;
 }
 
-deUint32 getNumQueueFamilyIndices (const vk::InstanceInterface& vki, vk::VkPhysicalDevice physicalDevice)
-{
-	deUint32	numFamilies		= 0;
-
-	vki.getPhysicalDeviceQueueFamilyProperties(physicalDevice, &numFamilies, DE_NULL);
-
-	return numFamilies;
-}
-
-vector<deUint32> getSupportedQueueFamilyIndices (const vk::InstanceInterface& vki, vk::VkPhysicalDevice physicalDevice, vk::VkSurfaceKHR surface)
-{
-	const deUint32		numTotalFamilyIndices	= getNumQueueFamilyIndices(vki, physicalDevice);
-	vector<deUint32>	supportedFamilyIndices;
-
-	for (deUint32 queueFamilyNdx = 0; queueFamilyNdx < numTotalFamilyIndices; ++queueFamilyNdx)
-	{
-		if (vk::wsi::getPhysicalDeviceSurfaceSupport(vki, physicalDevice, queueFamilyNdx, surface) != VK_FALSE)
-			supportedFamilyIndices.push_back(queueFamilyNdx);
-	}
-
-	return supportedFamilyIndices;
-}
-
-deUint32 chooseQueueFamilyIndex (const vk::InstanceInterface& vki, vk::VkPhysicalDevice physicalDevice, vk::VkSurfaceKHR surface)
-{
-	const vector<deUint32>	supportedFamilyIndices	= getSupportedQueueFamilyIndices(vki, physicalDevice, surface);
-
-	if (supportedFamilyIndices.empty())
-		TCU_THROW(NotSupportedError, "Device doesn't support presentation");
-
-	return supportedFamilyIndices[0];
-}
-
 vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
 											vk::VkInstance						instance,
 											const vk::InstanceInterface&		vki,
@@ -140,6 +108,7 @@ vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
 											const Extensions&					supportedExtensions,
 											const deUint32						queueFamilyIndex,
 											bool								requiresIncrementalPresent,
+											bool								validationEnabled,
 											const vk::VkAllocationCallbacks*	pAllocator = DE_NULL)
 {
 	const float							queuePriorities[]	= { 1.0f };
@@ -181,7 +150,7 @@ vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
 			TCU_THROW(NotSupportedError, (string(extensions[ndx]) + " is not supported").c_str());
 	}
 
-	return createDevice(vkp, instance, vki, physicalDevice, &deviceParams, pAllocator);
+	return createCustomDevice(validationEnabled, vkp, instance, vki, physicalDevice, &deviceParams, pAllocator);
 }
 
 de::MovePtr<vk::wsi::Display> createDisplay (const vk::Platform&	platform,
@@ -585,7 +554,7 @@ vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
 		DE_NULL
 	};
 	const std::vector<vk::VkViewport>					viewports			(1, vk::makeViewport(tcu::UVec2(width, height)));
-	const std::vector<vk::VkRect2D>						noScissors;
+	const std::vector<vk::VkRect2D>						scissors			(1, vk::makeRect2D(tcu::UVec2(width, height)));
 
 	return vk::makeGraphicsPipeline(vkd,										// const DeviceInterface&                        vk
 									device,										// const VkDevice                                device
@@ -597,7 +566,7 @@ vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
 									fragmentShaderModule,						// const VkShaderModule                          fragmentShaderModule
 									renderPass,									// const VkRenderPass                            renderPass
 									viewports,									// const std::vector<VkViewport>&                viewports
-									noScissors,									// const std::vector<VkRect2D>&                  scissors
+									scissors,									// const std::vector<VkRect2D>&                  scissors
 									vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,	// const VkPrimitiveTopology                     topology
 									0u,											// const deUint32                                subpass
 									0u,											// const deUint32                                patchControlPoints
@@ -654,8 +623,8 @@ private:
 	const bool										m_useIncrementalPresent;
 	const vk::PlatformInterface&					m_vkp;
 	const Extensions								m_instanceExtensions;
-	const vk::Unique<vk::VkInstance>				m_instance;
-	const vk::InstanceDriver						m_vki;
+	const CustomInstance							m_instance;
+	const vk::InstanceDriver&						m_vki;
 	const vk::VkPhysicalDevice						m_physicalDevice;
 	const de::UniquePtr<vk::wsi::Display>			m_nativeDisplay;
 	const de::UniquePtr<vk::wsi::Window>			m_nativeWindow;
@@ -830,17 +799,17 @@ IncrementalPresentTestInstance::IncrementalPresentTestInstance (Context& context
 	, m_useIncrementalPresent	(testConfig.useIncrementalPresent)
 	, m_vkp						(context.getPlatformInterface())
 	, m_instanceExtensions		(vk::enumerateInstanceExtensionProperties(m_vkp, DE_NULL))
-	, m_instance				(createInstanceWithWsi(m_vkp, context.getUsedApiVersion(), m_instanceExtensions, testConfig.wsiType))
-	, m_vki						(m_vkp, *m_instance)
-	, m_physicalDevice			(vk::chooseDevice(m_vki, *m_instance, context.getTestContext().getCommandLine()))
+	, m_instance				(createInstanceWithWsi(context, m_instanceExtensions, testConfig.wsiType))
+	, m_vki						(m_instance.getDriver())
+	, m_physicalDevice			(vk::chooseDevice(m_vki, m_instance, context.getTestContext().getCommandLine()))
 	, m_nativeDisplay			(createDisplay(context.getTestContext().getPlatform().getVulkanPlatform(), m_instanceExtensions, testConfig.wsiType))
 	, m_nativeWindow			(createWindow(*m_nativeDisplay, tcu::nothing<UVec2>()))
-	, m_surface					(vk::wsi::createSurface(m_vki, *m_instance, testConfig.wsiType, *m_nativeDisplay, *m_nativeWindow))
+	, m_surface					(vk::wsi::createSurface(m_vki, m_instance, testConfig.wsiType, *m_nativeDisplay, *m_nativeWindow))
 
-	, m_queueFamilyIndex		(chooseQueueFamilyIndex(m_vki, m_physicalDevice, *m_surface))
+	, m_queueFamilyIndex		(vk::wsi::chooseQueueFamilyIndex(m_vki, m_physicalDevice, *m_surface))
 	, m_deviceExtensions		(vk::enumerateDeviceExtensionProperties(m_vki, m_physicalDevice, DE_NULL))
-	, m_device					(createDeviceWithWsi(m_vkp, *m_instance, m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useIncrementalPresent))
-	, m_vkd						(m_vkp, *m_instance, *m_device)
+	, m_device					(createDeviceWithWsi(m_vkp, m_instance, m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useIncrementalPresent, context.getTestContext().getCommandLine().isValidationEnabled()))
+	, m_vkd						(m_vkp, m_instance, *m_device)
 	, m_queue					(getDeviceQueue(m_vkd, *m_device, m_queueFamilyIndex, 0u))
 
 	, m_commandPool				(createCommandPool(m_vkd, *m_device, m_queueFamilyIndex))
@@ -1008,7 +977,7 @@ void IncrementalPresentTestInstance::render (void)
 			(deUint32)rects.size(),
 			rects.empty() ? DE_NULL : &rects[0]
 		};
-		const vk::VkPresentRegionsKHR	regionInfo	=
+		const vk::VkPresentRegionsKHR regionInfo =
 		{
 			vk::VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR,
 			DE_NULL,

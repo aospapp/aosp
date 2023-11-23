@@ -15,6 +15,8 @@
  */
 package android.support.test.launcherhelper;
 
+import android.graphics.Point;
+import android.os.Build;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
@@ -78,29 +80,43 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
         // empty default implementation
     }
 
+    boolean isOreoOrAbove() {
+        return Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.O;
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public UiObject2 openAllApps(boolean reset) {
         // if we see all apps container, skip the opening step
-        if (!mDevice.hasObject(getAllAppsSelector())) {
+        if (!mDevice.hasObject(getAllAppsSelector()) || reset) {
             open();
-            // taps on the "apps" button at the bottom of the screen
-            UiObject2 allAppsButton =
-                    mDevice.wait(Until.findObject(getAllAppsButtonSelector()), 2000);
-            Assert.assertNotNull("openAllApps: did not find open all apps button.", allAppsButton);
-            allAppsButton.click();
-            // wait until hotseat disappears, so that we know that we are no longer on home screen
-            mDevice.wait(Until.gone(getHotSeatSelector()), 2000);
             mDevice.waitForIdle();
+            Assert.assertTrue(
+                    "openAllApps: can't go to home screen",
+                    !mDevice.hasObject(getAllAppsSelector()));
+            if (isOreoOrAbove()) {
+                int midX = mDevice.getDisplayWidth() / 2;
+                int height = mDevice.getDisplayHeight();
+                // Swipe from 6/7ths down the screen to 1/7th down the screen.
+                mDevice.swipe(
+                        midX,
+                        height * 6 / 7,
+                        midX,
+                        height / 7,
+                        (height * 2 / 3) / 100); // 100 px/step
+            } else {
+                // Swipe from the hotseat to near the top, e.g. 10% of the screen.
+                UiObject2 hotseat = mDevice.wait(Until.findObject(getHotSeatSelector()), 2500);
+                Point start = hotseat.getVisibleCenter();
+                int endY = (int) (mDevice.getDisplayHeight() * 0.1f);
+                mDevice.swipe(
+                        start.x, start.y, start.x, endY, (start.y - endY) / 100); // 100 px/step
+            }
         }
         UiObject2 allAppsContainer = mDevice.wait(Until.findObject(getAllAppsSelector()), 2000);
         Assert.assertNotNull("openAllApps: did not find all apps container", allAppsContainer);
-        if (reset) {
-            CommonLauncherHelper.getInstance(mDevice).scrollBackToBeginning(
-                    allAppsContainer, Direction.reverse(getAllAppsScrollDirection()));
-        }
         return allAppsContainer;
     }
 
@@ -181,7 +197,7 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
      */
     @Override
     public BySelector getHotSeatSelector() {
-        return By.res(getSupportedLauncherPackage(), "search_container_hotseat");
+        return By.res(getSupportedLauncherPackage(), "hotseat");
     }
 
     /**

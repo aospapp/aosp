@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"Informasjon for nødstilfeller"</string>
+    <string name="app_label" msgid="1090682794607161063">"nødinformasjon"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Medisinsk informasjon"</string>
     <string name="add_medical_info" msgid="483921612415907139">"Legg til informasjon"</string>
     <string name="edit_info" msgid="5973929805855224805">"Endre informasjonen for nødstilfeller"</string>
@@ -87,11 +87,11 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"Kontakter for nødssituasjoner"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"Nødkontakter"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Legg til kontakt"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Fant ingen kontaktvelger"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Kan ikke vise kontakten"</string>
-    <string name="remove_contact" msgid="6934983445723096759">"Vil du fjerne <xliff:g id="CONTACT_NAME">%1$s</xliff:g> fra kontakter for nødssituasjoner?"</string>
+    <string name="remove_contact" msgid="6934983445723096759">"Vil du fjerne <xliff:g id="CONTACT_NAME">%1$s</xliff:g> fra nødkontakter?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Fjern kontakt"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"Kan ikke lese kontaktinformasjonen på riktig måte"</string>
     <string name="remove" msgid="1243949503772376064">"Fjern"</string>
@@ -104,7 +104,7 @@
     <string name="clear" msgid="3648880442502887163">"Fjern"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vil du fjerne alle opplysningene og kontaktene?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Hvis du legger til medisinsk informasjon og nødkontakter, kan dette brukes ved førstehjelp i nødstilfeller.\n\nHvem som helst kan lese denne informasjonen fra låseskjermen og ringe kontaktene dine ved å trykke på kontaktnavnene – uten å låse opp telefonen din."</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"Legg til opplysninger for nødstilfeller"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Legg til nødinformasjon"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Vis informasjonen din til utrykningspersonell"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Ta et bilde"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Velg et bilde"</string>

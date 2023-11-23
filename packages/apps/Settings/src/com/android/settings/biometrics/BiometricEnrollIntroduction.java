@@ -47,6 +47,8 @@ public abstract class BiometricEnrollIntroduction extends BiometricEnrollBase
     private boolean mHasPassword;
     private boolean mBiometricUnlockDisabledByAdmin;
     private TextView mErrorText;
+    protected boolean mConfirmingCredentials;
+    protected boolean mNextClicked;
 
     /**
      * @return true if the biometric is disabled by a device administrator
@@ -149,10 +151,12 @@ public abstract class BiometricEnrollIntroduction extends BiometricEnrollBase
 
         if (!mHasPassword) {
             // No password registered, launch into enrollment wizard.
+            mConfirmingCredentials = true;
             launchChooseLock();
         } else if (mToken == null) {
             // It's possible to have a token but mLaunchedConfirmLock == false, since
             // ChooseLockGeneric can pass us a token.
+            mConfirmingCredentials = true;
             launchConfirmLock(getConfirmLockTitleResId(), getChallenge());
         }
     }
@@ -174,6 +178,11 @@ public abstract class BiometricEnrollIntroduction extends BiometricEnrollBase
         }
     }
 
+    @Override
+    protected boolean shouldFinishWhenBackgrounded() {
+        return super.shouldFinishWhenBackgrounded() && !mConfirmingCredentials && !mNextClicked;
+    }
+
     private void updatePasswordQuality() {
         final int passwordQuality = new ChooseLockSettingsHelper(this).utils()
                 .getActivePasswordQuality(mUserManager.getCredentialOwnerProfile(mUserId));
@@ -182,6 +191,7 @@ public abstract class BiometricEnrollIntroduction extends BiometricEnrollBase
 
     @Override
     protected void onNextButtonClick(View view) {
+        mNextClicked = true;
         if (checkMaxEnrolled() == 0) {
             // Lock thingy is already set up, launch directly to the next page
             launchNextEnrollingActivity(mToken);
@@ -238,7 +248,8 @@ public abstract class BiometricEnrollIntroduction extends BiometricEnrollBase
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == BIOMETRIC_FIND_SENSOR_REQUEST) {
-            if (resultCode == RESULT_FINISHED || resultCode == RESULT_SKIP) {
+            if (resultCode == RESULT_FINISHED || resultCode == RESULT_SKIP
+                    || resultCode == RESULT_TIMEOUT) {
                 setResult(resultCode, data);
                 finish();
                 return;
@@ -249,12 +260,14 @@ public abstract class BiometricEnrollIntroduction extends BiometricEnrollBase
                 mToken = data.getByteArrayExtra(
                         ChooseLockSettingsHelper.EXTRA_KEY_CHALLENGE_TOKEN);
                 overridePendingTransition(R.anim.sud_slide_next_in, R.anim.sud_slide_next_out);
+                mConfirmingCredentials = false;
                 return;
             } else {
                 setResult(resultCode, data);
                 finish();
             }
         } else if (requestCode == CONFIRM_REQUEST) {
+            mConfirmingCredentials = false;
             if (resultCode == RESULT_OK && data != null) {
                 mToken = data.getByteArrayExtra(ChooseLockSettingsHelper.EXTRA_KEY_CHALLENGE_TOKEN);
                 overridePendingTransition(R.anim.sud_slide_next_in, R.anim.sud_slide_next_out);

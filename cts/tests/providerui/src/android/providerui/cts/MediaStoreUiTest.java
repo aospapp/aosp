@@ -16,20 +16,9 @@
 
 package android.providerui.cts;
 
-import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
-import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
-import static android.Manifest.permission.ACCESS_FINE_LOCATION;
-import static android.Manifest.permission.ACCESS_MEDIA_LOCATION;
-import static android.Manifest.permission.CAMERA;
-import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
-import static android.Manifest.permission.RECORD_AUDIO;
-import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
-
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
@@ -39,34 +28,27 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.UriPermission;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.pm.PermissionInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.AssetFileDescriptor;
-import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
-import android.os.SystemClock;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
+import android.os.UserManager;
 import android.provider.MediaStore;
 import android.providerui.cts.GetResultActivity.Result;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.system.Os;
 import android.text.format.DateUtils;
 import android.util.Log;
-import android.view.KeyEvent;
 
-import androidx.core.content.FileProvider;
 import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;
@@ -87,12 +69,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 @RunWith(Parameterized.class)
 public class MediaStoreUiTest {
@@ -136,15 +112,16 @@ public class MediaStoreUiTest {
             mFile.delete();
         }
 
-        final ContentResolver resolver = mActivity.getContentResolver();
-        for (UriPermission permission : resolver.getPersistedUriPermissions()) {
-            mActivity.revokeUriPermission(
-                    permission.getUri(),
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        if (mActivity != null) {
+            final ContentResolver resolver = mActivity.getContentResolver();
+            for (UriPermission permission : resolver.getPersistedUriPermissions()) {
+                mActivity.revokeUriPermission(
+                        permission.getUri(),
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            }
+            mActivity.finish();
         }
-
-        mActivity.finish();
     }
 
     @Test
@@ -210,189 +187,24 @@ public class MediaStoreUiTest {
         assertEquals(mMediaStoreUri, mediaUri);
     }
 
-    private void maybeClick(UiSelector sel) {
-        try { mDevice.findObject(sel).click(); } catch (Throwable ignored) { }
-    }
-
-    private void maybeClick(BySelector sel) {
-        try { mDevice.findObject(sel).click(); } catch (Throwable ignored) { }
-    }
-
-    private void maybeGrantRuntimePermission(String pkg, Set<String> requested, String permission)
-            throws NameNotFoundException {
-        // We only need to grant dangerous permissions
-        if ((mContext.getPackageManager().getPermissionInfo(permission, 0).getProtection()
-                & PermissionInfo.PROTECTION_DANGEROUS) == 0) {
-            return;
-        }
-
-        if (requested.contains(permission)) {
-            InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                    .grantRuntimePermission(pkg, permission);
-        }
-    }
-
-    /**
-     * Verify that whoever handles {@link MediaStore#ACTION_IMAGE_CAPTURE} can
-     * correctly write the contents into a passed {@code content://} Uri.
-     */
-    @Test
-    public void testImageCaptureWithInadequeteLocationPermissions() throws Exception {
-        Set<String> perms = new HashSet<>();
-        perms.add(ACCESS_COARSE_LOCATION);
-        perms.add(ACCESS_BACKGROUND_LOCATION);
-        perms.add(ACCESS_MEDIA_LOCATION);
-        testImageCaptureWithoutLocation(perms);
-    }
-     /**
-     * Helper function to verify that whoever handles {@link MediaStore#ACTION_IMAGE_CAPTURE} can
-     * correctly write the contents into a passed {@code content://} Uri, without location
-     * information, necessarily, when ACCESS_FINE_LOCATION permissions aren't given.
-     */
-    private void testImageCaptureWithoutLocation(Set<String> locationPermissions)
-            throws Exception {
-        assertFalse("testImageCaptureWithoutLocation should not be passed ACCESS_FINE_LOCATION",
-                locationPermissions.contains(ACCESS_FINE_LOCATION));
-        if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
-            Log.d(TAG, "Skipping due to lack of camera");
-            return;
-        }
-
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-
-        final File targetDir = new File(mContext.getFilesDir(), "debug");
-        final File target = new File(targetDir, timeStamp  + "capture.jpg");
-
-        targetDir.mkdirs();
-        assertFalse(target.exists());
-
-        final Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        intent.putExtra(MediaStore.EXTRA_OUTPUT,
-                FileProvider.getUriForFile(mContext, "android.providerui.cts.fileprovider", target));
-
-        // Figure out who is going to answer the phone
-        final ResolveInfo ri = mContext.getPackageManager().resolveActivity(intent, 0);
-        final String answeringPkg = ri.activityInfo.packageName;
-        Log.d(TAG, "We're probably launching " + ri);
-
-        final PackageInfo pi = mContext.getPackageManager().getPackageInfo(answeringPkg,
-                PackageManager.GET_PERMISSIONS);
-        final Set<String> answeringReq = new HashSet<>();
-        answeringReq.addAll(Arrays.asList(pi.requestedPermissions));
-        // Grant the 'answering' app all the permissions they might want.
-        maybeGrantRuntimePermission(answeringPkg, answeringReq, CAMERA);
-        maybeGrantRuntimePermission(answeringPkg, answeringReq, ACCESS_FINE_LOCATION);
-        maybeGrantRuntimePermission(answeringPkg, answeringReq, ACCESS_COARSE_LOCATION);
-        maybeGrantRuntimePermission(answeringPkg, answeringReq, ACCESS_BACKGROUND_LOCATION);
-        maybeGrantRuntimePermission(answeringPkg, answeringReq, RECORD_AUDIO);
-        maybeGrantRuntimePermission(answeringPkg, answeringReq, READ_EXTERNAL_STORAGE);
-        maybeGrantRuntimePermission(answeringPkg, answeringReq, WRITE_EXTERNAL_STORAGE);
-        SystemClock.sleep(DateUtils.SECOND_IN_MILLIS);
-
-        grantSelfRequisitePermissions(locationPermissions);
-
-        Result result = getImageCaptureIntentResult(intent, answeringPkg);
-
-        assertTrue("exists", target.exists());
-        assertTrue("has data", target.length() > 65536);
-
-        // At the very least we expect photos generated by the device to have
-        // sane baseline EXIF data
-        final ExifInterface exif = new ExifInterface(new FileInputStream(target));
-        assertAttribute(exif, ExifInterface.TAG_MAKE);
-        assertAttribute(exif, ExifInterface.TAG_MODEL);
-        assertAttribute(exif, ExifInterface.TAG_DATETIME);
-        float[] latLong = new float[2];
-        Boolean hasLocation = exif.getLatLong(latLong);
-        assertTrue("Should not contain location information latitude: " + latLong[0] +
-                " longitude: " + latLong[1], !hasLocation);
-    }
-
-    private void grantSelfRequisitePermissions(Set<String> locationPermissions)
-            throws Exception {
-        String selfPkg = mContext.getPackageName();
-        for (String perm : locationPermissions) {
-            InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                    .grantRuntimePermission(selfPkg, perm);
-            assertTrue("Permission " + perm + "could not be granted",
-                    mContext.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED);
-        }
-    }
-
-    private Result getImageCaptureIntentResult(Intent intent, String answeringPkg)
-            throws Exception {
-
-        mActivity.startActivityForResult(intent, REQUEST_CODE);
-        mDevice.waitForIdle();
-
-        // To ensure camera app is launched
-        SystemClock.sleep(5 * DateUtils.SECOND_IN_MILLIS);
-
-        // Try a couple different strategies for taking a photo / capturing a video: first capture
-        // and confirm using hardware keys.
-        mDevice.pressKeyCode(KeyEvent.KEYCODE_CAMERA);
-        mDevice.waitForIdle();
-        SystemClock.sleep(5 * DateUtils.SECOND_IN_MILLIS);
-        // We're done.
-        mDevice.pressKeyCode(KeyEvent.KEYCODE_DPAD_CENTER);
-        mDevice.waitForIdle();
-
-        // Maybe that gave us a result?
-        Result result = mActivity.getResult(15, TimeUnit.SECONDS);
-        Log.d(TAG, "First pass result was " + result);
-
-        // Hrm, that didn't work; let's try an alternative approach of digging
-        // around for a shutter button
-        if (result == null) {
-            maybeClick(new UiSelector().resourceId(answeringPkg + ":id/shutter_button"));
-            mDevice.waitForIdle();
-            SystemClock.sleep(5 * DateUtils.SECOND_IN_MILLIS);
-            maybeClick(new UiSelector().resourceId(answeringPkg + ":id/shutter_button"));
-            mDevice.waitForIdle();
-            maybeClick(new UiSelector().resourceId(answeringPkg + ":id/done_button"));
-            mDevice.waitForIdle();
-
-            result = mActivity.getResult(15, TimeUnit.SECONDS);
-            Log.d(TAG, "Second pass result was " + result);
-        }
-
-        // Grr, let's try hunting around even more
-        if (result == null) {
-            maybeClick(By.pkg(answeringPkg).descContains("Capture"));
-            mDevice.waitForIdle();
-            SystemClock.sleep(5 * DateUtils.SECOND_IN_MILLIS);
-            maybeClick(By.pkg(answeringPkg).descContains("Done"));
-            mDevice.waitForIdle();
-
-            result = mActivity.getResult(15, TimeUnit.SECONDS);
-            Log.d(TAG, "Third pass result was " + result);
-        }
-
-        assertNotNull("Expected to get a IMAGE_CAPTURE result; your camera app should "
-                + "respond to the CAMERA and DPAD_CENTER keycodes", result);
-        return result;
-    }
-
-    private static void assertAttribute(ExifInterface exif, String tag) {
-        final String res = exif.getAttribute(tag);
-        if (res == null || res.length() == 0) {
-            Log.d(TAG, "Expected valid EXIF tag for tag " + tag);
-        }
-    }
-
     private boolean supportsHardware() {
         final PackageManager pm = mContext.getPackageManager();
         return !pm.hasSystemFeature("android.hardware.type.television")
                 && !pm.hasSystemFeature("android.hardware.type.watch");
     }
 
+    public File getVolumePath(String volumeName) {
+        return mContext.getSystemService(StorageManager.class)
+                .getStorageVolume(MediaStore.Files.getContentUri(volumeName)).getDirectory();
+    }
+
     private void prepareFile() throws Exception {
-        final File dir = new File(MediaStore.getVolumePath(mVolumeName),
+        final File dir = new File(getVolumePath(mVolumeName),
                 Environment.DIRECTORY_DOCUMENTS);
         final File file = new File(dir, "cts" + System.nanoTime() + ".txt");
 
         mFile = stageFile(R.raw.text, file);
-        mMediaStoreUri = MediaStore.scanFile(mContext, mFile);
+        mMediaStoreUri = MediaStore.scanFile(mContext.getContentResolver(), mFile);
 
         Log.v(TAG, "Staged " + mFile + " as " + mMediaStoreUri);
     }
@@ -409,6 +221,14 @@ public class MediaStoreUiTest {
         if (mTargetPackageName == null) {
             mTargetPackageName = getTargetPackageName(mActivity);
         }
+
+        // We started at the root of the storage device, and need to navigate
+        // into the requested directory
+        final BySelector directorySelector = By.pkg(mTargetPackageName)
+                .text(directoryName);
+        mDevice.wait(Until.hasObject(directorySelector), 30 * DateUtils.SECOND_IN_MILLIS);
+        mDevice.findObject(directorySelector).click();
+        mDevice.waitForIdle();
 
         // Granting the access
         BySelector buttonPanelSelector = By.pkg(mTargetPackageName)
@@ -483,10 +303,12 @@ public class MediaStoreUiTest {
     static File stageFile(int resId, File file) throws IOException {
         // The caller may be trying to stage into a location only available to
         // the shell user, so we need to perform the entire copy as the shell
-        if (FileUtils.contains(Environment.getStorageDirectory(), file)) {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        UserManager userManager = context.getSystemService(UserManager.class);
+        if (userManager.isSystemUser() &&
+                 FileUtils.contains(Environment.getStorageDirectory(), file)) {
             executeShellCommand("mkdir -p " + file.getParent());
 
-            final Context context = InstrumentationRegistry.getTargetContext();
             try (AssetFileDescriptor afd = context.getResources().openRawResourceFd(resId)) {
                 final File source = ParcelFileDescriptor.getFile(afd.getFileDescriptor());
                 final long skip = afd.getStartOffset();
@@ -504,7 +326,6 @@ public class MediaStoreUiTest {
             if (!dir.exists()) {
                 throw new FileNotFoundException("Failed to create parent for " + file);
             }
-            final Context context = InstrumentationRegistry.getTargetContext();
             try (InputStream source = context.getResources().openRawResource(resId);
                     OutputStream target = new FileOutputStream(file)) {
                 FileUtils.copy(source, target);

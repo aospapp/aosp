@@ -21,11 +21,6 @@
         android:title="@string/accessibility_settings"
         android:persistent="true">
 
-    <Preference
-            android:key="accessibility_shortcut_preference"
-            android:fragment="com.android.car.developeroptions.accessibility.AccessibilityShortcutPreferenceFragment"
-            android:title="@string/accessibility_global_gesture_preference_title"/>
-
     <PreferenceCategory
             android:key="user_installed_services_category"
             android:title="@string/user_installed_services_category_title">

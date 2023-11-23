@@ -32,15 +32,19 @@ import android.view.View;
 import androidx.annotation.CallSuper;
 import androidx.fragment.app.FragmentManager;
 
+import com.android.documentsui.AbstractActionHandler;
 import com.android.documentsui.ActionModeController;
 import com.android.documentsui.BaseActivity;
 import com.android.documentsui.DocsSelectionHelper;
 import com.android.documentsui.DocumentsApplication;
+import com.android.documentsui.DummyProfileTabsAddons;
 import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.MenuManager.DirectoryDetails;
 import com.android.documentsui.OperationDialogFragment;
 import com.android.documentsui.OperationDialogFragment.DialogType;
+import com.android.documentsui.ProfileTabsAddons;
+import com.android.documentsui.ProfileTabsController;
 import com.android.documentsui.ProviderExecutor;
 import com.android.documentsui.R;
 import com.android.documentsui.SharedInputHandler;
@@ -53,7 +57,6 @@ import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.dirlist.AnimationView.AnimationType;
 import com.android.documentsui.dirlist.AppsRowManager;
 import com.android.documentsui.dirlist.DirectoryFragment;
-import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.sidebar.RootsFragment;
 import com.android.documentsui.ui.DialogController;
@@ -65,7 +68,7 @@ import java.util.List;
 /**
  * Standalone file management activity.
  */
-public class FilesActivity extends BaseActivity implements ActionHandler.Addons {
+public class FilesActivity extends BaseActivity implements AbstractActionHandler.CommonAddons {
 
     private static final String TAG = "FilesActivity";
     static final String PREFERENCES_SCOPE = "files";
@@ -73,6 +76,7 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
     private Injector<ActionHandler<FilesActivity>> mInjector;
     private ActivityInputHandler mActivityInputHandler;
     private SharedInputHandler mSharedInputHandler;
+    private final ProfileTabsAddons mProfileTabsAddonsStub = new DummyProfileTabsAddons();
 
     public FilesActivity() {
         super(R.layout.files_activity, TAG);
@@ -84,19 +88,18 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
 
     @Override
     public void onCreate(Bundle icicle) {
+        setTheme(R.style.DocumentsTheme);
 
         MessageBuilder messages = new MessageBuilder(this);
         Features features = Features.create(this);
-        ScopedPreferences prefs = ScopedPreferences.create(this, PREFERENCES_SCOPE);
 
         mInjector = new Injector<>(
                 features,
                 new Config(),
-                ScopedPreferences.create(this, PREFERENCES_SCOPE),
                 messages,
-                DialogController.create(features, this, messages),
+                DialogController.create(features, this),
                 DocumentsApplication.getFileTypeLookup(this),
-                new ShortcutsUpdater(this, prefs)::update);
+                new ShortcutsUpdater(this)::update);
 
         super.onCreate(icicle);
 
@@ -123,7 +126,8 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
                 getApplicationContext(),
                 mInjector.selectionMgr,
                 mProviders::getApplicationName,
-                mInjector.getModel()::getItemUri);
+                mInjector.getModel()::getItemUri,
+                mInjector.getModel()::getItemCount);
 
         mInjector.actionModeController = new ActionModeController(
                 this,
@@ -146,11 +150,18 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
 
         mInjector.searchManager = mSearchManager;
 
-        mAppsRowManager = new AppsRowManager(mInjector.actions);
+        // No profile tabs will be shown on FilesActivity. Use a dummy to avoid unnecessary
+        // operations.
+        mInjector.profileTabsController = new ProfileTabsController(
+                mInjector.selectionMgr,
+                mProfileTabsAddonsStub);
+
+        mAppsRowManager = new AppsRowManager(mInjector.actions, mState.supportsCrossProfile(),
+                mUserIdManager);
         mInjector.appsRowManager = mAppsRowManager;
 
         mActivityInputHandler =
-                new ActivityInputHandler(mInjector.actions::deleteSelectedDocuments);
+                new ActivityInputHandler(mInjector.actions::showDeleteDialog);
         mSharedInputHandler =
                 new SharedInputHandler(
                         mInjector.focusManager,
@@ -158,9 +169,11 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
                         mInjector.searchManager::cancelSearch,
                         this::popDir,
                         mInjector.features,
-                        mDrawer);
+                        mDrawer,
+                        mInjector.searchManager::onSearchBarClicked);
 
-        RootsFragment.show(getSupportFragmentManager(), null);
+        RootsFragment.show(getSupportFragmentManager(), /* includeApps= */ false,
+                /* intent= */ null);
 
         final Intent intent = getIntent();
 
@@ -266,7 +279,7 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
         // have no reason to hang around.
         // TODO: Rather than just disappearing, maybe we should inform
         // the user what has happened, let them close us. Less surprising.
-        if (mProviders.getRootBlocking(root.authority, root.rootId) == null) {
+        if (mProviders.getRootBlocking(root.userId, root.authority, root.rootId) == null) {
             finish();
         }
     }
@@ -359,9 +372,7 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         return mActivityInputHandler.onKeyDown(keyCode, event)
-                || mSharedInputHandler.onKeyDown(
-                        keyCode,
-                        event)
+                || mSharedInputHandler.onKeyDown(keyCode, event)
                 || super.onKeyDown(keyCode, event);
     }
 

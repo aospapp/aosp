@@ -7,8 +7,6 @@
 #ifndef CORE_FPDFDOC_CPVT_WORDINFO_H_
 #define CORE_FPDFDOC_CPVT_WORDINFO_H_
 
-#include <memory>
-
 #include "core/fxcrt/fx_system.h"
 
 struct CPVT_WordInfo {
@@ -17,7 +15,7 @@ struct CPVT_WordInfo {
   CPVT_WordInfo(const CPVT_WordInfo& word);
   ~CPVT_WordInfo();
 
-  void operator=(const CPVT_WordInfo& word);
+  CPVT_WordInfo& operator=(const CPVT_WordInfo& word);
 
   uint16_t Word;
   int32_t nCharset;

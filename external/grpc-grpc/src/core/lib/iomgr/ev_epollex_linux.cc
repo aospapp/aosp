@@ -1146,7 +1146,7 @@ static void end_worker(grpc_pollset* pollset, grpc_pollset_worker* worker,
 }
 
 #ifndef NDEBUG
-static long gettid(void) { return syscall(__NR_gettid); }
+static long sys_gettid(void) { return syscall(__NR_gettid); }
 #endif
 
 /* pollset->mu lock must be held by the caller before calling this.
@@ -1166,7 +1166,7 @@ static grpc_error* pollset_work(grpc_pollset* pollset,
 #define WORKER_PTR (&worker)
 #endif
 #ifndef NDEBUG
-  WORKER_PTR->originator = gettid();
+  WORKER_PTR->originator = sys_gettid();
 #endif
   if (grpc_polling_trace.enabled()) {
     gpr_log(GPR_INFO,

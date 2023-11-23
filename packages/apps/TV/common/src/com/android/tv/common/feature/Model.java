@@ -21,10 +21,11 @@ import android.content.Context;
 /** Holder for {@link android.os.Build#MODEL} features. */
 public interface Model {
 
+    ModelFeature ARCHER = new ModelFeature("Archer");
     ModelFeature NEXUS_PLAYER = new ModelFeature("Nexus Player");
 
     /** True when the {@link android.os.Build#MODEL} equals the {@code model} given. */
-    public static final class ModelFeature implements Feature {
+    final class ModelFeature implements Feature {
         private final String mModel;
 
         private ModelFeature(String model) {

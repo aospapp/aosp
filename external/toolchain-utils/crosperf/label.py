@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """The label of benchamrks."""
 
 from __future__ import print_function
@@ -18,8 +20,10 @@ class Label(object):
 
   def __init__(self,
                name,
+               build,
                chromeos_image,
                autotest_path,
+               debug_path,
                chromeos_root,
                board,
                remote,
@@ -28,6 +32,7 @@ class Label(object):
                cache_only,
                log_level,
                compiler,
+               skylab=False,
                chrome_src=None):
 
     self.image_type = self._GetImageType(chromeos_image)
@@ -38,8 +43,10 @@ class Label(object):
       chromeos_image = os.path.expanduser(chromeos_image)
 
     self.name = name
+    self.build = build
     self.chromeos_image = chromeos_image
     self.autotest_path = autotest_path
+    self.debug_path = debug_path
     self.board = board
     self.remote = remote
     self.image_args = image_args
@@ -48,14 +55,15 @@ class Label(object):
     self.log_level = log_level
     self.chrome_version = ''
     self.compiler = compiler
+    self.skylab = skylab
 
     if not chromeos_root:
       if self.image_type == 'local':
         chromeos_root = FileUtils().ChromeOSRootFromImage(chromeos_image)
       if not chromeos_root:
-        raise RuntimeError("No ChromeOS root given for label '%s' and could "
-                           "not determine one from image path: '%s'." %
-                           (name, chromeos_image))
+        raise RuntimeError(
+            "No ChromeOS root given for label '%s' and could "
+            "not determine one from image path: '%s'." % (name, chromeos_image))
     else:
       chromeos_root = FileUtils().CanonicalizeChromeOSRoot(chromeos_root)
       if not chromeos_root:
@@ -85,7 +93,8 @@ class Label(object):
     if self.image_type == 'local':
       self.checksum = ImageChecksummer().Checksum(self, self.log_level)
     elif self.image_type == 'trybot':
-      self.checksum = hashlib.md5(self.chromeos_image).hexdigest()
+      self.checksum = hashlib.md5(
+          self.chromeos_image.encode('utf-8')).hexdigest()
 
   def _GetImageType(self, chromeos_image):
     image_type = None
@@ -118,8 +127,10 @@ class MockLabel(object):
 
   def __init__(self,
                name,
+               build,
                chromeos_image,
                autotest_path,
+               debug_path,
                chromeos_root,
                board,
                remote,
@@ -128,10 +139,13 @@ class MockLabel(object):
                cache_only,
                log_level,
                compiler,
+               skylab=False,
                chrome_src=None):
     self.name = name
+    self.build = build
     self.chromeos_image = chromeos_image
     self.autotest_path = autotest_path
+    self.debug_path = debug_path
     self.board = board
     self.remote = remote
     self.cache_dir = cache_dir
@@ -146,6 +160,7 @@ class MockLabel(object):
     self.checksum = ''
     self.log_level = log_level
     self.compiler = compiler
+    self.skylab = skylab
     self.chrome_version = 'Fake Chrome Version 50'
 
   def _GetImageType(self, chromeos_image):

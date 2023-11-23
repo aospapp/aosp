@@ -12,6 +12,8 @@ void test_mq_close_prototype(void)
 	mqd_t mqdes;
 	int err;
 
-	err = mq_close(mqdes);
+	mqdes = 0;
 
+	err = mq_close(mqdes);
+	(void)err;
 }

@@ -6,25 +6,26 @@
 
 #include "xfa/fxfa/parser/cxfa_linear.h"
 
-#include "fxjs/xfa/cjx_linear.h"
+#include "core/fxge/render_defines.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fxfa/parser/cxfa_color.h"
 #include "xfa/fxgraphics/cxfa_geshading.h"
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {{XFA_Element::Color, 1, 0},
-                                                 {XFA_Element::Extras, 1, 0},
-                                                 {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::PropertyData kLinearPropertyData[] = {
+    {XFA_Element::Color, 1, 0},
+    {XFA_Element::Extras, 1, 0},
+};
+
+const CXFA_Node::AttributeData kLinearAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Type, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::ToRight},
+     (void*)XFA_AttributeValue::ToRight},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"linear";
+};
 
 }  // namespace
 
@@ -34,17 +35,16 @@ CXFA_Linear::CXFA_Linear(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Linear,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Linear>(this)) {}
+                kLinearPropertyData,
+                kLinearAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Linear::~CXFA_Linear() {}
+CXFA_Linear::~CXFA_Linear() = default;
 
-XFA_AttributeEnum CXFA_Linear::GetType() {
+XFA_AttributeValue CXFA_Linear::GetType() {
   return JSObject()
       ->TryEnum(XFA_Attribute::Type, true)
-      .value_or(XFA_AttributeEnum::ToRight);
+      .value_or(XFA_AttributeValue::ToRight);
 }
 
 CXFA_Color* CXFA_Linear::GetColorIfExists() {
@@ -62,19 +62,19 @@ void CXFA_Linear::Draw(CXFA_Graphics* pGS,
   CFX_PointF ptStart;
   CFX_PointF ptEnd;
   switch (GetType()) {
-    case XFA_AttributeEnum::ToRight:
+    case XFA_AttributeValue::ToRight:
       ptStart = CFX_PointF(rtFill.left, rtFill.top);
       ptEnd = CFX_PointF(rtFill.right(), rtFill.top);
       break;
-    case XFA_AttributeEnum::ToBottom:
+    case XFA_AttributeValue::ToBottom:
       ptStart = CFX_PointF(rtFill.left, rtFill.top);
       ptEnd = CFX_PointF(rtFill.left, rtFill.bottom());
       break;
-    case XFA_AttributeEnum::ToLeft:
+    case XFA_AttributeValue::ToLeft:
       ptStart = CFX_PointF(rtFill.right(), rtFill.top);
       ptEnd = CFX_PointF(rtFill.left, rtFill.top);
       break;
-    case XFA_AttributeEnum::ToTop:
+    case XFA_AttributeValue::ToTop:
       ptStart = CFX_PointF(rtFill.left, rtFill.bottom());
       ptEnd = CFX_PointF(rtFill.left, rtFill.top);
       break;

@@ -13,24 +13,41 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorPrimary">
-    <include layout="@layout/section_header"/>
+    android:background="?android:colorPrimary"
+    android:orientation="vertical">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/category_grid"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:clipToPadding="false"
-        android:paddingLeft="@dimen/grid_padding"
-        android:paddingTop="@dimen/grid_padding"
-        android:scrollbarSize="@dimen/grid_padding"
-        android:scrollbarThumbVertical="@color/scrollbar_thumb_color_dark"
-        android:scrollbars="vertical"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+    <include layout="@layout/section_header" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="?android:colorPrimary">
+
+        <com.android.wallpaper.widget.PreviewPager
+            android:id="@+id/wallpaper_preview_pager"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/preview_pager_height"
+            android:background="@color/preview_pager_background"
+            app:card_style="screen_aspect_ratio" />
+
+        <include
+            android:id="@+id/permission_needed"
+            layout="@layout/grid_item_permission_needed"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/preview_pager_height"
+            android:visibility="gone" />
+
+        <FrameLayout
+            android:id="@+id/category_fragment_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="?android:colorPrimary"
+            app:layout_behavior="@string/bottom_sheet_behavior" />
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+</LinearLayout>

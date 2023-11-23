@@ -137,8 +137,9 @@ do {                       \
 #endif
 
 /* Forced function inlining */
+/* Note: Clang also sets __GNUC__ (see other cases below) */
 #ifndef ALWAYS_INLINE
-#  if defined(__GNUC__) || defined(__clang__)
+#  if defined(__GNUC__)
 #    define ALWAYS_INLINE inline __attribute__((always_inline))
 #  elif defined(_MSC_VER)
 #    define ALWAYS_INLINE __forceinline
@@ -197,9 +198,7 @@ do {                       \
 #         define HAS_TRIVIAL_DESTRUCTOR(T) __has_trivial_destructor(T)
 #      endif
 #   elif defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#      if _MSC_VER >= 1800
-#         define HAS_TRIVIAL_DESTRUCTOR(T) __has_trivial_destructor(T)
-#      endif
+#      define HAS_TRIVIAL_DESTRUCTOR(T) __has_trivial_destructor(T)
 #   endif
 #   ifndef HAS_TRIVIAL_DESTRUCTOR
        /* It's always safe (if inefficient) to assume that a
@@ -283,5 +282,36 @@ do {                       \
 /** Minimum and maximum of three values: */
 #define MIN3( A, B, C ) ((A) < (B) ? MIN2(A, C) : MIN2(B, C))
 #define MAX3( A, B, C ) ((A) > (B) ? MAX2(A, C) : MAX2(B, C))
+
+/** Align a value to a power of two */
+#define ALIGN_POT(x, pot_align) (((x) + (pot_align) - 1) & ~((pot_align) - 1))
+
+/**
+ * Macro for declaring an explicit conversion operator.  Defaults to an
+ * implicit conversion if C++11 is not supported.
+ */
+#if __cplusplus >= 201103L
+#define EXPLICIT_CONVERSION explicit
+#elif defined(__cplusplus)
+#define EXPLICIT_CONVERSION
+#endif
+
+/** Set a single bit */
+#define BITFIELD_BIT(b)      (1u << (b))
+/** Set all bits up to excluding bit b */
+#define BITFIELD_MASK(b)      \
+   ((b) == 32 ? (~0u) : BITFIELD_BIT((b) % 32) - 1)
+/** Set count bits starting from bit b  */
+#define BITFIELD_RANGE(b, count) \
+   (BITFIELD_MASK((b) + (count)) & ~BITFIELD_MASK(b))
+
+/** Set a single bit */
+#define BITFIELD64_BIT(b)      (1ull << (b))
+/** Set all bits up to excluding bit b */
+#define BITFIELD64_MASK(b)      \
+   ((b) == 64 ? (~0ull) : BITFIELD64_BIT(b) - 1)
+/** Set count bits starting from bit b  */
+#define BITFIELD64_RANGE(b, count) \
+   (BITFIELD64_MASK((b) + (count)) & ~BITFIELD64_MASK(b))
 
 #endif /* UTIL_MACROS_H */

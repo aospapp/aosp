@@ -263,8 +263,18 @@ public class ScrollingMovementMethodTest {
         assertTrue(mTextView.getScrollY() > previousScrollY);
         assertTrue(mTextView.getScrollX() < bottom);
 
+        assertTrue(getActionResult(new ActionRunnerWithResult() {
+            public void run() {
+                // move back up for the next test
+                mResult = method.onTouchEvent(mTextView, mSpannable, MotionEvent.obtain(now, now,
+                        MotionEvent.ACTION_MOVE, 0, -distFar, 0));
+            }
+        }));
+
         previousScrollY = mTextView.getScrollY();
-        final int distTooFar = (int) (-bottom * 10);
+        // further detracting mScaledTouchSlop from (-bottom * 10) so it is guaranteed to be
+        // greater than the touch slop value.
+        final int distTooFar = (int) (-bottom * 10) - mScaledTouchSlop;
         assertTrue(getActionResult(new ActionRunnerWithResult() {
             public void run() {
                 // move for long distance

@@ -685,7 +685,8 @@ class DhcpPacket(object):
                 logging.info("Requested options: %s", str(option_value))
             self._options[option] = option_value
         if domain_search_list_byte_string:
-            self._options[OPTION_DNS_DOMAIN_SEARCH_LIST] = option_value
+            self._options[OPTION_DNS_DOMAIN_SEARCH_LIST] = \
+                    DomainListOption.unpack(domain_search_list_byte_string)
 
 
     @property

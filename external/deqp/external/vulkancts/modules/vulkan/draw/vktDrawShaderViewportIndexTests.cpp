@@ -76,96 +76,6 @@ inline VkDeviceSize sizeInBytes(const std::vector<T>& vec)
 	return vec.size() * sizeof(vec[0]);
 }
 
-VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			bufferSize,
-										 const VkBufferUsageFlags	usage)
-{
-	const VkBufferCreateInfo bufferCreateInfo =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
-		DE_NULL,								// const void*			pNext;
-		(VkBufferCreateFlags)0,					// VkBufferCreateFlags	flags;
-		bufferSize,								// VkDeviceSize			size;
-		usage,									// VkBufferUsageFlags	usage;
-		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
-		0u,										// deUint32				queueFamilyIndexCount;
-		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
-	};
-	return bufferCreateInfo;
-}
-
-Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
-										   const VkDevice				device)
-{
-	const VkPipelineLayoutCreateInfo info =
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType				sType;
-		DE_NULL,											// const void*					pNext;
-		(VkPipelineLayoutCreateFlags)0,						// VkPipelineLayoutCreateFlags	flags;
-		0u,													// deUint32						setLayoutCount;
-		DE_NULL,											// const VkDescriptorSetLayout*	pSetLayouts;
-		0u,													// deUint32						pushConstantRangeCount;
-		DE_NULL,											// const VkPushConstantRange*	pPushConstantRanges;
-	};
-	return createPipelineLayout(vk, device, &info);
-}
-
-Move<VkImageView> makeImageView (const DeviceInterface&			vk,
-								 const VkDevice					vkDevice,
-								 const VkImage					image,
-								 const VkImageViewType			viewType,
-								 const VkFormat					format,
-								 const VkImageSubresourceRange	subresourceRange)
-{
-	const VkImageViewCreateInfo imageViewParams =
-	{
-		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,		// VkStructureType			sType;
-		DE_NULL,										// const void*				pNext;
-		(VkImageViewCreateFlags)0,						// VkImageViewCreateFlags	flags;
-		image,											// VkImage					image;
-		viewType,										// VkImageViewType			viewType;
-		format,											// VkFormat					format;
-		makeComponentMappingRGBA(),						// VkComponentMapping		components;
-		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
-	};
-	return createImageView(vk, vkDevice, &imageViewParams);
-}
-
-Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&		vk,
-									 const VkDevice				device,
-									 const VkRenderPass			renderPass,
-									 const deUint32				attachmentCount,
-									 const VkImageView*			pAttachments,
-									 const deUint32				width,
-									 const deUint32				height,
-									 const deUint32				layers = 1u)
-{
-	const VkFramebufferCreateInfo framebufferInfo = {
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,		// VkStructureType                             sType;
-		DE_NULL,										// const void*                                 pNext;
-		(VkFramebufferCreateFlags)0,					// VkFramebufferCreateFlags                    flags;
-		renderPass,										// VkRenderPass                                renderPass;
-		attachmentCount,								// uint32_t                                    attachmentCount;
-		pAttachments,									// const VkImageView*                          pAttachments;
-		width,											// uint32_t                                    width;
-		height,											// uint32_t                                    height;
-		layers,											// uint32_t                                    layers;
-	};
-
-	return createFramebuffer(vk, device, &framebufferInfo);
-}
-
-MovePtr<Allocation> bindImage (const DeviceInterface& vk, const VkDevice device, Allocator& allocator, const VkImage image, const MemoryRequirement requirement)
-{
-	MovePtr<Allocation> alloc = allocator.allocate(getImageMemoryRequirements(vk, device, image), requirement);
-	VK_CHECK(vk.bindImageMemory(device, image, alloc->getMemory(), alloc->getOffset()));
-	return alloc;
-}
-
-inline vk::Move<vk::VkImage> makeImage (const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkImageCreateInfo& createInfo)
-{
-	return createImage(vk, device, &createInfo);
-}
-
 VkImageCreateInfo makeImageCreateInfo (const VkFormat format, const UVec2& size, VkImageUsageFlags usage)
 {
 	const VkImageCreateInfo imageParams =
@@ -719,7 +629,7 @@ public:
 		m_vertexModule		= createShaderModule	(vk, device, context.getBinaryCollection().get("vert"), 0u);
 		m_fragmentModule	= createShaderModule	(vk, device, context.getBinaryCollection().get("frag"), 0u);
 		m_renderPass		= makeRenderPass		(vk, device, m_colorFormat);
-		m_framebuffer		= makeFramebuffer		(vk, device, *m_renderPass, 1u, &m_colorAttachment.get(),
+		m_framebuffer		= makeFramebuffer		(vk, device, *m_renderPass, m_colorAttachment.get(),
 													 static_cast<deUint32>(m_renderSize.x()),  static_cast<deUint32>(m_renderSize.y()));
 		m_pipelineLayout	= makePipelineLayout	(vk, device);
 		m_pipeline			= makeGraphicsPipeline	(vk, device, *m_pipelineLayout, *m_renderPass, *m_vertexModule, *m_tessellationControlModule,
@@ -781,27 +691,8 @@ private:
 	Renderer&	operator=	(const Renderer&);
 };
 
-void requireShaderViewportIndexLayer (const Context& context)
-{
-	const VkPhysicalDeviceFeatures	features	= getPhysicalDeviceFeatures(context.getInstanceInterface(), context.getPhysicalDevice());
-	const VkPhysicalDeviceLimits	limits		= getPhysicalDeviceProperties(context.getInstanceInterface(), context.getPhysicalDevice()).limits;
-
-	if (!features.multiViewport)
-		TCU_THROW(NotSupportedError, "Required feature is not supported: multiViewport");
-
-	if (limits.maxViewports < MIN_MAX_VIEWPORTS)
-		TCU_FAIL("multiViewport supported but maxViewports is less than the minimum required");
-
-	const std::vector<std::string>&		extensions	= context.getDeviceExtensions();
-	if (!isDeviceExtensionSupported(context.getUsedApiVersion(), extensions, "VK_EXT_shader_viewport_index_layer"))
-		TCU_THROW(NotSupportedError, "Extension VK_EXT_shader_viewport_index_layer not supported");
-
-}
-
 tcu::TestStatus testVertexShader (Context& context, const int numViewports)
 {
-	requireShaderViewportIndexLayer(context);
-
 	const DeviceInterface&			vk					= context.getDeviceInterface();
 	const VkDevice					device				= context.getDevice();
 	Allocator&						allocator			= context.getDefaultAllocator();
@@ -853,12 +744,6 @@ tcu::TestStatus testVertexShader (Context& context, const int numViewports)
 
 tcu::TestStatus testTessellationShader (Context& context, const int numViewports)
 {
-	requireShaderViewportIndexLayer(context);
-
-	const VkPhysicalDeviceFeatures&		features	= context.getDeviceFeatures();
-	if (!features.tessellationShader)
-		TCU_THROW(NotSupportedError, "Required feature is not supported: tessellationShader");
-
 	const DeviceInterface&			vk					= context.getDeviceInterface();
 	const VkDevice					device				= context.getDevice();
 	Allocator&						allocator			= context.getDefaultAllocator();
@@ -908,6 +793,21 @@ tcu::TestStatus testTessellationShader (Context& context, const int numViewports
 	return tcu::TestStatus::pass("OK");
 }
 
+void checkSupportVertex (Context& context, const int)
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_MULTI_VIEWPORT);
+	context.requireDeviceFunctionality("VK_EXT_shader_viewport_index_layer");
+
+	if (context.getDeviceProperties().limits.maxViewports < MIN_MAX_VIEWPORTS)
+		TCU_FAIL("multiViewport supported but maxViewports is less than the minimum required");
+}
+
+void checkSupportTessellation (Context& context, const int)
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_TESSELLATION_SHADER);
+
+	checkSupportVertex(context, 0);
+}
 
 } // anonymous
 
@@ -916,10 +816,10 @@ tcu::TestCaseGroup* createShaderViewportIndexTests	(tcu::TestContext& testCtx)
 	MovePtr<tcu::TestCaseGroup> group (new tcu::TestCaseGroup(testCtx, "shader_viewport_index", ""));
 
 	for (int numViewports = 1; numViewports <= MIN_MAX_VIEWPORTS; ++numViewports)
-		addFunctionCaseWithPrograms(group.get(), "vertex_shader_" + de::toString(numViewports), "", initVertexTestPrograms, testVertexShader, numViewports);
+		addFunctionCaseWithPrograms(group.get(), "vertex_shader_" + de::toString(numViewports), "", checkSupportVertex, initVertexTestPrograms, testVertexShader, numViewports);
 
 	for (int numViewports = 1; numViewports <= MIN_MAX_VIEWPORTS; ++numViewports)
-		addFunctionCaseWithPrograms(group.get(), "tessellation_shader_" + de::toString(numViewports), "", initTessellationTestPrograms, testTessellationShader, numViewports);
+		addFunctionCaseWithPrograms(group.get(), "tessellation_shader_" + de::toString(numViewports), "", checkSupportTessellation, initTessellationTestPrograms, testTessellationShader, numViewports);
 
 	return group.release();
 }

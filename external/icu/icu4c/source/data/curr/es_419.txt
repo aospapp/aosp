@@ -2,25 +2,17 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 es_419{
     Currencies{
-        AMD{
-            "AMD",
-            "dram armenio",
-        }
         CAD{
             "CAD",
             "dólar canadiense",
-        }
-        ERN{
-            "ERN",
-            "nafka",
         }
         EUR{
             "EUR",
             "euro",
         }
-        MYR{
-            "MYR",
-            "ringgit malayo",
+        MWK{
+            "MWK",
+            "kwacha malauí",
         }
         THB{
             "THB",
@@ -34,29 +26,9 @@ es_419{
             "UZS",
             "som uzbeko",
         }
-        VEF{
-            "VEF",
-            "bolívar venezolano",
-        }
-        VES{
-            "VES",
-            "VES",
-        }
         VND{
             "VND",
             "dong",
-        }
-        XAF{
-            "XAF",
-            "franco CFA BEAC",
-        }
-        XOF{
-            "XOF",
-            "franco CFA BCEAO",
-        }
-        ZMW{
-            "ZMW",
-            "kuacha zambiano",
         }
     }
     Currencies%narrow{
@@ -71,12 +43,9 @@ es_419{
             one{"lev búlgaro"}
             other{"leva búlgaros"}
         }
-        LVL{
-            one{"lats letón"}
-        }
-        MYR{
-            one{"ringgit malayo"}
-            other{"ringgits malayos"}
+        MWK{
+            one{"kwacha malauí"}
+            other{"kwachas malauís"}
         }
         THB{
             one{"baht tailandes"}
@@ -86,30 +55,10 @@ es_419{
             one{"som uzbeko"}
             other{"soms uzbekos"}
         }
-        VEF{
-            one{"bolívar venezolano"}
-            other{"bolívares venezolanos"}
-        }
-        VES{
-            one{"VES"}
-            other{"VES"}
-        }
-        XAF{
-            one{"franco CFA BEAC"}
-            other{"francos CFA BEAC"}
-        }
-        XOF{
-            one{"franco CFA BCEAO"}
-            other{"francos CFA BCEAO"}
-        }
         XXX{
             one{"(unidad de moneda desconocida)"}
             other{"(moneda desconocida)"}
         }
-        ZMW{
-            one{"kuacha zambiano"}
-            other{"kuachas zambianos"}
-        }
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
 }

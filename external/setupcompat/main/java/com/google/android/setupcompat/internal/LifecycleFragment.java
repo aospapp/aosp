@@ -24,7 +24,9 @@ import android.app.FragmentManager;
 import android.content.Context;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
+import android.os.PersistableBundle;
 import android.util.Log;
+import com.google.android.setupcompat.logging.CustomEvent;
 import com.google.android.setupcompat.logging.MetricKey;
 import com.google.android.setupcompat.logging.SetupMetricsLogger;
 import com.google.android.setupcompat.util.WizardManagerHelper;
@@ -87,7 +89,7 @@ public class LifecycleFragment extends Fragment {
   @Override
   public void onAttach(Context context) {
     super.onAttach(context);
-    metricKey = MetricKey.get("ScreenDuration", getActivity().getClass().getSimpleName());
+    metricKey = MetricKey.get("ScreenDuration", getActivity());
   }
 
   @Override
@@ -100,11 +102,22 @@ public class LifecycleFragment extends Fragment {
   public void onResume() {
     super.onResume();
     startInNanos = ClockProvider.timeInNanos();
+    logScreenResume();
   }
 
   @Override
   public void onPause() {
     super.onPause();
     durationInNanos += (ClockProvider.timeInNanos() - startInNanos);
+  }
+
+  private void logScreenResume() {
+    if (VERSION.SDK_INT >= VERSION_CODES.Q) {
+      PersistableBundle bundle = new PersistableBundle();
+      bundle.putLong("onScreenResume", System.nanoTime());
+      SetupMetricsLogger.logCustomEvent(
+          getActivity(),
+          CustomEvent.create(MetricKey.get("ScreenActivity", getActivity()), bundle));
+    }
   }
 }

@@ -27,7 +27,7 @@ using android::hardware::hidl_string;
 using INetdHw = android::system::net::netd::V1_1::INetd;
 using StatusCode = android::system::net::netd::V1_1::INetd::StatusCode;
 
-class NetdHwService : INetdHw {
+class NetdHwService : public INetdHw {
   public:
     // 1.0
     status_t start();

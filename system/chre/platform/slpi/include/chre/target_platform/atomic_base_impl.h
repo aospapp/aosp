@@ -47,8 +47,7 @@ inline void AtomicBool::store(bool desired) {
 
 inline bool AtomicBool::exchange(bool desired) {
   qurt_atomic_barrier();
-  return qurt_atomic_set(&mValue,
-                         static_cast<unsigned int>(desired));
+  return qurt_atomic_set(&mValue, static_cast<unsigned int>(desired));
 }
 
 inline AtomicUint32::AtomicUint32(uint32_t startingValue) {

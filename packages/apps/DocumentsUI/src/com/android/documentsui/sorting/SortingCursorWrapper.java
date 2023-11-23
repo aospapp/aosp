@@ -20,6 +20,7 @@ import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
 import android.database.AbstractCursor;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.DocumentsContract.Document;
@@ -165,6 +166,16 @@ class SortingCursorWrapper extends AbstractCursor {
     @Override
     public Bundle getExtras() {
         return mCursor.getExtras();
+    }
+
+    @Override
+    public void registerContentObserver(ContentObserver observer) {
+        mCursor.registerContentObserver(observer);
+    }
+
+    @Override
+    public void unregisterContentObserver(ContentObserver observer) {
+        mCursor.unregisterContentObserver(observer);
     }
 
     /**

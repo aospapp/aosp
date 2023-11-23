@@ -16,14 +16,15 @@
 
 package com.android.car.settings.language;
 
+import android.app.ActivityManager;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.os.RemoteException;
 
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
-import com.android.car.settingslib.language.LanguagePickerUtils;
 import com.android.internal.app.LocaleHelper;
 
 import java.util.Locale;
@@ -38,7 +39,7 @@ public class LanguageSettingsEntryPreferenceController extends PreferenceControl
 
     @Override
     protected void updateState(Preference preference) {
-        Locale locale = LanguagePickerUtils.getConfiguredLocale();
+        Locale locale = getConfiguredLocale();
         preference.setSummary(
                 LocaleHelper.getDisplayName(locale, locale, /* sentenceCase= */ true));
     }
@@ -46,5 +47,19 @@ public class LanguageSettingsEntryPreferenceController extends PreferenceControl
     @Override
     protected Class<Preference> getPreferenceType() {
         return Preference.class;
+    }
+
+    /**
+     * Returns the locale from current system configuration, or the default locale if no system
+     * locale is available.
+     */
+    private static Locale getConfiguredLocale() {
+        try {
+            Locale configLocale =
+                    ActivityManager.getService().getConfiguration().getLocales().get(0);
+            return configLocale != null ? configLocale : Locale.getDefault();
+        } catch (RemoteException e) {
+            return Locale.getDefault();
+        }
     }
 }

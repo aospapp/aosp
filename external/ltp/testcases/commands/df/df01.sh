@@ -1,30 +1,18 @@
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2015 Fujitsu Ltd.
 # Author: Zhang Jin <jy_zhangjin@cn.fujitsu.com>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
-# the GNU General Public License for more details.
-#
 # Test df command with some basic options.
-#
 
 TST_CNT=12
 TST_SETUP=setup
-TST_CLEANUP=cleanup
+TST_CLEANUP=tst_umount
 TST_TESTFUNC=test
 TST_OPTS="f:"
 TST_USAGE=usage
 TST_PARSE_ARGS=parse_args
 TST_NEEDS_ROOT=1
-TST_NEEDS_TMPDIR=1
 TST_NEEDS_DEVICE=1
 . tst_test.sh
 
@@ -40,41 +28,18 @@ OPTIONS
 EOF
 }
 
-FS_TYPE=ext2
+TST_FS_TYPE=ext2
 
 parse_args()
 {
-	FS_TYPE="$2"
+	TST_FS_TYPE="$2"
 }
 
 setup()
 {
-	local ret
-
-	if [ -n "$FS_TYPE" ]; then
-		tst_test_cmds mkfs.${FS_TYPE}
-	fi
-
-	tst_mkfs ${FS_TYPE} ${TST_DEVICE}
-
-	ROD_SILENT mkdir -p mntpoint
-
-	mount ${TST_DEVICE} mntpoint
-	ret=$?
-	if [ $ret -eq 32 ]; then
-		tst_brk TCONF "Cannot mount ${FS_TYPE}, missing driver?"
-	fi
-
-	if [ $ret -ne 0 ]; then
-		tst_brk TBROK "Failed to mount device: mount exit = $ret"
-	fi
-
+	tst_mkfs
+	tst_mount
 	DF_FS_TYPE=$(mount | grep "$TST_DEVICE" | awk '{print $5}')
-}
-
-cleanup()
-{
-	tst_umount ${TST_DEVICE}
 }
 
 df_test()

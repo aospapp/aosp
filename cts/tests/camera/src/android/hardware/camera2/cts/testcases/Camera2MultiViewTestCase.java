@@ -28,6 +28,8 @@ import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.cts.Camera2ParameterizedTestCase;
+import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
@@ -58,6 +60,7 @@ import junit.framework.Assert;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 
 import java.util.Arrays;
@@ -67,7 +70,8 @@ import java.util.List;
 /**
  * Camera2 test case base class by using mixed SurfaceView and TextureView as rendering target.
  */
-public class Camera2MultiViewTestCase {
+
+public class Camera2MultiViewTestCase extends Camera2ParameterizedTestCase {
     private static final String TAG = "MultiViewTestCase";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
@@ -75,13 +79,10 @@ public class Camera2MultiViewTestCase {
 
     protected TextureView[] mTextureView =
             new TextureView[Camera2MultiViewCtsActivity.MAX_TEXTURE_VIEWS];
-    protected String[] mCameraIds;
     protected Handler mHandler;
 
-    private CameraManager mCameraManager;
     private HandlerThread mHandlerThread;
     private Activity mActivity;
-    private Context mContext;
 
     private CameraHolder[] mCameraHolders;
     private HashMap<String, Integer> mCameraIdMap;
@@ -92,15 +93,10 @@ public class Camera2MultiViewTestCase {
     public ActivityTestRule<Camera2MultiViewCtsActivity> mActivityRule =
             new ActivityTestRule<>(Camera2MultiViewCtsActivity.class);
 
-    @Before
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
         mActivity = mActivityRule.getActivity();
-        mContext = mActivity.getApplicationContext();
-        assertNotNull("Unable to get activity", mContext);
-        mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
-        assertNotNull("Unable to get CameraManager", mCameraManager);
-        mCameraIds = mCameraManager.getCameraIdList();
-        assertNotNull("Unable to get camera ids", mCameraIds);
         mHandlerThread = new HandlerThread(TAG);
         mHandlerThread.start();
         mHandler = new Handler(mHandlerThread.getLooper());
@@ -110,25 +106,17 @@ public class Camera2MultiViewTestCase {
         }
         assertNotNull("Unable to get texture view", mTextureView);
         mCameraIdMap = new HashMap<String, Integer>();
-        int numCameras = mCameraIds.length;
+        int numCameras = mCameraIdsUnderTest.length;
         mCameraHolders = new CameraHolder[numCameras];
         for (int i = 0; i < numCameras; i++) {
-            mCameraHolders[i] = new CameraHolder(mCameraIds[i]);
-            mCameraIdMap.put(mCameraIds[i], i);
+            mCameraHolders[i] = new CameraHolder(mCameraIdsUnderTest[i]);
+            mCameraIdMap.put(mCameraIdsUnderTest[i], i);
         }
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
     }
 
-    @After
+    @Override
     public void tearDown() throws Exception {
-        String[] cameraIdsPostTest = mCameraManager.getCameraIdList();
-        assertNotNull("Camera ids shouldn't be null", cameraIdsPostTest);
-        Log.i(TAG, "Camera ids in setup:" + Arrays.toString(mCameraIds));
-        Log.i(TAG, "Camera ids in tearDown:" + Arrays.toString(cameraIdsPostTest));
-        assertTrue(
-                "Number of cameras changed from " + mCameraIds.length + " to " +
-                cameraIdsPostTest.length,
-                mCameraIds.length == cameraIdsPostTest.length);
         mHandlerThread.quitSafely();
         mHandler = null;
         for (CameraHolder camera : mCameraHolders) {
@@ -137,6 +125,7 @@ public class Camera2MultiViewTestCase {
                 camera = null;
             }
         }
+        super.tearDown();
     }
 
     /**

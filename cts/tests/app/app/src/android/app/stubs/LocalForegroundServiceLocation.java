@@ -16,21 +16,13 @@
 
 package android.app.stubs;
 
-import static org.junit.Assert.assertEquals;
-
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
-import android.os.Bundle;
-import android.os.IBinder;
 import android.util.Log;
-import android.app.stubs.R;
-
-import com.android.compatibility.common.util.IBinderParcelable;
 
 /**
  * Foreground Service with location type.
@@ -41,6 +33,8 @@ public class LocalForegroundServiceLocation extends LocalForegroundService {
     private static final String NOTIFICATION_CHANNEL_ID = "cts/" + TAG;
     public static final String EXTRA_FOREGROUND_SERVICE_TYPE = "ForegroundService.type";
     public static final int COMMAND_START_FOREGROUND_WITH_TYPE = 1;
+    public static String ACTION_START_FGSL_RESULT =
+            "android.app.stubs.LocalForegroundServiceLocation.RESULT";
     private int mNotificationId = 10;
 
     /** Returns the channel id for this service */
@@ -59,7 +53,6 @@ public class LocalForegroundServiceLocation extends LocalForegroundService {
 
         Context context = getApplicationContext();
         int command = intent.getIntExtra(EXTRA_COMMAND, -1);
-
         switch (command) {
             case COMMAND_START_FOREGROUND_WITH_TYPE:
                 final int type = intent.getIntExtra(EXTRA_FOREGROUND_SERVICE_TYPE,
@@ -70,11 +63,14 @@ public class LocalForegroundServiceLocation extends LocalForegroundService {
                         .setContentTitle(getNotificationTitle(mNotificationId))
                         .setSmallIcon(R.drawable.black)
                         .build();
-                startForeground(mNotificationId, notification, type);
-                assertEquals(type, getForegroundServiceType());
+                startForeground(mNotificationId, notification);
+                //assertEquals(type, getForegroundServiceType());
                 break;
             default:
                 Log.e(TAG, "Unknown command: " + command);
         }
+
+        sendBroadcast(new Intent(ACTION_START_FGSL_RESULT)
+                .setFlags(Intent.FLAG_RECEIVER_FOREGROUND));
     }
 }

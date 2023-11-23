@@ -15,11 +15,20 @@
  */
 package com.android.tradefed.testtype.suite;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.config.ConfigurationDef;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.shard.StrictShardHelperTest.SplitITestSuite;
 import com.android.tradefed.testtype.IRemoteTest;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,6 +39,16 @@ import java.util.Iterator;
 /** Unit tests for {@link ModuleMerger}. */
 @RunWith(JUnit4.class)
 public class ModuleMergerTest {
+
+    private TestInformation mTestInfo;
+
+    @Before
+    public void setUp() {
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, null);
+        context.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, new BuildInfo());
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
+    }
 
     /**
      * Test that {@link ModuleMerger#arePartOfSameSuite(ITestSuite, ITestSuite)} returns false when
@@ -49,7 +68,7 @@ public class ModuleMergerTest {
     @Test
     public void testPartOfSameSuite_notSplittedYet2() {
         SplitITestSuite suite1 = new SplitITestSuite("module1");
-        Collection<IRemoteTest> res1 = suite1.split(2);
+        Collection<IRemoteTest> res1 = suite1.split(2, mTestInfo);
         SplitITestSuite suite2 = new SplitITestSuite("module2");
         assertFalse(ModuleMerger.arePartOfSameSuite((ITestSuite) res1.iterator().next(), suite2));
     }
@@ -61,7 +80,7 @@ public class ModuleMergerTest {
     @Test
     public void testPartOfSameSuite_sameSuite() {
         SplitITestSuite suite1 = new SplitITestSuite("module1");
-        Collection<IRemoteTest> res1 = suite1.split(2);
+        Collection<IRemoteTest> res1 = suite1.split(2, mTestInfo);
         Iterator<IRemoteTest> ite = res1.iterator();
         assertTrue(
                 ModuleMerger.arePartOfSameSuite((ITestSuite) ite.next(), (ITestSuite) ite.next()));
@@ -74,9 +93,9 @@ public class ModuleMergerTest {
     @Test
     public void testPartOfSameSuite_notSameSuite() {
         SplitITestSuite suite1 = new SplitITestSuite("module1");
-        Collection<IRemoteTest> res1 = suite1.split(2);
+        Collection<IRemoteTest> res1 = suite1.split(2, mTestInfo);
         SplitITestSuite suite2 = new SplitITestSuite("module2");
-        Collection<IRemoteTest> res2 = suite2.split(2);
+        Collection<IRemoteTest> res2 = suite2.split(2, mTestInfo);
         assertFalse(
                 ModuleMerger.arePartOfSameSuite(
                         (ITestSuite) res1.iterator().next(), (ITestSuite) res2.iterator().next()));
@@ -105,7 +124,7 @@ public class ModuleMergerTest {
     @Test
     public void testMergeSplittedITestSuite_notSplittedYet2() {
         SplitITestSuite suite1 = new SplitITestSuite("module1");
-        Collection<IRemoteTest> res1 = suite1.split(2);
+        Collection<IRemoteTest> res1 = suite1.split(2, mTestInfo);
         SplitITestSuite suite2 = new SplitITestSuite("module2");
         try {
             ModuleMerger.mergeSplittedITestSuite((ITestSuite) res1.iterator().next(), suite2);
@@ -122,9 +141,9 @@ public class ModuleMergerTest {
     @Test
     public void testMergeSplittedITestSuite_splittedSuiteFromDifferentModules() {
         SplitITestSuite suite1 = new SplitITestSuite("module1");
-        Collection<IRemoteTest> res1 = suite1.split(2);
+        Collection<IRemoteTest> res1 = suite1.split(2, mTestInfo);
         SplitITestSuite suite2 = new SplitITestSuite("module2");
-        Collection<IRemoteTest> res2 = suite2.split(2);
+        Collection<IRemoteTest> res2 = suite2.split(2, mTestInfo);
         try {
             ModuleMerger.mergeSplittedITestSuite(
                     (ITestSuite) res1.iterator().next(), (ITestSuite) res2.iterator().next());
@@ -141,7 +160,7 @@ public class ModuleMergerTest {
     @Test
     public void testMergeSplittedITestSuite() {
         SplitITestSuite suite1 = new SplitITestSuite("module1");
-        Collection<IRemoteTest> res1 = suite1.split(2);
+        Collection<IRemoteTest> res1 = suite1.split(2, mTestInfo);
         Iterator<IRemoteTest> ite = res1.iterator();
         ITestSuite split1 = (ITestSuite) ite.next();
         ITestSuite split2 = (ITestSuite) ite.next();

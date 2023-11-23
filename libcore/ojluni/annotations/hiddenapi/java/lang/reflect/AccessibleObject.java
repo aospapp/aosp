@@ -26,7 +26,7 @@
 
 package java.lang.reflect;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class AccessibleObject implements java.lang.reflect.AnnotatedElement {

@@ -16,11 +16,10 @@ LOCAL_WHOLE_STATIC_LIBRARIES = \
   libsimpleperf_cts_test \
 
 LOCAL_STATIC_LIBRARIES += \
+  libsimpleperf_etm_decoder \
   libbacktrace \
   libunwindstack \
-  libdexfile_support \
-  libdexfile_external \
-  libdexfile \
+  libdexfile_support_static \
   libziparchive \
   libz \
   libgtest \
@@ -38,13 +37,14 @@ LOCAL_STATIC_LIBRARIES += \
   libLLVMSupport \
   libprotobuf-cpp-lite \
   libevent \
+  libopencsd_decoder \
 
 simpleperf_testdata_files := $(shell cd $(simpleperf_src_path); find testdata -type f)
 
 LOCAL_COMPATIBILITY_SUPPORT_FILES := \
   $(foreach file, $(simpleperf_testdata_files), $(simpleperf_src_path)/$(file):CtsSimpleperfTestCases_$(file))
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 LOCAL_CTS_TEST_PACKAGE := android.simpleperf
 include $(LLVM_DEVICE_BUILD_MK)

@@ -24,21 +24,24 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.GuidanceStylist;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.GuidanceStylist;
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
+
 import com.google.android.tv.partner.support.EpgContract;
 import com.google.android.tv.partner.support.EpgInput;
 import com.google.android.tv.partner.support.EpgInputs;
 import com.google.android.tv.partner.support.Lineup;
 import com.google.android.tv.partner.support.Lineups;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -176,7 +179,7 @@ public class LineupSelectionFragment extends GuidedStepFragment {
             List<Lineup> lineups, List<String> localChannels) {
         List<Pair<Lineup, Integer>> result = new ArrayList<>();
         for (Lineup lineup : lineups) {
-            result.add(new Pair<>(lineup, getMatchCount(lineup.getChannels(), localChannels)));
+            result.add(Pair.create(lineup, getMatchCount(lineup.getChannels(), localChannels)));
         }
         // sort in decreasing order
         Collections.sort(

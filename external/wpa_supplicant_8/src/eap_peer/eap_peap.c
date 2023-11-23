@@ -137,7 +137,7 @@ static void * eap_peap_init(struct eap_sm *sm)
 	data = os_zalloc(sizeof(*data));
 	if (data == NULL)
 		return NULL;
-	sm->peap_done = FALSE;
+	sm->peap_done = false;
 	data->peap_version = EAP_PEAP_VERSION;
 	data->force_peap_version = -1;
 	data->peap_outer_success = 2;
@@ -148,7 +148,7 @@ static void * eap_peap_init(struct eap_sm *sm)
 
 	if (eap_peer_select_phase2_methods(config, "auth=",
 					   &data->phase2_types,
-					   &data->num_phase2_types) < 0) {
+					   &data->num_phase2_types, 0) < 0) {
 		eap_peap_deinit(sm, data);
 		return NULL;
 	}
@@ -295,7 +295,7 @@ static int eap_peap_derive_cmk(struct eap_sm *sm, struct eap_peap_data *data)
 	res = peap_prfplus(data->peap_version, tk, 40,
 			   "Inner Methods Compound Keys",
 			   isk, sizeof(isk), imck, sizeof(imck));
-	os_memset(isk, 0, sizeof(isk));
+	forced_memzero(isk, sizeof(isk));
 	if (res < 0)
 		return -1;
 	wpa_hexdump_key(MSG_DEBUG, "EAP-PEAP: IMCK (IPMKj)",
@@ -305,7 +305,7 @@ static int eap_peap_derive_cmk(struct eap_sm *sm, struct eap_peap_data *data)
 	wpa_hexdump_key(MSG_DEBUG, "EAP-PEAP: IPMK (S-IPMKj)", data->ipmk, 40);
 	os_memcpy(data->cmk, imck + 40, 20);
 	wpa_hexdump_key(MSG_DEBUG, "EAP-PEAP: CMK (CMKj)", data->cmk, 20);
-	os_memset(imck, 0, sizeof(imck));
+	forced_memzero(imck, sizeof(imck));
 
 	return 0;
 }
@@ -603,6 +603,8 @@ static int eap_peap_phase2_request(struct eap_sm *sm,
 	u8 *pos;
 	struct eap_method_ret iret;
 	struct eap_peer_config *config = eap_get_config(sm);
+	int vendor;
+	enum eap_type method;
 
 	if (len <= sizeof(struct eap_hdr)) {
 		wpa_printf(MSG_INFO, "EAP-PEAP: too short "
@@ -666,13 +668,26 @@ static int eap_peap_phase2_request(struct eap_sm *sm,
 #endif /* EAP_TNC */
 		/* fall through */
 	default:
+		vendor = EAP_VENDOR_IETF;
+		method = *pos;
+
+		if (method == EAP_TYPE_EXPANDED) {
+			if (len < sizeof(struct eap_hdr) + 8) {
+				wpa_printf(MSG_INFO,
+					   "EAP-PEAP: Too short Phase 2 request (expanded header) (len=%lu)",
+					   (unsigned long) len);
+				return -1;
+			}
+			vendor = WPA_GET_BE24(pos + 1);
+			method = WPA_GET_BE32(pos + 4);
+		}
+
 		if (data->phase2_type.vendor == EAP_VENDOR_IETF &&
 		    data->phase2_type.method == EAP_TYPE_NONE) {
 			size_t i;
 			for (i = 0; i < data->num_phase2_types; i++) {
-				if (data->phase2_types[i].vendor !=
-				    EAP_VENDOR_IETF ||
-				    data->phase2_types[i].method != *pos)
+				if (data->phase2_types[i].vendor != vendor ||
+				    data->phase2_types[i].method != method)
 					continue;
 
 				data->phase2_type.vendor =
@@ -686,8 +701,9 @@ static int eap_peap_phase2_request(struct eap_sm *sm,
 				break;
 			}
 		}
-		if (*pos != data->phase2_type.method ||
-		    *pos == EAP_TYPE_NONE) {
+		if (vendor != data->phase2_type.vendor ||
+		    method != data->phase2_type.method ||
+		    (vendor == EAP_VENDOR_IETF && method == EAP_TYPE_NONE)) {
 			if (eap_peer_tls_phase2_nak(data->phase2_types,
 						    data->num_phase2_types,
 						    hdr, resp))
@@ -904,7 +920,7 @@ continue_req:
 				/* No EAP-Success expected for Phase 1 (outer,
 				 * unencrypted auth), so force EAP state
 				 * machine to SUCCESS state. */
-				sm->peap_done = TRUE;
+				sm->peap_done = true;
 			}
 		} else {
 			/* FIX: ? */
@@ -914,7 +930,7 @@ continue_req:
 		wpa_printf(MSG_DEBUG, "EAP-PEAP: Phase 2 Failure");
 		ret->decision = DECISION_FAIL;
 		ret->methodState = METHOD_MAY_CONT;
-		ret->allowNotifications = FALSE;
+		ret->allowNotifications = false;
 		/* Reply with EAP-Failure within the TLS channel to complete
 		 * failure reporting. */
 		resp = wpabuf_alloc(sizeof(struct eap_hdr));
@@ -998,7 +1014,7 @@ static struct wpabuf * eap_peap_process(struct eap_sm *sm, void *priv,
 				   data->force_peap_version);
 			ret->methodState = METHOD_DONE;
 			ret->decision = DECISION_FAIL;
-			ret->allowNotifications = FALSE;
+			ret->allowNotifications = false;
 			return NULL;
 		}
 		wpa_printf(MSG_DEBUG, "EAP-PEAP: Using PEAP version %d",
@@ -1150,7 +1166,7 @@ static struct wpabuf * eap_peap_process(struct eap_sm *sm, void *priv,
 	}
 
 	if (ret->methodState == METHOD_DONE) {
-		ret->allowNotifications = FALSE;
+		ret->allowNotifications = false;
 	}
 
 	if (res == 1) {
@@ -1163,7 +1179,7 @@ static struct wpabuf * eap_peap_process(struct eap_sm *sm, void *priv,
 }
 
 
-static Boolean eap_peap_has_reauth_data(struct eap_sm *sm, void *priv)
+static bool eap_peap_has_reauth_data(struct eap_sm *sm, void *priv)
 {
 	struct eap_peap_data *data = priv;
 	return tls_connection_established(sm->ssl_ctx, data->ssl.conn) &&
@@ -1204,7 +1220,7 @@ static void * eap_peap_init_for_reauth(struct eap_sm *sm, void *priv)
 	data->phase2_eap_started = 0;
 	data->resuming = 1;
 	data->reauth = 1;
-	sm->peap_done = FALSE;
+	sm->peap_done = false;
 	return priv;
 }
 
@@ -1229,7 +1245,7 @@ static int eap_peap_get_status(struct eap_sm *sm, void *priv, char *buf,
 }
 
 
-static Boolean eap_peap_isKeyAvailable(struct eap_sm *sm, void *priv)
+static bool eap_peap_isKeyAvailable(struct eap_sm *sm, void *priv)
 {
 	struct eap_peap_data *data = priv;
 	return data->key_data != NULL && data->phase2_success;
@@ -1267,7 +1283,7 @@ static u8 * eap_peap_getKey(struct eap_sm *sm, void *priv, size_t *len)
 		os_memcpy(key, csk, EAP_TLS_KEY_LEN);
 		wpa_hexdump(MSG_DEBUG, "EAP-PEAP: Derived key",
 			    key, EAP_TLS_KEY_LEN);
-		os_memset(csk, 0, sizeof(csk));
+		forced_memzero(csk, sizeof(csk));
 	} else
 		os_memcpy(key, data->key_data, EAP_TLS_KEY_LEN);
 

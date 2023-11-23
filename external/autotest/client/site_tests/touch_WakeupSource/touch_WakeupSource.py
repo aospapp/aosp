@@ -28,7 +28,7 @@ class touch_WakeupSource(touch_playback_test_base.touch_playback_test_base):
     # or devices like Cyan which don't report this way: crosbug.com/p/46019.
     _INVALID_TOUCHPADS = ['x86-alex', 'x86-alex_he', 'x86-zgb', 'x86-zgb_he',
                           'x86-mario', 'stout', 'rambi', 'cyan']
-    _INVALID_TOUCHSCREENS = ['cyan', 'sumo', 'ultima']
+    _INVALID_TOUCHSCREENS = ['cyan', 'nocturne', 'sumo', 'ultima']
 
     def _find_wakeup_file(self, input_type):
         """Return path to wakeup file or None.

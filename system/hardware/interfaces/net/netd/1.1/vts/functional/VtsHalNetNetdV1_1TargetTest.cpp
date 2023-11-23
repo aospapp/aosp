@@ -18,9 +18,11 @@
 
 #include <linux/if.h>
 
-#include <VtsHalHidlTargetTestBase.h>
 #include <android-base/stringprintf.h>
 #include <android/system/net/netd/1.1/INetd.h>
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 #include <log/log.h>
 #include <netutils/ifc.h>
 
@@ -78,22 +80,7 @@ void checkAllUnreachable(net_handle_t handle) {
 }
 }  // namespace
 
-// Test environment for Netd HIDL HAL.
-class NetdHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
-   public:
-    // get the test environment singleton
-    static NetdHidlEnvironment* Instance() {
-        static NetdHidlEnvironment* instance = new NetdHidlEnvironment;
-        return instance;
-    }
-
-    virtual void registerTestServices() override { registerTestService<INetd>(); }
-
-   private:
-    NetdHidlEnvironment() {}
-};
-
-class NetdHidlTest : public ::testing::VtsHalHidlTargetTestBase {
+class NetdHidlTest : public ::testing::TestWithParam<std::string> {
    public:
     // Netd HAL instance.
     sp<INetd> netd;
@@ -127,8 +114,7 @@ class NetdHidlTest : public ::testing::VtsHalHidlTargetTestBase {
     }
 
     virtual void SetUp() override {
-        netd = ::testing::VtsHalHidlTargetTestBase::getService<INetd>(
-            NetdHidlEnvironment::Instance()->getServiceName<INetd>());
+        netd = INetd::getService(GetParam());
 
         ASSERT_NE(netd, nullptr) << "Could not get HIDL instance";
 
@@ -176,7 +162,7 @@ TunInterface NetdHidlTest::sTun2;
 const char* NetdHidlTest::sIfaceName;
 
 // Tests adding and removing interfaces from the OEM network.
-TEST_F(NetdHidlTest, TestAddRemoveInterfaces) {
+TEST_P(NetdHidlTest, TestAddRemoveInterfaces) {
     // HACK: mark out permissions bits.
     uint32_t packetMark = mPacketMark & 0xffff;
 
@@ -236,7 +222,7 @@ TEST_F(NetdHidlTest, TestAddRemoveInterfaces) {
 }
 
 // Tests adding and removing routes from the OEM network.
-TEST_F(NetdHidlTest, TestAddRemoveRoutes) {
+TEST_P(NetdHidlTest, TestAddRemoveRoutes) {
     Return<INetd::StatusCode> retStatus = netd->addInterfaceToOemNetwork(mNetHandle, sIfaceName);
     ASSERT_TRUE(retStatus.isOk());
 
@@ -280,7 +266,7 @@ TEST_F(NetdHidlTest, TestAddRemoveRoutes) {
 }
 
 // Tests enabling and disabling forwarding between interfaces.
-TEST_F(NetdHidlTest, TestForwarding) {
+TEST_P(NetdHidlTest, TestForwarding) {
     Return<INetd::StatusCode> retStatus =
         netd->addInterfaceToOemNetwork(mNetHandle, sTun1.name().c_str());
     EXPECT_STATUS(INetd::StatusCode::OK, retStatus);
@@ -335,11 +321,7 @@ TEST_F(NetdHidlTest, TestForwarding) {
     EXPECT_EQ(0, countMatchingIpRules(regex2));
 }
 
-int main(int argc, char** argv) {
-    ::testing::AddGlobalTestEnvironment(NetdHidlEnvironment::Instance());
-    ::testing::InitGoogleTest(&argc, argv);
-    NetdHidlEnvironment::Instance()->init(&argc, argv);
-    int status = RUN_ALL_TESTS();
-    ALOGE("Test result with status=%d", status);
-    return status;
-}
+INSTANTIATE_TEST_SUITE_P(
+    PerInstance, NetdHidlTest,
+    testing::ValuesIn(android::hardware::getAllHalInstanceNames(INetd::descriptor)),
+    android::hardware::PrintInstanceNameToString);

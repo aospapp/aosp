@@ -67,7 +67,7 @@ class audio_PlaybackPower(test.test):
             power_logger.checkpoint('result', start_time)
             keyval = power_logger.calc()
             logging.info('Power output %s', keyval)
-            return keyval['result_' + measurements[0].domain + '_pwr']
+            return keyval['result_' + measurements[0].domain + '_pwr_avg']
 
         energy_rate = get_power()
         perf_keyval = {}

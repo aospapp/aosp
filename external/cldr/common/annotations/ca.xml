@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="ca"/>
 	</identity>
 	<annotations>
@@ -23,52 +23,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏾" type="tts">pell fosca</annotation>
 		<annotation cp="🏿">fosca | pell | pell molt fosca</annotation>
 		<annotation cp="🏿" type="tts">pell molt fosca</annotation>
+		<annotation cp="⚧">símbol transgènere | trans | transgènere</annotation>
+		<annotation cp="⚧" type="tts">símbol transgènere</annotation>
+		<annotation cp="🤌">dits | dits junts | gest de la mà | interrogació | sarcàstic</annotation>
+		<annotation cp="🤌" type="tts">dits junts</annotation>
+		<annotation cp="🥲">agraïment | alleujament | cara somrient amb una llàgrima | emoció | llàgrima | orgull | somriure</annotation>
+		<annotation cp="🥲" type="tts">cara somrient amb una llàgrima</annotation>
+		<annotation cp="🥷">guerrer | lluitador | ninja | ocult | sigilós</annotation>
+		<annotation cp="🥷" type="tts">ninja</annotation>
+		<annotation cp="🥸">cara | cara disfressada | disfressa | incògnit | nas | ulleres</annotation>
+		<annotation cp="🥸" type="tts">cara disfressada</annotation>
+		<annotation cp="🦣">extició | gran | llanut | mamut | ullal</annotation>
+		<annotation cp="🦣" type="tts">mamut</annotation>
+		<annotation cp="🦤">au | dodo | extinció | gran | Maurici</annotation>
+		<annotation cp="🦤" type="tts">dodo</annotation>
+		<annotation cp="🦫">castor | presa</annotation>
+		<annotation cp="🦫" type="tts">castor</annotation>
+		<annotation cp="🦬">bisó | bisó europeu | búfal | ramat</annotation>
+		<annotation cp="🦬" type="tts">bisó</annotation>
+		<annotation cp="🦭">foca | lleó marí</annotation>
+		<annotation cp="🦭" type="tts">foca</annotation>
+		<annotation cp="🧋">bombolla | llet | perla | te | te amb bombolles</annotation>
+		<annotation cp="🧋" type="tts">te amb bombolles</annotation>
+		<annotation cp="🩴">xancleta | xancleta de dit | xancleta de platja</annotation>
+		<annotation cp="🩴" type="tts">xancleta de dit</annotation>
+		<annotation cp="🪃">Austràlia | bumerang | rebot | repercussió</annotation>
+		<annotation cp="🪃" type="tts">bumerang</annotation>
+		<annotation cp="🪄">bruixa | bruixot | màgia | vareta màgica</annotation>
+		<annotation cp="🪄" type="tts">vareta màgica</annotation>
+		<annotation cp="🪅">celebració | festa | pinyata</annotation>
+		<annotation cp="🪅" type="tts">pinyata</annotation>
+		<annotation cp="🪆">matrioixca | nina | nines russes | russa</annotation>
+		<annotation cp="🪆" type="tts">nines russes</annotation>
+		<annotation cp="🪖">casc | exèrcit | guerrer | militar | soldat</annotation>
+		<annotation cp="🪖" type="tts">casc militar</annotation>
+		<annotation cp="🪗">acordió | concertina</annotation>
+		<annotation cp="🪗" type="tts">acordió</annotation>
+		<annotation cp="🪘">conga | percussió | ritme | timbal</annotation>
+		<annotation cp="🪘" type="tts">conga</annotation>
+		<annotation cp="🪙">metall | moneda | or | plata | tresor</annotation>
+		<annotation cp="🪙" type="tts">moneda</annotation>
+		<annotation cp="🪚">eina | fuster | llenyataire | serra | xerrac</annotation>
+		<annotation cp="🪚" type="tts">xerrac</annotation>
+		<annotation cp="🪛">eina | tornavís | vis</annotation>
+		<annotation cp="🪛" type="tts">tornavís</annotation>
+		<annotation cp="🪜">escala | escala de mà | esglaó | graó | pujar</annotation>
+		<annotation cp="🪜" type="tts">escala de mà</annotation>
+		<annotation cp="🪝">atrapar | corba | ganxo | ham | pescar | punt de venda</annotation>
+		<annotation cp="🪝" type="tts">ham</annotation>
+		<annotation cp="🪞">espill | mirall | reflector | reflex</annotation>
+		<annotation cp="🪞" type="tts">mirall</annotation>
+		<annotation cp="🪟">aire fresc | finestra | marc | obertura | transparent | vista</annotation>
+		<annotation cp="🪟" type="tts">finestra</annotation>
+		<annotation cp="🪠">desembossador | embós | lampista | lavabo | succió</annotation>
+		<annotation cp="🪠" type="tts">desembossador</annotation>
+		<annotation cp="🪡">agulla | agulla de cosir | brodat | costura | modista | puntada | sutura</annotation>
+		<annotation cp="🪡" type="tts">agulla de cosir</annotation>
+		<annotation cp="🪢">bramant | corda | nus</annotation>
+		<annotation cp="🪢" type="tts">nus</annotation>
+		<annotation cp="🪣">cubell | galleda</annotation>
+		<annotation cp="🪣" type="tts">cubell</annotation>
+		<annotation cp="🪤">parany | rata | ratera | ratolí | trampa</annotation>
+		<annotation cp="🪤" type="tts">ratera</annotation>
+		<annotation cp="🪥">dental | dents | higiene | lavabo | raspall | raspall de dents | rentar</annotation>
+		<annotation cp="🪥" type="tts">raspall de dents</annotation>
+		<annotation cp="🪦">cementiri | làpida | tomba</annotation>
+		<annotation cp="🪦" type="tts">làpida</annotation>
+		<annotation cp="🪧">cartell | manifestació | pancarta | protesta | senyal</annotation>
+		<annotation cp="🪧" type="tts">pancarta</annotation>
+		<annotation cp="🪨">pedra | penyal | pesat | roc | roca | sòlid</annotation>
+		<annotation cp="🪨" type="tts">roca</annotation>
+		<annotation cp="🪰">epidèmia | larva | malaltia | mosca | podrit</annotation>
+		<annotation cp="🪰" type="tts">mosca</annotation>
+		<annotation cp="🪱">annèl·lid | cuc | cuc de terra | paràsit</annotation>
+		<annotation cp="🪱" type="tts">cuc</annotation>
+		<annotation cp="🪲">cuca | escarabat | insecte</annotation>
+		<annotation cp="🪲" type="tts">escarabat</annotation>
+		<annotation cp="🪳">ballarola | corredora | cuca molla | cuca panissera | escarabat de cuina | insecte | panderola | panerola</annotation>
+		<annotation cp="🪳" type="tts">panerola</annotation>
+		<annotation cp="🪴">avorrit | casa | créixer | inútil | planta | planta amb test</annotation>
+		<annotation cp="🪴" type="tts">planta amb test</annotation>
+		<annotation cp="🪵">fusta | llenya | tronc</annotation>
+		<annotation cp="🪵" type="tts">llenya</annotation>
+		<annotation cp="🪶">au | lleuger | ploma | plomatge | volar</annotation>
+		<annotation cp="🪶" type="tts">ploma</annotation>
+		<annotation cp="🫀">batec | cardiologia | centre | cor | òrgan | pols</annotation>
+		<annotation cp="🫀" type="tts">cor</annotation>
+		<annotation cp="🫁">exhalació | inhalació | òrgan | pulmons | respiració | respirar</annotation>
+		<annotation cp="🫁" type="tts">pulmons</annotation>
+		<annotation cp="🫂">abraçada | adeu | gràcies | hola | persones que s’abracen</annotation>
+		<annotation cp="🫂" type="tts">persones que s’abracen</annotation>
+		<annotation cp="🫐">blau | fruit del bosc | gerd | nabiu | nabius</annotation>
+		<annotation cp="🫐" type="tts">nabius</annotation>
+		<annotation cp="🫑">capsicum | hortalissa | pebrot | pebrot vermell</annotation>
+		<annotation cp="🫑" type="tts">pebrot vermell</annotation>
+		<annotation cp="🫒">menjar | oliva</annotation>
+		<annotation cp="🫒" type="tts">oliva</annotation>
+		<annotation cp="🫓">arepa | coca | lavash | naan | pa de coca | pita</annotation>
+		<annotation cp="🫓" type="tts">pa de coca</annotation>
+		<annotation cp="🫔">enrotllat | mexicà | tamal</annotation>
+		<annotation cp="🫔" type="tts">tamal</annotation>
+		<annotation cp="🫕">cassola | desfet | fondue | formatge | Suïssa | xocolata</annotation>
+		<annotation cp="🫕" type="tts">fondue</annotation>
+		<annotation cp="🫖">beguda | te | tetera</annotation>
+		<annotation cp="🫖" type="tts">tetera</annotation>
+		<annotation cp="🛖">cabana | casa | casa rodona | iurta</annotation>
+		<annotation cp="🛖" type="tts">cabana</annotation>
+		<annotation cp="🛗">accessibilitat | ascensor | muntacàrregues</annotation>
+		<annotation cp="🛗" type="tts">ascensor</annotation>
+		<annotation cp="🛻">camioneta | descoberta | pickup</annotation>
+		<annotation cp="🛻" type="tts">camioneta descoberta</annotation>
+		<annotation cp="🛼">patí | patí de rodes | rodes</annotation>
+		<annotation cp="🛼" type="tts">patí de rodes</annotation>
 		<annotation cp="😀">cara | cara molt somrient | rialla | somriure | ulls</annotation>
 		<annotation cp="😀" type="tts">cara molt somrient</annotation>
-		<annotation cp="😁">cara | cara molt somrient amb els ulls alegres | gran somriure | ulls</annotation>
-		<annotation cp="😁" type="tts">cara molt somrient amb els ulls alegres</annotation>
-		<annotation cp="😂">alegria | cara | cara amb llàgrimes d’alegria | llàgrimes</annotation>
-		<annotation cp="😂" type="tts">cara amb llàgrimes d’alegria</annotation>
-		<annotation cp="🤣">cara | cara que es peta de riure | partir-se | petar-se de riure | pixar-se | riure</annotation>
-		<annotation cp="🤣" type="tts">cara que es peta de riure</annotation>
 		<annotation cp="😃">boca oberta | cara | cara molt somrient amb els ulls ben oberts | somriure</annotation>
 		<annotation cp="😃" type="tts">cara molt somrient amb els ulls ben oberts</annotation>
 		<annotation cp="😄">boca oberta | cara | cara amb rialla i els ulls somrients | somriure</annotation>
 		<annotation cp="😄" type="tts">cara amb rialla i els ulls somrients</annotation>
-		<annotation cp="😅">cara | cara somrient amb una gota de suor | somriure | suor freda</annotation>
-		<annotation cp="😅" type="tts">cara somrient amb una gota de suor</annotation>
+		<annotation cp="😁">cara | cara molt somrient amb els ulls alegres | gran somriure | ulls</annotation>
+		<annotation cp="😁" type="tts">cara molt somrient amb els ulls alegres</annotation>
 		<annotation cp="😆">boca oberta | cara | cara somrient amb els ulls tancats fortament | somriure | ulls tancats</annotation>
 		<annotation cp="😆" type="tts">cara somrient amb els ulls tancats fortament</annotation>
+		<annotation cp="😅">cara | cara somrient amb una gota de suor | somriure | suor freda</annotation>
+		<annotation cp="😅" type="tts">cara somrient amb una gota de suor</annotation>
+		<annotation cp="🤣">cara | cara que es peta de riure | partir-se | petar-se de riure | pixar-se | riure</annotation>
+		<annotation cp="🤣" type="tts">cara que es peta de riure</annotation>
+		<annotation cp="😂">alegria | cara | cara amb llàgrimes d’alegria | llàgrimes</annotation>
+		<annotation cp="😂" type="tts">cara amb llàgrimes d’alegria</annotation>
+		<annotation cp="🙂">cara | cara que somriu una mica | somriure tímid</annotation>
+		<annotation cp="🙂" type="tts">cara que somriu una mica</annotation>
+		<annotation cp="🙃">cara | cara de cap per avall | revés</annotation>
+		<annotation cp="🙃" type="tts">cara de cap per avall</annotation>
 		<annotation cp="😉">cara | cara que pica l’ullet | ullet</annotation>
 		<annotation cp="😉" type="tts">cara que pica l’ullet</annotation>
 		<annotation cp="😊">cara | cara somrient amb els ulls alegres | galtes vermelles | somriure</annotation>
 		<annotation cp="😊" type="tts">cara somrient amb els ulls alegres</annotation>
-		<annotation cp="😋">cara | cara d’assaborir un menjar deliciós | deliciós | llépol cara d’assaborir un menjar deliciós | nyam | somriure</annotation>
-		<annotation cp="😋" type="tts">cara d’assaborir un menjar deliciós</annotation>
-		<annotation cp="😎">cara | cara somrient amb ulleres de sol | sol | ulleres</annotation>
-		<annotation cp="😎" type="tts">cara somrient amb ulleres de sol</annotation>
+		<annotation cp="😇">angelet | aurèola | cara somrient amb aurèola | halo | sant | santa</annotation>
+		<annotation cp="😇" type="tts">cara somrient amb aurèola</annotation>
+		<annotation cp="🥰">amor | cara somrient amb 3 cors | cara somrient amb cors | enamorada | enamorament | enamorat</annotation>
+		<annotation cp="🥰" type="tts">cara somrient amb 3 cors</annotation>
 		<annotation cp="😍">amor | cara | cara somrient amb ulls en forma de cor | cor | ulls</annotation>
 		<annotation cp="😍" type="tts">cara somrient amb ulls en forma de cor</annotation>
-		<annotation cp="😘">amor | cara | cara que llança un petó | cor | petó</annotation>
-		<annotation cp="😘" type="tts">cara que llança un petó</annotation>
-		<annotation cp="🥰">amor | cara somrient amb 3 cors | enamorada | enamorament | enamorat</annotation>
-		<annotation cp="🥰" type="tts">cara somrient amb 3 cors</annotation>
-		<annotation cp="😗">cara | cara que fa un petó | petó</annotation>
-		<annotation cp="😗" type="tts">cara que fa un petó</annotation>
-		<annotation cp="😙">cara | cara que fa un petó amb els ulls alegres | petó | ulls alegres</annotation>
-		<annotation cp="😙" type="tts">cara que fa un petó amb els ulls alegres</annotation>
-		<annotation cp="😚">cara | cara que fa un petó amb els ulls tancats | petó | ulls tancats</annotation>
-		<annotation cp="😚" type="tts">cara que fa un petó amb els ulls tancats</annotation>
-		<annotation cp="☺">cara | cara relaxada | cara somrient | somriure</annotation>
-		<annotation cp="☺" type="tts">cara somrient</annotation>
-		<annotation cp="🙂">cara | cara que somriu una mica | somriure tímid</annotation>
-		<annotation cp="🙂" type="tts">cara que somriu una mica</annotation>
-		<annotation cp="🤗">abraçada | cara | cara amb abraçada</annotation>
-		<annotation cp="🤗" type="tts">cara amb abraçada</annotation>
 		<annotation cp="🤩">cara | cara amb estrelles als ulls | estrella | somriure | ulls</annotation>
 		<annotation cp="🤩" type="tts">cara amb estrelles als ulls</annotation>
+		<annotation cp="😘">amor | cara | cara que llança un petó | cor | petó</annotation>
+		<annotation cp="😘" type="tts">cara que llança un petó</annotation>
+		<annotation cp="😗">cara | cara que fa un petó | petó</annotation>
+		<annotation cp="😗" type="tts">cara que fa un petó</annotation>
+		<annotation cp="☺">cara | cara relaxada | cara somrient | somriure</annotation>
+		<annotation cp="☺" type="tts">cara somrient</annotation>
+		<annotation cp="😚">cara | cara que fa un petó amb els ulls tancats | petó | ulls tancats</annotation>
+		<annotation cp="😚" type="tts">cara que fa un petó amb els ulls tancats</annotation>
+		<annotation cp="😙">cara | cara que fa un petó amb els ulls alegres | petó | ulls alegres</annotation>
+		<annotation cp="😙" type="tts">cara que fa un petó amb els ulls alegres</annotation>
+		<annotation cp="😋">cara | cara d’assaborir un menjar deliciós | deliciós | llépol cara d’assaborir un menjar deliciós | nyam | somriure</annotation>
+		<annotation cp="😋" type="tts">cara d’assaborir un menjar deliciós</annotation>
+		<annotation cp="😛">cara | cara que fa llengotes | llengota | llengua | llengua fora</annotation>
+		<annotation cp="😛" type="tts">cara que fa llengotes</annotation>
+		<annotation cp="😜">cara | cara que fa llengotes i pica l’ullet | llengota | llengua | ullet</annotation>
+		<annotation cp="😜" type="tts">cara que fa llengotes i pica l’ullet</annotation>
+		<annotation cp="🤪">boig | boja | cara de bogeria | ull gran | ull petit</annotation>
+		<annotation cp="🤪" type="tts">cara de bogeria</annotation>
+		<annotation cp="😝">cara | cara amb els ulls tancats i la llengua fora | cara que fa llengotes i amb els ulls tancats | ecs | llengota | llengua | ulls tancats</annotation>
+		<annotation cp="😝" type="tts">cara amb els ulls tancats i la llengua fora</annotation>
+		<annotation cp="🤑">cara | cara de diners | diners | llengua | ulls</annotation>
+		<annotation cp="🤑" type="tts">cara de diners</annotation>
+		<annotation cp="🤗">abraçada | cara | cara amb abraçada</annotation>
+		<annotation cp="🤗" type="tts">cara amb abraçada</annotation>
+		<annotation cp="🤭">cara amb la mà sobre la boca | tapant-se la boca | ups</annotation>
+		<annotation cp="🤭" type="tts">cara amb la mà sobre la boca</annotation>
+		<annotation cp="🤫">callar | cara que demana silenci | silenci</annotation>
+		<annotation cp="🤫" type="tts">cara que demana silenci</annotation>
 		<annotation cp="🤔">cara | pensant | pensatiu | pensativa</annotation>
 		<annotation cp="🤔" type="tts">cara pensativa</annotation>
+		<annotation cp="🤐">boca | boca tancada | cara | cara amb cremallera a la boca | cremallera</annotation>
+		<annotation cp="🤐" type="tts">cara amb cremallera a la boca</annotation>
 		<annotation cp="🤨">cara amb una cella aixecada | desconfiada | desconfiat | escèptic | escèptica</annotation>
 		<annotation cp="🤨" type="tts">cara amb una cella aixecada</annotation>
 		<annotation cp="😐">cara | cara neutra | neutral</annotation>
@@ -77,98 +207,26 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😑" type="tts">cara inexpressiva</annotation>
 		<annotation cp="😶">callada | callat | cara | cara sense boca | sense boca | silenci</annotation>
 		<annotation cp="😶" type="tts">cara sense boca</annotation>
-		<annotation cp="🙄">cara | cara amb els ulls en blanc | ulls en blanc</annotation>
-		<annotation cp="🙄" type="tts">cara amb els ulls en blanc</annotation>
 		<annotation cp="😏">cara | cara somrient amb superioritat | somriure astut | superioritat</annotation>
 		<annotation cp="😏" type="tts">cara somrient amb superioritat</annotation>
-		<annotation cp="😣">cara | cara de perseverança | perseverança</annotation>
-		<annotation cp="😣" type="tts">cara de perseverança</annotation>
-		<annotation cp="😥">alleujament | cara | cara de decepció, però alleujada | decepció | uf</annotation>
-		<annotation cp="😥" type="tts">cara de decepció, però alleujada</annotation>
-		<annotation cp="😮">boca oberta | cara | cara amb la boca oberta</annotation>
-		<annotation cp="😮" type="tts">cara amb la boca oberta</annotation>
-		<annotation cp="🤐">boca | boca tancada | cara | cara amb cremallera a la boca | cremallera</annotation>
-		<annotation cp="🤐" type="tts">cara amb cremallera a la boca</annotation>
-		<annotation cp="😯">cara | cara de sorpresa | sorpresa</annotation>
-		<annotation cp="😯" type="tts">cara de sorpresa</annotation>
-		<annotation cp="😪">cara | cara de son | son</annotation>
-		<annotation cp="😪" type="tts">cara de son</annotation>
-		<annotation cp="😫">cansament | cara | cara de cansament</annotation>
-		<annotation cp="😫" type="tts">cara de cansament</annotation>
-		<annotation cp="😴">cara | cara de dormir | dormint | son | zzz</annotation>
-		<annotation cp="😴" type="tts">cara de dormir</annotation>
-		<annotation cp="😌">alleujament | cara | cara d’alleujament</annotation>
-		<annotation cp="😌" type="tts">cara d’alleujament</annotation>
-		<annotation cp="😛">cara | cara que fa llengotes | llengota | llengua | llengua fora</annotation>
-		<annotation cp="😛" type="tts">cara que fa llengotes</annotation>
-		<annotation cp="😜">cara | cara que fa llengotes i pica l’ullet | llengota | llengua | ullet</annotation>
-		<annotation cp="😜" type="tts">cara que fa llengotes i pica l’ullet</annotation>
-		<annotation cp="😝">cara | cara amb els ulls tancats i la llengua fora | cara que fa llengotes i amb els ulls tancats | ecs | llengota | llengua | ulls tancats</annotation>
-		<annotation cp="😝" type="tts">cara amb els ulls tancats i la llengua fora</annotation>
-		<annotation cp="🤤">bava | bavejant | cara | cara que baveja</annotation>
-		<annotation cp="🤤" type="tts">cara que baveja</annotation>
 		<annotation cp="😒">avorriment | cara | cara de desaprovació | desaprovació</annotation>
 		<annotation cp="😒" type="tts">cara de desaprovació</annotation>
-		<annotation cp="😓">cara | cara amb suor freda | suor freda</annotation>
-		<annotation cp="😓" type="tts">cara amb suor freda</annotation>
-		<annotation cp="😔">abatuda | cara | desanimada | pensativa</annotation>
-		<annotation cp="😔" type="tts">cara desanimada</annotation>
-		<annotation cp="😕">cara | cara de confusió | confós | confosa | confusió</annotation>
-		<annotation cp="😕" type="tts">cara de confusió</annotation>
-		<annotation cp="🙃">cara | cara de cap per avall | revés</annotation>
-		<annotation cp="🙃" type="tts">cara de cap per avall</annotation>
-		<annotation cp="🤑">cara | cara de diners | diners | llengua | ulls</annotation>
-		<annotation cp="🤑" type="tts">cara de diners</annotation>
-		<annotation cp="😲">cara | estupefacta | estupefacte</annotation>
-		<annotation cp="😲" type="tts">cara estupefacta</annotation>
-		<annotation cp="☹">cara | cara arrufada | emmurriat | empipat | enfadat</annotation>
-		<annotation cp="☹" type="tts">cara arrufada</annotation>
-		<annotation cp="🙁">cara | cara una mica arrufada | emmurriat | empipat | enfadat</annotation>
-		<annotation cp="🙁" type="tts">cara una mica arrufada</annotation>
-		<annotation cp="😖">cara | cara de frustració | frustració | frustrada | frustrat</annotation>
-		<annotation cp="😖" type="tts">cara de frustració</annotation>
-		<annotation cp="😞">cara | cara de decepció | decebuda | decebut | decepció</annotation>
-		<annotation cp="😞" type="tts">cara de decepció</annotation>
-		<annotation cp="😟">cara | cara de preocupació | preocupació | preocupada | preocupat</annotation>
-		<annotation cp="😟" type="tts">cara de preocupació</annotation>
-		<annotation cp="😤">cara | cara que treu fum del nas | fum | nas | victòria</annotation>
-		<annotation cp="😤" type="tts">cara que treu fum del nas</annotation>
-		<annotation cp="😢">cara | cara que plora | llàgrimes | trist | trista</annotation>
-		<annotation cp="😢" type="tts">cara que plora</annotation>
-		<annotation cp="😭">cara | cara que plora desconsoladament | llàgrimes de desconsol</annotation>
-		<annotation cp="😭" type="tts">cara que plora desconsoladament</annotation>
-		<annotation cp="😦">boca oberta | cara | cara emmurriada amb la boca oberta | emmurriada</annotation>
-		<annotation cp="😦" type="tts">cara emmurriada amb la boca oberta</annotation>
-		<annotation cp="😧">angoixa | angoixada | angoixat | cara | cara d’angoixa</annotation>
-		<annotation cp="😧" type="tts">cara d’angoixa</annotation>
-		<annotation cp="😨">atemorida | atemorit | cara de por | espantada | espantat | por</annotation>
-		<annotation cp="😨" type="tts">cara de por</annotation>
-		<annotation cp="😩">cara | cara d’esgotament | esgotada | esgotament | esgotat</annotation>
-		<annotation cp="😩" type="tts">cara d’esgotament</annotation>
-		<annotation cp="🤯">cap que explota | estupefacta | estupefacte</annotation>
-		<annotation cp="🤯" type="tts">cap que explota</annotation>
+		<annotation cp="🙄">cara | cara amb els ulls en blanc | ulls en blanc</annotation>
+		<annotation cp="🙄" type="tts">cara amb els ulls en blanc</annotation>
 		<annotation cp="😬">cara | cara que fa una ganyota amb les dents | dents | ganyota</annotation>
 		<annotation cp="😬" type="tts">cara que fa una ganyota amb les dents</annotation>
-		<annotation cp="😰">boca oberta | cara | cara amb la boca oberta i suor freda | nervis | suor freda</annotation>
-		<annotation cp="😰" type="tts">cara amb la boca oberta i suor freda</annotation>
-		<annotation cp="😱">cara | cara que crida de por | crit de por | pànic | terror</annotation>
-		<annotation cp="😱" type="tts">cara que crida de por</annotation>
-		<annotation cp="🥵">calor | cara de calor | cara vermella | febre | suor</annotation>
-		<annotation cp="🥵" type="tts">cara de calor</annotation>
-		<annotation cp="🥶">cara blava | cara de fred | caramell | fred | gel | glaçat</annotation>
-		<annotation cp="🥶" type="tts">cara de fred</annotation>
-		<annotation cp="😳">cara | enrojolada | galtes vermelles | vergonya</annotation>
-		<annotation cp="😳" type="tts">cara enrojolada</annotation>
-		<annotation cp="🤪">boig | boja | cara de bogeria | ull gran | ull petit</annotation>
-		<annotation cp="🤪" type="tts">cara de bogeria</annotation>
-		<annotation cp="😵">cara | marejada | marejat</annotation>
-		<annotation cp="😵" type="tts">cara marejada</annotation>
-		<annotation cp="😡">cara | cara vermella | enutjada | enutjat</annotation>
-		<annotation cp="😡" type="tts">cara enutjada</annotation>
-		<annotation cp="😠">cara | enfadada | enfadat</annotation>
-		<annotation cp="😠" type="tts">cara enfadada</annotation>
-		<annotation cp="🤬">cara amb símbols a la boca | insults | paraulotes | renecs</annotation>
-		<annotation cp="🤬" type="tts">cara amb símbols a la boca</annotation>
+		<annotation cp="🤥">cara | cara de mentider | mentider | nas | Pinotxo</annotation>
+		<annotation cp="🤥" type="tts">cara de mentider</annotation>
+		<annotation cp="😌">alleujament | cara | cara d’alleujament</annotation>
+		<annotation cp="😌" type="tts">cara d’alleujament</annotation>
+		<annotation cp="😔">abatuda | cara | desanimada | pensativa</annotation>
+		<annotation cp="😔" type="tts">cara desanimada</annotation>
+		<annotation cp="😪">cara | cara de son | son</annotation>
+		<annotation cp="😪" type="tts">cara de son</annotation>
+		<annotation cp="🤤">bava | bavejant | cara | cara que baveja</annotation>
+		<annotation cp="🤤" type="tts">cara que baveja</annotation>
+		<annotation cp="😴">cara | cara de dormir | dormint | son | zzz</annotation>
+		<annotation cp="😴" type="tts">cara de dormir</annotation>
 		<annotation cp="😷">cara | cara amb màscara | cara amb mascareta | malaltia | màscara | mascareta</annotation>
 		<annotation cp="😷" type="tts">cara amb mascareta</annotation>
 		<annotation cp="🤒">cara | cara amb termòmetre | malalt | malalta | malaltia | termòmetre</annotation>
@@ -181,74 +239,296 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤮" type="tts">cara que vomita</annotation>
 		<annotation cp="🤧">cara | cara que esternuda | constipat | esternudant | esternut | mocs | salut</annotation>
 		<annotation cp="🤧" type="tts">cara que esternuda</annotation>
-		<annotation cp="😇">angelet | aurèola | cara somrient amb aurèola | halo | sant | santa</annotation>
-		<annotation cp="😇" type="tts">cara somrient amb aurèola</annotation>
+		<annotation cp="🥵">calor | cara de calor | cara vermella | febre | suor</annotation>
+		<annotation cp="🥵" type="tts">cara de calor</annotation>
+		<annotation cp="🥶">cara blava | cara de fred | caramell | fred | gel | glaçat</annotation>
+		<annotation cp="🥶" type="tts">cara de fred</annotation>
+		<annotation cp="🥴">beguda | begut | boca ondulada | cara de mareig | embriac | embriaga | marejada | marejat | ulls desiguals</annotation>
+		<annotation cp="🥴" type="tts">cara de mareig</annotation>
+		<annotation cp="😵">cara | marejada | marejat</annotation>
+		<annotation cp="😵" type="tts">cara marejada</annotation>
+		<annotation cp="🤯">cap que explota | estupefacta | estupefacte</annotation>
+		<annotation cp="🤯" type="tts">cap que explota</annotation>
 		<annotation cp="🤠">barret | cara | cara amb barret de vaquer | cowboy | vaquer | vaquera</annotation>
 		<annotation cp="🤠" type="tts">cara amb barret de vaquer</annotation>
 		<annotation cp="🥳">barret | cara festiva | celebració | espanta-sogres | festa</annotation>
 		<annotation cp="🥳" type="tts">cara festiva</annotation>
-		<annotation cp="🥴">beguda | begut | boca ondulada | cara de mareig | embriac | embriaga | marejada | marejat | ulls desiguals</annotation>
-		<annotation cp="🥴" type="tts">cara de mareig</annotation>
-		<annotation cp="🥺">cara de súplica | pietat | súplica | ulls de cadell</annotation>
-		<annotation cp="🥺" type="tts">cara de súplica</annotation>
-		<annotation cp="🤥">cara | cara de mentider | mentider | nas | Pinotxo</annotation>
-		<annotation cp="🤥" type="tts">cara de mentider</annotation>
-		<annotation cp="🤫">callar | cara que demana silenci | silenci</annotation>
-		<annotation cp="🤫" type="tts">cara que demana silenci</annotation>
-		<annotation cp="🤭">cara amb la mà sobre la boca | tapant-se la boca | ups</annotation>
-		<annotation cp="🤭" type="tts">cara amb la mà sobre la boca</annotation>
-		<annotation cp="🧐">cara amb monocle | estirada | estirat | monocle</annotation>
-		<annotation cp="🧐" type="tts">cara amb monocle</annotation>
+		<annotation cp="😎">cara | cara somrient amb ulleres de sol | sol | ulleres</annotation>
+		<annotation cp="😎" type="tts">cara somrient amb ulleres de sol</annotation>
 		<annotation cp="🤓">aplicada | aplicat | cara de setciències | estudiar | estudiós | estudiosa</annotation>
 		<annotation cp="🤓" type="tts">cara de setciències</annotation>
+		<annotation cp="🧐">cara amb monocle | estirada | estirat | monocle</annotation>
+		<annotation cp="🧐" type="tts">cara amb monocle</annotation>
+		<annotation cp="😕">cara | cara de confusió | confós | confosa | confusió</annotation>
+		<annotation cp="😕" type="tts">cara de confusió</annotation>
+		<annotation cp="😟">cara | cara de preocupació | preocupació | preocupada | preocupat</annotation>
+		<annotation cp="😟" type="tts">cara de preocupació</annotation>
+		<annotation cp="🙁">cara | cara una mica arrufada | emmurriat | empipat | enfadat</annotation>
+		<annotation cp="🙁" type="tts">cara una mica arrufada</annotation>
+		<annotation cp="☹">cara | cara arrufada | emmurriat | empipat | enfadat</annotation>
+		<annotation cp="☹" type="tts">cara arrufada</annotation>
+		<annotation cp="😮">boca oberta | cara | cara amb la boca oberta</annotation>
+		<annotation cp="😮" type="tts">cara amb la boca oberta</annotation>
+		<annotation cp="😯">cara | cara de sorpresa | sorpresa</annotation>
+		<annotation cp="😯" type="tts">cara de sorpresa</annotation>
+		<annotation cp="😲">cara | estupefacta | estupefacte</annotation>
+		<annotation cp="😲" type="tts">cara estupefacta</annotation>
+		<annotation cp="😳">cara | enrojolada | galtes vermelles | vergonya</annotation>
+		<annotation cp="😳" type="tts">cara enrojolada</annotation>
+		<annotation cp="🥺">cara de súplica | pietat | súplica | ulls de cadell</annotation>
+		<annotation cp="🥺" type="tts">cara de súplica</annotation>
+		<annotation cp="😦">boca oberta | cara | cara emmurriada amb la boca oberta | emmurriada</annotation>
+		<annotation cp="😦" type="tts">cara emmurriada amb la boca oberta</annotation>
+		<annotation cp="😧">angoixa | angoixada | angoixat | cara | cara d’angoixa</annotation>
+		<annotation cp="😧" type="tts">cara d’angoixa</annotation>
+		<annotation cp="😨">atemorida | atemorit | cara de por | espantada | espantat | por</annotation>
+		<annotation cp="😨" type="tts">cara de por</annotation>
+		<annotation cp="😰">boca oberta | cara | cara amb la boca oberta i suor freda | nervis | suor freda</annotation>
+		<annotation cp="😰" type="tts">cara amb la boca oberta i suor freda</annotation>
+		<annotation cp="😥">alleujament | cara | cara de decepció, però alleujada | decepció | uf</annotation>
+		<annotation cp="😥" type="tts">cara de decepció, però alleujada</annotation>
+		<annotation cp="😢">cara | cara que plora | llàgrimes | trist | trista</annotation>
+		<annotation cp="😢" type="tts">cara que plora</annotation>
+		<annotation cp="😭">cara | cara que plora desconsoladament | llàgrimes de desconsol</annotation>
+		<annotation cp="😭" type="tts">cara que plora desconsoladament</annotation>
+		<annotation cp="😱">cara | cara que crida de por | crit de por | pànic | terror</annotation>
+		<annotation cp="😱" type="tts">cara que crida de por</annotation>
+		<annotation cp="😖">cara | cara de frustració | frustració | frustrada | frustrat</annotation>
+		<annotation cp="😖" type="tts">cara de frustració</annotation>
+		<annotation cp="😣">cara | cara de perseverança | perseverança</annotation>
+		<annotation cp="😣" type="tts">cara de perseverança</annotation>
+		<annotation cp="😞">cara | cara de decepció | decebuda | decebut | decepció</annotation>
+		<annotation cp="😞" type="tts">cara de decepció</annotation>
+		<annotation cp="😓">cara | cara amb suor freda | suor freda</annotation>
+		<annotation cp="😓" type="tts">cara amb suor freda</annotation>
+		<annotation cp="😩">cara | cara d’esgotament | esgotada | esgotament | esgotat</annotation>
+		<annotation cp="😩" type="tts">cara d’esgotament</annotation>
+		<annotation cp="😫">cansament | cara | cara de cansament</annotation>
+		<annotation cp="😫" type="tts">cara de cansament</annotation>
+		<annotation cp="🥱">avorriment | badall | cansament | cara que badalla</annotation>
+		<annotation cp="🥱" type="tts">cara que badalla</annotation>
+		<annotation cp="😤">cara | cara que treu fum del nas | fum | nas | victòria</annotation>
+		<annotation cp="😤" type="tts">cara que treu fum del nas</annotation>
+		<annotation cp="😡">cara | cara vermella | enutjada | enutjat</annotation>
+		<annotation cp="😡" type="tts">cara enutjada</annotation>
+		<annotation cp="😠">cara | enfadada | enfadat</annotation>
+		<annotation cp="😠" type="tts">cara enfadada</annotation>
+		<annotation cp="🤬">cara amb símbols a la boca | insults | paraulotes | renecs</annotation>
+		<annotation cp="🤬" type="tts">cara amb símbols a la boca</annotation>
 		<annotation cp="😈">banyes | cara | cara somrient amb banyes | dimoni | somriure</annotation>
 		<annotation cp="😈" type="tts">cara somrient amb banyes</annotation>
 		<annotation cp="👿">cara | cara enfadada amb banyes | diable | dimoni | dimoniet | fantasia | trapella</annotation>
 		<annotation cp="👿" type="tts">cara enfadada amb banyes</annotation>
+		<annotation cp="💀">calavera | cara | conte | crani | monstre | mort</annotation>
+		<annotation cp="💀" type="tts">crani</annotation>
+		<annotation cp="☠">calavera | cara | crani | crani amb ossos | monstre | ossos</annotation>
+		<annotation cp="☠" type="tts">crani amb ossos</annotation>
+		<annotation cp="💩">caca | cara | còmic | merda | monstre</annotation>
+		<annotation cp="💩" type="tts">caca</annotation>
 		<annotation cp="🤡">cara | cara de pallasso | pallassa | pallasso</annotation>
 		<annotation cp="🤡" type="tts">cara de pallasso</annotation>
 		<annotation cp="👹">cara | conte | criatura | fantasia | ogre</annotation>
 		<annotation cp="👹" type="tts">ogre</annotation>
 		<annotation cp="👺">cara | conte | criatura | fantasia | follet</annotation>
 		<annotation cp="👺" type="tts">follet</annotation>
-		<annotation cp="💀">calavera | cara | conte | crani | monstre | mort</annotation>
-		<annotation cp="💀" type="tts">crani</annotation>
-		<annotation cp="☠">calavera | cara | crani | crani amb ossos | monstre | ossos</annotation>
-		<annotation cp="☠" type="tts">crani amb ossos</annotation>
 		<annotation cp="👻">cara | conte | criatura | fantasia | fantasma</annotation>
 		<annotation cp="👻" type="tts">fantasma</annotation>
 		<annotation cp="👽">alienígena | cara | criatura | extraterrestre | fantasia | monstre | ovni</annotation>
 		<annotation cp="👽" type="tts">alienígena</annotation>
 		<annotation cp="👾">àlien | alienígena | extraterrestre | monstre | ovni</annotation>
 		<annotation cp="👾" type="tts">monstre alienígena</annotation>
-		<annotation cp="🤖">cara | cara de robot | monstre | robot</annotation>
-		<annotation cp="🤖" type="tts">cara de robot</annotation>
-		<annotation cp="💩">caca | cara | còmic | merda | monstre</annotation>
-		<annotation cp="💩" type="tts">caca</annotation>
-		<annotation cp="😺">boca oberta | cara | cara de gat somrient amb la boca oberta | gat | somrient</annotation>
-		<annotation cp="😺" type="tts">cara de gat somrient amb la boca oberta</annotation>
-		<annotation cp="😸">cara | cara de gat somrient amb els ulls alegres | gat | somrient | ulls alegres</annotation>
-		<annotation cp="😸" type="tts">cara de gat somrient amb els ulls alegres</annotation>
-		<annotation cp="😹">alegria | cara | cara de gat amb llàgrimes d’alegria | gat | llàgrimes</annotation>
-		<annotation cp="😹" type="tts">cara de gat amb llàgrimes d’alegria</annotation>
-		<annotation cp="😻">cara | cara de gat somrient amb cors als ulls | cor | gat | somriure | ulls</annotation>
-		<annotation cp="😻" type="tts">cara de gat somrient amb cors als ulls</annotation>
-		<annotation cp="😼">cara | cara de gat amb somriure irònic | gat | ironia | somriure</annotation>
-		<annotation cp="😼" type="tts">cara de gat amb somriure irònic</annotation>
-		<annotation cp="😽">cara | cara de gat que fa un petó | gat | petó | ulls tancats</annotation>
-		<annotation cp="😽" type="tts">cara de gat que fa un petó</annotation>
-		<annotation cp="🙀">cara | cara de gat sorpresa | gat | sorprès | sorpresa</annotation>
-		<annotation cp="🙀" type="tts">cara de gat sorpresa</annotation>
-		<annotation cp="😿">cara | cara de gat que plora | gat | llàgrimes</annotation>
-		<annotation cp="😿" type="tts">cara de gat que plora</annotation>
-		<annotation cp="😾">cara | cara de gat enutjada | enuig | gat</annotation>
-		<annotation cp="😾" type="tts">cara de gat enutjada</annotation>
+		<annotation cp="🤖">cara | monstre | robot</annotation>
+		<annotation cp="🤖" type="tts">robot</annotation>
+		<annotation cp="😺">boca oberta | cara | gat | gat somrient amb la boca oberta | somrient</annotation>
+		<annotation cp="😺" type="tts">gat somrient amb la boca oberta</annotation>
+		<annotation cp="😸">cara | gat | gat somrient amb els ulls alegres | somrient | ulls alegres</annotation>
+		<annotation cp="😸" type="tts">gat somrient amb els ulls alegres</annotation>
+		<annotation cp="😹">alegria | cara | gat | gat amb llàgrimes d’alegria | llàgrimes</annotation>
+		<annotation cp="😹" type="tts">gat amb llàgrimes d’alegria</annotation>
+		<annotation cp="😻">cara | cor | gat | gat somrient amb cors als ulls | somriure | ulls</annotation>
+		<annotation cp="😻" type="tts">gat somrient amb cors als ulls</annotation>
+		<annotation cp="😼">cara | gat | gat amb somriure irònic | ironia | somriure</annotation>
+		<annotation cp="😼" type="tts">gat amb somriure irònic</annotation>
+		<annotation cp="😽">cara | gat | gat que fa un petó | petó | ulls tancats</annotation>
+		<annotation cp="😽" type="tts">gat que fa un petó</annotation>
+		<annotation cp="🙀">cara | gat | sorprès | sorpresa</annotation>
+		<annotation cp="🙀" type="tts">gat sorprès</annotation>
+		<annotation cp="😿">cara | gat | gat que plora | llàgrimes</annotation>
+		<annotation cp="😿" type="tts">gat que plora</annotation>
+		<annotation cp="😾">cara | enuig | gat | gat enutjat</annotation>
+		<annotation cp="😾" type="tts">gat enutjat</annotation>
 		<annotation cp="🙈">mona | mona que no mira | ulls tapats</annotation>
 		<annotation cp="🙈" type="tts">mona que no mira</annotation>
 		<annotation cp="🙉">mona | mona que no escolta | orelles tapades</annotation>
 		<annotation cp="🙉" type="tts">mona que no escolta</annotation>
 		<annotation cp="🙊">boca tapada | mona | mona que no parla</annotation>
 		<annotation cp="🙊" type="tts">mona que no parla</annotation>
+		<annotation cp="💋">marca | marca de petó | petó</annotation>
+		<annotation cp="💋" type="tts">marca de petó</annotation>
+		<annotation cp="💌">amor | carta | carta d’amor</annotation>
+		<annotation cp="💌" type="tts">carta d’amor</annotation>
+		<annotation cp="💘">cor | cor amb fletxa | Cupido | fletxa</annotation>
+		<annotation cp="💘" type="tts">cor amb fletxa</annotation>
+		<annotation cp="💝">cor | cor amb un llaç | llaç | Sant Valentí</annotation>
+		<annotation cp="💝" type="tts">cor amb un llaç</annotation>
+		<annotation cp="💖">cor | cor espurnejant | espurneig</annotation>
+		<annotation cp="💖" type="tts">cor espurnejant</annotation>
+		<annotation cp="💗">batec | cor | cor que creix | creixent | emocionada | emocionat</annotation>
+		<annotation cp="💗" type="tts">cor que creix</annotation>
+		<annotation cp="💓">batec | cor | cor que batega</annotation>
+		<annotation cp="💓" type="tts">cor que batega</annotation>
+		<annotation cp="💞">cors | cors que giren | gir</annotation>
+		<annotation cp="💞" type="tts">cors que giren</annotation>
+		<annotation cp="💕">amor | cor | dos cors</annotation>
+		<annotation cp="💕" type="tts">dos cors</annotation>
+		<annotation cp="💟">cor | cor decoratiu</annotation>
+		<annotation cp="💟" type="tts">cor decoratiu</annotation>
+		<annotation cp="❣">cor | exclamació | exclamació en forma de cor | puntuació</annotation>
+		<annotation cp="❣" type="tts">exclamació en forma de cor</annotation>
+		<annotation cp="💔">cor | trencar | trencat</annotation>
+		<annotation cp="💔" type="tts">cor trencat</annotation>
+		<annotation cp="❤">cor | cor vermell</annotation>
+		<annotation cp="❤" type="tts">cor vermell</annotation>
+		<annotation cp="🧡">cor taronja | taronja</annotation>
+		<annotation cp="🧡" type="tts">cor taronja</annotation>
+		<annotation cp="💛">cor | cor groc</annotation>
+		<annotation cp="💛" type="tts">cor groc</annotation>
+		<annotation cp="💚">cor | cor verd</annotation>
+		<annotation cp="💚" type="tts">cor verd</annotation>
+		<annotation cp="💙">cor | cor blau</annotation>
+		<annotation cp="💙" type="tts">cor blau</annotation>
+		<annotation cp="💜">cor | cor lila</annotation>
+		<annotation cp="💜" type="tts">cor lila</annotation>
+		<annotation cp="🤎">cor | marró</annotation>
+		<annotation cp="🤎" type="tts">cor marró</annotation>
+		<annotation cp="🖤">cor | cor negre</annotation>
+		<annotation cp="🖤" type="tts">cor negre</annotation>
+		<annotation cp="🤍">blanc | cor</annotation>
+		<annotation cp="🤍" type="tts">cor blanc</annotation>
+		<annotation cp="💯">100 | cent punts | punts | puntuació</annotation>
+		<annotation cp="💯" type="tts">100 punts</annotation>
+		<annotation cp="💢">còmic | enfadat | enuig | malhumorat | símbol d’enuig</annotation>
+		<annotation cp="💢" type="tts">símbol d’enuig</annotation>
+		<annotation cp="💥">col·lisió | còmic | esclat</annotation>
+		<annotation cp="💥" type="tts">col·lisió</annotation>
+		<annotation cp="💫">còmic | estrella | mareig</annotation>
+		<annotation cp="💫" type="tts">mareig</annotation>
+		<annotation cp="💦">gotes | gotes de suor | suor</annotation>
+		<annotation cp="💦" type="tts">gotes de suor</annotation>
+		<annotation cp="💨">còmic | córrer | pressa | sortir corrent</annotation>
+		<annotation cp="💨" type="tts">sortir corrent</annotation>
+		<annotation cp="🕳">forat</annotation>
+		<annotation cp="🕳" type="tts">forat</annotation>
+		<annotation cp="💣">bomba | còmic</annotation>
+		<annotation cp="💣" type="tts">bomba</annotation>
+		<annotation cp="💬">bafarada | bafarada de parlar | còmic | diàleg | parlar</annotation>
+		<annotation cp="💬" type="tts">bafarada de parlar</annotation>
+		<annotation cp="👁‍🗨">bafarada | testimoni | ull | ull dins d’una bafarada | vist</annotation>
+		<annotation cp="👁‍🗨" type="tts">ull dins d’una bafarada</annotation>
+		<annotation cp="🗨">bafarada | bafarada de parlar cap a l’esquerra | esquerra | parlar</annotation>
+		<annotation cp="🗨" type="tts">bafarada de parlar cap a l’esquerra</annotation>
+		<annotation cp="🗯">bafarada | bafarada d’enuig cap a la dreta | dreta | parlar</annotation>
+		<annotation cp="🗯" type="tts">bafarada d’enuig cap a la dreta</annotation>
+		<annotation cp="💭">bafarada | bafarada de pensar | pensar</annotation>
+		<annotation cp="💭" type="tts">bafarada de pensar</annotation>
+		<annotation cp="💤">còmic | son | zzz</annotation>
+		<annotation cp="💤" type="tts">zzz</annotation>
+		<annotation cp="👋">mà | mà que saluda | salutació</annotation>
+		<annotation cp="👋" type="tts">mà que saluda</annotation>
+		<annotation cp="🤚">alçada | mà | revers | revers de la mà</annotation>
+		<annotation cp="🤚" type="tts">revers de la mà</annotation>
+		<annotation cp="🖐">dits | dits oberts | mà amb els dits oberts | mà oberta</annotation>
+		<annotation cp="🖐" type="tts">mà oberta</annotation>
+		<annotation cp="✋">cos | mà | mà aixecada</annotation>
+		<annotation cp="✋" type="tts">mà aixecada</annotation>
+		<annotation cp="🖖">dit | mà | salutació vulcaniana | Spock | vulcanià</annotation>
+		<annotation cp="🖖" type="tts">salutació vulcaniana</annotation>
+		<annotation cp="👌">acceptació | mà | mà d’acceptació | ok | senyal d’aprovació | senyal d’aprovació amb la mà</annotation>
+		<annotation cp="👌" type="tts">senyal d’aprovació amb la mà</annotation>
+		<annotation cp="🤏">mà que pessiga | quantitat petita</annotation>
+		<annotation cp="🤏" type="tts">mà que pessiga</annotation>
+		<annotation cp="✌">senyal | senyal de la victòria | victòria</annotation>
+		<annotation cp="✌" type="tts">senyal de la victòria</annotation>
+		<annotation cp="🤞">creuats | dits | sort</annotation>
+		<annotation cp="🤞" type="tts">dits creuats</annotation>
+		<annotation cp="🤟">dits | gest de t’estimo | mà | t’estimo</annotation>
+		<annotation cp="🤟" type="tts">gest de t’estimo</annotation>
+		<annotation cp="🤘">banyes | dits | dits en forma de banyes | rock</annotation>
+		<annotation cp="🤘" type="tts">dits en forma de banyes</annotation>
+		<annotation cp="🤙">mà | mà que representa una trucada | trucada</annotation>
+		<annotation cp="🤙" type="tts">mà que representa una trucada</annotation>
+		<annotation cp="👈">dit índex que apunta cap a l’esquerra | esquerra | índex</annotation>
+		<annotation cp="👈" type="tts">dit índex que apunta cap a l’esquerra</annotation>
+		<annotation cp="👉">dit índex que apunta cap a la dreta | dreta | índex</annotation>
+		<annotation cp="👉" type="tts">dit índex que apunta cap a la dreta</annotation>
+		<annotation cp="👆">amunt | dit índex | dit índex que apunta cap amunt</annotation>
+		<annotation cp="👆" type="tts">dit índex que apunta cap amunt</annotation>
+		<annotation cp="🖕">dit | dit cor | dit del cor | dit del mig | mà</annotation>
+		<annotation cp="🖕" type="tts">dit del cor</annotation>
+		<annotation cp="👇">avall | dit índex que apunta cap avall | índex</annotation>
+		<annotation cp="👇" type="tts">dit índex que apunta cap avall</annotation>
+		<annotation cp="☝">amunt | índex | índex que apunta cap amunt</annotation>
+		<annotation cp="☝" type="tts">índex que apunta cap amunt</annotation>
+		<annotation cp="👍">amunt | polze | polze cap amunt</annotation>
+		<annotation cp="👍" type="tts">polze cap amunt</annotation>
+		<annotation cp="👎">avall | polze | polze cap avall</annotation>
+		<annotation cp="👎" type="tts">polze cap avall</annotation>
+		<annotation cp="✊">mà | puny | puny alçat</annotation>
+		<annotation cp="✊" type="tts">puny alçat</annotation>
+		<annotation cp="👊">a prop | cop | cop de puny | mà | puny</annotation>
+		<annotation cp="👊" type="tts">cop de puny</annotation>
+		<annotation cp="🤛">dret | puny | salutació</annotation>
+		<annotation cp="🤛" type="tts">puny dret</annotation>
+		<annotation cp="🤜">esquerre | puny | salutació</annotation>
+		<annotation cp="🤜" type="tts">puny esquerre</annotation>
+		<annotation cp="👏">aplaudiment | aplaudint | mans | mans que aplaudeixen</annotation>
+		<annotation cp="👏" type="tts">mans que aplaudeixen</annotation>
+		<annotation cp="🙌">celebració | hurra | mans aixecades | mans enlaire</annotation>
+		<annotation cp="🙌" type="tts">mans enlaire</annotation>
+		<annotation cp="👐">cos | mà | mans obertes | oberta</annotation>
+		<annotation cp="👐" type="tts">mans obertes</annotation>
+		<annotation cp="🤲">mans juntes amb els palmells cap amunt | pregària</annotation>
+		<annotation cp="🤲" type="tts">mans juntes amb els palmells cap amunt</annotation>
+		<annotation cp="🤝">acord | encaixada | encaixada de mans | mans | salutació</annotation>
+		<annotation cp="🤝" type="tts">encaixada de mans</annotation>
+		<annotation cp="🙏">gràcies | mans | mans en oració | pregar | si us plau</annotation>
+		<annotation cp="🙏" type="tts">mans en oració</annotation>
+		<annotation cp="✍">escriure | mà | mà que escriu</annotation>
+		<annotation cp="✍" type="tts">mà que escriu</annotation>
+		<annotation cp="💅">cosmètics | esmalt | esmalt d’ungles | manicura | ungla</annotation>
+		<annotation cp="💅" type="tts">esmalt d’ungles</annotation>
+		<annotation cp="🤳">autofoto | càmera | foto | mòbil | selfie</annotation>
+		<annotation cp="🤳" type="tts">autofoto</annotation>
+		<annotation cp="💪">bíceps | bíceps tensat | flexió de bíceps | forçut | múscul</annotation>
+		<annotation cp="💪" type="tts">bíceps tensat</annotation>
+		<annotation cp="🦾">accessibilitat | pròtesi | pròtesi de braç</annotation>
+		<annotation cp="🦾" type="tts">pròtesi de braç</annotation>
+		<annotation cp="🦿">accessibilitat | pr`òtesi de cama | pròtesi</annotation>
+		<annotation cp="🦿" type="tts">pr`òtesi de cama</annotation>
+		<annotation cp="🦵">cama | extremitat | puntada de peu</annotation>
+		<annotation cp="🦵" type="tts">cama</annotation>
+		<annotation cp="🦶">peu | puntada de peu | trepitjada</annotation>
+		<annotation cp="🦶" type="tts">peu</annotation>
+		<annotation cp="👂">cos | orella</annotation>
+		<annotation cp="👂" type="tts">orella</annotation>
+		<annotation cp="🦻">accessibilitat | orella amb audiòfon | problema d’audició</annotation>
+		<annotation cp="🦻" type="tts">orella amb audiòfon</annotation>
+		<annotation cp="👃">cos | nas</annotation>
+		<annotation cp="👃" type="tts">nas</annotation>
+		<annotation cp="🧠">cervell | intel·ligent</annotation>
+		<annotation cp="🧠" type="tts">cervell</annotation>
+		<annotation cp="🦷">dent | dentista</annotation>
+		<annotation cp="🦷" type="tts">dent</annotation>
+		<annotation cp="🦴">esquelet | os</annotation>
+		<annotation cp="🦴" type="tts">os</annotation>
+		<annotation cp="👀">cara | cos | ull | ulls</annotation>
+		<annotation cp="👀" type="tts">ulls</annotation>
+		<annotation cp="👁">cos | ull</annotation>
+		<annotation cp="👁" type="tts">ull</annotation>
+		<annotation cp="👅">cos | llengua</annotation>
+		<annotation cp="👅" type="tts">llengua</annotation>
+		<annotation cp="👄">boca | cos | llavis</annotation>
+		<annotation cp="👄" type="tts">boca</annotation>
 		<annotation cp="👶">bebè | nadó | nounat</annotation>
 		<annotation cp="👶" type="tts">nadó</annotation>
 		<annotation cp="🧒">criatura | infant</annotation>
@@ -259,86 +539,186 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👧" type="tts">noia</annotation>
 		<annotation cp="🧑">adult | persona</annotation>
 		<annotation cp="🧑" type="tts">persona</annotation>
-		<annotation cp="👱">cabells rossos | persona | persona amb els cabells rossos</annotation>
-		<annotation cp="👱" type="tts">persona amb els cabells rossos</annotation>
+		<annotation cp="👱">cabells | persona amb els cabells rossos | persona: cabells rossos | ros</annotation>
+		<annotation cp="👱" type="tts">persona: cabells rossos</annotation>
+		<annotation cp="🧑‍🍼">alimentar | alletar | bebè | persona | persona que alleta un bebè</annotation>
+		<annotation cp="🧑‍🍼" type="tts">persona que alleta un bebè</annotation>
+		<annotation cp="🧑‍🎄">Noel | Noel, Nadal</annotation>
+		<annotation cp="🧑‍🎄" type="tts">Noel</annotation>
 		<annotation cp="👨">home | masculí</annotation>
 		<annotation cp="👨" type="tts">home</annotation>
-		<annotation cp="👱‍♂">home | masculí | ros</annotation>
-		<annotation cp="👱‍♂" type="tts">home ros</annotation>
-		<annotation cp="🧔">barba | home amb barba | persona amb barba</annotation>
-		<annotation cp="🧔" type="tts">home amb barba</annotation>
+		<annotation cp="🧔">barba | home | home: barba | persona</annotation>
+		<annotation cp="🧔" type="tts">home: barba</annotation>
+		<annotation cp="👱‍♂">cabell | home | home: cabell ros | ros</annotation>
+		<annotation cp="👱‍♂" type="tts">home: cabell ros</annotation>
+		<annotation cp="👨‍🍼">alimentar | alletar | bebè | dona | home que alleta un bebè</annotation>
+		<annotation cp="👨‍🍼" type="tts">home que alleta un bebè</annotation>
 		<annotation cp="👩">dona | femení</annotation>
 		<annotation cp="👩" type="tts">dona</annotation>
-		<annotation cp="👱‍♀">dona | femení | rossa</annotation>
-		<annotation cp="👱‍♀" type="tts">dona rossa</annotation>
+		<annotation cp="👱‍♀">cabell | dona | dona: cabell ros | rossa</annotation>
+		<annotation cp="👱‍♀" type="tts">dona: cabell ros</annotation>
+		<annotation cp="👩‍🍼">alimentar | alletar | bebè | dona | dona que alleta un bebè</annotation>
+		<annotation cp="👩‍🍼" type="tts">dona que alleta un bebè</annotation>
 		<annotation cp="🧓">adult | gran | persona</annotation>
 		<annotation cp="🧓" type="tts">persona gran</annotation>
 		<annotation cp="👴">ancià | gran | home</annotation>
 		<annotation cp="👴" type="tts">home gran</annotation>
 		<annotation cp="👵">anciana | dona | gran</annotation>
 		<annotation cp="👵" type="tts">dona gran</annotation>
-		<annotation cp="👨‍⚕">doctor | infermer | masculí | metge | salut</annotation>
-		<annotation cp="👨‍⚕" type="tts">doctor</annotation>
-		<annotation cp="👩‍⚕">doctora | femení | infermera | metge | metgessa | salut</annotation>
-		<annotation cp="👩‍⚕" type="tts">doctora</annotation>
+		<annotation cp="🙍">emmurriament | persona | persona arrufada | persona emmurriada</annotation>
+		<annotation cp="🙍" type="tts">persona emmurriada</annotation>
+		<annotation cp="🙍‍♂">arrufar | celles | gest | home emmurriat | masculí</annotation>
+		<annotation cp="🙍‍♂" type="tts">home emmurriat</annotation>
+		<annotation cp="🙍‍♀">arrufar | celles | dona emmurriada | femení | gest</annotation>
+		<annotation cp="🙍‍♀" type="tts">dona emmurriada</annotation>
+		<annotation cp="🙎">enuig | persona | persona enutjada</annotation>
+		<annotation cp="🙎" type="tts">persona enutjada</annotation>
+		<annotation cp="🙎‍♂">enuig | gest | home | home enutjat | masculí</annotation>
+		<annotation cp="🙎‍♂" type="tts">home enutjat</annotation>
+		<annotation cp="🙎‍♀">dona | dona enutjada | enuig | femení | gest</annotation>
+		<annotation cp="🙎‍♀" type="tts">dona enutjada</annotation>
+		<annotation cp="🙅">gest de negació | mà | negació | no | prohibit</annotation>
+		<annotation cp="🙅" type="tts">gest de negació</annotation>
+		<annotation cp="🙅‍♂">gest | home | home amb gest de negació | mà | prohibit</annotation>
+		<annotation cp="🙅‍♂" type="tts">home amb gest de negació</annotation>
+		<annotation cp="🙅‍♀">dona | dona amb gest de negació | gest | mà | prohibit</annotation>
+		<annotation cp="🙅‍♀" type="tts">dona amb gest de negació</annotation>
+		<annotation cp="🙆">aprovació | gest | gest d’aprovació</annotation>
+		<annotation cp="🙆" type="tts">gest d’aprovació</annotation>
+		<annotation cp="🙆‍♂">acord | gest | home amb gest d’aprovació | mà | OK</annotation>
+		<annotation cp="🙆‍♂" type="tts">home amb gest d’aprovació</annotation>
+		<annotation cp="🙆‍♀">acord | dona amb gest d’aprovació | gest | mà | OK</annotation>
+		<annotation cp="🙆‍♀" type="tts">dona amb gest d’aprovació</annotation>
+		<annotation cp="💁">ajuda | flexió | informació | mà | persona amb mà inclinada cap amunt</annotation>
+		<annotation cp="💁" type="tts">persona amb mà inclinada cap amunt</annotation>
+		<annotation cp="💁‍♂">ajuda | home | home amb mà inclinada cap amunt | informació | mà</annotation>
+		<annotation cp="💁‍♂" type="tts">home amb mà inclinada cap amunt</annotation>
+		<annotation cp="💁‍♀">ajuda | dona | dona amb mà inclinada cap amunt | informació | mà</annotation>
+		<annotation cp="💁‍♀" type="tts">dona amb mà inclinada cap amunt</annotation>
+		<annotation cp="🙋">mà aixecada | persona | persona amb la mà aixecada | persona contenta que aixeca la mà | somriure</annotation>
+		<annotation cp="🙋" type="tts">persona amb la mà aixecada</annotation>
+		<annotation cp="🙋‍♂">gest | home | home amb la mà aixecada | mà | masculí</annotation>
+		<annotation cp="🙋‍♂" type="tts">home amb la mà aixecada</annotation>
+		<annotation cp="🙋‍♀">dona | dona amb la mà aixecada | femení | gest | mà</annotation>
+		<annotation cp="🙋‍♀" type="tts">dona amb la mà aixecada</annotation>
+		<annotation cp="🧏">accessibilitat | oïda | persona sorda | sentir | sord</annotation>
+		<annotation cp="🧏" type="tts">persona sorda</annotation>
+		<annotation cp="🧏‍♂">home | sord</annotation>
+		<annotation cp="🧏‍♂" type="tts">home sord</annotation>
+		<annotation cp="🧏‍♀">dona | sorda</annotation>
+		<annotation cp="🧏‍♀" type="tts">dona sorda</annotation>
+		<annotation cp="🙇">disculpa | gest | persona capcota | reverència</annotation>
+		<annotation cp="🙇" type="tts">persona capcota</annotation>
+		<annotation cp="🙇‍♂">disculpa | gest | home | home capcot | reverència</annotation>
+		<annotation cp="🙇‍♂" type="tts">home capcot</annotation>
+		<annotation cp="🙇‍♀">disculpa | dona | dona capcota | gest | reverència</annotation>
+		<annotation cp="🙇‍♀" type="tts">dona capcota</annotation>
+		<annotation cp="🤦">exasperació | frustració | incredulitat | persona amb la mà a la cara | vergonya</annotation>
+		<annotation cp="🤦" type="tts">persona amb la mà a la cara</annotation>
+		<annotation cp="🤦‍♂">exasperació | home | home amb la mà a la cara | incredulitat | mà</annotation>
+		<annotation cp="🤦‍♂" type="tts">home amb la mà a la cara</annotation>
+		<annotation cp="🤦‍♀">dona | dona amb la mà a la cara | exasperació | incredulitat | mà</annotation>
+		<annotation cp="🤦‍♀" type="tts">dona amb la mà a la cara</annotation>
+		<annotation cp="🤷">arronsar | espatlles | ni idea | persona que arronsa les espatlles</annotation>
+		<annotation cp="🤷" type="tts">persona que arronsa les espatlles</annotation>
+		<annotation cp="🤷‍♂">dubte | home | home que arronsa les espatlles | ignorància | indiferència</annotation>
+		<annotation cp="🤷‍♂" type="tts">home que arronsa les espatlles</annotation>
+		<annotation cp="🤷‍♀">dona | dona que arronsa les espatlles | dubte | ignorància | indiferència</annotation>
+		<annotation cp="🤷‍♀" type="tts">dona que arronsa les espatlles</annotation>
+		<annotation cp="🧑‍⚕">doctor | infermer | professional de la salut | salut | terapeuta</annotation>
+		<annotation cp="🧑‍⚕" type="tts">professional de la salut</annotation>
+		<annotation cp="👨‍⚕">doctor | home professional de la salut | infermer | masculí | metge | salut</annotation>
+		<annotation cp="👨‍⚕" type="tts">home professional de la salut</annotation>
+		<annotation cp="👩‍⚕">doctora | dona | dona professional de la salut | infermera | metgessa | professional de la salut | salut | terapeuta</annotation>
+		<annotation cp="👩‍⚕" type="tts">dona professional de la salut</annotation>
+		<annotation cp="🧑‍🎓">estudiant | graduat</annotation>
+		<annotation cp="🧑‍🎓" type="tts">estudiant</annotation>
 		<annotation cp="👨‍🎓">graduació | graduat | home | masculí | noi estudiant</annotation>
 		<annotation cp="👨‍🎓" type="tts">noi estudiant</annotation>
 		<annotation cp="👩‍🎓">dona | femení | graduació | graduada | noia estudiant</annotation>
 		<annotation cp="👩‍🎓" type="tts">noia estudiant</annotation>
+		<annotation cp="🧑‍🏫">instructor | mestre | professor</annotation>
+		<annotation cp="🧑‍🏫" type="tts">professor</annotation>
 		<annotation cp="👨‍🏫">home | instructor | masculí | mestre | professor</annotation>
-		<annotation cp="👨‍🏫" type="tts">professor</annotation>
+		<annotation cp="👨‍🏫" type="tts">home professor</annotation>
 		<annotation cp="👩‍🏫">dona | femení | instructora | mestra | professora</annotation>
 		<annotation cp="👩‍🏫" type="tts">professora</annotation>
+		<annotation cp="🧑‍⚖">balança | jutge</annotation>
+		<annotation cp="🧑‍⚖" type="tts">jutge</annotation>
 		<annotation cp="👨‍⚖">balança | home | justícia | jutge | masculí</annotation>
-		<annotation cp="👨‍⚖" type="tts">jutge</annotation>
+		<annotation cp="👨‍⚖" type="tts">home jutge</annotation>
 		<annotation cp="👩‍⚖">balança | dona | femení | justícia | jutgessa</annotation>
 		<annotation cp="👩‍⚖" type="tts">jutgessa</annotation>
+		<annotation cp="🧑‍🌾">agricultor | granger | pagès</annotation>
+		<annotation cp="🧑‍🌾" type="tts">pagès</annotation>
 		<annotation cp="👨‍🌾">agricultor | granger | home | masculí | pagès</annotation>
-		<annotation cp="👨‍🌾" type="tts">pagès</annotation>
+		<annotation cp="👨‍🌾" type="tts">home pagès</annotation>
 		<annotation cp="👩‍🌾">agricultora | dona | femení | grangera | pagesa</annotation>
 		<annotation cp="👩‍🌾" type="tts">pagesa</annotation>
+		<annotation cp="🧑‍🍳">cuiner | xef</annotation>
+		<annotation cp="🧑‍🍳" type="tts">cuiner</annotation>
 		<annotation cp="👨‍🍳">cuiner | home | masculí | xef</annotation>
-		<annotation cp="👨‍🍳" type="tts">cuiner</annotation>
+		<annotation cp="👨‍🍳" type="tts">home cuiner</annotation>
 		<annotation cp="👩‍🍳">cuinera | dona | femení | xef</annotation>
 		<annotation cp="👩‍🍳" type="tts">cuinera</annotation>
+		<annotation cp="🧑‍🔧">electricista | lampista | mecànic</annotation>
+		<annotation cp="🧑‍🔧" type="tts">mecànic</annotation>
 		<annotation cp="👨‍🔧">electricista | home | lampista | masculí | mecànic</annotation>
-		<annotation cp="👨‍🔧" type="tts">mecànic</annotation>
+		<annotation cp="👨‍🔧" type="tts">home mecànic</annotation>
 		<annotation cp="👩‍🔧">dona | electricista | femení | lampista | mecànica</annotation>
 		<annotation cp="👩‍🔧" type="tts">mecànica</annotation>
-		<annotation cp="👨‍🏭">fàbrica | industrial | masculí | operari | treballador</annotation>
-		<annotation cp="👨‍🏭" type="tts">operari</annotation>
+		<annotation cp="🧑‍🏭">fàbrica | industrial | operari | treballador</annotation>
+		<annotation cp="🧑‍🏭" type="tts">operari</annotation>
+		<annotation cp="👨‍🏭">fàbrica | home operari | industrial | masculí | operari | treballador</annotation>
+		<annotation cp="👨‍🏭" type="tts">home operari</annotation>
 		<annotation cp="👩‍🏭">fàbrica | femení | industrial | operària | treballadora</annotation>
 		<annotation cp="👩‍🏭" type="tts">operària</annotation>
-		<annotation cp="👨‍💼">arquitecte | home | negoci | oficina | treballador d’oficina</annotation>
-		<annotation cp="👨‍💼" type="tts">treballador d’oficina</annotation>
+		<annotation cp="🧑‍💼">arquitecte | negoci | oficina | treballador d’oficina</annotation>
+		<annotation cp="🧑‍💼" type="tts">treballador d’oficina</annotation>
+		<annotation cp="👨‍💼">arquitecte | home | home treballador d’oficina | negoci | oficina | treballador d’oficina</annotation>
+		<annotation cp="👨‍💼" type="tts">home treballador d’oficina</annotation>
 		<annotation cp="👩‍💼">arquitecta | dona | negoci | oficina | treballadora d’oficina</annotation>
 		<annotation cp="👩‍💼" type="tts">treballadora d’oficina</annotation>
-		<annotation cp="👨‍🔬">biòleg | científic | enginyer | físic | químic</annotation>
-		<annotation cp="👨‍🔬" type="tts">científic</annotation>
+		<annotation cp="🧑‍🔬">biòleg | científic | enginyer | físic | químic</annotation>
+		<annotation cp="🧑‍🔬" type="tts">científic</annotation>
+		<annotation cp="👨‍🔬">biòleg | científic | enginyer | físic | home científic | químic</annotation>
+		<annotation cp="👨‍🔬" type="tts">home científic</annotation>
 		<annotation cp="👩‍🔬">biòloga | científica | enginyera | física | química</annotation>
 		<annotation cp="👩‍🔬" type="tts">científica</annotation>
+		<annotation cp="🧑‍💻">desenvolupador | inventor | programador | tecnòleg</annotation>
+		<annotation cp="🧑‍💻" type="tts">tecnòleg</annotation>
 		<annotation cp="👨‍💻">desenvolupador | home | inventor | programador | tecnòleg</annotation>
-		<annotation cp="👨‍💻" type="tts">tecnòleg</annotation>
+		<annotation cp="👨‍💻" type="tts">home tecnòleg</annotation>
 		<annotation cp="👩‍💻">desenvolupadora | dona | inventora | programadora | tecnòloga</annotation>
 		<annotation cp="👩‍💻" type="tts">tecnòloga</annotation>
+		<annotation cp="🧑‍🎤">actor | cantant | estrella | presentador</annotation>
+		<annotation cp="🧑‍🎤" type="tts">cantant</annotation>
 		<annotation cp="👨‍🎤">actor | cantant | cantant home | estrella | presentador</annotation>
 		<annotation cp="👨‍🎤" type="tts">cantant home</annotation>
 		<annotation cp="👩‍🎤">actriu | cantant | cantant dona | estrella | presentadora</annotation>
 		<annotation cp="👩‍🎤" type="tts">cantant dona</annotation>
+		<annotation cp="🧑‍🎨">artista | paleta</annotation>
+		<annotation cp="🧑‍🎨" type="tts">artista</annotation>
 		<annotation cp="👨‍🎨">artista | home | masculí | paleta</annotation>
 		<annotation cp="👨‍🎨" type="tts">artista home</annotation>
 		<annotation cp="👩‍🎨">artista | dona | femení | paleta</annotation>
 		<annotation cp="👩‍🎨" type="tts">artista dona</annotation>
+		<annotation cp="🧑‍✈">avió | pilot</annotation>
+		<annotation cp="🧑‍✈" type="tts">pilot</annotation>
 		<annotation cp="👨‍✈">avió | home | masculí | pilot</annotation>
 		<annotation cp="👨‍✈" type="tts">home pilot</annotation>
 		<annotation cp="👩‍✈">avió | dona | femení | pilot</annotation>
 		<annotation cp="👩‍✈" type="tts">dona pilot</annotation>
+		<annotation cp="🧑‍🚀">astronauta | coet</annotation>
+		<annotation cp="🧑‍🚀" type="tts">astronauta</annotation>
 		<annotation cp="👨‍🚀">astronauta | coet | espai | home</annotation>
 		<annotation cp="👨‍🚀" type="tts">home astronauta</annotation>
 		<annotation cp="👩‍🚀">astronauta | coet | dona | espai</annotation>
 		<annotation cp="👩‍🚀" type="tts">dona astronauta</annotation>
+		<annotation cp="🧑‍🚒">bomber | bombera | camió de bombers</annotation>
+		<annotation cp="🧑‍🚒" type="tts">bomber</annotation>
 		<annotation cp="👨‍🚒">bomber | camió de bombers | home | masculí</annotation>
-		<annotation cp="👨‍🚒" type="tts">bomber</annotation>
+		<annotation cp="👨‍🚒" type="tts">home bomber</annotation>
 		<annotation cp="👩‍🚒">bombera | camió de bombers | dona | femení</annotation>
 		<annotation cp="👩‍🚒" type="tts">bombera</annotation>
 		<annotation cp="👮">agent | agent de policia | policia | seguretat</annotation>
@@ -379,10 +759,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👲" type="tts">home amb barret xinès</annotation>
 		<annotation cp="🧕">cap cobert | dona amb el cap cobert | hijab | mantellina | mocador de cap</annotation>
 		<annotation cp="🧕" type="tts">dona amb el cap cobert</annotation>
-		<annotation cp="🤵">elegant | esmòquing | home</annotation>
-		<annotation cp="🤵" type="tts">home elegant</annotation>
-		<annotation cp="👰">núvia | núvia amb vel | vel</annotation>
-		<annotation cp="👰" type="tts">núvia amb vel</annotation>
+		<annotation cp="🤵">esmòquing | nuvi | persona | persona amb esmòquing</annotation>
+		<annotation cp="🤵" type="tts">persona amb esmòquing</annotation>
+		<annotation cp="🤵‍♀">dona | dona amb esmòquing | esmòquing</annotation>
+		<annotation cp="🤵‍♀" type="tts">dona amb esmòquing</annotation>
+		<annotation cp="🤵‍♂">esmòquing | home | home amb esmòquing</annotation>
+		<annotation cp="🤵‍♂" type="tts">home amb esmòquing</annotation>
+		<annotation cp="👰">casament | núvia | persona | persona amb vel | vel</annotation>
+		<annotation cp="👰" type="tts">persona amb vel</annotation>
+		<annotation cp="👰‍♀">dona | dona amb vel | vel</annotation>
+		<annotation cp="👰‍♀" type="tts">dona amb vel</annotation>
+		<annotation cp="👰‍♂">home | home amb vel | vel</annotation>
+		<annotation cp="👰‍♂" type="tts">home amb vel</annotation>
 		<annotation cp="🤰">dona | embaràs | embarassada | prenyada</annotation>
 		<annotation cp="🤰" type="tts">embarassada</annotation>
 		<annotation cp="🤱">alletar | dona que alleta | lactància | nadó</annotation>
@@ -395,112 +783,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤶" type="tts">mare Noel</annotation>
 		<annotation cp="🦸">bo | heroi | heroïna | superheroi | súperpoder</annotation>
 		<annotation cp="🦸" type="tts">superheroi</annotation>
-		<annotation cp="🦸‍♀">bo | dona | dona superheroïna | heroïna | superpoder</annotation>
-		<annotation cp="🦸‍♀" type="tts">dona superheroïna</annotation>
 		<annotation cp="🦸‍♂">bo | heroi | home | home superheroi | superpoder</annotation>
 		<annotation cp="🦸‍♂" type="tts">home superheroi</annotation>
+		<annotation cp="🦸‍♀">bo | dona | dona superheroïna | heroïna | superpoder</annotation>
+		<annotation cp="🦸‍♀" type="tts">dona superheroïna</annotation>
 		<annotation cp="🦹">criminal | dolent | malvat | superdolent | superpoder</annotation>
 		<annotation cp="🦹" type="tts">superdolent</annotation>
-		<annotation cp="🦹‍♀">criminal | dolenta | dona | dona superdolenta | malvada | superpoder</annotation>
-		<annotation cp="🦹‍♀" type="tts">dona superdolenta</annotation>
 		<annotation cp="🦹‍♂">criminal | dolent | home | home superdolent | malvat | superpoder</annotation>
 		<annotation cp="🦹‍♂" type="tts">home superdolent</annotation>
+		<annotation cp="🦹‍♀">criminal | dolenta | dona | dona superdolenta | malvada | superpoder</annotation>
+		<annotation cp="🦹‍♀" type="tts">dona superdolenta</annotation>
 		<annotation cp="🧙">bruixa | bruixot | fetiller | fetillera | mag</annotation>
 		<annotation cp="🧙" type="tts">mag</annotation>
-		<annotation cp="🧙‍♀">bruixa | dona maga | fetillera</annotation>
-		<annotation cp="🧙‍♀" type="tts">dona maga</annotation>
 		<annotation cp="🧙‍♂">bruixot | fetiller | home mag</annotation>
 		<annotation cp="🧙‍♂" type="tts">home mag</annotation>
+		<annotation cp="🧙‍♀">bruixa | dona maga | fetillera</annotation>
+		<annotation cp="🧙‍♀" type="tts">dona maga</annotation>
 		<annotation cp="🧚">fada | Oberó | Puck | Titània</annotation>
 		<annotation cp="🧚" type="tts">fada</annotation>
-		<annotation cp="🧚‍♀">dona fada | Titània</annotation>
-		<annotation cp="🧚‍♀" type="tts">dona fada</annotation>
 		<annotation cp="🧚‍♂">home fada | Oberó | Puck</annotation>
 		<annotation cp="🧚‍♂" type="tts">home fada</annotation>
+		<annotation cp="🧚‍♀">dona fada | Titània</annotation>
+		<annotation cp="🧚‍♀" type="tts">dona fada</annotation>
 		<annotation cp="🧛">Dràcula | mort vivent | morta vivent | vampir</annotation>
 		<annotation cp="🧛" type="tts">vampir</annotation>
-		<annotation cp="🧛‍♀">dona vampir | morta vivent | vampiressa</annotation>
-		<annotation cp="🧛‍♀" type="tts">dona vampir</annotation>
 		<annotation cp="🧛‍♂">Dràcula | home vampir | mort vivent</annotation>
 		<annotation cp="🧛‍♂" type="tts">home vampir</annotation>
+		<annotation cp="🧛‍♀">dona vampir | morta vivent | vampiressa</annotation>
+		<annotation cp="🧛‍♀" type="tts">dona vampir</annotation>
 		<annotation cp="🧜">dona sirena | persona sirena | sirena</annotation>
 		<annotation cp="🧜" type="tts">persona sirena</annotation>
-		<annotation cp="🧜‍♀">dona sirena | sirena</annotation>
-		<annotation cp="🧜‍♀" type="tts">sirena</annotation>
 		<annotation cp="🧜‍♂">home sirena | Tritó</annotation>
 		<annotation cp="🧜‍♂" type="tts">home sirena</annotation>
+		<annotation cp="🧜‍♀">dona sirena | sirena</annotation>
+		<annotation cp="🧜‍♀" type="tts">sirena</annotation>
 		<annotation cp="🧝">elf | màgic</annotation>
 		<annotation cp="🧝" type="tts">elf</annotation>
-		<annotation cp="🧝‍♀">dona elfa | màgic | màgica</annotation>
-		<annotation cp="🧝‍♀" type="tts">dona elfa</annotation>
 		<annotation cp="🧝‍♂">home elf | màgic | màgica</annotation>
 		<annotation cp="🧝‍♂" type="tts">home elf</annotation>
+		<annotation cp="🧝‍♀">dona elfa | màgic | màgica</annotation>
+		<annotation cp="🧝‍♀" type="tts">dona elfa</annotation>
 		<annotation cp="🧞">geni</annotation>
 		<annotation cp="🧞" type="tts">geni</annotation>
-		<annotation cp="🧞‍♀">dona geni | geni</annotation>
-		<annotation cp="🧞‍♀" type="tts">dona geni</annotation>
 		<annotation cp="🧞‍♂">geni | home geni</annotation>
 		<annotation cp="🧞‍♂" type="tts">home geni</annotation>
+		<annotation cp="🧞‍♀">dona geni | geni</annotation>
+		<annotation cp="🧞‍♀" type="tts">dona geni</annotation>
 		<annotation cp="🧟">mort vivent | walking dead | zombi</annotation>
 		<annotation cp="🧟" type="tts">zombi</annotation>
-		<annotation cp="🧟‍♀">dona zombi | morta vivent</annotation>
-		<annotation cp="🧟‍♀" type="tts">dona zombi</annotation>
 		<annotation cp="🧟‍♂">home zombi | mort vivent</annotation>
 		<annotation cp="🧟‍♂" type="tts">home zombi</annotation>
-		<annotation cp="🙍">emmurriament | persona | persona arrufada | persona emmurriada</annotation>
-		<annotation cp="🙍" type="tts">persona emmurriada</annotation>
-		<annotation cp="🙍‍♂">arrufar | celles | gest | home emmurriat | masculí</annotation>
-		<annotation cp="🙍‍♂" type="tts">home emmurriat</annotation>
-		<annotation cp="🙍‍♀">arrufar | celles | dona emmurriada | femení | gest</annotation>
-		<annotation cp="🙍‍♀" type="tts">dona emmurriada</annotation>
-		<annotation cp="🙎">enuig | persona | persona enutjada</annotation>
-		<annotation cp="🙎" type="tts">persona enutjada</annotation>
-		<annotation cp="🙎‍♂">enuig | gest | home | home enutjat | masculí</annotation>
-		<annotation cp="🙎‍♂" type="tts">home enutjat</annotation>
-		<annotation cp="🙎‍♀">dona | dona enutjada | enuig | femení | gest</annotation>
-		<annotation cp="🙎‍♀" type="tts">dona enutjada</annotation>
-		<annotation cp="🙅">gest de negació | mà | negació | no | prohibit</annotation>
-		<annotation cp="🙅" type="tts">gest de negació</annotation>
-		<annotation cp="🙅‍♂">gest | home | home amb gest de negació | mà | prohibit</annotation>
-		<annotation cp="🙅‍♂" type="tts">home amb gest de negació</annotation>
-		<annotation cp="🙅‍♀">dona | dona amb gest de negació | gest | mà | prohibit</annotation>
-		<annotation cp="🙅‍♀" type="tts">dona amb gest de negació</annotation>
-		<annotation cp="🙆">aprovació | gest | gest d’aprovació</annotation>
-		<annotation cp="🙆" type="tts">gest d’aprovació</annotation>
-		<annotation cp="🙆‍♂">acord | gest | home amb gest d’aprovació | mà | OK</annotation>
-		<annotation cp="🙆‍♂" type="tts">home amb gest d’aprovació</annotation>
-		<annotation cp="🙆‍♀">acord | dona amb gest d’aprovació | gest | mà | OK</annotation>
-		<annotation cp="🙆‍♀" type="tts">dona amb gest d’aprovació</annotation>
-		<annotation cp="💁">ajuda | flexió | informació | mà | persona amb mà inclinada cap amunt</annotation>
-		<annotation cp="💁" type="tts">persona amb mà inclinada cap amunt</annotation>
-		<annotation cp="💁‍♂">ajuda | home | home amb mà inclinada cap amunt | informació | mà</annotation>
-		<annotation cp="💁‍♂" type="tts">home amb mà inclinada cap amunt</annotation>
-		<annotation cp="💁‍♀">ajuda | dona | dona amb mà inclinada cap amunt | informació | mà</annotation>
-		<annotation cp="💁‍♀" type="tts">dona amb mà inclinada cap amunt</annotation>
-		<annotation cp="🙋">mà aixecada | persona | persona amb la mà aixecada | persona contenta que aixeca la mà | somriure</annotation>
-		<annotation cp="🙋" type="tts">persona amb la mà aixecada</annotation>
-		<annotation cp="🙋‍♂">gest | home | home amb la mà aixecada | mà | masculí</annotation>
-		<annotation cp="🙋‍♂" type="tts">home amb la mà aixecada</annotation>
-		<annotation cp="🙋‍♀">dona | dona amb la mà aixecada | femení | gest | mà</annotation>
-		<annotation cp="🙋‍♀" type="tts">dona amb la mà aixecada</annotation>
-		<annotation cp="🙇">disculpa | gest | persona capcota | reverència</annotation>
-		<annotation cp="🙇" type="tts">persona capcota</annotation>
-		<annotation cp="🙇‍♂">disculpa | gest | home | home capcot | reverència</annotation>
-		<annotation cp="🙇‍♂" type="tts">home capcot</annotation>
-		<annotation cp="🙇‍♀">disculpa | dona | dona capcota | gest | reverència</annotation>
-		<annotation cp="🙇‍♀" type="tts">dona capcota</annotation>
-		<annotation cp="🤦">exasperació | frustració | incredulitat | persona amb la mà a la cara | vergonya</annotation>
-		<annotation cp="🤦" type="tts">persona amb la mà a la cara</annotation>
-		<annotation cp="🤦‍♂">exasperació | home | home amb la mà a la cara | incredulitat | mà</annotation>
-		<annotation cp="🤦‍♂" type="tts">home amb la mà a la cara</annotation>
-		<annotation cp="🤦‍♀">dona | dona amb la mà a la cara | exasperació | incredulitat | mà</annotation>
-		<annotation cp="🤦‍♀" type="tts">dona amb la mà a la cara</annotation>
-		<annotation cp="🤷">arronsar | espatlles | ni idea | persona que arronsa les espatlles</annotation>
-		<annotation cp="🤷" type="tts">persona que arronsa les espatlles</annotation>
-		<annotation cp="🤷‍♂">dubte | home | home que arronsa les espatlles | ignorància | indiferència</annotation>
-		<annotation cp="🤷‍♂" type="tts">home que arronsa les espatlles</annotation>
-		<annotation cp="🤷‍♀">dona | dona que arronsa les espatlles | dubte | ignorància | indiferència</annotation>
-		<annotation cp="🤷‍♀" type="tts">dona que arronsa les espatlles</annotation>
+		<annotation cp="🧟‍♀">dona zombi | morta vivent</annotation>
+		<annotation cp="🧟‍♀" type="tts">dona zombi</annotation>
 		<annotation cp="💆">cara | massatge | persona que rep un massatge facial | saló</annotation>
 		<annotation cp="💆" type="tts">persona que rep un massatge facial</annotation>
 		<annotation cp="💆‍♂">cara | home | masculí | massatge | massatge facial a un home</annotation>
@@ -519,6 +853,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">home que camina</annotation>
 		<annotation cp="🚶‍♀">caminada | dona | dona caminant | dona que camina | femení | passejada</annotation>
 		<annotation cp="🚶‍♀" type="tts">dona que camina</annotation>
+		<annotation cp="🧍">dempeus | dret | dreta | persona dreta</annotation>
+		<annotation cp="🧍" type="tts">persona dreta</annotation>
+		<annotation cp="🧍‍♂">dempeus | dret | home</annotation>
+		<annotation cp="🧍‍♂" type="tts">home dret</annotation>
+		<annotation cp="🧍‍♀">dempeus | dona | dreta</annotation>
+		<annotation cp="🧍‍♀" type="tts">dona dreta</annotation>
+		<annotation cp="🧎">agenollada | agenollat | de genolls | genoll | persona agenollada</annotation>
+		<annotation cp="🧎" type="tts">persona agenollada</annotation>
+		<annotation cp="🧎‍♂">agenollat | de genolls | home</annotation>
+		<annotation cp="🧎‍♂" type="tts">home agenollat</annotation>
+		<annotation cp="🧎‍♀">agenollada | de genolls | dona</annotation>
+		<annotation cp="🧎‍♀" type="tts">dona agenollada</annotation>
+		<annotation cp="🧑‍🦯">accessibilitat | invident | persona amb un bastó per a invidents</annotation>
+		<annotation cp="🧑‍🦯" type="tts">persona amb un bastó per a invidents</annotation>
+		<annotation cp="👨‍🦯">accessibilitat | home | home amb un bastó per a invidents | invident</annotation>
+		<annotation cp="👨‍🦯" type="tts">home amb un bastó per a invidents</annotation>
+		<annotation cp="👩‍🦯">accessibilitat | dona | dona amb un bastó per a invidents | invident</annotation>
+		<annotation cp="👩‍🦯" type="tts">dona amb un bastó per a invidents</annotation>
+		<annotation cp="🧑‍🦼">accessibilitat | cadira de rodes elèctrica | persona amb una cadira de rodes elèctrica</annotation>
+		<annotation cp="🧑‍🦼" type="tts">persona amb una cadira de rodes elèctrica</annotation>
+		<annotation cp="👨‍🦼">accessibilitat | cadira de rodes | home | home amb una cadira de rodes elèctrica</annotation>
+		<annotation cp="👨‍🦼" type="tts">home amb una cadira de rodes elèctrica</annotation>
+		<annotation cp="👩‍🦼">accessibilitat | cadira de rodes | dona | dona amb una cadira de rodes elèctrica</annotation>
+		<annotation cp="👩‍🦼" type="tts">dona amb una cadira de rodes elèctrica</annotation>
+		<annotation cp="🧑‍🦽">accessibilitat | cadira de rodes manual | persona amb una cadira de rodes manual</annotation>
+		<annotation cp="🧑‍🦽" type="tts">persona amb una cadira de rodes manual</annotation>
+		<annotation cp="👨‍🦽">accessibilitat | cadira de rodes | home | home amb una cadira de rodes manual</annotation>
+		<annotation cp="👨‍🦽" type="tts">home amb una cadira de rodes manual</annotation>
+		<annotation cp="👩‍🦽">accessibilitat | cadira de rodes | dona | dona amb una cadira de rodes manual</annotation>
+		<annotation cp="👩‍🦽" type="tts">dona amb una cadira de rodes manual</annotation>
 		<annotation cp="🏃">corredor | marató | persona corrent | persona que corre</annotation>
 		<annotation cp="🏃" type="tts">persona que corre</annotation>
 		<annotation cp="🏃‍♂">córrer | cursa | home | home que corre | marató</annotation>
@@ -529,6 +893,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💃" type="tts">dona que balla</annotation>
 		<annotation cp="🕺">ball | ballant | disco | home | home que balla | música</annotation>
 		<annotation cp="🕺" type="tts">home que balla</annotation>
+		<annotation cp="🕴">home | home de negocis que levita | levitar | negocis</annotation>
+		<annotation cp="🕴" type="tts">home de negocis que levita</annotation>
 		<annotation cp="👯">conillet | dansaires | festa | orelles de conill | persones que ballen disfressades</annotation>
 		<annotation cp="👯" type="tts">persones que ballen disfressades</annotation>
 		<annotation cp="👯‍♂">ballarí | ballarins amb orelles de conill | conillet | festa | homes que ballen disfressats</annotation>
@@ -537,34 +903,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👯‍♀" type="tts">dones que ballen disfressades</annotation>
 		<annotation cp="🧖">persona a la sauna | sauna | vapor</annotation>
 		<annotation cp="🧖" type="tts">persona a la sauna</annotation>
-		<annotation cp="🧖‍♀">dona a la sauna | sauna | vapor</annotation>
-		<annotation cp="🧖‍♀" type="tts">dona a la sauna</annotation>
 		<annotation cp="🧖‍♂">home a la sauna | sauna | vapor</annotation>
 		<annotation cp="🧖‍♂" type="tts">home a la sauna</annotation>
+		<annotation cp="🧖‍♀">dona a la sauna | sauna | vapor</annotation>
+		<annotation cp="🧖‍♀" type="tts">dona a la sauna</annotation>
 		<annotation cp="🧗">escalada | escalador | escaladora | persona que escala</annotation>
 		<annotation cp="🧗" type="tts">persona que escala</annotation>
-		<annotation cp="🧗‍♀">dona | escalada | escaladora</annotation>
-		<annotation cp="🧗‍♀" type="tts">escaladora</annotation>
 		<annotation cp="🧗‍♂">escalada | escalador | home</annotation>
 		<annotation cp="🧗‍♂" type="tts">escalador</annotation>
-		<annotation cp="🧘">ioga | lotus | meditació | persona en la posició de lotus</annotation>
-		<annotation cp="🧘" type="tts">persona en la posició de lotus</annotation>
-		<annotation cp="🧘‍♀">dona en la posició de lotus | ioga | lotus | meditació</annotation>
-		<annotation cp="🧘‍♀" type="tts">dona en la posició de lotus</annotation>
-		<annotation cp="🧘‍♂">home en la posició de lotus | ioga | lotus | meditació</annotation>
-		<annotation cp="🧘‍♂" type="tts">home en la posició de lotus</annotation>
-		<annotation cp="🛀">bany | banyera | persona | persona a la banyera</annotation>
-		<annotation cp="🛀" type="tts">persona a la banyera</annotation>
-		<annotation cp="🛌">dormir | hotel | llit | persona | persona al llit</annotation>
-		<annotation cp="🛌" type="tts">persona al llit</annotation>
-		<annotation cp="🕴">home | home de negocis que levita | levitar | negocis</annotation>
-		<annotation cp="🕴" type="tts">home de negocis que levita</annotation>
-		<annotation cp="🗣">parlar | persona | persona que parla | silueta que parla</annotation>
-		<annotation cp="🗣" type="tts">persona que parla</annotation>
-		<annotation cp="👤">bust | silueta | silueta d’un bust</annotation>
-		<annotation cp="👤" type="tts">silueta d’un bust</annotation>
-		<annotation cp="👥">bustos | silueta de bustos | siluetes</annotation>
-		<annotation cp="👥" type="tts">silueta de bustos</annotation>
+		<annotation cp="🧗‍♀">dona | escalada | escaladora</annotation>
+		<annotation cp="🧗‍♀" type="tts">escaladora</annotation>
 		<annotation cp="🤺">esgrima | esgrimidor | esgrimidora | persona que fa esgrima | tirador | tiradora</annotation>
 		<annotation cp="🤺" type="tts">persona que fa esgrima</annotation>
 		<annotation cp="🏇">cavalls | curses | curses de cavalls | genet</annotation>
@@ -621,10 +969,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">ciclista de muntanya home</annotation>
 		<annotation cp="🚵‍♀">bicicleta | ciclista | ciclista de muntanya dona | dona | muntanya</annotation>
 		<annotation cp="🚵‍♀" type="tts">ciclista de muntanya dona</annotation>
-		<annotation cp="🏎">carreres | cotxe | cotxe de curses | curses | fórmula 1</annotation>
-		<annotation cp="🏎" type="tts">cotxe de curses</annotation>
-		<annotation cp="🏍">curses | moto | motocicleta</annotation>
-		<annotation cp="🏍" type="tts">motocicleta</annotation>
 		<annotation cp="🤸">esport | gimnàstica | persona que fa la roda | roda</annotation>
 		<annotation cp="🤸" type="tts">persona que fa la roda</annotation>
 		<annotation cp="🤸‍♂">esport | gimnàstica | home | home que fa la roda | tombarella</annotation>
@@ -655,110 +999,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤹‍♂" type="tts">malabarista home</annotation>
 		<annotation cp="🤹‍♀">dona | femení | malabarista dona | malabars | multitasca</annotation>
 		<annotation cp="🤹‍♀" type="tts">malabarista dona</annotation>
-		<annotation cp="👫">dona | home | home i dona que s’agafen de la mà | mans agafades</annotation>
-		<annotation cp="👫" type="tts">home i dona que s’agafen de la mà</annotation>
-		<annotation cp="👬">homes | homes que s’agafen de la mà | mans agafades</annotation>
-		<annotation cp="👬" type="tts">homes que s’agafen de la mà</annotation>
-		<annotation cp="👭">dones | dones que s’agafen de la mà | mans agafades</annotation>
+		<annotation cp="🧘">ioga | lotus | meditació | persona en la posició de lotus</annotation>
+		<annotation cp="🧘" type="tts">persona en la posició de lotus</annotation>
+		<annotation cp="🧘‍♂">home en la posició de lotus | ioga | lotus | meditació</annotation>
+		<annotation cp="🧘‍♂" type="tts">home en la posició de lotus</annotation>
+		<annotation cp="🧘‍♀">dona en la posició de lotus | ioga | lotus | meditació</annotation>
+		<annotation cp="🧘‍♀" type="tts">dona en la posició de lotus</annotation>
+		<annotation cp="🛀">bany | banyera | persona | persona a la banyera</annotation>
+		<annotation cp="🛀" type="tts">persona a la banyera</annotation>
+		<annotation cp="🛌">dormir | hotel | llit | persona | persona al llit</annotation>
+		<annotation cp="🛌" type="tts">persona al llit</annotation>
+		<annotation cp="🧑‍🤝‍🧑">agafar | agafar-se de la mà | mà | mans agafades | parella | persona | persones que s’agafen de la mà</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">persones que s’agafen de la mà</annotation>
+		<annotation cp="👭">dones | dones que s’agafen de la mà | mans agafades | parella de dones</annotation>
 		<annotation cp="👭" type="tts">dones que s’agafen de la mà</annotation>
+		<annotation cp="👫">dona | home | home i dona que s’agafen de la mà | mans agafades | parella</annotation>
+		<annotation cp="👫" type="tts">home i dona que s’agafen de la mà</annotation>
+		<annotation cp="👬">bessons | Gèmini | home | homes | homes que s’agafen de la mà | mans agafades | parella | zodíac</annotation>
+		<annotation cp="👬" type="tts">homes que s’agafen de la mà</annotation>
 		<annotation cp="💏">parella | petó</annotation>
 		<annotation cp="💏" type="tts">petó</annotation>
 		<annotation cp="💑">cor | parella | parella amb un cor</annotation>
 		<annotation cp="💑" type="tts">parella amb un cor</annotation>
 		<annotation cp="👪">criatura | família | mare | pare</annotation>
 		<annotation cp="👪" type="tts">família</annotation>
-		<annotation cp="🤳">autofoto | càmera | foto | mòbil | selfie</annotation>
-		<annotation cp="🤳" type="tts">autofoto</annotation>
-		<annotation cp="💪">bíceps | bíceps tensat | flexió de bíceps | forçut | múscul</annotation>
-		<annotation cp="💪" type="tts">bíceps tensat</annotation>
-		<annotation cp="🦵">cama | extremitat | puntada de peu</annotation>
-		<annotation cp="🦵" type="tts">cama</annotation>
-		<annotation cp="🦶">peu | puntada de peu | trepitjada</annotation>
-		<annotation cp="🦶" type="tts">peu</annotation>
-		<annotation cp="👈">dit índex que apunta cap a l’esquerra | esquerra | índex</annotation>
-		<annotation cp="👈" type="tts">dit índex que apunta cap a l’esquerra</annotation>
-		<annotation cp="👉">dit índex que apunta cap a la dreta | dreta | índex</annotation>
-		<annotation cp="👉" type="tts">dit índex que apunta cap a la dreta</annotation>
-		<annotation cp="☝">amunt | índex | índex que apunta cap amunt</annotation>
-		<annotation cp="☝" type="tts">índex que apunta cap amunt</annotation>
-		<annotation cp="👆">amunt | dit índex | dit índex que apunta cap amunt</annotation>
-		<annotation cp="👆" type="tts">dit índex que apunta cap amunt</annotation>
-		<annotation cp="🖕">dit | dit cor | dit del cor | dit del mig | mà</annotation>
-		<annotation cp="🖕" type="tts">dit del cor</annotation>
-		<annotation cp="👇">avall | dit índex que apunta cap avall | índex</annotation>
-		<annotation cp="👇" type="tts">dit índex que apunta cap avall</annotation>
-		<annotation cp="✌">senyal | senyal de la victòria | victòria</annotation>
-		<annotation cp="✌" type="tts">senyal de la victòria</annotation>
-		<annotation cp="🤞">creuats | dits | sort</annotation>
-		<annotation cp="🤞" type="tts">dits creuats</annotation>
-		<annotation cp="🖖">dit | mà | salutació vulcaniana | Spock | vulcanià</annotation>
-		<annotation cp="🖖" type="tts">salutació vulcaniana</annotation>
-		<annotation cp="🤘">banyes | dits | dits en forma de banyes | rock</annotation>
-		<annotation cp="🤘" type="tts">dits en forma de banyes</annotation>
-		<annotation cp="🤙">mà | mà que representa una trucada | trucada</annotation>
-		<annotation cp="🤙" type="tts">mà que representa una trucada</annotation>
-		<annotation cp="🖐">dits | dits oberts | mà amb els dits oberts | mà oberta</annotation>
-		<annotation cp="🖐" type="tts">mà oberta</annotation>
-		<annotation cp="✋">cos | mà | mà aixecada</annotation>
-		<annotation cp="✋" type="tts">mà aixecada</annotation>
-		<annotation cp="👌">acceptació | mà | mà d’acceptació | ok | senyal d’aprovació | senyal d’aprovació amb la mà</annotation>
-		<annotation cp="👌" type="tts">senyal d’aprovació amb la mà</annotation>
-		<annotation cp="👍">amunt | polze | polze cap amunt</annotation>
-		<annotation cp="👍" type="tts">polze cap amunt</annotation>
-		<annotation cp="👎">avall | polze | polze cap avall</annotation>
-		<annotation cp="👎" type="tts">polze cap avall</annotation>
-		<annotation cp="✊">mà | puny | puny alçat</annotation>
-		<annotation cp="✊" type="tts">puny alçat</annotation>
-		<annotation cp="👊">a prop | cop | cop de puny | mà | puny</annotation>
-		<annotation cp="👊" type="tts">cop de puny</annotation>
-		<annotation cp="🤛">dret | puny | salutació</annotation>
-		<annotation cp="🤛" type="tts">puny dret</annotation>
-		<annotation cp="🤜">esquerre | puny | salutació</annotation>
-		<annotation cp="🤜" type="tts">puny esquerre</annotation>
-		<annotation cp="🤚">alçada | mà | revers | revers de la mà</annotation>
-		<annotation cp="🤚" type="tts">revers de la mà</annotation>
-		<annotation cp="👋">mà | mà que saluda | salutació</annotation>
-		<annotation cp="👋" type="tts">mà que saluda</annotation>
-		<annotation cp="🤟">dits | gest de t’estimo | mà | t’estimo</annotation>
-		<annotation cp="🤟" type="tts">gest de t’estimo</annotation>
-		<annotation cp="✍">escriure | mà | mà que escriu</annotation>
-		<annotation cp="✍" type="tts">mà que escriu</annotation>
-		<annotation cp="👏">aplaudiment | aplaudint | mans | mans que aplaudeixen</annotation>
-		<annotation cp="👏" type="tts">mans que aplaudeixen</annotation>
-		<annotation cp="👐">cos | mà | mans obertes | oberta</annotation>
-		<annotation cp="👐" type="tts">mans obertes</annotation>
-		<annotation cp="🙌">celebració | hurra | mans aixecades | mans enlaire</annotation>
-		<annotation cp="🙌" type="tts">mans enlaire</annotation>
-		<annotation cp="🤲">mans juntes amb els palmells cap amunt | pregària</annotation>
-		<annotation cp="🤲" type="tts">mans juntes amb els palmells cap amunt</annotation>
-		<annotation cp="🙏">gràcies | mans | mans en oració | pregar | si us plau</annotation>
-		<annotation cp="🙏" type="tts">mans en oració</annotation>
-		<annotation cp="🤝">acord | encaixada | encaixada de mans | mans | salutació</annotation>
-		<annotation cp="🤝" type="tts">encaixada de mans</annotation>
-		<annotation cp="💅">cosmètics | esmalt | esmalt d’ungles | manicura | ungla</annotation>
-		<annotation cp="💅" type="tts">esmalt d’ungles</annotation>
-		<annotation cp="👂">cos | orella</annotation>
-		<annotation cp="👂" type="tts">orella</annotation>
-		<annotation cp="👃">cos | nas</annotation>
-		<annotation cp="👃" type="tts">nas</annotation>
+		<annotation cp="🗣">parlar | persona | persona que parla | silueta que parla</annotation>
+		<annotation cp="🗣" type="tts">persona que parla</annotation>
+		<annotation cp="👤">bust | silueta | silueta d’un bust</annotation>
+		<annotation cp="👤" type="tts">silueta d’un bust</annotation>
+		<annotation cp="👥">bustos | silueta de bustos | siluetes</annotation>
+		<annotation cp="👥" type="tts">silueta de bustos</annotation>
 		<annotation cp="👣">cos | empremta | petja | petjades | vestit</annotation>
 		<annotation cp="👣" type="tts">petjades</annotation>
-		<annotation cp="👀">cara | cos | ull | ulls</annotation>
-		<annotation cp="👀" type="tts">ulls</annotation>
-		<annotation cp="👁">cos | ull</annotation>
-		<annotation cp="👁" type="tts">ull</annotation>
-		<annotation cp="👁‍🗨">bafarada | testimoni | ull | ull dins d’una bafarada | vist</annotation>
-		<annotation cp="👁‍🗨" type="tts">ull dins d’una bafarada</annotation>
-		<annotation cp="🧠">cervell | intel·ligent</annotation>
-		<annotation cp="🧠" type="tts">cervell</annotation>
-		<annotation cp="🦴">esquelet | os</annotation>
-		<annotation cp="🦴" type="tts">os</annotation>
-		<annotation cp="🦷">dent | dentista</annotation>
-		<annotation cp="🦷" type="tts">dent</annotation>
-		<annotation cp="👅">cos | llengua</annotation>
-		<annotation cp="👅" type="tts">llengua</annotation>
-		<annotation cp="👄">boca | cos | llavis</annotation>
-		<annotation cp="👄" type="tts">boca</annotation>
 		<annotation cp="🦰">cabells vermells | pèl-roig | pèl-roja</annotation>
 		<annotation cp="🦰" type="tts">cabells vermells</annotation>
 		<annotation cp="🦱">afro | cabells arrissats | rínxols</annotation>
@@ -767,165 +1039,37 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">cabells blancs</annotation>
 		<annotation cp="🦲">calb | calba | calvície | cap afaitat | quimioteràpia | sense cabells</annotation>
 		<annotation cp="🦲" type="tts">calvície</annotation>
-		<annotation cp="💋">marca | marca de petó | petó</annotation>
-		<annotation cp="💋" type="tts">marca de petó</annotation>
-		<annotation cp="💘">cor | cor amb fletxa | Cupido | fletxa</annotation>
-		<annotation cp="💘" type="tts">cor amb fletxa</annotation>
-		<annotation cp="💝">cor | cor amb un llaç | llaç | Sant Valentí</annotation>
-		<annotation cp="💝" type="tts">cor amb un llaç</annotation>
-		<annotation cp="💖">cor | cor espurnejant | espurneig</annotation>
-		<annotation cp="💖" type="tts">cor espurnejant</annotation>
-		<annotation cp="💗">batec | cor | cor que creix | creixent | emocionada | emocionat</annotation>
-		<annotation cp="💗" type="tts">cor que creix</annotation>
-		<annotation cp="💓">batec | cor | cor que batega</annotation>
-		<annotation cp="💓" type="tts">cor que batega</annotation>
-		<annotation cp="💞">cors | cors que giren | gir</annotation>
-		<annotation cp="💞" type="tts">cors que giren</annotation>
-		<annotation cp="💕">amor | cor | dos cors</annotation>
-		<annotation cp="💕" type="tts">dos cors</annotation>
-		<annotation cp="💌">amor | carta | carta d’amor</annotation>
-		<annotation cp="💌" type="tts">carta d’amor</annotation>
-		<annotation cp="❣">cor | decoratiu | exclamació | exclamació en forma de cor | puntuació</annotation>
-		<annotation cp="❣" type="tts">exclamació en forma de cor</annotation>
-		<annotation cp="💔">cor | trencar | trencat</annotation>
-		<annotation cp="💔" type="tts">cor trencat</annotation>
-		<annotation cp="❤">cor | cor vermell</annotation>
-		<annotation cp="❤" type="tts">cor vermell</annotation>
-		<annotation cp="🧡">cor taronja | taronja</annotation>
-		<annotation cp="🧡" type="tts">cor taronja</annotation>
-		<annotation cp="💛">cor | cor groc</annotation>
-		<annotation cp="💛" type="tts">cor groc</annotation>
-		<annotation cp="💚">cor | cor verd</annotation>
-		<annotation cp="💚" type="tts">cor verd</annotation>
-		<annotation cp="💙">cor | cor blau</annotation>
-		<annotation cp="💙" type="tts">cor blau</annotation>
-		<annotation cp="💜">cor | cor lila</annotation>
-		<annotation cp="💜" type="tts">cor lila</annotation>
-		<annotation cp="🖤">cor | cor negre</annotation>
-		<annotation cp="🖤" type="tts">cor negre</annotation>
-		<annotation cp="💟">cor | cor decoratiu</annotation>
-		<annotation cp="💟" type="tts">cor decoratiu</annotation>
-		<annotation cp="💤">còmic | son | zzz</annotation>
-		<annotation cp="💤" type="tts">zzz</annotation>
-		<annotation cp="💢">còmic | enfadat | enuig | malhumorat | símbol d’enuig</annotation>
-		<annotation cp="💢" type="tts">símbol d’enuig</annotation>
-		<annotation cp="💣">bomba | còmic</annotation>
-		<annotation cp="💣" type="tts">bomba</annotation>
-		<annotation cp="💥">col·lisió | còmic | esclat</annotation>
-		<annotation cp="💥" type="tts">col·lisió</annotation>
-		<annotation cp="💦">gotes | gotes de suor | suor</annotation>
-		<annotation cp="💦" type="tts">gotes de suor</annotation>
-		<annotation cp="💨">còmic | córrer | pressa | sortir corrent</annotation>
-		<annotation cp="💨" type="tts">sortir corrent</annotation>
-		<annotation cp="💫">còmic | estrella | mareig</annotation>
-		<annotation cp="💫" type="tts">mareig</annotation>
-		<annotation cp="💬">bafarada | bafarada de parlar | còmic | diàleg | parlar</annotation>
-		<annotation cp="💬" type="tts">bafarada de parlar</annotation>
-		<annotation cp="🗨">bafarada | bafarada de parlar cap a l’esquerra | esquerra | parlar</annotation>
-		<annotation cp="🗨" type="tts">bafarada de parlar cap a l’esquerra</annotation>
-		<annotation cp="🗯">bafarada | bafarada d’enuig cap a la dreta | dreta | parlar</annotation>
-		<annotation cp="🗯" type="tts">bafarada d’enuig cap a la dreta</annotation>
-		<annotation cp="💭">bafarada | bafarada de pensar | pensar</annotation>
-		<annotation cp="💭" type="tts">bafarada de pensar</annotation>
-		<annotation cp="🕳">forat</annotation>
-		<annotation cp="🕳" type="tts">forat</annotation>
-		<annotation cp="👓">complements | ull | ulleres | vestuari</annotation>
-		<annotation cp="👓" type="tts">ulleres</annotation>
-		<annotation cp="🕶">fosques | sol | ull | ulleres | ulleres de sol</annotation>
-		<annotation cp="🕶" type="tts">ulleres de sol</annotation>
-		<annotation cp="🥽">natació | protecció | protecció dels ulls | protecció ocular | ulleres de piscina</annotation>
-		<annotation cp="🥽" type="tts">ulleres de piscina</annotation>
-		<annotation cp="🥼">bata de laboratori | científic | doctor | experiment</annotation>
-		<annotation cp="🥼" type="tts">bata de laboratori</annotation>
-		<annotation cp="👔">corbata | roba</annotation>
-		<annotation cp="👔" type="tts">corbata</annotation>
-		<annotation cp="👕">roba | samarreta</annotation>
-		<annotation cp="👕" type="tts">samarreta</annotation>
-		<annotation cp="👖">pantaló | pantalons | roba | texans</annotation>
-		<annotation cp="👖" type="tts">texans</annotation>
-		<annotation cp="🧣">bufanda | coll</annotation>
-		<annotation cp="🧣" type="tts">bufanda</annotation>
-		<annotation cp="🧤">guants | mà</annotation>
-		<annotation cp="🧤" type="tts">guants</annotation>
-		<annotation cp="🧥">abric | jaqueta</annotation>
-		<annotation cp="🧥" type="tts">abric</annotation>
-		<annotation cp="🧦">mitja | mitjons</annotation>
-		<annotation cp="🧦" type="tts">mitjons</annotation>
-		<annotation cp="👗">roba | vestit</annotation>
-		<annotation cp="👗" type="tts">vestit</annotation>
-		<annotation cp="👘">japonès | quimono | roba | vestit</annotation>
-		<annotation cp="👘" type="tts">quimono</annotation>
-		<annotation cp="👙">biquini | nedar | roba</annotation>
-		<annotation cp="👙" type="tts">biquini</annotation>
-		<annotation cp="👚">dona | roba | roba de dona</annotation>
-		<annotation cp="👚" type="tts">roba de dona</annotation>
-		<annotation cp="👛">accessori | moneda | moneder | roba</annotation>
-		<annotation cp="👛" type="tts">moneder</annotation>
-		<annotation cp="👜">accessori | bossa | bossa de mà | roba</annotation>
-		<annotation cp="👜" type="tts">bossa de mà</annotation>
-		<annotation cp="👝">accessori | bossa | roba</annotation>
-		<annotation cp="👝" type="tts">bossa</annotation>
-		<annotation cp="🛍">bosses | bosses de compres | compra</annotation>
-		<annotation cp="🛍" type="tts">bosses de compres</annotation>
-		<annotation cp="🎒">escola | motxilla | motxilla d’escola</annotation>
-		<annotation cp="🎒" type="tts">motxilla d’escola</annotation>
-		<annotation cp="👞">calçat | home | sabata | sabata d’home</annotation>
-		<annotation cp="👞" type="tts">sabata d’home</annotation>
-		<annotation cp="👟">calçat | córrer | sabatilla | sabatilla de córrer</annotation>
-		<annotation cp="👟" type="tts">sabatilla de córrer</annotation>
-		<annotation cp="🥾">bota | bota de muntanya | càmping | excursionisme | trekking | tresc</annotation>
-		<annotation cp="🥾" type="tts">bota de muntanya</annotation>
-		<annotation cp="🥿">ballarina | calçat | sabata plana | sabatilla | xinel·la</annotation>
-		<annotation cp="🥿" type="tts">sabata plana</annotation>
-		<annotation cp="👠">calçat | sabata | sabata de taló | taló</annotation>
-		<annotation cp="👠" type="tts">sabata de taló</annotation>
-		<annotation cp="👡">calçat | dona | sandàlia | sandàlia de dona</annotation>
-		<annotation cp="👡" type="tts">sandàlia de dona</annotation>
-		<annotation cp="👢">bota | bota de dona | calçat | dona</annotation>
-		<annotation cp="👢" type="tts">bota de dona</annotation>
-		<annotation cp="👑">cap | complement | corona | rei | reina</annotation>
-		<annotation cp="👑" type="tts">corona</annotation>
-		<annotation cp="👒">accessori | barret | barret de dona | dona</annotation>
-		<annotation cp="👒" type="tts">barret de dona</annotation>
-		<annotation cp="🎩">barret | barret de copa | copa</annotation>
-		<annotation cp="🎩" type="tts">barret de copa</annotation>
-		<annotation cp="🎓">barret | barret de graduació | birret | celebració | graduació</annotation>
-		<annotation cp="🎓" type="tts">barret de graduació</annotation>
-		<annotation cp="🧢">beisbol | gorra | visera</annotation>
-		<annotation cp="🧢" type="tts">gorra</annotation>
-		<annotation cp="⛑">casc | casc amb creu blanca | creu blanca | emergència | urgència</annotation>
-		<annotation cp="⛑" type="tts">casc amb creu blanca</annotation>
-		<annotation cp="📿">collaret | granadura | oració | religió | rosari</annotation>
-		<annotation cp="📿" type="tts">rosari</annotation>
-		<annotation cp="💄">cosmètics | maquillatge | pintallavis</annotation>
-		<annotation cp="💄" type="tts">pintallavis</annotation>
-		<annotation cp="💍">anell | diamant</annotation>
-		<annotation cp="💍" type="tts">anell</annotation>
-		<annotation cp="💎">diamant | gemma | joia</annotation>
-		<annotation cp="💎" type="tts">gemma</annotation>
 		<annotation cp="🐵">cara | cara de mona | mona</annotation>
 		<annotation cp="🐵" type="tts">cara de mona</annotation>
 		<annotation cp="🐒">mico</annotation>
 		<annotation cp="🐒" type="tts">mico</annotation>
 		<annotation cp="🦍">animal | goril·la | simi</annotation>
 		<annotation cp="🦍" type="tts">goril·la</annotation>
+		<annotation cp="🦧">orangutan | simi</annotation>
+		<annotation cp="🦧" type="tts">orangutan</annotation>
 		<annotation cp="🐶">cara | cara de gos | gos</annotation>
 		<annotation cp="🐶" type="tts">cara de gos</annotation>
 		<annotation cp="🐕">gos | mascota</annotation>
 		<annotation cp="🐕" type="tts">gos</annotation>
+		<annotation cp="🦮">accessibilitat | gos pigall | guia | invident</annotation>
+		<annotation cp="🦮" type="tts">gos pigall</annotation>
+		<annotation cp="🐕‍🦺">accessibilitat | assistència | gos | gos de servei | servei</annotation>
+		<annotation cp="🐕‍🦺" type="tts">gos de servei</annotation>
 		<annotation cp="🐩">caniche | gos | púdel</annotation>
 		<annotation cp="🐩" type="tts">caniche</annotation>
-		<annotation cp="🐺">cara | cara de llop | llop</annotation>
-		<annotation cp="🐺" type="tts">cara de llop</annotation>
-		<annotation cp="🦊">animal | cara de guineu | guineu</annotation>
-		<annotation cp="🦊" type="tts">cara de guineu</annotation>
+		<annotation cp="🐺">cara | llop</annotation>
+		<annotation cp="🐺" type="tts">llop</annotation>
+		<annotation cp="🦊">cara | guineu</annotation>
+		<annotation cp="🦊" type="tts">guineu</annotation>
 		<annotation cp="🦝">astut | curiós | os rentador</annotation>
 		<annotation cp="🦝" type="tts">os rentador</annotation>
 		<annotation cp="🐱">cara | cara de gat | gat</annotation>
 		<annotation cp="🐱" type="tts">cara de gat</annotation>
 		<annotation cp="🐈">gat | mascota</annotation>
 		<annotation cp="🐈" type="tts">gat</annotation>
-		<annotation cp="🦁">cara | cara de lleó | lleó</annotation>
+		<annotation cp="🐈‍⬛">gat | mala sort | negre</annotation>
+		<annotation cp="🐈‍⬛" type="tts">gat negre</annotation>
+		<annotation cp="🦁">cara | cara de lleó | leo | lleó | zodíac</annotation>
 		<annotation cp="🦁" type="tts">cara de lleó</annotation>
 		<annotation cp="🐯">cara | cara de tigre | tigre</annotation>
 		<annotation cp="🐯" type="tts">cara de tigre</annotation>
@@ -937,8 +1081,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐴" type="tts">cara de cavall</annotation>
 		<annotation cp="🐎">cavall | curses | eqüestre</annotation>
 		<annotation cp="🐎" type="tts">cavall</annotation>
-		<annotation cp="🦄">cara | cara d’unicorn | unicorn</annotation>
-		<annotation cp="🦄" type="tts">cara d’unicorn</annotation>
+		<annotation cp="🦄">cara | unicorn</annotation>
+		<annotation cp="🦄" type="tts">unicorn</annotation>
 		<annotation cp="🦓">ratlla | zebra</annotation>
 		<annotation cp="🦓" type="tts">zebra</annotation>
 		<annotation cp="🦌">animal | cérvol</annotation>
@@ -985,8 +1129,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐁" type="tts">ratolí</annotation>
 		<annotation cp="🐀">rata | ratolí</annotation>
 		<annotation cp="🐀" type="tts">rata</annotation>
-		<annotation cp="🐹">cara | cara d’hàmster | hàmster</annotation>
-		<annotation cp="🐹" type="tts">cara d’hàmster</annotation>
+		<annotation cp="🐹">cara | hàmster | mascota</annotation>
+		<annotation cp="🐹" type="tts">hàmster</annotation>
 		<annotation cp="🐰">cara | cara de conill | conill</annotation>
 		<annotation cp="🐰" type="tts">cara de conill</annotation>
 		<annotation cp="🐇">conill | mascota</annotation>
@@ -999,10 +1143,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦇" type="tts">ratapinyada</annotation>
 		<annotation cp="🐻">cara | cara d’os | os</annotation>
 		<annotation cp="🐻" type="tts">cara d’os</annotation>
+		<annotation cp="🐻‍❄">àrtic | blanc | os | os polar</annotation>
+		<annotation cp="🐻‍❄" type="tts">os polar</annotation>
 		<annotation cp="🐨">coala | os</annotation>
 		<annotation cp="🐨" type="tts">coala</annotation>
-		<annotation cp="🐼">cara | cara de panda | panda</annotation>
-		<annotation cp="🐼" type="tts">cara de panda</annotation>
+		<annotation cp="🐼">cara | panda</annotation>
+		<annotation cp="🐼" type="tts">panda</annotation>
+		<annotation cp="🦥">lent | mandrós | peresós</annotation>
+		<annotation cp="🦥" type="tts">peresós</annotation>
+		<annotation cp="🦦">juganera | llúdria | pescadora</annotation>
+		<annotation cp="🦦" type="tts">llúdria</annotation>
+		<annotation cp="🦨">mofeta | pudor</annotation>
+		<annotation cp="🦨" type="tts">mofeta</annotation>
 		<annotation cp="🦘">Austràlia | cangur | marsupial | salt</annotation>
 		<annotation cp="🦘" type="tts">cangur</annotation>
 		<annotation cp="🦡">teixó | toixó</annotation>
@@ -1035,12 +1187,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">cigne</annotation>
 		<annotation cp="🦉">animal | au | mussol | ocell</annotation>
 		<annotation cp="🦉" type="tts">mussol</annotation>
+		<annotation cp="🦩">cridaner | flamenc | tropical</annotation>
+		<annotation cp="🦩" type="tts">flamenc</annotation>
 		<annotation cp="🦚">cua | ocell | orgull | ostentós | paó</annotation>
 		<annotation cp="🦚" type="tts">paó</annotation>
 		<annotation cp="🦜">lloro | ocell | parlar | pirata</annotation>
 		<annotation cp="🦜" type="tts">lloro</annotation>
-		<annotation cp="🐸">cara | cara de granota | granota</annotation>
-		<annotation cp="🐸" type="tts">cara de granota</annotation>
+		<annotation cp="🐸">cara | granota</annotation>
+		<annotation cp="🐸" type="tts">granota</annotation>
 		<annotation cp="🐊">cocodril</annotation>
 		<annotation cp="🐊" type="tts">cocodril</annotation>
 		<annotation cp="🐢">tortuga</annotation>
@@ -1075,14 +1229,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐙" type="tts">pop</annotation>
 		<annotation cp="🐚">cargol | cargol de mar | mar</annotation>
 		<annotation cp="🐚" type="tts">cargol de mar</annotation>
-		<annotation cp="🦀">Càncer | cranc | Cranc | zodíac</annotation>
-		<annotation cp="🦀" type="tts">cranc</annotation>
-		<annotation cp="🦞">bisque | llagosta | marisc | pinces | sopa de marisc</annotation>
-		<annotation cp="🦞" type="tts">llagosta</annotation>
-		<annotation cp="🦐">crustaci | gamba | llagostí | marisc | menjar</annotation>
-		<annotation cp="🦐" type="tts">gamba</annotation>
-		<annotation cp="🦑">animal | calamar | menjar | molusc</annotation>
-		<annotation cp="🦑" type="tts">calamar</annotation>
 		<annotation cp="🐌">cargol</annotation>
 		<annotation cp="🐌" type="tts">cargol</annotation>
 		<annotation cp="🦋">animal | insecte | papallona</annotation>
@@ -1161,9 +1307,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🍊" type="tts">mandarina</annotation>
 		<annotation cp="🍋">cítric | fruita | llimona | planta</annotation>
 		<annotation cp="🍋" type="tts">llimona</annotation>
-		<annotation cp="🍌">fruita | planta | plàtan</annotation>
+		<annotation cp="🍌">fruita | plàtan</annotation>
 		<annotation cp="🍌" type="tts">plàtan</annotation>
-		<annotation cp="🍍">fruita | pinya | planta</annotation>
+		<annotation cp="🍍">fruita | pinya</annotation>
 		<annotation cp="🍍" type="tts">pinya</annotation>
 		<annotation cp="🥭">fruita | mango | tropical</annotation>
 		<annotation cp="🥭" type="tts">mango</annotation>
@@ -1203,6 +1349,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥬" type="tts">fulla verda</annotation>
 		<annotation cp="🥦">bròcoli | bròquil | col</annotation>
 		<annotation cp="🥦" type="tts">bròcoli</annotation>
+		<annotation cp="🧄">all | aromatitzant</annotation>
+		<annotation cp="🧄" type="tts">all</annotation>
+		<annotation cp="🧅">aromatitzant | ceba</annotation>
+		<annotation cp="🧅" type="tts">ceba</annotation>
 		<annotation cp="🍄">bolet | planta</annotation>
 		<annotation cp="🍄" type="tts">bolet</annotation>
 		<annotation cp="🥜">cacauet | cacauets | fruit | llegum | menjar | sec</annotation>
@@ -1221,6 +1371,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥯" type="tts">bagel</annotation>
 		<annotation cp="🥞">americanes | crep | creps | menjar | pancake</annotation>
 		<annotation cp="🥞" type="tts">creps americanes</annotation>
+		<annotation cp="🧇">gofra | gofrera</annotation>
+		<annotation cp="🧇" type="tts">gofra</annotation>
 		<annotation cp="🧀">formatge | tall | tall de formatge</annotation>
 		<annotation cp="🧀" type="tts">tall de formatge</annotation>
 		<annotation cp="🍖">carn | carn amb os | os</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">burrito</annotation>
 		<annotation cp="🥙">durum | falàfel | farcit | kebab | pa</annotation>
 		<annotation cp="🥙" type="tts">durum</annotation>
+		<annotation cp="🧆">cigró | falàfel | mandonguilla</annotation>
+		<annotation cp="🧆" type="tts">falàfel</annotation>
 		<annotation cp="🥚">menjar | ou</annotation>
 		<annotation cp="🥚" type="tts">ou</annotation>
 		<annotation cp="🍳">cuina | ou | ou ferrat</annotation>
@@ -1261,6 +1415,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">amanida</annotation>
 		<annotation cp="🍿">blat de moro | crispetes</annotation>
 		<annotation cp="🍿" type="tts">crispetes</annotation>
+		<annotation cp="🧈">mantega | producte lacti</annotation>
+		<annotation cp="🧈" type="tts">mantega</annotation>
 		<annotation cp="🧂">condiment | sal | saler</annotation>
 		<annotation cp="🧂" type="tts">sal</annotation>
 		<annotation cp="🥫">conserva | llauna | llauna de conserva | menjar</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">galeta de la sort</annotation>
 		<annotation cp="🥡">emportar | envàs | menjar per emportar | menjar xinès | paper</annotation>
 		<annotation cp="🥡" type="tts">menjar per emportar</annotation>
+		<annotation cp="🦀">Càncer | cranc | Cranc | zodíac</annotation>
+		<annotation cp="🦀" type="tts">cranc</annotation>
+		<annotation cp="🦞">bisque | llagosta | marisc | pinces | sopa de marisc</annotation>
+		<annotation cp="🦞" type="tts">llagosta</annotation>
+		<annotation cp="🦐">crustaci | gamba | llagostí | marisc | menjar</annotation>
+		<annotation cp="🦐" type="tts">gamba</annotation>
+		<annotation cp="🦑">animal | calamar | menjar | molusc</annotation>
+		<annotation cp="🦑" type="tts">calamar</annotation>
+		<annotation cp="🦪">busseig | ostra | perla</annotation>
+		<annotation cp="🦪" type="tts">ostra</annotation>
 		<annotation cp="🍦">gelat | gelat de màquina | màquina</annotation>
 		<annotation cp="🍦" type="tts">gelat de màquina</annotation>
 		<annotation cp="🍧">dolç | gel | granissat | picat | postres</annotation>
@@ -1313,7 +1479,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎂" type="tts">pastís d’aniversari</annotation>
 		<annotation cp="🍰">pastís | porció | porció de pastís</annotation>
 		<annotation cp="🍰" type="tts">porció de pastís</annotation>
-		<annotation cp="🧁">cupcake | dolç | fleca | forn</annotation>
+		<annotation cp="🧁">cupcake | dolç | fleca | forn | magdalena</annotation>
 		<annotation cp="🧁" type="tts">cupcake</annotation>
 		<annotation cp="🥧">coca | farcit | pastís</annotation>
 		<annotation cp="🥧" type="tts">coca</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">got de licor</annotation>
 		<annotation cp="🥤">beguda | canya | got | got amb canya | refresc | suc</annotation>
 		<annotation cp="🥤" type="tts">got amb canya</annotation>
+		<annotation cp="🧃">bric | bric de suc</annotation>
+		<annotation cp="🧃" type="tts">bric</annotation>
+		<annotation cp="🧉">beguda | mate</annotation>
+		<annotation cp="🧉" type="tts">mate</annotation>
+		<annotation cp="🧊">fred | glaçó | iceberg</annotation>
+		<annotation cp="🧊" type="tts">glaçó</annotation>
 		<annotation cp="🥢">bastonet | bastonets xinesos | oriental | xinès</annotation>
 		<annotation cp="🥢" type="tts">bastonets xinesos</annotation>
 		<annotation cp="🍽">forquilla | forquilla, ganivet i plat | ganivet | plat</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">església</annotation>
 		<annotation cp="🕌">islam | mesquita | musulmà | religió</annotation>
 		<annotation cp="🕌" type="tts">mesquita</annotation>
+		<annotation cp="🛕">hindú | hinduisme | temple</annotation>
+		<annotation cp="🛕" type="tts">temple hindú</annotation>
 		<annotation cp="🕍">jueu | religió | sinagoga | temple</annotation>
 		<annotation cp="🕍" type="tts">sinagoga</annotation>
 		<annotation cp="⛩">religió | santuari | temple | xintoista</annotation>
@@ -1459,7 +1633,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🕋" type="tts">Ka’ba</annotation>
 		<annotation cp="⛲">font</annotation>
 		<annotation cp="⛲" type="tts">font</annotation>
-		<annotation cp="⛺">acampada | campament | càmping | tenda</annotation>
+		<annotation cp="⛺">acampada | campament | càmping | tenda | tenda de campanya</annotation>
 		<annotation cp="⛺" type="tts">tenda</annotation>
 		<annotation cp="🌁">boira | paisatge | paisatge emboirat</annotation>
 		<annotation cp="🌁" type="tts">paisatge emboirat</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">pont de nit</annotation>
 		<annotation cp="♨">aigües termals | calor | complex turístic | fonts termals | vapor</annotation>
 		<annotation cp="♨" type="tts">fonts termals</annotation>
-		<annotation cp="🌌">espai | temps | Via Làctia</annotation>
-		<annotation cp="🌌" type="tts">Via Làctia</annotation>
 		<annotation cp="🎠">atraccions | cavallets</annotation>
 		<annotation cp="🎠" type="tts">cavallets</annotation>
 		<annotation cp="🎡">fira | roda | roda de fira</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">camió articulat</annotation>
 		<annotation cp="🚜">agricultura | tractor | vehicle</annotation>
 		<annotation cp="🚜" type="tts">tractor</annotation>
+		<annotation cp="🏎">carreres | cotxe | cotxe de curses | curses | fórmula 1</annotation>
+		<annotation cp="🏎" type="tts">cotxe de curses</annotation>
+		<annotation cp="🏍">curses | moto | motocicleta</annotation>
+		<annotation cp="🏍" type="tts">motocicleta</annotation>
+		<annotation cp="🛵">escúter | moto | motocicleta | transport</annotation>
+		<annotation cp="🛵" type="tts">escúter</annotation>
+		<annotation cp="🦽">accessibilitat | cadira de rodes manual</annotation>
+		<annotation cp="🦽" type="tts">cadira de rodes manual</annotation>
+		<annotation cp="🦼">accessibilitat | cadira de rodes elèctrica</annotation>
+		<annotation cp="🦼" type="tts">cadira de rodes elèctrica</annotation>
+		<annotation cp="🛺">bicitaxi | bicitaxi amb motor | rickshaw</annotation>
+		<annotation cp="🛺" type="tts">bicitaxi amb motor</annotation>
 		<annotation cp="🚲">bici | bicicleta | vehicle</annotation>
 		<annotation cp="🚲" type="tts">bicicleta</annotation>
 		<annotation cp="🛴">patinet | transport</annotation>
 		<annotation cp="🛴" type="tts">patinet</annotation>
 		<annotation cp="🛹">monopatí | patí</annotation>
 		<annotation cp="🛹" type="tts">monopatí</annotation>
-		<annotation cp="🛵">escúter | moto | motocicleta | transport</annotation>
-		<annotation cp="🛵" type="tts">escúter</annotation>
 		<annotation cp="🚏">autobús | bus | parada | parada d’autobús | parada de bus</annotation>
 		<annotation cp="🚏" type="tts">parada d’autobús</annotation>
 		<annotation cp="🛣">autopista | autovia | carretera</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">enlairament d’avió</annotation>
 		<annotation cp="🛬">arribada | aterratge | aterratge d’avió | avió | vehicle</annotation>
 		<annotation cp="🛬" type="tts">aterratge d’avió</annotation>
+		<annotation cp="🪂">ala delta | paracaigudes | paracaigudisme | paracaigudista | parapent</annotation>
+		<annotation cp="🪂" type="tts">paracaigudes</annotation>
 		<annotation cp="💺">cadira | seient</annotation>
 		<annotation cp="💺" type="tts">seient</annotation>
 		<annotation cp="🚁">helicòpter | vehicle</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">lluna plena amb cara</annotation>
 		<annotation cp="🌞">cara | sol | sol amb cara</annotation>
 		<annotation cp="🌞" type="tts">sol amb cara</annotation>
+		<annotation cp="🪐">planeta amb anell | saturn | saturní</annotation>
+		<annotation cp="🪐" type="tts">planeta amb anell</annotation>
 		<annotation cp="⭐">estrella</annotation>
 		<annotation cp="⭐" type="tts">estrella</annotation>
 		<annotation cp="🌟">brillant | brillar | espurna | estrella</annotation>
 		<annotation cp="🌟" type="tts">estrella brillant</annotation>
 		<annotation cp="🌠">cel | espai | estel | estrella | fugaç</annotation>
 		<annotation cp="🌠" type="tts">estel fugaç</annotation>
+		<annotation cp="🌌">espai | temps | Via Làctia</annotation>
+		<annotation cp="🌌" type="tts">Via Làctia</annotation>
 		<annotation cp="☁">núvol | temps</annotation>
 		<annotation cp="☁" type="tts">núvol</annotation>
 		<annotation cp="⛅">núvol | sol | sol darrere un núvol | temps</annotation>
@@ -1781,7 +1969,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎇" type="tts">bengala</annotation>
 		<annotation cp="🧨">dinamita | explosiu | focs d’artifici | petard</annotation>
 		<annotation cp="🧨" type="tts">petard</annotation>
-		<annotation cp="✨">espurna | espurnes | estrella | foc</annotation>
+		<annotation cp="✨">* | espurna | espurnes | estrella</annotation>
 		<annotation cp="✨" type="tts">espurnes</annotation>
 		<annotation cp="🎈">celebració | globus</annotation>
 		<annotation cp="🎈" type="tts">globus</annotation>
@@ -1869,6 +2057,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">patinatge sobre gel</annotation>
 		<annotation cp="🎣">canya | canya de pescar | pescar</annotation>
 		<annotation cp="🎣" type="tts">canya de pescar</annotation>
+		<annotation cp="🤿">busseig | immersió lleugera | submarinisme | ulleres de busseig</annotation>
+		<annotation cp="🤿" type="tts">ulleres de busseig</annotation>
 		<annotation cp="🎽">córrer | samarreta | samarreta per córrer</annotation>
 		<annotation cp="🎽" type="tts">samarreta per córrer</annotation>
 		<annotation cp="🎿">esquiar | esquís | neu</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">pedra de cúrling</annotation>
 		<annotation cp="🎯">dard | dards | diana | joc | punteria</annotation>
 		<annotation cp="🎯" type="tts">dards</annotation>
+		<annotation cp="🪀">fluctuar | io-io | joguina</annotation>
+		<annotation cp="🪀" type="tts">io-io</annotation>
+		<annotation cp="🪁">enlairar-se | estel | volar</annotation>
+		<annotation cp="🪁" type="tts">estel</annotation>
 		<annotation cp="🎱">8 | billar | bola | bola de billar | bola negra de billar</annotation>
 		<annotation cp="🎱" type="tts">bola de billar</annotation>
 		<annotation cp="🔮">bola | bola de vidre | fantasia | fortuna | sort</annotation>
@@ -1893,8 +2087,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎰" type="tts">màquina escurabutxaques</annotation>
 		<annotation cp="🎲">dau | daus | joc</annotation>
 		<annotation cp="🎲" type="tts">daus</annotation>
-		<annotation cp="🧩">peça | pista | puzle | trencaclosques</annotation>
-		<annotation cp="🧩" type="tts">trencaclosques</annotation>
+		<annotation cp="🧩">encaixar | peça | peces de trencaclosques | pista | puzle | trencaclosques</annotation>
+		<annotation cp="🧩" type="tts">peces de trencaclosques</annotation>
 		<annotation cp="🧸">joc | joguina | os de peluix | pelfa | peluix</annotation>
 		<annotation cp="🧸" type="tts">os de peluix</annotation>
 		<annotation cp="♠">cartes | pal | pal de piques | partida | piques</annotation>
@@ -1923,11 +2117,97 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">fil</annotation>
 		<annotation cp="🧶">bola | cabdell | ganxet | llana | mitja</annotation>
 		<annotation cp="🧶" type="tts">llana</annotation>
+		<annotation cp="👓">complements | ull | ulleres | vestuari</annotation>
+		<annotation cp="👓" type="tts">ulleres</annotation>
+		<annotation cp="🕶">fosques | sol | ull | ulleres | ulleres de sol</annotation>
+		<annotation cp="🕶" type="tts">ulleres de sol</annotation>
+		<annotation cp="🥽">natació | protecció | protecció dels ulls | protecció ocular | ulleres de piscina</annotation>
+		<annotation cp="🥽" type="tts">ulleres de piscina</annotation>
+		<annotation cp="🥼">bata de laboratori | científic | doctor | experiment</annotation>
+		<annotation cp="🥼" type="tts">bata de laboratori</annotation>
+		<annotation cp="🦺">armilla | armilla salvavides | emergència | seguretat</annotation>
+		<annotation cp="🦺" type="tts">armilla salvavides</annotation>
+		<annotation cp="👔">corbata | roba</annotation>
+		<annotation cp="👔" type="tts">corbata</annotation>
+		<annotation cp="👕">roba | samarreta</annotation>
+		<annotation cp="👕" type="tts">samarreta</annotation>
+		<annotation cp="👖">pantaló | pantalons | roba | texans</annotation>
+		<annotation cp="👖" type="tts">texans</annotation>
+		<annotation cp="🧣">bufanda | coll</annotation>
+		<annotation cp="🧣" type="tts">bufanda</annotation>
+		<annotation cp="🧤">guants | mà</annotation>
+		<annotation cp="🧤" type="tts">guants</annotation>
+		<annotation cp="🧥">abric | jaqueta</annotation>
+		<annotation cp="🧥" type="tts">abric</annotation>
+		<annotation cp="🧦">mitja | mitjons</annotation>
+		<annotation cp="🧦" type="tts">mitjons</annotation>
+		<annotation cp="👗">roba | vestit</annotation>
+		<annotation cp="👗" type="tts">vestit</annotation>
+		<annotation cp="👘">japonès | quimono | roba | vestit</annotation>
+		<annotation cp="👘" type="tts">quimono</annotation>
+		<annotation cp="🥻">roba | sari | vestit</annotation>
+		<annotation cp="🥻" type="tts">sari</annotation>
+		<annotation cp="🩱">banyador | vestit de bany</annotation>
+		<annotation cp="🩱" type="tts">banyador</annotation>
+		<annotation cp="🩲">banyador | eslip | roba interior | vestit de bany</annotation>
+		<annotation cp="🩲" type="tts">eslip</annotation>
+		<annotation cp="🩳">banyador | pantaló | pantalons curts | roba interior | vestit de bany</annotation>
+		<annotation cp="🩳" type="tts">pantalons curts</annotation>
+		<annotation cp="👙">biquini | nedar | roba</annotation>
+		<annotation cp="👙" type="tts">biquini</annotation>
+		<annotation cp="👚">dona | roba | roba de dona</annotation>
+		<annotation cp="👚" type="tts">roba de dona</annotation>
+		<annotation cp="👛">accessori | moneda | moneder | roba</annotation>
+		<annotation cp="👛" type="tts">moneder</annotation>
+		<annotation cp="👜">accessori | bossa | bossa de mà | roba</annotation>
+		<annotation cp="👜" type="tts">bossa de mà</annotation>
+		<annotation cp="👝">accessori | bossa | roba</annotation>
+		<annotation cp="👝" type="tts">bossa</annotation>
+		<annotation cp="🛍">bosses | bosses de compres | compra</annotation>
+		<annotation cp="🛍" type="tts">bosses de compres</annotation>
+		<annotation cp="🎒">escola | motxilla | motxilla d’escola</annotation>
+		<annotation cp="🎒" type="tts">motxilla d’escola</annotation>
+		<annotation cp="👞">calçat | home | sabata | sabata d’home</annotation>
+		<annotation cp="👞" type="tts">sabata d’home</annotation>
+		<annotation cp="👟">calçat | córrer | sabatilla | sabatilla de córrer</annotation>
+		<annotation cp="👟" type="tts">sabatilla de córrer</annotation>
+		<annotation cp="🥾">bota | bota de muntanya | càmping | excursionisme | trekking | tresc</annotation>
+		<annotation cp="🥾" type="tts">bota de muntanya</annotation>
+		<annotation cp="🥿">ballarina | calçat | sabata plana | sabatilla | xinel·la</annotation>
+		<annotation cp="🥿" type="tts">sabata plana</annotation>
+		<annotation cp="👠">calçat | sabata | sabata de taló | taló</annotation>
+		<annotation cp="👠" type="tts">sabata de taló</annotation>
+		<annotation cp="👡">calçat | dona | sandàlia | sandàlia de dona</annotation>
+		<annotation cp="👡" type="tts">sandàlia de dona</annotation>
+		<annotation cp="🩰">ballet | dansa | sabatilles de ballet</annotation>
+		<annotation cp="🩰" type="tts">sabatilles de ballet</annotation>
+		<annotation cp="👢">bota | bota de dona | calçat | dona</annotation>
+		<annotation cp="👢" type="tts">bota de dona</annotation>
+		<annotation cp="👑">cap | complement | corona | rei | reina</annotation>
+		<annotation cp="👑" type="tts">corona</annotation>
+		<annotation cp="👒">accessori | barret | barret de dona | dona</annotation>
+		<annotation cp="👒" type="tts">barret de dona</annotation>
+		<annotation cp="🎩">barret | barret de copa | copa</annotation>
+		<annotation cp="🎩" type="tts">barret de copa</annotation>
+		<annotation cp="🎓">barret | barret de graduació | birret | celebració | graduació</annotation>
+		<annotation cp="🎓" type="tts">barret de graduació</annotation>
+		<annotation cp="🧢">beisbol | gorra | visera</annotation>
+		<annotation cp="🧢" type="tts">gorra</annotation>
+		<annotation cp="⛑">casc | casc amb creu blanca | creu blanca | emergència | urgència</annotation>
+		<annotation cp="⛑" type="tts">casc amb creu blanca</annotation>
+		<annotation cp="📿">collaret | granadura | oració | religió | rosari</annotation>
+		<annotation cp="📿" type="tts">rosari</annotation>
+		<annotation cp="💄">cosmètics | maquillatge | pintallavis</annotation>
+		<annotation cp="💄" type="tts">pintallavis</annotation>
+		<annotation cp="💍">anell | diamant</annotation>
+		<annotation cp="💍" type="tts">anell</annotation>
+		<annotation cp="💎">diamant | gemma | joia</annotation>
+		<annotation cp="💎" type="tts">gemma</annotation>
 		<annotation cp="🔇">altaveu | altaveu desactivat | en silenci | silenciar | silenciat</annotation>
 		<annotation cp="🔇" type="tts">altaveu desactivat</annotation>
 		<annotation cp="🔈">altaveu amb el volum baix | baix | volum suau</annotation>
 		<annotation cp="🔈" type="tts">altaveu amb el volum baix</annotation>
-		<annotation cp="🔉">altaveu amb el volum mitjà | mitjà | volum mijtà</annotation>
+		<annotation cp="🔉">altaveu amb el volum mitjà | mitjà | volum mitjà</annotation>
 		<annotation cp="🔉" type="tts">altaveu amb el volum mitjà</annotation>
 		<annotation cp="🔊">alt | altaveu amb el volum alt | volum fort</annotation>
 		<annotation cp="🔊" type="tts">altaveu amb el volum alt</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">trompeta</annotation>
 		<annotation cp="🎻">corda | instrument | música | violí</annotation>
 		<annotation cp="🎻" type="tts">violí</annotation>
+		<annotation cp="🪕">banjo | corda | música</annotation>
+		<annotation cp="🪕" type="tts">banjo</annotation>
 		<annotation cp="🥁">baquetes | música | tambor | timbal</annotation>
 		<annotation cp="🥁" type="tts">tambor</annotation>
 		<annotation cp="📱">mòbil | telèfon</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">llanterna</annotation>
 		<annotation cp="🏮">fanal | fanal de paper vermell | paper | vermell</annotation>
 		<annotation cp="🏮" type="tts">fanal de paper vermell</annotation>
+		<annotation cp="🪔">ble | làmpada | llàntia | llum | llum d’oli | oli</annotation>
+		<annotation cp="🪔" type="tts">llum d’oli</annotation>
 		<annotation cp="📔">coberta decorativa | llibre | quadern | quadern amb coberta decorativa</annotation>
 		<annotation cp="📔" type="tts">quadern amb coberta decorativa</annotation>
 		<annotation cp="📕">llibre | tancat</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">clau antiga</annotation>
 		<annotation cp="🔨">eina | martell</annotation>
 		<annotation cp="🔨" type="tts">martell</annotation>
+		<annotation cp="🪓">destral | llenya | tallar</annotation>
+		<annotation cp="🪓" type="tts">destral</annotation>
 		<annotation cp="⛏">eina | mineria | pic</annotation>
 		<annotation cp="⛏" type="tts">pic</annotation>
 		<annotation cp="⚒">eina | martell | martell i pic | pic</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">serjant</annotation>
 		<annotation cp="⚖">aparell | Balança | balança (aparell) | eina | justícia | pes</annotation>
 		<annotation cp="⚖" type="tts">balança (aparell)</annotation>
+		<annotation cp="🦯">accessibilitat | bastó per a invidents | invident</annotation>
+		<annotation cp="🦯" type="tts">bastó per a invidents</annotation>
 		<annotation cp="🔗">enllaç | enllaçar</annotation>
 		<annotation cp="🔗" type="tts">enllaç</annotation>
 		<annotation cp="⛓">cadena | cadenes</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">antena de satèl·lit</annotation>
 		<annotation cp="💉">agulla | injecció | malalt | medicina | metge | xeringa</annotation>
 		<annotation cp="💉" type="tts">xeringa</annotation>
+		<annotation cp="🩸">donació de sang | gota de sang | medicina | menstruació</annotation>
+		<annotation cp="🩸" type="tts">gota de sang</annotation>
 		<annotation cp="💊">malalt | medicina | metge | pastilla | píndola</annotation>
 		<annotation cp="💊" type="tts">píndola</annotation>
+		<annotation cp="🩹">bena | tireta</annotation>
+		<annotation cp="🩹" type="tts">tireta</annotation>
+		<annotation cp="🩺">cor | doctor | estetoscopi | medicina</annotation>
+		<annotation cp="🩺" type="tts">estetoscopi</annotation>
 		<annotation cp="🚪">porta</annotation>
 		<annotation cp="🚪" type="tts">porta</annotation>
 		<annotation cp="🛏">dormir | hotel | llit</annotation>
 		<annotation cp="🛏" type="tts">llit</annotation>
 		<annotation cp="🛋">hotel | làmpada | sofà | sofà i làmpada</annotation>
 		<annotation cp="🛋" type="tts">sofà i làmpada</annotation>
+		<annotation cp="🪑">cadira | seient | seure</annotation>
+		<annotation cp="🪑" type="tts">cadira</annotation>
 		<annotation cp="🚽">inodor | lavabo | tassa | vàter</annotation>
 		<annotation cp="🚽" type="tts">lavabo</annotation>
 		<annotation cp="🚿">aigua | dutxa</annotation>
 		<annotation cp="🚿" type="tts">dutxa</annotation>
 		<annotation cp="🛁">bany | banyera</annotation>
 		<annotation cp="🛁" type="tts">banyera</annotation>
+		<annotation cp="🪒">afaitada | esmolada | navalla d’afaitar</annotation>
+		<annotation cp="🪒" type="tts">navalla d’afaitar</annotation>
 		<annotation cp="🧴">ampolla de crema | loció | protecció solar | suavitzant | xampú</annotation>
 		<annotation cp="🧴" type="tts">ampolla de crema</annotation>
 		<annotation cp="🧷">imperdible | punk | punk rock</annotation>
@@ -2495,49 +2793,49 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📛" type="tts">etiqueta identificadora</annotation>
 		<annotation cp="🔰">japonès | principiant | símbol | símbol japonès de principiant</annotation>
 		<annotation cp="🔰" type="tts">símbol japonès de principiant</annotation>
-		<annotation cp="⭕">cercle | cercle gran | cercle vermell</annotation>
-		<annotation cp="⭕" type="tts">cercle gran</annotation>
-		<annotation cp="✅">gran | marca | marca de verificació blanca gran | verda | verificació</annotation>
-		<annotation cp="✅" type="tts">marca de verificació blanca gran</annotation>
-		<annotation cp="☑">casella | casella amb marca de verificació | marca | selecció | verificació</annotation>
+		<annotation cp="⭕">cercle | cercle buit vermell | gran | o | vermell</annotation>
+		<annotation cp="⭕" type="tts">cercle buit vermell</annotation>
+		<annotation cp="✅">✓ | botó | botó de marca de verificació | marca | verificació</annotation>
+		<annotation cp="✅" type="tts">botó de marca de verificació</annotation>
+		<annotation cp="☑">✓ | casella | casella amb marca de verificació | verificació</annotation>
 		<annotation cp="☑" type="tts">casella amb marca de verificació</annotation>
-		<annotation cp="✔">gran | marca | marca de verificació gran | verificació</annotation>
-		<annotation cp="✔" type="tts">marca de verificació gran</annotation>
-		<annotation cp="✖">gran | multiplicar | signe | signe de multiplicar gran | signe x</annotation>
-		<annotation cp="✖" type="tts">signe de multiplicar gran</annotation>
-		<annotation cp="❌">cancel·lar | marca | marca de creu | multiplicació | multiplicar | x</annotation>
+		<annotation cp="✔">✓ | marca | marca de verificació | verificació</annotation>
+		<annotation cp="✔" type="tts">marca de verificació</annotation>
+		<annotation cp="✖">× | cancel·lar | multiplicació | multiplicar | signe | signe de multiplicar | x</annotation>
+		<annotation cp="✖" type="tts">signe de multiplicar</annotation>
+		<annotation cp="❌">× | cancel·lar | creu | marca | marca de creu | multiplicació | multiplicar | x</annotation>
 		<annotation cp="❌" type="tts">marca de creu</annotation>
-		<annotation cp="❎">botó | botó de creu | creu</annotation>
+		<annotation cp="❎">× | botó de creu | marca | quadrat | x</annotation>
 		<annotation cp="❎" type="tts">botó de creu</annotation>
-		<annotation cp="➕">gran | signe | signe de sumar gran | signe més | suma</annotation>
-		<annotation cp="➕" type="tts">signe de sumar gran</annotation>
-		<annotation cp="➖">gran | resta | signe | signe de restar gran | signe menys</annotation>
-		<annotation cp="➖" type="tts">signe de restar gran</annotation>
-		<annotation cp="➗">divisió | gran | signe | signe de dividir gran</annotation>
-		<annotation cp="➗" type="tts">signe de dividir gran</annotation>
+		<annotation cp="➕">+ | matemàtiques | més | signe | signe de sumar</annotation>
+		<annotation cp="➕" type="tts">signe de sumar</annotation>
+		<annotation cp="➖">- | − | matemàtiques | menys | signe | signe de restar</annotation>
+		<annotation cp="➖" type="tts">signe de restar</annotation>
+		<annotation cp="➗">÷ | divisió | matemàtiques | signe | signe de dividir</annotation>
+		<annotation cp="➗" type="tts">signe de dividir</annotation>
 		<annotation cp="➰">bucle | llaç | llaç arrissat</annotation>
 		<annotation cp="➰" type="tts">llaç arrissat</annotation>
 		<annotation cp="➿">bucle | doble</annotation>
 		<annotation cp="➿" type="tts">bucle doble</annotation>
 		<annotation cp="〽">alternança | signe | signe d’alternança</annotation>
 		<annotation cp="〽" type="tts">signe d’alternança</annotation>
-		<annotation cp="✳">asterisc | asterisc de vuit radis | vuit radis</annotation>
+		<annotation cp="✳">* | asterisc | asterisc de vuit radis</annotation>
 		<annotation cp="✳" type="tts">asterisc de vuit radis</annotation>
-		<annotation cp="✴">estrella | estrella de vuit puntes | vuit puntes</annotation>
+		<annotation cp="✴">* | estrella | estrella de vuit puntes</annotation>
 		<annotation cp="✴" type="tts">estrella de vuit puntes</annotation>
-		<annotation cp="❇">espurna</annotation>
+		<annotation cp="❇">* | espurna</annotation>
 		<annotation cp="❇" type="tts">espurna</annotation>
-		<annotation cp="‼">doble | exclamació | puntuació | signe | signe d’exclamació doble</annotation>
+		<annotation cp="‼">! | !! | doble exclamació | exclamació | signe d’exclamació doble</annotation>
 		<annotation cp="‼" type="tts">signe d’exclamació doble</annotation>
-		<annotation cp="⁉">exclamació | interrogació | puntuació | signe | signe d’exclamació i d’interrogació</annotation>
+		<annotation cp="⁉">! | !? | ? | exclamació | interrogació | pregunta | puntuació | signe | signe d’exclamació i d’interrogació</annotation>
 		<annotation cp="⁉" type="tts">signe d’exclamació i d’interrogació</annotation>
-		<annotation cp="❓">interrogació | puntuació | signe | signe d’interrogació | signe d’interrogació vermell</annotation>
+		<annotation cp="❓">? | interrogació | puntuació | signe | signe d’interrogació</annotation>
 		<annotation cp="❓" type="tts">signe d’interrogació</annotation>
-		<annotation cp="❔">blanc | interrogació | puntuació | signe | signe d’interrogació blanc</annotation>
+		<annotation cp="❔">? | blanc | interrogació | puntuació | signe | signe d’interrogació blanc</annotation>
 		<annotation cp="❔" type="tts">signe d’interrogació blanc</annotation>
-		<annotation cp="❕">blanc | exclamació | puntuació | signe | signe d’exclamació blanc</annotation>
+		<annotation cp="❕">! | blanc | exclamació | puntuació | signe | signe d’exclamació blanc</annotation>
 		<annotation cp="❕" type="tts">signe d’exclamació blanc</annotation>
-		<annotation cp="❗">exclamació | puntuació | signe | signe d’exclamació | signe d’exclamació vermell</annotation>
+		<annotation cp="❗">! | exclamació | puntuació | signe | signe d’exclamació</annotation>
 		<annotation cp="❗" type="tts">signe d’exclamació</annotation>
 		<annotation cp="〰">guió | ondulat | puntuació</annotation>
 		<annotation cp="〰" type="tts">guió ondulat</annotation>
@@ -2547,8 +2845,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="®" type="tts">marca registrada</annotation>
 		<annotation cp="™">comercial | marca comercial | símbol de marca comercial</annotation>
 		<annotation cp="™" type="tts">marca comercial</annotation>
-		<annotation cp="💯">100 | cent punts | punts | puntuació</annotation>
-		<annotation cp="💯" type="tts">100 punts</annotation>
 		<annotation cp="🔠">botó de lletres llatines en majúscules | llatines | lletres | majúscules</annotation>
 		<annotation cp="🔠" type="tts">botó de lletres llatines en majúscules</annotation>
 		<annotation cp="🔡">botó de lletres llatines en minúscules | llatines | lletres | minúscules</annotation>
@@ -2629,28 +2925,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🈵" type="tts">botó japonès &quot;cap plaça lliure&quot;</annotation>
 		<annotation cp="🔴">cercle | geometria | vermell</annotation>
 		<annotation cp="🔴" type="tts">cercle vermell</annotation>
+		<annotation cp="🟠">cercle | taronja</annotation>
+		<annotation cp="🟠" type="tts">cercle taronja</annotation>
+		<annotation cp="🟡">cercle | groc</annotation>
+		<annotation cp="🟡" type="tts">cercle groc</annotation>
+		<annotation cp="🟢">cercle | verd</annotation>
+		<annotation cp="🟢" type="tts">cercle verd</annotation>
 		<annotation cp="🔵">blau | cercle | geometria</annotation>
 		<annotation cp="🔵" type="tts">cercle blau</annotation>
-		<annotation cp="⚪">blanc | cercle | geometria</annotation>
-		<annotation cp="⚪" type="tts">cercle blanc</annotation>
+		<annotation cp="🟣">cercle | lila | morat | violeta</annotation>
+		<annotation cp="🟣" type="tts">cercle lila</annotation>
+		<annotation cp="🟤">cercle | marró</annotation>
+		<annotation cp="🟤" type="tts">cercle marró</annotation>
 		<annotation cp="⚫">cercle | geometria | negre</annotation>
 		<annotation cp="⚫" type="tts">cercle negre</annotation>
-		<annotation cp="⬜">blanc | geometria | gran | quadrat</annotation>
-		<annotation cp="⬜" type="tts">quadrat gran blanc</annotation>
+		<annotation cp="⚪">blanc | cercle | geometria</annotation>
+		<annotation cp="⚪" type="tts">cercle blanc</annotation>
+		<annotation cp="🟥">quadrat | vermell</annotation>
+		<annotation cp="🟥" type="tts">quadrat vermell</annotation>
+		<annotation cp="🟧">quadrat | taronja</annotation>
+		<annotation cp="🟧" type="tts">quadrat taronja</annotation>
+		<annotation cp="🟨">groc | quadrat</annotation>
+		<annotation cp="🟨" type="tts">quadrat groc</annotation>
+		<annotation cp="🟩">quadrat | verd</annotation>
+		<annotation cp="🟩" type="tts">quadrat verd</annotation>
+		<annotation cp="🟦">blau | quadrat</annotation>
+		<annotation cp="🟦" type="tts">quadrat blau</annotation>
+		<annotation cp="🟪">lila | morat | quadrat | violeta</annotation>
+		<annotation cp="🟪" type="tts">quadrat lila</annotation>
+		<annotation cp="🟫">marró | quadrat</annotation>
+		<annotation cp="🟫" type="tts">quadrat marró</annotation>
 		<annotation cp="⬛">geometria | gran | negre | quadrat</annotation>
 		<annotation cp="⬛" type="tts">quadrat gran negre</annotation>
+		<annotation cp="⬜">blanc | geometria | gran | quadrat</annotation>
+		<annotation cp="⬜" type="tts">quadrat gran blanc</annotation>
 		<annotation cp="◼">geometria | mitjà | negre | quadrat</annotation>
 		<annotation cp="◼" type="tts">quadrat mitjà negre</annotation>
 		<annotation cp="◻">blanc | geometria | mitjà | quadrat</annotation>
 		<annotation cp="◻" type="tts">quadrat mitjà blanc</annotation>
-		<annotation cp="◽">blanc | geometria | petit-mitjà | quadrat</annotation>
-		<annotation cp="◽" type="tts">quadrat blanc petit-mitjà</annotation>
 		<annotation cp="◾">geometria | negre | petit-mitjà | quadrat</annotation>
 		<annotation cp="◾" type="tts">quadrat negre petit-mitjà</annotation>
-		<annotation cp="▫">blanc | geometria | petit | quadrat</annotation>
-		<annotation cp="▫" type="tts">quadrat blanc petit</annotation>
+		<annotation cp="◽">blanc | geometria | petit-mitjà | quadrat</annotation>
+		<annotation cp="◽" type="tts">quadrat blanc petit-mitjà</annotation>
 		<annotation cp="▪">geometria | negre | petit | quadrat</annotation>
 		<annotation cp="▪" type="tts">quadrat negre petit</annotation>
+		<annotation cp="▫">blanc | geometria | petit | quadrat</annotation>
+		<annotation cp="▫" type="tts">quadrat blanc petit</annotation>
 		<annotation cp="🔶">geometria | gran | rombe | taronja</annotation>
 		<annotation cp="🔶" type="tts">rombe gran taronja</annotation>
 		<annotation cp="🔷">blau | geometria | gran | rombe</annotation>
@@ -2667,10 +2987,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">rombe amb punt</annotation>
 		<annotation cp="🔘">botó | botó d’opció | geometria | opció</annotation>
 		<annotation cp="🔘" type="tts">botó d’opció</annotation>
-		<annotation cp="🔲">botó | botó de quadrat negre | geometria | negre | quadrat</annotation>
-		<annotation cp="🔲" type="tts">botó de quadrat negre</annotation>
 		<annotation cp="🔳">blanc | botó | botó de quadrat blanc | geometria | quadrat</annotation>
 		<annotation cp="🔳" type="tts">botó de quadrat blanc</annotation>
+		<annotation cp="🔲">botó | botó de quadrat negre | geometria | negre | quadrat</annotation>
+		<annotation cp="🔲" type="tts">botó de quadrat negre</annotation>
 		<annotation cp="🏁">automobilisme | bandera | bandera de quadres | curses | motor</annotation>
 		<annotation cp="🏁" type="tts">bandera de quadres</annotation>
 		<annotation cp="🚩">bandera | bandera triangular | banderí</annotation>
@@ -2681,6 +3001,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏴" type="tts">bandera negra</annotation>
 		<annotation cp="🏳">bandera | bandera blanca | oneig</annotation>
 		<annotation cp="🏳" type="tts">bandera blanca</annotation>
+		<annotation cp="🏳‍⚧">bandera | blanc | blau cel | rosa | trans | transgènere</annotation>
+		<annotation cp="🏳‍⚧" type="tts">bandera transgènere</annotation>
 		<annotation cp="🏳‍🌈">arc de Sant Martí | bandera | bandera de l’arc de Sant Martí</annotation>
 		<annotation cp="🏳‍🌈" type="tts">bandera de l’arc de Sant Martí</annotation>
 		<annotation cp="🏴‍☠">bandera pirata | botí | Jolly Roger | pirata | tresor</annotation>

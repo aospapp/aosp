@@ -1,6 +1,6 @@
 package com.android.settings.intelligence.utils;
 
-import android.content.AsyncTaskLoader;
+import androidx.loader.content.AsyncTaskLoader;
 import android.content.Context;
 
 /**

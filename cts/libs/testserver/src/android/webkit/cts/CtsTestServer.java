@@ -946,7 +946,6 @@ public class CtsTestServer {
                     }
                     return;
                 } catch (IOException e) {
-                    Log.w(TAG, e);
                     if (--retry == 0) {
                         throw e;
                     }

@@ -16,13 +16,13 @@
 
 package com.android.systemui.statusbar.notification.stack;
 
-import static com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayout.NUM_SECTIONS;
+import android.util.MathUtils;
 
-import com.android.systemui.statusbar.AmbientPulseManager;
+import com.android.systemui.statusbar.notification.NotificationSectionsFeatureManager;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
-import com.android.systemui.statusbar.notification.row.ActivatableNotificationView;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.row.ExpandableView;
+import com.android.systemui.statusbar.phone.KeyguardBypassController;
 import com.android.systemui.statusbar.policy.OnHeadsUpChangedListener;
 
 import java.util.HashSet;
@@ -34,27 +34,29 @@ import javax.inject.Singleton;
  * A class that manages the roundness for notification views
  */
 @Singleton
-class NotificationRoundnessManager implements OnHeadsUpChangedListener,
-        AmbientPulseManager.OnAmbientChangedListener {
+public class NotificationRoundnessManager implements OnHeadsUpChangedListener {
 
-    private final ActivatableNotificationView[] mFirstInSectionViews;
-    private final ActivatableNotificationView[] mLastInSectionViews;
-    private final ActivatableNotificationView[] mTmpFirstInSectionViews;
-    private final ActivatableNotificationView[] mTmpLastInSectionViews;
+    private final ExpandableView[] mFirstInSectionViews;
+    private final ExpandableView[] mLastInSectionViews;
+    private final ExpandableView[] mTmpFirstInSectionViews;
+    private final ExpandableView[] mTmpLastInSectionViews;
+    private final KeyguardBypassController mBypassController;
     private boolean mExpanded;
     private HashSet<ExpandableView> mAnimatedChildren;
     private Runnable mRoundingChangedCallback;
     private ExpandableNotificationRow mTrackedHeadsUp;
-    private ActivatableNotificationView mTrackedAmbient;
     private float mAppearFraction;
 
     @Inject
-    NotificationRoundnessManager(AmbientPulseManager ambientPulseManager) {
-        mFirstInSectionViews = new ActivatableNotificationView[NUM_SECTIONS];
-        mLastInSectionViews = new ActivatableNotificationView[NUM_SECTIONS];
-        mTmpFirstInSectionViews = new ActivatableNotificationView[NUM_SECTIONS];
-        mTmpLastInSectionViews = new ActivatableNotificationView[NUM_SECTIONS];
-        ambientPulseManager.addListener(this);
+    NotificationRoundnessManager(
+            KeyguardBypassController keyguardBypassController,
+            NotificationSectionsFeatureManager sectionsFeatureManager) {
+        int numberOfSections = sectionsFeatureManager.getNumberOfBuckets();
+        mFirstInSectionViews = new ExpandableView[numberOfSections];
+        mLastInSectionViews = new ExpandableView[numberOfSections];
+        mTmpFirstInSectionViews = new ExpandableView[numberOfSections];
+        mTmpLastInSectionViews = new ExpandableView[numberOfSections];
+        mBypassController = keyguardBypassController;
     }
 
     @Override
@@ -73,24 +75,18 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
     }
 
     @Override
-    public void onAmbientStateChanged(NotificationEntry entry, boolean isPulsing) {
-        ActivatableNotificationView row = entry.getRow();
-        if (isPulsing) {
-            mTrackedAmbient = row;
-        } else if (mTrackedAmbient == row) {
-            mTrackedAmbient = null;
-        }
-        updateView(row, false /* animate */);
+    public void onHeadsUpStateChanged(NotificationEntry entry, boolean isHeadsUp) {
+        updateView(entry.getRow(), false /* animate */);
     }
 
-    private void updateView(ActivatableNotificationView view, boolean animate) {
+    private void updateView(ExpandableView view, boolean animate) {
         boolean changed = updateViewWithoutCallback(view, animate);
         if (changed) {
             mRoundingChangedCallback.run();
         }
     }
 
-    private boolean updateViewWithoutCallback(ActivatableNotificationView view,
+    private boolean updateViewWithoutCallback(ExpandableView view,
             boolean animate) {
         float topRoundness = getRoundness(view, true /* top */);
         float bottomRoundness = getRoundness(view, false /* top */);
@@ -103,8 +99,7 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
         return (firstInSection || lastInSection) && (topChanged || bottomChanged);
     }
 
-    private boolean isFirstInSection(ActivatableNotificationView view,
-            boolean includeFirstSection) {
+    private boolean isFirstInSection(ExpandableView view, boolean includeFirstSection) {
         int numNonEmptySections = 0;
         for (int i = 0; i < mFirstInSectionViews.length; i++) {
             if (view == mFirstInSectionViews[i]) {
@@ -117,7 +112,7 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
         return false;
     }
 
-    private boolean isLastInSection(ActivatableNotificationView view, boolean includeLastSection) {
+    private boolean isLastInSection(ExpandableView view, boolean includeLastSection) {
         int numNonEmptySections = 0;
         for (int i = mLastInSectionViews.length - 1; i >= 0; i--) {
             if (view == mLastInSectionViews[i]) {
@@ -130,7 +125,7 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
         return false;
     }
 
-    private float getRoundness(ActivatableNotificationView view, boolean top) {
+    private float getRoundness(ExpandableView view, boolean top) {
         if ((view.isPinned() || view.isHeadsUpAnimatingAway()) && !mExpanded) {
             return 1.0f;
         }
@@ -140,12 +135,12 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
         if (isLastInSection(view, true /* include last section */) && !top) {
             return 1.0f;
         }
-        if (view == mTrackedHeadsUp && mAppearFraction <= 0.0f) {
+        if (view == mTrackedHeadsUp) {
             // If we're pushing up on a headsup the appear fraction is < 0 and it needs to still be
             // rounded.
-            return 1.0f;
+            return MathUtils.saturate(1.0f - mAppearFraction);
         }
-        if (view == mTrackedAmbient) {
+        if (view.showingPulsing() && !mBypassController.getBypassEnabled()) {
             return 1.0f;
         }
         return 0.0f;
@@ -161,7 +156,7 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
 
     public void updateRoundedChildren(NotificationSection[] sections) {
         boolean anyChanged = false;
-        for (int i = 0; i < NUM_SECTIONS; i++) {
+        for (int i = 0; i < sections.length; i++) {
             mTmpFirstInSectionViews[i] = mFirstInSectionViews[i];
             mTmpLastInSectionViews[i] = mLastInSectionViews[i];
             mFirstInSectionViews[i] = sections[i].getFirstVisibleChild();
@@ -177,14 +172,14 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
     }
 
     private boolean handleRemovedOldViews(NotificationSection[] sections,
-            ActivatableNotificationView[] oldViews, boolean first) {
+            ExpandableView[] oldViews, boolean first) {
         boolean anyChanged = false;
-        for (ActivatableNotificationView oldView : oldViews) {
+        for (ExpandableView oldView : oldViews) {
             if (oldView != null) {
                 boolean isStillPresent = false;
                 boolean adjacentSectionChanged = false;
                 for (NotificationSection section : sections) {
-                    ActivatableNotificationView newView =
+                    ExpandableView newView =
                             (first ? section.getFirstVisibleChild()
                                     : section.getLastVisibleChild());
                     if (newView == oldView) {
@@ -210,14 +205,14 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
     }
 
     private boolean handleAddedNewViews(NotificationSection[] sections,
-            ActivatableNotificationView[] oldViews, boolean first) {
+            ExpandableView[] oldViews, boolean first) {
         boolean anyChanged = false;
         for (NotificationSection section : sections) {
-            ActivatableNotificationView newView =
+            ExpandableView newView =
                     (first ? section.getFirstVisibleChild() : section.getLastVisibleChild());
             if (newView != null) {
                 boolean wasAlreadyPresent = false;
-                for (ActivatableNotificationView oldView : oldViews) {
+                for (ExpandableView oldView : oldViews) {
                     if (oldView == newView) {
                         wasAlreadyPresent = true;
                         break;
@@ -242,6 +237,10 @@ class NotificationRoundnessManager implements OnHeadsUpChangedListener,
     }
 
     public void setTrackingHeadsUp(ExpandableNotificationRow row) {
+        ExpandableNotificationRow previous = mTrackedHeadsUp;
         mTrackedHeadsUp = row;
+        if (previous != null) {
+            updateView(previous, true /* animate */);
+        }
     }
 }

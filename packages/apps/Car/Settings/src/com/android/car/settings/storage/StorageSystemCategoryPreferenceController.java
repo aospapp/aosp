@@ -16,7 +16,6 @@
 
 package com.android.car.settings.storage;
 
-import android.app.AlertDialog;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.net.TrafficStats;
@@ -24,6 +23,7 @@ import android.os.Build;
 import android.util.SparseArray;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.ProgressBarPreference;
 
@@ -60,12 +60,16 @@ public class StorageSystemCategoryPreferenceController extends
 
     @Override
     protected boolean handlePreferenceClicked(ProgressBarPreference preference) {
-        AlertDialog alertDialog = new AlertDialog.Builder(getContext())
+        getFragmentController().showDialog(
+                getStorageDetailDialogFragment(), ConfirmationDialogFragment.TAG);
+        return true;
+    }
+
+    private ConfirmationDialogFragment getStorageDetailDialogFragment() {
+        return new ConfirmationDialogFragment.Builder(getContext())
                 .setMessage(getContext().getString(R.string.storage_detail_dialog_system,
                         Build.VERSION.RELEASE))
-                .setPositiveButton(android.R.string.ok, null)
-                .create();
-        alertDialog.show();
-        return true;
+                .setPositiveButton(android.R.string.ok, /* confirmListener= */ null)
+                .build();
     }
 }

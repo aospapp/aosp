@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 import common
 import sys, os, signal, time, subprocess, fcntl
@@ -56,8 +56,8 @@ finally:
     exit_code_file.close()
     print >> stderr, 'Released lock of exit_code_file and closed it.'
 
-# tail runs in 1s polling loop, so give them a chance to finish
-time.sleep(2)
+# Give tail a tiny bit of time to finish.
+time.sleep(0.01)
 
 print >> stderr, 'Killing child processes.'
 # clear the SIGCHLD handler so that killing the tails doesn't kill us

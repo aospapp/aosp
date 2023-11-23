@@ -57,8 +57,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.util.UserIcons;
-import com.android.internal.widget.LockPatternUtils;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.SettingsActivity;
 import com.android.car.developeroptions.SettingsPreferenceFragment;
@@ -67,14 +65,16 @@ import com.android.car.developeroptions.core.SubSettingLauncher;
 import com.android.car.developeroptions.dashboard.SummaryLoader;
 import com.android.car.developeroptions.password.ChooseLockGeneric;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.car.developeroptions.widget.SwitchBar;
 import com.android.car.developeroptions.widget.SwitchBarController;
+import com.android.internal.util.UserIcons;
+import com.android.internal.widget.LockPatternUtils;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.drawable.CircleFramedDrawable;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.io.IOException;
@@ -111,6 +111,7 @@ public class UserSettings extends SettingsPreferenceFragment
     private static final String KEY_USER_GUEST = "user_guest";
     private static final String KEY_ADD_USER = "user_add";
     private static final String KEY_ADD_USER_WHEN_LOCKED = "user_settings_add_users_when_locked";
+    private static final String KEY_MULTIUSER_FOOTER = "multiuser_footer";
 
     private static final int MENU_REMOVE_USER = Menu.FIRST;
 
@@ -233,8 +234,8 @@ public class UserSettings extends SettingsPreferenceFragment
 
         mAddUserWhenLockedPreferenceController = new AddUserWhenLockedPreferenceController(
                 activity, KEY_ADD_USER_WHEN_LOCKED);
-        mMultiUserFooterPreferenceController = new MultiUserFooterPreferenceController(activity)
-                .setFooterMixin(mFooterPreferenceMixin);
+        mMultiUserFooterPreferenceController = new MultiUserFooterPreferenceController(activity,
+                KEY_MULTIUSER_FOOTER);
 
         final PreferenceScreen screen = getPreferenceScreen();
         mAddUserWhenLockedPreferenceController.displayPreference(screen);
@@ -954,7 +955,10 @@ public class UserSettings extends SettingsPreferenceFragment
         final Preference addUserOnLockScreen = getPreferenceScreen().findPreference(
                 mAddUserWhenLockedPreferenceController.getPreferenceKey());
         mAddUserWhenLockedPreferenceController.updateState(addUserOnLockScreen);
-        mMultiUserFooterPreferenceController.updateState(null /* preference */);
+
+        final Preference multiUserFooterPrefence = getPreferenceScreen().findPreference(
+                mMultiUserFooterPreferenceController.getPreferenceKey());
+        mMultiUserFooterPreferenceController.updateState(multiUserFooterPrefence);
         mUserListCategory.setVisible(mUserCaps.mUserSwitcherEnabled);
 
         updateAddUser(context);

@@ -21,7 +21,6 @@
 
 /* MMC Configs */
 #define CONFIG_SYS_FSL_ESDHC_ADDR	USDHC2_BASE_ADDR
-#define CONFIG_SUPPORT_EMMC_BOOT	/* eMMC specific */
 
 /* I2C configs */
 #define CONFIG_SYS_I2C
@@ -39,7 +38,6 @@
 #define CONFIG_SYS_HZ			1000
 
 /* Physical Memory Map */
-#define CONFIG_NR_DRAM_BANKS		1
 #define PHYS_SDRAM			MMDC0_ARB_BASE_ADDR
 #define PHYS_SDRAM_SIZE			(128 << 20)
 
@@ -53,8 +51,6 @@
 	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
 
 /* Environment is in stored in the eMMC boot partition */
-#define CONFIG_ENV_SIZE			(16 << 10)
-#define CONFIG_ENV_OFFSET		(512 << 10)
 #define CONFIG_SYS_MMC_ENV_DEV		0	/* USDHC2 */
 #define CONFIG_SYS_MMC_ENV_PART		1	/* boot parition */
 #define CONFIG_MMCROOT			"/dev/mmcblk0p2"  /* USDHC2 */
@@ -66,7 +62,6 @@
 #define CONFIG_USB_MAX_CONTROLLER_COUNT	2
 
 #define CONFIG_FEC_MXC
-#define CONFIG_MII
 #define CONFIG_FEC_ENET_DEV		0
 #define IMX_FEC_BASE			ENET_BASE_ADDR
 #define CONFIG_FEC_MXC_PHYADDR          0x0

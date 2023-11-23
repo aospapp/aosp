@@ -21,6 +21,7 @@
  */
 package com.android.bluetooth.a2dp;
 
+import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothCodecConfig;
 import android.bluetooth.BluetoothCodecStatus;
@@ -51,7 +52,7 @@ public class A2dpNativeInterface {
     private A2dpNativeInterface() {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mAdapter == null) {
-            Log.wtfStack(TAG, "No Bluetooth Adapter Available");
+            Log.wtf(TAG, "No Bluetooth Adapter Available");
         }
     }
 
@@ -75,8 +76,9 @@ public class A2dpNativeInterface {
      * @param codecConfigPriorities an array with the codec configuration
      * priorities to configure.
      */
-    public void init(int maxConnectedAudioDevices, BluetoothCodecConfig[] codecConfigPriorities) {
-        initNative(maxConnectedAudioDevices, codecConfigPriorities);
+    public void init(int maxConnectedAudioDevices, BluetoothCodecConfig[] codecConfigPriorities,
+            BluetoothCodecConfig[] codecConfigOffloading) {
+        initNative(maxConnectedAudioDevices, codecConfigPriorities, codecConfigOffloading);
     }
 
     /**
@@ -202,10 +204,26 @@ public class A2dpNativeInterface {
         sendMessageToService(event);
     }
 
+    private boolean isMandatoryCodecPreferred(byte[] address) {
+        A2dpService service = A2dpService.getA2dpService();
+        if (service != null) {
+            int enabled = service.getOptionalCodecsEnabled(getDevice(address));
+            if (DBG) {
+                Log.d(TAG, "isMandatoryCodecPreferred: optional preference " + enabled);
+            }
+            // Optional codecs are more preferred if possible
+            return enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED;
+        } else {
+            Log.w(TAG, "isMandatoryCodecPreferred: service not available");
+            return false;
+        }
+    }
+
     // Native methods that call into the JNI interface
     private static native void classInitNative();
     private native void initNative(int maxConnectedAudioDevices,
-                                   BluetoothCodecConfig[] codecConfigPriorities);
+                                   BluetoothCodecConfig[] codecConfigPriorities,
+                                   BluetoothCodecConfig[] codecConfigOffloading);
     private native void cleanupNative();
     private native boolean connectA2dpNative(byte[] address);
     private native boolean disconnectA2dpNative(byte[] address);

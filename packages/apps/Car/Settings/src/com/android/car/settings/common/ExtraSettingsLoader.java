@@ -36,6 +36,7 @@ import androidx.preference.Preference;
 
 import com.android.car.apps.common.util.Themes;
 import com.android.car.settings.R;
+import com.android.car.ui.preference.CarUiPreference;
 
 import java.util.HashMap;
 import java.util.List;
@@ -132,7 +133,7 @@ public class ExtraSettingsLoader {
             if (!TextUtils.equals(extraCategory, category)) {
                 continue;
             }
-            Preference preference = new Preference(mContext);
+            CarUiPreference preference = new CarUiPreference(mContext);
             preference.setTitle(title);
             preference.setSummary(summary);
             if (icon != null) {

@@ -52,10 +52,11 @@ int main(int argc, char **argv)
 	}
 
 	rc = cras_helper_play_buffer(client, buffer, nread / 4,
-			SND_PCM_FORMAT_S16_LE, rate, num_channels,
-			cras_client_get_first_dev_type_idx(
-				client, CRAS_NODE_TYPE_INTERNAL_SPEAKER,
-				CRAS_STREAM_OUTPUT));
+				     SND_PCM_FORMAT_S16_LE, rate, num_channels,
+				     cras_client_get_first_dev_type_idx(
+					     client,
+					     CRAS_NODE_TYPE_INTERNAL_SPEAKER,
+					     CRAS_STREAM_OUTPUT));
 	if (rc < 0) {
 		fprintf(stderr, "playing a buffer %d\n", rc);
 		goto destroy_exit;

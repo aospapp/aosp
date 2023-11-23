@@ -30,12 +30,14 @@
 #include <unistd.h>
 
 #include <android-base/stringprintf.h>
-#include <binder/IInterface.h>
-#include <binder/IServiceManager.h>
-#include <binder/IPCThreadState.h>
-#include <binder/Parcel.h>
 #include <binder/BpBinder.h>
+#include <binder/IInterface.h>
+#include <binder/IPCThreadState.h>
+#include <binder/IServiceManager.h>
+#include <binder/Parcel.h>
 #include <binder/ProcessState.h>
+#include <binder/Stability.h>
+#include <binderthreadstate/CallerUtils.h>
 #include <cutils/atomic.h>
 #include <log/log.h>
 #include <utils/KeyedVector.h>
@@ -99,7 +101,9 @@ static struct sparseintarray_offsets_t
 
 static struct error_offsets_t
 {
-    jclass mClass;
+    jclass mError;
+    jclass mOutOfMemory;
+    jclass mStackOverflow;
 } gErrorOffsets;
 
 // ----------------------------------------------------------------------------
@@ -207,6 +211,16 @@ static JNIEnv* javavm_to_jnienv(JavaVM* vm)
     return vm->GetEnv((void **)&env, JNI_VERSION_1_4) >= 0 ? env : NULL;
 }
 
+static const char* GetErrorTypeName(JNIEnv* env, jthrowable error) {
+  if (env->IsInstanceOf(error, gErrorOffsets.mOutOfMemory)) {
+    return "OutOfMemoryError";
+  }
+  if (env->IsInstanceOf(error, gErrorOffsets.mStackOverflow)) {
+    return "StackOverflowError";
+  }
+  return nullptr;
+}
+
 // Report a java.lang.Error (or subclass). This will terminate the runtime by
 // calling FatalError with a message derived from the given error.
 static void report_java_lang_error_fatal_error(JNIEnv* env, jthrowable error,
@@ -216,7 +230,7 @@ static void report_java_lang_error_fatal_error(JNIEnv* env, jthrowable error,
 
     // Try to get the exception string. Sometimes logcat isn't available,
     // so try to add it to the abort message.
-    std::string exc_msg = "(Unknown exception message)";
+    std::string exc_msg;
     {
         ScopedLocalRef<jclass> exc_class(env, env->GetObjectClass(error));
         jmethodID method_id = env->GetMethodID(exc_class.get(), "toString",
@@ -225,13 +239,34 @@ static void report_java_lang_error_fatal_error(JNIEnv* env, jthrowable error,
                 env,
                 reinterpret_cast<jstring>(
                         env->CallObjectMethod(error, method_id)));
-        env->ExceptionClear();  // Just for good measure.
+        ScopedLocalRef<jthrowable> new_error(env, nullptr);
+        bool got_jstr = false;
+        if (env->ExceptionCheck()) {
+            new_error = ScopedLocalRef<jthrowable>(env, env->ExceptionOccurred());
+            env->ExceptionClear();
+        }
         if (jstr.get() != nullptr) {
             ScopedUtfChars jstr_utf(env, jstr.get());
             if (jstr_utf.c_str() != nullptr) {
                 exc_msg = jstr_utf.c_str();
+                got_jstr = true;
             } else {
+                new_error = ScopedLocalRef<jthrowable>(env, env->ExceptionOccurred());
                 env->ExceptionClear();
+            }
+        }
+        if (!got_jstr) {
+            exc_msg = "(Unknown exception message)";
+            const char* orig_type = GetErrorTypeName(env, error);
+            if (orig_type != nullptr) {
+                exc_msg = base::StringPrintf("%s (Error was %s)", exc_msg.c_str(), orig_type);
+            }
+            const char* new_type =
+                new_error == nullptr ? nullptr : GetErrorTypeName(env, new_error.get());
+            if (new_type != nullptr) {
+                exc_msg = base::StringPrintf("%s (toString() error was %s)",
+                                             exc_msg.c_str(),
+                                             new_type);
             }
         }
     }
@@ -291,7 +326,7 @@ static void report_exception(JNIEnv* env, jthrowable excep, const char* msg)
         ALOGE("%s", msg);
     }
 
-    if (env->IsInstanceOf(excep, gErrorOffsets.mClass)) {
+    if (env->IsInstanceOf(excep, gErrorOffsets.mError)) {
         report_java_lang_error(env, excep, msg);
     }
 }
@@ -426,6 +461,12 @@ public:
         sp<JavaBBinder> b = mBinder.promote();
         if (b == NULL) {
             b = new JavaBBinder(env, obj);
+            if (mVintf) {
+                ::android::internal::Stability::markVintf(b.get());
+            }
+            if (mExtension != nullptr) {
+                b.get()->setExtension(mExtension);
+            }
             mBinder = b;
             ALOGV("Creating JavaBinder %p (refs %p) for Object %p, weakCount=%" PRId32 "\n",
                  b.get(), b->getWeakRefs(), obj, b->getWeakRefs()->getWeakCount());
@@ -440,9 +481,38 @@ public:
         return mBinder.promote();
     }
 
+    void markVintf() {
+        mVintf = true;
+    }
+
+    sp<IBinder> getExtension() {
+        AutoMutex _l(mLock);
+        sp<JavaBBinder> b = mBinder.promote();
+        if (b != nullptr) {
+            return b.get()->getExtension();
+        }
+        return mExtension;
+    }
+
+    void setExtension(const sp<IBinder>& extension) {
+        AutoMutex _l(mLock);
+        mExtension = extension;
+        sp<JavaBBinder> b = mBinder.promote();
+        if (b != nullptr) {
+            b.get()->setExtension(mExtension);
+        }
+    }
+
 private:
     Mutex           mLock;
     wp<JavaBBinder> mBinder;
+
+    // in the future, we might condense this into int32_t stability, or if there
+    // is too much binder state here, we can think about making JavaBBinder an
+    // sp here (avoid recreating it)
+    bool            mVintf = false;
+
+    sp<IBinder>     mExtension;
 };
 
 // ----------------------------------------------------------------------------
@@ -491,9 +561,10 @@ public:
         LOGDEATH("Receiving binderDied() on JavaDeathRecipient %p\n", this);
         if (mObject != NULL) {
             JNIEnv* env = javavm_to_jnienv(mVM);
-
+            ScopedLocalRef<jobject> jBinderProxy(env, javaObjectForIBinder(env, who.promote()));
             env->CallStaticVoidMethod(gBinderProxyOffsets.mClass,
-                    gBinderProxyOffsets.mSendDeathNotice, mObject);
+                                      gBinderProxyOffsets.mSendDeathNotice, mObject,
+                                      jBinderProxy.get());
             if (env->ExceptionCheck()) {
                 jthrowable excep = env->ExceptionOccurred();
                 report_exception(env, excep,
@@ -664,6 +735,9 @@ BinderProxyNativeData* getBPNativeData(JNIEnv* env, jobject obj) {
 // same IBinder, and the original BinderProxy is still alive, return the same BinderProxy.
 jobject javaObjectForIBinder(JNIEnv* env, const sp<IBinder>& val)
 {
+    // N.B. This function is called from a @FastNative JNI method, so don't take locks around
+    // calls to Java code or block the calling thread for a long time for any reason.
+
     if (val == NULL) return NULL;
 
     if (val->checkSubclass(&gBinderOffsets)) {
@@ -877,7 +951,7 @@ static jint android_os_Binder_getCallingUid()
 
 static jboolean android_os_Binder_isHandlingTransaction()
 {
-    return IPCThreadState::self()->isServingCall();
+    return getCurrentServingCall() == BinderCallType::BINDER;
 }
 
 static jlong android_os_Binder_clearCallingIdentity()
@@ -929,6 +1003,12 @@ static void android_os_Binder_restoreCallingWorkSource(jlong token)
     IPCThreadState::self()->restoreCallingWorkSource(token);
 }
 
+static void android_os_Binder_markVintfStability(JNIEnv* env, jobject clazz) {
+    JavaBBinderHolder* jbh =
+        (JavaBBinderHolder*) env->GetLongField(clazz, gBinderOffsets.mObject);
+    jbh->markVintf();
+}
+
 static void android_os_Binder_flushPendingCommands(JNIEnv* env, jobject clazz)
 {
     IPCThreadState::self()->flushCommands();
@@ -956,6 +1036,17 @@ static void android_os_Binder_blockUntilThreadAvailable(JNIEnv* env, jobject cla
     return IPCThreadState::self()->blockUntilThreadAvailable();
 }
 
+static jobject android_os_Binder_getExtension(JNIEnv* env, jobject obj) {
+    JavaBBinderHolder* jbh = (JavaBBinderHolder*) env->GetLongField(obj, gBinderOffsets.mObject);
+    return javaObjectForIBinder(env, jbh->getExtension());
+}
+
+static void android_os_Binder_setExtension(JNIEnv* env, jobject obj, jobject extensionObject) {
+    JavaBBinderHolder* jbh = (JavaBBinderHolder*) env->GetLongField(obj, gBinderOffsets.mObject);
+    sp<IBinder> extension = ibinderForJavaObject(env, extensionObject);
+    jbh->setExtension(extension);
+}
+
 // ----------------------------------------------------------------------------
 
 static const JNINativeMethod gBinderMethods[] = {
@@ -980,10 +1071,13 @@ static const JNINativeMethod gBinderMethods[] = {
     // @CriticalNative
     { "clearCallingWorkSource", "()J", (void*)android_os_Binder_clearCallingWorkSource },
     { "restoreCallingWorkSource", "(J)V", (void*)android_os_Binder_restoreCallingWorkSource },
+    { "markVintfStability", "()V", (void*)android_os_Binder_markVintfStability},
     { "flushPendingCommands", "()V", (void*)android_os_Binder_flushPendingCommands },
     { "getNativeBBinderHolder", "()J", (void*)android_os_Binder_getNativeBBinderHolder },
     { "getNativeFinalizer", "()J", (void*)android_os_Binder_getNativeFinalizer },
-    { "blockUntilThreadAvailable", "()V", (void*)android_os_Binder_blockUntilThreadAvailable }
+    { "blockUntilThreadAvailable", "()V", (void*)android_os_Binder_blockUntilThreadAvailable },
+    { "getExtension", "()Landroid/os/IBinder;", (void*)android_os_Binder_getExtension },
+    { "setExtension", "(Landroid/os/IBinder;)V", (void*)android_os_Binder_setExtension },
 };
 
 const char* const kBinderPathName = "android/os/Binder";
@@ -1423,6 +1517,21 @@ JNIEXPORT jlong JNICALL android_os_BinderProxy_getNativeFinalizer(JNIEnv*, jclas
     return (jlong) BinderProxy_destroy;
 }
 
+static jobject android_os_BinderProxy_getExtension(JNIEnv* env, jobject obj) {
+    IBinder* binder = getBPNativeData(env, obj)->mObject.get();
+    if (binder == nullptr) {
+        jniThrowException(env, "java/lang/IllegalStateException", "Native IBinder is null");
+        return nullptr;
+    }
+    sp<IBinder> extension;
+    status_t err = binder->getExtension(&extension);
+    if (err != OK) {
+        signalExceptionForError(env, obj, err, true /* canThrowRemoteException */);
+        return nullptr;
+    }
+    return javaObjectForIBinder(env, extension);
+}
+
 // ----------------------------------------------------------------------------
 
 static const JNINativeMethod gBinderProxyMethods[] = {
@@ -1434,21 +1543,26 @@ static const JNINativeMethod gBinderProxyMethods[] = {
     {"linkToDeath",         "(Landroid/os/IBinder$DeathRecipient;I)V", (void*)android_os_BinderProxy_linkToDeath},
     {"unlinkToDeath",       "(Landroid/os/IBinder$DeathRecipient;I)Z", (void*)android_os_BinderProxy_unlinkToDeath},
     {"getNativeFinalizer",  "()J", (void*)android_os_BinderProxy_getNativeFinalizer},
+    {"getExtension",        "()Landroid/os/IBinder;", (void*)android_os_BinderProxy_getExtension},
 };
 
 const char* const kBinderProxyPathName = "android/os/BinderProxy";
 
 static int int_register_android_os_BinderProxy(JNIEnv* env)
 {
-    jclass clazz = FindClassOrDie(env, "java/lang/Error");
-    gErrorOffsets.mClass = MakeGlobalRefOrDie(env, clazz);
+    gErrorOffsets.mError = MakeGlobalRefOrDie(env, FindClassOrDie(env, "java/lang/Error"));
+    gErrorOffsets.mOutOfMemory =
+        MakeGlobalRefOrDie(env, FindClassOrDie(env, "java/lang/OutOfMemoryError"));
+    gErrorOffsets.mStackOverflow =
+        MakeGlobalRefOrDie(env, FindClassOrDie(env, "java/lang/StackOverflowError"));
 
-    clazz = FindClassOrDie(env, kBinderProxyPathName);
+    jclass clazz = FindClassOrDie(env, kBinderProxyPathName);
     gBinderProxyOffsets.mClass = MakeGlobalRefOrDie(env, clazz);
     gBinderProxyOffsets.mGetInstance = GetStaticMethodIDOrDie(env, clazz, "getInstance",
             "(JJ)Landroid/os/BinderProxy;");
-    gBinderProxyOffsets.mSendDeathNotice = GetStaticMethodIDOrDie(env, clazz, "sendDeathNotice",
-            "(Landroid/os/IBinder$DeathRecipient;)V");
+    gBinderProxyOffsets.mSendDeathNotice =
+            GetStaticMethodIDOrDie(env, clazz, "sendDeathNotice",
+                                   "(Landroid/os/IBinder$DeathRecipient;Landroid/os/IBinder;)V");
     gBinderProxyOffsets.mNativeData = GetFieldIDOrDie(env, clazz, "mNativeData", "J");
 
     clazz = FindClassOrDie(env, "java/lang/Class");

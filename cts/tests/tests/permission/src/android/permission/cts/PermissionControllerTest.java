@@ -20,20 +20,28 @@ import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.BODY_SENSORS;
+import static android.Manifest.permission.READ_CALENDAR;
 import static android.Manifest.permission.READ_CONTACTS;
 import static android.Manifest.permission.WRITE_CALENDAR;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_FOREGROUND;
 import static android.app.AppOpsManager.permissionToOp;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
+import static android.permission.PermissionControllerManager.COUNT_ONLY_WHEN_GRANTED;
 import static android.permission.PermissionControllerManager.REASON_INSTALLER_POLICY_VIOLATION;
 import static android.permission.PermissionControllerManager.REASON_MALWARE;
+import static android.permission.cts.PermissionUtils.grantPermission;
+import static android.permission.cts.PermissionUtils.isGranted;
+import static android.permission.cts.PermissionUtils.isPermissionGranted;
 
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
+import static com.android.compatibility.common.util.SystemUtil.eventually;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
 import static com.google.common.truth.Truth.assertThat;
+
+import static java.util.Collections.singletonList;
 
 import android.app.AppOpsManager;
 import android.app.UiAutomation;
@@ -85,10 +93,14 @@ public class PermissionControllerTest {
     private static final PermissionControllerManager sController =
             sContext.getSystemService(PermissionControllerManager.class);
 
-    private void resetAppState() throws Exception {
-        sUiAutomation.grantRuntimePermission(APP, ACCESS_FINE_LOCATION);
-        sUiAutomation.grantRuntimePermission(APP, ACCESS_BACKGROUND_LOCATION);
-        setAppOp(APP, ACCESS_FINE_LOCATION, MODE_ALLOWED);
+    @Before
+    @After
+    public void resetAppState() {
+        runWithShellPermissionIdentity(() -> {
+            sUiAutomation.grantRuntimePermission(APP, ACCESS_FINE_LOCATION);
+            sUiAutomation.grantRuntimePermission(APP, ACCESS_BACKGROUND_LOCATION);
+            setAppOp(APP, ACCESS_FINE_LOCATION, MODE_ALLOWED);
+        });
     }
 
     @BeforeClass
@@ -103,26 +115,21 @@ public class PermissionControllerTest {
         runShellCommand("pm uninstall " + APP2);
     }
 
-    @Before
-    public void setup() throws Exception {
-        runWithShellPermissionIdentity(() -> resetAppState());
-    }
-
-    private @NonNull Map<String, List<String>> revoke(@NonNull Map<String, List<String>> request,
-            boolean doDryRun, int reason, @NonNull Executor executor)
-            throws Exception {
+    private @NonNull Map<String, List<String>> revokePermissions(
+            @NonNull Map<String, List<String>> request, boolean doDryRun, int reason,
+            @NonNull Executor executor) throws Exception {
         AtomicReference<Map<String, List<String>>> result = new AtomicReference<>();
 
         sController.revokeRuntimePermissions(request, doDryRun, reason, executor,
                 new PermissionControllerManager.OnRevokeRuntimePermissionsCallback() {
-            @Override
-            public void onRevokeRuntimePermissions(@NonNull Map<String, List<String>> r) {
-                synchronized (result) {
-                    result.set(r);
-                    result.notifyAll();
-                }
-            }
-        });
+                    @Override
+                    public void onRevokeRuntimePermissions(@NonNull Map<String, List<String>> r) {
+                        synchronized (result) {
+                            result.set(r);
+                            result.notifyAll();
+                        }
+                    }
+                });
 
         synchronized (result) {
             while (result.get() == null) {
@@ -133,20 +140,21 @@ public class PermissionControllerTest {
         return result.get();
     }
 
-    private @NonNull Map<String, List<String>> revoke(@NonNull Map<String, List<String>> request,
-            boolean doDryRun, boolean adoptShell) throws Exception {
+    private @NonNull Map<String, List<String>> revokePermissions(
+            @NonNull Map<String, List<String>> request, boolean doDryRun, boolean adoptShell)
+            throws Exception {
         if (adoptShell) {
             Map<String, List<String>> revokeRet =
-                    callWithShellPermissionIdentity(() -> revoke(
+                    callWithShellPermissionIdentity(() -> revokePermissions(
                             request, doDryRun, REASON_MALWARE, sContext.getMainExecutor()));
             return revokeRet;
         }
-        return revoke(request, doDryRun, REASON_MALWARE, sContext.getMainExecutor());
+        return revokePermissions(request, doDryRun, REASON_MALWARE, sContext.getMainExecutor());
     }
 
-    private @NonNull Map<String, List<String>> revoke(@NonNull Map<String, List<String>> request,
-            boolean doDryRun) throws Exception {
-        return revoke(request, doDryRun, true);
+    private @NonNull Map<String, List<String>> revokePermissions(
+            @NonNull Map<String, List<String>> request, boolean doDryRun) throws Exception {
+        return revokePermissions(request, doDryRun, true);
     }
 
     private void setAppOp(@NonNull String pkg, @NonNull String perm, int mode) throws Exception {
@@ -154,189 +162,9 @@ public class PermissionControllerTest {
                 sContext.getPackageManager().getPackageUid(pkg, 0), mode);
     }
 
-    private Map<String, List<String>> buildRequest(@NonNull String app,
+    private Map<String, List<String>> buildRevokeRequest(@NonNull String app,
             @NonNull String permission) {
-        return Collections.singletonMap(app, Collections.singletonList(permission));
-    }
-
-    @Test
-    public void dryRunRevokeSinglePermission() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_BACKGROUND_LOCATION);
-
-        Map<String, List<String>> result = revoke(request, true);
-
-        assertThat(result.size()).isEqualTo(1);
-        assertThat(result.get(APP)).isNotNull();
-        assertThat(result.get(APP)).containsExactly(ACCESS_BACKGROUND_LOCATION);
-    }
-
-    @Test
-    public void revokeSinglePermission() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_BACKGROUND_LOCATION);
-
-        revoke(request, false);
-
-        assertThat(sContext.getPackageManager().checkPermission(ACCESS_BACKGROUND_LOCATION,
-                APP)).isEqualTo(PERMISSION_DENIED);
-    }
-
-    @Test
-    public void doNotRevokeAlreadyRevokedPermission() throws Exception {
-        // Properly revoke the permission
-        runWithShellPermissionIdentity(() -> {
-            sUiAutomation.revokeRuntimePermission(APP, ACCESS_BACKGROUND_LOCATION);
-            setAppOp(APP, ACCESS_FINE_LOCATION, MODE_FOREGROUND);
-        });
-
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_BACKGROUND_LOCATION);
-        Map<String, List<String>> result = revoke(request, false);
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    public void dryRunRevokeForegroundPermission() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_FINE_LOCATION);
-
-        Map<String, List<String>> result = revoke(request, true);
-
-        assertThat(result.size()).isEqualTo(1);
-        assertThat(result.get(APP)).isNotNull();
-        assertThat(result.get(APP)).containsExactly(ACCESS_FINE_LOCATION,
-                ACCESS_BACKGROUND_LOCATION, ACCESS_COARSE_LOCATION);
-    }
-
-    @Test
-    public void revokeUnrequestedPermission() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, READ_CONTACTS);
-
-        Map<String, List<String>> result = revoke(request, false);
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    public void revokeFromUnknownPackage() throws Exception {
-        Map<String, List<String>> request = buildRequest("invalid.app", READ_CONTACTS);
-
-        Map<String, List<String>> result = revoke(request, false);
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    public void revokeFromUnknownPermission() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, "unknown.permission");
-
-        Map<String, List<String>> result = revoke(request, false);
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    public void revokePolicyViolationFromWrongPackage() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_FINE_LOCATION);
-        Map<String, List<String>> result = callWithShellPermissionIdentity(() -> revoke(request,
-                false, REASON_INSTALLER_POLICY_VIOLATION, sContext.getMainExecutor()));
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    public void useExecutorForCallback() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_BACKGROUND_LOCATION);
-
-        AtomicBoolean wasRunOnExecutor = new AtomicBoolean();
-        runWithShellPermissionIdentity(() ->
-                revoke(request, true, REASON_MALWARE, command -> {
-                    wasRunOnExecutor.set(true);
-                    command.run();
-                }));
-
-        assertThat(wasRunOnExecutor.get()).isTrue();
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void nullPkg() throws Exception {
-        Map<String, List<String>> request = Collections.singletonMap(null,
-                Collections.singletonList(ACCESS_FINE_LOCATION));
-
-        revoke(request, true);
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void nullPermissions() throws Exception {
-        Map<String, List<String>> request = Collections.singletonMap(APP, null);
-
-        revoke(request, true);
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void nullPermission() throws Exception {
-        Map<String, List<String>> request = Collections.singletonMap(APP,
-                Collections.singletonList(null));
-
-        revoke(request, true);
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void nullRequests() {
-        sController.revokeRuntimePermissions(null, false, REASON_MALWARE,
-                sContext.getMainExecutor(),
-                new PermissionControllerManager.OnRevokeRuntimePermissionsCallback() {
-            @Override
-            public void onRevokeRuntimePermissions(@NonNull Map<String, List<String>> revoked) {
-            }
-        });
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void nullCallback() {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_BACKGROUND_LOCATION);
-
-        sController.revokeRuntimePermissions(request, false, REASON_MALWARE,
-                sContext.getMainExecutor(), null);
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void nullExecutor() {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_BACKGROUND_LOCATION);
-
-        sController.revokeRuntimePermissions(request, false, REASON_MALWARE, null,
-                new PermissionControllerManager.OnRevokeRuntimePermissionsCallback() {
-            @Override
-            public void onRevokeRuntimePermissions(@NonNull Map<String, List<String>> revoked) {
-
-            }
-        });
-    }
-
-    @Test(expected = SecurityException.class)
-    public void tryToRevokeWithoutPermission() throws Exception {
-        Map<String, List<String>> request = buildRequest(APP, ACCESS_BACKGROUND_LOCATION);
-
-        // This will fail as the test-app does not have the required permission
-        revoke(request, true, false);
-    }
-
-    @Test
-    public void runtimePermissionPresentationInfoLocationApp() throws java.lang.Exception {
-        CompletableFuture<List<RuntimePermissionPresentationInfo>> futurePermissionInfos =
-                new CompletableFuture<>();
-
-        List<String> runtimePermissions;
-        List<RuntimePermissionPresentationInfo> permissionInfos;
-
-        sUiAutomation.adoptShellPermissionIdentity();
-        try {
-            sController.getAppPermissions(APP, futurePermissionInfos::complete, null);
-            runtimePermissions = PermissionUtils.getRuntimePermissions(APP);
-            assertThat(runtimePermissions).isNotEmpty();
-            permissionInfos = futurePermissionInfos.get();
-        } finally {
-            sUiAutomation.dropShellPermissionIdentity();
-        }
-
-        assertRuntimePermissionLabelsAreValid(runtimePermissions, permissionInfos, 3, APP);
+        return Collections.singletonMap(app, singletonList(permission));
     }
 
     private void assertRuntimePermissionLabelsAreValid(List<String> runtimePermissions,
@@ -344,7 +172,7 @@ public class PermissionControllerTest {
             String app) throws Exception {
         int numRuntimeGranted = 0;
         for (String permission : runtimePermissions) {
-            if (PermissionUtils.isPermissionGranted(app, permission)) {
+            if (isPermissionGranted(app, permission)) {
                 numRuntimeGranted++;
             }
         }
@@ -385,7 +213,190 @@ public class PermissionControllerTest {
     }
 
     @Test
-    public void runtimePermissionPresentationInfoCustomApp() throws java.lang.Exception {
+    public void revokePermissionsDryRunSinglePermission() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_BACKGROUND_LOCATION);
+
+        Map<String, List<String>> result = revokePermissions(request, true);
+
+        assertThat(result.size()).isEqualTo(1);
+        assertThat(result.get(APP)).isNotNull();
+        assertThat(result.get(APP)).containsExactly(ACCESS_BACKGROUND_LOCATION);
+    }
+
+    @Test
+    public void revokePermissionsSinglePermission() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_BACKGROUND_LOCATION);
+
+        revokePermissions(request, false);
+
+        assertThat(sContext.getPackageManager().checkPermission(ACCESS_BACKGROUND_LOCATION,
+                APP)).isEqualTo(PERMISSION_DENIED);
+    }
+
+    @Test
+    public void revokePermissionsDoNotAlreadyRevokedPermission() throws Exception {
+        // Properly revoke the permission
+        runWithShellPermissionIdentity(() -> {
+            sUiAutomation.revokeRuntimePermission(APP, ACCESS_BACKGROUND_LOCATION);
+            setAppOp(APP, ACCESS_FINE_LOCATION, MODE_FOREGROUND);
+        });
+
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_BACKGROUND_LOCATION);
+        Map<String, List<String>> result = revokePermissions(request, false);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void revokePermissionsDryRunForegroundPermission() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_FINE_LOCATION);
+
+        Map<String, List<String>> result = revokePermissions(request, true);
+
+        assertThat(result.size()).isEqualTo(1);
+        assertThat(result.get(APP)).isNotNull();
+        assertThat(result.get(APP)).containsExactly(ACCESS_FINE_LOCATION,
+                ACCESS_BACKGROUND_LOCATION, ACCESS_COARSE_LOCATION);
+    }
+
+    @Test
+    public void revokePermissionsUnrequestedPermission() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, READ_CONTACTS);
+
+        Map<String, List<String>> result = revokePermissions(request, false);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void revokeFromUnknownPackage() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest("invalid.app", READ_CONTACTS);
+
+        Map<String, List<String>> result = revokePermissions(request, false);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void revokePermissionsFromUnknownPermission() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, "unknown.permission");
+
+        Map<String, List<String>> result = revokePermissions(request, false);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void revokePermissionsPolicyViolationFromWrongPackage() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_FINE_LOCATION);
+        Map<String, List<String>> result = callWithShellPermissionIdentity(
+                () -> revokePermissions(request,
+                        false, REASON_INSTALLER_POLICY_VIOLATION, sContext.getMainExecutor()));
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void revokePermissionsWithExecutorForCallback() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_BACKGROUND_LOCATION);
+
+        AtomicBoolean wasRunOnExecutor = new AtomicBoolean();
+        runWithShellPermissionIdentity(() ->
+                revokePermissions(request, true, REASON_MALWARE, command -> {
+                    wasRunOnExecutor.set(true);
+                    command.run();
+                }));
+
+        assertThat(wasRunOnExecutor.get()).isTrue();
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void revokePermissionsWithNullPkg() throws Exception {
+        Map<String, List<String>> request = Collections.singletonMap(null,
+                singletonList(ACCESS_FINE_LOCATION));
+
+        revokePermissions(request, true);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void revokePermissionsWithNullPermissions() throws Exception {
+        Map<String, List<String>> request = Collections.singletonMap(APP, null);
+
+        revokePermissions(request, true);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void revokePermissionsWithNullPermission() throws Exception {
+        Map<String, List<String>> request = Collections.singletonMap(APP,
+                singletonList(null));
+
+        revokePermissions(request, true);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void revokePermissionsWithNullRequests() {
+        sController.revokeRuntimePermissions(null, false, REASON_MALWARE,
+                sContext.getMainExecutor(),
+                new PermissionControllerManager.OnRevokeRuntimePermissionsCallback() {
+                    @Override
+                    public void onRevokeRuntimePermissions(
+                            @NonNull Map<String, List<String>> revoked) {
+                    }
+                });
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void revokePermissionsWithNullCallback() {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_BACKGROUND_LOCATION);
+
+        sController.revokeRuntimePermissions(request, false, REASON_MALWARE,
+                sContext.getMainExecutor(), null);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void revokePermissionsWithNullExecutor() {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_BACKGROUND_LOCATION);
+
+        sController.revokeRuntimePermissions(request, false, REASON_MALWARE, null,
+                new PermissionControllerManager.OnRevokeRuntimePermissionsCallback() {
+                    @Override
+                    public void onRevokeRuntimePermissions(
+                            @NonNull Map<String, List<String>> revoked) {
+
+                    }
+                });
+    }
+
+    @Test(expected = SecurityException.class)
+    public void revokePermissionsWithoutPermission() throws Exception {
+        Map<String, List<String>> request = buildRevokeRequest(APP, ACCESS_BACKGROUND_LOCATION);
+
+        // This will fail as the test-app does not have the required permission
+        revokePermissions(request, true, false);
+    }
+
+    @Test
+    public void getAppPermissionsForApp() throws Exception {
+        CompletableFuture<List<RuntimePermissionPresentationInfo>> futurePermissionInfos =
+                new CompletableFuture<>();
+
+        List<String> runtimePermissions;
+        List<RuntimePermissionPresentationInfo> permissionInfos;
+
+        sUiAutomation.adoptShellPermissionIdentity();
+        try {
+            sController.getAppPermissions(APP, futurePermissionInfos::complete, null);
+            runtimePermissions = PermissionUtils.getRuntimePermissions(APP);
+            assertThat(runtimePermissions).isNotEmpty();
+            permissionInfos = futurePermissionInfos.get();
+        } finally {
+            sUiAutomation.dropShellPermissionIdentity();
+        }
+
+        assertRuntimePermissionLabelsAreValid(runtimePermissions, permissionInfos, 3, APP);
+    }
+
+    @Test
+    public void getAppPermissionsForCustomApp() throws Exception {
         CompletableFuture<List<RuntimePermissionPresentationInfo>> futurePermissionInfos =
                 new CompletableFuture<>();
 
@@ -413,39 +424,90 @@ public class PermissionControllerTest {
     }
 
     @Test
-    public void runtimePermissionLabelSet() {
-        assertThat(new RuntimePermissionPresentationInfo("test", true,
-                true).getLabel()).isEqualTo("test");
+    public void revokePermissionAutomaticallyExtendsToWholeGroup() throws Exception {
+        grantPermission(APP2, READ_CALENDAR);
+        grantPermission(APP2, WRITE_CALENDAR);
+
+        runWithShellPermissionIdentity(
+                () -> {
+                    sController.revokeRuntimePermission(APP2, READ_CALENDAR);
+
+                    eventually(() -> {
+                        assertThat(isGranted(APP2, READ_CALENDAR)).isEqualTo(false);
+                        // revokePermission automatically extends the revocation to whole group
+                        assertThat(isGranted(APP2, WRITE_CALENDAR)).isEqualTo(false);
+                    });
+                });
+    }
+
+    @Test
+    public void revokePermissionCustom() throws Exception {
+        sUiAutomation.grantRuntimePermission(APP2, CUSTOM_PERMISSION);
+
+        runWithShellPermissionIdentity(
+                () -> {
+                    sController.revokeRuntimePermission(APP2, CUSTOM_PERMISSION);
+
+                    eventually(() -> {
+                        assertThat(isPermissionGranted(APP2, CUSTOM_PERMISSION)).isEqualTo(false);
+                    });
+                });
+    }
+
+    @Test
+    public void revokePermissionWithInvalidPkg() throws Exception {
+        // No return value, call is ignored
+        runWithShellPermissionIdentity(
+                () -> sController.revokeRuntimePermission("invalid.package", READ_CALENDAR));
+    }
+
+    @Test
+    public void revokePermissionWithInvalidPermission() throws Exception {
+        // No return value, call is ignored
+        runWithShellPermissionIdentity(
+                () -> sController.revokeRuntimePermission(APP2, "invalid.permission"));
     }
 
     @Test(expected = NullPointerException.class)
-    public void runtimePermissionLabelSetNull() {
-        RuntimePermissionPresentationInfo info = new RuntimePermissionPresentationInfo(null, true,
-                true);
+    public void revokePermissionWithNullPkg() throws Exception {
+        sController.revokeRuntimePermission(null, READ_CALENDAR);
     }
+
+    @Test(expected = NullPointerException.class)
+    public void revokePermissionWithNullPermission() throws Exception {
+        sController.revokeRuntimePermission(APP2, null);
+    }
+
+    // TODO: Add more tests for countPermissionAppsGranted when the method can be safely called
+    //       multiple times in a row
 
     @Test
-    public void runtimePermissionGrantedCanBeTrue() {
-        assertThat(new RuntimePermissionPresentationInfo("", true, true).isGranted()).isTrue();
+    public void countPermissionAppsGranted() {
+        runWithShellPermissionIdentity(
+                () -> {
+                    CompletableFuture<Integer> numApps = new CompletableFuture<>();
+
+                    sController.countPermissionApps(singletonList(ACCESS_FINE_LOCATION),
+                            COUNT_ONLY_WHEN_GRANTED, numApps::complete, null);
+
+                    // TODO: Better would be to count before, grant a permission, count again and
+                    //       then compare before and after
+                    assertThat(numApps.get()).isAtLeast(1);
+                });
     }
 
-    @Test
-    public void runtimePermissionGrantedCanBeFalse() {
-        assertThat(new RuntimePermissionPresentationInfo("", false, true).isGranted()).isFalse();
+    @Test(expected = NullPointerException.class)
+    public void countPermissionAppsNullPermission() {
+        sController.countPermissionApps(null, 0, (n) -> { }, null);
     }
 
-    @Test
-    public void runtimePermissionStandardCanBeTrue() {
-        assertThat(new RuntimePermissionPresentationInfo("", true, true).isStandard()).isTrue();
+    @Test(expected = IllegalArgumentException.class)
+    public void countPermissionAppsInvalidFlags() {
+        sController.countPermissionApps(singletonList(ACCESS_FINE_LOCATION), -1, (n) -> { }, null);
     }
 
-    @Test
-    public void runtimePermissionStandardCanBeFalse() {
-        assertThat(new RuntimePermissionPresentationInfo("", true, false).isStandard()).isFalse();
-    }
-
-    @After
-    public void dropShellPermissions() throws Exception {
-        runWithShellPermissionIdentity(() -> resetAppState());
+    @Test(expected = NullPointerException.class)
+    public void countPermissionAppsNullCallback() {
+        sController.countPermissionApps(singletonList(ACCESS_FINE_LOCATION), 0, null, null);
     }
 }

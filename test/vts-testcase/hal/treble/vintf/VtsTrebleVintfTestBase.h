@@ -41,7 +41,9 @@ class VtsTrebleVintfTestBase : public ::testing::Test {
   virtual void SetUp() override;
 
   // Applies given function to each HAL instance in VINTF.
-  static void ForEachHalInstance(const HalManifestPtr &, HalVerifyFn);
+  static void ForEachAidlHalInstance(const HalManifestPtr &, AidlVerifyFn);
+  static void ForEachHidlHalInstance(const HalManifestPtr &, HidlVerifyFn);
+
   // Retrieves an existing HAL service.
   static sp<IBase> GetHalService(const string &fq_name,
                                  const string &instance_name, Transport,

@@ -18,6 +18,7 @@ filegroup {
     srcs: [
         "src/java/android/telephony/**/*.java",
     ],
+    path: "src/java",
 }
 
 filegroup {
@@ -32,6 +33,20 @@ filegroup {
     srcs: [
         "src/java/**/*.java",
     ],
+    path: "src/java",
+}
+
+filegroup {
+    name: "jarjar-rules-shared",
+    srcs: ["jarjar-rules-shared.txt"],
+}
+
+genrule {
+    name: "statslog-telephony-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module telephony"
+        + " --javaPackage com.android.internal.telephony --javaClass TelephonyStatsLog",
+    out: ["com/android/internal/telephony/TelephonyStatsLog.java"],
 }
 
 java_library {
@@ -43,11 +58,15 @@ java_library {
     },
     srcs: [
         ":opt-telephony-common-srcs",
+        ":framework-telephony-common-shared-srcs",
+        ":net-utils-telephony-common-srcs",
+        ":statslog-telephony-java-gen",
+        ":statslog-cellbroadcast-java-gen",
         "src/java/**/I*.aidl",
         "src/java/**/*.logtags",
     ],
 
-    jarjar_rules: ":framework-jarjar-rules",
+    jarjar_rules: ":jarjar-rules-shared",
 
     libs: [
         "android.hardware.radio-V1.0-java",
@@ -55,17 +74,21 @@ java_library {
         "android.hardware.radio-V1.2-java",
         "android.hardware.radio-V1.3-java",
         "android.hardware.radio-V1.4-java",
+        "android.hardware.radio-V1.5-java",
         "voip-common",
         "ims-common",
-        "services",
+        "unsupportedappusage",
     ],
     static_libs: [
         "android.hardware.radio.config-V1.0-java-shallow",
         "android.hardware.radio.config-V1.1-java-shallow",
         "android.hardware.radio.config-V1.2-java-shallow",
         "android.hardware.radio.deprecated-V1.0-java-shallow",
-        "telephony-protos",
         "ecc-protos-lite",
+        "libphonenumber-nogeocoder",
+        "PlatformProperties",
+        "net-utils-framework-common",
+        "telephony-protos",
     ],
 
     product_variables: {
@@ -75,4 +98,3 @@ java_library {
         },
     },
 }
-

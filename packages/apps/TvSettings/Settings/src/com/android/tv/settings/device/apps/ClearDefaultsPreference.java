@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.device.apps;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.usb.IUsbManager;
@@ -51,6 +54,11 @@ public class ClearDefaultsPreference extends AppActionPreference {
         setTitle(R.string.device_apps_app_management_clear_default);
         setSummary(AppUtils.getLaunchByDefaultSummary(
                 mEntry, mUsbManager, mPackageManager, getContext()));
+        this.setOnPreferenceClickListener(
+                preference -> {
+                    logEntrySelected(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_CLEAR_DEFAULTS);
+                    return false;
+                });
     }
 
     @Override

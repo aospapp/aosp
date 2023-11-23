@@ -42,7 +42,7 @@ public final class AudioCapabilitiesReceiver {
     // AC3 capabilities stat is sent to Google Analytics just once in order to avoid
     // duplicated stat reports since it doesn't change over time in most cases.
     // Increase this revision when we should force the stat to be sent again.
-    // TODO: Consier using custom metrics.
+    // TODO: Consider using custom metrics.
     private static final int REPORT_REVISION = 1;
 
     private final Context mContext;

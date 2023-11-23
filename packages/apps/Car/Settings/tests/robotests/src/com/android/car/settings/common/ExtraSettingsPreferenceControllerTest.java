@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.when;
 
+import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -28,7 +29,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
 
 import org.junit.After;
@@ -37,6 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
@@ -44,7 +45,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** Unit test for {@link ExtraSettingsPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowApplicationPackageManager.class})
 public class ExtraSettingsPreferenceControllerTest {
 
@@ -57,6 +58,10 @@ public class ExtraSettingsPreferenceControllerTest {
             mPreferenceControllerHelper;
     private Map<Preference, Bundle> mPreferenceBundleMapEmpty = new HashMap<>();
     private Map<Preference, Bundle> mPreferenceBundleMap = new HashMap<>();
+    private static final CarUxRestrictions UNRESTRICTED_UX_RESTRICTIONS =
+            new CarUxRestrictions.Builder(/* reqOpt= */ true,
+                CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
+    private Bundle mBundle;
 
     @Mock
     private ExtraSettingsLoader mExtraSettingsLoaderMock;
@@ -72,9 +77,9 @@ public class ExtraSettingsPreferenceControllerTest {
         mController = mPreferenceControllerHelper.getController();
         Preference preference = new Preference(mContext);
 
-        Bundle bundle = new Bundle();
+        mBundle = new Bundle();
         mPreferenceBundleMap = new HashMap<>();
-        mPreferenceBundleMap.put(preference, bundle);
+        mPreferenceBundleMap.put(preference, mBundle);
     }
 
     @After
@@ -162,5 +167,49 @@ public class ExtraSettingsPreferenceControllerTest {
         mController.refreshUi();
 
         assertThat(mPreferenceGroup.isVisible()).isEqualTo(true);
+    }
+
+    @Test
+    public void onUxRestrictionsChanged_unrestrictedAndDO_intentsIntoActivityNoMetadata_disabled() {
+        when(mExtraSettingsLoaderMock.loadPreferences(FAKE_INTENT)).thenReturn(
+                mPreferenceBundleMap);
+        mController.setExtraSettingsLoader(mExtraSettingsLoaderMock);
+        mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
+        mController.refreshUi();
+
+        mController.onApplyUxRestrictions(UNRESTRICTED_UX_RESTRICTIONS);
+
+        assertThat(mPreferenceGroup.getPreference(0).isEnabled()).isFalse();
+    }
+
+
+    @Test
+    public void onUxRestrictionsChanged_unrestrictedAndDO_intentsIntoNonDOActivity_disabled() {
+        mBundle.putBoolean(
+                ExtraSettingsPreferenceController.META_DATA_DISTRACTION_OPTIMIZED, false);
+        when(mExtraSettingsLoaderMock.loadPreferences(FAKE_INTENT)).thenReturn(
+                mPreferenceBundleMap);
+        mController.setExtraSettingsLoader(mExtraSettingsLoaderMock);
+        mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
+        mController.refreshUi();
+
+        mController.onApplyUxRestrictions(UNRESTRICTED_UX_RESTRICTIONS);
+
+        assertThat(mPreferenceGroup.getPreference(0).isEnabled()).isFalse();
+    }
+
+    @Test
+    public void onUxRestrictionsChanged_unrestrictedAndDO_intentsIntoDOActivity_enabled() {
+        mBundle.putBoolean(
+                ExtraSettingsPreferenceController.META_DATA_DISTRACTION_OPTIMIZED, true);
+        when(mExtraSettingsLoaderMock.loadPreferences(FAKE_INTENT)).thenReturn(
+                mPreferenceBundleMap);
+        mController.setExtraSettingsLoader(mExtraSettingsLoaderMock);
+        mPreferenceControllerHelper.markState(Lifecycle.State.CREATED);
+        mController.refreshUi();
+
+        mController.onApplyUxRestrictions(UNRESTRICTED_UX_RESTRICTIONS);
+
+        assertThat(mPreferenceGroup.getPreference(0).isEnabled()).isTrue();
     }
 }

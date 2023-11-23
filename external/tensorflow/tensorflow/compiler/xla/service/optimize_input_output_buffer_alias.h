@@ -19,6 +19,7 @@ limitations under the License.
 #include <memory>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/types/span.h"
 #include "tensorflow/compiler/xla/service/hlo_input_output_alias_config.h"
 #include "tensorflow/compiler/xla/service/hlo_instruction.h"
 #include "tensorflow/compiler/xla/service/hlo_pass_interface.h"
@@ -36,24 +37,21 @@ namespace xla {
 // aliased, and writes the alias config into the HloModule.
 //
 // The input and the output buffers can be in any shape, and each output buffer
-// can alias with an input buffer with the same size. Each input buffer may only
-// alias with a single output buffer. For example, for the following parameter
-// and the output buffers,
+// can alias with an input buffer with the same shape. Each input buffer may
+// only alias with a single output buffer. For example, for the following
+// parameter and the output buffers,
 //
-//  Parameters : { P1(2MiB), P2(4MiB), P3(8MiB), P4(4MiB), P5(4MiB), ... }
-//  Outputs    : { O1(4MiB), O2(2MiB), O3(4MiB), O4(6MiB), O5(4MiB), ... }
+//  Parameters : { P1(f32[3]), P2(s32[3]), P3(f32[3,12]), P4(f32[16,12]), ... }
+//  Outputs    : { O1(s32[3]), O2(f32[3]), O3(f32[16,12]), ... }
 //
-// one potential aliasing would be (O1, P2), (O2, P1), (O3, P4), (O5, P5), ..
+// one potential aliasing would be (O1, P2), (O2, P1), (O3, P4), ..
 class OptimizeInputOutputBufferAlias : public HloModulePass {
-  using ShapeSizeFunction = std::function<int64(const Shape&)>;
-
  public:
-  OptimizeInputOutputBufferAlias(ShapeSizeFunction size_func)
-      : size_func_(size_func) {}
+  OptimizeInputOutputBufferAlias() = default;
   ~OptimizeInputOutputBufferAlias() override = default;
 
   absl::string_view name() const override {
-    return "optimize_input_output_buffer_alias.h";
+    return "optimize_input_output_buffer_alias";
   }
 
   StatusOr<bool> Run(HloModule* module) override;
@@ -61,9 +59,9 @@ class OptimizeInputOutputBufferAlias : public HloModulePass {
  private:
   friend class OptimizeInputOutputBufferAliasTest;
 
-  StatusOr<bool> Build(const Shape& input_shape, const Shape& output_shape,
+  StatusOr<bool> Build(absl::Span<const Shape* const> input_shapes,
+                       const Shape& output_shape,
                        HloInputOutputAliasConfig* alias_config);
-  ShapeSizeFunction size_func_ = nullptr;
 };
 
 }  // namespace xla

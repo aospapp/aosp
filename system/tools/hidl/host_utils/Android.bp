@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library_host_shared {
+cc_library {
     name: "libhidl-gen-host-utils",
     defaults: ["hidl-gen-defaults"],
+    host_supported: true,
+    device_supported: false,
     srcs: [
         "Formatter.cpp",
         "StringHelper.cpp",
@@ -22,7 +24,6 @@ cc_library_host_shared {
     shared_libs: [
         "libbase",
     ],
-
     local_include_dirs: ["include/hidl-util"],
     export_include_dirs: ["include"],
 }

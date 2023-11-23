@@ -117,7 +117,7 @@ int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile* profile,
     int max_rate_index = proxy_scan_rates(proxy, profile->sample_rates);
     if (max_rate_index >= 0) {
         if (proxy->alsa_config.rate > profile->sample_rates[max_rate_index]) {
-            ALOGW("Limiting samplnig rate from %u to %u.",
+            ALOGW("Limiting sampling rate from %u to %u.",
                   proxy->alsa_config.rate, profile->sample_rates[max_rate_index]);
             proxy->alsa_config.rate = profile->sample_rates[max_rate_index];
             ret = -EINVAL;

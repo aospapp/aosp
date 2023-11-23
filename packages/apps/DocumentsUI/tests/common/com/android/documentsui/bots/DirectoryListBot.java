@@ -34,13 +34,13 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ImageView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,6 +62,7 @@ public class DirectoryListBot extends Bots.BaseBot {
     private final String mDirListId;
     private final String mItemRootId;
     private final String mPreviewId;
+    private final String mIconId;
 
     private UiAutomation mAutomation;
 
@@ -73,6 +74,7 @@ public class DirectoryListBot extends Bots.BaseBot {
         mDirListId = mTargetPackage + ":id/dir_list";
         mItemRootId = mTargetPackage + ":id/item_root";
         mPreviewId = mTargetPackage + ":id/preview_icon";
+        mIconId = mTargetPackage + ":id/icon";
     }
 
     public void assertDocumentsCount(int count) throws UiObjectNotFoundException {
@@ -162,7 +164,7 @@ public class DirectoryListBot extends Bots.BaseBot {
     private UiObject findHeaderMessageButton() {
         return findObject(
                 mDirContainerId,
-                mTargetPackage + ":id/button_dismiss");
+                mTargetPackage + ":id/dismiss_button");
     }
 
     private UiObject findPlaceholderMessageTextView() {
@@ -182,7 +184,7 @@ public class DirectoryListBot extends Bots.BaseBot {
     public void openDocument(String label) throws UiObjectNotFoundException {
         int toolType = Configurator.getInstance().getToolType();
         Configurator.getInstance().setToolType(MotionEvent.TOOL_TYPE_FINGER);
-        UiObject doc = findDocument(label);
+        UiObject doc = findDocument(label, true);
         doc.click();
         Configurator.getInstance().setToolType(toolType);
     }
@@ -212,20 +214,22 @@ public class DirectoryListBot extends Bots.BaseBot {
                 .equals(mTargetPackage + ":id/icon_check");
     }
 
-    public UiObject2 findSelectionHotspot(String label) {
+    public UiObject2 findSelectionHotspot(String label) throws UiObjectNotFoundException {
         final BySelector list = By.res(mDirListId);
 
         BySelector selector = By.hasChild(By.text(label));
+
+        final UiSelector docList = findDocumentsListSelector();
+        new UiScrollable(docList).scrollIntoView(new UiSelector().text(label));
+
         UiObject2 parent = mDevice.findObject(list).findObject(selector);
-        if (parent.getClassName().equals("android.widget.LinearLayout")
-                || parent.getClassName().equals("android.widget.RelativeLayout")) {
-            // For list mode and doc grid, the parent of the textView does not contain the selector
-            // icon, but the grandparent of the textView does
-            // Gotta go one more level up
-            selector = By.hasDescendant(By.text(label).depth(2));
-            parent = mDevice.findObject(list).findObject(selector);
+        for (int i = 1; i <= MAX_LAYOUT_LEVEL; i++) {
+            parent = parent.getParent();
+            if (mItemRootId.equals(parent.getResourceName())) {
+                break;
+            }
         }
-        return parent.findObject(By.clazz(ImageView.class));
+        return parent.findObject(By.res(mIconId));
     }
 
     public void copyFilesToClipboard(String...labels) throws UiObjectNotFoundException {
@@ -263,14 +267,19 @@ public class DirectoryListBot extends Bots.BaseBot {
     }
 
     public UiObject findDocument(String label) throws UiObjectNotFoundException {
-        final UiSelector docList = new UiSelector().resourceId(
-                mDirContainerId).childSelector(
-                        new UiSelector().resourceId(mDirListId));
+        return findDocument(label, false);
+    }
+
+    public UiObject findDocument(String label, boolean withScroll)
+            throws UiObjectNotFoundException {
+        final UiSelector docList = findDocumentsListSelector();
 
         // Wait for the first list item to appear
         new UiObject(docList.childSelector(new UiSelector())).waitForExists(mTimeout);
 
-        // new UiScrollable(docList).scrollIntoView(new UiSelector().text(label));
+        if (withScroll) {
+            new UiScrollable(docList).scrollIntoView(new UiSelector().text(label));
+        }
         return mDevice.findObject(docList.childSelector(new UiSelector().text(label)));
     }
 
@@ -299,9 +308,7 @@ public class DirectoryListBot extends Bots.BaseBot {
     }
 
     public void assertFirstDocumentHasFocus() throws UiObjectNotFoundException {
-        final UiSelector docList = new UiSelector().resourceId(
-                mDirContainerId).childSelector(
-                        new UiSelector().resourceId(mDirListId));
+        final UiSelector docList = findDocumentsListSelector();
 
         // Wait for the first list item to appear
         UiObject doc = new UiObject(docList.childSelector(new UiSelector()));
@@ -314,6 +321,12 @@ public class DirectoryListBot extends Bots.BaseBot {
         return findObject(
                 mDirContainerId,
                 mDirListId);
+    }
+
+    private UiSelector findDocumentsListSelector() {
+        return new UiSelector().resourceId(
+                mDirContainerId).childSelector(
+                new UiSelector().resourceId(mDirListId));
     }
 
     public void assertHasFocus() {
@@ -342,7 +355,7 @@ public class DirectoryListBot extends Bots.BaseBot {
     }
 
     public void rightClickDocument(String label) throws UiObjectNotFoundException {
-        Rect startCoord = findDocument(label).getBounds();
+        Rect startCoord = findDocument(label, true).getBounds();
         rightClickDocument(new Point(startCoord.centerX(), startCoord.centerY()));
     }
 

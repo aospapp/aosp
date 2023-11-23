@@ -49,29 +49,34 @@ import androidx.slice.builders.SliceAction;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
+import com.android.systemui.Dependency;
 import com.android.systemui.R;
+import com.android.systemui.SystemUIAppComponentFactory;
+import com.android.systemui.SystemUIFactory;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
 import com.android.systemui.statusbar.NotificationMediaManager;
 import com.android.systemui.statusbar.StatusBarState;
+import com.android.systemui.statusbar.phone.DozeParameters;
+import com.android.systemui.statusbar.phone.KeyguardBypassController;
 import com.android.systemui.statusbar.policy.NextAlarmController;
-import com.android.systemui.statusbar.policy.NextAlarmControllerImpl;
 import com.android.systemui.statusbar.policy.ZenModeController;
-import com.android.systemui.statusbar.policy.ZenModeControllerImpl;
 import com.android.systemui.util.wakelock.SettableWakeLock;
 import com.android.systemui.util.wakelock.WakeLock;
 
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+
+import javax.inject.Inject;
 
 /**
  * Simple Slice provider that shows the current date.
  */
 public class KeyguardSliceProvider extends SliceProvider implements
         NextAlarmController.NextAlarmChangeCallback, ZenModeController.Callback,
-        NotificationMediaManager.MediaListener, StatusBarStateController.StateListener {
+        NotificationMediaManager.MediaListener, StatusBarStateController.StateListener,
+        SystemUIAppComponentFactory.ContextInitializer {
 
     private static final StyleSpan BOLD_STYLE = new StyleSpan(Typeface.BOLD);
     public static final String KEYGUARD_SLICE_URI = "content://com.android.systemui.keyguard/main";
@@ -92,6 +97,7 @@ public class KeyguardSliceProvider extends SliceProvider implements
     @VisibleForTesting
     static final int ALARM_VISIBILITY_HOURS = 12;
 
+    private static final Object sInstanceLock = new Object();
     private static KeyguardSliceProvider sInstance;
 
     protected final Uri mSliceUri;
@@ -102,32 +108,39 @@ public class KeyguardSliceProvider extends SliceProvider implements
     protected final Uri mMediaUri;
     private final Date mCurrentTime = new Date();
     private final Handler mHandler;
+    private final Handler mMediaHandler;
     private final AlarmManager.OnAlarmListener mUpdateNextAlarm = this::updateNextAlarm;
-    private final HashSet<Integer> mMediaInvisibleStates;
-    private final Object mMediaToken = new Object();
+    @Inject
+    public DozeParameters mDozeParameters;
     @VisibleForTesting
     protected SettableWakeLock mMediaWakeLock;
-    @VisibleForTesting
-    protected ZenModeController mZenModeController;
+    @Inject
+    public ZenModeController mZenModeController;
     private String mDatePattern;
     private DateFormat mDateFormat;
     private String mLastText;
     private boolean mRegistered;
     private String mNextAlarm;
-    private NextAlarmController mNextAlarmController;
-    @VisibleForTesting
-    protected AlarmManager mAlarmManager;
-    @VisibleForTesting
-    protected ContentResolver mContentResolver;
+    @Inject
+    public NextAlarmController mNextAlarmController;
+    @Inject
+    public AlarmManager mAlarmManager;
+    @Inject
+    public ContentResolver mContentResolver;
     private AlarmManager.AlarmClockInfo mNextAlarmInfo;
     private PendingIntent mPendingIntent;
-    protected NotificationMediaManager mMediaManager;
-    private StatusBarStateController mStatusBarStateController;
+    @Inject
+    public NotificationMediaManager mMediaManager;
+    @Inject
+    public StatusBarStateController mStatusBarStateController;
+    @Inject
+    public KeyguardBypassController mKeyguardBypassController;
     private CharSequence mMediaTitle;
     private CharSequence mMediaArtist;
     protected boolean mDozing;
     private int mStatusBarState;
     private boolean mMediaIsVisible;
+    private SystemUIAppComponentFactory.ContextAvailableCallback mContextAvailableCallback;
 
     /**
      * Receiver responsible for time ticking and updating the date format.
@@ -167,44 +180,19 @@ public class KeyguardSliceProvider extends SliceProvider implements
                 }
             };
 
-    public KeyguardSliceProvider() {
-        this(new Handler());
-    }
-
     public static KeyguardSliceProvider getAttachedInstance() {
         return KeyguardSliceProvider.sInstance;
     }
 
-    @VisibleForTesting
-    KeyguardSliceProvider(Handler handler) {
-        mHandler = handler;
+    public KeyguardSliceProvider() {
+        mHandler = new Handler();
+        mMediaHandler = new Handler();
         mSliceUri = Uri.parse(KEYGUARD_SLICE_URI);
         mHeaderUri = Uri.parse(KEYGUARD_HEADER_URI);
         mDateUri = Uri.parse(KEYGUARD_DATE_URI);
         mAlarmUri = Uri.parse(KEYGUARD_NEXT_ALARM_URI);
         mDndUri = Uri.parse(KEYGUARD_DND_URI);
         mMediaUri = Uri.parse(KEYGUARD_MEDIA_URI);
-
-        mMediaInvisibleStates = new HashSet<>();
-        mMediaInvisibleStates.add(PlaybackState.STATE_NONE);
-        mMediaInvisibleStates.add(PlaybackState.STATE_STOPPED);
-        mMediaInvisibleStates.add(PlaybackState.STATE_PAUSED);
-    }
-
-    /**
-     * Initialize dependencies that don't exist during {@link android.content.ContentProvider}
-     * instantiation.
-     *
-     * @param mediaManager {@link NotificationMediaManager} singleton.
-     * @param statusBarStateController {@link StatusBarStateController} singleton.
-     */
-    public void initDependencies(
-            NotificationMediaManager mediaManager,
-            StatusBarStateController statusBarStateController) {
-        mMediaManager = mediaManager;
-        mMediaManager.addCallback(this);
-        mStatusBarStateController = statusBarStateController;
-        mStatusBarStateController.addCallback(this);
     }
 
     @AnyThread
@@ -229,10 +217,13 @@ public class KeyguardSliceProvider extends SliceProvider implements
     }
 
     protected boolean needsMediaLocked() {
+        boolean keepWhenAwake = mKeyguardBypassController != null
+                && mKeyguardBypassController.getBypassEnabled() && mDozeParameters.getAlwaysOn();
         // Show header if music is playing and the status bar is in the shade state. This way, an
         // animation isn't necessary when pressing power and transitioning to AOD.
         boolean keepWhenShade = mStatusBarState == StatusBarState.SHADE && mMediaIsVisible;
-        return !TextUtils.isEmpty(mMediaTitle) && mMediaIsVisible && (mDozing || keepWhenShade);
+        return !TextUtils.isEmpty(mMediaTitle) && mMediaIsVisible && (mDozing || keepWhenAwake
+                || keepWhenShade);
     }
 
     protected void addMediaLocked(ListBuilder listBuilder) {
@@ -306,22 +297,20 @@ public class KeyguardSliceProvider extends SliceProvider implements
 
     @Override
     public boolean onCreateSliceProvider() {
-        synchronized (this) {
+        mContextAvailableCallback.onContextAvailable(getContext());
+        inject();
+        synchronized (KeyguardSliceProvider.sInstanceLock) {
             KeyguardSliceProvider oldInstance = KeyguardSliceProvider.sInstance;
             if (oldInstance != null) {
                 oldInstance.onDestroy();
             }
-
-            mAlarmManager = getContext().getSystemService(AlarmManager.class);
-            mContentResolver = getContext().getContentResolver();
-            mNextAlarmController = new NextAlarmControllerImpl(getContext());
-            mNextAlarmController.addCallback(this);
-            mZenModeController = new ZenModeControllerImpl(getContext(), mHandler);
-            mZenModeController.addCallback(this);
             mDatePattern = getContext().getString(R.string.system_ui_aod_date_pattern);
-            mPendingIntent = PendingIntent.getActivity(getContext(), 0, new Intent(), 0);
-            mMediaWakeLock = new SettableWakeLock(WakeLock.createPartial(getContext(), "media"),
-                    "media");
+            mPendingIntent = PendingIntent.getActivity(getContext(), 0,
+                    new Intent(getContext(), KeyguardSliceProvider.class), 0);
+            mMediaManager.addCallback(this);
+            mStatusBarStateController.addCallback(this);
+            mNextAlarmController.addCallback(this);
+            mZenModeController.addCallback(this);
             KeyguardSliceProvider.sInstance = this;
             registerClockUpdate();
             updateClockLocked();
@@ -330,8 +319,15 @@ public class KeyguardSliceProvider extends SliceProvider implements
     }
 
     @VisibleForTesting
+    protected void inject() {
+        SystemUIFactory.getInstance().getRootComponent().inject(this);
+        mMediaWakeLock = new SettableWakeLock(WakeLock.createPartial(getContext(), "media"),
+                "media");
+    }
+
+    @VisibleForTesting
     protected void onDestroy() {
-        synchronized (this) {
+        synchronized (KeyguardSliceProvider.sInstanceLock) {
             mNextAlarmController.removeCallback(this);
             mZenModeController.removeCallback(this);
             mMediaWakeLock.setAcquired(false);
@@ -341,6 +337,7 @@ public class KeyguardSliceProvider extends SliceProvider implements
                 getKeyguardUpdateMonitor().removeCallback(mKeyguardUpdateMonitorCallback);
                 getContext().unregisterReceiver(mIntentReceiver);
             }
+            KeyguardSliceProvider.sInstance = null;
         }
     }
 
@@ -445,9 +442,8 @@ public class KeyguardSliceProvider extends SliceProvider implements
         updateNextAlarm();
     }
 
-    @VisibleForTesting
-    protected KeyguardUpdateMonitor getKeyguardUpdateMonitor() {
-        return KeyguardUpdateMonitor.getInstance(getContext());
+    private KeyguardUpdateMonitor getKeyguardUpdateMonitor() {
+        return Dependency.get(KeyguardUpdateMonitor.class);
     }
 
     /**
@@ -455,19 +451,22 @@ public class KeyguardSliceProvider extends SliceProvider implements
      * @param metadata New metadata.
      */
     @Override
-    public void onMetadataOrStateChanged(MediaMetadata metadata, @PlaybackState.State int state) {
+    public void onPrimaryMetadataOrStateChanged(MediaMetadata metadata,
+            @PlaybackState.State int state) {
         synchronized (this) {
-            boolean nextVisible = !mMediaInvisibleStates.contains(state);
-            mHandler.removeCallbacksAndMessages(mMediaToken);
+            boolean nextVisible = NotificationMediaManager.isPlayingState(state);
+            mMediaHandler.removeCallbacksAndMessages(null);
             if (mMediaIsVisible && !nextVisible && mStatusBarState != StatusBarState.SHADE) {
                 // We need to delay this event for a few millis when stopping to avoid jank in the
                 // animation. The media app might not send its update when buffering, and the slice
                 // would end up without a header for 0.5 second.
                 mMediaWakeLock.setAcquired(true);
-                mHandler.postDelayed(() -> {
-                    updateMediaStateLocked(metadata, state);
-                    mMediaWakeLock.setAcquired(false);
-                }, mMediaToken, 2000);
+                mMediaHandler.postDelayed(() -> {
+                    synchronized (this) {
+                        updateMediaStateLocked(metadata, state);
+                        mMediaWakeLock.setAcquired(false);
+                    }
+                }, 2000);
             } else {
                 mMediaWakeLock.setAcquired(false);
                 updateMediaStateLocked(metadata, state);
@@ -476,7 +475,7 @@ public class KeyguardSliceProvider extends SliceProvider implements
     }
 
     private void updateMediaStateLocked(MediaMetadata metadata, @PlaybackState.State int state) {
-        boolean nextVisible = !mMediaInvisibleStates.contains(state);
+        boolean nextVisible = NotificationMediaManager.isPlayingState(state);
         CharSequence title = null;
         if (metadata != null) {
             title = metadata.getText(MediaMetadata.METADATA_KEY_TITLE);
@@ -525,5 +524,11 @@ public class KeyguardSliceProvider extends SliceProvider implements
         if (notify) {
             notifyChange();
         }
+    }
+
+    @Override
+    public void setContextAvailableCallback(
+            SystemUIAppComponentFactory.ContextAvailableCallback callback) {
+        mContextAvailableCallback = callback;
     }
 }

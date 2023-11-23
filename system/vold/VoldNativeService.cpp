@@ -17,20 +17,6 @@
 #define ATRACE_TAG ATRACE_TAG_PACKAGE_MANAGER
 
 #include "VoldNativeService.h"
-#include "Benchmark.h"
-#include "CheckEncryption.h"
-#include "IdleMaint.h"
-#include "MoveStorage.h"
-#include "Process.h"
-#include "VolumeManager.h"
-
-#include "Checkpoint.h"
-#include "FsCrypt.h"
-#include "MetadataCrypt.h"
-#include "cryptfs.h"
-
-#include <fstream>
-#include <thread>
 
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
@@ -40,8 +26,26 @@
 #include <private/android_filesystem_config.h>
 #include <utils/Trace.h>
 
+#include <fstream>
+#include <thread>
+
+#include "Benchmark.h"
+#include "CheckEncryption.h"
+#include "Checkpoint.h"
+#include "FsCrypt.h"
+#include "IdleMaint.h"
+#include "MetadataCrypt.h"
+#include "MoveStorage.h"
+#include "Process.h"
+#include "VoldNativeServiceValidation.h"
+#include "VoldUtil.h"
+#include "VolumeManager.h"
+#include "cryptfs.h"
+#include "incfs.h"
+
 using android::base::StringPrintf;
 using std::endl;
+using namespace std::literals;
 
 namespace android {
 namespace vold {
@@ -49,14 +53,6 @@ namespace vold {
 namespace {
 
 constexpr const char* kDump = "android.permission.DUMP";
-
-static binder::Status ok() {
-    return binder::Status::ok();
-}
-
-static binder::Status exception(uint32_t code, const std::string& msg) {
-    return binder::Status::fromExceptionCode(code, String8(msg.c_str()));
-}
 
 static binder::Status error(const std::string& msg) {
     PLOG(ERROR) << msg;
@@ -79,85 +75,17 @@ static binder::Status translateBool(bool status) {
     }
 }
 
-binder::Status checkPermission(const char* permission) {
-    pid_t pid;
-    uid_t uid;
-
-    if (checkCallingPermission(String16(permission), reinterpret_cast<int32_t*>(&pid),
-                               reinterpret_cast<int32_t*>(&uid))) {
-        return ok();
-    } else {
-        return exception(binder::Status::EX_SECURITY,
-                         StringPrintf("UID %d / PID %d lacks permission %s", uid, pid, permission));
-    }
-}
-
-binder::Status checkUid(uid_t expectedUid) {
-    uid_t uid = IPCThreadState::self()->getCallingUid();
-    if (uid == expectedUid || uid == AID_ROOT) {
-        return ok();
-    } else {
-        return exception(binder::Status::EX_SECURITY,
-                         StringPrintf("UID %d is not expected UID %d", uid, expectedUid));
-    }
-}
-
-binder::Status checkArgumentId(const std::string& id) {
-    if (id.empty()) {
-        return exception(binder::Status::EX_ILLEGAL_ARGUMENT, "Missing ID");
-    }
-    for (const char& c : id) {
-        if (!std::isalnum(c) && c != ':' && c != ',') {
-            return exception(binder::Status::EX_ILLEGAL_ARGUMENT,
-                             StringPrintf("ID %s is malformed", id.c_str()));
-        }
-    }
-    return ok();
-}
-
-binder::Status checkArgumentPath(const std::string& path) {
-    if (path.empty()) {
-        return exception(binder::Status::EX_ILLEGAL_ARGUMENT, "Missing path");
-    }
-    if (path[0] != '/') {
-        return exception(binder::Status::EX_ILLEGAL_ARGUMENT,
-                         StringPrintf("Path %s is relative", path.c_str()));
-    }
-    if ((path + '/').find("/../") != std::string::npos) {
-        return exception(binder::Status::EX_ILLEGAL_ARGUMENT,
-                         StringPrintf("Path %s is shady", path.c_str()));
-    }
-    for (const char& c : path) {
-        if (c == '\0' || c == '\n') {
-            return exception(binder::Status::EX_ILLEGAL_ARGUMENT,
-                             StringPrintf("Path %s is malformed", path.c_str()));
-        }
-    }
-    return ok();
-}
-
-binder::Status checkArgumentHex(const std::string& hex) {
-    // Empty hex strings are allowed
-    for (const char& c : hex) {
-        if (!std::isxdigit(c) && c != ':' && c != '-') {
-            return exception(binder::Status::EX_ILLEGAL_ARGUMENT,
-                             StringPrintf("Hex %s is malformed", hex.c_str()));
-        }
-    }
-    return ok();
-}
-
-#define ENFORCE_UID(uid)                         \
-    {                                            \
-        binder::Status status = checkUid((uid)); \
-        if (!status.isOk()) {                    \
-            return status;                       \
-        }                                        \
+#define ENFORCE_SYSTEM_OR_ROOT                              \
+    {                                                       \
+        binder::Status status = CheckUidOrRoot(AID_SYSTEM); \
+        if (!status.isOk()) {                               \
+            return status;                                  \
+        }                                                   \
     }
 
 #define CHECK_ARGUMENT_ID(id)                          \
     {                                                  \
-        binder::Status status = checkArgumentId((id)); \
+        binder::Status status = CheckArgumentId((id)); \
         if (!status.isOk()) {                          \
             return status;                             \
         }                                              \
@@ -165,7 +93,7 @@ binder::Status checkArgumentHex(const std::string& hex) {
 
 #define CHECK_ARGUMENT_PATH(path)                          \
     {                                                      \
-        binder::Status status = checkArgumentPath((path)); \
+        binder::Status status = CheckArgumentPath((path)); \
         if (!status.isOk()) {                              \
             return status;                                 \
         }                                                  \
@@ -173,7 +101,7 @@ binder::Status checkArgumentHex(const std::string& hex) {
 
 #define CHECK_ARGUMENT_HEX(hex)                          \
     {                                                    \
-        binder::Status status = checkArgumentHex((hex)); \
+        binder::Status status = CheckArgumentHex((hex)); \
         if (!status.isOk()) {                            \
             return status;                               \
         }                                                \
@@ -203,7 +131,7 @@ status_t VoldNativeService::start() {
 
 status_t VoldNativeService::dump(int fd, const Vector<String16>& /* args */) {
     auto out = std::fstream(StringPrintf("/proc/self/fd/%d", fd));
-    const binder::Status dump_permission = checkPermission(kDump);
+    const binder::Status dump_permission = CheckPermission(kDump);
     if (!dump_permission.isOk()) {
         out << dump_permission.toString8() << endl;
         return PERMISSION_DENIED;
@@ -211,66 +139,72 @@ status_t VoldNativeService::dump(int fd, const Vector<String16>& /* args */) {
 
     ACQUIRE_LOCK;
     out << "vold is happy!" << endl;
-    out.flush();
     return NO_ERROR;
 }
 
 binder::Status VoldNativeService::setListener(
-    const android::sp<android::os::IVoldListener>& listener) {
-    ENFORCE_UID(AID_SYSTEM);
+        const android::sp<android::os::IVoldListener>& listener) {
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     VolumeManager::Instance()->setListener(listener);
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::monitor() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
 
     // Simply acquire/release each lock for watchdog
     { ACQUIRE_LOCK; }
     { ACQUIRE_CRYPT_LOCK; }
 
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::reset() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->reset());
 }
 
 binder::Status VoldNativeService::shutdown() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->shutdown());
 }
 
+binder::Status VoldNativeService::abortFuse() {
+    ENFORCE_SYSTEM_OR_ROOT;
+    ACQUIRE_LOCK;
+
+    return translate(VolumeManager::Instance()->abortFuse());
+}
+
 binder::Status VoldNativeService::onUserAdded(int32_t userId, int32_t userSerial) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->onUserAdded(userId, userSerial));
 }
 
 binder::Status VoldNativeService::onUserRemoved(int32_t userId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->onUserRemoved(userId));
 }
 
 binder::Status VoldNativeService::onUserStarted(int32_t userId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->onUserStarted(userId));
 }
 
 binder::Status VoldNativeService::onUserStopped(int32_t userId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->onUserStopped(userId));
@@ -278,16 +212,16 @@ binder::Status VoldNativeService::onUserStopped(int32_t userId) {
 
 binder::Status VoldNativeService::addAppIds(const std::vector<std::string>& packageNames,
                                             const std::vector<int32_t>& appIds) {
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::addSandboxIds(const std::vector<int32_t>& appIds,
                                                 const std::vector<std::string>& sandboxIds) {
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::onSecureKeyguardStateChanged(bool isShowing) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->onSecureKeyguardStateChanged(isShowing));
@@ -295,7 +229,7 @@ binder::Status VoldNativeService::onSecureKeyguardStateChanged(bool isShowing) {
 
 binder::Status VoldNativeService::partition(const std::string& diskId, int32_t partitionType,
                                             int32_t ratio) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(diskId);
     ACQUIRE_LOCK;
 
@@ -317,7 +251,7 @@ binder::Status VoldNativeService::partition(const std::string& diskId, int32_t p
 
 binder::Status VoldNativeService::forgetPartition(const std::string& partGuid,
                                                   const std::string& fsUuid) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_HEX(partGuid);
     CHECK_ARGUMENT_HEX(fsUuid);
     ACQUIRE_LOCK;
@@ -325,9 +259,10 @@ binder::Status VoldNativeService::forgetPartition(const std::string& partGuid,
     return translate(VolumeManager::Instance()->forgetPartition(partGuid, fsUuid));
 }
 
-binder::Status VoldNativeService::mount(const std::string& volId, int32_t mountFlags,
-                                        int32_t mountUserId) {
-    ENFORCE_UID(AID_SYSTEM);
+binder::Status VoldNativeService::mount(
+        const std::string& volId, int32_t mountFlags, int32_t mountUserId,
+        const android::sp<android::os::IVoldMountCallback>& callback) {
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(volId);
     ACQUIRE_LOCK;
 
@@ -339,10 +274,14 @@ binder::Status VoldNativeService::mount(const std::string& volId, int32_t mountF
     vol->setMountFlags(mountFlags);
     vol->setMountUserId(mountUserId);
 
+    vol->setMountCallback(callback);
     int res = vol->mount();
+    vol->setMountCallback(nullptr);
+
     if (res != OK) {
         return translate(res);
     }
+
     if ((mountFlags & MOUNT_FLAG_PRIMARY) != 0) {
         res = VolumeManager::Instance()->setPrimary(vol);
         if (res != OK) {
@@ -353,7 +292,7 @@ binder::Status VoldNativeService::mount(const std::string& volId, int32_t mountF
 }
 
 binder::Status VoldNativeService::unmount(const std::string& volId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(volId);
     ACQUIRE_LOCK;
 
@@ -365,7 +304,7 @@ binder::Status VoldNativeService::unmount(const std::string& volId) {
 }
 
 binder::Status VoldNativeService::format(const std::string& volId, const std::string& fsType) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(volId);
     ACQUIRE_LOCK;
 
@@ -395,12 +334,12 @@ static binder::Status pathForVolId(const std::string& volId, std::string* path) 
             return error("Volume " + volId + " missing path");
         }
     }
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::benchmark(
-    const std::string& volId, const android::sp<android::os::IVoldTaskListener>& listener) {
-    ENFORCE_UID(AID_SYSTEM);
+        const std::string& volId, const android::sp<android::os::IVoldTaskListener>& listener) {
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(volId);
     ACQUIRE_LOCK;
 
@@ -409,11 +348,11 @@ binder::Status VoldNativeService::benchmark(
     if (!status.isOk()) return status;
 
     std::thread([=]() { android::vold::Benchmark(path, listener); }).detach();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::checkEncryption(const std::string& volId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(volId);
     ACQUIRE_LOCK;
 
@@ -424,9 +363,9 @@ binder::Status VoldNativeService::checkEncryption(const std::string& volId) {
 }
 
 binder::Status VoldNativeService::moveStorage(
-    const std::string& fromVolId, const std::string& toVolId,
-    const android::sp<android::os::IVoldTaskListener>& listener) {
-    ENFORCE_UID(AID_SYSTEM);
+        const std::string& fromVolId, const std::string& toVolId,
+        const android::sp<android::os::IVoldTaskListener>& listener) {
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(fromVolId);
     CHECK_ARGUMENT_ID(toVolId);
     ACQUIRE_LOCK;
@@ -440,48 +379,67 @@ binder::Status VoldNativeService::moveStorage(
     }
 
     std::thread([=]() { android::vold::MoveStorage(fromVol, toVol, listener); }).detach();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::remountUid(int32_t uid, int32_t remountMode) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->remountUid(uid, remountMode));
 }
 
-binder::Status VoldNativeService::mkdirs(const std::string& path) {
-    ENFORCE_UID(AID_SYSTEM);
+binder::Status VoldNativeService::remountAppStorageDirs(int uid, int pid,
+        const std::vector<std::string>& packageNames) {
+    ENFORCE_SYSTEM_OR_ROOT;
+    ACQUIRE_LOCK;
+
+    return translate(VolumeManager::Instance()->remountAppStorageDirs(uid, pid, packageNames));
+}
+
+binder::Status VoldNativeService::setupAppDir(const std::string& path, int32_t appUid) {
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_PATH(path);
     ACQUIRE_LOCK;
 
-    return translate(VolumeManager::Instance()->mkdirs(path));
+    return translate(VolumeManager::Instance()->setupAppDir(path, appUid));
+}
+
+binder::Status VoldNativeService::fixupAppDir(const std::string& path, int32_t appUid) {
+    ENFORCE_SYSTEM_OR_ROOT;
+    CHECK_ARGUMENT_PATH(path);
+    ACQUIRE_LOCK;
+
+    return translate(VolumeManager::Instance()->fixupAppDir(path, appUid));
 }
 
 binder::Status VoldNativeService::createObb(const std::string& sourcePath,
                                             const std::string& sourceKey, int32_t ownerGid,
                                             std::string* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_PATH(sourcePath);
     CHECK_ARGUMENT_HEX(sourceKey);
     ACQUIRE_LOCK;
 
     return translate(
-        VolumeManager::Instance()->createObb(sourcePath, sourceKey, ownerGid, _aidl_return));
+            VolumeManager::Instance()->createObb(sourcePath, sourceKey, ownerGid, _aidl_return));
 }
 
 binder::Status VoldNativeService::destroyObb(const std::string& volId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(volId);
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->destroyObb(volId));
 }
 
-binder::Status VoldNativeService::createStubVolume(
-    const std::string& sourcePath, const std::string& mountPath, const std::string& fsType,
-    const std::string& fsUuid, const std::string& fsLabel, std::string* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+binder::Status VoldNativeService::createStubVolume(const std::string& sourcePath,
+                                                   const std::string& mountPath,
+                                                   const std::string& fsType,
+                                                   const std::string& fsUuid,
+                                                   const std::string& fsLabel, int32_t flags,
+                                                   std::string* _aidl_return) {
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_PATH(sourcePath);
     CHECK_ARGUMENT_PATH(mountPath);
     CHECK_ARGUMENT_HEX(fsUuid);
@@ -489,12 +447,12 @@ binder::Status VoldNativeService::createStubVolume(
     // is quite meaningless.
     ACQUIRE_LOCK;
 
-    return translate(VolumeManager::Instance()->createStubVolume(sourcePath, mountPath, fsType,
-                                                                 fsUuid, fsLabel, _aidl_return));
+    return translate(VolumeManager::Instance()->createStubVolume(
+            sourcePath, mountPath, fsType, fsUuid, fsLabel, flags, _aidl_return));
 }
 
 binder::Status VoldNativeService::destroyStubVolume(const std::string& volId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_ID(volId);
     ACQUIRE_LOCK;
 
@@ -502,42 +460,42 @@ binder::Status VoldNativeService::destroyStubVolume(const std::string& volId) {
 }
 
 binder::Status VoldNativeService::fstrim(
-    int32_t fstrimFlags, const android::sp<android::os::IVoldTaskListener>& listener) {
-    ENFORCE_UID(AID_SYSTEM);
+        int32_t fstrimFlags, const android::sp<android::os::IVoldTaskListener>& listener) {
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     std::thread([=]() { android::vold::Trim(listener); }).detach();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::runIdleMaint(
-    const android::sp<android::os::IVoldTaskListener>& listener) {
-    ENFORCE_UID(AID_SYSTEM);
+        const android::sp<android::os::IVoldTaskListener>& listener) {
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     std::thread([=]() { android::vold::RunIdleMaint(listener); }).detach();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::abortIdleMaint(
-    const android::sp<android::os::IVoldTaskListener>& listener) {
-    ENFORCE_UID(AID_SYSTEM);
+        const android::sp<android::os::IVoldTaskListener>& listener) {
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     std::thread([=]() { android::vold::AbortIdleMaint(listener); }).detach();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::mountAppFuse(int32_t uid, int32_t mountId,
                                                android::base::unique_fd* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->mountAppFuse(uid, mountId, _aidl_return));
 }
 
 binder::Status VoldNativeService::unmountAppFuse(int32_t uid, int32_t mountId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translate(VolumeManager::Instance()->unmountAppFuse(uid, mountId));
@@ -546,7 +504,7 @@ binder::Status VoldNativeService::unmountAppFuse(int32_t uid, int32_t mountId) {
 binder::Status VoldNativeService::openAppFuseFile(int32_t uid, int32_t mountId, int32_t fileId,
                                                   int32_t flags,
                                                   android::base::unique_fd* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     int fd = VolumeManager::Instance()->openAppFuseFile(uid, mountId, fileId, flags);
@@ -557,32 +515,32 @@ binder::Status VoldNativeService::openAppFuseFile(int32_t uid, int32_t mountId, 
     }
 
     *_aidl_return = android::base::unique_fd(fd);
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::fdeCheckPassword(const std::string& password) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translate(cryptfs_check_passwd(password.c_str()));
 }
 
 binder::Status VoldNativeService::fdeRestart() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     // Spawn as thread so init can issue commands back to vold without
     // causing deadlock, usually as a result of prep_data_fs.
     std::thread(&cryptfs_restart).detach();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::fdeComplete(int32_t* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     *_aidl_return = cryptfs_crypto_complete();
-    return ok();
+    return Ok();
 }
 
 static int fdeEnableInternal(int32_t passwordType, const std::string& password,
@@ -609,7 +567,7 @@ static int fdeEnableInternal(int32_t passwordType, const std::string& password,
 
 binder::Status VoldNativeService::fdeEnable(int32_t passwordType, const std::string& password,
                                             int32_t encryptionFlags) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     LOG(DEBUG) << "fdeEnable(" << passwordType << ", *, " << encryptionFlags << ")";
@@ -622,26 +580,26 @@ binder::Status VoldNativeService::fdeEnable(int32_t passwordType, const std::str
     // Spawn as thread so init can issue commands back to vold without
     // causing deadlock, usually as a result of prep_data_fs.
     std::thread(&fdeEnableInternal, passwordType, password, encryptionFlags).detach();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::fdeChangePassword(int32_t passwordType,
                                                     const std::string& password) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translate(cryptfs_changepw(passwordType, password.c_str()));
 }
 
 binder::Status VoldNativeService::fdeVerifyPassword(const std::string& password) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translate(cryptfs_verify_passwd(password.c_str()));
 }
 
 binder::Status VoldNativeService::fdeGetField(const std::string& key, std::string* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     char buf[PROPERTY_VALUE_MAX];
@@ -649,53 +607,53 @@ binder::Status VoldNativeService::fdeGetField(const std::string& key, std::strin
         return error(StringPrintf("Failed to read field %s", key.c_str()));
     } else {
         *_aidl_return = buf;
-        return ok();
+        return Ok();
     }
 }
 
 binder::Status VoldNativeService::fdeSetField(const std::string& key, const std::string& value) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translate(cryptfs_setfield(key.c_str(), value.c_str()));
 }
 
 binder::Status VoldNativeService::fdeGetPasswordType(int32_t* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     *_aidl_return = cryptfs_get_password_type();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::fdeGetPassword(std::string* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     const char* res = cryptfs_get_password();
     if (res != nullptr) {
         *_aidl_return = res;
     }
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::fdeClearPassword() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     cryptfs_clear_password();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::fbeEnable() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
-    return translateBool(fscrypt_initialize_global_de());
+    return translateBool(fscrypt_initialize_systemwide_keys());
 }
 
 binder::Status VoldNativeService::mountDefaultEncrypted() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     if (!fscrypt_is_native()) {
@@ -703,27 +661,27 @@ binder::Status VoldNativeService::mountDefaultEncrypted() {
         // causing deadlock, usually as a result of prep_data_fs.
         std::thread(&cryptfs_mount_default_encrypted).detach();
     }
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::initUser0() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translateBool(fscrypt_init_user0());
 }
 
 binder::Status VoldNativeService::isConvertibleToFbe(bool* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     *_aidl_return = cryptfs_isConvertibleToFBE() != 0;
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::mountFstab(const std::string& blkDevice,
                                              const std::string& mountPoint) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translateBool(fscrypt_mount_metadata_encrypted(blkDevice, mountPoint, false));
@@ -731,21 +689,22 @@ binder::Status VoldNativeService::mountFstab(const std::string& blkDevice,
 
 binder::Status VoldNativeService::encryptFstab(const std::string& blkDevice,
                                                const std::string& mountPoint) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return translateBool(fscrypt_mount_metadata_encrypted(blkDevice, mountPoint, true));
 }
 
-binder::Status VoldNativeService::createUserKey(int32_t userId, int32_t userSerial, bool ephemeral) {
-    ENFORCE_UID(AID_SYSTEM);
+binder::Status VoldNativeService::createUserKey(int32_t userId, int32_t userSerial,
+                                                bool ephemeral) {
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translateBool(fscrypt_vold_create_user_key(userId, userSerial, ephemeral));
 }
 
 binder::Status VoldNativeService::destroyUserKey(int32_t userId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translateBool(fscrypt_destroy_user_key(userId));
@@ -754,14 +713,23 @@ binder::Status VoldNativeService::destroyUserKey(int32_t userId) {
 binder::Status VoldNativeService::addUserKeyAuth(int32_t userId, int32_t userSerial,
                                                  const std::string& token,
                                                  const std::string& secret) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translateBool(fscrypt_add_user_key_auth(userId, userSerial, token, secret));
 }
 
+binder::Status VoldNativeService::clearUserKeyAuth(int32_t userId, int32_t userSerial,
+                                                   const std::string& token,
+                                                   const std::string& secret) {
+    ENFORCE_SYSTEM_OR_ROOT;
+    ACQUIRE_CRYPT_LOCK;
+
+    return translateBool(fscrypt_clear_user_key_auth(userId, userSerial, token, secret));
+}
+
 binder::Status VoldNativeService::fixateNewestUserKeyAuth(int32_t userId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translateBool(fscrypt_fixate_newest_user_key_auth(userId));
@@ -770,14 +738,14 @@ binder::Status VoldNativeService::fixateNewestUserKeyAuth(int32_t userId) {
 binder::Status VoldNativeService::unlockUserKey(int32_t userId, int32_t userSerial,
                                                 const std::string& token,
                                                 const std::string& secret) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translateBool(fscrypt_unlock_user_key(userId, userSerial, token, secret));
 }
 
 binder::Status VoldNativeService::lockUserKey(int32_t userId) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_CRYPT_LOCK;
 
     return translateBool(fscrypt_lock_user_key(userId));
@@ -786,7 +754,7 @@ binder::Status VoldNativeService::lockUserKey(int32_t userId) {
 binder::Status VoldNativeService::prepareUserStorage(const std::unique_ptr<std::string>& uuid,
                                                      int32_t userId, int32_t userSerial,
                                                      int32_t flags) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     std::string empty_string = "";
     auto uuid_ = uuid ? *uuid : empty_string;
     CHECK_ARGUMENT_HEX(uuid_);
@@ -797,7 +765,7 @@ binder::Status VoldNativeService::prepareUserStorage(const std::unique_ptr<std::
 
 binder::Status VoldNativeService::destroyUserStorage(const std::unique_ptr<std::string>& uuid,
                                                      int32_t userId, int32_t flags) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     std::string empty_string = "";
     auto uuid_ = uuid ? *uuid : empty_string;
     CHECK_ARGUMENT_HEX(uuid_);
@@ -809,54 +777,62 @@ binder::Status VoldNativeService::destroyUserStorage(const std::unique_ptr<std::
 binder::Status VoldNativeService::prepareSandboxForApp(const std::string& packageName,
                                                        int32_t appId, const std::string& sandboxId,
                                                        int32_t userId) {
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::destroySandboxForApp(const std::string& packageName,
                                                        const std::string& sandboxId,
                                                        int32_t userId) {
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::startCheckpoint(int32_t retry) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return cp_startCheckpoint(retry);
 }
 
 binder::Status VoldNativeService::needsRollback(bool* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     *_aidl_return = cp_needsRollback();
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::needsCheckpoint(bool* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     *_aidl_return = cp_needsCheckpoint();
-    return ok();
+    return Ok();
+}
+
+binder::Status VoldNativeService::isCheckpointing(bool* _aidl_return) {
+    ENFORCE_SYSTEM_OR_ROOT;
+    ACQUIRE_LOCK;
+
+    *_aidl_return = cp_isCheckpointing();
+    return Ok();
 }
 
 binder::Status VoldNativeService::commitChanges() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return cp_commitChanges();
 }
 
 binder::Status VoldNativeService::prepareCheckpoint() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return cp_prepareCheckpoint();
 }
 
 binder::Status VoldNativeService::restoreCheckpoint(const std::string& mountPoint) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_PATH(mountPoint);
     ACQUIRE_LOCK;
 
@@ -864,7 +840,7 @@ binder::Status VoldNativeService::restoreCheckpoint(const std::string& mountPoin
 }
 
 binder::Status VoldNativeService::restoreCheckpointPart(const std::string& mountPoint, int count) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     CHECK_ARGUMENT_PATH(mountPoint);
     ACQUIRE_LOCK;
 
@@ -872,39 +848,118 @@ binder::Status VoldNativeService::restoreCheckpointPart(const std::string& mount
 }
 
 binder::Status VoldNativeService::markBootAttempt() {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return cp_markBootAttempt();
 }
 
 binder::Status VoldNativeService::abortChanges(const std::string& message, bool retry) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     cp_abortChanges(message, retry);
-    return ok();
+    return Ok();
 }
 
 binder::Status VoldNativeService::supportsCheckpoint(bool* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return cp_supportsCheckpoint(*_aidl_return);
 }
 
 binder::Status VoldNativeService::supportsBlockCheckpoint(bool* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return cp_supportsBlockCheckpoint(*_aidl_return);
 }
 
 binder::Status VoldNativeService::supportsFileCheckpoint(bool* _aidl_return) {
-    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_SYSTEM_OR_ROOT;
     ACQUIRE_LOCK;
 
     return cp_supportsFileCheckpoint(*_aidl_return);
+}
+
+binder::Status VoldNativeService::resetCheckpoint() {
+    ENFORCE_SYSTEM_OR_ROOT;
+    ACQUIRE_LOCK;
+
+    cp_resetCheckpoint();
+    return Ok();
+}
+
+binder::Status VoldNativeService::incFsEnabled(bool* _aidl_return) {
+    ENFORCE_SYSTEM_OR_ROOT;
+
+    *_aidl_return = incfs::enabled();
+    return Ok();
+}
+
+binder::Status VoldNativeService::mountIncFs(
+        const std::string& backingPath, const std::string& targetDir, int32_t flags,
+        ::android::os::incremental::IncrementalFileSystemControlParcel* _aidl_return) {
+    ENFORCE_SYSTEM_OR_ROOT;
+    CHECK_ARGUMENT_PATH(backingPath);
+    CHECK_ARGUMENT_PATH(targetDir);
+
+    auto control = incfs::mount(backingPath, targetDir,
+                                {.flags = IncFsMountFlags(flags),
+                                 .defaultReadTimeoutMs = INCFS_DEFAULT_READ_TIMEOUT_MS,
+                                 // Mount with read logs disabled.
+                                 .readLogBufferPages = 0});
+    if (!control) {
+        return translate(-errno);
+    }
+    auto fds = control.releaseFds();
+    using android::base::unique_fd;
+    _aidl_return->cmd.reset(unique_fd(fds[CMD].release()));
+    _aidl_return->pendingReads.reset(unique_fd(fds[PENDING_READS].release()));
+    _aidl_return->log.reset(unique_fd(fds[LOGS].release()));
+    return Ok();
+}
+
+binder::Status VoldNativeService::unmountIncFs(const std::string& dir) {
+    ENFORCE_SYSTEM_OR_ROOT;
+    CHECK_ARGUMENT_PATH(dir);
+
+    return translate(incfs::unmount(dir));
+}
+
+binder::Status VoldNativeService::setIncFsMountOptions(
+        const ::android::os::incremental::IncrementalFileSystemControlParcel& control,
+        bool enableReadLogs) {
+    ENFORCE_SYSTEM_OR_ROOT;
+
+    auto incfsControl =
+            incfs::createControl(control.cmd.get(), control.pendingReads.get(), control.log.get());
+    auto cleanupFunc = [](auto incfsControl) {
+        for (auto& fd : incfsControl->releaseFds()) {
+            (void)fd.release();
+        }
+    };
+    auto cleanup =
+            std::unique_ptr<incfs::Control, decltype(cleanupFunc)>(&incfsControl, cleanupFunc);
+    if (auto error = incfs::setOptions(
+                incfsControl,
+                {.defaultReadTimeoutMs = INCFS_DEFAULT_READ_TIMEOUT_MS,
+                 .readLogBufferPages = enableReadLogs ? INCFS_DEFAULT_PAGE_READ_BUFFER_PAGES : 0});
+        error < 0) {
+        return binder::Status::fromServiceSpecificError(error);
+    }
+
+    return Ok();
+}
+
+binder::Status VoldNativeService::bindMount(const std::string& sourceDir,
+                                            const std::string& targetDir) {
+    ENFORCE_SYSTEM_OR_ROOT;
+    CHECK_ARGUMENT_PATH(sourceDir);
+    CHECK_ARGUMENT_PATH(targetDir);
+
+    return translate(incfs::bindMount(sourceDir, targetDir));
 }
 
 }  // namespace vold

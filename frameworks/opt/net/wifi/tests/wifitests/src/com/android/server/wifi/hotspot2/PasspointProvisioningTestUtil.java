@@ -16,7 +16,6 @@
 
 package com.android.server.wifi.hotspot2;
 
-import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.net.wifi.WifiSsid;
 import android.net.wifi.hotspot2.OsuProvider;
@@ -54,7 +53,6 @@ public class PasspointProvisioningTestUtil {
     public static final String TEST_NAI = "test.access.com";
     public static final List<Integer> TEST_METHOD_LIST =
             Arrays.asList(OsuProvider.METHOD_SOAP_XML_SPP);
-    public static final Icon TEST_ICON = Icon.createWithData(new byte[10], 0, 10);
 
     /**
      * Construct a {@link android.net.wifi.hotspot2.OsuProvider}.
@@ -80,11 +78,11 @@ public class PasspointProvisioningTestUtil {
         if (openOsuAP) {
             return new OsuProvider(TEST_SSID, friendlyNames,
                     TEST_SERVICE_DESCRIPTION,
-                    TEST_SERVER_URI, null, TEST_METHOD_LIST, TEST_ICON);
+                    TEST_SERVER_URI, null, TEST_METHOD_LIST);
         } else {
             return new OsuProvider(TEST_SSID, friendlyNames,
                     TEST_SERVICE_DESCRIPTION,
-                    TEST_SERVER_URI, TEST_NAI, TEST_METHOD_LIST, TEST_ICON);
+                    TEST_SERVER_URI, TEST_NAI, TEST_METHOD_LIST);
         }
     }
 
@@ -96,7 +94,7 @@ public class PasspointProvisioningTestUtil {
         HashMap<String, String> friendlyNameMap = new HashMap<>();
         friendlyNameMap.put("en", TEST_FRIENDLY_NAME);
         return new OsuProvider(TEST_SSID, friendlyNameMap,
-                TEST_SERVICE_DESCRIPTION, INVALID_SERVER_URI, null, TEST_METHOD_LIST, TEST_ICON);
+                TEST_SERVICE_DESCRIPTION, INVALID_SERVER_URI, null, TEST_METHOD_LIST);
     }
 
     /**

@@ -315,6 +315,7 @@ public class BleCocServerService extends Service {
                     if (mChatService != null) {
                         mChatService.stop();
                     }
+                    notifyDisconnected();
                     break;
                 default:
                     Log.e(TAG, "Error: Unhandled or invalid action=" + mCurrentAction);

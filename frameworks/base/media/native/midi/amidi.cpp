@@ -26,7 +26,7 @@
 #include <core_jni_helpers.h>
 
 #include "android/media/midi/BpMidiDeviceServer.h"
-#include "media/MidiDeviceInfo.h"
+#include "MidiDeviceInfo.h"
 
 #include "include/amidi/AMidi.h"
 #include "amidi_internal.h"
@@ -122,7 +122,7 @@ static std::mutex openMutex; // Ensure that the device can be connected just onc
  *  - AMEDIA_ERROR_INVALID_PARAMETER
  *  AMEDIA_ERROR_UNKNOWN
  */
-static media_status_t AMIDI_API AMIDI_getDeviceInfo(const AMidiDevice *device,
+static media_status_t AMIDI_getDeviceInfo(const AMidiDevice *device,
         AMidiDeviceInfo *outDeviceInfoPtr) {
     if (device == nullptr) {
         return AMEDIA_ERROR_INVALID_PARAMETER;

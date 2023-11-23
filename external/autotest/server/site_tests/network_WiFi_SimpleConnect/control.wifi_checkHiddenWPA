@@ -42,6 +42,7 @@ def get_configurations():
                                  xmlrpc_security_types.WPAConfig.CIPHER_CCMP],
                     wpa2_ciphers=[xmlrpc_security_types.WPAConfig.CIPHER_CCMP]),
     ]
+    configurations = []
     for wpa_config in wpa_configs:
         ap_config = hostap_config.HostapConfig(
                 hide_ssid=True,
@@ -51,7 +52,7 @@ def get_configurations():
         assoc_params = xmlrpc_datatypes.AssociationParameters(
                 is_hidden=True,
                 security_config=wpa_config)
-        configurations = [(ap_config, assoc_params)]
+        configurations.append((ap_config, assoc_params))
     return configurations
 
 

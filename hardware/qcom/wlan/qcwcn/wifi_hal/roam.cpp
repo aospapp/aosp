@@ -104,7 +104,7 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id,
         goto cleanup;
 
     ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_SUBCMD,
-                          QCA_WLAN_VENDOR_ATTR_ROAM_SUBCMD_SET_BLACKLIST_BSSID);
+                          QCA_WLAN_VENDOR_ROAMING_SUBCMD_SET_BLACKLIST_BSSID);
     if (ret != WIFI_SUCCESS)
         goto cleanup;
 
@@ -189,7 +189,7 @@ wifi_error wifi_set_ssid_white_list(wifi_request_id id, wifi_interface_handle if
     }
 
     ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_SUBCMD,
-                              QCA_WLAN_VENDOR_ATTR_ROAM_SUBCMD_SSID_WHITE_LIST);
+                              QCA_WLAN_VENDOR_ROAMING_SUBCMD_SSID_WHITE_LIST);
     if (ret != WIFI_SUCCESS)
         goto cleanup;
     ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_REQ_ID, id);

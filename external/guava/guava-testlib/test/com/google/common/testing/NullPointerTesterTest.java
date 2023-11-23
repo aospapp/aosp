@@ -37,18 +37,16 @@ import com.google.common.collect.Table;
 import com.google.common.reflect.TypeToken;
 import com.google.common.testing.NullPointerTester.Visibility;
 import com.google.common.testing.anotherpackage.SomeClassThatDoesNotUseNullable;
-
-import junit.framework.AssertionFailedError;
-import junit.framework.TestCase;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
-
-import javax.annotation.Nullable;
+import junit.framework.AssertionFailedError;
+import junit.framework.TestCase;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Unit test for {@link NullPointerTester}.
@@ -64,8 +62,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   /**
-   * Class for testing all permutations of static/non-static one-argument
-   * methods using methodParameter().
+   * Class for testing all permutations of static/non-static one-argument methods using
+   * methodParameter().
    */
   @SuppressWarnings("unused") // used by reflection
   public static class OneArg {
@@ -73,40 +71,80 @@ public class NullPointerTesterTest extends TestCase {
     public static void staticOneArgCorrectlyThrowsNpe(String s) {
       checkNotNull(s); // expect NPE here on null
     }
+
     public static void staticOneArgThrowsOtherThanNpe(String s) {
-      throw new FooException();  // should catch as failure
+      throw new FooException(); // should catch as failure
     }
+
     public static void staticOneArgShouldThrowNpeButDoesnt(String s) {
       // should catch as failure
     }
-    public static void
-    staticOneArgNullableCorrectlyDoesNotThrowNPE(@Nullable String s) {
+
+    public static void staticOneArgCheckForNullCorrectlyDoesNotThrowNPE(
+        @javax.annotation.CheckForNull String s) {
       // null?  no problem
     }
-    public static void
-    staticOneArgNullableCorrectlyThrowsOtherThanNPE(@Nullable String s) {
+
+    public static void staticOneArgJsr305NullableCorrectlyDoesNotThrowNPE(
+        @javax.annotation.Nullable String s) {
+      // null?  no problem
+    }
+
+    public static void staticOneArgNullableCorrectlyDoesNotThrowNPE(@Nullable String s) {
+      // null?  no problem
+    }
+
+    public static void staticOneArgCheckForNullCorrectlyThrowsOtherThanNPE(
+        @javax.annotation.CheckForNull String s) {
       throw new FooException(); // ok, as long as it's not NullPointerException
     }
-    public static void
-    staticOneArgNullableThrowsNPE(@Nullable String s) {
+
+    public static void staticOneArgNullableCorrectlyThrowsOtherThanNPE(@Nullable String s) {
+      throw new FooException(); // ok, as long as it's not NullPointerException
+    }
+
+    public static void staticOneArgCheckForNullThrowsNPE(@javax.annotation.CheckForNull String s) {
+      checkNotNull(s); // doesn't check if you said you'd accept null, but you don't
+    }
+
+    public static void staticOneArgNullableThrowsNPE(@Nullable String s) {
       checkNotNull(s); // doesn't check if you said you'd accept null, but you don't
     }
 
     public void oneArgCorrectlyThrowsNpe(String s) {
       checkNotNull(s); // expect NPE here on null
     }
+
     public void oneArgThrowsOtherThanNpe(String s) {
-      throw new FooException();  // should catch as failure
+      throw new FooException(); // should catch as failure
     }
+
     public void oneArgShouldThrowNpeButDoesnt(String s) {
       // should catch as failure
     }
+
+    public void oneArgCheckForNullCorrectlyDoesNotThrowNPE(
+        @javax.annotation.CheckForNull String s) {
+      // null?  no problem
+    }
+
     public void oneArgNullableCorrectlyDoesNotThrowNPE(@Nullable String s) {
       // null?  no problem
     }
+
+    public void oneArgCheckForNullCorrectlyThrowsOtherThanNPE(
+        @javax.annotation.CheckForNull String s) {
+      throw new FooException(); // ok, as long as it's not NullPointerException
+    }
+
     public void oneArgNullableCorrectlyThrowsOtherThanNPE(@Nullable String s) {
       throw new FooException(); // ok, as long as it's not NullPointerException
     }
+
+    public void oneArgCheckForNullThrowsNPE(@javax.annotation.CheckForNull String s) {
+      checkNotNull(s); // doesn't check if you said you'd accept null, but you don't
+    }
+
     public void oneArgNullableThrowsNPE(@Nullable String s) {
       checkNotNull(s); // doesn't check if you said you'd accept null, but you don't
     }
@@ -114,23 +152,27 @@ public class NullPointerTesterTest extends TestCase {
 
   private static final String[] STATIC_ONE_ARG_METHODS_SHOULD_PASS = {
     "staticOneArgCorrectlyThrowsNpe",
+    "staticOneArgCheckForNullCorrectlyDoesNotThrowNPE",
+    "staticOneArgCheckForNullCorrectlyThrowsOtherThanNPE",
+    "staticOneArgCheckForNullThrowsNPE",
     "staticOneArgNullableCorrectlyDoesNotThrowNPE",
     "staticOneArgNullableCorrectlyThrowsOtherThanNPE",
     "staticOneArgNullableThrowsNPE",
   };
   private static final String[] STATIC_ONE_ARG_METHODS_SHOULD_FAIL = {
-    "staticOneArgThrowsOtherThanNpe",
-    "staticOneArgShouldThrowNpeButDoesnt",
+    "staticOneArgThrowsOtherThanNpe", "staticOneArgShouldThrowNpeButDoesnt",
   };
   private static final String[] NONSTATIC_ONE_ARG_METHODS_SHOULD_PASS = {
     "oneArgCorrectlyThrowsNpe",
+    "oneArgCheckForNullCorrectlyDoesNotThrowNPE",
+    "oneArgCheckForNullCorrectlyThrowsOtherThanNPE",
+    "oneArgCheckForNullThrowsNPE",
     "oneArgNullableCorrectlyDoesNotThrowNPE",
     "oneArgNullableCorrectlyThrowsOtherThanNPE",
     "oneArgNullableThrowsNPE",
   };
   private static final String[] NONSTATIC_ONE_ARG_METHODS_SHOULD_FAIL = {
-    "oneArgThrowsOtherThanNpe",
-    "oneArgShouldThrowNpeButDoesnt",
+    "oneArgThrowsOtherThanNpe", "oneArgShouldThrowNpeButDoesnt",
   };
 
   private static class ThrowsIae {
@@ -155,6 +197,58 @@ public class NullPointerTesterTest extends TestCase {
     public static void christenPoodle(String name) {
       throw new RuntimeException();
     }
+  }
+
+  private interface InterfaceStaticMethodFailsToCheckNull {
+    static String create(String s) {
+      return "I don't check";
+    }
+  }
+
+  private interface InterfaceStaticMethodChecksNull {
+    static String create(String s) {
+      return checkNotNull(s);
+    }
+  }
+
+  private interface InterfaceDefaultMethodFailsToCheckNull {
+    static InterfaceDefaultMethodFailsToCheckNull create() {
+      return new InterfaceDefaultMethodFailsToCheckNull() {};
+    }
+
+    default void doNotCheckNull(String s) {}
+  }
+
+  private interface InterfaceDefaultMethodChecksNull {
+    static InterfaceDefaultMethodChecksNull create() {
+      return new InterfaceDefaultMethodChecksNull() {};
+    }
+
+    default void checksNull(String s) {
+      checkNotNull(s);
+    }
+  }
+
+  public void testInterfaceStaticMethod() {
+    NullPointerTester tester = new NullPointerTester();
+    tester.testAllPublicStaticMethods(InterfaceStaticMethodChecksNull.class);
+    try {
+      tester.testAllPublicStaticMethods(InterfaceStaticMethodFailsToCheckNull.class);
+    } catch (AssertionError expected) {
+      return;
+    }
+    fail();
+  }
+
+  public void testInterfaceDefaultMethod() {
+    NullPointerTester tester = new NullPointerTester();
+    tester.testAllPublicInstanceMethods(InterfaceDefaultMethodChecksNull.create());
+    try {
+      tester.testAllPublicInstanceMethods(InterfaceDefaultMethodFailsToCheckNull.create());
+    } catch (AssertionError expected) {
+      return;
+    }
+    fail();
   }
 
   public void testDontAcceptIae() {
@@ -219,40 +313,70 @@ public class NullPointerTesterTest extends TestCase {
     }
   }
 
+  public void testMessageOtherException() throws Exception {
+    Method method = OneArg.class.getMethod("staticOneArgThrowsOtherThanNpe", String.class);
+    boolean foundProblem = false;
+    try {
+      new NullPointerTester().testMethodParameter(new OneArg(), method, 0);
+    } catch (AssertionFailedError expected) {
+      assertThat(expected.getMessage()).contains("index 0");
+      assertThat(expected.getMessage()).contains("[null]");
+      foundProblem = true;
+    }
+    assertTrue("Should report error when different exception is thrown", foundProblem);
+  }
+
+  public void testMessageNoException() throws Exception {
+    Method method = OneArg.class.getMethod("staticOneArgShouldThrowNpeButDoesnt", String.class);
+    boolean foundProblem = false;
+    try {
+      new NullPointerTester().testMethodParameter(new OneArg(), method, 0);
+    } catch (AssertionFailedError expected) {
+      assertThat(expected.getMessage()).contains("index 0");
+      assertThat(expected.getMessage()).contains("[null]");
+      foundProblem = true;
+    }
+    assertTrue("Should report error when no exception is thrown", foundProblem);
+  }
+
   /**
-   * Class for testing all permutations of nullable/non-nullable two-argument
-   * methods using testMethod().
+   * Class for testing all permutations of nullable/non-nullable two-argument methods using
+   * testMethod().
    *
-   *   normalNormal:  two params, neither is Nullable
-   *   nullableNormal:  only first param is Nullable
-   *   normalNullable:  only second param is Nullable
-   *   nullableNullable:  both params are Nullable
+   * <ul>
+   *   <li>normalNormal: two params, neither is Nullable
+   *   <li>nullableNormal: only first param is Nullable
+   *   <li>normalNullable: only second param is Nullable
+   *   <li>nullableNullable: both params are Nullable
+   * </ul>
    */
   public static class TwoArg {
     /** Action to take on a null param. */
     public enum Action {
       THROW_A_NPE {
-        @Override public void act() {
+        @Override
+        public void act() {
           throw new NullPointerException();
         }
       },
       THROW_OTHER {
-        @Override public void act() {
+        @Override
+        public void act() {
           throw new FooException();
         }
       },
       JUST_RETURN {
-        @Override public void act() {}
+        @Override
+        public void act() {}
       };
 
       public abstract void act();
     }
+
     Action actionWhenFirstParamIsNull;
     Action actionWhenSecondParamIsNull;
 
-    public TwoArg(
-        Action actionWhenFirstParamIsNull,
-        Action actionWhenSecondParamIsNull) {
+    public TwoArg(Action actionWhenFirstParamIsNull, Action actionWhenSecondParamIsNull) {
       this.actionWhenFirstParamIsNull = actionWhenFirstParamIsNull;
       this.actionWhenSecondParamIsNull = actionWhenSecondParamIsNull;
     }
@@ -283,15 +407,15 @@ public class NullPointerTesterTest extends TestCase {
     }
 
     /** Two-arg method with the both params Nullable. */
-    public void nullableNullable(
-        @Nullable String first, @Nullable Integer second) {
+    public void nullableNullable(@Nullable String first, @Nullable Integer second) {
       reactToNullParameters(first, second);
     }
 
     /** To provide sanity during debugging. */
-    @Override public String toString() {
-      return String.format("Bar(%s, %s)",
-          actionWhenFirstParamIsNull, actionWhenSecondParamIsNull);
+    @Override
+    public String toString() {
+      return rootLocaleFormat(
+          "Bar(%s, %s)", actionWhenFirstParamIsNull, actionWhenSecondParamIsNull);
     }
   }
 
@@ -299,8 +423,8 @@ public class NullPointerTesterTest extends TestCase {
     try {
       new NullPointerTester().testMethod(bar, method);
     } catch (AssertionFailedError incorrectError) {
-      String errorMessage = String.format(
-          "Should not have flagged method %s for %s", method.getName(), bar);
+      String errorMessage =
+          rootLocaleFormat("Should not have flagged method %s for %s", method.getName(), bar);
       assertNull(errorMessage, incorrectError);
     }
   }
@@ -311,19 +435,17 @@ public class NullPointerTesterTest extends TestCase {
     } catch (AssertionFailedError expected) {
       return; // good...we wanted a failure
     }
-    String errorMessage = String.format(
-        "Should have flagged method %s for %s", method.getName(), bar);
+    String errorMessage =
+        rootLocaleFormat("Should have flagged method %s for %s", method.getName(), bar);
     fail(errorMessage);
   }
 
   public void testTwoArgNormalNormal() throws Exception {
-    Method method = TwoArg.class.getMethod(
-        "normalNormal", String.class, Integer.class);
+    Method method = TwoArg.class.getMethod("normalNormal", String.class, Integer.class);
     for (TwoArg.Action first : TwoArg.Action.values()) {
       for (TwoArg.Action second : TwoArg.Action.values()) {
         TwoArg bar = new TwoArg(first, second);
-        if (first.equals(TwoArg.Action.THROW_A_NPE)
-            && second.equals(TwoArg.Action.THROW_A_NPE)) {
+        if (first.equals(TwoArg.Action.THROW_A_NPE) && second.equals(TwoArg.Action.THROW_A_NPE)) {
           verifyBarPass(method, bar); // require both params to throw NPE
         } else {
           verifyBarFail(method, bar);
@@ -333,8 +455,7 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   public void testTwoArgNormalNullable() throws Exception {
-    Method method = TwoArg.class.getMethod(
-        "normalNullable", String.class, Integer.class);
+    Method method = TwoArg.class.getMethod("normalNullable", String.class, Integer.class);
     for (TwoArg.Action first : TwoArg.Action.values()) {
       for (TwoArg.Action second : TwoArg.Action.values()) {
         TwoArg bar = new TwoArg(first, second);
@@ -348,8 +469,7 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   public void testTwoArgNullableNormal() throws Exception {
-    Method method = TwoArg.class.getMethod(
-        "nullableNormal", String.class, Integer.class);
+    Method method = TwoArg.class.getMethod("nullableNormal", String.class, Integer.class);
     for (TwoArg.Action first : TwoArg.Action.values()) {
       for (TwoArg.Action second : TwoArg.Action.values()) {
         TwoArg bar = new TwoArg(first, second);
@@ -363,8 +483,7 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   public void testTwoArgNullableNullable() throws Exception {
-    Method method = TwoArg.class.getMethod(
-        "nullableNullable", String.class, Integer.class);
+    Method method = TwoArg.class.getMethod("nullableNullable", String.class, Integer.class);
     for (TwoArg.Action first : TwoArg.Action.values()) {
       for (TwoArg.Action second : TwoArg.Action.values()) {
         TwoArg bar = new TwoArg(first, second);
@@ -387,34 +506,66 @@ public class NullPointerTesterTest extends TestCase {
         throw new FooException();
       }
     }
-    public void noArg() {}
-    public void oneArg(String s) { checkNotNull(s); }
-    void packagePrivateOneArg(String s) { checkNotNull(s); }
-    protected void protectedOneArg(String s) { checkNotNull(s); }
-    public void oneNullableArg(@Nullable String s) {}
-    public void oneNullableArgThrows(@Nullable String s) { doThrow(s); }
 
-    public void twoArg(String s, Integer i) { checkNotNull(s); i.intValue(); }
-    public void twoMixedArgs(String s, @Nullable Integer i) { checkNotNull(s); }
-    public void twoMixedArgsThrows(String s, @Nullable Integer i) {
-      checkNotNull(s); doThrow(i);
+    public void noArg() {}
+
+    public void oneArg(String s) {
+      checkNotNull(s);
     }
-    public void twoMixedArgs(@Nullable Integer i, String s) { checkNotNull(s); }
-    public void twoMixedArgsThrows(@Nullable Integer i, String s) {
-      checkNotNull(s); doThrow(i);
+
+    void packagePrivateOneArg(String s) {
+      checkNotNull(s);
     }
-    public void twoNullableArgs(@Nullable String s,
-        @javax.annotation.Nullable Integer i) {}
-    public void twoNullableArgsThrowsFirstArg(
-        @Nullable String s, @Nullable Integer i) {
+
+    protected void protectedOneArg(String s) {
+      checkNotNull(s);
+    }
+
+    public void oneNullableArg(@Nullable String s) {}
+
+    public void oneNullableArgThrows(@Nullable String s) {
       doThrow(s);
     }
-    public void twoNullableArgsThrowsSecondArg(
-        @Nullable String s, @Nullable Integer i) {
+
+    public void twoArg(String s, Integer i) {
+      checkNotNull(s);
+      i.intValue();
+    }
+
+    public void twoMixedArgs(String s, @Nullable Integer i) {
+      checkNotNull(s);
+    }
+
+    public void twoMixedArgs(@Nullable Integer i, String s) {
+      checkNotNull(s);
+    }
+
+    public void twoMixedArgsThrows(String s, @Nullable Integer i) {
+      checkNotNull(s);
       doThrow(i);
     }
-    public static void staticOneArg(String s) { checkNotNull(s); }
+
+    public void twoMixedArgsThrows(@Nullable Integer i, String s) {
+      checkNotNull(s);
+      doThrow(i);
+    }
+
+    public void twoNullableArgs(@Nullable String s, @javax.annotation.Nullable Integer i) {}
+
+    public void twoNullableArgsThrowsFirstArg(@Nullable String s, @Nullable Integer i) {
+      doThrow(s);
+    }
+
+    public void twoNullableArgsThrowsSecondArg(@Nullable String s, @Nullable Integer i) {
+      doThrow(i);
+    }
+
+    public static void staticOneArg(String s) {
+      checkNotNull(s);
+    }
+
     public static void staticOneNullableArg(@Nullable String s) {}
+
     public static void staticOneNullableArgThrows(@Nullable String s) {
       doThrow(s);
     }
@@ -425,7 +576,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class FailOneArgDoesntThrowNPE extends PassObject {
-    @Override public void oneArg(String s) {
+    @Override
+    public void oneArg(String s) {
       // Fail:  missing NPE for s
     }
   }
@@ -435,7 +587,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class FailOneArgThrowsWrongType extends PassObject {
-    @Override public void oneArg(String s) {
+    @Override
+    public void oneArg(String s) {
       doThrow(s); // Fail:  throwing non-NPE exception for null s
     }
   }
@@ -445,7 +598,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class PassOneNullableArgThrowsNPE extends PassObject {
-    @Override public void oneNullableArg(@Nullable String s) {
+    @Override
+    public void oneNullableArg(@Nullable String s) {
       checkNotNull(s); // ok to throw NPE
     }
   }
@@ -455,7 +609,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class FailTwoArgsFirstArgDoesntThrowNPE extends PassObject {
-    @Override public void twoArg(String s, Integer i) {
+    @Override
+    public void twoArg(String s, Integer i) {
       // Fail: missing NPE for s
       i.intValue();
     }
@@ -466,7 +621,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class FailTwoArgsFirstArgThrowsWrongType extends PassObject {
-    @Override public void twoArg(String s, Integer i) {
+    @Override
+    public void twoArg(String s, Integer i) {
       doThrow(s); // Fail:  throwing non-NPE exception for null s
       i.intValue();
     }
@@ -477,7 +633,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class FailTwoArgsSecondArgDoesntThrowNPE extends PassObject {
-    @Override public void twoArg(String s, Integer i) {
+    @Override
+    public void twoArg(String s, Integer i) {
       checkNotNull(s);
       // Fail: missing NPE for i
     }
@@ -488,7 +645,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class FailTwoArgsSecondArgThrowsWrongType extends PassObject {
-    @Override public void twoArg(String s, Integer i) {
+    @Override
+    public void twoArg(String s, Integer i) {
       checkNotNull(s);
       doThrow(i); // Fail:  throwing non-NPE exception for null i
     }
@@ -498,9 +656,9 @@ public class NullPointerTesterTest extends TestCase {
     shouldFail(new FailTwoArgsSecondArgThrowsWrongType());
   }
 
-  private static class FailTwoMixedArgsFirstArgDoesntThrowNPE
-      extends PassObject {
-    @Override public void twoMixedArgs(String s, @Nullable Integer i) {
+  private static class FailTwoMixedArgsFirstArgDoesntThrowNPE extends PassObject {
+    @Override
+    public void twoMixedArgs(String s, @Nullable Integer i) {
       // Fail: missing NPE for s
     }
   }
@@ -509,9 +667,9 @@ public class NullPointerTesterTest extends TestCase {
     shouldFail(new FailTwoMixedArgsFirstArgDoesntThrowNPE());
   }
 
-  private static class FailTwoMixedArgsFirstArgThrowsWrongType
-      extends PassObject {
-    @Override public void twoMixedArgs(String s, @Nullable Integer i) {
+  private static class FailTwoMixedArgsFirstArgThrowsWrongType extends PassObject {
+    @Override
+    public void twoMixedArgs(String s, @Nullable Integer i) {
       doThrow(s); // Fail:  throwing non-NPE exception for null s
     }
   }
@@ -521,7 +679,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class PassTwoMixedArgsNullableArgThrowsNPE extends PassObject {
-    @Override public void twoMixedArgs(String s, @Nullable Integer i) {
+    @Override
+    public void twoMixedArgs(String s, @Nullable Integer i) {
       checkNotNull(s);
       i.intValue(); // ok to throw NPE?
     }
@@ -531,9 +690,9 @@ public class NullPointerTesterTest extends TestCase {
     shouldPass(new PassTwoMixedArgsNullableArgThrowsNPE());
   }
 
-  private static class PassTwoMixedArgSecondNullableArgThrowsOther
-      extends PassObject {
-    @Override public void twoMixedArgs(String s, @Nullable Integer i) {
+  private static class PassTwoMixedArgSecondNullableArgThrowsOther extends PassObject {
+    @Override
+    public void twoMixedArgs(String s, @Nullable Integer i) {
       checkNotNull(s);
       doThrow(i); // ok to throw non-NPE exception for null i
     }
@@ -543,9 +702,9 @@ public class NullPointerTesterTest extends TestCase {
     shouldPass(new PassTwoMixedArgSecondNullableArgThrowsOther());
   }
 
-  private static class FailTwoMixedArgsSecondArgDoesntThrowNPE
-      extends PassObject {
-    @Override public void twoMixedArgs(@Nullable Integer i, String s) {
+  private static class FailTwoMixedArgsSecondArgDoesntThrowNPE extends PassObject {
+    @Override
+    public void twoMixedArgs(@Nullable Integer i, String s) {
       // Fail: missing NPE for null s
     }
   }
@@ -554,9 +713,9 @@ public class NullPointerTesterTest extends TestCase {
     shouldFail(new FailTwoMixedArgsSecondArgDoesntThrowNPE());
   }
 
-  private static class FailTwoMixedArgsSecondArgThrowsWrongType
-      extends PassObject {
-    @Override public void twoMixedArgs(@Nullable Integer i, String s) {
+  private static class FailTwoMixedArgsSecondArgThrowsWrongType extends PassObject {
+    @Override
+    public void twoMixedArgs(@Nullable Integer i, String s) {
       doThrow(s); // Fail:  throwing non-NPE exception for null s
     }
   }
@@ -566,8 +725,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class PassTwoNullableArgsFirstThrowsNPE extends PassObject {
-    @Override public void twoNullableArgs(
-        @Nullable String s, @Nullable Integer i) {
+    @Override
+    public void twoNullableArgs(@Nullable String s, @Nullable Integer i) {
       checkNotNull(s); // ok to throw NPE?
     }
   }
@@ -577,8 +736,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class PassTwoNullableArgsFirstThrowsOther extends PassObject {
-    @Override public void twoNullableArgs(
-        @Nullable String s, @Nullable Integer i) {
+    @Override
+    public void twoNullableArgs(@Nullable String s, @Nullable Integer i) {
       doThrow(s); // ok to throw non-NPE exception for null s
     }
   }
@@ -588,8 +747,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class PassTwoNullableArgsSecondThrowsNPE extends PassObject {
-    @Override public void twoNullableArgs(
-        @Nullable String s, @Nullable Integer i) {
+    @Override
+    public void twoNullableArgs(@Nullable String s, @Nullable Integer i) {
       i.intValue(); // ok to throw NPE?
     }
   }
@@ -599,8 +758,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private static class PassTwoNullableArgsSecondThrowsOther extends PassObject {
-    @Override public void twoNullableArgs(
-        @Nullable String s, @Nullable Integer i) {
+    @Override
+    public void twoNullableArgs(@Nullable String s, @Nullable Integer i) {
       doThrow(i); // ok to throw non-NPE exception for null i
     }
   }
@@ -609,10 +768,9 @@ public class NullPointerTesterTest extends TestCase {
     shouldPass(new PassTwoNullableArgsSecondThrowsOther());
   }
 
-  private static class PassTwoNullableArgsNeitherThrowsAnything
-      extends PassObject {
-    @Override public void twoNullableArgs(
-        @Nullable String s, @Nullable Integer i) {
+  private static class PassTwoNullableArgsNeitherThrowsAnything extends PassObject {
+    @Override
+    public void twoNullableArgs(@Nullable String s, @Nullable Integer i) {
       // ok to do nothing
     }
   }
@@ -622,19 +780,18 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   @SuppressWarnings("unused") // for NullPointerTester
-  private static abstract class BaseClassThatFailsToThrow {
+  private abstract static class BaseClassThatFailsToThrow {
     public void oneArg(String s) {}
   }
 
-  private static class SubclassWithBadSuperclass
-      extends BaseClassThatFailsToThrow {}
+  private static class SubclassWithBadSuperclass extends BaseClassThatFailsToThrow {}
 
   public void testSubclassWithBadSuperclass() {
     shouldFail(new SubclassWithBadSuperclass());
   }
 
   @SuppressWarnings("unused") // for NullPointerTester
-  private static abstract class BaseClassThatFailsToThrowForPackagePrivate {
+  private abstract static class BaseClassThatFailsToThrowForPackagePrivate {
     void packagePrivateOneArg(String s) {}
   }
 
@@ -642,12 +799,11 @@ public class NullPointerTesterTest extends TestCase {
       extends BaseClassThatFailsToThrowForPackagePrivate {}
 
   public void testSubclassWithBadSuperclassForPackagePrivateMethod() {
-    shouldFail(
-        new SubclassWithBadSuperclassForPackagePrivate(), Visibility.PACKAGE);
+    shouldFail(new SubclassWithBadSuperclassForPackagePrivate(), Visibility.PACKAGE);
   }
 
   @SuppressWarnings("unused") // for NullPointerTester
-  private static abstract class BaseClassThatFailsToThrowForProtected {
+  private abstract static class BaseClassThatFailsToThrowForProtected {
     protected void protectedOneArg(String s) {}
   }
 
@@ -655,13 +811,12 @@ public class NullPointerTesterTest extends TestCase {
       extends BaseClassThatFailsToThrowForProtected {}
 
   public void testSubclassWithBadSuperclassForPackageProtectedMethod() {
-    shouldFail(
-        new SubclassWithBadSuperclassForProtected(), Visibility.PROTECTED);
+    shouldFail(new SubclassWithBadSuperclassForProtected(), Visibility.PROTECTED);
   }
 
-  private static class SubclassThatOverridesBadSuperclassMethod
-      extends BaseClassThatFailsToThrow {
-    @Override public void oneArg(@Nullable String s) {}
+  private static class SubclassThatOverridesBadSuperclassMethod extends BaseClassThatFailsToThrow {
+    @Override
+    public void oneArg(@Nullable String s) {}
   }
 
   public void testSubclassThatOverridesBadSuperclassMethod() {
@@ -669,8 +824,7 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   @SuppressWarnings("unused") // for NullPointerTester
-  private static class SubclassOverridesTheWrongMethod
-      extends BaseClassThatFailsToThrow {
+  private static class SubclassOverridesTheWrongMethod extends BaseClassThatFailsToThrow {
     public void oneArg(@Nullable CharSequence s) {}
   }
 
@@ -687,8 +841,7 @@ public class NullPointerTesterTest extends TestCase {
     shouldFail(ClassThatFailsToThrowForStatic.class);
   }
 
-  private static class SubclassThatFailsToThrowForStatic
-      extends ClassThatFailsToThrowForStatic {}
+  private static class SubclassThatFailsToThrowForStatic extends ClassThatFailsToThrowForStatic {}
 
   public void testSubclassThatFailsToThrowForStatic() {
     shouldFail(SubclassThatFailsToThrowForStatic.class);
@@ -777,8 +930,8 @@ public class NullPointerTesterTest extends TestCase {
 
   public void testPrivateClass() {
     NullPointerTester tester = new NullPointerTester();
-    for (Constructor<?> constructor
-        : PrivateClassWithPrivateConstructor.class.getDeclaredConstructors()) {
+    for (Constructor<?> constructor :
+        PrivateClassWithPrivateConstructor.class.getDeclaredConstructors()) {
       tester.testConstructor(constructor);
     }
   }
@@ -789,7 +942,8 @@ public class NullPointerTesterTest extends TestCase {
 
   private static class StringFoo implements Foo<String> {
 
-    @Override public void doSomething(String bar, Integer baz) {
+    @Override
+    public void doSomething(String bar, Integer baz) {
       checkNotNull(bar);
       checkNotNull(baz);
     }
@@ -799,21 +953,19 @@ public class NullPointerTesterTest extends TestCase {
     new NullPointerTester().testAllPublicInstanceMethods(new StringFoo());
   }
 
-  private static abstract class DefaultValueChecker {
+  private abstract static class DefaultValueChecker {
 
     private final Map<Integer, Object> arguments = Maps.newHashMap();
 
     final DefaultValueChecker runTester() {
-      new NullPointerTester()
-          .testInstanceMethods(this, Visibility.PACKAGE);
+      new NullPointerTester().testInstanceMethods(this, Visibility.PACKAGE);
       return this;
     }
 
     final void assertNonNullValues(Object... expectedValues) {
       assertEquals(expectedValues.length, arguments.size());
       for (int i = 0; i < expectedValues.length; i++) {
-        assertEquals("Default value for parameter #" + i,
-            expectedValues[i], arguments.get(i));
+        assertEquals("Default value for parameter #" + i, expectedValues[i], arguments.get(i));
       }
     }
 
@@ -834,7 +986,8 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private enum Gender {
-    MALE, FEMALE
+    MALE,
+    FEMALE
   }
 
   private static class AllDefaultValuesChecker extends DefaultValueChecker {
@@ -842,8 +995,10 @@ public class NullPointerTesterTest extends TestCase {
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkDefaultValuesForTheseTypes(
         Gender gender,
-        Integer integer, int i,
-        String string, CharSequence charSequence,
+        Integer integer,
+        int i,
+        String string,
+        CharSequence charSequence,
         List<String> list,
         ImmutableList<Integer> immutableList,
         Map<String, Integer> map,
@@ -860,29 +1015,48 @@ public class NullPointerTesterTest extends TestCase {
         ImmutableTable<Integer, String, Exception> immutableTable) {
       calledWith(
           gender,
-          integer, i,
-          string, charSequence,
-          list, immutableList,
-          map, immutableMap,
-          set, immutableSet,
-          sortedSet, immutableSortedSet,
-          multiset, immutableMultiset,
-          multimap, immutableMultimap,
-          table, immutableTable);
+          integer,
+          i,
+          string,
+          charSequence,
+          list,
+          immutableList,
+          map,
+          immutableMap,
+          set,
+          immutableSet,
+          sortedSet,
+          immutableSortedSet,
+          multiset,
+          immutableMultiset,
+          multimap,
+          immutableMultimap,
+          table,
+          immutableTable);
     }
 
     final void check() {
-      runTester().assertNonNullValues(
-          Gender.MALE,
-          Integer.valueOf(0), 0,
-          "", "",
-          ImmutableList.of(), ImmutableList.of(),
-          ImmutableMap.of(), ImmutableMap.of(),
-          ImmutableSet.of(), ImmutableSet.of(),
-          ImmutableSortedSet.of(), ImmutableSortedSet.of(),
-          ImmutableMultiset.of(), ImmutableMultiset.of(),
-          ImmutableMultimap.of(), ImmutableMultimap.of(),
-          ImmutableTable.of(), ImmutableTable.of());
+      runTester()
+          .assertNonNullValues(
+              Gender.MALE,
+              Integer.valueOf(0),
+              0,
+              "",
+              "",
+              ImmutableList.of(),
+              ImmutableList.of(),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              ImmutableSet.of(),
+              ImmutableSet.of(),
+              ImmutableSortedSet.of(),
+              ImmutableSortedSet.of(),
+              ImmutableMultiset.of(),
+              ImmutableMultiset.of(),
+              ImmutableMultimap.of(),
+              ImmutableMultimap.of(),
+              ImmutableTable.of(),
+              ImmutableTable.of());
     }
   }
 
@@ -890,8 +1064,7 @@ public class NullPointerTesterTest extends TestCase {
     new AllDefaultValuesChecker().check();
   }
 
-  private static class ObjectArrayDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class ObjectArrayDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(Object[] array, String s) {
@@ -901,7 +1074,7 @@ public class NullPointerTesterTest extends TestCase {
     void check() {
       runTester();
       Object[] defaultArray = (Object[]) getDefaultParameterValue(0);
-      assertEquals(0, defaultArray.length);
+      assertThat(defaultArray).isEmpty();
     }
   }
 
@@ -909,8 +1082,7 @@ public class NullPointerTesterTest extends TestCase {
     new ObjectArrayDefaultValueChecker().check();
   }
 
-  private static class StringArrayDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class StringArrayDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(String[] array, String s) {
@@ -920,7 +1092,7 @@ public class NullPointerTesterTest extends TestCase {
     void check() {
       runTester();
       String[] defaultArray = (String[]) getDefaultParameterValue(0);
-      assertEquals(0, defaultArray.length);
+      assertThat(defaultArray).isEmpty();
     }
   }
 
@@ -928,8 +1100,7 @@ public class NullPointerTesterTest extends TestCase {
     new StringArrayDefaultValueChecker().check();
   }
 
-  private static class IntArrayDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class IntArrayDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(int[] array, String s) {
@@ -949,8 +1120,7 @@ public class NullPointerTesterTest extends TestCase {
 
   private enum EmptyEnum {}
 
-  private static class EmptyEnumDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class EmptyEnumDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(EmptyEnum object, String s) {
@@ -960,7 +1130,7 @@ public class NullPointerTesterTest extends TestCase {
     void check() {
       try {
         runTester();
-      } catch (AssertionError expected) {
+      } catch (AssertionFailedError expected) {
         return;
       }
       fail("Should have failed because enum has no constant");
@@ -971,8 +1141,7 @@ public class NullPointerTesterTest extends TestCase {
     new EmptyEnumDefaultValueChecker().check();
   }
 
-  private static class GenericClassTypeDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class GenericClassTypeDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(Class<? extends List<?>> cls, String s) {
@@ -990,8 +1159,7 @@ public class NullPointerTesterTest extends TestCase {
     new GenericClassTypeDefaultValueChecker().check();
   }
 
-  private static class NonGenericClassTypeDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class NonGenericClassTypeDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(@SuppressWarnings("rawtypes") Class cls, String s) {
@@ -1009,20 +1177,17 @@ public class NullPointerTesterTest extends TestCase {
     new NonGenericClassTypeDefaultValueChecker().check();
   }
 
-  private static class GenericTypeTokenDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class GenericTypeTokenDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
-    public void checkArray(
-        TypeToken<? extends List<? super Number>> type, String s) {
+    public void checkArray(TypeToken<? extends List<? super Number>> type, String s) {
       calledWith(type, s);
     }
 
     void check() {
       runTester();
       TypeToken<?> defaultType = (TypeToken<?>) getDefaultParameterValue(0);
-      assertTrue(new TypeToken<List<? super Number>>() {}
-          .isAssignableFrom(defaultType));
+      assertTrue(new TypeToken<List<? super Number>>() {}.isSupertypeOf(defaultType));
     }
   }
 
@@ -1030,12 +1195,10 @@ public class NullPointerTesterTest extends TestCase {
     new GenericTypeTokenDefaultValueChecker().check();
   }
 
-  private static class NonGenericTypeTokenDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class NonGenericTypeTokenDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
-    public void checkArray(
-        @SuppressWarnings("rawtypes") TypeToken type, String s) {
+    public void checkArray(@SuppressWarnings("rawtypes") TypeToken type, String s) {
       calledWith(type, s);
     }
 
@@ -1052,8 +1215,7 @@ public class NullPointerTesterTest extends TestCase {
 
   private interface FromTo<F, T> extends Function<F, T> {}
 
-  private static class GenericInterfaceDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class GenericInterfaceDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(FromTo<String, Integer> f, String s) {
@@ -1072,11 +1234,11 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   private interface NullRejectingFromTo<F, T> extends Function<F, T> {
-    @Override public abstract T apply(F from);
+    @Override
+    public abstract T apply(F from);
   }
 
-  private static class NullRejectingInterfaceDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class NullRejectingInterfaceDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(NullRejectingFromTo<String, Integer> f, String s) {
@@ -1085,13 +1247,14 @@ public class NullPointerTesterTest extends TestCase {
 
     void check() {
       runTester();
-      NullRejectingFromTo<?, ?> defaultFunction = (NullRejectingFromTo<?, ?>)
-          getDefaultParameterValue(0);
+      NullRejectingFromTo<?, ?> defaultFunction =
+          (NullRejectingFromTo<?, ?>) getDefaultParameterValue(0);
       assertNotNull(defaultFunction);
       try {
         defaultFunction.apply(null);
         fail("Proxy Should have rejected null");
-      } catch (NullPointerException expected) {}
+      } catch (NullPointerException expected) {
+      }
     }
   }
 
@@ -1099,12 +1262,10 @@ public class NullPointerTesterTest extends TestCase {
     new NullRejectingInterfaceDefaultValueChecker().check();
   }
 
-  private static class MultipleInterfacesDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class MultipleInterfacesDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
-    public <T extends FromTo<String, Integer> & Supplier<Long>> void checkArray(
-        T f, String s) {
+    public <T extends FromTo<String, Integer> & Supplier<Long>> void checkArray(T f, String s) {
       calledWith(f, s);
     }
 
@@ -1121,8 +1282,7 @@ public class NullPointerTesterTest extends TestCase {
     new MultipleInterfacesDefaultValueChecker().check();
   }
 
-  private static class GenericInterface2DefaultValueChecker
-      extends DefaultValueChecker {
+  private static class GenericInterface2DefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(FromTo<String, FromTo<Integer, String>> f, String s) {
@@ -1141,8 +1301,7 @@ public class NullPointerTesterTest extends TestCase {
     new GenericInterface2DefaultValueChecker().check();
   }
 
-  private static abstract class AbstractGenericDefaultValueChecker<T>
-      extends DefaultValueChecker {
+  private abstract static class AbstractGenericDefaultValueChecker<T> extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkGeneric(T value, String s) {
@@ -1162,8 +1321,7 @@ public class NullPointerTesterTest extends TestCase {
     new GenericDefaultValueResolvedToStringChecker().check();
   }
 
-  private static abstract
-  class AbstractGenericDefaultValueForPackagePrivateMethodChecker<T>
+  private abstract static class AbstractGenericDefaultValueForPackagePrivateMethodChecker<T>
       extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
@@ -1172,10 +1330,8 @@ public class NullPointerTesterTest extends TestCase {
     }
   }
 
-  private static
-  class DefaultValueForPackagePrivateMethodResolvedToStringChecker
-      extends AbstractGenericDefaultValueForPackagePrivateMethodChecker<String>
-  {
+  private static class DefaultValueForPackagePrivateMethodResolvedToStringChecker
+      extends AbstractGenericDefaultValueForPackagePrivateMethodChecker<String> {
     void check() {
       runTester();
       assertEquals("", getDefaultParameterValue(0));
@@ -1186,8 +1342,7 @@ public class NullPointerTesterTest extends TestCase {
     new DefaultValueForPackagePrivateMethodResolvedToStringChecker().check();
   }
 
-  private static class ConverterDefaultValueChecker
-      extends DefaultValueChecker {
+  private static class ConverterDefaultValueChecker extends DefaultValueChecker {
 
     @SuppressWarnings("unused") // called by NullPointerTester
     public void checkArray(Converter<String, Integer> c, String s) {
@@ -1197,8 +1352,8 @@ public class NullPointerTesterTest extends TestCase {
     void check() {
       runTester();
       @SuppressWarnings("unchecked") // We are checking it anyway
-      Converter<String, Integer> defaultConverter = (Converter<String, Integer>)
-          getDefaultParameterValue(0);
+      Converter<String, Integer> defaultConverter =
+          (Converter<String, Integer>) getDefaultParameterValue(0);
       assertEquals(Integer.valueOf(0), defaultConverter.convert("anything"));
       assertEquals("", defaultConverter.reverse().convert(123));
       assertNull(defaultConverter.convert(null));
@@ -1226,36 +1381,40 @@ public class NullPointerTesterTest extends TestCase {
   }
 
   public void testVisibility_public() throws Exception {
-    assertFalse(Visibility.PUBLIC.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("privateMethod")));
-    assertFalse(Visibility.PUBLIC.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("packagePrivateMethod")));
-    assertFalse(Visibility.PUBLIC.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("protectedMethod")));
-    assertTrue(Visibility.PUBLIC.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("publicMethod")));
+    assertFalse(
+        Visibility.PUBLIC.isVisible(VisibilityMethods.class.getDeclaredMethod("privateMethod")));
+    assertFalse(
+        Visibility.PUBLIC.isVisible(
+            VisibilityMethods.class.getDeclaredMethod("packagePrivateMethod")));
+    assertFalse(
+        Visibility.PUBLIC.isVisible(VisibilityMethods.class.getDeclaredMethod("protectedMethod")));
+    assertTrue(
+        Visibility.PUBLIC.isVisible(VisibilityMethods.class.getDeclaredMethod("publicMethod")));
   }
 
   public void testVisibility_protected() throws Exception {
-    assertFalse(Visibility.PROTECTED.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("privateMethod")));
-    assertFalse(Visibility.PROTECTED.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("packagePrivateMethod")));
-    assertTrue(Visibility.PROTECTED.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("protectedMethod")));
-    assertTrue(Visibility.PROTECTED.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("publicMethod")));
+    assertFalse(
+        Visibility.PROTECTED.isVisible(VisibilityMethods.class.getDeclaredMethod("privateMethod")));
+    assertFalse(
+        Visibility.PROTECTED.isVisible(
+            VisibilityMethods.class.getDeclaredMethod("packagePrivateMethod")));
+    assertTrue(
+        Visibility.PROTECTED.isVisible(
+            VisibilityMethods.class.getDeclaredMethod("protectedMethod")));
+    assertTrue(
+        Visibility.PROTECTED.isVisible(VisibilityMethods.class.getDeclaredMethod("publicMethod")));
   }
 
   public void testVisibility_package() throws Exception {
-    assertFalse(Visibility.PACKAGE.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("privateMethod")));
-    assertTrue(Visibility.PACKAGE.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("packagePrivateMethod")));
-    assertTrue(Visibility.PACKAGE.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("protectedMethod")));
-    assertTrue(Visibility.PACKAGE.isVisible(
-        VisibilityMethods.class.getDeclaredMethod("publicMethod")));
+    assertFalse(
+        Visibility.PACKAGE.isVisible(VisibilityMethods.class.getDeclaredMethod("privateMethod")));
+    assertTrue(
+        Visibility.PACKAGE.isVisible(
+            VisibilityMethods.class.getDeclaredMethod("packagePrivateMethod")));
+    assertTrue(
+        Visibility.PACKAGE.isVisible(VisibilityMethods.class.getDeclaredMethod("protectedMethod")));
+    assertTrue(
+        Visibility.PACKAGE.isVisible(VisibilityMethods.class.getDeclaredMethod("publicMethod")));
   }
 
   private class Inner {
@@ -1271,5 +1430,53 @@ public class NullPointerTesterTest extends TestCase {
     } catch (IllegalArgumentException expected) {
       assertThat(expected.getMessage()).contains("inner class");
     }
+  }
+
+  private static String rootLocaleFormat(String format, Object... args) {
+    return String.format(Locale.ROOT, format, args);
+  }
+
+  static class OverridesEquals {
+    @SuppressWarnings("EqualsHashCode")
+    @Override
+    public boolean equals(Object o) {
+      return true;
+    }
+  }
+
+  static class DoesNotOverrideEquals {
+    public boolean equals(Object a, Object b) {
+      return true;
+    }
+  }
+
+  public void testEqualsMethod() {
+    shouldPass(new OverridesEquals());
+    shouldFail(new DoesNotOverrideEquals());
+  }
+
+  private static final class FailOnOneOfTwoConstructors {
+    @SuppressWarnings("unused") // Called by reflection
+    public FailOnOneOfTwoConstructors(String s) {}
+
+    @SuppressWarnings("unused") // Called by reflection
+    public FailOnOneOfTwoConstructors(Object o) {
+      checkNotNull(o);
+    }
+  }
+
+  public void testConstructor_Ignored_ShouldPass() throws Exception {
+    new NullPointerTester()
+        .ignore(FailOnOneOfTwoConstructors.class.getDeclaredConstructor(String.class))
+        .testAllPublicConstructors(FailOnOneOfTwoConstructors.class);
+  }
+
+  public void testConstructor_ShouldFail() throws Exception {
+    try {
+      new NullPointerTester().testAllPublicConstructors(FailOnOneOfTwoConstructors.class);
+    } catch (AssertionFailedError expected) {
+      return;
+    }
+    fail("Should detect problem in " + FailOnOneOfTwoConstructors.class.getSimpleName());
   }
 }

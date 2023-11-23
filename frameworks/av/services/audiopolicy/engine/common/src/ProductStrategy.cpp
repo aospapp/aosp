@@ -19,6 +19,7 @@
 
 #include "ProductStrategy.h"
 
+#include <media/AudioProductStrategy.h>
 #include <media/TypeConverter.h>
 #include <utils/String8.h>
 #include <cstdint>
@@ -72,10 +73,18 @@ bool ProductStrategy::matches(const audio_attributes_t attr) const
 audio_stream_type_t ProductStrategy::getStreamTypeForAttributes(
         const audio_attributes_t &attr) const
 {
-    const auto iter = std::find_if(begin(mAttributesVector), end(mAttributesVector),
+    const auto &iter = std::find_if(begin(mAttributesVector), end(mAttributesVector),
                                    [&attr](const auto &supportedAttr) {
         return AudioProductStrategy::attributesMatches(supportedAttr.mAttributes, attr); });
-    return iter != end(mAttributesVector) ? iter->mStream : AUDIO_STREAM_DEFAULT;
+    if (iter == end(mAttributesVector)) {
+        return AUDIO_STREAM_DEFAULT;
+    }
+    audio_stream_type_t streamType = iter->mStream;
+    ALOGW_IF(streamType == AUDIO_STREAM_DEFAULT,
+             "%s: Strategy %s supporting attributes %s has not stream type associated"
+             "fallback on MUSIC. Do not use stream volume API", __func__, mName.c_str(),
+             toString(attr).c_str());
+    return streamType != AUDIO_STREAM_DEFAULT ? streamType : AUDIO_STREAM_MUSIC;
 }
 
 audio_attributes_t ProductStrategy::getAttributesForStreamType(audio_stream_type_t streamType) const
@@ -142,8 +151,9 @@ void ProductStrategy::dump(String8 *dst, int spaces) const
 {
     dst->appendFormat("\n%*s-%s (id: %d)\n", spaces, "", mName.c_str(), mId);
     std::string deviceLiteral;
-    if (!OutputDeviceConverter::toString(mApplicableDevices, deviceLiteral)) {
-        ALOGE("%s: failed to convert device %d", __FUNCTION__, mApplicableDevices);
+    if (!deviceTypesToString(mApplicableDevices, deviceLiteral)) {
+        ALOGE("%s: failed to convert device %s",
+              __FUNCTION__, dumpDeviceTypes(mApplicableDevices).c_str());
     }
     dst->appendFormat("%*sSelected Device: {type:%s, @:%s}\n", spaces + 2, "",
                        deviceLiteral.c_str(), mDeviceAddress.c_str());
@@ -235,14 +245,14 @@ product_strategy_t ProductStrategyMap::getProductStrategyForStream(audio_stream_
 }
 
 
-audio_devices_t ProductStrategyMap::getDeviceTypesForProductStrategy(
+DeviceTypeSet ProductStrategyMap::getDeviceTypesForProductStrategy(
         product_strategy_t strategy) const
 {
     if (find(strategy) == end()) {
         ALOGE("Invalid %d strategy requested, returning device for default strategy", strategy);
         product_strategy_t defaultStrategy = getDefault();
         if (defaultStrategy == PRODUCT_STRATEGY_NONE) {
-            return AUDIO_DEVICE_NONE;
+            return {AUDIO_DEVICE_NONE};
         }
         return at(getDefault())->getDeviceTypes();
     }
@@ -308,5 +318,15 @@ void ProductStrategyMap::dump(String8 *dst, int spaces) const
     }
 }
 
+void ProductStrategyPreferredRoutingMap::dump(android::String8* dst, int spaces) const {
+    dst->appendFormat("\n%*sPreferred devices per product strategy dump:", spaces, "");
+    for (const auto& iter : *this) {
+        dst->appendFormat("\n%*sStrategy %u dev:%08x addr:%s",
+                          spaces + 2, "",
+                          (uint32_t) iter.first,
+                          iter.second.mType, iter.second.mAddress.c_str());
+    }
+    dst->appendFormat("\n");
+}
 }
 

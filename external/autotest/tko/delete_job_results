@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 import os, sys, shutil
 thisdir = os.path.dirname(os.path.abspath(sys.argv[0]))
 sys.path.insert(0, os.path.abspath(os.path.join(thisdir, '../tko')))

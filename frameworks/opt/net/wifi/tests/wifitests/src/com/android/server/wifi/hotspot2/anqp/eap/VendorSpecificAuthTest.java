@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.nio.BufferUnderflowException;
@@ -29,7 +31,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.eap.VendorSpecificAuth}.
  */
 @SmallTest
-public class VendorSpecificAuthTest {
+public class VendorSpecificAuthTest extends WifiBaseTest {
     private static final byte[] TEST_DATA = new byte[] {0x12, 0x34, 0x45, 0x56};
 
     /**

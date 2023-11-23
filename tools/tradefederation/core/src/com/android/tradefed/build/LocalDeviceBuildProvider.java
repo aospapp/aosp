@@ -18,6 +18,7 @@ package com.android.tradefed.build;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 import com.android.tradefed.targetprep.FlashingResourcesParser;
 import com.android.tradefed.targetprep.IFlashingResourcesParser;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -81,17 +82,24 @@ public class LocalDeviceBuildProvider extends StubBuildProvider {
                     "Product output directory is not specified. If running "
                             + "from a Android source tree, make sure `lunch` has been run; "
                             + "if outside, provide a valid path via --"
-                            + BUILD_DIR_OPTION_NAME);
+                            + BUILD_DIR_OPTION_NAME,
+                    InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
         }
         if (!mBuildDir.exists()) {
-            throw new BuildRetrievalError(String.format("Directory '%s' does not exist. " +
-                    "Please provide a valid path via --%s", mBuildDir.getAbsolutePath(),
-                    BUILD_DIR_OPTION_NAME));
+            throw new BuildRetrievalError(
+                    String.format(
+                            "Directory '%s' does not exist. "
+                                    + "Please provide a valid path via --%s",
+                            mBuildDir.getAbsolutePath(), BUILD_DIR_OPTION_NAME),
+                    InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
         }
         if (!mBuildDir.isDirectory()) {
-            throw new BuildRetrievalError(String.format("Path '%s' is not a directory. " +
-                    "Please provide a valid path via --%s", mBuildDir.getAbsolutePath(),
-                    BUILD_DIR_OPTION_NAME));
+            throw new BuildRetrievalError(
+                    String.format(
+                            "Path '%s' is not a directory. "
+                                    + "Please provide a valid path via --%s",
+                            mBuildDir.getAbsolutePath(), BUILD_DIR_OPTION_NAME),
+                    InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
         }
         CLog.d("Using device build files from %s", mBuildDir.getAbsolutePath());
 
@@ -140,9 +148,11 @@ public class LocalDeviceBuildProvider extends StubBuildProvider {
             CLog.i("Unable to find build image zip on %s", mBuildDir.getAbsolutePath());
             deviceImgFile = createBuildImageZip();
             if (deviceImgFile == null) {
-                throw new BuildRetrievalError(String.format(
-                        "Could not find device image file matching matching '%s' in '%s'.",
-                        mImgPattern, mBuildDir.getAbsolutePath()));
+                throw new BuildRetrievalError(
+                        String.format(
+                                "Could not find device image file matching matching '%s' in '%s'.",
+                                mImgPattern, mBuildDir.getAbsolutePath()),
+                        InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
             }
         }
         CLog.i("Set build image zip to %s", deviceImgFile.getAbsolutePath());
@@ -235,19 +245,13 @@ public class LocalDeviceBuildProvider extends StubBuildProvider {
         if (files.length == 0) {
             return null;
         } else if (files.length > 1) {
-            throw new BuildRetrievalError(String.format(
-                    "Found more than one file matching '%s' in '%s'.", regex,
-                    mBuildDir.getAbsolutePath()));
+            throw new BuildRetrievalError(
+                    String.format(
+                            "Found more than one file matching '%s' in '%s'.",
+                            regex, mBuildDir.getAbsolutePath()),
+                    InfraErrorIdentifier.ARTIFACT_NOT_FOUND);
         }
         return files[0];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void buildNotTested(IBuildInfo info) {
-        // ignore
     }
 
     /**

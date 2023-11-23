@@ -104,6 +104,11 @@ static void applyPackageRootPath(
     outputPath += '/';
 }
 
+// c2hal is intentionally leaky. Turn off LeakSanitizer by default.
+extern "C" const char* __asan_default_options() {
+    return "detect_leaks=0";
+}
+
 int main(int argc, char **argv) {
     const char *me = argv[0];
 

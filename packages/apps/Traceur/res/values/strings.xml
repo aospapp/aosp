@@ -62,6 +62,8 @@
 
     <!-- This is the label for a button that will clear all of the saved traces, removing them all from the directory they are saved to. There will be a confirmation dialog after this button is tapped, but clearing the traces after confirming is not reversible. -->
     <string name="clear_saved_traces">Clear saved traces</string>
+    <string name="clear_saved_traces_summary">Traces are cleared after one month</string>
+
     <!-- This is the title for a confirmation dialog asking the user to confirm that they want to clear, or delete, all of the traces t hey have saved. -->
     <string name="clear_saved_traces_question">Clear saved traces?</string>
     <!-- This is the confirmation dialog for deleting all of the saved traces. Don't translate "/data/local/traces". After confirming, this decision is not reversible. -->

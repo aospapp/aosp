@@ -16,24 +16,54 @@
 
 package com.android.server.wifi;
 
-import static com.android.server.wifi.ActiveModeManager.SCAN_NONE;
-import static com.android.server.wifi.ActiveModeManager.SCAN_WITHOUT_HIDDEN_NETWORKS;
-import static com.android.server.wifi.ActiveModeManager.SCAN_WITH_HIDDEN_NETWORKS;
+import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_PRIMARY;
+import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_SCAN_ONLY;
+import static com.android.server.wifi.ActiveModeManager.ROLE_SOFTAP_LOCAL_ONLY;
+import static com.android.server.wifi.ActiveModeManager.ROLE_SOFTAP_TETHERED;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.*;
+import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
+
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Resources;
-import android.net.wifi.WifiConfiguration;
+import android.location.LocationManager;
+import android.net.wifi.SoftApCapability;
+import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.SoftApConfiguration.Builder;
+import android.net.wifi.SoftApInfo;
+import android.net.wifi.WifiClient;
 import android.net.wifi.WifiManager;
-import android.os.BatteryStats;
+import android.os.BatteryStatsManager;
 import android.os.test.TestLooper;
 import android.util.Log;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.internal.app.IBatteryStats;
+import com.android.server.wifi.WifiNative.InterfaceAvailableForRequestListener;
+import com.android.server.wifi.util.GeneralUtil;
+import com.android.server.wifi.util.WifiPermissionsUtil;
+import com.android.wifi.resources.R;
 
 import org.junit.After;
 import org.junit.Before;
@@ -46,44 +76,61 @@ import org.mockito.stubbing.Answer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Unit tests for {@link com.android.server.wifi.ActiveModeWarden}.
  */
 @SmallTest
-public class ActiveModeWardenTest {
+public class ActiveModeWardenTest extends WifiBaseTest {
     public static final String TAG = "WifiActiveModeWardenTest";
 
-    private static final String CLIENT_MODE_STATE_STRING = "ClientModeActiveState";
-    private static final String SCAN_ONLY_MODE_STATE_STRING = "ScanOnlyModeActiveState";
-    private static final String WIFI_DISABLED_STATE_STRING = "WifiDisabledState";
-    private static final String WIFI_IFACE_NAME = "mockWlan";
+    private static final String ENABLED_STATE_STRING = "EnabledState";
+    private static final String DISABLED_STATE_STRING = "DisabledState";
 
+    private static final String WIFI_IFACE_NAME = "mockWlan";
+    private static final int TEST_WIFI_RECOVERY_DELAY_MS = 2000;
+    private static final int TEST_AP_FREQUENCY = 2412;
+    private static final int TEST_AP_BANDWIDTH = SoftApInfo.CHANNEL_WIDTH_20MHZ;
+
+    TestLooper mLooper;
     @Mock WifiInjector mWifiInjector;
     @Mock Context mContext;
     @Mock Resources mResources;
     @Mock WifiNative mWifiNative;
     @Mock WifiApConfigStore mWifiApConfigStore;
-    TestLooper mLooper;
     @Mock ClientModeManager mClientModeManager;
-    @Mock ScanOnlyModeManager mScanOnlyModeManager;
     @Mock SoftApManager mSoftApManager;
     @Mock DefaultModeManager mDefaultModeManager;
-    @Mock IBatteryStats mBatteryStats;
+    @Mock BatteryStatsManager mBatteryStats;
     @Mock SelfRecovery mSelfRecovery;
     @Mock BaseWifiDiagnostics mWifiDiagnostics;
     @Mock ScanRequestProxy mScanRequestProxy;
-    ClientModeManager.Listener mClientListener;
-    ScanOnlyModeManager.Listener mScanOnlyListener;
-    ScanOnlyModeCallback mScanOnlyCallback = new ScanOnlyModeCallback();
-    ClientModeCallback mClientModeCallback = new ClientModeCallback();
+    @Mock ClientModeImpl mClientModeImpl;
+    @Mock FrameworkFacade mFacade;
+    @Mock WifiSettingsStore mSettingsStore;
+    @Mock WifiPermissionsUtil mWifiPermissionsUtil;
+    @Mock SoftApCapability mSoftApCapability;
+
+    ActiveModeManager.Listener mClientListener;
+    ActiveModeManager.Listener mSoftApListener;
     WifiManager.SoftApCallback mSoftApManagerCallback;
+    SoftApModeConfiguration mSoftApConfig;
     @Mock WifiManager.SoftApCallback mSoftApStateMachineCallback;
+    @Mock WifiManager.SoftApCallback mLohsStateMachineCallback;
     WifiNative.StatusListener mWifiNativeStatusListener;
     ActiveModeWarden mActiveModeWarden;
+    private SoftApInfo mTestSoftApInfo;
 
     final ArgumentCaptor<WifiNative.StatusListener> mStatusListenerCaptor =
             ArgumentCaptor.forClass(WifiNative.StatusListener.class);
+    final ArgumentCaptor<InterfaceAvailableForRequestListener> mClientIfaceAvailableListener =
+            ArgumentCaptor.forClass(InterfaceAvailableForRequestListener.class);
+    final ArgumentCaptor<InterfaceAvailableForRequestListener> mSoftApIfaceAvailableListener =
+            ArgumentCaptor.forClass(InterfaceAvailableForRequestListener.class);
 
     /**
      * Set up the test environment.
@@ -95,36 +142,77 @@ public class ActiveModeWardenTest {
         MockitoAnnotations.initMocks(this);
         mLooper = new TestLooper();
 
-        when(mWifiInjector.getSelfRecovery()).thenReturn(mSelfRecovery);
-        when(mWifiInjector.getWifiDiagnostics()).thenReturn(mWifiDiagnostics);
         when(mWifiInjector.getScanRequestProxy()).thenReturn(mScanRequestProxy);
-        when(mClientModeManager.getScanMode()).thenReturn(SCAN_WITH_HIDDEN_NETWORKS);
+        when(mClientModeManager.getRole()).thenReturn(ROLE_CLIENT_PRIMARY);
         when(mContext.getResources()).thenReturn(mResources);
-        when(mScanOnlyModeManager.getScanMode()).thenReturn(SCAN_WITHOUT_HIDDEN_NETWORKS);
-        when(mSoftApManager.getScanMode()).thenReturn(SCAN_NONE);
+        when(mSoftApManager.getRole()).thenReturn(ROLE_SOFTAP_TETHERED);
 
-        when(mResources.getString(
-                eq(com.android.internal.R.string.wifi_localhotspot_configure_ssid_default)))
+        when(mResources.getString(R.string.wifi_localhotspot_configure_ssid_default))
                 .thenReturn("AndroidShare");
+        when(mResources.getInteger(R.integer.config_wifi_framework_recovery_timeout_delay))
+                .thenReturn(TEST_WIFI_RECOVERY_DELAY_MS);
+        when(mResources.getBoolean(R.bool.config_wifiScanHiddenNetworksScanOnlyMode))
+                .thenReturn(false);
+
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(true);
+
+        doAnswer(new Answer<ClientModeManager>() {
+            public ClientModeManager answer(InvocationOnMock invocation) {
+                Object[] args = invocation.getArguments();
+                mClientListener = (ClientModeManager.Listener) args[0];
+                return mClientModeManager;
+            }
+        }).when(mWifiInjector).makeClientModeManager(any(ActiveModeManager.Listener.class));
+        doAnswer(new Answer<SoftApManager>() {
+            public SoftApManager answer(InvocationOnMock invocation) {
+                Object[] args = invocation.getArguments();
+                mSoftApListener = (ActiveModeManager.Listener) args[0];
+                mSoftApManagerCallback = (WifiManager.SoftApCallback) args[1];
+                mSoftApConfig = (SoftApModeConfiguration) args[2];
+                return mSoftApManager;
+            }
+        }).when(mWifiInjector).makeSoftApManager(any(ActiveModeManager.Listener.class),
+                any(WifiManager.SoftApCallback.class), any());
 
         mActiveModeWarden = createActiveModeWarden();
+        mActiveModeWarden.start();
         mLooper.dispatchAll();
 
         verify(mWifiNative).registerStatusListener(mStatusListenerCaptor.capture());
         mWifiNativeStatusListener = mStatusListenerCaptor.getValue();
 
+        verify(mWifiNative).registerClientInterfaceAvailabilityListener(
+                mClientIfaceAvailableListener.capture());
+        verify(mWifiNative).registerSoftApInterfaceAvailabilityListener(
+                mSoftApIfaceAvailableListener.capture());
+
         mActiveModeWarden.registerSoftApCallback(mSoftApStateMachineCallback);
-        mActiveModeWarden.registerScanOnlyCallback(mScanOnlyCallback);
-        mActiveModeWarden.registerClientModeCallback(mClientModeCallback);
+        mActiveModeWarden.registerLohsCallback(mLohsStateMachineCallback);
+        mTestSoftApInfo = new SoftApInfo();
+        mTestSoftApInfo.setFrequency(TEST_AP_FREQUENCY);
+        mTestSoftApInfo.setBandwidth(TEST_AP_BANDWIDTH);
     }
 
     private ActiveModeWarden createActiveModeWarden() {
-        return new ActiveModeWarden(mWifiInjector,
-                                    mContext,
-                                    mLooper.getLooper(),
-                                    mWifiNative,
-                                    mDefaultModeManager,
-                                    mBatteryStats);
+        ActiveModeWarden warden = new ActiveModeWarden(
+                mWifiInjector,
+                mLooper.getLooper(),
+                mWifiNative,
+                mDefaultModeManager,
+                mBatteryStats,
+                mWifiDiagnostics,
+                mContext,
+                mClientModeImpl,
+                mSettingsStore,
+                mFacade,
+                mWifiPermissionsUtil);
+        // SelfRecovery is created in WifiInjector after ActiveModeWarden, so getSelfRecovery()
+        // returns null when constructing ActiveModeWarden.
+        when(mWifiInjector.getSelfRecovery()).thenReturn(mSelfRecovery);
+        return warden;
     }
 
     /**
@@ -133,127 +221,245 @@ public class ActiveModeWardenTest {
     @After
     public void cleanUp() throws Exception {
         mActiveModeWarden = null;
+        mLooper.dispatchAll();
     }
 
-    private class ClientModeCallback implements ClientModeManager.Listener {
-        public int currentState = WifiManager.WIFI_STATE_UNKNOWN;
+    /**
+     * Helper method to enter the EnabledState and set ClientModeManager in ConnectMode.
+     */
+    private void enterClientModeActiveState() throws Exception {
+        String fromState = mActiveModeWarden.getCurrentMode();
+        when(mClientModeManager.getRole()).thenReturn(ROLE_CLIENT_PRIMARY);
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
 
-        @Override
-        public void onStateChanged(int state) {
-            currentState = state;
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_PRIMARY);
+        verify(mScanRequestProxy).enableScanning(true, true);
+        if (fromState.equals(DISABLED_STATE_STRING)) {
+            verify(mBatteryStats).reportWifiOn();
         }
     }
 
-    private class ScanOnlyModeCallback implements ScanOnlyModeManager.Listener {
-        public int currentState = WifiManager.WIFI_STATE_UNKNOWN;
+    /**
+     * Helper method to enter the EnabledState and set ClientModeManager in ScanOnlyMode.
+     */
+    private void enterScanOnlyModeActiveState() throws Exception {
+        String fromState = mActiveModeWarden.getCurrentMode();
+        when(mClientModeManager.getRole()).thenReturn(ROLE_CLIENT_SCAN_ONLY);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(true);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
 
-        @Override
-        public void onStateChanged(int state) {
-            currentState = state;
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_SCAN_ONLY);
+        verify(mScanRequestProxy).enableScanning(true, false);
+        if (fromState.equals(DISABLED_STATE_STRING)) {
+            verify(mBatteryStats).reportWifiOn();
         }
+        verify(mBatteryStats).reportWifiState(BatteryStatsManager.WIFI_STATE_OFF_SCANNING, null);
     }
 
     private void enterSoftApActiveMode() throws Exception {
         enterSoftApActiveMode(
-                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null));
+                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null,
+                mSoftApCapability));
     }
 
     /**
-     * Helper method to enter the ClientModeActiveState for ActiveModeWarden.
-     */
-    private void enterClientModeActiveState() throws Exception {
-        String fromState = mActiveModeWarden.getCurrentMode();
-        doAnswer(
-                new Answer<Object>() {
-                        public ClientModeManager answer(InvocationOnMock invocation) {
-                            Object[] args = invocation.getArguments();
-                            mClientListener = (ClientModeManager.Listener) args[0];
-                            return mClientModeManager;
-                        }
-                }).when(mWifiInjector).makeClientModeManager(
-                        any(ClientModeManager.Listener.class));
-        mActiveModeWarden.enterClientMode();
-        mLooper.dispatchAll();
-        mClientListener.onStateChanged(WifiManager.WIFI_STATE_ENABLED);
-        mLooper.dispatchAll();
-
-        assertEquals(CLIENT_MODE_STATE_STRING, mActiveModeWarden.getCurrentMode());
-        verify(mClientModeManager).start();
-        if (fromState.equals(SCAN_ONLY_MODE_STATE_STRING)) {
-            verify(mScanRequestProxy).enableScanning(false, false);
-        }
-        verify(mScanRequestProxy).enableScanning(true, true);
-        verify(mBatteryStats).noteWifiOn();
-    }
-
-    /**
-     * Helper method to enter the ScanOnlyModeActiveState for ActiveModeWarden.
-     */
-    private void enterScanOnlyModeActiveState() throws Exception {
-        String fromState = mActiveModeWarden.getCurrentMode();
-        doAnswer(
-                new Answer<Object>() {
-                        public ScanOnlyModeManager answer(InvocationOnMock invocation) {
-                            Object[] args = invocation.getArguments();
-                            mScanOnlyListener = (ScanOnlyModeManager.Listener) args[0];
-                            return mScanOnlyModeManager;
-                        }
-                }).when(mWifiInjector).makeScanOnlyModeManager(
-                        any(ScanOnlyModeManager.Listener.class));
-        mActiveModeWarden.enterScanOnlyMode();
-        mLooper.dispatchAll();
-        mScanOnlyListener.onStateChanged(WifiManager.WIFI_STATE_ENABLED);
-        mLooper.dispatchAll();
-
-        assertEquals(SCAN_ONLY_MODE_STATE_STRING, mActiveModeWarden.getCurrentMode());
-        verify(mScanOnlyModeManager).start();
-        if (fromState.equals(CLIENT_MODE_STATE_STRING)) {
-            verify(mScanRequestProxy).enableScanning(false, false);
-        }
-        verify(mScanRequestProxy).enableScanning(true, false);
-        verify(mBatteryStats).noteWifiOn();
-        verify(mBatteryStats).noteWifiState(eq(BatteryStats.WIFI_STATE_OFF_SCANNING), eq(null));
-    }
-
-    /**
-     * Helper method to enter the SoftApActiveMode for ActiveModeWarden.
+     * Helper method to activate SoftApManager.
      *
      * This method puts the test object into the correct state and verifies steps along the way.
      */
     private void enterSoftApActiveMode(SoftApModeConfiguration softApConfig) throws Exception {
         String fromState = mActiveModeWarden.getCurrentMode();
-        doAnswer(
-                new Answer<Object>() {
-                    public SoftApManager answer(InvocationOnMock invocation) {
-                        Object[] args = invocation.getArguments();
-                        mSoftApManagerCallback = (WifiManager.SoftApCallback) args[0];
-                        assertEquals(softApConfig, (SoftApModeConfiguration) args[1]);
-                        return mSoftApManager;
-                    }
-                }).when(mWifiInjector).makeSoftApManager(any(WifiManager.SoftApCallback.class),
-                                                         any());
-        mActiveModeWarden.enterSoftAPMode(softApConfig);
+        int softApRole = softApConfig.getTargetMode() == WifiManager.IFACE_IP_MODE_TETHERED
+                ? ROLE_SOFTAP_TETHERED : ROLE_SOFTAP_LOCAL_ONLY;
+        when(mSoftApManager.getRole()).thenReturn(softApRole);
+        mActiveModeWarden.startSoftAp(softApConfig);
         mLooper.dispatchAll();
+        mSoftApListener.onStarted();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+        assertThat(softApConfig).isEqualTo(mSoftApConfig);
         verify(mSoftApManager).start();
-        if (fromState.equals(WIFI_DISABLED_STATE_STRING)) {
-            verify(mBatteryStats).noteWifiOn();
-        } else if (!fromState.equals(SCAN_ONLY_MODE_STATE_STRING)
-                && !fromState.equals(CLIENT_MODE_STATE_STRING)) {
-            verify(mScanRequestProxy, atLeastOnce()).enableScanning(false, false);
+        verify(mSoftApManager).setRole(softApRole);
+        if (fromState.equals(DISABLED_STATE_STRING)) {
+            verify(mBatteryStats).reportWifiOn();
         }
     }
 
-    /**
-     * Test that after starting up, ActiveModeWarden is in the Disabled State.
-     */
-    @Test
-    public void testWifiDisabledAtStartup() throws Exception {
-        assertEquals(WIFI_DISABLED_STATE_STRING, mActiveModeWarden.getCurrentMode());
+    private void enterStaDisabledMode(boolean isSoftApModeManagerActive) {
+        String fromState = mActiveModeWarden.getCurrentMode();
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(false);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+        if (mClientListener != null) {
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        }
+
+        if (isSoftApModeManagerActive) {
+            assertInEnabledState();
+        } else {
+            assertInDisabledState();
+        }
+        if (fromState.equals(ENABLED_STATE_STRING)) {
+            verify(mScanRequestProxy).enableScanning(false, false);
+        }
+    }
+
+    private void shutdownWifi() {
+        mActiveModeWarden.recoveryDisableWifi();
+        mLooper.dispatchAll();
+    }
+
+    private void assertInEnabledState() {
+        assertThat(mActiveModeWarden.getCurrentMode()).isEqualTo(ENABLED_STATE_STRING);
+    }
+
+    private void assertInDisabledState() {
+        assertThat(mActiveModeWarden.getCurrentMode()).isEqualTo(DISABLED_STATE_STRING);
     }
 
     /**
-     * Test that ActiveModeWarden properly enters the ScanOnlyModeActiveState from the
-     * WifiDisabled state.
+     * Emergency mode is a sub-mode within each main state (ScanOnly, Client, DisabledState).
+     */
+    private void assertInEmergencyMode() {
+        assertThat(mActiveModeWarden.isInEmergencyMode()).isTrue();
+    }
+
+    /**
+     * Counts the number of times a void method was called on a mock.
+     *
+     * Void methods cannot be passed to Mockito.mockingDetails(). Thus we have to use method name
+     * matching instead.
+     */
+    private static int getMethodInvocationCount(Object mock, String methodName) {
+        long count = mockingDetails(mock).getInvocations()
+                .stream()
+                .filter(invocation -> methodName.equals(invocation.getMethod().getName()))
+                .count();
+        return (int) count;
+    }
+
+    /**
+     * Counts the number of times a non-void method was called on a mock.
+     *
+     * For non-void methods, can pass the method call literal directly:
+     * e.g. getMethodInvocationCount(mock.method());
+     */
+    private static int getMethodInvocationCount(Object mockMethod) {
+        return mockingDetails(mockMethod).getInvocations().size();
+    }
+
+    private void assertWifiShutDown(Runnable r) {
+        assertWifiShutDown(r, 1);
+    }
+
+    /**
+     * Asserts that the runnable r has shut down wifi properly.
+     *
+     * @param r     runnable that will shut down wifi
+     * @param times expected number of times that <code>r</code> shut down wifi
+     */
+    private void assertWifiShutDown(Runnable r, int times) {
+        // take snapshot of ActiveModeManagers
+        Collection<ActiveModeManager> activeModeManagers =
+                mActiveModeWarden.getActiveModeManagers();
+
+        List<Integer> expectedStopInvocationCounts = activeModeManagers
+                .stream()
+                .map(manager -> getMethodInvocationCount(manager, "stop") + times)
+                .collect(Collectors.toList());
+
+        r.run();
+
+        List<Integer> actualStopInvocationCounts = activeModeManagers
+                .stream()
+                .map(manager -> getMethodInvocationCount(manager, "stop"))
+                .collect(Collectors.toList());
+
+        String managerNames = activeModeManagers.stream()
+                .map(manager -> manager.getClass().getCanonicalName())
+                .collect(Collectors.joining(", ", "[", "]"));
+
+        assertThat(actualStopInvocationCounts)
+                .named(managerNames)
+                .isEqualTo(expectedStopInvocationCounts);
+    }
+
+    private void assertEnteredEcmMode(Runnable r) {
+        assertEnteredEcmMode(r, 1);
+    }
+
+    /**
+     * Asserts that the runnable r has entered ECM state properly.
+     *
+     * @param r     runnable that will enter ECM
+     * @param times expected number of times that <code>r</code> shut down wifi
+     */
+    private void assertEnteredEcmMode(Runnable r, int times) {
+        // take snapshot of ActiveModeManagers
+        Collection<ActiveModeManager> activeModeManagers =
+                mActiveModeWarden.getActiveModeManagers();
+
+        boolean disableWifiInEcm = mFacade.getConfigWiFiDisableInECBM(mContext);
+
+        List<Integer> expectedStopInvocationCounts = activeModeManagers.stream()
+                .map(manager -> {
+                    int initialCount = getMethodInvocationCount(manager, "stop");
+                    // carrier config enabled, all mode managers should have been shut down once
+                    int count = disableWifiInEcm ? initialCount + times : initialCount;
+                    if (manager instanceof SoftApManager) {
+                        // expect SoftApManager.close() to be called
+                        return count + times;
+                    } else {
+                        // don't expect other Managers close() to be called
+                        return count;
+                    }
+                })
+                .collect(Collectors.toList());
+
+        r.run();
+
+        assertInEmergencyMode();
+
+        List<Integer> actualStopInvocationCounts = activeModeManagers.stream()
+                .map(manager -> getMethodInvocationCount(manager, "stop"))
+                .collect(Collectors.toList());
+
+        String managerNames = activeModeManagers.stream()
+                .map(manager -> manager.getClass().getCanonicalName())
+                .collect(Collectors.joining(", ", "[", "]"));
+
+        assertThat(actualStopInvocationCounts)
+                .named(managerNames)
+                .isEqualTo(expectedStopInvocationCounts);
+    }
+
+    /** Test that after starting up, ActiveModeWarden is in the DisabledState State. */
+    @Test
+    public void testDisabledStateAtStartup() {
+        assertInDisabledState();
+    }
+
+    /**
+     * Test that ActiveModeWarden properly enters the EnabledState (in ScanOnlyMode) from the
+     * DisabledState state.
      */
     @Test
     public void testEnterScanOnlyModeFromDisabled() throws Exception {
@@ -261,8 +467,35 @@ public class ActiveModeWardenTest {
     }
 
     /**
-     * Test that ActiveModeWarden properly enters the SoftApModeActiveState from the
-     * WifiDisabled state.
+     * Test that ActiveModeWarden enables hidden network scanning in scan-only-mode
+     * if configured to do.
+     */
+    @Test
+    public void testScanOnlyModeScanHiddenNetworks() throws Exception {
+        when(mResources.getBoolean(R.bool.config_wifiScanHiddenNetworksScanOnlyMode))
+                .thenReturn(true);
+
+        mActiveModeWarden = createActiveModeWarden();
+        mActiveModeWarden.start();
+        mLooper.dispatchAll();
+
+        when(mClientModeManager.getRole()).thenReturn(ROLE_CLIENT_SCAN_ONLY);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_SCAN_ONLY);
+        verify(mScanRequestProxy).enableScanning(true, true);
+    }
+
+    /**
+     * Test that ActiveModeWarden properly starts the SoftApManager from the
+     * DisabledState state.
      */
     @Test
     public void testEnterSoftApModeFromDisabled() throws Exception {
@@ -270,49 +503,50 @@ public class ActiveModeWardenTest {
     }
 
     /**
-     * Test that ActiveModeWarden properly enters the SoftApModeActiveState from another state.
+     * Test that ActiveModeWarden properly starts the SoftApManager from another state.
      */
     @Test
     public void testEnterSoftApModeFromDifferentState() throws Exception {
         enterClientModeActiveState();
-        mLooper.dispatchAll();
-        assertEquals(CLIENT_MODE_STATE_STRING, mActiveModeWarden.getCurrentMode());
+        assertInEnabledState();
         reset(mBatteryStats, mScanRequestProxy);
         enterSoftApActiveMode();
     }
 
     /**
-     * Test that we can disable wifi fully from the ScanOnlyModeActiveState.
+     * Test that we can disable wifi fully from the EnabledState (in ScanOnlyMode).
      */
     @Test
     public void testDisableWifiFromScanOnlyModeActiveState() throws Exception {
         enterScanOnlyModeActiveState();
 
-        mActiveModeWarden.disableWifi();
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+        mActiveModeWarden.scanAlwaysModeChanged();
         mLooper.dispatchAll();
-        verify(mScanOnlyModeManager).stop();
-        verify(mBatteryStats).noteWifiOff();
-        assertEquals(WIFI_DISABLED_STATE_STRING, mActiveModeWarden.getCurrentMode());
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager).stop();
+        verify(mBatteryStats).reportWifiOff();
+        assertInDisabledState();
     }
 
     /**
-     * Test that we can disable wifi from the SoftApModeActiveState and not impact softap.
+     * Test that we can disable wifi when SoftApManager is active and not impact softap.
      */
     @Test
     public void testDisableWifiFromSoftApModeActiveStateDoesNotStopSoftAp() throws Exception {
         enterSoftApActiveMode();
+        enterScanOnlyModeActiveState();
 
         reset(mDefaultModeManager);
-        mActiveModeWarden.disableWifi();
-        mLooper.dispatchAll();
+        enterStaDisabledMode(true);
         verify(mSoftApManager, never()).stop();
-        verify(mBatteryStats, never()).noteWifiOff();
-        assertEquals(WIFI_DISABLED_STATE_STRING, mActiveModeWarden.getCurrentMode());
+        verify(mBatteryStats, never()).reportWifiOff();
     }
 
     /**
-     * Thest that we can switch from ScanOnlyActiveMode to another mode.
-     * Expectation: When switching out of ScanOlyModeActivState we stop the ScanOnlyModeManager.
+     * Test that we can switch from the EnabledState (in ScanOnlyMode) to another mode.
      */
     @Test
     public void testSwitchModeWhenScanOnlyModeActiveState() throws Exception {
@@ -321,13 +555,27 @@ public class ActiveModeWardenTest {
         reset(mBatteryStats, mScanRequestProxy);
         enterClientModeActiveState();
         mLooper.dispatchAll();
-        verify(mScanOnlyModeManager).stop();
-        assertEquals(CLIENT_MODE_STATE_STRING, mActiveModeWarden.getCurrentMode());
+        verify(mClientModeManager).setRole(ROLE_CLIENT_PRIMARY);
+        assertInEnabledState();
     }
 
     /**
-     * Test that we can switch from SoftApActiveMode to another mode.
-     * Expectation: When switching out of SoftApModeActiveState we do not impact softap operation
+     * Reentering EnabledState should be a NOP.
+     */
+    @Test
+    public void testReenterClientModeActiveStateIsNop() throws Exception {
+        enterClientModeActiveState();
+        verify(mClientModeManager, times(1)).start();
+
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+        // Should not start again.
+        verify(mClientModeManager, times(1)).start();
+    }
+
+    /**
+     * Test that we can switch mode when SoftApManager is active to another mode.
      */
     @Test
     public void testSwitchModeWhenSoftApActiveMode() throws Exception {
@@ -338,23 +586,21 @@ public class ActiveModeWardenTest {
         enterClientModeActiveState();
         mLooper.dispatchAll();
         verify(mSoftApManager, never()).stop();
-        assertEquals(CLIENT_MODE_STATE_STRING, mActiveModeWarden.getCurrentMode());
+        assertInEnabledState();
         verify(mWifiNative, never()).teardownAllInterfaces();
     }
 
     /**
-     * Test that we do enter the SoftApModeActiveState if we are already in WifiDisabledState due to
+     * Test that we activate SoftApModeManager if we are already in DisabledState due to
      * a failure.
-     * Expectations: We should exit the current WifiDisabledState and re-enter before successfully
-     * entering the SoftApModeActiveState.
      */
     @Test
     public void testEnterSoftApModeActiveWhenAlreadyInSoftApMode() throws Exception {
         enterSoftApActiveMode();
         // now inject failure through the SoftApManager.Listener
-        mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_FAILED, 0);
+        mSoftApListener.onStartFailure();
         mLooper.dispatchAll();
-        assertEquals(WIFI_DISABLED_STATE_STRING, mActiveModeWarden.getCurrentMode());
+        assertInDisabledState();
         // clear the first call to start SoftApManager
         reset(mSoftApManager, mBatteryStats);
 
@@ -362,65 +608,59 @@ public class ActiveModeWardenTest {
     }
 
     /**
-     * Test that we return to the WifiDisabledState after a failure is reported when in the
-     * ScanOnlyModeActiveState.
-     * Expectations: we should exit the ScanOnlyModeActiveState and stop the ScanOnlyModeManager.
+     * Test that we return to the DisabledState after a failure is reported when in the
+     * EnabledState.
      */
     @Test
     public void testScanOnlyModeFailureWhenActive() throws Exception {
         enterScanOnlyModeActiveState();
         // now inject a failure through the ScanOnlyModeManager.Listener
-        mScanOnlyListener.onStateChanged(WifiManager.WIFI_STATE_UNKNOWN);
+        mClientListener.onStartFailure();
         mLooper.dispatchAll();
-        assertEquals(WIFI_DISABLED_STATE_STRING, mActiveModeWarden.getCurrentMode());
-        verify(mScanOnlyModeManager).stop();
-        verify(mBatteryStats).noteWifiOff();
-        assertEquals(WifiManager.WIFI_STATE_UNKNOWN, mScanOnlyCallback.currentState);
+        assertInDisabledState();
+        verify(mBatteryStats).reportWifiOff();
     }
 
     /**
-     * Test that we return to the WifiDisabledState after a failure is reported when in the
-     * SoftApModeActiveState.
-     * Expectations: We should exit the SoftApModeActiveState and stop the SoftApManager.
+     * Test that we return to the DisabledState after a failure is reported when
+     * SoftApManager is active.
      */
     @Test
     public void testSoftApFailureWhenActive() throws Exception {
         enterSoftApActiveMode();
         // now inject failure through the SoftApManager.Listener
-        mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_FAILED, 0);
+        mSoftApListener.onStartFailure();
         mLooper.dispatchAll();
-        verify(mBatteryStats).noteWifiOff();
+        verify(mBatteryStats).reportWifiOff();
     }
 
     /**
-     * Test that we return to the WifiDisabledState after the ScanOnlyModeManager is stopping in the
-     * ScanOnlyModeActiveState.
-     * Expectations: We should exit the ScanOnlyModeActiveState and stop the ScanOnlyModeManager.
+     * Test that we return to the DisabledState after the ClientModeManager running in ScanOnlyMode
+     * is stopped.
      */
     @Test
     public void testScanOnlyModeDisabledWhenActive() throws Exception {
         enterScanOnlyModeActiveState();
+
         // now inject the stop message through the ScanOnlyModeManager.Listener
-        mScanOnlyListener.onStateChanged(WifiManager.WIFI_STATE_DISABLED);
+        mClientListener.onStopped();
         mLooper.dispatchAll();
-        assertEquals(WIFI_DISABLED_STATE_STRING, mActiveModeWarden.getCurrentMode());
-        verify(mScanOnlyModeManager).stop();
-        verify(mBatteryStats).noteWifiOff();
+
+        assertInDisabledState();
+        verify(mBatteryStats).reportWifiOff();
     }
 
     /**
-     * Test that we return to the WifiDisabledState after the SoftApManager is stopped in the
-     * SoftApModeActiveState.
-     * Expectations: We should exit the SoftApModeActiveState and stop the SoftApManager.
+     * Test that we return to the DisabledState after the SoftApManager is stopped.
      */
     @Test
     public void testSoftApDisabledWhenActive() throws Exception {
         enterSoftApActiveMode();
         reset(mWifiNative);
         // now inject failure through the SoftApManager.Listener
-        mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_FAILED, 0);
+        mSoftApListener.onStartFailure();
         mLooper.dispatchAll();
-        verify(mBatteryStats).noteWifiOff();
+        verify(mBatteryStats).reportWifiOff();
         verifyNoMoreInteractions(mWifiNative);
     }
 
@@ -431,6 +671,7 @@ public class ActiveModeWardenTest {
     public void callsWifiServiceCallbackOnSoftApStateChanged() throws Exception {
         enterSoftApActiveMode();
 
+        mSoftApListener.onStarted();
         mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_ENABLED, 0);
         mLooper.dispatchAll();
 
@@ -444,104 +685,66 @@ public class ActiveModeWardenTest {
     @Test
     public void doesntCallWifiServiceCallbackOnLOHSStateChanged() throws Exception {
         enterSoftApActiveMode(new SoftApModeConfiguration(
-                WifiManager.IFACE_IP_MODE_LOCAL_ONLY, null));
+                WifiManager.IFACE_IP_MODE_LOCAL_ONLY, null, mSoftApCapability));
 
+        mSoftApListener.onStarted();
         mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_ENABLED, 0);
         mLooper.dispatchAll();
 
         verify(mSoftApStateMachineCallback, never()).onStateChanged(anyInt(), anyInt());
-        verify(mSoftApStateMachineCallback, never()).onNumClientsChanged(anyInt());
-    }
-
-    /**
-     * Verifies that triggering a state change update will not crash if the callback to
-     * WifiServiceImpl is null.
-     */
-    @Test
-    public void testNullCallbackToWifiServiceImplForStateChange() throws Exception {
-        //set the callback to null
-        mActiveModeWarden.registerSoftApCallback(null);
-
-        enterSoftApActiveMode();
-
-        mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_DISABLING, 0);
-        mLooper.dispatchAll();
-
-        verify(mSoftApStateMachineCallback, never()).onStateChanged(anyInt(), anyInt());
+        verify(mSoftApStateMachineCallback, never()).onConnectedClientsChanged(any());
+        verify(mSoftApStateMachineCallback, never()).onInfoChanged(any());
     }
 
     /**
      * Verifies that NumClientsChanged event is being passed from SoftApManager to WifiServiceImpl
      */
     @Test
-    public void callsWifiServiceCallbackOnSoftApNumClientsChanged() throws Exception {
-        final int testNumClients = 3;
+    public void callsWifiServiceCallbackOnSoftApConnectedClientsChanged() throws Exception {
+        final List<WifiClient> testClients = new ArrayList();
         enterSoftApActiveMode();
-        mSoftApManagerCallback.onNumClientsChanged(testNumClients);
+        mSoftApManagerCallback.onConnectedClientsChanged(testClients);
         mLooper.dispatchAll();
 
-        verify(mSoftApStateMachineCallback).onNumClientsChanged(testNumClients);
+        verify(mSoftApStateMachineCallback).onConnectedClientsChanged(testClients);
     }
 
     /**
-     * Verifies that triggering a number of clients changed update will not crash if the callback to
-     * WifiServiceImpl is null.
+     * Verifies that SoftApInfoChanged event is being passed from SoftApManager to WifiServiceImpl
      */
     @Test
-    public void testNullCallbackToWifiServiceImplForNumClientsChanged() throws Exception {
-
-        final int testNumClients = 3;
-
-        //set the callback to null
-        mActiveModeWarden.registerSoftApCallback(null);
-
+    public void callsWifiServiceCallbackOnSoftApInfoChanged() throws Exception {
         enterSoftApActiveMode();
-        mSoftApManagerCallback.onNumClientsChanged(testNumClients);
+        mSoftApManagerCallback.onInfoChanged(mTestSoftApInfo);
+        mLooper.dispatchAll();
 
-        verify(mSoftApStateMachineCallback, never()).onNumClientsChanged(anyInt());
+        verify(mSoftApStateMachineCallback).onInfoChanged(mTestSoftApInfo);
     }
 
     /**
      * Test that we remain in the active state when we get a state change update that scan mode is
      * active.
-     * Expectations: We should remain in the ScanOnlyModeActive state.
      */
     @Test
     public void testScanOnlyModeStaysActiveOnEnabledUpdate() throws Exception {
         enterScanOnlyModeActiveState();
-        // now inject failure through the SoftApManager.Listener
-        mScanOnlyListener.onStateChanged(WifiManager.WIFI_STATE_ENABLED);
+        // now inject success through the Listener
+        mClientListener.onStarted();
         mLooper.dispatchAll();
-        assertEquals(SCAN_ONLY_MODE_STATE_STRING, mActiveModeWarden.getCurrentMode());
-        verify(mScanOnlyModeManager, never()).stop();
-    }
-
-    /**
-     * Test that we do not act on unepected state string messages and remain in the active state.
-     * Expectations: We should remain in the ScanOnlyModeActive state.
-     */
-    @Test
-    public void testScanOnlyModeStaysActiveOnUnexpectedStateUpdate() throws Exception {
-        enterScanOnlyModeActiveState();
-        // now inject failure through the SoftApManager.Listener
-        mScanOnlyListener.onStateChanged(WifiManager.WIFI_AP_STATE_DISABLING);
-        mLooper.dispatchAll();
-        assertEquals(SCAN_ONLY_MODE_STATE_STRING, mActiveModeWarden.getCurrentMode());
-        verify(mScanOnlyModeManager, never()).stop();
+        assertInEnabledState();
+        verify(mClientModeManager, never()).stop();
     }
 
     /**
      * Test that a config passed in to the call to enterSoftApMode is used to create the new
      * SoftApManager.
-     * Expectations: We should create a SoftApManager in WifiInjector with the config passed in to
-     * ActiveModeWarden to switch to SoftApMode.
      */
     @Test
     public void testConfigIsPassedToWifiInjector() throws Exception {
-        WifiConfiguration config = new WifiConfiguration();
-        config.SSID = "ThisIsAConfig";
-        SoftApModeConfiguration softApConfig =
-                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, config);
+        Builder configBuilder = new SoftApConfiguration.Builder();
+        configBuilder.setSsid("ThisIsAConfig");
+        SoftApModeConfiguration softApConfig = new SoftApModeConfiguration(
+                WifiManager.IFACE_IP_MODE_TETHERED, configBuilder.build(), mSoftApCapability);
         enterSoftApActiveMode(softApConfig);
     }
 
@@ -550,8 +753,6 @@ public class ActiveModeWardenTest {
      * WifiInjector.makeSoftApManager.
      *
      * Passing a null config to SoftApManager indicates that the default config should be used.
-     *
-     * Expectations: WifiInjector should be called with a null config.
      */
     @Test
     public void testNullConfigIsPassedToWifiInjector() throws Exception {
@@ -566,52 +767,83 @@ public class ActiveModeWardenTest {
     @Test
     public void testStartSoftApModeTwiceWithTwoConfigs() throws Exception {
         when(mWifiInjector.getWifiApConfigStore()).thenReturn(mWifiApConfigStore);
-        WifiConfiguration config1 = new WifiConfiguration();
-        config1.SSID = "ThisIsAConfig";
-        SoftApModeConfiguration softApConfig1 =
-                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, config1);
-        WifiConfiguration config2 = new WifiConfiguration();
-        config2.SSID = "ThisIsASecondConfig";
-        SoftApModeConfiguration softApConfig2 =
-                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, config2);
+        Builder configBuilder1 = new SoftApConfiguration.Builder();
+        configBuilder1.setSsid("ThisIsAConfig");
+        SoftApModeConfiguration softApConfig1 = new SoftApModeConfiguration(
+                WifiManager.IFACE_IP_MODE_TETHERED, configBuilder1.build(),
+                mSoftApCapability);
+        Builder configBuilder2 = new SoftApConfiguration.Builder();
+        configBuilder2.setSsid("ThisIsASecondConfig");
+        SoftApModeConfiguration softApConfig2 = new SoftApModeConfiguration(
+                WifiManager.IFACE_IP_MODE_TETHERED, configBuilder2.build(),
+                mSoftApCapability);
 
-        when(mWifiInjector.makeSoftApManager(any(WifiManager.SoftApCallback.class),
-                                             eq(softApConfig1)))
-                .thenReturn(mSoftApManager);
+        doAnswer(new Answer<SoftApManager>() {
+            public SoftApManager answer(InvocationOnMock invocation) {
+                Object[] args = invocation.getArguments();
+                mSoftApListener = (ActiveModeManager.Listener) args[0];
+                return mSoftApManager;
+            }
+        }).when(mWifiInjector).makeSoftApManager(any(ActiveModeManager.Listener.class),
+                any(WifiManager.SoftApCallback.class), eq(softApConfig1));
         // make a second softap manager
         SoftApManager softapManager = mock(SoftApManager.class);
-        when(mWifiInjector.makeSoftApManager(any(WifiManager.SoftApCallback.class),
-                                             eq(softApConfig2)))
-                .thenReturn(softapManager);
+        GeneralUtil.Mutable<ActiveModeManager.Listener> softApListener =
+                new GeneralUtil.Mutable<>();
+        doAnswer(new Answer<SoftApManager>() {
+            public SoftApManager answer(InvocationOnMock invocation) {
+                Object[] args = invocation.getArguments();
+                softApListener.value = (ActiveModeManager.Listener) args[0];
+                return softapManager;
+            }
+        }).when(mWifiInjector).makeSoftApManager(any(ActiveModeManager.Listener.class),
+                any(WifiManager.SoftApCallback.class), eq(softApConfig2));
 
-        mActiveModeWarden.enterSoftAPMode(softApConfig1);
-        mActiveModeWarden.enterSoftAPMode(softApConfig2);
+        mActiveModeWarden.startSoftAp(softApConfig1);
         mLooper.dispatchAll();
+        mSoftApListener.onStarted();
+        mActiveModeWarden.startSoftAp(softApConfig2);
+        mLooper.dispatchAll();
+        softApListener.value.onStarted();
+
         verify(mSoftApManager).start();
         verify(softapManager).start();
-        verify(mBatteryStats).noteWifiOn();
+        verify(mBatteryStats).reportWifiOn();
     }
 
     /**
      * Test that we safely disable wifi if it is already disabled.
-     * Expectations: We should not interact with WifiNative since we should have already cleaned up
-     * everything.
      */
     @Test
     public void disableWifiWhenAlreadyOff() throws Exception {
-        mActiveModeWarden.disableWifi();
+        enterStaDisabledMode(false);
+        verifyZeroInteractions(mWifiNative);
     }
 
     /**
-     * Trigger recovery and a bug report if we see a native failure.
+     * Trigger recovery and a bug report if we see a native failure
+     * while the device is not shutting down
      */
     @Test
-    public void handleWifiNativeFailure() throws Exception {
+    public void handleWifiNativeFailureDeviceNotShuttingDown() throws Exception {
         mWifiNativeStatusListener.onStatusChanged(false);
         mLooper.dispatchAll();
         verify(mWifiDiagnostics).captureBugReportData(
                 WifiDiagnostics.REPORT_REASON_WIFINATIVE_FAILURE);
         verify(mSelfRecovery).trigger(eq(SelfRecovery.REASON_WIFINATIVE_FAILURE));
+    }
+
+    /**
+     * Verify the device shutting down doesn't trigger recovery or bug report.
+     */
+    @Test
+    public void handleWifiNativeFailureDeviceShuttingDown() throws Exception {
+        mActiveModeWarden.notifyShuttingDown();
+        mWifiNativeStatusListener.onStatusChanged(false);
+        mLooper.dispatchAll();
+        verify(mWifiDiagnostics, never()).captureBugReportData(
+                WifiDiagnostics.REPORT_REASON_WIFINATIVE_FAILURE);
+        verify(mSelfRecovery, never()).trigger(eq(SelfRecovery.REASON_WIFINATIVE_FAILURE));
     }
 
     /**
@@ -633,12 +865,12 @@ public class ActiveModeWardenTest {
     public void shutdownWifiDoesNotCrashWhenClientModeExitsOnDestroyed() throws Exception {
         enterClientModeActiveState();
 
-        mClientListener.onStateChanged(WifiManager.WIFI_STATE_DISABLED);
+        mClientListener.onStopped();
         mLooper.dispatchAll();
 
-        mActiveModeWarden.shutdownWifi();
+        shutdownWifi();
 
-        assertEquals(WifiManager.WIFI_STATE_DISABLED, mClientModeCallback.currentState);
+        assertInDisabledState();
     }
 
     /**
@@ -648,12 +880,12 @@ public class ActiveModeWardenTest {
     public void onDestroyedCallbackDoesNotCrashWhenClientModeAlreadyStopped() throws Exception {
         enterClientModeActiveState();
 
-        mActiveModeWarden.shutdownWifi();
+        shutdownWifi();
 
-        mClientListener.onStateChanged(WifiManager.WIFI_STATE_DISABLED);
+        mClientListener.onStopped();
         mLooper.dispatchAll();
 
-        assertEquals(WifiManager.WIFI_STATE_DISABLED, mClientModeCallback.currentState);
+        assertInDisabledState();
     }
 
     /**
@@ -663,10 +895,12 @@ public class ActiveModeWardenTest {
     public void shutdownWifiDoesNotCrashWhenSoftApExitsOnDestroyed() throws Exception {
         enterSoftApActiveMode();
 
+        mSoftApListener.onStopped();
+        mLooper.dispatchAll();
         mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_DISABLED, 0);
         mLooper.dispatchAll();
 
-        mActiveModeWarden.shutdownWifi();
+        shutdownWifi();
 
         verify(mSoftApStateMachineCallback).onStateChanged(WifiManager.WIFI_AP_STATE_DISABLED, 0);
     }
@@ -678,8 +912,9 @@ public class ActiveModeWardenTest {
     public void onDestroyedCallbackDoesNotCrashWhenSoftApModeAlreadyStopped() throws Exception {
         enterSoftApActiveMode();
 
-        mActiveModeWarden.shutdownWifi();
+        shutdownWifi();
 
+        mSoftApListener.onStopped();
         mSoftApManagerCallback.onStateChanged(WifiManager.WIFI_AP_STATE_DISABLED, 0);
         mLooper.dispatchAll();
 
@@ -703,17 +938,13 @@ public class ActiveModeWardenTest {
     public void dumpCallsActiveModeManagers() throws Exception {
         enterSoftApActiveMode();
         enterClientModeActiveState();
-        reset(mScanRequestProxy);
-        enterScanOnlyModeActiveState();
 
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         PrintWriter writer = new PrintWriter(stream);
         mActiveModeWarden.dump(null, writer, null);
 
-        verify(mSoftApManager).dump(eq(null), eq(writer), eq(null));
-        // can only be in scan or client, so we should not have a client mode active
-        verify(mClientModeManager, never()).dump(eq(null), eq(writer), eq(null));
-        verify(mScanOnlyModeManager).dump(eq(null), eq(writer), eq(null));
+        verify(mSoftApManager).dump(null, writer, null);
+        verify(mClientModeManager).dump(null, writer, null);
     }
 
     /**
@@ -724,35 +955,1366 @@ public class ActiveModeWardenTest {
         // prepare WiFi configurations
         when(mWifiInjector.getWifiApConfigStore()).thenReturn(mWifiApConfigStore);
         SoftApModeConfiguration tetherConfig =
-                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null);
-        WifiConfiguration lohsConfigWC = WifiApConfigStore.generateLocalOnlyHotspotConfig(mContext,
-                WifiConfiguration.AP_BAND_2GHZ);
+                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null,
+                mSoftApCapability);
+        SoftApConfiguration lohsConfigWC = WifiApConfigStore.generateLocalOnlyHotspotConfig(
+                mContext, SoftApConfiguration.BAND_2GHZ, null);
         SoftApModeConfiguration lohsConfig =
-                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_LOCAL_ONLY, lohsConfigWC);
+                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_LOCAL_ONLY, lohsConfigWC,
+                mSoftApCapability);
 
         // mock SoftAPManagers
-        when(mSoftApManager.getIpMode()).thenReturn(WifiManager.IFACE_IP_MODE_TETHERED);
-        when(mWifiInjector.makeSoftApManager(any(WifiManager.SoftApCallback.class),
-                                             eq(tetherConfig)))
-                .thenReturn(mSoftApManager);
+        when(mSoftApManager.getRole()).thenReturn(ROLE_SOFTAP_TETHERED);
+        doAnswer(new Answer<SoftApManager>() {
+            public SoftApManager answer(InvocationOnMock invocation) {
+                Object[] args = invocation.getArguments();
+                mSoftApListener = (ActiveModeManager.Listener) args[0];
+                return mSoftApManager;
+            }
+        }).when(mWifiInjector).makeSoftApManager(any(ActiveModeManager.Listener.class),
+                any(WifiManager.SoftApCallback.class), eq(tetherConfig));
+        // make a second softap manager
         SoftApManager lohsSoftapManager = mock(SoftApManager.class);
-        when(lohsSoftapManager.getIpMode()).thenReturn(WifiManager.IFACE_IP_MODE_LOCAL_ONLY);
-        when(mWifiInjector.makeSoftApManager(any(WifiManager.SoftApCallback.class),
-                                             eq(lohsConfig)))
-                .thenReturn(lohsSoftapManager);
+        when(lohsSoftapManager.getRole()).thenReturn(ROLE_SOFTAP_LOCAL_ONLY);
+        GeneralUtil.Mutable<ActiveModeManager.Listener> lohsSoftApListener =
+                new GeneralUtil.Mutable<>();
+        doAnswer(new Answer<SoftApManager>() {
+            public SoftApManager answer(InvocationOnMock invocation) {
+                Object[] args = invocation.getArguments();
+                lohsSoftApListener.value = (ActiveModeManager.Listener) args[0];
+                return lohsSoftapManager;
+            }
+        }).when(mWifiInjector).makeSoftApManager(any(ActiveModeManager.Listener.class),
+                any(WifiManager.SoftApCallback.class), eq(lohsConfig));
 
         // enable tethering and LOHS
-        mActiveModeWarden.enterSoftAPMode(tetherConfig);
-        mActiveModeWarden.enterSoftAPMode(lohsConfig);
+        mActiveModeWarden.startSoftAp(tetherConfig);
         mLooper.dispatchAll();
+        mSoftApListener.onStarted();
+        mActiveModeWarden.startSoftAp(lohsConfig);
+        mLooper.dispatchAll();
+        lohsSoftApListener.value.onStarted();
         verify(mSoftApManager).start();
         verify(lohsSoftapManager).start();
-        verify(mBatteryStats).noteWifiOn();
+        verify(mBatteryStats).reportWifiOn();
 
         // disable tethering
-        mActiveModeWarden.stopSoftAPMode(WifiManager.IFACE_IP_MODE_TETHERED);
+        mActiveModeWarden.stopSoftAp(WifiManager.IFACE_IP_MODE_TETHERED);
         mLooper.dispatchAll();
         verify(mSoftApManager).stop();
         verify(lohsSoftapManager, never()).stop();
+    }
+
+    /**
+     * Verify that toggling wifi from disabled starts client mode.
+     */
+    @Test
+    public void enableWifi() throws Exception {
+        assertInDisabledState();
+
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+    }
+
+    /**
+     * Test verifying that we can enter scan mode when the scan mode changes
+     */
+    @Test
+    public void enableScanMode() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        mActiveModeWarden.scanAlwaysModeChanged();
+        mLooper.dispatchAll();
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_SCAN_ONLY);
+        assertInEnabledState();
+        verify(mClientModeManager, never()).stop();
+    }
+
+    /**
+     * Verify that if scanning is enabled at startup, we enter scan mode
+     */
+    @Test
+    public void testEnterScanModeAtStartWhenSet() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+
+        mActiveModeWarden = createActiveModeWarden();
+        mActiveModeWarden.start();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+    }
+
+    /**
+     * Verify that if Wifi is enabled at startup, we enter client mode
+     */
+    @Test
+    public void testEnterClientModeAtStartWhenSet() throws Exception {
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+
+        mActiveModeWarden = createActiveModeWarden();
+        mActiveModeWarden.start();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_PRIMARY);
+    }
+
+    /**
+     * Do not enter scan mode if location mode disabled.
+     */
+    @Test
+    public void testDoesNotEnterScanModeWhenLocationModeDisabled() throws Exception {
+        // Start a new WifiController with wifi disabled
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(false);
+
+        mActiveModeWarden = createActiveModeWarden();
+        mActiveModeWarden.start();
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+
+        // toggling scan always available is not sufficient for scan mode
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        mActiveModeWarden.scanAlwaysModeChanged();
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+    }
+
+    /**
+     * Only enter scan mode if location mode enabled
+     */
+    @Test
+    public void testEnterScanModeWhenLocationModeEnabled() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(false);
+
+        reset(mContext);
+        when(mContext.getResources()).thenReturn(mResources);
+        mActiveModeWarden = createActiveModeWarden();
+        mActiveModeWarden.start();
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<BroadcastReceiver> bcastRxCaptor =
+                ArgumentCaptor.forClass(BroadcastReceiver.class);
+        verify(mContext).registerReceiver(bcastRxCaptor.capture(), any(IntentFilter.class));
+        BroadcastReceiver broadcastReceiver = bcastRxCaptor.getValue();
+
+        assertInDisabledState();
+
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(true);
+        Intent intent = new Intent(LocationManager.MODE_CHANGED_ACTION);
+        broadcastReceiver.onReceive(mContext, intent);
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+    }
+
+
+    /**
+     * Disabling location mode when in scan mode will disable wifi
+     */
+    @Test
+    public void testExitScanModeWhenLocationModeDisabled() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(true);
+
+        reset(mContext);
+        when(mContext.getResources()).thenReturn(mResources);
+        mActiveModeWarden = createActiveModeWarden();
+        mActiveModeWarden.start();
+        mLooper.dispatchAll();
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<BroadcastReceiver> bcastRxCaptor =
+                ArgumentCaptor.forClass(BroadcastReceiver.class);
+        verify(mContext).registerReceiver(bcastRxCaptor.capture(), any(IntentFilter.class));
+        BroadcastReceiver broadcastReceiver = bcastRxCaptor.getValue();
+
+        assertInEnabledState();
+
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(false);
+        Intent intent = new Intent(LocationManager.MODE_CHANGED_ACTION);
+        broadcastReceiver.onReceive(mContext, intent);
+        mLooper.dispatchAll();
+
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+    }
+
+    /**
+     * When in Client mode, make sure ECM triggers wifi shutdown.
+     */
+    @Test
+    public void testEcmOnFromClientMode() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+        enableWifi();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertWifiShutDown(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+    }
+
+    /**
+     * ECM disabling messages, when in client mode (not expected) do not trigger state changes.
+     */
+    @Test
+    public void testEcmOffInClientMode() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+        enableWifi();
+
+        // Test with WifiDisableInECBM turned off
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(false);
+
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+    }
+
+    /**
+     * When ECM activates and we are in client mode, disabling ECM should return us to client mode.
+     */
+    @Test
+    public void testEcmDisabledReturnsToClientMode() throws Exception {
+        enableWifi();
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertWifiShutDown(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+
+        // test ecm changed
+        mActiveModeWarden.emergencyCallbackModeChanged(false);
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+    }
+
+    /**
+     * When Ecm mode is enabled, we should shut down wifi when we get an emergency mode changed
+     * update.
+     */
+    @Test
+    public void testEcmOnFromScanMode() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        mActiveModeWarden.scanAlwaysModeChanged();
+        mLooper.dispatchAll();
+
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertWifiShutDown(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+    }
+
+    /**
+     * When Ecm mode is disabled, we should not shut down scan mode if we get an emergency mode
+     * changed update, but we should turn off soft AP
+     */
+    @Test
+    public void testEcmOffInScanMode() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        mActiveModeWarden.scanAlwaysModeChanged();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned off:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(false);
+
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+    }
+
+    /**
+     * When ECM is disabled, we should return to scan mode
+     */
+    @Test
+    public void testEcmDisabledReturnsToScanMode() throws Exception {
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        mActiveModeWarden.scanAlwaysModeChanged();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertWifiShutDown(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+
+        // test ecm changed
+        mActiveModeWarden.emergencyCallbackModeChanged(false);
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+    }
+
+    /**
+     * When Ecm mode is enabled, we should shut down wifi when we get an emergency mode changed
+     * update.
+     */
+    @Test
+    public void testEcmOnFromSoftApMode() throws Exception {
+        enterSoftApActiveMode();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+    }
+
+    /**
+     * When Ecm mode is disabled, we should shut down softap mode if we get an emergency mode
+     * changed update
+     */
+    @Test
+    public void testEcmOffInSoftApMode() throws Exception {
+        enterSoftApActiveMode();
+
+        // Test with WifiDisableInECBM turned off:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(false);
+
+        // test ecm changed
+        mActiveModeWarden.emergencyCallbackModeChanged(true);
+        mLooper.dispatchAll();
+
+        verify(mSoftApManager).stop();
+    }
+
+    /**
+     * When ECM is activated and we were in softap mode, we should just return to wifi off when ECM
+     * ends
+     */
+    @Test
+    public void testEcmDisabledRemainsDisabledWhenSoftApHadBeenOn() throws Exception {
+        assertInDisabledState();
+
+        enterSoftApActiveMode();
+
+        // verify Soft AP Manager started
+        verify(mSoftApManager).start();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+            mSoftApListener.onStopped();
+            mLooper.dispatchAll();
+        });
+
+        // test ecm changed
+        mActiveModeWarden.emergencyCallbackModeChanged(false);
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+
+        // verify no additional calls to enable softap
+        verify(mSoftApManager).start();
+    }
+
+    /**
+     * Wifi should remain off when already disabled and we enter ECM.
+     */
+    @Test
+    public void testEcmOnFromDisabledMode() throws Exception {
+        assertInDisabledState();
+        verify(mSoftApManager, never()).start();
+        verify(mClientModeManager, never()).start();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+    }
+
+
+    /**
+     * Updates about call state change also trigger entry of ECM mode.
+     */
+    @Test
+    public void testEnterEcmOnEmergencyCallStateChange() throws Exception {
+        assertInDisabledState();
+
+        enableWifi();
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertEnteredEcmMode(() -> {
+            // test call state changed
+            mActiveModeWarden.emergencyCallStateChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+
+        mActiveModeWarden.emergencyCallStateChanged(false);
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+    }
+
+    /**
+     * Verify when both ECM and call state changes arrive, we enter ECM mode
+     */
+    @Test
+    public void testEnterEcmWithBothSignals() throws Exception {
+        assertInDisabledState();
+
+        enableWifi();
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertWifiShutDown(() -> {
+            mActiveModeWarden.emergencyCallStateChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+
+        assertWifiShutDown(() -> {
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        }, 0); // does not cause another shutdown
+
+        // client mode only started once so far
+        verify(mClientModeManager).start();
+
+        mActiveModeWarden.emergencyCallStateChanged(false);
+        mLooper.dispatchAll();
+
+        // stay in ecm, do not send an additional client mode trigger
+        assertInEmergencyMode();
+        // assert that the underlying state is in disabled state
+        assertInDisabledState();
+
+        // client mode still only started once
+        verify(mClientModeManager).start();
+
+        mActiveModeWarden.emergencyCallbackModeChanged(false);
+        mLooper.dispatchAll();
+
+        // now we can re-enable wifi
+        verify(mClientModeManager, times(2)).start();
+        assertInEnabledState();
+    }
+
+    /**
+     * Verify when both ECM and call state changes arrive but out of order, we enter ECM mode
+     */
+    @Test
+    public void testEnterEcmWithBothSignalsOutOfOrder() throws Exception {
+        assertInDisabledState();
+
+        enableWifi();
+
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+        assertInDisabledState();
+
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallStateChanged(true);
+            mLooper.dispatchAll();
+        }, 0); // does not enter ECM state again
+
+        mActiveModeWarden.emergencyCallStateChanged(false);
+        mLooper.dispatchAll();
+
+        // stay in ecm, do not send an additional client mode trigger
+        assertInEmergencyMode();
+        // assert that the underlying state is in disabled state
+        assertInDisabledState();
+
+        // client mode still only started once
+        verify(mClientModeManager).start();
+
+        mActiveModeWarden.emergencyCallbackModeChanged(false);
+        mLooper.dispatchAll();
+
+        // now we can re-enable wifi
+        verify(mClientModeManager, times(2)).start();
+        assertInEnabledState();
+    }
+
+    /**
+     * Verify when both ECM and call state changes arrive but completely out of order,
+     * we still enter and properly exit ECM mode
+     */
+    @Test
+    public void testEnterEcmWithBothSignalsOppositeOrder() throws Exception {
+        assertInDisabledState();
+
+        enableWifi();
+
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallStateChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+        assertInDisabledState();
+
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        }, 0); // still only 1 shutdown
+
+        mActiveModeWarden.emergencyCallbackModeChanged(false);
+        mLooper.dispatchAll();
+
+        // stay in ecm, do not send an additional client mode trigger
+        assertInEmergencyMode();
+        // assert that the underlying state is in disabled state
+        assertInDisabledState();
+
+        // client mode still only started once
+        verify(mClientModeManager).start();
+
+        mActiveModeWarden.emergencyCallStateChanged(false);
+        mLooper.dispatchAll();
+
+        // now we can re-enable wifi
+        verify(mClientModeManager, times(2)).start();
+        assertInEnabledState();
+    }
+
+    /**
+     * When ECM is active, we might get addition signals of ECM mode, drop those additional signals,
+     * we must exit when one of each signal is received.
+     *
+     * In any case, duplicate signals indicate a bug from Telephony. Each signal should be turned
+     * off before it is turned on again.
+     */
+    @Test
+    public void testProperExitFromEcmModeWithMultipleMessages() throws Exception {
+        assertInDisabledState();
+
+        enableWifi();
+
+        verify(mClientModeManager).start();
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mActiveModeWarden.emergencyCallStateChanged(true);
+            mActiveModeWarden.emergencyCallStateChanged(true);
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+        assertInDisabledState();
+
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallbackModeChanged(false);
+            mLooper.dispatchAll();
+            mActiveModeWarden.emergencyCallbackModeChanged(false);
+            mLooper.dispatchAll();
+            mActiveModeWarden.emergencyCallbackModeChanged(false);
+            mLooper.dispatchAll();
+            mActiveModeWarden.emergencyCallbackModeChanged(false);
+            mLooper.dispatchAll();
+        }, 0);
+
+        // didn't enter client mode again
+        verify(mClientModeManager).start();
+        assertInDisabledState();
+
+        // now we will exit ECM
+        mActiveModeWarden.emergencyCallStateChanged(false);
+        mLooper.dispatchAll();
+
+        // now we can re-enable wifi
+        verify(mClientModeManager, times(2)).start();
+        assertInEnabledState();
+    }
+
+    /**
+     * Toggling wifi when in ECM does not exit ecm mode and enable wifi
+     */
+    @Test
+    public void testWifiDoesNotToggleOnWhenInEcm() throws Exception {
+        assertInDisabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        // test ecm changed
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+
+        // now toggle wifi and verify we do not start wifi
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager, never()).start();
+        assertInDisabledState();
+    }
+
+    @Test
+    public void testAirplaneModeDoesNotToggleOnWhenInEcm() throws Exception {
+        // TODO(b/139829963): investigate the expected behavior is when toggling airplane mode in
+        //  ECM
+    }
+
+    /**
+     * Toggling scan mode when in ECM does not exit ecm mode and enable scan mode
+     */
+    @Test
+    public void testScanModeDoesNotToggleOnWhenInEcm() throws Exception {
+        assertInDisabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+
+        // now enable scanning and verify we do not start wifi
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        mActiveModeWarden.scanAlwaysModeChanged();
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager, never()).start();
+        assertInDisabledState();
+    }
+
+
+    /**
+     * Toggling softap mode when in ECM does not exit ecm mode and enable softap
+     */
+    @Test
+    public void testSoftApModeDoesNotToggleOnWhenInEcm() throws Exception {
+        assertInDisabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+
+        mActiveModeWarden.startSoftAp(
+                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null,
+                mSoftApCapability));
+        mLooper.dispatchAll();
+
+        verify(mSoftApManager, never()).start();
+        assertInDisabledState();
+    }
+
+    /**
+     * Toggling off softap mode when in ECM does not induce a mode change
+     */
+    @Test
+    public void testSoftApStoppedDoesNotSwitchModesWhenInEcm() throws Exception {
+        assertInDisabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+
+        mActiveModeWarden.stopSoftAp(WifiManager.IFACE_IP_MODE_UNSPECIFIED);
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+        verifyNoMoreInteractions(mSoftApManager, mClientModeManager);
+    }
+
+    /**
+     * Toggling softap mode when in airplane mode needs to enable softap
+     */
+    @Test
+    public void testSoftApModeToggleWhenInAirplaneMode() throws Exception {
+        // Test with airplane mode turned on:
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(true);
+
+        // Turn on SoftAp.
+        mActiveModeWarden.startSoftAp(
+                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null,
+                mSoftApCapability));
+        mLooper.dispatchAll();
+        verify(mSoftApManager).start();
+
+        // Turn off SoftAp.
+        mActiveModeWarden.stopSoftAp(WifiManager.IFACE_IP_MODE_UNSPECIFIED);
+        mLooper.dispatchAll();
+
+        verify(mSoftApManager).stop();
+    }
+
+    /**
+     * Toggling off scan mode when in ECM does not induce a mode change
+     */
+    @Test
+    public void testScanModeStoppedSwitchModeToDisabledStateWhenInEcm() throws Exception {
+        enterScanOnlyModeActiveState();
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+
+        // Spurious onStopped
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+    }
+
+    /**
+     * Toggling off client mode when in ECM does not induce a mode change
+     */
+    @Test
+    public void testClientModeStoppedSwitchModeToDisabledStateWhenInEcm() throws Exception {
+        enterClientModeActiveState();
+        assertInEnabledState();
+
+        // Test with WifiDisableInECBM turned on:
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        assertEnteredEcmMode(() -> {
+            // test ecm changed
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+
+        // Spurious onStopped
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+    }
+
+    /**
+     * When AP mode is enabled and wifi was previously in AP mode, we should return to
+     * EnabledState after the AP is disabled.
+     * Enter EnabledState, activate AP mode, disable AP mode.
+     * <p>
+     * Expected: AP should successfully start and exit, then return to EnabledState.
+     */
+    @Test
+    public void testReturnToEnabledStateAfterAPModeShutdown() throws Exception {
+        enableWifi();
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+
+        mActiveModeWarden.startSoftAp(
+                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null,
+                mSoftApCapability));
+        // add an "unexpected" sta mode stop to simulate a single interface device
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+
+        // Now stop the AP
+        mSoftApListener.onStopped();
+        mLooper.dispatchAll();
+
+        // We should re-enable client mode
+        verify(mClientModeManager, times(2)).start();
+        assertInEnabledState();
+    }
+
+    /**
+     * When in STA mode and SoftAP is enabled and the device supports STA+AP (i.e. the STA wasn't
+     * shut down when the AP started), both modes will be running concurrently.
+     *
+     * Then when the AP is disabled, we should remain in STA mode.
+     *
+     * Enter EnabledState, activate AP mode, toggle WiFi off.
+     * <p>
+     * Expected: AP should successfully start and exit, then return to EnabledState.
+     */
+    @Test
+    public void testReturnToEnabledStateAfterWifiEnabledShutdown() throws Exception {
+        enableWifi();
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+
+        mActiveModeWarden.startSoftAp(
+                new SoftApModeConfiguration(WifiManager.IFACE_IP_MODE_TETHERED, null,
+                mSoftApCapability));
+        mLooper.dispatchAll();
+
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+        mActiveModeWarden.wifiToggled();
+        mSoftApListener.onStopped();
+        mLooper.dispatchAll();
+
+        // wasn't called again
+        verify(mClientModeManager).start();
+        assertInEnabledState();
+    }
+
+    @Test
+    public void testRestartWifiStackInEnabledStateTriggersBugReport() throws Exception {
+        enableWifi();
+        mActiveModeWarden.recoveryRestartWifi(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        mLooper.dispatchAll();
+        verify(mClientModeImpl).takeBugReport(anyString(), anyString());
+    }
+
+    @Test
+    public void testRestartWifiWatchdogDoesNotTriggerBugReport() throws Exception {
+        enableWifi();
+        mActiveModeWarden.recoveryRestartWifi(SelfRecovery.REASON_LAST_RESORT_WATCHDOG);
+        mLooper.dispatchAll();
+        verify(mClientModeImpl, never()).takeBugReport(anyString(), anyString());
+    }
+
+    /**
+     * When in sta mode, CMD_RECOVERY_DISABLE_WIFI messages should trigger wifi to disable.
+     */
+    @Test
+    public void testRecoveryDisabledTurnsWifiOff() throws Exception {
+        enableWifi();
+        assertInEnabledState();
+        mActiveModeWarden.recoveryDisableWifi();
+        mLooper.dispatchAll();
+        verify(mClientModeManager).stop();
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+        assertInDisabledState();
+    }
+
+    /**
+     * When wifi is disabled, CMD_RECOVERY_DISABLE_WIFI should not trigger a state change.
+     */
+    @Test
+    public void testRecoveryDisabledWhenWifiAlreadyOff() throws Exception {
+        assertInDisabledState();
+        assertWifiShutDown(() -> {
+            mActiveModeWarden.recoveryDisableWifi();
+            mLooper.dispatchAll();
+        });
+    }
+
+    /**
+     * The command to trigger a WiFi reset should not trigger any action by WifiController if we
+     * are not in STA mode.
+     * WiFi is not in connect mode, so any calls to reset the wifi stack due to connection failures
+     * should be ignored.
+     * Create and start WifiController in DisabledState, send command to restart WiFi
+     * <p>
+     * Expected: WiFiController should not call ActiveModeWarden.disableWifi()
+     */
+    @Test
+    public void testRestartWifiStackInDisabledState() throws Exception {
+        assertInDisabledState();
+
+        mActiveModeWarden.recoveryRestartWifi(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+        verifyNoMoreInteractions(mClientModeManager, mSoftApManager);
+    }
+
+    /**
+     * The command to trigger a WiFi reset should trigger a wifi reset in ClientModeImpl through
+     * the ActiveModeWarden.shutdownWifi() call when in STA mode.
+     * When WiFi is in scan mode, calls to reset the wifi stack due to native failure
+     * should trigger a supplicant stop, and subsequently, a driver reload.
+     * Create and start WifiController in EnabledState, send command to restart WiFi
+     * <p>
+     * Expected: WiFiController should call ActiveModeWarden.shutdownWifi() and
+     * ActiveModeWarden should enter SCAN_ONLY mode and the wifi driver should be started.
+     */
+    @Test
+    public void testRestartWifiStackInDisabledStateWithScanState() throws Exception {
+        assertInDisabledState();
+
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        mActiveModeWarden.scanAlwaysModeChanged();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_SCAN_ONLY);
+
+        mActiveModeWarden.recoveryRestartWifi(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager).stop();
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+        assertInDisabledState();
+
+        mLooper.moveTimeForward(TEST_WIFI_RECOVERY_DELAY_MS);
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager, times(2)).start();
+        verify(mClientModeManager, times(2)).setRole(ROLE_CLIENT_SCAN_ONLY);
+        assertInEnabledState();
+    }
+
+    /**
+     * The command to trigger a WiFi reset should trigger a wifi reset in ClientModeImpl through
+     * the ActiveModeWarden.shutdownWifi() call when in STA mode.
+     * WiFi is in connect mode, calls to reset the wifi stack due to connection failures
+     * should trigger a supplicant stop, and subsequently, a driver reload.
+     * Create and start WifiController in EnabledState, send command to restart WiFi
+     * <p>
+     * Expected: WiFiController should call ActiveModeWarden.shutdownWifi() and
+     * ActiveModeWarden should enter CONNECT_MODE and the wifi driver should be started.
+     */
+    @Test
+    public void testRestartWifiStackInEnabledState() throws Exception {
+        enableWifi();
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+
+        assertWifiShutDown(() -> {
+            mActiveModeWarden.recoveryRestartWifi(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+            mLooper.dispatchAll();
+            // Complete the stop
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+
+        // still only started once
+        verify(mClientModeManager).start();
+
+        mLooper.moveTimeForward(TEST_WIFI_RECOVERY_DELAY_MS);
+        mLooper.dispatchAll();
+
+        // started again
+        verify(mClientModeManager, times(2)).start();
+        assertInEnabledState();
+    }
+
+    /**
+     * The command to trigger a WiFi reset should not trigger a reset when in ECM mode.
+     * Enable wifi and enter ECM state, send command to restart wifi.
+     * <p>
+     * Expected: The command to trigger a wifi reset should be ignored and we should remain in ECM
+     * mode.
+     */
+    @Test
+    public void testRestartWifiStackDoesNotExitECMMode() throws Exception {
+        enableWifi();
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_PRIMARY);
+
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallStateChanged(true);
+            mLooper.dispatchAll();
+            mClientListener.onStopped();
+            mLooper.dispatchAll();
+        });
+        assertInEmergencyMode();
+        assertInDisabledState();
+        verify(mClientModeManager).stop();
+        verify(mClientModeManager, atLeastOnce()).getRole();
+
+        mActiveModeWarden.recoveryRestartWifi(SelfRecovery.REASON_LAST_RESORT_WATCHDOG);
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager).start(); // wasn't called again
+        assertInEmergencyMode();
+        assertInDisabledState();
+        verifyNoMoreInteractions(mClientModeManager, mSoftApManager);
+    }
+
+    /**
+     * The command to trigger a WiFi reset should trigger a reset when in AP mode.
+     * Enter AP mode, send command to restart wifi.
+     * <p>
+     * Expected: The command to trigger a wifi reset should trigger wifi shutdown.
+     */
+    @Test
+    public void testRestartWifiStackFullyStopsWifi() throws Exception {
+        mActiveModeWarden.startSoftAp(new SoftApModeConfiguration(
+                WifiManager.IFACE_IP_MODE_LOCAL_ONLY, null, mSoftApCapability));
+        mLooper.dispatchAll();
+        verify(mSoftApManager).start();
+        verify(mSoftApManager).setRole(ROLE_SOFTAP_LOCAL_ONLY);
+
+        assertWifiShutDown(() -> {
+            mActiveModeWarden.recoveryRestartWifi(SelfRecovery.REASON_STA_IFACE_DOWN);
+            mLooper.dispatchAll();
+        });
+    }
+
+    /**
+     * Tests that when Wifi is already disabled and another Wifi toggle command arrives,
+     * don't enter scan mode if {@link WifiSettingsStore#isScanAlwaysAvailable()} is false.
+     * Note: {@link WifiSettingsStore#isScanAlwaysAvailable()} returns false if either the wifi
+     * scanning is disabled and airplane mode is on.
+     */
+    @Test
+    public void staDisabled_toggleWifiOff_scanNotAvailable_dontGoToScanMode() {
+        assertInDisabledState();
+
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(true);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(true);
+
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+
+        assertInDisabledState();
+        verify(mClientModeManager, never()).start();
+    }
+
+    /**
+     * Tests that when Wifi is already disabled and another Wifi toggle command arrives,
+     * enter scan mode if {@link WifiSettingsStore#isScanAlwaysAvailable()} is true.
+     * Note: {@link WifiSettingsStore#isScanAlwaysAvailable()} returns true if both the wifi
+     * scanning is enabled and airplane mode is off.
+     */
+    @Test
+    public void staDisabled_toggleWifiOff_scanAvailable_goToScanMode() {
+        assertInDisabledState();
+
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        when(mWifiPermissionsUtil.isLocationModeEnabled()).thenReturn(true);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(true);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+
+        mActiveModeWarden.wifiToggled();
+        mLooper.dispatchAll();
+
+        assertInEnabledState();
+        verify(mClientModeManager).start();
+        verify(mClientModeManager).setRole(ROLE_CLIENT_SCAN_ONLY);
+    }
+
+    /**
+     * Tests that if the carrier config to disable Wifi is enabled during ECM, Wifi is shut down
+     * when entering ECM and turned back on when exiting ECM.
+     */
+    @Test
+    public void ecmDisablesWifi_exitEcm_restartWifi() throws Exception {
+        enterClientModeActiveState();
+
+        verify(mClientModeManager).start();
+
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+        assertEnteredEcmMode(() -> {
+            mActiveModeWarden.emergencyCallbackModeChanged(true);
+            mLooper.dispatchAll();
+        });
+        assertInEnabledState();
+        verify(mClientModeManager).stop();
+
+        mActiveModeWarden.emergencyCallbackModeChanged(false);
+        mLooper.dispatchAll();
+
+        assertThat(mActiveModeWarden.isInEmergencyMode()).isFalse();
+        // client mode restarted
+        verify(mClientModeManager, times(2)).start();
+        assertInEnabledState();
+    }
+
+    @Test
+    public void testUpdateCapabilityInSoftApActiveMode() throws Exception {
+        SoftApCapability testCapability = new SoftApCapability(0);
+        enterSoftApActiveMode();
+        mActiveModeWarden.updateSoftApCapability(testCapability);
+        mLooper.dispatchAll();
+        verify(mSoftApManager).updateCapability(testCapability);
+    }
+
+    @Test
+    public void testUpdateConfigInSoftApActiveMode() throws Exception {
+        SoftApConfiguration testConfig = new SoftApConfiguration.Builder()
+                .setSsid("Test123").build();
+        enterSoftApActiveMode();
+        mActiveModeWarden.updateSoftApConfiguration(testConfig);
+        mLooper.dispatchAll();
+        verify(mSoftApManager).updateConfiguration(testConfig);
+    }
+
+    @Test
+    public void testUpdateCapabilityInNonSoftApActiveMode() throws Exception {
+        SoftApCapability testCapability = new SoftApCapability(0);
+        enterClientModeActiveState();
+        mActiveModeWarden.updateSoftApCapability(testCapability);
+        mLooper.dispatchAll();
+        verify(mSoftApManager, never()).updateCapability(any());
+    }
+
+    @Test
+    public void testUpdateConfigInNonSoftApActiveMode() throws Exception {
+        SoftApConfiguration testConfig = new SoftApConfiguration.Builder()
+                .setSsid("Test123").build();
+        enterClientModeActiveState();
+        mActiveModeWarden.updateSoftApConfiguration(testConfig);
+        mLooper.dispatchAll();
+        verify(mSoftApManager, never()).updateConfiguration(any());
+    }
+
+    @Test
+    public void interfaceAvailabilityListener() throws Exception {
+        assertFalse(mActiveModeWarden.canRequestMoreClientModeManagers());
+        assertFalse(mActiveModeWarden.canRequestMoreSoftApManagers());
+
+        assertNotNull(mClientIfaceAvailableListener.getValue());
+        assertNotNull(mSoftApIfaceAvailableListener.getValue());
+
+        mClientIfaceAvailableListener.getValue().onAvailabilityChanged(true);
+        mLooper.dispatchAll();
+        assertTrue(mActiveModeWarden.canRequestMoreClientModeManagers());
+
+        mSoftApIfaceAvailableListener.getValue().onAvailabilityChanged(true);
+        mLooper.dispatchAll();
+        assertTrue(mActiveModeWarden.canRequestMoreSoftApManagers());
+
+        mClientIfaceAvailableListener.getValue().onAvailabilityChanged(false);
+        mLooper.dispatchAll();
+        assertFalse(mActiveModeWarden.canRequestMoreClientModeManagers());
+
+        mSoftApIfaceAvailableListener.getValue().onAvailabilityChanged(false);
+        mLooper.dispatchAll();
+        assertFalse(mActiveModeWarden.canRequestMoreSoftApManagers());
+    }
+
+    @Test
+    public void isStaApConcurrencySupported() throws Exception {
+        when(mWifiNative.isStaApConcurrencySupported()).thenReturn(false);
+        assertFalse(mActiveModeWarden.isStaApConcurrencySupported());
+
+        when(mWifiNative.isStaApConcurrencySupported()).thenReturn(true);
+        assertTrue(mActiveModeWarden.isStaApConcurrencySupported());
+    }
+
+    @Test
+    public void airplaneModeToggleOnDisablesWifi() throws Exception {
+        enterClientModeActiveState();
+        assertInEnabledState();
+
+        assertWifiShutDown(() -> {
+            when(mSettingsStore.isAirplaneModeOn()).thenReturn(true);
+            mActiveModeWarden.airplaneModeToggled();
+            mLooper.dispatchAll();
+        });
+
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+        assertInDisabledState();
+    }
+
+    @Test
+    public void airplaneModeToggleOnDisablesSoftAp() throws Exception {
+        enterSoftApActiveMode();
+        assertInEnabledState();
+
+        assertWifiShutDown(() -> {
+            when(mSettingsStore.isAirplaneModeOn()).thenReturn(true);
+            mActiveModeWarden.airplaneModeToggled();
+            mLooper.dispatchAll();
+        });
+
+        mSoftApListener.onStopped();
+        mLooper.dispatchAll();
+        assertInDisabledState();
+    }
+
+    @Test
+    public void airplaneModeToggleOffIsDeferredWhileProcessingToggleOnWithOneModeManager()
+            throws Exception {
+        enterClientModeActiveState();
+        assertInEnabledState();
+
+        // APM toggle on
+        assertWifiShutDown(() -> {
+            when(mSettingsStore.isAirplaneModeOn()).thenReturn(true);
+            mActiveModeWarden.airplaneModeToggled();
+            mLooper.dispatchAll();
+        });
+
+
+        // APM toggle off before the stop is complete.
+        assertInEnabledState();
+        when(mClientModeManager.isStopping()).thenReturn(true);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+        mActiveModeWarden.airplaneModeToggled();
+        mLooper.dispatchAll();
+
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager, times(2)).start();
+        verify(mClientModeManager, times(2)).setRole(ROLE_CLIENT_PRIMARY);
+
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
+
+        // We should be back to enabled state.
+        assertInEnabledState();
+    }
+
+    @Test
+    public void airplaneModeToggleOffIsDeferredWhileProcessingToggleOnWithOneModeManager2()
+            throws Exception {
+        enterClientModeActiveState();
+        assertInEnabledState();
+
+        // APM toggle on
+        assertWifiShutDown(() -> {
+            when(mSettingsStore.isAirplaneModeOn()).thenReturn(true);
+            mActiveModeWarden.airplaneModeToggled();
+            mLooper.dispatchAll();
+        });
+
+
+        // APM toggle off before the stop is complete.
+        assertInEnabledState();
+        when(mClientModeManager.isStopping()).thenReturn(true);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+        mActiveModeWarden.airplaneModeToggled();
+        // This test is identical to
+        // airplaneModeToggleOffIsDeferredWhileProcessingToggleOnWithOneModeManager, except the
+        // dispatchAll() here is removed. There could be a race between airplaneModeToggled and
+        // mClientListener.onStopped(). See b/160105640#comment5.
+
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+
+        verify(mClientModeManager, times(2)).start();
+        verify(mClientModeManager, times(2)).setRole(ROLE_CLIENT_PRIMARY);
+
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
+
+        // We should be back to enabled state.
+        assertInEnabledState();
+    }
+
+    @Test
+    public void airplaneModeToggleOffIsDeferredWhileProcessingToggleOnWithTwoModeManager()
+            throws Exception {
+        enterClientModeActiveState();
+        enterSoftApActiveMode();
+        assertInEnabledState();
+
+        // APM toggle on
+        assertWifiShutDown(() -> {
+            when(mSettingsStore.isAirplaneModeOn()).thenReturn(true);
+            mActiveModeWarden.airplaneModeToggled();
+            mLooper.dispatchAll();
+        });
+
+
+        // APM toggle off before the stop is complete.
+        assertInEnabledState();
+        when(mClientModeManager.isStopping()).thenReturn(true);
+        when(mSoftApManager.isStopping()).thenReturn(true);
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+        mActiveModeWarden.airplaneModeToggled();
+        mLooper.dispatchAll();
+
+        // AP stopped, should not process APM toggle.
+        mSoftApListener.onStopped();
+        mLooper.dispatchAll();
+        verify(mClientModeManager, times(1)).start();
+        verify(mClientModeManager, times(1)).setRole(ROLE_CLIENT_PRIMARY);
+
+        // STA also stopped, should process APM toggle.
+        mClientListener.onStopped();
+        mLooper.dispatchAll();
+        verify(mClientModeManager, times(2)).start();
+        verify(mClientModeManager, times(2)).setRole(ROLE_CLIENT_PRIMARY);
+
+        mClientListener.onStarted();
+        mLooper.dispatchAll();
+
+        // We should be back to enabled state.
+        assertInEnabledState();
     }
 }

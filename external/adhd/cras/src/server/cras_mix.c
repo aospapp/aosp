@@ -11,7 +11,7 @@
 
 static const struct cras_mix_ops *ops = &mixer_ops;
 
-static const struct cras_mix_ops* get_mixer_ops(unsigned int cpu_flags)
+static const struct cras_mix_ops *get_mixer_ops(unsigned int cpu_flags)
 {
 #if defined HAVE_FMA
 	if (cpu_flags & CPU_X86_FMA)
@@ -45,10 +45,10 @@ void cras_mix_init(unsigned int flags)
 
 void cras_scale_buffer_increment(snd_pcm_format_t fmt, uint8_t *buff,
 				 unsigned int frame, float scaler,
-				 float increment, int channel)
+				 float increment, float target, int channel)
 {
 	ops->scale_buffer_increment(fmt, buff, frame * channel, scaler,
-				    increment, channel);
+				    increment, target, channel);
 }
 
 void cras_scale_buffer(snd_pcm_format_t fmt, uint8_t *buff, unsigned int count,
@@ -58,23 +58,21 @@ void cras_scale_buffer(snd_pcm_format_t fmt, uint8_t *buff, unsigned int count,
 }
 
 void cras_mix_add(snd_pcm_format_t fmt, uint8_t *dst, uint8_t *src,
-		  unsigned int count, unsigned int index,
-		  int mute, float mix_vol)
+		  unsigned int count, unsigned int index, int mute,
+		  float mix_vol)
 {
 	ops->add(fmt, dst, src, count, index, mute, mix_vol);
 }
 
 void cras_mix_add_scale_stride(snd_pcm_format_t fmt, uint8_t *dst, uint8_t *src,
-			 unsigned int count, unsigned int dst_stride,
-			 unsigned int src_stride, float scaler)
+			       unsigned int count, unsigned int dst_stride,
+			       unsigned int src_stride, float scaler)
 {
 	ops->add_scale_stride(fmt, dst, src, count, dst_stride, src_stride,
 			      scaler);
 }
 
-size_t cras_mix_mute_buffer(uint8_t *dst,
-			    size_t frame_bytes,
-			    size_t count)
+size_t cras_mix_mute_buffer(uint8_t *dst, size_t frame_bytes, size_t count)
 {
 	return ops->mute_buffer(dst, frame_bytes, count);
 }

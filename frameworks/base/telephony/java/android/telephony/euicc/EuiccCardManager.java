@@ -20,9 +20,10 @@ import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.content.Context;
+import android.os.Binder;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.service.euicc.EuiccProfileInfo;
+import android.telephony.TelephonyFrameworkInitializer;
 import android.util.Log;
 
 import com.android.internal.telephony.euicc.IAuthenticateServerCallback;
@@ -148,7 +149,10 @@ public class EuiccCardManager {
 
     private IEuiccCardController getIEuiccCardController() {
         return IEuiccCardController.Stub.asInterface(
-                ServiceManager.getService("euicc_card_controller"));
+                TelephonyFrameworkInitializer
+                        .getTelephonyServiceManager()
+                        .getEuiccCardControllerServiceRegisterer()
+                        .get());
     }
 
     /**
@@ -165,7 +169,12 @@ public class EuiccCardManager {
                     new IGetAllProfilesCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, EuiccProfileInfo[] profiles) {
-                            executor.execute(() -> callback.onComplete(resultCode, profiles));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, profiles));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -189,7 +198,12 @@ public class EuiccCardManager {
                     new IGetProfileCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, EuiccProfileInfo profile) {
-                            executor.execute(() -> callback.onComplete(resultCode, profile));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, profile));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -214,7 +228,12 @@ public class EuiccCardManager {
                     refresh, new IDisableProfileCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode) {
-                            executor.execute(() -> callback.onComplete(resultCode, null));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, null));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -240,7 +259,12 @@ public class EuiccCardManager {
                     refresh, new ISwitchToProfileCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, EuiccProfileInfo profile) {
-                            executor.execute(() -> callback.onComplete(resultCode, profile));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, profile));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -265,7 +289,12 @@ public class EuiccCardManager {
                     nickname, new ISetNicknameCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode) {
-                            executor.execute(() -> callback.onComplete(resultCode, null));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, null));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -289,7 +318,12 @@ public class EuiccCardManager {
                     new IDeleteProfileCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode) {
-                            executor.execute(() -> callback.onComplete(resultCode, null));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, null));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -314,7 +348,12 @@ public class EuiccCardManager {
                     new IResetMemoryCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode) {
-                            executor.execute(() -> callback.onComplete(resultCode, null));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, null));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -337,7 +376,12 @@ public class EuiccCardManager {
                     new IGetDefaultSmdpAddressCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, String address) {
-                            executor.execute(() -> callback.onComplete(resultCode, address));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, address));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -360,7 +404,12 @@ public class EuiccCardManager {
                     new IGetSmdsAddressCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, String address) {
-                            executor.execute(() -> callback.onComplete(resultCode, address));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, address));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -385,7 +434,12 @@ public class EuiccCardManager {
                     new ISetDefaultSmdpAddressCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode) {
-                            executor.execute(() -> callback.onComplete(resultCode, null));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, null));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -408,7 +462,12 @@ public class EuiccCardManager {
                     new IGetRulesAuthTableCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, EuiccRulesAuthTable rat) {
-                            executor.execute(() -> callback.onComplete(resultCode, rat));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, rat));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -431,7 +490,12 @@ public class EuiccCardManager {
                     new IGetEuiccChallengeCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, byte[] challenge) {
-                            executor.execute(() -> callback.onComplete(resultCode, challenge));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, challenge));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -454,7 +518,12 @@ public class EuiccCardManager {
                     new IGetEuiccInfo1Callback.Stub() {
                         @Override
                         public void onComplete(int resultCode, byte[] info) {
-                            executor.execute(() -> callback.onComplete(resultCode, info));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, info));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -477,7 +546,12 @@ public class EuiccCardManager {
                     new IGetEuiccInfo2Callback.Stub() {
                         @Override
                         public void onComplete(int resultCode, byte[] info) {
-                            executor.execute(() -> callback.onComplete(resultCode, info));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, info));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -519,7 +593,12 @@ public class EuiccCardManager {
                     new IAuthenticateServerCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, byte[] response) {
-                            executor.execute(() -> callback.onComplete(resultCode, response));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, response));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -558,7 +637,12 @@ public class EuiccCardManager {
                     new IPrepareDownloadCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, byte[] response) {
-                            executor.execute(() -> callback.onComplete(resultCode, response));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, response));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -586,7 +670,12 @@ public class EuiccCardManager {
                     new ILoadBoundProfilePackageCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, byte[] response) {
-                            executor.execute(() -> callback.onComplete(resultCode, response));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, response));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -616,7 +705,12 @@ public class EuiccCardManager {
                     new ICancelSessionCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, byte[] response) {
-                            executor.execute(() -> callback.onComplete(resultCode, response));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, response));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -640,7 +734,13 @@ public class EuiccCardManager {
                     new IListNotificationsCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, EuiccNotification[] notifications) {
-                            executor.execute(() -> callback.onComplete(resultCode, notifications));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(
+                                        resultCode, notifications));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -664,7 +764,13 @@ public class EuiccCardManager {
                     events, new IRetrieveNotificationListCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, EuiccNotification[] notifications) {
-                            executor.execute(() -> callback.onComplete(resultCode, notifications));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(
+                                        resultCode, notifications));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -688,7 +794,13 @@ public class EuiccCardManager {
                     seqNumber, new IRetrieveNotificationCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode, EuiccNotification notification) {
-                            executor.execute(() -> callback.onComplete(resultCode, notification));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(
+                                        resultCode, notification));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {
@@ -715,7 +827,12 @@ public class EuiccCardManager {
                     new IRemoveNotificationFromListCallback.Stub() {
                         @Override
                         public void onComplete(int resultCode) {
-                            executor.execute(() -> callback.onComplete(resultCode, null));
+                            final long token = Binder.clearCallingIdentity();
+                            try {
+                                executor.execute(() -> callback.onComplete(resultCode, null));
+                            } finally {
+                                Binder.restoreCallingIdentity(token);
+                            }
                         }
                     });
         } catch (RemoteException e) {

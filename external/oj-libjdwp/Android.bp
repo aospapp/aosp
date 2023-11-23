@@ -41,6 +41,11 @@ cc_library_headers {
     ],
     host_supported: true,
     device_supported: true,
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 cc_library_headers {
@@ -50,6 +55,11 @@ cc_library_headers {
         "src/solaris/npt",
     ],
     defaults: ["upstream-jdwp-defaults"],
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 cc_library {
@@ -63,6 +73,10 @@ cc_library {
         "libnpt_headers",
     ],
     defaults: ["upstream-jdwp-defaults"],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
 }
 
 cc_library_headers {
@@ -75,6 +89,11 @@ cc_library_headers {
     generated_headers: ["jdwp_generated_headers"],
     export_generated_headers: ["jdwp_generated_headers"],
     defaults: ["upstream-jdwp-defaults"],
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 cc_library {
@@ -104,6 +123,10 @@ cc_library {
         "libdt_socket",
     ],
     defaults: ["upstream-jdwp-defaults"],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
 }
 
 cc_library {
@@ -123,6 +146,10 @@ cc_library {
     ],
     required: ["libnpt"],
     defaults: ["upstream-jdwp-defaults"],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
 }
 
 genrule {
@@ -165,6 +192,7 @@ java_library_host {
     "src/share/classes/com/sun/tools/jdi/ProcessAttachingConnector.java",
   ],
   services: ["etc/com.sun.jdi.connect.Connector"],
+  java_version: "1.8",
   javacflags: ["-g"],
   notice: "LICENSE",
 }

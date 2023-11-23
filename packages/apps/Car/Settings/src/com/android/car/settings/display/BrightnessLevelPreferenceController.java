@@ -21,9 +21,9 @@ import static com.android.settingslib.display.BrightnessUtils.convertGammaToLine
 import static com.android.settingslib.display.BrightnessUtils.convertLinearToGamma;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.os.PowerManager;
+import android.os.UserHandle;
 import android.provider.Settings;
 
 import com.android.car.settings.common.FragmentController;
@@ -35,14 +35,12 @@ import com.android.car.settings.common.SeekBarPreference;
 public class BrightnessLevelPreferenceController extends PreferenceController<SeekBarPreference> {
 
     private static final Logger LOG = new Logger(BrightnessLevelPreferenceController.class);
-    private final CarUserManagerHelper mCarUserManagerHelper;
     private final int mMaximumBacklight;
     private final int mMinimumBacklight;
 
     public BrightnessLevelPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
         PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         mMaximumBacklight = powerManager.getMaximumScreenBrightnessSetting();
         mMinimumBacklight = powerManager.getMinimumScreenBrightnessSetting();
@@ -65,8 +63,7 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
         int gamma = (Integer) newValue;
         int linear = convertGammaToLinear(gamma, mMinimumBacklight, mMaximumBacklight);
         Settings.System.putIntForUser(getContext().getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS, linear,
-                mCarUserManagerHelper.getCurrentProcessUserId());
+                Settings.System.SCREEN_BRIGHTNESS, linear, UserHandle.myUserId());
         return true;
     }
 
@@ -74,8 +71,7 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
         int gamma = GAMMA_SPACE_MAX;
         try {
             int linear = Settings.System.getIntForUser(getContext().getContentResolver(),
-                    Settings.System.SCREEN_BRIGHTNESS,
-                    mCarUserManagerHelper.getCurrentProcessUserId());
+                    Settings.System.SCREEN_BRIGHTNESS, UserHandle.myUserId());
             gamma = convertLinearToGamma(linear, mMinimumBacklight, mMaximumBacklight);
         } catch (Settings.SettingNotFoundException e) {
             LOG.w("Can't find setting for SCREEN_BRIGHTNESS.");

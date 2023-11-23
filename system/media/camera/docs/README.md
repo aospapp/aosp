@@ -4,7 +4,7 @@ This is a set of scripts to manipulate the camera metadata in an XML form.
 
 ## Generated Files
 Many files can be generated from XML, such as the documentation (html/pdf),
-C code, Java code, and even XML itself (as a sanity check).
+C code, Java code, and even XML itself (as a round-trip validity check).
 
 ## Dependencies
 * Python 2.7.x+

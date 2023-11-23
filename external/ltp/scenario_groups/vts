@@ -10,7 +10,6 @@ fcntl-locktests_android
 filecaps
 fs
 fs_bind
-fs_ext4
 fs_perms_simple
 fsx
 hugetlb
@@ -28,5 +27,4 @@ sched
 sched_low_mem
 securebits
 syscalls
-timers
 tracing

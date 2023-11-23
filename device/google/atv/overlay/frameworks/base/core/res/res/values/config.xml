@@ -37,6 +37,10 @@
          Any other values will have surprising consequences. -->
     <integer name="config_defaultUiModeType">4</integer>
 
+    <!--  Control whether to lock UI mode to what is selected from config_defaultUiModeType.
+          Once UI mode is locked, applications cannot change it anymore. -->
+    <bool name="config_lockUiMode">true</bool>
+
     <!-- default device has recents property -->
     <bool name="config_hasRecents">false</bool>
 
@@ -58,53 +62,32 @@
          home screen widgets are not supported on TV -->
     <bool name="config_enableAppWidgetService">true</bool>
 
-    <!-- Package of the unbundled tv remote service which can connect to tv remote provider -->
-    <string translatable="false" name="config_tvRemoteServicePackage">com.google.android.tv.remote.service</string>
-
-    <!-- Default service to enable with accessibility shortcut [DO NOT TRANSLATE] -->
-    <string name="config_defaultAccessibilityService" translatable="false">com.google.android.marvin.talkback/.TalkBackService</string>
-
-    <!-- The component name, flattened to a string, for the default autofill service
-         to  enabled for an user. This service must be trusted, as it can be activated
-         without explicit consent of the user. If no autofill service with the
-          specified name exists on the device, autofill will be disabled by default.
-    -->
-    <string name="config_defaultAutofillService" translatable="false">com.google.android.gms/.autofill.service.AutofillService</string>
-
-   <!-- The list of IMEs which should be disabled until used.
-         This function suppresses update notifications for these pre-installed apps.
-         We need to set this configuration carefully that they should not have functionarities
-         other than "IME" or "Spell Checker". In InputMethodManagerService,
-         the listed IMEs are disabled until used when all of the following conditions are met.
-         1. Not selected as an enabled IME in the Settings
-         2. Not selected as a spell checker in the Settings
-         3. Installed
-         4. A pre-installed IME
-         5. Not enabled
-         And the disabled_until_used state for an IME is released by InputMethodManagerService
-         when the IME is selected as an enabled IME. -->
-    <string-array name="config_disabledUntilUsedPreinstalledImes" translatable="false">
-        <item>com.google.android.inputmethod.latin</item>
-        <item>com.google.android.apps.inputmethod.hindi</item>
-        <item>com.google.android.apps.inputmethod.zhuyin</item>
-        <item>com.google.android.inputmethod.japanese</item>
-        <item>com.google.android.inputmethod.korean</item>
-        <item>com.google.android.inputmethod.pinyin</item>
-    </string-array>
-
     <!-- Whether to keep background restricted profiles running after exiting. If set to false,
          restricted profiles may be put into stopped state as soon as the switch back to primary
          happens.
          Can be overridden with android.provider.Settings.Global.KEEP_PROFILE_IN_BACKGROUND. -->
     <bool name="config_keepRestrictedProfilesInBackground">false</bool>
 
-
-    <!-- An array of packages which can listen for notifications on low ram devices. -->
-    <string-array translatable="false" name="config_allowedManagedServicesOnLowRamDevices">
-        <item>com.google.android.tvrecommendations</item>
-    </string-array>
-
     <!-- Enable doze mode -->
     <bool name="config_enableAutoPowerModes">true</bool>
     <bool name="config_autoPowerModeUseMotionSensor">false</bool>
+
+    <!-- True if the device supports split screen as a form of multi-window. -->
+    <bool name="config_supportsSplitScreenMultiWindow">false</bool>
+
+    <!-- Whether the device supports quick settings and its associated APIs -->
+    <bool name="config_quickSettingsSupported">false</bool>
+
+    <!-- True if the device supports system decorations on secondary displays. -->
+    <bool name="config_supportsSystemDecorsOnSecondaryDisplays">false</bool>
+
+    <!-- Enable assistant to show in front of the dream/screensaver. -->
+    <bool name="config_assistantOnTopOfDream">true</bool>
+
+    <!-- Maximum size, specified in pixels, to restrain the display space width to. Height and
+         density will be scaled accordingly to maintain aspect ratio. A value of 0 indicates no
+         constraint will be enforced.
+         We limit the UI graphics width to 1920 because higher resolution is unnecessary and causes
+         too much overhead on the GPU for Android TV devices. -->
+    <integer name="config_maxUiWidth">1920</integer>
 </resources>

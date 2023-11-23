@@ -28,10 +28,13 @@
 #include "util/slab.h"
 #include "util/list.h"
 
+#include "virgl_transfer_queue.h"
+
 struct pipe_screen;
 struct tgsi_token;
 struct u_upload_mgr;
 struct virgl_cmd_buf;
+struct virgl_vertex_elements_state;
 
 struct virgl_sampler_view {
    struct pipe_sampler_view base;
@@ -48,29 +51,41 @@ struct virgl_textures_info {
    uint32_t enabled_mask;
 };
 
+struct virgl_rasterizer_state {
+   struct pipe_rasterizer_state rs;
+   uint32_t handle;
+};
+
 struct virgl_context {
    struct pipe_context base;
    struct virgl_cmd_buf *cbuf;
+   unsigned cbuf_initial_cdw;
 
    struct virgl_textures_info samplers[PIPE_SHADER_TYPES];
+   struct virgl_vertex_elements_state *vertex_elements;
 
    struct pipe_framebuffer_state framebuffer;
 
-   struct slab_child_pool texture_transfer_pool;
-
+   struct slab_child_pool transfer_pool;
+   struct virgl_transfer_queue queue;
    struct u_upload_mgr *uploader;
+   bool encoded_transfers;
 
    struct pipe_vertex_buffer vertex_buffer[PIPE_MAX_ATTRIBS];
    unsigned num_vertex_buffers;
    boolean vertex_array_dirty;
 
+   struct virgl_rasterizer_state rs_state;
    struct virgl_so_target so_targets[PIPE_MAX_SO_BUFFERS];
    unsigned num_so_targets;
 
    struct pipe_resource *ubos[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
-   int num_transfers;
-   int num_draws;
-   struct list_head to_flush_bufs;
+
+   struct pipe_resource *ssbos[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
+   struct pipe_resource *images[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
+   uint32_t num_draws, num_compute;
+
+   struct pipe_resource *atomic_buffers[PIPE_MAX_HW_ATOMIC_BUFFERS];
 
    struct primconvert_context *primconvert;
    uint32_t hw_sub_ctx_id;
@@ -109,6 +124,6 @@ void virgl_transfer_inline_write(struct pipe_context *ctx,
                                 unsigned stride,
                                 unsigned layer_stride);
 
-struct tgsi_token *virgl_tgsi_transform(const struct tgsi_token *tokens_in);
+struct tgsi_token *virgl_tgsi_transform(struct virgl_context *vctx, const struct tgsi_token *tokens_in);
 
 #endif

@@ -108,7 +108,7 @@ public class RemoteManagerTest {
     /** Test when sending a ADD_COMMAND that is added to the CommandScheduler */
     @Test
     public void testProcessClientOperations_addCommand() throws Exception {
-        doReturn(true).when(mMockScheduler).addCommand(Mockito.any(), Mockito.anyLong());
+        doReturn(true).when(mMockScheduler).addCommand(Mockito.any());
         String buf = "{version=\"8\", type=\"ADD_COMMAND\", time=\"5\", commandArgs=[\"empty\"]}";
         InputStream data = new ByteArrayInputStream(buf.getBytes());
         BufferedReader in = new BufferedReader(new InputStreamReader(data));
@@ -118,13 +118,13 @@ public class RemoteManagerTest {
         pw.flush();
         // ack is received without error.
         assertEquals("{}\n", out.toString());
-        verify(mMockScheduler).addCommand(Mockito.any(), Mockito.eq(5l));
+        verify(mMockScheduler).addCommand(Mockito.any());
     }
 
     /** Test when sending a ADD_COMMAND that is not added by the CommandScheduler */
     @Test
     public void testProcessClientOperations_addCommand_fail() throws Exception {
-        doReturn(false).when(mMockScheduler).addCommand(Mockito.any(), Mockito.anyLong());
+        doReturn(false).when(mMockScheduler).addCommand(Mockito.any());
         String buf = "{version=\"8\", type=\"ADD_COMMAND\", time=\"5\", commandArgs=[\"empty\"]}";
         InputStream data = new ByteArrayInputStream(buf.getBytes());
         BufferedReader in = new BufferedReader(new InputStreamReader(data));
@@ -134,7 +134,7 @@ public class RemoteManagerTest {
         pw.flush();
         // ack is received with failed to add command.
         assertEquals("{\"error\":\"Failed to add command\"}\n", out.toString());
-        verify(mMockScheduler).addCommand(Mockito.any(), Mockito.eq(5l));
+        verify(mMockScheduler).addCommand(Mockito.any());
     }
 
     /** Test when sending a ADD_COMMAND that is rejected by the CommandScheduler as not parsable. */
@@ -142,7 +142,7 @@ public class RemoteManagerTest {
     public void testProcessClientOperations_addCommand_config() throws Exception {
         doThrow(new ConfigurationException("NOT_GOOD"))
                 .when(mMockScheduler)
-                .addCommand(Mockito.any(), Mockito.anyLong());
+                .addCommand(Mockito.any());
         String buf = "{version=\"8\", type=\"ADD_COMMAND\", time=\"5\", commandArgs=[\"empty\"]}";
         InputStream data = new ByteArrayInputStream(buf.getBytes());
         BufferedReader in = new BufferedReader(new InputStreamReader(data));
@@ -155,7 +155,7 @@ public class RemoteManagerTest {
                 "{\"error\":\"Config error: com.android.tradefed.config."
                         + "ConfigurationException: NOT_GOOD\"}\n",
                 out.toString());
-        verify(mMockScheduler).addCommand(Mockito.any(), Mockito.eq(5l));
+        verify(mMockScheduler).addCommand(Mockito.any());
     }
 
     /** Test when sending a ALLOCATE_DEVICE that fails to allocate the serial requested. */

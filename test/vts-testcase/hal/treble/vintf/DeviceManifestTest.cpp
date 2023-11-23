@@ -16,6 +16,7 @@
 
 #include "DeviceManifestTest.h"
 
+#include <android-base/properties.h>
 #include <vintf/VintfObject.h>
 #include "SingleManifestTest.h"
 
@@ -62,38 +63,52 @@ TEST_F(DeviceManifestTest, ShippingFcmVersion) {
       << " (but is " << shipping_fcm_version << ")";
 }
 
+TEST_F(DeviceManifestTest, KernelFcmVersion) {
+  Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
+  Level kernel_fcm_version = VintfObject::GetRuntimeInfo()->kernelLevel();
+
+  if (shipping_fcm_version == Level::UNSPECIFIED ||
+      shipping_fcm_version < Level::R) {
+    GTEST_SKIP() << "Kernel FCM version not enforced on target FCM version "
+                 << shipping_fcm_version;
+  }
+  ASSERT_NE(Level::UNSPECIFIED, kernel_fcm_version)
+      << "Kernel FCM version must be specified for target FCM version "
+      << shipping_fcm_version;
+  ASSERT_GE(kernel_fcm_version, shipping_fcm_version)
+      << "Kernel FCM version " << kernel_fcm_version
+      << " must be greater or equal to target FCM version "
+      << shipping_fcm_version;
+}
+
 // Tests that deprecated HALs are not in the manifest, unless a higher,
 // non-deprecated minor version is in the manifest.
 TEST_F(DeviceManifestTest, NoDeprecatedHalsOnManifest) {
   string error;
   EXPECT_EQ(android::vintf::NO_DEPRECATED_HALS,
-            VintfObject::CheckDeprecation(&error))
+            VintfObject::GetInstance()->checkDeprecation(
+                HidlInterfaceMetadata::all(), &error))
       << error;
 }
 
-// Tests that devices launching with Q support both gnss@2.0 and gnss@1.1 HALs
-// or none. Since gnss@2.0 extends 1.1, this test is needed to workaround
-// VINTF_ENFORCE_NO_UNUSED_HALS.
-// TODO(b/121287858): Remove this test in R when this requirement is properly
-// supported. Otherwise, it needs to be updated to reflect R version changes.
-TEST_F(DeviceManifestTest, GnssHalVersionCompatibility) {
-  const Level q_fcm_version = kFcm2ApiLevelMap.at(29 /* Q API level */);
+// Tests that devices launching R support mapper@4.0.  Go devices are exempt
+// from this requirement, so we use this test to enforce instead of the
+// compatibility matrix.
+TEST_F(DeviceManifestTest, GrallocHalVersionCompatibility) {
   Level shipping_fcm_version = vendor_manifest_->level();
+  bool is_go_device =
+      android::base::GetBoolProperty("ro.config.low_ram", false);
   if (shipping_fcm_version == Level::UNSPECIFIED ||
-      shipping_fcm_version < q_fcm_version) {
-    GTEST_SKIP();
+      shipping_fcm_version < Level::R || is_go_device) {
+    GTEST_SKIP() << "Gralloc4 is only required on launching R devices";
   }
 
-  ASSERT_EQ(shipping_fcm_version, q_fcm_version)
-      << "Unsupported Shipping FCM Verson " << shipping_fcm_version;
-
-  bool has_default_gnss_1_0 = vendor_manifest_->hasInstance(
-      "android.hardware.gnss", {1, 0}, "IGnss", "default");
-  bool has_default_gnss_2_0 = vendor_manifest_->hasInstance(
-      "android.hardware.gnss", {2, 0}, "IGnss", "default");
-  ASSERT_EQ(has_default_gnss_1_0, has_default_gnss_2_0)
-      << "Devices launched with Android Q must support both gnss@2.0"
-      << " and gnss@1.1 versions if gnss HAL package is present.";
+  ASSERT_TRUE(vendor_manifest_->hasHidlInstance(
+      "android.hardware.graphics.mapper", {4, 0}, "IMapper", "default"));
+  ASSERT_FALSE(vendor_manifest_->hasHidlInstance(
+      "android.hardware.graphics.mapper", {2, 0}, "IMapper", "default"));
+  ASSERT_FALSE(vendor_manifest_->hasHidlInstance(
+      "android.hardware.graphics.mapper", {2, 1}, "IMapper", "default"));
 }
 
 static std::vector<HalManifestPtr> GetTestManifests() {

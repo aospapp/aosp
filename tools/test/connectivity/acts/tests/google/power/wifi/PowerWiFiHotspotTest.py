@@ -91,8 +91,8 @@ class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
 
         # Both devices need to have a country code in order
         # to use the 5 GHz band.
-        self.android_devices[0].droid.wifiSetCountryCode('US')
-        self.android_devices[1].droid.wifiSetCountryCode('US')
+        wutils.set_wifi_country_code(self.android_devices[0], 'US')
+        wutils.set_wifi_country_code(self.android_devices[1], 'US')
 
     def setup_test(self):
         """Set up test specific parameters or configs.
@@ -158,7 +158,7 @@ class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
         time.sleep(2)
 
         # Measure power
-        self.collect_power_data()
+        result = self.collect_power_data()
 
         if traffic:
             # Wait for iperf to finish
@@ -168,7 +168,7 @@ class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
             self.client_iperf_helper.process_iperf_results(
                 self.dut, self.log, self.iperf_servers, self.test_name)
 
-        self.pass_fail_check()
+        self.pass_fail_check(result.average_current)
 
     def power_idle_tethering_test(self):
         """ Start power test when Hotspot is idle

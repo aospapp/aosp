@@ -283,7 +283,8 @@ class ConvRNN2D(RNN):
     shape = list(self.cell.kernel_shape)
     shape[-1] = self.cell.filters
     initial_state = self.cell.input_conv(initial_state,
-                                         array_ops.zeros(tuple(shape)),
+                                         array_ops.zeros(tuple(shape),
+                                                         initial_state.dtype),
                                          padding=self.cell.padding)
 
     if hasattr(self.cell.state_size, '__len__'):
@@ -395,7 +396,7 @@ class ConvRNN2D(RNN):
       updates = []
       for i in range(len(states)):
         updates.append(K.update(self.states[i], states[i]))
-      self.add_update(updates, inputs=True)
+      self.add_update(updates)
 
     if self.return_sequences:
       output = outputs
@@ -786,8 +787,8 @@ class ConvLSTM2D(ConvRNN2D):
       Currently, specifying any `dilation_rate` value != 1 is
       incompatible with specifying any `strides` value != 1.
     activation: Activation function to use.
-      If you don't specify anything, no activation is applied
-      (ie. "linear" activation: `a(x) = x`).
+      By default hyperbolic tangent activation function is applied
+      (`tanh(x)`).
     recurrent_activation: Activation function to use
       for the recurrent step.
     use_bias: Boolean, whether the layer uses a bias vector.
@@ -921,7 +922,8 @@ class ConvLSTM2D(ConvRNN2D):
                           recurrent_constraint=recurrent_constraint,
                           bias_constraint=bias_constraint,
                           dropout=dropout,
-                          recurrent_dropout=recurrent_dropout)
+                          recurrent_dropout=recurrent_dropout,
+                          dtype=kwargs.get('dtype'))
     super(ConvLSTM2D, self).__init__(cell,
                                      return_sequences=return_sequences,
                                      go_backwards=go_backwards,
@@ -930,8 +932,7 @@ class ConvLSTM2D(ConvRNN2D):
     self.activity_regularizer = regularizers.get(activity_regularizer)
 
   def call(self, inputs, mask=None, training=None, initial_state=None):
-    self.cell.reset_dropout_mask()
-    self.cell.reset_recurrent_dropout_mask()
+    self._maybe_reset_cell_dropout_mask(self.cell)
     return super(ConvLSTM2D, self).call(inputs,
                                         mask=mask,
                                         training=training,

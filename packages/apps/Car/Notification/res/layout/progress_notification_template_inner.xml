@@ -54,6 +54,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/progress_bar"
+        android:gravity="left"
         android:minHeight="@dimen/card_min_bottom_padding"/>
 
 </RelativeLayout>

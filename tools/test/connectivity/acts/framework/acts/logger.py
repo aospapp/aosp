@@ -26,8 +26,6 @@ from copy import copy
 from acts import tracelogger
 from acts.libs.logging import log_stream
 from acts.libs.logging.log_stream import LogStyles
-from acts.utils import create_dir
-
 
 log_line_format = "%(asctime)s.%(msecs).03d %(levelname)s %(message)s"
 # The micro seconds are added by the format string above,
@@ -203,15 +201,19 @@ def _setup_test_logger(log_path, prefix=None):
         prefix: A prefix for each log line in terminal.
     """
     logging.log_path = log_path
-    log_styles = [LogStyles.LOG_INFO + LogStyles.TO_STDOUT,
-                  LogStyles.DEFAULT_LEVELS + LogStyles.TESTCASE_LOG]
+    log_styles = [
+        LogStyles.LOG_INFO + LogStyles.TO_STDOUT,
+        LogStyles.DEFAULT_LEVELS + LogStyles.TESTCASE_LOG
+    ]
     terminal_format = log_line_format
     if prefix:
         terminal_format = "[{}] {}".format(prefix, log_line_format)
     stream_formatter = ColoredLogFormatter(terminal_format,
                                            log_line_time_format)
     file_formatter = logging.Formatter(log_line_format, log_line_time_format)
-    log = log_stream.create_logger('test_run', '', log_styles=log_styles,
+    log = log_stream.create_logger('test_run',
+                                   '',
+                                   log_styles=log_styles,
                                    stream_format=stream_formatter,
                                    file_format=file_formatter)
     log.setLevel(logging.DEBUG)
@@ -257,7 +259,7 @@ def setup_test_logger(log_path, prefix=None):
         filename: Name of the files. The default is the time the objects
             are requested.
     """
-    create_dir(log_path)
+    os.makedirs(log_path, exist_ok=True)
     _setup_test_logger(log_path, prefix)
     create_latest_log_alias(log_path)
 
@@ -280,7 +282,6 @@ def normalize_log_line_timestamp(log_line_timestamp):
 
 class LoggerAdapter(logging.LoggerAdapter):
     """A LoggerAdapter class that takes in a lambda for transforming logs."""
-
     def __init__(self, logging_lambda):
         self.logging_lambda = logging_lambda
         super(LoggerAdapter, self).__init__(logging.getLogger(), {})
@@ -308,7 +309,6 @@ def create_tagged_trace_logger(tag=''):
 
             <TESTBED> <TIME> <LOG_LEVEL> [tag123] logged message
     """
-
     def logging_lambda(msg):
         return '[%s] %s' % (tag, msg)
 

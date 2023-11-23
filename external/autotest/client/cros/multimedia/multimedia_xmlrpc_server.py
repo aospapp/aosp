@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -16,6 +16,7 @@ from autotest_lib.client.common_lib import logging_config
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros import upstart
 from autotest_lib.client.cros import xmlrpc_server
+from autotest_lib.client.cros.multimedia import assistant_facade_native
 from autotest_lib.client.cros.multimedia import audio_facade_native
 from autotest_lib.client.cros.multimedia import browser_facade_native
 from autotest_lib.client.cros.multimedia import cfm_facade_native
@@ -45,6 +46,8 @@ class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
             arc_res = arc_resource.ArcResource()
 
         self._facades = {
+            'assistant' : assistant_facade_native.AssistantFacadeNative(
+                    resource),
             'audio': audio_facade_native.AudioFacadeNative(
                     resource, arc_resource=arc_res),
             'video': video_facade_native.VideoFacadeNative(

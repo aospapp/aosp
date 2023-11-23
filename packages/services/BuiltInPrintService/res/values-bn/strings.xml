@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"সরিয়ে দিন"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"ওয়াই-ফাই ডাইরেক্টের মাধ্যমে সংযুক্ত হয়"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"বর্তমান নেটওয়ার্কের মাধ্যমে <xliff:g id="IP_ADDRESS">%1$s</xliff:g> অ্যাড্রেসে সংযুক্ত হয়"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"ডিফল্ট প্রিন্টিং পরিষেবার প্রাথমিক বিকল্প। এই প্রিন্টারের জন্য অন্যান্য বিকল্প অন্য প্রিন্ট পরিষেবার সাথে উপলভ্য হতে পারে।"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"সাজেস্ট করা পরিষেবা"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ইনস্টল করতে বেছে নিন"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"চালু করতে বেছে নিন"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"পরিষেবা ম্যানেজ করুন"</string>
     <string name="security" msgid="2279008326210305401">"নিরাপত্তা"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"এই প্রিন্টার একটি নতুন নিরাপত্তার সার্টিফিকেট দেবে, অথবা ডিভাইস থেকে এটি ব্যবহার করা হচ্ছে। নতুন সার্টিফিকেট গ্রহণ করতে চান?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"এই প্রিন্টারের মাধ্যমে আর এনক্রিপ্ট করা ডকুমেন্ট প্রিন্ট করা যাবে না। প্রিন্টিং করা চালিয়ে যেতে চান?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"কানেকশন"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"আশেপাশের ডিভাইস খোঁজার জন্য ডিফল্ট প্রিন্ট পরিষেবাকে লোকেশন অ্যাক্সেসের অনুমতি দিতে হবে।"</string>
     <string name="fix" msgid="7784394272611365393">"রিভিউ করার অনুমতি"</string>
+    <string name="print" msgid="7851318072404916362">"প্রিন্ট করুন"</string>
 </resources>

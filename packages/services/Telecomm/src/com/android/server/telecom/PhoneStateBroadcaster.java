@@ -16,12 +16,9 @@
 
 package com.android.server.telecom;
 
-import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.telecom.Log;
 import android.telephony.TelephonyManager;
-
-import com.android.internal.telephony.ITelephonyRegistry;
+import android.telephony.TelephonyRegistryManager;
 
 /**
  * Send a {@link TelephonyManager#ACTION_PHONE_STATE_CHANGED} broadcast when the call state
@@ -30,13 +27,12 @@ import com.android.internal.telephony.ITelephonyRegistry;
 final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 
     private final CallsManager mCallsManager;
-    private final ITelephonyRegistry mRegistry;
+    private final TelephonyRegistryManager mRegistry;
     private int mCurrentState = TelephonyManager.CALL_STATE_IDLE;
 
     public PhoneStateBroadcaster(CallsManager callsManager) {
         mCallsManager = callsManager;
-        mRegistry = ITelephonyRegistry.Stub.asInterface(ServiceManager.getService(
-                "telephony.registry"));
+        mRegistry = callsManager.getContext().getSystemService(TelephonyRegistryManager.class);
         if (mRegistry == null) {
             Log.w(this, "TelephonyRegistry is null");
         }
@@ -85,7 +81,7 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
         // Note: CallsManager#hasRingingCall() and CallsManager#getFirstCallWithState(..) do not
         // consider external calls, so an external call is going to cause the state to be idle.
         int callState = TelephonyManager.CALL_STATE_IDLE;
-        if (mCallsManager.hasRingingCall()) {
+        if (mCallsManager.hasRingingOrSimulatedRingingCall()) {
             callState = TelephonyManager.CALL_STATE_RINGING;
         } else if (mCallsManager.getFirstCallWithState(CallState.DIALING, CallState.PULLING,
                 CallState.ACTIVE, CallState.ON_HOLD) != null) {
@@ -112,13 +108,9 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
             callHandle = call.getHandle().getSchemeSpecificPart();
         }
 
-        try {
-            if (mRegistry != null) {
-                mRegistry.notifyCallState(phoneState, callHandle);
-                Log.i(this, "Broadcasted state change: %s", mCurrentState);
-            }
-        } catch (RemoteException e) {
-            Log.w(this, "RemoteException when notifying TelephonyRegistry of call state change.");
+        if (mRegistry != null) {
+            mRegistry.notifyCallStateChangedForAllSubscriptions(phoneState, callHandle);
+            Log.i(this, "Broadcasted state change: %s", mCurrentState);
         }
     }
 }

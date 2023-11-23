@@ -20,21 +20,17 @@ limitations under the License.
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "mkldnn.hpp"
 #include "tensorflow/core/util/mkl_util.h"
 #include "tensorflow/core/util/padding.h"
 
-#ifndef INTEL_MKL_ML_ONLY
-#include "mkldnn.hpp"
 using mkldnn::memory;
 using mkldnn::pooling_backward;
 using mkldnn::pooling_forward;
 using mkldnn::stream;
-#endif
 
 namespace tensorflow {
-
-#ifndef INTEL_MKL_ML_ONLY
-
 using mkldnn::memory;
 using mkldnn::pooling_avg;
 using mkldnn::pooling_avg_exclude_padding;
@@ -51,11 +47,13 @@ struct MklPoolingParams {
   memory::dims padding_right;
   mkldnn::algorithm alg_kind;
   mkldnn::prop_kind prop_kind;
+  memory::format src_format;
 
   MklPoolingParams(memory::dims src_dims, memory::dims dst_dims,
                    memory::dims filter_dims, memory::dims strides,
                    memory::dims padding_left, memory::dims padding_right,
-                   mkldnn::algorithm alg_kind, mkldnn::prop_kind prop_kind)
+                   mkldnn::algorithm alg_kind, mkldnn::prop_kind prop_kind,
+                   memory::format src_format)
       : src_dims(src_dims),
         dst_dims(dst_dims),
         filter_dims(filter_dims),
@@ -63,7 +61,8 @@ struct MklPoolingParams {
         padding_left(padding_left),
         padding_right(padding_right),
         alg_kind(alg_kind),
-        prop_kind(prop_kind) {}
+        prop_kind(prop_kind),
+        src_format(src_format) {}
 };
 
 template <typename T>
@@ -357,7 +356,6 @@ class MklPoolingBwdPrimitiveFactory : public MklPrimitiveFactory<T> {
     this->SetOp(key, op);
   }
 };
-#endif
 
 typedef Eigen::ThreadPoolDevice CPUDevice;
 
@@ -424,15 +422,9 @@ struct MklPoolParameters {
   void Init(OpKernelContext* context, const std::vector<int32>& ksize,
             const std::vector<int32>& stride, Padding padding,
             TensorFormat data_format, const TensorShape& tensor_in_shape);
-#ifdef INTEL_MKL_ML_ONLY
-  void Init(OpKernelContext* context, const std::vector<int32>& ksize,
-            const std::vector<int32>& stride, Padding padding,
-            TensorFormat data_format, const MklShape* mkl_in_shape);
-#else
   void Init(OpKernelContext* context, const std::vector<int32>& ksize,
             const std::vector<int32>& stride, Padding padding,
             TensorFormat data_format, const MklDnnShape* mkl_in_shape);
-#endif
 
  private:
   // Common initialization for TensorFlow and MKL formats
@@ -440,8 +432,6 @@ struct MklPoolParameters {
             const std::vector<int32>& stride, Padding padding,
             TensorFormat data_format);
 };
-
-#ifndef INTEL_MKL_ML_ONLY
 
 template <class T>
 class MklPoolingOpBase : public OpKernel {
@@ -561,12 +551,21 @@ class MklPoolingOpBase : public OpKernel {
     if (pool_params->data_format == TensorFormat::FORMAT_NCHW) {
       output_tf_shape = MklDnnDimsToTFShape(output_dims_mkl_order);
     } else {
-      memory::dims output_dims_NHWC_order;
-      output_dims_NHWC_order = {pool_params->tensor_in_batch,
-                                static_cast<int>(pool_params->out_height),
-                                static_cast<int>(pool_params->out_width),
-                                pool_params->out_depth};
-      output_tf_shape = MklDnnDimsToTFShape(output_dims_NHWC_order);
+      memory::dims output_dims_order;
+      // determine Pooling2D (NHWC) or Pooling3D (NDHWC)
+      if (this->ksize_.size() == 4) {
+        output_dims_order = {pool_params->tensor_in_batch,
+                             static_cast<int>(pool_params->out_height),
+                             static_cast<int>(pool_params->out_width),
+                             pool_params->out_depth};
+      } else {
+        output_dims_order = {pool_params->tensor_in_batch,
+                             static_cast<int>(pool_params->out_planes),
+                             static_cast<int>(pool_params->out_height),
+                             static_cast<int>(pool_params->out_width),
+                             pool_params->out_depth};
+      }
+      output_tf_shape = MklDnnDimsToTFShape(output_dims_order);
     }
     AllocateOutputSetMklShape(context, kOutputIndex, output_tensor,
                               output_tf_shape, output_mkl_shape);
@@ -750,7 +749,6 @@ class MklPoolingBackwardOpBase : public MklPoolingOpBase<T> {
     return grad_reorder_needed ? target_diff_dst_md : original_input_grad_md;
   }
 };
-#endif  // INTEL_MKL_ML_ONLY
 
 //-------------------------------------------------------------------
 // Utility functions

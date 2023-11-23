@@ -34,6 +34,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -43,6 +44,25 @@ import java.util.zip.GZIPOutputStream;
  * Utility to manipulate a tar file. It wraps the commons-compress in order to provide tar support.
  */
 public class TarUtil {
+
+    private static final byte[] GZIP_SIGNATURE = {0x1f, (byte) 0x8b};
+
+    /**
+     * Determine whether a file is a gzip.
+     *
+     * @param file the file to check.
+     * @return whether the file is a gzip.
+     * @throws IOException if the file could not be read.
+     */
+    public static boolean isGzip(File file) throws IOException {
+        byte[] signature = new byte[GZIP_SIGNATURE.length];
+        try (InputStream stream = new FileInputStream(file)) {
+            if (stream.read(signature) != signature.length) {
+                return false;
+            }
+        }
+        return Arrays.equals(GZIP_SIGNATURE, signature);
+    }
 
     /**
      * Untar a tar file into a directory.
@@ -81,6 +101,15 @@ public class TarUtil {
                     }
                 } else {
                     CLog.i(String.format("Creating output file %s.", outputFile.getAbsolutePath()));
+                    final File parent = outputFile.getParentFile();
+                    if (parent != null && !parent.exists()) {
+                        if (!parent.mkdirs()) {
+                            throw new IOException(
+                                    String.format(
+                                            "Couldn't create directory %s.",
+                                            parent.getAbsolutePath()));
+                        }
+                    }
                     final OutputStream outputFileStream = new FileOutputStream(outputFile);
                     IOUtils.copy(debInputStream, outputFileStream);
                     StreamUtil.close(outputFileStream);
@@ -150,6 +179,33 @@ public class TarUtil {
             StreamUtil.close(out);
         }
         return outputFile;
+    }
+
+    /**
+     * Untar and ungzip a tar.gz file to a temp directory.
+     *
+     * @param targzFile the tar.gz file to extract.
+     * @param nameHint the prefix for the temp directory.
+     * @return the temp directory.
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    public static File extractTarGzipToTemp(File targzFile, String nameHint)
+            throws FileNotFoundException, IOException {
+        File unGzipDir = null;
+        File unTarDir = null;
+        try {
+            unGzipDir = FileUtil.createTempDir("extractTarGzip");
+            File tarFile = TarUtil.unGzip(targzFile, unGzipDir);
+            unTarDir = FileUtil.createTempDir(nameHint);
+            TarUtil.unTar(tarFile, unTarDir);
+            return unTarDir;
+        } catch (IOException e) {
+            FileUtil.recursiveDelete(unTarDir);
+            throw e;
+        } finally {
+            FileUtil.recursiveDelete(unGzipDir);
+        }
     }
 
     /**

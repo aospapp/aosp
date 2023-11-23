@@ -16,6 +16,9 @@
 
 package android.telecom.cts;
 
+import static android.telecom.cts.ThirdPartyCallScreeningServiceTest.EXTRA_NETWORK_IDENTIFIED_EMERGENCY_CALL;
+
+import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
@@ -36,6 +39,9 @@ import java.util.concurrent.TimeUnit;
  * received.
  */
 public class MockConnectionService extends ConnectionService {
+    public static final Uri VERSTAT_NOT_VERIFIED_NUMBER = Uri.fromParts("tel", "777", null);
+    public static final Uri VERSTAT_PASSED_NUMBER = Uri.fromParts("tel", "555", null);
+    public static final Uri VERSTAT_FAILED_NUMBER = Uri.fromParts("tel", "333", null);
     public static final String EXTRA_TEST = "com.android.telecom.extra.TEST";
     public static final String TEST_VALUE = "we've got it";
     public static final int CONNECTION_PRESENTATION =  TelecomManager.PRESENTATION_ALLOWED;
@@ -63,13 +69,14 @@ public class MockConnectionService extends ConnectionService {
     public List<RemoteConnection> remoteConnections = new ArrayList<RemoteConnection>();
     public List<MockConference> conferences = new ArrayList<MockConference>();
     public List<RemoteConference> remoteConferences = new ArrayList<RemoteConference>();
+    public List<MockConnection> failedConnections = new ArrayList<>();
 
     @Override
     public Connection onCreateOutgoingConnection(PhoneAccountHandle connectionManagerPhoneAccount,
             ConnectionRequest request) {
         final MockConnection connection = new MockConnection();
         connection.setAddress(request.getAddress(), CONNECTION_PRESENTATION);
-        connection.setPhoneAccountHandle(connectionManagerPhoneAccount);
+        connection.setMockPhoneAccountHandle(connectionManagerPhoneAccount);
         connection.setConnectionCapabilities(Connection.CAPABILITY_SUPPORT_HOLD |
                 Connection.CAPABILITY_HOLD
                 | Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL
@@ -116,10 +123,35 @@ public class MockConnectionService extends ConnectionService {
         Bundle testExtra = new Bundle();
         testExtra.putString(EXTRA_TEST, TEST_VALUE);
         connection.putExtras(testExtra);
+        if (VERSTAT_NOT_VERIFIED_NUMBER.equals(request.getAddress())) {
+            connection.setCallerNumberVerificationStatus(
+                    Connection.VERIFICATION_STATUS_NOT_VERIFIED);
+        } else if (VERSTAT_PASSED_NUMBER.equals(request.getAddress())) {
+            connection.setCallerNumberVerificationStatus(
+                    Connection.VERIFICATION_STATUS_PASSED);
+        } else if (VERSTAT_FAILED_NUMBER.equals(request.getAddress())) {
+            connection.setCallerNumberVerificationStatus(
+                    Connection.VERIFICATION_STATUS_FAILED);
+        }
 
+        Bundle requestExtra = request.getExtras();
+        if (requestExtra.getBoolean(EXTRA_NETWORK_IDENTIFIED_EMERGENCY_CALL, false)) {
+            connection.setConnectionProperties(
+                    Connection.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL);
+        }
         incomingConnections.add(connection);
         lock.release();
         return connection;
+    }
+
+    @Override
+    public void onCreateIncomingConnectionFailed(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        final MockConnection connection = new MockConnection();
+        connection.setAddress(request.getAddress(), CONNECTION_PRESENTATION);
+        connection.setPhoneAccountHandle(connectionManagerPhoneAccount);
+        failedConnections.add(connection);
+        lock.release();
     }
 
     @Override

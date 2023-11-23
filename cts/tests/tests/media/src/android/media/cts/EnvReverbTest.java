@@ -25,6 +25,7 @@ import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+@NonMediaMainlineTest
 @AppModeFull(reason = "Fails in instant mode")
 public class EnvReverbTest extends PostProcTestBase {
 

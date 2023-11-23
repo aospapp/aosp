@@ -23,7 +23,7 @@ import static org.junit.Assume.assumeTrue;
 import android.platform.test.annotations.AppModeFull;
 
 import com.android.compatibility.common.util.BackupUtils;
-import com.android.compatibility.common.util.HostSideTestUtils;
+import com.android.compatibility.common.util.CommonTestUtils;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -58,7 +58,7 @@ public abstract class BaseMultiUserBackupHostSideTest extends BaseBackupHostSide
             FULL_BACKUP_TEST_PACKAGE + ".ProfileFullBackupRestoreTest";
 
     protected final BackupUtils mBackupUtils = getBackupUtils();
-    protected ITestDevice mDevice;
+    private ITestDevice mDevice;
 
     // Store initial device state as Optional as tearDown() will execute even if we have assumption
     // failures in setUp().
@@ -138,21 +138,34 @@ public abstract class BaseMultiUserBackupHostSideTest extends BaseBackupHostSide
      * Selects the local transport as the current transport for user {@code userId}. Returns the
      * {@link String} name of the local transport.
      */
-    String switchUserToLocalTransportAndAssertSuccess(int userId) throws IOException {
+    String switchUserToLocalTransportAndAssertSuccess(int userId)
+            throws Exception {
         // Make sure the user has the local transport.
         String localTransport = mBackupUtils.getLocalTransportName();
 
         // TODO (b/121198010): Update dumpsys or add shell command to query status of transport
         // initialization. Transports won't be available until they are initialized/registered.
-        HostSideTestUtils.waitUntil("wait for user to have local transport",
+        CommonTestUtils.waitUntil("wait for user to have local transport",
                 TRANSPORT_INITIALIZATION_TIMEOUT_SECS,
-                () -> mBackupUtils.userHasBackupTransport(localTransport, userId));
+                () -> userHasBackupTransport(localTransport, userId));
 
         // Switch to the local transport and assert success.
         mBackupUtils.setBackupTransportForUser(localTransport, userId);
         assertThat(mBackupUtils.isLocalTransportSelectedForUser(userId)).isTrue();
 
         return localTransport;
+    }
+
+    // TODO(b/139652329): Move to backup utils.
+    private boolean userHasBackupTransport(
+            String transport, int userId) throws DeviceNotAvailableException {
+        String output = mDevice.executeShellCommand("bmgr --user " + userId + " list transports");
+        for (String t : output.split(" ")) {
+            if (transport.equals(t.replace("*", "").trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Runs "bmgr --user <id> wipe <transport> <package>" to clear the backup data. */

@@ -168,7 +168,7 @@ public class MmsHttpClient {
             // Some carriers require that the HTTP connection's socket is closed
             // after an MMS request/response is complete. In these cases keep alive
             // is disabled. See https://tools.ietf.org/html/rfc7230#section-6.6
-            if (mmsConfig.getBoolean(SmsManager.MMS_CONFIG_CLOSE_CONNECTION, false)) {
+            if (mmsConfig.getBoolean(CarrierConfigManager.KEY_MMS_CLOSE_CONNECTION_BOOL, false)) {
                 LogUtil.i(requestId, "HTTP: Connection close after request");
                 connection.setRequestProperty(HEADER_CONNECTION, HEADER_CONNECTION_CLOSE);
             }
@@ -473,46 +473,26 @@ public class MmsHttpClient {
      */
     private static String getMacroValue(Context context, String macro, Bundle mmsConfig,
             int subId) {
+        final TelephonyManager telephonyManager = ((TelephonyManager) context.getSystemService(
+            Context.TELEPHONY_SERVICE)).createForSubscriptionId(subId);
         if (MACRO_LINE1.equals(macro)) {
-            return getLine1(context, subId);
+            return telephonyManager.getLine1Number();
         } else if (MACRO_LINE1NOCOUNTRYCODE.equals(macro)) {
-            return getLine1NoCountryCode(context, subId);
+            return PhoneUtils.getNationalNumber(telephonyManager,
+                telephonyManager.getLine1Number());
         } else if (MACRO_NAI.equals(macro)) {
-            return getNai(context, mmsConfig, subId);
+            return getNai(telephonyManager, mmsConfig);
         }
         LogUtil.e("Invalid macro " + macro);
         return null;
     }
 
     /**
-     * Returns the phone number for the given subscription ID.
-     */
-    private static String getLine1(Context context, int subId) {
-        final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
-                Context.TELEPHONY_SERVICE);
-        return telephonyManager.getLine1Number(subId);
-    }
-
-    /**
-     * Returns the phone number (without country code) for the given subscription ID.
-     */
-    private static String getLine1NoCountryCode(Context context, int subId) {
-        final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
-                Context.TELEPHONY_SERVICE);
-        return PhoneUtils.getNationalNumber(
-                telephonyManager,
-                subId,
-                telephonyManager.getLine1Number(subId));
-    }
-
-    /**
      * Returns the NAI (Network Access Identifier) from SystemProperties for the given subscription
      * ID.
      */
-    private static String getNai(Context context, Bundle mmsConfig, int subId) {
-        final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
-                Context.TELEPHONY_SERVICE);
-        String nai = telephonyManager.getNai(SubscriptionManager.getSlotIndex(subId));
+    private static String getNai(TelephonyManager telephonyManager, Bundle mmsConfig) {
+        String nai = telephonyManager.getNai();
         if (LogUtil.isLoggable(Log.VERBOSE)) {
             LogUtil.v("getNai: nai=" + nai);
         }

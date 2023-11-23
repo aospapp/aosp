@@ -33,6 +33,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.content.cts.permission.TEST_GRANTED" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <!-- Used for ContextTest#testCreatePackageContextAsUser -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
@@ -233,6 +234,16 @@
             </intent-filter>
         </activity>
 
+        <!--Used by test for LauncherApps-->
+        <activity-alias android:name="android.content.pm.cts.MockActivity_Disabled"
+            android:targetActivity="android.content.cts.MockActivity"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.content.cts.action.TEST_ACTION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Used for PackageManager test, don't delete this MockContentProvider provider -->
         <provider android:name="android.content.cts.MockContentProvider" android:authorities="ctstest"
             android:multiprocess="false" />
@@ -258,6 +269,11 @@
             android:authorities="android.content.cts.testpagingprovider"
             android:process=":testpagingprovider"
             android:multiprocess="false" />
+
+        <provider android:name="android.content.cts.MockBuggyProvider"
+                  android:authorities="android.content.cts.mockbuggyprovider"
+                  android:process=":mockbuggyprovider"
+                  android:multiprocess="false" />
 
         <service android:name="android.content.cts.MockService" />
 
@@ -325,6 +341,15 @@
             <meta-data android:name="android.content.SyncAdapter"
                 android:resource="@xml/always_syncable_account_access_adapter" />
         </service>
+
+	<activity android:name="com.android.cts.content.StubCameraIntentHandlerActivity">
+           <intent-filter>
+                <action android:name="android.media.action.IMAGE_CAPTURE" />
+                <action android:name="android.media.action.IMAGE_CAPTURE_SECURE" />
+                <action android:name="android.media.action.VIDEO_CAPTURE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+	</activity>
 
     </application>
 

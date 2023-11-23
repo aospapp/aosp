@@ -52,20 +52,22 @@ constexpr Seconds kMaxAudioGap = Seconds(300);
 //! The list of durations to subscribe to audio for. Even durations are for when
 //! audio is enabled and odd is for when audio is disabled.
 constexpr Milliseconds kStressPlan[] = {
-  // Enabled, Disabled
-  Milliseconds(20000), Milliseconds(20000),
-  Milliseconds(30000), Milliseconds(200),
-  Milliseconds(10000), Milliseconds(1000),
-  Milliseconds(10000), Milliseconds(1999),
-  Milliseconds(8000), Milliseconds(60000),
-  Milliseconds(1000), Milliseconds(1000),
-  Milliseconds(1000), Milliseconds(1000),
-  Milliseconds(1000), Milliseconds(1000),
-  Milliseconds(1000), Milliseconds(1000),
-  Milliseconds(1000), Milliseconds(1000),
-  Milliseconds(1000), Milliseconds(1000),
-  Milliseconds(1000), Milliseconds(1000),
-  Milliseconds(1000), Milliseconds(1000),
+    // clang-format off
+    // Enabled, Disabled
+    Milliseconds(20000), Milliseconds(20000),
+    Milliseconds(30000), Milliseconds(200),
+    Milliseconds(10000), Milliseconds(1000),
+    Milliseconds(10000), Milliseconds(1999),
+    Milliseconds(8000), Milliseconds(60000),
+    Milliseconds(1000), Milliseconds(1000),
+    Milliseconds(1000), Milliseconds(1000),
+    Milliseconds(1000), Milliseconds(1000),
+    Milliseconds(1000), Milliseconds(1000),
+    Milliseconds(1000), Milliseconds(1000),
+    Milliseconds(1000), Milliseconds(1000),
+    Milliseconds(1000), Milliseconds(1000),
+    Milliseconds(1000), Milliseconds(1000),
+    // clang-format on
 };
 
 //! The discovered audio handle found at startup.
@@ -104,16 +106,15 @@ bool discoverAudioHandle() {
   bool success = false;
   struct chreAudioSource source;
   for (uint32_t i = 0; !success && chreAudioGetSource(i, &source); i++) {
-    LOGI("Found audio source '%s' with %" PRIu32 "Hz %s data",
-         source.name, source.sampleRate,
-         chre::getChreAudioFormatString(source.format));
+    LOGI("Found audio source '%s' with %" PRIu32 "Hz %s data", source.name,
+         source.sampleRate, chre::getChreAudioFormatString(source.format));
     LOGI("  buffer duration: [%" PRIu64 "ns, %" PRIu64 "ns]",
-        source.minBufferDuration, source.maxBufferDuration);
+         source.minBufferDuration, source.maxBufferDuration);
 
-    if (source.sampleRate == kBufferSampleRate
-        && source.minBufferDuration <= kBufferDuration.toRawNanoseconds()
-        && source.maxBufferDuration >= kBufferDuration.toRawNanoseconds()
-        && source.format == kBufferFormat) {
+    if (source.sampleRate == kBufferSampleRate &&
+        source.minBufferDuration <= kBufferDuration.toRawNanoseconds() &&
+        source.maxBufferDuration >= kBufferDuration.toRawNanoseconds() &&
+        source.format == kBufferFormat) {
       gAudioHandle = i;
       success = true;
     }
@@ -135,11 +136,12 @@ void checkTestPassing() {
   }
 }
 
-bool requestAudioForCurrentTestState(const Nanoseconds& testStateDuration) {
+bool requestAudioForCurrentTestState(const Nanoseconds &testStateDuration) {
   bool success = false;
   LOGD("Test stage %zu", gTestPosition);
   if (audioIsExpected()) {
-    if (!chreAudioConfigureSource(gAudioHandle, true, kBufferDuration.toRawNanoseconds(),
+    if (!chreAudioConfigureSource(gAudioHandle, true,
+                                  kBufferDuration.toRawNanoseconds(),
                                   kBufferDuration.toRawNanoseconds())) {
       LOGE("Failed to enable audio");
     } else {
@@ -206,15 +208,13 @@ void handleAudioSamplingChangeEvent(
 
 }  // namespace
 
-
 bool nanoappStart() {
   LOGI("start");
   gLastAudioTimestamp = Nanoseconds(chreGetTime());
   return (discoverAudioHandle() && advanceTestPosition());
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   switch (eventType) {
     case CHRE_EVENT_TIMER:
@@ -222,8 +222,7 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
       break;
 
     case CHRE_EVENT_AUDIO_DATA:
-      handleAudioDataEvent(
-          static_cast<const chreAudioDataEvent *>(eventData));
+      handleAudioDataEvent(static_cast<const chreAudioDataEvent *>(eventData));
       break;
 
     case CHRE_EVENT_AUDIO_SAMPLING_CHANGE:

@@ -47,6 +47,7 @@ from acloud.internal import constants
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import gcompute_client
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -121,6 +122,17 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
                 raise errors.DeviceBootError(
                     "Emulator timed out while booting.")
 
+    @staticmethod
+    def GetKernelBuildArtifact(target):
+        if target == "kernel":
+            return "bzImage"
+        if target == "kernel_x86_64":
+            return "bzImage"
+        if target == "kernel_aarch64":
+            return "Image.gz"
+        raise errors.DeviceBootError(
+            "Don't know the artifact name for '%s' target" % target)
+
     # pylint: disable=too-many-locals,arguments-differ
     # TODO: Refactor CreateInstance to pass in an object instead of all these args.
     def CreateInstance(self,
@@ -130,12 +142,16 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
                        build_target,
                        branch,
                        build_id,
+                       kernel_branch=None,
+                       kernel_build_id=None,
+                       kernel_build_target=None,
                        emulator_branch=None,
                        emulator_build_id=None,
                        blank_data_disk_size_gb=None,
                        gpu=None,
                        avd_spec=None,
-                       extra_scopes=None):
+                       extra_scopes=None,
+                       tags=None):
         """Create a goldfish instance given a stable host image and a build id.
 
         Args:
@@ -146,6 +162,9 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
             build_target: String, target name, e.g. "sdk_phone_x86_64-sdk"
             branch: String, branch name, e.g. "git_pi-dev"
             build_id: String, build id, a string, e.g. "2263051", "P2804227"
+            kernel_branch: String, kernel branch name.
+            kernel_build_id: String, kernel build id.
+            kernel_build_target: kernel target, e.g. "kernel_x86_64"
             emulator_branch: String, emulator branch name, e.g."aosp-emu-master-dev"
             emulator_build_id: String, emulator build id, a string, e.g. "2263051", "P2804227"
             blank_data_disk_size_gb: Integer, size of the blank data disk in GB.
@@ -153,6 +172,8 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
                  acceleration is needed. e.g. "nvidia-tesla-k80"
             avd_spec: An AVDSpec instance.
             extra_scopes: A list of extra scopes to be passed to the instance.
+            tags: A list of tags to associate with the instance. e.g.
+                 ["http-server", "https-server"]
         """
         self._CheckMachineSize()
 
@@ -173,6 +194,13 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
         metadata["cvd_01_fetch_android_build_target"] = build_target
         metadata["cvd_01_fetch_android_bid"] = "{branch}/{build_id}".format(
             branch=branch, build_id=build_id)
+        if kernel_branch and kernel_build_id and kernel_build_target:
+            metadata["cvd_01_fetch_kernel_bid"] = "{branch}/{build_id}".format(
+                branch=kernel_branch, build_id=kernel_build_id)
+            metadata["cvd_01_fetch_kernel_build_target"] = kernel_build_target
+            metadata["cvd_01_fetch_kernel_build_artifact"] = (
+                self.GetKernelBuildArtifact(kernel_build_target))
+            metadata["cvd_01_use_custom_kernel"] = "true"
         if emulator_branch and emulator_build_id:
             metadata[
                 "cvd_01_fetch_emulator_bid"] = "{branch}/{build_id}".format(
@@ -197,21 +225,6 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
             metadata["cvd_01_y_res"] = resolution[1]
             metadata["cvd_01_dpi"] = resolution[3]
 
-        # Add labels for giving the instances ability to be filter for
-        # acloud list/delete cmds.
-        labels = {constants.LABEL_CREATE_BY: getpass.getuser()}
-
-        # Add per-instance ssh key
-        if self._ssh_public_key_path:
-            rsa = self._LoadSshPublicKey(self._ssh_public_key_path)
-            logger.info(
-                "ssh_public_key_path is specified in config: %s, "
-                "will add the key to the instance.", self._ssh_public_key_path)
-            metadata["sshKeys"] = "%s:%s" % (getpass.getuser(), rsa)
-        else:
-            logger.warning("ssh_public_key_path is not specified in config, "
-                           "only project-wide key will be effective.")
-
         gcompute_client.ComputeClient.CreateInstance(
             self,
             instance=instance,
@@ -223,5 +236,5 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
             network=self._network,
             zone=self._zone,
             gpu=gpu,
-            labels=labels,
+            tags=tags,
             extra_scopes=extra_scopes)

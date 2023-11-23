@@ -22,22 +22,19 @@ import android.hardware.display.ColorDisplayManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.SearchIndexableResource;
-
 import android.provider.Settings.Secure;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.PreferenceScreen;
 
 import com.android.settings.R;
 import com.android.settings.search.BaseSearchIndexProvider;
-import com.android.settings.search.Indexable;
 import com.android.settings.widget.RadioButtonPickerFragment;
 import com.android.settingslib.search.SearchIndexable;
 import com.android.settingslib.widget.CandidateInfo;
 import com.android.settingslib.widget.LayoutPreference;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @SuppressWarnings("WeakerAccess")
@@ -204,14 +201,15 @@ public class ColorModePreferenceFragment extends RadioButtonPickerFragment {
         }
     }
 
-    public static final Indexable.SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
-            new BaseSearchIndexProvider() {
+    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider(R.xml.color_mode_settings) {
+
                 @Override
-                public List<SearchIndexableResource> getXmlResourcesToIndex(
-                        Context context, boolean enabled) {
-                    final SearchIndexableResource sir = new SearchIndexableResource(context);
-                    sir.xmlResId = R.xml.color_mode_settings;
-                    return Arrays.asList(sir);
+                protected boolean isPageSearchEnabled(Context context) {
+                    final int[] availableColorModes = context.getResources().getIntArray(
+                            com.android.internal.R.array.config_availableColorModes);
+                    return availableColorModes != null && availableColorModes.length > 0
+                            && !ColorDisplayManager.areAccessibilityTransformsEnabled(context);
                 }
             };
 }

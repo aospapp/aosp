@@ -28,15 +28,15 @@ namespace chre {
  * @param first Starting address of count objects to destroy
  * @param count The number of objects to destroy
  */
-template<typename ElementType>
+template <typename ElementType>
 void destroy(ElementType *first, size_t count);
 
 /**
  * Performs move assignment (dest = std::move(source)) if supported by
  * ElementType, otherwise copy assignment (dest = source).
  */
-template<typename ElementType>
-void moveOrCopyAssign(ElementType& dest, ElementType& source);
+template <typename ElementType>
+void moveOrCopyAssign(ElementType &dest, ElementType &source);
 
 /**
  * Initializes a new block of memory by transferring objects from another block,
@@ -48,7 +48,7 @@ void moveOrCopyAssign(ElementType& dest, ElementType& source);
  * @param count The number of elements to transfer
  * @param dest An uninitialized buffer to be populated with count elements
  */
-template<typename ElementType>
+template <typename ElementType>
 void uninitializedMoveOrCopy(ElementType *source, size_t count,
                              ElementType *dest);
 
@@ -56,8 +56,8 @@ void uninitializedMoveOrCopy(ElementType *source, size_t count,
  * Allocates memory for an object of size T and constructs the object in the
  * newly allocated object by forwarding the provided parameters.
  */
-template<typename T, typename... Args>
-T *memoryAlloc(Args&&... args);
+template <typename T, typename... Args>
+T *memoryAlloc(Args &&... args);
 
 }  // namespace chre
 

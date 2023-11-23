@@ -29,16 +29,20 @@
 #include <type_traits>
 #include <vector>
 
-#if defined(__linux__) && defined(__arm__)
+#if defined(__linux__)
+#include <sched.h>
+#if defined(__arm__)
 #include <sys/personality.h>
 #include <sys/utsname.h>
+#endif  // __arm__
 #endif
 
+#include "android-base/parseint.h"
 #include "android-base/stringprintf.h"
 #include "android-base/strings.h"
 
+#include "aot_class_linker.h"
 #include "arch/instruction_set_features.h"
-#include "arch/mips/instruction_set_features_mips.h"
 #include "art_method-inl.h"
 #include "base/callee_save_type.h"
 #include "base/dumpable.h"
@@ -63,6 +67,7 @@
 #include "debug/method_debug_info.h"
 #include "dex/descriptors_names.h"
 #include "dex/dex_file-inl.h"
+#include "dex/dex_file_loader.h"
 #include "dex/quick_compiler_callbacks.h"
 #include "dex/verification_results.h"
 #include "dex2oat_options.h"
@@ -82,10 +87,11 @@
 #include "linker/image_writer.h"
 #include "linker/multi_oat_relative_patcher.h"
 #include "linker/oat_writer.h"
-#include "mirror/class-inl.h"
+#include "mirror/class-alloc-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
+#include "oat.h"
 #include "oat_file.h"
 #include "oat_file_assistant.h"
 #include "profile/profile_compilation_info.h"
@@ -187,7 +193,7 @@ static std::string StrippedCommandLine() {
 
   // Construct the final output.
   if (command.size() <= 1U) {
-    // It seems only "/apex/com.android.runtime/bin/dex2oat" is left, or not
+    // It seems only "/apex/com.android.art/bin/dex2oat" is left, or not
     // even that. Use a pretty line.
     return "Starting dex2oat.";
   }
@@ -222,6 +228,10 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("       host system.");
   UsageError("      Example: -j12");
   UsageError("");
+  UsageError("  --cpu-set=<set>: sets the cpu affinity to <set>. The <set> argument is a comma");
+  UsageError("    separated list of CPUs.");
+  UsageError("    Example: --cpu-set=0,1,2,3");
+  UsageError("");
   UsageError("  --dex-file=<dex-file>: specifies a .dex, .jar, or .apk file to compile.");
   UsageError("      Example: --dex-file=/system/framework/core.jar");
   UsageError("");
@@ -240,6 +250,9 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("");
   UsageError("  --oat-file=<file.oat>: specifies an oat output destination via a filename.");
   UsageError("      Example: --oat-file=/system/framework/boot.oat");
+  UsageError("");
+  UsageError("  --oat-symbols=<file.oat>: specifies a symbolized oat output destination.");
+  UsageError("      Example: --oat-file=symbols/system/framework/boot.oat");
   UsageError("");
   UsageError("  --oat-fd=<number>: specifies the oat output destination via a file descriptor.");
   UsageError("      Example: --oat-fd=6");
@@ -268,13 +281,13 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("  --image=<file.art>: specifies an output image filename.");
   UsageError("      Example: --image=/system/framework/boot.art");
   UsageError("");
+  UsageError("  --image-fd=<number>: same as --image but accepts a file descriptor instead.");
+  UsageError("      Cannot be used together with --image.");
+  UsageError("");
   UsageError("  --image-format=(uncompressed|lz4|lz4hc):");
   UsageError("      Which format to store the image.");
   UsageError("      Example: --image-format=lz4");
   UsageError("      Default: uncompressed");
-  UsageError("");
-  UsageError("  --image-classes=<classname-file>: specifies classes to include in an image.");
-  UsageError("      Example: --image=frameworks/base/preloaded-classes");
   UsageError("");
   UsageError("  --base=<hex-address>: specifies the base address when creating a boot image.");
   UsageError("      Example: --base=0x50000000");
@@ -283,13 +296,21 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("      Do not include the arch as part of the name, it is added automatically.");
   UsageError("      Example: --boot-image=/system/framework/boot.art");
   UsageError("               (specifies /system/framework/<arch>/boot.art as the image file)");
+  UsageError("      Example: --boot-image=boot.art:boot-framework.art");
+  UsageError("               (specifies <bcp-path1>/<arch>/boot.art as the image file and");
+  UsageError("               <bcp-path2>/<arch>/boot-framework.art as the image extension file");
+  UsageError("               with paths taken from corresponding boot class path components)");
+  UsageError("      Example: --boot-image=/apex/com.android.art/boot.art:/system/framework/*:*");
+  UsageError("               (specifies /apex/com.android.art/<arch>/boot.art as the image");
+  UsageError("               file and search for extensions in /framework/system and boot");
+  UsageError("               class path components' paths)");
   UsageError("      Default: $ANDROID_ROOT/system/framework/boot.art");
   UsageError("");
   UsageError("  --android-root=<path>: used to locate libraries for portable linking.");
   UsageError("      Example: --android-root=out/host/linux-x86");
   UsageError("      Default: $ANDROID_ROOT");
   UsageError("");
-  UsageError("  --instruction-set=(arm|arm64|mips|mips64|x86|x86_64): compile for a particular");
+  UsageError("  --instruction-set=(arm|arm64|x86|x86_64): compile for a particular");
   UsageError("      instruction set.");
   UsageError("      Example: --instruction-set=x86");
   UsageError("      Default: arm");
@@ -320,7 +341,8 @@ NO_RETURN static void Usage(const char* fmt, ...) {
                 "|everything):");
   UsageError("      select compiler filter.");
   UsageError("      Example: --compiler-filter=everything");
-  UsageError("      Default: speed");
+  UsageError("      Default: speed-profile if --profile-file or --profile-file-fd is used,");
+  UsageError("               speed otherwise");
   UsageError("");
   UsageError("  --huge-method-max=<method-instruction-count>: threshold size for a huge");
   UsageError("      method for compiler filter tuning.");
@@ -331,16 +353,6 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("      method for compiler filter tuning.");
   UsageError("      Example: --large-method-max=%d", CompilerOptions::kDefaultLargeMethodThreshold);
   UsageError("      Default: %d", CompilerOptions::kDefaultLargeMethodThreshold);
-  UsageError("");
-  UsageError("  --small-method-max=<method-instruction-count>: threshold size for a small");
-  UsageError("      method for compiler filter tuning.");
-  UsageError("      Example: --small-method-max=%d", CompilerOptions::kDefaultSmallMethodThreshold);
-  UsageError("      Default: %d", CompilerOptions::kDefaultSmallMethodThreshold);
-  UsageError("");
-  UsageError("  --tiny-method-max=<method-instruction-count>: threshold size for a tiny");
-  UsageError("      method for compiler filter tuning.");
-  UsageError("      Example: --tiny-method-max=%d", CompilerOptions::kDefaultTinyMethodThreshold);
-  UsageError("      Default: %d", CompilerOptions::kDefaultTinyMethodThreshold);
   UsageError("");
   UsageError("  --num-dex-methods=<method-count>: threshold size for a small dex file for");
   UsageError("      compiler filter tuning. If the input has fewer than this many methods");
@@ -425,7 +437,11 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("  --app-image-file=<file-name>: specify a file name for app image.");
   UsageError("      Example: --app-image-file=/data/dalvik-cache/system@app@Calculator.apk.art");
   UsageError("");
-  UsageError("  --multi-image: obsolete, ignored");
+  UsageError("  --multi-image: specify that separate oat and image files be generated for ");
+  UsageError("      each input dex file; the default for boot image and boot image extension.");
+  UsageError("");
+  UsageError("  --single-image: specify that a single oat and image file be generated for ");
+  UsageError("      all input dex files; the default for app image.");
   UsageError("");
   UsageError("  --force-determinism: force the compiler to emit a deterministic output.");
   UsageError("");
@@ -436,6 +452,10 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("      existing data (instead of overwriting existing data with new data, which is");
   UsageError("      the default behavior). This option is only meaningful when used with");
   UsageError("      --dump-cfg.");
+  UsageError("");
+  UsageError("  --verbose-methods=<method-names>: Restrict dumped CFG data to methods whose name");
+  UsageError("      contain one of the method names passed as argument");
+  UsageError("      Example: --verbose-methods=toString,hashCode");
   UsageError("");
   UsageError("  --classpath-dir=<directory-path>: directory used to resolve relative class paths.");
   UsageError("");
@@ -472,8 +492,13 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   UsageError("      for dex files in --class-loader-context. Their order must be the same as");
   UsageError("      dex files in flattened class loader context.");
   UsageError("");
-  UsageError("  --dirty-image-objects=<directory-path>: list of known dirty objects in the image.");
+  UsageError("  --dirty-image-objects=<file-path>: list of known dirty objects in the image.");
   UsageError("      The image writer will group them together.");
+  UsageError("");
+  UsageError("  --updatable-bcp-packages-file=<file-path>: file with a list of updatable");
+  UsageError("      boot class path packages. Classes in these packages and sub-packages");
+  UsageError("      shall not be resolved during app compilation to avoid AOT assumptions");
+  UsageError("      being invalidated after applying updates to these components.");
   UsageError("");
   UsageError("  --compact-dex-level=none|fast: None avoids generating compact dex, fast");
   UsageError("      generates compact dex with low compile time. If speed-profile is specified as");
@@ -499,6 +524,36 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   std::cerr << "See log for usage error information\n";
   exit(EXIT_FAILURE);
 }
+
+
+// Set CPU affinity from a string containing a comma-separated list of numeric CPU identifiers.
+static void SetCpuAffinity(const std::vector<int32_t>& cpu_list) {
+#ifdef __linux__
+  int cpu_count = sysconf(_SC_NPROCESSORS_CONF);
+  cpu_set_t target_cpu_set;
+  CPU_ZERO(&target_cpu_set);
+
+  for (int32_t cpu : cpu_list) {
+    if (cpu >= 0 && cpu < cpu_count) {
+      CPU_SET(cpu, &target_cpu_set);
+    } else {
+      // Argument error is considered fatal, suggests misconfigured system properties.
+      Usage("Invalid cpu \"d\" specified in --cpu-set argument (nprocessors = %d)",
+            cpu, cpu_count);
+    }
+  }
+
+  if (sched_setaffinity(getpid(), sizeof(target_cpu_set), &target_cpu_set) == -1) {
+    // Failure to set affinity may be outside control of requestor, log warning rather than
+    // treating as fatal.
+    PLOG(WARNING) << "Failed to set CPU affinity.";
+  }
+#else
+  LOG(WARNING) << "--cpu-set not supported on this platform.";
+#endif  // __linux__
+}
+
+
 
 // The primary goal of the watchdog is to prevent stuck build servers
 // during development when fatal aborts lead to a cascade of failures
@@ -649,6 +704,76 @@ class WatchDog {
 pthread_mutex_t WatchDog::runtime_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 Runtime* WatchDog::runtime_ = nullptr;
 
+// Helper class for overriding `java.lang.ThreadLocal.nextHashCode`.
+//
+// The class ThreadLocal has a static field nextHashCode used for assigning hash codes to
+// new ThreadLocal objects. Since the class and the object referenced by the field are
+// in the boot image, they cannot be modified under normal rules for AOT compilation.
+// However, since this is a private detail that's used only for assigning hash codes and
+// everything should work fine with different hash codes, we override the field for the
+// compilation, providing another object that the AOT class initialization can modify.
+class ThreadLocalHashOverride {
+ public:
+  ThreadLocalHashOverride(bool apply, int32_t initial_value) {
+    Thread* self = Thread::Current();
+    ScopedObjectAccess soa(self);
+    hs_.emplace(self);  // While holding the mutator lock.
+    Runtime* runtime = Runtime::Current();
+    klass_ = hs_->NewHandle(apply
+        ? runtime->GetClassLinker()->LookupClass(self,
+                                                 "Ljava/lang/ThreadLocal;",
+                                                 /*class_loader=*/ nullptr)
+        : nullptr);
+    field_ = ((klass_ != nullptr) && klass_->IsVisiblyInitialized())
+        ? klass_->FindDeclaredStaticField("nextHashCode",
+                                          "Ljava/util/concurrent/atomic/AtomicInteger;")
+        : nullptr;
+    old_field_value_ =
+        hs_->NewHandle(field_ != nullptr ? field_->GetObject(klass_.Get()) : nullptr);
+    if (old_field_value_ != nullptr) {
+      gc::AllocatorType allocator_type = runtime->GetHeap()->GetCurrentAllocator();
+      StackHandleScope<1u> hs2(self);
+      Handle<mirror::Object> new_field_value = hs2.NewHandle(
+          old_field_value_->GetClass()->Alloc(self, allocator_type));
+      PointerSize pointer_size = runtime->GetClassLinker()->GetImagePointerSize();
+      ArtMethod* constructor = old_field_value_->GetClass()->FindConstructor("(I)V", pointer_size);
+      CHECK(constructor != nullptr);
+      uint32_t args[] = {
+          reinterpret_cast32<uint32_t>(new_field_value.Get()),
+          static_cast<uint32_t>(initial_value)
+      };
+      JValue result;
+      constructor->Invoke(self, args, sizeof(args), &result, /*shorty=*/ "VI");
+      CHECK(!self->IsExceptionPending());
+      field_->SetObject</*kTransactionActive=*/ false>(klass_.Get(), new_field_value.Get());
+    }
+    if (apply && old_field_value_ == nullptr) {
+      if ((klass_ != nullptr) && klass_->IsVisiblyInitialized()) {
+        // This would mean that the implementation of ThreadLocal has changed
+        // and the code above is no longer applicable.
+        LOG(ERROR) << "Failed to override ThreadLocal.nextHashCode";
+      } else {
+        VLOG(compiler) << "ThreadLocal is not initialized in the primary boot image.";
+      }
+    }
+  }
+
+  ~ThreadLocalHashOverride() {
+    ScopedObjectAccess soa(hs_->Self());
+    if (old_field_value_ != nullptr) {
+      // Allow the overriding object to be collected.
+      field_->SetObject</*kTransactionActive=*/ false>(klass_.Get(), old_field_value_.Get());
+    }
+    hs_.reset();  // While holding the mutator lock.
+  }
+
+ private:
+  std::optional<StackHandleScope<2u>> hs_;
+  Handle<mirror::Class> klass_;
+  ArtField* field_;
+  Handle<mirror::Object> old_field_value_;
+};
+
 class Dex2Oat final {
  public:
   explicit Dex2Oat(TimingLogger* timings) :
@@ -667,12 +792,14 @@ class Dex2Oat final {
       input_vdex_file_(nullptr),
       dm_fd_(-1),
       zip_fd_(-1),
+      image_fd_(-1),
+      have_multi_image_arg_(false),
+      multi_image_(false),
       image_base_(0U),
-      image_classes_zip_filename_(nullptr),
-      image_classes_filename_(nullptr),
       image_storage_mode_(ImageHeader::kStorageModeUncompressed),
       passes_to_run_filename_(nullptr),
       dirty_image_objects_filename_(nullptr),
+      updatable_bcp_packages_filename_(nullptr),
       is_host_(false),
       elf_writers_(),
       oat_writers_(),
@@ -763,19 +890,36 @@ class Dex2Oat final {
 
   void ProcessOptions(ParserOptions* parser_options) {
     compiler_options_->compile_pic_ = true;  // All AOT compilation is PIC.
-    DCHECK(compiler_options_->image_type_ == CompilerOptions::ImageType::kNone);
-    if (!image_filenames_.empty()) {
-      if (android::base::EndsWith(image_filenames_[0], "apex.art")) {
-        compiler_options_->image_type_ = CompilerOptions::ImageType::kApexBootImage;
-      } else {
-        compiler_options_->image_type_ = CompilerOptions::ImageType::kBootImage;
+
+    if (android_root_.empty()) {
+      const char* android_root_env_var = getenv("ANDROID_ROOT");
+      if (android_root_env_var == nullptr) {
+        Usage("--android-root unspecified and ANDROID_ROOT not set");
       }
+      android_root_ += android_root_env_var;
+    }
+
+    if (!parser_options->boot_image_filename.empty()) {
+      boot_image_filename_ = parser_options->boot_image_filename;
+    }
+
+    DCHECK(compiler_options_->image_type_ == CompilerOptions::ImageType::kNone);
+    if (!image_filenames_.empty() || image_fd_ != -1) {
+      // If no boot image is provided, then dex2oat is compiling the primary boot image,
+      // otherwise it is compiling the boot image extension.
+      compiler_options_->image_type_ = boot_image_filename_.empty()
+          ? CompilerOptions::ImageType::kBootImage
+          : CompilerOptions::ImageType::kBootImageExtension;
     }
     if (app_image_fd_ != -1 || !app_image_file_name_.empty()) {
-      if (compiler_options_->IsBootImage()) {
-        Usage("Can't have both --image and (--app-image-fd or --app-image-file)");
+      if (compiler_options_->IsBootImage() || compiler_options_->IsBootImageExtension()) {
+        Usage("Can't have both (--image or --image-fd) and (--app-image-fd or --app-image-file)");
       }
       compiler_options_->image_type_ = CompilerOptions::ImageType::kAppImage;
+    }
+
+    if (!image_filenames_.empty() && image_fd_ != -1) {
+      Usage("Can't have both --image and --image-fd");
     }
 
     if (oat_filenames_.empty() && oat_fd_ == -1) {
@@ -797,6 +941,10 @@ class Dex2Oat final {
     if ((output_vdex_fd_ == -1) != (oat_fd_ == -1)) {
       Usage("VDEX and OAT output must be specified either with one --oat-file "
             "or with --oat-fd and --output-vdex-fd file descriptors");
+    }
+
+    if ((image_fd_ != -1) && (oat_fd_ == -1)) {
+      Usage("--image-fd must be used with --oat_fd and --output_vdex_fd");
     }
 
     if (!parser_options->oat_symbols.empty() && oat_fd_ != -1) {
@@ -829,31 +977,9 @@ class Dex2Oat final {
       Usage("--oat-file arguments do not match --image arguments");
     }
 
-    if (android_root_.empty()) {
-      const char* android_root_env_var = getenv("ANDROID_ROOT");
-      if (android_root_env_var == nullptr) {
-        Usage("--android-root unspecified and ANDROID_ROOT not set");
-      }
-      android_root_ += android_root_env_var;
-    }
-
-    if (!IsBootImage() && parser_options->boot_image_filename.empty()) {
-      parser_options->boot_image_filename = GetDefaultBootImageLocation(android_root_);
-    }
-    if (!parser_options->boot_image_filename.empty()) {
-      boot_image_filename_ = parser_options->boot_image_filename;
-    }
-
-    if (image_classes_filename_ != nullptr && !IsBootImage()) {
-      Usage("--image-classes should only be used with --image");
-    }
-
-    if (image_classes_filename_ != nullptr && !boot_image_filename_.empty()) {
-      Usage("--image-classes should not be used with --boot-image");
-    }
-
-    if (image_classes_zip_filename_ != nullptr && image_classes_filename_ == nullptr) {
-      Usage("--image-classes-zip should be used with --image-classes");
+    if (!IsBootImage() && boot_image_filename_.empty()) {
+      DCHECK(!IsBootImageExtension());
+      boot_image_filename_ = GetDefaultBootImageLocation(android_root_);
     }
 
     if (dex_filenames_.empty() && zip_fd_ == -1) {
@@ -886,21 +1012,37 @@ class Dex2Oat final {
 
     if (boot_image_filename_.empty()) {
       if (image_base_ == 0) {
-        Usage("Non-zero --base not specified");
+        Usage("Non-zero --base not specified for boot image");
       }
+    } else {
+      if (image_base_ != 0) {
+        Usage("Non-zero --base specified for app image or boot image extension");
+      }
+    }
+
+    if (have_multi_image_arg_) {
+      if (!IsImage()) {
+        Usage("--multi-image or --single-image specified for non-image compilation");
+      }
+    } else {
+      // Use the default, i.e. multi-image for boot image and boot image extension.
+      multi_image_ = IsBootImage() || IsBootImageExtension();  // Shall pass checks below.
+    }
+    if (IsBootImage() && !multi_image_) {
+      Usage("--single-image specified for primary boot image");
+    }
+    if (IsAppImage() && multi_image_) {
+      Usage("--multi-image specified for app image");
+    }
+
+    if (image_fd_ != -1 && multi_image_) {
+      Usage("--single-image not specified for --image-fd");
     }
 
     const bool have_profile_file = !profile_file_.empty();
     const bool have_profile_fd = profile_file_fd_ != kInvalidFd;
     if (have_profile_file && have_profile_fd) {
       Usage("Profile file should not be specified with both --profile-file-fd and --profile-file");
-    }
-
-    if (have_profile_file || have_profile_fd) {
-      if (image_classes_filename_ != nullptr ||
-          image_classes_zip_filename_ != nullptr) {
-        Usage("Profile based image creation is not supported with image or compiled classes");
-      }
     }
 
     if (!parser_options->oat_symbols.empty()) {
@@ -929,6 +1071,14 @@ class Dex2Oat final {
       }
     }
 
+    if ((IsBootImage() || IsBootImageExtension()) && updatable_bcp_packages_filename_ != nullptr) {
+      Usage("Do not specify --updatable-bcp-packages-file for boot image compilation.");
+    }
+
+    if (!cpu_set_.empty()) {
+      SetCpuAffinity(cpu_set_);
+    }
+
     if (compiler_options_->inline_max_code_units_ == CompilerOptions::kUnsetInlineMaxCodeUnits) {
       compiler_options_->inline_max_code_units_ = CompilerOptions::kDefaultInlineMaxCodeUnits;
     }
@@ -941,8 +1091,6 @@ class Dex2Oat final {
       case InstructionSet::kArm64:
       case InstructionSet::kX86:
       case InstructionSet::kX86_64:
-      case InstructionSet::kMips:
-      case InstructionSet::kMips64:
         compiler_options_->implicit_null_checks_ = true;
         compiler_options_->implicit_so_checks_ = true;
         break;
@@ -963,16 +1111,9 @@ class Dex2Oat final {
     // Fill some values into the key-value store for the oat header.
     key_value_store_.reset(new SafeMap<std::string, std::string>());
 
-    // Automatically force determinism for the boot image in a host build if read barriers
-    // are enabled, or if the default GC is CMS or MS. When the default GC is CMS
-    // (Concurrent Mark-Sweep), the GC is switched to a non-concurrent one by passing the
-    // option `-Xgc:nonconcurrent` (see below).
-    if (!kIsTargetBuild && IsBootImage()) {
-      if (SupportsDeterministicCompilation()) {
-        force_determinism_ = true;
-      } else {
-        LOG(WARNING) << "Deterministic compilation is disabled.";
-      }
+    // Automatically force determinism for the boot image and boot image extensions in a host build.
+    if (!kIsTargetBuild && (IsBootImage() || IsBootImageExtension())) {
+      force_determinism_ = true;
     }
     compiler_options_->force_determinism_ = force_determinism_;
 
@@ -984,34 +1125,65 @@ class Dex2Oat final {
         Usage("Failed to read list of passes to run.");
       }
     }
+
+    // Trim the boot image location to not include any specified profile. Note
+    // that the logic below will include the first boot image extension, but not
+    // the ones that could be listed after the profile of that extension. This
+    // works for our current top use case:
+    // boot.art:/system/framework/boot-framework.art
+    // But this would need to be adjusted if we had to support different use
+    // cases.
+    size_t profile_separator_pos = boot_image_filename_.find(ImageSpace::kProfileSeparator);
+    if (profile_separator_pos != std::string::npos) {
+      DCHECK(!IsBootImage());  // For primary boot image the boot_image_filename_ is empty.
+      if (IsBootImageExtension()) {
+        Usage("Unsupported profile specification in boot image location (%s) for extension.",
+              boot_image_filename_.c_str());
+      }
+      VLOG(compiler)
+          << "Truncating boot image location " << boot_image_filename_
+          << " because it contains profile specification. Truncated: "
+          << boot_image_filename_.substr(/*pos*/ 0u, /*length*/ profile_separator_pos);
+      boot_image_filename_.resize(profile_separator_pos);
+    }
+
     compiler_options_->passes_to_run_ = passes_to_run_.get();
     compiler_options_->compiling_with_core_image_ =
         !boot_image_filename_.empty() &&
         CompilerOptions::IsCoreImageFilename(boot_image_filename_);
   }
 
-  static bool SupportsDeterministicCompilation() {
-    return (kUseReadBarrier ||
-            gc::kCollectorTypeDefault == gc::kCollectorTypeCMS ||
-            gc::kCollectorTypeDefault == gc::kCollectorTypeMS);
-  }
-
   void ExpandOatAndImageFilenames() {
-    if (image_filenames_[0].rfind('/') == std::string::npos) {
-      Usage("Unusable boot image filename %s", image_filenames_[0].c_str());
+    ArrayRef<const std::string> locations(dex_locations_);
+    if (!multi_image_) {
+      locations = locations.SubArray(/*pos=*/ 0u, /*length=*/ 1u);
     }
-    image_filenames_ = ImageSpace::ExpandMultiImageLocations(dex_locations_, image_filenames_[0]);
+    if (image_fd_ == -1) {
+      if (image_filenames_[0].rfind('/') == std::string::npos) {
+        Usage("Unusable boot image filename %s", image_filenames_[0].c_str());
+      }
+      image_filenames_ = ImageSpace::ExpandMultiImageLocations(
+          locations, image_filenames_[0], IsBootImageExtension());
 
-    if (oat_filenames_[0].rfind('/') == std::string::npos) {
-      Usage("Unusable boot image oat filename %s", oat_filenames_[0].c_str());
+      if (oat_filenames_[0].rfind('/') == std::string::npos) {
+        Usage("Unusable boot image oat filename %s", oat_filenames_[0].c_str());
+      }
+      oat_filenames_ = ImageSpace::ExpandMultiImageLocations(
+          locations, oat_filenames_[0], IsBootImageExtension());
+    } else {
+      DCHECK(!multi_image_);
+      std::vector<std::string> oat_locations = ImageSpace::ExpandMultiImageLocations(
+          locations, oat_location_, IsBootImageExtension());
+      DCHECK_EQ(1u, oat_locations.size());
+      oat_location_ = oat_locations[0];
     }
-    oat_filenames_ = ImageSpace::ExpandMultiImageLocations(dex_locations_, oat_filenames_[0]);
 
     if (!oat_unstripped_.empty()) {
       if (oat_unstripped_[0].rfind('/') == std::string::npos) {
         Usage("Unusable boot image symbol filename %s", oat_unstripped_[0].c_str());
       }
-      oat_unstripped_ = ImageSpace::ExpandMultiImageLocations(dex_locations_, oat_unstripped_[0]);
+      oat_unstripped_ = ImageSpace::ExpandMultiImageLocations(
+           locations, oat_unstripped_[0], IsBootImageExtension());
     }
   }
 
@@ -1090,6 +1262,15 @@ class Dex2Oat final {
     }
   }
 
+  void AssignIfExists(Dex2oatArgumentMap& map,
+                      const Dex2oatArgumentMap::Key<std::string>& key,
+                      std::vector<std::string>* out) {
+    DCHECK(out->empty());
+    if (map.Exists(key)) {
+      out->push_back(*map.Get(key));
+    }
+  }
+
   // Parse the arguments from the command line. In case of an unrecognized option or impossible
   // values/combinations, a usage error will be displayed and exit() is called. Thus, if the method
   // returns, arguments have been successfully parsed.
@@ -1117,10 +1298,11 @@ class Dex2Oat final {
     AssignIfExists(args, M::CompactDexLevel, &compact_dex_level_);
     AssignIfExists(args, M::DexFiles, &dex_filenames_);
     AssignIfExists(args, M::DexLocations, &dex_locations_);
-    AssignIfExists(args, M::OatFiles, &oat_filenames_);
+    AssignIfExists(args, M::OatFile, &oat_filenames_);
     AssignIfExists(args, M::OatSymbols, &parser_options->oat_symbols);
     AssignTrueIfExists(args, M::Strip, &strip_);
-    AssignIfExists(args, M::ImageFilenames, &image_filenames_);
+    AssignIfExists(args, M::ImageFilename, &image_filenames_);
+    AssignIfExists(args, M::ImageFd, &image_fd_);
     AssignIfExists(args, M::ZipFd, &zip_fd_);
     AssignIfExists(args, M::ZipLocation, &zip_location_);
     AssignIfExists(args, M::InputVdexFd, &input_vdex_fd_);
@@ -1134,8 +1316,7 @@ class Dex2Oat final {
     AssignIfExists(args, M::Watchdog, &parser_options->watch_dog_enabled);
     AssignIfExists(args, M::WatchdogTimeout, &parser_options->watch_dog_timeout_in_ms);
     AssignIfExists(args, M::Threads, &thread_count_);
-    AssignIfExists(args, M::ImageClasses, &image_classes_filename_);
-    AssignIfExists(args, M::ImageClassesZip, &image_classes_zip_filename_);
+    AssignIfExists(args, M::CpuSet, &cpu_set_);
     AssignIfExists(args, M::Passes, &passes_to_run_filename_);
     AssignIfExists(args, M::BootImage, &parser_options->boot_image_filename);
     AssignIfExists(args, M::AndroidRoot, &android_root_);
@@ -1152,6 +1333,7 @@ class Dex2Oat final {
     AssignIfExists(args, M::NoInlineFrom, &no_inline_from_string_);
     AssignIfExists(args, M::ClasspathDir, &classpath_dir_);
     AssignIfExists(args, M::DirtyImageObjects, &dirty_image_objects_filename_);
+    AssignIfExists(args, M::UpdatableBcpPackagesFile, &updatable_bcp_packages_filename_);
     AssignIfExists(args, M::ImageFormat, &image_storage_mode_);
     AssignIfExists(args, M::CompilationReason, &compilation_reason_);
 
@@ -1178,10 +1360,10 @@ class Dex2Oat final {
     }
     AssignIfExists(args, M::CopyDexFiles, &copy_dex_files_);
 
+    AssignTrueIfExists(args, M::MultiImage, &have_multi_image_arg_);
+    AssignIfExists(args, M::MultiImage, &multi_image_);
+
     if (args.Exists(M::ForceDeterminism)) {
-      if (!SupportsDeterministicCompilation()) {
-        Usage("Option --force-determinism requires read barriers or a CMS/MS garbage collector");
-      }
       force_determinism_ = true;
     }
 
@@ -1233,6 +1415,14 @@ class Dex2Oat final {
             "--class-loader-context is also specified");
     }
 
+    // If we have a profile, change the default compiler filter to speed-profile
+    // before reading compiler options.
+    static_assert(CompilerFilter::kDefaultCompilerFilter == CompilerFilter::kSpeed);
+    DCHECK_EQ(compiler_options_->GetCompilerFilter(), CompilerFilter::kSpeed);
+    if (UseProfile()) {
+      compiler_options_->SetCompilerFilter(CompilerFilter::kSpeedProfile);
+    }
+
     if (!ReadCompilerOptions(args, compiler_options_.get(), &error_msg)) {
       Usage(error_msg.c_str());
     }
@@ -1249,8 +1439,9 @@ class Dex2Oat final {
     // Prune non-existent dex files now so that we don't create empty oat files for multi-image.
     PruneNonExistentDexFiles();
 
-    // Expand oat and image filenames for multi image.
-    if (IsBootImage() && image_filenames_.size() == 1) {
+    // Expand oat and image filenames for boot image and boot image extension.
+    // This is mostly for multi-image but single-image also needs some processing.
+    if (IsBootImage() || IsBootImageExtension()) {
       ExpandOatAndImageFilenames();
     }
 
@@ -1364,18 +1555,17 @@ class Dex2Oat final {
     // Note: we're only invalidating the magic data in the file, as dex2oat needs the rest of
     // the information to remain valid.
     if (update_input_vdex_) {
-      std::unique_ptr<BufferedOutputStream> vdex_out =
-          std::make_unique<BufferedOutputStream>(
-              std::make_unique<FileOutputStream>(vdex_files_.back().get()));
-      if (!vdex_out->WriteFully(&VdexFile::VerifierDepsHeader::kVdexInvalidMagic,
-                                arraysize(VdexFile::VerifierDepsHeader::kVdexInvalidMagic))) {
-        PLOG(ERROR) << "Failed to invalidate vdex header. File: " << vdex_out->GetLocation();
+      File* vdex_file = vdex_files_.back().get();
+      if (!vdex_file->PwriteFully(&VdexFile::VerifierDepsHeader::kVdexInvalidMagic,
+                                  arraysize(VdexFile::VerifierDepsHeader::kVdexInvalidMagic),
+                                  /*offset=*/ 0u)) {
+        PLOG(ERROR) << "Failed to invalidate vdex header. File: " << vdex_file->GetPath();
         return false;
       }
 
-      if (!vdex_out->Flush()) {
+      if (vdex_file->Flush() != 0) {
         PLOG(ERROR) << "Failed to flush stream after invalidating header of vdex file."
-                    << " File: " << vdex_out->GetLocation();
+                    << " File: " << vdex_file->GetPath();
         return false;
       }
     }
@@ -1462,8 +1652,6 @@ class Dex2Oat final {
           LOG(INFO) << "Image class " << s;
         }
       }
-      // Note: If we have a profile, classes previously loaded for the --image-classes
-      // option are overwritten here.
       compiler_options_->image_classes_.swap(image_classes);
     }
   }
@@ -1473,16 +1661,17 @@ class Dex2Oat final {
   dex2oat::ReturnCode Setup() {
     TimingLogger::ScopedTiming t("dex2oat Setup", timings_);
 
-    if (!PrepareImageClasses() || !PrepareDirtyObjects()) {
+    if (!PrepareDirtyObjects()) {
       return dex2oat::ReturnCode::kOther;
     }
 
-    // Verification results are null since we don't know if we will need them yet as the compler
+    // Verification results are null since we don't know if we will need them yet as the compiler
     // filter may change.
     callbacks_.reset(new QuickCompilerCallbacks(
-        IsBootImage() ?
-            CompilerCallbacks::CallbackMode::kCompileBootImage :
-            CompilerCallbacks::CallbackMode::kCompileApp));
+        // For class verification purposes, boot image extension is the same as boot image.
+        (IsBootImage() || IsBootImageExtension())
+            ? CompilerCallbacks::CallbackMode::kCompileBootImage
+            : CompilerCallbacks::CallbackMode::kCompileApp));
 
     RuntimeArgumentMap runtime_options;
     if (!PrepareRuntimeOptions(&runtime_options, callbacks_.get())) {
@@ -1494,6 +1683,132 @@ class Dex2Oat final {
       return dex2oat::ReturnCode::kOther;
     }
 
+    {
+      TimingLogger::ScopedTiming t_dex("Writing and opening dex files", timings_);
+      for (size_t i = 0, size = oat_writers_.size(); i != size; ++i) {
+        // Unzip or copy dex files straight to the oat file.
+        std::vector<MemMap> opened_dex_files_map;
+        std::vector<std::unique_ptr<const DexFile>> opened_dex_files;
+        // No need to verify the dex file when we have a vdex file, which means it was already
+        // verified.
+        const bool verify =
+            (input_vdex_file_ == nullptr) && !compiler_options_->AssumeDexFilesAreVerified();
+        if (!oat_writers_[i]->WriteAndOpenDexFiles(
+            vdex_files_[i].get(),
+            verify,
+            update_input_vdex_,
+            copy_dex_files_,
+            &opened_dex_files_map,
+            &opened_dex_files)) {
+          return dex2oat::ReturnCode::kOther;
+        }
+        dex_files_per_oat_file_.push_back(MakeNonOwningPointerVector(opened_dex_files));
+        if (opened_dex_files_map.empty()) {
+          DCHECK(opened_dex_files.empty());
+        } else {
+          for (MemMap& map : opened_dex_files_map) {
+            opened_dex_files_maps_.push_back(std::move(map));
+          }
+          for (std::unique_ptr<const DexFile>& dex_file : opened_dex_files) {
+            dex_file_oat_index_map_.emplace(dex_file.get(), i);
+            opened_dex_files_.push_back(std::move(dex_file));
+          }
+        }
+      }
+    }
+
+    compiler_options_->dex_files_for_oat_file_ = MakeNonOwningPointerVector(opened_dex_files_);
+    const std::vector<const DexFile*>& dex_files = compiler_options_->dex_files_for_oat_file_;
+
+    // Check if we need to downgrade the compiler-filter for size reasons.
+    // Note: This does not affect the compiler filter already stored in the key-value
+    //       store which is used for determining whether the oat file is up to date,
+    //       together with the boot class path locations and checksums stored below.
+    CompilerFilter::Filter original_compiler_filter = compiler_options_->GetCompilerFilter();
+    if (!IsBootImage() && !IsBootImageExtension() && IsVeryLarge(dex_files)) {
+      // Disable app image to make sure dex2oat unloading is enabled.
+      compiler_options_->image_type_ = CompilerOptions::ImageType::kNone;
+
+      // If we need to downgrade the compiler-filter for size reasons, do that early before we read
+      // it below for creating verification callbacks.
+      if (!CompilerFilter::IsAsGoodAs(kLargeAppFilter, compiler_options_->GetCompilerFilter())) {
+        LOG(INFO) << "Very large app, downgrading to verify.";
+        compiler_options_->SetCompilerFilter(kLargeAppFilter);
+      }
+    }
+
+    if (CompilerFilter::IsAnyCompilationEnabled(compiler_options_->GetCompilerFilter()) ||
+        IsImage()) {
+      // Only modes with compilation or image generation require verification results.
+      // Do this here instead of when we
+      // create the compilation callbacks since the compilation mode may have been changed by the
+      // very large app logic.
+      // Avoiding setting the verification results saves RAM by not adding the dex files later in
+      // the function.
+      // Note: When compiling boot image, this must be done before creating the Runtime.
+      verification_results_.reset(new VerificationResults(compiler_options_.get()));
+      callbacks_->SetVerificationResults(verification_results_.get());
+    }
+
+    if (IsBootImage() || IsBootImageExtension()) {
+      // For boot image or boot image extension, pass opened dex files to the Runtime::Create().
+      // Note: Runtime acquires ownership of these dex files.
+      runtime_options.Set(RuntimeArgumentMap::BootClassPathDexList, &opened_dex_files_);
+    }
+    if (!CreateRuntime(std::move(runtime_options))) {
+      return dex2oat::ReturnCode::kCreateRuntime;
+    }
+    ArrayRef<const DexFile* const> bcp_dex_files(runtime_->GetClassLinker()->GetBootClassPath());
+    if (IsBootImage() || IsBootImageExtension()) {
+      // Check boot class path dex files and, if compiling an extension, the images it depends on.
+      if ((IsBootImage() && bcp_dex_files.size() != dex_files.size()) ||
+          (IsBootImageExtension() && bcp_dex_files.size() <= dex_files.size())) {
+        LOG(ERROR) << "Unexpected number of boot class path dex files for boot image or extension, "
+            << bcp_dex_files.size() << (IsBootImage() ? " != " : " <= ") << dex_files.size();
+        return dex2oat::ReturnCode::kOther;
+      }
+      if (!std::equal(dex_files.begin(), dex_files.end(), bcp_dex_files.end() - dex_files.size())) {
+        LOG(ERROR) << "Boot class path dex files do not end with the compiled dex files.";
+        return dex2oat::ReturnCode::kOther;
+      }
+      size_t bcp_df_pos = 0u;
+      size_t bcp_df_end = bcp_dex_files.size();
+      for (const std::string& bcp_location : runtime_->GetBootClassPathLocations()) {
+        if (bcp_df_pos == bcp_df_end || bcp_dex_files[bcp_df_pos]->GetLocation() != bcp_location) {
+          LOG(ERROR) << "Missing dex file for boot class component " << bcp_location;
+          return dex2oat::ReturnCode::kOther;
+        }
+        CHECK(!DexFileLoader::IsMultiDexLocation(bcp_dex_files[bcp_df_pos]->GetLocation().c_str()));
+        ++bcp_df_pos;
+        while (bcp_df_pos != bcp_df_end &&
+            DexFileLoader::IsMultiDexLocation(bcp_dex_files[bcp_df_pos]->GetLocation().c_str())) {
+          ++bcp_df_pos;
+        }
+      }
+      if (bcp_df_pos != bcp_df_end) {
+        LOG(ERROR) << "Unexpected dex file in boot class path "
+            << bcp_dex_files[bcp_df_pos]->GetLocation();
+        return dex2oat::ReturnCode::kOther;
+      }
+      auto lacks_image = [](const DexFile* df) {
+        if (kIsDebugBuild && df->GetOatDexFile() != nullptr) {
+          const OatFile* oat_file = df->GetOatDexFile()->GetOatFile();
+          CHECK(oat_file != nullptr);
+          const auto& image_spaces = Runtime::Current()->GetHeap()->GetBootImageSpaces();
+          CHECK(std::any_of(image_spaces.begin(),
+                            image_spaces.end(),
+                            [=](const ImageSpace* space) {
+                              return oat_file == space->GetOatFile();
+                            }));
+        }
+        return df->GetOatDexFile() == nullptr;
+      };
+      if (std::any_of(bcp_dex_files.begin(), bcp_dex_files.end() - dex_files.size(), lacks_image)) {
+        LOG(ERROR) << "Missing required boot image(s) for boot image extension.";
+        return dex2oat::ReturnCode::kOther;
+      }
+    }
+
     if (!compilation_reason_.empty()) {
       key_value_store_->Put(OatHeader::kCompilationReasonKey, compilation_reason_);
     }
@@ -1502,23 +1817,32 @@ class Dex2Oat final {
       // If we're compiling the boot image, store the boot classpath into the Key-Value store.
       // We use this when loading the boot image.
       key_value_store_->Put(OatHeader::kBootClassPathKey, android::base::Join(dex_locations_, ':'));
-    }
-
-    if (!IsBootImage()) {
-      // When compiling an app, create the runtime early to retrieve
-      // the boot image checksums needed for the oat header.
-      if (!CreateRuntime(std::move(runtime_options))) {
-        return dex2oat::ReturnCode::kCreateRuntime;
+    } else if (IsBootImageExtension()) {
+      // Validate the boot class path and record the dependency on the loaded boot images.
+      TimingLogger::ScopedTiming t3("Loading image checksum", timings_);
+      Runtime* runtime = Runtime::Current();
+      std::string full_bcp = android::base::Join(runtime->GetBootClassPathLocations(), ':');
+      std::string extension_part = ":" + android::base::Join(dex_locations_, ':');
+      if (!android::base::EndsWith(full_bcp, extension_part)) {
+        LOG(ERROR) << "Full boot class path does not end with extension parts, full: " << full_bcp
+            << ", extension: " << extension_part.substr(1u);
+        return dex2oat::ReturnCode::kOther;
       }
-
-      if (CompilerFilter::DependsOnImageChecksum(compiler_options_->GetCompilerFilter())) {
+      std::string bcp_dependency = full_bcp.substr(0u, full_bcp.size() - extension_part.size());
+      key_value_store_->Put(OatHeader::kBootClassPathKey, bcp_dependency);
+      ArrayRef<const DexFile* const> bcp_dex_files_dependency =
+          bcp_dex_files.SubArray(/*pos=*/ 0u, bcp_dex_files.size() - dex_files.size());
+      ArrayRef<ImageSpace* const> image_spaces(runtime->GetHeap()->GetBootImageSpaces());
+      key_value_store_->Put(
+          OatHeader::kBootClassPathChecksumsKey,
+          gc::space::ImageSpace::GetBootClassPathChecksums(image_spaces, bcp_dex_files_dependency));
+    } else {
+      if (CompilerFilter::DependsOnImageChecksum(original_compiler_filter)) {
         TimingLogger::ScopedTiming t3("Loading image checksum", timings_);
         Runtime* runtime = Runtime::Current();
         key_value_store_->Put(OatHeader::kBootClassPathKey,
                               android::base::Join(runtime->GetBootClassPathLocations(), ':'));
-        std::vector<ImageSpace*> image_spaces = runtime->GetHeap()->GetBootImageSpaces();
-        const std::vector<const DexFile*>& bcp_dex_files =
-            runtime->GetClassLinker()->GetBootClassPath();
+        ArrayRef<ImageSpace* const> image_spaces(runtime->GetHeap()->GetBootImageSpaces());
         key_value_store_->Put(
             OatHeader::kBootClassPathChecksumsKey,
             gc::space::ImageSpace::GetBootClassPathChecksums(image_spaces, bcp_dex_files));
@@ -1562,74 +1886,26 @@ class Dex2Oat final {
           class_loader_context_->EncodeContextForOatFile(classpath_dir_,
                                                          stored_class_loader_context_.get());
       key_value_store_->Put(OatHeader::kClassPathKey, class_path_key);
+
+      // Prepare exclusion list for updatable boot class path packages.
+      if (!PrepareUpdatableBcpPackages()) {
+        return dex2oat::ReturnCode::kOther;
+      }
     }
 
-    // Now that we have finalized key_value_store_, start writing the oat file.
+    // Now that we have finalized key_value_store_, start writing the .rodata section.
+    // Among other things, this creates type lookup tables that speed up the compilation.
     {
-      TimingLogger::ScopedTiming t_dex("Writing and opening dex files", timings_);
+      TimingLogger::ScopedTiming t_dex("Starting .rodata", timings_);
       rodata_.reserve(oat_writers_.size());
       for (size_t i = 0, size = oat_writers_.size(); i != size; ++i) {
         rodata_.push_back(elf_writers_[i]->StartRoData());
-        // Unzip or copy dex files straight to the oat file.
-        std::vector<MemMap> opened_dex_files_map;
-        std::vector<std::unique_ptr<const DexFile>> opened_dex_files;
-        // No need to verify the dex file when we have a vdex file, which means it was already
-        // verified.
-        const bool verify = (input_vdex_file_ == nullptr);
-        if (!oat_writers_[i]->WriteAndOpenDexFiles(
-            vdex_files_[i].get(),
-            rodata_.back(),
-            (i == 0u) ? key_value_store_.get() : nullptr,
-            verify,
-            update_input_vdex_,
-            copy_dex_files_,
-            &opened_dex_files_map,
-            &opened_dex_files)) {
+        if (!oat_writers_[i]->StartRoData(dex_files_per_oat_file_[i],
+                                          rodata_.back(),
+                                          (i == 0u) ? key_value_store_.get() : nullptr)) {
           return dex2oat::ReturnCode::kOther;
         }
-        dex_files_per_oat_file_.push_back(MakeNonOwningPointerVector(opened_dex_files));
-        if (opened_dex_files_map.empty()) {
-          DCHECK(opened_dex_files.empty());
-        } else {
-          for (MemMap& map : opened_dex_files_map) {
-            opened_dex_files_maps_.push_back(std::move(map));
-          }
-          for (std::unique_ptr<const DexFile>& dex_file : opened_dex_files) {
-            dex_file_oat_index_map_.emplace(dex_file.get(), i);
-            opened_dex_files_.push_back(std::move(dex_file));
-          }
-        }
       }
-    }
-
-    compiler_options_->dex_files_for_oat_file_ = MakeNonOwningPointerVector(opened_dex_files_);
-    const std::vector<const DexFile*>& dex_files = compiler_options_->dex_files_for_oat_file_;
-
-    // If we need to downgrade the compiler-filter for size reasons.
-    if (!IsBootImage() && IsVeryLarge(dex_files)) {
-      // Disable app image to make sure dex2oat unloading is enabled.
-      compiler_options_->image_type_ = CompilerOptions::ImageType::kNone;
-
-      // If we need to downgrade the compiler-filter for size reasons, do that early before we read
-      // it below for creating verification callbacks.
-      if (!CompilerFilter::IsAsGoodAs(kLargeAppFilter, compiler_options_->GetCompilerFilter())) {
-        LOG(INFO) << "Very large app, downgrading to verify.";
-        // Note: this change won't be reflected in the key-value store, as that had to be
-        //       finalized before loading the dex files. This setup is currently required
-        //       to get the size from the DexFile objects.
-        // TODO: refactor. b/29790079
-        compiler_options_->SetCompilerFilter(kLargeAppFilter);
-      }
-    }
-
-    if (CompilerFilter::IsAnyCompilationEnabled(compiler_options_->GetCompilerFilter())) {
-      // Only modes with compilation require verification results, do this here instead of when we
-      // create the compilation callbacks since the compilation mode may have been changed by the
-      // very large app logic.
-      // Avoiding setting the verification results saves RAM by not adding the dex files later in
-      // the function.
-      verification_results_.reset(new VerificationResults(compiler_options_.get()));
-      callbacks_->SetVerificationResults(verification_results_.get());
     }
 
     // We had to postpone the swap decision till now, as this is the point when we actually
@@ -1639,7 +1915,7 @@ class Dex2Oat final {
     CHECK(driver_ == nullptr);
     // If we use a swap file, ensure we are above the threshold to make it necessary.
     if (swap_fd_ != -1) {
-      if (!UseSwap(IsBootImage(), dex_files)) {
+      if (!UseSwap(IsBootImage() || IsBootImageExtension(), dex_files)) {
         close(swap_fd_);
         swap_fd_ = -1;
         VLOG(compiler) << "Decided to run without swap.";
@@ -1648,14 +1924,6 @@ class Dex2Oat final {
       }
     }
     // Note that dex2oat won't close the swap_fd_. The compiler driver's swap space will do that.
-    if (IsBootImage()) {
-      // For boot image, pass opened dex files to the Runtime::Create().
-      // Note: Runtime acquires ownership of these dex files.
-      runtime_options.Set(RuntimeArgumentMap::BootClassPathDexList, &opened_dex_files_);
-      if (!CreateRuntime(std::move(runtime_options))) {
-        return dex2oat::ReturnCode::kOther;
-      }
-    }
 
     // If we're doing the image, override the compiler filter to force full compilation. Must be
     // done ahead of WellKnownClasses::Init that causes verification.  Note: doesn't force
@@ -1664,7 +1932,7 @@ class Dex2Oat final {
     Thread* self = Thread::Current();
     WellKnownClasses::Init(self->GetJniEnv());
 
-    if (!IsBootImage()) {
+    if (!IsBootImage() && !IsBootImageExtension()) {
       constexpr bool kSaveDexInput = false;
       if (kSaveDexInput) {
         SaveDexInput();
@@ -1735,6 +2003,14 @@ class Dex2Oat final {
         !CompilerFilter::IsAotCompilationEnabled(compiler_options_->GetCompilerFilter());
   }
 
+  uint32_t GetCombinedChecksums() const {
+    uint32_t combined_checksums = 0u;
+    for (const DexFile* dex_file : compiler_options_->GetDexFilesForOatFile()) {
+      combined_checksums ^= dex_file->GetLocationChecksum();
+    }
+    return combined_checksums;
+  }
+
   // Set up and create the compiler driver and then invoke it to compile all the dex files.
   jobject Compile() {
     ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
@@ -1753,7 +2029,7 @@ class Dex2Oat final {
 
     if (!no_inline_filters.empty()) {
       std::vector<const DexFile*> class_path_files;
-      if (!IsBootImage()) {
+      if (!IsBootImage() && !IsBootImageExtension()) {
         // The class loader context is used only for apps.
         class_path_files = class_loader_context_->FlattenOpenedDexFiles();
       }
@@ -1798,7 +2074,10 @@ class Dex2Oat final {
                                      compiler_kind_,
                                      thread_count_,
                                      swap_fd_));
-    if (!IsBootImage()) {
+
+    driver_->PrepareDexFilesForOatFile(timings_);
+
+    if (!IsBootImage() && !IsBootImageExtension()) {
       driver_->SetClasspathDexFiles(class_loader_context_->FlattenOpenedDexFiles());
     }
 
@@ -1832,6 +2111,12 @@ class Dex2Oat final {
       // the results for all the dex files, not just the results for the current dex file.
       callbacks_->SetVerifierDeps(new verifier::VerifierDeps(dex_files));
     }
+
+    // To allow initialization of classes that construct ThreadLocal objects in class initializer,
+    // re-initialize the ThreadLocal.nextHashCode to a new object that's not in the boot image.
+    ThreadLocalHashOverride thread_local_hash_override(
+        /*apply=*/ !IsBootImage(), /*initial_value=*/ 123456789u ^ GetCombinedChecksums());
+
     // Invoke the compilation.
     if (compile_individually) {
       CompileDexFilesIndividually();
@@ -1846,9 +2131,11 @@ class Dex2Oat final {
     ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
 
     jobject class_loader = nullptr;
-    if (!IsBootImage()) {
+    if (!IsBootImage() && !IsBootImageExtension()) {
       class_loader =
-          class_loader_context_->CreateClassLoader(compiler_options_->dex_files_for_oat_file_);
+          class_loader_context_->CreateClassLoader(compiler_options_->GetDexFilesForOatFile());
+    }
+    if (!IsBootImage()) {
       callbacks_->SetDexFiles(&dex_files);
     }
 
@@ -1957,23 +2244,12 @@ class Dex2Oat final {
     }
 
     if (IsImage()) {
-      if (IsAppImage() && image_base_ == 0) {
+      if (!IsBootImage()) {
+        DCHECK_EQ(image_base_, 0u);
         gc::Heap* const heap = Runtime::Current()->GetHeap();
-        for (ImageSpace* image_space : heap->GetBootImageSpaces()) {
-          image_base_ = std::max(image_base_, RoundUp(
-              reinterpret_cast<uintptr_t>(image_space->GetImageHeader().GetOatFileEnd()),
-              kPageSize));
-        }
-        // The non moving space is right after the oat file. Put the preferred app image location
-        // right after the non moving space so that we ideally get a continuous immune region for
-        // the GC.
-        // Use the default non moving space capacity since dex2oat does not have a separate non-
-        // moving space. This means the runtime's non moving space space size will be as large
-        // as the growth limit for dex2oat, but smaller in the zygote.
-        const size_t non_moving_space_capacity = gc::Heap::kDefaultNonMovingSpaceCapacity;
-        image_base_ += non_moving_space_capacity;
-        VLOG(compiler) << "App image base=" << reinterpret_cast<void*>(image_base_);
+        image_base_ = heap->GetBootImagesStartAddress() + heap->GetBootImagesSize();
       }
+      VLOG(compiler) << "Image base=" << reinterpret_cast<void*>(image_base_);
 
       image_writer_.reset(new linker::ImageWriter(*compiler_options_,
                                                   image_base_,
@@ -1983,9 +2259,13 @@ class Dex2Oat final {
                                                   class_loader,
                                                   dirty_image_objects_.get()));
 
-      // We need to prepare method offsets in the image address space for direct method patching.
+      // We need to prepare method offsets in the image address space for resolving linker patches.
       TimingLogger::ScopedTiming t2("dex2oat Prepare image address space", timings_);
-      if (!image_writer_->PrepareImageAddressSpace(timings_)) {
+      // Do not preload dex caches for "assume-verified". This filter is used for in-memory
+      // compilation of boot image extension; in that scenario it is undesirable to use a lot
+      // of time to look up things now in hope it will be somewhat useful later.
+      bool preload_dex_caches = !compiler_options_->AssumeDexFilesAreVerified();
+      if (!image_writer_->PrepareImageAddressSpace(preload_dex_caches, timings_)) {
         LOG(ERROR) << "Failed to prepare image address space.";
         return false;
       }
@@ -2001,7 +2281,7 @@ class Dex2Oat final {
 
     {
       TimingLogger::ScopedTiming t2("dex2oat Write VDEX", timings_);
-      DCHECK(IsBootImage() || oat_files_.size() == 1u);
+      DCHECK(IsBootImage() || IsBootImageExtension() || oat_files_.size() == 1u);
       verifier::VerifierDeps* verifier_deps = callbacks_->GetVerifierDeps();
       for (size_t i = 0, size = oat_files_.size(); i != size; ++i) {
         File* vdex_file = vdex_files_[i].get();
@@ -2065,7 +2345,7 @@ class Dex2Oat final {
         debug::DebugInfo debug_info = oat_writer->GetDebugInfo();  // Keep the variable alive.
         elf_writer->PrepareDebugInfo(debug_info);  // Processes the data on background thread.
 
-        OutputStream*& rodata = rodata_[i];
+        OutputStream* rodata = rodata_[i];
         DCHECK(rodata != nullptr);
         if (!oat_writer->WriteRodata(rodata)) {
           LOG(ERROR) << "Failed to write .rodata section to the ELF file " << oat_file->GetPath();
@@ -2225,7 +2505,7 @@ class Dex2Oat final {
   }
 
   bool IsImage() const {
-    return IsAppImage() || IsBootImage();
+    return IsAppImage() || IsBootImage() || IsBootImageExtension();
   }
 
   bool IsAppImage() const {
@@ -2234,6 +2514,10 @@ class Dex2Oat final {
 
   bool IsBootImage() const {
     return compiler_options_->IsBootImage();
+  }
+
+  bool IsBootImageExtension() const {
+    return compiler_options_->IsBootImageExtension();
   }
 
   bool IsHost() const {
@@ -2325,37 +2609,6 @@ class Dex2Oat final {
     return dex_files_size >= very_large_threshold_;
   }
 
-  bool PrepareImageClasses() {
-    // If --image-classes was specified, calculate the full list of classes to include in the image.
-    DCHECK(compiler_options_->image_classes_.empty());
-    if (image_classes_filename_ != nullptr) {
-      std::unique_ptr<HashSet<std::string>> image_classes =
-          ReadClasses(image_classes_zip_filename_, image_classes_filename_, "image");
-      if (image_classes == nullptr) {
-        return false;
-      }
-      compiler_options_->image_classes_.swap(*image_classes);
-    }
-    return true;
-  }
-
-  static std::unique_ptr<HashSet<std::string>> ReadClasses(const char* zip_filename,
-                                                           const char* classes_filename,
-                                                           const char* tag) {
-    std::unique_ptr<HashSet<std::string>> classes;
-    std::string error_msg;
-    if (zip_filename != nullptr) {
-      classes = ReadImageClassesFromZip(zip_filename, classes_filename, &error_msg);
-    } else {
-      classes = ReadImageClassesFromFile(classes_filename);
-    }
-    if (classes == nullptr) {
-      LOG(ERROR) << "Failed to create list of " << tag << " classes from '"
-                 << classes_filename << "': " << error_msg;
-    }
-    return classes;
-  }
-
   bool PrepareDirtyObjects() {
     if (dirty_image_objects_filename_ != nullptr) {
       dirty_image_objects_ = ReadCommentedInputFromFile<HashSet<std::string>>(
@@ -2370,6 +2623,49 @@ class Dex2Oat final {
       dirty_image_objects_.reset(nullptr);
     }
     return true;
+  }
+
+  bool PrepareUpdatableBcpPackages() {
+    DCHECK(!IsBootImage() && !IsBootImageExtension());
+    AotClassLinker* aot_class_linker = down_cast<AotClassLinker*>(runtime_->GetClassLinker());
+    if (updatable_bcp_packages_filename_ != nullptr) {
+      std::unique_ptr<std::vector<std::string>> updatable_bcp_packages =
+          ReadCommentedInputFromFile<std::vector<std::string>>(updatable_bcp_packages_filename_,
+                                                               nullptr);  // No post-processing.
+      if (updatable_bcp_packages == nullptr) {
+        LOG(ERROR) << "Failed to load updatable boot class path packages from '"
+            << updatable_bcp_packages_filename_ << "'";
+        return false;
+      }
+      return aot_class_linker->SetUpdatableBootClassPackages(*updatable_bcp_packages);
+    } else {
+      // Use the default list based on updatable packages for Android 11.
+      return aot_class_linker->SetUpdatableBootClassPackages({
+          // Reserved conscrypt packages (includes sub-packages under these paths).
+          // "android.net.ssl",  // Covered by android.net below.
+          "com.android.org.conscrypt",
+          // Reserved updatable-media package (includes sub-packages under this path).
+          "android.media",
+          // Reserved framework-mediaprovider package (includes sub-packages under this path).
+          "android.provider",
+          // Reserved framework-statsd packages (includes sub-packages under these paths).
+          "android.app",
+          "android.os",
+          "android.util",
+          "com.android.internal.statsd",
+          // Reserved framework-permission packages (includes sub-packages under this path).
+          "android.permission",
+          // "android.app.role",  // Covered by android.app above.
+          // Reserved framework-sdkextensions package (includes sub-packages under this path).
+          // "android.os.ext",  // Covered by android.os above.
+          // Reserved framework-wifi packages (includes sub-packages under these paths).
+          "android.hardware.wifi",
+          // "android.net.wifi",  // Covered by android.net below.
+          "com.android.wifi.x",
+          // Reserved framework-tethering package (includes sub-packages under this path).
+          "android.net",
+      });
+    }
   }
 
   void PruneNonExistentDexFiles() {
@@ -2401,8 +2697,8 @@ class Dex2Oat final {
       }
     } else if (zip_fd_ != -1) {
       DCHECK_EQ(oat_writers_.size(), 1u);
-      if (!oat_writers_[0]->AddZippedDexFilesSource(File(zip_fd_, /* check_usage */ false),
-                                                    zip_location_.c_str())) {
+      if (!oat_writers_[0]->AddDexFileSource(File(zip_fd_, /* check_usage */ false),
+                                             zip_location_.c_str())) {
         return false;
       }
     } else if (oat_writers_.size() > 1u) {
@@ -2418,7 +2714,6 @@ class Dex2Oat final {
     } else {
       DCHECK_EQ(oat_writers_.size(), 1u);
       DCHECK_EQ(dex_filenames_.size(), dex_locations_.size());
-      DCHECK_NE(dex_filenames_.size(), 0u);
       for (size_t i = 0; i != dex_filenames_.size(); ++i) {
         if (!oat_writers_[0]->AddDexFileSource(dex_filenames_[i].c_str(),
                                                dex_locations_[i].c_str())) {
@@ -2471,7 +2766,7 @@ class Dex2Oat final {
   bool PrepareRuntimeOptions(RuntimeArgumentMap* runtime_options,
                              QuickCompilerCallbacks* callbacks) {
     RuntimeOptions raw_options;
-    if (boot_image_filename_.empty()) {
+    if (IsBootImage()) {
       std::string boot_class_path = "-Xbootclasspath:";
       boot_class_path += android::base::Join(dex_filenames_, ':');
       raw_options.push_back(std::make_pair(boot_class_path, nullptr));
@@ -2508,31 +2803,6 @@ class Dex2Oat final {
     // foreground collector by default for dex2oat.
     raw_options.push_back(std::make_pair("-XX:DisableHSpaceCompactForOOM", nullptr));
 
-    if (compiler_options_->IsForceDeterminism()) {
-      // If we're asked to be deterministic, ensure non-concurrent GC for determinism.
-      //
-      // Note that with read barriers, this option is ignored, because Runtime::Init
-      // overrides the foreground GC to be gc::kCollectorTypeCC when instantiating
-      // gc::Heap. This is fine, as concurrent GC requests are not honored in dex2oat,
-      // which uses an unstarted runtime.
-      raw_options.push_back(std::make_pair("-Xgc:nonconcurrent", nullptr));
-
-      // The default LOS implementation (map) is not deterministic. So disable it.
-      raw_options.push_back(std::make_pair("-XX:LargeObjectSpace=disabled", nullptr));
-
-      // We also need to turn off the nonmoving space. For that, we need to disable HSpace
-      // compaction (done above) and ensure that neither foreground nor background collectors
-      // are concurrent.
-      //
-      // Likewise, this option is ignored with read barriers because Runtime::Init
-      // overrides the background GC to be gc::kCollectorTypeCCBackground, but that's
-      // fine too, for the same reason (see above).
-      raw_options.push_back(std::make_pair("-XX:BackgroundGC=nonconcurrent", nullptr));
-
-      // To make identity hashcode deterministic, set a known seed.
-      mirror::Object::SetHashCodeSeed(987654321U);
-    }
-
     if (!Runtime::ParseOptions(raw_options, false, runtime_options)) {
       LOG(ERROR) << "Failed to parse runtime options";
       return false;
@@ -2542,6 +2812,11 @@ class Dex2Oat final {
 
   // Create a runtime necessary for compilation.
   bool CreateRuntime(RuntimeArgumentMap&& runtime_options) {
+    // To make identity hashcode deterministic, set a seed based on the dex file checksums.
+    // That makes the seed also most likely different for different inputs, for example
+    // for primary boot image and different extensions that could be loaded together.
+    mirror::Object::SetHashCodeSeed(987654321u ^ GetCombinedChecksums());
+
     TimingLogger::ScopedTiming t_runtime("Create runtime", timings_);
     if (!Runtime::Create(std::move(runtime_options))) {
       LOG(ERROR) << "Failed to create runtime";
@@ -2581,13 +2856,21 @@ class Dex2Oat final {
   bool CreateImageFile()
       REQUIRES(!Locks::mutator_lock_) {
     CHECK(image_writer_ != nullptr);
-    if (!IsBootImage()) {
-      CHECK(image_filenames_.empty());
-      image_filenames_.push_back(app_image_file_name_);
+    if (IsAppImage()) {
+      DCHECK(image_filenames_.empty());
+      if (app_image_fd_ != -1) {
+        image_filenames_.push_back(StringPrintf("FileDescriptor[%d]", app_image_fd_));
+      } else {
+        image_filenames_.push_back(app_image_file_name_);
+      }
     }
-    if (!image_writer_->Write(app_image_fd_,
+    if (image_fd_ != -1) {
+      DCHECK(image_filenames_.empty());
+      image_filenames_.push_back(StringPrintf("FileDescriptor[%d]", image_fd_));
+    }
+    if (!image_writer_->Write(IsAppImage() ? app_image_fd_ : image_fd_,
                               image_filenames_,
-                              oat_filenames_)) {
+                              IsAppImage() ? 1u : dex_locations_.size())) {
       LOG(ERROR) << "Failure during image file creation";
       return false;
     }
@@ -2601,25 +2884,6 @@ class Dex2Oat final {
     image_writer_.reset();
 
     return true;
-  }
-
-  // Reads the class names (java.lang.Object) and returns a set of descriptors (Ljava/lang/Object;)
-  static std::unique_ptr<HashSet<std::string>> ReadImageClassesFromFile(
-      const char* image_classes_filename) {
-    std::function<std::string(const char*)> process = DotToDescriptor;
-    return ReadCommentedInputFromFile<HashSet<std::string>>(image_classes_filename, &process);
-  }
-
-  // Reads the class names (java.lang.Object) and returns a set of descriptors (Ljava/lang/Object;)
-  static std::unique_ptr<HashSet<std::string>> ReadImageClassesFromZip(
-        const char* zip_filename,
-        const char* image_classes_filename,
-        std::string* error_msg) {
-    std::function<std::string(const char*)> process = DotToDescriptor;
-    return ReadCommentedInputFromZip<HashSet<std::string>>(zip_filename,
-                                                           image_classes_filename,
-                                                           &process,
-                                                           error_msg);
   }
 
   // Read lines from the given file, dropping comments and empty lines. Post-process each line with
@@ -2743,6 +3007,7 @@ class Dex2Oat final {
   std::unique_ptr<ClassLoaderContext> stored_class_loader_context_;
 
   size_t thread_count_;
+  std::vector<int32_t> cpu_set_;
   uint64_t start_ns_;
   uint64_t start_cputime_ns_;
   std::unique_ptr<WatchDog> watchdog_;
@@ -2768,12 +3033,14 @@ class Dex2Oat final {
   std::string boot_image_filename_;
   std::vector<const char*> runtime_args_;
   std::vector<std::string> image_filenames_;
+  int image_fd_;
+  bool have_multi_image_arg_;
+  bool multi_image_;
   uintptr_t image_base_;
-  const char* image_classes_zip_filename_;
-  const char* image_classes_filename_;
   ImageHeader::StorageMode image_storage_mode_;
   const char* passes_to_run_filename_;
   const char* dirty_image_objects_filename_;
+  const char* updatable_bcp_packages_filename_;
   std::unique_ptr<HashSet<std::string>> dirty_image_objects_;
   std::unique_ptr<std::vector<std::string>> passes_to_run_;
   bool is_host_;
@@ -2962,6 +3229,8 @@ static dex2oat::ReturnCode Dex2oat(int argc, char** argv) {
   // Parse arguments. Argument mistakes will lead to exit(EXIT_FAILURE) in UsageError.
   dex2oat->ParseArgs(argc, argv);
 
+  art::MemMap::Init();  // For ZipEntry::ExtractToMemMap, vdex and profiles.
+
   // If needed, process profile information for profile guided compilation.
   // This operation involves I/O.
   if (dex2oat->UseProfile()) {
@@ -2971,7 +3240,6 @@ static dex2oat::ReturnCode Dex2oat(int argc, char** argv) {
     }
   }
 
-  art::MemMap::Init();  // For ZipEntry::ExtractToMemMap, and vdex.
 
   // Check early that the result of compilation can be written
   if (!dex2oat->OpenFile()) {
@@ -2984,7 +3252,10 @@ static dex2oat::ReturnCode Dex2oat(int argc, char** argv) {
   //   3) Compiling with --host
   //   4) Compiling on the host (not a target build)
   // Otherwise, print a stripped command line.
-  if (kIsDebugBuild || dex2oat->IsBootImage() || dex2oat->IsHost() || !kIsTargetBuild) {
+  if (kIsDebugBuild ||
+      dex2oat->IsBootImage() || dex2oat->IsBootImageExtension() ||
+      dex2oat->IsHost() ||
+      !kIsTargetBuild) {
     LOG(INFO) << CommandLine();
   } else {
     LOG(INFO) << StrippedCommandLine();

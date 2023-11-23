@@ -42,11 +42,11 @@ struct ArrayGetter {
 
 }  // namespace
 
-MODULE_API jobjectArray newStringArray(JNIEnv* env, size_t count) {
+jobjectArray newStringArray(JNIEnv* env, size_t count) {
     return env->NewObjectArray(count, JniConstants::GetStringClass(env), nullptr);
 }
 
-MODULE_API jobjectArray toStringArray(JNIEnv* env, const char* const* strings) {
+jobjectArray toStringArray(JNIEnv* env, const char* const* strings) {
     ArrayCounter counter(strings);
     ArrayGetter getter(strings);
     return toStringArray(env, &counter, &getter);

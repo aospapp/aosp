@@ -25,11 +25,15 @@ import android.os.Parcelable;
 public class CarPropertyEvent implements Parcelable {
     public static final int PROPERTY_EVENT_PROPERTY_CHANGE = 0;
     public static final int PROPERTY_EVENT_ERROR = 1;
-
     /**
      * EventType of this message
      */
     private final int mEventType;
+
+    /**
+     * ErrorCode of this message.
+     */
+    private final @CarPropertyManager.CarSetPropertyErrorCode int mErrorCode;
     private final CarPropertyValue<?> mCarPropertyValue;
 
     // Use it as default value for error events.
@@ -38,12 +42,16 @@ public class CarPropertyEvent implements Parcelable {
     /**
      * @return EventType field
      */
-    public int getEventType() { return mEventType; }
+    public int getEventType() {
+        return mEventType;
+    }
 
     /**
      * Returns {@link CarPropertyValue} associated with this event.
      */
-    public CarPropertyValue<?> getCarPropertyValue() { return mCarPropertyValue; }
+    public CarPropertyValue<?> getCarPropertyValue() {
+        return mCarPropertyValue;
+    }
 
     @Override
     public int describeContents() {
@@ -53,27 +61,43 @@ public class CarPropertyEvent implements Parcelable {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mEventType);
+        dest.writeInt(mErrorCode);
         dest.writeParcelable(mCarPropertyValue, flags);
     }
 
-    public static final Parcelable.Creator<CarPropertyEvent> CREATOR
-            = new Parcelable.Creator<CarPropertyEvent>() {
+    public static final Parcelable.Creator<CarPropertyEvent> CREATOR =
+            new Parcelable.Creator<CarPropertyEvent>() {
+
+        @Override
         public CarPropertyEvent createFromParcel(Parcel in) {
             return new CarPropertyEvent(in);
         }
 
+        @Override
         public CarPropertyEvent[] newArray(int size) {
             return new CarPropertyEvent[size];
         }
-    };
+        };
 
     /**
      * Constructor for {@link CarPropertyEvent}.
      */
     public CarPropertyEvent(int eventType, @NonNull CarPropertyValue<?> carPropertyValue) {
         mEventType  = eventType;
+        mErrorCode = CarPropertyManager.CAR_SET_PROPERTY_ERROR_CODE_UNKNOWN;
         mCarPropertyValue = carPropertyValue;
     }
+
+    /**
+     * Constructor for {@link CarPropertyEvent} with an error code.
+     */
+    public CarPropertyEvent(int eventType, @NonNull CarPropertyValue<?> carPropertyValue,
+            @CarPropertyManager.CarSetPropertyErrorCode int errorCode) {
+        mEventType  = eventType;
+        mErrorCode = errorCode;
+        mCarPropertyValue = carPropertyValue;
+    }
+
 
     /**
      * Constructor for {@link CarPropertyEvent} when it is an error event.
@@ -81,23 +105,31 @@ public class CarPropertyEvent implements Parcelable {
      * The status of {@link CarPropertyValue} should be {@link CarPropertyValue#STATUS_ERROR}.
      * In {@link CarPropertyManager}, the value of {@link CarPropertyValue} will be dropped.
      */
-    public static CarPropertyEvent createErrorEvent(int propertyId, int areaId) {
-        // valueWithErrorCode will not be propagated to listeners
+    public static CarPropertyEvent createErrorEventWithErrorCode(int propertyId, int areaId,
+            @CarPropertyManager.CarSetPropertyErrorCode int errorCode) {
         CarPropertyValue<Integer> valueWithErrorCode = new CarPropertyValue<>(propertyId, areaId,
-                    CarPropertyValue.STATUS_ERROR, 0, ERROR_EVENT_VALUE);
-        return new CarPropertyEvent(PROPERTY_EVENT_ERROR, valueWithErrorCode);
+                CarPropertyValue.STATUS_ERROR, 0, ERROR_EVENT_VALUE);
+        CarPropertyEvent event = new CarPropertyEvent(PROPERTY_EVENT_ERROR, valueWithErrorCode,
+                errorCode);
+        return event;
+    }
+
+    public @CarPropertyManager.CarSetPropertyErrorCode int getErrorCode() {
+        return mErrorCode;
     }
 
     private CarPropertyEvent(Parcel in) {
         mEventType  = in.readInt();
+        mErrorCode = in.readInt();
         mCarPropertyValue = in.readParcelable(CarPropertyValue.class.getClassLoader());
     }
 
     @Override
     public String toString() {
-        return "CarPropertyEvent{" +
-                "mEventType=" + mEventType +
-                ", mCarPropertyValue=" + mCarPropertyValue +
-                '}';
+        return "CarPropertyEvent{"
+                + "mEventType=" + mEventType
+                + ", mErrorCode=" + mErrorCode
+                + ", mCarPropertyValue=" + mCarPropertyValue
+                + '}';
     }
 }

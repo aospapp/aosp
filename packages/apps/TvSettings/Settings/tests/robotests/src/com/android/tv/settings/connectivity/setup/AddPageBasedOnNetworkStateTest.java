@@ -19,6 +19,7 @@ package com.android.tv.settings.connectivity.setup;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.shadow.api.Shadow.extract;
 
@@ -79,7 +80,7 @@ public class AddPageBasedOnNetworkStateTest {
     @Test
     public void testForward_clearPassword_ssidNotMatch() {
         mUserChoiceInfo.init();
-        ScanResult scanResult = new ScanResult();
+        ScanResult scanResult = mock(ScanResult.class);
         scanResult.SSID = "atv01";
         scanResult.capabilities = "";
         mUserChoiceInfo.setChosenNetwork(scanResult);
@@ -96,7 +97,7 @@ public class AddPageBasedOnNetworkStateTest {
     @Test
     public void testForward_clearPassword_ssidIsNull() {
         mUserChoiceInfo.init();
-        ScanResult scanResult = new ScanResult();
+        ScanResult scanResult = mock(ScanResult.class);
         scanResult.SSID = "atv";
         scanResult.capabilities = "";
         mUserChoiceInfo.setChosenNetwork(scanResult);
@@ -109,7 +110,7 @@ public class AddPageBasedOnNetworkStateTest {
     @Test
     public void testForward_networkSaved() {
         mUserChoiceInfo.init();
-        ScanResult scanResult = new ScanResult();
+        ScanResult scanResult = mock(ScanResult.class);
         scanResult.SSID = "atv";
         scanResult.capabilities = "";
         mUserChoiceInfo.setChosenNetwork(scanResult);
@@ -123,7 +124,7 @@ public class AddPageBasedOnNetworkStateTest {
     @Test
     public void testForward_networkNotSaved() {
         mUserChoiceInfo.init();
-        ScanResult scanResult = new ScanResult();
+        ScanResult scanResult = mock(ScanResult.class);
         scanResult.SSID = "atv";
         scanResult.capabilities = "";
         mUserChoiceInfo.setChosenNetwork(scanResult);

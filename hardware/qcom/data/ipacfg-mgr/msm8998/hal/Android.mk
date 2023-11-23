@@ -16,9 +16,8 @@ LOCAL_CFLAGS := \
         -Wno-unused-parameter \
         -Wno-unused-result \
 
-LOCAL_SHARED_LIBRARIES := libhwbinder \
+LOCAL_SHARED_LIBRARIES := \
                         libhidlbase \
-                        libhidltransport \
                         liblog \
                         libcutils \
                         libdl \

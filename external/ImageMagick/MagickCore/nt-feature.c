@@ -18,7 +18,7 @@
 %                                December 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -191,7 +191,6 @@ MagickExport MagickBooleanType NTAcquireTypeCache(SplayTreeInfo *type_cache,
 
     DWORD
       registry_index = 0,
-      type,
       value_data_size,
       value_name_length;
 
@@ -266,7 +265,7 @@ MagickExport MagickBooleanType NTAcquireTypeCache(SplayTreeInfo *type_cache,
 
         for (q=value_name; *q != '\0'; )
           {
-            GetNextToken(q,(const char **) &q,MagickPathExtent,token);
+            (void) GetNextToken(q,(const char **) &q,MagickPathExtent,token);
             if (*token == '\0')
               break;
 

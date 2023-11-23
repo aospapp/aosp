@@ -17,7 +17,6 @@
 package com.android.car.settings.development;
 
 import android.app.ActivityManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -27,7 +26,7 @@ import android.os.UserManager;
 import android.provider.Settings;
 
 import com.android.car.settings.R;
-import com.android.settingslib.development.DevelopmentSettingsEnabler;
+import com.android.car.settings.common.Logger;
 
 /**
  * A utility to set/check development settings mode.
@@ -36,6 +35,8 @@ import com.android.settingslib.development.DevelopmentSettingsEnabler;
  * modifications to use CarUserManagerHelper instead of UserManager.
  */
 public class DevelopmentSettingsUtil {
+
+    private static final Logger LOG = new Logger(DevelopmentSettingsUtil.class);
 
     private DevelopmentSettingsUtil() {
     }
@@ -48,26 +49,21 @@ public class DevelopmentSettingsUtil {
         Settings.Global.putInt(context.getContentResolver(),
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, enable ? 1 : 0);
 
-        // Used to enable developer options module.
-        ComponentName targetName = ComponentName.unflattenFromString(
-                context.getString(R.string.config_dev_options_module));
-        setDeveloperOptionsEnabledState(context, targetName, showDeveloperOptions(context));
+        // Enable developer options module.
+        setDeveloperOptionsEnabledState(context, showDeveloperOptions(context));
     }
 
     /**
      * Checks that the development settings should be enabled. Returns true if global toggle is set,
-     * debugging is allowed for user, and the user is an admin or a demo user.
+     * debugging is allowed for user, and the user is an admin user.
      */
-    public static boolean isDevelopmentSettingsEnabled(Context context,
-            CarUserManagerHelper carUserManagerHelper) {
+    public static boolean isDevelopmentSettingsEnabled(Context context, UserManager userManager) {
         boolean settingEnabled = Settings.Global.getInt(context.getContentResolver(),
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, Build.IS_ENG ? 1 : 0) != 0;
-        boolean hasRestriction = carUserManagerHelper.hasUserRestriction(
-                UserManager.DISALLOW_DEBUGGING_FEATURES,
-                carUserManagerHelper.getCurrentProcessUserInfo());
-        boolean isAdminOrDemo = carUserManagerHelper.isCurrentProcessAdminUser()
-                || carUserManagerHelper.isCurrentProcessDemoUser();
-        return isAdminOrDemo && !hasRestriction && settingEnabled;
+        boolean hasRestriction = userManager.hasUserRestriction(
+                UserManager.DISALLOW_DEBUGGING_FEATURES);
+        boolean isAdmin = userManager.isAdminUser();
+        return isAdmin && !hasRestriction && settingEnabled;
     }
 
     /** Checks whether the device is provisioned or not. */
@@ -76,33 +72,45 @@ public class DevelopmentSettingsUtil {
                 Settings.Global.DEVICE_PROVISIONED, 0) != 0;
     }
 
+    /** Checks whether the developer options module is enabled. */
+    public static boolean isDeveloperOptionsModuleEnabled(Context context) {
+        PackageManager pm = context.getPackageManager();
+        ComponentName component = getDeveloperOptionsModule(context);
+        int state = pm.getComponentEnabledSetting(component);
+        return state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+    }
+
+    private static ComponentName getDeveloperOptionsModule(Context context) {
+        return ComponentName.unflattenFromString(
+                context.getString(R.string.config_dev_options_module));
+    }
+
     private static boolean showDeveloperOptions(Context context) {
-        CarUserManagerHelper carUserManagerHelper = new CarUserManagerHelper(context);
-        boolean showDev = DevelopmentSettingsEnabler.isDevelopmentSettingsEnabled(context)
-                && !isMonkeyRunning();
-        boolean isAdminOrDemo = carUserManagerHelper.isCurrentProcessAdminUser()
-                || carUserManagerHelper.isCurrentProcessDemoUser();
-        if (UserHandle.MU_ENABLED && !isAdminOrDemo) {
+        UserManager userManager = UserManager.get(context);
+        boolean showDev = isDevelopmentSettingsEnabled(context, userManager)
+                && !ActivityManager.isUserAMonkey();
+        boolean isAdmin = userManager.isAdminUser();
+        if (UserHandle.MU_ENABLED && !isAdmin) {
             showDev = false;
         }
 
         return showDev;
     }
 
-    private static void setDeveloperOptionsEnabledState(Context context, ComponentName component,
-            boolean enabled) {
+    private static void setDeveloperOptionsEnabledState(Context context, boolean enabled) {
         PackageManager pm = context.getPackageManager();
+        ComponentName component = getDeveloperOptionsModule(context);
         int state = pm.getComponentEnabledSetting(component);
-        boolean isEnabled = state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+        boolean isEnabled = isDeveloperOptionsModuleEnabled(context);
+        LOG.i("Enabling developer options module: " + component.flattenToString()
+                + " Current state: " + state
+                + " Currently enabled: " + isEnabled
+                + " Should enable: " + enabled);
         if (isEnabled != enabled || state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT) {
             pm.setComponentEnabledSetting(component, enabled
                             ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                             : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP);
         }
-    }
-
-    private static boolean isMonkeyRunning() {
-        return ActivityManager.isUserAMonkey();
     }
 }

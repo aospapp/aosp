@@ -44,8 +44,7 @@ struct bs_tag {};
 //to avoid creating dependencies on liblog.
 void logAlwaysFatal(const char *message);
 
-// Returns vndk version from "ro.vndk.version" with '-' as a prefix.
-// If "ro.vndk.version" is not set or set to "current", it returns empty string.
+// Returns vndk version from "ro.vndk.version"
 std::string getVndkVersionStr();
 
 // Explicitly invokes the parameterized element's destructor;
@@ -115,11 +114,11 @@ private:
 };
 
 #define HAL_LIBRARY_PATH_SYSTEM_64BIT "/system/lib64/hw/"
-#define HAL_LIBRARY_PATH_VNDK_SP_64BIT_FOR_VERSION "/system/lib64/vndk-sp%s/hw/"
+#define HAL_LIBRARY_PATH_VNDK_SP_64BIT_FOR_VERSION "/apex/com.android.vndk.v%s/lib64/hw/"
 #define HAL_LIBRARY_PATH_VENDOR_64BIT "/vendor/lib64/hw/"
 #define HAL_LIBRARY_PATH_ODM_64BIT    "/odm/lib64/hw/"
 #define HAL_LIBRARY_PATH_SYSTEM_32BIT "/system/lib/hw/"
-#define HAL_LIBRARY_PATH_VNDK_SP_32BIT_FOR_VERSION "/system/lib/vndk-sp%s/hw/"
+#define HAL_LIBRARY_PATH_VNDK_SP_32BIT_FOR_VERSION "/apex/com.android.vndk.v%s/lib/hw/"
 #define HAL_LIBRARY_PATH_VENDOR_32BIT "/vendor/lib/hw/"
 #define HAL_LIBRARY_PATH_ODM_32BIT    "/odm/lib/hw/"
 

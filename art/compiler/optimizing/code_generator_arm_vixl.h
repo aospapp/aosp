@@ -76,8 +76,6 @@ static const size_t kParameterFpuRegistersLengthVIXL = arraysize(kParameterFpuRe
 
 static const vixl::aarch32::Register kMethodRegister = vixl::aarch32::r0;
 
-static const vixl::aarch32::Register kCoreAlwaysSpillRegister = vixl::aarch32::r5;
-
 // Callee saves core registers r5, r6, r7, r8 (except when emitting Baker
 // read barriers, where it is used as Marking Register), r10, r11, and lr.
 static const vixl::aarch32::RegisterList kCoreCalleeSaves = vixl::aarch32::RegisterList::Union(
@@ -448,7 +446,9 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
     return static_cast<size_t>(kArmPointerSize);
   }
 
-  size_t GetFloatingPointSpillSlotSize() const override { return vixl::aarch32::kRegSizeInBytes; }
+  size_t GetCalleePreservedFPWidth() const override {
+    return vixl::aarch32::kSRegSizeInBytes;
+  }
 
   HGraphVisitor* GetLocationBuilder() override { return &location_builder_; }
 
@@ -588,6 +588,9 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
                                                dex::StringIndex string_index);
   PcRelativePatchInfo* NewStringBssEntryPatch(const DexFile& dex_file,
                                               dex::StringIndex string_index);
+
+  // Emit the BL instruction for entrypoint thunk call and record the associated patch for AOT.
+  void EmitEntrypointThunkCall(ThreadOffset32 entrypoint_offset);
 
   // Emit the BNE instruction for baker read barrier and record
   // the associated patch for AOT or slow path for JIT.
@@ -744,6 +747,18 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
                                  vixl::aarch32::Register in,
                                  vixl::aarch32::Register temp = vixl32::Register());
 
+  void MaybeRecordImplicitNullCheck(HInstruction* instr) final {
+    // The function must be only be called within special scopes
+    // (EmissionCheckScope, ExactAssemblyScope) which prevent generation of
+    // veneer/literal pools by VIXL assembler.
+    CHECK_EQ(GetVIXLAssembler()->ArePoolsBlocked(), true)
+        << "The function must only be called within EmissionCheckScope or ExactAssemblyScope";
+    CodeGenerator::MaybeRecordImplicitNullCheck(instr);
+  }
+
+  void MaybeGenerateInlineCacheCheck(HInstruction* instruction, vixl32::Register klass);
+  void MaybeIncrementHotness(bool is_frame_entry);
+
  private:
   // Encoding of thunk type and data for link-time generated thunks for Baker read barriers.
 
@@ -869,10 +884,7 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
 
   ArmVIXLAssembler assembler_;
 
-  // Deduplication map for 32-bit literals, used for non-patchable boot image addresses.
-  Uint32ToLiteralMap uint32_literals_;
-  // PC-relative method patch info for kBootImageLinkTimePcRelative/kBootImageRelRo.
-  // Also used for type/string patches for kBootImageRelRo (same linker patch as for methods).
+  // PC-relative method patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<PcRelativePatchInfo> boot_image_method_patches_;
   // PC-relative method patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> method_bss_entry_patches_;
@@ -884,11 +896,16 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   ArenaDeque<PcRelativePatchInfo> boot_image_string_patches_;
   // PC-relative String patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> string_bss_entry_patches_;
-  // PC-relative patch info for IntrinsicObjects.
-  ArenaDeque<PcRelativePatchInfo> boot_image_intrinsic_patches_;
+  // PC-relative patch info for IntrinsicObjects for the boot image,
+  // and for method/type/string patches for kBootImageRelRo otherwise.
+  ArenaDeque<PcRelativePatchInfo> boot_image_other_patches_;
+  // Patch info for calls to entrypoint dispatch thunks. Used for slow paths.
+  ArenaDeque<PatchInfo<vixl::aarch32::Label>> call_entrypoint_patches_;
   // Baker read barrier patch info.
   ArenaDeque<BakerReadBarrierPatchInfo> baker_read_barrier_patches_;
 
+  // Deduplication map for 32-bit literals, used for JIT for boot image addresses.
+  Uint32ToLiteralMap uint32_literals_;
   // Patches for string literals in JIT compiled code.
   StringToLiteralMap jit_string_patches_;
   // Patches for class literals in JIT compiled code.

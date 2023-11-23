@@ -16,7 +16,6 @@
 package com.android.cts.deviceandprofileowner;
 
 import android.app.admin.DevicePolicyManager;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
 /**
@@ -34,16 +33,32 @@ public class ScreenCaptureDisabledTest extends BaseDeviceAdminTest {
         super.setUp();
     }
 
-    public void testSetScreenCaptureDisabled_false() throws Exception {
+    public void testSetScreenCaptureDisabled_false() {
         mDevicePolicyManager.setScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT, false);
         assertFalse(mDevicePolicyManager.getScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT));
         assertFalse(mDevicePolicyManager.getScreenCaptureDisabled(null /* any admin */));
     }
 
-    public void testSetScreenCaptureDisabled_true() throws Exception {
+    public void testSetScreenCaptureDisabled_true() {
         mDevicePolicyManager.setScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT, true);
         assertTrue(mDevicePolicyManager.getScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT));
         assertTrue(mDevicePolicyManager.getScreenCaptureDisabled(null /* any admin */));
+    }
+
+    public void testSetScreenCaptureDisabledOnParent_false() {
+        DevicePolicyManager parentDevicePolicyManager =
+                mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
+        parentDevicePolicyManager.setScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT, false);
+        assertFalse(parentDevicePolicyManager.getScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT));
+        assertFalse(parentDevicePolicyManager.getScreenCaptureDisabled(null /* any admin */));
+    }
+
+    public void testSetScreenCaptureDisabledOnParent_true() {
+        DevicePolicyManager parentDevicePolicyManager =
+                mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
+        parentDevicePolicyManager.setScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT, true);
+        assertTrue(parentDevicePolicyManager.getScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT));
+        assertTrue(parentDevicePolicyManager.getScreenCaptureDisabled(null /* any admin */));
     }
 
     public void testScreenCaptureImpossible() throws Exception {

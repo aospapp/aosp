@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
+#include <vector>
+
 #include "RNN.h"
 
 #include "CpuExecutor.h"
@@ -25,61 +29,57 @@
 namespace android {
 namespace nn {
 
-RNN::RNN(const Operation& operation,
-         std::vector<RunTimeOperandInfo>& operands) {
-  NNTRACE_TRANS("RNN::RNN");
-  input_ = GetInput(operation, operands, kInputTensor);
-  weights_ = GetInput(operation, operands, kWeightsTensor);
-  recurrent_weights_ = GetInput(operation, operands, kRecurrentWeightsTensor);
-  hidden_state_in_ = GetInput(operation, operands, kHiddenStateInTensor);
-  bias_ = GetInput(operation, operands, kBiasTensor);
+using namespace hal;
 
-  activation_ = static_cast<ActivationFn>(
-      getScalarData<int32_t>(operands[operation.inputs[kActivationParam]]));
+RNN::RNN(const Operation& operation, RunTimeOperandInfo* operands) {
+    NNTRACE_TRANS("RNN::RNN");
+    input_ = GetInput(operation, operands, kInputTensor);
+    weights_ = GetInput(operation, operands, kWeightsTensor);
+    recurrent_weights_ = GetInput(operation, operands, kRecurrentWeightsTensor);
+    hidden_state_in_ = GetInput(operation, operands, kHiddenStateInTensor);
+    bias_ = GetInput(operation, operands, kBiasTensor);
 
-  hidden_state_out_ = GetOutput(operation, operands, kHiddenStateOutTensor);
-  output_ = GetOutput(operation, operands, kOutputTensor);
+    activation_ = static_cast<ActivationFn>(
+            getScalarData<int32_t>(operands[operation.inputs[kActivationParam]]));
+
+    hidden_state_out_ = GetOutput(operation, operands, kHiddenStateOutTensor);
+    output_ = GetOutput(operation, operands, kOutputTensor);
 }
 
-bool RNN::Prepare(const Operation &operation,
-                  std::vector<RunTimeOperandInfo> &operands,
-                  Shape *hiddenStateShape,
-                  Shape *outputShape) {
-  NNTRACE_TRANS("RNN::Prepare");
-  // Check we have all the inputs and outputs we need.
-  const int num_inputs = NumInputsWithValues(operation, operands);
-  NN_CHECK(num_inputs == 5 || num_inputs == 6);
-  NN_CHECK_EQ(NumOutputs(operation), 2);
+bool RNN::Prepare(const Operation& operation, RunTimeOperandInfo* operands, Shape* hiddenStateShape,
+                  Shape* outputShape) {
+    NNTRACE_TRANS("RNN::Prepare");
+    // Check we have all the inputs and outputs we need.
+    const int num_inputs = NumInputsWithValues(operation, operands);
+    NN_CHECK(num_inputs == 6);
+    NN_CHECK_EQ(NumOutputs(operation), 2);
 
-  const RunTimeOperandInfo *input =
-      GetInput(operation, operands, kInputTensor);
-  const RunTimeOperandInfo *input_weights =
-      GetInput(operation, operands, kWeightsTensor);
-  const RunTimeOperandInfo *recurrent_weights =
-      GetInput(operation, operands, kRecurrentWeightsTensor);
-  const RunTimeOperandInfo *bias =
-      GetInput(operation, operands, kBiasTensor);
+    const RunTimeOperandInfo* input = GetInput(operation, operands, kInputTensor);
+    const RunTimeOperandInfo* input_weights = GetInput(operation, operands, kWeightsTensor);
+    const RunTimeOperandInfo* recurrent_weights =
+            GetInput(operation, operands, kRecurrentWeightsTensor);
+    const RunTimeOperandInfo* bias = GetInput(operation, operands, kBiasTensor);
 
-  // Check all the parameters of tensor match within themselves and match the
-  // input configuration.
-  const uint32_t batch_size = SizeOfDimension(input, 0);
-  const uint32_t num_units = SizeOfDimension(input_weights, 0);
-  NN_CHECK_EQ(SizeOfDimension(input, 1), SizeOfDimension(input_weights, 1));
-  NN_CHECK_EQ(SizeOfDimension(input_weights, 0), SizeOfDimension(bias, 0));
-  NN_CHECK_EQ(SizeOfDimension(recurrent_weights, 0), SizeOfDimension(bias, 0));
-  NN_CHECK_EQ(SizeOfDimension(recurrent_weights, 1), SizeOfDimension(bias, 0));
+    // Check all the parameters of tensor match within themselves and match the
+    // input configuration.
+    const uint32_t batch_size = SizeOfDimension(input, 0);
+    const uint32_t num_units = SizeOfDimension(input_weights, 0);
+    NN_CHECK_EQ(SizeOfDimension(input, 1), SizeOfDimension(input_weights, 1));
+    NN_CHECK_EQ(SizeOfDimension(input_weights, 0), SizeOfDimension(bias, 0));
+    NN_CHECK_EQ(SizeOfDimension(recurrent_weights, 0), SizeOfDimension(bias, 0));
+    NN_CHECK_EQ(SizeOfDimension(recurrent_weights, 1), SizeOfDimension(bias, 0));
 
-  const Shape &inputShape = input->shape();
+    const Shape& inputShape = input->shape();
 
-  // Resize state.
-  hiddenStateShape->type = inputShape.type;
-  hiddenStateShape->dimensions = { batch_size, num_units };
+    // Resize state.
+    hiddenStateShape->type = inputShape.type;
+    hiddenStateShape->dimensions = {batch_size, num_units};
 
-  // Resize output.
-  outputShape->type = inputShape.type;
-  outputShape->dimensions = { batch_size, num_units };
+    // Resize output.
+    outputShape->type = inputShape.type;
+    outputShape->dimensions = {batch_size, num_units};
 
-  return true;
+    return true;
 }
 
 bool RNN::Eval() {
@@ -223,6 +223,38 @@ bool RNN::RNNStep(const T* inputData, const Shape& inputShape, const T* auxInput
 
     return true;
 }
+
+template bool RNN::RNNStep<_Float16>(const _Float16* inputData, const Shape& inputShape,
+                                     const _Float16* hiddenStateInputData, const _Float16* biasData,
+                                     const _Float16* weightsData, const Shape& weightsShape,
+                                     const _Float16* recurrentWeightsData,
+                                     const Shape& recurrentWeightsShape, int32_t activation,
+                                     _Float16* outputData);
+template bool RNN::RNNStep<_Float16>(const _Float16* inputData, const Shape& inputShape,
+                                     const _Float16* auxInputData, const Shape& auxInputShape,
+                                     const _Float16* hiddenStateInputData, const _Float16* biasData,
+                                     const _Float16* weightsData, const Shape& weightsShape,
+                                     const _Float16* auxWeightsData, const Shape& auxWeightsShape,
+                                     const _Float16* recurrentWeightsData,
+                                     const Shape& recurrentWeightsShape, const int32_t activation,
+                                     const uint32_t outputBatchStride,
+                                     const uint32_t outputBatchOffset, _Float16* outputData,
+                                     _Float16* hiddenStateOutput);
+template bool RNN::RNNStep<float>(const float* inputData, const Shape& inputShape,
+                                  const float* hiddenStateInputData, const float* biasData,
+                                  const float* weightsData, const Shape& weightsShape,
+                                  const float* recurrentWeightsData,
+                                  const Shape& recurrentWeightsShape, int32_t activation,
+                                  float* outputData);
+template bool RNN::RNNStep<float>(const float* inputData, const Shape& inputShape,
+                                  const float* auxInputData, const Shape& auxInputShape,
+                                  const float* hiddenStateInputData, const float* biasData,
+                                  const float* weightsData, const Shape& weightsShape,
+                                  const float* auxWeightsData, const Shape& auxWeightsShape,
+                                  const float* recurrentWeightsData,
+                                  const Shape& recurrentWeightsShape, int32_t activation,
+                                  uint32_t outputBatchStride, uint32_t outputBatchStep,
+                                  float* outputData, float* hiddenStateOutput);
 
 }  // namespace nn
 }  // namespace android

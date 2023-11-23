@@ -243,8 +243,11 @@ public class CarLatinIME extends InputMethodService {
     }
 
     private void updateCapitalization() {
-        boolean shouldCapitalize =
+        boolean shouldCapitalize = false;
+        if (getCurrentInputConnection() != null) {
+            shouldCapitalize =
                 getCurrentInputConnection().getCursorCapsMode(mEditorInfo.inputType) != 0;
+        }
         mKeyboardView.setShifted(shouldCapitalize);
     }
 

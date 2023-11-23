@@ -74,6 +74,10 @@ class GyroOffsetOtcCal final
     return SensorType::kGyroscopeRps;
   };
 
+  // Accessors for the runtime calibration objects.
+  const GyroCal& get_gyro_cal() const { return gyro_cal_; }
+  const OverTempCal& get_over_temp_cal() const { return over_temp_cal_; }
+
  private:
   // GyroCal algorithm data structure.
   GyroCal gyro_cal_;

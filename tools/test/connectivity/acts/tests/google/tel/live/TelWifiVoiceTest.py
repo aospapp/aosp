@@ -115,18 +115,14 @@ WIFI_RSSI_FOR_HAND_OUT_TEST_PHONE_HAND_OUT = -85
 
 
 class TelWifiVoiceTest(TelephonyBaseTest):
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.stress_test_number = self.get_stress_test_number()
 
         self.attens = {}
         for atten in self.attenuators:
             self.attens[atten.path] = atten
             atten.set_atten(atten.get_max_atten())  # Default all attens to max
-
-    def setup_class(self):
-
-        super().setup_class()
 
         self.log.info("WFC phone: <{}> <{}>".format(
             self.android_devices[0].serial,

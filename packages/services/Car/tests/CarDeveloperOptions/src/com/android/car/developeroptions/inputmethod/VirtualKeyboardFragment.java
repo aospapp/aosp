@@ -30,19 +30,19 @@ import android.view.inputmethod.InputMethodManager;
 
 import androidx.preference.Preference;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.settingslib.inputmethod.InputMethodAndSubtypeUtilCompat;
 import com.android.settingslib.inputmethod.InputMethodPreference;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @SearchIndexable
 public final class VirtualKeyboardFragment extends SettingsPreferenceFragment implements Indexable {
@@ -57,11 +57,11 @@ public final class VirtualKeyboardFragment extends SettingsPreferenceFragment im
 
     @Override
     public void onCreatePreferences(Bundle bundle, String s) {
-        Activity activity = Preconditions.checkNotNull(getActivity());
+        Activity activity = Objects.requireNonNull(getActivity());
         addPreferencesFromResource(R.xml.virtual_keyboard_settings);
-        mImm = Preconditions.checkNotNull(activity.getSystemService(InputMethodManager.class));
-        mDpm = Preconditions.checkNotNull(activity.getSystemService(DevicePolicyManager.class));
-        mAddVirtualKeyboardScreen = Preconditions.checkNotNull(
+        mImm = Objects.requireNonNull(activity.getSystemService(InputMethodManager.class));
+        mDpm = Objects.requireNonNull(activity.getSystemService(DevicePolicyManager.class));
+        mAddVirtualKeyboardScreen = Objects.requireNonNull(
                 findPreference(ADD_VIRTUAL_KEYBOARD_SCREEN));
     }
 

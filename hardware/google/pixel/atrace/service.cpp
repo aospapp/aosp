@@ -33,8 +33,8 @@ using ::android::hardware::atrace::V1_0::implementation::AtraceDevice;
 int main(int /* argc */, char * /* argv */ []) {
     sp<IAtraceDevice> atrace = new AtraceDevice;
     configureRpcThreadpool(1, true /* will join */);
-    auto serviceRegistrar = std::make_shared<LazyServiceRegistrar>();
-    if (serviceRegistrar->registerService(atrace) != OK) {
+    auto serviceRegistrar = LazyServiceRegistrar::getInstance();
+    if (serviceRegistrar.registerService(atrace) != OK) {
         ALOGE("Could not register service.");
         return 1;
     }

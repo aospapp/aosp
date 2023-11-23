@@ -25,12 +25,15 @@
 namespace android {
 
 ArrayType::ArrayType(const Reference<Type>& elementType, ConstantExpression* size, Scope* parent)
-    : Type(parent), mElementType(elementType), mSizes{size} {
+    : Type(parent, elementType.localName()), mElementType(elementType) {
     CHECK(!elementType.isEmptyReference());
+
+    appendDimension(size);
 }
 
 void ArrayType::appendDimension(ConstantExpression *size) {
     mSizes.push_back(size);
+    mDefinedName = mDefinedName + "[" + size->expression() + "]";
 }
 
 size_t ArrayType::countDimensions() const {
@@ -270,80 +273,6 @@ void ArrayType::emitReaderWriterEmbedded(
     out << "}\n\n";
 }
 
-void ArrayType::emitResolveReferences(
-            Formatter &out,
-            const std::string &name,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode) const {
-    emitResolveReferencesEmbedded(
-        out,
-        0 /* depth */,
-        name,
-        name /* sanitizedName */,
-        nameIsPointer,
-        parcelObj,
-        parcelObjIsPointer,
-        isReader,
-        mode,
-        "_hidl_" + name + "_parent",
-        "0 /* parentOffset */");
-}
-
-void ArrayType::emitResolveReferencesEmbedded(
-            Formatter &out,
-            size_t depth,
-            const std::string &name,
-            const std::string &sanitizedName,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode,
-            const std::string &parentName,
-            const std::string &offsetText) const {
-    CHECK(needsResolveReferences() && mElementType->needsResolveReferences());
-
-    const std::string nameDeref = name + (nameIsPointer ? "->" : ".");
-
-    std::string baseType = mElementType->getCppStackType();
-
-    std::string iteratorName = "_hidl_index_" + std::to_string(depth);
-
-    out << "for (size_t "
-        << iteratorName
-        << " = 0; "
-        << iteratorName
-        << " < "
-        << dimension()
-        << "; ++"
-        << iteratorName
-        << ") {\n";
-
-    out.indent();
-
-    mElementType->emitResolveReferencesEmbedded(
-        out,
-        depth + 1,
-        nameDeref + "data()[" + iteratorName + "]",
-        sanitizedName + "_indexed",
-        false /* nameIsPointer */,
-        parcelObj,
-        parcelObjIsPointer,
-        isReader,
-        mode,
-        parentName,
-        offsetText + " + " + iteratorName + " * sizeof("
-        + baseType
-        + ")");
-
-    out.unindent();
-
-    out << "}\n\n";
-}
-
 void ArrayType::emitJavaDump(
         Formatter &out,
         const std::string &streamName,
@@ -358,13 +287,6 @@ void ArrayType::emitJavaDump(
 
 bool ArrayType::needsEmbeddedReadWrite() const {
     return mElementType->needsEmbeddedReadWrite();
-}
-
-bool ArrayType::deepNeedsResolveReferences(std::unordered_set<const Type*>* visited) const {
-    if (mElementType->needsResolveReferences(visited)) {
-        return true;
-    }
-    return Type::deepNeedsResolveReferences(visited);
 }
 
 bool ArrayType::resultNeedsDeref() const {

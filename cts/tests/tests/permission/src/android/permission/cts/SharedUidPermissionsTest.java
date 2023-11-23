@@ -98,23 +98,27 @@ public class SharedUidPermissionsTest {
         assertThat(isPermissionGranted(PKG_THAT_REQUESTS_NO_PERMISSIONS, READ_CONTACTS)).isFalse();
     }
 
-    @Test(expected = SecurityException.class)
-    public void runtimePermissionsCannotBeRevokedOnPackageThatDoesNotDeclarePermission()
+    @Test
+    public void runtimePermissionsCanBeRevokedOnPackageThatDoesNotDeclarePermission()
             throws Exception {
         install(APK_THAT_REQUESTS_PERMISSIONS);
         install(APK_THAT_REQUESTS_NO_PERMISSIONS);
         grantPermission(PKG_THAT_REQUESTS_PERMISSIONS, READ_CONTACTS);
+        revokePermission(PKG_THAT_REQUESTS_NO_PERMISSIONS, READ_CONTACTS);
 
-        revokePermission(APK_THAT_REQUESTS_NO_PERMISSIONS, READ_CONTACTS);
+        assertThat(isPermissionGranted(PKG_THAT_REQUESTS_PERMISSIONS, READ_CONTACTS)).isFalse();
+        assertThat(isPermissionGranted(PKG_THAT_REQUESTS_NO_PERMISSIONS, READ_CONTACTS)).isFalse();
     }
 
-    @Test(expected = SecurityException.class)
-    public void runtimePermissionsCannotBeGrantedOnPackageThatDoesNotDeclarePermission()
+    @Test
+    public void runtimePermissionsCanBeGrantedOnPackageThatDoesNotDeclarePermission()
             throws Exception {
         install(APK_THAT_REQUESTS_PERMISSIONS);
         install(APK_THAT_REQUESTS_NO_PERMISSIONS);
+        grantPermission(PKG_THAT_REQUESTS_NO_PERMISSIONS, READ_CONTACTS);
 
-        grantPermission(APK_THAT_REQUESTS_NO_PERMISSIONS, READ_CONTACTS);
+        assertThat(isPermissionGranted(PKG_THAT_REQUESTS_PERMISSIONS, READ_CONTACTS)).isTrue();
+        assertThat(isPermissionGranted(PKG_THAT_REQUESTS_NO_PERMISSIONS, READ_CONTACTS)).isTrue();
     }
 
     @Test

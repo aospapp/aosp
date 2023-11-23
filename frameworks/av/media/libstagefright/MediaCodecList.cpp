@@ -19,7 +19,6 @@
 #include <utils/Log.h>
 
 #include "MediaCodecListOverrides.h"
-#include "StagefrightPluginLoader.h"
 
 #include <binder/IServiceManager.h>
 
@@ -30,11 +29,14 @@
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/MediaDefs.h>
+#include <media/stagefright/omx/OMXUtils.h>
+#include <media/stagefright/xmlparser/MediaCodecsXmlParser.h>
+#include <media/stagefright/CCodec.h>
+#include <media/stagefright/Codec2InfoBuilder.h>
 #include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/OmxInfoBuilder.h>
-#include <media/stagefright/omx/OMXUtils.h>
-#include <xmlparser/include/media/stagefright/xmlparser/MediaCodecsXmlParser.h>
+#include <media/stagefright/PersistentSurface.h>
 
 #include <sys/stat.h>
 #include <utils/threads.h>
@@ -86,8 +88,7 @@ std::unique_ptr<MediaCodecListBuilderBase> sCodec2InfoBuilder;
 MediaCodecListBuilderBase *GetCodec2InfoBuilder() {
     Mutex::Autolock _l(sCodec2InfoBuilderMutex);
     if (!sCodec2InfoBuilder) {
-        sCodec2InfoBuilder.reset(
-                StagefrightPluginLoader::GetCCodecInstance()->createBuilder());
+        sCodec2InfoBuilder.reset(new Codec2InfoBuilder);
     }
     return sCodec2InfoBuilder.get();
 }
@@ -96,8 +97,7 @@ std::vector<MediaCodecListBuilderBase *> GetBuilders() {
     std::vector<MediaCodecListBuilderBase *> builders;
     // if plugin provides the input surface, we cannot use OMX video encoders.
     // In this case, rely on plugin to provide list of OMX codecs that are usable.
-    sp<PersistentSurface> surfaceTest =
-        StagefrightPluginLoader::GetCCodecInstance()->createInputSurface();
+    sp<PersistentSurface> surfaceTest = CCodec::CreateInputSurface();
     if (surfaceTest == nullptr) {
         ALOGD("Allowing all OMX codecs");
         builders.push_back(&sOmxInfoBuilder);
@@ -170,6 +170,7 @@ sp<IMediaCodecList> MediaCodecList::getLocalInstance() {
 sp<IMediaCodecList> MediaCodecList::sRemoteList;
 
 sp<MediaCodecList::BinderDeathObserver> MediaCodecList::sBinderDeathObserver;
+sp<IBinder> MediaCodecList::sMediaPlayer;  // kept since linked to death
 
 void MediaCodecList::BinderDeathObserver::binderDied(const wp<IBinder> &who __unused) {
     Mutex::Autolock _l(sRemoteInitMutex);
@@ -181,15 +182,14 @@ void MediaCodecList::BinderDeathObserver::binderDied(const wp<IBinder> &who __un
 sp<IMediaCodecList> MediaCodecList::getInstance() {
     Mutex::Autolock _l(sRemoteInitMutex);
     if (sRemoteList == nullptr) {
-        sp<IBinder> binder =
-            defaultServiceManager()->getService(String16("media.player"));
+        sMediaPlayer = defaultServiceManager()->getService(String16("media.player"));
         sp<IMediaPlayerService> service =
-            interface_cast<IMediaPlayerService>(binder);
+            interface_cast<IMediaPlayerService>(sMediaPlayer);
         if (service.get() != nullptr) {
             sRemoteList = service->getCodecList();
             if (sRemoteList != nullptr) {
                 sBinderDeathObserver = new BinderDeathObserver();
-                binder->linkToDeath(sBinderDeathObserver.get());
+                sMediaPlayer->linkToDeath(sBinderDeathObserver.get());
             }
         }
         if (sRemoteList == nullptr) {

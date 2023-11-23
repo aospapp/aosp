@@ -20,11 +20,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
+import com.android.car.dialer.ui.common.entity.HeaderViewHolder;
 import com.android.car.dialer.ui.common.entity.UiCallLog;
 import com.android.car.telephony.common.Contact;
 
@@ -32,15 +34,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Adapter for call history list. */
-public class CallLogAdapter extends RecyclerView.Adapter<CallLogViewHolder> {
+public class CallLogAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final String TAG = "CD.CallLogAdapter";
+
+    /** IntDef for the different groups of calllog lists separated by time periods. */
+    @IntDef({
+            EntryType.TYPE_HEADER,
+            EntryType.TYPE_CALLLOG,
+    })
+    private @interface EntryType {
+        /** Entry typre is header. */
+        int TYPE_HEADER = 1;
+
+        /** Entry type is calllog. */
+        int TYPE_CALLLOG = 2;
+    }
 
     public interface OnShowContactDetailListener {
         void onShowContactDetail(Contact contact);
     }
 
-    private List<UiCallLog> mUiCallLogs = new ArrayList<>();
+    private List<Object> mUiCallLogs = new ArrayList<>();
     private Context mContext;
     private CallLogAdapter.OnShowContactDetailListener mOnShowContactDetailListener;
 
@@ -50,7 +65,10 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogViewHolder> {
         mOnShowContactDetailListener = onShowContactDetailListener;
     }
 
-    public void setUiCallLogs(@NonNull List<UiCallLog> uiCallLogs) {
+    /**
+     * Sets calllogs.
+     */
+    public void setUiCallLogs(@NonNull List<Object> uiCallLogs) {
         L.d(TAG, "setUiCallLogs: %d", uiCallLogs.size());
         mUiCallLogs.clear();
         mUiCallLogs.addAll(uiCallLogs);
@@ -59,20 +77,42 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogViewHolder> {
 
     @NonNull
     @Override
-    public CallLogViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == EntryType.TYPE_CALLLOG) {
+            View rootView = LayoutInflater.from(mContext)
+                    .inflate(R.layout.call_history_list_item, parent, false);
+            return new CallLogViewHolder(rootView, mOnShowContactDetailListener);
+        }
+
         View rootView = LayoutInflater.from(mContext)
-                .inflate(R.layout.call_history_list_item, parent, false);
-        return new CallLogViewHolder(rootView, mOnShowContactDetailListener);
+                .inflate(R.layout.header_item, parent, false);
+        return new HeaderViewHolder(rootView);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull CallLogViewHolder holder, int position) {
-        holder.onBind(mUiCallLogs.get(position));
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        if (holder instanceof CallLogViewHolder) {
+            ((CallLogViewHolder) holder).bind((UiCallLog) mUiCallLogs.get(position));
+        } else {
+            ((HeaderViewHolder) holder).setHeaderTitle((String) mUiCallLogs.get(position));
+        }
     }
 
     @Override
-    public void onViewRecycled(@NonNull CallLogViewHolder holder) {
-        holder.onRecycle();
+    @EntryType
+    public int getItemViewType(int position) {
+        if (mUiCallLogs.get(position) instanceof UiCallLog) {
+            return EntryType.TYPE_CALLLOG;
+        } else {
+            return EntryType.TYPE_HEADER;
+        }
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        if (holder instanceof CallLogViewHolder) {
+            ((CallLogViewHolder) holder).recycle();
+        }
     }
 
     @Override
@@ -80,4 +120,3 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogViewHolder> {
         return mUiCallLogs.size();
     }
 }
-

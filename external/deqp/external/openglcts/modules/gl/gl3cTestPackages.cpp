@@ -49,6 +49,8 @@
 #include "gluStateReset.hpp"
 #include "tcuTestLog.hpp"
 
+#include "../glesext/texture_shadow_lod/esextcTextureShadowLodFunctionsTest.hpp"
+
 namespace gl3cts
 {
 
@@ -110,7 +112,7 @@ tcu::TestNode::IterateResult TestCaseWrapper::iterate(tcu::TestCase* testCase)
 	}
 	catch (const tcu::ResourceError&)
 	{
-		testCtx.getLog().endCase(QP_TEST_RESULT_RESOURCE_ERROR, "Resource error in context post-iteration routine");
+		throw tcu::ResourceError(std::string("Resource error in context post-iteration routine"));
 		testCtx.setTerminateAfter(true);
 		return tcu::TestNode::STOP;
 	}
@@ -160,6 +162,7 @@ void GL30TestPackage::init(void)
 		addChild(new gl3cts::TransformFeedback::Tests(getContext()));
 		addChild(new glcts::TextureRepeatModeTests(getContext()));
 		addChild(new GL30ShaderTests(getContext()));
+		addChild(new deqp::Functional::TextureShadowLodTest(getContext()));
 	}
 	catch (...)
 	{

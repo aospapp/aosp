@@ -49,9 +49,9 @@ public class RetryConfigurationFactory extends ConfigurationFactory {
         RetryRescheduler retryRunner = (RetryRescheduler) rerunner;
         retryRunner.setConfiguration(retryConfig);
         try {
-            retryRunner.run(null);
+            retryRunner.run(null, null);
             return retryRunner.getRetryConfiguration();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw new ConfigurationException(e.getMessage(), e);
         }
     }

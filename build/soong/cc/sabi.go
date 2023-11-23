@@ -28,8 +28,8 @@ var (
 )
 
 type SAbiProperties struct {
-	CreateSAbiDumps        bool `blueprint:"mutated"`
-	ReexportedIncludeFlags []string
+	CreateSAbiDumps    bool     `blueprint:"mutated"`
+	ReexportedIncludes []string `blueprint:"mutated"`
 }
 
 type sabi struct {
@@ -70,20 +70,22 @@ func filterOutWithPrefix(list []string, filter []string) (remainder []string) {
 func (sabimod *sabi) flags(ctx ModuleContext, flags Flags) Flags {
 	// Assuming that the cflags which clang LibTooling tools cannot
 	// understand have not been converted to ninja variables yet.
-	flags.ToolingCFlags = filterOutWithPrefix(flags.CFlags, config.ClangLibToolingUnknownCflags)
-	flags.ToolingCppFlags = filterOutWithPrefix(flags.CppFlags, config.ClangLibToolingUnknownCflags)
+	flags.Local.ToolingCFlags = filterOutWithPrefix(flags.Local.CFlags, config.ClangLibToolingUnknownCflags)
+	flags.Global.ToolingCFlags = filterOutWithPrefix(flags.Global.CFlags, config.ClangLibToolingUnknownCflags)
+	flags.Local.ToolingCppFlags = filterOutWithPrefix(flags.Local.CppFlags, config.ClangLibToolingUnknownCflags)
+	flags.Global.ToolingCppFlags = filterOutWithPrefix(flags.Global.CppFlags, config.ClangLibToolingUnknownCflags)
 
 	return flags
 }
 
 func sabiDepsMutator(mctx android.TopDownMutatorContext) {
 	if c, ok := mctx.Module().(*Module); ok &&
-		((c.isVndk() && c.useVndk()) || inList(c.Name(), llndkLibraries) ||
+		((c.IsVndk() && c.UseVndk()) || c.isLlndk(mctx.Config()) ||
 			(c.sabi != nil && c.sabi.Properties.CreateSAbiDumps)) {
 		mctx.VisitDirectDeps(func(m android.Module) {
 			tag := mctx.OtherModuleDependencyTag(m)
 			switch tag {
-			case staticDepTag, staticExportDepTag, lateStaticDepTag, wholeStaticDepTag:
+			case StaticDepTag, staticExportDepTag, lateStaticDepTag, wholeStaticDepTag:
 
 				cc, _ := m.(*Module)
 				if cc == nil {
@@ -93,4 +95,10 @@ func sabiDepsMutator(mctx android.TopDownMutatorContext) {
 			}
 		})
 	}
+}
+
+func addLsdumpPath(lsdumpPath string) {
+	sabiLock.Lock()
+	lsdumpPaths = append(lsdumpPaths, lsdumpPath)
+	sabiLock.Unlock()
 }

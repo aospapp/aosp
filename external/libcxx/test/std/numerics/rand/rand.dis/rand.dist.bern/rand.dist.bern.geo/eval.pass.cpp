@@ -29,6 +29,20 @@ sqr(T x)
     return x * x;
 }
 
+struct Eng : std::mt19937 {
+  using Base = std::mt19937;
+  using Base::Base;
+};
+
+void test_small_inputs() {
+  Eng engine;
+  std::geometric_distribution<std::int16_t> distribution(5.45361e-311);
+  for (auto i=0; i < 1000; ++i) {
+		volatile auto res = distribution(engine);
+      ((void)res);
+  }
+}
+
 void
 test1()
 {
@@ -295,4 +309,5 @@ int main()
     test4();
     test5();
     test6();
+    test_small_inputs();
 }

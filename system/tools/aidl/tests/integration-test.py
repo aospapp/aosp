@@ -9,9 +9,9 @@ import pipes
 import subprocess
 import shlex
 
-JAVA_OUTPUT_READER = 'aidl_test_sentinel_searcher'
-NATIVE_TEST_CLIENT = 'aidl_test_client'
-NATIVE_TEST_SERVICE = 'aidl_test_service'
+JAVA_OUTPUT_READER_FOR_BITNESS = '/data/nativetest%s/aidl_test_sentinel_searcher/aidl_test_sentinel_searcher'
+NATIVE_TEST_CLIENT_FOR_BITNESS = ' /data/nativetest%s/aidl_test_client/aidl_test_client'
+NATIVE_TEST_SERVICE_FOR_BITNESS = ' /data/nativetest%s/aidl_test_service/aidl_test_service'
 
 TEST_FILTER_ALL = 'all'
 TEST_FILTER_JAVA = 'java'
@@ -123,28 +123,36 @@ class AdbHost(object):
             raise subprocess.CalledProcessError(p.returncode, command)
         return ShellResult(p.returncode, stdout, stderr)
 
-
 def run_test(host, test_native, test_java):
     """Body of the test.
 
     Args:
         host: AdbHost object to run tests on
         test_native: True iff we should test native Binder clients.
-        test_java: True iff we shoudl test Java Binder clients.
+        test_java: True iff we should test Java Binder clients.
     """
 
     print('Starting aidl integration testing...')
 
+    if host.run('ls /data/nativetest64', ignore_status=True).exit_status:
+        bitness = ""
+    else:
+        bitness = "64"
+
+    JAVA_OUTPUT_READER = JAVA_OUTPUT_READER_FOR_BITNESS % bitness
+    NATIVE_TEST_CLIENT = NATIVE_TEST_CLIENT_FOR_BITNESS % bitness
+    NATIVE_TEST_SERVICE = NATIVE_TEST_SERVICE_FOR_BITNESS % bitness
+
     # Kill any previous test context
     host.run('rm -f %s' % JAVA_LOG_FILE, ignore_status=True)
-    host.run('pkill %s' % NATIVE_TEST_SERVICE, ignore_status=True)
+    host.run('killall %s' % NATIVE_TEST_SERVICE, ignore_status=True)
 
     # Start up a native server
     host.run(NATIVE_TEST_SERVICE, background=True)
 
     # Start up clients
     if test_native:
-        host.run('pkill %s' % NATIVE_TEST_CLIENT, ignore_status=True)
+        host.run('killall %s' % NATIVE_TEST_CLIENT, ignore_status=True)
         result = host.run(NATIVE_TEST_CLIENT, ignore_status=True)
         if result.exit_status:
             print(result.printable_string())
@@ -165,6 +173,9 @@ def run_test(host, test_native, test_java):
         if result.exit_status:
             print(result.printable_string())
             raise TestFail('Java client did not complete successfully.')
+
+    host.run('killall %s' % NATIVE_TEST_SERVICE, ignore_status=True)
+    host.run('killall android.aidl.tests', ignore_status=True)
 
     print('Success!')
 

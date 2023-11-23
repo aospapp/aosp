@@ -18,12 +18,14 @@
 
 namespace chre {
 
-bool NanoappLoadManager::prepareForLoad(
-    uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
-    uint32_t appVersion, size_t totalBinaryLen) {
+bool NanoappLoadManager::prepareForLoad(uint16_t hostClientId,
+                                        uint32_t transactionId, uint64_t appId,
+                                        uint32_t appVersion,
+                                        size_t totalBinaryLen) {
   if (hasPendingLoadTransaction()) {
-    LOGW("Pending load transaction already exists. Overriding previous"
-         " transaction.");
+    LOGW(
+        "Pending load transaction already exists. Overriding previous"
+        " transaction.");
   }
   mCurrentLoadInfo.hostClientId = hostClientId;
   mCurrentLoadInfo.transactionId = transactionId;
@@ -44,9 +46,11 @@ bool NanoappLoadManager::prepareForLoad(
   return success;
 }
 
-bool NanoappLoadManager::copyNanoappFragment(
-    uint16_t hostClientId, uint32_t transactionId, uint32_t fragmentId,
-    const void *buffer, size_t bufferLen) {
+bool NanoappLoadManager::copyNanoappFragment(uint16_t hostClientId,
+                                             uint32_t transactionId,
+                                             uint32_t fragmentId,
+                                             const void *buffer,
+                                             size_t bufferLen) {
   bool success = false;
   if (validateFragment(hostClientId, transactionId, fragmentId)) {
     success = mNanoapp->copyNanoappFragment(buffer, bufferLen);
@@ -60,20 +64,22 @@ bool NanoappLoadManager::copyNanoappFragment(
   return success;
 }
 
-bool NanoappLoadManager::validateFragment(
-    uint16_t hostClientId, uint32_t transactionId, uint32_t fragmentId) const {
+bool NanoappLoadManager::validateFragment(uint16_t hostClientId,
+                                          uint32_t transactionId,
+                                          uint32_t fragmentId) const {
   bool valid = false;
   if (!hasPendingLoadTransaction()) {
     LOGE("No pending load transaction exists");
   } else {
-    const FragmentedLoadInfo& info = mCurrentLoadInfo;
-    valid = (info.hostClientId == hostClientId
-        && info.transactionId == transactionId
-        && info.nextFragmentId == fragmentId);
+    const FragmentedLoadInfo &info = mCurrentLoadInfo;
+    valid = (info.hostClientId == hostClientId &&
+             info.transactionId == transactionId &&
+             info.nextFragmentId == fragmentId);
     if (!valid) {
       LOGE("Unexpected load fragment: expected host %" PRIu16
-          "transaction %" PRIu32 " fragment %" PRIu32 ", received host %"
-           PRIu16 " transaction %" PRIu32 " fragment %" PRIu32,
+           "transaction %" PRIu32 " fragment %" PRIu32
+           ", received host %" PRIu16 " transaction %" PRIu32
+           " fragment %" PRIu32,
            info.hostClientId, info.transactionId, info.nextFragmentId,
            hostClientId, transactionId, fragmentId);
     }

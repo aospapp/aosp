@@ -13,6 +13,10 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -22,6 +26,7 @@ import java.util.MissingResourceException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import com.ibm.icu.impl.CacheBase;
 import com.ibm.icu.impl.ICUData;
@@ -78,9 +83,6 @@ import com.ibm.icu.text.LocaleDisplayNames.DialectHandling;
  * <ul>
  * <li>POSIX ids are converted to ICU format IDs</li>
  * <li>'grandfathered' 3066 ids are converted to ICU standard form</li>
- * <li>'PREEURO' and 'EURO' variants are converted to currency keyword form,
- * with the currency
- * id appropriate to the country of the locale (for PREEURO) or EUR (for EURO).
  * </ul>
  * All ULocale constructors automatically normalize the locale id.  To handle
  * POSIX ids, <code>canonicalize</code> can be called to convert the id
@@ -114,12 +116,60 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
     // using serialver from jdk1.4.2_05
     private static final long serialVersionUID = 3715177670352309217L;
 
+    private static final Pattern UND_PATTERN = Pattern.compile("^und(?=$|[_-])", Pattern.CASE_INSENSITIVE);
+
     private static CacheBase<String, String, Void> nameCache = new SoftCache<String, String, Void>() {
         @Override
         protected String createInstance(String tmpLocaleID, Void unused) {
             return new LocaleIDParser(tmpLocaleID).getName();
         }
     };
+
+    /**
+     * Types for {@link ULocale#getAvailableLocalesByType}
+     *
+     * @draft ICU 65
+     * @provisional This API might change or be removed in a future release.
+     */
+    public static enum AvailableType {
+        /**
+         * Locales that return data when passed to ICU APIs,
+         * but not including legacy or alias locales.
+         *
+         * @draft ICU 65
+         * @provisional This API might change or be removed in a future release.
+         */
+        DEFAULT,
+
+        /**
+         * Legacy or alias locales that return data when passed to ICU APIs.
+         * Examples of supported legacy or alias locales:
+         *
+         * <ul>
+         * <li>iw (alias to he)
+         * <li>mo (alias to ro)
+         * <li>zh_CN (alias to zh_Hans_CN)
+         * <li>sr_BA (alias to sr_Cyrl_BA)
+         * <li>ars (alias to ar_SA)
+         * </ul>
+         *
+         * The locales in this set are disjoint from the ones in
+         * DEFAULT. To get both sets at the same time, use
+         * WITH_LEGACY_ALIASES.
+         *
+         * @draft ICU 65
+         * @provisional This API might change or be removed in a future release.
+         */
+        ONLY_LEGACY_ALIASES,
+
+        /**
+         * The union of the locales in DEFAULT and ONLY_LEGACY_ALIASES.
+         *
+         * @draft ICU 65
+         * @provisional This API might change or be removed in a future release.
+         */
+        WITH_LEGACY_ALIASES,
+    }
 
     /**
      * Useful constant for language.
@@ -334,74 +384,29 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
     private transient volatile LocaleExtensions extensions;
 
     /**
-     * This table lists pairs of locale ids for canonicalization.  The
+     * This table lists pairs of locale ids for canonicalization.
      * The 1st item is the normalized id. The 2nd item is the
-     * canonicalized id. The 3rd is the keyword. The 4th is the keyword value.
+     * canonicalized id.
      */
     private static String[][] CANONICALIZE_MAP = {
-        { "C",              "en_US_POSIX", null, null }, /* POSIX name */
-        { "art_LOJBAN",     "jbo", null, null }, /* registered name */
-        { "az_AZ_CYRL",     "az_Cyrl_AZ", null, null }, /* .NET name */
-        { "az_AZ_LATN",     "az_Latn_AZ", null, null }, /* .NET name */
-        { "ca_ES_PREEURO",  "ca_ES", "currency", "ESP" },
-        { "cel_GAULISH",    "cel__GAULISH", null, null }, /* registered name */
-        { "de_1901",        "de__1901", null, null }, /* registered name */
-        { "de_1906",        "de__1906", null, null }, /* registered name */
-        { "de__PHONEBOOK",  "de", "collation", "phonebook" }, /* Old ICU name */
-        { "de_AT_PREEURO",  "de_AT", "currency", "ATS" },
-        { "de_DE_PREEURO",  "de_DE", "currency", "DEM" },
-        { "de_LU_PREEURO",  "de_LU", "currency", "EUR" },
-        { "el_GR_PREEURO",  "el_GR", "currency", "GRD" },
-        { "en_BOONT",       "en__BOONT", null, null }, /* registered name */
-        { "en_SCOUSE",      "en__SCOUSE", null, null }, /* registered name */
-        { "en_BE_PREEURO",  "en_BE", "currency", "BEF" },
-        { "en_IE_PREEURO",  "en_IE", "currency", "IEP" },
-        { "es__TRADITIONAL", "es", "collation", "traditional" }, /* Old ICU name */
-        { "es_ES_PREEURO",  "es_ES", "currency", "ESP" },
-        { "eu_ES_PREEURO",  "eu_ES", "currency", "ESP" },
-        { "fi_FI_PREEURO",  "fi_FI", "currency", "FIM" },
-        { "fr_BE_PREEURO",  "fr_BE", "currency", "BEF" },
-        { "fr_FR_PREEURO",  "fr_FR", "currency", "FRF" },
-        { "fr_LU_PREEURO",  "fr_LU", "currency", "LUF" },
-        { "ga_IE_PREEURO",  "ga_IE", "currency", "IEP" },
-        { "gl_ES_PREEURO",  "gl_ES", "currency", "ESP" },
-        { "hi__DIRECT",     "hi", "collation", "direct" }, /* Old ICU name */
-        { "it_IT_PREEURO",  "it_IT", "currency", "ITL" },
-        { "ja_JP_TRADITIONAL", "ja_JP", "calendar", "japanese" },
-      //{ "nb_NO_NY",       "nn_NO", null, null },
-        { "nl_BE_PREEURO",  "nl_BE", "currency", "BEF" },
-        { "nl_NL_PREEURO",  "nl_NL", "currency", "NLG" },
-        { "pt_PT_PREEURO",  "pt_PT", "currency", "PTE" },
-        { "sl_ROZAJ",       "sl__ROZAJ", null, null }, /* registered name */
-        { "sr_SP_CYRL",     "sr_Cyrl_RS", null, null }, /* .NET name */
-        { "sr_SP_LATN",     "sr_Latn_RS", null, null }, /* .NET name */
-        { "sr_YU_CYRILLIC", "sr_Cyrl_RS", null, null }, /* Linux name */
-        { "th_TH_TRADITIONAL", "th_TH", "calendar", "buddhist" }, /* Old ICU name */
-        { "uz_UZ_CYRILLIC", "uz_Cyrl_UZ", null, null }, /* Linux name */
-        { "uz_UZ_CYRL",     "uz_Cyrl_UZ", null, null }, /* .NET name */
-        { "uz_UZ_LATN",     "uz_Latn_UZ", null, null }, /* .NET name */
-        { "zh_CHS",         "zh_Hans", null, null }, /* .NET name */
-        { "zh_CHT",         "zh_Hant", null, null }, /* .NET name */
-        { "zh_GAN",         "zh__GAN", null, null }, /* registered name */
-        { "zh_GUOYU",       "zh", null, null }, /* registered name */
-        { "zh_HAKKA",       "zh__HAKKA", null, null }, /* registered name */
-        { "zh_MIN",         "zh__MIN", null, null }, /* registered name */
-        { "zh_MIN_NAN",     "zh__MINNAN", null, null }, /* registered name */
-        { "zh_WUU",         "zh__WUU", null, null }, /* registered name */
-        { "zh_XIANG",       "zh__XIANG", null, null }, /* registered name */
-        { "zh_YUE",         "zh__YUE", null, null } /* registered name */
+        { "art_LOJBAN",     "jbo" }, /* registered name */
+        { "cel_GAULISH",    "cel__GAULISH" }, /* registered name */
+        { "de_1901",        "de__1901" }, /* registered name */
+        { "de_1906",        "de__1906" }, /* registered name */
+        { "en_BOONT",       "en__BOONT" }, /* registered name */
+        { "en_SCOUSE",      "en__SCOUSE" }, /* registered name */
+        { "hy__AREVELA",    "hy", null, null }, /* Registered IANA variant */
+        { "hy__AREVMDA",    "hyw", null, null }, /* Registered IANA variant */
+        { "sl_ROZAJ",       "sl__ROZAJ" }, /* registered name */
+        { "zh_GAN",         "zh__GAN" }, /* registered name */
+        { "zh_GUOYU",       "zh" }, /* registered name */
+        { "zh_HAKKA",       "zh__HAKKA" }, /* registered name */
+        { "zh_MIN",         "zh__MIN" }, /* registered name */
+        { "zh_MIN_NAN",     "zh__MINNAN" }, /* registered name */
+        { "zh_WUU",         "zh__WUU" }, /* registered name */
+        { "zh_XIANG",       "zh__XIANG" }, /* registered name */
+        { "zh_YUE",         "zh__YUE" } /* registered name */
     };
-
-    /**
-     * This table lists pairs of locale ids for canonicalization.
-     * The first item is the normalized variant id.
-     */
-    private static String[][] variantsToKeywords = {
-        { "EURO",   "currency", "EUR" },
-        { "PINYIN", "collation", "pinyin" }, /* Solaris variant */
-        { "STROKE", "collation", "stroke" }  /* Solaris variant */
-    };
-
 
     /**
      * Private constructor used by static initializers.
@@ -831,11 +836,38 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
     /**
      * {@icunote} Unlike the Locale API, this returns an array of <code>ULocale</code>,
-     * not <code>Locale</code>.  Returns a list of all installed locales.
+     * not <code>Locale</code>.
+     *
+     * <p>Returns a list of all installed locales. This is equivalent to calling
+     * {@link #getAvailableLocalesByType} with AvialableType.DEFAULT.
+     *
      * @stable ICU 3.0
      */
     public static ULocale[] getAvailableLocales() {
-        return ICUResourceBundle.getAvailableULocales();
+        return ICUResourceBundle.getAvailableULocales().clone();
+    }
+
+    /**
+     * Returns a list of all installed locales according to the specified type.
+     *
+     * @draft ICU 65
+     * @provisional This API might change or be removed in a future release.
+     */
+    public static Collection<ULocale> getAvailableLocalesByType(AvailableType type) {
+        if (type == null) {
+            throw new IllegalArgumentException();
+        }
+        List<ULocale> result;
+        if (type == ULocale.AvailableType.WITH_LEGACY_ALIASES) {
+            result = new ArrayList<>();
+            Collections.addAll(result,
+                    ICUResourceBundle.getAvailableULocales(ULocale.AvailableType.DEFAULT));
+            Collections.addAll(result,
+                    ICUResourceBundle.getAvailableULocales(ULocale.AvailableType.ONLY_LEGACY_ALIASES));
+        } else {
+            result = Arrays.asList(ICUResourceBundle.getAvailableULocales(type));
+        }
+        return Collections.unmodifiableList(result);
     }
 
     /**
@@ -1109,8 +1141,10 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             if (tmpLocaleID.length() == 0) {
                 tmpLocaleID = localeID;
             }
+        } else if ("root".equalsIgnoreCase(localeID)) {
+            tmpLocaleID = EMPTY_STRING;
         } else {
-            tmpLocaleID = localeID;
+            tmpLocaleID = UND_PATTERN.matcher(localeID).replaceFirst(EMPTY_STRING);
         }
         return nameCache.getInstance(tmpLocaleID, null /* unused */);
     }
@@ -1180,44 +1214,19 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
         String baseName = parser.getBaseName();
         boolean foundVariant = false;
 
-        // formerly, we always set to en_US_POSIX if the basename was empty, but
-        // now we require that the entire id be empty, so that "@foo=bar"
-        // will pass through unchanged.
-        // {dlf} I'd rather keep "" unchanged.
         if (localeID.equals("")) {
             return "";
-            //              return "en_US_POSIX";
         }
 
         // we have an ID in the form xx_Yyyy_ZZ_KKKKK
 
-        /* convert the variants to appropriate ID */
-        for (int i = 0; i < variantsToKeywords.length; i++) {
-            String[] vals = variantsToKeywords[i];
-            int idx = baseName.lastIndexOf("_" + vals[0]);
-            if (idx > -1) {
-                foundVariant = true;
-
-                baseName = baseName.substring(0, idx);
-                if (baseName.endsWith("_")) {
-                    baseName = baseName.substring(0, --idx);
-                }
-                parser.setBaseName(baseName);
-                parser.defaultKeywordValue(vals[1], vals[2]);
-                break;
-            }
-        }
-
         /* See if this is an already known locale */
         for (int i = 0; i < CANONICALIZE_MAP.length; i++) {
-            if (CANONICALIZE_MAP[i][0].equals(baseName)) {
+            String[] vals = CANONICALIZE_MAP[i];
+            if (vals[0].equals(baseName)) {
                 foundVariant = true;
 
-                String[] vals = CANONICALIZE_MAP[i];
                 parser.setBaseName(vals[1]);
-                if (vals[2] != null) {
-                    parser.defaultKeywordValue(vals[2], vals[3]);
-                }
                 break;
             }
         }
@@ -1365,15 +1374,14 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             // Fastpath: We know the likely scripts and their writing direction
             // for some common languages.
             String lang = getLanguage();
-            if (lang.length() == 0) {
-                return false;
-            }
-            int langIndex = LANG_DIR_STRING.indexOf(lang);
-            if (langIndex >= 0) {
-                switch (LANG_DIR_STRING.charAt(langIndex + lang.length())) {
-                case '-': return false;
-                case '+': return true;
-                default: break;  // partial match of a longer code
+            if (!lang.isEmpty()) {
+                int langIndex = LANG_DIR_STRING.indexOf(lang);
+                if (langIndex >= 0) {
+                    switch (LANG_DIR_STRING.charAt(langIndex + lang.length())) {
+                    case '-': return false;
+                    case '+': return true;
+                    default: break;  // partial match of a longer code
+                    }
                 }
             }
             // Otherwise, find the likely script.

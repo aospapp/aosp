@@ -44,10 +44,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.unicode.cldr.draft.FileUtilities;
-import org.unicode.cldr.util.RegexLookup.Finder;
 
 import com.google.common.base.Splitter;
-import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.Utility;
 import com.ibm.icu.text.DateFormat;
 import com.ibm.icu.text.SimpleDateFormat;
@@ -57,11 +55,12 @@ import com.ibm.icu.text.UTF16;
 import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.text.UnicodeSetIterator;
 import com.ibm.icu.util.Freezable;
-import com.ibm.icu.util.Output;
 import com.ibm.icu.util.TimeZone;
 
 public class CldrUtility {
 
+    public static final boolean DEBUG_MISSING_DIRECTORIES = false;
+    
     public static final Charset UTF8 = Charset.forName("utf-8");
     public static final boolean BETA = false;
 
@@ -143,6 +142,9 @@ public class CldrUtility {
         final File file = filename == null ? new File(path)
             : new File(path, filename);
         try {
+            if (DEBUG_MISSING_DIRECTORIES && !file.exists()) {
+                System.err.println("Warning: directory doesn't exist: " + file);
+            }
             return file.getCanonicalPath() + File.separatorChar;
         } catch (IOException e) {
             return file.getPath() + File.separatorChar;
@@ -984,7 +986,6 @@ public class CldrUtility {
                 "Path must be relative to org/unicode/cldr/util/data  such as 'file.txt' or 'casing/file.txt', but got '"
                     + name + "'.");
         }
-
         return FileReaders.openFile(CldrUtility.class, "data/" + name);
     }
 
@@ -1003,7 +1004,6 @@ public class CldrUtility {
         return getInputStream(CldrUtility.class, "data/" + name);
     }
 
-    @SuppressWarnings("resource")
     public static InputStream getInputStream(Class<?> callingClass, String relativePath) {
         InputStream is = callingClass.getResourceAsStream(relativePath);
         // add buffering
@@ -1470,18 +1470,6 @@ public class CldrUtility {
         Set<T> result = new LinkedHashSet<>(a);
         result.removeAll(b);
         return result;
-    }
-
-    public static <T> void logRegexLookup(TestFmwk testFramework, RegexLookup<T> lookup, String toLookup) {
-        Output<String[]> arguments = new Output<>();
-        Output<Finder> matcherFound = new Output<>();
-        List<String> failures = new ArrayList<String>();
-        lookup.get(toLookup, null, arguments, matcherFound, failures);
-        testFramework.logln("lookup arguments: " + (arguments.value == null ? "null" : Arrays.asList(arguments.value)));
-        testFramework.logln("lookup matcherFound: " + matcherFound);
-        for (String s : failures) {
-            testFramework.logln(s);
-        }
     }
 
     public static boolean deepEquals(Object... pairs) {

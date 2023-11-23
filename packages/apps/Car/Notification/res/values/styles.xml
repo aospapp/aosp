@@ -29,16 +29,19 @@
     <style name="NotificationBodyTitleText" parent="@android:TextAppearance.DeviceDefault.Large">
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
+        <item name="android:textAlignment">viewStart</item>
     </style>
 
     <style name="InGroupTimeStampText" parent="@android:TextAppearance.DeviceDefault">
         <item name="android:textSize">@dimen/time_stamp_text_size_in_group</item>
         <item name="android:textColor">@color/secondary_text_color</item>
+        <item name="android:textAlignment">viewStart</item>
     </style>
 
     <style name="NotificationBodyContentText" parent="@android:TextAppearance.DeviceDefault">
         <item name="android:singleLine">true</item>
         <item name="android:textColor">@color/secondary_text_color</item>
+        <item name="android:textAlignment">viewStart</item>
     </style>
 
     <style name="NotificationBodyImageIcon">

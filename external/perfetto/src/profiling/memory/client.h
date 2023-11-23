@@ -25,7 +25,8 @@
 #include <mutex>
 #include <vector>
 
-#include "perfetto/base/unix_socket.h"
+#include "perfetto/base/compiler.h"
+#include "perfetto/ext/base/unix_socket.h"
 #include "src/profiling/memory/sampler.h"
 #include "src/profiling/memory/shared_ring_buffer.h"
 #include "src/profiling/memory/unhooked_allocator.h"
@@ -34,8 +35,10 @@
 namespace perfetto {
 namespace profiling {
 
+uint64_t GetMaxTries(const ClientConfiguration& client_config);
 const char* GetThreadStackBase();
 
+constexpr uint64_t kInfiniteTries = 0;
 constexpr uint32_t kClientSockTimeoutMs = 1000;
 
 // Profiling client, used to sample and record the malloc/free family of calls,
@@ -65,12 +68,12 @@ class Client {
   static base::Optional<base::UnixSocketRaw> ConnectToHeapprofd(
       const std::string& sock_name);
 
-  bool RecordMalloc(uint64_t alloc_size,
-                    uint64_t total_size,
-                    uint64_t alloc_address);
+  bool RecordMalloc(uint64_t sample_size,
+                    uint64_t alloc_size,
+                    uint64_t alloc_address) PERFETTO_WARN_UNUSED_RESULT;
 
   // Add address to buffer of deallocations. Flushes the buffer if necessary.
-  bool RecordFree(uint64_t alloc_address);
+  bool RecordFree(uint64_t alloc_address) PERFETTO_WARN_UNUSED_RESULT;
 
   // Returns the number of bytes to assign to an allocation with the given
   // |alloc_size|, based on the current sampling rate. A return value of zero
@@ -91,20 +94,26 @@ class Client {
          pid_t pid_at_creation,
          const char* main_thread_stack_base);
 
+  ~Client();
+
   ClientConfiguration client_config_for_testing() { return client_config_; }
 
  private:
   const char* GetStackBase();
   // Flush the contents of free_batch_. Must hold free_batch_lock_.
-  bool FlushFreesLocked();
-  bool SendControlSocketByte();
-  bool SendWireMessageWithRetriesIfBlocking(const WireMessage&);
+  bool FlushFreesLocked() PERFETTO_WARN_UNUSED_RESULT;
+  bool SendControlSocketByte() PERFETTO_WARN_UNUSED_RESULT;
+  bool SendWireMessageWithRetriesIfBlocking(const WireMessage&)
+      PERFETTO_WARN_UNUSED_RESULT;
+
+  bool IsPostFork();
 
   // This is only valid for non-blocking sockets. This is when
   // client_config_.block_client is true.
   bool IsConnected();
 
   ClientConfiguration client_config_;
+  uint64_t max_shmem_tries_;
   // sampler_ operations are not thread-safe.
   Sampler sampler_;
   base::UnixSocketRaw sock_;
@@ -123,6 +132,8 @@ class Client {
   // it'll proceed to write to the same shared buffer & control socket (with
   // duplicate sequence ids).
   const pid_t pid_at_creation_;
+  bool detected_fork_ = false;
+  bool postfork_return_value_ = false;
 };
 
 }  // namespace profiling

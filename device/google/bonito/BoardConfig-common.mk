@@ -37,7 +37,6 @@ TARGET_2ND_CPU_VARIANT_RUNTIME := cortex-a75
 TARGET_BOARD_COMMON_PATH := device/google/bonito/sdm710
 
 BUILD_BROKEN_DUP_RULES := true
-BUILD_BROKEN_ENG_DEBUG_TAGS := true
 
 BOARD_KERNEL_CMDLINE += console=ttyMSM0,115200n8 androidboot.console=ttyMSM0 printk.devkmsg=on
 BOARD_KERNEL_CMDLINE += msm_rtb.filter=0x237
@@ -74,17 +73,25 @@ TARGET_NO_KERNEL := false
 BOARD_USES_RECOVERY_AS_BOOT := true
 BOARD_USES_METADATA_PARTITION := true
 
+AB_OTA_UPDATER := true
+
+AB_OTA_PARTITIONS += \
+    boot \
+    system \
+    vbmeta \
+    dtbo \
+    product \
+    system_ext
+
 BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := ext4
+BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := ext4
 
 # Partitions (listed in the file) to be wiped under recovery.
 TARGET_RECOVERY_WIPE := device/google/bonito/recovery.wipe
 TARGET_RECOVERY_FSTAB := device/google/bonito/fstab.hardware
 TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 TARGET_RECOVERY_UI_LIB := \
-    librecovery_ui_bonito \
-    libnos_citadel_for_recovery \
-    libnos_for_recovery \
-    libbootloader_message \
+    librecovery_ui_pixel \
     libfstab
 
 # system.img
@@ -97,12 +104,12 @@ BOARD_PERSISTIMAGE_FILE_SYSTEM_TYPE := ext4
 # boot.img
 BOARD_BOOTIMAGE_PARTITION_SIZE := 0x04000000
 
-BOARD_EXT4_SHARE_DUP_BLOCKS := true
 BOARD_SUPER_PARTITION_GROUPS := google_dynamic_partitions
 BOARD_GOOGLE_DYNAMIC_PARTITIONS_PARTITION_LIST := \
     system \
     vendor \
-    product
+    product \
+    system_ext
 
 BOARD_SUPER_PARTITION_SIZE := 4072669184
 BOARD_SUPER_PARTITION_METADATA_DEVICE := system
@@ -116,7 +123,6 @@ BOARD_GOOGLE_DYNAMIC_PARTITIONS_SIZE := 4068474880
 BOARD_FLASH_BLOCK_SIZE := 131072
 
 BOARD_ROOT_EXTRA_SYMLINKS := /mnt/vendor/persist:/persist
-BOARD_ROOT_EXTRA_SYMLINKS += /vendor/firmware_mnt:/firmware
 BOARD_ROOT_EXTRA_SYMLINKS += /vendor/dsp:/dsp
 
 include device/google/bonito-sepolicy/bonito-sepolicy.mk
@@ -146,6 +152,12 @@ OVERRIDE_RS_DRIVER := libRSDriver_adreno.so
 # Sensors
 USE_SENSOR_MULTI_HAL := true
 TARGET_SUPPORT_DIRECT_REPORT := true
+# Enable sensor Version V_2
+USE_SENSOR_HAL_VER := 2.0
+
+# CHRE
+CHRE_DAEMON_ENABLED := true
+CHRE_DAEMON_LOAD_INTO_SENSORSPD := true
 
 # wlan
 BOARD_WLAN_DEVICE := qcwcn
@@ -157,6 +169,9 @@ BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_$(BOARD_WLAN_DEVICE)
 BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_$(BOARD_WLAN_DEVICE)
 WIFI_HIDL_FEATURE_AWARE := true
 WIFI_HIDL_FEATURE_DUAL_INTERFACE:= true
+WIFI_FEATURE_WIFI_EXT_HAL := true
+WIFI_FEATURE_IMU_DETECTION := false
+WIFI_HIDL_UNIFIED_SUPPLICANT_SERVICE_RC_ENTRY := true
 
 # Audio
 BOARD_USES_ALSA_AUDIO := true

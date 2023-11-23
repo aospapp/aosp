@@ -1,7 +1,6 @@
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """This module provides the test utilities for audio tests using chameleon."""
 
 # TODO (cychiang) Move test utilities from chameleon_audio_helpers
@@ -24,15 +23,15 @@ from autotest_lib.client.cros.audio import audio_quality_measurement
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 
 CHAMELEON_AUDIO_IDS_TO_CRAS_NODE_TYPES = {
-       chameleon_audio_ids.CrosIds.HDMI: 'HDMI',
-       chameleon_audio_ids.CrosIds.HEADPHONE: 'HEADPHONE',
-       chameleon_audio_ids.CrosIds.EXTERNAL_MIC: 'MIC',
-       chameleon_audio_ids.CrosIds.SPEAKER: 'INTERNAL_SPEAKER',
-       chameleon_audio_ids.CrosIds.INTERNAL_MIC: 'INTERNAL_MIC',
-       chameleon_audio_ids.CrosIds.BLUETOOTH_HEADPHONE: 'BLUETOOTH',
-       chameleon_audio_ids.CrosIds.BLUETOOTH_MIC: 'BLUETOOTH',
-       chameleon_audio_ids.CrosIds.USBIN: 'USB',
-       chameleon_audio_ids.CrosIds.USBOUT: 'USB',
+        chameleon_audio_ids.CrosIds.HDMI: 'HDMI',
+        chameleon_audio_ids.CrosIds.HEADPHONE: 'HEADPHONE',
+        chameleon_audio_ids.CrosIds.EXTERNAL_MIC: 'MIC',
+        chameleon_audio_ids.CrosIds.SPEAKER: 'INTERNAL_SPEAKER',
+        chameleon_audio_ids.CrosIds.INTERNAL_MIC: 'INTERNAL_MIC',
+        chameleon_audio_ids.CrosIds.BLUETOOTH_HEADPHONE: 'BLUETOOTH',
+        chameleon_audio_ids.CrosIds.BLUETOOTH_MIC: 'BLUETOOTH',
+        chameleon_audio_ids.CrosIds.USBIN: 'USB',
+        chameleon_audio_ids.CrosIds.USBOUT: 'USB',
 }
 
 
@@ -81,9 +80,10 @@ def check_audio_nodes(audio_facade, audio_nodes):
     """
     curr_out_nodes, curr_in_nodes = audio_facade.get_selected_node_types()
     out_audio_nodes, in_audio_nodes = audio_nodes
-    if (in_audio_nodes != None and
-        sorted(curr_in_nodes) != sorted(in_audio_nodes)):
-        raise error.TestFail('Wrong input node(s) selected: %s '
+    if (in_audio_nodes != None
+                and sorted(curr_in_nodes) != sorted(in_audio_nodes)):
+        raise error.TestFail(
+                'Wrong input node(s) selected: %s '
                 'expected: %s' % (str(curr_in_nodes), str(in_audio_nodes)))
 
     # Treat line-out node as headphone node in Chameleon test since some
@@ -92,10 +92,40 @@ def check_audio_nodes(audio_facade, audio_nodes):
     if (out_audio_nodes == ['HEADPHONE'] and curr_out_nodes == ['LINEOUT']):
         return
 
-    if (out_audio_nodes != None and
-        sorted(curr_out_nodes) != sorted(out_audio_nodes)):
-        raise error.TestFail('Wrong output node(s) selected %s '
+    if (out_audio_nodes != None
+                and sorted(curr_out_nodes) != sorted(out_audio_nodes)):
+        raise error.TestFail(
+                'Wrong output node(s) selected %s '
                 'expected: %s' % (str(curr_out_nodes), str(out_audio_nodes)))
+
+
+def check_plugged_nodes_contain(audio_facade, audio_nodes):
+    """Checks the nodes needed to be plugged on Cros device are plugged.
+
+    @param audio_facade: A RemoteAudioFacade to access audio functions on
+                         Cros device.
+
+    @param audio_nodes: A tuple (out_audio_nodes, in_audio_nodes) containing
+                        expected plugged output and input nodes.
+
+    @raises: error.TestFail if the plugged nodes on Cros device are not plugged.
+
+    """
+    curr_out_nodes, curr_in_nodes = audio_facade.get_plugged_node_types()
+    out_audio_nodes, in_audio_nodes = audio_nodes
+    if in_audio_nodes != None:
+        for node in in_audio_nodes:
+            if node not in curr_in_nodes:
+                raise error.TestFail('Wrong input node(s) plugged: %s '
+                                     'expected %s to be plugged!' %
+                                     (str(curr_in_nodes), str(in_audio_nodes)))
+    if out_audio_nodes != None:
+        for node in out_audio_nodes:
+            if node not in curr_out_nodes:
+                raise error.TestFail(
+                        'Wrong output node(s) plugged: %s '
+                        'expected %s to be plugged!' % (str(curr_out_nodes),
+                                                        str(out_audio_nodes)))
 
 
 def check_plugged_nodes(audio_facade, audio_nodes):
@@ -112,14 +142,16 @@ def check_plugged_nodes(audio_facade, audio_nodes):
     """
     curr_out_nodes, curr_in_nodes = audio_facade.get_plugged_node_types()
     out_audio_nodes, in_audio_nodes = audio_nodes
-    if (in_audio_nodes != None and
-        sorted(curr_in_nodes) != sorted(in_audio_nodes)):
+    if (in_audio_nodes != None
+                and sorted(curr_in_nodes) != sorted(in_audio_nodes)):
         raise error.TestFail('Wrong input node(s) plugged: %s '
-                'expected: %s!' % (str(curr_in_nodes), str(in_audio_nodes)))
-    if (out_audio_nodes != None and
-        sorted(curr_out_nodes) != sorted(out_audio_nodes)):
+                             'expected: %s!' % (str(sorted(curr_in_nodes)),
+                                                str(sorted(in_audio_nodes))))
+    if (out_audio_nodes != None
+                and sorted(curr_out_nodes) != sorted(out_audio_nodes)):
         raise error.TestFail('Wrong output node(s) plugged: %s '
-                'expected: %s!' % (str(curr_out_nodes), str(out_audio_nodes)))
+                             'expected: %s!' % (str(sorted(curr_out_nodes)),
+                                                str(sorted(out_audio_nodes))))
 
 
 def bluetooth_nodes_plugged(audio_facade):
@@ -177,17 +209,17 @@ def has_internal_microphone(host):
     return True
 
 
-def has_headphone(host):
-    """Checks if the Cros device has headphone.
+def has_audio_jack(host):
+    """Checks if the Cros device has a 3.5mm audio jack.
 
     @param host: The CrosHost object.
 
-    @returns: True if Cros device has headphone. False otherwise.
+    @returns: True if Cros device has it. False otherwise.
 
     """
     board_name = get_board_name(host)
-    if not audio_spec.has_headphone(host.get_board_type()):
-        logging.info('Board %s does not have headphone.', board_name)
+    if not audio_spec.has_audio_jack(board_name, host.get_board_type()):
+        logging.info('Board %s does not have a audio jack.', board_name)
         return False
     return True
 
@@ -206,6 +238,16 @@ def has_hotwording(host):
     return audio_spec.has_hotwording(board_name, model_name)
 
 
+def has_echo_reference(host):
+    """Checks if the Cros device has echo reference.
+
+    @param host: The CrosHost object.
+
+    @returns: True if the board has echo reference. False otherwise.
+
+    """
+    return audio_spec.has_echo_reference(get_board_name(host))
+
 def suspend_resume(host, suspend_time_secs, resume_network_timeout_secs=50):
     """Performs the suspend/resume on Cros device.
 
@@ -213,6 +255,7 @@ def suspend_resume(host, suspend_time_secs, resume_network_timeout_secs=50):
     @resume_network_timeout_secs: Time in seconds to let Cros device resume and
                                   obtain network.
     """
+
     def action_suspend():
         """Calls the host method suspend."""
         host.suspend(suspend_time=suspend_time_secs)
@@ -222,14 +265,17 @@ def suspend_resume(host, suspend_time_secs, resume_network_timeout_secs=50):
     logging.info("Suspending...")
     proc.daemon = True
     proc.start()
-    host.test_wait_for_sleep(suspend_time_secs / 3)
+    host.test_wait_for_sleep(suspend_time_secs)
     logging.info("DUT suspended! Waiting to resume...")
-    host.test_wait_for_resume(
-            boot_id, suspend_time_secs + resume_network_timeout_secs)
+    host.test_wait_for_resume(boot_id,
+                              suspend_time_secs + resume_network_timeout_secs)
     logging.info("DUT resumed!")
 
 
-def dump_cros_audio_logs(host, audio_facade, directory, suffix='',
+def dump_cros_audio_logs(host,
+                         audio_facade,
+                         directory,
+                         suffix='',
                          fail_if_warnings=False):
     """Dumps logs for audio debugging from Cros device.
 
@@ -239,6 +285,7 @@ def dump_cros_audio_logs(host, audio_facade, directory, suffix='',
     @directory: The directory to dump logs.
 
     """
+
     def get_file_path(name):
         """Gets file path to dump logs.
 
@@ -260,8 +307,8 @@ def dump_cros_audio_logs(host, audio_facade, directory, suffix='',
 
     # Raising error if any warning messages in the audio diagnostics
     if fail_if_warnings:
-        audio_logs = examine_audio_diagnostics(get_file_path(
-                'audio_diagnostics.txt'))
+        audio_logs = examine_audio_diagnostics(
+                get_file_path('audio_diagnostics.txt'))
         if audio_logs != '':
             raise error.TestFail(audio_logs)
 
@@ -287,9 +334,8 @@ def examine_audio_diagnostics(path):
             if search_result:
                 num_underruns = int(search_result.group(1))
                 if num_underruns != 0:
-                    warning_msgs.append(
-                            'Found %d underrun at line %d: %s' % (
-                                    num_underruns, line_number, line))
+                    warning_msgs.append('Found %d underrun at line %d: %s' %
+                                        (num_underruns, line_number, line))
 
             # TODO(cychiang) add other check like maximum client reply delay.
             line_number = line_number + 1
@@ -359,6 +405,7 @@ DEFAULT_EQUIVALENT_THRESHOLD = 0.2
 _DC_FREQ_THRESHOLD = 0.001
 _DC_COEFF_THRESHOLD = 0.01
 
+
 def get_second_peak_ratio(source_id, recorder_id, is_hsp=False):
     """Gets the second peak ratio suitable for use case.
 
@@ -382,12 +429,17 @@ def get_second_peak_ratio(source_id, recorder_id, is_hsp=False):
 # The deviation of estimated dominant frequency from golden frequency.
 DEFAULT_FREQUENCY_DIFF_THRESHOLD = 5
 
+
 def check_recorded_frequency(
-        golden_file, recorder,
+        golden_file,
+        recorder,
         second_peak_ratio=_DEFAULT_SECOND_PEAK_RATIO,
         frequency_diff_threshold=DEFAULT_FREQUENCY_DIFF_THRESHOLD,
-        ignore_frequencies=None, check_anomaly=False, check_artifacts=False,
-        mute_durations=None, volume_changes=None,
+        ignore_frequencies=None,
+        check_anomaly=False,
+        check_artifacts=False,
+        mute_durations=None,
+        volume_changes=None,
         tolerant_noise_level=DEFAULT_TOLERANT_NOISE_LEVEL):
     """Checks if the recorded data contains sine tone of golden frequency.
 
@@ -451,27 +503,27 @@ def check_recorded_frequency(
         normalized_signal = audio_analysis.normalize_signal(
                 signal, saturate_value)
         logging.debug('saturate_value: %f', saturate_value)
-        logging.debug('max signal after normalized: %f', max(normalized_signal))
-        spectral = audio_analysis.spectral_analysis(
-                normalized_signal, data_format['rate'])
+        logging.debug('max signal after normalized: %f',
+                      max(normalized_signal))
+        spectral = audio_analysis.spectral_analysis(normalized_signal,
+                                                    data_format['rate'])
         logging.debug('spectral: %s', spectral)
 
         if not spectral:
-            errors.append(
-                    'Channel %d: Can not find dominant frequency.' %
-                            test_channel)
+            errors.append('Channel %d: Can not find dominant frequency.' %
+                          test_channel)
 
         golden_frequency = golden_file.frequencies[golden_channel]
         logging.debug('Checking channel %s spectral %s against frequency %s',
-                test_channel, spectral, golden_frequency)
+                      test_channel, spectral, golden_frequency)
 
         dominant_frequency = spectral[0][0]
 
         if (abs(dominant_frequency - golden_frequency) >
-            frequency_diff_threshold):
+                    frequency_diff_threshold):
             errors.append(
-                    'Channel %d: Dominant frequency %s is away from golden %s' %
-                    (test_channel, dominant_frequency, golden_frequency))
+                    'Channel %d: Dominant frequency %s is away from golden %s'
+                    % (test_channel, dominant_frequency, golden_frequency))
 
         if check_anomaly:
             detected_anomaly = audio_analysis.anomaly_detection(
@@ -479,9 +531,8 @@ def check_recorded_frequency(
                     rate=data_format['rate'],
                     freq=golden_frequency)
             if detected_anomaly:
-                errors.append(
-                        'Channel %d: Detect anomaly near these time: %s' %
-                        (test_channel, detected_anomaly))
+                errors.append('Channel %d: Detect anomaly near these time: %s'
+                              % (test_channel, detected_anomaly))
             else:
                 logging.info(
                         'Channel %d: Quality is good as there is no anomaly',
@@ -489,24 +540,26 @@ def check_recorded_frequency(
 
         if check_artifacts or mute_durations or volume_changes:
             result = audio_quality_measurement.quality_measurement(
-                                        normalized_signal,
-                                        data_format['rate'],
-                                        dominant_frequency=dominant_frequency)
-            logging.debug('Quality measurement result:\n%s', pprint.pformat(result))
+                    normalized_signal,
+                    data_format['rate'],
+                    dominant_frequency=dominant_frequency)
+            logging.debug('Quality measurement result:\n%s',
+                          pprint.pformat(result))
             if check_artifacts:
                 if len(result['artifacts']['noise_before_playback']) > 0:
                     errors.append(
-                        'Channel %d: Detects artifacts before playing near'
-                        ' these time and duration: %s' %
-                        (test_channel,
-                         str(result['artifacts']['noise_before_playback'])))
+                            'Channel %d: Detects artifacts before playing near'
+                            ' these time and duration: %s' %
+                            (test_channel,
+                             str(result['artifacts']['noise_before_playback']))
+                    )
 
                 if len(result['artifacts']['noise_after_playback']) > 0:
                     errors.append(
-                        'Channel %d: Detects artifacts after playing near'
-                        ' these time and duration: %s' %
-                        (test_channel,
-                         str(result['artifacts']['noise_after_playback'])))
+                            'Channel %d: Detects artifacts after playing near'
+                            ' these time and duration: %s' %
+                            (test_channel,
+                             str(result['artifacts']['noise_after_playback'])))
 
             if mute_durations:
                 delays = result['artifacts']['delay_during_playback']
@@ -514,45 +567,46 @@ def check_recorded_frequency(
                 for x in delays:
                     delay_durations.append(x[1])
                 mute_matched, delay_matched = longest_common_subsequence(
-                        mute_durations,
-                        delay_durations,
+                        mute_durations, delay_durations,
                         DEFAULT_EQUIVALENT_THRESHOLD)
 
                 # updated delay list
-                new_delays = [delays[i]
-                                for i in delay_matched if not delay_matched[i]]
+                new_delays = [
+                        delays[i] for i in delay_matched
+                        if not delay_matched[i]
+                ]
 
                 result['artifacts']['delay_during_playback'] = new_delays
 
-                unmatched_mutes = [mute_durations[i]
-                                for i in mute_matched if not mute_matched[i]]
+                unmatched_mutes = [
+                        mute_durations[i] for i in mute_matched
+                        if not mute_matched[i]
+                ]
 
                 if len(unmatched_mutes) > 0:
-                    errors.append(
-                        'Channel %d: Unmatched mute duration: %s' %
-                        (test_channel, unmatched_mutes))
+                    errors.append('Channel %d: Unmatched mute duration: %s' %
+                                  (test_channel, unmatched_mutes))
 
             if check_artifacts:
                 if len(result['artifacts']['delay_during_playback']) > 0:
                     errors.append(
-                        'Channel %d: Detects delay during playing near'
-                        ' these time and duration: %s' %
-                        (test_channel,
-                         result['artifacts']['delay_during_playback']))
+                            'Channel %d: Detects delay during playing near'
+                            ' these time and duration: %s' %
+                            (test_channel,
+                             result['artifacts']['delay_during_playback']))
 
                 if len(result['artifacts']['burst_during_playback']) > 0:
                     errors.append(
-                        'Channel %d: Detects burst/pop near these time: %s' %
-                        (test_channel,
-                         result['artifacts']['burst_during_playback']))
+                            'Channel %d: Detects burst/pop near these time: %s'
+                            % (test_channel,
+                               result['artifacts']['burst_during_playback']))
 
                 if result['equivalent_noise_level'] > tolerant_noise_level:
                     errors.append(
-                        'Channel %d: noise level is higher than tolerant'
-                        ' noise level: %f > %f' %
-                        (test_channel,
-                         result['equivalent_noise_level'],
-                         tolerant_noise_level))
+                            'Channel %d: noise level is higher than tolerant'
+                            ' noise level: %f > %f' %
+                            (test_channel, result['equivalent_noise_level'],
+                             tolerant_noise_level))
 
             if volume_changes:
                 matched = True
@@ -566,12 +620,10 @@ def check_recorded_frequency(
                             break
                 if not matched:
                     errors.append(
-                        'Channel %d: volume changing is not as expected, '
-                        'found changing time and events are: %s while '
-                        'expected changing events are %s'%
-                        (test_channel,
-                         volume_changing,
-                         volume_changes))
+                            'Channel %d: volume changing is not as expected, '
+                            'found changing time and events are: %s while '
+                            'expected changing events are %s' %
+                            (test_channel, volume_changing, volume_changes))
 
         # Filter out the harmonics resulted from imperfect sin wave.
         # This list is different for different channels.
@@ -589,23 +641,23 @@ def check_recorded_frequency(
             @returns: True if the frequency should be ignored. False otherwise.
 
             """
-            for ignore_frequency in (ignore_frequencies_harmonics + harmonics
-                                     + [0.0]):
+            for ignore_frequency in (
+                    ignore_frequencies_harmonics + harmonics + [0.0]):
                 if (abs(frequency - ignore_frequency) <
-                    frequency_diff_threshold):
+                            frequency_diff_threshold):
                     logging.debug('Ignore frequency: %s', frequency)
                     return True
 
         # Checks DC is small enough.
         for freq, coeff in spectral:
             if freq < _DC_FREQ_THRESHOLD and coeff > _DC_COEFF_THRESHOLD:
-                errors.append(
-                        'Channel %d: Found large DC coefficient: '
-                        '(%f Hz, %f)' % (test_channel, freq, coeff))
+                errors.append('Channel %d: Found large DC coefficient: '
+                              '(%f Hz, %f)' % (test_channel, freq, coeff))
 
         # Filter out the frequencies to be ignored.
         spectral_post_ignore = [
-                x for x in spectral if not should_be_ignored(x[0])]
+                x for x in spectral if not should_be_ignored(x[0])
+        ]
 
         if len(spectral_post_ignore) > 1:
             first_coeff = spectral_post_ignore[0][1]
@@ -619,8 +671,8 @@ def check_recorded_frequency(
             errors.append(
                     'Channel %d: No frequency left after removing unwanted '
                     'frequencies. Spectral: %s; After removing unwanted '
-                    'frequencies: %s' %
-                    (test_channel, spectral, spectral_post_ignore))
+                    'frequencies: %s' % (test_channel, spectral,
+                                         spectral_post_ignore))
 
         else:
             dominant_spectrals.append(spectral_post_ignore[0])
@@ -696,7 +748,9 @@ def switch_to_hsp(audio_facade):
     audio_facade.set_chrome_active_node_type(None, 'BLUETOOTH')
     check_audio_nodes(audio_facade, (None, ['BLUETOOTH']))
     audio_facade.start_recording(
-            dict(file_type='raw', sample_format='S16_LE', channel=2,
+            dict(file_type='raw',
+                 sample_format='S16_LE',
+                 channel=2,
                  rate=48000))
 
 
@@ -719,31 +773,30 @@ def compare_recorded_correlation(golden_file, recorder, parameters=None):
             parameters)
 
 
-def check_and_set_chrome_active_node_types(audio_facade, output_type=None,
+def check_and_set_chrome_active_node_types(audio_facade,
+                                           output_type=None,
                                            input_type=None):
-   """Check the target types are available, and set them to be active nodes.
+    """Check the target types are available, and set them to be active nodes.
 
-   @param audio_facade: An AudioFacadeNative or AudioFacadeAdapter object.
-   @output_type: An output node type defined in cras_utils.CRAS_NODE_TYPES.
+    @param audio_facade: An AudioFacadeNative or AudioFacadeAdapter object.
+    @output_type: An output node type defined in cras_utils.CRAS_NODE_TYPES.
                  None to skip.
-   @input_type: An input node type defined in cras_utils.CRAS_NODE_TYPES.
+    @input_type: An input node type defined in cras_utils.CRAS_NODE_TYPES.
                  None to skip.
 
-   @raises: error.TestError if the expected node type is missing. We use
-            error.TestError here because usually this step is not the main
-            purpose of the test, but a setup step.
+    @raises: error.TestError if the expected node type is missing. We use
+             error.TestError here because usually this step is not the main
+             purpose of the test, but a setup step.
 
-   """
-   output_types, input_types = audio_facade.get_plugged_node_types()
-   logging.debug('Plugged types: output: %r, input: %r',
-                 output_types, input_types)
-   if output_type and output_type not in output_types:
-       raise error.TestError(
-               'Target output type %s not present' % output_type)
-   if input_type and input_type not in input_types:
-       raise error.TestError(
-               'Target input type %s not present' % input_type)
-   audio_facade.set_chrome_active_node_type(output_type, input_type)
+    """
+    output_types, input_types = audio_facade.get_plugged_node_types()
+    if output_type and output_type not in output_types:
+        raise error.TestError('Target output type %s not present in %r' %
+                              (output_type, output_types))
+    if input_type and input_type not in input_types:
+        raise error.TestError('Target input type %s not present in %r' %
+                              (input_type, input_types))
+    audio_facade.set_chrome_active_node_type(output_type, input_type)
 
 
 def check_hp_or_lineout_plugged(audio_facade):
@@ -765,4 +818,43 @@ def check_hp_or_lineout_plugged(audio_facade):
         return 'LINEOUT'
     if 'HEADPHONE' in output_nodes:
         return 'HEADPHONE'
-    raise error.TestFail('Can not detect line-out or headphone')
+    raise error.TestFail(
+            'No line-out or headphone in plugged nodes:%r.'
+            'Please check the audio cable or jack plugger.' % output_nodes)
+
+
+def get_internal_mic_node(host):
+    """Return the expected internal microphone node.
+
+    @param host: The CrosHost object.
+
+    @returns: The name of the expected internal microphone nodes.
+    """
+    board = get_board_name(host)
+    model = host.get_platform()
+    sku = host.host_info_store.get().device_sku
+
+    return audio_spec.get_internal_mic_node(board, model, sku)
+
+
+def get_plugged_internal_mics(host):
+    """Return a list of all the plugged internal microphone nodes.
+
+    @param host: The CrosHost object.
+
+    @returns: A list of all the plugged internal microphone nodes.
+    """
+    board = get_board_name(host)
+    model = host.get_platform()
+    sku = host.host_info_store.get().device_sku
+
+    return audio_spec.get_plugged_internal_mics(board, model, sku)
+
+def get_headphone_node(host):
+    """Return the expected headphone node.
+
+    @param host: The CrosHost object.
+
+    @returns: The name of the expected headphone nodes.
+    """
+    return audio_spec.get_headphone_node(get_board_name(host))

@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Stel terug"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Kan nie profiel opstel nie"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Kan nie toestel opstel nie"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Iets is fout"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Kon nie toestel opstel nie. Kontak jou IT-administrateur vir hulp."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Kontak jou IT-administrateur vir hulp"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Stel hierdie toestel terug en probeer dit weer opstel"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Toestel is reeds opgestel"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Kon nie aan Wi-Fi koppel nie"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Terugstelbeskerming is aangeskakel op jou toestel. Kontak jou IT-administrateur vir hulp."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Maak tans gereed om werktoestel op te stel …"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Stel tans administrasieprogram op"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Stel al die ander dinge op"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Kom ons stel nou al die ander dinge op"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Voeg \'n persoonlike rekening by om jou toestel beter te kan benut"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Noudat jou werkprofiel gereed is, kan jy ook \'n persoonlike Google-rekening byvoeg om toegang tot jou programme en inhoud te kry."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Hierdie toestel behoort aan jou organisasie"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Die volgende program sal gebruik word om hierdie foon te bestuur en te monitor"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Maak tans gereed vir werkopstelling …"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Kom ons stel eers jou werkprofiel op"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Kom ons stel eers jou werkprofiel op"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Werkprogramme word in jou werkprofiel gehou"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Laat werkprogramme wag wanneer jy klaar is vir die dag."</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Net die data in jou werkprofiel is sigbaar vir jou IT-administrateur"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Data in jou werkprofiel is sigbaar vir jou IT-administrateur"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Stel tans jou werkprofiel op …"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Werkprogramme word in jou werkprofiel gehou. Jy kan jou werkprogramme laat wag wanneer jy klaar is vir die dag. Net die data in jou werkprofiel is sigbaar vir jou IT-administrateur."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Werkprogramme word in jou werkprofiel gehou. Jy kan jou werkprogramme onderbreek wanneer jy klaar is vir die dag. Data in jou werkprofiel is sigbaar vir jou IT-administrateur."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Kom ons stel jou werktoestel op"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Hou jou werkprogramme binne jou bereik"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Hierdie toestel is nie privaat nie"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Jou IT-administrateur kan dalk jou data en aktiwiteit op hierdie toestel sien."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Stel tans jou toestel op …"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Gebruik hierdie toestel om maklik toegang tot jou werkprogramme te kry. Hierdie toestel is nie privaat nie en jou IT-administrateur kan dalk jou data en aktiwiteit sien. Kontak jou IT-administrateur om meer te wete te kom."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Werkprogramme word in jou werkprofiel gehou en deur jou IT-administrateur bestuur"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Persoonlike programme is apart en versteek van werkprogramme"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Jou IT-admin kan dié toestel beheer en programme blokkeer"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Werkprogramme word in jou werkprofiel gehou en deur jou IT-administrateur bestuur. Persoonlike programme is apart en van werkprogramme versteek. Jou IT-administrateur kan hierdie toestel beheer en sekere programme blokkeer."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Net \'n oomblik …"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Privaatheidonthounota"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Jou IT-administrateur kan dalk jou data en aktiwiteit op hierdie toestel sien"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Jou toestel is gereed vir gebruik!"</string>
     <string name="done" msgid="7755227776955952318">"Klaar"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Hierdie toestel is by <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> op krediet gekoop"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kan:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Die <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-program installeer sodat jy betalings vir hierdie toestel kan doen"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Toegang tot hierdie toestel beperk as jy nie betalings maak nie"</string>
 </resources>

@@ -40,7 +40,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __TOSTR(_x) #_x
 #define _TOSTR(_x) __TOSTR(_x)
 
-typedef struct note_type{
+typedef struct note_type {
   int sizename;
   int sizedesc;
   int type;
@@ -53,17 +53,15 @@ typedef struct note_type{
 #pragma clang diagnostic ignored "-Wunused-variable"
 #endif
 
-const note_type uimg_dl_ver __attribute__ ((section (".note.qti.uimg.dl.ver")))
-                            __attribute__ ((visibility ("default"))) = {
-  24,
-  12,
-  0,
-  "uimg.dl.ver." _TOSTR(UIMG_DL_VER_MAJOR) "." _TOSTR(UIMG_DL_VER_MINOR) "." _TOSTR(UIMG_DL_VER_MAINT),
-  {UIMG_DL_VER_MAJOR, UIMG_DL_VER_MINOR, UIMG_DL_VER_MAINT}
-};
+const note_type uimg_dl_ver __attribute__((section(".note.qti.uimg.dl.ver")))
+__attribute__((visibility("default"))) = {
+    24,
+    12,
+    0,
+    "uimg.dl.ver." _TOSTR(UIMG_DL_VER_MAJOR) "." _TOSTR(
+        UIMG_DL_VER_MINOR) "." _TOSTR(UIMG_DL_VER_MAINT),
+    {UIMG_DL_VER_MAJOR, UIMG_DL_VER_MINOR, UIMG_DL_VER_MAINT}};
 
 #ifdef __llvm__
 #pragma clang diagnostic pop
 #endif
-
-

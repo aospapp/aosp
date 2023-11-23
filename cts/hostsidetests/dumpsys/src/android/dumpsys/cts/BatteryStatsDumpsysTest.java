@@ -16,6 +16,8 @@
 
 package android.dumpsys.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.log.LogUtil.CLog;
 
@@ -360,13 +362,16 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
     }
 
     private void checkJobCompletion(String[] parts) {
-        assertEquals(10, parts.length);
+        // This line contains a number for each job cancel reason.
+        // (See JobParameters.JOB_STOP_REASON_CODES), and future mainline updates may introudce
+        // more codes, so we have no upper bound for the number of columns.
+        assertThat(parts.length).isAtLeast(11);
         assertNotNull(parts[4]); // job
-        assertInteger(parts[5]); // reason_canceled
-        assertInteger(parts[6]); // reason_constraints_not_satisfied
-        assertInteger(parts[7]); // reason_preempt
-        assertInteger(parts[8]); // reason_timeout
-        assertInteger(parts[9]); // reason_device_idle
+
+        // Values for each of JOB_STOP_REASON_CODES.
+        for (int i = 5; i < parts.length; i++) {
+            assertInteger(parts[i]);
+        }
     }
 
     private void checkJobsDeferred(String[] parts) {
@@ -575,7 +580,7 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
     }
 
     private void checkDataConnection(String[] parts) {
-        assertEquals(26, parts.length);
+        assertEquals(27, parts.length);
         assertInteger(parts[4]);  // none
         assertInteger(parts[5]);  // gprs
         assertInteger(parts[6]);  // edge
@@ -597,7 +602,8 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertInteger(parts[22]); // iwlan
         assertInteger(parts[23]); // lte_ca
         assertInteger(parts[24]); // nr
-        assertInteger(parts[25]); // other
+        assertInteger(parts[25]); // emngcy
+        assertInteger(parts[26]); // other
     }
 
     private void checkWifiState(String[] parts) {

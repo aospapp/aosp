@@ -16,27 +16,29 @@ package android
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/blueprint"
+
+	"android/soong/shared"
 )
 
 func pathContext() PathContext {
-	return PathContextForTesting(TestConfig("out", nil),
-		map[string][]byte{
-			"ld":      nil,
-			"a.o":     nil,
-			"b.o":     nil,
-			"cp":      nil,
-			"a":       nil,
-			"b":       nil,
-			"ls":      nil,
-			"turbine": nil,
-			"java":    nil,
-		})
+	return PathContextForTesting(TestConfig("out", nil, "", map[string][]byte{
+		"ld":      nil,
+		"a.o":     nil,
+		"b.o":     nil,
+		"cp":      nil,
+		"a":       nil,
+		"b":       nil,
+		"ls":      nil,
+		"turbine": nil,
+		"java":    nil,
+		"javac":   nil,
+	}))
 }
 
 func ExampleRuleBuilder() {
@@ -233,89 +235,167 @@ func ExampleRuleBuilderCommand_FlagWithList() {
 	// ls --sort=time,size
 }
 
+func ExampleRuleBuilderCommand_FlagWithRspFileInputList() {
+	ctx := pathContext()
+	fmt.Println(NewRuleBuilder().Command().
+		Tool(PathForSource(ctx, "javac")).
+		FlagWithRspFileInputList("@", PathsForTesting("a.java", "b.java")).
+		NinjaEscapedString())
+	// Output:
+	// javac @$out.rsp
+}
+
+func ExampleRuleBuilderCommand_String() {
+	fmt.Println(NewRuleBuilder().Command().
+		Text("FOO=foo").
+		Text("echo $FOO").
+		String())
+	// Output:
+	// FOO=foo echo $FOO
+}
+
+func ExampleRuleBuilderCommand_NinjaEscapedString() {
+	fmt.Println(NewRuleBuilder().Command().
+		Text("FOO=foo").
+		Text("echo $FOO").
+		NinjaEscapedString())
+	// Output:
+	// FOO=foo echo $$FOO
+}
+
 func TestRuleBuilder(t *testing.T) {
-	rule := NewRuleBuilder()
-
 	fs := map[string][]byte{
-		"dep_fixer": nil,
-		"input":     nil,
-		"Implicit":  nil,
-		"Input":     nil,
-		"Tool":      nil,
-		"input2":    nil,
-		"tool2":     nil,
-		"input3":    nil,
+		"dep_fixer":  nil,
+		"input":      nil,
+		"Implicit":   nil,
+		"Input":      nil,
+		"OrderOnly":  nil,
+		"OrderOnlys": nil,
+		"Tool":       nil,
+		"input2":     nil,
+		"tool2":      nil,
+		"input3":     nil,
 	}
 
-	ctx := PathContextForTesting(TestConfig("out", nil), fs)
+	ctx := PathContextForTesting(TestConfig("out", nil, "", fs))
 
-	cmd := rule.Command().
-		DepFile(PathForOutput(ctx, "DepFile")).
-		Flag("Flag").
-		FlagWithArg("FlagWithArg=", "arg").
-		FlagWithDepFile("FlagWithDepFile=", PathForOutput(ctx, "depfile")).
-		FlagWithInput("FlagWithInput=", PathForSource(ctx, "input")).
-		FlagWithOutput("FlagWithOutput=", PathForOutput(ctx, "output")).
-		Implicit(PathForSource(ctx, "Implicit")).
-		ImplicitDepFile(PathForOutput(ctx, "ImplicitDepFile")).
-		ImplicitOutput(PathForOutput(ctx, "ImplicitOutput")).
-		Input(PathForSource(ctx, "Input")).
-		Output(PathForOutput(ctx, "Output")).
-		Text("Text").
-		Tool(PathForSource(ctx, "Tool"))
+	addCommands := func(rule *RuleBuilder) {
+		cmd := rule.Command().
+			DepFile(PathForOutput(ctx, "DepFile")).
+			Flag("Flag").
+			FlagWithArg("FlagWithArg=", "arg").
+			FlagWithDepFile("FlagWithDepFile=", PathForOutput(ctx, "depfile")).
+			FlagWithInput("FlagWithInput=", PathForSource(ctx, "input")).
+			FlagWithOutput("FlagWithOutput=", PathForOutput(ctx, "output")).
+			Implicit(PathForSource(ctx, "Implicit")).
+			ImplicitDepFile(PathForOutput(ctx, "ImplicitDepFile")).
+			ImplicitOutput(PathForOutput(ctx, "ImplicitOutput")).
+			Input(PathForSource(ctx, "Input")).
+			Output(PathForOutput(ctx, "Output")).
+			OrderOnly(PathForSource(ctx, "OrderOnly")).
+			Text("Text").
+			Tool(PathForSource(ctx, "Tool"))
 
-	rule.Command().
-		Text("command2").
-		DepFile(PathForOutput(ctx, "depfile2")).
-		Input(PathForSource(ctx, "input2")).
-		Output(PathForOutput(ctx, "output2")).
-		Tool(PathForSource(ctx, "tool2"))
+		rule.Command().
+			Text("command2").
+			DepFile(PathForOutput(ctx, "depfile2")).
+			Input(PathForSource(ctx, "input2")).
+			Output(PathForOutput(ctx, "output2")).
+			OrderOnlys(PathsForSource(ctx, []string{"OrderOnlys"})).
+			Tool(PathForSource(ctx, "tool2"))
 
-	// Test updates to the first command after the second command has been started
-	cmd.Text("after command2")
-	// Test updating a command when the previous update did not replace the cmd variable
-	cmd.Text("old cmd")
+		// Test updates to the first command after the second command has been started
+		cmd.Text("after command2")
+		// Test updating a command when the previous update did not replace the cmd variable
+		cmd.Text("old cmd")
 
-	// Test a command that uses the output of a previous command as an input
-	rule.Command().
-		Text("command3").
-		Input(PathForSource(ctx, "input3")).
-		Input(PathForOutput(ctx, "output2")).
-		Output(PathForOutput(ctx, "output3"))
-
-	wantCommands := []string{
-		"out/DepFile Flag FlagWithArg=arg FlagWithDepFile=out/depfile FlagWithInput=input FlagWithOutput=out/output Input out/Output Text Tool after command2 old cmd",
-		"command2 out/depfile2 input2 out/output2 tool2",
-		"command3 input3 out/output2 out/output3",
+		// Test a command that uses the output of a previous command as an input
+		rule.Command().
+			Text("command3").
+			Input(PathForSource(ctx, "input3")).
+			Input(PathForOutput(ctx, "output2")).
+			Output(PathForOutput(ctx, "output3"))
 	}
-
-	wantDepMergerCommand := "out/host/" + ctx.Config().PrebuiltOS() + "/bin/dep_fixer out/DepFile out/depfile out/ImplicitDepFile out/depfile2"
 
 	wantInputs := PathsForSource(ctx, []string{"Implicit", "Input", "input", "input2", "input3"})
 	wantOutputs := PathsForOutput(ctx, []string{"ImplicitOutput", "Output", "output", "output2", "output3"})
 	wantDepFiles := PathsForOutput(ctx, []string{"DepFile", "depfile", "ImplicitDepFile", "depfile2"})
 	wantTools := PathsForSource(ctx, []string{"Tool", "tool2"})
+	wantOrderOnlys := PathsForSource(ctx, []string{"OrderOnly", "OrderOnlys"})
 
-	if g, w := rule.Commands(), wantCommands; !reflect.DeepEqual(g, w) {
-		t.Errorf("\nwant rule.Commands() = %#v\n                   got %#v", w, g)
-	}
+	t.Run("normal", func(t *testing.T) {
+		rule := NewRuleBuilder()
+		addCommands(rule)
 
-	if g, w := rule.depFileMergerCmd(ctx, rule.DepFiles()).String(), wantDepMergerCommand; g != w {
-		t.Errorf("\nwant rule.depFileMergerCmd() = %#v\n                   got %#v", w, g)
-	}
+		wantCommands := []string{
+			"out/DepFile Flag FlagWithArg=arg FlagWithDepFile=out/depfile FlagWithInput=input FlagWithOutput=out/output Input out/Output Text Tool after command2 old cmd",
+			"command2 out/depfile2 input2 out/output2 tool2",
+			"command3 input3 out/output2 out/output3",
+		}
 
-	if g, w := rule.Inputs(), wantInputs; !reflect.DeepEqual(w, g) {
-		t.Errorf("\nwant rule.Inputs() = %#v\n                 got %#v", w, g)
-	}
-	if g, w := rule.Outputs(), wantOutputs; !reflect.DeepEqual(w, g) {
-		t.Errorf("\nwant rule.Outputs() = %#v\n                  got %#v", w, g)
-	}
-	if g, w := rule.DepFiles(), wantDepFiles; !reflect.DeepEqual(w, g) {
-		t.Errorf("\nwant rule.DepFiles() = %#v\n                  got %#v", w, g)
-	}
-	if g, w := rule.Tools(), wantTools; !reflect.DeepEqual(w, g) {
-		t.Errorf("\nwant rule.Tools() = %#v\n                got %#v", w, g)
-	}
+		wantDepMergerCommand := "out/host/" + ctx.Config().PrebuiltOS() + "/bin/dep_fixer out/DepFile out/depfile out/ImplicitDepFile out/depfile2"
+
+		if g, w := rule.Commands(), wantCommands; !reflect.DeepEqual(g, w) {
+			t.Errorf("\nwant rule.Commands() = %#v\n                   got %#v", w, g)
+		}
+
+		if g, w := rule.Inputs(), wantInputs; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.Inputs() = %#v\n                 got %#v", w, g)
+		}
+		if g, w := rule.Outputs(), wantOutputs; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.Outputs() = %#v\n                  got %#v", w, g)
+		}
+		if g, w := rule.DepFiles(), wantDepFiles; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.DepFiles() = %#v\n                  got %#v", w, g)
+		}
+		if g, w := rule.Tools(), wantTools; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.Tools() = %#v\n                got %#v", w, g)
+		}
+		if g, w := rule.OrderOnlys(), wantOrderOnlys; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.OrderOnlys() = %#v\n                got %#v", w, g)
+		}
+
+		if g, w := rule.depFileMergerCmd(ctx, rule.DepFiles()).String(), wantDepMergerCommand; g != w {
+			t.Errorf("\nwant rule.depFileMergerCmd() = %#v\n                   got %#v", w, g)
+		}
+	})
+
+	t.Run("sbox", func(t *testing.T) {
+		rule := NewRuleBuilder().Sbox(PathForOutput(ctx))
+		addCommands(rule)
+
+		wantCommands := []string{
+			"__SBOX_OUT_DIR__/DepFile Flag FlagWithArg=arg FlagWithDepFile=__SBOX_OUT_DIR__/depfile FlagWithInput=input FlagWithOutput=__SBOX_OUT_DIR__/output Input __SBOX_OUT_DIR__/Output Text Tool after command2 old cmd",
+			"command2 __SBOX_OUT_DIR__/depfile2 input2 __SBOX_OUT_DIR__/output2 tool2",
+			"command3 input3 __SBOX_OUT_DIR__/output2 __SBOX_OUT_DIR__/output3",
+		}
+
+		wantDepMergerCommand := "out/host/" + ctx.Config().PrebuiltOS() + "/bin/dep_fixer __SBOX_OUT_DIR__/DepFile __SBOX_OUT_DIR__/depfile __SBOX_OUT_DIR__/ImplicitDepFile __SBOX_OUT_DIR__/depfile2"
+
+		if g, w := rule.Commands(), wantCommands; !reflect.DeepEqual(g, w) {
+			t.Errorf("\nwant rule.Commands() = %#v\n                   got %#v", w, g)
+		}
+
+		if g, w := rule.Inputs(), wantInputs; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.Inputs() = %#v\n                 got %#v", w, g)
+		}
+		if g, w := rule.Outputs(), wantOutputs; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.Outputs() = %#v\n                  got %#v", w, g)
+		}
+		if g, w := rule.DepFiles(), wantDepFiles; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.DepFiles() = %#v\n                  got %#v", w, g)
+		}
+		if g, w := rule.Tools(), wantTools; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.Tools() = %#v\n                got %#v", w, g)
+		}
+		if g, w := rule.OrderOnlys(), wantOrderOnlys; !reflect.DeepEqual(w, g) {
+			t.Errorf("\nwant rule.OrderOnlys() = %#v\n                got %#v", w, g)
+		}
+
+		if g, w := rule.depFileMergerCmd(ctx, rule.DepFiles()).String(), wantDepMergerCommand; g != w {
+			t.Errorf("\nwant rule.depFileMergerCmd() = %#v\n                   got %#v", w, g)
+		}
+	})
 }
 
 func testRuleBuilderFactory() Module {
@@ -329,14 +409,19 @@ type testRuleBuilderModule struct {
 	ModuleBase
 	properties struct {
 		Src string
+
+		Restat bool
+		Sbox   bool
 	}
 }
 
 func (t *testRuleBuilderModule) GenerateAndroidBuildActions(ctx ModuleContext) {
 	in := PathForSource(ctx, t.properties.Src)
 	out := PathForModuleOut(ctx, ctx.ModuleName())
+	outDep := PathForModuleOut(ctx, ctx.ModuleName()+".d")
+	outDir := PathForModuleOut(ctx)
 
-	testRuleBuilder_Build(ctx, in, out)
+	testRuleBuilder_Build(ctx, in, out, outDep, outDir, t.properties.Restat, t.properties.Sbox)
 }
 
 type testRuleBuilderSingleton struct{}
@@ -348,52 +433,70 @@ func testRuleBuilderSingletonFactory() Singleton {
 func (t *testRuleBuilderSingleton) GenerateBuildActions(ctx SingletonContext) {
 	in := PathForSource(ctx, "bar")
 	out := PathForOutput(ctx, "baz")
-	testRuleBuilder_Build(ctx, in, out)
+	outDep := PathForOutput(ctx, "baz.d")
+	outDir := PathForOutput(ctx)
+	testRuleBuilder_Build(ctx, in, out, outDep, outDir, true, false)
 }
 
-func testRuleBuilder_Build(ctx BuilderContext, in Path, out WritablePath) {
+func testRuleBuilder_Build(ctx BuilderContext, in Path, out, outDep, outDir WritablePath, restat, sbox bool) {
 	rule := NewRuleBuilder()
 
-	rule.Command().Tool(PathForSource(ctx, "cp")).Input(in).Output(out)
+	if sbox {
+		rule.Sbox(outDir)
+	}
 
-	rule.Restat()
+	rule.Command().Tool(PathForSource(ctx, "cp")).Input(in).Output(out).ImplicitDepFile(outDep)
+
+	if restat {
+		rule.Restat()
+	}
 
 	rule.Build(pctx, ctx, "rule", "desc")
 }
 
 func TestRuleBuilder_Build(t *testing.T) {
-	buildDir, err := ioutil.TempDir("", "soong_test_rule_builder")
-	if err != nil {
-		t.Fatal(err)
+	fs := map[string][]byte{
+		"bar": nil,
+		"cp":  nil,
 	}
-	defer os.RemoveAll(buildDir)
 
 	bp := `
 		rule_builder_test {
 			name: "foo",
 			src: "bar",
+			restat: true,
+		}
+		rule_builder_test {
+			name: "foo_sbox",
+			src: "bar",
+			sbox: true,
 		}
 	`
 
-	config := TestConfig(buildDir, nil)
+	config := TestConfig(buildDir, nil, bp, fs)
 	ctx := NewTestContext()
-	ctx.MockFileSystem(map[string][]byte{
-		"Android.bp": []byte(bp),
-		"bar":        nil,
-		"cp":         nil,
-	})
-	ctx.RegisterModuleType("rule_builder_test", ModuleFactoryAdaptor(testRuleBuilderFactory))
-	ctx.RegisterSingletonType("rule_builder_test", SingletonFactoryAdaptor(testRuleBuilderSingletonFactory))
-	ctx.Register()
+	ctx.RegisterModuleType("rule_builder_test", testRuleBuilderFactory)
+	ctx.RegisterSingletonType("rule_builder_test", testRuleBuilderSingletonFactory)
+	ctx.Register(config)
 
 	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
 	FailIfErrored(t, errs)
 	_, errs = ctx.PrepareBuildActions(config)
 	FailIfErrored(t, errs)
 
-	check := func(t *testing.T, params TestingBuildParams, wantOutput string) {
-		if len(params.RuleParams.CommandDeps) != 1 || params.RuleParams.CommandDeps[0] != "cp" {
-			t.Errorf("want RuleParams.CommandDeps = [%q], got %q", "cp", params.RuleParams.CommandDeps)
+	check := func(t *testing.T, params TestingBuildParams, wantCommand, wantOutput, wantDepfile string, wantRestat bool, extraCmdDeps []string) {
+		t.Helper()
+		if params.RuleParams.Command != wantCommand {
+			t.Errorf("\nwant RuleParams.Command = %q\n                      got %q", wantCommand, params.RuleParams.Command)
+		}
+
+		wantDeps := append([]string{"cp"}, extraCmdDeps...)
+		if !reflect.DeepEqual(params.RuleParams.CommandDeps, wantDeps) {
+			t.Errorf("\nwant RuleParams.CommandDeps = %q\n                          got %q", wantDeps, params.RuleParams.CommandDeps)
+		}
+
+		if params.RuleParams.Restat != wantRestat {
+			t.Errorf("want RuleParams.Restat = %v, got %v", wantRestat, params.RuleParams.Restat)
 		}
 
 		if len(params.Implicits) != 1 || params.Implicits[0].String() != "bar" {
@@ -404,17 +507,114 @@ func TestRuleBuilder_Build(t *testing.T) {
 			t.Errorf("want Output = %q, got %q", wantOutput, params.Output)
 		}
 
-		if !params.RuleParams.Restat {
-			t.Errorf("want RuleParams.Restat = true, got %v", params.RuleParams.Restat)
+		if len(params.ImplicitOutputs) != 0 {
+			t.Errorf("want ImplicitOutputs = [], got %q", params.ImplicitOutputs.Strings())
+		}
+
+		if params.Depfile.String() != wantDepfile {
+			t.Errorf("want Depfile = %q, got %q", wantDepfile, params.Depfile)
+		}
+
+		if params.Deps != blueprint.DepsGCC {
+			t.Errorf("want Deps = %q, got %q", blueprint.DepsGCC, params.Deps)
 		}
 	}
 
 	t.Run("module", func(t *testing.T) {
+		outFile := filepath.Join(buildDir, ".intermediates", "foo", "foo")
 		check(t, ctx.ModuleForTests("foo", "").Rule("rule"),
-			filepath.Join(buildDir, ".intermediates", "foo", "foo"))
+			"cp bar "+outFile,
+			outFile, outFile+".d", true, nil)
+	})
+	t.Run("sbox", func(t *testing.T) {
+		outDir := filepath.Join(buildDir, ".intermediates", "foo_sbox")
+		outFile := filepath.Join(outDir, "foo_sbox")
+		depFile := filepath.Join(outDir, "foo_sbox.d")
+		sbox := filepath.Join(buildDir, "host", config.PrebuiltOS(), "bin/sbox")
+		sandboxPath := shared.TempDirForOutDir(buildDir)
+
+		cmd := sbox + ` -c 'cp bar __SBOX_OUT_DIR__/foo_sbox' --sandbox-path ` + sandboxPath + " --output-root " + outDir + " --depfile-out " + depFile + " __SBOX_OUT_DIR__/foo_sbox"
+
+		check(t, ctx.ModuleForTests("foo_sbox", "").Rule("rule"),
+			cmd, outFile, depFile, false, []string{sbox})
 	})
 	t.Run("singleton", func(t *testing.T) {
+		outFile := filepath.Join(buildDir, "baz")
 		check(t, ctx.SingletonForTests("rule_builder_test").Rule("rule"),
-			filepath.Join(buildDir, "baz"))
+			"cp bar "+outFile, outFile, outFile+".d", true, nil)
 	})
+}
+
+func Test_ninjaEscapeExceptForSpans(t *testing.T) {
+	type args struct {
+		s     string
+		spans [][2]int
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "empty",
+			args: args{
+				s: "",
+			},
+			want: "",
+		},
+		{
+			name: "unescape none",
+			args: args{
+				s: "$abc",
+			},
+			want: "$$abc",
+		},
+		{
+			name: "unescape all",
+			args: args{
+				s:     "$abc",
+				spans: [][2]int{{0, 4}},
+			},
+			want: "$abc",
+		},
+		{
+			name: "unescape first",
+			args: args{
+				s:     "$abc$",
+				spans: [][2]int{{0, 1}},
+			},
+			want: "$abc$$",
+		},
+		{
+			name: "unescape last",
+			args: args{
+				s:     "$abc$",
+				spans: [][2]int{{4, 5}},
+			},
+			want: "$$abc$",
+		},
+		{
+			name: "unescape middle",
+			args: args{
+				s:     "$a$b$c$",
+				spans: [][2]int{{2, 5}},
+			},
+			want: "$$a$b$c$$",
+		},
+		{
+			name: "unescape multiple",
+			args: args{
+				s:     "$a$b$c$",
+				spans: [][2]int{{2, 3}, {4, 5}},
+			},
+			want: "$$a$b$c$$",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ninjaEscapeExceptForSpans(tt.args.s, tt.args.spans); got != tt.want {
+				t.Errorf("ninjaEscapeExceptForSpans() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

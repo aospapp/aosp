@@ -19,7 +19,7 @@ package com.android.tools.metalava.model.psi
 import com.android.SdkConstants
 import com.android.tools.metalava.ANDROIDX_NONNULL
 import com.android.tools.metalava.ANDROIDX_NULLABLE
-import com.android.tools.metalava.doclava1.Errors
+import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.DefaultCodebase
 import com.android.tools.metalava.model.Item
@@ -34,18 +34,21 @@ import com.android.tools.metalava.tick
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.psi.JavaPsiFacade
+import com.intellij.psi.JavaRecursiveElementVisitor
 import com.intellij.psi.PsiAnnotation
 import com.intellij.psi.PsiArrayType
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassOwner
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiField
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiJavaCodeReferenceElement
 import com.intellij.psi.PsiJavaFile
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiPackage
+import com.intellij.psi.PsiSubstitutor
 import com.intellij.psi.PsiType
 import com.intellij.psi.TypeAnnotationProvider
 import com.intellij.psi.javadoc.PsiDocComment
@@ -149,11 +152,11 @@ open class PsiBasedCodebase(location: File, override var description: String = "
                     if (comment != null) {
                         val text = comment.text
                         if (text.contains("@hide")) {
-                            hiddenPackages.add(packageName)
+                            this.hiddenPackages[packageName] = true
                         }
                         if (packageDocs[packageName] != null) {
                             reporter.report(
-                                Errors.BOTH_PACKAGE_INFO_AND_HTML,
+                                Issues.BOTH_PACKAGE_INFO_AND_HTML,
                                 unit,
                                 "It is illegal to provide both a package-info.java file and a " +
                                     "package.html file for the same package"
@@ -164,6 +167,17 @@ open class PsiBasedCodebase(location: File, override var description: String = "
                 }
             } else {
                 for (psiClass in classes) {
+                    psiClass.accept(object : JavaRecursiveElementVisitor() {
+                        override fun visitErrorElement(element: PsiErrorElement?) {
+                            super.visitErrorElement(element)
+                            reporter.report(
+                                Issues.INVALID_SYNTAX,
+                                element,
+                                "Syntax error: `${element?.errorDescription}`"
+                            )
+                        }
+                    })
+
                     val classItem = createClass(psiClass)
                     topLevelClassesFromSource.add(classItem)
 
@@ -343,7 +357,7 @@ open class PsiBasedCodebase(location: File, override var description: String = "
                 }
             }
         } catch (e: IOException) {
-            reporter.report(Errors.IO_ERROR, jarFile, e.message ?: e.toString())
+            reporter.report(Issues.IO_ERROR, jarFile, e.message ?: e.toString())
         }
 
         // Next construct packages
@@ -392,10 +406,6 @@ open class PsiBasedCodebase(location: File, override var description: String = "
         if (list == null) {
             list = ArrayList()
             packageClasses[packageName] = list
-        }
-
-        if (isPackageHidden(packageName)) {
-            cls.hidden = true
         }
 
         list.add(cls)
@@ -555,7 +565,11 @@ open class PsiBasedCodebase(location: File, override var description: String = "
             val cls = psiType.resolve() ?: return null
             return findOrCreateClass(cls)
         } else if (psiType is PsiArrayType) {
-            val componentType = psiType.componentType
+            var componentType = psiType.componentType
+            // We repeatedly get the component type because the array may have multiple dimensions
+            while (componentType is PsiArrayType) {
+                componentType = componentType.componentType
+            }
             if (componentType is PsiClassType) {
                 val cls = componentType.resolve() ?: return null
                 return findOrCreateClass(cls)
@@ -564,7 +578,7 @@ open class PsiBasedCodebase(location: File, override var description: String = "
         return null
     }
 
-    fun getClassType(cls: PsiClass): PsiClassType = getFactory().createType(cls)
+    fun getClassType(cls: PsiClass): PsiClassType = getFactory().createType(cls, PsiSubstitutor.EMPTY)
 
     fun getComment(string: String, parent: PsiElement? = null): PsiDocComment =
         getFactory().createDocCommentFromText(string, parent)

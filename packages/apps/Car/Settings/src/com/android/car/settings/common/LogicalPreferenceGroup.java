@@ -20,7 +20,6 @@ import android.content.Context;
 import android.util.AttributeSet;
 
 import androidx.preference.PreferenceGroup;
-import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.R;
 
@@ -46,11 +45,5 @@ public class LogicalPreferenceGroup extends PreferenceGroup {
 
     public LogicalPreferenceGroup(Context context) {
         this(context, null);
-    }
-
-    @Override
-    public void onBindViewHolder(PreferenceViewHolder holder) {
-        super.onBindViewHolder(holder);
-        holder.setDividerAllowedAbove(false);
     }
 }

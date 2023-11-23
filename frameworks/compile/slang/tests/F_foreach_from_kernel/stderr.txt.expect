@@ -1,1 +1,1 @@
-foreach_from_kernel.rs:13:3: error: Invalid kernel launch call made from inside another kernel.
+foreach_from_kernel.rscript:13:3: error: Invalid kernel launch call made from inside another kernel.

@@ -54,6 +54,7 @@ import java.security.KeyStoreException;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Arrays;
 
@@ -290,7 +291,7 @@ public class ImportWrappedKeyTest extends AndroidTestCase {
 
         AlgorithmParameterSpec spec = new KeyGenParameterSpec.Builder(wrappingKeyAlias,
                 KeyProperties.PURPOSE_WRAP_KEY)
-                .setDigests(KeyProperties.DIGEST_SHA1)
+                .setDigests(KeyProperties.DIGEST_SHA256)
                 .build();
         Entry wrappedKeyEntry = new WrappedKeyEntry(wrappedKey, wrappingKeyAlias,
                   "RSA/ECB/OAEPPadding", spec);
@@ -319,8 +320,9 @@ public class ImportWrappedKeyTest extends AndroidTestCase {
         random.nextBytes(aesKeyBytes);
 
         // Encrypt ephemeral keys
+        OAEPParameterSpec spec = new OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA1, PSource.PSpecified.DEFAULT);
         Cipher pkCipher = Cipher.getInstance("RSA/ECB/OAEPPadding");
-        pkCipher.init(Cipher.ENCRYPT_MODE, publicKey);
+        pkCipher.init(Cipher.ENCRYPT_MODE, publicKey, spec);
         byte[] encryptedEphemeralKeys = pkCipher.doFinal(aesKeyBytes);
 
         // Encrypt secure key
@@ -404,10 +406,9 @@ public class ImportWrappedKeyTest extends AndroidTestCase {
     private KeyPair genKeyPair(String alias, boolean isStrongBoxBacked) throws Exception {
         KeyPairGenerator kpg =
                 KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore");
-
         kpg.initialize(
                 new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_WRAP_KEY)
-                        .setDigests(KeyProperties.DIGEST_SHA512, KeyProperties.DIGEST_SHA1)
+                        .setDigests(KeyProperties.DIGEST_SHA256)
                         .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
                         .setBlockModes(KeyProperties.BLOCK_MODE_ECB)
                         .setIsStrongBoxBacked(isStrongBoxBacked)

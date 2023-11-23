@@ -101,6 +101,12 @@ class WebRtcPeerConnectionTest(object):
                         self.num_peer_connections,
                         self.iteration_delay_millis))
 
+    def stop_test(self):
+        """
+        Hook that always get called after the test has run.
+        """
+        pass
+
     def _test_done(self):
         """
         Determines if the test is done or not.
@@ -184,6 +190,7 @@ class WebRtcPeerConnectionTest(object):
                 # Ensure we always have a screenshot, both when succesful and
                 # when failed - useful for debugging.
                 self.take_screenshots()
+                self.stop_test()
 
     def verify_status_ok(self):
         """
@@ -309,6 +316,10 @@ class WebRtcPeerConnectionPerformanceTest(WebRtcPeerConnectionTest):
         super(WebRtcPeerConnectionPerformanceTest, self).start_test(
                 cr, html_file)
         self.collector.pre_collect()
+
+    def stop_test(self):
+        self.collector.post_collect()
+        super(WebRtcPeerConnectionPerformanceTest, self).stop_test()
 
     def do_in_wait_loop(self):
         self.collector.collect_snapshot()

@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="6963366455471441257">"USB ह्यान्ड्लर"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"सुरक्षित गरिएका यन्त्रहरू"</string>
-    <string name="usb_pref_delete_title" msgid="3885061814853467483">"USB यन्त्रको व्यवस्थापन गर्ने अनुप्रयोग हटाउनुहोस्‌"</string>
-    <string name="usb_pref_delete_message" msgid="5849493572520646218">"तपाईंले %1$s को व्यवस्थापन गर्ने पूर्वनिर्धारित अनुप्रयोग मेट्न खोज्नुभएकै हो?"</string>
+    <string name="usb_pref_delete_title" msgid="3885061814853467483">"USB यन्त्रको व्यवस्थापन गर्ने एप हटाउनुहोस्‌"</string>
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"तपाईंले %1$s को व्यवस्थापन गर्ने पूर्वनिर्धारित एप मेट्न खोज्नुभएकै हो?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"हो"</string>
     <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"रद्द गर्नुहोस्"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"समर्थित ह्यान्ड्लरहरू प्राप्त गर्दै"</string>

@@ -21,7 +21,7 @@ import com.google.turbine.binder.sym.ClassSymbol;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * An index of canonical type names where all members are known statically.

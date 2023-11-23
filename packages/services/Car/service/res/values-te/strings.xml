@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"మీ కారు యొక్క కామెరా(లు)ని యాక్సెస్ చేయండి."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"కారు శక్తి సమాచారాన్ని యాక్సెస్ చేయగలవు"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"మీ కారు శక్తి సమాచారాన్ని యాక్సెస్ చేయండి."</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"కారు యొక్క మిగిలిన ప్రయాణ దూరాన్ని సర్దుబాటు చేయండి"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"కారు యొక్క మిగిలిన ప్రయాణ దూర విలువను సర్దుబాటు చేయండి."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"కారు hvacని యాక్సెస్ చేయగలవు"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"మీ కారు యొక్క hvacని యాక్సెస్ చేయండి"</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"కారు మైలేజీ సమాచారాన్ని యాక్సెస్ చేయగలవు"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"UX పరిమితులను కాన్ఫిగర్ చెయ్యండి"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"AOAP మోడ్‌లో USB పరికరాన్ని కమ్యూనికేట్ చేయండి"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"AOAP మోడ్‌లో పరికరంతో కమ్యూనికేట్ చేయడానికి యాప్‌ను అనుమతిస్తుంది"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"Occupant Awareness Systemను చదవే యాక్సెస్"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Occupant Awareness Systemకు చదివే స్థితిని, డేటాను గుర్తించడాన్ని అనుమతిస్తుంది"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Occupant Awareness System గ్రాఫ్‌ను నియంత్రించు"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Occupant Awareness Systemను గుర్తించే గ్రాఫ్‌ను ప్రారంభించడాన్ని, ఆపివేయడాన్ని నియంత్రించడానికి అనుమతిస్తుంది"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"కారు ఇన్‌పుట్ సేవ"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ఇన్‌పుట్ ఈవెంట్‌లను హ్యాండిల్ చేయండి"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN బస్సు విఫలమైంది"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN బస్సు స్పందించలేదు. హెడ్ యూనిట్ బాక్స్‌‍‌ని ప్లగ్ మరియు అన్‌ప్లగ్ చేసి కారుని పునఃప్రారంభించుము"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"మీ భద్రత విషయమై, ఈ కార్యాచరణ మీరు డ్రైవింగ్‌లో ఉన్నప్పుడు అందుబాటులో లేదు.\n కొనసాగించడానికి, మీరు పార్క్ చేయబడేవరకు వేచి ఉండండి."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"డ్రైవింగ్‌లో ఉండగా మీరు ఈ ఫీచర్‌ని ఉపయోగించలేరు"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"సురక్షిత యాప్ లక్షణాలతో ప్రారంభించడానికి, <xliff:g id="EXIT_BUTTON">%s</xliff:g>ని ఎంచుకోండి."</string>
     <string name="exit_button" msgid="5829638404777671253">"వెనుకకు"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"యాప్‌ను మూసివేయండి"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"వెనుకకు"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"సమస్య విశ్లేషణ డేటాను తెలుసుకోగలవు"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"కారు నుండి విశ్లేషణ డేటాను తెలుసుకోగలవు."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"సమస్య విశ్లేషణ డేటాను క్లియర్ చేయగలవు"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"మీ కారు యొక్క సమగ్ర ఇంజిన్ సమాచారాన్ని యాక్సెస్ చేయగలవు."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"కారు ఇంధన డోర్ మరియు ఛార్జ్ పోర్ట్‌ను యాక్సెస్ చేయగలవు"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"కారు ఇంధన తలుపు మరియు ఛార్జ్ పోర్ట్‌ను యాక్సెస్ చేయగలవు."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"కారు ఇంధన డోర్, ఛార్జ్ పోర్ట్‌ను నియంత్రించు"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"కారు ఇంధన డోర్, ఛార్జ్ పోర్ట్‌ను నియంత్రించు"</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"కారు గుర్తింపును చూడగలవు"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"కారు గుర్తింపును యాక్సెస్ చేయగలవు."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"కారు డోర్‌లను నియంత్రించగలవు"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"కారు సీట్లను నియంత్రించగలవు."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"కారు ప్రాథమిక సమాచారాన్ని యాక్సెస్ చేయగలవు"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"కారు యొక్క ప్రాథమిక సమాచారాన్ని యాక్సెస్ చేయగలవు."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"కారు విక్రేత అనుమతి సమాచారాన్ని యాక్సెస్ చేయగలవు"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"కారు విక్రేత అనుమతి సమాచారాన్ని యాక్సెస్ చేయగలవు."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"కారు బయటి లైట్‌ల స్థితిని తెలుసుకోగలవు"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"కారు బయటి లైట్‌ల స్థితిని యాక్సెస్ చేయగలవు."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"కారు బయటి లైట్‌ల స్థితిని తెలుసుకోగలవు"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"కారు పవర్ స్థితిని యాక్సెస్ చేయగలవు."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"విశ్వసనీయ పరికరాన్ని నమోదు చేయండి"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"విశ్వసనీయ పరికర నమోదును అనుమతించండి"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"కారు యొక్క పరీక్ష మోడ్‌ను నియంత్రించండి"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"కారు యొక్క పరీక్ష మోడ్‌ను నియంత్రించండి"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"కార్ ఫీచర్‌లను ఎనేబుల్ లేదా డిజేబుల్ చేయడం"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"కార్ ఫీచర్‌లను ఎనేబుల్ లేదా డిజేబుల్ చేయడం."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"కార్ వాచ్‌డాగ్‌ను ఉపయోగించండి"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"కార్ వాచ్‌డాగ్‌ను ఉపయోగించండి."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"నా పరికరం"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"అతిథి"</string>
 </resources>

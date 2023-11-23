@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
+
 package com.android.tv.common.flags;
 
-/** Flags for Live TV UI */
+/** Flags for TV app UI */
 public interface UiFlags {
 
     /**
@@ -26,6 +27,9 @@ public interface UiFlags {
      */
     boolean compiled();
 
+    /** Critic Ratings */
+    boolean enableCriticRatings();
+
     /**
      * Number of days to be shown by Recording History.
      *
@@ -33,9 +37,13 @@ public interface UiFlags {
      */
     long maxHistoryDays();
 
-    /** Unhide the launcher all the time */
-    boolean uhideLauncher();
+    /**
+     * The URL in playstore to send the user to when they select <emp>get more channels</emp>.
+     *
+     * <p>If the value is empty then the <emp>get more channels</emp> action is not shown.
+     */
+    String moreChannelsUrl();
 
-    /** Use the Leanback Pin Picker */
-    boolean useLeanbackPinPicker();
+    /** Unhide the launcher all the time */
+    boolean unhideLauncher();
 }

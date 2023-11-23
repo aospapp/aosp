@@ -31,17 +31,12 @@ class ShadowConstants {
 
     public static final float MIN_ALPHA = 0.2f;
 
-    public static final int SPOT_SHADOW_RAYS = 40;
-    public static final int SPOT_SHADOW_LAYERS = 1;
-    public static final int SPOT_SHADOW_LIGHT_SOURCE_POINTS = 4;
     public static final int SPOT_SHADOW_LIGHT_Z_HEIGHT_DP = 50 / SCALE_DOWN;
     public static final int SPOT_SHADOW_LIGHT_Z_EPSILON = 10 / SCALE_DOWN;
     public static final float SPOT_SHADOW_STRENGTH = 0.3f;
 
     public static final float AMBIENT_SHADOW_EDGE_SCALE = 60f;
     public static final float AMBIENT_SHADOW_SHADOW_BOUND = 0.02f * SCALE_DOWN;
-    public static final int AMBIENT_SHADOW_RAYS = 120;
-    public static final int AMBIENT_SHADOW_LAYERS = 1;
     public static final float AMBIENT_SHADOW_STRENGTH = 1.0f;
 
     public static final int COORDINATE_SIZE = 3;

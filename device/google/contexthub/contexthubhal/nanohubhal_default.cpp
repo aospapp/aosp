@@ -58,8 +58,8 @@ static const context_hub_t mHub = {
     .connected_sensors = mSensors,
     .num_connected_sensors = sizeof(mSensors) / sizeof(*mSensors),
 
-    .max_supported_msg_len = MAX_RX_PACKET,
     .os_app_name = { .id = 0 },
+    .max_supported_msg_len = MAX_RX_PACKET,
 };
 
 const char *get_devnode_path(void)

@@ -29,6 +29,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.animation.Animator;
+import android.animation.ValueAnimator;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -40,11 +42,14 @@ import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
+import android.transition.Fade;
 import android.transition.Transition;
 import android.transition.Transition.TransitionListener;
+import android.transition.TransitionListenerAdapter;
 import android.transition.TransitionValues;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Range;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -53,8 +58,10 @@ import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
+import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.PopupWindow.OnDismissListener;
@@ -491,6 +498,43 @@ public class PopupWindowTest {
         verifyPosition(popup, R.id.anchor_lower_right,
                 RIGHT, EQUAL_TO, RIGHT, BOTTOM, LESS_THAN, BOTTOM,
                 offsetX, offsetY, gravity);
+    }
+
+    @Test
+    public void testShowAsDropDown_ClipToScreen_Overlap_OutOfScreen() throws Throwable {
+        final PopupWindow popup = createPopupWindow(createPopupContent(CONTENT_SIZE_DP,
+                CONTENT_SIZE_DP));
+        final View upperLeftAnchor = mActivity.findViewById(R.id.anchor_upper_left);
+
+        popup.setIsClippedToScreen(true);
+        popup.setOverlapAnchor(true);
+        popup.setAnimationStyle(0);
+        popup.setExitTransition(null);
+        popup.setEnterTransition(null);
+
+        final int appBarHeight = mActivity.getActionBar().getHeight();
+        Rect appFrame = new Rect();
+        Window window = mActivity.getWindow();
+        window.getDecorView().getWindowVisibleDisplayFrame(appFrame);
+        final int appFrameTop = appFrame.top;
+        final int appFrameLeft = appFrame.left;
+        final int offsetX = -1 * (mActivity.findViewById(R.id.anchor_upper_left).getWidth());
+        final int offsetY = -1 * (appBarHeight + appFrameTop);
+        final int gravity = Gravity.TOP | Gravity.START;
+
+        int[] viewOnScreenXY = new int[2];
+
+        mActivityRule.runOnUiThread(() -> popup.showAsDropDown(
+                upperLeftAnchor, offsetX, offsetY, gravity));
+        mInstrumentation.waitForIdleSync();
+
+        assertTrue(popup.isShowing());
+
+        popup.getContentView().getLocationOnScreen(viewOnScreenXY);
+        assertEquals(appFrameLeft, viewOnScreenXY[0]);
+        assertEquals(appFrameTop, viewOnScreenXY[1]);
+
+        dismissPopup();
     }
 
     @Test
@@ -1939,6 +1983,108 @@ public class PopupWindowTest {
         subPopup.getContentView().getLocationOnScreen(newSubPopupLocation);
         assertEquals(subPopupLocation[0] - deltaX, newSubPopupLocation[0]);
         assertEquals(subPopupLocation[1] - deltaY, newSubPopupLocation[1]);
+    }
+
+    @Test
+    public void testFocusAfterOrientation() throws Throwable {
+        int[] orientationValues = {ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT};
+        int currentOrientation = mActivity.getResources().getConfiguration().orientation;
+        if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+            orientationValues[0] = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+            orientationValues[1] = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
+        }
+
+        View content = createPopupContent(CONTENT_SIZE_DP, CONTENT_SIZE_DP);
+        content.setFocusable(true);
+        mPopupWindow = createPopupWindow(content);
+        mPopupWindow.setFocusable(true);
+        mPopupWindow.setWidth(WindowManager.LayoutParams.MATCH_PARENT);
+        mPopupWindow.setHeight(WindowManager.LayoutParams.MATCH_PARENT);
+        showPopup(R.id.anchor_upper_left);
+        mInstrumentation.waitForIdleSync();
+        assertTrue(content.isFocused());
+
+        if (!hasDeviceFeature(PackageManager.FEATURE_SCREEN_PORTRAIT)) {
+            return;
+        }
+
+
+        for (int i = 0; i < 2; i++) {
+            final int orientation = orientationValues[i];
+            mActivity.runOnUiThread(() ->
+                    mActivity.setRequestedOrientation(orientation));
+            mActivity.waitForConfigurationChanged();
+            // Wait for main thread to be idle to make sure layout and draw have been performed
+            // before continuing.
+            mInstrumentation.waitForIdleSync();
+            assertTrue(content.isFocused());
+        }
+    }
+
+    @Test
+    public void testWinAnimationDurationNoShortenByTinkeredScale() throws Throwable {
+        final long expectedDurationMs = 1500;
+        final long minDurationMs = expectedDurationMs;
+        final long maxDurationMs = expectedDurationMs + 200L;
+        final Range<Long> durationRange = new Range<>(minDurationMs, maxDurationMs);
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        long[] transitionStartTime = new long[1];
+        long[] transitionEndTime = new long[1];
+
+        final float durationScale = 1.0f;
+        float currentDurationScale = ValueAnimator.getDurationScale();
+        try {
+            ValueAnimator.setDurationScale(durationScale);
+            assertTrue("The duration scale of ValueAnimator should be 1.0f,"
+                            + " actual=" + ValueAnimator.getDurationScale(),
+                    ValueAnimator.getDurationScale() == durationScale);
+
+            ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+            animator.setInterpolator(new LinearInterpolator());
+
+            // Verify the actual transition duration is in expected range.
+            Fade enterTransition = new Fade(Fade.IN) {
+                @Override
+                public Animator onAppear(ViewGroup sceneRoot, View view,
+                        TransitionValues startValues, TransitionValues endValues) {
+                    return animator;
+                }
+            };
+            enterTransition.addListener(new TransitionListenerAdapter() {
+                @Override
+                public void onTransitionEnd(Transition transition) {
+                    transitionEndTime[0] = System.currentTimeMillis();
+                    latch.countDown();
+                }
+            });
+            enterTransition.setDuration(expectedDurationMs);
+            assertEquals("Transition duration should be as expected", enterTransition.getDuration(),
+                    expectedDurationMs);
+
+            mActivityRule.runOnUiThread(() -> {
+                mPopupWindow = createPopupWindow(createPopupContent(
+                        CONTENT_SIZE_DP, CONTENT_SIZE_DP));
+                mPopupWindow.setEnterTransition(enterTransition);
+            });
+            mInstrumentation.waitForIdleSync();
+
+            final View upperAnchor = mActivity.findViewById(R.id.anchor_upper);
+            mActivityRule.runOnUiThread(() -> {
+                transitionStartTime[0] = System.currentTimeMillis();
+                mPopupWindow.showAsDropDown(upperAnchor);
+            });
+            latch.await(2, TimeUnit.SECONDS);
+
+            final long totalTime = transitionEndTime[0] - transitionStartTime[0];
+            assertTrue("Actual transition duration should be in the range "
+                    + "<" + minDurationMs + ", " + maxDurationMs + "> ms, "
+                    + "actual=" + totalTime, durationRange.contains(totalTime));
+        } finally {
+            // restore scale value to avoid messing up future tests
+            ValueAnimator.setDurationScale(currentDurationScale);
+        }
     }
 
     private void verifySubPopupPosition(PopupWindow subPopup, int mainAnchorId, int subAnchorId,

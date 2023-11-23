@@ -118,10 +118,6 @@ br{
             "BEF",
             "lur Belgia",
         }
-        BEL{
-            "BEL",
-            "BEL",
-        }
         BGL{
             "BGL",
             "BGL",
@@ -1470,13 +1466,6 @@ br{
             one{"lur Belgia"}
             other{"lur Belgia"}
             two{"lur Belgia"}
-        }
-        BEL{
-            few{"BEL"}
-            many{"BEL"}
-            one{"BEL"}
-            other{"BEL"}
-            two{"BEL"}
         }
         BGM{
             few{"lev sokialour Bulgaria"}
@@ -2962,6 +2951,20 @@ br{
             other{"lur CFA Kreizafrika"}
             two{"lur CFA Kreizafrika"}
         }
+        XAG{
+            few{"oñs troy arcʼhant"}
+            many{"oñs troy arcʼhant"}
+            one{"oñs troy arcʼhant"}
+            other{"oñs troy arcʼhant"}
+            two{"oñs troy arcʼhant"}
+        }
+        XAU{
+            few{"oñs troy aour"}
+            many{"oñs troy aour"}
+            one{"oñs troy aour"}
+            other{"oñs troy aour"}
+            two{"oñs troy aour"}
+        }
         XBA{
             few{"unanenn genaoz europat"}
             many{"a unanennoù kenaoz europat"}
@@ -3032,12 +3035,26 @@ br{
             other{"lur CFA Afrika ar Cʼhornôg"}
             two{"lur CFA BCEAO"}
         }
+        XPD{
+            few{"oñs troy palladiom"}
+            many{"oñs troy palladiom"}
+            one{"oñs troy palladiom"}
+            other{"oñs troy palladiom"}
+            two{"oñs troy palladiom"}
+        }
         XPF{
             few{"lur CFP"}
             many{"a lurioù CFP"}
             one{"lur CFP"}
             other{"lur CFP"}
             two{"lur CFP"}
+        }
+        XPT{
+            few{"oñs troy platin"}
+            many{"oñs troy platin"}
+            one{"oñs troy platin"}
+            other{"oñs troy platin"}
+            two{"oñs troy platin"}
         }
         XTS{
             few{"unanenn voneiz amprouiñ"}
@@ -3138,5 +3155,5 @@ br{
         other{"{0} {1}"}
         two{"{0} {1}"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

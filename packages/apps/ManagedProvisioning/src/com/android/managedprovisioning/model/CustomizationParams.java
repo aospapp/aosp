@@ -51,20 +51,30 @@ public class CustomizationParams {
      */
     public static CustomizationParams createInstance(
             ProvisioningParams params, Context context, Utils utils) {
-        int statusBarColor, mainColor;
+        return createInstance(
+                params.mainColor, params.organizationName, params.supportUrl, context, utils);
+    }
+
+    private static CustomizationParams createInstance(
+            @Nullable Integer mainColor,
+            @Nullable String orgName,
+            @Nullable String supportUrl,
+            Context context,
+            Utils utils) {
+        int statusBarColor;
         boolean useSetupStatusBarColor = false;
-        if (params.mainColor != null) {
-            statusBarColor = mainColor = params.mainColor;
+        if (mainColor != null) {
+            statusBarColor = mainColor;
         } else {
             useSetupStatusBarColor = true;
             statusBarColor = context.getColor(DEFAULT_STATUS_BAR_COLOR_ID);
             mainColor = utils.getAccentColor(context);
         }
 
-        String supportUrl = URLUtil.isNetworkUrl(params.supportUrl) ? params.supportUrl : null;
+        supportUrl = URLUtil.isNetworkUrl(supportUrl) ? supportUrl : null;
 
-        return new CustomizationParams(mainColor, statusBarColor, useSetupStatusBarColor,
-                params.organizationName, supportUrl);
+        return new CustomizationParams(
+                mainColor, statusBarColor, useSetupStatusBarColor, orgName, supportUrl);
     }
 
     private CustomizationParams(int mainColor, int statusBarColor, boolean useSetupStatusBarColor,

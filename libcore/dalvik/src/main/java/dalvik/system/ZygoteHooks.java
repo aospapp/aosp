@@ -21,6 +21,7 @@ import android.icu.text.DecimalFormatSymbols;
 import android.icu.util.ULocale;
 
 import java.io.File;
+import java.io.FileDescriptor;
 
 /**
  * Provides hooks for the zygote to call back into the runtime to perform
@@ -58,6 +59,12 @@ public final class ZygoteHooks {
         for (ULocale uLocale : localesToPin) {
             new DecimalFormatSymbols(uLocale);
         }
+
+        // Framework's LocalLog is used during app start-up. It indirectly uses the current ICU time
+        // zone. Pre-loading the current time zone in ICU improves app startup time. b/150605074
+        // We're being explicit about the fully qualified name of the TimeZone class to avoid
+        // confusion with java.util.TimeZome.getDefault().
+        android.icu.util.TimeZone.getDefault();
     }
 
     /**
@@ -67,6 +74,11 @@ public final class ZygoteHooks {
     public static void onEndPreload() {
         // All cache references created by ICU from this point will be soft.
         CacheValue.setStrength(CacheValue.Strength.SOFT);
+
+        // Clone standard descriptors as originals closed / rebound during zygote post fork.
+        FileDescriptor.in.cloneForFork();
+        FileDescriptor.out.cloneForFork();
+        FileDescriptor.err.cloneForFork();
     }
 
     /**
@@ -112,8 +124,8 @@ public final class ZygoteHooks {
      * before {@code postForkChild} for system server.
      */
     @libcore.api.CorePlatformApi
-    public static void postForkSystemServer() {
-        nativePostForkSystemServer();
+    public static void postForkSystemServer(int runtimeFlags) {
+        nativePostForkSystemServer(runtimeFlags);
     }
 
     /**
@@ -136,13 +148,14 @@ public final class ZygoteHooks {
      */
     @libcore.api.CorePlatformApi
     public static void postForkCommon() {
-        Daemons.startPostZygoteFork();
+        // Notify the runtime before creating new threads.
         nativePostZygoteFork();
+        Daemons.startPostZygoteFork();
     }
 
 
     // Hook for SystemServer specific early initialization post-forking.
-    private static native void nativePostForkSystemServer();
+    private static native void nativePostForkSystemServer(int runtimeFlags);
 
     private static native long nativePreFork();
     private static native void nativePostZygoteFork();

@@ -27,6 +27,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 
 import static org.hamcrest.CoreMatchers.allOf;
@@ -111,8 +112,12 @@ public class UiBot extends Bots.BaseBot {
 
     public void assertMenuEnabled(int id, boolean enabled) {
         UiObject2 menu = findMenuWithName(mContext.getString(id));
-        assertNotNull(menu);
-        assertEquals(enabled, menu.isEnabled());
+        if (enabled) {
+            assertNotNull(menu);
+            assertEquals(enabled, menu.isEnabled());
+        } else {
+            assertNull(menu);
+        }
     }
 
     public void assertInActionMode(boolean inActionMode) {
@@ -204,6 +209,10 @@ public class UiBot extends Bots.BaseBot {
         onView(withText(label)).perform(click());
     }
 
+    public void clickSaveButton() {
+        onView(withId(android.R.id.button1)).perform(click());
+    }
+
     public boolean waitForActionModeBarToAppear() {
         UiObject2 bar =
                 mDevice.wait(Until.findObject(
@@ -273,18 +282,19 @@ public class UiBot extends Bots.BaseBot {
     }
 
     UiObject2 findMenuWithName(String label) {
-        List<UiObject2> menuItems = mDevice.findObjects(By.clazz("android.widget.LinearLayout"));
+        UiObject2 list = mDevice.findObject(By.clazz("android.widget.ListView"));
+        List<UiObject2> menuItems = list.getChildren();
         Iterator<UiObject2> it = menuItems.iterator();
 
         UiObject2 menuItem = null;
         while (it.hasNext()) {
             menuItem = it.next();
             UiObject2 text = menuItem.findObject(By.text(label));
-            if (text != null && menuItem.isClickable()) {
-                break;
+            if (text != null) {
+                return menuItem;
             }
         }
-        return menuItem;
+        return null;
     }
 
     boolean hasMenuWithName(String label) {

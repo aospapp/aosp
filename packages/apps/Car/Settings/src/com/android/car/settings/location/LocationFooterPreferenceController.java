@@ -17,7 +17,6 @@
 package com.android.car.settings.location;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -28,13 +27,13 @@ import android.location.LocationManager;
 
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiPreference;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,10 +47,6 @@ public class LocationFooterPreferenceController extends PreferenceController<Pre
     private static final Intent INJECT_INTENT =
             new Intent(LocationManager.SETTINGS_FOOTER_DISPLAYED_ACTION);
 
-    private List<LocationFooter> mLocationFooters;
-    // List of Location Footer Injectors that will be used to broadcast a
-    // LocationManager.SETTINGS_FOOTER_REMOVED_ACTION intent on controller stop.
-    private final List<ComponentName> mFooterInjectors = new ArrayList<>();
     private PackageManager mPackageManager;
 
     public LocationFooterPreferenceController(Context context, String preferenceKey,
@@ -72,50 +67,24 @@ public class LocationFooterPreferenceController extends PreferenceController<Pre
 
     @Override
     protected void onCreateInternal() {
-        mLocationFooters = getInjectedLocationFooters();
-        for (LocationFooter footer : mLocationFooters) {
-            String footerString;
+        for (LocationFooter footer : getInjectedLocationFooters()) {
             try {
-                footerString = mPackageManager
+                String footerString = mPackageManager
                         .getResourcesForApplication(footer.mApplicationInfo)
                         .getString(footer.mFooterStringRes);
+
+                // For each injected footer: Create a new preference, set the summary
+                // and icon, then inject under the footer preference group.
+                CarUiPreference newPreference = new CarUiPreference(getContext());
+                newPreference.setSummary(footerString);
+                newPreference.setIcon(R.drawable.ic_settings_about);
+                newPreference.setSelectable(false);
+                getPreference().addPreference(newPreference);
             } catch (PackageManager.NameNotFoundException exception) {
                 LOG.w("Resources not found for application "
                         + footer.mApplicationInfo.packageName);
-                continue;
             }
-
-            // For each injected footer: Create a new preference, set the summary
-            // and icon, then inject under the footer preference group.
-            Preference newPreference = new Preference(getContext());
-            newPreference.setSummary(footerString);
-            newPreference.setIcon(R.drawable.ic_settings_about);
-            getPreference().addPreference(newPreference);
-
-            // Send broadcast to the injector announcing a footer has been injected
-            sendBroadcast(footer.mComponentName,
-                    LocationManager.SETTINGS_FOOTER_DISPLAYED_ACTION);
-            // Add the component to the list of injectors so that
-            // it receives a broadcast when the footer is removed.
-            mFooterInjectors.add(footer.mComponentName);
         }
-    }
-
-    /**
-     * Send a {@link LocationManager#SETTINGS_FOOTER_REMOVED_ACTION} broadcast to footer injectors
-     * when LocationSettingsFragment is stopped.
-     */
-    @Override
-    protected void onStopInternal() {
-        // Send broadcast to the footer injectors. Notify them the footer is not visible.
-        for (ComponentName componentName : mFooterInjectors) {
-            sendBroadcast(componentName, LocationManager.SETTINGS_FOOTER_REMOVED_ACTION);
-        }
-    }
-
-    @Override
-    protected void onDestroyInternal() {
-        mLocationFooters = null;
     }
 
     @Override
@@ -162,16 +131,9 @@ public class LocationFooterPreferenceController extends PreferenceController<Pre
                         + LocationManager.METADATA_SETTINGS_FOOTER_STRING);
                 continue;
             }
-            locationFooters.add(new LocationFooter(footerTextRes, appInfo,
-                    new ComponentName(activityInfo.packageName, activityInfo.name)));
+            locationFooters.add(new LocationFooter(footerTextRes, appInfo));
         }
         return locationFooters;
-    }
-
-    private void sendBroadcast(ComponentName componentName, String action) {
-        Intent intent = new Intent(action);
-        intent.setComponent(componentName);
-        getContext().sendBroadcast(intent);
     }
 
     /**
@@ -183,15 +145,10 @@ public class LocationFooterPreferenceController extends PreferenceController<Pre
         private final int mFooterStringRes;
         // Application info of the receiver injecting this footer.
         private final ApplicationInfo mApplicationInfo;
-        // The component that injected the footer. It must be a receiver of
-        // LocationManager.SETTINGS_FOOTER_DISPLAYED_ACTION broadcast.
-        private final ComponentName mComponentName;
 
-        LocationFooter(@StringRes int footerRes, ApplicationInfo appInfo,
-                ComponentName componentName) {
+        LocationFooter(@StringRes int footerRes, ApplicationInfo appInfo) {
             mFooterStringRes = footerRes;
             mApplicationInfo = appInfo;
-            mComponentName = componentName;
         }
     }
 }

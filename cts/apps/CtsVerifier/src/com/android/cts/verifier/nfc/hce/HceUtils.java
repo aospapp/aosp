@@ -25,6 +25,9 @@ public final class HceUtils {
     public static final String LARGE_NUM_AIDS_PREFIX = "F00102030414";
     public static final String LARGE_NUM_AIDS_POSTFIX ="81";
 
+    public static final String TRANSACTION_EVENT_AID = "A000000476416E64726F696443545341";
+    public static final String HCI_CMD = "0025000000";
+
     public static void enableComponent(PackageManager pm, ComponentName component) {
         pm.setComponentEnabledSetting(
                 component,

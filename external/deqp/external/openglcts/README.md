@@ -99,7 +99,7 @@ the Standard Template Library (STL).
 Configuring and Building the Tests
 ------------------------
 The CTS is built via CMake build system. The requirements for the build are as follows:
-- CMake 2.8 or newer, 2.8.8 or newer recommended
+- CMake 3.0 (3.6 for Android NDK r17+ builds) or newer
 - C++ compiler with STL and exceptions support
 - Unix: Make + GCC / Clang
 - Windows: Visual Studio or Windows SDK (available free-of-charge)
@@ -246,14 +246,13 @@ using Cmake.
 #### Windows
 
 Requirements:
-- Visual Studio (2010 or newer recommended) or Windows SDK
+- Visual Studio (2015 or newer recommended) or Windows SDK
 - CMake 2.8.x Windows native version (i.e. not Cygwin version)
 - For GL/ES2/ES3.x tests: OpengGL, OpenGL ES 2 or ES 3.x libraries and headers
 
 To choose the backend build system for CMake, choose one of the following Generator Names for the
 command line examples in the next steps:
-- VS2010: "Visual Studio 10"
-- VS2012: "Visual Studio 11"
+- VS2015: "Visual Studio 14"
 - NMake (must be run in VS or SDK command prompt): "NMake Makefiles"
 
 Building GL, ES2, or ES3.x conformance tests:
@@ -321,14 +320,17 @@ as well. See CMake help for more details.
 
 The conformance tests come with native Android support. The following packages
 are needed in order to build an Android binary:
-- Python 2.7.x
-- Android NDK r15c
-- Android SDK with API 22 packages and tools installed
+- Python 3.x (for the build related scripts, some other scripts still use Python 2.7.x)
+- Android NDK r17c
+- Android SDK with API 28 packages and tools installed
 - Apache Ant
 
 An Android binary (for ES 3.2) can be built using command:
 
 	python scripts/android/build_apk.py --target=openglcts --sdk <path to Android SDK> --ndk <path to Android NDK>
+
+By default the CTS package will be built for the Android API level 28.
+Another API level may be supplied using --native-api command line option.
 
 If Khronos Confidential CTS is present then the script will set `GLCTS_GTF_TARGET`
 to `gles32` by default.
@@ -639,6 +641,14 @@ Full list of parameters for the `glcts` binary:
   --deqp-test-oom=[enable|disable]
     Run tests that exhaust memory on purpose
     default: 'disable'
+
+  --deqp-archive-dir=<value>
+    Path to test resource files
+    default: current working directory
+
+  --deqp-case-fraction=<value>,<value>
+    Run a fraction of the test cases (e.g. N,M means run group%M==N)
+    default: ''
 
   --deqp-egl-config-id=<value>
     Legacy name for --deqp-gl-config-id

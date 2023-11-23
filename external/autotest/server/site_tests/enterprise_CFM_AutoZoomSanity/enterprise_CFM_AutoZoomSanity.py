@@ -143,7 +143,7 @@ class enterprise_CFM_AutoZoomSanity(cfm_base_test.CfmBaseTest):
 
     def run_once(self, session_length, peripheral_dict):
         """Runs the sanity test."""
-        self.cfm_facade.wait_for_meetings_telemetry_commands()
+        self.cfm_facade.wait_for_telemetry_commands()
         self.check_peripherals(peripheral_dict)
         self.cfm_facade.start_meeting_session()
         time.sleep(_LONG_TIMEOUT)

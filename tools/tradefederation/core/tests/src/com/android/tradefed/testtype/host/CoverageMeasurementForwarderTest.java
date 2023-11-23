@@ -17,16 +17,21 @@ package com.android.tradefed.testtype.host;
 
 import static com.google.common.io.Files.getNameWithoutExtension;
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 
 import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 
@@ -42,8 +47,8 @@ import org.mockito.stubbing.Answer;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -70,6 +75,7 @@ public final class CoverageMeasurementForwarderTest {
 
     @Mock IBuildInfo mMockBuildInfo;
     @Mock ITestInvocationListener mMockListener;
+    private TestInformation mTestInfo;
 
     @Rule public TemporaryFolder mFolder = new TemporaryFolder();
 
@@ -82,6 +88,9 @@ public final class CoverageMeasurementForwarderTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+        IInvocationContext context = new InvocationContext();
+        context.addDeviceBuildInfo("device", mMockBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
 
         Answer<Void> javaLogCapturingListener =
                 invocation -> {
@@ -122,13 +131,12 @@ public final class CoverageMeasurementForwarderTest {
                 .getFile(ARTIFACT_NAME4);
 
         mForwarder = new CoverageMeasurementForwarder();
-        mForwarder.setBuild(mMockBuildInfo);
     }
 
     @Test
     public void testForwardSingleJavaArtifact() {
         mForwarder.setCoverageMeasurements(ImmutableList.of(ARTIFACT_NAME1));
-        mForwarder.run(mMockListener);
+        mForwarder.run(mTestInfo, mMockListener);
 
         assertThat(mCapturedJavaLogs)
                 .containsExactly(getNameWithoutExtension(ARTIFACT_NAME1), MEASUREMENT1);
@@ -138,7 +146,7 @@ public final class CoverageMeasurementForwarderTest {
     @Test
     public void testForwardMultipleJavaArtifacts() {
         mForwarder.setCoverageMeasurements(ImmutableList.of(ARTIFACT_NAME1, ARTIFACT_NAME2));
-        mForwarder.run(mMockListener);
+        mForwarder.run(mTestInfo, mMockListener);
 
         assertThat(mCapturedJavaLogs)
                 .containsExactly(
@@ -153,7 +161,7 @@ public final class CoverageMeasurementForwarderTest {
     public void testNoSuchJavaArtifact() {
         mForwarder.setCoverageMeasurements(ImmutableList.of(NONEXISTANT_ARTIFACT1));
         try {
-            mForwarder.run(mMockListener);
+            mForwarder.run(mTestInfo, mMockListener);
             fail("Should have thrown an exception.");
         } catch (RuntimeException e) {
             // Expected
@@ -166,7 +174,7 @@ public final class CoverageMeasurementForwarderTest {
     public void testForwardSingleNativeArtifact() {
         mForwarder.setCoverageMeasurements(ImmutableList.of(ARTIFACT_NAME3));
         mForwarder.setCoverageLogDataType(LogDataType.NATIVE_COVERAGE);
-        mForwarder.run(mMockListener);
+        mForwarder.run(mTestInfo, mMockListener);
 
         assertThat(mCapturedJavaLogs).isEmpty();
         assertThat(mCapturedNativeLogs)
@@ -177,7 +185,7 @@ public final class CoverageMeasurementForwarderTest {
     public void testForwardMultipleNativeArtifacts() {
         mForwarder.setCoverageMeasurements(ImmutableList.of(ARTIFACT_NAME3, ARTIFACT_NAME4));
         mForwarder.setCoverageLogDataType(LogDataType.NATIVE_COVERAGE);
-        mForwarder.run(mMockListener);
+        mForwarder.run(mTestInfo, mMockListener);
 
         assertThat(mCapturedJavaLogs).isEmpty();
         assertThat(mCapturedNativeLogs)
@@ -193,7 +201,7 @@ public final class CoverageMeasurementForwarderTest {
         mForwarder.setCoverageMeasurements(ImmutableList.of(NONEXISTANT_ARTIFACT2));
         mForwarder.setCoverageLogDataType(LogDataType.NATIVE_COVERAGE);
         try {
-            mForwarder.run(mMockListener);
+            mForwarder.run(mTestInfo, mMockListener);
             fail("Should have thrown an exception.");
         } catch (RuntimeException e) {
             // Expected

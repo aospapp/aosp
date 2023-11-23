@@ -15,21 +15,18 @@
  */
 package com.android.tradefed.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Add packages to whitelist to allow it to run in the background.
- */
+/** Add packages to whitelist to allow it to run in the background. */
 @OptionClass(alias = "add-whitelist-package")
-public class AddWhitelistPackage extends BaseTargetPreparer implements ITargetCleaner {
+public class AddWhitelistPackage extends BaseTargetPreparer {
     @Option(
             name = "whitelist-package-name",
             description = "Name of package to put in whitelist"
@@ -37,22 +34,21 @@ public class AddWhitelistPackage extends BaseTargetPreparer implements ITargetCl
     private List<String> mPackages = new ArrayList<>();
 
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+    public void setUp(TestInformation testInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
         for (String pkg : mPackages) {
-            device.executeShellCommand(
-                    String.format("dumpsys deviceidle whitelist +%s", pkg));
+            testInfo.getDevice()
+                    .executeShellCommand(String.format("dumpsys deviceidle whitelist +%s", pkg));
         }
 
-        CLog.d(device.executeShellCommand("dumpsys deviceidle whitelist"));
+        CLog.d(testInfo.getDevice().executeShellCommand("dumpsys deviceidle whitelist"));
     }
 
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         for (String pkg : mPackages) {
-            device.executeShellCommand(
-                    String.format("dumpsys deviceidle whitelist -%s", pkg));
+            testInfo.getDevice()
+                    .executeShellCommand(String.format("dumpsys deviceidle whitelist -%s", pkg));
         }
     }
 }

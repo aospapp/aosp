@@ -17,10 +17,11 @@
 package android.telephony;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.telephony.TelephonyManager.NetworkType;
+import android.telephony.Annotation.NetworkType;
 
 import java.util.Objects;
 
@@ -44,6 +45,7 @@ public final class CallAttributes implements Parcelable {
         this.mCallQuality = callQuality;
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "mPreciseCallState=" + mPreciseCallState + " mNetworkType=" + mNetworkType
@@ -109,7 +111,7 @@ public final class CallAttributes implements Parcelable {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (o == null || !(o instanceof CallAttributes) || hashCode() != o.hashCode()) {
             return false;
         }
@@ -128,14 +130,14 @@ public final class CallAttributes implements Parcelable {
     /**
      * {@link Parcelable#describeContents}
      */
-    public @Parcelable.ContentsFlags int describeContents() {
+    public int describeContents() {
         return 0;
     }
 
     /**
      * {@link Parcelable#writeToParcel}
      */
-    public void writeToParcel(Parcel dest, @Parcelable.WriteFlags int flags) {
+    public void writeToParcel(Parcel dest, int flags) {
         dest.writeParcelable(mPreciseCallState, flags);
         dest.writeInt(mNetworkType);
         dest.writeParcelable(mCallQuality, flags);

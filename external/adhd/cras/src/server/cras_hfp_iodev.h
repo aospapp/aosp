@@ -15,12 +15,11 @@ struct hfp_slc_handle;
 /*
  * Creates an hfp iodev.
  */
-struct cras_iodev *hfp_iodev_create(
-		enum CRAS_STREAM_DIRECTION dir,
-		struct cras_bt_device *device,
-		struct hfp_slc_handle *slc,
-		enum cras_bt_device_profile profile,
-		struct hfp_info *info);
+struct cras_iodev *hfp_iodev_create(enum CRAS_STREAM_DIRECTION dir,
+				    struct cras_bt_device *device,
+				    struct hfp_slc_handle *slc,
+				    enum cras_bt_device_profile profile,
+				    struct hfp_info *info);
 
 void hfp_iodev_destroy(struct cras_iodev *iodev);
 

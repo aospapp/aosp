@@ -115,7 +115,7 @@ void JitCompiler::ParseCompilerOptions() {
   }
 }
 
-extern "C" void* jit_load() {
+extern "C" JitCompilerInterface* jit_load() {
   VLOG(jit) << "Create jit compiler";
   auto* const jit_compiler = JitCompiler::Create();
   CHECK(jit_compiler != nullptr);
@@ -123,49 +123,30 @@ extern "C" void* jit_load() {
   return jit_compiler;
 }
 
-extern "C" void jit_unload(void* handle) {
-  DCHECK(handle != nullptr);
-  delete reinterpret_cast<JitCompiler*>(handle);
-}
-
-extern "C" bool jit_compile_method(
-    void* handle, ArtMethod* method, Thread* self, bool baseline, bool osr)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  auto* jit_compiler = reinterpret_cast<JitCompiler*>(handle);
-  DCHECK(jit_compiler != nullptr);
-  return jit_compiler->CompileMethod(self, method, baseline, osr);
-}
-
-extern "C" void jit_types_loaded(void* handle, mirror::Class** types, size_t count)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  auto* jit_compiler = reinterpret_cast<JitCompiler*>(handle);
-  DCHECK(jit_compiler != nullptr);
-  const CompilerOptions& compiler_options = jit_compiler->GetCompilerOptions();
+void JitCompiler::TypesLoaded(mirror::Class** types, size_t count) {
+  const CompilerOptions& compiler_options = GetCompilerOptions();
   if (compiler_options.GetGenerateDebugInfo()) {
+    InstructionSet isa = compiler_options.GetInstructionSet();
+    const InstructionSetFeatures* features = compiler_options.GetInstructionSetFeatures();
     const ArrayRef<mirror::Class*> types_array(types, count);
-    std::vector<uint8_t> elf_file = debug::WriteDebugElfFileForClasses(
-        kRuntimeISA, compiler_options.GetInstructionSetFeatures(), types_array);
-    // We never free debug info for types, so we don't need to provide a handle
-    // (which would have been otherwise used as identifier to remove it later).
-    AddNativeDebugInfoForJit(Thread::Current(),
-                             /*code_ptr=*/ nullptr,
-                             elf_file,
-                             debug::PackElfFileForJIT,
-                             compiler_options.GetInstructionSet(),
-                             compiler_options.GetInstructionSetFeatures());
+    std::vector<uint8_t> elf_file =
+        debug::WriteDebugElfFileForClasses(isa, features, types_array);
+
+    // NB: Don't allow packing since it would remove non-backtrace data.
+    MutexLock mu(Thread::Current(), *Locks::jit_lock_);
+    AddNativeDebugInfoForJit(/*code_ptr=*/ nullptr, elf_file, /*allow_packing=*/ false);
   }
 }
 
-extern "C" void jit_update_options(void* handle) {
-  JitCompiler* jit_compiler = reinterpret_cast<JitCompiler*>(handle);
-  DCHECK(jit_compiler != nullptr);
-  jit_compiler->ParseCompilerOptions();
+bool JitCompiler::GenerateDebugInfo() {
+  return GetCompilerOptions().GetGenerateDebugInfo();
 }
 
-extern "C" bool jit_generate_debug_info(void* handle) {
-  JitCompiler* jit_compiler = reinterpret_cast<JitCompiler*>(handle);
-  DCHECK(jit_compiler != nullptr);
-  return jit_compiler->GetCompilerOptions().GetGenerateDebugInfo();
+std::vector<uint8_t> JitCompiler::PackElfFileForJIT(ArrayRef<const JITCodeEntry*> elf_files,
+                                                    ArrayRef<const void*> removed_symbols,
+                                                    bool compress,
+                                                    /*out*/ size_t* num_symbols) {
+  return debug::PackElfFileForJIT(elf_files, removed_symbols, compress, num_symbols);
 }
 
 JitCompiler::JitCompiler() {
@@ -181,8 +162,11 @@ JitCompiler::~JitCompiler() {
   }
 }
 
-bool JitCompiler::CompileMethod(Thread* self, ArtMethod* method, bool baseline, bool osr) {
-  SCOPED_TRACE << "JIT compiling " << method->PrettyMethod();
+bool JitCompiler::CompileMethod(
+    Thread* self, JitMemoryRegion* region, ArtMethod* method, bool baseline, bool osr) {
+  SCOPED_TRACE << "JIT compiling "
+               << method->PrettyMethod()
+               << " (baseline=" << baseline << ", osr=" << osr << ")";
 
   DCHECK(!method->IsProxyMethod());
   DCHECK(method->GetDeclaringClass()->IsResolved());
@@ -198,7 +182,8 @@ bool JitCompiler::CompileMethod(Thread* self, ArtMethod* method, bool baseline, 
     TimingLogger::ScopedTiming t2("Compiling", &logger);
     JitCodeCache* const code_cache = runtime->GetJit()->GetCodeCache();
     uint64_t start_ns = NanoTime();
-    success = compiler_->JitCompile(self, code_cache, method, baseline, osr, jit_logger_.get());
+    success = compiler_->JitCompile(
+        self, code_cache, region, method, baseline, osr, jit_logger_.get());
     uint64_t duration_ns = NanoTime() - start_ns;
     VLOG(jit) << "Compilation of "
               << method->PrettyMethod()

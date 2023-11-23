@@ -37,6 +37,9 @@ int audio_route_reset_path(struct audio_route *ar, const char *name);
 /* Reset and update mixer with audio route path by name */
 int audio_route_reset_and_update_path(struct audio_route *ar, const char *name);
 
+/* Reset and update mixer with audio route path by name forcely */
+int audio_route_force_reset_and_update_path(struct audio_route *ar, const char *name);
+
 /* Reset the audio routes back to the initial state */
 void audio_route_reset(struct audio_route *ar);
 

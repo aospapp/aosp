@@ -66,6 +66,11 @@ public class SensorFeaturesDeactivator {
         mStateContainer.waitForUserToContinue();
     }
 
+    public synchronized void requestToSetLocationMode(boolean state) throws InterruptedException {
+        mLocationMode.captureInitialState();
+        mLocationMode.requestToSetMode(mStateContainer, state);
+    }
+
     public synchronized void requestToRestoreFeatures() throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             // TODO: in the future, if the thread is interrupted, we might need to serialize the

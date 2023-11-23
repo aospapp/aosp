@@ -41,12 +41,15 @@
 #include <android-base/properties.h>
 #endif
 
+#include "command.h"
 #include "event_type.h"
 #include "IOEventLoop.h"
 #include "read_elf.h"
 #include "thread_tree.h"
 #include "utils.h"
 #include "workload.h"
+
+using namespace simpleperf;
 
 class LineReader {
  public:
@@ -90,34 +93,6 @@ std::vector<int> GetOnlineCpus() {
   }
   CHECK(!result.empty()) << "can't get online cpu information";
   return result;
-}
-
-std::vector<int> GetCpusFromString(const std::string& s) {
-  std::set<int> cpu_set;
-  bool have_dash = false;
-  const char* p = s.c_str();
-  char* endp;
-  int last_cpu;
-  int cpu;
-  // Parse line like: 0,1-3, 5, 7-8
-  while ((cpu = static_cast<int>(strtol(p, &endp, 10))) != 0 || endp != p) {
-    if (have_dash && !cpu_set.empty()) {
-      for (int t = last_cpu + 1; t < cpu; ++t) {
-        cpu_set.insert(t);
-      }
-    }
-    have_dash = false;
-    cpu_set.insert(cpu);
-    last_cpu = cpu;
-    p = endp;
-    while (!isdigit(*p) && *p != '\0') {
-      if (*p == '-') {
-        have_dash = true;
-      }
-      ++p;
-    }
-  }
-  return std::vector<int>(cpu_set.begin(), cpu_set.end());
 }
 
 static std::vector<KernelMmap> GetLoadedModules() {
@@ -214,7 +189,7 @@ void GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<KernelMmap>* m
   }
 }
 
-static bool ReadThreadNameAndPid(pid_t tid, std::string* comm, pid_t* pid) {
+bool ReadThreadNameAndPid(pid_t tid, std::string* comm, pid_t* pid) {
   android::procinfo::ProcessInfo procinfo;
   if (!android::procinfo::GetProcessInfo(tid, &procinfo)) {
     return false;
@@ -321,8 +296,18 @@ static bool ReadPerfEventParanoid(int* value) {
 }
 
 bool CanRecordRawData() {
+  if (IsRoot()) {
+    return true;
+  }
+#if defined(__ANDROID__)
+  // Android R uses selinux to control perf_event_open. Whether raw data can be recorded is hard
+  // to check unless we really try it. And probably there is no need to record raw data in non-root
+  // users.
+  return false;
+#else
   int value;
   return ReadPerfEventParanoid(&value) && value == -1;
+#endif
 }
 
 static const char* GetLimitLevelDescription(int limit_level) {
@@ -342,10 +327,6 @@ bool CheckPerfEventLimit() {
   // enough permission to create inherited tracepoint events, write -1 to perf_event_paranoid.
   // See http://b/62230699.
   if (IsRoot()) {
-    char* env = getenv("PERFPROFD_DISABLE_PERF_EVENT_PARANOID_CHANGE");
-    if (env != nullptr && strcmp(env, "1") == 0) {
-      return true;
-    }
     return android::base::WriteStringToFile("-1", "/proc/sys/kernel/perf_event_paranoid");
   }
   int limit_level;
@@ -654,6 +635,9 @@ bool InAppRunner::RunCmdInApp(const std::string& cmd, const std::vector<std::str
   // 1. Build cmd args running in app's context.
   std::vector<std::string> args = GetPrefixArgs(cmd);
   args.insert(args.end(), {"--in-app", "--log", GetLogSeverityName()});
+  if (log_to_android_buffer) {
+    args.emplace_back("--log-to-android-buffer");
+  }
   if (need_tracepoint_events) {
     // Since we can't read tracepoint events from tracefs in app's context, we need to prepare
     // them in tracepoint_file in shell's context, and pass the path of tracepoint_file to the
@@ -808,17 +792,34 @@ class SimpleperfAppRunner : public InAppRunner {
 
 }  // namespace
 
+static bool allow_run_as = true;
+static bool allow_simpleperf_app_runner = true;
+
+void SetRunInAppToolForTesting(bool run_as, bool simpleperf_app_runner) {
+  allow_run_as = run_as;
+  allow_simpleperf_app_runner = simpleperf_app_runner;
+}
+
 bool RunInAppContext(const std::string& app_package_name, const std::string& cmd,
                      const std::vector<std::string>& args, size_t workload_args_size,
                      const std::string& output_filepath, bool need_tracepoint_events) {
-  std::unique_ptr<InAppRunner> in_app_runner(new RunAs(app_package_name));
-  if (!in_app_runner->Prepare()) {
+  std::unique_ptr<InAppRunner> in_app_runner;
+  if (allow_run_as) {
+    in_app_runner.reset(new RunAs(app_package_name));
+    if (!in_app_runner->Prepare()) {
+      in_app_runner = nullptr;
+    }
+  }
+  if (!in_app_runner && allow_simpleperf_app_runner) {
     in_app_runner.reset(new SimpleperfAppRunner(app_package_name));
     if (!in_app_runner->Prepare()) {
-      LOG(ERROR) << "Package " << app_package_name
-          << " doesn't exist or isn't debuggable/profileable.";
-      return false;
+      in_app_runner = nullptr;
     }
+  }
+  if (!in_app_runner) {
+    LOG(ERROR) << "Package " << app_package_name
+               << " doesn't exist or isn't debuggable/profileable.";
+    return false;
   }
   return in_app_runner->RunCmdInApp(cmd, args, workload_args_size, output_filepath,
                                     need_tracepoint_events);
@@ -938,4 +939,16 @@ std::string GetCompleteProcessName(pid_t pid) {
     }
   }
   return s;
+}
+
+const char* GetTraceFsDir() {
+  static const char* tracefs_dirs[] = {
+    "/sys/kernel/debug/tracing", "/sys/kernel/tracing"
+  };
+  for (const char* path : tracefs_dirs) {
+    if (IsDir(path)) {
+      return path;
+    }
+  }
+  return nullptr;
 }

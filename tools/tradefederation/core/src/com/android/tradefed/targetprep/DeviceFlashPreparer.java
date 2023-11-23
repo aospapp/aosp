@@ -26,18 +26,22 @@ import com.android.tradefed.device.IDeviceManager;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
 import com.android.tradefed.host.IHostOptions;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.targetprep.IDeviceFlasher.UserDataFlashOption;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 /** A {@link ITargetPreparer} that flashes an image on physical Android hardware. */
-public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements ITargetCleaner {
+public abstract class DeviceFlashPreparer extends BaseTargetPreparer {
 
     /**
      * Enum of options for handling the encryption of userdata image
@@ -106,6 +110,12 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
     )
     private Collection<String> mFastbootFlashOptions = new ArrayList<>();
 
+    @Option(
+            name = "flash-ramdisk",
+            description =
+                    "flashes ramdisk (boot partition) in addition " + "to regular system image")
+    private boolean mShouldFlashRamdisk = false;
+
     /**
      * Sets the device boot time
      * <p/>
@@ -113,6 +123,11 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
      */
     void setDeviceBootTime(long bootTime) {
         mDeviceBootTime = bootTime;
+    }
+
+    /** Gets the device boot wait time */
+    protected long getDeviceBootWaitTime() {
+        return mDeviceBootTime;
     }
 
     /**
@@ -162,19 +177,24 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
         mUserDataFlashOption = flashOption;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
-            DeviceNotAvailableException, BuildError {
+    public void setUp(TestInformation testInfo)
+            throws TargetSetupError, DeviceNotAvailableException, BuildError {
         if (isDisabled()) {
             CLog.i("Skipping device flashing.");
             return;
         }
+        ITestDevice device = testInfo.getDevice();
+        IBuildInfo buildInfo = testInfo.getBuildInfo();
         CLog.i("Performing setup on %s", device.getSerialNumber());
         if (!(buildInfo instanceof IDeviceBuildInfo)) {
             throw new IllegalArgumentException("Provided buildInfo is not a IDeviceBuildInfo");
+        }
+        IDeviceBuildInfo deviceBuild = (IDeviceBuildInfo) buildInfo;
+        if (mShouldFlashRamdisk && deviceBuild.getRamdiskFile() == null) {
+            throw new IllegalArgumentException(
+                    "ramdisk flashing enabled but no ramdisk file was found in build info");
         }
         // don't allow interruptions during flashing operations.
         getRunUtil().allowInterrupt(false);
@@ -183,7 +203,6 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
         long flashingTime = -1;
         long start = -1;
         try {
-            IDeviceBuildInfo deviceBuild = (IDeviceBuildInfo)buildInfo;
             checkDeviceProductType(device, deviceBuild);
             device.setRecoveryMode(RecoveryMode.ONLINE);
             IDeviceFlasher flasher = createFlasher(device);
@@ -193,13 +212,15 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
                 start = System.currentTimeMillis();
                 deviceManager.takeFlashingPermit();
                 queueTime = System.currentTimeMillis() - start;
-                CLog.v("Flashing permit obtained after %ds",
-                        TimeUnit.MILLISECONDS.toSeconds((queueTime)));
+                CLog.v(
+                        "Flashing permit obtained after %ds",
+                        TimeUnit.MILLISECONDS.toSeconds(queueTime));
 
                 flasher.overrideDeviceOptions(device);
                 flasher.setUserDataFlashOption(mUserDataFlashOption);
                 flasher.setForceSystemFlash(mForceSystemFlash);
                 flasher.setDataWipeSkipList(mDataWipeSkipList);
+                flasher.setShouldFlashRamdisk(mShouldFlashRamdisk);
                 if (flasher instanceof FastbootDeviceFlasher) {
                     ((FastbootDeviceFlasher) flasher).setFlashOptions(mFastbootFlashOptions);
                 }
@@ -295,8 +316,11 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
             // throw DNAE - assume device hardware problem - we think flash was successful but
             // device is not running right bits
             throw new DeviceNotAvailableException(
-                    String.format("Unexpected build after flashing. Expected %s, actual %s",
-                            expectedBuildAttr, actualBuildAttr), serial);
+                    String.format(
+                            "Unexpected build after flashing. Expected %s, actual %s",
+                            expectedBuildAttr, actualBuildAttr),
+                    serial,
+                    DeviceErrorIdentifier.ERROR_AFTER_FLASHING);
         }
     }
 
@@ -415,12 +439,12 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
     }
 
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         if (isDisabled()) {
             CLog.i("Skipping device flashing tearDown.");
             return;
         }
+        ITestDevice device = testInfo.getDevice();
         if (mEncryptUserData == EncryptionOptions.ENCRYPT
                 && mUserDataFlashOption != UserDataFlashOption.RETAIN) {
             if (e instanceof DeviceNotAvailableException) {
@@ -446,5 +470,23 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
     protected void reportFlashMetrics(String branch, String buildFlavor, String buildId,
             String serial, long queueTime, long flashingTime, CommandStatus flashingStatus) {
         // no-op as default implementation
+    }
+
+    /**
+     * Sets the option for whether ramdisk should be flashed
+     *
+     * @param shouldFlashRamdisk
+     */
+    @VisibleForTesting
+    void setShouldFlashRamdisk(boolean shouldFlashRamdisk) {
+        mShouldFlashRamdisk = shouldFlashRamdisk;
+    }
+
+    protected void setSkipPostFlashFlavorCheck(boolean skipPostFlashFlavorCheck) {
+        mSkipPostFlashFlavorCheck = skipPostFlashFlavorCheck;
+    }
+
+    protected void setSkipPostFlashBuildIdCheck(boolean skipPostFlashBuildIdCheck) {
+        mSkipPostFlashBuildIdCheck = skipPostFlashBuildIdCheck;
     }
 }

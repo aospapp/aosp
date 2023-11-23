@@ -19,4 +19,8 @@ $(call inherit-product, build/target/product/go_defaults.mk)
 # By default, enable zram; experiment can toggle the flag,
 # which takes effect on boot
 PRODUCT_PROPERTY_OVERRIDES += \
-    persist.sys.zram_enabled=1
+    ro.statsd.enable=true \
+    pm.dexopt.downgrade_after_inactive_days=10 \
+    pm.dexopt.shared=quicken \
+    dalvik.vm.heapgrowthlimit=128m \
+    dalvik.vm.heapsize=256m \

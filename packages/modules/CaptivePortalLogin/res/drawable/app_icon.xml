@@ -15,7 +15,7 @@
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background>
-        <color android:color="#008577" />
+        <color android:color="@color/app_icon_background_color"/>
     </background>
     <foreground>
         <inset

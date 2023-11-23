@@ -40,5 +40,5 @@ PRODUCT_SDK_ADDON_DOC_MODULES := platform_library
 $(call inherit-product, $(SRC_TARGET_DIR)/product/sdk.mk)
 
 # Real name of the add-on. This is the name used to build the add-on.
-# Use 'make PRODUCT-<PRODUCT_NAME>-sdk_addon' to build the add-on.
+# Use 'lunch <PRODUCT_NAME>-userdebug; m sdk_addon' to build the add-on.
 PRODUCT_NAME := sample_addon

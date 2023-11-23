@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"確定"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"未將檔案傳送給「<xliff:g id="RECIPIENT">%1$s</xliff:g>」。"</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"檔案：<xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"再試一次"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"關閉"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"確定"</string>
     <string name="unknown_file" msgid="6092727753965095366">"未知的檔案"</string>
@@ -100,7 +99,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"連線失敗。"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"無法正確處理要求。"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"未知的錯誤。"</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"已透過藍牙接收的檔案"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"透過藍牙接收的檔案"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"藍牙分享"</string>
     <string name="download_success" msgid="7036160438766730871">"已完成 <xliff:g id="FILE_SIZE">%1$s</xliff:g> 的接收作業。"</string>
     <string name="upload_success" msgid="4014469387779648949">"已完成 <xliff:g id="FILE_SIZE">%1$s</xliff:g> 的傳送作業。"</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"已中斷與藍牙音訊的連線"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"藍牙音訊"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"無法轉移大於 4GB 的檔案"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"使用藍牙連線"</string>
 </resources>

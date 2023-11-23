@@ -19,7 +19,7 @@ set(TEST_SOURCES
         ${SELF_TEST_DIR}/IntrospectiveTests/CmdLine.tests.cpp
         ${SELF_TEST_DIR}/IntrospectiveTests/GeneratorsImpl.tests.cpp
         ${SELF_TEST_DIR}/IntrospectiveTests/PartTracker.tests.cpp
-        ${SELF_TEST_DIR}/IntrospectiveTests/TagAlias.tests.cpp
+        ${SELF_TEST_DIR}/IntrospectiveTests/Tag.tests.cpp
         ${SELF_TEST_DIR}/IntrospectiveTests/String.tests.cpp
         ${SELF_TEST_DIR}/IntrospectiveTests/Xml.tests.cpp
         ${SELF_TEST_DIR}/UsageTests/Approx.tests.cpp
@@ -322,6 +322,9 @@ endif()
 
 # configure unit tests via CTest
 add_test(NAME RunTests COMMAND $<TARGET_FILE:SelfTest>)
+set_tests_properties(RunTests PROPERTIES
+    FAIL_REGULAR_EXPRESSION "Filters:"
+)
 
 add_test(NAME ListTests COMMAND $<TARGET_FILE:SelfTest> --list-tests --verbosity high)
 set_tests_properties(ListTests PROPERTIES 

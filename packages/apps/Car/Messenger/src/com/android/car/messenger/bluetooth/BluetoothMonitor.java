@@ -10,12 +10,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Parcelable;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
-
 import com.android.car.messenger.log.L;
-
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,12 +28,12 @@ public class BluetoothMonitor {
     private final BluetoothSdpReceiver mBluetoothSdpReceiver;
     private final MapDeviceMonitor mMapDeviceMonitor;
     private final BluetoothProfile.ServiceListener mMapServiceListener;
+    private BluetoothMapClient mBluetoothMapClient;
 
     private final Set<OnBluetoothEventListener> mListeners;
 
     public BluetoothMonitor(@NonNull Context context) {
         mContext = context;
-
         mBluetoothMapReceiver = new BluetoothMapReceiver();
         mBluetoothSdpReceiver = new BluetoothSdpReceiver();
         mMapDeviceMonitor = new MapDeviceMonitor();
@@ -50,7 +47,7 @@ public class BluetoothMonitor {
             @Override
             public void onServiceDisconnected(int profile) {
                 L.d(TAG, "Disconnected from MAP service!");
-                onMapDisconnected(profile);
+                onMapDisconnected();
             }
         };
         mListeners = new HashSet<>();
@@ -117,10 +114,8 @@ public class BluetoothMonitor {
 
         /**
          * Callback issued when a MAP client has been disconnected.
-         *
-         * @param profile see {@link BluetoothProfile.ServiceListener#onServiceDisconnected(int)}
          */
-        void onMapDisconnected(int profile);
+        void onMapDisconnected();
 
         /**
          * Callback issued when a new SDP record has been detected.
@@ -148,11 +143,13 @@ public class BluetoothMonitor {
     }
 
     private void onMapConnected(BluetoothMapClient client) {
+        mBluetoothMapClient = client;
         mListeners.forEach(listener -> listener.onMapConnected(client));
     }
 
-    private void onMapDisconnected(int profile) {
-        mListeners.forEach(listener -> listener.onMapDisconnected(profile));
+    private void onMapDisconnected() {
+        mBluetoothMapClient = null;
+        mListeners.forEach(listener -> listener.onMapDisconnected());
     }
 
     private void onSdpRecord(BluetoothDevice device, boolean supportsReply) {
@@ -180,7 +177,12 @@ public class BluetoothMonitor {
     /**
      * Performs {@link Context} related cleanup (such as unregistering from receivers).
      */
-    public void cleanup() {
+    public void onDestroy() {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (adapter != null) {
+            adapter.closeProfileProxy(BluetoothProfile.MAP_CLIENT, mBluetoothMapClient);
+        }
+        onMapDisconnected();
         mListeners.clear();
         mBluetoothMapReceiver.unregisterReceivers();
         mBluetoothSdpReceiver.unregisterReceivers();

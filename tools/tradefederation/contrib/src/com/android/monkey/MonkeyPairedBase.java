@@ -16,24 +16,22 @@
 
 package com.android.monkey;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
-import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.util.clockwork.ClockworkUtils;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.List;
-import java.util.Map;
 
 /** Runner for paired stress tests which use the monkey command. */
-public class MonkeyPairedBase extends MonkeyBase implements IMultiDeviceTest {
+public class MonkeyPairedBase extends MonkeyBase {
 
     @Option(
             name = "companion-recurring-command",
@@ -61,12 +59,16 @@ public class MonkeyPairedBase extends MonkeyBase implements IMultiDeviceTest {
 
     /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        ClockworkUtils cwUtils = new ClockworkUtils();
+        mCompanion =
+                cwUtils.setUpMultiDevice(testInfo.getContext().getDeviceBuildMap(), mDeviceList);
         if (mCompanionRecurringCommand != null) {
             scheduleRecurringCommand();
         }
         try {
-            super.run(listener);
+            super.run(testInfo, listener);
         } finally {
             stopRecurringCommand();
         }
@@ -101,12 +103,5 @@ public class MonkeyPairedBase extends MonkeyBase implements IMultiDeviceTest {
                     "Could not terminate recurring command on %s (%s)",
                     getCompanion().getSerialNumber(), mCompanionRecurringCommand);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
-        ClockworkUtils cwUtils = new ClockworkUtils();
-        mCompanion = cwUtils.setUpMultiDevice(deviceInfos, mDeviceList);
     }
 }

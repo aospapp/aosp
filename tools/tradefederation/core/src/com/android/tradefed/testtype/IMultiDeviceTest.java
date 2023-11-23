@@ -22,12 +22,16 @@ import com.android.tradefed.targetprep.ITargetPreparer;
 import java.util.Map;
 
 /**
- * A test that needs reference to all the {@link ITestDevice} and their associated
- * {@link IBuildInfo}
- * <p/>
- * Most tests should not have a dependency on the build-under-test, and
- * should rely on {@link ITargetPreparer}s to prepare the test environment.
+ * A test that needs reference to all the {@link ITestDevice} and their associated {@link
+ * IBuildInfo}
+ *
+ * <p>Most tests should not have a dependency on the build-under-test, and should rely on {@link
+ * ITargetPreparer}s to prepare the test environment.
+ *
+ * @deprecated This interface is kept temporarily for compatibility but is not actually used
+ *     anymore. Please do not implement it.
  */
+@Deprecated
 public interface IMultiDeviceTest {
 
     public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos);

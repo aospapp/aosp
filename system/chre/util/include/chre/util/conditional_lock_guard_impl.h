@@ -21,8 +21,8 @@
 
 namespace chre {
 
-template<typename MutexType>
-ConditionalLockGuard<MutexType>::ConditionalLockGuard(MutexType& mutex,
+template <typename MutexType>
+ConditionalLockGuard<MutexType>::ConditionalLockGuard(MutexType &mutex,
                                                       bool shouldLock)
     : mMutex(mutex), mShouldLock(shouldLock) {
   if (mShouldLock) {
@@ -30,7 +30,7 @@ ConditionalLockGuard<MutexType>::ConditionalLockGuard(MutexType& mutex,
   }
 }
 
-template<typename MutexType>
+template <typename MutexType>
 ConditionalLockGuard<MutexType>::~ConditionalLockGuard() {
   if (mShouldLock) {
     mMutex.unlock();

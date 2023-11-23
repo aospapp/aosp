@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/bluetooth_pair_new_device">
+    android:title="@string/bluetooth_pair_new_device"
+    android:key="@string/psk_bluetooth_pairing_selection">
     <Preference
         android:key="@string/pk_bluetooth_name"
         android:title="@string/bluetooth_name"

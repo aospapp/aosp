@@ -21,10 +21,8 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PRO
 import android.content.Context;
 import android.os.UserManager;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.ProvisionLogger;
-import com.android.managedprovisioning.finalization.FinalizationController;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.CopyAccountToUserTask;
@@ -48,17 +46,7 @@ public class ProfileOwnerProvisioningController extends AbstractProvisioningCont
             ProvisioningParams params,
             int userId,
             ProvisioningControllerCallback callback) {
-        this(context, params, userId, callback, new FinalizationController(context));
-    }
-
-    @VisibleForTesting
-    ProfileOwnerProvisioningController(
-            Context context,
-            ProvisioningParams params,
-            int userId,
-            ProvisioningControllerCallback callback,
-            FinalizationController finalizationController) {
-        super(context, params, userId, callback, finalizationController);
+        super(context, params, userId, callback);
         mParentUserId = userId;
     }
 

@@ -13,7 +13,15 @@
 // limitations under the License.
 //
 
-filegroup {
-    name: "platform-properties",
+sysprop_library {
+    name: "PlatformProperties",
     srcs: ["**/*.sysprop"],
+    property_owner: "Platform",
+    api_packages: ["android.sysprop"],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
 }

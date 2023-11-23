@@ -20,8 +20,7 @@
 
     <PreferenceCategory
         android:key="recently_used_apps_category"
-        android:title="@string/apps_recently_used_category_title"
-        android:layout="@layout/preference_category_compact_layout">
+        android:title="@string/apps_recently_used_category_title">
         <!-- Placeholder for a list of recent apps -->
     </PreferenceCategory>
 
@@ -33,8 +32,7 @@
 
     <PreferenceCategory
         android:key="permissions"
-        android:title="@string/apps_permissions_category_title"
-        android:layout="@layout/preference_category_compact_layout">
+        android:title="@string/apps_permissions_category_title">
 
         <Preference
             android:key="Permissions"
@@ -47,4 +45,8 @@
             android:fragment="com.android.tv.settings.device.apps.specialaccess.SpecialAppAccess"/>
     </PreferenceCategory>
 
+    <Preference
+        android:fragment="com.android.tv.settings.system.SecurityFragment"
+        android:key="security"
+        android:title="@string/system_security"/>
 </PreferenceScreen>

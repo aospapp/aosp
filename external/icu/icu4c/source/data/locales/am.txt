@@ -1,7 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 am{
-    AuxExemplarCharacters{"[]"}
     Ellipsis{
         final{"{0}…"}
         initial{"…{0}"}
@@ -24,11 +23,10 @@ am{
         "[ሀ ለ ሐ መ ሠ ረ ሰ ሸ ቀ ቈ በ ቨ ተ ቸ ኀ ኈ ነ ኘ አ ከ ኰ ኸ ወ ዐ ዘ ዠ የ ደ ጀ ገ ጐ ጠ ጨ ጰ ጸ ፀ ፈ ፐ"
         "]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{"[‐ – , ፡ ፣ ፤ ፥ ፦ ! ? . ። ‹ › « » ( ) \\[ \\]]"}
     MoreInformation{"?"}
     NumberElements{
-        default{"latn"}
         latn{
             miscPatterns{
                 approximately{"~{0}"}
@@ -222,10 +220,9 @@ am{
             }
         }
         minimumGroupingDigits{"1"}
-        native{"latn"}
         traditional{"ethi"}
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -879,10 +876,6 @@ am{
                 MMM{"LLL"}
                 MMMEd{"E፣ MMM d"}
                 MMMMEd{"E፣ MMMM d"}
-                MMMMW{
-                    one{"'week' W 'of' MMM"}
-                    other{"'week' W 'of' MMM"}
-                }
                 MMMMd{"MMMM d"}
                 MMMd{"MMM d"}
                 Md{"M/d"}
@@ -1069,6 +1062,44 @@ am{
                 }
             }
             intervalFormats{
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
+                GyM{
+                    G{"GGGGG M/y – GGGGG M/y"}
+                    M{"GGGGG M/y – M/y"}
+                    y{"GGGGG M/y – M/y"}
+                }
+                GyMEd{
+                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
+                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                }
+                GyMMM{
+                    G{"G MMM y – G MMM y"}
+                    M{"G MMM–MMM፣ y"}
+                    y{"G MMM y – MMM y"}
+                }
+                GyMMMEd{
+                    G{"G E፣ MMM d፣ y – G E፣ MMM d፣ y"}
+                    M{"G E MMM d፣ y – E MMM d"}
+                    d{"G E MMM d – E MMM d፣ y"}
+                    y{"G E፣ MMM d፣ y – E፣ MMM d፣ y"}
+                }
+                GyMMMd{
+                    G{"G MMM d፣ y – G MMM d፣ y"}
+                    M{"G MMM d – MMM d፣ y"}
+                    d{"G MMM d–d፣ y"}
+                    y{"G MMM d፣ y – MMM d፣ y"}
+                }
+                GyMd{
+                    G{"GGGGG d/M/y – GGGGG d/M/y"}
+                    M{"GGGGG d/M/y – d/M/y"}
+                    d{"GGGGG d/M/y – d/M/y"}
+                    y{"GGGGG d/M/y – d/M/y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -2236,6 +2267,9 @@ am{
             end{"{0}, እና {1}"}
             middle{"{0}፣ {1}"}
             start{"{0}፣ {1}"}
+        }
+        standard-narrow{
+            start{"{0}, {1}"}
         }
         standard-short{
             2{"{0} እና {1}"}

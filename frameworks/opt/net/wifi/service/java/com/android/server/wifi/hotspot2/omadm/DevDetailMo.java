@@ -92,11 +92,8 @@ public class DevDetailMo {
     private static final String TAG_MAX_DEPTH = "MaxDepth";
     private static final String TAG_MAX_TOT_LEN = "MaxTotLen";
     private static final String TAG_MAX_SEG_LEN = "MaxSegLen";
-    private static final String TAG_DEV_TYPE = "DevType";
     private static final String TAG_OEM = "OEM";
-    private static final String TAG_FW_VER = "FwV";
     private static final String TAG_SW_VER = "SwV";
-    private static final String TAG_HW_VER = "HwV";
     private static final String TAG_LRG_ORJ = "LrgOrj";
 
     private static final String INNER_METHOD_PAP = "PAP";
@@ -104,7 +101,6 @@ public class DevDetailMo {
     private static final String INNER_METHOD_MS_CHAP_V2 = "MS-CHAP-V2";
 
     private static final String IFNAME = "wlan0";
-    private static final String DEVICE_TYPE = "Smartphone";
 
     private static final List<Pair<Integer, String>> sEapMethods = new ArrayList<>();
     static {
@@ -235,14 +231,10 @@ public class DevDetailMo {
         uriNode.appendChild(moSerializer.createNodeForValue(doc, TAG_MAX_SEG_LEN, "64"));
         moNode.appendChild(uriNode); // TAG_URI
 
-        moNode.appendChild(moSerializer.createNodeForValue(doc, TAG_DEV_TYPE, DEVICE_TYPE));
         moNode.appendChild(
                 moSerializer.createNodeForValue(doc, TAG_OEM, info.getDeviceManufacturer()));
         moNode.appendChild(
-                moSerializer.createNodeForValue(doc, TAG_FW_VER, info.getFirmwareVersion()));
-        moNode.appendChild(
                 moSerializer.createNodeForValue(doc, TAG_SW_VER, info.getSoftwareVersion()));
-        moNode.appendChild(moSerializer.createNodeForValue(doc, TAG_HW_VER, info.getHwVersion()));
         moNode.appendChild(moSerializer.createNodeForValue(doc, TAG_LRG_ORJ, "TRUE"));
         rootElement.appendChild(moNode); // TAG_DEVDETAIL
 

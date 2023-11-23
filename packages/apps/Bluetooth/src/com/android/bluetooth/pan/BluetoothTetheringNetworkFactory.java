@@ -21,10 +21,9 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.NetworkAgent;
+import android.net.NetworkAgentConfig;
 import android.net.NetworkCapabilities;
 import android.net.NetworkFactory;
-import android.net.NetworkInfo;
-import android.net.NetworkInfo.DetailedState;
 import android.net.ip.IIpClient;
 import android.net.ip.IpClientUtil;
 import android.net.ip.IpClientUtil.WaitForProvisioningCallbacks;
@@ -32,7 +31,7 @@ import android.net.shared.ProvisioningConfiguration;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.text.TextUtils;
-import android.util.Slog;
+import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
 
@@ -53,7 +52,6 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
     private final PanService mPanService;
 
     // All accesses to these must be synchronized(this).
-    private final NetworkInfo mNetworkInfo;
     private IIpClient mIpClient;
     @GuardedBy("this")
     private int mIpClientStartIndex = 0;
@@ -66,7 +64,6 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
         mContext = context;
         mPanService = panService;
 
-        mNetworkInfo = new NetworkInfo(ConnectivityManager.TYPE_BLUETOOTH, 0, NETWORK_TYPE, "");
         mNetworkCapabilities = new NetworkCapabilities();
         initNetworkCapabilities();
         setCapabilityFilter(mNetworkCapabilities);
@@ -95,7 +92,7 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
                             .withoutIpReachabilityMonitor()
                             .build().toStableParcelable());
                 } catch (RemoteException e) {
-                    Slog.e(TAG, "Error starting IpClient provisioning", e);
+                    Log.e(TAG, "Error starting IpClient provisioning", e);
                 }
             }
         }
@@ -103,7 +100,7 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
         @Override
         public void onLinkPropertiesChange(LinkProperties newLp) {
             synchronized (BluetoothTetheringNetworkFactory.this) {
-                if (mNetworkAgent != null && mNetworkInfo.isConnected()) {
+                if (mNetworkAgent != null) {
                     mNetworkAgent.sendLinkProperties(newLp);
                 }
             }
@@ -117,7 +114,7 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
             try {
                 mIpClient.shutdown();
             } catch (RemoteException e) {
-                Slog.e(TAG, "Error shutting down IpClient", e);
+                Log.e(TAG, "Error shutting down IpClient", e);
             }
             mIpClient = null;
         }
@@ -137,49 +134,53 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
     protected void startNetwork() {
         // TODO: Figure out how to replace this thread with simple invocations
         // of IpClient. This will likely necessitate a rethink about
-        // NetworkAgent, NetworkInfo, and associated instance lifetimes.
+        // NetworkAgent and associated instance lifetimes.
         Thread ipProvisioningThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                LinkProperties linkProperties;
                 final WaitForProvisioningCallbacks ipcCallback;
+                final int ipClientStartIndex;
 
                 synchronized (BluetoothTetheringNetworkFactory.this) {
                     if (TextUtils.isEmpty(mInterfaceName)) {
-                        Slog.e(TAG, "attempted to reverse tether without interface name");
+                        Log.e(TAG, "attempted to reverse tether without interface name");
                         return;
                     }
-                    log("ipProvisioningThread(+" + mInterfaceName + "): " + "mNetworkInfo="
-                            + mNetworkInfo);
+                    log("ipProvisioningThread(+" + mInterfaceName + ") start IP provisioning");
                     ipcCallback = startIpClientLocked();
-                    mNetworkInfo.setDetailedState(DetailedState.OBTAINING_IPADDR, null, null);
+                    ipClientStartIndex = mIpClientStartIndex;
                 }
 
-                linkProperties = ipcCallback.waitForProvisioning();
+                final LinkProperties linkProperties = ipcCallback.waitForProvisioning();
                 if (linkProperties == null) {
-                    Slog.e(TAG, "IP provisioning error.");
+                    Log.e(TAG, "IP provisioning error.");
                     synchronized (BluetoothTetheringNetworkFactory.this) {
                         stopIpClientLocked();
                         setScoreFilter(-1);
                     }
                     return;
                 }
+                final NetworkAgentConfig config = new NetworkAgentConfig.Builder()
+                        .setLegacyType(ConnectivityManager.TYPE_BLUETOOTH)
+                        .setLegacyTypeName(NETWORK_TYPE)
+                        .build();
 
                 synchronized (BluetoothTetheringNetworkFactory.this) {
-                    mNetworkInfo.setIsAvailable(true);
-                    mNetworkInfo.setDetailedState(DetailedState.CONNECTED, null, null);
-
+                    // Reverse tethering has been stopped, and stopping won the race : there is
+                    // no point in creating the agent (and it would be leaked), so bail.
+                    if (ipClientStartIndex != mIpClientStartIndex) return;
                     // Create our NetworkAgent.
                     mNetworkAgent =
-                            new NetworkAgent(getLooper(), mContext, NETWORK_TYPE, mNetworkInfo,
-                                    mNetworkCapabilities, linkProperties, NETWORK_SCORE) {
+                            new NetworkAgent(mContext, getLooper(), NETWORK_TYPE,
+                                    mNetworkCapabilities, linkProperties, NETWORK_SCORE,
+                                    config, getProvider()) {
                                 @Override
                                 public void unwanted() {
                                     BluetoothTetheringNetworkFactory.this.onCancelRequest();
                                 }
-
-                                ;
                             };
+                    mNetworkAgent.register();
+                    mNetworkAgent.markConnected();
                 }
             }
         });
@@ -198,9 +199,8 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
         stopIpClientLocked();
         mInterfaceName = "";
 
-        mNetworkInfo.setDetailedState(DetailedState.DISCONNECTED, null, null);
         if (mNetworkAgent != null) {
-            mNetworkAgent.sendNetworkInfo(mNetworkInfo);
+            mNetworkAgent.unregister();
             mNetworkAgent = null;
         }
         for (BluetoothDevice device : mPanService.getConnectedDevices()) {
@@ -212,12 +212,12 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
     // becomes available.  We register our NetworkFactory at this point.
     public void startReverseTether(final String iface) {
         if (iface == null || TextUtils.isEmpty(iface)) {
-            Slog.e(TAG, "attempted to reverse tether with empty interface");
+            Log.e(TAG, "attempted to reverse tether with empty interface");
             return;
         }
         synchronized (this) {
             if (!TextUtils.isEmpty(mInterfaceName)) {
-                Slog.e(TAG, "attempted to reverse tether while already in process");
+                Log.e(TAG, "attempted to reverse tether while already in process");
                 return;
             }
             mInterfaceName = iface;
@@ -231,12 +231,12 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
     // goes away.  We stop advertising ourselves to ConnectivityService at this point.
     public synchronized void stopReverseTether() {
         if (TextUtils.isEmpty(mInterfaceName)) {
-            Slog.e(TAG, "attempted to stop reverse tether with nothing tethered");
+            Log.e(TAG, "attempted to stop reverse tether with nothing tethered");
             return;
         }
         onCancelRequest();
         setScoreFilter(-1);
-        unregister();
+        terminate();
     }
 
     private void initNetworkCapabilities() {
@@ -244,6 +244,7 @@ public class BluetoothTetheringNetworkFactory extends NetworkFactory {
         mNetworkCapabilities.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
         mNetworkCapabilities.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED);
         mNetworkCapabilities.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING);
+        mNetworkCapabilities.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED);
         // Bluetooth v3 and v4 go up to 24 Mbps.
         // TODO: Adjust this to actual connection bandwidth.
         mNetworkCapabilities.setLinkUpstreamBandwidthKbps(24 * 1000);

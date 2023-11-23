@@ -40,16 +40,14 @@ STANDART_CONTACT_COUNT = 100
 class BtCarPbapTest(BluetoothBaseTest):
     contacts_destination_path = ""
 
-    def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
+    def setup_class(self):
+        if not super(BtCarPbapTest, self).setup_class():
+            return False
         self.pce = self.android_devices[0]
         self.pse = self.android_devices[1]
         self.pse2 = self.android_devices[2]
         self.contacts_destination_path = self.log_path + "/"
 
-    def setup_class(self):
-        if not super(BtCarPbapTest, self).setup_class():
-            return False
         permissions_list = [
             "android.permission.READ_CONTACTS",
             "android.permission.WRITE_CONTACTS",

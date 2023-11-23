@@ -201,9 +201,62 @@ public class SystemGestureExclusionRectsTest {
         assertTrue("set rects timeout", setter[0].await(3, SECONDS));
     }
 
+    @Test
+    public void ignoreHiddenViewRects() throws Throwable {
+        final Activity activity = mActivityRule.getActivity();
+        final View contentView = activity.findViewById(R.id.abslistview_root);
+        final List<Rect> dummyLocalExclusionRects = Lists.newArrayList(new Rect(0, 0, 5, 5));
+        final List<Rect> dummyWindowExclusionRects = new ArrayList<>();
+
+        mActivityRule.runOnUiThread(() -> {
+            final View v = activity.findViewById(R.id.animating_view);
+            int[] point = new int[2];
+            v.getLocationInWindow(point);
+            for (Rect r : dummyLocalExclusionRects) {
+                Rect offsetR = new Rect(r);
+                offsetR.offsetTo(point[0], point[1]);
+                dummyWindowExclusionRects.add(offsetR);
+            }
+        });
+
+        // Set an exclusion rect on the animating view, ensure it's reported
+        final GestureExclusionLatcher[] setLatch = new GestureExclusionLatcher[1];
+        mActivityRule.runOnUiThread(() -> {
+            final View v = activity.findViewById(R.id.animating_view);
+            setLatch[0] = GestureExclusionLatcher.watching(v.getViewTreeObserver());
+            v.setSystemGestureExclusionRects(dummyLocalExclusionRects);
+        });
+        assertTrue("set rects timeout", setLatch[0].await(3, SECONDS));
+        assertEquals("returned rects as expected", dummyWindowExclusionRects,
+                setLatch[0].getLastReportedRects());
+
+        // Hide the content view, ensure that the reported rects are null for the child view
+        final GestureExclusionLatcher[] updateHideLatch = new GestureExclusionLatcher[1];
+        mActivityRule.runOnUiThread(() -> {
+            final View v = activity.findViewById(R.id.animating_view);
+            updateHideLatch[0] = GestureExclusionLatcher.watching(v.getViewTreeObserver());
+            contentView.setVisibility(View.INVISIBLE);
+        });
+        assertTrue("set rects timeout", updateHideLatch[0].await(3, SECONDS));
+        assertEquals("returned rects as expected", Collections.EMPTY_LIST,
+                updateHideLatch[0].getLastReportedRects());
+
+        // Show the content view again, ensure that the reported rects are valid for the child view
+        final GestureExclusionLatcher[] updateShowLatch = new GestureExclusionLatcher[1];
+        mActivityRule.runOnUiThread(() -> {
+            final View v = activity.findViewById(R.id.animating_view);
+            updateShowLatch[0] = GestureExclusionLatcher.watching(v.getViewTreeObserver());
+            contentView.setVisibility(View.VISIBLE);
+        });
+        assertTrue("set rects timeout", updateShowLatch[0].await(3, SECONDS));
+        assertEquals("returned rects as expected", dummyWindowExclusionRects,
+                updateShowLatch[0].getLastReportedRects());
+    }
+
     private static class GestureExclusionLatcher implements Consumer<List<Rect>> {
         private final CountDownLatch mLatch = new CountDownLatch(1);
         private final ViewTreeObserver mVto;
+        private List<Rect> mLastReportedRects = Collections.EMPTY_LIST;
 
         public static GestureExclusionLatcher watching(ViewTreeObserver vto) {
             final GestureExclusionLatcher latcher = new GestureExclusionLatcher(vto);
@@ -219,8 +272,13 @@ public class SystemGestureExclusionRectsTest {
             return mLatch.await(time, unit);
         }
 
+        public List<Rect> getLastReportedRects() {
+            return mLastReportedRects;
+        }
+
         @Override
         public void accept(List<Rect> rects) {
+            mLastReportedRects = rects;
             mLatch.countDown();
             mVto.removeOnSystemGestureExclusionRectsChangedListener(this);
         }

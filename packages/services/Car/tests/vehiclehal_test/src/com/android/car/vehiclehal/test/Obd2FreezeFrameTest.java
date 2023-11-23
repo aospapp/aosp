@@ -21,6 +21,7 @@ import static com.android.car.vehiclehal.test.Utils.readVhalProperty;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
@@ -28,6 +29,7 @@ import android.hardware.automotive.vehicle.V2_0.StatusCode;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.util.Log;
 
 import com.android.car.vehiclehal.VehiclePropValueBuilder;
@@ -35,10 +37,13 @@ import com.android.car.vehiclehal.VehiclePropValueBuilder;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.concurrent.TimeUnit;
+
 /** Test retrieving the OBD2_FREEZE_FRAME property from VHAL */
 public class Obd2FreezeFrameTest {
     private static final String TAG = Utils.concatTag(Obd2FreezeFrameTest.class);
     private static final int DEFAULT_WAIT_TIMEOUT_MS = 5000;
+    private static final long EPSILON = TimeUnit.MICROSECONDS.toNanos(2000);
     private IVehicle mVehicle = null;
 
     @Before
@@ -68,7 +73,9 @@ public class Obd2FreezeFrameTest {
                                   assertNotNull("OBD2_FREEZE_FRAME read OK; should not be null",
                                           freezeFrame);
                                   Log.i(TAG, "dump of OBD2_FREEZE_FRAME:\n" + freezeFrame);
-                                  assertEquals(freezeFrame.timestamp, timestamp);
+                                  //Timestamp will be changed to real time.
+                                  assertTrue(SystemClock.elapsedRealtimeNanos()
+                                          - freezeFrame.timestamp < EPSILON);
                               }
                               return true;
                           });

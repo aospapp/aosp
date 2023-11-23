@@ -66,6 +66,33 @@ public final class UsersDialogProvider {
         return dialogFragment;
     }
 
+    /** Gets a confirmation dialog fragment to confirm or reject exiting retail mode. */
+    public static ConfirmationDialogFragment getConfirmExitRetailModeDialogFragment(Context context,
+            @Nullable ConfirmationDialogFragment.ConfirmListener confirmListener,
+            @Nullable ConfirmationDialogFragment.RejectListener rejectListener) {
+        return new ConfirmationDialogFragment.Builder(context)
+                .setTitle(R.string.exit_retail_mode_dialog_title)
+                .setMessage(R.string.exit_retail_mode_dialog_body)
+                .setPositiveButton(
+                        R.string.exit_retail_mode_dialog_confirmation_button_text, confirmListener)
+                .setNegativeButton(android.R.string.cancel, rejectListener)
+                .build();
+    }
+
+    /**
+     * Gets a confirmation dialog fragment to indicate the maximum allowed number of users is
+     * reached.
+     */
+    public static ConfirmationDialogFragment getMaxUsersLimitReachedDialogFragment(Context context,
+            int maxUserLimit) {
+        return new ConfirmationDialogFragment.Builder(context)
+                .setTitle(R.string.user_limit_reached_title)
+                .setMessage(context.getResources().getQuantityString(
+                        R.plurals.user_limit_reached_message, maxUserLimit, maxUserLimit))
+                .setPositiveButton(android.R.string.ok, /* confirmListener= */ null)
+                .build();
+    }
+
     /** Gets a confirmation dialog fragment to confirm or reject making a user an admin. */
     public static ConfirmationDialogFragment getConfirmGrantAdminDialogFragment(Context context,
             @Nullable ConfirmationDialogFragment.ConfirmListener confirmListener,

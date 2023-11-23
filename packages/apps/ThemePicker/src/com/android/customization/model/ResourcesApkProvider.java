@@ -25,8 +25,8 @@ public abstract class ResourcesApkProvider {
             Resources apkResources = null;
             try {
                 PackageManager pm = mContext.getPackageManager();
-                ApplicationInfo stubAppInfo = pm.getApplicationInfo(
-                        mStubPackageName, PackageManager.GET_META_DATA);
+                ApplicationInfo stubAppInfo = pm.getApplicationInfo(mStubPackageName,
+                        PackageManager.GET_META_DATA | PackageManager.MATCH_SYSTEM_ONLY);
                 if (stubAppInfo != null) {
                     apkResources = pm.getResourcesForApplication(stubAppInfo);
                 }

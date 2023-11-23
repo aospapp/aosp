@@ -49,7 +49,7 @@ class Project:
 		self.copyright	= copyright
 
 class Configuration:
-    def __init__ (self, name, filters, glconfig = None, rotation = "unspecified", surfacetype = None, surfacewidth = None, surfaceheight = None, baseseed = None, fboconfig = None, required = False, runtime = None, os = "any"):
+	def __init__ (self, name, filters, glconfig = None, rotation = "unspecified", surfacetype = None, surfacewidth = None, surfaceheight = None, baseseed = None, fboconfig = None, required = False, runtime = None, os = "any", skip = "none"):
 		self.name				= name
 		self.glconfig			= glconfig
 		self.rotation			= rotation
@@ -62,6 +62,7 @@ class Configuration:
 		self.filters			= filters
 		self.expectedRuntime	= runtime
 		self.os					= os
+		self.skipPlatform		= skip
 
 class Package:
 	def __init__ (self, module, configurations, useforfirsteglconfig = True):
@@ -132,7 +133,7 @@ def getCommandLine (config):
 
 def readCaseList (filename):
 	cases = []
-	with open(filename, 'rb') as f:
+	with open(filename, 'rt') as f:
 		for line in f:
 			if line[:6] == "TEST: ":
 				cases.append(line[6:].strip())
@@ -143,7 +144,7 @@ def getCaseList (buildCfg, generator, module):
 
 def readPatternList (filename):
 	ptrns = []
-	with open(filename, 'rb') as f:
+	with open(filename, 'rt') as f:
 		for line in f:
 			line = line.strip()
 			if len(line) > 0 and line[0] != '#':
@@ -183,7 +184,7 @@ def applyPatterns (caseList, patterns, filename, op):
 		curList = [c for c in curList if c not in matched]
 
 	for pattern, reason in errors:
-		print "ERROR: %s: %s" % (reason, pattern)
+		print("ERROR: %s: %s" % (reason, pattern))
 
 	if len(errors) > 0:
 		die("Found %s invalid patterns while processing file %s" % (len(errors), filename))
@@ -242,11 +243,12 @@ def genSpecXML (mustpass):
 	for package in mustpass.packages:
 		for config in package.configurations:
 			configElem = ElementTree.SubElement(packageElem, "Configuration",
-							useForFirstEGLConfig	= str(package.useforfirsteglconfig),
-							name					= config.name,
 							caseListFile			= getCaseListFileName(package, config),
 							commandLine				= getCommandLine(config),
-							os						= str(config.os))
+							name					= config.name,
+							os						= str(config.os),
+							useForFirstEGLConfig	= str(package.useforfirsteglconfig)
+							)
 
 	return mustpassElem
 
@@ -321,6 +323,8 @@ def genSpecCPPIncludeFile (specFilename, mustpass):
 	gtf_wrapper_close = "#endif // defined(DEQP_GTF_AVAILABLE)\n"
 	android_wrapper_open = "#if DE_OS == DE_OS_ANDROID\n"
 	android_wrapper_close = "#endif // DE_OS == DE_OS_ANDROID\n"
+	skip_x11_wrapper_open = "#ifndef DEQP_SUPPORT_X11\n"
+	skip_x11_wrapper_close = "#endif // DEQP_SUPPORT_X11\n"
 	TABLE_ELEM_PATTERN	= "{apiType} {configName} {glConfigName} {screenRotation} {baseSeed} {fboConfig} {surfaceWidth} {surfaceHeight}"
 
 	emitOtherCfgTbl = False
@@ -349,7 +353,13 @@ def genSpecCPPIncludeFile (specFilename, mustpass):
 			if config.os == "android":
 				elemFinal += android_wrapper_open
 
+			if config.skipPlatform == "x11":
+				elemFinal += skip_x11_wrapper_open
+
 			elemFinal += elem
+
+			if config.skipPlatform == "x11":
+				elemFinal += skip_x11_wrapper_close
 
 			if config.os == "android":
 				elemFinal += android_wrapper_close
@@ -385,12 +395,12 @@ def genSpecCPPIncludes (mustpassLists):
 			specFilename	= os.path.join(mustpass.project.incpath, "glc%s.hpp" % convertToCamelcase(mustpass.project.name.lower().replace(' ','_')))
 			hpp = genSpecCPPIncludeFile(specFilename, mustpass)
 
-			print "  Writing spec: " + specFilename
+			print("  Writing spec: " + specFilename)
 			writeFile(specFilename, hpp)
-			print "Done!"
+			print("Done!")
 
 def genMustpass (mustpass, moduleCaseLists):
-	print "Generating mustpass '%s'" % mustpass.version
+	print("Generating mustpass '%s'" % mustpass.version)
 
 	patternLists = readPatternLists(mustpass)
 
@@ -401,16 +411,16 @@ def genMustpass (mustpass, moduleCaseLists):
 			filtered	= applyFilters(allCasesInPkg, patternLists, config.filters)
 			dstFile		= getDstCaseListPath(mustpass, package, config)
 
-			print "  Writing deqp caselist: " + dstFile
+			print("  Writing deqp caselist: " + dstFile)
 			writeFile(dstFile, "\n".join(filtered) + "\n")
 
 	specXML			= genSpecXML(mustpass)
 	specFilename	= os.path.join(mustpass.project.path, mustpass.version, "mustpass.xml")
 
-	print "  Writing spec: " + specFilename
-	writeFile(specFilename, prettifyXML(specXML))
+	print("  Writing spec: " + specFilename)
+	writeFile(specFilename, prettifyXML(specXML).decode())
 
-	print "Done!"
+	print("Done!")
 
 def genMustpassLists (mustpassLists, generator, buildCfg):
 	moduleCaseLists = {}

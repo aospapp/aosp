@@ -17,29 +17,27 @@
 package com.android.car.developeroptions;
 
 import android.app.settings.SettingsEnums;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.ContentObserver;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Message;
-import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.sysprop.TelephonyProperties;
 
-import com.android.internal.telephony.PhoneStateIntentReceiver;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.settingslib.WirelessUtils;
 import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 
-public class AirplaneModeEnabler {
+public class AirplaneModeEnabler  extends BroadcastReceiver {
 
     private static final int EVENT_SERVICE_STATE_CHANGED = 3;
 
     private final Context mContext;
     private final MetricsFeatureProvider mMetricsFeatureProvider;
-
-    private PhoneStateIntentReceiver mPhoneStateReceiver;
+    private IntentFilter mFilter;
 
     private OnAirplaneModeChangedListener mOnAirplaneModeChangedListener;
 
@@ -51,17 +49,6 @@ public class AirplaneModeEnabler {
          */
         void onAirplaneModeChanged(boolean isAirplaneModeOn);
     }
-
-    private Handler mHandler = new Handler(Looper.getMainLooper()) {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case EVENT_SERVICE_STATE_CHANGED:
-                    onAirplaneModeChanged();
-                    break;
-            }
-        }
-    };
 
     private ContentObserver mAirplaneModeObserver = new ContentObserver(
             new Handler(Looper.getMainLooper())) {
@@ -78,19 +65,18 @@ public class AirplaneModeEnabler {
         mMetricsFeatureProvider = metricsFeatureProvider;
         mOnAirplaneModeChangedListener = listener;
 
-        mPhoneStateReceiver = new PhoneStateIntentReceiver(mContext, mHandler);
-        mPhoneStateReceiver.notifyServiceState(EVENT_SERVICE_STATE_CHANGED);
+        mFilter = new IntentFilter(Intent.ACTION_SERVICE_STATE);
     }
 
     public void resume() {
-        mPhoneStateReceiver.registerIntent();
+        mContext.registerReceiver(this, mFilter);
         mContext.getContentResolver().registerContentObserver(
                 Settings.Global.getUriFor(Settings.Global.AIRPLANE_MODE_ON), true,
                 mAirplaneModeObserver);
     }
 
     public void pause() {
-        mPhoneStateReceiver.unregisterIntent();
+        mContext.unregisterReceiver(this);
         mContext.getContentResolver().unregisterContentObserver(mAirplaneModeObserver);
     }
 
@@ -125,8 +111,7 @@ public class AirplaneModeEnabler {
     }
 
     public void setAirplaneMode(boolean isAirplaneModeOn) {
-        if (Boolean.parseBoolean(
-                SystemProperties.get(TelephonyProperties.PROPERTY_INECM_MODE))) {
+        if (TelephonyProperties.in_ecm_mode().orElse(false)) {
             // In ECM mode, do not update database at this point
         } else {
             mMetricsFeatureProvider.action(mContext, SettingsEnums.ACTION_AIRPLANE_TOGGLE,
@@ -147,5 +132,14 @@ public class AirplaneModeEnabler {
 
     public boolean isAirplaneModeOn() {
         return WirelessUtils.isAirplaneModeOn(mContext);
+    }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
+
+        if (Intent.ACTION_SERVICE_STATE.equals(action)) {
+            onAirplaneModeChanged();
+        }
     }
 }

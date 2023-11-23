@@ -15,7 +15,6 @@
  */
 package org.apache.harmony.crypto.tests.javax.crypto.func;
 
-import com.android.org.bouncycastle.util.Arrays;
 import java.security.AlgorithmParameterGenerator;
 import java.security.AlgorithmParameters;
 import java.security.KeyFactory;
@@ -25,6 +24,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import javax.crypto.KeyAgreement;
 import javax.crypto.spec.DHParameterSpec;
 
@@ -80,7 +80,7 @@ public class KeyAgreementThread extends TestThread {
         byte[] sk1 = kag1.getSecretKey(algName, bArray2);
         byte[] sk2 = kag2.getSecretKey(algName, bArray1);
 
-        if (Arrays.areEqual(sk1, sk2) == false) {
+        if (!Arrays.equals(sk1, sk2)) {
             throw new Exception ("Generated keys are not the same");
         }
     }

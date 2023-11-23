@@ -37,6 +37,7 @@ import android.util.Log;
 import java.util.UUID;
 
 @AppModeFull(reason = "Dynamic congic not supported")
+@NonMediaMainlineTest
 public class AudioEffectTest extends PostProcTestBase {
 
     private String TAG = "AudioEffectTest";

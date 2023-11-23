@@ -23,8 +23,6 @@ cc_test {
         "liblog",
         "libcutils",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "libnativehelper",
         "libutils",
         "android.hardware.thermal@1.0",

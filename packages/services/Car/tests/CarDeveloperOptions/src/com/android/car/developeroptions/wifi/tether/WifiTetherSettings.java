@@ -24,7 +24,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.wifi.WifiConfiguration;
+import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.UserManager;
@@ -186,10 +186,10 @@ public class WifiTetherSettings extends RestrictedDashboardFragment
 
     @Override
     public void onTetherConfigUpdated() {
-        final WifiConfiguration config = buildNewConfig();
-        mPasswordPreferenceController.updateVisibility(config.getAuthType());
+        final SoftApConfiguration config = buildNewConfig();
+        mPasswordPreferenceController.updateVisibility(config.getSecurityType());
 
-        /**
+        /*
          * if soft AP is stopped, bring up
          * else restart with new config
          * TODO: update config on a running access point when framework support is added
@@ -200,19 +200,18 @@ public class WifiTetherSettings extends RestrictedDashboardFragment
             mRestartWifiApAfterConfigChange = true;
             mSwitchBarController.stopTether();
         }
-        mWifiManager.setWifiApConfiguration(config);
+        mWifiManager.setSoftApConfiguration(config);
     }
 
-    private WifiConfiguration buildNewConfig() {
-        final WifiConfiguration config = new WifiConfiguration();
+    private SoftApConfiguration buildNewConfig() {
         final int securityType = mSecurityPreferenceController.getSecurityType();
 
-        config.SSID = mSSIDPreferenceController.getSSID();
-        config.allowedKeyManagement.set(securityType);
-        config.preSharedKey = mPasswordPreferenceController.getPasswordValidated(securityType);
-        config.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
-        config.apBand = mApBandPreferenceController.getBandIndex();
-        return config;
+        return new SoftApConfiguration.Builder()
+                .setSsid(mSSIDPreferenceController.getSSID())
+                .setPassphrase(mPasswordPreferenceController.getPasswordValidated(securityType),
+                        securityType)
+                .setBand(mApBandPreferenceController.getBand())
+                .build();
     }
 
     private void startTether() {

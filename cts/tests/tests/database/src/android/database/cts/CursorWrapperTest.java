@@ -83,6 +83,13 @@ public class CursorWrapperTest extends AndroidTestCase {
         return cursor;
     }
 
+    public void testGetWrappedCursor() {
+        final Cursor expected = getCursor();
+        CursorWrapper cursorWrapper = new CursorWrapper(expected);
+
+        assertSame(expected, cursorWrapper.getWrappedCursor());
+    }
+
     public void testGetCount() {
         CursorWrapper cursorWrapper = new CursorWrapper(getCursor());
         int defaultCount = cursorWrapper.getCount();

@@ -20,21 +20,6 @@ alarm03 alarm03
 #    TEST CASES
 # 	1.) alarm(100), fork, child's alarm(0) shall return 0;
 #	2.) alarm(100), fork, parent's alarm(0) shall return non-zero.
-asyncio02 asyncio02
-# 	Attempt to get some memory to work with.
-# 	Call testrun writing (BUFSIZ + 1) bytes
-# 	Call testrun writing BUFSIZ bytes
-# 	Repeated call to testrun() with decreasing write sizes
-# 		less than BUFSIZ
-# 	End
-#
-# 	Start testrun()
-# 	Attempt to open a temporary file.
-# 	Write the memory to the file.
-# 	Attempt to close the file which also flushes the buffers.
-# 	Now check to see if the number of bytes written is the
-# 		same as the number of bytes in the file.
-# 	Cleanup
 brk01 brk01
 # Basic test for brk()
 #    TEST CASES
@@ -122,8 +107,6 @@ fork05 fork05
 # %gs is not handled correctly.  See fork05.c for a copy of Ulrich's email
 fpathconf01 fpathconf01
 # Basic test for fpathconf(2)
-fstat01 fstat01
-# Basic test for fstat(2)
 fstatfs01 fstatfs01
 # Basic test for fstatfs(2)
 fsync01 fsync01
@@ -223,10 +206,6 @@ signal03 signal03
 # and signal sending.
 sigrelse01 sigrelse01
 # Releasing held signals
-stat05 stat05
-# Basic test for stat(2)
-stat06 stat06
-# Negative tests for stat(2)
 statfs01 statfs01
 # Basic test for statfs(2) mounted filesys
 statvfs01 statvfs01

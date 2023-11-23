@@ -29,10 +29,13 @@ import android.telephony.euicc.EuiccInfo;
 import android.telephony.euicc.EuiccManager;
 import android.telephony.euicc.EuiccManager.OtaStatus;
 
+import java.io.PrintWriter;
+
 /** Dummy implementation of {@link EuiccService} for testing. */
 public class MockEuiccService extends EuiccService {
     static String MOCK_EID = "89000000000000000000000000000000";
     static String MOCK_OS_VERSION = "1.0";
+    static final String MOCK_DUMPED_LOG = "log messages";
 
     interface IMockEuiccServiceCallback {
         void setMethodCalled();
@@ -58,6 +61,12 @@ public class MockEuiccService extends EuiccService {
     public @OtaStatus int onGetOtaStatus(int slotId) {
         sMockEuiccServiceCallback.setMethodCalled();
         return EuiccManager.EUICC_OTA_SUCCEEDED;
+    }
+
+    @Override
+    public void dump(PrintWriter printWriter) {
+        sMockEuiccServiceCallback.setMethodCalled();
+        printWriter.append(MOCK_DUMPED_LOG);
     }
 
     @Override

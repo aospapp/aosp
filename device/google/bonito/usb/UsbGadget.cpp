@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "android.hardware.usb.gadget@1.0-service.bonito"
+#define LOG_TAG "android.hardware.usb.gadget@1.1-service.bonito"
 
 #include "UsbGadget.h"
 #include <dirent.h>
@@ -58,7 +58,7 @@ namespace android {
 namespace hardware {
 namespace usb {
 namespace gadget {
-namespace V1_0 {
+namespace V1_1 {
 namespace implementation {
 
 volatile bool gadgetPullup;
@@ -281,6 +281,15 @@ V1_0::Status UsbGadget::tearDownGadget() {
   mEpollFd.reset(-1);
   mEndpointList.clear();
   return Status::SUCCESS;
+}
+
+Return<Status> UsbGadget::reset() {
+    if (!WriteStringToFile("none", PULLUP_PATH)) {
+        ALOGI("Gadget cannot be pulled down");
+        return Status::ERROR;
+    }
+
+    return Status::SUCCESS;
 }
 
 static int linkFunction(const char *function, int index) {
@@ -527,6 +536,8 @@ V1_0::Status UsbGadget::setupFunctions(
   if ((functions & GadgetFunction::ADB) != 0) {
     ffsEnabled = true;
     ALOGI("setCurrentUsbFunctions Adb");
+    if (!WriteStringToFile("1", DESC_USE_PATH))
+      return Status::ERROR;
     if (inotify_add_watch(inotifyFd, "/dev/usb-ffs/adb/", IN_ALL_EVENTS) == -1)
       return Status::ERROR;
 
@@ -643,7 +654,7 @@ error:
   return Void();
 }
 }  // namespace implementation
-}  // namespace V1_0
+}  // namespace V1_1
 }  // namespace gadget
 }  // namespace usb
 }  // namespace hardware

@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThat;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.util.ObjectCounter.ProtobufConverter;
 
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
@@ -34,7 +35,7 @@ import java.util.Objects;
  * Unit test for ObjectCounter
  */
 @SmallTest
-public class ObjectCounterTest {
+public class ObjectCounterTest extends WifiBaseTest {
 
     /**
      * Test Key type: composite key with 3 fields

@@ -18,7 +18,7 @@ package android.app;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -38,6 +38,7 @@ import android.content.res.Resources;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.FileUtils;
+import android.os.GraphicsEnvironment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Process;
@@ -46,6 +47,9 @@ import android.os.StrictMode;
 import android.os.SystemProperties;
 import android.os.Trace;
 import android.os.UserHandle;
+import android.provider.Settings;
+import android.security.net.config.NetworkSecurityConfigProvider;
+import android.sysprop.VndkProperties;
 import android.text.TextUtils;
 import android.util.AndroidRuntimeException;
 import android.util.ArrayMap;
@@ -250,7 +254,7 @@ public final class LoadedApk {
     }
 
     private AppComponentFactory createAppFactory(ApplicationInfo appInfo, ClassLoader cl) {
-        if (appInfo.appComponentFactory != null && cl != null) {
+        if (mIncludeCode && appInfo.appComponentFactory != null && cl != null) {
             try {
                 return (AppComponentFactory)
                         cl.loadClass(appInfo.appComponentFactory).newInstance();
@@ -364,7 +368,8 @@ public final class LoadedApk {
                 mResources = ResourcesManager.getInstance().getResources(null, mResDir,
                         splitPaths, mOverlayDirs, mApplicationInfo.sharedLibraryFiles,
                         Display.DEFAULT_DISPLAY, null, getCompatibilityInfo(),
-                        getClassLoader());
+                        getClassLoader(), mApplication == null ? null
+                                : mApplication.getResources().getLoaders());
             }
         }
         mAppComponentFactory = createAppFactory(aInfo, mDefaultClassLoader);
@@ -463,6 +468,9 @@ public final class LoadedApk {
                     || appDir.equals(instrumentedAppDir)) {
                 outZipPaths.clear();
                 outZipPaths.add(instrumentationAppDir);
+                if (!instrumentationAppDir.equals(instrumentedAppDir)) {
+                    outZipPaths.add(instrumentedAppDir);
+                }
 
                 // Only add splits if the app did not request isolated split loading.
                 if (!aInfo.requestsIsolatedSplitLoading()) {
@@ -471,7 +479,6 @@ public final class LoadedApk {
                     }
 
                     if (!instrumentationAppDir.equals(instrumentedAppDir)) {
-                        outZipPaths.add(instrumentedAppDir);
                         if (instrumentedSplitAppDirs != null) {
                             Collections.addAll(outZipPaths, instrumentedSplitAppDirs);
                         }
@@ -781,9 +788,26 @@ public final class LoadedApk {
             isBundledApp = false;
         }
 
+        // Similar to vendor apks, we should add /product/lib for apks from product partition
+        // when product apps are marked as unbundled. We cannot use the same way from vendor
+        // to check if lib path exists because there is possibility that /product/lib would not
+        // exist from legacy device while product apks are bundled. To make this clear, we use
+        // "ro.product.vndk.version" property. If the property is defined, we regard all product
+        // apks as unbundled.
+        if (mApplicationInfo.getCodePath() != null
+                && mApplicationInfo.isProduct()
+                && VndkProperties.product_vndk_version().isPresent()) {
+            isBundledApp = false;
+        }
+
         makePaths(mActivityThread, isBundledApp, mApplicationInfo, zipPaths, libPaths);
 
         String libraryPermittedPath = mDataDir;
+        if (mActivityThread == null) {
+            // In a zygote context where mActivityThread is null we can't access the app data dir
+            // and including this in libraryPermittedPath would cause SELinux denials.
+            libraryPermittedPath = "";
+        }
 
         if (isBundledApp) {
             // For bundled apps, add the base directory of the app (e.g.,
@@ -801,6 +825,32 @@ public final class LoadedApk {
         }
 
         final String librarySearchPath = TextUtils.join(File.pathSeparator, libPaths);
+
+        if (mActivityThread != null) {
+            final String gpuDebugApp = mActivityThread.getStringCoreSetting(
+                    Settings.Global.GPU_DEBUG_APP, "");
+            if (!gpuDebugApp.isEmpty() && mPackageName.equals(gpuDebugApp)) {
+
+                // The current application is used to debug, attempt to get the debug layers.
+                try {
+                    // Get the ApplicationInfo from PackageManager so that metadata fields present.
+                    final ApplicationInfo ai = ActivityThread.getPackageManager()
+                            .getApplicationInfo(mPackageName, PackageManager.GET_META_DATA,
+                                    UserHandle.myUserId());
+                    final String debugLayerPath = GraphicsEnvironment.getInstance()
+                            .getDebugLayerPathsFromSettings(mActivityThread.getCoreSettings(),
+                                    ActivityThread.getPackageManager(), mPackageName, ai);
+                    if (debugLayerPath != null) {
+                        libraryPermittedPath += File.pathSeparator + debugLayerPath;
+                    }
+                } catch (RemoteException e) {
+                    // Unlikely to fail for applications, but in case of failure, something is wrong
+                    // inside the system server, hence just skip.
+                    Slog.e(ActivityThread.TAG,
+                            "RemoteException when fetching debug layer paths for: " + mPackageName);
+                }
+            }
+        }
 
         // If we're not asked to include code, we construct a classloader that has
         // no code path included. We still need to set up the library search paths
@@ -864,48 +914,6 @@ public final class LoadedApk {
             StrictMode.ThreadPolicy oldPolicy = allowThreadDiskReads();
             try {
                 ApplicationLoaders.getDefault().addNative(mDefaultClassLoader, libPaths);
-            } finally {
-                setThreadPolicy(oldPolicy);
-            }
-        }
-
-        // /aepx/com.android.runtime/lib, /vendor/lib, /odm/lib and /product/lib
-        // are added to the native lib search paths of the classloader.
-        // Note that this is done AFTER the classloader is
-        // created by ApplicationLoaders.getDefault().getClassLoader(...). The
-        // reason is because if we have added the paths when creating the classloader
-        // above, the paths are also added to the search path of the linker namespace
-        // 'classloader-namespace', which will allow ALL libs in the paths to apps.
-        // Since only the libs listed in <partition>/etc/public.libraries.txt can be
-        // available to apps, we shouldn't add the paths then.
-        //
-        // However, we need to add the paths to the classloader (Java) though. This
-        // is because when a native lib is requested via System.loadLibrary(), the
-        // classloader first tries to find the requested lib in its own native libs
-        // search paths. If a lib is not found in one of the paths, dlopen() is not
-        // called at all. This can cause a problem that a vendor public native lib
-        // is accessible when directly opened via dlopen(), but inaccesible via
-        // System.loadLibrary(). In order to prevent the problem, we explicitly
-        // add the paths only to the classloader, and not to the native loader
-        // (linker namespace).
-        List<String> extraLibPaths = new ArrayList<>(4);
-        String abiSuffix = VMRuntime.getRuntime().is64Bit() ? "64" : "";
-        if (!defaultSearchPaths.contains("/apex/com.android.runtime/lib")) {
-            extraLibPaths.add("/apex/com.android.runtime/lib" + abiSuffix);
-        }
-        if (!defaultSearchPaths.contains("/vendor/lib")) {
-            extraLibPaths.add("/vendor/lib" + abiSuffix);
-        }
-        if (!defaultSearchPaths.contains("/odm/lib")) {
-            extraLibPaths.add("/odm/lib" + abiSuffix);
-        }
-        if (!defaultSearchPaths.contains("/product/lib")) {
-            extraLibPaths.add("/product/lib" + abiSuffix);
-        }
-        if (!extraLibPaths.isEmpty()) {
-            StrictMode.ThreadPolicy oldPolicy = allowThreadDiskReads();
-            try {
-                ApplicationLoaders.getDefault().addNative(mDefaultClassLoader, extraLibPaths);
             } finally {
                 setThreadPolicy(oldPolicy);
             }
@@ -1027,17 +1035,11 @@ public final class LoadedApk {
      */
     private void initializeJavaContextClassLoader() {
         IPackageManager pm = ActivityThread.getPackageManager();
-        android.content.pm.PackageInfo pi;
-        try {
-            pi = pm.getPackageInfo(mPackageName, PackageManager.MATCH_DEBUG_TRIAGED_MISSING,
-                    UserHandle.myUserId());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-        if (pi == null) {
-            throw new IllegalStateException("Unable to get package info for "
-                    + mPackageName + "; is package not installed?");
-        }
+        android.content.pm.PackageInfo pi =
+                PackageManager.getPackageInfoAsUserCached(
+                        mPackageName,
+                        PackageManager.MATCH_DEBUG_TRIAGED_MISSING,
+                        UserHandle.myUserId());
         /*
          * Two possible indications that this package could be
          * sharing its virtual machine with other packages:
@@ -1185,7 +1187,7 @@ public final class LoadedApk {
             mResources = ResourcesManager.getInstance().getResources(null, mResDir,
                     splitPaths, mOverlayDirs, mApplicationInfo.sharedLibraryFiles,
                     Display.DEFAULT_DISPLAY, null, getCompatibilityInfo(),
-                    getClassLoader());
+                    getClassLoader(), null);
         }
         return mResources;
     }
@@ -1207,14 +1209,30 @@ public final class LoadedApk {
         }
 
         try {
-            java.lang.ClassLoader cl = getClassLoader();
+            final java.lang.ClassLoader cl = getClassLoader();
             if (!mPackageName.equals("android")) {
                 Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER,
                         "initializeJavaContextClassLoader");
                 initializeJavaContextClassLoader();
                 Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
             }
+
+            // Rewrite the R 'constants' for all library apks.
+            SparseArray<String> packageIdentifiers = getAssets().getAssignedPackageIdentifiers(
+                    false, false);
+            for (int i = 0, n = packageIdentifiers.size(); i < n; i++) {
+                final int id = packageIdentifiers.keyAt(i);
+                if (id == 0x01 || id == 0x7f) {
+                    continue;
+                }
+
+                rewriteRValues(cl, packageIdentifiers.valueAt(i), id);
+            }
+
             ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
+            // The network security config needs to be aware of multiple
+            // applications in the same process to handle discrepancies
+            NetworkSecurityConfigProvider.handleNewApplication(appContext);
             app = mActivityThread.mInstrumentation.newApplication(
                     cl, appClass, appContext);
             appContext.setOuterContext(app);
@@ -1240,18 +1258,6 @@ public final class LoadedApk {
                         + ": " + e.toString(), e);
                 }
             }
-        }
-
-        // Rewrite the R 'constants' for all library apks.
-        SparseArray<String> packageIdentifiers = getAssets().getAssignedPackageIdentifiers();
-        final int N = packageIdentifiers.size();
-        for (int i = 0; i < N; i++) {
-            final int id = packageIdentifiers.keyAt(i);
-            if (id == 0x01 || id == 0x7f) {
-                continue;
-            }
-
-            rewriteRValues(getClassLoader(), packageIdentifiers.valueAt(i), id);
         }
 
         Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);

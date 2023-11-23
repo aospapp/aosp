@@ -23,8 +23,6 @@
 #include <string>
 #include <vector>
 
-#include "ConstantExpression.h"
-
 namespace android {
 
 struct Formatter;
@@ -43,9 +41,6 @@ struct AnnotationParam {
     /* Returns value interpretted as a boolean */
     bool getSingleBool() const;
 
-    std::vector<ConstantExpression*> getConstantExpressions();
-    virtual std::vector<const ConstantExpression*> getConstantExpressions() const;
-
    protected:
     const std::string mName;
 
@@ -62,30 +57,14 @@ struct StringAnnotationParam : AnnotationParam {
     std::vector<std::string>* const mValues;
 };
 
-struct ConstantExpressionAnnotationParam : AnnotationParam {
-    ConstantExpressionAnnotationParam(const std::string& name,
-                                      std::vector<ConstantExpression*>* values);
-
-    std::vector<std::string> getValues() const override;
-    std::string getSingleValue() const override;
-
-    std::vector<const ConstantExpression*> getConstantExpressions() const override;
-
-   private:
-    std::vector<ConstantExpression*>* const mValues;
-};
-
 using AnnotationParamVector = std::vector<AnnotationParam*>;
 
 struct Annotation {
-    Annotation(const char *name, AnnotationParamVector *params);
+    Annotation(const std::string& name, AnnotationParamVector* params);
 
     std::string name() const;
     const AnnotationParamVector &params() const;
     const AnnotationParam *getParam(const std::string &name) const;
-
-    std::vector<ConstantExpression*> getConstantExpressions();
-    std::vector<const ConstantExpression*> getConstantExpressions() const;
 
     void dump(Formatter &out) const;
 

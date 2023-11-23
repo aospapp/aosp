@@ -16,7 +16,9 @@
 
 package com.android.car.carlauncher;
 
-import android.annotation.Nullable;
+import static com.android.car.carlauncher.AppLauncherUtils.APP_TYPE_LAUNCHABLES;
+import static com.android.car.carlauncher.AppLauncherUtils.APP_TYPE_MEDIA_SERVICES;
+
 import android.app.Activity;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
@@ -24,6 +26,7 @@ import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.content.pm.CarPackageManager;
 import android.car.drivingstate.CarUxRestrictionsManager;
+import android.car.media.CarMediaManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -32,18 +35,28 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
-import android.view.View;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup;
-
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.android.car.carlauncher.AppLauncherUtils.LauncherAppsInfo;
+import com.android.car.ui.FocusArea;
+import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.baselayout.InsetsChangedListener;
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.toolbar.MenuItem;
+import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,13 +69,14 @@ import java.util.Set;
 /**
  * Launcher activity that shows a grid of apps.
  */
-public final class AppGridActivity extends Activity {
-
+public final class AppGridActivity extends Activity implements InsetsChangedListener {
     private static final String TAG = "AppGridActivity";
+    private static final String MODE_INTENT_EXTRA = "com.android.car.carlauncher.mode";
 
     private int mColumnNumber;
     private boolean mShowAllApps = true;
     private final Set<String> mHiddenApps = new HashSet<>();
+    private final Set<String> mCustomMediaComponents = new HashSet<>();
     private AppGridAdapter mGridAdapter;
     private PackageManager mPackageManager;
     private UsageStatsManager mUsageStatsManager;
@@ -70,6 +84,31 @@ public final class AppGridActivity extends Activity {
     private Car mCar;
     private CarUxRestrictionsManager mCarUxRestrictionsManager;
     private CarPackageManager mCarPackageManager;
+    private CarMediaManager mCarMediaManager;
+    private Mode mMode;
+
+    private enum Mode {
+        ALL_APPS(R.string.app_launcher_title_all_apps,
+                APP_TYPE_LAUNCHABLES + APP_TYPE_MEDIA_SERVICES,
+                true),
+        MEDIA_ONLY(R.string.app_launcher_title_media_only,
+                APP_TYPE_MEDIA_SERVICES,
+                true),
+        MEDIA_POPUP(R.string.app_launcher_title_media_only,
+                APP_TYPE_MEDIA_SERVICES,
+                false),
+        ;
+        public final @StringRes int mTitleStringId;
+        public final @AppLauncherUtils.AppTypes int mAppTypes;
+        public final boolean mOpenMediaCenter;
+
+        Mode(@StringRes int titleStringId, @AppLauncherUtils.AppTypes int appTypes,
+                boolean openMediaCenter) {
+            mTitleStringId = titleStringId;
+            mAppTypes = appTypes;
+            mOpenMediaCenter = openMediaCenter;
+        }
+    }
 
     private ServiceConnection mCarConnectionListener = new ServiceConnection() {
         @Override
@@ -87,6 +126,7 @@ public final class AppGridActivity extends Activity {
                                         restrictionInfo.isRequiresDistractionOptimization()));
 
                 mCarPackageManager = (CarPackageManager) mCar.getCarManager(Car.PACKAGE_SERVICE);
+                mCarMediaManager = (CarMediaManager) mCar.getCarManager(Car.CAR_MEDIA_SERVICE);
                 updateAppsLists();
             } catch (CarNotConnectedException e) {
                 Log.e(TAG, "Car not connected in CarConnectionListener", e);
@@ -108,27 +148,33 @@ public final class AppGridActivity extends Activity {
         mUsageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
         mCar = Car.createCar(this, mCarConnectionListener);
         mHiddenApps.addAll(Arrays.asList(getResources().getStringArray(R.array.hidden_apps)));
+        mCustomMediaComponents.addAll(
+                Arrays.asList(getResources().getStringArray(R.array.custom_media_packages)));
 
         setContentView(R.layout.app_grid_activity);
 
-        View exitView = findViewById(R.id.exit_button_container);
-        exitView.setOnClickListener(v -> finish());
-        exitView.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                mShowAllApps = !mShowAllApps;
-                updateAppsLists();
-                return true;
-            }
-        });
+        updateMode();
 
-        findViewById(R.id.search_button_container).setOnClickListener((View view) -> {
-            Intent intent = new Intent(this, AppSearchActivity.class);
-            startActivity(intent);
-        });
+        ToolbarController toolbar = CarUi.requireToolbar(this);
+        toolbar.setNavButtonMode(Toolbar.NavButtonMode.CLOSE);
+        toolbar.setState(Toolbar.State.SUBPAGE);
+
+        if (Build.IS_DEBUGGABLE) {
+            toolbar.setMenuItems(Collections.singletonList(MenuItem.builder(this)
+                    .setDisplayBehavior(MenuItem.DisplayBehavior.NEVER)
+                    .setTitle(R.string.hide_debug_apps)
+                    .setOnClickListener(i -> {
+                        mShowAllApps = !mShowAllApps;
+                        i.setTitle(mShowAllApps
+                                ? R.string.hide_debug_apps
+                                : R.string.show_debug_apps);
+                        updateAppsLists();
+                    })
+                    .build()));
+        }
 
         mGridAdapter = new AppGridAdapter(this);
-        RecyclerView gridView = findViewById(R.id.apps_grid);
+        RecyclerView gridView = requireViewById(R.id.apps_grid);
 
         GridLayoutManager gridLayoutManager = new GridLayoutManager(this, mColumnNumber);
         gridLayoutManager.setSpanSizeLookup(new SpanSizeLookup() {
@@ -138,8 +184,43 @@ public final class AppGridActivity extends Activity {
             }
         });
         gridView.setLayoutManager(gridLayoutManager);
-
         gridView.setAdapter(mGridAdapter);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        updateMode();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (mCar != null && mCar.isConnected()) {
+            mCar.disconnect();
+            mCar = null;
+        }
+        super.onDestroy();
+    }
+
+    private void updateMode() {
+        mMode = parseMode(getIntent());
+        setTitle(mMode.mTitleStringId);
+        CarUi.requireToolbar(this).setTitle(mMode.mTitleStringId);
+    }
+
+    /**
+     * Note: This activity is exported, meaning that it might receive intents from any source.
+     * Intent data parsing must be extra careful.
+     */
+    @NonNull
+    private Mode parseMode(@Nullable Intent intent) {
+        String mode = intent != null ? intent.getStringExtra(MODE_INTENT_EXTRA) : null;
+        try {
+            return mode != null ? Mode.valueOf(mode) : Mode.ALL_APPS;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Received invalid mode: " + mode, e);
+        }
     }
 
     @Override
@@ -153,9 +234,15 @@ public final class AppGridActivity extends Activity {
     /** Updates the list of all apps, and the list of the most recently used ones. */
     private void updateAppsLists() {
         Set<String> blackList = mShowAllApps ? Collections.emptySet() : mHiddenApps;
-        LauncherAppsInfo appsInfo = AppLauncherUtils.getAllLauncherApps(blackList,
-                getSystemService(LauncherApps.class), mCarPackageManager, mPackageManager);
-        mGridAdapter.setAllApps(appsInfo.getApplicationsList());
+        LauncherAppsInfo appsInfo = AppLauncherUtils.getLauncherApps(blackList,
+                mCustomMediaComponents,
+                mMode.mAppTypes,
+                mMode.mOpenMediaCenter,
+                getSystemService(LauncherApps.class),
+                mCarPackageManager,
+                mPackageManager,
+                mCarMediaManager);
+        mGridAdapter.setAllApps(appsInfo.getLaunchableComponentsList());
         mGridAdapter.setMostRecentApps(getMostRecentApps(appsInfo));
     }
 
@@ -238,8 +325,12 @@ public final class AppGridActivity extends Activity {
                 continue;
             }
 
+            // TODO(b/136222320): UsageStats is obtained per package, but a package may contain
+            //  multiple media services. We need to find a way to get the usage stats per service.
+            ComponentName componentName = AppLauncherUtils.getMediaSource(mPackageManager,
+                    packageName);
             // Exempt media services from background and launcher checks
-            if (!appsInfo.isMediaService(packageName)) {
+            if (!appsInfo.isMediaService(componentName)) {
                 // do not include apps that only ran in the background
                 if (usageStats.getTotalTimeInForeground() == 0) {
                     continue;
@@ -252,7 +343,7 @@ public final class AppGridActivity extends Activity {
                 }
             }
 
-            AppMetaData app = appsInfo.getAppMetaData(packageName);
+            AppMetaData app = appsInfo.getAppMetaData(componentName);
             // Prevent duplicated entries
             // e.g. app is used at 2017/12/31 23:59, and 2018/01/01 00:00
             if (app != null && !apps.contains(app)) {
@@ -261,6 +352,17 @@ public final class AppGridActivity extends Activity {
             }
         }
         return apps;
+    }
+
+    @Override
+    public void onCarUiInsetsChanged(Insets insets) {
+        requireViewById(R.id.apps_grid)
+                .setPadding(0, insets.getTop(), 0, insets.getBottom());
+        FocusArea focusArea = requireViewById(R.id.focus_area);
+        focusArea.setHighlightPadding(0, insets.getTop(), 0, insets.getBottom());
+
+        requireViewById(android.R.id.content)
+                .setPadding(insets.getLeft(), 0, insets.getRight(), 0);
     }
 
     /**

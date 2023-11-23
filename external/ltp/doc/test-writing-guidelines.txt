@@ -153,7 +153,7 @@ separate patch.
 ~~~~~~~~~~~
 
 Code contributed to LTP should be licensed under GPLv2+ (GNU GPL version 2 or
-any later version).
+any later version). Use `SPDX-License-Identifier: GPL-2.0-or-later`.
 
 2. Writing a testcase
 ---------------------
@@ -319,7 +319,7 @@ in range of [0, '.tcnt' - 1].
 IMPORTANT: Only one of '.test' and '.test_all' can be set at a time.
 
 Each test has a default timeout set to 300s. The default timeout can be
-overriden by setting '.timeout' in the test structure or by calling
+overridden by setting '.timeout' in the test structure or by calling
 'tst_set_timeout()' in the test 'setup()'. There are a few testcases whose run
 time may vary arbitrarily, for these timeout can be disabled by setting it to
 -1.
@@ -346,6 +346,14 @@ initialized. For example file descriptors needs to be closed only if they were
 assigned a valid file descriptor. For most of the things you need to create
 extra flag that is set right after successful initialization though. Consider,
 for example, test setup below.
+
+We also prefer cleaning up resources that would otherwise be released on the
+program exit. There are two main reasons for this decision. Resources such as
+file descriptors and mmaped memory could block umounting a block device in
+cases where the test library has mounted a filesystem for the test temporary
+directory. Not freeing allocated memory would upset static analysis and tools
+such as valgrind and produce false-positives when checking for leaks in the
+libc and other low level libraries.
 
 [source,c]
 -------------------------------------------------------------------------------
@@ -464,7 +472,7 @@ WARNING: This function is not thread safe.
 void tst_set_timeout(unsigned int timeout);
 -------------------------------------------------------------------------------
 
-Allows for setting timeout per test iteration dymanically in the test setup(),
+Allows for setting timeout per test iteration dynamically in the test setup(),
 the timeout is specified in seconds. There are a few testcases whose runtime
 can vary arbitrarily, these can disable timeouts by setting it to -1.
 
@@ -485,7 +493,10 @@ this needed.
 
 If '.needs_tmpdir' is set to '1' in the 'struct tst_test' unique test
 temporary is created and it's set as the test working directory. Tests *MUST
-NOT* create temporary files outside that directory.
+NOT* create temporary files outside that directory. The flag is not needed to
+be set when use these flags: '.all_filesystems', '.format_device', '.mntpoint',
+'.mount_device' '.needs_checkpoints', '.needs_device', '.resource_file'
+(these flags imply creating temporary directory).
 
 IMPORTANT: Close all file descriptors (that point to files in test temporary
            directory, even the unlinked ones) either in the 'test()' function
@@ -558,7 +569,7 @@ int tst_parse_int(const char *str, int *val, int min, int max);
 int tst_parse_float(const char *str, float *val, float min, float max);
 -------------------------------------------------------------------------------
 
-Helpers for parsing the the strings returned in the 'struct tst_option'.
+Helpers for parsing the strings returned in the 'struct tst_option'.
 
 Both return zero on success and 'errno', mostly 'EINVAL' or 'ERANGE', on
 failure.
@@ -695,7 +706,7 @@ The 'tst_reap_children()' function makes the process wait for all of its
 children and exits with 'tst_brk(TBROK, ...)' if any of them returned
 a non zero exit code.
 
-.Using tst_res() from binaries started by exec()
+.Using 'tst_res()' from binaries started by 'exec()'
 [source,c]
 -------------------------------------------------------------------------------
 /* test.c */
@@ -736,7 +747,7 @@ int main(void)
 The 'tst_res()' function can be also used from binaries started by 'exec()',
 the parent test process has to set the '.child_needs_reinit' flag so that the
 library prepares for it and has to make sure the 'LTP_IPC_PATH' environment
-vairiable is passed down, then the very fist thing the program has to call in
+variable is passed down, then the very fist thing the program has to call in
 'main()' is 'tst_reinit()' that sets up the IPC.
 
 2.2.9 Fork() and Parent-child synchronization
@@ -818,8 +829,8 @@ The 'TST_PROCESS_STATE_WAIT()' waits until process 'pid' is in requested
 It's mostly used with state 'S' which means that process is sleeping in kernel
 for example in 'pause()' or any other blocking syscall.
 
-2.2.10 Signal handlers
-^^^^^^^^^^^^^^^^^^^^^^
+2.2.10 Signals and signal handlers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you need to use signal handlers, keep the code short and simple. Don't
 forget that the signal handler is called asynchronously and can interrupt the
@@ -851,6 +862,14 @@ type defined in C99 but this one *DOES NOT* imply 'volatile' (it's just a
 'typedef' to 'int'). So the correct type for a flag that is changed from a
 signal handler is either 'volatile int' or 'volatile sig_atomic_t'.
 
+If a crash (e.g. triggered by signal SIGSEGV) is expected in testing, you
+can avoid creation of core files by calling tst_no_corefile() function.
+This takes effect for process (and its children) which invoked it, unless
+they subsequently modify RLIMIT_CORE.
+
+Note that LTP library will reap any processes that test didn't reap itself,
+and report any non-zero exit code as failure.
+
 2.2.11 Kernel Modules
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -858,7 +877,7 @@ There are certain cases where the test needs a kernel part and userspace part,
 happily, LTP can build a kernel module and then insert it to the kernel on test
 start for you. See 'testcases/kernel/device-drivers/block' for details.
 
-2.2.11 Useful macros
+2.2.12 Useful macros
 ^^^^^^^^^^^^^^^^^^^^^
 
 [source,c]
@@ -876,7 +895,7 @@ LTP_ALIGN(x, a)
 
 Aligns the x to be next multiple of a. The a must be power of 2.
 
-2.2.12 Filesystem type detection
+2.2.13 Filesystem type detection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some tests are known to fail on certain filesystems (you cannot swap on TMPFS,
@@ -911,7 +930,7 @@ below:
 	}
 -------------------------------------------------------------------------------
 
-2.2.13 Thread-safety in the LTP library
+2.2.14 Thread-safety in the LTP library
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 It is safe to use library 'tst_res()' function in multi-threaded tests.
@@ -929,7 +948,7 @@ thread that called the 'tst_brk()' till 'exit()' is called by 'tst_brk()'.
 The test-supplied cleanup function runs *concurrently* to the rest of the
 threads in a case that cleanup was entered from 'tst_brk()'. Subsequent
 threads entering 'tst_brk()' must be suspended or terminated at the start of
-the the user supplied cleanup function. It may be necessary to stop or exit
+the user supplied cleanup function. It may be necessary to stop or exit
 the rest of the threads before the test cleans up as well. For example threads
 that create new files should be stopped before temporary directory is be
 removed.
@@ -963,13 +982,13 @@ static void cleanup(void)
 -------------------------------------------------------------------------------
 
 
-2.2.14 Testing with a block device
+2.2.15 Testing with a block device
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some tests needs a block device (inotify tests, syscall 'EROFS' failures,
 etc.). LTP library contains a code to prepare a testing device.
 
-If '.needs_device' flag in the 'struct tst_test' is set the the 'tst_device'
+If '.needs_device' flag in the 'struct tst_test' is set the 'tst_device'
 structure is initialized with a path to a test device and default filesystem
 to be used.
 
@@ -998,7 +1017,7 @@ filesystems. Supported filesystems are detected based on existence of the
 filesystem the 'tst_device.fs_type' is set to the currently tested fs type, if
 '.format_device' is set the device is formatted as well, if '.mount_device' is
 set it's mounted at '.mntpoint'. Also the test timeout is reset for each
-execution of the test fuction. This flag is expected to be used for filesystem
+execution of the test function. This flag is expected to be used for filesystem
 related syscalls that are at least partly implemented in the filesystem
 specific code e.g. fallocate().
 
@@ -1033,7 +1052,32 @@ results in 'umount(2)' failing with 'EBUSY'.
 IMPORTANT: All testcases should use 'tst_umount()' instead of 'umount(2)' to
            umount filesystems.
 
-2.2.15 Formatting a device with a filesystem
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+int tst_find_free_loopdev(const char *path, size_t path_len);
+-------------------------------------------------------------------------------
+
+This function finds a free loopdev and returns the free loopdev minor (-1 for no
+free loopdev). If path is non-NULL, it will be filled with free loopdev path.
+If you want to use a customized loop device, we can call tst_find_free_loopdev
+(NULL, 0) in tests to get a free minor number and then mknod.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+unsigned long tst_dev_bytes_written(const char *dev);
+-------------------------------------------------------------------------------
+
+This function reads test block device stat file (/sys/block/<device>/stat) and
+returns the bytes written since the last invocation of this function. To avoid
+FS deferred IO metadata/cache interference, we suggest doing "syncfs" before the
+tst_dev_bytes_written first invocation. And an inline function named tst_dev_sync
+is created for that intention.
+
+2.2.16 Formatting a device with a filesystem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 [source,c]
@@ -1060,7 +1104,7 @@ The extra options 'extra_opts' should either be 'NULL' if there are none, or a
 will be passed after device name. e.g: +mkfs -t ext4 -b 1024 /dev/sda1 102400+
 in this case.
 
-2.2.16 Verifying a filesystem's free space
+2.2.17 Verifying a filesystem's free space
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some tests have size requirements for the filesystem's free space. If these
@@ -1085,7 +1129,7 @@ The required free space is calculated by 'size * mult', e.g.
 filesystem, which '"/tmp/testfile"' is in, has 64MB free space at least, and 0
 if not.
 
-2.2.17 Files, directories and fs limits
+2.2.18 Files, directories and fs limits
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some tests need to know the maximum count of links to a regular file or
@@ -1142,7 +1186,25 @@ Returns non-zero if directory is empty and zero otherwise.
 
 Directory is considered empty if it contains only '.' and '..'.
 
-2.2.18 Getting an unused PID number
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+int tst_fill_fd(int fd, char pattern, size_t bs, size_t bcount);
+-------------------------------------------------------------------------------
+
+Fill a file with specified pattern using file descriptor.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+int tst_fill_file(const char *path, char pattern, size_t bs, size_t bcount);
+-------------------------------------------------------------------------------
+
+Creates/overwrites a file with specified pattern using file path.
+
+2.2.19 Getting an unused PID number
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some tests require a 'PID', which is not used by the OS (does not belong to
@@ -1247,7 +1309,7 @@ The 'tst_timer_elapsed*()' returns time difference between the timer start and
 last timer stop in several formats and units.
 
 The 'tst_timer_expired_ms()' function checks if the timer started by
-'tst_timer_start()' has been running longer than ms miliseconds. The function
+'tst_timer_start()' has been running longer than ms milliseconds. The function
 returns non-zero if timer has expired and zero otherwise.
 
 IMPORTANT: The timer functions use 'clock_gettime()' internally which needs to
@@ -1277,7 +1339,7 @@ static void run(void)
 	...
 }
 
-sturct tst_test test = {
+struct tst_test test = {
 	...
 	.setup = setup,
 	.test_all = run,
@@ -1442,7 +1504,7 @@ setup(). The function will generate a TCONF if the requested flags are not
 fully supported on the running kernel, and TBROK if either a zero mask was
 supplied or if the kernel is already tainted before executing the test.
 
-Then you can call tst_taint_check() during run(), which returns 0 or the 
+Then you can call tst_taint_check() during run(), which returns 0 or the
 tainted flags set in /proc/sys/kernel/tainted as specified earlier.
 
 Depending on your kernel version, not all tainted-flags will be supported.
@@ -1479,15 +1541,17 @@ and restored at the end of the test. Only first line of a specified
 file is saved and restored.
 
 Pathnames can be optionally prefixed to specify how strictly (during
-'store') are handled files that don't exist:
-  (no prefix) - test ends with TCONF
-  '?'         - test prints info message and continues
-  '!'         - test ends with TBROK
+'store') are handled errors:
+
+* (no prefix) - test ends with TCONF, if file doesn't exist
+* '?'         - test prints info message and continues,
+                if file doesn't exist or open/read fails
+* '!'         - test ends with TBROK, if file doesn't exist
 
 'restore' is always strict and will TWARN if it encounters any error.
 
-Example:
-
+[source,c]
+-------------------------------------------------------------------------------
 static const char *save_restore[] = {
 	"/proc/sys/kernel/core_pattern",
 	NULL,
@@ -1503,7 +1567,377 @@ static struct tst_test test = {
 	.setup = setup,
 	.save_restore = save_restore,
 };
+-------------------------------------------------------------------------------
 
+2.2.28 Parsing kernel .config
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generally testcases should attempt to autodetect as much kernel features as
+possible based on the currently running kernel. We do have tst_check_driver()
+to check if functionality that could be compiled as kernel module is present
+on the system, disabled syscalls can be detected by checking for 'ENOSYS'
+errno etc.
+
+However in rare cases core kernel features couldn't be detected based on the
+kernel userspace API and we have to resort to kernel .config parsing.
+
+For this cases the test should set the 'NULL' terminated needs_kconfig array
+of kernel config options required for the test. The config option can be
+specified either as plain "CONFIG_FOO" in which case it's sufficient for the
+test continue if it's set to any value (typically =y or =m). Or with a value
+as "CONFIG_FOO=bar" in which case the value has to match as well. The test is
+aborted with 'TCONF' if any of the required options were not set.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+static const char *kconfigs[] = {
+	"CONFIG_X86_INTEL_UMIP",
+	NULL
+};
+
+static struct tst_test test = {
+	...
+	.needs_kconfigs = kconfigs,
+	...
+};
+-------------------------------------------------------------------------------
+
+2.2.29 Changing the Wall Clock Time during test execution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are some tests that, for different reasons, might need to change the
+system-wide clock time. Whenever this happens, it is imperative that the clock
+is restored, at the end of test's execution, taking in consideration the amount
+of time elapsed during that test.
+
+In order for that to happen, struct tst_test has a variable called
+"restore_wallclock" that should be set to "1" so LTP knows it should: (1)
+initialize a monotonic clock during test setup phase and (2) use that monotonic
+clock to fix the system-wide clock time at the test cleanup phase.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+static void setup(void)
+{
+	...
+}
+
+static void run(void)
+{
+	...
+}
+
+struct tst_test test = {
+	...
+	.setup = setup,
+	.test_all = run,
+	.restore_wallclock = 1,
+	...
+};
+-------------------------------------------------------------------------------
+
+2.2.30 Testing similar syscalls in one test
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In some cases kernel has several very similar syscalls that do either the same
+or very similar job. This is most noticeable on i386 where we commonly have
+two or three syscall versions. That is because i386 was first platform that
+Linux was developed on and because of that most mistakes in API happened there
+as well. However this is not limited to i386 at all, it's quite common that
+version two syscall has added missing flags parameters or so.
+
+In such cases it does not make much sense to copy&paste the test code over and
+over, rather than that the test library provides support for test variants.
+The idea behind test variants is simple, we run the test several times each
+time with different syscall variant.
+
+The implementation consist of test_variant integer that, if set, denotes number
+of test variants. The test is then forked and executed test_variant times each
+time with different value in global tst_variant variable.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+static int do_foo(void)
+{
+	switch (tst_variant) {
+	case 0:
+		return foo();
+	case 1:
+		return syscall(__NR_foo);
+	}
+
+	return -1;
+}
+
+static void run(void)
+{
+	...
+
+	TEST(do_foo);
+
+	...
+}
+
+static void setup(void)
+{
+	switch (tst_variant) {
+	case 0:
+		tst_res(TINFO, "Testing foo variant 1");
+	break;
+	case 1:
+		tst_res(TINFO, "Testing foo variant 2");
+	break;
+	}
+}
+
+struct tst_test test = {
+	...
+	.setup = setup,
+	.test_all = run,
+	.test_variants = 2,
+	...
+};
+-------------------------------------------------------------------------------
+
+2.2.31 Guarded buffers
+^^^^^^^^^^^^^^^^^^^^^^
+
+The test library supports guarded buffers, which are buffers allocated so
+that:
+
+* The end of the buffer is followed by a PROT_NONE page
+
+* The remainder of the page before the buffer is filled with random canary
+  data
+
+Which means that the any access after the buffer will yield a Segmentation
+fault or EFAULT depending on if the access happened in userspace or the kernel
+respectively. The canary before the buffer will also catch any write access
+outside of the buffer.
+
+The purpose of the patch is to catch off-by-one bugs which happens when
+buffers and structures are passed to syscalls. New tests should allocate
+guarded buffers for all data passed to the tested syscall which are passed by
+a pointer.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+static struct foo *foo_ptr;
+static struct iovec *iov;
+static void *buf_ptr;
+static char *id;
+...
+
+static void run(void)
+{
+	...
+
+	foo_ptr->bar = 1;
+	foo_ptr->buf = buf_ptr;
+
+	...
+}
+
+static void setup(void)
+{
+	...
+
+	id = tst_strdup(string);
+
+	...
+}
+
+static struct tst_test test = {
+	...
+	.bufs = (struct tst_buffers []) {
+		{&foo_ptr, .size = sizeof(*foo_ptr)},
+		{&buf_ptr, .size = BUF_SIZE},
+		{&iov, .iov_sizes = (int[]){128, 32, -1},
+		{}
+	}
+};
+-------------------------------------------------------------------------------
+
+Guarded buffers can be allocated on runtime in a test setup() by a
+'tst_alloc()' or by 'tst_strdup()' as well as by filling up the .bufs array in
+the tst_test structure.
+
+So far the tst_test structure supports allocating either a plain buffer by
+setting up the size or struct iovec, which is allocated recursively including
+the individual buffers as described by an '-1' terminated array of buffer
+sizes.
+
+2.2.32 Adding and removing capabilities
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some tests may require the presence or absence of particular
+capabilities. Using the API provided by 'tst_capability.h' the test author can
+try to ensure that some capabilities are either present or absent during the
+test.
+
+For example; below we try to create a raw socket, which requires
+CAP_NET_ADMIN. During setup we should be able to do it, then during run it
+should be impossible. The LTP capability library will check before setup that
+we have this capability, then after setup it will drop it.
+
+[source,c]
+--------------------------------------------------------------------------------
+#include "tst_test.h"
+#include "tst_capability.h"
+#include "tst_safe_net.h"
+
+#include "lapi/socket.h"
+
+static void run(void)
+{
+	TEST(socket(AF_INET, SOCK_RAW, 1));
+	if (TST_RET > -1) {
+		tst_res(TFAIL, "Created raw socket");
+	} else if (TST_ERR != EPERM) {
+		tst_res(TBROK | TTERRNO,
+			"Failed to create socket for wrong reason");
+	} else {
+		tst_res(TPASS | TTERRNO, "Didn't create raw socket");
+	}
+}
+
+static void setup(void)
+{
+	TEST(socket(AF_INET, SOCK_RAW, 1));
+	if (TST_RET < 0)
+		tst_brk(TCONF | TTERRNO, "We don't have CAP_NET_RAW to begin with");
+
+	SAFE_CLOSE(TST_RET);
+}
+
+static struct tst_test test = {
+	.setup = setup,
+	.test_all = run,
+	.caps = (struct tst_cap []) {
+		TST_CAP(TST_CAP_REQ, CAP_NET_RAW),
+		TST_CAP(TST_CAP_DROP, CAP_NET_RAW),
+		{}
+	},
+};
+--------------------------------------------------------------------------------
+
+Look at the test struct at the bottom. We have filled in the 'caps' field with
+a NULL terminated array containing two 'tst_cap' structs. 'TST_CAP_REQ'
+actions are executed before setup and 'TST_CAP_DROP' are executed after
+setup. This means it is possible to both request and drop a capability.
+
+[source,c]
+--------------------------------------------------------------------------------
+static struct tst_test test = {
+	.test_all = run,
+	.caps = (struct tst_cap []) {
+		TST_CAP(TST_CAP_REQ, CAP_NET_RAW),
+		TST_CAP(TST_CAP_DROP, CAP_SYS_ADMIN),
+		{}
+	},
+};
+--------------------------------------------------------------------------------
+
+Here we request 'CAP_NET_RAW', but drop 'CAP_SYS_ADMIN'. If the capability is
+in the permitted set, but not the effective set, the library will try to
+permit it. If it is not in the permitted set, then it will fail with 'TCONF'.
+
+This API does not require 'libcap' to be installed. However it has limited
+features relative to 'libcap'. It only tries to add or remove capabilities
+from the effective set. This means that tests which need to spawn child
+processes may have difficulties ensuring the correct capabilities are
+available to the children (see the capabilities (7) manual pages).
+
+However a lot of problems can be solved by using 'tst_cap_action(struct
+tst_cap  *cap)' directly which can be called at any time. This also helps if
+you wish to drop a capability at the begining of setup.
+
+2.2.33 Reproducing race-conditions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If a bug is caused by two tasks in the kernel racing and you wish to create a
+regression test (or bug-fix validation test) then the 'tst_fuzzy_sync.h'
+library should be used.
+
+It allows you to specify, in your code, two race windows. One window in each
+thread's loop (triggering a race usually requires many iterations). These
+windows show fuzzy-sync where the race can happen. They don't need to be
+exact, hence the 'fuzzy' part. If the race condition is not immediately
+triggered then the library will begin experimenting with different timings.
+
+[source,c]
+--------------------------------------------------------------------------------
+#include "tst_fuzzy_sync.h"
+
+static struct tst_fzsync_pair fzsync_pair;
+
+static void setup(void)
+{
+        tst_fzsync_pair_init(&fzsync_pair);
+}
+
+static void cleanup(void)
+{
+	tst_fzsync_pair_cleanup(&fzsync_pair);
+}
+
+static void *thread_b(void *arg)
+{
+	while (tst_fzsync_run_b(&fzsync_pair)) {
+
+		tst_fzsync_start_race_b(&fzsync_pair);
+
+                /* This is the race window for thread B */
+
+                tst_fzsync_end_race_b(&fzsync_pair);
+	}
+
+	return arg;
+}
+
+static void thread_a(void)
+{
+	tst_fzsync_pair_reset(&fzsync_pair, thread_b);
+
+        while (tst_fzsync_run_a(&fzsync_pair)) {
+
+		tst_fzsync_start_race_a(&fzsync_pair);
+
+		/* This is the race window for thread A */
+
+                tst_fzsync_end_race_a(&fzsync_pair);
+	}
+}
+
+static struct tst_test test = {
+	.test_all = thread_a,
+	.setup = setup,
+	.cleanup = cleanup,
+};
+--------------------------------------------------------------------------------
+
+Above is a minimal template for a test using fuzzy-sync. In a simple case, you
+just need to put the bits you want to race inbetween 'start_race' and
+'end_race'. Meanwhile, any setup you need to do per-iteration goes outside the
+windows.
+
+Fuzzy sync synchronises 'run_a' and 'run_b', which act as barriers, so that
+neither thread can progress until the other has caught up with it. There is
+also the 'pair_wait' function which can be used to add barriers in other
+locations. Of course 'start/end_race_a/b' are also a barriers.
+
+The library decides how long the test should run for based on the timeout
+specified by the user plus some other heuristics.
+
+For full documentation see the comments in 'include/tst_fuzzy_sync.h'.
 
 2.3 Writing a testcase in shell
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1522,9 +1956,8 @@ WARNING: All identifiers starting with TST_ or tst_ are reserved for the
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
-# This is a basic test for true shell buildin
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# This is a basic test for true shell builtin
 
 TST_TESTFUNC=do_test
 . tst_test.sh
@@ -1570,9 +2003,8 @@ starts the test.
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Example test with tests in separate functions
-#
 
 TST_TESTFUNC=test
 TST_CNT=2
@@ -1601,9 +2033,8 @@ found they are executed one by one. The test number is passed to it in the '$1'.
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Example test with tests in a single function
-#
 
 TST_TESTFUNC=do_test
 TST_CNT=2
@@ -1630,10 +2061,9 @@ to it in the '$1'.
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Example test with tests in a single function, using $TST_TEST_DATA and
 # $TST_TEST_DATA_IFS
-#
 
 TST_TESTFUNC=do_test
 TST_TEST_DATA="foo:bar:d dd"
@@ -1658,9 +2088,8 @@ It's possible to pass data for function with '$TST_TEST_DATA'. Optional
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Example test with tests in a single function, using $TST_TEST_DATA and $TST_CNT
-#
 
 TST_TESTFUNC=do_test
 TST_CNT=2
@@ -1686,8 +2115,8 @@ tst_run
 '$TST_TEST_DATA' can be used with '$TST_CNT'. If '$TST_TEST_DATA_IFS' not specified,
 space as default value is used. Of course, it's possible to use separate functions.
 
-2.3.2 Library variables
-^^^^^^^^^^^^^^^^^^^^^^^
+2.3.2 Library environment variables for shell
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Similarily to the C library various checks and preparations can be requested
 simply by setting right '$TST_NEEDS_FOO'.
@@ -1699,11 +2128,19 @@ simply by setting right '$TST_NEEDS_FOO'.
 | 'TST_NEEDS_TMPDIR' | Create test temporary directory and cd into it.
 | 'TST_NEEDS_DEVICE' | Prepare test temporary device, the path to testing
                        device is stored in '$TST_DEVICE' variable.
+                       The option implies 'TST_NEEDS_TMPDIR'.
 | 'TST_NEEDS_CMDS'   | String with command names that has to be present for
                        the test (see below).
 | 'TST_NEEDS_MODULE' | Test module name needed for the test (see below).
 | 'TST_NEEDS_DRIVERS'| Checks kernel drivers support for the test.
+| 'TST_TIMEOUT'      | Maximum timeout set for the test in sec. Must be int >= 1,
+                       or -1 (special value to disable timeout), default is 300.
+                       Variable is meant be set in tests, not by user.
+                       It's equivalent of `tst_test.timeout` in C.
 |=============================================================================
+
+NOTE: Network tests (see testcases/network/README.md) use additional variables
+in 'tst_net.sh'.
 
 Checking for presence of commands
 +++++++++++++++++++++++++++++++++
@@ -1722,9 +2159,9 @@ TST_NEEDS_CMDS="modinfo modprobe"
 -------------------------------------------------------------------------------
 
 Setting '$TST_NEEDS_CMDS' to a string listing required commands will check for
-existence each of them and exits the test with 'TCONF' on first misssing.
+existence each of them and exits the test with 'TCONF' on first missing.
 
-Alternatively the 'tst_test_cmds()' function can be used to do the same on
+Alternatively the 'tst_require_cmds()' function can be used to do the same on
 runtime, since sometimes we need to the check at runtime too.
 
 'tst_check_cmds()' can be used for requirements just for a particular test
@@ -1748,7 +2185,7 @@ Locating kernel modules
 +++++++++++++++++++++++
 
 The LTP build system can build kernel modules as well, setting
-'$TST_NEEDS_MODULE' to module name will cause to library to look for the
+'$TST_NEEDS_MODULE' to module name will cause the library to look for the
 module in a few possible paths.
 
 If module was found the path to it will be stored into '$TST_MODPATH'
@@ -1760,9 +2197,8 @@ variable, if module wasn't found the test will exit with 'TCONF'.
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Optional test command line parameters
-#
 
 TST_OPTS="af:"
 TST_USAGE=usage
@@ -1808,15 +2244,14 @@ these can be listed with passing help '-h' option to any test.
 The function that prints the usage is passed in '$TST_USAGE', the help for
 the options implemented in the library is appended when usage is printed.
 
-Lastly the fucntion '$PARSE_ARGS' is called with the option name in the '$1'
+Lastly the function '$PARSE_ARGS' is called with the option name in the '$1'
 and, if option has argument, its value in the '$2'.
 
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Optional test positional parameters
-#
 
 TST_POS_ARGS=3
 TST_USAGE=usage
@@ -1848,7 +2283,7 @@ You can also request a number of positional parameters by setting the
 '$TST_POS_ARGS' variable. If you do, these will be available as they were
 passed directly to the script in '$1', '$2', ..., '$n'.
 
-2.3.4 Usefull library functions
+2.3.4 Useful library functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Retrieving configuration variables
@@ -1885,7 +2320,8 @@ Retry a function in limited time
 Sometimes LTP test needs retrying a function for many times to get success.
 This achievement makes that possible via keeping it retrying if the return
 value of the function is NOT as we expected. After exceeding a limited time,
-test will break from the retries immediately.
+test will break from the retries immediately. The time limit is multiplied
+with LTP_TIMEOUT_MUL.
 
 [source,c]
 -------------------------------------------------------------------------------
@@ -1914,6 +2350,16 @@ Checking for integers
 tst_is_int "$FOO"
 -------------------------------------------------------------------------------
 
+Checking for integers and floating point numbers
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+[source,sh]
+-------------------------------------------------------------------------------
+# returns zero if passed an integer or floating point number parameter,
+# non-zero otherwise
+tst_is_num "$FOO"
+-------------------------------------------------------------------------------
+
 Obtaining random numbers
 ++++++++++++++++++++++++
 
@@ -1934,43 +2380,29 @@ The 'tst_mkfs' helper will format device with the filesystem.
 -------------------------------------------------------------------------------
 # format test device with ext2
 tst_mkfs ext2 $TST_DEVICE
+# default params are $TST_FS_TYPE $TST_DEVICE
+tst_mkfs
+# optional parameters
+tst_mkfs ext4 /dev/device -T largefile
 -------------------------------------------------------------------------------
 
-Umounting filesystems
-+++++++++++++++++++++
+Mounting and unmounting filesystems
++++++++++++++++++++++++++++++++++++
 
-The 'tst_umount' helper is a safe way to umount a filesystem.
+The 'tst_mount' and 'tst_umount' helpers are a safe way to mount/umount
+a filesystem.
 
-If the path passed to the function is not mounted (present in '/proc/mounts')
-it's noop.
+The 'tst_mount' mounts '$TST_DEVICE' of '$TST_FS_TYPE' (optional) to
+'$TST_MNTPOINT' (defaults to mntpoint), optionally using the
+'$TST_MNT_PARAMS'. The '$TST_MNTPOINT' directory is created if it didn't
+exist prior to the function call.
 
+If the path passed (optional, defaults to '$TST_DEVICE') to the 'tst_umount' is
+not mounted (present in '/proc/mounts') it's noop.
 Otherwise it retries to umount the filesystem a few times on a failure, which
 is a workaround since there are a daemons dumb enough to probe all newly
 mounted filesystems, which prevents them from umounting shortly after they
 were mounted.
-
-Running commands as different user with 'su'
-++++++++++++++++++++++++++++++++++++++++++++
-
-While some distributions retain paths added to +$PATH+ when doing
-+su user -c "command"+ this does not work at least in Debian. If you want to
-run LTP binaries as a different user you must use 'tst_su' instead which sets
-up +$PATH+ and the runs the command.
-
-.Run test child binary as a test user
-[source,sh]
--------------------------------------------------------------------------------
-#!/bin/sh
-TCID=foo01
-. test.sh
-
-tst_su testusr foo01_child
-if [ $? -ne 0 ]; then
-	tst_resm TFAIL "foo failed"
-else
-	tst_resm TPASS "foo passed"
-fi
--------------------------------------------------------------------------------
 
 ROD and ROD_SILENT
 ++++++++++++++++++
@@ -2018,8 +2450,8 @@ Note the '>' is escaped with '\', this causes that the '>' and filename are
 passed to the 'ROD' function as parameters and the 'ROD' function contains
 code to split '$@' on '>' and redirects the output to the file.
 
-EXPECT_PASS and EXPECT_FAIL
-+++++++++++++++++++++++++++
+EXPECT_PASS{,_BRK} and EXPECT_FAIL{,_BRK}
++++++++++++++++++++++++++++++++++++++++++
 
 [source,sh]
 -------------------------------------------------------------------------------
@@ -2032,6 +2464,17 @@ and 'tst_resm TFAIL' otherwise. 'EXPECT_FAIL' does vice versa.
 
 Output redirection rules are the same as for the 'ROD' function. In addition
 to that, 'EXPECT_FAIL' always redirects the command's stderr to '/dev/null'.
+
+There are also 'EXPECT_PASS_BRK' and 'EXPECT_FAIL_BRK', which works the same way
+except breaking a test when unexpected action happen.
+
+It's possible to detect whether expected value happened:
+[source,sh]
+-------------------------------------------------------------------------------
+if ! EXPECT_PASS command arg1 2\> /dev/null; then
+	continue
+fi
+-------------------------------------------------------------------------------
 
 tst_kvcmp
 +++++++++
@@ -2144,9 +2587,9 @@ correct daemon name.
 [source,sh]
 -------------------------------------------------------------------------------
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Cron daemon restart example
-#
+
 TCID=cron01
 TST_COUNT=1
 . test.sh
@@ -2165,7 +2608,7 @@ tst_exit
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The shell library provides an implementation of the checkpoint interface
-compatible with the C version. All TST_CHECKPOINT_* functions are available.
+compatible with the C version. All 'TST_CHECKPOINT_*' functions are available.
 
 In order to initialize checkpoints '$TST_NEEDS_CHECKPOINTS' must be set to '1'
 before the inclusion of 'test.sh':
@@ -2180,7 +2623,7 @@ TST_NEEDS_CHECKPOINTS=1
 
 Since both the implementations are compatible, it's also possible to start
 a child binary process from a shell test and synchronize with it. This process
-must have checkpoints initialized by calling tst_reinit()'.
+must have checkpoints initialized by calling 'tst_reinit()'.
 
 3. Common problems
 ------------------
@@ -2196,7 +2639,7 @@ with 'open()' or 'creat()' etc, the mode specified as the last parameter *is
 not* the mode the file is created with. The mode depends on current 'umask()'
 settings which may clear some of the bits. If your test depends on specific
 file permissions you need either to change umask to 0 or 'chmod()' the file
-afterwards or use SAFE_TOUCH() that does the 'chmod()' for you.
+afterwards or use 'SAFE_TOUCH()' that does the 'chmod()' for you.
 
 3.2 access()
 ~~~~~~~~~~~

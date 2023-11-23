@@ -18,10 +18,9 @@ package com.android.keychain;
 
 import android.annotation.NonNull;
 import android.app.Activity;
-import android.app.admin.IDevicePolicyManager;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.app.PendingIntent;
+import android.app.admin.IDevicePolicyManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -29,8 +28,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Bundle;
-import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.security.Credentials;
@@ -38,39 +35,37 @@ import android.security.IKeyChainAliasCallback;
 import android.security.KeyChain;
 import android.security.KeyStore;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.TextView;
+
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.keychain.internal.KeyInfoProvider;
 import com.android.org.bouncycastle.asn1.x509.X509Name;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.security.cert.Certificate;
+import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.concurrent.ExecutionException;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import javax.security.auth.x500.X500Principal;
 
 public class KeyChainActivity extends Activity {
     private static final String TAG = "KeyChain";
-
-    private static String KEY_STATE = "state";
-
-    private static final int REQUEST_UNLOCK = 1;
 
     private int mSenderUid;
 
@@ -81,6 +76,10 @@ public class KeyChainActivity extends Activity {
     // do not cause StrictMode violations, they logically should not
     // be done on the UI thread.
     private KeyStore mKeyStore = KeyStore.getInstance();
+
+    // A dialog to show the user while the KeyChain Activity is loading the
+    // certificates.
+    AlertDialog mLoadingDialog;
 
     @Override public void onResume() {
         super.onResume();
@@ -104,6 +103,16 @@ public class KeyChainActivity extends Activity {
         chooseCertificate();
     }
 
+    private void showLoadingDialog() {
+        final Context themedContext = new ContextThemeWrapper(
+                this, com.android.internal.R.style.Theme_Translucent_NoTitleBar);
+        mLoadingDialog = new AlertDialog.Builder(themedContext)
+                .setTitle(R.string.app_name)
+                .setMessage(R.string.loading_certs_message)
+                .create();
+        mLoadingDialog.show();
+    }
+
     private void chooseCertificate() {
         // Start loading the set of certs to choose from now- if device policy doesn't return an
         // alias, having aliases loading already will save some time waiting for UI to start.
@@ -124,14 +133,21 @@ public class KeyChainActivity extends Activity {
             }
         };
 
+        Log.i(TAG, String.format("Requested by app uid %d to provide a private key alias",
+                mSenderUid));
+
         String[] keyTypes = getIntent().getStringArrayExtra(KeyChain.EXTRA_KEY_TYPES);
         if (keyTypes == null) {
             keyTypes = new String[]{};
         }
+        Log.i(TAG, String.format("Key types specified: %s", Arrays.toString(keyTypes)));
+
         ArrayList<byte[]> issuers = (ArrayList<byte[]>) getIntent().getSerializableExtra(
                 KeyChain.EXTRA_ISSUERS);
         if (issuers == null) {
             issuers = new ArrayList<byte[]>();
+        } else {
+            Log.i(TAG, "Issuers specified, will be listed later.");
         }
 
         final AliasLoader loader = new AliasLoader(mKeyStore, this, keyInfoProvider,
@@ -140,7 +156,9 @@ public class KeyChainActivity extends Activity {
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
             @Override public void alias(String alias) {
-                // Use policy-suggested alias if provided
+                Log.i(TAG, String.format("Alias provided by device policy client: %s", alias));
+                // Use policy-suggested alias if provided or abort further actions if alias is
+                // KeyChain.KEY_ALIAS_SELECTION_DENIED
                 if (alias != null) {
                     finishWithAliasFromPolicy(alias);
                     return;
@@ -160,17 +178,24 @@ public class KeyChainActivity extends Activity {
                  * the dialog. This is in line with what other operating systems do.
                  */
                 if (!certAdapter.hasKeysToChoose()) {
+                    Log.i(TAG, "No keys to choose from");
                     finish(null);
                     return;
                 }
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
+                        if (mLoadingDialog != null) {
+                            mLoadingDialog.dismiss();
+                            mLoadingDialog = null;
+                        }
                         displayCertChooserDialog(certAdapter);
                     }
                 });
             }
         };
 
+        // Show a dialog to the user to indicate long-running task.
+        showLoadingDialog();
         // Give a profile or device owner the chance to intercept the request, if a private key
         // access listener is registered with the DevicePolicyManagerService.
         IDevicePolicyManager devicePolicyManager = IDevicePolicyManager.Stub.asInterface(
@@ -192,7 +217,7 @@ public class KeyChainActivity extends Activity {
     }
 
     @VisibleForTesting
-    static class CertificateParametersFilter {
+    public static class CertificateParametersFilter {
         private final KeyStore mKeyStore;
         private final List<String> mKeyTypes;
         private final List<X500Principal> mIssuers;
@@ -217,14 +242,19 @@ public class KeyChainActivity extends Activity {
             X509Certificate cert = loadCertificate(mKeyStore, alias);
             // If there's no certificate associated with the alias, skip.
             if (cert == null) {
+                Log.i(TAG, String.format("No certificate associated with alias %s", alias));
                 return false;
             }
-            Log.i(TAG, String.format("Inspecting certificate %s aliased with %s",
-                        cert.getSubjectDN().getName(), alias));
+            List<X509Certificate> certChain = new ArrayList(loadCertificateChain(mKeyStore, alias));
+            Log.i(TAG, String.format("Inspecting certificate %s aliased with %s, chain length %d",
+                        cert.getSubjectDN().getName(), alias, certChain.size()));
 
             // If the caller has provided a list of key types to restrict the certificates
             // offered for selection, skip this alias if the key algorithm is not in that
             // list.
+            // Note that the end entity (leaf) certificate's public key has to be compatible
+            // with the specified key algorithm, not any one of the chain (see RFC5246
+            // section 7.4.6)
             String keyAlgorithm = cert.getPublicKey().getAlgorithm();
             Log.i(TAG, String.format("Certificate key algorithm: %s", keyAlgorithm));
             if (!mKeyTypes.isEmpty() && !mKeyTypes.contains(keyAlgorithm)) {
@@ -232,18 +262,31 @@ public class KeyChainActivity extends Activity {
             }
 
             // If the caller has provided a list of issuers to restrict the certificates
-            // offered for selection, skip this alias if the issuer is not in that list.
-            X500Principal issuer = cert.getIssuerX500Principal();
-            Log.i(TAG, String.format("Certificate issuer: %s", issuer.getName()));
-            if (!mIssuers.isEmpty() && !mIssuers.contains(issuer)) {
+            // offered for selection, skip this alias if none of the issuers in the client
+            // certificate chain is in that list.
+            List<X500Principal> chainIssuers = new ArrayList();
+            chainIssuers.add(cert.getIssuerX500Principal());
+            for (X509Certificate intermediate : certChain) {
+                X500Principal subject = intermediate.getSubjectX500Principal();
+                Log.i(TAG, String.format("Subject of intermediate in client certificate chain: %s",
+                            subject.getName()));
+                // Collect the subjects of all the intermediates, as the RFC specifies that
+                // "one of the certificates in the certificate chain SHOULD be issued by one of
+                // the listed CAs."
+                chainIssuers.add(subject);
+            }
+
+            if (!mIssuers.isEmpty()) {
+                for (X500Principal issuer : chainIssuers) {
+                    if (mIssuers.contains(issuer)) {
+                        Log.i(TAG, String.format("Requested issuer found: %s", issuer));
+                        return true;
+                    }
+                }
                 return false;
             }
 
             return true;
-        }
-
-        public boolean areIssuersOrKeyTypesSpecified() {
-            return !(mIssuers.isEmpty() && mKeyTypes.isEmpty());
         }
     }
 
@@ -271,66 +314,65 @@ public class KeyChainActivity extends Activity {
             return new CertificateAdapter(mKeyStore, mContext,
                     rawAliasList.stream().filter(mInfoProvider::isUserSelectable)
                     .filter(mCertificateFilter::shouldPresentCertificate)
-                    .sorted().collect(Collectors.toList()),
-                    mCertificateFilter.areIssuersOrKeyTypesSpecified());
+                    .sorted().collect(Collectors.toList()));
         }
     }
 
     private void displayCertChooserDialog(final CertificateAdapter adapter) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        if (adapter.mAliases.isEmpty()) {
+            Log.w(TAG, "Should not be asked to display the cert chooser without aliases.");
+            finish(null);
+            return;
+        }
 
-        boolean empty = adapter.mAliases.isEmpty();
-        int negativeLabel = empty ? android.R.string.cancel : R.string.deny_button;
-        builder.setNegativeButton(negativeLabel, new DialogInterface.OnClickListener() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setNegativeButton(R.string.deny_button, new DialogInterface.OnClickListener() {
             @Override public void onClick(DialogInterface dialog, int id) {
                 dialog.cancel(); // will cause OnDismissListener to be called
             }
         });
 
-        String title;
         int selectedItem = -1;
         Resources res = getResources();
-        if (empty) {
-            title = res.getString(R.string.title_no_certs);
-        } else {
-            title = res.getString(R.string.title_select_cert);
-            String alias = getIntent().getStringExtra(KeyChain.EXTRA_ALIAS);
+        String alias = getIntent().getStringExtra(KeyChain.EXTRA_ALIAS);
 
-            if (alias != null) {
-                // if alias was requested, set it if found
-                int adapterPosition = adapter.mAliases.indexOf(alias);
-                if (adapterPosition != -1) {
-                    // increase by 1 to account for item 0 being the header.
-                    selectedItem = adapterPosition + 1;
-                }
-            } else if (adapter.mAliases.size() == 1) {
-                // if only one choice, preselect it
-                selectedItem = 1;
+        if (alias != null) {
+            // if alias was requested, set it if found
+            int adapterPosition = adapter.mAliases.indexOf(alias);
+            if (adapterPosition != -1) {
+                // increase by 1 to account for item 0 being the header.
+                selectedItem = adapterPosition + 1;
             }
-
-            builder.setPositiveButton(R.string.allow_button, new DialogInterface.OnClickListener() {
-                @Override public void onClick(DialogInterface dialog, int id) {
-                    if (dialog instanceof AlertDialog) {
-                        ListView lv = ((AlertDialog) dialog).getListView();
-                        int listViewPosition = lv.getCheckedItemPosition();
-                        int adapterPosition = listViewPosition-1;
-                        String alias = ((adapterPosition >= 0)
-                                        ? adapter.getItem(adapterPosition)
-                                        : null);
-                        finish(alias);
-                    } else {
-                        Log.wtf(TAG, "Expected AlertDialog, got " + dialog, new Exception());
-                        finish(null);
-                    }
-                }
-            });
+        } else if (adapter.mAliases.size() == 1) {
+            // if only one choice, preselect it
+            selectedItem = 1;
         }
-        builder.setTitle(title);
+
+        builder.setPositiveButton(R.string.allow_button, new DialogInterface.OnClickListener() {
+            @Override public void onClick(DialogInterface dialog, int id) {
+                if (dialog instanceof AlertDialog) {
+                    ListView lv = ((AlertDialog) dialog).getListView();
+                    int listViewPosition = lv.getCheckedItemPosition();
+                    int adapterPosition = listViewPosition-1;
+                    String alias = ((adapterPosition >= 0)
+                                    ? adapter.getItem(adapterPosition)
+                                    : null);
+                    Log.i(TAG, String.format("User chose: %s", alias));
+                    finish(alias);
+                } else {
+                    Log.wtf(TAG, "Expected AlertDialog, got " + dialog, new Exception());
+                    finish(null);
+                }
+            }
+        });
+
+        builder.setTitle(res.getString(R.string.title_select_cert));
         builder.setSingleChoiceItems(adapter, selectedItem, null);
         final AlertDialog dialog = builder.create();
 
         // Show text above the list to explain what the certificate will be used for.
-        TextView contextView = (TextView) View.inflate(this, R.layout.cert_chooser_header, null);
+        TextView contextView = (TextView) View.inflate(
+                this, R.layout.cert_chooser_header, null);
 
         final ListView lv = dialog.getListView();
         lv.addHeaderView(contextView, null, false);
@@ -395,15 +437,12 @@ public class KeyChainActivity extends Activity {
         private final List<String> mSubjects = new ArrayList<String>();
         private final KeyStore mKeyStore;
         private final Context mContext;
-        private final boolean mIssuersOrKeyTypesSpecified;
 
-        private CertificateAdapter(KeyStore keyStore, Context context, List<String> aliases,
-                boolean issuersOrKeyTypesSpecified) {
+        private CertificateAdapter(KeyStore keyStore, Context context, List<String> aliases) {
             mAliases = aliases;
             mSubjects.addAll(Collections.nCopies(aliases.size(), (String) null));
             mKeyStore = keyStore;
             mContext = context;
-            mIssuersOrKeyTypesSpecified = issuersOrKeyTypesSpecified;
         }
         @Override public int getCount() {
             return mAliases.size();
@@ -493,7 +532,12 @@ public class KeyChainActivity extends Activity {
     }
 
     private void finish(String alias, boolean isAliasFromPolicy) {
-        if (alias == null) {
+        if (mLoadingDialog != null) {
+            mLoadingDialog.dismiss();
+            mLoadingDialog = null;
+        }
+        if (alias == null || alias.equals(KeyChain.KEY_ALIAS_SELECTION_DENIED)) {
+            alias = null;
             setResult(RESULT_CANCELED);
         } else {
             Intent result = new Intent();
@@ -565,6 +609,7 @@ public class KeyChainActivity extends Activity {
     private static X509Certificate loadCertificate(KeyStore keyStore, String alias) {
         byte[] bytes = keyStore.get(Credentials.USER_CERTIFICATE + alias);
         if (bytes == null) {
+            Log.i(TAG, String.format("Missing user certificate for key alias %s", alias));
             return null;
         }
         InputStream in = new ByteArrayInputStream(bytes);
@@ -574,6 +619,21 @@ public class KeyChainActivity extends Activity {
         } catch (CertificateException ignored) {
             Log.w(TAG, "Error generating certificate", ignored);
             return null;
+        }
+    }
+
+    private static List<X509Certificate> loadCertificateChain(KeyStore keyStore, String alias) {
+        byte[] chainBytes = keyStore.get(Credentials.CA_CERTIFICATE + alias);
+        if (chainBytes == null) {
+            Log.i(TAG, String.format("Missing certificate chain for key alias %s", alias));
+            return Collections.emptyList();
+        }
+
+        try {
+            return Credentials.convertFromPem(chainBytes);
+        } catch (IOException | CertificateException e) {
+            Log.w(TAG, String.format("Error parsing certificate chain for alias %s", alias), e);
+            return Collections.emptyList();
         }
     }
 }

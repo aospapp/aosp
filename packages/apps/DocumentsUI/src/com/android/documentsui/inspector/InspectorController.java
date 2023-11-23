@@ -17,7 +17,6 @@ package com.android.documentsui.inspector;
 
 import static androidx.core.util.Preconditions.checkArgument;
 
-import androidx.annotation.StringRes;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -26,16 +25,19 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
-import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import android.view.View;
 import android.view.View.OnClickListener;
+
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.ProviderExecutor;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Shared;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.inspector.actions.Action;
 import com.android.documentsui.inspector.actions.ClearDefaultAppAction;
 import com.android.documentsui.inspector.actions.ShowInProviderAction;
@@ -147,8 +149,8 @@ public final class InspectorController {
         mLoader.reset();
     }
 
-    public void loadInfo(Uri uri) {
-        mLoader.loadDocInfo(uri, this::updateView);
+    public void loadInfo(Uri uri, UserId userId) {
+        mLoader.loadDocInfo(uri, userId, this::updateView);
     }
 
     /**
@@ -172,7 +174,7 @@ public final class InspectorController {
                     mShowProvider.init(
                         showProviderAction,
                         (view) -> {
-                            showInProvider(docInfo.derivedUri);
+                            showInProvider(docInfo.derivedUri, UserId.DEFAULT_USER);
                         });
                 }
 
@@ -185,6 +187,7 @@ public final class InspectorController {
             if (docInfo.isMetadataSupported()) {
                 mLoader.getDocumentMetadata(
                         docInfo.derivedUri,
+                        docInfo.userId,
                         (Bundle bundle) -> {
                             onDocumentMetadataLoaded(docInfo, bundle);
                         });
@@ -260,13 +263,13 @@ public final class InspectorController {
      *
      * @param DocumentInfo whose flag FLAG_SUPPORTS_SETTINGS is set.
      */
-    public void showInProvider(Uri uri) {
+    public void showInProvider(Uri uri, UserId userId) {
 
         Intent intent = new Intent(DocumentsContract.ACTION_DOCUMENT_SETTINGS);
-        intent.setPackage(mProviders.getPackageName(uri.getAuthority()));
+        intent.setPackage(mProviders.getPackageName(userId, uri.getAuthority()));
         intent.addCategory(Intent.CATEGORY_DEFAULT);
         intent.setData(uri);
-        mContext.startActivity(intent);
+        userId.startActivityAsUser(mContext, intent);
     }
 
     /**
@@ -279,10 +282,11 @@ public final class InspectorController {
          * Starts the Asynchronous process of loading file data.
          *
          * @param uri - A content uri to query metadata from.
+         * @param userId - A user to load the uri from.
          * @param callback - Function to be called when the loader has finished loading metadata. A
          * DocumentInfo will be sent to this method. DocumentInfo may be null.
          */
-        void loadDocInfo(Uri uri, Consumer<DocumentInfo> callback);
+        void loadDocInfo(Uri uri, UserId userId, Consumer<DocumentInfo> callback);
 
         /**
          * Loads a folders item count.
@@ -301,7 +305,7 @@ public final class InspectorController {
          * @param uri
          * @param callback
          */
-        void getDocumentMetadata(Uri uri, Consumer<Bundle> callback);
+        void getDocumentMetadata(Uri uri, UserId userId, Consumer<Bundle> callback);
     }
 
     /**

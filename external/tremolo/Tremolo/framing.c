@@ -411,7 +411,7 @@ static ogg_uint32_t oggbyte_read4(oggbyte_buffer *b,int pos){
   _positionF(b,++pos);
   ret|=b->ptr[pos-b->pos]<<16;
   _positionF(b,++pos);
-  ret|=b->ptr[pos-b->pos]<<24;
+  ret|=((ogg_uint32_t)b->ptr[pos-b->pos])<<24;
   return ret;
 }
 

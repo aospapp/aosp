@@ -91,7 +91,7 @@ class power_SuspendToIdle(test.test):
 
         with self._log_error_message():
             if (rc6_residency_stats and
-                rc6_residency_stats.get_accumulated_residency_secs() <= 0):
+                rc6_residency_stats.get_accumulated_residency_msecs() <= 0):
                 raise error.TestFail('RC6 residency check failed.')
 
         if self._error_count > 0:

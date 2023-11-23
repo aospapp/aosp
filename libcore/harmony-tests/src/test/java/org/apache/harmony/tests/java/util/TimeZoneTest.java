@@ -232,11 +232,10 @@ public class TimeZoneTest extends junit.framework.TestCase {
 
         // Any one of these might legitimately change its raw offset, though that's
         // fairly unlikely, and the chances of more than one changing are very slim.
-        assertTrue(ids.toString(), ids.contains("America/Dawson"));
         assertTrue(ids.toString(), ids.contains("America/Tijuana"));
+        assertTrue(ids.toString(), ids.contains("America/Ensenada")); // Alias for America/Tijuana
         assertTrue(ids.toString(), ids.contains("America/Vancouver"));
-        assertTrue(ids.toString(), ids.contains("Canada/Pacific"));
-        assertTrue(ids.toString(), ids.contains("Canada/Yukon"));
+        assertTrue(ids.toString(), ids.contains("Canada/Pacific")); // Alias for America/Vancouver
         assertTrue(ids.toString(), ids.contains("Pacific/Pitcairn"));
     }
 

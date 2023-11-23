@@ -5,7 +5,7 @@
 """Wrapper test that controls charging / discharging DUT with Servo v4."""
 
 from autotest_lib.server import test
-from autotest_lib.server.cros.power import servo_v4_charge_utils
+from autotest_lib.server.cros.power import servo_charger
 from autotest_lib.server.cros.power import wrapper_test_runner
 
 
@@ -35,8 +35,8 @@ class power_ChargeControlWrapper(test.test):
         from AC power as preparation.
         """
         super(power_ChargeControlWrapper, self).warmup(host)
-        self._charge_manager = servo_v4_charge_utils.ServoV4ChargeManager(
-                host, host.servo)
+        self._charge_manager = servo_charger.ServoV4ChargeManager(host,
+                                                                  host.servo)
         self._charge_manager.stop_charging()
 
     def cleanup(self):

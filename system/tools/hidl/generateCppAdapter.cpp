@@ -42,7 +42,7 @@ void AST::generateCppAdapterHeader(Formatter& out) const {
     out << "#define " << guard << "\n\n";
 
     if (AST::isInterface()) {
-        generateCppPackageInclude(out, mPackage, getInterface()->localName());
+        generateCppPackageInclude(out, mPackage, getInterface()->definedName());
 
         enterLeaveNamespace(out, true /* enter */);
         out.endl();
@@ -85,7 +85,7 @@ void AST::generateCppAdapterSource(Formatter& out) const {
 
     if (AST::isInterface()) {
         out << "#include <hidladapter/HidlBinderAdapter.h>\n";
-        generateCppPackageInclude(out, mPackage, getInterface()->localName());
+        generateCppPackageInclude(out, mPackage, getInterface()->definedName());
 
         std::set<FQName> allImportedNames;
         getAllImportedNames(&allImportedNames);

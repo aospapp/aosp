@@ -9,22 +9,27 @@
 /*
  * Sends a debug event to the audio thread for debugging.
  */
-int cras_audio_thread_debug();
+int cras_audio_thread_event_debug();
 
 /*
  * Notifies the main thread when a busyloop event happens.
  */
-int cras_audio_thread_busyloop();
+int cras_audio_thread_event_busyloop();
 
 /*
  * Notifies the main thread when a underrun event happens.
  */
-int cras_audio_thread_underrun();
+int cras_audio_thread_event_underrun();
 
 /*
  * Notifies the main thread when a severe underrun event happens.
  */
-int cras_audio_thread_severe_underrun();
+int cras_audio_thread_event_severe_underrun();
+
+/*
+ * Notifies the main thread when a drop samples event happens.
+ */
+int cras_audio_thread_event_drop_samples();
 
 /*
  * Initializes audio thread monitor and sets main thread callback.

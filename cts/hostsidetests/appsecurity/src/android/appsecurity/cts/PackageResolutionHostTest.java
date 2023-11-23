@@ -58,7 +58,7 @@ public class PackageResolutionHostTest extends BaseAppSecurityTest {
     }
     private void testResolveOrderedActivity(boolean instant) throws Exception {
         new InstallMultiple(instant)
-                .addApk(TINY_APK)
+                .addFile(TINY_APK)
                 .run();
         Utils.runDeviceTests(getDevice(), TINY_PKG,
                 ".PackageResolutionTest", "queryActivityOrdered");
@@ -76,7 +76,7 @@ public class PackageResolutionHostTest extends BaseAppSecurityTest {
     }
     private void testResolveOrderedService(boolean instant) throws Exception {
         new InstallMultiple(instant)
-                .addApk(TINY_APK)
+                .addFile(TINY_APK)
                 .run();
         Utils.runDeviceTests(getDevice(), TINY_PKG,
                 ".PackageResolutionTest", "queryServiceOrdered");
@@ -94,7 +94,7 @@ public class PackageResolutionHostTest extends BaseAppSecurityTest {
     }
     private void testResolveOrderedReceiver(boolean instant) throws Exception {
         new InstallMultiple(instant)
-                .addApk(TINY_APK)
+                .addFile(TINY_APK)
                 .run();
         Utils.runDeviceTests(getDevice(), TINY_PKG,
                 ".PackageResolutionTest", "queryReceiverOrdered");

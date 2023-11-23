@@ -27,14 +27,16 @@ import android.location.LocationManager;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnitRunner;
 
 /**
  * This class contains unit tests for {@link LocationManagerProxy}.
  *
  * Mocks are used for {@link Context} and {@link LocationManager}.
  */
+@RunWith(MockitoJUnitRunner.class)
 public class LocationManagerProxyTest {
     private static final String TAG = "LocationManagerProxyTest";
     private LocationManagerProxy mLocationManagerProxy;
@@ -46,7 +48,6 @@ public class LocationManagerProxyTest {
     /** Initialize all of the objects with the @Mock annotation. */
     @Before
     public void setUp() throws Exception {
-        MockitoAnnotations.initMocks(this);
         when(mMockContext.getSystemService(Context.LOCATION_SERVICE))
                 .thenReturn(mMockLocationManager);
         mLocationManagerProxy = new LocationManagerProxy(mMockContext);

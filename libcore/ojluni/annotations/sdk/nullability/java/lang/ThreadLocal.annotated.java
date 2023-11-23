@@ -37,7 +37,7 @@ public ThreadLocal() { throw new RuntimeException("Stub!"); }
 
 @libcore.util.Nullable protected T initialValue() { throw new RuntimeException("Stub!"); }
 
-public static <S> java.lang.ThreadLocal<S> withInitial(@libcore.util.NonNull java.util.function.Supplier<? extends S> supplier) { throw new RuntimeException("Stub!"); }
+@libcore.util.NonNull public static <S> java.lang.ThreadLocal<S> withInitial(@libcore.util.NonNull java.util.function.Supplier<? extends S> supplier) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.Nullable public T get() { throw new RuntimeException("Stub!"); }
 
@@ -45,4 +45,3 @@ public void set(@libcore.util.NullFromTypeParam T value) { throw new RuntimeExce
 
 public void remove() { throw new RuntimeException("Stub!"); }
 }
-

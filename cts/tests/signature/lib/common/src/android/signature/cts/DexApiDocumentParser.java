@@ -88,7 +88,7 @@ public class DexApiDocumentParser {
                 lineLengthEstimate, DEX_MEMBER_CONVERTER), true);
     }
 
-    private static DexMember parseLine(String line, int lineNum) throws ParseException {
+    public static DexMember parseLine(String line, int lineNum) throws ParseException {
         // Split the CSV line.
         String[] splitLine = line.split(",");
         String signature = splitLine[0];

@@ -69,30 +69,6 @@ struct VectorType : public TemplatedType {
             const std::string &parentName,
             const std::string &offsetText) const override;
 
-    void emitResolveReferences(
-            Formatter &out,
-            const std::string &name,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode) const override;
-
-    void emitResolveReferencesEmbedded(
-            Formatter &out,
-            size_t depth,
-            const std::string &name,
-            const std::string &sanitizedName,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode,
-            const std::string &parentName,
-            const std::string &offsetText) const override;
-
-    bool useParentInEmitResolveReferencesEmbedded() const override;
-
     void emitJavaReaderWriter(
             Formatter &out,
             const std::string &parcelObj,
@@ -125,7 +101,6 @@ struct VectorType : public TemplatedType {
             bool isReader);
 
     bool needsEmbeddedReadWrite() const override;
-    bool deepNeedsResolveReferences(std::unordered_set<const Type*>* visited) const override;
     bool resultNeedsDeref() const override;
 
     bool deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const override;
@@ -134,27 +109,6 @@ struct VectorType : public TemplatedType {
     void getAlignmentAndSize(size_t *align, size_t *size) const override;
     static void getAlignmentAndSizeStatic(size_t *align, size_t *size);
  private:
-    // Helper method for emitResolveReferences[Embedded].
-    // Pass empty childName and childOffsetText if the original
-    // childHandle is unknown.
-    // For example, given a vec<ref<T>> (T is a simple struct that
-    // contains primitive values only), then the following methods are
-    // invoked:
-    // 1. VectorType::emitResolveReferences
-    //    ... which calls the helper with empty childName and childOffsetText
-    // 2. RefType::emitResolveReferencesEmbedded
-    void emitResolveReferencesEmbeddedHelper(
-            Formatter &out,
-            size_t depth,
-            const std::string &name,
-            const std::string &sanitizedName,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode,
-            const std::string &childName,
-            const std::string &childOffsetText) const;
 
     void emitReaderWriterForVectorOfBinders(
             Formatter &out,

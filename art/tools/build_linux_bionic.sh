@@ -35,15 +35,9 @@ source build/envsetup.sh >&/dev/null # for get_build_var
 # Soong needs a bunch of variables set and will not run if they are missing.
 # The default values of these variables is only contained in make, so use
 # nothing to create the variables then remove all the other artifacts.
-
-# TODO(b/123645297) Move hiddenapi steps to soong.
-#
-# Currently hiddenapi relies on .mk to build some of it's configuration files.
-# This prevents us from just cleaning using soong and forces us to do this
-# hacky workaround where we build the targets without linux_bionic and delete
-# the build-config files before going around again. If we fix this issue we can
-# change to only building 'nothing' instead.
-build/soong/soong_ui.bash --make-mode "$@"
+# Lunch since it seems we cannot find the build-number otherwise.
+lunch aosp_x86-eng
+build/soong/soong_ui.bash --make-mode nothing
 
 if [ $? != 0 ]; then
   exit 1
@@ -57,6 +51,7 @@ host_out=$(get_build_var HOST_OUT)
 # There is no good way to force soong to generate host-bionic builds currently
 # so this is a hacky workaround.
 tmp_soong_var=$(mktemp --tmpdir soong.variables.bak.XXXXXX)
+tmp_build_number=$(cat ${out_dir}/soong/build_number.txt)
 
 cat $out_dir/soong/soong.variables > ${tmp_soong_var}
 
@@ -81,9 +76,14 @@ x['CrossHost'] = 'linux_bionic'
 x['CrossHostArch'] = 'x86_64'
 if 'CrossHostSecondaryArch' in x:
   del x['CrossHostSecondaryArch']
+if 'DexpreoptGlobalConfig' in x:
+  del x['DexpreoptGlobalConfig']
 json.dump(x, open(sys.argv[2], mode='w'))
 END
 
 rm $tmp_soong_var
+
+# Write a new build-number
+echo ${tmp_build_number}_SOONG_ONLY_BUILD > ${out_dir}/soong/build_number.txt
 
 build/soong/soong_ui.bash --make-mode --skip-make $@

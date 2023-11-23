@@ -27,6 +27,7 @@ import android.os.test.TestLooper;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiInjector;
 
 import org.junit.Before;
@@ -37,7 +38,7 @@ import org.mockito.ArgumentCaptor;
  * Unit tests for {@link com.android.server.wifi.WifiP2pMonitor}.
  */
 @SmallTest
-public class WifiP2pMonitorTest {
+public class WifiP2pMonitorTest extends WifiBaseTest {
     private static final String P2P_IFACE_NAME = "p2p0";
     private static final String SECOND_P2P_IFACE_NAME = "p2p1";
     private WifiP2pMonitor mWifiP2pMonitor;

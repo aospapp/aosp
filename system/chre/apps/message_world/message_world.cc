@@ -32,10 +32,11 @@ constexpr uint32_t kMessageType = 1234;
 uint8_t gMessageData[CHRE_MESSAGE_TO_HOST_MAX_SIZE] = {1, 2, 3, 4, 5, 6, 7, 8};
 
 void messageFreeCallback(void *message, size_t messageSize) {
-  LOGI("Got message free callback for message @"
-       " %p (match? %d) size %zu (match? %d)",
-       message, (message == gMessageData),
-       messageSize, (messageSize == sizeof(gMessageData)));
+  LOGI(
+      "Got message free callback for message @ %p (match? %d) size %zu (match?"
+      " %d)",
+      message, (message == gMessageData), messageSize,
+      (messageSize == sizeof(gMessageData)));
   if (!chreSendEvent(CHRE_EVENT_FIRST_USER_VALUE, nullptr, nullptr,
                      chreGetInstanceId())) {
     LOGE("Failed to send event");
@@ -54,8 +55,7 @@ bool nanoappStart() {
   return true;
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   if (eventType == CHRE_EVENT_MESSAGE_FROM_HOST) {
     auto *msg = static_cast<const chreMessageFromHostData *>(eventData);
@@ -68,8 +68,8 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
     }
 
     bool success = chreSendMessageToHostEndpoint(
-      gMessageData, sizeof(gMessageData), kMessageType,
-      CHRE_HOST_ENDPOINT_BROADCAST, messageFreeCallback);
+        gMessageData, sizeof(gMessageData), kMessageType,
+        CHRE_HOST_ENDPOINT_BROADCAST, messageFreeCallback);
     LOGI("Result of sending reply: %d", success);
   }
 }
@@ -82,8 +82,8 @@ void nanoappEnd() {
 }  // anonymous namespace
 }  // namespace chre
 
-#include "chre/util/nanoapp/app_id.h"
 #include "chre/platform/static_nanoapp_init.h"
+#include "chre/util/nanoapp/app_id.h"
 
 CHRE_STATIC_NANOAPP_INIT(MessageWorld, chre::kMessageWorldAppId, 0);
 #endif  // CHRE_NANOAPP_INTERNAL

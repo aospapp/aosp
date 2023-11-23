@@ -1,4 +1,5 @@
 subdirs = [
+    "apex",
     "binder",
     "build",
     "btif",
@@ -28,8 +29,8 @@ subdirs = [
 ]
 
 filegroup {
-  name: "BluetoothTestConfigTemplate",
-  srcs: [
-    "AndroidTestTemplate.xml"
-  ]
+    name: "BluetoothTestConfigTemplate",
+    srcs: [
+        "AndroidTestTemplate.xml",
+    ],
 }

@@ -61,9 +61,9 @@ def getDevices (adbPath):
 		if len(line.strip()) == 0:
 			continue
 
-		m = ptrn.match(line)
+		m = ptrn.match(line.decode('utf-8'))
 		if m == None:
-			print "WARNING: Failed to parse device info '%s'" % line
+			print("WARNING: Failed to parse device info '%s'" % line)
 			continue
 
 		devices.append(Device(m.group(1), m.group(2), m.group(3), m.group(4)))
@@ -77,7 +77,7 @@ def execWithPrintPrefix (args, linePrefix="", failOnNonZeroExit=True):
 			line = source.readline()
 			if len(line) == 0: # EOF
 				break;
-			sink.write(prefix + line)
+			sink.write(prefix + line.decode('utf-8'))
 
 	process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	stdoutJob = threading.Thread(target=readApplyPrefixAndPrint, args=(process.stdout, linePrefix, sys.stdout))
@@ -114,29 +114,29 @@ def parallelApply (f, argsList):
 		job.join()
 
 	if errorCode.error:
-		raise errorCode.error[0], errorCode.error[1], errorCode.error[2]
+		raise errorCode.error[0](errorCode.error[1]).with_traceback(errorCode.error[2])
 
 def uninstall (adbPath, packageName, extraArgs = [], printPrefix=""):
-	print printPrefix + "Removing existing %s...\n" % packageName,
+	print(printPrefix + "Removing existing %s...\n" % packageName,)
 	execWithPrintPrefix([adbPath] + extraArgs + [
 			'uninstall',
 			packageName
 		], printPrefix, failOnNonZeroExit=False)
-	print printPrefix + "Remove complete\n",
+	print(printPrefix + "Remove complete\n",)
 
 def install (adbPath, apkPath, extraArgs = [], printPrefix=""):
-	print printPrefix + "Installing %s...\n" % apkPath,
+	print(printPrefix + "Installing %s...\n" % apkPath,)
 	execWithPrintPrefix([adbPath] + extraArgs + [
 			'install',
 			apkPath
 		], printPrefix)
-	print printPrefix + "Install complete\n",
+	print(printPrefix + "Install complete\n",)
 
 def installToDevice (device, adbPath, packageName, apkPath, printPrefix=""):
 	if len(printPrefix) == 0:
-		print "Installing to %s (%s)...\n" % (device.serial, device.model),
+		print("Installing to %s (%s)...\n" % (device.serial, device.model), end='')
 	else:
-		print printPrefix + "Installing to %s\n" % device.serial,
+		print(printPrefix + "Installing to %s\n" % device.serial, end='')
 
 	uninstall(adbPath, packageName, ['-s', device.serial], printPrefix)
 	install(adbPath, apkPath, ['-s', device.serial], printPrefix)
@@ -229,11 +229,11 @@ if __name__ == "__main__":
 			elif len(devices) == 1:
 				installToDevice(devices[0], args.adbPath, packageName, apkPath)
 			else:
-				print "More than one device connected:"
+				print("More than one device connected:")
 				for i in range(0, len(devices)):
-					print "%3d: %16s %s" % ((i+1), devices[i].serial, devices[i].model)
+					print("%3d: %16s %s" % ((i+1), devices[i].serial, devices[i].model))
 
-				deviceNdx = int(raw_input("Choose device (1-%d): " % len(devices)))
+				deviceNdx = int(input("Choose device (1-%d): " % len(devices)))
 				installToDevice(devices[deviceNdx-1], args.adbPath, packageName, apkPath)
 		else:
 			devices = getDevices(args.adbPath)

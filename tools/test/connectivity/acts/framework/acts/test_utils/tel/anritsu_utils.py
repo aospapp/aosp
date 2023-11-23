@@ -1446,7 +1446,7 @@ def call_mo_setup_teardown(
                 raise _CallSequenceException("DUT call not drop.")
         else:
             log.info("Disconnecting the call from DUT")
-            if not hangup_call(log, ad):
+            if not hangup_call(log, ad, is_emergency):
                 raise _CallSequenceException(
                     "Error in Hanging-Up Call on DUT.")
 
@@ -1689,7 +1689,7 @@ def ims_call_ho(log,
             raise _CallSequenceException("Call ended before delay_in_call.")
         # end the call from phone
         log.info("Disconnecting the call from DUT")
-        if not hangup_call(log, ad):
+        if not hangup_call(log, ad, is_emergency):
             raise _CallSequenceException("Error in Hanging-Up Call on DUT.")
         # confirm if CSCF status is back to idle
         if not wait_for_ims_cscf_status(log, anritsu_handle,
@@ -1826,7 +1826,7 @@ def ims_call_cs_teardown(
                 raise _CallSequenceException("DUT call not drop.")
         else:
             log.info("Disconnecting the call from DUT")
-            if not hangup_call(log, ad):
+            if not hangup_call(log, ad, is_emergency):
                 raise _CallSequenceException(
                     "Error in Hanging-Up Call on DUT.")
         # confirm if virtual phone status is back to idle
@@ -1857,7 +1857,7 @@ def call_mt_setup_teardown(log,
 
     Args:
         ad: Android device object.
-        virtual_phone_handle: Anritus virtual phone handle
+        virtual_phone_handle: Anritsu virtual phone handle
         caller_number =  Caller number
         teardown_side = specifiy the side to end the call (Phone or remote)
 
@@ -2772,7 +2772,6 @@ def set_post_sim_params(anritsu_handle, user_params, sim_card):
         anritsu_handle.send_command("PDNIMS 1,ENABLE")
         anritsu_handle.send_command("PDNVNID 1,1")
         anritsu_handle.send_command("PDNIMS 2,ENABLE")
-        anritsu_handle.send_command("PDNVNID 2,2")
         anritsu_handle.send_command("PDNIMS 3,ENABLE")
         anritsu_handle.send_command("PDNVNID 3,1")
     if sim_card == VzW12349:

@@ -18,6 +18,7 @@ package com.android.car.dialer.ui.activecall;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,16 +56,18 @@ import org.robolectric.shadows.ShadowContextImpl;
 import java.util.ArrayList;
 import java.util.List;
 
-
 @Config(shadows = {ShadowAndroidViewModelFactory.class})
 @RunWith(CarDialerRobolectricTestRunner.class)
 public class OnGoingCallControllerBarFragmentTest {
     private OnGoingCallControllerBarFragment mOnGoingCallControllerBarFragment;
     private List<Integer> mAudioRouteList = new ArrayList<>();
-    private OngoingCallStateViewModel mOngoingCallStateViewModel;
     private MutableLiveData<Call> mCallLiveData;
     private MutableLiveData<Integer> mCallStateLiveData;
     private MutableLiveData<CallDetail> mCallDetailLiveData;
+    private MutableLiveData<Boolean> mDialpadStateLiveData;
+    private MutableLiveData<List<Call>> mCallListLiveData;
+    private MutableLiveData<CallAudioState> mCallAudioStateLiveData;
+    private List<Call> mCallList;
     @Mock
     private Call mMockCall;
     @Mock
@@ -85,6 +88,12 @@ public class OnGoingCallControllerBarFragmentTest {
         mCallLiveData.setValue(mMockCall);
         mCallStateLiveData = new MutableLiveData<>();
         mCallDetailLiveData = new MutableLiveData<>();
+        mDialpadStateLiveData = new MutableLiveData<>();
+        mCallListLiveData = new MutableLiveData<>();
+        mCallAudioStateLiveData = new MutableLiveData<>();
+        mCallList = new ArrayList<>();
+        mCallList.add(mMockCall);
+        mCallListLiveData.setValue(mCallList);
 
         ((TestDialerApplication) RuntimeEnvironment.application).setupInCallServiceImpl(
                 mMockInCallService);
@@ -92,8 +101,6 @@ public class OnGoingCallControllerBarFragmentTest {
         ShadowContextImpl shadowContext = Shadow.extract(
                 RuntimeEnvironment.application.getBaseContext());
         shadowContext.setSystemService(Context.TELECOM_SERVICE, mMockTelecomManager);
-
-        mOngoingCallStateViewModel = new OngoingCallStateViewModel(RuntimeEnvironment.application);
     }
 
     @Test
@@ -118,7 +125,7 @@ public class OnGoingCallControllerBarFragmentTest {
     @Test
     public void testDialpadButton() {
         addFragment(Call.STATE_ACTIVE);
-        mOngoingCallStateViewModel.getDialpadState().setValue(false);
+        mDialpadStateLiveData.setValue(false);
 
         View dialpadButton = mOnGoingCallControllerBarFragment.getView().findViewById(
                 R.id.toggle_dialpad_button);
@@ -126,15 +133,15 @@ public class OnGoingCallControllerBarFragmentTest {
         // Test initial state
         assertThat(dialpadButton.hasOnClickListeners()).isTrue();
         assertThat(dialpadButton.isActivated()).isFalse();
-        assertThat(mOngoingCallStateViewModel.getDialpadState().getValue()).isFalse();
+        assertThat(mDialpadStateLiveData.getValue()).isFalse();
         // On open dialpad
         dialpadButton.performClick();
         assertThat(dialpadButton.isActivated()).isTrue();
-        assertThat(mOngoingCallStateViewModel.getDialpadState().getValue()).isTrue();
+        assertThat(mDialpadStateLiveData.getValue()).isTrue();
         // On close dialpad
         dialpadButton.performClick();
         assertThat(dialpadButton.isActivated()).isFalse();
-        assertThat(mOngoingCallStateViewModel.getDialpadState().getValue()).isFalse();
+        assertThat(mDialpadStateLiveData.getValue()).isFalse();
     }
 
     @Test
@@ -165,7 +172,7 @@ public class OnGoingCallControllerBarFragmentTest {
         addFragment(Call.STATE_ACTIVE);
 
         View fragmentView = mOnGoingCallControllerBarFragment.getView();
-        ImageView audioRouteButton = fragmentView.findViewById(R.id.voice_channel_button);
+        View audioRouteButton = fragmentView.findViewById(R.id.voice_channel_view);
         assertThat(audioRouteButton.hasOnClickListeners()).isTrue();
     }
 
@@ -176,6 +183,7 @@ public class OnGoingCallControllerBarFragmentTest {
         ImageView pauseButton = mOnGoingCallControllerBarFragment.getView().findViewById(
                 R.id.pause_button);
         assertThat(pauseButton.hasOnClickListeners()).isTrue();
+        assertThat(pauseButton.isEnabled()).isTrue();
         assertThat(pauseButton.isActivated()).isFalse();
 
         // onHoldCall
@@ -188,13 +196,37 @@ public class OnGoingCallControllerBarFragmentTest {
     }
 
     @Test
+    public void testClickPauseButton_onholdCall() {
+        addFragment(Call.STATE_HOLDING);
+        ImageView pauseButton = mOnGoingCallControllerBarFragment.getView().findViewById(
+                R.id.pause_button);
+        assertThat(pauseButton.isEnabled()).isTrue();
+        assertThat(pauseButton.isActivated()).isTrue();
+
+        // onHoldCall
+        pauseButton.performClick();
+        verify(mMockCall).unhold();
+    }
+
+    @Test
     public void testClickPauseButton_connectingCall() {
         addFragment(Call.STATE_DIALING);
         ImageView pauseButton = mOnGoingCallControllerBarFragment.getView().findViewById(
                 R.id.pause_button);
+        assertThat(pauseButton.isEnabled()).isFalse();
+
         pauseButton.performClick();
         verify(mMockCall, never()).hold();
         verify(mMockCall, never()).unhold();
+    }
+
+    @Test
+    public void testPauseButton_MultipleCall() {
+        mCallList.add(mock(Call.class));
+        addFragment(Call.STATE_DIALING);
+        ImageView pauseButton = mOnGoingCallControllerBarFragment.getView().findViewById(
+                R.id.pause_button);
+        assertThat(pauseButton.isEnabled()).isFalse();
     }
 
     private void addFragment(int callState) {
@@ -206,6 +238,9 @@ public class OnGoingCallControllerBarFragmentTest {
         when(mMockInCallViewModel.getPrimaryCall()).thenReturn(mCallLiveData);
         when(mMockInCallViewModel.getPrimaryCallDetail()).thenReturn(mCallDetailLiveData);
         when(mMockInCallViewModel.getPrimaryCallState()).thenReturn(mCallStateLiveData);
+        when(mMockInCallViewModel.getDialpadOpenState()).thenReturn(mDialpadStateLiveData);
+        when(mMockInCallViewModel.getAllCallList()).thenReturn(mCallListLiveData);
+        when(mMockInCallViewModel.getCallAudioState()).thenReturn(mCallAudioStateLiveData);
 
         MutableLiveData<Integer> audioRouteLiveData = new MutableLiveData<>();
         audioRouteLiveData.setValue(CallAudioState.ROUTE_BLUETOOTH);
@@ -216,8 +251,6 @@ public class OnGoingCallControllerBarFragmentTest {
                 .thenReturn(stateAndConnectTimeLiveData);
 
         ShadowAndroidViewModelFactory.add(InCallViewModel.class, mMockInCallViewModel);
-        ShadowAndroidViewModelFactory.add(OngoingCallStateViewModel.class,
-                mOngoingCallStateViewModel);
 
         FragmentTestActivity fragmentTestActivity = Robolectric.buildActivity(
                 FragmentTestActivity.class).create().start().resume().get();

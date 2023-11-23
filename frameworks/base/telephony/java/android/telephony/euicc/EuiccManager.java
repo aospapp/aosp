@@ -30,13 +30,17 @@ import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.os.ServiceManager;
+import android.telephony.TelephonyFrameworkInitializer;
 import android.telephony.TelephonyManager;
+import android.telephony.euicc.EuiccCardManager.ResetOption;
 
 import com.android.internal.telephony.euicc.IEuiccController;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * EuiccManager is the application interface to eUICCs, or eSIMs/embedded SIMs.
@@ -188,6 +192,29 @@ public class EuiccManager {
             "android.telephony.euicc.action.RENAME_SUBSCRIPTION_PRIVILEGED";
 
     /**
+     * Intent action sent by a carrier app to launch the eSIM activation flow provided by the LPA UI
+     * (LUI). The carrier app must send this intent with one of the following:
+     *
+     * <p>{@link #EXTRA_USE_QR_SCANNER} not set or set to false: The LPA should try to get an
+     * activation code from the carrier app by binding to the carrier app service implementing
+     * {@link android.service.euicc.EuiccService#ACTION_BIND_CARRIER_PROVISIONING_SERVICE}.
+     * <p>{@link #EXTRA_USE_QR_SCANNER} set to true: The LPA should launch a QR scanner for the user
+     * to scan an eSIM profile QR code.
+     *
+     * <p>Upon completion, the LPA should return one of the following results to the carrier app:
+     *
+     * <p>{@code Activity.RESULT_OK}: The LPA has succeeded in downloading the new eSIM profile.
+     * <p>{@code Activity.RESULT_CANCELED}: The carrier app should treat this as if the user pressed
+     * the back button.
+     * <p>Anything else: The carrier app should treat this as an error.
+     *
+     * <p>LPA needs to check if caller's package name is allowed to perform this action.
+     **/
+    @SdkConstant(SdkConstant.SdkConstantType.ACTIVITY_INTENT_ACTION)
+    public static final String ACTION_START_EUICC_ACTIVATION =
+            "android.telephony.euicc.action.START_EUICC_ACTIVATION";
+
+    /**
      * Result code for an operation indicating that the operation succeeded.
      */
     public static final int EMBEDDED_SUBSCRIPTION_RESULT_OK = 0;
@@ -222,11 +249,67 @@ public class EuiccManager {
      * Key for an extra set on {@link PendingIntent} result callbacks providing a detailed result
      * code.
      *
-     * <p>This code is an implementation detail of the embedded subscription manager and is only
-     * intended for logging or debugging purposes.
+     * <p>The value of this key is an integer and contains two portions. The first byte is
+     * OperationCode and the reaming three bytes is the ErrorCode.
+     *
+     * OperationCode is the first byte of the result code and is a categorization which defines what
+     * type of operation took place when an error occurred. e.g {@link #OPERATION_DOWNLOAD} means
+     * the error is related to download.Since the OperationCode only uses at most one byte, the
+     * maximum allowed quantity is 255(0xFF).
+     *
+     * ErrorCode is the remaining three bytes of the result code, and it denotes what happened.
+     * e.g a combination of {@link #OPERATION_DOWNLOAD} and {@link #ERROR_TIME_OUT} will suggest the
+     * download operation has timed out. The only exception here is
+     * {@link #OPERATION_SMDX_SUBJECT_REASON_CODE}, where instead of ErrorCode, SubjectCode[5.2.6.1
+     * from GSMA (SGP.22 v2.2) and ReasonCode[5.2.6.2] from GSMA (SGP.22 v2.2) are encoded. @see
+     * {@link #EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE} and
+     * {@link #EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE}
+     *
+     * In the case where ErrorCode contains a value of 0, it means it's an unknown error. E.g Intent
+     * only contains {@link #OPERATION_DOWNLOAD} and ErrorCode is 0 implies this is an unknown
+     * Download error.
+     *
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_OPERATION_CODE
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_ERROR_CODE
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE
      */
     public static final String EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE =
             "android.telephony.euicc.extra.EMBEDDED_SUBSCRIPTION_DETAILED_CODE";
+
+    /**
+     * Key for an extra set on {@link PendingIntent} result callbacks providing a
+     * OperationCode of {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE},
+     * value will be an int.
+     */
+    public static final String EXTRA_EMBEDDED_SUBSCRIPTION_OPERATION_CODE =
+            "android.telephony.euicc.extra.EMBEDDED_SUBSCRIPTION_OPERATION_CODE";
+
+    /**
+     * Key for an extra set on {@link PendingIntent} result callbacks providing a
+     * ErrorCode of {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE},
+     * value will be an int.
+     */
+    public static final String EXTRA_EMBEDDED_SUBSCRIPTION_ERROR_CODE =
+            "android.telephony.euicc.extra.EMBEDDED_SUBSCRIPTION_ERROR_CODE";
+
+    /**
+     * Key for an extra set on {@link PendingIntent} result callbacks providing a
+     * SubjectCode[5.2.6.1] from GSMA (SGP.22 v2.2) decoded from
+     * {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE}.
+     * The value of this extra will be a String.
+     */
+    public static final String EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE =
+            "android.telephony.euicc.extra.EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE";
+
+    /**
+     * Key for an extra set on {@link PendingIntent} result callbacks providing a
+     * ReasonCode[5.2.6.2] from GSMA (SGP.22 v2.2) decoded from
+     * {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE}.
+     * The value of this extra will be a String.
+     */
+    public static final String EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE =
+            "android.telephony.euicc.extra.EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE";
 
     /**
      * Key for an extra set on {@code #getDownloadableSubscriptionMetadata} PendingIntent result
@@ -341,9 +424,19 @@ public class EuiccManager {
      *
      * @hide
      */
-    // TODO: Make this a @SystemApi.
+    @SystemApi
     public static final String EXTRA_PHYSICAL_SLOT_ID =
             "android.telephony.euicc.extra.PHYSICAL_SLOT_ID";
+
+
+    /**
+     * Key for an extra set on actions {@link #ACTION_START_EUICC_ACTIVATION} providing a boolean
+     * value of whether to start eSIM activation with QR scanner.
+     *
+     * <p>Expected type of the extra data: boolean
+     **/
+    public static final String EXTRA_USE_QR_SCANNER =
+            "android.telephony.euicc.extra.USE_QR_SCANNER";
 
     /**
      * Optional meta-data attribute for a carrier app providing an icon to use to represent the
@@ -456,6 +549,259 @@ public class EuiccManager {
      */
     @SystemApi
     public static final int EUICC_OTA_STATUS_UNAVAILABLE = 5;
+
+    /**
+     * List of OperationCode corresponding to {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE}'s
+     * value, an integer. @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     *
+     * @hide
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"OPERATION_"}, value = {
+            OPERATION_SYSTEM,
+            OPERATION_SIM_SLOT,
+            OPERATION_EUICC_CARD,
+            OPERATION_SWITCH,
+            OPERATION_DOWNLOAD,
+            OPERATION_METADATA,
+            OPERATION_EUICC_GSMA,
+            OPERATION_APDU,
+            OPERATION_SMDX,
+            OPERATION_HTTP,
+            OPERATION_SMDX_SUBJECT_REASON_CODE,
+    })
+    public @interface OperationCode {
+    }
+
+    /**
+     * Internal system error.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_SYSTEM = 1;
+
+    /**
+     * SIM slot error. Failed to switch slot, failed to access the physical slot etc.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_SIM_SLOT = 2;
+
+    /**
+     * eUICC card error.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_EUICC_CARD = 3;
+
+    /**
+     * Generic switching profile error
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_SWITCH = 4;
+
+    /**
+     * Download profile error.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_DOWNLOAD = 5;
+
+    /**
+     * Subscription's metadata error
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_METADATA = 6;
+
+    /**
+     * eUICC returned an error defined in GSMA (SGP.22 v2.2) while running one of the ES10x
+     * functions.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_EUICC_GSMA = 7;
+
+    /**
+     * The exception of failing to execute an APDU command. It can be caused by an error
+     * happening on opening the basic or logical channel, or the response of the APDU command is
+     * not success (0x9000).
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_APDU = 8;
+
+    /**
+     * SMDX(SMDP/SMDS) error
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_SMDX = 9;
+
+    /**
+     * SubjectCode[5.2.6.1] and ReasonCode[5.2.6.2] error from GSMA (SGP.22 v2.2)
+     * When {@link #OPERATION_SMDX_SUBJECT_REASON_CODE} is used as the
+     * {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE}, the remaining three bytes of the integer
+     * result from {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE} will be used to stored the
+     * SubjectCode and ReasonCode from the GSMA spec and NOT ErrorCode.
+     *
+     * The encoding will follow the format of:
+     * 1. The first byte of the result will be 255(0xFF).
+     * 2. Remaining three bytes(24 bits) will be split into six sections, 4 bits in each section.
+     * 3. A SubjectCode/ReasonCode will take 12 bits each.
+     * 4. The maximum number can be represented per section is 15, as that is the maximum number
+     * allowed to be stored into 4 bits
+     * 5. Maximum supported nested category from GSMA is three layers. E.g 8.11.1.2 is not
+     * supported.
+     *
+     * E.g given SubjectCode(8.11.1) and ReasonCode(5.1)
+     *
+     * Base10:  0       10      8       11      1       0       5       1
+     * Base2:   0000    1010    1000    1011    0001    0000    0101    0001
+     * Base16:  0       A       8       B       1       0       5       1
+     *
+     * Thus the integer stored in {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE} is
+     * 0xA8B1051(176885841)
+     *
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_SMDX_SUBJECT_REASON_CODE = 10;
+
+    /**
+     * HTTP error
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int OPERATION_HTTP = 11;
+
+    /**
+     * List of ErrorCode corresponding to {@link #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE}
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     * @hide
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"ERROR_"}, value = {
+            ERROR_CARRIER_LOCKED,
+            ERROR_INVALID_ACTIVATION_CODE,
+            ERROR_INVALID_CONFIRMATION_CODE,
+            ERROR_INCOMPATIBLE_CARRIER,
+            ERROR_EUICC_INSUFFICIENT_MEMORY,
+            ERROR_TIME_OUT,
+            ERROR_EUICC_MISSING,
+            ERROR_UNSUPPORTED_VERSION,
+            ERROR_SIM_MISSING,
+            ERROR_INSTALL_PROFILE,
+            ERROR_DISALLOWED_BY_PPR,
+            ERROR_ADDRESS_MISSING,
+            ERROR_CERTIFICATE_ERROR,
+            ERROR_NO_PROFILES_AVAILABLE,
+            ERROR_CONNECTION_ERROR,
+            ERROR_INVALID_RESPONSE,
+            ERROR_OPERATION_BUSY,
+    })
+    public @interface ErrorCode{}
+
+    /**
+     * Operation such as downloading/switching to another profile failed due to device being
+     * carrier locked.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_CARRIER_LOCKED = 10000;
+
+    /**
+     * The activation code(SGP.22 v2.2 section[4.1]) is invalid.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_INVALID_ACTIVATION_CODE = 10001;
+
+    /**
+     * The confirmation code(SGP.22 v2.2 section[4.7]) is invalid.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_INVALID_CONFIRMATION_CODE = 10002;
+
+    /**
+     * The profile's carrier is incompatible with the LPA.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_INCOMPATIBLE_CARRIER = 10003;
+
+    /**
+     * There is no more space available on the eUICC for new profiles.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_EUICC_INSUFFICIENT_MEMORY = 10004;
+
+    /**
+     * Timed out while waiting for an operation to complete. i.e restart, disable,
+     * switch reset etc.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_TIME_OUT = 10005;
+
+    /**
+     * eUICC is missing or defective on the device.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_EUICC_MISSING = 10006;
+
+    /**
+     * The eUICC card(hardware) version is incompatible with the software
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_UNSUPPORTED_VERSION = 10007;
+
+    /**
+     * No SIM card is available in the device.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_SIM_MISSING = 10008;
+
+    /**
+     * Failure to load the profile onto the eUICC card. e.g
+     * 1. iccid of the profile already exists on the eUICC.
+     * 2. GSMA(.22 v2.2) Profile Install Result - installFailedDueToDataMismatch
+     * 3. operation was interrupted
+     * 4. SIMalliance error in PEStatus(SGP.22 v2.2 section 2.5.6.1)
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_INSTALL_PROFILE = 10009;
+
+    /**
+     * Failed to load profile onto eUICC due to Profile Poicly Rules.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_DISALLOWED_BY_PPR = 10010;
+
+
+    /**
+     * Address is missing e.g SMDS/SMDP address is missing.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_ADDRESS_MISSING = 10011;
+
+    /**
+     * Certificate needed for authentication is not valid or missing. E.g  SMDP/SMDS authentication
+     * failed.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_CERTIFICATE_ERROR = 10012;
+
+
+    /**
+     * No profiles available.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_NO_PROFILES_AVAILABLE = 10013;
+
+    /**
+     * Failure to create a connection.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_CONNECTION_ERROR = 10014;
+
+    /**
+     * Response format is invalid. e.g SMDP/SMDS response contains invalid json, header or/and ASN1.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_INVALID_RESPONSE = 10015;
+
+    /**
+     * The operation is currently busy, try again later.
+     * @see #EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE for details
+     */
+    public static final int ERROR_OPERATION_BUSY = 10016;
 
     private final Context mContext;
     private int mCardId;
@@ -821,23 +1167,54 @@ public class EuiccManager {
     }
 
     /**
-     * Erase all subscriptions and reset the eUICC.
+     * Erase all operational subscriptions and reset the eUICC.
      *
      * <p>Requires that the calling app has the
      * {@code android.Manifest.permission#WRITE_EMBEDDED_SUBSCRIPTIONS} permission.
      *
      * @param callbackIntent a PendingIntent to launch when the operation completes.
+     *
+     * @deprecated From R, callers should specify a flag for specific set of subscriptions to erase
+     * and use {@link #eraseSubscriptions(int, PendingIntent)} instead
+     *
      * @hide
      */
     @SystemApi
     @RequiresPermission(Manifest.permission.WRITE_EMBEDDED_SUBSCRIPTIONS)
-    public void eraseSubscriptions(PendingIntent callbackIntent) {
+    @Deprecated
+    public void eraseSubscriptions(@NonNull PendingIntent callbackIntent) {
         if (!isEnabled()) {
             sendUnavailableError(callbackIntent);
             return;
         }
         try {
             getIEuiccController().eraseSubscriptions(mCardId, callbackIntent);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Erase all specific subscriptions and reset the eUICC.
+     *
+     * <p>Requires that the calling app has the
+     * {@code android.Manifest.permission#WRITE_EMBEDDED_SUBSCRIPTIONS} permission.
+     *
+     * @param options flag indicating specific set of subscriptions to erase
+     * @param callbackIntent a PendingIntent to launch when the operation completes.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.WRITE_EMBEDDED_SUBSCRIPTIONS)
+    public void eraseSubscriptions(
+            @ResetOption int options, @NonNull PendingIntent callbackIntent) {
+        if (!isEnabled()) {
+            sendUnavailableError(callbackIntent);
+            return;
+        }
+        try {
+            getIEuiccController().eraseSubscriptionsWithOptions(mCardId, options, callbackIntent);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -874,6 +1251,138 @@ public class EuiccManager {
     }
 
     /**
+     * Sets the supported countries for eUICC.
+     *
+     * <p>Requires that the calling app has the
+     * {@code android.Manifest.permission#WRITE_EMBEDDED_SUBSCRIPTIONS} permission.
+     *
+     * <p>The supported country list will be replaced by {@code supportedCountries}. For how we
+     * determine whether a country is supported please check {@link #isSupportedCountry}.
+     *
+     * @param supportedCountries is a list of strings contains country ISO codes in uppercase.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.WRITE_EMBEDDED_SUBSCRIPTIONS)
+    public void setSupportedCountries(@NonNull List<String> supportedCountries) {
+        if (!isEnabled()) {
+            return;
+        }
+        try {
+            getIEuiccController().setSupportedCountries(
+                    true /* isSupported */,
+                    supportedCountries.stream()
+                        .map(String::toUpperCase).collect(Collectors.toList()));
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Sets the unsupported countries for eUICC.
+     *
+     * <p>Requires that the calling app has the
+     * {@code android.Manifest.permission#WRITE_EMBEDDED_SUBSCRIPTIONS} permission.
+     *
+     * <p>The unsupported country list will be replaced by {@code unsupportedCountries}. For how we
+     * determine whether a country is supported please check {@link #isSupportedCountry}.
+     *
+     * @param unsupportedCountries is a list of strings contains country ISO codes in uppercase.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.WRITE_EMBEDDED_SUBSCRIPTIONS)
+    public void setUnsupportedCountries(@NonNull List<String> unsupportedCountries) {
+        if (!isEnabled()) {
+            return;
+        }
+        try {
+            getIEuiccController().setSupportedCountries(
+                    false /* isSupported */,
+                    unsupportedCountries.stream()
+                        .map(String::toUpperCase).collect(Collectors.toList()));
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Gets the supported countries for eUICC.
+     *
+     * <p>Requires that the calling app has the
+     * {@code android.Manifest.permission#WRITE_EMBEDDED_SUBSCRIPTIONS} permission.
+     *
+     * @return list of strings contains country ISO codes in uppercase.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.WRITE_EMBEDDED_SUBSCRIPTIONS)
+    @NonNull
+    public List<String> getSupportedCountries() {
+        if (!isEnabled()) {
+            return Collections.emptyList();
+        }
+        try {
+            return getIEuiccController().getSupportedCountries(true /* isSupported */);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Gets the unsupported countries for eUICC.
+     *
+     * <p>Requires that the calling app has the
+     * {@code android.Manifest.permission#WRITE_EMBEDDED_SUBSCRIPTIONS} permission.
+     *
+     * @return list of strings contains country ISO codes in uppercase.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.WRITE_EMBEDDED_SUBSCRIPTIONS)
+    @NonNull
+    public List<String> getUnsupportedCountries() {
+        if (!isEnabled()) {
+            return Collections.emptyList();
+        }
+        try {
+            return getIEuiccController().getSupportedCountries(false /* isSupported */);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Returns whether the given country supports eUICC.
+     *
+     * <p>Supported country list has a higher prority than unsupported country list. If the
+     * supported country list is not empty, {@code countryIso} will be considered as supported when
+     * it exists in the supported country list. Otherwise {@code countryIso} is not supported. If
+     * the supported country list is empty, {@code countryIso} will be considered as supported if it
+     * does not exist in the unsupported country list. Otherwise {@code countryIso} is not
+     * supported. If both supported and unsupported country lists are empty, then all countries are
+     * consider be supported. For how to set supported and unsupported country list, please check
+     * {@link #setSupportedCountries} and {@link #setUnsupportedCountries}.
+     *
+     * @param countryIso should be the ISO-3166 country code is provided in uppercase 2 character
+     * format.
+     * @return whether the given country supports eUICC or not.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.WRITE_EMBEDDED_SUBSCRIPTIONS)
+    public boolean isSupportedCountry(@NonNull String countryIso) {
+        if (!isEnabled()) {
+            return false;
+        }
+        try {
+            return getIEuiccController().isSupportedCountry(countryIso.toUpperCase());
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
      * Refreshes the cardId if its uninitialized, and returns whether we should continue the
      * operation.
      * <p>
@@ -903,6 +1412,10 @@ public class EuiccManager {
     }
 
     private static IEuiccController getIEuiccController() {
-        return IEuiccController.Stub.asInterface(ServiceManager.getService("econtroller"));
+        return IEuiccController.Stub.asInterface(
+                TelephonyFrameworkInitializer
+                        .getTelephonyServiceManager()
+                        .getEuiccControllerService()
+                        .get());
     }
 }

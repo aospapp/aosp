@@ -24,16 +24,14 @@ import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import com.google.android.setupcompat.internal.TemplateLayout;
 import com.google.android.setupcompat.template.Mixin;
-import com.google.android.setupdesign.GlifLayout;
 import com.google.android.setupdesign.R;
+import com.google.android.setupdesign.util.HeaderAreaStyler;
 import com.google.android.setupdesign.util.PartnerStyleHelper;
 
 /**
@@ -86,29 +84,18 @@ public class IconMixin implements Mixin {
     a.recycle();
   }
 
-  /** See {@link #applyPartnerCustomizationStyle(Context, ImageView)}. */
-  public void applyPartnerCustomizationStyle() {
-    final Context context = templateLayout.getContext();
-    final ImageView iconImage = templateLayout.findManagedViewById(R.id.sud_layout_icon);
-    applyPartnerCustomizationStyle(context, iconImage);
-  }
-
   /**
-   * Use the given {@code iconImage} to apply heavy theme. If {@link
-   * com.google.android.setupdesign.GlifLayout#shouldApplyPartnerHeavyThemeResource()} is true,
-   * {@code iconImage} can be customized style from partner configuration.
-   *
-   * @param context The context of client activity.
-   * @param iconImage The icon image to use for apply heavy theme.
+   * Tries to apply the partner customization to the header icon if the layout of this {@link
+   * IconMixin} is set to apply partner heavy theme resource.
    */
-  private void applyPartnerCustomizationStyle(Context context, @Nullable ImageView iconImage) {
-    if (iconImage != null
-        && (templateLayout instanceof GlifLayout)
-        && ((GlifLayout) templateLayout).shouldApplyPartnerHeavyThemeResource()) {
-      int gravity = PartnerStyleHelper.getLayoutGravity(context);
-      if (gravity != 0) {
-        setGravity(iconImage, gravity);
-      }
+  public void tryApplyPartnerCustomizationStyle() {
+    if (!PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout)) {
+      return;
+    }
+
+    ImageView iconImage = templateLayout.findManagedViewById(R.id.sud_layout_icon);
+    if (iconImage != null) {
+      HeaderAreaStyler.applyPartnerCustomizationIconStyle(iconImage);
     }
   }
 
@@ -185,16 +172,16 @@ public class IconMixin implements Mixin {
     return iconView != null ? iconView.getContentDescription() : null;
   }
 
+  /** Sets the visibiltiy of the icon view */
+  public void setVisibility(int visibility) {
+    final ImageView iconView = getView();
+    if (iconView != null) {
+      iconView.setVisibility(visibility);
+    }
+  }
+
   /** @return The ImageView responsible for displaying the icon. */
   protected ImageView getView() {
     return (ImageView) templateLayout.findManagedViewById(R.id.sud_layout_icon);
-  }
-
-  private void setGravity(ImageView icon, int gravity) {
-    if (icon.getLayoutParams() instanceof LinearLayout.LayoutParams) {
-      LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) icon.getLayoutParams();
-      layoutParams.gravity = gravity;
-      icon.setLayoutParams(layoutParams);
-    }
   }
 }

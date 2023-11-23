@@ -405,28 +405,18 @@ svga_sampler_view_destroy(struct pipe_context *pipe,
    struct svga_pipe_sampler_view *sv = svga_pipe_sampler_view(view);
 
    if (svga_have_vgpu10(svga) && sv->id != SVGA3D_INVALID_ID) {
-      if (view->context != pipe) {
-         /* The SVGA3D device will generate an error (and on Linux, cause
-          * us to abort) if we try to destroy a shader resource view from
-          * a context other than the one it was created with.  Skip the
-          * SVGA3D_vgpu10_DestroyShaderResourceView() and leak the sampler
-          * view for now.  This should only sometimes happen when a shared
-          * texture is deleted.
-          */
-         _debug_printf("context mismatch in %s\n", __func__);
-      }
-      else {
-         enum pipe_error ret;
+      enum pipe_error ret;
 
-         svga_hwtnl_flush_retry(svga); /* XXX is this needed? */
+      assert(view->context == pipe);
 
+      svga_hwtnl_flush_retry(svga);
+
+      ret = SVGA3D_vgpu10_DestroyShaderResourceView(svga->swc, sv->id);
+      if (ret != PIPE_OK) {
+         svga_context_flush(svga, NULL);
          ret = SVGA3D_vgpu10_DestroyShaderResourceView(svga->swc, sv->id);
-         if (ret != PIPE_OK) {
-            svga_context_flush(svga, NULL);
-            ret = SVGA3D_vgpu10_DestroyShaderResourceView(svga->swc, sv->id);
-         }
-         util_bitmask_clear(svga->sampler_view_id_bm, sv->id);
       }
+      util_bitmask_clear(svga->sampler_view_id_bm, sv->id);
    }
 
    pipe_resource_reference(&sv->base.texture, NULL);
@@ -446,8 +436,6 @@ svga_set_sampler_views(struct pipe_context *pipe,
    struct svga_context *svga = svga_context(pipe);
    unsigned flag_1d = 0;
    unsigned flag_srgb = 0;
-   unsigned flag_rect = 0;
-   unsigned flag_buf = 0;
    uint i;
    boolean any_change = FALSE;
 
@@ -467,7 +455,8 @@ svga_set_sampler_views(struct pipe_context *pipe,
     */
    if (start == 0 && num == 0 && svga->curr.num_sampler_views[shader] > 0) {
       for (i = 0; i < svga->curr.num_sampler_views[shader]; i++) {
-         pipe_sampler_view_release(pipe, &svga->curr.sampler_views[shader][i]);
+         pipe_sampler_view_reference(&svga->curr.sampler_views[shader][i],
+                                     NULL);
       }
       any_change = TRUE;
    }
@@ -476,11 +465,6 @@ svga_set_sampler_views(struct pipe_context *pipe,
       enum pipe_texture_target target;
 
       if (svga->curr.sampler_views[shader][start + i] != views[i]) {
-         /* Note: we're using pipe_sampler_view_release() here to work around
-          * a possible crash when the old view belongs to another context that
-          * was already destroyed.
-          */
-         pipe_sampler_view_release(pipe, &svga->curr.sampler_views[shader][start + i]);
          pipe_sampler_view_reference(&svga->curr.sampler_views[shader][start + i],
                                      views[i]);
          any_change = TRUE;
@@ -492,13 +476,20 @@ svga_set_sampler_views(struct pipe_context *pipe,
       if (util_format_is_srgb(views[i]->format))
          flag_srgb |= 1 << (start + i);
 
-      target = views[i]->texture->target;
-      if (target == PIPE_TEXTURE_1D)
+      target = views[i]->target;
+      if (target == PIPE_TEXTURE_1D) {
          flag_1d |= 1 << (start + i);
-      else if (target == PIPE_TEXTURE_RECT)
-         flag_rect |= 1 << (start + i);
-      else if (target == PIPE_BUFFER)
-         flag_buf |= 1 << (start + i);
+      } else if (target == PIPE_TEXTURE_RECT) {
+         /* If the size of the bound texture changes, we need to emit new
+          * const buffer values.
+          */
+         svga->dirty |= SVGA_NEW_TEXTURE_CONSTS;
+      } else if (target == PIPE_BUFFER) {
+         /* If the size of the bound buffer changes, we need to emit new
+          * const buffer values.
+          */
+         svga->dirty |= SVGA_NEW_TEXTURE_CONSTS;
+      }
    }
 
    if (!any_change) {
@@ -520,15 +511,6 @@ svga_set_sampler_views(struct pipe_context *pipe,
       svga->dirty |= SVGA_NEW_TEXTURE_FLAGS;
       svga->curr.tex_flags.flag_1d = flag_1d;
       svga->curr.tex_flags.flag_srgb = flag_srgb;
-   }
-
-   if (flag_rect != svga->curr.tex_flags.flag_rect ||
-       flag_buf != svga->curr.tex_flags.flag_buf)
-   {
-      /* Need to re-emit texture constants */
-      svga->dirty |= SVGA_NEW_TEXTURE_CONSTS;
-      svga->curr.tex_flags.flag_rect = flag_rect;
-      svga->curr.tex_flags.flag_buf = flag_buf;
    }
 
    /* Check if any of the sampler view resources collide with the framebuffer
@@ -556,8 +538,8 @@ svga_cleanup_sampler_state(struct svga_context *svga)
       unsigned i;
 
       for (i = 0; i < svga->state.hw_draw.num_sampler_views[shader]; i++) {
-         pipe_sampler_view_release(&svga->pipe,
-                                   &svga->state.hw_draw.sampler_views[shader][i]);
+         pipe_sampler_view_reference(&svga->state.hw_draw.sampler_views[shader][i],
+                                     NULL);
       }
    }
    

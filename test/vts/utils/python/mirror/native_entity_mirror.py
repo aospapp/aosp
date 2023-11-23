@@ -173,7 +173,7 @@ class NativeEntityMirror(mirror_object.MirrorObject):
             if converted_attr is None:
               raise MirrorObjectError(
                   "Failed to convert attribute %s", attribute_spec)
-            return coverted_attr
+            return converted_attr
         logging.error("Can not find attribute: %s", attribute_name)
         return None
 

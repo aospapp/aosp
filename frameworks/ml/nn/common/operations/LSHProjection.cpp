@@ -14,19 +14,24 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
 #include "LSHProjection.h"
 
 #include "CpuExecutor.h"
+#include "HalInterfaces.h"
 #include "Tracing.h"
 #include "Utils.h"
 
-#include "utils/hash/farmhash.h"
+#include <utils/hash/farmhash.h>
+#include <memory>
 
 namespace android {
 namespace nn {
 
-LSHProjection::LSHProjection(const Operation& operation,
-                             std::vector<RunTimeOperandInfo>& operands) {
+using namespace hal;
+
+LSHProjection::LSHProjection(const Operation& operation, RunTimeOperandInfo* operands) {
     input_ = GetInput(operation, operands, kInputTensor);
     weight_ = GetInput(operation, operands, kWeightTensor);
     hash_ = GetInput(operation, operands, kHashTensor);
@@ -37,10 +42,14 @@ LSHProjection::LSHProjection(const Operation& operation,
     output_ = GetOutput(operation, operands, kOutputTensor);
 }
 
-bool LSHProjection::Prepare(const Operation& operation, std::vector<RunTimeOperandInfo>& operands,
+bool LSHProjection::Prepare(const Operation& operation, RunTimeOperandInfo* operands,
                             Shape* outputShape) {
-    const int num_inputs = NumInputsWithValues(operation, operands);
-    NN_CHECK(num_inputs == 3 || num_inputs == 4);
+    // Check that none of the required inputs are omitted.
+    constexpr int requiredInputs[] = {kHashTensor, kInputTensor, kTypeParam};
+    for (const int requiredInput : requiredInputs) {
+        NN_RET_CHECK(!IsNullInput(GetInput(operation, operands, requiredInput)))
+                << "required input " << requiredInput << " is omitted";
+    }
     NN_CHECK_EQ(NumOutputs(operation), 1);
 
     const RunTimeOperandInfo* hash = GetInput(operation, operands, kHashTensor);
@@ -51,8 +60,9 @@ bool LSHProjection::Prepare(const Operation& operation, std::vector<RunTimeOpera
     const RunTimeOperandInfo* input = GetInput(operation, operands, kInputTensor);
     NN_CHECK(NumDimensions(input) >= 1);
 
-    auto type = static_cast<LSHProjectionType>(
-            getScalarData<int32_t>(operands[operation.inputs[kTypeParam]]));
+    const auto& typeOperand = operands[operation.inputs[kTypeParam]];
+    NN_RET_CHECK(typeOperand.length >= sizeof(int32_t));
+    auto type = static_cast<LSHProjectionType>(getScalarData<int32_t>(typeOperand));
     switch (type) {
         case LSHProjectionType_SPARSE:
         case LSHProjectionType_SPARSE_DEPRECATED:

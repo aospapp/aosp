@@ -13,7 +13,7 @@ import java.io.IOException;
 public class DERNull
     extends ASN1Null
 {
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public static final DERNull INSTANCE = new DERNull();
 

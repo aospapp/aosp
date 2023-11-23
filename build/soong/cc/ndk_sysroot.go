@@ -58,7 +58,7 @@ import (
 
 func init() {
 	android.RegisterModuleType("ndk_headers", ndkHeadersFactory)
-	android.RegisterModuleType("ndk_library", ndkLibraryFactory)
+	android.RegisterModuleType("ndk_library", NdkLibraryFactory)
 	android.RegisterModuleType("versioned_ndk_headers", versionedNdkHeadersFactory)
 	android.RegisterModuleType("preprocessed_ndk_headers", preprocessedNdkHeadersFactory)
 	android.RegisterSingletonType("ndk", NdkSingleton)
@@ -66,12 +66,12 @@ func init() {
 	pctx.Import("android/soong/android")
 }
 
-func getNdkInstallBase(ctx android.PathContext) android.OutputPath {
-	return android.PathForOutput(ctx, "ndk")
+func getNdkInstallBase(ctx android.PathContext) android.InstallPath {
+	return android.PathForNdkInstall(ctx)
 }
 
 // Returns the main install directory for the NDK sysroot. Usable with --sysroot.
-func getNdkSysrootBase(ctx android.PathContext) android.OutputPath {
+func getNdkSysrootBase(ctx android.PathContext) android.InstallPath {
 	return getNdkInstallBase(ctx).Join(ctx, "sysroot")
 }
 

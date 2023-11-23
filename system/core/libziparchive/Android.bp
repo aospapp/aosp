@@ -26,6 +26,8 @@ cc_defaults {
         // Incorrectly warns when C++11 empty brace {} initializer is used.
         // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61489
         "-Wno-missing-field-initializers",
+        "-Wconversion",
+        "-Wno-sign-conversion",
     ],
 
     // Enable -Wold-style-cast only for non-Windows targets.  _islower_l,
@@ -74,6 +76,10 @@ cc_defaults {
         "liblog",
     ],
 
+    // for FRIEND_TEST
+    static_libs: ["libgtest_prod"],
+    export_static_lib_headers: ["libgtest_prod"],
+
     export_include_dirs: ["include"],
 }
 
@@ -82,6 +88,7 @@ cc_library {
     host_supported: true,
     vendor_available: true,
     recovery_available: true,
+    native_bridge_supported: true,
     vndk: {
         enabled: true,
     },
@@ -102,6 +109,12 @@ cc_library {
             enabled: true,
         },
     },
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 // Tests.
@@ -168,12 +181,38 @@ cc_benchmark {
 }
 
 cc_binary {
-    name: "unzip",
+    name: "ziptool",
     defaults: ["libziparchive_flags"],
-    srcs: ["unzip.cpp"],
+    srcs: ["ziptool.cpp"],
     shared_libs: [
         "libbase",
         "libziparchive",
     ],
     recovery_available: true,
+    host_supported: true,
+    target: {
+        android: {
+            symlinks: ["unzip", "zipinfo"],
+        },
+    },
+}
+
+cc_fuzz {
+    name: "libziparchive_fuzzer",
+    srcs: ["libziparchive_fuzzer.cpp"],
+    static_libs: ["libziparchive", "libbase", "libz", "liblog"],
+    host_supported: true,
+    corpus: ["testdata/*"],
+}
+
+sh_test {
+    name: "ziptool-tests",
+    src: "run-ziptool-tests-on-android.sh",
+    filename: "run-ziptool-tests-on-android.sh",
+    test_suites: ["general-tests"],
+    host_supported: true,
+    device_supported: false,
+    test_config: "ziptool-tests.xml",
+    data: ["cli-tests/**/*"],
+    target_required: ["cli-test", "ziptool"],
 }

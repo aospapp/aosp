@@ -291,6 +291,19 @@ public final class ImeEventStreamTestUtils {
     }
 
     /**
+     * Checks if {@code eventName} has occurred and given {@param key} has value {@param value}.
+     * @param eventName event name to check.
+     * @param key the key that should be checked.
+     * @param value the expected value for the given {@param key}.
+     */
+    public static void expectEventWithKeyValue(@NonNull ImeEventStream stream,
+            @NonNull String eventName, @NonNull String key, int value, long timeout)
+            throws TimeoutException {
+        expectEvent(stream, event -> TextUtils.equals(eventName, event.getEventName())
+                && value == event.getArguments().getInt(key), timeout);
+    }
+
+    /**
      * Waits until {@code MockIme} does not send {@code "onInputViewLayoutChanged"} event
      * for a certain period of time ({@code stableThresholdTime} msec).
      *
@@ -326,5 +339,22 @@ public final class ImeEventStreamTestUtils {
         } catch (InterruptedException e) {
             throw new RuntimeException("notExpectEvent failed: " + stream.dump(), e);
         }
+    }
+
+    /**
+     * Clear all events with {@code eventName} in given {@code stream} and returns a forked
+     * {@link ImeEventStream} without events with {@code eventName}.
+     * <p>It is used to make sure previous events influence the test. </p>
+     *
+     * @param stream {@link ImeEventStream} to be cleared
+     * @param eventName The targeted cleared event name
+     * @return A forked {@link ImeEventStream} without event with {@code eventName}
+     */
+    public static ImeEventStream clearAllEvents(@NonNull ImeEventStream stream,
+            @NonNull String eventName) {
+        while (stream.seekToFirst(event -> eventName.equals(event.getEventName())).isPresent()) {
+            stream.skip(1);
+        }
+        return stream.copy();
     }
 }

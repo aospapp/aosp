@@ -48,7 +48,6 @@ public class SystemFontsTest {
     public static Collection<Object[]> getParameters() {
         ArrayList<Object[]> allParams = new ArrayList<>();
         allParams.add(new Object[] { SystemFonts.getAvailableFonts() });
-        allParams.add(new Object[] { NativeSystemFontHelper.getAvailableFonts() });
         return allParams;
     }
 

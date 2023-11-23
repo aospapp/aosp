@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import re
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -27,6 +26,10 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
     def initialize(self, host, cmdline_args, dev_mode=False):
         super(firmware_RecoveryCacheBootKeys, self).initialize(
                 host, cmdline_args)
+
+        if not self.faft_config.rec_force_mrc:
+            raise error.TestNAError('DUT cannot force memory training.')
+
         self.client = host
         self.dev_mode = dev_mode
         self.switcher.setup_mode('dev' if dev_mode else 'normal')
@@ -47,41 +50,6 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
                 'mainfw_type': 'recovery'
         }))
 
-    def run_command(self, command):
-        """Runs the specified command and returns the output
-        as a list of strings.
-
-        @param command: The command to run on the DUT
-        @return A list of strings of the command output
-        """
-        logging.info('Command to run: %s', command)
-
-        output = self.faft_client.system.run_shell_command_get_output(command)
-
-        logging.info('Command output: %s', output)
-
-        return output
-
-    def check_command_output(self, cmd, pattern):
-        """Checks the output of the given command for the given pattern
-
-        @param cmd: The command to run
-        @param pattern: The pattern to search for
-        @return True if pattern found
-        """
-
-        logging.info('Checking %s output for %s', cmd, pattern)
-
-        checker = re.compile(pattern)
-
-        cmd_output = self.run_command(cmd)
-
-        for line in cmd_output:
-            if re.search(checker, line):
-                return True
-
-        return False
-
     def cache_exist(self):
         """Checks the firmware log to ensure that the recovery cache exists.
 
@@ -89,8 +57,8 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
         """
         logging.info("Checking if device has RECOVERY_MRC_CACHE")
 
-        return self.check_command_output(self.FMAP_CMD,
-                                         self.RECOVERY_CACHE_SECTION)
+        return self.faft_client.system.run_shell_command_check_output(
+                self.FMAP_CMD, self.RECOVERY_CACHE_SECTION)
 
     def check_cache_used(self):
         """Checks the firmware log to ensure that the recovery cache was used
@@ -100,8 +68,8 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
         """
         logging.info('Checking if cache was used.')
 
-        return self.check_command_output(self.FIRMWARE_LOG_CMD,
-                                         self.USED_CACHE_MSG)
+        return self.faft_client.system.run_shell_command_check_output(
+                self.FIRMWARE_LOG_CMD, self.USED_CACHE_MSG)
 
     def check_cache_rebuilt(self):
         """Checks the firmware log to ensure that the recovery cache was rebuilt
@@ -111,8 +79,8 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
         """
         logging.info('Checking if cache was rebuilt.')
 
-        return self.check_command_output(self.FIRMWARE_LOG_CMD,
-                                         self.REBUILD_CACHE_MSG)
+        return self.faft_client.system.run_shell_command_check_output(
+                self.FIRMWARE_LOG_CMD, self.REBUILD_CACHE_MSG)
 
     def run_once(self):
         """Runs a single iteration of the test."""

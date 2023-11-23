@@ -7,6 +7,7 @@
 
 #include <common.h>
 #include <fdtdec.h>
+#include <time.h>
 #include <asm/microblaze_timer.h>
 #include <asm/microblaze_intc.h>
 
@@ -50,6 +51,10 @@ int timer_init (void)
 	u32 cell[2];
 
 	debug("TIMER: Initialization\n");
+
+	/* Do not init before relocation */
+	if (!(gd->flags & GD_FLG_RELOC))
+		return 0;
 
 	node = fdt_node_offset_by_compatible(blob, node,
 				"xlnx,xps-timer-1.00.a");

@@ -29,8 +29,8 @@
 
 #include <stdint.h>
 
-#include "chre_api/chre/re.h"
 #include "chre/pal/version.h"
+#include "chre_api/chre/re.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,68 +39,68 @@ extern "C" {
 /**
  * Initial version of the CHRE PAL System API.
  */
-#define CHRE_PAL_SYSTEM_API_V1_0  CHRE_PAL_CREATE_API_VERSION(1, 0)
+#define CHRE_PAL_SYSTEM_API_V1_0 CHRE_PAL_CREATE_API_VERSION(1, 0)
 
 /**
  * The version of the CHRE GNSS PAL defined in this header file.
  */
-#define CHRE_PAL_SYSTEM_API_CURRENT_VERSION  CHRE_PAL_SYSTEM_API_V1_0
+#define CHRE_PAL_SYSTEM_API_CURRENT_VERSION CHRE_PAL_SYSTEM_API_V1_0
 
 struct chrePalSystemApi {
-    /**
-     * The version of this API structure, which can be used at runtime to
-     * determine if functions added in newer versions are available, etc.
-     */
-    uint32_t version;
+  /**
+   * The version of this API structure, which can be used at runtime to
+   * determine if functions added in newer versions are available, etc.
+   */
+  uint32_t version;
 
-    /**
-     * Retrieves the current time using the same time base as supplied to the
-     * nanoapp in chreGetTime(). This function should be used when populating
-     * reference time fields in event structures passed by a PAL implementation
-     * to CHRE.
-     *
-     * @return Current time since some fixed arbitrary reference point in the
-     *         past, in nanoseconds
-     *
-     * @see chreGetTime
-     */
-    uint64_t (*getCurrentTime)(void);
+  /**
+   * Retrieves the current time using the same time base as supplied to the
+   * nanoapp in chreGetTime(). This function should be used when populating
+   * reference time fields in event structures passed by a PAL implementation
+   * to CHRE.
+   *
+   * @return Current time since some fixed arbitrary reference point in the
+   *         past, in nanoseconds
+   *
+   * @see chreGetTime
+   */
+  uint64_t (*getCurrentTime)(void);
 
-    /**
-     * Logs a message to the same messaging subsystem as used by the CHRE
-     * system. Semantics are the same as chreLog, but the implementation may
-     * differ.
-     *
-     * @param level Log level, same as defined in the CHRE API
-     * @param formatStr printf-style format string, details provided in the CHRE
-     *        API
-     *
-     * @see chreLog
-     */
-    void (*log)(enum chreLogLevel level, const char *formatStr, ...);
+  /**
+   * Logs a message to the same messaging subsystem as used by the CHRE
+   * system. Semantics are the same as chreLog, but the implementation may
+   * differ.
+   *
+   * @param level Log level, same as defined in the CHRE API
+   * @param formatStr printf-style format string, details provided in the CHRE
+   *        API
+   *
+   * @see chreLog
+   */
+  void (*log)(enum chreLogLevel level, const char *formatStr, ...);
 
-    /**
-     * Dynamically allocate a block of memory. Semantics are the same as
-     * chreHeapAlloc, but the implementation may differ.
-     *
-     * @param size Size of the allocation, in bytes
-     *
-     * @return Pointer to buffer that is aligned to store any kind of variable,
-     *         or NULL if the allocation failed
-     *
-     * @see chreHeapAlloc
-     */
-    void *(*memoryAlloc)(size_t size);
+  /**
+   * Dynamically allocate a block of memory. Semantics are the same as
+   * chreHeapAlloc, but the implementation may differ.
+   *
+   * @param size Size of the allocation, in bytes
+   *
+   * @return Pointer to buffer that is aligned to store any kind of variable,
+   *         or NULL if the allocation failed
+   *
+   * @see chreHeapAlloc
+   */
+  void *(*memoryAlloc)(size_t size);
 
-    /**
-     * Return memory allocated via memoryAlloc to the system. Semantics are the
-     * same as chreHeapFree, but the implementation may differ.
-     *
-     * @param pointer A pointer previously returned by memoryAlloc
-     *
-     * @see chreHeapFree
-     */
-    void (*memoryFree)(void *pointer);
+  /**
+   * Return memory allocated via memoryAlloc to the system. Semantics are the
+   * same as chreHeapFree, but the implementation may differ.
+   *
+   * @param pointer A pointer previously returned by memoryAlloc
+   *
+   * @see chreHeapFree
+   */
+  void (*memoryFree)(void *pointer);
 };
 
 #ifdef __cplusplus

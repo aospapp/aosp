@@ -36,13 +36,13 @@ IslandVoteClient::IslandVoteClient(const char *clientName) {
   if (mClientHandle == nullptr) {
     FATAL_ERROR("Island aggregator client register failed");
   }
-#endif // CHRE_SLPI_UIMG_ENABLED
+#endif  // CHRE_SLPI_UIMG_ENABLED
 }
 
 IslandVoteClient::~IslandVoteClient() {
 #ifdef CHRE_SLPI_UIMG_ENABLED
   sns_island_aggregator_deregister_client(mClientHandle);
-#endif // CHRE_SLPI_UIMG_ENABLED
+#endif  // CHRE_SLPI_UIMG_ENABLED
 }
 
 bool IslandVoteClient::voteBigImage(bool bigImage) {
@@ -62,7 +62,7 @@ bool IslandVoteClient::voteBigImage(bool bigImage) {
   return success;
 #else
   return true;
-#endif // CHRE_SLPI_UIMG_ENABLED
+#endif  // CHRE_SLPI_UIMG_ENABLED
 }
 
 #ifdef CHRE_SLPI_UIMG_ENABLED
@@ -102,8 +102,8 @@ void IslandVoteClient::decrementBigImageRefCount() {
 }
 
 bool IslandVoteClient::voteSnsPowerMode(bool bigImage) {
-  sns_rc rc = bigImage
-      ? sns_island_block(mClientHandle) : sns_island_unblock(mClientHandle);
+  sns_rc rc = bigImage ? sns_island_block(mClientHandle)
+                       : sns_island_unblock(mClientHandle);
 
   // TODO: (b/74524281) define success = (rc == SNS_RC_SUCCESS).
   bool success = (rc != SNS_RC_FAILED);
@@ -116,8 +116,8 @@ bool IslandVoteClient::voteSnsPowerMode(bool bigImage) {
 uint64_t IslandVoteClient::checkBigImageDuration() const {
   uint64_t duration = 0;
   if (mBigImageRefCount > 0) {
-    duration = Milliseconds(SystemTime::getMonotonicTime()).getMilliseconds()
-               - mRefCountStart.getMilliseconds();
+    duration = Milliseconds(SystemTime::getMonotonicTime()).getMilliseconds() -
+               mRefCountStart.getMilliseconds();
   }
 
   // Bimg memory fallback only intends to handle a surge of uimg memory
@@ -133,4 +133,4 @@ uint64_t IslandVoteClient::checkBigImageDuration() const {
 //! Explicitly instantiate the IslandVoteClient singleton to reduce code size.
 template class Singleton<IslandVoteClient>;
 
-} // namespace chre
+}  // namespace chre

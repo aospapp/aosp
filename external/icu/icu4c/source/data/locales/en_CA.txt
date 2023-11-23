@@ -9,7 +9,7 @@ en_CA{
             }
         }
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     calendar{
         chinese{
             DateTimePatterns{
@@ -203,10 +203,6 @@ en_CA{
                 yMMMEd{"E, MMM d, y"}
                 yMMMd{"MMM d, y"}
                 yMd{"y-MM-dd"}
-                yw{
-                    one{"'week' w 'of' Y"}
-                    other{"'week' w 'of' Y"}
-                }
             }
             dayNames{
                 format{
@@ -229,6 +225,7 @@ en_CA{
                         midnight{"mid"}
                         morning1{"mor"}
                         night1{"night"}
+                        noon{"n"}
                     }
                 }
                 stand-alone{
@@ -238,9 +235,12 @@ en_CA{
                     }
                     narrow{
                         afternoon1{"aft"}
+                        am{"a.m."}
                         evening1{"eve"}
                         midnight{"mid"}
                         morning1{"mor"}
+                        night1{"night"}
+                        pm{"pm"}
                     }
                     wide{
                         am{"a.m."}
@@ -344,6 +344,7 @@ en_CA{
         leftwards_rightwards_arrows{"leftward rightward arrow"}
         letterlike_symbols{"letter-like symbol"}
         limited_use{"limited use"}
+        math_symbols{"math symbol"}
         nonspacing{"non-spacing"}
         rightwards_arrows{"rightward arrow"}
         upwards_arrows{"upward arrows"}
@@ -436,23 +437,6 @@ en_CA{
                 past{
                     one{"{0} min. ago"}
                     other{"{0} mins. ago"}
-                }
-            }
-        }
-        mon-narrow{
-            relative{
-                "-1"{"last Mo"}
-                "0"{"this Mo"}
-                "1"{"next Mo"}
-            }
-            relativeTime{
-                future{
-                    one{"in {0} Mo"}
-                    other{"in {0} Mo’s"}
-                }
-                past{
-                    one{"{0} Mo ago"}
-                    other{"{0} Mo’s ago"}
                 }
             }
         }
@@ -724,6 +708,15 @@ en_CA{
                     other{"{0} yrs. ago"}
                 }
             }
+        }
+    }
+    listPattern{
+        standard-narrow{
+            2{"{0} and {1}"}
+            end{"{0}, and {1}"}
+        }
+        standard-short{
+            end{"{0}, and {1}"}
         }
     }
 }

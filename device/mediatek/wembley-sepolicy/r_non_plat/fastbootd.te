@@ -1,0 +1,25 @@
+# fastbootd (used in recovery init.rc for /sbin/fastbootd)
+
+
+allow fastbootd {
+    bootdevice_block_device
+    cache_block_device
+    logo_block_device
+    para_block_device
+  }:blk_file { rw_file_perms };
+
+allow fastbootd {
+    sysfs_boot_type
+}:file { rw_file_perms };
+
+allowxperm fastbootd {
+    bootdevice_block_device
+    cache_block_device
+    logo_block_device
+    para_block_device
+  }:blk_file ioctl {
+      BLKSECDISCARD
+      BLKDISCARD
+      MMC_IOCTLCMD
+  };
+

@@ -16,9 +16,8 @@
 
 package android.server.wm;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
-
 import android.app.Activity;
+import android.app.Application;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -76,12 +75,13 @@ public final class CommandSession {
 
     private static final String EXTRA_PREFIX = "s_";
 
+    static final String KEY_FORWARD = EXTRA_PREFIX + "key_forward";
+
     private static final String KEY_CALLBACK_HISTORY = EXTRA_PREFIX + "key_callback_history";
     private static final String KEY_CLIENT_ID = EXTRA_PREFIX + "key_client_id";
     private static final String KEY_COMMAND = EXTRA_PREFIX + "key_command";
     private static final String KEY_CONFIG_INFO = EXTRA_PREFIX + "key_config_info";
-    // TODO(b/112837428): Used for LaunchActivityBuilder#launchUsingShellCommand
-    private static final String KEY_FORWARD = EXTRA_PREFIX + "key_forward";
+    private static final String KEY_APP_CONFIG_INFO = EXTRA_PREFIX + "key_app_config_info";
     private static final String KEY_HOST_ID = EXTRA_PREFIX + "key_host_id";
     private static final String KEY_ORIENTATION = EXTRA_PREFIX + "key_orientation";
     private static final String KEY_REQUEST_TOKEN = EXTRA_PREFIX + "key_request_id";
@@ -90,6 +90,7 @@ public final class CommandSession {
 
     private static final String COMMAND_FINISH = EXTRA_PREFIX + "command_finish";
     private static final String COMMAND_GET_CONFIG = EXTRA_PREFIX + "command_get_config";
+    private static final String COMMAND_GET_APP_CONFIG = EXTRA_PREFIX + "command_get_app_config";
     private static final String COMMAND_ORIENTATION = EXTRA_PREFIX + "command_orientation";
     private static final String COMMAND_TAKE_CALLBACK_HISTORY = EXTRA_PREFIX
             + "command_take_callback_history";
@@ -107,6 +108,11 @@ public final class CommandSession {
         return data.getParcelable(KEY_CONFIG_INFO);
     }
 
+    /** Get application {@link ConfigInfo} from bundle. */
+    public static ConfigInfo getAppConfigInfo(Bundle data) {
+        return data.getParcelable(KEY_APP_CONFIG_INFO);
+    }
+
     /** Get list of {@link ActivityCallback} from bundle. */
     public static ArrayList<ActivityCallback> getCallbackHistory(Bundle data) {
         return data.getParcelableArrayList(KEY_CALLBACK_HISTORY);
@@ -122,7 +128,7 @@ public final class CommandSession {
         final Bundle sessionInfo = new Bundle(data);
         sessionInfo.remove(KEY_FORWARD);
         for (String key : sessionInfo.keySet()) {
-            if (!key.startsWith(EXTRA_PREFIX)) {
+            if (key != null && !key.startsWith(EXTRA_PREFIX)) {
                 sessionInfo.remove(key);
             }
         }
@@ -203,6 +209,11 @@ public final class CommandSession {
         /** Get {@link ConfigInfo} of the associated activity. */
         public ConfigInfo getConfigInfo() {
             return CommandSession.getConfigInfo(sendCommandAndWaitReply(COMMAND_GET_CONFIG));
+        }
+
+        /** Get {@link ConfigInfo} of the Application of the associated activity. */
+        public ConfigInfo getAppConfigInfo() {
+            return CommandSession.getAppConfigInfo(sendCommandAndWaitReply(COMMAND_GET_APP_CONFIG));
         }
 
         /**
@@ -363,6 +374,20 @@ public final class CommandSession {
         boolean shouldWaitForLaunched();
     }
 
+    abstract static class DefaultLaunchProxy implements LaunchProxy {
+        LaunchInjector mLaunchInjector;
+
+        @Override
+        public boolean shouldWaitForLaunched() {
+            return true;
+        }
+
+        @Override
+        public void setLaunchInjector(LaunchInjector injector) {
+            mLaunchInjector = injector;
+        }
+    }
+
     /** Created by test case to control testing activity that implements the session protocol. */
     public static class ActivitySessionClient extends BroadcastReceiver implements AutoCloseable {
         private final Context mContext;
@@ -370,10 +395,6 @@ public final class CommandSession {
         private final HandlerThread mThread;
         private final ArrayMap<String, ActivitySession> mSessions = new ArrayMap<>();
         private boolean mClosed;
-
-        public ActivitySessionClient() {
-            this(getInstrumentation().getContext());
-        }
 
         public ActivitySessionClient(Context context) {
             mContext = context;
@@ -625,12 +646,17 @@ public final class CommandSession {
         private static CommandStorage sCommandStorage;
         private ActivitySessionHost mReceiver;
 
+        /** The subclasses can disable the test journal client if its information is not used. */
+        protected boolean mUseTestJournal = true;
         protected TestJournalClient mTestJournalClient;
 
         @Override
         protected void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
-            mTestJournalClient = TestJournalClient.create(this /* context */, getComponentName());
+            if (mUseTestJournal) {
+                mTestJournalClient = TestJournalClient.create(this /* context */,
+                        getComponentName());
+            }
 
             final String hostId = getIntent().getStringExtra(KEY_HOST_ID);
             final String clientId = getIntent().getStringExtra(KEY_CLIENT_ID);
@@ -744,6 +770,14 @@ public final class CommandSession {
                         final Bundle replyData = new Bundle();
                         replyData.putParcelable(KEY_CONFIG_INFO, getConfigInfo());
                         reply(COMMAND_GET_CONFIG, replyData);
+                    });
+                    break;
+
+                case COMMAND_GET_APP_CONFIG:
+                    runWhenIdle(() -> {
+                        final Bundle replyData = new Bundle();
+                        replyData.putParcelable(KEY_APP_CONFIG_INFO, getAppConfigInfo());
+                        reply(COMMAND_GET_APP_CONFIG, replyData);
                     });
                     break;
 
@@ -886,7 +920,7 @@ public final class CommandSession {
             onCallback(ActivityCallback.ON_MOVED_TO_DISPLAY);
         }
 
-        private void onCallback(ActivityCallback callback) {
+        public void onCallback(ActivityCallback callback) {
             if (mPrintCallbackLog) {
                 Log.i(getTag(), callback + " @ "
                         + Integer.toHexString(System.identityHashCode(this)));
@@ -916,7 +950,13 @@ public final class CommandSession {
             if (!view.isAttachedToWindow()) {
                 Log.w(getTag(), "Decor view has not attached");
             }
-            return new ConfigInfo(view);
+            return new ConfigInfo(view.getContext(), view.getDisplay());
+        }
+
+        /** Same as {@link #getConfigInfo()}, but for Application. */
+        private ConfigInfo getAppConfigInfo() {
+            final Application application = (Application) getApplicationContext();
+            return new ConfigInfo(application, getDisplay());
         }
     }
 
@@ -934,7 +974,8 @@ public final class CommandSession {
         ON_CONFIGURATION_CHANGED,
         ON_MULTI_WINDOW_MODE_CHANGED,
         ON_PICTURE_IN_PICTURE_MODE_CHANGED,
-        ON_MOVED_TO_DISPLAY;
+        ON_MOVED_TO_DISPLAY,
+        ON_PICTURE_IN_PICTURE_REQUESTED;
 
         private static final ActivityCallback[] sValues = ActivityCallback.values();
         public static final int SIZE = sValues.length;
@@ -970,11 +1011,10 @@ public final class CommandSession {
         ConfigInfo() {
         }
 
-        public ConfigInfo(View view) {
-            final Resources res = view.getContext().getResources();
+        public ConfigInfo(Context context, Display display) {
+            final Resources res = context.getResources();
             final DisplayMetrics metrics = res.getDisplayMetrics();
             final Configuration config = res.getConfiguration();
-            final Display display = view.getDisplay();
 
             if (display != null) {
                 displayId = display.getDisplayId();
@@ -1080,6 +1120,21 @@ public final class CommandSession {
                     && smallestWidthDp == that.smallestWidthDp
                     && densityDpi == that.densityDpi
                     && orientation == that.orientation;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = 0;
+            result = 31 * result + widthDp;
+            result = 31 * result + heightDp;
+            result = 31 * result + displayWidth;
+            result = 31 * result + displayHeight;
+            result = 31 * result + metricsWidth;
+            result = 31 * result + metricsHeight;
+            result = 31 * result + smallestWidthDp;
+            result = 31 * result + densityDpi;
+            result = 31 * result + orientation;
+            return result;
         }
 
         @Override

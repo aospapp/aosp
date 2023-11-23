@@ -33,7 +33,11 @@ import android.util.Log;
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -42,6 +46,7 @@ import java.util.Random;
 // a few seconds of audio. The playback is verified by measuring the output
 // sample rate based on the AudioTimestamps.
 
+@NonMediaMainlineTest
 public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     private static final String TAG = "AudioTrackSurroundTest";
 
@@ -61,6 +66,9 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     private final static int MILLIS_PER_SECOND = 1000;
     private final static long NANOS_PER_SECOND = NANOS_PER_MILLISECOND * MILLIS_PER_SECOND;
 
+    private final static int RES_AC3_SPDIF_VOICE_32000 = R.raw.voice12_32k_128kbps_15s_ac3_spdif;
+    private final static int RES_AC3_SPDIF_VOICE_44100 = R.raw.voice12_44k_128kbps_15s_ac3_spdif;
+    private final static int RES_AC3_SPDIF_VOICE_48000 = R.raw.voice12_48k_128kbps_15s_ac3_spdif;
     private final static int RES_AC3_VOICE_48000 = R.raw.voice12_48k_128kbps_15s_ac3;
 
     private static int mLastPlayedEncoding = AudioFormat.ENCODING_INVALID;
@@ -157,31 +165,26 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
 
     // Load a resource into a byte[]
     private byte[] loadRawResourceBytes(@RawRes int id) throws Exception {
-        AssetFileDescriptor masterFd = getContext().getResources().openRawResourceFd(id);
-        long masterLength = masterFd.getLength();
-        byte[] masterBuffer = new byte[(int) masterLength];
-        InputStream is = masterFd.createInputStream();
-        BufferedInputStream bis = new BufferedInputStream(is);
-        int result = bis.read(masterBuffer);
-        bis.close();
-        masterFd.close();
-        return masterBuffer;
+        InputStream is = getContext().getResources().openRawResource(id);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (BufferedInputStream bis = new BufferedInputStream(is)) {
+            for (int b = bis.read(); b != -1; b = bis.read()) {
+                bos.write(b);
+            }
+        }
+        return bos.toByteArray();
     }
 
     // Load a resource into a short[]
     private short[] loadRawResourceShorts(@RawRes int id) throws Exception {
-        AssetFileDescriptor masterFd = getContext().getResources().openRawResourceFd(id);
-        long masterLength = masterFd.getLength();
-        short[] masterBuffer = new short[(int) (masterLength / 2)];
-        InputStream is = masterFd.createInputStream();
-        BufferedInputStream bis = new BufferedInputStream(is);
+        byte[] byteBuffer = loadRawResourceBytes(id);
+        ShortBuffer shortBuffer =
+                ByteBuffer.wrap(byteBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
+        // Unfortunately, ShortBuffer.array() works with allocated buffers only.
+        short[] masterBuffer = new short[byteBuffer.length / 2];
         for (int i = 0; i < masterBuffer.length; i++) {
-            int lo = bis.read(); // assume Little Endian
-            int hi = bis.read();
-            masterBuffer[i] = (short) (hi * 256 + lo);
+            masterBuffer[i] = shortBuffer.get();
         }
-        bis.close();
-        masterFd.close();
         return masterBuffer;
     }
 
@@ -225,8 +228,8 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
                 // Only save timestamps after the data is flowing.
                 if (mPreviousTimestamp != null
                     && timestamp.framePosition > 0
-                    && (timestamp.nanoTime != mPreviousTimestamp.nanoTime
-                            || timestamp.framePosition != mPreviousTimestamp.framePosition)) {
+                    && timestamp.nanoTime != mPreviousTimestamp.nanoTime
+                    && timestamp.framePosition != mPreviousTimestamp.framePosition) {
                     mTimestamps.add(timestamp);
                 }
                 mPreviousTimestamp = timestamp;
@@ -540,13 +543,11 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
         }
     }
 
-    // Note that for testing IEC61937, the Audio framework does not look at the
-    // wrapped data. It just passes it through over HDMI. See we can just use
-    // zeros instead of real data.
     public void testPlayIEC61937_32000() throws Exception {
         if (mInfoIEC61937 != null) {
             SamplePlayerShorts player = new SamplePlayerShorts(
-                    32000, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO);
+                    32000, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO,
+                    RES_AC3_SPDIF_VOICE_32000);
             player.playAndMeasureRate();
         }
     }
@@ -554,7 +555,8 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     public void testPlayIEC61937_44100() throws Exception {
         if (mInfoIEC61937 != null) {
             SamplePlayerShorts player = new SamplePlayerShorts(
-                    44100, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO);
+                    44100, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO,
+                    RES_AC3_SPDIF_VOICE_44100);
             player.playAndMeasureRate();
         }
     }
@@ -562,7 +564,8 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     public void testPlayIEC61937_48000() throws Exception {
         if (mInfoIEC61937 != null) {
             SamplePlayerShorts player = new SamplePlayerShorts(
-                    48000, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO);
+                    48000, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO,
+                    RES_AC3_SPDIF_VOICE_48000);
             player.playAndMeasureRate();
         }
     }

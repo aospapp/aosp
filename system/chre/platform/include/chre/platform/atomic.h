@@ -26,8 +26,7 @@ namespace chre {
  * Provides an implementation of an atomic boolean. AtomicBoolBase is
  * subclassed here to allow platforms to use their own underlying atomic APIs.
  */
-class AtomicBool : public AtomicBoolBase,
-                   public NonCopyable {
+class AtomicBool : public AtomicBoolBase, public NonCopyable {
  public:
   /**
    * Allows the platform to do any atomic initialization at construction time.
@@ -84,8 +83,7 @@ class AtomicBool : public AtomicBoolBase,
  * Provides an implementation of an atomic uint32_t. AtomicUint32Base is
  * subclassed here to allow platforms to use their own underlying atomic APIs.
  */
-class AtomicUint32 : public AtomicUint32Base,
-                     public NonCopyable {
+class AtomicUint32 : public AtomicUint32Base, public NonCopyable {
  public:
   /**
    * Allows the platform to do any atomic initialization at construction time.

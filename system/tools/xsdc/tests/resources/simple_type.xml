@@ -3,4 +3,5 @@
     <listInt>1 2 3 4 5</listInt>
     <union-test>100</union-test>
     <yesOrNo>YES</yesOrNo>
+    <yesOrNo></yesOrNo>
 </simple-types>

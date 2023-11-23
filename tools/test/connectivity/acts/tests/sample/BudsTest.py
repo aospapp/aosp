@@ -18,8 +18,8 @@ from acts.base_test import BaseTestClass
 
 
 class BudsTest(BaseTestClass):
-    def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.dut = self.buds_devices[0]
 
     def test_make_toast(self):

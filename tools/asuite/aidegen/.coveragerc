@@ -9,6 +9,7 @@ source =
 # omit file patterns must be listed one per line. */.local/* /usr/*
 omit =
     *_unittest.py
+    *run_unittests.py
     *__init__.py
     *unittest_constants.py
 

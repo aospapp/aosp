@@ -56,6 +56,16 @@ public class ValidateTestsAbi {
          *  This module tests for security vulnerabilities when installing attacker-devised APKs.
          */
         MODULE_EXCEPTIONS.add("CtsCorruptApkTests");
+
+        /**
+         * This module tests for installations of packages that have only 32-bit native libraries.
+         */
+        MODULE_EXCEPTIONS.add("CtsExtractNativeLibsAppTrue32");
+
+        /**
+         * This module tests for installations of packages that have only 64-bit native libraries.
+         */
+        MODULE_EXCEPTIONS.add("CtsExtractNativeLibsAppTrue64");
     }
 
     private static final Set<String> BINARY_EXCEPTIONS = new HashSet<>();

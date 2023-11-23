@@ -57,7 +57,7 @@ def checkFileInvalidLiterals (file):
 	error = False
 
 	if checkEnds(file.replace("\\", "/"), CHECK_LIST) and not checkEnds(file.replace("\\", "/"), EXCLUSION_LIST):
-		f = open(file, 'rb')
+		f = open(file, 'rt')
 		for lineNum, line in enumerate(f):
 			# Remove inline comments
 			idx = line.find("//")
@@ -73,7 +73,7 @@ def checkFileInvalidLiterals (file):
 				found = re.search(pattern, line)
 				if found is not None:
 					error = True
-					print "%s:%i Unacceptable type found (pattern:%s)" % (file, lineNum+1, pattern)
+					print("%s:%i Unacceptable type found (pattern:%s)" % (file, lineNum+1, pattern))
 		f.close()
 
 	return not error
@@ -99,10 +99,13 @@ if __name__ == "__main__":
 	else:
 		files = getAllProjectFiles()
 
+	# filter out original Vulkan header sources
+	files = [f for f in files if "vulkancts/scripts/src" not in f]
+
 	error = not checkInvalidLiterals(files)
 
 	if error:
-		print "One or more checks failed"
+		print("One or more checks failed")
 		sys.exit(1)
 	if not args.onlyErrors:
-		print "All checks passed"
+		print("All checks passed")

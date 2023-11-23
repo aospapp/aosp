@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sr{
-    AuxExemplarCharacters{"[ё й щ ъ ы ь э ю я]"}
+    AuxExemplarCharacters{"[{а\u0302} {е\u0302} ё й {и\u0302} {о\u0302} {у\u0302} щ ъ ы ь э ю я]"}
     Ellipsis{
         final{"{0}…"}
         initial{"…{0}"}
@@ -12,8 +12,8 @@ sr{
     }
     ExemplarCharacters{"[а б в г д ђ е ж з и ј к л љ м н њ о п р с т ћ у ф х ц ч џ ш]"}
     ExemplarCharactersIndex{"[А Б В Г Д Ђ Е Ж З И Ј К Л Љ М Н Њ О П Р С Т Ћ У Ф Х Ц Ч Џ Ш]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – , ; \\: ! ? . … ‘ ‚ “ „ ( ) \\[ \\] \\{ \\} * #]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – , ; \\: ! ? . … ‘ ‚ “ „ ( ) \\[ \\] \\{ \\} * #]"}
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -249,7 +249,7 @@ sr{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.43.94"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -518,9 +518,9 @@ sr{
                 MMMEd{"E d. MMM"}
                 MMMMEd{"E, d. MMMM"}
                 MMMMW{
-                    few{"W. 'седмица' 'у' MMM."}
-                    one{"W. 'седмица' 'у' MMM."}
-                    other{"W. 'седмица' 'у' MMM."}
+                    few{"W. 'седмица' 'у' MMMM."}
+                    one{"W. 'седмица' 'у' MMMM."}
+                    other{"W. 'седмица' 'у' MMMM."}
                 }
                 MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}
@@ -692,6 +692,10 @@ sr{
             }
             eras{
                 abbreviated{
+                    "п. н. е.",
+                    "н. е.",
+                }
+                abbreviated%variant{
                     "п. н. е.",
                     "н. е.",
                 }
@@ -1935,9 +1939,9 @@ sr{
         }
         sun-narrow{
             relative{
-                "-1"{"прошле нед"}
+                "-1"{"пр. нед."}
                 "0"{"у нед"}
-                "1"{"следеће нед"}
+                "1"{"сл. нед."}
             }
             relativeTime{
                 future{
@@ -2370,10 +2374,6 @@ sr{
                 "[\\-‒⁻₋−➖﹣－]",
                 "[,،٫、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
-            }
-            stricter{
-                "[,٫︐﹐，]",
-                "[.․﹒．｡]",
             }
         }
     }

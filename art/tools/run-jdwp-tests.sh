@@ -19,16 +19,6 @@ if [ ! -d libcore ]; then
   exit 1
 fi
 
-# Prevent JDWP tests from running on the following devices running
-# Android O (they are failing because of a network-related issue), as
-# a workaround for b/74725685:
-# - FA7BN1A04406 (walleye device testing configuration aosp-poison/volantis-armv7-poison-debug)
-# - FA7BN1A04412 (walleye device testing configuration aosp-poison/volantis-armv8-poison-ndebug)
-# - FA7BN1A04433 (walleye device testing configuration aosp-poison/volantis-armv8-poison-debug)
-case "$ANDROID_SERIAL" in
-  (FA7BN1A04406|FA7BN1A04412|FA7BN1A04433) exit 0;;
-esac
-
 source build/envsetup.sh >&/dev/null # for get_build_var, setpaths
 setpaths # include platform prebuilt java, javac, etc in $PATH.
 
@@ -58,7 +48,7 @@ function boot_classpath_arg {
 # Note: This must start with the CORE_IMG_JARS in Android.common_path.mk
 # because that's what we use for compiling the core.art image.
 # It may contain additional modules from TEST_CORE_JARS.
-BOOT_CLASSPATH_JARS="core-oj core-libart okhttp bouncycastle apache-xml conscrypt"
+BOOT_CLASSPATH_JARS="core-oj core-libart core-icu4j okhttp bouncycastle apache-xml conscrypt"
 
 vm_args=""
 art="$android_root/bin/art"
@@ -90,6 +80,12 @@ use_jit=true
 instant_jit=false
 variant_cmdline_parameter="--variant=X32"
 dump_command="/bin/true"
+called_from_libjdwp=${RUN_JDWP_TESTS_CALLED_FROM_LIBJDWP:-false}
+run_internal_jdwp_test=false
+# Let LUCI bots do what they want.
+if test -v LUCI_CONTEXT; then
+  run_internal_jdwp_test=true
+fi
 # Timeout of JDWP test in ms.
 #
 # Note: some tests expect a timeout to check that *no* reply/event is received for a specific case.
@@ -97,6 +93,7 @@ dump_command="/bin/true"
 # continuous testing. This value can be adjusted to fit the configuration of the host machine(s).
 jdwp_test_timeout=10000
 
+skip_tests=
 gdb_target=
 has_gdb="no"
 
@@ -132,7 +129,8 @@ while true; do
     shift
   elif [[ "$1" == "--mode=jvm" ]]; then
     mode="ri"
-    make_target_name="apache-harmony-jdwp-tests-host"
+    make_target_name="apache-harmony-jdwp-tests"
+    run_internal_jdwp_test=true
     art="$(which java)"
     art_debugee="$(which java)"
     # No need for extra args.
@@ -147,6 +145,19 @@ while true; do
     vm_command=""
     # We don't care about jit with the RI
     use_jit=false
+    shift
+  elif [[ $1 == --skip-test ]]; then
+    skip_tests="${skip_tests},${2}"
+    # remove the --skip-test
+    args=${args/$1}
+    shift
+    # remove the arg
+    args=${args/$1}
+    shift
+  elif [[ $1 == --force-run-test ]]; then
+    run_internal_jdwp_test=true
+    # remove the --force-run-test
+    args=${args/$1}
     shift
   elif [[ $1 == --test-timeout-ms ]]; then
     # Remove the --test-timeout-ms from the arguments.
@@ -234,6 +245,11 @@ while true; do
   fi
 done
 
+if [ ! -t 1 ] ; then
+  # Suppress color codes if not attached to a terminal
+  args="$args --no-color"
+fi
+
 if [[ $mode == "target" ]]; then
   # Honor environment variable ART_TEST_CHROOT.
   if [[ -n "$ART_TEST_CHROOT" ]]; then
@@ -244,6 +260,16 @@ if [[ $mode == "target" ]]; then
     art_debugee="sh /system/bin/art"
     vm_command="--vm-command=$art"
     device_dir="--device-dir=/tmp"
+  fi
+fi
+
+if [[ $called_from_libjdwp != "true" ]]; then
+  if [[ $run_internal_jdwp_test = "false" ]]; then
+    echo "Calling run_jdwp_tests.sh directly is probably not what you want. You probably want to"
+    echo "run ./art/tools/run-libjdwp-tests.sh instead in order to test the JDWP implementation"
+    echo "used by apps. If you really wish to run these tests using the deprecated internal JDWP"
+    echo "implementation pass the '--force-run-test' flag."
+    exit 1
   fi
 fi
 
@@ -316,7 +342,7 @@ test_jar=$(jlib_name "${java_lib_location}/${make_target_name}_intermediates")
 
 if [[ ! -f $test_jar ]]; then
   echo "Before running, you must build jdwp tests and vogar:" \
-       "make ${make_target_name} vogar"
+       "m ${make_target_name} vogar"
   exit 1
 fi
 
@@ -410,6 +436,7 @@ vogar $vm_command \
       --vm-arg -Djpda.settings.transportAddress=127.0.0.1:55107 \
       --vm-arg -Djpda.settings.dumpProcess="$dump_command" \
       --vm-arg -Djpda.settings.debuggeeJavaPath="$art_debugee $plugin $debuggee_args" \
+      --vm-arg -Djpda.settings.badTestCases="$skip_tests" \
       --classpath "$test_jar" \
       $toolchain_args \
       $test

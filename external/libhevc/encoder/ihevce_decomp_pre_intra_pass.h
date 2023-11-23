@@ -47,12 +47,6 @@
 extern WORD32 g_i4_ip_funcs[MAX_NUM_IP_MODES];
 
 /*****************************************************************************/
-/* Constant Macros                                                           */
-/*****************************************************************************/
-#define POW_2_TO_1_BY_4 (1.1892)
-#define POW_2_TO_3_BY_4 (1.6818)
-
-/*****************************************************************************/
 /* Extern Function Declarations                                              */
 /*****************************************************************************/
 void ihevce_ed_4x4_find_best_modes(
@@ -84,9 +78,7 @@ void ihevce_decomp_pre_intra_process(
     frm_ctb_ctxt_t *ps_frm_ctb_prms,
     void *pv_multi_thrd_ctxt,
     WORD32 thrd_id,
-    WORD32 i4_ping_pong,
-    ihevce_8x8_L0_satd_t *ps_layer0_cur_satd,
-    ihevce_8x8_L0_mean_t *ps_layer0_cur_mean);
+    WORD32 i4_ping_pong);
 
 void ihevce_decomp_pre_intra_frame_init(
     void *pv_ctxt,
@@ -96,18 +88,12 @@ void ihevce_decomp_pre_intra_frame_init(
     ihevce_ed_blk_t *ps_layer2_buf,
     ihevce_ed_ctb_l1_t *ps_ed_ctb_l1,
     WORD32 i4_ol_sad_lambda_qf,
-    WORD32 i4_slice_type,
     ctb_analyse_t *ps_ctb_analyse);
 
-/* Calculate the average activitiies at 16*16 (8*8 in L1)
-and 32*32  (8*8 in L2) block sizes */
 void ihevce_decomp_pre_intra_curr_frame_pre_intra_deinit(
     void *pv_pre_intra_ctxt,
     pre_enc_me_ctxt_t *ps_curr_out,
-    WORD32 i4_is_last_thread,
-    frm_ctb_ctxt_t *ps_frm_ctb_prms,
-    WORD32 i4_temporal_lyr_id,
-    WORD32 i4_enable_noise_detection);
+    frm_ctb_ctxt_t *ps_frm_ctb_prms);
 
 void ihevce_scale_by_2(
     UWORD8 *pu1_src,
@@ -126,28 +112,19 @@ void ihevce_scale_by_2(
 
 void ihevce_ed_frame_init(void *pv_ed_ctxt, WORD32 i4_layer_no);
 
-void ihevce_intra_populate_mode_bits_cost(
-    WORD32 top_intra_mode,
-    WORD32 left_intra_mode,
-    WORD32 available_top,
-    WORD32 available_left,
-    WORD32 cu_pos_y,
-    UWORD16 *mode_bits_cost,
-    WORD32 lambda);
+float fast_log2(float val);
 
 WORD32 ihevce_cu_level_qp_mod(
-    WORD32 i4_qscale,
-    WORD32 i4_satd,
-    long double ld_curr_frame_log_avg,
+    WORD32 frm_qscale,
+    WORD32 cu_satd,
+    long double frm_avg_activity,
     float f_mod_strength,
-    WORD32 *pi4_8x8_act_factor,
-    WORD32 *pi4_qscale_mod,
-    rc_quant_t *ps_rc_quant_ctxt);
+    WORD32 *pi4_act_factor,
+    WORD32 *pi4_q_scale_mod,
+    rc_quant_t *rc_quant_ctxt);
 
-/*return intra SATD of entire frame*/
-LWORD64 ihevce_decomp_pre_intra_get_frame_satd(void *pv_ctxt, WORD32 *i4_width, WORD32 *i4_hieght);
+LWORD64 ihevce_decomp_pre_intra_get_frame_satd(void *pv_ctxt, WORD32 *wd, WORD32 *ht);
 
-LWORD64 ihevce_decomp_pre_intra_get_frame_satd_squared(
-    void *pv_ctxt, WORD32 *i4_width, WORD32 *i4_hieght);
+LWORD64 ihevce_decomp_pre_intra_get_frame_satd_squared(void *pv_ctxt, WORD32 *wd, WORD32 *ht);
 
 #endif

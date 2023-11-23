@@ -21,20 +21,24 @@ import os
 
 import unittest
 import mock
+import six
 
 # pylint: disable=import-error
 import apiclient.http
 
 from acloud import errors
+from acloud.internal import constants
 from acloud.internal.lib import driver_test_lib
 from acloud.internal.lib import gcompute_client
 from acloud.internal.lib import utils
+
 
 GS_IMAGE_SOURCE_URI = "https://storage.googleapis.com/fake-bucket/fake.tar.gz"
 GS_IMAGE_SOURCE_DISK = (
     "https://www.googleapis.com/compute/v1/projects/fake-project/zones/"
     "us-east1-d/disks/fake-disk")
 PROJECT = "fake-project"
+
 
 # pylint: disable=protected-access, too-many-public-methods
 class ComputeClientTest(driver_test_lib.BaseDriverTest):
@@ -147,11 +151,12 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
         self._SetupMocksForGetOperationStatus(
             {"error": {"errors": ["error1", "error2"]}},
             gcompute_client.OperationScope.GLOBAL)
-        self.assertRaisesRegexp(errors.DriverError,
-                                "Get operation state failed.*error1.*error2",
-                                self.compute_client._GetOperationStatus,
-                                {"name": self.OPERATION_NAME},
-                                gcompute_client.OperationScope.GLOBAL)
+        six.assertRaisesRegex(self,
+                              errors.DriverError,
+                              "Get operation state failed.*error1.*error2",
+                              self.compute_client._GetOperationStatus,
+                              {"name": self.OPERATION_NAME},
+                              gcompute_client.OperationScope.GLOBAL)
 
     @mock.patch.object(errors, "GceOperationTimeoutError")
     @mock.patch.object(utils, "PollAndWait")
@@ -337,7 +342,8 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
                 "source": GS_IMAGE_SOURCE_URI,
             },
         }
-        self.assertRaisesRegexp(
+        six.assertRaisesRegex(
+            self,
             errors.DriverError,
             "Expected fake error",
             self.compute_client.CreateImage,
@@ -479,41 +485,77 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
 
     def testListInstances(self):
         """Test ListInstances."""
-        fake_token = "fake_next_page_token"
         instance_1 = "instance_1"
         instance_2 = "instance_2"
-        response_1 = {"items": [instance_1], "nextPageToken": fake_token}
-        response_2 = {"items": [instance_2]}
+        response = {"items": {'zones/fake_zone': {"instances": [instance_1, instance_2]}}}
         self.Patch(
             gcompute_client.ComputeClient,
             "Execute",
-            side_effect=[response_1, response_2])
+            side_effect=[response])
         resource_mock = mock.MagicMock()
         self.compute_client._service.instances = mock.MagicMock(
             return_value=resource_mock)
-        resource_mock.list = mock.MagicMock()
-        instances = self.compute_client.ListInstances(self.ZONE)
+        resource_mock.aggregatedList = mock.MagicMock()
+        instances = self.compute_client.ListInstances()
         calls = [
             mock.call(
                 project=PROJECT,
-                zone=self.ZONE,
                 filter=None,
                 pageToken=None),
-            mock.call(
-                project=PROJECT,
-                zone=self.ZONE,
-                filter=None,
-                pageToken=fake_token),
         ]
-        resource_mock.list.assert_has_calls(calls)
+        resource_mock.aggregatedList.assert_has_calls(calls)
         self.assertEqual(instances, [instance_1, instance_2])
+
+    def testGetZoneByInstance(self):
+        """Test GetZoneByInstance."""
+        instance_1 = "instance_1"
+        response = {"items": {'zones/fake_zone': {"instances": [instance_1]}}}
+        self.Patch(
+            gcompute_client.ComputeClient,
+            "Execute",
+            side_effect=[response])
+        expected_zone = "fake_zone"
+        self.assertEqual(self.compute_client.GetZoneByInstance(instance_1),
+                         expected_zone)
+
+        # Test unable to find 'zone' from instance name.
+        response = {"items": {'zones/fake_zone': {"warning": "No instances."}}}
+        self.Patch(
+            gcompute_client.ComputeClient,
+            "Execute",
+            side_effect=[response])
+        with self.assertRaises(errors.GetGceZoneError):
+            self.compute_client.GetZoneByInstance(instance_1)
+
+    def testGetZonesByInstances(self):
+        """Test GetZonesByInstances."""
+        instances = ["instance_1", "instance_2"]
+        # Test instances in the same zone.
+        self.Patch(
+            gcompute_client.ComputeClient,
+            "GetZoneByInstance",
+            side_effect=["zone_1", "zone_1"])
+        expected_result = {"zone_1": ["instance_1", "instance_2"]}
+        self.assertEqual(self.compute_client.GetZonesByInstances(instances),
+                         expected_result)
+
+        # Test instances in different zones.
+        self.Patch(
+            gcompute_client.ComputeClient,
+            "GetZoneByInstance",
+            side_effect=["zone_1", "zone_2"])
+        expected_result = {"zone_1": ["instance_1"],
+                           "zone_2": ["instance_2"]}
+        self.assertEqual(self.compute_client.GetZonesByInstances(instances),
+                         expected_result)
 
     @mock.patch.object(gcompute_client.ComputeClient, "GetImage")
     @mock.patch.object(gcompute_client.ComputeClient, "GetNetworkUrl")
     @mock.patch.object(gcompute_client.ComputeClient, "GetSubnetworkUrl")
     @mock.patch.object(gcompute_client.ComputeClient, "GetMachineType")
     @mock.patch.object(gcompute_client.ComputeClient, "WaitOnOperation")
-    def testCreateInstance(self, mock_wait, mock_get_mach_type,
+    @mock.patch("getpass.getuser", return_value="fake_user")
+    def testCreateInstance(self, _get_user, mock_wait, mock_get_mach_type,
                            mock_get_subnetwork_url, mock_get_network_url,
                            mock_get_image):
         """Test CreateInstance."""
@@ -558,6 +600,7 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
                 "items": [{"key": self.METADATA[0],
                            "value": self.METADATA[1]}],
             },
+            "labels":{constants.LABEL_CREATE_BY: "fake_user"},
         }
 
         self.compute_client.CreateInstance(
@@ -577,13 +620,92 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
             operation_scope=gcompute_client.OperationScope.ZONE,
             scope_name=self.ZONE)
 
+
+    @mock.patch.object(gcompute_client.ComputeClient, "GetImage")
+    @mock.patch.object(gcompute_client.ComputeClient, "GetNetworkUrl")
+    @mock.patch.object(gcompute_client.ComputeClient, "GetSubnetworkUrl")
+    @mock.patch.object(gcompute_client.ComputeClient, "GetMachineType")
+    @mock.patch.object(gcompute_client.ComputeClient, "WaitOnOperation")
+    @mock.patch("getpass.getuser", return_value="fake_user")
+    def testCreateInstanceWithTags(self,
+                                   _get_user,
+                                   mock_wait,
+                                   mock_get_mach_type,
+                                   mock_get_subnetwork_url,
+                                   mock_get_network_url,
+                                   mock_get_image):
+        """Test CreateInstance."""
+        mock_get_mach_type.return_value = {"selfLink": self.MACHINE_TYPE_URL}
+        mock_get_network_url.return_value = self.NETWORK_URL
+        mock_get_subnetwork_url.return_value = self.SUBNETWORK_URL
+        mock_get_image.return_value = {"selfLink": self.IMAGE_URL}
+        resource_mock = mock.MagicMock()
+        self.compute_client._service.instances = mock.MagicMock(
+            return_value=resource_mock)
+        resource_mock.insert = mock.MagicMock()
+        self.Patch(
+            self.compute_client,
+            "_GetExtraDiskArgs",
+            return_value=[{"fake_extra_arg": "fake_extra_value"}])
+        extra_disk_name = "gce-x86-userdebug-2345-abcd-data"
+        expected_disk_args = [self._disk_args]
+        expected_disk_args.extend([{"fake_extra_arg": "fake_extra_value"}])
+        expected_scope = []
+        expected_scope.extend(self.compute_client.DEFAULT_INSTANCE_SCOPE)
+        expected_scope.extend(self.EXTRA_SCOPES)
+
+        expected_body = {
+            "machineType": self.MACHINE_TYPE_URL,
+            "name": self.INSTANCE,
+            "networkInterfaces": [
+                {
+                    "network": self.NETWORK_URL,
+                    "subnetwork": self.SUBNETWORK_URL,
+                    "accessConfigs": [
+                        {"name": "External NAT",
+                         "type": "ONE_TO_ONE_NAT"}
+                    ],
+                }
+            ],
+            'tags': {'items': ['https-server']},
+            "disks": expected_disk_args,
+            "serviceAccounts": [
+                {"email": "default",
+                 "scopes": expected_scope}
+            ],
+            "metadata": {
+                "items": [{"key": self.METADATA[0],
+                           "value": self.METADATA[1]}],
+            },
+            "labels":{'created_by': "fake_user"},
+        }
+
+        self.compute_client.CreateInstance(
+            instance=self.INSTANCE,
+            image_name=self.IMAGE,
+            machine_type=self.MACHINE_TYPE,
+            metadata={self.METADATA[0]: self.METADATA[1]},
+            network=self.NETWORK,
+            zone=self.ZONE,
+            extra_disk_name=extra_disk_name,
+            tags=["https-server"],
+            extra_scopes=self.EXTRA_SCOPES)
+
+        resource_mock.insert.assert_called_with(
+            project=PROJECT, zone=self.ZONE, body=expected_body)
+        mock_wait.assert_called_with(
+            mock.ANY,
+            operation_scope=gcompute_client.OperationScope.ZONE,
+            scope_name=self.ZONE)
+
     @mock.patch.object(gcompute_client.ComputeClient, "GetAcceleratorUrl")
     @mock.patch.object(gcompute_client.ComputeClient, "GetImage")
     @mock.patch.object(gcompute_client.ComputeClient, "GetNetworkUrl")
     @mock.patch.object(gcompute_client.ComputeClient, "GetSubnetworkUrl")
     @mock.patch.object(gcompute_client.ComputeClient, "GetMachineType")
     @mock.patch.object(gcompute_client.ComputeClient, "WaitOnOperation")
-    def testCreateInstanceWithGpu(self, mock_wait, mock_get_mach,
+    @mock.patch("getpass.getuser", return_value="fake_user")
+    def testCreateInstanceWithGpu(self, _get_user, mock_wait, mock_get_mach,
                                   mock_get_subnetwork, mock_get_network,
                                   mock_get_image, mock_get_accel):
         """Test CreateInstance with a GPU parameter not set to None."""
@@ -629,6 +751,7 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
                     "value": self.METADATA[1]
                 }],
             },
+            "labels":{'created_by': "fake_user"},
         }
 
         self.compute_client.CreateInstance(
@@ -997,7 +1120,8 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
                 instance=self.INSTANCE, zone=self.ZONE)
             self.assertEqual(result, "fake contents")
         else:
-            self.assertRaisesRegexp(
+            six.assertRaisesRegex(
+                self,
                 errors.DriverError,
                 "Malformed response.*",
                 self.compute_client.GetSerialPortOutput,
@@ -1037,7 +1161,7 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
             "ListInstances",
             return_value=[good_instance, bad_instance])
         ip_name_map = self.compute_client.GetInstanceNamesByIPs(
-            ips=["172.22.22.22", "172.22.22.23"], zone=self.ZONE)
+            ips=["172.22.22.22", "172.22.22.23"])
         self.assertEqual(ip_name_map, {"172.22.22.22": "instance_1",
                                        "172.22.22.23": None})
 
@@ -1114,17 +1238,18 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
         """Test the rsa key path not exists."""
         fake_ssh_rsa_path = "/path/to/test_rsa.pub"
         self.Patch(os.path, "exists", return_value=False)
-        self.assertRaisesRegexp(errors.DriverError,
-                                "RSA file %s does not exist." % fake_ssh_rsa_path,
-                                gcompute_client.GetRsaKey,
-                                ssh_rsa_path=fake_ssh_rsa_path)
+        six.assertRaisesRegex(self,
+                              errors.DriverError,
+                              "RSA file %s does not exist." % fake_ssh_rsa_path,
+                              gcompute_client.GetRsaKey,
+                              ssh_rsa_path=fake_ssh_rsa_path)
 
     def testGetRsaKey(self):
         """Test get the rsa key."""
         fake_ssh_rsa_path = "/path/to/test_rsa.pub"
         self.Patch(os.path, "exists", return_value=True)
         m = mock.mock_open(read_data=self.SSHKEY)
-        with mock.patch("__builtin__.open", m):
+        with mock.patch.object(six.moves.builtins, "open", m):
             result = gcompute_client.GetRsaKey(fake_ssh_rsa_path)
             self.assertEqual(self.SSHKEY, result)
 
@@ -1245,6 +1370,8 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
         self.Patch(os.path, "exists", return_value=True)
         m = mock.mock_open(read_data=self.SSHKEY)
         self.Patch(gcompute_client.ComputeClient, "WaitOnOperation")
+        self.Patch(gcompute_client.ComputeClient, "GetZoneByInstance",
+                   return_value="fake_zone")
         resource_mock = mock.MagicMock()
         self.compute_client._service.instances = mock.MagicMock(
             return_value=resource_mock)
@@ -1254,9 +1381,8 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
         self.Patch(
             gcompute_client.ComputeClient, "GetInstance",
             return_value=instance_metadata_key_not_exist)
-        with mock.patch("__builtin__.open", m):
+        with mock.patch.object(six.moves.builtins, "open", m):
             self.compute_client.AddSshRsaInstanceMetadata(
-                "fake_zone",
                 fake_user,
                 "/path/to/test_rsa.pub",
                 "fake_instance")
@@ -1271,9 +1397,8 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
         self.Patch(
             gcompute_client.ComputeClient, "GetInstance",
             return_value=instance_metadata_key_exist)
-        with mock.patch("__builtin__.open", m):
+        with mock.patch.object(six.moves.builtins, "open", m):
             self.compute_client.AddSshRsaInstanceMetadata(
-                "fake_zone",
                 fake_user,
                 "/path/to/test_rsa.pub",
                 "fake_instance")
@@ -1317,6 +1442,24 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
         result = Raise412(sentinel)
         self.assertEqual(1, sentinel.hitFingerPrintConflict.call_count)
         self.assertEqual("Passed", result)
+
+    def testCheckAccess(self):
+        """Test CheckAccess."""
+        # Checking non-403 should raise error
+        error = errors.HttpError(503, "fake retriable error.")
+        self.Patch(
+            gcompute_client.ComputeClient, "Execute",
+            side_effect=error)
+
+        with self.assertRaises(errors.HttpError):
+            self.compute_client.CheckAccess()
+
+        # Checking 403 should return False
+        error = errors.HttpError(403, "fake retriable error.")
+        self.Patch(
+            gcompute_client.ComputeClient, "Execute",
+            side_effect=error)
+        self.assertFalse(self.compute_client.CheckAccess())
 
 
 if __name__ == "__main__":

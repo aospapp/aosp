@@ -16,6 +16,7 @@
 
 package com.android.server.wifi.scanner;
 
+import android.annotation.NonNull;
 import android.content.Context;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiScanner;
@@ -40,7 +41,11 @@ public abstract class WifiScannerImpl {
      * A factory that create a {@link com.android.server.wifi.scanner.WifiScannerImpl}
      */
     public static interface WifiScannerImplFactory {
-        WifiScannerImpl create(Context context, Looper looper, Clock clock);
+        /**
+         * Create instance of {@link WifiScannerImpl}.
+         */
+        WifiScannerImpl create(Context context, Looper looper, Clock clock,
+                @NonNull String ifaceName);
     }
 
     /**
@@ -48,10 +53,10 @@ public abstract class WifiScannerImpl {
      * This factory should only ever be used once.
      */
     public static final WifiScannerImplFactory DEFAULT_FACTORY = new WifiScannerImplFactory() {
-            public WifiScannerImpl create(Context context, Looper looper, Clock clock) {
+            public WifiScannerImpl create(Context context, Looper looper, Clock clock,
+                    @NonNull String ifaceName) {
                 WifiNative wifiNative = WifiInjector.getInstance().getWifiNative();
                 WifiMonitor wifiMonitor = WifiInjector.getInstance().getWifiMonitor();
-                String ifaceName = wifiNative.getClientInterfaceName();
                 if (TextUtils.isEmpty(ifaceName)) {
                     return null;
                 }
@@ -75,6 +80,19 @@ public abstract class WifiScannerImpl {
             return r2.level - r1.level;
         }
     };
+
+    private final String mIfaceName;
+
+    WifiScannerImpl(@NonNull String ifaceName) {
+        mIfaceName = ifaceName;
+    }
+
+    /**
+     * Get the interface name used by this instance of {@link WifiScannerImpl}
+     */
+    public @NonNull String getIfaceName() {
+        return mIfaceName;
+    }
 
     /**
      * Cleanup any ongoing operations. This may be called when the driver is unloaded.

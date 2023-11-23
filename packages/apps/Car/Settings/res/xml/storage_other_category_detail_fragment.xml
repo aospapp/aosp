@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/storage_other_apps">
+    android:title="@string/storage_other_apps"
+    android:key="@string/psk_storage_other_category_detail">
 
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_storage_other_apps_details"

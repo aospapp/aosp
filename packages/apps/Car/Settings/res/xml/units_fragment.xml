@@ -16,7 +16,8 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/units_settings" >
+                  android:title="@string/units_settings"
+                  android:key="@string/psk_units">
     <ListPreference
         android:key="@string/pk_units_speed"
         android:title="@string/units_speed_title"

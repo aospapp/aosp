@@ -15,6 +15,10 @@
  */
 package com.android.cts.devicepolicy;
 
+import android.platform.test.annotations.LargeTest;
+
+import org.junit.Test;
+
 public class DeviceAdminServiceProfileOwnerTest extends BaseDeviceAdminServiceTest {
 
     private int mUserId;
@@ -25,7 +29,7 @@ public class DeviceAdminServiceProfileOwnerTest extends BaseDeviceAdminServiceTe
     }
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         if (isTestEnabled()) {
             mUserId = createUser();
@@ -33,7 +37,7 @@ public class DeviceAdminServiceProfileOwnerTest extends BaseDeviceAdminServiceTe
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         super.tearDown();
     }
 
@@ -45,5 +49,12 @@ public class DeviceAdminServiceProfileOwnerTest extends BaseDeviceAdminServiceTe
     @Override
     protected void setAsOwnerOrFail(String component) throws Exception {
         setProfileOwnerOrFail(component, getUserId());
+    }
+
+    @Override
+    @LargeTest
+    @Test
+    public void testAll() throws Throwable {
+        super.testAll();
     }
 }

@@ -122,7 +122,8 @@ static void nfa_ee_trace_aid(std::string p_str, uint8_t id, uint8_t aid_len,
                              uint8_t* p) {
   int len = aid_len;
   int xx, yy = 0;
-  char buff[100];
+  const uint8_t MAX_BUFF_SIZE = 100;
+  char buff[MAX_BUFF_SIZE];
 
   buff[0] = 0;
   if (aid_len > NFA_MAX_AID_LEN) {
@@ -131,7 +132,7 @@ static void nfa_ee_trace_aid(std::string p_str, uint8_t id, uint8_t aid_len,
     len = NFA_MAX_AID_LEN;
   }
   for (xx = 0; xx < len; xx++) {
-    yy += sprintf(&buff[yy], "%02x ", *p);
+    yy += snprintf(&buff[yy], MAX_BUFF_SIZE - yy, "%02x ", *p);
     p++;
   }
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
@@ -292,7 +293,7 @@ static uint16_t nfa_ee_total_lmrt_size(void) {
   lmrt_size += p_cb->size_mask_tech;
   lmrt_size += p_cb->size_aid;
   lmrt_size += p_cb->size_sys_code;
-  p_cb = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
+  if (nfa_ee_cb.cur_ee > 0) p_cb = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
   for (xx = 0; xx < nfa_ee_cb.cur_ee; xx++, p_cb--) {
     if (p_cb->ee_status == NFC_NFCEE_STATUS_ACTIVE) {
       lmrt_size += p_cb->size_mask_proto;
@@ -1487,7 +1488,11 @@ void nfa_ee_api_remove_sys_code(tNFA_EE_MSG* p_data) {
     evt_data.status = NFA_STATUS_INVALID_PARAM;
   }
   /* report the status of this operation */
-  nfa_ee_report_event(p_cb->p_ee_cback, NFA_EE_REMOVE_SYSCODE_EVT, &evt_data);
+  if (p_cb) {
+    nfa_ee_report_event(p_cb->p_ee_cback, NFA_EE_REMOVE_SYSCODE_EVT, &evt_data);
+  } else {
+    nfa_ee_report_event(NULL, NFA_EE_REMOVE_SYSCODE_EVT, &evt_data);
+  }
 }
 
 /*******************************************************************************
@@ -1737,7 +1742,8 @@ static void nfa_ee_remove_pending(void) {
                       nfa_ee_cb.cur_ee, num_removed, first_removed);
   if (num_removed && (first_removed != (nfa_ee_cb.cur_ee - num_removed))) {
     /* if the removes ECB entried are not at the end, move the entries up */
-    p_cb_end = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
+    p_cb_end = nullptr;
+    if (nfa_ee_cb.cur_ee > 0) p_cb_end = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
     p_cb = &nfa_ee_cb.ecb[first_removed];
     for (p_cb_n = p_cb + 1; p_cb_n <= p_cb_end;) {
       while ((p_cb_n->nfcee_id == NFA_EE_INVALID) && (p_cb_n <= p_cb_end)) {
@@ -2072,8 +2078,7 @@ static void nfa_ee_build_discover_req_evt(tNFA_EE_DISCOVER_REQ* p_evt_data) {
 
   for (xx = 0; xx < nfa_ee_cb.cur_ee; xx++, p_cb++) {
     if ((p_cb->ee_status & NFA_EE_STATUS_INT_MASK) ||
-        (p_cb->ee_status != NFA_EE_STATUS_ACTIVE) ||
-        ((p_cb->ecb_flags & NFA_EE_ECB_FLAGS_DISC_REQ) == 0)) {
+        (p_cb->ee_status != NFA_EE_STATUS_ACTIVE)) {
       continue;
     }
     p_info->ee_handle = (tNFA_HANDLE)p_cb->nfcee_id | NFA_HANDLE_GROUP_EE;
@@ -2485,7 +2490,7 @@ void nfa_ee_get_tech_route(uint8_t power_state, uint8_t* p_handles) {
 
   for (xx = 0; xx < NFA_EE_MAX_TECH_ROUTE; xx++) {
     p_handles[xx] = NFC_DH_ID;
-    p_cb = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
+    if (nfa_ee_cb.cur_ee > 0) p_cb = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
     for (yy = 0; yy < nfa_ee_cb.cur_ee; yy++, p_cb--) {
       if (p_cb->ee_status == NFC_NFCEE_STATUS_ACTIVE) {
         switch (power_state) {
@@ -2778,7 +2783,8 @@ void nfa_ee_lmrt_to_nfcc(__attribute__((unused)) tNFA_EE_MSG* p_data) {
   }
 
   /* find the last active NFCEE. */
-  p_cb = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
+  if (nfa_ee_cb.cur_ee > 0) p_cb = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
+
   for (xx = 0; xx < nfa_ee_cb.cur_ee; xx++, p_cb--) {
     if (p_cb->ee_status == NFC_NFCEE_STATUS_ACTIVE) {
       if (last_active == NFA_EE_INVALID) {

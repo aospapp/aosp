@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -212,16 +212,65 @@ public class ProbeArrayStrategyFactoryTest {
 	}
 
 	@Test
-	public void testModule() {
+	public void test_java9_module() {
+		final IProbeArrayStrategy strategy = createForModule(Opcodes.V9);
+		assertEquals(NoneProbeArrayStrategy.class, strategy.getClass());
+	}
+
+	@Test
+	public void test_java11_class() {
+		final IProbeArrayStrategy strategy = test(Opcodes.V11, 0, true, true,
+				true);
+
+		assertEquals(CondyProbeArrayStrategy.class, strategy.getClass());
+		assertNoDataField();
+		assertCondyBootstrapMethod();
+	}
+
+	@Test
+	public void test_java11_interface_with_clinit_and_methods() {
+		final IProbeArrayStrategy strategy = test(Opcodes.V11,
+				Opcodes.ACC_INTERFACE, true, true, true);
+
+		assertEquals(CondyProbeArrayStrategy.class, strategy.getClass());
+		assertNoDataField();
+		assertCondyBootstrapMethod();
+	}
+
+	@Test
+	public void test_java11_interface_with_clinit() {
+		final IProbeArrayStrategy strategy = test(Opcodes.V11,
+				Opcodes.ACC_INTERFACE, true, false, true);
+
+		assertEquals(LocalProbeArrayStrategy.class, strategy.getClass());
+		assertNoDataField();
+		assertNoInitMethod();
+	}
+
+	@Test
+	public void test_java11_interface_without_code() {
+		final IProbeArrayStrategy strategy = test(Opcodes.V11,
+				Opcodes.ACC_INTERFACE, false, false, true);
+
+		assertEquals(NoneProbeArrayStrategy.class, strategy.getClass());
+		assertNoDataField();
+		assertNoInitMethod();
+	}
+
+	@Test
+	public void test_java11_module() {
+		final IProbeArrayStrategy strategy = createForModule(Opcodes.V11);
+		assertEquals(NoneProbeArrayStrategy.class, strategy.getClass());
+	}
+
+	private IProbeArrayStrategy createForModule(int version) {
 		final ClassWriter writer = new ClassWriter(0);
-		writer.visit(Opcodes.V9, Opcodes.ACC_MODULE, "module-info", null, null,
+		writer.visit(version, Opcodes.ACC_MODULE, "module-info", null, null,
 				null);
 		writer.visitModule("module", 0, null).visitEnd();
 		writer.visitEnd();
-
-		final IProbeArrayStrategy strategy = ProbeArrayStrategyFactory
-				.createFor(new ClassReader(writer.toByteArray()), generator);
-		assertEquals(NoneProbeArrayStrategy.class, strategy.getClass());
+		return ProbeArrayStrategyFactory.createFor(0,
+				new ClassReader(writer.toByteArray()), generator);
 	}
 
 	private IProbeArrayStrategy test(int version, int access, boolean clinit,
@@ -254,7 +303,7 @@ public class ProbeArrayStrategyFactoryTest {
 		writer.visitEnd();
 
 		final IProbeArrayStrategy strategy = ProbeArrayStrategyFactory
-				.createFor(new ClassReader(writer.toByteArray()), generator);
+				.createFor(0, new ClassReader(writer.toByteArray()), generator);
 
 		strategy.addMembers(cv, 123);
 		return strategy;
@@ -272,9 +321,9 @@ public class ProbeArrayStrategyFactoryTest {
 			this.desc = desc;
 		}
 
-		void assertInitMethod(boolean frames) {
+		void assertInitMethod(String expectedDesc, boolean frames) {
 			assertEquals(InstrSupport.INITMETHOD_NAME, name);
-			assertEquals(InstrSupport.INITMETHOD_DESC, desc);
+			assertEquals(expectedDesc, desc);
 			assertEquals(InstrSupport.INITMETHOD_ACC, access);
 			assertEquals(Boolean.valueOf(frames), Boolean.valueOf(frames));
 		}
@@ -296,7 +345,7 @@ public class ProbeArrayStrategyFactoryTest {
 		private final List<AddedMethod> methods = new ArrayList<AddedMethod>();
 
 		ClassVisitorMock() {
-			super(Opcodes.ASM6);
+			super(InstrSupport.ASM_API_VERSION);
 		}
 
 		@Override
@@ -313,7 +362,7 @@ public class ProbeArrayStrategyFactoryTest {
 				String signature, String[] exceptions) {
 			final AddedMethod m = new AddedMethod(access, name, desc);
 			methods.add(m);
-			return new MethodVisitor(Opcodes.ASM6) {
+			return new MethodVisitor(InstrSupport.ASM_API_VERSION) {
 				@Override
 				public void visitFrame(int type, int nLocal, Object[] local,
 						int nStack, Object[] stack) {
@@ -373,12 +422,19 @@ public class ProbeArrayStrategyFactoryTest {
 
 	void assertInitMethod(boolean frames) {
 		assertEquals(cv.methods.size(), 1);
-		cv.methods.get(0).assertInitMethod(frames);
+		cv.methods.get(0).assertInitMethod(InstrSupport.INITMETHOD_DESC,
+				frames);
+	}
+
+	void assertCondyBootstrapMethod() {
+		assertEquals(cv.methods.size(), 1);
+		cv.methods.get(0).assertInitMethod(CondyProbeArrayStrategy.B_DESC,
+				false);
 	}
 
 	void assertInitAndClinitMethods() {
 		assertEquals(2, cv.methods.size());
-		cv.methods.get(0).assertInitMethod(true);
+		cv.methods.get(0).assertInitMethod(InstrSupport.INITMETHOD_DESC, true);
 		cv.methods.get(1).assertClinit();
 	}
 

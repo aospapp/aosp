@@ -16,52 +16,116 @@
 
 package com.android.car.dialer.ui.favorite;
 
+import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Rect;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Toast;
 
-import androidx.fragment.app.Fragment;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModelProviders;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.car.dialer.Constants;
 import com.android.car.dialer.R;
-import com.android.car.dialer.ui.common.DialerBaseFragment;
+import com.android.car.dialer.telecom.UiCallManager;
+import com.android.car.dialer.ui.common.DialerListBaseFragment;
+import com.android.car.dialer.ui.common.DialerUtils;
+import com.android.car.telephony.common.Contact;
 
-/** Contains either the "You haven't added any favorites yet" screen, or FavoriteListFragment */
-public class FavoriteFragment extends DialerBaseFragment {
+/**
+ * Contains a list of favorite contacts.
+ */
+public class FavoriteFragment extends DialerListBaseFragment {
+    private FavoriteAdapter mFavoriteAdapter;
 
+    /**
+     * Constructs a new {@link FavoriteFragment}
+     */
     public static FavoriteFragment newInstance() {
         return new FavoriteFragment();
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.favorite_fragment, container, false);
-        View emptyPage = view.findViewById(R.id.empty_page_container);
-        Fragment listFragment =
-                getChildFragmentManager().findFragmentById(R.id.favorite_list_fragment);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        getRecyclerView().addItemDecoration(new ItemSpacingDecoration());
+        getRecyclerView().setItemAnimator(null);
+
+        mFavoriteAdapter = new FavoriteAdapter();
+        mFavoriteAdapter.setOnAddFavoriteClickedListener(this::onAddFavoriteClicked);
 
         FavoriteViewModel favoriteViewModel = ViewModelProviders.of(getActivity()).get(
                 FavoriteViewModel.class);
+        mFavoriteAdapter.setOnListItemClickedListener(this::onItemClicked);
         favoriteViewModel.getFavoriteContacts().observe(this, contacts -> {
-            if (contacts == null || contacts.isEmpty()) {
-                emptyPage.setVisibility(View.VISIBLE);
-                getChildFragmentManager().beginTransaction()
-                        .hide(listFragment)
-                        .commit();
+            if (contacts.isLoading()) {
+                showLoading();
+            } else if (contacts.getData() == null) {
+                showEmpty(Constants.INVALID_RES_ID, R.string.favorites_empty,
+                        R.string.no_favorites_added, R.string.add_favorite_button,
+                        v -> onAddFavoriteClicked(), true);
             } else {
-                emptyPage.setVisibility(View.GONE);
-                getChildFragmentManager().beginTransaction()
-                        .show(listFragment)
-                        .commit();
+                mFavoriteAdapter.setFavoriteContacts(contacts.getData());
+                showContent();
             }
         });
 
-        emptyPage.findViewById(R.id.add_favorite_button).setOnClickListener(v ->
-                Toast.makeText(getContext(), "Not yet implemented", Toast.LENGTH_LONG).show());
+        getRecyclerView().setAdapter(mFavoriteAdapter);
+    }
 
-        return view;
+    @NonNull
+    @Override
+    protected RecyclerView.LayoutManager createLayoutManager() {
+        return new FavoriteLayoutManager(getContext());
+    }
+
+    private void onItemClicked(Contact contact) {
+        DialerUtils.promptForPrimaryNumber(getContext(), contact, (phoneNumber, always) ->
+                UiCallManager.get().placeCall(phoneNumber.getRawNumber()));
+    }
+
+    private void onAddFavoriteClicked() {
+        pushContentFragment(AddFavoriteFragment.newInstance(), null);
+    }
+
+    private class ItemSpacingDecoration extends RecyclerView.ItemDecoration {
+
+        @Override
+        public void getItemOffsets(@NonNull Rect outRect, @NonNull View view,
+                @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+            super.getItemOffsets(outRect, view, parent, state);
+            Resources resources = FavoriteFragment.this.getContext().getResources();
+            int numColumns = resources.getInteger(R.integer.favorite_fragment_grid_column);
+            int leftPadding =
+                    resources.getDimensionPixelOffset(R.dimen.favorite_card_space_horizontal);
+            int verticalPadding =
+                    resources.getDimensionPixelOffset(R.dimen.favorite_card_space_vertical);
+
+            if (parent.getChildAdapterPosition(view) % numColumns == 0) {
+                leftPadding = 0;
+            }
+
+            outRect.set(leftPadding, verticalPadding, 0, verticalPadding);
+        }
+    }
+
+    private class FavoriteLayoutManager extends GridLayoutManager {
+        private FavoriteLayoutManager(Context context) {
+            super(context,
+                    context.getResources().getInteger(R.integer.favorite_fragment_grid_column));
+            SpanSizeLookup spanSizeLookup = new SpanSizeLookup() {
+                @Override
+                public int getSpanSize(int position) {
+                    if (mFavoriteAdapter.getItemViewType(position) == FavoriteAdapter.TYPE_HEADER) {
+                        return getSpanCount();
+                    }
+                    return 1;
+                }
+            };
+            setSpanSizeLookup(spanSizeLookup);
+        }
     }
 }

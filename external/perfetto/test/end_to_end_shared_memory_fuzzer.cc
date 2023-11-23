@@ -20,25 +20,19 @@
 
 #include "perfetto/base/logging.h"
 #include "perfetto/base/task_runner.h"
-#include "perfetto/base/utils.h"
-#include "perfetto/trace/test_event.pbzero.h"
+#include "perfetto/ext/base/utils.h"
+#include "perfetto/ext/tracing/core/producer.h"
+#include "perfetto/ext/tracing/core/trace_writer.h"
+#include "perfetto/ext/tracing/ipc/default_socket.h"
+#include "perfetto/ext/tracing/ipc/producer_ipc_client.h"
+#include "perfetto/ext/tracing/ipc/service_ipc_host.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
-#include "perfetto/tracing/core/producer.h"
-#include "perfetto/tracing/core/trace_writer.h"
-#include "perfetto/tracing/ipc/producer_ipc_client.h"
-#include "perfetto/tracing/ipc/service_ipc_host.h"
+#include "protos/perfetto/trace/test_event.pbzero.h"
 #include "src/base/test/test_task_runner.h"
-#include "src/tracing/ipc/default_socket.h"
-#include "test/task_runner_thread.h"
-#include "test/task_runner_thread_delegates.h"
 #include "test/test_helper.h"
 
-#include "perfetto/trace/trace_packet.pb.h"
-#include "perfetto/trace/trace_packet.pbzero.h"
-
-namespace perfetto {
-namespace shm_fuzz {
+#include "protos/perfetto/trace/trace_packet.pbzero.h"
 
 // If we're building on Android and starting the daemons ourselves,
 // create the sockets in a world-writable location.
@@ -48,6 +42,10 @@ namespace shm_fuzz {
 #else
 #define TEST_PRODUCER_SOCK_NAME ::perfetto::GetProducerSocket()
 #endif
+
+namespace perfetto {
+namespace shm_fuzz {
+namespace {
 
 // Fake producer writing a protozero message of data into shared memory
 // buffer, followed by a sentinel message to signal completion to the
@@ -85,7 +83,7 @@ class FakeProducer : public Producer {
         static_cast<BufferID>(source_config.target_buffer()));
     {
       auto packet = trace_writer->NewTracePacket();
-      packet->stream_writer_->WriteBytes(data_, size_);
+      packet->stream_writer_for_testing()->WriteBytes(data_, size_);
     }
     trace_writer->Flush();
 
@@ -99,7 +97,7 @@ class FakeProducer : public Producer {
   void StopDataSource(DataSourceInstanceID) override {}
   void OnTracingSetup() override {}
   void Flush(FlushRequestID, const DataSourceInstanceID*, size_t) override {}
-  void ClearIncrementalState(const DataSourceInstanceID*, size_t) {}
+  void ClearIncrementalState(const DataSourceInstanceID*, size_t) override {}
 
  private:
   const std::string name_;
@@ -109,23 +107,33 @@ class FakeProducer : public Producer {
   std::function<void()> on_produced_and_committed_;
 };
 
-class FakeProducerDelegate : public ThreadDelegate {
+class FuzzerFakeProducerThread {
  public:
-  FakeProducerDelegate(const uint8_t* data,
-                       size_t size,
-                       std::function<void()> on_produced_and_committed)
+  FuzzerFakeProducerThread(const uint8_t* data,
+                           size_t size,
+                           std::function<void()> on_produced_and_committed)
       : data_(data),
         size_(size),
         on_produced_and_committed_(on_produced_and_committed) {}
-  ~FakeProducerDelegate() override = default;
 
-  void Initialize(base::TaskRunner* task_runner) override {
-    producer_.reset(new FakeProducer("android.perfetto.FakeProducer", data_,
-                                     size_, on_produced_and_committed_));
-    producer_->Connect(TEST_PRODUCER_SOCK_NAME, task_runner);
+  ~FuzzerFakeProducerThread() {
+    if (!runner_)
+      return;
+    runner_->PostTaskAndWaitForTesting([this]() { producer_.reset(); });
+  }
+
+  void Connect() {
+    runner_ = base::ThreadTaskRunner::CreateAndStart("perfetto.prd.fake");
+    runner_->PostTaskAndWaitForTesting([this]() {
+      producer_.reset(new FakeProducer("android.perfetto.FakeProducer", data_,
+                                       size_, on_produced_and_committed_));
+      producer_->Connect(TEST_PRODUCER_SOCK_NAME, runner_->get());
+    });
   }
 
  private:
+  base::Optional<base::ThreadTaskRunner> runner_;  // Keep first.
+
   std::unique_ptr<FakeProducer> producer_;
   const uint8_t* data_;
   const size_t size_;
@@ -140,11 +148,10 @@ int FuzzSharedMemory(const uint8_t* data, size_t size) {
   TestHelper helper(&task_runner);
   helper.StartServiceIfRequired();
 
-  TaskRunnerThread producer_thread("perfetto.prd");
-  producer_thread.Start(std::unique_ptr<FakeProducerDelegate>(
-      new FakeProducerDelegate(data, size,
-                               helper.WrapTask(task_runner.CreateCheckpoint(
-                                   "produced.and.committed")))));
+  auto cp =
+      helper.WrapTask(task_runner.CreateCheckpoint("produced.and.committed"));
+  FuzzerFakeProducerThread producer_thread(data, size, cp);
+  producer_thread.Connect();
 
   helper.ConnectConsumer();
   helper.WaitForConsumerConnect();
@@ -165,6 +172,7 @@ int FuzzSharedMemory(const uint8_t* data, size_t size) {
   return 0;
 }
 
+}  // namespace
 }  // namespace shm_fuzz
 }  // namespace perfetto
 

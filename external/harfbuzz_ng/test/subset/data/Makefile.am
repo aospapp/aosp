@@ -5,11 +5,19 @@ EXTRA_DIST =
 CLEANFILES =
 SUBDIRS =
 
-EXTRA_DIST = \
+EXTRA_DIST += \
 	$(TESTS) \
 	expected/basics \
 	expected/full-font \
+	expected/cff-full-font \
 	expected/japanese \
+	expected/cff-japanese \
+	expected/layout \
+	expected/layout.gpos \
+	expected/layout.gpos2 \
+	expected/layout.gpos3 \
+	expected/layout.gsub6 \
+	expected/cmap14 \
 	fonts \
 	profiles \
 	$(NULL)

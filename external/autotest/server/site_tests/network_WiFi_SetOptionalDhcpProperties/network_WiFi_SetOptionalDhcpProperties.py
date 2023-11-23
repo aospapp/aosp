@@ -1,4 +1,4 @@
-# Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -67,7 +67,7 @@ class network_WiFi_SetOptionalDhcpProperties(
                                              self.VENDORCLASS_VALUE):
                 self.context.capture_host.start_capture(
                         configuration.frequency,
-                        ht_type=configuration.ht_packet_capture_mode)
+                        width_type=configuration.packet_capture_mode)
                 assoc_params = xmlrpc_datatypes.AssociationParameters()
                 assoc_params.ssid = self.context.router.get_ssid(instance=0)
                 self.context.assert_connect_wifi(assoc_params)

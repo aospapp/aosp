@@ -16,16 +16,22 @@
 
 package libcore.java.text;
 
+import libcore.util.Nullable;
 import java.text.DateFormat;
 import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
+import java.util.TreeMap;
 
 public class SimpleDateFormatTest extends junit.framework.TestCase {
 
@@ -771,6 +777,68 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
         assertEquals("leden", formatDateNonGregorianCalendar("LLLLL", cs));
     }
 
+    /**
+     * This test demonstrates that optimization with special case handling of
+     * {@link java.util.SortedMap} in
+     * {@link SimpleDateFormat#matchString(java.lang.String, int, int, java.util.Map, java.text.CalendarBuilder)}
+     * is buggy. It makes use of {@link NonGregorianCalendarWithTreeMapDisplayNames}
+     * which returns {@link TreeMap} instead of {@link HashMap}.
+     *
+     * @see NonGregorianCalendarWithTreeMapDisplayNames
+     * @see http://b/119913354
+     */
+    public void testMatchStringSortedMap_treeMap() {
+        Calendar cal = new NonGregorianCalendarWithTreeMapDisplayNames(null);
+        checkMatchStringSortedMap_formatParseCzechJuly(cal);
+    }
+
+    /**
+     * Same as {@link SimpleDateFormatTest#testMatchStringSortedMap_treeMap()} but also using
+     * reverse order comparator for a {@link TreeMap} returned from
+     * {@link Calendar#getDisplayNames(int, int, java.util.Locale)}.
+     *
+     * Reverse order comparator demonstrates that even iterating key set in descending order may
+     * still behave incorrectly.
+     */
+    public void testMatchStringSortedMap_treeMapWithReverseOrderComparator() {
+        Calendar cal = new NonGregorianCalendarWithTreeMapDisplayNames(Comparator.reverseOrder());
+        checkMatchStringSortedMap_formatParseCzechJuly(cal);
+    }
+
+    /**
+     * Helper method for {@link #testMatchStringSortedMap_treeMap()} and
+     * {@link #testMatchStringSortedMap_treeMapWithReverseOrderComparator()}
+     * that formats "15 July 1997" using Czech locale. June in Czech (Červen) is a
+     * prefix of July (Červenec) which can break the logic that relies on matching
+     * first rather than longest match when parsing months names.
+     *
+     * For example, imagine matching "15 července 1997" which is "15 June 1997" in Czech.
+     * When {@link SimpleDateFormat} parses the whole string it tries to match all field names
+     * with "current" text chunk (in case of month this would match againsg "července").
+     * This set of field names in this case would contain month names in nominative and genitive
+     * cases so it contains "července" (July in genitive) and "červen" (July in nominative).
+     * Since the real answer is "července" but "červen" would still match, {@link SimpleDateFormat}
+     * picks the wrong shorter field. The next parsed field is year but parsing is attempted
+     * from "ce 1997" chunk, not from " 1997", so it fails.
+     */
+    private static void checkMatchStringSortedMap_formatParseCzechJuly(Calendar calendar) {
+        DateFormat fmt = new SimpleDateFormat("dd MMMM yyyy", new Locale("cs", "", ""));
+        calendar.clear();
+        calendar.setTimeZone(UTC);
+        fmt.setCalendar(calendar);
+
+        final String julyStr = fmt.format(new Date(97, Calendar.JULY, 15));
+
+        try {
+            Date d = fmt.parse(julyStr);
+            String s = fmt.format(d);
+            int month = d.getMonth();
+            assertEquals(Calendar.JULY, month);
+        } catch (ParseException e) {
+            fail("Exception occurred: " + e);
+        }
+    }
+
     private void assertDayPeriodParseFailure(String pattern, String source) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern, Locale.US);
         ParsePosition parsePosition = new ParsePosition(0);
@@ -863,6 +931,33 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
 
         NonGregorianCalendar(TimeZone timeZone, Locale locale) {
             super(timeZone, locale);
+        }
+    }
+
+    /**
+     * A GregorianCalendar whose {@code getDisplayNames(int, int, Locale)} returns a
+     * {@link NavigableMap} which is needed to make {@link SimpleDateFormat#useDateFormatSymbols}
+     * explicitly use date format symbols for {@link #testMatchStringSortedMap_treeMap()} and
+     * {@link #testMatchStringSortedMap_treeMapWithReverseOrderComparator()} which test for usage of
+     * instances of {@link java.util.SortedMap} in
+     * {@link SimpleDateFormat#matchString(java.lang.String, int, int, java.util.Map, java.text.CalendarBuilder)}.
+     *
+     * @see http://b/119913354
+     */
+    private static class NonGregorianCalendarWithTreeMapDisplayNames extends GregorianCalendar {
+
+        private Comparator<String> mapComparator;
+
+        NonGregorianCalendarWithTreeMapDisplayNames(@Nullable Comparator<String> comparator) {
+            this.mapComparator = comparator;
+        }
+
+        @Override
+        public Map<String, Integer> getDisplayNames(int field, int style, Locale locale) {
+            Map<String, Integer> result = super.getDisplayNames(field, style, locale);
+            TreeMap<String, Integer> treeMap = new TreeMap<>(this.mapComparator);
+            treeMap.putAll(result);
+            return treeMap;
         }
     }
 

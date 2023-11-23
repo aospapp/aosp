@@ -173,15 +173,17 @@ public class HidJsonParser {
                     testData.reports.add(report);
                 }
 
+                final int source = sourceFromString(testcaseEntry.optString("source"));
+
                 JSONArray events = testcaseEntry.getJSONArray("events");
                 for (int i = 0; i < events.length(); i++) {
                     JSONObject entry = events.getJSONObject(i);
 
-                    InputEvent event = null;
+                    InputEvent event;
                     if (entry.has("keycode")) {
-                        event = parseKeyEvent(entry);
+                        event = parseKeyEvent(source, entry);
                     } else if (entry.has("axes")) {
-                        event = parseMotionEvent(entry);
+                        event = parseMotionEvent(source, entry);
                     } else {
                         throw new RuntimeException(
                                 "Input event is not specified correctly. Received: " + entry);
@@ -196,13 +198,17 @@ public class HidJsonParser {
         return tests;
     }
 
-    private KeyEvent parseKeyEvent(JSONObject entry) throws JSONException {
+    private KeyEvent parseKeyEvent(int source, JSONObject entry) throws JSONException {
         int action = keyActionFromString(entry.getString("action"));
         int keyCode = KeyEvent.keyCodeFromString(entry.getString("keycode"));
-        return new KeyEvent(action, keyCode);
+        int metaState = metaStateFromString(entry.optString("metaState"));
+        // We will only check select fields of the KeyEvent. Times are not checked.
+        return new KeyEvent(/* downTime */ 0, /* eventTime */ 0, action, keyCode,
+                /* repeat */ 0, metaState, /* deviceId */ 0, /* scanCode */ 0,
+                /* flags */ 0, source);
     }
 
-    private MotionEvent parseMotionEvent(JSONObject entry) throws JSONException {
+    private MotionEvent parseMotionEvent(int source, JSONObject entry) throws JSONException {
         MotionEvent.PointerProperties[] properties = new MotionEvent.PointerProperties[1];
         properties[0] = new MotionEvent.PointerProperties();
         properties[0].id = 0;
@@ -219,15 +225,22 @@ public class HidJsonParser {
             coords[0].setAxisValue(MotionEvent.axisFromString(axis), value);
         }
 
+        int buttonState = 0;
+        JSONArray buttons = entry.optJSONArray("buttonState");
+        if (buttons != null) {
+            for (int i = 0; i < buttons.length(); ++i) {
+                buttonState |= motionButtonFromString(buttons.getString(i));
+            }
+        }
+
         int action = motionActionFromString(entry.getString("action"));
-        // Only care about axes and action here. Times are not checked
-        MotionEvent event = MotionEvent.obtain(/* downTime */ 0, /* eventTime */ 0, action,
-                /* pointercount */ 1, properties, coords, 0, 0, 0f, 0f,
-                0, 0, InputDevice.SOURCE_JOYSTICK, 0);
-        return event;
+        // Only care about axes, action and source here. Times are not checked.
+        return MotionEvent.obtain(/* downTime */ 0, /* eventTime */ 0, action,
+                /* pointercount */ 1, properties, coords, 0, buttonState, 0f, 0f,
+                0, 0, source, 0);
     }
 
-    private int keyActionFromString(String action) {
+    private static int keyActionFromString(String action) {
         switch (action.toUpperCase()) {
             case "DOWN":
                 return KeyEvent.ACTION_DOWN;
@@ -237,7 +250,57 @@ public class HidJsonParser {
         throw new RuntimeException("Unknown action specified: " + action);
     }
 
-    private int motionActionFromString(String action) {
+    private static int metaStateFromString(String metaStateString) {
+        int metaState = 0;
+        if (metaStateString.isEmpty()) {
+            return metaState;
+        }
+        final String[] metaKeys = metaStateString.split("\\|");
+        for (final String metaKeyString : metaKeys) {
+            final String trimmedKeyString = metaKeyString.trim();
+            switch (trimmedKeyString.toUpperCase()) {
+                case "SHIFT_LEFT":
+                    metaState |= KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON;
+                    break;
+                case "SHIFT_RIGHT":
+                    metaState |= KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_RIGHT_ON;
+                    break;
+                case "CTRL_LEFT":
+                    metaState |= KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON;
+                    break;
+                case "CTRL_RIGHT":
+                    metaState |= KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_RIGHT_ON;
+                    break;
+                case "ALT_LEFT":
+                    metaState |= KeyEvent.META_ALT_ON | KeyEvent.META_ALT_LEFT_ON;
+                    break;
+                case "ALT_RIGHT":
+                    metaState |= KeyEvent.META_ALT_ON | KeyEvent.META_ALT_RIGHT_ON;
+                    break;
+                case "META_LEFT":
+                    metaState |= KeyEvent.META_META_ON | KeyEvent.META_META_LEFT_ON;
+                    break;
+                case "META_RIGHT":
+                    metaState |= KeyEvent.META_META_ON | KeyEvent.META_META_RIGHT_ON;
+                    break;
+                case "CAPS_LOCK":
+                    metaState |= KeyEvent.META_CAPS_LOCK_ON;
+                    break;
+                case "NUM_LOCK":
+                    metaState |= KeyEvent.META_NUM_LOCK_ON;
+                    break;
+                case "SCROLL_LOCK":
+                    metaState |= KeyEvent.META_SCROLL_LOCK_ON;
+                    break;
+                default:
+                    throw new RuntimeException("Unknown meta state chunk: " + trimmedKeyString
+                            + " in meta state string: " + metaStateString);
+            }
+        }
+        return metaState;
+    }
+
+    private static int motionActionFromString(String action) {
         switch (action.toUpperCase()) {
             case "DOWN":
                 return MotionEvent.ACTION_DOWN;
@@ -245,7 +308,69 @@ public class HidJsonParser {
                 return MotionEvent.ACTION_MOVE;
             case "UP":
                 return MotionEvent.ACTION_UP;
+            case "BUTTON_PRESS":
+                return MotionEvent.ACTION_BUTTON_PRESS;
+            case "BUTTON_RELEASE":
+                return MotionEvent.ACTION_BUTTON_RELEASE;
+            case "HOVER_ENTER":
+                return MotionEvent.ACTION_HOVER_ENTER;
+            case "HOVER_MOVE":
+                return MotionEvent.ACTION_HOVER_MOVE;
+            case "HOVER_EXIT":
+                return MotionEvent.ACTION_HOVER_EXIT;
         }
         throw new RuntimeException("Unknown action specified: " + action);
+    }
+
+    private static int sourceFromString(String sourceString) {
+        if (sourceString.isEmpty()) {
+            return InputDevice.SOURCE_UNKNOWN;
+        }
+        int source = 0;
+        final String[] sourceEntries = sourceString.split("\\|");
+        for (final String sourceEntry : sourceEntries) {
+            final String trimmedSourceEntry = sourceEntry.trim();
+            switch (trimmedSourceEntry.toUpperCase()) {
+                case "MOUSE_RELATIVE":
+                    source |= InputDevice.SOURCE_MOUSE_RELATIVE;
+                    break;
+                case "JOYSTICK":
+                    source |= InputDevice.SOURCE_JOYSTICK;
+                    break;
+                case "KEYBOARD":
+                    source |= InputDevice.SOURCE_KEYBOARD;
+                    break;
+                case "GAMEPAD":
+                    source |= InputDevice.SOURCE_GAMEPAD;
+                    break;
+                case "DPAD":
+                    source |= InputDevice.SOURCE_DPAD;
+                    break;
+                default:
+                    throw new RuntimeException("Unknown source chunk: " + trimmedSourceEntry
+                            + " in source string: " + sourceString);
+            }
+        }
+        return source;
+    }
+
+    private static int motionButtonFromString(String button) {
+        switch (button.toUpperCase()) {
+            case "BACK":
+                return MotionEvent.BUTTON_BACK;
+            case "FORWARD":
+                return MotionEvent.BUTTON_FORWARD;
+            case "PRIMARY":
+                return MotionEvent.BUTTON_PRIMARY;
+            case "SECONDARY":
+                return MotionEvent.BUTTON_SECONDARY;
+            case "STYLUS_PRIMARY":
+                return MotionEvent.BUTTON_STYLUS_PRIMARY;
+            case "STYLUS_SECONDARY":
+                return MotionEvent.BUTTON_STYLUS_SECONDARY;
+            case "TERTIARY":
+                return MotionEvent.BUTTON_TERTIARY;
+        }
+        throw new RuntimeException("Unknown button specified: " + button);
     }
 }

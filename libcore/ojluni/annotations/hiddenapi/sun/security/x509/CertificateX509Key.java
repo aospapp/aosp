@@ -30,7 +30,7 @@ import sun.security.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CertificateX509Key implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateX509Key(java.security.PublicKey key) {
         throw new RuntimeException("Stub!");
     }

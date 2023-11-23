@@ -8,6 +8,7 @@ TIME = 'LONG'
 TEST_TYPE = 'server'
 ATTRIBUTES = 'suite:wifi_interop'
 DEPENDENCIES = 'chaos_dut'
+MAX_RESULT_SIZE_KB = 512000
 
 DOC = """
 This script iterates through all 2Ghz access points in Chaos chamber.

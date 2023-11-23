@@ -22,8 +22,21 @@ cc_defaults {
     ],
 }
 
+phony {
+    name: "libhidl",
+    required: [
+        "libhidlbase",
+    ],
+}
+
+cc_library_headers {
+    name: "libhidl_gtest_helper",
+    export_include_dirs: ["gtest_helper"],
+}
+
 cc_test {
     name: "libhidl_test",
+    host_supported: true,
     defaults: ["libhidl-defaults"],
     gtest: false,
     srcs: ["test_main.cpp"],
@@ -33,13 +46,14 @@ cc_test {
         "android.hidl.memory@1.0",
         "libbase",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "liblog",
         "libutils",
         "libcutils",
     ],
-    static_libs: ["libgtest", "libgmock"],
+    static_libs: [
+        "libgtest",
+        "libgmock",
+    ],
 
     cflags: [
         "-O0",
@@ -47,26 +61,27 @@ cc_test {
     ],
 }
 
-cc_defaults {
-    name: "libhidlbase-combined-impl",
-
-    defaults: [
-        "libhwbinder-impl-shared-libs",
-        "libhidlbase-impl-shared-libs",
-        "libhidltransport-impl-shared-libs",
-    ],
-
-    whole_static_libs: [
-        "libhidlbase-impl-internal",
-        "libhidltransport-impl-internal",
-    ],
-}
-
 cc_library {
     name: "libhidlbase",
     defaults: ["libhidlbase-combined-impl"],
+    host_supported: true,
+    // TODO(b/153609531): remove when no longer needed.
+    native_bridge_supported: true,
     recovery_available: true,
     vendor_available: true,
+    apex_available: [
+        // TODO(b/137948090): not fully supported in APEX for certain usecases
+        // - large dependency sizes
+        // - VINTF manifest cannot be read from APEX
+        // - no testing story/infra for deprecation schedule
+        "//apex_available:platform",
+        "com.android.neuralnetworks",
+        "test_com.android.neuralnetworks",
+        "com.android.bluetooth.updatable",
+        "com.android.media",
+        "com.android.media.swcodec",
+        "com.android.tethering",
+    ],
     vndk: {
         enabled: true,
         support_system_process: true,
@@ -74,6 +89,7 @@ cc_library {
     whole_static_libs: [
         "libhwbinder-impl-internal",
     ],
+    min_sdk_version: "29",
 }
 
 // Only libhwbinder_benchmark needs to have pgo enabled. When all places
@@ -89,6 +105,8 @@ cc_library {
     whole_static_libs: [
         "libhwbinder_pgo-impl-internal",
     ],
+
+    visibility: ["//system/libhwbinder:__subpackages__"],
 }
 
 // WARNING: deprecated
@@ -96,10 +114,96 @@ cc_library {
 // on libhidlbase instead.
 cc_library {
     name: "libhidltransport",
-    recovery_available: true,
     vendor_available: true,
-    vndk: {
-        enabled: true,
-        support_system_process: true,
+
+    visibility: [":__subpackages__"],
+}
+
+cc_defaults {
+    name: "libhidlbase-combined-impl",
+
+    defaults: [
+        "hidl-module-defaults",
+        "libhidl-defaults",
+        "libhwbinder-impl-shared-libs",
+    ],
+
+    shared_libs: [
+        "libbase",
+        "liblog",
+        "libutils",
+        "libcutils",
+    ],
+    export_shared_lib_headers: [
+        "libcutils", // for native_handle.h
+        "libutils",
+    ],
+    static_libs: [
+        "libhwbinder-impl-internal",
+    ],
+
+    target: {
+        android: {
+            shared_libs: [
+                "libvndksupport",
+            ],
+        },
+        recovery: {
+            exclude_shared_libs: [
+                "libvndksupport",
+            ],
+        },
+    },
+
+    export_include_dirs: [
+        "base/include",
+        "transport/include",
+    ],
+
+    generated_sources: [
+        "android.hidl.manager@1.0_genc++",
+        "android.hidl.manager@1.1_genc++",
+        "android.hidl.manager@1.2_genc++",
+        "android.hidl.base@1.0_genc++",
+    ],
+    generated_headers: [
+        "android.hidl.manager@1.0_genc++_headers",
+        "android.hidl.manager@1.1_genc++_headers",
+        "android.hidl.manager@1.2_genc++_headers",
+        "android.hidl.base@1.0_genc++_headers",
+    ],
+    export_generated_headers: [
+        "android.hidl.manager@1.0_genc++_headers",
+        "android.hidl.manager@1.1_genc++_headers",
+        "android.hidl.manager@1.2_genc++_headers",
+        "android.hidl.base@1.0_genc++_headers",
+    ],
+
+    srcs: [
+        "base/HidlInternal.cpp",
+        "base/HidlSupport.cpp",
+        "base/Status.cpp",
+        "base/TaskRunner.cpp",
+        "transport/HidlBinderSupport.cpp",
+        "transport/HidlLazyUtils.cpp",
+        "transport/HidlPassthroughSupport.cpp",
+        "transport/HidlTransportSupport.cpp",
+        "transport/HidlTransportUtils.cpp",
+        "transport/LegacySupport.cpp",
+        "transport/ServiceManagement.cpp",
+        "transport/Static.cpp",
+    ],
+
+    product_variables: {
+        debuggable: {
+            cflags: ["-DLIBHIDL_TARGET_DEBUGGABLE"],
+        },
+        enforce_vintf_manifest: {
+            cflags: ["-DENFORCE_VINTF_MANIFEST"],
+        },
+    },
+
+    sanitize: {
+        misc_undefined: ["integer"],
     },
 }

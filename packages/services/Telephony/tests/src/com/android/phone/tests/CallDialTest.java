@@ -22,9 +22,9 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.telecom.PhoneAccount;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.TelephonyFrameworkInitializer;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -155,7 +155,11 @@ public class CallDialTest extends Activity implements View.OnClickListener {
         log("==> number: '" + number + "'");
 
         try {
-            ITelephony phone = ITelephony.Stub.asInterface(ServiceManager.checkService("phone"));
+            ITelephony phone = ITelephony.Stub.asInterface(
+                    TelephonyFrameworkInitializer
+                            .getTelephonyServiceManager()
+                            .getTelephonyServiceRegisterer()
+                            .get());
             log("- phone: " + phone);
             log("- calling call()...");
             phone.call(getPackageName(), number);
@@ -173,7 +177,11 @@ public class CallDialTest extends Activity implements View.OnClickListener {
         log("==> number: '" + number + "'");
 
         try {
-            ITelephony phone = ITelephony.Stub.asInterface(ServiceManager.checkService("phone"));
+            ITelephony phone = ITelephony.Stub.asInterface(
+                    TelephonyFrameworkInitializer
+                            .getTelephonyServiceManager()
+                            .getTelephonyServiceRegisterer()
+                            .get());
             log("- phone: " + phone);
             log("- calling dial()...");
             phone.dial(number);

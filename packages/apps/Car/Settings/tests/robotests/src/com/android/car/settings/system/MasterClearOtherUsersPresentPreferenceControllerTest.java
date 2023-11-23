@@ -20,16 +20,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.when;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.UserInfo;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
+import com.android.car.settings.testutils.ShadowUserHelper;
+import com.android.car.settings.users.UserHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -37,25 +36,26 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import java.util.Collections;
 
 /** Unit test for {@link MasterClearOtherUsersPresentPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowUserHelper.class})
 public class MasterClearOtherUsersPresentPreferenceControllerTest {
 
     @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
+    private UserHelper mUserHelper;
     private Preference mPreference;
     private MasterClearOtherUsersPresentPreferenceController mController;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
+        ShadowUserHelper.setInstance(mUserHelper);
 
         Context context = RuntimeEnvironment.application;
         mPreference = new Preference(context);
@@ -68,12 +68,12 @@ public class MasterClearOtherUsersPresentPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
+        ShadowUserHelper.reset();
     }
 
     @Test
     public void refreshUi_noSwitchableUsers_hidesPreference() {
-        when(mCarUserManagerHelper.getAllSwitchableUsers()).thenReturn(Collections.emptyList());
+        when(mUserHelper.getAllSwitchableUsers()).thenReturn(Collections.emptyList());
 
         mController.refreshUi();
 
@@ -82,7 +82,7 @@ public class MasterClearOtherUsersPresentPreferenceControllerTest {
 
     @Test
     public void refreshUi_switchableUsers_showsPreference() {
-        when(mCarUserManagerHelper.getAllSwitchableUsers()).thenReturn(
+        when(mUserHelper.getAllSwitchableUsers()).thenReturn(
                 Collections.singletonList(new UserInfo()));
 
         mController.refreshUi();

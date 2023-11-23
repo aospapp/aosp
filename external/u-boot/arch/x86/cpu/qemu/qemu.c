@@ -4,6 +4,7 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <pci.h>
 #include <qfw.h>
 #include <asm/irq.h>
@@ -155,12 +156,6 @@ int print_cpuinfo(void)
 	return default_print_cpuinfo();
 }
 #endif
-
-void reset_cpu(ulong addr)
-{
-	/* cold reset */
-	x86_full_reset();
-}
 
 int arch_early_init_r(void)
 {

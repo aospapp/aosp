@@ -54,6 +54,11 @@ message CameraDeviceInfo {
         repeated StreamConfig availableStreamConfigurations = 1;
     }
 
+    message RangeFloat {
+        optional int32 lower = 1;
+        optional int32 upper = 2;
+    }
+
     message RangeInt {
         optional int32 lower = 1;
         optional int32 upper = 2;

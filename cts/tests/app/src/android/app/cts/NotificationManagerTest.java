@@ -16,9 +16,27 @@
 
 package android.app.cts;
 
-import static android.app.Notification.CATEGORY_CALL;
 import static android.app.Notification.FLAG_BUBBLE;
+import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
+import static android.app.NotificationManager.IMPORTANCE_HIGH;
+import static android.app.NotificationManager.IMPORTANCE_LOW;
+import static android.app.NotificationManager.IMPORTANCE_MIN;
+import static android.app.NotificationManager.IMPORTANCE_NONE;
+import static android.app.NotificationManager.IMPORTANCE_UNSPECIFIED;
+import static android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS;
 import static android.app.NotificationManager.INTERRUPTION_FILTER_ALL;
+import static android.app.NotificationManager.INTERRUPTION_FILTER_NONE;
+import static android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY;
+import static android.app.NotificationManager.Policy.CONVERSATION_SENDERS_ANYONE;
+import static android.app.NotificationManager.Policy.CONVERSATION_SENDERS_NONE;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_CALLS;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_CONVERSATIONS;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_EVENTS;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_MEDIA;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_MESSAGES;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_REMINDERS;
+import static android.app.NotificationManager.Policy.PRIORITY_CATEGORY_SYSTEM;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_AMBIENT;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_LIGHTS;
@@ -27,16 +45,15 @@ import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_PEEK;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_SCREEN_OFF;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_SCREEN_ON;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_STATUS_BAR;
-import static android.app.stubs.BubblesTestActivity.BUBBLE_NOTIF_ID;
 import static android.app.stubs.BubblesTestService.EXTRA_TEST_CASE;
-import static android.app.stubs.BubblesTestService.TEST_NO_BUBBLE_METADATA;
-import static android.app.stubs.BubblesTestService.TEST_NO_CATEGORY;
-import static android.app.stubs.BubblesTestService.TEST_NO_PERSON;
-import static android.app.stubs.BubblesTestService.TEST_SUCCESS;
+import static android.app.stubs.BubblesTestService.TEST_CALL;
+import static android.app.stubs.BubblesTestService.TEST_MESSAGING;
+import static android.app.stubs.SendBubbleActivity.BUBBLE_NOTIF_ID;
+import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.pm.PackageManager.FEATURE_WATCH;
 
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AutomaticZenRule;
 import android.app.Instrumentation;
@@ -45,16 +62,15 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
+import android.app.NotificationManager.Policy;
 import android.app.PendingIntent;
 import android.app.Person;
-import android.app.RemoteInput;
 import android.app.UiAutomation;
 import android.app.stubs.AutomaticZenRuleActivity;
-import android.app.stubs.BubblesTestActivity;
-import android.app.stubs.BubblesTestNotDocumentLaunchModeActivity;
-import android.app.stubs.BubblesTestNotEmbeddableActivity;
+import android.app.stubs.BubbledActivity;
 import android.app.stubs.BubblesTestService;
 import android.app.stubs.R;
+import android.app.stubs.SendBubbleActivity;
 import android.app.stubs.TestNotificationListener;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -64,10 +80,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.OperationApplicationException;
 import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Icon;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.session.MediaSession;
 import android.net.Uri;
 import android.os.Build;
@@ -83,30 +102,35 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Data;
 import android.provider.Settings;
 import android.provider.Telephony.Threads;
-import android.server.wm.ActivityManagerTestBase;
 import android.service.notification.Condition;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.service.notification.ZenPolicy;
 import android.test.AndroidTestCase;
+import android.util.ArraySet;
 import android.util.Log;
 import android.widget.RemoteViews;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.FeatureUtil;
 import com.android.compatibility.common.util.SystemUtil;
 
 import junit.framework.Assert;
 
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -116,18 +140,26 @@ import java.util.concurrent.TimeUnit;
 public class NotificationManagerTest extends AndroidTestCase {
     final String TAG = NotificationManagerTest.class.getSimpleName();
     final boolean DEBUG = false;
-    final String NOTIFICATION_CHANNEL_ID = "NotificationManagerTest";
+    static final String NOTIFICATION_CHANNEL_ID = "NotificationManagerTest";
 
     private static final String DELEGATOR = "com.android.test.notificationdelegator";
+    private static final String DELEGATE_POST_CLASS = DELEGATOR + ".NotificationDelegateAndPost";
     private static final String REVOKE_CLASS = DELEGATOR + ".NotificationRevoker";
-    private static final int WAIT_TIME = 2000;
+    private static final long SHORT_WAIT_TIME = 100;
+    private static final long MAX_WAIT_TIME = 2000;
+    private static final String SHARE_SHORTCUT_ID = "shareShortcut";
+    private static final String SHARE_SHORTCUT_CATEGORY =
+            "android.app.stubs.SHARE_SHORTCUT_CATEGORY";
 
     private PackageManager mPackageManager;
+    private AudioManager mAudioManager;
     private NotificationManager mNotificationManager;
     private ActivityManager mActivityManager;
     private String mId;
     private TestNotificationListener mListener;
     private List<String> mRuleIds;
+    private BroadcastReceiver mBubbleBroadcastReceiver;
+    private boolean mBubblesEnabledSettingToRestore;
 
     @Override
     protected void setUp() throws Exception {
@@ -138,11 +170,27 @@ public class NotificationManagerTest extends AndroidTestCase {
                 Context.NOTIFICATION_SERVICE);
         // clear the deck so that our getActiveNotifications results are predictable
         mNotificationManager.cancelAll();
+
+        assertEquals("Previous test left system in a bad state",
+                0, mNotificationManager.getActiveNotifications().length);
+
         mNotificationManager.createNotificationChannel(new NotificationChannel(
-                NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
+                NOTIFICATION_CHANNEL_ID, "name", IMPORTANCE_DEFAULT));
         mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
         mPackageManager = mContext.getPackageManager();
+        mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         mRuleIds = new ArrayList<>();
+
+        toggleNotificationPolicyAccess(mContext.getPackageName(),
+                InstrumentationRegistry.getInstrumentation(), true);
+        mNotificationManager.setInterruptionFilter(INTERRUPTION_FILTER_ALL);
+        toggleNotificationPolicyAccess(mContext.getPackageName(),
+                InstrumentationRegistry.getInstrumentation(), false);
+
+        // This setting is forced on / off for certain tests, save it & restore what's on the
+        // device after tests are run
+        mBubblesEnabledSettingToRestore = Settings.Global.getInt(mContext.getContentResolver(),
+                Settings.Global.NOTIFICATION_BUBBLES) == 1;
 
         // delay between tests so notifications aren't dropped by the rate limiter
         try {
@@ -170,6 +218,10 @@ public class NotificationManagerTest extends AndroidTestCase {
             mNotificationManager.deleteNotificationChannel(nc.getId());
         }
 
+        // Unsuspend package if it was suspended in the test
+        suspendPackage(mContext.getPackageName(), InstrumentationRegistry.getInstrumentation(),
+                false);
+
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), false);
         toggleNotificationPolicyAccess(mContext.getPackageName(),
@@ -180,14 +232,22 @@ public class NotificationManagerTest extends AndroidTestCase {
         for (NotificationChannelGroup ncg : groups) {
             mNotificationManager.deleteNotificationChannelGroup(ncg.getId());
         }
+
+        // Restore bubbles setting
+        setBubblesGlobal(mBubblesEnabledSettingToRestore);
     }
 
-    private void toggleBubbleSetting(boolean enabled) throws InterruptedException {
-        SystemUtil.runWithShellPermissionIdentity(() ->
-                Settings.Secure.putInt(mContext.getContentResolver(),
-                        Settings.Secure.NOTIFICATION_BUBBLES, enabled ? 1 : 0));
-        Thread.sleep(500); // wait for ranking update
-
+    private boolean isNotificationCancelled(int id, boolean all) {
+        for (long totalWait = 0; totalWait < MAX_WAIT_TIME; totalWait += SHORT_WAIT_TIME) {
+            StatusBarNotification sbn = findPostedNotification(id, all);
+            if (sbn == null) return true;
+            try {
+                Thread.sleep(SHORT_WAIT_TIME);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        return false;
     }
 
     private void insertSingleContact(String name, String phone, String email, boolean starred) {
@@ -257,14 +317,13 @@ public class NotificationManagerTest extends AndroidTestCase {
         return null;
     }
 
-
-    private StatusBarNotification findPostedNotification(int id) {
+    private StatusBarNotification findPostedNotification(int id, boolean all) {
         // notification is a bit asynchronous so it may take a few ms to appear in
         // getActiveNotifications()
         // we will check for it for up to 300ms before giving up
         StatusBarNotification n = null;
         for (int tries = 3; tries-- > 0; ) {
-            final StatusBarNotification[] sbns = mNotificationManager.getActiveNotifications();
+            final StatusBarNotification[] sbns = getActiveNotifications(all);
             for (StatusBarNotification sbn : sbns) {
                 Log.d(TAG, "Found " + sbn.getKey());
                 if (sbn.getId() == id) {
@@ -280,6 +339,14 @@ public class NotificationManagerTest extends AndroidTestCase {
             }
         }
         return n;
+    }
+
+    private StatusBarNotification[] getActiveNotifications(boolean all) {
+        if (all) {
+            return mListener.getActiveNotifications();
+        } else {
+            return mNotificationManager.getActiveNotifications();
+        }
     }
 
     private PendingIntent getPendingIntent() {
@@ -342,6 +409,11 @@ public class NotificationManagerTest extends AndroidTestCase {
     private void cancelAndPoll(int id) {
         mNotificationManager.cancel(id);
 
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException ex) {
+            // pass
+        }
         if (!checkNotificationExistence(id, /*shouldExist=*/ false)) {
             fail("canceled notification was still alive, id=" + id);
         }
@@ -375,9 +447,22 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
     }
 
+    private void setUpNotifListener() {
+        try {
+            toggleListenerAccess(TestNotificationListener.getId(),
+                    InstrumentationRegistry.getInstrumentation(), true);
+            mListener = TestNotificationListener.getInstance();
+            mListener.resetData();
+            assertNotNull(mListener);
+        } catch (IOException e) {
+        }
+    }
+
     private void sendAndVerifyBubble(final int id, Notification.Builder builder,
             Notification.BubbleMetadata data, boolean shouldBeBubble) {
-        final Intent intent = new Intent(mContext, BubblesTestActivity.class);
+        setUpNotifListener();
+
+        final Intent intent = new Intent(mContext, BubbledActivity.class);
 
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -385,9 +470,8 @@ public class NotificationManagerTest extends AndroidTestCase {
         final PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
 
         if (data == null) {
-            data = new Notification.BubbleMetadata.Builder()
-                    .setIcon(Icon.createWithResource(mContext, R.drawable.black))
-                    .setIntent(pendingIntent)
+            data = new Notification.BubbleMetadata.Builder(pendingIntent,
+                            Icon.createWithResource(mContext, R.drawable.black))
                     .build();
         }
         if (builder == null) {
@@ -403,29 +487,48 @@ public class NotificationManagerTest extends AndroidTestCase {
         Notification notif = builder.build();
         mNotificationManager.notify(id, notif);
 
-        if (!checkNotificationExistence(id, /*shouldExist=*/ true, shouldBeBubble)) {
-            fail("couldn't find posted notification bubble with id=" + id);
+        verifyNotificationBubbleState(id, shouldBeBubble);
+    }
+
+    /**
+     * Make sure {@link #setUpNotifListener()} is called prior to sending the notif and verifying
+     * in this method.
+     */
+    private void verifyNotificationBubbleState(int id, boolean shouldBeBubble) {
+        try {
+            // FLAG_BUBBLE relies on notification being posted, wait for notification listener
+            Thread.sleep(500);
+        } catch (InterruptedException ex) {
         }
+
+        for (StatusBarNotification sbn : mListener.mPosted) {
+            if (sbn.getId() == id) {
+                boolean isBubble = (sbn.getNotification().flags & FLAG_BUBBLE) != 0;
+                if (isBubble != shouldBeBubble) {
+                    final String failure = shouldBeBubble
+                            ? "Notification with id= " + id + " wasn't a bubble"
+                            : "Notification with id= " + id + " was a bubble and shouldn't be";
+                    fail(failure);
+                } else {
+                    // pass
+                    return;
+                }
+            }
+        }
+        fail("Couldn't find posted notification with id= " + id);
     }
 
     private boolean checkNotificationExistence(int id, boolean shouldExist) {
-        return checkNotificationExistence(id, shouldExist, false /* shouldBeBubble */);
-    }
-
-    private boolean checkNotificationExistence(int id, boolean shouldExist,
-            boolean shouldBeBubble) {
         // notification is a bit asynchronous so it may take a few ms to appear in
         // getActiveNotifications()
         // we will check for it for up to 300ms before giving up
         boolean found = false;
-        boolean isBubble = false;
         for (int tries = 3; tries--> 0;) {
             // Need reset flag.
             found = false;
             final StatusBarNotification[] sbns = mNotificationManager.getActiveNotifications();
             for (StatusBarNotification sbn : sbns) {
-                isBubble = (sbn.getNotification().flags & FLAG_BUBBLE) != 0;
-                Log.d(TAG, "Found " + sbn.getKey() + " Bubble? " + isBubble);
+                Log.d(TAG, "Found " + sbn.getKey());
                 if (sbn.getId() == id) {
                     found = true;
                     break;
@@ -438,7 +541,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                 // pass
             }
         }
-        return (found == shouldExist) && (isBubble == shouldBeBubble);
+        return found == shouldExist;
     }
 
     private void assertNotificationCount(int expectedCount) {
@@ -473,6 +576,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         assertEquals(expected.getDescription(), actual.getDescription());
         assertEquals(expected.shouldVibrate(), actual.shouldVibrate());
         assertEquals(expected.shouldShowLights(), actual.shouldShowLights());
+        assertEquals(expected.getLightColor(), actual.getLightColor());
         assertEquals(expected.getImportance(), actual.getImportance());
         if (expected.getSound() == null) {
             assertEquals(Settings.System.DEFAULT_NOTIFICATION_URI, actual.getSound());
@@ -483,6 +587,8 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
         assertTrue(Arrays.equals(expected.getVibrationPattern(), actual.getVibrationPattern()));
         assertEquals(expected.getGroup(), actual.getGroup());
+        assertEquals(expected.getConversationId(), actual.getConversationId());
+        assertEquals(expected.getParentChannelId(), actual.getParentChannelId());
     }
 
     private void toggleNotificationPolicyAccess(String packageName,
@@ -521,6 +627,35 @@ public class NotificationManagerTest extends AndroidTestCase {
                 nm.isNotificationListenerAccessGranted(listenerComponent) == on);
     }
 
+    private void setBubblesGlobal(boolean enabled)
+            throws InterruptedException {
+        SystemUtil.runWithShellPermissionIdentity(() ->
+                Settings.Global.putInt(mContext.getContentResolver(),
+                        Settings.Global.NOTIFICATION_BUBBLES, enabled ? 1 : 0));
+        Thread.sleep(500); // wait for ranking update
+    }
+
+    private void setBubblesAppPref(int pref) throws Exception {
+        int userId = mContext.getUser().getIdentifier();
+        String pkg = mContext.getPackageName();
+        String command = " cmd notification set_bubbles " + pkg
+                + " " + Integer.toString(pref)
+                + " " + userId;
+        runCommand(command, InstrumentationRegistry.getInstrumentation());
+        Thread.sleep(500); // wait for ranking update
+    }
+
+    private void setBubblesChannelAllowed(boolean allowed) throws Exception {
+        int userId = mContext.getUser().getIdentifier();
+        String pkg = mContext.getPackageName();
+        String command = " cmd notification set_bubbles_channel " + pkg
+                + " " + NOTIFICATION_CHANNEL_ID
+                + " " + Boolean.toString(allowed)
+                + " " + userId;
+        runCommand(command, InstrumentationRegistry.getInstrumentation());
+        Thread.sleep(500); // wait for ranking update
+    }
+
     private void runCommand(String command, Instrumentation instrumentation) throws IOException {
         UiAutomation uiAutomation = instrumentation.getUiAutomation();
         // Execute command
@@ -548,13 +683,17 @@ public class NotificationManagerTest extends AndroidTestCase {
                 && Objects.equals(a.getConfigurationActivity(), b.getConfigurationActivity());
     }
 
-    private AutomaticZenRule createRule(String name) {
+    private AutomaticZenRule createRule(String name, int filter) {
         return new AutomaticZenRule(name, null,
                 new ComponentName(mContext, AutomaticZenRuleActivity.class),
                 new Uri.Builder().scheme("scheme")
                         .appendPath("path")
                         .appendQueryParameter("fake_rule", "fake_value")
-                        .build(), null, NotificationManager.INTERRUPTION_FILTER_PRIORITY, true);
+                        .build(), null, filter, true);
+    }
+
+    private AutomaticZenRule createRule(String name) {
+        return createRule(name, INTERRUPTION_FILTER_PRIORITY);
     }
 
     private void assertExpectedDndState(int expectedState) {
@@ -574,8 +713,83 @@ public class NotificationManagerTest extends AndroidTestCase {
         assertEquals(expectedState, mNotificationManager.getCurrentInterruptionFilter());
     }
 
-    private Activity launchSendBubbleActivity() {
-        Class clazz = BubblesTestActivity.class;
+    /** Creates a dynamic, longlived, sharing shortcut. Call {@link #deleteShortcuts()} after. */
+    private void createDynamicShortcut() {
+        Person person = new Person.Builder()
+                .setBot(false)
+                .setIcon(Icon.createWithResource(mContext, R.drawable.icon_black))
+                .setName("BubbleBot")
+                .setImportant(true)
+                .build();
+
+        Set<String> categorySet = new ArraySet<>();
+        categorySet.add(SHARE_SHORTCUT_CATEGORY);
+        Intent shortcutIntent = new Intent(mContext, SendBubbleActivity.class);
+        shortcutIntent.setAction(Intent.ACTION_VIEW);
+
+        ShortcutInfo shortcut = new ShortcutInfo.Builder(mContext, SHARE_SHORTCUT_ID)
+                .setShortLabel(SHARE_SHORTCUT_ID)
+                .setIcon(Icon.createWithResource(mContext, R.drawable.icon_black))
+                .setIntent(shortcutIntent)
+                .setPerson(person)
+                .setCategories(categorySet)
+                .setLongLived(true)
+                .build();
+
+        ShortcutManager scManager =
+                (ShortcutManager) mContext.getSystemService(Context.SHORTCUT_SERVICE);
+        scManager.addDynamicShortcuts(Arrays.asList(shortcut));
+    }
+
+    private void deleteShortcuts() {
+        ShortcutManager scManager =
+                (ShortcutManager) mContext.getSystemService(Context.SHORTCUT_SERVICE);
+        scManager.removeAllDynamicShortcuts();
+        scManager.removeLongLivedShortcuts(Collections.singletonList(SHARE_SHORTCUT_ID));
+    }
+
+    /**
+     * Notification fulfilling conversation policy; for the shortcut to be valid
+     * call {@link #createDynamicShortcut()}
+     */
+    private Notification.Builder getConversationNotification() {
+        Person person = new Person.Builder()
+                .setName("bubblebot")
+                .build();
+        Notification.Builder nb = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
+                .setContentTitle("foo")
+                .setShortcutId(SHARE_SHORTCUT_ID)
+                .setStyle(new Notification.MessagingStyle(person)
+                        .setConversationTitle("Bubble Chat")
+                        .addMessage("Hello?",
+                                SystemClock.currentThreadTimeMillis() - 300000, person)
+                        .addMessage("Is it me you're looking for?",
+                                SystemClock.currentThreadTimeMillis(), person)
+                )
+                .setSmallIcon(android.R.drawable.sym_def_app_icon);
+        return nb;
+    }
+
+    /**
+     * Starts an activity that is able to send a bubble; also handles unlocking the device.
+     * Any tests that use this method should be sure to call {@link #cleanupSendBubbleActivity()}
+     * to unregister the related broadcast receiver.
+     *
+     * @return the SendBubbleActivity that was opened.
+     */
+    private SendBubbleActivity startSendBubbleActivity() {
+        final CountDownLatch latch = new CountDownLatch(2);
+        mBubbleBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                latch.countDown();
+            }
+        };
+        IntentFilter filter = new IntentFilter(SendBubbleActivity.BUBBLE_ACTIVITY_OPENED);
+        mContext.registerReceiver(mBubbleBroadcastReceiver, filter);
+
+        // Start & get the activity
+        Class clazz = SendBubbleActivity.class;
 
         Instrumentation.ActivityResult result =
                 new Instrumentation.ActivityResult(0, new Intent());
@@ -583,73 +797,222 @@ public class NotificationManagerTest extends AndroidTestCase {
                 new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
         InstrumentationRegistry.getInstrumentation().addMonitor(monitor);
 
-        Intent i = new Intent(mContext, BubblesTestActivity.class);
+        Intent i = new Intent(mContext, SendBubbleActivity.class);
         i.setFlags(FLAG_ACTIVITY_NEW_TASK);
         InstrumentationRegistry.getInstrumentation().startActivitySync(i);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-        return monitor.waitForActivity();
+        SendBubbleActivity sendBubbleActivity = (SendBubbleActivity) monitor.waitForActivity();
+
+        // Make sure device is unlocked
+        KeyguardManager keyguardManager = mContext.getSystemService(KeyguardManager.class);
+        keyguardManager.requestDismissKeyguard(sendBubbleActivity,
+                new KeyguardManager.KeyguardDismissCallback() {
+            @Override
+            public void onDismissSucceeded() {
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await(500, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return sendBubbleActivity;
     }
 
-    private class HomeHelper extends ActivityManagerTestBase implements AutoCloseable {
+    private void cleanupSendBubbleActivity() {
+        mContext.unregisterReceiver(mBubbleBroadcastReceiver);
+    }
 
-        HomeHelper() throws Exception {
-            setUp();
+    public void testConsolidatedNotificationPolicy() throws Exception {
+        final int originalFilter = mNotificationManager.getCurrentInterruptionFilter();
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            toggleNotificationPolicyAccess(mContext.getPackageName(),
+                    InstrumentationRegistry.getInstrumentation(), true);
+
+            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
+                    PRIORITY_CATEGORY_ALARMS | PRIORITY_CATEGORY_MEDIA,
+                    0, 0));
+            // turn on manual DND
+            mNotificationManager.setInterruptionFilter(INTERRUPTION_FILTER_PRIORITY);
+            assertExpectedDndState(INTERRUPTION_FILTER_PRIORITY);
+
+            // no custom ZenPolicy, so consolidatedPolicy should equal the default notif policy
+            assertEquals(mNotificationManager.getConsolidatedNotificationPolicy(),
+                    mNotificationManager.getNotificationPolicy());
+
+            // turn off manual DND
+            mNotificationManager.setInterruptionFilter(INTERRUPTION_FILTER_ALL);
+            assertExpectedDndState(INTERRUPTION_FILTER_ALL);
+
+            // setup custom ZenPolicy for an automatic rule
+            AutomaticZenRule rule = createRule("test_consolidated_policy",
+                    INTERRUPTION_FILTER_PRIORITY);
+            rule.setZenPolicy(new ZenPolicy.Builder()
+                    .allowReminders(true)
+                    .build());
+            String id = mNotificationManager.addAutomaticZenRule(rule);
+            mRuleIds.add(id);
+            // set condition of the automatic rule to TRUE
+            Condition condition = new Condition(rule.getConditionId(), "summary",
+                    Condition.STATE_TRUE);
+            mNotificationManager.setAutomaticZenRuleState(id, condition);
+            assertExpectedDndState(INTERRUPTION_FILTER_PRIORITY);
+
+            NotificationManager.Policy consolidatedPolicy =
+                    mNotificationManager.getConsolidatedNotificationPolicy();
+
+            // alarms and media are allowed from default notification policy
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_ALARMS) != 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_MEDIA) != 0);
+
+            // reminders is allowed from the automatic rule's custom ZenPolicy
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_REMINDERS) != 0);
+
+            // other sounds aren't allowed
+            assertTrue((consolidatedPolicy.priorityCategories
+                    & PRIORITY_CATEGORY_CONVERSATIONS) == 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_CALLS) == 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_MESSAGES) == 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_SYSTEM) == 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_EVENTS) == 0);
+        } finally {
+            mNotificationManager.setInterruptionFilter(originalFilter);
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
+    }
 
-        public void goHome() {
-            launchHomeActivity();
-        }
+    public void testConsolidatedNotificationPolicyMultiRules() throws Exception {
+        final int originalFilter = mNotificationManager.getCurrentInterruptionFilter();
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            toggleNotificationPolicyAccess(mContext.getPackageName(),
+                    InstrumentationRegistry.getInstrumentation(), true);
 
-        @Override
-        public void close() throws Exception {
-            tearDown();
+            // default allows no sounds
+            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
+                    PRIORITY_CATEGORY_ALARMS, 0, 0));
+
+            // setup custom ZenPolicy for two automatic rules
+            AutomaticZenRule rule1 = createRule("test_consolidated_policyq",
+                    INTERRUPTION_FILTER_PRIORITY);
+            rule1.setZenPolicy(new ZenPolicy.Builder()
+                    .allowReminders(false)
+                    .allowAlarms(false)
+                    .allowSystem(true)
+                    .build());
+            AutomaticZenRule rule2 = createRule("test_consolidated_policy2",
+                    INTERRUPTION_FILTER_PRIORITY);
+            rule2.setZenPolicy(new ZenPolicy.Builder()
+                    .allowReminders(true)
+                    .allowMedia(true)
+                    .build());
+            String id1 = mNotificationManager.addAutomaticZenRule(rule1);
+            String id2 = mNotificationManager.addAutomaticZenRule(rule2);
+            Condition onCondition1 = new Condition(rule1.getConditionId(), "summary",
+                    Condition.STATE_TRUE);
+            Condition onCondition2 = new Condition(rule2.getConditionId(), "summary",
+                    Condition.STATE_TRUE);
+            mNotificationManager.setAutomaticZenRuleState(id1, onCondition1);
+            mNotificationManager.setAutomaticZenRuleState(id2, onCondition2);
+
+            Thread.sleep(300); // wait for rules to be applied - it's done asynchronously
+
+            mRuleIds.add(id1);
+            mRuleIds.add(id2);
+            assertExpectedDndState(INTERRUPTION_FILTER_PRIORITY);
+
+            NotificationManager.Policy consolidatedPolicy =
+                    mNotificationManager.getConsolidatedNotificationPolicy();
+
+            // reminders aren't allowed from rule1 overriding rule2
+            // (not allowed takes precedence over allowed)
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_REMINDERS) == 0);
+
+            // alarms aren't allowed from rule1
+            // (rule's custom zenPolicy overrides default policy)
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_ALARMS) == 0);
+
+            // system is allowed from rule1, media is allowed from rule2
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_SYSTEM) != 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_MEDIA) != 0);
+
+            // other sounds aren't allowed (from default policy)
+            assertTrue((consolidatedPolicy.priorityCategories
+                    & PRIORITY_CATEGORY_CONVERSATIONS) == 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_CALLS) == 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_MESSAGES) == 0);
+            assertTrue((consolidatedPolicy.priorityCategories & PRIORITY_CATEGORY_EVENTS) == 0);
+        } finally {
+            mNotificationManager.setInterruptionFilter(originalFilter);
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
     }
 
     public void testPostPCanToggleAlarmsMediaSystemTest() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
-        if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
-            // Post-P can toggle alarms, media, system
-            // toggle on alarms, media, system:
-            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
-                    NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS
-                            | NotificationManager.Policy.PRIORITY_CATEGORY_MEDIA
-                            | NotificationManager.Policy.PRIORITY_CATEGORY_SYSTEM, 0, 0));
-            NotificationManager.Policy policy = mNotificationManager.getNotificationPolicy();
-            assertTrue((policy.priorityCategories
-                    & NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS) != 0);
-            assertTrue((policy.priorityCategories
-                    & NotificationManager.Policy.PRIORITY_CATEGORY_MEDIA) != 0);
-            assertTrue((policy.priorityCategories
-                    & NotificationManager.Policy.PRIORITY_CATEGORY_SYSTEM) != 0);
+        NotificationManager.Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
+                // Post-P can toggle alarms, media, system
+                // toggle on alarms, media, system:
+                mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
+                        PRIORITY_CATEGORY_ALARMS
+                                | PRIORITY_CATEGORY_MEDIA
+                                | PRIORITY_CATEGORY_SYSTEM, 0, 0));
+                NotificationManager.Policy policy = mNotificationManager.getNotificationPolicy();
+                assertTrue((policy.priorityCategories & PRIORITY_CATEGORY_ALARMS) != 0);
+                assertTrue((policy.priorityCategories & PRIORITY_CATEGORY_MEDIA) != 0);
+                assertTrue((policy.priorityCategories & PRIORITY_CATEGORY_SYSTEM) != 0);
 
-            // toggle off alarms, media, system
-            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(0, 0, 0));
+                // toggle off alarms, media, system
+                mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(0, 0, 0));
+                policy = mNotificationManager.getNotificationPolicy();
+                assertTrue((policy.priorityCategories & PRIORITY_CATEGORY_ALARMS) == 0);
+                assertTrue((policy.priorityCategories & PRIORITY_CATEGORY_MEDIA) == 0);
+                assertTrue((policy.priorityCategories & PRIORITY_CATEGORY_SYSTEM) == 0);
+            }
+        } finally {
+            mNotificationManager.setNotificationPolicy(origPolicy);
+        }
+    }
+
+    public void testPostRCanToggleConversationsTest() throws Exception {
+        toggleNotificationPolicyAccess(mContext.getPackageName(),
+                InstrumentationRegistry.getInstrumentation(), true);
+
+        NotificationManager.Policy origPolicy = mNotificationManager.getNotificationPolicy();
+
+        try {
+            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
+                    0, 0, 0, 0));
+            NotificationManager.Policy policy = mNotificationManager.getNotificationPolicy();
+            assertEquals(0, (policy.priorityCategories & PRIORITY_CATEGORY_CONVERSATIONS));
+            assertEquals(CONVERSATION_SENDERS_NONE, policy.priorityConversationSenders);
+
+            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
+                    PRIORITY_CATEGORY_CONVERSATIONS, 0, 0, 0, CONVERSATION_SENDERS_ANYONE));
             policy = mNotificationManager.getNotificationPolicy();
-            assertTrue((policy.priorityCategories
-                    & NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS) == 0);
-            assertTrue((policy.priorityCategories &
-                    NotificationManager.Policy.PRIORITY_CATEGORY_MEDIA) == 0);
-            assertTrue((policy.priorityCategories &
-                    NotificationManager.Policy.PRIORITY_CATEGORY_SYSTEM) == 0);
+            assertTrue((policy.priorityCategories & PRIORITY_CATEGORY_CONVERSATIONS) != 0);
+            assertEquals(CONVERSATION_SENDERS_ANYONE, policy.priorityConversationSenders);
+
+        } finally {
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
     }
 
     public void testCreateChannelGroup() throws Exception {
         final NotificationChannelGroup ncg = new NotificationChannelGroup("a group", "a label");
         final NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup(ncg.getId());
         mNotificationManager.createNotificationChannelGroup(ncg);
         final NotificationChannel ungrouped =
-                new NotificationChannel(mId + "!", "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId + "!", "name", IMPORTANCE_DEFAULT);
         try {
             mNotificationManager.createNotificationChannel(channel);
             mNotificationManager.createNotificationChannel(ungrouped);
@@ -670,7 +1033,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         ncg.setDescription("bananas");
         final NotificationChannelGroup ncg2 = new NotificationChannelGroup("group 2", "label 2");
         final NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup(ncg.getId());
 
         mNotificationManager.createNotificationChannelGroup(ncg);
@@ -690,7 +1053,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         ncg.setDescription("bananas");
         final NotificationChannelGroup ncg2 = new NotificationChannelGroup("group 2", "label 2");
         final NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup(ncg2.getId());
 
         mNotificationManager.createNotificationChannelGroup(ncg);
@@ -719,7 +1082,7 @@ public class NotificationManagerTest extends AndroidTestCase {
     public void testDeleteChannelGroup() throws Exception {
         final NotificationChannelGroup ncg = new NotificationChannelGroup("a group", "a label");
         final NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup(ncg.getId());
         mNotificationManager.createNotificationChannelGroup(ncg);
         mNotificationManager.createNotificationChannel(channel);
@@ -732,7 +1095,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testCreateChannel() throws Exception {
         final NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setDescription("bananas");
         channel.enableVibration(true);
         channel.setVibrationPattern(new long[] {5, 8, 2, 1});
@@ -753,7 +1116,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testCreateChannel_rename() throws Exception {
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         mNotificationManager.createNotificationChannel(channel);
         channel.setName("new name");
         mNotificationManager.createNotificationChannel(channel);
@@ -774,7 +1137,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                 new NotificationChannelGroup(newGroup, newGroup));
 
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup(oldGroup);
         mNotificationManager.createNotificationChannel(channel);
 
@@ -796,7 +1159,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                 new NotificationChannelGroup(newGroup, newGroup));
 
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup(oldGroup);
         mNotificationManager.createNotificationChannel(channel);
         channel.setGroup(newGroup);
@@ -809,10 +1172,10 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testCreateSameChannelDoesNotUpdate() throws Exception {
         final NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         mNotificationManager.createNotificationChannel(channel);
         final NotificationChannel channelDupe =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_HIGH);
+                new NotificationChannel(mId, "name", IMPORTANCE_HIGH);
         mNotificationManager.createNotificationChannel(channelDupe);
         final NotificationChannel createdChannel =
                 mNotificationManager.getNotificationChannel(mId);
@@ -821,10 +1184,10 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testCreateChannelAlreadyExistsNoOp() throws Exception {
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         mNotificationManager.createNotificationChannel(channel);
         NotificationChannel channelDupe =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_HIGH);
+                new NotificationChannel(mId, "name", IMPORTANCE_HIGH);
         mNotificationManager.createNotificationChannel(channelDupe);
         compareChannels(channel, mNotificationManager.getNotificationChannel(channel.getId()));
     }
@@ -834,7 +1197,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         mNotificationManager.createNotificationChannelGroup(ncg);
         try {
             NotificationChannel channel =
-                    new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                    new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
             channel.setGroup(ncg.getId());
             mNotificationManager.createNotificationChannel(channel);
             compareChannels(channel, mNotificationManager.getNotificationChannel(channel.getId()));
@@ -845,7 +1208,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testCreateChannelWithBadGroup() throws Exception {
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup("garbage");
         try {
             mNotificationManager.createNotificationChannel(channel);
@@ -855,7 +1218,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testCreateChannelInvalidImportance() throws Exception {
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_UNSPECIFIED);
+                new NotificationChannel(mId, "name", IMPORTANCE_UNSPECIFIED);
         try {
             mNotificationManager.createNotificationChannel(channel);
         } catch (IllegalArgumentException e) {
@@ -865,7 +1228,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testDeleteChannel() throws Exception {
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_LOW);
+                new NotificationChannel(mId, "name", IMPORTANCE_LOW);
         mNotificationManager.createNotificationChannel(channel);
         compareChannels(channel, mNotificationManager.getNotificationChannel(channel.getId()));
         mNotificationManager.deleteNotificationChannel(channel.getId());
@@ -883,16 +1246,16 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testGetChannel() throws Exception {
         NotificationChannel channel1 =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         NotificationChannel channel2 =
                 new NotificationChannel(
-                        UUID.randomUUID().toString(), "name2", NotificationManager.IMPORTANCE_HIGH);
+                        UUID.randomUUID().toString(), "name2", IMPORTANCE_HIGH);
         NotificationChannel channel3 =
                 new NotificationChannel(
-                        UUID.randomUUID().toString(), "name3", NotificationManager.IMPORTANCE_LOW);
+                        UUID.randomUUID().toString(), "name3", IMPORTANCE_LOW);
         NotificationChannel channel4 =
                 new NotificationChannel(
-                        UUID.randomUUID().toString(), "name4", NotificationManager.IMPORTANCE_MIN);
+                        UUID.randomUUID().toString(), "name4", IMPORTANCE_MIN);
         mNotificationManager.createNotificationChannel(channel1);
         mNotificationManager.createNotificationChannel(channel2);
         mNotificationManager.createNotificationChannel(channel3);
@@ -910,16 +1273,16 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testGetChannels() throws Exception {
         NotificationChannel channel1 =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         NotificationChannel channel2 =
                 new NotificationChannel(
-                        UUID.randomUUID().toString(), "name2", NotificationManager.IMPORTANCE_HIGH);
+                        UUID.randomUUID().toString(), "name2", IMPORTANCE_HIGH);
         NotificationChannel channel3 =
                 new NotificationChannel(
-                        UUID.randomUUID().toString(), "name3", NotificationManager.IMPORTANCE_LOW);
+                        UUID.randomUUID().toString(), "name3", IMPORTANCE_LOW);
         NotificationChannel channel4 =
                 new NotificationChannel(
-                        UUID.randomUUID().toString(), "name4", NotificationManager.IMPORTANCE_MIN);
+                        UUID.randomUUID().toString(), "name4", IMPORTANCE_MIN);
 
         Map<String, NotificationChannel> channelMap = new HashMap<>();
         channelMap.put(channel1.getId(), channel1);
@@ -952,10 +1315,10 @@ public class NotificationManagerTest extends AndroidTestCase {
 
     public void testRecreateDeletedChannel() throws Exception {
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setShowBadge(true);
         NotificationChannel newChannel = new NotificationChannel(
-                channel.getId(), channel.getName(), NotificationManager.IMPORTANCE_HIGH);
+                channel.getId(), channel.getName(), IMPORTANCE_HIGH);
         mNotificationManager.createNotificationChannel(channel);
         mNotificationManager.deleteNotificationChannel(channel.getId());
 
@@ -984,11 +1347,39 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testSuspendPackage() throws Exception {
+    public void testSuspendPackage_withoutShellPermission() throws Exception {
         if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
             return;
         }
 
+        try {
+            Process proc = Runtime.getRuntime().exec("cmd notification suspend_package "
+                    + mContext.getPackageName());
+
+            // read output of command
+            BufferedReader reader =
+                    new BufferedReader(new InputStreamReader(proc.getInputStream()));
+            StringBuilder output = new StringBuilder();
+            String line = reader.readLine();
+            while (line != null) {
+                output.append(line);
+                line = reader.readLine();
+            }
+            reader.close();
+            final String outputString = output.toString();
+
+            proc.waitFor();
+
+            // check that the output string had an error / disallowed call since it didn't have
+            // shell permission to suspend the package
+            assertTrue(outputString, outputString.contains("error"));
+            assertTrue(outputString, outputString.contains("permission denied"));
+        } catch (InterruptedException e) {
+            fail("Unsuccessful shell command");
+        }
+    }
+
+    public void testSuspendPackage() throws Exception {
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -1031,10 +1422,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testSuspendedPackageSendsNotification() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -1077,15 +1464,16 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testCanBubble_ranking() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
+        if ((mActivityManager.isLowRamDevice() && !FeatureUtil.isWatch())
+                || FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
             return;
         }
 
         // turn on bubbles globally
-        toggleBubbleSetting(true);
+        setBubblesGlobal(true);
 
-        assertEquals(1, Settings.Secure.getInt(
-                mContext.getContentResolver(), Settings.Secure.NOTIFICATION_BUBBLES));
+        assertEquals(1, Settings.Global.getInt(
+                mContext.getContentResolver(), Settings.Global.NOTIFICATION_BUBBLES));
 
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
@@ -1093,44 +1481,36 @@ public class NotificationManagerTest extends AndroidTestCase {
 
         mListener = TestNotificationListener.getInstance();
         assertNotNull(mListener);
-        try {
-            sendNotification(1, R.drawable.black);
-            Thread.sleep(500); // wait for notification listener to receive notification
-            NotificationListenerService.RankingMap rankingMap = mListener.mRankingMap;
-            NotificationListenerService.Ranking outRanking =
-                    new NotificationListenerService.Ranking();
-            for (String key : rankingMap.getOrderedKeys()) {
-                if (key.contains(mListener.getPackageName())) {
-                    rankingMap.getRanking(key, outRanking);
-                    // by default everything can bubble
-                    assertTrue(outRanking.canBubble());
-                }
+
+        sendNotification(1, R.drawable.black);
+        Thread.sleep(500); // wait for notification listener to receive notification
+        NotificationListenerService.RankingMap rankingMap = mListener.mRankingMap;
+        NotificationListenerService.Ranking outRanking =
+                new NotificationListenerService.Ranking();
+        for (String key : rankingMap.getOrderedKeys()) {
+            if (key.contains(mListener.getPackageName())) {
+                rankingMap.getRanking(key, outRanking);
+                // by default nothing can bubble
+                assertFalse(outRanking.canBubble());
             }
-
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
-
-            rankingMap = mListener.mRankingMap;
-            outRanking = new NotificationListenerService.Ranking();
-            for (String key : rankingMap.getOrderedKeys()) {
-                if (key.contains(mListener.getPackageName())) {
-                    rankingMap.getRanking(key, outRanking);
-                    assertFalse(outRanking.canBubble());
-                }
-            }
-
-            mListener.resetData();
-        } finally {
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
         }
+
+        // turn off bubbles globally
+        setBubblesGlobal(false);
+
+        rankingMap = mListener.mRankingMap;
+        outRanking = new NotificationListenerService.Ranking();
+        for (String key : rankingMap.getOrderedKeys()) {
+            if (key.contains(mListener.getPackageName())) {
+                rankingMap.getRanking(key, outRanking);
+                assertFalse(outRanking.canBubble());
+            }
+        }
+
+        mListener.resetData();
     }
 
     public void testShowBadging_ranking() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         final int originalBadging = Settings.Secure.getInt(
                 mContext.getContentResolver(), Settings.Secure.NOTIFICATION_BADGING);
 
@@ -1183,10 +1563,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testGetSuppressedVisualEffectsOff_ranking() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -1213,11 +1589,8 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testGetSuppressedVisualEffects_ranking() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         final int originalFilter = mNotificationManager.getCurrentInterruptionFilter();
+        NotificationManager.Policy origPolicy = mNotificationManager.getNotificationPolicy();
         try {
             toggleListenerAccess(TestNotificationListener.getId(),
                     InstrumentationRegistry.getInstrumentation(), true);
@@ -1235,8 +1608,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                 mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(0, 0, 0,
                         SUPPRESSED_EFFECT_SCREEN_ON));
             }
-            mNotificationManager.setInterruptionFilter(
-                    NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            mNotificationManager.setInterruptionFilter(INTERRUPTION_FILTER_PRIORITY);
 
             final int notificationId = 1;
             // update notification
@@ -1263,15 +1635,12 @@ public class NotificationManagerTest extends AndroidTestCase {
         } finally {
             // reset notification policy
             mNotificationManager.setInterruptionFilter(originalFilter);
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
 
     }
 
     public void testKeyChannelGroupOverrideImportanceExplanation_ranking() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -1287,7 +1656,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         NotificationListenerService.Ranking outRanking =
                 new NotificationListenerService.Ranking();
 
-        StatusBarNotification sbn = findPostedNotification(notificationId);
+        StatusBarNotification sbn = findPostedNotification(notificationId, false);
 
         // check that the key and channel ids are the same in the ranking as the posted notification
         for (String key : rankingMap.getOrderedKeys()) {
@@ -1313,7 +1682,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         mNotificationManager.cancelAll();
 
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_NONE);
+                new NotificationChannel(mId, "name", IMPORTANCE_NONE);
         mNotificationManager.createNotificationChannel(channel);
 
         int id = 1;
@@ -1338,7 +1707,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         group.setBlocked(true);
         mNotificationManager.createNotificationChannelGroup(group);
         NotificationChannel channel =
-                new NotificationChannel(mId, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
         channel.setGroup(mId);
         mNotificationManager.createNotificationChannel(channel);
 
@@ -1462,12 +1831,12 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testMediaStyle_empty() throws Exception {
+    public void testMediaStyle_empty() {
         Notification.MediaStyle style = new Notification.MediaStyle();
         assertNotNull(style);
     }
 
-    public void testMediaStyle() throws Exception {
+    public void testMediaStyle() {
         mNotificationManager.cancelAll();
         final int id = 99;
         MediaSession session = new MediaSession(getContext(), "media");
@@ -1494,7 +1863,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testInboxStyle() throws Exception {
+    public void testInboxStyle() {
         final int id = 100;
 
         final Notification notification =
@@ -1518,7 +1887,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testBigTextStyle() throws Exception {
+    public void testBigTextStyle() {
         final int id = 101;
 
         final Notification notification =
@@ -1544,7 +1913,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testBigPictureStyle() throws Exception {
+    public void testBigPictureStyle() {
         final int id = 102;
 
         final Notification notification =
@@ -1559,10 +1928,10 @@ public class NotificationManagerTest extends AndroidTestCase {
                                 Icon.createWithResource(getContext(), R.drawable.icon_blue),
                                 "a2", getPendingIntent()).build())
                         .setStyle(new Notification.BigPictureStyle()
-                        .setBigContentTitle("title")
-                        .bigPicture(Bitmap.createBitmap(100, 100, Bitmap.Config.RGB_565))
-                        .bigLargeIcon(Icon.createWithResource(getContext(), R.drawable.icon_blue))
-                        .setSummaryText("summary"))
+                                .setBigContentTitle("title")
+                                .bigPicture(Bitmap.createBitmap(100, 100, Bitmap.Config.RGB_565))
+                                .bigLargeIcon(Icon.createWithResource(getContext(), R.drawable.icon_blue))
+                                .setSummaryText("summary"))
                         .build();
         mNotificationManager.notify(id, notification);
 
@@ -1572,77 +1941,77 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testAutogrouping() throws Exception {
-        sendNotification(1, R.drawable.black);
-        sendNotification(2, R.drawable.blue);
-        sendNotification(3, R.drawable.yellow);
-        sendNotification(4, R.drawable.yellow);
+        sendNotification(801, R.drawable.black);
+        sendNotification(802, R.drawable.blue);
+        sendNotification(803, R.drawable.yellow);
+        sendNotification(804, R.drawable.yellow);
 
         assertNotificationCount(5);
         assertAllPostedNotificationsAutogrouped();
     }
 
     public void testAutogrouping_autogroupStaysUntilAllNotificationsCanceled() throws Exception {
-        sendNotification(1, R.drawable.black);
-        sendNotification(2, R.drawable.blue);
-        sendNotification(3, R.drawable.yellow);
-        sendNotification(4, R.drawable.yellow);
+        sendNotification(701, R.drawable.black);
+        sendNotification(702, R.drawable.blue);
+        sendNotification(703, R.drawable.yellow);
+        sendNotification(704, R.drawable.yellow);
 
         assertNotificationCount(5);
         assertAllPostedNotificationsAutogrouped();
 
         // Assert all notis stay in the same autogroup until all children are canceled
-        for (int i = 4; i > 1; i--) {
+        for (int i = 704; i > 701; i--) {
             cancelAndPoll(i);
-            assertNotificationCount(i);
+            assertNotificationCount(i - 700);
             assertAllPostedNotificationsAutogrouped();
         }
-        cancelAndPoll(1);
+        cancelAndPoll(701);
         assertNotificationCount(0);
     }
 
     public void testAutogrouping_autogroupStaysUntilAllNotificationsAddedToGroup()
             throws Exception {
         String newGroup = "new!";
-        sendNotification(1, R.drawable.black);
-        sendNotification(2, R.drawable.blue);
-        sendNotification(3, R.drawable.yellow);
-        sendNotification(4, R.drawable.yellow);
+        sendNotification(901, R.drawable.black);
+        sendNotification(902, R.drawable.blue);
+        sendNotification(903, R.drawable.yellow);
+        sendNotification(904, R.drawable.yellow);
 
         List<Integer> postedIds = new ArrayList<>();
-        postedIds.add(1);
-        postedIds.add(2);
-        postedIds.add(3);
-        postedIds.add(4);
+        postedIds.add(901);
+        postedIds.add(902);
+        postedIds.add(903);
+        postedIds.add(904);
 
         assertNotificationCount(5);
         assertAllPostedNotificationsAutogrouped();
 
         // Assert all notis stay in the same autogroup until all children are canceled
-        for (int i = 4; i > 1; i--) {
+        for (int i = 904; i > 901; i--) {
             sendNotification(i, newGroup, R.drawable.blue);
             postedIds.remove(postedIds.size() - 1);
             assertNotificationCount(5);
             assertOnlySomeNotificationsAutogrouped(postedIds);
         }
-        sendNotification(1, newGroup, R.drawable.blue);
+        sendNotification(901, newGroup, R.drawable.blue);
         assertNotificationCount(4); // no more autogroup summary
         postedIds.remove(0);
         assertOnlySomeNotificationsAutogrouped(postedIds);
     }
 
     public void testNewNotificationsAddedToAutogroup_ifOriginalNotificationsCanceled()
-        throws Exception {
+            throws Exception {
         String newGroup = "new!";
-        sendNotification(10, R.drawable.black);
-        sendNotification(20, R.drawable.blue);
-        sendNotification(30, R.drawable.yellow);
-        sendNotification(40, R.drawable.yellow);
+        sendNotification(910, R.drawable.black);
+        sendNotification(920, R.drawable.blue);
+        sendNotification(930, R.drawable.yellow);
+        sendNotification(940, R.drawable.yellow);
 
         List<Integer> postedIds = new ArrayList<>();
-        postedIds.add(10);
-        postedIds.add(20);
-        postedIds.add(30);
-        postedIds.add(40);
+        postedIds.add(910);
+        postedIds.add(920);
+        postedIds.add(930);
+        postedIds.add(940);
 
         assertNotificationCount(5);
         assertAllPostedNotificationsAutogrouped();
@@ -1662,8 +2031,8 @@ public class NotificationManagerTest extends AndroidTestCase {
 
         // send a new non-grouped notification. since the autogroup summary still exists,
         // the notification should be added to it
-        sendNotification(50, R.drawable.blue);
-        postedIds.add(50);
+        sendNotification(950, R.drawable.blue);
+        postedIds.add(950);
         try {
             Thread.sleep(200);
         } catch (InterruptedException ex) {
@@ -1672,11 +2041,89 @@ public class NotificationManagerTest extends AndroidTestCase {
         assertOnlySomeNotificationsAutogrouped(postedIds);
     }
 
-    public void testAddAutomaticZenRule_configActivity() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
+    public void testTotalSilenceOnlyMuteStreams() throws Exception {
+        final int originalFilter = mNotificationManager.getCurrentInterruptionFilter();
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            toggleNotificationPolicyAccess(mContext.getPackageName(),
+                    InstrumentationRegistry.getInstrumentation(), true);
 
+            // ensure volume is not muted/0 to start test
+            mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_ALARM, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_RING, 1, 0);
+
+            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
+                    PRIORITY_CATEGORY_ALARMS | PRIORITY_CATEGORY_MEDIA, 0, 0));
+            AutomaticZenRule rule = createRule("test_total_silence", INTERRUPTION_FILTER_NONE);
+            String id = mNotificationManager.addAutomaticZenRule(rule);
+            mRuleIds.add(id);
+            Condition condition =
+                    new Condition(rule.getConditionId(), "summary", Condition.STATE_TRUE);
+            mNotificationManager.setAutomaticZenRuleState(id, condition);
+            mNotificationManager.setInterruptionFilter(INTERRUPTION_FILTER_PRIORITY);
+
+            // delay for streams to get into correct mute states
+            Thread.sleep(50);
+            assertTrue("Music (media) stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
+            assertTrue("System stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_SYSTEM));
+            assertTrue("Alarm stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
+
+            // Test requires that the phone's default state has no channels that can bypass dnd
+            assertTrue("Ringer stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+        } finally {
+            mNotificationManager.setInterruptionFilter(originalFilter);
+            mNotificationManager.setNotificationPolicy(origPolicy);
+        }
+    }
+
+    public void testAlarmsOnlyMuteStreams() throws Exception {
+        final int originalFilter = mNotificationManager.getCurrentInterruptionFilter();
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            toggleNotificationPolicyAccess(mContext.getPackageName(),
+                    InstrumentationRegistry.getInstrumentation(), true);
+
+            // ensure volume is not muted/0 to start test
+            mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_ALARM, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, 1, 0);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_RING, 1, 0);
+
+            mNotificationManager.setNotificationPolicy(new NotificationManager.Policy(
+                    PRIORITY_CATEGORY_ALARMS | PRIORITY_CATEGORY_MEDIA, 0, 0));
+            AutomaticZenRule rule = createRule("test_alarms", INTERRUPTION_FILTER_ALARMS);
+            String id = mNotificationManager.addAutomaticZenRule(rule);
+            mRuleIds.add(id);
+            Condition condition =
+                    new Condition(rule.getConditionId(), "summary", Condition.STATE_TRUE);
+            mNotificationManager.setAutomaticZenRuleState(id, condition);
+            mNotificationManager.setInterruptionFilter(INTERRUPTION_FILTER_PRIORITY);
+
+            // delay for streams to get into correct mute states
+            Thread.sleep(50);
+            assertFalse("Music (media) stream should not be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
+            assertTrue("System stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_SYSTEM));
+            assertFalse("Alarm stream should not be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_ALARM));
+
+            // Test requires that the phone's default state has no channels that can bypass dnd
+            assertTrue("Ringer stream should be muted",
+                    mAudioManager.isStreamMute(AudioManager.STREAM_RING));
+        } finally {
+            mNotificationManager.setInterruptionFilter(originalFilter);
+            mNotificationManager.setNotificationPolicy(origPolicy);
+        }
+    }
+
+    public void testAddAutomaticZenRule_configActivity() throws Exception {
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -1689,10 +2136,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testUpdateAutomaticZenRule_configActivity() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -1707,10 +2150,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testRemoveAutomaticZenRule_configActivity() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -1726,10 +2165,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testSetAutomaticZenRuleState() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -1749,10 +2184,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testSetAutomaticZenRuleState_turnOff() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -1781,10 +2212,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testSetAutomaticZenRuleState_deletedRule() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -1808,12 +2235,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         assertExpectedDndState(INTERRUPTION_FILTER_ALL);
     }
 
-    @FlakyTest
     public void testSetAutomaticZenRuleState_multipleRules() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
 
@@ -1822,7 +2244,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         mRuleIds.add(id);
 
         AutomaticZenRule secondRuleToCreate = createRule("Rule 2");
-        secondRuleToCreate.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
+        secondRuleToCreate.setInterruptionFilter(INTERRUPTION_FILTER_NONE);
         String secondId = mNotificationManager.addAutomaticZenRule(secondRuleToCreate);
         mRuleIds.add(secondId);
 
@@ -1847,70 +2269,76 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testSetNotificationPolicy_P_setOldFields() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
-        if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
-            NotificationManager.Policy appPolicy = new NotificationManager.Policy(0, 0, 0,
-                    SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_SCREEN_OFF);
-            mNotificationManager.setNotificationPolicy(appPolicy);
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
+                NotificationManager.Policy appPolicy = new NotificationManager.Policy(0, 0, 0,
+                        SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_SCREEN_OFF);
+                mNotificationManager.setNotificationPolicy(appPolicy);
 
-            int expected = SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_SCREEN_OFF
-                    | SUPPRESSED_EFFECT_PEEK | SUPPRESSED_EFFECT_AMBIENT
-                    | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
+                int expected = SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_SCREEN_OFF
+                        | SUPPRESSED_EFFECT_PEEK | SUPPRESSED_EFFECT_AMBIENT
+                        | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
 
-            assertEquals(expected,
-                    mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
+                assertEquals(expected,
+                        mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
+            }
+        } finally {
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
     }
 
     public void testSetNotificationPolicy_P_setNewFields() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
-        if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
-            NotificationManager.Policy appPolicy = new NotificationManager.Policy(0, 0, 0,
-                    SUPPRESSED_EFFECT_NOTIFICATION_LIST | SUPPRESSED_EFFECT_AMBIENT
-                            | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT);
-            mNotificationManager.setNotificationPolicy(appPolicy);
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
+                NotificationManager.Policy appPolicy = new NotificationManager.Policy(0, 0, 0,
+                        SUPPRESSED_EFFECT_NOTIFICATION_LIST | SUPPRESSED_EFFECT_AMBIENT
+                                | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT);
+                mNotificationManager.setNotificationPolicy(appPolicy);
 
-            int expected = SUPPRESSED_EFFECT_NOTIFICATION_LIST | SUPPRESSED_EFFECT_SCREEN_OFF
-                    | SUPPRESSED_EFFECT_AMBIENT | SUPPRESSED_EFFECT_LIGHTS
-                    | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
-            assertEquals(expected,
-                    mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
+                int expected = SUPPRESSED_EFFECT_NOTIFICATION_LIST | SUPPRESSED_EFFECT_SCREEN_OFF
+                        | SUPPRESSED_EFFECT_AMBIENT | SUPPRESSED_EFFECT_LIGHTS
+                        | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
+                assertEquals(expected,
+                        mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
+            }
+        } finally {
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
     }
 
     public void testSetNotificationPolicy_P_setOldNewFields() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
-        if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P) {
 
-            NotificationManager.Policy appPolicy = new NotificationManager.Policy(0, 0, 0,
-                    SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_STATUS_BAR);
-            mNotificationManager.setNotificationPolicy(appPolicy);
+                NotificationManager.Policy appPolicy = new NotificationManager.Policy(0, 0, 0,
+                        SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_STATUS_BAR);
+                mNotificationManager.setNotificationPolicy(appPolicy);
 
-            int expected = SUPPRESSED_EFFECT_STATUS_BAR;
-            assertEquals(expected,
-                    mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
+                int expected = SUPPRESSED_EFFECT_STATUS_BAR;
+                assertEquals(expected,
+                        mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
 
-            appPolicy = new NotificationManager.Policy(0, 0, 0,
-                    SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_AMBIENT
-                            | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT);
-            mNotificationManager.setNotificationPolicy(appPolicy);
+                appPolicy = new NotificationManager.Policy(0, 0, 0,
+                        SUPPRESSED_EFFECT_SCREEN_ON | SUPPRESSED_EFFECT_AMBIENT
+                                | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT);
+                mNotificationManager.setNotificationPolicy(appPolicy);
 
-            expected = SUPPRESSED_EFFECT_SCREEN_OFF | SUPPRESSED_EFFECT_AMBIENT
-                    | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
-            assertEquals(expected,
-                    mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
+                expected = SUPPRESSED_EFFECT_SCREEN_OFF | SUPPRESSED_EFFECT_AMBIENT
+                        | SUPPRESSED_EFFECT_LIGHTS | SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
+                assertEquals(expected,
+                        mNotificationManager.getNotificationPolicy().suppressedVisualEffects);
+            }
+        } finally {
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
     }
 
@@ -1927,7 +2355,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                         .build();
         mNotificationManager.notify(id, notification);
 
-        StatusBarNotification n = findPostedNotification(id);
+        StatusBarNotification n = findPostedNotification(id, false);
         assertNotNull(n);
         assertEquals(notification.fullScreenIntent, n.getNotification().fullScreenIntent);
     }
@@ -1981,7 +2409,70 @@ public class NotificationManagerTest extends AndroidTestCase {
                 .build();
         mNotificationManager.notifyAsPackage(DELEGATOR, "tag", 0, n);
 
-        findPostedNotification(0);
+        assertNotNull(findPostedNotification(0, false));
+        final Intent revokeIntent = new Intent();
+        revokeIntent.setClassName(DELEGATOR, REVOKE_CLASS);
+        revokeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(revokeIntent);
+        Thread.sleep(1000);
+    }
+
+    public void testNotificationDelegate_grantAndPostAndCancel() throws Exception {
+        // grant this test permission to post
+        final Intent activityIntent = new Intent();
+        activityIntent.setPackage(DELEGATOR);
+        activityIntent.setAction(Intent.ACTION_MAIN);
+        activityIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        // wait for the activity to launch and finish
+        mContext.startActivity(activityIntent);
+        Thread.sleep(1000);
+
+        // send notification
+        Notification n = new Notification.Builder(mContext, "channel")
+                .setSmallIcon(android.R.id.icon)
+                .build();
+        mNotificationManager.notifyAsPackage(DELEGATOR, "toBeCanceled", 10000, n);
+        assertNotNull(findPostedNotification(10000, false));
+        mNotificationManager.cancelAsPackage(DELEGATOR, "toBeCanceled", 10000);
+        assertTrue(isNotificationCancelled(10000, false));
+        final Intent revokeIntent = new Intent();
+        revokeIntent.setClassName(DELEGATOR, REVOKE_CLASS);
+        revokeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(revokeIntent);
+        Thread.sleep(1000);
+    }
+
+    public void testNotificationDelegate_cannotCancelNotificationsPostedByDelegator()
+            throws Exception {
+        toggleListenerAccess(TestNotificationListener.getId(),
+                InstrumentationRegistry.getInstrumentation(), true);
+        Thread.sleep(500); // wait for listener to be allowed
+
+        mListener = TestNotificationListener.getInstance();
+        assertNotNull(mListener);
+
+        // grant this test permission to post
+        final Intent activityIntent = new Intent();
+        activityIntent.setClassName(DELEGATOR, DELEGATE_POST_CLASS);
+        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        mContext.startActivity(activityIntent);
+
+        Thread.sleep(1000);
+
+        assertNotNull(findPostedNotification(9, true));
+
+        try {
+            mNotificationManager.cancelAsPackage(DELEGATOR, null, 9);
+            fail ("Delegate should not be able to cancel notification they did not post");
+        } catch (SecurityException e) {
+            // yay
+        }
+
+        // double check that the notification does still exist
+        assertNotNull(findPostedNotification(9, true));
 
         final Intent revokeIntent = new Intent();
         revokeIntent.setClassName(DELEGATOR, REVOKE_CLASS);
@@ -2073,7 +2564,18 @@ public class NotificationManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testAreBubblesAllowed() {
+    public void testAreBubblesAllowed_appNone() throws Exception {
+        setBubblesAppPref(0 /* none */);
+        assertFalse(mNotificationManager.areBubblesAllowed());
+    }
+
+    public void testAreBubblesAllowed_appSelected() throws Exception {
+        setBubblesAppPref(2 /* selected */);
+        assertFalse(mNotificationManager.areBubblesAllowed());
+    }
+
+    public void testAreBubblesAllowed_appAll() throws Exception {
+        setBubblesAppPref(1 /* all */);
         assertTrue(mNotificationManager.areBubblesAllowed());
     }
 
@@ -2100,15 +2602,11 @@ public class NotificationManagerTest extends AndroidTestCase {
                         .build();
         mNotificationManager.notify(id, notification);
 
-        StatusBarNotification n = findPostedNotification(id);
+        StatusBarNotification n = findPostedNotification(id, false);
         assertNotNull(n);
     }
 
     public void testShouldHideSilentStatusIcons() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         try {
             mNotificationManager.shouldHideSilentStatusBarIcons();
             fail("Non-privileged apps should not get this information");
@@ -2123,35 +2621,38 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testMatchesCallFilter() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         // allow all callers
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
-        NotificationManager.Policy currPolicy = mNotificationManager.getNotificationPolicy();
-        NotificationManager.Policy newPolicy = new NotificationManager.Policy(
-                NotificationManager.Policy.PRIORITY_CATEGORY_CALLS
-                        | NotificationManager.Policy.PRIORITY_CATEGORY_REPEAT_CALLERS,
-                NotificationManager.Policy.PRIORITY_SENDERS_ANY,
-                currPolicy.priorityMessageSenders,
-                currPolicy.suppressedVisualEffects);
-        mNotificationManager.setNotificationPolicy(newPolicy);
+        Policy origPolicy = mNotificationManager.getNotificationPolicy();
+        try {
+            NotificationManager.Policy currPolicy = mNotificationManager.getNotificationPolicy();
+            NotificationManager.Policy newPolicy = new NotificationManager.Policy(
+                    NotificationManager.Policy.PRIORITY_CATEGORY_CALLS
+                            | NotificationManager.Policy.PRIORITY_CATEGORY_REPEAT_CALLERS,
+                    NotificationManager.Policy.PRIORITY_SENDERS_ANY,
+                    currPolicy.priorityMessageSenders,
+                    currPolicy.suppressedVisualEffects);
+            mNotificationManager.setNotificationPolicy(newPolicy);
 
-        // add a contact
-        String ALICE = "Alice";
-        String ALICE_PHONE = "+16175551212";
-        String ALICE_EMAIL = "alice@_foo._bar";
+            // add a contact
+            String ALICE = "Alice";
+            String ALICE_PHONE = "+16175551212";
+            String ALICE_EMAIL = "alice@_foo._bar";
 
-        insertSingleContact(ALICE, ALICE_PHONE, ALICE_EMAIL, false);
+            insertSingleContact(ALICE, ALICE_PHONE, ALICE_EMAIL, false);
 
-        final Bundle peopleExtras = new Bundle();
-        ArrayList<Person> personList = new ArrayList<>();
-        personList.add(new Person.Builder().setUri(lookupContact(ALICE_PHONE).toString()).build());
-        peopleExtras.putParcelableArrayList(Notification.EXTRA_PEOPLE_LIST, personList);
-        SystemUtil.runWithShellPermissionIdentity(() ->
-                assertTrue(mNotificationManager.matchesCallFilter(peopleExtras)));
+            final Bundle peopleExtras = new Bundle();
+            ArrayList<Person> personList = new ArrayList<>();
+            personList.add(
+                    new Person.Builder().setUri(lookupContact(ALICE_PHONE).toString()).build());
+            peopleExtras.putParcelableArrayList(Notification.EXTRA_PEOPLE_LIST, personList);
+            SystemUtil.runWithShellPermissionIdentity(() ->
+                    assertTrue(mNotificationManager.matchesCallFilter(peopleExtras)));
+        } finally {
+            mNotificationManager.setNotificationPolicy(origPolicy);
+        }
+
     }
 
     /* Confirm that the optional methods of TestNotificationListener still exist and
@@ -2177,25 +2678,21 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testNotificationListener_setNotificationsShown() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
 
         mListener = TestNotificationListener.getInstance();
         assertNotNull(mListener);
-        final int notificationId1 = 1;
-        final int notificationId2 = 2;
+        final int notificationId1 = 1003;
+        final int notificationId2 = 1004;
 
         sendNotification(notificationId1, R.drawable.black);
         sendNotification(notificationId2, R.drawable.black);
         Thread.sleep(500); // wait for notification listener to receive notification
 
-        StatusBarNotification sbn1 = findPostedNotification(notificationId1);
-        StatusBarNotification sbn2 = findPostedNotification(notificationId2);
+        StatusBarNotification sbn1 = findPostedNotification(notificationId1, false);
+        StatusBarNotification sbn2 = findPostedNotification(notificationId2, false);
         mListener.setNotificationsShown(new String[]{ sbn1.getKey() });
 
         toggleListenerAccess(TestNotificationListener.getId(),
@@ -2210,10 +2707,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testNotificationListener_getNotificationChannels() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -2230,10 +2723,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testNotificationListener_getNotificationChannelGroups() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -2249,10 +2738,6 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testNotificationListener_updateNotificationChannel() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -2261,7 +2746,7 @@ public class NotificationManagerTest extends AndroidTestCase {
         assertNotNull(mListener);
 
         NotificationChannel channel = new NotificationChannel(
-                NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT);
+                NOTIFICATION_CHANNEL_ID, "name", IMPORTANCE_DEFAULT);
         try {
             mListener.updateNotificationChannel(mContext.getPackageName(), UserHandle.CURRENT,
                     channel);
@@ -2273,25 +2758,21 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testNotificationListener_getActiveNotifications() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
 
         mListener = TestNotificationListener.getInstance();
         assertNotNull(mListener);
-        final int notificationId1 = 1;
-        final int notificationId2 = 2;
+        final int notificationId1 = 1001;
+        final int notificationId2 = 1002;
 
         sendNotification(notificationId1, R.drawable.black);
         sendNotification(notificationId2, R.drawable.black);
         Thread.sleep(500); // wait for notification listener to receive notification
 
-        StatusBarNotification sbn1 = findPostedNotification(notificationId1);
-        StatusBarNotification sbn2 = findPostedNotification(notificationId2);
+        StatusBarNotification sbn1 = findPostedNotification(notificationId1, false);
+        StatusBarNotification sbn2 = findPostedNotification(notificationId2, false);
         StatusBarNotification[] notifs =
                 mListener.getActiveNotifications(new String[]{ sbn2.getKey(), sbn1.getKey() });
         assertEquals(sbn2.getKey(), notifs[0].getKey());
@@ -2305,10 +2786,6 @@ public class NotificationManagerTest extends AndroidTestCase {
 
 
     public void testNotificationListener_getCurrentRanking() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
@@ -2323,22 +2800,18 @@ public class NotificationManagerTest extends AndroidTestCase {
     }
 
     public void testNotificationListener_cancelNotifications() throws Exception {
-        if (mActivityManager.isLowRamDevice() && !mPackageManager.hasSystemFeature(FEATURE_WATCH)) {
-            return;
-        }
-
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
         Thread.sleep(500); // wait for listener to be allowed
 
         mListener = TestNotificationListener.getInstance();
         assertNotNull(mListener);
-        final int notificationId = 1;
+        final int notificationId = 1006;
 
         sendNotification(notificationId, R.drawable.black);
         Thread.sleep(500); // wait for notification listener to receive notification
 
-        StatusBarNotification sbn = findPostedNotification(notificationId);
+        StatusBarNotification sbn = findPostedNotification(notificationId, false);
 
         mListener.cancelNotification(sbn.getPackageName(), sbn.getTag(), sbn.getId());
         if (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.LOLLIPOP) {
@@ -2350,7 +2823,7 @@ public class NotificationManagerTest extends AndroidTestCase {
             // Tested in LegacyNotificationManager20Test
             if (checkNotificationExistence(notificationId, /*shouldExist=*/ true)) {
                 fail("Notification should have been cancelled for targetSdk below L.  targetSdk="
-                    + mContext.getApplicationInfo().targetSdkVersion);
+                        + mContext.getApplicationInfo().targetSdkVersion);
             }
         }
 
@@ -2371,7 +2844,8 @@ public class NotificationManagerTest extends AndroidTestCase {
                 lengthGreaterThanZero);
 
         String badNumberString = NotificationManager.Policy.priorityCategoriesToString(1234567);
-        assertNotNull("priorityCategories with a non-relevant int returns a string", oneString);
+        assertNotNull("priorityCategories with a non-relevant int returns a string",
+                badNumberString);
     }
 
     public void testNotificationManagerPolicy_prioritySendersToString() {
@@ -2400,339 +2874,466 @@ public class NotificationManagerTest extends AndroidTestCase {
                 badNumberString);
     }
 
-    public void testNotificationManagerBubblePolicy_flagForMessage_failsNoRemoteInput()
-            throws InterruptedException {
-        try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
-
-            Person person = new Person.Builder()
-                    .setName("bubblebot")
-                    .build();
-            Notification.Builder nb = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
-                    .setContentTitle("foo")
-                    .setStyle(new Notification.MessagingStyle(person)
-                            .setConversationTitle("Bubble Chat")
-                            .addMessage("Hello?",
-                                    SystemClock.currentThreadTimeMillis() - 300000, person)
-                            .addMessage("Is it me you're looking for?",
-                                    SystemClock.currentThreadTimeMillis(), person)
-                    )
-                    .setSmallIcon(android.R.drawable.sym_def_app_icon);
-            sendAndVerifyBubble(1, nb, null /* use default metadata */, false);
-        } finally {
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
+    public void testNotificationManagerBubblePolicy_flag_intentBubble()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
         }
-    }
-
-    public void testNotificationManagerBubblePolicy_flagForMessage_succeeds()
-            throws InterruptedException {
         try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+            createDynamicShortcut();
 
-            Person person = new Person.Builder()
-                    .setName("bubblebot")
-                    .build();
-
-            RemoteInput remoteInput = new RemoteInput.Builder("reply_key").setLabel(
-                    "reply").build();
-            PendingIntent inputIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-            Icon icon = Icon.createWithResource(mContext, android.R.drawable.sym_def_app_icon);
-            Notification.Action replyAction = new Notification.Action.Builder(icon, "Reply",
-                    inputIntent).addRemoteInput(remoteInput)
-                    .build();
-
-            Notification.Builder nb = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
-                    .setContentTitle("foo")
-                    .setStyle(new Notification.MessagingStyle(person)
-                            .setConversationTitle("Bubble Chat")
-                            .addMessage("Hello?",
-                                    SystemClock.currentThreadTimeMillis() - 300000, person)
-                            .addMessage("Is it me you're looking for?",
-                                    SystemClock.currentThreadTimeMillis(), person)
-                    )
-                    .setActions(replyAction)
-                    .setSmallIcon(android.R.drawable.sym_def_app_icon);
-
+            Notification.Builder nb = getConversationNotification();
             boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
             sendAndVerifyBubble(1, nb, null /* use default metadata */, shouldBeBubble);
         } finally {
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
+            deleteShortcuts();
         }
     }
 
-    public void testNotificationManagerBubblePolicy_flagForPhonecall() throws InterruptedException {
+    public void testNotificationManagerBubblePolicy_noFlag_service()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
         Intent serviceIntent = new Intent(mContext, BubblesTestService.class);
-        serviceIntent.putExtra(EXTRA_TEST_CASE, TEST_SUCCESS);
-
+        serviceIntent.putExtra(EXTRA_TEST_CASE, TEST_MESSAGING);
         try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+
+            createDynamicShortcut();
+            setUpNotifListener();
+
             mContext.startService(serviceIntent);
 
-            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
-            if (!checkNotificationExistence(BUBBLE_NOTIF_ID,
-                    true /* shouldExist */, shouldBeBubble)) {
-                fail("couldn't find posted notification bubble with id=" + BUBBLE_NOTIF_ID);
-            }
-
+            // No services in R (allowed in Q)
+            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, false /* shouldBeBubble */);
         } finally {
+            deleteShortcuts();
             mContext.stopService(serviceIntent);
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
         }
     }
 
-    public void testNotificationManagerBubblePolicy_flagForPhonecallFailsNoPerson()
-            throws InterruptedException {
+    public void testNotificationManagerBubblePolicy_noFlag_phonecall()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
         Intent serviceIntent = new Intent(mContext, BubblesTestService.class);
-        serviceIntent.putExtra(EXTRA_TEST_CASE, TEST_NO_PERSON);
+        serviceIntent.putExtra(EXTRA_TEST_CASE, TEST_CALL);
 
         try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+
+            createDynamicShortcut();
+            setUpNotifListener();
+
             mContext.startService(serviceIntent);
 
-            if (!checkNotificationExistence(BUBBLE_NOTIF_ID,
-                    true /* shouldExist */, false /* shouldBeBubble */)) {
-                fail("couldn't find posted notification with id=" + BUBBLE_NOTIF_ID
-                        + " or it was a bubble when it shouldn't be");
-            }
+            // No phonecalls in R (allowed in Q)
+            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, false /* shouldBeBubble */);
         } finally {
+            deleteShortcuts();
             mContext.stopService(serviceIntent);
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
         }
     }
 
-    public void testNotificationManagerBubblePolicy_flagForPhonecallFailsNoForeground()
-            throws InterruptedException {
-        try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
-
-            Person person = new Person.Builder()
-                    .setName("bubblebot")
-                    .build();
-            Notification.Builder nb = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
-                    .setContentTitle("foo")
-                    .setCategory(CATEGORY_CALL)
-                    .addPerson(person)
-                    .setSmallIcon(android.R.drawable.sym_def_app_icon);
-            sendAndVerifyBubble(1, nb, null /* use default metadata */, false /* shouldBeBubble */);
-
-        } finally {
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
+    public void testNotificationManagerBubblePolicy_noFlag_foreground() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
         }
-    }
-
-    public void testNotificationManagerBubblePolicy_flagForPhonecallFailsNoCategory()
-            throws InterruptedException {
-        Intent serviceIntent = new Intent(mContext, BubblesTestService.class);
-        serviceIntent.putExtra(EXTRA_TEST_CASE, TEST_NO_CATEGORY);
-
         try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
-            mContext.startService(serviceIntent);
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
 
-            if (!checkNotificationExistence(BUBBLE_NOTIF_ID,
-                    true /* shouldExist */, false /* shouldBeBubble */)) {
-                fail("couldn't find posted notification with id=" + BUBBLE_NOTIF_ID
-                        + " or it was a bubble when it shouldn't be");
-            }
-
-        } finally {
-            mContext.stopService(serviceIntent);
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
-        }
-
-    }
-
-    public void testNotificationManagerBubblePolicy_flagForPhonecallFailsNoMetadata()
-            throws InterruptedException {
-        Intent serviceIntent = new Intent(mContext, BubblesTestService.class);
-        serviceIntent.putExtra(EXTRA_TEST_CASE, TEST_NO_BUBBLE_METADATA);
-
-        try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
-            mContext.startService(serviceIntent);
-
-            if (!checkNotificationExistence(BUBBLE_NOTIF_ID,
-                    true /* shouldExist */, false /* shouldBeBubble */)) {
-                fail("couldn't find posted notification with id=" + BUBBLE_NOTIF_ID
-                        + " or it was a bubble when it shouldn't be");
-            }
-        } finally {
-            mContext.stopService(serviceIntent);
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
-        }
-    }
-
-    public void testNotificationManagerBubblePolicy_noFlagForAppNotForeground()
-            throws InterruptedException {
-        try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
-
-            sendAndVerifyBubble(1, null /* use default notif */, null /* use default metadata */,
-                    false /* shouldBeBubble */);
-        } finally {
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
-        }
-    }
-
-    public void testNotificationManagerBubblePolicy_flagForAppForeground() throws Exception {
-        try {
-            // turn on bubbles globally
-            toggleBubbleSetting(true);
-
-            final CountDownLatch latch = new CountDownLatch(2);
-            BroadcastReceiver receiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    latch.countDown();
-                }
-            };
-            IntentFilter filter = new IntentFilter(BubblesTestActivity.BUBBLE_ACTIVITY_OPENED);
-            mContext.registerReceiver(receiver, filter);
+            createDynamicShortcut();
+            setUpNotifListener();
 
             // Start & get the activity
-            BubblesTestActivity a = (BubblesTestActivity) launchSendBubbleActivity();
+            SendBubbleActivity a = startSendBubbleActivity();
+            // Send a bubble that doesn't fulfill policy from foreground
+            a.sendInvalidBubble(false /* autoExpand */);
 
-            // Make sure device is unlocked
-            KeyguardManager keyguardManager =
-                    (KeyguardManager) mContext.getSystemService(Context.KEYGUARD_SERVICE);
-            keyguardManager.requestDismissKeyguard(a, new KeyguardManager.KeyguardDismissCallback() {
-                @Override
-                public void onDismissSucceeded() {
-                    latch.countDown();
-                }
-            });
-            try {
-                latch.await(100, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            // Should be foreground now
-            a.sendBubble(1);
-
-            if (!checkNotificationExistence(BUBBLE_NOTIF_ID,
-                    true /* shouldExist */, true /* shouldBeBubble */)) {
-                fail("couldn't find posted notification bubble with id=" + BUBBLE_NOTIF_ID);
-            }
-
-            // Make ourselves not foreground
-            HomeHelper homeHelper = new HomeHelper();
-            homeHelper.goHome();
-
-            // The notif should be allowed to update as a bubble
-            a.sendBubble(2);
-
-            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
-
-            if (!checkNotificationExistence(BUBBLE_NOTIF_ID,
-                    true /* shouldExist */, shouldBeBubble)) {
-                fail("couldn't find posted notification bubble with id=" + BUBBLE_NOTIF_ID);
-            }
-
-            // Cancel the notif
-            cancelAndPoll(BUBBLE_NOTIF_ID);
-
-            // Send it again when not foreground, this should not be a bubble & just be a notif
-            a.sendBubble(3);
-            if (!checkNotificationExistence(BUBBLE_NOTIF_ID,
-                    true /* shouldExist */, false /* shouldBeBubble */)) {
-                fail("couldn't find posted notification with id=" + BUBBLE_NOTIF_ID
-                        + " or it was a bubble when it shouldn't be");
-            }
-
-            mContext.unregisterReceiver(receiver);
-            homeHelper.close();
+            // No foreground bubbles that don't fulfill policy in R (allowed in Q)
+            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, false /* shouldBeBubble */);
         } finally {
-            // turn off bubbles globally
-            toggleBubbleSetting(false);
+            deleteShortcuts();
+            cleanupSendBubbleActivity();
         }
     }
 
-    public void testNotificationManagerBubblePolicy_noFlag_notEmbeddable() throws Exception {
-        Person person = new Person.Builder()
-                .setName("bubblebot")
-                .build();
+    public void testNotificationManagerBubble_checkActivityFlagsDocumentLaunchMode()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
 
-        RemoteInput remoteInput = new RemoteInput.Builder("reply_key").setLabel("reply").build();
-        PendingIntent inputIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-        Icon icon = Icon.createWithResource(mContext, android.R.drawable.sym_def_app_icon);
-        Notification.Action replyAction = new Notification.Action.Builder(icon, "Reply",
-                inputIntent).addRemoteInput(remoteInput)
-                .build();
+            createDynamicShortcut();
+            setUpNotifListener();
 
-        Notification.Builder nb = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
-                .setContentTitle("foo")
-                .setStyle(new Notification.MessagingStyle(person)
-                        .setConversationTitle("Bubble Chat")
-                        .addMessage("Hello?",
-                                SystemClock.currentThreadTimeMillis() - 300000, person)
-                        .addMessage("Is it me you're looking for?",
-                                SystemClock.currentThreadTimeMillis(), person)
-                )
-                .setActions(replyAction)
-                .setSmallIcon(android.R.drawable.sym_def_app_icon);
+            // make ourselves foreground so we can auto-expand the bubble & check the intent flags
+            SendBubbleActivity a = startSendBubbleActivity();
 
-        final Intent intent = new Intent(mContext, BubblesTestNotEmbeddableActivity.class);
-        final PendingIntent pendingIntent =
-                PendingIntent.getActivity(mContext, 0, intent, 0);
+            // Prep to find bubbled activity
+            Class clazz = BubbledActivity.class;
+            Instrumentation.ActivityResult result =
+                    new Instrumentation.ActivityResult(0, new Intent());
+            Instrumentation.ActivityMonitor monitor =
+                    new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
+            InstrumentationRegistry.getInstrumentation().addMonitor(monitor);
 
-        Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
-                        .setIntent(pendingIntent)
-                        .setIcon(Icon.createWithResource(mContext, R.drawable.black));
+            a.sendBubble(true /* autoExpand */, false /* suppressNotif */);
 
-        sendAndVerifyBubble(1, nb, metadataBuilder.build(), false);
+            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
+            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, shouldBeBubble);
+
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+            BubbledActivity activity = (BubbledActivity) monitor.waitForActivity();
+            assertTrue((activity.getIntent().getFlags() & FLAG_ACTIVITY_NEW_DOCUMENT) != 0);
+            assertTrue((activity.getIntent().getFlags() & FLAG_ACTIVITY_MULTIPLE_TASK) != 0);
+        } finally {
+            deleteShortcuts();
+            cleanupSendBubbleActivity();
+        }
     }
 
-    public void testNotificationManagerBubblePolicy_noFlag_notDocumentLaunchModeAlways() throws Exception {
-        Person person = new Person.Builder()
-                .setName("bubblebot")
-                .build();
+    public void testNotificationManagerBubblePolicy_flag_shortcutBubble()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
 
-        RemoteInput remoteInput = new RemoteInput.Builder("reply_key").setLabel("reply").build();
-        PendingIntent inputIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-        Icon icon = Icon.createWithResource(mContext, android.R.drawable.sym_def_app_icon);
-        Notification.Action replyAction = new Notification.Action.Builder(icon, "Reply",
-                inputIntent).addRemoteInput(remoteInput)
-                .build();
+            createDynamicShortcut();
 
-        Notification.Builder nb = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
-                .setContentTitle("foo")
-                .setStyle(new Notification.MessagingStyle(person)
-                        .setConversationTitle("Bubble Chat")
-                        .addMessage("Hello?",
-                                SystemClock.currentThreadTimeMillis() - 300000, person)
-                        .addMessage("Is it me you're looking for?",
-                                SystemClock.currentThreadTimeMillis(), person)
-                )
-                .setActions(replyAction)
-                .setSmallIcon(android.R.drawable.sym_def_app_icon);
+            Notification.Builder nb = getConversationNotification();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
 
-        final Intent intent = new Intent(mContext, BubblesTestNotDocumentLaunchModeActivity.class);
-        final PendingIntent pendingIntent =
-                PendingIntent.getActivity(mContext, 0, intent, 0);
+            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
+            sendAndVerifyBubble(1, nb, data, shouldBeBubble);
+        } finally {
+            deleteShortcuts();
+        }
+    }
 
-        Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
-                        .setIntent(pendingIntent)
-                        .setIcon(Icon.createWithResource(mContext, R.drawable.black));
+    public void testNotificationManagerBubblePolicy_noFlag_invalidShortcut()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
 
-        sendAndVerifyBubble(1, nb, metadataBuilder.build(), false);
+            createDynamicShortcut();
+
+            Notification.Builder nb = getConversationNotification();
+            nb.setShortcutId("invalid");
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder("invalid")
+                            .build();
+
+            sendAndVerifyBubble(1, nb, data, false);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_noFlag_invalidNotif()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+
+            createDynamicShortcut();
+
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+
+            sendAndVerifyBubble(1, null /* use default notif builder */, data,
+                    false /* shouldBeBubble */);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_appAll_globalOn() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+
+            createDynamicShortcut();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+            Notification.Builder nb = getConversationNotification();
+
+            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
+            sendAndVerifyBubble(1, nb, data, shouldBeBubble);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_appAll_globalOff() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(false);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+
+            createDynamicShortcut();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+            Notification.Builder nb = getConversationNotification();
+
+            sendAndVerifyBubble(1, nb, data, false);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_appAll_channelNo() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(false);
+
+            createDynamicShortcut();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+            Notification.Builder nb = getConversationNotification();
+
+            sendAndVerifyBubble(1, nb, data, false);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_appSelected_channelNo() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(2 /* selected */);
+            setBubblesChannelAllowed(false);
+
+            createDynamicShortcut();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+            Notification.Builder nb = getConversationNotification();
+
+            sendAndVerifyBubble(1, nb, data, false);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_appSelected_channelYes() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(2 /* selected */);
+            setBubblesChannelAllowed(true);
+
+            createDynamicShortcut();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+            Notification.Builder nb = getConversationNotification();
+
+            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
+            sendAndVerifyBubble(1, nb, data, shouldBeBubble);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_appNone_channelNo() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(0 /* none */);
+            setBubblesChannelAllowed(false);
+
+            createDynamicShortcut();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+            Notification.Builder nb = getConversationNotification();
+
+            sendAndVerifyBubble(1, nb, data, false);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubblePolicy_noFlag_shortcutRemoved()
+            throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+            createDynamicShortcut();
+            Notification.BubbleMetadata data =
+                    new Notification.BubbleMetadata.Builder(SHARE_SHORTCUT_ID)
+                            .build();
+            Notification.Builder nb = getConversationNotification();
+
+            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
+            sendAndVerifyBubble(42, nb, data, shouldBeBubble);
+            mListener.resetData();
+
+            deleteShortcuts();
+            verifyNotificationBubbleState(42, false /* should be bubble */);
+        } finally {
+            deleteShortcuts();
+        }
+    }
+
+    public void testNotificationManagerBubbleNotificationSuppression() throws Exception {
+        if (FeatureUtil.isAutomotive() || FeatureUtil.isTV()) {
+            // These do not support bubbles.
+            return;
+        }
+        try {
+            setBubblesGlobal(true);
+            setBubblesAppPref(1 /* all */);
+            setBubblesChannelAllowed(true);
+
+            createDynamicShortcut();
+            setUpNotifListener();
+
+            // make ourselves foreground so we can specify suppress notification flag
+            SendBubbleActivity a = startSendBubbleActivity();
+
+            // send the bubble with notification suppressed
+            a.sendBubble(false /* autoExpand */, true /* suppressNotif */);
+            boolean shouldBeBubble = !mActivityManager.isLowRamDevice();
+            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, shouldBeBubble);
+
+            // check for the notification
+            StatusBarNotification sbnSuppressed = mListener.mPosted.get(0);
+            assertNotNull(sbnSuppressed);
+            // check for suppression state
+            Notification.BubbleMetadata metadata =
+                    sbnSuppressed.getNotification().getBubbleMetadata();
+            assertNotNull(metadata);
+            assertTrue(metadata.isNotificationSuppressed());
+
+            mListener.resetData();
+
+            // send the bubble with notification NOT suppressed
+            a.sendBubble(false /* autoExpand */, false /* suppressNotif */);
+            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, shouldBeBubble);
+
+            // check for the notification
+            StatusBarNotification sbnNotSuppressed = mListener.mPosted.get(0);
+            assertNotNull(sbnNotSuppressed);
+            // check for suppression state
+            metadata = sbnNotSuppressed.getNotification().getBubbleMetadata();
+            assertNotNull(metadata);
+            assertFalse(metadata.isNotificationSuppressed());
+        } finally {
+            cleanupSendBubbleActivity();
+            deleteShortcuts();
+        }
+    }
+
+    public void testOriginalChannelImportance() {
+        NotificationChannel channel = new NotificationChannel(
+                "my channel", "my channel", IMPORTANCE_HIGH);
+
+        mNotificationManager.createNotificationChannel(channel);
+
+        NotificationChannel actual = mNotificationManager.getNotificationChannel(channel.getId());
+        assertEquals(IMPORTANCE_HIGH, actual.getImportance());
+        assertEquals(IMPORTANCE_HIGH, actual.getOriginalImportance());
+
+        // Apps are allowed to downgrade channel importance if the user has not changed any
+        // fields on this channel yet.
+        channel.setImportance(IMPORTANCE_DEFAULT);
+        mNotificationManager.createNotificationChannel(channel);
+
+        actual = mNotificationManager.getNotificationChannel(channel.getId());
+        assertEquals(IMPORTANCE_DEFAULT, actual.getImportance());
+        assertEquals(IMPORTANCE_HIGH, actual.getOriginalImportance());
+    }
+
+    public void testCreateConversationChannel() {
+        final NotificationChannel channel =
+                new NotificationChannel(mId, "Messages", IMPORTANCE_DEFAULT);
+
+        String conversationId = "person a";
+
+        final NotificationChannel conversationChannel =
+                new NotificationChannel(mId + "child",
+                        "Messages from " + conversationId, IMPORTANCE_DEFAULT);
+        conversationChannel.setConversationId(channel.getId(), conversationId);
+
+        mNotificationManager.createNotificationChannel(channel);
+        mNotificationManager.createNotificationChannel(conversationChannel);
+
+        compareChannels(conversationChannel,
+                mNotificationManager.getNotificationChannel(channel.getId(), conversationId));
     }
 }

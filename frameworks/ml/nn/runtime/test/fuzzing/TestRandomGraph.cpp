@@ -17,8 +17,14 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
+#include <utility>
 
+#include "GeneratedTestUtils.h"
+#include "TestHarness.h"
 #include "TestNeuralNetworksWrapper.h"
 #include "fuzzing/OperationManager.h"
 #include "fuzzing/RandomGraphGenerator.h"
@@ -26,11 +32,16 @@
 
 #ifndef NNTEST_CTS
 #include <android-base/properties.h>
+#include <memunreachable/memunreachable.h>
+
 #include <vector>
+
+#include "HalInterfaces.h"
 #include "Manager.h"
 #include "SampleDriverFull.h"
 
 using android::nn::sample_driver::SampleDriverFull;
+using namespace android::nn::hal;
 
 #endif
 
@@ -38,6 +49,7 @@ namespace android {
 namespace nn {
 namespace fuzzing_test {
 
+using namespace test_helper;
 using test_wrapper::Result;
 constexpr char kRefDeviceName[] = "nnapi-reference";
 
@@ -61,7 +73,7 @@ class TestDriverV1_1 : public V1_1::IDevice {
                                             getSupportedOperations_1_1_cb _hidl_cb) override {
         return mDriverV1_2->getSupportedOperations_1_1(model, _hidl_cb);
     }
-    Return<ErrorStatus> prepareModel_1_1(
+    Return<V1_0::ErrorStatus> prepareModel_1_1(
             const V1_1::Model& model, ExecutionPreference preference,
             const sp<V1_0::IPreparedModelCallback>& actualCallback) override {
         return mDriverV1_2->prepareModel_1_1(model, preference, actualCallback);
@@ -74,7 +86,7 @@ class TestDriverV1_1 : public V1_1::IDevice {
                                         getSupportedOperations_cb _hidl_cb) override {
         return mDriverV1_2->getSupportedOperations(model, _hidl_cb);
     }
-    Return<ErrorStatus> prepareModel(
+    Return<V1_0::ErrorStatus> prepareModel(
             const V1_0::Model& model,
             const sp<V1_0::IPreparedModelCallback>& actualCallback) override {
         return mDriverV1_2->prepareModel(model, actualCallback);
@@ -97,7 +109,7 @@ class TestDriverV1_0 : public V1_0::IDevice {
                                         getSupportedOperations_cb _hidl_cb) override {
         return mDriverV1_2->getSupportedOperations(model, _hidl_cb);
     }
-    Return<ErrorStatus> prepareModel(
+    Return<V1_0::ErrorStatus> prepareModel(
             const V1_0::Model& model,
             const sp<V1_0::IPreparedModelCallback>& actualCallback) override {
         return mDriverV1_2->prepareModel(model, actualCallback);
@@ -114,20 +126,6 @@ std::shared_ptr<Device> makeTestDevice() {
 }
 
 #endif
-
-// Manages compilation on one single device.
-class CompilationForDevice : public test_wrapper::Compilation {
-   public:
-    CompilationForDevice() = default;
-    CompilationForDevice(const CompilationForDevice&) = delete;
-    CompilationForDevice& operator=(const CompilationForDevice&) = delete;
-
-    bool initialize(const test_wrapper::Model* model, const ANeuralNetworksDevice* device) {
-        int ret = ANeuralNetworksCompilation_createForDevices(model->getHandle(), &device, 1,
-                                                              &mCompilation);
-        return ret == ANEURALNETWORKS_NO_ERROR;
-    }
-};
 
 // NN API fuzzer logging setting comes from system property debug.nn.fuzzer.log and
 // debug.nn.fuzzer.dumpspec.
@@ -147,6 +145,7 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
 #ifndef NNTEST_CTS
         mEnableLog = ::android::base::GetProperty("debug.nn.fuzzer.log", "") == "1";
         mDumpSpec = ::android::base::GetProperty("debug.nn.fuzzer.dumpspec", "") == "1";
+        mDetectMemoryLeak = ::android::base::GetProperty("debug.nn.fuzzer.detectleak", "") == "1";
 
         mStandardDevices = DeviceManager::get()->forTest_getDevices();
         mSyntheticDevices.push_back(makeTestDevice<TestDriverV1_2>());
@@ -182,10 +181,16 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
     }
 
     virtual void TearDown() override {
-        if (::testing::Test::HasFailure() || mDumpSpec) {
-            mGraph.dumpSpecFile("/data/local/tmp/" + mTestName + ".mod.py", mTestName);
-        }
         NN_FUZZER_LOG_CLOSE;
+        // Dump test results on failure for debugging.
+        if (::testing::Test::HasFailure() || mDumpSpec) {
+            dumpTestResults();
+        }
+#ifndef NNTEST_CTS
+        if (mDetectMemoryLeak) {
+            ASSERT_TRUE(NoLeaks());
+        }
+#endif
     }
 
     bool shouldSkipTest(int64_t featureLevel) {
@@ -195,27 +200,84 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
                 // TODO: Currently quantized buffer values are uniformly distributed within
                 //       [0, 255]. We should investigate on a better buffer value generation
                 //       algorithm that represents the real-world cases.
-                "TestRandomGraph_SingleOperationTest_CONV_2D_V1_2_12",
+                "TestRandomGraph_SingleOperationTest_CONV_2D_V1_2_40",
+                "TestRandomGraph_SingleOperationTest_DEPTHWISE_CONV_2D_V1_0_32",
         };
         if (kDisabledTests.find(mTestName) != kDisabledTests.end()) return true;
-        if (featureLevel >= __ANDROID_API_Q__) return false;
-        const auto& operations = mGraph.getOperations();
-        for (const auto& op : operations) {
+        for (const auto& op : mTestModel.main.operations) {
             // Skip if testing BATCH_TO_SPACE_ND with batch dimension == 1.
-            if (op.opType == ANEURALNETWORKS_BATCH_TO_SPACE_ND &&
-                op.inputs[0]->dimensions[0].getValue() == 1)
+            if (op.type == TestOperationType::BATCH_TO_SPACE_ND &&
+                mTestModel.main.operands[op.inputs[0]].dimensions[0] == 1 &&
+                featureLevel <= __ANDROID_API_Q__) {
                 return true;
+            }
+            // L2_NORMALIZATION on axis of all zeros is undefined before R.
+            if (op.type == TestOperationType::L2_NORMALIZATION &&
+                featureLevel <= __ANDROID_API_Q__) {
+                return true;
+            }
+            // Skip the following operations for 1.2 and earlier devices.
+            if ((op.type == TestOperationType::ADD || op.type == TestOperationType::SUB ||
+                 op.type == TestOperationType::MAXIMUM || op.type == TestOperationType::MINIMUM ||
+                 op.type == TestOperationType::ROI_ALIGN) &&
+                mTestModel.main.operands[op.inputs[0]].type ==
+                        TestOperandType::TENSOR_QUANT8_ASYMM &&
+                featureLevel <= __ANDROID_API_Q__) {
+                return true;
+            }
         }
         return false;
+    }
+
+    // Compute the golden output results of the test model on nnapi-reference. If possible, the
+    // golden results will be computed from an equivalent float32 model to avoid bias avoid bias
+    // from quantized CPU implementation.
+    void computeGoldenResults() {
+        SCOPED_TRACE("computeGoldenResults");
+
+        // Convert the test model to an equivalent float32 model if possible.
+        auto fpModel = convertToFloat32Model(mTestModel);
+        const TestModel& goldenModel = fpModel.has_value() ? fpModel.value() : mTestModel;
+
+        // Create model.
+        generated_tests::GeneratedModel model;
+        generated_tests::createModel(goldenModel, &model);
+        ASSERT_TRUE(model.isValid());
+        ASSERT_EQ(model.finish(), Result::NO_ERROR);
+
+        // Create compilation for nnapi-reference.
+        ASSERT_TRUE(mDevices.find(kRefDeviceName) != mDevices.end());
+        const auto refDevice = mDevices[kRefDeviceName];
+        auto [result, compilation] = test_wrapper::Compilation::createForDevice(&model, refDevice);
+        ASSERT_EQ(result, Result::NO_ERROR);
+        ASSERT_EQ(compilation.finish(), Result::NO_ERROR);
+
+        // Create request.
+        test_wrapper::Execution execution(&compilation);
+        std::vector<TestBuffer> outputs;
+        generated_tests::createRequest(goldenModel, &execution, &outputs);
+
+        // Compute result.
+        ASSERT_EQ(execution.compute(), Result::NO_ERROR);
+
+        if (fpModel.has_value()) {
+            // Quantize the execution results as golden values.
+            setExpectedOutputsFromFloat32Results(outputs, &mTestModel);
+        } else {
+            for (uint32_t i = 0; i < outputs.size(); i++) {
+                auto outputIndex = mTestModel.main.outputIndexes[i];
+                mTestModel.main.operands[outputIndex].data = outputs[i];
+            }
+        }
     }
 
     // Compile and execute the generated graph on a device selected by name.
     void computeAndVerifyResultsForDevice(const test_wrapper::Model* model, uint32_t numOps,
                                           const std::string& name) {
         SCOPED_TRACE("Device: " + name);
+        std::cout << "[          ] - RUN:  " << name << "\n";
         ASSERT_TRUE(mDevices.find(name) != mDevices.end());
         const auto device = mDevices[name];
-        bool isRef = name.compare(kRefDeviceName) == 0;
 
         // Check if the device fully supports the graph.
         constexpr int kMaxNumberOperations = 1000;
@@ -225,29 +287,26 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
                                                                         1, supported),
                   ANEURALNETWORKS_NO_ERROR);
         if (!std::all_of(supported, supported + numOps, [](bool v) { return v; })) {
-            // The reference device should always support all operations.
-            ASSERT_FALSE(isRef);
             std::cout << "[          ]   SKIP: " << name << " does not support the graph.\n";
             return;
         }
 
-        // Since this test is introduced in Android Q, we only assert no compilation or execution
-        // failure if the device has feature level >= Q (API level 29). For pre-Q devices, we allow
-        // them to fail with OP_FAILED, but must not hang or crash.
+        // Since this test is introduced in Android Q, we only check the accuracy of output results
+        // if the device has feature level >= Q (API level 29). For pre-Q devices, we allow
+        // them to produce less accurate results, but must not hang or crash.
         int64_t featureLevel;
         ASSERT_EQ(ANeuralNetworksDevice_getFeatureLevel(device, &featureLevel),
                   ANEURALNETWORKS_NO_ERROR);
         if (shouldSkipTest(featureLevel)) return;
 
         // Create compilation for device.
-        CompilationForDevice compilation;
-        ASSERT_TRUE(compilation.initialize(model, device));
+        auto [result, compilation] = test_wrapper::Compilation::createForDevice(model, device);
+        ASSERT_EQ(result, Result::NO_ERROR);
         Result compileReturn = compilation.finish();
         // Even if the model is fully supported, the compilation may still fail, e.g. each operation
         // is supported, but model is too big (too many operations and/or too-large constants) for
         // device.
         if (compileReturn == Result::OP_FAILED) {
-            ASSERT_FALSE(isRef);
             std::cout << "[          ]   SKIP: " << name << " failed at compilation step.\n";
             return;
         }
@@ -255,12 +314,8 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
 
         // Create request.
         test_wrapper::Execution execution(&compilation);
-        std::vector<OperandBuffer> outputs;
-        if (isRef) {
-            mGraph.createRequest(&execution);
-        } else {
-            mGraph.createRequest(&execution, &outputs);
-        }
+        std::vector<TestBuffer> outputs;
+        generated_tests::createRequest(mTestModel, &execution, &outputs);
 
         // Compute result.
         Result executeReturn = execution.compute();
@@ -268,22 +323,26 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
         // still fail, e.g. there may be operand shapes that are unknown until execution time, and
         // at execution time turn out to be too big.
         if (executeReturn == Result::OP_FAILED) {
-            ASSERT_FALSE(isRef);
             std::cout << "[          ]   SKIP: " << name << " failed at execution step.\n";
             return;
         }
         ASSERT_EQ(executeReturn, Result::NO_ERROR);
-        if (featureLevel >= __ANDROID_API_Q__ && !isRef) {
-            mGraph.checkResults(outputs, mCriteria);
+
+        if (featureLevel >= __ANDROID_API_Q__) {
+            checkResults(mTestModel, outputs, mCriteria);
+            mResults.emplace_back(name, std::move(outputs));
         }
     }
 
     // Compile and execute the generated graph normally (i.e., allow runtime to
     // distribute across devices).
-    void computeAndVerifyResults(const test_wrapper::Model* model, bool checkResults) {
+    void computeAndVerifyResults(const std::string& name, const test_wrapper::Model* model,
+                                 bool shouldCheckResults) {
         // Because we're not using the introspection/control API, the CpuDevice
         // is available as a fallback, and hence we assume that compilation and
         // execution will succeed.
+        SCOPED_TRACE(name);
+        std::cout << "[          ] - RUN:  " << name << "\n";
 
         // Create compilation.
         test_wrapper::Compilation compilation(model);
@@ -291,43 +350,44 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
 
         // Create request.
         test_wrapper::Execution execution(&compilation);
-        std::vector<OperandBuffer> outputs;
-        mGraph.createRequest(&execution, &outputs);
+        std::vector<TestBuffer> outputs;
+        generated_tests::createRequest(mTestModel, &execution, &outputs);
 
         // Compute and verify result.
         ASSERT_EQ(execution.compute(), Result::NO_ERROR);
-        if (checkResults) {
-            mGraph.checkResults(outputs, mCriteria);
+        if (shouldCheckResults) {
+            checkResults(mTestModel, outputs, mCriteria);
+            mResults.emplace_back(name, std::move(outputs));
         }
     }
 
     // Main test entrance.
     void testRandomGraph(uint32_t numOperations, uint32_t dimensionRange) {
         // Generate a random graph.
-        ASSERT_TRUE(mGraph.generate(kSeed, numOperations, dimensionRange));
+        RandomGraph graph;
+        ASSERT_TRUE(graph.generate(kSeed, numOperations, dimensionRange));
 
         // Create a model from the random graph.
-        test_wrapper::Model model;
-        mGraph.createModel(&model);
+        mTestModel = graph.createTestModel();
+
+        generated_tests::GeneratedModel model;
+        generated_tests::createModel(mTestModel, &model);
         ASSERT_TRUE(model.isValid());
         ASSERT_EQ(model.finish(), Result::NO_ERROR);
 
-        // Compute reference result.
-        computeAndVerifyResultsForDevice(&model, numOperations, kRefDeviceName);
+        // Compute reference results.
+        computeGoldenResults();
 
         // Compute on each available device.
         for (auto& pair : mDevices) {
-            // Skip the nnapi reference device.
-            if (pair.first.compare(kRefDeviceName) == 0) continue;
             computeAndVerifyResultsForDevice(&model, numOperations, pair.first);
         }
 
         if (numOperations > 1) {
             if (!shouldSkipTest(mStandardDevicesFeatureLevel)) {
-                // Compute normally (i.e., allow runtime to distribute across
-                // devices).
-                SCOPED_TRACE("Compute normally");
-                computeAndVerifyResults(&model, mStandardDevicesFeatureLevel >= __ANDROID_API_Q__);
+                // Compute normally (i.e., allow runtime to distribute across devices).
+                computeAndVerifyResults("Compute normally", &model,
+                                        mStandardDevicesFeatureLevel >= __ANDROID_API_Q__);
             }
 
 #ifndef NNTEST_CTS
@@ -338,12 +398,22 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
                 // though some are of feature level < __ANDROID_API_Q__: In this
                 // case, we don't take feature level as an indication of
                 // reliability, as we do with real devices.
-                SCOPED_TRACE("Compute across synthetic devices");
                 DeviceManager::get()->forTest_setDevices(mSyntheticDevices);
-                computeAndVerifyResults(&model, true);
+                computeAndVerifyResults("Compute across synthetic devices", &model, true);
                 DeviceManager::get()->forTest_setDevices(mStandardDevices);
             }
 #endif
+        }
+    }
+
+    void dumpTestResults() {
+        std::ofstream os("/data/local/tmp/" + mTestName + ".mod.py");
+        ASSERT_TRUE(os.is_open());
+        os << "# Generated from " << mTestName << ". Do not edit.\n\n";
+        SpecDumper dumper(mTestModel, os);
+        dumper.dumpTestModel();
+        for (const auto& [name, results] : mResults) {
+            dumper.dumpResults(name, results);
         }
     }
 
@@ -352,12 +422,16 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
 
     static bool mEnableLog;
     static bool mDumpSpec;
+    static bool mDetectMemoryLeak;
     static std::map<std::string, ANeuralNetworksDevice*> mDevices;
 
     const uint32_t kSeed = GetParam();
     std::string mTestName;
-    RandomGraph mGraph;
+    TestModel mTestModel;
     AccuracyCriteria mCriteria;
+
+    // A vector of {name, output_results}.
+    std::vector<std::pair<std::string, std::vector<TestBuffer>>> mResults;
 
     static int64_t mStandardDevicesFeatureLevel;  // minimum across all devices
 #ifndef NNTEST_CTS
@@ -368,6 +442,7 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
 
 bool RandomGraphTest::mEnableLog = false;
 bool RandomGraphTest::mDumpSpec = false;
+bool RandomGraphTest::mDetectMemoryLeak = false;
 std::map<std::string, ANeuralNetworksDevice*> RandomGraphTest::mDevices;
 
 int64_t RandomGraphTest::mStandardDevicesFeatureLevel;
@@ -378,13 +453,13 @@ std::vector<std::shared_ptr<Device>> RandomGraphTest::mSyntheticDevices;
 
 // Single-op graph with dimensions in range [1, 1000].
 class SingleOperationTest : public RandomGraphTest {};
-#define TEST_SINGLE_OPERATION(operation, halVersion, criteria)              \
-    TEST_P(SingleOperationTest, operation##_##halVersion) {                 \
-        OperationFilter filter = {.opcodes = {ANEURALNETWORKS_##operation}, \
-                                  .versions = {HalVersion::halVersion}};    \
-        OperationManager::get()->applyFilter(filter);                       \
-        mCriteria = (criteria);                                             \
-        testRandomGraph(GraphSize::SINGLE, DimensionRange::WIDE);           \
+#define TEST_SINGLE_OPERATION(operation, halVersion, criteria)               \
+    TEST_P(SingleOperationTest, operation##_##halVersion) {                  \
+        OperationFilter filter = {.opcodes = {TestOperationType::operation}, \
+                                  .versions = {TestHalVersion::halVersion}}; \
+        OperationManager::get()->applyFilter(filter);                        \
+        mCriteria = (criteria);                                              \
+        testRandomGraph(GraphSize::SINGLE, DimensionRange::WIDE);            \
     }
 
 // TODO: Adjust the accuracy criteria based on testing.
@@ -395,37 +470,55 @@ class SingleOperationTest : public RandomGraphTest {};
 // Additionally, operations with only logical or comparison arithmetic also use this criteria, e.g.
 // EQUAL, ARGMAX, TOPK_V2.
 const AccuracyCriteria kStrictCriteria = {
-        .float32 = {.atol = 1e-6f, .rtol = 1e-6f, .bias = 1e-7f, .mse = 1e-10f},
-        .float16 = {.atol = 1e-3f, .rtol = 1e-3f, .bias = 1e-4f, .mse = 1e-8f},
+        .float32 = {.bias = 1e-7f, .mse = 1e-10f, .atol = 1e-6f, .rtol = 1e-6f},
+        .float16 = {.bias = 1e-4f, .mse = 1e-8f, .atol = 1e-3f, .rtol = 1e-3f},
         .int32 = {.atol = 1},
-        .quant8Asymm = {.atol = 1, .bias = 0.1f, .mse = 0.1f},
-        .quant8Symm = {.atol = 1, .bias = 0.1f, .mse = 0.1f},
-        .quant16Asymm = {.atol = 1, .bias = 0.1f, .mse = 0.1f},
-        .quant16Symm = {.atol = 1, .bias = 0.1f, .mse = 0.1f}};
+        .quant8Asymm = {.bias = 0.1f, .mse = 0.1f, .atol = 1},
+        .quant8AsymmSigned = {.bias = 0.1f, .mse = 0.1f, .atol = 1},
+        .quant8Symm = {.bias = 0.1f, .mse = 0.1f, .atol = 1},
+        .quant16Asymm = {.bias = 0.1f, .mse = 0.1f, .atol = 1},
+        .quant16Symm = {.bias = 0.1f, .mse = 0.1f, .atol = 1},
+};
 
 // This is for operations that only do simple and single computation on buffer values, such as
 // addition, multiplication, or requantization. Most of these operations fall into categories of
 // broadcast or elementwise, e.g ADD, FLOOR.
 const AccuracyCriteria kMediumCriteria = {
-        .float32 = {.atol = 1e-5f, .rtol = 1e-5f, .bias = 1e-6f, .mse = 1e-8f},
-        .float16 = {.atol = 1e-2f, .rtol = 1e-2f, .bias = 1e-3f, .mse = 1e-6f},
+        .float32 = {.bias = 1e-6f, .mse = 1e-8f, .atol = 1e-5f, .rtol = 1e-5f},
+        .float16 = {.bias = 1e-3f, .mse = 1e-5f, .atol = 1e-2f, .rtol = 1e-2f},
         .int32 = {.atol = 1},
-        .quant8Asymm = {.atol = 2, .bias = 0.5f, .mse = 0.5f},
-        .quant8Symm = {.atol = 2, .bias = 0.5f, .mse = 0.5f},
-        .quant16Asymm = {.atol = 2, .bias = 0.5f, .mse = 0.5f},
-        .quant16Symm = {.atol = 2, .bias = 0.5f, .mse = 0.5f}};
+        .quant8Asymm = {.bias = 1.2, .mse = 1.2, .atol = 2},
+        .quant8AsymmSigned = {.bias = 1.2, .mse = 1.2, .atol = 2},
+        .quant8Symm = {.bias = 1.2, .mse = 1.2, .atol = 2},
+        .quant16Asymm = {.bias = 1.2, .mse = 1.2, .atol = 2},
+        .quant16Symm = {.bias = 1.2, .mse = 1.2, .atol = 2},
+};
 
 // This is for operations that involve sophisticated computations on buffer values, either a single
 // but complex transformation, e.g. LOGISTIC, or multiple transformations with accumulated errors,
-// e.g. CONV_2D, REDUCE_*.
+// e.g. L2_NORMALIZATION, REDUCE_*.
 const AccuracyCriteria kRelaxedCriteria = {
-        .float32 = {.atol = 1e-3f, .rtol = 1e-3f, .bias = 2e-5f, .mse = 1e-7f},
-        .float16 = {.atol = 1.0f, .rtol = 1.0f, .bias = 5e-3f, .mse = 1e-4f},
+        .float32 = {.bias = 3e-5f, .mse = 1e-6f, .atol = 1e-3f, .rtol = 1e-3f},
+        .float16 = {.bias = 5e-3f, .mse = 1e-3f, .atol = 1.0f, .rtol = 1.0f},
         .int32 = {.atol = 1},
-        .quant8Asymm = {.atol = 10, .bias = 1.5, .mse = 1.5},
-        .quant8Symm = {.atol = 10, .bias = 1.5, .mse = 1.5},
-        .quant16Asymm = {.atol = 10, .bias = 1.5, .mse = 1.5},
-        .quant16Symm = {.atol = 10, .bias = 1.5, .mse = 1.5}};
+        .quant8Asymm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant8AsymmSigned = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant8Symm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant16Asymm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant16Symm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+};
+
+// This is for convolution operations with potentially large kernel size.
+const AccuracyCriteria kConvCriteria = {
+        .float32 = {.bias = 4e-4f, .mse = 1e-5f, .atol = 2e-2f, .rtol = 2e-2f},
+        .float16 = {.bias = 5e-2f, .mse = 1e-2f, .atol = 1.0f, .rtol = 1.0f},
+        .int32 = {.atol = 1},
+        .quant8Asymm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant8AsymmSigned = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant8Symm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant16Asymm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+        .quant16Symm = {.bias = 1.5, .mse = 1.5, .atol = 10},
+};
 
 /*-- NNAPI 1.0 Operations ---------------------------------------------------*/
 
@@ -449,8 +542,8 @@ TEST_SINGLE_OPERATION(LOCAL_RESPONSE_NORMALIZATION, V1_0, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(AVERAGE_POOL_2D, V1_0, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(L2_POOL_2D, V1_0, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(MAX_POOL_2D, V1_0, kRelaxedCriteria);
-TEST_SINGLE_OPERATION(CONV_2D, V1_0, kRelaxedCriteria);
-TEST_SINGLE_OPERATION(DEPTHWISE_CONV_2D, V1_0, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(CONV_2D, V1_0, kConvCriteria);
+TEST_SINGLE_OPERATION(DEPTHWISE_CONV_2D, V1_0, kConvCriteria);
 TEST_SINGLE_OPERATION(CONCATENATION, V1_0, kMediumCriteria);
 TEST_SINGLE_OPERATION(RESIZE_BILINEAR, V1_0, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(DEPTH_TO_SPACE, V1_0, kStrictCriteria);
@@ -495,8 +588,8 @@ TEST_SINGLE_OPERATION(RESHAPE, V1_2, kStrictCriteria);
 TEST_SINGLE_OPERATION(MEAN, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(PAD, V1_2, kStrictCriteria);
 TEST_SINGLE_OPERATION(TRANSPOSE, V1_2, kStrictCriteria);
-TEST_SINGLE_OPERATION(CONV_2D, V1_2, kRelaxedCriteria);
-TEST_SINGLE_OPERATION(DEPTHWISE_CONV_2D, V1_2, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(CONV_2D, V1_2, kConvCriteria);
+TEST_SINGLE_OPERATION(DEPTHWISE_CONV_2D, V1_2, kConvCriteria);
 TEST_SINGLE_OPERATION(AVERAGE_POOL_2D, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(L2_POOL_2D, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(MAX_POOL_2D, V1_2, kRelaxedCriteria);
@@ -507,6 +600,7 @@ TEST_SINGLE_OPERATION(LOCAL_RESPONSE_NORMALIZATION, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(DEQUANTIZE, V1_2, kMediumCriteria);
 TEST_SINGLE_OPERATION(SQUEEZE, V1_2, kStrictCriteria);
 TEST_SINGLE_OPERATION(STRIDED_SLICE, V1_2, kStrictCriteria);
+TEST_SINGLE_OPERATION(EMBEDDING_LOOKUP, V1_2, kStrictCriteria);
 
 /*-- NNAPI 1.2 Operations ---------------------------------------------------*/
 
@@ -553,8 +647,8 @@ TEST_SINGLE_OPERATION(REDUCE_SUM, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(CHANNEL_SHUFFLE, V1_2, kStrictCriteria);
 TEST_SINGLE_OPERATION(INSTANCE_NORMALIZATION, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(LOG_SOFTMAX, V1_2, kRelaxedCriteria);
-TEST_SINGLE_OPERATION(GROUPED_CONV_2D, V1_2, kRelaxedCriteria);
-TEST_SINGLE_OPERATION(TRANSPOSE_CONV_2D, V1_2, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(GROUPED_CONV_2D, V1_2, kConvCriteria);
+TEST_SINGLE_OPERATION(TRANSPOSE_CONV_2D, V1_2, kConvCriteria);
 TEST_SINGLE_OPERATION(RESIZE_NEAREST_NEIGHBOR, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(PAD_V2, V1_2, kStrictCriteria);
 TEST_SINGLE_OPERATION(QUANTIZE, V1_2, kMediumCriteria);
@@ -570,23 +664,103 @@ TEST_SINGLE_OPERATION(ROI_ALIGN, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(ROI_POOLING, V1_2, kRelaxedCriteria);
 TEST_SINGLE_OPERATION(HEATMAP_MAX_KEYPOINT, V1_2, kRelaxedCriteria);
 
+/*-- NNAPI 1.0, 1.1, and 1.2 Operations with Extended Behavior in 1.3 -------------*/
+
+TEST_SINGLE_OPERATION(ADD, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(AVERAGE_POOL_2D, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(CONCATENATION, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(CONV_2D, V1_3, kConvCriteria);
+TEST_SINGLE_OPERATION(DEPTHWISE_CONV_2D, V1_3, kConvCriteria);
+TEST_SINGLE_OPERATION(DEPTH_TO_SPACE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(DEQUANTIZE, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(EMBEDDING_LOOKUP, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(FULLY_CONNECTED, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(L2_NORMALIZATION, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(LOGISTIC, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(MAX_POOL_2D, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(MUL, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(RELU, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(RELU1, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(RELU6, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(RESHAPE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(RESIZE_BILINEAR, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(SOFTMAX, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(SPACE_TO_DEPTH, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(TANH, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(BATCH_TO_SPACE_ND, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(DIV, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(MEAN, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(PAD, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(SPACE_TO_BATCH_ND, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(SQUEEZE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(STRIDED_SLICE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(SUB, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(TRANSPOSE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(ABS, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(ARGMAX, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(ARGMIN, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(CAST, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(CHANNEL_SHUFFLE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(EQUAL, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(EXPAND_DIMS, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(GATHER, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(GREATER, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(GREATER_EQUAL, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(GROUPED_CONV_2D, V1_3, kConvCriteria);
+TEST_SINGLE_OPERATION(HEATMAP_MAX_KEYPOINT, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(LESS, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(LESS_EQUAL, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(MAXIMUM, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(MINIMUM, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(NOT_EQUAL, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(PAD_V2, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(PRELU, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(QUANTIZE, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(REDUCE_MAX, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(REDUCE_MIN, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(ROI_ALIGN, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(ROI_POOLING, V1_3, kRelaxedCriteria);
+TEST_SINGLE_OPERATION(SELECT, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(SLICE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(SPLIT, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(TILE, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(TOPK_V2, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(TRANSPOSE_CONV_2D, V1_3, kConvCriteria);
+TEST_SINGLE_OPERATION(RESIZE_NEAREST_NEIGHBOR, V1_3, kRelaxedCriteria);
+
+/*-- NNAPI 1.3 Operations ---------------------------------------------------*/
+
+// TODO: The following 1.3 operation signatures are currently not defined:
+// - ANEURALNETWORKS_QUANTIZED_LSTM
+// - ANEURALNETWORKS_IF
+// - ANEURALNETWORKS_WHILE
+
+TEST_SINGLE_OPERATION(ELU, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(HARD_SWISH, V1_3, kMediumCriteria);
+TEST_SINGLE_OPERATION(FILL, V1_3, kStrictCriteria);
+TEST_SINGLE_OPERATION(RANK, V1_3, kStrictCriteria);
+
 const AccuracyCriteria kSmallGraphCriteria = {
-        .float32 = {.atol = 1e-2f, .rtol = 1e-2f, .bias = 2e-5f, .mse = 1e-7f},
-        .float16 = {.atol = 1.0f, .rtol = 1.0f, .bias = 5e-3f, .mse = 1e-4f},
+        .float32 = {.bias = 4e-4f, .mse = 1e-5f, .atol = 1e-2f, .rtol = 1e-2f},
+        .float16 = {.bias = 5e-2f, .mse = 1e-2f, .atol = 1.0f, .rtol = 1.0f},
         .int32 = {.atol = 1},
-        .quant8Asymm = {.atol = 12, .bias = 2, .mse = 2},
-        .quant8Symm = {.atol = 12, .bias = 2, .mse = 2},
-        .quant16Asymm = {.atol = 12, .bias = 2, .mse = 2},
-        .quant16Symm = {.atol = 12, .bias = 2, .mse = 2}};
+        .quant8Asymm = {.bias = 2, .mse = 2, .atol = 12},
+        .quant8AsymmSigned = {.bias = 2, .mse = 2, .atol = 12},
+        .quant8Symm = {.bias = 2, .mse = 2, .atol = 12},
+        .quant16Asymm = {.bias = 2, .mse = 2, .atol = 12},
+        .quant16Symm = {.bias = 2, .mse = 2, .atol = 12},
+};
 
 const AccuracyCriteria kLargeGraphCriteria = {
-        .float32 = {.atol = 1e-1f, .rtol = 1e-1f, .bias = 1e-2f, .mse = 1e-4f},
-        .float16 = {.atol = 1.0f, .rtol = 1.0f, .bias = 1e-1f, .mse = 5e-2f},
+        .float32 = {.bias = 1e-2f, .mse = 1e-4f, .atol = 1e-1f, .rtol = 1e-1f},
+        .float16 = {.bias = 1e-1f, .mse = 5e-2f, .atol = 1.0f, .rtol = 1.0f},
         .int32 = {.atol = 1},
-        .quant8Asymm = {.atol = 12, .bias = 2, .mse = 2},
-        .quant8Symm = {.atol = 12, .bias = 2, .mse = 2},
-        .quant16Asymm = {.atol = 12, .bias = 2, .mse = 2},
-        .quant16Symm = {.atol = 12, .bias = 2, .mse = 2}};
+        .quant8Asymm = {.bias = 2, .mse = 2, .atol = 12},
+        .quant8AsymmSigned = {.bias = 2, .mse = 2, .atol = 12},
+        .quant8Symm = {.bias = 2, .mse = 2, .atol = 12},
+        .quant16Asymm = {.bias = 2, .mse = 2, .atol = 12},
+        .quant16Symm = {.bias = 2, .mse = 2, .atol = 12},
+};
 
 // Due to the limitation of the random graph generator, graphs generated with mixed-type or
 // mixed-rank operations are likely to result in a disconnected network. Thus, we filter the
@@ -597,18 +771,18 @@ const AccuracyCriteria kLargeGraphCriteria = {
 // * 5-op graph with dimensions in range [1, 1000].
 // * 40-op graph with dimensions in range [1, 10].
 //
-#define TEST_RANDOM_GRAPH_WITH_DATA_TYPE_AND_RANK(dataType, rank)                  \
-    TEST_P(RandomGraphTest, SmallGraph_##dataType##_Rank##rank) {                  \
-        OperationFilter filter = {.dataTypes = {Type::dataType}, .ranks = {rank}}; \
-        OperationManager::get()->applyFilter(filter);                              \
-        mCriteria = kSmallGraphCriteria;                                           \
-        testRandomGraph(GraphSize::SMALL, DimensionRange::WIDE);                   \
-    }                                                                              \
-    TEST_P(RandomGraphTest, LargeGraph_##dataType##_Rank##rank) {                  \
-        OperationFilter filter = {.dataTypes = {Type::dataType}, .ranks = {rank}}; \
-        OperationManager::get()->applyFilter(filter);                              \
-        mCriteria = kLargeGraphCriteria;                                           \
-        testRandomGraph(GraphSize::LARGE, DimensionRange::NARROW);                 \
+#define TEST_RANDOM_GRAPH_WITH_DATA_TYPE_AND_RANK(dataType, rank)                             \
+    TEST_P(RandomGraphTest, SmallGraph_##dataType##_Rank##rank) {                             \
+        OperationFilter filter = {.dataTypes = {TestOperandType::dataType}, .ranks = {rank}}; \
+        OperationManager::get()->applyFilter(filter);                                         \
+        mCriteria = kSmallGraphCriteria;                                                      \
+        testRandomGraph(GraphSize::SMALL, DimensionRange::WIDE);                              \
+    }                                                                                         \
+    TEST_P(RandomGraphTest, LargeGraph_##dataType##_Rank##rank) {                             \
+        OperationFilter filter = {.dataTypes = {TestOperandType::dataType}, .ranks = {rank}}; \
+        OperationManager::get()->applyFilter(filter);                                         \
+        mCriteria = kLargeGraphCriteria;                                                      \
+        testRandomGraph(GraphSize::LARGE, DimensionRange::NARROW);                            \
     }
 
 // Random graph test with TENSOR_QUANT8_ASYMM as the primary data type is currently not defined.
@@ -635,13 +809,8 @@ TEST_RANDOM_GRAPH_WITH_DATA_TYPE_AND_RANK(TENSOR_BOOL8, 3);
 TEST_RANDOM_GRAPH_WITH_DATA_TYPE_AND_RANK(TENSOR_BOOL8, 2);
 TEST_RANDOM_GRAPH_WITH_DATA_TYPE_AND_RANK(TENSOR_BOOL8, 1);
 
-#ifdef NNTEST_CTS
 INSTANTIATE_TEST_CASE_P(TestRandomGraph, SingleOperationTest, ::testing::Range(0u, 50u));
 INSTANTIATE_TEST_CASE_P(TestRandomGraph, RandomGraphTest, ::testing::Range(0u, 50u));
-#else
-INSTANTIATE_TEST_CASE_P(TestRandomGraph, SingleOperationTest, ::testing::Range(0u, 100u));
-INSTANTIATE_TEST_CASE_P(TestRandomGraph, RandomGraphTest, ::testing::Range(0u, 100u));
-#endif
 
 }  // namespace fuzzing_test
 }  // namespace nn

@@ -36,7 +36,7 @@ import java.util.List;
 
 public class BluetoothAvrcpFacade extends RpcReceiver {
     static final ParcelUuid[] AVRCP_UUIDS = {
-        BluetoothUuid.AvrcpTarget, BluetoothUuid.AvrcpController
+        BluetoothUuid.AVRCP_TARGET, BluetoothUuid.AVRCP_CONTROLLER
     };
     private final Service mService;
     private final BluetoothAdapter mBluetoothAdapter;

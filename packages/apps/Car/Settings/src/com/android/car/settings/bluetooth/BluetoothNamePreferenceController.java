@@ -69,8 +69,7 @@ public class BluetoothNamePreferenceController extends BluetoothPreferenceContro
 
     @Override
     protected void updateState(Preference preference) {
-        preference.setSelectable(!getCarUserManagerHelper().isCurrentProcessUserHasRestriction(
-                DISALLOW_CONFIG_BLUETOOTH));
+        preference.setSelectable(!getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH));
         preference.setSummary(BluetoothAdapter.getDefaultAdapter().getName());
     }
 

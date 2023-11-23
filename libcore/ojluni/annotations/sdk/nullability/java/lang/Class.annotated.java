@@ -141,9 +141,9 @@ public java.lang.reflect.@libcore.util.NonNull Constructor<?> @libcore.util.NonN
 
 @libcore.util.Nullable public java.io.InputStream getResourceAsStream(@libcore.util.NonNull java.lang.String name) { throw new RuntimeException("Stub!"); }
 
-public java.net.URL getResource(@libcore.util.NonNull java.lang.String name) { throw new RuntimeException("Stub!"); }
+@libcore.util.Nullable public java.net.URL getResource(@libcore.util.NonNull java.lang.String name) { throw new RuntimeException("Stub!"); }
 
-public java.security.ProtectionDomain getProtectionDomain() { throw new RuntimeException("Stub!"); }
+@libcore.util.Nullable public java.security.ProtectionDomain getProtectionDomain() { throw new RuntimeException("Stub!"); }
 
 public boolean desiredAssertionStatus() { throw new RuntimeException("Stub!"); }
 
@@ -156,7 +156,7 @@ public T @libcore.util.Nullable [] getEnumConstants() { throw new RuntimeExcepti
 
 @libcore.util.NonNull public <U> java.lang.Class<? extends U> asSubclass(@libcore.util.NonNull java.lang.Class<U> clazz) { throw new RuntimeException("Stub!"); }
 
-public <A extends java.lang.annotation.Annotation> A getAnnotation(@libcore.util.NonNull java.lang.Class<A> annotationClass) { throw new RuntimeException("Stub!"); }
+@libcore.util.Nullable public <A extends java.lang.annotation.Annotation> A getAnnotation(@libcore.util.NonNull java.lang.Class<A> annotationClass) { throw new RuntimeException("Stub!"); }
 
 public boolean isAnnotationPresent(@libcore.util.NonNull java.lang.Class<? extends java.lang.annotation.Annotation> annotationClass) { throw new RuntimeException("Stub!"); }
 

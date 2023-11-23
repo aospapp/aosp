@@ -20,6 +20,9 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
@@ -45,7 +48,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * Business logic for configuring and listening to the current TTS voice. This preference contorller
+ * Business logic for configuring and listening to the current TTS voice. This preference controller
  * handles the following:
  *
  * <ol>
@@ -65,7 +68,7 @@ public class TtsPlaybackPreferenceController extends
     @VisibleForTesting
     static final int GET_SAMPLE_TEXT = 2;
 
-    private final TtsEngines mEnginesHelper;
+    private TtsEngines mEnginesHelper;
     private TtsPlaybackSettingsManager mTtsPlaybackManager;
     private TextToSpeech mTts;
     private int mSelectedLocaleIndex;
@@ -78,13 +81,28 @@ public class TtsPlaybackPreferenceController extends
     private String mSampleText;
     private Locale mSampleTextLocale;
 
+    private Handler mUiHandler;
+    @VisibleForTesting
+    Handler mBackgroundHandler;
+    private HandlerThread mBackgroundHandlerThread;
+
     /** True if initialized with no errors. */
     private boolean mTtsInitialized = false;
 
     private final TextToSpeech.OnInitListener mOnInitListener = status -> {
         if (status == TextToSpeech.SUCCESS) {
             mTtsInitialized = true;
-            refreshUi();
+            mTtsPlaybackManager = new TtsPlaybackSettingsManager(getContext(), mTts,
+                    mEnginesHelper);
+            mTts.setSpeechRate(mTtsPlaybackManager.getCurrentSpeechRate()
+                    / TtsPlaybackSettingsManager.SCALING_FACTOR);
+            mTts.setPitch(mTtsPlaybackManager.getCurrentVoicePitch()
+                    / TtsPlaybackSettingsManager.SCALING_FACTOR);
+            startEngineVoiceDataCheck(mTts.getCurrentEngine());
+            mBackgroundHandler.post(() -> {
+                checkOrUpdateSampleText();
+                mUiHandler.post(this::refreshUi);
+            });
         }
     };
 
@@ -106,17 +124,21 @@ public class TtsPlaybackPreferenceController extends
         mVoicePitchPreference = initVoicePitchPreference();
         mResetPreference = initResetTtsPlaybackPreference();
 
+        mUiHandler = new Handler(Looper.getMainLooper());
+        mBackgroundHandlerThread = new HandlerThread(/* name= */"BackgroundHandlerThread");
+        mBackgroundHandlerThread.start();
+        mBackgroundHandler = new Handler(mBackgroundHandlerThread.getLooper());
+
         mTts = new TextToSpeech(getContext(), mOnInitListener);
-        mTtsPlaybackManager = new TtsPlaybackSettingsManager(getContext(), mTts, mEnginesHelper);
-        mTts.setSpeechRate(mTtsPlaybackManager.getCurrentSpeechRate()
-                / TtsPlaybackSettingsManager.SCALING_FACTOR);
-        mTts.setPitch(mTtsPlaybackManager.getCurrentVoicePitch()
-                / TtsPlaybackSettingsManager.SCALING_FACTOR);
-        startEngineVoiceDataCheck(mTts.getCurrentEngine());
     }
 
     @Override
     protected void onDestroyInternal() {
+        if (mBackgroundHandlerThread != null) {
+            mBackgroundHandlerThread.quit();
+            mBackgroundHandler = null;
+            mBackgroundHandlerThread = null;
+        }
         if (mTts != null) {
             mTts.shutdown();
             mTts = null;
@@ -128,6 +150,9 @@ public class TtsPlaybackPreferenceController extends
     protected void updateState(PreferenceGroup preference) {
         boolean isValid = isDefaultLocaleValid();
         mDefaultLanguagePreference.setEnabled(isValid);
+        // Always hide default language preference for now.
+        // TODO: Unhide once product requirements are clarified.
+        mDefaultLanguagePreference.setVisible(false);
         mSpeechRatePreference.setEnabled(isValid);
         mVoicePitchPreference.setEnabled(isValid);
         mResetPreference.setEnabled(isValid);
@@ -141,9 +166,10 @@ public class TtsPlaybackPreferenceController extends
                     mDefaultLanguagePreference.getEntries()[mSelectedLocaleIndex]);
         }
 
-        mSpeechRatePreference.setValue(mTtsPlaybackManager.getCurrentSpeechRate());
-        mVoicePitchPreference.setValue(mTtsPlaybackManager.getCurrentVoicePitch());
-        checkOrUpdateSampleText();
+        if (mTtsInitialized) {
+            mSpeechRatePreference.setValue(mTtsPlaybackManager.getCurrentSpeechRate());
+            mVoicePitchPreference.setValue(mTtsPlaybackManager.getCurrentVoicePitch());
+        }
     }
 
     @Override
@@ -223,15 +249,15 @@ public class TtsPlaybackPreferenceController extends
             refreshUi();
             return;
         }
-
         updateDefaultLanguagePreference(availableLangs);
-
         mSelectedLocaleIndex = findLocaleIndex(mTtsPlaybackManager.getStoredTtsLocale());
         if (mSelectedLocaleIndex < 0) {
             mSelectedLocaleIndex = 0;
         }
-        startGetSampleText();
-        refreshUi();
+        mBackgroundHandler.post(() -> {
+            startGetSampleText();
+            mUiHandler.post(this::refreshUi);
+        });
     }
 
     private void onSampleTextReceived(int resultCode, Intent data) {
@@ -259,6 +285,7 @@ public class TtsPlaybackPreferenceController extends
 
         if (mTtsPlaybackManager.updateTtsLocale(locale)) {
             mSelectedLocaleIndex = selectedLocaleIndex;
+            checkOrUpdateSampleText();
             refreshUi();
         } else {
             LOG.e("updateLanguageTo failed to update tts language");
@@ -275,9 +302,8 @@ public class TtsPlaybackPreferenceController extends
             return false;
         }
 
-        Locale defaultLocale = mTtsPlaybackManager.getEffectiveTtsLocale();
-        if (defaultLocale == null) {
-            LOG.e("Failed to get default language from engine " + mTts.getCurrentEngine());
+        if (mSampleTextLocale == null) {
+            LOG.e("Default language was not retrieved from engine " + mTts.getCurrentEngine());
             return false;
         }
 
@@ -285,11 +311,10 @@ public class TtsPlaybackPreferenceController extends
             return false;
         }
 
-        int index = mDefaultLanguagePreference.findIndexOfValue(defaultLocale.toString());
+        int index = mDefaultLanguagePreference.findIndexOfValue(mSampleTextLocale.toString());
         if (index < 0) {
             return false;
         }
-
         return true;
     }
 

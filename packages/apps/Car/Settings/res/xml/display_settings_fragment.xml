@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/display_settings">
+    android:title="@string/display_settings"
+    android:key="@string/psk_display_settings">
     <SwitchPreference
         android:key="@string/pk_adaptive_brightness_switch"
         android:summary="@string/auto_brightness_summary"

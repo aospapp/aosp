@@ -27,10 +27,10 @@ import com.android.tradefed.device.cloud.NestedDeviceStateMonitor;
 import com.android.tradefed.device.cloud.NestedRemoteDevice;
 import com.android.tradefed.device.cloud.RemoteAndroidVirtualDevice;
 import com.android.tradefed.device.cloud.VmRemoteDevice;
-import com.android.tradefed.invoker.RemoteInvocationExecution;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.SystemUtil;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -84,6 +84,13 @@ public class ManagedTestDeviceFactory implements IManagedTestDeviceFactory {
                             new DeviceStateMonitor(mDeviceManager, idevice, mFastbootEnabled),
                             mAllocationMonitor);
             testDevice.setDeviceState(TestDeviceState.NOT_AVAILABLE);
+        } else if (idevice instanceof StubLocalAndroidVirtualDevice) {
+            // Virtual device to be launched by TradeFed locally.
+            testDevice =
+                    new LocalAndroidVirtualDevice(
+                            idevice,
+                            new DeviceStateMonitor(mDeviceManager, idevice, mFastbootEnabled),
+                            mAllocationMonitor);
         } else if (idevice instanceof TcpDevice) {
             // Special device for Tcp device for custom handling.
             testDevice = new RemoteAndroidDevice(idevice,
@@ -123,7 +130,11 @@ public class ManagedTestDeviceFactory implements IManagedTestDeviceFactory {
         }
 
         if (idevice instanceof FastbootDevice) {
-            testDevice.setDeviceState(TestDeviceState.FASTBOOT);
+            if (((FastbootDevice) idevice).isFastbootD()) {
+                testDevice.setDeviceState(TestDeviceState.FASTBOOTD);
+            } else {
+                testDevice.setDeviceState(TestDeviceState.FASTBOOT);
+            }
         } else if (idevice instanceof StubDevice) {
             testDevice.setDeviceState(TestDeviceState.NOT_AVAILABLE);
         }
@@ -190,10 +201,7 @@ public class ManagedTestDeviceFactory implements IManagedTestDeviceFactory {
      */
     @VisibleForTesting
     protected boolean isRemoteEnvironment() {
-        if ("1".equals(System.getenv(RemoteInvocationExecution.REMOTE_VM_VARIABLE))) {
-            return true;
-        }
-        return false;
+        return SystemUtil.isRemoteEnvironment();
     }
 
     /** Create a {@link CollectingOutputReceiver}. */

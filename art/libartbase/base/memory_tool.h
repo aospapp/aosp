@@ -66,6 +66,26 @@ constexpr size_t kMemoryToolStackGuardSizeScale = 1;
 
 #endif
 
+#if __has_feature(hwaddress_sanitizer)
+# define HWADDRESS_SANITIZER
+// NB: The attribute also implies NO_INLINE. If inlined, the hwasan attribute would be lost.
+//     If method is also separately marked as ALWAYS_INLINE, the NO_INLINE takes precedence.
+# define ATTRIBUTE_NO_SANITIZE_HWADDRESS __attribute__((no_sanitize("hwaddress"), noinline))
+#else
+# define ATTRIBUTE_NO_SANITIZE_HWADDRESS
+#endif
+
+// Removes the hwasan tag from the pointer (the top eight bits).
+// Those bits are used for verification by hwasan and they are ignored by normal ARM memory ops.
+template<typename PtrType>
+static inline PtrType* HWASanUntag(PtrType* p) {
+#if __has_feature(hwaddress_sanitizer) && defined(__aarch64__)
+  return reinterpret_cast<PtrType*>(reinterpret_cast<uintptr_t>(p) & ((1ULL << 56) - 1));
+#else
+  return p;
+#endif
+}
+
 }  // namespace art
 
 #endif  // ART_LIBARTBASE_BASE_MEMORY_TOOL_H_

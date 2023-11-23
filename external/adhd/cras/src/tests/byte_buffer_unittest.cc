@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <gtest/gtest.h>
-
 #include "byte_buffer.h"
+
+#include <gtest/gtest.h>
 
 namespace {
 
 TEST(ByteBuffer, ReadWrite) {
-  struct byte_buffer *b;
-  uint8_t *data;
+  struct byte_buffer* b;
+  uint8_t* data;
   unsigned int data_size;
 
   b = byte_buffer_create(100);
@@ -18,16 +18,16 @@ TEST(ByteBuffer, ReadWrite) {
   EXPECT_EQ(0, buf_queued(b));
 
   data = buf_read_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(0, data_size);
 
   data = buf_write_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(100, data_size);
 
   buf_increment_write(b, 50);
   data = buf_read_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(50, data_size);
 
   buf_increment_read(b, 40);
@@ -36,20 +36,20 @@ TEST(ByteBuffer, ReadWrite) {
 
   /* Test write to the end of ring buffer. */
   data = buf_write_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(50, data_size);
 
   buf_increment_write(b, 50);
   data = buf_write_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(40, data_size);
 
   byte_buffer_destroy(&b);
 }
 
 TEST(ByteBuffer, SetUsedSizeReadWrite) {
-  struct byte_buffer *b;
-  uint8_t *data;
+  struct byte_buffer* b;
+  uint8_t* data;
   unsigned int data_size;
 
   b = byte_buffer_create(100);
@@ -61,12 +61,12 @@ TEST(ByteBuffer, SetUsedSizeReadWrite) {
   EXPECT_EQ(90, buf_available(b));
 
   data = buf_write_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(90, data_size);
 
   buf_increment_write(b, 90);
   data = buf_read_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(90, data_size);
 
   buf_increment_read(b, 50);
@@ -74,30 +74,30 @@ TEST(ByteBuffer, SetUsedSizeReadWrite) {
   EXPECT_EQ(40, buf_queued(b));
 
   data = buf_write_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(50, data_size);
 
   buf_increment_write(b, 50);
   data = buf_write_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(0, data_size);
 
   /* Test read to the end of ring buffer. */
   data = buf_read_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(40, data_size);
 
   buf_increment_read(b, 40);
   data = buf_read_pointer_size(b, &data_size);
-  EXPECT_NE((void *)NULL, data);
+  EXPECT_NE((void*)NULL, data);
   EXPECT_EQ(50, data_size);
 
   byte_buffer_destroy(&b);
 }
 
-} // namespace
+}  // namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

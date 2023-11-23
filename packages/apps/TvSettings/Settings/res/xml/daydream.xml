@@ -35,15 +35,6 @@
         android:entries="@array/sleep_timeout_entries"
         android:entryValues="@array/sleep_timeout_values" />
 
-    <com.android.tv.settings.device.display.daydream.DreamTimePreference
-        android:key="sleepTime"
-        android:persistent="true"
-        android:title="@string/device_daydreams_screen_off"
-        android:summary="@string/device_daydreams_sleep_summary"
-        android:dialogTitle="@string/device_daydreams_screen_off"
-        android:entries="@array/screen_off_timeout_entries"
-        android:entryValues="@array/screen_off_timeout_values" />
-
     <Preference
         android:key="dreamNow"
         android:persistent="true"

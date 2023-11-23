@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import re
 from threading import Timer
 
 from autotest_lib.client.common_lib import error
@@ -20,12 +19,6 @@ class firmware_ECPowerButton(FirmwareTest):
     LONG_WAKE_DELAY = 13
     SHORT_WAKE_DELAY = 7
 
-    # Short duration of holding down power button to power on
-    POWER_BUTTON_SHORT_POWER_ON_DURATION = 0.05
-
-    # Long duration of holding down power button to power on
-    POWER_BUTTON_LONG_POWER_ON_DURATION = 1
-
     # Duration of holding down power button to shut down with powerd
     POWER_BUTTON_POWERD_DURATION = 6
 
@@ -34,6 +27,12 @@ class firmware_ECPowerButton(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECPowerButton, self).initialize(host, cmdline_args)
+        # Short duration of holding down power button to power on
+        self.POWER_BUTTON_SHORT_POWER_ON_DURATION = max(
+                self.faft_config.hold_pwr_button_poweron, 0.05)
+        # Long duration of holding down power button to power on
+        self.POWER_BUTTON_LONG_POWER_ON_DURATION = max(
+                self.faft_config.hold_pwr_button_poweron, 1)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
 
@@ -67,6 +66,7 @@ class firmware_ECPowerButton(FirmwareTest):
               [wake_powerkey_duration]).start()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.check_ec_capability():
             raise error.TestNAError("Nothing needs to be tested on this device")
 

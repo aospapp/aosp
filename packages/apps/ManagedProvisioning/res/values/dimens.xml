@@ -34,6 +34,7 @@
 
     <!-- Buttons -->
     <dimen name="button_corner_radius">2dp</dimen>
+    <dimen name="car_button_height">56dp</dimen>
     <dimen name="button_text_size">14dp</dimen>
 
     <dimen name="row_height">72dp</dimen>
@@ -62,12 +63,15 @@
     <dimen name="spacer_20">20dp</dimen>
     <dimen name="spacer_24">24dp</dimen>
     <dimen name="spacer_32">32dp</dimen>
+    <dimen name="spacer_36">36dp</dimen>
     <dimen name="spacer_40">40dp</dimen>
     <dimen name="spacer_60">60dp</dimen>
     <dimen name="spacer_64">64dp</dimen>
     <dimen name="spacer_112">112dp</dimen>
 
     <!-- Pre-provisioning -->
+    <dimen name="car_primary_icon_size">44dp</dimen>
+
     <dimen name="info_text_title_size">24sp</dimen>
 
     <dimen name="intro_button_width">208dp</dimen>
@@ -79,6 +83,8 @@
 
     <dimen name="terms_screen_margin">@dimen/spacer_0</dimen>
     <dimen name="terms_screen_padding">@dimen/spacer_0</dimen>
+
+    <dimen name="car_avatar_icon_size">56dp</dimen>
 
     <!-- Provisioning -->
     <dimen name="animation_height">162dp</dimen>

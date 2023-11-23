@@ -28,7 +28,7 @@ package sun.security.action;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class GetBooleanAction implements java.security.PrivilegedAction<java.lang.Boolean> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public GetBooleanAction(java.lang.String theProp) {
         throw new RuntimeException("Stub!");
     }

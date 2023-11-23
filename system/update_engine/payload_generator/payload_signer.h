@@ -91,7 +91,7 @@ class PayloadSigner {
   //
   // The changes to payload are not preserved or written to disk.
   static bool HashPayloadForSigning(const std::string& payload_path,
-                                    const std::vector<int>& signature_sizes,
+                                    const std::vector<size_t>& signature_sizes,
                                     brillo::Blob* out_payload_hash_data,
                                     brillo::Blob* out_metadata_hash);
 
@@ -105,6 +105,7 @@ class PayloadSigner {
   // otherwise.
   static bool AddSignatureToPayload(
       const std::string& payload_path,
+      const std::vector<size_t>& padded_signature_sizes,
       const std::vector<brillo::Blob>& payload_signatures,
       const std::vector<brillo::Blob>& metadata_signatures,
       const std::string& signed_payload_path,
@@ -121,6 +122,13 @@ class PayloadSigner {
 
   static bool ExtractPayloadProperties(const std::string& payload_path,
                                        brillo::KeyValueStore* properties);
+
+  // This function calculates the maximum size, in bytes, of a signature signed
+  // by private_key_path. For an RSA key, this returns the number of bytes
+  // needed to represent the modulus. For an EC key, this returns the maximum
+  // size of a DER-encoded ECDSA signature.
+  static bool GetMaximumSignatureSize(const std::string& private_key_path,
+                                      size_t* signature_size);
 
  private:
   // This should never be constructed

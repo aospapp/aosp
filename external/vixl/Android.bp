@@ -51,10 +51,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+package {
+    default_visibility: ["//visibility:private"],
+}
+
 cc_defaults {
     name: "vixl-common",
     host_supported: true,
-    srcs: ["src/*.cc"],
     clang_cflags: ["-Wimplicit-fallthrough"],
     cflags: [
         "-Wall",
@@ -66,16 +69,23 @@ cc_defaults {
         "-fdiagnostics-show-option",
         "-Wredundant-decls",
         "-Wunreachable-code",
-        "-Wmissing-noreturn",
         "-pedantic",
 
         // Explicitly enable the write-strings warning. VIXL uses
         // const correctly when handling string constants.
         "-Wwrite-strings",
 
+        // Explicitly disable 'missing-return' warnings because a lot of them are false positive.
+        // VIXL often creates stubs and compile-time configurations with things like
+        // VIXL_UNIMPLEMENTED(). Properly satisfying -Wmissing-noreturn requires that functions are
+        // annotated at their _declarations_, which means #ifdefs in header files.
+        // Conditional compilation in headers can result in incorrect behaviour when
+        // libvixl.so is built with different flags than the code using it. Disabling this
+        // warning allows VIXL to simplify the headers, and should make VIXL more robust.
+        "-Wno-missing-noreturn",
+
         "-DVIXL_CODE_BUFFER_MALLOC",
     ],
-    local_include_dirs: ["src"],
     native_coverage: false,
     sanitize: {
         recover: ["shift-exponent"],
@@ -105,7 +115,7 @@ art_cc_defaults {
                 "-DVIXL_INCLUDE_SIMULATOR_AARCH64",
                 "-DVIXL_INCLUDE_TARGET_A64",
             ],
-        }
+        },
     },
 }
 
@@ -129,9 +139,22 @@ cc_defaults {
     ],
 }
 
+libvixl_visibility = [
+    "//art:__subpackages__",
+]
+
+// Defaults for the libvixl[d] libraries
+cc_defaults {
+    name: "libvixl-defaults",
+    srcs: ["src/*.cc"],
+    export_include_dirs: ["src"],
+}
+
 art_cc_library {
     name: "libvixl",
+    visibility: libvixl_visibility,
     defaults: [
+        "libvixl-defaults",
         "vixl-release",
         "vixl-arm",
         "vixl-arm64",
@@ -141,18 +164,30 @@ art_cc_library {
     target: {
         android: {
             lto: {
-                 thin: true,
+                thin: true,
             },
         },
     },
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 art_cc_library {
     name: "libvixld",
+    visibility: libvixl_visibility,
     defaults: [
+        "libvixl-defaults",
         "vixl-debug",
         "vixl-arm",
         "vixl-arm64",
+    ],
+
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
     ],
 }
 
@@ -164,12 +199,21 @@ art_cc_library {
 cc_test_host {
     name: "vixl-test-runner",
     gtest: false,
-    defaults: ["vixl-debug", "vixl-arm", "vixl-arm64"],
-    local_include_dirs: ["test"],
+    defaults: [
+        "vixl-debug",
+        "vixl-arm",
+        "vixl-arm64",
+    ],
+    local_include_dirs: [
+        "test",
+    ],
     srcs: [
         "test/*.cc",
         "test/aarch32/*.cc",
         "test/aarch64/*.cc",
+    ],
+    static_libs: [
+        "libvixld",
     ],
     data: [
         "test/test-trace-reference/*",

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2019 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="default_device_name" msgid="405493967512651629">"Dispos. associado"</string>
+    <string name="add_device_title" msgid="6166003577845888151">"Adicionar dispositivo associado"</string>
+    <string name="add_associated_device_title" msgid="3275596124326477381">"Ligue um dispositivo associado"</string>
+    <string name="add_associated_device_instruction" msgid="1015406964657139291">"Pode utilizar o telemóvel como dispositivo associado para ajudar a gerir a experiência de condução."</string>
+    <string name="associated_device_install_app" msgid="981663561198924864">"Garanta que tem a "<b>"app associada"</b>" instalada no telemóvel."</string>
+    <string name="associated_device_pairing_code_title" msgid="5118861901337336309">"Confirme o código no telemóvel"</string>
+    <string name="associated_device_pairing_message" msgid="7319249426394299109">"Confirme se este código corresponde ao código apresentado no seu telemóvel."</string>
+    <string name="associated_device_success" msgid="584760065696870256">"O dispositivo foi associado com êxito."</string>
+    <string name="associated_device_select_device" msgid="1931869046289060602">"Abra a app e ligue a &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;b&gt;"</string>
+    <string name="remove_associated_device_title" msgid="4060806982019423895">"Pretende esquecer &lt;b&gt;<xliff:g id="CAR_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
+    <string name="remove_associated_device_message" msgid="3991333597951462900">"Este carro deixará de estar sincronizado com este dispositivo. Terá ainda de remover este carro da app associada."</string>
+    <string name="device_removed_success_toast_text" msgid="3242832156490823936">"<xliff:g id="PHONE_NAME">%1$s</xliff:g> esquecido."</string>
+    <string name="device_removed_failure_toast_text" msgid="3756625943664982395">"Falha ao esquecer <xliff:g id="PHONE_NAME">%1$s</xliff:g>."</string>
+    <string name="continue_setup_toast_text" msgid="8487187853051037413">"Continue a configuração no telemóvel."</string>
+    <string name="error_screen_title" msgid="3977744142045194903">"Ocorreu um erro"</string>
+    <string name="error_screen_message" msgid="1217200461704367056">"Infelizmente, não foi possível apresentar este ecrã corretamente. Tente novamente."</string>
+    <string name="turn_on_bluetooth_title" msgid="2877749869113938263">"Ative o Bluetooth"</string>
+    <string name="turn_on_bluetooth_message" msgid="5087006108685547788">"Para configurar o telemóvel como dispositivo associado, o seu carro precisa do Bluetooth."</string>
+    <string name="turn_on_bluetooth_dialog_title" msgid="8693712073791430461">"Pretende ativar o Bluetooth?"</string>
+    <string name="turn_on_bluetooth_dialog_message" msgid="5347157597209022072">"Para ligar ao dispositivo associado, o seu carro precisa do Bluetooth."</string>
+    <string name="accept" msgid="1454710793329618813">"Aceitar"</string>
+    <string name="reject" msgid="4315432282758892890">"Rejeitar"</string>
+    <string name="confirm" msgid="3748997214719276945">"Confirmar"</string>
+    <string name="cancel" msgid="4306609731174629323">"Cancelar"</string>
+    <string name="remove" msgid="5513398257088729188">"Remover"</string>
+    <string name="ok" msgid="2825038997730899083">"OK"</string>
+    <string name="connection" msgid="2798490936433656846">"Ligação"</string>
+    <string name="forget_title" msgid="3027608547243824729">"Esquecer este dispositivo"</string>
+    <string name="forget" msgid="2069897665699141222">"Esquecer"</string>
+    <string name="disable" msgid="4619854429066283970">"Desativar"</string>
+    <string name="enable" msgid="7656386199154111316">"Ativar"</string>
+    <string name="continue_button" msgid="2748318968566159950">"Continuar"</string>
+    <string name="retry" msgid="3783419451480721367">"Tentar novamente"</string>
+    <string name="turn_on" msgid="4288754850470994812">"Ativar"</string>
+    <string name="not_now" msgid="8764692269093707622">"Agora não"</string>
+    <string name="connected" msgid="8051190714042020471">"Ligado"</string>
+    <string name="notDetected" msgid="4115229772085594506">"Não detetado"</string>
+    <string name="disconnected" msgid="8526513868622591894">"Desligado"</string>
+    <string name="unknown" msgid="555736316465118024">"Desconhecido"</string>
+    <string name="app_running_msg_channel_name" msgid="87011783084544733">"Serviço de mensagens de texto do telemóvel em execução"</string>
+    <string name="app_running_msg_notification_title" msgid="388907180286994900">"Serviço de mensagens de texto do telemóvel ativo."</string>
+    <string name="app_running_msg_notification_content" msgid="4602261901969140233">"A receber mensagens de texto através do dispositivo associado."</string>
+    <string name="trusted_device_feature_title" msgid="2690568414493283969">"Desbloqueie o perfil com o telemóvel"</string>
+    <string name="trusted_device_feature_instruction" msgid="2546439818978826962">"Verifique a sua app associada para definir opções de desbloqueio."</string>
+    <string name="trusted_device_item_title" msgid="4390572381407233745">"Permitir que o telemóvel &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; desbloqueie o meu perfil"</string>
+    <string name="device_not_connected_dialog_title" msgid="1157155922752758658">"O seu telemóvel tem de estar ativamente ligado"</string>
+    <string name="device_not_connected_dialog_message" msgid="4987412656697205324">"Para ativar esta funcionalidade, certifique-se de que o carro e o telemóvel têm o Bluetooth ativado e estão próximos um do outro."</string>
+    <string name="trusted_device_enrollment_success_message" msgid="2080578779942302923">"O telemóvel &lt;b&gt;<xliff:g id="PHONE_NAME">%1$s</xliff:g>&lt;/b&gt; já pode desbloquear o seu perfil."</string>
+    <string name="create_profile_lock_dialog_title" msgid="7865225698595414341">"Crie um bloqueio do perfil principal"</string>
+    <string name="create_profile_lock_dialog_message" msgid="5078929325894045416">"Para utilizar o telemóvel para desbloquear o seu perfil, precisa de um bloqueio do perfil principal como alternativa."</string>
+    <string name="unlock_profile_to_finish_title" msgid="6542028315996392302">"Desbloqueie o seu perfil para terminar"</string>
+    <string name="unlock_profile_to_finish_message" msgid="8616094218201557262">"Criou um novo bloqueio do perfil. Em seguida, introduza-o outra vez para confirmar que o telemóvel pode desbloquear o seu perfil automaticamente."</string>
+    <string name="disable_device_connection_text" msgid="4361795552013963732">"Desligue este dispositivo"</string>
+    <string name="enable_device_connection_text" msgid="7742550392552935783">"Volte a ligar este dispositivo"</string>
+    <string name="trusted_device_notification_channel_name" msgid="6717174570621750321">"Desbloquear com o telemóvel"</string>
+    <string name="trusted_device_notification_title" msgid="249913439061543209">"Permita que o telemóvel desbloqueie o seu perfil"</string>
+    <string name="trusted_device_notification_content" msgid="7536321078698712456">"Toque aqui para autorizar esta funcionalidade."</string>
+    <string name="trusted_device_enrollment_error_dialog_title" msgid="8120284275374458606">"Ocorreu um erro"</string>
+    <string name="trusted_device_enrollment_error_dialog_message" msgid="7205036748277720461">"Infelizmente, não foi possível ativar esta funcionalidade neste momento. Tente novamente."</string>
+    <string name="create_phone_lock_dialog_title" msgid="9160142569534569820">"Crie um bloqueio de ecrã no telemóvel"</string>
+    <string name="create_phone_lock_dialog_message" msgid="8209460622086922427">"O seu telemóvel não tem um bloqueio de ecrã definido. Para desbloquear o perfil do seu carro com o telemóvel, crie primeiro um bloqueio de ecrã (também conhecido como código secreto) nas definições do telemóvel."</string>
+</resources>

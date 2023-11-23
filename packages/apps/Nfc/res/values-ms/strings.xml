@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Buka pautan"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"Ralat baca NFC. Cuba lagi."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"Tiada aplikasi yang disokong untuk Teg NFC ini"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC mungkin disekat"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"Ketik untuk mengetahui cara membetulkan perkara ini."</string>
 </resources>

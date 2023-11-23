@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -44,9 +44,12 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         'peripheral': LE_PROFILE
     }
 
+    # Class of device/service. This can be generated using
+    # http://bluetooth-pentest.narod.ru/software/bluetooth_class_of_device-service_generator.html
+
     PROFILE_CLASS = {
-        'computer': 0x000104,
-        'peripheral': None
+        'computer': 0x000104, # Desktop computer.
+        'peripheral': 0x000504 # Keyboard.
     }
 
     PROFILE_NAMES = {
@@ -81,15 +84,19 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         profile_class = self.PROFILE_CLASS[profile]
         (profile_name, profile_short_name) = self.PROFILE_NAMES[profile]
 
+        # b:144864466 In this class's functions, we create local sockets, as
+        # stale socket can result in memory allocation error
+        _control = bluetooth_socket.BluetoothControlSocket()
+
         # Make sure the controller actually exists.
-        if self.index not in self._control.read_index_list():
+        if self.index not in _control.read_index_list():
             logging.warning('Bluetooth Controller missing on tester')
             return False
 
         # Make sure all of the settings are supported by the controller.
         ( address, bluetooth_version, manufacturer_id,
           supported_settings, current_settings, class_of_device,
-          name, short_name ) = self._control.read_info(self.index)
+          name, short_name ) = _control.read_info(self.index)
         if profile_settings & supported_settings != profile_settings:
             logging.warning('Controller does not support requested settings')
             logging.debug('Supported: %b; Requested: %b', supported_settings,
@@ -98,14 +105,14 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
         # The high 8 bits of class_of_device is part of Class of Service field
         # which are not actually updated in kernel with
-        # self._control.set_device_class() below due to a bug in kernel
+        # _control.set_device_class() below due to a bug in kernel
         # mgmt.c: set_dev_class(). Hence, we should keep these bits in
         # profile_class to make the test setup correctly.
         # Refer to this link about Class of Device/Service bits.
         #   https://www.bluetooth.com/specifications/assigned-numbers/baseband
         # Since the class of device is used as an indication only and is not
         # practically useful in autotest, the service class bits are just
-        # copied from previous self._control.read_info() request.
+        # copied from previous _control.read_info() request.
         # Refer to Bluetooth Spec. 4.2, "Vol 3, Part C, 3.2.4.4 Usage" about
         # why it is not actually important.
         # Refer to "Vol 2. Part E, 7.3.26 Write Class of Device Command" about
@@ -117,10 +124,19 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         profile_class = ((class_of_device & 0xFF0000) |
                          (profile_class & 0x00FFFF))
 
+        # Class of Device/Service is set to 0 when only LE is enabled and it is
+        # set when BR_EDR is enabled . So the first byte of class_of_device will
+        # differ when adapter is changed from LE only to BR_EDR + LE.
+        # Ignore difference in first byte of class_of_device if that is the case
+        # Check if we are changing from LE to BREDR
+        le_to_bredr = bool((current_settings & bluetooth_socket.MGMT_SETTING_LE)
+                           and (profile_settings
+                                & bluetooth_socket.MGMT_SETTING_BREDR))
+
         # Before beginning, force the adapter power off, even if it's already
         # off; this is enough to persuade an AP-mode Intel chip to accept
         # settings.
-        if not self._control.set_powered(self.index, False):
+        if not _control.set_powered(self.index, False):
             logging.warning('Failed to power off adapter to accept settings')
             return False
 
@@ -131,45 +147,45 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         # off.
         turn_on = (current_settings ^ profile_settings) & profile_settings
         if turn_on & bluetooth_socket.MGMT_SETTING_BREDR:
-            if self._control.set_bredr(self.index, True) is None:
+            if _control.set_bredr(self.index, True) is None:
                 logging.warning('Failed to enable BR/EDR')
                 return False
         if turn_on & bluetooth_socket.MGMT_SETTING_LE:
-            if self._control.set_le(self.index, True) is None:
+            if _control.set_le(self.index, True) is None:
                 logging.warning('Failed to enable LE')
                 return False
 
         turn_off = (current_settings ^ profile_settings) & current_settings
         if turn_off & bluetooth_socket.MGMT_SETTING_BREDR:
-            if self._control.set_bredr(self.index, False) is None:
+            if _control.set_bredr(self.index, False) is None:
                 logging.warning('Failed to disable BR/EDR')
                 return False
         if turn_off & bluetooth_socket.MGMT_SETTING_LE:
-            if self._control.set_le(self.index, False) is None:
+            if _control.set_le(self.index, False) is None:
                 logging.warning('Failed to disable LE')
                 return False
         if turn_off & bluetooth_socket.MGMT_SETTING_SECURE_CONNECTIONS:
-            if self._control.set_secure_connections(self.index, False) is None:
+            if _control.set_secure_connections(self.index, False) is None:
                 logging.warning('Failed to disable secure connections')
                 return False
 
         # Adjust settings that are BR/EDR specific that we need to set before
         # powering on the adapter, and would be rejected otherwise.
         if profile_settings & bluetooth_socket.MGMT_SETTING_BREDR:
-            if (self._control.set_link_security(
+            if (_control.set_link_security(
                     self.index,
                     (profile_settings &
                             bluetooth_socket.MGMT_SETTING_LINK_SECURITY))
                         is None):
                 logging.warning('Failed to set link security setting')
                 return False
-            if (self._control.set_ssp(
+            if (_control.set_ssp(
                     self.index,
                     profile_settings & bluetooth_socket.MGMT_SETTING_SSP)
                         is None):
                 logging.warning('Failed to set SSP setting')
                 return False
-            if (self._control.set_hs(
+            if (_control.set_hs(
                     self.index,
                     profile_settings & bluetooth_socket.MGMT_SETTING_HS)
                         is None):
@@ -182,7 +198,7 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
             # one day.
             major_class = (profile_class & 0x00ff00) >> 8
             minor_class = profile_class & 0x0000ff
-            if (self._control.set_device_class(
+            if (_control.set_device_class(
                     self.index, major_class, minor_class)
                         is None):
                 logging.warning('Failed to set device class')
@@ -190,20 +206,20 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
         # Setup generic settings that apply to either BR/EDR, LE or dual-mode
         # that still require the power to be off.
-        if (self._control.set_connectable(
+        if (_control.set_connectable(
                 self.index,
                 profile_settings & bluetooth_socket.MGMT_SETTING_CONNECTABLE)
                     is None):
             logging.warning('Failed to set connectable setting')
             return False
-        if (self._control.set_pairable(
+        if (_control.set_pairable(
                 self.index,
                 profile_settings & bluetooth_socket.MGMT_SETTING_PAIRABLE)
                     is None):
             logging.warning('Failed to set pairable setting')
             return False
 
-        if (self._control.set_local_name(
+        if (_control.set_local_name(
                     self.index, profile_name, profile_short_name)
                     is None):
             logging.warning('Failed to set local name')
@@ -215,7 +231,7 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
             logging.debug('Set discoverable to %x ',
                           profile_settings &
                           bluetooth_socket.MGMT_SETTING_DISCOVERABLE)
-            if self._control.set_discoverable(
+            if _control.set_discoverable(
                    self.index,
                    profile_settings &
                    bluetooth_socket.MGMT_SETTING_DISCOVERABLE) is None:
@@ -223,7 +239,7 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
                 return False
 
         # Now the settings have been set, power up the adapter.
-        if not self._control.set_powered(
+        if not _control.set_powered(
                 self.index,
                 profile_settings & bluetooth_socket.MGMT_SETTING_POWERED):
             logging.warning('Failed to set powered setting')
@@ -235,11 +251,11 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
             # Wait for the device class set event, this happens after the
             # power up "command complete" event when we've pre-set the class
             # even though it's a side-effect of doing that.
-            self._control.wait_for_events(
+            _control.wait_for_events(
                     self.index,
                     ( bluetooth_socket.MGMT_EV_CLASS_OF_DEV_CHANGED, ))
 
-            if (self._control.set_fast_connectable(
+            if (_control.set_fast_connectable(
                     self.index,
                     profile_settings &
                     bluetooth_socket.MGMT_SETTING_FAST_CONNECTABLE)
@@ -251,7 +267,7 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         # including the BR/EDR flag.
         ( address, bluetooth_version, manufacturer_id,
           supported_settings, current_settings, class_of_device,
-          name, short_name ) = self._control.read_info(self.index)
+          name, short_name ) = _control.read_info(self.index)
 
         # Check generic settings.
         if profile_settings != current_settings:
@@ -271,10 +287,16 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         if profile_settings & bluetooth_socket.MGMT_SETTING_BREDR:
             if class_of_device != profile_class:
                 if class_of_device & 0x00ffff == profile_class & 0x00ffff:
-                    logging.warning('Class of device matched that set, but '
-                                    'Service Class field did not: %x != %x '
-                                    'Reboot Tester? ',
-                                    class_of_device, profile_class)
+                    if not le_to_bredr:
+                        logging.warning('Class of device matched that set, but '
+                                        'Service Class field did not: %x != %x '
+                                        'Reboot Tester? ',
+                                        class_of_device, profile_class)
+                    else:
+                        logging.debug('Service Class field differs but it is'
+                                      'expected since adapter changed from'
+                                      'LE only to BR/EDR')
+                        return True
                 else:
                     logging.warning('Class of device did not match that set: '
                                     '%x != %x', class_of_device, profile_class)
@@ -294,8 +316,9 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         @return True on success, False otherwise.
 
         """
-        settings = self._control.set_discoverable(self.index,
-                                                  discoverable, timeout)
+
+        _control = bluetooth_socket.BluetoothControlSocket()
+        settings = _control.set_discoverable(self.index, discoverable, timeout)
         return settings & bluetooth_socket.MGMT_SETTING_DISCOVERABLE
 
 
@@ -308,7 +331,9 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
             name, short_name )
 
         """
-        return json.dumps(self._control.read_info(self.index))
+
+        _control = bluetooth_socket.BluetoothControlSocket()
+        return json.dumps(_control.read_info(self.index))
 
 
     def set_advertising(self, advertising):
@@ -319,7 +344,9 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         @return True on success, False otherwise.
 
         """
-        settings = self._control.set_advertising(self.index, advertising)
+
+        _control = bluetooth_socket.BluetoothControlSocket()
+        settings = _control.set_advertising(self.index, advertising)
         return settings & bluetooth_socket.MGMT_SETTING_ADVERTISING
 
 
@@ -346,13 +373,14 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         if le_random:
             address_type |= 0x4
 
-        set_type = self._control.start_discovery(self.index, address_type)
+        _control = bluetooth_socket.BluetoothControlSocket()
+        set_type = _control.start_discovery(self.index, address_type)
         if set_type != address_type:
             logging.warning('Discovery address type did not match that set: '
                             '%x != %x', set_type, address_type)
             return False
 
-        devices = self._control.get_discovered_devices(self.index)
+        devices = _control.get_discovered_devices(self.index)
         return json.dumps([
                 (address, address_type, rssi, flags,
                  base64.encodestring(eirdata))

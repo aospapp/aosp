@@ -157,7 +157,9 @@ abstract class AbstractLoginNotImportantForAutofillTestCase<A extends
         final AugmentedFillRequest request = sAugmentedReplier.getNextFillRequest();
 
         // Assert request
-        assertBasicRequestInfo(request, mActivity, usernameId, expectedFocusedValue);
+        // No inline request because didn't focus on any view.
+        assertBasicRequestInfo(request, mActivity, usernameId, expectedFocusedValue,
+                /* hasInlineRequest */ false);
 
         // Make sure standard Autofill UI is not shown.
         mUiBot.assertNoDatasetsEver();

@@ -9,17 +9,128 @@
 #include "includes.h"
 
 #include "common.h"
+#include "utils/wpabuf.h"
 #include "asn1.h"
 
-struct asn1_oid asn1_sha1_oid = {
+const struct asn1_oid asn1_sha1_oid = {
 	.oid = { 1, 3, 14, 3, 2, 26 },
 	.len = 6
 };
 
-struct asn1_oid asn1_sha256_oid = {
+const struct asn1_oid asn1_sha256_oid = {
 	.oid = { 2, 16, 840, 1, 101, 3, 4, 2, 1 },
 	.len = 9
 };
+
+const struct asn1_oid asn1_ec_public_key_oid = {
+	.oid = { 1, 2, 840, 10045, 2, 1 },
+	.len = 6
+};
+
+const struct asn1_oid asn1_prime256v1_oid = {
+	.oid = { 1, 2, 840, 10045, 3, 1, 7 },
+	.len = 7
+};
+
+const struct asn1_oid asn1_secp384r1_oid = {
+	.oid = { 1, 3, 132, 0, 34 },
+	.len = 5
+};
+
+const struct asn1_oid asn1_secp521r1_oid = {
+	.oid = { 1, 3, 132, 0, 35 },
+	.len = 5
+};
+
+const struct asn1_oid asn1_brainpoolP256r1_oid = {
+	.oid = { 1, 3, 36, 3, 3, 2, 8, 1, 1, 7 },
+	.len = 10
+};
+
+const struct asn1_oid asn1_brainpoolP384r1_oid = {
+	.oid = { 1, 3, 36, 3, 3, 2, 8, 1, 1, 11 },
+	.len = 10
+};
+
+const struct asn1_oid asn1_brainpoolP512r1_oid = {
+	.oid = { 1, 3, 36, 3, 3, 2, 8, 1, 1, 13 },
+	.len = 10
+};
+
+const struct asn1_oid asn1_aes_siv_cmac_aead_256_oid = {
+	.oid = { 1, 2, 840, 113549, 1, 9, 16, 3, 22 },
+	.len = 9
+};
+
+const struct asn1_oid asn1_aes_siv_cmac_aead_384_oid = {
+	.oid = { 1, 2, 840, 113549, 1, 9, 16, 3, 23 },
+	.len = 9
+};
+
+const struct asn1_oid asn1_aes_siv_cmac_aead_512_oid = {
+	.oid = { 1, 2, 840, 113549, 1, 9, 16, 3, 24 },
+	.len = 9
+};
+
+const struct asn1_oid asn1_pbkdf2_oid = {
+	.oid = { 1, 2, 840, 113549, 1, 5, 12 },
+	.len = 7
+};
+
+const struct asn1_oid asn1_pbkdf2_hmac_sha256_oid = {
+	.oid = { 1, 2, 840, 113549, 2, 9 },
+	.len = 6
+};
+
+const struct asn1_oid asn1_pbkdf2_hmac_sha384_oid = {
+	.oid = { 1, 2, 840, 113549, 2, 10 },
+	.len = 6
+};
+
+const struct asn1_oid asn1_pbkdf2_hmac_sha512_oid = {
+	.oid = { 1, 2, 840, 113549, 2, 11 },
+	.len = 6
+};
+
+const struct asn1_oid asn1_dpp_config_params_oid = {
+	.oid = { 1, 3, 6, 1, 4, 1, 40808, 1, 2, 1 },
+	.len = 10
+};
+
+const struct asn1_oid asn1_dpp_asymmetric_key_package_oid = {
+	.oid = { 1, 3, 6, 1, 4, 1, 40808, 1, 2, 2 },
+	.len = 10
+};
+
+
+static int asn1_valid_der_boolean(struct asn1_hdr *hdr)
+{
+	/* Enforce DER requirements for a single way of encoding a BOOLEAN */
+	if (hdr->length != 1) {
+		wpa_printf(MSG_DEBUG, "ASN.1: Unexpected BOOLEAN length (%u)",
+			   hdr->length);
+		return 0;
+	}
+
+	if (hdr->payload[0] != 0 && hdr->payload[0] != 0xff) {
+		wpa_printf(MSG_DEBUG,
+			   "ASN.1: Invalid BOOLEAN value 0x%x (DER requires 0 or 0xff)",
+			   hdr->payload[0]);
+		return 0;
+	}
+
+	return 1;
+}
+
+
+static int asn1_valid_der(struct asn1_hdr *hdr)
+{
+	if (hdr->class != ASN1_CLASS_UNIVERSAL)
+		return 1;
+	if (hdr->tag == ASN1_TAG_BOOLEAN && !asn1_valid_der_boolean(hdr))
+		return 0;
+	return 1;
+}
 
 
 int asn1_get_next(const u8 *buf, size_t len, struct asn1_hdr *hdr)
@@ -91,7 +202,8 @@ int asn1_get_next(const u8 *buf, size_t len, struct asn1_hdr *hdr)
 	}
 
 	hdr->payload = pos;
-	return 0;
+
+	return asn1_valid_der(hdr) ? 0 : -1;
 }
 
 
@@ -238,4 +350,232 @@ int asn1_oid_equal(const struct asn1_oid *a, const struct asn1_oid *b)
 	}
 
 	return 1;
+}
+
+
+int asn1_get_integer(const u8 *buf, size_t len, int *integer, const u8 **next)
+{
+	struct asn1_hdr hdr;
+	size_t left;
+	const u8 *pos;
+	int value;
+
+	if (asn1_get_next(buf, len, &hdr) < 0 || hdr.length == 0)
+		return -1;
+
+	if (hdr.class != ASN1_CLASS_UNIVERSAL || hdr.tag != ASN1_TAG_INTEGER) {
+		wpa_printf(MSG_DEBUG,
+			   "ASN.1: Expected INTEGER - found class %d tag 0x%x",
+			   hdr.class, hdr.tag);
+		return -1;
+	}
+
+	*next = hdr.payload + hdr.length;
+	pos = hdr.payload;
+	left = hdr.length;
+	if (left > sizeof(value)) {
+		wpa_printf(MSG_DEBUG, "ASN.1: Too large INTEGER (len %u)",
+			   hdr.length);
+		return -1;
+	}
+	value = 0;
+	while (left) {
+		value <<= 8;
+		value |= *pos++;
+		left--;
+	}
+
+	*integer = value;
+	return 0;
+}
+
+
+int asn1_get_sequence(const u8 *buf, size_t len, struct asn1_hdr *hdr,
+		      const u8 **next)
+{
+	if (asn1_get_next(buf, len, hdr) < 0 ||
+	    hdr->class != ASN1_CLASS_UNIVERSAL ||
+	    hdr->tag != ASN1_TAG_SEQUENCE) {
+		wpa_printf(MSG_DEBUG,
+			   "ASN.1: Expected SEQUENCE - found class %d tag 0x%x",
+			   hdr->class, hdr->tag);
+		return -1;
+	}
+
+	if (next)
+		*next = hdr->payload + hdr->length;
+	return 0;
+}
+
+
+int asn1_get_alg_id(const u8 *buf, size_t len, struct asn1_oid *oid,
+		    const u8 **params, size_t *params_len, const u8 **next)
+{
+	const u8 *pos = buf, *end = buf + len;
+	struct asn1_hdr hdr;
+
+	/*
+	 * AlgorithmIdentifier ::= SEQUENCE {
+	 *     algorithm            OBJECT IDENTIFIER,
+	 *     parameters           ANY DEFINED BY algorithm OPTIONAL}
+	 */
+	if (asn1_get_sequence(pos, end - pos, &hdr, next) < 0 ||
+	    asn1_get_oid(hdr.payload, hdr.length, oid, &pos) < 0)
+		return -1;
+
+	if (params && params_len) {
+		*params = pos;
+		*params_len = hdr.payload + hdr.length - pos;
+	}
+
+	return 0;
+}
+
+
+void asn1_put_integer(struct wpabuf *buf, int val)
+{
+	u8 bin[4];
+	int zeros;
+
+	WPA_PUT_BE32(bin, val);
+	zeros = 0;
+	while (zeros < 3 && bin[zeros] == 0)
+		zeros++;
+	wpabuf_put_u8(buf, ASN1_TAG_INTEGER);
+	wpabuf_put_u8(buf, 4 - zeros);
+	wpabuf_put_data(buf, &bin[zeros], 4 - zeros);
+}
+
+
+static void asn1_put_len(struct wpabuf *buf, size_t len)
+{
+	if (len <= 0x7f) {
+		wpabuf_put_u8(buf, len);
+	} else if (len <= 0xff) {
+		wpabuf_put_u8(buf, 0x80 | 1);
+		wpabuf_put_u8(buf, len);
+	} else if (len <= 0xffff) {
+		wpabuf_put_u8(buf, 0x80 | 2);
+		wpabuf_put_be16(buf, len);
+	} else if (len <= 0xffffff) {
+		wpabuf_put_u8(buf, 0x80 | 3);
+		wpabuf_put_be24(buf, len);
+	} else {
+		wpabuf_put_u8(buf, 0x80 | 4);
+		wpabuf_put_be32(buf, len);
+	}
+}
+
+
+void asn1_put_octet_string(struct wpabuf *buf, const struct wpabuf *val)
+{
+	wpabuf_put_u8(buf, ASN1_TAG_OCTETSTRING);
+	asn1_put_len(buf, wpabuf_len(val));
+	wpabuf_put_buf(buf, val);
+}
+
+
+void asn1_put_oid(struct wpabuf *buf, const struct asn1_oid *oid)
+{
+	u8 *len;
+	size_t i;
+
+	if (oid->len < 2)
+		return;
+	wpabuf_put_u8(buf, ASN1_TAG_OID);
+	len = wpabuf_put(buf, 1);
+	wpabuf_put_u8(buf, 40 * oid->oid[0] + oid->oid[1]);
+	for (i = 2; i < oid->len; i++) {
+		unsigned long val = oid->oid[i];
+		u8 bytes[8];
+		int idx = 0;
+
+		while (val) {
+			bytes[idx] = (idx ? 0x80 : 0x00) | (val & 0x7f);
+			idx++;
+			val >>= 7;
+		}
+		if (idx == 0) {
+			bytes[idx] = 0;
+			idx = 1;
+		}
+		while (idx > 0) {
+			idx--;
+			wpabuf_put_u8(buf, bytes[idx]);
+		}
+	}
+	*len = (u8 *) wpabuf_put(buf, 0) - len - 1;
+}
+
+
+void asn1_put_hdr(struct wpabuf *buf, u8 class, int constructed, u8 tag,
+		  size_t len)
+{
+	wpabuf_put_u8(buf, class << 6 | (constructed ? 0x20 : 0x00) | tag);
+	asn1_put_len(buf, len);
+}
+
+
+void asn1_put_sequence(struct wpabuf *buf, const struct wpabuf *payload)
+{
+	asn1_put_hdr(buf, ASN1_CLASS_UNIVERSAL, 1, ASN1_TAG_SEQUENCE,
+		     wpabuf_len(payload));
+	wpabuf_put_buf(buf, payload);
+}
+
+
+void asn1_put_set(struct wpabuf *buf, const struct wpabuf *payload)
+{
+	asn1_put_hdr(buf, ASN1_CLASS_UNIVERSAL, 1, ASN1_TAG_SET,
+		     wpabuf_len(payload));
+	wpabuf_put_buf(buf, payload);
+}
+
+
+void asn1_put_utf8string(struct wpabuf *buf, const char *val)
+{
+	asn1_put_hdr(buf, ASN1_CLASS_UNIVERSAL, 0, ASN1_TAG_UTF8STRING,
+		     os_strlen(val));
+	wpabuf_put_str(buf, val);
+}
+
+
+struct wpabuf * asn1_build_alg_id(const struct asn1_oid *oid,
+				  const struct wpabuf *params)
+{
+	struct wpabuf *buf;
+	size_t len;
+
+	/*
+	 * AlgorithmIdentifier ::= SEQUENCE {
+	 *    algorithm		OBJECT IDENTIFIER,
+	 *    parameters	ANY DEFINED BY algorithm OPTIONAL}
+	 */
+
+	len = 100;
+	if (params)
+		len += wpabuf_len(params);
+	buf = wpabuf_alloc(len);
+	if (!buf)
+		return NULL;
+	asn1_put_oid(buf, oid);
+	if (params)
+		wpabuf_put_buf(buf, params);
+	return asn1_encaps(buf, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SEQUENCE);
+}
+
+
+struct wpabuf * asn1_encaps(struct wpabuf *buf, u8 class, u8 tag)
+{
+	struct wpabuf *res;
+
+	if (!buf)
+		return NULL;
+	res = wpabuf_alloc(10 + wpabuf_len(buf));
+	if (res) {
+		asn1_put_hdr(res, class, 1, tag, wpabuf_len(buf));
+		wpabuf_put_buf(res, buf);
+	}
+	wpabuf_clear_free(buf);
+	return res;
 }

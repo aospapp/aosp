@@ -18,14 +18,10 @@ package com.android.phone;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.telephony.ServiceState;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.phone.settings.fdn.EditPinPreference;
 
 /**
@@ -34,9 +30,6 @@ import com.android.phone.settings.fdn.EditPinPreference;
 public class CallBarringDeselectAllPreference extends EditPinPreference {
     private static final String LOG_TAG = "CallBarringDeselectAllPreference";
     private static final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
-
-    private boolean mShowPassword;
-    private Phone mPhone;
 
     /**
      * CallBarringDeselectAllPreference constructor.
@@ -50,28 +43,8 @@ public class CallBarringDeselectAllPreference extends EditPinPreference {
 
     @Override
     protected void showDialog(Bundle state) {
-        // Finds out if the password field should be shown or not.
-        ImsPhone imsPhone = mPhone != null ? (ImsPhone) mPhone.getImsPhone() : null;
-        mShowPassword = !(imsPhone != null
-                && ((imsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE)
-                        || imsPhone.isUtEnabled()));
-
-        // Selects dialog message depending on if the password field is shown or not.
-        setDialogMessage(getContext().getString(mShowPassword
-                ? R.string.messageCallBarring : R.string.call_barring_deactivate_all_no_password));
-
-        if (DBG) {
-            Log.d(LOG_TAG, "showDialog: mShowPassword: " + mShowPassword);
-        }
-
+        setDialogMessage(getContext().getString(R.string.messageCallBarring));
         super.showDialog(state);
-    }
-
-    void init(Phone phone) {
-        if (DBG) {
-            Log.d(LOG_TAG, "init: phoneId = " + phone.getPhoneId());
-        }
-        mPhone = phone;
     }
 
     @Override
@@ -81,20 +54,7 @@ public class CallBarringDeselectAllPreference extends EditPinPreference {
         final EditText editText = (EditText) view.findViewById(android.R.id.edit);
         if (editText != null) {
             // Hide the input-text-line if the password is not shown.
-            editText.setVisibility(mShowPassword ? View.VISIBLE : View.GONE);
+            editText.setVisibility(View.VISIBLE);
         }
-    }
-
-    @Override
-    protected boolean needInputMethod() {
-        // Input method should only be displayed if the password-field is shown.
-        return mShowPassword;
-    }
-
-    /**
-     * Returns whether the password field is shown.
-     */
-    boolean isPasswordShown() {
-        return mShowPassword;
     }
 }

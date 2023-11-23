@@ -27,8 +27,6 @@
  */
 
 /*
- * libc_init_dynamic.c
- *
  * This source files provides two important functions for dynamic
  * executables:
  *
@@ -38,10 +36,7 @@
  *   shared libraries the program depends on).
  *
  * - a program launch function (__libc_init), which is called after
- *   all dynamic linking has been performed. Technically, it is called
- *   from arch-$ARCH/bionic/crtbegin_dynamic.S which is itself called
- *   by the dynamic linker after all libraries have been loaded and
- *   initialized.
+ *   all dynamic linking has been performed.
  */
 
 #include <stddef.h>
@@ -53,7 +48,7 @@
 
 #include "private/bionic_elf_tls.h"
 #include "private/bionic_globals.h"
-#include "private/bionic_macros.h"
+#include "platform/bionic/macros.h"
 #include "private/bionic_ssp.h"
 #include "private/bionic_tls.h"
 #include "private/KernelArgumentBlock.h"
@@ -68,6 +63,13 @@ extern "C" {
 #if defined(__i386__)
 __LIBC_HIDDEN__ void* __libc_sysinfo = reinterpret_cast<void*>(__libc_int0x80);
 #endif
+
+extern "C" __attribute__((weak)) void __hwasan_library_loaded(ElfW(Addr) base,
+                                                              const ElfW(Phdr)* phdr,
+                                                              ElfW(Half) phnum);
+extern "C" __attribute__((weak)) void __hwasan_library_unloaded(ElfW(Addr) base,
+                                                                const ElfW(Phdr)* phdr,
+                                                                ElfW(Half) phnum);
 
 // We need a helper function for __libc_preinit because compiling with LTO may
 // inline functions requiring a stack protector check, but __stack_chk_guard is
@@ -91,6 +93,19 @@ static void __libc_preinit_impl() {
 
   // Hooks for various libraries to let them know that we're starting up.
   __libc_globals.mutate(__libc_init_malloc);
+
+  // Install reserved signal handlers for assisting the platform's profilers.
+  __libc_init_profiling_handlers();
+
+  __libc_init_fork_handler();
+
+#if __has_feature(hwaddress_sanitizer)
+  // Notify the HWASan runtime library whenever a library is loaded or unloaded
+  // so that it can update its shadow memory.
+  __libc_shared_globals()->load_hook = __hwasan_library_loaded;
+  __libc_shared_globals()->unload_hook = __hwasan_library_unloaded;
+#endif
+
   netdClientInit();
 }
 

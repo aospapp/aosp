@@ -18,52 +18,156 @@
 
 package org.apache.harmony.jpda.tests.share;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import org.apache.harmony.jpda.tests.jdwp.share.JDWPRawTestCase;
 
 public class AllTests {
+  private static JPDATestOptions TEST_OPTIONS = new JPDATestOptions();
+
   public static void main(String[] args) {
     junit.framework.TestResult result = junit.textui.TestRunner.run(suite());
     if (!result.wasSuccessful()) {
-        System.exit(1);
+      System.exit(1);
     }
   }
 
-  private static void addOptionalTestSuite(junit.framework.TestSuite suite, String classname) {
+  public static final class BadTestClassException extends IllegalArgumentException {
+    public BadTestClassException(String s) {
+      super(s);
+    }
+
+    public BadTestClassException(String s, Throwable t) {
+      super(s, t);
+    }
+  }
+
+  public static junit.framework.Test makeWarning(String name, String msg) {
+    return new junit.framework.TestCase(name) {
+      protected void runTest() {
+        JPDALogWriter lw = new JPDALogWriter(System.out, null, TEST_OPTIONS.isVerbose());
+        lw.printError("Skipping " + name + " due to: " + msg);
+      }
+    };
+  }
+  public static interface FilterSuite {
+    public void addTestSuite(Class<? extends JDWPRawTestCase> k);
+  }
+
+
+  public static class FilteredTestSuite extends junit.framework.TestSuite {
+    public FilteredTestSuite(Class<? extends JDWPRawTestCase> tc, Predicate<Method> is_good)
+        throws BadTestClassException {
+      super();
+
+      setName(tc.getName());
+
+      if (!Modifier.isPublic(tc.getModifiers())) {
+        throw new BadTestClassException(tc + " is not public");
+      }
+      Function<Method, junit.framework.Test> mktest =
+          (m) -> {
+            try {
+              junit.framework.TestCase res = (junit.framework.TestCase) tc.newInstance();
+              res.setName(m.getName());
+              return res;
+            } catch (Exception t) {
+              return makeWarning(
+                  m.getName(), "Unable to create test case for " + m + " because of " + t);
+            }
+          };
+      Class<?> curClass = tc;
+      Set<String> seen_names = new HashSet<>();
+      while (junit.framework.Test.class.isAssignableFrom(curClass)) {
+        for (Method m : tc.getDeclaredMethods()) {
+          addTestMethod(m, seen_names, is_good, mktest);
+        }
+        curClass = curClass.getSuperclass();
+      }
+    }
+
+    private void addTestMethod(
+        Method m,
+        Set<String> seen,
+        Predicate<Method> is_good,
+        Function<Method, junit.framework.Test> mkTest) {
+      if (seen.contains(m.getName())) {
+        return;
+      }
+      seen.add(m.getName());
+      if (Modifier.isPublic(m.getModifiers())
+          && m.getParameterCount() == 0
+          && m.getName().startsWith("test")
+          && m.getReturnType().equals(Void.TYPE)) {
+        if (is_good.test(m)) {
+          addTest(mkTest.apply(m));
+        } else {
+          addTest(makeWarning(m.getName(), "Skipping test " + m + " due to explicit skip"));
+        }
+      }
+    }
+  }
+
+  private static void addOptionalTestSuite(FilterSuite suite, String classname) {
     try {
-      suite.addTestSuite((Class<? extends junit.framework.TestCase>)Class.forName(classname));
-    } catch (ClassNotFoundException e) { }
+      suite.addTestSuite((Class<? extends JDWPRawTestCase>) Class.forName(classname));
+    } catch (ClassNotFoundException e) {
+    }
   }
 
   public static junit.framework.Test suite() {
-    junit.framework.TestSuite suite = new junit.framework.TestSuite();
+    junit.framework.TestSuite baseSuite = new junit.framework.TestSuite();
+
+    // All of these tests can only be run using the full JDWP implementation. They weren't really
+    // used by IDEs/aren't really applicable to android so were never supported by the
+    // -XjdwpProvider:internal JDWP implementation. The new agent based implementation supports them
+    // though.
+    Set<String> bad_test_cases = new HashSet<>();
+    bad_test_cases.addAll(Arrays.asList(TEST_OPTIONS.getBadTestCases()));
+    FilterSuite suite = (k) -> {
+      try {
+        baseSuite.addTest(
+            new FilteredTestSuite(
+                k,
+                (Method m) -> {
+                  String test_desc = m.getDeclaringClass().getName() + "#" + m.getName();
+                  return !bad_test_cases.contains(test_desc);
+                }));
+      } catch (BadTestClassException e) {
+        baseSuite.addTest(makeWarning(k.getName(), "Could not add test " + k + " due to " + e));
+      }
+    };
+    if (TEST_OPTIONS.getSuiteType().equals("full")
+        || TEST_OPTIONS.getSuiteType().equals("libjdwp")) {
+      // I haven't yet found an IDE that will use these, but we might want to implement them anyway.
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorContendedEnteredTest.class);
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorContendedEnterTest.class);
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorWaitedTest.class);
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorWaitTest.class);
+      // I don't know when these are ever used, but they're not obviously useless.
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.NestedTypesTest.class);
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.HoldEventsTest.class);
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.ReleaseEventsTest.class);
+      // Internal JDWP implementation never supported this.
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ThreadReference.StopTest.class);
+    }
 
     //
-    // "TODO".
+    // These tests are not worth fixing or fundamentally do not make sense on android.
     //
-
-    // I haven't yet found an IDE that will use these, but we might want to implement them anyway.
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorContendedEnteredTest.class);
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorContendedEnterTest.class);
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorWaitedTest.class);
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MonitorWaitTest.class);
-
-    // I don't know when these are ever used, but they're not obviously useless.
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowDebuggerLaunchTest.class);
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.NestedTypesTest.class);
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.HoldEventsTest.class);
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.ReleaseEventsTest.class);
-
-    //
-    // "Will not fix".
-    //
-
-    // It's not obvious how to translate this into our world, or what debuggers would do with it.
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.ClassFileVersionTest.class);
-
-    // We don't implement Thread.stop at all, so it doesn't make sense for us to implement the JDWP.
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ThreadReference.StopTest.class);
-
-    // We don't implement class unloading.
-    //suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ClassUnloadTest.class);
+    if (TEST_OPTIONS.getSuiteType().equals("full")) {
+      // It's not obvious how to translate this into our world, or what debuggers would do with it.
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.ClassFileVersionTest.class);
+      // TODO The test suite itself seems to send incorrect commands when this is run.
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowDebuggerLaunchTest.class);
+      // TODO We don't implement class unloading in the way the test expects.
+      suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ClassUnloadTest.class);
+    }
 
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayReference.GetValuesTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayReference.LengthTest.class);
@@ -246,6 +350,7 @@ public class AllTests {
     addOptionalTestSuite(suite, "org.apache.harmony.jpda.tests.jdwp.DDM.DDMTest");
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VMDebug.VMDebugTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VMDebug.VMDebugTest002.class);
-    return suite;
+
+    return baseSuite;
   }
 }

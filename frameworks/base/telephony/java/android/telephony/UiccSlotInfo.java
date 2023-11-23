@@ -16,6 +16,8 @@
 package android.telephony;
 
 import android.annotation.IntDef;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -140,6 +142,14 @@ public class UiccSlotInfo implements Parcelable {
         return mIsEuicc;
     }
 
+    /**
+     * Returns the ICCID of the card in the slot, or the EID of an active eUICC.
+     * <p>
+     * If the UICC slot is for an active eUICC, returns the EID.
+     * If the UICC slot is for an inactive eUICC, returns the ICCID of the enabled profile, or the
+     * root profile if all other profiles are disabled.
+     * If the UICC slot is not an eUICC, returns the ICCID.
+     */
     public String getCardId() {
         return mCardId;
     }
@@ -171,7 +181,7 @@ public class UiccSlotInfo implements Parcelable {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }
@@ -202,6 +212,7 @@ public class UiccSlotInfo implements Parcelable {
         return result;
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "UiccSlotInfo (mIsActive="

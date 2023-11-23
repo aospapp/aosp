@@ -15,14 +15,12 @@
  */
 package com.android.managedprovisioning.preprovisioning.terms;
 
-import static com.android.internal.logging.nano.MetricsProto.MetricsEvent
-        .PROVISIONING_TERMS_ACTIVITY_TIME_MS;
+import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_TERMS_ACTIVITY_TIME_MS;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.annotation.ColorInt;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import androidx.annotation.VisibleForTesting;
 import android.util.ArraySet;
 import android.view.ContextMenu;
 import android.view.MenuItem;
@@ -31,8 +29,11 @@ import android.widget.ExpandableListView;
 import android.widget.TextView;
 import android.widget.Toolbar;
 
-import androidx.car.widget.PagedListView;
+import androidx.annotation.VisibleForTesting;
 
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
+import com.android.car.ui.toolbar.ToolbarController;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
@@ -43,8 +44,8 @@ import com.android.managedprovisioning.common.SetupLayoutActivity;
 import com.android.managedprovisioning.common.StoreUtils;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapterCar;
 import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapter;
+import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapterCar;
 
 import java.util.List;
 import java.util.Set;
@@ -61,10 +62,11 @@ public class TermsActivity extends SetupLayoutActivity {
 
     @SuppressWarnings("unused")
     public TermsActivity() {
-        this(StoreUtils::readString, null,  new SettingsFacade());
+        this(StoreUtils::readString, null, new SettingsFacade());
     }
 
-    @VisibleForTesting TermsActivity(StoreUtils.TextFileReader textFileReader,
+    @VisibleForTesting
+    TermsActivity(StoreUtils.TextFileReader textFileReader,
             AccessibilityContextMenuMaker contextMenuMaker, SettingsFacade settingsFacade) {
         super(new Utils());
         mTermsProvider = new TermsProvider(this, textFileReader, mUtils);
@@ -76,6 +78,9 @@ public class TermsActivity extends SetupLayoutActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            setTheme(R.style.Theme_CarUi_WithToolbar);
+        }
         super.onCreate(savedInstanceState);
         setContentView(R.layout.terms_screen);
         setTitle(R.string.terms);
@@ -88,8 +93,14 @@ public class TermsActivity extends SetupLayoutActivity {
 
         setUpTermsList(terms, statusBarColor);
 
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setNavigationOnClickListener(v -> TermsActivity.this.finish());
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            ToolbarController toolbar = CarUi.requireToolbar(this);
+            toolbar.setTitle(R.string.terms);
+            toolbar.setState(com.android.car.ui.toolbar.Toolbar.State.SUBPAGE);
+        } else {
+            Toolbar toolbar = findViewById(R.id.toolbar);
+            toolbar.setNavigationOnClickListener(v -> TermsActivity.this.finish());
+        }
 
         mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
                 MetricsWriterFactory.getMetricsWriter(this, mSettingsFacade),
@@ -99,8 +110,8 @@ public class TermsActivity extends SetupLayoutActivity {
 
     private void setUpTermsList(List<TermsDocument> terms, @ColorInt int statusBarColor) {
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            PagedListView pagedListView = findViewById(R.id.terms_container);
-            pagedListView.setAdapter(new TermsListAdapterCar(getApplicationContext(), terms,
+            CarUiRecyclerView listView = findViewById(R.id.terms_container);
+            listView.setAdapter(new TermsListAdapterCar(getApplicationContext(), terms,
                     statusBarColor));
 
         } else {

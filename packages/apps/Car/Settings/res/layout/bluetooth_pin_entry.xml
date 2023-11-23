@@ -54,8 +54,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/bluetooth_pin_dialog_subtext_margin_top"
-                    android:ellipsize="end"
-                    android:maxLines="1"
+                    android:singleLine="true"
                     android:text="@string/bluetooth_pin_values_hint"
                     android:textAppearance="?android:attr/textAppearanceMedium"/>
             </LinearLayout>
@@ -78,9 +77,8 @@
                 android:layout_centerVertical="true"
                 android:layout_marginEnd="@dimen/bluetooth_pin_dialog_text_margin_end"
                 android:layout_marginStart="@dimen/bluetooth_pin_dialog_text_margin_start"
-                android:ellipsize="end"
                 android:gravity="center_vertical"
-                android:maxLines="1"
+                android:singleLine="true"
                 android:text="@string/bluetooth_enable_alphanumeric_pin"
                 android:textAppearance="?android:attr/textAppearanceMedium"/>
         </RelativeLayout>
@@ -102,9 +100,8 @@
                 android:layout_centerVertical="true"
                 android:layout_marginEnd="@dimen/bluetooth_pin_dialog_text_margin_end"
                 android:layout_marginStart="@dimen/bluetooth_pin_dialog_text_margin_start"
-                android:ellipsize="end"
                 android:gravity="center_vertical"
-                android:maxLines="1"
+                android:singleLine="true"
                 android:text="@string/bluetooth_pairing_shares_phonebook"
                 android:textAppearance="?android:attr/textAppearanceMedium"/>
         </RelativeLayout>

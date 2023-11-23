@@ -30,6 +30,7 @@ import android.util.Log;
 import com.android.internal.annotations.GuardedBy;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -300,12 +301,36 @@ public final class UsbHostController
 
         private static final int DEVICE_REMOVE_TIMEOUT_MS = 500;
 
+        // Used to get the device that we are trying to connect to, if mActiveDevice is removed and
+        // startAoap fails afterwards. Used during USB enumeration when retrying to startAoap when
+        // there are multiple devices attached.
+        private int mLastDeviceId = 0;
+        private int mStartAoapRetries = 1;
+
         private UsbHostControllerHandler(Looper looper) {
             super(looper);
         }
 
         private void requestDeviceRemoved() {
             sendEmptyMessageDelayed(MSG_DEVICE_REMOVED, DEVICE_REMOVE_TIMEOUT_MS);
+        }
+
+        private void onFailure() {
+            if (mStartAoapRetries == 0) {
+                Log.w(TAG, "Reached maximum retry count for startAoap. Giving up Aoa handshake.");
+                return;
+            }
+            mStartAoapRetries--;
+
+            Log.d(TAG, "Restarting USB enumeration.");
+            Iterator<UsbDevice> deviceIterator = mUsbManager.getDeviceList().values().iterator();
+            while (deviceIterator.hasNext()) {
+                UsbDevice device = deviceIterator.next();
+                if (mLastDeviceId == device.getDeviceId()) {
+                    processDevice(device);
+                    return;
+                }
+            }
         }
 
         @Override
@@ -318,8 +343,10 @@ public final class UsbHostController
                     UsbHostControllerHandlerDispatchData data =
                             (UsbHostControllerHandlerDispatchData) msg.obj;
                     UsbDevice device = data.getUsbDevice();
+                    mLastDeviceId = device.getDeviceId();
                     UsbDeviceSettings settings = data.getUsbDeviceSettings();
-                    if (!mUsbResolver.dispatch(device, settings.getHandler(), settings.getAoap())) {
+                    if (!mUsbResolver.dispatch(device, settings.getHandler(), settings.getAoap(),
+                            this::onFailure)) {
                         if (data.mRetries > 0) {
                             --data.mRetries;
                             Message nextMessage = Message.obtain(msg);

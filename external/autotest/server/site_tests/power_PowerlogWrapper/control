@@ -41,7 +41,7 @@ sweetberry_config: use [].board and [].scenario as configuration file for
                    Sweetberry measurement; optional.
 sweetberry_serial: serial number of sweetberry to use; If not supplied use
                    the first sweetberry found; optional.
-note: User supplied note to tag the specific test; optional.
+pdash_note: User supplied note to tag the specific test; optional.
 """
 
 # Workaround to make it compatible with moblab autotest UI.

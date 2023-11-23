@@ -36,7 +36,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 8875640296558310041 (0x7b2c9bd316803299)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com Root Certification Authority RSA
         Validity
             Not Before: Feb 12 17:39:39 2016 GMT
@@ -44,7 +44,7 @@ Certificate:
         Subject: C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com Root Certification Authority RSA
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:f9:0f:dd:a3:2b:7d:cb:d0:2a:fe:ec:67:85:a6:
                     e7:2e:1b:ba:77:e1:e3:f5:af:a4:ec:fa:4a:5d:91:

@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"ಮರುಹೊಂದಿಸಿ"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸಲಾಗುತ್ತಿಲ್ಲ"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"ಸಾಧನ ಹೊಂದಿಸಲಾಗುತ್ತಿಲ್ಲ"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"ಏನೋ ತಪ್ಪಾಗಿದೆ"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"ಸಾಧನವನ್ನು ಸೆಟಪ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"ಸಹಾಯಕ್ಕಾಗಿ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
+    <string name="reset_device" msgid="5483853913241939262">"ಈ ಸಾಧನವನ್ನು ಮರುಹೊಂದಿಸಿ ಮತ್ತು ಅದನ್ನು ಮತ್ತೆ ಹೊಂದಿಸಲು ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"ಸಾಧನವನ್ನು ಈಗಾಗಲೇ ಹೊಂದಿಸಲಾಗಿದೆ"</string>
     <string name="error_wifi" msgid="1850288843966836571">"ವೈ-ಫೈಗೆ ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"ನಿಮ್ಮ ಸಾಧನದಲ್ಲಿ ಮರುಹೊಂದಿಸುವಿಕೆ ಸಂರಕ್ಷಣೆ ಆನ್ ಆಗಿದೆ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"ಕೆಲಸದ ಸಾಧನವನ್ನು ಸೆಟಪ್ ಮಾಡಲು ಸಿದ್ಧಗೊಳ್ಳುತ್ತಿದೆ ..."</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್ ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"ಎಲ್ಲವನ್ನೂ ಹೊಂದಿಸಿ"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"ಈಗ, ನಾವು ಎಲ್ಲವನ್ನೂ ಹೊಂದಿಸೋಣ"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"ನಿಮ್ಮ ಸಾಧನದಿಂದ ಹೆಚ್ಚಿನ ಪ್ರಯೋಜನಗಳನ್ನು ಪಡೆದುಕೊಳ್ಳಲು ವೈಯಕ್ತಿಕ ಖಾತೆಯನ್ನು ಸೇರಿಸಿ"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"ಈಗ ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ ಸಿದ್ಧವಾಗಿರುವುದರಿಂದ, ನಿಮ್ಮ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ವಿಷಯವನ್ನು ಪ್ರವೇಶಿಸಲು ನಿಮ್ಮ ವೈಯಕ್ತಿಕ Google ಖಾತೆಯನ್ನು ಸಹ ನೀವು ಸೇರಿಸಬಹುದು."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ಈ ಸಾಧನವು ನಿಮ್ಮ ಸಂಸ್ಥೆಗೆ ಸೇರಿರುತ್ತದೆ"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ಈ ಫೋನ್ ಅನ್ನು ನಿರ್ವಹಿಸಲು ಮತ್ತು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಲು ಕೆಳಗಿನ ಆ್ಯಪ್‌ ಅನ್ನು ಬಳಸಲಾಗುತ್ತದೆ"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"ಕೆಲಸದ ಸಾಧನ ಸೆಟಪ್ ಮಾಡಲು ಸಿದ್ಧವಾಗುತ್ತಿದೆ…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"ಮೊದಲು, ನಿಮ್ಮ ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಅನ್ನು ನಾವು ಸೆಟಪ್ ಮಾಡೋಣ"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಸೆಟಪ್ ಮಾಡೋಣ"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರಿಸಲಾಗಿದೆ"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ನಿಮ್ಮ ಕೆಲಸದ ಸಮಯವು ಮುಕ್ತಾಯವಾದಾಗ, ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ವಿರಾಮಗೊಳಿಸಿ"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರುವ ಡೇಟಾ ಮಾತ್ರ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಮಾತ್ರ ಗೋಚರಿಸುತ್ತದೆ"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿನ ಡೇಟಾ ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರಿಗೆ ಗೋಚರಿಸುತ್ತದೆ"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಕೆಲಸದ ಸಮಯವು ಮುಕ್ತಾಯವಾದಾಗ ನಿಮ್ಮ ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ನೀವು ವಿರಾಮಗೊಳಿಸಬಹುದು. ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರುವ ಡೇಟಾ ಮಾತ್ರ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಮಾತ್ರ ಗೋಚರಿಸುತ್ತದೆ."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"ಉದ್ಯೋಗದ ಆ್ಯಪ್‌ಗಳನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಕೆಲಸದ ಸಮಯವು ಮುಕ್ತಾಯವಾದಾಗ ನಿಮ್ಮ ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ನೀವು ವಿರಾಮಗೊಳಿಸಬಹುದು. ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರುವ ಡೇಟಾ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಮಾತ್ರ ಗೋಚರಿಸುತ್ತದೆ."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"ನಿಮ್ಮ ಕೆಲಸದ ಸಾಧನವನ್ನು ಸೆಟಪ್ ಮಾಡೋಣ"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"ನಿಮ್ಮ ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ಸುಲಭವಾಗಿ ಪ್ರವೇಶಿಸುವಂತೆ ಇರಿಸಿಕೊಳ್ಳಿ"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ಇದು ಖಾಸಗಿ ಸಾಧನವಲ್ಲ"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಈ ಸಾಧನದಲ್ಲಿರುವ ನಿಮ್ಮ ಡೇಟಾ ಮತ್ತು ಚಟುವಟಿಕೆಯನ್ನು ವೀಕ್ಷಿಸಲು ಸಾಧ್ಯವಾಗಬಹುದು."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"ನಿಮ್ಮ ಸಾಧನವನ್ನು ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ನಿಮ್ಮ ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ಸುಲಭವಾಗಿ ಪ್ರವೇಶಿಸಲು ಈ ಸಾಧನವನ್ನು ಬಳಸಿ. ಇದು ಖಾಸಗಿ ಸಾಧನವಲ್ಲ, ಆದ್ದರಿಂದ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ನಿಮ್ಮ ಡೇಟಾ ಮತ್ತು ಚಟುವಟಿಕೆಯನ್ನು ವೀಕ್ಷಿಸಲು ಸಾಧ್ಯವಾಗಬಹುದು ಇನ್ನಷ್ಟು ತಿಳಿಯಲು, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"ವರ್ಕ್ ಆ್ಯಪ್ಸ್ ವರ್ಕ್ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರುತ್ತವೆ. ಇವನ್ನು ಐಟಿ ಅಡ್ಮಿನ್ ನಿರ್ವಹಿಸುತ್ತಾರೆ"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"ವರ್ಕ್ ಆ್ಯಪ್ಸ್‌ ಭಿನ್ನವಿರುತ್ತವೆ. ವೈಯಕ್ತಿಕ ಆ್ಯಪ್ಸ್‌ಗೆ ಕಾಣುವುದಿಲ್ಲ"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ಐಟಿ ಅಡ್ಮಿನ್ ಈ ಸಾಧನ ನಿಯಂತ್ರಿಸಬಹುದು. ಕೆಲವು ಆ್ಯಪ್ಸ್ ನಿರ್ಬಂಧಿಸಬಹುದು"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಇರಿಸಲಾಗುತ್ತದೆ ಮತ್ತು ಅವುಗಳನ್ನು ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರು ನಿರ್ವಹಿಸುತ್ತಾರೆ. ವೈಯಕ್ತಿಕ ಆ್ಯಪ್‌ಗಳನ್ನು ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳಿಂದ ಮರೆಮಾಡಲಾಗಿರುತ್ತವೆ ಮತ್ತು ಪ್ರತ್ಯೇಕವಾಗಿರುತ್ತವೆ. ನಿಮ್ಮ ಐಟಿ ನಿರ್ವಾಹಕರು ಈ ಸಾಧನವನ್ನು ನಿಯಂತ್ರಿಸಬಹುದು ಮತ್ತು ಕೆಲವು ಆ್ಯಪ್‌ಗಳನ್ನು ನಿರ್ಬಂಧಿಸಬಹುದು."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"ಒಂದು ಸೆಕೆಂಡು…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"ಗೌಪ್ಯತಾ ಜ್ಞಾಪನಾ ಪತ್ರ"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಈ ಸಾಧನದಲ್ಲಿರುವ ನಿಮ್ಮ ಡೇಟಾ ಮತ್ತು ಚಟುವಟಿಕೆಯನ್ನು ವೀಕ್ಷಿಸಲು ಸಾಧ್ಯವಾಗಬಹುದು"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"ನಿಮ್ಮ ಸಾಧನ, ಬಳಸಲು ಸಿದ್ಧವಾಗಿದೆ!"</string>
     <string name="done" msgid="7755227776955952318">"ಮುಗಿದಿದೆ"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ಅವರಿಂದ ಈ ಸಾಧನವನ್ನು ಕ್ರೆಡಿಟ್‌ನಲ್ಲಿ ಖರೀದಿಸಲಾಗಿದೆ"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ಅವರು ಇದನ್ನು ಮಾಡಬಹುದು:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ಆ್ಯಪ್ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ ಇದರಿಂದ ನೀವು ಈ ಸಾಧನಕ್ಕೆ ಪಾವತಿಯನ್ನು ಮಾಡಬಹುದು"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"ನೀವು ಪಾವತಿಗಳನ್ನು ಮಾಡದಿದ್ದರೆ ಈ ಸಾಧನಕ್ಕೆ ಪ್ರವೇಶವನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗುತ್ತದೆ"</string>
 </resources>

@@ -1,8 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Testing of ResultsOrganizer
 
    We create some labels, benchmark_runs and then create a ResultsOrganizer,
@@ -127,7 +129,7 @@ result = {
         '': 'PASS',
         'test': '6'
     }]]
-}
+} # yapf: disable
 
 
 class ResultOrganizerTest(unittest.TestCase):
@@ -138,21 +140,21 @@ class ResultOrganizerTest(unittest.TestCase):
     benchmarks = [mock_instance.benchmark1, mock_instance.benchmark2]
     benchmark_runs = [None] * 8
     benchmark_runs[0] = BenchmarkRun('b1', benchmarks[0], labels[0], 1, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
     benchmark_runs[1] = BenchmarkRun('b2', benchmarks[0], labels[0], 2, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
     benchmark_runs[2] = BenchmarkRun('b3', benchmarks[0], labels[1], 1, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
     benchmark_runs[3] = BenchmarkRun('b4', benchmarks[0], labels[1], 2, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
     benchmark_runs[4] = BenchmarkRun('b5', benchmarks[1], labels[0], 1, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
     benchmark_runs[5] = BenchmarkRun('b6', benchmarks[1], labels[0], 2, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
     benchmark_runs[6] = BenchmarkRun('b7', benchmarks[1], labels[1], 1, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
     benchmark_runs[7] = BenchmarkRun('b8', benchmarks[1], labels[1], 2, '', '',
-                                     '', 'average', '')
+                                     '', 'average', '', {})
 
     i = 0
     for b in benchmark_runs:

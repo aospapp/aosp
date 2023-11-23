@@ -16,8 +16,8 @@
 
 package com.android.car.media.common.source;
 
-import android.annotation.NonNull;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -26,10 +26,16 @@ import android.content.pm.ResolveInfo;
 import android.service.media.MediaBrowserService;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.car.media.common.R;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -85,50 +91,72 @@ public class MediaSourcesLiveData {
         mAppContext.registerReceiver(mAppInstallUninstallReceiver, filter);
     }
 
-    /** Returns the alphabetically sorted list of available media sources. */
+    /**
+     * Returns the sorted list of available media sources. Sources listed in the array resource
+     * R.array.preferred_media_sources are included first. Other sources follow in alphabetical
+     * order.
+     */
     public List<MediaSource> getList() {
         if (mMediaSources == null) {
-            mMediaSources = getPackageNames().stream()
+            // Get the flattened components to display first.
+            String[] preferredFlats = mAppContext.getResources().getStringArray(
+                    R.array.preferred_media_sources);
+
+            // Make a map of components to display first (the value is the component's index).
+            HashMap<ComponentName, Integer> preferredComps = new HashMap<>(preferredFlats.length);
+            for (int i = 0; i < preferredFlats.length; i++) {
+                preferredComps.put(ComponentName.unflattenFromString(preferredFlats[i]), i);
+            }
+
+            // Prepare an array of the sources to display first (unavailable preferred components
+            // will be excluded).
+            MediaSource[] preferredSources = new MediaSource[preferredFlats.length];
+            List<MediaSource> sortedSources = getComponentNames().stream()
                     .filter(Objects::nonNull)
-                    .map(packageName -> new MediaSource(mAppContext, packageName))
+                    .map(componentName -> MediaSource.create(mAppContext, componentName))
                     .filter(mediaSource -> {
-                        if (mediaSource.getName() == null) {
-                            Log.w(TAG, "Found media source without name: "
-                                    + mediaSource.getPackageName());
+                        if (mediaSource == null) {
+                            Log.w(TAG, "Media source is null");
+                            return false;
+                        }
+                        ComponentName srcComp = mediaSource.getBrowseServiceComponentName();
+                        if (preferredComps.containsKey(srcComp)) {
+                            // Record the source in the preferred array...
+                            preferredSources[preferredComps.get(srcComp)] = mediaSource;
+                            // And exclude it from the alpha sort.
                             return false;
                         }
                         return true;
                     })
-                    .sorted(Comparator.comparing(mediaSource -> mediaSource.getName().toString()))
+                    .sorted(Comparator.comparing(
+                            mediaSource -> mediaSource.getDisplayName().toString()))
                     .collect(Collectors.toList());
+
+            // Concatenate the non null preferred sources and the sorted ones into the result.
+            mMediaSources = new ArrayList<>(sortedSources.size() + preferredFlats.length);
+            Arrays.stream(preferredSources).filter(Objects::nonNull).forEach(mMediaSources::add);
+            mMediaSources.addAll(sortedSources);
         }
         return mMediaSources;
     }
 
     /**
-     * Generates a set of all possible apps to choose from, including the ones that are just
-     * media services.
+     * Generates a set of all possible media services to choose from.
      */
-    private Set<String> getPackageNames() {
+    private Set<ComponentName> getComponentNames() {
         PackageManager packageManager = mAppContext.getPackageManager();
-        Intent intent = new Intent(Intent.ACTION_MAIN, null);
-        intent.addCategory(Intent.CATEGORY_APP_MUSIC);
-
         Intent mediaIntent = new Intent();
         mediaIntent.setAction(MediaBrowserService.SERVICE_INTERFACE);
-
-        List<ResolveInfo> availableActivities = packageManager.queryIntentActivities(intent, 0);
         List<ResolveInfo> mediaServices = packageManager.queryIntentServices(mediaIntent,
                 PackageManager.GET_RESOLVED_FILTER);
 
-        Set<String> apps = new HashSet<>();
+        Set<ComponentName> components = new HashSet<>();
         for (ResolveInfo info : mediaServices) {
-            apps.add(info.serviceInfo.packageName);
+            ComponentName componentName = new ComponentName(info.serviceInfo.packageName,
+                    info.serviceInfo.name);
+            components.add(componentName);
         }
-        for (ResolveInfo info : availableActivities) {
-            apps.add(info.activityInfo.packageName);
-        }
-        return apps;
+        return components;
     }
 
 }

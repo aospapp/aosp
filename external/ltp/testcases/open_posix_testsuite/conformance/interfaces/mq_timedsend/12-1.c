@@ -46,7 +46,7 @@
 	do { errno = en; perror(msg); exit(PTS_UNRESOLVED); } while (0)
 
 /* variable to indicate how many times signal handler was called */
-static volatile sig_atomic_t in_handler;
+static volatile int in_handler;
 
 /* errno returned by mq_timedsend() */
 static int mq_timedsend_errno = -1;
@@ -57,12 +57,12 @@ pthread_barrier_t barrier;
  * This handler is just used to catch the signal and stop sleep (so the
  * parent knows the child is still busy sending signals).
  */
-void justreturn_handler(int signo)
+void justreturn_handler(int signo LTP_ATTRIBUTE_UNUSED)
 {
 	in_handler++;
 }
 
-void *a_thread_func(void *arg)
+void *a_thread_func(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	int i, ret;
 	struct sigaction act;
@@ -148,12 +148,13 @@ int main(void)
 	if (ret != 0 && ret != PTHREAD_BARRIER_SERIAL_THREAD)
 		error_and_exit(ret, "pthread_barrier_wait start");
 
+	struct timespec completion_wait_ts = {0, SIGNAL_DELAY_MS*1000000};
 	while (i < TIMEOUT*1000 && mq_timedsend_errno < 0) {
 		/* signal thread while it's in mq_timedsend */
 		ret = pthread_kill(new_th, SIGUSR1);
 		if (ret != 0)
 			error_and_exit(ret, "pthread_kill");
-		usleep(SIGNAL_DELAY_MS*1000);
+		nanosleep(&completion_wait_ts, NULL);
 		i += SIGNAL_DELAY_MS;
 	}
 

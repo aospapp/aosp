@@ -2,7 +2,8 @@
  * Vulkan CTS Framework
  * --------------------
  *
- * Copyright (c) 2015 Google Inc.
+ * Copyright (c) 2019 Google Inc.
+ * Copyright (c) 2019 The Khronos Group Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +27,7 @@
 #include "vkQueryUtil.hpp"
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
+#include "vkImageUtil.hpp"
 #include "deInt32.h"
 
 #include <sstream>
@@ -35,6 +37,9 @@ namespace vk
 
 using de::UniquePtr;
 using de::MovePtr;
+using std::vector;
+
+typedef de::SharedPtr<Allocation> AllocationSp;
 
 namespace
 {
@@ -119,6 +124,7 @@ const MemoryRequirement MemoryRequirement::Protected		= MemoryRequirement(Memory
 const MemoryRequirement MemoryRequirement::Local			= MemoryRequirement(MemoryRequirement::FLAG_LOCAL);
 const MemoryRequirement MemoryRequirement::Cached			= MemoryRequirement(MemoryRequirement::FLAG_CACHED);
 const MemoryRequirement MemoryRequirement::NonLocal			= MemoryRequirement(MemoryRequirement::FLAG_NON_LOCAL);
+const MemoryRequirement MemoryRequirement::DeviceAddress	= MemoryRequirement(MemoryRequirement::FLAG_DEVICE_ADDRESS);
 
 bool MemoryRequirement::matchesHeap (VkMemoryPropertyFlags heapFlags) const
 {
@@ -213,13 +219,27 @@ MovePtr<Allocation> SimpleAllocator::allocate (const VkMemoryAllocateInfo& alloc
 MovePtr<Allocation> SimpleAllocator::allocate (const VkMemoryRequirements& memReqs, MemoryRequirement requirement)
 {
 	const deUint32				memoryTypeNdx	= selectMatchingMemoryType(m_memProps, memReqs.memoryTypeBits, requirement);
-	const VkMemoryAllocateInfo	allocInfo		=
+	VkMemoryAllocateInfo		allocInfo		=
 	{
 		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,	//	VkStructureType			sType;
 		DE_NULL,								//	const void*				pNext;
 		memReqs.size,							//	VkDeviceSize			allocationSize;
 		memoryTypeNdx,							//	deUint32				memoryTypeIndex;
 	};
+
+	VkMemoryAllocateFlagsInfo	allocFlagsInfo =
+	{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,	//	VkStructureType	sType
+		DE_NULL,										//	const void*		pNext
+		0,												//	VkMemoryAllocateFlags    flags
+		0,												//	uint32_t                 deviceMask
+	};
+
+	if (requirement & MemoryRequirement::DeviceAddress)
+	{
+		allocFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+		allocInfo.pNext = &allocFlagsInfo;
+	}
 
 	Move<VkDeviceMemory>		mem				= allocateMemory(m_vk, m_device, &allocInfo);
 	MovePtr<HostPtr>			hostPtr;
@@ -233,13 +253,13 @@ MovePtr<Allocation> SimpleAllocator::allocate (const VkMemoryRequirements& memRe
 	return MovePtr<Allocation>(new SimpleAllocation(mem, hostPtr));
 }
 
-static MovePtr<Allocation> allocateDedicated (const InstanceInterface&		vki,
-											  const DeviceInterface&		vkd,
-											  const VkPhysicalDevice&		physDevice,
-											  const VkDevice				device,
-											  const VkMemoryRequirements&	memReqs,
-											  const MemoryRequirement		requirement,
-											  const void*					pNext)
+MovePtr<Allocation> allocateExtended (const InstanceInterface&		vki,
+									  const DeviceInterface&		vkd,
+									  const VkPhysicalDevice&		physDevice,
+									  const VkDevice				device,
+									  const VkMemoryRequirements&	memReqs,
+									  const MemoryRequirement		requirement,
+									  const void*					pNext)
 {
 	const VkPhysicalDeviceMemoryProperties	memoryProperties	= getPhysicalDeviceMemoryProperties(vki, physDevice);
 	const deUint32							memoryTypeNdx		= selectMatchingMemoryType(memoryProperties, memReqs.memoryTypeBits, requirement);
@@ -278,7 +298,7 @@ de::MovePtr<Allocation> allocateDedicated (const InstanceInterface&	vki,
 		buffer																// VkBuffer				buffer
 	};
 
-	return allocateDedicated(vki, vkd, physDevice, device, memoryRequirements, requirement, &dedicatedAllocationInfo);
+	return allocateExtended(vki, vkd, physDevice, device, memoryRequirements, requirement, &dedicatedAllocationInfo);
 }
 
 de::MovePtr<Allocation> allocateDedicated (const InstanceInterface&	vki,
@@ -297,7 +317,7 @@ de::MovePtr<Allocation> allocateDedicated (const InstanceInterface&	vki,
 		DE_NULL															// VkBuffer				buffer
 	};
 
-	return allocateDedicated(vki, vkd, physDevice, device, memoryRequirements, requirement, &dedicatedAllocationInfo);
+	return allocateExtended(vki, vkd, physDevice, device, memoryRequirements, requirement, &dedicatedAllocationInfo);
 }
 
 void* mapMemory (const DeviceInterface& vkd, VkDevice device, VkDeviceMemory mem, VkDeviceSize offset, VkDeviceSize size, VkMemoryMapFlags flags)
@@ -349,29 +369,77 @@ deUint32 getCompatibleMemoryTypes (const VkPhysicalDeviceMemoryProperties& devic
 	return compatibleTypes;
 }
 
-void bindImagePlaneMemory (const DeviceInterface&	vkd,
-						   VkDevice					device,
-						   VkImage					image,
-						   VkDeviceMemory			memory,
-						   VkDeviceSize				memoryOffset,
-						   VkImageAspectFlagBits	planeAspect)
+void bindImagePlanesMemory (const DeviceInterface&		vkd,
+							const VkDevice				device,
+							const VkImage				image,
+							const deUint32				numPlanes,
+							vector<AllocationSp>&		allocations,
+							vk::Allocator&				allocator,
+							const vk::MemoryRequirement	requirement)
 {
-	const VkBindImagePlaneMemoryInfo	planeInfo	=
-	{
-		VK_STRUCTURE_TYPE_BIND_IMAGE_PLANE_MEMORY_INFO_KHR,
-		DE_NULL,
-		planeAspect
-	};
-	const VkBindImageMemoryInfo			coreInfo	=
-	{
-		VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO_KHR,
-		&planeInfo,
-		image,
-		memory,
-		memoryOffset,
-	};
+	vector<VkBindImageMemoryInfo>		coreInfos;
+	vector<VkBindImagePlaneMemoryInfo>	planeInfos;
+	coreInfos.reserve(numPlanes);
+	planeInfos.reserve(numPlanes);
 
-	VK_CHECK(vkd.bindImageMemory2(device, 1u, &coreInfo));
+	for (deUint32 planeNdx = 0; planeNdx < numPlanes; ++planeNdx)
+	{
+		const VkImageAspectFlagBits	planeAspect	= getPlaneAspect(planeNdx);
+		const VkMemoryRequirements	reqs		= getImagePlaneMemoryRequirements(vkd, device, image, planeAspect);
+
+		allocations.push_back(AllocationSp(allocator.allocate(reqs, requirement).release()));
+
+		VkBindImagePlaneMemoryInfo	planeInfo	=
+		{
+			VK_STRUCTURE_TYPE_BIND_IMAGE_PLANE_MEMORY_INFO_KHR,
+			DE_NULL,
+			planeAspect
+		};
+		planeInfos.push_back(planeInfo);
+
+		VkBindImageMemoryInfo		coreInfo	=
+		{
+			VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO_KHR,
+			&planeInfos.back(),
+			image,
+			allocations.back()->getMemory(),
+			allocations.back()->getOffset(),
+		};
+		coreInfos.push_back(coreInfo);
+	}
+
+	VK_CHECK(vkd.bindImageMemory2(device, numPlanes, coreInfos.data()));
+}
+
+MovePtr<Allocation> bindImage (const DeviceInterface&	vk,
+							   const VkDevice			device,
+							   Allocator&				allocator,
+							   const VkImage			image,
+							   const MemoryRequirement	requirement)
+{
+	MovePtr<Allocation> alloc = allocator.allocate(getImageMemoryRequirements(vk, device, image), requirement);
+	VK_CHECK(vk.bindImageMemory(device, image, alloc->getMemory(), alloc->getOffset()));
+	return alloc;
+}
+
+MovePtr<Allocation> bindBuffer (const DeviceInterface&	vk,
+								const VkDevice			device,
+								Allocator&				allocator,
+								const VkBuffer			buffer,
+								const MemoryRequirement	requirement)
+{
+	MovePtr<Allocation> alloc(allocator.allocate(getBufferMemoryRequirements(vk, device, buffer), requirement));
+	VK_CHECK(vk.bindBufferMemory(device, buffer, alloc->getMemory(), alloc->getOffset()));
+	return alloc;
+}
+
+void zeroBuffer (const DeviceInterface&	vk,
+				 const VkDevice			device,
+				 const Allocation&		alloc,
+				 const VkDeviceSize		size)
+{
+	deMemset(alloc.getHostPtr(), 0, static_cast<std::size_t>(size));
+	flushAlloc(vk, device, alloc);
 }
 
 } // vk

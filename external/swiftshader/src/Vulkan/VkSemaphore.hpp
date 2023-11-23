@@ -15,48 +15,64 @@
 #ifndef VK_SEMAPHORE_HPP_
 #define VK_SEMAPHORE_HPP_
 
+#include "VkConfig.h"
 #include "VkObject.hpp"
 
-namespace vk
-{
+#include "marl/event.h"
+#include <mutex>
+
+#if VK_USE_PLATFORM_FUCHSIA
+#	include <zircon/types.h>
+#endif
+
+namespace vk {
 
 class Semaphore : public Object<Semaphore, VkSemaphore>
 {
 public:
-	Semaphore(const VkSemaphoreCreateInfo* pCreateInfo, void* mem) {}
+	Semaphore(const VkSemaphoreCreateInfo *pCreateInfo, void *mem, const VkAllocationCallbacks *pAllocator);
+	void destroy(const VkAllocationCallbacks *pAllocator);
 
-	~Semaphore() = delete;
+	static size_t ComputeRequiredAllocationSize(const VkSemaphoreCreateInfo *pCreateInfo);
 
-	static size_t ComputeRequiredAllocationSize(const VkSemaphoreCreateInfo* pCreateInfo)
+	void wait();
+
+	void wait(const VkPipelineStageFlags &flag)
 	{
-		return 0;
+		// NOTE: not sure what else to do here?
+		wait();
 	}
 
-	void wait()
-	{
-		// Semaphores are noop for now
-	}
+	void signal();
 
-	void wait(const VkPipelineStageFlags& flag)
-	{
-		// VkPipelineStageFlags is the pipeline stage at which the semaphore wait will occur
+#if SWIFTSHADER_EXTERNAL_SEMAPHORE_OPAQUE_FD
+	VkResult importFd(int fd, bool temporaryImport);
+	VkResult exportFd(int *pFd);
+#endif
 
-		// Semaphores are noop for now
-	}
+#if VK_USE_PLATFORM_FUCHSIA
+	VkResult importHandle(zx_handle_t handle, bool temporaryImport);
+	VkResult exportHandle(zx_handle_t *pHandle);
+#endif
 
-	void signal()
-	{
-		// Semaphores are noop for now
-	}
+	class External;
 
 private:
+	void allocateExternal();
+	void deallocateExternal();
+
+	const VkAllocationCallbacks *allocator = nullptr;
+	marl::Event internal;
+	std::mutex mutex;
+	External *external = nullptr;
+	bool temporaryImport = false;
 };
 
-static inline Semaphore* Cast(VkSemaphore object)
+static inline Semaphore *Cast(VkSemaphore object)
 {
-	return reinterpret_cast<Semaphore*>(object);
+	return Semaphore::Cast(object);
 }
 
-} // namespace vk
+}  // namespace vk
 
-#endif // VK_SEMAPHORE_HPP_
+#endif  // VK_SEMAPHORE_HPP_

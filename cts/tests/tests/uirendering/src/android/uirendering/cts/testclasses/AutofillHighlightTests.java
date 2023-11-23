@@ -56,7 +56,8 @@ public class AutofillHighlightTests extends ActivityTestBase {
                 ActivityTestBase.TEST_HEIGHT);
         autofilledDrawable.draw(canvas);
 
-        createTest().addLayout(R.layout.simple_white_layout, view -> view.setAutofilled(true))
+        createTest()
+                .addLayout(R.layout.simple_white_layout, view -> view.setAutofilled(true, false))
                 .runWithVerifier(new GoldenImageVerifier(goldenBitmap, new MSSIMComparer(0.99)));
     }
 }

@@ -16,13 +16,16 @@
 
 package android.app;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.content.ClipDescription;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -40,17 +43,21 @@ import android.os.Environment;
 import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.provider.BaseColumns;
 import android.provider.Downloads;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.text.TextUtils;
+import android.util.LongSparseArray;
 import android.util.Pair;
+import android.webkit.MimeTypeMap;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * The download manager is a system service that handles long-running HTTP downloads. Clients may
@@ -132,6 +139,9 @@ public class DownloadManager {
      */
     public final static String COLUMN_STATUS = Downloads.Impl.COLUMN_STATUS;
 
+    /** {@hide} */
+    public final static String COLUMN_FILE_NAME_HINT = Downloads.Impl.COLUMN_FILE_NAME_HINT;
+
     /**
      * Provides more detail on the status of the download.  Its meaning depends on the value of
      * {@link #COLUMN_STATUS}.
@@ -168,6 +178,9 @@ public class DownloadManager {
      * downloaded list.
      */
     public static final String COLUMN_MEDIAPROVIDER_URI = Downloads.Impl.COLUMN_MEDIAPROVIDER_URI;
+
+    /** {@hide} */
+    public static final String COLUMN_DESTINATION = Downloads.Impl.COLUMN_DESTINATION;
 
     /** @hide */
     @TestApi
@@ -340,26 +353,22 @@ public class DownloadManager {
      */
     @UnsupportedAppUsage
     public static final String[] UNDERLYING_COLUMNS = new String[] {
-        Downloads.Impl._ID,
-        Downloads.Impl._DATA + " AS " + COLUMN_LOCAL_FILENAME,
-        Downloads.Impl.COLUMN_MEDIAPROVIDER_URI,
-        Downloads.Impl.COLUMN_DESTINATION,
-        Downloads.Impl.COLUMN_TITLE,
-        Downloads.Impl.COLUMN_DESCRIPTION,
-        Downloads.Impl.COLUMN_URI,
-        Downloads.Impl.COLUMN_STATUS,
-        Downloads.Impl.COLUMN_FILE_NAME_HINT,
-        Downloads.Impl.COLUMN_MIME_TYPE + " AS " + COLUMN_MEDIA_TYPE,
-        Downloads.Impl.COLUMN_TOTAL_BYTES + " AS " + COLUMN_TOTAL_SIZE_BYTES,
-        Downloads.Impl.COLUMN_LAST_MODIFICATION + " AS " + COLUMN_LAST_MODIFIED_TIMESTAMP,
-        Downloads.Impl.COLUMN_CURRENT_BYTES + " AS " + COLUMN_BYTES_DOWNLOADED_SO_FAR,
-        Downloads.Impl.COLUMN_ALLOW_WRITE,
-        /* add the following 'computed' columns to the cursor.
-         * they are not 'returned' by the database, but their inclusion
-         * eliminates need to have lot of methods in CursorTranslator
-         */
-        "'placeholder' AS " + COLUMN_LOCAL_URI,
-        "'placeholder' AS " + COLUMN_REASON
+        DownloadManager.COLUMN_ID,
+        DownloadManager.COLUMN_LOCAL_FILENAME,
+        DownloadManager.COLUMN_MEDIAPROVIDER_URI,
+        DownloadManager.COLUMN_DESTINATION,
+        DownloadManager.COLUMN_TITLE,
+        DownloadManager.COLUMN_DESCRIPTION,
+        DownloadManager.COLUMN_URI,
+        DownloadManager.COLUMN_STATUS,
+        DownloadManager.COLUMN_FILE_NAME_HINT,
+        DownloadManager.COLUMN_MEDIA_TYPE,
+        DownloadManager.COLUMN_TOTAL_SIZE_BYTES,
+        DownloadManager.COLUMN_LAST_MODIFIED_TIMESTAMP,
+        DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR,
+        DownloadManager.COLUMN_ALLOW_WRITE,
+        DownloadManager.COLUMN_LOCAL_URI,
+        DownloadManager.COLUMN_REASON
     };
 
     /**
@@ -1067,6 +1076,37 @@ public class DownloadManager {
     }
 
     /**
+     * Notify {@link DownloadManager} that the given {@link MediaStore} items
+     * were just deleted so that {@link DownloadManager} internal data
+     * structures can be cleaned up.
+     *
+     * @param idToMime map from {@link BaseColumns#_ID} to
+     *            {@link ContentResolver#getType(Uri)}.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.WRITE_MEDIA_STORAGE)
+    public void onMediaStoreDownloadsDeleted(@NonNull LongSparseArray<String> idToMime) {
+        try (ContentProviderClient client = mResolver
+                .acquireUnstableContentProviderClient(mBaseUri)) {
+           final Bundle callExtras = new Bundle();
+           final long[] ids = new long[idToMime.size()];
+           final String[] mimeTypes = new String[idToMime.size()];
+           for (int i = idToMime.size() - 1; i >= 0; --i) {
+               ids[i] = idToMime.keyAt(i);
+               mimeTypes[i] = idToMime.valueAt(i);
+           }
+           callExtras.putLongArray(android.provider.Downloads.EXTRA_IDS, ids);
+           callExtras.putStringArray(android.provider.Downloads.EXTRA_MIME_TYPES,
+                   mimeTypes);
+           client.call(android.provider.Downloads.CALL_MEDIASTORE_DOWNLOADS_DELETED,
+                   null, callExtras);
+        } catch (RemoteException e) {
+            // Should not happen
+        }
+    }
+
+    /**
      * Enqueue a new download.  The download will start automatically once the download manager is
      * ready to execute it and connectivity is available.
      *
@@ -1312,8 +1352,8 @@ public class DownloadManager {
 
         // TODO: DownloadProvider.update() should take care of updating corresponding
         // MediaProvider entries.
-        MediaStore.scanFile(context, before);
-        MediaStore.scanFile(context, after);
+        MediaStore.scanFile(mResolver, before);
+        MediaStore.scanFile(mResolver, after);
 
         final ContentValues values = new ContentValues();
         values.put(Downloads.Impl.COLUMN_TITLE, displayName);
@@ -1517,6 +1557,7 @@ public class DownloadManager {
         values.put(Downloads.Impl.COLUMN_DESTINATION,
                 Downloads.Impl.DESTINATION_NON_DOWNLOADMANAGER_DOWNLOAD);
         values.put(Downloads.Impl._DATA, path);
+        values.put(Downloads.Impl.COLUMN_MIME_TYPE, resolveMimeType(new File(path)));
         values.put(Downloads.Impl.COLUMN_STATUS, Downloads.Impl.STATUS_SUCCESS);
         values.put(Downloads.Impl.COLUMN_TOTAL_BYTES, length);
         values.put(Downloads.Impl.COLUMN_MEDIA_SCANNED,
@@ -1530,6 +1571,58 @@ public class DownloadManager {
             return -1;
         }
         return Long.parseLong(downloadUri.getLastPathSegment());
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/MimeUtils.java}
+     *
+     * @hide
+     */
+    private static @NonNull String resolveMimeType(@NonNull File file) {
+        final String extension = extractFileExtension(file.getPath());
+        if (extension == null) return ClipDescription.MIMETYPE_UNKNOWN;
+
+        final String mimeType = MimeTypeMap.getSingleton()
+                .getMimeTypeFromExtension(extension.toLowerCase(Locale.ROOT));
+        if (mimeType == null) return ClipDescription.MIMETYPE_UNKNOWN;
+
+        return mimeType;
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}
+     *
+     * @hide
+     */
+    private static @Nullable String extractDisplayName(@Nullable String data) {
+        if (data == null) return null;
+        if (data.indexOf('/') == -1) {
+            return data;
+        }
+        if (data.endsWith("/")) {
+            data = data.substring(0, data.length() - 1);
+        }
+        return data.substring(data.lastIndexOf('/') + 1);
+    }
+
+    /**
+     * Shamelessly borrowed from
+     * {@code packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java}
+     *
+     * @hide
+     */
+    private static @Nullable String extractFileExtension(@Nullable String data) {
+        if (data == null) return null;
+        data = extractDisplayName(data);
+
+        final int lastDot = data.lastIndexOf('.');
+        if (lastDot == -1) {
+            return null;
+        } else {
+            return data.substring(lastDot + 1);
+        }
     }
 
     private static final String NON_DOWNLOADMANAGER_DOWNLOAD =

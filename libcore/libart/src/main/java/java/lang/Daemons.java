@@ -16,18 +16,20 @@
 
 package java.lang;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.system.Os;
 import android.system.OsConstants;
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.system.VMRuntime;
+
 import java.lang.ref.FinalizerReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import libcore.util.EmptyArray;
+
+import dalvik.system.VMRuntime;
+import dalvik.system.VMDebug;
 
 /**
  * Calls Object.finalize() on objects in the finalizer reference queue. The VM
@@ -308,7 +310,7 @@ public final class Daemons {
 
         private boolean needToWork = true;  // Only accessed in synchronized methods.
 
-        private long finalizerTimeoutMs = 0;  // Lazily initialized.
+        private long finalizerTimeoutNs = 0;  // Lazily initialized.
 
         FinalizerWatchdogDaemon() {
             super("FinalizerWatchdogDaemon");
@@ -321,7 +323,7 @@ public final class Daemons {
                     continue;
                 }
                 final Object finalizing = waitForFinalization();
-                if (finalizing != null && !VMRuntime.getRuntime().isDebuggerActive()) {
+                if (finalizing != null && !VMDebug.isDebuggerConnected()) {
                     finalizerTimedOut(finalizing);
                     break;
                 }
@@ -368,17 +370,22 @@ public final class Daemons {
         }
 
         /**
-         * Sleep for the given number of milliseconds.
+         * Sleep for the given number of nanoseconds, or slightly longer.
          * @return false if we were interrupted.
          */
-        private boolean sleepForMillis(long durationMillis) {
-            long startMillis = System.currentTimeMillis();
+        private boolean sleepForNanos(long durationNanos) {
+            // It's important to base this on nanoTime(), not currentTimeMillis(), since
+            // the former stops counting when the processor isn't running.
+            long startNanos = System.nanoTime();
             while (true) {
-                long elapsedMillis = System.currentTimeMillis() - startMillis;
-                long sleepMillis = durationMillis - elapsedMillis;
-                if (sleepMillis <= 0) {
+                long elapsedNanos = System.nanoTime() - startNanos;
+                long sleepNanos = durationNanos - elapsedNanos;
+                if (sleepNanos <= 0) {
                     return true;
                 }
+                // Ensure the nano time is always rounded up to the next whole millisecond,
+                // ensuring the delay is >= the requested delay.
+                long sleepMillis = (sleepNanos + NANOS_PER_MILLI - 1) / NANOS_PER_MILLI;
                 try {
                     Thread.sleep(sleepMillis);
                 } catch (InterruptedException e) {
@@ -401,14 +408,15 @@ public final class Daemons {
          * null.  Only called from a single thread.
          */
         private Object waitForFinalization() {
-            if (finalizerTimeoutMs == 0) {
-                finalizerTimeoutMs = VMRuntime.getRuntime().getFinalizerTimeoutMs();
+            if (finalizerTimeoutNs == 0) {
+                finalizerTimeoutNs =
+                        NANOS_PER_MILLI * VMRuntime.getRuntime().getFinalizerTimeoutMs();
                 // Temporary app backward compatibility. Remove eventually.
-                MAX_FINALIZE_NANOS = NANOS_PER_MILLI * finalizerTimeoutMs;
+                MAX_FINALIZE_NANOS = finalizerTimeoutNs;
             }
             long startCount = FinalizerDaemon.INSTANCE.progressCounter.get();
             // Avoid remembering object being finalized, so as not to keep it alive.
-            if (!sleepForMillis(finalizerTimeoutMs)) {
+            if (!sleepForNanos(finalizerTimeoutNs)) {
                 // Don't report possibly spurious timeout if we are interrupted.
                 return null;
             }
@@ -429,7 +437,7 @@ public final class Daemons {
                 // just finished as we were timing out, in which case we may get null or a later
                 // one.  In this last case, we are very likely to discard it below.
                 Object finalizing = FinalizerDaemon.INSTANCE.finalizingObject;
-                sleepForMillis(500);
+                sleepForNanos(500 * NANOS_PER_MILLI);
                 // Recheck to make it even less likely we report the wrong finalizing object in
                 // the case which a very slow finalization just finished as we were timing out.
                 if (getNeedToWork()

@@ -1,0 +1,7 @@
+# ==============================================
+# MTK Policy Rule
+# ============
+
+# Date: 2019/06/14
+# Operation : Migration
+get_prop(shared_relro, mtk_amslog_prop)

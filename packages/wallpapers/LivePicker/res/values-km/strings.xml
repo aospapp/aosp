@@ -19,24 +19,24 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="application_name" msgid="4119979710394894209">"កម្មវិធី​ជ្រើស​ផ្ទាំង​រូបភាព​មាន​ចលនា"</string>
-    <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"ជ្រើស​ផ្ទាំង​រូបភាព​មាន​ចលនា"</string>
-    <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"ផ្ទាំងរូបភាព​មាន​ចលនា"</string>
-    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"មើល​ផ្ទាំង​រូបភាព​មាន​ចលនា​ជា​មុន"</string>
-    <string name="configure_wallpaper" msgid="7396598925806288258">"ការ​កំណត់..."</string>
-    <string name="delete_live_wallpaper" msgid="5127205073129449497">"លុប"</string>
-    <string name="preview" msgid="5553971347768345401">"មើលសាកល្បង"</string>
-    <string name="wallpaper_instructions" msgid="4215640646180727542">"កំណត់​ផ្ទាំង​រូបភាព"</string>
-    <string name="live_wallpaper_empty" msgid="4278728108785853407">"គ្មាន​ផ្ទាំង​រូបភាព​មាន​ចលនា។"</string>
-    <string name="set_live_wallpaper" msgid="2381437614949033266">"កំណត់​ផ្ទាំង​រូបភាព"</string>
-    <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> ដោយ <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
-    <string name="live_wallpaper_loading" msgid="2488371303130330734">"កំពុង​ផ្ទុក​ផ្ទាំង​រូបភាព​មាន​ចលនា..."</string>
-    <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"អេក្រង់ដើម"</string>
-    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"អេក្រង់ដើម និងអេក្រង់ជាប់សោ"</string>
-    <string name="explore_further" msgid="2891466461738034935">"រុករក"</string>
-    <string name="tab_info" msgid="2612717074705274392">"ព័ត៌មាន"</string>
-    <string name="tab_customize" msgid="5282247400178296263">"ប្ដូរតាមបំណង"</string>
-    <string name="delete_wallpaper_confirmation" msgid="6449356646369781400">"លុប​ផ្ទាំងរូបភាពនេះ​ពី​ទូរសព្ទរបស់អ្នក?"</string>
-    <string name="collapse_attribution_panel" msgid="4998500891743118630">"បង្រួមផ្ទាំងព័ត៌មានផ្ទាំងរូបភាព"</string>
-    <string name="expand_attribution_panel" msgid="3151357815478885438">"ពង្រីកផ្ទាំងព័ត៌មានផ្ទាំងរូបភាព"</string>
+    <string name="application_name" msgid="321870838342157591">"កម្មវិធី​ជ្រើស​ផ្ទាំង​រូបភាព​មាន​ចលនា"</string>
+    <string name="live_wallpaper_picker_title" msgid="6152733341691314608">"ជ្រើស​ផ្ទាំង​រូបភាព​មាន​ចលនា"</string>
+    <string name="live_wallpaper_picker_label" msgid="295628316836042825">"ផ្ទាំងរូបភាព​មាន​ចលនា"</string>
+    <string name="live_wallpaper_preview_title" msgid="908570871421455329">"មើល​ផ្ទាំង​រូបភាព​មាន​ចលនា​ជា​មុន"</string>
+    <string name="configure_wallpaper" msgid="4308477548538487192">"ការ​កំណត់..."</string>
+    <string name="delete_live_wallpaper" msgid="2401799265848069389">"លុប"</string>
+    <string name="preview" msgid="1067744492020029129">"មើលសាកល្បង"</string>
+    <string name="wallpaper_instructions" msgid="6112878742140691445">"កំណត់​ផ្ទាំង​រូបភាព"</string>
+    <string name="live_wallpaper_empty" msgid="8057319062274870589">"គ្មាន​ផ្ទាំង​រូបភាព​មាន​ចលនា។"</string>
+    <string name="set_live_wallpaper" msgid="764007409845174475">"កំណត់​ផ្ទាំង​រូបភាព"</string>
+    <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g> ដោយ <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
+    <string name="live_wallpaper_loading" msgid="7218845906181560315">"កំពុង​ផ្ទុក​ផ្ទាំង​រូបភាព​មាន​ចលនា..."</string>
+    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"អេក្រង់ដើម"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"អេក្រង់ដើម និងអេក្រង់ជាប់សោ"</string>
+    <string name="explore_further" msgid="489032063223099244">"រុករក"</string>
+    <string name="tab_info" msgid="5501369870701932475">"ព័ត៌មាន"</string>
+    <string name="tab_customize" msgid="9007237541087328909">"ប្ដូរតាមបំណង"</string>
+    <string name="delete_wallpaper_confirmation" msgid="252765957117597457">"លុប​ផ្ទាំងរូបភាពនេះ​ពី​ទូរសព្ទរបស់អ្នក?"</string>
+    <string name="collapse_attribution_panel" msgid="5368959884531941653">"បង្រួមផ្ទាំងព័ត៌មានផ្ទាំងរូបភាព"</string>
+    <string name="expand_attribution_panel" msgid="6540929859713706255">"ពង្រីកផ្ទាំងព័ត៌មានផ្ទាំងរូបភាព"</string>
 </resources>

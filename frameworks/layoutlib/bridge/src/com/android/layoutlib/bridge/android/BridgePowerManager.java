@@ -95,6 +95,21 @@ public class BridgePowerManager implements IPowerManager {
     }
 
     @Override
+    public void setPowerBoost(int boost, int durationMs) {
+        // pass for now.
+    }
+
+    @Override
+    public void setPowerMode(int mode, boolean enabled) {
+        // pass for now.
+    }
+
+    @Override
+    public boolean setPowerModeChecked(int mode, boolean enabled) {
+        return false;
+    }
+
+    @Override
     public void crash(String arg0) throws RemoteException {
         // pass for now.
     }
@@ -107,6 +122,11 @@ public class BridgePowerManager implements IPowerManager {
     @Override
     public void nap(long arg0) throws RemoteException {
         // pass for now.
+    }
+
+    @Override
+    public float getBrightnessConstraint(int constraint) {
+        return PowerManager.BRIGHTNESS_MAX;
     }
 
     @Override
@@ -199,6 +219,26 @@ public class BridgePowerManager implements IPowerManager {
     @Override
     public void setDozeAfterScreenOff(boolean mode) throws RemoteException {
         // pass for now.
+    }
+
+    @Override
+    public boolean isAmbientDisplayAvailable() {
+        return false;
+    }
+
+    @Override
+    public void suppressAmbientDisplay(String token, boolean suppress) {
+        // pass for now
+    }
+
+    @Override
+    public boolean isAmbientDisplaySuppressedForToken(String token) {
+        return false;
+    }
+
+    @Override
+    public boolean isAmbientDisplaySuppressed() {
+        return false;
     }
 
     @Override

@@ -143,6 +143,13 @@ static const interop_addr_entry_t interop_addr_database[] = {
 
     // AirPods 2 - unacceptably loud volume
     {{{0x94, 0x16, 0x25, 0, 0, 0}}, 3, INTEROP_DISABLE_ABSOLUTE_VOLUME},
+
+    // AirPods 2 - unacceptably loud volume
+    {{{0x9c, 0x64, 0x8b, 0, 0, 0}}, 3, INTEROP_DISABLE_ABSOLUTE_VOLUME},
+
+    // for skip name request,
+    // because BR/EDR address and ADV random address are the same
+    {{{0xd4, 0x7a, 0xe2, 0, 0, 0}}, 3, INTEROP_DISABLE_NAME_REQUEST},
 };
 
 typedef struct {
@@ -170,7 +177,8 @@ static const interop_name_entry_t interop_name_database[] = {
     // Kenwood KMM-BT518HD - no audio when A2DP codec sample rate is changed
     {"KMM-BT51*HD", 11, INTEROP_DISABLE_AVDTP_RECONFIGURE},
 
-    // Nintendo Switch Pro Controller - does not set sniff interval dynamically.
-    // Requires custom HID report command to change mode.
+    // Nintendo Switch Pro Controller and Joy Con - do not set sniff interval
+    // dynamically. They require custom HID report command to change mode.
     {"Pro Controller", 14, INTEROP_HID_HOST_LIMIT_SNIFF_INTERVAL},
+    {"Joy-Con", 7, INTEROP_HID_HOST_LIMIT_SNIFF_INTERVAL},
 };

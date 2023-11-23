@@ -16,11 +16,7 @@
 
 package android.webkit.cts;
 
-import android.webkit.cts.R;
-
 import android.app.Activity;
-import android.app.ActivityManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -30,35 +26,19 @@ import com.android.compatibility.common.util.NullWebViewUtils;
 
 public class WebViewCtsActivity extends Activity {
     private WebView mWebView;
-    private Exception mInflationException;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        try {
-            super.onCreate(savedInstanceState);
-            setContentView(R.layout.webview_layout);
-            mWebView = (WebView) findViewById(R.id.web_page);
-            mInflationException = null;
-        } catch (Exception e) {
-            NullWebViewUtils.determineIfWebViewAvailable(this, e);
-            // If WebView is available, then the exception we just caught should be propagated.
-            if (NullWebViewUtils.isWebViewAvailable()) {
-                mInflationException = e;
-           }
-        }
-    }
+        super.onCreate(savedInstanceState);
 
-    public boolean isMultiprocessMode() {
-        // Currently multiprocess is disabled on low RAM 32 bit devices.
-        return
-            Build.SUPPORTED_64_BIT_ABIS.length > 0 ||
-            !getSystemService(ActivityManager.class).isLowRamDevice();
+        // Only inflate the layout if the device is supposed to have a WebView implementation.
+        if (!NullWebViewUtils.isWebViewAvailable()) return;
+
+        setContentView(R.layout.webview_layout);
+        mWebView = (WebView) findViewById(R.id.web_page);
     }
 
     public WebView getWebView() {
-        if (mInflationException != null) {
-            throw new RuntimeException("Exception caught in onCreate", mInflationException);
-        }
         return mWebView;
     }
 

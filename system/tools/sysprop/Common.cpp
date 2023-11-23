@@ -34,19 +34,22 @@
 #include <vector>
 
 #include <android-base/file.h>
+#include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <google/protobuf/text_format.h>
 
 #include "sysprop.pb.h"
+
+using android::base::Result;
 
 namespace {
 
 std::string GenerateDefaultPropName(const sysprop::Properties& props,
                                     const sysprop::Property& prop);
 bool IsCorrectIdentifier(const std::string& name);
-bool ValidateProp(const sysprop::Properties& props,
-                  const sysprop::Property& prop, std::string* err);
-bool ValidateProps(const sysprop::Properties& props, std::string* err);
+Result<void> ValidateProp(const sysprop::Properties& props,
+                          const sysprop::Property& prop);
+Result<void> ValidateProps(const sysprop::Properties& props);
 
 std::string GenerateDefaultPropName(const sysprop::Properties& props,
                                     const sysprop::Property& prop) {
@@ -79,48 +82,54 @@ bool IsCorrectIdentifier(const std::string& name) {
   });
 }
 
-bool IsCorrectPropertyOrApiName(const std::string& name) {
+bool IsCorrectName(const std::string& name,
+                   const std::unordered_set<char>& allowed_chars) {
   if (name.empty()) return false;
+  if (!std::isalpha(*name.begin())) return false;
 
-  static std::unordered_set<char> allowed{'_', '-', '.'};
-
-  return std::all_of(name.begin(), name.end(), [](char ch) {
-    return std::isalnum(ch) != 0 || allowed.count(ch) != 0;
+  return std::all_of(name.begin(), name.end(), [allowed_chars](char ch) {
+    return std::isalnum(ch) != 0 || allowed_chars.count(ch) != 0;
   });
 }
 
-bool ValidateProp(const sysprop::Properties& props,
-                  const sysprop::Property& prop, std::string* err) {
-  if (!IsCorrectPropertyOrApiName(prop.api_name())) {
-    if (err) *err = "Invalid API name \"" + prop.api_name() + "\"";
-    return false;
+bool IsCorrectPropertyName(const std::string& name) {
+  std::unordered_set<char> allowed{'_', '-', '.'};
+  if (android::base::StartsWith(name, "ctl.")) {
+    allowed.emplace('$');
+  }
+  return IsCorrectName(name, allowed);
+}
+
+bool IsCorrectApiName(const std::string& name) {
+  static std::unordered_set<char> allowed{'_', '-'};
+  return IsCorrectName(name, allowed);
+}
+
+Result<void> ValidateProp(const sysprop::Properties& props,
+                          const sysprop::Property& prop) {
+  if (!IsCorrectApiName(prop.api_name())) {
+    return Errorf("Invalid API name \"{}\"", prop.api_name());
   }
 
   if (prop.type() == sysprop::Enum || prop.type() == sysprop::EnumList) {
     std::vector<std::string> names =
         android::base::Split(prop.enum_values(), "|");
     if (names.empty()) {
-      if (err)
-        *err = "Enum values are empty for API \"" + prop.api_name() + "\"";
-      return false;
+      return Errorf("Enum values are empty for API \"{}\"", prop.api_name());
     }
 
     for (const std::string& name : names) {
       if (!IsCorrectIdentifier(name)) {
-        if (err)
-          *err = "Invalid enum value \"" + name + "\" for API \"" +
-                 prop.api_name() + "\"";
-        return false;
+        return Errorf("Invalid enum value \"{}\" for API \"{}\"", name,
+                      prop.api_name());
       }
     }
 
     std::unordered_set<std::string> name_set;
     for (const std::string& name : names) {
       if (!name_set.insert(ToUpper(name)).second) {
-        if (err)
-          *err = "Duplicated enum value \"" + name + "\" for API \"" +
-                 prop.api_name() + "\"";
-        return false;
+        return Errorf("Duplicated enum value \"{}\" for API \"{}\"", name,
+                      prop.api_name());
       }
     }
   }
@@ -128,9 +137,8 @@ bool ValidateProp(const sysprop::Properties& props,
   std::string prop_name = prop.prop_name();
   if (prop_name.empty()) prop_name = GenerateDefaultPropName(props, prop);
 
-  if (!IsCorrectPropertyOrApiName(prop_name)) {
-    if (err) *err = "Invalid prop name \"" + prop.prop_name() + "\"";
-    return false;
+  if (!IsCorrectPropertyName(prop_name)) {
+    return Errorf("Invalid prop name \"{}\"", prop.prop_name());
   }
 
   static const std::regex vendor_regex(
@@ -142,26 +150,23 @@ bool ValidateProp(const sysprop::Properties& props,
     case sysprop::Platform:
       if (std::regex_match(prop_name, vendor_regex) ||
           std::regex_match(prop_name, odm_regex)) {
-        if (err)
-          *err = "Prop \"" + prop_name +
-                 "\" owned by platform cannot have vendor. or odm. namespace";
-        return false;
+        return Errorf(
+            "Prop \"{}\" owned by platform cannot have vendor. or odm. "
+            "namespace",
+            prop_name);
       }
       break;
     case sysprop::Vendor:
       if (!std::regex_match(prop_name, vendor_regex)) {
-        if (err)
-          *err = "Prop \"" + prop_name +
-                 "\" owned by vendor should have vendor. namespace";
-        return false;
+        return Errorf(
+            "Prop \"{}\" owned by vendor should have vendor. namespace",
+            prop_name);
       }
       break;
     case sysprop::Odm:
       if (!std::regex_match(prop_name, odm_regex)) {
-        if (err)
-          *err = "Prop \"" + prop_name +
-                 "\" owned by odm should have odm. namespace";
-        return false;
+        return Errorf("Prop \"{}\" owned by odm should have odm. namespace",
+                      prop_name);
       }
       break;
     default:
@@ -171,11 +176,8 @@ bool ValidateProp(const sysprop::Properties& props,
   switch (prop.access()) {
     case sysprop::ReadWrite:
       if (android::base::StartsWith(prop_name, "ro.")) {
-        if (err) {
-          *err = "Prop \"" + prop_name +
-                 "\" is ReadWrite and also have prefix \"ro.\"";
-        }
-        return false;
+        return Errorf("Prop \"{}\" is ReadWrite and also have prefix \"ro.\"",
+                      prop_name);
       }
       break;
     default:
@@ -185,11 +187,8 @@ bool ValidateProp(const sysprop::Properties& props,
        * uncomment this check after fixing them all / or making a whitelist for
        * them
       if (!android::base::StartsWith(prop_name, "ro.")) {
-        if (err) {
-          *err = "Prop \"" + prop_name +
-                 "\" isn't ReadWrite, but don't have prefix \"ro.\"";
-        }
-        return false;
+        return Errorf("Prop \"{}\" isn't ReadWrite, but don't have prefix
+      \"ro.\"", prop_name);
       }
       */
       break;
@@ -197,38 +196,32 @@ bool ValidateProp(const sysprop::Properties& props,
 
   if (prop.integer_as_bool() && !(prop.type() == sysprop::Boolean ||
                                   prop.type() == sysprop::BooleanList)) {
-    if (err) {
-      *err = "Prop \"" + prop_name +
-             "\" has integer_as_bool: true, but not a boolean";
-    }
-    return false;
+    return Errorf("Prop \"{}\" has integer_as_bool: true, but not a boolean",
+                  prop_name);
   }
 
-  return true;
+  return {};
 }
 
-bool ValidateProps(const sysprop::Properties& props, std::string* err) {
+Result<void> ValidateProps(const sysprop::Properties& props) {
   std::vector<std::string> names = android::base::Split(props.module(), ".");
   if (names.size() <= 1) {
-    if (err) *err = "Invalid module name \"" + props.module() + "\"";
-    return false;
+    return Errorf("Invalid module name \"{}\"", props.module());
   }
 
   for (const auto& name : names) {
     if (!IsCorrectIdentifier(name)) {
-      if (err) *err = "Invalid name \"" + name + "\" in module";
-      return false;
+      return Errorf("Invalid name \"{}\" in module", name);
     }
   }
 
   if (props.prop_size() == 0) {
-    if (err) *err = "There is no defined property";
-    return false;
+    return Errorf("There is no defined property");
   }
 
   for (int i = 0; i < props.prop_size(); ++i) {
     const auto& prop = props.prop(i);
-    if (!ValidateProp(props, prop, err)) return false;
+    if (auto res = ValidateProp(props, prop); !res.ok()) return res;
   }
 
   std::unordered_set<std::string> prop_names;
@@ -238,42 +231,29 @@ bool ValidateProps(const sysprop::Properties& props, std::string* err) {
     auto res = prop_names.insert(ApiNameToIdentifier(prop.api_name()));
 
     if (!res.second) {
-      if (err) *err = "Duplicated API name \"" + prop.api_name() + "\"";
-      return false;
+      return Errorf("Duplicated API name \"{}\"", prop.api_name());
     }
   }
 
-  return true;
+  return {};
+}
+
+void SetDefaultValues(sysprop::Properties* props) {
+  for (int i = 0; i < props->prop_size(); ++i) {
+    // set each optional field to its default value
+    sysprop::Property& prop = *props->mutable_prop(i);
+    if (prop.prop_name().empty())
+      prop.set_prop_name(GenerateDefaultPropName(*props, prop));
+    if (prop.scope() == sysprop::Scope::System) {
+      LOG(WARNING) << "Sysprop API " << prop.api_name()
+                   << ": System scope is deprecated."
+                   << " Please use Public scope instead.";
+      prop.set_scope(sysprop::Scope::Public);
+    }
+  }
 }
 
 }  // namespace
-
-// For directory functions, we could use <filesystem> of C++17 if supported..
-bool CreateDirectories(const std::string& path) {
-  struct stat st;
-
-  // If already exists..
-  if (stat(path.c_str(), &st) == 0) {
-    return false;
-  }
-
-  size_t last_slash = path.rfind('/');
-  if (last_slash > 0 && last_slash != std::string::npos) {
-    std::string parent = path.substr(0, last_slash);
-    if (!IsDirectory(parent) && !CreateDirectories(parent)) return false;
-  }
-
-  // It's very unlikely, but if path contains ".." or any symbolic links, it
-  // might already be created before this line.
-  return mkdir(path.c_str(), 0755) == 0 || IsDirectory(path);
-}
-
-bool IsDirectory(const std::string& path) {
-  struct stat st;
-
-  if (stat(path.c_str(), &st) == -1) return false;
-  return S_ISDIR(st.st_mode);
-}
 
 bool IsListProp(const sysprop::Property& prop) {
   switch (prop.type()) {
@@ -294,32 +274,58 @@ std::string GetModuleName(const sysprop::Properties& props) {
   return module.substr(module.rfind('.') + 1);
 }
 
-bool ParseProps(const std::string& input_file_path, sysprop::Properties* props,
-                std::string* err) {
+Result<sysprop::Properties> ParseProps(const std::string& input_file_path) {
+  sysprop::Properties ret;
   std::string file_contents;
 
   if (!android::base::ReadFileToString(input_file_path, &file_contents, true)) {
-    *err = "Error reading file " + input_file_path + ": " + strerror(errno);
-    return false;
+    return ErrnoErrorf("Error reading file {}", input_file_path);
   }
 
-  if (!google::protobuf::TextFormat::ParseFromString(file_contents, props)) {
-    *err = "Error parsing file " + input_file_path;
-    return false;
+  if (!google::protobuf::TextFormat::ParseFromString(file_contents, &ret)) {
+    return Errorf("Error parsing file {}", input_file_path);
   }
 
-  if (!ValidateProps(*props, err)) {
-    return false;
+  if (auto res = ValidateProps(ret); !res.ok()) {
+    return res.error();
   }
 
-  for (int i = 0; i < props->prop_size(); ++i) {
-    // set each optional field to its default value
-    sysprop::Property& prop = *props->mutable_prop(i);
-    if (prop.prop_name().empty())
-      prop.set_prop_name(GenerateDefaultPropName(*props, prop));
+  SetDefaultValues(&ret);
+
+  return ret;
+}
+
+Result<sysprop::SyspropLibraryApis> ParseApiFile(
+    const std::string& input_file_path) {
+  sysprop::SyspropLibraryApis ret;
+  std::string file_contents;
+
+  if (!android::base::ReadFileToString(input_file_path, &file_contents, true)) {
+    return ErrnoErrorf("Error reading file {}", input_file_path);
   }
 
-  return true;
+  if (!google::protobuf::TextFormat::ParseFromString(file_contents, &ret)) {
+    return Errorf("Error parsing file {}", input_file_path);
+  }
+
+  std::unordered_set<std::string> modules;
+
+  for (int i = 0; i < ret.props_size(); ++i) {
+    sysprop::Properties* props = ret.mutable_props(i);
+
+    if (!modules.insert(props->module()).second) {
+      return Errorf("Error parsing file {}: duplicated module {}",
+                    input_file_path, props->module());
+    }
+
+    if (auto res = ValidateProps(*props); !res.ok()) {
+      return res.error();
+    }
+
+    SetDefaultValues(props);
+  }
+
+  return ret;
 }
 
 std::string ToUpper(std::string str) {

@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.invoker;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -22,6 +24,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IBuildProvider;
 import com.android.tradefed.command.CommandRunner.ExitCode;
@@ -33,19 +36,24 @@ import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.guice.InvocationScope;
+import com.android.tradefed.invoker.ExecutionFiles.FilesKey;
 import com.android.tradefed.invoker.sandbox.SandboxedInvocationExecution;
 import com.android.tradefed.log.ILogRegistry;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.sandbox.ISandbox;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.FileUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -55,6 +63,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import java.io.File;
 import java.util.Arrays;
 
 /** Unit tests for {@link SandboxedInvocationExecution}. */
@@ -76,6 +85,8 @@ public class SandboxedInvocationExecutionTest {
     private IConfiguration mConfig;
     private IInvocationContext mContext;
     private InvocationExecution mSpyExec;
+    private SandboxedInvocationExecution mExecution;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() throws Exception {
@@ -114,11 +125,15 @@ public class SandboxedInvocationExecutionTest {
                     }
                 };
         mConfig = new Configuration("test", "test");
+        mConfig.getConfigurationDescription().setSandboxed(true);
         mContext = new InvocationContext();
         mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
         mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, new BuildInfo());
 
         doReturn(new ByteArrayInputStreamSource("".getBytes())).when(mMockDevice).getLogcat();
+
+        mExecution = new SandboxedInvocationExecution();
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(mContext).build();
     }
 
     /** Interface to test the build provider receiving the context */
@@ -178,8 +193,9 @@ public class SandboxedInvocationExecutionTest {
                             @Override
                             public boolean shardConfig(
                                     IConfiguration config,
-                                    IInvocationContext context,
-                                    IRescheduler rescheduler) {
+                                    TestInformation testInfo,
+                                    IRescheduler rescheduler,
+                                    ITestLogger logger) {
                                 // Ensure that sharding is not called against a sandbox
                                 // configuration run
                                 throw new RuntimeException("Should not be called.");
@@ -237,6 +253,7 @@ public class SandboxedInvocationExecutionTest {
                 .saveLogData(any(), any(), any());
 
         CommandResult result = new CommandResult(CommandStatus.SUCCESS);
+        result.setExitCode(0);
         doReturn(result).when(mMockSandbox).run(any(), any());
 
         doReturn(new BuildInfo()).when(mMockProvider).getBuild();
@@ -244,8 +261,8 @@ public class SandboxedInvocationExecutionTest {
         mInvocation.invoke(mContext, mConfig, mMockRescheduler, mMockListener);
 
         // Ensure no preparer and cleaner are called in parent process
-        Mockito.verify(mMockPreparer, times(0)).setUp(any(), any());
-        Mockito.verify(mMockCleaner, times(0)).tearDown(any(), any(), any());
+        Mockito.verify(mMockPreparer, times(0)).setUp(any());
+        Mockito.verify(mMockCleaner, times(0)).tearDown(any(), any());
     }
 
     /**
@@ -307,8 +324,8 @@ public class SandboxedInvocationExecutionTest {
         mContext.addInvocationAttribute("test", "test");
         // Device early preInvocationSetup was called and even if no tests run we still call tear
         // down
-        Mockito.verify(mMockDevice).preInvocationSetup(any(), any());
-        Mockito.verify(mMockDevice).postInvocationTearDown();
+        Mockito.verify(mMockDevice).preInvocationSetup(any());
+        Mockito.verify(mMockDevice).postInvocationTearDown(null);
     }
 
     /**
@@ -364,20 +381,48 @@ public class SandboxedInvocationExecutionTest {
         doReturn(info).when(mMockProvider).getBuild();
 
         DeviceNotAvailableException exception = new DeviceNotAvailableException("reason", "serial");
-        doThrow(exception).when(mMockDevice).preInvocationSetup(eq(info), any());
+        doThrow(exception).when(mMockDevice).preInvocationSetup(eq(info));
 
         mInvocation.invoke(mContext, mConfig, mMockRescheduler, mMockListener);
         // No tests to run but we still call start/end
         Mockito.verify(mMockListener).invocationStarted(mContext);
-        Mockito.verify(mMockListener).invocationFailed(exception);
-        Mockito.verify(mMockListener)
-                .testLog(eq(TestInvocation.TRADEFED_LOG_NAME), eq(LogDataType.TEXT), any());
+        FailureDescription failure = FailureDescription.create(exception.getMessage());
+        failure.setCause(exception).setFailureStatus(FailureStatus.INFRA_FAILURE);
+        Mockito.verify(mMockListener).invocationFailed(failure);
         Mockito.verify(mMockListener).invocationEnded(0L);
         // Invocation did not start for real so context is not locked.
         mContext.addInvocationAttribute("test", "test");
         // Device early preInvocationSetup was called and even if no tests run we still call tear
         // down
-        Mockito.verify(mMockDevice).preInvocationSetup(any(), any());
-        Mockito.verify(mMockDevice).postInvocationTearDown();
+        Mockito.verify(mMockDevice).preInvocationSetup(any());
+        Mockito.verify(mMockDevice).postInvocationTearDown(exception);
+    }
+
+    @Test
+    public void testBackFill() throws Exception {
+        IBuildInfo info = new BuildInfo();
+        File buildFile = FileUtil.createTempFile("sandboxedfile", "test");
+        info.setFile(BuildInfoFileKey.HOST_LINKED_DIR, buildFile, "1");
+        File tmpFile = FileUtil.createTempFile("sandboxedTest", "test");
+        try {
+            info.setFile("random-key", tmpFile, "1");
+            mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, info);
+            assertEquals(0, mTestInfo.executionFiles().getAll().size());
+            mExecution.fetchBuild(mTestInfo, mConfig, null, null);
+            // After fetchBuild, the TestInformation is filled
+            assertEquals(3, mTestInfo.executionFiles().getAll().size());
+            assertTrue(mTestInfo.executionFiles().containsKey("random-key"));
+            assertTrue(
+                    mTestInfo
+                            .executionFiles()
+                            .containsKey(FilesKey.HOST_TESTS_DIRECTORY.toString()));
+            assertTrue(
+                    mTestInfo
+                            .executionFiles()
+                            .containsKey(BuildInfoFileKey.HOST_LINKED_DIR.toString()));
+        } finally {
+            FileUtil.deleteFile(tmpFile);
+            FileUtil.deleteFile(buildFile);
+        }
     }
 }

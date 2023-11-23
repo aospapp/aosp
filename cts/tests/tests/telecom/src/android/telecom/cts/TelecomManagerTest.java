@@ -17,16 +17,21 @@
 package android.telecom.cts;
 
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
-import static android.telecom.cts.TestUtils.shouldTestTelecom;
 
+import android.net.Uri;
+import android.os.Bundle;
 import android.telecom.TelecomManager;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
+
+    private static final String TEST_EMERGENCY_NUMBER = "5553637";
+    private static final Uri TEST_EMERGENCY_URI = Uri.fromParts("tel", TEST_EMERGENCY_NUMBER, null);
+
     public void testGetCurrentTtyMode() {
-        if (!TestUtils.shouldTestTelecom(mContext)) {
+        if (!mShouldTestTelecom) {
             return;
         }
 
@@ -46,8 +51,8 @@ public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
         }
     }
 
-    public void testIsInEmergencyCall() {
-        if (!TestUtils.shouldTestTelecom(mContext)) {
+    public void testIsInEmergencyCall_noOngoingEmergencyCall() {
+        if (!mShouldTestTelecom) {
             return;
         }
 
@@ -58,6 +63,39 @@ public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
             boolean isInEmergencyCall = queue.poll(TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
                     TimeUnit.MILLISECONDS);
             assertFalse(isInEmergencyCall);
+        } catch (InterruptedException e) {
+            fail("Couldn't check if in emergency call.");
+            e.printStackTrace();
+        }
+    }
+
+    public void testIsInEmergencyCall_ongoingEmergencyCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        // Place an emergency call
+        setupConnectionService(null, 0);
+        setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
+        Bundle extras = new Bundle();
+        extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, TEST_EMERGENCY_URI);
+        placeAndVerifyCall(extras);
+        verifyConnectionForOutgoingCall();
+        assertIsInCall(true);
+        assertIsInManagedCall(true);
+        try {
+            TestUtils.waitOnAllHandlers(getInstrumentation());
+        } catch (Exception e) {
+            fail("Failed to wait on handlers " + e);
+        }
+
+        LinkedBlockingQueue<Boolean> queue = new LinkedBlockingQueue(1);
+        runWithShellPermissionIdentity(() ->
+                queue.put(mTelecomManager.isInEmergencyCall()));
+        try {
+            boolean isInEmergencyCall = queue.poll(TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                    TimeUnit.MILLISECONDS);
+            assertTrue(isInEmergencyCall);
         } catch (InterruptedException e) {
             fail("Couldn't check if in emergency call.");
             e.printStackTrace();

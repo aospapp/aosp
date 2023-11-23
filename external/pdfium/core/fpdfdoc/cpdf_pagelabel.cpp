@@ -51,7 +51,7 @@ WideString MakeLetters(int num) {
 
 WideString GetLabelNumPortion(int num, const ByteString& bsStyle) {
   if (bsStyle.IsEmpty())
-    return L"";
+    return WideString();
   if (bsStyle == "D")
     return WideString::Format(L"%d", num);
   if (bsStyle == "R") {
@@ -68,7 +68,7 @@ WideString GetLabelNumPortion(int num, const ByteString& bsStyle) {
   }
   if (bsStyle == "a")
     return MakeLetters(num);
-  return L"";
+  return WideString();
 }
 
 }  // namespace
@@ -89,12 +89,12 @@ Optional<WideString> CPDF_PageLabel::GetLabel(int nPage) const {
   if (!pPDFRoot)
     return {};
 
-  CPDF_Dictionary* pLabels = pPDFRoot->GetDictFor("PageLabels");
+  const CPDF_Dictionary* pLabels = pPDFRoot->GetDictFor("PageLabels");
   if (!pLabels)
     return {};
 
   CPDF_NumberTree numberTree(pLabels);
-  CPDF_Object* pValue = nullptr;
+  const CPDF_Object* pValue = nullptr;
   int n = nPage;
   while (n >= 0) {
     pValue = numberTree.LookupValue(n);
@@ -106,11 +106,11 @@ Optional<WideString> CPDF_PageLabel::GetLabel(int nPage) const {
   WideString label;
   if (pValue) {
     pValue = pValue->GetDirect();
-    if (CPDF_Dictionary* pLabel = pValue->AsDictionary()) {
+    if (const CPDF_Dictionary* pLabel = pValue->AsDictionary()) {
       if (pLabel->KeyExist("P"))
         label += pLabel->GetUnicodeTextFor("P");
 
-      ByteString bsNumberingStyle = pLabel->GetStringFor("S", "");
+      ByteString bsNumberingStyle = pLabel->GetStringFor("S", ByteString());
       int nLabelNum = nPage - n + pLabel->GetIntegerFor("St", 1);
       WideString wsNumPortion = GetLabelNumPortion(nLabelNum, bsNumberingStyle);
       label += wsNumPortion;
@@ -119,31 +119,4 @@ Optional<WideString> CPDF_PageLabel::GetLabel(int nPage) const {
   }
   label = WideString::Format(L"%d", nPage + 1);
   return {label};
-}
-
-int32_t CPDF_PageLabel::GetPageByLabel(const ByteStringView& bsLabel) const {
-  if (!m_pDocument)
-    return -1;
-
-  const CPDF_Dictionary* pPDFRoot = m_pDocument->GetRoot();
-  if (!pPDFRoot)
-    return -1;
-
-  int nPages = m_pDocument->GetPageCount();
-  for (int i = 0; i < nPages; i++) {
-    Optional<WideString> str = GetLabel(i);
-    if (!str.has_value())
-      continue;
-    if (PDF_EncodeText(str.value()).Compare(bsLabel))
-      return i;
-  }
-
-  int nPage = FXSYS_atoi(ByteString(bsLabel).c_str());  // NUL terminate.
-  return nPage > 0 && nPage <= nPages ? nPage : -1;
-}
-
-int32_t CPDF_PageLabel::GetPageByLabel(const WideStringView& wsLabel) const {
-  // TODO(tsepez): check usage of c_str() below.
-  return GetPageByLabel(
-      PDF_EncodeText(wsLabel.unterminated_c_str()).AsStringView());
 }

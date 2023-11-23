@@ -19,27 +19,6 @@
 
 #include "arch/quick_alloc_entrypoints.S"
 
-
-.macro INCREASE_FRAME frame_adjustment
-    sub sp, sp, #(\frame_adjustment)
-    .cfi_adjust_cfa_offset (\frame_adjustment)
-.endm
-
-.macro DECREASE_FRAME frame_adjustment
-    add sp, sp, #(\frame_adjustment)
-    .cfi_adjust_cfa_offset -(\frame_adjustment)
-.endm
-
-.macro SAVE_REG reg, offset
-    str \reg, [sp, #(\offset)]
-    .cfi_rel_offset \reg, (\offset)
-.endm
-
-.macro RESTORE_REG reg, offset
-    ldr \reg, [sp, #(\offset)]
-    .cfi_restore \reg
-.endm
-
 .macro SAVE_REG_INCREASE_FRAME reg, frame_adjustment
     str \reg, [sp, #-(\frame_adjustment)]!
     .cfi_adjust_cfa_offset (\frame_adjustment)
@@ -50,18 +29,6 @@
     ldr \reg, [sp], #(\frame_adjustment)
     .cfi_restore \reg
     .cfi_adjust_cfa_offset -(\frame_adjustment)
-.endm
-
-.macro SAVE_TWO_REGS reg1, reg2, offset
-    stp \reg1, \reg2, [sp, #(\offset)]
-    .cfi_rel_offset \reg1, (\offset)
-    .cfi_rel_offset \reg2, (\offset) + 8
-.endm
-
-.macro RESTORE_TWO_REGS reg1, reg2, offset
-    ldp \reg1, \reg2, [sp, #(\offset)]
-    .cfi_restore \reg1
-    .cfi_restore \reg2
 .endm
 
 .macro SAVE_TWO_REGS_INCREASE_FRAME reg1, reg2, frame_adjustment
@@ -78,142 +45,8 @@
     .cfi_adjust_cfa_offset -(\frame_adjustment)
 .endm
 
-    /*
-     * Macro that sets up the callee save frame to conform with
-     * Runtime::CreateCalleeSaveMethod(kSaveAllCalleeSaves)
-     */
-.macro SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
-    // art::Runtime* xIP0 = art::Runtime::instance_;
-    // Our registers aren't intermixed - just spill in order.
-    adrp xIP0, _ZN3art7Runtime9instance_E
-    ldr xIP0, [xIP0, #:lo12:_ZN3art7Runtime9instance_E]
-
-    // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveAllCalleeSaves];
-    ldr xIP0, [xIP0, RUNTIME_SAVE_ALL_CALLEE_SAVES_METHOD_OFFSET]
-
-    INCREASE_FRAME 176
-
-    // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_SAVE_ALL_CALLEE_SAVES != 176)
-#error "FRAME_SIZE_SAVE_ALL_CALLEE_SAVES(ARM64) size not as expected."
-#endif
-
-    // Stack alignment filler [sp, #8].
-    // FP callee-saves.
-    stp d8, d9,   [sp, #16]
-    stp d10, d11, [sp, #32]
-    stp d12, d13, [sp, #48]
-    stp d14, d15, [sp, #64]
-
-    // GP callee-saves
-    SAVE_TWO_REGS x19, x20, 80
-    SAVE_TWO_REGS x21, x22, 96
-    SAVE_TWO_REGS x23, x24, 112
-    SAVE_TWO_REGS x25, x26, 128
-    SAVE_TWO_REGS x27, x28, 144
-    SAVE_TWO_REGS x29, xLR, 160
-
-    // Store ArtMethod* Runtime::callee_save_methods_[kSaveAllCalleeSaves].
-    str xIP0, [sp]
-    // Place sp in Thread::Current()->top_quick_frame.
-    mov xIP0, sp
-    str xIP0, [xSELF, # THREAD_TOP_QUICK_FRAME_OFFSET]
-.endm
-
-    /*
-     * Macro that sets up the callee save frame to conform with
-     * Runtime::CreateCalleeSaveMethod(kSaveRefsOnly).
-     */
-.macro SETUP_SAVE_REFS_ONLY_FRAME
-    // art::Runtime* xIP0 = art::Runtime::instance_;
-    // Our registers aren't intermixed - just spill in order.
-    adrp xIP0, _ZN3art7Runtime9instance_E
-    ldr xIP0, [xIP0, #:lo12:_ZN3art7Runtime9instance_E]
-
-    // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveRefOnly];
-    ldr xIP0, [xIP0, RUNTIME_SAVE_REFS_ONLY_METHOD_OFFSET]
-
-    INCREASE_FRAME 96
-
-    // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_SAVE_REFS_ONLY != 96)
-#error "FRAME_SIZE_SAVE_REFS_ONLY(ARM64) size not as expected."
-#endif
-
-    // GP callee-saves.
-    // x20 paired with ArtMethod* - see below.
-    SAVE_TWO_REGS x21, x22, 16
-    SAVE_TWO_REGS x23, x24, 32
-    SAVE_TWO_REGS x25, x26, 48
-    SAVE_TWO_REGS x27, x28, 64
-    SAVE_TWO_REGS x29, xLR, 80
-
-    // Store ArtMethod* Runtime::callee_save_methods_[kSaveRefsOnly].
-    // Note: We could avoid saving X20 in the case of Baker read
-    // barriers, as it is overwritten by REFRESH_MARKING_REGISTER
-    // later; but it's not worth handling this special case.
-    stp xIP0, x20, [sp]
-    .cfi_rel_offset x20, 8
-
-    // Place sp in Thread::Current()->top_quick_frame.
-    mov xIP0, sp
-    str xIP0, [xSELF, # THREAD_TOP_QUICK_FRAME_OFFSET]
-.endm
-
-// TODO: Probably no need to restore registers preserved by aapcs64.
-.macro RESTORE_SAVE_REFS_ONLY_FRAME
-    // Callee-saves.
-    // Note: Likewise, we could avoid restoring X20 in the case of Baker
-    // read barriers, as it is overwritten by REFRESH_MARKING_REGISTER
-    // later; but it's not worth handling this special case.
-    RESTORE_REG x20, 8
-    RESTORE_TWO_REGS x21, x22, 16
-    RESTORE_TWO_REGS x23, x24, 32
-    RESTORE_TWO_REGS x25, x26, 48
-    RESTORE_TWO_REGS x27, x28, 64
-    RESTORE_TWO_REGS x29, xLR, 80
-
-    DECREASE_FRAME 96
-.endm
-
 .macro POP_SAVE_REFS_ONLY_FRAME
     DECREASE_FRAME 96
-.endm
-
-
-.macro SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL
-    INCREASE_FRAME 224
-
-    // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_SAVE_REFS_AND_ARGS != 224)
-#error "FRAME_SIZE_SAVE_REFS_AND_ARGS(ARM64) size not as expected."
-#endif
-
-    // Stack alignment filler [sp, #8].
-    // FP args.
-    stp d0, d1, [sp, #16]
-    stp d2, d3, [sp, #32]
-    stp d4, d5, [sp, #48]
-    stp d6, d7, [sp, #64]
-
-    // Core args.
-    SAVE_TWO_REGS x1, x2, 80
-    SAVE_TWO_REGS x3, x4, 96
-    SAVE_TWO_REGS x5, x6, 112
-
-    // x7, Callee-saves.
-    // Note: We could avoid saving X20 in the case of Baker read
-    // barriers, as it is overwritten by REFRESH_MARKING_REGISTER
-    // later; but it's not worth handling this special case.
-    SAVE_TWO_REGS x7, x20, 128
-    SAVE_TWO_REGS x21, x22, 144
-    SAVE_TWO_REGS x23, x24, 160
-    SAVE_TWO_REGS x25, x26, 176
-    SAVE_TWO_REGS x27, x28, 192
-
-    // x29(callee-save) and LR.
-    SAVE_TWO_REGS x29, xLR, 208
-
 .endm
 
     /*
@@ -225,13 +58,13 @@
 .macro SETUP_SAVE_REFS_AND_ARGS_FRAME
     // art::Runtime* xIP0 = art::Runtime::instance_;
     // Our registers aren't intermixed - just spill in order.
-    adrp xIP0, _ZN3art7Runtime9instance_E
-    ldr xIP0, [xIP0, #:lo12:_ZN3art7Runtime9instance_E]
+    LOAD_RUNTIME_INSTANCE xIP0
 
     // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveRefAndArgs];
     ldr xIP0, [xIP0, RUNTIME_SAVE_REFS_AND_ARGS_METHOD_OFFSET]
 
-    SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL
+    INCREASE_FRAME FRAME_SIZE_SAVE_REFS_AND_ARGS
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL sp
 
     str xIP0, [sp]    // Store ArtMethod* Runtime::callee_save_methods_[kSaveRefsAndArgs].
     // Place sp in Thread::Current()->top_quick_frame.
@@ -240,40 +73,12 @@
 .endm
 
 .macro SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_X0
-    SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL
+    INCREASE_FRAME FRAME_SIZE_SAVE_REFS_AND_ARGS
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL sp
     str x0, [sp, #0]  // Store ArtMethod* to bottom of stack.
     // Place sp in Thread::Current()->top_quick_frame.
     mov xIP0, sp
     str xIP0, [xSELF, # THREAD_TOP_QUICK_FRAME_OFFSET]
-.endm
-
-// TODO: Probably no need to restore registers preserved by aapcs64.
-.macro RESTORE_SAVE_REFS_AND_ARGS_FRAME
-    // FP args.
-    ldp d0, d1, [sp, #16]
-    ldp d2, d3, [sp, #32]
-    ldp d4, d5, [sp, #48]
-    ldp d6, d7, [sp, #64]
-
-    // Core args.
-    RESTORE_TWO_REGS x1, x2, 80
-    RESTORE_TWO_REGS x3, x4, 96
-    RESTORE_TWO_REGS x5, x6, 112
-
-    // x7, Callee-saves.
-    // Note: Likewise, we could avoid restoring X20 in the case of Baker
-    // read barriers, as it is overwritten by REFRESH_MARKING_REGISTER
-    // later; but it's not worth handling this special case.
-    RESTORE_TWO_REGS x7, x20, 128
-    RESTORE_TWO_REGS x21, x22, 144
-    RESTORE_TWO_REGS x23, x24, 160
-    RESTORE_TWO_REGS x25, x26, 176
-    RESTORE_TWO_REGS x27, x28, 192
-
-    // x29(callee-save) and LR.
-    RESTORE_TWO_REGS x29, xLR, 208
-
-    DECREASE_FRAME 224
 .endm
 
     /*
@@ -323,8 +128,7 @@
     SAVE_TWO_REGS x27, x28, 480
 
     // art::Runtime* xIP0 = art::Runtime::instance_;
-    adrp xIP0, _ZN3art7Runtime9instance_E
-    ldr xIP0, [xIP0, #:lo12:_ZN3art7Runtime9instance_E]
+    LOAD_RUNTIME_INSTANCE xIP0
 
     // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveEverything];
     ldr xIP0, [xIP0, \runtime_method_offset]
@@ -390,17 +194,6 @@
     RESTORE_SAVE_EVERYTHING_FRAME_KEEP_X0
 .endm
 
-// Macro to refresh the Marking Register (W20).
-//
-// This macro must be called at the end of functions implementing
-// entrypoints that possibly (directly or indirectly) perform a
-// suspend check (before they return).
-.macro REFRESH_MARKING_REGISTER
-#if defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
-    ldr wMR, [xSELF, #THREAD_IS_GC_MARKING_OFFSET]
-#endif
-.endm
-
 .macro RETURN_IF_RESULT_IS_ZERO
     cbnz x0, 1f                // result non-zero branch over
     ret                        // return
@@ -411,39 +204,6 @@
     cbz x0, 1f                 // result zero branch over
     ret                        // return
 1:
-.endm
-
-    /*
-     * Macro that calls through to artDeliverPendingExceptionFromCode, where the pending
-     * exception is Thread::Current()->exception_ when the runtime method frame is ready.
-     */
-.macro DELIVER_PENDING_EXCEPTION_FRAME_READY
-    mov x0, xSELF
-
-    // Point of no return.
-    bl artDeliverPendingExceptionFromCode  // artDeliverPendingExceptionFromCode(Thread*)
-    brk 0  // Unreached
-.endm
-
-    /*
-     * Macro that calls through to artDeliverPendingExceptionFromCode, where the pending
-     * exception is Thread::Current()->exception_.
-     */
-.macro DELIVER_PENDING_EXCEPTION
-    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
-    DELIVER_PENDING_EXCEPTION_FRAME_READY
-.endm
-
-.macro RETURN_OR_DELIVER_PENDING_EXCEPTION_REG reg
-    ldr \reg, [xSELF, # THREAD_EXCEPTION_OFFSET]   // Get exception field.
-    cbnz \reg, 1f
-    ret
-1:
-    DELIVER_PENDING_EXCEPTION
-.endm
-
-.macro RETURN_OR_DELIVER_PENDING_EXCEPTION
-    RETURN_OR_DELIVER_PENDING_EXCEPTION_REG xIP0
 .endm
 
 // Same as above with x1. This is helpful in stubs that want to avoid clobbering another register.
@@ -1026,29 +786,8 @@ ENTRY art_quick_osr_stub
     RESTORE_TWO_REGS xFP, xLR, 96
     RESTORE_TWO_REGS_DECREASE_FRAME x3, x4, SAVE_SIZE
 
-    // Store result (w0/x0/s0/d0) appropriately, depending on resultType.
-    ldrb w10, [x4]
-
-    // Check the return type and store the correct register into the jvalue in memory.
-
-    // Don't set anything for a void type.
-    cmp w10, #'V'
-    beq .Losr_exit
-    // Is it a double?
-    cmp w10, #'D'
-    beq .Losr_return_double
-    // Is it a float?
-    cmp w10, #'F'
-    beq .Losr_return_float
-    // Just store x0. Doesn't matter if it is 64 or 32 bits.
+    // The compiler put the result in x0. Doesn't matter if it is 64 or 32 bits.
     str x0, [x3]
-.Losr_exit:
-    ret
-.Losr_return_double:
-    str d0, [x3]
-    ret
-.Losr_return_float:
-    str s0, [x3]
     ret
 
 .Losr_entry:
@@ -1641,14 +1380,11 @@ ENTRY \c_name
     bhs    .Lslow_path\c_name
     ldr    w3, [x0, #MIRROR_CLASS_OBJECT_SIZE_ALLOC_FAST_PATH_OFFSET]  // Load the object size (x3)
     cmp    x3, #ROSALLOC_MAX_THREAD_LOCAL_BRACKET_SIZE        // Check if the size is for a thread
-                                                              // local allocation. Also does the
-                                                              // finalizable and initialization
-                                                              // checks.
-    // When isInitialized == 0, then the class is potentially not yet initialized.
-    // If the class is not yet initialized, the object size will be very large to force the branch
-    // below to be taken.
+                                                              // local allocation.
+    // If the class is not yet visibly initialized, or it is finalizable,
+    // the object size will be very large to force the branch below to be taken.
     //
-    // See InitializeClassVisitors in class-inl.h for more details.
+    // See Class::SetStatus() in class.cc for more details.
     bhs    .Lslow_path\c_name
                                                               // Compute the rosalloc bracket index
                                                               // from the size. Since the size is
@@ -1716,19 +1452,9 @@ ENTRY \c_name
     str    w1, [x4, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)]
 
     mov    x0, x3                                             // Set the return value and return.
-.if \isInitialized == 0
-    // This barrier is only necessary when the allocation also requires
-    // a class initialization check.
-    //
-    // If the class is already observably initialized, then new-instance allocations are protected
+    // No barrier. The class is already observably initialized (otherwise the fast
+    // path size check above would fail) and new-instance allocations are protected
     // from publishing by the compiler which inserts its own StoreStore barrier.
-    dmb    ish
-    // Use a "dmb ish" fence here because if there are later loads of statics (e.g. class size),
-    // they should happen-after the implicit initialization check.
-    //
-    // TODO: Remove this dmb for class initialization checks (b/36692143) by introducing
-    // a new observably-initialized class state.
-.endif
     ret
 .Lslow_path\c_name:
     SETUP_SAVE_REFS_ONLY_FRAME                      // save callee saves in case of GC
@@ -1754,11 +1480,10 @@ ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, art
                                                               // since the tlab pos and end are 32
                                                               // bit values.
 
-    // When isInitialized == 0, then the class is potentially not yet initialized.
-    // If the class is not yet initialized, the object size will be very large to force the branch
-    // below to be taken.
+    // If the class is not yet visibly initialized, or it is finalizable,
+    // the object size will be very large to force the branch below to be taken.
     //
-    // See InitializeClassVisitors in class-inl.h for more details.
+    // See Class::SetStatus() in class.cc for more details.
     bhi    \slowPathLabel
     str    x6, [xSELF, #THREAD_LOCAL_POS_OFFSET]              // Store new thread_local_pos.
     ldr    x5, [xSELF, #THREAD_LOCAL_OBJECTS_OFFSET]          // Increment thread_local_objects.
@@ -1771,19 +1496,9 @@ ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, art
                                                               // site will see the right values in
                                                               // the fields of the class.
     mov    x0, x4
-.if \isInitialized == 0
-    // This barrier is only necessary when the allocation also requires
-    // a class initialization check.
-    //
-    // If the class is already observably initialized, then new-instance allocations are protected
+    // No barrier. The class is already observably initialized (otherwise the fast
+    // path size check above would fail) and new-instance allocations are protected
     // from publishing by the compiler which inserts its own StoreStore barrier.
-    dmb    ish
-    // Use a "dmb ish" fence here because if there are later loads of statics (e.g. class size),
-    // they should happen-after the implicit initialization check.
-    //
-    // TODO: Remove this dmb for class initialization checks (b/36692143) by introducing
-    // a new observably-initialized class state.
-.endif
     ret
 .endm
 
@@ -2109,7 +1824,6 @@ END art_quick_resolution_trampoline
  * | X22               |    callee save
  * | X21               |    callee save
  * | X20               |    callee save
- * | X19               |    callee save
  * | X7                |    arg7
  * | X6                |    arg6
  * | X5                |    arg5
@@ -2125,27 +1839,30 @@ END art_quick_resolution_trampoline
  * | D2                |    float arg 3
  * | D1                |    float arg 2
  * | D0                |    float arg 1
- * | Method*           | <- X0
+ * | padding           | // 8B
+ * | Method*           | <- X0 (Managed frame similar to SaveRefsAndArgs.)
  * #-------------------#
  * | local ref cookie  | // 4B
- * | handle scope size | // 4B
+ * | padding           | // 0B or 4B to align handle scope on 8B address
+ * | handle scope      | // Size depends on number of references; multiple of 4B.
  * #-------------------#
- * | JNI Call Stack    |
- * #-------------------#    <--- SP on native call
+ * | JNI Stack Args    | // Empty if all args fit into registers x0-x7, d0-d7.
+ * #-------------------#    <--- SP on native call (1)
+ * | Free scratch      |
+ * #-------------------#
+ * | SP for JNI call   | // Pointer to (1).
+ * #-------------------#
+ * | Hidden arg        | // For @CriticalNative
+ * #-------------------#
  * |                   |
  * | Stack for Regs    |    The trampoline assembly will pop these values
  * |                   |    into registers for native call
- * #-------------------#
- * | Native code ptr   |
- * #-------------------#
- * | Free scratch      |
- * #-------------------#
- * | Ptr to (1)        |    <--- SP
  * #-------------------#
  */
     /*
      * Called to do a generic JNI down-call
      */
+    .extern artQuickGenericJniTrampoline
 ENTRY art_quick_generic_jni_trampoline
     SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_X0
 
@@ -2161,31 +1878,28 @@ ENTRY art_quick_generic_jni_trampoline
     sub sp, sp, xIP0
 
     // prepare for artQuickGenericJniTrampoline call
-    // (Thread*,  SP)
-    //    x0      x1   <= C calling convention
-    //   xSELF    xFP  <= where they are
+    // (Thread*, managed_sp, reserved_area)
+    //    x0         x1            x2   <= C calling convention
+    //  xSELF       xFP            sp   <= where they are
 
     mov x0, xSELF   // Thread*
-    mov x1, xFP
+    mov x1, xFP     // SP for the managed frame.
+    mov x2, sp      // reserved area for arguments and other saved data (up to managed frame)
     bl artQuickGenericJniTrampoline  // (Thread*, sp)
 
     // The C call will have registered the complete save-frame on success.
     // The result of the call is:
-    // x0: pointer to native code, 0 on error.
-    // x1: pointer to the bottom of the used area of the alloca, can restore stack till there.
+    //     x0: pointer to native code, 0 on error.
+    //     The bottom of the reserved area contains values for arg registers,
+    //     hidden arg register and SP for out args for the call.
 
-    // Check for error = 0.
+    // Check for error (class init check or locking for synchronized native method can throw).
     cbz x0, .Lexception_in_native
-
-    // Release part of the alloca.
-    mov sp, x1
 
     // Save the code pointer
     mov xIP0, x0
 
     // Load parameters from frame into registers.
-    // TODO Check with artQuickGenericJniTrampoline.
-    //      Also, check again APPCS64 - the stack arguments are interleaved.
     ldp x0, x1, [sp]
     ldp x2, x3, [sp, #16]
     ldp x4, x5, [sp, #32]
@@ -2196,7 +1910,11 @@ ENTRY art_quick_generic_jni_trampoline
     ldp d4, d5, [sp, #96]
     ldp d6, d7, [sp, #112]
 
-    add sp, sp, #128
+    // Load hidden arg (x15) for @CriticalNative and SP for out args.
+    ldp x15, xIP1, [sp, #128]
+
+    // Apply the new SP for out args, releasing unneeded reserved area.
+    mov sp, xIP1
 
     blr xIP0        // native call.
 
@@ -2467,6 +2185,17 @@ ENTRY art_quick_indexof
     ret
 #endif
 END art_quick_indexof
+
+    .extern artStringBuilderAppend
+ENTRY art_quick_string_builder_append
+    SETUP_SAVE_REFS_ONLY_FRAME          // save callee saves in case of GC
+    add    x1, sp, #(FRAME_SIZE_SAVE_REFS_ONLY + __SIZEOF_POINTER__)  // pass args
+    mov    x2, xSELF                    // pass Thread::Current
+    bl     artStringBuilderAppend       // (uint32_t, const unit32_t*, Thread*)
+    RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+END art_quick_string_builder_append
 
     /*
      * Create a function `name` calling the ReadBarrier::Mark routine,
@@ -2798,8 +2527,7 @@ READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg29, w29, x29
      *   art_quick_read_barrier_mark_introspection_gc_roots:
      *     GC root entrypoint code.
      */
-    .balign 512
-ENTRY art_quick_read_barrier_mark_introspection
+ENTRY_ALIGNED art_quick_read_barrier_mark_introspection, 512
     // At this point, IP0 contains the reference, IP1 can be freely used.
     // For heap poisoning, the reference is poisoned, so unpoison it first.
     UNPOISON_HEAP_REF wIP0
@@ -2883,3 +2611,75 @@ ENTRY ExecuteSwitchImplAsm
     RESTORE_TWO_REGS_DECREASE_FRAME x19, xLR, 16
     ret
 END ExecuteSwitchImplAsm
+
+// x0 contains the class, x8 contains the inline cache. x9-x15 can be used.
+ENTRY art_quick_update_inline_cache
+#if (INLINE_CACHE_SIZE != 5)
+#error "INLINE_CACHE_SIZE not as expected."
+#endif
+#if defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
+    // Don't update the cache if we are marking.
+    cbnz wMR, .Ldone
+#endif
+.Lentry1:
+    ldr w9, [x8, #INLINE_CACHE_CLASSES_OFFSET]
+    cmp w9, w0
+    beq .Ldone
+    cbnz w9, .Lentry2
+    add x10, x8, #INLINE_CACHE_CLASSES_OFFSET
+    ldxr w9, [x10]
+    cbnz w9, .Lentry1
+    stxr  w9, w0, [x10]
+    cbz   w9, .Ldone
+    b .Lentry1
+.Lentry2:
+    ldr w9, [x8, #INLINE_CACHE_CLASSES_OFFSET+4]
+    cmp w9, w0
+    beq .Ldone
+    cbnz w9, .Lentry3
+    add x10, x8, #INLINE_CACHE_CLASSES_OFFSET+4
+    ldxr w9, [x10]
+    cbnz w9, .Lentry2
+    stxr  w9, w0, [x10]
+    cbz   w9, .Ldone
+    b .Lentry2
+.Lentry3:
+    ldr w9, [x8, #INLINE_CACHE_CLASSES_OFFSET+8]
+    cmp w9, w0
+    beq .Ldone
+    cbnz w9, .Lentry4
+    add x10, x8, #INLINE_CACHE_CLASSES_OFFSET+8
+    ldxr w9, [x10]
+    cbnz w9, .Lentry3
+    stxr  w9, w0, [x10]
+    cbz   w9, .Ldone
+    b .Lentry3
+.Lentry4:
+    ldr w9, [x8, #INLINE_CACHE_CLASSES_OFFSET+12]
+    cmp w9, w0
+    beq .Ldone
+    cbnz w9, .Lentry5
+    add x10, x8, #INLINE_CACHE_CLASSES_OFFSET+12
+    ldxr w9, [x10]
+    cbnz w9, .Lentry4
+    stxr  w9, w0, [x10]
+    cbz   w9, .Ldone
+    b .Lentry4
+.Lentry5:
+    // Unconditionally store, the inline cache is megamorphic.
+    str  w0, [x8, #INLINE_CACHE_CLASSES_OFFSET+16]
+.Ldone:
+    ret
+END art_quick_update_inline_cache
+
+// On entry, method is at the bottom of the stack.
+ENTRY art_quick_compile_optimized
+    SETUP_SAVE_EVERYTHING_FRAME
+    ldr x0, [sp, #FRAME_SIZE_SAVE_EVERYTHING] // pass ArtMethod
+    mov x1, xSELF                             // pass Thread::Current
+    bl     artCompileOptimized                // (ArtMethod*, Thread*)
+    RESTORE_SAVE_EVERYTHING_FRAME
+    // We don't need to restore the marking register here, as
+    // artCompileOptimized doesn't allow thread suspension.
+    ret
+END art_quick_compile_optimized

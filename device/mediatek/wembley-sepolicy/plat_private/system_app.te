@@ -1,0 +1,16 @@
+# ==============================================
+# MTK Policy Rule 
+# ==============================================
+
+
+# Date : 2016/07/12
+# Purpose : Issue submitter need creat folder on SD card
+allow system_app vfat:dir create;
+
+# Date: 2017/07/01
+# Change to simple policy
+allow system_app media_rw_data_file:dir {r_dir_perms w_dir_perms};
+allow system_app media_rw_data_file:file {r_file_perms w_file_perms};
+
+# Purpose: receive dropbox message
+allow system_app system_server:unix_stream_socket connectto;

@@ -23,6 +23,7 @@ import android.os.Bundle;
 import android.telecom.Connection;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -37,6 +38,7 @@ import com.android.cts.verifier.R;
  * call or when there is an ongoing self-managed call in another app.
  */
 public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activity {
+    private static final String TAG = "SelfManagedIncomingCall";
     private Uri TEST_DIAL_NUMBER_1 = Uri.fromParts("tel", "6505551212", null);
     private Uri TEST_DIAL_NUMBER_2 = Uri.fromParts("tel", "4085551212", null);
 
@@ -51,6 +53,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
         @Override
         void onShowIncomingCallUi(CtsConnection connection) {
             // The system should have displayed the incoming call UI; this is a fail.
+            Log.w(TAG, "Step 3 fail - got unexpected onShowIncomingCallUi");
             mStep3Status.setImageResource(R.drawable.fs_error);
             getPassButton().setEnabled(false);
         };
@@ -58,6 +61,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
         @Override
         void onAnswer(CtsConnection connection, int videoState) {
             // Call was answered, so disconnect it now.
+            Log.i(TAG, "Step 3 - Incoming call answered.");
             connection.onDisconnect();
         };
 
@@ -71,10 +75,11 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                     (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
             if (telecomManager == null || !telecomManager.isInManagedCall()) {
                 // Should still be in a managed call; only one would need to be disconnected.
+                Log.w(TAG, "Step 3 fail - not in managed call as expected.");
                 mStep3Status.setImageResource(R.drawable.fs_error);
                 return;
             }
-
+            Log.i(TAG, "Step 3 pass - call disconnected");
             mStep3Status.setImageResource(R.drawable.fs_good);
             getPassButton().setEnabled(true);
         }
@@ -100,8 +105,10 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                     account.hasCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)) {
                 mRegisterPhoneAccount.setEnabled(false);
                 mVerifyCall.setEnabled(true);
+                Log.i(TAG, "Step 1 pass - account registered");
                 mStep1Status.setImageResource(R.drawable.fs_good);
             } else {
+                Log.w(TAG, "Step 1 fail - account not registered");
                 mStep1Status.setImageResource(R.drawable.fs_error);
             }
         });
@@ -112,10 +119,12 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
             TelecomManager telecomManager =
                     (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
             if (telecomManager == null || !telecomManager.isInManagedCall()) {
+                Log.w(TAG, "Step 2 fail - expected to be in a managed call");
                 mStep2Status.setImageResource(R.drawable.fs_error);
                 mPlaceCall.setEnabled(false);
             } else {
                 mStep2Status.setImageResource(R.drawable.fs_good);
+                Log.i(TAG, "Step 2 pass - device in a managed call");
                 mVerifyCall.setEnabled(false);
                 mPlaceCall.setEnabled(true);
             }
@@ -135,6 +144,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         TelecomManager telecomManager =
                                 (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
                         if (telecomManager == null) {
+                            Log.w(TAG, "Step 2 fail - telecom manager null");
                             mStep2Status.setImageResource(R.drawable.fs_error);
                             return new Throwable("Could not get telecom service.");
                         }
@@ -144,12 +154,14 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         CtsConnectionService ctsConnectionService =
                                 CtsConnectionService.waitForAndGetConnectionService();
                         if (ctsConnectionService == null) {
+                            Log.w(TAG, "Step 2 fail - ctsConnectionService null");
                             mStep2Status.setImageResource(R.drawable.fs_error);
                             return new Throwable("Could not get connection service.");
                         }
 
                         CtsConnection connection = ctsConnectionService.waitForAndGetConnection();
                         if (connection == null) {
+                            Log.w(TAG, "Step 2 fail - could not get connection");
                             mStep2Status.setImageResource(R.drawable.fs_error);
                             return new Throwable("Could not get connection.");
                         }
@@ -167,6 +179,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         int capabilities = connection.getConnectionCapabilities();
                         capabilities &= ~Connection.CAPABILITY_HOLD;
                         connection.setConnectionCapabilities(capabilities);
+                        Log.w(TAG, "Step 2 - connection added");
                         return null;
                     } catch (Throwable t) {
                         return t;
@@ -179,6 +192,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         mStep2Status.setImageResource(R.drawable.fs_good);
                         mPlaceCall.setEnabled(false);
                     } else {
+                        Log.i(TAG, "Step 2 pass - connection added");
                         mStep2Status.setImageResource(R.drawable.fs_error);
                     }
                 }

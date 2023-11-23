@@ -36,18 +36,18 @@ public class PKCS9Attributes {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS9Attributes(sun.security.util.DerInputStream in) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS9Attributes(sun.security.util.DerInputStream in, boolean ignoreUnsupportedAttributes)
             throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PKCS9Attributes(sun.security.pkcs.PKCS9Attribute[] attribs)
             throws java.io.IOException, java.lang.IllegalArgumentException {
         throw new RuntimeException("Stub!");
@@ -57,7 +57,7 @@ public class PKCS9Attributes {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encode(byte tag, java.io.OutputStream out) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -66,7 +66,7 @@ public class PKCS9Attributes {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getDerEncoding() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -75,7 +75,7 @@ public class PKCS9Attributes {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.pkcs.PKCS9Attribute getAttribute(java.lang.String name) {
         throw new RuntimeException("Stub!");
     }
@@ -84,7 +84,7 @@ public class PKCS9Attributes {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.Object getAttributeValue(sun.security.util.ObjectIdentifier oid)
             throws java.io.IOException {
         throw new RuntimeException("Stub!");

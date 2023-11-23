@@ -17,7 +17,7 @@
     <option name="test-suite-tag" value="gts" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-        <option name="test-file-name" value="GameQualificationJavaTestCases.apk" />
+        <option name="test-file-name" value="GameCoreJavaTestCases.apk" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

@@ -66,8 +66,13 @@ public class RcParser extends FileParser {
         Map<String, Integer> dependencies = new HashMap<>();
         for (Service service : mServices) {
             // skip /, e.g. /system/bin/sh
-            String file = service.getFile().substring(1);
-            dependencies.put(file, 1);
+            try {
+                String file = service.getFile().substring(1);
+                dependencies.put(file, 1);
+            } catch (Exception e) {
+                System.err.println(
+                        "err Service " + service.getName() + " File:" + service.getFile());
+            }
         }
 
         for (String importRc : mImportRc) {
@@ -140,7 +145,7 @@ public class RcParser extends FileParser {
 
     private void parseService(String line, BufferedReader buffReader) throws IOException {
         Service.Builder serviceBld = Service.newBuilder();
-        String[] phases = line.split(" ");
+        String[] phases = line.split("\\s+");
         serviceBld.setName(phases[1]);
         serviceBld.setFile(phases[2]);
         if (phases.length > 3) {

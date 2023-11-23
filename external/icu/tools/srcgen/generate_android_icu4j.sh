@@ -45,6 +45,7 @@ fi
 
 WHITELIST_API_FILE=${ICU_SRCGEN_DIR}/whitelisted-public-api.txt
 CORE_PLATFORM_API_FILE=${ICU_SRCGEN_DIR}/core-platform-api.txt
+INTRA_CORE_API_FILE=${ICU_SRCGEN_DIR}/intra-core-api.txt
 UNSUPPORTED_APP_USAGE_FILE=${ICU_SRCGEN_DIR}/unsupported-app-usage.json
 
 # Clean out previous generated code / resources.
@@ -64,7 +65,7 @@ ICU4J_BASE_COMMAND="${SRCGEN_TOOL_BINARY} Icu4jTransform"
 if [ -e "${WHITELIST_API_FILE}" ]; then
   ICU4J_BASE_COMMAND+=" --hide-non-whitelisted-api ${WHITELIST_API_FILE}"
 fi
-${ICU4J_BASE_COMMAND} ${INPUT_DIRS} ${DEST_SRC_DIR} ${CORE_PLATFORM_API_FILE} ${UNSUPPORTED_APP_USAGE_FILE}
+${ICU4J_BASE_COMMAND} ${INPUT_DIRS} ${DEST_SRC_DIR} ${CORE_PLATFORM_API_FILE} ${INTRA_CORE_API_FILE} ${UNSUPPORTED_APP_USAGE_FILE}
 
 # Copy / transform the resources needed by the android_icu4j code.
 for INPUT_DIR in ${INPUT_DIRS}; do

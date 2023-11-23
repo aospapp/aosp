@@ -122,12 +122,14 @@ struct ThreadCallback : public art::ThreadLifecycleCallback {
     }
     if (!started) {
       // Runtime isn't started. We only expect at most the signal handler or JIT threads to be
-      // started here.
+      // started here; this includes the perfetto_hprof_listener signal handler thread for
+      // perfetto_hprof.
       if (art::kIsDebugBuild) {
         std::string name;
         self->GetThreadName(name);
         if (name != "JDWP" &&
             name != "Signal Catcher" &&
+            name != "perfetto_hprof_listener" &&
             !android::base::StartsWith(name, "Jit thread pool") &&
             !android::base::StartsWith(name, "Runtime worker thread")) {
           LOG(FATAL) << "Unexpected thread before start: " << name << " id: "
@@ -229,6 +231,7 @@ bool ThreadUtil::GetNativeThread(jthread thread,
                                  const art::ScopedObjectAccessAlreadyRunnable& soa,
                                  /*out*/ art::Thread** thr,
                                  /*out*/ jvmtiError* err) {
+  art::ScopedExceptionStorage sse(soa.Self());
   if (thread == nullptr) {
     *thr = art::Thread::Current();
     return true;

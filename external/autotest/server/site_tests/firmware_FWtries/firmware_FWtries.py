@@ -48,25 +48,19 @@ class firmware_FWtries(FirmwareTest):
         self.switcher.setup_mode('dev' if dev_mode else 'normal')
 
     def run_once(self, host):
+        """Runs a single iteration of the test."""
         self.check_state((self.checkers.fw_tries_checker, ('A', True, 0)))
 
         self.try_fwb(2);
 
         self.check_state((self.checkers.fw_tries_checker, ('A', True, 2)))
         self.switcher.mode_aware_reboot()
-        if self.faft_client.system.has_host():
-            # Android: Does not have chromeos mechanism to block init file from
-            # resetting try_count to 0 if in testing mode, so we just need to
-            # check if we successfully booted into B
-            self.check_state((self.checkers.fw_tries_checker, ('B', True, 0)))
-            self.switcher.mode_aware_reboot()
-            self.check_state((self.checkers.fw_tries_checker, ('B', True, 0)))
-        else:
-            # ChromeOS: Blocks init file on bootup from setting try_count to 0
-            # Thus, each reboot is never successful, thus when try_count
-            # decrements to 0, will reboot into FW A due to failure
-            self.check_state((self.checkers.fw_tries_checker, ('B', True, 1)))
-            self.switcher.mode_aware_reboot()
-            self.check_state((self.checkers.fw_tries_checker, ('B', True, 0)))
-            self.switcher.mode_aware_reboot()
-            self.check_state((self.checkers.fw_tries_checker, ('A', True, 0)))
+
+        # ChromeOS: Blocks init file on bootup from setting try_count to 0
+        # Thus, each reboot is never successful, thus when try_count
+        # decrements to 0, will reboot into FW A due to failure
+        self.check_state((self.checkers.fw_tries_checker, ('B', True, 1)))
+        self.switcher.mode_aware_reboot()
+        self.check_state((self.checkers.fw_tries_checker, ('B', True, 0)))
+        self.switcher.mode_aware_reboot()
+        self.check_state((self.checkers.fw_tries_checker, ('A', True, 0)))

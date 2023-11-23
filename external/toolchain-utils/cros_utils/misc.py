@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Utilities for toolchain build."""
 
+from __future__ import division
 from __future__ import print_function
 
 __author__ = 'asharif@google.com (Ahmad Sharif)'
@@ -14,10 +17,10 @@ import shutil
 import sys
 import traceback
 
-import command_executer
-import logger
+from cros_utils import command_executer
+from cros_utils import logger
 
-CHROMEOS_SCRIPTS_DIR = '~/trunk/src/scripts'
+CHROMEOS_SCRIPTS_DIR = '/mnt/host/source/src/scripts'
 TOOLCHAIN_UTILS_PATH = ('/mnt/host/source/src/third_party/toolchain-utils/'
                         'cros_utils/toolchain_utils.sh')
 
@@ -71,7 +74,8 @@ def GetFilenameFromString(string):
       string,
       (r'/', '__'),
       (r'\s', '_'),
-      (r'[\\$="?^]', ''),)
+      (r'[\\$="?^]', ''),
+  )
 
 
 def GetRoot(scr_name):
@@ -160,19 +164,9 @@ def GetBuildImageCommand(board, dev=False):
                                                  dev_args))
 
 
-def GetSetupBoardCommand(board,
-                         gcc_version=None,
-                         binutils_version=None,
-                         usepkg=None,
-                         force=None):
+def GetSetupBoardCommand(board, usepkg=None, force=None):
   """Get setup_board command."""
   options = []
-
-  if gcc_version:
-    options.append('--gcc_version=%s' % gcc_version)
-
-  if binutils_version:
-    options.append('--binutils_version=%s' % binutils_version)
 
   if usepkg:
     options.append('--usepkg')
@@ -182,10 +176,9 @@ def GetSetupBoardCommand(board,
   if force:
     options.append('--force')
 
-  options.append('--accept_licenses=@CHROMEOS')
+  options.append('--accept-licenses=@CHROMEOS')
 
-  return ('%s/setup_board --board=%s %s' % (CHROMEOS_SCRIPTS_DIR, board,
-                                            ' '.join(options)))
+  return 'setup_board --board=%s %s' % (board, ' '.join(options))
 
 
 def CanonicalizePath(path):
@@ -211,8 +204,8 @@ def GetCtargetFromBoard(board, chromeos_root):
 def GetArchFromBoard(board, chromeos_root):
   """Get Arch from board."""
   base_board = board.split('_')[0]
-  command = ('source %s; get_board_arch %s' % (TOOLCHAIN_UTILS_PATH,
-                                               base_board))
+  command = (
+      'source %s; get_board_arch %s' % (TOOLCHAIN_UTILS_PATH, base_board))
   ce = command_executer.GetCommandExecuter()
   ret, out, _ = ce.ChrootRunCommandWOutput(chromeos_root, command)
   if ret != 0:
@@ -246,7 +239,7 @@ def GetChromeSrcDir():
 
 
 def GetEnvStringFromDict(env_dict):
-  return ' '.join(["%s=\"%s\"" % var for var in env_dict.items()])
+  return ' '.join(['%s="%s"' % var for var in env_dict.items()])
 
 
 def MergeEnvStringWithDict(env_string, env_dict, prepend=True):
@@ -256,11 +249,11 @@ def MergeEnvStringWithDict(env_string, env_dict, prepend=True):
   override_env_list = []
   ce = command_executer.GetCommandExecuter()
   for k, v in env_dict.items():
-    v = v.strip("\"'")
+    v = v.strip('"\'')
     if prepend:
-      new_env = "%s=\"%s $%s\"" % (k, v, k)
+      new_env = '%s="%s $%s"' % (k, v, k)
     else:
-      new_env = "%s=\"$%s %s\"" % (k, k, v)
+      new_env = '%s="$%s %s"' % (k, k, v)
     command = '; '.join([env_string, new_env, 'echo $%s' % k])
     ret, out, _ = ce.RunCommandWOutput(command)
     override_env_list.append('%s=%r' % (k, out.strip()))
@@ -488,8 +481,8 @@ def ApplyGerritPatches(chromeos_root, gerrit_patch_string,
     pi_str = '{project}:{ref}'.format(project=pi.project, ref=pi.ref)
     try:
       project_git_path = project_checkout.GetPath(absolute=True)
-      logger.GetLogger().LogOutput(
-          'Applying patch "{0}" in "{1}" ...'.format(pi_str, project_git_path))
+      logger.GetLogger().LogOutput('Applying patch "{0}" in "{1}" ...'.format(
+          pi_str, project_git_path))
       pi.Apply(project_git_path, branch, trivial=False)
     except Exception:
       traceback.print_exc(file=sys.stdout)
@@ -533,7 +526,8 @@ def BooleanPrompt(prompt='Do you want to continue?',
 
   while True:
     try:
-      response = raw_input(prompt).lower()
+      # pylint: disable=input-builtin, bad-builtin
+      response = input(prompt).lower()
     except EOFError:
       # If the user hits CTRL+D, or stdin is disabled, use the default.
       print()
@@ -562,7 +556,7 @@ def rgb2short(r, g, b):
   greencolor = [255, 118, 82, 46, 10]
 
   if g == 0:
-    return redcolor[r / 52]
+    return redcolor[r // 52]
   if r == 0:
-    return greencolor[g / 52]
+    return greencolor[g // 52]
   return 4

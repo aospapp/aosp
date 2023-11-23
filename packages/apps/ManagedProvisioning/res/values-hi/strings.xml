@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"रीसेट करें"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"प्रोफ़ाइल सेट अप नहीं की जा सकती"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"डिवाइस सेट अप नहीं किया जा सकता"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"काेई गड़बड़ी हुई"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"डिवाइस सेट अप नहीं किया जा सका. मदद के लिए, अपने आईटी एडमिन से संपर्क करें."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"मदद के लिए अपने आईटी एडमिन से संपर्क करें"</string>
+    <string name="reset_device" msgid="5483853913241939262">"डिवाइस को रीसेट करें और दोबारा सेट अप करने की कोशिश करें"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"डिवाइस पहले ही सेट अप किया जा चुका है"</string>
     <string name="error_wifi" msgid="1850288843966836571">"वाई-फ़ाई से कनेक्ट नहीं किया जा सका"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"आपके डिवाइस में रीसेट सुरक्षा चालू है. मदद के लिए अपने आईटी एडमिन से संपर्क करें."</string>
@@ -111,7 +113,7 @@
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"इस डिवाइस का प्रबंधन, निगरानी और सुरक्षा <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> करेगा. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> की शर्तें लागू होंगी. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"यह लिंक सुरक्षित नहीं है और इसे डिवाइस सेटअप पूरा हो जाने तक नहीं खोला जा सकता: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="2843488903902493030">"ज़्यादा जानने के लिए अपने <xliff:g id="IT_ADMIN">%1$s</xliff:g>. से संपर्क करें."</string>
-    <string name="if_questions_contact_admin" msgid="3509427015901582047">"अगर आपके कोई सवाल हैं तो, अपने आईटी एडमिन से संपर्क करें"</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"अगर आपके कोई सवाल हैं, तो अपने आईटी एडमिन से संपर्क करें"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"सेटअप पूरा नहीं हुआ है. मदद के लिए अपने आईटी एडमिन से संपर्क करें."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"मदद के लिए अपने आईटी एडमिन से संपर्क करें"</string>
     <string name="organization_admin" msgid="5975914478148511290">"आईटी एडमिन"</string>
@@ -119,7 +121,7 @@
     <string name="your_organization_beginning" msgid="5952561489910967255">"आपका संगठन"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"आपका संगठन"</string>
     <string name="view_terms" msgid="7230493092383341605">"शर्तें देखें"</string>
-    <string name="accept_and_continue" msgid="1632679734918410653">"स्वीकारें व जारी रखें"</string>
+    <string name="accept_and_continue" msgid="1632679734918410653">"स्वीकार करें और जारी रखें"</string>
     <string name="back" msgid="6455622465896147127">"वापस जाएं"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"अपना डिवाइस सेट करें"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"अपने काम करने का तरीका बदलें"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"काम से जुड़ा डिवाइस सेट अप करने की तैयारी की जा रही है…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"एडमिन ऐप्लिकेशन सेट अप किया जा रहा है"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"बाकी सब कुछ सेट अप करें"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"चलिए अब बाकी सारी चीज़ें सेट अप करते हैं"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"अपने डिवाइस का बेहतर इस्तेमाल करने के लिए निजी खाता जोड़ें"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"आपकी वर्क प्रोफ़ाइल अब तैयार है. आप चाहें, तो अपने ऐप्लिकेशन और सामग्री को ऐक्सेस करने के लिए निजी Google खाता भी जोड़ सकते हैं."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"यह डिवाइस आपके संगठन का है"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"आगे बताए गए ऐप्लिकेशन का इस्तेमाल इस फ़ोन को प्रबंधित करने और इसकी निगरानी करने के लिए किया जाएगा"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"काम के लिए सेटअप किया जा रहा है…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"चलिए, सबसे पहले आपकी काम की प्रोफ़ाइल सेट अप करते हैं"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"चलिए, आपकी वर्क प्रोफ़ाइल सेट अप करते हैं"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"काम से जुड़े ऐप्लिकेशन, आपके काम से जुड़ी प्रोफ़ाइल में रखे जाते हैं"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"दिनभर के काम खत्म हो जाने के बाद इन काम के लिए इस्तेमाल होने वाले ऐप्लिकेशन बंद करें"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"सिर्फ़ आपके काम से जुड़ी प्रोफ़ाइल आपके आईटी एडमिन को दिखाई देगी"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"काम से जुड़ी आपकी प्रोफ़ाइल सेट की जा रही है…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"काम से जुड़े ऐप्लिकेशन, आपके काम से जुड़ी प्रोफ़ाइल में रखे जाते हैं. दिनभर का काम खत्म हो जाने के बाद आप काम से जुड़े अपने ऐप्लिकेशन बंद सकते हैं. सिर्फ़ आपके काम से जुड़ी प्रोफ़ाइल आपके आईटी एडमिन को दिखाई देगी."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"आपके आईटी एडमिन को आपकी वर्क प्रोफ़ाइल में सेव डेटा दिखता है"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"वर्क प्रोफ़ाइल सेट की जा रही है…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"ऑफ़िस के काम से जुड़े ऐप्लिकेशन, काम से जुड़ी आपकी प्रोफ़ाइल में रखे जाते हैं. दिन भर का काम खत्म हो जाने के बाद आप काम से जुड़े अपने ऐप्लिकेशन को रोक सकते हैं. काम से जुड़ी आपकी प्रोफ़ाइल में सेव डेटा आपके आईटी एडमिन को दिखता है."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"चलिए आपके काम से जुड़ा फ़ोन सेट अप करते हैं"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"काम के लिए इस्तेमाल किए जाने वाले ऐप्लिकेशन अपनी उंगली की नोक पर रखें"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"यह डिवाइस निजी नहीं है"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"आपका आईटी एडमिन इस डिवाइस पर आपका डेटा और गतिविधि देख सकता है."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"आपका डिवाइस सेट किया जा रहा है…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"इस डिवाइस का इस्तेमाल अपने काम से जुड़े ऐप्लिकेशन आसानी से एक्सेस करने के लिए करें. यह डिवाइस निजी नहीं है इसलिए आपके आईटी एडमिन आपका डेटा और गतिविधि देख सकते हैं. ज़्यादा जानने के लिए अपने आईटी एडमिन से संपर्क करें."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"इस डिवाइस का इस्तेमाल अपने काम से जुड़े ऐप्लिकेशन आसानी से ऐक्सेस करने के लिए करें. यह डिवाइस निजी नहीं है इसलिए आपके आईटी एडमिन आपका डेटा और गतिविधि देख सकते हैं. ज़्यादा जानने के लिए अपने आईटी एडमिन से संपर्क करें."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"ऑफ़िस के काम के ऐप, वर्क प्रोफ़ाइल में रखे जाते हैं. इन्हें आईटी एडमिन प्रबंधित करता है"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"निजी ऐप्लिकेशन अलग होते हैं और ऑफ़िस के काम से जुड़े ऐप्लिकेशन से छिपे होते हैं"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"आपका आईटी एडमिन इस डिवाइस को कंट्रोल कर सकता है और कुछ ऐप्लिकेशन को ब्लॉक कर सकता है"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"ऑफिस के काम से जुड़े ऐप्लिकेशन, काम से जुड़ी आपकी प्रोफ़ाइल में रखे जाते हैं. इन्हें आपका आईटी एडमिन प्रबंधित करता है. निजी ऐप्लिकेशन अलग होते हैं और ऑफ़िस के काम से जुड़े ऐप्लिकेशन से छिपे होते हैं. आपका आईटी एडमिन इस डिवाइस को कंट्रोल कर सकता है और कुछ ऐप्लिकेशन को ब्लॉक कर सकता है."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"बस एक सेकंड…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"निजता रिमाइंडर"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"आपके आईटी एडमिन इस डिवाइस पर आपका डेटा और गतिविधि देख सकते हैं"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"आपका डिवाइस इस्तेमाल के लिए तैयार है!"</string>
     <string name="done" msgid="7755227776955952318">"हो गया"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"इस डिवाइस को <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> से क्रेडिट पर खरीदा गया है"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> यह कर सकता है:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ऐप्लिकेशन इंस्टॉल करें, ताकि आप इस डिवाइस के लिए पैसे चुका सकें"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"अगर आप पैसे नहीं चुकाते, तो डिवाइस के ऐक्सेस पर रोक लगा दी जाएगी"</string>
 </resources>

@@ -80,7 +80,7 @@ class policy_WiFiPrecedence(enterprise_policy_base.EnterprisePolicyTest):
 
         """
         if network1_pickle is None or network2_pickle is None:
-            error.TestError('network1 and network2 cannot be None.')
+            raise error.TestError('network1 and network2 cannot be None.')
 
         network1 = pickle.loads(network1_pickle)
         network2 = pickle.loads(network2_pickle)

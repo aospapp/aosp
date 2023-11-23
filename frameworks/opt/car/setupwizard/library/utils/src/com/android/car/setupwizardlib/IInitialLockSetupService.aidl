@@ -16,7 +16,7 @@
 
 package com.android.car.setupwizardlib;
 
-import src.com.android.car.setupwizardlib.LockConfig;
+import com.android.car.setupwizardlib.LockConfig;
 
 interface IInitialLockSetupService {
 

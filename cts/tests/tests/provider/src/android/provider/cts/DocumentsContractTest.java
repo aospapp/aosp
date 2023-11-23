@@ -51,6 +51,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 
 import android.app.PendingIntent;
+import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -61,10 +62,14 @@ import android.content.pm.ResolveInfo;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.database.MatrixCursor;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.os.UserHandle;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
 import android.provider.DocumentsProvider;
@@ -77,6 +82,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -97,6 +104,7 @@ public class DocumentsContractTest {
 
     private static final String MIME_TYPE = "application/octet-stream";
     private static final String DISPLAY_NAME = "My Test";
+    private static final UserHandle TEST_USER_HANDLE = UserHandle.of(57);
 
     private Context mContext;
     private DocumentsProvider mProvider;
@@ -204,6 +212,36 @@ public class DocumentsContractTest {
     }
 
     @Test
+    public void testBuildDocumentUriAsUser_setsAuthority() {
+        final String auth = "com.example";
+        final String docId = "doc:12";
+
+        final Uri uri = DocumentsContract.buildDocumentUriAsUser(auth, docId, TEST_USER_HANDLE);
+
+        assertTrue(uri.getAuthority().contains(auth));
+    }
+
+    @Test
+    public void testBuildDocumentUriAsUser_setsDocumentId() {
+        final String auth = "com.example";
+        final String docId = "doc:12";
+
+        final Uri uri = DocumentsContract.buildDocumentUriAsUser(auth, docId, TEST_USER_HANDLE);
+
+        assertEquals(docId, DocumentsContract.getDocumentId(uri));
+    }
+
+    @Test
+    public void testBuildDocumentUriAsUser_setsUserInfo() {
+        final String auth = "com.example";
+        final String docId = "doc:12";
+
+        final Uri uri = DocumentsContract.buildDocumentUriAsUser(auth, docId, TEST_USER_HANDLE);
+
+        assertEquals(TEST_USER_HANDLE, ContentProvider.getUserHandleFromUri(uri));
+    }
+
+    @Test
     public void testTreeDocumentUri() {
         final String auth = "com.example";
         final String treeId = "doc:12";
@@ -219,6 +257,12 @@ public class DocumentsContractTest {
         assertEquals(treeId, DocumentsContract.getTreeDocumentId(leafUri));
         assertEquals(leafId, DocumentsContract.getDocumentId(leafUri));
         assertTrue(DocumentsContract.isTreeUri(leafUri));
+    }
+
+    @Test
+    public void testManageMode() {
+        assertFalse(DocumentsContract.isManageMode(URI_RED));
+        assertTrue(DocumentsContract.isManageMode(DocumentsContract.setManageMode(URI_RED)));
     }
 
     @Test
@@ -419,5 +463,56 @@ public class DocumentsContractTest {
         doReturn(res).when(mProvider).querySearchDocuments(DOC_RED, null, Bundle.EMPTY);
         assertEquals(res, mResolver.query(buildSearchDocumentsUri(AUTHORITY, DOC_RED, "moo"), null,
                 Bundle.EMPTY, null));
+    }
+
+    @Test
+    public void testGetDocumentThumbnail() throws Exception {
+        // create file and image
+        final String testImagePath =
+                InstrumentationRegistry.getTargetContext().getExternalCacheDir().getPath()
+                        + "/testimage.jpg";
+        final int imageSize = 128;
+        final int thumbnailSize = 32;
+        File file = new File(testImagePath);
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            writeImage(imageSize, imageSize, Color.RED, out);
+        }
+
+        final AssetFileDescriptor res = new AssetFileDescriptor(
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY),
+                0, AssetFileDescriptor.UNKNOWN_LENGTH);
+        final Point size = new Point(thumbnailSize, thumbnailSize);
+        final Bundle opts = new Bundle();
+        opts.putParcelable(ContentResolver.EXTRA_SIZE, size);
+
+        doReturn(res).when(mProvider).openDocumentThumbnail(DOC_RED, size, null);
+        Bitmap bitmap = DocumentsContract.getDocumentThumbnail(mResolver, URI_RED, size, null);
+
+        // A provider may return a thumbnail of a different size, but never more than double the
+        // requested size.
+        assertFalse(bitmap.getWidth() > thumbnailSize * 2);
+        assertFalse(bitmap.getHeight() > thumbnailSize * 2);
+        assertColorMostlyEquals(Color.RED,
+                bitmap.getPixel(bitmap.getWidth() / 2, bitmap.getHeight() / 2));
+
+        // clean up
+        file.delete();
+        bitmap.recycle();
+    }
+
+    private static void writeImage(int width, int height, int color, OutputStream out) {
+        final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        final Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(color);
+        bitmap.compress(Bitmap.CompressFormat.PNG, 90, out);
+    }
+
+    /**
+     * Since thumbnails might be bounced through a compression pass, we're okay
+     * if they're mostly equal.
+     */
+    private static void assertColorMostlyEquals(int expected, int actual) {
+        assertEquals(Integer.toHexString(expected & 0xF0F0F0F0),
+                Integer.toHexString(actual & 0xF0F0F0F0));
     }
 }

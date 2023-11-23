@@ -16,15 +16,16 @@
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@color/bugreport_background"
+    android:padding="@dimen/bug_report_padding"
+    android:orientation="vertical">
 
     <LinearLayout
         android:id="@+id/submit_bug_report_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:padding="@dimen/bug_report_padding"
-        android:background="@color/bugreport_background"
         android:visibility="gone"
         android:orientation="vertical">
         <TextView
@@ -34,7 +35,17 @@
             android:textColor="@color/bugreport_text"
             android:gravity="center"
             android:text="@string/bugreport_dialog_title"/>
-        <com.google.android.car.bugreport.VoiceRecordingView
+        <TextView
+            android:id="@+id/bug_report_add_audio_to_existing"
+            android:layout_marginTop="@dimen/bug_report_voice_recording_margin_top"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:textColor="@color/bugreport_text"
+            android:gravity="center"
+            android:visibility="gone"
+            android:text="@string/bugreport_dialog_add_audio_to_existing"/>
+        <com.android.car.bugreport.VoiceRecordingView
             android:id="@+id/voice_recording_view"
             android:layout_marginTop="@dimen/bug_report_voice_recording_margin_top"
             android:layout_height="@dimen/bug_report_voice_recording_height"
@@ -65,23 +76,12 @@
             android:layout_marginTop="@dimen/bug_report_button_margin_top"
             android:padding="@dimen/bug_report_secondary_button_padding"
             android:text="@string/bugreport_dialog_cancel"/>
-        <Button
-            android:id="@+id/button_show_bugreports"
-            style="@style/standard_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/bug_report_button_margin_top"
-            android:padding="@dimen/bug_report_small_button_padding"
-            android:visibility="gone"
-            android:text="@string/bugreport_dialog_show_bugreports"/>
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/in_progress_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@color/bugreport_background"
-        android:padding="@dimen/bug_report_padding"
         android:visibility="gone"
         android:orientation="vertical">
         <TextView
@@ -115,4 +115,14 @@
             android:padding="@dimen/bug_report_secondary_button_padding"
             android:text="@string/bugreport_dialog_close"/>
     </LinearLayout>
+
+    <Button
+        android:id="@+id/button_show_bugreports"
+        style="@style/standard_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/bug_report_button_margin_top"
+        android:padding="@dimen/bug_report_small_button_padding"
+        android:visibility="gone"
+        android:text="@string/bugreport_dialog_show_bugreports"/>
 </LinearLayout>

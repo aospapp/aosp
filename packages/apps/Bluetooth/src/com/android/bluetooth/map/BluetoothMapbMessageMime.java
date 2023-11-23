@@ -744,6 +744,12 @@ public class BluetoothMapbMessageMime extends BluetoothMapbMessage {
     }
 
     private void parseMime(String message) {
+        // Check for null String, otherwise NPE will cause BT to crash
+        if (message == null) {
+            Log.e(TAG, "parseMime called with a NULL message, terminating early");
+            return;
+        }
+
         /* Overall strategy for decoding:
          * 1) split on first empty line to extract the header
          * 2) unfold and parse headers
@@ -755,6 +761,7 @@ public class BluetoothMapbMessageMime extends BluetoothMapbMessage {
         String[] mimeParts;
         String remaining = null;
         String messageBody = null;
+
         message = message.replaceAll("\\r\\n[ \\\t]+", ""); // Unfold
         messageParts = message.split("\r\n\r\n", 2); // Split the header from the body
         if (messageParts.length != 2) {

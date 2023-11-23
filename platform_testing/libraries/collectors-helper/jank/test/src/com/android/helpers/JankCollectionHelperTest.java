@@ -409,7 +409,7 @@ public class JankCollectionHelperTest {
     }
 
     private void mockResetCommand(String pkg, String output) throws IOException {
-        String cmd = String.format(GFXINFO_COMMAND_RESET, pkg);
+        String cmd = String.format(GFXINFO_COMMAND_RESET, pkg.isEmpty() ? "--" : pkg);
         when(mUiDevice.executeShellCommand(cmd)).thenReturn(output);
     }
 

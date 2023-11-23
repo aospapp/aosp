@@ -25,13 +25,19 @@
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsAccessibilityServiceTestCases.apk" />
+        <option name="test-file-name" value="CtsAccessibilityWidgetProvider.apk" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="CtsAccessibilityWidgetProvider.apk" />
+        <option name="force-install-mode" value="FULL"/>
+        <option name="test-file-name" value="CtsInputMethod1.apk"/>
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.accessibilityservice.cts" />
         <option name="runtime-hint" value="2m12s" />
     </test>
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/sdcard/android.accessibilityservice.cts" />
+        <option name="collect-on-run-ended-only" value="true" />
+    </metrics_collector>
 </configuration>

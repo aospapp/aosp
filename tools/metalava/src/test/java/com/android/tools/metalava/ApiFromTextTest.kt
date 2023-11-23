@@ -65,6 +65,27 @@ class ApiFromTextTest : DriverTest() {
     }
 
     @Test
+    fun `Invoking function with multiple parameters as parameter default value`() {
+        val source = """
+            // Signature format: 3.0
+            package abc {
+              public final class PopupKt {
+                method public static void DropdownPopup(Type ident = SomeFunc(SomeVal, SomeVal));
+              }
+            }
+        """
+
+        check(
+            format = FileFormat.V3,
+            compatibilityMode = false,
+            inputKotlinStyleNulls = true,
+            signatureSource = source,
+            includeSignatureVersion = true,
+            api = source
+        )
+    }
+
+    @Test
     fun `Handle enum constants as default values`() {
         val source = """
             // Signature format: 3.0

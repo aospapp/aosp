@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -340,14 +340,12 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
     /*
       Read PCX raster colormap.
     */
-    image->columns=(size_t) MagickAbsoluteValue((ssize_t) pcx_info.right-
-      pcx_info.left)+1UL;
-    image->rows=(size_t) MagickAbsoluteValue((ssize_t) pcx_info.bottom-
-      pcx_info.top)+1UL;
-    if ((image->columns == 0) || (image->rows == 0) ||
+    if ((pcx_info.right < pcx_info.left) || (pcx_info.bottom < pcx_info.top) ||
         ((pcx_info.bits_per_pixel != 1) && (pcx_info.bits_per_pixel != 2) &&
          (pcx_info.bits_per_pixel != 4) && (pcx_info.bits_per_pixel != 8)))
       ThrowPCXException(CorruptImageError,"ImproperImageHeader");
+    image->columns=(size_t) (pcx_info.right-pcx_info.left)+1UL;
+    image->rows=(size_t) (pcx_info.bottom-pcx_info.top)+1UL;
     image->depth=pcx_info.bits_per_pixel;
     image->units=PixelsPerInchResolution;
     image->resolution.x=(double) pcx_info.horizontal_resolution;
@@ -400,12 +398,10 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
     /*
       Read image data.
     */
-    if (HeapOverflowSanityCheck(image->rows, (size_t) pcx_info.bytes_per_line) != MagickFalse)
+    if (HeapOverflowSanityCheckGetSize(image->rows,(size_t) pcx_info.bytes_per_line,&pcx_packets) != MagickFalse)
       ThrowPCXException(CorruptImageError,"ImproperImageHeader");
-    pcx_packets=(size_t) image->rows*pcx_info.bytes_per_line;
-    if (HeapOverflowSanityCheck(pcx_packets, (size_t) pcx_info.planes) != MagickFalse)
+    if (HeapOverflowSanityCheckGetSize(pcx_packets,(size_t) pcx_info.planes,&pcx_packets) != MagickFalse)
       ThrowPCXException(CorruptImageError,"ImproperImageHeader");
-    pcx_packets=(size_t) pcx_packets*pcx_info.planes;
     if ((size_t) (pcx_info.bits_per_pixel*pcx_info.planes*image->columns) > (pcx_packets*8U))
       ThrowPCXException(CorruptImageError,"ImproperImageHeader");
     if ((MagickSizeType) (pcx_packets/32+128) > GetBlobSize(image))
@@ -578,13 +574,13 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
               for (x=0; x < ((ssize_t) image->columns-7); x+=8)
               {
                 for (bit=7; bit >= 0; bit--)
-                  *r++=(unsigned char) ((*p) & (0x01 << bit) ? 0x01 : 0x00);
+                  *r++=(unsigned char) ((*p) & (0x01 << bit) ? 0x00 : 0x01);
                 p++;
               }
               if ((image->columns % 8) != 0)
                 {
                   for (bit=7; bit >= (ssize_t) (8-(image->columns % 8)); bit--)
-                    *r++=(unsigned char) ((*p) & (0x01 << bit) ? 0x01 : 0x00);
+                    *r++=(unsigned char) ((*p) & (0x01 << bit) ? 0x00 : 0x01);
                   p++;
                 }
               break;
@@ -914,8 +910,6 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if ((image->columns > 65535UL) || (image->rows > 65535UL))
-    ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
   page_table=(MagickOffsetType *) NULL;
   if ((LocaleCompare(image_info->magick,"DCX") == 0) ||
       ((GetNextImageInList(image) != (Image *) NULL) &&
@@ -982,7 +976,8 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
           pcx_info.planes++;
       }
     length=(((size_t) image->columns*pcx_info.bits_per_pixel+7)/8);
-    if (length > 65535UL)
+    if ((image->columns > 65535UL) || (image->rows > 65535UL) ||
+        (length > 65535UL))
       {
         if (page_table != (MagickOffsetType *) NULL)
           page_table=(MagickOffsetType *) RelinquishMagickMemory(page_table);
@@ -1151,7 +1146,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
               for (x=0; x < (ssize_t) image->columns; x++)
               {
                 byte<<=1;
-                if (GetPixelLuma(image,p) >= (QuantumRange/2.0))
+                if (GetPixelLuma(image,p) < (QuantumRange/2.0))
                   byte|=0x01;
                 bit++;
                 if (bit == 8)

@@ -21,7 +21,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef SPHERE_FIT_DBG_ENABLED
 #include "calibration/util/cal_log.h"
+#endif  // SPHERE_FIT_DBG_ENABLED
+
 #include "common/math/mat.h"
 #include "common/math/vec.h"
 

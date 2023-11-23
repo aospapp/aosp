@@ -12,10 +12,10 @@
 #endif
 
 #define __C2_GENERATE_GLOBAL_VARS__
+#include <C2ArcSupport.h>  // to getParamReflector from arc store
 #include <C2VDAAllocatorStore.h>
 #include <C2VDAComponent.h>
 #include <C2VDAPixelFormat.h>
-#include <C2VDASupport.h>  // to getParamReflector from vda store
 #include <C2VdaBqBlockPool.h>
 #include <C2VdaPooledBlockPool.h>
 
@@ -29,8 +29,11 @@
 #include <base/bind.h>
 #include <base/bind_helpers.h>
 
+#include <android/hardware/graphics/common/1.0/types.h>
+#include <cutils/native_handle.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/foundation/ColorUtils.h>
+#include <ui/GraphicBuffer.h>
 #include <utils/Log.h>
 #include <utils/misc.h>
 
@@ -44,6 +47,8 @@
         (void)(expr); \
     } while (0)
 
+using android::hardware::graphics::common::V1_0::BufferUsage;
+
 namespace android {
 
 namespace {
@@ -51,6 +56,33 @@ namespace {
 // Mask against 30 bits to avoid (undefined) wraparound on signed integer.
 int32_t frameIndexToBitstreamId(c2_cntr64_t frameIndex) {
     return static_cast<int32_t>(frameIndex.peeku() & 0x3FFFFFFF);
+}
+
+// Get android_ycbcr by lockYCbCr() from block handle which uses usage without SW_READ/WRITE bits.
+android_ycbcr getGraphicBlockInfo(const C2GraphicBlock& block) {
+    uint32_t width, height, format, stride, igbp_slot, generation;
+    uint64_t usage, igbp_id;
+    android::_UnwrapNativeCodec2GrallocMetadata(block.handle(), &width, &height,
+                                                &format, &usage, &stride, &generation, &igbp_id,
+                                                &igbp_slot);
+    native_handle_t* grallocHandle = android::UnwrapNativeCodec2GrallocHandle(block.handle());
+    sp<GraphicBuffer> buf = new GraphicBuffer(grallocHandle, GraphicBuffer::CLONE_HANDLE, width,
+                                              height, format, 1, usage, stride);
+    native_handle_delete(grallocHandle);
+
+    android_ycbcr ycbcr = {};
+    constexpr uint32_t kNonSWLockUsage = 0;
+    int32_t status = buf->lockYCbCr(kNonSWLockUsage, &ycbcr);
+    if (status != OK)
+        ALOGE("lockYCbCr is failed: %d", (int) status);
+    buf->unlock();
+    return ycbcr;
+}
+
+// Get frame size (stride, height) of a buffer owned by |block|.
+media::Size getFrameSizeFromC2GraphicBlock(const C2GraphicBlock& block) {
+    android_ycbcr ycbcr = getGraphicBlockInfo(block);
+    return media::Size(ycbcr.ystride, block.height());
 }
 
 // Use basic graphic block pool/allocator as default.
@@ -229,11 +261,18 @@ C2VDAComponent::IntfImpl::IntfImpl(C2String name, const std::shared_ptr<C2Reflec
 
     addParameter(
             DefineParam(mInputFormat, C2_PARAMKEY_INPUT_STREAM_BUFFER_TYPE)
-                    .withConstValue(new C2StreamBufferTypeSetting::input(0u, C2FormatCompressed))
+                    .withConstValue(new C2StreamBufferTypeSetting::input(0u, C2BufferData::LINEAR))
+                    .build());
+    addParameter(
+            DefineParam(mInputMemoryUsage, C2_PARAMKEY_INPUT_STREAM_USAGE)
+                    .withConstValue(new C2StreamUsageTuning::input(
+                            0u, static_cast<uint64_t>(android::hardware::graphics::common::V1_0::
+                                                              BufferUsage::VIDEO_DECODER)))
                     .build());
 
     addParameter(DefineParam(mOutputFormat, C2_PARAMKEY_OUTPUT_STREAM_BUFFER_TYPE)
-                         .withConstValue(new C2StreamBufferTypeSetting::output(0u, C2FormatVideo))
+                         .withConstValue(
+                                 new C2StreamBufferTypeSetting::output(0u, C2BufferData::GRAPHIC))
                          .build());
 
     addParameter(
@@ -246,7 +285,7 @@ C2VDAComponent::IntfImpl::IntfImpl(C2String name, const std::shared_ptr<C2Reflec
                                  MEDIA_MIMETYPE_VIDEO_RAW))
                          .build());
 
-    addParameter(DefineParam(mSize, C2_PARAMKEY_STREAM_PICTURE_SIZE)
+    addParameter(DefineParam(mSize, C2_PARAMKEY_PICTURE_SIZE)
                          .withDefault(new C2StreamPictureSizeInfo::output(0u, 176, 144))
                          .withFields({
                                  C2F(mSize, width).inRange(minSize.width(), maxSize.width(), 16),
@@ -286,7 +325,7 @@ C2VDAComponent::IntfImpl::IntfImpl(C2String name, const std::shared_ptr<C2Reflec
 
     bool secureMode = name.find(".secure") != std::string::npos;
     C2Allocator::id_t inputAllocators[] = {secureMode ? C2VDAAllocatorStore::SECURE_LINEAR
-                                                      : C2PlatformAllocatorStore::ION};
+                                                      : C2PlatformAllocatorStore::BLOB};
 
     C2Allocator::id_t outputAllocators[] = {C2VDAAllocatorStore::V4L2_BUFFERPOOL};
 
@@ -376,16 +415,10 @@ C2VDAComponent::IntfImpl::IntfImpl(C2String name, const std::shared_ptr<C2Reflec
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-#define EXPECT_STATE_OR_RETURN_ON_ERROR(x)                    \
-    do {                                                      \
-        if (mComponentState == ComponentState::ERROR) return; \
-        CHECK_EQ(mComponentState, ComponentState::x);         \
-    } while (0)
-
-#define EXPECT_RUNNING_OR_RETURN_ON_ERROR()                       \
-    do {                                                          \
-        if (mComponentState == ComponentState::ERROR) return;     \
-        CHECK_NE(mComponentState, ComponentState::UNINITIALIZED); \
+#define RETURN_ON_UNINITIALIZED_OR_ERROR()                                 \
+    do {                                                                   \
+        if (mHasError || mComponentState == ComponentState::UNINITIALIZED) \
+            return;                                                        \
     } while (0)
 
 C2VDAComponent::VideoFormat::VideoFormat(HalPixelFormat pixelFormat, uint32_t minNumBuffers,
@@ -456,6 +489,7 @@ void C2VDAComponent::onStart(media::VideoCodecProfile profile, ::base::WaitableE
     mVDAInitResult = mVDAAdaptor->initialize(profile, mSecureMode, this);
     if (mVDAInitResult == VideoDecodeAcceleratorAdaptor::Result::SUCCESS) {
         mComponentState = ComponentState::STARTED;
+        mHasError = false;
     }
 
     if (!mSecureMode && mIntfImpl->getInputCodec() == InputCodec::H264) {
@@ -471,7 +505,7 @@ void C2VDAComponent::onQueueWork(std::unique_ptr<C2Work> work) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onQueueWork: flags=0x%x, index=%llu, timestamp=%llu", work->input.flags,
           work->input.ordinal.frameIndex.peekull(), work->input.ordinal.timestamp.peekull());
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     uint32_t drainMode = NO_DRAIN;
     if (work->input.flags & C2FrameData::FLAG_END_OF_STREAM) {
@@ -487,7 +521,7 @@ void C2VDAComponent::onQueueWork(std::unique_ptr<C2Work> work) {
 void C2VDAComponent::onDequeueWork() {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onDequeueWork");
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
     if (mQueue.empty()) {
         return;
     }
@@ -567,7 +601,7 @@ void C2VDAComponent::onDequeueWork() {
 void C2VDAComponent::onInputBufferDone(int32_t bitstreamId) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onInputBufferDone: bitstream id=%d", bitstreamId);
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     C2Work* work = getPendingWorkByBitstreamId(bitstreamId);
     if (!work) {
@@ -590,6 +624,7 @@ void C2VDAComponent::onOutputBufferReturned(std::shared_ptr<C2GraphicBlock> bloc
         // released.
         return;
     }
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     if (block->width() != static_cast<uint32_t>(mOutputFormat.mCodedSize.width()) ||
         block->height() != static_cast<uint32_t>(mOutputFormat.mCodedSize.height())) {
@@ -604,7 +639,11 @@ void C2VDAComponent::onOutputBufferReturned(std::shared_ptr<C2GraphicBlock> bloc
         reportError(C2_CORRUPTED);
         return;
     }
-    CHECK_EQ(info->mState, GraphicBlockInfo::State::OWNED_BY_CLIENT);
+    if (info->mState != GraphicBlockInfo::State::OWNED_BY_CLIENT) {
+        ALOGE("Graphic block (id=%d) should be owned by client on return", info->mBlockId);
+        reportError(C2_BAD_STATE);
+        return;
+    }
     info->mGraphicBlock = std::move(block);
     info->mState = GraphicBlockInfo::State::OWNED_BY_COMPONENT;
 
@@ -625,7 +664,7 @@ void C2VDAComponent::onOutputBufferReturned(std::shared_ptr<C2GraphicBlock> bloc
 void C2VDAComponent::onOutputBufferDone(int32_t pictureBufferId, int32_t bitstreamId) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onOutputBufferDone: picture id=%d, bitstream id=%d", pictureBufferId, bitstreamId);
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     GraphicBlockInfo* info = getGraphicBlockById(pictureBufferId);
     if (!info) {
@@ -640,18 +679,22 @@ void C2VDAComponent::onOutputBufferDone(int32_t pictureBufferId, int32_t bitstre
     sendOutputBufferToWorkIfAny(false /* dropIfUnavailable */);
 }
 
-void C2VDAComponent::sendOutputBufferToWorkIfAny(bool dropIfUnavailable) {
+c2_status_t C2VDAComponent::sendOutputBufferToWorkIfAny(bool dropIfUnavailable) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
 
     while (!mPendingBuffersToWork.empty()) {
         auto nextBuffer = mPendingBuffersToWork.front();
         GraphicBlockInfo* info = getGraphicBlockById(nextBuffer.mBlockId);
-        CHECK_NE(info->mState, GraphicBlockInfo::State::OWNED_BY_ACCELERATOR);
+        if (info->mState == GraphicBlockInfo::State::OWNED_BY_ACCELERATOR) {
+            ALOGE("Graphic block (id=%d) should not be owned by accelerator", info->mBlockId);
+            reportError(C2_BAD_STATE);
+            return C2_BAD_STATE;
+        }
 
         C2Work* work = getPendingWorkByBitstreamId(nextBuffer.mBitstreamId);
         if (!work) {
             reportError(C2_CORRUPTED);
-            return;
+            return C2_CORRUPTED;
         }
 
         if (info->mState == GraphicBlockInfo::State::OWNED_BY_CLIENT) {
@@ -660,7 +703,7 @@ void C2VDAComponent::sendOutputBufferToWorkIfAny(bool dropIfUnavailable) {
                 std::find(mUndequeuedBlockIds.begin(), mUndequeuedBlockIds.end(),
                           nextBuffer.mBlockId) == mUndequeuedBlockIds.end()) {
                 ALOGV("Still waiting for existing frame returned from client...");
-                return;
+                return C2_TIMED_OUT;
             }
             ALOGV("Drop this frame...");
             sendOutputBufferToAccelerator(info, false /* ownByAccelerator */);
@@ -691,9 +734,17 @@ void C2VDAComponent::sendOutputBufferToWorkIfAny(bool dropIfUnavailable) {
             work->worklets.front()->output.buffers.emplace_back(std::move(buffer));
             info->mGraphicBlock.reset();
         }
+
+        // Check no-show frame by timestamps for VP8/VP9 cases before reporting the current work.
+        if (mIntfImpl->getInputCodec() == InputCodec::VP8 ||
+            mIntfImpl->getInputCodec() == InputCodec::VP9) {
+            detectNoShowFrameWorksAndReportIfFinished(&(work->input.ordinal));
+        }
+
         reportWorkIfFinished(nextBuffer.mBitstreamId);
         mPendingBuffersToWork.pop_front();
     }
+    return C2_OK;
 }
 
 void C2VDAComponent::updateUndequeuedBlockIds(int32_t blockId) {
@@ -705,7 +756,7 @@ void C2VDAComponent::updateUndequeuedBlockIds(int32_t blockId) {
 void C2VDAComponent::onDrain(uint32_t drainMode) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onDrain: mode = %u", drainMode);
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     if (!mQueue.empty()) {
         // Mark last queued work as "drain-till-here" by setting drainMode. Do not change drainMode
@@ -732,6 +783,8 @@ void C2VDAComponent::onDrain(uint32_t drainMode) {
 void C2VDAComponent::onDrainDone() {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onDrainDone");
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
+
     if (mComponentState == ComponentState::DRAINING) {
         mComponentState = ComponentState::STARTED;
     } else if (mComponentState == ComponentState::STOPPING) {
@@ -746,15 +799,16 @@ void C2VDAComponent::onDrainDone() {
     }
 
     // Drop all pending existing frames and return all finished works before drain done.
-    sendOutputBufferToWorkIfAny(true /* dropIfUnavailable */);
-    CHECK(mPendingBuffersToWork.empty());
+    if (sendOutputBufferToWorkIfAny(true /* dropIfUnavailable */) != C2_OK) {
+        return;
+    }
 
     if (mPendingOutputEOS) {
         // Return EOS work.
-        reportEOSWork();
+        if (reportEOSWork() != C2_OK) {
+            return;
+        }
     }
-    // mPendingWorks must be empty after draining is finished.
-    CHECK(mPendingWorks.empty());
 
     // Work dequeueing was stopped while component draining. Restart it.
     mTaskRunner->PostTask(FROM_HERE,
@@ -768,7 +822,7 @@ void C2VDAComponent::onFlush() {
         mComponentState == ComponentState::STOPPING) {
         return;  // Ignore other flush request when component is flushing or stopping.
     }
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     mVDAAdaptor->reset();
     // Pop all works in mQueue and put into mAbandonedWorks.
@@ -782,13 +836,8 @@ void C2VDAComponent::onFlush() {
 void C2VDAComponent::onStop(::base::WaitableEvent* done) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onStop");
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
-
-    // Do not request VDA reset again before the previous one is done. If reset is already sent by
-    // onFlush(), just regard the following NotifyResetDone callback as for stopping.
-    if (mComponentState != ComponentState::FLUSHING) {
-        mVDAAdaptor->reset();
-    }
+    // Stop call should be processed even if component is in error state.
+    CHECK_NE(mComponentState, ComponentState::UNINITIALIZED);
 
     // Pop all works in mQueue and put into mAbandonedWorks.
     while (!mQueue.empty()) {
@@ -798,12 +847,23 @@ void C2VDAComponent::onStop(::base::WaitableEvent* done) {
 
     mStopDoneEvent = done;  // restore done event which shoud be signaled in onStopDone().
     mComponentState = ComponentState::STOPPING;
+
+    // Immediately release VDA by calling onStopDone() if component is in error state. Otherwise,
+    // send reset request to VDA and wait for callback to stop the component gracefully.
+    if (mHasError) {
+        ALOGV("Component is in error state. Immediately call onStopDone().");
+        onStopDone();
+    } else if (mComponentState != ComponentState::FLUSHING) {
+        // Do not request VDA reset again before the previous one is done. If reset is already sent
+        // by onFlush(), just regard the following NotifyResetDone callback as for stopping.
+        mVDAAdaptor->reset();
+    }
 }
 
 void C2VDAComponent::onResetDone() {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
-    if (mComponentState == ComponentState::ERROR) {
-        return;
+    if (mComponentState == ComponentState::UNINITIALIZED) {
+        return;  // component is already stopped.
     }
     if (mComponentState == ComponentState::FLUSHING) {
         onFlushDone();
@@ -816,6 +876,8 @@ void C2VDAComponent::onResetDone() {
 
 void C2VDAComponent::onFlushDone() {
     ALOGV("onFlushDone");
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
+
     reportAbandonedWorks();
     mPendingBuffersToWork.clear();
     mComponentState = ComponentState::STARTED;
@@ -916,7 +978,7 @@ C2VDAComponent::GraphicBlockInfo* C2VDAComponent::getGraphicBlockByPoolId(uint32
 void C2VDAComponent::onOutputFormatChanged(std::unique_ptr<VideoFormat> format) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onOutputFormatChanged");
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     ALOGV("New output format(pixel_format=0x%x, min_num_buffers=%u, coded_size=%s, crop_rect=%s)",
           static_cast<uint32_t>(format->mPixelFormat), format->mMinNumBuffers,
@@ -945,12 +1007,18 @@ void C2VDAComponent::tryChangeOutputFormat() {
     //                 too many buffers are still on client's hand while component starts to
     //                 allocate more buffers. However, it leads latency on output format change.
     for (const auto& info : mGraphicBlocks) {
-        CHECK(info.mState != GraphicBlockInfo::State::OWNED_BY_ACCELERATOR);
+        if (info.mState == GraphicBlockInfo::State::OWNED_BY_ACCELERATOR) {
+            ALOGE("Graphic block (id=%d) should not be owned by accelerator while changing format",
+                  info.mBlockId);
+            reportError(C2_BAD_STATE);
+            return;
+        }
     }
 
     // Drop all pending existing frames and return all finished works before changing output format.
-    sendOutputBufferToWorkIfAny(true /* dropIfUnavailable */);
-    CHECK(mPendingBuffersToWork.empty());
+    if (sendOutputBufferToWorkIfAny(true /* dropIfUnavailable */) != C2_OK) {
+        return;
+    }
 
     CHECK_EQ(mPendingOutputFormat->mPixelFormat, HalPixelFormat::YCbCr_420_888);
 
@@ -981,9 +1049,6 @@ c2_status_t C2VDAComponent::allocateBuffersFromBlockAllocator(const media::Size&
     stopDequeueThread();
 
     size_t bufferCount = mOutputFormat.mMinNumBuffers + kDpbOutputBufferExtraCount;
-
-    // Allocate the output buffers.
-    mVDAAdaptor->assignPictureBuffers(bufferCount);
 
     // Get block pool ID configured from the client.
     std::shared_ptr<C2BlockPool> blockPool;
@@ -1049,7 +1114,8 @@ c2_status_t C2VDAComponent::allocateBuffersFromBlockAllocator(const media::Size&
     for (size_t i = 0; i < bufferCount; ++i) {
         std::shared_ptr<C2GraphicBlock> block;
         C2MemoryUsage usage = {
-                mSecureMode ? C2MemoryUsage::READ_PROTECTED : C2MemoryUsage::CPU_READ, 0};
+                mSecureMode ? C2MemoryUsage::READ_PROTECTED : C2MemoryUsage::CPU_READ,
+                static_cast<uint64_t>(BufferUsage::VIDEO_DECODER)};
 
         int32_t retries_left = kAllocateBufferMaxRetries;
         err = C2_NO_INIT;
@@ -1079,6 +1145,11 @@ c2_status_t C2VDAComponent::allocateBuffersFromBlockAllocator(const media::Size&
             reportError(err);
             return err;
         }
+
+        if (i == 0) {
+            // Allocate the output buffers.
+            mVDAAdaptor->assignPictureBuffers(bufferCount, getFrameSizeFromC2GraphicBlock(*block));
+        }
         if (mSecureMode) {
             appendSecureOutputBuffer(std::move(block), poolId);
         } else {
@@ -1101,59 +1172,61 @@ void C2VDAComponent::appendOutputBuffer(std::shared_ptr<C2GraphicBlock> block, u
     info.mGraphicBlock = std::move(block);
     info.mPoolId = poolId;
 
-    C2ConstGraphicBlock constBlock = info.mGraphicBlock->share(
-            C2Rect(info.mGraphicBlock->width(), info.mGraphicBlock->height()), C2Fence());
-
-    const C2GraphicView& view = constBlock.map().get();
-    const uint8_t* const* data = view.data();
-    CHECK_NE(data, nullptr);
-    const C2PlanarLayout& layout = view.layout();
-
     ALOGV("allocate graphic buffer: %p, id: %d, size: %dx%d", info.mGraphicBlock->handle(),
           info.mBlockId, info.mGraphicBlock->width(), info.mGraphicBlock->height());
 
-    // get offset from data pointers
-    uint32_t offsets[C2PlanarLayout::MAX_NUM_PLANES];
-    auto baseAddress = reinterpret_cast<intptr_t>(data[0]);
-    for (uint32_t i = 0; i < layout.numPlanes; ++i) {
-        auto planeAddress = reinterpret_cast<intptr_t>(data[i]);
-        offsets[i] = static_cast<uint32_t>(planeAddress - baseAddress);
-    }
+    auto ycbcr = getGraphicBlockInfo(*info.mGraphicBlock);
+    // lockYCbCr() stores offsets into the pointers
+    // if given usage does not contain SW_READ/WRITE bits.
+    std::vector<uint32_t> offsets = {
+            static_cast<uint32_t>(reinterpret_cast<uintptr_t>(ycbcr.y)),
+            static_cast<uint32_t>(reinterpret_cast<uintptr_t>(ycbcr.cb)),
+            static_cast<uint32_t>(reinterpret_cast<uintptr_t>(ycbcr.cr)),
+    };
+    std::vector<uint32_t> strides = {
+            static_cast<uint32_t>(ycbcr.ystride),
+            static_cast<uint32_t>(ycbcr.cstride),
+            static_cast<uint32_t>(ycbcr.cstride),
+    };
 
     bool crcb = false;
-    if (layout.numPlanes == 3 &&
-        offsets[C2PlanarLayout::PLANE_U] > offsets[C2PlanarLayout::PLANE_V]) {
-        // YCrCb format
+    if (offsets[C2PlanarLayout::PLANE_U] > offsets[C2PlanarLayout::PLANE_V]) {
         std::swap(offsets[C2PlanarLayout::PLANE_U], offsets[C2PlanarLayout::PLANE_V]);
         crcb = true;
     }
 
     bool semiplanar = false;
-    uint32_t passedNumPlanes = layout.numPlanes;
-    if (layout.planes[C2PlanarLayout::PLANE_U].colInc == 2) {  // chroma_step
-        // Semi-planar format
-        passedNumPlanes--;
+    if (ycbcr.chroma_step > offsets[C2PlanarLayout::PLANE_V] - offsets[C2PlanarLayout::PLANE_U]) {
+        offsets.pop_back();
+        strides.pop_back();
         semiplanar = true;
     }
 
-    for (uint32_t i = 0; i < passedNumPlanes; ++i) {
-        ALOGV("plane %u: stride: %d, offset: %u", i, layout.planes[i].rowInc, offsets[i]);
+    const uint32_t numPlanes = 3 - semiplanar;
+    for (uint32_t i = 0; i < numPlanes; ++i) {
+        ALOGV("plane %u: stride: %d, offset: %u", i, strides[i], offsets[i]);
     }
     info.mPixelFormat = resolveBufferFormat(crcb, semiplanar);
     ALOGV("HAL pixel format: 0x%x", static_cast<uint32_t>(info.mPixelFormat));
 
-    ::base::ScopedFD passedHandle(dup(info.mGraphicBlock->handle()->data[0]));
-    if (!passedHandle.is_valid()) {
-        ALOGE("Failed to dup(%d), errno=%d", info.mGraphicBlock->handle()->data[0], errno);
-        reportError(C2_CORRUPTED);
-        return;
+    std::vector<::base::ScopedFD> fds;
+    const C2Handle* const handle = info.mGraphicBlock->handle();
+    for (int i = 0; i < handle->numFds; i++) {
+        fds.emplace_back(dup(handle->data[i]));
+        if (!fds.back().is_valid()) {
+            ALOGE("Failed to dup(%d), errno=%d", handle->data[i], errno);
+            reportError(C2_CORRUPTED);
+            return;
+        }
     }
+    ALOGV("The number of fds of output buffer: %zu", fds.size());
+
     std::vector<VideoFramePlane> passedPlanes;
-    for (uint32_t i = 0; i < passedNumPlanes; ++i) {
-        CHECK_GT(layout.planes[i].rowInc, 0);
-        passedPlanes.push_back({offsets[i], static_cast<uint32_t>(layout.planes[i].rowInc)});
+    for (uint32_t i = 0; i < numPlanes; ++i) {
+        CHECK_GT(strides[i], 0u);
+        passedPlanes.push_back({offsets[i], strides[i]});
     }
-    info.mHandle = std::move(passedHandle);
+    info.mHandles = std::move(fds);
     info.mPlanes = std::move(passedPlanes);
 
     mGraphicBlocks.push_back(std::move(info));
@@ -1162,15 +1235,6 @@ void C2VDAComponent::appendOutputBuffer(std::shared_ptr<C2GraphicBlock> block, u
 void C2VDAComponent::appendSecureOutputBuffer(std::shared_ptr<C2GraphicBlock> block,
                                               uint32_t poolId) {
 #ifdef V4L2_CODEC2_ARC
-    const C2Handle* const handle = block->handle();
-    const int handleFd = handle->data[0];
-    ::base::ScopedFD passedHandle(dup(handleFd));
-    if (!passedHandle.is_valid()) {
-        ALOGE("Failed to dup(%d), errno=%d", handleFd, errno);
-        reportError(C2_CORRUPTED);
-        return;
-    }
-
     android::HalPixelFormat pixelFormat = getPlatformPixelFormat();
     if (pixelFormat == android::HalPixelFormat::UNKNOWN) {
         ALOGE("Failed to get pixel format on platform.");
@@ -1181,12 +1245,25 @@ void C2VDAComponent::appendSecureOutputBuffer(std::shared_ptr<C2GraphicBlock> bl
           pixelFormat == android::HalPixelFormat::NV12);
     ALOGV("HAL pixel format: 0x%x", static_cast<uint32_t>(pixelFormat));
 
+    std::vector<::base::ScopedFD> fds;
+    const C2Handle* const handle = block->handle();
+    for (int i = 0; i < handle->numFds; i++) {
+        fds.emplace_back(dup(handle->data[i]));
+        if (!fds.back().is_valid()) {
+            ALOGE("Failed to dup(%d), errno=%d", handle->data[i], errno);
+            reportError(C2_CORRUPTED);
+            return;
+        }
+    }
+    ALOGV("The number of fds of output buffer: %zu", fds.size());
+
     GraphicBlockInfo info;
     info.mBlockId = static_cast<int32_t>(mGraphicBlocks.size());
     info.mGraphicBlock = std::move(block);
     info.mPoolId = poolId;
-    info.mHandle = std::move(passedHandle);
     info.mPixelFormat = pixelFormat;
+    info.mHandles = std::move(fds);
+
     // In secure mode, since planes are not referred in Chrome side, empty plane is valid.
     info.mPlanes.clear();
     mGraphicBlocks.push_back(std::move(info));
@@ -1206,11 +1283,11 @@ void C2VDAComponent::sendOutputBufferToAccelerator(GraphicBlockInfo* info, bool 
         info->mState = GraphicBlockInfo::State::OWNED_BY_ACCELERATOR;
     }
 
-    // is_valid() is true for the first time the buffer is passed to VDA. In that case, VDA needs to
-    // import the buffer first.
-    if (info->mHandle.is_valid()) {
+    // mHandles is not empty for the first time the buffer is passed to VDA. In that case, VDA needs
+    // to import the buffer first.
+    if (!info->mHandles.empty()) {
         mVDAAdaptor->importBufferForPicture(info->mBlockId, info->mPixelFormat,
-                                            info->mHandle.release(), info->mPlanes);
+                                            std::move(info->mHandles), info->mPlanes);
     } else {
         mVDAAdaptor->reusePictureBuffer(info->mBlockId);
     }
@@ -1301,7 +1378,7 @@ c2_status_t C2VDAComponent::updateColorAspects() {
 void C2VDAComponent::onVisibleRectChanged(const media::Rect& cropRect) {
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     ALOGV("onVisibleRectChanged");
-    EXPECT_RUNNING_OR_RETURN_ON_ERROR();
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     // We should make sure there is no pending output format change. That is, the input cropRect is
     // corresponding to current output format.
@@ -1323,6 +1400,7 @@ void C2VDAComponent::onSurfaceChanged() {
     if (mComponentState == ComponentState::UNINITIALIZED) {
         return;  // Component is already stopped, no need to update graphic blocks.
     }
+    RETURN_ON_UNINITIALIZED_OR_ERROR();
 
     stopDequeueThread();
 
@@ -1459,7 +1537,15 @@ c2_status_t C2VDAComponent::start() {
                           ::base::Bind(&C2VDAComponent::onStart, ::base::Unretained(this),
                                        mCodecProfile, &done));
     done.Wait();
-    c2_status_t c2Status = adaptorResultToC2Status(mVDAInitResult);
+    c2_status_t c2Status;
+    if (mVDAInitResult == VideoDecodeAcceleratorAdaptor::Result::PLATFORM_FAILURE) {
+        // Regard unexpected VDA initialization failure as no more resources, because we still don't
+        // have a formal way to obtain the max capable number of concurrent decoders.
+        c2Status = C2_NO_MEMORY;
+    } else {
+        c2Status = adaptorResultToC2Status(mVDAInitResult);
+    }
+
     if (c2Status != C2_OK) {
         ALOGE("Failed to start component due to VDA error...");
         return c2Status;
@@ -1468,6 +1554,7 @@ c2_status_t C2VDAComponent::start() {
     return C2_OK;
 }
 
+// Stop call should be valid in all states (even in error).
 c2_status_t C2VDAComponent::stop() {
     // Use mStartStopLock to block other asynchronously start/stop calls.
     std::lock_guard<std::mutex> lock(mStartStopLock);
@@ -1557,7 +1644,67 @@ void C2VDAComponent::notifyError(VideoDecodeAcceleratorAdaptor::Result error) {
         ALOGW("Shouldn't get SUCCESS err code in NotifyError(). Skip it...");
         return;
     }
-    reportError(err);
+    mTaskRunner->PostTask(FROM_HERE,
+                          ::base::Bind(&C2VDAComponent::reportError, ::base::Unretained(this), err));
+}
+
+void C2VDAComponent::detectNoShowFrameWorksAndReportIfFinished(
+        const C2WorkOrdinalStruct* currOrdinal) {
+    DCHECK(mTaskRunner->BelongsToCurrentThread());
+    std::vector<int32_t> noShowFrameBitstreamIds;
+
+    for (auto& work : mPendingWorks) {
+        // A work in mPendingWorks would be considered to have no-show frame if there is no
+        // corresponding output buffer returned while the one of the work with latter timestamp is
+        // already returned. (VDA is outputted in display order.)
+        // Note: this fix is workable but not most appropriate because we rely on timestamps which
+        // may wrap around or be uncontinuous in adaptive skip-back case. The ideal fix should parse
+        // show_frame flag for each frame by either framework, component, or VDA, and propogate
+        // along the stack.
+        // TODO(johnylin): Discuss with framework team to handle no-show frame properly.
+        if (isNoShowFrameWork(work.get(), currOrdinal)) {
+            // Mark FLAG_DROP_FRAME for no-show frame work.
+            work->worklets.front()->output.flags = C2FrameData::FLAG_DROP_FRAME;
+
+            // We need to call reportWorkIfFinished() for all detected no-show frame works. However,
+            // we should do it after the detection loop since reportWorkIfFinished() may erase
+            // entries in mPendingWorks.
+            int32_t bitstreamId = frameIndexToBitstreamId(work->input.ordinal.frameIndex);
+            noShowFrameBitstreamIds.push_back(bitstreamId);
+            ALOGV("Detected no-show frame work index=%llu timestamp=%llu",
+                  work->input.ordinal.frameIndex.peekull(),
+                  work->input.ordinal.timestamp.peekull());
+        }
+    }
+
+    for (int32_t bitstreamId : noShowFrameBitstreamIds) {
+        // Try to report works with no-show frame.
+        reportWorkIfFinished(bitstreamId);
+    }
+}
+
+bool C2VDAComponent::isNoShowFrameWork(const C2Work* work,
+                                       const C2WorkOrdinalStruct* currOrdinal) const {
+    if (work->input.ordinal.timestamp >= currOrdinal->timestamp) {
+        // Only consider no-show frame if the timestamp is less than the current ordinal.
+        return false;
+    }
+    if (work->input.ordinal.frameIndex >= currOrdinal->frameIndex) {
+        // Only consider no-show frame if the frame index is less than the current ordinal. This is
+        // required to tell apart flushless skip-back case.
+        return false;
+    }
+    if (!work->worklets.front()->output.buffers.empty()) {
+        // The wrok already have the returned output buffer.
+        return false;
+    }
+    if ((work->input.flags & C2FrameData::FLAG_END_OF_STREAM) ||
+        (work->input.flags & C2FrameData::FLAG_CODEC_CONFIG) ||
+        (work->worklets.front()->output.flags & C2FrameData::FLAG_DROP_FRAME)) {
+        // No-show frame should not be EOS work, CSD work, or work with dropped frame.
+        return false;
+    }
+    return true;  // This work contains no-show frame.
 }
 
 void C2VDAComponent::reportWorkIfFinished(int32_t bitstreamId) {
@@ -1573,12 +1720,12 @@ void C2VDAComponent::reportWorkIfFinished(int32_t bitstreamId) {
     auto work = workIter->get();
     if (isWorkDone(work)) {
         if (work->worklets.front()->output.flags & C2FrameData::FLAG_DROP_FRAME) {
-            // TODO: actually framework does not handle FLAG_DROP_FRAME, use C2_NOT_FOUND result to
-            //       let framework treat this as flushed work.
-            work->result = C2_NOT_FOUND;
-        } else {
-            work->result = C2_OK;
+            // A work with neither flags nor output buffer would be treated as no-corresponding
+            // output by C2 framework, and regain pipeline capacity immediately.
+            // TODO(johnylin): output FLAG_DROP_FRAME flag after it could be handled correctly.
+            work->worklets.front()->output.flags = static_cast<C2FrameData::flags_t>(0);
         }
+        work->result = C2_OK;
         work->workletsProcessed = static_cast<uint32_t>(work->worklets.size());
 
         ALOGV("Reported finished work index=%llu", work->input.ordinal.frameIndex.peekull());
@@ -1613,14 +1760,14 @@ bool C2VDAComponent::isWorkDone(const C2Work* work) const {
     return true;  // This work is done.
 }
 
-void C2VDAComponent::reportEOSWork() {
+c2_status_t C2VDAComponent::reportEOSWork() {
     ALOGV("reportEOSWork");
     DCHECK(mTaskRunner->BelongsToCurrentThread());
     // In this moment all works prior to EOS work should be done and returned to listener.
     if (mPendingWorks.size() != 1u) {  // only EOS work left
         ALOGE("It shouldn't have remaining works in mPendingWorks except EOS work.");
         reportError(C2_CORRUPTED);
-        return;
+        return C2_CORRUPTED;
     }
 
     mPendingOutputEOS = false;
@@ -1637,6 +1784,7 @@ void C2VDAComponent::reportEOSWork() {
     std::list<std::unique_ptr<C2Work>> finishedWorks;
     finishedWorks.emplace_back(std::move(eosWork));
     mListener->onWorkDone_nb(shared_from_this(), std::move(finishedWorks));
+    return C2_OK;
 }
 
 void C2VDAComponent::reportAbandonedWorks() {
@@ -1676,7 +1824,10 @@ void C2VDAComponent::reportAbandonedWorks() {
 }
 
 void C2VDAComponent::reportError(c2_status_t error) {
+    DCHECK(mTaskRunner->BelongsToCurrentThread());
     mListener->onError_nb(shared_from_this(), static_cast<uint32_t>(error));
+    mHasError = true;
+    mState.store(State::ERROR);
 }
 
 bool C2VDAComponent::startDequeueThread(const media::Size& size, uint32_t pixelFormat,
@@ -1716,7 +1867,8 @@ void C2VDAComponent::dequeueThreadLoop(const media::Size& size, uint32_t pixelFo
         }
         std::shared_ptr<C2GraphicBlock> block;
         C2MemoryUsage usage = {
-                mSecureMode ? C2MemoryUsage::READ_PROTECTED : C2MemoryUsage::CPU_READ, 0};
+                mSecureMode ? C2MemoryUsage::READ_PROTECTED : C2MemoryUsage::CPU_READ,
+                static_cast<uint64_t>(BufferUsage::VIDEO_DECODER)};
         auto err = blockPool->fetchGraphicBlock(size.width(), size.height(), pixelFormat, usage,
                                                 &block);
         if (err == C2_TIMED_OUT) {
@@ -1762,7 +1914,7 @@ public:
     C2VDAComponentFactory(C2String decoderName)
           : mDecoderName(decoderName),
             mReflector(std::static_pointer_cast<C2ReflectorHelper>(
-                    GetCodec2VDAComponentStore()->getParamReflector())){};
+                    GetCodec2ArcComponentStore()->getParamReflector())){};
 
     c2_status_t createComponent(c2_node_id_t id, std::shared_ptr<C2Component>* const component,
                                 ComponentDeleter deleter) override {

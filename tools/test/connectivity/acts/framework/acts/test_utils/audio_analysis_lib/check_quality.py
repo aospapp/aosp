@@ -530,8 +530,7 @@ def quality_analysis(
         quality_burst_amplitude_threshold: Input the burst aplitutde
         threshold.
     """
-    format = '%(asctime)-15s:%(levelname)s:%(pathname)s:%(lineno)d: %(message)s'
-    logging.basicConfig(format=format, level=logging.INFO)
+
     raw_data, rate = read_audio_file(filename, channel, bit_width, rate)
 
     checker = QualityChecker(raw_data, rate)
@@ -553,3 +552,4 @@ def quality_analysis(
 
     if not spectral_only:
         checker.check_quality()
+    logging.debug("Audio analysis completed.")

@@ -29,10 +29,11 @@ ENABLE_RESULT_THROTTLING = CONFIG.get_config_value(
         'AUTOSERV', 'enable_result_throttling', type=bool, default=False)
 
 _THROTTLE_OPTION_FMT = '-m %s'
-_BUILD_DIR_SUMMARY_CMD = '%s/result_tools/utils.py -p %s %s'
+_SUMMARY_CMD= '%s/result_tools/utils.py'
+_BUILD_DIR_SUMMARY_CMD = _SUMMARY_CMD + ' -p %s %s'
 _BUILD_DIR_SUMMARY_TIMEOUT = 120
 _FIND_DIR_SUMMARY_TIMEOUT = 10
-_CLEANUP_DIR_SUMMARY_CMD = '%s/result_tools/utils.py -p %s -d'
+_CLEANUP_DIR_SUMMARY_CMD = _SUMMARY_CMD + ' -p %s -d'
 _CLEANUP_DIR_SUMMARY_TIMEOUT = 10
 
 # Default autotest directory on host
@@ -42,29 +43,33 @@ DEFAULT_AUTOTEST_DIR = '/usr/local/autotest'
 _EXCLUDES = ['*.pyc', '*unittest.py', 'common.py', '__init__.py', 'runner.py',
              'view.py']
 
-# A set of hostnames that have result tools already deployed.
-_deployed_duts = set()
-
 def _deploy_result_tools(host):
     """Send result tools to the dut.
 
     @param host: Host to run the result tools.
     """
-    logging.debug('Deploy result utilities to %s', host.hostname)
     with metrics.SecondsTimer(
             'chromeos/autotest/job/send_result_tools_duration',
             fields={'dut_host_name': host.hostname}) as fields:
         try:
-            result_tools_dir = os.path.dirname(__file__)
-            host.send_file(result_tools_dir, DEFAULT_AUTOTEST_DIR,
-                           excludes = _EXCLUDES)
+            result = host.run('test -f %s' %
+                      (_SUMMARY_CMD % DEFAULT_AUTOTEST_DIR),
+                   timeout=_FIND_DIR_SUMMARY_TIMEOUT,
+                   ignore_status=True)
+            if result.exit_status == 0:
+                logging.debug('result tools are already deployed to %s.',
+                        host.hostname)
+            else:
+                logging.debug('Deploy result utilities to %s', host.hostname)
+                result_tools_dir = os.path.dirname(__file__)
+                host.send_file(result_tools_dir, DEFAULT_AUTOTEST_DIR,
+                               excludes = _EXCLUDES)
             fields['success'] = True
         except error.AutotestHostRunError:
             logging.debug('Failed to deploy result tools using `excludes`. Try '
                           'again without `excludes`.')
             host.send_file(result_tools_dir, DEFAULT_AUTOTEST_DIR)
             fields['success'] = False
-        _deployed_duts.add(host.hostname)
 
 
 def run_on_client(host, client_results_dir, cleanup_only=False):
@@ -82,11 +87,7 @@ def run_on_client(host, client_results_dir, cleanup_only=False):
             'chromeos/autotest/job/dir_summary_collection_duration',
             fields={'dut_host_name': host.hostname}) as fields:
         try:
-            if host.hostname not in _deployed_duts:
-                _deploy_result_tools(host)
-            else:
-                logging.debug('result tools are already deployed to %s.',
-                              host.hostname)
+            _deploy_result_tools(host)
 
             if cleanup_only:
                 logging.debug('Cleaning up directory summary in %s',
@@ -182,8 +183,10 @@ def collect_last_summary(host, source_path, dest_path,
     finally:
         # Remove the collected summary file so it won't affect later tests.
         try:
-            host.run('rm %s' % summary_file,
-                     timeout=_FIND_DIR_SUMMARY_TIMEOUT).stdout.strip()
+            # Check and remove the summary file
+            if host.path_exists(summary_file):
+                host.run('rm %s' % summary_file,
+                         timeout=_FIND_DIR_SUMMARY_TIMEOUT).stdout.strip()
         except error.AutoservRunError:
             logging.exception(
                     'Non-critical failure: Failed to delete the latest '

@@ -48,9 +48,58 @@ class MANAGED ClassExt : public Object {
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
            ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  bool EnsureInstanceJFieldIDsArrayPresent(size_t count)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<PointerArray> GetInstanceJFieldIDsPointerArray() REQUIRES_SHARED(Locks::mutator_lock_);
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<Object> GetInstanceJFieldIDs() REQUIRES_SHARED(Locks::mutator_lock_);
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  bool HasInstanceFieldPointerIdMarker() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  bool EnsureStaticJFieldIDsArrayPresent(size_t count)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<PointerArray> GetStaticJFieldIDsPointerArray() REQUIRES_SHARED(Locks::mutator_lock_);
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<Object> GetStaticJFieldIDs() REQUIRES_SHARED(Locks::mutator_lock_);
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  bool HasStaticFieldPointerIdMarker() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  bool EnsureJMethodIDsArrayPresent(size_t count)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<Object> GetJMethodIDs() REQUIRES_SHARED(Locks::mutator_lock_);
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<PointerArray> GetJMethodIDsPointerArray() REQUIRES_SHARED(Locks::mutator_lock_);
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  bool HasMethodPointerIdMarker() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   ObjPtr<PointerArray> GetObsoleteMethods() REQUIRES_SHARED(Locks::mutator_lock_);
 
   ObjPtr<Object> GetOriginalDexFile() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Used to manually initialize the ext-ids arrays for the ClassExt associated
+  // with the Class<ClassExt>. This simplifies the id allocation path.
+  void SetIdsArraysForClassExtExtData(ObjPtr<Object> marker) REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetOriginalDexFile(ObjPtr<Object> bytes) REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -72,22 +121,60 @@ class MANAGED ClassExt : public Object {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Extend the obsolete arrays by the given amount.
-  bool ExtendObsoleteArrays(Thread* self, uint32_t increase)
+  static bool ExtendObsoleteArrays(Handle<ClassExt> h_this, Thread* self, uint32_t increase)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, class Visitor>
   inline void VisitNativeRoots(Visitor& visitor, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, class Visitor>
+  inline void VisitMethods(Visitor visitor, PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   static ObjPtr<ClassExt> Alloc(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // TODO Save the obsolete class, if we have one.
+  // TODO We need this so jit-cleanup can work. the obsolete class might get cleaned up early
+  // otherwise. We should remove the need for this.
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<Class> GetObsoleteClass() REQUIRES_SHARED(Locks::mutator_lock_);
+  void SetObsoleteClass(ObjPtr<Class> classes) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename Visitor>
+  inline void VisitJFieldIDs(Visitor v) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename Visitor>
+  inline void VisitJMethodIDs(Visitor v) REQUIRES_SHARED(Locks::mutator_lock_);
+
  private:
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
+           ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  bool EnsureJniIdsArrayPresent(MemberOffset off, size_t count)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
+  // An array containing the jfieldIDs assigned to each field in the corresponding position in the
+  // classes ifields_ array or '0' if no id has been assigned to that field yet.
+  HeapReference<PointerArray> instance_jfield_ids_;
+
+  // An array containing the jmethodIDs assigned to each method in the corresponding position in
+  // the classes methods_ array or '0' if no id has been assigned to that method yet.
+  HeapReference<PointerArray> jmethod_ids_;
+
+  // If set this is the Class object that was being used before a structural redefinition occurred.
+  HeapReference<Class> obsolete_class_;
+
   HeapReference<ObjectArray<DexCache>> obsolete_dex_caches_;
 
   HeapReference<PointerArray> obsolete_methods_;
 
   HeapReference<Object> original_dex_file_;
+
+  // An array containing the jfieldIDs assigned to each field in the corresponding position in the
+  // classes sfields_ array or '0' if no id has been assigned to that field yet.
+  HeapReference<PointerArray> static_jfield_ids_;
 
   // The saved verification error of this class.
   HeapReference<Object> verify_error_;

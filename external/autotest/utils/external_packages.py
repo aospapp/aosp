@@ -911,6 +911,10 @@ class ImagingLibraryPackage(ExternalPackage):
          #to a path PIL setup.py will try.
          libz_possible_path = '/usr/lib/x86_64-linux-gnu/libz.so'
          libz_expected_path = '/usr/lib/libz.so'
+         # TODO(crbug.com/957186): this sudo command fails if build_externals
+         # is running in non-interactive mode, and requires a workaround when
+         # running within a docker build process. Remove this operation, or
+         # remove this entire package.
          if (os.path.exists(libz_possible_path) and
              not os.path.exists(libz_expected_path)):
              utils.run('sudo ln -s %s %s' %

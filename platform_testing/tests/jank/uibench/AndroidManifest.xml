@@ -16,13 +16,13 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.uibench.janktests">
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
-
-    <uses-sdk android:minSdkVersion="19"
-          android:targetSdkVersion="23"/>
 
     <instrumentation
             android:name="android.support.test.runner.AndroidJUnitRunner"

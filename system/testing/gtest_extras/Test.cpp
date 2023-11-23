@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <regex>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -31,6 +32,8 @@
 
 namespace android {
 namespace gtest_extras {
+
+std::regex Test::skipped_regex_("(^|\\n)[^\\n]+:\\(\\d+\\) Skipped\\n");
 
 Test::Test(std::tuple<std::string, std::string>& test, size_t index, size_t run_index, int fd)
     : suite_name_(std::get<0>(test)),
@@ -49,7 +52,7 @@ void Test::CloseFd() {
   fd_.reset();
 }
 
-void Test::PrintGtestFormat() {
+void Test::Print() {
   ColoredPrintf(COLOR_GREEN, "[ RUN      ]");
   printf(" %s\n", name_.c_str());
   printf("%s", output_.c_str());
@@ -71,41 +74,6 @@ void Test::PrintGtestFormat() {
     printf(" (%" PRId64 " ms)", RunTimeNs() / kNsPerMs);
   }
   printf("\n");
-  fflush(stdout);
-}
-
-void Test::Print(bool gtest_format) {
-  if (gtest_format) {
-    PrintGtestFormat();
-    return;
-  }
-
-  switch (result_) {
-    case TEST_XFAIL:
-    case TEST_PASS:
-      ColoredPrintf(COLOR_GREEN, "[    OK    ]");
-      break;
-    case TEST_XPASS:
-    case TEST_FAIL:
-      ColoredPrintf(COLOR_RED, "[  FAILED  ]");
-      break;
-    case TEST_TIMEOUT:
-      ColoredPrintf(COLOR_RED, "[  TIMEOUT ]");
-      break;
-    case TEST_SKIPPED:
-      ColoredPrintf(COLOR_GREEN, "[  SKIPPED ]");
-      break;
-    case TEST_NONE:
-      LOG(FATAL) << "Test result is TEST_NONE, this should not be possible.";
-  }
-
-  printf(" %s", name_.c_str());
-  if (::testing::GTEST_FLAG(print_time)) {
-    printf(" (%" PRId64 " ms)", (end_ns_ - start_ns_) / kNsPerMs);
-  }
-  printf("\n");
-
-  printf("%s", output_.c_str());
   fflush(stdout);
 }
 
@@ -149,26 +117,14 @@ void Test::SetResultFromOutput() {
 
   // Need to parse the output to determine if this test was skipped.
   // Format of a skipped test:
-  //   <filename>:(<line_number>) Failure in test <testname>
-  //   Skipped
+  //   <filename>:(<line_number>) Skipped
   //   <Skip Message>
-  size_t line_end = output_.find('\n');
-  if (line_end == std::string::npos) {
-    return;
-  }
-  std::string second_line(output_.substr(line_end, 9));
-  if (output_.substr(line_end, 9) != "\nSkipped\n") {
-    return;
-  }
-  size_t failure_index = output_.find(" Failure in test ");
-  if (failure_index == std::string::npos || failure_index >= line_end) {
-    return;
-  }
 
-  // Only leave the output from the skip message.
-  output_ = output_.substr(line_end + 9);
-
-  result_ = TEST_SKIPPED;
+  // If there are multiple skip messages, it doesn't matter, seeing
+  // even one indicates this is a skipped test.
+  if (std::regex_search(output_, skipped_regex_)) {
+    result_ = TEST_SKIPPED;
+  }
 }
 
 }  // namespace gtest_extras

@@ -17,18 +17,17 @@
 #ifndef CHRE_PLATFORM_PLATFORM_AUDIO_H_
 #define CHRE_PLATFORM_PLATFORM_AUDIO_H_
 
-#include "chre_api/chre/audio.h"
 #include "chre/target_platform/platform_audio_base.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/time.h"
+#include "chre_api/chre/audio.h"
 
 namespace chre {
 
 /**
  * Defines the common interface to audio functionality.
  */
-class PlatformAudio : public PlatformAudioBase,
-                      public NonCopyable {
+class PlatformAudio : public PlatformAudioBase, public NonCopyable {
  public:
   /**
    * Initializes the audio subsystem. This is invoked as part of the
@@ -90,8 +89,7 @@ class PlatformAudio : public PlatformAudioBase,
    * @param eventDelay The amount of time that must pass before providing the
    *        data event to CHRE.
    */
-  bool requestAudioDataEvent(uint32_t handle,
-                             uint32_t numSamples,
+  bool requestAudioDataEvent(uint32_t handle, uint32_t numSamples,
                              Nanoseconds eventDelay);
 
   /**

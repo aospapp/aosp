@@ -20,7 +20,6 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceStateMonitor;
 import com.android.tradefed.device.IDeviceManager;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.device.TestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -31,6 +30,8 @@ import com.android.tradefed.util.RunUtil;
  * the virtualized environment.
  */
 public class NestedDeviceStateMonitor extends DeviceStateMonitor {
+    // Error from dumpsys if the framework is not quite ready yet
+    private static final String DUMPSYS_ERROR = "Error dumping service info";
 
     private ITestDevice mDevice;
 
@@ -57,8 +58,10 @@ public class NestedDeviceStateMonitor extends DeviceStateMonitor {
         while (maxTime > System.currentTimeMillis()) {
             try {
                 // TODO: Use IDevice directly
-                res = mDevice.executeShellV2Command(TestDevice.DISMISS_KEYGUARD_CMD);
-                if (CommandStatus.SUCCESS.equals(res.getStatus())) {
+                // Ensure that framework is ready
+                res = mDevice.executeShellV2Command("dumpsys package");
+                if (CommandStatus.SUCCESS.equals(res.getStatus())
+                        && !res.getStdout().contains(DUMPSYS_ERROR)) {
                     return true;
                 }
             } catch (DeviceNotAvailableException e) {

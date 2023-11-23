@@ -17,10 +17,10 @@
 package com.android.tv.dvr.ui.browse;
 
 import android.graphics.drawable.Drawable;
-import android.support.v17.leanback.R;
-import android.support.v17.leanback.widget.Action;
-import android.support.v17.leanback.widget.Presenter;
-import android.support.v17.leanback.widget.PresenterSelector;
+import androidx.leanback.R;
+import androidx.leanback.widget.Action;
+import androidx.leanback.widget.Presenter;
+import androidx.leanback.widget.PresenterSelector;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;

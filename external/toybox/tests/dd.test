@@ -13,7 +13,7 @@ opt="2>/dev/null"
 # Test suffixed number parsing; `count` is representative.
 testing "count=2" "dd if=input count=2 ibs=1 $opt" "hi" "high\n" ""
 testing "count= 2" "dd if=input 'count= 2' ibs=1 $opt" "hi" "high\n" ""
-SKIP_HOST=1 testing "count=0x2" "dd if=input 'count=0x2' ibs=1 $opt" "hi" \
+toyonly testing "count=0x2" "dd if=input 'count=0x2' ibs=1 $opt" "hi" \
   "high\n" ""
 testing "count=-2" "dd if=input 'count=-2' ibs=1 2>/dev/null || echo errored" "errored\n" "" ""
 
@@ -92,3 +92,18 @@ testing "conv=sync with IF" "dd conv=sync if=input $opt | head -n 1" "I WANT\n" 
 # status=noxfer|none
 testing "status=noxfer" "dd if=input status=noxfer ibs=1 2>&1" "input\n6+0 records in\n0+1 records out\n" "input\n" ""
 testing "status=none" "dd if=input status=none ibs=1 2>&1" "input\n" "input\n" ""
+
+testing "seek stdout" "yes 2> /dev/null | dd bs=8 seek=2 count=1 > out 2> /dev/null && xxd -p out" \
+  "00000000000000000000000000000000790a790a790a790a\n" "" ""
+
+# Duplicated options are fine.
+testing "conv=sync,sync" "dd conv=sync,sync $opt | head -n 1" "I WANT\n" "" "I WANT\n"
+
+# _bytes options
+testing "iflag=count_bytes" \
+  "dd if=input count=2 ibs=4096 iflag=count_bytes $opt" "hi" "high" ""
+testing "iflag=skip_bytes" \
+  "dd if=input skip=2 ibs=4096 iflag=skip_bytes $opt" "gh" "high" ""
+testing "oflag=seek_bytes" \
+  "dd if=input of=output seek=2 obs=4096 oflag=seek_bytes status=none && \
+   xxd -p output" "000030313233\n" "0123" ""

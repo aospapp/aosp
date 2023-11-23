@@ -173,12 +173,14 @@ public class PrintJobTest extends BasePrintTest {
         print(adapter);
         waitForWriteAdapterCallback(1);
 
-        eventually(() -> {
-            clickPrintButton();
+        eventually(
+                () -> {
+                    mPrintHelper.submitPrintJob();
 
-            // Wait for print job to be queued
-            waitForServiceOnPrintJobQueuedCallbackCalled(1);
-        }, OPERATION_TIMEOUT_MILLIS * 2);
+                    // Wait for print job to be queued
+                    waitForServiceOnPrintJobQueuedCallbackCalled(1);
+                },
+                OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for discovery session to be destroyed to isolate tests from each other
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -442,7 +444,7 @@ public class PrintJobTest extends BasePrintTest {
                 });
 
         openCustomPrintOptions();
-        clickPrintButton();
+        mPrintHelper.submitPrintJob();
 
         // Wait for print job to be queued
         waitForServiceOnPrintJobQueuedCallbackCalled(1);

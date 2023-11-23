@@ -31,13 +31,21 @@
         <intent android:action="com.android.intent.action.SHOW_BRIGHTNESS_DIALOG" />
     </com.android.settingslib.RestrictedPreference>
 
+    <com.android.settings.display.darkmode.DarkModePreference
+        android:key="dark_ui_mode"
+        android:title="@string/dark_ui_mode"
+        android:fragment="com.android.settings.display.darkmode.DarkModeSettingsFragment"
+        android:widgetLayout="@null"
+        settings:widgetLayout="@null"
+        settings:controller="com.android.settings.display.DarkUIPreferenceController"
+        settings:keywords="@string/keywords_dark_ui_mode"/>
+
     <com.android.settings.display.NightDisplayPreference
         android:key="night_display"
         android:title="@string/night_display_title"
         android:fragment="com.android.settings.display.NightDisplaySettings"
         android:widgetLayout="@null"
-        settings:widgetLayout="@null"
-        settings:searchable="false" />
+        settings:widgetLayout="@null"/>
 
     <Preference
         android:key="auto_brightness_entry"
@@ -53,13 +61,6 @@
         settings:useAdminDisabledSummary="true"
         settings:controller="com.android.settings.display.WallpaperPreferenceController">
     </com.android.settingslib.RestrictedPreference>
-
-
-    <SwitchPreference
-        android:key="dark_ui_mode"
-        android:title="@string/dark_ui_mode"
-        settings:keywords="@string/keywords_dark_ui_mode"
-        settings:controller="com.android.settings.display.DarkUIPreferenceController"/>
 
     <!-- Cross-listed item, if you change this, also change it in power_usage_summary.xml -->
     <com.android.settings.display.TimeoutListPreference
@@ -93,7 +94,14 @@
     <SwitchPreference
         android:key="display_white_balance"
         android:title="@string/display_white_balance_title"
+        android:summary="@string/display_white_balance_summary"
         settings:controller="com.android.settings.display.DisplayWhiteBalancePreferenceController" />
+
+    <SwitchPreference
+        android:key="peak_refresh_rate"
+        android:title="@string/peak_refresh_rate_title"
+        android:summary="@string/peak_refresh_rate_summary"
+        settings:controller="com.android.settings.display.PeakRefreshRatePreferenceController" />
 
     <Preference
         android:key="font_size"
@@ -104,8 +112,7 @@
     <com.android.settings.display.ScreenZoomPreference
         android:key="display_settings_screen_zoom"
         android:title="@string/screen_zoom_title"
-        android:fragment="com.android.settings.display.ScreenZoomSettings"
-        settings:searchable="false"/>
+        android:fragment="com.android.settings.display.ScreenZoomSettings"/>
 
     <SwitchPreference
         android:key="show_operator_name"
@@ -115,15 +122,14 @@
     <Preference
         android:key="screensaver"
         android:title="@string/screensaver_settings_title"
-        android:fragment="com.android.settings.dream.DreamSettings"
-        settings:searchable="false" />
+        android:fragment="com.android.settings.dream.DreamSettings" />
 
-    <com.android.settingslib.RestrictedPreference
+    <Preference
         android:key="lockscreen_from_display_settings"
         android:title="@string/lockscreen_settings_title"
         android:fragment="com.android.settings.security.LockscreenDashboardFragment"
-        settings:controller="com.android.settings.security.screenlock.LockScreenPreferenceController"
-        settings:userRestriction="no_ambient_display" />
+        settings:keywords="@string/keywords_ambient_display_screen"
+        settings:controller="com.android.settings.security.screenlock.LockScreenPreferenceController" />
 
     <SwitchPreference
         android:key="camera_gesture"

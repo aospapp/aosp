@@ -39,8 +39,8 @@ class AvrcpBaseTest(BluetoothBaseTest):
     def __init__(self, configs):
         super(AvrcpBaseTest, self).__init__(configs)
         self.dut = self.android_devices[0]
-        attr, idx = self.user_params['simulated_carkit_device'].split(':')
-        controller = SimulatedCarkitDevice(getattr(self, attr)[int(idx)])
+        serial = self.user_params['simulated_carkit_device']
+        controller = SimulatedCarkitDevice(serial)
         self.controller = Factory().generate(controller)
 
         self.phone_music_files = []
@@ -61,6 +61,7 @@ class AvrcpBaseTest(BluetoothBaseTest):
     def teardown_class(self):
         super().teardown_class()
         self.dut.droid.mediaPlayStop()
+        self.controller.destroy()
 
     def setup_test(self):
         self.dut.droid.bluetoothMediaPhoneSL4AMBSStart()

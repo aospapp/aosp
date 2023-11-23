@@ -32,7 +32,7 @@ class network_WiFi_ProfileGUID(wifi_cell_test_base.WiFiCellTestBase):
         # Request a scan, this should goad shill into action.
         self.context.client.scan(frequencies=[], ssids=[])
         result = self.context.client.wait_for_service_states(
-                ssid, ['ready', 'online', 'portal'],
+                ssid, self.context.client.CONNECTED_STATES,
                 self.STATE_TRANSITION_TIMEOUT_SECONDS)
         success, state, time = result
         if not success:

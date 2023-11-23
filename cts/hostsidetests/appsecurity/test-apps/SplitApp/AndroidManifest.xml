@@ -18,12 +18,12 @@
     package="com.android.cts.splitapp"
     android:targetSandboxVersion="2">
 
-    <uses-sdk android:minSdkVersion="4" android:targetSdkVersion="27" />
+    <uses-sdk android:minSdkVersion="4" />
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <application android:label="SplitApp" android:multiArch="true">
+    <application android:label="SplitApp" android:multiArch="true" android:forceQueryable="true">
         <activity android:name=".MyActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -47,6 +47,12 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <provider android:name=".RemoteQueryProvider"
+                  android:authorities="com.android.cts.splitapp"
+                  android:exported="true"
+                  android:directBootAware="true">
+        </provider>
 
         <uses-library android:name="android.test.runner" />
     </application>

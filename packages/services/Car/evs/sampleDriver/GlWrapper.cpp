@@ -20,7 +20,10 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include <ui/DisplayInfo.h>
+#include <utility>
+
+#include <ui/DisplayConfig.h>
+#include <ui/DisplayState.h>
 #include <ui/GraphicBuffer.h>
 
 
@@ -109,7 +112,7 @@ static GLuint loadShader(GLenum type, const char *shaderSrc) {
     GLint compiled = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
     if (!compiled) {
-        ALOGE("Error compiling shader\n");
+        LOG(ERROR) << "Error compiling shader";
 
         GLint size = 0;
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
@@ -118,7 +121,7 @@ static GLuint loadShader(GLenum type, const char *shaderSrc) {
             // Get and report the error message
             char *infoLog = (char*)malloc(size);
             glGetShaderInfoLog(shader, size, nullptr, infoLog);
-            ALOGE("  msg:\n%s\n", infoLog);
+            LOG(ERROR) << "  msg:" << std::endl << infoLog;
             free(infoLog);
         }
 
@@ -134,20 +137,20 @@ static GLuint loadShader(GLenum type, const char *shaderSrc) {
 static GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
     GLuint program = glCreateProgram();
     if (program == 0) {
-        ALOGE("Failed to allocate program object\n");
+        LOG(ERROR) << "Failed to allocate program object";
         return 0;
     }
 
     // Compile the shaders and bind them to this program
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, vtxSrc);
     if (vertexShader == 0) {
-        ALOGE("Failed to load vertex shader\n");
+        LOG(ERROR) << "Failed to load vertex shader";
         glDeleteProgram(program);
         return 0;
     }
     GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, pxlSrc);
     if (pixelShader == 0) {
-        ALOGE("Failed to load pixel shader\n");
+        LOG(ERROR) << "Failed to load pixel shader";
         glDeleteProgram(program);
         glDeleteShader(vertexShader);
         return 0;
@@ -161,7 +164,7 @@ static GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
     glGetProgramiv(program, GL_LINK_STATUS, &linked);
     if (!linked)
     {
-        ALOGE("Error linking program.\n");
+        LOG(ERROR) << "Error linking program";
         GLint size = 0;
         glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
         if (size > 0)
@@ -169,7 +172,7 @@ static GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
             // Get and report the error message
             char *infoLog = (char*)malloc(size);
             glGetProgramInfoLog(program, size, nullptr, infoLog);
-            ALOGE("  msg:  %s\n", infoLog);
+            LOG(ERROR) << "  msg:  " << infoLog;
             free(infoLog);
         }
 
@@ -184,68 +187,61 @@ static GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc) {
 
 
 // Main entry point
-bool GlWrapper::initialize() {
-    //
-    //  Create the native full screen window and get a suitable configuration to match it
-    //
-    status_t err;
+bool GlWrapper::initialize(sp<IAutomotiveDisplayProxyService> pWindowProxy,
+                           uint64_t displayId) {
+    LOG(DEBUG) << __FUNCTION__;
 
-    mFlinger = new SurfaceComposerClient();
-    if (mFlinger == nullptr) {
-        ALOGE("SurfaceComposerClient couldn't be allocated");
-        return false;
-    }
-    err = mFlinger->initCheck();
-    if (err != NO_ERROR) {
-        ALOGE("SurfaceComposerClient::initCheck error: %#x", err);
+    if (pWindowProxy == nullptr) {
+        LOG(ERROR) << "Could not get IAutomotiveDisplayProxyService.";
         return false;
     }
 
-    // Get main display parameters.
-    sp<IBinder> mainDpy = SurfaceComposerClient::getInternalDisplayToken();
-    if (mainDpy == nullptr) {
-        ALOGE("ERROR: no internal display");
+    // We will use the first display in the list as the primary.
+    pWindowProxy->getDisplayInfo(displayId, [this](auto dpyConfig, auto dpyState) {
+        DisplayConfig *pConfig = (DisplayConfig*)dpyConfig.data();
+        mWidth = pConfig->resolution.getWidth();
+        mHeight = pConfig->resolution.getHeight();
+
+        ui::DisplayState* pState = (ui::DisplayState*)dpyState.data();
+        if (pState->orientation != ui::ROTATION_0 &&
+            pState->orientation != ui::ROTATION_180) {
+            // rotate
+            std::swap(mWidth, mHeight);
+        }
+
+        LOG(DEBUG) << "Display resolution is " << mWidth << " x " << mHeight;
+    });
+
+    mGfxBufferProducer = pWindowProxy->getIGraphicBufferProducer(displayId);
+    if (mGfxBufferProducer == nullptr) {
+        LOG(ERROR) << "Failed to get IGraphicBufferProducer from IAutomotiveDisplayProxyService.";
         return false;
     }
 
-    DisplayInfo mainDpyInfo;
-    err = SurfaceComposerClient::getDisplayInfo(mainDpy, &mainDpyInfo);
-    if (err != NO_ERROR) {
-        ALOGE("ERROR: unable to get display characteristics");
+    mSurfaceHolder = getSurfaceFromHGBP(mGfxBufferProducer);
+    if (mSurfaceHolder == nullptr) {
+        LOG(ERROR) << "Failed to get a Surface from HGBP.";
         return false;
     }
 
-    if (mainDpyInfo.orientation != DISPLAY_ORIENTATION_0 &&
-        mainDpyInfo.orientation != DISPLAY_ORIENTATION_180) {
-        // rotated
-        mWidth = mainDpyInfo.h;
-        mHeight = mainDpyInfo.w;
-    } else {
-        mWidth = mainDpyInfo.w;
-        mHeight = mainDpyInfo.h;
-    }
-
-    mFlingerSurfaceControl = mFlinger->createSurface(
-            String8("Evs Display"), mWidth, mHeight,
-            PIXEL_FORMAT_RGBX_8888, ISurfaceComposerClient::eOpaque);
-    if (mFlingerSurfaceControl == nullptr || !mFlingerSurfaceControl->isValid()) {
-        ALOGE("Failed to create SurfaceControl");
+    mWindow = getNativeWindow(mSurfaceHolder.get());
+    if (mWindow == nullptr) {
+        LOG(ERROR) << "Failed to get a native window from Surface.";
         return false;
     }
-    mFlingerSurface = mFlingerSurfaceControl->getSurface();
 
 
     // Set up our OpenGL ES context associated with the default display
     mDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (mDisplay == EGL_NO_DISPLAY) {
-        ALOGE("Failed to get egl display");
+        LOG(ERROR) << "Failed to get egl display";
         return false;
     }
 
     EGLint major = 3;
     EGLint minor = 0;
     if (!eglInitialize(mDisplay, &major, &minor)) {
-        ALOGE("Failed to initialize EGL: %s", getEGLError());
+        LOG(ERROR) << "Failed to initialize EGL: " << getEGLError();
         return false;
     }
 
@@ -264,14 +260,14 @@ bool GlWrapper::initialize() {
     EGLint numConfigs = -1;
     eglChooseConfig(mDisplay, config_attribs, &egl_config, 1, &numConfigs);
     if (numConfigs != 1) {
-        ALOGE("Didn't find a suitable format for our display window");
+        LOG(ERROR) << "Didn't find a suitable format for our display window";
         return false;
     }
 
     // Create the EGL render target surface
-    mSurface = eglCreateWindowSurface(mDisplay, egl_config, mFlingerSurface.get(), nullptr);
+    mSurface = eglCreateWindowSurface(mDisplay, egl_config, mWindow, nullptr);
     if (mSurface == EGL_NO_SURFACE) {
-        ALOGE("gelCreateWindowSurface failed.");
+        LOG(ERROR) << "eglCreateWindowSurface failed.";
         return false;
     }
 
@@ -281,14 +277,14 @@ bool GlWrapper::initialize() {
     const EGLint context_attribs[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
     mContext = eglCreateContext(mDisplay, egl_config, EGL_NO_CONTEXT, context_attribs);
     if (mContext == EGL_NO_CONTEXT) {
-        ALOGE("Failed to create OpenGL ES Context: %s", getEGLError());
+        LOG(ERROR) << "Failed to create OpenGL ES Context: " << getEGLError();
         return false;
     }
 
 
     // Activate our render target for drawing
     if (!eglMakeCurrent(mDisplay, mSurface, mSurface, mContext)) {
-        ALOGE("Failed to make the OpenGL ES Context current: %s", getEGLError());
+        LOG(ERROR) << "Failed to make the OpenGL ES Context current: " << getEGLError();
         return false;
     }
 
@@ -296,14 +292,14 @@ bool GlWrapper::initialize() {
     // Create the shader program for our simple pipeline
     mShaderProgram = buildShaderProgram(vertexShaderSource, pixelShaderSource);
     if (!mShaderProgram) {
-        ALOGE("Failed to build shader program: %s", getEGLError());
+        LOG(ERROR) << "Failed to build shader program: " << getEGLError();
         return false;
     }
 
     // Create a GL texture that will eventually wrap our externally created texture surface(s)
     glGenTextures(1, &mTextureMap);
     if (mTextureMap <= 0) {
-        ALOGE("Didn't get a texture handle allocated: %s", getEGLError());
+        LOG(ERROR) << "Didn't get a texture handle allocated: " << getEGLError();
         return false;
     }
 
@@ -334,68 +330,79 @@ void GlWrapper::shutdown() {
     mContext = EGL_NO_CONTEXT;
     mDisplay = EGL_NO_DISPLAY;
 
-    // Let go of our SurfaceComposer resources
-    mFlingerSurface.clear();
-    mFlingerSurfaceControl.clear();
-    mFlinger.clear();
+    // Release the window
+    mSurfaceHolder = nullptr;
 }
 
 
-void GlWrapper::showWindow() {
-    if (mFlingerSurfaceControl != nullptr) {
-        SurfaceComposerClient::Transaction{}
-                .setLayer(mFlingerSurfaceControl, 0x7FFFFFFF)     // always on top
-                .show(mFlingerSurfaceControl)
-                .apply();
+void GlWrapper::showWindow(sp<IAutomotiveDisplayProxyService>& pWindowProxy, uint64_t id) {
+    if (pWindowProxy != nullptr) {
+        pWindowProxy->showWindow(id);
+    } else {
+        LOG(ERROR) << "IAutomotiveDisplayProxyService is not available.";
     }
 }
 
 
-void GlWrapper::hideWindow() {
-    if (mFlingerSurfaceControl != nullptr) {
-        SurfaceComposerClient::Transaction{}
-                .hide(mFlingerSurfaceControl)
-                .apply();
+void GlWrapper::hideWindow(sp<IAutomotiveDisplayProxyService>& pWindowProxy, uint64_t id) {
+    if (pWindowProxy != nullptr) {
+        pWindowProxy->hideWindow(id);
+    } else {
+        LOG(ERROR) << "IAutomotiveDisplayProxyService is not available.";
     }
 }
 
 
-bool GlWrapper::updateImageTexture(const BufferDesc& buffer) {
+bool GlWrapper::updateImageTexture(const BufferDesc_1_0& buffer) {
+    BufferDesc_1_1 newBuffer = {};
+    AHardwareBuffer_Desc* pDesc =
+        reinterpret_cast<AHardwareBuffer_Desc *>(&newBuffer.buffer.description);
+    pDesc->width = buffer.width;
+    pDesc->height = buffer.height;
+    pDesc->layers = 1;
+    pDesc->format = buffer.format;
+    pDesc->usage = buffer.usage;
+    pDesc->stride = buffer.stride;
+    newBuffer.buffer.nativeHandle = buffer.memHandle;
+    newBuffer.pixelSize = buffer.pixelSize;
+    newBuffer.bufferId = buffer.bufferId;
+
+    return updateImageTexture(newBuffer);
+}
+
+
+bool GlWrapper::updateImageTexture(const BufferDesc_1_1& aFrame) {
 
     // If we haven't done it yet, create an "image" object to wrap the gralloc buffer
     if (mKHRimage == EGL_NO_IMAGE_KHR) {
         // create a temporary GraphicBuffer to wrap the provided handle
+        const AHardwareBuffer_Desc* pDesc =
+            reinterpret_cast<const AHardwareBuffer_Desc *>(&aFrame.buffer.description);
         sp<GraphicBuffer> pGfxBuffer = new GraphicBuffer(
-                buffer.width,
-                buffer.height,
-                buffer.format,
-                1,      /* layer count */
-                buffer.usage,
-                buffer.stride,
-                const_cast<native_handle_t*>(buffer.memHandle.getNativeHandle()),
+                pDesc->width,
+                pDesc->height,
+                pDesc->format,
+                pDesc->layers,
+                pDesc->usage,
+                pDesc->stride,
+                const_cast<native_handle_t*>(aFrame.buffer.nativeHandle.getNativeHandle()),
                 false   /* keep ownership */
         );
         if (pGfxBuffer.get() == nullptr) {
-            ALOGE("Failed to allocate GraphicsBuffer to wrap our native handle");
+            LOG(ERROR) << "Failed to allocate GraphicBuffer to wrap our native handle";
             return false;
         }
-
 
         // Get a GL compatible reference to the graphics buffer we've been given
         EGLint eglImageAttributes[] = {EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE};
         EGLClientBuffer cbuf = static_cast<EGLClientBuffer>(pGfxBuffer->getNativeBuffer());
-// TODO:  If we pass in a context, we get "bad context" back
-#if 0
-        mKHRimage = eglCreateImageKHR(mDisplay, mContext,
-                                      EGL_NATIVE_BUFFER_ANDROID, cbuf,
+        mKHRimage = eglCreateImageKHR(mDisplay,
+                                      EGL_NO_CONTEXT,
+                                      EGL_NATIVE_BUFFER_ANDROID,
+                                      cbuf,
                                       eglImageAttributes);
-#else
-        mKHRimage = eglCreateImageKHR(mDisplay, EGL_NO_CONTEXT,
-                                      EGL_NATIVE_BUFFER_ANDROID, cbuf,
-                                      eglImageAttributes);
-#endif
         if (mKHRimage == EGL_NO_IMAGE_KHR) {
-            ALOGE("error creating EGLImage: %s", getEGLError());
+            LOG(ERROR) << "Error creating EGLImage: " << getEGLError();
             return false;
         }
 

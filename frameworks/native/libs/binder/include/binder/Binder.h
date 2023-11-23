@@ -24,6 +24,10 @@
 // ---------------------------------------------------------------------------
 namespace android {
 
+namespace internal {
+class Stability;
+}
+
 class BBinder : public IBinder
 {
 public:
@@ -38,7 +42,7 @@ public:
     virtual status_t    transact(   uint32_t code,
                                     const Parcel& data,
                                     Parcel* reply,
-                                    uint32_t flags = 0);
+                                    uint32_t flags = 0) final;
 
     // NOLINTNEXTLINE(google-default-arguments)
     virtual status_t    linkToDeath(const sp<DeathRecipient>& recipient,
@@ -54,15 +58,21 @@ public:
     virtual void        attachObject(   const void* objectID,
                                         void* object,
                                         void* cleanupCookie,
-                                        object_cleanup_func func);
-    virtual void*       findObject(const void* objectID) const;
-    virtual void        detachObject(const void* objectID);
+                                        object_cleanup_func func) final;
+    virtual void*       findObject(const void* objectID) const final;
+    virtual void        detachObject(const void* objectID) final;
 
     virtual BBinder*    localBinder();
 
     bool                isRequestingSid();
     // This must be called before the object is sent to another process. Not thread safe.
     void                setRequestingSid(bool requestSid);
+
+    sp<IBinder>         getExtension();
+    // This must be called before the object is sent to another process. Not thread safe.
+    void                setExtension(const sp<IBinder>& extension);
+
+    pid_t               getDebugPid();
 
 protected:
     virtual             ~BBinder();
@@ -82,7 +92,12 @@ private:
     Extras*             getOrCreateExtras();
 
     std::atomic<Extras*> mExtras;
-            void*       mReserved0;
+
+    friend ::android::internal::Stability;
+    union {
+        int32_t mStability;
+        void* mReserved0;
+    };
 };
 
 // ---------------------------------------------------------------------------
@@ -108,7 +123,7 @@ private:
     std::atomic<int32_t>    mState;
 };
 
-}; // namespace android
+} // namespace android
 
 // ---------------------------------------------------------------------------
 

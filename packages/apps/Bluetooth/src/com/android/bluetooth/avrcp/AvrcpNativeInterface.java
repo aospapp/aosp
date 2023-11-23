@@ -218,9 +218,9 @@ public class AvrcpNativeInterface {
         mAvrcpService.deviceDisconnected(device);
     }
 
-    void sendVolumeChanged(int volume) {
+    void sendVolumeChanged(String bdaddr, int volume) {
         d("sendVolumeChanged: volume=" + volume);
-        sendVolumeChangedNative(volume);
+        sendVolumeChangedNative(bdaddr, volume);
     }
 
     void setVolume(int volume) {
@@ -245,7 +245,7 @@ public class AvrcpNativeInterface {
     private native void cleanupNative();
     private native boolean connectDeviceNative(String bdaddr);
     private native boolean disconnectDeviceNative(String bdaddr);
-    private native void sendVolumeChangedNative(int volume);
+    private native void sendVolumeChangedNative(String bdaddr, int volume);
 
     private static void d(String msg) {
         if (DEBUG) {

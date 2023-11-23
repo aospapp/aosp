@@ -1,8 +1,5 @@
 name: "apitools"
-description:
-    "google-apitools is a collection of utilities to make it easier to build "
-    "client-side tools, especially those that talk to Google APIs."
-
+description: "google-apitools is a collection of utilities to make it easier to build client-side tools, especially those that talk to Google APIs."
 third_party {
   url {
     type: HOMEPAGE
@@ -12,6 +9,10 @@ third_party {
     type: GIT
     value: "https://github.com/google/apitools"
   }
-  version: "0.5.11"
-  last_upgrade_date { year: 2018 month: 6 day: 5 }
+  version: "v0.5.30"
+  last_upgrade_date {
+    year: 2019
+    month: 6
+    day: 26
+  }
 }

@@ -18,28 +18,69 @@ package libcore.libcore.util;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Locale;
+
 import junit.framework.TestCase;
 import static libcore.util.HexEncoding.decode;
 import static libcore.util.HexEncoding.encode;
+import static libcore.util.HexEncoding.encodeToString;
 
 public class HexEncodingTest extends TestCase {
-  public void testEncode() {
-    final byte[] avocados = "avocados".getBytes(StandardCharsets.UTF_8);
 
-    assertArraysEqual("61766F6361646F73".toCharArray(), encode(avocados));
-    assertArraysEqual(avocados, decode(encode(avocados), false));
-    // Make sure we can handle lower case hex encodings as well.
-    assertArraysEqual(avocados, decode("61766f6361646f73".toCharArray(), false));
+  public void testEncodeByte() {
+    Object[][] testCases = new Object[][] {
+        { 0x01, "01" },
+        { 0x09, "09" },
+        { 0x0A, "0A" },
+        { 0x0F, "0F" },
+        { 0x10, "10" },
+        { 0x1F, "1F" },
+        { 0x20, "20" },
+        { 0x7F, "7F" },
+        { 0x80, "80" },
+        { 0xFF, "FF" },
+    };
+    for (Object[] testCase : testCases) {
+      Number toEncode = (Number) testCase[0];
+      String expected = (String) testCase[1];
+
+      String actualUpper = encodeToString(toEncode.byteValue(), true /* upperCase */);
+      assertEquals(upper(expected), actualUpper);
+
+      String actualLower = encodeToString(toEncode.byteValue(), false /* upperCase */);
+      assertEquals(lower(expected), actualLower);
+    }
+  }
+
+  public void testEncodeBytes() {
+    Object[][] testCases = new Object[][] {
+        { "avocados".getBytes(StandardCharsets.UTF_8), "61766F6361646F73" },
+    };
+
+    for (Object[] testCase : testCases) {
+      byte[] bytes = (byte[]) testCase[0];
+      String encodedLower = lower((String) testCase[1]);
+      String encodedUpper = upper((String) testCase[1]);
+
+      assertArraysEqual(encodedUpper.toCharArray(), encode(bytes));
+      assertArraysEqual(encodedUpper.toCharArray(), encode(bytes, true /* upperCase */));
+      assertArraysEqual(encodedLower.toCharArray(), encode(bytes, false /* upperCase */));
+
+      assertArraysEqual(bytes, decode(encode(bytes), false /* allowSingleChar */));
+
+      // Make sure we can handle lower case hex encodings as well.
+      assertArraysEqual(bytes, decode(encodedLower.toCharArray(), false /* allowSingleChar */));
+    }
   }
 
   public void testDecode_allow4Bit() {
     assertArraysEqual(new byte[] { 6 }, decode("6".toCharArray(), true));
-    assertArraysEqual(new byte[] { 6, 'v' }, decode("676".toCharArray(), true));
+    assertArraysEqual(new byte[] { 6, 0x76 }, decode("676".toCharArray(), true));
   }
 
   public void testDecode_disallow4Bit() {
     try {
-      decode("676".toCharArray(), false);
+      decode("676".toCharArray(), false /* allowSingleChar */);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -47,7 +88,7 @@ public class HexEncodingTest extends TestCase {
 
   public void testDecode_invalid() {
     try {
-      decode("DEADBARD".toCharArray(), false);
+      decode("DEADBARD".toCharArray(), false /* allowSingleChar */);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -56,13 +97,13 @@ public class HexEncodingTest extends TestCase {
     // commons uses Character.isDigit and would successfully decode a string with
     // arabic and devanagari characters.
     try {
-      decode("६१٧٥٥F6361646F73".toCharArray(), false);
+      decode("६१٧٥٥F6361646F73".toCharArray(), false /* allowSingleChar */);
       fail();
     } catch (IllegalArgumentException expected) {
     }
 
     try {
-      decode("#%6361646F73".toCharArray(), false);
+      decode("#%6361646F73".toCharArray(), false /* allowSingleChar */);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -74,5 +115,13 @@ public class HexEncodingTest extends TestCase {
 
   private static void assertArraysEqual(byte[] lhs, byte[] rhs) {
     assertEquals(Arrays.toString(lhs), Arrays.toString(rhs));
+  }
+
+  private static String lower(String string) {
+    return string.toLowerCase(Locale.ROOT);
+  }
+
+  private static String upper(String string) {
+    return string.toUpperCase(Locale.ROOT);
   }
 }

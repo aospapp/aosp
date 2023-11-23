@@ -148,6 +148,10 @@ public:
 
     // Invoked when Easel encountered a fatal error. Client should shut down Easel.
     virtual void onEaselFatalError(std::string errMsg) = 0;
+
+    // Invoked when device is in a thermal condition not suitable for HDR+ processing.
+    // Client should disable HDR+ as soon as possible.
+    virtual void onThermalThrottle() = 0;
 };
 
 } // namespace android

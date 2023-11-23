@@ -19,8 +19,8 @@ package com.android.car.settings.system;
 import static android.os.UserManager.DISALLOW_NETWORK_RESET;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.os.UserManager;
 
 import androidx.preference.Preference;
 
@@ -30,12 +30,12 @@ import com.android.car.settings.common.PreferenceController;
 /** Controller which determines if network reset should be displayed based on user status. */
 public class ResetNetworkEntryPreferenceController extends PreferenceController<Preference> {
 
-    private final CarUserManagerHelper mCarUserManagerHelper;
+    private final UserManager mUserManager;
 
     public ResetNetworkEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
+        mUserManager = UserManager.get(context);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class ResetNetworkEntryPreferenceController extends PreferenceController<
     }
 
     private boolean isUserRestricted() {
-        return !mCarUserManagerHelper.isCurrentProcessAdminUser()
-                || mCarUserManagerHelper.isCurrentProcessUserHasRestriction(DISALLOW_NETWORK_RESET);
+        return !mUserManager.isAdminUser()
+                || mUserManager.hasUserRestriction(DISALLOW_NETWORK_RESET);
     }
 }

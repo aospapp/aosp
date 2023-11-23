@@ -172,17 +172,22 @@ public class ShadowInstrumentation {
         .execStartActivity(who, contextThread, token, target, intent, requestCode, options);
   }
 
+  /**
+   * Behaves as {@link #execStartActivity(Context, IBinder, IBinder, String, Intent, int, Bundle).
+   *
+   * <p>Currently ignores the user.
+   */
   @Implementation(minSdk = JELLY_BEAN_MR1)
   protected ActivityResult execStartActivity(
-      Context who,
-      IBinder contextThread,
-      IBinder token,
-      String resultWho,
-      Intent intent,
-      int requestCode,
-      Bundle options,
-      UserHandle user) {
-    throw new UnsupportedOperationException("Implement me!!");
+          Context who,
+          IBinder contextThread,
+          IBinder token,
+          String resultWho,
+          Intent intent,
+          int requestCode,
+          Bundle options,
+          UserHandle user) {
+    return execStartActivity(who, contextThread, token, resultWho, intent, requestCode, options);
   }
 
   @Implementation(minSdk = M)

@@ -16,32 +16,22 @@
 
 package libcore.java.security.cert;
 
-import junit.framework.TestCase;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.cert.PKIXParameters;
 import libcore.java.security.TestKeyStore;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-import dalvik.system.VMRuntime;
-import sun.security.jca.Providers;
-
-public class PKIXParametersTest extends TestCase {
+public class PKIXParametersTest extends TestCaseWithRules {
 
     // Allow access to deprecated BC algorithms in this test, so we can ensure they
     // continue to work
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                VMRuntime.getRuntime().getTargetSdkVersion());
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
-        super.tearDown();
-    }
+    @Rule
+    public TestRule enableDeprecatedBCAlgorithmsRule =
+            EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
 
     public void testKeyStoreConstructor() throws Exception {
         TestKeyStore server = TestKeyStore.getServer();

@@ -8,21 +8,18 @@
 
 #include <utility>
 
+#include "fxbarcode/cfx_barcode.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fgas/font/cfgas_gefont.h"
 #include "xfa/fwl/cfwl_notedriver.h"
 #include "xfa/fwl/cfwl_themepart.h"
-#include "xfa/fwl/cfx_barcode.h"
 #include "xfa/fwl/ifwl_themeprovider.h"
 #include "xfa/fwl/theme/cfwl_utils.h"
 
 CFWL_Barcode::CFWL_Barcode(const CFWL_App* app)
-    : CFWL_Edit(app, pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr),
-      m_dwStatus(0),
-      m_type(BC_UNKNOWN),
-      m_dwAttributeMask(FWL_BCDATTRIBUTE_NONE) {}
+    : CFWL_Edit(app, pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr) {}
 
-CFWL_Barcode::~CFWL_Barcode() {}
+CFWL_Barcode::~CFWL_Barcode() = default;
 
 FWL_Type CFWL_Barcode::GetClassID() const {
   return FWL_Type::Barcode;
@@ -44,7 +41,7 @@ void CFWL_Barcode::DrawWidget(CXFA_Graphics* pGraphics,
     return;
   if ((m_pProperties->m_dwStates & FWL_WGTSTATE_Focused) == 0) {
     GenerateBarcodeImageCache();
-    if (!m_pBarcodeEngine || (m_dwStatus & XFA_BCS_EncodeSuccess) == 0)
+    if (!m_pBarcodeEngine || m_eStatus != Status::kEncodeSuccess)
       return;
 
     CFX_Matrix mt;
@@ -64,13 +61,19 @@ void CFWL_Barcode::SetType(BC_TYPE type) {
 
   m_pBarcodeEngine.reset();
   m_type = type;
-  m_dwStatus = XFA_BCS_NeedUpdate;
+  m_eStatus = Status::kNeedUpdate;
 }
 
 void CFWL_Barcode::SetText(const WideString& wsText) {
   m_pBarcodeEngine.reset();
-  m_dwStatus = XFA_BCS_NeedUpdate;
+  m_eStatus = Status::kNeedUpdate;
   CFWL_Edit::SetText(wsText);
+}
+
+void CFWL_Barcode::SetTextSkipNotify(const WideString& wsText) {
+  m_pBarcodeEngine.reset();
+  m_eStatus = Status::kNeedUpdate;
+  CFWL_Edit::SetTextSkipNotify(wsText);
 }
 
 bool CFWL_Barcode::IsProtectedType() const {
@@ -78,17 +81,14 @@ bool CFWL_Barcode::IsProtectedType() const {
     return true;
 
   BC_TYPE tEngineType = m_pBarcodeEngine->GetType();
-  if (tEngineType == BC_QR_CODE || tEngineType == BC_PDF417 ||
-      tEngineType == BC_DATAMATRIX) {
-    return true;
-  }
-  return false;
+  return tEngineType == BC_QR_CODE || tEngineType == BC_PDF417 ||
+         tEngineType == BC_DATAMATRIX;
 }
 
 void CFWL_Barcode::OnProcessEvent(CFWL_Event* pEvent) {
-  if (pEvent->GetType() == CFWL_Event::Type::TextChanged) {
+  if (pEvent->GetType() == CFWL_Event::Type::TextWillChange) {
     m_pBarcodeEngine.reset();
-    m_dwStatus = XFA_BCS_NeedUpdate;
+    m_eStatus = Status::kNeedUpdate;
   }
   CFWL_Edit::OnProcessEvent(pEvent);
 }
@@ -149,16 +149,11 @@ void CFWL_Barcode::SetErrorCorrectionLevel(int32_t ecLevel) {
   m_nECLevel = ecLevel;
 }
 
-void CFWL_Barcode::SetTruncated(bool truncated) {
-  m_dwAttributeMask |= FWL_BCDATTRIBUTE_TRUNCATED;
-  m_bTruncated = truncated;
-}
-
 void CFWL_Barcode::GenerateBarcodeImageCache() {
-  if ((m_dwStatus & XFA_BCS_NeedUpdate) == 0)
+  if (m_eStatus != Status::kNeedUpdate)
     return;
 
-  m_dwStatus = 0;
+  m_eStatus = Status::kNormal;
   CreateBarcodeEngine();
   if (!m_pBarcodeEngine)
     return;
@@ -167,12 +162,12 @@ void CFWL_Barcode::GenerateBarcodeImageCache() {
   if (pTheme) {
     CFWL_ThemePart part;
     part.m_pWidget = this;
-    if (RetainPtr<CFGAS_GEFont> pFont = pTheme->GetFont(&part)) {
+    if (RetainPtr<CFGAS_GEFont> pFont = pTheme->GetFont(part)) {
       if (CFX_Font* pCXFont = pFont->GetDevFont())
         m_pBarcodeEngine->SetFont(pCXFont);
     }
-    m_pBarcodeEngine->SetFontSize(pTheme->GetFontSize(&part));
-    m_pBarcodeEngine->SetFontColor(pTheme->GetTextColor(&part));
+    m_pBarcodeEngine->SetFontSize(pTheme->GetFontSize(part));
+    m_pBarcodeEngine->SetFontColor(pTheme->GetTextColor(part));
   } else {
     m_pBarcodeEngine->SetFontSize(FWLTHEME_CAPACITY_FontSize);
   }
@@ -201,19 +196,15 @@ void CFWL_Barcode::GenerateBarcodeImageCache() {
     m_pBarcodeEngine->SetEndChar(m_cEndChar);
   if (m_dwAttributeMask & FWL_BCDATTRIBUTE_ECLEVEL)
     m_pBarcodeEngine->SetErrorCorrectionLevel(m_nECLevel);
-  if (m_dwAttributeMask & FWL_BCDATTRIBUTE_TRUNCATED)
-    m_pBarcodeEngine->SetTruncated(m_bTruncated);
 
-  m_dwStatus = m_pBarcodeEngine->Encode(GetText().AsStringView())
-                   ? XFA_BCS_EncodeSuccess
-                   : 0;
+  m_eStatus = m_pBarcodeEngine->Encode(GetText().AsStringView())
+                  ? Status::kEncodeSuccess
+                  : Status::kNormal;
 }
 
 void CFWL_Barcode::CreateBarcodeEngine() {
   if (m_pBarcodeEngine || m_type == BC_UNKNOWN)
     return;
 
-  auto pBarcode = pdfium::MakeUnique<CFX_Barcode>();
-  if (pBarcode->Create(m_type))
-    m_pBarcodeEngine = std::move(pBarcode);
+  m_pBarcodeEngine = CFX_Barcode::Create(m_type);
 }

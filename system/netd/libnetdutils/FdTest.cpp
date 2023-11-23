@@ -102,6 +102,7 @@ TEST_F(UniqueFdTest, moveConstructor) {
     UniqueFd u1(kFd);
     {
         UniqueFd u2(std::move(u1));
+        // NOLINTNEXTLINE bugprone-use-after-move
         EXPECT_FALSE(isWellFormed(u1));
         EXPECT_TRUE(isWellFormed(u2));
         EXPECT_CALL(mSyscalls, close(kFd)).WillOnce(Return(status::ok));
@@ -115,10 +116,12 @@ TEST_F(UniqueFdTest, moveAssignment) {
     UniqueFd u1(kFd);
     {
         UniqueFd u2 = std::move(u1);
+        // NOLINTNEXTLINE bugprone-use-after-move
         EXPECT_FALSE(isWellFormed(u1));
         EXPECT_TRUE(isWellFormed(u2));
         UniqueFd u3;
         u3 = std::move(u2);
+        // NOLINTNEXTLINE bugprone-use-after-move
         EXPECT_FALSE(isWellFormed(u2));
         EXPECT_TRUE(isWellFormed(u3));
         EXPECT_CALL(mSyscalls, close(kFd)).WillOnce(Return(status::ok));

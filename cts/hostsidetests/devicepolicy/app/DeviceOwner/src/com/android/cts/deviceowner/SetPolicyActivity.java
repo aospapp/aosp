@@ -50,14 +50,6 @@ public class SetPolicyActivity extends Activity {
         handleIntent(intent);
     }
 
-    @Override
-    public void onPause() {
-        super.onPause();
-        // Calling finish() here because doing it in onCreate(), onStart() or onResume() makes
-        // "adb shell am start" timeout if using the -W option.
-        finish();
-    }
-
     private void handleIntent(Intent intent) {
         DevicePolicyManager dpm = (DevicePolicyManager)
                 getSystemService(Context.DEVICE_POLICY_SERVICE);

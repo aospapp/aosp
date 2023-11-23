@@ -65,10 +65,15 @@ public class TurnOffWorkActivity extends DialogTestListActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Set execution start time when start this activity for counting test execution time.
+        mStartTime = System.currentTimeMillis();
         mPrepareTestButton.setText(R.string.provisioning_byod_turn_off_work_prepare_button);
         mPrepareTestButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
+                // Set execution start time when users start to turn/off work profile for counting
+                // test execution time.
+                mStartTime = System.currentTimeMillis();
                 try {
                     startActivity(new Intent(Settings.ACTION_SYNC_SETTINGS));
                 } catch (ActivityNotFoundException e) {

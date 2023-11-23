@@ -19,6 +19,7 @@ import com.android.ddmlib.IShellOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 
@@ -41,6 +42,7 @@ public class NativeStressTestTest extends TestCase {
     private NativeStressTest mNativeTest;
     private ITestDevice mMockDevice;
     private IFileEntry mMockStressFile;
+    private TestInformation mTestInfo;
 
     /**
      * {@inheritDoc}
@@ -65,6 +67,7 @@ public class NativeStressTestTest extends TestCase {
         mNativeTest.setDevice(mMockDevice);
         EasyMock.expect(mMockDevice.getSerialNumber()).andStubReturn("serial");
         EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.contains("chmod"))).andReturn("");
+        mTestInfo = TestInformation.newBuilder().build();
     }
 
     /**
@@ -72,7 +75,7 @@ public class NativeStressTestTest extends TestCase {
      */
     public void testRun_missingIterations() throws DeviceNotAvailableException {
         try {
-            mNativeTest.run(mMockListener);
+            mNativeTest.run(mTestInfo, mMockListener);
             fail("IllegalArgumentException not thrown");
         } catch (IllegalArgumentException e) {
             // expected
@@ -88,7 +91,7 @@ public class NativeStressTestTest extends TestCase {
                 EasyMock.anyObject(), EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(),
                 EasyMock.anyInt());
         replayMocks();
-        mNativeTest.run(mMockListener);
+        mNativeTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 
@@ -106,7 +109,7 @@ public class NativeStressTestTest extends TestCase {
                 EasyMock.anyInt());
 
         replayMocks();
-        mNativeTest.run(mMockListener);
+        mNativeTest.run(mTestInfo, mMockListener);
         verifyMocks();
     }
 
@@ -118,11 +121,11 @@ public class NativeStressTestTest extends TestCase {
         mMockDevice.executeShellCommand(EasyMock.contains("-s 0 -e 99"), (IShellOutputReceiver)
                 EasyMock.anyObject(), EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(),
                 EasyMock.anyInt());
-        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException());
+        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException("test", "serial"));
 
         replayMocks();
         try {
-            mNativeTest.run(mMockListener);
+            mNativeTest.run(mTestInfo, mMockListener);
             fail("DeviceNotAvailableException not thrown");
         } catch (DeviceNotAvailableException e) {
             // expected

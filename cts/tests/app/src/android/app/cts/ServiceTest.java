@@ -29,6 +29,7 @@ import android.app.stubs.LocalDeniedService;
 import android.app.stubs.LocalForegroundService;
 import android.app.stubs.LocalGrantedService;
 import android.app.stubs.LocalService;
+import android.app.stubs.LocalStoppedService;
 import android.app.stubs.NullService;
 import android.app.stubs.R;
 import android.content.ComponentName;
@@ -45,6 +46,7 @@ import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.service.notification.StatusBarNotification;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
@@ -77,6 +79,7 @@ public class ServiceTest extends ActivityTestsBase {
     private static final int STATE_DESTROY = 4;
     private static final int STATE_REBIND = 5;
     private static final int STATE_UNBIND_ONLY = 6;
+    private static final int STATE_STOP_SELF_SUCCESS_UNBIND = 6;
     private static final int DELAY = 5000;
     private static final
         String EXIST_CONN_TO_RECEIVE_SERVICE = "existing connection to receive service";
@@ -216,6 +219,46 @@ public class ServiceTest extends ActivityTestsBase {
                 } else {
                     finishBad("onServiceDisconnected() called unexpectedly");
                 }
+            }
+        }
+    }
+
+    private class TestStopSelfConnection extends TestConnection {
+        private IBinder mService;
+
+        public TestStopSelfConnection() {
+            super(false /* expectDisconnect */, true /* setReporter */);
+        }
+
+        private void executeTransact(int code) {
+            Parcel data = Parcel.obtain();
+            data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
+            try {
+                mService.transact(code, data, null /* reply */, 0);
+            } catch (RemoteException e) {
+                finishBad("DeadObjectException when sending reporting object");
+            }
+            data.recycle();
+        }
+
+        public void stopSelf() {
+            executeTransact(LocalService.STOP_SELF_CODE);
+        }
+
+        public void stopSelfResult() {
+            executeTransact(LocalService.STOP_SELF_RESULT_CODE);
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mService = service;
+            super.onServiceConnected(name, service);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            synchronized (this) {
+                mService = null;
             }
         }
     }
@@ -756,12 +799,70 @@ public class ServiceTest extends ActivityTestsBase {
                             + mExpectedServiceState + ")");
                 }
                 return true;
+            } else if (code == LocalService.STOP_SELF_SUCCESS_UNBIND_CODE) {
+                data.enforceInterface(LocalService.SERVICE_LOCAL);
+                if (mExpectedServiceState == STATE_STOP_SELF_SUCCESS_UNBIND) {
+                    finishGood();
+                } else {
+                    finishBad("onUnbind() was called when not expected (state="
+                            + mExpectedServiceState + ")");
+                }
+                return true;
             } else {
                 return super.onTransact(code, data, reply, flags);
             }
         }
     }
 
+    public void testStopSelf() throws Exception {
+        TestStopSelfConnection conn = new TestStopSelfConnection();
+        boolean success = false;
+        final Intent service = new Intent(mContext, LocalStoppedService.class);
+        try {
+            conn.setMonitor(true);
+            mExpectedServiceState = STATE_START_1;
+            mContext.bindService(service, conn, 0);
+            mContext.startService(service);
+            waitForResultOrThrow(DELAY, EXIST_CONN_TO_RECEIVE_SERVICE);
+            success = true;
+        } finally {
+            if (!success) {
+                mContext.unbindService(conn);
+                mContext.stopService(service);
+            }
+        }
+        // Expect to see the service unbind and then destroyed.
+        mExpectedServiceState = STATE_UNBIND;
+        conn.stopSelf();
+        waitForResultOrThrow(DELAY, EXIST_CONN_TO_LOSE_SERVICE);
+
+        mContext.unbindService(conn);
+    }
+
+    public void testStopSelfResult() throws Exception {
+        TestStopSelfConnection conn = new TestStopSelfConnection();
+        boolean success = false;
+        final Intent service = new Intent(mContext, LocalStoppedService.class);
+        try {
+            conn.setMonitor(true);
+            mExpectedServiceState = STATE_START_1;
+            mContext.bindService(service, conn, 0);
+            mContext.startService(service);
+            waitForResultOrThrow(DELAY, EXIST_CONN_TO_RECEIVE_SERVICE);
+            success = true;
+        } finally {
+            if (!success) {
+                mContext.unbindService(conn);
+                mContext.stopService(service);
+            }
+        }
+        // Expect to see the service unbind and then destroyed.
+        mExpectedServiceState = STATE_STOP_SELF_SUCCESS_UNBIND;
+        conn.stopSelfResult();
+        waitForResultOrThrow(DELAY, EXIST_CONN_TO_LOSE_SERVICE);
+
+        mContext.unbindService(conn);
+    }
 
     public void testLocalStartClass() throws Exception {
         startExpectResult(mLocalService);
@@ -1352,6 +1453,22 @@ public class ServiceTest extends ActivityTestsBase {
             return mInfo != null ? mInfo.getConnection().getUid() : mUid;
         }
 
+        int getUserId() {
+            return UserHandle.getUserHandleForUid(getUid()).getIdentifier();
+        }
+
+        int getAppId() {
+            return UserHandle.getAppId(getUid());
+        }
+
+        boolean isEquivalentTo(ProcessRecordProto proc) {
+            int procAppId = proc.isolatedAppId != 0 ? proc.isolatedAppId : UserHandle.getAppId(
+                    proc.uid);
+
+            // Compare appid and userid separately because UserHandle.getUid is @hide.
+            return procAppId == getAppId() && proc.userId == getUserId();
+        }
+
         int getFlags() {
             return mFlags;
         }
@@ -1441,20 +1558,18 @@ public class ServiceTest extends ActivityTestsBase {
             logProc(i, proc);
             final LruOrderItem lru = orderItems[orderI];
             Log.i("XXXXXXXX", "Expecting uid: " + lru.getUid());
-            int procUid = proc.isolatedAppId != 0 ? proc.isolatedAppId : proc.uid;
-            if (procUid != lru.getUid()) {
+            if (!lru.isEquivalentTo(proc)) {
                 if ((lru.getFlags() & LruOrderItem.FLAG_SKIP_UNKNOWN) != 0) {
                     while (i > 0) {
                         i--;
                         proc = procs.get(i);
                         logProc(i, proc);
-                        procUid = proc.isolatedAppId != 0 ? proc.isolatedAppId : proc.uid;
-                        if (procUid == lru.getUid()) {
+                        if (lru.isEquivalentTo(proc)) {
                             break;
                         }
                     }
                 }
-                if (procUid != lru.getUid()) {
+                if (!lru.isEquivalentTo(proc)) {
                     if ((lru.getFlags() & LruOrderItem.FLAG_SKIP_UNKNOWN) != 0) {
                         fail("Didn't find expected LRU proc uid=" + lru.getUid());
                     }

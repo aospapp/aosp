@@ -7,7 +7,6 @@ import time
 import re
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros.cfm.usb import cfm_usb_devices
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_device_collector
 from autotest_lib.server.cros.cfm import cfm_base_test
 
@@ -89,7 +88,7 @@ class enterprise_CFM_PTZStress(cfm_base_test.CfmBaseTest):
 
     def run_once(self, host, test_config, ptz_motion_sequence):
         """Runs the test."""
-        self.cfm_facade.wait_for_meetings_telemetry_commands()
+        self.cfm_facade.wait_for_telemetry_commands()
         for loop_no in xrange(1, test_config['repeat'] + 1):
             logging.info('Test Loop : {}'.format(loop_no))
             bus = self.check_camera_enumeration(test_config['camera'])

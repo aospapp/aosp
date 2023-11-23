@@ -2,6 +2,7 @@ cc_library_shared {
     name: "libRSCpuRef",
     defaults: ["libbcc-targets"],
     vendor_available: true,
+    native_bridge_supported: true,
     vndk: {
         enabled: true,
         support_system_process: true,
@@ -73,15 +74,14 @@ cc_library_shared {
         },
 
         x86: {
-            ssse3: {
-                cflags: ["-DARCH_X86_HAVE_SSSE3"],
-                srcs: ["rsCpuIntrinsics_x86.cpp"],
-            },
+            cflags: ["-DARCH_X86_HAVE_SSSE3"],
+            srcs: ["rsCpuIntrinsics_x86.cpp"],
         },
         x86_64: {
-            ssse3: {
-                cflags: ["-DARCH_X86_HAVE_SSSE3"],
-                srcs: ["rsCpuIntrinsics_x86.cpp"],
+            cflags: ["-DARCH_X86_HAVE_SSSE3"],
+            srcs: ["rsCpuIntrinsics_x86.cpp"],
+	    avx2: {
+                cflags: ["-DARCH_X86_HAVE_AVX2", "-mavx2", "-mfma"],
             },
         },
     },

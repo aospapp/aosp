@@ -16,13 +16,14 @@
 
 package com.android.documentsui.services;
 
+import static androidx.core.util.Preconditions.checkArgument;
+
 import static com.android.documentsui.services.FileOperationService.OPERATION_COMPRESS;
 import static com.android.documentsui.services.FileOperationService.OPERATION_COPY;
 import static com.android.documentsui.services.FileOperationService.OPERATION_DELETE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_EXTRACT;
 import static com.android.documentsui.services.FileOperationService.OPERATION_MOVE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_UNKNOWN;
-import static androidx.core.util.Preconditions.checkArgument;
 
 import android.content.Context;
 import android.net.Uri;
@@ -32,6 +33,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.base.DocumentStack;
@@ -45,7 +47,8 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * FileOperation describes a file operation, such as move/copy/delete etc.
+ * FileOperation describes a file operation, such as move/copy/delete etc. File operation currently
+ * supports and assumes on current user only.
  */
 public abstract class FileOperation implements Parcelable {
     private final @OpType int mOpType;

@@ -33,6 +33,7 @@ import android.text.Html;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.TextAppearanceSpan;
 import android.widget.ImageView;
@@ -44,9 +45,9 @@ import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.recording.RecordingStorageStatusManager;
 import com.android.tv.common.util.CommonUtils;
-import com.android.tv.data.BaseProgram;
-import com.android.tv.data.Program;
+import com.android.tv.data.api.BaseProgram;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.RecordedProgram;
@@ -75,6 +76,7 @@ import com.android.tv.ui.DetailsActivity;
 import com.android.tv.util.ToastUtils;
 import com.android.tv.util.Utils;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -122,7 +124,7 @@ public class DvrUiHelper {
             return;
         }
         Bundle args = new Bundle();
-        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program);
+        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program.toParcelable());
         args.putBoolean(
                 DvrScheduleFragment.KEY_ADD_CURRENT_PROGRAM_TO_SERIES, addCurrentProgramToSeries);
         showDialogFragment(activity, new DvrScheduleDialogFragment(), args, true, true);
@@ -144,7 +146,7 @@ public class DvrUiHelper {
             return;
         }
         Bundle args = new Bundle();
-        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program);
+        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program.toParcelable());
         showDialogFragment(activity, new DvrProgramConflictDialogFragment(), args, false, true);
     }
 
@@ -227,7 +229,7 @@ public class DvrUiHelper {
             return;
         }
         Bundle args = new Bundle();
-        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program);
+        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program.toParcelable());
         showDialogFragment(activity, new DvrAlreadyScheduledDialogFragment(), args, false, true);
     }
 
@@ -237,14 +239,18 @@ public class DvrUiHelper {
             return;
         }
         Bundle args = new Bundle();
-        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program);
+        args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, program.toParcelable());
         showDialogFragment(activity, new DvrAlreadyRecordedDialogFragment(), args, false, true);
     }
 
     /** Shows program information dialog. */
     public static void showWriteStoragePermissionRationaleDialog(Activity activity) {
-        showDialogFragment(activity, new DvrWriteStoragePermissionRationaleDialogFragment(),
-                new Bundle(), false, false);
+        showDialogFragment(
+                activity,
+                new DvrWriteStoragePermissionRationaleDialogFragment(),
+                new Bundle(),
+                false,
+                false);
     }
 
     /**
@@ -459,7 +465,7 @@ public class DvrUiHelper {
             boolean removeEmptySeriesSchedule,
             boolean isWindowTranslucent,
             boolean showViewScheduleOptionInDialog,
-            Program currentProgram) {
+            @Nullable Program currentProgram) {
         SeriesRecording series =
                 TvSingletons.getSingletons(context)
                         .getDvrDataManager()
@@ -481,13 +487,15 @@ public class DvrUiHelper {
                     new EpisodicProgramLoadTask(context, series) {
                         @Override
                         protected void onPostExecute(List<Program> loadedPrograms) {
-                            sProgressDialog.dismiss();
-                            sProgressDialog = null;
+                            if (sProgressDialog != null) {
+                                sProgressDialog.dismiss();
+                                sProgressDialog = null;
+                            }
                             startSeriesSettingsActivityInternal(
                                     context,
                                     seriesRecordingId,
                                     loadedPrograms == null
-                                            ? Collections.EMPTY_LIST
+                                            ? ImmutableList.of()
                                             : loadedPrograms,
                                     removeEmptySeriesSchedule,
                                     isWindowTranslucent,
@@ -517,6 +525,22 @@ public class DvrUiHelper {
         }
     }
 
+    /**
+     * Shows the episode recording settings activity.
+     *
+     * @param program Program to be recorded
+     */
+    public static void startRecordingSettingsActivity(
+            Context context,
+            Program program) {
+        if (program != null) {
+            Intent intent = new Intent(context, DvrRecordingSettingsActivity.class);
+            intent.putExtra(DvrRecordingSettingsActivity.IS_WINDOW_TRANSLUCENT, true);
+            intent.putExtra(DvrRecordingSettingsActivity.PROGRAM, program.toParcelable());
+            context.startActivity(intent);
+        }
+    }
+
     private static void startSeriesSettingsActivityInternal(
             Context context,
             long seriesRecordingId,
@@ -524,7 +548,7 @@ public class DvrUiHelper {
             boolean removeEmptySeriesSchedule,
             boolean isWindowTranslucent,
             boolean showViewScheduleOptionInDialog,
-            Program currentProgram) {
+            @Nullable Program currentProgram) {
         SoftPreconditions.checkState(
                 programs != null, TAG, "Start series settings activity but programs is null");
         Intent intent = new Intent(context, DvrSeriesSettingsActivity.class);
@@ -537,7 +561,9 @@ public class DvrUiHelper {
         intent.putExtra(
                 DvrSeriesSettingsActivity.SHOW_VIEW_SCHEDULE_OPTION_IN_DIALOG,
                 showViewScheduleOptionInDialog);
-        intent.putExtra(DvrSeriesSettingsActivity.CURRENT_PROGRAM, currentProgram);
+        if (currentProgram != null) {
+            intent.putExtra(DvrSeriesSettingsActivity.CURRENT_PROGRAM, currentProgram.toParcelable());
+        }
         context.startActivity(intent);
     }
 
@@ -682,16 +708,18 @@ public class DvrUiHelper {
         }
         SpannableStringBuilder builder;
         if (TextUtils.isEmpty(seasonNumber) || seasonNumber.equals("0")) {
-            builder =
+            Spanned temp =
                     TextUtils.isEmpty(episodeNumber)
-                            ? new SpannableStringBuilder(title)
-                            : new SpannableStringBuilder(Html.fromHtml(context.getString(
-                                    R.string.program_title_with_episode_number_no_season,
-                                    title,
-                                    episodeNumber)));
+                            ? SpannableStringBuilder.valueOf(title)
+                            : Html.fromHtml(
+                                    context.getString(
+                                            R.string.program_title_with_episode_number_no_season,
+                                            title,
+                                            episodeNumber));
+            builder = SpannableStringBuilder.valueOf(temp);
         } else {
             builder =
-                    new SpannableStringBuilder(
+                    SpannableStringBuilder.valueOf(
                             Html.fromHtml(
                                     context.getString(
                                             R.string.program_title_with_episode_number,

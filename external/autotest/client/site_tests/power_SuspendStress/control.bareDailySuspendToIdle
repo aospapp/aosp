@@ -18,8 +18,8 @@ to make sure the system is still in a good state (work in progress, feel free
 to add some more).
 """
 
-job.run_test('power_SuspendStress', duration=None, iterations=250, tag='bare',
-             suspend_state='freeze')
+job.run_test('power_SuspendStress', duration=None, suspend_iterations=250,
+             tag='bare', suspend_state='freeze')
 
 job.run_test('hardware_EC', tag='power_SuspendStress')
 job.run_test('login_LoginSuccess', tag='power_SuspendStress')

@@ -30,7 +30,7 @@ namespace {
 //! The list of audio sources provided by the simulator.
 DynamicVector<UniquePtr<AudioSource>> gAudioSources;
 
-}
+}  // namespace
 
 PlatformAudio::PlatformAudio() {}
 
@@ -43,33 +43,33 @@ void PlatformAudio::init() {
 void audioSourceCallback(void *cookie) {
   auto *audioSource = static_cast<AudioSource *>(cookie);
 
-  auto& dataEvent = audioSource->dataEvent;
+  auto &dataEvent = audioSource->dataEvent;
   Nanoseconds samplingTime =
       AudioRequestManager::getDurationFromSampleCountAndRate(
-        audioSource->numSamples,
-        static_cast<uint32_t>(audioSource->audioInfo.samplerate));
-  dataEvent.timestamp = (SystemTime::getMonotonicTime() - samplingTime)
-      .toRawNanoseconds();
+          audioSource->numSamples,
+          static_cast<uint32_t>(audioSource->audioInfo.samplerate));
+  dataEvent.timestamp =
+      (SystemTime::getMonotonicTime() - samplingTime).toRawNanoseconds();
   dataEvent.sampleCount = audioSource->numSamples;
 
   if (dataEvent.format == CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM) {
     uint32_t intervalNumSamples =
         AudioRequestManager::getSampleCountFromRateAndDuration(
-          static_cast<uint32_t>(audioSource->audioInfo.samplerate),
-          audioSource->eventDelay);
+            static_cast<uint32_t>(audioSource->audioInfo.samplerate),
+            audioSource->eventDelay);
     if (intervalNumSamples > audioSource->numSamples) {
       sf_count_t seekAmount = intervalNumSamples - audioSource->numSamples;
       sf_seek(audioSource->audioFile, -seekAmount, SEEK_CUR);
     }
 
     sf_count_t readCount = sf_read_short(
-        audioSource->audioFile,
-        const_cast<int16_t *>(dataEvent.samplesS16),
+        audioSource->audioFile, const_cast<int16_t *>(dataEvent.samplesS16),
         static_cast<sf_count_t>(dataEvent.sampleCount));
     if (readCount != dataEvent.sampleCount) {
       LOGI("TODO: File done, suspend the source");
     } else {
-      EventLoopManagerSingleton::get()->getAudioRequestManager()
+      EventLoopManagerSingleton::get()
+          ->getAudioRequestManager()
           .handleAudioDataEvent(&audioSource->dataEvent);
     }
   } else {
@@ -81,13 +81,12 @@ void PlatformAudio::setHandleEnabled(uint32_t handle, bool enabled) {
   // TODO: Implement this.
 }
 
-bool PlatformAudio::requestAudioDataEvent(uint32_t handle,
-                                          uint32_t numSamples,
+bool PlatformAudio::requestAudioDataEvent(uint32_t handle, uint32_t numSamples,
                                           Nanoseconds eventDelay) {
   LOGD("Request for audio data made for handle %" PRIu32 " with %" PRIu32
-       " samples and %" PRIu64 " delivery interval", handle, numSamples,
-       eventDelay.toRawNanoseconds());
-  auto& source = gAudioSources[handle];
+       " samples and %" PRIu64 " delivery interval",
+       handle, numSamples, eventDelay.toRawNanoseconds());
+  auto &source = gAudioSources[handle];
   source->numSamples = numSamples;
   source->eventDelay = eventDelay;
   return source->timer.set(audioSourceCallback, source.get(), eventDelay);
@@ -95,7 +94,7 @@ bool PlatformAudio::requestAudioDataEvent(uint32_t handle,
 
 void PlatformAudio::cancelAudioDataEventRequest(uint32_t handle) {
   LOGD("Cancelling audio request for handle %" PRIu32, handle);
-  auto& source = gAudioSources[handle];
+  auto &source = gAudioSources[handle];
   source->timer.cancel();
 }
 
@@ -111,7 +110,7 @@ bool PlatformAudio::getAudioSource(uint32_t handle,
                                    chreAudioSource *audioSource) const {
   bool success = (handle < gAudioSources.size());
   if (success) {
-    const auto& source = gAudioSources[handle];
+    const auto &source = gAudioSources[handle];
     // TODO(P1-b9ff35): Ensure that name never exceeds 40 bytes in length.
     audioSource->name = source->audioFilename.c_str();
     audioSource->sampleRate =
@@ -126,14 +125,15 @@ bool PlatformAudio::getAudioSource(uint32_t handle,
   return success;
 }
 
-void PlatformAudioBase::addAudioSource(UniquePtr<AudioSource>& source) {
-  LOGI("Adding audio source - filename: %s, min buf size: %" PRIu64 "ms, "
-       "max buf size: %" PRIu64 "ms", source->audioFilename.c_str(),
+void PlatformAudioBase::addAudioSource(UniquePtr<AudioSource> &source) {
+  LOGI("Adding audio source - filename: %s, min buf size: %" PRIu64
+       "ms, max buf size: %" PRIu64 "ms",
+       source->audioFilename.c_str(),
        Milliseconds(source->minBufferDuration).getMilliseconds(),
        Milliseconds(source->maxBufferDuration).getMilliseconds());
-  auto& audioInfo = source->audioInfo;
-  source->audioFile = sf_open(source->audioFilename.c_str(), SFM_READ,
-                              &audioInfo);
+  auto &audioInfo = source->audioInfo;
+  source->audioFile =
+      sf_open(source->audioFilename.c_str(), SFM_READ, &audioInfo);
   auto sampleCount = AudioRequestManager::getSampleCountFromRateAndDuration(
       static_cast<uint32_t>(source->audioInfo.samplerate),
       source->maxBufferDuration);
@@ -142,12 +142,12 @@ void PlatformAudioBase::addAudioSource(UniquePtr<AudioSource>& source) {
                 source->audioFilename.c_str());
   } else if ((audioInfo.format & SF_FORMAT_ULAW) == SF_FORMAT_ULAW) {
     source->dataEvent.format = CHRE_AUDIO_DATA_FORMAT_8_BIT_U_LAW;
-    source->dataEvent.samplesULaw8 = static_cast<uint8_t *>(
-        malloc(sizeof(uint8_t) * sampleCount));
+    source->dataEvent.samplesULaw8 =
+        static_cast<uint8_t *>(malloc(sizeof(uint8_t) * sampleCount));
   } else if ((audioInfo.format & SF_FORMAT_PCM_16) == SF_FORMAT_PCM_16) {
     source->dataEvent.format = CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM;
-    source->dataEvent.samplesS16 = static_cast<int16_t *>(
-        malloc(sizeof(uint16_t) * sampleCount));
+    source->dataEvent.samplesS16 =
+        static_cast<int16_t *>(malloc(sizeof(uint16_t) * sampleCount));
   } else {
     FATAL_ERROR("Invalid format 0x%08x", audioInfo.format);
   }

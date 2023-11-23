@@ -29,14 +29,14 @@ public class HostsideNetworkCallbackTests extends HostsideNetworkTestCase {
         uninstallPackage(TEST_APP2_PKG, true);
     }
 
-    public void testOnBlockedStatusChanged_data_saver() throws Exception {
+    public void testOnBlockedStatusChanged_dataSaver() throws Exception {
         runDeviceTests(TEST_PKG,
-                TEST_PKG + ".NetworkCallbackTest", "testOnBlockedStatusChanged_data_saver");
+                TEST_PKG + ".NetworkCallbackTest", "testOnBlockedStatusChanged_dataSaver");
     }
 
-    public void testOnBlockedStatusChanged_power_saver() throws Exception {
+    public void testOnBlockedStatusChanged_powerSaver() throws Exception {
         runDeviceTests(TEST_PKG,
-                TEST_PKG + ".NetworkCallbackTest", "testOnBlockedStatusChanged_power_saver");
+                TEST_PKG + ".NetworkCallbackTest", "testOnBlockedStatusChanged_powerSaver");
     }
 }
 

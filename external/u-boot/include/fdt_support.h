@@ -94,6 +94,7 @@ int fdt_fixup_memory(void *blob, u64 start, u64 size);
  */
 #ifdef CONFIG_ARCH_FIXUP_FDT_MEMORY
 int fdt_fixup_memory_banks(void *blob, u64 start[], u64 size[], int banks);
+int fdt_set_usable_memory(void *blob, u64 start[], u64 size[], int banks);
 #else
 static inline int fdt_fixup_memory_banks(void *blob, u64 start[], u64 size[],
 					 int banks)
@@ -205,16 +206,45 @@ int fdt_increase_size(void *fdt, int add_len);
 
 int fdt_fixup_nor_flash_size(void *blob);
 
+struct node_info;
 #if defined(CONFIG_FDT_FIXUP_PARTITIONS)
-void fdt_fixup_mtdparts(void *fdt, void *node_info, int node_info_size);
+void fdt_fixup_mtdparts(void *fdt, const struct node_info *node_info,
+			int node_info_size);
 #else
-static inline void fdt_fixup_mtdparts(void *fdt, void *node_info,
-					int node_info_size) {}
+static inline void fdt_fixup_mtdparts(void *fdt,
+				      const struct node_info *node_info,
+				      int node_info_size)
+{
+}
 #endif
 
 void fdt_del_node_and_alias(void *blob, const char *alias);
+
+/**
+ * Translate an address from the DT into a CPU physical address
+ *
+ * The translation relies on the "ranges" property.
+ *
+ * @param blob		Pointer to device tree blob
+ * @param node_offset	Node DT offset
+ * @param in_addr	Pointer to the address to translate
+ * @return translated address or OF_BAD_ADDR on error
+ */
 u64 fdt_translate_address(const void *blob, int node_offset,
 			  const __be32 *in_addr);
+/**
+ * Translate a DMA address from the DT into a CPU physical address
+ *
+ * The translation relies on the "dma-ranges" property.
+ *
+ * @param blob		Pointer to device tree blob
+ * @param node_offset	Node DT offset
+ * @param in_addr	Pointer to the DMA address to translate
+ * @return translated DMA address or OF_BAD_ADDR on error
+ */
+u64 fdt_translate_dma_address(const void *blob, int node_offset,
+			      const __be32 *in_addr);
+
 int fdt_node_offset_by_compat_reg(void *blob, const char *compat,
 					phys_addr_t compat_off);
 int fdt_alloc_phandle(void *blob);
@@ -282,6 +312,16 @@ int fdt_setup_simplefb_node(void *fdt, int node, u64 base_address, u32 width,
 			    u32 height, u32 stride, const char *format);
 
 int fdt_overlay_apply_verbose(void *fdt, void *fdto);
+
+/**
+ * fdt_get_cells_len() - Get the length of a type of cell in top-level nodes
+ *
+ * Returns the length of the cell type in bytes (4 or 8).
+ *
+ * @blob: Pointer to device tree blob
+ * @nr_cells_name: Name to lookup, e.g. "#address-cells"
+ */
+int fdt_get_cells_len(const void *blob, char *nr_cells_name);
 
 #endif /* ifdef CONFIG_OF_LIBFDT */
 

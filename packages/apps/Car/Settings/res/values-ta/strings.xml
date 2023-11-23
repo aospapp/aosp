@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"ரோமிங்"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"ரோமிங்கின்போது டேட்டா சேவைகளுடன் இணை"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"டேட்டா ரோமிங்கை அனுமதிக்கவா?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"கட்டணம் விதிக்கப்படலாம்."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"ரோமிங் கட்டணங்கள் விதிக்கப்படக்கூடும்."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"டேட்டா உபயோகம்"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"முதன்மை டேட்டா"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> பயன்படுத்தப்பட்டது"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"புளூடூத் சாதனத்தைத் தேர்வுசெய்க"</string>
     <string name="language_settings" msgid="2079258598337245546">"மொழிகள்"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"மொழிகள் &amp; உள்ளீடு"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"பரிந்துரைகள்"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"அனைத்து மொழிகளும்"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"கீபோர்டு"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"கீபோர்டு நிர்வகித்தல்"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"உரையிலிருந்து பேச்சுக்கு"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"இவருக்கு நிறுவப்படவில்லை"</string>
     <string name="permissions_label" msgid="2701446753515612685">"அனுமதிகள்"</string>
     <string name="notifications_label" msgid="6586089149665170731">"அறிவிப்புகள்"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"சேமிப்பகமும் தற்காலிக சேமிப்பும்"</string>
     <string name="application_version_label" msgid="8556889839783311649">"பதிப்பு: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"அனுமதிகள் எதுவும் வழங்கப்படவில்லை"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"அனுமதிகள் எதையும் கோரவில்லை"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"அகச் சேமிப்பகத்தில் %s"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"டேட்டா உபயோகம்"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"ஆப்ஸ் டேட்டா உபயோகம்"</string>
     <string name="computing_size" msgid="5791407621793083965">"கணக்கிடுகிறது…"</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"இருப்பிடத் தகவல் குறித்த சமீபத்திய கோரிக்கைகள்"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"இருப்பிடத் தகவல் குறித்த சமீபத்திய கோரிக்கைகள் இல்லை"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ஆப்ஸ் நிலை அனுமதிகள்"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"ஸ்கேன் செய்தல்"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"இருப்பிடச் சேவைகள்"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"வைஃபை ஸ்கேன் செய்தல்"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"வைஃபை ஆஃப் செய்யப்பட்டிருந்தாலும்கூட எந்தநேரத்திலும் வைஃபை நெட்வொர்க்குகளைத் தேட ஆப்ஸையும் சேவைகளையும் அனுமதிக்கும். உதாரணத்திற்கு இருப்பிடம் சார்ந்த அம்சங்களையும் சேவைகளையும் மேம்படுத்துவதற்கும் இதைப் பயன்படுத்தலாம்."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"புளூடூத் ஸ்கேன் செய்தல்"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"புளூடூத் ஆஃப் செய்யப்பட்டிருந்தாலும்கூட எந்தநேரத்திலும் அருகிலுள்ள சாதனங்களைத் தேட ஆப்ஸையும் சேவைகளையும் அனுமதிக்கும். உதாரணத்திற்கு இருப்பிடம் சார்ந்த அம்சங்களையும் சேவைகளையும் மேம்படுத்துவதற்கும் இதைப் பயன்படுத்தலாம்."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"சிஸ்டம்"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"சிஸ்டம் புதுப்பிப்புகள்"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android பதிப்பு"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android பாதுகாப்பின் பேட்ச் நிலை"</string>
-    <string name="model_info" msgid="4966408071657934452">"மாடல்"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"மாடல் &amp; வன்பொருள்"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"மாடல்: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"பேஸ்பேண்ட் பதிப்பு"</string>
     <string name="kernel_version" msgid="7327212934187011508">"கர்னல் பதிப்பு"</string>
     <string name="build_number" msgid="3997326631001009102">"பதிப்பு எண்"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"சிஸ்டம் WebView உரிமங்கள்"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"வால்பேப்பர்கள்"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"சாட்டிலைட் படங்களை வழங்குபவர்கள்:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"மாடல்"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"வரிசை எண்"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"வன்பொருள் பதிப்பு"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"மூன்றாம் தரப்பு உரிமங்கள்"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"உரிமங்களை ஏற்றுவதில் சிக்கல்."</string>
@@ -471,13 +474,15 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"புதிய \'நிர்வாகிக் கணக்கைத்\' தேர்வு செய்க"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"குறைந்தபட்சம் ஒரு \'நிர்வாகிக் கணக்காவது’ இருக்க வேண்டும். இக்கணக்கை நீக்க, முதலில் ஒரு மாற்றுக் கணக்கைத் தேர்வு செய்யவும்."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"நிர்வாகியைத் தேர்வு செய்க"</string>
-    <string name="user_guest" msgid="3465399481257448601">"விருந்தினர்"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"விருந்தினர்"</string>
+    <string name="user_guest" msgid="3465399481257448601">"கெஸ்ட்"</string>
+    <string name="start_guest_session" msgid="4438752398760283201">"கெஸ்ட்"</string>
     <string name="user_switch" msgid="6544839750534690781">"பயனரை மாற்றும்"</string>
     <string name="current_user_name" msgid="3813671533249316823">"நீங்கள் (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"பெயர்"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"அமைக்கவில்லை"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"பயனர் பெயரைத் திருத்தவும்"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"காலியாக இருக்கக்கூடாது."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"பயனர்பெயரைத் தவறாக உள்ளிட்டுள்ளீர்கள்."</string>
     <string name="users_list_title" msgid="770764290290240909">"பயனர்கள்"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$sக்கு இந்த அனுமதிகள் உள்ளன"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"சேமிப்பகம்"</string>
@@ -497,6 +502,8 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"ஆப்ஸ் தரவை நீக்கவா?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"இந்த ஆப்ஸின் அனைத்துத் தகவலும் நிரந்தரமாக நீக்கப்படும். இதில் அனைத்து ஃபைல்களும், அமைப்புகளும், கணக்குகளும், தரவுத்தளங்களும் போன்றவை அடங்கும்."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"ஆப்ஸின் சேமிப்பகத்தை அழிக்க இயலவில்லை."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> பாதுகாப்பாக வெளியேற்றப்பட்டது"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g>ஐப் பாதுகாப்பாக வெளியேற்ற முடியவில்லை"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"கணக்குகள்"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"கணக்கைச் சேர்"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"கணக்குகள் எதுவும் சேர்க்கப்படவில்லை"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"இப்போதே ஒத்திசை"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"ஒத்திசைவை ரத்துசெய்"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"தற்போது ஒத்திசைக்க இயலவில்லை. விரைவில் இது சரிசெய்யப்படும்."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"தனியுரிமை"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"பாதுகாப்பு"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"திரைப் பூட்டு"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"எதுவுமில்லை"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"இலக்கங்கள் ஏறுவரிசையில், இறங்குவரிசையில் அல்லது ஒரே இலக்கத்தைத் தொடர்ந்து பயன்படுத்துவது அனுமதிக்கப்படாது."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"திரைப் பூட்டு விருப்பங்கள்"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> நாட்கள் முன்பு"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"நம்பகமான சாதனத்தைச் சேர்"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"நம்பகமான சாதனத்தைச் சேர்க்க புளூடூத் ஆன் ஆகும்"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"நம்பகமான சாதனங்கள்"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> சாதனங்கள்</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> சாதனம்</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> சாதனம் இணைக்கப்படும்போது உங்கள் காரை அது திறக்கும். <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> சாதனம் எவர் கையிலாவது கிடைத்தால் அவர்கள் அதைப் பயன்படுத்த வாய்ப்பிருக்கிறது"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"உறுதிப்படுத்து"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"நம்பகமான சாதனத்தை அகற்று"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"முடிந்தது"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"’நம்பகமான சாதனம்’ ஒன்றை அமைக்க கம்பேனியன் ஆப்ஸைப் பயன்படுத்தவும். அமைத்த பிறகும் வாகனத்திற்கு அருகில் மொபைல் கண்டறியப்பட்டால் உங்களின் பயனர் சுயவிவரத்தை அன்லாக் செய்ய முடியும்."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. உங்கள் மொபைலில் கம்பேனியன் ஆப்ஸைப் பதிவிறக்கவும்"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. சாதனங்களை இணைக்க உங்கள் மொபைலில் <xliff:g id="CAR_NAME">%1$s</xliff:g> என்பதைத் தேர்வுசெய்யவும்"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"வேறு யாராவது இந்தச் சாதனத்தை வைத்திருந்தாலும்கூட உங்கள் காருக்கு அருகில் இருக்கும்போது ஆன் செய்தால் ஒரு நம்பகமான சாதனம் பயனர் சுயவிவரத்தை அன்லாக் செய்யும்."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"இணைத்தல் குறியீடுகள் பொருந்துவதை உறுதிசெய்க"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"மொபைல் பதிவுசெய்யப்பட்டது"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> பதிவு செய்வதில் தோல்வி"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"நம்பகமான சாதனத்தைச் சேர்த்த பிறகு அடையாளச் சரிபார்ப்பு முறையை அமைக்க வேண்டும். உங்களிடம் நம்பகமான சாதனம் இல்லையெனில் அடையாளச் சரிபார்ப்பிற்காக உங்கள் சுயவிவரத்தை அணுக வேண்டிய அவசியம் ஏற்படும்."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"சாதனம் துண்டிக்கப்பட்டது."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"அனுமதிச் சான்றுகளை அழித்தல்"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"அனைத்து சான்றிதழ்களையும் அகற்றும்"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"அனைத்து உள்ளடக்கத்தையும் அகற்ற வேண்டுமா?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"நற்சான்று சேமிப்பகம் அழிக்கப்பட்டது."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"நற்சான்று சேமிப்பகத்தை அழிக்க முடியாது."</string>
     <string name="forget" msgid="3971143908183848527">"அகற்று"</string>
     <string name="connect" msgid="5861699594602380150">"இணை"</string>
     <string name="disconnect" msgid="6140789953324820336">"துண்டி"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"இவ்வாறு செய்தால், டெமோ கணக்கு நீக்கப்படுவதோடு, சாதனமானது தரவின் ஆரம்பநிலைக்கு மீட்டமைக்கப்படும். எல்லாப் பயனர் தரவையும் இழப்பீர்கள்."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"டெமோவிலிருந்து வெளியேறு"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"நிராகரி"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"வாகனம் ஓட்டும்போது, இந்த அம்சத்தைப் பயன்படுத்த முடியாது."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"வாகனம் ஓட்டும்போது, பயனரைச் சேர்க்க முடியாது."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"வாகனம் ஓட்டும்போது இந்த அம்சத்தைப் பயன்படுத்த இயலாது"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"வாகனம் ஓட்டும்போது பயனரைச் சேர்க்க முடியாது"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"தேடுக"</string>
 </resources>

@@ -42,6 +42,7 @@
 #include "fd5_program.h"
 #include "fd5_rasterizer.h"
 #include "fd5_texture.h"
+#include "fd5_screen.h"
 #include "fd5_format.h"
 #include "fd5_zsa.h"
 
@@ -50,7 +51,7 @@
  * sizedwords:     size of const value buffer
  */
 static void
-fd5_emit_const(struct fd_ringbuffer *ring, enum shader_t type,
+fd5_emit_const(struct fd_ringbuffer *ring, gl_shader_stage type,
 		uint32_t regid, uint32_t offset, uint32_t sizedwords,
 		const uint32_t *dwords, struct pipe_resource *prsc)
 {
@@ -89,7 +90,7 @@ fd5_emit_const(struct fd_ringbuffer *ring, enum shader_t type,
 }
 
 static void
-fd5_emit_const_bo(struct fd_ringbuffer *ring, enum shader_t type, boolean write,
+fd5_emit_const_bo(struct fd_ringbuffer *ring, gl_shader_stage type, boolean write,
 		uint32_t regid, uint32_t num, struct pipe_resource **prscs, uint32_t *offsets)
 {
 	uint32_t anum = align(num, 2);
@@ -135,6 +136,7 @@ struct PACKED bcolor_entry {
 	uint32_t fp32[4];
 	uint16_t ui16[4];
 	int16_t  si16[4];
+
 	uint16_t fp16[4];
 	uint16_t rgb565;
 	uint16_t rgb5a1;
@@ -144,7 +146,9 @@ struct PACKED bcolor_entry {
 	int8_t   si8[4];
 	uint32_t rgb10a2;
 	uint32_t z24; /* also s8? */
-	uint8_t  __pad1[32];
+
+	uint16_t srgb[4];      /* appears to duplicate fp16[], but clamped, used for srgb */
+	uint8_t  __pad1[24];
 };
 
 #define FD5_BORDER_COLOR_SIZE        0x60
@@ -178,8 +182,9 @@ setup_border_colors(struct fd_texture_stateobj *tex, struct bcolor_entry *entrie
 		if ((i >= tex->num_textures) || !tex->textures[i])
 			continue;
 
+		enum pipe_format format = tex->textures[i]->format;
 		const struct util_format_description *desc =
-				util_format_description(tex->textures[i]->format);
+				util_format_description(format);
 
 		e->rgb565 = 0;
 		e->rgb5a1 = 0;
@@ -189,6 +194,24 @@ setup_border_colors(struct fd_texture_stateobj *tex, struct bcolor_entry *entrie
 
 		for (j = 0; j < 4; j++) {
 			int c = desc->swizzle[j];
+			int cd = c;
+
+			/*
+			 * HACK: for PIPE_FORMAT_X24S8_UINT we end up w/ the
+			 * stencil border color value in bc->ui[0] but according
+			 * to desc->swizzle and desc->channel, the .x component
+			 * is NONE and the stencil value is in the y component.
+			 * Meanwhile the hardware wants this in the .x componetn.
+			 */
+			if ((format == PIPE_FORMAT_X24S8_UINT) ||
+					(format == PIPE_FORMAT_X32_S8X24_UINT)) {
+				if (j == 0) {
+					c = 1;
+					cd = 0;
+				} else {
+					continue;
+				}
+			}
 
 			if (c >= 4)
 				continue;
@@ -222,8 +245,8 @@ setup_border_colors(struct fd_texture_stateobj *tex, struct bcolor_entry *entrie
 					clamped = 0;
 					break;
 				}
-				e->fp32[c] = bc->ui[j];
-				e->fp16[c] = clamped;
+				e->fp32[cd] = bc->ui[j];
+				e->fp16[cd] = clamped;
 			} else {
 				float f = bc->f[j];
 				float f_u = CLAMP(f, 0, 1);
@@ -231,6 +254,7 @@ setup_border_colors(struct fd_texture_stateobj *tex, struct bcolor_entry *entrie
 
 				e->fp32[c] = fui(f);
 				e->fp16[c] = util_float_to_half(f);
+				e->srgb[c] = util_float_to_half(f_u);
 				e->ui16[c] = f_u * 0xffff;
 				e->si16[c] = f_s * 0x7fff;
 				e->ui8[c]  = f_u * 0xff;
@@ -372,37 +396,24 @@ emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 static void
 emit_ssbos(struct fd_context *ctx, struct fd_ringbuffer *ring,
-		enum a4xx_state_block sb, struct fd_shaderbuf_stateobj *so)
+		enum a4xx_state_block sb, struct fd_shaderbuf_stateobj *so,
+		const struct ir3_shader_variant *v)
 {
 	unsigned count = util_last_bit(so->enabled_mask);
+	const struct ir3_ibo_mapping *m = &v->image_mapping;
 
-	if (count == 0)
-		return;
-
-	OUT_PKT7(ring, CP_LOAD_STATE4, 3 + (4 * count));
-	OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(0) |
-			CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
-			CP_LOAD_STATE4_0_STATE_BLOCK(sb) |
-			CP_LOAD_STATE4_0_NUM_UNIT(count));
-	OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(0) |
-			CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
-	OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
 	for (unsigned i = 0; i < count; i++) {
-		OUT_RING(ring, 0x00000000);
-		OUT_RING(ring, 0x00000000);
-		OUT_RING(ring, 0x00000000);
-		OUT_RING(ring, 0x00000000);
-	}
+		unsigned slot = m->ssbo_to_ibo[i];
 
-	OUT_PKT7(ring, CP_LOAD_STATE4, 3 + (2 * count));
-	OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(0) |
-			CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
-			CP_LOAD_STATE4_0_STATE_BLOCK(sb) |
-			CP_LOAD_STATE4_0_NUM_UNIT(count));
-	OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(1) |
-			CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
-	OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
-	for (unsigned i = 0; i < count; i++) {
+		OUT_PKT7(ring, CP_LOAD_STATE4, 5);
+		OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(slot) |
+				CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
+				CP_LOAD_STATE4_0_STATE_BLOCK(sb) |
+				CP_LOAD_STATE4_0_NUM_UNIT(1));
+		OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(1) |
+				CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
+		OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
+
 		struct pipe_shader_buffer *buf = &so->sb[i];
 		unsigned sz = buf->buffer_size;
 
@@ -411,18 +422,16 @@ emit_ssbos(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 		OUT_RING(ring, A5XX_SSBO_1_0_WIDTH(sz));
 		OUT_RING(ring, A5XX_SSBO_1_1_HEIGHT(sz >> 16));
-	}
 
-	OUT_PKT7(ring, CP_LOAD_STATE4, 3 + (2 * count));
-	OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(0) |
-			CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
-			CP_LOAD_STATE4_0_STATE_BLOCK(sb) |
-			CP_LOAD_STATE4_0_NUM_UNIT(count));
-	OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(2) |
-			CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
-	OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
-	for (unsigned i = 0; i < count; i++) {
-		struct pipe_shader_buffer *buf = &so->sb[i];
+		OUT_PKT7(ring, CP_LOAD_STATE4, 5);
+		OUT_RING(ring, CP_LOAD_STATE4_0_DST_OFF(slot) |
+				CP_LOAD_STATE4_0_STATE_SRC(SS4_DIRECT) |
+				CP_LOAD_STATE4_0_STATE_BLOCK(sb) |
+				CP_LOAD_STATE4_0_NUM_UNIT(1));
+		OUT_RING(ring, CP_LOAD_STATE4_1_STATE_TYPE(2) |
+				CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
+		OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
+
 		if (buf->buffer) {
 			struct fd_resource *rsc = fd_resource(buf->buffer);
 			OUT_RELOCW(ring, rsc->bo, buf->buffer_offset, 0, 0);
@@ -454,6 +463,13 @@ fd5_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd5_emit *emit)
 			uint32_t off = vb->buffer_offset + elem->src_offset;
 			uint32_t size = fd_bo_size(rsc->bo) - off;
 			debug_assert(fmt != ~0);
+
+#ifdef DEBUG
+			/* see dEQP-GLES31.stress.vertex_attribute_binding.buffer_bounds.bind_vertex_buffer_offset_near_wrap_10
+			 */
+			if (off > fd_bo_size(rsc->bo))
+				continue;
+#endif
 
 			OUT_PKT4(ring, REG_A5XX_VFD_FETCH(j), 4);
 			OUT_RELOC(ring, rsc->bo, off, 0, 0);
@@ -493,7 +509,7 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 	emit_marker5(ring, 5);
 
-	if ((dirty & FD_DIRTY_FRAMEBUFFER) && !emit->key.binning_pass) {
+	if ((dirty & FD_DIRTY_FRAMEBUFFER) && !emit->binning_pass) {
 		unsigned char mrt_comp[A5XX_MAX_RENDER_TARGETS] = {0};
 
 		for (unsigned i = 0; i < A5XX_MAX_RENDER_TARGETS; i++) {
@@ -535,7 +551,7 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 			if (emit->no_lrz_write || !rsc->lrz || !rsc->lrz_valid)
 				gras_lrz_cntl = 0;
-			else if (emit->key.binning_pass && blend->lrz_write && zsa->lrz_write)
+			else if (emit->binning_pass && blend->lrz_write && zsa->lrz_write)
 				gras_lrz_cntl |= A5XX_GRAS_LRZ_CNTL_LRZ_WRITE;
 
 			OUT_PKT4(ring, REG_A5XX_GRAS_LRZ_CNTL, 1);
@@ -556,7 +572,7 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 	if (dirty & (FD_DIRTY_ZSA | FD_DIRTY_RASTERIZER | FD_DIRTY_PROG)) {
 		struct fd5_zsa_stateobj *zsa = fd5_zsa_stateobj(ctx->zsa);
-		bool fragz = fp->has_kill | fp->writes_pos;
+		bool fragz = fp->no_earlyz | fp->writes_pos;
 
 		OUT_PKT4(ring, REG_A5XX_RB_DEPTH_CNTL, 1);
 		OUT_RING(ring, zsa->rb_depth_cntl);
@@ -570,7 +586,8 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 				COND(fragz && fp->frag_coord, A5XX_GRAS_SU_DEPTH_PLANE_CNTL_UNK1));
 	}
 
-	if (dirty & FD_DIRTY_SCISSOR) {
+	/* NOTE: scissor enabled bit is part of rasterizer state: */
+	if (dirty & (FD_DIRTY_SCISSOR | FD_DIRTY_RASTERIZER)) {
 		struct pipe_scissor_state *scissor = fd_context_get_scissor(ctx);
 
 		OUT_PKT4(ring, REG_A5XX_GRAS_SC_SCREEN_SCISSOR_TL_0, 2);
@@ -610,7 +627,8 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 				fd5_rasterizer_stateobj(ctx->rasterizer);
 
 		OUT_PKT4(ring, REG_A5XX_GRAS_SU_CNTL, 1);
-		OUT_RING(ring, rasterizer->gras_su_cntl);
+		OUT_RING(ring, rasterizer->gras_su_cntl |
+				COND(pfb->samples > 1, A5XX_GRAS_SU_CNTL_MSAA_ENABLE));
 
 		OUT_PKT4(ring, REG_A5XX_GRAS_SU_POINT_MINMAX, 2);
 		OUT_RING(ring, rasterizer->gras_su_point_minmax);
@@ -652,7 +670,7 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		uint32_t posz_regid = ir3_find_output_regid(fp, FRAG_RESULT_DEPTH);
 		unsigned nr = pfb->nr_cbufs;
 
-		if (emit->key.binning_pass)
+		if (emit->binning_pass)
 			nr = 0;
 		else if (ctx->rasterizer->rasterizer_discard)
 			nr = 0;
@@ -667,43 +685,41 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 				A5XX_SP_FS_OUTPUT_CNTL_SAMPLEMASK_REGID(regid(63, 0)));
 	}
 
-	if (emit->prog == &ctx->prog) { /* evil hack to deal sanely with clear path */
-		ir3_emit_vs_consts(vp, ring, ctx, emit->info);
-		if (!emit->key.binning_pass)
-			ir3_emit_fs_consts(fp, ring, ctx);
+	ir3_emit_vs_consts(vp, ring, ctx, emit->info);
+	if (!emit->binning_pass)
+		ir3_emit_fs_consts(fp, ring, ctx);
 
-		struct pipe_stream_output_info *info = &vp->shader->stream_output;
-		if (info->num_outputs) {
-			struct fd_streamout_stateobj *so = &ctx->streamout;
+	struct ir3_stream_output_info *info = &vp->shader->stream_output;
+	if (info->num_outputs) {
+		struct fd_streamout_stateobj *so = &ctx->streamout;
 
-			for (unsigned i = 0; i < so->num_targets; i++) {
-				struct pipe_stream_output_target *target = so->targets[i];
+		for (unsigned i = 0; i < so->num_targets; i++) {
+			struct pipe_stream_output_target *target = so->targets[i];
 
-				if (!target)
-					continue;
+			if (!target)
+				continue;
 
-				unsigned offset = (so->offsets[i] * info->stride[i] * 4) +
-						target->buffer_offset;
+			unsigned offset = (so->offsets[i] * info->stride[i] * 4) +
+					target->buffer_offset;
 
-				OUT_PKT4(ring, REG_A5XX_VPC_SO_BUFFER_BASE_LO(i), 3);
-				/* VPC_SO[i].BUFFER_BASE_LO: */
-				OUT_RELOCW(ring, fd_resource(target->buffer)->bo, 0, 0, 0);
-				OUT_RING(ring, target->buffer_size + offset);
+			OUT_PKT4(ring, REG_A5XX_VPC_SO_BUFFER_BASE_LO(i), 3);
+			/* VPC_SO[i].BUFFER_BASE_LO: */
+			OUT_RELOCW(ring, fd_resource(target->buffer)->bo, 0, 0, 0);
+			OUT_RING(ring, target->buffer_size + offset);
 
-				OUT_PKT4(ring, REG_A5XX_VPC_SO_BUFFER_OFFSET(i), 3);
-				OUT_RING(ring, offset);
-				/* VPC_SO[i].FLUSH_BASE_LO/HI: */
-				// TODO just give hw a dummy addr for now.. we should
-				// be using this an then CP_MEM_TO_REG to set the
-				// VPC_SO[i].BUFFER_OFFSET for the next draw..
-				OUT_RELOCW(ring, fd5_context(ctx)->blit_mem, 0x100, 0, 0);
+			OUT_PKT4(ring, REG_A5XX_VPC_SO_BUFFER_OFFSET(i), 3);
+			OUT_RING(ring, offset);
+			/* VPC_SO[i].FLUSH_BASE_LO/HI: */
+			// TODO just give hw a dummy addr for now.. we should
+			// be using this an then CP_MEM_TO_REG to set the
+			// VPC_SO[i].BUFFER_OFFSET for the next draw..
+			OUT_RELOCW(ring, fd5_context(ctx)->blit_mem, 0x100, 0, 0);
 
-				emit->streamout_mask |= (1 << i);
-			}
+			emit->streamout_mask |= (1 << i);
 		}
 	}
 
-	if ((dirty & FD_DIRTY_BLEND)) {
+	if (dirty & FD_DIRTY_BLEND) {
 		struct fd5_blend_stateobj *blend = fd5_blend_stateobj(ctx->blend);
 		uint32_t i;
 
@@ -733,12 +749,16 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			OUT_RING(ring, blend_control);
 		}
 
-		OUT_PKT4(ring, REG_A5XX_RB_BLEND_CNTL, 1);
-		OUT_RING(ring, blend->rb_blend_cntl |
-				A5XX_RB_BLEND_CNTL_SAMPLE_MASK(0xffff));
-
 		OUT_PKT4(ring, REG_A5XX_SP_BLEND_CNTL, 1);
 		OUT_RING(ring, blend->sp_blend_cntl);
+	}
+
+	if (dirty & (FD_DIRTY_BLEND | FD_DIRTY_SAMPLE_MASK)) {
+		struct fd5_blend_stateobj *blend = fd5_blend_stateobj(ctx->blend);
+
+		OUT_PKT4(ring, REG_A5XX_RB_BLEND_CNTL, 1);
+		OUT_RING(ring, blend->rb_blend_cntl |
+				A5XX_RB_BLEND_CNTL_SAMPLE_MASK(ctx->sample_mask));
 	}
 
 	if (dirty & FD_DIRTY_BLEND_COLOR) {
@@ -786,10 +806,10 @@ fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		emit_border_color(ctx, ring);
 
 	if (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & FD_DIRTY_SHADER_SSBO)
-		emit_ssbos(ctx, ring, SB4_SSBO, &ctx->shaderbuf[PIPE_SHADER_FRAGMENT]);
+		emit_ssbos(ctx, ring, SB4_SSBO, &ctx->shaderbuf[PIPE_SHADER_FRAGMENT], fp);
 
 	if (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & FD_DIRTY_SHADER_IMAGE)
-		fd5_emit_images(ctx, ring, PIPE_SHADER_FRAGMENT);
+		fd5_emit_images(ctx, ring, PIPE_SHADER_FRAGMENT, fp);
 }
 
 void
@@ -827,10 +847,10 @@ fd5_emit_cs_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 			~0 : ctx->tex[PIPE_SHADER_COMPUTE].num_textures);
 
 	if (dirty & FD_DIRTY_SHADER_SSBO)
-		emit_ssbos(ctx, ring, SB4_CS_SSBO, &ctx->shaderbuf[PIPE_SHADER_COMPUTE]);
+		emit_ssbos(ctx, ring, SB4_CS_SSBO, &ctx->shaderbuf[PIPE_SHADER_COMPUTE], cp);
 
 	if (dirty & FD_DIRTY_SHADER_IMAGE)
-		fd5_emit_images(ctx, ring, PIPE_SHADER_COMPUTE);
+		fd5_emit_images(ctx, ring, PIPE_SHADER_COMPUTE, cp);
 }
 
 /* emit setup at begin of new cmdstream buffer (don't rely on previous
@@ -1018,10 +1038,10 @@ t7              opcode: CP_WAIT_FOR_IDLE (26) (1 dwords)
 	OUT_PKT4(ring, REG_A5XX_UNKNOWN_E5DB, 1);
 	OUT_RING(ring, 0x00000000);
 
-	OUT_PKT4(ring, REG_A5XX_UNKNOWN_E600, 1);
+	OUT_PKT4(ring, REG_A5XX_SP_HS_CTRL_REG0, 1);
 	OUT_RING(ring, 0x00000000);
 
-	OUT_PKT4(ring, REG_A5XX_UNKNOWN_E640, 1);
+	OUT_PKT4(ring, REG_A5XX_SP_GS_CTRL_REG0, 1);
 	OUT_RING(ring, 0x00000000);
 
 	OUT_PKT4(ring, REG_A5XX_TPL1_VS_TEX_COUNT, 4);
@@ -1071,7 +1091,15 @@ t7              opcode: CP_WAIT_FOR_IDLE (26) (1 dwords)
 static void
 fd5_emit_ib(struct fd_ringbuffer *ring, struct fd_ringbuffer *target)
 {
+	/* for debug after a lock up, write a unique counter value
+	 * to scratch6 for each IB, to make it easier to match up
+	 * register dumps to cmdstream.  The combination of IB and
+	 * DRAW (scratch7) is enough to "triangulate" the particular
+	 * draw that caused lockup.
+	 */
+	emit_marker5(ring, 6);
 	__OUT_IB5(ring, target);
+	emit_marker5(ring, 6);
 }
 
 static void

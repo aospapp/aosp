@@ -1,3 +1,0 @@
-// This is a hack for building with droiddriver source.
-include(':droiddriver')
-project(':droiddriver').projectDir = file('..')

@@ -214,7 +214,6 @@ public class CheckoutActivityTest
                 .build());
 
         // Dynamically change view contents
-        mActivity.onCcNumber((v) -> v.setText("108"));
         mActivity.onCcExpiration((v) -> v.setSelection(INDEX_CC_EXPIRATION_TOMORROW, true));
         mActivity.onHomeAddress((v) -> v.setChecked(true));
         mActivity.onSaveCc((v) -> v.setChecked(true));

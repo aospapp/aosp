@@ -51,10 +51,11 @@ ANDROID_DEVICE_EMPTY_CONFIG_MSG = "Configuration is empty, abort!"
 ANDROID_DEVICE_NOT_LIST_CONFIG_MSG = "Configuration should be a list, abort!"
 CRASH_REPORT_PATHS = ("/data/tombstones/", "/data/vendor/ramdump/",
                       "/data/ramdump/", "/data/vendor/ssrdump",
-                      "/data/vendor/ramdump/bluetooth")
+                      "/data/vendor/ramdump/bluetooth", "/data/vendor/log/cbd")
 CRASH_REPORT_SKIPS = ("RAMDUMP_RESERVED", "RAMDUMP_STATUS", "RAMDUMP_OUTPUT",
                       "bluetooth")
 DEFAULT_QXDM_LOG_PATH = "/data/vendor/radio/diag_logs"
+DEFAULT_SDM_LOG_PATH = "/data/vendor/slog/"
 BUG_REPORT_TIMEOUT = 1800
 PULL_TIMEOUT = 300
 PORT_RETRY_COUNT = 3
@@ -99,6 +100,10 @@ def create(configs):
                  " but is not attached.") % ad.serial,
                 serial=ad.serial)
     _start_services_on_ads(ads)
+    for ad in ads:
+        if ad.droid:
+            utils.set_location_service(ad, False)
+            utils.sync_device_time(ad)
     return ads
 
 
@@ -130,18 +135,6 @@ def get_info(ads):
         info.update(ad.build_info)
         device_info.append(info)
     return device_info
-
-
-def get_post_job_info(ads):
-    """Returns the tracked build id to test_run_summary.json
-
-    Args:
-        ads: A list of AndroidDevice objects.
-
-    Returns:
-        A dict consisting of {'build_id': ads[0].build_info}
-    """
-    return 'Build Info', ads[0].build_info
 
 
 def _start_services_on_ads(ads):
@@ -369,9 +362,8 @@ class AndroidDevice:
         self.log_dir = 'AndroidDevice%s' % serial
         self.log_path = os.path.join(log_path_base, self.log_dir)
         self.log = tracelogger.TraceLogger(
-            AndroidDeviceLoggerAdapter(logging.getLogger(), {
-                'serial': serial
-            }))
+            AndroidDeviceLoggerAdapter(logging.getLogger(),
+                                       {'serial': serial}))
         self._event_dispatchers = {}
         self._services = []
         self.register_service(services.AdbLogcatService(self))
@@ -481,7 +473,8 @@ class AndroidDevice:
             'serial': self.serial,
             'model': self.model,
             'build_info': self.build_info,
-            'user_added_info': self._user_added_device_info
+            'user_added_info': self._user_added_device_info,
+            'flavor': self.flavor
         }
         return info
 
@@ -532,6 +525,11 @@ class AndroidDevice:
             return model
         else:
             return self.adb.getprop("ro.product.name").lower()
+
+    @property
+    def flavor(self):
+        """Returns the specific flavor of Android build the device is using."""
+        return self.adb.getprop("ro.build.flavor").lower()
 
     @property
     def droid(self):
@@ -671,8 +669,9 @@ class AndroidDevice:
                 except (IndexError, ValueError) as e:
                     # Possible ValueError from string to int cast.
                     # Possible IndexError from split.
-                    self.log.warn('Command \"%s\" returned output line: '
-                                  '\"%s\".\nError: %s', cmd, out, e)
+                    self.log.warn(
+                        'Command \"%s\" returned output line: '
+                        '\"%s\".\nError: %s', cmd, out, e)
             except Exception as e:
                 self.log.warn(
                     'Device fails to check if %s running with \"%s\"\n'
@@ -698,7 +697,10 @@ class AndroidDevice:
                                                         target) >= 0
         return low and high
 
-    def cat_adb_log(self, tag, begin_time, end_time=None,
+    def cat_adb_log(self,
+                    tag,
+                    begin_time,
+                    end_time=None,
                     dest_path="AdbLogExcerpts"):
         """Takes an excerpt of the adb logcat log from a certain time point to
         current time.
@@ -721,8 +723,9 @@ class AndroidDevice:
             self.log.warning("Logcat file %s does not exist." % logcat_path)
             return
         adb_excerpt_dir = os.path.join(self.log_path, dest_path)
-        utils.create_dir(adb_excerpt_dir)
-        out_name = '%s,%s.txt' % (log_begin_time, self.serial)
+        os.makedirs(adb_excerpt_dir, exist_ok=True)
+        out_name = '%s,%s.txt' % (acts_logger.normalize_log_line_timestamp(
+            log_begin_time), self.serial)
         tag_len = utils.MAX_FILENAME_LEN - len(out_name)
         out_name = '%s,%s' % (tag[:tag_len], out_name)
         adb_excerpt_path = os.path.join(adb_excerpt_dir, out_name)
@@ -767,7 +770,8 @@ class AndroidDevice:
             self.log.warning("Logcat file %s does not exist." % logcat_path)
             return
         output = job.run(
-            "grep '%s' %s" % (matching_string, logcat_path), ignore_status=True)
+            "grep '%s' %s" % (matching_string, logcat_path),
+            ignore_status=True)
         if not output.stdout or output.exit_status != 0:
             return []
         if begin_time:
@@ -858,8 +862,9 @@ class AndroidDevice:
                     'pm list packages | grep -w "package:%s"' % package_name))
 
         except Exception as err:
-            self.log.error('Could not determine if %s is installed. '
-                           'Received error:\n%s', package_name, err)
+            self.log.error(
+                'Could not determine if %s is installed. '
+                'Received error:\n%s', package_name, err)
             return False
 
     def is_sl4a_installed(self):
@@ -883,8 +888,9 @@ class AndroidDevice:
                     self.log.info("apk %s is running", package_name)
                     return True
             except Exception as e:
-                self.log.warn("Device fails to check is %s running by %s "
-                              "Exception %s", package_name, cmd, e)
+                self.log.warn(
+                    "Device fails to check is %s running by %s "
+                    "Exception %s", package_name, cmd, e)
                 continue
         self.log.debug("apk %s is not running", package_name)
         return False
@@ -932,7 +938,7 @@ class AndroidDevice:
         except adb.AdbError:
             new_br = False
         br_path = self.device_log_path
-        utils.create_dir(br_path)
+        os.makedirs(br_path, exist_ok=True)
         time_stamp = acts_logger.normalize_log_line_timestamp(
             acts_logger.epoch_to_log_line_timestamp(begin_time))
         out_name = "AndroidDevice%s_%s" % (
@@ -973,19 +979,36 @@ class AndroidDevice:
         for skip_file in skip_files:
             cmd = "%s ! -iname %s" % (cmd, skip_file)
         out = self.adb.shell(cmd, ignore_status=True)
-        if not out or "No such" in out or "Permission denied" in out:
+        if not out or "No such" in out or "Permission denied" in out or \
+            "Not a directory" in out:
             return []
         files = out.split("\n")
         self.log.debug("Find files in directory %s: %s", directory, files)
         return files
 
-    def pull_files(self, files, remote_path=None):
-        """Pull files from devices."""
-        if not remote_path:
-            remote_path = self.log_path
-        for file_name in files:
+    @property
+    def external_storage_path(self):
+        """
+        The $EXTERNAL_STORAGE path on the device. Most commonly set to '/sdcard'
+        """
+        return self.adb.shell('echo $EXTERNAL_STORAGE')
+
+    def pull_files(self, device_paths, host_path=None):
+        """Pull files from devices.
+
+        Args:
+            device_paths: List of paths on the device to pull from.
+            host_path: Destination path
+        """
+        if isinstance(device_paths, str):
+            device_paths = [device_paths]
+        if not host_path:
+            host_path = self.log_path
+        for device_path in device_paths:
+            self.log.info(
+                'Pull from device: %s -> %s' % (device_path, host_path))
             self.adb.pull(
-                "%s %s" % (file_name, remote_path), timeout=PULL_TIMEOUT)
+                "%s %s" % (device_path, host_path), timeout=PULL_TIMEOUT)
 
     def check_crash_report(self,
                            test_name=None,
@@ -994,6 +1017,12 @@ class AndroidDevice:
         """check crash report on the device."""
         crash_reports = []
         for crash_path in CRASH_REPORT_PATHS:
+            try:
+                cmd = 'cd %s' % crash_path
+                self.adb.shell(cmd)
+            except Exception as e:
+                self.log.debug("received exception %s", e)
+                continue
             crashes = self.get_file_names(
                 crash_path,
                 skip_files=CRASH_REPORT_SKIPS,
@@ -1011,7 +1040,7 @@ class AndroidDevice:
             test_name = test_name or time.strftime("%Y-%m-%d-%Y-%H-%M-%S")
             crash_log_path = os.path.join(self.log_path, test_name,
                                           "Crashes_%s" % self.serial)
-            utils.create_dir(crash_log_path)
+            os.makedirs(crash_log_path, exist_ok=True)
             self.pull_files(crash_reports, crash_log_path)
         return crash_reports
 
@@ -1025,7 +1054,7 @@ class AndroidDevice:
         if qxdm_logs:
             qxdm_log_path = os.path.join(self.device_log_path,
                                          "QXDM_%s" % self.serial)
-            utils.create_dir(qxdm_log_path)
+            os.makedirs(qxdm_log_path, exist_ok=True)
             self.log.info("Pull QXDM Log %s to %s", qxdm_logs, qxdm_log_path)
             self.pull_files(qxdm_logs, qxdm_log_path)
             self.adb.pull(
@@ -1037,7 +1066,33 @@ class AndroidDevice:
         if "Verizon" in self.adb.getprop("gsm.sim.operator.alpha"):
             omadm_log_path = os.path.join(self.device_log_path,
                                           "OMADM_%s" % self.serial)
-            utils.create_dir(omadm_log_path)
+            os.makedirs(omadm_log_path, exist_ok=True)
+            self.log.info("Pull OMADM Log")
+            self.adb.pull(
+                "/data/data/com.android.omadm.service/files/dm/log/ %s" %
+                omadm_log_path,
+                timeout=PULL_TIMEOUT,
+                ignore_status=True)
+
+    def get_sdm_logs(self, test_name="", begin_time=None):
+        """Get sdm logs."""
+        # Sleep 10 seconds for the buffered log to be written in sdm log file
+        time.sleep(10)
+        log_path = getattr(self, "sdm_log_path", DEFAULT_SDM_LOG_PATH)
+        sdm_logs = self.get_file_names(
+            log_path, begin_time=begin_time, match_string="*.sdm*")
+        if sdm_logs:
+            sdm_log_path = os.path.join(self.device_log_path,
+                                        "SDM_%s" % self.serial)
+            os.makedirs(sdm_log_path, exist_ok=True)
+            self.log.info("Pull SDM Log %s to %s", sdm_logs, sdm_log_path)
+            self.pull_files(sdm_logs, sdm_log_path)
+        else:
+            self.log.error("Didn't find SDM logs in %s." % log_path)
+        if "Verizon" in self.adb.getprop("gsm.sim.operator.alpha"):
+            omadm_log_path = os.path.join(self.device_log_path,
+                                          "OMADM_%s" % self.serial)
+            os.makedirs(omadm_log_path, exist_ok=True)
             self.log.info("Pull OMADM Log")
             self.adb.pull(
                 "/data/data/com.android.omadm.service/files/dm/log/ %s" %
@@ -1281,13 +1336,18 @@ class AndroidDevice:
 
     def get_my_current_focus_app(self):
         """Get the current focus application"""
-        output = self.adb.shell(
-            'dumpsys window windows | grep -E mFocusedApp', ignore_status=True)
-        if not output or "not found" in output or "Can't find" in output or (
-                "mFocusedApp=null" in output):
-            result = ''
-        else:
-            result = output.split(' ')[-2]
+        dumpsys_cmd = [
+            'dumpsys window | grep -E mFocusedApp',
+            'dumpsys window windows | grep -E mFocusedApp'
+        ]
+        for cmd in dumpsys_cmd:
+            output = self.adb.shell(cmd, ignore_status=True)
+            if not output or "not found" in output or "Can't find" in output or (
+                    "mFocusedApp=null" in output):
+                result = ''
+            else:
+                result = output.split(' ')[-2]
+                break
         self.log.debug("Current focus app is %s", result)
         return result
 
@@ -1401,6 +1461,10 @@ class AndroidDevice:
             self.send_keycode("BACK")
 
     def exit_setup_wizard(self):
+        # Handling Android TV's setupwizard is ignored for now.
+        if 'feature:com.google.android.tv.installed' in self.adb.shell(
+                'pm list features'):
+            return
         if not self.is_user_setup_complete() or self.is_setupwizard_on():
             # b/116709539 need this to prevent reboot after skip setup wizard
             self.adb.shell(
@@ -1436,6 +1500,66 @@ class AndroidDevice:
         activity = package.split('=')[0].split('/')[-2]
         self.log.info("%s/.%sActivity" % (wizard_package, activity))
         return "%s/.%sActivity" % (wizard_package, activity)
+
+    def push_system_file(self, src_file_path, dst_file_path, push_timeout=300):
+        """Pushes a file onto the read-only file system.
+
+        For speed, the device is left in root mode after this call, and leaves
+        verity disabled. To re-enable verity, call ensure_verity_enabled().
+
+        Args:
+            src_file_path: The path to the system app to install.
+            dst_file_path: The destination of the file.
+            push_timeout: How long to wait for the push to finish.
+        Returns:
+            Whether or not the install was successful.
+        """
+        self.adb.ensure_root()
+        try:
+            self.ensure_verity_disabled()
+            self.adb.remount()
+            out = self.adb.push(
+                '%s %s' % (src_file_path, dst_file_path), timeout=push_timeout)
+            if 'error' in out:
+                self.log.error('Unable to push system file %s to %s due to %s',
+                               src_file_path, dst_file_path, out)
+                return False
+            return True
+        except Exception as e:
+            self.log.error('Unable to push system file %s to %s due to %s',
+                           src_file_path, dst_file_path, e)
+            return False
+
+    def ensure_verity_enabled(self):
+        """Ensures that verity is enabled.
+
+        If verity is not enabled, this call will reboot the phone. Note that
+        this only works on debuggable builds.
+        """
+        user = self.adb.get_user_id()
+        # The below properties will only exist if verity has been enabled.
+        system_verity = self.adb.getprop('partition.system.verified')
+        vendor_verity = self.adb.getprop('partition.vendor.verified')
+        if not system_verity or not vendor_verity:
+            self.adb.ensure_root()
+            self.adb.enable_verity()
+            self.reboot()
+            self.adb.ensure_user(user)
+
+    def ensure_verity_disabled(self):
+        """Ensures that verity is disabled.
+
+        If verity is enabled, this call will reboot the phone.
+        """
+        user = self.adb.get_user_id()
+        # The below properties will only exist if verity has been enabled.
+        system_verity = self.adb.getprop('partition.system.verified')
+        vendor_verity = self.adb.getprop('partition.vendor.verified')
+        if system_verity or vendor_verity:
+            self.adb.ensure_root()
+            self.adb.disable_verity()
+            self.reboot()
+            self.adb.ensure_user(user)
 
 
 class AndroidDeviceLoggerAdapter(logging.LoggerAdapter):

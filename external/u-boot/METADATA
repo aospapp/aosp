@@ -11,7 +11,7 @@ third_party {
     type: ARCHIVE
     value: "git://git.denx.de/u-boot.git"
   }
-  version: "2018.07"
-  last_upgrade_date { year: 2018 month: 7 day: 31 }
+  version: "2020.01"
+  last_upgrade_date { year: 2020 month: 1 day: 23 }
   license_type: RESTRICTED
 }

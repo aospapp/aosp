@@ -551,4 +551,14 @@ public class ContentValuesTest {
             // expected, test success.
         }
     }
+
+    @Test
+    public void testIsEmpty() {
+        final ContentValues values = new ContentValues();
+        assertTrue(values.isEmpty());
+        values.put("k", "v");
+        assertFalse(values.isEmpty());
+        values.clear();
+        assertTrue(values.isEmpty());
+    }
 }

@@ -975,15 +975,14 @@ void parse_printerAttributes(ipp_t *response, printer_capabilities_t *capabiliti
         LOGD("pclm-compression-method-preferred=%s", ippGetString(attrptr, 0, NULL));
     }
 
-    // is device able to rotate back page for duplex jobs?
-    if ((attrptr = ippFindAttribute(response, "pclm-raster-back-side", IPP_TAG_KEYWORD)) != NULL) {
-        LOGD("pclm-raster-back-side=%s", ippGetString(attrptr, 0, NULL));
-        if (strcmp(ippGetString(attrptr, 0, NULL), "rotated") == 0) {
-            capabilities->canRotateDuplexBackPage = 0;
-            LOGD("Device cannot rotate back page for duplex jobs.");
-        } else {
-            capabilities->canRotateDuplexBackPage = 1;
-        }
+    // is device able to rotate back page for duplex jobs? (assume PCLM and PWG are similar)
+    capabilities->canRotateDuplexBackPage = 0;
+    if ((attrptr = ippFindAttribute(response, "pclm-raster-back-side", IPP_TAG_KEYWORD)) == NULL) {
+        attrptr = ippFindAttribute(response, "pwg-raster-document-sheet-back", IPP_TAG_KEYWORD);
+    }
+    if (attrptr != NULL && strcmp(ippGetString(attrptr, 0, NULL), "rotated") != 0) {
+        LOGD("Device can rotate back page for duplex jobs.");
+        capabilities->canRotateDuplexBackPage = 1;
     }
 
     // look for full-bleed supported by looking for 0 on all margins
@@ -1092,18 +1091,7 @@ static void parse_printerUris(ipp_t *response, printer_capabilities_t *capabilit
         }
     }
 
-    // If security or authentication is required (non-"none") at any URI, mark it invalid
-
-    if ((attrptr = ippFindAttribute(response, "uri-security-supported", IPP_TAG_KEYWORD)) != NULL) {
-        for (i = 0; i < MIN(ippGetCount(attrptr), MAX_URIS); i++) {
-            if (strcmp("none", ippGetString(attrptr, i, NULL)) != 0) {
-                LOGD("parse_printerUris %s invalid because sec=%s", uris[i].uri,
-                        ippGetString(attrptr, i, NULL));
-                uris[i].valid = false;
-            }
-        }
-    }
-
+    // If authentication is required by any URI, mark it invalid
     if ((attrptr = ippFindAttribute(response, "uri-authentication-supported", IPP_TAG_KEYWORD))
             != NULL) {
         for (i = 0; i < MIN(ippGetCount(attrptr), MAX_URIS); i++) {
@@ -1119,10 +1107,10 @@ static void parse_printerUris(ipp_t *response, printer_capabilities_t *capabilit
 
     // Find a valid URI and copy it into place.
     for (i = 0; i < MAX_URIS; i++) {
-        if (uris[i].valid) {
+        // Copy if the URI is valid and we haven't yet discovered ipps
+        if (uris[i].valid && strncmp(capabilities->printerUri, "ipps://", 7) != 0) {
             LOGD("parse_printerUris found %s", uris[i].uri);
             strlcpy(capabilities->printerUri, uris[i].uri, sizeof(capabilities->printerUri));
-            break;
         }
     }
 }

@@ -67,14 +67,17 @@ interface IRecentsAnimationController {
     void setAnimationTargetsBehindSystemBars(boolean behindSystemBars);
 
     /**
-     * Informs the system that the primary split-screen stack should be minimized.
-     */
-    void setSplitScreenMinimized(boolean minimized);
-
-    /**
      * Hides the current input method if one is showing.
      */
     void hideCurrentInputMethod();
+
+    /**
+     * Clean up the screenshot of previous task which was created during recents animation that
+     * was cancelled by a stack order change.
+     *
+     * @see {@link IRecentsAnimationRunner#onAnimationCanceled}
+     */
+    void cleanupScreenshot();
 
     /**
      * Set a state for controller whether would like to cancel recents animations with deferred
@@ -86,22 +89,41 @@ interface IRecentsAnimationController {
      * screenshot, so that Launcher can still control the leash lifecycle & make the next app
      * transition animate smoothly without flickering.
      *
-     * @param screenshot When set {@code true}, means recents animation will be canceled when the
-     *                   next app launch. System will take previous task's screenshot when the next
-     *                   app transition starting, and skip previous task's animation.
-     *                   Set {@code false} means will not take screenshot & skip animation
-     *                   for previous task.
+     * @param defer When set {@code true}, means that the recents animation will defer canceling the
+     *              animation when a stack order change is triggered until the subsequent app
+     *              transition start and skip previous task's animation.
+     *              When set to {@code false}, means that the recents animation will be canceled
+     *              immediately when the stack order changes.
+     * @param screenshot When set {@code true}, means that the system will take previous task's
+     *                   screenshot and replace the contents of the leash with it when the next app
+     *                   transition starting. The runner must call #cleanupScreenshot() to end the
+     *                   recents animation.
+     *                   When set to {@code false}, means that the system will simply wait for the
+     *                   next app transition start to immediately cancel the recents animation. This
+     *                   can be useful when you want an immediate transition into a state where the
+     *                   task is shown in the home/recents activity (without waiting for a
+     *                   screenshot).
      *
      * @see #cleanupScreenshot()
      * @see IRecentsAnimationRunner#onCancelled
      */
-    void setCancelWithDeferredScreenshot(boolean screenshot);
+    void setDeferCancelUntilNextTransition(boolean defer, boolean screenshot);
 
     /**
-     * Clean up the screenshot of previous task which was created during recents animation that
-     * was cancelled by a stack order change.
-     *
-     * @see {@link IRecentsAnimationRunner#onAnimationCanceled}
+     * Sets a state for controller to decide which surface is the destination when the recents
+     * animation is cancelled through fail safe mechanism.
      */
-    void cleanupScreenshot();
+    void setWillFinishToHome(boolean willFinishToHome);
+
+    /**
+     * Stops controlling a task that is currently controlled by this recents animation.
+     *
+     * This method should be called when a task that has been received via {@link #onAnimationStart}
+     * or {@link #onTaskAppeared} is no longer needed.  After calling this method, the task will
+     * either disappear from the screen, or jump to its final position in case it was the top task.
+     *
+     * @param taskId Id of the Task target to remove
+     * @return {@code true} when target removed successfully, {@code false} otherwise.
+     */
+    boolean removeTask(int taskId);
 }

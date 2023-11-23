@@ -36,7 +36,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             bb:40:1c:43:f5:5e:4f:b0
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=CH, O=SwissSign AG, CN=SwissSign Gold CA - G2
         Validity
             Not Before: Oct 25 08:30:35 2006 GMT
@@ -44,7 +44,7 @@ Certificate:
         Subject: C=CH, O=SwissSign AG, CN=SwissSign Gold CA - G2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:af:e4:ee:7e:8b:24:0e:12:6e:a9:50:2d:16:44:
                     3b:92:92:5c:ca:b8:5d:84:92:42:13:2a:bc:65:57:

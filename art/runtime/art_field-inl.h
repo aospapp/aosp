@@ -40,6 +40,17 @@ inline bool ArtField::IsProxyField() {
   return GetDeclaringClass<kWithoutReadBarrier>()->IsProxyClass<kVerifyNone>();
 }
 
+// We are only ever allowed to set our own final fields. We do need to be careful since if a
+// structural redefinition occurs during <clinit> we can end up trying to set the non-obsolete
+// class's fields from the obsolete class. This is something we want to allow. This is tested by
+// run-test 2002-virtual-structural-initializing.
+inline bool ArtField::CanBeChangedBy(ArtMethod* method) {
+  ObjPtr<mirror::Class> declaring_class(GetDeclaringClass());
+  ObjPtr<mirror::Class> referring_class(method->GetDeclaringClass());
+  return !IsFinal() || (declaring_class == referring_class) ||
+         UNLIKELY(referring_class->IsObsoleteVersionOf(declaring_class));
+}
+
 template<ReadBarrierOption kReadBarrierOption>
 inline ObjPtr<mirror::Class> ArtField::GetDeclaringClass() {
   GcRootSource gc_root_source(this);
@@ -346,15 +357,6 @@ inline ObjPtr<mirror::String> ArtField::ResolveNameString() {
   CHECK_NE(dex_field_index, dex::kDexNoIndex);
   const dex::FieldId& field_id = GetDexFile()->GetFieldId(dex_field_index);
   return Runtime::Current()->GetClassLinker()->ResolveString(field_id.name_idx_, this);
-}
-
-template <typename Visitor>
-inline void ArtField::UpdateObjects(const Visitor& visitor) {
-  ObjPtr<mirror::Class> old_class = DeclaringClassRoot().Read<kWithoutReadBarrier>();
-  ObjPtr<mirror::Class> new_class = visitor(old_class.Ptr());
-  if (old_class != new_class) {
-    SetDeclaringClass(new_class);
-  }
 }
 
 // If kExactOffset is true then we only find the matching offset, not the field containing the

@@ -21,7 +21,10 @@
 #include <math.h>
 #include <string.h>
 
+#ifdef GYRO_CAL_DBG_ENABLED
 #include "calibration/util/cal_log.h"
+#endif  // GYRO_CAL_DBG_ENABLED
+
 #include "common/math/macros.h"
 
 /////// DEFINITIONS AND MACROS ///////////////////////////////////////
@@ -194,10 +197,6 @@ void gyroCalInit(struct GyroCal* gyro_cal,
                           GYROCAL_DEBUG_SAMPLE_RATE_GAP_SEC);
 #endif  // GYRO_CAL_DBG_ENABLED
 }
-
-// Void pointer in the gyro calibration data structure (doesn't do anything
-// except prevent compiler warnings).
-void gyroCalDestroy(struct GyroCal* gyro_cal) { (void)gyro_cal; }
 
 // Get the most recent bias calibration value.
 void gyroCalGetBias(struct GyroCal* gyro_cal, float* bias_x, float* bias_y,

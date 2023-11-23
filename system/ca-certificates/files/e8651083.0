@@ -27,7 +27,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             c2:7e:43:04:4e:47:3f:19
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=HU, L=Budapest, O=Microsec Ltd., CN=Microsec e-Szigno Root CA 2009/emailAddress=info@e-szigno.hu
         Validity
             Not Before: Jun 16 11:30:18 2009 GMT
@@ -35,7 +35,7 @@ Certificate:
         Subject: C=HU, L=Budapest, O=Microsec Ltd., CN=Microsec e-Szigno Root CA 2009/emailAddress=info@e-szigno.hu
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:e9:f8:8f:f3:63:ad:da:86:d8:a7:e0:42:fb:cf:
                     91:de:a6:26:f8:99:a5:63:70:ad:9b:ae:ca:33:40:

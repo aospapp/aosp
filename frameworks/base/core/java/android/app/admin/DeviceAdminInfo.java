@@ -17,7 +17,7 @@
 package android.app.admin;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -53,6 +53,14 @@ import java.util.HashMap;
  */
 public final class DeviceAdminInfo implements Parcelable {
     static final String TAG = "DeviceAdminInfo";
+
+    /**
+     * A type of policy that this device admin can use: profile owner on an organization-owned
+     * device.
+     *
+     * @hide
+     */
+    public static final int USES_POLICY_ORGANIZATION_OWNED_PROFILE_OWNER = -3;
 
     /**
      * A type of policy that this device admin can use: device owner meta-policy

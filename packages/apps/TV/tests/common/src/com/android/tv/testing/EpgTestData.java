@@ -18,13 +18,17 @@ package com.android.tv.testing;
 
 import com.android.tv.data.ChannelImpl;
 import com.android.tv.data.Lineup;
-import com.android.tv.data.Program;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
+import com.android.tv.testing.fakes.FakeClock;
+
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+
 import java.util.concurrent.TimeUnit;
 
 /** EPG data for use in tests. */
@@ -75,14 +79,14 @@ public abstract class EpgTestData {
     // Start and end time may be negative meaning they happen before "now".
 
     public static final Program PROGRAM_1 =
-            new Program.Builder()
+            new ProgramImpl.Builder()
                     .setTitle("Program 1")
                     .setStartTimeUtcMillis(0)
                     .setEndTimeUtcMillis(TimeUnit.MINUTES.toMillis(30))
                     .build();
 
     public static final Program PROGRAM_2 =
-            new Program.Builder()
+            new ProgramImpl.Builder()
                     .setTitle("Program 2")
                     .setStartTimeUtcMillis(TimeUnit.MINUTES.toMillis(30))
                     .setEndTimeUtcMillis(TimeUnit.MINUTES.toMillis(60))
@@ -191,7 +195,7 @@ public abstract class EpgTestData {
                 new Function<Program, Program>() {
                     @Override
                     public Program apply(Program p) {
-                        return new Program.Builder(p)
+                        return new ProgramImpl.Builder(p)
                                 .setStartTimeUtcMillis(p.getStartTimeUtcMillis() + time)
                                 .setEndTimeUtcMillis(p.getEndTimeUtcMillis() + time)
                                 .build();

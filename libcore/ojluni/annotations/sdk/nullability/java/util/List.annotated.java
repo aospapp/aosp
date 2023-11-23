@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -86,4 +86,29 @@ public int lastIndexOf(@libcore.util.Nullable java.lang.Object o);
 @libcore.util.NonNull public java.util.List<@libcore.util.NullFromTypeParam E> subList(int fromIndex, int toIndex);
 
 @libcore.util.NonNull public default java.util.Spliterator<@libcore.util.NullFromTypeParam E> spliterator() { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of() { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3, @libcore.util.NonNull E e4) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3, @libcore.util.NonNull E e4, @libcore.util.NonNull E e5) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3, @libcore.util.NonNull E e4, @libcore.util.NonNull E e5, @libcore.util.NonNull E e6) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3, @libcore.util.NonNull E e4, @libcore.util.NonNull E e5, @libcore.util.NonNull E e6, @libcore.util.NonNull E e7) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3, @libcore.util.NonNull E e4, @libcore.util.NonNull E e5, @libcore.util.NonNull E e6, @libcore.util.NonNull E e7, @libcore.util.NonNull E e8) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3, @libcore.util.NonNull E e4, @libcore.util.NonNull E e5, @libcore.util.NonNull E e6, @libcore.util.NonNull E e7, @libcore.util.NonNull E e8, @libcore.util.NonNull E e9) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(@libcore.util.NonNull E e1, @libcore.util.NonNull E e2, @libcore.util.NonNull E e3, @libcore.util.NonNull E e4, @libcore.util.NonNull E e5, @libcore.util.NonNull E e6, @libcore.util.NonNull E e7, @libcore.util.NonNull E e8, @libcore.util.NonNull E e9, @libcore.util.NonNull E e10) { throw new RuntimeException("Stub!"); }
+
+@java.lang.SafeVarargs
+@libcore.util.NonNull public static <E> java.util.List<@libcore.util.NonNull E> of(E @libcore.util.NonNull ... elements) { throw new RuntimeException("Stub!"); }
 }

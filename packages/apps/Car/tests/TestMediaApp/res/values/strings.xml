@@ -17,6 +17,8 @@
 <resources>
     <string name="app_name" translatable="false">Test Media App</string>
 
+    <string name="broken_service" translatable="false">Test Empty Media</string>
+
     <string name="select_account" translatable="false">Please select an account type</string>
 
     <string name="no_account" translatable="false"> A test account is required to use this test
@@ -29,4 +31,5 @@
 
     <string name="heart_less_less" translatable="false">Heart--</string>
 
+    <string name="location" translatable="false">Location</string>
 </resources>

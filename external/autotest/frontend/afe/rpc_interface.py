@@ -2025,12 +2025,6 @@ def get_job_history(**filter_data):
     return rpc_utils.prepare_for_serialization(job_info.get_history())
 
 
-def get_host_history(start_time, end_time, hosts=None, board=None, pool=None):
-    """Deprecated."""
-    raise ValueError('get_host_history rpc is deprecated '
-                     'and no longer implemented.')
-
-
 def shard_heartbeat(shard_hostname, jobs=(), hqes=(), known_job_ids=(),
                     known_host_ids=(), known_host_statuses=()):
     """Receive updates for job statuses from shards and assign hosts and jobs.
@@ -2196,8 +2190,6 @@ def add_board_to_shard(hostname, labels):
 # Remove board RPCs are rare, so we can afford to make them a bit more
 # expensive (by performing in a transaction) in order to guarantee
 # atomicity.
-# TODO(akeshet): If we ever update to newer version of django, we need to
-# migrate to transaction.atomic instead of commit_on_success
 @transaction.commit_on_success
 def remove_board_from_shard(hostname, label):
     """Remove board from the given shard.
@@ -2315,7 +2307,8 @@ def set_stable_version(version, board=stable_version_utils.DEFAULT):
     @param version: The new value of stable version for given board.
     @param board: Name of the board, default to value `DEFAULT`.
     """
-    stable_version_utils.set(version=version, board=board)
+    logging.warning("rpc_interface::set_stable_version: attempted to set stable version. setting the stable version is not permitted")
+    return None
 
 
 @rpc_utils.route_rpc_to_master

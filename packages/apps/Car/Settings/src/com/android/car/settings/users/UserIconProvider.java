@@ -16,72 +16,90 @@
 
 package com.android.car.settings.users;
 
-import android.car.userlib.CarUserManagerHelper;
+import android.annotation.UserIdInt;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
-import com.android.car.settings.R;
+import com.android.internal.util.UserIcons;
 
 /**
  * Simple class for providing icons for users in Settings.
  */
 public class UserIconProvider {
-    private final CarUserManagerHelper mCarUserManagerHelper;
-
-    public UserIconProvider(CarUserManagerHelper userManagerHelper) {
-        mCarUserManagerHelper = userManagerHelper;
-    }
-
     /**
-     * Gets the icon for the given user to use in settings.
-     * If icon has not been assigned to this user, it defaults to a generic user icon.
+     * Gets a scaled rounded icon for the given user to use in settings.  If a user does
+     * not have an icon saved, this method will default to a generic icon and update UserManager to
+     * use that icon.
      *
      * @param userInfo User for which the icon is requested.
-     * @return Drawable representing the icon for the user.
+     * @param context Context to use for resources
+     * @return {@link RoundedBitmapDrawable} representing the icon for the user.
      */
-    public Drawable getUserIcon(UserInfo userInfo, Context context) {
-        Bitmap icon = mCarUserManagerHelper.getUserIcon(userInfo);
-        if (icon == null) {
-            // Return default user icon.
-            return context.getDrawable(R.drawable.ic_user);
-        }
+    public RoundedBitmapDrawable getRoundedUserIcon(UserInfo userInfo, Context context) {
+        UserManager userManager = UserManager.get(context);
         Resources res = context.getResources();
-        BitmapDrawable scaledIcon = (BitmapDrawable) mCarUserManagerHelper.scaleUserIcon(icon, res
-                .getDimensionPixelSize(R.dimen.icon_size));
+        Bitmap icon = userManager.getUserIcon(userInfo.id);
 
-        // Enforce that the icon is circular
-        RoundedBitmapDrawable circleIcon = RoundedBitmapDrawableFactory
-                .create(res, scaledIcon.getBitmap());
+        if (icon == null) {
+            icon = assignDefaultIcon(userManager, res, userInfo);
+        }
+
+        return createScaledRoundIcon(res, icon);
+    }
+
+    /** Returns a scaled, rounded, default icon for the Guest user */
+    public RoundedBitmapDrawable getRoundedGuestDefaultIcon(Resources resources) {
+        return createScaledRoundIcon(resources, getGuestUserDefaultIcon(resources));
+    }
+
+    private RoundedBitmapDrawable createScaledRoundIcon(Resources resources, Bitmap icon) {
+        BitmapDrawable scaledIcon = UserUtils.scaleUserIcon(resources, icon);
+        RoundedBitmapDrawable circleIcon =
+                RoundedBitmapDrawableFactory.create(resources, scaledIcon.getBitmap());
         circleIcon.setCircular(true);
         return circleIcon;
     }
 
     /**
-     * Gets the default icon for guest user.
+     * Assigns a default icon to a user according to the user's id. Handles Guest icon and non-guest
+     * user icons.
      *
-     * @return Drawable representing the default guest icon.
+     * @param userManager {@link UserManager} to set user icon
+     * @param resources {@link Resources} to grab icons from
+     * @param userInfo User whose avatar is set to default icon.
+     * @return Bitmap of the user icon.
      */
-    public Drawable getDefaultGuestIcon(Context context) {
-        return UserIconProvider.scaleUserIcon(mCarUserManagerHelper.getGuestDefaultIcon(),
-                mCarUserManagerHelper, context);
+    public Bitmap assignDefaultIcon(
+            UserManager userManager, Resources resources, UserInfo userInfo) {
+        Bitmap bitmap = userInfo.isGuest()
+                ? getGuestUserDefaultIcon(resources)
+                : getUserDefaultIcon(resources, userInfo.id);
+        userManager.setUserIcon(userInfo.id, bitmap);
+        return bitmap;
     }
 
     /**
-     * Scales passed in bitmap to the appropriate user icon size.
+     * Gets a bitmap representing the user's default avatar.
      *
-     * @param bitmap Bitmap to scale.
-     * @return Drawable scaled to the user icon size.
+     * @param resources The resources to pull from
+     * @param id The id of the user to get the icon for.  Pass {@link UserHandle#USER_NULL} for
+     *           Guest user.
+     * @return Default user icon
      */
-    public static Drawable scaleUserIcon(Bitmap bitmap, CarUserManagerHelper userManagerHelper,
-            Context context) {
-        return userManagerHelper.scaleUserIcon(bitmap, context.getResources()
-                .getDimensionPixelSize(R.dimen.icon_size));
+    private Bitmap getUserDefaultIcon(Resources resources, @UserIdInt int id) {
+        return UserIcons.convertToBitmap(
+                UserIcons.getDefaultUserIcon(resources, id, /* light= */ false));
+    }
+
+    private Bitmap getGuestUserDefaultIcon(Resources resources) {
+        return getUserDefaultIcon(resources, UserHandle.USER_NULL);
     }
 }

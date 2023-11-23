@@ -17,6 +17,7 @@ package com.google.android.car.kitchensink.cluster;
 
 import android.annotation.Nullable;
 import android.car.Car;
+import android.car.Car.CarServiceLifecycleListener;
 import android.car.CarAppFocusManager;
 import android.car.CarNotConnectedException;
 import android.car.cluster.navigation.NavigationState;
@@ -33,11 +34,8 @@ import android.car.cluster.navigation.NavigationState.Road;
 import android.car.cluster.navigation.NavigationState.Step;
 import android.car.cluster.navigation.NavigationState.Timestamp;
 import android.car.navigation.CarNavigationStatusManager;
-import android.content.ComponentName;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -73,19 +71,19 @@ public class InstrumentClusterFragment extends Fragment {
     private NavigationStateProto[] mNavStateData;
     private Button mTurnByTurnButton;
 
-    private ServiceConnection mCarServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            Log.d(TAG, "Connected to Car Service");
-            mCarNavigationStatusManager = (CarNavigationStatusManager) mCarApi
-                    .getCarManager(Car.CAR_NAVIGATION_SERVICE);
-            mCarAppFocusManager = (CarAppFocusManager) mCarApi
-                    .getCarManager(Car.APP_FOCUS_SERVICE);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
+    private CarServiceLifecycleListener mCarServiceLifecycleListener = (car, ready) -> {
+        if (!ready) {
             Log.d(TAG, "Disconnect from Car Service");
+            return;
+        }
+        Log.d(TAG, "Connected to Car Service");
+        try {
+            mCarNavigationStatusManager = (CarNavigationStatusManager) car.getCarManager(
+                    Car.CAR_NAVIGATION_SERVICE);
+            mCarAppFocusManager = (CarAppFocusManager) car.getCarManager(
+                    Car.APP_FOCUS_SERVICE);
+        } catch (CarNotConnectedException e) {
+            Log.e(TAG, "Car is not connected!", e);
         }
     };
 
@@ -117,13 +115,8 @@ public class InstrumentClusterFragment extends Fragment {
 
 
     private void initCarApi() {
-        if (mCarApi != null && mCarApi.isConnected()) {
-            mCarApi.disconnect();
-            mCarApi = null;
-        }
-
-        mCarApi = Car.createCar(getContext(), mCarServiceConnection);
-        mCarApi.connect();
+        mCarApi = Car.createCar(getContext(), /* handler= */ null,
+                Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER, mCarServiceLifecycleListener);
     }
 
     @NonNull
@@ -223,6 +216,15 @@ public class InstrumentClusterFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         initCarApi();
         super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public void onDestroy() {
+        if (mCarApi != null && mCarApi.isConnected()) {
+            mCarApi.disconnect();
+            mCarApi = null;
+        }
+        super.onDestroy();
     }
 
     /**

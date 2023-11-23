@@ -224,7 +224,7 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
         // Bundle result in an intent to feed into handleLaunchTestResult
         Intent resultIntent = new Intent();
         TestResult.addResultData(resultIntent, result, test.testName, /* testDetails */ null,
-                /* reportLog */ null);
+                /* reportLog */ null, null);
         handleLaunchTestResult(RESULT_OK, resultIntent);
         getListView().smoothScrollToPosition(mCurrentTestPosition + 1);
     }
@@ -233,7 +233,7 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
         // Bundle result in an intent to feed into handleLaunchTestResult
         Intent resultIntent = new Intent();
         TestResult.addResultData(resultIntent, result, testName, /* testDetails */ null,
-                /* reportLog */ null);
+                /* reportLog */ null, null);
         handleLaunchTestResult(RESULT_OK, resultIntent);
         getListView().smoothScrollToPosition(mCurrentTestPosition + 1);
     }

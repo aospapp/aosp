@@ -1,0 +1,47 @@
+#############################
+# Data files
+#
+
+/data/system_de/mdfilter(/.*)? u:object_r:mddb_filter_data_file:s0
+/data/debuglogger(/.*)? u:object_r:debuglog_data_file:s0
+/data/ramdump(/.*)? u:object_r:debuglog_data_file:s0
+
+#############################
+# debugfs files
+#
+
+#############################
+# System files
+#
+
+/system/bin/mobile_log_d u:object_r:mobile_log_d_exec:s0
+/system/bin/aee_core_forwarder u:object_r:aee_core_forwarder_exec:s0
+/system/bin/mdlogger u:object_r:mdlogger_exec:s0
+/system/bin/emdlogger[0-9]+ u:object_r:emdlogger_exec:s0
+/system/bin/modemdbfilter_client u:object_r:modemdbfilter_client_exec:s0
+/system/bin/netdiag u:object_r:netdiag_exec:s0
+/system/bin/loghidlsysservice u:object_r:loghidlsysservice_exec:s0
+/system/bin/cmddumper u:object_r:cmddumper_exec:s0
+/system/bin/em_svr u:object_r:em_svr_exec:s0
+/system/bin/aee_aed u:object_r:crash_dump_exec:s0
+/system/bin/aee_aed64 u:object_r:crash_dump_exec:s0
+/system/bin/aee_dumpstate u:object_r:dumpstate_exec:s0
+/system/bin/lbs_dbg u:object_r:lbs_dbg_exec:s0
+/system/bin/connsyslogger u:object_r:connsyslogger_exec:s0
+
+# storagemanager daemon
+# it is used to mount all storages in meta/factory mode
+/system/bin/storagemanagerd u:object_r:vold_exec:s0
+
+#MTK Bootanim
+/system/bin/mtkbootanimation u:object_r:mtkbootanimation_exec:s0
+/system/bin/boot_logo_updater u:object_r:boot_logo_updater_exec:s0
+
+# b/135474897
+/vendor/bin/hw/android\.hardware\.gatekeeper@1\.0-service.software    u:object_r:hal_gatekeeper_default_exec:s0
+
+/dev/ubi_ctrl u:object_r:mtd_device:s0
+/dev/ubi[_0-9]* u:object_r:mtd_device:s0
+/dev/block/mtd(.*)?     u:object_r:mtd_device:s0
+/dev/block/mntlblk(.*)?     u:object_r:mtd_device:s0
+/dev/mcupm(/.*)? u:object_r:mcupm_device:s0

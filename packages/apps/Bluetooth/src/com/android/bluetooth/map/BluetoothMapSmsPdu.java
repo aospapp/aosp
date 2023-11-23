@@ -16,16 +16,15 @@ package com.android.bluetooth.map;
 
 import static android.telephony.TelephonyManager.PHONE_TYPE_CDMA;
 
+import android.content.Context;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
-import com.android.internal.telephony.GsmAlphabet;
+import com.android.bluetooth.util.GsmAlphabet;
 import com.android.internal.telephony.SmsConstants;
-import com.android.internal.telephony.SmsHeader;
-import com.android.internal.telephony.cdma.sms.BearerData;
-import com.android.internal.telephony.cdma.sms.UserData;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -45,6 +44,18 @@ public class BluetoothMapSmsPdu {
     public static final int SMS_TYPE_GSM = 1;
     public static final int SMS_TYPE_CDMA = 2;
 
+    /**
+     * from SMS user data header information element identifiers.
+     * (see TS 23.040 9.2.3.24)
+     */
+    private static final int ELT_ID_NATIONAL_LANGUAGE_SINGLE_SHIFT     = 0x24;
+    private static final int ELT_ID_NATIONAL_LANGUAGE_LOCKING_SHIFT    = 0x25;
+
+    /**
+     * Supported message types for CDMA SMS messages
+     * (See 3GPP2 C.S0015-B, v2.0, table 4.5.1-1)
+     */
+    private static final int MESSAGE_TYPE_DELIVER = 0x01;
 
     /* We need to handle the SC-address mentioned in errata 4335.
      * Since the definition could be read in three different ways, I have asked
@@ -259,7 +270,7 @@ public class BluetoothMapSmsPdu {
                 // Mask out the type
                 tmp &= 0x0f;
                 // Set the new type
-                tmp |= ((BearerData.MESSAGE_TYPE_DELIVER << 4) & 0xf0);
+                tmp |= ((MESSAGE_TYPE_DELIVER << 4) & 0xf0);
                 // Store the result
                 mData[offset + 2] = (byte) tmp;
 
@@ -341,9 +352,9 @@ public class BluetoothMapSmsPdu {
                     } catch (IOException e) {
                         Log.w(TAG, "unable to read userDataHeader", e);
                     }
-                    SmsHeader userDataHeader = SmsHeader.fromByteArray(udh);
-                    mLanguageTable = userDataHeader.languageTable;
-                    mLanguageShiftTable = userDataHeader.languageShiftTable;
+                    int[] tableValue = getTableFromByteArray(udh);
+                    mLanguageTable = tableValue[0];
+                    mLanguageShiftTable = tableValue[1];
 
                     int headerBits = (userDataHeaderLength + 1) * 8;
                     int headerSeptets = headerBits / 7;
@@ -502,37 +513,34 @@ public class BluetoothMapSmsPdu {
         return sConcatenatedRef;
     }
 
-    public static ArrayList<SmsPdu> getSubmitPdus(String messageText, String address) {
+    public static ArrayList<SmsPdu> getSubmitPdus(Context context, String messageText,
+            String address) {
         /* Use the generic GSM/CDMA SMS Message functionality within Android to generate the
          * SMS PDU's as once generated to send the SMS message.
          */
 
-        int activePhone = TelephonyManager.getDefault()
-                .getCurrentPhoneType(); // TODO: Change to use: ((TelephonyManager)myContext
-        // .getSystemService(Context.TELEPHONY_SERVICE))
+        int activePhone = context.getSystemService(TelephonyManager.class)
+                .getCurrentPhoneType();
         int phoneType;
-        GsmAlphabet.TextEncodingDetails ted = (PHONE_TYPE_CDMA == activePhone)
-                ? com.android.internal.telephony.cdma.SmsMessage.calculateLength(
-                (CharSequence) messageText, false, true)
-                : com.android.internal.telephony.gsm.SmsMessage.calculateLength(
-                        (CharSequence) messageText, false);
+        int[] ted = SmsMessage.calculateLength((CharSequence) messageText, false);
 
         SmsPdu newPdu;
         String destinationAddress;
-        int msgCount = ted.msgCount;
+        int msgCount = ted[0];
         int encoding;
         int languageTable;
         int languageShiftTable;
         int refNumber = getNextConcatenatedRef() & 0x00FF;
-        ArrayList<String> smsFragments = SmsMessage.fragmentText(messageText);
+        SmsManager smsMng = SmsManager.getDefault();
+        ArrayList<String> smsFragments = smsMng.divideMessage(messageText);
         ArrayList<SmsPdu> pdus = new ArrayList<SmsPdu>(msgCount);
         byte[] data;
 
         // Default to GSM, as this code should not be used, if we neither have CDMA not GSM.
         phoneType = (activePhone == PHONE_TYPE_CDMA) ? SMS_TYPE_CDMA : SMS_TYPE_GSM;
-        encoding = ted.codeUnitSize;
-        languageTable = ted.languageTable;
-        languageShiftTable = ted.languageShiftTable;
+        encoding = ted[3];
+        languageTable = ted[4];
+        languageShiftTable = ted[5];
         destinationAddress = PhoneNumberUtils.stripSeparators(address);
         if (destinationAddress == null || destinationAddress.length() < 2) {
             destinationAddress =
@@ -548,48 +556,9 @@ public class BluetoothMapSmsPdu {
             /* This code is a reduced copy of the actual code used in the Android SMS sub system,
              * hence the comments have been left untouched. */
             for (int i = 0; i < msgCount; i++) {
-                SmsHeader.ConcatRef concatRef = new SmsHeader.ConcatRef();
-                concatRef.refNumber = refNumber;
-                concatRef.seqNumber = i + 1;  // 1-based sequence
-                concatRef.msgCount = msgCount;
-                // We currently set this to true since our messaging app will never
-                // send more than 255 parts (it converts the message to MMS well before that).
-                // However, we should support 3rd party messaging apps that might need 16-bit
-                // references
-                // Note:  It's not sufficient to just flip this bit to true; it will have
-                // ripple effects (several calculations assume 8-bit ref).
-                concatRef.isEightBits = true;
-                SmsHeader smsHeader = new SmsHeader();
-                smsHeader.concatRef = concatRef;
-
-                /* Depending on the type, call either GSM or CDMA getSubmitPdu(). The encoding
-                 * will be determined(again) by getSubmitPdu().
-                 * All packets need to be encoded using the same encoding, as the bMessage
-                 * only have one filed to describe the encoding for all messages in a concatenated
-                 * SMS... */
-                if (encoding == SmsConstants.ENCODING_7BIT) {
-                    smsHeader.languageTable = languageTable;
-                    smsHeader.languageShiftTable = languageShiftTable;
-                }
-
-                if (phoneType == SMS_TYPE_GSM) {
-                    data = com.android.internal.telephony.gsm.SmsMessage.getSubmitPdu(null,
-                            destinationAddress, smsFragments.get(i), false,
-                            SmsHeader.toByteArray(smsHeader), encoding, languageTable,
-                            languageShiftTable).encodedMessage;
-                } else { // SMS_TYPE_CDMA
-                    UserData uData = new UserData();
-                    uData.payloadStr = smsFragments.get(i);
-                    uData.userDataHeader = smsHeader;
-                    if (encoding == SmsConstants.ENCODING_7BIT) {
-                        uData.msgEncoding = UserData.ENCODING_GSM_7BIT_ALPHABET;
-                    } else { // assume UTF-16
-                        uData.msgEncoding = UserData.ENCODING_UNICODE_16;
-                    }
-                    uData.msgEncodingSet = true;
-                    data = com.android.internal.telephony.cdma.SmsMessage.getSubmitPdu(
-                            destinationAddress, uData, false).encodedMessage;
-                }
+                data = SmsMessage.getSubmitPduEncodedMessage(phoneType == SMS_TYPE_GSM,
+                        destinationAddress, smsFragments.get(i), encoding, languageTable,
+                        languageShiftTable, refNumber, i + 1, msgCount);
                 newPdu = new SmsPdu(data, encoding, phoneType, languageTable);
                 pdus.add(newPdu);
             }
@@ -607,8 +576,9 @@ public class BluetoothMapSmsPdu {
      * @param date The delivery time stamp.
      * @return
      */
-    public static ArrayList<SmsPdu> getDeliverPdus(String messageText, String address, long date) {
-        ArrayList<SmsPdu> deliverPdus = getSubmitPdus(messageText, address);
+    public static ArrayList<SmsPdu> getDeliverPdus(Context context, String messageText,
+            String address, long date) {
+        ArrayList<SmsPdu> deliverPdus = getSubmitPdus(context, messageText, address);
 
         /*
          * For CDMA the only difference between deliver and submit pdus are the messageType,
@@ -635,11 +605,13 @@ public class BluetoothMapSmsPdu {
      * The destination address must be extracted from the bmessage vCard(s).
      */
     public static String decodePdu(byte[] data, int type) {
-        String ret;
+        String ret = "";
         if (type == SMS_TYPE_CDMA) {
             /* This is able to handle both submit and deliver PDUs */
-            ret = com.android.internal.telephony.cdma.SmsMessage.createFromEfRecord(0, data)
-                    .getMessageBody();
+            SmsMessage smsMessage = SmsMessage.createFromNativeSmsSubmitPdu(data, true);
+            if (smsMessage != null) {
+                ret = smsMessage.getMessageBody();
+            }
         } else {
             /* For GSM, there is no submit pdu decoder, and most parser utils are private, and
             only minded for submit pdus */
@@ -784,6 +756,28 @@ public class BluetoothMapSmsPdu {
         }
 
         return messageBody;
+    }
+
+    private static int[] getTableFromByteArray(byte[] data) {
+        ByteArrayInputStream inStream = new ByteArrayInputStream(data);
+        /** tableValue[0]: languageTable
+         *  tableValue[1]: languageShiftTable */
+        int[] tableValue = new int[2];
+        while (inStream.available() > 0) {
+            int id = inStream.read();
+            int length = inStream.read();
+            switch (id) {
+                case ELT_ID_NATIONAL_LANGUAGE_SINGLE_SHIFT:
+                    tableValue[1] = inStream.read();
+                    break;
+                case ELT_ID_NATIONAL_LANGUAGE_LOCKING_SHIFT:
+                    tableValue[0] = inStream.read();
+                    break;
+                default:
+                    inStream.skip(length);
+            }
+        }
+        return tableValue;
     }
 
 }

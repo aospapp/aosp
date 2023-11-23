@@ -100,7 +100,9 @@ public class InvocationLightsView extends View
 
         int cornerRadiusBottom = DisplayUtils.getCornerRadiusBottom(context);
         int cornerRadiusTop = DisplayUtils.getCornerRadiusTop(context);
-        mViewHeight = Math.max(cornerRadiusBottom, cornerRadiusTop);
+        // ensure that height is non-zero even for square corners
+        mViewHeight = Math.max(Math.max(cornerRadiusBottom, cornerRadiusTop),
+            DisplayUtils.convertDpToPx(LIGHT_HEIGHT_DP, context));
 
         final int dualToneDarkTheme = Utils.getThemeAttr(mContext, R.attr.darkIconTheme);
         final int dualToneLightTheme = Utils.getThemeAttr(mContext, R.attr.lightIconTheme);
@@ -129,7 +131,7 @@ public class InvocationLightsView extends View
             float arcLengthNormalized = cornerLengthNormalized * MINIMUM_CORNER_RATIO;
             float arcOffsetNormalized = (cornerLengthNormalized - arcLengthNormalized) / 2f;
 
-            float minLightLength = arcLengthNormalized / 2;
+            float minLightLength = 0;
             float maxLightLength = mGuide.getRegionWidth(PerimeterPathGuide.Region.BOTTOM) / 4f;
 
             float lightLength = MathUtils.lerp(minLightLength, maxLightLength, progress);
@@ -138,10 +140,10 @@ public class InvocationLightsView extends View
             float rightStart = mGuide.getRegionWidth(PerimeterPathGuide.Region.BOTTOM)
                     + (cornerLengthNormalized - arcOffsetNormalized) * (1 - progress);
 
-            setLight(0, leftStart, lightLength);
-            setLight(1, leftStart + lightLength, lightLength);
-            setLight(2, rightStart - (lightLength * 2), lightLength);
-            setLight(3, rightStart - lightLength, lightLength);
+            setLight(0, leftStart, leftStart + lightLength);
+            setLight(1, leftStart + lightLength, leftStart + lightLength * 2);
+            setLight(2, rightStart - (lightLength * 2), rightStart - lightLength);
+            setLight(3, rightStart - lightLength, rightStart);
             setVisibility(View.VISIBLE);
         }
         invalidate();
@@ -153,7 +155,7 @@ public class InvocationLightsView extends View
     public void hide() {
         setVisibility(GONE);
         for (EdgeLight light : mAssistInvocationLights) {
-            light.setLength(0);
+            light.setEndpoints(0, 0);
         }
         attemptUnregisterNavBarListener();
     }
@@ -233,12 +235,11 @@ public class InvocationLightsView extends View
         }
     }
 
-    protected void setLight(int index, float offset, float length) {
+    protected void setLight(int index, float start, float end) {
         if (index < 0 || index >= 4) {
             Log.w(TAG, "invalid invocation light index: " + index);
         }
-        mAssistInvocationLights.get(index).setOffset(offset);
-        mAssistInvocationLights.get(index).setLength(length);
+        mAssistInvocationLights.get(index).setEndpoints(start, end);
     }
 
     /**
@@ -247,13 +248,9 @@ public class InvocationLightsView extends View
      * To render corners that aren't circular, override this method in a subclass.
      */
     protected CornerPathRenderer createCornerPathRenderer(Context context) {
-        int displayWidth = DisplayUtils.getWidth(context);
-        int displayHeight = DisplayUtils.getHeight(context);
-        int cornerRadiusBottom = DisplayUtils.getCornerRadiusBottom(context);
-        int cornerRadiusTop = DisplayUtils.getCornerRadiusTop(context);
-        return new CircularCornerPathRenderer(
-                cornerRadiusBottom, cornerRadiusTop, displayWidth, displayHeight);
+        return new CircularCornerPathRenderer(context);
     }
+
     /**
      * Receives an intensity from 0 (lightest) to 1 (darkest) and sets the handle color
      * appropriately. Intention is to match the home handle color.
@@ -262,17 +259,22 @@ public class InvocationLightsView extends View
         if (mUseNavBarColor) {
             @ColorInt int invocationColor = (int) ArgbEvaluator.getInstance().evaluate(
                     darkIntensity, mLightColor, mDarkColor);
+            boolean changed = true;
             for (EdgeLight light : mAssistInvocationLights) {
-                light.setColor(invocationColor);
+                changed &= light.setColor(invocationColor);
             }
-            invalidate();
+            if (changed) {
+                invalidate();
+            }
         }
     }
 
     private void renderLight(EdgeLight light, Canvas canvas) {
-        mGuide.strokeSegment(mPath, light.getOffset(), light.getOffset() + light.getLength());
-        mPaint.setColor(light.getColor());
-        canvas.drawPath(mPath, mPaint);
+        if (light.getLength() > 0) {
+            mGuide.strokeSegment(mPath, light.getStart(), light.getStart() + light.getLength());
+            mPaint.setColor(light.getColor());
+            canvas.drawPath(mPath, mPaint);
+        }
     }
 
     private void attemptRegisterNavBarListener() {

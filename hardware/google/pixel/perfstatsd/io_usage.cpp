@@ -97,7 +97,7 @@ void ProcPidIoStats::update(bool forceAll) {
     DIR *dir;
     struct dirent *ent;
     if ((dir = opendir("/proc/")) == NULL) {
-        LOG_TO(SYSTEM, ERROR) << "failed on opendir '/proc/'";
+        LOG(ERROR) << "failed on opendir '/proc/'";
         return;
     }
     while ((ent = readdir(dir)) != NULL) {
@@ -113,12 +113,12 @@ void ProcPidIoStats::update(bool forceAll) {
     for (int i = 0, len = newpids.size(); i < len; i++) {
         uint32_t pid = newpids[i];
         if (sOptDebug > 1)
-            LOG_TO(SYSTEM, INFO) << i << ".";
+            LOG(INFO) << i << ".";
         std::string buffer;
         if (!android::base::ReadFileToString("/proc/" + std::to_string(pid) + "/status", &buffer)) {
             if (sOptDebug)
-                LOG_TO(SYSTEM, INFO) << "/proc/" << std::to_string(pid) << "/status"
-                                     << ": ReadFileToString failed (process died?)";
+                LOG(INFO) << "/proc/" << std::to_string(pid) << "/status"
+                          << ": ReadFileToString failed (process died?)";
             continue;
         }
         // --- Find Name ---
@@ -154,8 +154,8 @@ void ProcPidIoStats::update(bool forceAll) {
         std::string strUid(buffer, s, e - s);
 
         if (sOptDebug > 1)
-            LOG_TO(SYSTEM, INFO) << "(pid, name, uid)=(" << pid << ", " << pname << ", " << strUid
-                                 << ")" << std::endl;
+            LOG(INFO) << "(pid, name, uid)=(" << pid << ", " << pname << ", " << strUid << ")"
+                      << std::endl;
         uint32_t uid = (uint32_t)std::stoi(strUid);
         mUidNameMapping[uid] = pname;
     }
@@ -207,7 +207,7 @@ void IoStats::updateUnknownUidList() {
             std::string pname;
             if (!mProcIoStats.getNameForUid(uid, &pname)) {
                 if (sOptDebug)
-                    LOG_TO(SYSTEM, WARNING) << "unable to find App uid:" << uid;
+                    LOG(WARNING) << "unable to find App uid:" << uid;
                 continue;
             }
             mUidNameMap[uid] = pname;
@@ -216,7 +216,7 @@ void IoStats::updateUnknownUidList() {
             passwd *usrpwd = getpwuid(uid);
             if (!usrpwd) {
                 if (sOptDebug)
-                    LOG_TO(SYSTEM, WARNING) << "unable to find uid:" << uid << " by getpwuid";
+                    LOG(WARNING) << "unable to find uid:" << uid << " by getpwuid";
                 continue;
             }
             mUidNameMap[uid] = std::string(usrpwd->pw_name);
@@ -234,7 +234,7 @@ void IoStats::updateUnknownUidList() {
         for (const auto &i : mUnknownUidList) {
             msg << i << ", ";
         }
-        LOG_TO(SYSTEM, WARNING) << msg.str();
+        LOG(WARNING) << msg.str();
     }
     mUnknownUidList.clear();
 }
@@ -320,12 +320,10 @@ bool IoStats::dump(std::stringstream *output) {
     char readTotal[32];
     char writeTotal[32];
     if (!formatNum(mTotal.sumRead(), readTotal, 32)) {
-        LOG_TO(SYSTEM, ERROR) << "formatNum buffer size is too small for read: "
-                              << mTotal.sumRead();
+        LOG(ERROR) << "formatNum buffer size is too small for read: " << mTotal.sumRead();
     }
     if (!formatNum(mTotal.sumWrite(), writeTotal, 32)) {
-        LOG_TO(SYSTEM, ERROR) << "formatNum buffer size is too small for write: "
-                              << mTotal.sumWrite();
+        LOG(ERROR) << "formatNum buffer size is too small for write: " << mTotal.sumWrite();
     }
 
     out << android::base::StringPrintf(FMT_STR_TOTAL_USAGE, ms.count() / 1000, ms.count() % 1000,
@@ -385,7 +383,7 @@ static bool loadDataFromLine(std::string &&line, UserIo &data) {
         !android::base::ParseUint(fields[8], &data.bgWrite) ||
         !android::base::ParseUint(fields[9], &data.fgFsync) ||
         !android::base::ParseUint(fields[10], &data.bgFsync)) {
-        LOG_TO(SYSTEM, WARNING) << "Invalid uid I/O stats: \"" << line << "\"";
+        LOG(WARNING) << "Invalid uid I/O stats: \"" << line << "\"";
         return false;
     }
     return true;
@@ -416,7 +414,7 @@ void IoUsage::setOptions(const std::string &key, const std::string &value) {
         uint64_t val = 0;
         if (!android::base::ParseUint(value, &val)) {
             out << "!!!! unable to parse value to uint64";
-            LOG_TO(SYSTEM, ERROR) << out.str();
+            LOG(ERROR) << out.str();
             return;
         }
         if (key == "iostats.min") {
@@ -431,7 +429,7 @@ void IoUsage::setOptions(const std::string &key, const std::string &value) {
         } else if (key == "iostats.debug") {
             sOptDebug = (val != 0);
         }
-        LOG_TO(SYSTEM, INFO) << out.str() << ": Success";
+        LOG(INFO) << out.str() << ": Success";
     }
 }
 
@@ -442,10 +440,10 @@ void IoUsage::refresh(void) {
     _debugTimer.setEnabled(sOptDebug);
     std::string buffer;
     if (!android::base::ReadFileToString(UID_IO_STATS_PATH, &buffer)) {
-        LOG_TO(SYSTEM, ERROR) << UID_IO_STATS_PATH << ": ReadFileToString failed";
+        LOG(ERROR) << UID_IO_STATS_PATH << ": ReadFileToString failed";
     }
     if (sOptDebug)
-        LOG_TO(SYSTEM, INFO) << "read " << UID_IO_STATS_PATH << " OK.";
+        LOG(INFO) << "read " << UID_IO_STATS_PATH << " OK.";
     std::vector<std::string> lines = android::base::Split(std::move(buffer), "\n");
     std::unordered_map<uint32_t, UserIo> datas;
     for (uint32_t i = 0; i < lines.size(); i++) {
@@ -462,8 +460,8 @@ void IoUsage::refresh(void) {
     mStats.dump(&out);
     const std::string &str = out.str();
     if (sOptDebug) {
-        LOG_TO(SYSTEM, INFO) << str;
-        LOG_TO(SYSTEM, INFO) << "output append length:" << str.length();
+        LOG(INFO) << str;
+        LOG(INFO) << "output append length:" << str.length();
     }
     append((std::string &)str);
 }

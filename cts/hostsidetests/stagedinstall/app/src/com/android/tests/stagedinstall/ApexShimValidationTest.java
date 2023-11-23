@@ -21,13 +21,15 @@ import static com.android.tests.stagedinstall.PackageInstallerSessionInfoSubject
 import static com.google.common.truth.Truth.assertThat;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
-import android.content.pm.PackageManager;
 
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.cts.install.lib.Install;
+import com.android.cts.install.lib.InstallUtils;
+import com.android.cts.install.lib.LocalIntentSender;
+import com.android.cts.install.lib.TestApp;
 
 import org.junit.After;
 import org.junit.Before;
@@ -35,8 +37,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -120,63 +120,19 @@ public class ApexShimValidationTest {
 
     @Test
     public void testInstallRejected_VerifyPostReboot() throws Exception {
-        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
-    }
-
-    private static PackageInstaller getPackageInstaller() {
-        return InstrumentationRegistry.getInstrumentation().getContext().getPackageManager()
-                .getPackageInstaller();
-    }
-
-    private static long getInstalledVersion(String packageName) {
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        PackageManager pm = context.getPackageManager();
-        try {
-            PackageInfo info = pm.getPackageInfo(packageName, PackageManager.MATCH_APEX);
-            return info.getLongVersionCode();
-        } catch (PackageManager.NameNotFoundException e) {
-            return -1;
-        }
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
     }
 
     private static int stageApex(String apexFileName) throws Exception {
-        PackageInstaller installer = getPackageInstaller();
-
-        PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
-                PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-        params.setInstallAsApex();
-        params.setStaged();
-        int sessionId = installer.createSession(params);
-        PackageInstaller.Session session = installer.openSession(sessionId);
-        writeApex(session, apexFileName);
-        session.commit(LocalIntentSender.getIntentSender());
-        Intent result = LocalIntentSender.getIntentSenderResult();
-        assertStatusSuccess(result);
-        return sessionId;
-    }
-
-    private static void writeApex(PackageInstaller.Session session, String apkFileName)
-            throws Exception {
-        try (OutputStream packageInSession = session.openWrite(apkFileName, 0, -1);
-             InputStream is =
-                     ApexShimValidationTest.class.getClassLoader().getResourceAsStream(
-                             apkFileName)) {
-            byte[] buffer = new byte[4096];
-            int n;
-            while ((n = is.read(buffer)) >= 0) {
-                packageInSession.write(buffer, 0, n);
-            }
-        }
-    }
-
-    private static void assertStatusSuccess(Intent result) {
-        int status = result.getIntExtra(PackageInstaller.EXTRA_STATUS,
-                PackageInstaller.STATUS_FAILURE);
-        if (status == -1) {
-            throw new AssertionError("PENDING USER ACTION");
-        } else if (status > 0) {
-            String message = result.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-            throw new AssertionError(message == null ? "UNKNOWN FAILURE" : message);
+        TestApp apexTestApp = new TestApp("ShimApex", SHIM_APEX_PACKAGE_NAME, 2,
+                true, apexFileName);
+        int sessionId = Install.single(apexTestApp).setStaged().createSession();
+        try (PackageInstaller.Session session =
+                     InstallUtils.openPackageInstallerSession(sessionId)) {
+            session.commit(LocalIntentSender.getIntentSender());
+            Intent result = LocalIntentSender.getIntentSenderResult();
+            InstallUtils.assertStatusSuccess(result);
+            return sessionId;
         }
     }
 }

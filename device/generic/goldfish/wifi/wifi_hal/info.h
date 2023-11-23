@@ -16,13 +16,11 @@
 
 #pragma once
 
-#include "interface.h"
-#include "netlink.h"
-
-#include <wifi_hal.h>
-
 #include <functional>
 #include <vector>
+#include <hardware_legacy/wifi_hal.h>
+#include "interface.h"
+#include "netlink.h"
 
 class Info {
 public:

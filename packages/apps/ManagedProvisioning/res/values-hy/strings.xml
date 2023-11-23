@@ -66,7 +66,7 @@
     <string name="default_owned_device_username" msgid="3915120202811807955">"Աշխատանքային սարքի օգտագործող"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Աշխատանքային սարքի կարգավորում…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Տեղադրման տվյալների մշակում…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Կապակցում Wi-Fi-ին..."</string>
+    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Միացում Wi-Fi-ին..."</string>
     <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Միացում բջջային ցանցին…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Ադմինիստրատոր հավելվածի ներբեռնում…"</string>
     <string name="progress_install" msgid="2258045670385866183">"Ադմինիստրատոր հավելվածի տեղադրում…"</string>
@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Վերակայել"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Հնարավոր չէ կարգավորել պրոֆիլը"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Հնարավոր չէ կարգավորել սարքը"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Սխալ առաջացավ"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Չհաջողվեց կարգավորել սարքը: Օգնություն ստանալու համար դիմեք ՏՏ ադմինիստրատորին։"</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Օգնության համար դիմեք ձեր ՏՏ ադմինիստրատորին"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Վերակայեք սարքը և նորից փորձեք կարգավորել"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Սարքն արդեն կարգավորված է"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Չհաջողվեց միանալ Wi-Fi ցանցին"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Սարքում արգելված է գործարանային կարգավորումների վերականգնումը։ Օգնություն ստանալու համար դիմեք ձեր ՏՏ ադմինիստրատորին։"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Սարքի կարգավորման նախապատրաստում…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Ադմինիստրատորի հավելվածի կարգավորում"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Այլ պարամետրերի կարգավորում"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Այժմ կարգավորեք մնացածը"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Ավելացրեք անձնական հաշիվ՝ ձեր սարքից ավելին ստանալու համար"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Այժմ, երբ ձեր աշխատանքային պրոֆիլը պատրաստ է, դուք կարող եք նաև անձնական Google հաշիվ ավելացնել՝ ձեր հավելվածներն ու բովանդակությունը օգտագործելու համար։"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Այս սարքը պատկանում է ձեր կազմակերպությանը"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Հետևյալ հավելվածը կօգտագործվի այս հեռախոսը կառավարելու և վերահսկելու համար"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Սարքի կարգավորման նախապատրաստում…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Նախ կարգավորեք ձեր աշխատանքային պրոֆիլը"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Կարգավորեք ձեր աշխատանքային պրոֆիլը"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Աշխատանքային հավելվածները պահվում են ձեր աշխատանքային պրոֆիլում"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Դադարեցրեք աշխատանքային հավելվածները օրվա ավարտին"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"ՏՏ ադմինիստրատորը կարող է տեսնել միայն ձեր աշխատանքային պրոֆիլի տվյալները"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Ձեր աշխատանքային պրոֆիլի տվյալները տեսանելի են ձեր ՏՏ ադմինիստրատորին"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Աշխատանքային պրոֆիլը կարգավորվում է…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Աշխատանքային հավելվածները պահվում են ձեր աշխատանքային պրոֆիլում։ Դրանք կարող եք դադարեցնել աշխատանքային օրվա ավարտին։ ՏՏ ադմինիստրատորը տեսնում է միայն ձեր աշխատանքային պրոֆիլի տվյալները։"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Աշխատանքային հավելվածները պահվում են ձեր աշխատանքային պրոֆիլում։ Դրանք կարող եք դադարեցնել աշխատանքային օրվա ավարտին։ Ձեր աշխատանքային պրոֆիլի տվյալները տեսանելի են ձեր ՏՏ ադմինիստրատորին։"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Կարգավորեք աշխատանքային սարքը"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Աշխատանքային հավելվածները՝ ձեր գրպանում"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Այս սարքն անձնական չէ"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ՏՏ ադմինիստրատորը կարող է տեսնել ձեր տվյալներն ու գործողություններն այս սարքում։"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Սարքը կարգավորվում է…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Այս սարքի միջոցով կարող եք արագ բացել աշխատանքային հավելվածները։ Այս սարքն անձնական չէ, այնպես որ ձեր ՏՏ ադմինիստրատորը կարող է տեսնել ձեր տվյալներն ու գործողությունները։ Մանրամասների համար դիմեք ՏՏ ադմինիստրատորին։"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Աշխատանքային հավելվածները ձեր աշխատանքային պրոֆիլում են, կառավարիչ՝ ՏՏ ադմինիստրատորը"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Անձնական հավելվածները թաքցված են և առանձին են աշխատանքայիններից"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ՏՏ ադմինիստրատորը կարող է վերահսկել սարքը և արգելափակել որոշ հավելվածներ"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Աշխատանքային հավելվածները պահվում են ձեր աշխատանքային պրոֆիլում և կառավարվում են ձեր ՏՏ ադմինիստրատորի կողմից։ Անձնական հավելվածները թաքցված են և առանձնացված աշխատանքային հավելվածներից։ Ձեր ՏՏ ադմինիստրատորը կարող է վերահսկել այս սարքը և արգելափակել որոշակի հավելվածներ։"</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Սպասեք մի փոքր…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Գաղտնիության վերաբերյալ հիշեցում"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ՏՏ ադմինիստրատորը կարող է տեսնել ձեր տվյալներն ու գործողություններն այս սարքում"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Ձեր սարքը պատրաստ է"</string>
     <string name="done" msgid="7755227776955952318">"Փակել"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Այս սարքը ձեռք է բերվել <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-ից ապառիկ կարգով"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"Վարկատուն (<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>) կարող է՝"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Տեղադրել <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-ի հավելվածը, որպեսզի կարողանաք վճարումներ կատարել"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Արգելափակել այս սարքը, եթե վճարումներ չկատարեք"</string>
 </resources>

@@ -15,23 +15,25 @@
  */
 package com.android.customization.module;
 
+import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_COLOR;
+import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_FONT;
+import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_SHAPE;
+import static com.android.systemui.shared.system.SysUiStatsLog.STYLE_UI_CHANGED;
+
 import android.stats.style.nano.StyleEnums;
-import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.android.systemui.shared.system.StatsLogCompat;
 import com.android.customization.model.clock.Clockface;
 import com.android.customization.model.grid.GridOption;
 import com.android.customization.model.theme.ThemeBundle;
+import com.android.systemui.shared.system.SysUiStatsLog;
 import com.android.wallpaper.module.NoOpUserEventLogger;
 
 import java.util.Map;
 import java.util.Objects;
 
-import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_COLOR;
-import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_FONT;
-import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_SHAPE;
+
 
 /**
  * StatsLog-backed implementation of {@link ThemesUserEventLogger}.
@@ -42,40 +44,60 @@ public class StatsLogUserEventLogger extends NoOpUserEventLogger implements Them
 
     @Override
     public void logResumed(boolean provisioned, boolean wallpaper) {
-        StatsLogCompat.write(StyleEnums.ONRESUME, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.ONRESUME, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     @Override
     public void logStopped() {
-        StatsLogCompat.write(StyleEnums.ONSTOP, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.ONSTOP, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     @Override
     public void logActionClicked(String collectionId, int actionLabelResId) {
-        StatsLogCompat.write(StyleEnums.WALLPAPER_EXPLORE, 0, 0, 0, 0, 0, collectionId.hashCode(),
-                0, 0, 0);
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.WALLPAPER_EXPLORE, 0, 0, 0, 0, 0,
+                collectionId.hashCode(), 0, 0, 0);
     }
 
     @Override
     public void logIndividualWallpaperSelected(String collectionId) {
-        StatsLogCompat.write(StyleEnums.WALLPAPER_SELECT, 0, 0, 0, 0, 0, 0,
-                collectionId.hashCode(), 0, 0);
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.WALLPAPER_SELECT, 0, 0, 0, 0, 0,
+                collectionId.hashCode(), 0, 0, 0);
     }
 
     @Override
     public void logCategorySelected(String collectionId) {
-        StatsLogCompat.write(StyleEnums.WALLPAPER_SELECT,
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.WALLPAPER_OPEN_CATEGORY,
                 0, 0, 0, 0, 0,
                 collectionId.hashCode(),
                 0, 0, 0);
     }
 
     @Override
-    public void logWallpaperSet(String collectionId, @Nullable String wallpaperId) {
-        StatsLogCompat.write(StyleEnums.WALLPAPER_SELECT,
+    public void logLiveWallpaperInfoSelected(String collectionId, @Nullable String wallpaperId) {
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.LIVE_WALLPAPER_INFO_SELECT,
                 0, 0, 0, 0, 0,
                 collectionId.hashCode(),
-                0, 0, 0);
+                wallpaperId != null ? wallpaperId.hashCode() : 0,
+                0, 0);
+    }
+
+    @Override
+    public void logLiveWallpaperCustomizeSelected(String collectionId,
+            @Nullable String wallpaperId) {
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.LIVE_WALLPAPER_CUSTOMIZE_SELECT,
+                0, 0, 0, 0, 0,
+                collectionId.hashCode(),
+                wallpaperId != null ? wallpaperId.hashCode() : 0,
+                0, 0);
+    }
+
+    @Override
+    public void logWallpaperSet(String collectionId, @Nullable String wallpaperId) {
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.WALLPAPER_APPLIED,
+                0, 0, 0, 0, 0,
+                collectionId.hashCode(),
+                wallpaperId != null ? wallpaperId.hashCode() : 0,
+                0, 0);
     }
 
     @Nullable
@@ -86,7 +108,7 @@ public class StatsLogUserEventLogger extends NoOpUserEventLogger implements Them
 
     @Override
     public void logThemeSelected(ThemeBundle theme, boolean isCustomTheme) {
-        StatsLogCompat.write(StyleEnums.PICKER_SELECT,
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.PICKER_SELECT,
                 Objects.hashCode(getThemePackage(theme, OVERLAY_CATEGORY_COLOR)),
                 Objects.hashCode(getThemePackage(theme,OVERLAY_CATEGORY_FONT)),
                 Objects.hashCode(getThemePackage(theme, OVERLAY_CATEGORY_SHAPE)),
@@ -95,7 +117,7 @@ public class StatsLogUserEventLogger extends NoOpUserEventLogger implements Them
 
     @Override
     public void logThemeApplied(ThemeBundle theme, boolean isCustomTheme) {
-        StatsLogCompat.write(StyleEnums.PICKER_APPLIED,
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.PICKER_APPLIED,
                 Objects.hashCode(getThemePackage(theme, OVERLAY_CATEGORY_COLOR)),
                 Objects.hashCode(getThemePackage(theme,OVERLAY_CATEGORY_FONT)),
                 Objects.hashCode(getThemePackage(theme, OVERLAY_CATEGORY_SHAPE)),
@@ -104,7 +126,7 @@ public class StatsLogUserEventLogger extends NoOpUserEventLogger implements Them
 
     @Override
     public void logClockSelected(Clockface clock) {
-        StatsLogCompat.write(StyleEnums.PICKER_SELECT,
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.PICKER_SELECT,
                 0, 0, 0,
                 Objects.hashCode(clock.getId()),
                 0, 0, 0, 0, 0);
@@ -112,7 +134,7 @@ public class StatsLogUserEventLogger extends NoOpUserEventLogger implements Them
 
     @Override
     public void logClockApplied(Clockface clock) {
-        StatsLogCompat.write(StyleEnums.PICKER_APPLIED,
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.PICKER_APPLIED,
                 0, 0, 0,
                 Objects.hashCode(clock.getId()),
                 0, 0, 0, 0, 0);
@@ -120,7 +142,7 @@ public class StatsLogUserEventLogger extends NoOpUserEventLogger implements Them
 
     @Override
     public void logGridSelected(GridOption grid) {
-        StatsLogCompat.write(StyleEnums.PICKER_SELECT,
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.PICKER_SELECT,
                 0, 0, 0, 0,
                 grid.cols,
                 0, 0, 0, 0);
@@ -128,7 +150,7 @@ public class StatsLogUserEventLogger extends NoOpUserEventLogger implements Them
 
     @Override
     public void logGridApplied(GridOption grid) {
-        StatsLogCompat.write(StyleEnums.PICKER_APPLIED,
+        SysUiStatsLog.write(STYLE_UI_CHANGED, StyleEnums.PICKER_APPLIED,
                 0, 0, 0, 0,
                 grid.cols,
                 0, 0, 0, 0);

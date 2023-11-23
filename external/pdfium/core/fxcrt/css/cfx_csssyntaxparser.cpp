@@ -8,16 +8,18 @@
 
 #include <algorithm>
 
-#include "core/fxcrt/css/cfx_cssdatatable.h"
+#include "core/fxcrt/css/cfx_cssdata.h"
 #include "core/fxcrt/css/cfx_cssdeclaration.h"
 #include "core/fxcrt/fx_codepage.h"
 #include "core/fxcrt/fx_extension.h"
+#include "third_party/base/compiler_specific.h"
 #include "third_party/base/logging.h"
 
 namespace {
 
 bool IsSelectorStart(wchar_t wch) {
-  return wch == '.' || wch == '#' || wch == '*' || FXSYS_iswalpha(wch);
+  return wch == '.' || wch == '#' || wch == '*' ||
+         (isascii(wch) && isalpha(wch));
 }
 
 }  // namespace
@@ -33,7 +35,10 @@ CFX_CSSSyntaxParser::CFX_CSSSyntaxParser(const wchar_t* pBuffer,
     : m_iTextDataLen(0),
       m_dwCheck(0xFFFFFFFF),
       m_eStatus(CFX_CSSSyntaxStatus::None) {
-  ASSERT(pBuffer && iBufferSize > 0 && iTextDatSize > 0);
+  ASSERT(pBuffer);
+  ASSERT(iBufferSize > 0);
+  ASSERT(iTextDatSize > 0);
+
   m_eMode = bOnlyDeclaration ? CFX_CSSSyntaxMode::PropertyName
                              : CFX_CSSSyntaxMode::RuleSet;
   m_TextData.InitWithSize(iTextDatSize);
@@ -73,6 +78,7 @@ CFX_CSSSyntaxStatus CFX_CSSSyntaxParser::DoSyntaxParse() {
                 SwitchMode(CFX_CSSSyntaxMode::Comment);
                 break;
               }
+              FALLTHROUGH;
             default:
               if (wch <= ' ') {
                 m_TextPlane.MoveNext();
@@ -109,6 +115,7 @@ CFX_CSSSyntaxStatus CFX_CSSSyntaxParser::DoSyntaxParse() {
                   return CFX_CSSSyntaxStatus::Selector;
                 break;
               }
+              FALLTHROUGH;
             default:
               AppendChar(wch);
               break;
@@ -133,6 +140,7 @@ CFX_CSSSyntaxStatus CFX_CSSSyntaxParser::DoSyntaxParse() {
                   return CFX_CSSSyntaxStatus::PropertyName;
                 break;
               }
+              FALLTHROUGH;
             default:
               AppendChar(wch);
               break;
@@ -142,6 +150,7 @@ CFX_CSSSyntaxStatus CFX_CSSSyntaxParser::DoSyntaxParse() {
           switch (wch) {
             case ';':
               m_TextPlane.MoveNext();
+              FALLTHROUGH;
             case '}':
               SwitchMode(CFX_CSSSyntaxMode::PropertyName);
               return CFX_CSSSyntaxStatus::PropertyValue;
@@ -151,6 +160,7 @@ CFX_CSSSyntaxStatus CFX_CSSSyntaxParser::DoSyntaxParse() {
                   return CFX_CSSSyntaxStatus::PropertyValue;
                 break;
               }
+              FALLTHROUGH;
             default:
               AppendChar(wch);
               break;

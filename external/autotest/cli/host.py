@@ -20,15 +20,21 @@ See topic_common.py for a High Level Design and Algorithm.
 
 """
 import common
+import json
 import random
 import re
 import socket
+import sys
+import time
 
 from autotest_lib.cli import action_common, rpc, topic_common, skylab_utils
 from autotest_lib.client.bin import utils as bin_utils
 from autotest_lib.client.common_lib import error, host_protections
 from autotest_lib.server import frontend, hosts
 from autotest_lib.server.hosts import host_info
+from autotest_lib.server.lib.status_history import HostJobHistory
+from autotest_lib.server.lib.status_history import UNUSED, WORKING
+from autotest_lib.server.lib.status_history import BROKEN, UNKNOWN
 
 
 try:
@@ -40,6 +46,11 @@ except ImportError:
 
 
 MIGRATED_HOST_SUFFIX = '-migrated-do-not-use'
+
+
+ID_AUTOGEN_MESSAGE = ("[IGNORED]. Do not edit (crbug.com/950553). ID is "
+                      "auto-generated.")
+
 
 
 class host(topic_common.atest):
@@ -336,6 +347,61 @@ class host_stat(host):
             labels = self._cleanup_labels(labels)
             self.print_by_ids(labels, 'Labels', line_before=True)
             self.print_dict(attributes, 'Host Attributes', line_before=True)
+
+
+class host_get_migration_plan(host_stat):
+    """atest host get_migration_plan --mlist <file>|<hosts>"""
+    usage_action = "get_migration_plan"
+
+    def __init__(self):
+        super(host_get_migration_plan, self).__init__()
+        self.parser.add_option("--ratio", default=0.5, type=float, dest="ratio")
+        self.add_skylab_options()
+
+    def parse(self):
+        (options, leftover) = super(host_get_migration_plan, self).parse()
+        self.ratio = options.ratio
+        return (options, leftover)
+
+    def execute(self):
+        afe = frontend.AFE()
+        results = super(host_get_migration_plan, self).execute()
+        working = []
+        non_working = []
+        for stats, _, _, _ in results:
+            assert len(stats) == 1
+            stats = stats[0]
+            hostname = stats["hostname"]
+            now = time.time()
+            history = HostJobHistory.get_host_history(
+                afe=afe,
+                hostname=hostname,
+                start_time=now,
+                end_time=now - 24 * 60 * 60,
+            )
+            dut_status, _ = history.last_diagnosis()
+            if dut_status in [UNUSED, WORKING]:
+                working.append(hostname)
+            elif dut_status == BROKEN:
+                non_working.append(hostname)
+            elif dut_status == UNKNOWN:
+                # if it's unknown, randomly assign it to working or
+                # nonworking, since we don't know.
+                # The two choices aren't actually equiprobable, but it
+                # should be fine.
+                random.choice([working, non_working]).append(hostname)
+            else:
+                raise ValueError("unknown status %s" % dut_status)
+        working_transfer, working_retain = fair_partition.partition(working, self.ratio)
+        non_working_transfer, non_working_retain = \
+            fair_partition.partition(non_working, self.ratio)
+        return {
+            "transfer": working_transfer + non_working_transfer,
+            "retain": working_retain + non_working_retain,
+        }
+
+    def output(self, results):
+        print json.dumps(results, indent=4, sort_keys=True)
 
 
 class host_jobs(host):
@@ -998,14 +1064,12 @@ def _add_hostname_suffix(hostname, suffix):
     return hostname + suffix
 
 
-def _remove_hostname_suffix(hostname, suffix):
+def _remove_hostname_suffix_if_present(hostname, suffix):
     """Remove the suffix from the hostname."""
-    if not hostname.endswith(suffix):
-        raise InvalidHostnameError(
-                'Cannot remove "%s" as it doesn\'t contain the suffix.' %
-                suffix)
-
-    return hostname[:len(hostname) - len(suffix)]
+    if hostname.endswith(suffix):
+        return hostname[:len(hostname) - len(suffix)]
+    else:
+        return hostname
 
 
 class host_rename(host):
@@ -1034,6 +1098,10 @@ class host_rename(host):
                                help='Execute the action as a dryrun.',
                                action='store_true',
                                default=False)
+        self.parser.add_option('--non-interactive',
+                               help='run non-interactively',
+                               action='store_true',
+                               default=False)
 
 
     def parse(self):
@@ -1042,6 +1110,7 @@ class host_rename(host):
         self.for_migration = options.for_migration
         self.for_rollback = options.for_rollback
         self.dryrun = options.dryrun
+        self.interactive = not options.non_interactive
         self.host_ids = {}
 
         if not (self.for_migration ^ self.for_rollback):
@@ -1059,8 +1128,11 @@ class host_rename(host):
 
     def execute(self):
         """Execute 'atest host rename'."""
-        if not self.prompt_confirmation():
-            return
+        if self.interactive:
+            if self.prompt_confirmation():
+                pass
+            else:
+                return
 
         successes = []
         for host in self.execute_rpc('get_hosts', hostname__in=self.hosts):
@@ -1077,7 +1149,7 @@ class host_rename(host):
                             host, MIGRATED_HOST_SUFFIX)
                 else:
                     #for_rollback
-                    new_hostname = _remove_hostname_suffix(
+                    new_hostname = _remove_hostname_suffix_if_present(
                             host, MIGRATED_HOST_SUFFIX)
 
                 if not self.dryrun:

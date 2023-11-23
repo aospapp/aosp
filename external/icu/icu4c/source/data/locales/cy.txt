@@ -18,10 +18,10 @@ cy{
         "[A B C {CH} D {DD} E F {FF} G {NG} H I J K L {LL} M N O P {PH} Q R {RH} S T "
         "{TH} U V W X Y Z]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -395,7 +395,7 @@ cy{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -557,10 +557,6 @@ cy{
         }
         gregorian{
             AmPmMarkers{
-                "yb",
-                "yh",
-            }
-            AmPmMarkersAbbr{
                 "yb",
                 "yh",
             }
@@ -754,30 +750,28 @@ cy{
                 stand-alone{
                     abbreviated{
                         afternoon1{"prynhawn"}
-                        am{"yb"}
+                        am{"AM"}
                         evening1{"yr hwyr"}
                         midnight{"canol nos"}
                         morning1{"bore"}
                         noon{"canol dydd"}
-                        pm{"yh"}
+                        pm{"PM"}
                     }
                     narrow{
                         afternoon1{"prynhawn"}
-                        am{"yb"}
+                        am{"AM"}
                         evening1{"min nos"}
                         midnight{"canol nos"}
                         morning1{"bore"}
                         noon{"canol dydd"}
-                        pm{"yh"}
+                        pm{"PM"}
                     }
                     wide{
                         afternoon1{"y prynhawn"}
-                        am{"yb"}
                         evening1{"yr hwyr"}
                         midnight{"canol nos"}
                         morning1{"y bore"}
                         noon{"canol dydd"}
-                        pm{"yh"}
                     }
                 }
             }
@@ -907,7 +901,7 @@ cy{
                         "Ion",
                         "Chwef",
                         "Maw",
-                        "Ebrill",
+                        "Ebr",
                         "Mai",
                         "Meh",
                         "Gorff",
@@ -2279,6 +2273,12 @@ cy{
         standard{
             2{"{0} a(c) {1}"}
             end{"{0}, a(c) {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }

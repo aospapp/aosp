@@ -28,15 +28,15 @@ import constants
 class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """TradeFed Test Runner class."""
     NAME = 'VtsTradefedTestRunner'
-    EXECUTABLE = 'vts-tradefed'
+    EXECUTABLE = 'vts10-tradefed'
     _RUN_CMD = ('{exe} run commandAndExit {plan} -m {test} {args}')
-    _BUILD_REQ = {'vts-tradefed-standalone'}
+    _BUILD_REQ = {'vts10-tradefed-standalone'}
     _DEFAULT_ARGS = ['--skip-all-system-status-check',
                      '--skip-preconditions',
                      '--primary-abi-only']
 
     def __init__(self, results_dir, **kwargs):
-        """Init stuff for vts tradefed runner class."""
+        """Init stuff for vts10 tradefed runner class."""
         super(VtsTradefedTestRunner, self).__init__(results_dir, **kwargs)
         self.run_cmd_dict = {'exe': self.EXECUTABLE,
                              'test': '',
@@ -74,10 +74,10 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         return ret_code
 
     def _parse_extra_args(self, extra_args):
-        """Convert the extra args into something vts-tf can understand.
+        """Convert the extra args into something vts10-tf can understand.
 
         We want to transform the top-level args from atest into specific args
-        that vts-tradefed supports. The only arg we take as is is EXTRA_ARG
+        that vts10-tradefed supports. The only arg we take as is is EXTRA_ARG
         since that is what the user intentionally wants to pass to the test
         runner.
 
@@ -114,7 +114,7 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
             extra_args: Dict of extra args to add to test run.
 
         Returns:
-            A List of strings that contains the vts-tradefed run command.
+            A List of strings that contains the vts10-tradefed run command.
         """
         cmds = []
         args = self._DEFAULT_ARGS

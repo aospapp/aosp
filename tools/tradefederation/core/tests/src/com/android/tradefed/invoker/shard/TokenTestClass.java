@@ -16,6 +16,7 @@
 package com.android.tradefed.invoker.shard;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.shard.token.ITokenRequest;
 import com.android.tradefed.invoker.shard.token.TokenProperty;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
@@ -39,7 +40,8 @@ public class TokenTestClass implements IRemoteTest, ITokenRequest, IReportNotExe
     }
 
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         listener.testRunStarted("TestToken", 1);
         TestDescription testId = new TestDescription("StubToken", "MethodToken");
         listener.testStarted(testId);

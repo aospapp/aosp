@@ -32,13 +32,23 @@ cc_library {
         "-Werror",
         "-fno-stack-protector",
     ],
+
+    apex_available: [
+        "com.android.runtime",
+    ],
+    static: {
+        apex_available: [
+            "//apex_available:platform",
+        ],
+    },
 }
 
 // ==============================================================
 // Unit Tests
 // ==============================================================
 cc_test {
-    name: "malloc_hooks_unit_tests",
+    name: "malloc_hooks_system_tests",
+    isolated: true,
 
     srcs: [
         "tests/malloc_hooks_tests.cpp",
@@ -49,10 +59,17 @@ cc_test {
     shared_libs: ["libbase"],
 
     local_include_dirs: ["tests"],
-    include_dirs: ["bionic/libc", "bionic"],
+    include_dirs: [
+        "bionic/libc",
+        "bionic"
+    ],
+    header_libs: [
+        "bionic_libc_platform_headers",
+    ],
 
     cflags: [
         "-Wall",
         "-Werror",
     ],
+    test_suites: ["general-tests"],
 }

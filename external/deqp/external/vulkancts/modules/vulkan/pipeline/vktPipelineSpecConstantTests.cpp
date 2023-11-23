@@ -235,6 +235,7 @@ public:
 
 	void						initPrograms		(SourceCollections&		programCollection) const;
 	TestInstance*				createInstance		(Context&				context) const;
+	virtual void				checkSupport		(Context&				context) const;
 
 private:
 	const VkShaderStageFlagBits	m_stage;
@@ -624,7 +625,7 @@ tcu::TestStatus GraphicsTestInstance::iterate (void)
 	// Pipeline
 
 	const Unique<VkRenderPass>     renderPass    (makeRenderPass    (vk, device, imageFormat));
-	const Unique<VkFramebuffer>    framebuffer   (makeFramebuffer	(vk, device, *renderPass, 1u, &colorImageView.get(), static_cast<deUint32>(renderSize.x()), static_cast<deUint32>(renderSize.y())));
+	const Unique<VkFramebuffer>    framebuffer   (makeFramebuffer	(vk, device, *renderPass, colorImageView.get(), static_cast<deUint32>(renderSize.x()), static_cast<deUint32>(renderSize.y())));
 	const Unique<VkPipelineLayout> pipelineLayout(makePipelineLayout(vk, device, *descriptorSetLayout));
 	const Unique<VkCommandPool>    cmdPool       (createCommandPool (vk, device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndex));
 	const Unique<VkCommandBuffer>  cmdBuffer     (makeCommandBuffer (vk, device, *cmdPool));
@@ -718,10 +719,13 @@ FeatureFlags getShaderStageRequirements (const VkShaderStageFlags stageFlags)
 	return features;
 }
 
+void SpecConstantTest::checkSupport (Context& context) const
+{
+	requireFeatures(context, m_caseDef.requirements | getShaderStageRequirements(m_stage));
+}
+
 TestInstance* SpecConstantTest::createInstance (Context& context) const
 {
-	requireFeatures(context.getInstanceInterface(), context.getPhysicalDevice(), m_caseDef.requirements | getShaderStageRequirements(m_stage));
-
 	if (m_stage & VK_SHADER_STAGE_COMPUTE_BIT)
 		return new ComputeTestInstance(context, m_caseDef.ssboSize, m_caseDef.specConstants, m_caseDef.expectedValues);
 	else

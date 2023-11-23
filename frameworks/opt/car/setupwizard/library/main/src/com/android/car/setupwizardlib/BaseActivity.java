@@ -458,20 +458,6 @@ public class BaseActivity extends FragmentActivity {
     }
 
     /**
-     * Adds elevation to the title bar in order to produce a drop shadow.
-     */
-    protected void addElevationToTitleBar(boolean animate) {
-        mCarSetupWizardLayout.addElevationToTitleBar(animate);
-    }
-
-    /**
-     * Removes the elevation from the title bar using an animation.
-     */
-    protected void removeElevationFromTitleBar(boolean animate) {
-        mCarSetupWizardLayout.removeElevationFromTitleBar(animate);
-    }
-
-    /**
      * Sets whether the progress bar is visible.
      */
     protected void setProgressBarVisible(boolean visible) {

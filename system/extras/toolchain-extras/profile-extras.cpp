@@ -31,46 +31,22 @@ extern "C" {
 
 void __gcov_flush(void);
 
-static void gcov_signal_handler(__unused int signum) {
+// storing SIG_ERR helps us detect (unlikely) looping.
+static sighandler_t chained_gcov_signal_handler = SIG_ERR;
+
+static void gcov_signal_handler(int signum) {
   __gcov_flush();
-}
-
-static const char kCoveragePropName[] = "debug.coverage.flush";
-
-// In a loop, wait for any change to sysprops and trigger a __gcov_flush when
-// <kCoveragePropName> sysprop transistions to "1" after a transistion to "0".
-void *property_watch_loop(__unused void *arg) {
-  uint32_t serial = 0;
-
-  // __gcov_flush is called on a state transition from 0 to 1.  Initialize state
-  // to 1 so a process spinning up when the sysprop is already set does not
-  // immediately dump its coverage.
-  int previous_state = 1;
-
-  while (true) {
-    // Use deprecated __system_property_wait_any for backward compatibility.
-    serial = __system_property_wait_any(serial);
-    const struct prop_info *pi = __system_property_find(kCoveragePropName);
-    if (!pi)
-      continue;
-
-    char value[PROP_VALUE_MAX];
-    __system_property_read(pi, nullptr, value);
-    if (strcmp(value, "0") == 0) {
-      previous_state = 0;
-    } else if (strcmp(value, "1") == 0) {
-      if (previous_state == 0) {
-        __gcov_flush();
-      }
-      previous_state = 1;
-    }
+  if (chained_gcov_signal_handler != SIG_ERR &&
+      chained_gcov_signal_handler != SIG_IGN &&
+      chained_gcov_signal_handler != SIG_DFL) {
+    (chained_gcov_signal_handler)(signum);
   }
 }
 
+__attribute__((weak)) int init_profile_extras_once = 0;
+
 // Initialize libprofile-extras:
-// - Install a signal handler that triggers __gcov_flush on <GCOV_FLUSH_SIGNAL>.
-// - Create a thread that calls __gcov_flush when <kCoveragePropName> sysprop
-// transistions to "1" after a transistion to "0".
+// - Install a signal handler that triggers __gcov_flush on <COVERAGE_FLUSH_SIGNAL>.
 //
 // We want this initiazlier to run during load time.
 //
@@ -81,30 +57,20 @@ void *property_watch_loop(__unused void *arg) {
 // We force the linker to include init_profile_extras() by passing
 // '-uinit_profile_extras' to the linker (in build/soong).
 __attribute__((constructor)) int init_profile_extras(void) {
-  sighandler_t ret1 = signal(GCOV_FLUSH_SIGNAL, gcov_signal_handler);
+  if (init_profile_extras_once)
+    return 0;
+  init_profile_extras_once = 1;
+
+  // is this instance already registered?
+  if (chained_gcov_signal_handler != SIG_ERR) {
+    return -1;
+  }
+  sighandler_t ret1 = signal(COVERAGE_FLUSH_SIGNAL, gcov_signal_handler);
   if (ret1 == SIG_ERR) {
     return -1;
   }
+  chained_gcov_signal_handler = ret1;
 
-  // Do not create thread running property_watch_loop for zygote (it can get
-  // invoked as zygote or app_process).  This check is only needed for the
-  // platform, but can be done on any version after Android L, when
-  // getprogname() was added.
-#if defined(__ANDROID_API__) && __ANDROID_API__ >= __ANDROID_API_L__
-  const char *prog_basename = basename(getprogname());
-  if (strncmp(prog_basename, "zygote", strlen("zygote")) == 0) {
-    return 0;
-  }
-  if (strncmp(prog_basename, "app_process", strlen("app_process")) == 0) {
-    return 0;
-  }
-#endif
-
-  pthread_t thread;
-  int error = pthread_create(&thread, nullptr, property_watch_loop, nullptr);
-  if (error != 0) {
-    return -1;
-  }
   return 0;
 }
 }

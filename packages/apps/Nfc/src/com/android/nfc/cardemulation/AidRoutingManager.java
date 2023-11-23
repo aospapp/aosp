@@ -17,19 +17,18 @@ package com.android.nfc.cardemulation;
 
 import android.util.Log;
 import android.util.SparseArray;
+import android.util.proto.ProtoOutputStream;
 
 import com.android.nfc.NfcService;
-
+import com.android.nfc.NfcStatsLog;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import android.util.StatsLog;
 
 public class AidRoutingManager {
 
@@ -201,7 +200,10 @@ public class AidRoutingManager {
         boolean aidRouteResolved = false;
         HashMap<String, AidEntry> aidRoutingTableCache = new HashMap<String, AidEntry>(aidMap.size());
         ArrayList<Integer> seList = new ArrayList<Integer>();
-        seList.add(ROUTE_HOST);
+        seList.add(mDefaultRoute);
+        if (mDefaultRoute != ROUTE_HOST) {
+            seList.add(ROUTE_HOST);
+        }
 
         SparseArray<Set<String>> aidRoutingTable = new SparseArray<Set<String>>(aidMap.size());
         HashMap<String, Integer> routeForAid = new HashMap<String, Integer>(aidMap.size());
@@ -357,7 +359,8 @@ public class AidRoutingManager {
           if(aidRouteResolved == true) {
               commit(aidRoutingTableCache);
           } else {
-              StatsLog.write(StatsLog.NFC_ERROR_OCCURRED, StatsLog.NFC_ERROR_OCCURRED__TYPE__AID_OVERFLOW, 0, 0);
+              NfcStatsLog.write(NfcStatsLog.NFC_ERROR_OCCURRED,
+                      NfcStatsLog.NFC_ERROR_OCCURRED__TYPE__AID_OVERFLOW, 0, 0);
               Log.e(TAG, "RoutingTable unchanged because it's full, not updating");
           }
         }
@@ -405,6 +408,29 @@ public class AidRoutingManager {
                 for (String aid : aids) {
                     pw.println("        \"" + aid + "\"");
                 }
+            }
+        }
+    }
+
+    /**
+     * Dump debugging information as a AidRoutingManagerProto
+     *
+     * Note:
+     * See proto definition in frameworks/base/core/proto/android/nfc/card_emulation.proto
+     * When writing a nested message, must call {@link ProtoOutputStream#start(long)} before and
+     * {@link ProtoOutputStream#end(long)} after.
+     * Never reuse a proto field number. When removing a field, mark it as reserved.
+     */
+    void dumpDebug(ProtoOutputStream proto) {
+        proto.write(AidRoutingManagerProto.DEFAULT_ROUTE, mDefaultRoute);
+        synchronized (mLock) {
+            for (int i = 0; i < mAidRoutingTable.size(); i++) {
+                long token = proto.start(AidRoutingManagerProto.ROUTES);
+                proto.write(AidRoutingManagerProto.Route.ID, mAidRoutingTable.keyAt(i));
+                mAidRoutingTable.valueAt(i).forEach(aid -> {
+                    proto.write(AidRoutingManagerProto.Route.AIDS, aid);
+                });
+                proto.end(token);
             }
         }
     }

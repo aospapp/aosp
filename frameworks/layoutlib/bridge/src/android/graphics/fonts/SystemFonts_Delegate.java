@@ -49,7 +49,7 @@ public class SystemFonts_Delegate {
             @NonNull ArrayMap<String, FontFamily[]> fallbackMap,
             @NonNull ArrayList<Font> availableFonts) {
         Bridge.sIsTypefaceInitialized = true;
-        return SystemFonts.buildSystemFallback_Original(getFontLocation() + "/fonts.xml",
+        return SystemFonts.buildSystemFallback_Original(getFontLocation() + "/standard/fonts.xml",
                 getFontLocation() + "/", oemCustomization, fallbackMap, availableFonts);
     }
 }

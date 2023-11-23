@@ -6,6 +6,8 @@ net_domain(ims)
 
 get_prop(ims, hwservicemanager_prop)
 set_prop(ims, ims_prop)
+set_prop(ims, ctl_vendor_imsrcsservice_prop)
+get_prop(ims, cnd_prop)
 
 unix_socket_connect(ims, netmgrd, netmgrd)
 
@@ -41,3 +43,5 @@ allow ims hal_cne_hwservice:hwservice_manager find;
 binder_call(ims, cnd)
 
 dontaudit ims kernel:system module_request;
+
+dontaudit ims diag_device:chr_file rw_file_perms;

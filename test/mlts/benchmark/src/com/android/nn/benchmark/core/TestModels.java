@@ -16,9 +16,9 @@
 
 package com.android.nn.benchmark.core;
 
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Information about available benchmarking models */
 public class TestModels {
@@ -88,12 +88,13 @@ public class TestModels {
         }
     }
 
-    static private List<TestModelEntry> sTestModelEntryList = new ArrayList<>();
-    static private volatile boolean sTestModelEntryListFrozen = false;
+    static private final List<TestModelEntry> sTestModelEntryList = new ArrayList<>();
+    static private final AtomicReference<List<TestModelEntry>> frozenEntries = new AtomicReference<>(null);
+
 
     /** Add new benchmark model. */
     static public void registerModel(TestModelEntry model) {
-        if (sTestModelEntryListFrozen) {
+        if (frozenEntries.get() != null) {
             throw new IllegalStateException("Can't register new models after its list is frozen");
         }
         sTestModelEntryList.add(model);
@@ -104,16 +105,8 @@ public class TestModels {
      * If this method was called at least once, then it's impossible to register new models.
      */
     static public List<TestModelEntry> modelsList() {
-        if (!sTestModelEntryListFrozen) {
-            // If this method was called once, make models list unmodifiable
-            synchronized (TestModels.class) {
-                if (!sTestModelEntryListFrozen) {
-                    sTestModelEntryList = Collections.unmodifiableList(sTestModelEntryList);
-                    sTestModelEntryListFrozen = true;
-                }
-            }
-        }
-        return sTestModelEntryList;
+        frozenEntries.compareAndSet(null, sTestModelEntryList);
+        return frozenEntries.get();
     }
 
     /** Fetch model by its name. */

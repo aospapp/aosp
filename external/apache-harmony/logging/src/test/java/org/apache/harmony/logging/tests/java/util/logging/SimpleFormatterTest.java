@@ -57,7 +57,7 @@ public class SimpleFormatterTest extends TestCase {
     public void testLocalizedFormat() {
         // if bundle set, should use localized message
         ResourceBundle rb = ResourceBundle
-                .getBundle("bundles/com/android/java/util/logging/res");
+                .getBundle("bundles/java/util/logging/res");
         lr.setResourceBundle(rb);
         lr.setMessage("msg");
         String localeMsg = rb.getString("msg");
@@ -66,7 +66,7 @@ public class SimpleFormatterTest extends TestCase {
 
         // if bundle not set but bundle name set, should use original message
         lr.setResourceBundle(null);
-        lr.setResourceBundleName("bundles/com/android/java/util/logging/res");
+        lr.setResourceBundleName("bundles/java/util/logging/res");
         lr.setMessage("msg");
         str = sf.format(lr);
         localeMsg = rb.getString("msg");

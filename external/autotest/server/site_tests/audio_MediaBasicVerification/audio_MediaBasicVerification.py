@@ -31,7 +31,7 @@ class audio_MediaBasicVerification(audio_test.AudioTest):
     UNSUPPORTED_BOARD_TYPES = ['CHROMEBIT']
 
     def run_once(self, host, audio_test_file):
-
+        """Runs MediaBasicVerification test."""
         if host.get_board_type() in self.UNSUPPORTED_BOARD_TYPES:
             raise error.TestNAError(
                     'DUT is not supported for this scenario. Skipping test.')
@@ -58,7 +58,9 @@ class audio_MediaBasicVerification(audio_test.AudioTest):
             audio_test_utils.dump_cros_audio_logs(
                     host, audio_facade, self.resultsdir, 'after_binding')
 
-            audio_test_utils.check_audio_nodes(audio_facade, (['HEADPHONE'], None))
+            audio_test_utils.check_audio_nodes(
+                    audio_facade,
+                    (audio_test_utils.get_headphone_node(host), None))
 
             # Starts playing, waits for some time, and then starts recording.
             # This is to avoid artifact caused by codec initialization.

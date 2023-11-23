@@ -7,13 +7,15 @@
 #ifndef CORE_FPDFAPI_PAGE_CPDF_SAMPLEDFUNC_H_
 #define CORE_FPDFAPI_PAGE_CPDF_SAMPLEDFUNC_H_
 
+#include <set>
 #include <vector>
 
 #include "core/fpdfapi/page/cpdf_function.h"
-#include "core/fpdfapi/parser/cpdf_stream_acc.h"
 #include "core/fxcrt/retain_ptr.h"
 
-class CPDF_SampledFunc : public CPDF_Function {
+class CPDF_StreamAcc;
+
+class CPDF_SampledFunc final : public CPDF_Function {
  public:
   struct SampleEncodeInfo {
     float encode_max;
@@ -30,14 +32,18 @@ class CPDF_SampledFunc : public CPDF_Function {
   ~CPDF_SampledFunc() override;
 
   // CPDF_Function
-  bool v_Init(CPDF_Object* pObj) override;
-  bool v_Call(float* inputs, float* results) const override;
+  bool v_Init(const CPDF_Object* pObj,
+              std::set<const CPDF_Object*>* pVisited) override;
+  bool v_Call(const float* inputs, float* results) const override;
 
   const std::vector<SampleEncodeInfo>& GetEncodeInfo() const {
     return m_EncodeInfo;
   }
   uint32_t GetBitsPerSample() const { return m_nBitsPerSample; }
-  RetainPtr<CPDF_StreamAcc> GetSampleStream() const { return m_pSampleStream; }
+
+#if defined _SKIA_SUPPORT_ || defined _SKIA_SUPPORT_PATHS_
+  RetainPtr<CPDF_StreamAcc> GetSampleStream() const;
+#endif
 
  private:
   std::vector<SampleEncodeInfo> m_EncodeInfo;

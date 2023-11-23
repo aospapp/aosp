@@ -23,10 +23,10 @@ import android.net.IpConfiguration;
 import android.net.MacAddress;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSpecifier;
 import android.net.wifi.WifiScanner;
 import android.os.PatternMatcher;
-import android.os.UserHandle;
 import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
@@ -43,7 +43,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.WifiConfigurationUtil}.
  */
 @SmallTest
-public class WifiConfigurationUtilTest {
+public class WifiConfigurationUtilTest extends WifiBaseTest {
     static final int CURRENT_USER_ID = 0;
     static final int CURRENT_USER_MANAGED_PROFILE_USER_ID = 10;
     static final int OTHER_USER_ID = 11;
@@ -56,29 +56,6 @@ public class WifiConfigurationUtilTest {
     static final List<UserInfo> PROFILES = Arrays.asList(
             new UserInfo(CURRENT_USER_ID, "owner", 0),
             new UserInfo(CURRENT_USER_MANAGED_PROFILE_USER_ID, "managed profile", 0));
-
-    /**
-     * Test for {@link WifiConfigurationUtil.isVisibleToAnyProfile}.
-     */
-    @Test
-    public void isVisibleToAnyProfile() {
-        // Shared network configuration created by another user.
-        final WifiConfiguration configuration = new WifiConfiguration();
-        configuration.creatorUid = UserHandle.getUid(OTHER_USER_ID, 0);
-        assertTrue(WifiConfigurationUtil.isVisibleToAnyProfile(configuration, PROFILES));
-
-        // Private network configuration created by another user.
-        configuration.shared = false;
-        assertFalse(WifiConfigurationUtil.isVisibleToAnyProfile(configuration, PROFILES));
-
-        // Private network configuration created by the current user.
-        configuration.creatorUid = UserHandle.getUid(CURRENT_USER_ID, 0);
-        assertTrue(WifiConfigurationUtil.isVisibleToAnyProfile(configuration, PROFILES));
-
-        // Private network configuration created by the current user's managed profile.
-        configuration.creatorUid = UserHandle.getUid(CURRENT_USER_MANAGED_PROFILE_USER_ID, 0);
-        assertTrue(WifiConfigurationUtil.isVisibleToAnyProfile(configuration, PROFILES));
-    }
 
     /**
      * Verify that new WifiEnterpriseConfig is detected.
@@ -496,6 +473,22 @@ public class WifiConfigurationUtilTest {
     }
 
     /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad KeyMgmt value.
+     */
+    @Test
+    public void testValidateNegativeCases_InvalidKeyMgmtWithPreSharedKey() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.allowedKeyManagement.clear();
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.OSEN);
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        // Verify we reset the KeyMgmt
+        assertTrue(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK));
+        assertFalse(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.OSEN));
+    }
+
+    /**
      * Verify that the validate method fails to validate WifiConfiguration with bad Protocol value.
      */
     @Test
@@ -503,7 +496,7 @@ public class WifiConfigurationUtilTest {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
-        config.allowedProtocols.set(3);
+        config.allowedProtocols.set(4);
         assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
@@ -529,7 +522,7 @@ public class WifiConfigurationUtilTest {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
-        config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.GTK_NOT_USED + 2);
+        config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.GTK_NOT_USED + 3);
         assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
@@ -542,7 +535,7 @@ public class WifiConfigurationUtilTest {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
-        config.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP + 2);
+        config.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP + 3);
         assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
@@ -555,7 +548,7 @@ public class WifiConfigurationUtilTest {
         WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
-        config.requirePMF = false;
+        config.requirePmf = false;
         assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
@@ -568,7 +561,7 @@ public class WifiConfigurationUtilTest {
         WifiConfiguration config = WifiConfigurationTestUtil.createOweNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
-        config.requirePMF = false;
+        config.requirePmf = false;
         assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
@@ -581,7 +574,7 @@ public class WifiConfigurationUtilTest {
         WifiConfiguration config = WifiConfigurationTestUtil.createEapSuiteBNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
-        config.requirePMF = false;
+        config.requirePmf = false;
         assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
@@ -593,9 +586,8 @@ public class WifiConfigurationUtilTest {
     public void testValidateNetworkSpecifierPositiveCases_SsidPattern() {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
-                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
-                WifiConfigurationTestUtil.createOpenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS, WifiManager.ALL_ZEROS_MAC_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork());
         assertTrue(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
@@ -608,8 +600,7 @@ public class WifiConfigurationUtilTest {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher(".*", PatternMatcher.PATTERN_SIMPLE_GLOB),
                 Pair.create(MacAddress.fromString(TEST_BSSID), MacAddress.BROADCAST_ADDRESS),
-                WifiConfigurationTestUtil.createOpenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                WifiConfigurationTestUtil.createOpenNetwork());
         assertTrue(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
@@ -622,8 +613,7 @@ public class WifiConfigurationUtilTest {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
                 Pair.create(MacAddress.fromString(TEST_BSSID), MacAddress.BROADCAST_ADDRESS),
-                WifiConfigurationTestUtil.createOpenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                WifiConfigurationTestUtil.createOpenNetwork());
         assertTrue(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
@@ -635,9 +625,8 @@ public class WifiConfigurationUtilTest {
     public void testValidateNetworkSpecifierNegativeCases_NoSsidBssid() {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher(".*", PatternMatcher.PATTERN_SIMPLE_GLOB),
-                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
-                WifiConfigurationTestUtil.createOpenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS, WifiManager.ALL_ZEROS_MAC_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork());
         assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
@@ -649,9 +638,8 @@ public class WifiConfigurationUtilTest {
     public void testValidateNetworkSpecifierNegativeCases_MatchNoneSsidPattern() {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher("", PatternMatcher.PATTERN_LITERAL),
-                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
-                WifiConfigurationTestUtil.createOpenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS, WifiManager.ALL_ZEROS_MAC_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork());
         assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
@@ -664,8 +652,7 @@ public class WifiConfigurationUtilTest {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
                 Pair.create(MacAddress.BROADCAST_ADDRESS, MacAddress.BROADCAST_ADDRESS),
-                WifiConfigurationTestUtil.createOpenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                WifiConfigurationTestUtil.createOpenNetwork());
         assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
@@ -677,9 +664,8 @@ public class WifiConfigurationUtilTest {
     public void testValidateNetworkSpecifierNegativeCases_InvalidBssidPattern() {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
-                Pair.create(MacAddress.fromString(TEST_BSSID), MacAddress.ALL_ZEROS_ADDRESS),
-                WifiConfigurationTestUtil.createOpenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                Pair.create(MacAddress.fromString(TEST_BSSID), WifiManager.ALL_ZEROS_MAC_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork());
         assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
@@ -691,9 +677,8 @@ public class WifiConfigurationUtilTest {
     public void testValidateNetworkSpecifierNegativeCases_NoSsidPatternForHiddenNetwork() {
         WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
                 new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_PREFIX),
-                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
-                WifiConfigurationTestUtil.createOpenHiddenNetwork(),
-                TEST_UID, TEST_PACKAGE);
+                Pair.create(WifiManager.ALL_ZEROS_MAC_ADDRESS, WifiManager.ALL_ZEROS_MAC_ADDRESS),
+                WifiConfigurationTestUtil.createOpenHiddenNetwork());
         assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 

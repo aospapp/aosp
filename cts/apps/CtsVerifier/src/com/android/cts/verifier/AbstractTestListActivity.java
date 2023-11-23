@@ -17,11 +17,12 @@
 package com.android.cts.verifier;
 
 import com.android.cts.verifier.TestListAdapter.TestListItem;
-
 import android.app.ListActivity;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Rect;
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.widget.ListView;
@@ -29,13 +30,26 @@ import android.widget.ListView;
 /** {@link ListActivity} that displays a list of manual tests. */
 public abstract class AbstractTestListActivity extends ListActivity {
     private static final int LAUNCH_TEST_REQUEST_CODE = 9001;
+    //An invalid value which smaller than the edge of coordinate on the screen.
+    private static final float DEFAULT_CLICKED_COORDINATE = -1;
 
     protected TestListAdapter mAdapter;
+    // Start time of test case.
+    protected long mStartTime;
+    // End time of test case.
+    protected long mEndTime;
+    // X-axis of clicked coordinate when entering a test case.
+    protected float mCoordinateX;
+    // Y-axis of clicked coordinate when entering a test case.
+    protected float mCoornidateY;
+    // Whether test case was executed through automation.
+    protected boolean mIsAutomated;
 
     protected void setTestListAdapter(TestListAdapter adapter) {
         mAdapter = adapter;
         setListAdapter(mAdapter);
         mAdapter.loadTestResults();
+        setOnTouchListenerToListView();
     }
 
     private Intent getIntent(int position) {
@@ -73,15 +87,33 @@ public abstract class AbstractTestListActivity extends ListActivity {
 
     protected void handleLaunchTestResult(int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
+            // If subtest didn't set end time, set current time
+            if (mEndTime == 0) {
+                mEndTime = System.currentTimeMillis();
+            }
             TestResult testResult = TestResult.fromActivityResult(resultCode, data);
+            testResult.getHistoryCollection().add(
+                testResult.getName(), mStartTime, mEndTime, mIsAutomated);
             mAdapter.setTestResult(testResult);
         }
+        // Reset end time to avoid keeping same end time in retry.
+        mEndTime = 0;
+        // Reset mIsAutomated flag to false
+        mIsAutomated = false;
+        // Reset clicked coordinate.
+        mCoordinateX = DEFAULT_CLICKED_COORDINATE;
+        mCoornidateY = DEFAULT_CLICKED_COORDINATE;
     }
 
     /** Launch the activity when its {@link ListView} item is clicked. */
     @Override
     protected final void onListItemClick(ListView listView, View view, int position, long id) {
         super.onListItemClick(listView, view, position, id);
+        mStartTime = System.currentTimeMillis();
+        //Check whether the clicked coordinate is consistent with the center of the clicked Object.
+        Rect rect = new Rect();
+        view.getGlobalVisibleRect(rect);
+        mIsAutomated = (mCoordinateX == rect.centerX()) && (mCoornidateY == rect.centerY());
         handleItemClick(listView, view, position, id);
     }
 
@@ -89,5 +121,24 @@ public abstract class AbstractTestListActivity extends ListActivity {
     protected void handleItemClick(ListView listView, View view, int position, long id) {
         Intent intent = getIntent(position);
         startActivityForResult(intent, LAUNCH_TEST_REQUEST_CODE);
+    }
+
+    /** Set OnTouchListener to ListView to get the clicked Coordinate*/
+    protected void setOnTouchListenerToListView() {
+        getListView().setOnTouchListener(null);
+        getListView().setOnTouchListener(new View.OnTouchListener(){
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    mCoordinateX = event.getRawX();
+                    mCoornidateY = event.getRawY();
+                } else {
+                    // Reset clicked coordinate.
+                    mCoordinateX = DEFAULT_CLICKED_COORDINATE;
+                    mCoornidateY = DEFAULT_CLICKED_COORDINATE;
+                }
+                return false;
+            }
+        });
     }
 }

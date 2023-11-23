@@ -106,10 +106,12 @@ static char *cond_expr_to_str(struct policydb *pdb, struct cond_expr *expr)
 	return str;
 
 exit:
-	while ((new_val = strs_stack_pop(stack)) != NULL) {
-		free(new_val);
+	if (stack) {
+		while ((new_val = strs_stack_pop(stack)) != NULL) {
+			free(new_val);
+		}
+		strs_stack_destroy(&stack);
 	}
-	strs_stack_destroy(&stack);
 
 	return NULL;
 }
@@ -247,10 +249,12 @@ static char *constraint_expr_to_str(struct policydb *pdb, struct constraint_expr
 	return str;
 
 exit:
-	while ((new_val = strs_stack_pop(stack)) != NULL) {
-		free(new_val);
+	if (stack) {
+		while ((new_val = strs_stack_pop(stack)) != NULL) {
+			free(new_val);
+		}
+		strs_stack_destroy(&stack);
 	}
-	strs_stack_destroy(&stack);
 
 	return NULL;
 }
@@ -448,8 +452,12 @@ static int write_sids_to_conf(FILE *out, const char *const *sid_to_str,
 		if (i < num_sids) {
 			sid = (char *)sid_to_str[i];
 		} else {
-			snprintf(unknown, 18, "%s%u", "UNKNOWN", i);
+			snprintf(unknown, sizeof(unknown), "%s%u", "UNKNOWN", i);
 			sid = strdup(unknown);
+			if (!sid) {
+				rc = -1;
+				goto exit;
+			}
 		}
 		rc = strs_add_at_index(strs, sid, i);
 		if (rc != 0) {
@@ -669,6 +677,9 @@ static int write_default_range_to_conf(FILE *out, char *class_name, class_datum_
 	case DEFAULT_TARGET_LOW_HIGH:
 		dft = "target low-high";
 		break;
+	case DEFAULT_GLBLUB:
+		dft = "glblub";
+		break;
 	default:
 		sepol_log_err("Unknown default type value: %i", class->default_range);
 		return -1;
@@ -792,6 +803,10 @@ static int write_sensitivity_rules_to_conf(FILE *out, struct policydb *pdb)
 			j = level->level->sens - 1;
 			if (!sens_alias_map[j]) {
 				sens_alias_map[j] = strdup(name);
+				if (!sens_alias_map[j]) {
+					rc = -1;
+					goto exit;
+				}
 			} else {
 				alias = sens_alias_map[j];
 				sens_alias_map[j] = create_str("%s %s", 2, alias, name);
@@ -919,6 +934,10 @@ static int write_category_rules_to_conf(FILE *out, struct policydb *pdb)
 			j = cat->s.value - 1;
 			if (!cat_alias_map[j]) {
 				cat_alias_map[j] = strdup(name);
+				if (!cat_alias_map[j]) {
+					rc = -1;
+					goto exit;
+				}
 			} else {
 				alias = cat_alias_map[j];
 				cat_alias_map[j] = create_str("%s %s", 2, alias, name);
@@ -978,10 +997,7 @@ static size_t cats_ebitmap_len(struct ebitmap *cats, char **val_to_name)
 	size_t len = 0;
 
 	range = 0;
-	ebitmap_for_each_bit(cats, node, i) {
-		if (!ebitmap_get_bit(cats, i))
-			continue;
-
+	ebitmap_for_each_positive_bit(cats, node, i) {
 		if (range == 0)
 			start = i;
 
@@ -1020,10 +1036,7 @@ static char *cats_ebitmap_to_str(struct ebitmap *cats, char **val_to_name)
 
 	first = 1;
 	range = 0;
-	ebitmap_for_each_bit(cats, node, i) {
-		if (!ebitmap_get_bit(cats, i))
-			continue;
-
+	ebitmap_for_each_positive_bit(cats, node, i) {
 		if (range == 0)
 			start = i;
 
@@ -1138,9 +1151,7 @@ static int write_polcap_rules_to_conf(FILE *out, struct policydb *pdb)
 		goto exit;
 	}
 
-	ebitmap_for_each_bit(&pdb->policycaps, node, i) {
-		if (!ebitmap_get_bit(&pdb->policycaps, i)) continue;
-
+	ebitmap_for_each_positive_bit(&pdb->policycaps, node, i) {
 		name = sepol_polcap_getname(i);
 		if (name == NULL) {
 			sepol_log_err("Unknown policy capability id: %i", i);
@@ -1590,8 +1601,7 @@ static int write_type_permissive_rules_to_conf(FILE *out, struct policydb *pdb)
 		goto exit;
 	}
 
-	ebitmap_for_each_bit(&pdb->permissive_map, node, i) {
-		if (!ebitmap_get_bit(&pdb->permissive_map, i)) continue;
+	ebitmap_for_each_positive_bit(&pdb->permissive_map, node, i) {
 		rc = strs_add(strs, pdb->p_type_val_to_name[i-1]);
 		if (rc != 0) {
 			goto exit;
@@ -2373,7 +2383,7 @@ static int write_sid_context_rules_to_conf(FILE *out, struct policydb *pdb, cons
 		if (i < num_sids) {
 			sid = (char *)sid_to_str[i];
 		} else {
-			snprintf(unknown, 18, "%s%u", "UNKNOWN", i);
+			snprintf(unknown, sizeof(unknown), "%s%u", "UNKNOWN", i);
 			sid = unknown;
 		}
 

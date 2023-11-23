@@ -16,7 +16,7 @@
 
 package com.android.documentsui.files;
 
-import com.android.documentsui.files.ActionHandler;
+import com.android.documentsui.AbstractActionHandler;
 import com.android.documentsui.testing.TestEnv;
 
 import org.mockito.Mockito;
@@ -33,4 +33,4 @@ public abstract class TestActivity extends AbstractBase {
 // Trick Mockito into finding our Addons methods correctly. W/o this
 // hack, Mockito thinks Addons methods are not implemented.
 abstract class AbstractBase extends com.android.documentsui.TestActivity
-        implements ActionHandler.Addons {}
+        implements AbstractActionHandler.CommonAddons {}

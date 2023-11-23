@@ -17,7 +17,6 @@
 package com.android.documentsui;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
-import static com.android.documentsui.base.SharedMinimal.TAG;
 
 import android.app.ActivityManager;
 import android.content.ContentProviderClient;
@@ -65,6 +64,9 @@ import java.util.concurrent.TimeUnit;
  * and return the combined result.
  */
 public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<DirectoryResult> {
+
+    private static final String TAG = "MultiRootDocsLoader";
+
     // TODO: clean up cursor ownership so background thread doesn't traverse
     // previously returned cursors for filtering/sorting; this currently races
     // with the UI thread.
@@ -83,6 +85,7 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
     private final ProvidersAccess mProviders;
     private final Lookup<String, Executor> mExecutors;
     private final Lookup<String, String> mFileTypeMap;
+    private LockingContentObserver mObserver;
 
     @GuardedBy("mTasks")
     /** A authority -> QueryTask map */
@@ -101,6 +104,8 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
      * @param state current state
      * @param executors the executors of authorities
      * @param fileTypeMap the map of mime types and file types.
+     * @param lock the selection lock
+     * @param contentChangedCallback callback when content changed
      */
     public MultiRootDocumentsLoader(Context context, ProvidersAccess providers, State state,
             Lookup<String, Executor> executors, Lookup<String, String> fileTypeMap) {
@@ -124,6 +129,10 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
         synchronized (mTasks) {
             return loadInBackgroundLocked();
         }
+    }
+
+    public void setObserver(LockingContentObserver observer) {
+        mObserver = observer;
     }
 
     private DirectoryResult loadInBackgroundLocked() {
@@ -171,6 +180,10 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
                             // after a query.
                             continue;
                         }
+
+                        // Filter hidden files.
+                        cursor = new FilteringCursorWrapper(cursor, mState.showHiddenFiles);
+
                         final FilteringCursorWrapper filtered = new FilteringCursorWrapper(
                                 cursor, mState.acceptMimes, getRejectMimes(), rejectBefore) {
                             @Override
@@ -238,7 +251,8 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
         HashMap<String, List<RootInfo>> rootsIndex = new HashMap<>();
         for (RootInfo root : roots) {
             // ignore the root with authority is null. e.g. Recent
-            if (root.authority == null || shouldIgnoreRoot(root)) {
+            if (root.authority == null || shouldIgnoreRoot(root)
+                    || !mState.canInteractWith(root.userId)) {
                 continue;
             }
 
@@ -316,10 +330,9 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
 
         synchronized (mTasks) {
             for (QueryTask task : mTasks.values()) {
-                FileUtils.closeQuietly(task);
+                mExecutors.lookup(task.authority).execute(() -> FileUtils.closeQuietly(task));
             }
         }
-
         FileUtils.closeQuietly(mResult);
         mResult = null;
     }
@@ -390,33 +403,33 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
                 return;
             }
 
-            ContentProviderClient client = null;
-            try {
-                client = DocumentsApplication.acquireUnstableProviderOrThrow(
-                        getContext().getContentResolver(), authority);
+            final int rootInfoCount = rootInfos.size();
+            final Cursor[] res = new Cursor[rootInfoCount];
+            mCursors = new Cursor[rootInfoCount];
 
-                final int rootInfoCount = rootInfos.size();
-                final Cursor[] res = new Cursor[rootInfoCount];
-                mCursors = new Cursor[rootInfoCount];
-
-                for (int i = 0; i < rootInfoCount; i++) {
-                    final Uri uri = getQueryUri(rootInfos.get(i));
+            for (int i = 0; i < rootInfoCount; i++) {
+                final RootInfo rootInfo = rootInfos.get(i);
+                try (ContentProviderClient client =
+                             DocumentsApplication.acquireUnstableProviderOrThrow(
+                                     rootInfo.userId.getContentResolver(getContext()),
+                                     authority)) {
+                    final Uri uri = getQueryUri(rootInfo);
                     try {
                         final Bundle queryArgs = new Bundle();
                         mState.sortModel.addQuerySortArgs(queryArgs);
                         addQueryArgs(queryArgs);
                         res[i] = client.query(uri, null, queryArgs, null);
-                        mCursors[i] = generateResultCursor(rootInfos.get(i), res[i]);
+                        if (mObserver != null) {
+                            res[i].registerContentObserver(mObserver);
+                        }
+                        mCursors[i] = generateResultCursor(rootInfo, res[i]);
                     } catch (Exception e) {
-                        Log.w(TAG, "Failed to load " + authority + ", " + rootInfos.get(i).rootId,
-                                e);
+                        Log.w(TAG, "Failed to load " + authority + ", " + rootInfo.rootId, e);
                     }
-                }
 
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to acquire content resolver for authority: " + authority);
-            } finally {
-                FileUtils.closeQuietly(client);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to acquire content resolver for authority: " + authority);
+                }
             }
 
             set(mCursors);
@@ -434,6 +447,9 @@ public abstract class MultiRootDocumentsLoader extends AsyncTaskLoader<Directory
             }
 
             for (Cursor cursor : mCursors) {
+                if (mObserver != null && cursor != null) {
+                    cursor.unregisterContentObserver(mObserver);
+                }
                 FileUtils.closeQuietly(cursor);
             }
 

@@ -31,10 +31,14 @@ if not locals().get('value'):
     value = args_dict['value']
 
 
+if not locals().get('fw_path'):
+    fw_path = args_dict.get('fw_path', None)
+
+
 def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
     job.run_test('provision_FirmwareUpdate', host=host, value=value,
-                 rw_only=False, disable_sysinfo=True)
+                 rw_only=False, disable_sysinfo=True, fw_path=fw_path)
 
 
 job.parallel_simple(run, machines)

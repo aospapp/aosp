@@ -45,6 +45,7 @@ enum LockLevel : uint8_t {
   kUnexpectedSignalLock,
   kThreadSuspendCountLock,
   kAbortLock,
+  kJniIdLock,
   kNativeDebugInterfaceLock,
   kSignalHandlingLock,
   // A generic lock level for mutexs that should not allow any additional mutexes to be gained after
@@ -106,6 +107,9 @@ enum LockLevel : uint8_t {
   kDexToDexCompilerLock,
   kSubtypeCheckLock,
   kBreakpointLock,
+  // This is a generic lock level for a lock meant to be gained after having a
+  // monitor lock.
+  kPostMonitorLock,
   kMonitorLock,
   kMonitorListLock,
   kJniLoadLibraryLock,
@@ -128,6 +132,9 @@ enum LockLevel : uint8_t {
 
   kMutatorLock,
   kInstrumentEntrypointsLock,
+  // This is a generic lock level for a top-level lock meant to be gained after having the
+  // UserCodeSuspensionLock.
+  kPostUserCodeSuspensionTopLevelLock,
   kUserCodeSuspensionLock,
   kZygoteCreationLock,
 
@@ -328,8 +335,11 @@ class Locks {
   // GetThreadLocalStorage.
   static Mutex* custom_tls_lock_ ACQUIRED_AFTER(jni_function_table_lock_);
 
+  // Guard access to any JIT data structure.
+  static Mutex* jit_lock_ ACQUIRED_AFTER(custom_tls_lock_);
+
   // Guards Class Hierarchy Analysis (CHA).
-  static Mutex* cha_lock_ ACQUIRED_AFTER(custom_tls_lock_);
+  static Mutex* cha_lock_ ACQUIRED_AFTER(jit_lock_);
 
   // When declaring any Mutex add BOTTOM_MUTEX_ACQUIRED_AFTER to use annotalysis to check the code
   // doesn't try to acquire a higher level Mutex. NB Due to the way the annotalysis works this
@@ -350,8 +360,12 @@ class Locks {
   // Guards the magic global variables used by native tools (e.g. libunwind).
   static Mutex* native_debug_interface_lock_ ACQUIRED_AFTER(unexpected_signal_lock_);
 
+  // Guards the data structures responsible for keeping track of the JNI
+  // jmethodID/jfieldID <-> ArtMethod/ArtField mapping when using index-ids.
+  static ReaderWriterMutex* jni_id_lock_ ACQUIRED_AFTER(native_debug_interface_lock_);
+
   // Have an exclusive logging thread.
-  static Mutex* logging_lock_ ACQUIRED_AFTER(native_debug_interface_lock_);
+  static Mutex* logging_lock_ ACQUIRED_AFTER(jni_id_lock_);
 
   // List of mutexes that we expect a thread may hold when accessing weak refs. This is used to
   // avoid a deadlock in the empty checkpoint while weak ref access is disabled (b/34964016). If we

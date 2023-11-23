@@ -9,6 +9,9 @@
 
 #include <efi_api.h>
 
+/* Use Linux compatible standard DTB */
+#define VXWORKS_SYSFLG_STD_DTB	0x1
+
 /*
  * Physical address of memory base for VxWorks x86
  * This is LOCAL_MEM_LOCAL_ADRS in the VxWorks kernel configuration.
@@ -83,6 +86,5 @@ struct efi_gop_info {
 int do_bootvx(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]);
 void boot_prep_vxworks(bootm_headers_t *images);
 void boot_jump_vxworks(bootm_headers_t *images);
-void do_bootvx_fdt(bootm_headers_t *images);
 
 #endif

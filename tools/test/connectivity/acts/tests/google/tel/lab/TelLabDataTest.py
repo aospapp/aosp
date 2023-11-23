@@ -59,6 +59,7 @@ from acts.test_utils.tel.tel_defines import POWER_LEVEL_FULL_SERVICE
 from acts.test_utils.tel.tel_test_utils import ensure_network_rat
 from acts.test_utils.tel.tel_test_utils import ensure_phones_idle
 from acts.test_utils.tel.tel_test_utils import ensure_network_generation
+from acts.test_utils.tel.tel_test_utils import get_host_ip_address
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import iperf_test_by_adb
 from acts.test_utils.tel.tel_test_utils import start_qxdm_loggers
@@ -86,8 +87,8 @@ class TelLabDataTest(TelephonyBaseTest):
     SETTLING_TIME = 30
     SERIAL_NO = cb_serial_number()
 
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad = self.android_devices[0]
         self.ip_server = self.iperf_servers[0]
         self.port_num = self.ip_server.port
@@ -106,10 +107,9 @@ class TelLabDataTest(TelephonyBaseTest):
                                  self.start_power_level) / self.step_size))
         self.log.info("Max iterations is %d", self.MAX_ITERATIONS)
 
-    def setup_class(self):
         try:
-            self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option, self.md8475_version)
+            self.anritsu = MD8475A(self.md8475a_ip_address, self.wlan_option,
+                                   self.md8475_version)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False
@@ -181,11 +181,7 @@ class TelLabDataTest(TelephonyBaseTest):
             time.sleep(self.SETTLING_TIME)
 
             # Fetch IP address of the host machine
-            cmd = "|".join(("ifconfig", "grep eth0 -A1", "grep inet",
-                            "cut -d ':' -f2", "cut -d ' ' -f 1"))
-            destination_ip = exe_cmd(cmd)
-            destination_ip = (destination_ip.decode("utf-8")).split("\n")[0]
-            self.log.info("Dest IP is %s", destination_ip)
+            destination_ip = get_host_ip_address(self)
 
             if not adb_shell_ping(self.ad, DEFAULT_PING_DURATION,
                                   destination_ip):

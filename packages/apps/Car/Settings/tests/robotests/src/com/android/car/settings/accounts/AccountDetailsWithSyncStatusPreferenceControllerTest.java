@@ -34,7 +34,6 @@ import android.os.UserHandle;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowAccountManager;
@@ -45,11 +44,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
 /** Unit test for {@link AccountDetailsWithSyncStatusPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowAccountManager.class, ShadowContentResolver.class,
         ShadowApplicationPackageManager.class})
 public class AccountDetailsWithSyncStatusPreferenceControllerTest {
@@ -144,7 +144,7 @@ public class AccountDetailsWithSyncStatusPreferenceControllerTest {
             String authority = authorities[i];
             // Adds a sync adapter type that has the right account type and is visible.
             SyncAdapterType syncAdapterType = new SyncAdapterType(authority,
-                    ACCOUNT_TYPE, /* userVisible */ true, /* supportsUploading */ true);
+                    ACCOUNT_TYPE, /* userVisible= */ true, /* supportsUploading= */ true);
             syncAdapters[i] = syncAdapterType;
 
             // Sets that the sync adapter is syncable.

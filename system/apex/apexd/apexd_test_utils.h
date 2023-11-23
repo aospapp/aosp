@@ -20,7 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "status.h"
+#include "session_state.pb.h"
 
 using apex::proto::SessionState;
 
@@ -33,22 +33,12 @@ using ::testing::Eq;
 using ::testing::ExplainMatchResult;
 using ::testing::Field;
 
-inline ::testing::AssertionResult IsOk(const Status& status) {
-  if (status.Ok()) {
-    return ::testing::AssertionSuccess() << " is Ok";
-  } else {
-    return ::testing::AssertionFailure()
-           << " failed with " << status.ErrorMessage();
-  }
-}
-
 template <typename T>
-inline ::testing::AssertionResult IsOk(const StatusOr<T>& status_or) {
-  if (status_or.Ok()) {
+inline ::testing::AssertionResult IsOk(const android::base::Result<T>& result) {
+  if (result.ok()) {
     return ::testing::AssertionSuccess() << " is Ok";
   } else {
-    return ::testing::AssertionFailure()
-           << " failed with " << status_or.ErrorMessage();
+    return ::testing::AssertionFailure() << " failed with " << result.error();
   }
 }
 
@@ -71,23 +61,25 @@ MATCHER_P(SessionInfoEq, other, "") {
           Field("isStaged", &ApexSessionInfo::isStaged, Eq(other.isStaged)),
           Field("isActivated", &ApexSessionInfo::isActivated,
                 Eq(other.isActivated)),
-          Field("isRollbackInProgress", &ApexSessionInfo::isRollbackInProgress,
-                Eq(other.isRollbackInProgress)),
+          Field("isRevertInProgress", &ApexSessionInfo::isRevertInProgress,
+                Eq(other.isRevertInProgress)),
           Field("isActivationFailed", &ApexSessionInfo::isActivationFailed,
                 Eq(other.isActivationFailed)),
           Field("isSuccess", &ApexSessionInfo::isSuccess, Eq(other.isSuccess)),
-          Field("isRolledBack", &ApexSessionInfo::isRolledBack,
-                Eq(other.isRolledBack)),
-          Field("isRollbackFailed", &ApexSessionInfo::isRollbackFailed,
-                Eq(other.isRollbackFailed))),
+          Field("isReverted", &ApexSessionInfo::isReverted,
+                Eq(other.isReverted)),
+          Field("isRevertFailed", &ApexSessionInfo::isRevertFailed,
+                Eq(other.isRevertFailed))),
       arg, result_listener);
 }
 
 MATCHER_P(ApexInfoEq, other, "") {
   return ExplainMatchResult(
-      AllOf(Field("packageName", &ApexInfo::packageName, Eq(other.packageName)),
-            Field("packagePath", &ApexInfo::packagePath, Eq(other.packagePath)),
-            Field("versioncode", &ApexInfo::versionCode, Eq(other.versionCode)),
+      AllOf(Field("moduleName", &ApexInfo::moduleName, Eq(other.moduleName)),
+            Field("modulePath", &ApexInfo::modulePath, Eq(other.modulePath)),
+            Field("preinstalledModulePath", &ApexInfo::preinstalledModulePath,
+                  Eq(other.preinstalledModulePath)),
+            Field("versionCode", &ApexInfo::versionCode, Eq(other.versionCode)),
             Field("isFactory", &ApexInfo::isFactory, Eq(other.isFactory)),
             Field("isActive", &ApexInfo::isActive, Eq(other.isActive))),
       arg, result_listener);
@@ -100,11 +92,11 @@ inline ApexSessionInfo CreateSessionInfo(int session_id) {
   info.isVerified = false;
   info.isStaged = false;
   info.isActivated = false;
-  info.isRollbackInProgress = false;
+  info.isRevertInProgress = false;
   info.isActivationFailed = false;
   info.isSuccess = false;
-  info.isRolledBack = false;
-  info.isRollbackFailed = false;
+  info.isReverted = false;
+  info.isRevertFailed = false;
   return info;
 }
 
@@ -120,8 +112,19 @@ inline void PrintTo(const ApexSessionInfo& session, std::ostream* os) {
   *os << "  isActivated : " << session.isActivated << "\n";
   *os << "  isActivationFailed : " << session.isActivationFailed << "\n";
   *os << "  isSuccess : " << session.isSuccess << "\n";
-  *os << "  isRolledBack : " << session.isRolledBack << "\n";
-  *os << "  isRollbackFailed : " << session.isRollbackFailed << "\n";
+  *os << "  isReverted : " << session.isReverted << "\n";
+  *os << "  isRevertFailed : " << session.isRevertFailed << "\n";
+  *os << "}";
+}
+
+inline void PrintTo(const ApexInfo& apex, std::ostream* os) {
+  *os << "apex_info: {\n";
+  *os << "  moduleName : " << apex.moduleName << "\n";
+  *os << "  modulePath : " << apex.modulePath << "\n";
+  *os << "  preinstalledModulePath : " << apex.preinstalledModulePath << "\n";
+  *os << "  versionCode : " << apex.versionCode << "\n";
+  *os << "  isFactory : " << apex.isFactory << "\n";
+  *os << "  isActive : " << apex.isActive << "\n";
   *os << "}";
 }
 

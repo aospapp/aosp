@@ -31,16 +31,13 @@ public class ZoneInfoTestHelper {
     private ZoneInfoTestHelper() {}
 
     /**
-     * Constructs valid and invalid zic data for tests. Currently it only creates minimal TZif
-     * version 1 data necessary to be compatible with Android's ZoneInfo class.
+     * Constructs valid and invalid zic data for tests.
      */
     public static class ZicDataBuilder {
 
         private int magic = 0x545a6966; // Default, valid magic.
-        private Integer transitionCountOverride; // Used to override the correct transition count.
-        private int[] transitionTimes; // Time of each transition, one per transition.
-        private byte[] transitionTypes; // Type of each transition, one per transition.
-        private Integer typesCountOverride; // Used to override the correct type count.
+        private long[] transitionTimes64Bit; // Time of each transition, one per transition.
+        private byte[] transitionTypes64Bit; // Type of each transition, one per transition.
         private int[] isDsts; // Whether a type uses DST, one per type.
         private int[] offsetsSeconds; // The UTC offset, one per type.
 
@@ -51,42 +48,32 @@ public class ZoneInfoTestHelper {
             return this;
         }
 
-        public ZicDataBuilder setTypeCountOverride(int typesCountOverride) {
-            this.typesCountOverride = typesCountOverride;
-            return this;
-        }
-
-        public ZicDataBuilder setTransitionCountOverride(int transitionCountOverride) {
-            this.transitionCountOverride = transitionCountOverride;
-            return this;
-        }
-
         /**
-         * See {@link #setTransitions(int[][])} and {@link #setTypes(int[][])}.
+         * See {@link #setTransitions(long[][])} and {@link #setTypes(int[][])}.
          */
         public ZicDataBuilder setTransitionsAndTypes(
-                int[][] transitionPairs, int[][] typePairs) {
+                long[][] transitionPairs, int[][] typePairs) {
             setTransitions(transitionPairs);
             setTypes(typePairs);
             return this;
         }
         /**
-         * Sets transition information using an array of pairs of ints. e.g.
+         * Sets transition information using an array of pairs of longs. e.g.
          *
-         * new int[][] {
+         * new long[][] {
          *   { transitionTimeSeconds1, typeIndex1 },
          *   { transitionTimeSeconds2, typeIndex1 },
          * }
          */
-        public ZicDataBuilder setTransitions(int[][] transitionPairs) {
-            int[] transitions = new int[transitionPairs.length];
+        public ZicDataBuilder setTransitions(long[][] transitionPairs) {
+            long[] transitions = new long[transitionPairs.length];
             byte[] types = new byte[transitionPairs.length];
             for (int i = 0; i < transitionPairs.length; i++) {
                 transitions[i] = transitionPairs[i][0];
                 types[i] = (byte) transitionPairs[i][1];
             }
-            this.transitionTimes = transitions;
-            this.transitionTypes = types;
+            this.transitionTimes64Bit = transitions;
+            this.transitionTypes64Bit = types;
             return this;
         }
 
@@ -94,8 +81,8 @@ public class ZoneInfoTestHelper {
          * Sets transition information using an array of pairs of ints. e.g.
          *
          * new int[][] {
-         *   { typeIsDst1, offsetSeconds1 },
-         *   { typeIsDst2, offsetSeconds2 },
+         *   { offsetSeconds1, typeIsDst1 },
+         *   { offsetSeconds2, typeIsDst2 },
          * }
          */
         public ZicDataBuilder setTypes(int[][] typePairs) {
@@ -112,7 +99,7 @@ public class ZoneInfoTestHelper {
 
         /** Initializes to a minimum viable ZoneInfo data. */
         public ZicDataBuilder initializeToValid() {
-            setTransitions(new int[0][0]);
+            setTransitions(new long[0][0]);
             setTypes(new int[][] {
                     { 3600, 0}
             });
@@ -122,40 +109,106 @@ public class ZoneInfoTestHelper {
         public byte[] build() {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-            // Magic number.
-            writeInt(baos, magic);
-
-            // Some useless stuff in the header.
-            for (int i = 0; i < 28; ++i) {
-                baos.write(i);
+            // Compute the 32-bit transitions / types.
+            List<Integer> transitionTimes32Bit = new ArrayList<>();
+            List<Byte> transitionTypes32Bit = new ArrayList<>();
+            if (transitionTimes64Bit.length > 0) {
+                // Skip transitions < Integer.MIN_VALUE.
+                int i = 0;
+                while (i < transitionTimes64Bit.length
+                        && transitionTimes64Bit[i] < Integer.MIN_VALUE) {
+                    i++;
+                }
+                // If we skipped any, add a transition at Integer.MIN_VALUE like zic does.
+                if (i > 0) {
+                    transitionTimes32Bit.add(Integer.MIN_VALUE);
+                    transitionTypes32Bit.add(transitionTypes64Bit[i - 1]);
+                }
+                // Copy remaining transitions / types that fit in the 32-bit range.
+                while (i < transitionTimes64Bit.length
+                        && transitionTimes64Bit[i] <= Integer.MAX_VALUE) {
+                    transitionTimes32Bit.add((int) transitionTimes64Bit[i]);
+                    transitionTypes32Bit.add(transitionTypes64Bit[i]);
+                    i++;
+                }
             }
 
-            // Transition time count
-            int transitionsCount = transitionCountOverride != null
-                    ? transitionCountOverride : transitionTimes.length;
-            writeInt(baos, transitionsCount);
+            int tzh_timecnt_32 = transitionTimes32Bit.size();
+            int tzh_timecnt_64 = transitionTimes64Bit.length;
+            int tzh_typecnt = offsetsSeconds.length;
+            int tzh_charcnt = 0;
+            int tzh_leapcnt = 0;
+            int tzh_ttisstdcnt = 0;
+            int tzh_ttisgmtcnt = 0;
 
-            // Transition type count.
-            int typesCount = typesCountOverride != null
-                    ? typesCountOverride : offsetsSeconds.length;
-            writeInt(baos, typesCount);
-            // Useless stuff.
-            writeInt(baos, 0xdeadbeef);
+            // Write 32-bit data.
+            writeHeader(baos, magic, tzh_timecnt_32, tzh_typecnt, tzh_charcnt, tzh_leapcnt,
+                    tzh_ttisstdcnt, tzh_ttisgmtcnt);
+            writeIntList(baos, transitionTimes32Bit);
+            writeByteList(baos, transitionTypes32Bit);
+            writeTypes(baos, offsetsSeconds, isDsts);
+            writeTrailingUnusued32BitData(baos, tzh_charcnt, tzh_leapcnt, tzh_ttisstdcnt,
+                    tzh_ttisgmtcnt);
 
-            // Transition time array, as ints.
-            writeIntArray(baos, transitionTimes);
+            // 64-bit data.
+            writeHeader(baos, magic, tzh_timecnt_64, tzh_typecnt, tzh_charcnt, tzh_leapcnt,
+                    tzh_ttisstdcnt, tzh_ttisgmtcnt);
+            writeLongArray(baos, transitionTimes64Bit);
+            writeByteArray(baos, transitionTypes64Bit);
+            writeTypes(baos, offsetsSeconds, isDsts);
 
-            // Transition type array.
-            writeByteArray(baos, transitionTypes);
+            return baos.toByteArray();
+        }
 
+        private static void writeTypes(
+                ByteArrayOutputStream baos, int[] offsetsSeconds, int[] isDsts) {
             // Offset / DST
             for (int i = 0; i < offsetsSeconds.length; i++) {
                 writeInt(baos, offsetsSeconds[i]);
                 writeByte(baos, isDsts[i]);
-                // Useless stuff.
-                writeByte(baos, i);
+                // Unused data on Android (abbreviation list index).
+                writeByte(baos, 0);
             }
-            return baos.toByteArray();
+        }
+
+        /**
+         * Writes the data after types information Android doesn't currently use but is needed so
+         * that the start of the 64-bit data can be found.
+         */
+        private static void writeTrailingUnusued32BitData(
+                ByteArrayOutputStream baos, int tzh_charcnt, int tzh_leapcnt,
+                int tzh_ttisstdcnt, int tzh_ttisgmtcnt) {
+
+            // Time zone abbreviations text.
+            writeByteArray(baos, new byte[tzh_charcnt]);
+            // tzh_leapcnt repetitions of leap second transition time + correction.
+            int leapInfoSize = 4 + 4;
+            writeByteArray(baos, new byte[tzh_leapcnt * leapInfoSize]);
+            // tzh_ttisstdcnt bytes
+            writeByteArray(baos, new byte[tzh_ttisstdcnt]);
+            // tzh_ttisgmtcnt bytes
+            writeByteArray(baos, new byte[tzh_ttisgmtcnt]);
+        }
+
+        private static void writeHeader(ByteArrayOutputStream baos, int magic, int tzh_timecnt,
+                int tzh_typecnt, int tzh_charcnt, int tzh_leapcnt, int tzh_ttisstdcnt,
+                int tzh_ttisgmtcnt) {
+            // Magic number.
+            writeInt(baos, magic);
+            // tzh_version
+            writeByte(baos, '2');
+
+            // Write out the unused part of the header.
+            for (int i = 0; i < 15; ++i) {
+                baos.write(i);
+            }
+            // Write out the known header fields.
+            writeInt(baos, tzh_ttisgmtcnt);
+            writeInt(baos, tzh_ttisstdcnt);
+            writeInt(baos, tzh_leapcnt);
+            writeInt(baos, tzh_timecnt);
+            writeInt(baos, tzh_typecnt);
+            writeInt(baos, tzh_charcnt);
         }
     }
 
@@ -300,18 +353,35 @@ public class ZoneInfoTestHelper {
         baos.write(array, 0, array.length);
     }
 
+    static void writeByteList(ByteArrayOutputStream baos, List<Byte> list) {
+        for (byte value : list) {
+            baos.write(value);
+        }
+    }
+
     static void writeByte(ByteArrayOutputStream baos, int value) {
         baos.write(value);
     }
 
-    static void writeIntArray(ByteArrayOutputStream baos, int[] array) {
-        for (int value : array) {
+    static void writeLongArray(ByteArrayOutputStream baos, long[] array) {
+        for (long value : array) {
+            writeLong(baos, value);
+        }
+    }
+
+    static void writeIntList(ByteArrayOutputStream baos, List<Integer> list) {
+        for (int value : list) {
             writeInt(baos, value);
         }
     }
 
     static void writeInt(ByteArrayOutputStream os, int value) {
         byte[] bytes = ByteBuffer.allocate(4).putInt(value).array();
+        writeByteArray(os, bytes);
+    }
+
+    static void writeLong(ByteArrayOutputStream os, long value) {
+        byte[] bytes = ByteBuffer.allocate(8).putLong(value).array();
         writeByteArray(os, bytes);
     }
 

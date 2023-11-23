@@ -22,20 +22,27 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
 import android.text.format.DateUtils;
+
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Program;
+import com.android.tv.common.flags.DvrFlags;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrProgramConflictFragment;
+
 import java.util.Collections;
 import java.util.List;
+
+import javax.inject.Inject;
+import dagger.android.AndroidInjection;
 
 /**
  * A fragment which asks the user the type of the recording.
@@ -52,8 +59,9 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
     private static final int ACTION_RECORD_EPISODE = 1;
     private static final int ACTION_RECORD_SERIES = 2;
 
-    private Program mProgram;
+    private ProgramImpl mProgram;
     private boolean mAddCurrentProgramToSeries;
+    @Inject DvrFlags mDvrFlags;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -75,6 +83,12 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
                 "The series recording should be stopped or null: %s",
                 seriesRecording);
         super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        AndroidInjection.inject(this);
+        super.onAttach(context);
     }
 
     @Override
@@ -122,21 +136,28 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
     @Override
     public void onTrackedGuidedActionClicked(GuidedAction action) {
         if (action.getId() == ACTION_RECORD_EPISODE) {
-            getDvrManager().addSchedule(mProgram);
-            List<ScheduledRecording> conflicts = getDvrManager().getConflictingSchedules(mProgram);
-            if (conflicts.isEmpty()) {
-                DvrUiHelper.showAddScheduleToast(
-                        getContext(),
-                        mProgram.getTitle(),
-                        mProgram.getStartTimeUtcMillis(),
-                        mProgram.getEndTimeUtcMillis());
-                dismissDialog();
+            if (mDvrFlags.startEarlyEndLateEnabled()) {
+                DvrUiHelper.startRecordingSettingsActivity(getContext(), mProgram);
             } else {
-                GuidedStepFragment fragment = new DvrProgramConflictFragment();
-                Bundle args = new Bundle();
-                args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, mProgram);
-                fragment.setArguments(args);
-                GuidedStepFragment.add(getFragmentManager(), fragment, R.id.halfsized_dialog_host);
+                getDvrManager().addSchedule(mProgram);
+                List<ScheduledRecording> conflicts = getDvrManager().getConflictingSchedules
+                        (mProgram);
+
+                if (conflicts.isEmpty()) {
+                    DvrUiHelper.showAddScheduleToast(
+                            getContext(),
+                            mProgram.getTitle(),
+                            mProgram.getStartTimeUtcMillis(),
+                            mProgram.getEndTimeUtcMillis());
+                    dismissDialog();
+                } else {
+                    GuidedStepFragment fragment = new DvrProgramConflictFragment();
+                    Bundle args = new Bundle();
+                    args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, mProgram);
+                    fragment.setArguments(args);
+                    GuidedStepFragment.add(getFragmentManager(), fragment, R.id
+                            .halfsized_dialog_host);
+                }
             }
         } else if (action.getId() == ACTION_RECORD_SERIES) {
             SeriesRecording seriesRecording =

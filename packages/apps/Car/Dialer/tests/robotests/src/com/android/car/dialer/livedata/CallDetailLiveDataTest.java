@@ -66,7 +66,8 @@ public class CallDetailLiveDataTest {
 
         doNothing().when(mMockCall).registerCallback(mCallbackCaptor.capture());
 
-        mCallDetailLiveData = new CallDetailLiveData(mMockCall);
+        mCallDetailLiveData = new CallDetailLiveData();
+        mCallDetailLiveData.setTelecomCall(mMockCall);
         mLifecycleRegistry = new LifecycleRegistry(mMockLifecycleOwner);
         when(mMockLifecycleOwner.getLifecycle()).thenReturn(mLifecycleRegistry);
     }

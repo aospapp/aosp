@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import static android.app.AppOpsManager.OP_RECORD_AUDIO;
+import static android.app.AppOpsManager.OPSTR_RECORD_AUDIO;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -46,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Tests for media framework behaviors related to app ops.
  */
+@NonMediaMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class AudioRecordAppOpTest {
     private static final long APP_OP_CHANGE_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(2);
@@ -76,11 +77,12 @@ public class AudioRecordAppOpTest {
                     .build();
 
             // The app op should be reported as not started
-            assertThat(appOpsManager.isOperationActive(OP_RECORD_AUDIO,
+            assertThat(appOpsManager.isOpActive(OPSTR_RECORD_AUDIO,
                     uid, packageName)).isFalse();
 
             // Start watching for app op active
-            appOpsManager.startWatchingActive(new int[] {OP_RECORD_AUDIO}, listener);
+            appOpsManager.startWatchingActive(new String[] { OPSTR_RECORD_AUDIO },
+                    getContext().getMainExecutor(), listener);
 
             // Start recording
             candidateRecorder.startRecording();
@@ -88,11 +90,11 @@ public class AudioRecordAppOpTest {
 
             // The app op should start
             verify(listener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
-                    .only()).onOpActiveChanged(eq(OP_RECORD_AUDIO),
+                    .only()).onOpActiveChanged(eq(OPSTR_RECORD_AUDIO),
                     eq(uid), eq(packageName), eq(true));
 
             // The app op should be reported as started
-            assertThat(appOpsManager.isOperationActive(OP_RECORD_AUDIO,
+            assertThat(appOpsManager.isOpActive(OPSTR_RECORD_AUDIO,
                     uid, packageName)).isTrue();
 
 
@@ -106,11 +108,11 @@ public class AudioRecordAppOpTest {
 
             // The app op should stop
             verify(listener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
-                    .only()).onOpActiveChanged(eq(OP_RECORD_AUDIO),
+                    .only()).onOpActiveChanged(eq(OPSTR_RECORD_AUDIO),
                     eq(uid), eq(packageName), eq(false));
 
             // The app op should be reported as not started
-            assertThat(appOpsManager.isOperationActive(OP_RECORD_AUDIO,
+            assertThat(appOpsManager.isOpActive(OPSTR_RECORD_AUDIO,
                     uid, packageName)).isFalse();
         } finally {
             if (recorder != null) {

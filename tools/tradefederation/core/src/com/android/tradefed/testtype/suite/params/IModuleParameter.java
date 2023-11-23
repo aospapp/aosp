@@ -24,6 +24,12 @@ public interface IModuleParameter {
     public String getParameterIdentifier();
 
     /**
+     * Adds to {@link IConfiguration} with the parameter specific needs. For example, insert or
+     * remove target preparers from configuration.
+     */
+    default void addParameterSpecificConfig(IConfiguration moduleConfiguration) {}
+
+    /**
      * Apply to the module {@link IConfiguration} the parameter specific module setup. For example,
      * this could be extra options for the preparers or the tests.
      */

@@ -431,8 +431,6 @@ public class HandshakeCompletedEventTest extends TestCase {
                     assertEquals(i, j);
                 }
 
-                istream.close();
-
                 OutputStream ostream = clientSocket.getOutputStream();
 
                 for (int i = 0; i < 256; i++) {
@@ -503,7 +501,6 @@ public class HandshakeCompletedEventTest extends TestCase {
                 }
 
                 ostream.flush();
-                ostream.close();
 
                 InputStream istream = socket.getInputStream();
 

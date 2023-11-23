@@ -36,4 +36,8 @@
         settings:useAdminDisabledSummary="true"
         settings:controller="com.android.car.developeroptions.connecteddevice.AddDevicePreferenceController"/>
 
+    <com.android.settingslib.widget.FooterPreference
+        android:key="bluetooth_screen_footer"
+        android:selectable="false"
+        settings:searchable="false"/>
 </PreferenceScreen>

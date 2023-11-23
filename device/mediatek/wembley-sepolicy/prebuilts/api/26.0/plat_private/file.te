@@ -1,0 +1,9 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# For drmserver
+type access_sys_file, fs_type, sysfs_type;
+
+# For boot type
+type sysfs_boot_type, fs_type, sysfs_type;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -67,6 +67,7 @@ static struct therm_msm_soc_type msm_soc_table[] = {
     {THERM_SDM_439, 363},
     {THERM_SDM_439, 364},
     {THERM_MSMNILE, 339},
+    {THERM_MSMNILE, 361},
     {THERM_MSMNILE, 362},
     {THERM_MSMNILE, 367},
     {THERM_KONA, 356},
@@ -78,6 +79,8 @@ static struct therm_msm_soc_type msm_soc_table[] = {
     {THERM_MSM_8917, 309},
     {THERM_MSM_8917, 386}, // This SOC ID is for QM215
     {THERM_TRINKET,  394},
+    {THERM_LITO,  400},
+    {THERM_ATOLL,  407},
 };
 
 static char *cpu_sensors_talos[] =
@@ -172,6 +175,43 @@ static struct target_therm_cfg sensor_cfg_sdmmagpie[] = {
     {
         .type = DEVICE_TEMPERATURE_SKIN,
         .sensor_list = &misc_sensors_sdmmagpie[2],
+        .sens_cnt = 1,
+        .mult = 0.001,
+        .label = "skin",
+    }
+};
+
+static char *misc_sensors_lito[] =
+{
+    "gpuss-0-usr",
+    "battery",
+    "xo-therm-usr"
+};
+
+static struct target_therm_cfg sensor_cfg_lito[] = {
+    {
+        .type = DEVICE_TEMPERATURE_CPU,
+        .sensor_list = cpu_sensors_sdmmagpie,
+        .sens_cnt = ARRAY_SIZE(cpu_sensors_sdmmagpie),
+        .mult = 0.001,
+    },
+    {
+        .type = DEVICE_TEMPERATURE_GPU,
+        .sensor_list = &misc_sensors_lito[0],
+        .sens_cnt = 1,
+        .mult = 0.001,
+        .label = "GPU",
+    },
+    {
+        .type = DEVICE_TEMPERATURE_BATTERY,
+        .sensor_list = &misc_sensors_lito[1],
+        .sens_cnt = 1,
+        .mult = 0.001,
+        .label = "battery",
+    },
+    {
+        .type = DEVICE_TEMPERATURE_SKIN,
+        .sensor_list = &misc_sensors_lito[2],
         .sens_cnt = 1,
         .mult = 0.001,
         .label = "skin",
@@ -704,6 +744,11 @@ ssize_t get_temperatures(thermal_module_t *module, temperature_t *list, size_t s
             case THERM_TRINKET:
                 cfg = sensor_cfg_trinket;
                 num_cfg = ARRAY_SIZE(sensor_cfg_trinket);
+                break;
+            case THERM_LITO:
+            case THERM_ATOLL:
+                cfg = sensor_cfg_lito;
+                num_cfg = ARRAY_SIZE(sensor_cfg_lito);
                 break;
             default:
                 cfg = NULL;

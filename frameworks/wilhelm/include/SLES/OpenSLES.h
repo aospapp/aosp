@@ -2756,16 +2756,16 @@ SL_API SLresult SLAPIENTRY slCreateEngine(
 	SLuint32                numInterfaces,
 	const SLInterfaceID     *pInterfaceIds,
 	const SLboolean         * pInterfaceRequired
-);
+) SL_API_DEPRECATED(30);
 
 SL_API SLresult SLAPIENTRY slQueryNumSupportedEngineInterfaces(
 	SLuint32 * pNumSupportedInterfaces
-);
+) SL_API_DEPRECATED(30);
 
 SL_API SLresult SLAPIENTRY slQuerySupportedEngineInterfaces(
 	SLuint32 index,
 	SLInterfaceID * pInterfaceId
-);
+) SL_API_DEPRECATED(30);
 
 #ifdef __cplusplus
 } /* extern "C" */

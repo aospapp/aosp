@@ -18,6 +18,8 @@ IN="cd lstest"
 OUT="cd .. "
 
 testing "no argument" "$IN && ls; $OUT" "dir1\ndir2\nfile1.txt\nfile2.txt\n" "" ""
+testing "with -C: test column spacing equals 2" "$IN && ls -C; $OUT" "dir1  dir2  file1.txt  file2.txt\n" "" ""
+testing "with -x: test column spacing equals 2" "$IN && ls -x; $OUT" "dir1  dir2  file1.txt  file2.txt\n" "" ""
 testing "with wild char" "$IN && ls file*; $OUT" "file1.txt\nfile2.txt\n" "" ""
 testing "with wild char - long listing" "$IN && ls -1 file*; $OUT" "file1.txt\nfile2.txt\n" "" ""
 testing "with -p" "$IN && ls -p; $OUT" "dir1/\ndir2/\nfile1.txt\nfile2.txt\n" "" ""
@@ -31,6 +33,8 @@ testing "with -k" "$IN && ls -k; $OUT" "dir1\ndir2\nfile1.txt\nfile2.txt\n" "" "
 testing "with -m" "$IN && ls -m; $OUT" "dir1, dir2, file1.txt, file2.txt\n" "" ""
 testing "with -F" "$IN && ls -F; $OUT" "dir1/\ndir2/\nfile1.txt\nfile2.txt\n" "" ""
 testing "with -dk *" "$IN && ls -dk *; $OUT" "dir1\ndir2\nfile1.txt\nfile2.txt\n" "" ""
+testing "with -Z" "$IN && ls -Z file1.txt | egrep -q '^[^ ]+ file1.txt' || echo fail; $OUT" "" "" ""
+testing "with -lZ" "$IN && ls --full-time -lZ file1.txt | egrep -q '^-[rwx-]+ +[0-9]+ +[^ ]+ +[^ ]+ +[^ ]+ +[0-9]+ [0-9][0-9][0-9][0-9]-[0-9][0-9]-.* file1.txt' || echo fail; $OUT" "" "" ""
 
 ln -s file1.txt lstest/slink
 testing "-l symlink" \
@@ -49,6 +53,20 @@ testing "nested recursively" "$IN && ls -R; $OUT" \
 rm -rf lstest/* && touch lstest/file1.txt && INODE=`stat -c %i lstest/file1.txt`
 testing "with -i" "$IN && ls -i 2>/dev/null; $OUT" "$INODE file1.txt\n" "" ""
 unset INODE
+
+testing "missing" "$IN && ls does-not-exist 2>&1 >/dev/null | grep -o does-not-exist; $OUT" "does-not-exist\n" "" ""
+
+rm -f lstest/{file1.txt,err}
+touch lstest/{one,two,three,four,five,six,seven,eight,nine,ten}
+testing "-w test 1" "$IN && ls -Cw 20; $OUT" \
+  "eight  one    three\nfive   seven  two\nfour   six\nnine   ten\n" "" ""
+testing "-w test 2" "$IN && ls -Cw 19; $OUT" \
+  "eight  seven\nfive   six\nfour   ten\nnine   three\none    two\n" "" ""
+
+rm -rf lstest/*
+touch lstest/{a,b,c,d,e,f}
+testing "-w test 3" "$IN && ls -Cw 3; $OUT" "a\nb\nc\nd\ne\nf\n" "" ""
+testing "-w test 4" "$IN && ls -Cw 4; $OUT" "a  d\nb  e\nc  f\n" "" ""
 
 # Removing test dir for cleanup purpose
 rm -rf lstest

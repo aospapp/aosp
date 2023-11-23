@@ -23,7 +23,6 @@ import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -37,7 +36,6 @@ import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
-import android.service.notification.StatusBarNotification;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.view.View;
@@ -48,12 +46,15 @@ import android.widget.LinearLayout;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.systemui.R;
 import com.android.systemui.SysuiTestCase;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.ActivityStarter.OnDismissAction;
+import com.android.systemui.statusbar.NotificationRemoteInputManager;
 import com.android.systemui.statusbar.SmartReplyController;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
+import com.android.systemui.statusbar.notification.collection.NotificationEntryBuilder;
 import com.android.systemui.statusbar.phone.KeyguardDismissUtil;
 import com.android.systemui.statusbar.phone.ShadeController;
 
@@ -65,6 +66,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -109,8 +111,12 @@ public class SmartReplyViewTest extends SysuiTestCase {
         MockitoAnnotations.initMocks(this);
         mReceiver = new BlockingQueueIntentReceiver();
         mContext.registerReceiver(mReceiver, new IntentFilter(TEST_ACTION));
-        mDependency.get(KeyguardDismissUtil.class).setDismissHandler(action -> action.onDismiss());
+        mDependency.get(KeyguardDismissUtil.class).setDismissHandler((action, unused) -> {
+            action.onDismiss();
+        });
+        mDependency.injectMockDependency(KeyguardUpdateMonitor.class);
         mDependency.injectMockDependency(ShadeController.class);
+        mDependency.injectMockDependency(NotificationRemoteInputManager.class);
         mDependency.injectTestDependency(ActivityStarter.class, mActivityStarter);
         mDependency.injectTestDependency(SmartReplyConstants.class, mConstants);
 
@@ -135,10 +141,10 @@ public class SmartReplyViewTest extends SysuiTestCase {
                 .setSmallIcon(R.drawable.ic_person)
                 .setContentTitle("Title")
                 .setContentText("Text").build();
-        StatusBarNotification sbn = mock(StatusBarNotification.class);
-        when(sbn.getNotification()).thenReturn(mNotification);
-        when(sbn.getKey()).thenReturn(TEST_NOTIFICATION_KEY);
-        mEntry = new NotificationEntry(sbn);
+
+        mEntry = new NotificationEntryBuilder()
+                .setNotification(mNotification)
+                .build();
 
         mActionIcon = Icon.createWithResource(mContext, R.drawable.ic_person);
     }
@@ -162,7 +168,7 @@ public class SmartReplyViewTest extends SysuiTestCase {
 
     @Test
     public void testSendSmartReply_keyguardCancelled() throws InterruptedException {
-        mDependency.get(KeyguardDismissUtil.class).setDismissHandler(action -> {});
+        mDependency.get(KeyguardDismissUtil.class).setDismissHandler((action, unused) -> {});
         setSmartReplies(TEST_CHOICES);
 
         mView.getChildAt(2).performClick();
@@ -173,7 +179,9 @@ public class SmartReplyViewTest extends SysuiTestCase {
     @Test
     public void testSendSmartReply_waitsForKeyguard() throws InterruptedException {
         AtomicReference<OnDismissAction> actionRef = new AtomicReference<>();
-        mDependency.get(KeyguardDismissUtil.class).setDismissHandler(actionRef::set);
+        mDependency.get(KeyguardDismissUtil.class).setDismissHandler((action, unused) -> {
+            actionRef.set(action);
+        });
         setSmartReplies(TEST_CHOICES);
 
         mView.getChildAt(2).performClick();
@@ -464,7 +472,11 @@ public class SmartReplyViewTest extends SysuiTestCase {
                 new Intent(TEST_ACTION), 0);
         RemoteInput input = new RemoteInput.Builder(TEST_RESULT_KEY).setChoices(choices).build();
         SmartReplyView.SmartReplies smartReplies =
-                new SmartReplyView.SmartReplies(choices, input, pendingIntent, fromAssistant);
+                new SmartReplyView.SmartReplies(
+                        Arrays.asList(choices),
+                        input,
+                        pendingIntent,
+                        fromAssistant);
         return mView.inflateRepliesFromRemoteInput(smartReplies, mLogger, mEntry,
                 useDelayedOnClickListener);
     }
@@ -490,6 +502,7 @@ public class SmartReplyViewTest extends SysuiTestCase {
     private void setSmartActions(String[] actionTitles, boolean useDelayedOnClickListener) {
         mView.resetSmartSuggestions(mContainer);
         List<Button> actions = mView.inflateSmartActions(
+                getContext(),
                 new SmartReplyView.SmartActions(createActions(actionTitles), false),
                 mLogger,
                 mEntry,
@@ -510,6 +523,7 @@ public class SmartReplyViewTest extends SysuiTestCase {
         List<Button> smartSuggestions = inflateSmartReplies(choices, fromAssistant,
                 useDelayedOnClickListener);
         smartSuggestions.addAll(mView.inflateSmartActions(
+                getContext(),
                 new SmartReplyView.SmartActions(createActions(actionTitles), fromAssistant),
                 mLogger,
                 mEntry,
@@ -549,7 +563,7 @@ public class SmartReplyViewTest extends SysuiTestCase {
         // Add smart replies
         Button previous = null;
         SmartReplyView.SmartReplies smartReplies =
-                new SmartReplyView.SmartReplies(choices, null, null, false);
+                new SmartReplyView.SmartReplies(Arrays.asList(choices), null, null, false);
         for (int i = 0; i < choices.length; ++i) {
             Button current = SmartReplyView.inflateReplyButton(mView, mContext, i, smartReplies,
                     null /* SmartReplyController */, null /* NotificationEntry */,
@@ -856,7 +870,7 @@ public class SmartReplyViewTest extends SysuiTestCase {
     }
 
     private Button inflateActionButton(Notification.Action action) {
-        return SmartReplyView.inflateActionButton(mView, getContext(), 0,
+        return SmartReplyView.inflateActionButton(mView, getContext(), getContext(), 0,
                 new SmartReplyView.SmartActions(Collections.singletonList(action), false),
                 mLogger, mEntry, mHeadsUpManager, true /* useDelayedOnClickListener */);
     }

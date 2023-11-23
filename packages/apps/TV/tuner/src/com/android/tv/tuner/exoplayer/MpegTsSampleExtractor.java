@@ -18,16 +18,21 @@ package com.android.tv.tuner.exoplayer;
 
 import android.net.Uri;
 import android.os.Handler;
+import android.support.annotation.Nullable;
+
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
 import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
 import com.android.tv.tuner.exoplayer.buffer.SamplePool;
+
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.MediaFormatHolder;
 import com.google.android.exoplayer.SampleHolder;
 import com.google.android.exoplayer.SampleSource;
-import com.google.android.exoplayer.upstream.DataSource;
 import com.google.android.exoplayer.util.MimeTypes;
-import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
+import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -59,27 +64,37 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
     }
 
     /**
-     * Creates MpegTsSampleExtractor for {@link DataSource}.
+     * Factory for {@link MpegTsSampleExtractor}.
+     *
+     * <p>This wrapper class keeps other classes from needing to reference the {@link AutoFactory}
+     * generated class.
+     */
+    public interface Factory {
+        public MpegTsSampleExtractor create(
+                BufferManager bufferManager, PlaybackBufferListener bufferListener);
+
+        public MpegTsSampleExtractor create(
+                DataSource source,
+                @Nullable BufferManager bufferManager,
+                PlaybackBufferListener bufferListener);
+    }
+
+    /**
+     * Creates MpegTsSampleExtractor for a {@link DataSource}.
      *
      * @param source the {@link DataSource} to extract from
      * @param bufferManager the manager for reading & writing samples backed by physical storage
      * @param bufferListener the {@link PlaybackBufferListener} to notify buffer storage status
-     * @param concurrentDvrPlaybackFlags
      */
+    @AutoFactory(implementing = Factory.class)
     public MpegTsSampleExtractor(
             DataSource source,
-            BufferManager bufferManager,
+            @Nullable BufferManager bufferManager,
             PlaybackBufferListener bufferListener,
-            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags) {
-
+            @Provided ExoPlayerSampleExtractor.Factory exoPlayerSampleExtractorFactory) {
         mSampleExtractor =
-                new ExoPlayerSampleExtractor(
-                        Uri.EMPTY,
-                        source,
-                        bufferManager,
-                        bufferListener,
-                        false,
-                        concurrentDvrPlaybackFlags);
+                exoPlayerSampleExtractorFactory.create(
+                        Uri.EMPTY, source, bufferManager, bufferListener, false);
         init();
     }
 
@@ -90,12 +105,12 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
      * @param bufferListener the {@link PlaybackBufferListener} to notify buffer storage status
      *     change
      */
+    @AutoFactory(implementing = Factory.class)
     public MpegTsSampleExtractor(
             BufferManager bufferManager,
             PlaybackBufferListener bufferListener,
-            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags) {
-        mSampleExtractor =
-                new FileSampleExtractor(bufferManager, bufferListener, concurrentDvrPlaybackFlags);
+            @Provided FileSampleExtractor.Factory fileSampleExtractorFactory) {
+        mSampleExtractor = fileSampleExtractorFactory.create(bufferManager, bufferListener);
         init();
     }
 

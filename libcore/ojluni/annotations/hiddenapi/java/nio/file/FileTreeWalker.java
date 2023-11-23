@@ -72,20 +72,20 @@ class FileTreeWalker implements java.io.Closeable {
 
     private boolean closed;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private final boolean followLinks;
+    @android.compat.annotation.UnsupportedAppUsage private final boolean followLinks;
 
     {
         followLinks = false;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private final java.nio.file.LinkOption[] linkOptions;
 
     {
         linkOptions = new java.nio.file.LinkOption[0];
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private final int maxDepth;
+    @android.compat.annotation.UnsupportedAppUsage private final int maxDepth;
 
     {
         maxDepth = 0;

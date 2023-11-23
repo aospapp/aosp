@@ -17,9 +17,9 @@
 package com.android.car.settings.applications.defaultapps;
 
 import android.car.drivingstate.CarUxRestrictions;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.os.UserHandle;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
@@ -29,6 +29,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiPreference;
 import com.android.settingslib.applications.DefaultAppInfo;
 
 /**
@@ -42,12 +43,10 @@ public abstract class DefaultAppEntryBasePreferenceController<V extends Preferen
 
     private static final Logger LOG = new Logger(
             DefaultAppEntryBasePreferenceController.class);
-    private final CarUserManagerHelper mCarUserManagerHelper;
 
     public DefaultAppEntryBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
     }
 
     @Override
@@ -55,12 +54,15 @@ public abstract class DefaultAppEntryBasePreferenceController<V extends Preferen
         CharSequence defaultAppLabel = getDefaultAppLabel();
         if (!TextUtils.isEmpty(defaultAppLabel)) {
             preference.setSummary(defaultAppLabel);
-            DefaultAppUtils.setSafeIcon(preference, getDefaultAppIcon(),
-                    getContext().getResources().getInteger(R.integer.default_app_safe_icon_size));
+            preference.setIcon(DefaultAppUtils.getSafeIcon(getDefaultAppIcon(),
+                    getContext().getResources().getInteger(R.integer.default_app_safe_icon_size)));
         } else {
             LOG.d("No default app");
             preference.setSummary(R.string.app_list_preference_none);
             preference.setIcon(null);
+            if (preference instanceof CarUiPreference) {
+                ((CarUiPreference) preference).setShowChevron(false);
+            }
         }
     }
 
@@ -70,7 +72,7 @@ public abstract class DefaultAppEntryBasePreferenceController<V extends Preferen
 
     /** Gets the current process user id. */
     protected int getCurrentProcessUserId() {
-        return mCarUserManagerHelper.getCurrentProcessUserId();
+        return UserHandle.myUserId();
     }
 
     private Drawable getDefaultAppIcon() {

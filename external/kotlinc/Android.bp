@@ -20,6 +20,20 @@ java_import {
 }
 
 java_import {
+    name: "kotlin-stdlib-jdk7",
+    host_supported: true,
+    jars: ["lib/kotlin-stdlib-jdk7.jar"],
+    sdk_version: "core_current",
+}
+
+java_import {
+    name: "kotlin-stdlib-jdk8",
+    host_supported: true,
+    jars: ["lib/kotlin-stdlib-jdk8.jar"],
+    sdk_version: "core_current",
+}
+
+java_import {
     name: "kotlin-test",
     host_supported: true,
     jars: [

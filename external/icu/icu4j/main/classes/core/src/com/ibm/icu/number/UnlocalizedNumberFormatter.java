@@ -10,9 +10,10 @@ import com.ibm.icu.util.ULocale;
  * A NumberFormatter that does not yet have a locale. In order to format numbers, a locale must be
  * specified.
  *
+ * Instances of this class are immutable and thread-safe.
+ *
  * @see NumberFormatter
- * @draft ICU 60
- * @provisional This API might change or be removed in a future release.
+ * @stable ICU 60
  */
 public class UnlocalizedNumberFormatter extends NumberFormatterSettings<UnlocalizedNumberFormatter> {
 
@@ -39,8 +40,7 @@ public class UnlocalizedNumberFormatter extends NumberFormatterSettings<Unlocali
      * @param locale
      *            The locale to use when loading data for number formatting.
      * @return The fluent chain
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public LocalizedNumberFormatter locale(Locale locale) {
         return new LocalizedNumberFormatter(this, KEY_LOCALE, ULocale.forLocale(locale));
@@ -53,8 +53,7 @@ public class UnlocalizedNumberFormatter extends NumberFormatterSettings<Unlocali
      *            The locale to use when loading data for number formatting.
      * @return The fluent chain
      * @see #locale(Locale)
-     * @draft ICU 60
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 60
      */
     public LocalizedNumberFormatter locale(ULocale locale) {
         return new LocalizedNumberFormatter(this, KEY_LOCALE, locale);

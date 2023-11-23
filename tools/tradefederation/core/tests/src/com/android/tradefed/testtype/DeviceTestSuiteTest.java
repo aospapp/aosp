@@ -18,12 +18,14 @@ package com.android.tradefed.testtype;
 import static org.junit.Assert.fail;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.easymock.EasyMock;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,6 +56,13 @@ public class DeviceTestSuiteTest {
         }
     }
 
+    private TestInformation mTestInfo;
+
+    @Before
+    public void setUp() {
+        mTestInfo = TestInformation.newBuilder().build();
+    }
+
     /** Verify that calling run on a DeviceTestSuite will run all test methods. */
     @Test
     public void testRun_suite() throws Exception {
@@ -70,10 +79,10 @@ public class DeviceTestSuiteTest {
         listener.testEnded(test1, TfMetricProtoUtil.upgradeConvert(metrics));
         listener.testStarted(test2);
         listener.testEnded(test2, new HashMap<String, Metric>());
-        listener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        listener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(listener);
 
-        suite.run(listener);
+        suite.run(mTestInfo, listener);
         EasyMock.verify(listener);
     }
 
@@ -93,10 +102,10 @@ public class DeviceTestSuiteTest {
                 EasyMock.contains(MockAbortTest.EXCEP_MSG));
         listener.testEnded(test1, new HashMap<String, Metric>());
         listener.testRunFailed(EasyMock.contains(MockAbortTest.EXCEP_MSG));
-        listener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        listener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(listener);
         try {
-            suite.run(listener);
+            suite.run(mTestInfo, listener);
             fail("DeviceNotAvailableException not thrown");
         } catch (DeviceNotAvailableException e) {
             // expected

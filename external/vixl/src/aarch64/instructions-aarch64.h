@@ -106,6 +106,8 @@ const unsigned kZeroRegCode = 31;
 const unsigned kSPRegInternalCode = 63;
 const unsigned kRegCodeMask = 0x1f;
 
+const unsigned kAtomicAccessGranule = 16;
+
 const unsigned kAddressTagOffset = 56;
 const unsigned kAddressTagWidth = 8;
 const uint64_t kAddressTagMask = ((UINT64_C(1) << kAddressTagWidth) - 1)
@@ -176,6 +178,37 @@ class Instruction {
     return ExtractBits(msb, lsb);
   }
 
+  // Compress bit extraction operation from Hacker's Delight.
+  // https://github.com/hcs0/Hackers-Delight/blob/master/compress.c.txt
+  uint32_t Compress(uint32_t mask) const {
+    uint32_t mk, mp, mv, t;
+    uint32_t x = GetInstructionBits() & mask;  // Clear irrelevant bits.
+    mk = ~mask << 1;                           // We will count 0's to right.
+    for (int i = 0; i < 5; i++) {
+      mp = mk ^ (mk << 1);  // Parallel suffix.
+      mp = mp ^ (mp << 2);
+      mp = mp ^ (mp << 4);
+      mp = mp ^ (mp << 8);
+      mp = mp ^ (mp << 16);
+      mv = mp & mask;                         // Bits to move.
+      mask = (mask ^ mv) | (mv >> (1 << i));  // Compress mask.
+      t = x & mv;
+      x = (x ^ t) | (t >> (1 << i));  // Compress x.
+      mk = mk & ~mp;
+    }
+    return x;
+  }
+
+  template <uint32_t M>
+  uint32_t ExtractBits() const {
+    return Compress(M);
+  }
+
+  template <uint32_t M, uint32_t V>
+  uint32_t IsMaskedValue() const {
+    return (Mask(M) == V) ? 1 : 0;
+  }
+
   int32_t ExtractSignedBits(int msb, int lsb) const {
     int32_t bits = *(reinterpret_cast<const int32_t*>(this));
     return ExtractSignedBitfield32(msb, lsb, bits);
@@ -206,6 +239,16 @@ class Instruction {
     return ExtractSignedBitfield32(width - 1, 0, offset);
   }
   VIXL_DEPRECATED("GetImmPCRel", int ImmPCRel() const) { return GetImmPCRel(); }
+
+  // ImmLSPAC is a compound field (not present in INSTRUCTION_FIELDS_LIST),
+  // formed from ImmLSPACLo and ImmLSPACHi.
+  int GetImmLSPAC() const {
+    uint32_t hi = static_cast<uint32_t>(GetImmLSPACHi());
+    uint32_t lo = GetImmLSPACLo();
+    uint32_t offset = (hi << ImmLSPACLo_width) | lo;
+    int width = ImmLSPACLo_width + ImmLSPACHi_width;
+    return ExtractSignedBitfield32(width - 1, 0, offset) << 3;
+  }
 
   uint64_t GetImmLogical() const;
   VIXL_DEPRECATED("GetImmLogical", uint64_t ImmLogical() const) {
@@ -310,6 +353,24 @@ class Instruction {
   bool IsMovn() const {
     return (Mask(MoveWideImmediateMask) == MOVN_x) ||
            (Mask(MoveWideImmediateMask) == MOVN_w);
+  }
+
+  bool IsException() const { return Mask(ExceptionFMask) == ExceptionFixed; }
+
+  bool IsPAuth() const { return Mask(SystemPAuthFMask) == SystemPAuthFixed; }
+
+  bool IsBti() const {
+    if (Mask(SystemHintFMask) == SystemHintFixed) {
+      int imm_hint = GetImmHint();
+      switch (imm_hint) {
+        case BTI:
+        case BTI_c:
+        case BTI_j:
+        case BTI_jc:
+          return true;
+      }
+    }
+    return false;
   }
 
   static int GetImmBranchRangeBitwidth(ImmBranchType branch_type);
@@ -527,7 +588,8 @@ enum VectorFormat {
   kFormatS = NEON_S | NEONScalar,
   kFormatD = NEON_D | NEONScalar,
 
-  // A value invented solely for FP16 scalar pairwise simulator trace tests.
+  // An artificial value, used by simulator trace tests and a few oddball
+  // instructions (such as FMLAL).
   kFormat2H = 0xfffffffe
 };
 

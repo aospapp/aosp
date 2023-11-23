@@ -1,0 +1,11 @@
+{
+  "presubmit": [
+    {
+      "name": "unicode-xid_device_tests_unicode_xid"
+    },
+    {
+      "name": "unicode-xid_host_tests_unicode_xid",
+      "host": true
+    }
+  ]
+}

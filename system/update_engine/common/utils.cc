@@ -30,6 +30,7 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -1062,6 +1063,24 @@ void ParseRollbackKeyVersion(const string& raw_version,
     *high_version = static_cast<uint16_t>(high);
     *low_version = static_cast<uint16_t>(low);
   }
+}
+
+string GetFilePath(int fd) {
+  base::FilePath proc("/proc/self/fd/" + std::to_string(fd));
+  base::FilePath file_name;
+
+  if (!base::ReadSymbolicLink(proc, &file_name)) {
+    return "not found";
+  }
+  return file_name.value();
+}
+
+string GetTimeAsString(time_t utime) {
+  struct tm tm;
+  CHECK_EQ(localtime_r(&utime, &tm), &tm);
+  char str[16];
+  CHECK_EQ(strftime(str, sizeof(str), "%Y%m%d-%H%M%S", &tm), 15u);
+  return str;
 }
 
 }  // namespace utils

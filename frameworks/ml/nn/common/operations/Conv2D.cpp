@@ -14,14 +14,24 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/integer_ops/conv.h>
+#include <tensorflow/lite/kernels/internal/types.h>
+
+#include <algorithm>
+#include <iterator>
+#include <memory>
+#include <vector>
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
 #include "Operations.h"
-
-#include "Utils.h"
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
-
+#include "OperationsUtils.h"
 #include "Tracing.h"
+#include "Utils.h"
 
 namespace android {
 namespace nn {
@@ -29,6 +39,7 @@ namespace conv_2d {
 
 constexpr char kOperationName[] = "CONV_2D";
 
+constexpr uint32_t kNumInputsArray[] = {7, 8, 10, 11, 13};
 constexpr uint32_t kInputTensor = 0;
 constexpr uint32_t kFilterTensor = 1;
 constexpr uint32_t kBiasTensor = 2;
@@ -37,6 +48,8 @@ constexpr uint32_t kNumOutputs = 1;
 constexpr uint32_t kOutputTensor = 0;
 
 namespace {
+
+using namespace hal;
 
 // If possible we will use this static buffer for the tensor.
 constexpr size_t kStaticBufferSize = 1605632;
@@ -116,49 +129,49 @@ struct Conv2dParam {
     }
 };
 
-#define ANDROID_NN_CONV_PARAMETERS(Type)                                        \
-    uint32_t height       = getSizeOfDimension(inputShape, 1);                  \
-    uint32_t width        = getSizeOfDimension(inputShape, 2);                  \
-    uint32_t filterHeight = getSizeOfDimension(filterShape, 1);                 \
-    uint32_t filterWidth  = getSizeOfDimension(filterShape, 2);                 \
-    uint32_t outHeight    = getSizeOfDimension(outputShape, 1);                 \
-    uint32_t outWidth     = getSizeOfDimension(outputShape, 2);                 \
-    uint32_t inDepth      = getSizeOfDimension(inputShape, 3);                  \
-                                                                                \
-    uint32_t paddingHeight = (uint32_t)padding_top;                             \
-    uint32_t paddingWidth = (uint32_t)padding_left;                             \
-                                                                                \
-    tflite::Dims<4> im2colDim;                                                  \
-    im2colDim.sizes[3] = (int)getSizeOfDimension(outputShape, 0);               \
-    im2colDim.sizes[2] = (int)getSizeOfDimension(outputShape, 1);               \
-    im2colDim.sizes[1] = (int)getSizeOfDimension(outputShape, 2);               \
-    im2colDim.sizes[0] = (int)inDepth * filterHeight * filterWidth;             \
-                                                                                \
-    im2colDim.strides[0] = 1;                                                   \
-    for (int i=1; i<4; i++) {                                                   \
-        im2colDim.strides[i] = im2colDim.strides[i-1] * im2colDim.sizes[i-1];   \
-    }                                                                           \
-                                                                                \
-    Type* im2colData = nullptr;                                                 \
-    uint64_t im2colByteSize = sizeof(Type);                                     \
-    std::unique_ptr<Type[]> im2colGuard;                                        \
-    for (int i=0; i<4; i++) {                                                   \
-        im2colByteSize *= im2colDim.sizes[i];                                   \
-    }                                                                           \
-    /* http://b/77982879, tflite::optimized_ops::Conv uses int for offsets */   \
-    if (im2colByteSize >= 0x7fffffff)  {                                        \
-        LOG(ERROR) << "Conv size is too large, not enough memory";              \
-        return false;                                                           \
-    }                                                                           \
-    if (im2colByteSize <= kStaticBufferSize) {                                  \
-        im2colData = reinterpret_cast<Type *>(static_scratch_buffer);           \
-    } else {                                                                    \
-        im2colData = new (std::nothrow) Type[im2colByteSize / sizeof(Type)];    \
-        if (im2colData == nullptr) {                                            \
-            LOG(ERROR) << "Conv size is too large, not enough memory";          \
-            return false;                                                       \
-        }                                                                       \
-        im2colGuard.reset(im2colData);                                          \
+#define ANDROID_NN_CONV_PARAMETERS(Type)                                          \
+    uint32_t height = getSizeOfDimension(inputShape, 1);                          \
+    uint32_t width = getSizeOfDimension(inputShape, 2);                           \
+    uint32_t filterHeight = getSizeOfDimension(filterShape, 1);                   \
+    uint32_t filterWidth = getSizeOfDimension(filterShape, 2);                    \
+    uint32_t outHeight = getSizeOfDimension(outputShape, 1);                      \
+    uint32_t outWidth = getSizeOfDimension(outputShape, 2);                       \
+    uint32_t inDepth = getSizeOfDimension(inputShape, 3);                         \
+                                                                                  \
+    uint32_t paddingHeight = (uint32_t)padding_top;                               \
+    uint32_t paddingWidth = (uint32_t)padding_left;                               \
+                                                                                  \
+    tflite::Dims<4> im2colDim;                                                    \
+    im2colDim.sizes[3] = (int)getSizeOfDimension(outputShape, 0);                 \
+    im2colDim.sizes[2] = (int)getSizeOfDimension(outputShape, 1);                 \
+    im2colDim.sizes[1] = (int)getSizeOfDimension(outputShape, 2);                 \
+    im2colDim.sizes[0] = (int)inDepth * filterHeight * filterWidth;               \
+                                                                                  \
+    im2colDim.strides[0] = 1;                                                     \
+    for (int i = 1; i < 4; i++) {                                                 \
+        im2colDim.strides[i] = im2colDim.strides[i - 1] * im2colDim.sizes[i - 1]; \
+    }                                                                             \
+                                                                                  \
+    Type* im2colData = nullptr;                                                   \
+    uint64_t im2colByteSize = sizeof(Type);                                       \
+    std::unique_ptr<Type[]> im2colGuard;                                          \
+    for (int i = 0; i < 4; i++) {                                                 \
+        im2colByteSize *= im2colDim.sizes[i];                                     \
+    }                                                                             \
+    /* http://b/77982879, tflite::optimized_ops::Conv uses int for offsets */     \
+    if (im2colByteSize >= 0x7fffffff) {                                           \
+        LOG(ERROR) << "Conv size is too large, not enough memory";                \
+        return false;                                                             \
+    }                                                                             \
+    if (im2colByteSize <= kStaticBufferSize) {                                    \
+        im2colData = reinterpret_cast<Type*>(static_scratch_buffer);              \
+    } else {                                                                      \
+        im2colData = new (std::nothrow) Type[im2colByteSize / sizeof(Type)];      \
+        if (im2colData == nullptr) {                                              \
+            LOG(ERROR) << "Conv size is too large, not enough memory";            \
+            return false;                                                         \
+        }                                                                         \
+        im2colGuard.reset(im2colData);                                            \
     }
 
 bool convNhwc(const float* inputData, const Shape& inputShape, const float* filterData,
@@ -230,6 +243,37 @@ bool convNhwc(const uint8_t* inputData, const Shape& inputShape, const uint8_t* 
             paddingWidth, paddingHeight, outputOffset, output_multiplier, output_shift,
             output_activation_min, output_activation_max, outputData,
             convertShapeToDims(outputShape), im2colData, im2colDim, &gemm_context);
+    return true;
+}
+
+// Passing input, filter and output shapes by value, so that we can change the
+// offsets without modifying the actual shapes.
+bool convNhwc(const int8_t* inputData, Shape inputShape, const int8_t* filterData,
+              Shape filterShape, const int32_t* biasData, const Shape& biasShape,
+              int32_t padding_left, int32_t padding_right, int32_t padding_top,
+              int32_t padding_bottom, int32_t stride_width, int32_t stride_height,
+              int32_t dilation_width_factor, int32_t dilation_height_factor, int32_t activation,
+              int8_t* outputData, Shape outputShape) {
+    NNTRACE_TRANS("convQuant8");
+
+    std::vector<uint8_t> unsignedInput(getNumberOfElements(inputShape));
+    convertInt8ToUInt8(inputData, &unsignedInput);
+    inputShape.offset += 128;
+
+    std::vector<uint8_t> unsignedFilter(getNumberOfElements(filterShape));
+    convertInt8ToUInt8(filterData, &unsignedFilter);
+    filterShape.offset += 128;
+
+    std::vector<uint8_t> unsignedOutput(getNumberOfElements(outputShape));
+    outputShape.offset += 128;
+
+    NN_RET_CHECK(convNhwc(unsignedInput.data(), inputShape, unsignedFilter.data(), filterShape,
+                          biasData, biasShape, padding_left, padding_right, padding_top,
+                          padding_bottom, stride_width, stride_height, dilation_width_factor,
+                          dilation_height_factor, activation, unsignedOutput.data(), outputShape));
+
+    convertUInt8ToInt8(unsignedOutput, outputData);
+
     return true;
 }
 
@@ -372,16 +416,79 @@ bool convQuant8PerChannelNhwc(const uint8_t* inputData, const Shape& inputShape,
     return true;
 }
 
-bool convQuant8PerChannel(const uint8_t* inputData, const Shape& inputShape,
-                          const int8_t* filterData, const Shape& filterShape,
-                          const float* filterScales, const int32_t* biasData,
-                          const Shape& biasShape, int32_t paddingLeft, int32_t paddingRight,
-                          int32_t paddingTop, int32_t paddingBottom, int32_t strideWidth,
-                          int32_t strideHeight, int32_t dilationWidthFactor,
+bool convQuant8PerChannelNhwc(const int8_t* inputData, const Shape& inputShape,
+                              const int8_t* filterData, const Shape& filterShape,
+                              const float* filterScales, const int32_t* biasData,
+                              const Shape& biasShape, int32_t paddingLeft, int32_t paddingRight,
+                              int32_t paddingTop, int32_t paddingBottom, int32_t strideWidth,
+                              int32_t strideHeight, int32_t dilationWidthFactor,
+                              int32_t dilationHeightFactor, int32_t activation, int8_t* outputData,
+                              const Shape& outputShape) {
+    NNTRACE_TRANS("convQuant8SignedPerChannel");
+
+    uint32_t numBatches = getSizeOfDimension(inputShape, 0);
+    uint32_t inputHeight = getSizeOfDimension(inputShape, 1);
+    uint32_t inputWidth = getSizeOfDimension(inputShape, 2);
+    uint32_t inputDepth = getSizeOfDimension(inputShape, 3);
+    uint32_t filterHeight = getSizeOfDimension(filterShape, 1);
+    uint32_t filterWidth = getSizeOfDimension(filterShape, 2);
+    uint32_t filterDepth = getSizeOfDimension(filterShape, 3);
+    uint32_t outputHeight = getSizeOfDimension(outputShape, 1);
+    uint32_t outputWidth = getSizeOfDimension(outputShape, 2);
+    uint32_t outputDepth = getSizeOfDimension(outputShape, 3);
+
+    int32_t inputOffset = -inputShape.offset;
+    int32_t outputOffset = outputShape.offset;
+
+    auto realMultiplier = std::vector<double>(outputDepth, .0f);
+    auto outputMultiplier = std::vector<int32_t>(outputDepth, 0);
+    auto outputShift = std::vector<int32_t>(outputDepth, .0f);
+
+    for (int i = 0; i < outputDepth; ++i) {
+        Shape filterChannelShape = filterShape;
+        filterChannelShape.scale = filterScales[i];
+        Shape biasChannelShape = biasShape;
+        biasChannelShape.scale = filterScales[i] * inputShape.scale;
+        NN_RET_CHECK(GetQuantizedConvolutionMultipler(
+                inputShape, filterChannelShape, biasChannelShape, outputShape, &realMultiplier[i]));
+        NN_RET_CHECK(QuantizeMultiplier(realMultiplier[i], &outputMultiplier[i], &outputShift[i]));
+    }
+
+    int32_t output_activation_min = 0, output_activation_max = 0;
+    CalculateActivationRangeInt8(activation, outputShape, &output_activation_min,
+                                 &output_activation_max);
+
+    tflite::ConvParams convParams;
+    convParams.input_offset = -inputShape.offset;
+    convParams.output_offset = outputShape.offset;
+    convParams.stride_height = strideHeight;
+    convParams.stride_width = strideWidth;
+    convParams.dilation_height_factor = dilationHeightFactor;
+    convParams.dilation_width_factor = dilationWidthFactor;
+    convParams.padding_values.height = paddingTop;
+    convParams.padding_values.width = paddingLeft;
+    convParams.quantized_activation_min = output_activation_min;
+    convParams.quantized_activation_max = output_activation_max;
+
+    NNTRACE_COMP_SWITCH("reference_integer_ops::ConvPerChannel");
+    tflite::reference_integer_ops::ConvPerChannel(
+            convParams, outputMultiplier.data(), outputShift.data(),
+            convertShapeToTflshape(inputShape), inputData, convertShapeToTflshape(filterShape),
+            filterData, convertShapeToTflshape(biasShape), biasData,
+            convertShapeToTflshape(outputShape), outputData);
+    return true;
+}
+
+template <typename T>
+bool convQuant8PerChannel(const T* inputData, const Shape& inputShape, const int8_t* filterData,
+                          const Shape& filterShape, const float* filterScales,
+                          const int32_t* biasData, const Shape& biasShape, int32_t paddingLeft,
+                          int32_t paddingRight, int32_t paddingTop, int32_t paddingBottom,
+                          int32_t strideWidth, int32_t strideHeight, int32_t dilationWidthFactor,
                           int32_t dilationHeightFactor, int32_t activation, bool useNchw,
-                          uint8_t* outputData, const Shape& outputShape) {
-    InputWithLayout<uint8_t> input(useNchw);
-    OutputWithLayout<uint8_t> output(useNchw);
+                          T* outputData, const Shape& outputShape) {
+    InputWithLayout<T> input(useNchw);
+    OutputWithLayout<T> output(useNchw);
     NN_RET_CHECK(input.initialize(inputData, inputShape));
     NN_RET_CHECK(output.initialize(outputData, outputShape));
     NN_RET_CHECK(convQuant8PerChannelNhwc(
@@ -398,7 +505,18 @@ bool convQuant8PerChannel(const uint8_t* inputData, const Shape& inputShape,
 }  // namespace
 
 bool validate(const IOperationValidationContext* context) {
+    const uint32_t numInputs = context->getNumInputs();
+    NN_RET_CHECK(
+            std::binary_search(std::begin(kNumInputsArray), std::end(kNumInputsArray), numInputs));
     NN_RET_CHECK_EQ(context->getNumOutputs(), kNumOutputs);
+    const auto inputRank = getNumberOfDimensions(context->getInputShape(kInputTensor));
+    const auto filterRank = getNumberOfDimensions(context->getInputShape(kFilterTensor));
+    if (inputRank != 0) {
+        NN_RET_CHECK_EQ(inputRank, 4);
+    }
+    if (filterRank != 0) {
+        NN_RET_CHECK_EQ(filterRank, 4);
+    }
     auto inputCount = context->getNumInputs();
     auto inputType = context->getInputType(kInputTensor);
     auto filterType = context->getInputType(kFilterTensor);
@@ -413,26 +531,20 @@ bool validate(const IOperationValidationContext* context) {
                            OperandType::TENSOR_FLOAT16, OperandType::INT32,
                            OperandType::INT32,          OperandType::INT32,
                            OperandType::INT32};
-    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM) {
-        if (filterType == OperandType::TENSOR_QUANT8_ASYMM ||
-            filterType == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL) {
-            inExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM,
-                               filterType,
-                               OperandType::TENSOR_INT32,
-                               OperandType::INT32,
-                               OperandType::INT32,
-                               OperandType::INT32,
-                               OperandType::INT32};
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+               inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(filterType == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL ||
+                     filterType == inputType)
+                << "Unsupported filter tensor type for operation " << kOperationName;
+        inExpectedTypes = {inputType,          filterType,         OperandType::TENSOR_INT32,
+                           OperandType::INT32, OperandType::INT32, OperandType::INT32,
+                           OperandType::INT32};
 
-            if (filterType == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL) {
-                NN_RET_CHECK_EQ(
-                        context->getInputExtraParams(kFilterTensor).channelQuant().channelDim, 0)
-                        << "Unsupported filter tensor channel dimension for operation "
-                        << kOperationName;
-            }
-        } else {
-            NN_RET_CHECK_FAIL() << "Unsupported filter tensor type for operation "
-                                << kOperationName;
+        if (filterType == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL) {
+            NN_RET_CHECK_EQ(context->getInputExtraParams(kFilterTensor).channelQuant().channelDim,
+                            0)
+                    << "Unsupported filter tensor channel dimension for operation "
+                    << kOperationName;
         }
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported input tensor type for operation " << kOperationName;
@@ -476,8 +588,11 @@ bool validate(const IOperationValidationContext* context) {
         }
     }
 
-    if (filterType == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL || withLayout || withDilation ||
-        !meetsQuantizedScaleConstraintBeforeV1_2) {
+    if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
+    } else if (inputType == OperandType::TENSOR_FLOAT16 ||
+               filterType == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL || withLayout ||
+               withDilation || !meetsQuantizedScaleConstraintBeforeV1_2) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
     } else {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_0));
@@ -492,11 +607,13 @@ bool prepare(IOperationExecutionContext* context) {
     Shape bias = context->getInputShape(kBiasTensor);
 
     if (filter.type == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL) {
-        NN_RET_CHECK(input.type == OperandType::TENSOR_QUANT8_ASYMM);
+        NN_RET_CHECK(input.type == OperandType::TENSOR_QUANT8_ASYMM ||
+                     input.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED);
     } else {
         NN_RET_CHECK(input.type == filter.type);
     }
-    if (input.type == OperandType::TENSOR_QUANT8_ASYMM) {
+    if (input.type == OperandType::TENSOR_QUANT8_ASYMM ||
+        input.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
         NN_RET_CHECK(bias.type == OperandType::TENSOR_INT32);
     } else {
         NN_RET_CHECK(input.type == bias.type);
@@ -604,6 +721,38 @@ bool execute(IOperationExecutionContext* context) {
                             param.stride_width, param.stride_height, param.dilation_width_factor,
                             param.dilation_height_factor, param.activation, param.useNchw,
                             context->getOutputBuffer<uint8_t>(kOutputTensor),
+                            context->getOutputShape(kOutputTensor));
+            } else {
+                NN_RET_CHECK_FAIL() << "Unsupported filter type for operation " << kOperationName;
+            }
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            if (context->getInputType(kFilterTensor) ==
+                OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL) {
+                return convQuant8PerChannel(
+                        context->getInputBuffer<int8_t>(kInputTensor),
+                        context->getInputShape(kInputTensor),
+                        context->getInputBuffer<int8_t>(kFilterTensor),
+                        context->getInputShape(kFilterTensor),
+                        context->getInputExtraParams(kFilterTensor).channelQuant().scales.data(),
+                        context->getInputBuffer<int32_t>(kBiasTensor),
+                        context->getInputShape(kBiasTensor), param.padding_left,
+                        param.padding_right, param.padding_top, param.padding_bottom,
+                        param.stride_width, param.stride_height, param.dilation_width_factor,
+                        param.dilation_height_factor, param.activation, param.useNchw,
+                        context->getOutputBuffer<int8_t>(kOutputTensor),
+                        context->getOutputShape(kOutputTensor));
+            } else if (context->getInputType(kFilterTensor) ==
+                       OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+                return conv(context->getInputBuffer<int8_t>(kInputTensor),
+                            context->getInputShape(kInputTensor),
+                            context->getInputBuffer<int8_t>(kFilterTensor),
+                            context->getInputShape(kFilterTensor),
+                            context->getInputBuffer<int32_t>(kBiasTensor),
+                            context->getInputShape(kBiasTensor), param.padding_left,
+                            param.padding_right, param.padding_top, param.padding_bottom,
+                            param.stride_width, param.stride_height, param.dilation_width_factor,
+                            param.dilation_height_factor, param.activation, param.useNchw,
+                            context->getOutputBuffer<int8_t>(kOutputTensor),
                             context->getOutputShape(kOutputTensor));
             } else {
                 NN_RET_CHECK_FAIL() << "Unsupported filter type for operation " << kOperationName;

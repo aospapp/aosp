@@ -31,6 +31,8 @@ import androidx.annotation.NonNull;
 
 import com.google.common.base.Preconditions;
 
+import java.util.Objects;
+
 /**
  * Helper for UI-related needs.
  */
@@ -62,8 +64,8 @@ public final class AugmentedUiBot {
      */
     public UiObject2 assertUiShown(@NonNull AutofillId focusedId,
             @NonNull String expectedText) throws Exception {
-        Preconditions.checkNotNull(focusedId);
-        Preconditions.checkNotNull(expectedText);
+        Objects.requireNonNull(focusedId);
+        Objects.requireNonNull(expectedText);
 
         final UiObject2 ui = mUiBot.assertShownByRelativeId(R.id.augmentedAutofillUi);
 

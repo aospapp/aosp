@@ -23,20 +23,20 @@
 #include "cups-private.h"
 #include <fcntl.h>
 #include <math.h>
-#ifdef WIN32
+#ifdef _WIN32
 #  include <tchar.h>
 #else
 #  include <signal.h>
 #  include <sys/time.h>
 #  include <sys/resource.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 #ifdef HAVE_POLL
 #  include <poll.h>
 #endif /* HAVE_POLL */
 
 
 /*
- * Local functions...
+ * Include platform-specific TLS code...
  */
 
 #ifdef HAVE_SSL

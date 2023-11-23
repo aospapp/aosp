@@ -34,7 +34,7 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Test;
 
@@ -86,11 +86,11 @@ final class TestHelper {
     TestHelper() {
         final Method testMethod = getTestMethod();
         final Class<?> testClass = testMethod.getDeclaringClass();
-        final Context testContext = InstrumentationRegistry.getContext();
+        final Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
         mTestInfo = new TestInfo(testContext.getPackageName(), testClass.getName(),
                 testMethod.getName());
         mResolver = testContext.getContentResolver();
-        mTargetContext = InstrumentationRegistry.getTargetContext();
+        mTargetContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
     }
 
@@ -119,7 +119,7 @@ final class TestHelper {
                 .setClassName(packageName, className)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        InstrumentationRegistry.getContext().startActivity(intent);
+        InstrumentationRegistry.getInstrumentation().getContext().startActivity(intent);
         mUiDevice.wait(Until.hasObject(By.pkg(packageName).depth(0)), TIMEOUT);
     }
 

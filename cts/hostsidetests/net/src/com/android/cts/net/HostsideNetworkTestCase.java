@@ -79,7 +79,8 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
     protected void installPackage(String apk) throws FileNotFoundException,
             DeviceNotAvailableException {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
-        assertNull(getDevice().installPackage(buildHelper.getTestFile(apk), false));
+        assertNull(getDevice().installPackage(buildHelper.getTestFile(apk),
+                false /* reinstall */, true /* grantPermissions */));
     }
 
     protected void uninstallPackage(String packageName, boolean shouldSucceed)

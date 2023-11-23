@@ -42,7 +42,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -50,7 +49,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class LiveDataFunctionsTest {
 
     @Rule

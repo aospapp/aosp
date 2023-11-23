@@ -16,8 +16,11 @@ import com.ibm.icu.impl.number.DecimalQuantity_DualStorageBCD;
 import com.ibm.icu.lang.UCharacter;
 import com.ibm.icu.number.NumberFormatter;
 import com.ibm.icu.number.Precision;
+import com.ibm.icu.number.UnlocalizedNumberFormatter;
 import com.ibm.icu.text.DecimalFormatSymbols;
 import com.ibm.icu.text.UnicodeSet;
+import com.ibm.icu.util.MeasureUnit;
+import com.ibm.icu.util.NoUnit;
 import com.ibm.icu.util.ULocale;
 
 /**
@@ -50,7 +53,7 @@ public class ExhaustiveNumberTest extends TestFmwk {
         UnicodeSet minusSign = get(Key.MINUS_SIGN);
         UnicodeSet percent = get(Key.PERCENT_SIGN);
         UnicodeSet permille = get(Key.PERMILLE_SIGN);
-        UnicodeSet infinity = get(Key.INFINITY);
+        UnicodeSet infinity = get(Key.INFINITY_SIGN);
 
         for (ULocale locale : ULocale.getAvailableLocales()) {
             DecimalFormatSymbols dfs = DecimalFormatSymbols.getInstance(locale);
@@ -88,11 +91,29 @@ public class ExhaustiveNumberTest extends TestFmwk {
     }
 
     @Test
+    public void test20417_PercentParity() {
+        UnlocalizedNumberFormatter uNoUnitPercent = NumberFormatter.with().unit(NoUnit.PERCENT);
+        UnlocalizedNumberFormatter uNoUnitPermille = NumberFormatter.with().unit(NoUnit.PERMILLE);
+        UnlocalizedNumberFormatter uMeasurePercent = NumberFormatter.with().unit(MeasureUnit.PERCENT);
+        UnlocalizedNumberFormatter uMeasurePermille = NumberFormatter.with().unit(MeasureUnit.PERMILLE);
+
+        for (ULocale locale : ULocale.getAvailableLocales()) {
+            String sNoUnitPercent = uNoUnitPercent.locale(locale).format(50).toString();
+            String sNoUnitPermille = uNoUnitPermille.locale(locale).format(50).toString();
+            String sMeasurePercent = uMeasurePercent.locale(locale).format(50).toString();
+            String sMeasurePermille = uMeasurePermille.locale(locale).format(50).toString();
+
+            assertEquals("Percent, locale " + locale, sNoUnitPercent, sMeasurePercent);
+            assertEquals("Permille, locale " + locale, sNoUnitPermille, sMeasurePermille);
+        }
+    }
+
+    @Test
     public void unlimitedRoundingBigDecimal() {
         BigDecimal ten10000 = BigDecimal.valueOf(10).pow(10000);
         BigDecimal longFraction = ten10000.subtract(BigDecimal.ONE).divide(ten10000);
         String expected = longFraction.toPlainString();
-        String actual = NumberFormatter.withLocale(ULocale.ENGLISH).rounding(Precision.unlimited())
+        String actual = NumberFormatter.withLocale(ULocale.ENGLISH).precision(Precision.unlimited())
                 .format(longFraction).toString();
         assertEquals("All digits should be displayed", expected, actual);
     }

@@ -13,15 +13,17 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import shutil
 import tempfile
 import unittest
-from threading import RLock
 from unittest import TestCase
+
+import mobly.config_parser as mobly_config_parser
 
 from acts.base_test import BaseTestClass
 from acts.event import event_bus, subscription_bundle
-from acts.event.event import Event
 from acts.event.decorators import subscribe, subscribe_static
+from acts.event.event import Event
 from acts.test_runner import TestRunner
 
 
@@ -49,17 +51,8 @@ class TestClass(BaseTestClass):
 
 class EventBusIntegrationTest(TestCase):
     """Tests the EventBus E2E."""
-
     def setUp(self):
         """Clears the event bus of all state."""
-        self.tmp_dir = tempfile.mkdtemp()
-        self.config = {
-            'testbed': {
-                'name': 'SampleTestBed',
-            },
-            'logpath': self.tmp_dir,
-            'testpaths': ['./'],
-        }
         self.called_event = False
         event_bus._event_bus = event_bus._EventBus()
         TestClass.instance_event_received = []
@@ -67,7 +60,12 @@ class EventBusIntegrationTest(TestCase):
 
     def test_test_class_subscribed_fn_receives_event(self):
         """Tests that TestClasses have their subscribed functions called."""
-        TestRunner(self.config, [('TestClass', [])]).run(TestClass)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            test_run_config = mobly_config_parser.TestRunConfig()
+            test_run_config.testbed_name = 'SampleTestBed'
+            test_run_config.log_path = tmp_dir
+
+            TestRunner(test_run_config, [('TestClass', [])]).run(TestClass)
 
         self.assertGreaterEqual(len(TestClass.instance_event_received), 1)
         self.assertEqual(len(TestClass.static_event_received), 0)
@@ -84,7 +82,10 @@ class EventBusIntegrationTest(TestCase):
 
     def test_subscribe_instance_bundles(self):
         """Tests that @subscribe bundles register only instance listeners."""
-        test_object = TestClass({})
+        test_run_config = mobly_config_parser.TestRunConfig()
+        test_run_config.testbed_name = ''
+        test_run_config.log_path = ''
+        test_object = TestClass(test_run_config)
         bundle = subscription_bundle.create_from_instance(test_object)
         bundle.register()
 

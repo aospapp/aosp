@@ -16,9 +16,11 @@
 
 package com.android.server;
 
-import static com.android.internal.util.Preconditions.checkNotNull;
+import static android.net.TestNetworkManager.TEST_TAP_PREFIX;
+import static android.net.TestNetworkManager.TEST_TUN_PREFIX;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.INetd;
@@ -53,14 +55,14 @@ import java.net.Inet6Address;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** @hide */
 class TestNetworkService extends ITestNetworkManager.Stub {
     @NonNull private static final String TAG = TestNetworkService.class.getSimpleName();
     @NonNull private static final String TEST_NETWORK_TYPE = "TEST_NETWORK";
-    @NonNull private static final String TEST_TUN_PREFIX = "testtun";
-    @NonNull private static final String TEST_TAP_PREFIX = "testtap";
     @NonNull private static final AtomicInteger sTestTunIndex = new AtomicInteger();
 
     @NonNull private final Context mContext;
@@ -80,9 +82,9 @@ class TestNetworkService extends ITestNetworkManager.Stub {
         mHandlerThread.start();
         mHandler = new Handler(mHandlerThread.getLooper());
 
-        mContext = checkNotNull(context, "missing Context");
-        mNMS = checkNotNull(netManager, "missing INetworkManagementService");
-        mNetd = checkNotNull(NetdService.getInstance(), "could not get netd instance");
+        mContext = Objects.requireNonNull(context, "missing Context");
+        mNMS = Objects.requireNonNull(netManager, "missing INetworkManagementService");
+        mNetd = Objects.requireNonNull(NetdService.getInstance(), "could not get netd instance");
     }
 
     /**
@@ -94,7 +96,7 @@ class TestNetworkService extends ITestNetworkManager.Stub {
     private TestNetworkInterface createInterface(boolean isTun, LinkAddress[] linkAddrs) {
         enforceTestNetworkPermissions(mContext);
 
-        checkNotNull(linkAddrs, "missing linkAddrs");
+        Objects.requireNonNull(linkAddrs, "missing linkAddrs");
 
         String ifacePrefix = isTun ? TEST_TUN_PREFIX : TEST_TAP_PREFIX;
         String iface = ifacePrefix + sTestTunIndex.getAndIncrement();
@@ -217,7 +219,7 @@ class TestNetworkService extends ITestNetworkManager.Stub {
             // Has to be in TestNetworkAgent to ensure all teardown codepaths properly clean up
             // resources, even for binder death or unwanted calls.
             synchronized (mTestNetworkTracker) {
-                mTestNetworkTracker.remove(netId);
+                mTestNetworkTracker.remove(getNetwork().netId);
             }
         }
     }
@@ -226,11 +228,14 @@ class TestNetworkService extends ITestNetworkManager.Stub {
             @NonNull Looper looper,
             @NonNull Context context,
             @NonNull String iface,
+            @Nullable LinkProperties lp,
+            boolean isMetered,
             int callingUid,
+            @NonNull int[] administratorUids,
             @NonNull IBinder binder)
             throws RemoteException, SocketException {
-        checkNotNull(looper, "missing Looper");
-        checkNotNull(context, "missing Context");
+        Objects.requireNonNull(looper, "missing Looper");
+        Objects.requireNonNull(context, "missing Context");
         // iface and binder validity checked by caller
 
         // Build network info with special testing type
@@ -245,15 +250,26 @@ class TestNetworkService extends ITestNetworkManager.Stub {
         nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED);
         nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED);
         nc.setNetworkSpecifier(new StringNetworkSpecifier(iface));
+        nc.setAdministratorUids(administratorUids);
+        if (!isMetered) {
+            nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED);
+        }
 
         // Build LinkProperties
-        LinkProperties lp = new LinkProperties();
+        if (lp == null) {
+            lp = new LinkProperties();
+        } else {
+            lp = new LinkProperties(lp);
+            // Use LinkAddress(es) from the interface itself to minimize how much the caller
+            // is trusted.
+            lp.setLinkAddresses(new ArrayList<>());
+        }
         lp.setInterfaceName(iface);
 
         // Find the currently assigned addresses, and add them to LinkProperties
         boolean allowIPv4 = false, allowIPv6 = false;
         NetworkInterface netIntf = NetworkInterface.getByName(iface);
-        checkNotNull(netIntf, "No such network interface found: " + netIntf);
+        Objects.requireNonNull(netIntf, "No such network interface found: " + netIntf);
 
         for (InterfaceAddress intfAddr : netIntf.getInterfaceAddresses()) {
             lp.addLinkAddress(
@@ -284,11 +300,16 @@ class TestNetworkService extends ITestNetworkManager.Stub {
      * <p>This method provides a Network that is useful only for testing.
      */
     @Override
-    public void setupTestNetwork(@NonNull String iface, @NonNull IBinder binder) {
+    public void setupTestNetwork(
+            @NonNull String iface,
+            @Nullable LinkProperties lp,
+            boolean isMetered,
+            @NonNull int[] administratorUids,
+            @NonNull IBinder binder) {
         enforceTestNetworkPermissions(mContext);
 
-        checkNotNull(iface, "missing Iface");
-        checkNotNull(binder, "missing IBinder");
+        Objects.requireNonNull(iface, "missing Iface");
+        Objects.requireNonNull(binder, "missing IBinder");
 
         if (!(iface.startsWith(INetd.IPSEC_INTERFACE_PREFIX)
                 || iface.startsWith(TEST_TUN_PREFIX))) {
@@ -296,36 +317,34 @@ class TestNetworkService extends ITestNetworkManager.Stub {
                     "Cannot create network for non ipsec, non-testtun interface");
         }
 
-        // Setup needs to be done with NETWORK_STACK privileges.
-        int callingUid = Binder.getCallingUid();
-        Binder.withCleanCallingIdentity(
-                () -> {
-                    try {
-                        mNMS.setInterfaceUp(iface);
+        try {
+            // This requires NETWORK_STACK privileges.
+            Binder.withCleanCallingIdentity(() -> mNMS.setInterfaceUp(iface));
 
-                        // Synchronize all accesses to mTestNetworkTracker to prevent the case
-                        // where:
-                        // 1. TestNetworkAgent successfully binds to death of binder
-                        // 2. Before it is added to the mTestNetworkTracker, binder dies,
-                        // binderDied() is called (on a different thread)
-                        // 3. This thread is pre-empted, put() is called after remove()
-                        synchronized (mTestNetworkTracker) {
-                            TestNetworkAgent agent =
-                                    registerTestNetworkAgent(
-                                            mHandler.getLooper(),
-                                            mContext,
-                                            iface,
-                                            callingUid,
-                                            binder);
+            // Synchronize all accesses to mTestNetworkTracker to prevent the case where:
+            // 1. TestNetworkAgent successfully binds to death of binder
+            // 2. Before it is added to the mTestNetworkTracker, binder dies, binderDied() is called
+            // (on a different thread)
+            // 3. This thread is pre-empted, put() is called after remove()
+            synchronized (mTestNetworkTracker) {
+                TestNetworkAgent agent =
+                        registerTestNetworkAgent(
+                                mHandler.getLooper(),
+                                mContext,
+                                iface,
+                                lp,
+                                isMetered,
+                                Binder.getCallingUid(),
+                                administratorUids,
+                                binder);
 
-                            mTestNetworkTracker.put(agent.netId, agent);
-                        }
-                    } catch (SocketException e) {
-                        throw new UncheckedIOException(e);
-                    } catch (RemoteException e) {
-                        throw e.rethrowFromSystemServer();
-                    }
-                });
+                mTestNetworkTracker.put(agent.getNetwork().netId, agent);
+            }
+        } catch (SocketException e) {
+            throw new UncheckedIOException(e);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
     }
 
     /** Teardown a test network */

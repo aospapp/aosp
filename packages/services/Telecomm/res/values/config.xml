@@ -53,11 +53,6 @@
          Devices should overlay this value based on the type of vibration hardware they employ. -->
     <bool name="use_simple_vibration_pattern">false</bool>
 
-    <!-- When true, if Telecom is playing the ringtone, it will attempt to pause for some time
-         between repeats of the ringtone.
-         When false, the ringtone will be looping with no pause. -->
-    <bool name="should_pause_between_ringtone_repeats">true</bool>
-
     <!-- Threshold for the X+Y component of gravity needed for the device orientation to be
          classified as being on a user's ear. -->
     <item name="device_on_ear_xy_gravity_threshold" format="float" type="dimen">5.5</item>

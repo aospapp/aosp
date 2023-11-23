@@ -16,7 +16,6 @@
 
 package android.server.wm;
 
-import static android.content.pm.PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
 import static android.view.Display.DEFAULT_DISPLAY;
@@ -33,14 +32,15 @@ import static android.view.KeyEvent.KEYCODE_5;
 import static android.view.KeyEvent.KEYCODE_6;
 import static android.view.KeyEvent.KEYCODE_7;
 import static android.view.KeyEvent.KEYCODE_8;
+import static android.view.KeyEvent.keyCodeToString;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assume.assumeTrue;
 import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.res.Configuration;
@@ -119,18 +119,6 @@ public class WindowFocusTests extends WindowManagerTestBase {
         getInstrumentation().sendPointerSync(upEvent);
     }
 
-    /** Checks if the device supports multi-display. */
-    private static boolean supportsMultiDisplay() {
-        return getInstrumentation().getTargetContext().getPackageManager()
-                .hasSystemFeature(FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS);
-    }
-
-    /** Checks if per-display-focus is enabled in the device. */
-    private static boolean perDisplayFocusEnabled() {
-        return getInstrumentation().getTargetContext().getResources()
-                    .getBoolean(android.R.bool.config_perDisplayFocusEnabled);
-    }
-
     /**
      * Test the following conditions:
      * - Each display can have a focused window at the same time.
@@ -140,81 +128,81 @@ public class WindowFocusTests extends WindowManagerTestBase {
      * - The window which lost top-focus can receive display-unspecified cancel events.
      */
     @Test
-    @FlakyTest(bugId = 131005232)
-    public void testKeyReceiving() throws InterruptedException {
+    public void testKeyReceiving() {
         final PrimaryActivity primaryActivity = startActivity(PrimaryActivity.class,
                 DEFAULT_DISPLAY);
         sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_0, INVALID_DISPLAY);
         sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_1, DEFAULT_DISPLAY);
 
         assumeTrue(supportsMultiDisplay());
-        // If config_perDisplayFocusEnabled, tapping on a display will not move the focus.
-        assumeFalse(perDisplayFocusEnabled());
-        try (VirtualDisplaySession displaySession = new VirtualDisplaySession()) {
-            final int secondaryDisplayId = displaySession.createDisplay(
-                    getInstrumentation().getTargetContext()).getDisplayId();
-            final SecondaryActivity secondaryActivity =
-                    startActivity(SecondaryActivity.class, secondaryDisplayId);
-            sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_2, INVALID_DISPLAY);
-            sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_3, secondaryDisplayId);
 
+        // VirtualDisplay can't maintain perDisplayFocus because it is not trusted,
+        // so uses SimulatedDisplay instead.
+        final SimulatedDisplaySession session = createManagedSimulatedDisplaySession();
+        final int secondaryDisplayId = session.getDisplayId();
+        final SecondaryActivity secondaryActivity = session.startActivityAndFocus();
+        sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_2, INVALID_DISPLAY);
+        sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_3, secondaryDisplayId);
+
+        final boolean perDisplayFocusEnabled = perDisplayFocusEnabled();
+        if (perDisplayFocusEnabled) {
+            primaryActivity.assertWindowFocusState(true /* hasFocus */);
+            sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_4, DEFAULT_DISPLAY);
+        } else {
             primaryActivity.waitAndAssertWindowFocusState(false /* hasFocus */);
-
-            // Press display-unspecified keys and a display-specified key but not release them.
-            sendKey(ACTION_DOWN, KEYCODE_5, INVALID_DISPLAY);
-            sendKey(ACTION_DOWN, KEYCODE_6, secondaryDisplayId);
-            sendKey(ACTION_DOWN, KEYCODE_7, INVALID_DISPLAY);
-            secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_5, 0 /* flags */);
-            secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_6, 0 /* flags */);
-            secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_7, 0 /* flags */);
-
-            tapOnCenterOfDisplay(DEFAULT_DISPLAY);
-
-            // Assert only display-unspecified key would be cancelled after secondary activity is
-            // not top focused if per-display focus is enabled. Otherwise, assert all non-released
-            // key events sent to secondary activity would be cancelled.
-            secondaryActivity.waitAssertAndConsumeKeyEvent(ACTION_UP, KEYCODE_5, FLAG_CANCELED);
-            secondaryActivity.waitAssertAndConsumeKeyEvent(ACTION_UP, KEYCODE_7, FLAG_CANCELED);
-            secondaryActivity.waitAssertAndConsumeKeyEvent(ACTION_UP, KEYCODE_6, FLAG_CANCELED);
-            assertEquals(secondaryActivity.getLogTag() + " must only receive expected events.",
-                    0 /* expected event count */, secondaryActivity.getKeyEventCount());
-
-            // Assert primary activity become top focused after tapping on default display.
-            sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_8, INVALID_DISPLAY);
         }
+
+        // Press display-unspecified keys and a display-specified key but not release them.
+        sendKey(ACTION_DOWN, KEYCODE_5, INVALID_DISPLAY);
+        sendKey(ACTION_DOWN, KEYCODE_6, secondaryDisplayId);
+        sendKey(ACTION_DOWN, KEYCODE_7, INVALID_DISPLAY);
+        secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_5, 0 /* flags */);
+        secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_6, 0 /* flags */);
+        secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_7, 0 /* flags */);
+
+        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+
+        // Assert only display-unspecified key would be cancelled after secondary activity is
+        // not top focused if per-display focus is enabled. Otherwise, assert all non-released
+        // key events sent to secondary activity would be cancelled.
+        secondaryActivity.waitAssertAndConsumeKeyEvent(ACTION_UP, KEYCODE_5, FLAG_CANCELED);
+        secondaryActivity.waitAssertAndConsumeKeyEvent(ACTION_UP, KEYCODE_7, FLAG_CANCELED);
+        if (!perDisplayFocusEnabled) {
+            secondaryActivity.waitAssertAndConsumeKeyEvent(ACTION_UP, KEYCODE_6, FLAG_CANCELED);
+        }
+        assertEquals(secondaryActivity.getLogTag() + " must only receive expected events.",
+                0 /* expected event count */, secondaryActivity.getKeyEventCount());
+
+        // Assert primary activity become top focused after tapping on default display.
+        sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_8, INVALID_DISPLAY);
     }
 
     /**
      * Test if a display targeted by a key event can be moved to top in a single-focus system.
      */
     @Test
-    @FlakyTest(bugId = 131005232)
-    public void testMovingDisplayToTopByKeyEvent() throws InterruptedException {
+    public void testMovingDisplayToTopByKeyEvent() {
         assumeTrue(supportsMultiDisplay());
         assumeFalse(perDisplayFocusEnabled());
 
         final PrimaryActivity primaryActivity = startActivity(PrimaryActivity.class,
                 DEFAULT_DISPLAY);
+        final InvisibleVirtualDisplaySession session = createManagedInvisibleDisplaySession();
+        final int secondaryDisplayId = session.getDisplayId();
+        final SecondaryActivity secondaryActivity = session.startActivityAndFocus();
 
-        try (VirtualDisplaySession displaySession = new VirtualDisplaySession()) {
-            final int secondaryDisplayId = displaySession.createDisplay(
-                    getInstrumentation().getTargetContext()).getDisplayId();
-            final SecondaryActivity secondaryActivity =
-                    startActivity(SecondaryActivity.class, secondaryDisplayId);
+        sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_0, DEFAULT_DISPLAY);
+        sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_1, INVALID_DISPLAY);
 
-            sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_0, DEFAULT_DISPLAY);
-            sendAndAssertTargetConsumedKey(primaryActivity, KEYCODE_1, INVALID_DISPLAY);
-
-            sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_2, secondaryDisplayId);
-            sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_3, INVALID_DISPLAY);
-        }
+        sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_2, secondaryDisplayId);
+        sendAndAssertTargetConsumedKey(secondaryActivity, KEYCODE_3, INVALID_DISPLAY);
     }
 
     /**
      * Test if the client is notified about window-focus lost after the new focused window is drawn.
      */
     @Test
-    public void testDelayLosingFocus() throws InterruptedException {
+    public void testDelayLosingFocus() {
         final LosingFocusActivity activity = startActivity(LosingFocusActivity.class,
                 DEFAULT_DISPLAY);
 
@@ -231,7 +219,8 @@ public class WindowFocusTests extends WindowManagerTestBase {
      * - The window which lost top-focus can be notified about pointer-capture lost.
      */
     @Test
-    public void testPointerCapture() throws InterruptedException {
+    @FlakyTest(bugId = 135574991)
+    public void testPointerCapture() {
         final PrimaryActivity primaryActivity = startActivity(PrimaryActivity.class,
                 DEFAULT_DISPLAY);
 
@@ -240,44 +229,38 @@ public class WindowFocusTests extends WindowManagerTestBase {
         primaryActivity.waitAndAssertPointerCaptureState(true /* hasCapture */);
 
         assumeTrue(supportsMultiDisplay());
-        assumeFalse(perDisplayFocusEnabled());
-        try (VirtualDisplaySession displaySession = new VirtualDisplaySession()) {
-            final int secondaryDisplayId = displaySession.createDisplay(
-                    getInstrumentation().getTargetContext()).getDisplayId();
-            final SecondaryActivity secondaryActivity =
-                    startActivity(SecondaryActivity.class, secondaryDisplayId);
+        final SecondaryActivity secondaryActivity =
+                createManagedInvisibleDisplaySession().startActivityAndFocus();
 
-            // Assert primary activity lost pointer capture when it is not top focused.
-            primaryActivity.waitAndAssertPointerCaptureState(false /* hasCapture */);
+        // Assert primary activity lost pointer capture when it is not top focused.
+        primaryActivity.waitAndAssertPointerCaptureState(false /* hasCapture */);
 
-            // Assert secondary activity can have pointer capture when it is top focused.
-            getInstrumentation().runOnMainSync(secondaryActivity::requestPointerCapture);
-            secondaryActivity.waitAndAssertPointerCaptureState(true /* hasCapture */);
+        // Assert secondary activity can have pointer capture when it is top focused.
+        getInstrumentation().runOnMainSync(secondaryActivity::requestPointerCapture);
+        secondaryActivity.waitAndAssertPointerCaptureState(true /* hasCapture */);
 
-            tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        primaryActivity.waitAndAssertWindowFocusState(true);
 
-            // Assert secondary activity lost pointer capture when it is not top focused.
-            secondaryActivity.waitAndAssertPointerCaptureState(false /* hasCapture */);
-        }
+        // Assert secondary activity lost pointer capture when it is not top focused.
+        secondaryActivity.waitAndAssertPointerCaptureState(false /* hasCapture */);
     }
 
     /**
      * Test if the focused window can still have focus after it is moved to another display.
      */
     @Test
-    public void testDisplayChanged() throws InterruptedException {
+    public void testDisplayChanged() {
         assumeTrue(supportsMultiDisplay());
 
         final PrimaryActivity primaryActivity = startActivity(PrimaryActivity.class,
                 DEFAULT_DISPLAY);
 
-        final SecondaryActivity secondaryActivity;
-        try (VirtualDisplaySession displaySession = new VirtualDisplaySession()) {
-            final int secondaryDisplayId = displaySession.createDisplay(
-                    getInstrumentation().getTargetContext()).getDisplayId();
-            secondaryActivity = startActivity(SecondaryActivity.class, secondaryDisplayId);
-        }
+        final InvisibleVirtualDisplaySession session = createManagedInvisibleDisplaySession();
+        final int secondaryDisplayId = session.getDisplayId();
+        final SecondaryActivity secondaryActivity = session.startActivityAndFocus();
         // Secondary display disconnected.
+        session.close();
 
         assertNotNull("SecondaryActivity must be started.", secondaryActivity);
         secondaryActivity.waitAndAssertDisplayId(DEFAULT_DISPLAY);
@@ -291,23 +274,18 @@ public class WindowFocusTests extends WindowManagerTestBase {
      * that display.
      */
     @Test
-    public void testTapFocusableWindow() throws InterruptedException {
+    public void testTapFocusableWindow() {
         assumeTrue(supportsMultiDisplay());
         assumeFalse(perDisplayFocusEnabled());
 
         PrimaryActivity primaryActivity = startActivity(PrimaryActivity.class, DEFAULT_DISPLAY);
+        final SecondaryActivity secondaryActivity =
+                createManagedInvisibleDisplaySession().startActivityAndFocus();
 
-        try (VirtualDisplaySession displaySession = new VirtualDisplaySession()) {
-            final int secondaryDisplayId = displaySession.createDisplay(
-                    getInstrumentation().getTargetContext()).getDisplayId();
-            SecondaryActivity secondaryActivity = startActivity(SecondaryActivity.class,
-                    secondaryDisplayId);
-
-            tapOnCenterOfDisplay(DEFAULT_DISPLAY);
-            // Ensure primary activity got focus
-            primaryActivity.waitAndAssertWindowFocusState(true);
-            secondaryActivity.waitAndAssertWindowFocusState(false);
-        }
+        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        // Ensure primary activity got focus
+        primaryActivity.waitAndAssertWindowFocusState(true);
+        secondaryActivity.waitAndAssertWindowFocusState(false);
     }
 
     /**
@@ -315,38 +293,32 @@ public class WindowFocusTests extends WindowManagerTestBase {
      * window on that display.
      */
     @Test
-    @FlakyTest(bugId = 130467737)
-    public void testTapNonFocusableWindow() throws InterruptedException {
+    public void testTapNonFocusableWindow() {
         assumeTrue(supportsMultiDisplay());
         assumeFalse(perDisplayFocusEnabled());
 
         PrimaryActivity primaryActivity = startActivity(PrimaryActivity.class, DEFAULT_DISPLAY);
+        final SecondaryActivity secondaryActivity =
+                createManagedInvisibleDisplaySession().startActivityAndFocus();
 
-        try (VirtualDisplaySession displaySession = new VirtualDisplaySession()) {
-            final int secondaryDisplayId = displaySession.createDisplay(
-                    getInstrumentation().getTargetContext()).getDisplayId();
-            SecondaryActivity secondaryActivity = startActivity(SecondaryActivity.class,
-                    secondaryDisplayId);
+        // Tap on a window that can't be focused and ensure that the other window in that
+        // display, primaryActivity's window, doesn't get focus.
+        getInstrumentation().runOnMainSync(() -> {
+            View view = new View(primaryActivity);
+            LayoutParams p = new LayoutParams();
+            p.flags = LayoutParams.FLAG_NOT_FOCUSABLE;
+            primaryActivity.getWindowManager().addView(view, p);
+        });
+        getInstrumentation().waitForIdleSync();
 
-            // Tap on a window that can't be focused and ensure that the other window in that
-            // display, primaryActivity's window, doesn't get focus.
-            getInstrumentation().runOnMainSync(() -> {
-                View view = new View(primaryActivity);
-                LayoutParams p = new LayoutParams();
-                p.flags = LayoutParams.FLAG_NOT_FOCUSABLE;
-                primaryActivity.getWindowManager().addView(view, p);
-            });
-            getInstrumentation().waitForIdleSync();
-
-            tapOnCenterOfDisplay(DEFAULT_DISPLAY);
-            // Ensure secondary activity still has focus
-            secondaryActivity.waitAndAssertWindowFocusState(true);
-            primaryActivity.waitAndAssertWindowFocusState(false);
-        }
+        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        // Ensure secondary activity still has focus
+        secondaryActivity.waitAndAssertWindowFocusState(true);
+        primaryActivity.waitAndAssertWindowFocusState(false);
     }
 
     private static class InputTargetActivity extends FocusableActivity {
-        private static final long TIMEOUT_DISPLAY_CHANGED = 1000; // milliseconds
+        private static final long TIMEOUT_DISPLAY_CHANGED = 5000; // milliseconds
         private static final long TIMEOUT_POINTER_CAPTURE_CHANGED = 1000;
         private static final long TIMEOUT_NEXT_KEY_EVENT = 1000;
 
@@ -376,10 +348,13 @@ public class WindowFocusTests extends WindowManagerTestBase {
             }
         }
 
-        void waitAndAssertDisplayId(int displayId) throws InterruptedException {
+        void waitAndAssertDisplayId(int displayId) {
             synchronized (this) {
                 if (mDisplayId != displayId) {
-                    wait(TIMEOUT_DISPLAY_CHANGED);
+                    try {
+                        wait(TIMEOUT_DISPLAY_CHANGED);
+                    } catch (InterruptedException e) {
+                    }
                 }
                 assertEquals(getLogTag() + " must be moved to the display.",
                         displayId, mDisplayId);
@@ -394,10 +369,13 @@ public class WindowFocusTests extends WindowManagerTestBase {
             }
         }
 
-        void waitAndAssertPointerCaptureState(boolean hasCapture) throws InterruptedException {
+        void waitAndAssertPointerCaptureState(boolean hasCapture) {
             synchronized (mLockPointerCapture) {
                 if (mHasPointerCapture != hasCapture) {
-                    mLockPointerCapture.wait(TIMEOUT_POINTER_CAPTURE_CHANGED);
+                    try {
+                        mLockPointerCapture.wait(TIMEOUT_POINTER_CAPTURE_CHANGED);
+                    } catch (InterruptedException e) {
+                    }
                 }
                 assertEquals(getLogTag() + " must" + (hasCapture ? "" : " not")
                         + " have pointer capture.", hasCapture, mHasPointerCapture);
@@ -439,15 +417,17 @@ public class WindowFocusTests extends WindowManagerTestBase {
         }
 
         void assertAndConsumeKeyEvent(int action, int keyCode, int flags) {
-            assertNotNull(getLogTag() + " must receive key event.",
+            assertNotNull(getLogTag() + " must receive key event " + keyCodeToString(keyCode),
                     consumeKeyEvent(action, keyCode, flags));
         }
 
-        void waitAssertAndConsumeKeyEvent(int action, int keyCode, int flags)
-                throws InterruptedException {
+        void waitAssertAndConsumeKeyEvent(int action, int keyCode, int flags) {
             if (consumeKeyEvent(action, keyCode, flags) == null) {
                 synchronized (mLockKeyEvent) {
-                    mLockKeyEvent.wait(TIMEOUT_NEXT_KEY_EVENT);
+                    try {
+                        mLockKeyEvent.wait(TIMEOUT_NEXT_KEY_EVENT);
+                    } catch (InterruptedException e) {
+                    }
                 }
                 assertAndConsumeKeyEvent(action, keyCode, flags);
             }
@@ -490,25 +470,37 @@ public class WindowFocusTests extends WindowManagerTestBase {
         }
     }
 
-    private static class VirtualDisplaySession implements AutoCloseable {
+    private InvisibleVirtualDisplaySession createManagedInvisibleDisplaySession() {
+        return mObjectTracker.manage(
+                new InvisibleVirtualDisplaySession(getInstrumentation().getTargetContext()));
+    }
+
+    /** An untrusted virtual display that won't show on default screen. */
+    private static class InvisibleVirtualDisplaySession implements AutoCloseable {
         private static final int WIDTH = 800;
         private static final int HEIGHT = 480;
         private static final int DENSITY = 160;
 
-        private VirtualDisplay mVirtualDisplay;
-        private ImageReader mReader;
+        private final VirtualDisplay mVirtualDisplay;
+        private final ImageReader mReader;
+        private final Display mDisplay;
 
-        Display createDisplay(Context context) {
-            if (mReader != null) {
-                throw new IllegalStateException(
-                        "Only one display can be created during this session.");
-            }
+        InvisibleVirtualDisplaySession(Context context) {
             mReader = ImageReader.newInstance(WIDTH, HEIGHT, PixelFormat.RGBA_8888,
                     2 /* maxImages */);
-            mVirtualDisplay = context.getSystemService(DisplayManager.class).createVirtualDisplay(
-                    "CtsDisplay", WIDTH, HEIGHT, DENSITY, mReader.getSurface(),
-                    VIRTUAL_DISPLAY_FLAG_PUBLIC | VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY);
-            return mVirtualDisplay.getDisplay();
+            mVirtualDisplay = context.getSystemService(DisplayManager.class)
+                    .createVirtualDisplay(WindowFocusTests.class.getSimpleName(),
+                            WIDTH, HEIGHT, DENSITY, mReader.getSurface(),
+                            VIRTUAL_DISPLAY_FLAG_PUBLIC | VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY);
+            mDisplay = mVirtualDisplay.getDisplay();
+        }
+
+        int getDisplayId() {
+            return mDisplay.getDisplayId();
+        }
+
+        SecondaryActivity startActivityAndFocus() {
+            return WindowFocusTests.startActivityAndFocus(getDisplayId(), false /* hasFocus */);
         }
 
         @Override
@@ -520,5 +512,41 @@ public class WindowFocusTests extends WindowManagerTestBase {
                 mReader.close();
             }
         }
+    }
+
+    private SimulatedDisplaySession createManagedSimulatedDisplaySession() {
+        return mObjectTracker.manage(new SimulatedDisplaySession());
+    }
+
+    private class SimulatedDisplaySession implements AutoCloseable {
+        private final VirtualDisplaySession mVirtualDisplaySession;
+        private final WindowManagerState.DisplayContent mVirtualDisplay;
+
+        SimulatedDisplaySession() {
+            mVirtualDisplaySession = new VirtualDisplaySession();
+            mVirtualDisplay = mVirtualDisplaySession.setSimulateDisplay(true).createDisplay();
+        }
+
+        int getDisplayId() {
+            return mVirtualDisplay.mId;
+        }
+
+        SecondaryActivity startActivityAndFocus() {
+            return WindowFocusTests.startActivityAndFocus(getDisplayId(), true /* hasFocus */);
+        }
+
+        @Override
+        public void close() {
+            mVirtualDisplaySession.close();
+        }
+    }
+
+    private static SecondaryActivity startActivityAndFocus(int displayId, boolean hasFocus) {
+        // An untrusted virtual display won't have focus until the display is touched.
+        final SecondaryActivity activity = WindowManagerTestBase.startActivity(
+                SecondaryActivity.class, displayId, hasFocus);
+        tapOnCenterOfDisplay(displayId);
+        activity.waitAndAssertWindowFocusState(true);
+        return activity;
     }
 }

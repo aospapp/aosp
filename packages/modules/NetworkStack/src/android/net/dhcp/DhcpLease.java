@@ -16,11 +16,14 @@
 
 package android.net.dhcp;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
+import static com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTH;
+
 import android.net.MacAddress;
 import android.os.SystemClock;
 import android.text.TextUtils;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.internal.util.HexDump;
 
@@ -42,6 +45,7 @@ public class DhcpLease {
     private final MacAddress mHwAddr;
     @NonNull
     private final Inet4Address mNetAddr;
+    private final int mPrefixLength;
     /**
      * Expiration time for the lease, to compare with {@link SystemClock#elapsedRealtime()}.
      */
@@ -50,10 +54,12 @@ public class DhcpLease {
     private final String mHostname;
 
     public DhcpLease(@Nullable byte[] clientId, @NonNull MacAddress hwAddr,
-            @NonNull Inet4Address netAddr, long expTime, @Nullable String hostname) {
+            @NonNull Inet4Address netAddr, int prefixLength, long expTime,
+            @Nullable String hostname) {
         mClientId = (clientId == null ? null : Arrays.copyOf(clientId, clientId.length));
         mHwAddr = hwAddr;
         mNetAddr = netAddr;
+        mPrefixLength = prefixLength;
         mExpTime = expTime;
         mHostname = hostname;
     }
@@ -86,6 +92,10 @@ public class DhcpLease {
         return mNetAddr;
     }
 
+    public int getPrefixLength() {
+        return mPrefixLength;
+    }
+
     public long getExpTime() {
         return mExpTime;
     }
@@ -98,7 +108,8 @@ public class DhcpLease {
      * @return A {@link DhcpLease} with expiration time set to max(expTime, currentExpTime)
      */
     public DhcpLease renewedLease(long expTime, @Nullable String hostname) {
-        return new DhcpLease(mClientId, mHwAddr, mNetAddr, Math.max(expTime, mExpTime),
+        return new DhcpLease(mClientId, mHwAddr, mNetAddr, mPrefixLength,
+                Math.max(expTime, mExpTime),
                 (hostname == null ? mHostname : hostname));
     }
 
@@ -124,13 +135,14 @@ public class DhcpLease {
         return Arrays.equals(mClientId, other.mClientId)
                 && mHwAddr.equals(other.mHwAddr)
                 && mNetAddr.equals(other.mNetAddr)
+                && mPrefixLength == other.mPrefixLength
                 && mExpTime == other.mExpTime
                 && TextUtils.equals(mHostname, other.mHostname);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mClientId, mHwAddr, mNetAddr, mHostname, mExpTime);
+        return Objects.hash(mClientId, mHwAddr, mNetAddr, mPrefixLength, mHostname, mExpTime);
     }
 
     static String clientIdToString(byte[] bytes) {
@@ -146,8 +158,24 @@ public class DhcpLease {
 
     @Override
     public String toString() {
-        return String.format("clientId: %s, hwAddr: %s, netAddr: %s, expTime: %d, hostname: %s",
+        return String.format("clientId: %s, hwAddr: %s, netAddr: %s/%d, expTime: %d,"
+                        + "hostname: %s",
                 clientIdToString(mClientId), mHwAddr.toString(), inet4AddrToString(mNetAddr),
-                mExpTime, mHostname);
+                mPrefixLength, mExpTime, mHostname);
+    }
+
+    /**
+     * Create a {@link DhcpLeaseParcelable} containing the information held in this lease.
+     */
+    public DhcpLeaseParcelable toParcelable() {
+        final DhcpLeaseParcelable p = new DhcpLeaseParcelable();
+        p.clientId = mClientId == null ? null : Arrays.copyOf(mClientId, mClientId.length);
+        p.hwAddr = mHwAddr.toByteArray();
+        p.netAddr = inet4AddressToIntHTH(mNetAddr);
+        p.prefixLength = mPrefixLength;
+        p.expTime = mExpTime;
+        p.hostname = mHostname;
+
+        return p;
     }
 }

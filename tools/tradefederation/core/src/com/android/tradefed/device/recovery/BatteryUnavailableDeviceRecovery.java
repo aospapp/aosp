@@ -15,9 +15,9 @@
  */
 package com.android.tradefed.device.recovery;
 
+import com.android.ddmlib.IDevice.DeviceState;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.IManagedTestDevice;
-import com.android.tradefed.device.TestDeviceState;
 
 /** Recovery checker that will trigger a configuration if the battery level is not available. */
 @OptionClass(alias = "battery-recovery")
@@ -25,7 +25,10 @@ public class BatteryUnavailableDeviceRecovery extends RunConfigDeviceRecovery {
 
     @Override
     public boolean shouldSkip(IManagedTestDevice device) {
-        if (TestDeviceState.FASTBOOT.equals(device.getDeviceState())) {
+        if (device.isStateBootloaderOrFastbootd()) {
+            return true;
+        }
+        if (DeviceState.OFFLINE.equals(device.getIDevice().getState())) {
             return true;
         }
         // Check the battery level of the device and if it's NA continue recovery.

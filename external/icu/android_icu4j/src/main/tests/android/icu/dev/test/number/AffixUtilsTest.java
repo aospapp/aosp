@@ -8,9 +8,9 @@ import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
+import android.icu.impl.FormattedStringBuilder;
 import android.icu.impl.number.AffixUtils;
 import android.icu.impl.number.AffixUtils.SymbolProvider;
-import android.icu.impl.number.NumberStringBuilder;
 import android.icu.text.UnicodeSet;
 import android.icu.testsharding.MainTestShard;
 
@@ -202,19 +202,19 @@ public class AffixUtilsTest {
             }
         };
 
-        NumberStringBuilder sb = new NumberStringBuilder();
+        FormattedStringBuilder sb = new FormattedStringBuilder();
         for (String[] cas : cases) {
             String input = cas[0];
             String expected = cas[1];
             sb.clear();
-            AffixUtils.unescape(input, sb, 0, provider);
+            AffixUtils.unescape(input, sb, 0, provider, null);
             assertEquals("With symbol provider on <" + input + ">", expected, sb.toString());
         }
 
         // Test insertion position
         sb.clear();
         sb.append("abcdefg", null);
-        AffixUtils.unescape("-+%", sb, 4, provider);
+        AffixUtils.unescape("-+%", sb, 4, provider, null);
         assertEquals("Symbol provider into middle", "abcd123efg", sb.toString());
     }
 
@@ -239,8 +239,8 @@ public class AffixUtilsTest {
     }
 
     private static String unescapeWithDefaults(String input) {
-        NumberStringBuilder nsb = new NumberStringBuilder();
-        int length = AffixUtils.unescape(input, nsb, 0, DEFAULT_SYMBOL_PROVIDER);
+        FormattedStringBuilder nsb = new FormattedStringBuilder();
+        int length = AffixUtils.unescape(input, nsb, 0, DEFAULT_SYMBOL_PROVIDER, null);
         assertEquals("Return value of unescape", nsb.length(), length);
         return nsb.toString();
     }

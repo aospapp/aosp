@@ -33,16 +33,19 @@ import static org.junit.Assert.fail;
 public class CountryZonesFinderTest {
 
     private static final CountryTimeZones GB_ZONES = CountryTimeZones.createValidated(
-            "gb", "Europe/London", true, timeZoneMappings("Europe/London"), "test");
+            "gb", "Europe/London", false /* defaultTimeZoneBoost */, true,
+            timeZoneMappings("Europe/London"), "test");
 
     private static final CountryTimeZones IM_ZONES = CountryTimeZones.createValidated(
-            "im", "Europe/London", true, timeZoneMappings("Europe/London"), "test");
+            "im", "Europe/London", false /* defaultTimeZoneBoost */, true,
+            timeZoneMappings("Europe/London"), "test");
 
     private static final CountryTimeZones FR_ZONES = CountryTimeZones.createValidated(
-            "fr", "Europe/Paris", true, timeZoneMappings("Europe/Paris"), "test");
+            "fr", "Europe/Paris", false /* defaultTimeZoneBoost */, true,
+            timeZoneMappings("Europe/Paris"), "test");
 
     private static final CountryTimeZones US_ZONES = CountryTimeZones.createValidated(
-            "us", "America/New_York", true,
+            "us", "America/New_York", false /* defaultTimeZoneBoost */, true,
             timeZoneMappings("America/New_York", "America/Los_Angeles"), "test");
 
     @Test

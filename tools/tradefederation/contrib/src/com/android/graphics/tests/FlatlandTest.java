@@ -158,7 +158,7 @@ public class FlatlandTest implements IDeviceTest, IRemoteTest {
             return;
         }
         for (int i = 0; i < lines.length; i++) {
-            if (!lines[i].contains(FIRST_LINE) && !(lines[i].contains(TITLE))) {
+            if (!lines[i].contains(FIRST_LINE) && !lines[i].contains(TITLE)) {
                 // skip the first two lines
                 String[] items = lines[i].trim().split("\\|");
                 if (items.length == 3) {

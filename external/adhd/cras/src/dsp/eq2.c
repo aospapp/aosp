@@ -30,8 +30,8 @@ void eq2_free(struct eq2 *eq2)
 	free(eq2);
 }
 
-int eq2_append_biquad(struct eq2 *eq2, int channel,
-		      enum biquad_type type, float freq, float Q, float gain)
+int eq2_append_biquad(struct eq2 *eq2, int channel, enum biquad_type type,
+		      float freq, float Q, float gain)
 {
 	if (eq2->n[channel] >= MAX_BIQUADS_PER_EQ2)
 		return -1;
@@ -49,8 +49,8 @@ int eq2_append_biquad_direct(struct eq2 *eq2, int channel,
 	return 0;
 }
 
-static inline void eq2_process_one(struct biquad (*bq)[2],
-				   float *data0, float *data1, int count)
+static inline void eq2_process_one(struct biquad (*bq)[2], float *data0,
+				   float *data1, int count)
 {
 	struct biquad *qL = &bq[0][0];
 	struct biquad *qR = &bq[0][1];
@@ -80,17 +80,15 @@ static inline void eq2_process_one(struct biquad (*bq)[2],
 		float xL = data0[j];
 		float xR = data1[j];
 
-		float yL = b0L*xL
-			+ b1L*x1L + b2L*x2L
-			- a1L*y1L - a2L*y2L;
+		float yL = b0L * xL + b1L * x1L + b2L * x2L - a1L * y1L -
+			   a2L * y2L;
 		x2L = x1L;
 		x1L = xL;
 		y2L = y1L;
 		y1L = yL;
 
-		float yR = b0R*xR
-			+ b1R*x1R + b2R*x2R
-			- a1R*y1R - a2R*y2R;
+		float yR = b0R * xR + b1R * x1R + b2R * x2R - a1R * y1R -
+			   a2R * y2R;
 		x2R = x1R;
 		x1R = xR;
 		y2R = y1R;
@@ -112,32 +110,33 @@ static inline void eq2_process_one(struct biquad (*bq)[2],
 
 #ifdef __ARM_NEON__
 #include <arm_neon.h>
-static inline void eq2_process_two_neon(struct biquad (*bq)[2],
-					float *data0, float *data1, int count)
+static inline void eq2_process_two_neon(struct biquad (*bq)[2], float *data0,
+					float *data1, int count)
 {
 	struct biquad *qL = &bq[0][0];
 	struct biquad *rL = &bq[1][0];
 	struct biquad *qR = &bq[0][1];
 	struct biquad *rR = &bq[1][1];
 
-	float32x2_t x1 = {qL->x1, qR->x1};
-	float32x2_t x2 = {qL->x2, qR->x2};
-	float32x2_t y1 = {qL->y1, qR->y1};
-	float32x2_t y2 = {qL->y2, qR->y2};
-	float32x2_t qb0 = {qL->b0, qR->b0};
-	float32x2_t qb1 = {qL->b1, qR->b1};
-	float32x2_t qb2 = {qL->b2, qR->b2};
-	float32x2_t qa1 = {qL->a1, qR->a1};
-	float32x2_t qa2 = {qL->a2, qR->a2};
+	float32x2_t x1 = { qL->x1, qR->x1 };
+	float32x2_t x2 = { qL->x2, qR->x2 };
+	float32x2_t y1 = { qL->y1, qR->y1 };
+	float32x2_t y2 = { qL->y2, qR->y2 };
+	float32x2_t qb0 = { qL->b0, qR->b0 };
+	float32x2_t qb1 = { qL->b1, qR->b1 };
+	float32x2_t qb2 = { qL->b2, qR->b2 };
+	float32x2_t qa1 = { qL->a1, qR->a1 };
+	float32x2_t qa2 = { qL->a2, qR->a2 };
 
-	float32x2_t z1 = {rL->y1, rR->y1};
-	float32x2_t z2 = {rL->y2, rR->y2};
-	float32x2_t rb0 = {rL->b0, rR->b0};
-	float32x2_t rb1 = {rL->b1, rR->b1};
-	float32x2_t rb2 = {rL->b2, rR->b2};
-	float32x2_t ra1 = {rL->a1, rR->a1};
-	float32x2_t ra2 = {rL->a2, rR->a2};
+	float32x2_t z1 = { rL->y1, rR->y1 };
+	float32x2_t z2 = { rL->y2, rR->y2 };
+	float32x2_t rb0 = { rL->b0, rR->b0 };
+	float32x2_t rb1 = { rL->b1, rR->b1 };
+	float32x2_t rb2 = { rL->b2, rR->b2 };
+	float32x2_t ra1 = { rL->a1, rR->a1 };
+	float32x2_t ra2 = { rL->a2, rR->a2 };
 
+	// clang-format off
 	__asm__ __volatile__(
 		/* d0 = x, d1 = y, d2 = z */
 		"1:                                     \n"
@@ -185,8 +184,8 @@ static inline void eq2_process_two_neon(struct biquad (*bq)[2],
 		  [ra1]"w"(ra1),
 		  [ra2]"w"(ra2)
 		: /* clobber */
-		  "d0", "d1", "d2", "memory", "cc"
-		);
+		  "d0", "d1", "d2", "memory", "cc");
+	// clang-format on
 
 	qL->x1 = x1[0];
 	qL->x2 = x2[0];
@@ -205,32 +204,33 @@ static inline void eq2_process_two_neon(struct biquad (*bq)[2],
 
 #if defined(__SSE3__) && defined(__x86_64__)
 #include <emmintrin.h>
-static inline void eq2_process_two_sse3(struct biquad (*bq)[2],
-					float *data0, float *data1, int count)
+static inline void eq2_process_two_sse3(struct biquad (*bq)[2], float *data0,
+					float *data1, int count)
 {
 	struct biquad *qL = &bq[0][0];
 	struct biquad *rL = &bq[1][0];
 	struct biquad *qR = &bq[0][1];
 	struct biquad *rR = &bq[1][1];
 
-	__m128 x1 = {qL->x1, qR->x1};
-	__m128 x2 = {qL->x2, qR->x2};
-	__m128 y1 = {qL->y1, qR->y1};
-	__m128 y2 = {qL->y2, qR->y2};
-	__m128 qb0 = {qL->b0, qR->b0};
-	__m128 qb1 = {qL->b1, qR->b1};
-	__m128 qb2 = {qL->b2, qR->b2};
-	__m128 qa1 = {qL->a1, qR->a1};
-	__m128 qa2 = {qL->a2, qR->a2};
+	__m128 x1 = { qL->x1, qR->x1 };
+	__m128 x2 = { qL->x2, qR->x2 };
+	__m128 y1 = { qL->y1, qR->y1 };
+	__m128 y2 = { qL->y2, qR->y2 };
+	__m128 qb0 = { qL->b0, qR->b0 };
+	__m128 qb1 = { qL->b1, qR->b1 };
+	__m128 qb2 = { qL->b2, qR->b2 };
+	__m128 qa1 = { qL->a1, qR->a1 };
+	__m128 qa2 = { qL->a2, qR->a2 };
 
-	__m128 z1 = {rL->y1, rR->y1};
-	__m128 z2 = {rL->y2, rR->y2};
-	__m128 rb0 = {rL->b0, rR->b0};
-	__m128 rb1 = {rL->b1, rR->b1};
-	__m128 rb2 = {rL->b2, rR->b2};
-	__m128 ra1 = {rL->a1, rR->a1};
-	__m128 ra2 = {rL->a2, rR->a2};
+	__m128 z1 = { rL->y1, rR->y1 };
+	__m128 z2 = { rL->y2, rR->y2 };
+	__m128 rb0 = { rL->b0, rR->b0 };
+	__m128 rb1 = { rL->b1, rR->b1 };
+	__m128 rb2 = { rL->b2, rR->b2 };
+	__m128 ra1 = { rL->a1, rR->a1 };
+	__m128 ra2 = { rL->a2, rR->a2 };
 
+	// clang-format off
 	__asm__ __volatile__(
 		"1:                                     \n"
 		"movss (%[data0]), %%xmm2               \n"
@@ -296,8 +296,8 @@ static inline void eq2_process_two_sse3(struct biquad (*bq)[2],
 		  [ra1]"x"(ra1),
 		  [ra2]"x"(ra2)
 		: /* clobber */
-		  "xmm0", "xmm1", "xmm2", "memory", "cc"
-		);
+		  "xmm0", "xmm1", "xmm2", "memory", "cc");
+	// clang-format on
 
 	qL->x1 = x1[0];
 	qL->x2 = x2[0];
@@ -335,7 +335,8 @@ void eq2_process(struct eq2 *eq2, float *data0, float *data1, int count)
 					     count);
 #else
 			eq2_process_one(&eq2->biquad[i], data0, data1, count);
-			eq2_process_one(&eq2->biquad[i+1], data0, data1, count);
+			eq2_process_one(&eq2->biquad[i + 1], data0, data1,
+					count);
 #endif
 		}
 	}

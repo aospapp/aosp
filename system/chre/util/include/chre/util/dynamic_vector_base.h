@@ -33,7 +33,7 @@ class DynamicVectorBase : public NonCopyable {
    *
    * @param other The other vector to move from.
    */
-  DynamicVectorBase(DynamicVectorBase&& other);
+  DynamicVectorBase(DynamicVectorBase &&other);
 
   /**
    * Performs a reserve operation for DynamicVector when the underlying type is

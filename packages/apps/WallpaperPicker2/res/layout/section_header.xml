@@ -16,7 +16,6 @@
 -->
 
 <com.google.android.material.appbar.AppBarLayout
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -27,14 +26,13 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?android:attr/actionBarSize"
-        android:layout_gravity="top"
-        app:layout_scrollFlags="scroll|enterAlways">
+        android:layout_gravity="top">
         <TextView
             android:id="@+id/custom_toolbar_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:textAppearance="@style/HeaderTextAppearance"/>
+            android:textAppearance="@style/TitleTextAppearance"/>
     </androidx.appcompat.widget.Toolbar>
 
 </com.google.android.material.appbar.AppBarLayout>

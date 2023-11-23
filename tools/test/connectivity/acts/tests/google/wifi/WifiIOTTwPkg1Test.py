@@ -44,11 +44,9 @@ class WifiIOTTwPkg1Test(WifiBaseTest):
           * Wi-Fi IOT networks visible to the device
     """
 
-    def __init__(self, controllers):
-        self.attenuators = None
-        WifiBaseTest.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
 
@@ -80,7 +78,7 @@ class WifiIOTTwPkg1Test(WifiBaseTest):
 
         # create folder for IOT test result
         self.log_path = os.path.join(logging.log_path, "IOT_results")
-        utils.create_dir(self.log_path)
+        os.makedirs(self.log_path, exist_ok=True)
 
         Header=("test_name","throughput_TX","throughput_RX")
         self.csv_write(Header)

@@ -124,16 +124,6 @@ target_config = {
             'ART_USE_READ_BARRIER' : 'false'
         }
     },
-    # TODO: Remove this configuration (b/62611253) when the GSS collector is removed (b/73295078).
-    'art-gss-gc' : {
-        'run-test' : ['--interpreter',
-                      '--optimizing',
-                      '--jit'],
-        'env' : {
-            'ART_DEFAULT_GC_TYPE' : 'GSS',
-            'ART_USE_READ_BARRIER' : 'false'
-        }
-    },
     # TODO: Consider removing this configuration when it is no longer used by
     # any continuous testing target (b/62611253), as the SS collector overlaps
     # with the CC collector, since both move objects.
@@ -143,17 +133,6 @@ target_config = {
                       '--jit'],
         'env' : {
             'ART_DEFAULT_GC_TYPE' : 'SS',
-            'ART_USE_TLAB' : 'true',
-            'ART_USE_READ_BARRIER' : 'false'
-        }
-    },
-    # TODO: Remove this configuration (b/62611253) when the GSS collector is removed (b/73295078).
-    'art-gss-gc-tlab' : {
-        'run-test' : ['--interpreter',
-                      '--optimizing',
-                      '--jit'],
-        'env' : {
-            'ART_DEFAULT_GC_TYPE' : 'GSS',
             'ART_USE_TLAB' : 'true',
             'ART_USE_READ_BARRIER' : 'false'
         }
@@ -229,14 +208,6 @@ target_config = {
             'ART_DEFAULT_COMPACT_DEX_LEVEL' : 'none'
         }
     },
-    # TODO: Remove this configuration (b/62611253) when the GSS collector is removed (b/73295078).
-    'art-gtest-gss-gc': {
-        'make' :  'test-art-host-gtest',
-        'env' : {
-            'ART_DEFAULT_GC_TYPE' : 'GSS',
-            'ART_USE_READ_BARRIER' : 'false'
-        }
-    },
     # TODO: Consider removing this configuration when it is no longer used by
     # any continuous testing target (b/62611253), as the SS collector overlaps
     # with the CC collector, since both move objects.
@@ -246,15 +217,6 @@ target_config = {
             'ART_DEFAULT_GC_TYPE' : 'SS',
             'ART_USE_TLAB' : 'true',
             'ART_USE_READ_BARRIER' : 'false',
-        }
-    },
-    # TODO: Remove this configuration (b/62611253) when the GSS collector is removed (b/73295078).
-    'art-gtest-gss-gc-tlab': {
-        'make' :  'test-art-host-gtest',
-        'env': {
-            'ART_DEFAULT_GC_TYPE' : 'GSS',
-            'ART_USE_TLAB' : 'true',
-            'ART_USE_READ_BARRIER' : 'false'
         }
     },
     'art-gtest-debug-gc' : {
@@ -337,9 +299,9 @@ target_config = {
                      '--no-build-dependencies'],
     },
     'art-linux-bionic-x64-zipapex': {
-        'build': '{ANDROID_BUILD_TOP}/art/tools/build_linux_bionic_tests.sh {MAKE_OPTIONS} com.android.runtime.host',
+        'build': '{ANDROID_BUILD_TOP}/art/tools/build_linux_bionic_tests.sh {MAKE_OPTIONS} com.android.art.host',
         'run-test': ['--run-test-option=--bionic',
-                     "--runtime-zipapex={SOONG_OUT_DIR}/host/linux_bionic-x86/apex/com.android.runtime.host.zipapex",
+                     "--runtime-zipapex={SOONG_OUT_DIR}/host/linux_bionic-x86/apex/com.android.art.host.zipapex",
                      '--host',
                      '--64',
                      '--no-build-dependencies'],

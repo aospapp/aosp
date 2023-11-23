@@ -17,16 +17,15 @@
 package com.android.tv.util;
 
 import android.content.Context;
+
 import com.android.tv.InputSessionManager;
 import com.android.tv.MainActivityWrapper;
 import com.android.tv.TvApplication;
 import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Analytics;
 import com.android.tv.analytics.Tracker;
-import com.android.tv.common.experiments.ExperimentLoader;
 import com.android.tv.common.flags.impl.DefaultBackendKnobsFlags;
 import com.android.tv.common.flags.impl.DefaultCloudEpgFlags;
-import com.android.tv.common.flags.impl.DefaultConcurrentDvrPlaybackFlags;
 import com.android.tv.common.flags.impl.DefaultUiFlags;
 import com.android.tv.common.recording.RecordingStorageStatusManager;
 import com.android.tv.common.singletons.HasSingletons;
@@ -34,7 +33,6 @@ import com.android.tv.common.util.Clock;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.PreviewDataManager;
 import com.android.tv.data.ProgramDataManager;
-import com.android.tv.data.epg.EpgFetcher;
 import com.android.tv.data.epg.EpgReader;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
@@ -42,11 +40,14 @@ import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.DvrWatchedPositionManager;
 import com.android.tv.dvr.recorder.RecordingScheduler;
 import com.android.tv.perf.PerformanceMonitor;
-import com.android.tv.testing.FakeClock;
+import com.android.tv.testing.fakes.FakeClock;
 import com.android.tv.tunerinputcontroller.BuiltInTunerManager;
+
 import com.google.common.base.Optional;
+
+import dagger.Lazy;
+
 import java.util.concurrent.Executor;
-import javax.inject.Provider;
 
 /** Mock {@link TvSingletons} class. */
 public class MockTvSingletons implements TvSingletons, HasSingletons<TvSingletons> {
@@ -56,8 +57,6 @@ public class MockTvSingletons implements TvSingletons, HasSingletons<TvSingleton
     private final DefaultBackendKnobsFlags mBackendFlags = new DefaultBackendKnobsFlags();
     private final DefaultCloudEpgFlags mCloudEpgFlags = new DefaultCloudEpgFlags();
     private final DefaultUiFlags mUiFlags = new DefaultUiFlags();
-    private final DefaultConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags =
-            new DefaultConcurrentDvrPlaybackFlags();
     private PerformanceMonitor mPerformanceMonitor;
 
     public MockTvSingletons(Context context) {
@@ -78,18 +77,8 @@ public class MockTvSingletons implements TvSingletons, HasSingletons<TvSingleton
     }
 
     @Override
-    public boolean isChannelDataManagerLoadFinished() {
-        return mApp.isChannelDataManagerLoadFinished();
-    }
-
-    @Override
     public ProgramDataManager getProgramDataManager() {
         return mApp.getProgramDataManager();
-    }
-
-    @Override
-    public boolean isProgramDataManagerCurrentProgramsLoadFinished() {
-        return mApp.isProgramDataManagerCurrentProgramsLoadFinished();
     }
 
     @Override
@@ -148,13 +137,8 @@ public class MockTvSingletons implements TvSingletons, HasSingletons<TvSingleton
     }
 
     @Override
-    public Provider<EpgReader> providesEpgReader() {
+    public Lazy<EpgReader> providesEpgReader() {
         return mApp.providesEpgReader();
-    }
-
-    @Override
-    public EpgFetcher getEpgFetcher() {
-        return mApp.getEpgFetcher();
     }
 
     @Override
@@ -168,18 +152,8 @@ public class MockTvSingletons implements TvSingletons, HasSingletons<TvSingleton
     }
 
     @Override
-    public ExperimentLoader getExperimentLoader() {
-        return mApp.getExperimentLoader();
-    }
-
-    @Override
     public MainActivityWrapper getMainActivityWrapper() {
         return mApp.getMainActivityWrapper();
-    }
-
-    @Override
-    public com.android.tv.util.account.AccountHelper getAccountHelper() {
-        return mApp.getAccountHelper();
     }
 
     @Override
@@ -219,11 +193,6 @@ public class MockTvSingletons implements TvSingletons, HasSingletons<TvSingleton
     @Override
     public BuildType getBuildType() {
         return BuildType.ENG;
-    }
-
-    @Override
-    public DefaultConcurrentDvrPlaybackFlags getConcurrentDvrPlaybackFlags() {
-        return mConcurrentDvrPlaybackFlags;
     }
 
     @Override

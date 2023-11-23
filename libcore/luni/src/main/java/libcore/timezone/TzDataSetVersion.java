@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  * @hide
  */
 @libcore.api.CorePlatformApi
-public class TzDataSetVersion {
+public final class TzDataSetVersion {
 
     // Remove from CorePlatformApi when all users in platform code are removed. http://b/123398797
     /**
@@ -45,7 +45,7 @@ public class TzDataSetVersion {
      * version to 1 when doing so.
      */
     // @VisibleForTesting : Keep this inline-able: it is used from CTS tests.
-    public static final int CURRENT_FORMAT_MAJOR_VERSION = 3; // Android Q
+    public static final int CURRENT_FORMAT_MAJOR_VERSION = 4; // Android R
 
     /**
      * Returns the major tz data format version supported by this device.
@@ -102,14 +102,10 @@ public class TzDataSetVersion {
                     + REVISION_PATTERN.pattern()
                     + ".*" /* ignore trailing */);
 
-    public final int formatMajorVersion;
-    public final int formatMinorVersion;
-
-    // Remove from CorePlatformApi when all users in platform code are removed. http://b/123398797
-    @libcore.api.CorePlatformApi
-    public final String rulesVersion;
-
-    public final int revision;
+    private final int formatMajorVersion;
+    private final int formatMinorVersion;
+    private final String rulesVersion;
+    private final int revision;
 
     @libcore.api.CorePlatformApi
     public TzDataSetVersion(int formatMajorVersion, int formatMinorVersion, String rulesVersion,
@@ -153,6 +149,38 @@ public class TzDataSetVersion {
     public static TzDataSetVersion readFromFile(File file) throws IOException, TzDataSetException {
         byte[] versionBytes = readBytes(file, TzDataSetVersion.TZ_DATA_VERSION_FILE_LENGTH);
         return fromBytes(versionBytes);
+    }
+
+    /**
+     * Reads the version of time zone data supplied by the time zone data module.
+     */
+    @libcore.api.CorePlatformApi
+    public static TzDataSetVersion readTimeZoneModuleVersion()
+            throws IOException, TzDataSetException {
+        String tzVersionFileName =
+                TimeZoneDataFiles.getTimeZoneModuleTzFile(TzDataSetVersion.DEFAULT_FILE_NAME);
+        return readFromFile(new File(tzVersionFileName));
+    }
+
+    @libcore.api.CorePlatformApi
+    public int getFormatMajorVersion() {
+        return formatMajorVersion;
+    }
+
+    @libcore.api.CorePlatformApi
+    public int getFormatMinorVersion() {
+        return formatMinorVersion;
+    }
+
+    @libcore.api.CorePlatformApi
+    public String getRulesVersion() {
+        return rulesVersion;
+    }
+
+    // Remove from CorePlatformApi when all users in platform code are removed. http://b/123398797
+    @libcore.api.CorePlatformApi
+    public int getRevision() {
+        return revision;
     }
 
     // Remove from CorePlatformApi when all users in platform code are removed. http://b/123398797

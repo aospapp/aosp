@@ -27,7 +27,9 @@
 #include "vkRefUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "tcuTextureUtil.hpp"
+#include "deMath.h"
 
 namespace vk
 {
@@ -79,6 +81,49 @@ bool isSrgbFormat (VkFormat format)
 		case tcu::TextureFormat::sRGBA:
 		case tcu::TextureFormat::sBGR:
 		case tcu::TextureFormat::sBGRA:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
+bool isUfloatFormat (VkFormat format)
+{
+	DE_STATIC_ASSERT(VK_CORE_FORMAT_LAST == 185);
+
+	switch (format)
+	{
+		case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+		case VK_FORMAT_E5B9G9R9_UFLOAT_PACK32:
+		case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
+bool isSfloatFormat (VkFormat format)
+{
+	DE_STATIC_ASSERT(VK_CORE_FORMAT_LAST == 185);
+
+	switch (format)
+	{
+		case VK_FORMAT_R16_SFLOAT:
+		case VK_FORMAT_R16G16_SFLOAT:
+		case VK_FORMAT_R16G16B16_SFLOAT:
+		case VK_FORMAT_R16G16B16A16_SFLOAT:
+		case VK_FORMAT_R32_SFLOAT:
+		case VK_FORMAT_R32G32_SFLOAT:
+		case VK_FORMAT_R32G32B32_SFLOAT:
+		case VK_FORMAT_R32G32B32A32_SFLOAT:
+		case VK_FORMAT_R64_SFLOAT:
+		case VK_FORMAT_R64G64_SFLOAT:
+		case VK_FORMAT_R64G64B64_SFLOAT:
+		case VK_FORMAT_R64G64B64A64_SFLOAT:
+		case VK_FORMAT_D32_SFLOAT:
+		case VK_FORMAT_BC6H_SFLOAT_BLOCK:
 			return true;
 
 		default:
@@ -262,11 +307,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	4,		2,		1	},
-				{	0,		0,		0	},
-				{	0,		0,		0	},
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	4,		1,		1,		VK_FORMAT_G8B8G8R8_422_UNORM_KHR	},
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED	},
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED	},
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -280,11 +326,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	4,		2,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	4,		1,		1,		VK_FORMAT_B8G8R8G8_422_UNORM_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -298,11 +345,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{  1, 1, 1 },
-				{  1, 2, 2 },
-				{  1, 2, 2 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	1,		1,		1,		VK_FORMAT_R8_UNORM },
+				{	1,		2,		2,		VK_FORMAT_R8_UNORM },
+				{	1,		2,		2,		VK_FORMAT_R8_UNORM },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -316,11 +364,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{  1, 1, 1 },
-				{  2, 2, 2 },
-				{  0, 0, 0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	1,		1,		1,		VK_FORMAT_R8_UNORM },
+				{	2,		2,		2,		VK_FORMAT_R8G8_UNORM },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -334,11 +383,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{  1, 1, 1 },
-				{  1, 2, 1 },
-				{  1, 2, 1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	1,		1,		1,		VK_FORMAT_R8_UNORM },
+				{	1,		2,		1,		VK_FORMAT_R8_UNORM },
+				{	1,		2,		1,		VK_FORMAT_R8_UNORM },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -352,11 +402,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{  1, 1, 1 },
-				{  2, 2, 1 },
-				{  0, 0, 0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	1,		1,		1,		VK_FORMAT_R8_UNORM },
+				{	2,		2,		1,		VK_FORMAT_R8G8_UNORM },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -370,11 +421,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{  1, 1, 1 },
-				{  1, 1, 1 },
-				{  1, 1, 1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	1,		1,		1,		VK_FORMAT_R8_UNORM },
+				{	1,		1,		1,		VK_FORMAT_R8_UNORM },
+				{	1,		1,		1,		VK_FORMAT_R8_UNORM },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -388,11 +440,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -406,11 +459,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	4,		1,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	4,		1,		1,		VK_FORMAT_R10X6G10X6_UNORM_2PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -424,11 +478,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB|chanA,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		1,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -442,11 +497,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		2,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -460,11 +516,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		2,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -478,11 +535,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		2,		2 },
-				{	2,		2,		2 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	2,		2,		2,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	2,		2,		2,		VK_FORMAT_R10X6_UNORM_PACK16 },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -496,11 +554,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	4,		2,		2 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	4,		2,		2,		VK_FORMAT_R10X6G10X6_UNORM_2PACK16 },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -514,11 +573,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		2,		1 },
-				{	2,		2,		1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	2,		2,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	2,		2,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -532,11 +592,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	4,		2,		1 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	4,		2,		1,		VK_FORMAT_R10X6G10X6_UNORM_2PACK16 },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -550,11 +611,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		1,		1 },
-				{	2,		1,		1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
+				{	2,		1,		1,		VK_FORMAT_R10X6_UNORM_PACK16 },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -568,11 +630,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -586,11 +649,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	4,		1,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	4,		1,		1,		VK_FORMAT_R12X4G12X4_UNORM_2PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -604,11 +668,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB|chanA,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		1,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -622,11 +687,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		2,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -640,11 +706,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		2,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -658,11 +725,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		2,		2 },
-				{	2,		2,		2 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	2,		2,		2,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	2,		2,		2,		VK_FORMAT_R12X4_UNORM_PACK16 },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -676,11 +744,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	4,		2,		2 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	4,		2,		2,		VK_FORMAT_R12X4G12X4_UNORM_2PACK16 },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -694,11 +763,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		2,		1 },
-				{	2,		2,		1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	2,		2,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	2,		2,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -712,11 +782,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	4,		2,		1 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	4,		2,		1,		VK_FORMAT_R12X4G12X4_UNORM_2PACK16 },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -730,11 +801,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		1,		1 },
-				{	2,		1,		1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
+				{	2,		1,		1,		VK_FORMAT_R12X4_UNORM_PACK16 },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -748,11 +820,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		2,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_G16B16G16R16_422_UNORM_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -766,11 +839,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			1, // planes
 			chanR|chanG|chanB,
+			2,1,
 			{
-			//		Size	WDiv	HDiv
-				{	8,		2,		1 },
-				{	0,		0,		0 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	8,		1,		1,		VK_FORMAT_B16G16R16G16_422_UNORM_KHR },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -784,11 +858,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		2,		2 },
-				{	2,		2,		2 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R16_UNORM },
+				{	2,		2,		2,		VK_FORMAT_R16_UNORM },
+				{	2,		2,		2,		VK_FORMAT_R16_UNORM },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -802,11 +877,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	4,		2,		2 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R16_UNORM },
+				{	4,		2,		2,		VK_FORMAT_R16G16_UNORM },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -820,11 +896,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		2,		1 },
-				{	2,		2,		1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R16_UNORM },
+				{	2,		2,		1,		VK_FORMAT_R16_UNORM },
+				{	2,		2,		1,		VK_FORMAT_R16_UNORM },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -838,11 +915,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			2, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	4,		2,		1 },
-				{	0,		0,		0 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R16_UNORM },
+				{	4,		2,		1,		VK_FORMAT_R16G16_UNORM },
+				{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -856,11 +934,12 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 		{
 			3, // planes
 			chanR|chanG|chanB,
+			1,1,
 			{
-			//		Size	WDiv	HDiv
-				{	2,		1,		1 },
-				{	2,		1,		1 },
-				{	2,		1,		1 },
+			//		Size	WDiv	HDiv	planeCompatibleFormat
+				{	2,		1,		1,		VK_FORMAT_R16_UNORM },
+				{	2,		1,		1,		VK_FORMAT_R16_UNORM },
+				{	2,		1,		1,		VK_FORMAT_R16_UNORM },
 			},
 			{
 			//		Plane	Type	Offs	Size	Stride
@@ -881,7 +960,11 @@ const PlanarFormatDescription& getYCbCrPlanarFormatDescription (VkFormat format)
 
 PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 {
+	const deUint8			snorm	= (deUint8)tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT;
 	const deUint8			unorm	= (deUint8)tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT;
+	const deUint8			sint	= (deUint8)tcu::TEXTURECHANNELCLASS_SIGNED_INTEGER;
+	const deUint8			uint	= (deUint8)tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
+	const deUint8			sfloat	= (deUint8)tcu::TEXTURECHANNELCLASS_FLOATING_POINT;
 
 	const deUint8			chanR	= (deUint8)PlanarFormatDescription::CHANNEL_R;
 	const deUint8			chanG	= (deUint8)PlanarFormatDescription::CHANNEL_G;
@@ -902,11 +985,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	1,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	1,		1,		1,		VK_FORMAT_R8_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -919,22 +1003,72 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			return desc;
 		}
 
+		case VK_FORMAT_R8_SNORM:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	1,		1,		1,		VK_FORMAT_R8_SNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		snorm,	0,		8,		1 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+
 		case VK_FORMAT_R8G8_UNORM:
 		{
 			const PlanarFormatDescription	desc	=
 			{
 				1, // planes
 				chanR|chanG,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R8G8_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
 					{	0,		unorm,	0,		8,		2 },	// R
 					{	0,		unorm,	8,		8,		2 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R8G8_SNORM:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R8G8_SNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		snorm,	0,		8,		2 },	// R
+					{	0,		snorm,	8,		8,		2 },	// G
 					{	0,		0,		0,		0,		0 },	// B
 					{	0,		0,		0,		0,		0 }		// A
 				}
@@ -948,15 +1082,40 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R16_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
 					{	0,		unorm,	0,		16,		2 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16_SNORM:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R16_SNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		snorm,	0,		16,		2 },	// R
 					{	0,		0,		0,		0,		0 },	// G
 					{	0,		0,		0,		0,		0 },	// B
 					{	0,		0,		0,		0,		0 }		// A
@@ -971,16 +1130,41 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	4,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R16G16_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
 					{	0,		unorm,	0,		16,		4 },	// R
 					{	0,		unorm,	16,		16,		4 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16G16_SNORM:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R16G16_SNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		snorm,	0,		16,		4 },	// R
+					{	0,		snorm,	16,		16,		4 },	// G
 					{	0,		0,		0,		0,		0 },	// B
 					{	0,		0,		0,		0,		0 }		// A
 				}
@@ -994,11 +1178,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	4,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_B10G11R11_UFLOAT_PACK32 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1017,11 +1202,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	1,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	1,		1,		1,		VK_FORMAT_R4G4_UNORM_PACK8 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1040,11 +1226,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R4G4B4A4_UNORM_PACK16 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1063,11 +1250,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_B4G4R4A4_UNORM_PACK16 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1086,11 +1274,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R5G6B5_UNORM_PACK16 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1109,11 +1298,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_B5G6R5_UNORM_PACK16 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1132,11 +1322,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R5G5B5A1_UNORM_PACK16 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1155,11 +1346,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_B5G5R5A1_UNORM_PACK16 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1178,11 +1370,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	2,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_A1R5G5B5_UNORM_PACK16 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1201,11 +1394,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	3,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	3,		1,		1,		VK_FORMAT_R8G8B8_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1224,11 +1418,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	3,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	3,		1,		1,		VK_FORMAT_B8G8R8_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1248,11 +1443,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	4,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R8G8B8A8_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1271,11 +1467,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	4,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_B8G8R8A8_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1294,11 +1491,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	4,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_A2R10G10B10_UNORM_PACK32 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1317,11 +1515,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	4,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_A2B10G10R10_UNORM_PACK32 },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1340,11 +1539,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	6,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	6,		1,		1,		VK_FORMAT_R16G16B16_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1363,11 +1563,12 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			{
 				1, // planes
 				chanR|chanG|chanB|chanA,
+				1,1,
 				{
-				//		Size	WDiv	HDiv
-					{	8,		1,		1 },
-					{	0,		0,		0 },
-					{	0,		0,		0 },
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	8,		1,		1,		VK_FORMAT_R16G16B16A16_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
 				},
 				{
 				//		Plane	Type	Offs	Size	Stride
@@ -1379,6 +1580,583 @@ PlanarFormatDescription getCorePlanarFormatDescription (VkFormat format)
 			};
 			return desc;
 		}
+
+		case VK_FORMAT_R8_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	1,		1,		1,		VK_FORMAT_R8_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		8,		1 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R16_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		16,		2 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R32_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R32_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		32,		4 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R8G8_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R8G8_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		8,		2 },	// R
+					{	0,		sint,	8,		8,		2 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16G16_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R16G16_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		16,		4 },	// R
+					{	0,		sint,	16,		16,		4 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R32G32_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	8,		1,		1,		VK_FORMAT_R32G32_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		32,		8 },	// R
+					{	0,		sint,	32,		32,		8 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R8G8B8A8_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R8G8B8A8_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		8,		4 },	// R
+					{	0,		sint,	8,		8,		4 },	// G
+					{	0,		sint,	16,		8,		4 },	// B
+					{	0,		sint,	24,		8,		4 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16G16B16A16_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	8,		1,		1,		VK_FORMAT_R16G16B16A16_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		16,		8 },	// R
+					{	0,		sint,	16,		16,		8 },	// G
+					{	0,		sint,	32,		16,		8 },	// B
+					{	0,		sint,	48,		16,		8 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R32G32B32A32_SINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	16,		1,		1,		VK_FORMAT_R32G32B32A32_SINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sint,	0,		32,		16 },	// R
+					{	0,		sint,	32,		32,		16 },	// G
+					{	0,		sint,	64,		32,		16 },	// B
+					{	0,		sint,	96,		32,		16 }	// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R8_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	1,		1,		1,		VK_FORMAT_R8_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		8,		1 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R16_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		16,		2 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R32_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R32_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		32,		4 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R8G8_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_R8G8_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		8,		2 },	// R
+					{	0,		uint,	8,		8,		2 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16G16_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R16G16_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		16,		4 },	// R
+					{	0,		uint,	16,		16,		4 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R32G32_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	8,		1,		1,		VK_FORMAT_R32G32_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		32,		8 },	// R
+					{	0,		uint,	32,		32,		8 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R8G8B8A8_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R8G8B8A8_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		8,		4 },	// R
+					{	0,		uint,	8,		8,		4 },	// G
+					{	0,		uint,	16,		8,		4 },	// B
+					{	0,		uint,	24,		8,		4 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16G16B16A16_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	8,		1,		1,		VK_FORMAT_R16G16B16A16_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		16,		8 },	// R
+					{	0,		uint,	16,		16,		8 },	// G
+					{	0,		uint,	32,		16,		8 },	// B
+					{	0,		uint,	48,		16,		8 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R32G32B32A32_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	16,		1,		1,		VK_FORMAT_R32G32B32A32_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		32,		16 },	// R
+					{	0,		uint,	32,		32,		16 },	// G
+					{	0,		uint,	64,		32,		16 },	// B
+					{	0,		uint,	96,		32,		16 }	// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R8G8B8A8_SNORM:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R8G8B8A8_SNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		snorm,	0,		8,		4 },	// R
+					{	0,		snorm,	8,		8,		4 },	// G
+					{	0,		snorm,	16,		8,		4 },	// B
+					{	0,		snorm,	24,		8,		4 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R16G16B16A16_SNORM:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR | chanG | chanB | chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	8,		1,		1,		VK_FORMAT_R16G16B16A16_SNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		snorm,	0,		16,		8 },	// R
+					{	0,		snorm,	16,		16,		8 },	// G
+					{	0,		snorm,	32,		16,		8 },	// B
+					{	0,		snorm,	48,		16,		8 }		// A
+				}
+			};
+			return desc;
+		}
+		case VK_FORMAT_R32_SFLOAT:
+		case VK_FORMAT_D32_SFLOAT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	4,		1,		1,		VK_FORMAT_R32_SFLOAT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sfloat,	0,		32,		4 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_D16_UNORM:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	2,		1,		1,		VK_FORMAT_D16_UNORM },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		unorm,	0,		16,		2 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_S8_UINT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	1,		1,		1,		VK_FORMAT_S8_UINT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED},
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		uint,	0,		8,		1 },	// R
+					{	0,		0,		0,		0,		0 },	// G
+					{	0,		0,		0,		0,		0 },	// B
+					{	0,		0,		0,		0,		0 }		// A
+				}
+			};
+			return desc;
+		}
+
+		case VK_FORMAT_R32G32B32A32_SFLOAT:
+		{
+			const PlanarFormatDescription	desc	=
+			{
+				1, // planes
+				chanR|chanG|chanB|chanA,
+				1,1,
+				{
+				//		Size	WDiv	HDiv	planeCompatibleFormat
+					{	16,		1,		1,		VK_FORMAT_R32G32B32A32_SFLOAT },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+					{	0,		0,		0,		VK_FORMAT_UNDEFINED },
+				},
+				{
+				//		Plane	Type	Offs	Size	Stride
+					{	0,		sfloat,	0,		32,		16 },	// R
+					{	0,		sfloat,	32,		32,		16 },	// G
+					{	0,		sfloat,	64,		32,		16 },	// B
+					{	0,		sfloat,	96,		32,		16 },	// A
+				}
+			};
+			return desc;
+		}
+
 
 		default:
 			TCU_THROW(InternalError, "Not implemented");
@@ -1441,6 +2219,109 @@ int getPlaneCount (VkFormat format)
 			DE_FATAL("Not YCbCr format");
 			return 0;
 	}
+}
+
+deUint32 getMipmapCount(VkFormat format, const vk::PlanarFormatDescription& formatDescription, const VkImageFormatProperties& imageFormatProperties, const VkExtent3D& extent)
+{
+	if (isYCbCrFormat(format))
+		return 1;
+	tcu::UVec3 imageAlignment	= getImageSizeAlignment(formatDescription);
+	deUint32 mipmapEdge			= std::max(std::max(extent.width, extent.height), extent.depth);
+	if (imageAlignment.x() > 1)
+		mipmapEdge = std::min(mipmapEdge, extent.width / imageAlignment.x());
+	if (imageAlignment.y() > 1)
+		mipmapEdge = std::min(mipmapEdge, extent.height / imageAlignment.y());
+	if (imageAlignment.z() > 1)
+		mipmapEdge = std::min(mipmapEdge, extent.depth / imageAlignment.z());
+	return std::min(static_cast<deUint32>(deFloatLog2(static_cast<float>(mipmapEdge))) + 1u, imageFormatProperties.maxMipLevels);
+}
+
+deUint32 getPlaneSizeInBytes (const PlanarFormatDescription&	formatInfo,
+							  const VkExtent3D&					baseExtents,
+							  const deUint32					planeNdx,
+							  const deUint32					mipmapLevel,
+							  const deUint32					mipmapMemoryAlignment)
+{
+	VkExtent3D imageExtent	= getPlaneExtent(formatInfo, baseExtents, planeNdx, mipmapLevel);
+	imageExtent.width		/= formatInfo.blockWidth;
+	imageExtent.height		/= formatInfo.blockHeight;
+	return deAlign32( formatInfo.planes[planeNdx].elementSizeBytes * imageExtent.width * imageExtent.height * imageExtent.depth, mipmapMemoryAlignment);
+}
+
+deUint32 getPlaneSizeInBytes (const PlanarFormatDescription&	formatInfo,
+							  const tcu::UVec2&					baseExtents,
+							  const deUint32					planeNdx,
+							  const deUint32					mipmapLevel,
+							  const deUint32					mipmapMemoryAlignment)
+{
+	tcu::UVec2 mipExtents = getPlaneExtent(formatInfo, baseExtents, planeNdx, mipmapLevel) / tcu::UVec2(formatInfo.blockWidth, formatInfo.blockHeight);
+	return deAlign32( formatInfo.planes[planeNdx].elementSizeBytes * mipExtents.x() * mipExtents.y(), mipmapMemoryAlignment);
+}
+
+VkExtent3D getPlaneExtent(const PlanarFormatDescription&	formatInfo,
+						  const VkExtent3D&					baseExtents,
+						  const deUint32					planeNdx,
+						  const deUint32					mipmapLevel)
+{
+	deUint32	widthDivisor	= formatInfo.planes[planeNdx].widthDivisor;
+	deUint32	heightDivisor	= formatInfo.planes[planeNdx].heightDivisor;
+	deUint32	depthDivisor	= 1u;
+	VkExtent3D	mip0Extents		{ baseExtents.width / widthDivisor, baseExtents.height / heightDivisor, baseExtents.depth / depthDivisor };
+
+	return mipLevelExtents(mip0Extents, mipmapLevel);
+}
+
+tcu::UVec2 getPlaneExtent(const PlanarFormatDescription&	formatInfo,
+						  const tcu::UVec2&					baseExtents,
+						  const deUint32					planeNdx,
+						  const deUint32					mipmapLevel)
+{
+	deUint32 widthDivisor			= formatInfo.planes[planeNdx].widthDivisor;
+	deUint32 heightDivisor			= formatInfo.planes[planeNdx].heightDivisor;
+	tcu::UVec2 mip0Extents			{ baseExtents.x() / widthDivisor, baseExtents.y() / heightDivisor };
+
+	return tcu::UVec2
+	{
+		std::max(mip0Extents.x() >> mipmapLevel, 1u),
+		std::max(mip0Extents.y() >> mipmapLevel, 1u)
+	};
+}
+
+tcu::UVec3 getImageSizeAlignment(VkFormat format)
+{
+	return getImageSizeAlignment(getPlanarFormatDescription(format));
+}
+
+tcu::UVec3 getImageSizeAlignment(const PlanarFormatDescription&	formatInfo)
+{
+	tcu::UVec3 imgAlignment{ formatInfo.blockWidth, formatInfo.blockHeight, 1 };
+	for (deUint32 planeNdx = 0; planeNdx < formatInfo.numPlanes; ++planeNdx)
+	{
+		imgAlignment.x() = std::max(imgAlignment.x(), static_cast<deUint32>(formatInfo.planes[planeNdx].widthDivisor));
+		imgAlignment.y() = std::max(imgAlignment.y(), static_cast<deUint32>(formatInfo.planes[planeNdx].heightDivisor));
+	}
+	return imgAlignment;
+}
+
+tcu::UVec2 getBlockExtent(VkFormat format)
+{
+	return getBlockExtent(getPlanarFormatDescription(format));
+}
+
+tcu::UVec2 getBlockExtent(const PlanarFormatDescription& formatInfo)
+{
+	return tcu::UVec2{ formatInfo.blockWidth, formatInfo.blockHeight };
+}
+
+VkFormat getPlaneCompatibleFormat(VkFormat format, deUint32 planeNdx)
+{
+	return getPlaneCompatibleFormat(getPlanarFormatDescription(format), planeNdx);
+}
+
+VkFormat getPlaneCompatibleFormat(const PlanarFormatDescription& formatInfo, deUint32 planeNdx)
+{
+	DE_ASSERT(planeNdx < formatInfo.numPlanes);
+	return formatInfo.planes[planeNdx].planeCompatibleFormat;
 }
 
 VkImageAspectFlagBits getPlaneAspect (deUint32 planeNdx)
@@ -1543,6 +2424,26 @@ bool isSupportedByFramework (VkFormat format)
 
 		default:
 			return true;
+	}
+}
+
+void checkImageSupport (const InstanceInterface& vki, VkPhysicalDevice physicalDevice, const VkImageCreateInfo& imageCreateInfo)
+{
+	VkImageFormatProperties imageFormatProperties;
+
+	if (vki.getPhysicalDeviceImageFormatProperties(physicalDevice, imageCreateInfo.format, imageCreateInfo.imageType,
+												   imageCreateInfo.tiling, imageCreateInfo.usage, imageCreateInfo.flags,
+												   &imageFormatProperties))
+	{
+		TCU_THROW(NotSupportedError, "Image format not supported.");
+	}
+	if (((VkSampleCountFlagBits)imageFormatProperties.sampleCounts & imageCreateInfo.samples) == 0)
+	{
+		TCU_THROW(NotSupportedError, "Sample count not supported.");
+	}
+	if (imageFormatProperties.maxArrayLayers < imageCreateInfo.arrayLayers)
+	{
+		TCU_THROW(NotSupportedError, "Layer count not supported.");
 	}
 }
 
@@ -1674,7 +2575,6 @@ VkFormat mapTextureFormat (const tcu::TextureFormat& format)
 		case FMT_CASE(DS, UNSIGNED_INT_24_8_REV):			return VK_FORMAT_D24_UNORM_S8_UINT;
 		case FMT_CASE(DS, FLOAT_UNSIGNED_INT_24_8_REV):		return VK_FORMAT_D32_SFLOAT_S8_UINT;
 
-
 		case FMT_CASE(R,	UNORM_SHORT_10):				return VK_FORMAT_R10X6_UNORM_PACK16_KHR;
 		case FMT_CASE(RG,	UNORM_SHORT_10):				return VK_FORMAT_R10X6G10X6_UNORM_2PACK16_KHR;
 		case FMT_CASE(RGBA,	UNORM_SHORT_10):				return VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16_KHR;
@@ -1682,6 +2582,29 @@ VkFormat mapTextureFormat (const tcu::TextureFormat& format)
 		case FMT_CASE(R,	UNORM_SHORT_12):				return VK_FORMAT_R12X4_UNORM_PACK16_KHR;
 		case FMT_CASE(RG,	UNORM_SHORT_12):				return VK_FORMAT_R12X4G12X4_UNORM_2PACK16_KHR;
 		case FMT_CASE(RGBA,	UNORM_SHORT_12):				return VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16_KHR;
+
+		case FMT_CASE(R,	USCALED_INT8):					return VK_FORMAT_R8_USCALED;
+		case FMT_CASE(RG,	USCALED_INT8):					return VK_FORMAT_R8G8_USCALED;
+		case FMT_CASE(RGB,	USCALED_INT8):					return VK_FORMAT_R8G8B8_USCALED;
+		case FMT_CASE(RGBA,	USCALED_INT8):					return VK_FORMAT_R8G8B8A8_USCALED;
+
+		case FMT_CASE(R,	USCALED_INT16):					return VK_FORMAT_R16_USCALED;
+		case FMT_CASE(RG,	USCALED_INT16):					return VK_FORMAT_R16G16_USCALED;
+		case FMT_CASE(RGB,	USCALED_INT16):					return VK_FORMAT_R16G16B16_USCALED;
+		case FMT_CASE(RGBA,	USCALED_INT16):					return VK_FORMAT_R16G16B16A16_USCALED;
+
+		case FMT_CASE(R,	SSCALED_INT8):					return VK_FORMAT_R8_SSCALED;
+		case FMT_CASE(RG,	SSCALED_INT8):					return VK_FORMAT_R8G8_SSCALED;
+		case FMT_CASE(RGB,	SSCALED_INT8):					return VK_FORMAT_R8G8B8_SSCALED;
+		case FMT_CASE(RGBA,	SSCALED_INT8):					return VK_FORMAT_R8G8B8A8_SSCALED;
+
+		case FMT_CASE(R,	SSCALED_INT16):					return VK_FORMAT_R16_SSCALED;
+		case FMT_CASE(RG,	SSCALED_INT16):					return VK_FORMAT_R16G16_SSCALED;
+		case FMT_CASE(RGB,	SSCALED_INT16):					return VK_FORMAT_R16G16B16_SSCALED;
+		case FMT_CASE(RGBA,	SSCALED_INT16):					return VK_FORMAT_R16G16B16A16_SSCALED;
+
+		case FMT_CASE(RGBA, USCALED_INT_1010102_REV):		return VK_FORMAT_A2B10G10R10_USCALED_PACK32;
+		case FMT_CASE(RGBA, SSCALED_INT_1010102_REV):		return VK_FORMAT_A2B10G10R10_SSCALED_PACK32;
 
 		default:
 			TCU_THROW(InternalError, "Unknown texture format");
@@ -1784,64 +2707,64 @@ tcu::TextureFormat mapVkFormat (VkFormat format)
 
 		case VK_FORMAT_R8_UNORM:				return TextureFormat(TextureFormat::R,		TextureFormat::UNORM_INT8);
 		case VK_FORMAT_R8_SNORM:				return TextureFormat(TextureFormat::R,		TextureFormat::SNORM_INT8);
-		case VK_FORMAT_R8_USCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::UNSIGNED_INT8);
-		case VK_FORMAT_R8_SSCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::SIGNED_INT8);
+		case VK_FORMAT_R8_USCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::USCALED_INT8);
+		case VK_FORMAT_R8_SSCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::SSCALED_INT8);
 		case VK_FORMAT_R8_UINT:					return TextureFormat(TextureFormat::R,		TextureFormat::UNSIGNED_INT8);
 		case VK_FORMAT_R8_SINT:					return TextureFormat(TextureFormat::R,		TextureFormat::SIGNED_INT8);
 		case VK_FORMAT_R8_SRGB:					return TextureFormat(TextureFormat::sR,		TextureFormat::UNORM_INT8);
 
 		case VK_FORMAT_R8G8_UNORM:				return TextureFormat(TextureFormat::RG,		TextureFormat::UNORM_INT8);
 		case VK_FORMAT_R8G8_SNORM:				return TextureFormat(TextureFormat::RG,		TextureFormat::SNORM_INT8);
-		case VK_FORMAT_R8G8_USCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::UNSIGNED_INT8);
-		case VK_FORMAT_R8G8_SSCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::SIGNED_INT8);
+		case VK_FORMAT_R8G8_USCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::USCALED_INT8);
+		case VK_FORMAT_R8G8_SSCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::SSCALED_INT8);
 		case VK_FORMAT_R8G8_UINT:				return TextureFormat(TextureFormat::RG,		TextureFormat::UNSIGNED_INT8);
 		case VK_FORMAT_R8G8_SINT:				return TextureFormat(TextureFormat::RG,		TextureFormat::SIGNED_INT8);
 		case VK_FORMAT_R8G8_SRGB:				return TextureFormat(TextureFormat::sRG,	TextureFormat::UNORM_INT8);
 
 		case VK_FORMAT_R8G8B8_UNORM:			return TextureFormat(TextureFormat::RGB,	TextureFormat::UNORM_INT8);
 		case VK_FORMAT_R8G8B8_SNORM:			return TextureFormat(TextureFormat::RGB,	TextureFormat::SNORM_INT8);
-		case VK_FORMAT_R8G8B8_USCALED:			return TextureFormat(TextureFormat::RGB,	TextureFormat::UNSIGNED_INT8);
-		case VK_FORMAT_R8G8B8_SSCALED:			return TextureFormat(TextureFormat::RGB,	TextureFormat::SIGNED_INT8);
+		case VK_FORMAT_R8G8B8_USCALED:			return TextureFormat(TextureFormat::RGB,	TextureFormat::USCALED_INT8);
+		case VK_FORMAT_R8G8B8_SSCALED:			return TextureFormat(TextureFormat::RGB,	TextureFormat::SSCALED_INT8);
 		case VK_FORMAT_R8G8B8_UINT:				return TextureFormat(TextureFormat::RGB,	TextureFormat::UNSIGNED_INT8);
 		case VK_FORMAT_R8G8B8_SINT:				return TextureFormat(TextureFormat::RGB,	TextureFormat::SIGNED_INT8);
 		case VK_FORMAT_R8G8B8_SRGB:				return TextureFormat(TextureFormat::sRGB,	TextureFormat::UNORM_INT8);
 
 		case VK_FORMAT_R8G8B8A8_UNORM:			return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNORM_INT8);
 		case VK_FORMAT_R8G8B8A8_SNORM:			return TextureFormat(TextureFormat::RGBA,	TextureFormat::SNORM_INT8);
-		case VK_FORMAT_R8G8B8A8_USCALED:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT8);
-		case VK_FORMAT_R8G8B8A8_SSCALED:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT8);
+		case VK_FORMAT_R8G8B8A8_USCALED:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::USCALED_INT8);
+		case VK_FORMAT_R8G8B8A8_SSCALED:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::SSCALED_INT8);
 		case VK_FORMAT_R8G8B8A8_UINT:			return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT8);
 		case VK_FORMAT_R8G8B8A8_SINT:			return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT8);
 		case VK_FORMAT_R8G8B8A8_SRGB:			return TextureFormat(TextureFormat::sRGBA,	TextureFormat::UNORM_INT8);
 
 		case VK_FORMAT_R16_UNORM:				return TextureFormat(TextureFormat::R,		TextureFormat::UNORM_INT16);
 		case VK_FORMAT_R16_SNORM:				return TextureFormat(TextureFormat::R,		TextureFormat::SNORM_INT16);
-		case VK_FORMAT_R16_USCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::UNSIGNED_INT16);
-		case VK_FORMAT_R16_SSCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::SIGNED_INT16);
+		case VK_FORMAT_R16_USCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::USCALED_INT16);
+		case VK_FORMAT_R16_SSCALED:				return TextureFormat(TextureFormat::R,		TextureFormat::SSCALED_INT16);
 		case VK_FORMAT_R16_UINT:				return TextureFormat(TextureFormat::R,		TextureFormat::UNSIGNED_INT16);
 		case VK_FORMAT_R16_SINT:				return TextureFormat(TextureFormat::R,		TextureFormat::SIGNED_INT16);
 		case VK_FORMAT_R16_SFLOAT:				return TextureFormat(TextureFormat::R,		TextureFormat::HALF_FLOAT);
 
 		case VK_FORMAT_R16G16_UNORM:			return TextureFormat(TextureFormat::RG,		TextureFormat::UNORM_INT16);
 		case VK_FORMAT_R16G16_SNORM:			return TextureFormat(TextureFormat::RG,		TextureFormat::SNORM_INT16);
-		case VK_FORMAT_R16G16_USCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::UNSIGNED_INT16);
-		case VK_FORMAT_R16G16_SSCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::SIGNED_INT16);
+		case VK_FORMAT_R16G16_USCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::USCALED_INT16);
+		case VK_FORMAT_R16G16_SSCALED:			return TextureFormat(TextureFormat::RG,		TextureFormat::SSCALED_INT16);
 		case VK_FORMAT_R16G16_UINT:				return TextureFormat(TextureFormat::RG,		TextureFormat::UNSIGNED_INT16);
 		case VK_FORMAT_R16G16_SINT:				return TextureFormat(TextureFormat::RG,		TextureFormat::SIGNED_INT16);
 		case VK_FORMAT_R16G16_SFLOAT:			return TextureFormat(TextureFormat::RG,		TextureFormat::HALF_FLOAT);
 
 		case VK_FORMAT_R16G16B16_UNORM:			return TextureFormat(TextureFormat::RGB,	TextureFormat::UNORM_INT16);
 		case VK_FORMAT_R16G16B16_SNORM:			return TextureFormat(TextureFormat::RGB,	TextureFormat::SNORM_INT16);
-		case VK_FORMAT_R16G16B16_USCALED:		return TextureFormat(TextureFormat::RGB,	TextureFormat::UNSIGNED_INT16);
-		case VK_FORMAT_R16G16B16_SSCALED:		return TextureFormat(TextureFormat::RGB,	TextureFormat::SIGNED_INT16);
+		case VK_FORMAT_R16G16B16_USCALED:		return TextureFormat(TextureFormat::RGB,	TextureFormat::USCALED_INT16);
+		case VK_FORMAT_R16G16B16_SSCALED:		return TextureFormat(TextureFormat::RGB,	TextureFormat::SSCALED_INT16);
 		case VK_FORMAT_R16G16B16_UINT:			return TextureFormat(TextureFormat::RGB,	TextureFormat::UNSIGNED_INT16);
 		case VK_FORMAT_R16G16B16_SINT:			return TextureFormat(TextureFormat::RGB,	TextureFormat::SIGNED_INT16);
 		case VK_FORMAT_R16G16B16_SFLOAT:		return TextureFormat(TextureFormat::RGB,	TextureFormat::HALF_FLOAT);
 
 		case VK_FORMAT_R16G16B16A16_UNORM:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNORM_INT16);
 		case VK_FORMAT_R16G16B16A16_SNORM:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::SNORM_INT16);
-		case VK_FORMAT_R16G16B16A16_USCALED:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT16);
-		case VK_FORMAT_R16G16B16A16_SSCALED:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT16);
+		case VK_FORMAT_R16G16B16A16_USCALED:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::USCALED_INT16);
+		case VK_FORMAT_R16G16B16A16_SSCALED:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SSCALED_INT16);
 		case VK_FORMAT_R16G16B16A16_UINT:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT16);
 		case VK_FORMAT_R16G16B16A16_SINT:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT16);
 		case VK_FORMAT_R16G16B16A16_SFLOAT:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::HALF_FLOAT);
@@ -1862,6 +2785,8 @@ tcu::TextureFormat mapVkFormat (VkFormat format)
 		case VK_FORMAT_R32G32B32A32_SINT:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT32);
 		case VK_FORMAT_R32G32B32A32_SFLOAT:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::FLOAT);
 
+		case VK_FORMAT_R64_UINT:				return TextureFormat(TextureFormat::R,		TextureFormat::UNSIGNED_INT64);
+		case VK_FORMAT_R64_SINT:				return TextureFormat(TextureFormat::R,		TextureFormat::SIGNED_INT64);
 		case VK_FORMAT_R64_SFLOAT:				return TextureFormat(TextureFormat::R,		TextureFormat::FLOAT64);
 		case VK_FORMAT_R64G64_SFLOAT:			return TextureFormat(TextureFormat::RG,		TextureFormat::FLOAT64);
 		case VK_FORMAT_R64G64B64_SFLOAT:		return TextureFormat(TextureFormat::RGB,	TextureFormat::FLOAT64);
@@ -1872,16 +2797,16 @@ tcu::TextureFormat mapVkFormat (VkFormat format)
 
 		case VK_FORMAT_B8G8R8_UNORM:			return TextureFormat(TextureFormat::BGR,	TextureFormat::UNORM_INT8);
 		case VK_FORMAT_B8G8R8_SNORM:			return TextureFormat(TextureFormat::BGR,	TextureFormat::SNORM_INT8);
-		case VK_FORMAT_B8G8R8_USCALED:			return TextureFormat(TextureFormat::BGR,	TextureFormat::UNSIGNED_INT8);
-		case VK_FORMAT_B8G8R8_SSCALED:			return TextureFormat(TextureFormat::BGR,	TextureFormat::SIGNED_INT8);
+		case VK_FORMAT_B8G8R8_USCALED:			return TextureFormat(TextureFormat::BGR,	TextureFormat::USCALED_INT8);
+		case VK_FORMAT_B8G8R8_SSCALED:			return TextureFormat(TextureFormat::BGR,	TextureFormat::SSCALED_INT8);
 		case VK_FORMAT_B8G8R8_UINT:				return TextureFormat(TextureFormat::BGR,	TextureFormat::UNSIGNED_INT8);
 		case VK_FORMAT_B8G8R8_SINT:				return TextureFormat(TextureFormat::BGR,	TextureFormat::SIGNED_INT8);
 		case VK_FORMAT_B8G8R8_SRGB:				return TextureFormat(TextureFormat::sBGR,	TextureFormat::UNORM_INT8);
 
 		case VK_FORMAT_B8G8R8A8_UNORM:			return TextureFormat(TextureFormat::BGRA,	TextureFormat::UNORM_INT8);
 		case VK_FORMAT_B8G8R8A8_SNORM:			return TextureFormat(TextureFormat::BGRA,	TextureFormat::SNORM_INT8);
-		case VK_FORMAT_B8G8R8A8_USCALED:		return TextureFormat(TextureFormat::BGRA,	TextureFormat::UNSIGNED_INT8);
-		case VK_FORMAT_B8G8R8A8_SSCALED:		return TextureFormat(TextureFormat::BGRA,	TextureFormat::SIGNED_INT8);
+		case VK_FORMAT_B8G8R8A8_USCALED:		return TextureFormat(TextureFormat::BGRA,	TextureFormat::USCALED_INT8);
+		case VK_FORMAT_B8G8R8A8_SSCALED:		return TextureFormat(TextureFormat::BGRA,	TextureFormat::SSCALED_INT8);
 		case VK_FORMAT_B8G8R8A8_UINT:			return TextureFormat(TextureFormat::BGRA,	TextureFormat::UNSIGNED_INT8);
 		case VK_FORMAT_B8G8R8A8_SINT:			return TextureFormat(TextureFormat::BGRA,	TextureFormat::SIGNED_INT8);
 		case VK_FORMAT_B8G8R8A8_SRGB:			return TextureFormat(TextureFormat::sBGRA,	TextureFormat::UNORM_INT8);
@@ -1901,8 +2826,8 @@ tcu::TextureFormat mapVkFormat (VkFormat format)
 #if (DE_ENDIANNESS == DE_LITTLE_ENDIAN)
 		case VK_FORMAT_A8B8G8R8_UNORM_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNORM_INT8);
 		case VK_FORMAT_A8B8G8R8_SNORM_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SNORM_INT8);
-		case VK_FORMAT_A8B8G8R8_USCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT8);
-		case VK_FORMAT_A8B8G8R8_SSCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT8);
+		case VK_FORMAT_A8B8G8R8_USCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::USCALED_INT8);
+		case VK_FORMAT_A8B8G8R8_SSCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SSCALED_INT8);
 		case VK_FORMAT_A8B8G8R8_UINT_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT8);
 		case VK_FORMAT_A8B8G8R8_SINT_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT8);
 		case VK_FORMAT_A8B8G8R8_SRGB_PACK32:	return TextureFormat(TextureFormat::sRGBA,	TextureFormat::UNORM_INT8);
@@ -1912,15 +2837,15 @@ tcu::TextureFormat mapVkFormat (VkFormat format)
 
 		case VK_FORMAT_A2R10G10B10_UNORM_PACK32:	return TextureFormat(TextureFormat::BGRA,	TextureFormat::UNORM_INT_1010102_REV);
 		case VK_FORMAT_A2R10G10B10_SNORM_PACK32:	return TextureFormat(TextureFormat::BGRA,	TextureFormat::SNORM_INT_1010102_REV);
-		case VK_FORMAT_A2R10G10B10_USCALED_PACK32:	return TextureFormat(TextureFormat::BGRA,	TextureFormat::UNSIGNED_INT_1010102_REV);
-		case VK_FORMAT_A2R10G10B10_SSCALED_PACK32:	return TextureFormat(TextureFormat::BGRA,	TextureFormat::SIGNED_INT_1010102_REV);
+		case VK_FORMAT_A2R10G10B10_USCALED_PACK32:	return TextureFormat(TextureFormat::BGRA,	TextureFormat::USCALED_INT_1010102_REV);
+		case VK_FORMAT_A2R10G10B10_SSCALED_PACK32:	return TextureFormat(TextureFormat::BGRA,	TextureFormat::SSCALED_INT_1010102_REV);
 		case VK_FORMAT_A2R10G10B10_UINT_PACK32:		return TextureFormat(TextureFormat::BGRA,	TextureFormat::UNSIGNED_INT_1010102_REV);
 		case VK_FORMAT_A2R10G10B10_SINT_PACK32:		return TextureFormat(TextureFormat::BGRA,	TextureFormat::SIGNED_INT_1010102_REV);
 
 		case VK_FORMAT_A2B10G10R10_UNORM_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNORM_INT_1010102_REV);
 		case VK_FORMAT_A2B10G10R10_SNORM_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SNORM_INT_1010102_REV);
-		case VK_FORMAT_A2B10G10R10_USCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT_1010102_REV);
-		case VK_FORMAT_A2B10G10R10_SSCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT_1010102_REV);
+		case VK_FORMAT_A2B10G10R10_USCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::USCALED_INT_1010102_REV);
+		case VK_FORMAT_A2B10G10R10_SSCALED_PACK32:	return TextureFormat(TextureFormat::RGBA,	TextureFormat::SSCALED_INT_1010102_REV);
 		case VK_FORMAT_A2B10G10R10_UINT_PACK32:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::UNSIGNED_INT_1010102_REV);
 		case VK_FORMAT_A2B10G10R10_SINT_PACK32:		return TextureFormat(TextureFormat::RGBA,	TextureFormat::SIGNED_INT_1010102_REV);
 
@@ -2169,32 +3094,76 @@ tcu::PixelBufferAccess getChannelAccess (const PlanarFormatDescription&	formatIn
 	const deUint32	valueOffsetBits		= formatInfo.channels[channelNdx].offsetBits % 8;
 	const deUint32	pixelStrideBytes	= formatInfo.channels[channelNdx].strideBytes;
 
-	DE_ASSERT(size.x() % formatInfo.planes[planeNdx].widthDivisor == 0);
-	DE_ASSERT(size.y() % formatInfo.planes[planeNdx].heightDivisor == 0);
+	DE_ASSERT(size.x() % (formatInfo.blockWidth * formatInfo.planes[planeNdx].widthDivisor) == 0);
+	DE_ASSERT(size.y() % (formatInfo.blockHeight * formatInfo.planes[planeNdx].heightDivisor) == 0);
 
-	deUint32		accessWidth			= size.x() / formatInfo.planes[planeNdx].widthDivisor;
-	const deUint32	accessHeight		= size.y() / formatInfo.planes[planeNdx].heightDivisor;
+	const deUint32	accessHeight		= size.y() / ( formatInfo.blockHeight * formatInfo.planes[planeNdx].heightDivisor );
 	const deUint32	elementSizeBytes	= formatInfo.planes[planeNdx].elementSizeBytes;
-
 	const deUint32	rowPitch			= planeRowPitches[planeNdx];
 
-	if (pixelStrideBytes != elementSizeBytes)
-	{
-		DE_ASSERT(elementSizeBytes % pixelStrideBytes == 0);
-		accessWidth *= elementSizeBytes/pixelStrideBytes;
-	}
+	DE_ASSERT(elementSizeBytes % pixelStrideBytes == 0);
+
+	tcu::IVec3		texDivider(
+		std::max(formatInfo.blockWidth * formatInfo.planes[planeNdx].widthDivisor * pixelStrideBytes / elementSizeBytes, 1u),
+		std::max(formatInfo.blockHeight * formatInfo.planes[planeNdx].heightDivisor * pixelStrideBytes / elementSizeBytes, 1u),
+		1);
 
 	return tcu::PixelBufferAccess(getChannelAccessFormat((tcu::TextureChannelClass)formatInfo.channels[channelNdx].type,
 														 valueOffsetBits,
 														 formatInfo.channels[channelNdx].sizeBits),
-								  tcu::IVec3((int)accessWidth, (int)accessHeight, 1),
-								  tcu::IVec3((int)pixelStrideBytes, (int)rowPitch, 0),
-								  (deUint8*)planePtrs[planeNdx] + planeOffsetBytes);
+														 tcu::IVec3((int)size.x(), (int)size.y(), 1),
+														 tcu::IVec3((int)pixelStrideBytes, (int)rowPitch, (int)(accessHeight*rowPitch)),
+														 texDivider,
+														 (deUint8*)planePtrs[planeNdx] + planeOffsetBytes);
 }
-
 
 tcu::ConstPixelBufferAccess getChannelAccess (const PlanarFormatDescription&	formatInfo,
 											  const tcu::UVec2&					size,
+											  const deUint32*					planeRowPitches,
+											  const void* const*				planePtrs,
+											  deUint32							channelNdx)
+{
+	return getChannelAccess(formatInfo, size, planeRowPitches, const_cast<void* const*>(planePtrs), channelNdx);
+}
+
+tcu::PixelBufferAccess getChannelAccess (const PlanarFormatDescription&	formatInfo,
+										 const tcu::UVec3&				size,
+										 const deUint32*				planeRowPitches,
+										 void* const*					planePtrs,
+										 deUint32						channelNdx)
+{
+	DE_ASSERT(formatInfo.hasChannelNdx(channelNdx));
+
+	const deUint32	planeNdx			= formatInfo.channels[channelNdx].planeNdx;
+	const deUint32	planeOffsetBytes	= formatInfo.channels[channelNdx].offsetBits / 8;
+	const deUint32	valueOffsetBits		= formatInfo.channels[channelNdx].offsetBits % 8;
+	const deUint32	pixelStrideBytes	= formatInfo.channels[channelNdx].strideBytes;
+
+	DE_ASSERT(size.x() % (formatInfo.blockWidth * formatInfo.planes[planeNdx].widthDivisor) == 0);
+	DE_ASSERT(size.y() % (formatInfo.blockHeight * formatInfo.planes[planeNdx].heightDivisor) == 0);
+
+	const deUint32	accessHeight		= size.y() / ( formatInfo.blockHeight * formatInfo.planes[planeNdx].heightDivisor );
+	const deUint32	elementSizeBytes	= formatInfo.planes[planeNdx].elementSizeBytes;
+	const deUint32	rowPitch			= planeRowPitches[planeNdx];
+
+	DE_ASSERT(elementSizeBytes % pixelStrideBytes == 0);
+
+	tcu::IVec3		texDivider(
+		std::max(formatInfo.blockWidth * formatInfo.planes[planeNdx].widthDivisor * pixelStrideBytes / elementSizeBytes, 1u),
+		std::max(formatInfo.blockHeight * formatInfo.planes[planeNdx].heightDivisor * pixelStrideBytes / elementSizeBytes, 1u),
+		1);
+
+	return tcu::PixelBufferAccess(getChannelAccessFormat((tcu::TextureChannelClass)formatInfo.channels[channelNdx].type,
+														 valueOffsetBits,
+														 formatInfo.channels[channelNdx].sizeBits),
+														 tcu::IVec3((int)size.x(), (int)size.y(), (int)size.z()),
+														 tcu::IVec3((int)pixelStrideBytes, (int)rowPitch, (int)(accessHeight*rowPitch)),
+														 texDivider,
+														 (deUint8*)planePtrs[planeNdx] + planeOffsetBytes);
+}
+
+tcu::ConstPixelBufferAccess getChannelAccess (const PlanarFormatDescription&	formatInfo,
+											  const tcu::UVec3&					size,
 											  const deUint32*					planeRowPitches,
 											  const void* const*				planePtrs,
 											  deUint32							channelNdx)
@@ -2573,9 +3542,9 @@ tcu::Sampler mapVkSampler (const VkSamplerCreateInfo& samplerCreateInfo)
 		{
 			case VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT:
 			{
-				const VkSamplerReductionModeCreateInfoEXT reductionModeCreateInfo = *reinterpret_cast<const VkSamplerReductionModeCreateInfoEXT*>(pNext);
+				const VkSamplerReductionModeCreateInfo reductionModeCreateInfo = *reinterpret_cast<const VkSamplerReductionModeCreateInfo*>(pNext);
 				reductionMode = mapVkSamplerReductionMode(reductionModeCreateInfo.reductionMode);
-				pNext = reinterpret_cast<const VkSamplerReductionModeCreateInfoEXT*>(pNext)->pNext;
+				pNext = reinterpret_cast<const VkSamplerReductionModeCreateInfo*>(pNext)->pNext;
 				break;
 			}
 			case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO:
@@ -2672,13 +3641,13 @@ tcu::Sampler::WrapMode mapVkSamplerAddressMode (VkSamplerAddressMode addressMode
 	return tcu::Sampler::WRAPMODE_LAST;
 }
 
-tcu::Sampler::ReductionMode mapVkSamplerReductionMode (VkSamplerReductionModeEXT reductionMode)
+tcu::Sampler::ReductionMode mapVkSamplerReductionMode (VkSamplerReductionMode reductionMode)
 {
 	switch (reductionMode)
 	{
-		case VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE_EXT:	return tcu::Sampler::WEIGHTED_AVERAGE;
-		case VK_SAMPLER_REDUCTION_MODE_MIN_EXT:					return tcu::Sampler::MIN;
-		case VK_SAMPLER_REDUCTION_MODE_MAX_EXT:					return tcu::Sampler::MAX;
+		case VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE:	return tcu::Sampler::WEIGHTED_AVERAGE;
+		case VK_SAMPLER_REDUCTION_MODE_MIN:					return tcu::Sampler::MIN;
+		case VK_SAMPLER_REDUCTION_MODE_MAX:					return tcu::Sampler::MAX;
 		default:
 			break;
 	}
@@ -2954,20 +3923,22 @@ void copyImageToBuffer (const DeviceInterface&	vk,
 						tcu::IVec2				size,
 						VkAccessFlags			srcAccessMask,
 						VkImageLayout			oldLayout,
-						deUint32				numLayers)
+						deUint32				numLayers,
+						VkImageAspectFlags		barrierAspect,
+						VkImageAspectFlags		copyAspect)
 {
 	const VkImageMemoryBarrier	imageBarrier	=
 	{
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,										// VkStructureType			sType;
-		DE_NULL,																	// const void*				pNext;
-		srcAccessMask,																// VkAccessFlags			srcAccessMask;
-		VK_ACCESS_TRANSFER_READ_BIT,												// VkAccessFlags			dstAccessMask;
-		oldLayout,																	// VkImageLayout			oldLayout;
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,										// VkImageLayout			newLayout;
-		VK_QUEUE_FAMILY_IGNORED,													// deUint32					srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,													// deUint32					destQueueFamilyIndex;
-		image,																		// VkImage					image;
-		makeImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0, numLayers)	// VkImageSubresourceRange	subresourceRange;
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,							// VkStructureType			sType;
+		DE_NULL,														// const void*				pNext;
+		srcAccessMask,													// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_TRANSFER_READ_BIT,									// VkAccessFlags			dstAccessMask;
+		oldLayout,														// VkImageLayout			oldLayout;
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,							// VkImageLayout			newLayout;
+		VK_QUEUE_FAMILY_IGNORED,										// deUint32					srcQueueFamilyIndex;
+		VK_QUEUE_FAMILY_IGNORED,										// deUint32					destQueueFamilyIndex;
+		image,															// VkImage					image;
+		makeImageSubresourceRange(barrierAspect, 0u, 1u, 0, numLayers)	// VkImageSubresourceRange	subresourceRange;
 	};
 
 	vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
@@ -2975,7 +3946,7 @@ void copyImageToBuffer (const DeviceInterface&	vk,
 
 	const VkImageSubresourceLayers	subresource	=
 	{
-		VK_IMAGE_ASPECT_COLOR_BIT,					// VkImageAspectFlags	aspectMask;
+		copyAspect,									// VkImageAspectFlags	aspectMask;
 		0u,											// deUint32				mipLevel;
 		0u,											// deUint32				baseArrayLayer;
 		numLayers									// deUint32				layerCount;
@@ -3008,6 +3979,582 @@ void copyImageToBuffer (const DeviceInterface&	vk,
 
 	vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u,
 						  0u, DE_NULL, 1u, &bufferBarrier, 0u, DE_NULL);
+}
+
+void clearColorImage (const DeviceInterface&	vk,
+					  const VkDevice			device,
+					  const VkQueue				queue,
+					  deUint32					queueFamilyIndex,
+					  VkImage					image,
+					  tcu::Vec4					clearColor,
+					  VkImageLayout				oldLayout,
+					  VkImageLayout				newLayout,
+					  VkPipelineStageFlags		dstStageFlags)
+{
+	Move<VkCommandPool>				cmdPool				= createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+	Move<VkCommandBuffer>			cmdBuffer			= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+	const VkClearColorValue			clearColorValue		= makeClearValueColor(clearColor).color;
+
+	const VkImageSubresourceRange	subresourceRange	=
+	{
+		VK_IMAGE_ASPECT_COLOR_BIT,	// VkImageAspectFlags	aspectMask
+		0u,							// deUint32				baseMipLevel
+		1u,							// deUint32				levelCount
+		0u,							// deUint32				baseArrayLayer
+		1u,							// deUint32				layerCount
+	};
+
+	const VkImageMemoryBarrier		preImageBarrier		=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		0u,											// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			dstAccessMask;
+		oldLayout,									// VkImageLayout			oldLayout;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	const VkImageMemoryBarrier		postImageBarrier	=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_SHADER_WRITE_BIT,					// VkAccessFlags			dstAccessMask;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			oldLayout;
+		newLayout,									// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	beginCommandBuffer(vk, *cmdBuffer);
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_HOST_BIT,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &preImageBarrier);
+	vk.cmdClearColorImage(*cmdBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColorValue, 1, &subresourceRange);
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  dstStageFlags,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &postImageBarrier);
+	endCommandBuffer(vk, *cmdBuffer);
+
+	submitCommandsAndWait(vk, device, queue, *cmdBuffer);
+}
+
+std::vector<VkBufferImageCopy> generateChessboardCopyRegions (deUint32				tileSize,
+															  deUint32				imageWidth,
+															  deUint32				imageHeight,
+															  deUint32				tileIdx,
+															  VkImageAspectFlags	aspectMask)
+{
+	std::vector<VkBufferImageCopy>	copyRegions;
+
+	for (deUint32 x = 0; x < (deUint32)deFloatCeil((float)imageWidth / (float)tileSize); x++)
+		for (deUint32 y = 0; y < (deUint32)deFloatCeil((float)imageHeight / (float)tileSize); y++)
+		{
+			if ((x + tileIdx) % 2 == y % 2) continue;
+
+			const deUint32					tileWidth			= de::min(tileSize, imageWidth - tileSize * x);
+			const deUint32					tileHeight			= de::min(tileSize, imageHeight - tileSize * y);
+
+			const VkOffset3D				offset				=
+			{
+				(deInt32)x * (deInt32)tileWidth,	// deInt32	x
+				(deInt32)y * (deInt32)tileHeight,	// deInt32	y
+				0									// deInt32	z
+			};
+
+			const VkExtent3D				extent				=
+			{
+				tileWidth,	// deUint32	width
+				tileHeight,	// deUint32	height
+				1u			// deUint32	depth
+			};
+
+			const VkImageSubresourceLayers	subresourceLayers	=
+			{
+				aspectMask,	// VkImageAspectFlags	aspectMask
+				0u,			// deUint32				mipLevel
+				0u,			// deUint32				baseArrayLayer
+				1u,			// deUint32				layerCount
+			};
+
+			const VkBufferImageCopy			copy				=
+			{
+				(VkDeviceSize)0,	// VkDeviceSize				bufferOffset
+				0u,					// deUint32					bufferRowLength
+				0u,					// deUint32					bufferImageHeight
+				subresourceLayers,	// VkImageSubresourceLayers	imageSubresource
+				offset,				// VkOffset3D				imageOffset
+				extent				// VkExtent3D				imageExtent
+			};
+
+			copyRegions.push_back(copy);
+		}
+
+	return copyRegions;
+}
+
+void initColorImageChessboardPattern (const DeviceInterface&	vk,
+									  const VkDevice			device,
+									  const VkQueue				queue,
+									  deUint32					queueFamilyIndex,
+									  Allocator&				allocator,
+									  VkImage					image,
+									  VkFormat					format,
+									  tcu::Vec4					colorValue0,
+									  tcu::Vec4					colorValue1,
+									  deUint32					imageWidth,
+									  deUint32					imageHeight,
+									  deUint32					tileSize,
+									  VkImageLayout				oldLayout,
+									  VkImageLayout				newLayout,
+									  VkPipelineStageFlags		dstStageFlags)
+{
+	Move<VkCommandPool>				cmdPool				= createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+	Move<VkCommandBuffer>			cmdBuffer			= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	const tcu::TextureFormat		tcuFormat			= mapVkFormat(format);
+	const tcu::Vec4					colorValues[]		= { colorValue0, colorValue1 };
+	const deUint32					bufferSize			= tileSize * tileSize * tcuFormat.getPixelSize();
+
+	const VkImageSubresourceRange	subresourceRange	=
+	{
+		VK_IMAGE_ASPECT_COLOR_BIT,	// VkImageAspectFlags	aspectMask
+		0u,							// deUint32				baseMipLevel
+		1u,							// deUint32				levelCount
+		0u,							// deUint32				baseArrayLayer
+		1u							// deUint32				layerCount
+	};
+
+	const VkImageMemoryBarrier		preImageBarrier		=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		0u,											// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			dstAccessMask;
+		oldLayout,									// VkImageLayout			oldLayout;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	const VkImageMemoryBarrier		postImageBarrier	=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_SHADER_WRITE_BIT,					// VkAccessFlags			dstAccessMask;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			oldLayout;
+		newLayout,									// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	// Create staging buffers for both color values
+	Move<VkBuffer>					buffers[2];
+	de::MovePtr<Allocation>			bufferAllocs[2];
+
+	const VkBufferCreateInfo		bufferParams		=
+	{
+		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType
+		DE_NULL,								// const void*			pNext
+		0u,										// VkBufferCreateFlags	flags
+		(VkDeviceSize)bufferSize,				// VkDeviceSize			size
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,		// VkBufferUsageFlags	usage
+		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode
+		0u,										// deUint32				queueFamilyIndexCount
+		DE_NULL									// const deUint32*		pQueueFamilyIndices
+	};
+
+	for (deUint32 bufferIdx = 0; bufferIdx < 2; bufferIdx++)
+	{
+		buffers[bufferIdx]		= createBuffer(vk, device, &bufferParams);
+		bufferAllocs[bufferIdx]	= allocator.allocate(getBufferMemoryRequirements(vk, device, *buffers[bufferIdx]), MemoryRequirement::HostVisible);
+		VK_CHECK(vk.bindBufferMemory(device, *buffers[bufferIdx], bufferAllocs[bufferIdx]->getMemory(), bufferAllocs[bufferIdx]->getOffset()));
+
+		deUint32*				dstPtr	= (deUint32*)bufferAllocs[bufferIdx]->getHostPtr();
+		tcu::PixelBufferAccess	access	(tcuFormat, tileSize, tileSize, 1, dstPtr);
+
+		for (deUint32 x = 0; x < tileSize; x++)
+			for (deUint32 y = 0; y < tileSize; y++)
+				access.setPixel(colorValues[bufferIdx], x, y, 0);
+
+		flushAlloc(vk, device, *bufferAllocs[bufferIdx]);
+	}
+
+	beginCommandBuffer(vk, *cmdBuffer);
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_HOST_BIT,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &preImageBarrier);
+
+	for (deUint32 bufferIdx = 0; bufferIdx < 2; bufferIdx++)
+	{
+		std::vector<VkBufferImageCopy> copyRegions = generateChessboardCopyRegions(tileSize, imageWidth, imageHeight, bufferIdx, VK_IMAGE_ASPECT_COLOR_BIT);
+
+		vk.cmdCopyBufferToImage(*cmdBuffer, *buffers[bufferIdx], image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, (deUint32)copyRegions.size(), copyRegions.data());
+	}
+
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  dstStageFlags,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &postImageBarrier);
+
+	endCommandBuffer(vk, *cmdBuffer);
+
+	submitCommandsAndWait(vk, device, queue, *cmdBuffer);
+}
+
+void copyDepthStencilImageToBuffers (const DeviceInterface&	vk,
+									 VkCommandBuffer		cmdBuffer,
+									 VkImage				image,
+									 VkBuffer				depthBuffer,
+									 VkBuffer				stencilBuffer,
+									 tcu::IVec2				size,
+									 VkAccessFlags			srcAccessMask,
+									 VkImageLayout			oldLayout,
+									 deUint32				numLayers)
+{
+	const VkImageAspectFlags		aspect				= VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	const VkImageMemoryBarrier		imageBarrier		=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,					// VkStructureType			sType;
+		DE_NULL,												// const void*				pNext;
+		srcAccessMask,											// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_TRANSFER_READ_BIT,							// VkAccessFlags			dstAccessMask;
+		oldLayout,												// VkImageLayout			oldLayout;
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,					// VkImageLayout			newLayout;
+		VK_QUEUE_FAMILY_IGNORED,								// deUint32					srcQueueFamilyIndex;
+		VK_QUEUE_FAMILY_IGNORED,								// deUint32					destQueueFamilyIndex;
+		image,													// VkImage					image;
+		makeImageSubresourceRange(aspect, 0u, 1u, 0, numLayers)	// VkImageSubresourceRange	subresourceRange;
+	};
+
+	vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
+						  0u, DE_NULL, 0u, DE_NULL, 1u, &imageBarrier);
+
+	const VkImageSubresourceLayers	subresourceDepth	=
+	{
+		VK_IMAGE_ASPECT_DEPTH_BIT,					// VkImageAspectFlags	aspectMask;
+		0u,											// deUint32				mipLevel;
+		0u,											// deUint32				baseArrayLayer;
+		numLayers									// deUint32				layerCount;
+	};
+
+	const VkBufferImageCopy			regionDepth			=
+	{
+		0ull,										// VkDeviceSize					bufferOffset;
+		0u,											// deUint32						bufferRowLength;
+		0u,											// deUint32						bufferImageHeight;
+		subresourceDepth,							// VkImageSubresourceLayers		imageSubresource;
+		makeOffset3D(0, 0, 0),						// VkOffset3D					imageOffset;
+		makeExtent3D(size.x(), size.y(), 1u)		// VkExtent3D					imageExtent;
+	};
+
+	const VkImageSubresourceLayers	subresourceStencil	=
+	{
+		VK_IMAGE_ASPECT_STENCIL_BIT,				// VkImageAspectFlags	aspectMask;
+		0u,											// deUint32				mipLevel;
+		0u,											// deUint32				baseArrayLayer;
+		numLayers									// deUint32				layerCount;
+	};
+
+	const VkBufferImageCopy			regionStencil		=
+	{
+		0ull,										// VkDeviceSize					bufferOffset;
+		0u,											// deUint32						bufferRowLength;
+		0u,											// deUint32						bufferImageHeight;
+		subresourceStencil,							// VkImageSubresourceLayers		imageSubresource;
+		makeOffset3D(0, 0, 0),						// VkOffset3D					imageOffset;
+		makeExtent3D(size.x(), size.y(), 1u)		// VkExtent3D					imageExtent;
+	};
+
+	vk.cmdCopyImageToBuffer(cmdBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, depthBuffer, 1u, &regionDepth);
+	vk.cmdCopyImageToBuffer(cmdBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stencilBuffer, 1u, &regionStencil);
+
+	const VkBufferMemoryBarrier	bufferBarriers[]		=
+	{
+		{
+			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	// VkStructureType	sType;
+			DE_NULL,									// const void*		pNext;
+			VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags	srcAccessMask;
+			VK_ACCESS_HOST_READ_BIT,					// VkAccessFlags	dstAccessMask;
+			VK_QUEUE_FAMILY_IGNORED,					// deUint32			srcQueueFamilyIndex;
+			VK_QUEUE_FAMILY_IGNORED,					// deUint32			dstQueueFamilyIndex;
+			depthBuffer,								// VkBuffer			buffer;
+			0ull,										// VkDeviceSize		offset;
+			VK_WHOLE_SIZE								// VkDeviceSize		size;
+		},
+		{
+			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	// VkStructureType	sType;
+			DE_NULL,									// const void*		pNext;
+			VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags	srcAccessMask;
+			VK_ACCESS_HOST_READ_BIT,					// VkAccessFlags	dstAccessMask;
+			VK_QUEUE_FAMILY_IGNORED,					// deUint32			srcQueueFamilyIndex;
+			VK_QUEUE_FAMILY_IGNORED,					// deUint32			dstQueueFamilyIndex;
+			stencilBuffer,								// VkBuffer			buffer;
+			0ull,										// VkDeviceSize		offset;
+			VK_WHOLE_SIZE								// VkDeviceSize		size;
+		}
+	};
+
+	vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u,
+						  0u, DE_NULL, 2u, bufferBarriers, 0u, DE_NULL);
+}
+
+void clearDepthStencilImage (const DeviceInterface&	vk,
+							 const VkDevice			device,
+							 const VkQueue			queue,
+							 deUint32				queueFamilyIndex,
+							 VkImage				image,
+							 float					depthValue,
+							 deUint32				stencilValue,
+							 VkImageLayout			oldLayout,
+							 VkImageLayout			newLayout,
+							 VkPipelineStageFlags	dstStageFlags)
+{
+	Move<VkCommandPool>				cmdPool				= createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+	Move<VkCommandBuffer>			cmdBuffer			= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+	const VkClearDepthStencilValue	clearValue			= makeClearValueDepthStencil(depthValue, stencilValue).depthStencil;
+
+	const VkImageSubresourceRange	subresourceRange	=
+	{
+		VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,	// VkImageAspectFlags	aspectMask
+		0u,															// deUint32				baseMipLevel
+		1u,															// deUint32				levelCount
+		0u,															// deUint32				baseArrayLayer
+		1u															// deUint32				layerCount
+	};
+
+	const VkImageMemoryBarrier		preImageBarrier		=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		0u,											// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			dstAccessMask;
+		oldLayout,									// VkImageLayout			oldLayout;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	const VkImageMemoryBarrier		postImageBarrier	=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_SHADER_WRITE_BIT,					// VkAccessFlags			dstAccessMask;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			oldLayout;
+		newLayout,									// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	beginCommandBuffer(vk, *cmdBuffer);
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_HOST_BIT,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &preImageBarrier);
+	vk.cmdClearDepthStencilImage(*cmdBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &subresourceRange);
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  dstStageFlags,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &postImageBarrier);
+	endCommandBuffer(vk, *cmdBuffer);
+
+	submitCommandsAndWait(vk, device, queue, *cmdBuffer);
+}
+
+void initDepthStencilImageChessboardPattern (const DeviceInterface&	vk,
+											 const VkDevice			device,
+											 const VkQueue			queue,
+											 deUint32				queueFamilyIndex,
+											 Allocator&				allocator,
+											 VkImage				image,
+											 VkFormat				format,
+											 float					depthValue0,
+											 float					depthValue1,
+											 deUint32				stencilValue0,
+											 deUint32				stencilValue1,
+											 deUint32				imageWidth,
+											 deUint32				imageHeight,
+											 deUint32				tileSize,
+											 VkImageLayout			oldLayout,
+											 VkImageLayout			newLayout,
+											 VkPipelineStageFlags	dstStageFlags)
+{
+	Move<VkCommandPool>				cmdPool				= createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+	Move<VkCommandBuffer>			cmdBuffer			= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+	const deUint32					depthBufferSize		= tileSize * tileSize * 4;
+	const deUint32					stencilBufferSize	= tileSize * tileSize;
+	const float						depthValues[]		= { depthValue0, depthValue1 };
+	const deUint32					stencilValues[]		= { stencilValue0, stencilValue1 };
+	const tcu::TextureFormat		tcuFormat			= mapVkFormat(format);
+
+	const VkImageSubresourceRange	subresourceRange	=
+	{
+		VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,	// VkImageAspectFlags	aspectMask
+		0u,															// deUint32				baseMipLevel
+		1u,															// deUint32				levelCount
+		0u,															// deUint32				baseArrayLayer
+		1u															// deUint32				layerCount
+	};
+
+	const VkImageMemoryBarrier		preImageBarrier		=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		0u,											// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			dstAccessMask;
+		oldLayout,									// VkImageLayout			oldLayout;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	const VkImageMemoryBarrier		postImageBarrier	=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_SHADER_WRITE_BIT,					// VkAccessFlags			dstAccessMask;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			oldLayout;
+		newLayout,									// VkImageLayout			newLayout;
+		queueFamilyIndex,							// deUint32					srcQueueFamilyIndex;
+		queueFamilyIndex,							// deUint32					dstQueueFamilyIndex;
+		image,										// VkImage					image;
+		subresourceRange							// VkImageSubresourceRange	subresourceRange;
+	};
+
+	// Create staging buffers for depth and stencil values
+	Move<VkBuffer>					depthBuffers[2];
+	de::MovePtr<Allocation>			depthBufferAllocs[2];
+	Move<VkBuffer>					stencilBuffers[2];
+	de::MovePtr<Allocation>			stencilBufferAllocs[2];
+
+	const VkBufferCreateInfo		depthBufferParams	=
+	{
+		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType
+		DE_NULL,								// const void*			pNext
+		0u,										// VkBufferCreateFlags	flags
+		(VkDeviceSize)depthBufferSize,			// VkDeviceSize			size
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,		// VkBufferUsageFlags	usage
+		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode
+		0u,										// deUint32				queueFamilyIndexCount
+		DE_NULL									// const deUint32*		pQueueFamilyIndices
+	};
+
+	const VkBufferCreateInfo		stencilBufferParams	=
+	{
+		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType
+		DE_NULL,								// const void*			pNext
+		0u,										// VkBufferCreateFlags	flags
+		(VkDeviceSize)stencilBufferSize,		// VkDeviceSize			size
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,		// VkBufferUsageFlags	usage
+		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode
+		0u,										// deUint32				queueFamilyIndexCount
+		DE_NULL									// const deUint32*		pQueueFamilyIndices
+	};
+
+	for (deUint32 bufferIdx = 0; bufferIdx < 2; bufferIdx++)
+	{
+		depthBuffers[bufferIdx]			= createBuffer(vk, device, &depthBufferParams);
+		depthBufferAllocs[bufferIdx]	= allocator.allocate(getBufferMemoryRequirements(vk, device, *depthBuffers[bufferIdx]), MemoryRequirement::HostVisible);
+		VK_CHECK(vk.bindBufferMemory(device, *depthBuffers[bufferIdx], depthBufferAllocs[bufferIdx]->getMemory(), depthBufferAllocs[bufferIdx]->getOffset()));
+		stencilBuffers[bufferIdx]		= createBuffer(vk, device, &stencilBufferParams);
+		stencilBufferAllocs[bufferIdx]	= allocator.allocate(getBufferMemoryRequirements(vk, device, *stencilBuffers[bufferIdx]), MemoryRequirement::HostVisible);
+		VK_CHECK(vk.bindBufferMemory(device, *stencilBuffers[bufferIdx], stencilBufferAllocs[bufferIdx]->getMemory(), stencilBufferAllocs[bufferIdx]->getOffset()));
+
+		deUint32*	depthPtr	= (deUint32*)depthBufferAllocs[bufferIdx]->getHostPtr();
+		deUint32*	stencilPtr	= (deUint32*)stencilBufferAllocs[bufferIdx]->getHostPtr();
+
+		if (format == VK_FORMAT_D24_UNORM_S8_UINT)
+		{
+			tcu::PixelBufferAccess access(tcuFormat, tileSize, tileSize, 1, depthPtr);
+
+			for (deUint32 x = 0; x < tileSize; x++)
+				for (deUint32 y = 0; y < tileSize; y++)
+					access.setPixDepth(depthValues[bufferIdx], x, y, 0);
+		}
+		else
+		{
+			DE_ASSERT(format == VK_FORMAT_D32_SFLOAT_S8_UINT);
+
+			for (deUint32 i = 0; i < tileSize * tileSize; i++)
+				((float*)depthPtr)[i] = depthValues[bufferIdx];
+		}
+
+		deMemset(stencilPtr, stencilValues[bufferIdx], stencilBufferSize);
+		flushAlloc(vk, device, *depthBufferAllocs[bufferIdx]);
+		flushAlloc(vk, device, *stencilBufferAllocs[bufferIdx]);
+	}
+
+	beginCommandBuffer(vk, *cmdBuffer);
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_HOST_BIT,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &preImageBarrier);
+
+	for (deUint32 bufferIdx = 0; bufferIdx < 2; bufferIdx++)
+	{
+		std::vector<VkBufferImageCopy>	copyRegionsDepth	= generateChessboardCopyRegions(tileSize, imageWidth, imageHeight, bufferIdx, VK_IMAGE_ASPECT_DEPTH_BIT);
+		std::vector<VkBufferImageCopy>	copyRegionsStencil	= generateChessboardCopyRegions(tileSize, imageWidth, imageHeight, bufferIdx, VK_IMAGE_ASPECT_STENCIL_BIT);
+
+		vk.cmdCopyBufferToImage(*cmdBuffer, *depthBuffers[bufferIdx], image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, (deUint32)copyRegionsDepth.size(), copyRegionsDepth.data());
+		vk.cmdCopyBufferToImage(*cmdBuffer, *stencilBuffers[bufferIdx], image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, (deUint32)copyRegionsStencil.size(), copyRegionsStencil.data());
+	}
+
+	vk.cmdPipelineBarrier(*cmdBuffer,
+						  VK_PIPELINE_STAGE_TRANSFER_BIT,
+						  dstStageFlags,
+						  (VkDependencyFlags)0,
+						  0, (const VkMemoryBarrier*)DE_NULL,
+						  0, (const VkBufferMemoryBarrier*)DE_NULL,
+						  1, &postImageBarrier);
+
+	endCommandBuffer(vk, *cmdBuffer);
+
+	submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 }
 
 void allocateAndBindSparseImage (const DeviceInterface&						vk,

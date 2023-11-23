@@ -48,6 +48,7 @@
 #include "vktSpvAsmComputeShaderCase.hpp"
 #include "vktSpvAsmComputeShaderTestUtil.hpp"
 #include "vktSpvAsmGraphicsShaderTestUtil.hpp"
+#include "vktSpvAsmUtils.hpp"
 #include "vktTestCaseUtil.hpp"
 #include "vktTestGroupUtil.hpp"
 
@@ -2177,13 +2178,19 @@ void addGraphics16BitStorageUniformInt32To16Group (tcu::TestCaseGroup* testGroup
 					for (deUint32 padIdx = 0; padIdx < arrayStrides[capIdx] / 4 - 1; ++padIdx)
 						inputsPadded.push_back(0);
 				}
+
 				GraphicsResources	resources;
+				VulkanFeatures		features;
+
 				resources.inputs.push_back(Resource(BufferSp(new Int32Buffer(inputsPadded)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 				resources.outputs.push_back(Resource(BufferSp(new Int16Buffer(outputs)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 
-				createTestsForAllStages(name, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+				createTestsForAllStages(name, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 	}
 	// Vector
@@ -2197,6 +2204,7 @@ void addGraphics16BitStorageUniformInt32To16Group (tcu::TestCaseGroup* testGroup
 			{
 				map<string, string>	specs;
 				string				name		= string(CAPABILITIES[capIdx].name) + "_vector_" + intFacts[factIdx].name;
+				VulkanFeatures		features;
 
 				specs["cap"]					= CAPABILITIES[capIdx].cap;
 				specs["indecor"]				= CAPABILITIES[capIdx].decor;
@@ -2213,7 +2221,11 @@ void addGraphics16BitStorageUniformInt32To16Group (tcu::TestCaseGroup* testGroup
 
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 
-				createTestsForAllStages(name, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+				createTestsForAllStages(name, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 	}
 }
@@ -3337,8 +3349,9 @@ void addGraphics16BitStorageUniformFloat32To16Group (tcu::TestCaseGroup* testGro
 			{
 				map<string, string>	specs;
 				string				testName	= string(CAPABILITIES[capIdx].name) + "_scalar_float_" + rndModes[rndModeIdx].name;
-
 				GraphicsResources	resources;
+				VulkanFeatures		features;
+
 				resources.inputs.push_back(Resource(BufferSp(new Float32Buffer(arrayStrides[capIdx] == 4 ? float32Data : float32DataPadded)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 				// We use a custom verifyIO to check the result via computing directly from inputs; the contents in outputs do not matter.
 				resources.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16DummyData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
@@ -3354,7 +3367,11 @@ void addGraphics16BitStorageUniformFloat32To16Group (tcu::TestCaseGroup* testGro
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 				resources.verifyIO				= rndModes[rndModeIdx].f;
 
-				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 	}
 
@@ -3440,6 +3457,7 @@ void addGraphics16BitStorageUniformFloat32To16Group (tcu::TestCaseGroup* testGro
 			for (deUint32 rndModeIdx = 0; rndModeIdx < DE_LENGTH_OF_ARRAY(rndModes); ++rndModeIdx)
 			{
 				map<string, string>	specs;
+				VulkanFeatures		features;
 				string				testName	= string(CAPABILITIES[capIdx].name) + "_vector_float_" + rndModes[rndModeIdx].name;
 
 				specs["cap"]					= CAPABILITIES[capIdx].cap;
@@ -3452,8 +3470,11 @@ void addGraphics16BitStorageUniformFloat32To16Group (tcu::TestCaseGroup* testGro
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 				resources.verifyIO				= rndModes[rndModeIdx].f;
 
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
 
-				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 	}
 
@@ -3553,6 +3574,7 @@ void addGraphics16BitStorageUniformFloat32To16Group (tcu::TestCaseGroup* testGro
 			for (deUint32 rndModeIdx = 0; rndModeIdx < DE_LENGTH_OF_ARRAY(rndModes); ++rndModeIdx)
 			{
 				map<string, string>	specs;
+				VulkanFeatures		features;
 				string				testName	= string(CAPABILITIES[capIdx].name) + "_matrix_float_" + rndModes[rndModeIdx].name;
 
 				specs["cap"]					= CAPABILITIES[capIdx].cap;
@@ -3565,8 +3587,11 @@ void addGraphics16BitStorageUniformFloat32To16Group (tcu::TestCaseGroup* testGro
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 				resources.verifyIO				= rndModes[rndModeIdx].f;
 
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
 
-				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 	}
 }
@@ -3613,6 +3638,7 @@ void addGraphics16BitStorageInputOutputFloat32To16Group (tcu::TestCaseGroup* tes
 	struct Case
 	{
 		const char*	name;
+		const char*	interfaceOpCall;
 		const char*	interfaceOpFunc;
 		const char* postInterfaceOp;
 		const char* postInterfaceOpGeom;
@@ -3628,12 +3654,8 @@ void addGraphics16BitStorageInputOutputFloat32To16Group (tcu::TestCaseGroup* tes
 	{
 		{ // Scalar cases
 			"scalar",
-		  // Passthrough interface_op_func
-			"%interface_op_func = OpFunction %f16 None %f16_f32_function\n"
-			"        %io_param1 = OpFunctionParameter %f32\n"
-			"            %entry = OpLabel\n"
-			"                     OpReturnValue %f16_0\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %f16",
+			"",
 
 			"             %ret0 = OpFConvert %f16 %IF_input_val\n"
 			"                OpStore %IF_output %ret0\n",
@@ -3654,8 +3676,7 @@ void addGraphics16BitStorageInputOutputFloat32To16Group (tcu::TestCaseGroup* tes
 			"        %op_a3f16 = OpTypePointer Output %a3f16\n"
 			"%f16_f32_function = OpTypeFunction %f16 %f32\n"
 			"           %a3f32 = OpTypeArray %f32 %c_i32_3\n"
-			"        %ip_a3f32 = OpTypePointer Input %a3f32\n"
-			"           %f16_0 = OpConstant %f16 0\n",
+			"        %ip_a3f32 = OpTypePointer Input %a3f32\n",
 
 			"f32",
 			"f16",
@@ -3665,11 +3686,8 @@ void addGraphics16BitStorageInputOutputFloat32To16Group (tcu::TestCaseGroup* tes
 		{ // Vector cases
 			"vector",
 
-			"%interface_op_func = OpFunction %v2f16 None %v2f16_v2f32_function\n"
-			"        %io_param1 = OpFunctionParameter %v2f32\n"
-			"            %entry = OpLabel\n"
-			"                     OpReturnValue %v2f16_0\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %v2f16",
+			"",
 
 			"             %ret0 = OpFConvert %v2f16 %IF_input_val\n"
 			"                OpStore %IF_output %ret0\n",
@@ -3691,9 +3709,7 @@ void addGraphics16BitStorageInputOutputFloat32To16Group (tcu::TestCaseGroup* tes
 			"          %op_a3v2f16 = OpTypePointer Output %a3v2f16\n"
 			"%v2f16_v2f32_function = OpTypeFunction %v2f16 %v2f32\n"
 			"             %a3v2f32 = OpTypeArray %v2f32 %c_i32_3\n"
-			"          %ip_a3v2f32 = OpTypePointer Input %a3v2f32\n"
-			"               %f16_0 = OpConstant %f16 0\n"
-			"             %v2f16_0 = OpConstantComposite %v2f16 %f16_0 %f16_0\n",
+			"          %ip_a3v2f32 = OpTypePointer Input %a3v2f32\n",
 
 			"v2f32",
 			"v2f16",
@@ -3708,6 +3724,7 @@ void addGraphics16BitStorageInputOutputFloat32To16Group (tcu::TestCaseGroup* tes
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
 		for (deUint32 rndModeIdx = 0; rndModeIdx < DE_LENGTH_OF_ARRAY(rndModes); ++rndModeIdx)
 		{
+			fragments["interface_op_call"]			= cases[caseIdx].interfaceOpCall;
 			fragments["interface_op_func"]			= cases[caseIdx].interfaceOpFunc;
 			fragments["post_interface_op_frag"]		= cases[caseIdx].postInterfaceOp;
 			fragments["post_interface_op_vert"]		= cases[caseIdx].postInterfaceOp;
@@ -3770,6 +3787,7 @@ void addGraphics16BitStorageInputOutputFloat16To32Group (tcu::TestCaseGroup* tes
 	struct Case
 	{
 		const char*	name;
+		const char*	interfaceOpCall;
 		const char*	interfaceOpFunc;
 		const char*	preMain;
 		const char*	inputType;
@@ -3783,12 +3801,8 @@ void addGraphics16BitStorageInputOutputFloat16To32Group (tcu::TestCaseGroup* tes
 		{ // Scalar cases
 			"scalar",
 
-			"%interface_op_func = OpFunction %f32 None %f32_f16_function\n"
-			"        %io_param1 = OpFunctionParameter %f16\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = OpFConvert %f32 %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %f32",
+			"",
 
 			"             %f16 = OpTypeFloat 16\n"
 			"          %ip_f16 = OpTypePointer Input %f16\n"
@@ -3806,12 +3820,8 @@ void addGraphics16BitStorageInputOutputFloat16To32Group (tcu::TestCaseGroup* tes
 		{ // Vector cases
 			"vector",
 
-			"%interface_op_func = OpFunction %v2f32 None %v2f32_v2f16_function\n"
-			"        %io_param1 = OpFunctionParameter %v2f16\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = OpFConvert %v2f32 %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %v2f32",
+			"",
 
 			"                 %f16 = OpTypeFloat 16\n"
 			"		        %v2f16 = OpTypeVector %f16 2\n"
@@ -3834,6 +3844,7 @@ void addGraphics16BitStorageInputOutputFloat16To32Group (tcu::TestCaseGroup* tes
 
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
 	{
+		fragments["interface_op_call"]  = cases[caseIdx].interfaceOpCall;
 		fragments["interface_op_func"]	= cases[caseIdx].interfaceOpFunc;
 		fragments["pre_main"]			= cases[caseIdx].preMain;
 
@@ -3882,6 +3893,7 @@ void addGraphics16BitStorageInputOutputFloat16To16Group (tcu::TestCaseGroup* tes
 	struct Case
 	{
 		const char*	name;
+		const char*	interfaceOpCall;
 		const char*	interfaceOpFunc;
 		const char*	preMain;
 		const char*	inputType;
@@ -3895,12 +3907,8 @@ void addGraphics16BitStorageInputOutputFloat16To16Group (tcu::TestCaseGroup* tes
 		{ // Scalar cases
 			"scalar",
 
-			"%interface_op_func = OpFunction %f16 None %f16_f16_function\n"
-			"        %io_param1 = OpFunctionParameter %f16\n"
-			"            %entry = OpLabel\n"
-			"              %ret = OpCopyObject %f16 %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n",
+			"OpCopyObject %f16",
+			"",
 
 			"             %f16 = OpTypeFloat 16\n"
 			"          %ip_f16 = OpTypePointer Input %f16\n"
@@ -3918,12 +3926,8 @@ void addGraphics16BitStorageInputOutputFloat16To16Group (tcu::TestCaseGroup* tes
 		{ // Vector cases
 			"vector",
 
-			"%interface_op_func = OpFunction %v2f16 None %v2f16_v2f16_function\n"
-			"        %io_param1 = OpFunctionParameter %v2f16\n"
-			"            %entry = OpLabel\n"
-			"              %ret = OpCopyObject %v2f16 %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n",
+			"OpCopyObject %v2f16",
+			"",
 
 			"                 %f16 = OpTypeFloat 16\n"
 			"               %v2f16 = OpTypeVector %f16 2\n"
@@ -3943,6 +3947,7 @@ void addGraphics16BitStorageInputOutputFloat16To16Group (tcu::TestCaseGroup* tes
 
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
 	{
+		fragments["interface_op_call"]			= cases[caseIdx].interfaceOpCall;
 		fragments["interface_op_func"]			= cases[caseIdx].interfaceOpFunc;
 		fragments["pre_main"]					= cases[caseIdx].preMain;
 
@@ -4171,7 +4176,6 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, TestDefinition testDef
 
 void addGraphics16BitStorageInputOutputFloat16To16x2Group (tcu::TestCaseGroup* testGroup)
 {
-	map<string, string>		fragments;
 	RGBA					defaultColors[4];
 	SpecConstants			noSpecConstants;
 	PushConstants			noPushConstants;
@@ -4250,7 +4254,6 @@ void addGraphics16BitStorageInputOutputInt16To16x2Group (tcu::TestCaseGroup* tes
 	SpecConstants			noSpecConstants;
 	PushConstants			noPushConstants;
 	vector<string>			extensions;
-	map<string, string>		noFragments;
 	GraphicsResources		noResources;
 	StageToSpecConstantMap	specConstantMap;
 	VulkanFeatures			requiredFeatures;
@@ -4268,6 +4271,7 @@ void addGraphics16BitStorageInputOutputInt16To16x2Group (tcu::TestCaseGroup* tes
 
 	extensions.push_back("VK_KHR_16bit_storage");
 	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_INPUT_OUTPUT;
+	requiredFeatures.coreFeatures.shaderInt16 = DE_TRUE;
 
 	const struct
 	{
@@ -4297,7 +4301,7 @@ void addGraphics16BitStorageInputOutputInt16To16x2Group (tcu::TestCaseGroup* tes
 		const InstanceContext&	instanceContext		= createInstanceContext(pipelineStages,
 																			defaultColors,
 																			outputColors,
-																			noFragments,
+																			fragments,
 																			specConstantMap,
 																			noPushConstants,
 																			noResources,
@@ -4344,13 +4348,10 @@ void addGraphics16BitStorageInputOutputInt32To16Group (tcu::TestCaseGroup* testG
 
 	getDefaultColors(defaultColors);
 
-	const StringTemplate	scalarInterfaceOpFunc(
-			"%interface_op_func = OpFunction %${type16} None %${type16}_${type32}_function\n"
-			"        %io_param1 = OpFunctionParameter %${type32}\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = ${convert} %${type16} %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n");
+	const StringTemplate scalarInterfaceOpCall(
+			"${convert} %${type16}");
+
+	const StringTemplate	scalarInterfaceOpFunc("");
 
 	const StringTemplate	scalarPreMain(
 			"             %${type16} = OpTypeInt 16 ${signed}\n"
@@ -4361,13 +4362,10 @@ void addGraphics16BitStorageInputOutputInt32To16Group (tcu::TestCaseGroup* testG
 			"           %a3${type32} = OpTypeArray %${type32} %c_i32_3\n"
 			"        %ip_a3${type32} = OpTypePointer Input %a3${type32}\n");
 
-	const StringTemplate	vecInterfaceOpFunc(
-			"%interface_op_func = OpFunction %${type16} None %${type16}_${type32}_function\n"
-			"        %io_param1 = OpFunctionParameter %${type32}\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = ${convert} %${type16} %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n");
+	const StringTemplate vecInterfaceOpCall(
+			"${convert} %${type16}");
+
+	const StringTemplate	vecInterfaceOpFunc("");
 
 	const StringTemplate	vecPreMain(
 			"	                %i16 = OpTypeInt 16 1\n"
@@ -4384,6 +4382,7 @@ void addGraphics16BitStorageInputOutputInt32To16Group (tcu::TestCaseGroup* testG
 	struct Case
 	{
 		const char*				name;
+		const StringTemplate&	interfaceOpCall;
 		const StringTemplate&	interfaceOpFunc;
 		const StringTemplate&	preMain;
 		const char*				type32;
@@ -4396,13 +4395,14 @@ void addGraphics16BitStorageInputOutputInt32To16Group (tcu::TestCaseGroup* testG
 
 	Case	cases[]		=
 	{
-		{"scalar_sint",	scalarInterfaceOpFunc,	scalarPreMain,	"i32",		"i16",		"1",	"OpSConvert",	4,		1},
-		{"scalar_uint",	scalarInterfaceOpFunc,	scalarPreMain,	"u32",		"u16",		"0",	"OpUConvert",	4,		1},
-		{"vector_sint",	vecInterfaceOpFunc,		vecPreMain,		"v4i32",	"v4i16",	"1",	"OpSConvert",	4 * 4,	4},
-		{"vector_uint",	vecInterfaceOpFunc,		vecPreMain,		"v4u32",	"v4u16",	"0",	"OpUConvert",	4 * 4,	4},
+		{"scalar_sint",	scalarInterfaceOpCall, scalarInterfaceOpFunc,	scalarPreMain,	"i32",		"i16",		"1",	"OpSConvert",	4,		1},
+		{"scalar_uint",	scalarInterfaceOpCall, scalarInterfaceOpFunc,	scalarPreMain,	"u32",		"u16",		"0",	"OpUConvert",	4,		1},
+		{"vector_sint",	vecInterfaceOpCall,	vecInterfaceOpFunc,		vecPreMain,		"v4i32",	"v4i16",	"1",	"OpSConvert",	4 * 4,	4},
+		{"vector_uint",	vecInterfaceOpCall,	vecInterfaceOpFunc,		vecPreMain,		"v4u32",	"v4u16",	"0",	"OpUConvert",	4 * 4,	4},
 	};
 
 	VulkanFeatures	requiredFeatures;
+	requiredFeatures.coreFeatures.shaderInt16 = DE_TRUE;
 	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_INPUT_OUTPUT;
 
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
@@ -4415,6 +4415,7 @@ void addGraphics16BitStorageInputOutputInt32To16Group (tcu::TestCaseGroup* testG
 		specs["convert"]				= cases[caseIdx].opcode;
 
 		fragments["pre_main"]			= cases[caseIdx].preMain.specialize(specs);
+		fragments["interface_op_call"]  = cases[caseIdx].interfaceOpCall.specialize(specs);
 		fragments["interface_op_func"]	= cases[caseIdx].interfaceOpFunc.specialize(specs);
 		fragments["input_type"]			= cases[caseIdx].type32;
 		fragments["output_type"]		= cases[caseIdx].type16;
@@ -4484,13 +4485,10 @@ void addGraphics16BitStorageInputOutputInt16To32Group (tcu::TestCaseGroup* testG
 
 	getDefaultColors(defaultColors);
 
-	const StringTemplate scalarIfOpFunc	(
-			"%interface_op_func = OpFunction %${type32} None %${type32}_${type16}_function\n"
-			"        %io_param1 = OpFunctionParameter %${type16}\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = ${convert} %${type32} %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n");
+	const StringTemplate scalarIfOpCall (
+			"${convert} %${type32}");
+
+	const StringTemplate scalarIfOpFunc	("");
 
 	const StringTemplate scalarPreMain	(
 			"             %${type16} = OpTypeInt 16 ${signed}\n"
@@ -4501,13 +4499,10 @@ void addGraphics16BitStorageInputOutputInt16To32Group (tcu::TestCaseGroup* testG
 			"           %a3${type32} = OpTypeArray %${type32} %c_i32_3\n"
 			"        %op_a3${type32} = OpTypePointer Output %a3${type32}\n");
 
-	const StringTemplate vecIfOpFunc	(
-			"%interface_op_func = OpFunction %${type32} None %${type32}_${type16}_function\n"
-			"        %io_param1 = OpFunctionParameter %${type16}\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = ${convert} %${type32} %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n");
+	const StringTemplate vecIfOpCall (
+			"${convert} %${type32}");
+
+	const StringTemplate vecIfOpFunc	("");
 
 	const StringTemplate vecPreMain	(
 			"	                %i16 = OpTypeInt 16 1\n"
@@ -4524,6 +4519,7 @@ void addGraphics16BitStorageInputOutputInt16To32Group (tcu::TestCaseGroup* testG
 	struct Case
 	{
 		const char*				name;
+		const StringTemplate&	interfaceOpCall;
 		const StringTemplate&	interfaceOpFunc;
 		const StringTemplate&	preMain;
 		const char*				type32;
@@ -4536,13 +4532,14 @@ void addGraphics16BitStorageInputOutputInt16To32Group (tcu::TestCaseGroup* testG
 
 	Case	cases[]		=
 	{
-		{"scalar_sint",	scalarIfOpFunc,	scalarPreMain,	"i32",		"i16",		"1",	"OpSConvert",	4,		1},
-		{"scalar_uint",	scalarIfOpFunc,	scalarPreMain,	"u32",		"u16",		"0",	"OpUConvert",	4,		1},
-		{"vector_sint",	vecIfOpFunc,	vecPreMain,		"v4i32",	"v4i16",	"1",	"OpSConvert",	4 * 4,	4},
-		{"vector_uint",	vecIfOpFunc,	vecPreMain,		"v4u32",	"v4u16",	"0",	"OpUConvert",	4 * 4,	4},
+		{"scalar_sint",	scalarIfOpCall, scalarIfOpFunc,	scalarPreMain,	"i32",		"i16",		"1",	"OpSConvert",	4,		1},
+		{"scalar_uint",	scalarIfOpCall, scalarIfOpFunc,	scalarPreMain,	"u32",		"u16",		"0",	"OpUConvert",	4,		1},
+		{"vector_sint",	vecIfOpCall,	vecIfOpFunc,	vecPreMain,		"v4i32",	"v4i16",	"1",	"OpSConvert",	4 * 4,	4},
+		{"vector_uint",	vecIfOpCall,	vecIfOpFunc,	vecPreMain,		"v4u32",	"v4u16",	"0",	"OpUConvert",	4 * 4,	4},
 	};
 
 	VulkanFeatures	requiredFeatures;
+	requiredFeatures.coreFeatures.shaderInt16 = DE_TRUE;
 	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_INPUT_OUTPUT;
 
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
@@ -4555,6 +4552,7 @@ void addGraphics16BitStorageInputOutputInt16To32Group (tcu::TestCaseGroup* testG
 		specs["convert"]				= cases[caseIdx].opcode;
 
 		fragments["pre_main"]			= cases[caseIdx].preMain.specialize(specs);
+		fragments["interface_op_call"]	= cases[caseIdx].interfaceOpCall.specialize(specs);
 		fragments["interface_op_func"]	= cases[caseIdx].interfaceOpFunc.specialize(specs);
 		fragments["input_type"]			= cases[caseIdx].type16;
 		fragments["output_type"]		= cases[caseIdx].type32;
@@ -4613,13 +4611,10 @@ void addGraphics16BitStorageInputOutputInt16To16Group (tcu::TestCaseGroup* testG
 
 	getDefaultColors(defaultColors);
 
-	const StringTemplate	scalarIfOpFunc		(
-			"%interface_op_func = OpFunction %${type16} None %${type16}_${type16}_function\n"
-			"        %io_param1 = OpFunctionParameter %${type16}\n"
-			"            %entry = OpLabel\n"
-			"              %ret = OpCopyObject %${type16} %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n");
+    const StringTemplate  scalarIfOpCall    (
+			"OpCopyObject %${type16}");
+
+	const StringTemplate	scalarIfOpFunc		("");
 
 	const StringTemplate	scalarPreMain		(
 			"             %${type16} = OpTypeInt 16 ${signed}\n"
@@ -4630,13 +4625,10 @@ void addGraphics16BitStorageInputOutputInt16To16Group (tcu::TestCaseGroup* testG
 			"          %op_${type16} = OpTypePointer Output %${type16}\n"
 			"        %op_a3${type16} = OpTypePointer Output %a3${type16}\n");
 
-	const StringTemplate	vecIfOpFunc			(
-			"%interface_op_func = OpFunction %${type16} None %${type16}_${type16}_function\n"
-			"        %io_param1 = OpFunctionParameter %${type16}\n"
-			"            %entry = OpLabel\n"
-			"              %ret = OpCopyObject %${type16} %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n");
+	const StringTemplate  vecIfOpCall     (
+			"OpCopyObject %${type16}");
+
+	const StringTemplate	vecIfOpFunc			("");
 
 	const StringTemplate	vecPreMain			(
 			"                   %i16 = OpTypeInt 16 1\n"
@@ -4653,6 +4645,7 @@ void addGraphics16BitStorageInputOutputInt16To16Group (tcu::TestCaseGroup* testG
 	struct Case
 	{
 		const char*				name;
+		const StringTemplate&	interfaceOpCall;
 		const StringTemplate&	interfaceOpFunc;
 		const StringTemplate&	preMain;
 		const char*				type16;
@@ -4663,10 +4656,10 @@ void addGraphics16BitStorageInputOutputInt16To16Group (tcu::TestCaseGroup* testG
 
 	Case					cases[]				=
 	{
-		{"scalar_sint",	scalarIfOpFunc,	scalarPreMain,	"i16",		"1",	4,		1},
-		{"scalar_uint",	scalarIfOpFunc,	scalarPreMain,	"u16",		"0",	4,		1},
-		{"vector_sint",	vecIfOpFunc,	vecPreMain,		"v4i16",	"1",	4 * 4,	4},
-		{"vector_uint",	vecIfOpFunc,	vecPreMain,		"v4u16",	"0",	4 * 4,	4},
+		{"scalar_sint",	scalarIfOpCall, scalarIfOpFunc,	scalarPreMain,	"i16",		"1",	4,		1},
+		{"scalar_uint",	scalarIfOpCall, scalarIfOpFunc,	scalarPreMain,	"u16",		"0",	4,		1},
+		{"vector_sint",	vecIfOpCall,    vecIfOpFunc,	vecPreMain,		"v4i16",	"1",	4 * 4,	4},
+		{"vector_uint",	vecIfOpCall,    vecIfOpFunc,	vecPreMain,		"v4u16",	"0",	4 * 4,	4},
 	};
 
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
@@ -4677,6 +4670,7 @@ void addGraphics16BitStorageInputOutputInt16To16Group (tcu::TestCaseGroup* testG
 		specs["signed"]					= cases[caseIdx].sign;
 
 		fragments["pre_main"]			= cases[caseIdx].preMain.specialize(specs);
+		fragments["interface_op_call"]	= cases[caseIdx].interfaceOpCall.specialize(specs);
 		fragments["interface_op_func"]	= cases[caseIdx].interfaceOpFunc.specialize(specs);
 		fragments["input_type"]			= cases[caseIdx].type16;
 		fragments["output_type"]		= cases[caseIdx].type16;
@@ -4733,7 +4727,10 @@ void addGraphics16BitStoragePushConstantFloat16To32Group (tcu::TestCaseGroup* te
 		float32Data.push_back(deFloat16To32(float16Data[numIdx]));
 
 	extensions.push_back("VK_KHR_16bit_storage");
-	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
+
+	requiredFeatures.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+	requiredFeatures.coreFeatures.fragmentStoresAndAtomics			= true;
+	requiredFeatures.ext16BitStorage								= EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
 
 	fragments["capability"]				= "OpCapability StoragePushConstant16\n";
 	fragments["extension"]				= "OpExtension \"SPV_KHR_16bit_storage\"";
@@ -5046,7 +5043,10 @@ void addGraphics16BitStoragePushConstantInt16To32Group (tcu::TestCaseGroup* test
 	}
 
 	extensions.push_back("VK_KHR_16bit_storage");
-	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
+
+	requiredFeatures.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+	requiredFeatures.coreFeatures.fragmentStoresAndAtomics			= true;
+	requiredFeatures.ext16BitStorage								= EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
 
 	fragments["capability"]				= "OpCapability StoragePushConstant16\n";
 	fragments["extension"]				= "OpExtension \"SPV_KHR_16bit_storage\"";
@@ -5559,6 +5559,8 @@ void addGraphics16BitStorageUniformInt16To32Group (tcu::TestCaseGroup* testGroup
 
 					GraphicsResources	resources;
 					vector<deInt16>		inputsPadded;
+					VulkanFeatures		features;
+
 					for (size_t dataIdx = 0; dataIdx < inputs.size() / numElements; ++dataIdx)
 					{
 						for (deUint32 elementIdx = 0; elementIdx < numElements; ++elementIdx)
@@ -5589,7 +5591,11 @@ void addGraphics16BitStorageUniformInt16To32Group (tcu::TestCaseGroup* testGroup
 					else
 						resources.outputs.push_back(Resource(BufferSp(new Int32Buffer(uOutputs)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
-					createTestsForAllStages(name, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+					features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+					features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+					features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+					createTestsForAllStages(name, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 				}
 }
 
@@ -5694,6 +5700,7 @@ void addGraphics16BitStorageUniformFloat16To32Group (tcu::TestCaseGroup* testGro
 			{
 				GraphicsResources	resources;
 				map<string, string>	specs;
+				VulkanFeatures		features;
 				string				testName	= string(CAPABILITIES[capIdx].name) + "_scalar_float";
 				bool				useConstIdx	= constantIndices[constIndexIdx].useConstantIndex;
 				deUint32			constIdx	= constantIndices[constIndexIdx].constantIndex;
@@ -5730,10 +5737,14 @@ void addGraphics16BitStorageUniformFloat16To32Group (tcu::TestCaseGroup* testGro
 				resources.verifyIO = check32BitFloats;
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
+
 				if (useConstIdx)
 					testName += string("_const_idx_") + de::toString(constIdx);
 
-				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 		}
 	}
@@ -5811,6 +5822,7 @@ void addGraphics16BitStorageUniformFloat16To32Group (tcu::TestCaseGroup* testGro
 			{
 				GraphicsResources	resources;
 				map<string, string>	specs;
+				VulkanFeatures		features;
 				string				testName	= string(CAPABILITIES[capIdx].name) + "_vector_float";
 				bool				useConstIdx	= constantIndices[constIndexIdx].useConstantIndex;
 				deUint32			constIdx	= constantIndices[constIndexIdx].constantIndex;
@@ -5848,10 +5860,14 @@ void addGraphics16BitStorageUniformFloat16To32Group (tcu::TestCaseGroup* testGro
 				resources.verifyIO = check32BitFloats;
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
+
 				if (constantIndices[constIndexIdx].useConstantIndex)
 					testName += string("_const_idx_") + de::toString(constantIndices[constIndexIdx].constantIndex);
 
-				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 		}
 	}
@@ -5944,6 +5960,7 @@ void addGraphics16BitStorageUniformFloat16To32Group (tcu::TestCaseGroup* testGro
 			{
 				GraphicsResources	resources;
 				map<string, string>	specs;
+				VulkanFeatures		features;
 				string				testName	= string(CAPABILITIES[capIdx].name) + "_matrix_float";
 
 				specs["cap"]					= CAPABILITIES[capIdx].cap;
@@ -5962,7 +5979,11 @@ void addGraphics16BitStorageUniformFloat16To32Group (tcu::TestCaseGroup* testGro
 				resources.verifyIO = check32BitFloats;
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 
-				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+				features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+				features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 		}
 	}
 }
@@ -6179,6 +6200,7 @@ void addGraphics16BitStorageUniformStructFloat16To32Group (tcu::TestCaseGroup* t
 			vector<deFloat16>	float16Data	= (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER == CAPABILITIES[capIdx].dtype) ? data16bitStd430(rnd) :  data16bitStd140(rnd);
 			GraphicsResources	resources;
 			map<string, string>	specs;
+			VulkanFeatures		features;
 			string				testName	= string(CAPABILITIES[capIdx].name);
 
 			specs["cap"]					= CAPABILITIES[capIdx].cap;
@@ -6195,7 +6217,11 @@ void addGraphics16BitStorageUniformStructFloat16To32Group (tcu::TestCaseGroup* t
 			resources.outputs.push_back(Resource(BufferSp(new Float32Buffer(float32Data)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 			resources.verifyIO = (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER == CAPABILITIES[capIdx].dtype) ? graphicsCheckStruct<deFloat16, float, SHADERTEMPLATE_STRIDE16BIT_STD430, SHADERTEMPLATE_STRIDE32BIT_STD430> : graphicsCheckStruct<deFloat16, float, SHADERTEMPLATE_STRIDE16BIT_STD140, SHADERTEMPLATE_STRIDE32BIT_STD430>;
 
-			createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+			features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+			features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+			features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+			createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 		}
 }
 
@@ -6430,7 +6456,10 @@ void addGraphics16BitStorageUniformStructFloat32To16Group (tcu::TestCaseGroup* t
 		resources.verifyIO				=  (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER == CAPABILITIES[capIdx].dtype) ? graphicsCheckStruct<float, deFloat16, SHADERTEMPLATE_STRIDE32BIT_STD430, SHADERTEMPLATE_STRIDE16BIT_STD430> : graphicsCheckStruct<float, deFloat16, SHADERTEMPLATE_STRIDE32BIT_STD140, SHADERTEMPLATE_STRIDE16BIT_STD430>;
 
 		VulkanFeatures features;
-		features.ext16BitStorage = EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
+
+		features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+		features.coreFeatures.fragmentStoresAndAtomics			= true;
+		features.ext16BitStorage								= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 
 		createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 	}
@@ -6615,6 +6644,7 @@ void addGraphics16bitStructMixedTypesGroup (tcu::TestCaseGroup* group)
 		map<string, string>		specsLoop;
 		map<string, string>		specsOffset;
 		map<string, string>		specs;
+		VulkanFeatures			features;
 		string					testName	= string(CAPABILITIES[capIdx].name);
 
 		specsLoop["exeCount"]	= "c_i32_7";
@@ -6649,7 +6679,11 @@ void addGraphics16bitStructMixedTypesGroup (tcu::TestCaseGroup* group)
 		resources.inputs.push_back(Resource(BufferSp(new Int16Buffer(inData)), CAPABILITIES[capIdx].dtype));
 		resources.outputs.push_back(Resource(BufferSp(new Int16Buffer(outData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
-		createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, group, get16BitStorageFeatures(CAPABILITIES[capIdx].name));
+		features												= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+		features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+		features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+		createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, group, features);
 	}
 }
 
@@ -6668,12 +6702,10 @@ void addGraphics16BitStorageInputOutputFloat16To64Group (tcu::TestCaseGroup* tes
 		float64Data.push_back(deFloat16To64(float16Data[numIdx]));
 
 	extensions.push_back("VK_KHR_16bit_storage");
-	extensions.push_back("VK_KHR_shader_float16_int8");
 
 	fragments["capability"]				=
 		"OpCapability StorageInputOutput16\n"
-		"OpCapability Float64\n"
-		"OpCapability Float16\n";
+		"OpCapability Float64\n";
 	fragments["extension"]				= "OpExtension \"SPV_KHR_16bit_storage\"\n";
 
 	getDefaultColors(defaultColors);
@@ -6681,6 +6713,7 @@ void addGraphics16BitStorageInputOutputFloat16To64Group (tcu::TestCaseGroup* tes
 	struct Case
 	{
 		const char*	name;
+		const char*	interfaceOpCall;
 		const char*	interfaceOpFunc;
 		const char*	preMain;
 		const char*	inputType;
@@ -6694,12 +6727,8 @@ void addGraphics16BitStorageInputOutputFloat16To64Group (tcu::TestCaseGroup* tes
 		{ // Scalar cases
 			"scalar",
 
-			"%interface_op_func = OpFunction %f64 None %f64_f16_function\n"
-			"        %io_param1 = OpFunctionParameter %f16\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = OpFConvert %f64 %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %f64",
+			"",
 
 			"             %f16 = OpTypeFloat 16\n"
 			"             %f64 = OpTypeFloat 64\n"
@@ -6720,12 +6749,8 @@ void addGraphics16BitStorageInputOutputFloat16To64Group (tcu::TestCaseGroup* tes
 		{ // Vector cases
 			"vector",
 
-			"%interface_op_func = OpFunction %v2f64 None %v2f64_v2f16_function\n"
-			"        %io_param1 = OpFunctionParameter %v2f16\n"
-			"            %entry = OpLabel\n"
-			"			   %ret = OpFConvert %v2f64 %io_param1\n"
-			"                     OpReturnValue %ret\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %v2f64",
+			"",
 
 			"                 %f16 = OpTypeFloat 16\n"
 			"		        %v2f16 = OpTypeVector %f16 2\n"
@@ -6750,11 +6775,13 @@ void addGraphics16BitStorageInputOutputFloat16To64Group (tcu::TestCaseGroup* tes
 	};
 
 	VulkanFeatures	requiredFeatures;
-	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_INPUT_OUTPUT;
-	requiredFeatures.coreFeatures.shaderFloat64 = DE_TRUE;
+
+	requiredFeatures.coreFeatures.shaderFloat64	= DE_TRUE;
+	requiredFeatures.ext16BitStorage			= EXT16BITSTORAGEFEATURES_INPUT_OUTPUT;
 
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
 	{
+		fragments["interface_op_call"]	= cases[caseIdx].interfaceOpCall;
 		fragments["interface_op_func"]	= cases[caseIdx].interfaceOpFunc;
 		fragments["pre_main"]			= cases[caseIdx].preMain;
 
@@ -6790,8 +6817,7 @@ void addGraphics16BitStorageUniformFloat16To64Group (tcu::TestCaseGroup* testGro
 	const deUint32						numDataPoints		= 256;
 	RGBA								defaultColors[4];
 	const StringTemplate				capabilities		("OpCapability ${cap}\n"
-															 "OpCapability Float64\n"
-															 "OpCapability Float16\n");
+															 "OpCapability Float64\n");
 	vector<deFloat16>					float16Data			= getFloat16s(rnd, numDataPoints);
 
 	struct ConstantIndex
@@ -6809,7 +6835,6 @@ void addGraphics16BitStorageUniformFloat16To64Group (tcu::TestCaseGroup* testGro
 	};
 
 	extensions.push_back("VK_KHR_16bit_storage");
-	extensions.push_back("VK_KHR_shader_float16_int8");
 
 	fragments["extension"]	= "OpExtension \"SPV_KHR_16bit_storage\"";
 
@@ -6920,7 +6945,9 @@ void addGraphics16BitStorageUniformFloat16To64Group (tcu::TestCaseGroup* testGro
 					testName += string("_const_idx_") + de::toString(constIdx);
 
 				VulkanFeatures features = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
-				features.coreFeatures.shaderFloat64 = DE_TRUE;
+
+				features.coreFeatures.shaderFloat64	= DE_TRUE;
+
 				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 		}
@@ -7039,7 +7066,9 @@ void addGraphics16BitStorageUniformFloat16To64Group (tcu::TestCaseGroup* testGro
 					testName += string("_const_idx_") + de::toString(constantIndices[constIndexIdx].constantIndex);
 
 				VulkanFeatures features = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
-				features.coreFeatures.shaderFloat64 = DE_TRUE;
+
+				features.coreFeatures.shaderFloat64	= DE_TRUE;
+
 				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
 		}
@@ -7154,7 +7183,9 @@ void addGraphics16BitStorageUniformFloat16To64Group (tcu::TestCaseGroup* testGro
 				resources.inputs.back().setDescriptorType(CAPABILITIES[capIdx].dtype);
 
 				VulkanFeatures features = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
-				features.coreFeatures.shaderFloat64 = DE_TRUE;
+
+				features.coreFeatures.shaderFloat64	= DE_TRUE;
+
 				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 		}
 	}
@@ -7178,17 +7209,15 @@ void addGraphics16BitStoragePushConstantFloat16To64Group (tcu::TestCaseGroup* te
 		float64Data.push_back(deFloat16To64(float16Data[numIdx]));
 
 	extensions.push_back("VK_KHR_16bit_storage");
-	extensions.push_back("VK_KHR_shader_float16_int8");
 
-	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
-	requiredFeatures.coreFeatures.shaderFloat64 = DE_TRUE;
+	requiredFeatures.coreFeatures.shaderFloat64	= DE_TRUE;
+	requiredFeatures.ext16BitStorage			= EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
 
-	fragments["capability"]				=
+	fragments["capability"]						=
 		"OpCapability StoragePushConstant16\n"
-		"OpCapability Float64\n"
-		"OpCapability Float16\n";
+		"OpCapability Float64\n";
 
-	fragments["extension"]				= "OpExtension \"SPV_KHR_16bit_storage\"";
+	fragments["extension"]						= "OpExtension \"SPV_KHR_16bit_storage\"";
 
 	pcs.setPushConstant(BufferSp(new Float16Buffer(float16Data)));
 	resources.outputs.push_back(Resource(BufferSp(new Float64Buffer(float64Data)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
@@ -7381,7 +7410,6 @@ void addCompute16bitStorageUniform64To16Group (tcu::TestCaseGroup* group)
 		"OpCapability Shader\n"
 		"OpCapability ${capability}\n"
 		"OpCapability Float64\n"
-		"OpCapability Float16\n"
 		"OpExtension \"SPV_KHR_16bit_storage\"\n"
 		"OpMemoryModel Logical GLSL450\n"
 		"OpEntryPoint GLCompute %main \"main\" %id\n"
@@ -7556,13 +7584,16 @@ void addCompute16bitStorageUniform64To16Group (tcu::TestCaseGroup* group)
 					const unsigned padding	= isUBO ? cTypes[tyIdx].padding64UBO : cTypes[tyIdx].padding64SSBO;
 
 					spec.inputs.push_back(Resource(BufferSp(new Float64Buffer(float64Data, padding)), CAPABILITIES[capIdx].dtype));
+
 					// We provided a custom verifyIO in the above in which inputs will be used for checking.
 					// So put dummy data in the expected values.
 					spec.outputs.push_back(BufferSp(new Float16Buffer(float16DummyData)));
+
 					spec.extensions.push_back("VK_KHR_16bit_storage");
-					spec.extensions.push_back("VK_KHR_shader_float16_int8");
-					spec.requestedVulkanFeatures = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
-					spec.requestedVulkanFeatures.coreFeatures.shaderFloat64 = VK_TRUE;
+
+					spec.requestedVulkanFeatures							= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+					spec.requestedVulkanFeatures.coreFeatures.shaderFloat64	= VK_TRUE;
+
 					group->addChild(new SpvAsmComputeShaderCase(testCtx, testName.c_str(), testName.c_str(), spec));
 				}
 	}
@@ -7579,13 +7610,11 @@ void addGraphics16BitStorageUniformFloat64To16Group (tcu::TestCaseGroup* testGro
 	vector<double>						float64Data			= getFloat64s(rnd, numDataPoints);
 	vector<deFloat16>					float16DummyData	(numDataPoints, 0);
 	const StringTemplate				capabilities		("OpCapability Float64\n"
-															 "OpCapability Float16\n"
 															 "OpCapability ${cap}\n");
 	// We use a custom verifyIO to check the result via computing directly from inputs; the contents in outputs do not matter.
 	resources.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16DummyData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 
 	extensions.push_back("VK_KHR_16bit_storage");
-	extensions.push_back("VK_KHR_shader_float16_int8");
 
 	fragments["extension"]	= "OpExtension \"SPV_KHR_16bit_storage\"";
 
@@ -7675,21 +7704,24 @@ void addGraphics16BitStorageUniformFloat64To16Group (tcu::TestCaseGroup* testGro
 				map<string, string>	specs;
 				string				testName	= string(CAPABILITIES[capIdx].name) + "_scalar_float_" + rndModes[rndModeIdx].name;
 				const bool			isUBO		= CAPABILITIES[capIdx].dtype == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				VulkanFeatures		features;
 
-				specs["cap"]					= CAPABILITIES[capIdx].cap;
-				specs["indecor"]				= CAPABILITIES[capIdx].decor;
-				specs["rounddecor"]				= rndModes[rndModeIdx].decor;
-				specs["stride64"]				= isUBO ? "16" : "8";
+				specs["cap"]						= CAPABILITIES[capIdx].cap;
+				specs["indecor"]					= CAPABILITIES[capIdx].decor;
+				specs["rounddecor"]					= rndModes[rndModeIdx].decor;
+				specs["stride64"]					= isUBO ? "16" : "8";
 
-				fragments["capability"]			= capabilities.specialize(specs);
-				fragments["decoration"]			= decoration.specialize(specs);
+				fragments["capability"]				= capabilities.specialize(specs);
+				fragments["decoration"]				= decoration.specialize(specs);
 
 				resources.inputs.clear();
 				resources.inputs.push_back(Resource(BufferSp(new Float64Buffer(float64Data, isUBO ? 8 : 0)), CAPABILITIES[capIdx].dtype));
 
-				resources.verifyIO				= rndModes[rndModeIdx].f;
-				VulkanFeatures features = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				resources.verifyIO					= rndModes[rndModeIdx].f;
+
+				features							= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
 				features.coreFeatures.shaderFloat64 = DE_TRUE;
+
 
 				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
@@ -7773,20 +7805,22 @@ void addGraphics16BitStorageUniformFloat64To16Group (tcu::TestCaseGroup* testGro
 			for (deUint32 rndModeIdx = 0; rndModeIdx < DE_LENGTH_OF_ARRAY(rndModes); ++rndModeIdx)
 			{
 				map<string, string>	specs;
-				string				testName	= string(CAPABILITIES[capIdx].name) + "_vector_float_" + rndModes[rndModeIdx].name;
+				VulkanFeatures		features;
+				string				testName = string(CAPABILITIES[capIdx].name) + "_vector_float_" + rndModes[rndModeIdx].name;
 
-				specs["cap"]					= CAPABILITIES[capIdx].cap;
-				specs["indecor"]				= CAPABILITIES[capIdx].decor;
-				specs["rounddecor"]				= rndModes[rndModeIdx].decor;
+				specs["cap"]						= CAPABILITIES[capIdx].cap;
+				specs["indecor"]					= CAPABILITIES[capIdx].decor;
+				specs["rounddecor"]					= rndModes[rndModeIdx].decor;
 
-				fragments["capability"]			= capabilities.specialize(specs);
-				fragments["decoration"]			= decoration.specialize(specs);
+				fragments["capability"]				= capabilities.specialize(specs);
+				fragments["decoration"]				= decoration.specialize(specs);
 
 				resources.inputs.clear();
 				resources.inputs.push_back(Resource(BufferSp(new Float64Buffer(float64Data)), CAPABILITIES[capIdx].dtype));
-				resources.verifyIO				= rndModes[rndModeIdx].f;
-				VulkanFeatures features = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
-				features.coreFeatures.shaderFloat64 = DE_TRUE;
+				resources.verifyIO					= rndModes[rndModeIdx].f;
+
+				features							= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.shaderFloat64	= DE_TRUE;
 
 				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
@@ -7890,20 +7924,22 @@ void addGraphics16BitStorageUniformFloat64To16Group (tcu::TestCaseGroup* testGro
 			for (deUint32 rndModeIdx = 0; rndModeIdx < DE_LENGTH_OF_ARRAY(rndModes); ++rndModeIdx)
 			{
 				map<string, string>	specs;
-				string				testName	= string(CAPABILITIES[capIdx].name) + "_matrix_float_" + rndModes[rndModeIdx].name;
+				VulkanFeatures		features;
+				string				testName = string(CAPABILITIES[capIdx].name) + "_matrix_float_" + rndModes[rndModeIdx].name;
 
-				specs["cap"]					= CAPABILITIES[capIdx].cap;
-				specs["indecor"]				= CAPABILITIES[capIdx].decor;
-				specs["rounddecor"]				= rndModes[rndModeIdx].decor;
+				specs["cap"]						= CAPABILITIES[capIdx].cap;
+				specs["indecor"]					= CAPABILITIES[capIdx].decor;
+				specs["rounddecor"]					= rndModes[rndModeIdx].decor;
 
-				fragments["capability"]			= capabilities.specialize(specs);
-				fragments["decoration"]			= decoration.specialize(specs);
+				fragments["capability"]				= capabilities.specialize(specs);
+				fragments["decoration"]				= decoration.specialize(specs);
 
 				resources.inputs.clear();
 				resources.inputs.push_back(Resource(BufferSp(new Float64Buffer(float64Data)), CAPABILITIES[capIdx].dtype));
-				resources.verifyIO				= rndModes[rndModeIdx].f;
-				VulkanFeatures features = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
-				features.coreFeatures.shaderFloat64 = DE_TRUE;
+				resources.verifyIO					= rndModes[rndModeIdx].f;
+
+				features							= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				features.coreFeatures.shaderFloat64	= DE_TRUE;
 
 				createTestsForAllStages(testName, defaultColors, defaultColors, fragments, resources, extensions, testGroup, features);
 			}
@@ -7920,11 +7956,9 @@ void addGraphics16BitStorageInputOutputFloat64To16Group (tcu::TestCaseGroup* tes
 	vector<double>		float64Data			= getFloat64s(rnd, numDataPoints);
 
 	extensions.push_back("VK_KHR_16bit_storage");
-	extensions.push_back("VK_KHR_shader_float16_int8");
 
 	fragments["capability"]				=
 		"OpCapability StorageInputOutput16\n"
-		"OpCapability Float16\n"
 		"OpCapability Float64\n";
 	fragments["extension"]				= "OpExtension \"SPV_KHR_16bit_storage\"\n";
 
@@ -7956,6 +7990,7 @@ void addGraphics16BitStorageInputOutputFloat64To16Group (tcu::TestCaseGroup* tes
 	struct Case
 	{
 		const char*	name;
+		const char*	interfaceOpCall;
 		const char*	interfaceOpFunc;
 		const char* postInterfaceOp;
 		const char* postInterfaceOpGeom;
@@ -7967,16 +8002,14 @@ void addGraphics16BitStorageInputOutputFloat64To16Group (tcu::TestCaseGroup* tes
 		deUint32	numElements;
 	};
 
-	const Case	cases[]		=
+	const Case		cases[]				=
 	{
 		{ // Scalar cases
 			"scalar",
 
-			"%interface_op_func = OpFunction %f16 None %f16_f64_function\n"
-			"        %io_param1 = OpFunctionParameter %f64\n"
-			"            %entry = OpLabel\n"
-			"                     OpReturnValue %f16_0\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %f16",
+
+			"",
 
 			"             %ret0 = OpFConvert %f16 %IF_input_val\n"
 			"                OpStore %IF_output %ret0\n",
@@ -7999,8 +8032,7 @@ void addGraphics16BitStorageInputOutputFloat64To16Group (tcu::TestCaseGroup* tes
 			"%f16_f64_function = OpTypeFunction %f16 %f64\n"
 			"           %a3f64 = OpTypeArray %f64 %c_i32_3\n"
 			"        %ip_a3f64 = OpTypePointer Input %a3f64\n"
-			"          %ip_f64 = OpTypePointer Input %f64\n"
-			"           %f16_0 = OpConstant %f16 0\n",
+			"          %ip_f64 = OpTypePointer Input %f64\n",
 
 			"f64",
 			"f16",
@@ -8010,11 +8042,9 @@ void addGraphics16BitStorageInputOutputFloat64To16Group (tcu::TestCaseGroup* tes
 		{ // Vector cases
 			"vector",
 
-			"%interface_op_func = OpFunction %v2f16 None %v2f16_v2f64_function\n"
-			"        %io_param1 = OpFunctionParameter %v2f64\n"
-			"            %entry = OpLabel\n"
-			"                     OpReturnValue %v2f16_0\n"
-			"                     OpFunctionEnd\n",
+			"OpFConvert %v2f16",
+
+			"",
 
 			"             %ret0 = OpFConvert %v2f16 %IF_input_val\n"
 			"                OpStore %IF_output %ret0\n",
@@ -8039,9 +8069,7 @@ void addGraphics16BitStorageInputOutputFloat64To16Group (tcu::TestCaseGroup* tes
 			"%v2f16_v2f64_function = OpTypeFunction %v2f16 %v2f64\n"
 			"             %a3v2f64 = OpTypeArray %v2f64 %c_i32_3\n"
 			"          %ip_a3v2f64 = OpTypePointer Input %a3v2f64\n"
-			"          %ip_v2f64 = OpTypePointer Input %v2f64\n"
-			"               %f16_0 = OpConstant %f16 0\n"
-			"             %v2f16_0 = OpConstantComposite %v2f16 %f16_0 %f16_0\n",
+			"          %ip_v2f64 = OpTypePointer Input %v2f64\n",
 
 			"v2f64",
 			"v2f16",
@@ -8051,13 +8079,15 @@ void addGraphics16BitStorageInputOutputFloat64To16Group (tcu::TestCaseGroup* tes
 	};
 
 	VulkanFeatures	requiredFeatures;
-	requiredFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_INPUT_OUTPUT;
-	requiredFeatures.coreFeatures.shaderFloat64 = DE_TRUE;
+
+	requiredFeatures.coreFeatures.shaderFloat64	= DE_TRUE;
+	requiredFeatures.ext16BitStorage			= EXT16BITSTORAGEFEATURES_INPUT_OUTPUT;
 
 	for (deUint32 caseIdx = 0; caseIdx < DE_LENGTH_OF_ARRAY(cases); ++caseIdx)
 		for (deUint32 rndModeIdx = 0; rndModeIdx < DE_LENGTH_OF_ARRAY(rndModes); ++rndModeIdx)
 		{
 			fragments["interface_op_func"]			= cases[caseIdx].interfaceOpFunc;
+			fragments["interface_op_call"]      = cases[caseIdx].interfaceOpCall;
 			fragments["post_interface_op_frag"]		= cases[caseIdx].postInterfaceOp;
 			fragments["post_interface_op_vert"]		= cases[caseIdx].postInterfaceOp;
 			fragments["post_interface_op_geom"]		= cases[caseIdx].postInterfaceOpGeom;
@@ -8104,7 +8134,6 @@ void addCompute16bitStorageUniform16To64Group (tcu::TestCaseGroup* group)
 	const StringTemplate			shaderTemplate	(
 		"OpCapability Shader\n"
 		"OpCapability Float64\n"
-		"OpCapability Float16\n"
 		"OpCapability ${capability}\n"
 		"OpExtension \"SPV_KHR_16bit_storage\"\n"
 		"OpMemoryModel Logical GLSL450\n"
@@ -8316,11 +8345,12 @@ void addCompute16bitStorageUniform16To64Group (tcu::TestCaseGroup* group)
 					typedef Buffer<tcu::Vector<deFloat16, 2> > Float16Vec2Buffer;
 					spec.inputs.push_back(Resource(BufferSp(new Float16Vec2Buffer(float16Vec2Data, padding)), CAPABILITIES[capIdx].dtype));
 				}
+
 				spec.outputs.push_back(Resource(BufferSp(new Float64Buffer(cTypes[tyIdx].useConstantIndex ? float64DataConstIdx : float64Data))));
 				spec.extensions.push_back("VK_KHR_16bit_storage");
-				spec.extensions.push_back("VK_KHR_shader_float16_int8");
-				spec.requestedVulkanFeatures = get16BitStorageFeatures(CAPABILITIES[capIdx].name);
-				spec.requestedVulkanFeatures.coreFeatures.shaderFloat64 = VK_TRUE;
+
+				spec.requestedVulkanFeatures							= get16BitStorageFeatures(CAPABILITIES[capIdx].name);
+				spec.requestedVulkanFeatures.coreFeatures.shaderFloat64	= VK_TRUE;
 
 				group->addChild(new SpvAsmComputeShaderCase(testCtx, testName.c_str(), testName.c_str(), spec));
 			}
@@ -8337,7 +8367,6 @@ void addCompute16bitStoragePushConstant16To64Group (tcu::TestCaseGroup* group)
 		"OpCapability Shader\n"
 		"OpCapability StoragePushConstant16\n"
 		"OpCapability Float64\n"
-		"OpCapability Float16\n"
 		"OpExtension \"SPV_KHR_16bit_storage\"\n"
 		"OpMemoryModel Logical GLSL450\n"
 		"OpEntryPoint GLCompute %main \"main\" %id\n"
@@ -8483,10 +8512,11 @@ void addCompute16bitStoragePushConstant16To64Group (tcu::TestCaseGroup* group)
 			spec.pushConstants		= BufferSp(new Float16Buffer(float16Data));
 
 			spec.outputs.push_back(BufferSp(new Float64Buffer(float64Data)));
+
 			spec.extensions.push_back("VK_KHR_16bit_storage");
-			spec.extensions.push_back("VK_KHR_shader_float16_int8");
-			spec.requestedVulkanFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
-			spec.requestedVulkanFeatures.coreFeatures.shaderFloat64 = VK_TRUE;
+
+			spec.requestedVulkanFeatures.coreFeatures.shaderFloat64	= VK_TRUE;
+			spec.requestedVulkanFeatures.ext16BitStorage			= EXT16BITSTORAGEFEATURES_PUSH_CONSTANT;
 
 			group->addChild(new SpvAsmComputeShaderCase(testCtx, testName.c_str(), testName.c_str(), spec));
 		}

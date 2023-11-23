@@ -23,11 +23,11 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.admin.DevicePolicyManager;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -234,7 +234,7 @@ public class VpnService extends Service {
             if (!cm.prepareVpn(packageName, null, userId)) {
                 cm.prepareVpn(null, packageName, userId);
             }
-            cm.setVpnPackageAuthorization(packageName, userId, true);
+            cm.setVpnPackageAuthorization(packageName, userId, VpnManager.TYPE_VPN_SERVICE);
         } catch (RemoteException e) {
             // ignore
         }
@@ -836,7 +836,7 @@ public class VpnService extends Service {
          * @param isMetered {@code true} if VPN network should be treated as metered regardless of
          *     underlying network meteredness
          * @return this {@link Builder} object to facilitate chaining method calls
-         * @see #setUnderlyingNetworks(Networks[])
+         * @see #setUnderlyingNetworks(Network[])
          * @see ConnectivityManager#isActiveNetworkMetered()
          */
         @NonNull

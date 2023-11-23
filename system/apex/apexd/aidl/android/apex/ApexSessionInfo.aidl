@@ -23,9 +23,10 @@ parcelable ApexSessionInfo {
     boolean isVerified;
     boolean isStaged;
     boolean isActivated;
-    boolean isRollbackInProgress;
+    boolean isRevertInProgress;
     boolean isActivationFailed;
     boolean isSuccess;
-    boolean isRolledBack;
-    boolean isRollbackFailed;
+    boolean isReverted;
+    boolean isRevertFailed;
+    @utf8InCpp String crashingNativeProcess;
 }

@@ -1,4 +1,8 @@
-# Copyright 2010 Google Inc. All Rights Reserved.
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Logging helper module."""
 
 from __future__ import print_function
@@ -9,7 +13,7 @@ import sys
 import traceback
 
 
-#TODO(yunlian@google.com): Use GetRoot from misc
+# TODO(yunlian@google.com): Use GetRoot from misc
 def GetRoot(scr_name):
   """Break up pathname into (dir+name)."""
   abs_path = os.path.abspath(scr_name)
@@ -182,16 +186,12 @@ class Logger(object):
       self.LogWarning(msg)
 
   def LogCommandOutput(self, msg, print_to_console=True):
-    self.LogMsg(self.stdout,
-                self._GetStdout(print_to_console),
-                msg,
-                flush=False)
+    self.LogMsg(
+        self.stdout, self._GetStdout(print_to_console), msg, flush=False)
 
   def LogCommandError(self, msg, print_to_console=True):
-    self.LogMsg(self.stderr,
-                self._GetStderr(print_to_console),
-                msg,
-                flush=False)
+    self.LogMsg(
+        self.stderr, self._GetStderr(print_to_console), msg, flush=False)
 
   def Flush(self):
     self.cmdfd.flush()
@@ -319,16 +319,12 @@ class MockLogger(object):
       self.LogWarning(msg)
 
   def LogCommandOutput(self, msg, print_to_console=True):
-    self.LogMsg(self.stdout,
-                self._GetStdout(print_to_console),
-                msg,
-                flush=False)
+    self.LogMsg(
+        self.stdout, self._GetStdout(print_to_console), msg, flush=False)
 
   def LogCommandError(self, msg, print_to_console=True):
-    self.LogMsg(self.stderr,
-                self._GetStderr(print_to_console),
-                msg,
-                flush=False)
+    self.LogMsg(
+        self.stderr, self._GetStderr(print_to_console), msg, flush=False)
 
   def Flush(self):
     print('MockLogger: Flushing cmdfd, stdout, stderr')
@@ -363,7 +359,7 @@ def HandleUncaughtExceptions(fun):
   def _Interceptor(*args, **kwargs):
     try:
       return fun(*args, **kwargs)
-    except StandardError:
+    except Exception:
       GetLogger().LogFatal('Uncaught exception:\n%s' % traceback.format_exc())
 
   return _Interceptor

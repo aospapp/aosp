@@ -28,8 +28,8 @@
 #include <stdlib.h>
 #include <sched.h>
 #include <stdarg.h>
-#include "test.h"
 #include "config.h"
+#include "tst_clone.h"
 
 #undef clone			/* we want to use clone() */
 
@@ -118,18 +118,36 @@ int ltp_clone7(unsigned long flags, int (*fn)(void *arg), void *arg,
 }
 
 /*
- * ltp_clone_malloc: also does the memory allocation for clone with a
+ * ltp_alloc_stack: allocate stack of size 'size', that is sufficiently
+ * aligned for all arches. User is responsible for freeing allocated
+ * memory.
+ * Returns pointer to new stack. On error, returns NULL with errno set.
+ */
+void *ltp_alloc_stack(size_t size)
+{
+	void *ret = NULL;
+	int err;
+
+	err = posix_memalign(&ret, 64, size);
+	if (err)
+		errno = err;
+
+	return ret;
+}
+
+/*
+ * ltp_clone_alloc: also does the memory allocation for clone with a
  * caller-specified size.
  */
 int
-ltp_clone_malloc(unsigned long clone_flags, int (*fn) (void *arg), void *arg,
+ltp_clone_alloc(unsigned long clone_flags, int (*fn) (void *arg), void *arg,
 		 size_t stack_size)
 {
 	void *stack;
 	int ret;
 	int saved_errno;
 
-	stack = malloc(stack_size);
+	stack = ltp_alloc_stack(stack_size);
 	if (stack == NULL)
 		return -1;
 
@@ -145,7 +163,7 @@ ltp_clone_malloc(unsigned long clone_flags, int (*fn) (void *arg), void *arg,
 }
 
 /*
- * ltp_clone_quick: calls ltp_clone_malloc with predetermined stack size.
+ * ltp_clone_quick: calls ltp_clone_alloc with predetermined stack size.
  * Experience thus far suggests that one page is often insufficient,
  * while 6*getpagesize() seems adequate.
  */
@@ -153,5 +171,5 @@ int ltp_clone_quick(unsigned long clone_flags, int (*fn) (void *arg), void *arg)
 {
 	size_t stack_size = getpagesize() * 6;
 
-	return ltp_clone_malloc(clone_flags, fn, arg, stack_size);
+	return ltp_clone_alloc(clone_flags, fn, arg, stack_size);
 }

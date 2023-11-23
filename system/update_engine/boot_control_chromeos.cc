@@ -31,6 +31,7 @@ extern "C" {
 }
 
 #include "update_engine/common/boot_control.h"
+#include "update_engine/common/dynamic_partition_control_stub.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
 
@@ -130,6 +131,8 @@ bool BootControlChromeOS::Init() {
     current_slot_ = BootControlInterface::kInvalidSlot;
     return false;
   }
+
+  dynamic_partition_control_.reset(new DynamicPartitionControlStub());
 
   LOG(INFO) << "Booted from slot " << current_slot_ << " (slot "
             << SlotName(current_slot_) << ") of " << num_slots_
@@ -326,13 +329,14 @@ int BootControlChromeOS::GetPartitionNumber(
   return -1;
 }
 
-bool BootControlChromeOS::InitPartitionMetadata(
-    Slot slot,
-    const PartitionMetadata& partition_metadata,
-    bool update_metadata) {
-  return true;
+bool BootControlChromeOS::IsSlotMarkedSuccessful(Slot slot) const {
+  LOG(ERROR) << __func__ << " not supported.";
+  return false;
 }
 
-void BootControlChromeOS::Cleanup() {}
+DynamicPartitionControlInterface*
+BootControlChromeOS::GetDynamicPartitionControl() {
+  return dynamic_partition_control_.get();
+}
 
 }  // namespace chromeos_update_engine

@@ -18,23 +18,26 @@ package com.android.settings.wifi;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyBoolean;
-import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.content.res.Resources;
+import android.net.IpConfiguration;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.WifiEnterpriseConfig.Eap;
+import android.net.wifi.WifiEnterpriseConfig.Phase2;
 import android.net.wifi.WifiManager;
 import android.os.ServiceSpecificException;
 import android.security.KeyStore;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -50,7 +53,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowInputMethodManager;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(shadows = ShadowConnectivityManager.class)
@@ -221,34 +226,6 @@ public class WifiConfigControllerTest {
     }
 
     @Test
-    public void showForCarrierAp() {
-        // Setup the mock view for wifi dialog.
-        View view = mock(View.class);
-        TextView nameText = mock(TextView.class);
-        TextView valueText = mock(TextView.class);
-        when(view.findViewById(R.id.name)).thenReturn(nameText);
-        when(view.findViewById(R.id.value)).thenReturn(valueText);
-        LayoutInflater inflater = mock(LayoutInflater.class);
-        when(inflater.inflate(anyInt(), any(ViewGroup.class), anyBoolean())).thenReturn(view);
-        when(mConfigUiBase.getLayoutInflater()).thenReturn(inflater);
-
-        String carrierName = "Test Carrier";
-        when(mAccessPoint.isCarrierAp()).thenReturn(true);
-        when(mAccessPoint.getCarrierName()).thenReturn(carrierName);
-        mController = new TestWifiConfigController(mConfigUiBase, mView, mAccessPoint,
-                WifiConfigUiBase.MODE_CONNECT);
-        // Verify the content of the text fields.
-        verify(nameText).setText(R.string.wifi_carrier_connect);
-        verify(valueText).setText(
-                String.format(mContext.getString(R.string.wifi_carrier_content), carrierName));
-        // Verify that the advance toggle is not visible.
-        assertThat(mView.findViewById(R.id.wifi_advanced_toggle).getVisibility())
-                .isEqualTo(View.GONE);
-        // Verify that the EAP method menu is not visible.
-        assertThat(mView.findViewById(R.id.eap).getVisibility()).isEqualTo(View.GONE);
-    }
-
-    @Test
     public void loadCertificates_keyStoreListFail_shouldNotCrash() {
         // Set up
         when(mAccessPoint.getSecurity()).thenReturn(AccessPoint.SECURITY_EAP);
@@ -261,6 +238,20 @@ public class WifiConfigControllerTest {
         // Verify that the EAP method menu is visible.
         assertThat(mView.findViewById(R.id.eap).getVisibility()).isEqualTo(View.VISIBLE);
         // No Crash
+    }
+
+    @Test
+    public void loadCertificates_undesiredCertificates_shouldNotLoadUndesiredCertificates() {
+        final Spinner spinner = new Spinner(mContext);
+        when(mKeyStore.list(anyString())).thenReturn(WifiConfigController.UNDESIRED_CERTIFICATES);
+
+        mController.loadCertificates(spinner,
+                "prefix",
+                "doNotProvideEapUserCertString",
+                false /* showMultipleCerts */,
+                false /* showUsePreinstalledCertOption */);
+
+        assertThat(spinner.getAdapter().getCount()).isEqualTo(1);   // doNotProvideEapUserCertString
     }
 
     @Test
@@ -413,6 +404,7 @@ public class WifiConfigControllerTest {
     private void checkSavedMacRandomizedValue(int macRandomizedValue) {
         when(mAccessPoint.isSaved()).thenReturn(true);
         final WifiConfiguration mockWifiConfig = mock(WifiConfiguration.class);
+        when(mockWifiConfig.getIpConfiguration()).thenReturn(mock(IpConfiguration.class));
         when(mAccessPoint.getConfig()).thenReturn(mockWifiConfig);
         mockWifiConfig.macRandomizationSetting = macRandomizedValue;
         mController = new TestWifiConfigController(mConfigUiBase, mView, mAccessPoint,
@@ -444,5 +436,143 @@ public class WifiConfigControllerTest {
 
         WifiConfiguration config = mController.getConfig();
         assertThat(config.macRandomizationSetting).isEqualTo(WifiConfiguration.RANDOMIZATION_NONE);
+    }
+
+    @Test
+    public void replaceTtsString_whenTargetMatched_shouldSuccess() {
+        final CharSequence[] display = {"PEAP", "AKA1", "AKA2'"};
+        final CharSequence[] target = {"AKA1", "AKA2'"};
+        final CharSequence[] ttsString = {"AKA1_TTS", "AKA2_TTS"};
+
+        final CharSequence[] resultTts = mController.findAndReplaceTargetStrings(display, target,
+            ttsString);
+
+        assertThat(resultTts[0]).isEqualTo("PEAP");
+        assertThat(resultTts[1]).isEqualTo("AKA1_TTS");
+        assertThat(resultTts[2]).isEqualTo("AKA2_TTS");
+    }
+
+    @Test
+    public void replaceTtsString_whenNoTargetStringMatched_originalStringShouldNotChanged() {
+        final CharSequence[] display = {"PEAP", "AKA1", "AKA2"};
+        final CharSequence[] target = {"WEP1", "WEP2'"};
+        final CharSequence[] ttsString = {"WEP1_TTS", "WEP2_TTS"};
+
+        final CharSequence[] resultTts = mController.findAndReplaceTargetStrings(display, target,
+            ttsString);
+
+        assertThat(resultTts[0]).isEqualTo("PEAP");
+        assertThat(resultTts[1]).isEqualTo("AKA1");
+        assertThat(resultTts[2]).isEqualTo("AKA2");
+    }
+
+    @Test
+    public void checktEapMethodTargetAndTtsArraylength_shouldHaveSameCount() {
+        final Resources resources = mContext.getResources();
+        final String[] targetStringArray = resources.getStringArray(
+            R.array.wifi_eap_method_target_strings);
+        final String[] ttsStringArray = resources.getStringArray(
+            R.array.wifi_eap_method_tts_strings);
+
+        assertThat(targetStringArray.length).isEqualTo(ttsStringArray.length);
+    }
+
+    @Test
+    public void selectSecurity_wpa3Eap192bit_eapMethodTls() {
+        final WifiManager wifiManager = mock(WifiManager.class);
+        when(wifiManager.isWpa3SuiteBSupported()).thenReturn(true);
+        mController = new TestWifiConfigController(mConfigUiBase, mView, null /* accessPoint */,
+                WifiConfigUiBase.MODE_MODIFY, wifiManager);
+        final Spinner securitySpinner = mView.findViewById(R.id.security);
+        final Spinner eapMethodSpinner = mView.findViewById(R.id.method);
+        int wpa3Eap192bitPosition = -1;
+        final int securityCount = mController.mSecurityInPosition.length;
+        for (int i = 0; i < securityCount; i++) {
+            if (mController.mSecurityInPosition[i] != null &&
+                    mController.mSecurityInPosition[i] == AccessPoint.SECURITY_EAP_SUITE_B) {
+                wpa3Eap192bitPosition = i;
+            }
+        }
+
+        mController.onItemSelected(securitySpinner, /* view */ null, wpa3Eap192bitPosition,
+                /* id */ 0);
+
+        final int selectedItemPosition = eapMethodSpinner.getSelectedItemPosition();
+        assertThat(eapMethodSpinner.getSelectedItem().toString()).isEqualTo("TLS");
+    }
+
+    @Test
+    public void checkImeStatus_whenAdvancedToggled_shouldBeHide() {
+        final InputMethodManager inputMethodManager = mContext
+                .getSystemService(InputMethodManager.class);
+        final ShadowInputMethodManager shadowImm = Shadows.shadowOf(inputMethodManager);
+        final CheckBox advButton = mView.findViewById(R.id.wifi_advanced_togglebox);
+
+        inputMethodManager.showSoftInput(null /* view */, 0 /* flags */);
+        advButton.performClick();
+
+        assertThat(shadowImm.isSoftInputVisible()).isFalse();
+    }
+
+    @Test
+    public void selectEapMethod_savedAccessPoint_shouldGetCorrectPosition() {
+        when(mAccessPoint.isSaved()).thenReturn(true);
+        when(mAccessPoint.getSecurity()).thenReturn(AccessPoint.SECURITY_EAP);
+        final WifiConfiguration mockWifiConfig = mock(WifiConfiguration.class);
+        when(mockWifiConfig.getIpConfiguration()).thenReturn(mock(IpConfiguration.class));
+        final WifiEnterpriseConfig mockWifiEnterpriseConfig = mock(WifiEnterpriseConfig.class);
+        when(mockWifiEnterpriseConfig.getEapMethod()).thenReturn(Eap.PEAP);
+        mockWifiConfig.enterpriseConfig = mockWifiEnterpriseConfig ;
+        when(mAccessPoint.getConfig()).thenReturn(mockWifiConfig);
+        mController = new TestWifiConfigController(mConfigUiBase, mView, mAccessPoint,
+                WifiConfigUiBase.MODE_MODIFY);
+        final Spinner eapMethodSpinner = mView.findViewById(R.id.method);
+        final Spinner phase2Spinner = mView.findViewById(R.id.phase2);
+        WifiConfiguration wifiConfiguration;
+
+        // Test EAP method PEAP
+        eapMethodSpinner.setSelection(Eap.PEAP);
+        phase2Spinner.setSelection(WifiConfigController.WIFI_PEAP_PHASE2_MSCHAPV2);
+        wifiConfiguration = mController.getConfig();
+
+        assertThat(wifiConfiguration.enterpriseConfig.getEapMethod()).isEqualTo(Eap.PEAP);
+        assertThat(wifiConfiguration.enterpriseConfig.getPhase2Method()).isEqualTo(
+                Phase2.MSCHAPV2);
+
+        // Test EAP method TTLS
+        eapMethodSpinner.setSelection(Eap.TTLS);
+        phase2Spinner.setSelection(WifiConfigController.WIFI_TTLS_PHASE2_MSCHAPV2);
+        wifiConfiguration = mController.getConfig();
+
+        assertThat(wifiConfiguration.enterpriseConfig.getEapMethod()).isEqualTo(Eap.TTLS);
+        assertThat(wifiConfiguration.enterpriseConfig.getPhase2Method()).isEqualTo(
+                Phase2.MSCHAPV2);
+    }
+
+    @Test
+    public void getHiddenSettingsPosition_whenAdvancedToggled_shouldBeFirst() {
+        final LinearLayout advancedFieldsLayout = mView.findViewById(R.id.wifi_advanced_fields);
+        final LinearLayout hiddenSettingLayout = mView.findViewById(R.id.hidden_settings_field);
+
+        final LinearLayout firstChild = (LinearLayout) advancedFieldsLayout.getChildAt(0);
+
+        assertThat(firstChild).isEqualTo(hiddenSettingLayout);
+    }
+
+    @Test
+    public void getAdvancedOptionContentDescription_whenViewInitialed_shouldBeCorrect() {
+        final CheckBox advButton = mView.findViewById(R.id.wifi_advanced_togglebox);
+
+        assertThat(advButton.getContentDescription()).isEqualTo(
+                mContext.getString(R.string.wifi_advanced_toggle_description));
+    }
+
+    @Test
+    public void getVisibility_whenAdvancedOptionClicked_shouldBeGone() {
+        final CheckBox advButton = mView.findViewById(R.id.wifi_advanced_togglebox);
+
+        advButton.performClick();
+
+        assertThat(advButton.getVisibility()).isEqualTo(View.GONE);
     }
 }

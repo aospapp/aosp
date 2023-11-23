@@ -52,6 +52,12 @@
 
                 </LinearLayout>
 
+                <FrameLayout
+                    android:id="@+id/container_search_fragment"
+                    android:clipToPadding="false"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
                 <!-- Drawer edge is a dummy view used to capture hovering event
                      on view edge to open the drawer. (b/28345294) -->
                 <View

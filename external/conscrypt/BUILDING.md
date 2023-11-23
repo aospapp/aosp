@@ -10,10 +10,10 @@ Then to build, run:
 $ ./gradlew build
 ```
 
-To install the artifacts to your Maven local repository for use in your own project, run:
+To publish the artifacts to your Maven local repository for use in your own project, run:
 
 ```bash
-$ ./gradlew install
+$ ./gradlew publishToMavenLocal
 ```
 
 Prerequisites
@@ -118,3 +118,13 @@ under Java 7 (or any Java runtime), you can specify the `javaExecutable64` prope
 ```bash
 ./gradlew check -DjavaExecutable64=${JAVA7_HOME}/bin/java
 ```
+
+Coverage
+--------
+To see coverage numbers, run the tests and then execute the jacocoTestReport rule
+
+```bash
+./gradlew check jacocoTestReport
+```
+
+The report will be placed in `openjdk/build/reports/jacoco/test/html/index.html`

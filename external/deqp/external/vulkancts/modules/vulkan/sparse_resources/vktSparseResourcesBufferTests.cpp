@@ -526,7 +526,7 @@ public:
 		};
 
 		m_renderPass		= makeRenderPass		(vk, device, m_colorFormat);
-		m_framebuffer		= makeFramebuffer		(vk, device, *m_renderPass, 1u, &m_colorAttachment.get(),
+		m_framebuffer		= makeFramebuffer		(vk, device, *m_renderPass, m_colorAttachment.get(),
 													 static_cast<deUint32>(m_renderSize.x()), static_cast<deUint32>(m_renderSize.y()));
 		m_pipelineLayout	= makePipelineLayout	(vk, device, m_descriptorSetLayout);
 		m_pipeline			= makeGraphicsPipeline	(vk, device, *m_pipelineLayout, *m_renderPass, m_renderSize, m_topology, DE_LENGTH_OF_ARRAY(pShaderStages), pShaderStages);
@@ -641,28 +641,16 @@ public:
 
 			createDeviceSupportingQueues(requirements);
 		}
-		const VkPhysicalDeviceFeatures	features	= getPhysicalDeviceFeatures(m_context.getInstanceInterface(), getPhysicalDevice());
 
-		if (!features.sparseBinding)
-			TCU_THROW(NotSupportedError, "Missing feature: sparseBinding");
+		const DeviceInterface& vk = getDeviceInterface();
 
-		if (m_residency && !features.sparseResidencyBuffer)
-			TCU_THROW(NotSupportedError, "Missing feature: sparseResidencyBuffer");
-
-		if (m_aliased && !features.sparseResidencyAliased)
-			TCU_THROW(NotSupportedError, "Missing feature: sparseResidencyAliased");
-
-		if (m_nonResidentStrict && !m_context.getDeviceProperties().sparseProperties.residencyNonResidentStrict)
-			TCU_THROW(NotSupportedError, "Missing sparse property: residencyNonResidentStrict");
-
-		const DeviceInterface& vk		= getDeviceInterface();
 		m_sparseQueue					= getQueue(VK_QUEUE_SPARSE_BINDING_BIT, 0u);
 		m_universalQueue				= getQueue(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0u);
 
 		m_sharedQueueFamilyIndices[0]	= m_sparseQueue.queueFamilyIndex;
 		m_sharedQueueFamilyIndices[1]	= m_universalQueue.queueFamilyIndex;
 
-		m_colorBuffer					= makeBuffer(vk, getDevice(), makeBufferCreateInfo(m_colorBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+		m_colorBuffer					= makeBuffer(vk, getDevice(), m_colorBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		m_colorBufferAlloc				= bindBuffer(vk, getDevice(), getAllocator(), *m_colorBuffer, MemoryRequirement::HostVisible);
 
 		deMemset(m_colorBufferAlloc->getHostPtr(), 0, static_cast<std::size_t>(m_colorBufferSize));
@@ -932,7 +920,7 @@ public:
 				const VkDeviceSize			stagingBufferSize	= sparseAllocation->resourceSize - (hasAliasedChunk ? chunkSize : 0);
 				const deUint32				numBufferEntries	= static_cast<deUint32>(stagingBufferSize / sizeof(IVec4));
 
-				const Unique<VkBuffer>		stagingBuffer		(makeBuffer(vk, getDevice(), makeBufferCreateInfo(stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT)));
+				const Unique<VkBuffer>		stagingBuffer		(makeBuffer(vk, getDevice(), stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
 				const UniquePtr<Allocation>	stagingBufferAlloc	(bindBuffer(vk, getDevice(), getAllocator(), *stagingBuffer, MemoryRequirement::HostVisible));
 
 				{
@@ -1002,7 +990,7 @@ public:
 
 				const VkDeviceSize	vertexBufferSize	= sizeof(vertexData);
 
-				m_vertexBuffer		= makeBuffer(vk, getDevice(), makeBufferCreateInfo(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+				m_vertexBuffer		= makeBuffer(vk, getDevice(), vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 				m_vertexBufferAlloc	= bindBuffer(vk, getDevice(), getAllocator(), *m_vertexBuffer, MemoryRequirement::HostVisible);
 
 				deMemcpy(m_vertexBufferAlloc->getHostPtr(), &vertexData[0], vertexBufferSize);
@@ -1175,7 +1163,7 @@ public:
 
 		m_perDrawBufferOffset	= m_sparseAllocation->resourceSize / m_sparseAllocation->numResourceChunks;
 		m_stagingBufferSize		= 2 * m_perDrawBufferOffset;
-		m_stagingBuffer			= makeBuffer(vk, getDevice(), makeBufferCreateInfo(m_stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+		m_stagingBuffer			= makeBuffer(vk, getDevice(), m_stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 		m_stagingBufferAlloc	= bindBuffer(vk, getDevice(), getAllocator(), *m_stagingBuffer, MemoryRequirement::HostVisible);
 	}
 
@@ -1353,7 +1341,7 @@ public:
 		// Vertex buffer
 		const DeviceInterface&	vk					= getDeviceInterface();
 		const VkDeviceSize		vertexBufferSize	= 2 * m_halfVertexCount * sizeof(Vec4);
-								m_vertexBuffer		= makeBuffer(vk, getDevice(), makeBufferCreateInfo(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+								m_vertexBuffer		= makeBuffer(vk, getDevice(), vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 								m_vertexBufferAlloc	= bindBuffer(vk, getDevice(), getAllocator(), *m_vertexBuffer, MemoryRequirement::HostVisible);
 
 		{
@@ -1418,7 +1406,7 @@ public:
 		// Vertex buffer
 		const DeviceInterface&	vk					= getDeviceInterface();
 		const VkDeviceSize		vertexBufferSize	= 2 * 3 * sizeof(Vec4);
-								m_vertexBuffer		= makeBuffer(vk, getDevice(), makeBufferCreateInfo(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+								m_vertexBuffer		= makeBuffer(vk, getDevice(), vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 								m_vertexBufferAlloc	= bindBuffer(vk, getDevice(), getAllocator(), *m_vertexBuffer, MemoryRequirement::HostVisible);
 
 		{
@@ -1457,6 +1445,20 @@ private:
 	const Function	m_func;
 };
 
+void checkSupport (Context& context, const TestFlags flags)
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_SPARSE_BINDING);
+
+	if (flags & TEST_FLAG_RESIDENCY)
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_SPARSE_RESIDENCY_BUFFER);
+
+	if (flags & TEST_FLAG_ALIASED)
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_SPARSE_RESIDENCY_ALIASED);
+
+	if (flags & TEST_FLAG_NON_RESIDENT_STRICT && !context.getDeviceProperties().sparseProperties.residencyNonResidentStrict)
+		TCU_THROW(NotSupportedError, "Missing sparse property: residencyNonResidentStrict");
+}
+
 //! Convenience function to create a TestCase based on a freestanding initPrograms and a TestInstance implementation
 template<typename TestInstanceT, typename Arg0>
 TestCase* createTestInstanceWithPrograms (tcu::TestContext&									testCtx,
@@ -1465,8 +1467,8 @@ TestCase* createTestInstanceWithPrograms (tcu::TestContext&									testCtx,
 										  typename FunctionProgramsSimple1<Arg0>::Function	initPrograms,
 										  Arg0												arg0)
 {
-	return new InstanceFactory1<TestInstanceT, Arg0, FunctionProgramsSimple1<Arg0> >(
-		testCtx, tcu::NODETYPE_SELF_VALIDATE, name, desc, FunctionProgramsSimple1<Arg0>(initPrograms), arg0);
+	return new InstanceFactory1WithSupport<TestInstanceT, Arg0, FunctionSupport1<Arg0>, FunctionProgramsSimple1<Arg0> >(
+		testCtx, tcu::NODETYPE_SELF_VALIDATE, name, desc, FunctionProgramsSimple1<Arg0>(initPrograms), arg0, typename FunctionSupport1<Arg0>::Args(checkSupport, arg0));
 }
 
 void populateTestGroup (tcu::TestCaseGroup* parentGroup)

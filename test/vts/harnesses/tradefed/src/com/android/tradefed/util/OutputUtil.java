@@ -39,17 +39,6 @@ public class OutputUtil {
     }
 
     /**
-     * Add a text file to log directory.
-     * @param outputFileName output file base name.
-     *                       The actual output name will contain a hash postfix.
-     * @param source text file source
-     */
-    public void addOutputFromTextFile(String outputFileName, File source) {
-        FileInputStreamSource inputSource = new FileInputStreamSource(source);
-        mListener.testLog(outputFileName, LogDataType.TEXT, inputSource);
-    }
-
-    /**
      * Collect all VTS python runner log output files as a single zip file
      * @param logDirectory
      */
@@ -64,50 +53,13 @@ public class OutputUtil {
             File tmpZip = ZipUtil.createZip(
                     Arrays.asList(new File(latest.iterator().next()).listFiles()));
             String outputFileName = "module_" + mTestModuleName + "_output_files_" + mAbiName;
-            FileInputStreamSource inputSource = new FileInputStreamSource(tmpZip);
-            mListener.testLog(outputFileName, LogDataType.ZIP, inputSource);
-            tmpZip.delete();
-
+            try (FileInputStreamSource inputSource = new FileInputStreamSource(tmpZip, true)) {
+                mListener.testLog(outputFileName, LogDataType.ZIP, inputSource);
+            }
         } catch (IOException e) {
             CLog.e("Error processing python module output directory: %s", logDirectory);
             CLog.e(e);
         }
-    }
-
-    /**
-     *
-     * @param logFile
-     */
-    public void addVtsRunnerOutputFile(File logFile) {
-        String fileName = logFile.getName();
-        String fileNameLower = fileName.toLowerCase();
-
-        LogDataType type;
-        if (fileNameLower.endsWith(".html")) {
-            type = LogDataType.HTML;
-        } else if (fileNameLower.startsWith("logcat")) {
-            type = LogDataType.LOGCAT;
-        } else if (fileNameLower.startsWith("bugreport") && fileNameLower.endsWith(".zip")) {
-            type = LogDataType.BUGREPORTZ;
-        } else if (fileNameLower.startsWith("bugreport") && fileNameLower.endsWith(".txt")) {
-            type = LogDataType.BUGREPORT;
-        } else if (fileNameLower.endsWith(".txt") || fileNameLower.endsWith(".log")) {
-            type = LogDataType.TEXT;
-        } else if (fileNameLower.endsWith(".zip")) {
-            type = LogDataType.ZIP;
-        } else if (fileNameLower.endsWith(".jpg")) {
-            type = LogDataType.JPEG;
-        } else if (fileNameLower.endsWith(".tar.gz")) {
-            type = LogDataType.TAR_GZ;
-        } else if (fileNameLower.endsWith(".png")) {
-            type = LogDataType.PNG;
-        } else {
-            type = LogDataType.UNKNOWN;
-        }
-
-        String outputFileName = mTestModuleName + "_" + fileName + "_" + mAbiName;
-        FileInputStreamSource inputSource = new FileInputStreamSource(logFile);
-        mListener.testLog(outputFileName, type, inputSource);
     }
 
     /**

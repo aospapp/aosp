@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bspatch/bspatch.c,v 1.1 2005/08/06 01:59:
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -329,6 +330,8 @@ int bspatch(const std::unique_ptr<FileInterface>& old_file,
 
     // Adjust pointers.
     newpos += control_entry.diff_size;
+    if (oldpos > INT64_MAX - static_cast<int64_t>(control_entry.diff_size))
+      return 2;
     oldpos += control_entry.diff_size;
 
     if (oldpos > static_cast<int64_t>(old_file_size)) {
@@ -358,6 +361,9 @@ int bspatch(const std::unique_ptr<FileInterface>& old_file,
 
     // Adjust pointers.
     newpos += control_entry.extra_size;
+    if (control_entry.offset_increment > 0 &&
+        oldpos > INT64_MAX - control_entry.offset_increment)
+      return 2;
     oldpos += control_entry.offset_increment;
   }
 

@@ -15,10 +15,12 @@
 package build
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"android/soong/ui/metrics"
@@ -87,6 +89,7 @@ func installClean(ctx Context, config Config, what int) {
 	// otherwise we'd have to rebuild any generated files created with
 	// those tools.
 	removeGlobs(ctx,
+		hostOut("apex"),
 		hostOut("obj/NOTICE_FILES"),
 		hostOut("obj/PACKAGING"),
 		hostOut("coverage"),
@@ -96,22 +99,30 @@ func installClean(ctx Context, config Config, what int) {
 		hostOut("sdk_addon"),
 		hostOut("testcases"),
 		hostOut("vts"),
+		hostOut("vts10"),
+		hostOut("vts-core"),
 		productOut("*.img"),
 		productOut("*.zip"),
 		productOut("android-info.txt"),
+		productOut("apex"),
 		productOut("kernel"),
 		productOut("data"),
 		productOut("skin"),
 		productOut("obj/NOTICE_FILES"),
 		productOut("obj/PACKAGING"),
 		productOut("ramdisk"),
+		productOut("debug_ramdisk"),
+		productOut("vendor-ramdisk"),
+		productOut("vendor-ramdisk-debug.cpio.gz"),
+		productOut("vendor_debug_ramdisk"),
+		productOut("test_harness_ramdisk"),
 		productOut("recovery"),
 		productOut("root"),
 		productOut("system"),
 		productOut("system_other"),
 		productOut("vendor"),
 		productOut("product"),
-		productOut("product_services"),
+		productOut("system_ext"),
 		productOut("oem"),
 		productOut("obj/FAKE"),
 		productOut("breakpad"),
@@ -171,4 +182,94 @@ func installCleanIfNecessary(ctx Context, config Config) {
 	installClean(ctx, config, 0)
 
 	writeConfig()
+}
+
+// cleanOldFiles takes an input file (with all paths relative to basePath), and removes files from
+// the filesystem if they were removed from the input file since the last execution.
+func cleanOldFiles(ctx Context, basePath, file string) {
+	file = filepath.Join(basePath, file)
+	oldFile := file + ".previous"
+
+	if _, err := os.Stat(file); err != nil {
+		ctx.Fatalf("Expected %q to be readable", file)
+	}
+
+	if _, err := os.Stat(oldFile); os.IsNotExist(err) {
+		if err := os.Rename(file, oldFile); err != nil {
+			ctx.Fatalf("Failed to rename file list (%q->%q): %v", file, oldFile, err)
+		}
+		return
+	}
+
+	var newPaths, oldPaths []string
+	if newData, err := ioutil.ReadFile(file); err == nil {
+		if oldData, err := ioutil.ReadFile(oldFile); err == nil {
+			// Common case: nothing has changed
+			if bytes.Equal(newData, oldData) {
+				return
+			}
+			newPaths = strings.Fields(string(newData))
+			oldPaths = strings.Fields(string(oldData))
+		} else {
+			ctx.Fatalf("Failed to read list of installable files (%q): %v", oldFile, err)
+		}
+	} else {
+		ctx.Fatalf("Failed to read list of installable files (%q): %v", file, err)
+	}
+
+	// These should be mostly sorted by make already, but better make sure Go concurs
+	sort.Strings(newPaths)
+	sort.Strings(oldPaths)
+
+	for len(oldPaths) > 0 {
+		if len(newPaths) > 0 {
+			if oldPaths[0] == newPaths[0] {
+				// Same file; continue
+				newPaths = newPaths[1:]
+				oldPaths = oldPaths[1:]
+				continue
+			} else if oldPaths[0] > newPaths[0] {
+				// New file; ignore
+				newPaths = newPaths[1:]
+				continue
+			}
+		}
+		// File only exists in the old list; remove if it exists
+		old := filepath.Join(basePath, oldPaths[0])
+		oldPaths = oldPaths[1:]
+		if fi, err := os.Stat(old); err == nil {
+			if fi.IsDir() {
+				if err := os.Remove(old); err == nil {
+					ctx.Println("Removed directory that is no longer installed: ", old)
+					cleanEmptyDirs(ctx, filepath.Dir(old))
+				} else {
+					ctx.Println("Failed to remove directory that is no longer installed (%q): %v", old, err)
+					ctx.Println("It's recommended to run `m installclean`")
+				}
+			} else {
+				if err := os.Remove(old); err == nil {
+					ctx.Println("Removed file that is no longer installed: ", old)
+					cleanEmptyDirs(ctx, filepath.Dir(old))
+				} else if !os.IsNotExist(err) {
+					ctx.Fatalf("Failed to remove file that is no longer installed (%q): %v", old, err)
+				}
+			}
+		}
+	}
+
+	// Use the new list as the base for the next build
+	os.Rename(file, oldFile)
+}
+
+func cleanEmptyDirs(ctx Context, dir string) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil || len(files) > 0 {
+		return
+	}
+	if err := os.Remove(dir); err == nil {
+		ctx.Println("Removed directory that is no longer installed: ", dir)
+	} else {
+		ctx.Fatalf("Failed to remove directory that is no longer installed (%q): %v", dir, err)
+	}
+	cleanEmptyDirs(ctx, filepath.Dir(dir))
 }

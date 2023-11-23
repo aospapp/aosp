@@ -18,12 +18,14 @@ package android.permission.cts.telephony;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
+import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 
 import androidx.test.InstrumentationRegistry;
@@ -32,6 +34,8 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
 
 /**
  * Test the non-location-related functionality of TelephonyManager.
@@ -196,6 +200,38 @@ public class TelephonyManagerPermissionTest {
         }
     }
 
+     /**
+     * Tests that isManualNetworkSelectionAllowed requires permission
+     * Expects a security exception since the caller does not have carrier privileges.
+     */
+    @Test
+    public void testIsManualNetworkSelectionAllowedWithoutPermission() {
+        if (!mHasTelephony) {
+            return;
+        }
+        try {
+            mTelephonyManager.isManualNetworkSelectionAllowed();
+            fail("Expected SecurityException. App does not have carrier privileges.");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    /**
+     * Tests that getManualNetworkSelectionPlmn requires permission
+     * Expects a security exception since the caller does not have carrier privileges.
+     */
+    @Test
+    public void testGetManualNetworkSelectionPlmnWithoutPermission() {
+        if (!mHasTelephony) {
+            return;
+        }
+        try {
+            mTelephonyManager.getManualNetworkSelectionPlmn();
+            fail("Expected SecurityException. App does not have carrier privileges.");
+        } catch (SecurityException expected) {
+        }
+    }
+
     /**
      * Verify that Telephony related broadcasts are protected.
      */
@@ -287,8 +323,11 @@ public class TelephonyManagerPermissionTest {
             return;
         }
 
-        if (mTelephonyManager.getNetworkType() != TelephonyManager.NETWORK_TYPE_UNKNOWN) {
-            fail("getNetworkType should return UNKNOWN");
+        try {
+            mTelephonyManager.getNetworkType();
+            fail("getNetworkType did not throw a SecurityException");
+        } catch (SecurityException e) {
+            // expected
         }
 
         try {
@@ -299,7 +338,104 @@ public class TelephonyManagerPermissionTest {
         }
     }
 
+    /**
+     * Tests that getNetworkSelectionMode requires permission
+     * Expects a security exception since the caller does not have carrier privileges.
+     */
+    @Test
+    public void testGetNetworkSelectionModeWithoutPermission() {
+        if (!mHasTelephony) {
+            return;
+        }
+        assertThrowsSecurityException(() -> mTelephonyManager.getNetworkSelectionMode(),
+                "Expected SecurityException. App does not have carrier privileges.");
+    }
+
+    /**
+     * Tests that setNetworkSelectionModeAutomatic requires permission
+     * Expects a security exception since the caller does not have carrier privileges.
+     */
+    @Test
+    public void testSetNetworkSelectionModeAutomaticWithoutPermission() {
+        if (!mHasTelephony) {
+            return;
+        }
+        assertThrowsSecurityException(() -> mTelephonyManager.setNetworkSelectionModeAutomatic(),
+                "Expected SecurityException. App does not have carrier privileges.");
+    }
+
+    /**
+     * Verify that setForbiddenPlmns requires Permission.
+     * <p>
+     * Requires Permission:
+     * {@link android.Manifest.permission#READ_PHONE_STATE READ_PHONE_STATE}
+     * or that the calling app has carrier privileges (see {@link #hasCarrierPrivileges}).
+     */
+    @Test
+    public void testSetForbiddenPlmns() {
+        if (!mHasTelephony) {
+            return;
+        }
+
+        try {
+            mTelephonyManager.setForbiddenPlmns(new ArrayList<String>());
+            fail("SetForbiddenPlmns did not throw a SecurityException");
+        } catch (SecurityException e) {
+            // expected
+        }
+    }
+
+    static final int PHONE_STATE_PERMISSION_MASK =
+                PhoneStateListener.LISTEN_CALL_FORWARDING_INDICATOR
+                        | PhoneStateListener.LISTEN_MESSAGE_WAITING_INDICATOR
+                        | PhoneStateListener.LISTEN_EMERGENCY_NUMBER_LIST;
+
+    static final int PRECISE_PHONE_STATE_PERMISSION_MASK =
+                PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE
+                        | PhoneStateListener.LISTEN_CALL_DISCONNECT_CAUSES
+                        | PhoneStateListener.LISTEN_IMS_CALL_DISCONNECT_CAUSES
+                        | PhoneStateListener.LISTEN_REGISTRATION_FAILURE
+                        | PhoneStateListener.LISTEN_BARRING_INFO;
+
+    static final int PHONE_PERMISSIONS_MASK =
+            PHONE_STATE_PERMISSION_MASK | PRECISE_PHONE_STATE_PERMISSION_MASK;
+
+    /**
+     * Verify the documented permissions for PhoneStateListener.
+     */
+    @Test
+    public void testListen() {
+        PhoneStateListener psl = new PhoneStateListener((Runnable r) -> { });
+
+        try {
+            for (int i = 1; i != 0; i = i << 1) {
+                if ((i & PHONE_PERMISSIONS_MASK) == 0) continue;
+                final int listenBit = i;
+                assertThrowsSecurityException(() -> mTelephonyManager.listen(psl, listenBit),
+                        "Expected a security exception for " + Integer.toHexString(i));
+            }
+        } finally {
+            mTelephonyManager.listen(psl, PhoneStateListener.LISTEN_NONE);
+        }
+    }
+
     private static Context getContext() {
         return InstrumentationRegistry.getContext();
+    }
+
+    // An actual version of assertThrows() was added in JUnit5
+    private static <T extends Throwable> void assertThrows(Class<T> clazz, Runnable r,
+            String message) {
+        try {
+            r.run();
+        } catch (Exception expected) {
+            assertTrue(clazz.isAssignableFrom(expected.getClass()));
+            return;
+        }
+        fail(message);
+    }
+
+    private static void assertThrowsSecurityException(Runnable r, String message) {
+        assertThrows(SecurityException.class, r, message);
     }
 }

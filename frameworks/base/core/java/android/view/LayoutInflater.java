@@ -21,7 +21,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemService;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.res.Resources;
@@ -31,10 +31,7 @@ import android.graphics.Canvas;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
-import android.os.SystemProperties;
 import android.os.Trace;
-import android.provider.DeviceConfig;
-import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
@@ -62,19 +59,20 @@ import java.util.Objects;
  * {@link Context#getSystemService} to retrieve a standard LayoutInflater instance
  * that is already hooked up to the current context and correctly configured
  * for the device you are running on.
- *
  * <p>
  * To create a new LayoutInflater with an additional {@link Factory} for your
  * own views, you can use {@link #cloneInContext} to clone an existing
  * ViewFactory, and then call {@link #setFactory} on it to include your
  * Factory.
- *
  * <p>
  * For performance reasons, view inflation relies heavily on pre-processing of
  * XML files that is done at build time. Therefore, it is not currently possible
  * to use LayoutInflater with an XmlPullParser over a plain XML file at runtime;
  * it only works with an XmlPullParser returned from a compiled resource
  * (R.<em>something</em> file.)
+ * <p>
+ * <strong>Note:</strong> This class is <strong>not</strong> thread-safe and a given
+ * instance should only be accessed by a single thread.
  */
 @SystemService(Context.LAYOUT_INFLATER_SERVICE)
 public abstract class LayoutInflater {

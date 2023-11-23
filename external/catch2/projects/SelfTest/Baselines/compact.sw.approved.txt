@@ -14,6 +14,9 @@ Compilation.tests.cpp:<line number>: passed: std::memcmp(uarr, "123", sizeof(uar
 Compilation.tests.cpp:<line number>: passed: std::memcmp(sarr, "456", sizeof(sarr)) == 0 for: 0 == 0 with 2 messages: 'uarr := "123"' and 'sarr := "456"'
 Compilation.tests.cpp:<line number>: passed:
 Compilation.tests.cpp:<line number>: passed: h1 == h2 for: [1403 helper] == [1403 helper]
+Message.tests.cpp:<line number>: warning: '
+This info message starts with a linebreak' with 1 message: '
+This warning message starts with a linebreak'
 This would not be caught previously
 Nor would this
 Tricky.tests.cpp:<line number>: failed: explicitly with 1 message: '1514'
@@ -323,9 +326,9 @@ Matchers.tests.cpp:<line number>: passed: testStringForMatching(), Equals("this 
 Matchers.tests.cpp:<line number>: passed: testStringForMatching(), Equals("this string contains 'ABC' as a substring", Catch::CaseSensitive::No) for: "this string contains 'abc' as a substring" equals: "this string contains 'abc' as a substring" (case insensitive)
 Matchers.tests.cpp:<line number>: failed: testStringForMatching(), Equals("this string contains 'ABC' as a substring") for: "this string contains 'abc' as a substring" equals: "this string contains 'ABC' as a substring"
 Matchers.tests.cpp:<line number>: failed: testStringForMatching(), Equals("something else", Catch::CaseSensitive::No) for: "this string contains 'abc' as a substring" equals: "something else" (case insensitive)
-ToStringGeneral.tests.cpp:<line number>: passed: ::Catch::Detail::stringify(WhatException{}) == "This exception has overriden what() method" for: "This exception has overriden what() method"
+ToStringGeneral.tests.cpp:<line number>: passed: ::Catch::Detail::stringify(WhatException{}) == "This exception has overridden what() method" for: "This exception has overridden what() method"
 ==
-"This exception has overriden what() method"
+"This exception has overridden what() method"
 ToStringGeneral.tests.cpp:<line number>: passed: ::Catch::Detail::stringify(OperatorException{}) == "OperatorException" for: "OperatorException" == "OperatorException"
 ToStringGeneral.tests.cpp:<line number>: passed: ::Catch::Detail::stringify(StringMakerException{}) == "StringMakerException" for: "StringMakerException"
 ==
@@ -416,6 +419,9 @@ Generators.tests.cpp:<line number>: passed: i % 2 == 0 for: 0 == 0
 Generators.tests.cpp:<line number>: passed: i.size() == 1 for: 1 == 1
 Generators.tests.cpp:<line number>: passed: i.size() == 1 for: 1 == 1
 Generators.tests.cpp:<line number>: passed: i.size() == 1 for: 1 == 1
+Generators.tests.cpp:<line number>: passed: i.size() == 1 for: 1 == 1
+Generators.tests.cpp:<line number>: passed: i.size() == 1 for: 1 == 1
+Generators.tests.cpp:<line number>: passed: i.size() == 1 for: 1 == 1
 Generators.tests.cpp:<line number>: passed: j > 0 for: 1 > 0
 Generators.tests.cpp:<line number>: passed: j > 0 for: 2 > 0
 Generators.tests.cpp:<line number>: passed: j > 0 for: 3 > 0
@@ -488,6 +494,12 @@ GeneratorsImpl.tests.cpp:<line number>: passed: gen.next() for: true
 GeneratorsImpl.tests.cpp:<line number>: passed: gen.get() == 2 for: 2 == 2
 GeneratorsImpl.tests.cpp:<line number>: passed: !(gen.next()) for: !false
 GeneratorsImpl.tests.cpp:<line number>: passed: gen.get() == 1 for: 1 == 1
+GeneratorsImpl.tests.cpp:<line number>: passed: !(gen.next()) for: !false
+GeneratorsImpl.tests.cpp:<line number>: passed: gen.get() == 2.0 for: 2.0 == 2.0
+GeneratorsImpl.tests.cpp:<line number>: passed: gen.next() for: true
+GeneratorsImpl.tests.cpp:<line number>: passed: gen.get() == 4.0 for: 4.0 == 4.0
+GeneratorsImpl.tests.cpp:<line number>: passed: gen.next() for: true
+GeneratorsImpl.tests.cpp:<line number>: passed: gen.get() == 6.0 for: 6.0 == 6.0
 GeneratorsImpl.tests.cpp:<line number>: passed: !(gen.next()) for: !false
 GeneratorsImpl.tests.cpp:<line number>: passed: gen.get() == 2.0 for: 2.0 == 2.0
 GeneratorsImpl.tests.cpp:<line number>: passed: gen.next() for: true
@@ -628,6 +640,22 @@ Matchers.tests.cpp:<line number>: passed: testStringForMatching(), !Contains("di
 Matchers.tests.cpp:<line number>: failed: testStringForMatching(), !Contains("substring") for: "this string contains 'abc' as a substring" not contains: "substring"
 Exception.tests.cpp:<line number>: passed: thisThrows(), "expected exception" for: "expected exception" equals: "expected exception"
 Exception.tests.cpp:<line number>: failed: thisThrows(), "should fail" for: "expected exception" equals: "should fail"
+Generators.tests.cpp:<line number>: passed: values > -6 for: 3 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 4 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 5 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 6 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: -5 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: -4 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 90 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 91 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 92 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 93 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 94 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 95 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 96 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 97 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 98 > -6
+Generators.tests.cpp:<line number>: passed: values > -6 for: 99 > -6
 Misc.tests.cpp:<line number>: warning: 'This one ran'
 Exception.tests.cpp:<line number>: failed: unexpected exception with message: 'custom exception'
 Tricky.tests.cpp:<line number>: passed: True for: {?}
@@ -995,22 +1023,22 @@ Misc.tests.cpp:<line number>: failed: s1 == s2 for: "if ($b == 10) {
 	$a = 20;
 }
 "
-TagAlias.tests.cpp:<line number>: passed: what, Contains( "[@zzz]" ) for: "error: tag alias, '[@zzz]' already registered.
+Tag.tests.cpp:<line number>: passed: what, Contains( "[@zzz]" ) for: "error: tag alias, '[@zzz]' already registered.
 	First seen at: file:2
 	Redefined at: file:10" contains: "[@zzz]"
-TagAlias.tests.cpp:<line number>: passed: what, Contains( "file" ) for: "error: tag alias, '[@zzz]' already registered.
+Tag.tests.cpp:<line number>: passed: what, Contains( "file" ) for: "error: tag alias, '[@zzz]' already registered.
 	First seen at: file:2
 	Redefined at: file:10" contains: "file"
-TagAlias.tests.cpp:<line number>: passed: what, Contains( "2" ) for: "error: tag alias, '[@zzz]' already registered.
+Tag.tests.cpp:<line number>: passed: what, Contains( "2" ) for: "error: tag alias, '[@zzz]' already registered.
 	First seen at: file:2
 	Redefined at: file:10" contains: "2"
-TagAlias.tests.cpp:<line number>: passed: what, Contains( "10" ) for: "error: tag alias, '[@zzz]' already registered.
+Tag.tests.cpp:<line number>: passed: what, Contains( "10" ) for: "error: tag alias, '[@zzz]' already registered.
 	First seen at: file:2
 	Redefined at: file:10" contains: "10"
-TagAlias.tests.cpp:<line number>: passed: registry.add( "[no ampersat]", "", Catch::SourceLineInfo( "file", 3 ) )
-TagAlias.tests.cpp:<line number>: passed: registry.add( "[the @ is not at the start]", "", Catch::SourceLineInfo( "file", 3 ) )
-TagAlias.tests.cpp:<line number>: passed: registry.add( "@no square bracket at start]", "", Catch::SourceLineInfo( "file", 3 ) )
-TagAlias.tests.cpp:<line number>: passed: registry.add( "[@no square bracket at end", "", Catch::SourceLineInfo( "file", 3 ) )
+Tag.tests.cpp:<line number>: passed: registry.add( "[no ampersat]", "", Catch::SourceLineInfo( "file", 3 ) )
+Tag.tests.cpp:<line number>: passed: registry.add( "[the @ is not at the start]", "", Catch::SourceLineInfo( "file", 3 ) )
+Tag.tests.cpp:<line number>: passed: registry.add( "@no square bracket at start]", "", Catch::SourceLineInfo( "file", 3 ) )
+Tag.tests.cpp:<line number>: passed: registry.add( "[@no square bracket at end", "", Catch::SourceLineInfo( "file", 3 ) )
 Misc.tests.cpp:<line number>: passed: v.size() == 5 for: 5 == 5
 Misc.tests.cpp:<line number>: passed: v.capacity() >= 5 for: 5 >= 5
 Misc.tests.cpp:<line number>: passed: v.size() == 10 for: 10 == 10
@@ -1161,6 +1189,15 @@ Approx.tests.cpp:<line number>: passed: approx( d ) == 1.22 for: Approx( 1.23 ) 
 Approx.tests.cpp:<line number>: passed: approx( d ) == 1.24 for: Approx( 1.23 ) == 1.24
 Approx.tests.cpp:<line number>: passed: approx( d ) != 1.25 for: Approx( 1.23 ) != 1.25
 VariadicMacros.tests.cpp:<line number>: passed: with 1 message: 'no assertions'
+Matchers.tests.cpp:<line number>: passed: empty, Approx(empty) for: {  } is approx: {  }
+Matchers.tests.cpp:<line number>: passed: v1, Approx(v1) for: { 1.0, 2.0, 3.0 } is approx: { 1.0, 2.0, 3.0 }
+Matchers.tests.cpp:<line number>: passed: v1, !Approx(temp) for: { 1.0, 2.0, 3.0 } not is approx: { 1.0, 2.0, 3.0, 4.0 }
+Matchers.tests.cpp:<line number>: passed: v1, !Approx(v2) for: { 1.0, 2.0, 3.0 } not is approx: { 1.5, 2.5, 3.5 }
+Matchers.tests.cpp:<line number>: passed: v1, Approx(v2).margin(0.5) for: { 1.0, 2.0, 3.0 } is approx: { 1.5, 2.5, 3.5 }
+Matchers.tests.cpp:<line number>: passed: v1, Approx(v2).epsilon(0.5) for: { 1.0, 2.0, 3.0 } is approx: { 1.5, 2.5, 3.5 }
+Matchers.tests.cpp:<line number>: passed: v1, Approx(v2).epsilon(0.1).scale(500) for: { 1.0, 2.0, 3.0 } is approx: { 1.5, 2.5, 3.5 }
+Matchers.tests.cpp:<line number>: failed: empty, Approx(t1) for: {  } is approx: { 1.0, 2.0 }
+Matchers.tests.cpp:<line number>: failed: v1, Approx(v2) for: { 2.0, 4.0, 6.0 } is approx: { 1.0, 3.0, 5.0 }
 Matchers.tests.cpp:<line number>: passed: v, VectorContains(1) for: { 1, 2, 3 } Contains: 1
 Matchers.tests.cpp:<line number>: passed: v, VectorContains(2) for: { 1, 2, 3 } Contains: 2
 Matchers.tests.cpp:<line number>: passed: v, Contains(v2) for: { 1, 2, 3 } Contains: { 1, 2 }
@@ -1353,6 +1390,7 @@ String.tests.cpp:<line number>: passed: Catch::replaceInPlace( s, "'", "|'" ) fo
 String.tests.cpp:<line number>: passed: s == "didn|'t" for: "didn|'t" == "didn|'t"
 Misc.tests.cpp:<line number>: failed: false with 1 message: '3'
 Message.tests.cpp:<line number>: failed: false with 2 messages: 'hi' and 'i := 7'
+Tag.tests.cpp:<line number>: passed: testcase.tags, Catch::VectorContains(std::string("magic-tag")) && Catch::VectorContains(std::string(".")) for: { ".", "magic-tag" } ( Contains: "magic-tag" and Contains: "." )
 Message.tests.cpp:<line number>: failed: false with 4 messages: 'Count 1 to 3...' and '1' and '2' and '3'
 Message.tests.cpp:<line number>: failed: false with 4 messages: 'Count 4 to 6...' and '4' and '5' and '6'
 ToStringGeneral.tests.cpp:<line number>: passed: Catch::Detail::stringify( emptyMap ) == "{  }" for: "{  }" == "{  }"
@@ -1476,5 +1514,5 @@ Misc.tests.cpp:<line number>: passed: v.size() == 5 for: 5 == 5
 Misc.tests.cpp:<line number>: passed: v.capacity() >= 5 for: 5 >= 5
 Misc.tests.cpp:<line number>: passed:
 Misc.tests.cpp:<line number>: passed:
-Failed 77 test cases, failed 138 assertions.
+Failed 79 test cases, failed 141 assertions.
 

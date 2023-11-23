@@ -25,7 +25,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 0 (0x0)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, ST=Arizona, L=Scottsdale, O=GoDaddy.com, Inc., CN=Go Daddy Root Certificate Authority - G2
         Validity
             Not Before: Sep  1 00:00:00 2009 GMT
@@ -33,7 +33,7 @@ Certificate:
         Subject: C=US, ST=Arizona, L=Scottsdale, O=GoDaddy.com, Inc., CN=Go Daddy Root Certificate Authority - G2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:bf:71:62:08:f1:fa:59:34:f7:1b:c9:18:a3:f7:
                     80:49:58:e9:22:83:13:a6:c5:20:43:01:3b:84:f1:

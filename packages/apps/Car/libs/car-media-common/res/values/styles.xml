@@ -15,21 +15,6 @@
   limitations under the License.
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <style name="MediaAppSelectorStyle" parent="android:Theme.DeviceDefault.NoActionBar">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@color/app_selection_border</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowBackground">@*android:color/car_card</item>
-        <item name="android:fragmentOpenEnterAnimation">@anim/media_app_selector_fade_in</item>
-    </style>
-
-    <style
-        name="media_app_selector_animation_fade" >
-        <item name="android:windowEnterAnimation">@anim/media_app_selector_fade_in</item>
-        <item name="android:windowExitAnimation">@anim/media_app_selector_fade_out</item>
-    </style>
-
     <style name="PlaybackTitleStyle" parent="TextAppearance.Body1">
         <item name="android:singleLine">true</item>
         <item name="android:includeFontPadding">false</item>
@@ -40,5 +25,4 @@
         <item name="android:singleLine">true</item>
         <item name="android:includeFontPadding">false</item>
     </style>
-
 </resources>

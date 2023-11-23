@@ -15,6 +15,7 @@
  */
 
 #include <dirent.h>
+#include <fcntl.h>
 
 #include <set>
 #include <string>
@@ -55,12 +56,12 @@ TEST(FileUtilsTests, FindFilesFindApkFilesRecursive) {
     return type == DT_REG && path.size() > 4 && path.compare(path.size() - 4, 4, ".apk") == 0;
   });
   ASSERT_THAT(v, NotNull());
-  ASSERT_EQ(v->size(), 10U);
+  ASSERT_EQ(v->size(), 11U);
   ASSERT_EQ(std::set<std::string>(v->begin(), v->end()),
             std::set<std::string>(
                 {root + "/target/target.apk", root + "/target/target-no-overlayable.apk",
                  root + "/overlay/overlay.apk", root + "/overlay/overlay-no-name.apk",
-                 root + "/overlay/overlay-no-name-static.apk",
+                 root + "/overlay/overlay-no-name-static.apk", root + "/overlay/overlay-shared.apk",
                  root + "/overlay/overlay-static-1.apk", root + "/overlay/overlay-static-2.apk",
                  root + "/signature-overlay/signature-overlay.apk",
                  root + "/system-overlay/system-overlay.apk",
@@ -69,7 +70,7 @@ TEST(FileUtilsTests, FindFilesFindApkFilesRecursive) {
 
 TEST(FileUtilsTests, ReadFile) {
   int pipefd[2];
-  ASSERT_EQ(pipe(pipefd), 0);
+  ASSERT_EQ(pipe2(pipefd, O_CLOEXEC), 0);
 
   ASSERT_EQ(write(pipefd[1], "foobar", 6), 6);
   close(pipefd[1]);

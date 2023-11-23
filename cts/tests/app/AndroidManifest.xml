@@ -21,8 +21,10 @@
     <uses-sdk android:minSdkVersion="11" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <uses-permission android:name="android.permission.ENTER_CAR_MODE_PRIORITIZED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATIONS" />
 
     <application android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />

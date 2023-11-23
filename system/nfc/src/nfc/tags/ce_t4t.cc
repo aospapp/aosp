@@ -562,6 +562,10 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
   }
 
   p_c_apdu = (NFC_HDR*)p_data->data.p_data;
+  if (!p_c_apdu) {
+    LOG(ERROR) << StringPrintf("Invalid p_c_apdu");
+    return;
+  }
 
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("conn_id = 0x%02X", conn_id);
 
@@ -571,7 +575,7 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
     LOG(ERROR) << StringPrintf("Wrong length in ce_t4t_data_cback");
     android_errorWriteLog(0x534e4554, "115635871");
     ce_t4t_send_status(T4T_RSP_WRONG_LENGTH);
-    if (p_c_apdu) GKI_freebuf(p_c_apdu);
+    GKI_freebuf(p_c_apdu);
     return;
   }
 
@@ -605,7 +609,7 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
           LOG(ERROR) << StringPrintf("Wrong length in select app cmd");
           android_errorWriteLog(0x534e4554, "115635871");
           ce_t4t_send_status(T4T_RSP_NOT_FOUND);
-          if (p_c_apdu) GKI_freebuf(p_c_apdu);
+          GKI_freebuf(p_c_apdu);
           return;
         }
       }
@@ -645,6 +649,13 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
     if (instruct == T4T_CMD_INS_SELECT) {
       /* P1 Byte is already parsed */
       if (select_type == T4T_CMD_P1_SELECT_BY_FILE_ID) {
+        /* CLA+INS+P1+P2+Lc+FILE_ID = T4T_CMD_MAX_HDR_SIZE + T4T_FILE_ID_SIZE */
+        if (p_c_apdu->len < (T4T_CMD_MAX_HDR_SIZE + T4T_FILE_ID_SIZE)) {
+          LOG(ERROR) << "Wrong length";
+          GKI_freebuf(p_c_apdu);
+          ce_t4t_send_status(T4T_RSP_WRONG_LENGTH);
+          return;
+        }
         ce_t4t_process_select_file_cmd(p_cmd);
       } else {
         LOG(ERROR) << StringPrintf("CET4T: Bad P1 byte (0x%02X)", select_type);

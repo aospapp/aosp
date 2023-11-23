@@ -17,13 +17,15 @@
 
 #define LOG_TAG "RootlessGpuDebug"
 
+#include <string>
+#include <vector>
+
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <android/log.h>
 #include <android/native_window.h>
 #include <jni.h>
 #include <vulkan/vulkan.h>
-#include <string>
 
 #define ALOGI(msg, ...) \
     __android_log_print(ANDROID_LOG_INFO, LOG_TAG, (msg), __VA_ARGS__)
@@ -38,6 +40,22 @@ typedef __eglMustCastToProperFunctionPointerType EGLFuncPointer;
 
 std::string initVulkan() {
     std::string result = "";
+
+    {
+      uint32_t count = 0;
+      vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+      if (count > 0) {
+        std::vector<VkExtensionProperties> properties(count);
+        vkEnumerateInstanceExtensionProperties(nullptr, &count,
+                                               properties.data());
+        for (uint32_t i = 0; i < count; ++i) {
+          if (!strcmp("VK_EXT_debug_utils", properties[i].extensionName)) {
+            ALOGI("VK_EXT_debug_utils: %u", properties[i].specVersion);
+            break;
+          }
+        }
+      }
+    }
 
     const VkApplicationInfo app_info = {
         VK_STRUCTURE_TYPE_APPLICATION_INFO,

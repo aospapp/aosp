@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"சரி"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" க்கு கோப்பு அனுப்பப்படவில்லை."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"கோப்பு: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"மீண்டும் முயற்சிக்கவும்"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"மூடு"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"சரி"</string>
     <string name="unknown_file" msgid="6092727753965095366">"அறியப்படாத கோப்பு"</string>
@@ -127,11 +126,12 @@
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"ரத்துசெய்"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"புளூடூத் வழியாகப் பகிர விரும்பும் கணக்குகளைத் தேர்ந்தெடுக்கவும். இணைக்கும் போது கணக்குகளுக்கான அணுகலை மீண்டும் ஏற்க வேண்டும்."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"மீதமுள்ள ஸ்லாட்கள்:"</string>
-    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"பயன்பாட்டு ஐகான்"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"ஆப்ஸ் ஐகான்"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"புளூடூத் செய்தி பகிர்தல் அமைப்புகள்"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"கணக்கைத் தேர்வுசெய்ய முடியாது. ஸ்லாட்கள் எதுவுமில்லை"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"புளூடூத் ஆடியோ இணைக்கப்பட்டது"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"புளூடூத் ஆடியோ துண்டிக்கப்பட்டது"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"புளூடூத் ஆடியோ"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4ஜி.பை.க்கு மேலிருக்கும் ஃபைல்களை இடமாற்ற முடியாது"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"புளூடூத் உடன் இணை"</string>
 </resources>

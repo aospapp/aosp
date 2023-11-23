@@ -29,7 +29,7 @@ public class TestIconHelper extends IconHelper {
     public Drawable nextDocumentIcon;
 
     private TestIconHelper() {
-        super(null, 0);
+        super(null, 0, false);
     }
 
     @Override

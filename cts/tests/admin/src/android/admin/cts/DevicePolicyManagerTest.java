@@ -50,7 +50,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
 /**
  * TODO: Make sure DO APIs are not called by PO.
  * Test that exercises {@link DevicePolicyManager}. The test requires that the
@@ -146,55 +145,58 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testSetSecurityLoggingEnabled_failIfNotDeviceOwner() {
+    public void testSetSecurityLoggingEnabled_failIfNotOrganizationOwnedProfileOwner() {
         if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testSetSecurityLoggingEnabled_failIfNotDeviceOwner");
+            Log.w(TAG, "Skipping testSetSecurityLoggingEnabled_"
+                    + "failIfNotOrganizationOwnedProfileOwner");
             return;
         }
         try {
             mDevicePolicyManager.setSecurityLoggingEnabled(mComponent, true);
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
-            assertDeviceOwnerMessage(e.getMessage());
+            assertOrganizationOwnedProfileOwnerMessage(e.getMessage());
         }
     }
 
-    public void testIsSecurityLoggingEnabled_failIfNotDeviceOwner() {
+    public void testIsSecurityLoggingEnabled_failIfNotOrganizationOwnedProfileOwner() {
         if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testIsSecurityLoggingEnabled_failIfNotDeviceOwner");
+            Log.w(TAG, "Skipping testIsSecurityLoggingEnabled_"
+                    + "failIfNotOrganizationOwnedProfileOwner");
             return;
         }
         try {
             mDevicePolicyManager.isSecurityLoggingEnabled(mComponent);
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
-            assertDeviceOwnerMessage(e.getMessage());
+            assertOrganizationOwnedProfileOwnerMessage(e.getMessage());
         }
     }
 
-    public void testRetrieveSecurityLogs_failIfNotDeviceOwner() {
+    public void testRetrieveSecurityLogs_failIfNotOrganizationOwnedProfileOwner() {
         if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testRetrieveSecurityLogs_failIfNotDeviceOwner");
+            Log.w(TAG, "Skipping testRetrieveSecurityLogs_failIfNotOrganizationOwnedProfileOwner");
             return;
         }
         try {
             mDevicePolicyManager.retrieveSecurityLogs(mComponent);
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
-            assertDeviceOwnerMessage(e.getMessage());
+            assertOrganizationOwnedProfileOwnerMessage(e.getMessage());
         }
     }
 
-    public void testRetrievePreRebootSecurityLogs_failIfNotDeviceOwner() {
+    public void testRetrievePreRebootSecurityLogs_failIfNotOrganizationOwnedProfileOwner() {
         if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testRetrievePreRebootSecurityLogs_failIfNotDeviceOwner");
+            Log.w(TAG, "Skipping testRetrievePreRebootSecurityLogs_"
+                    + "failIfNotOrganizationOwnedProfileOwner");
             return;
         }
         try {
             mDevicePolicyManager.retrievePreRebootSecurityLogs(mComponent);
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
-            assertDeviceOwnerMessage(e.getMessage());
+            assertOrganizationOwnedProfileOwnerMessage(e.getMessage());
         }
     }
 
@@ -272,6 +274,19 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
             assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testSetLocationEnabled_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetLocationEnabled_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.setLocationEnabled(mComponent, true);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertDeviceOwnerMessage(e.getMessage());
         }
     }
 
@@ -762,6 +777,11 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
                 || message.contains("can only be called by the device owner"));
     }
 
+    private void assertOrganizationOwnedProfileOwnerMessage(String message) {
+        assertTrue("message is: "+ message,
+                message.contains("is not the profile owner on organization-owned device"));
+    }
+
     private void assertDeviceOwnerOrManageUsersMessage(String message) {
         assertTrue("message is: "+ message, message.contains("does not own the device")
                 || message.contains("can only be called by the device owner")
@@ -799,16 +819,16 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testSetSystemUpdatePolicy_failIfNotDeviceOwner() {
+    public void testSetSystemUpdatePolicy_failIfNotOrganizationOwnedProfileOwner() {
         if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testSetSystemUpdatePolicy_failIfNotDeviceOwner");
+            Log.w(TAG, "Skipping testSetSystemUpdatePolicy_failIfNotOrganizationOwnedProfileOwner");
             return;
         }
         try {
             mDevicePolicyManager.setSystemUpdatePolicy(mComponent, null);
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
-            assertDeviceOwnerMessage(e.getMessage());
+            assertOrganizationOwnedProfileOwnerMessage(e.getMessage());
         }
     }
 
@@ -996,12 +1016,10 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             Log.w(TAG, "Skipping testNotificationPolicyAccess_failIfNotProfileOwner");
             return;
         }
+        NotificationManager.Policy origPolicy = mNotificationManager.getNotificationPolicy();
         try {
-            NotificationManager notificationManager =
-                    (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-
             assertTrue("Notification policy access was not granted ",
-            mNotificationManager.isNotificationPolicyAccessGranted());
+                    mNotificationManager.isNotificationPolicyAccessGranted());
 
             // Clear out the old policy
             mNotificationManager.setNotificationPolicy(new Policy(0, 0, 0, -1));
@@ -1014,9 +1032,16 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             assertNotEquals(mNotificationManager.getNotificationPolicy(), expected);
 
             mNotificationManager.setNotificationPolicy(expected);
-            assertEquals(mNotificationManager.getNotificationPolicy(), expected);
+
+            NotificationManager.Policy actual = mNotificationManager.getNotificationPolicy();
+            assertTrue((actual.priorityCategories & Policy.PRIORITY_CATEGORY_CALLS) != 0);
+            assertEquals(expected.priorityCallSenders, actual.priorityCallSenders);
+            assertEquals(expected.priorityMessageSenders, actual.priorityMessageSenders);
+            assertEquals(expected.suppressedVisualEffects, actual.suppressedVisualEffects);
         } catch (SecurityException e) {
             assertProfileOwnerMessage(e.getMessage());
+        } finally {
+            mNotificationManager.setNotificationPolicy(origPolicy);
         }
     }
 
@@ -1086,6 +1111,33 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             fail("getCrossProfileCalendarPackages did not throw expected SecurityException");
         } catch (SecurityException e) {
             assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testSetUserControlDisabledPackages_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetUserControlDisabledPackages_failIfNotDeviceOwner()");
+            return;
+        }
+        final String TEST_PACKAGE_NAME = "package1";
+        List<String> packages = new ArrayList<>();
+        packages.add(TEST_PACKAGE_NAME);
+        try {
+            mDevicePolicyManager.setUserControlDisabledPackages(mComponent, packages);
+            fail("setUserControlDisabledPackages did not throw expected SecurityException");
+        } catch(SecurityException e) {
+        }
+    }
+
+    public void testGetUserControlDisabledPackages_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testGetUserControlDisabledPackages_failIfNotDeviceOwner()");
+            return;
+        }
+        try {
+            mDevicePolicyManager.getUserControlDisabledPackages(mComponent);
+            fail("getUserControlDisabledPackages did not throw expected SecurityException");
+        } catch(SecurityException e) {
         }
     }
 }

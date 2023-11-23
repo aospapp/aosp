@@ -197,7 +197,9 @@ bool HashTreeBuilder::Update(const unsigned char* data, size_t len) {
       return false;
     }
     leftover_.clear();
-    data += append_len;
+    if (data != nullptr) {
+      data += append_len;
+    }
     len -= append_len;
   }
   if (len % block_size_ != 0) {
@@ -209,6 +211,14 @@ bool HashTreeBuilder::Update(const unsigned char* data, size_t len) {
     len -= len % block_size_;
   }
   return HashBlocks(data, len, &verity_tree_[0]);
+}
+
+bool HashTreeBuilder::CalculateRootDigest(const std::vector<unsigned char>& root_verity,
+                                          std::vector<unsigned char>* root_digest) {
+  if (root_verity.size() != block_size_) {
+    return false;
+  }
+  return HashBlocks(root_verity.data(), block_size_, root_digest);
 }
 
 bool HashTreeBuilder::BuildHashTree() {
@@ -245,9 +255,7 @@ bool HashTreeBuilder::BuildHashTree() {
   }
 
   CHECK_EQ(block_size_, verity_tree_.back().size());
-  HashBlocks(verity_tree_.back().data(), block_size_, &root_hash_);
-
-  return true;
+  return CalculateRootDigest(verity_tree_.back(), &root_hash_);
 }
 
 bool HashTreeBuilder::CheckHashTree(

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,23 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 
-@SecurityTest
+import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc17_05 extends SecurityTestCase {
 
     /**
      *  b/34277115
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-05")
     public void testPocCVE_2017_0630() throws Exception {
         if (containsDriver(getDevice(), "/sys/kernel/debug/tracing/printk_formats")) {
@@ -48,6 +55,28 @@ public class Poc17_05 extends SecurityTestCase {
                   return null;
                 }
             }, null);
+        }
+    }
+
+    /*
+     * CVE-2016-5862
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2017-05")
+    public void testPocCVE_2016_5862() throws Exception {
+        if (containsDriver(getDevice(), "/dev/snd/controlC0")) {
+            AdbUtils.runPocNoOutput("CVE-2016-5862",getDevice(), 60);
+        }
+    }
+
+    /**
+     * CVE-2016-5867
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2017-05")
+    public void testPocCVE_2016_5867() throws Exception {
+        if (containsDriver(getDevice(), "/dev/snd/controlC0")) {
+            AdbUtils.runPocAssertExitStatusNotVulnerable("CVE-2016-5867", getDevice(), 60);
         }
     }
 }

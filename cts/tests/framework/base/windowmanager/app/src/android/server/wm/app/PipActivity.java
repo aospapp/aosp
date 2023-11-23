@@ -23,6 +23,7 @@ import static android.server.wm.app.Components.PipActivity.ACTION_ENTER_PIP;
 import static android.server.wm.app.Components.PipActivity.ACTION_EXPAND_PIP;
 import static android.server.wm.app.Components.PipActivity.ACTION_FINISH;
 import static android.server.wm.app.Components.PipActivity.ACTION_MOVE_TO_BACK;
+import static android.server.wm.app.Components.PipActivity.ACTION_ON_PIP_REQUESTED;
 import static android.server.wm.app.Components.PipActivity.ACTION_SET_REQUESTED_ORIENTATION;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_DISMISS_KEYGUARD;
@@ -30,6 +31,8 @@ import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ASPECT_RATIO_DENOMINATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ASPECT_RATIO_NUMERATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PAUSE;
+import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PIP_REQUESTED;
+import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT;
 import static android.server.wm.app.Components.PipActivity.EXTRA_FINISH_SELF_ON_RESUME;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ON_PAUSE_DELAY;
 import static android.server.wm.app.Components.PipActivity.EXTRA_PIP_ORIENTATION;
@@ -55,6 +58,7 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.server.wm.CommandSession;
 import android.util.Log;
 import android.util.Rational;
 
@@ -100,6 +104,9 @@ public class PipActivity extends AbstractLifecycleLogActivity {
                         break;
                     case ACTION_FINISH:
                         finish();
+                        break;
+                    case ACTION_ON_PIP_REQUESTED:
+                        onPictureInPictureRequested();
                         break;
                 }
             }
@@ -185,6 +192,7 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         filter.addAction(ACTION_EXPAND_PIP);
         filter.addAction(ACTION_SET_REQUESTED_ORIENTATION);
         filter.addAction(ACTION_FINISH);
+        filter.addAction(ACTION_ON_PIP_REQUESTED);
         registerReceiver(mReceiver, filter);
 
         // Don't dump configuration when entering PIP to avoid the verifier getting the intermediate
@@ -237,6 +245,24 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         super.onDestroy();
 
         unregisterReceiver(mReceiver);
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (getIntent().hasExtra(EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT)) {
+            enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
+        }
+    }
+
+    @Override
+    public boolean onPictureInPictureRequested() {
+        onCallback(CommandSession.ActivityCallback.ON_PICTURE_IN_PICTURE_REQUESTED);
+        if (getIntent().hasExtra(EXTRA_ENTER_PIP_ON_PIP_REQUESTED)) {
+            enterPictureInPictureMode(new PictureInPictureParams.Builder().build());
+            return true;
+        }
+        return super.onPictureInPictureRequested();
     }
 
     @Override

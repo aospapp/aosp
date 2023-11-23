@@ -14,10 +14,10 @@
 
 #include "cras_bt_device.h"
 #include "cras_bt_endpoint.h"
+#include "cras_bt_log.h"
 #include "cras_bt_transport.h"
 #include "cras_bt_constants.h"
 #include "utlist.h"
-
 
 struct cras_bt_transport {
 	DBusConnection *conn;
@@ -32,6 +32,7 @@ struct cras_bt_transport {
 	uint16_t read_mtu;
 	uint16_t write_mtu;
 	int volume;
+	int removed;
 
 	struct cras_bt_endpoint *endpoint;
 	struct cras_bt_transport *prev, *next;
@@ -66,8 +67,28 @@ struct cras_bt_transport *cras_bt_transport_create(DBusConnection *conn,
 }
 
 void cras_bt_transport_set_endpoint(struct cras_bt_transport *transport,
-				    struct cras_bt_endpoint *endpoint) {
+				    struct cras_bt_endpoint *endpoint)
+{
 	transport->endpoint = endpoint;
+}
+
+int cras_bt_transport_is_removed(struct cras_bt_transport *transport)
+{
+	return transport->removed;
+}
+
+void cras_bt_transport_remove(struct cras_bt_transport *transport)
+{
+	/*
+	 * If the transport object is still associated with a valid
+	 * endpoint. Flag it as removed and wait for the ClearConfiguration
+	 * message from BT to actually suspend this A2DP connection and
+	 * destroy the transport.
+	 */
+	if (transport->endpoint)
+		transport->removed = 1;
+	else
+		cras_bt_transport_destroy(transport);
 }
 
 void cras_bt_transport_destroy(struct cras_bt_transport *transport)
@@ -93,12 +114,11 @@ void cras_bt_transport_reset()
 	}
 }
 
-
 struct cras_bt_transport *cras_bt_transport_get(const char *object_path)
 {
 	struct cras_bt_transport *transport;
 
-	DL_FOREACH(transports, transport) {
+	DL_FOREACH (transports, transport) {
 		if (strcmp(transport->object_path, object_path) == 0)
 			return transport;
 	}
@@ -106,14 +126,14 @@ struct cras_bt_transport *cras_bt_transport_get(const char *object_path)
 	return NULL;
 }
 
-size_t cras_bt_transport_get_list(
-	struct cras_bt_transport ***transport_list_out)
+size_t
+cras_bt_transport_get_list(struct cras_bt_transport ***transport_list_out)
 {
 	struct cras_bt_transport *transport;
 	struct cras_bt_transport **transport_list = NULL;
 	size_t num_transports = 0;
 
-	DL_FOREACH(transports, transport) {
+	DL_FOREACH (transports, transport) {
 		struct cras_bt_transport **tmp;
 
 		tmp = realloc(transport_list,
@@ -131,20 +151,20 @@ size_t cras_bt_transport_get_list(
 	return num_transports;
 }
 
-const char *cras_bt_transport_object_path(
-	const struct cras_bt_transport *transport)
+const char *
+cras_bt_transport_object_path(const struct cras_bt_transport *transport)
 {
 	return transport->object_path;
 }
 
-struct cras_bt_device *cras_bt_transport_device(
-	const struct cras_bt_transport *transport)
+struct cras_bt_device *
+cras_bt_transport_device(const struct cras_bt_transport *transport)
 {
 	return transport->device;
 }
 
-enum cras_bt_device_profile cras_bt_transport_profile(
-	const struct cras_bt_transport *transport)
+enum cras_bt_device_profile
+cras_bt_transport_profile(const struct cras_bt_transport *transport)
 {
 	return transport->profile;
 }
@@ -161,8 +181,8 @@ int cras_bt_transport_configuration(const struct cras_bt_transport *transport,
 	return 0;
 }
 
-enum cras_bt_transport_state cras_bt_transport_state(
-	const struct cras_bt_transport *transport)
+enum cras_bt_transport_state
+cras_bt_transport_state(const struct cras_bt_transport *transport)
 {
 	return transport->state;
 }
@@ -177,8 +197,8 @@ uint16_t cras_bt_transport_write_mtu(const struct cras_bt_transport *transport)
 	return transport->write_mtu;
 }
 
-static enum cras_bt_transport_state cras_bt_transport_state_from_string(
-	const char *value)
+static enum cras_bt_transport_state
+cras_bt_transport_state_from_string(const char *value)
 {
 	if (strcmp("idle", value) == 0)
 		return CRAS_BT_TRANSPORT_STATE_IDLE;
@@ -192,11 +212,9 @@ static enum cras_bt_transport_state cras_bt_transport_state_from_string(
 
 static void cras_bt_transport_state_changed(struct cras_bt_transport *transport)
 {
-	if (transport->endpoint &&
-	    transport->endpoint->transport_state_changed)
+	if (transport->endpoint && transport->endpoint->transport_state_changed)
 		transport->endpoint->transport_state_changed(
-				transport->endpoint,
-				transport);
+			transport->endpoint, transport);
 }
 
 /* Updates bt_device when certain transport property has changed. */
@@ -213,15 +231,13 @@ static void cras_bt_transport_update_device(struct cras_bt_transport *transport)
 	if (transport->volume != -1) {
 		cras_bt_device_set_use_hardware_volume(transport->device, 1);
 		cras_bt_device_update_hardware_volume(
-				transport->device,
-				transport->volume * 100 / 127);
+			transport->device, transport->volume * 100 / 127);
 	}
 }
 
-void cras_bt_transport_update_properties(
-	struct cras_bt_transport *transport,
-	DBusMessageIter *properties_array_iter,
-	DBusMessageIter *invalidated_array_iter)
+void cras_bt_transport_update_properties(struct cras_bt_transport *transport,
+					 DBusMessageIter *properties_array_iter,
+					 DBusMessageIter *invalidated_array_iter)
 {
 	while (dbus_message_iter_get_arg_type(properties_array_iter) !=
 	       DBUS_TYPE_INVALID) {
@@ -272,25 +288,24 @@ void cras_bt_transport_update_properties(
 			dbus_message_iter_get_basic(&variant_iter, &obj_path);
 			transport->device = cras_bt_device_get(obj_path);
 			if (!transport->device) {
-				syslog(LOG_ERR, "Device %s not found at update"
+				syslog(LOG_ERR,
+				       "Device %s not found at update"
 				       "transport properties",
 				       obj_path);
-				transport->device =
-					cras_bt_device_create(transport->conn,
-							      obj_path);
+				transport->device = cras_bt_device_create(
+					transport->conn, obj_path);
 				cras_bt_transport_update_device(transport);
 			}
-		} else if (strcmp(
-				dbus_message_iter_get_signature(&variant_iter),
-				"ay") == 0 &&
+		} else if (strcmp(dbus_message_iter_get_signature(&variant_iter),
+				  "ay") == 0 &&
 			   strcmp(key, "Configuration") == 0) {
 			DBusMessageIter value_iter;
 			char *value;
 			int len;
 
 			dbus_message_iter_recurse(&variant_iter, &value_iter);
-			dbus_message_iter_get_fixed_array(&value_iter,
-							  &value, &len);
+			dbus_message_iter_get_fixed_array(&value_iter, &value,
+							  &len);
 
 			free(transport->configuration);
 			transport->configuration_len = 0;
@@ -314,7 +329,7 @@ void cras_bt_transport_update_properties(
 
 	while (invalidated_array_iter &&
 	       dbus_message_iter_get_arg_type(invalidated_array_iter) !=
-	       DBUS_TYPE_INVALID) {
+		       DBUS_TYPE_INVALID) {
 		const char *key;
 
 		dbus_message_iter_get_basic(invalidated_array_iter, &key);
@@ -359,11 +374,10 @@ int cras_bt_transport_set_volume(struct cras_bt_transport *transport,
 	DBusMessageIter message_iter, variant;
 	DBusPendingCall *pending_call;
 
-	method_call = dbus_message_new_method_call(
-		BLUEZ_SERVICE,
-		transport->object_path,
-		DBUS_INTERFACE_PROPERTIES,
-		"Set");
+	method_call =
+		dbus_message_new_method_call(BLUEZ_SERVICE,
+					     transport->object_path,
+					     DBUS_INTERFACE_PROPERTIES, "Set");
 	if (!method_call)
 		return -ENOMEM;
 
@@ -389,8 +403,7 @@ int cras_bt_transport_set_volume(struct cras_bt_transport *transport,
 	if (!pending_call)
 		return -EIO;
 
-	if (!dbus_pending_call_set_notify(pending_call,
-					  on_transport_volume_set,
+	if (!dbus_pending_call_set_notify(pending_call, on_transport_volume_set,
 					  NULL, NULL)) {
 		dbus_pending_call_cancel(pending_call);
 		dbus_pending_call_unref(pending_call);
@@ -404,31 +417,29 @@ int cras_bt_transport_acquire(struct cras_bt_transport *transport)
 {
 	DBusMessage *method_call, *reply;
 	DBusError dbus_error;
+	int rc = 0;
 
 	if (transport->fd >= 0)
 		return 0;
 
 	method_call = dbus_message_new_method_call(
-		BLUEZ_SERVICE,
-		transport->object_path,
-		BLUEZ_INTERFACE_MEDIA_TRANSPORT,
-		"Acquire");
+		BLUEZ_SERVICE, transport->object_path,
+		BLUEZ_INTERFACE_MEDIA_TRANSPORT, "Acquire");
 	if (!method_call)
 		return -ENOMEM;
 
 	dbus_error_init(&dbus_error);
 
 	reply = dbus_connection_send_with_reply_and_block(
-		transport->conn,
-		method_call,
-		DBUS_TIMEOUT_USE_DEFAULT,
+		transport->conn, method_call, DBUS_TIMEOUT_USE_DEFAULT,
 		&dbus_error);
 	if (!reply) {
 		syslog(LOG_ERR, "Failed to acquire transport %s: %s",
 		       transport->object_path, dbus_error.message);
 		dbus_error_free(&dbus_error);
 		dbus_message_unref(method_call);
-		return -EIO;
+		rc = -EIO;
+		goto acquire_fail;
 	}
 
 	dbus_message_unref(method_call);
@@ -437,23 +448,29 @@ int cras_bt_transport_acquire(struct cras_bt_transport *transport)
 		syslog(LOG_ERR, "Acquire returned error: %s",
 		       dbus_message_get_error_name(reply));
 		dbus_message_unref(reply);
-		return -EIO;
+		rc = -EIO;
+		goto acquire_fail;
 	}
 
-	if (!dbus_message_get_args(reply, &dbus_error,
-				   DBUS_TYPE_UNIX_FD, &(transport->fd),
-				   DBUS_TYPE_UINT16, &(transport->read_mtu),
-				   DBUS_TYPE_UINT16, &(transport->write_mtu),
-				   DBUS_TYPE_INVALID)) {
+	if (!dbus_message_get_args(
+		    reply, &dbus_error, DBUS_TYPE_UNIX_FD, &(transport->fd),
+		    DBUS_TYPE_UINT16, &(transport->read_mtu), DBUS_TYPE_UINT16,
+		    &(transport->write_mtu), DBUS_TYPE_INVALID)) {
 		syslog(LOG_ERR, "Bad Acquire reply received: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		dbus_message_unref(reply);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto acquire_fail;
 	}
 
+	BTLOG(btlog, BT_TRANSPORT_ACQUIRE, 1, transport->fd);
 	dbus_message_unref(reply);
 	return 0;
+
+acquire_fail:
+	BTLOG(btlog, BT_TRANSPORT_ACQUIRE, 0, 0);
+	return rc;
 }
 
 int cras_bt_transport_try_acquire(struct cras_bt_transport *transport)
@@ -463,19 +480,15 @@ int cras_bt_transport_try_acquire(struct cras_bt_transport *transport)
 	int fd, read_mtu, write_mtu;
 
 	method_call = dbus_message_new_method_call(
-			BLUEZ_SERVICE,
-			transport->object_path,
-			BLUEZ_INTERFACE_MEDIA_TRANSPORT,
-			"TryAcquire");
+		BLUEZ_SERVICE, transport->object_path,
+		BLUEZ_INTERFACE_MEDIA_TRANSPORT, "TryAcquire");
 	if (!method_call)
 		return -ENOMEM;
 
 	dbus_error_init(&dbus_error);
 
 	reply = dbus_connection_send_with_reply_and_block(
-		transport->conn,
-		method_call,
-		DBUS_TIMEOUT_USE_DEFAULT,
+		transport->conn, method_call, DBUS_TIMEOUT_USE_DEFAULT,
 		&dbus_error);
 	if (!reply) {
 		syslog(LOG_ERR, "Failed to try acquire transport %s: %s",
@@ -494,8 +507,7 @@ int cras_bt_transport_try_acquire(struct cras_bt_transport *transport)
 		return -EIO;
 	}
 
-	if (!dbus_message_get_args(reply, &dbus_error,
-				   DBUS_TYPE_UNIX_FD, &fd,
+	if (!dbus_message_get_args(reply, &dbus_error, DBUS_TYPE_UNIX_FD, &fd,
 				   DBUS_TYPE_UINT16, &read_mtu,
 				   DBUS_TYPE_UINT16, &write_mtu,
 				   DBUS_TYPE_INVALID)) {
@@ -544,6 +556,8 @@ int cras_bt_transport_release(struct cras_bt_transport *transport,
 	if (transport->fd < 0)
 		return 0;
 
+	BTLOG(btlog, BT_TRANSPORT_RELEASE, transport->fd, 0);
+
 	/* Close the transport on our end no matter whether or not the server
 	 * gives us an error.
 	 */
@@ -551,10 +565,8 @@ int cras_bt_transport_release(struct cras_bt_transport *transport,
 	transport->fd = -1;
 
 	method_call = dbus_message_new_method_call(
-		BLUEZ_SERVICE,
-		transport->object_path,
-		BLUEZ_INTERFACE_MEDIA_TRANSPORT,
-		"Release");
+		BLUEZ_SERVICE, transport->object_path,
+		BLUEZ_INTERFACE_MEDIA_TRANSPORT, "Release");
 	if (!method_call)
 		return -ENOMEM;
 
@@ -562,9 +574,7 @@ int cras_bt_transport_release(struct cras_bt_transport *transport,
 		dbus_error_init(&dbus_error);
 
 		reply = dbus_connection_send_with_reply_and_block(
-			transport->conn,
-			method_call,
-			DBUS_TIMEOUT_USE_DEFAULT,
+			transport->conn, method_call, DBUS_TIMEOUT_USE_DEFAULT,
 			&dbus_error);
 		if (!reply) {
 			syslog(LOG_ERR, "Failed to release transport %s: %s",
@@ -586,10 +596,8 @@ int cras_bt_transport_release(struct cras_bt_transport *transport,
 		dbus_message_unref(reply);
 	} else {
 		if (!dbus_connection_send_with_reply(
-				transport->conn,
-				method_call,
-				&pending_call,
-				DBUS_TIMEOUT_USE_DEFAULT)) {
+			    transport->conn, method_call, &pending_call,
+			    DBUS_TIMEOUT_USE_DEFAULT)) {
 			dbus_message_unref(method_call);
 			return -ENOMEM;
 		}

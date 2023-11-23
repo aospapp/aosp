@@ -326,4 +326,55 @@ public class DspBufferMath {
         }
         return MATH_RESULT_ERROR;
     }
+
+
+    /**
+     * compute normalized cross correlation r = a (*) b
+     */
+
+    static public <T extends DspBufferDouble> int crossCorrelation(T r, T a, T b) {
+        int size = Math.min(a.getSize(), b.getSize());
+        r.setSize(size);
+
+        //statistics
+        double mean1 = 0; //mean
+        double mean2 = 0;
+        double var1 = 0;  //variance
+        double var2 = 0;
+
+        double sum1 = 0;
+        double sum2 = 0;
+        for (int i = 0; i < size; i++) {
+            sum1 += ((DspBufferDouble) a).mData[i];
+            sum2 += ((DspBufferDouble) b).mData[i];
+        }
+        mean1 = sum1/size;
+        mean2 = sum2/size;
+
+        double temp1 = 0;
+        double temp2 = 0;
+        for (int i = 0; i < size; i++) {
+            temp1 += (((DspBufferDouble) a).mData[i] - mean1)*(((DspBufferDouble) a).mData[i] -
+                    mean1);
+            temp2 += (((DspBufferDouble) b).mData[i] - mean2)*(((DspBufferDouble) b).mData[i] -
+                    mean2);
+        }
+        var1 = temp1/size;
+        var2 = temp2/size;
+
+        double varScaling = Math.sqrt(var1 * var2);
+
+        if (varScaling > 0.0000001) {
+            for (int i = 0; i < size; i++) {
+                ((DspBufferDouble) r).mData[i] = 0;
+                double tempCross = 0;
+                for (int j = 0; j < size - i; j++) {
+                    tempCross += (((DspBufferDouble) a).mData[j] - mean1) *
+                            (((DspBufferDouble) b).mData[i + j] - mean2);
+                }
+                ((DspBufferDouble) r).mData[i] = (float) (tempCross / (size * varScaling));
+            }
+        }
+        return MATH_RESULT_SUCCESS;
+    }
 }

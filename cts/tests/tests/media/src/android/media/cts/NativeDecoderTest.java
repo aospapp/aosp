@@ -28,6 +28,7 @@ import android.media.cts.TestUtils.Monitor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
 import android.view.Surface;
@@ -270,6 +271,7 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     private static native int[] getSampleSizesNativePath(
             String path, String[] keys, String[] values, boolean testNativeSource);
 
+    @Presubmit
     public void testExtractorFileDurationNative() throws Exception {
         int res = R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz;
         testExtractorFileDurationNative(res);
@@ -303,6 +305,7 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
     private static native long getExtractorFileDurationNative(int fd, long offset, long size);
 
+    @Presubmit
     public void testExtractorCachedDurationNative() throws Exception {
         CtsTestServer foo = new CtsTestServer(mContext);
         String url = foo.getAssetUrl("ringer.mp3");
@@ -530,8 +533,9 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
         int stride = format.getInteger(MediaFormat.KEY_STRIDE, width);
         int height = format.getInteger(MediaFormat.KEY_HEIGHT, 1);
         byte[] bb = new byte[width * height];
+        int offset = buf.position();
         for (int i = 0; i < height; i++) {
-            buf.position(i * stride);
+            buf.position(i * stride + offset);
             buf.get(bb, i * width, width);
         }
         // bb is filled with data
@@ -590,6 +594,7 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     private static native boolean testPlaybackNative(Surface surface,
             int fd, long startOffset, long length);
 
+    @Presubmit
     public void testMuxerAvc() throws Exception {
         // IMPORTANT: this file must not have B-frames
         testMuxer(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz, false);
@@ -752,12 +757,14 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     private static native boolean testMuxerNative(int in, long inoffset, long insize,
             int out, boolean webm);
 
+    @Presubmit
     public void testFormat() throws Exception {
         assertTrue("media format fail, see log for details", testFormatNative());
     }
 
     private static native boolean testFormatNative();
 
+    @Presubmit
     public void testPssh() throws Exception {
         testPssh(R.raw.psshtest);
     }
@@ -793,12 +800,14 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
     private static native boolean testCryptoInfoNative();
 
+    @Presubmit
     public void testMediaFormat() throws Exception {
         assertTrue("native mediaformat failed, see log for details", testMediaFormatNative());
     }
 
     private static native boolean testMediaFormatNative();
 
+    @Presubmit
     public void testAMediaDataSourceClose() throws Throwable {
 
         final CtsTestServer slowServer = new SlowCtsTestServer();

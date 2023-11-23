@@ -16,10 +16,14 @@
 package com.android.tradefed.suite.checker;
 
 import com.android.annotations.VisibleForTesting;
+import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
+import com.android.tradefed.util.ProcessInfo;
+import com.android.tradefed.util.StreamUtil;
+
 
 /**
  * Check if the pid of system_server has changed from before and after a module run. A new pid would
@@ -27,33 +31,42 @@ import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
  */
 public class SystemServerStatusChecker implements ISystemStatusChecker {
 
-    private String mSystemServerPid = null;
-    private Long mModuleStartTime = null;
+    @Option(
+        name = "disable-recovery-reboot",
+        description =
+                "If status checker is detected down (no process), attempt to reboot the device."
+    )
+    private boolean mShouldRecover = true;
+
+    private ProcessInfo mSystemServerProcess;
+    private boolean mShouldSkip = false;
 
     /** {@inheritDoc} */
     @Override
     public StatusCheckerResult preExecutionCheck(ITestDevice device)
             throws DeviceNotAvailableException {
-        mSystemServerPid = null;
-        mSystemServerPid = device.executeShellCommand("pidof system_server");
+        if (mShouldSkip) {
+            return new StatusCheckerResult(CheckStatus.SUCCESS);
+        }
+        // process info relies on a time function fixed after P
+        if (device.getApiLevel() < 29) {
+            mShouldSkip = true;
+            CLog.d("Api level is under 29 skipping SystemServerStatusChecker");
+            return new StatusCheckerResult(CheckStatus.SUCCESS);
+        }
+        mSystemServerProcess = device.getProcessByName("system_server");
         StatusCheckerResult result = new StatusCheckerResult(CheckStatus.SUCCESS);
-        if (mSystemServerPid == null) {
-            String message = "Failed to get system_server pid.";
+        if (mSystemServerProcess == null) {
+            if (mShouldRecover) {
+                device.reboot();
+            }
+            String message = "No valid system_server process is found.";
             CLog.w(message);
             result.setStatus(CheckStatus.FAILED);
             result.setBugreportNeeded(true);
             result.setErrorMessage(message);
-            mModuleStartTime = null;
             return result;
         }
-        mSystemServerPid = mSystemServerPid.trim();
-        if (!checkValidPid(mSystemServerPid)) {
-            CLog.w(
-                    "Invalid pid response found: '%s'. Skipping the system checker.",
-                    mSystemServerPid);
-            mSystemServerPid = null;
-        }
-        mModuleStartTime = getCurrentTime();
         return result;
     }
 
@@ -61,35 +74,30 @@ public class SystemServerStatusChecker implements ISystemStatusChecker {
     @Override
     public StatusCheckerResult postExecutionCheck(ITestDevice device)
             throws DeviceNotAvailableException {
-        if (mSystemServerPid == null) {
-            CLog.d("No valid known value of system_server pid, skipping system checker.");
+        if (mShouldSkip) {
             return new StatusCheckerResult(CheckStatus.SUCCESS);
         }
-        String tmpSystemServerPid = device.executeShellCommand("pidof system_server");
-        if (tmpSystemServerPid != null) {
-            tmpSystemServerPid = tmpSystemServerPid.trim();
-        }
-        if (mSystemServerPid.equals(tmpSystemServerPid)) {
+        if (mSystemServerProcess == null) {
+            CLog.d(
+                    "No valid system_server process was found in preExecutionCheck, "
+                            + "skipping system_server postExecutionCheck.");
             return new StatusCheckerResult(CheckStatus.SUCCESS);
         }
-        String message =
-                String.format(
-                        "system_server has a different pid after the module run. from %s to %s",
-                        mSystemServerPid, tmpSystemServerPid);
-        CLog.w(message);
-        StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
-        // TODO: evaluate if we still need to fail the checker if it was a TF reboot
-        long lastExpectedReboot = device.getLastExpectedRebootTimeMillis();
-        if (mModuleStartTime != null && lastExpectedReboot < mModuleStartTime) {
-            // In case no Tradefed reboot was triggered, we capture a bugreport to figure this out.
-            CLog.w(
-                    "System_server pid changed and Tradefed didn't trigger a reboot: "
-                            + "last expected reboot: %s, module start time: %s, "
-                            + "something went wrong.",
-                    lastExpectedReboot, mModuleStartTime);
+        try {
+            if (!device.deviceSoftRestarted(mSystemServerProcess)) {
+                return new StatusCheckerResult(CheckStatus.SUCCESS);
+            }
+        } catch (RuntimeException e) {
+            CLog.w(StreamUtil.getStackTrace(e));
+            StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
             result.setBugreportNeeded(true);
+            result.setErrorMessage(StreamUtil.getStackTrace(e));
+            return result;
         }
-        result.setErrorMessage(message);
+
+        StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
+        result.setBugreportNeeded(true);
+        result.setErrorMessage("The system-server crashed during test execution");
         return result;
     }
 
@@ -99,17 +107,4 @@ public class SystemServerStatusChecker implements ISystemStatusChecker {
         return System.currentTimeMillis();
     }
 
-    /** Validate that pid is an integer and not empty. */
-    private boolean checkValidPid(String output) {
-        if (output.isEmpty()) {
-            return false;
-        }
-        try {
-            Integer.parseInt(output);
-        } catch (NumberFormatException e) {
-            return false;
-        }
-
-        return true;
-    }
 }

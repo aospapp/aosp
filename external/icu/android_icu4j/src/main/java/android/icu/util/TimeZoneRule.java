@@ -22,6 +22,7 @@ import java.util.Date;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.IntraCoreApi
 @libcore.api.CorePlatformApi
 public abstract class TimeZoneRule implements Serializable {
 
@@ -60,6 +61,7 @@ public abstract class TimeZoneRule implements Serializable {
      *
      * @return The standard time offset from UTC in milliseconds.
      */
+    @libcore.api.IntraCoreApi
     public int getRawOffset() {
         return rawOffset;
     }
@@ -70,6 +72,7 @@ public abstract class TimeZoneRule implements Serializable {
      * @return  The amount of daylight saving offset used by this rule
      *          in milliseconds.
      */
+    @libcore.api.IntraCoreApi
     @libcore.api.CorePlatformApi
     public int getDSTSavings() {
         return dstSavings;

@@ -33,6 +33,7 @@ class ProfileAttribute {
 
     const CgroupController* controller() const { return &controller_; }
     const std::string& file_name() const { return file_name_; }
+    void Reset(const CgroupController& controller, const std::string& file_name);
 
     bool GetPathForTask(int tid, std::string* path) const;
 
@@ -51,6 +52,7 @@ class ProfileAction {
     virtual bool ExecuteForTask(int) const { return false; };
 
     virtual void EnableResourceCaching() {}
+    virtual void DropResourceCaching() {}
 };
 
 // Profile actions
@@ -114,6 +116,7 @@ class SetCgroupAction : public ProfileAction {
     virtual bool ExecuteForProcess(uid_t uid, pid_t pid) const;
     virtual bool ExecuteForTask(int tid) const;
     virtual void EnableResourceCaching();
+    virtual void DropResourceCaching();
 
     const CgroupController* controller() const { return &controller_; }
     std::string path() const { return path_; }
@@ -141,14 +144,31 @@ class TaskProfile {
     TaskProfile() : res_cached_(false) {}
 
     void Add(std::unique_ptr<ProfileAction> e) { elements_.push_back(std::move(e)); }
+    void MoveTo(TaskProfile* profile);
 
     bool ExecuteForProcess(uid_t uid, pid_t pid) const;
     bool ExecuteForTask(int tid) const;
     void EnableResourceCaching();
+    void DropResourceCaching();
 
   private:
     bool res_cached_;
     std::vector<std::unique_ptr<ProfileAction>> elements_;
+};
+
+// Set aggregate profile element
+class ApplyProfileAction : public ProfileAction {
+  public:
+    ApplyProfileAction(const std::vector<std::shared_ptr<TaskProfile>>& profiles)
+        : profiles_(profiles) {}
+
+    virtual bool ExecuteForProcess(uid_t uid, pid_t pid) const;
+    virtual bool ExecuteForTask(int tid) const;
+    virtual void EnableResourceCaching();
+    virtual void DropResourceCaching();
+
+  private:
+    std::vector<std::shared_ptr<TaskProfile>> profiles_;
 };
 
 class TaskProfiles {
@@ -158,9 +178,12 @@ class TaskProfiles {
 
     TaskProfile* GetProfile(const std::string& name) const;
     const ProfileAttribute* GetAttribute(const std::string& name) const;
+    void DropResourceCaching() const;
+    bool SetProcessProfiles(uid_t uid, pid_t pid, const std::vector<std::string>& profiles);
+    bool SetTaskProfiles(int tid, const std::vector<std::string>& profiles, bool use_fd_cache);
 
   private:
-    std::map<std::string, std::unique_ptr<TaskProfile>> profiles_;
+    std::map<std::string, std::shared_ptr<TaskProfile>> profiles_;
     std::map<std::string, std::unique_ptr<ProfileAttribute>> attributes_;
 
     TaskProfiles();

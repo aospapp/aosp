@@ -40,6 +40,7 @@ _TEST_RUN_DIR_PREFIX = 'atest_integration_tests_%s_'
 _LOG_FILE = 'integration_tests.log'
 _FAILED_LINE_LIMIT = 50
 _INTEGRATION_TESTS = 'INTEGRATION_TESTS'
+_EXIT_TEST_FAILED = 1
 
 
 class ATestIntegrationTest(unittest.TestCase):
@@ -48,7 +49,7 @@ class ATestIntegrationTest(unittest.TestCase):
     EXECUTABLE = 'atest'
     OPTIONS = ''
     _RUN_CMD = '{exe} {options} {test}'
-    _PASSED_CRITERIAS = ['will be rescheduled', 'All tests passed']
+    _PASSED_CRITERIA = ['will be rescheduled', 'All tests passed']
 
     def setUp(self):
         """Set up stuff for testing."""
@@ -147,5 +148,6 @@ if __name__ == '__main__':
     finally:
         if RESULTS.failures:
             print('Full test log is saved to %s' % LOG_PATH)
+            sys.exit(_EXIT_TEST_FAILED)
         else:
             os.remove(LOG_PATH)

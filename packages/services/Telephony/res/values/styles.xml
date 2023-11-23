@@ -45,12 +45,34 @@
         <item name="android:layout_height">wrap_content</item>
     </style>
 
+    <style name="RadioInfo_entry_layout">
+        <item name="android:orientation">horizontal</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="info_value">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:textAppearance">@style/TextAppearance.info_value</item>
+    </style>
+
+    <style name="form_value">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_width">match_parent</item>
+    </style>
+
     <style name="TextAppearance" parent="android:TextAppearance">
     </style>
 
     <style name="TextAppearance.info_label">
         <item name="android:textSize">14sp</item>
         <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.info_value">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">normal</item>
     </style>
 
     <!-- Preference Style for the phone number preferences -->
@@ -170,7 +192,6 @@
 
     <style name="DialerSettingsLight" parent="SettingsLight">
         <!-- Action bar.-->
-        <item name="android:tint">@color/dialer_secondary_text_color</item>
         <item name="android:windowBackground">@color/dialer_background_color</item>
         <item name="android:actionModeBackground">@color/dialer_background_color</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -180,6 +201,7 @@
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:colorAccent">@color/dialer_theme_color</item>
         <item name="android:dialogTheme">@style/DialerAlertDialogTheme</item>
+        <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
     </style>
 
     <style name="DialerAlertDialogTheme"
@@ -187,21 +209,6 @@
         <item name="android:forceDarkAllowed">true</item>
         <item name="android:colorAccent">@color/dialer_theme_color</item>
         <item name="android:textColor">?android:attr/textColorPrimaryInverseDisableOnly</item>
-    </style>
-
-    <style name="NetworkOperatorsSettingsTheme" parent="@android:style/Theme.DeviceDefault.Settings">
-        <item name="android:forceDarkAllowed">true</item>
-        <item name="android:switchPreferenceStyle">@style/SettingsSwitchPreference</item>
-        <item name="android:preferenceCategoryStyle">@style/SettingsPreferenceCategory</item>
-        <item name="android:preferenceStyle">@style/SettingsPreference</item>
-        <item name="android:dialogPreferenceStyle">@style/SettingsDialogPreference</item>
-        <item name="android:preferenceScreenStyle">@style/SettingsPreferenceScreen</item>
-    </style>
-
-    <style name="TrimmedHorizontalProgressBar" parent="android:Widget.Material.ProgressBar.Horizontal">
-        <item name="android:indeterminateDrawable">@drawable/progress_indeterminate_horizontal_material_trimmed</item>
-        <item name="android:minHeight">3dip</item>
-        <item name="android:maxHeight">3dip</item>
     </style>
 
     <style name="Empty" parent="@android:style/Theme.Material.Light">
@@ -212,33 +219,6 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowIsFloating">true</item>
         <item name="android:backgroundDimEnabled">true</item>
-    </style>
-
-    <style name="InCallAnimationStyle" parent="@*android:style/Animation.Holo.Activity">
-        <!-- Suppress task-to-task animation happening during the transition from
-             OutgoingCallBroadcaster (and SipOptionHandler) to InCallScreen.
-             The transition unexpectedly happens during the transition (inside the phone task),
-             because InCallScreen is using android:launchMode="singleInstance".
-
-             - taskOpenEnterAnimation/taskOpenExitAnimation is used for the first time
-               InCallScreen instance is created.
-
-             - taskToFrontEnterAnimation/taskToFrontExitAnimation is used when InCallScreen
-               is already available.
-               (Note that InCallScreen won't be destroyed once it is created)
-
-             TODO: try removing the flag instead -->
-        <item name="*android:taskOpenEnterAnimation">@*android:anim/activity_open_enter</item>
-        <item name="*android:taskOpenExitAnimation">@*android:anim/activity_open_exit</item>
-        <item name="*android:taskToFrontEnterAnimation">@*android:anim/activity_open_enter</item>
-        <item name="*android:taskToFrontExitAnimation">@*android:anim/activity_open_exit</item>
-    </style>
-
-    <style name="OutgoingAnimationStyle" parent="@*android:style/Animation.Holo.Activity">
-        <!-- Suppress task-to-task transition animation happening from
-             DialtactsActivity to OutgoingCallBroadcaster. -->
-        <item name="*android:taskOpenEnterAnimation">@*android:anim/activity_open_enter</item>
-        <item name="*android:taskOpenExitAnimation">@*android:anim/activity_open_exit</item>
     </style>
 
     <!-- Style for the call settings action bar.  Should be kept in sync with Dialer. -->
@@ -271,7 +251,7 @@
         <item name="android:src">@drawable/overflow_menu</item>
     </style>
 
-    <style name="EmergencyDialerTheme" parent="@*android:style/Theme.DeviceDefault.Settings.Dark.NoActionBar">
+    <style name="EmergencyDialerTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:forceDarkAllowed">true</item>
         <item name="android:colorPrimaryDark">?android:attr/colorPrimary</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
@@ -279,8 +259,8 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
-        <item name="emergencyButtonBackgroundColor">#3cffffff</item>
-        <item name="dialpadTheme">@style/Dialpad_DarkTransparent</item>
+        <item name="emergencyButtonBackgroundColor">#10ffffff</item>
+        <item name="dialpadTheme">@style/Dialpad_DarkTransparent.Emergency</item>
     </style>
 
     <style name="EmergencyDialerThemeDark" parent="@style/EmergencyDialerTheme">
@@ -288,7 +268,15 @@
         <item name="android:textColor">?android:attr/textColorPrimaryInverse</item>
         <item name="emergencyButtonBackgroundColor">#19414549</item>
         <item name="android:colorControlHighlight">#40000000</item>
-        <item name="dialpadTheme">@style/Dialpad_LightTransparent</item>
+        <item name="dialpadTheme">@style/Dialpad_LightTransparent.Emergency</item>
+    </style>
+
+    <style name="Dialpad_LightTransparent.Emergency">
+        <item name="dialpad_delete_padding">16dp</item>
+    </style>
+
+    <style name="Dialpad_DarkTransparent.Emergency">
+        <item name="dialpad_delete_padding">16dp</item>
     </style>
 
     <style name="EmergencyDialerAlertDialogTheme"
@@ -303,13 +291,6 @@
         <item name="android:colorPrimaryDark">@color/dialer_theme_color_dark</item>
         <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
         <item name="android:actionOverflowButtonStyle">@style/DialtactsActionBarOverflow</item>
-    </style>
-
-    <style name="OutgoingCallBroadcasterTheme" parent="@android:style/Theme.Holo.NoActionBar">
-        <item name="android:forceDarkAllowed">true</item>
-        <item name="android:windowBackground">@android:color/black</item>
-
-        <item name="*android:windowAnimationStyle">@style/OutgoingAnimationStyle</item>
     </style>
 
     <style name="DialtactsDigitsTextAppearance">
@@ -330,30 +311,48 @@
         <item name="android:backgroundDimEnabled">false</item>
     </style>
 
-    <style name="CallSettingsWithoutDividerTheme" parent="SettingsLight">
-        <item name="android:forceDarkAllowed">true</item>
+    <style name="CallSettingsWithoutDividerTheme" parent="DialerSettingsLight">
         <item name="android:listDivider">@null</item>
     </style>
 
-    <style name="HeadlineTextAppearance">
+    <style name="EmergencyInfoNameTextAppearance"
+           parent="@android:style/TextAppearance.Material.Subhead">
+        <item name="android:textColor">@color/primary_text_default_material_dark</item>
+        <item name="android:textSize">@dimen/emergency_info_name_text_size</item>
+    </style>
+
+    <style name="EmergencyInfoHintTextAppearance"
+           parent="@android:style/TextAppearance.Material.Subhead">
+        <item name="android:textColor">@color/secondary_text_default_material_dark</item>
+        <item name="android:textSize">@dimen/emergency_info_hint_text_size</item>
+    </style>
+
+    <style name="EmergencyInfoTapHintTextAppearance"
+           parent="@android:style/TextAppearance.Material.Subhead">
         <item name="android:textColor">@android:color/white</item>
-        <item name="android:textSize">22sp</item>
+        <item name="android:textSize">@dimen/emergency_info_tap_hint_text_size</item>
     </style>
 
-    <style name="SubtitleTextAppearance" parent="@style/HeadlineTextAppearance">
-        <item name="android:textSize">14sp</item>
+    <style name="ShortcutViewHintTextAppearance"
+           parent="@android:style/TextAppearance.Material.Subhead">
+        <item name="android:textColor">@color/secondary_text_default_material_dark</item>
     </style>
 
-    <style name="PhoneNumberTextAppearance">
+    <style name="PhoneNumberTextAppearance"
+           parent="@android:style/TextAppearance.Material.Subhead">
+        <item name="android:textColor">@color/primary_text_default_material_light</item>
+        <item name="android:textSize">@dimen/emergency_shortcut_number_text_size</item>
+    </style>
+
+    <style name="PhoneNumberTypeAppearance">
+        <item name="android:fontFamily">roboto</item>
+        <item name="android:textColor">@color/secondary_text_default_material_light</item>
+        <item name="android:textSize">@dimen/emergency_shortcut_type_text_size</item>
+    </style>
+
+    <style name="PhoneNumberTapHintAppearance"
+           parent="@android:style/TextAppearance.Material.Subhead">
         <item name="android:textColor">@android:color/white</item>
-        <item name="android:textSize">32sp</item>
-    </style>
-
-    <style name="PhoneCallHintTextAppearance" parent="@style/PhoneNumberTextAppearance">
-        <item name="android:textSize">18sp</item>
-    </style>
-
-    <style name="ShortcutsHintTextAppearance" parent="@style/HeadlineTextAppearance">
-        <item name="android:textSize">16sp</item>
+        <item name="android:textSize">@dimen/emergency_shortcut_tap_hint_text_size</item>
     </style>
 </resources>

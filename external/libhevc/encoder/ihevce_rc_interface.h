@@ -207,11 +207,7 @@ void ihevce_vbv_compliance_frame_level_update(
 void ihevce_vbv_complaince_init_level(void *pv_ctxt, vui_t *ps_vui);
 
 void ihevce_rc_register_dyn_change_bitrate(
-    void *pv_ctxt,
-    LWORD64 i8_new_bitrate,
-    LWORD64 i8_new_peak_bitrate,
-    WORD32 i4_new_rate_factor,
-    WORD32 i4_rate_control_mode);
+    void *pv_ctxt, LWORD64 i8_new_bitrate, LWORD64 i8_new_peak_bitrate);
 LWORD64 ihevce_rc_get_new_bitrate(void *pv_ctxt);
 
 LWORD64 ihevce_rc_get_new_peak_bitrate(void *pv_ctxt);

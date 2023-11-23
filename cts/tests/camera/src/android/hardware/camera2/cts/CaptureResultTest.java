@@ -21,6 +21,7 @@ import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.BlackLevelPattern;
@@ -37,6 +38,7 @@ import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
 import static android.hardware.camera2.cts.helpers.CameraSessionUtils.*;
+import static junit.framework.Assert.*;
 
 import android.util.Log;
 import android.view.Surface;
@@ -51,6 +53,11 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.runners.Parameterized;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(Parameterized.class)
 public class CaptureResultTest extends Camera2AndroidTestCase {
     private static final String TAG = "CaptureResultTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -58,29 +65,20 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
     private static final int NUM_FRAMES_VERIFIED = 30;
     private static final long WAIT_FOR_RESULT_TIMEOUT_MS = 3000;
 
+    /** Load validation jni on initialization. */
+    static {
+        System.loadLibrary("ctscamera2_jni");
+    }
 
     // List tracking the failed test keys.
 
     @Override
-    public void setContext(Context context) {
-        super.setContext(context);
-
-        /**
-         * Workaround for mockito and JB-MR2 incompatibility
-         *
-         * Avoid java.lang.IllegalArgumentException: dexcache == null
-         * https://code.google.com/p/dexmaker/issues/detail?id=2
-         */
-        System.setProperty("dexmaker.dexcache", getContext().getCacheDir().toString());
-    }
-
-    @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         super.tearDown();
     }
 
@@ -95,8 +93,9 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
      * a capture result.
      * </p>
      */
+    @Test
     public void testCameraCaptureResultAllKeys() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 openDevice(id);
                 if (mStaticInfo.isColorOutputSupported()) {
@@ -149,10 +148,11 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
      * onCaptureProgressed callbacks.
      * </ul></p>
      */
+    @Test
     public void testPartialResult() throws Exception {
         final int NUM_FRAMES_TESTED = 30;
         final int WAIT_FOR_RESULT_TIMOUT_MS = 2000;
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 // Skip the test if partial result is not supported
                 int partialResultCount = mAllStaticInfo.get(id).getPartialResultCount();
@@ -264,10 +264,13 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
      * Check that the timestamps passed in the results, buffers, and capture callbacks match for
      * a single request, and increase monotonically
      */
+    @Test
     public void testResultTimestamps() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             ImageReader previewReader = null;
             ImageReader jpegReader = null;
+
+            CaptureResult resultForNdk = null;
 
             SimpleImageReaderListener jpegListener = new SimpleImageReaderListener();
             SimpleImageReaderListener prevListener = new SimpleImageReaderListener();
@@ -367,11 +370,41 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
                         resultDiff, clockDiff);
                 mCollector.expectGreater("Timestamps must be increasing.", result3.second,
                         result4.second);
+
+                resultForNdk = result.first;
             } finally {
                 closeDevice(id);
                 closeImageReader(previewReader);
                 closeImageReader(jpegReader);
             }
+
+            mCollector.expectTrue(
+                "validateACameraMetadataFromCameraMetadataCriticalTagsNative failed",
+                validateACameraMetadataFromCameraMetadataCriticalTagsNative(resultForNdk,
+                        resultForNdk.get(CaptureResult.SENSOR_TIMESTAMP)));
+
+            long timestamp = resultForNdk.get(CaptureResult.SENSOR_TIMESTAMP);
+            mCollector.expectTrue(
+                "stashACameraMetadataFromCameraMetadataNative failed",
+                stashACameraMetadataFromCameraMetadataNative(resultForNdk));
+
+            // Try to drop the Java side object here
+            resultForNdk = null;
+            int[] block = null;
+            final int count = 9;
+            for (int i = 0; i < count + 1; i++) {
+                block = new int[1000000];
+                block[1000 + i] = i;
+
+                Runtime.getRuntime().gc();
+                Runtime.getRuntime().runFinalization();
+
+                mCollector.expectTrue("This should never fail", block[1000 + i] == i);
+            }
+            mCollector.expectTrue(
+                "validateStashedACameraMetadataFromCameraMetadataNative failed",
+                validateStashedACameraMetadataFromCameraMetadataNative(timestamp));
+            mCollector.expectTrue("This should never fail", block[1000 + count] == count);
         }
     }
 
@@ -401,16 +434,22 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         }
 
         TotalCaptureResult result = null;
+        // List of (frameNumber, physical camera Id) pairs
+        ArrayList<Pair<Long, String>> droppedPhysicalResults = new ArrayList<>();
         for (int i = 0; i < numFramesVerified; i++) {
             result = captureListener.getTotalCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+
             Map<String, CaptureResult> physicalCaptureResults = result.getPhysicalCameraResults();
-            errorCollector.expectEquals("Number of physical result metadata doesn't match " +
-                    physicalCaptureResults.size() + " vs " + requestedPhysicalIds.size(),
-                    physicalCaptureResults.size(), requestedPhysicalIds.size());
+            ArrayList<String> droppedIds = new ArrayList<String>(requestedPhysicalIds);
+            droppedIds.removeAll(physicalCaptureResults.keySet());
+            for (String droppedId : droppedIds) {
+                droppedPhysicalResults.add(
+                        new Pair<Long, String>(result.getFrameNumber(), droppedId));
+            }
 
             validateOneCaptureResult(errorCollector, staticInfo, waiverKeys, allKeys,
                     requestBuilder, result, null/*cameraId*/, i);
-            for (String physicalId : requestedPhysicalIds) {
+            for (String physicalId : physicalCaptureResults.keySet()) {
                 StaticMetadata physicalStaticInfo = allStaticInfo.get(physicalId);
                 validateOneCaptureResult(errorCollector, physicalStaticInfo,
                         physicalWaiverKeys.get(physicalId),
@@ -418,6 +457,23 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
                         physicalId, i);
             }
         }
+
+        // Verify that all dropped physical camera results are notified via capture failure.
+        while (captureListener.hasMoreFailures()) {
+            ArrayList<CaptureFailure> failures =
+                    captureListener.getCaptureFailures(/*maxNumFailures*/ 1);
+            for (CaptureFailure failure : failures) {
+                String failedPhysicalId = failure.getPhysicalCameraId();
+                Long failedFrameNumber = failure.getFrameNumber();
+                if (failedPhysicalId != null) {
+                    droppedPhysicalResults.removeIf(
+                            n -> n.equals(
+                            new Pair<Long, String>(failedFrameNumber, failedPhysicalId)));
+                }
+            }
+        }
+        errorCollector.expectTrue("Not all dropped results for physical cameras are notified",
+                droppedPhysicalResults.isEmpty());
     }
 
     private static void validateOneCaptureResult(CameraErrorCollector errorCollector,
@@ -673,6 +729,10 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
             waiverKeys.add(CaptureResult.STATISTICS_OIS_SAMPLES);
         }
 
+        if (staticInfo.getAvailableExtendedSceneModeCapsChecked().length == 0) {
+            waiverKeys.add(CaptureResult.CONTROL_EXTENDED_SCENE_MODE);
+        }
+
         if (staticInfo.isHardwareLevelAtLeastFull()) {
             return waiverKeys;
         }
@@ -783,6 +843,7 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         waiverKeys.add(CaptureResult.CONTROL_AF_MODE);
         waiverKeys.add(CaptureResult.CONTROL_AWB_MODE);
         waiverKeys.add(CaptureResult.CONTROL_AWB_LOCK);
+        waiverKeys.add(CaptureResult.CONTROL_ZOOM_RATIO);
         waiverKeys.add(CaptureResult.STATISTICS_FACE_DETECT_MODE);
         waiverKeys.add(CaptureResult.FLASH_MODE);
         waiverKeys.add(CaptureResult.SCALER_CROP_REGION);
@@ -880,6 +941,16 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         }
     }
 
+    // Returns true if `result` has timestamp `sensorTimestamp` when queried from the NDK via
+    // ACameraMetadata_fromCameraMetadata().
+    private static native boolean validateACameraMetadataFromCameraMetadataCriticalTagsNative(
+        CaptureResult result, long sensorTimestamp);
+
+    // First stash a native ACameraMetadata created from a capture result, then compare the stored value
+    // to the passed-in timestamp.
+    private static native boolean stashACameraMetadataFromCameraMetadataNative(CaptureResult result);
+    private static native boolean validateStashedACameraMetadataFromCameraMetadataNative(long timestamp);
+
     /**
      * TODO: Use CameraCharacteristics.getAvailableCaptureResultKeys() once we can filter out
      * @hide keys.
@@ -922,6 +993,8 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         resultKeys.add(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
         resultKeys.add(CaptureResult.CONTROL_ENABLE_ZSL);
         resultKeys.add(CaptureResult.CONTROL_AF_SCENE_CHANGE);
+        resultKeys.add(CaptureResult.CONTROL_EXTENDED_SCENE_MODE);
+        resultKeys.add(CaptureResult.CONTROL_ZOOM_RATIO);
         resultKeys.add(CaptureResult.EDGE_MODE);
         resultKeys.add(CaptureResult.FLASH_MODE);
         resultKeys.add(CaptureResult.FLASH_STATE);

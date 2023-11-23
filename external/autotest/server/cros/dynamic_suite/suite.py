@@ -35,10 +35,9 @@ from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.dynamic_suite.job_status import Status
 
 try:
-    from chromite.lib import boolparse_lib
-    from chromite.lib import cros_logging as logging
-except ImportError:
-    print 'Unable to import chromite.'
+    from autotest_lib.server.cros.dynamic_suite import boolparse_lib
+except ImportError as e:
+    print 'Unable to import boolparse_lib: %s' % (e,)
     print 'This script must be either:'
     print '  - Be run in the chroot.'
     print '  - (not yet supported) be run after running '
@@ -1328,6 +1327,8 @@ class Suite(_BaseSuite):
             name_in_tag_similarity_predicate)
     test_name_equals_predicate = _deprecated_suite_method(
             test_name_equals_predicate)
+    test_name_in_list_predicate = _deprecated_suite_method(
+            suite_common.test_name_in_list_predicate)
     test_name_matches_pattern_predicate = _deprecated_suite_method(
             test_name_matches_pattern_predicate)
     test_file_matches_pattern_predicate = _deprecated_suite_method(
@@ -1716,9 +1717,6 @@ class _ResultReporter(object):
 class _EmailReporter(_ResultReporter):
     """Class that emails based on test failures."""
 
-    # TODO(akeshet): Document what |bug_template| is actually supposed to come
-    # from, and rename it to something unrelated to "bugs" which are no longer
-    # relevant now that this is purely an email sender.
     def __init__(self, suite, bug_template=None):
         self._suite = suite
         self._bug_template = bug_template or {}

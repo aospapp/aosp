@@ -21,13 +21,15 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 /**
  * Unit tests for {@link com.android.server.wifi.util.StringUtil}.
  */
 @SmallTest
-public class StringUtilTest {
+public class StringUtilTest extends WifiBaseTest {
     static final byte ASCII_UNIT_SEPARATOR = 31;
     static final byte ASCII_DEL = 127;
 

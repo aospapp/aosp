@@ -16,7 +16,7 @@
 
 package libcore.io;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import java.util.Objects;
 
 /** @hide */

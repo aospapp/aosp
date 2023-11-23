@@ -16,21 +16,22 @@
 
 package android.net.dhcp;
 
-import static android.net.shared.Inet4AddressUtils.getPrefixMaskAsInet4Address;
-import static android.net.shared.Inet4AddressUtils.intToInet4AddressHTH;
-
+import static com.android.net.module.util.Inet4AddressUtils.getPrefixMaskAsInet4Address;
+import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTH;
 import static com.android.server.util.NetworkStackConstants.INFINITE_LEASE;
 import static com.android.server.util.NetworkStackConstants.IPV4_MAX_MTU;
 import static com.android.server.util.NetworkStackConstants.IPV4_MIN_MTU;
 
 import static java.lang.Integer.toUnsignedLong;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.net.IpPrefix;
 import android.net.LinkAddress;
-import android.net.shared.Inet4AddressUtils;
 import android.util.ArraySet;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.android.net.module.util.Inet4AddressUtils;
 
 import java.net.Inet4Address;
 import java.util.Arrays;
@@ -84,6 +85,19 @@ public class DhcpServingParams {
     public final boolean metered;
 
     /**
+     * Client inet address. This will be the only address offered by DhcpServer if set.
+     */
+    @Nullable
+    public final Inet4Address singleClientAddr;
+
+    /**
+     * Indicates whether the DHCP server should request a new prefix from IpServer when receiving
+     * DHCPDECLINE message in certain particular link (e.g. there is only one downstream USB
+     * tethering client). If it's false, process DHCPDECLINE message as RFC2131#4.3.3 suggests.
+     */
+    public final boolean changePrefixOnDecline;
+
+    /**
      * Checked exception thrown when some parameters used to build {@link DhcpServingParams} are
      * missing or invalid.
      */
@@ -96,7 +110,8 @@ public class DhcpServingParams {
     private DhcpServingParams(@NonNull LinkAddress serverAddr,
             @NonNull Set<Inet4Address> defaultRouters,
             @NonNull Set<Inet4Address> dnsServers, @NonNull Set<Inet4Address> excludedAddrs,
-            long dhcpLeaseTimeSecs, int linkMtu, boolean metered) {
+            long dhcpLeaseTimeSecs, int linkMtu, boolean metered, Inet4Address singleClientAddr,
+            boolean changePrefixOnDecline) {
         this.serverAddr = serverAddr;
         this.defaultRouters = defaultRouters;
         this.dnsServers = dnsServers;
@@ -104,6 +119,8 @@ public class DhcpServingParams {
         this.dhcpLeaseTimeSecs = dhcpLeaseTimeSecs;
         this.linkMtu = linkMtu;
         this.metered = metered;
+        this.singleClientAddr = singleClientAddr;
+        this.changePrefixOnDecline = changePrefixOnDecline;
     }
 
     /**
@@ -118,6 +135,11 @@ public class DhcpServingParams {
         final LinkAddress serverAddr = new LinkAddress(
                 intToInet4AddressHTH(parcel.serverAddr),
                 parcel.serverAddrPrefixLength);
+        Inet4Address clientAddr = null;
+        if (parcel.singleClientAddr != 0) {
+            clientAddr = intToInet4AddressHTH(parcel.singleClientAddr);
+        }
+
         return new Builder()
                 .setServerAddr(serverAddr)
                 .setDefaultRouters(toInet4AddressSet(parcel.defaultRouters))
@@ -126,6 +148,8 @@ public class DhcpServingParams {
                 .setDhcpLeaseTimeSecs(parcel.dhcpLeaseTimeSecs)
                 .setLinkMtu(parcel.linkMtu)
                 .setMetered(parcel.metered)
+                .setSingleClientAddr(clientAddr)
+                .setChangePrefixOnDecline(parcel.changePrefixOnDecline)
                 .build();
     }
 
@@ -180,6 +204,8 @@ public class DhcpServingParams {
         private long mDhcpLeaseTimeSecs;
         private int mLinkMtu = MTU_UNSET;
         private boolean mMetered;
+        private Inet4Address mClientAddr;
+        private boolean mChangePrefixOnDecline;
 
         /**
          * Set the server address and served prefix for the DHCP server.
@@ -304,6 +330,27 @@ public class DhcpServingParams {
         }
 
         /**
+         * Set the client address.
+         *
+         * <p>If not set, the default value is null.
+         */
+        public Builder setSingleClientAddr(@Nullable Inet4Address clientAddr) {
+            this.mClientAddr = clientAddr;
+            return this;
+        }
+
+        /**
+         * Set whether the DHCP server should request a new prefix from IpServer when receiving
+         * DHCPDECLINE message in certain particular link.
+         *
+         * <p>If not set, the default value is false.
+         */
+        public Builder setChangePrefixOnDecline(boolean changePrefixOnDecline) {
+            this.mChangePrefixOnDecline = changePrefixOnDecline;
+            return this;
+        }
+
+        /**
          * Create a new {@link DhcpServingParams} instance based on parameters set in the builder.
          *
          * <p>This method has no side-effects. If it does not throw, a valid
@@ -357,7 +404,7 @@ public class DhcpServingParams {
                     Collections.unmodifiableSet(new HashSet<>(mDefaultRouters)),
                     Collections.unmodifiableSet(new HashSet<>(mDnsServers)),
                     Collections.unmodifiableSet(excl),
-                    mDhcpLeaseTimeSecs, mLinkMtu, mMetered);
+                    mDhcpLeaseTimeSecs, mLinkMtu, mMetered, mClientAddr, mChangePrefixOnDecline);
         }
     }
 

@@ -12,9 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-java_import {
+java_binary_host {
     name: "dokka",
-    host_supported: true,
-    jars: ["maven/org/jetbrains/dokka/dokka-fatjar/0.9.17-g20190326/dokka-fatjar-0.9.17-g20190326.jar"],
-    installable: true,
+    srcs: [
+        "core/src/main/**/*.kt",
+        "runners/cli/**/*.kt",
+        "integration/**/*.kt",
+        "buildSrc/**/*.groovy"
+    ],
+    static_libs: [
+      "dokka-tools-common-m2-deps",
+    ],
+    // Pin to Java 8 since dokka doesn't compile with the Java 9 module system
+    // (it references packages under com.sun.tools.doclets which are not
+    // exported from the jdk.javadoc module) (see b/140097603):
+    java_version: "1.8",
+    kotlincflags: ["-language-version 1.2 -api-version 1.2 -jvm-target 1.8"],
+    use_tools_jar: true,
+    java_resource_dirs: ["core/src/main/resources"],
 }

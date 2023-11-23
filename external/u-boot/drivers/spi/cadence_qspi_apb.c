@@ -77,6 +77,7 @@
 
 #define	CQSPI_REG_WR_INSTR			0x08
 #define	CQSPI_REG_WR_INSTR_OPCODE_LSB		0
+#define	CQSPI_REG_WR_INSTR_TYPE_DATA_LSB	16
 
 #define	CQSPI_REG_DELAY				0x0C
 #define	CQSPI_REG_DELAY_TSLCH_LSB		0
@@ -686,14 +687,14 @@ failrd:
 
 /* Opcode + Address (3/4 bytes) */
 int cadence_qspi_apb_indirect_write_setup(struct cadence_spi_platdata *plat,
-	unsigned int cmdlen, const u8 *cmdbuf)
+	unsigned int cmdlen, unsigned int tx_width, const u8 *cmdbuf)
 {
 	unsigned int reg;
 	unsigned int addr_bytes = cmdlen > 4 ? 4 : 3;
 
 	if (cmdlen < 4 || cmdbuf == NULL) {
-		printf("QSPI: iInvalid input argument, len %d cmdbuf 0x%08x\n",
-		       cmdlen, (unsigned int)cmdbuf);
+		printf("QSPI: Invalid input argument, len %d cmdbuf %p\n",
+		       cmdlen, cmdbuf);
 		return -EINVAL;
 	}
 	/* Setup the indirect trigger address */
@@ -702,6 +703,10 @@ int cadence_qspi_apb_indirect_write_setup(struct cadence_spi_platdata *plat,
 
 	/* Configure the opcode */
 	reg = cmdbuf[0] << CQSPI_REG_WR_INSTR_OPCODE_LSB;
+
+	if (tx_width & SPI_TX_QUAD)
+		reg |= CQSPI_INST_TYPE_QUAD << CQSPI_REG_WR_INSTR_TYPE_DATA_LSB;
+
 	writel(reg, plat->regbase + CQSPI_REG_WR_INSTR);
 
 	/* Setup write address. */

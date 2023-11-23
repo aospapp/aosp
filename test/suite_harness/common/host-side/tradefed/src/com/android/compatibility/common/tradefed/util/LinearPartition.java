@@ -90,7 +90,7 @@ public class LinearPartition {
         int[][] solution = new int[n - 1][k - 1];
 
         for (int i = 0; i < n; i++) {
-            table[i][0] = seq.get(i).getRuntimeHint() + ((i > 0) ? (table[i - 1][0]) : 0);
+            table[i][0] = seq.get(i).getRuntimeHint() + ((i > 0) ? table[i - 1][0] : 0);
         }
 
         for (int j = 0; j < k; j++) {

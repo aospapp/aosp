@@ -75,18 +75,6 @@ class CFMFacadeRemoteAdapter(object):
         self._cfm_proxy.wait_for_telemetry_commands()
 
 
-    def wait_for_hangouts_telemetry_commands(self):
-        """Wait for Hangouts App telemetry commands."""
-        logging.info('Waiting for Hangouts telemetry commands...')
-        self._cfm_proxy.wait_for_hangouts_telemetry_commands()
-
-
-    def wait_for_meetings_telemetry_commands(self):
-        """Waits for Meet App telemetry commands."""
-        logging.info('Waiting for Meet telemetry commands...')
-        self._cfm_proxy.wait_for_meetings_telemetry_commands()
-
-
     def wait_for_meetings_in_call_page(self):
         """Waits for the in-call page to launch."""
         self._cfm_proxy.wait_for_meetings_in_call_page()

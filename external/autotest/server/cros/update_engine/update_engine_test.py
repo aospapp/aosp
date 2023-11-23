@@ -5,13 +5,13 @@
 import json
 import logging
 import os
-import update_engine_event as uee
 import urlparse
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.client.cros.update_engine import update_engine_event as uee
 from autotest_lib.client.cros.update_engine import update_engine_util
 from autotest_lib.server import autotest
 from autotest_lib.server import test
@@ -19,7 +19,6 @@ from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.update_engine import omaha_devserver
 from chromite.lib import retry_util
 from datetime import datetime, timedelta
-from update_engine_event import UpdateEngineEvent
 
 
 class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
@@ -88,6 +87,7 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
 
 
     def cleanup(self):
+        """Clean up update_engine autotests."""
         if self._omaha_devserver is not None:
             self._omaha_devserver.stop_devserver()
         if self._host:
@@ -101,20 +101,20 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
         in the correct order with the correct data, timeout, and error
         condition function.
         """
-        initial_check = UpdateEngineEvent(
+        initial_check = uee.UpdateEngineEvent(
             version=source_release,
             on_error=self._error_initial_check)
-        download_started = UpdateEngineEvent(
+        download_started = uee.UpdateEngineEvent(
             event_type=uee.EVENT_TYPE_DOWNLOAD_STARTED,
             event_result=uee.EVENT_RESULT_SUCCESS,
             version=source_release,
             on_error=self._error_incorrect_event)
-        download_finished = UpdateEngineEvent(
+        download_finished = uee.UpdateEngineEvent(
             event_type=uee.EVENT_TYPE_DOWNLOAD_FINISHED,
             event_result=uee.EVENT_RESULT_SUCCESS,
             version=source_release,
             on_error=self._error_incorrect_event)
-        update_complete = UpdateEngineEvent(
+        update_complete = uee.UpdateEngineEvent(
             event_type=uee.EVENT_TYPE_UPDATE_COMPLETE,
             event_result=uee.EVENT_RESULT_SUCCESS,
             version=source_release,
@@ -149,7 +149,7 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
     def _get_expected_event_for_post_reboot_check(self, source_release,
                                                   target_release):
         """Creates the expected event fired during post-reboot update check."""
-        post_reboot_check = UpdateEngineEvent(
+        post_reboot_check = uee.UpdateEngineEvent(
             event_type=uee.EVENT_TYPE_REBOOTED_AFTER_UPDATE,
             event_result=uee.EVENT_RESULT_SUCCESS,
             version=target_release,
@@ -315,26 +315,31 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
                 'receive %s within %d seconds.' % (desc, timeout))
 
 
-    def _stage_payload_by_uri(self, payload_uri):
+    def _stage_payload_by_uri(self, payload_uri, properties_file=True):
         """Stage a payload based on its GS URI.
 
         This infers the build's label, filename and GS archive from the
         provided GS URI.
 
         @param payload_uri: The full GS URI of the payload.
+        @param properties_file: If true, it will stage the update payload
+                                properties file too.
 
-        @return URL of the staged payload on the server.
+        @return URL of the staged payload (and properties file) on the server.
 
         @raise error.TestError if there's a problem with staging.
 
         """
         archive_url, _, filename = payload_uri.rpartition('/')
         build_name = urlparse.urlsplit(archive_url).path.strip('/')
-        return self._stage_payload(build_name, filename,
+        filenames = [filename]
+        if properties_file:
+            filenames.append(filename + '.json')
+        return self._stage_payload(build_name, filenames,
                                    archive_url=archive_url)
 
 
-    def _stage_payload(self, build_name, filename, archive_url=None):
+    def _stage_payload(self, build_name, filenames, archive_url=None):
         """Stage the given payload onto the devserver.
 
         Works for either a stateful or full/delta test payload. Expects the
@@ -343,24 +348,48 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
         @param build_name: The build name e.g. x86-mario-release/<version>.
                            If set, assumes default gs archive bucket and
                            requires filename to be specified.
-        @param filename: In conjunction with build_name, this is the file you
-                         are downloading.
+        @param filenames: In conjunction with build_name, these are the files
+                          you are downloading.
         @param archive_url: An optional GS archive location, if not using the
                             devserver's default.
 
-        @return URL of the staged payload on the server.
+        @return URL of the staged payload (and properties file) on the server.
 
         @raise error.TestError if there's a problem with staging.
 
         """
         try:
             self._autotest_devserver.stage_artifacts(image=build_name,
-                                                     files=[filename],
+                                                     files=filenames,
                                                      archive_url=archive_url)
-            return self._autotest_devserver.get_staged_file_url(filename,
-                                                                build_name)
+            return (self._autotest_devserver.get_staged_file_url(f, build_name)
+                    for f in filenames)
         except dev_server.DevServerException, e:
             raise error.TestError('Failed to stage payload: %s' % e)
+
+
+    def _get_least_loaded_devserver(self, test_conf):
+        """Find a devserver to use.
+
+        We first try to pick a devserver with the least load. In case all
+        devservers' load are higher than threshold, fall back to
+        the old behavior by picking a devserver based on the payload URI,
+        with which ImageServer.resolve will return a random devserver based on
+        the hash of the URI. The picked devserver needs to respect the
+        location of the host if 'prefer_local_devserver' is set to True or
+        'restricted_subnets' is  set.
+
+        @param test_conf: a dictionary of test settings.
+        """
+        # TODO(dhaddock): Change back to using least loaded when
+        # crbug.com/1010226 is resolved.
+        autotest_devserver = dev_server.ImageServer.resolve(
+            test_conf['target_payload_uri'], self._host.hostname)
+        devserver_hostname = urlparse.urlparse(
+            autotest_devserver.url()).hostname
+
+        logging.info('Devserver chosen for this run: %s', devserver_hostname)
+        return autotest_devserver
 
 
     def _get_payload_url(self, build=None, full_payload=True):
@@ -396,29 +425,25 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
         return payloads[0]
 
 
-    def _get_staged_file_info(self, staged_url, retries=5):
+    def _get_partial_path_from_url(self, url):
         """
-        Gets the staged files info that includes SHA256 and size.
+        Strip partial path to payload from GS Url.
 
-        @param staged_url: the staged file url.
-        @param retries: Number of times to try get the file info.
+        Example: gs://chromeos-image-archive/samus-release/R77-112.0.0/bla.bin
+        returns samus-release/R77-112.0.0/bla.bin.
 
-        @returns file info (SHA256 and size).
+        @param url: The Google Storage url.
 
         """
-        split_url = staged_url.rpartition('/static/')
-        file_info_url = os.path.join(split_url[0], 'api/fileinfo', split_url[2])
-        logging.info('file info url: %s', file_info_url)
-        devserver_hostname = urlparse.urlparse(file_info_url).hostname
-        cmd = 'ssh %s \'curl "%s"\'' % (devserver_hostname,
-                                        utils.sh_escape(file_info_url))
-        for i in range(retries):
-            try:
-                result = utils.run(cmd).stdout
-                return json.loads(result)
-            except error.CmdError as e:
-                logging.error('Failed to read file info: %s', e)
-        raise error.TestError('Could not reach fileinfo API on devserver.')
+        gs = dev_server._get_image_storage_server()
+        staged_path = url.partition(gs)
+        return staged_path[2]
+
+
+    @staticmethod
+    def _get_stateful_uri(build_uri):
+        """Returns a complete GS URI of a stateful update given a build path."""
+        return '/'.join([build_uri.rstrip('/'), 'stateful.tgz'])
 
 
     def _get_job_repo_url(self):
@@ -431,6 +456,35 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
         return info.attributes.get(self._host.job_repo_url_attribute, '')
 
 
+    def _stage_payloads(self, payload_uri, archive_uri, payload_type='full'):
+        """Stages a payload and its associated stateful on devserver."""
+        if payload_uri:
+            staged_uri, _ = self._stage_payload_by_uri(payload_uri)
+            logging.info('Staged %s payload from %s at %s.', payload_type,
+                         payload_uri, staged_uri)
+
+            # Figure out where to get the matching stateful payload.
+            if archive_uri:
+                stateful_uri = self._get_stateful_uri(archive_uri)
+            else:
+                stateful_uri = self._payload_to_stateful_uri(payload_uri)
+            staged_stateful = self._stage_payload_by_uri(
+                stateful_uri, properties_file=False)
+
+            logging.info('Staged stateful from %s at %s.', stateful_uri,
+                         staged_stateful)
+            return staged_uri, staged_stateful
+
+        return None, None
+
+    def _payload_to_stateful_uri(self, payload_uri):
+        """Given a payload GS URI, returns the corresponding stateful URI."""
+        build_uri = payload_uri.rpartition('/')[0]
+        if build_uri.endswith('payloads'):
+            build_uri = build_uri.rpartition('/')[0]
+        return self._get_stateful_uri(build_uri)
+
+
     def _copy_payload_to_public_bucket(self, payload_url):
         """
         Copy payload and make link public.
@@ -441,9 +495,9 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
 
         """
         payload_filename = payload_url.rpartition('/')[2]
-        utils.run('gsutil cp %s %s' % (payload_url, self._CELLULAR_BUCKET))
+        utils.run('gsutil cp %s* %s' % (payload_url, self._CELLULAR_BUCKET))
         new_gs_url = self._CELLULAR_BUCKET + payload_filename
-        utils.run('gsutil acl ch -u AllUsers:R %s' % new_gs_url)
+        utils.run('gsutil acl ch -u AllUsers:R %s*' % new_gs_url)
         return new_gs_url.replace('gs://', 'https://storage.googleapis.com/')
 
 
@@ -512,8 +566,15 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
         """
         hostlog = self._omaha_devserver.get_hostlog(self._host.ip,
                                                     wait_for_reboot_events=True)
-        logging.info('Hostlog: %s', hostlog)
+        if hostlog is None:
+            err_str = 'Timed out getting the hostlog from the devserver.'
+            err_code = self._get_last_error_string()
+            if err_code is not None:
+                err_str = ('%s Last error in update_engine.log: %s' %
+                          (err_str, err_code))
+            raise error.TestError(err_str)
 
+        logging.info('Hostlog: %s', hostlog)
         # File names to save the hostlog events to.
         rootfs_hostlog = os.path.join(self.resultsdir, 'hostlog_rootfs')
         reboot_hostlog = os.path.join(self.resultsdir, 'hostlog_reboot')
@@ -542,19 +603,6 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
 
         """
         self._create_update_engine_variables(host.run, host.get_file)
-
-
-    def _run_client_test_and_check_result(self, test_name, **kwargs):
-        """
-        Kicks of a client autotest and checks that it didn't fail.
-
-        @param test_name: client test name
-        @param **kwargs: key-value arguments to pass to the test.
-
-        """
-        client_at = autotest.Autotest(self._host)
-        client_at.run_test(test_name, **kwargs)
-        client_at._check_client_test_result(self._host, test_name)
 
 
     def _change_cellular_setting_in_update_engine(self,
@@ -603,8 +651,8 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
 
 
     def get_update_url_for_test(self, job_repo_url, full_payload=True,
-                                critical_update=False, max_updates=1,
-                                public=False):
+                                critical_update=False, public=False,
+                                moblab=False):
         """
         Get the correct update URL for autoupdate tests to use.
 
@@ -624,10 +672,8 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
         @param job_repo_url: string url containing the current build.
         @param full_payload: bool whether we want a full payload.
         @param critical_update: bool whether we need a critical update.
-        @param max_updates: int number of updates the test will perform. This
-                            is passed to src/platform/dev/devserver.py if we
-                            create our own deverver.
         @param public: url needs to be publicly accessible.
+        @param moblab: True if we are running on moblab.
 
         @returns an update url string.
 
@@ -642,8 +688,8 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
         ds_url, build = tools.get_devserver_build_from_package_url(
             self._job_repo_url)
 
-        # We always stage the payloads on the existing lab devservers.
-        self._autotest_devserver = dev_server.ImageServer(ds_url)
+        # The lab devserver assigned to this test.
+        lab_devserver = dev_server.ImageServer(ds_url)
 
         if public:
             # Get the google storage url of the payload. We will be copying
@@ -656,24 +702,35 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
             return url
 
         if full_payload:
-            self._autotest_devserver.stage_artifacts(build, ['full_payload'])
             if not critical_update:
-                # We can use the same lab devserver to handle the update.
+                # Stage payloads on the lab devserver.
+                self._autotest_devserver = lab_devserver
+                self._autotest_devserver.stage_artifacts(build,
+                                                         ['full_payload'])
+                # Use the same lab devserver to also handle the update.
                 url = self._autotest_devserver.get_update_url(build)
                 logging.info('Full payload, non-critical update URL: %s', url)
                 return url
             else:
-                staged_url = self._autotest_devserver._get_image_url(build)
+                url_to_stage = self._get_payload_url(build, full_payload=True)
         else:
             # We need to stage delta ourselves due to crbug.com/793434.
-            delta_payload = self._get_payload_url(build, full_payload=False)
-            staged_url = self._stage_payload_by_uri(delta_payload)
+            url_to_stage = self._get_payload_url(build, full_payload=False)
 
-        # We need to start our own devserver for the rest of the cases.
+        # Get partial path to payload eg samus-release/R77-113.0,0/blah.bin
+        payload_location = self._get_partial_path_from_url(url_to_stage)
+
+        # We need to start our own devserver instance on the lab devserver
+        # for the rest of the test scenarios.
         self._omaha_devserver = omaha_devserver.OmahaDevserver(
-            self._autotest_devserver.hostname, staged_url,
-            max_updates=max_updates, critical_update=critical_update)
+            lab_devserver.hostname, payload_location,
+            critical_update=critical_update, moblab=moblab)
         self._omaha_devserver.start_devserver()
+
+        # Stage the payloads on our new devserver.
+        ds_url = 'http://%s' % self._omaha_devserver.get_netloc()
+        self._autotest_devserver = dev_server.ImageServer(ds_url)
+        self._stage_payload_by_uri(url_to_stage)
         url = self._omaha_devserver.get_update_url()
         logging.info('Update URL: %s', url)
         return url

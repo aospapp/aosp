@@ -160,7 +160,6 @@ validate_variables_in_hash_table(struct hash_table *ht,
 
    va_end(args);
 
-   struct hash_entry *entry;
    hash_table_foreach(ht, entry) {
       const ir_instruction *const ir = (ir_instruction *) entry->key;
       const ir_variable *const v = ir->as_variable();
@@ -478,7 +477,7 @@ TEST_F(array_refcount_test, do_not_process_array_inside_structure)
    };
 
    const glsl_type *const record_of_array_3_of_int =
-      glsl_type::get_record_instance(fields, ARRAY_SIZE(fields), "S");
+      glsl_type::get_struct_instance(fields, ARRAY_SIZE(fields), "S");
 
    ir_variable *var_a = new(mem_ctx) ir_variable(glsl_type::int_type,
                                                  "a",

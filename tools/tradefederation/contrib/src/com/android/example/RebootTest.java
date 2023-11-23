@@ -18,31 +18,27 @@ package com.android.example;
 
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.IManagedTestDevice;
-import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 
 import java.util.HashMap;
 
 /**
- * Reboots the device and verifies it comes back online.
- * This simple reboot tests acts as an example integration test.
+ * Reboots the device and verifies it comes back online. This simple reboot tests acts as an example
+ * integration test.
  */
-public class RebootTest implements IRemoteTest, IDeviceTest {
-    private ITestDevice mDevice = null;
+public class RebootTest implements IRemoteTest {
 
     @Option(name = "num-of-reboots", description = "Number of times to reboot the device.")
     private int mNumDeviceReboots = 1;
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         long start;
         HashMap<String, Metric> emptyMap = new HashMap<>();
         TestDescription testId;
@@ -55,14 +51,10 @@ public class RebootTest implements IRemoteTest, IDeviceTest {
                                             String.format("RebootLoop #%d", testCount));
                 listener.testStarted(testId);
                 try {
-                    getDevice().nonBlockingReboot();
-                    if (((IManagedTestDevice) getDevice()).getMonitor().waitForDeviceOnline()
-                            == null) {
-                        listener.testFailed(testId, "Reboot failed");
-                        ((IManagedTestDevice) getDevice()).recoverDevice();
-                    }
-                }
-                finally {
+                    testInfo.getDevice().reboot();
+                } catch (DeviceNotAvailableException e) {
+                    listener.testFailed(testId, "Failed to reboot.");
+                } finally {
                     listener.testEnded(testId, emptyMap);
                 }
             }
@@ -70,21 +62,5 @@ public class RebootTest implements IRemoteTest, IDeviceTest {
         finally {
             listener.testRunEnded(System.currentTimeMillis() - start, emptyMap);
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setDevice(ITestDevice device) {
-        mDevice = device;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ITestDevice getDevice() {
-        return mDevice;
     }
 }

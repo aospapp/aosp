@@ -167,4 +167,9 @@ public class WebViewActivity extends AbstractWebViewActivity {
     public UiObject2 getLoginButton() throws Exception {
         return mLoginButton;
     }
+
+    @Override
+    public void clearFocus() {
+        syncRunOnUiThread(() -> mParent.requestFocus());
+    }
 }

@@ -29,10 +29,9 @@ from acts.test_utils.tel.tel_test_utils import setup_droid_properties
 
 class Sl4fSanityTest(BaseTestClass):
 
-    def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
-
     def setup_class(self):
+        super().setup_class()
+
         success_str = ("Congratulations! Fuchsia controllers have been "
                        "initialized successfully!")
         err_str = ("Sorry, please try verifying FuchsiaDevice is in your "
@@ -40,7 +39,7 @@ class Sl4fSanityTest(BaseTestClass):
         if len(self.fuchsia_devices) > 0:
             self.log.info(success_str)
         else:
-            raise signals.TestSkipClass("err_str")
+            raise signals.TestAbortClass("err_str")
 
     def test_example(self):
         self.log.info("Congratulations! You've run your first test.")

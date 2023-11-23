@@ -205,6 +205,7 @@ public class DeviceCollectorsTest extends BaseHostJUnit4Test {
     public void testScheduledListenerRuns() throws Exception {
         mTestRunner.addInstrumentationArg("listener", SCHEDULED_COLLECTOR);
         mTestRunner.addInstrumentationArg("interval", "100");
+        mTestRunner.setClassName("android.device.collectors.BaseMetricListenerInstrumentedTest");
         CollectingTestListener listener = new CollectingTestListener();
         assertTrue(getDevice().runInstrumentationTests(mTestRunner, listener));
         Collection<TestRunResult> results = listener.getRunResults();
@@ -227,6 +228,7 @@ public class DeviceCollectorsTest extends BaseHostJUnit4Test {
         mTestRunner.addInstrumentationArg("listener", SCHEDULED_COLLECTOR);
         // Invalid interval will results in the default period to be used.
         mTestRunner.addInstrumentationArg("interval", "-100");
+        mTestRunner.setClassName("android.device.collectors.BaseMetricListenerInstrumentedTest");
         CollectingTestListener listener = new CollectingTestListener();
         assertTrue(getDevice().runInstrumentationTests(mTestRunner, listener));
         Collection<TestRunResult> results = listener.getRunResults();

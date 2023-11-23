@@ -64,7 +64,7 @@ def test_flip_mirror(cam, props, fmt, chart):
     patch = 255 * its.cv2image.gray_scale_img(patch)
     patch = its.cv2image.scale_img(patch.astype(np.uint8), chart.scale)
 
-    # sanity check on image
+    # validity check on image
     assert np.max(patch)-np.min(patch) > 255/8
 
     # save full images if in debug

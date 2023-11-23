@@ -19,8 +19,10 @@
 #include <android/frameworks/displayservice/1.0/IDisplayEventReceiver.h>
 #include <android/frameworks/displayservice/1.0/IDisplayService.h>
 #include <android/frameworks/displayservice/1.0/IEventCallback.h>
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 #include <log/log.h>
-#include <VtsHalHidlTargetTestBase.h>
 
 #include <atomic>
 #include <chrono>
@@ -70,12 +72,10 @@ public:
     std::atomic<int> hotplugs{0};
 };
 
-class DisplayServiceTest : public ::testing::VtsHalHidlTargetTestBase {
+class DisplayServiceTest : public ::testing::TestWithParam<std::string> {
 public:
-    ~DisplayServiceTest() {}
-
     virtual void SetUp() override {
-        sp<IDisplayService> service = ::testing::VtsHalHidlTargetTestBase::getService<IDisplayService>();
+        sp<IDisplayService> service = IDisplayService::getService(GetParam());
 
         ASSERT_NE(service, nullptr);
 
@@ -101,7 +101,7 @@ public:
 /**
  * No vsync events should happen unless you explicitly request one.
  */
-TEST_F(DisplayServiceTest, TestAttachRequestVsync) {
+TEST_P(DisplayServiceTest, TestAttachRequestVsync) {
     EXPECT_EQ(0, cb->vsyncs);
 
     EXPECT_SUCCESS(receiver->requestNextVsync());
@@ -113,7 +113,7 @@ TEST_F(DisplayServiceTest, TestAttachRequestVsync) {
 /**
  * Vsync rate respects count.
  */
-TEST_F(DisplayServiceTest, TestSetVsyncRate) {
+TEST_P(DisplayServiceTest, TestSetVsyncRate) {
     ASSERT_EQ(0, cb->vsyncs);
 
     EXPECT_SUCCESS(receiver->setVsyncRate(1));
@@ -144,7 +144,7 @@ TEST_F(DisplayServiceTest, TestSetVsyncRate) {
 /**
  * Open/close should return proper error results.
  */
-TEST_F(DisplayServiceTest, TestOpenClose) {
+TEST_P(DisplayServiceTest, TestOpenClose) {
     EXPECT_BAD_VALUE(receiver->init(cb)); // already opened in SetUp
     EXPECT_SUCCESS(receiver->close()); // can close what was originally opened
     EXPECT_BAD_VALUE(receiver->close()); // can't close again
@@ -154,7 +154,7 @@ TEST_F(DisplayServiceTest, TestOpenClose) {
 /**
  * Vsync must be given a value that is >= 0.
  */
-TEST_F(DisplayServiceTest, TestVsync) {
+TEST_P(DisplayServiceTest, TestVsync) {
     EXPECT_SUCCESS(receiver->setVsyncRate(0));
     EXPECT_SUCCESS(receiver->setVsyncRate(5));
     EXPECT_SUCCESS(receiver->setVsyncRate(0));
@@ -162,9 +162,7 @@ TEST_F(DisplayServiceTest, TestVsync) {
     EXPECT_BAD_VALUE(receiver->setVsyncRate(-1000));
 }
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    int status = RUN_ALL_TESTS();
-    ALOGE("Test status = %d", status);
-    return status;
-}
+INSTANTIATE_TEST_SUITE_P(
+    PerInstance, DisplayServiceTest,
+    testing::ValuesIn(android::hardware::getAllHalInstanceNames(IDisplayService::descriptor)),
+    android::hardware::PrintInstanceNameToString);

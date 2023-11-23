@@ -23,7 +23,9 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
+import android.text.TextUtils;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.Objects;
@@ -34,15 +36,21 @@ import java.util.Objects;
 public class PhoneNumber implements Parcelable {
 
     private final I18nPhoneNumberWrapper mI18nPhoneNumber;
-    private final int mType;
-    @Nullable
-    private final String mLabel;
+    @NonNull
+    private final String mAccountName;
+    @NonNull
+    private final String mAccountType;
 
+    private int mType;
+    @Nullable
+    private String mLabel;
     private boolean mIsPrimary;
     private long mId;
     private int mDataVersion;
-    private String mAccountName;
-    private String mAccountType;
+
+    /** The favorite bit is from local database, presenting a
+     *  {@link com.android.car.dialer.storage.FavoriteNumberEntity}. */
+    private boolean mIsFavorite;
 
     static PhoneNumber fromCursor(Context context, Cursor cursor) {
         int typeColumn = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.TYPE);
@@ -99,22 +107,22 @@ public class PhoneNumber implements Parcelable {
         mLabel = label;
         mIsPrimary = isPrimary;
         mId = id;
-        mAccountName = accountName;
-        mAccountType = accountType;
+        mAccountName = TextUtils.emptyIfNull(accountName);
+        mAccountType = TextUtils.emptyIfNull(accountType);
         mDataVersion = dataVersion;
     }
 
     @Override
     public boolean equals(Object obj) {
         return obj instanceof PhoneNumber
-                && ((PhoneNumber) obj).mType == mType
-                && Objects.equals(((PhoneNumber) obj).mLabel, mLabel)
-                && mI18nPhoneNumber.equals(((PhoneNumber) obj).mI18nPhoneNumber);
+                && mI18nPhoneNumber.equals(((PhoneNumber) obj).mI18nPhoneNumber)
+                && mAccountName.equals(((PhoneNumber) obj).mAccountName)
+                && mAccountType.equals(((PhoneNumber) obj).mAccountType);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mI18nPhoneNumber, mType, mLabel);
+        return Objects.hash(mI18nPhoneNumber, mAccountName, mAccountType);
     }
 
     /**
@@ -176,6 +184,19 @@ public class PhoneNumber implements Parcelable {
     }
 
     /**
+     * Updates the favorite bit, which is local database. See
+     * {@link com.android.car.dialer.storage.FavoriteNumberDatabase}.
+     */
+    public void setIsFavorite(boolean isFavorite) {
+        mIsFavorite = isFavorite;
+    }
+
+    /** Returns if the phone number is favorite entry. */
+    public boolean isFavorite() {
+        return mIsFavorite;
+    }
+
+    /**
      * Each contact may have a few sources with the same phone number. Merge same phone numbers as
      * one.
      *
@@ -188,8 +209,8 @@ public class PhoneNumber implements Parcelable {
                 mDataVersion = phoneNumber.mDataVersion;
                 mId = phoneNumber.mId;
                 mIsPrimary |= phoneNumber.mIsPrimary;
-                mAccountName = phoneNumber.mAccountName;
-                mAccountType = phoneNumber.mAccountType;
+                mType = phoneNumber.mType;
+                mLabel = phoneNumber.mLabel;
             }
         }
         return this;
@@ -205,7 +226,7 @@ public class PhoneNumber implements Parcelable {
 
     @Override
     public String toString() {
-        return getNumber() + " " + String.valueOf(mLabel);
+        return getNumber() + " " + mAccountName + " " + mAccountType;
     }
 
     @Override
@@ -223,6 +244,7 @@ public class PhoneNumber implements Parcelable {
         dest.writeString(mAccountName);
         dest.writeString(mAccountType);
         dest.writeInt(mDataVersion);
+        dest.writeBoolean(mIsFavorite);
     }
 
     public static Creator<PhoneNumber> CREATOR = new Creator<PhoneNumber>() {
@@ -239,6 +261,7 @@ public class PhoneNumber implements Parcelable {
             int dataVersion = source.readInt();
             PhoneNumber phoneNumber = new PhoneNumber(i18nPhoneNumberWrapper, type, label,
                     isPrimary, id, accountName, accountType, dataVersion);
+            phoneNumber.setIsFavorite(source.readBoolean());
             return phoneNumber;
         }
 

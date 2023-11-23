@@ -27,6 +27,7 @@ import numpy
 
 from collections import namedtuple
 
+
 class ItsSession(object):
     """Controls a device over adb to run ITS scripts.
 
@@ -85,9 +86,13 @@ class ItsSession(object):
     RESULT_VALUES = {RESULT_PASS, RESULT_FAIL, RESULT_NOT_EXECUTED}
     RESULT_KEY = 'result'
     SUMMARY_KEY = 'summary'
+    START_TIME_KEY = 'start'
+    END_TIME_KEY = 'end'
 
     adb = "adb -d"
     device_id = ""
+
+    CAMERA_ID_TOKENIZER = '.'
 
     # Definitions for some of the common output format options for do_capture().
     # Each gets images of full resolution for each requested format.
@@ -248,7 +253,7 @@ class ItsSession(object):
             ch = self.sock.recv(1)
             if len(ch) == 0:
                 # Socket was probably closed; otherwise don't get empty strings
-                raise its.error.Error('Problem with socket on device side')
+                raise its.error.SocketError(self.device_id, 'Problem with socket on device side')
             chars.append(ch)
         line = ''.join(chars)
         jobj = json.loads(line)
@@ -319,6 +324,23 @@ class ItsSession(object):
         data,_ = self.__read_response_from_socket()
         if data['tag'] != 'vibrationStarted':
             raise its.error.Error('Invalid command response')
+
+    def set_audio_restriction(self, mode):
+        """Set the audio restriction mode for this camera device.
+
+        Args:
+            mode: the audio restriction mode. See CameraDevice.java for valid
+                  value.
+        Returns:
+            Nothing.
+        """
+        cmd = {}
+        cmd["cmdName"] = "setAudioRestriction"
+        cmd["mode"] = mode
+        self.sock.send(json.dumps(cmd) + "\n")
+        data,_ = self.__read_response_from_socket()
+        if data["tag"] != "audioRestrictionSet":
+            raise its.error.Error("Invalid command response")
 
     def get_sensors(self):
         """Get all sensors on the device.
@@ -1091,12 +1113,12 @@ def get_device_fingerprint(device_id):
     return device_bfp
 
 def parse_camera_ids(ids):
-    """ Parse the string of camera IDs into array of CameraIdCombo tuples.
+    """Parse the string of camera IDs into array of CameraIdCombo tuples.
     """
     CameraIdCombo = namedtuple('CameraIdCombo', ['id', 'sub_id'])
     id_combos = []
     for one_id in ids:
-        one_combo = one_id.split(':')
+        one_combo = one_id.split(ItsSession.CAMERA_ID_TOKENIZER)
         if len(one_combo) == 1:
             id_combos.append(CameraIdCombo(one_combo[0], None))
         elif len(one_combo) == 2:
@@ -1104,6 +1126,35 @@ def parse_camera_ids(ids):
         else:
             assert(False), 'Camera id parameters must be either ID, or ID:SUB_ID'
     return id_combos
+
+
+def get_build_sdk_version(device_id=None):
+    """Get the build version of the device."""
+    if not device_id:
+        device_id = get_device_id()
+    cmd = 'adb -s %s shell getprop ro.build.version.sdk' % device_id
+    try:
+        build_sdk_version = int(subprocess.check_output(cmd.split()).rstrip())
+        print 'Build SDK version: %d' % build_sdk_version
+    except (subprocess.CalledProcessError, ValueError):
+        print 'No build_sdk_version.'
+        assert 0
+    return build_sdk_version
+
+
+def get_first_api_level(device_id=None):
+    """Get the first API level for device."""
+    if not device_id:
+        device_id = get_device_id()
+    cmd = 'adb -s %s shell getprop ro.product.first_api_level' % device_id
+    try:
+        first_api_level = int(subprocess.check_output(cmd.split()).rstrip())
+        print 'First API level: %d' % first_api_level
+    except (subprocess.CalledProcessError, ValueError):
+        print 'No first_api_level. Setting to build version.'
+        first_api_level = get_build_sdk_version(device_id)
+    return first_api_level
+
 
 def _run(cmd):
     """Replacement for os.system, with hiding of stdout+stderr messages.

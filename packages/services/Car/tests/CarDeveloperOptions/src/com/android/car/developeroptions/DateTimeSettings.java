@@ -34,9 +34,9 @@ import com.android.car.developeroptions.datetime.TimeFormatPreferenceController;
 import com.android.car.developeroptions.datetime.TimePreferenceController;
 import com.android.car.developeroptions.datetime.TimeZonePreferenceController;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.datetime.ZoneGetter;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;

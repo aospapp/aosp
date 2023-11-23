@@ -2,7 +2,7 @@
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
 <ldml>
   <identity>
-    <version number="$Revision: 11914 $"/>
+    <version number="$Revision$"/>
     <language type="de"/>
   </identity>
   <segmentations>

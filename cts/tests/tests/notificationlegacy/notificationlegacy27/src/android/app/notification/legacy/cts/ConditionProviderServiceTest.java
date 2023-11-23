@@ -24,20 +24,19 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNull;
 import static junit.framework.TestCase.fail;
 
-import static org.junit.Assume.assumeFalse;
-
 import static java.lang.Thread.sleep;
 
-import android.app.ActivityManager;
 import android.app.AutomaticZenRule;
 import android.app.Instrumentation;
 import android.app.NotificationManager;
 import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.service.notification.Condition;
+import android.service.notification.ZenModeConfig;
 import android.util.ArraySet;
 import android.util.Log;
 
@@ -60,16 +59,14 @@ public class ConditionProviderServiceTest {
     private static String TAG = "CpsTest";
 
     private NotificationManager mNm;
-    private ActivityManager mActivityManager;
     private Context mContext;
+    private ZenModeBroadcastReceiver mModeReceiver;
+    private IntentFilter mModeFilter;
     private ArraySet<String> ids = new ArraySet<>();
 
     @Before
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getContext();
-        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
-        assumeFalse(mActivityManager.isLowRamDevice());
-
         toggleNotificationPolicyAccess(mContext.getPackageName(),
                 InstrumentationRegistry.getInstrumentation(), true);
         LegacyConditionProviderService.requestRebind(LegacyConditionProviderService.getId());
@@ -77,10 +74,15 @@ public class ConditionProviderServiceTest {
         mNm = (NotificationManager) mContext.getSystemService(
                 Context.NOTIFICATION_SERVICE);
         mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+        mModeReceiver = new ZenModeBroadcastReceiver();
+        mModeFilter = new IntentFilter();
+        mModeFilter.addAction(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED);
+        mContext.registerReceiver(mModeReceiver, mModeFilter);
     }
 
     @After
     public void tearDown() throws Exception {
+        mContext.unregisterReceiver(mModeReceiver);
         if (mNm == null) {
             // assumption in setUp is false, so mNm is not initialized
             return;
@@ -105,18 +107,18 @@ public class ConditionProviderServiceTest {
 
     @Test
     public void testUnboundCPSMaintainsCondition_addsNewRule() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         // make sure service get bound
         pollForConnection(SecondaryConditionProviderService.class, true);
 
         final ComponentName cn = SecondaryConditionProviderService.getId();
 
         // add rule
+        mModeReceiver.reset();
+
         addRule(cn, INTERRUPTION_FILTER_ALARMS, true);
         pollForSubscribe(SecondaryConditionProviderService.getInstance());
+
+        mModeReceiver.waitFor(1/*Secondary only*/, 1000/*Limit is 1 second*/);
         assertEquals(INTERRUPTION_FILTER_ALARMS, mNm.getCurrentInterruptionFilter());
 
         // unbind service
@@ -134,20 +136,20 @@ public class ConditionProviderServiceTest {
 
     @Test
     public void testUnboundCPSMaintainsCondition_otherConditionChanges() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         // make sure both services get bound
         pollForConnection(LegacyConditionProviderService.class, true);
         pollForConnection(SecondaryConditionProviderService.class, true);
 
         // add rules for both
+        mModeReceiver.reset();
+
         addRule(LegacyConditionProviderService.getId(), INTERRUPTION_FILTER_PRIORITY, true);
         pollForSubscribe(LegacyConditionProviderService.getInstance());
 
         addRule(SecondaryConditionProviderService.getId(), INTERRUPTION_FILTER_ALARMS, true);
         pollForSubscribe(SecondaryConditionProviderService.getInstance());
+
+        mModeReceiver.waitFor(2/*Legacy and Secondary*/, 1000/*Limit is 1 second*/);
         assertEquals(INTERRUPTION_FILTER_ALARMS, mNm.getCurrentInterruptionFilter());
 
         // unbind one of the services
@@ -159,6 +161,7 @@ public class ConditionProviderServiceTest {
         // trigger a change in the bound service's condition
         ((LegacyConditionProviderService) LegacyConditionProviderService.getInstance())
                 .toggleDND(false);
+        sleep(500);
 
         // verify that the unbound service maintains it's DND vote
         assertEquals(INTERRUPTION_FILTER_ALARMS, mNm.getCurrentInterruptionFilter());
@@ -166,20 +169,20 @@ public class ConditionProviderServiceTest {
 
     @Test
     public void testUnboundCPSMaintainsCondition_otherProviderRuleChanges() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         // make sure both services get bound
         pollForConnection(LegacyConditionProviderService.class, true);
         pollForConnection(SecondaryConditionProviderService.class, true);
 
         // add rules for both
+        mModeReceiver.reset();
+
         addRule(LegacyConditionProviderService.getId(), INTERRUPTION_FILTER_PRIORITY, true);
         pollForSubscribe(LegacyConditionProviderService.getInstance());
 
         addRule(SecondaryConditionProviderService.getId(), INTERRUPTION_FILTER_ALARMS, true);
         pollForSubscribe(SecondaryConditionProviderService.getInstance());
+
+        mModeReceiver.waitFor(2/*Legacy and Secondary*/, 1000/*Limit is 1 second*/);
         assertEquals(INTERRUPTION_FILTER_ALARMS, mNm.getCurrentInterruptionFilter());
 
         // unbind one of the services
@@ -197,10 +200,6 @@ public class ConditionProviderServiceTest {
 
     @Test
     public void testRequestRebindWhenLostAccess() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         // make sure it gets bound
         pollForConnection(LegacyConditionProviderService.class, true);
 
@@ -228,10 +227,6 @@ public class ConditionProviderServiceTest {
 
     @Test
     public void testRequestRebindWhenStillHasAccess() throws Exception {
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         // make sure it gets bound
         pollForConnection(LegacyConditionProviderService.class, true);
 
@@ -254,12 +249,6 @@ public class ConditionProviderServiceTest {
 
     @Test
     public void testMethodsExistAndDoNotThrow() throws Exception {
-        // behavior is covered in cts verifier
-
-        if (mActivityManager.isLowRamDevice()) {
-            return;
-        }
-
         // make sure it gets bound
         pollForConnection(LegacyConditionProviderService.class, true);
 
@@ -273,8 +262,13 @@ public class ConditionProviderServiceTest {
     }
 
     private void addRule(ComponentName cn, int filter, boolean enabled) {
+        final Uri conditionId = new Uri.Builder()
+                .scheme(Condition.SCHEME)
+                .authority(ZenModeConfig.SYSTEM_AUTHORITY)
+                .appendPath(cn.toString())
+                .build();
         String id = mNm.addAutomaticZenRule(new AutomaticZenRule("name",
-                cn, Uri.EMPTY, filter, enabled));
+                cn, conditionId, filter, enabled));
         Log.d(TAG, "Created rule with id " + id);
         ids.add(id);
     }

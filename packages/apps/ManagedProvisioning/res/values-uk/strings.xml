@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Скинути"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Не вдається налаштувати профіль"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Не вдається налаштувати пристрій"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Сталася помилка"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Не вдалося налаштувати пристрій. Зверніться по допомогу до ІТ-адміністратора."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Зверніться по допомогу до ІТ-адміністратора"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Скиньте налаштування цього пристрою та спробуйте налаштувати його знову"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Пристрій налаштовано"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Не вдалося підключитися до мережі Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"На вашому пристрої ввімкнено захист від скидання даних. Зверніться по допомогу до ІТ-адміністратора."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Підготовка до налаштування робочого пристрою…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Налаштування додатка адміністратора"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Налаштуйте решту параметрів"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Тепер налаштуймо решту параметрів"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Додайте особистий обліковий запис, щоб користуватися всіма можливостями пристрою"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Тепер, коли робочий профіль налаштовано, ви можете додати особистий обліковий запис Google, щоб отримати доступ до своїх додатків і контенту."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Цей пристрій належить вашій організації"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"За допомогою цього додатка ви зможете керувати телефоном і відстежувати його"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Підготовка до налаштування для роботи…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Спершу налаштуймо ваш робочий профіль"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Спершу налаштуймо ваш робочий профіль"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Робочі додатки зберігаються в робочому профілі"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Призупиняйте робочі додатки, коли потрібно"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"ІТ-адміністратор бачить лише дані у вашому робочому профілі"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ІТ-адміністратор бачить дані у вашому робочому профілі"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Робочий профіль налаштовується…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Робочі додатки зберігаються в робочому профілі. Ви можете їх призупинити, коли потрібно. ІТ-адміністратор бачить лише дані у вашому робочому профілі."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Робочі додатки зберігаються в робочому профілі. Ви можете призупинити їх, коли потрібно. ІТ-адміністратор бачить дані у вашому робочому профілі."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Налаштуймо ваш робочий пристрій"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Робочі додатки у вас під рукою"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Цей пристрій не є особистим"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ІТ-адміністратор може бачити ваші дані й активність на цьому пристрої."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Ваш пристрій налаштовується…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Легко відкривайте робочі додатки на цьому пристрої. Він не є особистим, тому ІТ-адміністратор може бачити ваші дані й активність. Щоб дізнатися більше, зверніться до ІТ-адміністратора."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Робочі додатки зберігаються в робочому профілі, ними керує IT-адміністратор"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Особисті додатки приховані від робочих і зберігаються окремо"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT-адміністратор може керувати цим пристроєм і блокувати певні додатки"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Робочі додатки зберігаються в робочому профілі. Ними керує ваш IT-адмністратор. Особисті додатки зберігаються окремо, вони недоступні для робочих додатків. Ваш IT-адміністратор може керувати цим пристроєм і блокувати певні додатки."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Зачекайте…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Нагадування про конфіденційність"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ІТ-адміністратор може бачити ваші дані й активність на цьому пристрої"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Ваш пристрій готовий!"</string>
     <string name="done" msgid="7755227776955952318">"Готово"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Пристрій придбано в кредит у компанії \"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>\""</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> може:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Установити додаток від компанії \"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>\", щоб ви могли вносити платежі за пристрій"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Обмежити доступ до пристрою, якщо ви не вноситимете платежі"</string>
 </resources>

@@ -40,6 +40,7 @@ static int test_utils[NUM_TESTS];
 #define SLEEP_USEC 19000
 /* Run each test for one second. */
 #define TEST_LENGTH_USEC USEC_PER_SEC
+
 static void do_work(void)
 {
 	struct timespec ts;
@@ -51,7 +52,7 @@ static void do_work(void)
 		return;
 	}
 	now_usec = ts.tv_sec * USEC_PER_SEC + ts.tv_nsec / 1000;
-	end_usec = now_usec + TEST_LENGTH_USEC;
+	end_usec = now_usec + TEST_LENGTH_USEC/2;
 
 	while (now_usec < end_usec) {
 		burn(BUSY_USEC, 0);
@@ -74,6 +75,10 @@ static void *test_fn(void *arg LTP_ATTRIBUTE_UNUSED)
 	SAFE_FILE_PRINTF(STUNE_TEST_PATH "/tasks", "%d", task_pid);
 	while(tests_done < NUM_TESTS) {
 		sem_wait(&test_sem);
+		// give time for utilization to track real task usage
+		do_work();
+		// start measuring
+		SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
 		do_work();
 		sem_post(&result_sem);
 		tests_done++;
@@ -106,7 +111,6 @@ static void run_test(void)
 	SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.boost",
 			 "%d", test_boost[test_index]);
 	SAFE_FILE_PRINTF(TRACING_DIR "trace", "\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
 	sem_post(&test_sem);
 	sem_wait(&result_sem);
 	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
@@ -128,8 +132,13 @@ static void check_results(void)
 				i, test_boost[i], test_utils[i],
 				target_util - TEST_MARGIN,
 				target_util + TEST_MARGIN);
+		else
+			tst_res(TPASS, "Test %i (boost %d) passed with "
+				"util %d (allowed %d - %d).\n",
+				i, test_boost[i], test_utils[i],
+				target_util - TEST_MARGIN,
+				target_util + TEST_MARGIN);
 	}
-	tst_res(TPASS, "Boosted utilizations within expected range.");
 }
 
 static void run(void)
@@ -138,6 +147,9 @@ static void run(void)
 
 	sem_init(&test_sem, 0, 0);
 	sem_init(&result_sem, 0, 0);
+
+	if (access("/dev/stune", R_OK))
+		tst_brk(TCONF, "schedtune not detected");
 
 	test_cpu = tst_ncpus() - 1;
 	printf("Running %ld tests for %d sec\n", NUM_TESTS,
@@ -149,14 +161,24 @@ static void run(void)
 	 * kernel/sched/tune.c needs to be increased.
 	 */
 	SAFE_MKDIR(STUNE_TEST_PATH, 0777);
-	SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.colocate",
-			 "0");
-	SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.prefer_idle",
-			 "0");
-	SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.sched_boost_enabled",
-			 "1");
-	SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.sched_boost_no_override",
-			 "0");
+	if (access(STUNE_TEST_PATH "/schedtune.colocate", W_OK) != -1) {
+		SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.colocate",
+				 "0");
+	}
+	if (access(STUNE_TEST_PATH "/schedtune.prefer_idle", W_OK) != -1) {
+		SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.prefer_idle",
+				 "0");
+	}
+	if (access(STUNE_TEST_PATH "/schedtune.sched_boost_enabled", W_OK) !=
+	    -1) {
+		SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.sched_boost_enabled",
+				 "1");
+	}
+	if (access(STUNE_TEST_PATH "/schedtune.sched_boost_no_override",
+		   W_OK) != -1) {
+		SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.sched_boost_no_override",
+				 "0");
+	}
 
 	SAFE_PTHREAD_CREATE(&test_thread, NULL, test_fn, NULL);
 

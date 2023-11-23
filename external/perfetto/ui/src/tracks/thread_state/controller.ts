@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {fromNs} from '../../common/time';
+import {fromNs, toNs} from '../../common/time';
+import {LIMIT} from '../../common/track_data';
+
 import {
   TrackController,
   trackControllerRegistry
@@ -21,155 +23,70 @@ import {
 import {
   Config,
   Data,
-  groupBusyStates,
   THREAD_STATE_TRACK_KIND,
 } from './common';
 
 class ThreadStateTrackController extends TrackController<Config, Data> {
   static readonly kind = THREAD_STATE_TRACK_KIND;
-  private busy = false;
   private setup = false;
 
-  onBoundsChange(start: number, end: number, resolution: number): void {
-    this.update(start, end, resolution);
-  }
+  async onBoundsChange(start: number, end: number, resolution: number):
+      Promise<Data> {
+    const startNs = toNs(start);
+    const endNs = toNs(end);
+    const minNs = Math.round(resolution * 1e9);
 
-  private async update(start: number, end: number, resolution: number):
-      Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
+    await this.query(
+        `drop view if exists ${this.tableName('grouped_thread_states')}`);
 
-    const startNs = Math.round(start * 1e9);
-    const endNs = Math.round(end * 1e9);
-    let minNs = 0;
-    if (groupBusyStates(resolution)) {
-      // Ns for 20px (the smallest state to display)
-      minNs = Math.round(resolution * 20 * 1e9);
-    }
+    // This query gives all contiguous slices less than minNs the same grouping.
+    await this.query(`create view ${this.tableName('grouped_thread_states')} as
+    select ts, dur, cpu, state,
+    ifnull(sum(value) over (order by ts), 0) as grouping
+    from
+    (select *,
+    (dur >= ${minNs}) or lag(dur >= ${minNs}) over (order by ts) as value
+    from thread_state
+    where utid = ${this.config.utid})`);
 
+    // Since there are more rows than slices we will output, check the number of
+    // distinct groupings to find the number of slices.
+    const totalSlicesQuery = `select count(distinct(grouping))
+      from ${this.tableName('grouped_thread_states')}
+      where ts <= ${endNs} and ts + dur >= ${startNs}`;
+    const totalSlices = (await this.engine.queryOneRow(totalSlicesQuery))[0];
 
-    if (this.setup === false) {
-      await this.query(`create view ${this.tableName('sched_wakeup')} AS
-      select
-        ts,
-        lead(ts, 1, (select end_ts from trace_bounds))
-          OVER(order by ts) - ts as dur,
-        ref as utid
-      from instants
-      where name = 'sched_wakeup'
-      and utid = ${this.config.utid}`);
-
-      await this.query(
-          `create virtual table ${this.tableName('window')} using window;`);
-
-      // Get the first ts for this utid - whether a sched wakeup
-      // or sched event.
-      await this.query(`create view ${this.tableName('start')} as
-      select min(ts) as ts from
-        (select ts from ${this.tableName('sched_wakeup')} UNION
-        select ts from sched where utid = ${this.config.utid})`);
-
-      // Create an entry from first ts to either the first sched_wakeup
-      // or to the end if there are no sched wakeups. This means
-      // we will show all information we have even with no sched_wakeup events.
-      await this.query(`create view ${this.tableName('fill')} AS
-        select
-        (select ts from ${this.tableName('start')}),
-        (select coalesce(
-          (select min(ts) from ${this.tableName('sched_wakeup')}),
-          (select end_ts from trace_bounds)
-        )) - (select ts from ${this.tableName('start')}) as dur,
-        ${this.config.utid} as utid
-        `);
-
-      await this.query(`create view ${this.tableName('full_sched_wakeup')} as
-        select * from ${this.tableName('sched_wakeup')} UNION
-        select * from ${this.tableName('fill')}`);
-
-      await this.query(`create virtual table ${this.tableName('span')}
-        using span_left_join(
-          ${this.tableName('full_sched_wakeup')} partitioned utid,
-          sched partitioned utid)`);
-
-      // Need to compute the lag(end_state) before joining with the window
-      // table to avoid the first visible slice always having a null prev
-      // end state.
-      await this.query(`create view ${this.tableName('span_view')} as
-        select ts, dur, utid,
-        case
-        when end_state is not null
-        then 'Running'
-        when lag(end_state) over ${this.tableName('ordered')} is not null
-        then lag(end_state) over ${this.tableName('ordered')}
-        else 'Runnable'
-        end as state
-        from ${this.tableName('span')}
-        where utid = ${this.config.utid}
-        window ${this.tableName('ordered')} as (order by ts)`);
-
-      await this.query(`create view ${this.tableName('long_states')} as
-      select * from ${this.tableName('span_view')} where dur >= ${minNs}`);
-
-      // Create a slice from the first ts to the end of the trace. To
-      // be span joined with the long states - This effectively combines all
-      // of the short states into a single 'Busy' state.
-      await this.query(`create view ${this.tableName('fill_gaps')} as select
-      (select min(ts) from ${this.tableName('span_view')}) as ts,
-      (select end_ts from trace_bounds) -
-      (select min(ts) from ${this.tableName('span_view')}) as dur,
-      ${this.config.utid} as utid`);
-
-      await this.query(`create virtual table ${this.tableName('summarized')}
-      using span_left_join(${this.tableName('fill_gaps')} partitioned utid,
-      ${this.tableName('long_states')} partitioned utid)`);
-
-      await this.query(`create virtual table ${this.tableName('current')}
-      using span_join(
-        ${this.tableName('window')},
-        ${this.tableName('summarized')} partitioned utid)`);
-
-
-      this.setup = true;
-    }
-
-    const windowDurNs = Math.max(1, endNs - startNs);
-
-    this.query(`update ${this.tableName('window')} set
-     window_start=${startNs},
-     window_dur=${windowDurNs},
-     quantum=0`);
-
-    this.query(`drop view if exists ${this.tableName('long_states')}`);
-    this.query(`drop view if exists ${this.tableName('fill_gaps')}`);
-
-    await this.query(`create view ${this.tableName('long_states')} as
-     select * from ${this.tableName('span_view')} where dur > ${minNs}`);
-
-    await this.query(`create view ${this.tableName('fill_gaps')} as select
-     (select min(ts) from ${this.tableName('span_view')}) as ts,
-     (select end_ts from trace_bounds) - (select min(ts) from ${
-                                                                this.tableName(
-                                                                    'span_view')
-                                                              }) as dur,
-     ${this.config.utid} as utid`);
-
-    const query = `select ts, cast(dur as double), utid,
-    case when state is not null then state else 'Busy' end as state
-    from ${this.tableName('current')}`;
-
+    // We have ts contraints instead of span joining with the window table
+    // because when selecting a slice we need the real duration (even if it
+    // is outside of the current viewport)
+    // TODO(b/149303809): Return this to using
+    // the window table if possible.
+    const query = `select min(min(ts)) over (partition by grouping) as ts,
+    sum(sum(dur)) over (partition by grouping) as slice_dur,
+    cpu,
+    state,
+    (sum(dur) * 1.0)/(sum(sum(dur)) over (partition by grouping)) as percent,
+    grouping
+    from ${this.tableName('grouped_thread_states')}
+    where ts <= ${endNs} and ts + dur >= ${startNs}
+    group by grouping, state
+    order by grouping
+    limit ${LIMIT}`;
 
     const result = await this.query(query);
-
     const numRows = +result.numRecords;
 
     const summary: Data = {
       start,
       end,
       resolution,
-      starts: new Float64Array(numRows),
-      ends: new Float64Array(numRows),
+      length: totalSlices,
+      starts: new Float64Array(totalSlices),
+      ends: new Float64Array(totalSlices),
       strings: [],
-      state: new Uint16Array(numRows)
+      state: new Uint16Array(totalSlices),
+      cpu: new Uint8Array(totalSlices),
+      summarisedStateBreakdowns: new Map(),
     };
 
     const stringIndexes = new Map<string, number>();
@@ -182,39 +99,52 @@ class ThreadStateTrackController extends TrackController<Config, Data> {
       return idx;
     }
 
+    let outIndex = 0;
     for (let row = 0; row < numRows; row++) {
       const cols = result.columns;
-      const start = fromNs(+cols[0].longValues![row]);
-      summary.starts[row] = start;
-      summary.ends[row] = start + fromNs(+cols[1].doubleValues![row]);
-      summary.state[row] = internString(cols[3].stringValues![row]);
-    }
+      const start = +cols[0].longValues![row];
+      const dur = +cols[1].longValues![row];
+      const state = cols[3].stringValues![row];
+      const percent = +(cols[4].doubleValues![row].toFixed(2));
+      const grouping = +cols[5].longValues![row];
 
-    this.publish(summary);
-    this.busy = false;
-  }
+      if (percent !== 1) {
+        let breakdownMap = summary.summarisedStateBreakdowns.get(outIndex);
+        if (!breakdownMap) {
+          breakdownMap = new Map();
+          summary.summarisedStateBreakdowns.set(outIndex, breakdownMap);
+        }
 
-  private async query(query: string) {
-    const result = await this.engine.query(query);
-    if (result.error) {
-      console.error(`Query error "${query}": ${result.error}`);
-      throw new Error(`Query error "${query}": ${result.error}`);
+        const currentPercent = breakdownMap.get(state);
+        if (currentPercent === undefined) {
+          breakdownMap.set(state, percent);
+        } else {
+          breakdownMap.set(state, currentPercent + percent);
+        }
+      }
+
+      const nextGrouping =
+          row + 1 < numRows ? +cols[5].longValues![row + 1] : -1;
+      // If the next grouping is different then we have reached the end of this
+      // slice.
+      if (grouping !== nextGrouping) {
+        const numStates = summary.summarisedStateBreakdowns.get(outIndex) ?
+            summary.summarisedStateBreakdowns.get(outIndex)!.entries.length :
+            1;
+        summary.starts[outIndex] = fromNs(start);
+        summary.ends[outIndex] = fromNs(start + dur);
+        summary.state[outIndex] =
+            internString(numStates === 1 ? state : 'Various states');
+        summary.cpu[outIndex] = +cols[2].longValues![row];
+        outIndex++;
+      }
     }
-    return result;
+    return summary;
   }
 
   onDestroy(): void {
     if (this.setup) {
-      this.query(`drop table ${this.tableName('window')}`);
-      this.query(`drop table ${this.tableName('span')}`);
-      this.query(`drop table ${this.tableName('current')}`);
-      this.query(`drop table ${this.tableName('summarized')}`);
-      this.query(`drop view ${this.tableName('sched_wakeup')}`);
-      this.query(`drop view ${this.tableName('fill')}`);
-      this.query(`drop view ${this.tableName('full_sched_wakeup')}`);
-      this.query(`drop view ${this.tableName('span_view')}`);
-      this.query(`drop view ${this.tableName('long_states')}`);
-      this.query(`drop view ${this.tableName('fill_gaps')}`);
+      this.query(`drop view ${this.tableName('grouped_thread_states')}`);
       this.setup = false;
     }
   }

@@ -37,6 +37,16 @@ private:
 
             virtual ~new_worker_state()
             {
+                // Ensure that std::thread is no longer joinable,
+                // otherwise the destructor will call std::terminate.
+                if (!worker.joinable()) {
+                    return;
+                }
+                if (worker.get_id() != std::this_thread::get_id()) {
+                    worker.join();
+                } else {
+                    worker.detach();
+                }
             }
 
             explicit new_worker_state(composite_subscription cs)
@@ -76,13 +86,7 @@ private:
                 if (!keepAlive->q.empty()) std::terminate();
                 keepAlive->wake.notify_one();
 
-                if (keepAlive->worker.joinable() && keepAlive->worker.get_id() != std::this_thread::get_id()) {
-                    guard.unlock();
-                    keepAlive->worker.join();
-                }
-                else {
-                    keepAlive->worker.detach();
-                }
+                // ~new_worker_state cleans up the std::thread
             });
 
             state->worker = tf([keepAlive](){

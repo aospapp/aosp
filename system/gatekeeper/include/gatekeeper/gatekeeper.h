@@ -176,7 +176,7 @@ private:
      * The format is consistent with that of hw_auth_token_t.
      * Also returns the length in length if it is not null.
      */
-    void MintAuthToken(UniquePtr<uint8_t> *auth_token, uint32_t *length, uint64_t timestamp,
+    gatekeeper_error_t MintAuthToken(SizedBuffer *auth_token, uint64_t timestamp,
             secure_id_t user_id, secure_id_t authenticator_id, uint64_t challenge);
 
     /**
@@ -184,7 +184,7 @@ private:
      */
     bool CreatePasswordHandle(SizedBuffer *password_handle, salt_t salt,
             secure_id_t secure_id, secure_id_t authenticator_id, uint8_t handle_version,
-            const uint8_t *password, uint32_t password_length);
+            const SizedBuffer & password);
 
     /**
      * Increments the counter on the current failure record for the provided user id.

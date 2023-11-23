@@ -70,7 +70,7 @@
     <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"மொபைல் நெட்வொர்க்குடன் இணைக்கிறது…"</string>
     <string name="progress_download" msgid="3522436271691064624">"நிர்வாகி ஆப்ஸை இறக்குகிறது…"</string>
     <string name="progress_install" msgid="2258045670385866183">"நிர்வாகி ஆப்ஸை நிறுவுகிறது…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"தேவையற்ற சாதனப் பயன்பாடுகளை அகற்றுகிறது…"</string>
+    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"தேவையற்ற சாதன ஆப்ஸை அகற்றுகிறது…"</string>
     <string name="progress_finishing_touches" msgid="9037776404089697198">"இறுதியாகச் சில விஷயங்களைச் சேர்க்கிறது…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"சாதன உரிமையாளரை அமைக்கிறது…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"சாதனத்தைத் தொடங்குகிறது…"</string>
@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"மீட்டமை"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"சுயவிவரத்தை அமைக்க முடியவில்லை"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"சாதனத்தை அமைக்க முடியவில்லை"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"ஏதோ தவறாகிவிட்டது"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"சாதனத்தை அமைக்க இயலவில்லை. உதவிக்கு IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"உதவிக்கு IT நிர்வாகியைத் தொடர்புகொள்ளவும்"</string>
+    <string name="reset_device" msgid="5483853913241939262">"இந்தச் சாதனத்தை மீட்டமைத்து மீண்டும் அமைக்க முயலவும்"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"சாதனம் ஏற்கனவே அமைக்கப்பட்டுள்ளது"</string>
     <string name="error_wifi" msgid="1850288843966836571">"வைஃபையுடன் இணைக்க முடியவில்லை"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"சாதனத்தில் \'மீட்டமைவுப் பாதுகாப்பு\' ஆன் செய்யப்பட்டுள்ளது. உதவிக்கு IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
@@ -124,13 +126,13 @@
     <string name="set_up_your_device" msgid="1896651520959894681">"சாதனத்தை அமைக்கவும்"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"நீங்கள் வேலை செய்யும் விதத்தை மாற்றலாம்"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"தனிப்பட்ட தரவிலிருந்து பணித் தரவைப் பிரிக்கலாம்"</string>
-    <string name="one_place_for_work_apps" msgid="2595597562302953960">"பணி தொடர்பான பயன்பாடுகள் அனைத்தும் ஒரே இடத்தில்"</string>
+    <string name="one_place_for_work_apps" msgid="2595597562302953960">"பணி தொடர்பான ஆப்ஸ் அனைத்தும் ஒரே இடத்தில்"</string>
     <string name="info_anim_title_2" msgid="4629781398620470204">"முடித்ததும், பணியை முடக்கவும்"</string>
     <string name="provisioning" msgid="4512493827019163451">"அமைக்கிறது"</string>
     <string name="copying_certs" msgid="5697938664953550881">"CA சான்றிதழ்களை அமைக்கிறது"</string>
     <string name="setup_profile" msgid="5573950582159698549">"சுயவிவரத்தை அமைக்கவும்"</string>
     <string name="profile_benefits_description" msgid="758432985984252636">"பணி விவரத்தைப் பயன்படுத்துவதன் மூலம், பணித் தரவையும் தனிப்பட்ட தரவையும் தனித்தனியாகப் பிரிக்கலாம்"</string>
-    <string name="comp_profile_benefits_description" msgid="379837075456998273">"பணி விவரத்தைப் பயன்படுத்துவதன் மூலம், பணி தொடர்பான பயன்பாடுகளை ஒரே இடத்தில் வைத்திருக்கலாம்"</string>
+    <string name="comp_profile_benefits_description" msgid="379837075456998273">"பணி விவரத்தைப் பயன்படுத்துவதன் மூலம், பணி தொடர்பான ஆப்ஸை ஒரே இடத்தில் வைத்திருக்கலாம்"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"சுயவிவரத்தை அமைக்கவும். என்க்ரிப்ட்"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"சுயவிவரத்தை அமைக்கவும். செயல்நிலையைக் காட்டுகிறது"</string>
     <string name="setup_device" msgid="6725265673245816366">"சாதனத்தை அமை"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"பணி மொபைலை அமைக்கத் தயார்படுத்துகிறது…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"நிர்வாக ஆப்ஸை அமைக்கிறது"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"எல்லாவற்றையும் அமைக்கவும்"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"இப்போது, எல்லாவற்றையும் அமைப்போம்"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"உங்கள் சாதனத்தில் மேலும் பலவற்றைப் பெற தனிப்பட்ட கணக்கு ஒன்றைச் சேருங்கள்"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"பணிக் கணக்கு தற்போது தயாராக உள்ளது, உங்கள் ஆப்ஸையும் உள்ளடக்கத்தையும் அணுக தனிப்பட்ட Google கணக்கு ஒன்றையும் நீங்கள் சேர்க்கலாம்."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"இந்தச் சாதனம் உங்கள் நிறுவனத்துக்குச் சொந்தமானது"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"இந்த மொபைலை நிர்வகிக்கவும் கண்காணிக்கவும் பின்வரும் ஆப்ஸ் பயன்படும்"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"பணி அமைவிற்குத் தயாராகிறது…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"முதலில், உங்கள் பணிக் கணக்கை அமைக்கவும்"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"உங்கள் பணிக் கணக்கை அமைப்போம்"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"பணிக்கான ஆப்ஸ் உங்கள் பணிக் கணக்கில் இருக்கும்"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ஒரு நாளின் வேலை நேரம் முடிந்ததும் பணிக்கான ஆப்ஸை இடைநிறுத்தலாம்"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"உங்கள் பணிக் கணக்கில் உள்ள தரவை மட்டுமே IT நிர்வாகியால் பார்க்க இயலும்"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"உங்கள் பணிக் கணக்கில் உள்ள தரவை IT நிர்வாகியால் பார்க்க முடியும்"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"பணிக் கணக்கை அமைக்கிறது…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"பணிக்கான ஆப்ஸ் உங்கள் பணிக் கணக்கில் இருக்கும். ஒரு நாளின் வேலை நேரம் முடிந்ததும் பணிக்கான ஆப்ஸை இடைநிறுத்தலாம். உங்கள் பணிக் கணக்கில் உள்ள தரவை மட்டுமே IT நிர்வாகியால் பார்க்க இயலும்."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"பணிக்கான ஆப்ஸ் உங்கள் பணிக் கணக்கில் இருக்கும். ஒரு நாளின் வேலை நேரம் முடிந்ததும் பணிக்கான ஆப்ஸை இடைநிறுத்தலாம். உங்கள் பணிக் கணக்கில் உள்ள தரவை IT நிர்வாகியால் பார்க்க முடியும்."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"பணி மொபைலை அமைத்தல்"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"பணிக் கணக்கிற்கான ஆப்ஸை உபயோகிக்கத் தயாராக வைக்கவும்"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"இந்தச் சாதனம் தனிப்பட்டது இல்லை"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"இந்தச் சாதனத்தில் உள்ள தரவையும் செயல்பாட்டையும் உங்கள் IT நிர்வாகி பார்க்கக்கூடும்."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"உங்கள் சாதனத்தை அமைக்கிறது…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"உங்கள் பணிக்கான ஆப்ஸை எளிதாக அணுக இந்தச் சாதனத்தைப் பயன்படுத்துங்கள். இந்தச் சாதனம் தனிப்பட்டதில்லை என்பதால் இதிலுள்ள உங்கள் தரவையும் செயல்பாட்டையும் IT நிர்வாகி பார்க்கக்கூடும். மேலும் அறிய IT நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"பணி ஆப்ஸ் உங்கள் பணி கணக்கில் இருக்கும், இவற்றை IT நிர்வாகி நிர்வகிப்பார்"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"தனிப்பட்ட ஆப்ஸ் தனியாக, பணி ஆப்ஸிலிருந்து மறைந்திருக்கும்"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT நிர்வாகி சாதனத்தை கட்டுப்படுத்த, சில ஆப்ஸைத் தடுக்கமுடியும்"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"பணி ஆப்ஸ் உங்கள் பணிக் கணக்கில் வைக்கப்படுவதுடன் உங்கள் IT நிர்வாகியால் நிர்வகிக்கப்படும். தனிப்பட்ட ஆப்ஸ் பணி ஆப்ஸுடன் சேர்ந்ததல்ல என்பதோடு பணி ஆப்ஸில் இருந்து அவை மறைக்கப்பட்டிருக்கும். உங்கள் IT நிர்வாகியால் இந்தச் சாதனத்தை நிர்வகிக்க முடிவதுடன் குறிப்பிட்ட ஆப்ஸைத் தடுக்கவும் முடியும்."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"காத்திருக்கவும்…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"தனியுரிமை நினைவூட்டல்"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"இந்தச் சாதனத்தில் உள்ள உங்கள் தரவையும் செயல்பாட்டையும் IT நிர்வாகி பார்க்கக்கூடும்"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"உங்கள் சாதனம் பயன்படுத்தத் தயாராக உள்ளது!"</string>
     <string name="done" msgid="7755227776955952318">"முடிந்தது"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"இந்தச் சாதனம் <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> மூலம் கிரெடிட்டில் வாங்கப்பட்டது"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> இவற்றைச் செய்ய முடியும்:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ஆப்ஸை நிறுவுவதன் மூலம் இந்தச் சாதனத்திற்கான பேமெண்ட்டைச் செலுத்த முடியும்"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"நீங்கள் பேமெண்ட்டைச் செலுத்தவில்லையெனில் கிரெடிட்டரால் இந்தச் சாதனத்திற்கான அணுகலைக் கட்டுப்படுத்த முடியும்"</string>
 </resources>

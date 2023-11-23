@@ -16,8 +16,10 @@
 
 package libcore.io;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.system.ErrnoException;
 import android.system.StructStat;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
@@ -27,10 +29,12 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-
-import dalvik.annotation.compat.UnsupportedAppUsage;
 import libcore.util.NonNull;
-import static android.system.OsConstants.*;
+
+import static android.system.OsConstants.F_GETFL;
+import static android.system.OsConstants.F_SETFL;
+import static android.system.OsConstants.O_NONBLOCK;
+import static android.system.OsConstants.O_RDONLY;
 
 /** @hide */
 @libcore.api.CorePlatformApi
@@ -252,23 +256,6 @@ public final class IoUtils {
                     deleteContents(file);
                 }
                 file.delete();
-            }
-        }
-    }
-
-    /**
-     * Creates a unique new temporary directory under "java.io.tmpdir".
-     *
-     * @deprecated Use {@link TestIoUtils#createTemporaryDirectory} instead.
-     */
-    @libcore.api.CorePlatformApi
-    @Deprecated
-    public static File createTemporaryDirectory(String prefix) {
-        while (true) {
-            String candidateName = prefix + Math.randomIntInternal();
-            File result = new File(System.getProperty("java.io.tmpdir"), candidateName);
-            if (result.mkdir()) {
-                return result;
             }
         }
     }

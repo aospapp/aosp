@@ -33,6 +33,8 @@ import android.net.wifi.WifiScanner.ScanSettings;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -41,16 +43,17 @@ import org.junit.Test;
  * {@link com.android.server.wifi.scanner.ScanScheduleUtil}.
  */
 @SmallTest
-public class ScanScheduleUtilFilterTest {
+public class ScanScheduleUtilFilterTest extends WifiBaseTest {
 
     private ChannelHelper mChannelHelper;
 
     @Before
     public void setUp() throws Exception {
         mChannelHelper = new PresetKnownBandsChannelHelper(
-                new int[]{2400, 2450},
-                new int[]{5150, 5175},
-                new int[]{5600, 5650});
+                new int[]{2412, 2450},
+                new int[]{5160, 5175},
+                new int[]{5600, 5650},
+                new int[]{5945, 5985});
     }
 
     @Test
@@ -61,7 +64,7 @@ public class ScanScheduleUtilFilterTest {
         );
 
         assertTrue(ScanScheduleUtil.shouldReportFullScanResultForSettings(mChannelHelper,
-                        createScanResult(2400), 0, settings, -1));
+                        createScanResult(2412), 0, settings, -1));
     }
 
     @Test
@@ -72,24 +75,24 @@ public class ScanScheduleUtilFilterTest {
         );
 
         assertFalse(ScanScheduleUtil.shouldReportFullScanResultForSettings(mChannelHelper,
-                        createScanResult(5150), 0, settings, 0));
+                        createScanResult(5160), 0, settings, 0));
     }
 
     @Test
     public void reportFullResultTrueForChannelsWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         assertTrue(ScanScheduleUtil.shouldReportFullScanResultForSettings(mChannelHelper,
-                        createScanResult(2400), 0, settings, 0));
+                        createScanResult(2412), 0, settings, 0));
     }
 
     @Test
     public void reportFullResultFalseForChannelsWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
@@ -100,29 +103,29 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void reportFullResultTrueForChannelsWithBucketDefinitlyScanned() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         assertTrue(ScanScheduleUtil.shouldReportFullScanResultForSettings(mChannelHelper,
-                        createScanResult(2400), 5, settings, 2));
+                        createScanResult(2412), 5, settings, 2));
     }
 
     @Test
     public void reportFullResultFalseForChannelsWithBucketDefinitlyNotScanned() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         assertFalse(ScanScheduleUtil.shouldReportFullScanResultForSettings(mChannelHelper,
-                        createScanResult(2400), 1, settings, 1));
+                        createScanResult(2412), 1, settings, 1));
     }
 
     @Test
     public void filterScanDataEmptyWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
@@ -134,7 +137,7 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void filterScanDataSingleNotMatchingWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
@@ -146,7 +149,7 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void filterScanDataSingleNotMatchingWithDefinitlyScannedBucketIndex() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
@@ -158,7 +161,7 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void filterScanDataSingleNotMatchingWithBucketDefinitlyScanned() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
@@ -170,25 +173,25 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void filterScanDataSingleMatchingWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
-                createScanDatas(new int[][]{ { 2400 } }), settings, 0);
+                createScanDatas(new int[][]{ { 2412 } }), settings, 0);
 
-        assertScanDataFreqsEquals(new int[][]{ { 2400 } }, results);
+        assertScanDataFreqsEquals(new int[][]{ { 2412 } }, results);
     }
 
     @Test
     public void filterScanDataSingleMatchingWithBucketDefinitlyNotScanned() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
-                createScanDatas(new int[][]{ { 2400 } }, new int[] { 5 }), settings, 1);
+                createScanDatas(new int[][]{ { 2412 } }, new int[] { 5 }), settings, 1);
 
         assertScanDataFreqsEquals(null, results);
     }
@@ -196,20 +199,20 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void filterScanDataSinglePartialMatchingWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
-                createScanDatas(new int[][]{ { 2400, 2450, 5150, 5175 } }), settings, 0);
+                createScanDatas(new int[][]{ { 2412, 2450, 5160, 5175 } }), settings, 0);
 
-        assertScanDataFreqsEquals(new int[][]{ { 2400, 5150 } }, results);
+        assertScanDataFreqsEquals(new int[][]{ { 2412, 5160 } }, results);
     }
 
     @Test
     public void filterScanDataMultipleNotMatchingWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
@@ -221,7 +224,7 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void filterScanDataMultipleNotMatchingWithOneDefinitlyScanned() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
@@ -234,76 +237,76 @@ public class ScanScheduleUtilFilterTest {
     @Test
     public void filterScanDataMultipleMatchingWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
-                createScanDatas(new int[][]{ { 2400 }, {2400, 5150} }), settings, 0);
+                createScanDatas(new int[][]{ { 2412 }, {2412, 5160} }), settings, 0);
 
-        assertScanDataFreqsEquals(new int[][]{ { 2400 }, {2400, 5150} }, results);
+        assertScanDataFreqsEquals(new int[][]{ { 2412 }, {2412, 5160} }, results);
     }
 
     @Test
     public void filterScanDataMultiplePartialMatchingWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
-                createScanDatas(new int[][]{ { 2400, 2450, 5150, 5175 }, { 2400, 2450, 5175 } }),
+                createScanDatas(new int[][]{ { 2412, 2450, 5160, 5175 }, { 2412, 2450, 5175 } }),
                 settings, -1);
 
-        assertScanDataFreqsEquals(new int[][]{ { 2400, 5150 }, { 2400 } }, results);
+        assertScanDataFreqsEquals(new int[][]{ { 2412, 5160 }, { 2412 } }, results);
     }
 
     @Test
     public void filterScanDataMultipleDuplicateFrequenciesWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
                 createScanDatas(new int[][]{
-                        { 2400, 2450, 5150, 5175, 2400 },
-                        { 2400, 2450, 5175 },
-                        { 5175, 5175, 5150 } }), settings, 0);
+                        { 2412, 2450, 5160, 5175, 2412 },
+                        { 2412, 2450, 5175 },
+                        { 5175, 5175, 5160 } }), settings, 0);
 
-        assertScanDataFreqsEquals(new int[][]{ { 2400, 5150, 2400 }, { 2400 }, { 5150 } }, results);
+        assertScanDataFreqsEquals(new int[][]{ { 2412, 5160, 2412 }, { 2412 }, { 5160 } }, results);
     }
 
     @Test
     public void filterScanDataMultipleSomeNotMatchingWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 20,
+                channelsToSpec(2412, 5160), 30000, 0, 20,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
                 createScanDatas(new int[][]{
-                        { 2400, 2450, 5150, 5175, 2400 },
+                        { 2412, 2450, 5160, 5175, 2412 },
                         { 5175 },
-                        { 5175, 5175, 5150 } }), settings, 0);
+                        { 5175, 5175, 5160 } }), settings, 0);
 
-        assertScanDataFreqsEquals(new int[][]{ { 2400, 5150, 2400 }, { 5150 } }, results);
+        assertScanDataFreqsEquals(new int[][]{ { 2412, 5160, 2412 }, { 5160 } }, results);
     }
 
     @Test
     public void filterScanDataExceedMaxBssidsPerScanWithNoBucketInfo() {
         ScanSettings settings = createRequest(
-                channelsToSpec(2400, 5150), 30000, 0, 3,
+                channelsToSpec(2412, 5160), 30000, 0, 3,
                 WifiScanner.REPORT_EVENT_FULL_SCAN_RESULT
         );
 
         ScanData[] results = ScanScheduleUtil.filterResultsForSettings(mChannelHelper,
                 createScanDatas(new int[][]{
-                        { 2400, 2450, 5150, 5175, 2400, 2400},
+                        { 2412, 2450, 5160, 5175, 2412, 2412},
                         { 5175 },
-                        { 5175, 5175, 5150, 2400, 2400, 5150 } }), settings, 0);
+                        { 5175, 5175, 5160, 2412, 2412, 5160 } }), settings, 0);
 
-        assertScanDataFreqsEquals(new int[][]{ { 2400, 5150, 2400 }, { 5150, 2400, 2400 } },
+        assertScanDataFreqsEquals(new int[][]{ { 2412, 5160, 2412 }, { 5160, 2412, 2412 } },
                 results);
     }
 

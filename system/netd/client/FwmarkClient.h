@@ -28,10 +28,6 @@ public:
     // its SO_MARK set.
     static bool shouldSetFwmark(int family);
 
-    // Returns true if an additional call should be made after ON_CONNECT calls, to log extra
-    // information like latency and source IP.
-    static bool shouldReportConnectComplete(int family);
-
     FwmarkClient();
     ~FwmarkClient();
 

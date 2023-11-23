@@ -47,8 +47,10 @@ import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.viewpager.widget.ViewPager;
 
 import com.google.android.car.kitchensink.R;
+import com.google.android.car.kitchensink.SimplePagerAdapter;
 
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -469,6 +471,9 @@ public class ConnectivityFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.connectivity_fragment, container, false);
+
+        ViewPager pager = view.findViewById(R.id.connectivity_pager);
+        pager.setAdapter(new SimplePagerAdapter(pager));
 
         // Create the ListView of all networks
         ListView networksView = view.findViewById(R.id.networks);

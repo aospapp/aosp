@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Udpak certifikat"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Udtrækker..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Udtræk fra %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Giv certifikatet et navn"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Certifikatnavn:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Navngiv dette certifikat"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Certifikatnavn"</string>
     <string name="credential_password" msgid="3520176519550993326">"Angiv adgangskoden for at udtrække certifikaterne."</string>
     <string name="credential_info" msgid="2436768402308470397">"Pakken indeholder:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Certifikater i PKCS12-nøgler."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Certifikatet er ugyldigt."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Et certifikat kan ikke installeres uden en privat nøgle"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"En privat nøgle kan ikke installeres uden et certifikat"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> er installeret."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Vælg en certifikattype"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Installer CA-certifikater under Indstillinger"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Dette certifikat fra <xliff:g id="REQUESTING_APP">%1$s</xliff:g> skal installeres under Indstillinger. Du bør kun installere CA-certifikater fra organisationer, du har tillid til."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Luk"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Denne fil kan ikke bruges"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Luk"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Denne fil kan ikke bruges som <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Certifikat"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA-certifikat"</string>
+    <string name="user_certificate" msgid="514888069820553128">"VPN- og appbrugercertifikat"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi-certifikat"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"CA-certifikatet er installeret"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Brugercertifikatet er installeret"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Wi‑Fi-certifikatet er installeret"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Kunne ikke installere, fordi certifikatstørrelsen er for stor."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Der kunne ikke installeres, fordi certifikatfilen ikke blev fundet."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Der kunne ikke installeres, fordi certifikatfilen ikke kunne læses."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Midlertidig fejl. Prøv igen senere."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Kun ejeren af denne enhed kan installere certifikater."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Brug af loginoplysninger:"</string>
   <string-array name="credential_usage">

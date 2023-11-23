@@ -22,13 +22,21 @@
 
 #include <android-base/logging.h>
 
+#include <log/log_event_list.h>
+
+#include <private/android_logger.h>
+
 #include "KeyStore.h"
 #include "keymaster_enforcement.h"
 
-#include "key_proto_handler.h"
+#include "key_creation_log_handler.h"
 #include "keystore_utils.h"
 
+#include <chrono>
+
 namespace keystore {
+
+using namespace std::chrono;
 
 constexpr size_t kMaxOperations = 15;
 
@@ -40,23 +48,34 @@ using android::security::keymaster::OperationResult;
 Worker::Worker() {}
 Worker::~Worker() {
     std::unique_lock<std::mutex> lock(pending_requests_mutex_);
-    pending_requests_cond_var_.wait(lock, [this] { return pending_requests_.empty(); });
+    terminate_ = true;
+    pending_requests_cond_var_.notify_all();
+    pending_requests_cond_var_.wait(lock, [this] { return !running_; });
 }
 void Worker::addRequest(WorkerTask request) {
     std::unique_lock<std::mutex> lock(pending_requests_mutex_);
-    bool start_thread = pending_requests_.empty();
+    bool start_thread = !running_;
+    running_ = true;
     pending_requests_.push(std::move(request));
     lock.unlock();
+    pending_requests_cond_var_.notify_all();
     if (start_thread) {
         auto worker = std::thread([this] {
             std::unique_lock<std::mutex> lock(pending_requests_mutex_);
-            running_ = true;
-            while (!pending_requests_.empty()) {
-                auto request = std::move(pending_requests_.front());
-                lock.unlock();
-                request();
-                lock.lock();
-                pending_requests_.pop();
+            while (running_) {
+                // Wait for 30s if the request queue is empty, then kill die.
+                // Die immediately if termiate_ was set which happens in the destructor.
+                auto status = pending_requests_cond_var_.wait_for(
+                    lock, 30s, [this]() { return !pending_requests_.empty() || terminate_; });
+                if (status && !terminate_) {
+                    auto request = std::move(pending_requests_.front());
+                    lock.unlock();
+                    request();
+                    lock.lock();
+                    pending_requests_.pop();
+                } else {
+                    running_ = false;
+                }
                 pending_requests_cond_var_.notify_all();
             }
         });
@@ -72,6 +91,26 @@ KeymasterWorker::KeymasterWorker(sp<Keymaster> keymasterDevice, KeyStore* keySto
 
 void KeymasterWorker::logIfKeymasterVendorError(ErrorCode ec) const {
     keymasterDevice_->logIfKeymasterVendorError(ec);
+}
+
+void KeymasterWorker::deleteOldKeyOnUpgrade(const LockedKeyBlobEntry& blobfile, Blob keyBlob) {
+    // if we got the blob successfully, we try and delete it from the keymaster device
+    auto& dev = keymasterDevice_;
+    uid_t uid = blobfile->uid();
+    const auto& alias = blobfile->alias();
+
+    if (keyBlob.getType() == ::TYPE_KEYMASTER_10) {
+        auto ret = KS_HANDLE_HIDL_ERROR(dev, dev->deleteKey(blob2hidlVec(keyBlob)));
+        // A device doesn't have to implement delete_key.
+        bool success = ret == ErrorCode::OK || ret == ErrorCode::UNIMPLEMENTED;
+        if (__android_log_security()) {
+            android_log_event_list(SEC_TAG_KEY_DESTROYED)
+                << int32_t(success) << alias << int32_t(uid) << LOG_ID_SECURITY;
+        }
+        if (!success) {
+            LOG(ERROR) << "Keymaster delete for key " << alias << " of uid " << uid << " failed";
+        }
+    }
 }
 
 std::tuple<KeyStoreServiceReturnCode, Blob>
@@ -111,12 +150,6 @@ KeymasterWorker::upgradeKeyBlob(const LockedKeyBlobEntry& lockedEntry,
             return;
         }
 
-        error = keyStore_->del(lockedEntry);
-        if (!error.isOk()) {
-            ALOGI("upgradeKeyBlob keystore->del failed %d", error.getErrorCode());
-            return;
-        }
-
         Blob newBlob(&upgradedKeyBlob[0], upgradedKeyBlob.size(), nullptr /* info */,
                      0 /* infoLength */, ::TYPE_KEYMASTER_10);
         newBlob.setSecurityLevel(blob.getSecurityLevel());
@@ -129,6 +162,8 @@ KeymasterWorker::upgradeKeyBlob(const LockedKeyBlobEntry& lockedEntry,
             ALOGI("upgradeKeyBlob keystore->put failed %d", error.getErrorCode());
             return;
         }
+
+        deleteOldKeyOnUpgrade(lockedEntry, std::move(blob));
         blob = std::move(newBlob);
     };
 
@@ -301,8 +336,10 @@ KeymasterWorker::getAuthToken(const KeyCharacteristics& characteristics, uint64_
     return {rc, std::move(authToken)};
 }
 
-KeyStoreServiceReturnCode KeymasterWorker::abort(const sp<IBinder>& token) {
-    auto op = operationMap_.removeOperation(token, false /* wasOpSuccessful */);
+KeyStoreServiceReturnCode KeymasterWorker::abort(const sp<IBinder>& token,
+                                                 ResponseCode reason_for_abort) {
+    auto op = operationMap_.removeOperation(token, false /* wasOpSuccessful */,
+                                            static_cast<int32_t>(reason_for_abort));
     if (op) {
         keyStore_->getAuthTokenTable().MarkCompleted(op->handle);
         return KS_HANDLE_HIDL_ERROR(keymasterDevice_, keymasterDevice_->abort(op->handle));
@@ -320,7 +357,8 @@ bool KeymasterWorker::pruneOperation() {
     size_t op_count_before_abort = operationMap_.getOperationCount();
     // We mostly ignore errors from abort() because all we care about is whether at least
     // one operation has been removed.
-    auto rc = abort(oldest);
+    auto rc = abort(oldest, ResponseCode::PRUNED);
+    keyStore_->removeOperationDevice(oldest);
     if (operationMap_.getOperationCount() >= op_count_before_abort) {
         ALOGE("Failed to abort pruneable operation %p, error: %d", oldest.get(), rc.getErrorCode());
         return false;
@@ -562,7 +600,7 @@ void KeymasterWorker::update(sp<IBinder> token, AuthorizationSet params, hidl_ve
         }
 
         Finalize abort_operation_in_case_of_error([&] {
-            operationMap_.removeOperation(token, false);
+            operationMap_.removeOperation(token, false, rc.getErrorCode());
             keyStore_->getAuthTokenTable().MarkCompleted(op->handle);
             KS_HANDLE_HIDL_ERROR(keymasterDevice_, keymasterDevice_->abort(op->handle));
         });
@@ -641,7 +679,7 @@ void KeymasterWorker::finish(sp<IBinder> token, AuthorizationSet params, hidl_ve
 
         bool finished = false;
         Finalize abort_operation_in_case_of_error([&] {
-            operationMap_.removeOperation(token, finished && rc.isOk());
+            operationMap_.removeOperation(token, finished && rc.isOk(), rc.getErrorCode());
             keyStore_->getAuthTokenTable().MarkCompleted(op->handle);
             if (!finished)
                 KS_HANDLE_HIDL_ERROR(keymasterDevice_, keymasterDevice_->abort(op->handle));
@@ -709,8 +747,9 @@ void KeymasterWorker::finish(sp<IBinder> token, AuthorizationSet params, hidl_ve
 }
 
 void KeymasterWorker::abort(sp<IBinder> token, abort_cb worker_cb) {
-    Worker::addRequest(
-        [this, CAPTURE_MOVE(token), CAPTURE_MOVE(worker_cb)]() { return worker_cb(abort(token)); });
+    Worker::addRequest([this, CAPTURE_MOVE(token), CAPTURE_MOVE(worker_cb)]() {
+        return worker_cb(abort(token, ResponseCode::ABORT_CALLED));
+    });
 }
 
 void KeymasterWorker::verifyAuthorization(uint64_t challenge, hidl_vec<KeyParameter> params,
@@ -764,8 +803,10 @@ void KeymasterWorker::generateKey(LockedKeyBlobEntry lockedEntry, hidl_vec<KeyPa
         // by KeyStore::getFallbackDevice()
         bool consider_fallback = securityLevel == SecurityLevel::TRUSTED_ENVIRONMENT;
 
-        Finalize logOnFail(
-            [&] { uploadKeyCharacteristicsAsProto(keyParams, false /* wasCreationSuccessful */); });
+        Finalize logOnFail([&] {
+            logKeystoreKeyCreationEvent(keyParams, false /*wasCreationSuccessful*/,
+                                        rc.getErrorCode());
+        });
 
         KeyCharacteristics outCharacteristics;
         KeyStoreServiceReturnCode error;
@@ -834,7 +875,8 @@ void KeymasterWorker::generateKey(LockedKeyBlobEntry lockedEntry, hidl_vec<KeyPa
 
         // log on success
         logOnFail.release();
-        uploadKeyCharacteristicsAsProto(keyParams, true /* wasCreationSuccessful */);
+        logKeystoreKeyCreationEvent(keyParams, true /*wasCreationSuccessful*/,
+                                    error.getErrorCode());
 
         return worker_cb(error, std::move(outCharacteristics));
     });
@@ -868,11 +910,13 @@ void KeymasterWorker::importKey(LockedKeyBlobEntry lockedEntry, hidl_vec<KeyPara
         // by KeyStore::getFallbackDevice()
         bool consider_fallback = securityLevel == SecurityLevel::TRUSTED_ENVIRONMENT;
 
-        Finalize logOnFail(
-            [&] { uploadKeyCharacteristicsAsProto(keyParams, false /* wasCreationSuccessful */); });
+        KeyStoreServiceReturnCode error;
+        Finalize logOnFail([&] {
+            logKeystoreKeyCreationEvent(keyParams, false /*wasCreationSuccessful*/,
+                                        error.getErrorCode());
+        });
 
         KeyCharacteristics outCharacteristics;
-        KeyStoreServiceReturnCode error;
         auto hidl_cb = [&](ErrorCode ret, const hidl_vec<uint8_t>& hidlKeyBlob,
                            const KeyCharacteristics& keyCharacteristics) {
             keymasterDevice_->logIfKeymasterVendorError(ret);
@@ -939,7 +983,8 @@ void KeymasterWorker::importKey(LockedKeyBlobEntry lockedEntry, hidl_vec<KeyPara
 
         // log on success
         logOnFail.release();
-        uploadKeyCharacteristicsAsProto(keyParams, true /* wasCreationSuccessful */);
+        logKeystoreKeyCreationEvent(keyParams, true /*wasCreationSuccessful*/,
+                                    error.getErrorCode());
 
         return worker_cb(error, std::move(outCharacteristics));
     });
@@ -1090,7 +1135,8 @@ void KeymasterWorker::binderDied(android::wp<IBinder> who) {
     Worker::addRequest([this, who]() {
         auto operations = operationMap_.getOperationsForToken(who.unsafe_get());
         for (const auto& token : operations) {
-            abort(token);
+            abort(token, ResponseCode::BINDER_DIED);
+            keyStore_->removeOperationDevice(token);
         }
     });
 }

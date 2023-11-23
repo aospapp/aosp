@@ -1,20 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2018 Pavel Boldin <pboldin@cloudlinux.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
- * Original exploit: https://github.com/paboldin/meltdown-exploit.
  */
 
 #include "config.h"
@@ -267,9 +253,15 @@ find_symbol_in_file(const char *filename, const char *symname)
 	int ret, read;
 	char fmt[strlen(symname) + 64];
 
+	tst_res(TINFO, "Looking for %s in %s", symname, filename);
+	if (access(filename, F_OK) == -1) {
+		tst_res(TINFO, "%s not available", filename);
+		return 0;
+	}
+
 	sprintf(fmt, "%%lx %%c %s%%c", symname);
 
-	ret = SAFE_FILE_LINES_SCANF(filename, fmt, &addr, &type, &read);
+	ret = FILE_LINES_SCANF(filename, fmt, &addr, &type, &read);
 	if (ret)
 		return 0;
 
@@ -287,13 +279,9 @@ find_kernel_symbol(const char *name)
 	if (addr)
 		return addr;
 
-	tst_res(TINFO, "not found '%s' in /proc/kallsyms", name);
 	if (uname(&utsname) < 0)
 		tst_brk(TBROK | TERRNO, "uname");
-
 	sprintf(systemmap, "/boot/System.map-%s", utsname.release);
-
-	tst_res(TINFO, "looking in '%s'\n", systemmap);
 	addr = find_symbol_in_file(systemmap, name);
 	return addr;
 }
@@ -307,6 +295,9 @@ static void setup(void)
 
 	saved_cmdline_addr = find_kernel_symbol("saved_command_line");
 	tst_res(TINFO, "&saved_command_line == 0x%lx", saved_cmdline_addr);
+
+	if (!saved_cmdline_addr)
+		tst_brk(TCONF, "saved_command_line not found");
 
 	spec_fd = SAFE_OPEN("/proc/cmdline", O_RDONLY);
 
@@ -386,7 +377,11 @@ static struct tst_test test = {
 	.setup = setup,
 	.test_all = run,
 	.cleanup = cleanup,
-	.min_kver = "2.6.32"
+	.min_kver = "2.6.32",
+	.tags = (const struct tst_tag[]) {
+		{"CVE", "2017-5754"},
+		{}
+	}
 };
 
 #else /* #if defined(__x86_64__) || defined(__i386__) */

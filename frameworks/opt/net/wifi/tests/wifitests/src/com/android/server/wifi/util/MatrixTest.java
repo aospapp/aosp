@@ -22,6 +22,8 @@ import static org.junit.Assert.fail;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -32,7 +34,7 @@ import java.util.Random;
  * Unit tests for {@link com.android.server.wifi.util.Matrix}.
  */
 @SmallTest
-public class MatrixTest {
+public class MatrixTest extends WifiBaseTest {
     /**
      * Test that both forms of constructor work
      */

@@ -10,7 +10,7 @@
 #include "xfa/fxfa/cxfa_ffpageview.h"
 #include "xfa/fxfa/cxfa_ffwidget.h"
 
-class CXFA_FFExclGroup : public CXFA_FFWidget {
+class CXFA_FFExclGroup final : public CXFA_FFWidget {
  public:
   explicit CXFA_FFExclGroup(CXFA_Node* pNode);
   ~CXFA_FFExclGroup() override;
@@ -18,7 +18,7 @@ class CXFA_FFExclGroup : public CXFA_FFWidget {
   // CXFA_FFWidget
   void RenderWidget(CXFA_Graphics* pGS,
                     const CFX_Matrix& matrix,
-                    uint32_t dwStatus) override;
+                    HighlightOption highlight) override;
 };
 
 #endif  // XFA_FXFA_CXFA_FFEXCLGROUP_H_

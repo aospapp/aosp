@@ -53,22 +53,22 @@ public final class ReflectUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private static boolean isSubclassOf(java.lang.Class<?> queryClass, java.lang.Class<?> ofClass) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static void checkPackageAccess(java.lang.Class<?> clazz) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static void checkPackageAccess(java.lang.String name) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static boolean isPackageAccessible(java.lang.Class<?> clazz) {
         throw new RuntimeException("Stub!");
     }

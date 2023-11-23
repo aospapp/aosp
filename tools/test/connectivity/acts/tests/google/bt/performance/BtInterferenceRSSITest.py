@@ -1,12 +1,12 @@
 from multiprocessing import Process
 import time
 
-from acts.test_utils.bt.A2dpCodecBaseTest import A2dpCodecBaseTest
+from acts.test_utils.bt.A2dpBaseTest import A2dpBaseTest
 
 END_TOKEN = "end"
 
 
-class BtInterferenceRSSITest(A2dpCodecBaseTest):
+class BtInterferenceRSSITest(A2dpBaseTest):
     """Test that streams audio from Android phone to relay controlled headset
     over Bluetooth while running command sequences on one or more attenuators.
 
@@ -26,8 +26,8 @@ class BtInterferenceRSSITest(A2dpCodecBaseTest):
             module) terminates the sequence and keeps it from looping.
     """
 
-    def __init__(self, configs):
-        super().__init__(configs)
+    def setup_class(self):
+        super().setup_class()
         req_params = ["bt_atten_sequences", "RelayDevice", "codec"]
         opt_params = ["audio_params"]
         self.unpack_userparams(req_params, opt_params)

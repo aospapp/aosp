@@ -18,23 +18,22 @@ package android.car.vms;
 
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.app.Service;
+import android.car.Car;
+import android.car.annotation.RequiredFeature;
+import android.car.vms.VmsClientManager.VmsClientCallback;
 import android.content.Intent;
 import android.os.Binder;
-import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerExecutor;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.Message;
-import android.os.Process;
-import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.Preconditions;
-
-import java.lang.ref.WeakReference;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * API implementation of a Vehicle Map Service publisher client.
@@ -49,41 +48,68 @@ import java.lang.ref.WeakReference;
  *
  * Publishers must also register a publisher ID by calling {@link #getPublisherId(byte[])}.
  *
+ * @deprecated Use {@link VmsClientManager} instead
  * @hide
  */
+@RequiredFeature(Car.VEHICLE_MAP_SERVICE)
+@Deprecated
 @SystemApi
 public abstract class VmsPublisherClientService extends Service {
-    private static final boolean DBG = true;
+    private static final boolean DBG = false;
     private static final String TAG = "VmsPublisherClientService";
 
-    private final Object mLock = new Object();
 
-    private Handler mHandler = new VmsEventHandler(this);
-    private final VmsPublisherClientBinder mVmsPublisherClient = new VmsPublisherClientBinder(this);
-    private volatile IVmsPublisherService mVmsPublisherService = null;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final VmsClientCallback mClientCallback = new PublisherClientCallback();
+
+    private final Object mLock = new Object();
     @GuardedBy("mLock")
-    private IBinder mToken = null;
+    private @Nullable Car mCar;
+    @GuardedBy("mLock")
+    private @Nullable VmsClient mClient;
+
+    @Override
+    public void onCreate() {
+        if (DBG) Log.d(TAG, "Connecting to Car service");
+        synchronized (mLock) {
+            mCar = Car.createCar(this, mHandler, Car.CAR_WAIT_TIMEOUT_DO_NOT_WAIT,
+                    this::onCarLifecycleChanged);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        if (DBG) Log.d(TAG, "Disconnecting from Car service");
+        synchronized (mLock) {
+            if (mCar != null) {
+                mCar.disconnect();
+                mCar = null;
+            }
+        }
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
-        if (DBG) {
-            Log.d(TAG, "onBind, intent: " + intent);
-        }
-        return mVmsPublisherClient.asBinder();
+        if (DBG) Log.d(TAG, "onBind, intent: " + intent);
+        return new Binder();
     }
 
-    @Override
-    public boolean onUnbind(Intent intent) {
-        if (DBG) {
-            Log.d(TAG, "onUnbind, intent: " + intent);
-        }
-        stopSelf();
-        return super.onUnbind(intent);
-    }
-
-    private void setToken(IBinder token) {
-        synchronized (mLock) {
-            mToken = token;
+    /**
+     * @hide
+     */
+    @VisibleForTesting
+    protected void onCarLifecycleChanged(Car car, boolean ready) {
+        if (DBG) Log.d(TAG, "Car service ready: " + ready);
+        if (ready) {
+            VmsClientManager clientManager =
+                    (VmsClientManager) car.getCarManager(Car.VEHICLE_MAP_SERVICE);
+            if (DBG) Log.d(TAG, "VmsClientManager: " + clientManager);
+            if (clientManager == null) {
+                Log.e(TAG, "VmsClientManager is not available");
+                return;
+            }
+            clientManager.registerVmsClientCallback(new HandlerExecutor(mHandler), mClientCallback,
+                    /* legacyClient= */ true);
         }
     }
 
@@ -110,18 +136,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @throws IllegalStateException if publisher services are not available
      */
     public final void publish(@NonNull VmsLayer layer, int publisherId, byte[] payload) {
-        Preconditions.checkNotNull(layer, "layer cannot be null");
-        if (DBG) {
-            Log.d(TAG, "Publishing for layer : " + layer);
-        }
-
-        IBinder token = getTokenForPublisherServiceThreadSafe();
-
-        try {
-            mVmsPublisherService.publish(token, layer, publisherId, payload);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        getVmsClient().publishPacket(publisherId, layer, payload);
     }
 
     /**
@@ -131,34 +146,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @throws IllegalStateException if publisher services are not available
      */
     public final void setLayersOffering(@NonNull VmsLayersOffering offering) {
-        Preconditions.checkNotNull(offering, "offering cannot be null");
-        if (DBG) {
-            Log.d(TAG, "Setting layers offering : " + offering);
-        }
-
-        IBinder token = getTokenForPublisherServiceThreadSafe();
-
-        try {
-            mVmsPublisherService.setLayersOffering(token, offering);
-            VmsOperationRecorder.get().setLayersOffering(offering);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    private IBinder getTokenForPublisherServiceThreadSafe() {
-        if (mVmsPublisherService == null) {
-            throw new IllegalStateException("VmsPublisherService not set.");
-        }
-
-        IBinder token;
-        synchronized (mLock) {
-            token = mToken;
-        }
-        if (token == null) {
-            throw new IllegalStateException("VmsPublisherService does not have a valid token.");
-        }
-        return token;
+        getVmsClient().setProviderOfferings(offering.getPublisherId(), offering.getDependencies());
     }
 
     /**
@@ -172,18 +160,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @throws IllegalStateException if publisher services are not available
      */
     public final int getPublisherId(byte[] publisherInfo) {
-        if (mVmsPublisherService == null) {
-            throw new IllegalStateException("VmsPublisherService not set.");
-        }
-        int publisherId;
-        try {
-            Log.i(TAG, "Getting publisher static ID");
-            publisherId = mVmsPublisherService.getPublisherId(publisherInfo);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-        VmsOperationRecorder.get().getPublisherId(publisherId);
-        return publisherId;
+        return getVmsClient().registerProvider(publisherInfo);
     }
 
     /**
@@ -193,118 +170,40 @@ public abstract class VmsPublisherClientService extends Service {
      * @throws IllegalStateException if publisher services are not available
      */
     public final VmsSubscriptionState getSubscriptions() {
-        if (mVmsPublisherService == null) {
-            throw new IllegalStateException("VmsPublisherService not set.");
-        }
-        try {
-            return mVmsPublisherService.getSubscriptions();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+        return getVmsClient().getSubscriptionState();
+    }
+
+    private VmsClient getVmsClient() {
+        synchronized (mLock) {
+            if (mClient == null) {
+                throw new IllegalStateException("VMS client connection is not ready");
+            }
+            return mClient;
         }
     }
 
-    private void setVmsPublisherService(IVmsPublisherService service) {
-        mVmsPublisherService = service;
-        onVmsPublisherServiceReady();
-    }
-
-    /**
-     * Implements the interface that the VMS service uses to communicate with this client.
-     */
-    private static class VmsPublisherClientBinder extends IVmsPublisherClient.Stub {
-        private final WeakReference<VmsPublisherClientService> mVmsPublisherClientService;
-        @GuardedBy("mSequenceLock")
-        private long mSequence = -1;
-        private final Object mSequenceLock = new Object();
-
-        VmsPublisherClientBinder(VmsPublisherClientService vmsPublisherClientService) {
-            mVmsPublisherClientService = new WeakReference<>(vmsPublisherClientService);
+    private class PublisherClientCallback implements VmsClientCallback {
+        @Override
+        public void onClientConnected(VmsClient client) {
+            synchronized (mLock) {
+                mClient = client;
+            }
+            onVmsPublisherServiceReady();
         }
 
         @Override
-        public void setVmsPublisherService(IBinder token, IVmsPublisherService service) {
-            assertSystemOrSelf();
-
-            VmsPublisherClientService vmsPublisherClientService = mVmsPublisherClientService.get();
-            if (vmsPublisherClientService == null) return;
-            if (DBG) {
-                Log.d(TAG, "setting VmsPublisherService.");
-            }
-            Handler handler = vmsPublisherClientService.mHandler;
-            handler.sendMessage(
-                    handler.obtainMessage(VmsEventHandler.SET_SERVICE_CALLBACK, service));
-            vmsPublisherClientService.setToken(token);
+        public void onSubscriptionStateChanged(VmsSubscriptionState subscriptionState) {
+            onVmsSubscriptionChange(subscriptionState);
         }
 
         @Override
-        public void onVmsSubscriptionChange(VmsSubscriptionState subscriptionState) {
-            assertSystemOrSelf();
-
-            VmsPublisherClientService vmsPublisherClientService = mVmsPublisherClientService.get();
-            if (vmsPublisherClientService == null) return;
-            if (DBG) {
-                Log.d(TAG, "subscription event: " + subscriptionState);
-            }
-            synchronized (mSequenceLock) {
-                if (subscriptionState.getSequenceNumber() <= mSequence) {
-                    Log.w(TAG, "Sequence out of order. Current sequence = " + mSequence
-                            + "; expected new sequence = " + subscriptionState.getSequenceNumber());
-                    // Do not propagate old notifications.
-                    return;
-                } else {
-                    mSequence = subscriptionState.getSequenceNumber();
-                }
-            }
-            Handler handler = vmsPublisherClientService.mHandler;
-            handler.sendMessage(
-                    handler.obtainMessage(VmsEventHandler.ON_SUBSCRIPTION_CHANGE_EVENT,
-                            subscriptionState));
-        }
-
-        private void assertSystemOrSelf() {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (DBG) Log.d(TAG, "Skipping system user check");
-                return;
-            }
-
-            if (!(Binder.getCallingUid() == Process.SYSTEM_UID
-                    || Binder.getCallingPid() == Process.myPid())) {
-                throw new SecurityException("Caller must be system user or same process");
-            }
-        }
-    }
-
-    /**
-     * Receives events from the binder thread and dispatches them.
-     */
-    private final static class VmsEventHandler extends Handler {
-        /** Constants handled in the handler */
-        private static final int ON_SUBSCRIPTION_CHANGE_EVENT = 0;
-        private static final int SET_SERVICE_CALLBACK = 1;
-
-        private final WeakReference<VmsPublisherClientService> mVmsPublisherClientService;
-
-        VmsEventHandler(VmsPublisherClientService service) {
-            super(Looper.getMainLooper());
-            mVmsPublisherClientService = new WeakReference<>(service);
+        public void onLayerAvailabilityChanged(VmsAvailableLayers availableLayers) {
+            // Ignored
         }
 
         @Override
-        public void handleMessage(Message msg) {
-            VmsPublisherClientService service = mVmsPublisherClientService.get();
-            if (service == null) return;
-            switch (msg.what) {
-                case ON_SUBSCRIPTION_CHANGE_EVENT:
-                    VmsSubscriptionState subscriptionState = (VmsSubscriptionState) msg.obj;
-                    service.onVmsSubscriptionChange(subscriptionState);
-                    break;
-                case SET_SERVICE_CALLBACK:
-                    service.setVmsPublisherService((IVmsPublisherService) msg.obj);
-                    break;
-                default:
-                    Log.e(TAG, "Event type not handled:  " + msg.what);
-                    break;
-            }
+        public void onPacketReceived(int providerId, VmsLayer layer, byte[] packet) {
+            // Does not subscribe to packets
         }
     }
 }

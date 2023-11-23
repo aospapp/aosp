@@ -6,7 +6,7 @@
 
 from autotest_lib.server import autotest
 from autotest_lib.server import test
-from autotest_lib.server.cros.power import servo_v4_charge_utils
+from autotest_lib.server.cros.power import servo_charger
 
 # Max number of hours the DUT can charge for.
 _MAX_HOURS = 3
@@ -31,7 +31,7 @@ class power_BatteryChargeControl(test.test):
                 charge. The target charge will be capped at the charge capacity.
         """
         servo = host.servo
-        charge_manager = servo_v4_charge_utils.ServoV4ChargeManager(host, servo)
+        charge_manager = servo_charger.ServoV4ChargeManager(host, servo)
         charge_manager.start_charging()
 
         time_limit = _MAX_HOURS * 60 * 60

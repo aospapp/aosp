@@ -21,6 +21,8 @@
 #include <android-base/logging.h>
 #include <hidl-util/FQName.h>
 
+#include <string>
+
 #include "DocComment.h"
 #include "Location.h"
 
@@ -34,20 +36,38 @@ struct Reference {
     Reference() = default;
     virtual ~Reference() {}
 
-    Reference(const FQName& fqName, const Location& location)
-        : mResolved(nullptr), mFqName(fqName), mLocation(location) {}
+    Reference(const std::string& localName, const FQName& fqName, const Location& location,
+              bool definedInline = false)
+        : mResolved(nullptr),
+          mFqName(fqName),
+          mLocation(location),
+          mDefinedInline(definedInline),
+          mLocalName(localName) {}
 
-    Reference(T* type, const Location& location) : mResolved(type), mLocation(location) {
+    Reference(const std::string& localName, T* type, const Location& location,
+              bool definedInline = false)
+        : mResolved(type),
+          mLocation(location),
+          mDefinedInline(definedInline),
+          mLocalName(localName) {
         CHECK(type != nullptr);
     }
 
     template <class OtherT>
     Reference(const Reference<OtherT>& ref)
-        : mResolved(ref.mResolved), mFqName(ref.mFqName), mLocation(ref.mLocation) {}
+        : mResolved(ref.mResolved),
+          mFqName(ref.mFqName),
+          mLocation(ref.mLocation),
+          mDefinedInline(ref.mDefinedInline),
+          mLocalName(ref.mLocalName) {}
 
     template <class OtherT>
     Reference(const Reference<OtherT>& ref, const Location& location)
-        : mResolved(ref.mResolved), mFqName(ref.mFqName), mLocation(location) {}
+        : mResolved(ref.mResolved),
+          mFqName(ref.mFqName),
+          mLocation(location),
+          mDefinedInline(ref.mDefinedInline),
+          mLocalName(ref.mLocalName) {}
 
     /* Returns true iff referred type is resolved
        Referred type's field might be not resolved */
@@ -100,7 +120,11 @@ struct Reference {
         return mLocation;
     }
 
-   private:
+    bool definedInline() const { return mDefinedInline; }
+
+    const std::string& localName() const { return mLocalName; }
+
+  private:
     /* Referred type */
     T* mResolved = nullptr;
     /* Reference name for lookup */
@@ -108,6 +132,11 @@ struct Reference {
     /* Reference location is mainly used for printing errors
        and handling forward reference restrictions */
     Location mLocation;
+    /* definedInline is true if T is defined where it is referenced */
+    bool mDefinedInline;
+
+    /* Name used in the .hal file */
+    std::string mLocalName;
 
     bool hasLookupFqName() const {
         // Valid only while not resolved to prevent confusion when
@@ -130,7 +159,7 @@ struct NamedReference : public Reference<T>, DocCommentable {
     // TODO(b/64715470) Legacy
     const T& type() const { return *Reference<T>::get(); }
 
-   private:
+  private:
     const std::string mName;
 };
 

@@ -70,17 +70,9 @@ public class GarageModeService implements CarServiceBase {
     public void dump(PrintWriter writer) {
         boolean isActive = mController.isGarageModeActive();
         writer.println("GarageModeInProgress " + isActive);
-        List<String> jobs = mController.pendingGarageModeJobs();
-        if (isActive) {
-            writer.println("GarageMode is currently waiting for " + jobs.size() + " jobs:");
-        } else {
-            writer.println("GarageMode was last waiting for " + jobs.size() + " jobs:");
-        }
-        // Dump the names of the jobs that GM is/was waiting for
-        int jobNumber = 1;
-        for (String job : jobs) {
-            writer.println("   " + jobNumber + ": " + job);
-            jobNumber++;
+        List<String> status = mController.dump();
+        for (int idx = 0; idx < status.size(); idx++) {
+            writer.println(status.get(idx));
         }
     }
 

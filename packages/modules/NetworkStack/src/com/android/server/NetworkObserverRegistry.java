@@ -17,7 +17,6 @@ package com.android.server;
 
 import static android.net.RouteInfo.RTN_UNICAST;
 
-import android.annotation.NonNull;
 import android.net.INetd;
 import android.net.INetdUnsolicitedEventListener;
 import android.net.InetAddresses;
@@ -27,6 +26,8 @@ import android.net.RouteInfo;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import java.util.Map;
 import java.util.Optional;
@@ -42,19 +43,13 @@ public class NetworkObserverRegistry extends INetdUnsolicitedEventListener.Stub 
     private static final String TAG = NetworkObserverRegistry.class.getSimpleName();
 
     /**
-     * Constructs a new NetworkObserverRegistry.
-     *
-     * <p>Only one registry should be used per process since netd will silently ignore multiple
-     * registrations from the same process.
-     */
-    NetworkObserverRegistry() {}
-
-    /**
      * Start listening for Netd events.
      *
      * <p>This should be called before allowing any observer to be registered.
+     * Note there is no unregister method. The only way to unregister is when the process
+     * terminates.
      */
-    void register(@NonNull INetd netd) throws RemoteException {
+    public void register(@NonNull INetd netd) throws RemoteException {
         netd.registerUnsolicitedEventListener(this);
     }
 
@@ -185,5 +180,10 @@ public class NetworkObserverRegistry extends INetdUnsolicitedEventListener.Stub 
     @Override
     public int getInterfaceVersion() {
         return INetdUnsolicitedEventListener.VERSION;
+    }
+
+    @Override
+    public String getInterfaceHash() {
+        return INetdUnsolicitedEventListener.HASH;
     }
 }

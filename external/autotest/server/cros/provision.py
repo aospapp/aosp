@@ -18,6 +18,7 @@ CROS_VERSION_PREFIX = Key.CROS_VERSION
 CROS_ANDROID_VERSION_PREFIX = Key.CROS_ANDROID_VERSION
 FW_RW_VERSION_PREFIX = Key.FIRMWARE_RW_VERSION
 FW_RO_VERSION_PREFIX = Key.FIRMWARE_RO_VERSION
+FW_CR50_RW_VERSION_PREFIX = Key.FIRMWARE_CR50_RW_VERSION
 
 # So far the word cheets is only way to distinguish between ARC and Android
 # build.
@@ -29,6 +30,11 @@ SKIP_PROVISION = 'skip_provision'
 # Postfix -cheetsth to distinguish ChromeOS build during Cheets provisioning.
 CHEETS_SUFFIX = '-cheetsth'
 
+# ChromeOS image archive server address
+CROS_IMAGE_ARCHIVE = 'gs://chromeos-image-archive'
+
+# ChromeOS firmware branch directory name. %s is for a (base)board name.
+FW_BRANCH_GLOB = 'firmware-%s-[0-9]*.B-firmwarebranch'
 
 _Action = collections.namedtuple('_Action', 'name, value')
 
@@ -284,7 +290,8 @@ class Provision(_SpecialTaskAction):
     _priorities = [CROS_VERSION_PREFIX,
                    CROS_ANDROID_VERSION_PREFIX,
                    FW_RO_VERSION_PREFIX,
-                   FW_RW_VERSION_PREFIX]
+                   FW_RW_VERSION_PREFIX,
+                   FW_CR50_RW_VERSION_PREFIX]
 
     # TODO(milleral): http://crbug.com/249555
     # Create some way to discover and register provisioning tests so that we
@@ -305,6 +312,8 @@ class Provision(_SpecialTaskAction):
                 'provision_FirmwareUpdate',
                 extra_kwargs={'rw_only': True,
                               'tag': 'rw_only'}),
+        FW_CR50_RW_VERSION_PREFIX: actionables.TestActionable(
+                'provision_Cr50TOT')
     }
 
     name = 'provision'

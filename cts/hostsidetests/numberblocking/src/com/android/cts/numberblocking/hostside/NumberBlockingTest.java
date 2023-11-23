@@ -27,6 +27,8 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
 import java.io.File;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Multi-user tests for number blocking.
@@ -237,15 +239,15 @@ public class NumberBlockingTest extends DeviceTestCase implements IBuildReceiver
 
     // TODO: Replace this with API in ITestDevice once it is available.
     private int getUserSerialNumber(int userId) throws DeviceNotAvailableException {
+        Pattern pattern = Pattern.compile("^.*UserInfo\\{" + userId + "\\:.*serialNo=(\\d+).*$");
         // dumpsys user return lines like "UserInfo{0:Owner:13} serialNo=0"
         String commandOutput = getDevice().executeShellCommand("dumpsys user");
         String[] tokens = commandOutput.split("\\n");
         for (String token : tokens) {
             token = token.trim();
-            if (token.contains("UserInfo{" + userId + ":")) {
-                String[] split = token.split("serialNo=");
-                assertTrue(split.length == 2);
-                int serialNumber = Integer.parseInt(split[1]);
+            Matcher matcher = pattern.matcher(token);
+            if (matcher.matches()) {
+                int serialNumber = Integer.parseInt(matcher.group(1));
                 LogUtil.CLog.logAndDisplay(
                         Log.LogLevel.INFO,
                         String.format("Serial number of user %d : %d", userId, serialNumber));

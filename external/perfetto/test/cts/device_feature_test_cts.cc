@@ -16,14 +16,14 @@
 
 #include <sys/sysinfo.h>
 
-#include "gtest/gtest.h"
+#include "test/gtest_and_gmock.h"
 
 namespace perfetto {
 
 TEST(PerfettoDeviceFeatureTest, TestMaxCpusForAtraceChmod) {
   // Check that there are no more than 16 CPUs so that the assumption in the
   // atrace.rc for clearing CPU buffers is valid.
-  ASSERT_LE(get_nprocs(), 16);
+  ASSERT_LE(sysconf(_SC_NPROCESSORS_CONF), 16);
 }
 
 }  // namespace perfetto

@@ -72,9 +72,13 @@ class WebFeature(feature_utils.Feature):
         post_cmd = getattr(self, keys.ConfigKeys.IKEY_DASHBOARD_POST_COMMAND)
         service_json_path = str(
             getattr(self, keys.ConfigKeys.IKEY_SERVICE_JSON_PATH))
-        self.rest_client = dashboard_rest_client.DashboardRestClient(
-            post_cmd, service_json_path)
-        if not self.rest_client.Initialize():
+        try:
+            self.rest_client = dashboard_rest_client.DashboardRestClient(
+                post_cmd, service_json_path)
+            if not self.rest_client.Initialize():
+                self.enabled = False
+        except Exception as e:
+            logging.exception("Failed to create REST client.")
             self.enabled = False
 
         self.report_msg = ReportMsg.TestReportMessage()

@@ -29,25 +29,18 @@ import static com.google.common.truth.Truth.assertThat;
 import android.car.settings.SpeedBumpConfiguration;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnitRunner;
 
 /**
  * Tests for {@link CarConfigurationService}.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(MockitoJUnitRunner.class)
 public class CarConfigurationServiceTest {
-    @Before
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
-    }
-
     @Test
     public void testJsonResourceSuccessfullyRead() {
         // Use the default JsonReader to check that the resource JSON can be retrieved.

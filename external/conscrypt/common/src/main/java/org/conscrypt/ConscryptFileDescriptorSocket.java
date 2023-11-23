@@ -59,8 +59,9 @@ import org.conscrypt.NativeRef.SSL_SESSION;
  * </ul>
  */
 class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
-        implements NativeCrypto.SSLHandshakeCallbacks, SSLParametersImpl.AliasChooser,
-                   SSLParametersImpl.PSKCallbacks {
+        implements NativeCrypto.SSLHandshakeCallbacks,
+                   SSLParametersImpl.PSKCallbacks,
+                   SSLParametersImpl.AliasChooser {
     private static final boolean DBG_STATE = false;
 
     // @GuardedBy("ssl");
@@ -387,6 +388,13 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     }
 
     @Override
+    public final void serverCertificateRequested() throws IOException {
+        synchronized (ssl) {
+            ssl.configureServerCertificate();
+        }
+    }
+
+    @Override
     public final void verifyCertificateChain(byte[][] certChain, String authMethod)
             throws CertificateException {
         try {
@@ -558,6 +566,11 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
             }
         }
 
+        @Override
+        public int available() {
+            return ssl.getPendingReadableBytes();
+        }
+
         void awaitPendingOps() {
             if (DBG_STATE) {
                 synchronized (ssl) {
@@ -678,6 +691,15 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
         return activeSession;
     }
 
+    // After handshake has started, provide active session otherwise a null session,
+    // for code which needs to read session attributes without triggering the handshake.
+    private ConscryptSession provideAfterHandshakeSession() {
+        return (state < STATE_HANDSHAKE_STARTED)
+            ? SSLNullSession.getNullSession()
+            : provideSession();
+    }
+
+    // If handshake is in progress, provide active session otherwise a null session.
     private ConscryptSession provideHandshakeSession() {
         synchronized (ssl) {
             return state >= STATE_HANDSHAKE_STARTED && state < STATE_READY ? activeSession
@@ -1071,7 +1093,6 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
         } finally {
             super.finalize();
         }
-
     }
 
     @Override
@@ -1086,6 +1107,15 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     }
 
     @Override
+    public int selectApplicationProtocol(byte[] protocols) {
+        ApplicationProtocolSelectorAdapter adapter = sslParameters.getApplicationProtocolSelector();
+        if (adapter == null) {
+            return NativeConstants.SSL_TLSEXT_ERR_NOACK;
+        }
+        return adapter.selectApplicationProtocol(protocols);
+    }
+
+    @Override
     final void setApplicationProtocols(String[] protocols) {
         sslParameters.setApplicationProtocols(protocols);
     }
@@ -1097,7 +1127,7 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
 
     @Override
     public final String getApplicationProtocol() {
-        return SSLUtils.toProtocolString(ssl.getApplicationProtocol());
+        return provideAfterHandshakeSession().getApplicationProtocol();
     }
 
     @Override
@@ -1122,17 +1152,6 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     }
 
     @Override
-    public final String chooseServerAlias(X509KeyManager keyManager, String keyType) {
-        return keyManager.chooseServerAlias(keyType, null, this);
-    }
-
-    @Override
-    public final String chooseClientAlias(X509KeyManager keyManager, X500Principal[] issuers,
-            String[] keyTypes) {
-        return keyManager.chooseClientAlias(keyTypes, issuers, this);
-    }
-
-    @Override
     @SuppressWarnings("deprecation") // PSKKeyManager is deprecated, but in our own package
     public final String chooseServerPSKIdentityHint(PSKKeyManager keyManager) {
         return keyManager.chooseServerKeyIdentityHint(this);
@@ -1150,6 +1169,17 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
         return keyManager.getKey(identityHint, identity, this);
     }
 
+    @Override
+    public final String chooseServerAlias(X509KeyManager keyManager, String keyType) {
+        return keyManager.chooseServerAlias(keyType, null, this);
+    }
+
+    @Override
+    public final String chooseClientAlias(X509KeyManager keyManager, X500Principal[] issuers,
+                                          String[] keyTypes) {
+        return keyManager.chooseClientAlias(keyTypes, issuers, this);
+    }
+
     private ClientSessionContext clientSessionContext() {
         return sslParameters.getClientSessionContext();
     }
@@ -1161,7 +1191,7 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     private void transitionTo(int newState) {
         switch (newState) {
             case STATE_CLOSED: {
-                if (!ssl.isClosed() && state >= STATE_HANDSHAKE_STARTED && state < STATE_CLOSED ) {
+                if (!ssl.isClosed() && state >= STATE_HANDSHAKE_STARTED && state < STATE_CLOSED) {
                     closedSession = new SessionSnapshot(activeSession);
                 }
                 break;

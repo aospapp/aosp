@@ -15,7 +15,7 @@ limitations under the License.
 -->
 <resources>
     <!--Theme for the app. -->
-    <style name="Theme.Radio" parent="android:Theme.DeviceDefault.NoActionBar">
+    <style name="Theme.Radio" parent="Theme.CarUi.WithToolbar">
         <item name="textAppearanceGridItem">@android:style/TextAppearance.DeviceDefault.Medium</item>
         <item name="textAppearanceGridItemSecondary">@android:style/TextAppearance.DeviceDefault.Small</item>
     </style>

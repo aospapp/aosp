@@ -1,22 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2014 SUSE Linux.  All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * Started by Jan Kara <jack@suse.cz>
+ * Author: Jan Kara <jack@suse.cz>
  *
  * DESCRIPTION
  *     Check that inotify overflow event is properly generated
@@ -143,23 +128,9 @@ static void setup(void)
 	SAFE_WRITE(1, fd, buf, BUF_SIZE);
 	SAFE_CLOSE(fd);
 
-	fd_notify = myinotify_init1(O_NONBLOCK);
-	if (fd_notify < 0) {
-		if (errno == ENOSYS) {
-			tst_brk(TCONF,
-				"inotify is not configured in this kernel.");
-		} else {
-			tst_brk(TBROK | TERRNO,
-				"inotify_init failed");
-		}
-	}
+	fd_notify = SAFE_MYINOTIFY_INIT1(O_NONBLOCK);
 
-	wd = myinotify_add_watch(fd_notify, fname, IN_ALL_EVENTS);
-	if (wd < 0) {
-		tst_brk(TBROK | TERRNO,
-			"inotify_add_watch (%d, %s, IN_ALL_EVENTS) failed",
-			fd_notify, fname);
-	};
+	wd = SAFE_MYINOTIFY_ADD_WATCH(fd_notify, fname, IN_ALL_EVENTS);
 
 	SAFE_FILE_SCANF("/proc/sys/fs/inotify/max_queued_events",
 			"%d", &max_events);
@@ -170,7 +141,6 @@ static void cleanup(void)
 	if (fd_notify > 0 && myinotify_rm_watch(fd_notify, wd) == -1) {
 		tst_res(TWARN | TERRNO, "inotify_rm_watch (%d, %d) failed",
 			fd_notify, wd);
-
 	}
 
 	if (fd_notify > 0)

@@ -31,7 +31,6 @@ import android.os.Bundle;
 
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.ShadowApplicationPackageManager;
 
@@ -40,6 +39,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
@@ -47,7 +47,7 @@ import org.robolectric.shadow.api.Shadow;
 import java.util.Map;
 
 /** Unit test for {@link ExtraSettingsLoader}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowApplicationPackageManager.class})
 public class ExtraSettingsLoaderTest {
     private Context mContext;

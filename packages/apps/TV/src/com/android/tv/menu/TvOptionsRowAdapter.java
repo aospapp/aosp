@@ -18,9 +18,13 @@ package com.android.tv.menu;
 
 import android.content.Context;
 import android.media.tv.TvTrackInfo;
+import android.text.TextUtils;
+
+import android.support.annotation.Nullable;
+
 import com.android.tv.TvOptionsManager;
+import com.android.tv.common.BuildConfig;
 import com.android.tv.common.customization.CustomAction;
-import com.android.tv.common.util.CommonUtils;
 import com.android.tv.data.DisplayMode;
 import com.android.tv.features.TvFeatures;
 import com.android.tv.ui.TvViewUiManager;
@@ -28,15 +32,38 @@ import com.android.tv.ui.sidepanel.ClosedCaptionFragment;
 import com.android.tv.ui.sidepanel.DeveloperOptionFragment;
 import com.android.tv.ui.sidepanel.DisplayModeFragment;
 import com.android.tv.ui.sidepanel.MultiAudioFragment;
+
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
+
+import com.android.tv.common.flags.LegacyFlags;
+import com.android.tv.common.flags.UiFlags;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /*
  * An adapter of options.
  */
+@AutoFactory(implementing = TvOptionsRowAdapter.Factory.class)
 public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
-    public TvOptionsRowAdapter(Context context, List<CustomAction> customActions) {
+    private final LegacyFlags mLegacyFlags;
+    private final UiFlags mUiFlags;
+
+    /** Factory for a {@link TvOptionsRowAdapter}. */
+    public interface Factory {
+        /** Creates a {@link TvOptionsRowAdapter} */
+        TvOptionsRowAdapter create(Context context, @Nullable List<CustomAction> customActions);
+    }
+
+    public TvOptionsRowAdapter(
+            Context context,
+            @Nullable List<CustomAction> customActions,
+            @Provided LegacyFlags mLegacyFlags,
+            @Provided UiFlags uiFlags) {
         super(context, customActions);
+        this.mLegacyFlags = mLegacyFlags;
+        mUiFlags = uiFlags;
     }
 
     @Override
@@ -48,8 +75,10 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
             actionList.add(MenuAction.SYSTEMWIDE_PIP_ACTION);
         }
         actionList.add(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION);
-        actionList.add(MenuAction.MORE_CHANNELS_ACTION);
-        if (CommonUtils.isDeveloper()) {
+        if (!TextUtils.isEmpty(mUiFlags.moreChannelsUrl())) {
+            actionList.add(MenuAction.MORE_CHANNELS_ACTION);
+        }
+        if (BuildConfig.ENG || mLegacyFlags.enableDeveloperFeatures()) {
             actionList.add(MenuAction.DEV_ACTION);
         }
         actionList.add(MenuAction.SETTINGS_ACTION);

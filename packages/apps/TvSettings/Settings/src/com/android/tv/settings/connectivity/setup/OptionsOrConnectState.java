@@ -38,11 +38,16 @@ public class OptionsOrConnectState implements State {
     public void processForward() {
         mFragment = null;
         StateMachine stateMachine = ViewModelProviders.of(mActivity).get(StateMachine.class);
-        AdvancedOptionsFlowInfo advInfo = ViewModelProviders.of(mActivity)
-                .get(AdvancedOptionsFlowInfo.class);
-        if (advInfo.canStart()) {
+        UserChoiceInfo userChoiceInfo = ViewModelProviders.of(mActivity).get(UserChoiceInfo.class);
+        UserChoiceInfo.ConnectionFailedStatus status = userChoiceInfo.getConnectionFailedStatus();
+        if (status == UserChoiceInfo.ConnectionFailedStatus.AUTHENTICATION) {
+            userChoiceInfo.setConnectionFailedStatus(null);
+            stateMachine.getListener().onComplete(StateMachine.RESTART);
+        } else if (status != null) {
+            userChoiceInfo.setConnectionFailedStatus(null);
             stateMachine.getListener().onComplete(StateMachine.ENTER_ADVANCED_FLOW);
         } else {
+            userChoiceInfo.setConnectionFailedStatus(null);
             stateMachine.getListener().onComplete(StateMachine.CONNECT);
         }
     }
@@ -51,6 +56,8 @@ public class OptionsOrConnectState implements State {
     public void processBackward() {
         mFragment = null;
         StateMachine stateMachine = ViewModelProviders.of(mActivity).get(StateMachine.class);
+        UserChoiceInfo userChoiceInfo = ViewModelProviders.of(mActivity).get(UserChoiceInfo.class);
+        userChoiceInfo.setConnectionFailedStatus(null);
         stateMachine.back();
     }
 

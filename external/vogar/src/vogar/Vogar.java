@@ -55,6 +55,22 @@ public final class Vogar {
         return new File(System.getProperty("user.home", "."), name);
     }
 
+    private static boolean maybeAnsiTerminal() {
+        if (System.console() == null) {
+            return false;
+        }
+        String terminal = System.getenv("TERM");
+        return terminal == null || !terminal.contains("dumb");
+    }
+
+    private static boolean maybeColorTerminal() {
+        if (!maybeAnsiTerminal()) {
+            return false;
+        }
+        String terminal = System.getenv("TERM");
+        return terminal != null && terminal.contains("color");
+    }
+
     @Option(names = { "--expectations" })
     Set<File> expectationFiles = new LinkedHashSet<File>();
     {
@@ -101,7 +117,7 @@ public final class Vogar {
     boolean stream = true;
 
     @Option(names = { "--color" })
-    private boolean color = true;
+    private boolean color = maybeColorTerminal();
 
     @Option(names = { "--pass-color" })
     private int passColor = 32; // green
@@ -116,7 +132,7 @@ public final class Vogar {
     private int warnColor = 35; // purple
 
     @Option(names = { "--ansi" })
-    private boolean ansi = !"dumb".equals(System.getenv("TERM"));
+    private boolean ansi = maybeAnsiTerminal();
 
     @Option(names = { "--debug" })
     Integer debugPort;

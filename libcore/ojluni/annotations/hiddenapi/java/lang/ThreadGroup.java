@@ -26,7 +26,7 @@
 
 package java.lang;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ThreadGroup implements java.lang.Thread.UncaughtExceptionHandler {

@@ -14,6 +14,7 @@
 * limitations under the License.
 */
 #include "QemuPipeStream.h"
+#include <qemu_pipe_bp.h>
 
 #if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>
@@ -26,11 +27,16 @@
 #include <unistd.h>
 #include <string.h>
 
+static const size_t kReadSize = 512 * 1024;
+static const size_t kWriteOffset = kReadSize;
+
 QemuPipeStream::QemuPipeStream(size_t bufSize) :
     IOStream(bufSize),
     m_sock((QEMU_PIPE_HANDLE)(-1)),
     m_bufsize(bufSize),
-    m_buf(NULL)
+    m_buf(NULL),
+    m_read(0),
+    m_readLeft(0)
 {
 }
 
@@ -38,7 +44,9 @@ QemuPipeStream::QemuPipeStream(QEMU_PIPE_HANDLE sock, size_t bufSize) :
     IOStream(bufSize),
     m_sock(sock),
     m_bufsize(bufSize),
-    m_buf(NULL)
+    m_buf(NULL),
+    m_read(0),
+    m_readLeft(0)
 {
 }
 
@@ -67,6 +75,9 @@ int QemuPipeStream::connect(void)
 
 void *QemuPipeStream::allocBuffer(size_t minSize)
 {
+    // Add dedicated read buffer space at the front of the buffer.
+    minSize += kReadSize;
+
     size_t allocSize = (m_bufsize < minSize ? minSize : m_bufsize);
     if (!m_buf) {
         m_buf = (unsigned char *)malloc(allocSize);
@@ -84,54 +95,18 @@ void *QemuPipeStream::allocBuffer(size_t minSize)
         }
     }
 
-    return m_buf;
+    return m_buf + kWriteOffset;
 };
 
 int QemuPipeStream::commitBuffer(size_t size)
 {
     if (size == 0) return 0;
-    return writeFully(m_buf, size);
+    return writeFully(m_buf + kWriteOffset, size);
 }
 
 int QemuPipeStream::writeFully(const void *buf, size_t len)
 {
-    //DBG(">> QemuPipeStream::writeFully %d\n", len);
-    if (!valid()) return -1;
-    if (!buf) {
-       if (len>0) {
-            // If len is non-zero, buf must not be NULL. Otherwise the pipe would be
-            // in a corrupted state, which is lethal for the emulator.
-           ERR("QemuPipeStream::writeFully failed, buf=NULL, len %zu,"
-                   " lethal error, exiting", len);
-           abort();
-       }
-       return 0;
-    }
-
-    size_t res = len;
-    int retval = 0;
-
-    while (res > 0) {
-        ssize_t stat = qemu_pipe_write(m_sock, (const char *)(buf) + (len - res), res);
-        if (stat > 0) {
-            res -= stat;
-            continue;
-        }
-        if (stat == 0) { /* EOF */
-            ERR("QemuPipeStream::writeFully failed: premature EOF\n");
-            retval = -1;
-            break;
-        }
-        if (qemu_pipe_try_again()) {
-            continue;
-        }
-        retval =  stat;
-        ERR("QemuPipeStream::writeFully failed: %s, lethal error, exiting.\n",
-                strerror(errno));
-        abort();
-    }
-    //DBG("<< QemuPipeStream::writeFully %d\n", len );
-    return retval;
+    return qemu_pipe_write_fully(m_sock, buf, len);
 }
 
 QEMU_PIPE_HANDLE QemuPipeStream::getSocket() const {
@@ -140,39 +115,96 @@ QEMU_PIPE_HANDLE QemuPipeStream::getSocket() const {
 
 const unsigned char *QemuPipeStream::readFully(void *buf, size_t len)
 {
-    //DBG(">> QemuPipeStream::readFully %d\n", len);
+    return commitBufferAndReadFully(0, buf, len);
+}
+
+const unsigned char *QemuPipeStream::commitBufferAndReadFully(size_t writeSize, void *userReadBufPtr, size_t totalReadSize) {
+
+    unsigned char* userReadBuf = static_cast<unsigned char*>(userReadBufPtr);
+
     if (!valid()) return NULL;
-    if (!buf) {
-        if (len > 0) {
-            // If len is non-zero, buf must not be NULL. Otherwise the pipe would be
-            // in a corrupted state, which is lethal for the emulator.
-            ERR("QemuPipeStream::readFully failed, buf=NULL, len %zu, lethal"
-                    " error, exiting.", len);
+
+    if (!userReadBuf) {
+        if (totalReadSize > 0) {
+            ALOGE("QemuPipeStream::commitBufferAndReadFully failed, userReadBuf=NULL, totalReadSize %zu, lethal"
+                    " error, exiting.", totalReadSize);
             abort();
         }
-        return NULL;  // do not allow NULL buf in that implementation
-    }
-    size_t res = len;
-    while (res > 0) {
-        ssize_t stat = qemu_pipe_read(m_sock, (char *)(buf) + len - res, res);
-        if (stat == 0) {
-            // client shutdown;
+        if (!writeSize) {
             return NULL;
-        } else if (stat < 0) {
-            if (qemu_pipe_try_again()) {
-                continue;
-            } else {
-                ERR("QemuPipeStream::readFully failed (buf %p, len %zu"
-                    ", res %zu): %s, lethal error, exiting.", buf, len, res,
-                    strerror(errno));
-                abort();
-            }
-        } else {
-            res -= stat;
         }
     }
-    //DBG("<< QemuPipeStream::readFully %d\n", len);
-    return (const unsigned char *)buf;
+
+    // Advance buffered read if not yet consumed.
+    size_t remaining = totalReadSize;
+    size_t bufferedReadSize = m_readLeft < remaining ? m_readLeft : remaining;
+    if (bufferedReadSize) {
+        memcpy(userReadBuf, m_buf + (m_read - m_readLeft), bufferedReadSize);
+        remaining -= bufferedReadSize;
+        m_readLeft -= bufferedReadSize;
+    }
+
+    // Early out if nothing left to do.
+    if (!writeSize && !remaining) {
+        return userReadBuf;
+    }
+
+    writeFully(m_buf + kWriteOffset, writeSize);
+
+    // Now done writing. Early out if no reading left to do.
+    if (!remaining) {
+        return userReadBuf;
+    }
+
+    // Read up to kReadSize bytes if all buffered read has been consumed.
+    size_t maxRead = m_readLeft ? 0 : kReadSize;
+
+    ssize_t actual = 0;
+
+    if (maxRead) {
+        actual = qemu_pipe_read(m_sock, m_buf, maxRead);
+        // Updated buffered read size.
+        if (actual > 0) {
+            m_read = m_readLeft = actual;
+        }
+
+        if (actual == 0) {
+            ALOGD("%s: end of pipe", __FUNCTION__);
+            return NULL;
+        }
+    }
+
+    // Consume buffered read and read more if necessary.
+    while (remaining) {
+        bufferedReadSize = m_readLeft < remaining ? m_readLeft : remaining;
+        if (bufferedReadSize) {
+            memcpy(userReadBuf + (totalReadSize - remaining),
+                   m_buf + (m_read - m_readLeft),
+                   bufferedReadSize);
+            remaining -= bufferedReadSize;
+            m_readLeft -= bufferedReadSize;
+            continue;
+        }
+
+        actual = qemu_pipe_read(m_sock, m_buf, kReadSize);
+
+        if (actual == 0) {
+            ALOGD("%s: Failed reading from pipe: %d", __FUNCTION__,  errno);
+            return NULL;
+        }
+
+        if (actual > 0) {
+            m_read = m_readLeft = actual;
+            continue;
+        }
+
+        if (!qemu_pipe_try_again(actual)) {
+            ALOGD("%s: Error reading from pipe: %d", __FUNCTION__, errno);
+            return NULL;
+        }
+    }
+
+    return userReadBuf;
 }
 
 const unsigned char *QemuPipeStream::read( void *buf, size_t *inout_len)
@@ -211,8 +243,9 @@ int QemuPipeStream::recv(void *buf, size_t len)
         if (res == 0) { /* EOF */
              break;
         }
-        if (qemu_pipe_try_again())
+        if (qemu_pipe_try_again(res)) {
             continue;
+        }
 
         /* A real error */
         if (ret == 0)

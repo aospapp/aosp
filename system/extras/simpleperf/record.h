@@ -40,6 +40,9 @@ enum user_record_type {
   PERF_RECORD_BUILD_ID,
   PERF_RECORD_FINISHED_ROUND,
 
+  PERF_RECORD_AUXTRACE_INFO = 70,
+  PERF_RECORD_AUXTRACE = 71,
+
   SIMPLE_PERF_RECORD_TYPE_START = 32768,
   SIMPLE_PERF_RECORD_KERNEL_SYMBOL,
   // TODO: remove DsoRecord and SymbolRecord.
@@ -422,6 +425,19 @@ struct SampleRecord : public Record {
   void DumpData(size_t indent) const override;
 };
 
+struct AuxRecord : public Record {
+  struct DataType {
+    uint64_t aux_offset;
+    uint64_t aux_size;
+    uint64_t flags;
+  }* data;
+
+  AuxRecord(const perf_event_attr& attr, char* p);
+
+ protected:
+  void DumpData(size_t indent) const override;
+};
+
 // BuildIdRecord is defined in user-space, stored in BuildId feature section in
 // record file.
 struct BuildIdRecord : public Record {
@@ -433,6 +449,66 @@ struct BuildIdRecord : public Record {
 
   BuildIdRecord(bool in_kernel, pid_t pid, const BuildId& build_id,
                 const std::string& filename);
+
+ protected:
+  void DumpData(size_t indent) const override;
+};
+
+struct AuxTraceInfoRecord : public Record {
+  // magic values to be compatible with linux perf
+  static const uint32_t AUX_TYPE_ETM = 3;
+  static const uint64_t MAGIC_ETM4 = 0x4040404040404040ULL;
+
+  struct ETM4Info {
+    uint64_t magic;
+    uint64_t cpu;
+    uint64_t trcconfigr;
+    uint64_t trctraceidr;
+    uint64_t trcidr0;
+    uint64_t trcidr1;
+    uint64_t trcidr2;
+    uint64_t trcidr8;
+    uint64_t trcauthstatus;
+  };
+
+  struct DataType {
+    uint32_t aux_type;
+    uint32_t reserved;
+    uint64_t version;
+    uint32_t nr_cpu;
+    uint32_t pmu_type;
+    uint64_t snapshot;
+    ETM4Info etm4_info[0];
+  }* data;
+
+  explicit AuxTraceInfoRecord(char* p);
+  AuxTraceInfoRecord(const DataType& data, const std::vector<ETM4Info>& etm4_info);
+
+ protected:
+  void DumpData(size_t indent) const override;
+};
+
+struct AuxTraceRecord : public Record {
+  struct DataType {
+    uint64_t aux_size;
+    uint64_t offset;
+    uint64_t reserved0;  // reference
+    uint32_t idx;
+    uint32_t tid;
+    uint32_t cpu;
+    uint32_t reserved1;
+  } * data;
+  // AuxTraceRecord is followed by aux tracing data with size data->aux_size.
+  // The location of aux tracing data in memory or file is kept in location.
+  struct AuxDataLocation {
+    const char* addr = nullptr;
+    uint64_t file_offset = 0;
+  } location;
+
+  explicit AuxTraceRecord(char* p);
+  AuxTraceRecord(uint64_t aux_size, uint64_t offset, uint32_t idx, uint32_t tid, uint32_t cpu);
+
+  static size_t Size() { return sizeof(perf_event_header) + sizeof(DataType); }
 
  protected:
   void DumpData(size_t indent) const override;

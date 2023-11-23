@@ -18,9 +18,12 @@
 
 #include <hidl/HidlBinderSupport.h>
 
-#include <InternalStatic.h>  // TODO(b/69122224): remove this include, for getOrCreateCachedBinder
 #include <android/hidl/base/1.0/BpHwBase.h>
+#include <android/hidl/manager/1.0/BpHwServiceManager.h>
+#include <android/hidl/manager/1.1/BpHwServiceManager.h>
+#include <android/hidl/manager/1.2/BpHwServiceManager.h>
 #include <hwbinder/IPCThreadState.h>
+#include "InternalStatic.h"  // TODO(b/69122224): remove this include, for getOrCreateCachedBinder
 
 // C includes
 #include <inttypes.h>
@@ -163,20 +166,6 @@ status_t writeEmbeddedToParcel(const hidl_string &string,
             parentOffset + hidl_string::kOffsetOfBuffer);
 }
 
-android::status_t writeToParcel(const hidl_version &version, android::hardware::Parcel& parcel) {
-    return parcel.writeUint32(static_cast<uint32_t>(version.get_major()) << 16 | version.get_minor());
-}
-
-hidl_version* readFromParcel(const android::hardware::Parcel& parcel) {
-    uint32_t version;
-    android::status_t status = parcel.readUint32(&version);
-    if (status != OK) {
-        return nullptr;
-    } else {
-        return new hidl_version(version >> 16, version & 0xFFFF);
-    }
-}
-
 status_t readFromParcel(Status *s, const Parcel& parcel) {
     int32_t exception;
     status_t status = parcel.readInt32(&exception);
@@ -220,16 +209,34 @@ status_t writeToParcel(const Status &s, Parcel* parcel) {
     return status;
 }
 
+// assume: iface != nullptr, iface isRemote
+// This function is to sandbox a cast through a BpHw* class into a function, so
+// that we can remove cfi sanitization from it. Do not add additional
+// functionality here.
+__attribute__((no_sanitize("cfi"))) static inline BpHwRefBase* forceGetRefBase(
+        ::android::hidl::base::V1_0::IBase* ifacePtr) {
+    using ::android::hidl::base::V1_0::BpHwBase;
+
+    // canary only
+    static_assert(sizeof(BpHwBase) == sizeof(hidl::manager::V1_0::BpHwServiceManager));
+    static_assert(sizeof(BpHwBase) == sizeof(hidl::manager::V1_1::BpHwServiceManager));
+    static_assert(sizeof(BpHwBase) == sizeof(hidl::manager::V1_2::BpHwServiceManager));
+
+    // All BpHw* are generated the same. This may be BpHwServiceManager,
+    // BpHwFoo, or any other class. For ABI compatibility, we can't modify the
+    // class hierarchy of these, so we have no way to get BpHwRefBase from a
+    // remote ifacePtr.
+    BpHwBase* bpBase = static_cast<BpHwBase*>(ifacePtr);
+    return static_cast<BpHwRefBase*>(bpBase);
+}
+
 sp<IBinder> getOrCreateCachedBinder(::android::hidl::base::V1_0::IBase* ifacePtr) {
     if (ifacePtr == nullptr) {
         return nullptr;
     }
 
     if (ifacePtr->isRemote()) {
-        using ::android::hidl::base::V1_0::BpHwBase;
-
-        BpHwBase* bpBase = static_cast<BpHwBase*>(ifacePtr);
-        BpHwRefBase* bpRefBase = static_cast<BpHwRefBase*>(bpBase);
+        BpHwRefBase* bpRefBase = forceGetRefBase(ifacePtr);
         return sp<IBinder>(bpRefBase->remote());
     }
 

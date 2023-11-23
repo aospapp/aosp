@@ -12,6 +12,7 @@ import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import backchannel
+from autotest_lib.client.cros import upstart
 from autotest_lib.client.cros.cellular import mm
 from autotest_lib.client.cros.cellular.pseudomodem import pseudomodem_context
 from autotest_lib.client.cros.networking import cellular_proxy
@@ -28,6 +29,8 @@ class CellularTestEnvironment(object):
         - Shill and MM logging is enabled appropriately for cellular.
         - Initializes members that tests should use to access test environment
           (eg. |shill|, |modem_manager|, |modem|).
+        - modemfwd is stopped to prevent the modem from rebooting underneath
+          us.
 
     Then it verifies the following is valid:
         - The backchannel is using an Ethernet device.
@@ -92,6 +95,8 @@ class CellularTestEnvironment(object):
 
     def __enter__(self):
         try:
+            if upstart.has_service('modemfwd') and upstart.is_running('modemfwd'):
+                upstart.stop_job('modemfwd')
             # Temporarily disable shill autoconnect to cellular service while
             # the test environment is setup to prevent a race condition
             # between disconnecting the modem in _verify_cellular_service()
@@ -130,6 +135,8 @@ class CellularTestEnvironment(object):
 
 
     def __exit__(self, exception, value, traceback):
+        if upstart.has_service('modemfwd'):
+            upstart.restart_job('modemfwd')
         if self._nested:
             return self._nested.__exit__(exception, value, traceback)
         self.shill = None

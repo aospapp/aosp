@@ -1,11 +1,14 @@
 bid
 -bitbang
+bpforce
 brdprop
 ccd
 -ccdblock
 ccdstate
 chan
+dump_nvmem
 ecrst
+(?P<guc>eraseflashinfo)?
 gettime
 gpiocfg
 gpioget

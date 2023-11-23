@@ -23,12 +23,12 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.UserHandle;
 import android.util.Log;
 
-import com.android.internal.util.Preconditions;
 import com.android.settingslib.applications.StorageStatsSource;
 import com.android.settingslib.applications.StorageStatsSource.AppStorageStats;
 import com.android.settingslib.utils.AsyncLoaderCompat;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Fetches the storage stats using the StorageStatsManager for a given package and user tuple.
@@ -42,7 +42,7 @@ public class FetchPackageStorageAsyncLoader extends AsyncLoaderCompat<AppStorage
     public FetchPackageStorageAsyncLoader(Context context, @NonNull StorageStatsSource source,
             @NonNull ApplicationInfo info, @NonNull UserHandle user) {
         super(context);
-        mSource = Preconditions.checkNotNull(source);
+        mSource = Objects.requireNonNull(source);
         mInfo = info;
         mUser = user;
     }

@@ -6,21 +6,19 @@
 
 #include "xfa/fxfa/parser/cxfa_overflow.h"
 
-#include "fxjs/xfa/cjx_overflow.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kOverflowAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Trailer, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Target, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Leader, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"overflow";
+};
 
 }  // namespace
 
@@ -30,9 +28,8 @@ CXFA_Overflow::CXFA_Overflow(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Overflow,
-                nullptr,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Overflow>(this)) {}
+                {},
+                kOverflowAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Overflow::~CXFA_Overflow() {}
+CXFA_Overflow::~CXFA_Overflow() = default;

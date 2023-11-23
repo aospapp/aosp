@@ -24,6 +24,10 @@ import androidx.annotation.Keep;
 
 import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.SettingsFragmentProvider;
+import com.android.tv.settings.help.SupportFeatureProvider;
+import com.android.tv.settings.help.SupportFeatureProviderImpl;
+import com.android.tv.settings.offline.OfflineFeatureProvider;
+import com.android.tv.settings.offline.OfflineFeatureProviderImpl;
 
 /**
  * Default implementation of the feature factory.
@@ -34,6 +38,16 @@ public class FeatureFactoryImpl extends FeatureFactory {
     @Override
     public SettingsFragmentProvider getSettingsFragmentProvider() {
         return SettingsFragment::newInstance;
+    }
+
+    @Override
+    public SupportFeatureProvider getSupportFeatureProvider() {
+        return new SupportFeatureProviderImpl();
+    }
+
+    @Override
+    public OfflineFeatureProvider getOfflineFeatureProvider() {
+        return new OfflineFeatureProviderImpl();
     }
 
     @Override

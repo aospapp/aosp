@@ -16,6 +16,7 @@
 package com.android.tradefed.log;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.log.ILogRegistry.EventType;
 
 import org.json.JSONObject;
@@ -37,14 +38,12 @@ public class HistoryLogger extends FileLogger {
         init(TEMP_FILE_PREFIX, TEMP_FILE_SUFFIX);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void printAndPromptLog(LogLevel logLevel, String tag, String message) {
         throw new UnsupportedOperationException(
                 "printAndPromptLog is not supported by HistoryLogger");
     }
 
-    /** {@inheritDoc} */
     @Override
     public void printLog(LogLevel logLevel, String tag, String message) {
         throw new UnsupportedOperationException("printLog is not supported by HistoryLogger");
@@ -84,9 +83,8 @@ public class HistoryLogger extends FileLogger {
 
     @Override
     public ILeveledLogOutput clone() {
-        FileLogger logger = new HistoryLogger();
-        logger.setLogLevelDisplay(getLogLevelDisplay());
-        logger.setLogLevel(getLogLevel());
+        HistoryLogger logger = new HistoryLogger();
+        OptionCopier.copyOptionsNoThrow(this, logger);
         return logger;
     }
 }

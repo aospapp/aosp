@@ -21,6 +21,7 @@ import android.os.Parcel;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
+@NonMediaMainlineTest
 public class AudioFormatTest extends CtsAndroidTestCase {
 
     // -----------------------------------------------------------------
@@ -176,14 +177,23 @@ public class AudioFormatTest extends CtsAndroidTestCase {
 
     // Test case 7: Check frame size for compressed, float formats.
     public void testFrameSize() throws Exception {
-        final AudioFormat formatMp3 = new AudioFormat.Builder()
-            .setEncoding(AudioFormat.ENCODING_MP3)
-            .setSampleRate(44100)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
-            .build();
+        int[] encodings = {
+            AudioFormat.ENCODING_MP3,
+            AudioFormat.ENCODING_AAC_LC,
+            AudioFormat.ENCODING_AAC_HE_V1,
+            AudioFormat.ENCODING_AAC_HE_V2,
+            AudioFormat.ENCODING_OPUS
+        };
+        for (int encoding : encodings) {
+            final AudioFormat format = new AudioFormat.Builder()
+                .setEncoding(encoding)
+                .setSampleRate(44100)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                .build();
 
-        assertEquals("MP3 AudioFormat has the wrong frame size",
-                1, formatMp3.getFrameSizeInBytes());
+            assertEquals("AudioFormat with encoding " + encoding + " has the wrong frame size",
+                    1, format.getFrameSizeInBytes());
+        }
 
         final AudioFormat formatPcmFloat = new AudioFormat.Builder()
             .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)

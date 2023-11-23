@@ -35,7 +35,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <expat.h>
 #include <getopt.h>
 #include <limits.h>
 #include <unistd.h>
@@ -48,6 +47,10 @@ extern char DTD_DATA_begin;
 extern int DTD_DATA_len;
 #endif
 
+/* Expat must be included after libxml as both want to declare XMLCALL; see
+ * the Git commit that 'git blame' for this comment points to for more. */
+#include <expat.h>
+
 #include "wayland-util.h"
 
 #define PROGRAM_NAME "wayland-scanner"
@@ -57,22 +60,32 @@ enum side {
 	SERVER,
 };
 
+enum visibility {
+	PRIVATE,
+	PUBLIC,
+};
+
 static int
 usage(int ret)
 {
-	fprintf(stderr, "usage: %s [OPTION] [client-header|server-header|code]"
+	fprintf(stderr, "usage: %s [OPTION] [client-header|server-header|private-code|public-code]"
 		" [input_file output_file]\n", PROGRAM_NAME);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Converts XML protocol descriptions supplied on "
 			"stdin or input file to client\n"
-			"headers, server headers, or protocol marshalling code.\n\n");
+			"headers, server headers, or protocol marshalling code.\n\n"
+			"Use \"public-code\" only if the marshalling code will be public - "
+			"aka DSO will export it while other components will be using it.\n"
+			"Using \"private-code\" is strongly recommended.\n\n");
 	fprintf(stderr, "options:\n");
 	fprintf(stderr, "    -h,  --help                  display this help and exit.\n"
 			"    -v,  --version               print the wayland library version that\n"
 			"                                 the scanner was built against.\n"
-		        "    -c,  --include-core-only     include the core version of the headers,\n"
-	                "                                 that is e.g. wayland-client-core.h instead\n"
-	                "                                 of wayland-client.h.\n");
+			"    -c,  --include-core-only     include the core version of the headers,\n"
+			"                                 that is e.g. wayland-client-core.h instead\n"
+			"                                 of wayland-client.h.\n"
+			"    -s,  --strict                exit immediately with an error if DTD\n"
+			"                                 verification fails.\n");
 	exit(ret);
 }
 
@@ -123,6 +136,7 @@ is_dtd_valid(FILE *input, const char *filename)
 	rc = xmlValidateDtd(dtdctx, doc, dtd);
 	xmlFreeDoc(doc);
 	xmlFreeParserCtxt(ctx);
+	xmlFreeDtd(dtd);
 	xmlFreeValidCtxt(dtdctx);
 	/* xmlIOParseDTD consumes buffer */
 
@@ -213,6 +227,7 @@ struct enumeration {
 	struct wl_list link;
 	struct description *description;
 	bool bitfield;
+	int since;
 };
 
 struct entry {
@@ -220,6 +235,7 @@ struct entry {
 	char *uppercase_name;
 	char *value;
 	char *summary;
+	int since;
 	struct wl_list link;
 };
 
@@ -358,7 +374,7 @@ desc_dump(char *desc, const char *fmt, ...)
 	putchar('\n');
 }
 
-static void
+static void __attribute__ ((noreturn))
 fail(struct location *loc, const char *msg, ...)
 {
 	va_list ap;
@@ -420,6 +436,7 @@ free_arg(struct arg *arg)
 	free(arg->name);
 	free(arg->interface_name);
 	free(arg->summary);
+	free(arg->enumeration_name);
 	free(arg);
 }
 
@@ -494,6 +511,7 @@ create_enumeration(const char *name)
 	enumeration = xzalloc(sizeof *enumeration);
 	enumeration->name = xstrdup(name);
 	enumeration->uppercase_name = uppercase_dup(name);
+	enumeration->since = 1;
 
 	wl_list_init(&enumeration->entry_list);
 
@@ -609,6 +627,27 @@ strtouint(const char *str)
 	return (int)ret;
 }
 
+static int
+version_from_since(struct parse_context *ctx, const char *since)
+{
+	int version;
+
+	if (since != NULL) {
+		version = strtouint(since);
+		if (version == -1) {
+			fail(&ctx->loc, "invalid integer (%s)\n", since);
+		} else if (version > ctx->interface->version) {
+			fail(&ctx->loc, "since (%u) larger than version (%u)\n",
+			     version, ctx->interface->version);
+		}
+	} else {
+		version = 1;
+	}
+
+
+	return version;
+}
+
 static void
 start_element(void *data, const char *element_name, const char **atts)
 {
@@ -694,17 +733,7 @@ start_element(void *data, const char *element_name, const char **atts)
 		if (type != NULL && strcmp(type, "destructor") == 0)
 			message->destructor = 1;
 
-		if (since != NULL) {
-			version = strtouint(since);
-			if (version == -1) {
-				fail(&ctx->loc, "invalid integer (%s)\n", since);
-			} else if (version > ctx->interface->version) {
-				fail(&ctx->loc, "since (%u) larger than version (%u)\n",
-				     version, ctx->interface->version);
-			}
-		} else {
-			version = 1;
-		}
+		version = version_from_since(ctx, since);
 
 		if (version < ctx->interface->since)
 			warn(&ctx->loc, "since version not increasing\n");
@@ -726,9 +755,7 @@ start_element(void *data, const char *element_name, const char **atts)
 		switch (arg->type) {
 		case NEW_ID:
 			ctx->message->new_id_count++;
-
-			/* Fall through to OBJECT case. */
-
+			/* fallthrough */
 		case OBJECT:
 			if (interface_name)
 				arg->interface_name = xstrdup(interface_name);
@@ -786,6 +813,12 @@ start_element(void *data, const char *element_name, const char **atts)
 			fail(&ctx->loc, "no entry name given");
 
 		entry = create_entry(name, value);
+		version = version_from_since(ctx, since);
+
+		if (version < ctx->enumeration->since)
+			warn(&ctx->loc, "since version not increasing\n");
+		ctx->enumeration->since = version;
+		entry->since = version;
 
 		if (summary)
 			entry->summary = xstrdup(summary);
@@ -866,14 +899,9 @@ verify_arguments(struct parse_context *ctx,
 			e = find_enumeration(ctx->protocol, interface,
 					     a->enumeration_name);
 
-			if (e == NULL)
-				fail(&ctx->loc,
-				     "could not find enumeration %s",
-				     a->enumeration_name);
-
 			switch (a->type) {
 			case INT:
-				if (e->bitfield)
+				if (e && e->bitfield)
 					fail(&ctx->loc,
 					     "bitfield-style enum must only be referenced by uint");
 				break;
@@ -1267,16 +1295,33 @@ emit_enumerations(struct interface *interface)
 		}
 		printf("enum %s_%s {\n", interface->name, e->name);
 		wl_list_for_each(entry, &e->entry_list, link) {
-			if (entry->summary)
-				printf("\t/**\n"
-				       "\t * %s\n"
-				       "\t */\n", entry->summary);
+			if (entry->summary || entry->since > 1) {
+				printf("\t/**\n");
+				if (entry->summary)
+					printf("\t * %s\n", entry->summary);
+				if (entry->since > 1)
+					printf("\t * @since %d\n", entry->since);
+				printf("\t */\n");
+			}
 			printf("\t%s_%s_%s = %s,\n",
 			       interface->uppercase_name,
 			       e->uppercase_name,
 			       entry->uppercase_name, entry->value);
 		}
 		printf("};\n");
+
+		wl_list_for_each(entry, &e->entry_list, link) {
+			if (entry->since == 1)
+                            continue;
+
+                        printf("/**\n * @ingroup iface_%s\n */\n", interface->name);
+                        printf("#define %s_%s_%s_SINCE_VERSION %d\n",
+                               interface->uppercase_name,
+                               e->uppercase_name, entry->uppercase_name,
+                               entry->since);
+
+		}
+
 		printf("#endif /* %s_%s_ENUM */\n\n",
 		       interface->uppercase_name, e->uppercase_name);
 	}
@@ -1677,9 +1722,11 @@ emit_messages(struct wl_list *message_list,
 	printf("};\n\n");
 }
 
+
 static void
-emit_code(struct protocol *protocol)
+emit_code(struct protocol *protocol, enum visibility vis)
 {
+	const char *symbol_visibility;
 	struct interface *i, *next;
 	struct wl_array types;
 	char **p, *prev;
@@ -1692,6 +1739,23 @@ emit_code(struct protocol *protocol)
 	printf("#include <stdlib.h>\n"
 	       "#include <stdint.h>\n"
 	       "#include \"wayland-util.h\"\n\n");
+
+	/* When building a shared library symbols must be exported, otherwise
+	 * we want to have the symbols hidden. */
+	if (vis == PRIVATE) {
+		symbol_visibility = "WL_PRIVATE";
+		printf("#ifndef __has_attribute\n"
+		       "# define __has_attribute(x) 0  /* Compatibility with non-clang compilers. */\n"
+		       "#endif\n\n");
+
+		printf("#if (__has_attribute(visibility) || defined(__GNUC__) && __GNUC__ >= 4)\n"
+		       "#define WL_PRIVATE __attribute__ ((visibility(\"hidden\")))\n"
+		       "#else\n"
+		       "#define WL_PRIVATE\n"
+		       "#endif\n\n");
+	} else {
+		symbol_visibility = "WL_EXPORT";
+	}
 
 	wl_array_init(&types);
 	wl_list_for_each(i, &protocol->interface_list, link) {
@@ -1722,10 +1786,10 @@ emit_code(struct protocol *protocol)
 		emit_messages(&i->request_list, i, "requests");
 		emit_messages(&i->event_list, i, "events");
 
-		printf("WL_EXPORT const struct wl_interface "
+		printf("%s const struct wl_interface "
 		       "%s_interface = {\n"
 		       "\t\"%s\", %d,\n",
-		       i->name, i->name, i->version);
+		       symbol_visibility, i->name, i->name, i->version);
 
 		if (!wl_list_empty(&i->request_list))
 			printf("\t%d, %s_requests,\n",
@@ -1766,11 +1830,14 @@ int main(int argc, char *argv[])
 	bool help = false;
 	bool core_headers = false;
 	bool version = false;
+	bool strict = false;
 	bool fail = false;
 	int opt;
 	enum {
 		CLIENT_HEADER,
 		SERVER_HEADER,
+		PRIVATE_CODE,
+		PUBLIC_CODE,
 		CODE,
 	} mode;
 
@@ -1778,11 +1845,12 @@ int main(int argc, char *argv[])
 		{ "help",              no_argument, NULL, 'h' },
 		{ "version",           no_argument, NULL, 'v' },
 		{ "include-core-only", no_argument, NULL, 'c' },
+		{ "strict",            no_argument, NULL, 's' },
 		{ 0,                   0,           NULL, 0 }
 	};
 
 	while (1) {
-		opt = getopt_long(argc, argv, "hvc", options, NULL);
+		opt = getopt_long(argc, argv, "hvcs", options, NULL);
 
 		if (opt == -1)
 			break;
@@ -1796,6 +1864,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			core_headers = true;
+			break;
+		case 's':
+			strict = true;
 			break;
 		default:
 			fail = true;
@@ -1818,6 +1889,10 @@ int main(int argc, char *argv[])
 		mode = CLIENT_HEADER;
 	else if (strcmp(argv[0], "server-header") == 0)
 		mode = SERVER_HEADER;
+	else if (strcmp(argv[0], "private-code") == 0)
+		mode = PRIVATE_CODE;
+	else if (strcmp(argv[0], "public-code") == 0)
+		mode = PUBLIC_CODE;
 	else if (strcmp(argv[0], "code") == 0)
 		mode = CODE;
 	else
@@ -1859,6 +1934,10 @@ int main(int argc, char *argv[])
 		"* WARNING: XML failed validation against built-in DTD *\n"
 		"*                                                     *\n"
 		"*******************************************************\n");
+		if (strict) {
+			fclose(input);
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	/* create XML parser */
@@ -1901,8 +1980,17 @@ int main(int argc, char *argv[])
 		case SERVER_HEADER:
 			emit_header(&protocol, SERVER);
 			break;
+		case PRIVATE_CODE:
+			emit_code(&protocol, PRIVATE);
+			break;
 		case CODE:
-			emit_code(&protocol);
+			fprintf(stderr,
+				"Using \"code\" is deprecated - use "
+				"private-code or public-code.\n"
+				"See the help page for details.\n");
+			/* fallthrough */
+		case PUBLIC_CODE:
+			emit_code(&protocol, PUBLIC);
 			break;
 	}
 

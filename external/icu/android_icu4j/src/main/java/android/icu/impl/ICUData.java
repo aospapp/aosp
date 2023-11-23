@@ -26,6 +26,7 @@ import android.icu.util.VersionInfo;
  * Provides access to ICU data files as InputStreams.  Implements security checking.
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.IntraCoreApi
 public final class ICUData {
     /**
      * The data path to be used with getBundleInstance API
@@ -46,6 +47,7 @@ public final class ICUData {
      * The base name of ICU data to be used with ClassLoader.getResourceAsStream(),
      * ICUResourceBundle.getBundleInstance() etc.
      */
+    @libcore.api.IntraCoreApi
     public static final String ICU_BASE_NAME = ICU_DATA_PATH + ICU_BUNDLE;
 
     /**

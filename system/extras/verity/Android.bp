@@ -12,8 +12,8 @@ cc_binary_host {
     ],
 }
 
-java_library_host {
-    name: "VeritySigner",
+java_binary_host {
+    name: "verity_signer",
     srcs: [
         "VeritySigner.java",
         "Utils.java",
@@ -23,8 +23,8 @@ java_library_host {
     static_libs: ["bouncycastle-unbundled"],
 }
 
-java_library_host {
-    name: "BootSignature",
+java_binary_host {
+    name: "boot_signer",
     srcs: [
         "BootSignature.java",
         "VeritySigner.java",
@@ -51,9 +51,11 @@ cc_binary_host {
     static_libs: [
         "libfec",
         "libfec_rs",
+        "libavb",
         "libcrypto_utils",
         "libcrypto",
         "libext4_utils",
+        "liblog",
         "libsparse",
         "libsquashfs_utils",
         "libbase",
@@ -131,22 +133,17 @@ cc_test {
     ],
 }
 
-// VeritySigner should probably just be a java_binary
-sh_binary_host {
-    name: "verity_signer",
-    src: "verity_signer",
-    required: ["VeritySigner"],
-}
-
-// BootSignature should probably just be a java_binary
-sh_binary_host {
-    name: "boot_signer",
-    src: "boot_signer",
-    required: ["BootSignature"],
-}
-
-// This should probably be a python_binary_host
-sh_binary_host {
-    name: "build_verity_metadata.py",
-    src: "build_verity_metadata.py",
+python_binary_host {
+    name: "build_verity_metadata",
+    srcs: ["build_verity_metadata.py"],
+    version: {
+        py2: {
+            enabled: true,
+            embedded_launcher: true,
+        },
+        py3: {
+            enabled: false,
+            embedded_launcher: false,
+        },
+    },
 }

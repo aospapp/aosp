@@ -11,9 +11,9 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
-def delayed(seconds):
-    def decorator(f):
-        def wrapper(*args, **kargs):
+def delayed(seconds): # pylint:disable=missing-docstring
+    def decorator(f): # pylint:disable=missing-docstring
+        def wrapper(*args, **kargs): # pylint:disable=missing-docstring
             t = Timer(seconds, f, args, kargs)
             t.start()
         return wrapper
@@ -182,6 +182,7 @@ class firmware_ECLidSwitch(FirmwareTest):
         return ok
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.check_ec_capability(['lid']):
             raise error.TestNAError("Nothing needs to be tested on this device")
 

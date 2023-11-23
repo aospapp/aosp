@@ -22,7 +22,6 @@ import android.content.om.OverlayManager;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
-import android.os.Environment;
 import android.os.UserHandle;
 import android.util.Log;
 
@@ -76,9 +75,9 @@ public class ThemeOverlayManager {
     }
 
     /**
-     * Return the OverlayInfo which is provided by the docsUI overlay package located product,
-     * system or vendor. We assume there should only one docsUI overlay package because priority
-     * not work for non-static overlay, so vendor should put only one docsUI overlay package.
+     * Return the OverlayInfo which is provided by the docsUI overlay package pre-installed in
+     * device. We assume there should only one docsUI overlay package because priority not work
+     * for non-static overlay, so vendor should put only one docsUI overlay package.
      *
      * @param pm the PackageManager
      */
@@ -87,13 +86,7 @@ public class ThemeOverlayManager {
         for (OverlayInfo info : getOverlayInfo()) {
             try {
                 final ApplicationInfo ai = pm.getApplicationInfo(info.getPackageName(), 0);
-                // Since isProduct(), isVendor() and isSystemApp() functions in ApplicationInfo are
-                // hidden. The best way to avoid unknown sideload APKs is filter path by string
-                // comparison.
-                final String sourceDir = ai.sourceDir;
-                if (sourceDir.startsWith(Environment.getProductDirectory().getAbsolutePath())
-                        || sourceDir.startsWith(Environment.getVendorDirectory().getAbsolutePath())
-                        || sourceDir.startsWith(Environment.getRootDirectory().getAbsolutePath())) {
+                if ((ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
                     return info;
                 }
             } catch (PackageManager.NameNotFoundException e) {

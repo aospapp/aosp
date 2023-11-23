@@ -23,6 +23,7 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_ACTIVE_EMERGENCY_SESSION" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
@@ -32,7 +33,9 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.USE_SIP" />
     <uses-permission android:name="android.telephony.embms.cts.permission.TEST_BROADCAST"/>
+    <uses-permission android:name="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS" />
 
     <permission android:name="android.telephony.embms.cts.permission.TEST_BROADCAST"
                 android:protectionLevel="signature"/>
@@ -135,6 +138,15 @@
             android:exported="true">
             <intent-filter android:priority="100">
                 <action android:name="android.service.euicc.EuiccService"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="android.telephony.ims.cts.TestImsService"
+                 android:directBootAware="true"
+                 android:persistent="true"
+                 android:permission="android.permission.BIND_IMS_SERVICE">
+            <intent-filter>
+                <action android:name="android.telephony.ims.ImsService" />
             </intent-filter>
         </service>
 

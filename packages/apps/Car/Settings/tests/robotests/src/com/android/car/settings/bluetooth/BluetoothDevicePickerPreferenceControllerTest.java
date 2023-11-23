@@ -28,7 +28,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothDevicePicker;
 import android.bluetooth.BluetoothUuid;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -37,12 +36,10 @@ import android.os.ParcelUuid;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -53,6 +50,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -63,13 +61,10 @@ import org.robolectric.util.ReflectionHelpers;
 import java.util.Arrays;
 
 /** Unit test for {@link BluetoothDevicePickerPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowBluetoothAdapter.class,
-        ShadowBluetoothPan.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowBluetoothAdapter.class, ShadowBluetoothPan.class})
 public class BluetoothDevicePickerPreferenceControllerTest {
 
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
     @Mock
     private CachedBluetoothDevice mUnbondedCachedDevice;
     @Mock
@@ -89,7 +84,6 @@ public class BluetoothDevicePickerPreferenceControllerTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
         Context context = RuntimeEnvironment.application;
 
         mLocalBluetoothManager = LocalBluetoothManager.getInstance(context, /* onInitCallback= */
@@ -123,7 +117,6 @@ public class BluetoothDevicePickerPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
         ShadowBluetoothAdapter.reset();
         ReflectionHelpers.setField(mLocalBluetoothManager, "mCachedDeviceManager",
                 mSaveRealCachedDeviceManager);
@@ -138,7 +131,7 @@ public class BluetoothDevicePickerPreferenceControllerTest {
     @Test
     public void onStart_appliesFilterType() {
         // Setup device to pass the filter.
-        when(mBondedDevice.getUuids()).thenReturn(new ParcelUuid[]{BluetoothUuid.AudioSink});
+        when(mBondedDevice.getUuids()).thenReturn(new ParcelUuid[]{BluetoothUuid.A2DP_SINK});
         Intent launchIntent = createLaunchIntent(/* needsAuth= */ false,
                 BluetoothDevicePicker.FILTER_TYPE_AUDIO, "test.package", "TestClass");
         mControllerHelper.getController().setLaunchIntent(launchIntent);

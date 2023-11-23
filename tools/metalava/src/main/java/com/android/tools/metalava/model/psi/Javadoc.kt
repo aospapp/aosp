@@ -16,7 +16,7 @@
 
 package com.android.tools.metalava.model.psi
 
-import com.android.tools.metalava.doclava1.Errors
+import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.PackageItem
@@ -589,7 +589,7 @@ private fun reportUnresolvedDocReference(owner: Item, unresolved: String) {
     val cleaned = unresolved.replace("\n", "").replace("*", "")
         .replace("  ", " ")
 
-    reporter.report(Errors.UNRESOLVED_LINK, owner, "Unresolved documentation reference: $cleaned")
+    reporter.report(Issues.UNRESOLVED_LINK, owner, "Unresolved documentation reference: $cleaned")
 }
 
 private fun expand(owner: PsiItem, element: PsiElement, sb: StringBuilder) {
@@ -761,7 +761,6 @@ fun handleTag(
                 val referencedElement = referenceElement!!.resolve()
                 if (referencedElement is PsiClass) {
                     var className = PsiClassItem.computeFullClassName(referencedElement)
-                    val fullName = className
                     if (className.indexOf('.') != -1 && !referenceText.startsWith(className)) {
                         val simpleName = referencedElement.name
                         if (simpleName != null && referenceText.startsWith(simpleName)) {
@@ -773,15 +772,7 @@ fun handleTag(
                         sb.append(element.name)
                         sb.append(' ')
                         sb.append(referencedElement.qualifiedName)
-                        var suffix = referenceText.substring(className.length)
-                        if (suffix.startsWith("#") && suffix.startsWith(className, 1) &&
-                            (suffix.length == className.length + 1 || suffix[className.length + 1] == '(')
-                        ) {
-                            // It's a constructor reference. Unfortunately, javadoc doesn't
-                            // handle this, so we'll need to work around by placing the full
-                            // name as the method name
-                            suffix = "#" + fullName + suffix.substring(className.length + 1)
-                        }
+                        val suffix = referenceText.substring(className.length)
                         if (suffix.contains("(") && suffix.contains(")")) {
                             expandArgumentList(element, suffix, sb)
                         } else {

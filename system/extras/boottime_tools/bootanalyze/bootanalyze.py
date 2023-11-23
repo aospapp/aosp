@@ -357,7 +357,7 @@ def iterate(args, search_events_pattern, timings_pattern, shutdown_events_patter
       v = v + time_correction_delta
       debug("correcting event to event[{0}, {1}]".format(k, v))
 
-  if not logcat_event_time.get(KERNEL_TIME_KEY):
+  if logcat_event_time.get(KERNEL_TIME_KEY) is None:
     print "kernel time not captured in logcat, cannot get time diff"
     return None, None, None, None, None, None
   diffs = []
@@ -597,7 +597,7 @@ def collect_logcat_for_shutdown(capture_log_on_error, shutdown_events_pattern,\
     if not event:
       continue
     time = extract_a_time(line, TIME_LOGCAT, float)
-    if not time:
+    if time is None:
       print "cannot get time from: " + line
       continue
     if shutdown_start_time == 0:
@@ -740,7 +740,7 @@ def extract_time(events, pattern, date_transform_function):
   result = collections.OrderedDict()
   for event, data in events.iteritems():
     time = extract_a_time(data, pattern, date_transform_function)
-    if time:
+    if time is not None:
       result[event] = time
     else:
       print "Failed to find time for event: ", event, data

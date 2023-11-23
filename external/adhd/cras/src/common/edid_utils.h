@@ -5,40 +5,42 @@
 #ifndef __EDID_UTILS_H__
 #define __EDID_UTILS_H__
 
+#include "stdio.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* These match the EDID encoding for Standard Timing block */
 #define ASPECT_16_10 0
-#define ASPECT_4_3   1
-#define ASPECT_5_4   2
-#define ASPECT_16_9  3
-#define N_ASPECTS    4
+#define ASPECT_4_3 1
+#define ASPECT_5_4 2
+#define ASPECT_16_9 3
+#define N_ASPECTS 4
 
 /* Defines based on EDID and CEA-861D descriptions */
-#define EDID_HDR         0
-#define EDID_MFG_EID     0x8
+#define EDID_HDR 0
+#define EDID_MFG_EID 0x8
 #define EDID_MFG_PROD_LO 0x0A
 #define EDID_MFG_PROD_HI 0x0B
-#define EDID_MFG_SERIAL  0x0C
-#define EDID_MFG_WEEK    0x10
-#define EDID_MFG_YEAR    0x11
-#define EDID_VERSION     0x12
-#define EDID_REVISION    0x13
-#define EDID_VIDEO_IN    0x14
-#define EDID_MAX_HSIZE   0x15
-#define EDID_MAX_VSIZE   0x16
-#define EDID_GAMMA       0x17
-#define EDID_FEATURES    0x18
+#define EDID_MFG_SERIAL 0x0C
+#define EDID_MFG_WEEK 0x10
+#define EDID_MFG_YEAR 0x11
+#define EDID_VERSION 0x12
+#define EDID_REVISION 0x13
+#define EDID_VIDEO_IN 0x14
+#define EDID_MAX_HSIZE 0x15
+#define EDID_MAX_VSIZE 0x16
+#define EDID_GAMMA 0x17
+#define EDID_FEATURES 0x18
 
-#define EDID_ESTTIME1    0x23
-#define EDID_ESTTIME2    0x24
-#define EDID_MFGTIME     0x25
+#define EDID_ESTTIME1 0x23
+#define EDID_ESTTIME2 0x24
+#define EDID_MFGTIME 0x25
 /* Next two repeat 8 times for standard timings 1-8 */
-#define EDID_STDTIMEH    0x26
-#define EDID_STDTIMEV    0x27
-#define EDID_N_STDTIME   8
+#define EDID_STDTIMEH 0x26
+#define EDID_STDTIMEV 0x27
+#define EDID_N_STDTIME 8
 
 /* There are 4 DTD blocks in the EDID */
 #define EDID_DTD_BASE 0x36
@@ -145,7 +147,6 @@ extern "C" {
 #define DBCVHDMI_IVLAT 10
 #define DBCVHDMI_IALAT 11
 
-
 #define DBCSP_ALLOC 0
 #define DBCSP_SIZE 3
 
@@ -163,9 +164,9 @@ extern "C" {
 #define VCDB_TAG 0
 #define VCDB_ETAG 1
 #define VCDB_FLAGS 2
-#define VCDB_S_PT(x) (((x) & 0x30) >> 4)
-#define VCDB_S_IT(x) (((x) & 0x0C) >> 2)
-#define VCDB_S_CE(x) (((x) & 0x03))
+#define VCDB_S_PT(x) (((x)&0x30) >> 4)
+#define VCDB_S_IT(x) (((x)&0x0C) >> 2)
+#define VCDB_S_CE(x) (((x)&0x03))
 
 #define COL_TAG 0
 #define COL_ETAG 1
@@ -178,8 +179,8 @@ extern "C" {
 int edid_valid(const unsigned char *edid_data);
 int edid_has_hdmi_info(const unsigned char *edid_data, int ext);
 int edid_lpcm_support(const unsigned char *edid_data, int ext);
-void show_edid_data(FILE *outfile, unsigned char *edid_data,
-		    int items, int base);
+void show_edid_data(FILE *outfile, unsigned char *edid_data, int items,
+		    int base);
 void show_edid(FILE *outfile, unsigned char *edid_data, int ext);
 int find_aspect(int h, int v);
 int find_aspect_fromisize(unsigned char *edid_data);
@@ -193,8 +194,7 @@ int show_test_edid(FILE *outfile, int n);
  *    buf - buffer to store monitor name.
  *    buf_size - buffer size.
  */
-int edid_get_monitor_name(const unsigned char *edid_data,
-			  char *buf,
+int edid_get_monitor_name(const unsigned char *edid_data, char *buf,
 			  unsigned int buf_size);
 
 #ifdef __cplusplus

@@ -65,5 +65,5 @@ class IoDelegate {
   DISALLOW_COPY_AND_ASSIGN(IoDelegate);
 };  // class IoDelegate
 
-}  // namespace android
 }  // namespace aidl
+}  // namespace android

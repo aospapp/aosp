@@ -26,9 +26,6 @@ from acts.test_utils.wifi.aware.AwareBaseTest import AwareBaseTest
 
 
 class AttachTest(AwareBaseTest):
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     @test_tracker_info(uuid="cdafd1e0-bcf5-4fe8-ae32-f55483db9925")
     def test_attach(self):
         """Functional test case / Attach test cases / attach

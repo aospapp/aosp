@@ -52,7 +52,6 @@ public class ContextMenuUiTest extends ActivityTest<FilesActivity> {
         menuItems.put("Rename", false);
         menuItems.put("Delete", false);
         menuItems.put("Open in new window", false);
-        menuItems.put("Paste into folder", false);
         menuItems.put("Select all", false);
         menuItems.put("New folder", false);
     }
@@ -86,7 +85,6 @@ public class ContextMenuUiTest extends ActivityTest<FilesActivity> {
     public void testContextMenu_onDir() throws Exception {
         menuItems.put("Cut", true);
         menuItems.put("Copy", true);
-        menuItems.put("Paste into folder", true);
         menuItems.put("Open in new window", true);
         menuItems.put("Delete", true);
         menuItems.put("Rename", true);
@@ -106,7 +104,6 @@ public class ContextMenuUiTest extends ActivityTest<FilesActivity> {
 
     public void testContextMenu_onEmptyArea() throws Exception {
         menuItems.put("Select all", true);
-        menuItems.put("Paste", true);
         menuItems.put("New folder", true);
         Rect dirListBounds = bots.directory.findDocumentsList().getBounds();
         Rect dirBounds = bots.directory.findDocument(dirName1).getBounds();

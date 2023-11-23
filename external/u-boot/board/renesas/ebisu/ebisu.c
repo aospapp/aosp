@@ -30,13 +30,8 @@ void s_init(void)
 {
 }
 
-#define TMU0_MSTP125		BIT(25)	/* secure */
-
 int board_early_init_f(void)
 {
-	/* TMU0 */
-	mstp_clrbits_le32(MSTPSR1, SMSTPCR1, TMU0_MSTP125);
-
 	return 0;
 }
 
@@ -44,21 +39,6 @@ int board_init(void)
 {
 	/* adress of boot parameters */
 	gd->bd->bi_boot_params = CONFIG_SYS_TEXT_BASE + 0x50000;
-
-	return 0;
-}
-
-int dram_init(void)
-{
-	if (fdtdec_setup_memory_size() != 0)
-		return -EINVAL;
-
-	return 0;
-}
-
-int dram_init_banksize(void)
-{
-	fdtdec_setup_memory_banksize();
 
 	return 0;
 }

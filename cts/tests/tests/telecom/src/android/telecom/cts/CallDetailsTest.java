@@ -16,16 +16,23 @@
 
 package android.telecom.cts;
 
+import static android.telecom.Connection.PROPERTY_HIGH_DEF_AUDIO;
+import static android.telecom.Connection.PROPERTY_WIFI;
 import static android.telecom.cts.TestUtils.*;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
 import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.graphics.drawable.Icon;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.net.Uri;
+import android.provider.CallLog;
 import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
@@ -35,24 +42,19 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
+import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Suites of tests that verifies the various Call details.
  */
 public class CallDetailsTest extends BaseTelecomTestWithMockServices {
 
-    /**
-     * {@link Connection#PROPERTY_HIGH_DEF_AUDIO} is @hide, so define it here for now.
-     */
-    public static final int PROPERTY_HIGH_DEF_AUDIO = 1<<2;
-
-    /**
-     * {@link Connection#PROPERTY_WIFI} is @hide, so define it here for now.
-     */
-    public static final int PROPERTY_WIFI = 1<<3;
     public static final int CONNECTION_PROPERTIES =  PROPERTY_HIGH_DEF_AUDIO | PROPERTY_WIFI;
     public static final int CONNECTION_CAPABILITIES =
             Connection.CAPABILITY_HOLD | Connection.CAPABILITY_MUTE;
@@ -72,6 +74,7 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
     public static final int TEST_EXTRA_VALUE = 10;
     public static final String TEST_EVENT = "com.test.event.TEST";
     public static final Uri TEST_DEFLECT_URI = Uri.fromParts("tel", "+16505551212", null);
+    private static final int ASYNC_TIMEOUT = 10000;
     private StatusHints mStatusHints;
     private Bundle mExtras = new Bundle();
 
@@ -111,6 +114,11 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
                             return connection;
                         }
                     }, FLAG_REGISTER | FLAG_ENABLE);
+
+            // Make sure there is another phone account.
+            mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_2);
+            TestUtils.enablePhoneAccount(
+                    getInstrumentation(), TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2);
 
             /** Place a call as a part of the setup before we test the various
              *  Call details.
@@ -243,6 +251,50 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * Tests passing call properties from Connections to Calls.
+     */
+    public void testCallPropertyPropagation() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_EMERGENCY_CALLBACK_MODE);
+        assertCallProperties(mCall, Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_GENERIC_CONFERENCE);
+        assertCallProperties(mCall, Call.Details.PROPERTY_GENERIC_CONFERENCE);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_HIGH_DEF_AUDIO);
+        assertCallProperties(mCall, Call.Details.PROPERTY_HIGH_DEF_AUDIO);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_WIFI);
+        assertCallProperties(mCall, Call.Details.PROPERTY_WIFI);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_IS_EXTERNAL_CALL);
+        assertCallProperties(mCall, Call.Details.PROPERTY_IS_EXTERNAL_CALL);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY);
+        assertCallProperties(mCall, Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE);
+        // Not propagated
+        assertCallProperties(mCall, 0);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_IS_RTT);
+        assertCallProperties(mCall, Call.Details.PROPERTY_RTT);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_ASSISTED_DIALING);
+        assertCallProperties(mCall, Call.Details.PROPERTY_ASSISTED_DIALING);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL);
+        assertCallProperties(mCall, Call.Details.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL);
+
+        mConnection.setConnectionProperties(Connection.PROPERTY_REMOTELY_HOSTED);
+        // Not propagated
+        assertCallProperties(mCall, 0);
+    }
+
+    /**
      * Tests whether the getCallerDisplayName() getter returns the correct object.
      */
     public void testCallerDisplayName() {
@@ -264,6 +316,18 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
 
         assertThat(mCall.getDetails().getCallerDisplayNamePresentation(), instanceOf(Integer.class));
         assertEquals(CALLER_DISPLAY_NAME_PRESENTATION, mCall.getDetails().getCallerDisplayNamePresentation());
+    }
+
+    /**
+     * Test the contacts display name. We don't have anything set up in contacts, so expect it to
+     * be null
+     */
+    public void testContactDisplayName() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        assertTrue(TextUtils.isEmpty(mCall.getDetails().getContactDisplayName()));
     }
 
     /**
@@ -414,6 +478,7 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         exampleExtras.putString(Connection.EXTRA_CHILD_ADDRESS, TEST_CHILD_NUMBER);
         exampleExtras.putString(Connection.EXTRA_LAST_FORWARDED_NUMBER, TEST_FORWARDED_NUMBER);
         exampleExtras.putInt(TEST_EXTRA_KEY, TEST_EXTRA_VALUE);
+        exampleExtras.putInt(Connection.EXTRA_AUDIO_CODEC, Connection.AUDIO_CODEC_AMR);
         mConnection.setExtras(exampleExtras);
 
         // Make sure we got back a bundle with the call subject key set.
@@ -425,6 +490,8 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         assertEquals(TEST_FORWARDED_NUMBER,
                 callExtras.getString(Connection.EXTRA_LAST_FORWARDED_NUMBER));
         assertEquals(TEST_EXTRA_VALUE, callExtras.getInt(TEST_EXTRA_KEY));
+        assertEquals(Connection.AUDIO_CODEC_AMR,
+                callExtras.getInt(Connection.EXTRA_AUDIO_CODEC));
     }
 
     /**
@@ -477,6 +544,7 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         Bundle testBundle = new Bundle();
         testBundle.putString(TEST_EXTRA_KEY, TEST_SUBJECT);
         testBundle.putInt(TEST_EXTRA_KEY2, TEST_EXTRA_VALUE);
+        testBundle.putBoolean(Connection.EXTRA_DISABLE_ADD_CALL, true);
         mConnection.putExtras(testBundle);
         // Wait for the 2nd invocation; setExtras is called in the setup method.
         mOnExtrasChangedCounter.waitForCount(2, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
@@ -486,6 +554,18 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         assertEquals(TEST_SUBJECT, extras.getString(TEST_EXTRA_KEY));
         assertTrue(extras.containsKey(TEST_EXTRA_KEY2));
         assertEquals(TEST_EXTRA_VALUE, extras.getInt(TEST_EXTRA_KEY2));
+        assertTrue(extras.getBoolean(Connection.EXTRA_DISABLE_ADD_CALL));
+    }
+
+    public void testConnectionHoldTone() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        // These tests are admittedly lame; the events are absorbed in telecom and start a tone and
+        // stop it.  There is no other signal that the tone is starting/stopping otherwise.
+        mConnection.sendConnectionEvent(Connection.EVENT_ON_HOLD_TONE_START, null);
+        mConnection.sendConnectionEvent(Connection.EVENT_ON_HOLD_TONE_END, null);
     }
 
     /**
@@ -652,6 +732,42 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         assertNotNull(extras);
         assertTrue(extras.containsKey(TEST_EXTRA_KEY));
         assertEquals(TEST_SUBJECT, extras.getString(TEST_EXTRA_KEY));
+        mOnConnectionEventCounter.reset();
+
+        mConnection.sendConnectionEvent(Connection.EVENT_CALL_HOLD_FAILED, null);
+        // Don't expect this to make it through; used internally in Telecom.
+
+        mConnection.sendConnectionEvent(Connection.EVENT_MERGE_START, null);
+        mOnConnectionEventCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        event = (String) (mOnConnectionEventCounter.getArgs(0)[1]);
+        extras = (Bundle) (mOnConnectionEventCounter.getArgs(0)[2]);
+        assertEquals(Connection.EVENT_MERGE_START, event);
+        assertNull(extras);
+        mOnConnectionEventCounter.reset();
+
+        mConnection.sendConnectionEvent(Connection.EVENT_MERGE_COMPLETE, null);
+        mOnConnectionEventCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        event = (String) (mOnConnectionEventCounter.getArgs(0)[1]);
+        extras = (Bundle) (mOnConnectionEventCounter.getArgs(0)[2]);
+        assertEquals(Connection.EVENT_MERGE_COMPLETE, event);
+        assertNull(extras);
+        mOnConnectionEventCounter.reset();
+
+        mConnection.sendConnectionEvent(Connection.EVENT_CALL_REMOTELY_HELD, null);
+        mOnConnectionEventCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        event = (String) (mOnConnectionEventCounter.getArgs(0)[1]);
+        extras = (Bundle) (mOnConnectionEventCounter.getArgs(0)[2]);
+        assertEquals(Connection.EVENT_CALL_REMOTELY_HELD, event);
+        assertNull(extras);
+        mOnConnectionEventCounter.reset();
+
+        mConnection.sendConnectionEvent(Connection.EVENT_CALL_REMOTELY_UNHELD, null);
+        mOnConnectionEventCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        event = (String) (mOnConnectionEventCounter.getArgs(0)[1]);
+        extras = (Bundle) (mOnConnectionEventCounter.getArgs(0)[2]);
+        assertEquals(Connection.EVENT_CALL_REMOTELY_UNHELD, event);
+        assertNull(extras);
+        mOnConnectionEventCounter.reset();
     }
 
     /**
@@ -751,5 +867,122 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
                 TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
                 "Call should have extras key " + expectedKey
         );
+    }
+
+    /**
+     * Tests whether the CallLogManager logs the features of a call(HD call, Wifi call, VoLTE)
+     * correctly.
+     */
+    public void testLogFeatures() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        // Register content observer on call log and get latch
+        CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
+
+        Bundle testBundle = new Bundle();
+        testBundle.putInt(TelecomManager.EXTRA_CALL_NETWORK_TYPE,
+                          TelephonyManager.NETWORK_TYPE_LTE);
+        mConnection.putExtras(testBundle);
+        // Wait for the 2nd invocation; setExtras is called in the setup method.
+        mOnExtrasChangedCounter.waitForCount(2, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+
+        Bundle extra = mCall.getDetails().getExtras();
+
+        mCall.disconnect();
+
+        // Wait on the call log latch.
+        callLogEntryLatch.await(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS);
+
+        // Verify the contents of the call log
+        Cursor callsCursor = mContext.getContentResolver().query(CallLog.Calls.CONTENT_URI, null,
+                null, null, "_id DESC");
+        callsCursor.moveToFirst();
+        int features = callsCursor.getInt(callsCursor.getColumnIndex("features"));
+        assertEquals(CallLog.Calls.FEATURES_HD_CALL,
+                features & CallLog.Calls.FEATURES_HD_CALL);
+        assertEquals(CallLog.Calls.FEATURES_WIFI, features & CallLog.Calls.FEATURES_WIFI);
+        assertEquals(CallLog.Calls.FEATURES_VOLTE, features & CallLog.Calls.FEATURES_VOLTE);
+    }
+
+    /**
+     * Verifies operation of the test telecom call ID system APIs.
+     */
+    public void testTelecomCallId() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        mConnection.setTelecomCallId("Hello");
+        assertEquals("Hello", mConnection.getTelecomCallId());
+    }
+
+    /**
+     * Verifies propagation of radio tech extra.
+     */
+    public void testSetCallRadioTech() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        Bundle radioTechExtras = new Bundle();
+        radioTechExtras.putInt(TelecomManager.EXTRA_CALL_NETWORK_TYPE,
+                TelephonyManager.NETWORK_TYPE_LTE);
+        mConnection.putExtras(radioTechExtras);
+
+        assertCallExtras(mCall, TelecomManager.EXTRA_CALL_NETWORK_TYPE);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE,
+                mCall.getDetails().getExtras().getInt(TelecomManager.EXTRA_CALL_NETWORK_TYPE));
+    }
+
+    /**
+     * Verifies resetting the connection time.
+     */
+    public void testResetConnectionTime() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        long currentTime = mConnection.getConnectTimeMillis();
+        mConnection.resetConnectionTime();
+
+        // Make sure the connect time isn't the original value.
+        assertCallConnectTimeChanged(mCall, currentTime);
+    }
+
+    /**
+     * Verifies {@link Connection#notifyConferenceMergeFailed()} results in the
+     * {@link Connection#EVENT_CALL_MERGE_FAILED} connection event being received by the telecom
+     * call.
+     */
+    public void testMergeFail() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        mConnection.notifyConferenceMergeFailed();
+
+        mOnConnectionEventCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        String event = (String) (mOnConnectionEventCounter.getArgs(0)[1]);
+        Bundle extras = (Bundle) (mOnConnectionEventCounter.getArgs(0)[2]);
+
+        assertEquals(Connection.EVENT_CALL_MERGE_FAILED, event);
+        assertNull(extras);
+    }
+
+    /**
+     * Verifies {@link Connection#setPhoneAccountHandle(PhoneAccountHandle)} propagates to the
+     * dialer app.
+     */
+    public void testChangePhoneAccount() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        mConnection.setActive();
+        assertCallState(mCall, Call.STATE_ACTIVE);
+
+        mConnection.setPhoneAccountHandle(TEST_PHONE_ACCOUNT_HANDLE_2);
+        assertEquals(TEST_PHONE_ACCOUNT_HANDLE_2, mConnection.getPhoneAccountHandle());
+        mOnPhoneAccountChangedCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        assertEquals(TEST_PHONE_ACCOUNT_HANDLE_2, mOnPhoneAccountChangedCounter.getArgs(0)[1]);
     }
 }

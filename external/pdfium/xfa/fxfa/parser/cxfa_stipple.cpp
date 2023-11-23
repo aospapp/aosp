@@ -6,23 +6,24 @@
 
 #include "xfa/fxfa/parser/cxfa_stipple.h"
 
-#include "fxjs/xfa/cjx_stipple.h"
+#include "core/fxge/render_defines.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fxfa/parser/cxfa_color.h"
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {{XFA_Element::Color, 1, 0},
-                                                 {XFA_Element::Extras, 1, 0},
-                                                 {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::PropertyData kStipplePropertyData[] = {
+    {XFA_Element::Color, 1, 0},
+    {XFA_Element::Extras, 1, 0},
+};
+
+const CXFA_Node::AttributeData kStippleAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Rate, XFA_AttributeType::Integer, (void*)50},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"stipple";
+};
 
 }  // namespace
 
@@ -32,12 +33,11 @@ CXFA_Stipple::CXFA_Stipple(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Stipple,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Stipple>(this)) {}
+                kStipplePropertyData,
+                kStippleAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Stipple::~CXFA_Stipple() {}
+CXFA_Stipple::~CXFA_Stipple() = default;
 
 CXFA_Color* CXFA_Stipple::GetColorIfExists() {
   return GetChild<CXFA_Color>(0, XFA_Element::Color, false);
@@ -60,10 +60,10 @@ void CXFA_Stipple::Draw(CXFA_Graphics* pGS,
   CXFA_Color* pColor = GetColorIfExists();
   FX_ARGB crColor = pColor ? pColor->GetValue() : CXFA_Color::kBlackColor;
 
-  int32_t a;
-  FX_COLORREF rgb;
-  std::tie(a, rgb) = ArgbToColorRef(crColor);
-  FX_ARGB cr = ArgbEncode(iRate * a / 100, rgb);
+  int32_t alpha;
+  FX_COLORREF colorref;
+  std::tie(alpha, colorref) = ArgbToAlphaAndColorRef(crColor);
+  FX_ARGB cr = AlphaAndColorRefToArgb(iRate * alpha / 100, colorref);
 
   pGS->SaveGraphState();
   pGS->SetFillColor(CXFA_GEColor(cr));

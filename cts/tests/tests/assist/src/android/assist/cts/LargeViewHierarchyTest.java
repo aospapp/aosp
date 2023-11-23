@@ -20,6 +20,8 @@ import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.util.Log;
 
+import org.junit.Test;
+
 /**
  *  Test that the AssistStructure returned is properly formatted.
  */
@@ -28,11 +30,11 @@ public class LargeViewHierarchyTest extends AssistTestBase {
     private static final String TEST_CASE_TYPE = Utils.LARGE_VIEW_HIERARCHY;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         startTestActivity(TEST_CASE_TYPE);
     }
 
+    @Test
     public void testTextView() throws Exception {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");

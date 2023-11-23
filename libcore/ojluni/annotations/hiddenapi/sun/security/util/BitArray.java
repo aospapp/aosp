@@ -32,7 +32,7 @@ public class BitArray {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public BitArray(int length, byte[] a) throws java.lang.IllegalArgumentException {
         throw new RuntimeException("Stub!");
     }
@@ -65,7 +65,7 @@ public class BitArray {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] toByteArray() {
         throw new RuntimeException("Stub!");
     }

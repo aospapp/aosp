@@ -34,7 +34,10 @@ import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Base class for managing app ops
@@ -77,10 +80,16 @@ public abstract class ManageAppOp extends SettingsPreferenceFragment
             @Override
             public boolean filterApp(ApplicationsState.AppEntry entry) {
                 entry.extraInfo = createPermissionStateFor(entry.info.packageName, entry.info.uid);
-                return !shouldIgnorePackage(getContext(), entry.info.packageName)
+                return !shouldIgnorePackage(
+                        getContext(), entry.info.packageName, customizedIgnoredPackagesArray())
                         && ((PermissionState) entry.extraInfo).isPermissible();
             }
         };
+    }
+
+    /** Provide array resource id for customized ignored packages */
+    public int customizedIgnoredPackagesArray() {
+        return 0;
     }
 
     /**
@@ -143,11 +152,21 @@ public abstract class ManageAppOp extends SettingsPreferenceFragment
     /**
      * Checks for packages that should be ignored for further processing
      */
-    static boolean shouldIgnorePackage(Context context, String packageName) {
-        return context == null
-                || packageName.equals("android")
+    static boolean shouldIgnorePackage(Context context, String packageName,
+            int customizedIgnoredPackagesArray) {
+        if (context == null) {
+            return true;
+        }
+        Set<String> ignoredPackageNames = null;
+        if (customizedIgnoredPackagesArray != 0) {
+            ignoredPackageNames = Arrays.stream(context.getResources()
+                    .getStringArray(customizedIgnoredPackagesArray)).collect(Collectors.toSet());
+
+        }
+        return packageName.equals("android")
                 || packageName.equals("com.android.systemui")
-                || packageName.equals(context.getPackageName());
+                || packageName.equals(context.getPackageName())
+                || (ignoredPackageNames != null && ignoredPackageNames.contains(packageName));
     }
 
     /**

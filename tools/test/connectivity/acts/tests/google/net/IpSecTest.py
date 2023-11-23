@@ -39,7 +39,11 @@ class IpSecTest(base_test.BaseTestClass):
 
         req_params = ("wifi_network",)
         self.unpack_userparams(req_params)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut_a, self.wifi_network['SSID'])
         wutils.wifi_connect(self.dut_a, self.wifi_network)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut_b, self.wifi_network['SSID'])
         wutils.wifi_connect(self.dut_b, self.wifi_network)
 
         self.ipv4_dut_a = self.dut_a.droid.connectivityGetIPv4Addresses(WLAN)[0]

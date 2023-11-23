@@ -22,6 +22,8 @@
  * \brief Image load/store utilities
  *//*--------------------------------------------------------------------*/
 
+#include "deMath.h"
+#include "tcuTextureUtil.hpp"
 #include "vktImageLoadStoreUtil.hpp"
 #include "vkQueryUtil.hpp"
 
@@ -110,38 +112,40 @@ VkDeviceSize getOptimalUniformBufferChunkSize (const InstanceInterface& vki, con
 		return alignment;
 }
 
-bool isStorageImageExtendedFormat (const vk::VkFormat format)
+bool isRepresentableIntegerValue (tcu::Vector<deInt64, 4> value, tcu::TextureFormat format)
 {
-	switch (format)
+	const tcu::IVec4	formatBitDepths	= tcu::getTextureFormatBitDepth(format);
+	const deUint32		numChannels		= getNumUsedChannels(mapTextureFormat(format));
+
+	switch (tcu::getTextureChannelClass(format.type))
 	{
-		case VK_FORMAT_R32G32_SFLOAT:
-		case VK_FORMAT_R32G32_SINT:
-		case VK_FORMAT_R32G32_UINT:
-		case VK_FORMAT_R16G16B16A16_UNORM:
-		case VK_FORMAT_R16G16B16A16_SNORM:
-		case VK_FORMAT_R16G16_SFLOAT:
-		case VK_FORMAT_R16G16_UNORM:
-		case VK_FORMAT_R16G16_SNORM:
-		case VK_FORMAT_R16G16_SINT:
-		case VK_FORMAT_R16G16_UINT:
-		case VK_FORMAT_R16_SFLOAT:
-		case VK_FORMAT_R16_UNORM:
-		case VK_FORMAT_R16_SNORM:
-		case VK_FORMAT_R16_SINT:
-		case VK_FORMAT_R16_UINT:
-		case VK_FORMAT_R8G8_UNORM:
-		case VK_FORMAT_R8G8_SNORM:
-		case VK_FORMAT_R8G8_SINT:
-		case VK_FORMAT_R8G8_UINT:
-		case VK_FORMAT_R8_UNORM:
-		case VK_FORMAT_R8_SNORM:
-		case VK_FORMAT_R8_SINT:
-		case VK_FORMAT_R8_UINT:
-			return true;
+		case tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER:
+		{
+			for (deUint32 compNdx = 0; compNdx < numChannels; compNdx++)
+			{
+				if (deFloorToInt32(log2((double)value[compNdx]) + 1) > formatBitDepths[compNdx])
+					return false;
+			}
+
+			break;
+		}
+
+		case tcu::TEXTURECHANNELCLASS_SIGNED_INTEGER:
+		{
+			for (deUint32 compNdx = 0; compNdx < numChannels; compNdx++)
+			{
+				if ((deFloorToInt32(log2((double)deAbs64(value[compNdx])) + 1) + 1) > formatBitDepths[compNdx])
+					return false;
+			}
+
+			break;
+		}
 
 		default:
-			return false;
+			DE_ASSERT(isIntegerFormat(mapTextureFormat(format)));
 	}
+
+	return true;
 }
 
 } // image

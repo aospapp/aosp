@@ -14,19 +14,16 @@
 class CFX_DIBitmap;
 class CFX_Matrix;
 
-class CXFA_GEPattern {
+class CXFA_GEPattern final {
  public:
   CXFA_GEPattern(FX_HatchStyle hatchStyle,
                  const FX_ARGB foreArgb,
-                 const FX_ARGB backArgb,
-                 CFX_Matrix* matrix = nullptr);
+                 const FX_ARGB backArgb);
 
-  virtual ~CXFA_GEPattern();
+  ~CXFA_GEPattern();
 
  private:
   friend class CXFA_Graphics;
-
-  CFX_Matrix m_matrix;
 
   const FX_HatchStyle m_hatchStyle;
   const FX_ARGB m_foreArgb;

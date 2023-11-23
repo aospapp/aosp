@@ -282,7 +282,7 @@ public class TimeZoneUpdateHostTest implements IDeviceTest, IBuildReceiver {
     }
 
     private void assertActiveRulesVersion(String expectedRulesVersion) throws Exception {
-        // Dumpsys reports the version reported by ICU, ZoneInfoDB and TimeZoneFinder and they
+        // Dumpsys reports the version reported by ICU, ZoneInfoDb and TimeZoneFinder and they
         // should always match.
         String expectedActiveRulesVersion =
                 expectedRulesVersion + "," + expectedRulesVersion + "," + expectedRulesVersion;

@@ -75,12 +75,12 @@ public class LogRecordTest extends TestCase {
         lr.setResourceBundle(null);
         assertNull(lr.getResourceBundle());
 
-        lr.setResourceBundleName("bundles/com/android/java/util/logging/res");
+        lr.setResourceBundleName("bundles/java/util/logging/res");
         assertNull(lr.getResourceBundle());
 
         lr.setResourceBundleName(null);
         ResourceBundle rb = ResourceBundle
-                .getBundle("bundles/com/android/java/util/logging/res");
+                .getBundle("bundles/java/util/logging/res");
         lr.setResourceBundle(rb);
         assertEquals(rb, lr.getResourceBundle());
         assertNull(lr.getResourceBundleName());
@@ -326,9 +326,9 @@ public class LogRecordTest extends TestCase {
     public void testSerializationResourceBundle() throws Exception {
 
         // test case: valid resource bundle name
-        lr.setResourceBundleName("bundles/com/android/java/util/logging/res2");
+        lr.setResourceBundleName("bundles/java/util/logging/res2");
         lr.setResourceBundle(ResourceBundle.getBundle(
-                "bundles/com/android/java/util/logging/res", Locale.US));
+                "bundles/java/util/logging/res", Locale.US));
 
         LogRecord result = (LogRecord) SerializationTest.copySerializable(lr);
         assertNotNull(result.getResourceBundle());
@@ -337,7 +337,7 @@ public class LogRecordTest extends TestCase {
         // deserialization LogRecord object so check for returned null value
         lr.setResourceBundleName("bad bundle name");
         lr.setResourceBundle(ResourceBundle.getBundle(
-                "bundles/com/android/java/util/logging/res", Locale.US));
+                "bundles/java/util/logging/res", Locale.US));
 
         result = (LogRecord) SerializationTest.copySerializable(lr);
         assertNull(result.getResourceBundle());

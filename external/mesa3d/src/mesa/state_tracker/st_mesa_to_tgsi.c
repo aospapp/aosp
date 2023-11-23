@@ -622,7 +622,7 @@ emit_wpos_adjustment(struct gl_context *ctx,
     * Need to replace instances of INPUT[WPOS] with temp T
     * where T = INPUT[WPOS] by y is inverted.
     */
-   static const gl_state_index wposTransformState[STATE_LENGTH]
+   static const gl_state_index16 wposTransformState[STATE_LENGTH]
       = { STATE_INTERNAL, STATE_FB_WPOS_Y_TRANSFORM, 0, 0, 0 };
 
    /* XXX: note we are modifying the incoming shader here!  Need to
@@ -734,7 +734,7 @@ emit_wpos(struct st_context *st,
     * u,i -> l,h: (99.0 + 0.5) * -1 + 100 = 0.5
     * u,h -> l,i: (99.5 + 0.5) * -1 + 100 = 0
     */
-   if (program->OriginUpperLeft) {
+   if (program->info.fs.origin_upper_left) {
       /* Fragment shader wants origin in upper-left */
       if (pscreen->get_param(pscreen,
                              PIPE_CAP_TGSI_FS_COORD_ORIGIN_UPPER_LEFT)) {
@@ -764,7 +764,7 @@ emit_wpos(struct st_context *st,
          assert(0);
    }
 
-   if (program->PixelCenterInteger) {
+   if (program->info.fs.pixel_center_integer) {
       /* Fragment shader wants pixel center integer */
       if (pscreen->get_param(pscreen,
                              PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_INTEGER)) {
@@ -951,9 +951,9 @@ st_translate_mesa_program(struct gl_context *ctx,
 
    /* Declare misc input registers
     */
-   GLbitfield sysInputs = program->info.system_values_read;
+   GLbitfield64 sysInputs = program->info.system_values_read;
    for (i = 0; sysInputs; i++) {
-      if (sysInputs & (1 << i)) {
+      if (sysInputs & (1ull << i)) {
          unsigned semName = _mesa_sysval_to_semantic(i);
 
          t->systemValues[i] = ureg_DECL_system_value(ureg, semName, 0);
@@ -985,7 +985,7 @@ st_translate_mesa_program(struct gl_context *ctx,
              semName == TGSI_SEMANTIC_POSITION)
             emit_wpos(st_context(ctx), t, program, ureg);
 
-          sysInputs &= ~(1 << i);
+          sysInputs &= ~(1ull << i);
       }
    }
 
@@ -1011,6 +1011,8 @@ st_translate_mesa_program(struct gl_context *ctx,
       }
 
       for (i = 0; i < program->Parameters->NumParameters; i++) {
+         unsigned pvo = program->Parameters->ParameterValueOffset[i];
+
          switch (program->Parameters->Parameters[i].Type) {
          case PROGRAM_STATE_VAR:
          case PROGRAM_UNIFORM:
@@ -1025,12 +1027,12 @@ st_translate_mesa_program(struct gl_context *ctx,
              */
          case PROGRAM_CONSTANT:
             if (program->arb.IndirectRegisterFiles & PROGRAM_ANY_CONST)
-               t->constants[i] = ureg_DECL_constant(ureg, i);
+               t->constants[i] = ureg_DECL_constant( ureg, i );
             else
-               t->constants[i] =
+               t->constants[i] = 
                   ureg_DECL_immediate(ureg,
                                       (const float *)
-                                      program->Parameters->ParameterValues[i],
+                                      program->Parameters->ParameterValues + pvo,
                                       4);
             break;
          default:

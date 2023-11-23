@@ -32,6 +32,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.View.OnClickListener;
 import com.google.android.setupcompat.R;
+import com.google.android.setupcompat.logging.CustomEvent;
 import java.lang.annotation.Retention;
 
 /**
@@ -285,7 +286,8 @@ public final class FooterButton implements OnClickListener {
   @TargetApi(VERSION_CODES.Q)
   public PersistableBundle getMetrics(String buttonName) {
     PersistableBundle bundle = new PersistableBundle();
-    bundle.putString(buttonName + KEY_BUTTON_TEXT, getText().toString());
+    bundle.putString(
+        buttonName + KEY_BUTTON_TEXT, CustomEvent.trimsStringOverMaxLength(getText().toString()));
     bundle.putString(buttonName + KEY_BUTTON_TYPE, getButtonTypeName());
     bundle.putInt(buttonName + KEY_BUTTON_ON_CLICK_COUNT, clickCount);
     return bundle;

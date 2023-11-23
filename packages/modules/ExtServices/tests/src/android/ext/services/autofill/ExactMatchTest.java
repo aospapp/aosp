@@ -15,6 +15,7 @@
  */
 package android.ext.services.autofill;
 
+import static android.ext.services.autofill.ExactMatch.MATCH_SUFFIX;
 import static android.ext.services.autofill.ExactMatch.calculateScore;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -30,7 +31,7 @@ public class ExactMatchTest {
 
     private Bundle last4Bundle() {
         final Bundle bundle = new Bundle();
-        bundle.putInt("suffix", 4);
+        bundle.putInt(MATCH_SUFFIX, 4);
         return bundle;
     }
 
@@ -77,16 +78,16 @@ public class ExactMatchTest {
     @Test
     public void testCalculateScore_badBundle() {
         final Bundle bundle = new Bundle();
-        bundle.putInt("suffix", -2);
+        bundle.putInt(MATCH_SUFFIX, -2);
         assertThrows(IllegalArgumentException.class, () -> calculateScore(
                 AutofillValue.forText("TEST"), "TEST", bundle));
 
         final Bundle largeBundle = new Bundle();
-        largeBundle.putInt("suffix", 10);
+        largeBundle.putInt(MATCH_SUFFIX, 10);
         assertFloat(calculateScore(AutofillValue.forText("TEST"), "TEST", largeBundle), 1);
 
         final Bundle stringBundle = new Bundle();
-        stringBundle.putString("suffix", "value");
+        stringBundle.putString(MATCH_SUFFIX, "value");
         assertThrows(IllegalArgumentException.class, () -> calculateScore(
                 AutofillValue.forText("TEST"), "TEST", stringBundle));
 

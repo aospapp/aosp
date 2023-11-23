@@ -22,6 +22,10 @@ ha{
             "BIF",
             "Kuɗin Burundi",
         }
+        BRL{
+            "R$",
+            "Ril Kudin Birazil",
+        }
         BWP{
             "BWP",
             "Kuɗin Baswana",
@@ -40,7 +44,7 @@ ha{
         }
         CNY{
             "CN¥",
-            "Kuɗin Caina/Sin",
+            "Yuwan kasar Sin",
         }
         CVE{
             "CVE",
@@ -72,7 +76,7 @@ ha{
         }
         GBP{
             "£",
-            "Fam kin Ingila",
+            "Fam na Ingila",
         }
         GHC{
             "GHC",
@@ -91,8 +95,8 @@ ha{
             "Kuɗin Indiya",
         }
         JPY{
-            "JP¥",
-            "Kuɗin Japan",
+            "¥",
+            "Yen kasar Japan",
         }
         KES{
             "KES",
@@ -148,7 +152,11 @@ ha{
         }
         NGN{
             "₦",
-            "Naira",
+            "Nairar Najeriya",
+        }
+        RUB{
+            "RUB",
+            "Ruble kasar Rasha",
         }
         RWF{
             "RWF",
@@ -203,8 +211,8 @@ ha{
             "Sule Yuganda",
         }
         USD{
-            "US$",
-            "Dalar Amurka",
+            "$",
+            "Dalar Amirka",
         }
         XAF{
             "FCFA",
@@ -213,6 +221,10 @@ ha{
         XOF{
             "CFA",
             "Kuɗin Sefa na Afirka Ta Yamma",
+        }
+        XXX{
+            "¤",
+            "Kudin da ba a sani ba",
         }
         ZAR{
             "ZAR",
@@ -231,5 +243,42 @@ ha{
             "Dalar zimbabuwe",
         }
     }
-    Version{"2.1.43.2"}
+    Currencies%narrow{
+        AUD{"$"}
+    }
+    CurrencyPlurals{
+        BRL{
+            one{"Ril Kudin Birazil"}
+            other{"Ril Kudin Birazil"}
+        }
+        CNY{
+            one{"Yuwan kasar Sin"}
+            other{"Yuwan kasar Sin"}
+        }
+        GBP{
+            one{"Fam na Ingila"}
+            other{"Fam na Ingila"}
+        }
+        JPY{
+            one{"Yen kasar Japan"}
+            other{"Yen kasar Japan"}
+        }
+        NGN{
+            one{"Nairar Najeriya"}
+            other{"Nairorin Najeriya"}
+        }
+        RUB{
+            one{"Ruble kasar Rasha"}
+            other{"Ruble kasar Rasha"}
+        }
+        USD{
+            one{"Dalar Amirka"}
+            other{"Dalar Amirka"}
+        }
+        XXX{
+            one{"Kudin sashe da ba a sani ba"}
+            other{"(Kudin da ba a sani ba)"}
+        }
+    }
+    Version{"36.1"}
 }

@@ -74,7 +74,7 @@ extern int usleep (uint32_t usec);
 #define RETRY_WAIT_TIME_US 5000
 
 /* In case of CRC error, try to retransmit */
-#define CRC_RETRY_COUNT 3
+#define CRC_RETRY_COUNT 5
 
 /* How long to poll before giving up */
 #define POLL_LIMIT_SECONDS 60
@@ -487,6 +487,16 @@ uint32_t nos_call_application(const struct nos_device *dev,
 
     /* Wait until the app has finished */
     status_code = poll_until_done(&ctx, &status);
+
+    /* Citadel chip complained we sent it a count different from what we claimed
+     * or more than it can accept but this should not happen. Give to the chip a
+     * little bit of time and retry calling again. */
+    if (status_code == APP_ERROR_TOO_MUCH) {
+      NLOGD("App %d returning 0x%x, give a retry(%d/%d)",
+            app_id, status_code, retries, CRC_RETRY_COUNT);
+      usleep(RETRY_WAIT_TIME_US);
+      continue;
+    }
     if (status_code != APP_ERROR_CHECKSUM) break;
     NLOGW("App %d request checksum error", app_id);
   }

@@ -5,10 +5,10 @@
 from autotest_lib.server import utils
 
 AUTHOR = "chromeos-chameleon"
-NAME = "display_EdidStress"
+NAME = "display_EdidStress.daily"
 PURPOSE = "Stress DUT by switching EDID from among a large pool of EDIDs."
 CRITERIA = "This test will fail if DUT does not see the emulated monitor."
-ATTRIBUTES = "suite:chameleon_dp_stress, suite:chameleon_dp_hdmi_stress, suite:chameleon_hdmi_stress"
+ATTRIBUTES = "suite:chameleon_hdmi_perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "display"

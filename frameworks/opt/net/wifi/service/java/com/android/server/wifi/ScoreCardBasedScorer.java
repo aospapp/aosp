@@ -17,10 +17,12 @@
 package com.android.server.wifi;
 
 import android.annotation.NonNull;
+import android.net.wifi.ScanResult;
 
 import com.android.server.wifi.WifiCandidates.Candidate;
 import com.android.server.wifi.WifiCandidates.ScoredCandidate;
-import com.android.server.wifi.WifiScoreCardProto.Event;
+import com.android.server.wifi.proto.WifiScoreCardProto;
+import com.android.server.wifi.proto.WifiScoreCardProto.Event;
 
 import java.util.Collection;
 
@@ -46,6 +48,9 @@ final class ScoreCardBasedScorer implements WifiCandidates.CandidateScorer {
     // config_wifi_framework_5GHz_preference_boost_factor
     public static final int BAND_5GHZ_AWARD_IS_40 = 40;
 
+    // config_wifiFramework6ghzPreferenceBoostFactor
+    public static final int BAND_6GHZ_AWARD_IS_40 = 40;
+
     // config_wifi_framework_SECURITY_AWARD
     public static final int SECURITY_AWARD_IS_80 = 80;
 
@@ -63,6 +68,8 @@ final class ScoreCardBasedScorer implements WifiCandidates.CandidateScorer {
 
     // Maximum allowable adjustment of the cutoff rssi (dB)
     public static final int RSSI_RAIL = 5;
+
+    private static final boolean USE_USER_CONNECT_CHOICE = true;
 
     ScoreCardBasedScorer(ScoringParams scoringParams) {
         mScoringParams = scoringParams;
@@ -82,7 +89,9 @@ final class ScoreCardBasedScorer implements WifiCandidates.CandidateScorer {
         int cutoff = estimatedCutoff(candidate);
         int score = (rssi - cutoff) * RSSI_SCORE_SLOPE_IS_4;
 
-        if (candidate.getFrequency() >= ScoringParams.MINIMUM_5GHZ_BAND_FREQUENCY_IN_MEGAHERTZ) {
+        if (ScanResult.is6GHz(candidate.getFrequency())) {
+            score += BAND_6GHZ_AWARD_IS_40;
+        } else if (ScanResult.is5GHz(candidate.getFrequency())) {
             score += BAND_5GHZ_AWARD_IS_40;
         }
         score += (int) (candidate.getLastSelectionWeight() * LAST_SELECTION_AWARD_IS_480);
@@ -96,10 +105,11 @@ final class ScoreCardBasedScorer implements WifiCandidates.CandidateScorer {
         }
 
         // To simulate the old strict priority rule, subtract a penalty based on
-        // which evaluator added the candidate.
-        score -= 1000 * candidate.getEvaluatorId();
+        // which nominator added the candidate.
+        score -= 1000 * candidate.getNominatorId();
 
-        return new ScoredCandidate(score, 10, candidate);
+        return new ScoredCandidate(score, 10,
+                                   USE_USER_CONNECT_CHOICE, candidate);
     }
 
     private int estimatedCutoff(Candidate candidate) {
@@ -121,9 +131,9 @@ final class ScoreCardBasedScorer implements WifiCandidates.CandidateScorer {
     }
 
     @Override
-    public ScoredCandidate scoreCandidates(@NonNull Collection<Candidate> group) {
+    public ScoredCandidate scoreCandidates(@NonNull Collection<Candidate> candidates) {
         ScoredCandidate choice = ScoredCandidate.NONE;
-        for (Candidate candidate : group) {
+        for (Candidate candidate : candidates) {
             ScoredCandidate scoredCandidate = scoreCandidate(candidate);
             if (scoredCandidate.value > choice.value) {
                 choice = scoredCandidate;
@@ -132,11 +142,6 @@ final class ScoreCardBasedScorer implements WifiCandidates.CandidateScorer {
         // Here we just return the highest scored candidate; we could
         // compute a new score, if desired.
         return choice;
-    }
-
-    @Override
-    public boolean userConnectChoiceOverrideWanted() {
-        return true;
     }
 
 }

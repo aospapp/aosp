@@ -16,17 +16,18 @@
 
 package com.android.documentsui;
 
-import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import android.content.ClipData;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.provider.DocumentsContract;
-import androidx.annotation.VisibleForTesting;
 import android.view.DragEvent;
 import android.view.KeyEvent;
 import android.view.View;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.MenuManager.SelectionDetails;
 import com.android.documentsui.base.DocumentInfo;
@@ -119,6 +120,12 @@ public interface DragAndDropManager {
     void resetState(View v);
 
     /**
+     * Checks whether the drag was initiated from FilesApp.
+     * @return true if initiated from Files app.
+     */
+    boolean isDragFromSameApp();
+
+    /**
      * Drops items onto the a root.
      *
      * @param clipData the clip data that contains sources information.
@@ -165,6 +172,7 @@ public interface DragAndDropManager {
         private final Drawable mDefaultShadowIcon;
 
         private @State int mState = STATE_UNKNOWN;
+        private boolean mDragInitiated = false;
 
         // Key events info. This is used to derive state when user drags items into a view to derive
         // type of file operations.
@@ -233,6 +241,7 @@ public interface DragAndDropManager {
                 IconHelper iconHelper,
                 @Nullable DocumentInfo parent) {
 
+            mDragInitiated = true;
             mView = v;
             mInvalidDest = invalidDest;
             mMustBeCopied = !selectionDetails.canDelete();
@@ -355,6 +364,11 @@ public interface DragAndDropManager {
             updateState(STATE_UNKNOWN);
         }
 
+        @Override
+        public boolean isDragFromSameApp() {
+            return mDragInitiated;
+        }
+
         private void updateState(@State int state) {
             mState = state;
 
@@ -461,6 +475,7 @@ public interface DragAndDropManager {
             mDestDoc = null;
             mDestRoot = null;
             mMustBeCopied = false;
+            mDragInitiated = false;
         }
 
         private @OpType int calculateOpType(ClipData clipData, RootInfo destRoot) {

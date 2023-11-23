@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Restablecer"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Produciuse un erro ao configurar o perfil"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Produciuse un erro ao configurar o dispositivo"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Produciuse un erro"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Non se puido configurar o dispositivo. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Ponte en contacto co teu administrador de TI para recibir axuda"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Restablece este dispositivo e proba a configuralo de novo"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"O dispositivo xa está configurado"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Non se puido establecer conexión coa wifi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"O teu dispositivo ten activada a protección contra o restablecemento da configuración de fábrica. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Preparándose para configurar o dispositivo do traballo…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Configurando a aplicación do administrador"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Configurar todo o demais"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Agora configuremos todo o demais"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Engade unha conta persoal para tirar máis proveito do teu dispositivo"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Agora que o teu perfil de traballo está listo, tamén podes engadir unha Conta de Google persoal para acceder ás túas aplicacións e ao teu contido."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Este dispositivo pertence á túa organización"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"A seguinte aplicación utilizarase para xestionar e supervisar este teléfono"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Preparando dispositivo para a configuración do traballo…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"En primeiro lugar, configuremos o teu perfil de traballo"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Configuremos o teu perfil de traballo"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"As aplicacións do traballo gárdanse no teu perfil de traballo"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pon en pausa as aplicacións do traballo cando remates a túa xornada laboral"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Só se mostran os datos do teu perfil de traballo ao teu administrador de TI"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Os datos do teu perfil de traballo móstranse ao teu administrador de TI"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Configurando o teu perfil de traballo…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"As aplicacións do traballo gárdanse no teu perfil de traballo. Podes poñelas en pausa cando remates a túa xornada laboral. Só se mostran os datos do teu perfil de traballo ao teu administrador de TI."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"As aplicacións do traballo gárdanse no teu perfil de traballo. Podes poñelas en pausa cando remates a túa xornada laboral. Os datos do teu perfil de traballo móstranse ao teu administrador de TI."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Configuremos o dispositivo do traballo"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Accede facilmente ás túas aplicacións do traballo"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Este dispositivo non é privado"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"O teu administrador de TI pode ter acceso aos teus datos e á actividade deste dispositivo."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Configurando o teu dispositivo…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Utiliza este dispositivo para acceder facilmente ás túas aplicacións do traballo. Este dispositivo non é privado, polo que o teu administrador de TI pode ter acceso aos teus datos e á túa actividade. Para consultar máis información, ponte en contacto co teu administrador de TI."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"O administrador de TI xestiona as aplicacións laborais no teu perfil de traballo"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"As aplicacións persoais están separadas das do traballo e, ademais, ocultas"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"O administrador de TI pode controlar o dispositivo e bloquear determinadas aplicacións"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"As aplicacións gárdanse no teu perfil de traballo e xestiónaas o teu administrador de TI. As aplicacións persoais están separadas das aplicacións do traballo e non se mostran nelas. O teu administrador de TI pode controlar este dispositivo e bloquear determinadas aplicacións."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Un segundo…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Recordatorio de privacidade"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"O teu administrador de TI pode ter acceso aos teus datos e á actividade deste dispositivo"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Xa podes utilizar o dispositivo"</string>
     <string name="done" msgid="7755227776955952318">"Feito"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Este dispositivo comprouse con crédito de <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> pode facer o seguinte:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Instalar a aplicación de <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> para que poidas facer pagos con este dispositivo"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Restrinxir o acceso a este dispositivo se non fas pagos"</string>
 </resources>

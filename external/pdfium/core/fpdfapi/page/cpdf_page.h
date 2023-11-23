@@ -8,63 +8,104 @@
 #define CORE_FPDFAPI_PAGE_CPDF_PAGE_H_
 
 #include <memory>
+#include <utility>
 
 #include "core/fpdfapi/page/cpdf_pageobjectholder.h"
+#include "core/fpdfapi/page/ipdf_page.h"
 #include "core/fxcrt/fx_coordinates.h"
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/observed_ptr.h"
+#include "core/fxcrt/retain_ptr.h"
+#include "core/fxcrt/unowned_ptr.h"
+#include "third_party/base/optional.h"
 
 class CPDF_Dictionary;
 class CPDF_Document;
+class CPDF_Image;
 class CPDF_Object;
-class CPDF_PageRenderCache;
-class CPDF_PageRenderContext;
 
-class CPDF_Page : public CPDF_PageObjectHolder {
+class CPDF_Page final : public IPDF_Page, public CPDF_PageObjectHolder {
  public:
-  class View {};  // Caller implements as desired, empty here due to layering.
+  // Caller implements as desired, empty here due to layering.
+  class View : public Observable {};
 
-  CPDF_Page(CPDF_Document* pDocument,
-            CPDF_Dictionary* pPageDict,
-            bool bPageCache);
-  ~CPDF_Page() override;
+  // Data for the render layer to attach to this page.
+  class RenderContextIface {
+   public:
+    virtual ~RenderContextIface() {}
+  };
 
-  // CPDF_PageObjectHolder
+  // Cache for the render layer to attach to this page.
+  class RenderCacheIface {
+   public:
+    virtual ~RenderCacheIface() {}
+    virtual void ResetBitmapForImage(const RetainPtr<CPDF_Image>& pImage) = 0;
+  };
+
+  class RenderContextClearer {
+   public:
+    explicit RenderContextClearer(CPDF_Page* pPage);
+    ~RenderContextClearer();
+
+   private:
+    UnownedPtr<CPDF_Page> const m_pPage;
+  };
+
+  template <typename T, typename... Args>
+  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
+
+  // IPDF_Page:
+  CPDF_Page* AsPDFPage() override;
+  CPDFXFA_Page* AsXFAPage() override;
+  CPDF_Document* GetDocument() const override;
+  float GetPageWidth() const override;
+  float GetPageHeight() const override;
+  CFX_Matrix GetDisplayMatrix(const FX_RECT& rect, int iRotate) const override;
+  Optional<CFX_PointF> DeviceToPage(
+      const FX_RECT& rect,
+      int rotate,
+      const CFX_PointF& device_point) const override;
+  Optional<CFX_PointF> PageToDevice(
+      const FX_RECT& rect,
+      int rotate,
+      const CFX_PointF& page_point) const override;
+
+  // CPDF_PageObjectHolder:
   bool IsPage() const override;
 
   void ParseContent();
-
-  CFX_Matrix GetDisplayMatrix(int xPos,
-                              int yPos,
-                              int xSize,
-                              int ySize,
-                              int iRotate) const;
-
-  float GetPageWidth() const { return m_PageWidth; }
-  float GetPageHeight() const { return m_PageHeight; }
-  CFX_FloatRect GetPageBBox() const { return m_BBox; }
+  const CFX_SizeF& GetPageSize() const { return m_PageSize; }
   int GetPageRotation() const;
-  CPDF_PageRenderCache* GetRenderCache() const { return m_pPageRender.get(); }
+  RenderCacheIface* GetRenderCache() const { return m_pRenderCache.get(); }
+  void SetRenderCache(std::unique_ptr<RenderCacheIface> pCache) {
+    m_pRenderCache = std::move(pCache);
+  }
 
-  CPDF_PageRenderContext* GetRenderContext() const {
+  RenderContextIface* GetRenderContext() const {
     return m_pRenderContext.get();
   }
-  void SetRenderContext(std::unique_ptr<CPDF_PageRenderContext> pContext);
+  void SetRenderContext(std::unique_ptr<RenderContextIface> pContext) {
+    m_pRenderContext = std::move(pContext);
+  }
 
-  View* GetView() const { return m_pView; }
-  void SetView(View* pView) { m_pView = pView; }
+  CPDF_Document* GetPDFDocument() const { return m_pPDFDocument.Get(); }
+  View* GetView() const { return m_pView.Get(); }
+  void SetView(View* pView) { m_pView.Reset(pView); }
+  void UpdateDimensions();
 
  private:
-  void StartParse();
+  CPDF_Page(CPDF_Document* pDocument, CPDF_Dictionary* pPageDict);
+  ~CPDF_Page() override;
 
   CPDF_Object* GetPageAttr(const ByteString& name) const;
   CFX_FloatRect GetBox(const ByteString& name) const;
 
-  float m_PageWidth;
-  float m_PageHeight;
+  CFX_SizeF m_PageSize;
   CFX_Matrix m_PageMatrix;
-  View* m_pView;
-  std::unique_ptr<CPDF_PageRenderCache> m_pPageRender;
-  std::unique_ptr<CPDF_PageRenderContext> m_pRenderContext;
+  UnownedPtr<CPDF_Document> m_pPDFDocument;
+  std::unique_ptr<RenderCacheIface> m_pRenderCache;
+  std::unique_ptr<RenderContextIface> m_pRenderContext;
+  ObservedPtr<View> m_pView;
 };
 
 #endif  // CORE_FPDFAPI_PAGE_CPDF_PAGE_H_

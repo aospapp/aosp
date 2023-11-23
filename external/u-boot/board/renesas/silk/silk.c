@@ -7,10 +7,11 @@
  */
 
 #include <common.h>
+#include <env.h>
 #include <malloc.h>
 #include <dm.h>
 #include <dm/platform_data/serial_sh.h>
-#include <environment.h>
+#include <env_internal.h>
 #include <asm/processor.h>
 #include <asm/mach-types.h>
 #include <asm/io.h>
@@ -78,7 +79,7 @@ int board_init(void)
 
 int dram_init(void)
 {
-	if (fdtdec_setup_memory_size() != 0)
+	if (fdtdec_setup_mem_size_base() != 0)
 		return -EINVAL;
 
 	return 0;
@@ -93,7 +94,7 @@ int dram_init_banksize(void)
 
 /* porter has KSZ8041RNLI */
 #define PHY_CONTROL1		0x1E
-#define PHY_LED_MODE		0xC0000
+#define PHY_LED_MODE		0xC000
 #define PHY_LED_MODE_ACK	0x4000
 int board_phy_config(struct phy_device *phydev)
 {

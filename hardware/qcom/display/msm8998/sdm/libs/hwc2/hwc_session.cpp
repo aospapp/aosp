@@ -437,7 +437,7 @@ int32_t HWCSession::RegisterCallback(hwc2_device_t *device, int32_t descriptor,
   }
   auto desc = static_cast<HWC2::Callback>(descriptor);
   auto error = hwc_session->callbacks_.Register(desc, callback_data, pointer);
-  DLOGD("Registering callback: %s", to_string(desc).c_str());
+  DLOGD("%s callback: %s", pointer ? "Registering" : "Deregistering", to_string(desc).c_str());
   if (descriptor == HWC2_CALLBACK_HOTPLUG)
     hwc_session->callbacks_.Hotplug(HWC_DISPLAY_PRIMARY, HWC2::Connection::Connected);
   return INT32(error);
@@ -992,7 +992,7 @@ android::status_t HWCSession::HandleSetActiveDisplayConfig(const android::Parcel
   int dpy = input_parcel->readInt32();
   int error = android::BAD_VALUE;
 
-  if (dpy > HWC_DISPLAY_VIRTUAL) {
+  if (dpy < HWC_DISPLAY_PRIMARY || dpy > HWC_DISPLAY_VIRTUAL) {
     return android::BAD_VALUE;
   }
 
@@ -1011,7 +1011,7 @@ android::status_t HWCSession::HandleGetActiveDisplayConfig(const android::Parcel
   int dpy = input_parcel->readInt32();
   int error = android::BAD_VALUE;
 
-  if (dpy > HWC_DISPLAY_VIRTUAL) {
+  if (dpy < HWC_DISPLAY_PRIMARY || dpy > HWC_DISPLAY_VIRTUAL) {
     return android::BAD_VALUE;
   }
 
@@ -1031,7 +1031,7 @@ android::status_t HWCSession::HandleGetDisplayConfigCount(const android::Parcel 
   int dpy = input_parcel->readInt32();
   int error = android::BAD_VALUE;
 
-  if (dpy > HWC_DISPLAY_VIRTUAL) {
+  if (dpy < HWC_DISPLAY_PRIMARY || dpy > HWC_DISPLAY_VIRTUAL) {
     return android::BAD_VALUE;
   }
 
@@ -1055,7 +1055,7 @@ android::status_t HWCSession::HandleGetDisplayAttributesForConfig(const android:
   int error = android::BAD_VALUE;
   DisplayConfigVariableInfo display_attributes;
 
-  if (dpy > HWC_DISPLAY_VIRTUAL) {
+  if (dpy < HWC_DISPLAY_PRIMARY || dpy >= HWC_NUM_DISPLAY_TYPES || config < 0) {
     return android::BAD_VALUE;
   }
 
@@ -1251,7 +1251,7 @@ android::status_t HWCSession::SetColorModeOverride(const android::Parcel *input_
   auto mode = static_cast<android_color_mode_t>(input_parcel->readInt32());
   auto device = static_cast<hwc2_device_t *>(this);
 
-  if (display > HWC_DISPLAY_VIRTUAL) {
+  if (display >= HWC_NUM_DISPLAY_TYPES) {
     return -EINVAL;
   }
 
@@ -1266,7 +1266,7 @@ android::status_t HWCSession::SetColorModeById(const android::Parcel *input_parc
   auto mode = input_parcel->readInt32();
   auto device = static_cast<hwc2_device_t *>(this);
 
-  if (display > HWC_DISPLAY_VIRTUAL) {
+  if (display >= HWC_NUM_DISPLAY_TYPES) {
     return -EINVAL;
   }
 
@@ -1621,7 +1621,7 @@ android::status_t HWCSession::GetVisibleDisplayRect(const android::Parcel *input
   SCOPE_LOCK(locker_);
   int dpy = input_parcel->readInt32();
 
-  if (dpy < HWC_DISPLAY_PRIMARY || dpy > HWC_DISPLAY_VIRTUAL) {
+  if (dpy < HWC_DISPLAY_PRIMARY || dpy >= HWC_NUM_DISPLAY_TYPES) {
     return android::BAD_VALUE;
   }
 

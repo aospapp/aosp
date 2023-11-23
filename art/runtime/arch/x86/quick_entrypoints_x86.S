@@ -120,20 +120,7 @@ END_MACRO
      * Runtime::CreateCalleeSaveMethod(kSaveRefsAndArgs)
      */
 MACRO2(SETUP_SAVE_REFS_AND_ARGS_FRAME, got_reg, temp_reg)
-    PUSH edi  // Save callee saves
-    PUSH esi
-    PUSH ebp
-    PUSH ebx  // Save args
-    PUSH edx
-    PUSH ecx
-    // Create space for FPR args.
-    subl MACRO_LITERAL(4 * 8), %esp
-    CFI_ADJUST_CFA_OFFSET(4 * 8)
-    // Save FPRs.
-    movsd %xmm0, 0(%esp)
-    movsd %xmm1, 8(%esp)
-    movsd %xmm2, 16(%esp)
-    movsd %xmm3, 24(%esp)
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_REGISTERS_ONLY
 
     SETUP_GOT_NOSAVE RAW_VAR(got_reg)
     // Load Runtime::instance_ from GOT.
@@ -144,12 +131,6 @@ MACRO2(SETUP_SAVE_REFS_AND_ARGS_FRAME, got_reg, temp_reg)
     CFI_ADJUST_CFA_OFFSET(4)
     // Store esp as the stop quick frame.
     movl %esp, %fs:THREAD_TOP_QUICK_FRAME_OFFSET
-
-    // Ugly compile-time check, but we only have the preprocessor.
-    // Last +4: implicit return address pushed on stack when caller made call.
-#if (FRAME_SIZE_SAVE_REFS_AND_ARGS != 7*4 + 4*8 + 4)
-#error "FRAME_SIZE_SAVE_REFS_AND_ARGS(X86) size not as expected."
-#endif
 END_MACRO
 
     /*
@@ -157,45 +138,12 @@ END_MACRO
      * Runtime::CreateCalleeSaveMethod(kSaveRefsAndArgs) where the method is passed in EAX.
      */
 MACRO0(SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_EAX)
-    // Save callee and GPR args, mixed together to agree with core spills bitmap.
-    PUSH edi  // Save callee saves
-    PUSH esi
-    PUSH ebp
-    PUSH ebx  // Save args
-    PUSH edx
-    PUSH ecx
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_REGISTERS_ONLY
 
-    // Create space for FPR args.
-    subl MACRO_LITERAL(32), %esp
-    CFI_ADJUST_CFA_OFFSET(32)
-
-    // Save FPRs.
-    movsd %xmm0, 0(%esp)
-    movsd %xmm1, 8(%esp)
-    movsd %xmm2, 16(%esp)
-    movsd %xmm3, 24(%esp)
-
-    PUSH eax  // Store the ArtMethod reference at the bottom of the stack.
+    pushl %eax  // Store the ArtMethod reference at the bottom of the stack.
+    CFI_ADJUST_CFA_OFFSET(4)
     // Store esp as the stop quick frame.
     movl %esp, %fs:THREAD_TOP_QUICK_FRAME_OFFSET
-END_MACRO
-
-MACRO0(RESTORE_SAVE_REFS_AND_ARGS_FRAME)
-    // Restore FPRs. EAX is still on the stack.
-    movsd 4(%esp), %xmm0
-    movsd 12(%esp), %xmm1
-    movsd 20(%esp), %xmm2
-    movsd 28(%esp), %xmm3
-
-    addl MACRO_LITERAL(36), %esp  // Remove FPRs and EAX.
-    CFI_ADJUST_CFA_OFFSET(-36)
-
-    POP ecx                       // Restore args except eax
-    POP edx
-    POP ebx
-    POP ebp                       // Restore callee saves
-    POP esi
-    POP edi
 END_MACRO
 
 // Restore register and jump to routine
@@ -327,20 +275,6 @@ MACRO0(RESTORE_SAVE_EVERYTHING_FRAME_KEEP_EAX)
     CFI_ADJUST_CFA_OFFSET(-(16 + 8 * 8 + 4))
 
     RESTORE_SAVE_EVERYTHING_FRAME_GPRS_EXCEPT_EAX
-END_MACRO
-
-    /*
-     * Macro that calls through to artDeliverPendingExceptionFromCode, where the pending
-     * exception is Thread::Current()->exception_ when the runtime method frame is ready.
-     */
-MACRO0(DELIVER_PENDING_EXCEPTION_FRAME_READY)
-    // Outgoing argument set up
-    subl MACRO_LITERAL(12), %esp               // alignment padding
-    CFI_ADJUST_CFA_OFFSET(12)
-    pushl %fs:THREAD_SELF_OFFSET               // pass Thread::Current()
-    CFI_ADJUST_CFA_OFFSET(4)
-    call SYMBOL(artDeliverPendingExceptionFromCode)  // artDeliverPendingExceptionFromCode(Thread*)
-    UNREACHABLE
 END_MACRO
 
     /*
@@ -944,8 +878,7 @@ MACRO3(ONE_ARG_SAVE_EVERYTHING_DOWNCALL, c_name, cxx_name, runtime_method_offset
     CFI_REMEMBER_STATE
     RESTORE_SAVE_EVERYTHING_FRAME_KEEP_EAX            // restore frame up to return address
     ret                                               // return
-    CFI_RESTORE_STATE
-    CFI_DEF_CFA(esp, FRAME_SIZE_SAVE_EVERYTHING)      // workaround for clang bug: 31975598
+    CFI_RESTORE_STATE_AND_DEF_CFA(esp, FRAME_SIZE_SAVE_EVERYTHING)
 1:
     DELIVER_PENDING_EXCEPTION_FRAME_READY
     END_FUNCTION VAR(c_name)
@@ -1836,7 +1769,7 @@ DEFINE_FUNCTION art_quick_imt_conflict_trampoline
     POP ESI
     POP EDI
     jmp *ART_METHOD_QUICK_CODE_OFFSET_32(%eax)
-    CFI_RESTORE_STATE
+    CFI_RESTORE_STATE_AND_DEF_CFA(esp, 16)
 .Limt_table_next_entry:
     // If the entry is null, the interface method is not in the ImtConflictTable.
     cmpl LITERAL(0), 0(%edi)
@@ -1852,7 +1785,7 @@ DEFINE_FUNCTION art_quick_imt_conflict_trampoline
     POP ESI
     POP EDI
     INVOKE_TRAMPOLINE_BODY artInvokeInterfaceTrampoline
-    CFI_RESTORE_STATE
+    CFI_RESTORE_STATE_AND_DEF_CFA(esp, 16)
 .Limt_conflict_trampoline_dex_cache_miss:
     // We're not creating a proper runtime method frame here,
     // artLookupResolvedMethod() is not allowed to walk the stack.
@@ -1920,30 +1853,38 @@ DEFINE_FUNCTION art_quick_generic_jni_trampoline
     CFI_DEF_CFA_REGISTER(ebp)
     subl LITERAL(5120), %esp
     // prepare for artQuickGenericJniTrampoline call
-    // (Thread*,  SP)
-    //  (esp)    4(esp)   <= C calling convention
-    //  fs:...    ebp     <= where they are
+    // (Thread*, managed_sp, reserved_area)
+    //   (esp)    4(esp)        8(esp)  <= C calling convention
+    //  fs:...      ebp           esp   <= where they are
 
-    subl LITERAL(8), %esp         // Padding for 16B alignment.
-    pushl %ebp                    // Pass SP (to ArtMethod).
+    movl %esp, %eax
+    subl LITERAL(4), %esp         // Padding for 16B alignment.
+    pushl %eax                    // Pass reserved area.
+    pushl %ebp                    // Pass managed frame SP.
     pushl %fs:THREAD_SELF_OFFSET  // Pass Thread::Current().
     call SYMBOL(artQuickGenericJniTrampoline)  // (Thread*, sp)
 
     // The C call will have registered the complete save-frame on success.
     // The result of the call is:
-    // eax: pointer to native code, 0 on error.
-    // edx: pointer to the bottom of the used area of the alloca, can restore stack till there.
+    //     eax: pointer to native code, 0 on error.
+    //     The bottom of the reserved area contains values for arg registers,
+    //     hidden arg register and SP for out args for the call.
 
-    // Check for error = 0.
+    // Check for error (class init check or locking for synchronized native method can throw).
     test %eax, %eax
     jz .Lexception_in_native
 
-    // Release part of the alloca.
-    movl %edx, %esp
+    // On x86 there are no registers passed, so no native call args to pop here.
 
-    // On x86 there are no registers passed, so nothing to pop here.
+    // Save code pointer in EDX.
+    movl %eax, %edx
+    // Load hidden arg (EAX) for @CriticalNative.
+    movl 16(%esp), %eax
+    // Load SP for out args, releasing unneeded reserved area.
+    movl 20(%esp), %esp
+
     // Native call.
-    call *%eax
+    call *%edx
 
     // result sign extension is handled in C code
     // prepare for artQuickGenericJniEndTrampoline call
@@ -2246,6 +2187,25 @@ DEFINE_FUNCTION art_quick_string_compareto
     ret
 END_FUNCTION art_quick_string_compareto
 
+DEFINE_FUNCTION art_quick_string_builder_append
+    SETUP_SAVE_REFS_ONLY_FRAME ebx, ebx       // save ref containing registers for GC
+    // Outgoing argument set up
+    leal FRAME_SIZE_SAVE_REFS_ONLY + __SIZEOF_POINTER__(%esp), %edi  // prepare args
+    push %eax                                 // push padding
+    CFI_ADJUST_CFA_OFFSET(4)
+    pushl %fs:THREAD_SELF_OFFSET              // pass Thread::Current()
+    CFI_ADJUST_CFA_OFFSET(4)
+    push %edi                                 // pass args
+    CFI_ADJUST_CFA_OFFSET(4)
+    push %eax                                 // pass format
+    CFI_ADJUST_CFA_OFFSET(4)
+    call SYMBOL(artStringBuilderAppend)       // (uint32_t, const unit32_t*, Thread*)
+    addl MACRO_LITERAL(16), %esp              // pop arguments
+    CFI_ADJUST_CFA_OFFSET(-16)
+    RESTORE_SAVE_REFS_ONLY_FRAME              // restore frame up to return address
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER   // return or deliver exception
+END_FUNCTION art_quick_string_builder_append
+
 // Create a function `name` calling the ReadBarrier::Mark routine,
 // getting its argument and returning its result through register
 // `reg`, saving and restoring all caller-save registers.
@@ -2411,23 +2371,11 @@ DEFINE_FUNCTION art_quick_osr_stub
     POP ebx
     POP ebp
     mov 16(%esp), %ecx            // Get JValue result
-    mov %eax, (%ecx)              // Store the result assuming it is a long, int or Object*
-    mov %edx, 4(%ecx)             // Store the other half of the result
-    mov 20(%esp), %edx            // Get the shorty
-    cmpb LITERAL(68), (%edx)      // Test if result type char == 'D'
-    je .Losr_return_double_quick
-    cmpb LITERAL(70), (%edx)      // Test if result type char == 'F'
-    je .Losr_return_float_quick
-    ret
-.Losr_return_double_quick:
-    movsd %xmm0, (%ecx)           // Store the floating point result
-    ret
-.Losr_return_float_quick:
-    movss %xmm0, (%ecx)           // Store the floating point result
+    mov %eax, (%ecx)              // Store the result.
+    mov %edx, 4(%ecx)             // Store the other half of the result.
     ret
 .Losr_entry:
-    CFI_RESTORE_STATE
-    CFI_DEF_CFA(ebp, SAVE_SIZE)   // CFA = ebp + SAVE_SIZE
+    CFI_RESTORE_STATE_AND_DEF_CFA(ebp, SAVE_SIZE)  // CFA = ebp + SAVE_SIZE
     subl LITERAL(4), %ecx         // Given stack size contains pushed frame pointer, substract it.
     subl %ecx, %esp
     mov %esp, %edi                // EDI = beginning of stack
@@ -2502,5 +2450,79 @@ DEFINE_FUNCTION ExecuteSwitchImplAsm
     ret
 END_FUNCTION ExecuteSwitchImplAsm
 
+// On entry: eax is the class, ebp is the inline cache.
+DEFINE_FUNCTION art_quick_update_inline_cache
+#if (INLINE_CACHE_SIZE != 5)
+#error "INLINE_CACHE_SIZE not as expected."
+#endif
+    // Don't update the cache if we are marking.
+    cmpl LITERAL(0), %fs:THREAD_IS_GC_MARKING_OFFSET
+    jnz .Lret
+    PUSH ecx
+    movl %eax, %ecx // eax will be used for cmpxchg
+.Lentry1:
+    movl INLINE_CACHE_CLASSES_OFFSET(%ebp), %eax
+    cmpl %ecx, %eax
+    je .Ldone
+    cmpl LITERAL(0), %eax
+    jne .Lentry2
+    lock cmpxchg %ecx, INLINE_CACHE_CLASSES_OFFSET(%ebp)
+    jz .Ldone
+    jmp .Lentry1
+.Lentry2:
+    movl (INLINE_CACHE_CLASSES_OFFSET+4)(%ebp), %eax
+    cmpl %ecx, %eax
+    je .Ldone
+    cmpl LITERAL(0), %eax
+    jne .Lentry3
+    lock cmpxchg %ecx, (INLINE_CACHE_CLASSES_OFFSET+4)(%ebp)
+    jz .Ldone
+    jmp .Lentry2
+.Lentry3:
+    movl (INLINE_CACHE_CLASSES_OFFSET+8)(%ebp), %eax
+    cmpl %ecx, %eax
+    je .Ldone
+    cmpl LITERAL(0), %eax
+    jne .Lentry4
+    lock cmpxchg %ecx, (INLINE_CACHE_CLASSES_OFFSET+8)(%ebp)
+    jz .Ldone
+    jmp .Lentry3
+.Lentry4:
+    movl (INLINE_CACHE_CLASSES_OFFSET+12)(%ebp), %eax
+    cmpl %ecx, %eax
+    je .Ldone
+    cmpl LITERAL(0), %eax
+    jne .Lentry5
+    lock cmpxchg %ecx, (INLINE_CACHE_CLASSES_OFFSET+12)(%ebp)
+    jz .Ldone
+    jmp .Lentry4
+.Lentry5:
+    // Unconditionally store, the cache is megamorphic.
+    movl %ecx, (INLINE_CACHE_CLASSES_OFFSET+16)(%ebp)
+.Ldone:
+    // Restore registers
+    movl %ecx, %eax
+    POP ecx
+.Lret:
+    ret
+END_FUNCTION art_quick_update_inline_cache
+
     // TODO: implement these!
 UNIMPLEMENTED art_quick_memcmp16
+
+// On entry, the method is at the bottom of the stack.
+DEFINE_FUNCTION art_quick_compile_optimized
+    SETUP_SAVE_EVERYTHING_FRAME ebx, ebx
+    mov FRAME_SIZE_SAVE_EVERYTHING(%esp), %eax // Fetch ArtMethod
+    sub LITERAL(8), %esp   		       // Alignment padding
+    CFI_ADJUST_CFA_OFFSET(8)
+    pushl %fs:THREAD_SELF_OFFSET               // pass Thread::Current()
+    CFI_ADJUST_CFA_OFFSET(4)
+    pushl %eax
+    CFI_ADJUST_CFA_OFFSET(4)
+    call SYMBOL(artCompileOptimized)           // (ArtMethod*, Thread*)
+    addl LITERAL(16), %esp                     // Pop arguments.
+    CFI_ADJUST_CFA_OFFSET(-16)
+    RESTORE_SAVE_EVERYTHING_FRAME
+    ret
+END_FUNCTION art_quick_compile_optimized

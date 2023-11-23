@@ -17,7 +17,7 @@
 %                                 July 1999                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -56,6 +56,7 @@
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/opencl.h"
+#include "MagickCore/option.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/profile.h"
 #include "MagickCore/property.h"
@@ -178,10 +179,6 @@ static void SetDNGProperties(Image *image,const libraw_data_t *raw_info,
   if (*raw_info->shootinginfo.BodySerial != '\0')
     (void) SetImageProperty(image,"dng:serial.number",
       raw_info->shootinginfo.BodySerial,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.2f",
-    raw_info->other.FlashEC);
-  (void) SetImageProperty(image,"dng:flash.exposure.compensation",property,
-    exception);
   (void) FormatLocaleString(property,MagickPathExtent,"1/%0.1f",
     1.0/raw_info->other.shutter);
   (void) SetImageProperty(image,"dng:exposure.time",property,exception);
@@ -387,6 +384,8 @@ static Image *ReadDNGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         libraw_close(raw_info);
         return(DestroyImageList(image));
       }
+    raw_info->params.use_camera_wb=IsStringTrue(GetImageOption(image_info,
+      "dng:use_camera_wb"));
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) && defined(_MSC_VER) && (_MSC_VER > 1310)
     {
       wchar_t
@@ -581,6 +580,12 @@ ModuleExport size_t RegisterDNGImage(void)
   entry->flags^=CoderBlobSupportFlag;
   entry->format_type=ExplicitFormatType;
   (void) RegisterMagickInfo(entry);
+  entry=AcquireMagickInfo("DNG","CR3","Canon Digital Camera Raw Image Format");
+  entry->decoder=(DecodeImageHandler *) ReadDNGImage;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
+  entry->flags^=CoderBlobSupportFlag;
+  entry->format_type=ExplicitFormatType;
+  (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("DNG","CRW","Canon Digital Camera Raw Image Format");
   entry->decoder=(DecodeImageHandler *) ReadDNGImage;
   entry->flags|=CoderDecoderSeekableStreamFlag;
@@ -745,6 +750,7 @@ ModuleExport void UnregisterDNGImage(void)
   (void) UnregisterMagickInfo("ERF");
   (void) UnregisterMagickInfo("DCR");
   (void) UnregisterMagickInfo("CRW");
+  (void) UnregisterMagickInfo("CR3");
   (void) UnregisterMagickInfo("CR2");
   (void) UnregisterMagickInfo("DNG");
   (void) UnregisterMagickInfo("ARW");

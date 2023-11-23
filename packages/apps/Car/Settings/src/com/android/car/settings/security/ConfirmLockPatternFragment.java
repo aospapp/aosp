@@ -29,6 +29,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternView;
+import com.android.internal.widget.LockscreenCredential;
 
 import java.util.List;
 
@@ -50,12 +51,6 @@ public class ConfirmLockPatternFragment extends BaseFragment {
 
     private int mUserId;
     private List<LockPatternView.Cell> mPattern;
-
-    @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
-    }
 
     @Override
     @LayoutRes
@@ -159,7 +154,7 @@ public class ConfirmLockPatternFragment extends BaseFragment {
 
     private void onCheckCompleted(boolean lockMatched) {
         if (lockMatched) {
-            mCheckLockListener.onLockVerified(LockPatternUtils.patternToByteArray(mPattern));
+            mCheckLockListener.onLockVerified(LockscreenCredential.createPattern(mPattern));
         } else {
             mLockPatternView.setEnabled(true);
             mMsgView.setText(R.string.lockpattern_pattern_wrong);

@@ -70,13 +70,14 @@
             </intent-filter>
         </receiver>
 
-        <!-- Receives the following explicit intents:
-            - com.android.service.ims.presence.retry
-            - com.android.service.ims.presence.task.timeout
-            - com.android.service.ims.presence.retry.publish -->
-        <receiver android:name="com.android.service.ims.presence.AlarmBroadcastReceiver"
+        <receiver android:name=".AlarmBroadcastReceiver"
             android:permission="com.android.ims.permission.PRESENCE_ACCESS"
             androidprv:systemUserOnly="true">
+            <intent-filter>
+                <action android:name="com.android.service.ims.presence.retry"/>
+                <action android:name="com.android.service.ims.presence.task.timeout"/>
+                <action android:name="com.android.service.ims.presence.retry.publish"/>
+            </intent-filter>
         </receiver>
     </application>
 </manifest>

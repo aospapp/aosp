@@ -22,7 +22,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1000 (0x3e8)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=HK, O=Hongkong Post, CN=Hongkong Post Root CA 1
         Validity
             Not Before: May 15 05:13:14 2003 GMT
@@ -30,7 +30,7 @@ Certificate:
         Subject: C=HK, O=Hongkong Post, CN=Hongkong Post Root CA 1
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:ac:ff:38:b6:e9:66:02:49:e3:a2:b4:e1:90:f9:
                     40:8f:79:f9:e2:bd:79:fe:02:bd:ee:24:92:1d:22:

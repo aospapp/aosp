@@ -9,6 +9,7 @@ jv{
         011{"Afrika Kulon"}
         013{"Amérika Tengah"}
         014{"Afrika Wétan"}
+        017{"Afrika Sisih Tengah"}
         018{"Afrika Sisih Kidul"}
         019{"Amérika"}
         021{"Amérika Sisih Lor"}
@@ -55,6 +56,7 @@ jv{
         BH{"Bahrain"}
         BI{"Burundi"}
         BJ{"Bénin"}
+        BL{"Saint Barthélémi"}
         BM{"Bermuda"}
         BN{"Brunéi"}
         BO{"Bolivia"}
@@ -67,6 +69,7 @@ jv{
         BY{"Bélarus"}
         BZ{"Bélisé"}
         CA{"Kanada"}
+        CC{"Kapuloan Cocos (Keeling)"}
         CD{"Kongo - Kinshasa"}
         CF{"Républik Afrika Tengah"}
         CG{"Kongo - Brassaville"}
@@ -105,6 +108,7 @@ jv{
         FI{"Finlan"}
         FJ{"Fiji"}
         FK{"Kapuloan Falkland (Islas Malvinas)"}
+        FM{"Féderasi Mikronésia"}
         FO{"Kapuloan Faro"}
         FR{"Prancis"}
         GA{"Gabon"}
@@ -115,13 +119,19 @@ jv{
         GG{"Guernsei"}
         GH{"Ghana"}
         GI{"Gibraltar"}
+        GL{"Greenland"}
         GM{"Gambia"}
+        GN{"Guinea"}
         GP{"Guadélup"}
+        GQ{"Guinéa Katulistiwa"}
+        GR{"Grikenlan"}
         GS{"Georgia Kidul lan Kapuloan Sandwich Kidul"}
         GT{"Guatémala"}
         GU{"Guam"}
+        GW{"Guinea-Bissau"}
         GY{"Guyana"}
         HK{"Hong Kong"}
+        HM{"Kapuloan Heard lan McDonald"}
         HN{"Honduras"}
         HR{"Kroasia"}
         HT{"Haiti"}
@@ -145,6 +155,7 @@ jv{
         KH{"Kamboja"}
         KI{"Kiribati"}
         KM{"Komoro"}
+        KN{"Saint Kits lan Nèvis"}
         KR{"Koréa Kidul"}
         KW{"Kuwait"}
         KY{"Kapuloan Kéman"}
@@ -170,7 +181,7 @@ jv{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Laladan Administratif Astamiwa Makau"}
+        MO{"Macau"}
         MP{"Kapuloan Mariana Lor"}
         MQ{"Martinik"}
         MR{"Mauritania"}
@@ -201,6 +212,7 @@ jv{
         PH{"Pilipina"}
         PK{"Pakistan"}
         PL{"Polen"}
+        PM{"Saint Pièr lan Mikuélon"}
         PN{"Kapuloan Pitcairn"}
         PR{"Puèrto Riko"}
         PS{"Palèstina"}
@@ -211,6 +223,8 @@ jv{
         QO{"Oseania Paling Njaba"}
         RE{"Réunion"}
         RO{"Ruméni"}
+        RS{"Sèrbi"}
+        RU{"Rusia"}
         RW{"Rwanda"}
         SA{"Arab Saudi"}
         SB{"Kapuloan Suleman"}
@@ -218,6 +232,7 @@ jv{
         SD{"Sudan"}
         SE{"Swèdhen"}
         SG{"Singapura"}
+        SH{"Saint Héléna"}
         SI{"Slovénia"}
         SJ{"Svalbard lan Jan Mayen"}
         SK{"Slowak"}
@@ -251,16 +266,22 @@ jv{
         TZ{"Tansania"}
         UA{"Ukrania"}
         UG{"Uganda"}
+        UM{"Kapuloan AS Paling Njaba"}
         UN{"Pasarékatan Bangsa-Bangsa"}
         US{"Amérika Sarékat"}
         UY{"Uruguay"}
         UZ{"Usbèkistan"}
+        VA{"Kutha Vatikan"}
+        VC{"Saint Vinsen lan Grénadin"}
         VE{"Vénésuéla"}
+        VG{"Kapuloan Virgin Britania"}
         VI{"Kapuloan Virgin Amérika"}
         VN{"Viètnam"}
         VU{"Vanuatu"}
         WF{"Wallis lan Futuna"}
         WS{"Samoa"}
+        XA{"Logat Semu"}
+        XB{"Rong Arah Semu"}
         XK{"Kosovo"}
         YE{"Yaman"}
         YT{"Mayotte"}
@@ -277,7 +298,8 @@ jv{
         CD{"Républik Dhémokratik Kongo"}
         CG{"Républik Kongo"}
         CZ{"Républik Céko"}
+        SZ{"(Swasiland)"}
         TL{"Timor Wétan"}
     }
-    Version{"2.1.44.15"}
+    Version{"36.1"}
 }

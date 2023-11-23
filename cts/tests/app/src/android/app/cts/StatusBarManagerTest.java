@@ -96,4 +96,22 @@ public class StatusBarManagerTest {
 
         assertTrue("Invalid disableFlags", info.areAllComponentsEnabled());
     }
+
+    @Test
+    public void testDisableForSimLock_setDisabledTrue() throws Exception {
+        mStatusBarManager.setDisabledForSimNetworkLock(true);
+
+        // Check for the default set of disable flags
+        assertTrue(mStatusBarManager.getDisableInfo().isStatusBarExpansionDisabled());
+    }
+
+    @Test
+    public void testDisableForSimLock_setDisabledFalse() throws Exception {
+        // First disable, then re-enable
+        mStatusBarManager.setDisabledForSimNetworkLock(true);
+        mStatusBarManager.setDisabledForSimNetworkLock(false);
+
+        DisableInfo info = mStatusBarManager.getDisableInfo();
+        assertTrue("Invalid disableFlags", info.areAllComponentsEnabled());
+    }
 }

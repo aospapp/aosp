@@ -33,22 +33,26 @@ import android.icu.util.ICUException;
  * @param <V> Cache instance value type
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.IntraCoreApi
 public abstract class CacheValue<V> {
     /**
      * "Strength" of holding a value in CacheValue instances.
      * The default strength is {@code SOFT}.
      * @hide Only a subset of ICU is exposed in Android
      */
+    @libcore.api.IntraCoreApi
     public enum Strength {
         /**
          * Subsequent {@code getInstance()}-created objects
          * will hold direct references to their values.
          */
+        @libcore.api.IntraCoreApi
         STRONG,
         /**
          * Subsequent {@code getInstance()}-created objects
          * will hold {@link SoftReference}s to their values.
          */
+        @libcore.api.IntraCoreApi
         SOFT
     };
     private static volatile Strength strength = Strength.SOFT;
@@ -59,6 +63,7 @@ public abstract class CacheValue<V> {
     /**
      * Changes the "strength" of value references for subsequent {@code getInstance()} calls.
      */
+    @libcore.api.IntraCoreApi
     public static void setStrength(Strength strength) { CacheValue.strength = strength; }
 
     /**

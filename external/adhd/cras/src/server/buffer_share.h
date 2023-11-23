@@ -56,7 +56,6 @@ unsigned int buffer_share_id_offset(const struct buffer_share *mix,
 /*
  * Gets the data pointer for given id.
  */
-void *buffer_share_get_data(const struct buffer_share *mix,
-			    unsigned int id);
+void *buffer_share_get_data(const struct buffer_share *mix, unsigned int id);
 
 #endif /* BUFFER_SHARE_H_ */

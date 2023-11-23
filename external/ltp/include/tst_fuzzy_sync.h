@@ -63,6 +63,7 @@
 #include <time.h>
 #include <math.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include "tst_atomic.h"
 #include "tst_timer.h"
 #include "tst_safe_pthread.h"
@@ -218,10 +219,45 @@ static void tst_fzsync_pair_init(struct tst_fzsync_pair *pair)
 static void tst_fzsync_pair_cleanup(struct tst_fzsync_pair *pair)
 {
 	if (pair->thread_b) {
-		tst_atomic_store(1, &pair->exit);
+		/* Revoke thread B if parent hits accidental break */
+		if (!pair->exit) {
+			tst_atomic_store(1, &pair->exit);
+			usleep(100000);
+
+/*
+ * b/148414662
+ * Android does not support pthread_cancel. This mechanism is just used to avoid
+ * a timeout in a rare failure case and is not required for proper operation, so
+ * just skip it for now (effort will be made upstream to remove the use of
+ * pthread_cancel).
+ *		pthread_cancel(pair->thread_b);
+ */
+		}
 		SAFE_PTHREAD_JOIN(pair->thread_b, NULL);
 		pair->thread_b = 0;
 	}
+}
+
+/** To store the run_b pointer and pass to tst_fzsync_thread_wrapper */
+struct tst_fzsync_run_thread {
+	void *(*func)(void *);
+	void *arg;
+};
+
+/**
+ * Wrap run_b for tst_fzsync_pair_reset to enable pthread cancel
+ * at the start of the thread B.
+ */
+static void *tst_fzsync_thread_wrapper(void *run_thread)
+{
+       struct tst_fzsync_run_thread t = *(struct tst_fzsync_run_thread *)run_thread;
+
+/*
+ * See above comment for b/148414662
+ *     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+ *     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+ */
+       return t.func(t.arg);
 }
 
 /**
@@ -271,8 +307,10 @@ static void tst_fzsync_pair_reset(struct tst_fzsync_pair *pair,
 	pair->a_cntr = 0;
 	pair->b_cntr = 0;
 	pair->exit = 0;
-	if (run_b)
-		SAFE_PTHREAD_CREATE(&pair->thread_b, 0, run_b, 0);
+	if (run_b) {
+		struct tst_fzsync_run_thread wrap_run_b = {.func = run_b, .arg = NULL};
+		SAFE_PTHREAD_CREATE(&pair->thread_b, 0, tst_fzsync_thread_wrapper, &wrap_run_b);
+	}
 
 	pair->exec_time_start = (float)tst_timeout_remaining();
 }
@@ -477,8 +515,8 @@ static void tst_fzsync_pair_update(struct tst_fzsync_pair *pair)
 			tst_res(TINFO, "Minimum sampling period ended");
 			tst_fzsync_pair_info(pair);
 		}
-	} else if (fabsf(pair->diff_ab.avg) >= 1 && pair->spins_avg.avg >= 1) {
-		per_spin_time = fabsf(pair->diff_ab.avg) / pair->spins_avg.avg;
+	} else if (fabsf(pair->diff_ab.avg) >= 1) {
+		per_spin_time = fabsf(pair->diff_ab.avg) / MAX(pair->spins_avg.avg, 1.0f);
 		time_delay = drand48() * (pair->diff_sa.avg + pair->diff_sb.avg)
 			- pair->diff_sb.avg;
 		pair->delay += (int)(time_delay / per_spin_time);
@@ -495,6 +533,7 @@ static void tst_fzsync_pair_update(struct tst_fzsync_pair *pair)
 		}
 	} else if (!pair->sampling) {
 		tst_res(TWARN, "Can't calculate random delay");
+		tst_fzsync_pair_info(pair);
 		pair->sampling = -1;
 	}
 

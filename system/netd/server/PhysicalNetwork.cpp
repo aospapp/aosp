@@ -23,13 +23,12 @@
 
 #include "log/log.h"
 
-namespace android {
-namespace net {
+namespace android::net {
 
 namespace {
 
-WARN_UNUSED_RESULT int addToDefault(unsigned netId, const std::string& interface,
-                                    Permission permission, PhysicalNetwork::Delegate* delegate) {
+[[nodiscard]] int addToDefault(unsigned netId, const std::string& interface, Permission permission,
+                               PhysicalNetwork::Delegate* delegate) {
     if (int ret = RouteController::addInterfaceToDefaultNetwork(interface.c_str(), permission)) {
         ALOGE("failed to add interface %s to default netId %u", interface.c_str(), netId);
         return ret;
@@ -40,9 +39,8 @@ WARN_UNUSED_RESULT int addToDefault(unsigned netId, const std::string& interface
     return 0;
 }
 
-WARN_UNUSED_RESULT int removeFromDefault(unsigned netId, const std::string& interface,
-                                         Permission permission,
-                                         PhysicalNetwork::Delegate* delegate) {
+[[nodiscard]] int removeFromDefault(unsigned netId, const std::string& interface,
+                                    Permission permission, PhysicalNetwork::Delegate* delegate) {
     if (int ret = RouteController::removeInterfaceFromDefaultNetwork(interface.c_str(),
                                                                      permission)) {
         ALOGE("failed to remove interface %s from default netId %u", interface.c_str(), netId);
@@ -56,15 +54,13 @@ WARN_UNUSED_RESULT int removeFromDefault(unsigned netId, const std::string& inte
 
 }  // namespace
 
-PhysicalNetwork::Delegate::~Delegate() {
-}
+PhysicalNetwork::Delegate::~Delegate() {}
 
 PhysicalNetwork::PhysicalNetwork(unsigned netId, PhysicalNetwork::Delegate* delegate) :
         Network(netId), mDelegate(delegate), mPermission(PERMISSION_NONE), mIsDefault(false) {
 }
 
-PhysicalNetwork::~PhysicalNetwork() {
-}
+PhysicalNetwork::~PhysicalNetwork() {}
 
 Permission PhysicalNetwork::getPermission() const {
     return mPermission;
@@ -92,8 +88,8 @@ void PhysicalNetwork::invalidateRouteCache(const std::string& interface) {
         // If any of these operations fail, there's no point in logging because RouteController will
         // have already logged a message. There's also no point returning an error since there's
         // nothing we can do.
-        (void) RouteController::addRoute(interface.c_str(), dst, "throw",
-                                         RouteController::INTERFACE);
+        (void)RouteController::addRoute(interface.c_str(), dst, "throw", RouteController::INTERFACE,
+                                        0 /* mtu */);
         (void) RouteController::removeRoute(interface.c_str(), dst, "throw",
                                          RouteController::INTERFACE);
     }
@@ -206,5 +202,4 @@ int PhysicalNetwork::removeInterface(const std::string& interface) {
     return 0;
 }
 
-}  // namespace net
-}  // namespace android
+}  // namespace android::net

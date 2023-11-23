@@ -16,6 +16,8 @@
 
 #define LOG_TAG "Operations"
 
+#include <vector>
+
 #include "Operations.h"
 #include "OperationsUtils.h"
 
@@ -70,6 +72,13 @@ bool splitQuant8(const uint8_t* inputData, const Shape& inputShape, int32_t axis
                  const std::vector<Shape>& outputShapes) {
     NNTRACE_COMP("splitQuant8");
     return splitGeneric<uint8_t>(inputData, inputShape, axis, outputDataPtrs, outputShapes);
+}
+
+bool splitQuant8Signed(const int8_t* inputData, const Shape& inputShape, int32_t axis,
+                       const std::vector<int8_t*>* outputDataPtrs,
+                       const std::vector<Shape>& outputShapes) {
+    NNTRACE_COMP("splitQuant8Signed");
+    return splitGeneric<int8_t>(inputData, inputShape, axis, outputDataPtrs, outputShapes);
 }
 
 bool splitInt32(const int32_t* inputData, const Shape& inputShape, int32_t axis,

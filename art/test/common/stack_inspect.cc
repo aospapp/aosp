@@ -25,6 +25,7 @@
 #include "mirror/class-inl.h"
 #include "nth_caller_visitor.h"
 #include "oat_file.h"
+#include "oat_quick_method_header.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack.h"
@@ -47,7 +48,10 @@ static jboolean IsInterpreted(JNIEnv* env, jclass, size_t level) {
   NthCallerVisitor caller(soa.Self(), level, false);
   caller.WalkStack();
   CHECK(caller.caller != nullptr);
-  return caller.GetCurrentShadowFrame() != nullptr ? JNI_TRUE : JNI_FALSE;
+  bool is_shadow_frame = (caller.GetCurrentShadowFrame() != nullptr);
+  bool is_nterp_frame = (caller.GetCurrentQuickFrame() != nullptr) &&
+      (caller.GetCurrentOatQuickMethodHeader()->IsNterpMethodHeader());
+  return (is_shadow_frame || is_nterp_frame) ? JNI_TRUE : JNI_FALSE;
 }
 
 // public static native boolean isInterpreted();
@@ -187,8 +191,11 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_getThisOfCaller(
   jobject result = nullptr;
   StackVisitor::WalkStack(
       [&](const art::StackVisitor* stack_visitor) REQUIRES_SHARED(Locks::mutator_lock_) {
-        // Discard stubs and Main.getThisOfCaller.
-        if (stack_visitor->GetMethod() == nullptr || stack_visitor->GetMethod()->IsNative()) {
+        // Discard stubs and Main.getThisOfCaller and methods without vreg info.
+        if (stack_visitor->GetMethod() == nullptr ||
+            stack_visitor->GetMethod()->IsNative() ||
+            (stack_visitor->GetCurrentShadowFrame() == nullptr &&
+             !Runtime::Current()->IsAsyncDeoptimizeable(stack_visitor->GetCurrentQuickFramePc()))) {
           return true;
         }
         result = soa.AddLocalReference<jobject>(stack_visitor->GetThisObject());

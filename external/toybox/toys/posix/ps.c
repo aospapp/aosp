@@ -311,13 +311,14 @@ struct procpid {
 #define XX 64 // force string representation for sorting, etc
 
 // TODO: Android uses -30 for LABEL, but ideally it would auto-size.
+// TODO: ideally, PID and PPID would auto-size too.
 struct typography {
   char *name, *help;
   signed char width, slot;
 } static const typos[] = TAGGED_ARRAY(PS,
   // Numbers. (What's in slot[] is what's displayed, sorted numerically.)
-  {"PID", "Process ID", 5, SLOT_pid},
-  {"PPID", "Parent Process ID", 5, SLOT_ppid},
+  {"PID", "Process ID", 6, SLOT_pid},
+  {"PPID", "Parent Process ID", 6, SLOT_ppid},
   {"PRI", "Priority (dynamic 0 to 139)", 3, SLOT_priority},
   {"NI", "Niceness (static 19 to -20)", 3, SLOT_nice},
   {"ADDR", "Instruction pointer", 4+sizeof(long), SLOT_eip},
@@ -588,10 +589,18 @@ static char *string_field(struct procpid *tb, struct ofields *field)
 
   // Human readable
   } else if (which <= PS_DIO) {
-    ll = slot[typos[which].slot];
+    int i = abs(field->len);
+
+    if (i<4) i = 4;
+    s = out;
+    if ((ll = slot[typos[which].slot])<0) {
+      ll = -ll;
+      *s++ = '-';
+      if (i>4) i--;
+    }
     if (which <= PS_SHR) ll *= sysconf(_SC_PAGESIZE);
     if (TT.forcek) sprintf(out, "%lldk", ll/1024);
-    else human_readable(out, ll, 0);
+    else human_readable_long(s, ll, i-1, 0);
 
   // Posix doesn't specify what flags should say. Man page says
   // 1 for PF_FORKNOEXEC and 4 for PF_SUPERPRIV from linux/sched.h
@@ -781,8 +790,8 @@ static int get_ps(struct dirtree *new)
     slot[SLOT_ruid] = s ? atol(s) : new->st.st_uid;
     s = strafter(buf, "\nGid:");
     slot[SLOT_rgid] = s ? atol(s) : new->st.st_gid;
-    if ((s = strafter(buf, "\nVmLck:"))) slot[SLOT_vmlck] = atoll(s);
-    if ((s = strafter(buf, "\nVmSwap:"))) slot[SLOT_swap] = atoll(s);
+    if ((s = strafter(buf, "\nVmLck:"))) slot[SLOT_vmlck] = atoll(s)*1024;
+    if ((s = strafter(buf, "\nVmSwap:"))) slot[SLOT_swap] = atoll(s)*1024;
   }
 
   // Do we need to read "io"?
@@ -1556,8 +1565,7 @@ static void top_common(
         // Display "top" header.
         if (*toys.which->name == 't') {
           struct ofields field;
-          char *hr0 = toybuf+sizeof(toybuf)-32, *hr1 = hr0-32, *hr2 = hr1-32,
-            *hr3 = hr2-32;
+          char hr[4][32];
           long long ll, up = 0;
           long run[6];
           int j;
@@ -1577,28 +1585,22 @@ static void top_common(
             run[2]+run[3], run[4]);
           lines = header_line(lines, 0);
 
-          if (readfile("/proc/meminfo", toybuf, sizeof(toybuf))) {
-            for (i=0; i<6; i++) {
-              pos = strafter(toybuf, (char *[]){"MemTotal:","\nMemFree:",
-                    "\nBuffers:","\nCached:","\nSwapTotal:","\nSwapFree:"}[i]);
-              run[i] = pos ? atol(pos) : 0;
+          if (readfile("/proc/meminfo", toybuf+256, sizeof(toybuf)-256)) {
+            for (i = 0; i<6; i++) {
+              j = i%3;
+              pos = strafter(toybuf+256, (char *[]){"MemTotal:","\nMemFree:",
+                    "\nBuffers:","\nSwapTotal:","\nSwapFree:","\nCached:"}[i]);
+              human_readable_long(hr[j+!!j], 1024*(run[i] = pos?atol(pos):0),
+                8, 0);
+              if (j==1) human_readable_long(hr[1], 1024*(run[i-1]-run[i]), 8,0);
+              else if (j==2) {
+                sprintf(toybuf, (i<3)
+                  ? "  Mem: %9s total, %9s used, %9s free, %9s buffers"
+                  : " Swap: %9s total, %9s used, %9s free, %9s cached",
+                  hr[0], hr[1], hr[2], hr[3]);
+                lines = header_line(lines, 0);
+              }
             }
-
-            human_readable(hr0, 1024*run[0], 0);
-            human_readable(hr1, 1024*(run[0]-run[1]), 0);
-            human_readable(hr2, 1024*run[1], 0);
-            human_readable(hr3, 1024*run[2], 0);
-            sprintf(toybuf, "  Mem: %9s total, %9s used, %9s free, %9s buffers",
-              hr0, hr1, hr2, hr3);
-            lines = header_line(lines, 0);
-
-            human_readable(hr0, 1024*run[4], 0);
-            human_readable(hr1, 1024*(run[4]-run[5]), 0);
-            human_readable(hr2, 1024*run[5], 0);
-            human_readable(hr3, 1024*run[3], 0);
-            sprintf(toybuf, " Swap: %9s total, %9s used, %9s free, %9s cached",
-              hr0, hr1, hr2, hr3);
-            lines = header_line(lines, 0);
           }
 
           pos = toybuf;

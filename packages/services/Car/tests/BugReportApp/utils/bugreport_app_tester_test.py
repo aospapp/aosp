@@ -81,13 +81,13 @@ class BugreportAppTesterTest(unittest.TestCase):
 
   def test_delete_all_bugreports(self):
     self._subject._delete_all_bugreports()
-    self.assertEqual(len(self._mock_device.adbx.calls), 2)
-    self.assertEqual(self._mock_device.adbx.calls[0]['args'][0], [
-        'shell', 'rm', '-f', '/data/user/0/com.google.android.car.bugreport/'
+    self.assertEqual(len(self._mock_device.adb.calls), 2)
+    self.assertEqual(self._mock_device.adb.calls[0]['args'][0], [
+        'shell', 'rm', '-f', '/data/user/0/com.android.car.bugreport/'
         'bug_reports_pending/*.zip'
     ])
-    self.assertEqual(self._mock_device.adbx.calls[1]['args'][0], [
-        'shell', 'sqlite3', '/data/user/0/com.google.android.car.bugreport/'
+    self.assertEqual(self._mock_device.adb.calls[1]['args'][0], [
+        'shell', 'sqlite3', '/data/user/0/com.android.car.bugreport/'
         'databases/bugreport.db', "'delete from bugreports;'"
     ])
 
@@ -96,7 +96,7 @@ class BugreportAppTesterTest(unittest.TestCase):
     self.assertEqual(len(self._mock_device.adbx.calls), 1)
     self.assertEqual(self._mock_device.adbx.calls[0]['args'][0], [
         'shell', 'am', 'start',
-        'com.google.android.car.bugreport/.BugReportActivity'
+        'com.android.car.bugreport/.BugReportActivity'
     ])
 
 

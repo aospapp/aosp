@@ -1,6 +1,6 @@
 Name: OpenJPEG
 URL: http://www.openjpeg.org/
-Version: 2.3.0 (also update in opj_config*)
+Version: 2.3.1 (also update in opj_config*)
 Security Critical: yes
 License: 2-clause BSD
 
@@ -9,7 +9,6 @@ JPEG 2000 library.
 
 Local Modifications:
 
-0000-use-colorspace.patch: Makes it possible to not call opj_jp2_apply_pclr().
 0003-dwt-decode.patch: Check array bounds for opj_dwt_decode_1() and friends.
 0005-jp2_apply_pclr.patch: Fix out of bounds access.
 0006-tcd_init_tile.patch: Fix a divide by zero bug in opj_tcd_init_tile().
@@ -27,4 +26,6 @@ Local Modifications:
 0026-use_opj_uint_ceildiv.patch: Remove (OPJ_UINT32)opj_int_ceildiv((OPJ_INT32)a, (OPJ_INT32) b).
 0033-undefined-shift-opj_t1_dec_clnpass.patch: fix undefined shifts originated from opj_t1_decode_cblk.
 0034-opj_malloc.patch: PDFium changes in opj_malloc.
-0035-opj_j2k_update_image_dimensions.patch: fix integer overflow.
+0035-opj_image_data_free.patch: Use the right free function in opj_jp2_apply_pclr.
+0036-opj_j2k_update_image_dimensions.patch: fix integer overflow.
+0037-tcd_init_tile.patch: Avoid integer overflow in opj_tcd_init_tile().

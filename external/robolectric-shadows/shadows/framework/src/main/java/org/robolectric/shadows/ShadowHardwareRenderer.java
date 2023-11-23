@@ -2,6 +2,7 @@
 package org.robolectric.shadows;
 
 import static android.os.Build.VERSION_CODES.Q;
+import static android.os.Build.VERSION_CODES.R;
 
 import android.graphics.HardwareRenderer;
 import org.robolectric.annotation.Implementation;
@@ -15,6 +16,12 @@ public class ShadowHardwareRenderer {
   @Implementation
   protected static long nCreateProxy(boolean translucent, long rootRenderNode) {
     return ++nextCreateProxy;
+  }
+
+  @Implementation(minSdk = R)
+  protected static long nCreateProxy(
+          boolean translucent, boolean isWideGamut, long rootRenderNode) {
+    return nCreateProxy(translucent, rootRenderNode);
   }
 }
 // END-INTERNAL

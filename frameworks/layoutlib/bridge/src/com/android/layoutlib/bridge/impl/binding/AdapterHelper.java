@@ -95,7 +95,7 @@ public class AdapterHelper {
                             if (value.getClass() != ViewAttribute.TEXT.getAttributeClass()) {
                                 Bridge.getLog().error(LayoutLog.TAG_BROKEN, String.format(
                                         "Wrong Adapter Item value class for TEXT. Expected String, got %s",
-                                        value.getClass().getName()), null);
+                                        value.getClass().getName()), null, null);
                             } else {
                                 tv.setText((String) value);
                             }
@@ -115,7 +115,7 @@ public class AdapterHelper {
                             if (value.getClass() != ViewAttribute.IS_CHECKED.getAttributeClass()) {
                                 Bridge.getLog().error(LayoutLog.TAG_BROKEN, String.format(
                                         "Wrong Adapter Item value class for IS_CHECKED. Expected Boolean, got %s",
-                                        value.getClass().getName()), null);
+                                        value.getClass().getName()), null, null);
                             } else {
                                 cb.setChecked((Boolean) value);
                             }
@@ -135,7 +135,7 @@ public class AdapterHelper {
                             if (value.getClass() != ViewAttribute.SRC.getAttributeClass()) {
                                 Bridge.getLog().error(LayoutLog.TAG_BROKEN, String.format(
                                         "Wrong Adapter Item value class for SRC. Expected Boolean, got %s",
-                                        value.getClass().getName()), null);
+                                        value.getClass().getName()), null, null);
                             } else {
                                 // FIXME
                             }

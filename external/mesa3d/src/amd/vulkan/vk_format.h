@@ -74,7 +74,12 @@ enum vk_format_layout {
 	/**
 	 * Everything else that doesn't fit in any of the above layouts.
 	 */
-	VK_FORMAT_LAYOUT_OTHER = 9
+	VK_FORMAT_LAYOUT_OTHER = 9,
+
+	/**
+	 * Formats that contain multiple planes.
+	 */
+	VK_FORMAT_LAYOUT_MULTIPLANE = 10,
 };
 
 struct vk_format_block
@@ -133,6 +138,11 @@ struct vk_format_description
 	unsigned char swizzle[4];
 
 	enum vk_format_colorspace colorspace;
+
+	unsigned plane_count:2;
+	unsigned width_divisor:2;
+	unsigned height_divisor:2;
+	VkFormat plane_formats[3];
 };
 
 extern const struct vk_format_description vk_format_description_table[];
@@ -326,6 +336,19 @@ vk_format_is_compressed(VkFormat format)
 }
 
 static inline bool
+vk_format_is_subsampled(VkFormat format)
+{
+	const struct vk_format_description *desc = vk_format_description(format);
+
+	assert(desc);
+	if (!desc) {
+		return false;
+	}
+
+	return desc->layout == VK_FORMAT_LAYOUT_SUBSAMPLED;
+}
+
+static inline bool
 vk_format_has_depth(const struct vk_format_description *desc)
 {
 	return desc->colorspace == VK_FORMAT_COLORSPACE_ZS &&
@@ -417,6 +440,46 @@ vk_format_is_srgb(VkFormat format)
 }
 
 static inline VkFormat
+vk_format_no_srgb(VkFormat format)
+{
+	switch(format) {
+	case VK_FORMAT_R8_SRGB:
+		return VK_FORMAT_R8_UNORM;
+	case VK_FORMAT_R8G8_SRGB:
+		return VK_FORMAT_R8G8_UNORM;
+	case VK_FORMAT_R8G8B8_SRGB:
+		return VK_FORMAT_R8G8B8_UNORM;
+	case VK_FORMAT_B8G8R8_SRGB:
+		return VK_FORMAT_B8G8R8_UNORM;
+	case VK_FORMAT_R8G8B8A8_SRGB:
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	case VK_FORMAT_B8G8R8A8_SRGB:
+		return VK_FORMAT_B8G8R8A8_UNORM;
+	case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+		return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+	case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+		return VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+	case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+		return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+	case VK_FORMAT_BC2_SRGB_BLOCK:
+		return VK_FORMAT_BC2_UNORM_BLOCK;
+	case VK_FORMAT_BC3_SRGB_BLOCK:
+		return VK_FORMAT_BC3_UNORM_BLOCK;
+	case VK_FORMAT_BC7_SRGB_BLOCK:
+		return VK_FORMAT_BC7_UNORM_BLOCK;
+	case VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK:
+		return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+	case VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK:
+		return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+	case VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK:
+		return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+	default:
+		assert(!vk_format_is_srgb(format));
+		return format;
+	}
+}
+
+static inline VkFormat
 vk_format_stencil_only(VkFormat format)
 {
 	return VK_FORMAT_S8_UINT;
@@ -487,5 +550,36 @@ vk_to_non_srgb_format(VkFormat format)
 		return format;
 	}
 }
+
+static inline unsigned
+vk_format_get_nr_components(VkFormat format)
+{
+	const struct vk_format_description *desc = vk_format_description(format);
+	return desc->nr_channels;
+}
+
+static inline unsigned
+vk_format_get_plane_count(VkFormat format)
+{
+	const struct vk_format_description *desc = vk_format_description(format);
+
+	return desc->plane_count;
+}
+
+static inline VkFormat
+vk_format_get_plane_format(VkFormat format, unsigned plane_id)
+{
+	const struct vk_format_description *desc = vk_format_description(format);
+
+	if (desc->layout != VK_FORMAT_LAYOUT_MULTIPLANE) {
+		assert(plane_id == 0);
+		return format;
+	}
+
+	assert(plane_id < desc->plane_count);
+
+	return desc->plane_formats[plane_id];
+}
+
 
 #endif /* VK_FORMAT_H */

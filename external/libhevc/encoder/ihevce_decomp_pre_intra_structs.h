@@ -97,18 +97,6 @@ typedef struct
     /** lambda for cost calculation */
     WORD32 lambda;
 
-    /*pic type*/
-    WORD32 i4_slice_type;
-
-    /**
-     * Until what level, intra is evaluated.
-     * 0 - 8
-     * 1 - 4
-     * 2 - 2
-     * 3 - 4
-     */
-    WORD32 level;
-
     /*Pointer to 4x4 blocks of entire frame */
     ihevce_ed_blk_t *ps_ed_pic;
 
@@ -120,10 +108,6 @@ typedef struct
 
     /*Pointer to ctb level data of current ctb */
     ihevce_ed_ctb_l1_t *ps_ed_ctb_l1;
-
-    WORD32 left_ctb_intra_modes[20];
-
-    WORD32 sad[64 * NUM_MODES];
 
     /*Sum of best SATDs at L1*/
     LWORD64 i8_sum_best_satd;
@@ -147,15 +131,6 @@ typedef struct
 
     /** mode bits costs array. This is used as local variable in ed_calc_8x8_blk */
     UWORD16 au2_mode_bits_cost_full_ctb[4][NUM_MODES];
-
-    /** reference data for 4x4 block for incomplete ctb proc. Variable local to ed_calc_incomplete_ctb*/
-    UWORD8 au1_ref_ic_ctb[18];
-
-    /** top intra modes for incomplete ctb proc. Variable local to ed_calc_incomplete_ctb*/
-    WORD32 ai4_top_intra_modes_ic_ctb[20];
-
-    /** mode bits cost for incomplete ctb proc. Variable local to ed_calc_incomplete_ctb*/
-    UWORD16 au2_mode_bits_cost_ic_ctb[NUM_MODES];
 
     /** Pointer to structure containing function pointers of common*/
     func_selector_t *ps_func_selector;
@@ -209,9 +184,6 @@ typedef struct
     /** Array for working memory of the thread */
     UWORD8 au1_wkg_mem[((MAX_CTB_SIZE >> 1) * (MAX_CTB_SIZE + 2 * NUM_EXTRA_ROWS_REQ))];
 
-    /** Pointer for working memory of the thread */
-    UWORD8 *pu1_wkg_mem;
-
     /** Encoder quality preset : See IHEVCE_QUALITY_CONFIG_T for presets */
     WORD32 i4_quality_preset;
 
@@ -222,14 +194,6 @@ typedef struct
     ihevce_ed_blk_t *ps_layer2_buf;
     ihevce_ed_ctb_l1_t *ps_ed_ctb_l1;
 
-    /** to store the L0 8x8 cur SATD */
-    ihevce_8x8_L0_satd_t *ps_layer0_cur_satd;
-
-    /** to store the L0 8x8 cur mean*/
-    ihevce_8x8_L0_mean_t *ps_layer0_cur_mean;
-
-    WORD32 i4_slice_type;
-    WORD32 i4_codec_level;
     WORD32 ai4_lambda[MAX_NUM_HME_LAYERS];
 
     /* pointer to the structure ps_ctb_analyse in pre_enc_me_ctxt_t */
@@ -266,4 +230,4 @@ typedef struct
 /* Extern Function Declarations                                              */
 /*****************************************************************************/
 
-#endif /* _IHEVCE_ENC_LOOP_STRUCTS_H_ */
+#endif /* _IHEVCE_DECOMP_PRE_INTRA_STRUCTS_H_ */

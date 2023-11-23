@@ -20,7 +20,6 @@ import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.ArrayUtils;
 import com.android.server.wifi.ScanDetail;
 import com.android.server.wifi.hotspot2.NetworkDetail;
 
@@ -52,6 +51,23 @@ public class ScanResultUtil {
      */
     public static boolean isScanResultForPskNetwork(ScanResult scanResult) {
         return scanResult.capabilities.contains("PSK");
+    }
+
+    /**
+     * Helper method to check if the provided |scanResult| corresponds to a WAPI-PSK network or not.
+     * This checks if the provided capabilities string contains PSK encryption type or not.
+     */
+    public static boolean isScanResultForWapiPskNetwork(ScanResult scanResult) {
+        return scanResult.capabilities.contains("WAPI-PSK");
+    }
+
+    /**
+     * Helper method to check if the provided |scanResult| corresponds to a WAPI-CERT
+     * network or not.
+     * This checks if the provided capabilities string contains PSK encryption type or not.
+     */
+    public static boolean isScanResultForWapiCertNetwork(ScanResult scanResult) {
+        return scanResult.capabilities.contains("WAPI-CERT");
     }
 
     /**
@@ -104,10 +120,26 @@ public class ScanResultUtil {
 
     /**
      * Helper method to check if the provided |scanResult| corresponds to PSK-SAE transition
-     * network. This checks if the provided capabilities string contains PSK+SAE or not.
+     * network. This checks if the provided capabilities string contains both PSK and SAE or not.
      */
     public static boolean isScanResultForPskSaeTransitionNetwork(ScanResult scanResult) {
-        return scanResult.capabilities.contains("PSK+SAE");
+        return scanResult.capabilities.contains("PSK") && scanResult.capabilities.contains("SAE");
+    }
+
+    /**
+     * Helper method to check if the provided |scanResult| corresponds to FILS SHA256 network.
+     * This checks if the provided capabilities string contains FILS-SHA256 or not.
+     */
+    public static boolean isScanResultForFilsSha256Network(ScanResult scanResult) {
+        return scanResult.capabilities.contains("FILS-SHA256");
+    }
+
+    /**
+     * Helper method to check if the provided |scanResult| corresponds to FILS SHA384 network.
+     * This checks if the provided capabilities string contains FILS-SHA384 or not.
+     */
+    public static boolean isScanResultForFilsSha384Network(ScanResult scanResult) {
+        return scanResult.capabilities.contains("FILS-SHA384");
     }
 
     /**
@@ -118,6 +150,8 @@ public class ScanResultUtil {
     public static boolean isScanResultForOpenNetwork(ScanResult scanResult) {
         return (!(isScanResultForWepNetwork(scanResult) || isScanResultForPskNetwork(scanResult)
                 || isScanResultForEapNetwork(scanResult) || isScanResultForSaeNetwork(scanResult)
+                || isScanResultForWapiPskNetwork(scanResult)
+                || isScanResultForWapiCertNetwork(scanResult)
                 || isScanResultForEapSuiteBNetwork(scanResult)));
     }
 
@@ -149,6 +183,10 @@ public class ScanResultUtil {
             WifiConfiguration config) {
         if (isScanResultForSaeNetwork(scanResult)) {
             config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE);
+        } else if (isScanResultForWapiPskNetwork(scanResult)) {
+            config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WAPI_PSK);
+        } else if (isScanResultForWapiCertNetwork(scanResult)) {
+            config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WAPI_CERT);
         } else if (isScanResultForPskNetwork(scanResult)) {
             config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
         } else if (isScanResultForEapSuiteBNetwork(scanResult)) {
@@ -204,5 +242,25 @@ public class ScanResultUtil {
                         r.capabilities);
             }
         }
+    }
+
+    /**
+     * Check if ScarResult list is valid.
+     */
+    public static boolean validateScanResultList(List<ScanResult> scanResults) {
+        if (scanResults == null || scanResults.isEmpty()) {
+            return false;
+        }
+        for (ScanResult scanResult : scanResults) {
+            if (!validate(scanResult)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean validate(ScanResult scanResult) {
+        return scanResult != null && scanResult.SSID != null
+                && scanResult.capabilities != null && scanResult.BSSID != null;
     }
 }

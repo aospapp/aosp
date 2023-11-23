@@ -18,6 +18,7 @@ package com.android.tradefed.device.cloud;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.doReturn;
 
@@ -36,9 +37,9 @@ import com.android.tradefed.util.IRunUtil;
 
 import com.google.common.net.HostAndPort;
 
+import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,6 +49,7 @@ import org.mockito.Mockito;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.ProcessBuilder.Redirect;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -76,7 +78,7 @@ public class GceManagerTest {
         mOptions.setAvdDriverBinary(mAvdBinary);
         mOptions.setAvdConfigFile(mAvdBinary);
         mGceManager =
-                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, null) {
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo) {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
@@ -104,7 +106,7 @@ public class GceManagerTest {
                         + "reehugger, zone us-central1-f, body:{'networkInterfaces': [{'network': "
                         + "u'https://www.googleapis.com/compute/v1/projects/android-treehugger/glo"
                         + "bal/networks/default', 'accessConfigs': [{'type': 'ONE_TO_ONE_NAT', 'na"
-                        + "me': 'External NAT'}]}], 'name': 'gce-x86-phone-userdebug-fastbuild-lin"
+                        + "me': 'External NAT'}]}], 'name': u'gce-x86-phone-userdebug-fastbuild-lin"
                         + "ux-3266697-144fcf59', 'serviceAccounts': [{'email': 'default', 'scopes'"
                         + ": ['https://www.googleapis.com/auth/devstorage.read_only', 'https://www"
                         + ".googleapis.com/auth/logging.write']}], 'disks': [{'autoDelete': True, "
@@ -153,7 +155,7 @@ public class GceManagerTest {
         assertNull(result);
     }
 
-    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo)}. */
+    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo, String)}. */
     @Test
     public void testBuildGceCommand() throws IOException {
         IBuildInfo mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
@@ -166,7 +168,7 @@ public class GceManagerTest {
         File reportFile = null;
         try {
             reportFile = FileUtil.createTempFile("test-gce-cmd", "report");
-            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo);
+            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo, null);
             List<String> expected =
                     ArrayUtil.list(
                             mOptions.getAvdDriverBinary().getAbsolutePath(),
@@ -189,7 +191,7 @@ public class GceManagerTest {
         EasyMock.verify(mMockBuildInfo);
     }
 
-    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo)} with json key file set. */
+    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo, String)} with json key file set. */
     @Test
     public void testBuildGceCommand_withServiceAccountJsonKeyFile() throws Exception {
         IBuildInfo mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
@@ -204,7 +206,7 @@ public class GceManagerTest {
         setter.setOptionValue("gce-driver-service-account-json-key-path", "/path/to/key.json");
         try {
             reportFile = FileUtil.createTempFile("test-gce-cmd", "report");
-            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo);
+            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo, null);
             List<String> expected =
                     ArrayUtil.list(
                             mOptions.getAvdDriverBinary().getAbsolutePath(),
@@ -229,7 +231,7 @@ public class GceManagerTest {
         EasyMock.verify(mMockBuildInfo);
     }
 
-    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo)}. */
+    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo, String)}. */
     @Test
     public void testBuildGceCommandWithEmulatorBuild() throws Exception {
         IBuildInfo mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
@@ -246,14 +248,14 @@ public class GceManagerTest {
             setter.setOptionValue("gce-driver-param", "--emulator-build-id");
             setter.setOptionValue("gce-driver-param", "EMULATOR_BUILD_ID");
             mGceManager =
-                    new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, null) {
+                    new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo) {
                         @Override
                         IRunUtil getRunUtil() {
                             return mMockRunUtil;
                         }
                     };
             reportFile = FileUtil.createTempFile("test-gce-cmd", "report");
-            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo);
+            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo, null);
             List<String> expected =
                     ArrayUtil.list(
                             mOptions.getAvdDriverBinary().getAbsolutePath(),
@@ -278,7 +280,7 @@ public class GceManagerTest {
         EasyMock.verify(mMockBuildInfo);
     }
 
-    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo)}. */
+    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo, String)}. */
     @Test
     public void testBuildGceCommandWithGceDriverParam() throws Exception {
         IBuildInfo mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
@@ -294,7 +296,7 @@ public class GceManagerTest {
         setter.setOptionValue("gce-driver-param", "--no-autoconnect");
         try {
             reportFile = FileUtil.createTempFile("test-gce-cmd", "report");
-            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo);
+            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo, null);
             List<String> expected =
                     ArrayUtil.list(
                             mOptions.getAvdDriverBinary().getAbsolutePath(),
@@ -322,28 +324,37 @@ public class GceManagerTest {
     /** Ensure exception is thrown after a timeout from the acloud command. */
     @Test
     public void testStartGce_timeout() throws Exception {
+        mOptions.getGceDriverParams().add("--boot-timeout");
+        mOptions.getGceDriverParams().add("900");
+        OptionSetter setter = new OptionSetter(mOptions);
+        // Boot-time on Acloud params will be overridden by TF option.
+        setter.setOptionValue("allow-gce-boot-timeout-override", "false");
         mGceManager =
-                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, null) {
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo) {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
                     }
 
                     @Override
-                    protected List<String> buildGceCmd(File reportFile, IBuildInfo b) {
+                    protected List<String> buildGceCmd(
+                            File reportFile, IBuildInfo b, String ipDevice) {
                         List<String> tmp = new ArrayList<String>();
                         tmp.add("");
                         return tmp;
                     }
                 };
         final String expectedException =
-                "acloud errors: timeout after 1800000ms, " + "acloud did not return null";
+                "acloud errors: timeout after 1620000ms, acloud did not return null";
         CommandResult cmd = new CommandResult();
         cmd.setStatus(CommandStatus.TIMED_OUT);
         cmd.setStdout("output err");
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
-                                EasyMock.anyLong(), (String[]) EasyMock.anyObject()))
+                                EasyMock.eq(1800000L),
+                                EasyMock.anyObject(),
+                                EasyMock.eq("--boot-timeout"),
+                                EasyMock.eq("1620")))
                 .andReturn(cmd);
         EasyMock.replay(mMockRunUtil);
         doReturn(null).when(mMockDeviceDesc).toString();
@@ -356,7 +367,7 @@ public class GceManagerTest {
         EasyMock.verify(mMockRunUtil);
     }
 
-    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo)}. */
+    /** Test {@link GceManager#buildGceCmd(File, IBuildInfo, String)}. */
     @Test
     public void testBuildGceCommandWithKernelBuild() throws Exception {
         IBuildInfo mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
@@ -372,7 +383,7 @@ public class GceManagerTest {
             setter.setOptionValue("gce-driver-param", "--kernel_build_id");
             setter.setOptionValue("gce-driver-param", "KERNELBUILDID");
             reportFile = FileUtil.createTempFile("test-gce-cmd", "report");
-            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo);
+            List<String> result = mGceManager.buildGceCmd(reportFile, mMockBuildInfo, null);
             List<String> expected =
                     ArrayUtil.list(
                             mOptions.getAvdDriverBinary().getAbsolutePath(),
@@ -403,15 +414,18 @@ public class GceManagerTest {
      */
     @Test
     public void testStartGce() throws Exception {
+        OptionSetter setter = new OptionSetter(mOptions);
+        setter.setOptionValue("allow-gce-boot-timeout-override", "true");
         mGceManager =
-                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, null) {
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo) {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
                     }
 
                     @Override
-                    protected List<String> buildGceCmd(File reportFile, IBuildInfo b) {
+                    protected List<String> buildGceCmd(
+                            File reportFile, IBuildInfo b, String ipDevice) {
                         String valid =
                                 " {\n"
                                         + "\"data\": {\n"
@@ -457,15 +471,18 @@ public class GceManagerTest {
      */
     @Test
     public void testStartGce_failed() throws Exception {
+        OptionSetter setter = new OptionSetter(mOptions);
+        setter.setOptionValue("allow-gce-boot-timeout-override", "true");
         mGceManager =
-                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, null) {
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo) {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
                     }
 
                     @Override
-                    protected List<String> buildGceCmd(File reportFile, IBuildInfo b) {
+                    protected List<String> buildGceCmd(
+                            File reportFile, IBuildInfo b, String ipDevice) {
                         // We delete the potential report file to create an issue.
                         FileUtil.deleteFile(reportFile);
                         List<String> tmp = new ArrayList<String>();
@@ -496,15 +513,18 @@ public class GceManagerTest {
      */
     @Test
     public void testStartGce_bootFail() throws Exception {
+        OptionSetter setter = new OptionSetter(mOptions);
+        setter.setOptionValue("allow-gce-boot-timeout-override", "true");
         mGceManager =
-                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, null) {
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo) {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
                     }
 
                     @Override
-                    protected List<String> buildGceCmd(File reportFile, IBuildInfo b) {
+                    protected List<String> buildGceCmd(
+                            File reportFile, IBuildInfo b, String ipDevice) {
                         String validFail =
                                 " {\n"
                                         + "\"data\": {\n"
@@ -551,8 +571,7 @@ public class GceManagerTest {
     @Test
     public void testShutdownGce() throws Exception {
         mGceManager =
-                new GceManager(
-                        mMockDeviceDesc, mOptions, mMockBuildInfo, null, "instance1", "host1") {
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, "instance1", "host1") {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
@@ -570,7 +589,7 @@ public class GceManagerTest {
                                 EasyMock.eq("--instance_names"),
                                 EasyMock.eq("instance1"),
                                 EasyMock.eq("--config_file"),
-                                EasyMock.eq(mGceManager.getAvdConfigFile().getAbsolutePath()),
+                                EasyMock.contains(mGceManager.getAvdConfigFile().getAbsolutePath()),
                                 EasyMock.eq("--report_file"),
                                 EasyMock.anyObject()))
                 .andReturn(cmd);
@@ -578,6 +597,41 @@ public class GceManagerTest {
         EasyMock.replay(mMockRunUtil);
         mGceManager.shutdownGce();
         EasyMock.verify(mMockRunUtil);
+        // Attributes are marked when successful
+        assertTrue(
+                mMockBuildInfo
+                        .getBuildAttributes()
+                        .containsKey(GceManager.GCE_INSTANCE_CLEANED_KEY));
+    }
+
+    @Test
+    public void testShutdownGce_noWait() throws Exception {
+        OptionSetter setter = new OptionSetter(mOptions);
+        setter.setOptionValue("wait-gce-teardown", "false");
+        mGceManager =
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, "instance1", "host1") {
+                    @Override
+                    IRunUtil getRunUtil() {
+                        return mMockRunUtil;
+                    }
+                };
+        mGceManager.startGce();
+        CommandResult cmd = new CommandResult();
+        cmd.setStatus(CommandStatus.SUCCESS);
+        cmd.setStdout("output");
+        Capture<List<String>> capture = new Capture<>();
+        EasyMock.expect(
+                        mMockRunUtil.runCmdInBackground(
+                                EasyMock.eq(Redirect.DISCARD),
+                                EasyMock.<List<String>>capture(capture)))
+                .andReturn(Mockito.mock(Process.class));
+
+        EasyMock.replay(mMockRunUtil);
+        mGceManager.shutdownGce();
+        EasyMock.verify(mMockRunUtil);
+
+        List<String> args = capture.getValue();
+        assertTrue(args.get(5).contains(mAvdBinary.getName()));
     }
 
     /**
@@ -588,8 +642,7 @@ public class GceManagerTest {
     @Test
     public void testShutdownGce_withJsonKeyFile() throws Exception {
         mGceManager =
-                new GceManager(
-                        mMockDeviceDesc, mOptions, mMockBuildInfo, null, "instance1", "host1") {
+                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, "instance1", "host1") {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
@@ -609,7 +662,7 @@ public class GceManagerTest {
                                 EasyMock.eq("--instance_names"),
                                 EasyMock.eq("instance1"),
                                 EasyMock.eq("--config_file"),
-                                EasyMock.eq(mGceManager.getAvdConfigFile().getAbsolutePath()),
+                                EasyMock.contains(mGceManager.getAvdConfigFile().getAbsolutePath()),
                                 EasyMock.eq("--service_account_json_private_key_path"),
                                 EasyMock.eq("/path/to/key.json"),
                                 EasyMock.eq("--report_file"),
@@ -698,7 +751,8 @@ public class GceManagerTest {
                                 EasyMock.eq("-i"),
                                 EasyMock.anyObject(),
                                 EasyMock.eq("root@127.0.0.1"),
-                                EasyMock.eq("adb"),
+                                EasyMock.eq("./bin/adb"),
+                                EasyMock.eq("wait-for-device"),
                                 EasyMock.eq("shell"),
                                 EasyMock.eq("bugreportz")))
                 .andReturn(res);
@@ -717,7 +771,7 @@ public class GceManagerTest {
                                 EasyMock.eq("-i"),
                                 EasyMock.anyObject(),
                                 EasyMock.eq("root@127.0.0.1"),
-                                EasyMock.eq("adb"),
+                                EasyMock.eq("./bin/adb"),
                                 EasyMock.eq("pull"),
                                 EasyMock.eq("/bugreports/bugreport.zip")))
                 .andReturn(res);
@@ -792,16 +846,19 @@ public class GceManagerTest {
      */
     @Test
     public void testStartGce_timeoutAndClean() throws Exception {
+        OptionSetter setter = new OptionSetter(mOptions);
+        setter.setOptionValue("allow-gce-boot-timeout-override", "true");
         DeviceDescriptor desc = null;
         mGceManager =
-                new GceManager(desc, mOptions, mMockBuildInfo, null) {
+                new GceManager(desc, mOptions, mMockBuildInfo) {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
                     }
 
                     @Override
-                    protected List<String> buildGceCmd(File reportFile, IBuildInfo b) {
+                    protected List<String> buildGceCmd(
+                            File reportFile, IBuildInfo b, String ipDevice) {
                         // We delete the potential report file to create an issue.
                         FileUtil.deleteFile(reportFile);
                         List<String> tmp = new ArrayList<String>();
@@ -855,25 +912,39 @@ public class GceManagerTest {
         EasyMock.verify(mMockRunUtil);
     }
 
-    /**
-     * Test {@link GceManager#getAvdConfigFile()} while using test resource.
-     *
-     * @throws Exception
-     */
     @Test
-    public void testGetAvdConfigFile_testResource() throws Exception {
+    public void testUpdateTimeout() throws Exception {
         OptionSetter setter = new OptionSetter(mOptions);
-        setter.setOptionValue("gce-driver-config-test-resource-name", "device.config");
+        setter.setOptionValue("allow-gce-boot-timeout-override", "true");
+        mOptions.getGceDriverParams().add("--boot-timeout");
+        mOptions.getGceDriverParams().add("900");
+        assertEquals(1800000L, mOptions.getGceCmdTimeout());
+        mGceManager = new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo);
+        assertEquals(1080000L, mOptions.getGceCmdTimeout());
+    }
 
-        BuildInfo testResourceBuild = new BuildInfo();
-        testResourceBuild.setTestResourceBuild(true);
-        File configFile = new File("device.config");
-        testResourceBuild.setFile("device.config", configFile, "");
-        List<IBuildInfo> testResourceBuildInfos = new ArrayList<>();
-        testResourceBuildInfos.add(testResourceBuild);
+    @Test
+    public void testUpdateTimeout_multiBootTimeout() throws Exception {
+        OptionSetter setter = new OptionSetter(mOptions);
+        setter.setOptionValue("allow-gce-boot-timeout-override", "true");
+        mOptions.getGceDriverParams().add("--boot-timeout");
+        mOptions.getGceDriverParams().add("900");
+        mOptions.getGceDriverParams().add("--boot-timeout");
+        mOptions.getGceDriverParams().add("450");
+        assertEquals(1800000L, mOptions.getGceCmdTimeout());
+        mGceManager = new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo);
+        // The last specified boot-timeout is used.
+        assertEquals(630000L, mOptions.getGceCmdTimeout());
+    }
 
-        mGceManager =
-                new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo, testResourceBuildInfos);
-        Assert.assertEquals(configFile, mGceManager.getAvdConfigFile());
+    @Test
+    public void testUpdateTimeout_noBootTimeout() throws Exception {
+        OptionSetter setter = new OptionSetter(mOptions);
+        setter.setOptionValue("allow-gce-boot-timeout-override", "true");
+        mOptions.getGceDriverParams().add("--someargs");
+        mOptions.getGceDriverParams().add("900");
+        assertEquals(1800000L, mOptions.getGceCmdTimeout());
+        mGceManager = new GceManager(mMockDeviceDesc, mOptions, mMockBuildInfo);
+        assertEquals(1800000L, mOptions.getGceCmdTimeout());
     }
 }

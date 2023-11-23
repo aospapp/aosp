@@ -18,9 +18,6 @@ package com.android.car.settings.users;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.mock;
-
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.UserManager;
@@ -29,54 +26,53 @@ import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
+import com.android.car.settings.testutils.ShadowUserManager;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadow.api.Shadow;
 
 /**
  * Test for the preference controller which populates the various permissions preferences.
  * Note that the switch preference represents the opposite of the restriction it is controlling.
  * i.e. DISALLOW_ADD_USER may be the restriction, but the switch represents "create new users".
  */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowUserManager.class})
 public class PermissionsPreferenceControllerTest {
 
     private static final String TEST_RESTRICTION = UserManager.DISALLOW_ADD_USER;
     private static final UserInfo TEST_USER = new UserInfo(/* id= */ 10,
             "TEST_USER_NAME", /* flags= */ 0);
 
+    private Context mContext;
     private PreferenceControllerTestHelper<PermissionsPreferenceController>
             mPreferenceControllerHelper;
     private PermissionsPreferenceController mController;
     private PreferenceGroup mPreferenceGroup;
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
-        Context context = RuntimeEnvironment.application;
-        ShadowCarUserManagerHelper.setMockInstance(mock(CarUserManagerHelper.class));
-        mPreferenceControllerHelper = new PreferenceControllerTestHelper<>(context,
+        mContext = RuntimeEnvironment.application;
+        mPreferenceControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 PermissionsPreferenceController.class);
         mController = mPreferenceControllerHelper.getController();
         mController.setUserInfo(TEST_USER);
-        mPreferenceGroup = new LogicalPreferenceGroup(context);
+        mPreferenceGroup = new LogicalPreferenceGroup(mContext);
         mPreferenceControllerHelper.setPreference(mPreferenceGroup);
-        mCarUserManagerHelper = new CarUserManagerHelper(context);
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
     }
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
+        ShadowUserManager.reset();
     }
 
     @Test
@@ -97,7 +93,8 @@ public class PermissionsPreferenceControllerTest {
         SwitchPreference preference = getPreferenceForRestriction(mPreferenceGroup,
                 TEST_RESTRICTION);
         preference.setChecked(true);
-        mCarUserManagerHelper.setUserRestriction(TEST_USER, TEST_RESTRICTION, true);
+        getShadowUserManager().setUserRestriction(
+                TEST_USER.getUserHandle(), TEST_RESTRICTION, true);
         mController.refreshUi();
         assertThat(preference.isChecked()).isFalse();
     }
@@ -107,7 +104,8 @@ public class PermissionsPreferenceControllerTest {
         SwitchPreference preference = getPreferenceForRestriction(mPreferenceGroup,
                 TEST_RESTRICTION);
         preference.setChecked(false);
-        mCarUserManagerHelper.setUserRestriction(TEST_USER, TEST_RESTRICTION, false);
+        getShadowUserManager().setUserRestriction(
+                TEST_USER.getUserHandle(), TEST_RESTRICTION, false);
         mController.refreshUi();
         assertThat(preference.isChecked()).isTrue();
     }
@@ -116,18 +114,22 @@ public class PermissionsPreferenceControllerTest {
     public void testOnPreferenceChange_changeToFalse() {
         SwitchPreference preference = getPreferenceForRestriction(mPreferenceGroup,
                 TEST_RESTRICTION);
-        mCarUserManagerHelper.setUserRestriction(TEST_USER, TEST_RESTRICTION, true);
+        getShadowUserManager().setUserRestriction(
+                TEST_USER.getUserHandle(), TEST_RESTRICTION, true);
         preference.callChangeListener(true);
-        assertThat(mCarUserManagerHelper.hasUserRestriction(TEST_RESTRICTION, TEST_USER)).isFalse();
+        assertThat(UserManager.get(mContext)
+                .hasUserRestriction(TEST_RESTRICTION, TEST_USER.getUserHandle())).isFalse();
     }
 
     @Test
     public void testOnPreferenceChange_changeToTrue() {
         SwitchPreference preference = getPreferenceForRestriction(mPreferenceGroup,
                 TEST_RESTRICTION);
-        mCarUserManagerHelper.setUserRestriction(TEST_USER, TEST_RESTRICTION, false);
+        getShadowUserManager().setUserRestriction(
+                TEST_USER.getUserHandle(), TEST_RESTRICTION, false);
         preference.callChangeListener(false);
-        assertThat(mCarUserManagerHelper.hasUserRestriction(TEST_RESTRICTION, TEST_USER)).isTrue();
+        assertThat(UserManager.get(mContext)
+                .hasUserRestriction(TEST_RESTRICTION, TEST_USER.getUserHandle())).isTrue();
     }
 
     private SwitchPreference getPreferenceForRestriction(
@@ -140,5 +142,9 @@ public class PermissionsPreferenceControllerTest {
             }
         }
         return null;
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadow.extract(mContext.getSystemService(UserManager.class));
     }
 }

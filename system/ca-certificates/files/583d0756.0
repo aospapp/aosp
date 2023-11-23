@@ -36,7 +36,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 6248227494352943350 (0x56b629cd34bc78f6)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com EV Root Certification Authority RSA R2
         Validity
             Not Before: May 31 18:14:37 2017 GMT
@@ -44,7 +44,7 @@ Certificate:
         Subject: C=US, ST=Texas, L=Houston, O=SSL Corporation, CN=SSL.com EV Root Certification Authority RSA R2
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:8f:36:65:40:e1:d6:4d:c0:d7:b4:e9:46:da:6b:
                     ea:33:47:cd:4c:f9:7d:7d:be:bd:2d:3d:f0:db:78:

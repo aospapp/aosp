@@ -17,6 +17,6 @@
 
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-  <corners android:radius="@dimen/car_radius_1" />
+  <corners android:radius="@dimen/ripple_mask_radius" />
   <solid android:color="@android:color/white" />
 </shape>

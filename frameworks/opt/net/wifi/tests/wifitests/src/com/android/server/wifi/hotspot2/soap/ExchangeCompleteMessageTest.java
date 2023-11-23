@@ -21,6 +21,8 @@ import static org.junit.Assert.assertNull;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 import org.ksoap2.serialization.SoapObject;
 
@@ -28,7 +30,7 @@ import org.ksoap2.serialization.SoapObject;
  * Unit tests for {@link ExchangeCompleteMessage}.
  */
 @SmallTest
-public class ExchangeCompleteMessageTest {
+public class ExchangeCompleteMessageTest extends WifiBaseTest {
     private static final String TEST_STATUS = "OK";
     private static final String TEST_SESSION_ID = "D215D696517BA138F1D28442DF0F4E07";
     private static final String TEST_VERSION = "1.0";

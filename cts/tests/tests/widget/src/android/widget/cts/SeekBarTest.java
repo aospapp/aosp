@@ -26,8 +26,11 @@ import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.graphics.Rect;
 import android.os.SystemClock;
 import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowInsets;
 import android.widget.SeekBar;
 
 import androidx.test.InstrumentationRegistry;
@@ -41,6 +44,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Test {@link SeekBar}.
@@ -57,10 +63,37 @@ public class SeekBarTest {
             new ActivityTestRule<>(SeekBarCtsActivity.class);
 
     @Before
-    public void setup() {
+    public void setup() throws Throwable {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
-        mSeekBar = (SeekBar) mActivity.findViewById(R.id.seekBar);
+        mSeekBar = mActivity.findViewById(R.id.seekBar);
+        if (mSeekBar.isAttachedToWindow()) {
+            updateExclusionRects();
+        } else {
+            mSeekBar.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+                @Override
+                public void onViewAttachedToWindow(View view) {
+                    mSeekBar.removeOnAttachStateChangeListener(this);
+                    updateExclusionRects();
+                }
+
+                @Override
+                public void onViewDetachedFromWindow(View view) {
+                }
+            });
+        }
+    }
+
+    private void updateExclusionRects() {
+        // "Mark" the left edge of our seek bar to be excluded from system gestures.
+        // This does not need to be RTL-aware since the logic in the change listener
+        // always injects the events from left to right.
+        WindowInsets rootWindowInsets = mSeekBar.getRootWindowInsets();
+        List<Rect> exclusion = new ArrayList<>();
+        exclusion.add(new Rect(0, 0,
+                rootWindowInsets.getSystemGestureInsets().left,
+                mSeekBar.getHeight()));
+        mSeekBar.setSystemGestureExclusionRects(exclusion);
     }
 
     @Test

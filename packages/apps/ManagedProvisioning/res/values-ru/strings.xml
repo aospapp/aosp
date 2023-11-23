@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Сбросить"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Не удалось настроить профиль"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Не удалось настроить устройство"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Произошла ошибка."</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Не удалось настроить устройство. Обратитесь за помощью к администратору."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Чтобы получить помощь, обратитесь к системному администратору."</string>
+    <string name="reset_device" msgid="5483853913241939262">"Сбросьте настройки устройства и попробуйте настроить его снова."</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Устройство уже настроено"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Не удалось подключиться к сети Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"На устройстве включена защита от возврата к заводским настройкам. Обратитесь за помощью к системному администратору."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Подготовка к настройке рабочего устройства…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Идет настройка приложения для администрирования."</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Настройка остальных параметров"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Настройте остальные параметры"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Добавьте личный аккаунт"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Рабочий профиль готов. Теперь вы можете добавить личный аккаунт Google, чтобы получить доступ к своим приложениям и контенту."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Это устройство принадлежит вашей организации"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Для управления телефоном и отслеживания действий на нем будет использоваться следующее приложение:"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Подготовка к настройке рабочего профиля…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Настройте рабочий профиль"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Настройте рабочий профиль"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Приложения для работы хранятся в рабочем профиле"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"В конце дня можно приостановить уведомления от рабочих приложений"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Ваш администратор может получить доступ к данным только из рабочего профиля"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Данные в вашем рабочем профиле видны системному администратору"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Настройка рабочего профиля…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Все приложения, необходимые для работы, находятся в рабочем профиле. В конце дня уведомления от них можно приостановить. Ваш администратор видит данные, которые связаны только с этим профилем."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Все приложения, необходимые для работы, находятся в рабочем профиле. После работы эти приложения можно приостановить. Данные в вашем рабочем профиле видны системному администратору."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Настройте рабочее устройство"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Держите рабочие приложения под рукой"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Это устройство не предназначено для личного использования"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Системный администратор может получить доступ к вашим действиям и данным на этом устройстве."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Настройка…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"С помощью этого устройства вы сможете быстро перейти ко всем рабочим приложениям. Системный администратор может получить доступ к вашим действиям и данным на этом устройстве. Чтобы узнать больше, свяжитесь с администратором."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Рабочие приложения находятся в рабочем профиле и управляются администратором"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Личные приложения скрыты и находятся отдельно от рабочих"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Администратор может управлять устройством и блокировать приложения"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Рабочие приложения находятся в рабочем профиле и управляются администратором. Личные приложения скрыты и находятся отдельно от рабочих. Системный администратор может управлять этим устройством и блокировать некоторые приложения."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Подождите…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Напоминание о конфиденциальности"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Системный администратор может получить доступ к вашим действиям и данным на этом устройстве."</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Все готово!"</string>
     <string name="done" msgid="7755227776955952318">"Готово"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Это устройство куплено в кредит (<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>)"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"Кредитор \"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>\" может:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Установить приложение \"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>\", чтобы вы могли вносить платежи."</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Заблокировать устройство, если платежи по кредиту не внесены."</string>
 </resources>

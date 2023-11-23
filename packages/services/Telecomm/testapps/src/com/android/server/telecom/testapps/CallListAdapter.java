@@ -150,6 +150,10 @@ public class CallListAdapter extends BaseAdapter {
                 return "ringing";
             case Call.STATE_SELECT_PHONE_ACCOUNT:
                 return "select phone account";
+            case Call.STATE_AUDIO_PROCESSING:
+                return "audio processing";
+            case Call.STATE_SIMULATED_RINGING:
+                return "simulated ringing";
             default:
                 return "unknown";
         }

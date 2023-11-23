@@ -1,0 +1,6 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+type mtd_device, dev_type;
+type mcupm_device, dev_type;

@@ -53,8 +53,8 @@ namespace sw
 
 		Do
 		{
-			Int yMin = *Pointer<Int>(primitive + OFFSET(Primitive,yMin));
-			Int yMax = *Pointer<Int>(primitive + OFFSET(Primitive,yMax));
+			yMin = *Pointer<Int>(primitive + OFFSET(Primitive,yMin));
+			yMax = *Pointer<Int>(primitive + OFFSET(Primitive,yMax));
 
 			Int cluster2 = cluster + cluster;
 			yMin += clusterCount * 2 - 2 - cluster2;
@@ -63,13 +63,13 @@ namespace sw
 
 			If(yMin < yMax)
 			{
-				rasterize(yMin, yMax);
+				rasterize();
 			}
 
 			primitive += sizeof(Primitive) * state.multiSample;
 			count--;
 		}
-		Until(count == 0)
+		Until(count == 0);
 
 		if(state.occlusionEnabled)
 		{
@@ -90,7 +90,7 @@ namespace sw
 		Return();
 	}
 
-	void QuadRasterizer::rasterize(Int &yMin, Int &yMax)
+	void QuadRasterizer::rasterize()
 	{
 		Pointer<Byte> cBuffer[RENDERTARGETS];
 		Pointer<Byte> zBuffer;
@@ -114,7 +114,7 @@ namespace sw
 			sBuffer = *Pointer<Pointer<Byte>>(data + OFFSET(DrawData,stencilBuffer)) + yMin * *Pointer<Int>(data + OFFSET(DrawData,stencilPitchB));
 		}
 
-		Int y = yMin;
+		y = yMin;
 
 		Do
 		{
@@ -272,8 +272,8 @@ namespace sw
 					xLeft[q] = *Pointer<Short4>(primitive + q * sizeof(Primitive) + OFFSET(Primitive,outline) + y * sizeof(Primitive::Span));
 					xRight[q] = xLeft[q];
 
-					xLeft[q] = Swizzle(xLeft[q], 0xA0) - Short4(1, 2, 1, 2);
-					xRight[q] = Swizzle(xRight[q], 0xF5) - Short4(0, 1, 0, 1);
+					xLeft[q] = Swizzle(xLeft[q], 0x0022) - Short4(1, 2, 1, 2);
+					xRight[q] = Swizzle(xRight[q], 0x1133) - Short4(0, 1, 0, 1);
 				}
 
 				For(Int x = x0, x < x1, x += 2)
@@ -287,7 +287,7 @@ namespace sw
 						cMask[q] = SignMask(PackSigned(mask, mask)) & 0x0000000F;
 					}
 
-					quad(cBuffer, zBuffer, sBuffer, cMask, x, y);
+					quad(cBuffer, zBuffer, sBuffer, cMask, x);
 				}
 			}
 
@@ -313,7 +313,7 @@ namespace sw
 
 			y += 2 * clusterCount;
 		}
-		Until(y >= yMax)
+		Until(y >= yMax);
 	}
 
 	Float4 QuadRasterizer::interpolate(Float4 &x, Float4 &D, Float4 &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective, bool clamp)

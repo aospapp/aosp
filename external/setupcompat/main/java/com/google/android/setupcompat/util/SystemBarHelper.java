@@ -347,4 +347,6 @@ public final class SystemBarHelper {
 
     void onDecorViewInstalled(View decorView);
   }
+
+  private SystemBarHelper() {}
 }

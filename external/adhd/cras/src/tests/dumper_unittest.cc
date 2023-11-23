@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <syslog.h>
-#include <gtest/gtest.h>
-
 #include "dumper.h"
+
+#include <gtest/gtest.h>
+#include <syslog.h>
 
 namespace {
 
 TEST(DumperTest, SyslogDumper) {
-  struct dumper *dumper = syslog_dumper_create(LOG_ERR);
+  struct dumper* dumper = syslog_dumper_create(LOG_ERR);
   dumpf(dumper, "hello %d", 1);
   dumpf(dumper, "world %d\n123", 2);
   dumpf(dumper, "456\n");
@@ -21,8 +21,8 @@ TEST(DumperTest, SyslogDumper) {
 }
 
 TEST(DumperTest, MemDumper) {
-  struct dumper *dumper = mem_dumper_create();
-  char *buf;
+  struct dumper* dumper = mem_dumper_create();
+  char* buf;
   int size, i;
 
   mem_dumper_get(dumper, &buf, &size);
@@ -55,7 +55,7 @@ TEST(DumperTest, MemDumper) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

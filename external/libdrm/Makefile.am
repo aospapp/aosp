@@ -96,10 +96,6 @@ MAN_SUBDIR = man
 endif
 endif
 
-if HAVE_ROCKCHIP
-ROCKCHIP_SUBDIR = rockchip
-endif
-
 SUBDIRS = \
 	. \
 	$(LIBKMS_SUBDIR) \
@@ -115,8 +111,7 @@ SUBDIRS = \
 	$(ETNAVIV_SUBDIR) \
 	data \
 	tests \
-	$(MAN_SUBDIR) \
-	$(ROCKCHIP_SUBDIR)
+	$(MAN_SUBDIR)
 
 libdrm_la_LTLIBRARIES = libdrm.la
 libdrm_ladir = $(libdir)
@@ -126,6 +121,7 @@ libdrm_la_LIBADD = @CLOCK_LIB@ -lm
 libdrm_la_CPPFLAGS = -I$(top_srcdir)/include/drm
 AM_CFLAGS = \
 	$(WARN_CFLAGS) \
+	-fvisibility=hidden \
 	$(VALGRIND_CFLAGS)
 
 libdrm_la_SOURCES = $(LIBDRM_FILES)

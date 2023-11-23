@@ -17,6 +17,7 @@
 
 package com.android.org.conscrypt;
 
+import com.android.org.conscrypt.OpenSSLX509CertificateFactory.ParsingException;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.math.BigInteger;
@@ -50,7 +51,6 @@ import java.util.Set;
 import java.util.TimeZone;
 import javax.crypto.BadPaddingException;
 import javax.security.auth.x500.X500Principal;
-import com.android.org.conscrypt.OpenSSLX509CertificateFactory.ParsingException;
 
 /**
  * An implementation of {@link X509Certificate} based on BoringSSL.
@@ -60,8 +60,7 @@ import com.android.org.conscrypt.OpenSSLX509CertificateFactory.ParsingException;
 public final class OpenSSLX509Certificate extends X509Certificate {
     private static final long serialVersionUID = 1992239142393372128L;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
-    private transient final long mContext;
+    @android.compat.annotation.UnsupportedAppUsage private transient final long mContext;
     private transient Integer mHashCode;
 
     private final Date notBefore;
@@ -131,7 +130,9 @@ public final class OpenSSLX509Certificate extends X509Certificate {
         }
 
         if (certRefs == null) {
-            return Collections.emptyList();
+            // To avoid returning a immutable list in only one path, we create an
+            // empty list here instead of using Collections.emptyList()
+            return new ArrayList<OpenSSLX509Certificate>();
         }
 
         final List<OpenSSLX509Certificate> certs = new ArrayList<OpenSSLX509Certificate>(
@@ -145,7 +146,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
         return certs;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static OpenSSLX509Certificate fromX509PemInputStream(InputStream is)
             throws ParsingException {
         @SuppressWarnings("resource")
@@ -312,7 +313,11 @@ public final class OpenSSLX509Certificate extends X509Certificate {
     @Override
     public String getSigAlgName() {
         String oid = getSigAlgOID();
-        String algName = Platform.oidToAlgorithmName(oid);
+        String algName = OidData.oidToAlgorithmName(oid);
+        if (algName != null) {
+            return algName;
+        }
+        algName = Platform.oidToAlgorithmName(oid);
         if (algName != null) {
             return algName;
         }

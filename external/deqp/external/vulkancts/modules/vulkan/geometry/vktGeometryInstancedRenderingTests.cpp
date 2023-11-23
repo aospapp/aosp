@@ -162,7 +162,7 @@ void draw (Context&					context,
 	const Unique<VkImageView>		colorAttachment			(makeImageView	(vk, device, *colorImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorSubresourceRange));
 
 	const VkDeviceSize				vertexBufferSize		= sizeInBytes(perInstanceAttribute);
-	const Unique<VkBuffer>			vertexBuffer			(makeBuffer(vk, device, makeBufferCreateInfo(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
+	const Unique<VkBuffer>			vertexBuffer			(makeBuffer(vk, device, vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
 	const UniquePtr<Allocation>		vertexBufferAlloc		(bindBuffer(vk, device, allocator, *vertexBuffer, MemoryRequirement::HostVisible));
 
 	const Unique<VkShaderModule>	vertexModule			(createShaderModule	(vk, device, context.getBinaryCollection().get("vert"), 0u));
@@ -170,7 +170,7 @@ void draw (Context&					context,
 	const Unique<VkShaderModule>	fragmentModule			(createShaderModule	(vk, device, context.getBinaryCollection().get("frag"), 0u));
 
 	const Unique<VkRenderPass>		renderPass				(vk::makeRenderPass		(vk, device, colorFormat));
-	const Unique<VkFramebuffer>		framebuffer				(makeFramebuffer		(vk, device, *renderPass, *colorAttachment, renderSize.x(), renderSize.y(), 1u));
+	const Unique<VkFramebuffer>		framebuffer				(makeFramebuffer		(vk, device, *renderPass, *colorAttachment, renderSize.x(), renderSize.y()));
 	const Unique<VkPipelineLayout>	pipelineLayout			(makePipelineLayout		(vk, device));
 	const Unique<VkPipeline>		pipeline				(makeGraphicsPipeline	(vk, device, *pipelineLayout, *renderPass, *vertexModule, *geometryModule, *fragmentModule, renderExtent));
 
@@ -180,7 +180,7 @@ void draw (Context&					context,
 	// Initialize vertex data
 	{
 		deMemcpy(vertexBufferAlloc->getHostPtr(), &perInstanceAttribute[0], (size_t)vertexBufferSize);
-		flushMappedMemoryRange(vk, device, vertexBufferAlloc->getMemory(), vertexBufferAlloc->getOffset(), vertexBufferSize);
+		flushAlloc(vk, device, *vertexBufferAlloc);
 	}
 
 	beginCommandBuffer(vk, *cmdBuffer);
@@ -356,19 +356,15 @@ void initPrograms (SourceCollections& programCollection, const TestParams params
 tcu::TestStatus test (Context& context, const TestParams params)
 {
 	const DeviceInterface&			vk					= context.getDeviceInterface();
-	const InstanceInterface&		vki					= context.getInstanceInterface();
 	const VkDevice					device				= context.getDevice();
-	const VkPhysicalDevice			physDevice			= context.getPhysicalDevice();
 	Allocator&						allocator			= context.getDefaultAllocator();
-
-	checkGeometryShaderSupport(vki, physDevice, params.numInvocations);
 
 	const UVec2						renderSize			(128u, 128u);
 	const VkFormat					colorFormat			= VK_FORMAT_R8G8B8A8_UNORM;
 	const Vec4						clearColor			= Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	const VkDeviceSize				colorBufferSize		= renderSize.x() * renderSize.y() * tcu::getPixelSize(mapVkFormat(colorFormat));
-	const Unique<VkBuffer>			colorBuffer			(makeBuffer(vk, device, makeBufferCreateInfo(colorBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT)));
+	const Unique<VkBuffer>			colorBuffer			(makeBuffer(vk, device, colorBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT));
 	const UniquePtr<Allocation>		colorBufferAlloc	(bindBuffer(vk, device, allocator, *colorBuffer, MemoryRequirement::HostVisible));
 
 	const std::vector<Vec4>			perInstancePosition	= generatePerInstancePosition(params.numDrawInstances);
@@ -384,7 +380,7 @@ tcu::TestStatus test (Context& context, const TestParams params)
 
 	// Compare result
 	{
-		invalidateMappedMemoryRange(vk, device, colorBufferAlloc->getMemory(), colorBufferAlloc->getOffset(), colorBufferSize);
+		invalidateAlloc(vk, device, *colorBufferAlloc);
 		const tcu::ConstPixelBufferAccess result(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1u, colorBufferAlloc->getHostPtr());
 
 		tcu::TextureLevel reference(mapVkFormat(colorFormat), renderSize.x(), renderSize.y());
@@ -395,6 +391,14 @@ tcu::TestStatus test (Context& context, const TestParams params)
 		else
 			return tcu::TestStatus::pass("OK");
 	}
+}
+
+void checkSupport (Context& context, TestParams params)
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER);
+
+	if (context.getDeviceProperties().limits.maxGeometryShaderInvocations < (deUint32)params.numInvocations)
+		TCU_THROW(NotSupportedError, (std::string("Unsupported limit: maxGeometryShaderInvocations < ") + de::toString(params.numInvocations)).c_str());
 }
 
 } // anonymous
@@ -427,7 +431,7 @@ tcu::TestCaseGroup* createInstancedRenderingTests (tcu::TestContext& testCtx)
 			*pNumInvocations,
 		};
 
-		addFunctionCaseWithPrograms(group.get(), caseName.str(), "", initPrograms, test, params);
+		addFunctionCaseWithPrograms(group.get(), caseName.str(), "", checkSupport, initPrograms, test, params);
 	}
 
 	return group.release();

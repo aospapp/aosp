@@ -39,7 +39,6 @@ import android.widget.Button;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.SettingsPreferenceFragment;
 import com.android.car.developeroptions.deviceinfo.StorageSettings.MountTask;
@@ -109,7 +108,7 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
         }
 
         mDisk = mStorageManager.findDiskById(mVolume.getDiskId());
-        Preconditions.checkNotNull(mDisk);
+        Objects.requireNonNull(mDisk);
 
         mVolumeId = mVolume.getId();
 

@@ -6,13 +6,13 @@ package hal.manifest {
     method public String getFormat();
     method public java.util.List<java.lang.String> getFqname();
     method public String getName();
-    method public String getOptional();
+    method public String getOverride();
     method public hal.manifest.Hal.Transport getTransport();
     method public java.util.List<java.lang.String> getVersion();
     method public java.util.List<hal.manifest.Interface> get_interface();
     method public void setFormat(String);
     method public void setName(String);
-    method public void setOptional(String);
+    method public void setOverride(String);
     method public void setTransport(hal.manifest.Hal.Transport);
   }
 
@@ -34,7 +34,9 @@ package hal.manifest {
   public class Kernel {
     ctor public Kernel();
     method public java.util.List<hal.manifest.Kernel.Config> getConfig();
+    method public String getTargetLevel();
     method public String getVersion();
+    method public void setTargetLevel(String);
     method public void setVersion(String);
   }
 

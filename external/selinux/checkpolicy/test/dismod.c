@@ -445,8 +445,8 @@ void display_initial_sids(policydb_t * p, FILE * fp)
 		user = p->p_user_val_to_name[cur->context[0].user - 1];
 		role = p->p_role_val_to_name[cur->context[0].role - 1];
 		type = p->p_type_val_to_name[cur->context[0].type - 1];
-		fprintf(fp, "\t%s: sid %d, context %s:%s:%s\n",
-			cur->u.name, cur->sid[0], user, role, type);
+		fprintf(fp, "\tsid %d, context %s:%s:%s\n",
+			cur->sid[0], user, role, type);
 	}
 #if 0
 	fprintf(fp, "Policy Initial SIDs:\n");
@@ -825,15 +825,13 @@ static void display_policycaps(policydb_t * p, FILE * fp)
 	unsigned int i;
 
 	fprintf(fp, "policy capabilities:\n");
-	ebitmap_for_each_bit(&p->policycaps, node, i) {
-		if (ebitmap_node_get_bit(node, i)) {
-			capname = sepol_polcap_getname(i);
-			if (capname == NULL) {
-				snprintf(buf, sizeof(buf), "unknown (%d)", i);
-				capname = buf;
-			}
-			fprintf(fp, "\t%s\n", capname);
+	ebitmap_for_each_positive_bit(&p->policycaps, node, i) {
+		capname = sepol_polcap_getname(i);
+		if (capname == NULL) {
+			snprintf(buf, sizeof(buf), "unknown (%d)", i);
+			capname = buf;
 		}
+		fprintf(fp, "\t%s\n", capname);
 	}
 }
 
@@ -903,14 +901,14 @@ int main(int argc, char **argv)
 	}
 
 	if (policydb.policy_type == POLICY_BASE) {
-		printf("Binary base policy file loaded.\n\n");
+		printf("Binary base policy file loaded.\n");
 	} else {
 		printf("Binary policy module file loaded.\n");
 		printf("Module name: %s\n", policydb.name);
 		printf("Module version: %s\n", policydb.version);
-		printf("\n");
 	}
 
+	printf("Policy version: %d\n\n", policydb.policyvers);
 	menu();
 	for (;;) {
 		printf("\nCommand (\'m\' for menu):  ");

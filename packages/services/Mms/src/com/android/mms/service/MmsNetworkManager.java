@@ -22,8 +22,10 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.NetworkRequest;
+import android.net.TelephonyNetworkSpecifier;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.DeviceConfig;
 
 import com.android.mms.service.exception.MmsNetworkException;
 
@@ -31,13 +33,18 @@ import com.android.mms.service.exception.MmsNetworkException;
  * Manages the MMS network connectivity
  */
 public class MmsNetworkManager {
-    // Timeout used to call ConnectivityManager.requestNetwork
+    private static final String MMS_SERVICE_NETWORK_REQUEST_TIMEOUT_MILLIS =
+            "mms_service_network_request_timeout_millis";
+
+    // Default timeout used to call ConnectivityManager.requestNetwork if the
+    // MMS_SERVICE_NETWORK_REQUEST_TIMEOUT_MILLIS flag is not set.
     // Given that the telephony layer will retry on failures, this timeout should be high enough.
-    private static final int NETWORK_REQUEST_TIMEOUT_MILLIS = 30 * 60 * 1000;
-    // Wait timeout for this class, a little bit longer than the above timeout
-    // to make sure we don't bail prematurely
-    private static final int NETWORK_ACQUIRE_TIMEOUT_MILLIS =
-            NETWORK_REQUEST_TIMEOUT_MILLIS + (5 * 1000);
+    private static final int DEFAULT_MMS_SERVICE_NETWORK_REQUEST_TIMEOUT_MILLIS = 30 * 60 * 1000;
+
+    // Wait timeout for this class, this is an additional delay after waiting the network request
+    // timeout to make sure we don't bail prematurely.
+    private static final int ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS = (5 * 1000);
+
     // Waiting time used before releasing a network prematurely. This allows the MMS download
     // acknowledgement messages to be sent using the same network that was used to download the data
     private static final int NETWORK_RELEASE_TIMEOUT_MILLIS = 5 * 1000;
@@ -117,7 +124,8 @@ public class MmsNetworkManager {
         mNetworkRequest = new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_MMS)
-                .setNetworkSpecifier(Integer.toString(mSubId))
+                .setNetworkSpecifier(new TelephonyNetworkSpecifier.Builder()
+                        .setSubscriptionId(mSubId).build())
                 .build();
 
         mNetworkReleaseTask = new Runnable() {
@@ -139,6 +147,8 @@ public class MmsNetworkManager {
      * @throws com.android.mms.service.exception.MmsNetworkException if we fail to acquire it
      */
     public void acquireNetwork(final String requestId) throws MmsNetworkException {
+        int networkRequestTimeoutMillis = getNetworkRequestTimeoutMillis();
+
         synchronized (this) {
             // Since we are acquiring the network, remove the network release task if exists.
             mReleaseHandler.removeCallbacks(mNetworkReleaseTask);
@@ -151,10 +161,10 @@ public class MmsNetworkManager {
             // Not available, so start a new request if not done yet
             if (mNetworkCallback == null) {
                 LogUtil.d(requestId, "MmsNetworkManager: start new network request");
-                startNewNetworkRequestLocked();
+                startNewNetworkRequestLocked(networkRequestTimeoutMillis);
             }
             try {
-                this.wait(NETWORK_ACQUIRE_TIMEOUT_MILLIS);
+                this.wait(networkRequestTimeoutMillis + ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS);
             } catch (InterruptedException e) {
                 LogUtil.w(requestId, "MmsNetworkManager: acquire network wait interrupted");
             }
@@ -164,7 +174,11 @@ public class MmsNetworkManager {
             }
 
             // Timed out
-            LogUtil.e(requestId, "MmsNetworkManager: timed out");
+            LogUtil.e(requestId,
+                    "MmsNetworkManager: timed out with networkRequestTimeoutMillis="
+                            + networkRequestTimeoutMillis
+                            + " and ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS="
+                            + ADDITIONAL_NETWORK_ACQUIRE_TIMEOUT_MILLIS);
             if (mNetworkCallback != null) {
                 // Release the network request and wake up all the MmsRequests for fast-fail
                 // together.
@@ -177,10 +191,19 @@ public class MmsNetworkManager {
         }
     }
 
+    // Timeout used to call ConnectivityManager.requestNetwork
+    // Given that the telephony layer will retry on failures, this timeout should be high enough.
+    private int getNetworkRequestTimeoutMillis() {
+        return DeviceConfig.getInt(
+                DeviceConfig.NAMESPACE_TELEPHONY, MMS_SERVICE_NETWORK_REQUEST_TIMEOUT_MILLIS,
+                DEFAULT_MMS_SERVICE_NETWORK_REQUEST_TIMEOUT_MILLIS);
+    }
+
+
     /**
      * Release the MMS network when nobody is holding on to it.
      *
-     * @param requestId request ID for logging
+     * @param requestId          request ID for logging
      * @param shouldDelayRelease whether the release should be delayed for 5 seconds, the regular
      *                           use case is to delay this for DownloadRequests to use the network
      *                           for sending an acknowledgement on the same network
@@ -208,11 +231,11 @@ public class MmsNetworkManager {
     /**
      * Start a new {@link android.net.NetworkRequest} for MMS
      */
-    private void startNewNetworkRequestLocked() {
+    private void startNewNetworkRequestLocked(int networkRequestTimeoutMillis) {
         final ConnectivityManager connectivityManager = getConnectivityManager();
         mNetworkCallback = new NetworkRequestCallback();
         connectivityManager.requestNetwork(
-                mNetworkRequest, mNetworkCallback, NETWORK_REQUEST_TIMEOUT_MILLIS);
+                mNetworkRequest, mNetworkCallback, networkRequestTimeoutMillis);
     }
 
     /**

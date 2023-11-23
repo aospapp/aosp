@@ -19,9 +19,7 @@
     <string name="app_name" msgid="6963366455471441257">"USB ہینڈلر"</string>
     <string name="usb_saved_devices" msgid="2829442070749964872">"محفوظ کردہ آلات"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"USB آلہ کو ہینڈل کرنے والی اپپ کو ہٹائیں"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for usb_pref_delete_message (5849493572520646218) -->
-    <skip />
+    <string name="usb_pref_delete_message" msgid="5849493572520646218">"کیا آپ واقعی %1$s اپپ کی ڈیفالٹ ہینڈلنگ کو حذف کرنا چاہتے ہیں؟"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"ہاں"</string>
     <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"منسوخ کریں"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"تعاون یافتہ ہینڈلرز حاصل کر رہے ہیں"</string>

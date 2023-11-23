@@ -40,12 +40,16 @@
         android:layout_width="@dimen/queue_list_item_spacer_width"
         android:layout_height="wrap_content"/>
 
-    <TextView
-        android:id="@+id/title"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        style="@style/QueueListItemTitleStyle"/>
+    <LinearLayout
+        android:id="@+id/queue_list_item_titles_container"
+        style="@style/QueueListItemTitlesContainerStyle">
+        <TextView
+            android:id="@+id/queue_list_item_title"
+            style="@style/QueueListItemTitleStyle"/>
+        <TextView
+            android:id="@+id/queue_list_item_subtitle"
+            style="@style/QueueListItemSubtitleStyle"/>
+    </LinearLayout>
 
     <TextView
         android:id="@+id/current_time"

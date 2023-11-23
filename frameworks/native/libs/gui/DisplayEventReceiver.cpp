@@ -32,10 +32,11 @@ namespace android {
 
 // ---------------------------------------------------------------------------
 
-DisplayEventReceiver::DisplayEventReceiver(ISurfaceComposer::VsyncSource vsyncSource) {
+DisplayEventReceiver::DisplayEventReceiver(ISurfaceComposer::VsyncSource vsyncSource,
+                                           ISurfaceComposer::ConfigChanged configChanged) {
     sp<ISurfaceComposer> sf(ComposerService::getComposerService());
     if (sf != nullptr) {
-        mEventConnection = sf->createDisplayEventConnection(vsyncSource);
+        mEventConnection = sf->createDisplayEventConnection(vsyncSource, configChanged);
         if (mEventConnection != nullptr) {
             mDataChannel = std::make_unique<gui::BitTube>();
             mEventConnection->stealReceiveChannel(mDataChannel.get());
@@ -78,6 +79,13 @@ status_t DisplayEventReceiver::requestNextVsync() {
     return NO_INIT;
 }
 
+status_t DisplayEventReceiver::requestLatestConfig() {
+    if (mEventConnection != nullptr) {
+        mEventConnection->requestLatestConfig();
+        return NO_ERROR;
+    }
+    return NO_INIT;
+}
 
 ssize_t DisplayEventReceiver::getEvents(DisplayEventReceiver::Event* events,
         size_t count) {

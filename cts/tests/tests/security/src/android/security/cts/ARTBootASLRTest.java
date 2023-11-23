@@ -38,10 +38,12 @@ public class ARTBootASLRTest extends AndroidTestCase {
         String line;
         boolean foundBootART = false;
         while ((line = bufReader.readLine()) != null) {
-            // Check that we don't have /system/.*boot.art
-            if (line.matches("/system/.*boot\\.art")) {
-                fail("found " + line + " from system partition");
-            } else if (line.matches(".*boot\\.art")) {
+            // Check that we have a data or extracted boot image.
+            // There should still be a system boot image mapping that contains only the image
+            // bitmap.
+            if (line.matches("(.*) \\[anon:dalvik(.*)boot\\.art\\]?")) {
+                foundBootART = true;
+            } else if (line.matches("(.*) /data/dalvik-cache/(.*)boot\\.art")) {
                 foundBootART = true;
             }
         }

@@ -17,12 +17,12 @@
 package com.android.tv.common.util;
 
 import android.content.Context;
-import android.location.Address;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.common.CommonPreferences;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Locale;
@@ -62,7 +62,7 @@ public class PostalCodeUtils {
     /** Returns {@code true} if postal code has been changed */
     public static boolean updatePostalCode(Context context)
             throws IOException, SecurityException, NoPostalCodeException {
-        String postalCode = getPostalCode(context);
+        String postalCode = LocationUtils.getCurrentPostalCode(context);
         String lastPostalCode = getLastPostalCode(context);
         if (TextUtils.isEmpty(postalCode)) {
             if (TextUtils.isEmpty(lastPostalCode)) {
@@ -90,21 +90,6 @@ public class PostalCodeUtils {
     public static void setLastPostalCode(Context context, String postalCode) {
         Log.i(TAG, "Set Postal Code:" + postalCode);
         CommonPreferences.setLastPostalCode(context, postalCode);
-    }
-
-    @Nullable
-    private static String getPostalCode(Context context) throws IOException, SecurityException {
-        Address address = LocationUtils.getCurrentAddress(context);
-        if (address != null) {
-            Log.i(
-                    TAG,
-                    "Current country and postal code is "
-                            + address.getCountryName()
-                            + ", "
-                            + address.getPostalCode());
-            return address.getPostalCode();
-        }
-        return null;
     }
 
     /** An {@link java.lang.Exception} class to notify no valid postal or zip code is available. */

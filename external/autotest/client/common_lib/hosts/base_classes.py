@@ -15,7 +15,7 @@ poirier@google.com (Benjamin Poirier),
 stutsman@google.com (Ryan Stutsman)
 """
 
-import cPickle, logging, os, re, time
+import json, logging, os, re, time
 
 from autotest_lib.client.common_lib import global_config, error, utils
 from autotest_lib.client.common_lib.cros import path_utils
@@ -567,11 +567,11 @@ class Host(object):
 
         @return: list of files
         """
-        SCRIPT = ("python -c 'import cPickle, glob, sys;"
-                  "cPickle.dump(glob.glob(sys.argv[1]), sys.stdout, 0)'")
+        SCRIPT = ("python -c 'import json, glob, sys;"
+                  "json.dump(glob.glob(sys.argv[1]), sys.stdout)'")
         output = self.run(SCRIPT, args=(glob,), stdout_tee=None,
                           timeout=60).stdout
-        return cPickle.loads(output)
+        return json.loads(output)
 
 
     def symlink_closure(self, paths):
@@ -583,11 +583,11 @@ class Host(object):
         @return: a sequence of path strings that are all the unique paths that
                 can be reached from the given ones after following symlinks.
         """
-        SCRIPT = ("python -c 'import cPickle, os, sys\n"
-                  "paths = cPickle.load(sys.stdin)\n"
+        SCRIPT = ("python -c 'import json, os, sys\n"
+                  "paths = json.load(sys.stdin)\n"
                   "closure = {}\n"
                   "while paths:\n"
-                  "    path = paths.keys()[0]\n"
+                  "    path = next(iter(paths))\n"
                   "    del paths[path]\n"
                   "    if not os.path.exists(path):\n"
                   "        continue\n"
@@ -595,13 +595,13 @@ class Host(object):
                   "    if os.path.islink(path):\n"
                   "        link_to = os.path.join(os.path.dirname(path),\n"
                   "                               os.readlink(path))\n"
-                  "        if link_to not in closure.keys():\n"
+                  "        if link_to not in closure:\n"
                   "            paths[link_to] = None\n"
-                  "cPickle.dump(closure.keys(), sys.stdout, 0)'")
-        input_data = cPickle.dumps(dict((path, None) for path in paths), 0)
+                  "json.dump(closure.keys(), sys.stdout, 0)'")
+        input_data = json.dumps(dict((path, None) for path in paths), 0)
         output = self.run(SCRIPT, stdout_tee=None, stdin=input_data,
                           timeout=60).stdout
-        return cPickle.loads(output)
+        return json.loads(output)
 
 
     def cleanup_kernels(self, boot_dir='/boot'):
@@ -682,8 +682,6 @@ class Host(object):
         `job_repo_url` is a devserver url pointed to autotest packages for
         CrosHost, it needs to be removed before provision starts for tests to
         run reliably.
-        For ADBHost, the job repo url has a different format, i.e., appended by
-        adb_serial, so this method should be overriden in ADBHost.
         """
         return ['job_repo_url']
 

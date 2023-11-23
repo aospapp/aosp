@@ -21,6 +21,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -153,6 +154,9 @@ public final class AvailableVirtualKeyboardFragment extends SettingsPreferenceFr
                     || permittedList.contains(imi.getPackageName());
             final InputMethodPreference pref = new InputMethodPreference(
                     context, imi, true, isAllowedByOrganization, this);
+            // TODO: Update the icon container in leanback_preference.xml to use LinearLayout.
+            // This is a workaround to avoid the crash. b/146654624
+            pref.setIconSize(0);
             pref.setIcon(getInputMethodIcon(packageManager, imi));
             mInputMethodPreferenceList.add(pref);
         }
@@ -171,5 +175,10 @@ public final class AvailableVirtualKeyboardFragment extends SettingsPreferenceFr
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ENABLE_VIRTUAL_KEYBOARDS;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_KEYBOARD_MANAGE_KEYBOARDS;
     }
 }

@@ -38,7 +38,7 @@ struct ScalarType;
 struct Scope;
 
 struct Type : DocCommentable {
-    Type(Scope* parent);
+    Type(Scope* parent, const std::string& definedName);
     virtual ~Type();
 
     virtual bool isArray() const;
@@ -56,6 +56,7 @@ struct Type : DocCommentable {
     virtual bool isTemplatedType() const;
     virtual bool isTypeDef() const;
     virtual bool isVector() const;
+    virtual bool isFmq() const;
 
     // Resolves the type by unwrapping typedefs
     Type* resolve();
@@ -147,6 +148,8 @@ struct Type : DocCommentable {
     Scope* parent();
     const Scope* parent() const;
 
+    const std::string& definedName() const;
+
     enum StorageMode {
         StorageMode_Stack,
         StorageMode_Argument,
@@ -191,10 +194,10 @@ struct Type : DocCommentable {
     virtual std::string getVtsValueName() const;
 
     enum ErrorMode {
-        ErrorMode_Ignore,
         ErrorMode_Goto,
         ErrorMode_Break,
         ErrorMode_Return,
+        ErrorMode_ReturnNothing,
     };
     virtual void emitReaderWriter(
             Formatter &out,
@@ -217,28 +220,6 @@ struct Type : DocCommentable {
             const std::string &parentName,
             const std::string &offsetText) const;
 
-    virtual void emitResolveReferences(
-            Formatter &out,
-            const std::string &name,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode) const;
-
-    virtual void emitResolveReferencesEmbedded(
-            Formatter &out,
-            size_t depth,
-            const std::string &name,
-            const std::string &sanitizedName,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode,
-            const std::string &parentName,
-            const std::string &offsetText) const;
-
     virtual void emitDump(
             Formatter &out,
             const std::string &streamName,
@@ -248,8 +229,6 @@ struct Type : DocCommentable {
             Formatter &out,
             const std::string &streamName,
             const std::string &name) const;
-
-    virtual bool useParentInEmitResolveReferencesEmbedded() const;
 
     virtual void emitJavaReaderWriter(
             Formatter &out,
@@ -273,6 +252,8 @@ struct Type : DocCommentable {
             const std::string &fieldName,
             const std::string &offset,
             bool isReader) const;
+
+    virtual void emitHidlDefinition(Formatter& out) const;
 
     virtual void emitTypeDeclarations(Formatter& out) const;
 
@@ -311,10 +292,6 @@ struct Type : DocCommentable {
     virtual bool needsEmbeddedReadWrite() const;
     virtual bool resultNeedsDeref() const;
 
-    bool needsResolveReferences() const;
-    bool needsResolveReferences(std::unordered_set<const Type*>* visited) const;
-    virtual bool deepNeedsResolveReferences(std::unordered_set<const Type*>* visited) const;
-
     // Generates type declaration for vts proto file.
     // TODO (b/30844146): make it a pure virtual method.
     virtual void emitVtsTypeDeclarations(Formatter& out) const;
@@ -341,9 +318,8 @@ struct Type : DocCommentable {
 
     virtual bool isNeverStrongReference() const;
 
+    static void handleError(Formatter &out, ErrorMode mode);
    protected:
-    void handleError(Formatter &out, ErrorMode mode) const;
-
     void emitReaderWriterEmbeddedForTypeName(
             Formatter &out,
             const std::string &name,
@@ -372,14 +348,16 @@ struct Type : DocCommentable {
             const std::string &methodName,
             const std::string &name) const;
 
-   private:
+    // This is the name given to the type in the hidl file
+    std::string mDefinedName;
+
+  private:
     ParseStage mParseStage = ParseStage::PARSE;
     Scope* const mParent;
 
     DISALLOW_COPY_AND_ASSIGN(Type);
 };
 
-/* Base type for VectorType and RefType. */
 struct TemplatedType : public Type {
     void setElementType(const Reference<Type>& elementType);
     const Type* getElementType() const;
@@ -399,8 +377,8 @@ struct TemplatedType : public Type {
     void emitVtsAttributeType(Formatter& out) const override;
 
    protected:
-    TemplatedType(Scope* parent);
-    Reference<Type> mElementType;
+     TemplatedType(Scope* parent, const std::string& definedName);
+     Reference<Type> mElementType;
 
    private:
     DISALLOW_COPY_AND_ASSIGN(TemplatedType);

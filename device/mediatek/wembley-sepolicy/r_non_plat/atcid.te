@@ -1,0 +1,74 @@
+# ==============================================
+# Policy File of /vendor/bin/atcid Executable File
+# ==============================================
+
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+type atcid, domain;
+type atcid_exec, exec_type, file_type, vendor_file_type;
+
+init_daemon_domain(atcid)
+set_prop(atcid,persist_service_atci_prop)
+allow atcid block_device:dir search;
+allow atcid socket_device:sock_file write;
+allow atcid gsmrild_socket:sock_file write;
+
+# Date : WK17.21
+# Purpose: Allow to use HIDL
+hwbinder_use(atcid)
+hal_client_domain(atcid, hal_telephony)
+
+allow atcid ttyGS_device:chr_file { read write ioctl open };
+allow atcid wmtWifi_device:chr_file { write open };
+allow atcid misc2_block_device:blk_file { read write open };
+allow atci_service gpu_device:chr_file { read write open ioctl getattr };
+allow atcid self:capability sys_time;
+
+# Date : WK16.33
+# Purpose: Allow to access ged for gralloc_extra functions
+allow atcid proc_ged:file rw_file_perms;
+
+# Date : WK17.23
+# Stage: O Migration, SQC
+# Purpose: Allow to use HAL PQ
+hal_client_domain(atcid, hal_pq)
+
+# Date : WK17.34
+# Purpose: Allow to access meta_tst
+allow atcid meta_tst:unix_stream_socket connectto;
+
+# Date : WK18.15
+# Purpose: Allow to access power_supply in sysfs
+allow atcid sysfs_batteryinfo:file { read open };
+
+# Date : WK18.16
+# Operation: P migration
+# Purpose: Allow atcid to get tel_switch_prop
+get_prop(atcid, tel_switch_prop)
+
+# Date : WK18.21
+# Purpose: Allow to use HIDL
+hwbinder_use(atcid);
+vndbinder_use(atcid);
+hal_server_domain(atcid, hal_atci)
+add_hwservice(hal_atci_server,hal_atci_hwservice)
+
+# Date : WK18.21
+# Purpose: For special command for customer
+set_prop(atcid, mtk_atci_prop);
+set_prop(atcid, powerctl_prop);
+allow atcid mnt_vendor_file:dir search;
+allow atcid nvdata_file:dir { open read write search add_name };
+allow atcid nvdata_file:file { open read write create getattr setattr };
+allow atcid nvram_device:blk_file { open read write };
+allow atcid proc_meminfo:file { open read };
+allow atcid sysfs_batteryinfo:dir search;
+allow atcid sysfs_mmcblk:dir search;
+allow atcid sysfs_mmcblk:file { read open };
+
+# Date : WK18.35
+# Purpose: Add socket for TelephonyWare ATCI
+unix_socket_connect(atcid, rild_atci, rild);
+unix_socket_connect(atcid, rilproxy_atci, rild);
+unix_socket_connect(atcid, atci_service, atci_service);

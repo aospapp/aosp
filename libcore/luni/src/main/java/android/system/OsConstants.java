@@ -16,7 +16,7 @@
 
 package android.system;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
  * Constants and helper functions for use with {@link Os}.
@@ -130,6 +130,7 @@ public final class OsConstants {
     public static final int ARPHRD_ETHER = placeholder();
     /** @hide */
     @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static final int ARPHRD_LOOPBACK = placeholder();
     public static final int CAP_AUDIT_CONTROL = placeholder();
     public static final int CAP_AUDIT_WRITE = placeholder();
@@ -358,6 +359,7 @@ public final class OsConstants {
     @libcore.api.CorePlatformApi
     public static final int _LINUX_CAPABILITY_VERSION_3 = placeholder();
     public static final int MAP_FIXED = placeholder();
+    public static final int MAP_ANONYMOUS = placeholder();
     /** @hide */
     @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
@@ -372,6 +374,7 @@ public final class OsConstants {
     public static final int MCAST_UNBLOCK_SOURCE = placeholder();
     public static final int MCL_CURRENT = placeholder();
     public static final int MCL_FUTURE = placeholder();
+    public static final int MFD_CLOEXEC = placeholder();
     public static final int MSG_CTRUNC = placeholder();
     public static final int MSG_DONTROUTE = placeholder();
     public static final int MSG_EOR = placeholder();
@@ -382,9 +385,6 @@ public final class OsConstants {
     public static final int MS_ASYNC = placeholder();
     public static final int MS_INVALIDATE = placeholder();
     public static final int MS_SYNC = placeholder();
-    /** @hide */
-    @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public static final int NETLINK_NETFILTER = placeholder();
     public static final int NETLINK_ROUTE = placeholder();
     /**

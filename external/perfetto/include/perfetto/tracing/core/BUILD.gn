@@ -1,4 +1,4 @@
-# Copyright (C) 2017 The Android Open Source Project
+# Copyright (C) 2019 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,26 +14,23 @@
 
 source_set("core") {
   public_deps = [
-    "../../base",
+    ":forward_decls",
+    "../../../../protos/perfetto/common:cpp",
+    "../../../../protos/perfetto/config:cpp",
   ]
   sources = [
-    "basic_types.h",
-    "commit_data_request.h",
-    "consumer.h",
+    "chrome_config.h",
     "data_source_config.h",
     "data_source_descriptor.h",
-    "observable_events.h",
-    "producer.h",
-    "shared_memory.h",
-    "shared_memory_abi.h",
-    "shared_memory_arbiter.h",
-    "slice.h",
-    "startup_trace_writer.h",
-    "startup_trace_writer_registry.h",
     "trace_config.h",
-    "trace_packet.h",
-    "trace_stats.h",
-    "trace_writer.h",
-    "tracing_service.h",
+    "tracing_service_capabilities.h",
+    "tracing_service_state.h",
   ]
+}
+
+# This is a separate target so other targets in include/**/BUILD.gn can pull
+# forward_decls.h without polluting their public_deps with the proto-generated
+# {common,config}:cpp, which would slow-down build time.
+source_set("forward_decls") {
+  sources = [ "forward_decls.h" ]
 }

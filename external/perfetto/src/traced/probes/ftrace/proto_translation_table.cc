@@ -21,21 +21,21 @@
 
 #include <algorithm>
 
-#include "perfetto/base/string_utils.h"
+#include "perfetto/ext/base/string_utils.h"
 #include "perfetto/protozero/proto_utils.h"
 #include "src/traced/probes/ftrace/event_info.h"
 #include "src/traced/probes/ftrace/ftrace_procfs.h"
 
-#include "perfetto/trace/ftrace/ftrace_event.pbzero.h"
-#include "perfetto/trace/ftrace/ftrace_event_bundle.pbzero.h"
-#include "perfetto/trace/ftrace/generic.pbzero.h"
+#include "protos/perfetto/trace/ftrace/ftrace_event.pbzero.h"
+#include "protos/perfetto/trace/ftrace/ftrace_event_bundle.pbzero.h"
+#include "protos/perfetto/trace/ftrace/generic.pbzero.h"
 
 namespace perfetto {
 
 namespace {
 
-using protozero::proto_utils::ProtoSchemaType;
 using protos::pbzero::GenericFtraceEvent;
+using protozero::proto_utils::ProtoSchemaType;
 
 ProtoTranslationTable::FtracePageHeaderSpec MakeFtracePageHeaderSpec(
     const std::vector<FtraceEvent::Field>& fields) {
@@ -74,8 +74,9 @@ ProtoTranslationTable::FtracePageHeaderSpec GuessFtracePageHeaderSpec() {
   if (commit_size < 8 && uname(&sysinfo) == 0) {
     // Arm returns armv# for its machine type. The first (and only currently)
     // arm processor that supports 64bit is the armv8 series.
-    commit_size = strstr(sysinfo.machine, "64") ||
-                  strstr(sysinfo.machine, "armv8") ? 8 : 4;
+    commit_size =
+        strstr(sysinfo.machine, "64") || strstr(sysinfo.machine, "armv8") ? 8
+                                                                          : 4;
   }
 #endif
 
@@ -93,13 +94,13 @@ ProtoTranslationTable::FtracePageHeaderSpec GuessFtracePageHeaderSpec() {
   return spec;
 }
 
-const std::vector<Event> BuildEventsVector(const std::vector<Event>& events) {
+const std::deque<Event> BuildEventsDeque(const std::vector<Event>& events) {
   size_t largest_id = 0;
   for (const Event& event : events) {
     if (event.ftrace_event_id > largest_id)
       largest_id = event.ftrace_event_id;
   }
-  std::vector<Event> events_by_id;
+  std::deque<Event> events_by_id;
   events_by_id.resize(largest_id + 1);
   for (const Event& event : events) {
     events_by_id[event.ftrace_event_id] = event;
@@ -161,7 +162,7 @@ uint16_t MergeFields(const std::vector<FtraceEvent::Field>& ftrace_fields,
                      const char* event_name_for_debug) {
   uint16_t fields_end = 0;
 
-  // Loop over each Field in |fields| modifiying it with information from the
+  // Loop over each Field in |fields| modifying it with information from the
   // matching |ftrace_fields| field or removing it.
   auto field = fields->begin();
   while (field != fields->end()) {
@@ -241,6 +242,8 @@ void SetProtoType(FtraceFieldType ftrace_type,
       *proto_type = ProtoSchemaType::kUint64;
       *proto_field_id = GenericFtraceEvent::Field::kUintValueFieldNumber;
       break;
+    case kInvalidFtraceFieldType:
+      PERFETTO_FATAL("Unexpected ftrace field type");
   }
 }
 
@@ -446,8 +449,13 @@ std::unique_ptr<ProtoTranslationTable> ProtoTranslationTable::Create(
                               }),
                events.end());
 
-  auto table = std::unique_ptr<ProtoTranslationTable>(new ProtoTranslationTable(
-      ftrace_procfs, events, std::move(common_fields), header_spec));
+  // Pre-parse certain scheduler events, and see if the compile-time assumptions
+  // about their format hold for this kernel.
+  CompactSchedEventFormat compact_sched = ValidateFormatForCompactSched(events);
+
+  auto table = std::unique_ptr<ProtoTranslationTable>(
+      new ProtoTranslationTable(ftrace_procfs, events, std::move(common_fields),
+                                header_spec, compact_sched));
   return table;
 }
 
@@ -455,12 +463,14 @@ ProtoTranslationTable::ProtoTranslationTable(
     const FtraceProcfs* ftrace_procfs,
     const std::vector<Event>& events,
     std::vector<Field> common_fields,
-    FtracePageHeaderSpec ftrace_page_header_spec)
+    FtracePageHeaderSpec ftrace_page_header_spec,
+    CompactSchedEventFormat compact_sched_format)
     : ftrace_procfs_(ftrace_procfs),
-      events_(BuildEventsVector(events)),
+      events_(BuildEventsDeque(events)),
       largest_id_(events_.size() - 1),
       common_fields_(std::move(common_fields)),
-      ftrace_page_header_spec_(ftrace_page_header_spec) {
+      ftrace_page_header_spec_(ftrace_page_header_spec),
+      compact_sched_format_(compact_sched_format) {
   for (const Event& event : events) {
     group_and_name_to_event_[GroupAndName(event.group, event.name)] =
         &events_.at(event.ftrace_event_id);
@@ -511,12 +521,12 @@ const Event* ProtoTranslationTable::GetOrCreateEvent(
   group_to_events_[e->group].push_back(&events_.at(e->ftrace_event_id));
 
   return e;
-};
+}
 
 const char* ProtoTranslationTable::InternString(const std::string& str) {
   auto it_and_inserted = interned_strings_.insert(str);
   return it_and_inserted.first->c_str();
-};
+}
 
 uint16_t ProtoTranslationTable::CreateGenericEventField(
     const FtraceEvent::Field& ftrace_field,

@@ -20,5 +20,6 @@ package android.signature.cts.tests.data;
 * This class is used as reference data for the JDiffClassDescriptionTest tests.
 */
 public abstract class AbstractClass {
-
+    public abstract void abstractMethod();
+    public final void finalMethod() {};
 }

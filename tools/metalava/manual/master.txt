@@ -67,20 +67,3 @@ package android.view {
     method @NonNull public abstract android.view.View getDecorView();
   }
 }
-package java.lang {
-  // These are all in //libcore/ojluni/annotations. They are
-  // reproduced here to work around an issue in metalava (b/111116803).
-  public final class Class<T> implements java.lang.reflect.AnnotatedElement java.lang.reflect.GenericDeclaration java.io.Serializable java.lang.reflect.Type {
-    method @Nullable public <A extends java.lang.annotation.Annotation> A getAnnotation(@NonNull Class<A>);
-    method @NonNull public <A extends java.lang.annotation.Annotation> A @NonNull [] getAnnotationsByType(@NonNull Class<A>);
-    method @Nullable public native <A extends java.lang.annotation.Annotation> A getDeclaredAnnotation(@NonNull Class<A>);
-    method @Nullable public java.security.ProtectionDomain getProtectionDomain();
-    method @Nullable public java.net.URL getResource(@NonNull String);
-  }
-  public final class System {
-    method @NonNull public static java.util.Map<java.lang.String,java.lang.String> getenv();
-  }
-  public class ThreadLocal<T> {
-    method @NonNull public static <S> ThreadLocal<S> withInitial(@NonNull java.util.function.Supplier<? extends S>);
-  }
-}

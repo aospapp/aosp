@@ -35,8 +35,12 @@ cc_test {
     defaults: ["libpower_defaults"],
     srcs: ["power_test.cpp"],
     static_libs: ["libpower"],
-    shared_libs: ["android.system.suspend@1.0"],
+    shared_libs: [
+        "android.system.suspend@1.0",
+        "suspend_control_aidl_interface-cpp",
+    ],
     test_suites: ["device-tests"],
+    require_root: true,
 }
 
 cc_library_shared {
@@ -69,4 +73,15 @@ cc_library_shared {
         "power.cpp",
         "uevent.c",
     ],
+}
+
+cc_test {
+    name: "block_suspend",
+    defaults: ["libpower_defaults"],
+    srcs: ["block_suspend.cpp"],
+    static_libs: ["libpower"],
+    shared_libs: [
+        "android.system.suspend@1.0",
+    ],
+    gtest: false,
 }

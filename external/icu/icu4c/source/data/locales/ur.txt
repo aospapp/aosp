@@ -21,7 +21,7 @@ ur{
         "[ا ب پ ت ٹ ث ج چ ح خ د ڈ ذ ر ڑ ز ژ س ش ص ض ط ظ ع غ ف ق ک گ ل م ن و ہ ھ ء ی ے"
         "]"
     }
-    ExemplarCharactersNumbers{"[\u200E \\- , ٫ ٬ . % ‰ + 0۰ 1۱ 2۲ 3۳ 4۴ 5۵ 6۶ 7۷ 8۸ 9۹]"}
+    ExemplarCharactersNumbers{"[\u200E \\- ‑ , ٫ ٬ . % ‰ + 0۰ 1۱ 2۲ 3۳ 4۴ 5۵ 6۶ 7۷ 8۸ 9۹]"}
     ExemplarCharactersPunctuation{"[، ؍ ٫ ٬ ؛ \\: ؟ . ۔ ( ) \\[ \\]]"}
     MoreInformation{"؟"}
     NumberElements{
@@ -242,7 +242,7 @@ ur{
         minimumGroupingDigits{"1"}
         native{"arabext"}
     }
-    Version{"2.1.44.3"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -481,6 +481,53 @@ ur{
                 yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y – y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y – M/y GGGGG"}
+                    y{"M/y – M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, M/d/y GGGGG – E, M/d/y GGGGG"}
+                    M{"E, M/d/y – E, M/d/y GGGGG"}
+                    d{"E, M/d/y – E, M/d/y GGGGG"}
+                    y{"E, M/d/y – E, M/d/y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, MMM d, y G – E, MMM d, y G"}
+                    M{"E, MMM d – E, MMM d, y G"}
+                    d{"E, MMM d – E, MMM d, y G"}
+                    y{"E, MMM d, y – E, MMM d, y G"}
+                }
+                GyMMMd{
+                    G{"MMM d, y G – MMM d, y G"}
+                    M{"MMM d – MMM d, y G"}
+                    d{"MMM d – d, y G"}
+                    y{"MMM d, y – MMM d, y G"}
+                }
+                GyMd{
+                    G{"M/d/y GGGGG – M/d/y GGGGG"}
+                    M{"M/d/y – M/d/y GGGGG"}
+                    d{"M/d/y – M/d/y GGGGG"}
+                    y{"M/d/y – M/d/y GGGGG"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -818,6 +865,53 @@ ur{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y – y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y – M/y GGGGG"}
+                    y{"M/y – M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, M/d/y GGGGG – E, M/d/y GGGGG"}
+                    M{"E, M/d/y – E, M/d/y GGGGG"}
+                    d{"E, M/d/y – E, M/d/y GGGGG"}
+                    y{"E, M/d/y – E, M/d/y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, MMM d, y G – E, MMM d, y G"}
+                    M{"E, MMM d – E, MMM d, y G"}
+                    d{"E, MMM d – E, MMM d, y G"}
+                    y{"E, MMM d, y – E, MMM d, y G"}
+                }
+                GyMMMd{
+                    G{"MMM d, y G – MMM d, y G"}
+                    M{"MMM d – MMM d, y G"}
+                    d{"MMM d – d, y G"}
+                    y{"MMM d, y – MMM d, y G"}
+                }
+                GyMd{
+                    G{"M/d/y GGGGG – M/d/y GGGGG"}
+                    M{"M/d/y – M/d/y GGGGG"}
+                    d{"M/d/y – M/d/y GGGGG"}
+                    y{"M/d/y – M/d/y GGGGG"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1521,7 +1615,7 @@ ur{
                 }
                 past{
                     one{"{0} دن پہلے"}
-                    other{"{0} دنوں پہلے"}
+                    other{"{0} دن پہلے"}
                 }
             }
         }
@@ -1741,8 +1835,8 @@ ur{
         month{
             dn{"مہینہ"}
             relative{
-                "-1"{"پچھلا مہینہ"}
-                "0"{"اس مہینہ"}
+                "-1"{"گزشتہ ماہ"}
+                "0"{"اس ماہ"}
                 "1"{"اگلا مہینہ"}
             }
             relativeTime{
@@ -1758,6 +1852,11 @@ ur{
         }
         month-narrow{
             dn{"ماہ"}
+            relative{
+                "-1"{"گزشتہ ماہ"}
+                "0"{"اس ماہ"}
+                "1"{"اگلے ماہ"}
+            }
             relativeTime{
                 future{
                     one{"{0} ماہ میں"}
@@ -2131,9 +2230,9 @@ ur{
         week{
             dn{"ہفتہ"}
             relative{
-                "-1"{"پچھلے ہفتہ"}
+                "-1"{"گزشتہ ہفتے"}
                 "0"{"اس ہفتہ"}
-                "1"{"اگلے ہفتہ"}
+                "1"{"اگلے ہفتے"}
             }
             relativePeriod{"{0} کے ہفتے"}
             relativeTime{
@@ -2292,6 +2391,10 @@ ur{
             middle{"{0}، {1}"}
             start{"{0}، {1}"}
         }
+        standard-narrow{
+            2{"{0}، {1}"}
+            end{"{0}، {1}"}
+        }
         standard-short{
             2{"{0} اور {1}"}
             end{"{0}، اور {1}"}
@@ -2299,7 +2402,7 @@ ur{
             start{"{0}، {1}"}
         }
         unit{
-            2{"{0} اور {1}"}
+            2{"{0}، {1}"}
             end{"{0}، اور {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
@@ -2318,8 +2421,8 @@ ur{
         }
     }
     measurementSystemNames{
-        UK{"سلطنت متحدہ"}
-        US{"ریاستہائے متحدہ"}
+        UK{"برطانیہ"}
+        US{"ریاست ہائے متحدہ امریکہ"}
         metric{"میٹرک"}
     }
     parse{

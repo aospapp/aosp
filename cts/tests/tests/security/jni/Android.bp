@@ -30,7 +30,23 @@ cc_library {
         "cpufeatures",
         "libcutils",
     ],
+}
+
+cc_library {
+    name: "libcve_2019_2213_jni",
+    srcs: [
+        "android_security_cts_cve_2019_2213_Test.c",
+    ],
+    shared_libs: [
+        "libnativehelper_compat_libc++",
+    ],
+    static_libs: [
+        "cpufeatures",
+        "libcutils",
+    ],
     cflags: [
+        "-Werror",
+        "-Wpointer-arith",
         "-Wno-unused-parameter",
         "-Wno-sign-compare",
         "-Wno-unused-label",

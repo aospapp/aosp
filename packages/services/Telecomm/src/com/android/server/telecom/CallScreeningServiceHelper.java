@@ -21,7 +21,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Handler;
 import android.os.IBinder;
@@ -45,32 +44,39 @@ public class CallScreeningServiceHelper {
     private static final String TAG = CallScreeningServiceHelper.class.getSimpleName();
 
     /**
-     * Abstracts away dependency on the {@link PackageManager} required to fetch the label for an
-     * app.
-     */
-    public interface AppLabelProxy {
-        CharSequence getAppLabel(String packageName);
-    }
-
-    /**
      * Implementation of {@link CallScreeningService} adapter AIDL; provides a means for responses
      * from the call screening service to be handled.
      */
     private class CallScreeningAdapter extends ICallScreeningAdapter.Stub {
+        private ServiceConnection mServiceConnection;
+
+        public CallScreeningAdapter(ServiceConnection connection) {
+            mServiceConnection = connection;
+        }
+
         @Override
         public void allowCall(String s) throws RemoteException {
-            // no-op; we don't allow this on outgoing calls.
+            unbindCallScreeningService();
         }
 
         @Override
         public void silenceCall(String s) throws RemoteException {
-            // no-op; we don't allow this on outgoing calls.
+            unbindCallScreeningService();
+        }
+
+        @Override
+        public void screenCallFurther(String callId) throws RemoteException {
+            unbindCallScreeningService();
         }
 
         @Override
         public void disallowCall(String s, boolean b, boolean b1, boolean b2,
                 ComponentName componentName) throws RemoteException {
-            // no-op; we don't allow this on outgoing calls.
+            unbindCallScreeningService();
+        }
+
+        private void unbindCallScreeningService() {
+            mContext.unbindService(mServiceConnection);
         }
     }
 
@@ -123,7 +129,7 @@ public class CallScreeningServiceHelper {
                 try {
                     try {
                         // Note: for outgoing calls, never include the restricted extras.
-                        screeningService.screenCall(new CallScreeningAdapter(),
+                        screeningService.screenCall(new CallScreeningAdapter(this),
                                 mParcelableCallUtilsConverter.toParcelableCallForScreening(mCall,
                                         false /* areRestrictedExtrasIncluded */));
                     } catch (RemoteException e) {

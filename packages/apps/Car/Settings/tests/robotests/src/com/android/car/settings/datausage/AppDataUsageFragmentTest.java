@@ -25,7 +25,6 @@ import android.os.Bundle;
 import android.text.format.DateUtils;
 import android.util.Pair;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.testutils.FragmentController;
 import com.android.car.settings.testutils.ShadowINetworkStatsServiceStub;
 import com.android.car.settings.testutils.ShadowNetworkPolicyEditor;
@@ -33,10 +32,12 @@ import com.android.car.settings.testutils.ShadowNetworkPolicyManager;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 import java.time.ZonedDateTime;
@@ -44,7 +45,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 /** Unit test for {@link AppDataUsageFragment}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@Ignore
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowNetworkPolicyEditor.class, ShadowNetworkPolicyManager.class,
         ShadowINetworkStatsServiceStub.class})
 public class AppDataUsageFragmentTest {

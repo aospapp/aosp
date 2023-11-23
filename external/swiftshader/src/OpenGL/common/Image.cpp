@@ -436,7 +436,7 @@ namespace gl
 
 	// Returns the size, in bytes, of a single client-side pixel.
     // OpenGL ES 3.0.5 table 3.2.
-	static int ComputePixelSize(GLenum format, GLenum type)
+	GLsizei ComputePixelSize(GLenum format, GLenum type)
 	{
 		switch(format)
 		{
@@ -635,9 +635,12 @@ namespace gl
 
 namespace egl
 {
-	// We assume the data can be indexed with a signed 32-bit offset, including any padding,
-	// so we must keep the image size reasonable. 1 GiB ought to be enough for anybody.
-	enum { IMPLEMENTATION_MAX_IMAGE_SIZE_BYTES = 0x40000000 };
+	// We assume the image data can be indexed with a signed 32-bit offset,
+	// so we must keep the size reasonable. 1 GiB ought to be enough for anybody.
+	// 4 extra bytes account for the padding added in Surface::size().
+	// They are not addressed separately, so can't cause overflow.
+	// TODO(b/145229887): Eliminate or don't hard-code the padding bytes.
+	enum : uint64_t { IMPLEMENTATION_MAX_IMAGE_SIZE_BYTES = 0x40000000u + 4 };
 
 	enum TransferType
 	{
@@ -940,7 +943,10 @@ namespace egl
 
 		for(int x = 0; x < width; x++)
 		{
-			destF[x] = (float)sourceD32[x] / 0xFFFFFFFF;
+			// NOTE: Second (float) cast is required to avoid compiler warning:
+			// error: implicit conversion from 'unsigned int' to 'float' changes value from
+			// 4294967295 to 4294967296 [-Werror,-Wimplicit-int-float-conversion]
+			destF[x] = (float)sourceD32[x] / (float)0xFFFFFFFF;
 		}
 	}
 
@@ -1233,6 +1239,7 @@ namespace egl
 			{
 			case sw::FORMAT_R8:            return GL_R8;
 			case sw::FORMAT_G8R8:          return GL_RG8;
+			case sw::FORMAT_X8R8G8B8:      return GL_RGB8;
 			case sw::FORMAT_A8R8G8B8:      return GL_BGRA8_EXT;
 			case sw::FORMAT_R16UI:         return GL_R16UI;
 			case sw::FORMAT_A16B16G16R16F: return GL_RGBA16F;

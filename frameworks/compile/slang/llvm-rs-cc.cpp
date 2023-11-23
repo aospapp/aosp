@@ -218,6 +218,11 @@ static void LLVMErrorHandler(void *UserData, const std::string &Message,
   exit(1);
 }
 
+// TODO(b/37755219): detect leaks
+extern "C" const char *__asan_default_options() {
+    return "detect_leaks=0";
+}
+
 int main(int argc, const char **argv) {
   llvm::llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
   LLVMInitializeARMTargetInfo();

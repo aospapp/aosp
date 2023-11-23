@@ -87,11 +87,11 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"Kontakter ved nødsituationer"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"Kontaktpersoner ved nødsituationer"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Tilføj kontakt"</string>
-    <string name="fail_load_contact_picker" msgid="817205483833876726">"Der kunne ikke findes en kontaktpersonvælger"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Der blev ikke fundet en kontaktpersonvælger"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Kontaktpersonen kan ikke vises"</string>
-    <string name="remove_contact" msgid="6934983445723096759">"Vil du fjerne <xliff:g id="CONTACT_NAME">%1$s</xliff:g> fra kontakter ved nødsituationer?"</string>
+    <string name="remove_contact" msgid="6934983445723096759">"Vil du fjerne <xliff:g id="CONTACT_NAME">%1$s</xliff:g> fra kontaktpersoner ved nødsituationer?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Fjern kontakt"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"Kontaktoplysningerne kunne ikke læses korrekt"</string>
     <string name="remove" msgid="1243949503772376064">"Fjern"</string>

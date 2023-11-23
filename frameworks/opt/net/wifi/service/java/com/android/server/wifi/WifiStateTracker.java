@@ -16,11 +16,8 @@
 
 package com.android.server.wifi;
 
-import android.os.BatteryStats;
-import android.os.RemoteException;
+import android.os.BatteryStatsManager;
 import android.util.Log;
-
-import com.android.internal.app.IBatteryStats;
 
 import java.util.concurrent.RejectedExecutionException;
 
@@ -36,18 +33,16 @@ public class WifiStateTracker {
     public static final int CONNECTED = 3;
     public static final int SOFT_AP = 4;
     private int mWifiState;
-    private IBatteryStats mBatteryStats;
+    private BatteryStatsManager mBatteryStatsManager;
 
-    public WifiStateTracker(IBatteryStats stats) {
+    public WifiStateTracker(BatteryStatsManager batteryStatsManager) {
         mWifiState = INVALID;
-        mBatteryStats = stats;
+        mBatteryStatsManager = batteryStatsManager;
     }
 
     private void informWifiStateBatteryStats(int state) {
         try {
-            mBatteryStats.noteWifiState(state, null);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Battery stats unreachable " + e.getMessage());
+            mBatteryStatsManager.reportWifiState(state, null);
         } catch (RejectedExecutionException e) {
             Log.e(TAG, "Battery stats executor is being shutdown " + e.getMessage());
         }
@@ -55,24 +50,24 @@ public class WifiStateTracker {
 
     /**
      * Inform the WifiState to this tracker to translate into the
-     * WifiState corresponding to BatteryStats.
+     * WifiState corresponding to BatteryStatsManager.
      * @param state state corresponding to the ClientModeImpl state
      */
     public void updateState(int state) {
-        int reportState = BatteryStats.WIFI_STATE_OFF;
+        int reportState = BatteryStatsManager.WIFI_STATE_OFF;
         if (state != mWifiState) {
             switch(state) {
                 case SCAN_MODE:
-                    reportState = BatteryStats.WIFI_STATE_OFF_SCANNING;
+                    reportState = BatteryStatsManager.WIFI_STATE_OFF_SCANNING;
                     break;
                 case DISCONNECTED:
-                    reportState = BatteryStats.WIFI_STATE_ON_DISCONNECTED;
+                    reportState = BatteryStatsManager.WIFI_STATE_ON_DISCONNECTED;
                     break;
                 case CONNECTED:
-                    reportState = BatteryStats.WIFI_STATE_ON_CONNECTED_STA;
+                    reportState = BatteryStatsManager.WIFI_STATE_ON_CONNECTED_STA;
                     break;
                 case SOFT_AP:
-                    reportState = BatteryStats.WIFI_STATE_SOFT_AP;
+                    reportState = BatteryStatsManager.WIFI_STATE_SOFT_AP;
                     break;
                 case INVALID:
                     mWifiState = INVALID;

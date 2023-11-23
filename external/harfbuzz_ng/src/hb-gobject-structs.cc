@@ -26,6 +26,8 @@
 
 #include "hb.hh"
 
+#ifdef HAVE_GOBJECT
+
 
 /**
  * SECTION:hb-gobject
@@ -64,7 +66,7 @@ hb_gobject_##name##_get_type () \
 }
 
 #define HB_DEFINE_OBJECT_TYPE(name) \
-	HB_DEFINE_BOXED_TYPE (name, hb_##name##_reference, hb_##name##_destroy);
+	HB_DEFINE_BOXED_TYPE (name, hb_##name##_reference, hb_##name##_destroy)
 
 #define HB_DEFINE_VALUE_TYPE(name) \
 	static hb_##name##_t *_hb_##name##_reference (const hb_##name##_t *l) \
@@ -75,7 +77,7 @@ hb_gobject_##name##_get_type () \
 	  return c; \
 	} \
 	static void _hb_##name##_destroy (hb_##name##_t *l) { free (l); } \
-	HB_DEFINE_BOXED_TYPE (name, _hb_##name##_reference, _hb_##name##_destroy);
+	HB_DEFINE_BOXED_TYPE (name, _hb_##name##_reference, _hb_##name##_destroy)
 
 HB_DEFINE_OBJECT_TYPE (buffer)
 HB_DEFINE_OBJECT_TYPE (blob)
@@ -94,3 +96,6 @@ HB_DEFINE_VALUE_TYPE (user_data_key)
 
 HB_DEFINE_VALUE_TYPE (ot_math_glyph_variant)
 HB_DEFINE_VALUE_TYPE (ot_math_glyph_part)
+
+
+#endif

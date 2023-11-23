@@ -246,6 +246,7 @@ public class MpegTsDefaultAudioTrackRenderer extends TrackRenderer implements Me
         mSource.seekToUs(positionUs);
         AUDIO_TRACK.reset();
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            // b/21824483 workaround
             // resetSessionId() will create a new framework AudioTrack instead of reusing old one.
             AUDIO_TRACK.resetSessionId();
         }
@@ -284,6 +285,7 @@ public class MpegTsDefaultAudioTrackRenderer extends TrackRenderer implements Me
                 // Ensure playback stops, after EoS was notified.
                 // Sometimes MediaCodecTrackRenderer does not fetch EoS timely
                 // after EoS was notified here long before.
+                // see b/21909113
                 long diff = SystemClock.elapsedRealtime() - mEndOfStreamMs;
                 if (diff >= KEEP_ALIVE_AFTER_EOS_DURATION_MS && !mIsStopped) {
                     throw new ExoPlaybackException("Much time has elapsed after EoS");
@@ -592,6 +594,7 @@ public class MpegTsDefaultAudioTrackRenderer extends TrackRenderer implements Me
             }
             mCurrentPositionUs = Math.max(mPresentationTimeUs, mCurrentPositionUs);
         } else {
+            // TODO: Remove this workaround when b/22023809 is resolved.
             if (mPreviousPositionUs
                     > audioTrackCurrentPositionUs + BACKWARD_AUDIO_TRACK_MOVE_THRESHOLD_US) {
                 Log.e(

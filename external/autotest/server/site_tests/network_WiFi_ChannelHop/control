@@ -6,6 +6,9 @@ AUTHOR = 'wiley, pstew, quiche'
 TIME = 'SHORT'
 NAME = 'network_WiFi_ChannelHop'
 TEST_TYPE = 'Server'
+ATTRIBUTES = ('suite:wifi_flaky')
+DEPENDENCIES = 'wificell'
+
 DOC = """
 The channel hop test verifies that the DUT, connected to a BSS on one
 channel will successfully re-connect when the AP changes channels on

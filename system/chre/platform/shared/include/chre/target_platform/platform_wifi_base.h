@@ -17,8 +17,8 @@
 #ifndef CHRE_PLATFORM_SHARED_PLATFORM_WIFI_BASE_H_
 #define CHRE_PLATFORM_SHARED_PLATFORM_WIFI_BASE_H_
 
-#include "chre/platform/shared/platform_pal.h"
 #include "chre/pal/wifi.h"
+#include "chre/platform/shared/platform_pal.h"
 
 namespace chre {
 

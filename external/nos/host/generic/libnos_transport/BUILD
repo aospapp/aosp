@@ -1,20 +1,20 @@
 cc_library(
     name = "libnos_transport",
     srcs = [
-        "transport.c",
         "crc16.c",
-        "crc16.h",
+        "transport.c",
     ],
     hdrs = [
+        "crc16.h",
         "include/nos/transport.h",
     ],
     includes = [
-        "./include",
+        "include",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "@nugget_host_generic//:nos_headers",
-        "@nugget_host_generic_libnos_datagram//:libnos_datagram",
+        "//host/generic:nos_headers",
+        "//host/generic/libnos_datagram",
     ],
 )
 
@@ -22,14 +22,15 @@ cc_test(
     name = "libnos_transport_test",
     srcs = [
         "test/test.cpp",
-        "crc16.c",
-        "crc16.h",
     ],
-    copts = ["-fsanitize=address"],
+    copts = [
+        "-fsanitize=address",
+        "-Ihost/generic/libnos_transport",
+    ],
     linkopts = ["-fsanitize=address"],
     deps = [
         ":libnos_transport",
-        "@gtest//:gtest",
-        "@nugget_host_generic//:nos_headers",
+        "//host/generic:nos_headers",
+        "@gtest",
     ],
 )

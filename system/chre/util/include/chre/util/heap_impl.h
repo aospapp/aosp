@@ -27,9 +27,9 @@ namespace chre {
 
 namespace {
 
-template<typename ContainerType, typename CompareFunction>
-void siftUp(ContainerType& container, size_t index,
-            const CompareFunction& compare) {
+template <typename ContainerType, typename CompareFunction>
+void siftUp(ContainerType &container, size_t index,
+            const CompareFunction &compare) {
   CHRE_ASSERT(index < container.size());
   size_t current = index;
   while (current > 0) {
@@ -43,9 +43,9 @@ void siftUp(ContainerType& container, size_t index,
   }
 }
 
-template<typename ContainerType, typename CompareFunction>
-void siftDown(ContainerType& container, size_t index,
-              const CompareFunction& compare) {
+template <typename ContainerType, typename CompareFunction>
+void siftDown(ContainerType &container, size_t index,
+              const CompareFunction &compare) {
   CHRE_ASSERT(index < container.size());
   size_t current = index;
 
@@ -74,16 +74,16 @@ void siftDown(ContainerType& container, size_t index,
 
 }  // namespace
 
-template<typename ContainerType, typename CompareFunction>
-void push_heap(ContainerType& container, const CompareFunction& compare) {
+template <typename ContainerType, typename CompareFunction>
+void push_heap(ContainerType &container, const CompareFunction &compare) {
   CHRE_ASSERT(container.size() > 0);
   if (container.size() > 0) {
     siftUp(container, container.size() - 1, compare);
   }
 }
 
-template<typename ContainerType, typename CompareFunction>
-void pop_heap(ContainerType& container, const CompareFunction& compare) {
+template <typename ContainerType, typename CompareFunction>
+void pop_heap(ContainerType &container, const CompareFunction &compare) {
   CHRE_ASSERT(container.size() > 0);
   if (container.size() > 0) {
     container.swap(0, container.size() - 1);
@@ -91,9 +91,9 @@ void pop_heap(ContainerType& container, const CompareFunction& compare) {
   }
 }
 
-template<typename ContainerType, typename CompareFunction>
-void remove_heap(ContainerType& container, size_t index,
-                 const CompareFunction& compare) {
+template <typename ContainerType, typename CompareFunction>
+void remove_heap(ContainerType &container, size_t index,
+                 const CompareFunction &compare) {
   CHRE_ASSERT(index < container.size());
   container.swap(index, container.size() - 1);
 

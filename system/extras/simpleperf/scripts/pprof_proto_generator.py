@@ -30,8 +30,8 @@ import os
 import os.path
 
 from simpleperf_report_lib import ReportLib
-from utils import Addr2Nearestline, bytes_to_str, extant_dir, find_tool_path, flatten_arg_list
-from utils import log_info, log_exit, str_to_bytes
+from utils import Addr2Nearestline, extant_dir, find_real_dso_path, find_tool_path, flatten_arg_list
+from utils import log_info, log_exit, ReadElf
 try:
     import profile_pb2
 except ImportError:
@@ -40,13 +40,13 @@ except ImportError:
 def load_pprof_profile(filename):
     profile = profile_pb2.Profile()
     with open(filename, "rb") as f:
-        profile.ParseFromString(bytes_to_str(f.read()))
+        profile.ParseFromString(f.read())
     return profile
 
 
 def store_pprof_profile(filename, profile):
     with open(filename, 'wb') as f:
-        f.write(str_to_bytes(profile.SerializeToString()))
+        f.write(profile.SerializeToString())
 
 
 class PprofProfilePrinter(object):
@@ -256,6 +256,8 @@ class PprofProfileGenerator(object):
         kallsyms = 'binary_cache/kallsyms'
         if os.path.isfile(kallsyms):
             self.lib.SetKallsymsFile(kallsyms)
+        if config.get('show_art_frames'):
+            self.lib.ShowArtFrames()
         self.comm_filter = set(config['comm_filters']) if config.get('comm_filters') else None
         if config.get('pid_filters'):
             self.pid_filter = {int(x) for x in config['pid_filters']}
@@ -266,6 +268,7 @@ class PprofProfileGenerator(object):
         else:
             self.tid_filter = None
         self.dso_filter = set(config['dso_filters']) if config.get('dso_filters') else None
+        self.max_chain_length = config['max_chain_length']
         self.profile = profile_pb2.Profile()
         self.profile.string_table.append('')
         self.string_table = {}
@@ -278,6 +281,10 @@ class PprofProfileGenerator(object):
         self.mapping_list = []
         self.function_map = {}
         self.function_list = []
+
+        # Map from dso_name in perf.data to (binary path, build_id).
+        self.binary_map = {}
+        self.read_elf = ReadElf(self.config['ndk_path'])
 
     def gen(self):
         # 1. Process all samples in perf.data, aggregate samples.
@@ -298,9 +305,9 @@ class PprofProfileGenerator(object):
             sample.add_value(sample_type_id, 1)
             sample.add_value(sample_type_id + 1, report_sample.period)
             if self._filter_symbol(symbol):
-                location_id = self.get_location_id(symbol.vaddr_in_file, symbol)
+                location_id = self.get_location_id(report_sample.ip, symbol)
                 sample.add_location_id(location_id)
-            for i in range(callchain.nr):
+            for i in range(max(0, callchain.nr - self.max_chain_length), callchain.nr):
                 entry = callchain.entries[i]
                 if self._filter_symbol(symbol):
                     location_id = self.get_location_id(entry.ip, entry.symbol)
@@ -328,12 +335,12 @@ class PprofProfileGenerator(object):
         if self.comm_filter:
             if sample.thread_comm not in self.comm_filter:
                 return False
-            if self.pid_filter:
-                if sample.pid not in self.pid_filter:
-                    return False
-            if self.tid_filter:
-                if sample.tid not in self.tid_filter:
-                    return False
+        if self.pid_filter:
+            if sample.pid not in self.pid_filter:
+                return False
+        if self.tid_filter:
+            if sample.tid not in self.tid_filter:
+                return False
         return True
 
     def _filter_symbol(self, symbol):
@@ -370,10 +377,10 @@ class PprofProfileGenerator(object):
         return sample_type_id
 
     def get_location_id(self, ip, symbol):
-        mapping_id = self.get_mapping_id(symbol.mapping[0], symbol.dso_name)
+        binary_path, build_id = self.get_binary(symbol.dso_name)
+        mapping_id = self.get_mapping_id(symbol.mapping[0], binary_path, build_id)
         location = Location(mapping_id, ip, symbol.vaddr_in_file)
-        function_id = self.get_function_id(symbol.symbol_name, symbol.dso_name,
-                                           symbol.symbol_addr)
+        function_id = self.get_function_id(symbol.symbol_name, binary_path, symbol.symbol_addr)
         if function_id:
             # Add Line only when it has a valid function id, see http://b/36988814.
             # Default line info only contains the function name
@@ -390,11 +397,8 @@ class PprofProfileGenerator(object):
         self.location_map[location.key] = location
         return location.id
 
-    def get_mapping_id(self, report_mapping, filename):
+    def get_mapping_id(self, report_mapping, filename, build_id):
         filename_id = self.get_string_id(filename)
-        build_id = self.lib.GetBuildIdForPath(filename)
-        if build_id and build_id[0:2] == "0x":
-            build_id = build_id[2:]
         build_id_id = self.get_string_id(build_id)
         mapping = Mapping(report_mapping.start, report_mapping.end,
                           report_mapping.pgoff, filename_id, build_id_id)
@@ -406,6 +410,43 @@ class PprofProfileGenerator(object):
         self.mapping_list.append(mapping)
         self.mapping_map[mapping.key] = mapping
         return mapping.id
+
+    def get_binary(self, dso_name):
+        """ Return (binary_path, build_id) for a given dso_name. """
+        value = self.binary_map.get(dso_name)
+        if value:
+            return value
+
+        binary_path = dso_name
+        build_id = ''
+
+        # The build ids in perf.data are padded to 20 bytes, but pprof needs without padding.
+        # So read build id from the binary in binary_cache, and check it with build id in
+        # perf.data.
+        build_id_in_perf_data = self.lib.GetBuildIdForPath(dso_name)
+        # Try elf_path in binary cache.
+        elf_path = find_real_dso_path(dso_name, self.config['binary_cache_dir'])
+        if elf_path:
+            elf_build_id = self.read_elf.get_build_id(elf_path, False)
+            if build_id_in_perf_data:
+                match = build_id_in_perf_data == self.read_elf.pad_build_id(elf_build_id)
+            else:
+                # odex files generated by ART on Android O don't contain build id.
+                match = not elf_build_id
+            if match:
+                build_id = elf_build_id
+                binary_path = elf_path
+
+        # When there is no matching elf_path, try converting build_id in perf.data.
+        if not build_id and build_id_in_perf_data.startswith('0x'):
+            # Fallback to the way used by TrimZeroesFromBuildIDString() in quipper.
+            build_id = build_id_in_perf_data[2:]  # remove '0x'
+            padding = '0' * 8
+            while build_id.endswith(padding):
+                build_id = build_id[:-len(padding)]
+
+        self.binary_map[dso_name] = (binary_path, build_id)
+        return (binary_path, build_id)
 
     def get_mapping(self, mapping_id):
         return self.mapping_list[mapping_id - 1] if mapping_id > 0 else None
@@ -439,10 +480,12 @@ class PprofProfileGenerator(object):
         if not self.config.get('binary_cache_dir'):
             log_info("Can't generate line information because binary_cache is missing.")
             return
-        if not find_tool_path('addr2line', self.config['ndk_path']):
-            log_info("Can't generate line information because can't find addr2line.")
+        if not find_tool_path('llvm-symbolizer', self.config['ndk_path']):
+            log_info("Can't generate line information because can't find llvm-symbolizer.")
             return
-        addr2line = Addr2Nearestline(self.config['ndk_path'], self.config['binary_cache_dir'], True)
+        # We have changed dso names to paths in binary_cache in self.get_binary(). So no need to
+        # pass binary_cache_dir to addr2line.
+        addr2line = Addr2Nearestline(self.config['ndk_path'], None, True)
 
         # 2. Put all needed addresses to it.
         for location in self.location_list:
@@ -560,7 +603,11 @@ def main():
         Use samples only in threads with selected thread ids.""")
     parser.add_argument('--dso', nargs='+', action='append', help="""
         Use samples only in selected binaries.""")
+    parser.add_argument('--max_chain_length', type=int, default=1000000000, help="""
+        Maximum depth of samples to be converted.""")  # Large value as infinity standin.
     parser.add_argument('--ndk_path', type=extant_dir, help='Set the path of a ndk release.')
+    parser.add_argument('--show_art_frames', action='store_true',
+                        help='Show frames of internal methods in the ART Java interpreter.')
 
     args = parser.parse_args()
     if args.show:
@@ -578,6 +625,8 @@ def main():
     config['tid_filters'] = flatten_arg_list(args.tid)
     config['dso_filters'] = flatten_arg_list(args.dso)
     config['ndk_path'] = args.ndk_path
+    config['show_art_frames'] = args.show_art_frames
+    config['max_chain_length'] = args.max_chain_length
     generator = PprofProfileGenerator(config)
     profile = generator.gen()
     store_pprof_profile(config['output_file'], profile)

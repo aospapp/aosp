@@ -43,13 +43,16 @@ extern "C" {
 	uint32_t rcCreateColorBufferDMA(uint32_t width, uint32_t height, GLenum internalFormat, int frameworkFormat);
 	void rcWaitSyncKHR(uint64_t sync, EGLint flags);
 	GLint rcCompose(uint32_t bufferSize, void* buffer);
-	GLint rcCreateDisplay(uint32_t* displayId);
-	GLint rcDestroyDisplay(uint32_t displayId);
-	GLint rcSetDisplayColorBuffer(uint32_t displayId, uint32_t colorBuffer);
-	GLint rcGetDisplayColorBuffer(uint32_t displayId, uint32_t* colorBuffer);
-	GLint rcGetColorBufferDisplay(uint32_t colorBuffer, uint32_t* displayId);
-	GLint rcGetDisplayPose(uint32_t displayId, uint32_t* x, uint32_t* y, uint32_t* w, uint32_t* h);
-	GLint rcSetDisplayPose(uint32_t displayId, uint32_t x, uint32_t y, uint32_t w, uint32_t h);
+	int rcCreateDisplay(uint32_t* displayId);
+	int rcDestroyDisplay(uint32_t displayId);
+	int rcSetDisplayColorBuffer(uint32_t displayId, uint32_t colorBuffer);
+	int rcGetDisplayColorBuffer(uint32_t displayId, uint32_t* colorBuffer);
+	int rcGetColorBufferDisplay(uint32_t colorBuffer, uint32_t* displayId);
+	int rcGetDisplayPose(uint32_t displayId, GLint* x, GLint* y, uint32_t* w, uint32_t* h);
+	int rcSetDisplayPose(uint32_t displayId, GLint x, GLint y, uint32_t w, uint32_t h);
+	GLint rcSetColorBufferVulkanMode(uint32_t colorBuffer, uint32_t mode);
+	void rcReadColorBufferYUV(uint32_t colorbuffer, GLint x, GLint y, GLint width, GLint height, void* pixels, uint32_t pixels_size);
+	int rcIsSyncSignaled(uint64_t sync);
 };
 
 #ifndef GET_CONTEXT
@@ -286,45 +289,63 @@ GLint rcCompose(uint32_t bufferSize, void* buffer)
 	return ctx->rcCompose(ctx, bufferSize, buffer);
 }
 
-GLint rcCreateDisplay(uint32_t* displayId)
+int rcCreateDisplay(uint32_t* displayId)
 {
 	GET_CONTEXT;
 	return ctx->rcCreateDisplay(ctx, displayId);
 }
 
-GLint rcDestroyDisplay(uint32_t displayId)
+int rcDestroyDisplay(uint32_t displayId)
 {
 	GET_CONTEXT;
 	return ctx->rcDestroyDisplay(ctx, displayId);
 }
 
-GLint rcSetDisplayColorBuffer(uint32_t displayId, uint32_t colorBuffer)
+int rcSetDisplayColorBuffer(uint32_t displayId, uint32_t colorBuffer)
 {
 	GET_CONTEXT;
 	return ctx->rcSetDisplayColorBuffer(ctx, displayId, colorBuffer);
 }
 
-GLint rcGetDisplayColorBuffer(uint32_t displayId, uint32_t* colorBuffer)
+int rcGetDisplayColorBuffer(uint32_t displayId, uint32_t* colorBuffer)
 {
 	GET_CONTEXT;
 	return ctx->rcGetDisplayColorBuffer(ctx, displayId, colorBuffer);
 }
 
-GLint rcGetColorBufferDisplay(uint32_t colorBuffer, uint32_t* displayId)
+int rcGetColorBufferDisplay(uint32_t colorBuffer, uint32_t* displayId)
 {
 	GET_CONTEXT;
 	return ctx->rcGetColorBufferDisplay(ctx, colorBuffer, displayId);
 }
 
-GLint rcGetDisplayPose(uint32_t displayId, uint32_t* x, uint32_t* y, uint32_t* w, uint32_t* h)
+int rcGetDisplayPose(uint32_t displayId, GLint* x, GLint* y, uint32_t* w, uint32_t* h)
 {
 	GET_CONTEXT;
 	return ctx->rcGetDisplayPose(ctx, displayId, x, y, w, h);
 }
 
-GLint rcSetDisplayPose(uint32_t displayId, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+int rcSetDisplayPose(uint32_t displayId, GLint x, GLint y, uint32_t w, uint32_t h)
 {
 	GET_CONTEXT;
 	return ctx->rcSetDisplayPose(ctx, displayId, x, y, w, h);
+}
+
+GLint rcSetColorBufferVulkanMode(uint32_t colorBuffer, uint32_t mode)
+{
+	GET_CONTEXT;
+	return ctx->rcSetColorBufferVulkanMode(ctx, colorBuffer, mode);
+}
+
+void rcReadColorBufferYUV(uint32_t colorbuffer, GLint x, GLint y, GLint width, GLint height, void* pixels, uint32_t pixels_size)
+{
+	GET_CONTEXT;
+	ctx->rcReadColorBufferYUV(ctx, colorbuffer, x, y, width, height, pixels, pixels_size);
+}
+
+int rcIsSyncSignaled(uint64_t sync)
+{
+	GET_CONTEXT;
+	return ctx->rcIsSyncSignaled(ctx, sync);
 }
 

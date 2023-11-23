@@ -13,20 +13,22 @@ _CRAS_TEST_CLIENT = '/usr/bin/cras_test_client'
 
 
 class CrasUtilsError(Exception):
+    """Error in CrasUtils."""
     pass
 
 
-def playback(blocking=True, *args, **kargs):
+def playback(blocking=True, stdin=None, *args, **kargs):
     """A helper function to execute the playback_cmd.
 
     @param blocking: Blocks this call until playback finishes.
+    @param stdin: the standard input of playback process
     @param args: args passed to playback_cmd.
     @param kargs: kargs passed to playback_cmd.
 
     @returns: The process running the playback command. Note that if the
               blocking parameter is true, this will return a finished process.
     """
-    process = cmd_utils.popen(playback_cmd(*args, **kargs))
+    process = cmd_utils.popen(playback_cmd(*args, **kargs), stdin=stdin)
     if blocking:
         cmd_utils.wait_and_check_returncode(process)
     return process
@@ -43,21 +45,24 @@ def capture(*args, **kargs):
 
 
 def playback_cmd(playback_file, block_size=None, duration=None,
-                 channels=2, rate=48000):
+                 pin_device=None, channels=2, rate=48000):
     """Gets a command to playback a file with given settings.
 
     @param playback_file: the name of the file to play. '-' indicates to
                           playback raw audio from the stdin.
+    @param pin_device: the device id to playback on.
     @param block_size: the number of frames per callback(dictates latency).
-    @param duration: seconds to playback
+    @param duration: seconds to playback.
     @param channels: number of channels.
-    @param rate: the sampling rate
+    @param rate: the sampling rate.
 
     @returns: The command args put in a list of strings.
 
     """
     args = [_CRAS_TEST_CLIENT]
     args += ['--playback_file', playback_file]
+    if pin_device is not None:
+        args += ['--pin_device', str(pin_device)]
     if block_size is not None:
         args += ['--block_size', str(block_size)]
     if duration is not None:
@@ -67,11 +72,12 @@ def playback_cmd(playback_file, block_size=None, duration=None,
     return args
 
 
-def capture_cmd(
-        capture_file, block_size=None, duration=10, channels=1, rate=48000):
+def capture_cmd(capture_file, block_size=None, duration=10,
+                pin_device=None, channels=1, rate=48000):
     """Gets a command to capture the audio into the file with given settings.
 
     @param capture_file: the name of file the audio to be stored in.
+    @param pin_device: the device id to record from.
     @param block_size: the number of frames per callback(dictates latency).
     @param duration: seconds to record. If it is None, duration is not set,
                      and command will keep capturing audio until it is
@@ -84,6 +90,8 @@ def capture_cmd(
     """
     args = [_CRAS_TEST_CLIENT]
     args += ['--capture_file', capture_file]
+    if pin_device is not None:
+        args += ['--pin_device', str(pin_device)]
     if block_size is not None:
         args += ['--block_size', str(block_size)]
     if duration is not None:
@@ -178,15 +186,6 @@ def set_node_volume(node_id, volume):
 
     """
     get_cras_control_interface().SetOutputNodeVolume(node_id, volume)
-
-
-def set_capture_gain(gain):
-    """Set the system capture gain.
-
-    @param gain the capture gain in db*100 (100 = 1dB)
-
-    """
-    get_cras_control_interface().SetInputGain(gain)
 
 
 def get_cras_control_interface(private=False):
@@ -313,7 +312,8 @@ CRAS_OUTPUT_NODE_TYPES = ['HEADPHONE', 'INTERNAL_SPEAKER', 'HDMI', 'USB',
                           'BLUETOOTH', 'LINEOUT', 'UNKNOWN']
 CRAS_INPUT_NODE_TYPES = ['MIC', 'INTERNAL_MIC', 'USB', 'BLUETOOTH',
                          'POST_DSP_LOOPBACK', 'POST_MIX_LOOPBACK', 'UNKNOWN',
-                         'KEYBOARD_MIC', 'HOTWORD', 'FRONT_MIC', 'REAR_MIC']
+                         'KEYBOARD_MIC', 'HOTWORD', 'FRONT_MIC', 'REAR_MIC',
+                         'ECHO_REFERENCE']
 CRAS_NODE_TYPES = CRAS_OUTPUT_NODE_TYPES + CRAS_INPUT_NODE_TYPES
 
 
@@ -335,8 +335,8 @@ def get_filtered_node_types(callback):
         if callback(node):
             node_type = str(node['Type'])
             if node_type not in CRAS_NODE_TYPES:
-                raise RuntimeError(
-                        'node type %s is not valid' % node_type)
+                logging.warning('node type %s is not in known CRAS_NODE_TYPES',
+                                node_type)
             if node['IsInput']:
                 input_node_types.append(node_type)
             else:
@@ -373,6 +373,18 @@ def get_selected_input_device_name():
     for node in nodes:
         if node['Active'] and node['IsInput']:
             return node['DeviceName']
+    return None
+
+
+def get_selected_input_device_type():
+    """Returns the device type of the active input node.
+
+    @returns: device type string. E.g. INTERNAL_MICROPHONE
+    """
+    nodes = get_cras_nodes()
+    for node in nodes:
+        if node['Active'] and node['IsInput']:
+            return node['Type']
     return None
 
 
@@ -431,11 +443,11 @@ def set_selected_node_types(output_node_types, input_node_types):
     @param input_node_types: A list of input node types. None to skip setting.
 
     """
-    if len(output_node_types) == 1:
+    if output_node_types is not None and len(output_node_types) == 1:
         set_single_selected_output_node(output_node_types[0])
     elif output_node_types:
         set_selected_output_nodes(output_node_types)
-    if len(input_node_types) == 1:
+    if input_node_types is not None and len(input_node_types) == 1:
         set_single_selected_input_node(input_node_types[0])
     elif input_node_types:
         set_selected_input_nodes(input_node_types)
@@ -589,6 +601,38 @@ def get_node_id_from_node_type(node_type, is_input):
         raise CrasUtilsError(
                 'Can not find unique node id from node type %s' % node_type)
     return find_ids[0]
+
+
+def get_device_id_of(node_id):
+    """Gets the device id of the node id.
+
+    The conversion logic is replicated from the CRAS's type definition at
+    third_party/adhd/cras/src/common/cras_types.h.
+
+    @param node_id: A string for node id.
+
+    @returns: A string for device id.
+
+    @raise: CrasUtilsError: if device id is invalid.
+    """
+    device_id = str(long(node_id) >> 32)
+    if device_id == "0":
+        raise CrasUtilsError('Got invalid device_id: 0')
+    return device_id
+
+
+def get_device_id_from_node_type(node_type, is_input):
+    """Gets device id from node type.
+
+    @param types: A node type defined in CRAS_NODE_TYPES.
+    @param is_input: True if the node is input. False otherwise.
+
+    @returns: A string for device id.
+
+    """
+    node_id = get_node_id_from_node_type(node_type, is_input)
+    return get_device_id_of(node_id)
+
 
 def get_active_node_volume():
     """Returns volume from active node.

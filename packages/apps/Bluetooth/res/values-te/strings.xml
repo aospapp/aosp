@@ -36,7 +36,7 @@
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"అంగీకరిస్తున్నాను"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"సరే"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" పంపిన ఇన్‌కమింగ్ ఫైల్‌ను అంగీకరిస్తున్నప్పుడు గడువు సమయం ముగిసింది"</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ఫైల్ స్వీకరణ"</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ఇన్‌క‌మింగ్‌ ఫైల్"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> <xliff:g id="FILE">%2$s</xliff:g> ఫైల్ పంపడానికి సిద్ధంగా ఉన్నారు"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g>ను స్వీకరిస్తోంది"</string>
     <string name="notification_received" msgid="3324588019186687985">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g> స్వీకరించబడింది"</string>
@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"సరే"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"ఫైల్ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"కి పంపబడలేదు."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ఫైల్: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"మళ్లీ ప్రయత్నించు"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"మూసివేయి"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"సరే"</string>
     <string name="unknown_file" msgid="6092727753965095366">"తెలియని ఫైల్"</string>
@@ -104,7 +103,7 @@
     <string name="opp_notification_group" msgid="3486303082135789982">"బ్లూటూత్ భాగస్వామ్యం"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> స్వీకరించడం పూర్తయింది."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> పంపడం పూర్తయింది."</string>
-    <string name="inbound_history_title" msgid="6940914942271327563">"స్వీకృత బదిలీలు"</string>
+    <string name="inbound_history_title" msgid="6940914942271327563">"ఇన్‌బౌండ్ బదిలీలు"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"అవుట్‌బౌండ్ బదిలీలు"</string>
     <string name="no_transfers" msgid="3482965619151865672">"బదిలీ చరిత్ర ఖాళీగా ఉంది."</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"జాబితా నుండి అన్ని అంశాలు క్లియర్ చేయబడతాయి."</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"బ్లూటూత్ ఆడియో డిస్‌కనెక్ట్ చేయబడింది"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"బ్లూటూత్ ఆడియో"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB కన్నా పెద్ద ఫైళ్లు బదిలీ చేయబడవు"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"బ్లూటూత్‌కు కనెక్ట్ చేయి"</string>
 </resources>

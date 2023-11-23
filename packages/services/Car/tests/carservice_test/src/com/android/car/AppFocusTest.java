@@ -21,8 +21,8 @@ import android.car.Car;
 import android.car.CarAppFocusManager;
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,6 +46,7 @@ public class AppFocusTest extends MockedCarTestBase {
         manager.requestAppFocus(CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, ownershipListener);
         listener.waitForFocusChangeAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
                 CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, true);
+        listener.resetWait();
         manager.abandonAppFocus(ownershipListener, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
         listener.waitForFocusChangeAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
                 CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, false);
@@ -57,7 +58,7 @@ public class AppFocusTest extends MockedCarTestBase {
         private boolean mLastChangeAppActive;
         private final Semaphore mChangeWait = new Semaphore(0);
 
-        public boolean waitForFocusChangeAndAssert(long timeoutMs, int expectedAppType,
+        private boolean waitForFocusChangeAndAssert(long timeoutMs, int expectedAppType,
                 boolean expectedAppActive) throws Exception {
             if (!mChangeWait.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS)) {
                 return false;
@@ -65,6 +66,10 @@ public class AppFocusTest extends MockedCarTestBase {
             assertEquals(expectedAppType, mLastChangeAppType);
             assertEquals(expectedAppActive, mLastChangeAppActive);
             return true;
+        }
+
+        private void resetWait() {
+            mChangeWait.drainPermits();
         }
 
         @Override

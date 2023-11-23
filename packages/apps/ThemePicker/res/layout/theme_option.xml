@@ -62,9 +62,13 @@
             android:layout_height="@dimen/theme_option_font_sample_height"
             android:layout_alignParentBottom="true"
             android:layout_gravity="center_horizontal"
+            android:autoSizeMaxTextSize="@dimen/theme_option_font_text_size"
+            android:autoSizeMinTextSize="@dimen/theme_option_font_min_text_size"
+            android:autoSizeTextType="uniform"
             android:gravity="center"
-            android:textSize="@dimen/theme_option_font_text_size"
             android:letterSpacing=".2"
-            android:text="@string/theme_font_example"/>
+            android:text="@string/theme_font_example"
+            android:textAlignment="center"
+            android:textSize="@dimen/theme_option_font_text_size" />
     </RelativeLayout>
 </LinearLayout>

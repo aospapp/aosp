@@ -17,13 +17,19 @@
 import time
 
 
-def le_scan_for_device_by_name(fd, log, search_name, timeout):
+def le_scan_for_device_by_name(fd,
+                               log,
+                               search_name,
+                               timeout,
+                               partial_match=False):
     """Scan for and returns the first BLE advertisement with the device name.
 
     Args:
         fd: The Fuchsia device to start LE scanning on.
         name: The name to find.
         timeout: How long to scan for.
+        partial_match: Only do a partial match for the LE advertising name.
+          This will return the first result that had a partial match.
 
     Returns:
         The dictionary of device information.
@@ -38,7 +44,7 @@ def le_scan_for_device_by_name(fd, log, search_name, timeout):
         for device in scan_res:
             name, did, connectable = device["name"], device["id"], device[
                 "connectable"]
-            if name == search_name:
+            if name == search_name or (partial_match and search_name in name):
                 log.info("Successfully found advertisement! name, id: {}, {}".
                          format(name, did))
                 found_device = device

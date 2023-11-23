@@ -61,10 +61,6 @@ typedef struct drm_plane_props {
     uint64_t src_w;
     uint64_t src_h;
 
-    uint64_t rotation;
-    uint64_t zorder;
-    uint64_t pre_mult_alpha;
-
     DRMFramebuffer* fb_info;
 } drm_plane_props_t;
 

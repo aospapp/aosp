@@ -26,6 +26,9 @@ public class PermissionUtils {
     private static Boolean sHasAccessAllEpgPermission;
     private static Boolean sHasAccessWatchedHistoryPermission;
     private static Boolean sHasModifyParentalControlsPermission;
+    private static Boolean sHasChangeHdmiCecActiveSource;
+    private static Boolean sHasReadContentRatingSystem;
+
 
     public static boolean hasAccessAllEpg(Context context) {
         if (sHasAccessAllEpgPermission == null) {
@@ -69,5 +72,25 @@ public class PermissionUtils {
     public static boolean hasWriteExternalStorage(Context context) {
         return context.checkSelfPermission("android.permission.WRITE_EXTERNAL_STORAGE")
                 == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public static boolean hasChangeHdmiCecActiveSource(Context context) {
+        if (sHasChangeHdmiCecActiveSource == null) {
+            sHasChangeHdmiCecActiveSource =
+                    context.checkSelfPermission(
+                            "android.permission.CHANGE_HDMI_CEC_ACTIVE_SOURCE")
+                            == PackageManager.PERMISSION_GRANTED;
+        }
+        return sHasChangeHdmiCecActiveSource;
+    }
+
+    public static boolean hasReadContetnRatingSystem(Context context) {
+        if (sHasReadContentRatingSystem == null) {
+            sHasReadContentRatingSystem =
+                    context.checkSelfPermission(
+                            "android.permission.READ_CONTENT_RATING_SYSTEMS")
+                            == PackageManager.PERMISSION_GRANTED;
+        }
+        return sHasReadContentRatingSystem;
     }
 }

@@ -22,14 +22,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.UserInfo;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.MenuItem;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * This screen appears after the last admin on the device tries to delete themselves. (but only if
@@ -41,6 +42,8 @@ import com.android.car.settings.common.SettingsFragment;
  * <p> After new admin has been selected and upgraded, the old Admin is removed.
  */
 public class ChooseNewAdminFragment extends SettingsFragment {
+
+    private MenuItem mCancelButton;
 
     /**
      * Creates a new instance of {@link ChooseNewAdminFragment} that enables the last remaining
@@ -57,15 +60,24 @@ public class ChooseNewAdminFragment extends SettingsFragment {
     }
 
     @Override
-    @XmlRes
-    protected int getPreferenceScreenResId() {
-        return R.xml.choose_new_admin_fragment;
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mCancelButton);
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mCancelButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.cancel)
+                .setOnClickListener(i -> requireActivity().onBackPressed())
+                .build();
+    }
+
+    @Override
+    @XmlRes
+    protected int getPreferenceScreenResId() {
+        return R.xml.choose_new_admin_fragment;
     }
 
     @Override
@@ -75,15 +87,5 @@ public class ChooseNewAdminFragment extends SettingsFragment {
                 Intent.EXTRA_USER);
         use(ChooseNewAdminPreferenceController.class, R.string.pk_choose_new_admin).setAdminInfo(
                 adminInfo);
-    }
-
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-
-        Button cancelBtn = getActivity().findViewById(R.id.action_button1);
-        cancelBtn.setVisibility(View.VISIBLE);
-        cancelBtn.setText(R.string.cancel);
-        cancelBtn.setOnClickListener(v -> getActivity().onBackPressed());
     }
 }

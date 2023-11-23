@@ -41,6 +41,7 @@
 #include "globals.h"
 #include "tests/test_utils.h"
 #include "utils.h"
+#include "ziparchive/zip_writer.h"
 
 using android::base::ReadFully;
 using android::base::unique_fd;
@@ -195,6 +196,7 @@ protected:
     std::unique_ptr<std::string> volume_uuid_;
     std::string package_name_;
     std::string apk_path_;
+    std::string empty_dm_file_;
     std::string app_apk_dir_;
     std::string app_private_dir_ce_;
     std::string app_private_dir_de_;
@@ -239,18 +241,14 @@ protected:
     }
 
     ::testing::AssertionResult create_mock_app() {
-        // Create the oat dir.
-        app_oat_dir_ = app_apk_dir_ + "/oat";
         // For debug mode, the directory might already exist. Avoid erroring out.
         if (mkdir(app_apk_dir_, kSystemUid, kSystemGid, 0755) != 0 && !kDebug) {
             return ::testing::AssertionFailure() << "Could not create app dir " << app_apk_dir_
                                                  << " : " << strerror(errno);
         }
-        binder::Status status = service_->createOatDir(app_oat_dir_, kRuntimeIsa);
-        if (!status.isOk()) {
-            return ::testing::AssertionFailure() << "Could not create oat dir: "
-                                                 << status.toString8().c_str();
-        }
+
+        // Initialize the oat dir path.
+        app_oat_dir_ = app_apk_dir_ + "/oat";
 
         // Copy the primary apk.
         apk_path_ = app_apk_dir_ + "/base.jar";
@@ -260,8 +258,28 @@ protected:
                                                  << " : " << error_msg;
         }
 
+        // Create an empty dm file.
+        empty_dm_file_ = apk_path_ + ".dm";
+        {
+            int fd = open(empty_dm_file_.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+            if (fd < 0) {
+                return ::testing::AssertionFailure() << "Could not open " << empty_dm_file_;
+            }
+            FILE* file = fdopen(fd, "wb");
+            if (file == nullptr) {
+                return ::testing::AssertionFailure() << "Null file for " << empty_dm_file_
+                         << " fd=" << fd;
+            }
+            ZipWriter writer(file);
+            // Add vdex to zip.
+            writer.StartEntry("primary.prof", ZipWriter::kCompress);
+            writer.FinishEntry();
+            writer.Finish();
+            fclose(file);
+          }
+
         // Create the app user data.
-        status = service_->createAppData(
+        binder::Status status = service_->createAppData(
                 volume_uuid_,
                 package_name_,
                 kTestUserId,
@@ -479,7 +497,7 @@ protected:
         bool prof_result;
         ASSERT_BINDER_SUCCESS(service_->prepareAppProfile(
                 package_name_, kTestUserId, kTestAppId, *profile_name_ptr, apk_path_,
-                /*dex_metadata*/ nullptr, &prof_result));
+                dm_path_ptr, &prof_result));
         ASSERT_TRUE(prof_result);
 
         binder::Status result = service_->dexopt(apk_path_,
@@ -625,6 +643,25 @@ TEST_F(DexoptTest, DexoptPrimaryPublic) {
                         DEX2OAT_FROM_SCRATCH);
 }
 
+TEST_F(DexoptTest, DexoptPrimaryPublicCreateOatDir) {
+    LOG(INFO) << "DexoptPrimaryPublic";
+    ASSERT_BINDER_SUCCESS(service_->createOatDir(app_oat_dir_, kRuntimeIsa));
+    CompilePrimaryDexOk("verify",
+                        DEXOPT_BOOTCOMPLETE | DEXOPT_PUBLIC,
+                        app_oat_dir_.c_str(),
+                        kTestAppGid,
+                        DEX2OAT_FROM_SCRATCH);
+}
+
+TEST_F(DexoptTest, DexoptPrimaryPublicRestore) {
+    LOG(INFO) << "DexoptPrimaryPublicRestore";
+    CompilePrimaryDexOk("verify",
+                        DEXOPT_FOR_RESTORE | DEXOPT_BOOTCOMPLETE | DEXOPT_PUBLIC,
+                        app_oat_dir_.c_str(),
+                        kTestAppGid,
+                        DEX2OAT_FROM_SCRATCH);
+}
+
 TEST_F(DexoptTest, DexoptPrimaryFailedInvalidFilter) {
     LOG(INFO) << "DexoptPrimaryFailedInvalidFilter";
     binder::Status status;
@@ -645,7 +682,9 @@ TEST_F(DexoptTest, DexoptPrimaryProfileNonPublic) {
                         DEXOPT_BOOTCOMPLETE | DEXOPT_PROFILE_GUIDED | DEXOPT_GENERATE_APP_IMAGE,
                         app_oat_dir_.c_str(),
                         kTestAppGid,
-                        DEX2OAT_FROM_SCRATCH);
+                        DEX2OAT_FROM_SCRATCH,
+                        /*binder_result=*/nullptr,
+                        empty_dm_file_.c_str());
 }
 
 TEST_F(DexoptTest, DexoptPrimaryProfilePublic) {
@@ -655,7 +694,9 @@ TEST_F(DexoptTest, DexoptPrimaryProfilePublic) {
                                 DEXOPT_GENERATE_APP_IMAGE,
                         app_oat_dir_.c_str(),
                         kTestAppGid,
-                        DEX2OAT_FROM_SCRATCH);
+                        DEX2OAT_FROM_SCRATCH,
+                        /*binder_result=*/nullptr,
+                        empty_dm_file_.c_str());
 }
 
 TEST_F(DexoptTest, DexoptPrimaryBackgroundOk) {
@@ -665,7 +706,9 @@ TEST_F(DexoptTest, DexoptPrimaryBackgroundOk) {
                                 DEXOPT_GENERATE_APP_IMAGE,
                         app_oat_dir_.c_str(),
                         kTestAppGid,
-                        DEX2OAT_FROM_SCRATCH);
+                        DEX2OAT_FROM_SCRATCH,
+                        /*binder_result=*/nullptr,
+                        empty_dm_file_.c_str());
 }
 
 TEST_F(DexoptTest, ResolveStartupConstStrings) {
@@ -684,7 +727,9 @@ TEST_F(DexoptTest, ResolveStartupConstStrings) {
                                 DEXOPT_GENERATE_APP_IMAGE,
                         app_oat_dir_.c_str(),
                         kTestAppGid,
-                        DEX2OAT_FROM_SCRATCH);
+                        DEX2OAT_FROM_SCRATCH,
+                        /*binder_result=*/nullptr,
+                        empty_dm_file_.c_str());
     run_cmd_and_process_output(
             "oatdump --header-only --oat-file=" + odex,
             [&](const std::string& line) {
@@ -701,7 +746,9 @@ TEST_F(DexoptTest, ResolveStartupConstStrings) {
                                 DEXOPT_GENERATE_APP_IMAGE,
                         app_oat_dir_.c_str(),
                         kTestAppGid,
-                        DEX2OAT_FROM_SCRATCH);
+                        DEX2OAT_FROM_SCRATCH,
+                        /*binder_result=*/nullptr,
+                        empty_dm_file_.c_str());
     run_cmd_and_process_output(
             "oatdump --header-only --oat-file=" + odex,
             [&](const std::string& line) {
@@ -710,6 +757,36 @@ TEST_F(DexoptTest, ResolveStartupConstStrings) {
         }
     });
     EXPECT_TRUE(found_enable);
+}
+
+TEST_F(DexoptTest, DexoptDex2oat64Enabled) {
+    LOG(INFO) << "DexoptDex2oat64Enabled";
+    const std::string property = "dalvik.vm.dex2oat64.enabled";
+    const std::string previous_value = android::base::GetProperty(property, "");
+    auto restore_property = android::base::make_scope_guard([=]() {
+        android::base::SetProperty(property, previous_value);
+    });
+    std::string odex = GetPrimaryDexArtifact(app_oat_dir_.c_str(), apk_path_, "odex");
+    // Disable the property and use dex2oat32.
+    ASSERT_TRUE(android::base::SetProperty(property, "false")) << property;
+    CompilePrimaryDexOk("speed-profile",
+                        DEXOPT_IDLE_BACKGROUND_JOB | DEXOPT_PROFILE_GUIDED |
+                                DEXOPT_GENERATE_APP_IMAGE,
+                        app_oat_dir_.c_str(),
+                        kTestAppGid,
+                        DEX2OAT_FROM_SCRATCH,
+                        /*binder_result=*/nullptr,
+                        empty_dm_file_.c_str());
+    // Enable the property and use dex2oat64.
+    ASSERT_TRUE(android::base::SetProperty(property, "true")) << property;
+    CompilePrimaryDexOk("speed-profile",
+                        DEXOPT_IDLE_BACKGROUND_JOB | DEXOPT_PROFILE_GUIDED |
+                                DEXOPT_GENERATE_APP_IMAGE,
+                        app_oat_dir_.c_str(),
+                        kTestAppGid,
+                        DEX2OAT_FROM_SCRATCH,
+                        /*binder_result=*/nullptr,
+                        empty_dm_file_.c_str());
 }
 
 class PrimaryDexReCompilationTest : public DexoptTest {
@@ -859,7 +936,9 @@ class ProfileTest : public DexoptTest {
         std::string expected_profile_content = snap_profile_ + ".expected";
         run_cmd("rm -f " + expected_profile_content);
         run_cmd("touch " + expected_profile_content);
-        run_cmd("profman --profile-file=" + cur_profile_ +
+        // We force merging when creating the expected profile to make sure
+        // that the random profiles do not affect the output.
+        run_cmd("profman --force-merge --profile-file=" + cur_profile_ +
                 " --profile-file=" + ref_profile_ +
                 " --reference-profile-file=" + expected_profile_content +
                 " --apk=" + apk_path_);
@@ -1092,14 +1171,58 @@ TEST_F(ProfileTest, ProfilePrepareFailProfileChangedUid) {
 
 class BootProfileTest : public ProfileTest {
   public:
-    virtual void setup() {
+    std::vector<const std::string> extra_apps_;
+    std::vector<int64_t> extra_ce_data_inodes_;
+
+    virtual void SetUp() {
+
         ProfileTest::SetUp();
         intial_android_profiles_dir = android_profiles_dir;
+        // Generate profiles for some extra apps.
+        // When merging boot profile we split profiles into small groups to avoid
+        // opening a lot of file descriptors at the same time.
+        // (Currently the group size for aggregation is 10)
+        //
+        // To stress test that works fine, create profile for more apps.
+        createAppProfilesForBootMerge(21);
     }
 
     virtual void TearDown() {
         android_profiles_dir = intial_android_profiles_dir;
+        deleteAppProfilesForBootMerge();
         ProfileTest::TearDown();
+    }
+
+    void createAppProfilesForBootMerge(size_t number_of_profiles) {
+        for (size_t i = 0; i < number_of_profiles; i++) {
+            int64_t ce_data_inode;
+            std::string package_name = "dummy_test_pkg" + std::to_string(i);
+            LOG(INFO) << package_name;
+            ASSERT_BINDER_SUCCESS(service_->createAppData(
+                    volume_uuid_,
+                    package_name,
+                    kTestUserId,
+                    kAppDataFlags,
+                    kTestAppUid,
+                    se_info_,
+                    kOSdkVersion,
+                    &ce_data_inode));
+            extra_apps_.push_back(package_name);
+            extra_ce_data_inodes_.push_back(ce_data_inode);
+            std::string profile = create_current_profile_path(
+                    kTestUserId, package_name, kPrimaryProfile, /*is_secondary_dex*/ false);
+            SetupProfile(profile, kTestAppUid, kTestAppGid, 0600, 1);
+        }
+    }
+
+    void deleteAppProfilesForBootMerge() {
+        if (kDebug) {
+            return;
+        }
+        for (size_t i = 0; i < extra_apps_.size(); i++) {
+            service_->destroyAppData(
+                volume_uuid_, extra_apps_[i], kTestUserId, kAppDataFlags, extra_ce_data_inodes_[i]);
+        }
     }
 
     void UpdateAndroidProfilesDir(const std::string& profile_dir) {

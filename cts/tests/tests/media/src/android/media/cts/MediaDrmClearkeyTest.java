@@ -24,9 +24,12 @@ import android.media.MediaFormat;
 import android.media.cts.TestUtils.Monitor;
 import android.net.Uri;
 import android.os.Looper;
+import android.platform.test.annotations.Presubmit;
 import android.util.Base64;
 import android.util.Log;
+
 import android.view.Surface;
+
 import com.android.compatibility.common.util.ApiLevelUtil;
 
 import org.json.JSONArray;
@@ -136,7 +139,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
      *
      * @return size of keyIds vector that contains the key ids, 0 for error
      */
-    private int getKeyIds(byte[] keyRequestBlob, Vector<String> keyIds) {
+    private static int getKeyIds(byte[] keyRequestBlob, Vector<String> keyIds) {
         if (0 == keyRequestBlob.length || keyIds == null)
             return 0;
 
@@ -161,7 +164,8 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
      *
      * @return JSON Web Key string.
      */
-    private String createJsonWebKeySet(Vector<String> keyIds, Vector<String> keys, int keyType) {
+    private static String createJsonWebKeySet(
+            Vector<String> keyIds, Vector<String> keys, int keyType) {
         String jwkSet = "{\"keys\":[";
         for (int i = 0; i < keyIds.size(); ++i) {
             String id = new String(keyIds.get(i).getBytes(Charset.forName("UTF-8")));
@@ -182,8 +186,10 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
     /**
      * Retrieves clear key ids from getKeyRequest(), create JSON Web Key
      * set and send it to the CDM via provideKeyResponse().
+     *
+     * @return key set ID
      */
-    private void getKeys(MediaDrm drm, String initDataType,
+    static byte[] retrieveKeys(MediaDrm drm, String initDataType,
             byte[] sessionId, byte[] drmInitData, int keyType, byte[][] clearKeyIds) {
         MediaDrm.KeyRequest drmRequest = null;
         try {
@@ -195,19 +201,19 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
         if (drmRequest == null) {
             Log.e(TAG, "Failed getKeyRequest");
-            return;
+            return null;
         }
 
         Vector<String> keyIds = new Vector<String>();
         if (0 == getKeyIds(drmRequest.getData(), keyIds)) {
             Log.e(TAG, "No key ids found in initData");
-            return;
+            return null;
         }
 
         if (clearKeyIds.length != keyIds.size()) {
             Log.e(TAG, "Mismatch number of key ids and keys: ids=" +
                     keyIds.size() + ", keys=" + clearKeyIds.length);
-            return;
+            return null;
         }
 
         // Base64 encodes clearkeys. Keys are known to the application.
@@ -223,7 +229,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
 
         try {
             try {
-                mKeySetId = drm.provideKeyResponse(sessionId, jsonResponse);
+                return drm.provideKeyResponse(sessionId, jsonResponse);
             } catch (IllegalStateException e) {
                 Log.e(TAG, "Failed to provide key response: " + e.toString());
             }
@@ -231,6 +237,16 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
             e.printStackTrace();
             Log.e(TAG, "Failed to provide key response: " + e.toString());
         }
+        return null;
+    }
+
+    /**
+     * Retrieves clear key ids from getKeyRequest(), create JSON Web Key
+     * set and send it to the CDM via provideKeyResponse().
+     */
+    private void getKeys(MediaDrm drm, String initDataType,
+            byte[] sessionId, byte[] drmInitData, int keyType, byte[][] clearKeyIds) {
+        mKeySetId = retrieveKeys(drm, initDataType, sessionId, drmInitData, keyType, clearKeyIds);
     }
 
     private @NonNull MediaDrm startDrm(final byte[][] clearKeyIds, final String initDataType,
@@ -415,6 +431,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
     /**
      * Tests KEY_TYPE_RELEASE for offline license.
      */
+    @Presubmit
     public void testReleaseOfflineLicense() throws Exception {
         if (isWatchDevice()) {
             return;
@@ -499,6 +516,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         return true;
     }
 
+    @Presubmit
     public void testQueryKeyStatus() throws Exception {
         if (isWatchDevice()) {
             // skip this test on watch because it calls
@@ -547,6 +565,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
     }
 
+    @Presubmit
     public void testOfflineKeyManagement() throws Exception {
         if (isWatchDevice()) {
             // skip this test on watch because it calls
@@ -634,6 +653,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
     }
 
+    @Presubmit
     public void testClearKeyPlaybackCenc() throws Exception {
         testClearKeyPlayback(
             COMMON_PSSH_SCHEME_UUID,
@@ -646,6 +666,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
             MediaDrm.KEY_TYPE_STREAMING);
     }
 
+    @Presubmit
     public void testClearKeyPlaybackCenc2() throws Exception {
         testClearKeyPlayback(
             CLEARKEY_SCHEME_UUID,
@@ -658,6 +679,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
             MediaDrm.KEY_TYPE_STREAMING);
     }
 
+    @Presubmit
     public void testClearKeyPlaybackOfflineCenc() throws Exception {
         testClearKeyPlayback(
                 CLEARKEY_SCHEME_UUID,
@@ -751,6 +773,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
     }
 
+    @Presubmit
     public void testGetProperties() throws Exception {
         if (watchHasNoClearkeySupport()) {
             return;
@@ -796,6 +819,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
     }
 
+    @Presubmit
     public void testSetProperties() throws Exception {
         if (watchHasNoClearkeySupport()) {
             return;
@@ -876,6 +900,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
 
     private final static int CLEARKEY_MAX_SESSIONS = 10;
 
+    @Presubmit
     public void testGetNumberOfSessions() {
         if (watchHasNoClearkeySupport()) {
             return;
@@ -912,6 +937,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
     }
 
+    @Presubmit
     public void testHdcpLevels() {
         if (watchHasNoClearkeySupport()) {
             return;
@@ -942,6 +968,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
     }
 
+    @Presubmit
     public void testSecurityLevels() {
         if (watchHasNoClearkeySupport()) {
             return;
@@ -996,6 +1023,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
      }
 
+    @Presubmit
     public void testSecureStop() {
         if (watchHasNoClearkeySupport()) {
             return;
@@ -1120,6 +1148,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
      * Expected behavior: throws MediaDrm.SessionException with
      * errorCode ERROR_RESOURCE_CONTENTION
      */
+    @Presubmit
     public void testResourceContentionError() {
 
         if (watchHasNoClearkeySupport()) {
@@ -1161,6 +1190,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
      * Expected behavior: OnSessionLostState is called with
      * the sessionId
      */
+    @Presubmit
     public void testSessionLostStateError() {
 
         if (watchHasNoClearkeySupport()) {
@@ -1204,6 +1234,7 @@ public class MediaDrmClearkeyTest extends MediaCodecPlayerTestBase<MediaStubActi
         }
     }
 
+    @Presubmit
     public void testIsCryptoSchemeSupportedWithSecurityLevel() {
         if (watchHasNoClearkeySupport()) {
             return;

@@ -33,7 +33,8 @@ import android.util.SparseIntArray;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.Clock;
-import com.android.server.wifi.nano.WifiMetricsProto;
+import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.proto.nano.WifiMetricsProto;
 import com.android.server.wifi.util.MetricsUtils;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 
@@ -53,7 +54,7 @@ import java.util.Map;
  * Unit test harness for WifiAwareMetrics
  */
 @SmallTest
-public class WifiAwareMetricsTest {
+public class WifiAwareMetricsTest extends WifiBaseTest {
     @Mock Clock mClock;
     @Mock private Context mMockContext;
     @Mock private AppOpsManager mMockAppOpsManager;
@@ -238,25 +239,25 @@ public class WifiAwareMetricsTest {
 
         // uid1: session 1
         clients.put(10,
-                new WifiAwareClientState(mMockContext, 10, uid1, 0, null, null, null, false,
+                new WifiAwareClientState(mMockContext, 10, uid1, 0, null, null, null, null, false,
                         mClock.getElapsedSinceBootMillis(), mWifiPermissionsUtil));
         mDut.recordAttachSession(uid1, false, clients);
 
         // uid1: session 2
         clients.put(11,
-                new WifiAwareClientState(mMockContext, 11, uid1, 0, null, null, null, false,
+                new WifiAwareClientState(mMockContext, 11, uid1, 0, null, null, null, null, false,
                         mClock.getElapsedSinceBootMillis(), mWifiPermissionsUtil));
         mDut.recordAttachSession(uid1, false, clients);
 
         // uid2: session 1
         clients.put(12,
-                new WifiAwareClientState(mMockContext, 12, uid2, 0, null, null, null, false,
+                new WifiAwareClientState(mMockContext, 12, uid2, 0, null, null, null, null, false,
                         mClock.getElapsedSinceBootMillis(), mWifiPermissionsUtil));
         mDut.recordAttachSession(uid2, false, clients);
 
         // uid2: session 2
         clients.put(13,
-                new WifiAwareClientState(mMockContext, 13, uid2, 0, null, null, null, true,
+                new WifiAwareClientState(mMockContext, 13, uid2, 0, null, null, null, null, true,
                         mClock.getElapsedSinceBootMillis(), mWifiPermissionsUtil));
         mDut.recordAttachSession(uid2, true, clients);
 
@@ -272,7 +273,7 @@ public class WifiAwareMetricsTest {
 
         // uid2: session 3
         clients.put(14,
-                new WifiAwareClientState(mMockContext, 14, uid2, 0, null, null, null, false,
+                new WifiAwareClientState(mMockContext, 14, uid2, 0, null, null, null, null, false,
                         mClock.getElapsedSinceBootMillis(), mWifiPermissionsUtil));
         mDut.recordAttachSession(uid2, false, clients);
 
@@ -291,6 +292,15 @@ public class WifiAwareMetricsTest {
                 log.maxConcurrentAttachSessionsInApp, equalTo(2));
         collector.checkThat("histogramAttachSessionStatus.length",
                 log.histogramAttachSessionStatus.length, equalTo(3)); // 3 buckets
+        validateNanStatusProtoHistBucket("Bucket[SUCCESS]",
+                log.histogramAttachSessionStatus[0],
+                WifiMetricsProto.WifiAwareLog.SUCCESS, 5);
+        validateNanStatusProtoHistBucket("Bucket[INTERNAL_FAILURE]",
+                log.histogramAttachSessionStatus[1],
+                WifiMetricsProto.WifiAwareLog.INTERNAL_FAILURE, 2);
+        validateNanStatusProtoHistBucket("Bucket[UNKNOWN_HAL_STATUS]",
+                log.histogramAttachSessionStatus[2],
+                WifiMetricsProto.WifiAwareLog.UNKNOWN_HAL_STATUS, 1);
         collector.checkThat("histogramAttachDurationMs.length",
                 log.histogramAttachDurationMs.length, equalTo(2));
         validateProtoHistBucket("Duration[0]", log.histogramAttachDurationMs[0], 5, 6, 1);
@@ -307,11 +317,11 @@ public class WifiAwareMetricsTest {
 
         setTime(5);
         WifiAwareClientState client1 = new WifiAwareClientState(mMockContext, 10, uid1, 0, null,
-                null, null, false, 0, mWifiPermissionsUtil);
+                null, null, null, false, 0, mWifiPermissionsUtil);
         WifiAwareClientState client2 = new WifiAwareClientState(mMockContext, 11, uid2, 0, null,
-                null, null, false, 0, mWifiPermissionsUtil);
+                null, null, null, false, 0, mWifiPermissionsUtil);
         WifiAwareClientState client3 = new WifiAwareClientState(mMockContext, 12, uid3, 0, null,
-                null, null, false, 0, mWifiPermissionsUtil);
+                null, null, null, false, 0, mWifiPermissionsUtil);
         clients.put(10, client1);
         clients.put(11, client2);
         clients.put(12, client3);
@@ -403,8 +413,23 @@ public class WifiAwareMetricsTest {
                 log.maxConcurrentDiscoverySessionsInSystem, equalTo(8));
         collector.checkThat("histogramPublishStatus.length",
                 log.histogramPublishStatus.length, equalTo(2)); // 2 buckets
+        validateNanStatusProtoHistBucket("Bucket[SUCCESS]",
+                log.histogramPublishStatus[0],
+                WifiMetricsProto.WifiAwareLog.SUCCESS, 3);
+        validateNanStatusProtoHistBucket("Bucket[INTERNAL_FAILURE]",
+                log.histogramPublishStatus[1],
+                WifiMetricsProto.WifiAwareLog.INTERNAL_FAILURE, 1);
         collector.checkThat("histogramSubscribeStatus.length",
                 log.histogramSubscribeStatus.length, equalTo(3)); // 3 buckets
+        validateNanStatusProtoHistBucket("Bucket[SUCCESS]",
+                log.histogramSubscribeStatus[0],
+                WifiMetricsProto.WifiAwareLog.SUCCESS, 5);
+        validateNanStatusProtoHistBucket("Bucket[INTERNAL_FAILURE]",
+                log.histogramSubscribeStatus[1],
+                WifiMetricsProto.WifiAwareLog.INTERNAL_FAILURE, 1);
+        validateNanStatusProtoHistBucket("Bucket[NO_RESOURCES_AVAILABLE]",
+                log.histogramSubscribeStatus[2],
+                WifiMetricsProto.WifiAwareLog.NO_RESOURCES_AVAILABLE, 1);
         collector.checkThat("numAppsWithDiscoverySessionFailureOutOfResources",
                 log.numAppsWithDiscoverySessionFailureOutOfResources, equalTo(1));
         validateProtoHistBucket("Publish Duration[0]", log.histogramPublishSessionDurationMs[0], 5,
@@ -441,7 +466,9 @@ public class WifiAwareMetricsTest {
     @Test
     public void testDataPathMetrics() {
         final int uid1 = 1005;
+        final String package1 = "com.test1";
         final int uid2 = 1006;
+        final String package2 = "com.test2";
         final String ndi0 = "aware_data0";
         final String ndi1 = "aware_data1";
         Map<WifiAwareNetworkSpecifier, WifiAwareDataPathStateManager.AwareNetworkRequestInformation>
@@ -451,27 +478,29 @@ public class WifiAwareMetricsTest {
         setTime(5);
 
         // uid1: ndp (non-secure) on ndi0
-        addNetworkInfoToCache(networkRequestCache, 10, uid1, ndi0, null);
-        mDut.recordNdpCreation(uid1, networkRequestCache);
+        addNetworkInfoToCache(networkRequestCache, 10, uid1, package1, ndi0, null);
+        mDut.recordNdpCreation(uid1, package1, networkRequestCache);
         setTime(7); // 2ms creation time
         mDut.recordNdpStatus(NanStatusType.SUCCESS, false, 5);
 
         // uid2: ndp (non-secure) on ndi0
-        WifiAwareNetworkSpecifier ns = addNetworkInfoToCache(networkRequestCache, 11, uid2, ndi0,
-                null);
-        mDut.recordNdpCreation(uid2, networkRequestCache);
+        WifiAwareNetworkSpecifier ns = addNetworkInfoToCache(networkRequestCache, 11, uid2,
+                package2, ndi0, null);
+        mDut.recordNdpCreation(uid2, package2, networkRequestCache);
         setTime(10); // 3 ms creation time
         mDut.recordNdpStatus(NanStatusType.SUCCESS, false, 7);
 
         // uid2: ndp (secure) on ndi1 (OOB)
-        addNetworkInfoToCache(networkRequestCache, 12, uid2, ndi1, "passphrase of some kind");
-        mDut.recordNdpCreation(uid2, networkRequestCache);
+        addNetworkInfoToCache(networkRequestCache, 12, uid2, package2, ndi1,
+                "passphrase of some kind");
+        mDut.recordNdpCreation(uid2, package2, networkRequestCache);
         setTime(25); // 15 ms creation time
         mDut.recordNdpStatus(NanStatusType.SUCCESS, true, 10);
 
         // uid2: ndp (secure) on ndi0 (OOB)
-        addNetworkInfoToCache(networkRequestCache, 13, uid2, ndi0, "super secret password");
-        mDut.recordNdpCreation(uid2, networkRequestCache);
+        addNetworkInfoToCache(networkRequestCache, 13, uid2, package2, ndi0,
+                "super secret password");
+        mDut.recordNdpCreation(uid2, package2, networkRequestCache);
         setTime(36); // 11 ms creation time
         mDut.recordNdpStatus(NanStatusType.SUCCESS, true, 25);
 
@@ -479,8 +508,8 @@ public class WifiAwareMetricsTest {
         networkRequestCache.remove(ns);
 
         // uid2: ndp (non-secure) on ndi0
-        addNetworkInfoToCache(networkRequestCache, 14, uid2, ndi0, null);
-        mDut.recordNdpCreation(uid2, networkRequestCache);
+        addNetworkInfoToCache(networkRequestCache, 14, uid2, package2, ndi0, null);
+        mDut.recordNdpCreation(uid2, package2, networkRequestCache);
         setTime(37); // 1 ms creation time!
         mDut.recordNdpStatus(NanStatusType.SUCCESS, false, 36);
 
@@ -510,8 +539,20 @@ public class WifiAwareMetricsTest {
         collector.checkThat("maxConcurrentNdpPerNdi", log.maxConcurrentNdpPerNdi, equalTo(3));
         collector.checkThat("histogramRequestNdpStatus.length",
                 log.histogramRequestNdpStatus.length, equalTo(3));
+        validateNanStatusProtoHistBucket("Bucket[SUCCESS]",
+                log.histogramRequestNdpStatus[0],
+                WifiMetricsProto.WifiAwareLog.SUCCESS, 3);
+        validateNanStatusProtoHistBucket("Bucket[INTERNAL_FAILURE]",
+                log.histogramRequestNdpStatus[1],
+                WifiMetricsProto.WifiAwareLog.INTERNAL_FAILURE, 2);
+        validateNanStatusProtoHistBucket("Bucket[UNKNOWN_HAL_STATUS]",
+                log.histogramRequestNdpStatus[2],
+                WifiMetricsProto.WifiAwareLog.NO_RESOURCES_AVAILABLE, 1);
         collector.checkThat("histogramRequestNdpOobStatus.length",
                 log.histogramRequestNdpOobStatus.length, equalTo(1));
+        validateNanStatusProtoHistBucket("Bucket[SUCCESS]",
+                log.histogramRequestNdpOobStatus[0],
+                WifiMetricsProto.WifiAwareLog.SUCCESS, 2);
 
         collector.checkThat("ndpCreationTimeMsMin", log.ndpCreationTimeMsMin, equalTo(1L));
         collector.checkThat("ndpCreationTimeMsMax", log.ndpCreationTimeMsMax, equalTo(15L));
@@ -633,14 +674,15 @@ public class WifiAwareMetricsTest {
     private WifiAwareNetworkSpecifier addNetworkInfoToCache(
             Map<WifiAwareNetworkSpecifier, WifiAwareDataPathStateManager
                     .AwareNetworkRequestInformation> networkRequestCache,
-            int index, int uid, String interfaceName, String passphrase) {
+            int index, int uid, String packageName, String interfaceName, String passphrase) {
         WifiAwareNetworkSpecifier ns = new WifiAwareNetworkSpecifier(0, 0, 0, index, 0, null, null,
-                passphrase, 0, 0, 0);
+                passphrase, 0, 0);
         WifiAwareDataPathStateManager.AwareNetworkRequestInformation anri =
                 new WifiAwareDataPathStateManager.AwareNetworkRequestInformation();
         anri.networkSpecifier = ns;
         anri.state = WifiAwareDataPathStateManager.AwareNetworkRequestInformation.STATE_CONFIRMED;
         anri.uid = uid;
+        anri.packageName = packageName;
         anri.interfaceName = interfaceName;
 
         networkRequestCache.put(ns, anri);

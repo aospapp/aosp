@@ -163,7 +163,7 @@ int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, s
   } else if (protocol == IPPROTO_UDP) {
     iov_len =
       udp_packet(out, pos + 2, (const struct udphdr *)next_header, old_sum, new_sum, len_left);
-  } else if (protocol == IPPROTO_GRE) {
+  } else if (protocol == IPPROTO_GRE || protocol == IPPROTO_ESP) {
     iov_len = generic_packet(out, pos + 2, next_header, len_left);
   } else {
 #if CLAT_DEBUG

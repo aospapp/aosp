@@ -110,9 +110,9 @@ class VirtualContainerView extends View {
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         wm.getDefaultDisplay().getMetrics(metrics);
-        mTopMargin = metrics.heightPixels * 5 / 100;
-        mLeftMargin = metrics.widthPixels * 5 / 100;
-        mTextHeight = metrics.widthPixels * 5 / 100; // adjust text size with display width
+        mTopMargin = metrics.heightPixels * 3 / 100;
+        mLeftMargin = metrics.widthPixels * 3 / 100;
+        mTextHeight = metrics.widthPixels * 3 / 100; // adjust text size with display width
         mVerticalGap = metrics.heightPixels / 100;
 
         mLineLength = mTextHeight + mVerticalGap;

@@ -36,7 +36,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "private/bionic_page.h"
+#include "platform/bionic/page.h"
 #include "linked_list.h"
 #include "linker_common_types.h"
 #include "linker_logger.h"
@@ -49,20 +49,6 @@
 #define ELFW(what) ELF64_ ## what
 #else
 #define ELFW(what) ELF32_ ## what
-#endif
-
-// mips64 interprets Elf64_Rel structures' r_info field differently.
-// bionic (like other C libraries) has macros that assume regular ELF files,
-// but the dynamic linker needs to be able to load mips64 ELF files.
-#if defined(__mips__) && defined(__LP64__)
-#undef ELF64_R_SYM
-#undef ELF64_R_TYPE
-#undef ELF64_R_INFO
-#define ELF64_R_SYM(info)   (((info) >> 0) & 0xffffffff)
-#define ELF64_R_SSYM(info)  (((info) >> 32) & 0xff)
-#define ELF64_R_TYPE3(info) (((info) >> 40) & 0xff)
-#define ELF64_R_TYPE2(info) (((info) >> 48) & 0xff)
-#define ELF64_R_TYPE(info)  (((info) >> 56) & 0xff)
 #endif
 
 #define SUPPORTED_DT_FLAGS_1 (DF_1_NOW | DF_1_GLOBAL | DF_1_NODELETE | DF_1_PIE)
@@ -85,21 +71,7 @@ class VersionTracker {
   DISALLOW_COPY_AND_ASSIGN(VersionTracker);
 };
 
-bool soinfo_do_lookup(soinfo* si_from, const char* name, const version_info* vi,
-                      soinfo** si_found_in, const soinfo_list_t& global_group,
-                      const soinfo_list_t& local_group, const ElfW(Sym)** symbol);
-
-enum RelocationKind {
-  kRelocAbsolute = 0,
-  kRelocRelative,
-  kRelocCopy,
-  kRelocSymbol,
-  kRelocMax
-};
-
-void count_relocation(RelocationKind kind);
-
-soinfo* get_libdl_info(const char* linker_path, const soinfo& linker_si);
+soinfo* get_libdl_info(const soinfo& linker_si);
 
 soinfo* find_containing_library(const void* p);
 
@@ -162,6 +134,13 @@ enum {
    */
   ANDROID_NAMESPACE_TYPE_GREYLIST_ENABLED = 0x08000000,
 
+  /* This flag instructs linker to use this namespace as the anonymous
+   * namespace. There can be only one anonymous namespace in a process. If there
+   * already an anonymous namespace in the process, using this flag when
+   * creating a new namespace causes an error
+   */
+  ANDROID_NAMESPACE_TYPE_ALSO_USED_AS_ANONYMOUS = 0x10000000,
+
   ANDROID_NAMESPACE_TYPE_SHARED_ISOLATED = ANDROID_NAMESPACE_TYPE_SHARED |
                                            ANDROID_NAMESPACE_TYPE_ISOLATED,
 };
@@ -194,3 +173,7 @@ struct address_space_params {
   size_t reserved_size = 0;
   bool must_use_address = false;
 };
+
+int get_application_target_sdk_version();
+ElfW(Versym) find_verdef_version_index(const soinfo* si, const version_info* vi);
+bool validate_verdef_section(const soinfo* si);

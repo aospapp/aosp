@@ -28,6 +28,7 @@
 #include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
 #include "vkCmdUtil.hpp"
+#include "vkTypeUtil.hpp"
 #include "tcuTextureUtil.hpp"
 #include "tcuAstcUtil.hpp"
 #include "deRandom.hpp"
@@ -242,6 +243,142 @@ de::MovePtr<tcu::TextureLevel> readColorAttachment (const vk::DeviceInterface&	v
 	// Read buffer data
 	invalidateAlloc(vk, device, *bufferAlloc);
 	tcu::copy(*resultLevel, tcu::ConstPixelBufferAccess(resultLevel->getFormat(), resultLevel->getSize(), bufferAlloc->getHostPtr()));
+
+	return resultLevel;
+}
+
+de::MovePtr<tcu::TextureLevel> readDepthAttachment (const vk::DeviceInterface&	vk,
+													vk::VkDevice				device,
+													vk::VkQueue					queue,
+													deUint32					queueFamilyIndex,
+													vk::Allocator&				allocator,
+													vk::VkImage					image,
+													vk::VkFormat				format,
+													const tcu::UVec2&			renderSize,
+													vk::VkImageLayout			currentLayout)
+{
+	Move<VkBuffer>					buffer;
+	de::MovePtr<Allocation>			bufferAlloc;
+	Move<VkCommandPool>				cmdPool;
+	Move<VkCommandBuffer>			cmdBuffer;
+
+	tcu::TextureFormat				retFormat		(tcu::TextureFormat::D, tcu::TextureFormat::CHANNELTYPE_LAST);
+	tcu::TextureFormat				bufferFormat	(tcu::TextureFormat::D, tcu::TextureFormat::CHANNELTYPE_LAST);
+	const VkImageAspectFlags		barrierAspect	= VK_IMAGE_ASPECT_DEPTH_BIT | (mapVkFormat(format).order == tcu::TextureFormat::DS ? VK_IMAGE_ASPECT_STENCIL_BIT : (VkImageAspectFlagBits)0);
+
+	switch (format)
+	{
+	case vk::VK_FORMAT_D16_UNORM:
+	case vk::VK_FORMAT_D16_UNORM_S8_UINT:
+		bufferFormat.type = retFormat.type = tcu::TextureFormat::UNORM_INT16;
+		break;
+	case vk::VK_FORMAT_D24_UNORM_S8_UINT:
+	case vk::VK_FORMAT_X8_D24_UNORM_PACK32:
+		retFormat.type = tcu::TextureFormat::UNORM_INT24;
+		// vkCmdCopyBufferToImage copies D24 data to 32-bit pixels.
+		bufferFormat.type = tcu::TextureFormat::UNSIGNED_INT_24_8_REV;
+		break;
+	case vk::VK_FORMAT_D32_SFLOAT:
+	case vk::VK_FORMAT_D32_SFLOAT_S8_UINT:
+		bufferFormat.type = retFormat.type = tcu::TextureFormat::FLOAT;
+		break;
+	default:
+		TCU_FAIL("unrecognized format");
+	}
+
+	const VkDeviceSize				pixelDataSize	= renderSize.x() * renderSize.y() * bufferFormat.getPixelSize();
+	de::MovePtr<tcu::TextureLevel>	resultLevel		(new tcu::TextureLevel(retFormat, renderSize.x(), renderSize.y()));
+
+	// Create destination buffer
+	{
+		const VkBufferCreateInfo bufferParams =
+		{
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,		// VkStructureType		sType;
+			DE_NULL,									// const void*			pNext;
+			0u,											// VkBufferCreateFlags	flags;
+			pixelDataSize,								// VkDeviceSize			size;
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT,			// VkBufferUsageFlags	usage;
+			VK_SHARING_MODE_EXCLUSIVE,					// VkSharingMode		sharingMode;
+			0u,											// deUint32				queueFamilyIndexCount;
+			DE_NULL										// const deUint32*		pQueueFamilyIndices;
+		};
+
+		buffer		= createBuffer(vk, device, &bufferParams);
+		bufferAlloc = allocator.allocate(getBufferMemoryRequirements(vk, device, *buffer), MemoryRequirement::HostVisible);
+		VK_CHECK(vk.bindBufferMemory(device, *buffer, bufferAlloc->getMemory(), bufferAlloc->getOffset()));
+	}
+
+	// Create command pool and buffer
+	cmdPool		= createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+	cmdBuffer	= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+	beginCommandBuffer(vk, *cmdBuffer);
+	copyImageToBuffer(vk, *cmdBuffer, image, *buffer, tcu::IVec2(renderSize.x(), renderSize.y()), VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, currentLayout, 1u, barrierAspect, VK_IMAGE_ASPECT_DEPTH_BIT);
+	endCommandBuffer(vk, *cmdBuffer);
+
+	submitCommandsAndWait(vk, device, queue, cmdBuffer.get());
+
+	// Read buffer data
+	invalidateAlloc(vk, device, *bufferAlloc);
+	tcu::copy(*resultLevel, tcu::ConstPixelBufferAccess(bufferFormat, resultLevel->getSize(), bufferAlloc->getHostPtr()));
+
+	return resultLevel;
+}
+
+de::MovePtr<tcu::TextureLevel> readStencilAttachment (const vk::DeviceInterface&	vk,
+													  vk::VkDevice					device,
+													  vk::VkQueue					queue,
+													  deUint32						queueFamilyIndex,
+													  vk::Allocator&				allocator,
+													  vk::VkImage					image,
+													  vk::VkFormat					format,
+													  const tcu::UVec2&				renderSize,
+													  vk::VkImageLayout				currentLayout)
+{
+	Move<VkBuffer>					buffer;
+	de::MovePtr<Allocation>			bufferAlloc;
+	Move<VkCommandPool>				cmdPool;
+	Move<VkCommandBuffer>			cmdBuffer;
+
+	tcu::TextureFormat				retFormat		(tcu::TextureFormat::S, tcu::TextureFormat::UNSIGNED_INT8);
+	tcu::TextureFormat				bufferFormat	(tcu::TextureFormat::S, tcu::TextureFormat::UNSIGNED_INT8);
+
+	const VkImageAspectFlags		barrierAspect	= VK_IMAGE_ASPECT_STENCIL_BIT | (mapVkFormat(format).order == tcu::TextureFormat::DS ? VK_IMAGE_ASPECT_DEPTH_BIT : (VkImageAspectFlagBits)0);
+	const VkDeviceSize				pixelDataSize	= renderSize.x() * renderSize.y() * bufferFormat.getPixelSize();
+	de::MovePtr<tcu::TextureLevel>	resultLevel		(new tcu::TextureLevel(retFormat, renderSize.x(), renderSize.y()));
+
+	// Create destination buffer
+	{
+		const VkBufferCreateInfo bufferParams =
+		{
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,		// VkStructureType		sType;
+			DE_NULL,									// const void*			pNext;
+			0u,											// VkBufferCreateFlags	flags;
+			pixelDataSize,								// VkDeviceSize			size;
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT,			// VkBufferUsageFlags	usage;
+			VK_SHARING_MODE_EXCLUSIVE,					// VkSharingMode		sharingMode;
+			0u,											// deUint32				queueFamilyIndexCount;
+			DE_NULL										// const deUint32*		pQueueFamilyIndices;
+		};
+
+		buffer		= createBuffer(vk, device, &bufferParams);
+		bufferAlloc = allocator.allocate(getBufferMemoryRequirements(vk, device, *buffer), MemoryRequirement::HostVisible);
+		VK_CHECK(vk.bindBufferMemory(device, *buffer, bufferAlloc->getMemory(), bufferAlloc->getOffset()));
+	}
+
+	// Create command pool and buffer
+	cmdPool		= createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+	cmdBuffer	= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+	beginCommandBuffer(vk, *cmdBuffer);
+	copyImageToBuffer(vk, *cmdBuffer, image, *buffer, tcu::IVec2(renderSize.x(), renderSize.y()), VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, currentLayout, 1u, barrierAspect, VK_IMAGE_ASPECT_STENCIL_BIT);
+	endCommandBuffer(vk, *cmdBuffer);
+
+	submitCommandsAndWait(vk, device, queue, cmdBuffer.get());
+
+	// Read buffer data
+	invalidateAlloc(vk, device, *bufferAlloc);
+	tcu::copy(*resultLevel, tcu::ConstPixelBufferAccess(bufferFormat, resultLevel->getSize(), bufferAlloc->getHostPtr()));
 
 	return resultLevel;
 }
@@ -1042,7 +1179,7 @@ de::MovePtr<TestTexture> TestTexture2D::copy(const tcu::TextureFormat format) co
 {
 	DE_ASSERT(!isCompressed());
 
-	de::MovePtr<TestTexture>	texture	(new TestTexture2D(format, m_texture.getWidth(), m_texture.getHeight()));
+	de::MovePtr<TestTexture>	texture	(new TestTexture2D(format, m_texture.getWidth(), m_texture.getHeight(), m_texture.getNumLevels()));
 
 	copyToTexture(*texture);
 

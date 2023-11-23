@@ -17,7 +17,7 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -918,10 +918,10 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       tag;
 
     const char
-      *description;
+      description[36];
   } TagInfo;
 
-  static TagInfo
+  static const TagInfo
     EXIFTag[] =
     {
       {  0x001, "exif:InteroperabilityIndex" },
@@ -1220,7 +1220,7 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       { 0x1001d, "exif:GPSDateStamp" },
       { 0x1001e, "exif:GPSDifferential" },
       { 0x1001f, "exif:GPSHPositioningError" },
-      { 0x00000, (const char *) NULL }
+      { 0x00000, "" }
     };  /* http://www.cipa.jp/std/documents/e/DC-008-Translation-2016-E.pdf */
 
   const StringInfo
@@ -1444,6 +1444,8 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       format=(size_t) ReadPropertyUnsignedShort(endian,q+2);
       if (format >= (sizeof(tag_bytes)/sizeof(*tag_bytes)))
         break;
+      if (format == 0)
+        break;  /* corrupt EXIF */
       components=(ssize_t) ReadPropertySignedLong(endian,q+4);
       if (components < 0)
         break;  /* corrupt EXIF */
@@ -1475,6 +1477,8 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
             buffer[MagickPathExtent],
             *value;
 
+          if ((p < exif) || (p > (exif+length-tag_bytes[format])))
+            break;
           value=(char *) NULL;
           *buffer='\0';
           switch (format)
@@ -1536,9 +1540,11 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
               EXIFMultipleValues(8,"%f",*(double *) p1);
               break;
             }
-            default:
             case EXIF_FMT_STRING:
+            default:
             {
+              if ((p < exif) || (p > (exif+length-number_bytes)))
+                break;
               value=(char *) NULL;
               if (~((size_t) number_bytes) >= 1)
                 value=(char *) AcquireQuantumMemory((size_t) number_bytes+1UL,
@@ -1634,11 +1640,19 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
                 directory_stack[level].entry=entry;
                 directory_stack[level].offset=tag_offset;
                 level++;
+                /*
+                  Check for duplicate tag.
+                */
+                for (i=0; i < level; i++)
+                  if (directory_stack[i].directory == (exif+tag_offset1))
+                    break;
+                if (i < level)
+                  break;  /* duplicate tag */
                 directory_stack[level].directory=exif+tag_offset1;
                 directory_stack[level].offset=tag_offset2;
                 directory_stack[level].entry=0;
                 level++;
-                if ((directory+2+(12*number_entries)) > (exif+length))
+                if ((directory+2+(12*number_entries)+4) > (exif+length))
                   break;
                 tag_offset1=(ssize_t) ReadPropertySignedLong(endian,directory+
                   2+(12*number_entries));
@@ -2057,6 +2071,22 @@ static char *TracePSClippath(const unsigned char *blob,size_t length)
   return(path);
 }
 
+static inline void TraceBezierCurve(char *message,PointInfo *last,
+  PointInfo *point)
+{
+  /*
+    Handle special cases when Bezier curves are used to describe
+    corners and straight lines.
+  */
+  if (((last+1)->x == (last+2)->x) && ((last+1)->y == (last+2)->y) &&
+      (point->x == (point+1)->x) && (point->y == (point+1)->y))
+    (void) FormatLocaleString(message,MagickPathExtent,
+      "L %g %g\n",point[1].x,point[1].y);
+  else
+    (void) FormatLocaleString(message,MagickPathExtent,"C %g %g %g %g %g %g\n",
+      (last+2)->x,(last+2)->y,point->x,point->y,(point+1)->x,(point+1)->y);
+}
+
 static char *TraceSVGClippath(const unsigned char *blob,size_t length,
   const size_t columns,const size_t rows)
 {
@@ -2167,18 +2197,7 @@ static char *TraceSVGClippath(const unsigned char *blob,size_t length,
           }
         else
           {
-            /*
-              Handle special cases when Bezier curves are used to describe
-              corners and straight lines.
-            */
-            if (((last[1].x == last[2].x) || (last[1].y == last[2].y)) &&
-                (point[0].x == point[1].x) && (point[0].y == point[1].y))
-              (void) FormatLocaleString(message,MagickPathExtent,
-                "L %g %g\n",point[1].x,point[1].y);
-            else
-              (void) FormatLocaleString(message,MagickPathExtent,
-                "C %g %g %g %g %g %g\n",last[2].x,last[2].y,point[0].x,
-                point[0].y,point[1].x,point[1].y);
+            TraceBezierCurve(message,last,point);
             for (i=0; i < 3; i++)
               last[i]=point[i];
           }
@@ -2190,19 +2209,7 @@ static char *TraceSVGClippath(const unsigned char *blob,size_t length,
         */
         if (knot_count == 0)
           {
-           /*
-              Same special handling as above except we compare to the
-              first point in the path and close the path.
-            */
-            if (((last[1].x == last[2].x) || (last[1].y == last[2].y)) &&
-                (first[0].x == first[1].x) && (first[0].y == first[1].y))
-              (void) FormatLocaleString(message,MagickPathExtent,
-                "L %g %g Z\n",first[1].x,first[1].y);
-            else
-              (void) FormatLocaleString(message,MagickPathExtent,
-                "C %g %g %g %g %g %g Z\n",last[2].x,last[2].y,first[0].x,
-                first[0].y,first[1].x,first[1].y);
-            (void) ConcatenateString(&path,message);
+            TraceBezierCurve(message,last,first);
             in_subpath=MagickFalse;
           }
         break;
@@ -2229,27 +2236,43 @@ static char *TraceSVGClippath(const unsigned char *blob,size_t length,
 MagickExport const char *GetImageProperty(const Image *image,
   const char *property,ExceptionInfo *exception)
 {
+  MagickBooleanType
+    read_from_properties;
+
   register const char
     *p;
+
+  size_t
+    property_length;
 
   assert(image != (Image *) NULL);
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
-  p=(const char *) NULL;
-  if (image->properties != (void *) NULL)
+  if ((property == (const char *) NULL) || (*property == '\0'))
+    return((const char *) NULL);
+  read_from_properties=MagickTrue;
+  property_length=strlen(property);
+  if (property_length > 2 && (*(property+(property_length-2)) == ':') &&
+      (*(property+(property_length-1)) == '*'))
+    read_from_properties=MagickFalse;
+  if (read_from_properties != MagickFalse)
     {
-      if (property == (const char *) NULL)
-        return((const char *) GetRootValueFromSplayTree((SplayTreeInfo *)
-          image->properties));
-      p=(const char *) GetValueFromSplayTree((SplayTreeInfo *)
-        image->properties,property);
-      if (p != (const char *) NULL)
+      p=(const char *) NULL;
+      if (image->properties != (void *) NULL)
+        {
+          if (property == (const char *) NULL)
+            return((const char *) GetRootValueFromSplayTree((SplayTreeInfo *)
+              image->properties));
+          p=(const char *) GetValueFromSplayTree((SplayTreeInfo *)
+            image->properties,property);
+          if (p != (const char *) NULL)
+            return(p);
+        }
+      if ((property == (const char *) NULL) ||
+          (strchr(property,':') == (char *) NULL))
         return(p);
     }
-  if ((property == (const char *) NULL) ||
-      (strchr(property,':') == (char *) NULL))
-    return(p);
   switch (*property)
   {
     case '8':
@@ -2300,7 +2323,8 @@ MagickExport const char *GetImageProperty(const Image *image,
     default:
       break;
   }
-  if (image->properties != (void *) NULL)
+  if ((image->properties != (void *) NULL) &&
+      (read_from_properties != MagickFalse))
     {
       p=(const char *) GetValueFromSplayTree((SplayTreeInfo *)
         image->properties,property);
@@ -4508,6 +4532,17 @@ MagickExport MagickBooleanType SetImageProperty(Image *image,
           geometry=GetPageGeometry(value);
           flags=ParseAbsoluteGeometry(geometry,&image->tile_offset);
           geometry=DestroyString(geometry);
+          return(MagickTrue);
+        }
+      if (LocaleCompare("type",property) == 0)
+        {
+          ssize_t
+            type;
+
+          type=ParseCommandOption(MagickTypeOptions,MagickFalse,value);
+          if (type < 0)
+            return(MagickFalse);
+          image->type=(ImageType) type;
           return(MagickTrue);
         }
       break; /* not an attribute, add as a property */

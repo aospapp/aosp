@@ -183,7 +183,7 @@ uz{
         MF{"Sent-Martin"}
         MG{"Madagaskar"}
         MH{"Marshall orollari"}
-        MK{"Makedoniya (SYRM)"}
+        MK{"Shimoliy Makedoniya"}
         ML{"Mali"}
         MM{"Myanma (Birma)"}
         MN{"Mongoliya"}
@@ -287,6 +287,8 @@ uz{
         VU{"Vanuatu"}
         WF{"Uollis va Futuna"}
         WS{"Samoa"}
+        XA{"Qalbaki urg‘u"}
+        XB{"Qalbaki Bidi"}
         XK{"Kosovo"}
         YE{"Yaman"}
         YT{"Mayotta"}
@@ -305,7 +307,8 @@ uz{
         CG{"Kongo (Respublika)"}
         CI{"Fil suyagi qirg‘og‘i"}
         CZ{"Chexiya Respublikasi"}
+        SZ{"Svazilend"}
         TL{"Sharqiy Timor"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
 }

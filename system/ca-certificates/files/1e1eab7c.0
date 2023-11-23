@@ -25,7 +25,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1 (0x1)
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=DE, O=T-Systems Enterprise Services GmbH, OU=T-Systems Trust Center, CN=T-TeleSec GlobalRoot Class 3
         Validity
             Not Before: Oct  1 10:29:56 2008 GMT
@@ -33,7 +33,7 @@ Certificate:
         Subject: C=DE, O=T-Systems Enterprise Services GmbH, OU=T-Systems Trust Center, CN=T-TeleSec GlobalRoot Class 3
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:bd:75:93:f0:62:22:6f:24:ae:e0:7a:76:ac:7d:
                     bd:d9:24:d5:b8:b7:fc:cd:f0:42:e0:eb:78:88:56:

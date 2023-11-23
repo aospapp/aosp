@@ -1,0 +1,84 @@
+# ==============================================
+# MTK Policy Rule
+# ============
+
+# Data : WK14.42
+# Operation : Migration
+# Purpose : Video playback
+allow surfaceflinger sw_sync_device:chr_file { rw_file_perms };
+allow surfaceflinger debug_prop:property_service set;
+
+# Date : WK16.33
+# Purpose: Allow to access ged for gralloc_extra functions
+allow surfaceflinger proc_ged:file rw_file_perms;
+allowxperm surfaceflinger proc_ged:file ioctl { proc_ged_ioctls };
+
+# Date : W16.42
+# Operation : Integration
+# Purpose : DRM / DRI GPU driver required
+
+allow surfaceflinger gpu_device:dir search;
+
+# Date : WK17.12
+# Purpose: Fix bootup fail
+allow surfaceflinger proc_bootprof:file r_file_perms;
+
+#============= surfaceflinger ==============
+allow surfaceflinger debugfs_ion:dir search;
+
+# Date : WK17.30
+# Operation : O Migration
+# Purpose: Allow to access cmdq driver
+allow surfaceflinger mtk_cmdq_device:chr_file { read ioctl open };
+
+# Date : W17.39
+# Perform Binder IPC.
+binder_use(surfaceflinger)
+binder_call(surfaceflinger, binderservicedomain)
+binder_call(surfaceflinger, appdomain)
+binder_call(surfaceflinger, mtkbootanimation)
+binder_service(surfaceflinger)
+
+allow surfaceflinger mtkbootanimation:dir search;
+allow surfaceflinger mtkbootanimation:file { read getattr open };
+
+# Date : W17.43
+# Operation : Migration
+# Purpose: Allow to access perfmgr
+allow surfaceflinger proc_perfmgr:dir {read search};
+allow surfaceflinger proc_perfmgr:file {open read ioctl};
+allowxperm surfaceflinger proc_perfmgr:file ioctl {
+  PERFMGR_FPSGO_QUEUE
+  PERFMGR_FPSGO_DEQUEUE
+  PERFMGR_FPSGO_QUEUE_CONNECT
+  PERFMGR_FPSGO_BQID
+  PERFMGR_FPSGO_VSYNC
+};
+
+# Date : WK17.43
+# Operation : Debug
+# Purpose: Allow to dump HWC backtrace
+get_prop(surfaceflinger, graphics_hwc_pid_prop)
+get_prop(surfaceflinger, graphics_hwc_latch_unsignaled_prop)
+allow surfaceflinger hal_graphics_composer_default:dir search;
+allow surfaceflinger hal_graphics_composer_default:lnk_file read;
+
+# Date : WK18.36
+# Operation : Debug
+# Purpose: Allow to dump buffer queue
+get_prop(surfaceflinger, debug_bq_dump_prop)
+
+# Date : WK19.4
+# Operation : P Migration
+# Purpose: Allow to access /dev/mdp_device driver
+allow surfaceflinger mdp_device:chr_file rw_file_perms;
+
+# Date : WK19.09
+# Purpose: Allow to access property dev/mdp_sync
+#============= surfaceflinger ==============
+allow surfaceflinger mtk_mdp_device:chr_file rw_file_perms;
+
+# Date : WK18.43
+# Operation : HDR
+# Purpose: Allow to skip aosp hdr solution
+get_prop(surfaceflinger, graphics_hwc_hdr_prop)

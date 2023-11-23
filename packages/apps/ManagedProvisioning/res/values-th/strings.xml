@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"รีเซ็ต"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ไม่สามารถตั้งค่าโปรไฟล์"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"ไม่สามารถตั้งค่าอุปกรณ์"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"เกิดข้อผิดพลาด"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"ตั้งค่าอุปกรณ์ไม่ได้ โปรดติดต่อผู้ดูแลระบบไอทีเพื่อรับความช่วยเหลือ"</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"โปรดติดต่อผู้ดูแลระบบไอทีเพื่อรับความช่วยเหลือ"</string>
+    <string name="reset_device" msgid="5483853913241939262">"รีเซ็ตอุปกรณ์นี้และลองตั้งค่าอีกครั้ง"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"ตั้งค่าอุปกรณ์แล้ว"</string>
     <string name="error_wifi" msgid="1850288843966836571">"เชื่อมต่อ Wi-Fi ไม่ได้"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"อุปกรณ์เปิดการป้องกันการรีเซ็ตไว้ โปรดติดต่อผู้ดูแลระบบไอทีเพื่อรับความช่วยเหลือ"</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"กำลังเตรียมตั้งค่าอุปกรณ์สำหรับการทำงาน…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"กำลังตั้งค่าแอปผู้ดูแลระบบ"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"ตั้งค่าอื่นๆ"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"คราวนี้มาตั้งค่าอื่นๆ กัน"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"เพิ่มบัญชีส่วนบุคคลเพื่อทำสิ่งต่างๆ จากอุปกรณ์ของคุณได้มากขึ้น"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"เมื่อโปรไฟล์งานของคุณพร้อม คุณจะเพิ่มบัญชี Google ส่วนบุคคลเพื่อเข้าถึงแอปและเนื้อหาของคุณได้อีกด้วย"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"องค์กรของคุณเป็นเจ้าของอุปกรณ์นี้"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"แอปต่อไปนี้จะใช้เพื่อจัดการและตรวจสอบโทรศัพท์เครื่องนี้"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"กำลังเตรียมอุปกรณ์เพื่อตั้งค่าสำหรับการทำงาน…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"ก่อนอื่นมาตั้งค่าโปรไฟล์งานกัน"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ก่อนอื่นมาตั้งค่าโปรไฟล์งานกัน"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"แอปการทำงานเก็บอยู่ในโปรไฟล์งาน"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"หยุดแอปการทำงานชั่วคราวเมื่อเลิกงานแต่ละวัน"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"มีเฉพาะข้อมูลในโปรไฟล์งานเท่านั้นที่ผู้ดูแลระบบไอทีจะดูได้"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ผู้ดูแลระบบไอทีจะเห็นข้อมูลในโปรไฟล์งานได้"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"กำลังตั้งค่าโปรไฟล์งาน…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"แอปการทำงานเก็บอยู่ในโปรไฟล์งาน คุณหยุดแอปการทำงานชั่วคราวได้เมื่อเลิกงานแต่ละวัน มีเฉพาะข้อมูลในโปรไฟล์งานเท่านั้นที่ผู้ดูแลระบบไอทีจะดูได้"</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"แอปงานเก็บอยู่ในโปรไฟล์งาน คุณหยุดแอปงานชั่วคราวได้เมื่อเลิกงานในแต่ละวัน ผู้ดูแลระบบไอทีจะเห็นข้อมูลในโปรไฟล์งานได้"</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"มาตั้งค่าอุปกรณ์สำหรับการทำงานกัน"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"เข้าถึงแอปการทำงานได้ด้วยปลายนิ้ว"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"อุปกรณ์นี้ไม่เป็นส่วนตัว"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ผู้ดูแลระบบไอทีอาจดูข้อมูลและกิจกรรมของคุณในอุปกรณ์เครื่องนี้ได้"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"กำลังตั้งค่าอุปกรณ์…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ใช้อุปกรณ์นี้เพื่อเข้าถึงแอปการทำงานได้ง่ายๆ นี่ไม่ใช่อุปกรณ์ส่วนตัว ดังนั้นผู้ดูแลระบบไอทีจึงอาจดูข้อมูลและกิจกรรมของคุณได้ โปรดติดต่อผู้ดูแลระบบไอทีเพื่อดูข้อมูลเพิ่มเติม"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"แอปงานเก็บอยู่ในโปรไฟล์งานและจัดการโดยผู้ดูแลระบบไอที"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"แอปส่วนตัวจะอยู่แยกต่างหากและซ่อนจากแอปงาน"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ผู้ดูแลระบบไอทีจะควบคุมอุปกรณ์นี้และบล็อกบางแอปได้"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"แอปงานเก็บอยู่ในโปรไฟล์งานและจัดการโดยผู้ดูแลระบบไอที แอปส่วนตัวจะอยู่แยกต่างหากและซ่อนจากแอปงาน ผู้ดูแลระบบไอทีจะควบคุมอุปกรณ์นี้และบล็อกบางแอปได้"</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"รอสักครู่…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"การช่วยเตือนความเป็นส่วนตัว"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ผู้ดูแลระบบไอทีอาจดูข้อมูลและกิจกรรมของคุณในอุปกรณ์เครื่องนี้ได้"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"อุปกรณ์พร้อมใช้งานแล้ว"</string>
     <string name="done" msgid="7755227776955952318">"เสร็จสิ้น"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"อุปกรณ์นี้ซื้อด้วยเครดิตจาก <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ดำเนินการต่อไปนี้ได้"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"ติดตั้งแอป <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> เพื่อให้ดำเนินการชำระเงินสำหรับอุปกรณ์นี้ได้"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"จำกัดการเข้าถึงอุปกรณ์นี้หากไม่ชำระเงิน"</string>
 </resources>

@@ -33,6 +33,10 @@
             android:resizeableActivity="true"
             android:allowEmbedded="false"
             android:exported="true" />
+        <activity
+            android:name=".TestActivityWithSameAffinityDifferentUid"
+            android:taskAffinity="nobody.but.TestActivityWithSameAffinity"
+            android:exported="true" />
         <receiver
             android:name=".LaunchBroadcastReceiver"
             android:enabled="true"

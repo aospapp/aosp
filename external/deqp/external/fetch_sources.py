@@ -87,7 +87,7 @@ class SourcePackage (Source):
 	def isArchiveUpToDate (self):
 		archiveFile = os.path.join(EXTERNAL_DIR, pkg.baseDir, pkg.archiveDir, pkg.filename)
 		if os.path.exists(archiveFile):
-			return computeChecksum(readFile(archiveFile)) == self.checksum
+			return computeChecksum(readBinaryFile(archiveFile)) == self.checksum
 		else:
 			return False
 
@@ -104,7 +104,7 @@ class SourcePackage (Source):
 
 	def storeExtractedChecksum (self, checksum):
 		checksum_bytes = checksum.encode("utf-8")
-		writeFile(self.getExtractedChecksumFilePath(), checksum_bytes)
+		writeBinaryFile(self.getExtractedChecksumFilePath(), checksum_bytes)
 
 	def connectToUrl (self, url):
 		result = None
@@ -137,7 +137,7 @@ class SourcePackage (Source):
 		if not os.path.exists(os.path.dirname(dstPath)):
 			os.mkdir(os.path.dirname(dstPath))
 
-		writeFile(dstPath, data)
+		writeBinaryFile(dstPath, data)
 
 	def extract (self):
 		print("Extracting %s to %s/%s" % (self.filename, self.baseDir, self.extractDir))
@@ -190,7 +190,8 @@ class SourceFile (Source):
 	def isFileUpToDate (self):
 		file = os.path.join(EXTERNAL_DIR, pkg.baseDir, pkg.extractDir, pkg.filename)
 		if os.path.exists(file):
-			return computeChecksum(readFile(file)) == self.checksum
+			data = readFile(file)
+			return computeChecksum(data.encode('utf-8')) == self.checksum
 		else:
 			return False
 
@@ -225,7 +226,7 @@ class SourceFile (Source):
 		if not os.path.exists(os.path.dirname(dstPath)):
 			os.mkdir(os.path.dirname(dstPath))
 
-		writeFile(dstPath, data)
+		writeBinaryFile(dstPath, data)
 
 class GitRepo (Source):
 	def __init__(self, httpsUrl, sshUrl, revision, baseDir, extractDir = "src", removeTags = []):
@@ -237,7 +238,7 @@ class GitRepo (Source):
 
 	def detectProtocol(self, cmdProtocol = None):
 		# reuse parent repo protocol
-		proc = subprocess.Popen(['git', 'ls-remote', '--get-url', 'origin'], stdout=subprocess.PIPE)
+		proc = subprocess.Popen(['git', 'ls-remote', '--get-url', 'origin'], stdout=subprocess.PIPE, universal_newlines=True)
 		(stdout, stderr) = proc.communicate()
 
 		if proc.returncode != 0:
@@ -276,7 +277,7 @@ class GitRepo (Source):
 		fullDstPath = os.path.join(EXTERNAL_DIR, self.baseDir, self.extractDir)
 
 		url = self.selectUrl(cmdProtocol)
-		if not os.path.exists(fullDstPath):
+		if not os.path.exists(os.path.join(fullDstPath, '.git')):
 			execute(["git", "clone", "--no-checkout", url, fullDstPath])
 
 		pushWorkingDir(fullDstPath)
@@ -315,24 +316,24 @@ PACKAGES = [
 	GitRepo(
 		"https://github.com/KhronosGroup/SPIRV-Tools.git",
 		None,
-		"e0292c269d6f5c8481afb9f2d043c74ee11ca24f",
+		"34be23373b9e73694c3b214ba857283bad65aedb",
 		"spirv-tools"),
 	GitRepo(
 		"https://github.com/KhronosGroup/glslang.git",
 		None,
-		"2898223375d57fb3974f24e1e944bb624f67cb73",
+		"b5f003d7a3ece37db45578a8a3140b370036fc64",
 		"glslang",
 		removeTags = ["master-tot"]),
 	GitRepo(
 		"https://github.com/KhronosGroup/SPIRV-Headers.git",
 		None,
-		"17da9f8231f78cf519b4958c2229463a63ead9e2",
+		"f8bf11a0253a32375c32cad92c841237b96696c0",
 		"spirv-headers"),
 	GitRepo(
-		"https://github.com/Igalia/vkrunner.git",
+		"https://github.com/google/amber.git",
 		None,
-		"2787f7ceaa96de8ad0c352629a4ed297da068872",
-		"vkrunner"),
+		"0556811aeaad846f4bacbbd03e05e61fbfe1e545",
+		"amber"),
 ]
 
 def parseArgs ():

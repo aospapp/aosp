@@ -17,30 +17,16 @@
 package android.content.cts;
 
 import android.accounts.Account;
-import android.content.ComponentName;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.content.ContextWrapper;
-import android.content.Intent;
-import android.content.PeriodicSync;
-import android.content.res.Resources;
 import android.content.SyncStatusInfo;
-import android.os.Bundle;
 import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
-import android.test.RenamingDelegatingContext;
-import android.test.mock.MockContentResolver;
-import android.test.mock.MockContext;
-import android.test.suitebuilder.annotation.LargeTest;
-import android.test.suitebuilder.annotation.MediumTest;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.util.AtomicFile;
+
 import com.android.server.content.SyncStorageEngine;
-import com.android.internal.os.AtomicFile;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.List;
 
 @AppModeFull(reason = "Sync manager not supported")
 public class SyncStorageEngineTest extends AndroidTestCase {

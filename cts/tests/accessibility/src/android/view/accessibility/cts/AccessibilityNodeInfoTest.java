@@ -16,15 +16,30 @@
 
 package android.view.accessibility.cts;
 
+import static androidx.test.InstrumentationRegistry.getContext;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
+import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.graphics.Region;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.platform.test.annotations.Presubmit;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.text.InputType;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.ImageSpan;
+import android.text.style.ReplacementSpan;
 import android.util.ArrayMap;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
@@ -35,6 +50,13 @@ import android.view.accessibility.AccessibilityNodeInfo.CollectionItemInfo;
 import android.view.accessibility.AccessibilityNodeInfo.RangeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.TouchDelegateInfo;
 
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,9 +65,15 @@ import java.util.List;
  * Class for testing {@link AccessibilityNodeInfo}.
  */
 @Presubmit
-public class AccessibilityNodeInfoTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityNodeInfoTest {
+
+    @Rule
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
 
     @SmallTest
+    @Test
     public void testMarshaling() throws Exception {
         // fully populate the node info to marshal
         AccessibilityNodeInfo sentInfo = AccessibilityNodeInfo.obtain(new View(getContext()));
@@ -64,9 +92,31 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
     }
 
     /**
+     * Tests if {@link AccessibilityNodeInfo} are correctly constructed.
+     */
+    @SmallTest
+    @Test
+    public void testConstructor() {
+        final View view = new View(getContext());
+        AccessibilityNodeInfo firstInfo = new AccessibilityNodeInfo(view);
+        AccessibilityNodeInfo secondInfo = new AccessibilityNodeInfo();
+        secondInfo.setSource(view);
+
+        assertEquals(firstInfo.getWindowId(), secondInfo.getWindowId());
+        assertEquals(firstInfo.getSourceNodeId(), secondInfo.getSourceNodeId());
+
+        firstInfo = new AccessibilityNodeInfo(view, /* virtualDescendantId */ 1);
+        secondInfo.setSource(view, /* virtualDescendantId */ 1);
+
+        assertEquals(firstInfo.getWindowId(), secondInfo.getWindowId());
+        assertEquals(firstInfo.getSourceNodeId(), secondInfo.getSourceNodeId());
+    }
+
+    /**
      * Tests if {@link AccessibilityNodeInfo}s are properly reused.
      */
     @SmallTest
+    @Test
     public void testReuse() {
         AccessibilityEvent firstInfo = AccessibilityEvent.obtain();
         firstInfo.recycle();
@@ -78,6 +128,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * Tests if {@link AccessibilityNodeInfo} are properly recycled.
      */
     @SmallTest
+    @Test
     public void testRecycle() {
         // obtain and populate an node info
         AccessibilityNodeInfo populatedInfo = AccessibilityNodeInfo.obtain();
@@ -95,6 +146,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * Tests whether the event describes its contents consistently.
      */
     @SmallTest
+    @Test
     public void testDescribeContents() {
         AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
         assertSame("Accessibility node infos always return 0 for this method.", 0,
@@ -108,6 +160,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * Tests whether accessibility actions are properly added.
      */
     @SmallTest
+    @Test
     public void testAddActions() {
         List<AccessibilityAction> customActions = new ArrayList<AccessibilityAction>();
         customActions.add(new AccessibilityAction(AccessibilityNodeInfo.ACTION_FOCUS, "Foo"));
@@ -133,6 +186,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * Tests whether we catch addition of an action with invalid id.
      */
     @SmallTest
+    @Test
     public void testCreateInvalidActionId() {
         try {
             new AccessibilityAction(3, null);
@@ -145,6 +199,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * Tests whether accessibility actions are properly removed.
      */
     @SmallTest
+    @Test
     public void testRemoveActions() {
         AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
 
@@ -173,6 +228,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * can't change the object by changing the objects backing CharSequence
      */
     @SmallTest
+    @Test
     public void testChangeTextAfterSetting_shouldNotAffectInfo() {
         final String originalText = "Cassowaries";
         final String newText = "Hornbill";
@@ -181,6 +237,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setText(updatingString);
         info.setError(updatingString);
         info.setContentDescription(updatingString);
+        info.setStateDescription(updatingString);
 
         updatingString.delete(0, updatingString.length());
         updatingString.append(newText);
@@ -188,9 +245,46 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertTrue(TextUtils.equals(originalText, info.getText()));
         assertTrue(TextUtils.equals(originalText, info.getError()));
         assertTrue(TextUtils.equals(originalText, info.getContentDescription()));
+        assertTrue(TextUtils.equals(originalText, info.getStateDescription()));
     }
 
     @SmallTest
+    @Test
+    public void testParcelTextImageSpans_haveSameContentDescriptions() {
+        final Bitmap bitmap = Bitmap.createBitmap(/* width= */10, /* height= */10,
+                Bitmap.Config.ARGB_8888);
+        final ImageSpan span1 = new ImageSpan(getContext(), bitmap);
+        span1.setContentDescription("Span1 contentDescription");
+        final ImageSpan span2 = new ImageSpan(getContext(), bitmap);
+        span2.setContentDescription("Span2 contentDescription");
+        final String testString = "test string%s";
+        final String replaceSpan1 = " ";
+        final String replaceSpan2 = "%s";
+        final Spannable stringWithSpans = new SpannableString(testString);
+        final int span1Start = testString.indexOf(replaceSpan1);
+        final int span1End = span1Start + replaceSpan1.length();
+        final int span2Start = testString.indexOf(replaceSpan2);
+        final int span2End = span2Start + replaceSpan2.length();
+        final AccessibilityNodeInfo sentInfo = AccessibilityNodeInfo.obtain();
+        final Parcel parcel = Parcel.obtain();
+
+        stringWithSpans.setSpan(span1, span1Start, span1End, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        stringWithSpans.setSpan(span2, span2Start, span2End, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sentInfo.setText(stringWithSpans);
+        sentInfo.writeToParcelNoRecycle(parcel, 0);
+        parcel.setDataPosition(0);
+        final AccessibilityNodeInfo receivedInfo = AccessibilityNodeInfo.CREATOR.createFromParcel(
+                parcel);
+        final Spanned receivedString = (Spanned) receivedInfo.getText();
+        final ReplacementSpan[] actualSpans = receivedString.getSpans(0, receivedString.length(),
+                ReplacementSpan.class);
+
+        assertEquals(span1.getContentDescription(), actualSpans[0].getContentDescription());
+        assertEquals(span2.getContentDescription(), actualSpans[1].getContentDescription());
+    }
+
+    @SmallTest
+    @Test
     public void testIsHeadingTakesOldApiIntoAccount() {
         final AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
         assertFalse(info.isHeading());
@@ -213,13 +307,18 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setBoundsInScreen(new Rect(2,2,2,2));
         info.setClassName("foo.bar.baz.Class");
         info.setContentDescription("content description");
+        info.setStateDescription("state description");
         info.setTooltipText("tooltip");
         info.setPackageName("foo.bar.baz");
+        // setText is 2 fields
         info.setText("text");
         info.setHintText("hint");
+
         // 2 children = 1 field
         info.addChild(new View(getContext()));
         info.addChild(new View(getContext()), 1);
+        // Leashed child = 1 field
+        info.addChild(new MockBinder());
         // 2 built-in actions and 2 custom actions, but all are in 1 field
         info.addAction(AccessibilityNodeInfo.ACTION_FOCUS);
         info.addAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS);
@@ -239,7 +338,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setTextSelection(3, 7);
         info.setLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
 
-        // Populate 10 fields
+        // Populate 11 fields
         Bundle extras = info.getExtras();
         extras.putBoolean("areCassowariesAwesome", true);
         info.setInputType(InputType.TYPE_CLASS_TEXT);
@@ -249,6 +348,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setCollectionItemInfo(CollectionItemInfo.obtain(1, 2, 3, 4, true, true));
         info.setParent(new View(getContext()));
         info.setSource(new View(getContext())); // Populates 2 fields: source and window id
+        info.setLeashedParent(new MockBinder(), 1); // Populates 2 fields
         info.setTraversalBefore(new View(getContext()));
         info.setTraversalAfter(new View(getContext()));
 
@@ -257,7 +357,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setLabelFor(new View(getContext()));
         populateTouchDelegateTargetMap(info);
 
-        // And Boolean properties are another field. Total is 34
+        // And Boolean properties are another field. Total is 38
 
         // 10 Boolean properties
         info.setCheckable(true);
@@ -283,7 +383,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setImportantForAccessibility(true);
         info.setScreenReaderFocusable(true);
 
-        // 3 Boolean properties, for a total of 23
+        // 3 Boolean properties
         info.setShowingHintText(true);
         info.setHeading(true);
         info.setTextEntryKey(true);
@@ -333,7 +433,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      */
     public static void assertEqualsAccessibilityNodeInfo(AccessibilityNodeInfo expectedInfo,
             AccessibilityNodeInfo receivedInfo) {
-        // Check 10 fields
+        // Check 9 fields
         Rect expectedBounds = new Rect();
         Rect receivedBounds = new Rect();
         expectedInfo.getBoundsInParent(expectedBounds);
@@ -346,6 +446,8 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
                 receivedInfo.getClassName());
         assertEquals("contentDescription has incorrect value", expectedInfo.getContentDescription(),
                 receivedInfo.getContentDescription());
+        assertEquals("stateDescription has incorrect value", expectedInfo.getStateDescription(),
+                receivedInfo.getStateDescription());
         assertEquals("tooltip text has incorrect value", expectedInfo.getTooltipText(),
                 receivedInfo.getTooltipText());
         assertEquals("packageName has incorrect value", expectedInfo.getPackageName(),
@@ -353,6 +455,8 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertEquals("text has incorrect value", expectedInfo.getText(), receivedInfo.getText());
         assertEquals("Hint text has incorrect value",
                 expectedInfo.getHintText(), receivedInfo.getHintText());
+
+        // Check 2 fields
         assertSame("childCount has incorrect value", expectedInfo.getChildCount(),
                 receivedInfo.getChildCount());
         // Actions is just 1 field, but we check it 2 ways
@@ -399,11 +503,11 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
                 (receivedRange != null));
         if (expectedRange != null) {
             assertEquals("RangeInfo#getCurrent has incorrect value", expectedRange.getCurrent(),
-                    receivedRange.getCurrent());
+                    receivedRange.getCurrent(), 0.0);
             assertEquals("RangeInfo#getMin has incorrect value", expectedRange.getMin(),
-                    receivedRange.getMin());
+                    receivedRange.getMin(), 0.0);
             assertEquals("RangeInfo#getMax has incorrect value", expectedRange.getMax(),
-                    receivedRange.getMax());
+                    receivedRange.getMax(), 0.0);
             assertEquals("RangeInfo#getType has incorrect value", expectedRange.getType(),
                     receivedRange.getType());
         }
@@ -442,11 +546,12 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
                     receivedItemInfo.getRowSpan());
         }
 
+        // Check 1 field
         assertEqualsTouchDelegateInfo("TouchDelegate target map has incorrect value",
                 expectedInfo.getTouchDelegateInfo(),
                 receivedInfo.getTouchDelegateInfo());
 
-        // And the boolean properties are another field, for a total of 26
+        // And the boolean properties are another field, for a total of 28
         // Missing parent: Tested end-to-end in AccessibilityWindowTraversalTest#testObjectContract
         //                 (getting a child is also checked there)
         //         traversalbefore: AccessibilityEndToEndTest
@@ -457,7 +562,10 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         //         labeledby: AccessibilityEndToEndTest#testLabelForReportedToAccessibility
         //         windowid: Not directly observable
         //         sourceid: Not directly observable
-        // Which brings us to a total of 33
+        //         leashedChild: Not directly accessible
+        //         leashedParent: Not directly accessible
+        //         leashedParentNodeId: Not directly accessible
+        // Which brings us to a total of 38
 
         // 10 Boolean properties
         assertSame("checkable has incorrect value", expectedInfo.isCheckable(),
@@ -505,7 +613,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertSame("isScreenReaderFocusable has incorrect value",
                 expectedInfo.isScreenReaderFocusable(), receivedInfo.isScreenReaderFocusable());
 
-        // 3 Boolean properties, for a total of 23
+        // 3 Boolean properties
         assertSame("isShowingHint has incorrect value",
                 expectedInfo.isShowingHintText(), receivedInfo.isShowingHintText());
         assertSame("isHeading has incorrect value",
@@ -520,7 +628,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * @param info The node info to check.
      */
     public static void assertAccessibilityNodeInfoCleared(AccessibilityNodeInfo info) {
-        // Check 10 fields
+        // Check 11 fields
         Rect bounds = new Rect();
         info.getBoundsInParent(bounds);
         assertTrue("boundsInParent not properly recycled", bounds.isEmpty());
@@ -528,6 +636,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertTrue("boundsInScreen not properly recycled", bounds.isEmpty());
         assertNull("className not properly recycled", info.getClassName());
         assertNull("contentDescription not properly recycled", info.getContentDescription());
+        assertNull("stateDescription not properly recycled", info.getStateDescription());
         assertNull("tooltiptext not properly recycled", info.getTooltipText());
         assertNull("packageName not properly recycled", info.getPackageName());
         assertNull("text not properly recycled", info.getText());
@@ -559,7 +668,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertNull("Collection item info not properly recycled", info.getCollectionItemInfo());
         assertNull("TouchDelegate target map not recycled", info.getTouchDelegateInfo());
 
-        // And Boolean properties brings up to 26 fields
+        // And Boolean properties brings up to 28 fields
         // Missing:
         //  parent (can't be performed on sealed instance, even if null)
         //  traversalbefore (can't be performed on sealed instance, even if null)
@@ -568,7 +677,10 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         //  labeledby (can't be performed on sealed instance, even if null)
         //  sourceId (not directly observable)
         //  windowId (not directly observable)
-        // a total of 33
+        //  leashedChild (not directly observable)
+        //  leashedParent (not directly observable)
+        //  leashedParentNodeId (not directly observable)
+        // a total of 38
 
         // 10 Boolean properties
         assertFalse("checkable not properly recycled", info.isCheckable());
@@ -599,5 +711,8 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertFalse("isShowingHint not properly reset", info.isShowingHintText());
         assertFalse("isHeading not properly reset", info.isHeading());
         assertFalse("isTextEntryKey not properly reset", info.isTextEntryKey());
+    }
+
+    private static class MockBinder extends Binder {
     }
 }

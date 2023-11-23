@@ -14,6 +14,12 @@
 // limitations under the License.
 //
 
+package {
+    default_visibility: [
+        ":__subpackages__",
+    ],
+}
+
 //
 // Definitions for building the Conscrypt Java library, native code,
 // and associated tests.
@@ -84,7 +90,7 @@ cc_defaults {
 
     static_libs: [
         "libssl",
-        "libcrypto",
+        "libcrypto_static",
     ],
 
     sdk_version: "9",
@@ -112,7 +118,7 @@ cc_library_host_shared {
 
     static_libs: [
         "libssl",
-        "libcrypto",
+        "libcrypto_static",
     ],
 
     // TODO: b/26097626. ASAN breaks use of this library in JVM.
@@ -150,38 +156,10 @@ cc_binary_host {
 }
 
 genrule {
-    name: "conscrypt-nojarjar_generated_constants",
+    name: "conscrypt-unbundled_generated_constants",
     out: ["org/conscrypt/NativeConstants.java"],
     cmd: "$(location conscrypt_generate_constants) > $(out)",
     tools: ["conscrypt_generate_constants"],
-}
-
-// Create the conscrypt library without jarjar for tests
-java_library {
-    name: "conscrypt-nojarjar",
-    host_supported: true,
-    hostdex: true,
-
-    srcs: [
-        "common/src/main/java/**/*.java",
-        ":conscrypt-nojarjar_generated_constants",
-    ],
-
-    no_standard_libs: true,
-    system_modules: "core-all-system-modules",
-    target: {
-        android: {
-            srcs: ["platform/src/main/java/**/*.java"],
-            libs: ["core-all"],
-        },
-        host: {
-            srcs: ["openjdk/src/main/java/**/*.java"],
-            javacflags: ["-XDignore.symbol.file"],
-        },
-    },
-
-    required: ["libjavacrypto"],
-    java_version: "1.7",
 }
 
 genrule {
@@ -202,13 +180,28 @@ filegroup {
 
 filegroup {
     name: "conscrypt_public_api_files",
-    srcs: ["publicapi/src/main/java/**/*.java"]
+    srcs: ["publicapi/src/main/java/**/*.java"],
+    path: "publicapi/src/main/java",
 }
 
 // Create the conscrypt library from the source produced by the srcgen/generate_android_src.sh
 // script.
 java_library {
     name: "conscrypt",
+    visibility: [
+        "//art/build",
+        "//device:__subpackages__",
+        "//external/robolectric-shadows",
+        "//system/apex/tests",
+        ":__subpackages__",
+    ],
+    apex_available: [
+        "com.android.conscrypt",
+        "test_com.android.conscrypt",
+    ],
+    // Conscrypt should support Q
+    min_sdk_version: "29",
+
     installable: true,
     hostdex: true,
 
@@ -217,27 +210,80 @@ java_library {
         ":conscrypt_public_api_files",
     ],
 
+    libs: ["unsupportedappusage"],
+
     // Conscrypt can be updated independently from the other core libraries so it must only depend
     // on public SDK and intra-core APIs.
-    no_standard_libs: true,
-    libs: ["core.intra.stubs"],
+    sdk_version: "none",
+    system_modules: "art-module-intra-core-api-stubs-system-modules",
     patch_module: "java.base",
-    system_modules: "core-intra-stubs-system-modules",
 
     // Workaround for b/124476339: libjavacrypto is required for both APEX and
     // hostdex builds, but adding a top-level required property results in
     // it being installed to /system on Android.
     // TODO(b/124476339): move required back to a top level property
     target: {
+        // boringssl_self_test needed in both /system/bin and /apex/com.android.conscrypt/bin
+        android: {
+            required: ["boringssl_self_test"],
+        },
         hostdex: {
             required: ["libjavacrypto"],
-        }
+        },
     },
 
     permitted_packages: [
         "android.net.ssl",
         "com.android.org.conscrypt",
     ],
+
+    plugins: ["java_api_finder"],
+}
+
+// Referenced implicitly from conscrypt.module.platform.api.
+filegroup {
+    name: "conscrypt.module.platform.api.api.public.latest",
+    srcs: [
+        "api/platform/last-api.txt",
+    ],
+}
+
+// Referenced implicitly from conscrypt.module.platform.api.
+filegroup {
+    name: "conscrypt.module.platform.api-removed.api.public.latest",
+    srcs: [
+        "api/platform/last-removed.txt",
+    ],
+}
+
+// A library containing the core platform API stubs of the Conscrypt module.
+//
+// Core platform APIs are only intended for use of other parts of the platform, not the
+// core library modules.
+//
+// The API specification .txt files managed by this only contain the additional
+// classes/members that are in the platform API but which are not in the public
+// API.
+java_sdk_library {
+    name: "conscrypt.module.platform.api",
+    visibility: [
+        "//external/wycheproof",
+        "//libcore:__subpackages__",
+    ],
+    srcs: [
+        ":conscrypt_java_files",
+    ],
+    api_dir: "api/platform",
+    api_only: true,
+    droiddoc_options: [
+        "--hide-annotation libcore.api.Hide",
+        "--show-single-annotation libcore.api.CorePlatformApi",
+        "--skip-annotation-instance-methods=false",
+    ],
+    hostdex: true,
+
+    sdk_version: "none",
+    system_modules: "art-module-platform-api-stubs-system-modules",
 }
 
 // A guaranteed unstripped version of conscrypt.
@@ -252,9 +298,92 @@ java_library {
         enabled: false,
     },
 
-    no_framework_libs: true,
+    sdk_version: "core_platform",
 
     required: ["libjavacrypto"],
+}
+
+// Referenced implicitly from conscrypt.module.public.api.
+filegroup {
+    name: "conscrypt.module.public.api.api.public.latest",
+    srcs: [
+        "api/public/last-api.txt",
+    ],
+}
+
+// Referenced implicitly from conscrypt.module.public.api.
+filegroup {
+    name: "conscrypt.module.public.api-removed.api.public.latest",
+    srcs: [
+        "api/public/last-removed.txt",
+    ],
+}
+
+// A library containing the public API stubs of the Conscrypt module.
+java_sdk_library {
+    name: "conscrypt.module.public.api",
+    visibility: [
+        "//frameworks/base",
+        "//libcore",
+    ],
+    srcs: [
+        ":conscrypt_public_api_files",
+    ],
+    api_dir: "api/public",
+    api_only: true,
+    droiddoc_options: [
+        // Emit nullability annotations from the source to the stub files.
+        "--include-annotations",
+    ],
+
+    java_version: "1.9",
+
+    sdk_version: "none",
+    system_modules: "art-module-public-api-stubs-system-modules",
+}
+
+// Referenced implicitly from conscrypt.module.intra.core.api.
+filegroup {
+    name: "conscrypt.module.intra.core.api.api.public.latest",
+    srcs: [
+        "api/intra/last-api.txt",
+    ],
+}
+
+// Referenced implicitly from conscrypt.module.intra.core.api.
+filegroup {
+    name: "conscrypt.module.intra.core.api-removed.api.public.latest",
+    srcs: [
+        "api/intra/last-removed.txt",
+    ],
+}
+
+// A library containing the intra-core API stubs of the Conscrypt module.
+//
+// Intra-core APIs are only intended for the use of other core library modules.
+//
+// The API specification .txt files managed by this only contain the additional
+// classes/members that are in the intra-core API but which are not the public API.
+java_sdk_library {
+    name: "conscrypt.module.intra.core.api",
+    visibility: [
+        "//external/okhttp",
+        "//libcore:__subpackages__",
+    ],
+    srcs: [
+        ":conscrypt_java_files",
+        ":conscrypt_public_api_files",
+    ],
+    api_dir: "api/intra",
+    api_only: true,
+    droiddoc_options: [
+        "--hide-annotation libcore.api.Hide",
+        "--show-single-annotation libcore.api.IntraCoreApi",
+        "--skip-annotation-instance-methods=false",
+    ],
+
+    sdk_version: "none",
+    system_modules: "art-module-intra-core-api-stubs-system-modules",
 }
 
 // Platform conscrypt crypto JNI library
@@ -270,9 +399,6 @@ cc_defaults {
     ],
 
     srcs: ["common/src/jni/main/cpp/**/*.cc"],
-    include_dirs: [
-        "libcore/luni/src/main/native",
-    ],
     local_include_dirs: ["common/src/jni/main/include"],
 }
 
@@ -294,32 +420,35 @@ cc_library_shared {
         darwin: {
             enabled: false,
         },
+        android: {
+            runtime_libs: ["libandroidio"],
+        },
+        not_windows: {
+            runtime_libs: ["libandroidio"],
+        },
     },
+    apex_available: [
+        "com.android.conscrypt",
+        "test_com.android.conscrypt",
+    ],
+    min_sdk_version: "29",
 }
 
-// Unbundled Conscrypt jar
-java_library {
-    name: "conscrypt_unbundled",
-
+// Unbundled Conscrypt jar for use by signapk and apksigner tool
+//
+// Builds against standard host libraries.
+java_library_host {
+    name: "conscrypt-unbundled",
+    visibility: [
+        "//build/make/tools/signapk",
+        "//tools/apksig",
+    ],
     srcs: [
         "common/src/main/java/**/*.java",
-        "android/src/main/java/**/*.java",
-        ":conscrypt-nojarjar_generated_constants",
+        "openjdk/src/main/java/**/*.java",
+        ":conscrypt-unbundled_generated_constants",
     ],
-
-    libs: ["conscrypt-stubs"],
-
-    sdk_version: "current",
-    java_version: "1.7",
-}
-
-// Stub library for unbundled builds
-java_library {
-    name: "conscrypt-stubs",
-
-    srcs: ["android-stub/src/main/java/**/*.java"],
-
-    sdk_version: "current",
+    javacflags: ["-XDignore.symbol.file"],
     java_version: "1.7",
 }
 
@@ -338,38 +467,40 @@ cc_library_static {
 
     static_libs: [
         "libssl",
-        "libcrypto",
+        "libcrypto_static",
     ],
     sdk_version: "9",
     stl: "c++_shared",
 }
 
-
 // Make the conscrypt-tests library.
 java_test {
     name: "conscrypt-tests",
+    visibility: [
+        "//cts/tests/libcore/luni",
+        "//external/conscrypt/apex/tests",
+    ],
     hostdex: true,
     srcs: [
         "repackaged/platform/src/test/java/**/*.java",
         "repackaged/common/src/test/java/**/*.java",
-        "repackaged/openjdk-integ-tests/src/test/java/**/*.java",
         "repackaged/testing/src/main/java/**/*.java",
         "publicapi/src/test/java/**/*.java",
     ],
     java_resource_dirs: [
         // Resource directories do not need repackaging.
         "openjdk/src/test/resources",
-        "openjdk-integ-tests/src/test/resources",
+        "common/src/test/resources",
     ],
 
-    no_standard_libs: true,
+    sdk_version: "none",
+    system_modules: "art-module-intra-core-api-stubs-system-modules",
     libs: [
-        "core-all",
         "conscrypt",
+        "core-test-rules",
         "junit",
         "mockito-target-minus-junit4",
     ],
-    system_modules: "core-all-system-modules",
 
     static_libs: [
         "bouncycastle-unbundled",
@@ -394,9 +525,9 @@ java_test {
         "repackaged/benchmark-base/src/main/java/**/*.java",
         "repackaged/benchmark-android/src/main/java/**/*.java",
     ],
-    no_standard_libs: true,
+    sdk_version: "none",
+    system_modules: "art-module-intra-core-api-stubs-system-modules",
     libs: [
-        "core-all",
         "conscrypt",
         "junit",
         "bouncycastle-unbundled",
@@ -404,7 +535,6 @@ java_test {
         "bouncycastle-ocsp-unbundled",
         "caliper-api-target",
     ],
-    system_modules: "core-all-system-modules",
 
     javacflags: [
         "-Xmaxwarns 9999999",
@@ -414,4 +544,42 @@ java_test {
 
     required: ["libjavacrypto"],
     java_version: "1.7",
+}
+
+// Device SDK exposed by the Conscrypt module.
+sdk {
+    name: "conscrypt-module-sdk",
+    java_sdk_libs: [
+        "conscrypt.module.public.api",
+        "conscrypt.module.intra.core.api",
+        "conscrypt.module.platform.api",
+    ],
+    native_shared_libs: [
+        "libconscrypt_jni",
+    ],
+}
+
+// Host tools exported by the Conscrypt module.
+module_exports {
+    name: "conscrypt-module-host-exports",
+    host_supported: true,
+    device_supported: false,
+    java_libs: [
+        "conscrypt-unbundled",
+    ],
+}
+
+// Test libraries exposed by the Conscrypt module.
+module_exports {
+    name: "conscrypt-module-test-exports",
+    java_libs: [
+        // For use by robolectric.
+        "conscrypt",
+        // For use by art tests
+        "conscrypt-testdex",
+    ],
+    java_tests: [
+        // For use by CTS
+        "conscrypt-tests",
+    ],
 }

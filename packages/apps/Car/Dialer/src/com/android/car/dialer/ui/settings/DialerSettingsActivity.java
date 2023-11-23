@@ -17,11 +17,9 @@
 package com.android.car.dialer.ui.settings;
 
 import android.os.Bundle;
-import android.widget.Toolbar;
 
 import androidx.fragment.app.FragmentActivity;
 
-import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
 
 /**
@@ -30,21 +28,15 @@ import com.android.car.dialer.log.L;
 public class DialerSettingsActivity extends FragmentActivity {
     private static final String TAG = "CD.SettingsActivity";
 
-    private Toolbar mToolbar;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         L.d(TAG, "onCreate");
 
-        setContentView(R.layout.dialer_settings_activity);
-        mToolbar = findViewById(R.id.settings_toolbar);
-        setActionBar(mToolbar);
-
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.settings_fragment_container, new DialerSettingsFragment())
-                .commit();
-
-        getActionBar().setDisplayHomeAsUpEnabled(true);
+        if (savedInstanceState == null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(android.R.id.content, new DialerSettingsFragment())
+                    .commit();
+        }
     }
 }

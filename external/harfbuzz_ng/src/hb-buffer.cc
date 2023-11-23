@@ -324,7 +324,7 @@ hb_buffer_t::clear_positions ()
   out_len = 0;
   out_info = info;
 
-  memset (pos, 0, sizeof (pos[0]) * len);
+  hb_memset (pos, 0, sizeof (pos[0]) * len);
 }
 
 void
@@ -524,7 +524,7 @@ hb_buffer_t::merge_clusters_impl (unsigned int start,
   unsigned int cluster = info[start].cluster;
 
   for (unsigned int i = start + 1; i < end; i++)
-    cluster = MIN<unsigned int> (cluster, info[i].cluster);
+    cluster = hb_min (cluster, info[i].cluster);
 
   /* Extend end */
   while (end < len && info[end - 1].cluster == info[end].cluster)
@@ -555,7 +555,7 @@ hb_buffer_t::merge_out_clusters (unsigned int start,
   unsigned int cluster = out_info[start].cluster;
 
   for (unsigned int i = start + 1; i < end; i++)
-    cluster = MIN<unsigned int> (cluster, out_info[i].cluster);
+    cluster = hb_min (cluster, out_info[i].cluster);
 
   /* Extend start */
   while (start && out_info[start - 1].cluster == out_info[start].cluster)
@@ -648,8 +648,8 @@ hb_buffer_t::guess_segment_properties ()
       if (likely (script != HB_SCRIPT_COMMON &&
 		  script != HB_SCRIPT_INHERITED &&
 		  script != HB_SCRIPT_UNKNOWN)) {
-        props.script = script;
-        break;
+	props.script = script;
+	break;
       }
     }
   }
@@ -776,8 +776,10 @@ hb_buffer_destroy (hb_buffer_t *buffer)
 
   free (buffer->info);
   free (buffer->pos);
+#ifndef HB_NO_BUFFER_MESSAGE
   if (buffer->message_destroy)
     buffer->message_destroy (buffer->message_data);
+#endif
 
   free (buffer);
 }
@@ -1388,7 +1390,7 @@ hb_buffer_get_length (hb_buffer_t *buffer)
  **/
 hb_glyph_info_t *
 hb_buffer_get_glyph_infos (hb_buffer_t  *buffer,
-                           unsigned int *length)
+			   unsigned int *length)
 {
   if (length)
     *length = buffer->len;
@@ -1412,7 +1414,7 @@ hb_buffer_get_glyph_infos (hb_buffer_t  *buffer,
  **/
 hb_glyph_position_t *
 hb_buffer_get_glyph_positions (hb_buffer_t  *buffer,
-                               unsigned int *length)
+			       unsigned int *length)
 {
   if (!buffer->have_positions)
     buffer->clear_positions ();
@@ -1936,9 +1938,9 @@ hb_buffer_diff (hb_buffer_t *buffer,
     for (i = 0; i < count; i++)
     {
       if (contains && info[i].codepoint == dottedcircle_glyph)
-        result |= HB_BUFFER_DIFF_FLAG_DOTTED_CIRCLE_PRESENT;
+	result |= HB_BUFFER_DIFF_FLAG_DOTTED_CIRCLE_PRESENT;
       if (contains && info[i].codepoint == 0)
-        result |= HB_BUFFER_DIFF_FLAG_NOTDEF_PRESENT;
+	result |= HB_BUFFER_DIFF_FLAG_NOTDEF_PRESENT;
     }
     result |= HB_BUFFER_DIFF_FLAG_LENGTH_MISMATCH;
     return hb_buffer_diff_flags_t (result);
@@ -1973,12 +1975,12 @@ hb_buffer_diff (hb_buffer_t *buffer,
     for (unsigned int i = 0; i < count; i++)
     {
       if ((unsigned int) abs (buf_pos->x_advance - ref_pos->x_advance) > position_fuzz ||
-          (unsigned int) abs (buf_pos->y_advance - ref_pos->y_advance) > position_fuzz ||
-          (unsigned int) abs (buf_pos->x_offset - ref_pos->x_offset) > position_fuzz ||
-          (unsigned int) abs (buf_pos->y_offset - ref_pos->y_offset) > position_fuzz)
+	  (unsigned int) abs (buf_pos->y_advance - ref_pos->y_advance) > position_fuzz ||
+	  (unsigned int) abs (buf_pos->x_offset - ref_pos->x_offset) > position_fuzz ||
+	  (unsigned int) abs (buf_pos->y_offset - ref_pos->y_offset) > position_fuzz)
       {
-        result |= HB_BUFFER_DIFF_FLAG_POSITION_MISMATCH;
-        break;
+	result |= HB_BUFFER_DIFF_FLAG_POSITION_MISMATCH;
+	break;
       }
       buf_pos++;
       ref_pos++;
@@ -1993,6 +1995,7 @@ hb_buffer_diff (hb_buffer_t *buffer,
  * Debugging.
  */
 
+#ifndef HB_NO_BUFFER_MESSAGE
 /**
  * hb_buffer_set_message_func:
  * @buffer: an #hb_buffer_t.
@@ -2022,11 +2025,11 @@ hb_buffer_set_message_func (hb_buffer_t *buffer,
     buffer->message_destroy = nullptr;
   }
 }
-
 bool
 hb_buffer_t::message_impl (hb_font_t *font, const char *fmt, va_list ap)
 {
   char buf[100];
-  vsnprintf (buf, sizeof (buf),  fmt, ap);
+  vsnprintf (buf, sizeof (buf), fmt, ap);
   return (bool) this->message_func (this, font, buf, this->message_data);
 }
+#endif

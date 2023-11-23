@@ -23,12 +23,13 @@ import com.android.cts.verifier.R;
 import com.android.cts.verifier.wifiaware.testcase.DataPathInBandTestCase;
 
 /**
- * Test activity for data-path, open, unsolicited publish
+ * Test activity for data-path, passphrase, solicited publish
  */
 public class DataPathPassphraseSolicitedPublishTestActivity extends BaseTestActivity {
     @Override
     protected BaseTestCase getTestCase(Context context) {
-        return new DataPathInBandTestCase(context, false, true, false);
+        return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
+                /* isPublish */ true, /* isUnsolicited */ false, /* usePmk */ false);
     }
 
     @Override

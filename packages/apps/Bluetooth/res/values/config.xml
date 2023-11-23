@@ -72,6 +72,12 @@
     <!-- If true, device requests audio focus and start avrcp updates on source start or play -->
     <bool name="a2dp_sink_automatically_request_audio_focus">false</bool>
 
+    <!-- For enabling the AVRCP Controller Cover Artwork feature -->
+    <bool name="avrcp_controller_enable_cover_art">false</bool>
+
+    <!-- For enabling browsed cover art with the AVRCP Controller Cover Artwork feature -->
+    <bool name="avrcp_controller_cover_art_browsed_images">false</bool>
+
     <!-- For enabling the hfp client connection service -->
     <bool name="hfp_client_connection_service_enabled">false</bool>
 
@@ -107,5 +113,8 @@
 
     <!-- Flag whether or not to keep polling AG with CLCC for call information every 2 seconds -->
     <bool name="hfp_clcc_poll_during_call">true</bool>
+
+    <!-- Package that is providing the exposure notification service -->
+    <string name="exposure_notification_package">com.google.android.gms</string>
 
 </resources>

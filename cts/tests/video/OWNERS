@@ -1,2 +1,3 @@
 # Bug component: 1344
-include platform/frameworks/av:/media/OWNERS
+# Same as the new media tests
+include ../media/OWNERS

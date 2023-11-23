@@ -9,63 +9,86 @@
 
 #include <vector>
 
-#include "fpdfsdk/pwl/cpwl_wnd.h"
-#include "fxjs/JS_Define.h"
+#include "fxjs/cjs_object.h"
+#include "fxjs/js_define.h"
 
-class color : public CJS_EmbedObj {
+class CJS_Color final : public CJS_Object {
  public:
+  static int GetObjDefnID();
+  static void DefineJSObjects(CFXJS_Engine* pEngine);
   static v8::Local<v8::Array> ConvertPWLColorToArray(CJS_Runtime* pRuntime,
                                                      const CFX_Color& color);
   static CFX_Color ConvertArrayToPWLColor(CJS_Runtime* pRuntime,
                                           v8::Local<v8::Array> array);
 
-  explicit color(CJS_Object* pJSObject);
-  ~color() override;
+  CJS_Color(v8::Local<v8::Object> pObject, CJS_Runtime* pRuntime);
+  ~CJS_Color() override;
 
-  CJS_Return get_black(CJS_Runtime* pRuntime);
-  CJS_Return set_black(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+  JS_STATIC_PROP(black, black, CJS_Color)
+  JS_STATIC_PROP(blue, blue, CJS_Color)
+  JS_STATIC_PROP(cyan, cyan, CJS_Color)
+  JS_STATIC_PROP(dkGray, dark_gray, CJS_Color)
+  JS_STATIC_PROP(gray, gray, CJS_Color)
+  JS_STATIC_PROP(green, green, CJS_Color)
+  JS_STATIC_PROP(ltGray, light_gray, CJS_Color)
+  JS_STATIC_PROP(magenta, magenta, CJS_Color)
+  JS_STATIC_PROP(red, red, CJS_Color)
+  JS_STATIC_PROP(transparent, transparent, CJS_Color)
+  JS_STATIC_PROP(white, white, CJS_Color)
+  JS_STATIC_PROP(yellow, yellow, CJS_Color)
 
-  CJS_Return get_blue(CJS_Runtime* pRuntime);
-  CJS_Return set_blue(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_cyan(CJS_Runtime* pRuntime);
-  CJS_Return set_cyan(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_dark_gray(CJS_Runtime* pRuntime);
-  CJS_Return set_dark_gray(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_gray(CJS_Runtime* pRuntime);
-  CJS_Return set_gray(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_green(CJS_Runtime* pRuntime);
-  CJS_Return set_green(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_light_gray(CJS_Runtime* pRuntime);
-  CJS_Return set_light_gray(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_magenta(CJS_Runtime* pRuntime);
-  CJS_Return set_magenta(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_red(CJS_Runtime* pRuntime);
-  CJS_Return set_red(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_transparent(CJS_Runtime* pRuntime);
-  CJS_Return set_transparent(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_white(CJS_Runtime* pRuntime);
-  CJS_Return set_white(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_yellow(CJS_Runtime* pRuntime);
-  CJS_Return set_yellow(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return convert(CJS_Runtime* pRuntime,
-                     const std::vector<v8::Local<v8::Value>>& params);
-  CJS_Return equal(CJS_Runtime* pRuntime,
-                   const std::vector<v8::Local<v8::Value>>& params);
+  JS_STATIC_METHOD(convert, CJS_Color)
+  JS_STATIC_METHOD(equal, CJS_Color)
 
  private:
-  CJS_Return GetPropertyHelper(CJS_Runtime* pRuntime, CFX_Color* val);
-  CJS_Return SetPropertyHelper(CJS_Runtime* pRuntime,
+  static int ObjDefnID;
+  static const char kName[];
+  static const JSPropertySpec PropertySpecs[];
+  static const JSMethodSpec MethodSpecs[];
+
+  CJS_Result get_black(CJS_Runtime* pRuntime);
+  CJS_Result set_black(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_blue(CJS_Runtime* pRuntime);
+  CJS_Result set_blue(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_cyan(CJS_Runtime* pRuntime);
+  CJS_Result set_cyan(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_dark_gray(CJS_Runtime* pRuntime);
+  CJS_Result set_dark_gray(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_gray(CJS_Runtime* pRuntime);
+  CJS_Result set_gray(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_green(CJS_Runtime* pRuntime);
+  CJS_Result set_green(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_light_gray(CJS_Runtime* pRuntime);
+  CJS_Result set_light_gray(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_magenta(CJS_Runtime* pRuntime);
+  CJS_Result set_magenta(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_red(CJS_Runtime* pRuntime);
+  CJS_Result set_red(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_transparent(CJS_Runtime* pRuntime);
+  CJS_Result set_transparent(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_white(CJS_Runtime* pRuntime);
+  CJS_Result set_white(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_yellow(CJS_Runtime* pRuntime);
+  CJS_Result set_yellow(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result convert(CJS_Runtime* pRuntime,
+                     const std::vector<v8::Local<v8::Value>>& params);
+  CJS_Result equal(CJS_Runtime* pRuntime,
+                   const std::vector<v8::Local<v8::Value>>& params);
+
+  CJS_Result GetPropertyHelper(CJS_Runtime* pRuntime, CFX_Color* val);
+  CJS_Result SetPropertyHelper(CJS_Runtime* pRuntime,
                                v8::Local<v8::Value> vp,
                                CFX_Color* val);
 
@@ -81,35 +104,6 @@ class color : public CJS_EmbedObj {
   CFX_Color m_crDKGray;
   CFX_Color m_crGray;
   CFX_Color m_crLTGray;
-};
-
-class CJS_Color : public CJS_Object {
- public:
-  static void DefineJSObjects(CFXJS_Engine* pEngine);
-
-  explicit CJS_Color(v8::Local<v8::Object> pObject) : CJS_Object(pObject) {}
-  ~CJS_Color() override {}
-
-  JS_STATIC_PROP(black, black, color);
-  JS_STATIC_PROP(blue, blue, color);
-  JS_STATIC_PROP(cyan, cyan, color);
-  JS_STATIC_PROP(dkGray, dark_gray, color);
-  JS_STATIC_PROP(gray, gray, color);
-  JS_STATIC_PROP(green, green, color);
-  JS_STATIC_PROP(ltGray, light_gray, color);
-  JS_STATIC_PROP(magenta, magenta, color);
-  JS_STATIC_PROP(red, red, color);
-  JS_STATIC_PROP(transparent, transparent, color);
-  JS_STATIC_PROP(white, white, color);
-  JS_STATIC_PROP(yellow, yellow, color);
-
-  JS_STATIC_METHOD(convert, color);
-  JS_STATIC_METHOD(equal, color);
-
- private:
-  static int ObjDefnID;
-  static const JSPropertySpec PropertySpecs[];
-  static const JSMethodSpec MethodSpecs[];
 };
 
 #endif  // FXJS_CJS_COLOR_H_

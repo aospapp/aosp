@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,44 +17,38 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc18_06 extends SecurityTestCase {
 
-  /**
-   * CVE-2018-5884
-   */
-  @SecurityTest(minPatchLevel = "2018-06")
-  public void testPocCVE_2018_5884() throws Exception {
-    String wfd_service = AdbUtils.runCommandLine(
-        "pm list package com.qualcomm.wfd.service", getDevice());
-    if (wfd_service.contains("com.qualcomm.wfd.service")) {
-      String result = AdbUtils.runCommandLine(
-          "am broadcast -a qualcomm.intent.action.WIFI_DISPLAY_BITRATE --ei format 3 --ei value 32",
-          getDevice());
-      assertNotMatchesMultiLine("Broadcast completed", result);
+    /**
+     * CVE-2018-5884
+     */
+    @Test
+    @SecurityTest(minPatchLevel = "2018-06")
+    public void testPocCVE_2018_5884() throws Exception {
+        String wfd_service = AdbUtils.runCommandLine(
+                "pm list package com.qualcomm.wfd.service", getDevice());
+        if (wfd_service.contains("com.qualcomm.wfd.service")) {
+            String result = AdbUtils.runCommandLine(
+                    "am broadcast -a qualcomm.intent.action.WIFI_DISPLAY_BITRATE --ei format 3 --ei value 32",
+            getDevice());
+            assertNotMatchesMultiLine("Broadcast completed", result);
+        }
     }
-  }
-
-  /**
-   * CVE-2018-5892
-   */
-  @SecurityTest(minPatchLevel = "2018-06")
-  public void testPocCVE_2018_5892() throws Exception {
-    String result = AdbUtils.runCommandLine(
-        "pm list package com.emoji.keyboard.touchpal", getDevice());
-    assertFalse(result.contains("com.emoji.keyboard.touchpal"));
-  }
 
     /**
      *  b/73172817
      */
+    @Test
     @SecurityTest
     public void testPocCVE_2018_9344() throws Exception {
-        AdbUtils.runCommandLine("logcat -c", getDevice());
-        AdbUtils.runPoc("CVE-2018-9344", getDevice(), 30);
-        String output = AdbUtils.runCommandLine("logcat -d", getDevice());
-        assertNotMatchesMultiLine(">>> /vendor/bin/hw/android.hardware.cas@1.0-service <<<" +
-                ".*?signal 11 \\(SIGSEGV\\)", output);
+        AdbUtils.runPocAssertNoCrashes("CVE-2018-9344", getDevice(),
+                "android\\.hardware\\.cas@\\d+?\\.\\d+?-service");
     }
 }

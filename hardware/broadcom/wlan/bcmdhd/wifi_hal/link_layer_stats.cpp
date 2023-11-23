@@ -106,21 +106,6 @@ protected:
             ALOGE("Invalid stats pointer received");
             return NL_SKIP;
         }
-        if (radio_stat->num_channels > 11) {
-            ALOGE("Incorrect number of channels = %d", radio_stat->num_channels);
-            // dump data before num_channels
-            ALOGE("radio: = %d", radio_stat->radio);
-            ALOGE("on_time: = %d", radio_stat->on_time);
-            ALOGE("tx_time: = %d", radio_stat->tx_time);
-            ALOGE("rx_time: = %d", radio_stat->rx_time);
-            ALOGE("on_time_scan: = %d", radio_stat->on_time_scan);
-            ALOGE("on_time_nbd: = %d", radio_stat->on_time_nbd);
-            ALOGE("on_time_gscan: = %d", radio_stat->on_time_gscan);
-            ALOGE("on_time_pno_scan: = %d", radio_stat->on_time_pno_scan);
-            ALOGE("on_time_hs20: = %d", radio_stat->on_time_hs20);
-            free(radio_stat);
-            return NL_SKIP;
-        }
         wifi_iface_stat *iface_stat =
             (wifi_iface_stat *)((char *)&((wifi_radio_stat_internal *)data)->channels
                 + radio_stat->num_channels * sizeof(wifi_channel_stat));

@@ -69,9 +69,17 @@ class VtsTreblePlatformVersionTest(base_test.BaseTestClass):
 
     def testFirstApiLevel(self):
         """Test that device launched with O or later."""
-        firstApiLevel = self.dut.getLaunchApiLevel()
-        asserts.assertTrue(firstApiLevel >= api.PLATFORM_API_LEVEL_O,
+        launchApiLevel = self.dut.GetLaunchApiLevel()
+        asserts.assertTrue(launchApiLevel >= api.PLATFORM_API_LEVEL_O,
             "VTS can only be run for new launches in O or above")
+        # Check first_api_level if device launches with P or above.
+        if launchApiLevel >= api.PLATFORM_API_LEVEL_P:
+            firstApiLevel_str = self.getProp("ro.product.first_api_level")
+            firstApiLevel = 0
+            if not firstApiLevel_str:
+                firstApiLevel = int(firstApiLevel_str)
+            asserts.assertTrue(firstApiLevel >= api.PLATFORM_API_LEVEL_P,
+                "Device running Android 9 or later MUST define PRODUCT_SHIPPING_API_LEVEL")
 
     def testTrebleEnabled(self):
         """Test that device has Treble enabled."""

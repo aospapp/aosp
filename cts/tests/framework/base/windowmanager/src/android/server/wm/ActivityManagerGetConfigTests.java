@@ -251,16 +251,11 @@ public class ActivityManagerGetConfigTests {
         assertEquals("Expected mnc does not match",
                 config.mnc, resConfig.configuration.mnc);
         LocaleList llist = config.getLocales();
-        LocaleProto[] lprotos = resConfig.configuration.locales;
-        assertEquals("Expected number of locales does not match",
-                llist.size(), lprotos.length);
+        LocaleList lprotos = LocaleList.forLanguageTags(resConfig.configuration.localeList);
+        assertEquals("Expected number of locales does not match", llist.size(), lprotos.size());
         for (int i = 0; i < llist.size(); i++) {
-            assertEquals("Expected locale #" + i + " language does not match",
-                    llist.get(i).getLanguage(), lprotos[i].language);
-            assertEquals("Expected locale #" + i + " country does not match",
-                    llist.get(i).getCountry(), lprotos[i].country);
-            assertEquals("Expected locale #" + i + " variant does not match",
-                    llist.get(i).getVariant(), lprotos[i].variant);
+            assertEquals("Expected locale #" + i + " does not match",
+                    llist.get(i).toLanguageTag(), lprotos.get(i).toLanguageTag());
         }
         assertEquals("Expected screen layout does not match",
                 config.screenLayout, resConfig.configuration.screenLayout);

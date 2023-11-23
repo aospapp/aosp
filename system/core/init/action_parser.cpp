@@ -16,11 +16,14 @@
 
 #include "action_parser.h"
 
+#include <ctype.h>
+
 #include <android-base/properties.h>
 #include <android-base/strings.h>
 
-#if defined(__ANDROID__)
+#ifdef INIT_FULL_SOURCES
 #include "property_service.h"
+#include "selinux.h"
 #else
 #include "host_init_stubs.h"
 #endif
@@ -55,8 +58,8 @@ bool IsActionableProperty(Subcontext* subcontext, const std::string& prop_name) 
     return CanReadProperty(subcontext->context(), prop_name);
 }
 
-Result<Success> ParsePropertyTrigger(const std::string& trigger, Subcontext* subcontext,
-                                     std::map<std::string, std::string>* property_triggers) {
+Result<void> ParsePropertyTrigger(const std::string& trigger, Subcontext* subcontext,
+                                  std::map<std::string, std::string>* property_triggers) {
     const static std::string prop_str("property:");
     std::string prop_name(trigger.substr(prop_str.length()));
     size_t equal_pos = prop_name.find('=');
@@ -74,12 +77,23 @@ Result<Success> ParsePropertyTrigger(const std::string& trigger, Subcontext* sub
     if (auto [it, inserted] = property_triggers->emplace(prop_name, prop_value); !inserted) {
         return Error() << "multiple property triggers found for same property";
     }
-    return Success();
+    return {};
 }
 
-Result<Success> ParseTriggers(const std::vector<std::string>& args, Subcontext* subcontext,
-                              std::string* event_trigger,
-                              std::map<std::string, std::string>* property_triggers) {
+Result<void> ValidateEventTrigger(const std::string& event_trigger) {
+    if (SelinuxGetVendorAndroidVersion() >= __ANDROID_API_R__) {
+        for (const char& c : event_trigger) {
+            if (c != '_' && c != '-' && !std::isalnum(c)) {
+                return Error() << "Illegal character '" << c << "' in '" << event_trigger << "'";
+            }
+        }
+    }
+    return {};
+}
+
+Result<void> ParseTriggers(const std::vector<std::string>& args, Subcontext* subcontext,
+                           std::string* event_trigger,
+                           std::map<std::string, std::string>* property_triggers) {
     const static std::string prop_str("property:");
     for (std::size_t i = 0; i < args.size(); ++i) {
         if (args[i].empty()) {
@@ -96,45 +110,44 @@ Result<Success> ParseTriggers(const std::vector<std::string>& args, Subcontext* 
 
         if (!args[i].compare(0, prop_str.length(), prop_str)) {
             if (auto result = ParsePropertyTrigger(args[i], subcontext, property_triggers);
-                !result) {
+                !result.ok()) {
                 return result;
             }
         } else {
             if (!event_trigger->empty()) {
                 return Error() << "multiple event triggers are not allowed";
             }
+            if (auto result = ValidateEventTrigger(args[i]); !result.ok()) {
+                return result;
+            }
 
             *event_trigger = args[i];
         }
     }
 
-    return Success();
+    return {};
 }
 
 }  // namespace
 
-Result<Success> ActionParser::ParseSection(std::vector<std::string>&& args,
-                                           const std::string& filename, int line) {
+Result<void> ActionParser::ParseSection(std::vector<std::string>&& args,
+                                        const std::string& filename, int line) {
     std::vector<std::string> triggers(args.begin() + 1, args.end());
     if (triggers.size() < 1) {
         return Error() << "Actions must have a trigger";
     }
 
     Subcontext* action_subcontext = nullptr;
-    if (subcontexts_) {
-        for (auto& subcontext : *subcontexts_) {
-            if (StartsWith(filename, subcontext.path_prefix())) {
-                action_subcontext = &subcontext;
-                break;
-            }
-        }
+    if (subcontext_ && subcontext_->PathMatchesSubcontext(filename)) {
+        action_subcontext = subcontext_;
     }
 
     std::string event_trigger;
     std::map<std::string, std::string> property_triggers;
 
-    if (auto result = ParseTriggers(triggers, action_subcontext, &event_trigger, &property_triggers);
-        !result) {
+    if (auto result =
+                ParseTriggers(triggers, action_subcontext, &event_trigger, &property_triggers);
+        !result.ok()) {
         return Error() << "ParseTriggers() failed: " << result.error();
     }
 
@@ -142,19 +155,19 @@ Result<Success> ActionParser::ParseSection(std::vector<std::string>&& args,
                                            property_triggers);
 
     action_ = std::move(action);
-    return Success();
+    return {};
 }
 
-Result<Success> ActionParser::ParseLineSection(std::vector<std::string>&& args, int line) {
-    return action_ ? action_->AddCommand(std::move(args), line) : Success();
+Result<void> ActionParser::ParseLineSection(std::vector<std::string>&& args, int line) {
+    return action_ ? action_->AddCommand(std::move(args), line) : Result<void>{};
 }
 
-Result<Success> ActionParser::EndSection() {
+Result<void> ActionParser::EndSection() {
     if (action_ && action_->NumCommands() > 0) {
         action_manager_->AddAction(std::move(action_));
     }
 
-    return Success();
+    return {};
 }
 
 }  // namespace init

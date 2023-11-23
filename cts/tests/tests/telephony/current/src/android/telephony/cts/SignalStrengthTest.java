@@ -25,24 +25,28 @@ import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.os.SystemClock;
+import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthCdma;
 import android.telephony.CellSignalStrengthGsm;
 import android.telephony.CellSignalStrengthLte;
 import android.telephony.CellSignalStrengthNr;
 import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
-import android.telephony.CellSignalStrength;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import org.junit.Before;
-import org.junit.Test;
 
 /**
  * Test SignalStrength to ensure that valid data is being reported and that invalid data is
@@ -77,8 +81,17 @@ public class SignalStrengthTest {
 
         if (!isCamped()) fail("Device is not camped on cellular");
 
+        // Detect accidental connection to Wi-Fi for data, which fails the test,
+        // due to IWLAN often being enabled.
+        assertDeviceIsOnCellDataOrNoData();
+
         SignalStrength ss = mTm.getSignalStrength();
         assertNotNull("TelephonyManager.getSignalStrength() returned NULL!", ss);
+
+        long curTime = SystemClock.elapsedRealtime();
+        assertTrue("Invalid timestamp in SignalStrength: " + ss.getTimestampMillis(),
+                ss.getTimestampMillis() > 0 && ss.getTimestampMillis() <= curTime);
+        Log.d(TAG, "Timestamp of SignalStrength: " + Long.toString(ss.getTimestampMillis()));
 
         List<CellSignalStrength> signalStrengths = ss.getCellSignalStrengths();
 
@@ -92,7 +105,7 @@ public class SignalStrengthTest {
         if (dataType != null) types.add(dataType);
 
         Class<? extends CellSignalStrength> voiceType =
-                getSignalStrengthTypeForNetworkType(mTm.getNetworkType());
+                getSignalStrengthTypeForNetworkType(mTm.getVoiceNetworkType());
 
         // Check if camped for Voice-Only
         if (dataType == null && voiceType != null) {
@@ -112,18 +125,28 @@ public class SignalStrengthTest {
         }
 
         for (CellSignalStrength css : signalStrengths) {
-            assertTrue("Invalid SignalStrength type detected" + css.getClass(),
-                    types.contains(css.getClass()));
+            assertTrue("Invalid SignalStrength type detected:" + css.getClass()
+                    + " - Allowed Types: " + types, types.contains(css.getClass()));
         }
 
-        assertTrue(!ss.getCellSignalStrengths(dataType).isEmpty()
-                || !ss.getCellSignalStrengths(voiceType).isEmpty());
+        assertTrue("No valid signal strengths reported for the camped/registered network types",
+                (dataType != null && !ss.getCellSignalStrengths(dataType).isEmpty())
+                        || (voiceType != null && !ss.getCellSignalStrengths(voiceType).isEmpty()));
     }
 
     /** Check whether the device is LTE + NR dual connected */
     private boolean isUsingEnDc() {
         ServiceState ss = mTm.getServiceState();
         return ss != null && ss.getNrState() == NR_STATE_CONNECTED;
+    }
+
+    private void assertDeviceIsOnCellDataOrNoData() {
+        ConnectivityManager cm = getContext().getSystemService(ConnectivityManager.class);
+        Network activeNetwork = cm.getActiveNetwork();
+        if (activeNetwork == null) return;
+        assertTrue("Device is connected and using non-cellular data (likely Wi-Fi)",
+                cm.getNetworkCapabilities(activeNetwork)
+                        .hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR));
     }
 
     /** Get the CellSignalStrength class type that should be returned when using a network type */

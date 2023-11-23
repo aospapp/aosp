@@ -24,10 +24,10 @@ import android.app.UiAutomation;
 import android.os.SystemClock;
 import android.view.KeyEvent;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 
@@ -56,12 +56,12 @@ import org.junit.runner.RunWith;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class KeyEventInterceptTest {
-    private KeyEventInterceptTestActivity mActivity;
+    private InputEventInterceptTestActivity mActivity;
     private Instrumentation mInstrumentation;
 
     @Rule
-    public ActivityTestRule<KeyEventInterceptTestActivity> mActivityRule =
-            new ActivityTestRule<>(KeyEventInterceptTestActivity.class);
+    public ActivityTestRule<InputEventInterceptTestActivity> mActivityRule =
+            new ActivityTestRule<>(InputEventInterceptTestActivity.class);
 
     @Before
     public void setup() {
@@ -96,10 +96,10 @@ public class KeyEventInterceptTest {
     }
 
     private void testKeyCodeHomeShortcut(int metaState) {
-        long downTime = SystemClock.uptimeMillis();
+        final long downTime = SystemClock.uptimeMillis();
         injectEvent(new KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN,
                 KeyEvent.KEYCODE_ENTER, 0, metaState));
-        injectEvent(new KeyEvent(downTime, downTime + 1, KeyEvent.ACTION_UP,
+        injectEvent(new KeyEvent(downTime, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP,
                 KeyEvent.KEYCODE_ENTER, 0, metaState));
 
         assertKeyNotReceived();

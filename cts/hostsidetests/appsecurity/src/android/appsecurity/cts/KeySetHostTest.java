@@ -96,6 +96,8 @@ public class KeySetHostTest extends DeviceTestCase implements IBuildReceiver {
     private static final String PERM_TEST_CLASS =
         "com.android.cts.keysets.KeySetPermissionsTest";
 
+    private static final String INSTALL_ARG_FORCE_QUERYABLE = "--force-queryable";
+
     private static final String LOG_TAG = "AppsecurityHostTests";
 
     private File getTestAppFile(String fileName) throws FileNotFoundException {
@@ -375,11 +377,11 @@ public class KeySetHostTest extends DeviceTestCase implements IBuildReceiver {
 
             /* install PERM_DEF, KEYSET_APP and KEYSET_TEST_APP */
             String installResult = mDevice.installPackage(
-                    getTestAppFile(permDefApk), false);
+                    getTestAppFile(permDefApk), false, INSTALL_ARG_FORCE_QUERYABLE);
             assertNull(String.format("failed to install keyset perm-def app, Reason: %s",
                        installResult), installResult);
             installResult = getDevice().installPackage(
-                    getTestAppFile(permUseApk), false);
+                    getTestAppFile(permUseApk), false, INSTALL_ARG_FORCE_QUERYABLE);
             assertNull(String.format("failed to install keyset test app. Reason: %s",
                     installResult), installResult);
             installResult = getDevice().installPackage(
@@ -398,7 +400,7 @@ public class KeySetHostTest extends DeviceTestCase implements IBuildReceiver {
 
             /* rotate keys */
             installResult = mDevice.installPackage(getTestAppFile(upgradeApk),
-                    true);
+                    true, INSTALL_ARG_FORCE_QUERYABLE);
             result = doRunTests(KEYSET_TEST_PKG, PERM_TEST_CLASS,
                     "testHasPerm");
             if (hasPermAfterUpgrade) {

@@ -17,11 +17,13 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="car_permission_label" msgid="741004755205554376">"कारची माहिती अ‍ॅक्सेस करा"</string>
-    <string name="car_permission_desc" msgid="162499818870052725">"तुमच्या कारची माहिती अॅक्सेस करा."</string>
+    <string name="car_permission_desc" msgid="162499818870052725">"तुमच्या कारची माहिती ॲक्सेस करा."</string>
     <string name="car_permission_label_camera" msgid="3725702064841827180">"कारचा कॅमेरा अ‍ॅक्सेस करा"</string>
     <string name="car_permission_desc_camera" msgid="917024932164501426">"तुमच्या कारचा(चे) कॅमेरा(रे) अ‍ॅक्सेस करा."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"कारच्या ऊर्जेची माहिती अ‍ॅक्सेस करा"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"तुमच्या कारची ऊर्जा माहिती अ‍ॅक्सेस करा."</string>
+    <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"कारची शिल्लक रेंज अ‍ॅडजस्ट करा"</string>
+    <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"कारच्या शिल्लक रेंजचे मूल्य अ‍ॅडजस्ट करा."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"कारचे hvac अ‍ॅक्सेस करा"</string>
     <string name="car_permission_desc_hvac" msgid="3754229695589774195">"तुमच्या कारचे hvac अ‍ॅक्सेस करा."</string>
     <string name="car_permission_label_mileage" msgid="4661317074631150551">"कारच्या मायलेजची माहिती अ‍ॅक्सेस करा"</string>
@@ -44,12 +46,12 @@
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"कारच्या ऑडिओ सेटिंग्ज व्यवस्थापित करा"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"वाहन HAL चे अनुकरण करा"</string>
     <string name="car_permission_label_receive_ducking" msgid="4884538660766756573">"डक केल्याच्या सूचना मिळवा"</string>
-    <string name="car_permission_desc_receive_ducking" msgid="776376388266656512">"कारमधील इतर ऑडिओ प्ले होत असल्याने अॅपचा व्हॉल्यूम कमी केला जातो तेव्हा ते अॅपला सूचित केले जाण्याची अनुमती देते."</string>
+    <string name="car_permission_desc_receive_ducking" msgid="776376388266656512">"कारमधील इतर ऑडिओ प्ले होत असल्याने ॲपचा व्हॉल्यूम कमी केला जातो तेव्हा ते ॲपला सूचित केले जाण्याची अनुमती देते."</string>
     <string name="car_permission_desc_mock_vehicle_hal" msgid="5235596491098649155">"अंतर्गत चाचणी उद्देशांसाठी तुमच्या कारच्या वाहन HAL चे अनुकरण करा."</string>
     <string name="car_permission_desc_audio_volume" msgid="536626185654307889">"तुमच्या कारचा ऑडिओ व्हॉल्यूम नियंत्रित करा."</string>
     <string name="car_permission_desc_audio_settings" msgid="7192007170677915937">"तुमच्या कारची ऑडिओ सेटिंग्ज नियंत्रित करा."</string>
-    <string name="car_permission_label_control_app_blocking" msgid="9112678596919993386">"अॅप्लिकेशन ब्लॉक करणे"</string>
-    <string name="car_permission_desc_control_app_blocking" msgid="7539378161760696190">"ड्रायव्हिंग करत असताना अॅप्लिकेशन ब्लॉक करणे नियंत्रित करा."</string>
+    <string name="car_permission_label_control_app_blocking" msgid="9112678596919993386">"ॲप्लिकेशन ब्लॉक करणे"</string>
+    <string name="car_permission_desc_control_app_blocking" msgid="7539378161760696190">"ड्रायव्हिंग करत असताना ॲप्लिकेशन ब्लॉक करणे नियंत्रित करा."</string>
     <string name="car_permission_car_navigation_manager" msgid="5895461364007854077">"नेव्हिगेशन व्यवस्थापक"</string>
     <string name="car_permission_desc_car_navigation_manager" msgid="6188751054665471537">"इंस्ट्रुमेंट क्लस्टरला नेव्हिगेशन डेटाचा अहवाल द्या"</string>
     <string name="car_permission_car_display_in_cluster" msgid="4005987646292458684">"इंस्ट्रुमेंट क्लस्टरवर थेट रेंडरिंग"</string>
@@ -62,13 +64,19 @@
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"UX निर्बंध कॉन्फिगर करा"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"USB डिव्हाइसशी AOAP मोडमध्ये कनेक्ट करा"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"अ‍ॅपला डिव्हाइसशी AOAP मोडमध्ये कनेक्ट करण्याची अनुमती देते"</string>
+    <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"ऑक्युपंट अवेअरनेस सिस्टम वाचन अ‍ॅक्सेस"</string>
+    <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"ऑक्युपंट अवेअरनेस सिस्टम यासाठी वाचन स्थिती आणि डिटेक्‍शन डेटाला अनुमती देते"</string>
+    <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"ऑक्युपंट अवेअरनेस सिस्टम आलेख नियंत्रित करा"</string>
+    <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"ऑक्युपंट अवेअरनेस सिस्टम डिटेक्शन आलेख सुरू करणे आणि थांबवणे नियंत्रित करण्यासाठी अनुमती देते"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"कार इनपुट सेवा"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"इनपुट इव्हेंट हाताळा"</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN बस अयशस्वी"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN बस प्रतिसाद देत नाही. हेडयुनिट बॉक्स अनप्लग करून पुन्हा प्लग करा आणि कार रीस्टार्ट करा"</string>
-    <string name="activity_blocked_text" msgid="5342114426610711378">"तुमच्या सुरक्षेसाठी, ड्रायव्हिंग करत असताना ही अ‍ॅक्टिव्हिटी उपलब्ध नाही.\nसुरू ठेवण्यासाठी, पार्क करेपर्यंत वाट पहा."</string>
+    <string name="activity_blocked_text" msgid="8088902789540147995">"तुम्ही ड्राइव्ह करताना हे वैशिष्ट्य वापरू शकत नाही"</string>
     <string name="exit_button_message" msgid="8554690915924055685">"सुरक्षित अ‍ॅप वैशिष्ट्यांसोबत पुन्हा सुरुवात करण्यासाठी, <xliff:g id="EXIT_BUTTON">%s</xliff:g> निवडा."</string>
     <string name="exit_button" msgid="5829638404777671253">"मागे जा"</string>
+    <string name="exit_button_close_application" msgid="8824289547809332460">"अ‍ॅप बंद करा"</string>
+    <string name="exit_button_go_back" msgid="3469083862100560326">"मागे जा"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"निदान डेटा वाचा"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"कारचा निदान डेटा वाचा."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"निदान डेटा साफ करा"</string>
@@ -87,6 +95,8 @@
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"तुमच्या कारच्या इंजिनची तपशीलवार माहिती अ‍ॅक्सेस करा."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"कारचा इंधन भरण्याचा दरवाजा आणि चार्ज पोर्ट अ‍ॅक्सेस करा"</string>
     <string name="car_permission_desc_car_energy_ports" msgid="7771185999828794949">"कारचा इंधन भरण्याचा दरवाजा आणि चार्ज पोर्ट अ‍ॅक्सेस करा."</string>
+    <string name="car_permission_label_control_car_energy_ports" msgid="4375137311026313475">"कारचा इंधन भरण्याचा दरवाजा आणि चार्ज पोर्ट नियंत्रित करा"</string>
+    <string name="car_permission_desc_control_car_energy_ports" msgid="7364633710492525387">"कारचा इंधन भरण्याचा दरवाजा आणि चार्ज पोर्ट नियंत्रित करा"</string>
     <string name="car_permission_label_car_identification" msgid="5896712510164020478">"कारची ओळख वाचा"</string>
     <string name="car_permission_desc_car_identification" msgid="4132040867171275059">"कारची ओळख अ‍ॅक्सेस करा."</string>
     <string name="car_permission_label_control_car_doors" msgid="3032058819250195700">"कारचे दरवाजे नियंत्रित करा"</string>
@@ -99,6 +109,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"कारची आसने नियंत्रित करा."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"कारची प्राथमिक माहिती अ‍ॅक्सेस करा"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"कारची प्राथमिक माहिती अ‍ॅक्सेस करा."</string>
+    <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"कारच्या विक्रेता परवानगी माहिती ॲक्सेस करा"</string>
+    <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"कारच्या विक्रेता परवानगी माहिती ॲक्सेस करा."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"कारच्या बाहेरील लाइटची स्थिती वाचा"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"कारच्या बाहेरील लाइटची स्थिती अ‍ॅक्सेस करा."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"कारच्या बाहेरच्या लाइटची स्थिती वाचा"</string>
@@ -123,5 +135,12 @@
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"कारची पॉवर स्थिती अ‍ॅक्सेस करा."</string>
     <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"विश्वसनीय डिव्हाइसची नोंदणी करा"</string>
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"विश्वसनीय डिव्हाइसच्या नोंदणीला अनुमती द्या"</string>
+    <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"कारचा चाचणी मोड नियंत्रित करा"</string>
+    <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"कारचा चाचणी मोड नियंत्रित करा"</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"कारची वैशिष्ट्ये सुरू किंवा बंद करा"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"कारची वैशिष्ट्ये सुरू किंवा बंद करा."</string>
+    <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"कार वॉचडॉग वापरा"</string>
+    <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"कार वॉचडॉग वापरा."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"माझे डिव्हाइस"</string>
+    <string name="default_guest_name" msgid="2912812799433131476">"अतिथी"</string>
 </resources>

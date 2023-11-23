@@ -105,7 +105,7 @@ static void usage(const char *msg)
 		"          -F => re-sign existing FIT image\n"
 		"          -p => place external data at a static position\n"
 		"          -r => mark keys used as 'required' in dtb\n"
-		"          -N => engine to use for signing (pkcs11)\n");
+		"          -N => openssl engine to use for signing\n");
 #else
 	fprintf(stderr,
 		"Signing / verified boot not supported (CONFIG_FIT_SIGNATURE undefined)\n");
@@ -318,6 +318,7 @@ int main(int argc, char **argv)
 	struct image_type_params *tparams = NULL;
 	int pad_len = 0;
 	int dfd;
+	size_t map_len;
 
 	params.cmdname = *argv;
 	params.addr = 0;
@@ -402,14 +403,21 @@ int main(int argc, char **argv)
 			exit (EXIT_FAILURE);
 		}
 
-		/*
-		 * scan through mkimage registry for all supported image types
-		 * and verify the input image file header for match
-		 * Print the image information for matched image type
-		 * Returns the error code if not matched
-		 */
-		retval = imagetool_verify_print_header(ptr, &sbuf,
-				tparams, &params);
+		if (params.fflag) {
+			/*
+			 * Verifies the header format based on the expected header for image
+			 * type in tparams
+			 */
+			retval = imagetool_verify_print_header_by_type(ptr, &sbuf,
+					tparams, &params);
+		} else {
+			/**
+			 * When listing the image, we are not given the image type. Simply check all
+			 * image types to find one that matches our header
+			 */
+			retval = imagetool_verify_print_header(ptr, &sbuf,
+					tparams, &params);
+		}
 
 		(void) munmap((void *)ptr, sbuf.st_size);
 		(void) close (ifd);
@@ -522,6 +530,28 @@ int main(int argc, char **argv)
 			ret = zynqmpbif_copy_image(ifd, &params);
 			if (ret)
 				return ret;
+		} else if (params.type == IH_TYPE_IMX8IMAGE) {
+			/* i.MX8/8X has special Image format */
+			int ret;
+
+			ret = imx8image_copy_image(ifd, &params);
+			if (ret)
+				return ret;
+		} else if (params.type == IH_TYPE_IMX8MIMAGE) {
+			/* i.MX8M has special Image format */
+			int ret;
+
+			ret = imx8mimage_copy_image(ifd, &params);
+			if (ret)
+				return ret;
+		} else if ((params.type == IH_TYPE_RKSD) ||
+				(params.type == IH_TYPE_RKSPI)) {
+			/* Rockchip has special Image format */
+			int ret;
+
+			ret = rockchip_copy_image(ifd, &params);
+			if (ret)
+				return ret;
 		} else {
 			copy_file(ifd, params.datafile, pad_len);
 		}
@@ -576,7 +606,8 @@ int main(int argc, char **argv)
 	}
 	params.file_size = sbuf.st_size;
 
-	ptr = mmap(0, sbuf.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, ifd, 0);
+	map_len = sbuf.st_size;
+	ptr = mmap(0, map_len, PROT_READ | PROT_WRITE, MAP_SHARED, ifd, 0);
 	if (ptr == MAP_FAILED) {
 		fprintf (stderr, "%s: Can't map %s: %s\n",
 			params.cmdname, params.imagefile, strerror(errno));
@@ -600,7 +631,7 @@ int main(int argc, char **argv)
 			params.cmdname, tparams->name);
 	}
 
-	(void) munmap((void *)ptr, sbuf.st_size);
+	(void)munmap((void *)ptr, map_len);
 
 	/* We're a bit of paranoid */
 #if defined(_POSIX_SYNCHRONIZED_IO) && \

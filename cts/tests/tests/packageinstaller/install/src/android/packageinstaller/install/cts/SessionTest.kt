@@ -16,7 +16,6 @@
 package android.packageinstaller.install.cts
 
 import android.app.Activity.RESULT_CANCELED
-import android.app.AppOpsManager.MODE_ALLOWED
 import android.content.pm.ApplicationInfo.CATEGORY_MAPS
 import android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED
 import android.content.pm.PackageInstaller.STATUS_FAILURE_ABORTED
@@ -27,9 +26,10 @@ import androidx.test.runner.AndroidJUnit4
 import com.android.compatibility.common.util.AppOpsUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 
 private const val INSTALL_BUTTON_ID = "button1"
 private const val CANCEL_BUTTON_ID = "button2"
@@ -40,17 +40,12 @@ class SessionTest : PackageInstallerTestBase() {
     private val context = InstrumentationRegistry.getTargetContext()
     private val pm = context.packageManager
 
-    @Before
-    fun allowToInstallPackages() {
-        AppOpsUtils.setOpMode(context.packageName, APP_OP_STR, MODE_ALLOWED)
-    }
-
     /**
      * Check that we can install an app via a package-installer session
      */
     @Test
     fun confirmInstallation() {
-        startInstallationViaSession()
+        val installation = startInstallationViaSession()
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 
         // Install should have succeeded
@@ -58,9 +53,7 @@ class SessionTest : PackageInstallerTestBase() {
         assertInstalled()
 
         // Even when the install succeeds the install confirm dialog returns 'canceled'
-        assertEquals(RESULT_CANCELED, getInstallDialogResult())
-
-        assertNoMoreInstallResults()
+        assertEquals(RESULT_CANCELED, installation.get(TIMEOUT, TimeUnit.MILLISECONDS))
 
         assertTrue(AppOpsUtils.allowedOperationLogged(context.packageName, APP_OP_STR))
     }
@@ -70,7 +63,7 @@ class SessionTest : PackageInstallerTestBase() {
      */
     @Test
     fun setAppCategory() {
-        startInstallationViaSession()
+        val installation = startInstallationViaSession()
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 
         // Wait for installation to finish
@@ -90,14 +83,35 @@ class SessionTest : PackageInstallerTestBase() {
      */
     @Test
     fun cancelInstallation() {
-        startInstallationViaSession()
+        val installation = startInstallationViaSession()
         clickInstallerUIButton(CANCEL_BUTTON_ID)
 
         // Install should have been aborted
         assertEquals(STATUS_FAILURE_ABORTED, getInstallSessionResult())
-        assertEquals(RESULT_CANCELED, getInstallDialogResult())
+        assertEquals(RESULT_CANCELED, installation.get(TIMEOUT, TimeUnit.MILLISECONDS))
         assertNotInstalled()
+    }
 
-        assertNoMoreInstallResults()
+    /**
+     * Check that can't install when FRP mode is enabled.
+     */
+    @Test
+    fun confirmFrpInstallationFails() {
+        try {
+            setSecureFrp(true)
+
+            try {
+                val installation = startInstallationViaSession()
+                clickInstallerUIButton(CANCEL_BUTTON_ID)
+
+                fail("Package should not be installed")
+            } catch (expected: SecurityException) {
+            }
+
+            // Install should never have started
+            assertNotInstalled()
+        } finally {
+            setSecureFrp(false)
+        }
     }
 }

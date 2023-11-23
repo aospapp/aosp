@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,17 +8,17 @@
 from __future__ import print_function
 
 import common
+import argparse
+import logging
 import sys
 
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.lib import suite_report
-from chromite.lib import commandline
-from chromite.lib import cros_logging as logging
 from chromite.lib import ts_mon_config
 
 def GetParser():
     """Creates the argparse parser."""
-    parser = commandline.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('job_ids', type=int, nargs='+',
                         help='Suite job ids to dump')
     # As a provision suite may exit before its all provision jobs finish, the

@@ -21,16 +21,27 @@ import android.os.IBinder;
 import android.os.IInterface;
 import android.os.RemoteException;
 
+import com.android.internal.annotations.GuardedBy;
+
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Helper class to hold client's binder interface.
+ *
+ * @param <T> type of the value that is wrapped by this class
  */
 public class BinderInterfaceContainer<T extends IInterface> {
 
-    public static class BinderInterface<T extends IInterface>
-            implements IBinder.DeathRecipient {
+    /**
+     * Wrapper class for objects that want to be notified whenever they are unliked from
+     * the container ({@link BinderInterfaceContainer}).
+     *
+     * @param <T> type of the value that is wrapped by this class
+     */
+    public static class BinderInterface<T extends IInterface> implements IBinder.DeathRecipient {
         public final T binderInterface;
         private final BinderInterfaceContainer<T> mContainer;
 
@@ -46,13 +57,25 @@ public class BinderInterfaceContainer<T extends IInterface> {
         }
     }
 
+    /**
+     * Interface to be implemented by object that want to be notified whenever a binder is unliked
+     * (dies).
+     */
     public interface BinderEventHandler<T extends IInterface> {
         void onBinderDeath(BinderInterface<T> bInterface);
     }
 
-    private final BinderEventHandler<T> mEventHandler;
-    private final HashMap<IBinder, BinderInterface<T>> mBinders = new HashMap<>();
+    private final Object mLock = new Object();
 
+    private final BinderEventHandler<T> mEventHandler;
+
+    @GuardedBy("mLock")
+    private final Map<IBinder, BinderInterface<T>> mBinders = new HashMap<>();
+
+    /**
+     * Constructs a new <code>BinderInterfaceContainer</code> passing an event handler to be used to
+     * notify listeners when a registered binder dies (unlinked).
+     */
     public BinderInterfaceContainer(@Nullable BinderEventHandler<T> eventHandler) {
         mEventHandler = eventHandler;
     }
@@ -61,9 +84,14 @@ public class BinderInterfaceContainer<T extends IInterface> {
         mEventHandler = null;
     }
 
+    /**
+     * Add the instance of {@link IInterface} representing the binder interface to this container.
+     *
+     * Internally, this object will be wrapped in an {@link BinderInterface} when added.
+     */
     public void addBinder(T binderInterface) {
         IBinder binder = binderInterface.asBinder();
-        synchronized (this) {
+        synchronized (mLock) {
             BinderInterface<T> bInterface = mBinders.get(binder);
             if (bInterface != null) {
                 return;
@@ -78,9 +106,13 @@ public class BinderInterfaceContainer<T extends IInterface> {
         }
     }
 
+    /**
+     * Removes the {@link BinderInterface} object associated with the passed parameter (if there is
+     * any).
+     */
     public void removeBinder(T binderInterface) {
         IBinder binder = binderInterface.asBinder();
-        synchronized(this) {
+        synchronized (mLock) {
             BinderInterface<T> bInterface = mBinders.get(binder);
             if (bInterface == null) {
                 return;
@@ -90,16 +122,22 @@ public class BinderInterfaceContainer<T extends IInterface> {
         }
     }
 
+    /**
+     * Returns the {@link BinderInterface} object associated with the passed parameter.
+     */
     public BinderInterface<T> getBinderInterface(T binderInterface) {
         IBinder binder = binderInterface.asBinder();
-        synchronized (this) {
+        synchronized (mLock) {
             return mBinders.get(binder);
         }
     }
 
+    /**
+     * Adds a new {@link BinderInterface} in this container.
+     */
     public void addBinderInterface(BinderInterface<T> bInterface) {
         IBinder binder = bInterface.binderInterface.asBinder();
-        synchronized (this) {
+        synchronized (mLock) {
             try {
                 binder.linkToDeath(bInterface, 0);
             } catch (RemoteException e) {
@@ -109,27 +147,43 @@ public class BinderInterfaceContainer<T extends IInterface> {
         }
     }
 
+    /**
+     * Returns an unmodified collection containing all registered {@link BinderInterface} objects
+     * with this container.
+     */
     public Collection<BinderInterface<T>> getInterfaces() {
-        synchronized (this) {
-            return mBinders.values();
+        synchronized (mLock) {
+            return Collections.unmodifiableCollection(mBinders.values());
         }
     }
 
-    public synchronized int size() {
-        return mBinders.size();
+    /**
+     * Returns the number of registered {@link BinderInterface} objects in this container.
+     */
+    public int size() {
+        synchronized (mLock) {
+            return mBinders.size();
+        }
     }
 
-    public synchronized void clear() {
-        Collection<BinderInterface<T>> interfaces = getInterfaces();
-        for (BinderInterface<T> bInterface : interfaces) {
-            removeBinder(bInterface.binderInterface);
+    /**
+     * Clears all registered {@link BinderInterface} objects.
+     */
+    public void clear() {
+        synchronized (mLock) {
+            Collection<BinderInterface<T>> interfaces = getInterfaces();
+            for (BinderInterface<T> bInterface : interfaces) {
+                IBinder binder = bInterface.binderInterface.asBinder();
+                binder.unlinkToDeath(bInterface, 0);
+            }
         }
+        mBinders.clear();
     }
 
     private void handleBinderDeath(BinderInterface<T> bInterface) {
-        removeBinder(bInterface.binderInterface);
         if (mEventHandler != null) {
             mEventHandler.onBinderDeath(bInterface);
         }
+        removeBinder(bInterface.binderInterface);
     }
 }

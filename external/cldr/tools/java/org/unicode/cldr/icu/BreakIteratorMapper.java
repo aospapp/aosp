@@ -51,8 +51,7 @@ class BreakIteratorMapper extends Mapper {
              */
             if (!path.startsWith("//ldml/special/icu:breakIteratorData")) continue;
             String fullPath = specialsFile.getFullXPath(path);
-            final XPathParts xpp = new XPathParts();
-            xpp.set(fullPath);
+            final XPathParts xpp = XPathParts.getFrozenInstance(fullPath);
             final String element = xpp.getElement(-1);
             final String element2 = xpp.getElement(-2);
             Set<String> source = null;
@@ -111,7 +110,7 @@ class BreakIteratorMapper extends Mapper {
             if (qName.equals("segmentation")) {
                 segPath = "/exceptions/" + attr.getValue("type") + ":array";
             } else if (qName.equals("version")) {
-                icuData.add("/Version", new String[] { MapperUtils.formatVersion(attr.getValue("number")) });
+                icuData.add("/Version", CLDRFile.GEN_VERSION);
             }
         }
 

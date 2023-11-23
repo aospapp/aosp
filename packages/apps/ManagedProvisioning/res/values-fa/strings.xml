@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"بازنشانی"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"نمی‌توان نمایه را تنظیم کرد"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"نمی‌توان دستگاه را راه‌اندازی کرد"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"مشکلی پیش آمد"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"‏دستگاه راه‌اندازی نشد. برای دریافت راهنمایی، با سرپرست IT تماس بگیرید."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"‏برای راهنمایی، با سرپرست IT تماس بگیرید"</string>
+    <string name="reset_device" msgid="5483853913241939262">"این دستگاه را بازنشانی کنید و دوباره راه‌اندازی کنید"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"دستگاه قبلاً راه‌اندازی شده است"</string>
     <string name="error_wifi" msgid="1850288843966836571">"‏به Wi-Fi متصل نشد"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"‏محافظت دربرابر بازنشانی در دستگاه روشن است. برای دریافت راهنمایی با سرپرست IT تماس بگیرید."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"درحال راه‌اندازی دستگاه کاری…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"درحال راه‌اندازی برنامه سرپرست"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"همه‌ چیزهای دیگر را راه‌اندازی کنید"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"اکنون، بیایید همه چیزهای دیگر را راه‌اندازی کنید"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"با افزودن حساب شخصی، بهره بیشتری از دستگاهتان ببرید"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"‏اکنون که نمایه کاری‌تان آماده است، می‌توانید «حساب Google» شخصی نیز برای دسترسی به برنامه‌ها و محتوا اضافه کنید."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"این دستگاه به سازمان شما تعلق دارد"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"از برنامه زیر برای مدیریت و نظارت بر این تلفن استفاده می‌شود"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"درحال آماده شدن برای راه‌اندازی دستگاه برای کار…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"ابتدا بیایید نمایه کاری‌تان را راه‌اندازی کنیم"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ابتدا بیایید نمایه کاری‌تان را راه‌اندازی کنیم"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"برنامه‌های کاری در نمایه کاری‌تان حفظ می‌شوند"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"توقف موقت برنامه‌های کاری وقتی کار روزانه‌تان تمام شد"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"‏فقط داده‌های موجود در نمایه کاری‌تان برای سرپرست IT نمایان است"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"داده‌های موجود در نمایه کاری‌تان برای سرپرست فناوری اطلاعات نمایان است"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"درحال راه اندازی نمایه کاری‌…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"‏برنامه‌های کاری در نمایه کاری‌تان حفظ می‌شوند. وقتی کار روزانه‌تان تمام شد، می‌توانید برنامه‌های کاری را موقتاً متوقف کنید. فقط داده‌های موجود در نمایه کاری شما برای سرپرست IT نمایان است."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"برنامه‌های کاری در نمایه کاری‌تان حفظ می‌شوند. وقتی کار روزانه‌تان تمام شد، می‌توانید برنامه‌های کاری را موقتاً متوقف کنید. داده‌های موجود در نمایه کاری‌تان برای سرپرست فناوری اطلاعات نمایان است."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"بیایید دستگاه محل کارتان را راه‌اندازی کنیم"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"دردسترس قرار دادن برنامه‌های کاری"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"این دستگاه خصوصی نیست"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"‏ممکن است سرپرست IT بتواند داده‌ها و فعالیتتان را در این دستگاه ببیند."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"درحال راه‌اندازی دستگاه…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"‏Use this device to easily access your work apps (برای دسترسی آسان به برنامه‌های کاری، از این دستگاه استفاده کنید). This device isn\'t private, so your IT admin may be able to see your data and activity (این دستگاه خصوصی نیست و بنابراین ممکن است سرپرست IT بتواند داده‌ها و فعالیتتان را ببیند). To learn more, contact your IT admin (برای آشنایی بیشتر، با سرپرست IT تماس بگیرید)."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"برنامه‌های کاری در نمایه کاری هستند و سرپرست فناوری اطلاعات آن‌ها را مدیریت می‌کند"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"برنامه‌های شخصی از برنامه‌های کاری جداست و از آن پنهان است"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"سرپرست فناوری اطلاعات می‌تواند این دستگاه را کنترل کند و برخی از برنامه‌ها را مسدود کند"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"برنامه‌های کاری در نمایه کاری نگه داشته می‌شوند و سرپرست فناوری اطلاعات می‌تواند آن‌ها را مدیریت کند. برنامه‌های شخصی مجزا هستند و از دسترس برنامه‌های کاری پنهان هستند. سرپرست فناوری اطلاعات می‌تواند این دستگاه را کنترل کند و برخی از برنامه‌ها را مسدود کند."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"لحظه‌ای صبر کنید…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"یادآوری حریم خصوصی"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"‏ممکن است سرپرست IT بتواند داده‌ها و فعالیت شما را در این دستگاه ببیند"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"دستگاهتان آماده استفاده است!"</string>
     <string name="done" msgid="7755227776955952318">"تمام"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"این دستگاه به‌صورت اعتباری از <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> خریداری شده است"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> می‌تواند:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"برنامه <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> را نصب کنید تا بتوانید اقساط این دستگاه را پرداخت کنید"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"اگر اقساط را پرداخت نکنید، دسترسی به این دستگاه محدود می‌شود"</string>
 </resources>

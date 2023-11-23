@@ -8,11 +8,11 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import com.ibm.icu.impl.FormattedStringBuilder;
 import com.ibm.icu.impl.number.DecimalQuantity;
 import com.ibm.icu.impl.number.DecimalQuantity_DualStorageBCD;
 import com.ibm.icu.impl.number.MicroProps;
 import com.ibm.icu.impl.number.MutablePatternModifier;
-import com.ibm.icu.impl.number.NumberStringBuilder;
 import com.ibm.icu.impl.number.PatternStringParser;
 import com.ibm.icu.number.NumberFormatter.SignDisplay;
 import com.ibm.icu.number.NumberFormatter.UnitWidth;
@@ -25,7 +25,7 @@ public class MutablePatternModifierTest {
     @Test
     public void basic() {
         MutablePatternModifier mod = new MutablePatternModifier(false);
-        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("a0b"));
+        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("a0b"), null);
         mod.setPatternAttributes(SignDisplay.AUTO, false);
         mod.setSymbols(DecimalFormatSymbols.getInstance(ULocale.ENGLISH),
                 Currency.getInstance("USD"),
@@ -51,7 +51,7 @@ public class MutablePatternModifierTest {
         assertEquals("a", getPrefix(mod));
         assertEquals("b", getSuffix(mod));
 
-        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("a0b;c-0d"));
+        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("a0b;c-0d"), null);
         mod.setPatternAttributes(SignDisplay.AUTO, false);
         mod.setNumberProperties(1, null);
         assertEquals("a", getPrefix(mod));
@@ -76,23 +76,23 @@ public class MutablePatternModifierTest {
     @Test
     public void mutableEqualsImmutable() {
         MutablePatternModifier mod = new MutablePatternModifier(false);
-        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("a0b;c-0d"));
+        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("a0b;c-0d"), null);
         mod.setPatternAttributes(SignDisplay.AUTO, false);
         mod.setSymbols(DecimalFormatSymbols.getInstance(ULocale.ENGLISH), null, UnitWidth.SHORT, null);
         DecimalQuantity fq = new DecimalQuantity_DualStorageBCD(1);
 
-        NumberStringBuilder nsb1 = new NumberStringBuilder();
+        FormattedStringBuilder nsb1 = new FormattedStringBuilder();
         MicroProps micros1 = new MicroProps(false);
         mod.addToChain(micros1);
         mod.processQuantity(fq);
         micros1.modMiddle.apply(nsb1, 0, 0);
 
-        NumberStringBuilder nsb2 = new NumberStringBuilder();
+        FormattedStringBuilder nsb2 = new FormattedStringBuilder();
         MicroProps micros2 = new MicroProps(true);
         mod.createImmutable().applyToMicros(micros2, fq);
         micros2.modMiddle.apply(nsb2, 0, 0);
 
-        NumberStringBuilder nsb3 = new NumberStringBuilder();
+        FormattedStringBuilder nsb3 = new FormattedStringBuilder();
         MicroProps micros3 = new MicroProps(false);
         mod.addToChain(micros3);
         mod.setPatternAttributes(SignDisplay.ALWAYS, false);
@@ -106,7 +106,7 @@ public class MutablePatternModifierTest {
     @Test
     public void patternWithNoPlaceholder() {
         MutablePatternModifier mod = new MutablePatternModifier(false);
-        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("abc"));
+        mod.setPatternInfo(PatternStringParser.parseToPatternInfo("abc"), null);
         mod.setPatternAttributes(SignDisplay.AUTO, false);
         mod.setSymbols(DecimalFormatSymbols.getInstance(ULocale.ENGLISH),
                 Currency.getInstance("USD"),
@@ -115,7 +115,7 @@ public class MutablePatternModifierTest {
         mod.setNumberProperties(1, null);
 
         // Unsafe Code Path
-        NumberStringBuilder nsb = new NumberStringBuilder();
+        FormattedStringBuilder nsb = new FormattedStringBuilder();
         nsb.append("x123y", null);
         mod.apply(nsb, 1, 4);
         assertEquals("Unsafe Path", "xabcy", nsb.toString());
@@ -130,13 +130,13 @@ public class MutablePatternModifierTest {
     }
 
     private static String getPrefix(MutablePatternModifier mod) {
-        NumberStringBuilder nsb = new NumberStringBuilder();
+        FormattedStringBuilder nsb = new FormattedStringBuilder();
         mod.apply(nsb, 0, 0);
         return nsb.subSequence(0, mod.getPrefixLength()).toString();
     }
 
     private static String getSuffix(MutablePatternModifier mod) {
-        NumberStringBuilder nsb = new NumberStringBuilder();
+        FormattedStringBuilder nsb = new FormattedStringBuilder();
         mod.apply(nsb, 0, 0);
         return nsb.subSequence(mod.getPrefixLength(), nsb.length()).toString();
     }

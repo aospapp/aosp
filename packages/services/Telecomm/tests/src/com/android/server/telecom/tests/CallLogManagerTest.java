@@ -16,15 +16,13 @@
 
 package com.android.server.telecom.tests;
 
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -34,9 +32,9 @@ import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
 import android.content.ContentProvider;
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.IContentProvider;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.location.Country;
@@ -45,6 +43,7 @@ import android.location.CountryListener;
 import android.net.Uri;
 import android.os.Looper;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.CallLog;
@@ -69,10 +68,12 @@ import com.android.server.telecom.MissedCallNotifier;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.TelephonyUtil;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
@@ -84,7 +85,6 @@ import java.util.Arrays;
 public class CallLogManagerTest extends TelecomTestCase {
 
     private CallLogManager mCallLogManager;
-    private IContentProvider mContentProvider;
     private PhoneAccountHandle mDefaultAccountHandle;
     private PhoneAccountHandle mOtherUserAccountHandle;
     private PhoneAccountHandle mManagedProfileAccountHandle;
@@ -111,8 +111,10 @@ public class CallLogManagerTest extends TelecomTestCase {
     private static final String TEST_ISO = "KR";
     private static final String TEST_ISO_2 = "JP";
 
-    @Mock PhoneAccountRegistrar mMockPhoneAccountRegistrar;
-
+    @Mock(answer = Answers.CALLS_REAL_METHODS)
+    ContentProvider mContentProvider;
+    @Mock
+    PhoneAccountRegistrar mMockPhoneAccountRegistrar;
     @Mock
     MissedCallNotifier mMissedCallNotifier;
 
@@ -123,8 +125,6 @@ public class CallLogManagerTest extends TelecomTestCase {
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
         mCallLogManager = new CallLogManager(mContext, mMockPhoneAccountRegistrar,
                 mMissedCallNotifier);
-        mContentProvider =
-                mContext.getContentResolver().acquireProvider("0@call_log");
         mDefaultAccountHandle = new PhoneAccountHandle(
                 new ComponentName("com.android.server.telecom.tests", "CallLogManagerTest"),
                 TEST_PHONE_ACCOUNT_ID,
@@ -149,6 +149,9 @@ public class CallLogManagerTest extends TelecomTestCase {
                 UserHandle.of(CURRENT_USER_ID)
         );
 
+        // Since we can't mock ContentResolver directly, use a ContentProvider
+        when(mContext.getContentResolver()).thenReturn(ContentResolver.wrap(mContentProvider));
+
         UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
         UserInfo userInfo = new UserInfo(CURRENT_USER_ID, "test", 0);
         UserInfo otherUserInfo = new UserInfo(OTHER_USER_ID, "test2", 0);
@@ -158,9 +161,9 @@ public class CallLogManagerTest extends TelecomTestCase {
         doAnswer(new Answer<Uri>() {
             @Override
             public Uri answer(InvocationOnMock invocation) throws Throwable {
-                return (Uri) invocation.getArguments()[1];
+                return (Uri) invocation.getArguments()[0];
             }
-        }).when(mContentProvider).insert(anyString(), any(Uri.class), any(ContentValues.class));
+        }).when(mContentProvider).insert(any(Uri.class), any(ContentValues.class));
 
         when(userManager.isUserRunning(any(UserHandle.class))).thenReturn(true);
         when(userManager.isUserUnlocked(any(UserHandle.class))).thenReturn(true);
@@ -171,6 +174,12 @@ public class CallLogManagerTest extends TelecomTestCase {
         when(userManager.getUserInfo(eq(CURRENT_USER_ID))).thenReturn(userInfo);
         when(userManager.getUserInfo(eq(OTHER_USER_ID))).thenReturn(otherUserInfo);
         when(userManager.getUserInfo(eq(MANAGED_USER_ID))).thenReturn(managedProfileUserInfo);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     @MediumTest
@@ -531,13 +540,24 @@ public class CallLogManagerTest extends TelecomTestCase {
 
         // Outgoing call placed through a phone account with multi user capability is inserted to
         // all users except managed profile.
-        ContentValues insertedValues = verifyInsertionWithCapture(CURRENT_USER_ID);
-        assertEquals(insertedValues.getAsInteger(CallLog.Calls.TYPE),
-                Integer.valueOf(CallLog.Calls.OUTGOING_TYPE));
-        insertedValues = verifyInsertionWithCapture(OTHER_USER_ID);
-        assertEquals(insertedValues.getAsInteger(CallLog.Calls.TYPE),
-                Integer.valueOf(CallLog.Calls.OUTGOING_TYPE));
-        verifyNoInsertionInUser(MANAGED_USER_ID);
+        SystemClock.sleep(TEST_TIMEOUT_MILLIS);
+
+        ArgumentCaptor<Uri> uris = ArgumentCaptor.forClass(Uri.class);
+        ArgumentCaptor<ContentValues> values = ArgumentCaptor.forClass(ContentValues.class);
+
+        verify(mContentProvider, atLeast(2)).insert(uris.capture(), values.capture());
+
+        assertTrue(uris.getAllValues().contains(
+                ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, CURRENT_USER_ID)));
+        assertTrue(uris.getAllValues().contains(
+                ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, OTHER_USER_ID)));
+        assertFalse(uris.getAllValues().contains(
+                ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, MANAGED_USER_ID)));
+
+        for (ContentValues v : values.getAllValues()) {
+            assertEquals(v.getAsInteger(CallLog.Calls.TYPE),
+                    Integer.valueOf(CallLog.Calls.OUTGOING_TYPE));
+        }
     }
 
     @MediumTest
@@ -565,13 +585,24 @@ public class CallLogManagerTest extends TelecomTestCase {
 
         // Incoming call using a phone account with multi user capability is inserted to all users
         // except managed profile.
-        ContentValues insertedValues = verifyInsertionWithCapture(CURRENT_USER_ID);
-        assertEquals(insertedValues.getAsInteger(CallLog.Calls.TYPE),
-                Integer.valueOf(CallLog.Calls.INCOMING_TYPE));
-        insertedValues = verifyInsertionWithCapture(OTHER_USER_ID);
-        assertEquals(insertedValues.getAsInteger(CallLog.Calls.TYPE),
-                Integer.valueOf(CallLog.Calls.INCOMING_TYPE));
-        verifyNoInsertionInUser(MANAGED_USER_ID);
+        SystemClock.sleep(TEST_TIMEOUT_MILLIS);
+
+        ArgumentCaptor<Uri> uris = ArgumentCaptor.forClass(Uri.class);
+        ArgumentCaptor<ContentValues> values = ArgumentCaptor.forClass(ContentValues.class);
+
+        verify(mContentProvider, atLeast(2)).insert(uris.capture(), values.capture());
+
+        assertTrue(uris.getAllValues().contains(
+                ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, CURRENT_USER_ID)));
+        assertTrue(uris.getAllValues().contains(
+                ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, OTHER_USER_ID)));
+        assertFalse(uris.getAllValues().contains(
+                ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, MANAGED_USER_ID)));
+
+        for (ContentValues v : values.getAllValues()) {
+            assertEquals(v.getAsInteger(CallLog.Calls.TYPE),
+                    Integer.valueOf(CallLog.Calls.INCOMING_TYPE));
+        }
     }
 
     @MediumTest
@@ -785,7 +816,7 @@ public class CallLogManagerTest extends TelecomTestCase {
 
     @SmallTest
     @Test
-    public void testLogConferenceWithNoChildren() {
+    public void testDoNotLogConferenceWithNoChildren() {
         Call fakeCall = makeFakeCall(
                 DisconnectCause.LOCAL, // disconnectCauseCode
                 true, // isConference
@@ -801,7 +832,7 @@ public class CallLogManagerTest extends TelecomTestCase {
         );
         when(fakeCall.hadChildren()).thenReturn(false);
 
-        assertTrue(mCallLogManager.shouldLogDisconnectedCall(fakeCall, CallState.DISCONNECTED,
+        assertFalse(mCallLogManager.shouldLogDisconnectedCall(fakeCall, CallState.DISCONNECTED,
                 false /* isCanceled */));
     }
 
@@ -922,46 +953,24 @@ public class CallLogManagerTest extends TelecomTestCase {
     }
 
     private void verifyNoInsertion() {
-        try {
-            Thread.sleep(TEST_TIMEOUT_MILLIS);
-            verify(mContentProvider, never()).insert(any(String.class),
-                    any(Uri.class), any(ContentValues.class));
-        } catch (android.os.RemoteException e) {
-            fail("Remote exception occurred during test execution");
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        SystemClock.sleep(TEST_TIMEOUT_MILLIS);
+
+        verify(mContentProvider, never()).insert(any(Uri.class), any(ContentValues.class));
     }
 
-
     private void verifyNoInsertionInUser(int userId) {
-        try {
-            Uri uri = ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, userId);
-            Thread.sleep(TEST_TIMEOUT_MILLIS);
-            verify(getContentProviderForUser(userId), never())
-                    .insert(any(String.class), eq(uri), any(ContentValues.class));
-        } catch (android.os.RemoteException e) {
-            fail("Remote exception occurred during test execution");
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        SystemClock.sleep(TEST_TIMEOUT_MILLIS);
+
+        Uri uri = ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, userId);
+        verify(mContentProvider, never()).insert(eq(uri), any(ContentValues.class));
     }
 
     private ContentValues verifyInsertionWithCapture(int userId) {
+        Uri uri = ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, userId);
         ArgumentCaptor<ContentValues> captor = ArgumentCaptor.forClass(ContentValues.class);
-        try {
-            Uri uri = ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, userId);
-            verify(getContentProviderForUser(userId), timeout(TEST_TIMEOUT_MILLIS).atLeastOnce())
-                    .insert(any(String.class), eq(uri), captor.capture());
-        } catch (android.os.RemoteException e) {
-            fail("Remote exception occurred during test execution");
-        }
-
+        verify(mContentProvider, timeout(TEST_TIMEOUT_MILLIS).times(1)).insert(
+                eq(uri), captor.capture());
         return captor.getValue();
-    }
-
-    private IContentProvider getContentProviderForUser(int userId) {
-        return mContext.getContentResolver().acquireProvider(userId + "@call_log");
     }
 
     private Call makeFakeCall(int disconnectCauseCode, boolean isConference, boolean isIncoming,

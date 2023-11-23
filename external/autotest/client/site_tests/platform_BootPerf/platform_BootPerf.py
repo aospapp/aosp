@@ -39,10 +39,6 @@ class platform_BootPerf(test.test):
       * rdbytes_kernel_to_login
       * rdbytes_startup_to_chrome_exec
       * rdbytes_chrome_exec_to_login
-      * seconds_power_on_to_lf_start
-      * seconds_power_on_to_lf_end
-      * seconds_power_on_to_lk_start
-      * seconds_power_on_to_lk_end
       * seconds_power_on_to_kernel
       * seconds_power_on_to_login
       * seconds_shutdown_time
@@ -197,55 +193,6 @@ class platform_BootPerf(test.test):
         event_file = os.path.join(bootstat_dir,
                                   self._DISK_PREFIX) + eventname
         return self._parse_bootstat(event_file, 2)[index]
-
-
-    def _gather_vboot_times(self, results):
-        """Read and report firmware internal timestamps.
-
-        The firmware for all Chrome platforms except Mario records
-        the ticks since power on at selected times during startup.
-        These timestamps can be extracted from the `crossystem`
-        command.
-
-        If the timestamps are available, convert the tick times to
-        seconds and record the following keyvals in `results`:
-          * seconds_power_on_to_lf_start
-          * seconds_power_on_to_lf_end
-          * seconds_power_on_to_lk_start
-          * seconds_power_on_to_lk_end
-
-        The frequency of the recorded tick timestamps is determined
-        by reading `_CPU_FREQ_FILE` and is recorded in the keyval
-        mhz_primary_cpu.
-
-        @param results  Keyvals dictionary.
-
-        """
-        try:
-            khz = int(utils.read_one_line(self._CPU_FREQ_FILE))
-        except IOError:
-            logging.info('Test is unable to read "%s", not calculating the '
-                         'vboot times.', self._CPU_FREQ_FILE)
-            return
-        hertz = khz * 1000.0
-        results['mhz_primary_cpu'] = khz / 1000.0
-        try:
-            out = utils.system_output('crossystem')
-        except error.CmdError:
-            logging.info('Unable to run crossystem, not calculating the vboot '
-                         'times.')
-            return
-        # Parse the crossystem output, we are looking for vdat_timers
-        items = out.splitlines()
-        for item in items:
-            times_re = re.compile(r'LF=(\d+),(\d+) LK=(\d+),(\d+)')
-            match = re.findall(times_re, item)
-            if match:
-                times = map(lambda s: round(float(s) / hertz, 2), match[0])
-                results['seconds_power_on_to_lf_start'] = times[0]
-                results['seconds_power_on_to_lf_end'] = times[1]
-                results['seconds_power_on_to_lk_start'] = times[2]
-                results['seconds_power_on_to_lk_end'] = times[3]
 
 
     def _gather_firmware_boot_time(self, results):
@@ -485,7 +432,6 @@ class platform_BootPerf(test.test):
         self._gather_time_keyvals(results)
         self._gather_disk_keyvals(results)
         self._gather_firmware_boot_time(results)
-        self._gather_vboot_times(results)
         self._gather_reboot_keyvals(results)
         self._calculate_diff(results)
 

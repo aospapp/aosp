@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Chromium OS Authors. All rights reserved.
+/* Copyright 2015 The Chromium OS Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -26,7 +26,7 @@ static void delete_streams(struct cras_timer *timer, void *data)
 	struct stream_list *list = (struct stream_list *)data;
 	int max_drain_delay = 0;
 
-	DL_FOREACH(list->streams_to_delete, to_delete) {
+	DL_FOREACH (list->streams_to_delete, to_delete) {
 		int drain_delay;
 
 		drain_delay = list->stream_removed_cb(to_delete);
@@ -40,8 +40,10 @@ static void delete_streams(struct cras_timer *timer, void *data)
 
 	list->drain_timer = NULL;
 	if (max_drain_delay)
-		list->drain_timer = cras_tm_create_timer(list->timer_manager,
-				MAX(max_drain_delay, 10), delete_streams, list);
+		list->drain_timer =
+			cras_tm_create_timer(list->timer_manager,
+					     MAX(max_drain_delay, 10),
+					     delete_streams, list);
 }
 
 /*
@@ -118,7 +120,7 @@ int stream_list_rm_all_client_streams(struct stream_list *list,
 	struct cras_rstream *to_remove;
 	int rc = 0;
 
-	DL_FOREACH(list->streams, to_remove) {
+	DL_FOREACH (list->streams, to_remove) {
 		if (to_remove->client == rclient) {
 			DL_DELETE(list->streams, to_remove);
 			DL_APPEND(list->streams_to_delete, to_remove);
@@ -131,6 +133,17 @@ int stream_list_rm_all_client_streams(struct stream_list *list,
 	delete_streams(NULL, list);
 
 	return rc;
-
 }
 
+bool stream_list_has_pinned_stream(struct stream_list *list,
+				   unsigned int dev_idx)
+{
+	struct cras_rstream *rstream;
+	DL_FOREACH (list->streams, rstream) {
+		if (!rstream->is_pinned)
+			continue;
+		if (rstream->pinned_dev_idx == dev_idx)
+			return true;
+	}
+	return false;
+}

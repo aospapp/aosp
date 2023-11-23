@@ -16,9 +16,23 @@ java_library {
     name: "ims-common",
     installable: true,
 
+    static_libs: [
+        "ucepresencelib",
+    ],
+
     aidl: {
         local_include_dirs: ["src/java"],
     },
-    srcs: ["src/java/**/*.java"],
+    srcs: [
+        "src/java/**/*.java",
+        ":framework-ims-common-shared-srcs",
+    ],
 
+    libs: [
+        "unsupportedappusage",
+        // TODO b/151667108 add "framework-telephony",
+        // TODO link to framework-minus-apex stub and framework-wifi-stubs
+    ],
+
+    jarjar_rules: "jarjar-rules-shared.txt",
 }

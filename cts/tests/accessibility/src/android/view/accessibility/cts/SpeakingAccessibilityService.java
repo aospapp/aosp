@@ -17,7 +17,6 @@
 package android.view.accessibility.cts;
 
 import android.accessibility.cts.common.InstrumentedAccessibilityService;
-import android.app.Instrumentation;
 import android.content.ComponentName;
 
 /**
@@ -27,9 +26,4 @@ public class SpeakingAccessibilityService extends InstrumentedAccessibilityServi
     public static final ComponentName COMPONENT_NAME = new ComponentName(
             "android.view.accessibility.cts",
             "android.view.accessibility.cts.SpeakingAccessibilityService");
-
-    public static SpeakingAccessibilityService enableSelf(Instrumentation instrumentation) {
-        return InstrumentedAccessibilityService.enableService(
-                instrumentation, SpeakingAccessibilityService.class);
-    }
 }

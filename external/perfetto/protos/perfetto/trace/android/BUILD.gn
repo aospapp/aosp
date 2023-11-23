@@ -12,31 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("../../../../gn/perfetto.gni")
 import("../../../../gn/proto_library.gni")
-import("../../../../gn/protozero_library.gni")
 
-android_proto_names = [
-  "android_log.proto",
-  "packages_list.proto",
-]
+perfetto_proto_library("@TYPE@") {
+  deps = [ "../../common:@TYPE@" ]
 
-proto_library("lite") {
-  deps = [
-    "../../common:lite",
+  sources = [
+    "android_log.proto",
+    "graphics_frame_event.proto",
+    "gpu_mem_event.proto",
+    "initial_display_state.proto",
+    "packages_list.proto",
   ]
-  generate_python = false
-  sources = android_proto_names
-  proto_in_dir = "$perfetto_root_path/protos"
-  proto_out_dir = "$perfetto_root_path/protos"
-}
-
-protozero_library("zero") {
-  deps = [
-    "../../common:zero",
-  ]
-  sources = android_proto_names
-  proto_in_dir = "$perfetto_root_path/protos"
-  proto_out_dir = "$perfetto_root_path/protos"
-  generator_plugin_options = "wrapper_namespace=pbzero"
 }

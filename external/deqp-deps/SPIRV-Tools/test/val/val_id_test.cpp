@@ -314,7 +314,7 @@ TEST_F(ValidateIdWithMessage, OpDecorationGroupBad) {
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("Result id of OpDecorationGroup can only "
                         "be targeted by OpName, OpGroupDecorate, "
-                        "OpDecorate, and OpGroupMemberDecorate"));
+                        "OpDecorate, OpDecorateId, and OpGroupMemberDecorate"));
 }
 TEST_F(ValidateIdWithMessage, OpGroupDecorateDecorationGroupBad) {
   std::string spirv = R"(
@@ -749,20 +749,40 @@ TEST_F(ValidateIdWithMessage, OpTypeArrayElementTypeBad) {
 // Signed or unsigned.
 enum Signed { kSigned, kUnsigned };
 
-// Creates an assembly snippet declaring OpTypeArray with the given length.
-std::string MakeArrayLength(const std::string& len, Signed isSigned,
-                            int width) {
+// Creates an assembly module declaring OpTypeArray with the given length.
+std::string MakeArrayLength(const std::string& len, Signed isSigned, int width,
+                            int max_int_width = 64,
+                            bool use_vulkan_memory_model = false) {
   std::ostringstream ss;
   ss << R"(
     OpCapability Shader
-    OpCapability Linkage
-    OpCapability Int16
-    OpCapability Int64
   )";
-  ss << "OpMemoryModel Logical GLSL450\n";
+  if (use_vulkan_memory_model) {
+    ss << " OpCapability VulkanMemoryModel\n";
+  }
+  if (width == 16) {
+    ss << " OpCapability Int16\n";
+  }
+  if (max_int_width > 32) {
+    ss << "\n  OpCapability Int64\n";
+  }
+  if (use_vulkan_memory_model) {
+    ss << " OpExtension \"SPV_KHR_vulkan_memory_model\"\n";
+    ss << "OpMemoryModel Logical Vulkan\n";
+  } else {
+    ss << "OpMemoryModel Logical GLSL450\n";
+  }
+  ss << "OpEntryPoint GLCompute %main \"main\"\n";
+  ss << "OpExecutionMode %main LocalSize 1 1 1\n";
   ss << " %t = OpTypeInt " << width << (isSigned == kSigned ? " 1" : " 0");
   ss << " %l = OpConstant %t " << len;
   ss << " %a = OpTypeArray %t %l";
+  ss << " %void = OpTypeVoid \n"
+        " %voidfn = OpTypeFunction %void \n"
+        " %main = OpFunction %void None %voidfn \n"
+        " %entry = OpLabel\n"
+        " OpReturn\n"
+        " OpFunctionEnd\n";
   return ss.str();
 }
 
@@ -772,7 +792,8 @@ class OpTypeArrayLengthTest
     : public spvtest::TextToBinaryTestBase<::testing::TestWithParam<int>> {
  protected:
   OpTypeArrayLengthTest()
-      : position_(spv_position_t{0, 0, 0}),
+      : env_(SPV_ENV_UNIVERSAL_1_0),
+        position_(spv_position_t{0, 0, 0}),
         diagnostic_(spvDiagnosticCreate(&position_, "")) {}
 
   ~OpTypeArrayLengthTest() { spvDiagnosticDestroy(diagnostic_); }
@@ -780,8 +801,10 @@ class OpTypeArrayLengthTest
   // Runs spvValidate() on v, printing any errors via spvDiagnosticPrint().
   spv_result_t Val(const SpirvVector& v, const std::string& expected_err = "") {
     spv_const_binary_t cbinary{v.data(), v.size()};
+    spvDiagnosticDestroy(diagnostic_);
+    diagnostic_ = nullptr;
     const auto status =
-        spvValidate(ScopedContext().context, &cbinary, &diagnostic_);
+        spvValidate(ScopedContext(env_).context, &cbinary, &diagnostic_);
     if (status != SPV_SUCCESS) {
       spvDiagnosticPrint(diagnostic_);
       EXPECT_THAT(std::string(diagnostic_->error),
@@ -790,12 +813,15 @@ class OpTypeArrayLengthTest
     return status;
   }
 
+ protected:
+  spv_target_env env_;
+
  private:
   spv_position_t position_;  // For creating diagnostic_.
   spv_diagnostic diagnostic_;
 };
 
-TEST_P(OpTypeArrayLengthTest, LengthPositive) {
+TEST_P(OpTypeArrayLengthTest, LengthPositiveSmall) {
   const int width = GetParam();
   EXPECT_EQ(SPV_SUCCESS,
             Val(CompileSuccessfully(MakeArrayLength("1", kSigned, width))));
@@ -812,20 +838,19 @@ TEST_P(OpTypeArrayLengthTest, LengthPositive) {
   const std::string fpad(width / 4 - 1, 'F');
   EXPECT_EQ(
       SPV_SUCCESS,
-      Val(CompileSuccessfully(MakeArrayLength("0x7" + fpad, kSigned, width))));
-  EXPECT_EQ(SPV_SUCCESS, Val(CompileSuccessfully(
-                             MakeArrayLength("0xF" + fpad, kUnsigned, width))));
+      Val(CompileSuccessfully(MakeArrayLength("0x7" + fpad, kSigned, width))))
+      << MakeArrayLength("0x7" + fpad, kSigned, width);
 }
 
 TEST_P(OpTypeArrayLengthTest, LengthZero) {
   const int width = GetParam();
   EXPECT_EQ(SPV_ERROR_INVALID_ID,
             Val(CompileSuccessfully(MakeArrayLength("0", kSigned, width)),
-                "OpTypeArray Length <id> '2\\[%.*\\]' default value must be at "
+                "OpTypeArray Length <id> '3\\[%.*\\]' default value must be at "
                 "least 1."));
   EXPECT_EQ(SPV_ERROR_INVALID_ID,
             Val(CompileSuccessfully(MakeArrayLength("0", kUnsigned, width)),
-                "OpTypeArray Length <id> '2\\[%.*\\]' default value must be at "
+                "OpTypeArray Length <id> '3\\[%.*\\]' default value must be at "
                 "least 1."));
 }
 
@@ -833,21 +858,86 @@ TEST_P(OpTypeArrayLengthTest, LengthNegative) {
   const int width = GetParam();
   EXPECT_EQ(SPV_ERROR_INVALID_ID,
             Val(CompileSuccessfully(MakeArrayLength("-1", kSigned, width)),
-                "OpTypeArray Length <id> '2\\[%.*\\]' default value must be at "
+                "OpTypeArray Length <id> '3\\[%.*\\]' default value must be at "
                 "least 1."));
   EXPECT_EQ(SPV_ERROR_INVALID_ID,
             Val(CompileSuccessfully(MakeArrayLength("-2", kSigned, width)),
-                "OpTypeArray Length <id> '2\\[%.*\\]' default value must be at "
+                "OpTypeArray Length <id> '3\\[%.*\\]' default value must be at "
                 "least 1."));
   EXPECT_EQ(SPV_ERROR_INVALID_ID,
             Val(CompileSuccessfully(MakeArrayLength("-123", kSigned, width)),
-                "OpTypeArray Length <id> '2\\[%.*\\]' default value must be at "
+                "OpTypeArray Length <id> '3\\[%.*\\]' default value must be at "
                 "least 1."));
   const std::string neg_max = "0x8" + std::string(width / 4 - 1, '0');
   EXPECT_EQ(SPV_ERROR_INVALID_ID,
             Val(CompileSuccessfully(MakeArrayLength(neg_max, kSigned, width)),
-                "OpTypeArray Length <id> '2\\[%.*\\]' default value must be at "
+                "OpTypeArray Length <id> '3\\[%.*\\]' default value must be at "
                 "least 1."));
+}
+
+// Returns the string form of an integer of the form 0x80....0 of the
+// given bit width.
+std::string big_num_ending_0(int bit_width) {
+  return "0x8" + std::string(bit_width / 4 - 1, '0');
+}
+
+// Returns the string form of an integer of the form 0x80..001 of the
+// given bit width.
+std::string big_num_ending_1(int bit_width) {
+  return "0x8" + std::string(bit_width / 4 - 2, '0') + "1";
+}
+
+TEST_P(OpTypeArrayLengthTest, LengthPositiveHugeEnding0InVulkan) {
+  env_ = SPV_ENV_VULKAN_1_0;
+  const int width = GetParam();
+  for (int max_int_width : {32, 64}) {
+    if (width > max_int_width) {
+      // Not valid to even make the OpConstant in this case.
+      continue;
+    }
+    const auto module = CompileSuccessfully(MakeArrayLength(
+        big_num_ending_0(width), kUnsigned, width, max_int_width));
+    EXPECT_EQ(SPV_SUCCESS, Val(module));
+  }
+}
+
+TEST_P(OpTypeArrayLengthTest, LengthPositiveHugeEnding1InVulkan) {
+  env_ = SPV_ENV_VULKAN_1_0;
+  const int width = GetParam();
+  for (int max_int_width : {32, 64}) {
+    if (width > max_int_width) {
+      // Not valid to even make the OpConstant in this case.
+      continue;
+    }
+    const auto module = CompileSuccessfully(MakeArrayLength(
+        big_num_ending_1(width), kUnsigned, width, max_int_width));
+    EXPECT_EQ(SPV_SUCCESS, Val(module));
+  }
+}
+
+TEST_P(OpTypeArrayLengthTest, LengthPositiveHugeEnding0InWebGPU) {
+  env_ = SPV_ENV_WEBGPU_0;
+  const int width = GetParam();
+  // WebGPU only has 32 bit integers.
+  if (width != 32) return;
+  const int max_int_width = 32;
+  const auto module = CompileSuccessfully(MakeArrayLength(
+      big_num_ending_0(width), kUnsigned, width, max_int_width, true));
+  EXPECT_EQ(SPV_SUCCESS, Val(module));
+}
+
+TEST_P(OpTypeArrayLengthTest, LengthPositiveHugeEnding1InWebGPU) {
+  env_ = SPV_ENV_WEBGPU_0;
+  const int width = GetParam();
+  // WebGPU only has 32 bit integers.
+  if (width != 32) return;
+  const int max_int_width = 32;
+  const auto module = CompileSuccessfully(MakeArrayLength(
+      big_num_ending_1(width), kUnsigned, width, max_int_width, true));
+  EXPECT_EQ(SPV_ERROR_INVALID_ID,
+            Val(module,
+                "OpTypeArray Length <id> '3\\[%.*\\]' size exceeds max value "
+                "2147483648 permitted by WebGPU: got 2147483649"));
 }
 
 // The only valid widths for integers are 8, 16, 32, and 64.
@@ -855,8 +945,8 @@ TEST_P(OpTypeArrayLengthTest, LengthNegative) {
 // capability prohibits usage of signed integers, we can skip 8-bit integers
 // here since the purpose of these tests is to check the validity of
 // OpTypeArray, not OpTypeInt.
-INSTANTIATE_TEST_CASE_P(Widths, OpTypeArrayLengthTest,
-                        ValuesIn(std::vector<int>{16, 32, 64}));
+INSTANTIATE_TEST_SUITE_P(Widths, OpTypeArrayLengthTest,
+                         ValuesIn(std::vector<int>{16, 32, 64}));
 
 TEST_F(ValidateIdWithMessage, OpTypeArrayLengthNull) {
   std::string spirv = kGLSL450MemoryModel + R"(
@@ -933,6 +1023,26 @@ TEST_F(ValidateIdWithMessage, OpTypeStructMemberTypeBad) {
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("OpTypeStruct Member Type <id> '3[%double_0]' is not "
                         "a type."));
+}
+
+TEST_F(ValidateIdWithMessage, OpTypeStructOpaqueTypeBad) {
+  std::string spirv = R"(
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %main "main"
+          %1 = OpTypeSampler
+          %2 = OpTypeStruct %1
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+       %main = OpFunction %void None %3
+          %5 = OpLabel
+               OpReturn
+               OpFunctionEnd
+)";
+  CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpTypeStruct must not contain an opaque type"));
 }
 
 TEST_F(ValidateIdWithMessage, OpTypePointerGood) {
@@ -1454,7 +1564,8 @@ TEST_F(ValidateIdWithMessage, OpSpecConstantTrueBad) {
   CompileSuccessfully(spirv.c_str());
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Specialization constant must be a boolean type."));
+              HasSubstr("OpSpecConstantTrue Result Type <id> '1[%void]' is not "
+                        "a boolean type"));
 }
 
 TEST_F(ValidateIdWithMessage, OpSpecConstantFalseGood) {
@@ -1470,8 +1581,10 @@ TEST_F(ValidateIdWithMessage, OpSpecConstantFalseBad) {
 %2 = OpSpecConstantFalse %1)";
   CompileSuccessfully(spirv.c_str());
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Specialization constant must be a boolean type."));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("OpSpecConstantFalse Result Type <id> '1[%void]' is not "
+                "a boolean type"));
 }
 
 TEST_F(ValidateIdWithMessage, OpSpecConstantGood) {
@@ -1693,7 +1806,7 @@ TEST_F(ValidateIdWithMessage,
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("OpSpecConstantComposite Constituent <id> '7[%7]' is "
-                        "not a constant composite or undef."));
+                        "not a constant or undef."));
 }
 
 // Invalid: Composite contains a column that is *not* a vector (it's an array)
@@ -2104,6 +2217,29 @@ OpFunctionEnd
   EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
 }
 
+TEST_F(ValidateIdWithMessage, OpVariableContainsRayPayloadBoolGood) {
+  std::string spirv = R"(
+OpCapability RayTracingNV
+OpCapability Shader
+OpCapability Linkage
+OpExtension "SPV_NV_ray_tracing"
+OpMemoryModel Logical GLSL450
+%bool = OpTypeBool
+%PerRayData = OpTypeStruct %bool
+%_ptr_PerRayData = OpTypePointer RayPayloadNV %PerRayData
+%var = OpVariable %_ptr_PerRayData RayPayloadNV
+%void = OpTypeVoid
+%fnty = OpTypeFunction %void
+%main = OpFunction %void None %fnty
+%entry = OpLabel
+%load = OpLoad %PerRayData %var
+OpReturn
+OpFunctionEnd
+)";
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
 TEST_F(ValidateIdWithMessage, OpVariablePointerNoVariablePointersBad) {
   const std::string spirv = R"(
 OpCapability Shader
@@ -2145,6 +2281,47 @@ OpMemoryModel Logical GLSL450
 %var = OpVariable %_ptr_function_ptr Function
 OpReturn
 OpFunctionEnd
+)";
+
+  auto options = getValidatorOptions();
+  options->relax_logical_pointer = true;
+  CompileSuccessfully(spirv);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateIdWithMessage, OpFunctionWithNonMemoryObject) {
+  // DXC generates code that looks like when given something like:
+  //   T t;
+  //   t.s.fn_1();
+  // This needs to be accepted before legalization takes place, so we
+  // will include it with the relaxed logical pointer.
+
+  const std::string spirv = R"(
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %1 "main"
+               OpSource HLSL 600
+        %int = OpTypeInt 32 1
+      %int_0 = OpConstant %int 0
+       %void = OpTypeVoid
+          %9 = OpTypeFunction %void
+  %_struct_5 = OpTypeStruct
+  %_struct_6 = OpTypeStruct %_struct_5
+%_ptr_Function__struct_6 = OpTypePointer Function %_struct_6
+%_ptr_Function__struct_5 = OpTypePointer Function %_struct_5
+         %23 = OpTypeFunction %void %_ptr_Function__struct_5
+          %1 = OpFunction %void None %9
+         %10 = OpLabel
+         %11 = OpVariable %_ptr_Function__struct_6 Function
+         %20 = OpAccessChain %_ptr_Function__struct_5 %11 %int_0
+         %21 = OpFunctionCall %void %12 %20
+               OpReturn
+               OpFunctionEnd
+         %12 = OpFunction %void None %23
+         %13 = OpFunctionParameter %_ptr_Function__struct_5
+         %14 = OpLabel
+               OpReturn
+               OpFunctionEnd
 )";
 
   auto options = getValidatorOptions();
@@ -2231,8 +2408,8 @@ TEST_F(ValidateIdWithMessage, OpLoadGood) {
  %6 = OpFunction %1 None %4
  %7 = OpLabel
  %8 = OpLoad %2 %5
- %9 = OpReturn
-%10 = OpFunctionEnd
+      OpReturn
+      OpFunctionEnd
 )";
   CompileSuccessfully(spirv.c_str());
   EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
@@ -2249,6 +2426,7 @@ void createVariablePointerSpirvProgram(std::ostringstream* spirv,
     *spirv << "OpCapability VariablePointers ";
     *spirv << "OpExtension \"SPV_KHR_variable_pointers\" ";
   }
+  *spirv << "OpExtension \"SPV_KHR_storage_buffer_storage_class\" ";
   *spirv << R"(
     OpMemoryModel Logical GLSL450
     OpEntryPoint GLCompute %main "main"
@@ -2257,12 +2435,12 @@ void createVariablePointerSpirvProgram(std::ostringstream* spirv,
     %bool      = OpTypeBool
     %i32       = OpTypeInt 32 1
     %f32       = OpTypeFloat 32
-    %f32ptr    = OpTypePointer Uniform %f32
+    %f32ptr    = OpTypePointer StorageBuffer %f32
     %i         = OpConstant %i32 1
     %zero      = OpConstant %i32 0
     %float_1   = OpConstant %f32 1.0
-    %ptr1      = OpVariable %f32ptr Uniform
-    %ptr2      = OpVariable %f32ptr Uniform
+    %ptr1      = OpVariable %f32ptr StorageBuffer
+    %ptr2      = OpVariable %f32ptr StorageBuffer
   )";
   if (add_helper_function) {
     *spirv << R"(
@@ -2881,7 +3059,7 @@ TEST_F(ValidateIdWithMessage, OpStoreLabel) {
   CompileSuccessfully(spirv.c_str());
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("OpStore Object <id> '7[%7]' is not an object."));
+              HasSubstr("Operand 7[%7] requires a type"));
 }
 
 // TODO: enable when this bug is fixed:
@@ -3101,13 +3279,13 @@ TEST_F(ValidateIdWithMessage, OpCopyMemorySizedTargetBad) {
 %7 = OpTypeFunction %1
 %8 = OpFunction %1 None %7
 %9 = OpLabel
-     OpCopyMemorySized %9 %6 %5 None
+     OpCopyMemorySized %5 %5 %5 None
      OpReturn
      OpFunctionEnd)";
   CompileSuccessfully(spirv.c_str());
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Target operand <id> '9[%9]' is not a pointer."));
+              HasSubstr("Target operand <id> '5[%uint_4]' is not a pointer."));
 }
 TEST_F(ValidateIdWithMessage, OpCopyMemorySizedSourceBad) {
   std::string spirv = kGLSL450MemoryModel + R"(
@@ -3893,7 +4071,7 @@ OpFunctionEnd
 }
 
 // Run tests for Access Chain Instructions.
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     CheckAccessChainInstructions, AccessChainInstructionTest,
     ::testing::Values("OpAccessChain", "OpInBoundsAccessChain",
                       "OpPtrAccessChain", "OpInBoundsPtrAccessChain"));
@@ -4175,6 +4353,17 @@ OpFunctionEnd)";
               HasSubstr("Result <id> from OpSampledImage instruction must not "
                         "appear as operands of OpSelect. Found result <id> "
                         "'23' as an operand of <id> '24'."));
+}
+
+TEST_F(ValidateIdWithMessage, OpCopyObjectSampledImageGood) {
+  std::string spirv = kGLSL450MemoryModel + sampledImageSetup + R"(
+%smpld_img  = OpSampledImage %sampled_image_type %image_inst %sampler_inst
+%smpld_img2 = OpCopyObject %sampled_image_type %smpld_img
+%image_inst2 = OpCopyObject %image_type %image_inst
+OpReturn
+OpFunctionEnd)";
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
 }
 
 // Valid: Get a float in a matrix using CompositeExtract.
@@ -4979,8 +5168,7 @@ TEST_F(ValidateIdWithMessage, OpReturnValueIsLabel) {
   CompileSuccessfully(spirv.c_str());
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("OpReturnValue Value <id> '5[%5]' does not represent a "
-                        "value."));
+              HasSubstr("Operand 5[%5] requires a type"));
 }
 
 TEST_F(ValidateIdWithMessage, OpReturnValueIsVoid) {
@@ -5090,8 +5278,7 @@ TEST_F(ValidateIdWithMessage, UndefinedTypeId) {
   CompileSuccessfully(spirv.c_str());
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Forward reference operands in an OpTypeStruct must "
-                        "first be declared using OpTypeForwardPointer."));
+              HasSubstr("Operand 2[%2] requires a previous definition"));
 }
 
 TEST_F(ValidateIdWithMessage, UndefinedIdScope) {
@@ -6137,20 +6324,22 @@ TEST_F(ValidateIdWithMessage, IdDefInUnreachableBlock1) {
 %4 = OpTypeFunction %3
 %5 = OpFunction %1 None %2
 %6 = OpLabel
-%7 = OpFunctionCall %3 %8
+OpReturn
+%7 = OpLabel
+%8 = OpFunctionCall %3 %9
 OpUnreachable
 OpFunctionEnd
-%8 = OpFunction %3 None %4
-%9 = OpLabel
-OpReturnValue %7
+%9 = OpFunction %3 None %4
+%10 = OpLabel
+OpReturnValue %8
 OpFunctionEnd
 )";
 
   CompileSuccessfully(spirv, SPV_ENV_UNIVERSAL_1_3);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_UNIVERSAL_1_3));
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("ID 7[%7] defined in block 6[%6] does not dominate its "
-                        "use in block 9[%9]\n  %9 = OpLabel"));
+              HasSubstr("ID 8[%8] defined in block 7[%7] does not dominate its "
+                        "use in block 10[%10]\n  %10 = OpLabel"));
 }
 
 TEST_F(ValidateIdWithMessage, IdDefInUnreachableBlock2) {
@@ -6374,6 +6563,26 @@ TEST_F(ValidateIdWithMessage, OpTypeForwardPointerWrongStorageClass) {
                 "pointer definition.\n  OpTypeForwardPointer "
                 "%_ptr_Function_int CrossWorkgroup"));
 }
+
+TEST_F(ValidateIdWithMessage, MissingForwardPointer) {
+  const std::string spirv = R"(
+               OpCapability Linkage
+               OpCapability Shader
+               OpMemoryModel Logical Simple
+      %float = OpTypeFloat 32
+  %_struct_9 = OpTypeStruct %float %_ptr_Uniform__struct_9
+%_ptr_Uniform__struct_9 = OpTypePointer Uniform %_struct_9
+       %1278 = OpVariable %_ptr_Uniform__struct_9 Uniform
+)";
+
+  CompileSuccessfully(spirv);
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr(
+          "Operand 3[%_ptr_Uniform__struct_2] requires a previous definition"));
+}
+
 }  // namespace
 }  // namespace val
 }  // namespace spvtools

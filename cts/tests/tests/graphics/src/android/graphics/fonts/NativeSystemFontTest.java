@@ -29,24 +29,43 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.Set;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class NativeSystemFontTest {
 
+    public Set<NativeSystemFontHelper.FontDescriptor> convertToDescriptors(Set<Font> fonts) {
+        HashSet<NativeSystemFontHelper.FontDescriptor> out = new HashSet<>();
+        for (Font f : fonts) {
+            NativeSystemFontHelper.FontDescriptor font =
+                    new NativeSystemFontHelper.FontDescriptor();
+            font.mFilePath = f.getFile().getAbsolutePath();
+            font.mWeight = f.getStyle().getWeight();
+            font.mSlant = f.getStyle().getSlant();
+            font.mIndex = f.getTtcIndex();
+            font.mAxes = f.getAxes();
+            font.mLocale = f.getLocaleList();
+            out.add(font);
+        }
+        return out;
+    }
+
     @Test
     public void testSameResultAsJava() {
-        Set<Font> javaFonts = SystemFonts.getAvailableFonts();
-        Set<Font> nativeFonts = NativeSystemFontHelper.getAvailableFonts();
+        Set<NativeSystemFontHelper.FontDescriptor> javaFonts =
+                convertToDescriptors(SystemFonts.getAvailableFonts());
+        Set<NativeSystemFontHelper.FontDescriptor> nativeFonts =
+                NativeSystemFontHelper.getAvailableFonts();
 
         assertEquals(javaFonts.size(), nativeFonts.size());
 
-        for (Font f : nativeFonts) {
+        for (NativeSystemFontHelper.FontDescriptor f : nativeFonts) {
             assertTrue(javaFonts.contains(f));
         }
 
-        for (Font f : javaFonts) {
+        for (NativeSystemFontHelper.FontDescriptor f : javaFonts) {
             assertTrue(nativeFonts.contains(f));
         }
     }

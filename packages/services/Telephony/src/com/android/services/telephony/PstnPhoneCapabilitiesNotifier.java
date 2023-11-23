@@ -21,7 +21,6 @@ import android.os.Handler;
 import android.os.Message;
 
 import com.android.internal.telephony.Phone;
-import com.android.internal.util.Preconditions;
 
 /**
  * Listens to phone's capabilities changed event and notifies Telecomm. One instance of these exists
@@ -55,7 +54,9 @@ final class PstnPhoneCapabilitiesNotifier {
 
     /*package*/
     PstnPhoneCapabilitiesNotifier(Phone phone, Listener listener) {
-        Preconditions.checkNotNull(phone);
+        if (phone == null) {
+            throw new NullPointerException();
+        }
 
         mPhone = phone;
         mListener = listener;

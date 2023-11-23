@@ -20,15 +20,23 @@ class desktopui_CheckRlzPingSent(test.test):
 
     _RLZ_DATA_FILE = "/home/chronos/user/RLZ Data"
 
-    def _verify_rlz_data(self):
-        """Checks that the CAF event is in the RLZ Data file."""
+    def _verify_rlz_data(self, expect_caf_ping=True):
+        """
+        Checks the RLZ data file for CAI and CAF ping events.
+
+        @param expect_caf_ping: True if expecting the CAF event to be in the
+                                RLZ data file, False if not expecting it.
+
+        """
         def rlz_data_exists():
             """Check rlz data exists."""
             rlz_data = json.loads(utils.run('cat "%s"' %
                                             self._RLZ_DATA_FILE).stdout)
             logging.debug('rlz data: %s', rlz_data)
             if 'stateful_events' in rlz_data:
-                return 'CAF' in rlz_data['stateful_events']['C']['_']
+                cai_present = 'CAI' in rlz_data['stateful_events']['C']['_']
+                caf_present = 'CAF' in rlz_data['stateful_events']['C']['_']
+                return cai_present and (caf_present == expect_caf_ping)
             return False
 
         utils.poll_for_condition(rlz_data_exists, timeout=120)
@@ -80,20 +88,40 @@ class desktopui_CheckRlzPingSent(test.test):
             raise error.TestFail('Timed out trying to lock the device')
 
 
-    def run_once(self, logged_in=True):
+    def run_once(self, ping_timeout=30, logged_in=True, expect_caf_ping=True):
         """
-        Main entry to the test.
+        Tests whether or not the RLZ install event (CAI) and first-use event
+        (CAF) pings are sent. After the first user login, the CAI ping will
+        be sent after a certain delay. This delay is 24 hours by default, but
+        can be overridden by specifying the rlz-ping-delay flag in
+        /etc/chrome_dev.conf, or by using the --rlz-ping-delay argument to
+        Chrome. Then, if two RW_VPD settings have the correct values
+        (should_send_rlz_ping == 1, rlz_embargo_end_date has passed OR not
+        specified), the CAF ping will be sent as well. Ping status is checked
+        in the /home/chronos/user/'RLZ Data' file, which will contain entries
+        for CAI and CAF pings in the 'stateful_events' section.
 
-        @param logged_in: True for real login or guest mode.
+        @param logged_in: True for real login or False for guest mode.
+        @param ping_timeout: Delay time (seconds) before any RLZ pings are
+                             sent.
+        @param expect_caf_ping: True if expecting the first-use event (CAF)
+                                ping to be sent, False if not expecting it.
+                                The ping would not be expected if the relevant
+                                RW_VPD settings do not have the right
+                                combination of values.
 
         """
+        # Browser arg to make DUT send rlz ping after a short delay.
+        rlz_flag = '--rlz-ping-delay=%d' % ping_timeout
+
         # If we are testing the ping is sent in guest mode (logged_in=False),
         # we need to first do a real login and wait for the DUT to become
         # 'locked' for rlz. Then logout and enter guest mode.
         if not logged_in:
-            with chrome.Chrome(logged_in=True):
+            with chrome.Chrome(logged_in=True, extra_browser_args=rlz_flag):
                 self._wait_for_rlz_lock()
 
-        with chrome.Chrome(logged_in=logged_in) as cr:
+        with chrome.Chrome(logged_in=logged_in,
+                           extra_browser_args=rlz_flag) as cr:
             self._check_url_for_rlz(cr)
-            self._verify_rlz_data()
+            self._verify_rlz_data(expect_caf_ping=expect_caf_ping)

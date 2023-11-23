@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2018 The Android Open Source Project
+<!-- Copyright (C) 2020 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -17,14 +17,13 @@
 <!--
   Defines the audio configuration in a car, including
     - Audio zones
-    - Display to audio zone mappings
     - Context to audio bus mappings
     - Volume groups
   in the car environment.
 -->
-<carAudioConfiguration version="1">
+<carAudioConfiguration version="2">
     <zones>
-        <zone name="primary zone" isPrimary="true">
+        <zone name="primary zone" isPrimary="true" occupantZoneId="0">
             <volumeGroups>
                 <group>
                     <device address="bus0_media_out">
@@ -38,6 +37,10 @@
                     </device>
                     <device address="bus7_system_sound_out">
                         <context context="system_sound"/>
+                        <context context="emergency"/>
+                        <context context="safety"/>
+                        <context context="vehicle_status"/>
+                        <context context="announcement"/>
                     </device>
                 </group>
                 <group>
@@ -59,21 +62,11 @@
                     </device>
                 </group>
             </volumeGroups>
-            <displays>
-                <display port="0"/>
-            </displays>
-            <!-- to specify displays associated with this audio zone, use the following tags
-                <displays>
-                    <display port="1"/>
-                    <display port="2"/>
-                </displays>
-                where port is the physical port of the display (See DisplayAddress.Phyisical)
-            -->
         </zone>
-        <zone name="rear seat zone">
+        <zone name="rear seat zone 1" audioZoneId="1">
             <volumeGroups>
                 <group>
-                    <device address="bus100_rear_seat">
+                    <device address="bus100_audio_zone_1">
                         <context context="music"/>
                         <context context="navigation"/>
                         <context context="voice_command"/>
@@ -82,12 +75,33 @@
                         <context context="alarm"/>
                         <context context="notification"/>
                         <context context="system_sound"/>
+                        <context context="emergency"/>
+                        <context context="safety"/>
+                        <context context="vehicle_status"/>
+                        <context context="announcement"/>
                     </device>
                 </group>
             </volumeGroups>
-            <displays>
-                <display port="1"/>
-            </displays>
+        </zone>
+        <zone name="rear seat zone 2"  audioZoneId="2">
+            <volumeGroups>
+                <group>
+                    <device address="bus200_audio_zone_2">
+                        <context context="music"/>
+                        <context context="navigation"/>
+                        <context context="voice_command"/>
+                        <context context="call_ring"/>
+                        <context context="call"/>
+                        <context context="alarm"/>
+                        <context context="notification"/>
+                        <context context="system_sound"/>
+                        <context context="emergency"/>
+                        <context context="safety"/>
+                        <context context="vehicle_status"/>
+                        <context context="announcement"/>
+                    </device>
+                </group>
+            </volumeGroups>
         </zone>
     </zones>
 </carAudioConfiguration>

@@ -169,7 +169,7 @@ public class SetupCompatServiceProvider {
     return serviceContext.state;
   }
 
-  private ServiceContext getCurrentServiceState() {
+  private synchronized ServiceContext getCurrentServiceState() {
     return serviceContext;
   }
 

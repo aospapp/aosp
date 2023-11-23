@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright 2009 Google Inc. Released under the GPL v2
 
 import time, unittest

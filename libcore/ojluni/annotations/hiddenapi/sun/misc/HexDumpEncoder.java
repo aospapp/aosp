@@ -28,7 +28,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class HexDumpEncoder extends sun.misc.CharacterEncoder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public HexDumpEncoder() {
         throw new RuntimeException("Stub!");
     }
@@ -62,11 +62,11 @@ public class HexDumpEncoder extends sun.misc.CharacterEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private int currentByte;
+    @android.compat.annotation.UnsupportedAppUsage private int currentByte;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private int offset;
+    @android.compat.annotation.UnsupportedAppUsage private int offset;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private byte[] thisLine;
+    @android.compat.annotation.UnsupportedAppUsage private byte[] thisLine;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private int thisLineLength;
+    @android.compat.annotation.UnsupportedAppUsage private int thisLineLength;
 }

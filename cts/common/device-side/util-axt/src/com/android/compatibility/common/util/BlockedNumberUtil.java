@@ -51,7 +51,11 @@ public class BlockedNumberUtil {
         Intent intent = new Intent(INSERT_ACTION);
         intent.putExtra(PHONE_NUMBER_EXTRA, phoneNumber);
 
-        return Uri.parse(runBlockedNumberService(context, intent).getString(URI_EXTRA));
+        Bundle result = runBlockedNumberService(context, intent);
+        if (result.getBoolean(BlockedNumberService.FAIL_EXTRA)) {
+            return null;
+        }
+        return Uri.parse(result.getString(URI_EXTRA));
     }
 
     /** Remove a number from the blocked number provider and returns the number of rows deleted. */

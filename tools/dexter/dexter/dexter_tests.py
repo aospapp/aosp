@@ -26,26 +26,28 @@ if args.update:
 # list of test cases
 # ( <test_name> : { <test_case_config> } )
 test_cases = {
-  'map'             : { 'args' : '-m', 'input' : ['*.dex'] },
-  'stats'           : { 'args' : '-s', 'input' : ['*.dex'] },
-  'asm'             : { 'args' : '-d', 'input' : ['*.dex'] },
-  'hello_stats'     : { 'args' : '-s -e Hello', 'input' : ['hello.dex'] },
-  'am_stats'        : { 'args' : '-s -e android.app.ActivityManager', 'input' : ['large.dex'] },
-  'rewrite'         : { 'args' : '-d -x full_rewrite', 'input' : ['*.dex'] },
-  'entry_hook'      : { 'args' : '-d -x stress_entry_hook', 'input' : [
+  'map'              : { 'args' : '-m', 'input' : ['*.dex'] },
+  'stats'            : { 'args' : '-s', 'input' : ['*.dex'] },
+  'asm'              : { 'args' : '-d', 'input' : ['*.dex'] },
+  'hello_stats'      : { 'args' : '-s -e Hello', 'input' : ['hello.dex'] },
+  'am_stats'         : { 'args' : '-s -e android.app.ActivityManager', 'input' : ['large.dex'] },
+  'rewrite'          : { 'args' : '-d -x full_rewrite', 'input' : ['*.dex'] },
+  'entry_hook'       : { 'args' : '-d -x stress_entry_hook', 'input' : [
                           'entry_hooks.dex', 'hello.dex', 'medium.dex', 'min.dex' ] },
-  'exit_hook'       : { 'args' : '-d -x stress_exit_hook', 'input' : [
+  'exit_hook'        : { 'args' : '-d -x stress_exit_hook', 'input' : [
                           'exit_hooks.dex', 'medium.dex', 'try_catch.dex' ] },
-  'wrap_invoke'     : { 'args' : '-d -x stress_wrap_invoke', 'input' : [
+  'wrap_invoke'      : { 'args' : '-d -x stress_wrap_invoke', 'input' : [
                           'hello.dex', 'hello_nodebug.dex', 'medium.dex' ] },
-  'mi'              : { 'args' : '-d -x test_method_instrumenter', 'input' : ['mi.dex'] },
-  'find_method'     : { 'args' : '-x stress_find_method', 'input' : [
+  'mi'               : { 'args' : '-d -x test_method_instrumenter', 'input' : ['mi.dex'] },
+  'find_method'      : { 'args' : '-x stress_find_method', 'input' : [
                           'hello.dex', 'entry_hooks.dex', 'medium.dex', 'large.dex', 'try_catch.dex' ] },
-  'verbose_cfg'     : { 'args' : '-d --cfg=verbose', 'input' : ['*.dex'] },
-  'compact_cfg'     : { 'args' : '-d --cfg=compact', 'input' : ['*.dex'] },
-  'scratch_regs'    : { 'args' : '-d -x stress_scratch_regs', 'input' : ['*.dex'] },
-  'regs_usage'      : { 'args' : '-x regs_histogram', 'input' : ['*.dex'] },
-  'code_coverage'   : { 'args' : '-d -x code_coverage', 'input' : ['*.dex'] },
+  'verbose_cfg'      : { 'args' : '-d --cfg=verbose', 'input' : ['*.dex'] },
+  'compact_cfg'      : { 'args' : '-d --cfg=compact', 'input' : ['*.dex'] },
+  'scratch_regs'     : { 'args' : '-d -x stress_scratch_regs', 'input' : ['*.dex'] },
+  'regs_usage'       : { 'args' : '-x regs_histogram', 'input' : ['*.dex'] },
+  'code_coverage'    : { 'args' : '-d -x code_coverage', 'input' : ['*.dex'] },
+  'array_entry_hook' : { 'args' : '-d -x array_param_entry_hook', 'input' : ['mi.dex'] },
+  'object_exit_hook' : { 'args' : '-d -x return_obj_exit_hook', 'input' : ['mi.dex'] },
 }
 
 # run a shell command and returns the stdout content

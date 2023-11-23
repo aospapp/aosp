@@ -928,6 +928,7 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public static synchronized void setICUDefault(TimeZone tz) {
         if (tz == null) {

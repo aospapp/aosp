@@ -33,6 +33,10 @@ struct generic_audio_device {
   bool mic_mute;                // Protected by this->lock
   struct mixer *mixer;          // Protected by this->lock
   Hashmap *out_bus_stream_map;  // Extended field. Constant after init
+  Hashmap *in_bus_tone_frequency_map;  // Extended field. Constant after init
+  int next_tone_frequency_to_assign; // Protected by this->lock
+  // Play on Speaker zone selection
+  int last_zone_selected_to_play; // Protected by this->lock
 };
 
 enum output_channel_enable {
@@ -70,6 +74,11 @@ struct generic_stream_out {
   bool worker_exit;            // Protected by this->lock
 };
 
+struct oscillator {
+    float phase;
+    float phase_increment;
+};
+
 struct generic_stream_in {
   struct audio_stream_in stream;  // Constant after init
   pthread_mutex_t lock;
@@ -94,6 +103,9 @@ struct generic_stream_in {
   pthread_cond_t worker_wake;  // Protected by this->lock
   bool worker_standby;         // Protected by this->lock
   bool worker_exit;            // Protected by this->lock
+
+   // Tone Oscillator
+   struct oscillator oscillator; // Protected by this->lock
 };
 
 #endif  // AUDIO_HW_H

@@ -2,6 +2,23 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 yo_BJ{
     Countries{
+        003{"Àríwá Amɛ́ríkà"}
+        005{"Gúúshù Amɛ́ríkà"}
+        011{"Ìwɔ̀ oorùn Afíríkà"}
+        013{"Ààrin Gbùgbùn Àmɛ́ríkà"}
+        021{"Apáàríwá Amɛ́ríkà"}
+        030{"Ìlà Òòrùn Eshíà"}
+        034{"Gúúshù Eshíà"}
+        035{"Gúúshù ìlà òòrùn Éshíà"}
+        039{"Gúúshù Yúróòpù"}
+        053{"Ɔshirélashíà"}
+        054{"Mɛlanéshíà"}
+        057{"Agbègbè Maikironéshíà"}
+        061{"Polineshíà"}
+        143{"Ààrin Gbùngbùn Éshíà"}
+        145{"Ìwɔ̀ Òòrùn Eshíà"}
+        155{"Ìwɔ̀ Òòrùn Yúrópù"}
+        419{"Látín Amɛ́ríkà"}
         AD{"Orílɛ́ède Ààndórà"}
         AE{"Orílɛ́ède Ɛmirate ti Awɔn Arabu"}
         AF{"Orílɛ́ède Àfùgànístánì"}
@@ -28,7 +45,7 @@ yo_BJ{
         BM{"Orílɛ́ède Bémúdà"}
         BN{"Orílɛ́ède Búrúnɛ́lì"}
         BO{"Orílɛ́ède Bɔ̀lífíyà"}
-        BR{"Orílɛ́ède Bàràsílì"}
+        BR{"Orilɛ̀-èdè Bàràsílì"}
         BS{"Orílɛ́ède Bàhámásì"}
         BT{"Orílɛ́ède Bútánì"}
         BW{"Orílɛ́ède Bɔ̀tìsúwánà"}
@@ -43,14 +60,14 @@ yo_BJ{
         CK{"Orílɛ́ède Etíokun Kùúkù"}
         CL{"Orílɛ́ède shílè"}
         CM{"Orílɛ́ède Kamerúúnì"}
-        CN{"Orílɛ́ède sháínà"}
+        CN{"Orilɛ̀-èdè Sháínà"}
         CO{"Orílɛ́ède Kòlómíbìa"}
         CR{"Orílɛ́ède Kuusita Ríkà"}
         CU{"Orílɛ́ède Kúbà"}
         CV{"Orílɛ́ède Etíokun Kápé féndè"}
         CY{"Orílɛ́ède Kúrúsì"}
         CZ{"Orílɛ́ède shɛ́ɛ́kì"}
-        DE{"Orílɛ́ède Gemani"}
+        DE{"Orílɛèdè Jámánì"}
         DJ{"Orílɛ́ède Díbɔ́ótì"}
         DK{"Orílɛ́ède Dɛ́mákì"}
         DM{"Orílɛ́ède Dòmíníkà"}
@@ -59,16 +76,18 @@ yo_BJ{
         EC{"Orílɛ́ède Ekuádò"}
         EE{"Orílɛ́ède Esitonia"}
         EG{"Orílɛ́ède Égípítì"}
+        EH{"Ìwɔ̀òòrùn Sàhárà"}
         ER{"Orílɛ́ède Eritira"}
         ES{"Orílɛ́ède Sipani"}
         ET{"Orílɛ́ède Etopia"}
+        EU{"Ìshɔ̀kan Yúròpù"}
         FI{"Orílɛ́ède Filandi"}
         FJ{"Orílɛ́ède Fiji"}
         FK{"Orílɛ́ède Etikun Fakalandi"}
         FM{"Orílɛ́ède Makoronesia"}
         FR{"Orílɛ́ède Faranse"}
         GA{"Orílɛ́ède Gabon"}
-        GB{"Orílɛ́ède Omobabirin"}
+        GB{"Orílɛ́èdè Gɛ̀ɛ́sì"}
         GD{"Orílɛ́ède Genada"}
         GE{"Orílɛ́ède Gɔgia"}
         GF{"Orílɛ́ède Firenshi Guana"}
@@ -96,7 +115,7 @@ yo_BJ{
         IQ{"Orílɛ́ède Iraki"}
         IR{"Orílɛ́ède Irani"}
         IS{"Orílɛ́ède Ashilandi"}
-        IT{"Orílɛ́ède Italiyi"}
+        IT{"Orílɛ́ède Itáli"}
         JM{"Orílɛ́ède Jamaika"}
         JO{"Orílɛ́ède Jɔdani"}
         JP{"Orílɛ́ède Japani"}
@@ -127,7 +146,6 @@ yo_BJ{
         MD{"Orílɛ́ède Modofia"}
         MG{"Orílɛ́ède Madasika"}
         MH{"Orílɛ́ède Etikun Máshali"}
-        MK{"Orílɛ́ède Masidonia"}
         ML{"Orílɛ́ède Mali"}
         MM{"Orílɛ́ède Manamari"}
         MN{"Orílɛ́ède Mogolia"}
@@ -146,7 +164,7 @@ yo_BJ{
         NC{"Orílɛ́ède Kaledonia Titun"}
         NE{"Orílɛ́ède Nàìjá"}
         NF{"Orílɛ́ède Etikun Nɔ́úfókì"}
-        NG{"Orílɛ́ède Nàìjíríà"}
+        NG{"Orilɛ̀-èdè Nàìjíríà"}
         NI{"Orílɛ́ède NIkaragua"}
         NL{"Orílɛ́ède Nedalandi"}
         NO{"Orílɛ́ède Nɔɔwii"}
@@ -165,8 +183,8 @@ yo_BJ{
         PM{"Orílɛ́ède Pɛɛri ati mikuloni"}
         PN{"Orílɛ́ède Pikarini"}
         PR{"Orílɛ́ède Pɔto Riko"}
-        PS{"Orílɛ́ède Iwɔorun Pakisitian ati Gasha"}
-        PT{"Orílɛ́ède Pɔtugi"}
+        PS{"Palɛsitín"}
+        PT{"Orílɛ́ède Pɔ́túgà"}
         PW{"Orílɛ́ède Paalu"}
         PY{"Orílɛ́ède Paraguye"}
         QA{"Orílɛ́ède Kota"}
@@ -194,6 +212,7 @@ yo_BJ{
         SZ{"Orílɛ́ède Sashiland"}
         TC{"Orílɛ́ède Tɔɔki ati Etikun Kakɔsi"}
         TD{"Orílɛ́ède shààdì"}
+        TF{"Agbègbè Gúúsù Faranshé"}
         TG{"Orílɛ́ède Togo"}
         TH{"Orílɛ́ède Tailandi"}
         TJ{"Orílɛ́ède Takisitani"}
@@ -206,10 +225,11 @@ yo_BJ{
         TT{"Orílɛ́ède Tirinida ati Tobaga"}
         TV{"Orílɛ́ède Tufalu"}
         TW{"Orílɛ́ède Taiwani"}
-        TZ{"Orílɛ́ède Tanshania"}
+        TZ{"Orílɛ́ède Tàǹsáníà"}
         UA{"Orílɛ́ède Ukarini"}
         UG{"Orílɛ́ède Uganda"}
-        US{"Orílɛ́ède Orilɛede Amerika"}
+        UN{"Ìshɔ̀kan àgbáyé"}
+        US{"Orílɛ̀-èdè Amɛrikà"}
         UY{"Orílɛ́ède Nruguayi"}
         UZ{"Orílɛ́ède Nshibɛkisitani"}
         VC{"Orílɛ́ède Fisɛnnti ati Genadina"}
@@ -222,9 +242,13 @@ yo_BJ{
         WS{"Orílɛ́ède Samɔ"}
         YE{"Orílɛ́ède yemeni"}
         YT{"Orílɛ́ède Mayote"}
-        ZA{"Orílɛ́ède Ariwa Afirika"}
+        ZA{"Gúúshù Áfíríkà"}
         ZM{"Orílɛ́ède shamibia"}
         ZW{"Orílɛ́ède shimibabe"}
+        ZZ{"Àgbègbè àìmɔ̀"}
     }
-    Version{"2.1.44.53"}
+    Countries%variant{
+        TL{"Ìlà Òòrùn Tímɔ̀"}
+    }
+    Version{"36.1"}
 }

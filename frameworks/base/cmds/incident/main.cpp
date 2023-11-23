@@ -52,9 +52,13 @@ public:
     virtual Status onReportServiceStatus(const String16& service, int32_t status);
     virtual Status onReportFinished();
     virtual Status onReportFailed();
+
+    int getExitCodeOrElse(int defaultCode);
+ private:
+    int mExitCode;
 };
 
-StatusListener::StatusListener()
+StatusListener::StatusListener(): mExitCode(-1)
 {
 }
 
@@ -89,7 +93,7 @@ StatusListener::onReportFinished()
 {
     fprintf(stderr, "done\n");
     ALOGD("done\n");
-    exit(0);
+    mExitCode = 0;
     return Status::ok();
 }
 
@@ -98,8 +102,13 @@ StatusListener::onReportFailed()
 {
     fprintf(stderr, "failed\n");
     ALOGD("failed\n");
-    exit(1);
+    mExitCode = 1;
     return Status::ok();
+}
+
+int
+StatusListener::getExitCodeOrElse(int defaultCode) {
+    return mExitCode == -1 ? defaultCode : mExitCode;
 }
 
 // ================================================================================
@@ -198,6 +207,19 @@ parse_receiver_arg(const string& arg, string* pkg, string* cls)
 }
 
 // ================================================================================
+static int
+stream_output(const int read_fd, const int write_fd) {
+    while (true) {
+        int amt = splice(read_fd, NULL, write_fd, NULL, 4096, 0);
+        if (amt < 0) {
+            return errno;
+        } else if (amt == 0) {
+            return 0;
+        }
+    }
+}
+
+// ================================================================================
 static void
 usage(FILE* out)
 {
@@ -208,11 +230,14 @@ usage(FILE* out)
     fprintf(out, "OPTIONS\n");
     fprintf(out, "  -l           list available sections\n");
     fprintf(out, "  -p           privacy spec, LOCAL, EXPLICIT or AUTOMATIC. Default AUTOMATIC.\n");
+    fprintf(out, "  -r REASON    human readable description of why the report is taken.\n");
+    fprintf(out, "  -z           gzip the incident report, i.e. pipe the output through gzip.\n");
     fprintf(out, "\n");
     fprintf(out, "and one of these destinations:\n");
     fprintf(out, "  -b           (default) print the report to stdout (in proto format)\n");
     fprintf(out, "  -d           send the report into dropbox\n");
-    fprintf(out, "  -r REASON    human readable description of why the report is taken.\n");
+    fprintf(out, "  -u           print a full report to stdout for dumpstate to zip as a bug\n");
+    fprintf(out, "               report. SECTION is ignored. Should only be called by dumpstate.\n");
     fprintf(out, "  -s PKG/CLS   send broadcast to the broadcast receiver.\n");
     fprintf(out, "\n");
     fprintf(out, "  SECTION     the field numbers of the incident report fields to include\n");
@@ -224,14 +249,14 @@ main(int argc, char** argv)
 {
     Status status;
     IncidentReportArgs args;
-    enum { DEST_UNSET, DEST_DROPBOX, DEST_STDOUT, DEST_BROADCAST } destination = DEST_UNSET;
+    enum { DEST_UNSET, DEST_DROPBOX, DEST_STDOUT, DEST_BROADCAST, DEST_DUMPSTATE } destination = DEST_UNSET;
     int privacyPolicy = PRIVACY_POLICY_AUTOMATIC;
     string reason;
     string receiverArg;
 
     // Parse the args
     int opt;
-    while ((opt = getopt(argc, argv, "bhdlp:r:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "bhdlp:r:s:uz")) != -1) {
         switch (opt) {
             case 'h':
                 usage(stdout);
@@ -253,6 +278,13 @@ main(int argc, char** argv)
                 }
                 destination = DEST_DROPBOX;
                 break;
+            case 'u':
+                if (!(destination == DEST_UNSET || destination == DEST_DUMPSTATE)) {
+                    usage(stderr);
+                    return 1;
+                }
+                destination = DEST_DUMPSTATE;
+                break;
             case 'p':
                 privacyPolicy = get_privacy_policy(optarg);
                 break;
@@ -270,6 +302,9 @@ main(int argc, char** argv)
                 }
                 destination = DEST_BROADCAST;
                 receiverArg = optarg;
+                break;
+            case 'z':
+                args.setGzip(true);
                 break;
             default:
                 usage(stderr);
@@ -346,7 +381,7 @@ main(int argc, char** argv)
     if (destination == DEST_STDOUT) {
         // Call into the service
         sp<StatusListener> listener(new StatusListener());
-        status = service->reportIncidentToStream(args, listener, writeEnd);
+        status = service->reportIncidentToStream(args, listener, std::move(writeEnd));
 
         if (!status.isOk()) {
             fprintf(stderr, "reportIncident returned \"%s\"\n", status.toString8().string());
@@ -355,21 +390,16 @@ main(int argc, char** argv)
 
         // Wait for the result and print out the data they send.
         //IPCThreadState::self()->joinThreadPool();
-
-        while (true) {
-            uint8_t buf[4096];
-            ssize_t amt = TEMP_FAILURE_RETRY(read(fds[0], buf, sizeof(buf)));
-            if (amt < 0) {
-                break;
-            } else if (amt == 0) {
-                break;
-            }
-
-            ssize_t wamt = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, buf, amt));
-            if (wamt != amt) {
-                return errno;
-            }
+        return listener->getExitCodeOrElse(stream_output(fds[0], STDOUT_FILENO));
+    } else if (destination == DEST_DUMPSTATE) {
+        // Call into the service
+        sp<StatusListener> listener(new StatusListener());
+        status = service->reportIncidentToDumpstate(std::move(writeEnd), listener);
+        if (!status.isOk()) {
+            fprintf(stderr, "reportIncident returned \"%s\"\n", status.toString8().string());
+            return 1;
         }
+        return listener->getExitCodeOrElse(stream_output(fds[0], STDOUT_FILENO));
     } else {
         status = service->reportIncident(args);
         if (!status.isOk()) {

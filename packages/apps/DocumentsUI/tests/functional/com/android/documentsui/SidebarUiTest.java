@@ -43,7 +43,7 @@ public class SidebarUiTest extends ActivityTest<FilesActivity> {
     @HugeLongTest
     public void testRootTapped_GoToRootFromChildDir() throws Exception {
         bots.directory.openDocument(dirName1);
-        bots.breadcrumb.assertTitle(dirName1);
+        bots.main.assertWindowTitle(dirName1);
         bots.roots.openRoot(ROOT_0_ID);
         bots.main.assertWindowTitle(ROOT_0_ID);
         assertDefaultContentOfTestDir0();

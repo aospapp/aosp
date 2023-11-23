@@ -128,7 +128,7 @@ public class MergeMultiBuildTargetPreparerTest {
             fail("Should have thrown an exception.");
         } catch (TargetSetupError expected) {
             assertEquals(
-                    "Could not find a build associated with 'doesnotexists' null",
+                    "Could not find a build associated with 'doesnotexists'",
                     expected.getMessage());
         }
         EasyMock.verify(mMockDevice1);
@@ -146,7 +146,7 @@ public class MergeMultiBuildTargetPreparerTest {
             fail("Should have thrown an exception.");
         } catch (TargetSetupError expected) {
             assertEquals(
-                    "Could not find a build associated with 'doesnotexists1' null",
+                    "Could not find a build associated with 'doesnotexists1'",
                     expected.getMessage());
         }
         EasyMock.verify(mMockDevice1);

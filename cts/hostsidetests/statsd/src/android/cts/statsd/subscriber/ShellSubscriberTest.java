@@ -15,9 +15,13 @@
  */
 package android.cts.statsd.subscriber;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import com.android.compatibility.common.util.CpuFeatures;
 import com.android.internal.os.StatsdConfigProto;
-import com.android.os.AtomsProto;
+import com.android.os.AtomsProto.Atom;
+import com.android.os.AtomsProto.SystemUptime;
 import com.android.os.ShellConfig;
 import com.android.os.statsd.ShellDataProto;
 import com.android.tradefed.device.CollectingByteOutputReceiver;
@@ -32,6 +36,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Statsd shell data subscription test.
@@ -43,6 +48,34 @@ public class ShellSubscriberTest extends DeviceTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         sizetBytes = getSizetBytes();
+    }
+
+    public void testShellSubscription() {
+        if (sizetBytes < 0) {
+            return;
+        }
+
+        ShellConfig.ShellSubscription config = createConfig();
+        CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
+        startSubscription(config, receiver, /*maxTimeoutForCommandSec=*/5,
+                /*subscriptionTimeSec=*/5);
+        checkOutput(receiver);
+    }
+
+    public void testShellSubscriptionReconnect() {
+        if (sizetBytes < 0) {
+            return;
+        }
+
+        ShellConfig.ShellSubscription config = createConfig();
+        for (int i = 0; i < 5; i++) {
+            CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
+            // A subscription time of -1 means that statsd will not impose a timeout on the
+            // subscription. Thus, the client will exit before statsd ends the subscription.
+            startSubscription(config, receiver, /*maxTimeoutForCommandSec=*/5,
+                    /*subscriptionTimeSec=*/-1);
+            checkOutput(receiver);
+        }
     }
 
     private int getSizetBytes() {
@@ -60,59 +93,27 @@ public class ShellSubscriberTest extends DeviceTestCase {
         }
     }
 
-    // Tests that anomaly detection for count works.
-    // Also tests that anomaly detection works when spanning multiple buckets.
-    public void testShellSubscription() {
-        if (sizetBytes < 0) {
-            return;
-        }
-        // choose a pulled atom that is likely to be supported on all devices (SYSTEM_UPTIME).
-        // Testing pushed atom is a little trickier, because the executeShellCommand() is blocking
-        // and we cannot push a breadcrumb event at the same time when the shell subscription is
-        // running. So test pulled atom instead.
-        ShellConfig.ShellSubscription config = ShellConfig.ShellSubscription.newBuilder()
-                .addPulled(ShellConfig.PulledAtomSubscription.newBuilder().setMatcher(
-                        StatsdConfigProto.SimpleAtomMatcher.newBuilder()
-                                .setAtomId(AtomsProto.Atom.SYSTEM_UPTIME_FIELD_NUMBER).build())
-                        .setFreqMillis(2000).build()).build();
-        CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
-        startSubscription(config, receiver, 10);
-        byte[] output = receiver.getOutput();
-        // There should be at lease some data returned.
-        assertTrue(output.length > sizetBytes);
-
-        int atomCount = 0;
-        int i = 0;
-        while (output.length > i + sizetBytes) {
-            int len = 0;
-            for (int j = 0; j < sizetBytes; j++) {
-                len += ((int) output[i + j] & 0xffL) << (sizetBytes * j);
-            }
-            LogUtil.CLog.d("received : " + output.length + " bytes, size : " + len);
-
-            if (output.length < i + sizetBytes + len) {
-                fail("Bad data received.");
-            }
-
-            try {
-                ShellDataProto.ShellData data =
-                        ShellDataProto.ShellData.parseFrom(
-                                Arrays.copyOfRange(output, i + sizetBytes, i + sizetBytes + len));
-                assertTrue(data.getAtomCount() > 0);
-                assertTrue(data.getAtom(0).hasSystemUptime());
-                atomCount++;
-                LogUtil.CLog.d("Received " + data.toString());
-            } catch (InvalidProtocolBufferException e) {
-                fail("Failed to parse proto");
-            }
-            i += (sizetBytes + len);
-        }
-
-        assertTrue(atomCount > 0);
+    // Choose a pulled atom that is likely to be supported on all devices (SYSTEM_UPTIME). Testing
+    // pushed atoms is trickier because executeShellCommand() is blocking, so we cannot push a
+    // breadcrumb event while the shell subscription is running.
+    private ShellConfig.ShellSubscription createConfig() {
+        return ShellConfig.ShellSubscription.newBuilder()
+                .addPulled(ShellConfig.PulledAtomSubscription.newBuilder()
+                        .setMatcher(StatsdConfigProto.SimpleAtomMatcher.newBuilder()
+                                .setAtomId(Atom.SYSTEM_UPTIME_FIELD_NUMBER))
+                        .setFreqMillis(2000))
+                .build();
     }
 
-    private void startSubscription(ShellConfig.ShellSubscription config,
-                                   CollectingByteOutputReceiver receiver, int waitTimeSec) {
+    /**
+     * @param maxTimeoutForCommandSec maximum time imposed by adb that the command will run
+     * @param subscriptionTimeSec maximum time imposed by statsd that the subscription will last
+     */
+    private void startSubscription(
+            ShellConfig.ShellSubscription config,
+            CollectingByteOutputReceiver receiver,
+            int maxTimeoutForCommandSec,
+            int subscriptionTimeSec) {
         LogUtil.CLog.d("Uploading the following config:\n" + config.toString());
         try {
             File configFile = File.createTempFile("shellconfig", ".config");
@@ -128,19 +129,71 @@ public class ShellSubscriberTest extends DeviceTestCase {
             getDevice().pushFile(configFile, remotePath);
             LogUtil.CLog.d("waiting....................");
 
-            getDevice().executeShellCommand(
-                    String.join(" ", "cat", remotePath, "|", "cmd stats data-subscribe ",
-                            String.valueOf(waitTimeSec)), receiver);
+            String cmd = String.join(" ", "cat", remotePath, "|", "cmd stats data-subscribe",
+                  String.valueOf(subscriptionTimeSec));
+
+
+            getDevice().executeShellCommand(cmd, receiver, maxTimeoutForCommandSec,
+                    /*maxTimeToOutputShellResponse=*/maxTimeoutForCommandSec, TimeUnit.SECONDS,
+                    /*retryAttempts=*/0);
             getDevice().executeShellCommand("rm " + remotePath);
         } catch (Exception e) {
             fail(e.getMessage());
         }
     }
 
-    byte[] IntToByteArrayLittleEndian(int length) {
+    private byte[] IntToByteArrayLittleEndian(int length) {
         ByteBuffer b = ByteBuffer.allocate(sizetBytes);
         b.order(ByteOrder.LITTLE_ENDIAN);
         b.putInt(length);
         return b.array();
+    }
+
+    // We do not know how much data will be returned, but we can check the data format.
+    private void checkOutput(CollectingByteOutputReceiver receiver) {
+        int atomCount = 0;
+        int startIndex = 0;
+
+        byte[] output = receiver.getOutput();
+        assertThat(output.length).isGreaterThan(0);
+        while (output.length > startIndex) {
+            assertThat(output.length).isAtLeast(startIndex + sizetBytes);
+            int dataLength = readSizetFromByteArray(output, startIndex);
+            if (dataLength == 0) {
+                // We have received a heartbeat from statsd. This heartbeat isn't accompanied by any
+                // atoms so return to top of while loop.
+                startIndex += sizetBytes;
+                continue;
+            }
+            assertThat(output.length).isAtLeast(startIndex + sizetBytes + dataLength);
+
+            ShellDataProto.ShellData data = null;
+            try {
+                int dataStart = startIndex + sizetBytes;
+                int dataEnd = dataStart + dataLength;
+                data = ShellDataProto.ShellData.parseFrom(
+                        Arrays.copyOfRange(output, dataStart, dataEnd));
+            } catch (InvalidProtocolBufferException e) {
+                fail("Failed to parse proto");
+            }
+
+            assertThat(data.getAtomCount()).isEqualTo(1);
+            assertThat(data.getAtom(0).hasSystemUptime()).isTrue();
+            assertThat(data.getAtom(0).getSystemUptime().getUptimeMillis()).isGreaterThan(0L);
+            atomCount++;
+            startIndex += sizetBytes + dataLength;
+        }
+        assertThat(atomCount).isGreaterThan(0);
+    }
+
+    // Converts the bytes in range [startIndex, startIndex + sizetBytes) from a little-endian array
+    // into an integer. Even though sizetBytes could be greater than 4, we assume that the result
+    // will fit within an int.
+    private int readSizetFromByteArray(byte[] arr, int startIndex) {
+        int value = 0;
+        for (int j = 0; j < sizetBytes; j++) {
+            value += ((int) arr[j + startIndex] & 0xffL) << (8 * j);
+        }
+        return value;
     }
 }

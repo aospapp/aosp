@@ -45,8 +45,7 @@ public class CopyUpstreamFiles {
             }
         }
         for (Path relPath : relPaths) {
-            Repository expectedUpstream = standardRepositories.referenceUpstreamAsOfAndroidP(
-                relPath);
+            Repository expectedUpstream = standardRepositories.referenceUpstream(relPath);
             for (Repository upstream : standardRepositories.upstreams()) {
                 Path upstreamFile = upstream.absolutePath(relPath);
                 if (upstreamFile != null) {

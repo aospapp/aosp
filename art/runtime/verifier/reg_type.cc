@@ -602,6 +602,148 @@ static const RegType& SelectNonConstant2(const RegType& a, const RegType& b) {
   return a.IsConstantTypes() ? (b.IsZero() ? a : b) : a;
 }
 
+
+namespace {
+
+ObjPtr<mirror::Class> ArrayClassJoin(ObjPtr<mirror::Class> s,
+                                     ObjPtr<mirror::Class> t,
+                                     ClassLinker* class_linker)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+
+ObjPtr<mirror::Class> InterfaceClassJoin(ObjPtr<mirror::Class> s, ObjPtr<mirror::Class> t)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+
+/*
+ * A basic Join operation on classes. For a pair of types S and T the Join, written S v T = J, is
+ * S <: J, T <: J and for-all U such that S <: U, T <: U then J <: U. That is J is the parent of
+ * S and T such that there isn't a parent of both S and T that isn't also the parent of J (ie J
+ * is the deepest (lowest upper bound) parent of S and T).
+ *
+ * This operation applies for regular classes and arrays, however, for interface types there
+ * needn't be a partial ordering on the types. We could solve the problem of a lack of a partial
+ * order by introducing sets of types, however, the only operation permissible on an interface is
+ * invoke-interface. In the tradition of Java verifiers [1] we defer the verification of interface
+ * types until an invoke-interface call on the interface typed reference at runtime and allow
+ * the perversion of Object being assignable to an interface type (note, however, that we don't
+ * allow assignment of Object or Interface to any concrete class and are therefore type safe).
+ *
+ * Note: This may return null in case of internal errors, e.g., OOME when a new class would have
+ *       to be created but there is no heap space. The exception will stay pending, and it is
+ *       the job of the caller to handle it.
+ *
+ * [1] Java bytecode verification: algorithms and formalizations, Xavier Leroy
+ */
+ObjPtr<mirror::Class> ClassJoin(ObjPtr<mirror::Class> s,
+                                ObjPtr<mirror::Class> t,
+                                ClassLinker* class_linker)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK(!s->IsPrimitive()) << s->PrettyClass();
+  DCHECK(!t->IsPrimitive()) << t->PrettyClass();
+  if (s == t) {
+    return s;
+  } else if (s->IsAssignableFrom(t)) {
+    return s;
+  } else if (t->IsAssignableFrom(s)) {
+    return t;
+  } else if (s->IsArrayClass() && t->IsArrayClass()) {
+    return ArrayClassJoin(s, t, class_linker);
+  } else if (s->IsInterface() || t->IsInterface()) {
+    return InterfaceClassJoin(s, t);
+  } else {
+    size_t s_depth = s->Depth();
+    size_t t_depth = t->Depth();
+    // Get s and t to the same depth in the hierarchy
+    if (s_depth > t_depth) {
+      while (s_depth > t_depth) {
+        s = s->GetSuperClass();
+        s_depth--;
+      }
+    } else {
+      while (t_depth > s_depth) {
+        t = t->GetSuperClass();
+        t_depth--;
+      }
+    }
+    // Go up the hierarchy until we get to the common parent
+    while (s != t) {
+      s = s->GetSuperClass();
+      t = t->GetSuperClass();
+    }
+    return s;
+  }
+}
+
+ObjPtr<mirror::Class> ArrayClassJoin(ObjPtr<mirror::Class> s,
+                                     ObjPtr<mirror::Class> t,
+                                     ClassLinker* class_linker) {
+  ObjPtr<mirror::Class> s_ct = s->GetComponentType();
+  ObjPtr<mirror::Class> t_ct = t->GetComponentType();
+  if (s_ct->IsPrimitive() || t_ct->IsPrimitive()) {
+    // Given the types aren't the same, if either array is of primitive types then the only
+    // common parent is java.lang.Object
+    ObjPtr<mirror::Class> result = s->GetSuperClass();  // short-cut to java.lang.Object
+    DCHECK(result->IsObjectClass());
+    return result;
+  }
+  Thread* self = Thread::Current();
+  ObjPtr<mirror::Class> common_elem = ClassJoin(s_ct, t_ct, class_linker);
+  if (UNLIKELY(common_elem == nullptr)) {
+    self->AssertPendingException();
+    return nullptr;
+  }
+  // Note: The following lookup invalidates existing ObjPtr<>s.
+  ObjPtr<mirror::Class> array_class = class_linker->FindArrayClass(self, common_elem);
+  if (UNLIKELY(array_class == nullptr)) {
+    self->AssertPendingException();
+    return nullptr;
+  }
+  return array_class;
+}
+
+ObjPtr<mirror::Class> InterfaceClassJoin(ObjPtr<mirror::Class> s, ObjPtr<mirror::Class> t) {
+  // This is expensive, as we do not have good data structures to do this even halfway
+  // efficiently.
+  //
+  // We're not following JVMS for interface verification (not everything is assignable to an
+  // interface, we trade this for IMT dispatch). We also don't have set types to make up for
+  // it. So we choose one arbitrary common ancestor interface by walking the interface tables
+  // backwards.
+  //
+  // For comparison, runtimes following the JVMS will punt all interface type checking to
+  // runtime.
+  ObjPtr<mirror::IfTable> s_if = s->GetIfTable();
+  int32_t s_if_count = s->GetIfTableCount();
+  ObjPtr<mirror::IfTable> t_if = t->GetIfTable();
+  int32_t t_if_count = t->GetIfTableCount();
+
+  // Note: we'll be using index == count to stand for the argument itself.
+  for (int32_t s_it = s_if_count; s_it >= 0; --s_it) {
+    ObjPtr<mirror::Class> s_cl = s_it == s_if_count ? s : s_if->GetInterface(s_it);
+    if (!s_cl->IsInterface()) {
+      continue;
+    }
+
+    for (int32_t t_it = t_if_count; t_it >= 0; --t_it) {
+      ObjPtr<mirror::Class> t_cl = t_it == t_if_count ? t : t_if->GetInterface(t_it);
+      if (!t_cl->IsInterface()) {
+        continue;
+      }
+
+      if (s_cl == t_cl) {
+        // Found something arbitrary in common.
+        return s_cl;
+      }
+    }
+  }
+
+  // Return java.lang.Object.
+  ObjPtr<mirror::Class> obj_class = s->IsInterface() ? s->GetSuperClass() : t->GetSuperClass();
+  DCHECK(obj_class->IsObjectClass());
+  return obj_class;
+}
+
+}  // namespace
+
 const RegType& RegType::Merge(const RegType& incoming_type,
                               RegTypeCache* reg_types,
                               MethodVerifier* verifier) const {
@@ -730,7 +872,9 @@ const RegType& RegType::Merge(const RegType& incoming_type,
       // Do not cache the classes as ClassJoin() can suspend and invalidate ObjPtr<>s.
       DCHECK(GetClass() != nullptr && !GetClass()->IsPrimitive());
       DCHECK(incoming_type.GetClass() != nullptr && !incoming_type.GetClass()->IsPrimitive());
-      ObjPtr<mirror::Class> join_class = ClassJoin(GetClass(), incoming_type.GetClass());
+      ObjPtr<mirror::Class> join_class = ClassJoin(GetClass(),
+                                                   incoming_type.GetClass(),
+                                                   reg_types->GetClassLinker());
       if (UNLIKELY(join_class == nullptr)) {
         // Internal error joining the classes (e.g., OOME). Report an unresolved reference type.
         // We cannot report an unresolved merge type, as that will attempt to merge the resolved
@@ -743,7 +887,7 @@ const RegType& RegType::Merge(const RegType& incoming_type,
 
         // When compiling on the host, we rather want to abort to ensure determinism for preopting.
         // (In that case, it is likely a misconfiguration of dex2oat.)
-        if (!kIsTargetBuild && Runtime::Current()->IsAotCompiler()) {
+        if (!kIsTargetBuild && (verifier != nullptr && verifier->IsAotMode())) {
           LOG(FATAL) << "Could not create class join of "
                      << GetClass()->PrettyClass()
                      << " & "
@@ -780,64 +924,6 @@ const RegType& RegType::Merge(const RegType& incoming_type,
     }
   } else {
     return conflict;  // Unexpected types => Conflict
-  }
-}
-
-// See comment in reg_type.h
-ObjPtr<mirror::Class> RegType::ClassJoin(ObjPtr<mirror::Class> s, ObjPtr<mirror::Class> t) {
-  DCHECK(!s->IsPrimitive()) << s->PrettyClass();
-  DCHECK(!t->IsPrimitive()) << t->PrettyClass();
-  if (s == t) {
-    return s;
-  } else if (s->IsAssignableFrom(t)) {
-    return s;
-  } else if (t->IsAssignableFrom(s)) {
-    return t;
-  } else if (s->IsArrayClass() && t->IsArrayClass()) {
-    ObjPtr<mirror::Class> s_ct = s->GetComponentType();
-    ObjPtr<mirror::Class> t_ct = t->GetComponentType();
-    if (s_ct->IsPrimitive() || t_ct->IsPrimitive()) {
-      // Given the types aren't the same, if either array is of primitive types then the only
-      // common parent is java.lang.Object
-      ObjPtr<mirror::Class> result = s->GetSuperClass();  // short-cut to java.lang.Object
-      DCHECK(result->IsObjectClass());
-      return result;
-    }
-    Thread* self = Thread::Current();
-    ObjPtr<mirror::Class> common_elem = ClassJoin(s_ct, t_ct);
-    if (UNLIKELY(common_elem == nullptr)) {
-      self->AssertPendingException();
-      return nullptr;
-    }
-    // Note: The following lookup invalidates existing ObjPtr<>s.
-    ObjPtr<mirror::Class> array_class =
-        Runtime::Current()->GetClassLinker()->FindArrayClass(self, common_elem);
-    if (UNLIKELY(array_class == nullptr)) {
-      self->AssertPendingException();
-      return nullptr;
-    }
-    return array_class;
-  } else {
-    size_t s_depth = s->Depth();
-    size_t t_depth = t->Depth();
-    // Get s and t to the same depth in the hierarchy
-    if (s_depth > t_depth) {
-      while (s_depth > t_depth) {
-        s = s->GetSuperClass();
-        s_depth--;
-      }
-    } else {
-      while (t_depth > s_depth) {
-        t = t->GetSuperClass();
-        t_depth--;
-      }
-    }
-    // Go up the hierarchy until we get to the common parent
-    while (s != t) {
-      s = s->GetSuperClass();
-      t = t->GetSuperClass();
-    }
-    return s;
   }
 }
 

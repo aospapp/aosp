@@ -12,9 +12,12 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:chameleon_audio_perbuild"
-DEPENDENCIES = "chameleon, audio_board, test_audiojack"
-JOB_RETRIES = 2
+ATTRIBUTES = "suite:audio_essential"
+# Currently, CrOS audio team rely on the audio_box to mark tests that should
+# run on a dedicated pool of DUTs.
+# This test doesn't necessarily need to be in a audio box.
+DEPENDENCIES = "audio_box, test_audiojack"
+JOB_RETRIES = 1
 
 DOC = """
 This test remotely tests headphone audio function.

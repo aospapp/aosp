@@ -24,7 +24,6 @@
 #include <linux/if_link.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_log.h>
-#include <linux/netfilter_ipv4/ipt_ULOG.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <net/if.h>
@@ -39,8 +38,28 @@
 const int LOCAL_QLOG_NL_EVENT = 112;
 const int LOCAL_NFLOG_PACKET = NFNL_SUBSYS_ULOG << 8 | NFULNL_MSG_PACKET;
 
+/* From deprecated ipt_ULOG.h to parse QLOG_NL_EVENT. */
+#define ULOG_MAC_LEN 80
+#define ULOG_PREFIX_LEN 32
+typedef struct ulog_packet_msg {
+    unsigned long mark;
+    long timestamp_sec;
+    long timestamp_usec;
+    unsigned int hook;
+    char indev_name[IFNAMSIZ];
+    char outdev_name[IFNAMSIZ];
+    size_t data_len;
+    char prefix[ULOG_PREFIX_LEN];
+    unsigned char mac_len;
+    unsigned char mac[ULOG_MAC_LEN];
+    unsigned char payload[0];
+} ulog_packet_msg_t;
+
+#include <android-base/parseint.h>
 #include <log/log.h>
 #include <sysutils/NetlinkEvent.h>
+
+using android::base::ParseInt;
 
 NetlinkEvent::NetlinkEvent() {
     mAction = Action::kUnknown;
@@ -161,6 +180,7 @@ bool NetlinkEvent::parseIfAddrMessage(const struct nlmsghdr *nh) {
     struct ifa_cacheinfo *cacheinfo = nullptr;
     char addrstr[INET6_ADDRSTRLEN] = "";
     char ifname[IFNAMSIZ] = "";
+    uint32_t flags;
 
     if (!checkRtNetlinkLength(nh, sizeof(*ifaddr)))
         return false;
@@ -174,6 +194,9 @@ bool NetlinkEvent::parseIfAddrMessage(const struct nlmsghdr *nh) {
 
     // For log messages.
     const char *msgtype = rtMessageName(type);
+
+    // First 8 bits of flags. In practice will always be overridden when parsing IFA_FLAGS below.
+    flags = ifaddr->ifa_flags;
 
     struct rtattr *rta;
     int len = IFA_PAYLOAD(nh);
@@ -223,6 +246,9 @@ bool NetlinkEvent::parseIfAddrMessage(const struct nlmsghdr *nh) {
             }
 
             cacheinfo = (struct ifa_cacheinfo *) RTA_DATA(rta);
+
+        } else if (rta->rta_type == IFA_FLAGS) {
+            flags = *(uint32_t*)RTA_DATA(rta);
         }
     }
 
@@ -237,7 +263,7 @@ bool NetlinkEvent::parseIfAddrMessage(const struct nlmsghdr *nh) {
     mSubsystem = strdup("net");
     asprintf(&mParams[0], "ADDRESS=%s/%d", addrstr, ifaddr->ifa_prefixlen);
     asprintf(&mParams[1], "INTERFACE=%s", ifname);
-    asprintf(&mParams[2], "FLAGS=%u", ifaddr->ifa_flags);
+    asprintf(&mParams[2], "FLAGS=%u", flags);
     asprintf(&mParams[3], "SCOPE=%u", ifaddr->ifa_scope);
     asprintf(&mParams[4], "IFINDEX=%u", ifaddr->ifa_index);
 
@@ -301,8 +327,9 @@ bool NetlinkEvent::parseNfPacketMessage(struct nlmsghdr *nh) {
         raw = (char*)nlAttrData(payload);
     }
 
-    char* hex = (char*) calloc(1, 5 + (len * 2));
-    strcpy(hex, "HEX=");
+    size_t hexSize = 5 + (len * 2);
+    char* hex = (char*)calloc(1, hexSize);
+    strlcpy(hex, "HEX=", hexSize);
     for (int i = 0; i < len; i++) {
         hex[4 + (i * 2)] = "0123456789abcdef"[(raw[i] >> 4) & 0xf];
         hex[5 + (i * 2)] = "0123456789abcdef"[raw[i] & 0xf];
@@ -474,23 +501,20 @@ bool NetlinkEvent::parseNdUserOptMessage(const struct nlmsghdr *nh) {
         struct nd_opt_rdnss *rndss_opt = (struct nd_opt_rdnss *) opthdr;
         const uint32_t lifetime = ntohl(rndss_opt->nd_opt_rdnss_lifetime);
 
-        // Construct "SERVERS=<comma-separated string of DNS addresses>".
-        static const char kServerTag[] = "SERVERS=";
-        static const size_t kTagLength = strlen(kServerTag);
+        // Construct a comma-separated string of DNS addresses.
         // Reserve sufficient space for an IPv6 link-local address: all but the
         // last address are followed by ','; the last is followed by '\0'.
         static const size_t kMaxSingleAddressLength =
                 INET6_ADDRSTRLEN + strlen("%") + IFNAMSIZ + strlen(",");
-        const size_t bufsize = kTagLength + numaddrs * kMaxSingleAddressLength;
+        const size_t bufsize = numaddrs * kMaxSingleAddressLength;
         char *buf = (char *) malloc(bufsize);
         if (!buf) {
             SLOGE("RDNSS option: out of memory\n");
             return false;
         }
-        strcpy(buf, kServerTag);
-        size_t pos = kTagLength;
 
         struct in6_addr *addrs = (struct in6_addr *) (rndss_opt + 1);
+        size_t pos = 0;
         for (int i = 0; i < numaddrs; i++) {
             if (i > 0) {
                 buf[pos++] = ',';
@@ -508,9 +532,14 @@ bool NetlinkEvent::parseNdUserOptMessage(const struct nlmsghdr *nh) {
         mSubsystem = strdup("net");
         asprintf(&mParams[0], "INTERFACE=%s", ifname);
         asprintf(&mParams[1], "LIFETIME=%u", lifetime);
-        mParams[2] = buf;
+        asprintf(&mParams[2], "SERVERS=%s", buf);
+        free(buf);
     } else if (opthdr->nd_opt_type == ND_OPT_DNSSL) {
         // TODO: support DNSSL.
+    } else if (opthdr->nd_opt_type == ND_OPT_CAPTIVE_PORTAL) {
+        // TODO: support CAPTIVE PORTAL.
+    } else if (opthdr->nd_opt_type == ND_OPT_PREF64) {
+        // TODO: support PREF64.
     } else {
         SLOGD("Unknown ND option type %d\n", opthdr->nd_opt_type);
         return false;
@@ -634,7 +663,9 @@ bool NetlinkEvent::parseAsciiNetlinkMessage(char *buffer, int size) {
                 else if (!strcmp(a, "change"))
                     mAction = Action::kChange;
             } else if ((a = HAS_CONST_PREFIX(s, end, "SEQNUM=")) != nullptr) {
-                mSeq = atoi(a);
+                if (!ParseInt(a, &mSeq)) {
+                    SLOGE("NetlinkEvent::parseAsciiNetlinkMessage: failed to parse SEQNUM=%s", a);
+                }
             } else if ((a = HAS_CONST_PREFIX(s, end, "SUBSYSTEM=")) != nullptr) {
                 mSubsystem = strdup(a);
             } else if (param_idx < NL_PARAMS_MAX) {

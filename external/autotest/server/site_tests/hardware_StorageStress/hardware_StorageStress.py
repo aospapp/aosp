@@ -22,11 +22,12 @@ class hardware_StorageStress(test.test):
     _FIO_REQUIREMENT_FILE = '8k_async_randwrite'
     _FIO_WRITE_FLAGS = []
     _FIO_VERIFY_FLAGS = ['--verifyonly']
+    _FIO_TEST = 'hardware_StorageFio'
 
     def run_once(self, client_ip, gap=_TEST_GAP, duration=_TEST_DURATION,
                  power_command='reboot', storage_test_command='integrity',
                  suspend_duration=_SUSPEND_DURATION, storage_test_argument='',
-                 cq=False):
+                 cq=False, nonroot_dev=False):
         """
         Run the Storage stress test
         Use hardwareStorageFio to run some test_command repeatedly for a long
@@ -59,9 +60,12 @@ class hardware_StorageStress(test.test):
                     % (time.time(), label))})
             return
 
+        if nonroot_dev:
+            self._FIO_TEST = 'hardware_StorageFioOther'
+
         # init test
         if not client_ip:
-            error.TestError("Must provide client's IP address to test")
+            raise error.TestError("Must provide client's IP address to test")
 
         self._client = hosts.create_host(client_ip)
         self._client_at = autotest.Autotest(self._client)
@@ -157,7 +161,7 @@ class hardware_StorageStress(test.test):
         Write test data to host using hardware_StorageFio
         """
         logging.info('_write_data')
-        self._client_at.run_test('hardware_StorageFio',
+        self._client_at.run_test(self._FIO_TEST,
             check_client_result=True, disable_sysinfo=True, wait=0,
             tag='%s_%d' % ('write_data', self._loop_count),
             requirements=[(self._FIO_REQUIREMENT_FILE, self._FIO_WRITE_FLAGS)])
@@ -167,7 +171,7 @@ class hardware_StorageStress(test.test):
         Verify test data using hardware_StorageFio
         """
         logging.info(str('_verify_data #%d' % self._loop_count))
-        self._client_at.run_test('hardware_StorageFio',
+        self._client_at.run_test(self._FIO_TEST,
             check_client_result=True, disable_sysinfo=True, wait=0,
             tag='%s_%d' % ('verify_data', self._loop_count),
             requirements=[(self._FIO_REQUIREMENT_FILE, self._FIO_VERIFY_FLAGS)])
@@ -182,7 +186,7 @@ class hardware_StorageStress(test.test):
         logging.info(str('_full_disk_write #%d' % self._loop_count))
 
         # use the default requirement that write different pattern arround.
-        self._client_at.run_test('hardware_StorageFio',
+        self._client_at.run_test(self._FIO_TEST,
                                  check_client_result=True,
                                  disable_sysinfo=True,
                                  tag='%s_%d' % ('soak', self._loop_count),
@@ -191,7 +195,7 @@ class hardware_StorageStress(test.test):
 
         self._power_func()
 
-        self._client_at.run_test('hardware_StorageFio',
+        self._client_at.run_test(self._FIO_TEST,
                                  check_client_result=True,
                                  disable_sysinfo=True,
                                  tag='%s_%d' % ('surf', self._loop_count),
@@ -200,7 +204,7 @@ class hardware_StorageStress(test.test):
 
         self._power_func()
 
-        self._client_at.run_test('hardware_StorageFio',
+        self._client_at.run_test(self._FIO_TEST,
                                  check_client_result=True,
                                  disable_sysinfo=True,
                                  tag='%s_%d' % ('integrity', self._loop_count),

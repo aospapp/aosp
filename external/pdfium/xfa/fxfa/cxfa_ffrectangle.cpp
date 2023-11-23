@@ -9,14 +9,14 @@
 #include "xfa/fxfa/parser/cxfa_rectangle.h"
 #include "xfa/fxfa/parser/cxfa_value.h"
 
-CXFA_FFRectangle::CXFA_FFRectangle(CXFA_Node* pNode) : CXFA_FFDraw(pNode) {}
+CXFA_FFRectangle::CXFA_FFRectangle(CXFA_Node* pNode) : CXFA_FFWidget(pNode) {}
 
 CXFA_FFRectangle::~CXFA_FFRectangle() {}
 
 void CXFA_FFRectangle::RenderWidget(CXFA_Graphics* pGS,
                                     const CFX_Matrix& matrix,
-                                    uint32_t dwStatus) {
-  if (!IsMatchVisibleStatus(dwStatus))
+                                    HighlightOption highlight) {
+  if (!HasVisibleStatus())
     return;
 
   CXFA_Value* value = m_pNode->GetFormValueIfExists();
@@ -25,11 +25,9 @@ void CXFA_FFRectangle::RenderWidget(CXFA_Graphics* pGS,
 
   CFX_RectF rect = GetRectWithoutRotate();
   CXFA_Margin* margin = m_pNode->GetMarginIfExists();
-  if (margin)
-    XFA_RectWithoutMargin(rect, margin);
+  XFA_RectWithoutMargin(&rect, margin);
 
   CFX_Matrix mtRotate = GetRotateMatrix();
   mtRotate.Concat(matrix);
-
   DrawBorder(pGS, value->GetRectangleIfExists(), rect, mtRotate);
 }

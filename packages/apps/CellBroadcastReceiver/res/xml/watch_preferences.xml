@@ -16,9 +16,11 @@
  * limitations under the License.
  */
 -->
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-                  android:title="@string/emergency_alert_settings_title_watches"
-                  android:key="category_alert_preferences">
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:title="@string/emergency_alert_settings_title_watches"
+    android:key="category_alert_preferences">
 
         <!-- Enable CMAS Extreme Threat alerts -->
         <SwitchPreference android:defaultValue="true"
@@ -43,7 +45,7 @@
                         android:title="@string/alert_reminder_interval_title"
                         android:entries="@array/alert_reminder_interval_entries"
                         android:entryValues="@array/alert_reminder_interval_values"
-                        android:defaultValue="@string/alert_reminder_interval_default_value"
+                        android:defaultValue="@string/alert_reminder_interval_in_min_default"
                         android:dialogTitle="@string/alert_reminder_interval_title" />
 
         <SwitchPreference android:key="watch_alert_reminder"
@@ -52,10 +54,6 @@
         <SwitchPreference android:defaultValue="true"
                           android:key="enable_alert_vibrate"
                           android:title="@string/enable_alert_vibrate_title" />
-
-        <SwitchPreference android:defaultValue="true"
-                          android:key="enable_alert_speech"
-                          android:title="@string/enable_alert_speech_title" />
 
         <!-- Enable receive monthly test -->
         <SwitchPreference android:defaultValue="false"

@@ -19,12 +19,15 @@ package android.app.role.cts;
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+import static com.android.compatibility.common.util.UiAutomatorUtils.waitFindObject;
+import static com.android.compatibility.common.util.UiAutomatorUtils.waitFindObjectOrNull;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
-import android.app.AppOpsManager;
 import android.app.Instrumentation;
 import android.app.role.OnRoleHoldersChangedListener;
 import android.app.role.RoleManager;
@@ -35,22 +38,23 @@ import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
 import android.os.Process;
 import android.os.UserHandle;
+import android.provider.Settings;
+import android.provider.Telephony;
 import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
-import android.util.Log;
+import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
-import androidx.test.filters.FlakyTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.AppOpsUtils;
+import com.android.compatibility.common.util.TestUtils;
 import com.android.compatibility.common.util.ThrowingRunnable;
+import com.android.compatibility.common.util.UiAutomatorUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -58,9 +62,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -75,22 +77,34 @@ import java.util.function.Consumer;
 @RunWith(AndroidJUnit4.class)
 public class RoleManagerTest {
 
-    private static final String LOG_TAG = "RoleManagerTest";
-
     private static final long TIMEOUT_MILLIS = 15 * 1000;
 
     private static final long UNEXPECTED_TIMEOUT_MILLIS = 1000;
 
     private static final String ROLE_NAME = RoleManager.ROLE_BROWSER;
+    private static final String ROLE_SHORT_LABEL = "Browser app";
 
     private static final String APP_APK_PATH = "/data/local/tmp/cts/role/CtsRoleTestApp.apk";
     private static final String APP_PACKAGE_NAME = "android.app.role.cts.app";
+    private static final String APP_LABEL = "CtsRoleTestApp";
     private static final String APP_IS_ROLE_HELD_ACTIVITY_NAME = APP_PACKAGE_NAME
             + ".IsRoleHeldActivity";
     private static final String APP_IS_ROLE_HELD_EXTRA_IS_ROLE_HELD = APP_PACKAGE_NAME
             + ".extra.IS_ROLE_HELD";
     private static final String APP_REQUEST_ROLE_ACTIVITY_NAME = APP_PACKAGE_NAME
             + ".RequestRoleActivity";
+    private static final String APP_CHANGE_DEFAULT_DIALER_ACTIVITY_NAME = APP_PACKAGE_NAME
+            + ".ChangeDefaultDialerActivity";
+    private static final String APP_CHANGE_DEFAULT_SMS_ACTIVITY_NAME = APP_PACKAGE_NAME
+            + ".ChangeDefaultSmsActivity";
+
+    private static final String APP_28_APK_PATH = "/data/local/tmp/cts/role/CtsRoleTestApp28.apk";
+    private static final String APP_28_PACKAGE_NAME = "android.app.role.cts.app28";
+    private static final String APP_28_LABEL = "CtsRoleTestApp28";
+    private static final String APP_28_CHANGE_DEFAULT_DIALER_ACTIVITY_NAME = APP_28_PACKAGE_NAME
+            + ".ChangeDefaultDialerActivity";
+    private static final String APP_28_CHANGE_DEFAULT_SMS_ACTIVITY_NAME = APP_28_PACKAGE_NAME
+            + ".ChangeDefaultSmsActivity";
 
     private static final String PERMISSION_MANAGE_ROLES_FROM_CONTROLLER =
             "com.android.permissioncontroller.permission.MANAGE_ROLES_FROM_CONTROLLER";
@@ -100,14 +114,12 @@ public class RoleManagerTest {
     private static final Context sContext = InstrumentationRegistry.getTargetContext();
     private static final PackageManager sPackageManager = sContext.getPackageManager();
     private static final RoleManager sRoleManager = sContext.getSystemService(RoleManager.class);
-    private static final UiDevice sUiDevice = UiDevice.getInstance(sInstrumentation);
 
     @Rule
     public ActivityTestRule<WaitForResultActivity> mActivityRule =
             new ActivityTestRule<>(WaitForResultActivity.class);
 
     private String mRoleHolder;
-    private int mCurrentUserId;
 
     @Before
     public void saveRoleHolder() throws Exception {
@@ -133,18 +145,24 @@ public class RoleManagerTest {
 
     @Before
     public void installApp() throws Exception {
-        mCurrentUserId = Process.myUserHandle().getIdentifier();
         installPackage(APP_APK_PATH);
+        installPackage(APP_28_APK_PATH);
     }
 
     @After
     public void uninstallApp() throws Exception {
         uninstallPackage(APP_PACKAGE_NAME);
+        uninstallPackage(APP_28_PACKAGE_NAME);
     }
 
     @Before
     public void wakeUpScreen() throws IOException {
         runShellCommand(sInstrumentation, "input keyevent KEYCODE_WAKEUP");
+    }
+
+    @Before
+    public void closeNotificationShade() {
+        sContext.sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
     }
 
     @Test
@@ -162,7 +180,6 @@ public class RoleManagerTest {
         assertThat(intent.getStringExtra(Intent.EXTRA_ROLE_NAME)).isEqualTo(ROLE_NAME);
     }
 
-    @FlakyTest
     @Test
     public void requestRoleAndDenyThenIsNotRoleHolder() throws Exception {
         requestRole(ROLE_NAME);
@@ -171,7 +188,6 @@ public class RoleManagerTest {
         assertIsRoleHolder(ROLE_NAME, APP_PACKAGE_NAME, false);
     }
 
-    @FlakyTest
     @Test
     public void requestRoleAndAllowThenIsRoleHolder() throws Exception {
         requestRole(ROLE_NAME);
@@ -180,7 +196,6 @@ public class RoleManagerTest {
         assertIsRoleHolder(ROLE_NAME, APP_PACKAGE_NAME, true);
     }
 
-    @FlakyTest
     @Test
     public void requestRoleFirstTimeNoDontAskAgain() throws Exception {
         requestRole(ROLE_NAME);
@@ -191,7 +206,6 @@ public class RoleManagerTest {
         respondToRoleRequest(false);
     }
 
-    @FlakyTest
     @Test
     public void requestRoleAndDenyThenHasDontAskAgain() throws Exception {
         requestRole(ROLE_NAME);
@@ -205,7 +219,6 @@ public class RoleManagerTest {
         respondToRoleRequest(false);
     }
 
-    @FlakyTest
     @Test
     public void requestRoleAndDenyWithDontAskAgainReturnsCanceled() throws Exception {
         requestRole(ROLE_NAME);
@@ -218,7 +231,6 @@ public class RoleManagerTest {
         assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
     }
 
-    @FlakyTest
     @Test
     public void requestRoleAndDenyWithDontAskAgainThenDeniedAutomatically() throws Exception {
         requestRole(ROLE_NAME);
@@ -234,7 +246,6 @@ public class RoleManagerTest {
         assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
     }
 
-    @FlakyTest
     @Test
     public void requestRoleAndDenyWithDontAskAgainAndClearDataThenShowsUiWithoutDontAskAgain()
             throws Exception {
@@ -244,20 +255,31 @@ public class RoleManagerTest {
         requestRole(ROLE_NAME);
         findDontAskAgainCheck().click();
         clickButtonAndWaitForResult(true);
+        // Wait for the RequestRoleActivity inside the test app to be removed from our task so that
+        // when the test app is force stopped, our task isn't force finished and our
+        // WaitForResultActivity can survive.
+        Thread.sleep(5000);
 
         clearPackageData(APP_PACKAGE_NAME);
         // Wait for the don't ask again to be forgotten.
-        Thread.sleep(2000);
+        Thread.sleep(5000);
 
-        requestRole(ROLE_NAME);
-        UiObject2 dontAskAgainCheck = findDontAskAgainCheck(false);
+        TestUtils.waitUntil("Find and respond to request role UI", () -> {
+            requestRole(ROLE_NAME);
+            UiObject2 cancelButton = waitFindObjectOrNull(By.res("android:id/button2"));
+            if (cancelButton == null) {
+                // Dialog not found, try again later.
+                return false;
+            }
+            UiObject2 dontAskAgainCheck = findDontAskAgainCheck(false);
 
-        assertThat(dontAskAgainCheck).isNull();
+            assertThat(dontAskAgainCheck).isNull();
 
-        respondToRoleRequest(false);
+            respondToRoleRequest(false);
+            return true;
+        });
     }
 
-    @FlakyTest
     @Test
     public void requestRoleAndDenyWithDontAskAgainAndReinstallThenShowsUiWithoutDontAskAgain()
             throws Exception {
@@ -267,26 +289,73 @@ public class RoleManagerTest {
         requestRole(ROLE_NAME);
         findDontAskAgainCheck().click();
         clickButtonAndWaitForResult(true);
+        // Wait for the RequestRoleActivity inside the test app to be removed from our task so that
+        // when the test app is uninstalled, our task isn't force finished and our
+        // WaitForResultActivity can survive.
+        Thread.sleep(5000);
 
         uninstallPackage(APP_PACKAGE_NAME);
         // Wait for the don't ask again to be forgotten.
-        Thread.sleep(2000);
+        Thread.sleep(5000);
         installPackage(APP_APK_PATH);
 
-        requestRole(ROLE_NAME);
-        UiObject2 dontAskAgainCheck = findDontAskAgainCheck(false);
+        TestUtils.waitUntil("Find and respond to request role UI", () -> {
+            requestRole(ROLE_NAME);
+            UiObject2 cancelButton = waitFindObjectOrNull(By.res("android:id/button2"));
+            if (cancelButton == null) {
+                // Dialog not found, try again later.
+                return false;
+            }
+            UiObject2 dontAskAgainCheck = findDontAskAgainCheck(false);
 
-        assertThat(dontAskAgainCheck).isNull();
+            assertThat(dontAskAgainCheck).isNull();
 
-        respondToRoleRequest(false);
+            respondToRoleRequest(false);
+            return true;
+        });
     }
 
     @Test
-    public void requestAssistantRoleThenDeniedAutomatically() throws InterruptedException {
+    public void requestEmptyRoleThenDeniedAutomatically() throws Exception {
+        requestRole("");
+        Pair<Integer, Intent> result = waitForResult();
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void requestInvalidRoleThenDeniedAutomatically() throws Exception {
+        requestRole("invalid");
+        Pair<Integer, Intent> result = waitForResult();
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void requestUnqualifiedRoleThenDeniedAutomatically() throws Exception {
+        requestRole(RoleManager.ROLE_HOME);
+        Pair<Integer, Intent> result = waitForResult();
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void requestAssistantRoleThenDeniedAutomatically() throws Exception {
         requestRole(RoleManager.ROLE_ASSISTANT);
         Pair<Integer, Intent> result = waitForResult();
 
         assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void requestHoldingRoleThenAllowedAutomatically() throws Exception {
+        requestRole(ROLE_NAME);
+        respondToRoleRequest(true);
+
+        requestRole(ROLE_NAME);
+        Pair<Integer, Intent> result = waitForResult();
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_OK);
     }
 
     private void requestRole(@NonNull String roleName) {
@@ -296,15 +365,10 @@ public class RoleManagerTest {
         mActivityRule.getActivity().startActivityToWaitForResult(intent);
     }
 
-    private void respondToRoleRequest(boolean allow) throws InterruptedException, IOException {
+    private void respondToRoleRequest(boolean allow)
+            throws InterruptedException, UiObjectNotFoundException {
         if (allow) {
-            UiObject2 item = sUiDevice.wait(Until.findObject(By.text(APP_PACKAGE_NAME)),
-                    TIMEOUT_MILLIS);
-            if (item == null) {
-                dumpWindowHierarchy();
-                fail("Cannot find item to click");
-            }
-            item.click();
+            waitFindObject(By.text(APP_LABEL)).click();
         }
         Pair<Integer, Intent> result = clickButtonAndWaitForResult(allow);
         int expectedResult = allow ? Activity.RESULT_OK : Activity.RESULT_CANCELED;
@@ -313,39 +377,23 @@ public class RoleManagerTest {
     }
 
     @Nullable
-    private UiObject2 findDontAskAgainCheck(boolean expected) {
-        return sUiDevice.wait(Until.findObject(By.text("Don\u2019t ask again")), expected
-                ? TIMEOUT_MILLIS : UNEXPECTED_TIMEOUT_MILLIS);
+    private UiObject2 findDontAskAgainCheck(boolean expected) throws UiObjectNotFoundException {
+        BySelector selector = By.text("Don\u2019t ask again");
+        return expected
+                ? waitFindObject(selector)
+                : waitFindObjectOrNull(selector, UNEXPECTED_TIMEOUT_MILLIS);
     }
 
     @Nullable
-    private UiObject2 findDontAskAgainCheck() {
+    private UiObject2 findDontAskAgainCheck() throws UiObjectNotFoundException {
         return findDontAskAgainCheck(true);
     }
 
     @NonNull
-    private Pair<Integer, Intent> clickButtonAndWaitForResult(boolean positive) throws IOException,
-            InterruptedException {
-        String buttonId = positive ? "android:id/button1" : "android:id/button2";
-        UiObject2 button = sUiDevice.wait(Until.findObject(By.res(buttonId)), TIMEOUT_MILLIS);
-        if (button == null) {
-            dumpWindowHierarchy();
-            fail("Cannot find button to click");
-        }
-        button.click();
+    private Pair<Integer, Intent> clickButtonAndWaitForResult(boolean positive)
+            throws InterruptedException, UiObjectNotFoundException {
+        waitFindObject(By.res(positive ? "android:id/button1" : "android:id/button2")).click();
         return waitForResult();
-    }
-
-    private void dumpWindowHierarchy() throws InterruptedException, IOException {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        sUiDevice.dumpWindowHierarchy(outputStream);
-        String windowHierarchy = outputStream.toString(StandardCharsets.UTF_8.name());
-
-        Log.w(LOG_TAG, "Window hierarchy:");
-        for (String line : windowHierarchy.split("\n")) {
-            Thread.sleep(10);
-            Log.w(LOG_TAG, line);
-        }
     }
 
     @NonNull
@@ -354,15 +402,282 @@ public class RoleManagerTest {
     }
 
     private void clearPackageData(@NonNull String packageName) {
-        runShellCommand("pm clear --user " + mCurrentUserId + " " + packageName);
+        runShellCommand("pm clear --user " + Process.myUserHandle().getIdentifier() + " "
+                + packageName);
     }
 
     private void installPackage(@NonNull String apkPath) {
-        runShellCommand("pm install -r --user " + mCurrentUserId + " " + apkPath);
+        runShellCommand("pm install -r --user " + Process.myUserHandle().getIdentifier() + " "
+                + apkPath);
     }
 
     private void uninstallPackage(@NonNull String packageName) {
-        runShellCommand("pm uninstall --user " + mCurrentUserId + " " + packageName);
+        runShellCommand("pm uninstall --user " + Process.myUserHandle().getIdentifier() + " "
+                + packageName);
+    }
+
+    @Test
+    public void targetCurrentSdkAndChangeDefaultDialerThenDeniedAutomatically() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_DIALER));
+
+        WaitForResultActivity activity = mActivityRule.getActivity();
+        activity.startActivityToWaitForResult(new Intent()
+                .setComponent(new ComponentName(APP_PACKAGE_NAME,
+                        APP_CHANGE_DEFAULT_DIALER_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_PACKAGE_NAME));
+        Pair<Integer, Intent> result = activity.waitForActivityResult(TIMEOUT_MILLIS);
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void targetCurrentSdkAndChangeDefaultSmsThenDeniedAutomatically() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
+
+        WaitForResultActivity activity = mActivityRule.getActivity();
+        activity.startActivityToWaitForResult(new Intent()
+                .setComponent(new ComponentName(APP_PACKAGE_NAME,
+                        APP_CHANGE_DEFAULT_SMS_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_PACKAGE_NAME));
+        Pair<Integer, Intent> result = activity.waitForActivityResult(TIMEOUT_MILLIS);
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void targetSdk28AndChangeDefaultDialerAndAllowThenIsDefaultDialer() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_DIALER));
+
+        sContext.startActivity(new Intent()
+                .setComponent(new ComponentName(APP_28_PACKAGE_NAME,
+                        APP_28_CHANGE_DEFAULT_DIALER_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_28_PACKAGE_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        waitFindObject(By.text(APP_28_LABEL)).click();
+        waitFindObject(By.res("android:id/button1")).click();
+
+        // TODO(b/149037075): Use TelecomManager.getDefaultDialerPackage() once the bug is fixed.
+        //TelecomManager telecomManager = sContext.getSystemService(TelecomManager.class);
+        //TestUtils.waitUntil("App is not set as default dialer app", () -> Objects.equals(
+        //        telecomManager.getDefaultDialerPackage(), APP_28_PACKAGE_NAME));
+        TestUtils.waitUntil("App is not set as default dialer app", () ->
+                getRoleHolders(RoleManager.ROLE_DIALER).contains(APP_28_PACKAGE_NAME));
+    }
+
+    @Test
+    public void targetSdk28AndChangeDefaultSmsAndAllowThenIsDefaultSms() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
+
+        sContext.startActivity(new Intent()
+                .setComponent(new ComponentName(APP_28_PACKAGE_NAME,
+                        APP_28_CHANGE_DEFAULT_SMS_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_28_PACKAGE_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        waitFindObject(By.text(APP_28_LABEL)).click();
+        waitFindObject(By.res("android:id/button1")).click();
+
+        TestUtils.waitUntil("App is not set as default sms app", () -> Objects.equals(
+                Telephony.Sms.getDefaultSmsPackage(sContext), APP_28_PACKAGE_NAME));
+    }
+
+    @Test
+    public void targetSdk28AndChangeDefaultDialerForAnotherAppThenDeniedAutomatically()
+            throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_DIALER));
+
+        WaitForResultActivity activity = mActivityRule.getActivity();
+        activity.startActivityToWaitForResult(new Intent()
+                .setComponent(new ComponentName(APP_28_PACKAGE_NAME,
+                        APP_28_CHANGE_DEFAULT_DIALER_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_PACKAGE_NAME));
+        Pair<Integer, Intent> result = activity.waitForActivityResult(TIMEOUT_MILLIS);
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void targetSdk28AndChangeDefaultSmsForAnotherAppThenDeniedAutomatically()
+            throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
+
+        WaitForResultActivity activity = mActivityRule.getActivity();
+        activity.startActivityToWaitForResult(new Intent()
+                .setComponent(new ComponentName(APP_28_PACKAGE_NAME,
+                        APP_28_CHANGE_DEFAULT_SMS_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_PACKAGE_NAME));
+        Pair<Integer, Intent> result = activity.waitForActivityResult(TIMEOUT_MILLIS);
+
+        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
+    }
+
+    @Test
+    public void
+    targetSdk28AndChangeDefaultDialerForAnotherAppAsHolderAndAllowThenTheOtherAppIsDefaultDialer()
+            throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_DIALER));
+
+        addRoleHolder(RoleManager.ROLE_DIALER, APP_28_PACKAGE_NAME);
+        sContext.startActivity(new Intent()
+                .setComponent(new ComponentName(APP_28_PACKAGE_NAME,
+                        APP_28_CHANGE_DEFAULT_DIALER_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_PACKAGE_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        waitFindObject(By.text(APP_LABEL)).click();
+        waitFindObject(By.res("android:id/button1")).click();
+
+        // TODO(b/149037075): Use TelecomManager.getDefaultDialerPackage() once the bug is fixed.
+        //TelecomManager telecomManager = sContext.getSystemService(TelecomManager.class);
+        //TestUtils.waitUntil("App is not set as default dialer app", () -> Objects.equals(
+        //        telecomManager.getDefaultDialerPackage(), APP_PACKAGE_NAME));
+        TestUtils.waitUntil("App is not set as default dialer app", () ->
+                getRoleHolders(RoleManager.ROLE_DIALER).contains(APP_PACKAGE_NAME));
+    }
+
+    @Test
+    public void
+    targetSdk28AndChangeDefaultSmsForAnotherAppAsHolderAndAllowThenTheOtherAppIsDefaultSms()
+            throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
+
+        addRoleHolder(RoleManager.ROLE_SMS, APP_28_PACKAGE_NAME);
+        sContext.startActivity(new Intent()
+                .setComponent(new ComponentName(APP_28_PACKAGE_NAME,
+                        APP_28_CHANGE_DEFAULT_SMS_ACTIVITY_NAME))
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, APP_PACKAGE_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        waitFindObject(By.text(APP_LABEL)).click();
+        waitFindObject(By.res("android:id/button1")).click();
+
+        TestUtils.waitUntil("App is not set as default sms app", () -> Objects.equals(
+                Telephony.Sms.getDefaultSmsPackage(sContext), APP_PACKAGE_NAME));
+    }
+
+    @Test
+    public void openDefaultAppDetailsThenIsNotDefaultApp() throws Exception {
+        runWithShellPermissionIdentity(() -> sContext.startActivity(new Intent(
+                Intent.ACTION_MANAGE_DEFAULT_APP)
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .putExtra(Intent.EXTRA_ROLE_NAME, ROLE_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TASK)));
+
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(false))
+                .hasDescendant(By.text(APP_LABEL)));
+
+        pressBack();
+    }
+
+    @Test
+    public void openDefaultAppDetailsAndSetDefaultAppThenIsDefaultApp() throws Exception {
+        runWithShellPermissionIdentity(() -> sContext.startActivity(new Intent(
+                Intent.ACTION_MANAGE_DEFAULT_APP)
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .putExtra(Intent.EXTRA_ROLE_NAME, ROLE_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TASK)));
+        waitForIdle();
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(false))
+                .hasDescendant(By.text(APP_LABEL))).click();
+
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(true))
+                .hasDescendant(By.text(APP_LABEL)));
+        assertIsRoleHolder(ROLE_NAME, APP_PACKAGE_NAME, true);
+
+        pressBack();
+    }
+
+    @Test
+    public void openDefaultAppDetailsAndSetDefaultAppAndSetAnotherThenIsNotDefaultApp()
+            throws Exception {
+        runWithShellPermissionIdentity(() -> sContext.startActivity(new Intent(
+                Intent.ACTION_MANAGE_DEFAULT_APP)
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .putExtra(Intent.EXTRA_ROLE_NAME, ROLE_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TASK)));
+        waitForIdle();
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(false))
+                .hasDescendant(By.text(APP_LABEL))).click();
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(true))
+                .hasDescendant(By.text(APP_LABEL)));
+        waitForIdle();
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(false))).click();
+
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(false))
+                .hasDescendant(By.text(APP_LABEL)));
+        assertIsRoleHolder(ROLE_NAME, APP_PACKAGE_NAME, false);
+
+        pressBack();
+    }
+
+    @Test
+    public void openDefaultAppListThenHasDefaultApp() throws Exception {
+        sContext.startActivity(new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+
+        waitFindObject(By.text(ROLE_SHORT_LABEL));
+
+        pressBack();
+    }
+
+    @Test
+    public void openDefaultAppListThenIsNotDefaultAppInList() throws Exception {
+        sContext.startActivity(new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+
+        assertThat(waitFindObjectOrNull(By.text(APP_LABEL), UNEXPECTED_TIMEOUT_MILLIS))
+                .isNull();
+
+        pressBack();
+    }
+
+    @Test
+    public void openDefaultAppListAndSetDefaultAppThenIsDefaultApp() throws Exception {
+        sContext.startActivity(new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+        waitForIdle();
+        waitFindObject(By.text(ROLE_SHORT_LABEL)).click();
+        waitForIdle();
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(false))
+                .hasDescendant(By.text(APP_LABEL))).click();
+
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(true))
+                .hasDescendant(By.text(APP_LABEL)));
+        assertIsRoleHolder(ROLE_NAME, APP_PACKAGE_NAME, true);
+
+        pressBack();
+        pressBack();
+    }
+
+    @Test
+    public void openDefaultAppListAndSetDefaultAppThenIsDefaultAppInList() throws Exception {
+        sContext.startActivity(new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+        waitForIdle();
+        waitFindObject(By.text(ROLE_SHORT_LABEL)).click();
+        waitForIdle();
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(false))
+                .hasDescendant(By.text(APP_LABEL))).click();
+        waitFindObject(By.clickable(true).hasDescendant(By.checkable(true).checked(true))
+                .hasDescendant(By.text(APP_LABEL)));
+        pressBack();
+
+        waitFindObject(By.text(APP_LABEL));
+
+        pressBack();
+    }
+
+    private static void waitForIdle() {
+        UiAutomatorUtils.getUiDevice().waitForIdle();
+    }
+
+    private static void pressBack() {
+        UiAutomatorUtils.getUiDevice().pressBack();
+        waitForIdle();
     }
 
     @Test
@@ -432,6 +747,26 @@ public class RoleManagerTest {
         clearRoleHolders(ROLE_NAME);
 
         assertIsRoleHolder(ROLE_NAME, APP_PACKAGE_NAME, false);
+    }
+
+    @Test
+    public void addInvalidRoleHolderThenFails() throws Exception {
+        addRoleHolder("invalid", APP_PACKAGE_NAME, false);
+    }
+
+    @Test
+    public void addUnqualifiedRoleHolderThenFails() throws Exception {
+        addRoleHolder(RoleManager.ROLE_HOME, APP_PACKAGE_NAME, false);
+    }
+
+    @Test
+    public void removeInvalidRoleHolderThenFails() throws Exception {
+        removeRoleHolder("invalid", APP_PACKAGE_NAME, false);
+    }
+
+    @Test
+    public void clearInvalidRoleHoldersThenFails() throws Exception {
+        clearRoleHolders("invalid", false);
     }
 
     @Test
@@ -541,7 +876,7 @@ public class RoleManagerTest {
     }
 
     @Test
-    public void manageRoleFromsFromControllerPermissionShouldBeDeclaredByPermissionController()
+    public void manageRolesFromControllerPermissionShouldBeDeclaredByPermissionController()
             throws PackageManager.NameNotFoundException {
         PermissionInfo permissionInfo = sPackageManager.getPermissionInfo(
                 PERMISSION_MANAGE_ROLES_FROM_CONTROLLER, 0);
@@ -553,27 +888,46 @@ public class RoleManagerTest {
     }
 
     @Test
-    public void removeSmsRoleHolderThenDialerRoleAppOpIsNotDenied() throws Exception {
-        if (!(sRoleManager.isRoleAvailable(RoleManager.ROLE_DIALER)
-                && sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS))) {
-            return;
-        }
+    public void smsRoleHasHolder() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
 
-        addRoleHolder(RoleManager.ROLE_DIALER, APP_PACKAGE_NAME);
-        addRoleHolder(RoleManager.ROLE_SMS, APP_PACKAGE_NAME);
-        removeRoleHolder(RoleManager.ROLE_SMS, APP_PACKAGE_NAME);
-
-        assertThat(AppOpsUtils.getOpMode(APP_PACKAGE_NAME, AppOpsManager.OPSTR_SEND_SMS))
-                .isEqualTo(AppOpsManager.MODE_ALLOWED);
+        assertThat(getRoleHolders(RoleManager.ROLE_SMS)).isNotEmpty();
     }
 
     @Test
-    public void smsRoleHasHolder() throws Exception {
-        if (!sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS)) {
-            return;
-        }
+    public void addSmsRoleHolderThenPermissionIsGranted() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
 
-        assertThat(getRoleHolders(RoleManager.ROLE_SMS)).isNotEmpty();
+        addRoleHolder(RoleManager.ROLE_SMS, APP_PACKAGE_NAME);
+
+        assertThat(sPackageManager.checkPermission(android.Manifest.permission.SEND_SMS,
+                APP_PACKAGE_NAME)).isEqualTo(PackageManager.PERMISSION_GRANTED);
+    }
+
+    @Test
+    public void removeSmsRoleHolderThenPermissionIsRevoked() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
+
+        String smsRoleHolder = getRoleHolders(RoleManager.ROLE_SMS).get(0);
+        addRoleHolder(RoleManager.ROLE_SMS, APP_PACKAGE_NAME);
+        addRoleHolder(RoleManager.ROLE_SMS, smsRoleHolder);
+
+        assertThat(sPackageManager.checkPermission(android.Manifest.permission.SEND_SMS,
+                APP_PACKAGE_NAME)).isEqualTo(PackageManager.PERMISSION_DENIED);
+    }
+
+    @Test
+    public void removeSmsRoleHolderThenDialerRolePermissionIsRetained() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_DIALER)
+                && sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
+
+        addRoleHolder(RoleManager.ROLE_DIALER, APP_PACKAGE_NAME);
+        String smsRoleHolder = getRoleHolders(RoleManager.ROLE_SMS).get(0);
+        addRoleHolder(RoleManager.ROLE_SMS, APP_PACKAGE_NAME);
+        addRoleHolder(RoleManager.ROLE_SMS, smsRoleHolder);
+
+        assertThat(sPackageManager.checkPermission(android.Manifest.permission.SEND_SMS,
+                APP_PACKAGE_NAME)).isEqualTo(PackageManager.PERMISSION_GRANTED);
     }
 
     private List<String> getRoleHolders(@NonNull String roleName) throws Exception {
@@ -591,27 +945,42 @@ public class RoleManagerTest {
         }
      }
 
-    private void addRoleHolder(@NonNull String roleName, @NonNull String packageName)
-            throws Exception {
+    private void addRoleHolder(@NonNull String roleName, @NonNull String packageName,
+            boolean expectSuccess) throws Exception {
         CallbackFuture future = new CallbackFuture();
         runWithShellPermissionIdentity(() -> sRoleManager.addRoleHolderAsUser(roleName,
                 packageName, 0, Process.myUserHandle(), sContext.getMainExecutor(), future));
-        future.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        assertThat(future.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)).isEqualTo(expectSuccess);
+    }
+
+    private void addRoleHolder(@NonNull String roleName, @NonNull String packageName)
+            throws Exception {
+        addRoleHolder(roleName, packageName, true);
+    }
+
+    private void removeRoleHolder(@NonNull String roleName, @NonNull String packageName,
+            boolean expectSuccess) throws Exception {
+        CallbackFuture future = new CallbackFuture();
+        runWithShellPermissionIdentity(() -> sRoleManager.removeRoleHolderAsUser(roleName,
+                packageName, 0, Process.myUserHandle(), sContext.getMainExecutor(), future));
+        assertThat(future.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)).isEqualTo(expectSuccess);
     }
 
     private void removeRoleHolder(@NonNull String roleName, @NonNull String packageName)
             throws Exception {
-        CallbackFuture future = new CallbackFuture();
-        runWithShellPermissionIdentity(() -> sRoleManager.removeRoleHolderAsUser(roleName,
-                packageName, 0, Process.myUserHandle(), sContext.getMainExecutor(), future));
-        future.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        removeRoleHolder(roleName, packageName, true);
     }
 
-    private void clearRoleHolders(@NonNull String roleName) throws Exception {
+    private void clearRoleHolders(@NonNull String roleName, boolean expectSuccess)
+            throws Exception {
         CallbackFuture future = new CallbackFuture();
         runWithShellPermissionIdentity(() -> sRoleManager.clearRoleHoldersAsUser(roleName, 0,
                 Process.myUserHandle(), sContext.getMainExecutor(), future));
-        future.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        assertThat(future.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)).isEqualTo(expectSuccess);
+    }
+
+    private void clearRoleHolders(@NonNull String roleName) throws Exception {
+        clearRoleHolders(roleName, true);
     }
 
     private static class ListenerFuture extends CompletableFuture<Pair<String, UserHandle>>
@@ -623,16 +992,12 @@ public class RoleManagerTest {
         }
     }
 
-    private static class CallbackFuture extends CompletableFuture<Void>
+    private static class CallbackFuture extends CompletableFuture<Boolean>
             implements Consumer<Boolean> {
 
         @Override
         public void accept(Boolean successful) {
-            if (successful) {
-                complete(null);
-            } else {
-                completeExceptionally(new RuntimeException());
-            }
+            complete(successful);
         }
     }
 }

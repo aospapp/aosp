@@ -25,7 +25,7 @@
 
 namespace android {
 
-VectorType::VectorType(Scope* parent) : TemplatedType(parent) {}
+VectorType::VectorType(Scope* parent) : TemplatedType(parent, "vec") {}
 
 std::string VectorType::templatedTypeName() const {
     return "vector";
@@ -113,10 +113,9 @@ std::string VectorType::getCppType(StorageMode mode,
 }
 
 std::string VectorType::getJavaType(bool /* forInitializer */) const {
-    const std::string elementJavaType = mElementType->isTemplatedType()
-        ? mElementType->getJavaType()
-        : mElementType->getJavaTypeClass();
-
+    // this will break if the type is templated in Java, but there are no types
+    // like this currently
+    const std::string elementJavaType = mElementType->getJavaTypeClass();
     return "java.util.ArrayList<" + elementJavaType + ">";
 }
 
@@ -348,117 +347,6 @@ void VectorType::emitReaderWriterEmbedded(
             mode,
             childName,
             iteratorName + " * sizeof(" + baseType + ")");
-
-    out.unindent();
-
-    out << "}\n\n";
-}
-
-void VectorType::emitResolveReferences(
-            Formatter &out,
-            const std::string &name,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode) const {
-    emitResolveReferencesEmbeddedHelper(
-        out,
-        0, /* depth */
-        name,
-        name /* sanitizedName */,
-        nameIsPointer,
-        parcelObj,
-        parcelObjIsPointer,
-        isReader,
-        mode,
-        "_hidl_" + name + "_child",
-        "0 /* parentOffset */");
-}
-
-void VectorType::emitResolveReferencesEmbedded(
-            Formatter &out,
-            size_t depth,
-            const std::string &name,
-            const std::string &sanitizedName,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode,
-            const std::string & /* parentName */,
-            const std::string & /* offsetText */) const {
-    emitResolveReferencesEmbeddedHelper(
-        out, depth, name, sanitizedName, nameIsPointer, parcelObj,
-        parcelObjIsPointer, isReader, mode, "", "");
-}
-
-bool VectorType::useParentInEmitResolveReferencesEmbedded() const {
-    // parentName and offsetText is not used in emitResolveReferencesEmbedded
-    return false;
-}
-
-void VectorType::emitResolveReferencesEmbeddedHelper(
-            Formatter &out,
-            size_t depth,
-            const std::string &name,
-            const std::string &sanitizedName,
-            bool nameIsPointer,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            bool isReader,
-            ErrorMode mode,
-            const std::string &childName,
-            const std::string &childOffsetText) const {
-    CHECK(needsResolveReferences() && mElementType->needsResolveReferences());
-
-    const std::string nameDeref = name + (nameIsPointer ? "->" : ".");
-    const std::string nameDerefed = (nameIsPointer ? "*" : "") + name;
-    std::string elementType = mElementType->getCppStackType();
-
-    std::string myChildName = childName, myChildOffset = childOffsetText;
-
-    if(myChildName.empty() && myChildOffset.empty()) {
-        myChildName = "_hidl_" + sanitizedName + "_child";
-        myChildOffset = "0";
-
-        out << "size_t " << myChildName << ";\n";
-        out << "_hidl_err = ::android::hardware::findInParcel("
-            << nameDerefed << ", "
-            << (parcelObjIsPointer ? "*" : "") << parcelObj << ", "
-            << "&" << myChildName
-            << ");\n";
-
-        handleError(out, mode);
-    }
-
-    std::string iteratorName = "_hidl_index_" + std::to_string(depth);
-
-    out << "for (size_t "
-        << iteratorName
-        << " = 0; "
-        << iteratorName
-        << " < "
-        << nameDeref
-        << "size(); ++"
-        << iteratorName
-        << ") {\n";
-
-    out.indent();
-
-    mElementType->emitResolveReferencesEmbedded(
-        out,
-        depth + 1,
-        (nameIsPointer ? "(*" + name + ")" : name) + "[" + iteratorName + "]",
-        sanitizedName + (nameIsPointer ? "_deref" : "") + "_indexed",
-        false /* nameIsPointer */,
-        parcelObj,
-        parcelObjIsPointer,
-        isReader,
-        mode,
-        myChildName,
-        myChildOffset + " + " +
-                iteratorName + " * sizeof(" + elementType + ")");
 
     out.unindent();
 
@@ -722,13 +610,6 @@ bool VectorType::needsEmbeddedReadWrite() const {
     return true;
 }
 
-bool VectorType::deepNeedsResolveReferences(std::unordered_set<const Type*>* visited) const {
-    if (mElementType->needsResolveReferences(visited)) {
-        return true;
-    }
-    return TemplatedType::deepNeedsResolveReferences(visited);
-}
-
 bool VectorType::resultNeedsDeref() const {
     return !isVectorOfBinders();
 }
@@ -743,6 +624,10 @@ bool VectorType::deepIsJavaCompatible(std::unordered_set<const Type*>* visited) 
     }
 
     if (mElementType->isVector()) {
+        return false;
+    }
+
+    if (mElementType->isMemory()) {
         return false;
     }
 

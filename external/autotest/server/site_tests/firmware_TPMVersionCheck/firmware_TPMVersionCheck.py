@@ -21,6 +21,7 @@ class firmware_TPMVersionCheck(FirmwareTest):
         self.setup_usbkey(usbkey=False)
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.checkers.crossystem_checker({
                     'tpm_fwver': '0x00010001',
                     'tpm_kernver': '0x00010001', }):

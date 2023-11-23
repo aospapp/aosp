@@ -314,7 +314,6 @@ IHEVCE_PLUGIN_STATUS_T ihevce_set_def_params(ihevce_static_cfg_params_t *ps_para
     ps_params->s_config_prms.i4_min_log2_cu_size = 3;
     ps_params->s_config_prms.i4_min_log2_tu_size = 2;
     ps_params->s_config_prms.i4_num_frms_to_encode = -1;
-    ps_params->s_config_prms.i4_rate_factor = 500;
     ps_params->s_config_prms.i4_rate_control_mode = 2;
     ps_params->s_config_prms.i4_stuffing_enable = 0;
     ps_params->s_config_prms.i4_vbr_max_peak_rate_dur = 2000;
@@ -1913,7 +1912,7 @@ IHEVCE_PLUGIN_STATUS_T
         if(ps_ctxt->ps_static_cfg_prms->s_coding_tools_prms.i4_max_temporal_layers)
         {
             u4_latency +=
-                (1 << ps_ctxt->ps_static_cfg_prms->s_coding_tools_prms.i4_max_temporal_layers);
+                (1 << ps_ctxt->ps_static_cfg_prms->s_coding_tools_prms.i4_max_temporal_layers) - 1;
         }
 
         u4_latency += ps_ctxt->ps_static_cfg_prms->s_lap_prms.i4_rc_look_ahead_pics;
@@ -1989,11 +1988,25 @@ IHEVCE_PLUGIN_STATUS_T
                     /* toggle field id */
                     ps_ctxt->i4_field_id = !ps_ctxt->i4_field_id;
 
-                    /* set the cmd to NA */
-                    *pi4_ctrl_ptr = IHEVCE_SYNCH_API_END_TAG;
+                    /* ---------- Introduction of Force IDR locs   ---------- */
+                    if(ps_inp->i4_force_idr_flag)
+                    {
+                        *pi4_ctrl_ptr = IHEVCE_SYNCH_API_FORCE_IDR_TAG;
+                        *(pi4_ctrl_ptr + 1) = 0;
+                        pi4_ctrl_ptr += 2;
 
-                    ps_curr_inp->i4_cmd_buf_size = 4; /* 4 bytes */
+                        /* set the cmd to NA */
+                        *pi4_ctrl_ptr = IHEVCE_SYNCH_API_END_TAG;
 
+                        ps_curr_inp->i4_cmd_buf_size = 4 * 3; /* 12 bytes */
+                    }
+                    else
+                    {
+                        /* set the cmd to NA */
+                        *pi4_ctrl_ptr = IHEVCE_SYNCH_API_END_TAG;
+
+                        ps_curr_inp->i4_cmd_buf_size = 4; /* 4 bytes */
+                    }
                     /* call the input copy function */
                     result = ihevce_copy_inp_8bit(
                         ps_curr_inp,
@@ -2044,11 +2057,12 @@ IHEVCE_PLUGIN_STATUS_T
                                 MIN(ps_inp->i4_curr_bitrate, max_bitrate);
                             ps_dyn_br->i4_new_peak_bitrate =
                                 MIN((ps_dyn_br->i4_new_tgt_bitrate << 1), max_bitrate);
-
                             pi4_cmd_buf += 2;
                             pi4_cmd_buf += (sizeof(ihevce_dyn_config_prms_t) >> 2);
 
                             *(pi4_cmd_buf) = IHEVCE_ASYNCH_API_END_TAG;
+
+                            ps_ctrl_buf->i4_cmd_buf_size = 12 + sizeof(ihevce_dyn_config_prms_t);
 
                             /* ---------- set the buffer as produced ---------- */
                             ihevce_q_set_inp_ctrl_buff_prod(ps_interface_ctxt, buf_id);

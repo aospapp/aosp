@@ -16,66 +16,45 @@
 
 #include "src/traced/probes/power/android_power_data_source.h"
 
-#include <dlfcn.h>
-
 #include <vector>
 
 #include "perfetto/base/logging.h"
-#include "perfetto/base/optional.h"
-#include "perfetto/base/scoped_file.h"
 #include "perfetto/base/task_runner.h"
 #include "perfetto/base/time.h"
+#include "perfetto/ext/base/optional.h"
+#include "perfetto/ext/base/scoped_file.h"
+#include "perfetto/ext/tracing/core/trace_packet.h"
+#include "perfetto/ext/tracing/core/trace_writer.h"
 #include "perfetto/tracing/core/data_source_config.h"
-#include "perfetto/tracing/core/trace_packet.h"
-#include "perfetto/tracing/core/trace_writer.h"
 #include "src/android_internal/health_hal.h"
+#include "src/android_internal/lazy_library_loader.h"
 #include "src/android_internal/power_stats_hal.h"
 
-#include "perfetto/trace/power/battery_counters.pbzero.h"
-#include "perfetto/trace/power/power_rails.pbzero.h"
-#include "perfetto/trace/trace_packet.pbzero.h"
+#include "protos/perfetto/config/power/android_power_config.pbzero.h"
+#include "protos/perfetto/trace/power/battery_counters.pbzero.h"
+#include "protos/perfetto/trace/power/power_rails.pbzero.h"
+#include "protos/perfetto/trace/trace_packet.pbzero.h"
 
 namespace perfetto {
 
 namespace {
-constexpr uint32_t kMinPollRateMs = 250;
+constexpr uint32_t kMinPollIntervalMs = 100;
 constexpr size_t kMaxNumRails = 32;
 }  // namespace
 
-// Dynamically loads / unloads the libperfetto_android_internal.so library which
+// static
+const ProbesDataSource::Descriptor AndroidPowerDataSource::descriptor = {
+    /*name*/ "android.power",
+    /*flags*/ Descriptor::kFlagsNone,
+};
+
+// Dynamically loads the libperfetto_android_internal.so library which
 // allows to proxy calls to android hwbinder in in-tree builds.
 struct AndroidPowerDataSource::DynamicLibLoader {
-  using ScopedDlHandle = base::ScopedResource<void*, dlclose, nullptr>;
-
-  DynamicLibLoader() {
-    static const char kLibName[] = "libperfetto_android_internal.so";
-    handle_.reset(dlopen(kLibName, RTLD_NOW));
-    if (!handle_) {
-      PERFETTO_PLOG("dlopen(%s) failed", kLibName);
-      return;
-    }
-    void* fn = dlsym(*handle_, "GetBatteryCounter");
-    if (!fn) {
-      PERFETTO_PLOG("dlsym(GetBatteryCounter) failed");
-      return;
-    }
-    get_battery_counter_ = reinterpret_cast<decltype(get_battery_counter_)>(fn);
-
-    fn = dlsym(*handle_, "GetAvailableRails");
-    if (!fn) {
-      PERFETTO_PLOG("dlsym(GetAvailableRails) failed");
-      return;
-    }
-    get_available_rails_ = reinterpret_cast<decltype(get_available_rails_)>(fn);
-
-    fn = dlsym(*handle_, "GetRailEnergyData");
-    if (!fn) {
-      PERFETTO_PLOG("dlsym(GetRailEnergyData) failed");
-      return;
-    }
-    get_rail_energy_data_ =
-        reinterpret_cast<decltype(get_rail_energy_data_)>(fn);
-  }
+  PERFETTO_LAZY_LOAD(android_internal::GetBatteryCounter, get_battery_counter_);
+  PERFETTO_LAZY_LOAD(android_internal::GetAvailableRails, get_available_rails_);
+  PERFETTO_LAZY_LOAD(android_internal::GetRailEnergyData,
+                     get_rail_energy_data_);
 
   base::Optional<int64_t> GetCounter(android_internal::BatteryCounter counter) {
     if (!get_battery_counter_)
@@ -108,15 +87,6 @@ struct AndroidPowerDataSource::DynamicLibLoader {
     energy_data.resize(num_rails);
     return energy_data;
   }
-
-  bool is_loaded() const { return !!handle_; }
-
- private:
-  decltype(&android_internal::GetBatteryCounter) get_battery_counter_ = nullptr;
-  decltype(&android_internal::GetAvailableRails) get_available_rails_ = nullptr;
-  decltype(&android_internal::GetRailEnergyData) get_rail_energy_data_ =
-      nullptr;
-  ScopedDlHandle handle_;
 };
 
 AndroidPowerDataSource::AndroidPowerDataSource(
@@ -124,23 +94,25 @@ AndroidPowerDataSource::AndroidPowerDataSource(
     base::TaskRunner* task_runner,
     TracingSessionID session_id,
     std::unique_ptr<TraceWriter> writer)
-    : ProbesDataSource(session_id, kTypeId),
+    : ProbesDataSource(session_id, &descriptor),
       task_runner_(task_runner),
-      poll_rate_ms_(cfg.android_power_config().battery_poll_ms()),
-      rails_collection_enabled_(
-          cfg.android_power_config().collect_power_rails()),
       rail_descriptors_logged_(false),
       writer_(std::move(writer)),
       weak_factory_(this) {
-  if (poll_rate_ms_ < kMinPollRateMs) {
+  using protos::pbzero::AndroidPowerConfig;
+  AndroidPowerConfig::Decoder pcfg(cfg.android_power_config_raw());
+  poll_interval_ms_ = pcfg.battery_poll_ms();
+  rails_collection_enabled_ = pcfg.collect_power_rails();
+
+  if (poll_interval_ms_ < kMinPollIntervalMs) {
     PERFETTO_ELOG("Battery poll interval of %" PRIu32
                   " ms is too low. Capping to %" PRIu32 " ms",
-                  poll_rate_ms_, kMinPollRateMs);
-    poll_rate_ms_ = kMinPollRateMs;
+                  poll_interval_ms_, kMinPollIntervalMs);
+    poll_interval_ms_ = kMinPollIntervalMs;
   }
-  for (auto counter : cfg.android_power_config().battery_counters()) {
+  for (auto counter = pcfg.battery_counters(); counter; ++counter) {
     auto hal_id = android_internal::BatteryCounter::kUnspecified;
-    switch (counter) {
+    switch (*counter) {
       case AndroidPowerConfig::BATTERY_COUNTER_UNSPECIFIED:
         break;
       case AndroidPowerConfig::BATTERY_COUNTER_CHARGE:
@@ -165,8 +137,6 @@ AndroidPowerDataSource::~AndroidPowerDataSource() = default;
 
 void AndroidPowerDataSource::Start() {
   lib_.reset(new DynamicLibLoader());
-  if (!lib_->is_loaded())
-    return;
   Tick();
 }
 
@@ -179,7 +149,7 @@ void AndroidPowerDataSource::Tick() {
         if (weak_this)
           weak_this->Tick();
       },
-      poll_rate_ms_ - (now_ms % poll_rate_ms_));
+      poll_interval_ms_ - (now_ms % poll_interval_ms_));
 
   WriteBatteryCounters();
   WritePowerRailsData();
@@ -245,11 +215,11 @@ void AndroidPowerDataSource::WritePowerRailsData() {
     }
 
     for (const auto& rail_descriptor : rail_descriptors) {
-      auto* descriptor = rails_proto->add_rail_descriptor();
-      descriptor->set_index(rail_descriptor.index);
-      descriptor->set_rail_name(rail_descriptor.rail_name);
-      descriptor->set_subsys_name(rail_descriptor.subsys_name);
-      descriptor->set_sampling_rate(rail_descriptor.sampling_rate);
+      auto* rail_desc_proto = rails_proto->add_rail_descriptor();
+      rail_desc_proto->set_index(rail_descriptor.index);
+      rail_desc_proto->set_rail_name(rail_descriptor.rail_name);
+      rail_desc_proto->set_subsys_name(rail_descriptor.subsys_name);
+      rail_desc_proto->set_sampling_rate(rail_descriptor.sampling_rate);
     }
   }
 

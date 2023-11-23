@@ -25,6 +25,7 @@ import com.android.ide.common.rendering.api.ResourceNamespace.Resolver;
 import com.android.ide.common.rendering.api.ResourceReference;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.rendering.api.StyleResourceValue;
+import com.android.ide.common.rendering.api.TextResourceValue;
 import com.android.internal.util.XmlUtils;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.BridgeContext;
@@ -38,6 +39,7 @@ import android.content.res.Resources.Theme;
 import android.graphics.Typeface;
 import android.graphics.Typeface_Accessor;
 import android.graphics.drawable.Drawable;
+import android.text.Html;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.LayoutInflater_Delegate;
@@ -47,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 
+import static android.text.Html.FROM_HTML_MODE_COMPACT;
 import static android.util.TypedValue.TYPE_ATTRIBUTE;
 import static android.util.TypedValue.TYPE_DIMENSION;
 import static android.util.TypedValue.TYPE_FLOAT;
@@ -192,8 +195,25 @@ public final class BridgeTypedArray extends TypedArray {
      */
     @Override
     public CharSequence getText(int index) {
-        // FIXME: handle styled strings!
-        return getString(index);
+        if (!hasValue(index)) {
+            return null;
+        }
+        // As unfortunate as it is, it's possible to use enums with all attribute formats,
+        // not just integers/enums. So, we need to search the enums always. In case
+        // enums are used, the returned value is an integer.
+        Integer v = resolveEnumAttribute(index);
+        if (v != null) {
+            return String.valueOf((int) v);
+        }
+        ResourceValue resourceValue = mResourceData[index];
+        String value = resourceValue.getValue();
+        if (resourceValue instanceof TextResourceValue) {
+            String rawValue = resourceValue.getRawXmlValue();
+            if (rawValue != null && !rawValue.equals(value)) {
+                return Html.fromHtml(rawValue, FROM_HTML_MODE_COMPACT);
+            }
+        }
+        return value;
     }
 
     /**
@@ -248,7 +268,7 @@ public final class BridgeTypedArray extends TypedArray {
             Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
                     String.format("\"%1$s\" in attribute \"%2$s\" is not a valid integer",
                             s, mNames[index]),
-                    null);
+                    null, null);
         }
         return defValue;
     }
@@ -271,7 +291,7 @@ public final class BridgeTypedArray extends TypedArray {
             Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
                     String.format("\"%1$s\" in attribute \"%2$s\" cannot be converted to float.",
                             s, mNames[index]),
-                    null);
+                    null, null);
         }
         return defValue;
     }
@@ -429,7 +449,8 @@ public final class BridgeTypedArray extends TypedArray {
                 // looks like we were unable to resolve the dimension value
                 Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
                         String.format("\"%1$s\" in attribute \"%2$s\" is not a valid format.",
-                                s, mNames[index]), null);
+                                s, mNames[index]),
+                        null, null);
             }
 
             return defValue;
@@ -460,7 +481,8 @@ public final class BridgeTypedArray extends TypedArray {
             }
 
             Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
-                    "You must supply a " + name + " attribute.", null);
+                    "You must supply a " + name + " attribute.",
+                    null, null);
 
             return 0;
         }
@@ -531,7 +553,8 @@ public final class BridgeTypedArray extends TypedArray {
         Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
                 String.format(
                         "\"%1$s\" in attribute \"%2$s\" cannot be converted to a fraction.",
-                        value, mNames[index]), null);
+                        value, mNames[index]),
+                null, null);
 
         return defValue;
     }

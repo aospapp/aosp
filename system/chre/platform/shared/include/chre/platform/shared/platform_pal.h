@@ -24,9 +24,9 @@ namespace chre {
  */
 class PlatformPal {
  protected:
-   /**
-    * Routine to be performed before any call to a platform PAL API.
-    */
+  /**
+   * Routine to be performed before any call to a platform PAL API.
+   */
   void prePalApiCall() const;
 };
 

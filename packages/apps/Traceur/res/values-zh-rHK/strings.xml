@@ -25,6 +25,7 @@
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"已錄製追蹤記錄"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"輕按即可停止追蹤"</string>
     <string name="clear_saved_traces" msgid="4809195654452260944">"清除已儲存的追蹤記錄"</string>
+    <string name="clear_saved_traces_summary" msgid="6035923138201219577">"追蹤記錄會在一個月後清除"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"要清除已儲存的追蹤記錄嗎？"</string>
     <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"系統將刪除 /data/local/traces 中的所有追蹤記錄"</string>
     <string name="clear" msgid="5484761795406948056">"清除"</string>

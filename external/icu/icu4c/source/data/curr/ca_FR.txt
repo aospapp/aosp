@@ -7,5 +7,5 @@ ca_FR{
             "franc francès",
         }
     }
-    Version{"2.1.38.39"}
+    Version{"36.1"}
 }

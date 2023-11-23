@@ -26,6 +26,7 @@ import android.util.Pair;
 import com.android.documentsui.DocumentsAccess;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
 
 import java.util.List;
 
@@ -50,12 +51,12 @@ public class TestDocumentsAccess implements DocumentsAccess {
     }
 
     @Override
-    public DocumentInfo getDocument(Uri uri) {
+    public DocumentInfo getDocument(Uri uri, UserId userId) {
         return nextDocument;
     }
 
     @Override
-    public List<DocumentInfo> getDocuments(String authority, List<String> docIds) {
+    public List<DocumentInfo> getDocuments(UserId userId, String authority, List<String> docIds) {
         return nextDocuments;
     }
 
@@ -74,7 +75,7 @@ public class TestDocumentsAccess implements DocumentsAccess {
     }
 
     @Override
-    public DocumentInfo getArchiveDocument(Uri uri) {
+    public DocumentInfo getArchiveDocument(Uri uri, UserId userId) {
         return nextDocument;
     }
 
@@ -84,7 +85,7 @@ public class TestDocumentsAccess implements DocumentsAccess {
     }
 
     @Override
-    public Path findDocumentPath(Uri docUri) throws RemoteException {
+    public Path findDocumentPath(Uri docUri, UserId userId) throws RemoteException {
         lastUri.accept(docUri);
         return nextPath;
     }

@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 /**
  * This class implements the DHCP-ACK packet.
  */
-class DhcpAckPacket extends DhcpPacket {
+public class DhcpAckPacket extends DhcpPacket {
 
     /**
      * The address of the server which sent this packet.
@@ -30,10 +30,12 @@ class DhcpAckPacket extends DhcpPacket {
     private final Inet4Address mSrcIp;
 
     DhcpAckPacket(int transId, short secs, boolean broadcast, Inet4Address serverAddress,
-            Inet4Address relayIp, Inet4Address clientIp, Inet4Address yourIp, byte[] clientMac) {
+            Inet4Address relayIp, Inet4Address clientIp, Inet4Address yourIp, byte[] clientMac,
+            boolean rapidCommit) {
         super(transId, secs, clientIp, yourIp, serverAddress, relayIp, clientMac, broadcast);
         mBroadcast = broadcast;
         mSrcIp = serverAddress;
+        mRapidCommit = rapidCommit;
     }
 
     public String toString() {
@@ -70,8 +72,10 @@ class DhcpAckPacket extends DhcpPacket {
     void finishPacket(ByteBuffer buffer) {
         addTlv(buffer, DHCP_MESSAGE_TYPE, DHCP_MESSAGE_TYPE_ACK);
         addTlv(buffer, DHCP_SERVER_IDENTIFIER, mServerIdentifier);
-
         addCommonServerTlvs(buffer);
+        if (mRapidCommit) {
+            addTlv(buffer, DHCP_RAPID_COMMIT);
+        }
         addTlvEnd(buffer);
     }
 

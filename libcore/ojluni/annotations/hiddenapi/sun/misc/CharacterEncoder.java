@@ -29,7 +29,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class CharacterEncoder {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CharacterEncoder() {
         throw new RuntimeException("Stub!");
     }
@@ -38,7 +38,7 @@ public abstract class CharacterEncoder {
 
     protected abstract int bytesPerLine();
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     protected void encodeBufferPrefix(java.io.OutputStream aStream) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -73,7 +73,7 @@ public abstract class CharacterEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String encode(byte[] aBuffer) {
         throw new RuntimeException("Stub!");
     }
@@ -101,7 +101,7 @@ public abstract class CharacterEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String encodeBuffer(byte[] aBuffer) {
         throw new RuntimeException("Stub!");
     }
@@ -115,6 +115,6 @@ public abstract class CharacterEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     protected java.io.PrintStream pStream;
 }

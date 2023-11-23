@@ -105,6 +105,41 @@ int camera_metadata_enum_snprint(uint32_t tag,
     return ret;
 }
 
+int camera_metadata_enum_value(uint32_t tag,
+                                 const char *name,
+                                 size_t size,
+                                 uint32_t *value) {
+    if ((name == NULL) || (value == NULL)) {
+        return -1;
+    }
+
+    const char *enumName = NULL;
+    int ret = -1;
+
+    switch(tag) {
+    % for sec in find_all_sections(metadata):
+      % for idx,entry in enumerate(remove_synthetic(find_unique_entries(sec))):
+        case ${entry.name | csym}: {
+          % if entry.enum:
+              % for val in entry.enum.values:
+                enumName = "${val.name}";
+                if (strncmp(name, enumName, size) == 0) {
+                    *value = ${entry.name | csym}_${val.name};
+                    ret = 0;
+                    break;
+                }
+              % endfor
+          % endif
+            break;
+        }
+      % endfor
+
+    %endfor
+    }
+
+    return ret;
+}
+
 <%
   find_values = lambda x: isinstance(x, metadata_model.EnumValue)
   enum_values = metadata.find_all(find_values)

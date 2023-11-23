@@ -25,6 +25,7 @@ from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import auth
 from acloud.internal.lib import utils
 
+
 # ssh flags used to communicate with the Cloud Android instance.
 SSH_FLAGS = [
     '-q', '-o UserKnownHostsFile=/dev/null', '-o "StrictHostKeyChecking no"',

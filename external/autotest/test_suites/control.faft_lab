@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "mohsinally"
-NAME = "FAFT Lab Suite"
+NAME = "faft_lab"
 TIME = "MEDIUM"
 TEST_CATEGORY = "General"
 TEST_CLASS = "suite"
@@ -41,7 +41,7 @@ _BUG_TEMPLATE = {
 args_dict['file_bugs'] = True
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['name'] = 'faft_lab'
+args_dict['name'] = NAME
 args_dict['bug_template'] = _BUG_TEMPLATE
 
 dynamic_suite.reimage_and_run(**args_dict)

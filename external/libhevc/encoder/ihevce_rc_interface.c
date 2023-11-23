@@ -5857,34 +5857,12 @@ void change_bitrate_vbv_complaince(void *pv_ctxt, LWORD64 i8_new_bitrate, LWORD6
 */
 
 void ihevce_rc_register_dyn_change_bitrate(
-    void *pv_ctxt,
-    LWORD64 i8_new_bitrate,
-    LWORD64 i8_new_peak_bitrate,
-    WORD32 i4_new_rate_factor,
-    WORD32 i4_rate_control_mode)
+    void *pv_ctxt, LWORD64 i8_new_bitrate, LWORD64 i8_new_peak_bitrate)
 {
     rc_context_t *ps_rc_ctxt = (rc_context_t *)pv_ctxt;
-
-    /*Register new bitrate*/
-    if(1 != i4_rate_control_mode)
-    {
-        if(i8_new_bitrate != -1)
-        {
-            ps_rc_ctxt->i8_new_bitrate = i8_new_bitrate;
-            ps_rc_ctxt->i8_new_peak_bitrate = i8_new_peak_bitrate;
-            ps_rc_ctxt->i4_bitrate_changed = 1;
-        }
-    }
-    else
-    {
-        if(i4_new_rate_factor != -1)
-        {
-            ps_rc_ctxt->i8_new_bitrate = (i8_new_peak_bitrate * i4_new_rate_factor) / 1000;
-            ps_rc_ctxt->i8_new_peak_bitrate = i8_new_peak_bitrate;
-            ps_rc_ctxt->i4_bitrate_changed = 1;
-        }
-    }
-
+    ps_rc_ctxt->i8_new_bitrate = i8_new_bitrate;
+    ps_rc_ctxt->i8_new_peak_bitrate = i8_new_peak_bitrate;
+    ps_rc_ctxt->i4_bitrate_changed = 1;
     ASSERT(ps_rc_ctxt->i8_new_bitrate > 0);
     ASSERT(ps_rc_ctxt->i8_new_peak_bitrate > 0);
 }

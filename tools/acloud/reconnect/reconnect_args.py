@@ -46,5 +46,15 @@ def GetReconnectArgParser(subparser):
         dest="all",
         required=False,
         help="If more than 1 AVD instance is found, reconnect them all.")
+    reconnect_parser.add_argument(
+        "--autoconnect",
+        type=str,
+        nargs="?",
+        const=True,
+        dest="autoconnect",
+        required=False,
+        choices=[True, "adb"],
+        default=True,
+        help="If need adb only, you can pass in 'adb' here.")
 
     return reconnect_parser

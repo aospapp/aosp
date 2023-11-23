@@ -47,11 +47,22 @@ public abstract class DefaultAppsPickerEntryBasePreferenceController extends
     protected void updateState(ButtonPreference preference) {
         super.updateState(preference);
 
+        // If activity does not exist, return. Otherwise allow intenting to the activity.
         Intent intent = getSettingIntent(getCurrentDefaultAppInfo());
-        preference.showAction(intent != null);
-        if (intent != null) {
-            preference.setOnButtonClickListener(p -> getContext().startActivity(intent));
+        if (intent == null || intent.resolveActivityInfo(
+                getContext().getPackageManager(), intent.getFlags()) == null) {
+            preference.showAction(false);
+            return;
         }
+
+        // Use startActivityForResult because some apps need to check the identity of the caller.
+        preference.setOnButtonClickListener(p -> getContext().startActivityForResult(
+                getContext().getBasePackageName(),
+                intent,
+                /* requestCode= */ 0,
+                /* options= */ null
+        ));
+        preference.showAction(true);
     }
 
     /**

@@ -15,7 +15,11 @@
  */
 package com.android.cts.devicepolicy;
 
+import static org.junit.Assert.assertTrue;
+
 import com.android.tradefed.device.DeviceNotAvailableException;
+
+import org.junit.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,19 +43,17 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
 
     private boolean mRemoveOwnerInTearDown;
     private int mDeviceOwnerUserId;
-    private boolean mHasManagedUserFeature;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
-        mHasManagedUserFeature = hasDeviceFeature("android.software.managed_users");
         mRemoveOwnerInTearDown = false;
         mDeviceOwnerUserId = mPrimaryUserId;
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (mHasFeature) {
             if (mRemoveOwnerInTearDown) {
                 assertTrue("Failed to clear owner",
@@ -78,6 +80,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         runTests(className, null, userId);
     }
 
+    @Test
     public void testUserRestrictions_deviceOwnerOnly() throws Exception {
         if (!mHasFeature) {
             return;
@@ -92,6 +95,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
                 "testBroadcast", mDeviceOwnerUserId);
     }
 
+    @Test
     public void testUserRestrictions_primaryProfileOwnerOnly() throws Exception {
         if (!mHasFeature) {
             return;
@@ -112,6 +116,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
     }
 
     // Checks restrictions for managed user (NOT managed profile).
+    @Test
     public void testUserRestrictions_secondaryProfileOwnerOnly() throws Exception {
         if (!mHasFeature || !mSupportsMultiUser) {
             return;
@@ -128,6 +133,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
     }
 
     // Checks restrictions for managed profile.
+    @Test
     public void testUserRestrictions_managedProfileOwnerOnly() throws Exception {
         if (!mHasFeature || !mSupportsMultiUser || !mHasManagedUserFeature) {
             return;
@@ -150,6 +156,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
     /**
      * DO + PO combination.  Make sure global DO restrictions are visible on secondary users.
      */
+    @Test
     public void testUserRestrictions_layering() throws Exception {
         if (!mHasFeature || !mSupportsMultiUser) {
             return;
@@ -159,6 +166,10 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         // Create another user and set PO.
         final int secondaryUserId = createUser();
         setPoAsUser(secondaryUserId);
+
+        // Ensure that UserManager differentiates its own restrictions from DO restrictions.
+        runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
+                "testHasBaseUserRestrictions", mDeviceOwnerUserId);
 
         // Let DO set all restrictions.
         runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
@@ -188,6 +199,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
     /**
      * PO on user-0.  It can set DO restrictions too, but they shouldn't leak to other users.
      */
+    @Test
     public void testUserRestrictions_layering_profileOwnerNoLeaking() throws Exception {
         if (!mHasFeature || !mSupportsMultiUser) {
             return;
@@ -216,6 +228,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
      * DO sets profile global restrictions (only ENSURE_VERIFY_APPS), should affect all
      * users (not a particularly special case but to be sure).
      */
+    @Test
     public void testUserRestrictions_profileGlobalRestrictionsAsDo() throws Exception {
         if (!mHasFeature || !mSupportsMultiUser) {
             return;
@@ -236,6 +249,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
      * Managed profile owner sets profile global restrictions (only ENSURE_VERIFY_APPS), should
      * affect all users.
      */
+    @Test
     public void testUserRestrictions_ProfileGlobalRestrictionsAsPo() throws Exception {
         if (!mHasFeature || !mSupportsMultiUser || !mHasManagedUserFeature) {
             return;
@@ -258,7 +272,8 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
 
     /** Installs admin package and makes it a profile owner for a given user. */
     private void setPoAsUser(int userId) throws Exception {
-        installAppAsUser(DEVICE_ADMIN_APK, userId);
+        installAppAsUser(DEVICE_ADMIN_APK, /* grantPermssions= */true,
+                /* dontKillApp= */ true, userId);
         assertTrue("Failed to set profile owner",
                 setProfileOwner(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
                         userId, /* expectFailure */ false));

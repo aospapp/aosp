@@ -16,9 +16,10 @@
 
 package com.android.internal.telephony.cdma;
 
-import android.annotation.UnsupportedAppUsage;
-import android.telephony.Rlog;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import com.android.internal.telephony.PhoneConstants;
+import com.android.telephony.Rlog;
 
 /**
  * Represents a Supplementary Service Notification received from the network.

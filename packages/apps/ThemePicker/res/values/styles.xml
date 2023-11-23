@@ -38,6 +38,10 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:fitsSystemWindows">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowDisablePreview">true</item>
     </style>
 
     <!-- Bottom nav -->
@@ -50,7 +54,7 @@
         <item name="android:background">?android:colorPrimary</item>
     </style>
 
-    <style name="BottomNavTextAppearance" parent="HeaderTextAppearance">
+    <style name="BottomNavTextAppearance" parent="TitleTextAppearance">
         <item name="android:textSize">@dimen/bottom_navbar_font_text_size</item>
     </style>
 
@@ -59,34 +63,13 @@
     </style>
 
     <!-- Common components and widgets -->
-    <style name="HeaderTextAppearance" parent="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title"/>
+    <style name="TitleTextAppearance" parent="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title"/>
 
     <style name="ActionPrimaryButton" parent="android:Widget.DeviceDefault.Button.Colored"/>
 
     <style name="ActionSecondaryButton" parent="android:Widget.DeviceDefault.Button.Borderless.Colored"/>
 
-    <!-- Option tiles -->
-    <style name="OptionTitleTextAppearance" parent="HeaderTextAppearance">
-        <item name="android:textColor">@color/option_title_color</item>
-        <item name="android:textAlignment">center</item>
-        <item name="android:textSize">@dimen/theme_option_title_font_text_size</item>
-    </style>
-
-    <!-- Preview cards -->
-    <style name="PreviewCard" parent="CardView">
-        <item name="cardCornerRadius">?android:dialogCornerRadius</item>
-        <item name="android:clipChildren">true</item>
-        <item name="contentPadding">@dimen/preview_card_padding</item>
-        <item name="cardBackgroundColor">?android:colorPrimary</item>
-    </style>
-
-    <style name="FullContentPreviewCard" parent="PreviewCard">
-        <item name="android:clipChildren">true</item>
-        <item name="contentPadding">0dp</item>
-        <item name="cardBackgroundColor">?android:colorPrimary</item>
-    </style>
-
-    <style name="CardTitleTextAppearance" parent="HeaderTextAppearance">
+    <style name="CardTitleTextAppearance" parent="TitleTextAppearance">
         <item name="android:textStyle">bold</item>
         <item name="android:textSize">@dimen/card_title_text_size</item>
     </style>
@@ -96,7 +79,7 @@
         <item name="android:textColor">@color/cover_title_color</item>
     </style>
 
-    <style name="FontCardTitleStyle" parent="HeaderTextAppearance">
+    <style name="FontCardTitleStyle" parent="TitleTextAppearance">
         <item name="android:textAlignment">center</item>
     </style>
 

@@ -76,7 +76,7 @@
             android:layout_marginEnd="10dp"
             android:layout_marginBottom="10dp"
             android:textAlignment="center"
-            android:textAppearance="@style/HeaderTextAppearance"
+            android:textAppearance="@style/TitleTextAppearance"
             android:textSize="@dimen/component_options_title_size"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"

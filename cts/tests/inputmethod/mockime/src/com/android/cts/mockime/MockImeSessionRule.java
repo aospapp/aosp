@@ -21,7 +21,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.cts.mockime.ImeSettings.Builder;
 
@@ -41,7 +41,7 @@ public final class MockImeSessionRule implements TestRule {
     private MockImeSession mMockImeSession;
 
     public MockImeSessionRule() {
-        this(InstrumentationRegistry.getTargetContext(),
+        this(InstrumentationRegistry.getInstrumentation().getTargetContext(),
                 InstrumentationRegistry.getInstrumentation().getUiAutomation(),
                 new ImeSettings.Builder());
     }
@@ -62,7 +62,12 @@ public final class MockImeSessionRule implements TestRule {
                 if (Log.isLoggable(TAG, Log.VERBOSE)) {
                     Log.v(TAG, "Creating MockImeSession on " + description.getDisplayName());
                 }
-                mMockImeSession = MockImeSession.create(mContext, mUiAutomation, mImeSettings);
+                final String errorMsg = MockImeSession.getUnavailabilityReason(mContext);
+                if (errorMsg != null) {
+                    Log.w(TAG, "Mock IME not available: " + errorMsg);
+                } else {
+                    mMockImeSession = MockImeSession.create(mContext, mUiAutomation, mImeSettings);
+                }
                 try {
                     base.evaluate();
                 } finally {

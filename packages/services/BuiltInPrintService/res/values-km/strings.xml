@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"បំភ្លេច"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"ភ្ជាប់​តាមរយៈ Wi-Fi​ ផ្ទាល់"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"ភ្ជាប់​តាមរយៈ​បណ្តាញបច្ចុប្បន្ន​នៅ <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"សេវាកម្ម​បោះពុម្ពលំនាំដើម​ផ្ដល់ជូនជម្រើស​មូលដ្ឋាន។ ជម្រើសផ្សេង​ទៀតសម្រាប់ម៉ាស៊ីន​បោះពុម្ពនេះអាចនឹងមាន​ពីសេវាកម្ម​បោះពុម្ពផ្សេងទៀត។"</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"សេវាកម្មដែល​បានណែនាំ"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ជ្រើសរើស​ដើម្បីដំឡើង"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"ជ្រើសរើសដើម្បីបើក"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"គ្រប់គ្រង​សេវាកម្ម"</string>
     <string name="security" msgid="2279008326210305401">"សុវត្ថិភាព"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ម៉ាស៊ីនបោះពុម្ព​នេះបានផ្តល់​វិញ្ញាបនបត្រ​សុវត្ថិភាពថ្មី ឬ​មានឧបករណ៍​ផ្សេងកំពុង​បន្លំខ្លួនជា​ម៉ាស៊ីនបោះពុម្ព។ ទទួលយក​វិញ្ញាបនបត្រ​ថ្មី?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ម៉ាស៊ីនបោះ​ពុម្ពនេះលែង​ទទួល​កិច្ចការ​ដែលមាន​ការអ៊ីនគ្រីប​ទៀតហើយ។ បន្តបោះ​ពុម្ព?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"ការ​តភ្ជាប់"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"សេវាកម្ម​ការបោះពុម្ពលំនាំដើម​ត្រូវការ​ការអនុញ្ញាត​ទីតាំង ដើម្បី​រក​ឧបករណ៍​ដែលនៅជិត។"</string>
     <string name="fix" msgid="7784394272611365393">"ពិនិត្យមើលការអនុញ្ញាត"</string>
+    <string name="print" msgid="7851318072404916362">"បោះពុម្ព"</string>
 </resources>

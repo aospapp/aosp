@@ -41,7 +41,7 @@
     <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"बंद / डाउनलोड किया गया सिम"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"ज़्यादा जोड़ें"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"मोबाइल डेटा"</string>
-    <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"मोबाइल नेटवर्क का इस्तेमाल करके डेटा एक्सेस करें"</string>
+    <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"मोबाइल नेटवर्क का इस्तेमाल करके डेटा ऐक्सेस करें"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"मोबाइल डेटा बंद करना चाहते हैं?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"चुनना ज़रूरी है"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"मोबाइल डेटा के लिए <xliff:g id="CARRIER">%1$s</xliff:g> इस्तेमाल करें?"</string>
@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"रोमिंग"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"रोमिंग के समय डेटा सेवाएं कनेक्ट करें"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"डेटा रोमिंग की अनुमति दें?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"आपको बहुत ज़्यादा शुल्क देना पड़ सकता है."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"रोमिंग शुल्क लागू हो सकते हैं."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"डेटा खर्च"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"प्राइमरी डेटा"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> डेटा इस्तेमाल किया गया"</string>
@@ -152,7 +152,7 @@
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5.0 गीगाहर्ट्ज़"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"वाई-फ़ाई हॉटस्पॉट से जुड़ने के लिए कम से कम एक बैंड चुनें:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"हॉटस्पॉट और टेदरिंग"</string>
-    <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"हॉटस्पॉट अपने आप बंद करें"</string>
+    <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"हॉटस्पॉट अपने-आप बंद हो जाए"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"कोई डिवाइस कनेक्ट नहीं होने पर वाई-फ़ाई हॉटस्पॉट बंद हो जाएगा"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> को वाई-फ़ाई चालू करने की अनुमति चाहिए"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> को वाई-फ़ाई बंद करने की अनुमति चाहिए"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"ब्लूटूथ डिवाइस चुनें"</string>
     <string name="language_settings" msgid="2079258598337245546">"भाषाएं"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"भाषाएं और इनपुट"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"सुझाया गया"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"सभी भाषाएं"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"कीबोर्ड"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"कीबोर्ड प्रबंधित करें"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"\'लिख को बोली में बदलना\' आउटपुट"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"इस उपयोगकर्ता के लिए इंस्टॉल नहीं किया गया"</string>
     <string name="permissions_label" msgid="2701446753515612685">"अनुमतियां"</string>
     <string name="notifications_label" msgid="6586089149665170731">"सूचनाएं"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"मेमोरी और कैश"</string>
     <string name="application_version_label" msgid="8556889839783311649">"वर्शन: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"कोई अनुमति नहीं दी गई"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"किसी अनुमति का अनुरोध नहीं किया गया"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"डिवाइस की मेमोरी में %s है"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"डेटा खर्च"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"ऐप्लिकेशन का डेटा खर्च"</string>
     <string name="computing_size" msgid="5791407621793083965">"गिनती की जा रही है…"</string>
@@ -297,14 +301,14 @@
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"असिस्ट और बोलकर फ़ोन को निर्देश"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"सहायक ऐप्लिकेशन"</string>
     <string name="assist_access_context_title" msgid="8034851731390785301">"स्क्रीन के टेक्स्ट का इस्तेमाल करना"</string>
-    <string name="assist_access_context_summary" msgid="2374281280599443774">"सहायक ऐप्लिकेशन को टेक्स्ट के रूप में स्क्रीन की सामग्री एक्सेस करने दें"</string>
+    <string name="assist_access_context_summary" msgid="2374281280599443774">"सहायक ऐप्लिकेशन को टेक्स्ट के रूप में स्क्रीन की सामग्री ऐक्सेस करने दें"</string>
     <string name="assist_access_screenshot_title" msgid="2855956879971465044">"स्क्रीनशॉट का इस्तेमाल करना"</string>
-    <string name="assist_access_screenshot_summary" msgid="6246496926635145782">"सहायक ऐप्लिकेशन को स्क्रीन की इमेज एक्सेस करने दें"</string>
+    <string name="assist_access_screenshot_summary" msgid="6246496926635145782">"सहायक ऐप्लिकेशन को स्क्रीन की इमेज ऐक्सेस करने दें"</string>
     <string name="voice_input_settings_title" msgid="3238707827815647526">"बोलकर फ़ोन को दिए जाने वाले निर्देश"</string>
     <string name="autofill_settings_title" msgid="1188754272680049972">"अपने आप भरने की सेवा"</string>
     <string name="app_list_preference_none" msgid="7753357799926715901">"कोई नहीं"</string>
     <string name="default_app_selected_app" msgid="5289396663745484773">"चुना हुआ ऐप्लिकेशन"</string>
-    <string name="assistant_security_warning" msgid="1844807956967428012">"Assistant आपके सिस्टम पर इस्तेमाल किए जा रहे ऐप्लिकेशन की जानकारी पढ़ सकेगी. इसमें आपकी स्क्रीन पर दिखाई देने वाली या ऐप्लिकेशन में से एक्सेस करने लायक जानकारी शामिल होगी."</string>
+    <string name="assistant_security_warning" msgid="1844807956967428012">"Assistant आपके सिस्टम पर इस्तेमाल किए जा रहे ऐप्लिकेशन की जानकारी पढ़ सकेगी. इसमें आपकी स्क्रीन पर दिखाई देने वाली या ऐप्लिकेशन में से ऐक्सेस करने लायक जानकारी शामिल होगी."</string>
     <string name="autofill_confirmation_message" msgid="1832984461556991378">"&lt;b&gt;पक्का कर लें कि आप इस ऐप्लिकेशन पर भरोसा करते हैं&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Google Autofill&gt;%1$s&lt;/xliff:g&gt; आपकी स्क्रीन पर मौजूद चीज़ों का इस्तेमाल करता है ताकि ऑटोमैटिक भरी जाने वाली जानकारी तय कर सके."</string>
     <string name="autofill_add_service" msgid="6413893366443609951">"सेवा जोड़ें"</string>
     <string name="app_launch_domain_links_title" msgid="774480184927726651">"खुलने वाले लिंक"</string>
@@ -322,20 +326,20 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"हर बार पूछें"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"इस ऐप्लिकेशन में नहीं खोलें"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"सहायता करने वाले लिंक"</string>
-    <string name="special_access" msgid="5730278220917123811">"ऐप्लिकेशन को खास अनुमति"</string>
+    <string name="special_access" msgid="5730278220917123811">"ऐप्लिकेशन के लिए खास ऐक्सेस"</string>
     <string name="show_system" msgid="4401355756969485287">"सिस्टम के ऐप्लिकेशन दिखाएं"</string>
     <string name="hide_system" msgid="8845453295584638040">"सिस्टम के ऐप्लिकेशन छिपाएं"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"सिस्टम की सेटिंग बदलें"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"यह अनुमति किसी ऐप्लिकेशन को सिस्टम की सेटिंग बदलने देती है."</string>
-    <string name="notification_access_title" msgid="1467340098885813473">"सूचना का एक्सेस"</string>
-    <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"<xliff:g id="SERVICE">%1$s</xliff:g> के लिए सूचना एक्सेस करने की अनुमति दें?"</string>
+    <string name="notification_access_title" msgid="1467340098885813473">"सूचना का ऐक्सेस"</string>
+    <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"<xliff:g id="SERVICE">%1$s</xliff:g> के लिए सूचना ऐक्सेस करने की अनुमति दें?"</string>
     <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> आपकी हर सूचना पढ़ पाएगा. इसमें आपकी निजी जानकारी, जैसे कि संपर्कों के नाम और आपको आने वाले मैसेज शामिल हैं. यह सूचनाओं को खारिज करने या उनमें मौजूद कार्रवाई बटनों को ट्रिगर करने जैसे काम भी कर पाएगा.\n\nइससे यह ऐप्लिकेशन \'परेशान न करें\' सुविधा चालू या बंद कर पाएगा और इससे जुड़ी सेटिंग बदल पाएगा."</string>
-    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"अगर आप <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> के लिए सूचना का एक्सेस बंद करते हैं, तो \'परेशान न करें\' सेवा का एक्सेस भी बंद हो सकता है."</string>
+    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"अगर आप <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> के लिए सूचना का ऐक्सेस बंद करते हैं, तो \'परेशान न करें\' सेवा का ऐक्सेस भी बंद हो सकता है."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"बंद करें"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"रद्द करें"</string>
-    <string name="premium_sms_access_title" msgid="1409118461646148686">"प्रीमियम मैसेज (एसएमएस) का एक्सेस"</string>
+    <string name="premium_sms_access_title" msgid="1409118461646148686">"प्रीमियम मैसेज (एसएमएस) का ऐक्सेस"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"प्रीमियम मैसेज (एसएमएस) के लिए आपको पैसे चुकाने पड़ सकते हैं जिसे आपकी मोबाइल और इंटरनेट सेवा देने वाली कंपनी आपके बिल में जोड़ देगी. अगर आप किसी ऐप्लिकेशन के लिए यह अनुमति देते हैं, तो आप उस ऐप्लिकेशन का इस्तेमाल करके प्रीमियम मैसेज (एसएमएस) भेज सकते हैं."</string>
-    <string name="usage_access_title" msgid="7153427122072303254">"इस्तेमाल का एक्‍सेस"</string>
+    <string name="usage_access_title" msgid="7153427122072303254">"इस्तेमाल का ऐक्‍सेस"</string>
     <string name="usage_access_description" msgid="2413168719257435422">"\'डेटा खर्च\' देखने की मंज़ूरी से कोई ऐप्लिकेशन इस बात पर नज़र रख पाता है कि आप कौनसे ऐप्लिकेशन चला रहे हैं और उन्हें कितनी बार इस्तेमाल करते हैं. साथ ही, ऐप्लिकेशन आपकी मोबाइल और इंटरनेट सेवा देने वाली कंपनी, भाषा सेटिंग और दूसरी जानकारी देख पाता है."</string>
     <string name="wifi_control_title" msgid="5660436566907731929">"वाई-फ़ाई नियंत्रण"</string>
     <string name="wifi_control_description" msgid="6021926850423169261">"वाई-फ़ाई का नियंत्रण किसी ऐप्लिकेशन को वाई-फ़ाई चालू या बंद करने, वाई-फ़ाई नेटवर्क ढूंढने और उससे जुड़ने की अनुमति देता है. साथ ही, नेटवर्क जोड़ने या हटाने या सिर्फ़ सीमित दायरे में इस्तेमाल होने वाला हॉटस्पॉट चालू करने की अनुमति देता है."</string>
@@ -344,17 +348,13 @@
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"हाल ही में किए गए जगह के अनुरोध"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"हाल ही में जगह का कोई अनुरोध नहीं है"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"ऐप्लिकेशन-स्तर की अनुमतियां"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"स्‍कैन करना"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"जगह की जानकारी की सेवाएं"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"वाई-फ़ाई स्कैन करना"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"ऐप्लिकेशन और सेवाओं को किसी भी समय वाई-फ़ाई नेटवर्क स्कैन करने की मंज़ूरी दें, भले ही वाई-फ़ाई बंद हो. इसका इस्तेमाल करके, जगह की जानकारी जैसी सुविधाओं और सेवाओं में सुधार किया जा सकता है."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"ब्लूटूथ स्कैन करना"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"ऐप्लिकेशन और सेवाओं को किसी भी समय आस-पास के डिवाइस स्कैन करने की मंज़ूरी दें, भले ही ब्लूटूथ बंद हो. इसका इस्तेमाल करके, जगह की जानकारी जैसी सुविधाओं और सेवाओं में सुधार किया जा सकता है."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"सिस्टम"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"सिस्टम अपडेट"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android का वर्शन"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android सुरक्षा पैच लेवल"</string>
-    <string name="model_info" msgid="4966408071657934452">"मॉडल"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"मॉडल और हार्डवेयर"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"मॉडल: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"मोबाइल रेडियो (बेसबैंड वर्शन)"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Kernel का वर्शन"</string>
     <string name="build_number" msgid="3997326631001009102">"बिल्‍ड नंबर"</string>
@@ -378,6 +378,9 @@
     <string name="webview_license_title" msgid="6442372337052056463">"सिस्‍टम वेबव्यू लाइसेंस"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"वॉलपेपर"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"सैटेलाइट के ज़रिए इमेज उपलब्ध कराने वाली संस्थाएं:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"मॉडल"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"क्रमांक"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"हार्डवेयर वर्शन"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"तीसरे पक्ष के लाइसेंस"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"लाइसेंस लोड करने में कोई समस्‍या है."</string>
@@ -441,7 +444,7 @@
     <string name="signed_in_admin_user" msgid="1267225622818673274">"एडमिन के तौर पर साइन-इन किया है"</string>
     <string name="grant_admin_permissions_title" msgid="4628430467359951437">"एडमिन के सभी अधिकार"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"एडमिन बनाएं"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"एडमिन बनने वाला उपयोगकर्ता, दूसरे उपयोगकर्ताअों और एडमिन के नाम मिटा सकता है और सिस्टम को फ़ैक्ट्री रीसेट कर सकता है."</string>
+    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"एडमिन बनने वाला उपयोगकर्ता, दूसरे उपयोगकर्ताओं और एडमिन के नाम मिटा सकता है और सिस्टम को फ़ैक्ट्री रीसेट कर सकता है."</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"दूसरे उपयोगकर्ता को एडमिन के अधिकार देने के बाद वापस नहीं लिए जा सकते."</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"हां, एडमिन बना दें"</string>
     <string name="create_user_permission_title" msgid="7781550880565935298">"नए उपयोगकर्ता बनाएं"</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"नाम"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"सेट नहीं है"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"\'उपयोगकर्ता नाम\' में बदलाव करें"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"नाम लिखने की जगह खाली नहीं रखी जा सकती."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"डाला गया उपयोगकर्ता नाम गलत है."</string>
     <string name="users_list_title" msgid="770764290290240909">"उपयोगकर्ता"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s को अनुमतियां दी गईं"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"मेमोरी"</string>
@@ -497,12 +502,14 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"ऐप्लिकेशन डेटा मिटाएं?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"इस ऐप्लिकेशन का पूरा डेटा हमेशा के लिए मिटा दिया जाएगा. इसमें सभी फ़ाइलें, सेटिंग, खाते, डेटाबेस वगैरह शामिल हैं."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"ऐप्लिकेशन के लिए मेमोरी खाली नहीं की जा सकी."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g> को सुरक्षित रूप से निकाला गया"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g> को सुरक्षित रूप से निकाला नहीं जा सका"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"खाते"</string>
     <string name="user_add_account_menu" msgid="6625351983590713721">"खाता जोड़ें"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"कोई खाता जोड़ा नहीं गया है"</string>
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> के खाते"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"डेटा को अपने आप सिंक करें"</string>
-    <string name="account_auto_sync_summary" msgid="6963837893148304128">"ऐप्लिकेशन को डेटा अपने आप रीफ़्रेश करने दें"</string>
+    <string name="account_auto_sync_summary" msgid="6963837893148304128">"ऐप्लिकेशन को डेटा अपने-आप रीफ़्रेश करने दें"</string>
     <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"अपने आप डेटा सिंक होना चालू करें?"</string>
     <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"आपने वेब पर अपने खातों में जो भी बदलाव किए हैं, उनकी कॉपी आपके डिवाइस में अपने आप बन जाएगी.\n\nआपने जो भी बदलाव फ़ोन पर किए हैं, उन्हें कुछ खाते वेब पर भी कॉपी कर सकते हैं. Google खाता इसी तरह काम करता है."</string>
     <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"अपने आप डेटा सिंक होना बंद करें?"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"अभी सिंक करें"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"सिंक करना रद्द करें"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"सिंक करने में फ़िलहाल समस्याएं आ रही हैं. यह जल्द ही वापस काम करने लगेगा."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"निजता"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"सुरक्षा"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"स्क्रीन लॉक"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"कोई नहीं"</string>
@@ -618,26 +626,11 @@
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"अंकों को बढ़ते, घटते या दोहराए गए क्रम में लिखने की मंज़ूरी नहीं है."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"स्क्रीन लॉक विकल्प"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> days ago"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"भरोसेमंद डिवाइस जोड़ें"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"भरोसेमंद डिवाइस जोड़ने के लिए ब्लूटूथ चालू हो जाएगा"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"भरोसेमंद डिवाइस"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> डिवाइस</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> डिवाइस</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"कनेक्ट होने पर आपका <xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> इस कार को अनलॉक कर देगा. अगर किसी के पास आपका <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> है, तो वह इस डिवाइस को एक्सेस कर सकता है"</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"पुष्टि करें"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"भरोसेमंद डिवाइस हटाएं"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"हो गया"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"भरोसेमंद डिवाइस सेट अप करने के लिए साथी ऐप्लिकेशन का इस्तेमाल करें. इसके सेट अप के बाद, जब भी आपका फ़ोन कार के आस-पास होगा, तब आपकी उपयोगकर्ता प्रोफ़ाइल अपने आप अनलॉक हो जाएगी."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. अपने फ़ोन पर साथी ऐप्लिकेशन डाउनलोड करें"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. डिवाइसों को जोड़ने के लिए अपने फ़ोन पर <xliff:g id="CAR_NAME">%1$s</xliff:g> चुनें"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"कार चालू हाेते ही इसके आस-पास मौजूद भरोसेमंद डिवाइस उपयाेगकर्ता की प्राेफ़ाइल अनलॉक कर देगा, भले ही वह डिवाइस किसी और के पास हो."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"कृपया पुष्टि करें कि जोड़ने के कोड का मिलान हो गया है"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"फ़ोन रजिस्टर हो गया है"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> का नाम दर्ज नहीं हो सका"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"इसके बाद एक भरोसेमंद डिवाइस जोड़ने के लिए आपको पुष्टि करने का तरीका सेट करना होगा. अगर भरोसेमंद डिवाइस आपके पास नहीं है, तो आपकी प्रोफ़ाइल एक्सेस करने के लिए पुष्टि करना ज़रूरी होगा."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"डिवाइस डिसकनेक्ट किया गया."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"क्रेडेंशियल मिटाएं"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"सभी प्रमाणपत्र हटाएं"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"सभी सामग्री हटाएं?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"क्रेडेंशियल स्टोरेज हमेशा के लिए मिटाई गई."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"क्रेडेंशियल स्टोरेज हमेशा के लिए नहीं मिटाई जा सकती."</string>
     <string name="forget" msgid="3971143908183848527">"भूल जाएं"</string>
     <string name="connect" msgid="5861699594602380150">"कनेक्शन जोड़ें"</string>
     <string name="disconnect" msgid="6140789953324820336">"कनेक्शन हटाएं"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"डेमो मोड से बाहर निकलने पर, डेमो खाता मिट जाएगा और सिस्टम का डेटा फ़ैक्ट्री रीसेट हो जाएगा. साथ ही, उपयोगकर्ता का पूरा डेटा भी मिट जाएगा."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"डेमो मोड से बाहर निकलें"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"खारिज करें"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"गाड़ी चलाते समय इस सुविधा का इस्तेमाल नहीं किया जा सकता."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"गाड़ी चलाते समय उपयोगकर्ता को जोड़ा नहीं जा सकता."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"गाड़ी चलाते समय इस सुविधा का इस्तेमाल नहीं किया जा सकता"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"गाड़ी चलाते समय किसी उपयोगकर्ता को नहीं जोड़ा जा सकता"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"खोजें"</string>
 </resources>

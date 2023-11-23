@@ -19,4 +19,9 @@
 
 int getNetworkForDnsInternal(int fd, unsigned* dnsNetId);
 
+extern "C" {
+void netdClientInitDnsOpenProxy(int (**DnsOpenProxyType)());
+void netdClientInitSocket(int (**SocketFunctionType)(int, int, int));
+}
+
 #endif  // NETD_CLIENT_NETD_CLIENT_PRIV_H

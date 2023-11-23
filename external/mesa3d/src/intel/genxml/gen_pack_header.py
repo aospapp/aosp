@@ -3,6 +3,7 @@
 from __future__ import (
     absolute_import, division, print_function, unicode_literals
 )
+import argparse
 import ast
 import xml.parsers.expat
 import re
@@ -57,6 +58,12 @@ pack_header = """%(license)s
 #ifndef __gen_field_functions
 #define __gen_field_functions
 
+#ifdef NDEBUG
+#define NDEBUG_UNUSED __attribute__((unused))
+#else
+#define NDEBUG_UNUSED
+#endif
+
 union __gen_value {
    float f;
    uint32_t dw;
@@ -69,7 +76,7 @@ __gen_mbo(uint32_t start, uint32_t end)
 }
 
 static inline uint64_t
-__gen_uint(uint64_t v, uint32_t start, uint32_t end)
+__gen_uint(uint64_t v, uint32_t start, NDEBUG_UNUSED uint32_t end)
 {
    __gen_validate_value(v);
 
@@ -105,7 +112,7 @@ __gen_sint(int64_t v, uint32_t start, uint32_t end)
 }
 
 static inline uint64_t
-__gen_offset(uint64_t v, uint32_t start, uint32_t end)
+__gen_offset(uint64_t v, NDEBUG_UNUSED uint32_t start, NDEBUG_UNUSED uint32_t end)
 {
    __gen_validate_value(v);
 #ifndef NDEBUG
@@ -144,7 +151,7 @@ __gen_sfixed(float v, uint32_t start, uint32_t end, uint32_t fract_bits)
 }
 
 static inline uint64_t
-__gen_ufixed(float v, uint32_t start, uint32_t end, uint32_t fract_bits)
+__gen_ufixed(float v, uint32_t start, NDEBUG_UNUSED uint32_t end, uint32_t fract_bits)
 {
    __gen_validate_value(v);
 
@@ -168,6 +175,8 @@ __gen_ufixed(float v, uint32_t start, uint32_t end, uint32_t fract_bits)
 #ifndef __gen_user_data
 #error #define __gen_combine_address before including this file
 #endif
+
+#undef NDEBUG_UNUSED
 
 #endif
 
@@ -211,9 +220,9 @@ def safe_name(name):
 def num_from_str(num_str):
     if num_str.lower().startswith('0x'):
         return int(num_str, base=16)
-    else:
-        assert(not num_str.startswith('0') and 'octals numbers not allowed')
-        return int(num_str)
+
+    assert not num_str.startswith('0'), 'octals numbers not allowed'
+    return int(num_str)
 
 class Field(object):
     ufixed_pattern = re.compile(r"u(\d+)\.(\d+)")
@@ -227,13 +236,21 @@ class Field(object):
         self.end = int(attrs["end"])
         self.type = attrs["type"]
 
+        assert self.start <= self.end, \
+               'field {} has end ({}) < start ({})'.format(self.name, self.end,
+                                                           self.start)
+        if self.type == 'bool':
+            assert self.end == self.start, \
+                   'bool field ({}) is too wide'.format(self.name)
+
         if "prefix" in attrs:
             self.prefix = attrs["prefix"]
         else:
             self.prefix = None
 
         if "default" in attrs:
-            self.default = int(attrs["default"])
+            # Base 0 recognizes 0x, 0o, 0b prefixes in addition to decimal ints.
+            self.default = int(attrs["default"], base=0)
         else:
             self.default = None
 
@@ -290,7 +307,7 @@ class Field(object):
         print("   %-36s %s%s;" % (type, self.name, dim))
 
         prefix = ""
-        if len(self.values) > 0 and self.default == None:
+        if self.values and self.default is None:
             if self.prefix:
                 prefix = self.prefix + "_"
 
@@ -324,7 +341,7 @@ class Group(object):
 
     def collect_dwords(self, dwords, start, dim):
         for field in self.fields:
-            if type(field) is Group:
+            if isinstance(field, Group):
                 if field.count == 1:
                     field.collect_dwords(dwords, start + field.start, dim)
                 else:
@@ -408,7 +425,7 @@ class Group(object):
             # to the dword for those fields.
             field_index = 0
             for field in dw.fields:
-                if type(field) is Field and field.is_struct_type():
+                if isinstance(field, Field) and field.is_struct_type():
                     name = field.name + field.dim
                     print("")
                     print("   uint32_t v%d_%d;" % (index, field_index))
@@ -474,7 +491,7 @@ class Group(object):
                     non_address_fields.append("/* unhandled field %s, type %s */\n" % \
                                               (name, field.type))
 
-            if len(non_address_fields) > 0:
+            if non_address_fields:
                 print(" |\n".join("      " + f for f in non_address_fields) + ";")
 
             if dw.size == 32:
@@ -486,8 +503,12 @@ class Group(object):
                 v_address = "v%d_address" % index
                 print("   const uint64_t %s =\n      __gen_combine_address(data, &dw[%d], values->%s, %s);" %
                       (v_address, index, dw.address.name + field.dim, v))
-                v = v_address
-
+                if len(dw.fields) > address_count:
+                    print("   dw[%d] = %s;" % (index, v_address))
+                    print("   dw[%d] = (%s >> 32) | (%s >> 32);" % (index + 1, v_address, v))
+                    continue
+                else:
+                    v = v_address
             print("   dw[%d] = %s;" % (index, v))
             print("   dw[%d] = %s >> 32;" % (index + 1, v))
 
@@ -511,8 +532,7 @@ class Parser(object):
     def gen_prefix(self, name):
         if name[0] == "_":
             return 'GEN%s%s' % (self.gen, name)
-        else:
-            return 'GEN%s_%s' % (self.gen, name)
+        return 'GEN%s_%s' % (self.gen, name)
 
     def gen_guard(self):
         return self.gen_prefix("PACK_H")
@@ -526,6 +546,13 @@ class Parser(object):
             if name == "instruction":
                 self.instruction = safe_name(attrs["name"])
                 self.length_bias = int(attrs["bias"])
+                if "engine" in attrs:
+                    self.instruction_engines = set(attrs["engine"].split('|'))
+                else:
+                    # When an instruction doesn't have the engine specified,
+                    # it is considered to be for all engines, so 'None' is used
+                    # to signify that the instruction belongs to all engines.
+                    self.instruction_engines = None
             elif name == "struct":
                 self.struct = safe_name(attrs["name"])
                 self.structs[attrs["name"]] = 1
@@ -609,7 +636,10 @@ class Parser(object):
 
     def emit_instruction(self):
         name = self.instruction
-        if not self.length == None:
+        if self.instruction_engines and not self.instruction_engines & self.engines:
+            return
+
+        if not self.length is None:
             print('#define %-33s %6d' %
                   (self.gen_prefix(name + "_length"), self.length))
         print('#define %-33s %6d' %
@@ -617,9 +647,9 @@ class Parser(object):
 
         default_fields = []
         for field in self.group.fields:
-            if not type(field) is Field:
+            if not isinstance(field, Field):
                 continue
-            if field.default == None:
+            if field.default is None:
                 continue
             default_fields.append("   .%-35s = %6d" % (field.name, field.default))
 
@@ -634,11 +664,11 @@ class Parser(object):
 
     def emit_register(self):
         name = self.register
-        if not self.reg_num == None:
+        if not self.reg_num is None:
             print('#define %-33s 0x%04x' %
                   (self.gen_prefix(name + "_num"), self.reg_num))
 
-        if not self.length == None:
+        if not self.length is None:
             print('#define %-33s %6d' %
                   (self.gen_prefix(name + "_length"), self.length))
 
@@ -647,7 +677,7 @@ class Parser(object):
 
     def emit_struct(self):
         name = self.struct
-        if not self.length == None:
+        if not self.length is None:
             print('#define %-33s %6d' %
                   (self.gen_prefix(name + "_length"), self.length))
 
@@ -669,11 +699,36 @@ class Parser(object):
         self.parser.ParseFile(file)
         file.close()
 
-if len(sys.argv) < 2:
-    print("No input xml file specified")
-    sys.exit(1)
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument('xml_source', metavar='XML_SOURCE',
+                   help="Input xml file")
+    p.add_argument('--engines', nargs='?', type=str, default='render',
+                   help="Comma-separated list of engines whose instructions should be parsed (default: %(default)s)")
 
-input_file = sys.argv[1]
+    pargs = p.parse_args()
 
-p = Parser()
-p.parse(input_file)
+    if pargs.engines is None:
+        print("No engines specified")
+        sys.exit(1)
+
+    return pargs
+
+def main():
+    pargs = parse_args()
+
+    input_file = pargs.xml_source
+    engines = pargs.engines.split(',')
+    valid_engines = [ 'render', 'blitter', 'video' ]
+    if set(engines) - set(valid_engines):
+        print("Invalid engine specified, valid engines are:\n")
+        for e in valid_engines:
+            print("\t%s" % e)
+        sys.exit(1)
+
+    p = Parser()
+    p.engines = set(engines)
+    p.parse(input_file)
+
+if __name__ == '__main__':
+    main()

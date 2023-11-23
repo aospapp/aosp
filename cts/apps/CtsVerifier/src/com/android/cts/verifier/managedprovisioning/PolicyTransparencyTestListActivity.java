@@ -45,7 +45,6 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
 
     public static final int MODE_DEVICE_OWNER = 1;
     public static final int MODE_MANAGED_PROFILE = 2;
-    public static final int MODE_COMP = 3;
     public static final int MODE_MANAGED_USER = 4;
 
     /**
@@ -74,7 +73,7 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             Settings.ACTION_DISPLAY_SETTINGS,
             Settings.ACTION_SETTINGS,
             Settings.ACTION_ACCESSIBILITY_SETTINGS,
-            Settings.ACTION_INPUT_METHOD_SETTINGS
+            Settings.ACTION_SETTINGS
         };
         final int[] policyLabels = new int[] {
             R.string.set_auto_time_required,
@@ -124,7 +123,7 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
                     + EXTRA_MODE);
         }
         mMode = getIntent().getIntExtra(EXTRA_MODE, MODE_DEVICE_OWNER);
-        if (mMode != MODE_DEVICE_OWNER && mMode != MODE_MANAGED_PROFILE && mMode != MODE_COMP
+        if (mMode != MODE_DEVICE_OWNER && mMode != MODE_MANAGED_PROFILE
                 && mMode != MODE_MANAGED_USER) {
             throw new RuntimeException("Unknown mode " + mMode);
         }
@@ -153,10 +152,6 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             intent.putExtra(PolicyTransparencyTestActivity.EXTRA_TEST_ID, testId);
             adapter.add(TestListItem.newTest(title, testId, intent, null));
         }
-        if (mMode == MODE_COMP) {
-            // no other policies for COMP
-            return;
-        }
         for (Pair<Intent, Integer> policy : POLICIES) {
             final Intent intent = policy.first;
             String test = intent.getStringExtra(PolicyTransparencyTestActivity.EXTRA_TEST);
@@ -182,8 +177,6 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             return "DO_" + title;
         } else if (mMode == MODE_MANAGED_PROFILE) {
             return "MP_" + title;
-        } else if (mMode == MODE_COMP){
-            return "COMP_" + title;
         } else if (mMode == MODE_MANAGED_USER) {
             return "MU_" + title;
         }

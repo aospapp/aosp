@@ -17,8 +17,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.cts.rollback.host.app" >
 
+    <queries>
+        <package android:name="com.android.cts.ctsshim" />
+        <package android:name="com.android.cts.priv.ctsshim" />
+    </queries>
+
     <application>
-        <receiver android:name="com.android.cts.rollback.lib.LocalIntentSender"
+        <receiver android:name="com.android.cts.install.lib.LocalIntentSender"
                   android:exported="true" />
         <uses-library android:name="android.test.runner" />
     </application>

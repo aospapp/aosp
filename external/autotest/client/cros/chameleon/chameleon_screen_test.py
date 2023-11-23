@@ -157,6 +157,8 @@ class ChameleonScreenTest(object):
             else:
                 error_list.append(error)
 
+        # Avoid browser tab focus issue. See crbug/1035014.
+        self._display_facade.set_fullscreen(True)
         if chameleon_supported:
             error = self._resolution_comparer.compare(expected_resolution)
             if not error:

@@ -36,15 +36,15 @@
 #error "FATAL_ERROR_QUIT must be defined"
 #endif  // FATAL_ERROR_QUIT
 
-#define FATAL_ERROR(fmt, ...) do { \
-  LOGE(fmt, ##__VA_ARGS__);        \
-  FATAL_ERROR_QUIT();              \
-} while (0)
+#define FATAL_ERROR(fmt, ...) \
+  do {                        \
+    LOGE(fmt, ##__VA_ARGS__); \
+    FATAL_ERROR_QUIT();       \
+  } while (0)
 
 /**
  * Fatal error on out of memory error with file and line number.
  */
-#define FATAL_ERROR_OOM() \
-    FATAL_ERROR("Out of memory")
+#define FATAL_ERROR_OOM() FATAL_ERROR("Out of memory")
 
 #endif  // CHRE_PLATFORM_FATAL_ERROR_H_

@@ -29,7 +29,6 @@ import android.view.View;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.preference.PreferenceViewHolder;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 
 import org.junit.Before;
@@ -37,9 +36,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class MasterSwitchPreferenceTest {
 
     private PreferenceViewHolder mViewHolder;
@@ -52,12 +52,13 @@ public class MasterSwitchPreferenceTest {
         MockitoAnnotations.initMocks(this);
         Context context = RuntimeEnvironment.application;
         Context themedContext = new ContextThemeWrapper(context, R.style.CarSettingTheme);
-        View rootView = View.inflate(themedContext, R.layout.two_action_preference, null);
+
+        mMasterSwitchPreference = new MasterSwitchPreference(context);
+        View rootView = View.inflate(themedContext, mMasterSwitchPreference.getLayoutResource(),
+                null);
         View.inflate(themedContext, R.layout.master_switch_widget,
                 rootView.findViewById(android.R.id.widget_frame));
         mViewHolder = PreferenceViewHolder.createInstanceForTests(rootView);
-        mMasterSwitchPreference = new MasterSwitchPreference(context);
-
         mMasterSwitchPreference.onBindViewHolder(mViewHolder);
         mMasterSwitchPreference.setSwitchChecked(false);
         mMasterSwitchPreference.setSwitchToggleListener(mListener);

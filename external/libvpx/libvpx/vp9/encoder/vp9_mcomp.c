@@ -29,11 +29,6 @@
 
 // #define NEW_DIAMOND_SEARCH
 
-static INLINE const uint8_t *get_buf_from_mv(const struct buf_2d *buf,
-                                             const MV *mv) {
-  return &buf->buf[mv->row * buf->stride + mv->col];
-}
-
 void vp9_set_mv_search_range(MvLimits *mv_limits, const MV *mv) {
   int col_min = (mv->col >> 3) - MAX_FULL_PEL_VAL + (mv->col & 7 ? 1 : 0);
   int row_min = (mv->row >> 3) - MAX_FULL_PEL_VAL + (mv->row & 7 ? 1 : 0);
@@ -1646,7 +1641,7 @@ static int fast_dia_search(const MACROBLOCK *x, MV *ref_mv, int search_param,
 
 // Exhuastive motion search around a given centre position with a given
 // step size.
-static int exhuastive_mesh_search(const MACROBLOCK *x, MV *ref_mv, MV *best_mv,
+static int exhaustive_mesh_search(const MACROBLOCK *x, MV *ref_mv, MV *best_mv,
                                   int range, int step, int sad_per_bit,
                                   const vp9_variance_fn_ptr_t *fn_ptr,
                                   const MV *center_mv) {
@@ -1732,38 +1727,212 @@ static int exhuastive_mesh_search(const MACROBLOCK *x, MV *ref_mv, MV *best_mv,
   return best_sad;
 }
 
+#define MIN_RANGE 7
+#define MAX_RANGE 256
+#define MIN_INTERVAL 1
 #if CONFIG_NON_GREEDY_MV
-double vp9_nb_mvs_inconsistency(const MV *mv, const int_mv *nb_mvs,
-                                int mv_num) {
-  int i;
-  int update = 0;
-  double best_cost = 0;
-  vpx_clear_system_state();
-  for (i = 0; i < mv_num; ++i) {
-    if (nb_mvs[i].as_int != INVALID_MV) {
-      MV nb_mv = nb_mvs[i].as_mv;
-      const double row_diff = mv->row - nb_mv.row;
-      const double col_diff = mv->col - nb_mv.col;
-      double cost = row_diff * row_diff + col_diff * col_diff;
-      cost = log2(1 + cost);
-      if (update == 0) {
-        best_cost = cost;
-        update = 1;
-      } else {
-        best_cost = cost < best_cost ? cost : best_cost;
+static int64_t exhaustive_mesh_search_multi_step(
+    MV *best_mv, const MV *center_mv, int range, int step,
+    const struct buf_2d *src, const struct buf_2d *pre, int lambda,
+    const int_mv *nb_full_mvs, int full_mv_num, const MvLimits *mv_limits,
+    const vp9_variance_fn_ptr_t *fn_ptr) {
+  int64_t best_sad;
+  int r, c;
+  int start_col, end_col, start_row, end_row;
+  *best_mv = *center_mv;
+  best_sad =
+      ((int64_t)fn_ptr->sdf(src->buf, src->stride,
+                            get_buf_from_mv(pre, center_mv), pre->stride)
+       << LOG2_PRECISION) +
+      lambda * vp9_nb_mvs_inconsistency(best_mv, nb_full_mvs, full_mv_num);
+  start_row = VPXMAX(center_mv->row - range, mv_limits->row_min);
+  start_col = VPXMAX(center_mv->col - range, mv_limits->col_min);
+  end_row = VPXMIN(center_mv->row + range, mv_limits->row_max);
+  end_col = VPXMIN(center_mv->col + range, mv_limits->col_max);
+  for (r = start_row; r <= end_row; r += step) {
+    for (c = start_col; c <= end_col; c += step) {
+      const MV mv = { r, c };
+      int64_t sad = (int64_t)fn_ptr->sdf(src->buf, src->stride,
+                                         get_buf_from_mv(pre, &mv), pre->stride)
+                    << LOG2_PRECISION;
+      if (sad < best_sad) {
+        sad += lambda * vp9_nb_mvs_inconsistency(&mv, nb_full_mvs, full_mv_num);
+        if (sad < best_sad) {
+          best_sad = sad;
+          *best_mv = mv;
+        }
       }
     }
   }
-  return best_cost;
+  return best_sad;
 }
 
-double vp9_diamond_search_sad_new(const MACROBLOCK *x,
-                                  const search_site_config *cfg,
-                                  const MV *init_full_mv, MV *best_full_mv,
-                                  double *best_mv_dist, double *best_mv_cost,
-                                  int search_param, double lambda, int *num00,
-                                  const vp9_variance_fn_ptr_t *fn_ptr,
-                                  const int_mv *nb_full_mvs, int full_mv_num) {
+static int64_t exhaustive_mesh_search_single_step(
+    MV *best_mv, const MV *center_mv, int range, const struct buf_2d *src,
+    const struct buf_2d *pre, int lambda, const int_mv *nb_full_mvs,
+    int full_mv_num, const MvLimits *mv_limits,
+    const vp9_variance_fn_ptr_t *fn_ptr) {
+  int64_t best_sad;
+  int r, c, i;
+  int start_col, end_col, start_row, end_row;
+
+  *best_mv = *center_mv;
+  best_sad =
+      ((int64_t)fn_ptr->sdf(src->buf, src->stride,
+                            get_buf_from_mv(pre, center_mv), pre->stride)
+       << LOG2_PRECISION) +
+      lambda * vp9_nb_mvs_inconsistency(best_mv, nb_full_mvs, full_mv_num);
+  start_row = VPXMAX(center_mv->row - range, mv_limits->row_min);
+  start_col = VPXMAX(center_mv->col - range, mv_limits->col_min);
+  end_row = VPXMIN(center_mv->row + range, mv_limits->row_max);
+  end_col = VPXMIN(center_mv->col + range, mv_limits->col_max);
+  for (r = start_row; r <= end_row; r += 1) {
+    c = start_col;
+    // sdx8f may not be available some block size
+    if (fn_ptr->sdx8f) {
+      while (c + 7 <= end_col) {
+        unsigned int sads[8];
+        const MV mv = { r, c };
+        const uint8_t *buf = get_buf_from_mv(pre, &mv);
+        fn_ptr->sdx8f(src->buf, src->stride, buf, pre->stride, sads);
+
+        for (i = 0; i < 8; ++i) {
+          int64_t sad = (int64_t)sads[i] << LOG2_PRECISION;
+          if (sad < best_sad) {
+            const MV mv = { r, c + i };
+            sad += lambda *
+                   vp9_nb_mvs_inconsistency(&mv, nb_full_mvs, full_mv_num);
+            if (sad < best_sad) {
+              best_sad = sad;
+              *best_mv = mv;
+            }
+          }
+        }
+        c += 8;
+      }
+    }
+    while (c + 3 <= end_col) {
+      unsigned int sads[4];
+      const uint8_t *addrs[4];
+      for (i = 0; i < 4; ++i) {
+        const MV mv = { r, c + i };
+        addrs[i] = get_buf_from_mv(pre, &mv);
+      }
+      fn_ptr->sdx4df(src->buf, src->stride, addrs, pre->stride, sads);
+
+      for (i = 0; i < 4; ++i) {
+        int64_t sad = (int64_t)sads[i] << LOG2_PRECISION;
+        if (sad < best_sad) {
+          const MV mv = { r, c + i };
+          sad +=
+              lambda * vp9_nb_mvs_inconsistency(&mv, nb_full_mvs, full_mv_num);
+          if (sad < best_sad) {
+            best_sad = sad;
+            *best_mv = mv;
+          }
+        }
+      }
+      c += 4;
+    }
+    while (c <= end_col) {
+      const MV mv = { r, c };
+      int64_t sad = (int64_t)fn_ptr->sdf(src->buf, src->stride,
+                                         get_buf_from_mv(pre, &mv), pre->stride)
+                    << LOG2_PRECISION;
+      if (sad < best_sad) {
+        sad += lambda * vp9_nb_mvs_inconsistency(&mv, nb_full_mvs, full_mv_num);
+        if (sad < best_sad) {
+          best_sad = sad;
+          *best_mv = mv;
+        }
+      }
+      c += 1;
+    }
+  }
+  return best_sad;
+}
+
+static int64_t exhaustive_mesh_search_new(const MACROBLOCK *x, MV *best_mv,
+                                          int range, int step,
+                                          const vp9_variance_fn_ptr_t *fn_ptr,
+                                          const MV *center_mv, int lambda,
+                                          const int_mv *nb_full_mvs,
+                                          int full_mv_num) {
+  const MACROBLOCKD *const xd = &x->e_mbd;
+  const struct buf_2d *src = &x->plane[0].src;
+  const struct buf_2d *pre = &xd->plane[0].pre[0];
+  assert(step >= 1);
+  assert(is_mv_in(&x->mv_limits, center_mv));
+  if (step == 1) {
+    return exhaustive_mesh_search_single_step(
+        best_mv, center_mv, range, src, pre, lambda, nb_full_mvs, full_mv_num,
+        &x->mv_limits, fn_ptr);
+  }
+  return exhaustive_mesh_search_multi_step(best_mv, center_mv, range, step, src,
+                                           pre, lambda, nb_full_mvs,
+                                           full_mv_num, &x->mv_limits, fn_ptr);
+}
+
+static int64_t full_pixel_exhaustive_new(const VP9_COMP *cpi, MACROBLOCK *x,
+                                         MV *centre_mv_full,
+                                         const vp9_variance_fn_ptr_t *fn_ptr,
+                                         MV *dst_mv, int lambda,
+                                         const int_mv *nb_full_mvs,
+                                         int full_mv_num) {
+  const SPEED_FEATURES *const sf = &cpi->sf;
+  MV temp_mv = { centre_mv_full->row, centre_mv_full->col };
+  int64_t bestsme;
+  int i;
+  int interval = sf->mesh_patterns[0].interval;
+  int range = sf->mesh_patterns[0].range;
+  int baseline_interval_divisor;
+
+  // Trap illegal values for interval and range for this function.
+  if ((range < MIN_RANGE) || (range > MAX_RANGE) || (interval < MIN_INTERVAL) ||
+      (interval > range)) {
+    printf("ERROR: invalid range\n");
+    assert(0);
+  }
+
+  baseline_interval_divisor = range / interval;
+
+  // Check size of proposed first range against magnitude of the centre
+  // value used as a starting point.
+  range = VPXMAX(range, (5 * VPXMAX(abs(temp_mv.row), abs(temp_mv.col))) / 4);
+  range = VPXMIN(range, MAX_RANGE);
+  interval = VPXMAX(interval, range / baseline_interval_divisor);
+
+  // initial search
+  bestsme =
+      exhaustive_mesh_search_new(x, &temp_mv, range, interval, fn_ptr, &temp_mv,
+                                 lambda, nb_full_mvs, full_mv_num);
+
+  if ((interval > MIN_INTERVAL) && (range > MIN_RANGE)) {
+    // Progressive searches with range and step size decreasing each time
+    // till we reach a step size of 1. Then break out.
+    for (i = 1; i < MAX_MESH_STEP; ++i) {
+      // First pass with coarser step and longer range
+      bestsme = exhaustive_mesh_search_new(
+          x, &temp_mv, sf->mesh_patterns[i].range,
+          sf->mesh_patterns[i].interval, fn_ptr, &temp_mv, lambda, nb_full_mvs,
+          full_mv_num);
+
+      if (sf->mesh_patterns[i].interval == 1) break;
+    }
+  }
+
+  *dst_mv = temp_mv;
+
+  return bestsme;
+}
+
+static int64_t diamond_search_sad_new(const MACROBLOCK *x,
+                                      const search_site_config *cfg,
+                                      const MV *init_full_mv, MV *best_full_mv,
+                                      int search_param, int lambda, int *num00,
+                                      const vp9_variance_fn_ptr_t *fn_ptr,
+                                      const int_mv *nb_full_mvs,
+                                      int full_mv_num) {
   int i, j, step;
 
   const MACROBLOCKD *const xd = &x->e_mbd;
@@ -1773,7 +1942,7 @@ double vp9_diamond_search_sad_new(const MACROBLOCK *x,
   const int in_what_stride = xd->plane[0].pre[0].stride;
   const uint8_t *best_address;
 
-  double bestsad;
+  int64_t bestsad;
   int best_site = -1;
   int last_site = -1;
 
@@ -1799,10 +1968,14 @@ double vp9_diamond_search_sad_new(const MACROBLOCK *x,
   best_address = in_what;
 
   // Check the starting position
-  *best_mv_dist = fn_ptr->sdf(what, what_stride, in_what, in_what_stride);
-  *best_mv_cost =
-      vp9_nb_mvs_inconsistency(best_full_mv, nb_full_mvs, full_mv_num);
-  bestsad = (*best_mv_dist) + lambda * (*best_mv_cost);
+  {
+    const int64_t mv_dist =
+        (int64_t)fn_ptr->sdf(what, what_stride, in_what, in_what_stride)
+        << LOG2_PRECISION;
+    const int64_t mv_cost =
+        vp9_nb_mvs_inconsistency(best_full_mv, nb_full_mvs, full_mv_num);
+    bestsad = mv_dist + lambda * mv_cost;
+  }
 
   i = 0;
 
@@ -1831,17 +2004,17 @@ double vp9_diamond_search_sad_new(const MACROBLOCK *x,
                        sad_array);
 
         for (t = 0; t < 4; t++, i++) {
-          const MV this_mv = { best_full_mv->row + ss_mv[i].row,
-                               best_full_mv->col + ss_mv[i].col };
-          const double mv_dist = sad_array[t];
-          const double mv_cost =
-              vp9_nb_mvs_inconsistency(&this_mv, nb_full_mvs, full_mv_num);
-          double thissad = mv_dist + lambda * mv_cost;
-          if (thissad < bestsad) {
-            bestsad = thissad;
-            *best_mv_dist = mv_dist;
-            *best_mv_cost = mv_cost;
-            best_site = i;
+          const int64_t mv_dist = (int64_t)sad_array[t] << LOG2_PRECISION;
+          if (mv_dist < bestsad) {
+            const MV this_mv = { best_full_mv->row + ss_mv[i].row,
+                                 best_full_mv->col + ss_mv[i].col };
+            const int64_t mv_cost =
+                vp9_nb_mvs_inconsistency(&this_mv, nb_full_mvs, full_mv_num);
+            const int64_t thissad = mv_dist + lambda * mv_cost;
+            if (thissad < bestsad) {
+              bestsad = thissad;
+              best_site = i;
+            }
           }
         }
       }
@@ -1853,16 +2026,18 @@ double vp9_diamond_search_sad_new(const MACROBLOCK *x,
 
         if (is_mv_in(&x->mv_limits, &this_mv)) {
           const uint8_t *const check_here = ss_os[i] + best_address;
-          const double mv_dist =
-              fn_ptr->sdf(what, what_stride, check_here, in_what_stride);
-          const double mv_cost =
-              vp9_nb_mvs_inconsistency(&this_mv, nb_full_mvs, full_mv_num);
-          double thissad = mv_dist + lambda * mv_cost;
-          if (thissad < bestsad) {
-            bestsad = thissad;
-            *best_mv_dist = mv_dist;
-            *best_mv_cost = mv_cost;
-            best_site = i;
+          const int64_t mv_dist =
+              (int64_t)fn_ptr->sdf(what, what_stride, check_here,
+                                   in_what_stride)
+              << LOG2_PRECISION;
+          if (mv_dist < bestsad) {
+            const int64_t mv_cost =
+                vp9_nb_mvs_inconsistency(&this_mv, nb_full_mvs, full_mv_num);
+            const int64_t thissad = mv_dist + lambda * mv_cost;
+            if (thissad < bestsad) {
+              bestsad = thissad;
+              best_site = i;
+            }
           }
         }
         i++;
@@ -1880,32 +2055,30 @@ double vp9_diamond_search_sad_new(const MACROBLOCK *x,
   return bestsad;
 }
 
-void vp9_prepare_nb_full_mvs(const TplDepFrame *tpl_frame, int mi_row,
-                             int mi_col, int rf_idx, BLOCK_SIZE bsize,
-                             int_mv *nb_full_mvs) {
-  const int mi_width = num_8x8_blocks_wide_lookup[bsize];
-  const int mi_height = num_8x8_blocks_high_lookup[bsize];
+int vp9_prepare_nb_full_mvs(const MotionField *motion_field, int mi_row,
+                            int mi_col, int_mv *nb_full_mvs) {
+  const int mi_width = num_8x8_blocks_wide_lookup[motion_field->bsize];
+  const int mi_height = num_8x8_blocks_high_lookup[motion_field->bsize];
   const int dirs[NB_MVS_NUM][2] = { { -1, 0 }, { 0, -1 }, { 1, 0 }, { 0, 1 } };
+  int nb_full_mv_num = 0;
   int i;
+  assert(mi_row % mi_height == 0);
+  assert(mi_col % mi_width == 0);
   for (i = 0; i < NB_MVS_NUM; ++i) {
-    int r = dirs[i][0] * mi_height;
-    int c = dirs[i][1] * mi_width;
-    if (mi_row + r >= 0 && mi_row + r < tpl_frame->mi_rows && mi_col + c >= 0 &&
-        mi_col + c < tpl_frame->mi_cols) {
-      const TplDepStats *tpl_ptr =
-          &tpl_frame
-               ->tpl_stats_ptr[(mi_row + r) * tpl_frame->stride + mi_col + c];
-      int_mv *mv =
-          get_pyramid_mv(tpl_frame, rf_idx, bsize, mi_row + r, mi_col + c);
-      if (tpl_ptr->ready[rf_idx]) {
-        nb_full_mvs[i].as_mv = get_full_mv(&mv->as_mv);
-      } else {
-        nb_full_mvs[i].as_int = INVALID_MV;
+    int r = dirs[i][0];
+    int c = dirs[i][1];
+    int brow = mi_row / mi_height + r;
+    int bcol = mi_col / mi_width + c;
+    if (brow >= 0 && brow < motion_field->block_rows && bcol >= 0 &&
+        bcol < motion_field->block_cols) {
+      if (vp9_motion_field_is_mv_set(motion_field, brow, bcol)) {
+        int_mv mv = vp9_motion_field_get_mv(motion_field, brow, bcol);
+        nb_full_mvs[nb_full_mv_num].as_mv = get_full_mv(&mv.as_mv);
+        ++nb_full_mv_num;
       }
-    } else {
-      nb_full_mvs[i].as_int = INVALID_MV;
     }
   }
+  return nb_full_mv_num;
 }
 #endif  // CONFIG_NON_GREEDY_MV
 
@@ -2263,26 +2436,34 @@ unsigned int vp9_int_pro_motion_estimation(const VP9_COMP *cpi, MACROBLOCK *x,
   return best_sad;
 }
 
+static int get_exhaustive_threshold(int exhaustive_searches_thresh,
+                                    BLOCK_SIZE bsize) {
+  return exhaustive_searches_thresh >>
+         (8 - (b_width_log2_lookup[bsize] + b_height_log2_lookup[bsize]));
+}
+
 #if CONFIG_NON_GREEDY_MV
 // Runs sequence of diamond searches in smaller steps for RD.
 /* do_refine: If last step (1-away) of n-step search doesn't pick the center
               point as the best match, we will do a final 1-away diamond
               refining search  */
-double vp9_full_pixel_diamond_new(const VP9_COMP *cpi, MACROBLOCK *x,
-                                  MV *mvp_full, int step_param, double lambda,
-                                  int do_refine,
-                                  const vp9_variance_fn_ptr_t *fn_ptr,
-                                  const int_mv *nb_full_mvs, int full_mv_num,
-                                  MV *best_mv, double *best_mv_dist,
-                                  double *best_mv_cost) {
+int vp9_full_pixel_diamond_new(const VP9_COMP *cpi, MACROBLOCK *x,
+                               BLOCK_SIZE bsize, MV *mvp_full, int step_param,
+                               int lambda, int do_refine,
+                               const int_mv *nb_full_mvs, int full_mv_num,
+                               MV *best_mv) {
+  const vp9_variance_fn_ptr_t *fn_ptr = &cpi->fn_ptr[bsize];
+  const SPEED_FEATURES *const sf = &cpi->sf;
   int n, num00 = 0;
-  double thissme;
-  double bestsme;
+  int thissme;
+  int bestsme;
   const int further_steps = MAX_MVSEARCH_STEPS - 1 - step_param;
+  const MV center_mv = { 0, 0 };
   vpx_clear_system_state();
-  bestsme = vp9_diamond_search_sad_new(
-      x, &cpi->ss_cfg, mvp_full, best_mv, best_mv_dist, best_mv_cost,
-      step_param, lambda, &n, fn_ptr, nb_full_mvs, full_mv_num);
+  diamond_search_sad_new(x, &cpi->ss_cfg, mvp_full, best_mv, step_param, lambda,
+                         &n, fn_ptr, nb_full_mvs, full_mv_num);
+
+  bestsme = vp9_get_mvpred_var(x, best_mv, &center_mv, fn_ptr, 0);
 
   // If there won't be more n-step search, check to see if refining search is
   // needed.
@@ -2294,19 +2475,16 @@ double vp9_full_pixel_diamond_new(const VP9_COMP *cpi, MACROBLOCK *x,
       num00--;
     } else {
       MV temp_mv;
-      double mv_dist;
-      double mv_cost;
-      thissme = vp9_diamond_search_sad_new(
-          x, &cpi->ss_cfg, mvp_full, &temp_mv, &mv_dist, &mv_cost,
-          step_param + n, lambda, &num00, fn_ptr, nb_full_mvs, full_mv_num);
+      diamond_search_sad_new(x, &cpi->ss_cfg, mvp_full, &temp_mv,
+                             step_param + n, lambda, &num00, fn_ptr,
+                             nb_full_mvs, full_mv_num);
+      thissme = vp9_get_mvpred_var(x, &temp_mv, &center_mv, fn_ptr, 0);
       // check to see if refining search is needed.
       if (num00 > further_steps - n) do_refine = 0;
 
       if (thissme < bestsme) {
         bestsme = thissme;
         *best_mv = temp_mv;
-        *best_mv_dist = mv_dist;
-        *best_mv_cost = mv_cost;
       }
     }
   }
@@ -2315,16 +2493,23 @@ double vp9_full_pixel_diamond_new(const VP9_COMP *cpi, MACROBLOCK *x,
   if (do_refine) {
     const int search_range = 8;
     MV temp_mv = *best_mv;
-    double mv_dist;
-    double mv_cost;
-    thissme = vp9_refining_search_sad_new(x, &temp_mv, &mv_dist, &mv_cost,
-                                          lambda, search_range, fn_ptr,
-                                          nb_full_mvs, full_mv_num);
+    vp9_refining_search_sad_new(x, &temp_mv, lambda, search_range, fn_ptr,
+                                nb_full_mvs, full_mv_num);
+    thissme = vp9_get_mvpred_var(x, &temp_mv, &center_mv, fn_ptr, 0);
     if (thissme < bestsme) {
       bestsme = thissme;
       *best_mv = temp_mv;
-      *best_mv_dist = mv_dist;
-      *best_mv_cost = mv_cost;
+    }
+  }
+
+  if (sf->exhaustive_searches_thresh < INT_MAX &&
+      !cpi->rc.is_src_frame_alt_ref) {
+    const int64_t exhaustive_thr =
+        get_exhaustive_threshold(sf->exhaustive_searches_thresh, bsize);
+    if (bestsme > exhaustive_thr) {
+      full_pixel_exhaustive_new(cpi, x, best_mv, fn_ptr, best_mv, lambda,
+                                nb_full_mvs, full_mv_num);
+      bestsme = vp9_get_mvpred_var(x, best_mv, &center_mv, fn_ptr, 0);
     }
   }
   return bestsme;
@@ -2335,7 +2520,8 @@ double vp9_full_pixel_diamond_new(const VP9_COMP *cpi, MACROBLOCK *x,
 /* do_refine: If last step (1-away) of n-step search doesn't pick the center
               point as the best match, we will do a final 1-away diamond
               refining search  */
-static int full_pixel_diamond(const VP9_COMP *cpi, MACROBLOCK *x, MV *mvp_full,
+static int full_pixel_diamond(const VP9_COMP *const cpi,
+                              const MACROBLOCK *const x, MV *mvp_full,
                               int step_param, int sadpb, int further_steps,
                               int do_refine, int *cost_list,
                               const vp9_variance_fn_ptr_t *fn_ptr,
@@ -2395,13 +2581,11 @@ static int full_pixel_diamond(const VP9_COMP *cpi, MACROBLOCK *x, MV *mvp_full,
   return bestsme;
 }
 
-#define MIN_RANGE 7
-#define MAX_RANGE 256
-#define MIN_INTERVAL 1
 // Runs an limited range exhaustive mesh search using a pattern set
 // according to the encode speed profile.
-static int full_pixel_exhaustive(VP9_COMP *cpi, MACROBLOCK *x,
-                                 MV *centre_mv_full, int sadpb, int *cost_list,
+static int full_pixel_exhaustive(const VP9_COMP *const cpi,
+                                 const MACROBLOCK *const x, MV *centre_mv_full,
+                                 int sadpb, int *cost_list,
                                  const vp9_variance_fn_ptr_t *fn_ptr,
                                  const MV *ref_mv, MV *dst_mv) {
   const SPEED_FEATURES *const sf = &cpi->sf;
@@ -2427,7 +2611,7 @@ static int full_pixel_exhaustive(VP9_COMP *cpi, MACROBLOCK *x,
   interval = VPXMAX(interval, range / baseline_interval_divisor);
 
   // initial search
-  bestsme = exhuastive_mesh_search(x, &f_ref_mv, &temp_mv, range, interval,
+  bestsme = exhaustive_mesh_search(x, &f_ref_mv, &temp_mv, range, interval,
                                    sadpb, fn_ptr, &temp_mv);
 
   if ((interval > MIN_INTERVAL) && (range > MIN_RANGE)) {
@@ -2435,7 +2619,7 @@ static int full_pixel_exhaustive(VP9_COMP *cpi, MACROBLOCK *x,
     // till we reach a step size of 1. Then break out.
     for (i = 1; i < MAX_MESH_STEP; ++i) {
       // First pass with coarser step and longer range
-      bestsme = exhuastive_mesh_search(
+      bestsme = exhaustive_mesh_search(
           x, &f_ref_mv, &temp_mv, sf->mesh_patterns[i].range,
           sf->mesh_patterns[i].interval, sadpb, fn_ptr, &temp_mv);
 
@@ -2455,24 +2639,27 @@ static int full_pixel_exhaustive(VP9_COMP *cpi, MACROBLOCK *x,
 }
 
 #if CONFIG_NON_GREEDY_MV
-double vp9_refining_search_sad_new(const MACROBLOCK *x, MV *best_full_mv,
-                                   double *best_mv_dist, double *best_mv_cost,
-                                   double lambda, int search_range,
-                                   const vp9_variance_fn_ptr_t *fn_ptr,
-                                   const int_mv *nb_full_mvs, int full_mv_num) {
+int64_t vp9_refining_search_sad_new(const MACROBLOCK *x, MV *best_full_mv,
+                                    int lambda, int search_range,
+                                    const vp9_variance_fn_ptr_t *fn_ptr,
+                                    const int_mv *nb_full_mvs,
+                                    int full_mv_num) {
   const MACROBLOCKD *const xd = &x->e_mbd;
   const MV neighbors[4] = { { -1, 0 }, { 0, -1 }, { 0, 1 }, { 1, 0 } };
   const struct buf_2d *const what = &x->plane[0].src;
   const struct buf_2d *const in_what = &xd->plane[0].pre[0];
   const uint8_t *best_address = get_buf_from_mv(in_what, best_full_mv);
-  double best_sad;
+  int64_t best_sad;
   int i, j;
   vpx_clear_system_state();
-  *best_mv_dist =
-      fn_ptr->sdf(what->buf, what->stride, best_address, in_what->stride);
-  *best_mv_cost =
-      vp9_nb_mvs_inconsistency(best_full_mv, nb_full_mvs, full_mv_num);
-  best_sad = (*best_mv_dist) + lambda * (*best_mv_cost);
+  {
+    const int64_t mv_dist = (int64_t)fn_ptr->sdf(what->buf, what->stride,
+                                                 best_address, in_what->stride)
+                            << LOG2_PRECISION;
+    const int64_t mv_cost =
+        vp9_nb_mvs_inconsistency(best_full_mv, nb_full_mvs, full_mv_num);
+    best_sad = mv_dist + lambda * mv_cost;
+  }
 
   for (i = 0; i < search_range; i++) {
     int best_site = -1;
@@ -2492,14 +2679,12 @@ double vp9_refining_search_sad_new(const MACROBLOCK *x, MV *best_full_mv,
       for (j = 0; j < 4; ++j) {
         const MV mv = { best_full_mv->row + neighbors[j].row,
                         best_full_mv->col + neighbors[j].col };
-        const double mv_dist = sads[j];
-        const double mv_cost =
+        const int64_t mv_dist = (int64_t)sads[j] << LOG2_PRECISION;
+        const int64_t mv_cost =
             vp9_nb_mvs_inconsistency(&mv, nb_full_mvs, full_mv_num);
-        const double thissad = mv_dist + lambda * mv_cost;
+        const int64_t thissad = mv_dist + lambda * mv_cost;
         if (thissad < best_sad) {
           best_sad = thissad;
-          *best_mv_dist = mv_dist;
-          *best_mv_cost = mv_cost;
           best_site = j;
         }
       }
@@ -2509,16 +2694,16 @@ double vp9_refining_search_sad_new(const MACROBLOCK *x, MV *best_full_mv,
                         best_full_mv->col + neighbors[j].col };
 
         if (is_mv_in(&x->mv_limits, &mv)) {
-          const double mv_dist =
-              fn_ptr->sdf(what->buf, what->stride,
-                          get_buf_from_mv(in_what, &mv), in_what->stride);
-          const double mv_cost =
+          const int64_t mv_dist =
+              (int64_t)fn_ptr->sdf(what->buf, what->stride,
+                                   get_buf_from_mv(in_what, &mv),
+                                   in_what->stride)
+              << LOG2_PRECISION;
+          const int64_t mv_cost =
               vp9_nb_mvs_inconsistency(&mv, nb_full_mvs, full_mv_num);
-          const double thissad = mv_dist + lambda * mv_cost;
+          const int64_t thissad = mv_dist + lambda * mv_cost;
           if (thissad < best_sad) {
             best_sad = thissad;
-            *best_mv_dist = mv_dist;
-            *best_mv_cost = mv_cost;
             best_site = j;
           }
         }
@@ -2663,13 +2848,13 @@ int vp9_refining_search_8p_c(const MACROBLOCK *x, MV *ref_mv, int error_per_bit,
   return best_sad;
 }
 
-int vp9_full_pixel_search(VP9_COMP *cpi, MACROBLOCK *x, BLOCK_SIZE bsize,
-                          MV *mvp_full, int step_param, int search_method,
-                          int error_per_bit, int *cost_list, const MV *ref_mv,
-                          MV *tmp_mv, int var_max, int rd) {
+int vp9_full_pixel_search(const VP9_COMP *const cpi, const MACROBLOCK *const x,
+                          BLOCK_SIZE bsize, MV *mvp_full, int step_param,
+                          int search_method, int error_per_bit, int *cost_list,
+                          const MV *ref_mv, MV *tmp_mv, int var_max, int rd) {
   const SPEED_FEATURES *const sf = &cpi->sf;
   const SEARCH_METHODS method = (SEARCH_METHODS)search_method;
-  vp9_variance_fn_ptr_t *fn_ptr = &cpi->fn_ptr[bsize];
+  const vp9_variance_fn_ptr_t *fn_ptr = &cpi->fn_ptr[bsize];
   int var = 0;
   int run_exhaustive_search = 0;
 
@@ -2714,10 +2899,11 @@ int vp9_full_pixel_search(VP9_COMP *cpi, MACROBLOCK *x, BLOCK_SIZE bsize,
   if (method == NSTEP) {
     if (sf->exhaustive_searches_thresh < INT_MAX &&
         !cpi->rc.is_src_frame_alt_ref) {
-      const int64_t exhuastive_thr =
-          sf->exhaustive_searches_thresh >>
-          (8 - (b_width_log2_lookup[bsize] + b_height_log2_lookup[bsize]));
-      if (var > exhuastive_thr) run_exhaustive_search = 1;
+      const int64_t exhaustive_thr =
+          get_exhaustive_threshold(sf->exhaustive_searches_thresh, bsize);
+      if (var > exhaustive_thr) {
+        run_exhaustive_search = 1;
+      }
     }
   } else if (method == MESH) {
     run_exhaustive_search = 1;

@@ -76,7 +76,7 @@ func (c *cmakelistsGeneratorSingleton) GenerateBuildActions(ctx android.Singleto
 	// Link all handmade CMakeLists.txt aggregate from
 	//     BASE/development/ide/clion to
 	// BASE/out/development/ide/clion.
-	dir := filepath.Join(getAndroidSrcRootDirectory(ctx), cLionAggregateProjectsDirectory)
+	dir := filepath.Join(android.AbsSrcDirForExistingUseCases(), cLionAggregateProjectsDirectory)
 	filepath.Walk(dir, linkAggregateCMakeListsFiles)
 
 	return
@@ -147,7 +147,7 @@ func generateCLionProject(compiledModule CompiledInterface, ctx android.Singleto
 	f.WriteString("# Tools > CMake > Change Project Root  \n\n")
 	f.WriteString(fmt.Sprintf("cmake_minimum_required(VERSION %s)\n", minimumCMakeVersionSupported))
 	f.WriteString(fmt.Sprintf("project(%s)\n", ccModule.ModuleBase.Name()))
-	f.WriteString(fmt.Sprintf("set(ANDROID_ROOT %s)\n\n", getAndroidSrcRootDirectory(ctx)))
+	f.WriteString(fmt.Sprintf("set(ANDROID_ROOT %s)\n\n", android.AbsSrcDirForExistingUseCases()))
 
 	pathToCC, _ := evalVariable(ctx, "${config.ClangBin}/")
 	f.WriteString(fmt.Sprintf("set(CMAKE_C_COMPILER \"%s%s\")\n", buildCMakePath(pathToCC), "clang"))
@@ -162,25 +162,41 @@ func generateCLionProject(compiledModule CompiledInterface, ctx android.Singleto
 	f.WriteString(")\n")
 
 	// Add all header search path and compiler parameters (-D, -W, -f, -XXXX)
-	f.WriteString("\n# GLOBAL FLAGS:\n")
-	globalParameters := parseCompilerParameters(ccModule.flags.GlobalFlags, ctx, f)
-	translateToCMake(globalParameters, f, true, true)
+	f.WriteString("\n# GLOBAL ALL FLAGS:\n")
+	globalAllParameters := parseCompilerParameters(ccModule.flags.Global.CommonFlags, ctx, f)
+	translateToCMake(globalAllParameters, f, true, true)
 
-	f.WriteString("\n# CFLAGS:\n")
-	cParameters := parseCompilerParameters(ccModule.flags.CFlags, ctx, f)
-	translateToCMake(cParameters, f, true, true)
+	f.WriteString("\n# LOCAL ALL FLAGS:\n")
+	localAllParameters := parseCompilerParameters(ccModule.flags.Local.CommonFlags, ctx, f)
+	translateToCMake(localAllParameters, f, true, true)
 
-	f.WriteString("\n# C ONLY FLAGS:\n")
-	cOnlyParameters := parseCompilerParameters(ccModule.flags.ConlyFlags, ctx, f)
-	translateToCMake(cOnlyParameters, f, true, false)
+	f.WriteString("\n# GLOBAL CFLAGS:\n")
+	globalCParameters := parseCompilerParameters(ccModule.flags.Global.CFlags, ctx, f)
+	translateToCMake(globalCParameters, f, true, true)
 
-	f.WriteString("\n# CPP FLAGS:\n")
-	cppParameters := parseCompilerParameters(ccModule.flags.CppFlags, ctx, f)
-	translateToCMake(cppParameters, f, false, true)
+	f.WriteString("\n# LOCAL CFLAGS:\n")
+	localCParameters := parseCompilerParameters(ccModule.flags.Local.CFlags, ctx, f)
+	translateToCMake(localCParameters, f, true, true)
 
-	f.WriteString("\n# SYSTEM INCLUDE FLAGS:\n")
-	includeParameters := parseCompilerParameters(ccModule.flags.SystemIncludeFlags, ctx, f)
-	translateToCMake(includeParameters, f, true, true)
+	f.WriteString("\n# GLOBAL C ONLY FLAGS:\n")
+	globalConlyParameters := parseCompilerParameters(ccModule.flags.Global.ConlyFlags, ctx, f)
+	translateToCMake(globalConlyParameters, f, true, false)
+
+	f.WriteString("\n# LOCAL C ONLY FLAGS:\n")
+	localConlyParameters := parseCompilerParameters(ccModule.flags.Local.ConlyFlags, ctx, f)
+	translateToCMake(localConlyParameters, f, true, false)
+
+	f.WriteString("\n# GLOBAL CPP FLAGS:\n")
+	globalCppParameters := parseCompilerParameters(ccModule.flags.Global.CppFlags, ctx, f)
+	translateToCMake(globalCppParameters, f, false, true)
+
+	f.WriteString("\n# LOCAL CPP FLAGS:\n")
+	localCppParameters := parseCompilerParameters(ccModule.flags.Local.CppFlags, ctx, f)
+	translateToCMake(localCppParameters, f, false, true)
+
+	f.WriteString("\n# GLOBAL SYSTEM INCLUDE FLAGS:\n")
+	globalIncludeParameters := parseCompilerParameters(ccModule.flags.SystemIncludeFlags, ctx, f)
+	translateToCMake(globalIncludeParameters, f, true, true)
 
 	// Add project executable.
 	f.WriteString(fmt.Sprintf("\nadd_executable(%s ${SOURCE_FILES})\n",
@@ -306,12 +322,35 @@ func categorizeParameter(parameter string) parameterType {
 	return flag
 }
 
+// Flattens a list of strings potentially containing space characters into a list of string containing no
+// spaces.
+func normalizeParameters(params []string) []string {
+	var flatParams []string
+	for _, s := range params {
+		s = strings.Trim(s, " ")
+		if len(s) == 0 {
+			continue
+		}
+		flatParams = append(flatParams, strings.Split(s, " ")...)
+	}
+	return flatParams
+}
+
 func parseCompilerParameters(params []string, ctx android.SingletonContext, f *os.File) compilerParameters {
 	var compilerParameters = makeCompilerParameters()
 
 	for i, str := range params {
 		f.WriteString(fmt.Sprintf("# Raw param [%d] = '%s'\n", i, str))
 	}
+
+	// Soong does not guarantee that each flag will be in an individual string. e.g: The
+	// input received could be:
+	// params = {"-isystem", "path/to/system"}
+	// or it could be
+	// params = {"-isystem path/to/system"}
+	// To normalize the input, we split all strings with the "space" character and consolidate
+	// all tokens into a flattened parameters list
+	params = normalizeParameters(params)
 
 	for i := 0; i < len(params); i++ {
 		param := params[i]
@@ -426,16 +465,11 @@ func evalVariable(ctx android.SingletonContext, str string) (string, error) {
 }
 
 func getCMakeListsForModule(module *Module, ctx android.SingletonContext) string {
-	return filepath.Join(getAndroidSrcRootDirectory(ctx),
+	return filepath.Join(android.AbsSrcDirForExistingUseCases(),
 		cLionOutputProjectsDirectory,
 		path.Dir(ctx.BlueprintFile(module)),
 		module.ModuleBase.Name()+"-"+
 			module.ModuleBase.Arch().ArchType.Name+"-"+
 			module.ModuleBase.Os().Name,
 		cMakeListsFilename)
-}
-
-func getAndroidSrcRootDirectory(ctx android.SingletonContext) string {
-	srcPath, _ := filepath.Abs(android.PathForSource(ctx).String())
-	return srcPath
 }

@@ -21,28 +21,25 @@ import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.PushFilePreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
-import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IAbiReceiver;
-
-import java.io.File;
-import java.util.TreeSet;
-import java.util.Collection;
-import java.lang.Class;
 import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.util.Collection;
+import java.util.TreeSet;
 
 /**
  * Pushes specified testing artifacts from Compatibility repository.
  */
 @OptionClass(alias = "vts-file-pusher")
-public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
+public class VtsFilePusher extends PushFilePreparer {
     @Option(name="push-group", description=
             "A push group name. Must be a .push file under tools/vts-tradefed/res/push_groups/. "
                     + "May be under a relative path. May be repeated. Duplication of file specs "
@@ -66,7 +63,6 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
     static final String PUSH_GROUP_FILE_EXTENSION = ".push";
 
     private Collection<String> mFilesPushed = new TreeSet<>();
-    private IAbi mAbi;
     private VtsCompatibilityInvocationHelper mInvocationHelper;
 
     /**
@@ -187,22 +183,23 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
      * {@inheritDoc}
      */
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+    public void setUp(TestInformation testInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        ITestDevice device = testInfo.getDevice();
+        IBuildInfo buildInfo = testInfo.getBuildInfo();
         device.enableAdbRoot();
         mInvocationHelper = new VtsCompatibilityInvocationHelper();
         pushFileGroups(device, buildInfo);
 
-        super.setUp(device, buildInfo);
+        super.setUp(testInfo);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
-
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
+        ITestDevice device = testInfo.getDevice();
         if (!(e instanceof DeviceNotAvailableException) && mPushGroupCleanup && mFilesPushed != null) {
             device.enableAdbRoot();
             if (mPushGroupRemount) {
@@ -213,23 +210,7 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
             }
         }
 
-        super.tearDown(device, buildInfo, e);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setAbi(IAbi abi) {
-        mAbi = abi;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public IAbi getAbi() {
-        return mAbi;
+        super.tearDown(testInfo, e);
     }
 
     /**
@@ -240,7 +221,7 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
         File f = null;
         try {
             f = new File(mInvocationHelper.getTestsDir(),
-                    String.format("%s%s", fileName, mAppendBitness ? mAbi.getBitness() : ""));
+                    String.format("%s%s", fileName, mAppendBitness ? getAbi().getBitness() : ""));
             CLog.d("Copying from %s", f.getAbsolutePath());
             return f;
         } catch (FileNotFoundException e) {
@@ -250,4 +231,3 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
         return null;
     }
 }
-

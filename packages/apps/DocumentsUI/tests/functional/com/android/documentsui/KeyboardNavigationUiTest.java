@@ -85,7 +85,6 @@ public class KeyboardNavigationUiTest extends ActivityTest<FilesActivity> {
         bots.roots.openDrawer();
 
         bots.keyboard.pressKey(KeyEvent.KEYCODE_TAB);
-        bots.keyboard.pressKey(KeyEvent.KEYCODE_TAB);
         for (int i = 0; i < 10; i++) {
             bots.keyboard.pressKey(KeyEvent.KEYCODE_DPAD_RIGHT);
             bots.roots.assertHasFocus();

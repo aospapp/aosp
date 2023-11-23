@@ -234,10 +234,12 @@ public class BluetoothPeripheralHandover implements BluetoothProfile.ServiceList
                             mAction = ACTION_DISCONNECT;
                         } else {
                             // Check if each profile of the device is disabled or not
-                            if (mHeadset.getPriority(mDevice) == BluetoothProfile.PRIORITY_OFF) {
+                            if (mHeadset.getConnectionPolicy(mDevice) ==
+                                BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
                                 mIsHeadsetAvailable = false;
                             }
-                            if (mA2dp.getPriority(mDevice) == BluetoothProfile.PRIORITY_OFF) {
+                            if (mA2dp.getConnectionPolicy(mDevice) ==
+                                BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
                                 mIsA2dpAvailable = false;
                             }
                             if (!mIsHeadsetAvailable && !mIsA2dpAvailable) {
@@ -586,7 +588,7 @@ public class BluetoothPeripheralHandover implements BluetoothProfile.ServiceList
     boolean hasA2dpCapability(ParcelUuid[] uuids, BluetoothClass btClass) {
         if (uuids != null) {
             for (ParcelUuid uuid : uuids) {
-                if (BluetoothUuid.isAudioSink(uuid) || BluetoothUuid.isAdvAudioDist(uuid)) {
+                if (uuid.equals(BluetoothUuid.A2DP_SINK) || uuid.equals(BluetoothUuid.ADV_AUDIO_DIST)) {
                     return true;
                 }
             }
@@ -600,7 +602,7 @@ public class BluetoothPeripheralHandover implements BluetoothProfile.ServiceList
     boolean hasHeadsetCapability(ParcelUuid[] uuids, BluetoothClass btClass) {
         if (uuids != null) {
             for (ParcelUuid uuid : uuids) {
-                if (BluetoothUuid.isHandsfree(uuid) || BluetoothUuid.isHeadset(uuid)) {
+                if (uuid.equals(BluetoothUuid.HFP) || uuid.equals(BluetoothUuid.HSP)) {
                     return true;
                 }
             }

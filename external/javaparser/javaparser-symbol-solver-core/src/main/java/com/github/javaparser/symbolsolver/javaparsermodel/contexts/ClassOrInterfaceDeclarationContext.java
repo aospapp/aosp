@@ -16,17 +16,20 @@
 
 package com.github.javaparser.symbolsolver.javaparsermodel.contexts;
 
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.resolution.declarations.*;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.resolution.types.ResolvedTypeVariable;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFactory;
 import com.github.javaparser.symbolsolver.javaparsermodel.declarations.JavaParserTypeParameter;
 import com.github.javaparser.symbolsolver.model.resolution.SymbolReference;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.model.resolution.Value;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,7 +55,7 @@ public class ClassOrInterfaceDeclarationContext extends AbstractJavaParserContex
     ///
 
     @Override
-    public SymbolReference<? extends ResolvedValueDeclaration> solveSymbol(String name, TypeSolver typeSolver) {
+    public SymbolReference<? extends ResolvedValueDeclaration> solveSymbol(String name) {
         if (typeSolver == null) throw new IllegalArgumentException();
 
         if (this.getDeclaration().hasVisibleField(name)) {
@@ -60,11 +63,11 @@ public class ClassOrInterfaceDeclarationContext extends AbstractJavaParserContex
         }
 
         // then to parent
-        return getParent().solveSymbol(name, typeSolver);
+        return getParent().solveSymbol(name);
     }
 
     @Override
-    public Optional<Value> solveSymbolAsValue(String name, TypeSolver typeSolver) {
+    public Optional<Value> solveSymbolAsValue(String name) {
         if (typeSolver == null) throw new IllegalArgumentException();
 
         if (this.getDeclaration().hasVisibleField(name)) {
@@ -72,31 +75,53 @@ public class ClassOrInterfaceDeclarationContext extends AbstractJavaParserContex
         }
 
         // then to parent
-        return getParent().solveSymbolAsValue(name, typeSolver);
+        return getParent().solveSymbolAsValue(name);
     }
 
     @Override
-    public Optional<ResolvedType> solveGenericType(String name, TypeSolver typeSolver) {
+    public Optional<ResolvedType> solveGenericType(String name) {
         for (com.github.javaparser.ast.type.TypeParameter tp : wrappedNode.getTypeParameters()) {
             if (tp.getName().getId().equals(name)) {
                 return Optional.of(new ResolvedTypeVariable(new JavaParserTypeParameter(tp, typeSolver)));
             }
         }
-        return getParent().solveGenericType(name, typeSolver);
+        return getParent().solveGenericType(name);
     }
 
     @Override
-    public SymbolReference<ResolvedTypeDeclaration> solveType(String name, TypeSolver typeSolver) {
-        return javaParserTypeDeclarationAdapter.solveType(name, typeSolver);
+    public SymbolReference<ResolvedTypeDeclaration> solveType(String name) {
+        // First attempt to resolve against implemented classes - cf. issue #2195
+        for (ClassOrInterfaceType implementedType : wrappedNode.getImplementedTypes()) {
+            if (implementedType.getName().getId().equals(name)) {
+                return JavaParserFactory.getContext(wrappedNode.getParentNode().orElse(null), typeSolver).solveType(name);
+            }
+        }
+
+        for (ClassOrInterfaceType extendedType : wrappedNode.getExtendedTypes()) {
+            if (extendedType.getName().getId().equals(name)) {
+                return JavaParserFactory.getContext(wrappedNode.getParentNode().orElse(null), typeSolver).solveType(name);
+            }
+        }
+
+        return javaParserTypeDeclarationAdapter.solveType(name);
     }
 
     @Override
-    public SymbolReference<ResolvedMethodDeclaration> solveMethod(String name, List<ResolvedType> argumentsTypes, boolean staticOnly, TypeSolver typeSolver) {
-        return javaParserTypeDeclarationAdapter.solveMethod(name, argumentsTypes, staticOnly, typeSolver);
+    public SymbolReference<ResolvedMethodDeclaration> solveMethod(String name, List<ResolvedType> argumentsTypes, boolean staticOnly) {
+        return javaParserTypeDeclarationAdapter.solveMethod(name, argumentsTypes, staticOnly);
     }
 
-    public SymbolReference<ResolvedConstructorDeclaration> solveConstructor(List<ResolvedType> argumentsTypes, TypeSolver typeSolver) {
-        return javaParserTypeDeclarationAdapter.solveConstructor(argumentsTypes, typeSolver);
+    public SymbolReference<ResolvedConstructorDeclaration> solveConstructor(List<ResolvedType> argumentsTypes) {
+        return javaParserTypeDeclarationAdapter.solveConstructor(argumentsTypes);
+    }
+
+    @Override
+    public List<ResolvedFieldDeclaration> fieldsExposedToChild(Node child) {
+        List<ResolvedFieldDeclaration> fields = new LinkedList<>();
+        fields.addAll(this.wrappedNode.resolve().getDeclaredFields());
+        this.wrappedNode.getExtendedTypes().forEach(i -> fields.addAll(i.resolve().getAllFieldsVisibleToInheritors()));
+        this.wrappedNode.getImplementedTypes().forEach(i -> fields.addAll(i.resolve().getAllFieldsVisibleToInheritors()));
+        return fields;
     }
 
     ///

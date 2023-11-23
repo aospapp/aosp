@@ -16,15 +16,9 @@
 <configuration description="Config for CTS Hidden API Signature test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="systems" />
-    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="mkdir -p /data/local/tmp/signature-test" />
-        <option name="teardown-command" value="rm -rf /data/local/tmp/signature-test" />
-    </target_preparer>
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="push" value="hiddenapi_flags.csv->/data/local/tmp/signature-test/hiddenapi_flags.csv" />
-    </target_preparer>
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsHiddenApiBlacklistApi28TestCases.apk" />
@@ -33,8 +27,9 @@
         <option name="package" value="android.signature.cts.api.hiddenapi_blacklist_api_28" />
         <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
         <option name="class" value="android.signature.cts.api.api28.HiddenApiTest" />
-        <option name="instrumentation-arg" key="hiddenapi-files" value="hiddenapi_flags.csv" />
+        <option name="instrumentation-arg" key="hiddenapi-files" value="hiddenapi-flags.csv" />
         <option name="instrumentation-arg" key="hiddenapi-test-flags" value="blacklist,greylist-max-o" />
+        <option name="test-api-access" value="false" />
         <option name="runtime-hint" value="30s" />
     </test>
 </configuration>

@@ -104,10 +104,10 @@ const std::set<pid_t> &HidlService::getPassthroughClients() const {
     return mPassthroughClients;
 }
 
-void HidlService::addClientCallback(const sp<IClientCallback>& callback) {
+void HidlService::addClientCallback(const sp<IClientCallback>& callback, size_t knownClientCount) {
     if (mHasClients) {
         // we have this kernel feature, so make sure we're in an updated state
-        forceHandleClientCallbacks(false /*onInterval*/);
+        forceHandleClientCallbacks(false /*onInterval*/, knownClientCount);
     }
 
     if (mHasClients) {
@@ -133,21 +133,21 @@ bool HidlService::removeClientCallback(const sp<IClientCallback>& callback) {
     return found;
 }
 
-ssize_t HidlService::handleClientCallbacks(bool isCalledOnInterval) {
+bool HidlService::handleClientCallbacks(bool isCalledOnInterval, size_t knownClientCount) {
     if (!mClientCallbacks.empty()) {
-        return forceHandleClientCallbacks(isCalledOnInterval);
+        return forceHandleClientCallbacks(isCalledOnInterval, knownClientCount);
     }
 
-    return -1;
+    return false;
 }
 
-ssize_t HidlService::forceHandleClientCallbacks(bool isCalledOnInterval) {
+bool HidlService::forceHandleClientCallbacks(bool isCalledOnInterval, size_t knownClientCount) {
     ssize_t count = getNodeStrongRefCount();
 
     // binder driver doesn't support this feature
-    if (count == -1) return count;
+    if (count < 0) return false;
 
-    bool hasClients = count > 1; // this process holds a strong count
+    bool hasClients = (size_t)count > knownClientCount;
 
     if (mGuaranteeClient) {
         // we have no record of this client
@@ -173,7 +173,7 @@ ssize_t HidlService::forceHandleClientCallbacks(bool isCalledOnInterval) {
         }
     }
 
-    return count;
+    return mHasClients;
 }
 
 void HidlService::guaranteeClient() {

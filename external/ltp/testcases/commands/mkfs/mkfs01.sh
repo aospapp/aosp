@@ -1,20 +1,9 @@
 #!/bin/sh
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2015 Fujitsu Ltd.
 # Author: Guangwen Feng <fenggw-fnst@cn.fujitsu.com>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
-# the GNU General Public License for more details.
-#
 # Test mkfs command with some basic options.
-#
 
 TST_CNT=5
 TST_SETUP=setup
@@ -23,7 +12,6 @@ TST_OPTS="f:"
 TST_USAGE=usage
 TST_PARSE_ARGS=parse_args
 TST_NEEDS_ROOT=1
-TST_NEEDS_TMPDIR=1
 TST_NEEDS_DEVICE=1
 TST_NEEDS_CMDS="blkid df"
 . tst_test.sh
@@ -42,29 +30,16 @@ EOF
 
 parse_args()
 {
-	FS_TYPE="$2"
+	TST_FS_TYPE="$2"
 }
 
 setup()
 {
-	if [ -n "$FS_TYPE" ]; then
-		tst_test_cmds mkfs.${FS_TYPE}
+	if [ -n "$TST_FS_TYPE" ]; then
+		tst_require_cmds mkfs.${TST_FS_TYPE}
 	fi
 
 	ROD_SILENT mkdir -p mntpoint
-}
-
-mkfs_mount()
-{
-	mount ${TST_DEVICE} mntpoint
-	local ret=$?
-	if [ $ret -eq 32 ]; then
-		tst_brk TCONF "Cannot mount ${FS_TYPE}, missing driver?"
-	fi
-
-	if [ $ret -ne 0 ]; then
-		tst_brk TBROK "Failed to mount device: mount exit = $ret"
-	fi
 }
 
 mkfs_verify_type()
@@ -82,9 +57,9 @@ mkfs_verify_type()
 
 mkfs_verify_size()
 {
-	mkfs_mount
+	tst_mount
 	local blocknum=`df -P -B 1k mntpoint | tail -n1 | awk '{print $2}'`
-	tst_umount "$TST_DEVICE"
+	tst_umount
 
 	if [ $blocknum -gt "$2" ]; then
 		return 1
@@ -171,17 +146,17 @@ mkfs_test()
 
 test1()
 {
-	mkfs_test "" "$FS_TYPE" "" "$TST_DEVICE"
+	mkfs_test "" "$TST_FS_TYPE" "" "$TST_DEVICE"
 }
 
 test2()
 {
-	mkfs_test "" "$FS_TYPE" "" "$TST_DEVICE" "16000"
+	mkfs_test "" "$TST_FS_TYPE" "" "$TST_DEVICE" "16000"
 }
 
 test3()
 {
-	mkfs_test "" "$FS_TYPE" "-c" "$TST_DEVICE"
+	mkfs_test "" "$TST_FS_TYPE" "-c" "$TST_DEVICE"
 }
 
 test4()

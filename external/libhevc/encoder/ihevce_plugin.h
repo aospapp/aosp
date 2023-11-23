@@ -89,9 +89,11 @@ typedef struct
     /* Current peak bitrate*/
     WORD32 i4_curr_peak_bitrate;
 
-    /* Current rate factor*/
+    /* Unused variable retained for backward compatibility*/
     WORD32 i4_curr_rate_factor;
 
+    /* force idr flag */
+    WORD32 i4_force_idr_flag;
 } ihevce_inp_buf_t;
 
 typedef struct

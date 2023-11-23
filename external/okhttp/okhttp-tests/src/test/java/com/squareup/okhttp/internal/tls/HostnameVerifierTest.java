@@ -21,11 +21,17 @@ import com.squareup.okhttp.internal.Util;
 import java.io.ByteArrayInputStream;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
+import java.util.Collection;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSession;
 import javax.security.auth.x500.X500Principal;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -35,8 +41,23 @@ import static org.junit.Assert.assertTrue;
  * Tests for our hostname verifier. Most of these tests are from AOSP, which
  * itself includes tests from the Apache HTTP Client test suite.
  */
+@RunWith(Parameterized.class)
 public final class HostnameVerifierTest {
-  private HostnameVerifier verifier = OkHostnameVerifier.INSTANCE;
+  // BEGIN Android-changed: Run tests for both default and strict verifiers. http://b/144694112
+  // private HostnameVerifier verifier = OkHostnameVerifier.INSTANCE;
+  @Parameters()
+  public static Collection<Object[]> data() {
+    // Both verifiers should behave the same in all tests except for
+    // subjectAltNameWithToplevelWildcard(), and that test is not parameterized for clarity.
+    return Arrays.asList(new Object[][] {
+        { OkHostnameVerifier.INSTANCE },
+        { OkHostnameVerifier.strictInstance() }
+    });
+  }
+
+  @Parameter
+  public HostnameVerifier verifier;
+  // END Android-changed: Run tests for both default and strict verifiers. http://b/144694112
 
   @Test public void verify() throws Exception {
     FakeSSLSession session = new FakeSSLSession();
@@ -531,6 +552,32 @@ public final class HostnameVerifierTest {
     assertFalse(verifier.verify("a.bar.com", session));
     assertFalse(verifier.verify("quux.com", session));
   }
+
+  // BEGIN Android-added: Verify behaviour with top level wildcard SAN. http://b/144694112
+  @Test
+  public void subjectAltNameWithToplevelWildcard() throws Exception {
+    // Default OkHostnameVerifier instance should allow SANs which
+    // have wildcards for top-level domains.  The strict instance should not.
+    //
+    // Certificate generated using:-
+    //     openssl req -x509 -nodes -days 36500 -subj "/CN=Google Inc" \
+    //         -addext "subjectAltName=DNS:*.com" -newkey rsa:512
+    SSLSession session = session(""
+        + "-----BEGIN CERTIFICATE-----\n"
+        + "MIIBlTCCAT+gAwIBAgIUe1RB6C61ZW/SEQpKiywSEJOEOUMwDQYJKoZIhvcNAQEL\n"
+        + "BQAwFTETMBEGA1UEAwwKR29vZ2xlIEluYzAgFw0xOTExMjExMjE1NTBaGA8yMTE5\n"
+        + "MTAyODEyMTU1MFowFTETMBEGA1UEAwwKR29vZ2xlIEluYzBcMA0GCSqGSIb3DQEB\n"
+        + "AQUAA0sAMEgCQQCu24jT8hktpvnmcde4dqC6e7G5F4cNNLUFnTi3Ay9BzPH1r7sN\n"
+        + "v2lHTIQLKSlvjxa48mpeRBlOjDQigv7c+rfRAgMBAAGjZTBjMB0GA1UdDgQWBBQd\n"
+        + "myvYKfluxb0+kNEJoh1ZER2wUTAfBgNVHSMEGDAWgBQdmyvYKfluxb0+kNEJoh1Z\n"
+        + "ER2wUTAPBgNVHRMBAf8EBTADAQH/MBAGA1UdEQQJMAeCBSouY29tMA0GCSqGSIb3\n"
+        + "DQEBCwUAA0EAK710g2hQpXSmpbOQH4dHG61fkVDtM/kR/4/R61vDDqVkgOuyHqXl\n"
+        + "GUZFKHMeOZ8peQLT8b+5ik6pIO7Vu2pF6w==\n"
+        + "-----END CERTIFICATE-----\n");
+    assertTrue(OkHostnameVerifier.INSTANCE.verify("google.com", session));
+    assertFalse(OkHostnameVerifier.strictInstance().verify("google.com", session));
+  }
+  // END Android-added: Verify behaviour with top level wildcard SAN. http://b/144694112
 
   @Test public void verifyAsIpAddress() {
     // IPv4

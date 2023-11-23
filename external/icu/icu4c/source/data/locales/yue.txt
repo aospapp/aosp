@@ -72,12 +72,12 @@ yue{
         "]"
     }
     ExemplarCharactersIndex{"[一 丁 丈 不 且 丞 並 串 乘 乾 亂 亭 傀 僎 僵 儐 償 儳 儷 儻 叢 嚴 囌 囑 廳]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9 〇 一 七 三 九 二 五 八 六 四]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9 〇 一 七 三 九 二 五 八 六 四]"}
     ExemplarCharactersPunctuation{
-        "[‾ ﹉﹊﹋﹌ _ ＿ ﹍﹎﹏ ︳︴ \\- － ﹣ ‐ – ︲ — ﹘ ︱ , ， ﹐ 、 ﹑ ; ； ﹔ \\: ： ﹕ ! ！ ﹗ ? ？ ﹖ ."
-        " ． ﹒ ‥ ︰ … 。 · ＇ ‘ ’ \u0022 ＂ “ ” 〝 〞 ( （ ﹙ ︵ ) ） ﹚ ︶ \\[ ［ \\] ］ \\{ ｛ ﹛ ︷ "
-        "\\} ｝ ﹜ ︸ 〈 ︿ 〉 ﹀ 《 ︽ 》 ︾ 「 ﹁ 」 ﹂ 『 ﹃ 』 ﹄ 【 ︻ 】 ︼ 〔 ﹝ ︹ 〕 ﹞ ︺ § @ ＠ ﹫ * ＊ ﹡ "
-        "/ ／ \\\\ ＼ ﹨ \\& ＆ ﹠ # ＃ ﹟ % ％ ﹪ ‰ † ‡ ‧ ′ ″ ‵ 〃 ※]"
+        "[‾ ﹉﹊﹋﹌ _ ＿ ﹍﹎﹏ ︳︴ \\- － ﹣ ‐ ‑ – ︲ — ﹘ ︱ , ， ﹐ 、 ﹑ ; ； ﹔ \\: ： ﹕ ! ！ ﹗ ? ？ ﹖"
+        " . ． ﹒ ‥ ︰ … 。 · ＇ ‘ ’ \u0022 ＂ “ ” 〝 〞 ( （ ﹙ ︵ ) ） ﹚ ︶ \\[ ［ \\] ］ \\{ ｛ ﹛ "
+        "︷ \\} ｝ ﹜ ︸ 〈 ︿ 〉 ﹀ 《 ︽ 》 ︾ 「 ﹁ 」 ﹂ 『 ﹃ 』 ﹄ 【 ︻ 】 ︼ 〔 ﹝ ︹ 〕 ﹞ ︺ § @ ＠ ﹫ * ＊ "
+        "﹡ / ／ \\\\ ＼ ﹨ \\& ＆ ﹠ # ＃ ﹟ % ％ ﹪ ‰ † ‡ ‧ ′ ″ ‵ 〃 ※]"
     }
     MoreInformation{"？"}
     NumberElements{
@@ -262,7 +262,7 @@ yue{
         native{"hanidec"}
         traditional{"hant"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -1167,6 +1167,53 @@ yue{
                 yyyyQQQQ{"G y年QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"Bh時至Bh時"}
+                    h{"Bh至h時"}
+                }
+                Bhm{
+                    B{"Bh:mm至Bh:mm"}
+                    h{"Bh:mm至h:mm"}
+                    m{"Bh:mm至h:mm"}
+                }
+                Gy{
+                    G{"G y年至G y年"}
+                    y{"G y至y年"}
+                }
+                GyM{
+                    G{"G y/M至G y/M"}
+                    M{"G y/M至y/M"}
+                    y{"G y/M至y/M"}
+                }
+                GyMEd{
+                    G{"G y/M/d（E）至G y/M/d（E）"}
+                    M{"G y/M/d（E）至y/M/d（E）"}
+                    d{"G y/M/d（E）至y/M/d（E）"}
+                    y{"G y/M/d（E）至y/M/d（E）"}
+                }
+                GyMMM{
+                    G{"G y年M月至G y年M月"}
+                    M{"G y年M月至M月"}
+                    y{"G y年M月至y年M月"}
+                }
+                GyMMMEd{
+                    G{"G y年M月d日（E）至G y年M月d日（E）"}
+                    M{"G y年M月d日（E）至M月d日（E）"}
+                    d{"G y年M月d日（E）至M月d日（E）"}
+                    y{"G y年M月d日（E）至y年M月d日（E）"}
+                }
+                GyMMMd{
+                    G{"G y年M月d日至G y年M月d日"}
+                    M{"G y年M月d日至M月d日"}
+                    d{"G y年M月d日至d日"}
+                    y{"G y年M月d日至y年M月d日"}
+                }
+                GyMd{
+                    G{"G y/M/d至G y/M/d"}
+                    M{"G y/M/d至y/M/d"}
+                    d{"G y/M/d至y/M/d"}
+                    y{"G y/M/d至y/M/d"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1520,6 +1567,53 @@ yue{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"Bh時至Bh時"}
+                    h{"Bh至h時"}
+                }
+                Bhm{
+                    B{"Bh:mm至Bh:mm"}
+                    h{"Bh:mm至h:mm"}
+                    m{"Bh:mm至h:mm"}
+                }
+                Gy{
+                    G{"Gy年至Gy年"}
+                    y{"Gy年至y年"}
+                }
+                GyM{
+                    G{"GGGGGy年M月至y年M月"}
+                    M{"GGGGGy年M月至y年M月"}
+                    y{"GGGGGy年M月至y年M月"}
+                }
+                GyMEd{
+                    G{"GGGGGy年M月dd日E至GGGGGy年M月dd日E"}
+                    M{"GGGGGy年M月dd日E至y年M月dd日E"}
+                    d{"GGGGGy年M月dd日E至y年M月dd日E"}
+                    y{"GGGGGy年M月dd日E至y年M月dd日E"}
+                }
+                GyMMM{
+                    G{"Gy年MMM至Gy年MMM"}
+                    M{"G y年MMM至MMM"}
+                    y{"Gy年MMM至y年MMM"}
+                }
+                GyMMMEd{
+                    G{"Gy 年MMMd日E至Gy年MMMd日E"}
+                    M{"Gy年MMMd日E至MMMd日E"}
+                    d{"Gy年MMMd日E至MMMd日E"}
+                    y{"Gy年MMMd日E至y年MMMd日E"}
+                }
+                GyMMMd{
+                    G{"Gy年MMMd日至Gy年MMMd日"}
+                    M{"Gy年MMMd日至MMMd日"}
+                    d{"Gy年MMMd至d日"}
+                    y{"Gy年MMMd日至y年MMMd日"}
+                }
+                GyMd{
+                    G{"GGGGGy年M月dd日y年M月dd日"}
+                    M{"GGGGGy年M月dd日至y年M月dd日"}
+                    d{"GGGGGy年M月dd日至y年M月dd日"}
+                    y{"GGGGGy年M月dd日至y年M月dd日"}
+                }
                 H{
                     H{"HH–HH"}
                 }

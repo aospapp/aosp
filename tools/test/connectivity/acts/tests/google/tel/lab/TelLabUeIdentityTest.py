@@ -47,16 +47,15 @@ class TelLabUeIdentityTest(TelephonyBaseTest):
 
     CELL_PARAM_FILE = 'C:\\MX847570\\CellParam\\ACTS\\2cell_param.wnscp'
 
-    def __init__(self, controllers):
-        TelephonyBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.ad = self.android_devices[0]
         self.md8475a_ip_address = self.user_params[
             "anritsu_md8475a_ip_address"]
         self.ad.sim_card = getattr(self.ad, "sim_card", None)
 
-    def setup_class(self):
         try:
-            self.anritsu = MD8475A(self.md8475a_ip_address, self.log)
+            self.anritsu = MD8475A(self.md8475a_ip_address)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False

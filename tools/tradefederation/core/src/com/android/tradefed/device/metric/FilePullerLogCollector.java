@@ -42,9 +42,10 @@ public class FilePullerLogCollector extends FilePullerDeviceMetricCollector {
                 String ext = FileUtil.getExtension(metricFile.getName()).toLowerCase();
                 if (".png".equals(ext)) {
                     type = LogDataType.PNG;
-                }
-                if (".pb".equals(ext)) {
+                } else if (".pb".equals(ext)) {
                     type = LogDataType.PB;
+                } else if (".mp4".equals(ext)) {
+                    type = LogDataType.MP4;
                 }
                 testLog(metricFile.getName(), type, source);
             }

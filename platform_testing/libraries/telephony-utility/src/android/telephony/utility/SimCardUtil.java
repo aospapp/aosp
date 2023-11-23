@@ -19,11 +19,9 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.device.collectors.util.SendToInstrumentation;
 import android.os.Bundle;
-import android.se.omapi.Channel;
 import android.se.omapi.Reader;
 import android.se.omapi.SEService;
 import android.se.omapi.SEService.OnConnectedListener;
-import android.se.omapi.Session;
 import android.telephony.TelephonyManager;
 
 import java.util.Timer;
@@ -52,7 +50,7 @@ public class SimCardUtil {
     private static final String SECURED_ELEMENT = "has_secured_element";
     private static final String SE_SERVICE = "has_se_service";
 
-    private final long SERVICE_CONNECTION_TIME_OUT = 3000;
+    private static final long SERVICE_CONNECTION_TIME_OUT = 3000;
 
     private SEService mSeService;
     private Object mServiceMutex = new Object();
@@ -136,6 +134,7 @@ public class SimCardUtil {
     }
 
     private class SynchronousExecutor implements Executor {
+        @Override
         public void execute(Runnable r) {
             r.run();
         }

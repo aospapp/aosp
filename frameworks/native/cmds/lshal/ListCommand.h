@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORK_NATIVE_CMDS_LSHAL_LIST_COMMAND_H_
-#define FRAMEWORK_NATIVE_CMDS_LSHAL_LIST_COMMAND_H_
+#pragma once
 
 #include <getopt.h>
 #include <stdint.h>
@@ -105,7 +104,8 @@ protected:
     Status fetchBinderizedEntry(const sp<::android::hidl::manager::V1_0::IServiceManager> &manager,
                                 TableEntry *entry);
 
-    // Get relevant information for a PID by parsing files under /d/binder.
+    // Get relevant information for a PID by parsing files under
+    // /dev/binderfs/binder_logs or /d/binder.
     // It is a virtual member function so that it can be mocked.
     virtual bool getPidInfo(pid_t serverPid, PidInfo *info) const;
     // Retrieve from mCachedPidInfos and call getPidInfo if necessary.
@@ -206,5 +206,3 @@ private:
 
 }  // namespace lshal
 }  // namespace android
-
-#endif  // FRAMEWORK_NATIVE_CMDS_LSHAL_LIST_COMMAND_H_

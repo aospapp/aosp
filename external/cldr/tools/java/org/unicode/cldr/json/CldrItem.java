@@ -217,41 +217,36 @@ public class CldrItem implements Comparable<CldrItem> {
      * @return Array of CldrItem if it can be split, otherwise null.
      */
     public CldrItem[] split() {
-        XPathParts xpp = new XPathParts();
-        XPathParts fullxpp = new XPathParts();
-        XPathParts newxpp = new XPathParts();
-        XPathParts newfullxpp = new XPathParts();
-        XPathParts untransformedxpp = new XPathParts();
-        XPathParts untransformedfullxpp = new XPathParts();
-        XPathParts untransformednewxpp = new XPathParts();
-        XPathParts untransformednewfullxpp = new XPathParts();
-        xpp.set(path);
-        fullxpp.set(fullPath);
-        untransformedxpp.set(untransformedPath);
-        untransformedfullxpp.set(untransformedFullPath);
+        XPathParts xpp = XPathParts.getFrozenInstance(path);
+        XPathParts fullxpp = XPathParts.getFrozenInstance(fullPath);
+        XPathParts untransformedxpp = XPathParts.getFrozenInstance(untransformedPath);
+        XPathParts untransformedfullxpp = XPathParts.getFrozenInstance(untransformedFullPath);
+
         for (SplittableAttributeSpec s : LdmlConvertRules.SPLITTABLE_ATTRS) {
             if (fullxpp.containsElement(s.element) && fullxpp.containsAttribute(s.attribute)) {
                 ArrayList<CldrItem> list = new ArrayList<CldrItem>();
                 String wordString = fullxpp.findAttributeValue(s.element, s.attribute);
                 String[] words = null;
                 words = wordString.trim().split("\\s+");
-                XPathParts[] newparts = { newxpp, newfullxpp, untransformednewxpp, untransformednewfullxpp };
-                XPathParts[] trparts = { newxpp, newfullxpp };
                 for (String word : words) {
-                    newxpp.set(xpp);
-                    newfullxpp.set(fullxpp);
-                    untransformednewxpp.set(untransformedxpp);
-                    untransformednewfullxpp.set(untransformedfullxpp);
-                    for (XPathParts np : newparts) {
-                        np.setAttribute(s.element, s.attribute, word);
-                    }
+                    XPathParts newxpp = XPathParts.getInstance(xpp.toString());
+                    XPathParts newfullxpp = XPathParts.getInstance(fullxpp.toString());
+                    XPathParts untransformednewxpp = XPathParts.getInstance(untransformedxpp.toString());
+                    XPathParts untransformednewfullxpp = XPathParts.getInstance(untransformedfullxpp.toString());
+
+                    newxpp.setAttribute(s.element, s.attribute, word);
+                    newfullxpp.setAttribute(s.element, s.attribute, word);
+                    untransformednewxpp.setAttribute(s.element, s.attribute, word);
+                    untransformednewfullxpp.setAttribute(s.element, s.attribute, word);
+
                     if (s.attrAsValueAfterSplit != null) {
                         String newValue = fullxpp.findAttributeValue(s.element, s.attrAsValueAfterSplit);
-                        for (XPathParts np : trparts) {
-                            np.removeAttribute(s.element, s.attrAsValueAfterSplit);
-                            np.removeAttribute(s.element, s.attribute);
-                            np.addElement(word);
-                        }
+                        newxpp.removeAttribute(s.element, s.attrAsValueAfterSplit);
+                        newxpp.removeAttribute(s.element, s.attribute);
+                        newxpp.addElement(word);
+                        newfullxpp.removeAttribute(s.element, s.attrAsValueAfterSplit);
+                        newfullxpp.removeAttribute(s.element, s.attribute);
+                        newfullxpp.addElement(word);
                         list.add(new CldrItem(newxpp.toString(), newfullxpp.toString(), untransformednewxpp.toString(), untransformednewfullxpp.toString(),
                             newValue));
                     } else {
@@ -272,8 +267,7 @@ public class CldrItem implements Comparable<CldrItem> {
      */
     public boolean needsSort() {
         for (String item : LdmlConvertRules.ELEMENT_NEED_SORT) {
-            XPathParts xpp = new XPathParts();
-            xpp.set(path);
+            XPathParts xpp = XPathParts.getFrozenInstance(path);
             if (xpp.containsElement(item)) {
                 return true;
             }
@@ -287,10 +281,8 @@ public class CldrItem implements Comparable<CldrItem> {
 
     @Override
     public int compareTo(CldrItem otherItem) {
-        XPathParts thisxpp = new XPathParts();
-        XPathParts otherxpp = new XPathParts();
-        thisxpp.set(untransformedPath);
-        otherxpp.set(otherItem.untransformedFullPath);
+        XPathParts thisxpp = XPathParts.getFrozenInstance(untransformedPath);
+        XPathParts otherxpp = XPathParts.getFrozenInstance(otherItem.untransformedFullPath);
         if (thisxpp.containsElement("zone") && otherxpp.containsElement("zone")) {
             String[] thisZonePieces = thisxpp.findAttributeValue("zone", "type").split("/");
             String[] otherZonePieces = otherxpp.findAttributeValue("zone", "type").split("/");

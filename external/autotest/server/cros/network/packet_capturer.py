@@ -11,6 +11,7 @@ import uuid
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import path_utils
+from autotest_lib.client.common_lib.cros.network import iw_runner
 
 
 class PacketCapturesDisabledError(Exception):
@@ -33,17 +34,75 @@ SNAPLEN_WIFI_PROBE_REQUEST = 600
 TCPDUMP_START_TIMEOUT_SECONDS = 5
 TCPDUMP_START_POLL_SECONDS = 0.1
 
-def get_packet_capturer(host, host_description=None, cmd_ifconfig=None,
-                        cmd_ip=None, cmd_iw=None, cmd_netdump=None,
-                        ignore_failures=False):
-    cmd_ifconfig = (cmd_ifconfig or
-                    path_utils.get_install_path('ifconfig', host=host))
+# These are WidthType objects from iw_runner
+WIDTH_HT20 = iw_runner.WIDTH_HT20
+WIDTH_HT40_PLUS = iw_runner.WIDTH_HT40_PLUS
+WIDTH_HT40_MINUS = iw_runner.WIDTH_HT40_MINUS
+WIDTH_VHT80 = iw_runner.WIDTH_VHT80
+WIDTH_VHT160 = iw_runner.WIDTH_VHT160
+WIDTH_VHT80_80 = iw_runner.WIDTH_VHT80_80
+
+_WIDTH_STRINGS = {
+    WIDTH_HT20: 'HT20',
+    WIDTH_HT40_PLUS: 'HT40+',
+    WIDTH_HT40_MINUS: 'HT40-',
+    WIDTH_VHT80: '80',
+    WIDTH_VHT160: '160',
+    WIDTH_VHT80_80: '80+80',
+}
+
+def _get_width_string(width):
+    """Returns a valid width parameter for "iw dev ${DEV} set freq".
+
+    @param width object, one of WIDTH_*
+    @return string iw readable width, or empty string
+
+    """
+    return _WIDTH_STRINGS.get(width, '')
+
+
+def _get_center_freq_80(frequency):
+    """Find the center frequency of a 80MHz channel.
+
+    Raises an error upon an invalid frequency.
+
+    @param frequency int Control frequency of the channel.
+    @return center_freq int Center frequency of the channel.
+
+    """
+    vht80 = [ 5180, 5260, 5500, 5580, 5660, 5745 ]
+    for f in vht80:
+        if frequency >= f and frequency < f + 80:
+            return f + 30
+    raise error.TestError(
+            'Frequency %s is not part of a 80MHz channel', frequency)
+
+
+def _get_center_freq_160(frequency):
+    """Find the center frequency of a 160MHz channel.
+
+    Raises an error upon an invalid frequency.
+
+    @param frequency int Control frequency of the channel.
+    @return center_freq int Center frequency of the channel.
+
+    """
+    if (frequency >= 5180 and frequency <= 5320):
+        return 5250
+    if (frequency >= 5500 and frequency <= 5640):
+        return 5570
+    raise error.TestError(
+            'Frequency %s is not part of a 160MHz channel', frequency)
+
+
+def get_packet_capturer(host, host_description=None, cmd_ip=None, cmd_iw=None,
+                        cmd_netdump=None, ignore_failures=False, logdir=None):
     cmd_iw = cmd_iw or path_utils.get_install_path('iw', host=host)
     cmd_ip = cmd_ip or path_utils.get_install_path('ip', host=host)
     cmd_netdump = (cmd_netdump or
                    path_utils.get_install_path('tcpdump', host=host))
     host_description = host_description or 'cap_%s' % uuid.uuid4().hex
-    if None in [cmd_ifconfig, cmd_iw, cmd_ip, cmd_netdump, host_description]:
+    if None in [cmd_iw, cmd_ip, cmd_netdump, host_description, logdir]:
         if ignore_failures:
             logging.warning('Creating a disabled packet capturer for %s.',
                             host_description)
@@ -52,8 +111,8 @@ def get_packet_capturer(host, host_description=None, cmd_ifconfig=None,
             raise error.TestFail('Missing commands needed for '
                                  'capturing packets')
 
-    return PacketCapturer(host, host_description, cmd_ifconfig, cmd_ip, cmd_iw,
-                          cmd_netdump)
+    return PacketCapturer(host, host_description, cmd_ip, cmd_iw, cmd_netdump,
+                          logdir=logdir)
 
 
 class DisabledPacketCapturer(object):
@@ -81,13 +140,13 @@ class DisabledPacketCapturer(object):
         """No-op"""
 
 
-    def create_raw_monitor(self, phy, frequency, ht_type=None,
+    def create_raw_monitor(self, phy, frequency, width_type=None,
                            monitor_device=None):
         """Appears to fail while creating a raw monitor device.
 
         @param phy string ignored.
         @param frequency int ignored.
-        @param ht_type string ignored.
+        @param width_type string ignored.
         @param monitor_device string ignored.
         @return None.
 
@@ -95,12 +154,12 @@ class DisabledPacketCapturer(object):
         return None
 
 
-    def configure_raw_monitor(self, monitor_device, frequency, ht_type=None):
+    def configure_raw_monitor(self, monitor_device, frequency, width_type=None):
         """Fails to configure a raw monitor.
 
         @param monitor_device string ignored.
         @param frequency int ignored.
-        @param ht_type string ignored.
+        @param width_type string ignored.
 
         """
 
@@ -153,12 +212,11 @@ class PacketCapturer(object):
         return False
 
 
-    def __init__(self, host, host_description, cmd_ifconfig, cmd_ip,
-                 cmd_iw, cmd_netdump, disable_captures=False):
+    def __init__(self, host, host_description, cmd_ip, cmd_iw, cmd_netdump,
+                 logdir, disable_captures=False):
         self._cmd_netdump = cmd_netdump
         self._cmd_iw = cmd_iw
         self._cmd_ip = cmd_ip
-        self._cmd_ifconfig = cmd_ifconfig
         self._host = host
         self._ongoing_captures = {}
         self._cap_num = 0
@@ -166,6 +224,7 @@ class PacketCapturer(object):
         self._created_managed_devices = []
         self._created_raw_devices = []
         self._host_description = host_description
+        self._logdir = logdir
 
 
     def __enter__(self):
@@ -188,7 +247,7 @@ class PacketCapturer(object):
         self._created_raw_devices = []
 
 
-    def create_raw_monitor(self, phy, frequency, ht_type=None,
+    def create_raw_monitor(self, phy, frequency, width_type=None,
                            monitor_device=None):
         """Create and configure a monitor type WiFi interface on a phy.
 
@@ -196,7 +255,8 @@ class PacketCapturer(object):
 
         @param phy string phy name for created monitor (e.g. phy0).
         @param frequency int frequency for created monitor to watch.
-        @param ht_type string optional HT type ('HT20', 'HT40+', or 'HT40-').
+        @param width_type object optional HT or VHT type, one of the keys in
+                self.WIDTH_STRINGS.
         @param monitor_device string name of monitor interface to create.
         @return string monitor device name created or None on failure.
 
@@ -216,27 +276,36 @@ class PacketCapturer(object):
             logging.error('Failed creating raw monitor.')
             return None
 
-        self.configure_raw_monitor(monitor_device, frequency, ht_type)
+        self.configure_raw_monitor(monitor_device, frequency, width_type)
         self._created_raw_devices.append(monitor_device)
         return monitor_device
 
 
-    def configure_raw_monitor(self, monitor_device, frequency, ht_type=None):
+    def configure_raw_monitor(self, monitor_device, frequency, width_type=None):
         """Configure a raw monitor with frequency and HT params.
 
         Note that this will stomp on earlier device settings.
 
         @param monitor_device string name of device to configure.
         @param frequency int WiFi frequency to dwell on.
-        @param ht_type string optional HT type ('HT20', 'HT40+', or 'HT40-').
+        @param width_type object width_type, one of the WIDTH_* objects.
 
         """
         channel_args = str(frequency)
-        if ht_type:
-            ht_type = ht_type.upper()
-            channel_args = '%s %s' % (channel_args, ht_type)
-            if ht_type not in ('HT20', 'HT40+', 'HT40-'):
-                raise error.TestError('Cannot set HT mode: %s', ht_type)
+
+        if width_type:
+            width_string = _get_width_string(width_type)
+            if not width_string:
+                raise error.TestError('Invalid width type: %r' % width_type)
+            if width_type == WIDTH_VHT80_80:
+                raise error.TestError('VHT80+80 packet capture not supported')
+            if width_type == WIDTH_VHT80:
+                width_string = '%s %d' % (width_string,
+                                          _get_center_freq_80(frequency))
+            elif width_type == WIDTH_VHT160:
+                width_string = '%s %d' % (width_string,
+                                          _get_center_freq_160(frequency))
+            channel_args = '%s %s' % (channel_args, width_string)
 
         self._host.run("%s link set %s up" % (self._cmd_ip, monitor_device))
         self._host.run("%s dev %s set freq %s" % (self._cmd_iw,
@@ -268,7 +337,7 @@ class PacketCapturer(object):
             logging.warning('Failed creating monitor.')
             return None
 
-        self._host.run('%s %s up' % (self._cmd_ifconfig, monitor_device))
+        self._host.run('%s link set %s up' % (self._cmd_ip, monitor_device))
         self._created_managed_devices.append(monitor_device)
         return monitor_device
 
@@ -296,7 +365,7 @@ class PacketCapturer(object):
 
         """
         remote_file = (remote_file or
-                       '/tmp/%s.%d.pcap' % (self._host_description,
+                       '%s/%s.%d.pcap' % (self._logdir, self._host_description,
                                             self._cap_num))
         self._cap_num += 1
         remote_log_file = '%s.log' % remote_file
@@ -329,7 +398,7 @@ class PacketCapturer(object):
         If |capture_pid| is given, stops that capture, otherwise stops all
         ongoing captures.
 
-        This method will sleep for a small amount of time, to ensure that
+        This method may sleep for a small amount of time, to ensure that
         libpcap has completed its last poll(). The caller must ensure that
         no unwanted traffic is received during this time.
 
@@ -340,12 +409,13 @@ class PacketCapturer(object):
         @return list of RemoteCaptureResult tuples
 
         """
-        time.sleep(self.LIBPCAP_POLL_FREQ_SECS * 2)
-
         if capture_pid:
             pids_to_kill = [capture_pid]
         else:
             pids_to_kill = list(self._ongoing_captures.keys())
+
+        if pids_to_kill:
+            time.sleep(self.LIBPCAP_POLL_FREQ_SECS * 2)
 
         results = []
         for pid in pids_to_kill:

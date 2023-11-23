@@ -15,7 +15,7 @@
 //
 
 android_library {
-    name: "car-theme-lib-bp",
+    name: "car-theme-lib",
 
     srcs: ["src/**/*.java"],
 
@@ -26,5 +26,4 @@ android_library {
     optimize: {
         enabled: false,
     },
-
 }

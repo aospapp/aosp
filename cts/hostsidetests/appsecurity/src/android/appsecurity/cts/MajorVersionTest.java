@@ -60,7 +60,7 @@ public class MajorVersionTest extends BaseAppSecurityTest {
         testInstallMinorVersion(true);
     }
     private void testInstallMinorVersion(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK_000000000000ffff).run();
+        new InstallMultiple(instant).addFile(APK_000000000000ffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
     }
@@ -76,7 +76,7 @@ public class MajorVersionTest extends BaseAppSecurityTest {
         testInstallMajorVersion(true);
     }
     private void testInstallMajorVersion(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK_000000ff00000000).run();
+        new InstallMultiple(instant).addFile(APK_000000ff00000000).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
     }
@@ -92,16 +92,16 @@ public class MajorVersionTest extends BaseAppSecurityTest {
         testInstallUpdateAcrossMinorMajorVersion(true);
     }
     private void testInstallUpdateAcrossMinorMajorVersion(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK_000000000000ffff).run();
+        new InstallMultiple(instant).addFile(APK_000000000000ffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        new InstallMultiple(instant).addApk(APK_00000000ffffffff).run();
+        new InstallMultiple(instant).addFile(APK_00000000ffffffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        new InstallMultiple(instant).addApk(APK_000000ff00000000).run();
+        new InstallMultiple(instant).addFile(APK_000000ff00000000).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        new InstallMultiple(instant).addApk(APK_000000ffffffffff).run();
+        new InstallMultiple(instant).addFile(APK_000000ffffffffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
     }
@@ -117,18 +117,18 @@ public class MajorVersionTest extends BaseAppSecurityTest {
         testInstallDowngradeAcrossMajorMinorVersion(true);
     }
     private void testInstallDowngradeAcrossMajorMinorVersion(boolean instant) throws Exception {
-        new InstallMultiple(instant).addApk(APK_000000ffffffffff).run();
+        new InstallMultiple(instant).addFile(APK_000000ffffffffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        new InstallMultiple(instant).addApk(APK_00000000ffffffff)
+        new InstallMultiple(instant).addFile(APK_00000000ffffffff)
                 .runExpectingFailure("INSTALL_FAILED_VERSION_DOWNGRADE");
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        new InstallMultiple(instant).addApk(APK_000000ff00000000)
+        new InstallMultiple(instant).addFile(APK_000000ff00000000)
                 .runExpectingFailure("INSTALL_FAILED_VERSION_DOWNGRADE");
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        new InstallMultiple(instant).addApk(APK_000000000000ffff)
+        new InstallMultiple(instant).addFile(APK_000000000000ffff)
                 .runExpectingFailure("INSTALL_FAILED_VERSION_DOWNGRADE");
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");

@@ -16,7 +16,6 @@
 
 package com.android.car.dialer.ui.dialpad;
 
-import android.app.ActionBar;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.telecom.Call;
@@ -27,6 +26,7 @@ import android.widget.Chronometer;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProviders;
 
@@ -34,12 +34,14 @@ import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
 import com.android.car.dialer.ui.activecall.InCallViewModel;
 import com.android.car.telephony.common.TelecomUtils;
+import com.android.car.ui.toolbar.ToolbarController;
 
 /** Dialpad fragment used in the ongoing call page. */
 public class InCallDialpadFragment extends AbstractDialpadFragment {
     private static final String TAG = "CD.InCallDialpadFragment";
 
     private TextView mTitleView;
+    @Nullable
     private Chronometer mCallStateView;
 
     /** An active call which this fragment is serving for. */
@@ -58,6 +60,10 @@ public class InCallDialpadFragment extends AbstractDialpadFragment {
 
         InCallViewModel viewModel = ViewModelProviders.of(getActivity()).get(InCallViewModel.class);
         viewModel.getCallStateAndConnectTime().observe(this, (pair) -> {
+            if (mCallStateView == null) {
+                return;
+            }
+
             if (pair == null) {
                 mCallStateView.stop();
                 mCallStateView.setText("");
@@ -108,7 +114,7 @@ public class InCallDialpadFragment extends AbstractDialpadFragment {
     }
 
     @Override
-    protected void setupActionBar(ActionBar actionBar) {
+    protected void setupToolbar(ToolbarController toolbar) {
         // No-op
     }
 

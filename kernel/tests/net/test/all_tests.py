@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from importlib import import_module
+import importlib
 import sys
 import unittest
+
+import namespace
 
 test_modules = [
     'anycast_test',
@@ -46,15 +48,25 @@ test_modules = [
 ]
 
 if __name__ == '__main__':
+  # Check whether ADB over TCP is occupying TCP port 5555.
+  if namespace.HasEstablishedTcpSessionOnPort(5555):
+    namespace.IfPossibleEnterNewNetworkNamespace()
   # First, run InjectTests on all modules, to ensure that any parameterized
   # tests in those modules are injected.
   for name in test_modules:
-    import_module(name)
-    if hasattr(sys.modules[name], "InjectTests"):
+    importlib.import_module(name)
+    if hasattr(sys.modules[name], 'InjectTests'):
       sys.modules[name].InjectTests()
 
   loader = unittest.defaultTestLoader
-  test_suite = loader.loadTestsFromNames(test_modules)
+  if len(sys.argv) > 1:
+    test_suite = loader.loadTestsFromNames(sys.argv[1:])
+  else:
+    test_suite = loader.loadTestsFromNames(test_modules)
+
+  assert test_suite.countTestCases() > 0, (
+      'Inconceivable: no tests found! Command line: %s' % ' '.join(sys.argv))
+
   runner = unittest.TextTestRunner(verbosity=2)
   result = runner.run(test_suite)
   sys.exit(not result.wasSuccessful())

@@ -16,17 +16,20 @@
 #include "VkCommandBuffer.hpp"
 #include "VkDestroy.h"
 #include <algorithm>
+#include <new>
 
-namespace vk
-{
+namespace vk {
 
-CommandPool::CommandPool(const VkCommandPoolCreateInfo* pCreateInfo, void* mem)
+CommandPool::CommandPool(const VkCommandPoolCreateInfo *pCreateInfo, void *mem)
 {
 	// FIXME (b/119409619): use an allocator here so we can control all memory allocations
-	commandBuffers = new std::set<VkCommandBuffer>();
+	void *deviceMemory = vk::allocate(sizeof(std::set<VkCommandBuffer>), REQUIRED_MEMORY_ALIGNMENT,
+	                                  DEVICE_MEMORY, GetAllocationScope());
+	ASSERT(deviceMemory);
+	commandBuffers = new(deviceMemory) std::set<VkCommandBuffer>();
 }
 
-void CommandPool::destroy(const VkAllocationCallbacks* pAllocator)
+void CommandPool::destroy(const VkAllocationCallbacks *pAllocator)
 {
 	// Free command Buffers allocated in allocateCommandBuffers
 	for(auto commandBuffer : *commandBuffers)
@@ -35,19 +38,23 @@ void CommandPool::destroy(const VkAllocationCallbacks* pAllocator)
 	}
 
 	// FIXME (b/119409619): use an allocator here so we can control all memory allocations
-	delete commandBuffers;
+	vk::deallocate(commandBuffers, DEVICE_MEMORY);
 }
 
-size_t CommandPool::ComputeRequiredAllocationSize(const VkCommandPoolCreateInfo* pCreateInfo)
+size_t CommandPool::ComputeRequiredAllocationSize(const VkCommandPoolCreateInfo *pCreateInfo)
 {
 	return 0;
 }
 
-VkResult CommandPool::allocateCommandBuffers(VkCommandBufferLevel level, uint32_t commandBufferCount, VkCommandBuffer* pCommandBuffers)
+VkResult CommandPool::allocateCommandBuffers(Device *device, VkCommandBufferLevel level, uint32_t commandBufferCount, VkCommandBuffer *pCommandBuffers)
 {
 	for(uint32_t i = 0; i < commandBufferCount; i++)
 	{
-		DispatchableCommandBuffer* commandBuffer = new (DEVICE_MEMORY) DispatchableCommandBuffer(level);
+		// FIXME (b/119409619): use an allocator here so we can control all memory allocations
+		void *deviceMemory = vk::allocate(sizeof(DispatchableCommandBuffer), REQUIRED_MEMORY_ALIGNMENT,
+		                                  DEVICE_MEMORY, DispatchableCommandBuffer::GetAllocationScope());
+		ASSERT(deviceMemory);
+		DispatchableCommandBuffer *commandBuffer = new(deviceMemory) DispatchableCommandBuffer(device, level);
 		if(commandBuffer)
 		{
 			pCommandBuffers[i] = *commandBuffer;
@@ -71,7 +78,7 @@ VkResult CommandPool::allocateCommandBuffers(VkCommandBufferLevel level, uint32_
 	return VK_SUCCESS;
 }
 
-void CommandPool::freeCommandBuffers(uint32_t commandBufferCount, const VkCommandBuffer* pCommandBuffers)
+void CommandPool::freeCommandBuffers(uint32_t commandBufferCount, const VkCommandBuffer *pCommandBuffers)
 {
 	for(uint32_t i = 0; i < commandBufferCount; ++i)
 	{
@@ -87,7 +94,7 @@ VkResult CommandPool::reset(VkCommandPoolResetFlags flags)
 	//  the command pool are put in the initial state."
 	for(auto commandBuffer : *commandBuffers)
 	{
-		Cast(commandBuffer)->reset(flags);
+		vk::Cast(commandBuffer)->reset(flags);
 	}
 
 	// According the Vulkan 1.1 spec:
@@ -104,4 +111,4 @@ void CommandPool::trim(VkCommandPoolTrimFlags flags)
 	// TODO (b/119827933): Optimize memory usage here
 }
 
-} // namespace vk
+}  // namespace vk

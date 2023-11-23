@@ -79,10 +79,6 @@ static int btif_hh_keylockstates = 0;  // The current key state of each key
 #define BTUI_HH_SECURITY (BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT)
 #endif
 
-#ifndef BTUI_HH_MOUSE_SECURITY
-#define BTUI_HH_MOUSE_SECURITY (BTA_SEC_NONE)
-#endif
-
 /* HH request events */
 typedef enum {
   BTIF_HH_CONNECT_REQ_EVT = 0,
@@ -537,7 +533,8 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
   p_dev = btif_hh_find_dev_by_bda(*bd_addr);
   if ((p_dev != NULL) && (p_dev->dev_status == BTHH_CONN_STATE_CONNECTED) &&
       (p_dev->attr_mask & HID_VIRTUAL_CABLE)) {
-    BTIF_TRACE_DEBUG("%s Sending BTA_HH_CTRL_VIRTUAL_CABLE_UNPLUG", __func__);
+    BTIF_TRACE_DEBUG("%s: Sending BTA_HH_CTRL_VIRTUAL_CABLE_UNPLUG for: %s", __func__,
+                     bd_addr->ToString().c_str());
     /* start the timer */
     btif_hh_start_vup_timer(bd_addr);
     p_dev->local_vup = true;
@@ -545,7 +542,8 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
     return BT_STATUS_SUCCESS;
   } else if ((p_dev != NULL) &&
              (p_dev->dev_status == BTHH_CONN_STATE_CONNECTED)) {
-    BTIF_TRACE_ERROR("%s: Virtual unplug not suported, disconnecting device");
+    BTIF_TRACE_ERROR("%s: Virtual unplug not suported, disconnecting device: %s",
+                     __func__, bd_addr->ToString().c_str());
     /* start the timer */
     btif_hh_start_vup_timer(bd_addr);
     p_dev->local_vup = true;
@@ -611,10 +609,9 @@ bt_status_t btif_hh_connect(const RawAddress* bd_addr) {
    request from host, for subsequent user initiated connection. If the remote is
    not in
    pagescan mode, we will do 2 retries to connect before giving up */
-  tBTA_SEC sec_mask = BTUI_HH_SECURITY;
   btif_hh_cb.status = BTIF_HH_DEV_CONNECTING;
   btif_hh_cb.pending_conn_address = *bd_addr;
-  BTA_HhOpen(*bd_addr, BTA_HH_PROTO_RPT_MODE, sec_mask);
+  BTA_HhOpen(*bd_addr, BTA_HH_PROTO_RPT_MODE, BTUI_HH_SECURITY);
 
   // TODO(jpawlowski); make cback accept const and remove tmp!
   auto tmp = *bd_addr;

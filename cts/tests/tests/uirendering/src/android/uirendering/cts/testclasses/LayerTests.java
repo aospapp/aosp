@@ -562,8 +562,10 @@ public class LayerTests extends ActivityTestBase {
                     // Adjust Y to match the same gradient percentage, regardless of vertical
                     // fading edge length.
                     int verticalFadingEdgeLength = webview.getVerticalFadingEdgeLength();
-                    testPoints[2].y = TEST_HEIGHT - verticalFadingEdgeLength * 10 / 42;
-                    testPoints[3].y = TEST_HEIGHT - verticalFadingEdgeLength * 5 / 42;
+                    testPoints[2].y = TEST_HEIGHT
+                        - (int) Math.round(verticalFadingEdgeLength * 10.0 / 42);
+                    testPoints[3].y = TEST_HEIGHT
+                        - (int) Math.round(verticalFadingEdgeLength * 5.0 / 42);
                 }, true, hwFence)
                 .runWithVerifier(new SamplePointVerifier(
                         testPoints,
@@ -603,8 +605,10 @@ public class LayerTests extends ActivityTestBase {
                     // Adjust Y to match the same gradient percentage, regardless of vertical
                     // fading edge length.
                     int verticalFadingEdgeLength = webview.getVerticalFadingEdgeLength();
-                    testPoints[3].y = TEST_HEIGHT - verticalFadingEdgeLength * 10 / 42;
-                    testPoints[4].y = TEST_HEIGHT - verticalFadingEdgeLength * 5 / 42;
+                    testPoints[3].y = TEST_HEIGHT
+                        - (int) Math.round(verticalFadingEdgeLength * 10.0 / 42);
+                    testPoints[4].y = TEST_HEIGHT
+                        - (int) Math.round(verticalFadingEdgeLength * 5.0 / 42);
                 }, true, hwFence)
                 .runWithVerifier(new SamplePointVerifier(
                         testPoints,

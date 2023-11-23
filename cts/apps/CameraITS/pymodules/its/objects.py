@@ -12,16 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import os.path
-import sys
-import re
-import json
-import tempfile
-import time
-import unittest
-import subprocess
 import math
+import unittest
+
 
 def int_to_rational(i):
     """Function to convert Python integers to Camera2 rationals.
@@ -318,6 +311,23 @@ def get_largest_yuv_format(props, match_ar=None):
     """
     size = get_available_output_sizes("yuv", props, match_ar_size=match_ar)[0]
     fmt = {"format":"yuv", "width":size[0], "height":size[1]}
+
+    return fmt
+
+
+def get_largest_jpeg_format(props, match_ar=None):
+    """Return a capture request and format spec for the largest jpeg size.
+
+    Args:
+        props:    the object returned from its.device.get_camera_properties().
+        match_ar: aspect ratio to match
+
+    Returns:
+        fmt:      an output format specification, for the largest possible jpeg
+        format for this device.
+    """
+    size = get_available_output_sizes("jpeg", props, match_ar_size=match_ar)[0]
+    fmt = {"format": "jpeg", "width": size[0], "height": size[1]}
 
     return fmt
 

@@ -50,7 +50,6 @@ public class TelephonyRegistryTestApp extends Activity {
         put(PhoneStateListener.LISTEN_DATA_CONNECTION_STATE, "DATA_CONNECTION_STATE");
         put(PhoneStateListener.LISTEN_DATA_ACTIVITY, "DATA_ACTIVITY");
         put(PhoneStateListener.LISTEN_SIGNAL_STRENGTHS, "SIGNAL_STRENGTHS");
-        put(PhoneStateListener.LISTEN_OTASP_CHANGED, "OTASP_CHANGED");
         put(PhoneStateListener.LISTEN_CELL_INFO, "CELL_INFO");
         put(PhoneStateListener.LISTEN_PRECISE_CALL_STATE, "PRECISE_CALL_STATE");
         put(PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE,

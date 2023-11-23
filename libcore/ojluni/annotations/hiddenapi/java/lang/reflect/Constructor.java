@@ -26,7 +26,7 @@
 
 package java.lang.reflect;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Constructor<T> extends java.lang.reflect.Executable {

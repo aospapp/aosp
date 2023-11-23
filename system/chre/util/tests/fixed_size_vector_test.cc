@@ -38,7 +38,7 @@ class Foo {
  private:
   int mValue = -1;
 };
-}
+}  // namespace
 
 TEST(FixedSizeVector, EmptyWithCapacityWithDefault) {
   FixedSizeVector<int, 8> testVector;

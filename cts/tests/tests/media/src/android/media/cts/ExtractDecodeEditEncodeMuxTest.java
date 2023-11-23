@@ -825,7 +825,7 @@ public class ExtractDecodeEditEncodeMuxTest
                             0,
                             size,
                             presentationTime,
-                            videoExtractor.getSampleFlags());
+                            flags);
                     videoExtractedFrameCount++;
                 }
                 // We extracted a frame, let's try something else next.

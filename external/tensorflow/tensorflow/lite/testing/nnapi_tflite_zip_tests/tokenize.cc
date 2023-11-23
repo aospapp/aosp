@@ -18,7 +18,7 @@ limitations under the License.
 #include "tokenize.h"
 #include <istream>
 #include <string>
-#include "tensorflow/lite/string_tflite.h"
+#include "tensorflow/lite/string_type.h"
 
 namespace tflite {
 namespace testing {

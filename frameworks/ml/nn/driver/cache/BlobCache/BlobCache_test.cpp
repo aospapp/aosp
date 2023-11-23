@@ -29,15 +29,12 @@
 
 namespace android {
 
-template<typename T> using sp = std::shared_ptr<T>;
+template <typename T>
+using sp = std::shared_ptr<T>;
 
 class BlobCacheTest : public ::testing::TestWithParam<BlobCache::Policy> {
-protected:
-
-    enum {
-        OK = 0,
-        BAD_VALUE = -EINVAL
-    };
+   protected:
+    enum { OK = 0, BAD_VALUE = -EINVAL };
 
     enum {
         MAX_KEY_SIZE = 6,
@@ -49,25 +46,25 @@ protected:
         mBC.reset(new BlobCache(MAX_KEY_SIZE, MAX_VALUE_SIZE, MAX_TOTAL_SIZE, GetParam()));
     }
 
-    virtual void TearDown() {
-        mBC.reset();
-    }
+    virtual void TearDown() { mBC.reset(); }
 
     std::unique_ptr<BlobCache> mBC;
 };
 
-INSTANTIATE_TEST_CASE_P(Policy, BlobCacheTest,
-    ::testing::Values(BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::HALVE),
-                      BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::HALVE),
+INSTANTIATE_TEST_CASE_P(
+        Policy, BlobCacheTest,
+        ::testing::Values(
+                BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::HALVE),
+                BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::HALVE),
 
-                      BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT),
-                      BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT),
+                BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT),
+                BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT),
 
-                      BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT_HALVE),
-                      BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT_HALVE)));
+                BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT_HALVE),
+                BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT_HALVE)));
 
 TEST_P(BlobCacheTest, CacheSingleValueSucceeds) {
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
     ASSERT_EQ(size_t(4), mBC->get("abcd", 4, buf, 4));
     ASSERT_EQ('e', buf[0]);
@@ -77,7 +74,7 @@ TEST_P(BlobCacheTest, CacheSingleValueSucceeds) {
 }
 
 TEST_P(BlobCacheTest, CacheTwoValuesSucceeds) {
-    unsigned char buf[2] = { 0xee, 0xee };
+    unsigned char buf[2] = {0xee, 0xee};
     mBC->set("ab", 2, "cd", 2);
     mBC->set("ef", 2, "gh", 2);
     ASSERT_EQ(size_t(2), mBC->get("ab", 2, buf, 2));
@@ -89,7 +86,7 @@ TEST_P(BlobCacheTest, CacheTwoValuesSucceeds) {
 }
 
 TEST_P(BlobCacheTest, CacheTwoValuesMallocSucceeds) {
-    unsigned char *bufPtr;
+    unsigned char* bufPtr;
     mBC->set("ab", 2, "cd", 2);
     mBC->set("ef", 2, "gh", 2);
 
@@ -109,9 +106,9 @@ TEST_P(BlobCacheTest, CacheTwoValuesMallocSucceeds) {
 }
 
 TEST_P(BlobCacheTest, GetOnlyWritesInsideBounds) {
-    unsigned char buf[6] = { 0xee, 0xee, 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[6] = {0xee, 0xee, 0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
-    ASSERT_EQ(size_t(4), mBC->get("abcd", 4, buf+1, 4));
+    ASSERT_EQ(size_t(4), mBC->get("abcd", 4, buf + 1, 4));
     ASSERT_EQ(0xee, buf[0]);
     ASSERT_EQ('e', buf[1]);
     ASSERT_EQ('f', buf[2]);
@@ -121,7 +118,7 @@ TEST_P(BlobCacheTest, GetOnlyWritesInsideBounds) {
 }
 
 TEST_P(BlobCacheTest, GetOnlyWritesIfBufferIsLargeEnough) {
-    unsigned char buf[3] = { 0xee, 0xee, 0xee };
+    unsigned char buf[3] = {0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
     ASSERT_EQ(size_t(4), mBC->get("abcd", 4, buf, 3));
     ASSERT_EQ(0xee, buf[0]);
@@ -130,13 +127,13 @@ TEST_P(BlobCacheTest, GetOnlyWritesIfBufferIsLargeEnough) {
 }
 
 TEST_P(BlobCacheTest, GetWithFailedAllocator) {
-    unsigned char buf[3] = { 0xee, 0xee, 0xee };
+    unsigned char buf[3] = {0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
 
     // If allocator fails, verify that we set the value pointer to
     // nullptr, and that we do not modify the buffer that the value
     // pointer originally pointed to.
-    unsigned char *bufPtr = &buf[0];
+    unsigned char* bufPtr = &buf[0];
     ASSERT_EQ(size_t(4), mBC->get("abcd", 4, &bufPtr, [](size_t) -> void* { return nullptr; }));
     ASSERT_EQ(nullptr, bufPtr);
     ASSERT_EQ(0xee, buf[0]);
@@ -150,7 +147,7 @@ TEST_P(BlobCacheTest, GetDoesntAccessNullBuffer) {
 }
 
 TEST_P(BlobCacheTest, MultipleSetsCacheLatestValue) {
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
     mBC->set("abcd", 4, "ijkl", 4);
     ASSERT_EQ(size_t(4), mBC->get("abcd", 4, buf, 4));
@@ -161,9 +158,9 @@ TEST_P(BlobCacheTest, MultipleSetsCacheLatestValue) {
 }
 
 TEST_P(BlobCacheTest, SecondSetKeepsFirstValueIfTooLarge) {
-    unsigned char buf[MAX_VALUE_SIZE+1] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[MAX_VALUE_SIZE + 1] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
-    mBC->set("abcd", 4, buf, MAX_VALUE_SIZE+1);
+    mBC->set("abcd", 4, buf, MAX_VALUE_SIZE + 1);
     ASSERT_EQ(size_t(4), mBC->get("abcd", 4, buf, 4));
     ASSERT_EQ('e', buf[0]);
     ASSERT_EQ('f', buf[1]);
@@ -172,14 +169,14 @@ TEST_P(BlobCacheTest, SecondSetKeepsFirstValueIfTooLarge) {
 }
 
 TEST_P(BlobCacheTest, DoesntCacheIfKeyIsTooBig) {
-    char key[MAX_KEY_SIZE+1];
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
-    for (int i = 0; i < MAX_KEY_SIZE+1; i++) {
+    char key[MAX_KEY_SIZE + 1];
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
+    for (int i = 0; i < MAX_KEY_SIZE + 1; i++) {
         key[i] = 'a';
     }
-    mBC->set(key, MAX_KEY_SIZE+1, "bbbb", 4);
+    mBC->set(key, MAX_KEY_SIZE + 1, "bbbb", 4);
 
-    ASSERT_EQ(size_t(0), mBC->get(key, MAX_KEY_SIZE+1, buf, 4));
+    ASSERT_EQ(size_t(0), mBC->get(key, MAX_KEY_SIZE + 1, buf, 4));
     ASSERT_EQ(0xee, buf[0]);
     ASSERT_EQ(0xee, buf[1]);
     ASSERT_EQ(0xee, buf[2]);
@@ -188,12 +185,12 @@ TEST_P(BlobCacheTest, DoesntCacheIfKeyIsTooBig) {
     // If key is too large, verify that we do not call the allocator,
     // that we set the value pointer to nullptr, and that we do not
     // modify the buffer that the value pointer originally pointed to.
-    unsigned char *bufPtr = &buf[0];
+    unsigned char* bufPtr = &buf[0];
     bool calledAlloc = false;
-    ASSERT_EQ(size_t(0), mBC->get(key, MAX_KEY_SIZE+1, &bufPtr,
-                                  [&calledAlloc](size_t) -> void* {
-                                      calledAlloc = true;
-                                      return nullptr; }));
+    ASSERT_EQ(size_t(0), mBC->get(key, MAX_KEY_SIZE + 1, &bufPtr, [&calledAlloc](size_t) -> void* {
+        calledAlloc = true;
+        return nullptr;
+    }));
     ASSERT_EQ(false, calledAlloc);
     ASSERT_EQ(nullptr, bufPtr);
     ASSERT_EQ(0xee, buf[0]);
@@ -203,16 +200,16 @@ TEST_P(BlobCacheTest, DoesntCacheIfKeyIsTooBig) {
 }
 
 TEST_P(BlobCacheTest, DoesntCacheIfValueIsTooBig) {
-    unsigned char buf[MAX_VALUE_SIZE+1];
-    for (int i = 0; i < MAX_VALUE_SIZE+1; i++) {
+    unsigned char buf[MAX_VALUE_SIZE + 1];
+    for (int i = 0; i < MAX_VALUE_SIZE + 1; i++) {
         buf[i] = 'b';
     }
-    mBC->set("abcd", 4, buf, MAX_VALUE_SIZE+1);
-    for (int i = 0; i < MAX_VALUE_SIZE+1; i++) {
+    mBC->set("abcd", 4, buf, MAX_VALUE_SIZE + 1);
+    for (int i = 0; i < MAX_VALUE_SIZE + 1; i++) {
         buf[i] = 0xee;
     }
-    ASSERT_EQ(size_t(0), mBC->get("abcd", 4, buf, MAX_VALUE_SIZE+1));
-    for (int i = 0; i < MAX_VALUE_SIZE+1; i++) {
+    ASSERT_EQ(size_t(0), mBC->get("abcd", 4, buf, MAX_VALUE_SIZE + 1));
+    for (int i = 0; i < MAX_VALUE_SIZE + 1; i++) {
         SCOPED_TRACE(i);
         ASSERT_EQ(0xee, buf[i]);
     }
@@ -240,7 +237,7 @@ TEST_P(BlobCacheTest, DoesntCacheIfKeyValuePairIsTooBig) {
 
 TEST_P(BlobCacheTest, CacheMaxKeySizeSucceeds) {
     char key[MAX_KEY_SIZE];
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     for (int i = 0; i < MAX_KEY_SIZE; i++) {
         key[i] = 'a';
     }
@@ -261,8 +258,7 @@ TEST_P(BlobCacheTest, CacheMaxValueSizeSucceeds) {
     for (int i = 0; i < MAX_VALUE_SIZE; i++) {
         buf[i] = 0xee;
     }
-    ASSERT_EQ(size_t(MAX_VALUE_SIZE), mBC->get("abcd", 4, buf,
-            MAX_VALUE_SIZE));
+    ASSERT_EQ(size_t(MAX_VALUE_SIZE), mBC->get("abcd", 4, buf, MAX_VALUE_SIZE));
     for (int i = 0; i < MAX_VALUE_SIZE; i++) {
         SCOPED_TRACE(i);
         ASSERT_EQ('b', buf[i]);
@@ -289,7 +285,7 @@ TEST_P(BlobCacheTest, CacheMaxKeyValuePairSizeSucceeds) {
 }
 
 TEST_P(BlobCacheTest, CacheMinKeyAndValueSizeSucceeds) {
-    unsigned char buf[1] = { 0xee };
+    unsigned char buf[1] = {0xee};
     mBC->set("x", 1, "y", 1);
     ASSERT_EQ(size_t(1), mBC->get("x", 1, buf, 1));
     ASSERT_EQ('y', buf[0]);
@@ -328,17 +324,16 @@ TEST_P(BlobCacheTest, ExceedingTotalLimitHalvesCacheSize) {
     // Count the number of entries in the cache; and check which
     // entries they are.
     int numCached = 0;
-    for (int i = 0; i < maxEntries+1; i++) {
+    for (int i = 0; i < maxEntries + 1; i++) {
         uint8_t k = i;
         bool found = (mBC->get(&k, 1, NULL, 0) == 1);
-        if (found)
-            numCached++;
+        if (found) numCached++;
         if (GetParam().first == BlobCache::Select::LRU) {
             SCOPED_TRACE(i);
-            ASSERT_EQ(found, i >= maxEntries/2);
+            ASSERT_EQ(found, i >= maxEntries / 2);
         }
     }
-    ASSERT_EQ(maxEntries/2 + 1, numCached);
+    ASSERT_EQ(maxEntries / 2 + 1, numCached);
 }
 
 TEST_P(BlobCacheTest, ExceedingTotalLimitJustFitsSmallEntry) {
@@ -358,10 +353,9 @@ TEST_P(BlobCacheTest, ExceedingTotalLimitJustFitsSmallEntry) {
     }
     // Count the number of entries in the cache.
     int numCached = 0;
-    for (int i = 0; i < maxEntries+1; i++) {
+    for (int i = 0; i < maxEntries + 1; i++) {
         uint8_t k = i;
-        if (mBC->get(&k, 1, NULL, 0) == 1)
-            numCached++;
+        if (mBC->get(&k, 1, NULL, 0) == 1) numCached++;
     }
     ASSERT_EQ(maxEntries, numCached);
 }
@@ -376,18 +370,17 @@ TEST_P(BlobCacheTest, ExceedingTotalLimitFitsBigEntry) {
     }
     // Insert one more entry, causing a cache overflow.
     const int bigValueSize = std::min((MAX_TOTAL_SIZE * 3) / 4 - 1, int(MAX_VALUE_SIZE));
-    ASSERT_GT(bigValueSize+1, MAX_TOTAL_SIZE / 2);  // Check testing assumption
+    ASSERT_GT(bigValueSize + 1, MAX_TOTAL_SIZE / 2);  // Check testing assumption
     {
         unsigned char buf[MAX_VALUE_SIZE];
-        for (int i = 0; i < bigValueSize; i++)
-            buf[i] = 0xee;
+        for (int i = 0; i < bigValueSize; i++) buf[i] = 0xee;
         uint8_t k = maxEntries;
         mBC->set(&k, 1, buf, bigValueSize);
     }
     // Count the number and size of entries in the cache.
     int numCached = 0;
     size_t sizeCached = 0;
-    for (int i = 0; i < maxEntries+1; i++) {
+    for (int i = 0; i < maxEntries + 1; i++) {
         uint8_t k = i;
         size_t size = mBC->get(&k, 1, NULL, 0);
         if (size) {
@@ -399,8 +392,8 @@ TEST_P(BlobCacheTest, ExceedingTotalLimitFitsBigEntry) {
         case BlobCache::Capacity::HALVE:
             // New value is too big for this cleaning algorithm.  So
             // we cleaned the cache, but did not insert the new value.
-            ASSERT_EQ(maxEntries/2, numCached);
-            ASSERT_EQ(size_t((maxEntries/2)*2), sizeCached);
+            ASSERT_EQ(maxEntries / 2, numCached);
+            ASSERT_EQ(size_t((maxEntries / 2) * 2), sizeCached);
             break;
         case BlobCache::Capacity::FIT:
         case BlobCache::Capacity::FIT_HALVE: {
@@ -433,21 +426,20 @@ TEST_P(BlobCacheTest, FailedGetWithAllocator) {
     // allocator, that we set the value pointer to nullptr, and that
     // we do not modify the buffer that the value pointer originally
     // pointed to.
-    unsigned char buf[1] = { 0xee };
-    unsigned char *bufPtr = &buf[0];
+    unsigned char buf[1] = {0xee};
+    unsigned char* bufPtr = &buf[0];
     bool calledAlloc = false;
-    ASSERT_EQ(size_t(0), mBC->get("a", 1, &bufPtr,
-                                  [&calledAlloc](size_t) -> void* {
-                                      calledAlloc = true;
-                                      return nullptr; }));
+    ASSERT_EQ(size_t(0), mBC->get("a", 1, &bufPtr, [&calledAlloc](size_t) -> void* {
+        calledAlloc = true;
+        return nullptr;
+    }));
     ASSERT_EQ(false, calledAlloc);
     ASSERT_EQ(nullptr, bufPtr);
     ASSERT_EQ(0xee, buf[0]);
 }
 
 TEST_P(BlobCacheTest, ExceedingTotalLimitRemovesLRUEntries) {
-    if (GetParam().first != BlobCache::Select::LRU)
-        return;  // test doesn't apply for this policy
+    if (GetParam().first != BlobCache::Select::LRU) return;  // test doesn't apply for this policy
 
     // Fill up the entire cache with 1 char key/value pairs.
     static const int maxEntries = MAX_TOTAL_SIZE / 2;
@@ -487,20 +479,19 @@ TEST_P(BlobCacheTest, ExceedingTotalLimitRemovesLRUEntries) {
     for (int i = 0; i < maxEntries; i++) {
         uint8_t k = accessSequence[i];
         bool found = (mBC->get(&k, 1, NULL, 0) == 1);
-        if (foundAny == found)
-            continue;
+        if (foundAny == found) continue;
         if (!foundAny) {
             // found == true, so we just discovered j == i
             foundAny = true;
         } else {
             // foundAny == true, found == false -- oops
-            FAIL() << "found [" << i-1 << "]th entry but not [" << i << "]th entry";
+            FAIL() << "found [" << i - 1 << "]th entry but not [" << i << "]th entry";
         }
     }
 }
 
 class BlobCacheFlattenTest : public BlobCacheTest {
-protected:
+   protected:
     virtual void SetUp() {
         BlobCacheTest::SetUp();
         mBC2.reset(new BlobCache(MAX_KEY_SIZE, MAX_VALUE_SIZE, MAX_TOTAL_SIZE, GetParam()));
@@ -522,18 +513,20 @@ protected:
     sp<BlobCache> mBC2;
 };
 
-INSTANTIATE_TEST_CASE_P(Policy, BlobCacheFlattenTest,
-    ::testing::Values(BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::HALVE),
-                      BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::HALVE),
+INSTANTIATE_TEST_CASE_P(
+        Policy, BlobCacheFlattenTest,
+        ::testing::Values(
+                BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::HALVE),
+                BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::HALVE),
 
-                      BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT),
-                      BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT),
+                BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT),
+                BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT),
 
-                      BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT_HALVE),
-                      BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT_HALVE)));
+                BlobCache::Policy(BlobCache::Select::RANDOM, BlobCache::Capacity::FIT_HALVE),
+                BlobCache::Policy(BlobCache::Select::LRU, BlobCache::Capacity::FIT_HALVE)));
 
 TEST_P(BlobCacheFlattenTest, FlattenOneValue) {
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
     roundTrip();
     ASSERT_EQ(size_t(4), mBC2->get("abcd", 4, buf, 4));
@@ -601,7 +594,7 @@ TEST_P(BlobCacheFlattenTest, FlattenCatchesBufferTooSmall) {
 }
 
 TEST_P(BlobCacheFlattenTest, UnflattenCatchesBadMagic) {
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
 
     size_t size = mBC->getFlattenedSize();
@@ -618,7 +611,7 @@ TEST_P(BlobCacheFlattenTest, UnflattenCatchesBadMagic) {
 }
 
 TEST_P(BlobCacheFlattenTest, UnflattenCatchesBadBlobCacheVersion) {
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
 
     size_t size = mBC->getFlattenedSize();
@@ -637,7 +630,7 @@ TEST_P(BlobCacheFlattenTest, UnflattenCatchesBadBlobCacheVersion) {
 }
 
 TEST_P(BlobCacheFlattenTest, UnflattenCatchesBadBlobCacheDeviceVersion) {
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
 
     size_t size = mBC->getFlattenedSize();
@@ -656,7 +649,7 @@ TEST_P(BlobCacheFlattenTest, UnflattenCatchesBadBlobCacheDeviceVersion) {
 }
 
 TEST_P(BlobCacheFlattenTest, UnflattenCatchesBufferTooSmall) {
-    unsigned char buf[4] = { 0xee, 0xee, 0xee, 0xee };
+    unsigned char buf[4] = {0xee, 0xee, 0xee, 0xee};
     mBC->set("abcd", 4, "efgh", 4);
 
     size_t size = mBC->getFlattenedSize();
@@ -673,4 +666,4 @@ TEST_P(BlobCacheFlattenTest, UnflattenCatchesBufferTooSmall) {
     ASSERT_EQ(size_t(0), mBC2->get("abcd", 4, buf, 4));
 }
 
-} // namespace android
+}  // namespace android

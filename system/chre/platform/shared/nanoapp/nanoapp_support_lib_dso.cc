@@ -18,6 +18,7 @@
 
 #include <chre.h>
 
+#include "chre/platform/shared/debug_dump.h"
 #include "chre/util/macros.h"
 
 /**
@@ -40,7 +41,7 @@ constexpr int kIsTcmNanoapp = 0;
 // Return a v1.3+ GnssLocationEvent for the nanoapp when running on a v1.2-
 // platform.
 chreGnssLocationEvent translateLegacyGnssLocation(
-    const chreGnssLocationEvent& legacyEvent) {
+    const chreGnssLocationEvent &legacyEvent) {
   // Copy v1.2- fields over to a v1.3+ event.
   chreGnssLocationEvent newEvent = {};
   newEvent.timestamp = legacyEvent.timestamp;
@@ -53,16 +54,16 @@ chreGnssLocationEvent translateLegacyGnssLocation(
   newEvent.flags = legacyEvent.flags;
 
   // Unset flags that are defined in v1.3+ but not in v1.2-.
-  newEvent.flags &= ~(CHRE_GPS_LOCATION_HAS_ALTITUDE_ACCURACY
-                      | CHRE_GPS_LOCATION_HAS_SPEED_ACCURACY
-                      | CHRE_GPS_LOCATION_HAS_BEARING_ACCURACY);
+  newEvent.flags &= ~(CHRE_GPS_LOCATION_HAS_ALTITUDE_ACCURACY |
+                      CHRE_GPS_LOCATION_HAS_SPEED_ACCURACY |
+                      CHRE_GPS_LOCATION_HAS_BEARING_ACCURACY);
   return newEvent;
 }
 
 void nanoappHandleEventCompat(uint32_t senderInstanceId, uint16_t eventType,
                               const void *eventData) {
-  if (eventType == CHRE_EVENT_GNSS_LOCATION
-      && chreGetApiVersion() < CHRE_API_VERSION_1_3) {
+  if (eventType == CHRE_EVENT_GNSS_LOCATION &&
+      chreGetApiVersion() < CHRE_API_VERSION_1_3) {
     chreGnssLocationEvent event = translateLegacyGnssLocation(
         *static_cast<const chreGnssLocationEvent *>(eventData));
     nanoappHandleEvent(senderInstanceId, eventType, &event);
@@ -75,29 +76,30 @@ void nanoappHandleEventCompat(uint32_t senderInstanceId, uint16_t eventType,
 }  // anonymous namespace
 
 DLL_EXPORT extern "C" const struct chreNslNanoappInfo _chreNslDsoNanoappInfo = {
-  /* magic */ CHRE_NSL_NANOAPP_INFO_MAGIC,
-  /* structMinorVersion */ CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION,
-  /* isSystemNanoapp */ NANOAPP_IS_SYSTEM_NANOAPP,
-  /* isTcmNanoapp */ kIsTcmNanoapp,
-  /* reservedFlags */ 0,
-  /* reserved */ 0,
-  /* targetApiVersion */ CHRE_API_VERSION,
+    /* magic */ CHRE_NSL_NANOAPP_INFO_MAGIC,
+    /* structMinorVersion */ CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION,
+    /* isSystemNanoapp */ NANOAPP_IS_SYSTEM_NANOAPP,
+    /* isTcmNanoapp */ kIsTcmNanoapp,
+    /* reservedFlags */ 0,
+    /* reserved */ 0,
+    /* targetApiVersion */ CHRE_API_VERSION,
 
-  // These values are supplied by the build environment.
-  /* vendor */ NANOAPP_VENDOR_STRING,
-  /* name */ NANOAPP_NAME_STRING,
-  /* appId */ NANOAPP_ID,
-  /* appVersion */ NANOAPP_VERSION,
-  /* entryPoints */ {
-    /* start */ nanoappStart,
+    // These values are supplied by the build environment.
+    /* vendor */ NANOAPP_VENDOR_STRING,
+    /* name */ NANOAPP_NAME_STRING,
+    /* appId */ NANOAPP_ID,
+    /* appVersion */ NANOAPP_VERSION,
+    /* entryPoints */
+    {
+        /* start */ nanoappStart,
 #ifndef CHRE_NANOAPP_DISABLE_BACKCOMPAT
-    /* handleEvent */ nanoappHandleEventCompat,
+        /* handleEvent */ nanoappHandleEventCompat,
 #else
-    /* handleEvent */ nanoappHandleEvent,
+        /* handleEvent */ nanoappHandleEvent,
 #endif
-    /* end */ nanoappEnd,
-  },
-  /* appVersionString */ NANOAPP_VERSION_STRING,
+        /* end */ nanoappEnd,
+    },
+    /* appVersionString */ NANOAPP_VERSION_STRING,
 };
 
 // The code section below provides default implementations for new symbols
@@ -119,7 +121,8 @@ DLL_EXPORT extern "C" const struct chreNslNanoappInfo _chreNslDsoNanoappInfo = {
  * (provided without quotes) in another library (i.e. the CHRE platform DSO),
  * caching and returning the result.
  */
-#define CHRE_NSL_LAZY_LOOKUP(functionName) ({         \
+#define CHRE_NSL_LAZY_LOOKUP(functionName)            \
+  ({                                                  \
     static bool lookupPerformed = false;              \
     static decltype(functionName) *fptr = nullptr;    \
     if (!lookupPerformed) {                           \
@@ -127,7 +130,8 @@ DLL_EXPORT extern "C" const struct chreNslNanoappInfo _chreNslDsoNanoappInfo = {
           dlsym(RTLD_NEXT, STRINGIFY(functionName))); \
       lookupPerformed = true;                         \
     }                                                 \
-    fptr; })
+    fptr;                                             \
+  })
 
 WEAK_SYMBOL
 bool chreAudioGetSource(uint32_t handle, struct chreAudioSource *audioSource) {
@@ -140,8 +144,9 @@ bool chreAudioConfigureSource(uint32_t handle, bool enable,
                               uint64_t bufferDuration,
                               uint64_t deliveryInterval) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreAudioConfigureSource);
-  return (fptr != nullptr) ?
-      fptr(handle, enable, bufferDuration, deliveryInterval) : false;
+  return (fptr != nullptr)
+             ? fptr(handle, enable, bufferDuration, deliveryInterval)
+             : false;
 }
 
 WEAK_SYMBOL
@@ -194,6 +199,25 @@ WEAK_SYMBOL
 bool chreSensorFlushAsync(uint32_t sensorHandle, const void *cookie) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreSensorFlushAsync);
   return (fptr != nullptr) ? fptr(sensorHandle, cookie) : false;
+}
+
+WEAK_SYMBOL
+void chreConfigureDebugDumpEvent(bool enable) {
+  auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreConfigureDebugDumpEvent);
+  if (fptr != nullptr) {
+    fptr(enable);
+  }
+}
+
+WEAK_SYMBOL
+void chreDebugDumpLog(const char *formatStr, ...) {
+  auto *fptr = CHRE_NSL_LAZY_LOOKUP(platform_chreDebugDumpVaLog);
+  if (fptr != nullptr) {
+    va_list args;
+    va_start(args, formatStr);
+    fptr(formatStr, args);
+    va_end(args);
+  }
 }
 
 #endif  // CHRE_NANOAPP_DISABLE_BACKCOMPAT

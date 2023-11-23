@@ -15,8 +15,8 @@
  */
 package com.android.tradefed.testtype;
 
-import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -25,6 +25,7 @@ import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.ITestInvocationListener;
 
 import org.easymock.EasyMock;
@@ -34,6 +35,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Unit tests for {@link GTestBase}. */
 @RunWith(JUnit4.class)
@@ -51,7 +55,7 @@ public class GTestBaseTest {
         }
 
         @Override
-        public void run(ITestInvocationListener listener) {
+        public void run(TestInformation testInfo, ITestInvocationListener listener) {
             return;
         }
     }
@@ -190,29 +194,14 @@ public class GTestBaseTest {
         assertNull(gTestBase.split(5));
     }
 
-    /** Test that native coverage enabled will add the code coverage listener. */
+    /** GTest should shard and propagate abi information */
     @Test
-    public void testCoverage_addsCodeCoverageListener() throws ConfigurationException {
+    public void testGTestSharding_abi() throws Exception {
+        IAbi abi = new Abi("arm-v7a", "32");
         GTestBase gTestBase = new GTestBaseImpl();
-        mSetter = new OptionSetter(gTestBase);
-        mSetter.setOptionValue("coverage", "true");
-
-        ITestInvocationListener listener =
-                gTestBase.addNativeCoverageListenerIfEnabled(mMockTestDevice, mMockListener);
-
-        assertThat(listener).isInstanceOf(NativeCodeCoverageListener.class);
-    }
-
-    /** Test that when native coverage is disabled, the code coverage listener is not added. */
-    @Test
-    public void testNoCoverage_doesNotAddCodeCoverageListener() throws ConfigurationException {
-        GTestBase gTestBase = new GTestBaseImpl();
-        mSetter = new OptionSetter(gTestBase);
-        mSetter.setOptionValue("coverage", "false");
-
-        ITestInvocationListener listener =
-                gTestBase.addNativeCoverageListenerIfEnabled(mMockTestDevice, mMockListener);
-
-        assertThat(listener).isSameAs(mMockListener);
+        gTestBase.setAbi(abi);
+        List<IRemoteTest> tests = new ArrayList<>(gTestBase.split(5));
+        assertNotNull(tests);
+        assertNotNull(((GTestBase) tests.get(0)).getAbi());
     }
 }

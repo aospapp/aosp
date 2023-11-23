@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
- Copyright (C) 2013 Google, Inc.
- Copyright (C) 2013 Square, Inc.
+  Copyright (C) 2013 The Dagger Authors.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -19,34 +18,38 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.google.dagger</groupId>
-    <artifactId>dagger-parent</artifactId>
-    <version>2.1-SNAPSHOT</version>
+    <groupId>org.sonatype.oss</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>9</version>
   </parent>
 
   <groupId>com.google.dagger.example</groupId>
   <artifactId>dagger-example-parent</artifactId>
   <packaging>pom</packaging>
   <name>Examples</name>
+  <version>2.17</version>
 
   <modules>
     <module>simple</module>
-    <module>android-simple</module>
-    <module>android-activity-graphs</module>
   </modules>
 
   <!-- Example-only dependencies. -->
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>com.google.android</groupId>
-        <artifactId>android</artifactId>
-        <version>4.1.1.4</version>
+        <groupId>com.google.dagger</groupId>
+        <artifactId>dagger</artifactId>
+        <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.google.android</groupId>
-        <artifactId>support-v4</artifactId>
-        <version>r7</version>
+        <groupId>com.google.dagger</groupId>
+        <artifactId>dagger-compiler</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>26.0-jre</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -59,17 +62,6 @@
           <configuration>
             <source>1.6</source>
             <target>1.6</target>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>com.simpligility.maven.plugins</groupId>
-          <artifactId>android-maven-plugin</artifactId>
-          <version>4.3.0</version>
-          <configuration>
-            <sdk>
-              <platform>23</platform>
-              <path>${env.ANDROID_HOME}</path>
-            </sdk>
           </configuration>
         </plugin>
       </plugins>

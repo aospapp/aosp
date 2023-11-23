@@ -538,14 +538,21 @@ public class DeviceSelectionOptionsTest {
         assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
-    /**
-     * Test that min-battery is not used to check non physical devices otherwise they will never
-     * match.
-     */
+    /** Test that if min-battery is used for a StubDevice it will not match. */
     @Test
     public void testStubDevice_minBattery() throws Exception {
         OptionSetter setter = new OptionSetter(mDeviceSelection);
+        setter.setOptionValue("require-battery-check", "true");
         setter.setOptionValue("min-battery", "20");
+        setter.setOptionValue("null-device", "true");
+        assertFalse(mDeviceSelection.matches(new NullDevice("test")));
+    }
+
+    /** Test that if we require a battery check but no minimal or max, StubDevice can be matched. */
+    @Test
+    public void testStubDevice_requireBatteryCheck() throws Exception {
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        setter.setOptionValue("require-battery-check", "true");
         setter.setOptionValue("null-device", "true");
         assertTrue(mDeviceSelection.matches(new NullDevice("test")));
     }

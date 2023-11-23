@@ -6,11 +6,11 @@
 
 #include "core/fpdfapi/page/cpdf_path.h"
 
-CPDF_Path::CPDF_Path() {}
+CPDF_Path::CPDF_Path() = default;
 
 CPDF_Path::CPDF_Path(const CPDF_Path& that) : m_Ref(that.m_Ref) {}
 
-CPDF_Path::~CPDF_Path() {}
+CPDF_Path::~CPDF_Path() = default;
 
 const std::vector<FX_PATHPOINT>& CPDF_Path::GetPoints() const {
   return m_Ref.GetObject()->GetPoints();
@@ -37,16 +37,16 @@ bool CPDF_Path::IsRect() const {
   return m_Ref.GetObject()->IsRect();
 }
 
-void CPDF_Path::Transform(const CFX_Matrix* pMatrix) {
-  m_Ref.GetPrivateCopy()->Transform(pMatrix);
-}
-
-void CPDF_Path::Append(const CPDF_Path& other, const CFX_Matrix* pMatrix) {
-  m_Ref.GetPrivateCopy()->Append(other.GetObject(), pMatrix);
+void CPDF_Path::Transform(const CFX_Matrix& matrix) {
+  m_Ref.GetPrivateCopy()->Transform(matrix);
 }
 
 void CPDF_Path::Append(const CFX_PathData* pData, const CFX_Matrix* pMatrix) {
   m_Ref.GetPrivateCopy()->Append(pData, pMatrix);
+}
+
+void CPDF_Path::AppendFloatRect(const CFX_FloatRect& rect) {
+  m_Ref.GetPrivateCopy()->AppendFloatRect(rect);
 }
 
 void CPDF_Path::AppendRect(float left, float bottom, float right, float top) {

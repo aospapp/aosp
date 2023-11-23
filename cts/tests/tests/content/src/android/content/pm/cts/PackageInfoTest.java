@@ -16,8 +16,10 @@
 
 package android.content.pm.cts;
 
+import static org.junit.Assert.assertArrayEquals;
 
 import android.content.pm.ApplicationInfo;
+import android.content.pm.ComponentInfo;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageItemInfo;
@@ -63,6 +65,19 @@ public class PackageInfoTest extends AndroidTestCase {
         p.recycle();
     }
 
+    public void testApplicationInfoSame() {
+        ApplicationInfo ai = mPackageInfo.applicationInfo;
+
+        // Make sure all the components in it has the same ApplicationInfo.
+        for (ComponentInfo[] ar : new ComponentInfo[][]{
+                mPackageInfo.activities, mPackageInfo.services, mPackageInfo.providers,
+                mPackageInfo.receivers}) {
+            for (ComponentInfo ci : ar) {
+                assertSame("component=" + ci.getComponentName(), ai, ci.applicationInfo);
+            }
+        }
+    }
+
     private void checkPkgInfoSame(PackageInfo expected, PackageInfo actual) {
         assertEquals(expected.packageName, actual.packageName);
         assertEquals(expected.getLongVersionCode(), actual.getLongVersionCode());
@@ -96,7 +111,7 @@ public class PackageInfoTest extends AndroidTestCase {
         assertEquals(expected.flags, actual.flags);
         assertEquals(expected.sourceDir, actual.sourceDir);
         assertEquals(expected.publicSourceDir, actual.publicSourceDir);
-        assertEquals(expected.sharedLibraryFiles, actual.sharedLibraryFiles);
+        assertArrayEquals(expected.sharedLibraryFiles, actual.sharedLibraryFiles);
         assertEquals(expected.dataDir, actual.dataDir);
         assertEquals(expected.uid, actual.uid);
         assertEquals(expected.enabled, actual.enabled);

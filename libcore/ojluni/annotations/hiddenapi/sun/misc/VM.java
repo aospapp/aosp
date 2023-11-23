@@ -83,7 +83,7 @@ public class VM {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static long maxDirectMemory() {
         throw new RuntimeException("Stub!");
     }

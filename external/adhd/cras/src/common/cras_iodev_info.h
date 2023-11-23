@@ -19,14 +19,11 @@
  *    idx - iodev index.
  *    name - Name displayed to the user.
  *    stable_id - ID that does not change due to device plug/unplug or reboot.
- *    stable_id_new - New stable_id, it will be deprecated and be put on
- *        stable_id.
  */
-struct __attribute__ ((__packed__)) cras_iodev_info {
+struct __attribute__((__packed__)) cras_iodev_info {
 	uint32_t idx;
 	char name[CRAS_IODEV_NAME_BUFFER_SIZE];
 	uint32_t stable_id;
-	uint32_t stable_id_new;
 };
 
 /* Identifying information about an ionode on an iodev.
@@ -39,25 +36,25 @@ struct __attribute__ ((__packed__)) cras_iodev_info {
  *    capture_gain - per-node capture gain/attenuation (in 100*dBFS)
  *    left_right_swapped - Set true if left and right channels are swapped.
  *    stable_id - ID that does not change due to device plug/unplug or reboot.
- *    stable_id_new - New stable_id, it will be deprecated and be put on
- *        stable_id.
  *    mic_positions - Positions of the mic array.
  *    type - Type displayed to the user.
  *    name - Name displayed to the user.
  *    active_hotword_model - name of the currently selected hotword model.
  */
-struct __attribute__ ((__packed__)) cras_ionode_info {
+struct __attribute__((__packed__)) cras_ionode_info {
 	uint32_t iodev_idx;
 	uint32_t ionode_idx;
 	int32_t plugged;
 	int32_t active;
-	struct { int64_t tv_sec; int64_t tv_usec; } plugged_time;
+	struct {
+		int64_t tv_sec;
+		int64_t tv_usec;
+	} plugged_time;
 	uint32_t volume;
 	int32_t capture_gain;
 	int32_t left_right_swapped;
 	uint32_t type_enum;
 	uint32_t stable_id;
-	uint32_t stable_id_new;
 	char mic_positions[CRAS_NODE_MIC_POS_BUFFER_SIZE];
 	char type[CRAS_NODE_TYPE_BUFFER_SIZE];
 	char name[CRAS_NODE_NAME_BUFFER_SIZE];

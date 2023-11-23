@@ -20,6 +20,8 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.UserManager;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -27,6 +29,8 @@ import android.widget.TextView;
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.IconUtils;
 import com.android.documentsui.R;
+import com.android.documentsui.base.UserId;
+import com.android.documentsui.dirlist.AppsRowItemData;
 
 /**
  * An {@link Item} for apps that supports some picking actions like
@@ -39,8 +43,8 @@ public class AppItem extends Item {
 
     private final ActionHandler mActionHandler;
 
-    public AppItem(ResolveInfo info, String title, ActionHandler actionHandler) {
-        super(R.layout.item_root, title, getStringId(info));
+    public AppItem(ResolveInfo info, String title, UserId userId, ActionHandler actionHandler) {
+        super(R.layout.item_root, title, getStringId(info), userId);
         this.info = info;
         mActionHandler = actionHandler;
     }
@@ -54,7 +58,8 @@ public class AppItem extends Item {
     }
 
     protected void bindIcon(ImageView icon) {
-        final PackageManager pm = icon.getContext().getPackageManager();
+        final PackageManager pm = userId.getPackageManager(icon.getContext());
+        // This always gives badged icon if package manager is from a managed profile.
         icon.setImageDrawable(info.loadIcon(pm));
     }
 
@@ -70,7 +75,7 @@ public class AppItem extends Item {
 
     @Override
     boolean showAppDetails() {
-        mActionHandler.showAppDetails(info);
+        mActionHandler.showAppDetails(info, userId);
         return true;
     }
 
@@ -83,6 +88,7 @@ public class AppItem extends Item {
         final ImageView actionIcon = (ImageView) convertView.findViewById(R.id.action_icon);
 
         titleView.setText(title);
+        titleView.setContentDescription(userId.getUserBadgedLabel(convertView.getContext(), title));
 
         bindIcon(icon);
         bindActionIcon(actionIconArea, actionIcon);
@@ -99,11 +105,11 @@ public class AppItem extends Item {
 
     @Override
     void open() {
-        mActionHandler.openRoot(info);
+        mActionHandler.openRoot(info, userId);
     }
 
     @Override
-    String getPackageName() {
+    public String getPackageName() {
         return info.activityInfo.packageName;
     }
 
@@ -111,6 +117,7 @@ public class AppItem extends Item {
     public String toString() {
         return "AppItem{"
                 + "id=" + stringId
+                + ", userId=" + userId
                 + ", resolveInfo=" + info
                 + "}";
     }

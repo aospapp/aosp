@@ -23,12 +23,10 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS := -Wall -Werror
 
 LOCAL_SHARED_LIBRARIES := \
-    libhwbinder \
     libbase \
     libcutils \
     libutils \
-    libhidlbase \
-    libhidltransport
+    libhidlbase
 
 LOCAL_REQUIRED_MODULES := android.hardware.tests.msgq@1.0-impl
 

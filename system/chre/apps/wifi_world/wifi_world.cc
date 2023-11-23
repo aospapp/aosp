@@ -16,11 +16,12 @@
 
 #include <chre.h>
 #include <cinttypes>
+#include <cmath>
 
 #include "chre/util/macros.h"
 #include "chre/util/nanoapp/log.h"
-#include "chre/util/time.h"
 #include "chre/util/nanoapp/wifi.h"
+#include "chre/util/time.h"
 
 using chre::kOneMillisecondInNanoseconds;
 using chre::Nanoseconds;
@@ -40,8 +41,11 @@ namespace {
 //! A dummy cookie to pass into the configure scan monitoring async request.
 constexpr uint32_t kScanMonitoringCookie = 0x1337;
 
-//! A dummy cookie to pass into request scan async.
+//! A dummy cookie to pass into on-demand scan async request.
 constexpr uint32_t kOnDemandScanCookie = 0xcafe;
+
+//! A dummy cookie to pass into ranging async request.
+constexpr uint32_t kRangingCookie = 0xbeef;
 
 //! The interval for on-demand wifi scans.
 constexpr Nanoseconds kWifiScanInterval = Nanoseconds(Seconds(10));
@@ -67,26 +71,39 @@ chreWifiScanParams gWifiScanParams = {};
 
 //! The sequence of on-demand wifi scan types to request for.
 constexpr chreWifiScanType gWifiScanTypes[] = {
-  CHRE_WIFI_SCAN_TYPE_ACTIVE,
-  CHRE_WIFI_SCAN_TYPE_ACTIVE_PLUS_PASSIVE_DFS,
-  CHRE_WIFI_SCAN_TYPE_PASSIVE
-};
+    CHRE_WIFI_SCAN_TYPE_ACTIVE, CHRE_WIFI_SCAN_TYPE_ACTIVE_PLUS_PASSIVE_DFS,
+    CHRE_WIFI_SCAN_TYPE_PASSIVE};
 
 //! The index of the next wifi scan type to request for.
 uint8_t gScanTypeIndex = 0;
+
+//! Whether to enable WiFi RTT ranging requests.
+bool gEnableRanging = true;
+
+//! The number of targets to make ranging request for.
+uint8_t gTargetCount = 0;
+
+//! The list of ranging targets.
+chreWifiRangingTarget gTargetList[CHRE_WIFI_RANGING_LIST_MAX_LEN];
+
+//! TIme last ranging request was made.
+uint64_t gLastRangingTimeNs = 0;
+
+//! Whether the app is awaiting any ranging event.
+bool gPendingRanging = false;
 
 /**
  * Logs a CHRE wifi scan result.
  *
  * @param result the scan result to log.
  */
-void logChreWifiResult(const chreWifiScanResult& result) {
+void logChreWifiResult(const chreWifiScanResult &result) {
   const char *ssidStr = "<non-printable>";
   char ssidBuffer[chre::kMaxSsidStrLen];
   if (result.ssidLen == 0) {
     ssidStr = "<empty>";
-  } else if (chre::parseSsidToStr(ssidBuffer, sizeof(ssidBuffer),
-                                  result.ssid, result.ssidLen)) {
+  } else if (chre::parseSsidToStr(ssidBuffer, sizeof(ssidBuffer), result.ssid,
+                                  result.ssidLen)) {
     ssidStr = ssidBuffer;
   }
 
@@ -103,8 +120,8 @@ void logChreWifiResult(const chreWifiScanResult& result) {
   LOGI("  bssid: %s", bssidStr);
   LOGI("  flags: %" PRIx8, result.flags);
   LOGI("  rssi: %" PRId8 "dBm", result.rssi);
-  LOGI("  band: %s (%" PRIu8 ")",
-       chre::parseChreWifiBand(result.band), result.band);
+  LOGI("  band: %s (%" PRIu8 ")", chre::parseChreWifiBand(result.band),
+       result.band);
   LOGI("  primary channel: %" PRIu32, result.primaryChannel);
   LOGI("  center frequency primary: %" PRIu32, result.centerFreqPrimary);
   LOGI("  center frequency secondary: %" PRIu32, result.centerFreqSecondary);
@@ -114,17 +131,82 @@ void logChreWifiResult(const chreWifiScanResult& result) {
 }
 
 /**
- * Requests a delayed wifi scan using a one-shot timer. The interval is
+ * Logs a CHRE WiFi ranging result.
+ *
+ * @param result the ranging result to log.
+ */
+void logChreRangingResult(const chreWifiRangingResult &result) {
+  const char *bssidStr = "<non-printable>";
+  char bssidBuffer[chre::kBssidStrLen];
+  if (chre::parseBssidToStr(result.macAddress, bssidBuffer,
+                            sizeof(bssidBuffer))) {
+    bssidStr = bssidBuffer;
+  }
+  LOGI("BSSID %s", bssidStr);
+  LOGI("  age: %" PRIu64 " ms",
+       (chreGetTime() - result.timestamp) / kOneMillisecondInNanoseconds);
+
+  if (result.status != CHRE_WIFI_RANGING_STATUS_SUCCESS) {
+    LOGE("  ranging failed");
+  } else {
+    LOGI("  rssi: %" PRId8 " dBm", result.rssi);
+    LOGI("  distance: %" PRIu32 " mm", result.distance);
+    LOGI("  distanceStdDev: %" PRIu32 " mm", result.distanceStdDev);
+
+    if (result.flags & CHRE_WIFI_RTT_RESULT_HAS_LCI) {
+      const chreWifiRangingResult::chreWifiLci lci = result.lci;
+      LOGI("  latitude: 0x%" PRIx64 ", %f degs", lci.latitude,
+           static_cast<float>(lci.latitude) / static_cast<float>(1 << 25));
+      LOGI("  longitude: 0x%" PRIx64 ", %f degs", lci.longitude,
+           static_cast<float>(lci.longitude) / static_cast<float>(1 << 25));
+
+      float altitude =
+          static_cast<float>(lci.altitude) / static_cast<float>(1 << 8);
+      if (lci.altitudeType == CHRE_WIFI_LCI_UNCERTAINTY_UNKNOWN) {
+        LOGI("  altitude: unknown");
+      } else if (lci.altitudeType == CHRE_WIFI_LCI_ALTITUDE_TYPE_METERS) {
+        LOGI("  altitude: 0x%" PRIx32 ", %f m", lci.altitude, altitude);
+      } else if (lci.altitudeType == CHRE_WIFI_LCI_ALTITUDE_TYPE_FLOORS) {
+        LOGI("  altitude: 0x%" PRIx32 ", %f floors", lci.altitude, altitude);
+      } else {
+        LOGE("  altitude: undefined");
+      }
+
+      if (lci.latitudeUncertainty == CHRE_WIFI_LCI_UNCERTAINTY_UNKNOWN) {
+        LOGI("  latitude uncertainty: unknown");
+      } else {
+        LOGI("  latitude uncertainty: %f degs",
+             powf(2, 8 - lci.latitudeUncertainty));
+      }
+      if (lci.longitudeUncertainty == CHRE_WIFI_LCI_UNCERTAINTY_UNKNOWN) {
+        LOGI("  longitude uncertainty: unknown");
+      } else {
+        LOGI("  longitude uncertainty: %f degs",
+             powf(2, 8 - lci.longitudeUncertainty));
+      }
+      if (lci.altitudeUncertainty == CHRE_WIFI_LCI_UNCERTAINTY_UNKNOWN ||
+          lci.altitudeType != CHRE_WIFI_LCI_ALTITUDE_TYPE_METERS) {
+        LOGI("  altitude uncertainty: unknown");
+      } else {
+        LOGI("  altitude uncertainty: %f m",
+             powf(2, 21 - lci.altitudeUncertainty));
+      }
+    }
+  }
+}
+
+/**
+ * Requests a delayed WiFi scan using a one-shot timer. The interval is
  * specified as a constant at the top of this file.
  */
 void requestDelayedWifiScan() {
   if (gWifiCapabilities & CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN) {
-    // Schedule a timer to send an active wifi scan.
-    gWifiScanTimerHandle = chreTimerSet(kWifiScanInterval.toRawNanoseconds(),
-                                        &gWifiScanTimerHandle /* data */,
-                                        true /* oneShot */);
+    // Schedule a timer to send an active WiFi scan.
+    gWifiScanTimerHandle =
+        chreTimerSet(kWifiScanInterval.toRawNanoseconds(),
+                     &gWifiScanTimerHandle /* data */, true /* oneShot */);
     if (gWifiScanTimerHandle == CHRE_TIMER_INVALID) {
-      LOGE("Failed to set timer for delayed wifi scan");
+      LOGE("Failed to set timer for delayed WiFi scan");
     } else {
       LOGI("Set a timer to request a WiFi scan");
     }
@@ -132,7 +214,7 @@ void requestDelayedWifiScan() {
 }
 
 /**
- * Handles the result of an asynchronous request for a wifi resource.
+ * Handles the result of an asynchronous request for a WiFi resource.
  *
  * @param result a pointer to the event structure containing the result of the
  * request.
@@ -140,9 +222,9 @@ void requestDelayedWifiScan() {
 void handleWifiAsyncResult(const chreAsyncResult *result) {
   if (result->requestType == CHRE_WIFI_REQUEST_TYPE_CONFIGURE_SCAN_MONITOR) {
     if (result->success) {
-      LOGI("Successfully requested wifi scan monitoring");
+      LOGI("Successfully requested WiFi scan monitoring");
     } else {
-      LOGE("Error requesting wifi scan monitoring with %" PRIu8,
+      LOGE("Error requesting WiFi scan monitoring with %" PRIu8,
            result->errorCode);
     }
 
@@ -152,11 +234,13 @@ void handleWifiAsyncResult(const chreAsyncResult *result) {
   } else if (result->requestType == CHRE_WIFI_REQUEST_TYPE_REQUEST_SCAN) {
     uint64_t timeSinceRequest = chreGetTime() - gLastRequestTimeNs;
     if (result->success) {
-      LOGI("Successfully requested an on-demand wifi scan (response time %"
-           PRIu64 " ms)", timeSinceRequest / kOneMillisecondInNanoseconds);
+      LOGI(
+          "Successfully requested an on-demand WiFi scan (response time "
+          "%" PRIu64 " ms)",
+          timeSinceRequest / kOneMillisecondInNanoseconds);
       gPendingOnDemandScan = true;
     } else {
-      LOGE("Error requesting an on-demand wifi scan with %" PRIu8,
+      LOGE("Error requesting an on-demand WiFi scan with %" PRIu8,
            result->errorCode);
     }
 
@@ -165,20 +249,76 @@ void handleWifiAsyncResult(const chreAsyncResult *result) {
     }
 
     requestDelayedWifiScan();
+  } else if (result->requestType == CHRE_WIFI_REQUEST_TYPE_RANGING) {
+    uint64_t timeSinceRequest = chreGetTime() - gLastRangingTimeNs;
+    if (result->success) {
+      LOGI("Successfully requested WiFi ranging (response time %" PRIu64 " ms)",
+           timeSinceRequest / kOneMillisecondInNanoseconds);
+    } else {
+      gPendingRanging = false;
+      LOGE("Error requesting a WiFi ranging with %" PRIu8, result->errorCode);
+    }
+
+    if (result->cookie != &kRangingCookie) {
+      LOGE("Ranging cookie mismatch");
+    }
+
   } else {
     LOGE("Received invalid async result");
   }
 }
 
+void prepareRanging(const chreWifiScanEvent *event) {
+  if (gWifiCapabilities & CHRE_WIFI_CAPABILITIES_RTT_RANGING) {
+    // Collect the first CHRE_WIFI_RANGING_LIST_MAX_LEN AP's that support the
+    // capability.
+    for (uint8_t i = 0; i < event->resultCount; i++) {
+      if (gTargetCount < CHRE_WIFI_RANGING_LIST_MAX_LEN &&
+          (event->results[i].flags &
+           CHRE_WIFI_SCAN_RESULT_FLAGS_IS_FTM_RESPONDER)) {
+        chreWifiRangingTargetFromScanResult(&event->results[i],
+                                            &gTargetList[gTargetCount++]);
+      }
+    }
+
+    // Make ranging request only when all scan events are received.
+    if (!gPendingOnDemandScan) {
+      if (gTargetCount == 0 && event->resultCount == 0) {
+        LOGI("No AP to make ranging request to");
+      } else if (gTargetCount == 0) {
+        LOGI("No AP with RTT capability found");
+        // Adding one AP to exercise ranging API.
+        chreWifiRangingTargetFromScanResult(&event->results[0],
+                                            &gTargetList[gTargetCount++]);
+      }
+
+      if (gTargetCount > 0) {
+        struct chreWifiRangingParams params = {
+            .targetListLen = gTargetCount,
+            .targetList = &gTargetList[0],
+        };
+
+        gLastRangingTimeNs = chreGetTime();
+        if (!chreWifiRequestRangingAsync(&params, &kRangingCookie)) {
+          LOGE("Failed to request WiFi ranging");
+        } else {
+          gPendingRanging = true;
+        }
+        gTargetCount = 0;
+      }
+    }
+  }
+}
+
 /**
- * Handles a wifi scan event.
+ * Handles a WiFi scan event.
  *
- * @param event a pointer to the details of the wifi scan event.
+ * @param event a pointer to the details of the WiFi scan event.
  */
 void handleWifiScanEvent(const chreWifiScanEvent *event) {
   LOGI("Received Wifi scan event of type %" PRIu8 " with %" PRIu8
-       " results at %" PRIu64 "ns", event->scanType, event->resultCount,
-       event->referenceTime);
+       " results at %" PRIu64 "ns",
+       event->scanType, event->resultCount, event->referenceTime);
 
   if (gPendingOnDemandScan) {
     uint64_t timeSinceRequest = chreGetTime() - gLastRequestTimeNs;
@@ -195,11 +335,29 @@ void handleWifiScanEvent(const chreWifiScanEvent *event) {
       gPendingOnDemandScan = false;
       gScanResultAcc = 0;
     }
+
+    if (gEnableRanging) {
+      prepareRanging(event);
+    }
   }
 
   for (uint8_t i = 0; i < event->resultCount; i++) {
-    const chreWifiScanResult& result = event->results[i];
+    const chreWifiScanResult &result = event->results[i];
     logChreWifiResult(result);
+  }
+}
+
+void handleWifiRangingEvent(const chreWifiRangingEvent *event) {
+  LOGI("Received Wifi ranging event with %" PRIu8 " results",
+       event->resultCount);
+
+  if (!gPendingRanging) {
+    LOGE("WiFi ranging event not expected");
+  } else {
+    gPendingRanging = false;
+    for (uint8_t i = 0; i < event->resultCount; i++) {
+      logChreRangingResult(event->results[i]);
+    }
   }
 }
 
@@ -211,17 +369,17 @@ void handleWifiScanEvent(const chreWifiScanEvent *event) {
 void handleTimerEvent(const void *eventData) {
   const uint32_t *timerHandle = static_cast<const uint32_t *>(eventData);
   if (*timerHandle == gWifiScanTimerHandle) {
-    gWifiScanParams.scanType         = gWifiScanTypes[gScanTypeIndex];
-    gWifiScanParams.maxScanAgeMs     = 5000;  // 5 seconds
+    gWifiScanParams.scanType = gWifiScanTypes[gScanTypeIndex];
+    gWifiScanParams.maxScanAgeMs = 5000;  // 5 seconds
     gWifiScanParams.frequencyListLen = 0;
-    gWifiScanParams.ssidListLen      = 0;
+    gWifiScanParams.ssidListLen = 0;
     gScanTypeIndex = (gScanTypeIndex + 1) % ARRAY_SIZE(gWifiScanTypes);
 
     if (chreWifiRequestScanAsync(&gWifiScanParams, &kOnDemandScanCookie)) {
-      LOGI("Requested a wifi scan successfully");
+      LOGI("Requested a WiFi scan successfully");
       gLastRequestTimeNs = chreGetTime();
     } else {
-      LOGE("Failed to request a wifi scan");
+      LOGE("Failed to request a WiFi scan");
     }
   } else {
     LOGE("Received invalid timer handle");
@@ -248,8 +406,7 @@ bool nanoappStart() {
   return true;
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   switch (eventType) {
     case CHRE_EVENT_WIFI_ASYNC_RESULT:
@@ -257,6 +414,10 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
       break;
     case CHRE_EVENT_WIFI_SCAN_RESULT:
       handleWifiScanEvent(static_cast<const chreWifiScanEvent *>(eventData));
+      break;
+    case CHRE_EVENT_WIFI_RANGING_RESULT:
+      handleWifiRangingEvent(
+          static_cast<const chreWifiRangingEvent *>(eventData));
       break;
     case CHRE_EVENT_TIMER:
       handleTimerEvent(eventData);
@@ -274,8 +435,8 @@ void nanoappEnd() {
 }  // anonymous namespace
 }  // namespace chre
 
-#include "chre/util/nanoapp/app_id.h"
 #include "chre/platform/static_nanoapp_init.h"
+#include "chre/util/nanoapp/app_id.h"
 
 CHRE_STATIC_NANOAPP_INIT(WifiWorld, chre::kWifiWorldAppId, 0);
 #endif  // CHRE_NANOAPP_INTERNAL

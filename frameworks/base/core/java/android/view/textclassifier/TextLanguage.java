@@ -225,7 +225,7 @@ public final class TextLanguage implements Parcelable {
 
         private final CharSequence mText;
         private final Bundle mExtra;
-        @Nullable private String mCallingPackageName;
+        @Nullable private SystemTextClassifierMetadata mSystemTcMetadata;
 
         private Request(CharSequence text, Bundle bundle) {
             mText = text;
@@ -241,22 +241,33 @@ public final class TextLanguage implements Parcelable {
         }
 
         /**
-         * Sets the name of the package that is sending this request.
-         * Package-private for SystemTextClassifier's use.
-         * @hide
-         */
-        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-        public void setCallingPackageName(@Nullable String callingPackageName) {
-            mCallingPackageName = callingPackageName;
-        }
-
-        /**
          * Returns the name of the package that sent this request.
          * This returns null if no calling package name is set.
          */
         @Nullable
         public String getCallingPackageName() {
-            return mCallingPackageName;
+            return mSystemTcMetadata != null ? mSystemTcMetadata.getCallingPackageName() : null;
+        }
+
+        /**
+         * Sets the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+        public void setSystemTextClassifierMetadata(
+                @Nullable SystemTextClassifierMetadata systemTcMetadata) {
+            mSystemTcMetadata = systemTcMetadata;
+        }
+
+        /**
+         * Returns the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        @Nullable
+        public SystemTextClassifierMetadata getSystemTextClassifierMetadata() {
+            return mSystemTcMetadata;
         }
 
         /**
@@ -277,17 +288,17 @@ public final class TextLanguage implements Parcelable {
         @Override
         public void writeToParcel(Parcel dest, int flags) {
             dest.writeCharSequence(mText);
-            dest.writeString(mCallingPackageName);
             dest.writeBundle(mExtra);
+            dest.writeParcelable(mSystemTcMetadata, flags);
         }
 
         private static Request readFromParcel(Parcel in) {
             final CharSequence text = in.readCharSequence();
-            final String callingPackageName = in.readString();
             final Bundle extra = in.readBundle();
+            final SystemTextClassifierMetadata systemTcMetadata = in.readParcelable(null);
 
             final Request request = new Request(text, extra);
-            request.setCallingPackageName(callingPackageName);
+            request.setSystemTextClassifierMetadata(systemTcMetadata);
             return request;
         }
 

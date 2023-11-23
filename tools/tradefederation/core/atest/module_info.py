@@ -79,8 +79,10 @@ class ModuleInfo(object):
         if not os.path.isfile(module_file_path) or force_build:
             logging.debug('Generating %s - this is required for '
                           'initial runs.', _MODULE_INFO)
+            build_env = dict(constants.ATEST_BUILD_ENV)
             atest_utils.build([module_info_target],
-                              logging.getLogger().isEnabledFor(logging.DEBUG))
+                              verbose=logging.getLogger().isEnabledFor(logging.DEBUG),
+                              env_vars=build_env)
         return module_info_target, module_file_path
 
     def _load_module_info_file(self, force_build, module_file):
@@ -155,7 +157,16 @@ class ModuleInfo(object):
 
     def get_module_info(self, mod_name):
         """Return dict of info for given module name, None if non-existent."""
-        return self.name_to_module_info.get(mod_name)
+        module_info = self.name_to_module_info.get(mod_name)
+        # Android's build system will automatically adding 2nd arch bitness
+        # string at the end of the module name which will make atest could not
+        # finding matched module. Rescan the module-info with matched module
+        # name without bitness.
+        if not module_info:
+            for _, module_info in self.name_to_module_info.items():
+                if mod_name == module_info.get(constants.MODULE_NAME, ''):
+                    break
+        return module_info
 
     def is_suite_in_compatibility_suites(self, suite, mod_info):
         """Check if suite exists in the compatibility_suites of module-info.

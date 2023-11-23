@@ -18,7 +18,6 @@ package com.android.car.notification;
 
 import android.app.Application;
 import android.car.Car;
-import android.car.CarNotConnectedException;
 import android.car.drivingstate.CarUxRestrictionsManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -55,7 +54,7 @@ public class NotificationApplication extends Application {
                         getApplicationContext());
                 preprocessingManager
                         .setCarUxRestrictionManagerWrapper(mCarUxRestrictionManagerWrapper);
-            } catch (CarNotConnectedException e) {
+            } catch (RuntimeException e) {
                 Log.e(TAG, "Car not connected in CarConnectionListener", e);
             }
         }
@@ -66,7 +65,8 @@ public class NotificationApplication extends Application {
     };
 
     /**
-     * Returns the CarUxRestrictionManagerWrapper used to determine visual treatment of notifications.
+     * Returns the CarUxRestrictionManagerWrapper used to determine visual treatment of
+     * notifications.
      */
     public CarUxRestrictionManagerWrapper getCarUxRestrictionWrapper() {
         return mCarUxRestrictionManagerWrapper;
@@ -79,8 +79,15 @@ public class NotificationApplication extends Application {
         mCar.connect();
         mClickHandlerFactory = new NotificationClickHandlerFactory(
                 IStatusBarService.Stub.asInterface(
-                        ServiceManager.getService(Context.STATUS_BAR_SERVICE)),
-                /* callback= */null);
+                        ServiceManager.getService(Context.STATUS_BAR_SERVICE)));
+    }
+
+    @Override
+    public void onTerminate() {
+        super.onTerminate();
+        if (mCar != null) {
+            mCar.disconnect();
+        }
     }
 
     /**

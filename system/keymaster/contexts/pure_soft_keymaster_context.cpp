@@ -44,18 +44,18 @@
 #include <keymaster/operation.h>
 #include <keymaster/wrapped_key.h>
 
-#include "soft_attestation_cert.h"
+#include <keymaster/contexts/soft_attestation_cert.h>
 
 using std::unique_ptr;
 
 namespace keymaster {
 
-PureSoftKeymasterContext::PureSoftKeymasterContext()
+PureSoftKeymasterContext::PureSoftKeymasterContext(keymaster_security_level_t security_level)
     : rsa_factory_(new RsaKeyFactory(this)), ec_factory_(new EcKeyFactory(this)),
       aes_factory_(new AesKeyFactory(this, this)),
       tdes_factory_(new TripleDesKeyFactory(this, this)),
       hmac_factory_(new HmacKeyFactory(this, this)), os_version_(0), os_patchlevel_(0),
-      soft_keymaster_enforcement_(64, 64) {}
+      soft_keymaster_enforcement_(64, 64), security_level_(security_level) {}
 
 PureSoftKeymasterContext::~PureSoftKeymasterContext() {}
 
@@ -106,20 +106,58 @@ OperationFactory* PureSoftKeymasterContext::GetOperationFactory(keymaster_algori
 }
 
 keymaster_error_t PureSoftKeymasterContext::CreateKeyBlob(const AuthorizationSet& key_description,
-                                                      const keymaster_key_origin_t origin,
-                                                      const KeymasterKeyBlob& key_material,
-                                                      KeymasterKeyBlob* blob,
-                                                      AuthorizationSet* hw_enforced,
-                                                      AuthorizationSet* sw_enforced) const {
+                                                          const keymaster_key_origin_t origin,
+                                                          const KeymasterKeyBlob& key_material,
+                                                          KeymasterKeyBlob* blob,
+                                                          AuthorizationSet* hw_enforced,
+                                                          AuthorizationSet* sw_enforced) const {
+    if (key_description.GetTagValue(TAG_ROLLBACK_RESISTANCE)) {
+        return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
+    }
+
+    if (GetSecurityLevel() != KM_SECURITY_LEVEL_SOFTWARE) {
+        // We're pretending to be some sort of secure hardware.  Put relevant tags in hw_enforced.
+        for (auto& entry : key_description) {
+            switch (entry.tag) {
+            case KM_TAG_PURPOSE:
+            case KM_TAG_ALGORITHM:
+            case KM_TAG_KEY_SIZE:
+            case KM_TAG_RSA_PUBLIC_EXPONENT:
+            case KM_TAG_BLOB_USAGE_REQUIREMENTS:
+            case KM_TAG_DIGEST:
+            case KM_TAG_PADDING:
+            case KM_TAG_BLOCK_MODE:
+            case KM_TAG_MIN_SECONDS_BETWEEN_OPS:
+            case KM_TAG_MAX_USES_PER_BOOT:
+            case KM_TAG_USER_SECURE_ID:
+            case KM_TAG_NO_AUTH_REQUIRED:
+            case KM_TAG_AUTH_TIMEOUT:
+            case KM_TAG_CALLER_NONCE:
+            case KM_TAG_MIN_MAC_LENGTH:
+            case KM_TAG_KDF:
+            case KM_TAG_EC_CURVE:
+            case KM_TAG_ECIES_SINGLE_HASH_MODE:
+            case KM_TAG_USER_AUTH_TYPE:
+            case KM_TAG_ORIGIN:
+            case KM_TAG_OS_VERSION:
+            case KM_TAG_OS_PATCHLEVEL:
+            case KM_TAG_EARLY_BOOT_ONLY:
+            case KM_TAG_UNLOCKED_DEVICE_REQUIRED:
+                hw_enforced->push_back(entry);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
     keymaster_error_t error = SetKeyBlobAuthorizations(key_description, origin, os_version_,
                                                        os_patchlevel_, hw_enforced, sw_enforced);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     AuthorizationSet hidden;
     error = BuildHiddenAuthorizations(key_description, &hidden, softwareRootOfTrust);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     return SerializeIntegrityAssuredBlob(key_material, hidden, *hw_enforced, *sw_enforced, blob);
 }
@@ -281,7 +319,7 @@ keymaster_error_t PureSoftKeymasterContext::UnwrapKey(
     UniquePtr<Key> key;
     auto wrapping_key_params = AuthorizationSetBuilder()
                                    .RsaEncryptionKey(2048, 65537)
-                                   .Digest(KM_DIGEST_SHA1)
+                                   .Digest(KM_DIGEST_SHA_2_256)
                                    .Padding(KM_PAD_RSA_OAEP)
                                    .Authorization(TAG_PURPOSE, KM_PURPOSE_WRAP)
                                    .build();
@@ -404,6 +442,18 @@ keymaster_error_t PureSoftKeymasterContext::UnwrapKey(
     }
 
     return error;
+}
+
+keymaster_error_t PureSoftKeymasterContext::GetVerifiedBootParams(
+    keymaster_blob_t* verified_boot_key, keymaster_blob_t* verified_boot_hash,
+    keymaster_verified_boot_t* verified_boot_state, bool* device_locked) const {
+    // TODO(swillden): See if there might be some sort of vbmeta data in goldfish/cuttlefish.
+    static std::string fake_vb_key(32, 0);
+    *verified_boot_key = {reinterpret_cast<uint8_t*>(fake_vb_key.data()), fake_vb_key.size()};
+    *verified_boot_hash = {reinterpret_cast<uint8_t*>(fake_vb_key.data()), fake_vb_key.size()};
+    *verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
+    *device_locked = false;
+    return KM_ERROR_OK;
 }
 
 }  // namespace keymaster

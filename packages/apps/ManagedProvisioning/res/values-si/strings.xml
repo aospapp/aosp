@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"යළි පිහිටුවන්න"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"පැතිකඩ පිහිටුවිය නොහැකිය"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"උපාංගය පිහිටුවිය නොහැකිය"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"යමක් වැරදී ගියේය"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"උපාංගය සැකසීමට නොහැකි විය. උදවු සඳහා, ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"උදවු සඳහා ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලක අමතන්න"</string>
+    <string name="reset_device" msgid="5483853913241939262">"මෙම උපාංගය යළි සකසා නැවත එය පිහිටුවීමට උත්සාහ කරන්න"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"උපාංගය දැනටමත් පිහිටුවා තිබේ"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi වෙත සම්බන්ධ වීමට නොහැකි විය"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"ඔබේ උපාංගයේ යළි සැකසුම් ආරක්‍ෂාව සක්‍රීයයි. උදවු සඳහා, ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"වැඩ උපාංගය සැකසීමට සූදානම් වෙමින්…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"පරිපාලක යෙදුම සැකසීම"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"අනෙකුත් සියල්ල සකසන්න"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"දැන්, අනෙකුත් සියල්ල සකසමු"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"ඔබේ උපාංගයෙන් තව දේවල් ලබා ගැනීමට පෞද්ගලික ගිණුමක් එක් කරන්න"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"දැන් ඔබේ කාර්යාල පැතිකඩ සුදානම් නිසා ඔබට ඔබේ යෙදුම් සහ අන්තර්ගත වෙත ප්‍රවේශ වීමට පෞද්ගලික ගිණුමක්ද එක් කළ හැකිය."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"මෙම උපාංගය ඔබේ සංවිධානයට අයත් වේ"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"මෙම දුරකථනය කළමනා කිරීමටත් නිරීක්‍ෂණ කිරීමටත් පහත සඳහන් යෙදුම භාවිත කෙරේ"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"කාර්යාල සැකසීම සඳහා සූදානම් වේ…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"පළමුව, ඔබේ වැඩ පැතිකඩ සකසමු"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"අපි ඔබේ වැඩ පැතිකඩ පිහිටුවමු"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩේ තබනු ලැබේ"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ඔබ දවසේ වැඩ අවසන් කළ විට කාර්යාල යෙදුම් විරාම ගන්වන්න"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"ඔබේ කාර්යාල පැතිකඩේ ඇති දත්ත පමණක් ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයාට පමණක් දෘශ්‍යමාන වෙති"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ඔබේ කාර්යාල පැතිකඩේ ඇති දත්ත ඔබේ IT පරිපාලකට දෘශ්‍යමාන වේ"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ඔබගේ කාර්යාල පැතිකඩ සැකසේ…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩේ තබනු ලැබේ. ඔබ දවසේ වැඩ අවසන් කළ විට ඔබට ඔබේ කාර්යාල යෙදුම් විරාම ගැන්විය හැක. ඔබේ කාර්යාල පැතිකඩේ ඇති දත්ත පමණක් ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයාට පමණක් දෘශ්‍යමාන වෙති."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩේ තබා ඇත. ඔබ දවසේ වැඩ අවසන් කළ විට ඔබට ඔබේ කාර්යාල යෙදුම් විරාම ගැන්විය හැකිය. ඔබේ කාර්යාල පැතිකඩේ ඇති දත්ත ඔබේ IT පරිපාලකට දෘශ්‍යමාන වේ."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"ඔබේ කාර්යාල උපාංගය සකසමු"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"ඔබේ කාර්යා යෙදුම් ඔබේ ඇඟිලි තුඩුවල තබා ගන්න"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"මෙම උපාංගය පුද්ගලික නොවේ"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයාට මෙම උපාංගය මත ඔබේ දත්ත සහ ක්‍රියාකාරකම බැලිය හැකි වීමට ඉඩ ඇත."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"ඔබේ උපාංගය සැකසීම…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"පහසුවෙන් ඔබේ කාර්යා යෙදුම් වෙත ප්‍රවේශ වීමට මෙම උපාංගය භාවිත කරන්න. මෙම උපාංගය පුද්ගලික නොවේ, එබැවින් ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයාට ඔබේ දත්ත සහ ක්‍රියාකාරකම බැලීමට හැකි වෙයි. තවත් දැන ගැනීමට, ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයා සම්බන්ධ කර ගන්න."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"කාර්යාල යෙදුම් කාර්යාල පැතිකඩේ ඇති අතර, IT පාලක කළමනා. කරයි"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"පෞද්ගලික යෙදුම් වෙන් කර කාර්යාල යෙදුම්වලින් සඟවා ඇත"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ඔබේ IT පරිපාලකට මෙම උපාංගය පාලනය කර යෙදුම් අවහිර කළ හැකිය"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"කාර්යාල යෙදුම් ඔබේ කාර්යාල පැතිකඩේ තබා ඇති අතර ඔබේ IT පරිපාලක විසින් කළමනාකරණය කර ඇත. පෞද්ගලික යෙදුම් වෙන් කර කාර්යාල යෙදුම්වලින් සඟවා ඇත. ඔබේ IT පරිපාලකට මෙම උපාංගය පාලනය කර නිශ්චිත යෙදුම් අවහිර කළ හැකිය."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"තත්පරයක් ඉන්න…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"පෞද්ගලිකත්ව සිහි කැඳවීම"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ඔබේ තොරතුරු තාක්‍ෂණ පරිපාලකයාට මෙම උපාංගය මත ඔබේ දත්ත සහ ක්‍රියාකාරකම බැලිය හැකි වීමට ඉඩ ඇත"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"ඔබේ උපාංගය භාවිතයට සූදානම්!"</string>
     <string name="done" msgid="7755227776955952318">"කළා"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"මෙම උපාංගය <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>ගෙන් ණයට ලබා ගන්නා ලදී"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> හට මේවා කළ හැකිය:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"මෙම උපාංගය සඳහා ඔබට ගෙවීම් කළ හැකි වන ලෙස <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> යෙදුම ස්ථාපනය කරන්න"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"ඔබ ගෙවීම් නොකරන්නේ නම් මෙම උපාංගය වෙත ප්‍රවේශය අවහිර කරන්න"</string>
 </resources>

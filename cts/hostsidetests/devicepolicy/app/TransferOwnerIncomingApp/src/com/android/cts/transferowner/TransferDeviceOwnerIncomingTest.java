@@ -20,6 +20,7 @@ import static junit.framework.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
+import android.app.admin.DevicePolicyManager;
 import android.app.admin.SystemUpdatePolicy;
 
 import androidx.test.filters.SmallTest;
@@ -37,8 +38,11 @@ public class TransferDeviceOwnerIncomingTest extends DeviceAndProfileOwnerTransf
         assertTrue(mDevicePolicyManager.getCameraDisabled(mIncomingComponentName));
         assertEquals(Collections.singletonList("test.package"),
                 mDevicePolicyManager.getKeepUninstalledPackages(mIncomingComponentName));
+        assertEquals(
+                DevicePolicyManager.PASSWORD_QUALITY_NUMERIC,
+                mDevicePolicyManager.getPasswordQuality(mIncomingComponentName));
         assertEquals(123, mDevicePolicyManager.getPasswordMinimumLength(mIncomingComponentName));
-        assertSystemPoliciesEqual(SystemUpdatePolicy.createWindowedInstallPolicy(123, 456),
+        assertSystemPoliciesEqual(SystemUpdatePolicy.createPostponeInstallPolicy(),
                 mDevicePolicyManager.getSystemUpdatePolicy());
         assertThrows(SecurityException.class, () -> {
             mDevicePolicyManager.getParentProfileInstance(mIncomingComponentName);

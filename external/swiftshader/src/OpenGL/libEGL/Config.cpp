@@ -18,10 +18,11 @@
 
 #include "Config.h"
 
+#include "Display.h"
 #include "common/debug.h"
 
 #include <EGL/eglext.h>
-#ifdef __ANDROID__
+#if defined(__ANDROID__) && !defined(ANDROID_NDK_BUILD)
 #include <system/graphics.h>
 #endif
 
@@ -65,7 +66,7 @@ Config::Config(sw::Format displayFormat, EGLint minInterval, EGLint maxInterval,
 		mBlueSize = 8;
 		mAlphaSize = 8;
 		mBindToTextureRGBA = EGL_TRUE;
-		#ifdef __ANDROID__
+		#if defined(__ANDROID__) && !defined(ANDROID_NDK_BUILD)
 			mNativeVisualID = HAL_PIXEL_FORMAT_BGRA_8888;
 		#else
 			mNativeVisualID = 2;   // Arbitrary; prefer over ABGR
@@ -77,7 +78,7 @@ Config::Config(sw::Format displayFormat, EGLint minInterval, EGLint maxInterval,
 		mBlueSize = 8;
 		mAlphaSize = 8;
 		mBindToTextureRGBA = EGL_TRUE;
-		#ifdef __ANDROID__
+		#if defined(__ANDROID__) && !defined(ANDROID_NDK_BUILD)
 			mNativeVisualID = HAL_PIXEL_FORMAT_RGBA_8888;
 		#endif
 		break;
@@ -86,7 +87,7 @@ Config::Config(sw::Format displayFormat, EGLint minInterval, EGLint maxInterval,
 		mGreenSize = 6;
 		mBlueSize = 5;
 		mAlphaSize = 0;
-		#ifdef __ANDROID__
+		#if defined(__ANDROID__) && !defined(ANDROID_NDK_BUILD)
 			mNativeVisualID = HAL_PIXEL_FORMAT_RGB_565;
 		#endif
 		break;
@@ -96,7 +97,7 @@ Config::Config(sw::Format displayFormat, EGLint minInterval, EGLint maxInterval,
 		mBlueSize = 8;
 		mAlphaSize = 0;
 		mBindToTextureRGB = EGL_TRUE;
-		#ifdef __ANDROID__
+		#if defined(__ANDROID__) && !defined(ANDROID_NDK_BUILD)
 			mNativeVisualID = 0x1FF;   // HAL_PIXEL_FORMAT_BGRX_8888
 		#else
 			mNativeVisualID = 1;   // Arbitrary; prefer over XBGR
@@ -108,7 +109,7 @@ Config::Config(sw::Format displayFormat, EGLint minInterval, EGLint maxInterval,
 		mBlueSize = 8;
 		mAlphaSize = 0;
 		mBindToTextureRGB = EGL_TRUE;
-		#ifdef __ANDROID__
+		#if defined(__ANDROID__) && !defined(ANDROID_NDK_BUILD)
 			mNativeVisualID = HAL_PIXEL_FORMAT_RGBX_8888;
 		#endif
 		break;
@@ -192,6 +193,7 @@ Config::Config(sw::Format displayFormat, EGLint minInterval, EGLint maxInterval,
 	// the intent of EGL_ANDROID_framebuffer_target is to prevent any copies or conversions.
 	mFramebufferTargetAndroid = (displayFormat == renderTargetFormat) ? EGL_TRUE : EGL_FALSE;
 	mRecordableAndroid = EGL_TRUE;
+	mBindToTextureTargetANGLE = EGL_TEXTURE_RECTANGLE_ANGLE;
 }
 
 EGLConfig Config::getHandle() const
@@ -398,6 +400,7 @@ bool ConfigSet::getConfigs(EGLConfig *configs, const EGLint *attribList, EGLint 
 				case EGL_CONFORMANT:                 match = (config->mConformant & attribIt->second) == attribIt->second;      break;
 				case EGL_RECORDABLE_ANDROID:         match = config->mRecordableAndroid == (EGLBoolean)attribIt->second;        break;
 				case EGL_FRAMEBUFFER_TARGET_ANDROID: match = config->mFramebufferTargetAndroid == (EGLBoolean)attribIt->second; break;
+				case EGL_BIND_TO_TEXTURE_TARGET_ANGLE: match = config->mBindToTextureTargetANGLE == (EGLBoolean)attribIt->second; break;
 
 				// Ignored attributes
 				case EGL_MAX_PBUFFER_WIDTH:

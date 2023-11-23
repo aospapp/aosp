@@ -6,6 +6,7 @@
 
 #include <common.h>
 #include <dm.h>
+#include <init.h>
 #include <miiphy.h>
 #include <tpm-v1.h>
 #include <asm/io.h>
@@ -22,10 +23,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define ETH_PHY_CTRL_REG		0
-#define ETH_PHY_CTRL_POWER_DOWN_BIT	11
-#define ETH_PHY_CTRL_POWER_DOWN_MASK	(1 << ETH_PHY_CTRL_POWER_DOWN_BIT)
-
 #define DB_GP_88F68XX_GPP_OUT_ENA_LOW	0x7fffffff
 #define DB_GP_88F68XX_GPP_OUT_ENA_MID	0xffffefff
 
@@ -33,6 +30,19 @@ DECLARE_GLOBAL_DATA_PTR;
 #define DB_GP_88F68XX_GPP_OUT_VAL_MID	0x00001000
 #define DB_GP_88F68XX_GPP_POL_LOW	0x0
 #define DB_GP_88F68XX_GPP_POL_MID	0x0
+
+static int get_tpm(struct udevice **devp)
+{
+	int rc;
+
+	rc = uclass_first_device_err(UCLASS_TPM, devp);
+	if (rc) {
+		printf("Could not find TPM (ret=%d)\n", rc);
+		return CMD_RET_FAILURE;
+	}
+
+	return 0;
+}
 
 /*
  * Define the DDR layout / topology here in the board file. This will
@@ -51,7 +61,7 @@ static struct mv_ddr_topology_map ddr_topology_map = {
 	    SPEED_BIN_DDR_1600K,	/* speed_bin */
 	    MV_DDR_DEV_WIDTH_16BIT,	/* memory_width */
 	    MV_DDR_DIE_CAP_4GBIT,	/* mem_size */
-	    DDR_FREQ_533,		/* frequency */
+	    MV_DDR_FREQ_533,		/* frequency */
 	    0, 0,			/* cas_wl cas_l */
 	    MV_DDR_TEMP_LOW,		/* temperature */
 	    MV_DDR_TIM_DEFAULT} },	/* timing */
@@ -266,18 +276,22 @@ int board_fix_fdt(void *rw_fdt_blob)
 
 int last_stage_init(void)
 {
+	struct udevice *tpm;
+	int ret;
+
 #ifndef CONFIG_SPL_BUILD
 	ccdc_eth_init();
 #endif
-	if (tpm_init() || tpm_startup(TPM_ST_CLEAR) ||
-	    tpm_continue_self_test()) {
+	ret = get_tpm(&tpm);
+	if (ret || tpm_init(tpm) || tpm_startup(tpm, TPM_ST_CLEAR) ||
+	    tpm_continue_self_test(tpm)) {
 		return 1;
 	}
 
 	mdelay(37);
 
-	flush_keys();
-	load_and_run_keyprog();
+	flush_keys(tpm);
+	load_and_run_keyprog(tpm);
 
 	return 0;
 }

@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2014-2017 Oracle and/or its affiliates. All Rights Reserved.
-# Copyright (c) 2016-2018 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2016-2019 Petr Vorel <pvorel@suse.cz>
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 
 [ -n "$TST_LIB_NET_LOADED" ] && return 0
@@ -59,6 +59,14 @@ tst_net_setup()
 {
 	tst_net_remote_tmpdir
 	[ -n "$TST_SETUP_CALLER" ] && $TST_SETUP_CALLER
+
+	if [ -z "$NS_ICMP_SENDER_DATA_MAXSIZE" ]; then
+		if [ "$TST_IPV6" ]; then
+			NS_ICMP_SENDER_DATA_MAXSIZE="$NS_ICMPV6_SENDER_DATA_MAXSIZE"
+		else
+			NS_ICMP_SENDER_DATA_MAXSIZE="$NS_ICMPV4_SENDER_DATA_MAXSIZE"
+		fi
+	fi
 }
 
 [ -n "$TST_USE_LEGACY_API" ] && . test.sh || . tst_test.sh
@@ -91,17 +99,21 @@ tst_brk_()
 }
 tst_require_root_()
 {
-	[ -z "$TST_USE_LEGACY_API" ] && TST_NEEDS_ROOT=1 || tst_require_root
+	if [ -z "$TST_USE_LEGACY_API" ]; then
+		_tst_require_root
+	else
+		tst_require_root
+	fi
 }
 
 init_ltp_netspace()
 {
-	tst_test_cmds ip
-	tst_require_root_
-
-	local pid=
+	local pid
 
 	if [ ! -f /var/run/netns/ltp_ns -a -z "$LTP_NETNS" ]; then
+		tst_require_cmds ip
+		tst_require_root_
+
 		ROD ip li add name ltp_ns_veth1 type veth peer name ltp_ns_veth2
 		pid="$(ROD ns_create net,mnt)"
 		mkdir -p /var/run/netns
@@ -129,9 +141,8 @@ init_ltp_netspace()
 # Run command on remote host.
 # Options:
 # -b run in background
-# -B run in background and save output to $TST_TMPDIR/bg.cmd
 # -s safe option, if something goes wrong, will exit with TBROK
-# -c specify command to run (this must be binary, not shell buildin/function)
+# -c specify command to run (this must be binary, not shell builtin/function)
 # RETURN: 0 on success, 1 on failure
 tst_rhost_run()
 {
@@ -141,15 +152,13 @@ tst_rhost_run()
 	local user="root"
 	local cmd=
 	local safe=0
-	local bg=
 
 	OPTIND=0
 
-	while getopts :bBsc:u: opt; do
+	while getopts :bsc:u: opt; do
 		case "$opt" in
-		b|B) [ "$TST_USE_NETNS" ] && pre_cmd= || pre_cmd="nohup"
-		   [ "$opt" = b ] && bg="/dev/null" || bg="$TST_TMPDIR/bg.cmd"
-		   post_cmd=" > $bg 2>&1 &"
+		b) [ "$TST_USE_NETNS" ] && pre_cmd= || pre_cmd="nohup"
+		   post_cmd=" > /dev/null 2>&1 &"
 		   out="1> /dev/null"
 		;;
 		s) safe=1 ;;
@@ -198,7 +207,7 @@ tst_rhost_run()
 # -l LPARAM: parameter passed to CMD in lhost
 # -r RPARAM: parameter passed to CMD in rhost
 # -q: quiet mode (suppress failure warnings)
-# CMD: command to run (this must be binary, not shell buildin/function due
+# CMD: command to run (this must be binary, not shell builtin/function due
 # tst_rhost_run() limitation)
 # RETURN: 0 on success, 1 on missing CMD or exit code on lhost or rhost
 tst_net_run()
@@ -280,6 +289,14 @@ tst_get_ifaces()
 	fi
 }
 
+# Get count of test interfaces for local/remote host.
+tst_get_ifaces_cnt()
+{
+	tst_require_cmds awk
+	local type="${1:-lhost}"
+	echo "$(tst_get_ifaces $type)" | awk '{print NF}'
+}
+
 # Get HW addresses from defined test interface names.
 # tst_get_hwaddrs [TYPE]
 # TYPE: { lhost | rhost }; Default value is 'lhost'.
@@ -309,7 +326,7 @@ tst_get_hwaddrs()
 # LINK: link number starting from 0. Default value is '0'.
 tst_hwaddr()
 {
-	tst_test_cmds awk
+	tst_require_cmds awk
 
 	local type="${1:-lhost}"
 	local link_num="${2:-0}"
@@ -325,7 +342,7 @@ tst_hwaddr()
 # LINK: link number starting from 0. Default value is '0'.
 tst_iface()
 {
-	tst_test_cmds awk
+	tst_require_cmds awk
 
 	local type="${1:-lhost}"
 	local link_num="${2:-0}"
@@ -346,68 +363,123 @@ tst_ipaddr()
 	fi
 }
 
-# Get IP address of unused network, specified either by type and counter
+# Get IP address of unused network, specified either counter and type
 # or by net and host.
-# tst_ipaddr_un [-cCOUNTER] [TYPE]
-# tst_ipaddr_un NET_ID [HOST_ID]
-# TYPE: { lhost | rhost }; Default value is 'lhost'.
-# COUNTER: Integer value for counting HOST_ID and NET_ID. Default is 1.
-# NET_ID: Integer or hex value of net. For IPv4 is 3rd octet, for IPv6
-# is 3rd hextet.
-# HOST_ID: Integer or hex value of host. For IPv4 is 4th octet, for
-# IPv6 is the last hextet. Default value is 0.
+# counter mode:
+# tst_ipaddr_un [-h MIN,MAX] [-n MIN,MAX] [-p] [-c COUNTER] [TYPE]
+# net & host mode:
+# tst_ipaddr_un [-h MIN,MAX] [-n MIN,MAX] [-p] NET_ID [HOST_ID]
+#
+# TYPE: { lhost | rhost } (default: 'lhost')
+# NET_ID: integer or hex value of net (IPv4: 3rd octet <0,255>, IPv6: 3rd
+# hextet <0,65535>)
+# HOST_ID: integer or hex value of host (IPv4: 4th octet <0,255>, IPv6: the
+# last hextet <0, 65535>, default: 0)
+#
+# OPTIONS
+# -c COUNTER: integer value for counting HOST_ID and NET_ID (default: 1)
+#
+# -h: specify *host* address range (HOST_ID)
+# -h MIN,MAX or -h MIN or -h ,MAX
+#
+# -n: specify *network* address range (NET_ID)
+# -n MIN,MAX or -n MIN or -n ,MAX
+#
+# -p: print also prefix
 tst_ipaddr_un()
 {
-	local counter host_id net_id max_host_id max_net_id tmp type
-	local OPTIND
+	local default_max=255
+	[ "$TST_IPV6" ] && default_max=65535
+	local max_net_id=$default_max
+	local min_net_id=0
 
-	while getopts "c:" opt; do
+	local counter host_id host_range is_counter max_host_id min_host_id net_id prefix tmp type
+
+	local OPTIND
+	while getopts "c:h:n:p" opt; do
 		case $opt in
 			c) counter="$OPTARG";;
+			h)
+				if echo $OPTARG | grep -q ','; then # 'min,max' or 'min,' or ',max'
+					min_host_id="$(echo $OPTARG | cut -d, -f1)"
+					max_host_id="$(echo $OPTARG | cut -d, -f2)"
+				else # min
+					min_host_id="$OPTARG"
+				fi
+				;;
+			n)
+				if echo $OPTARG | grep -q ','; then # 'min,max' or 'min,' or ',max'
+					min_net_id="$(echo $OPTARG | cut -d, -f1)"
+					max_net_id="$(echo $OPTARG | cut -d, -f2)"
+				else # min
+					min_net_id="$OPTARG"
+				fi
+				;;
+			m)
+				! tst_is_int "$OPTARG" || [ "$OPTARG" -lt 0 ]|| [ "$OPTARG" -gt $max_net_id ] && \
+					tst_brk TBROK "tst_ipaddr_un: -m must be integer <0,$max_net_id> ($OPTARG)"
+				[ "$OPTARG" -gt $max_net_id ] && \
+					tst_brk_ TBROK "tst_ipaddr_un: -m cannot be higher than $max_net_id ($OPTARG)"
+				max_host_id="$OPTARG"
+				;;
+			p) [ "$TST_IPV6" ] && prefix="/64" || prefix="/24";;
 		esac
 	done
 	shift $(($OPTIND - 1))
+	[ $# -eq 0 -o "$1" = "lhost" -o "$1" = "rhost" ] && is_counter=1
 
-	[ "$TST_IPV6" ] && max_net_id=65535 || max_net_id=255
+	if [ -z "$min_host_id" ]; then
+		[ "$is_counter" ] && min_host_id=1 || min_host_id=0
+	fi
+	if [ -z "$max_host_id" ]; then
+		[ "$is_counter" ] && max_host_id=$((default_max - 1)) || max_host_id=$default_max
+	fi
 
-	if [ $# -eq 0 -o "$1" = "lhost" -o "$1" = "rhost" ]; then
+	! tst_is_int "$min_host_id" || ! tst_is_int "$max_host_id" || \
+		[ $min_host_id -lt 0 -o $min_host_id -gt $default_max ] || \
+		[ $max_host_id -lt 0 -o $max_host_id -gt $default_max ] && \
+		tst_brk TBROK "tst_ipaddr_un: HOST_ID must be int in range <0,$default_max> ($min_host_id,$max_host_id)"
+	! tst_is_int "$min_net_id" || ! tst_is_int "$max_net_id" || \
+		[ $min_net_id -lt 0 -o $min_net_id -gt $default_max ] || \
+		[ $max_net_id -lt 0 -o $max_net_id -gt $default_max ] && \
+		tst_brk TBROK "tst_ipaddr_un: NET_ID must be int in range <0,$default_max> ($min_net_id,$max_net_id)"
+
+	[ $min_host_id -gt $max_host_id ] && \
+		tst_brk TBROK "tst_ipaddr_un: max HOST_ID ($max_host_id) must be >= min HOST_ID ($min_host_id)"
+	[ $min_net_id -gt $max_net_id ] && \
+		tst_brk TBROK "tst_ipaddr_un: max NET_ID ($max_net_id) must be >= min NET_ID ($min_net_id)"
+
+	# counter
+	host_range=$((max_host_id - min_host_id + 1))
+	if [ "$is_counter" ]; then
 		[ -z "$counter" ] && counter=1
 		[ $counter -lt 1 ] && counter=1
 		type="${1:-lhost}"
-		max_host_id=$((max_net_id - 1))
 		tmp=$((counter * 2))
 		[ "$type" = "rhost" ] && tmp=$((tmp - 1))
-
-		host_id=$((tmp % max_host_id))
-		net_id=$((tmp / max_host_id))
-
-		if [ $host_id -eq 0 ]; then
-			host_id=$max_host_id
-			net_id=$((net_id - 1))
-		fi
-	else
+		net_id=$(((tmp - 1) / host_range))
+		host_id=$((tmp - net_id * host_range + min_host_id - 1))
+	else # net_id & host_id
 		net_id="$1"
 		host_id="${2:-0}"
 		if [ "$TST_IPV6" ]; then
 			net_id=$(printf %d $net_id)
 			host_id=$(printf %d $host_id)
 		fi
-		[ $net_id -lt 0 ] && net_id=0
-		[ $host_id -lt 0 ] && host_id=1
+		host_id=$((host_id % host_range + min_host_id))
 	fi
 
-	net_id=$((net_id % max_net_id))
-	host_id=$((host_id % max_net_id))
+	net_id=$((net_id % (max_net_id - min_net_id + 1) + min_net_id))
 
 	if [ -z "$TST_IPV6" ]; then
-		echo "${IPV4_NET16_UNUSED}.${net_id}.${host_id}"
+		echo "${IPV4_NET16_UNUSED}.${net_id}.${host_id}${prefix}"
 		return
 	fi
 
 	[ $host_id -gt 0 ] && host_id="$(printf %x $host_id)" || host_id=
 	[ $net_id -gt 0 ] && net_id="$(printf %x $net_id)" || net_id=
 	[ "$net_id" ] && net_id=":$net_id"
-	echo "${IPV6_NET32_UNUSED}${net_id}::${host_id}"
+	echo "${IPV6_NET32_UNUSED}${net_id}::${host_id}${prefix}"
 }
 
 # tst_init_iface [TYPE] [LINK]
@@ -421,8 +493,10 @@ tst_init_iface()
 	tst_res_ TINFO "initialize '$type' '$iface' interface"
 
 	if [ "$type" = "lhost" ]; then
-		ip xfrm policy flush || return $?
-		ip xfrm state flush || return $?
+		if ip xfrm state 1>/dev/null 2>&1; then
+			ip xfrm policy flush || return $?
+			ip xfrm state flush || return $?
+		fi
 		ip link set $iface down || return $?
 		ip route flush dev $iface || return $?
 		ip addr flush dev $iface || return $?
@@ -430,22 +504,45 @@ tst_init_iface()
 		return $?
 	fi
 
-	tst_rhost_run -c "ip xfrm policy flush" || return $?
-	tst_rhost_run -c "ip xfrm state flush" || return $?
+	if tst_rhost_run -c "ip xfrm state 1>/dev/null 2>&1"; then
+		tst_rhost_run -c "ip xfrm policy flush" || return $?
+		tst_rhost_run -c "ip xfrm state flush" || return $?
+	fi
 	tst_rhost_run -c "ip link set $iface down" || return $?
 	tst_rhost_run -c "ip route flush dev $iface" || return $?
 	tst_rhost_run -c "ip addr flush dev $iface" || return $?
 	tst_rhost_run -c "ip link set $iface up"
 }
 
-# tst_add_ipaddr [TYPE] [LINK]
-# TYPE: { lhost | rhost }; Default value is 'lhost'.
-# LINK: link number starting from 0. Default value is '0'.
+# tst_add_ipaddr [TYPE] [LINK] [-a IP] [-d] [-q] [-s]
+# Options:
+# TYPE: { lhost | rhost }, default value is 'lhost'
+# LINK: link number starting from 0, default value is '0'
+# -a IP: IP address to be added, default value is
+# $(tst_ipaddr)/$IPV{4,6}_{L,R}PREFIX
+# -d: delete address instead of adding
+# -q: quiet mode (don't print info)
+# -s: safe option, if something goes wrong, will exit with TBROK
 tst_add_ipaddr()
 {
+	local action="add"
+	local addr dad lsafe mask quiet rsafe
+
+	local OPTIND
+	while getopts a:dqs opt; do
+		case "$opt" in
+		a) addr="$OPTARG" ;;
+		d) action="del" ;;
+		q) quiet=1 ;;
+		s) lsafe="ROD"; rsafe="-s" ;;
+		*) tst_brk TBROK "tst_add_ipaddr: unknown option: $OPTARG" ;;
+		esac
+	done
+	shift $((OPTIND - 1))
+
 	local type="${1:-lhost}"
 	local link_num="${2:-0}"
-	local mask dad
+	local iface=$(tst_iface $type $link_num)
 
 	if [ "$TST_IPV6" ]; then
 		dad="nodad"
@@ -453,17 +550,24 @@ tst_add_ipaddr()
 	else
 		[ "$type" = "lhost" ] && mask=$IPV4_LPREFIX || mask=$IPV4_RPREFIX
 	fi
-
-	local iface=$(tst_iface $type $link_num)
+	[ -n "$addr" ] || addr="$(tst_ipaddr $type)"
+	echo $addr | grep -q / || addr="$addr/$mask"
 
 	if [ $type = "lhost" ]; then
-		tst_res_ TINFO "set local addr $(tst_ipaddr)/$mask"
-		ip addr add $(tst_ipaddr)/$mask dev $iface $dad
+		[ "$quiet" ] || tst_res_ TINFO "$action local addr $addr"
+		$lsafe ip addr $action $addr dev $iface $dad
 		return $?
 	fi
 
-	tst_res_ TINFO "set remote addr $(tst_ipaddr rhost)/$mask"
-	tst_rhost_run -c "ip addr add $(tst_ipaddr rhost)/$mask dev $iface $dad"
+	[ "$quiet" ] || tst_res_ TINFO "$action remote addr $addr"
+	tst_rhost_run $rsafe -c "ip addr $action $addr dev $iface $dad"
+}
+
+# tst_del_ipaddr [ tst_add_ipaddr options ]
+# Delete IP address
+tst_del_ipaddr()
+{
+	tst_add_ipaddr -d $@
 }
 
 # tst_restore_ipaddr [TYPE] [LINK]
@@ -472,7 +576,7 @@ tst_add_ipaddr()
 # LINK: link number starting from 0. Default value is '0'.
 tst_restore_ipaddr()
 {
-	tst_test_cmds ip
+	tst_require_cmds ip
 	tst_require_root_
 
 	local type="${1:-lhost}"
@@ -537,6 +641,7 @@ tst_netload()
 	# number of server replies after which TCP connection is closed
 	local s_replies="${TST_NETLOAD_MAX_SRV_REPLIES:-500000}"
 	local s_opts=
+	local bind_to_device=1
 
 	if [ ! "$TST_NEEDS_TMPDIR" = 1 ]; then
 		tst_brk_ TBROK "Using tst_netload requires setting TST_NEEDS_TMPDIR=1"
@@ -564,7 +669,8 @@ tst_netload()
 		f) cs_opts="${cs_opts}-f " ;;
 		F) cs_opts="${cs_opts}-F " ;;
 		e) expect_res="$OPTARG" ;;
-		D) cs_opts="${cs_opts}-D $OPTARG " ;;
+		D) [ "$TST_NETLOAD_BINDTODEVICE" = 1 ] && cs_opts="${cs_opts}-D $OPTARG "
+		   bind_to_device=0 ;;
 		*) tst_brk_ TBROK "tst_netload: unknown option: $OPTARG" ;;
 		esac
 	done
@@ -572,8 +678,13 @@ tst_netload()
 
 	[ "$setup_srchost" = 1 ] && s_opts="${s_opts}-S $hostopt "
 
+	if [ "$bind_to_device" = 1 -a "$TST_NETLOAD_BINDTODEVICE" = 1 ]; then
+		c_opts="${c_opts}-D $(tst_iface) "
+		s_opts="${s_opts}-D $(tst_iface rhost) "
+	fi
+
 	local expect_ret=0
-	[ "$expect_res" != "pass" ] && expect_ret=1
+	[ "$expect_res" != "pass" ] && expect_ret=3
 
 	tst_rhost_run -c "pkill -9 netstress\$"
 	s_opts="${cs_opts}${s_opts}-R $s_replies -B $TST_TMPDIR"
@@ -590,25 +701,36 @@ tst_netload()
 	c_opts="${cs_opts}${c_opts}-a $c_num -r $c_requests -d $rfile -g $port"
 
 	tst_res_ TINFO "run client 'netstress -l $c_opts'"
-	netstress -l $c_opts > tst_netload.log 2>&1 || ret=1
+	netstress -l $c_opts > tst_netload.log 2>&1 || ret=$?
 	tst_rhost_run -c "pkill -9 netstress\$"
 
-	if [ "$expect_ret" -ne "$ret" ]; then
-		tst_dump_rhost_cmd
-		cat tst_netload.log
-		tst_brk_ TFAIL "expected '$expect_res' but ret: '$ret'"
+	if [ "$expect_ret" -ne 0 ]; then
+		if [ $((ret & expect_ret)) -ne 0 ]; then
+			tst_res_ TPASS "netstress failed as expected"
+		else
+			tst_res_ TFAIL "expected '$expect_res' but ret: '$ret'"
+		fi
+		return $ret
 	fi
 
-	if [ "$ret" -eq 0 ]; then
-		if [ ! -f $rfile ]; then
-			tst_dump_rhost_cmd
-			cat tst_netload.log
-			tst_brk_ TFAIL "can't read $rfile"
-		fi
-		tst_res_ TPASS "netstress passed, time spent '$(cat $rfile)' ms"
-	else
-		tst_res_ TPASS "netstress failed as expected"
+	if [ "$ret" -ne 0 ]; then
+		tst_dump_rhost_cmd
+		cat tst_netload.log
+		[ $((ret & 3)) -ne 0 ] && \
+			tst_brk_ TFAIL "expected '$expect_res' but ret: '$ret'"
+		[ $((ret & 32)) -ne 0 ] && \
+			tst_brk_ TCONF "not supported configuration"
+		[ $((ret & 4)) -ne 0 ] && \
+			tst_res_ TWARN "netstress has warnings"
 	fi
+
+	if [ ! -f $rfile ]; then
+		tst_dump_rhost_cmd
+		cat tst_netload.log
+		tst_brk_ TFAIL "can't read $rfile"
+	fi
+
+	tst_res_ TPASS "netstress passed, time spent '$(cat $rfile)' ms"
 
 	return $ret
 }
@@ -631,7 +753,7 @@ tst_ping()
 	local ret=0
 
 	echo "$dst_addr" | grep -q ':' && cmd="ping6"
-	tst_test_cmds $cmd
+	tst_require_cmds $cmd
 
 	# ping cmd use 56 as default message size
 	for size in ${msg_sizes:-"56"}; do
@@ -658,7 +780,6 @@ tst_icmp()
 	local opts=
 	local num=
 	local ret=0
-	local ver="${TST_IPV6:-4}"
 
 	OPTIND=0
 	while getopts :t:s: opt; do
@@ -678,12 +799,12 @@ tst_icmp()
 	opts="${opts}-M $(tst_hwaddr rhost) -t $timeout"
 
 	for size in $msg_sizes; do
-		ns-icmpv${ver}_sender -s $size $opts
+		ns-icmpv${TST_IPVER}_sender -s $size $opts
 		ret=$?
 		if [ $ret -eq 0 ]; then
-			tst_res_ TPASS "'ns-icmpv${ver}_sender -s $size $opts' pass"
+			tst_res_ TPASS "'ns-icmpv${TST_IPVER}_sender -s $size $opts' pass"
 		else
-			tst_res_ TFAIL "'ns-icmpv${ver}_sender -s $size $opts' fail"
+			tst_res_ TFAIL "'ns-icmpv${TST_IPVER}_sender -s $size $opts' fail"
 			break
 		fi
 	done
@@ -708,6 +829,13 @@ tst_set_sysctl()
 tst_cleanup_rhost()
 {
 	tst_rhost_run -c "rm -rf $TST_TMPDIR"
+}
+
+tst_default_max_pkt()
+{
+	local mtu="$(cat /sys/class/net/$(tst_iface)/mtu)"
+
+	echo "$((mtu + mtu / 10))"
 }
 
 # Management Link
@@ -739,7 +867,7 @@ IPV6_RHOST="${IPV6_RHOST:-fd00:1:1:1::1/64}"
 # tst_net_ip_prefix -h
 # tst_net_iface_prefix -h
 # tst_net_vars -h
-if [ -z "$TST_PARSE_VARIABLES" ]; then
+if [ -z "$_tst_net_parse_variables" ]; then
 	eval $(tst_net_ip_prefix $IPV4_LHOST || echo "exit $?")
 	eval $(tst_net_ip_prefix -r $IPV4_RHOST || echo "exit $?")
 	eval $(tst_net_ip_prefix $IPV6_LHOST || echo "exit $?")
@@ -748,7 +876,7 @@ fi
 
 [ -n "$TST_USE_NETNS" -a "$TST_INIT_NETNS" != "no" ] && init_ltp_netspace
 
-if [ -z "$TST_PARSE_VARIABLES" ]; then
+if [ -z "$_tst_net_parse_variables" ]; then
 	eval $(tst_net_iface_prefix $IPV4_LHOST || echo "exit $?")
 	eval $(tst_rhost_run -c 'tst_net_iface_prefix -r '$IPV4_RHOST \
 		|| echo "exit $?")
@@ -765,11 +893,12 @@ if [ -z "$TST_PARSE_VARIABLES" ]; then
 	tst_res_ TINFO "$LHOST_IFACES -- $RHOST_IFACES"
 	tst_res_ TINFO "$IPV4_LHOST/$IPV4_LPREFIX -- $IPV4_RHOST/$IPV4_RPREFIX"
 	tst_res_ TINFO "$IPV6_LHOST/$IPV6_LPREFIX -- $IPV6_RHOST/$IPV6_RPREFIX"
-	export TST_PARSE_VARIABLES="yes"
+	export _tst_net_parse_variables="yes"
 fi
 
 export TST_NETLOAD_CLN_REQUESTS="${TST_NETLOAD_CLN_REQUESTS:-10000}"
 export TST_NETLOAD_CLN_NUMBER="${TST_NETLOAD_CLN_NUMBER:-2}"
+export TST_NETLOAD_BINDTODEVICE="${TST_NETLOAD_BINDTODEVICE-1}"
 export HTTP_DOWNLOAD_DIR="${HTTP_DOWNLOAD_DIR:-/var/www/html}"
 export FTP_DOWNLOAD_DIR="${FTP_DOWNLOAD_DIR:-/var/ftp}"
 export FTP_UPLOAD_DIR="${FTP_UPLOAD_DIR:-/var/ftp/pub}"
@@ -797,10 +926,14 @@ export MCASTNUM_HEAVY="${MCASTNUM_HEAVY:-4000}"
 # want to use more ifaces.
 export LHOST_IFACES="${LHOST_IFACES:-eth0}"
 export RHOST_IFACES="${RHOST_IFACES:-eth0}"
-
+# Maximum payload size for 'virt' performance tests, by default eqauls to 1.1 * MTU
+export TST_NET_MAX_PKT="${TST_NET_MAX_PKT:-$(tst_default_max_pkt)}"
 # Set corresponding HW addresses, e.g. "00:00:00:00:00:01 00:00:00:00:00:02"
 export LHOST_HWADDRS="${LHOST_HWADDRS:-$(tst_get_hwaddrs lhost)}"
 export RHOST_HWADDRS="${RHOST_HWADDRS:-$(tst_get_hwaddrs rhost)}"
+
+export NS_ICMPV4_SENDER_DATA_MAXSIZE=1472
+export NS_ICMPV6_SENDER_DATA_MAXSIZE=1452
 
 # More information about network parameters can be found
 # in the following document: testcases/network/stress/README
@@ -814,8 +947,8 @@ if [ -z "$TST_USE_LEGACY_API" ] && ! tst_cmd_available ping6; then
 	{
 		ping -6 $@
 	}
-	if [ -z "$ping6_warn_printed" ]; then
+	if [ -z "$_tst_net_ping6_warn_printed" ]; then
 		tst_res_ TINFO "ping6 binary/symlink is missing, using workaround. Please, report missing ping6 to your distribution."
-		export ping6_warn_printed=1
+		export _tst_net_ping6_warn_printed=1
 	fi
 fi

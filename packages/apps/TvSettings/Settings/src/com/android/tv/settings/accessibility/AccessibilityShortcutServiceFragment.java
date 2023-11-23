@@ -18,6 +18,7 @@ package com.android.tv.settings.accessibility;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Fragment;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -35,6 +36,7 @@ import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 
 import java.util.List;
 
@@ -61,6 +63,9 @@ public class AccessibilityShortcutServiceFragment extends SettingsPreferenceFrag
                     final Fragment settingsFragment = getCallbackFragment();
                     if (settingsFragment instanceof LeanbackSettingsFragment) {
                         ((LeanbackSettingsFragment) settingsFragment)
+                                .startImmersiveFragment(confirmFragment);
+                    } else if (settingsFragment instanceof TwoPanelSettingsFragment) {
+                        ((TwoPanelSettingsFragment) settingsFragment)
                                 .startImmersiveFragment(confirmFragment);
                     } else {
                         throw new IllegalStateException("Not attached to settings fragment??");
@@ -104,11 +109,31 @@ public class AccessibilityShortcutServiceFragment extends SettingsPreferenceFrag
         Settings.Secure.putString(getContext().getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_SHORTCUT_TARGET_SERVICE,
                 componentString);
-        getFragmentManager().popBackStack();
+
+        if (!(getCallbackFragment() instanceof TwoPanelSettingsFragment)) {
+            getFragmentManager().popBackStack();
+        }
+
+        if (enabling) {
+            // the listener is only triggered when enabling a new service
+            int prefCount = getPreferenceScreen().getPreferenceCount();
+            for (int i = 0; i < prefCount; i++) {
+                RadioPreference pref = (RadioPreference) getPreferenceScreen().getPreference(i);
+                boolean shouldEnable = componentString.equals(pref.getKey());
+                if (pref != null) {
+                    pref.setChecked(shouldEnable);
+                }
+            }
+        }
     }
 
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ACCESSIBILITY_SERVICE;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_A11Y_SHORTCUT_SERVICE;
     }
 }

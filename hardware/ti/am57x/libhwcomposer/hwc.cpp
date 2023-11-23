@@ -395,7 +395,7 @@ static void hwc_drm_event_thread(void* data)
     ALOGE("DRM event polling thread exiting\n");
 }
 
-static void adjust_drm_plane_to_layer(hwc_layer_1_t* layer, int zorder, drm_plane_props_t* plane)
+static void adjust_drm_plane_to_layer(hwc_layer_1_t* layer, drm_plane_props_t* plane)
 {
     if (!layer || !plane) {
         ALOGE("Bad layer or plane");
@@ -414,13 +414,7 @@ static void adjust_drm_plane_to_layer(hwc_layer_1_t* layer, int zorder, drm_plan
     plane->src_w = WIDTH(layer->sourceCrop);
     plane->src_h = HEIGHT(layer->sourceCrop);
 
-    plane->zorder = zorder;
     plane->layer = layer;
-
-    if (layer->blending == HWC_BLENDING_PREMULT)
-        plane->pre_mult_alpha = 1;
-    else
-        plane->pre_mult_alpha = 0;
 }
 
 static int hwc_prepare_for_display(omap_hwc_device_t* hwc_dev, int disp, hwc_display_contents_1_t* content)
@@ -439,7 +433,7 @@ static int hwc_prepare_for_display(omap_hwc_device_t* hwc_dev, int disp, hwc_dis
     }
 
     /* Set the FB_TARGET layer */
-    adjust_drm_plane_to_layer(&content->hwLayers[content->numHwLayers - 1], 0, &display->planeProps[disp]);
+    adjust_drm_plane_to_layer(&content->hwLayers[content->numHwLayers - 1], &display->planeProps[disp]);
 
     return 0;
 }

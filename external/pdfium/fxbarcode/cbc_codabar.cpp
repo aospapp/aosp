@@ -23,6 +23,7 @@
 
 #include <memory>
 
+#include "core/fxcrt/fx_memory_wrappers.h"
 #include "fxbarcode/oned/BC_OnedCodaBarWriter.h"
 #include "third_party/base/ptr_util.h"
 
@@ -31,40 +32,20 @@ CBC_Codabar::CBC_Codabar()
 
 CBC_Codabar::~CBC_Codabar() {}
 
-bool CBC_Codabar::SetStartChar(char start) {
-  return GetOnedCodaBarWriter()->SetStartChar(start);
-}
-
-bool CBC_Codabar::SetEndChar(char end) {
-  return GetOnedCodaBarWriter()->SetEndChar(end);
-}
-
-bool CBC_Codabar::SetTextLocation(BC_TEXT_LOC location) {
-  return GetOnedCodaBarWriter()->SetTextLocation(location);
-}
-
-bool CBC_Codabar::SetWideNarrowRatio(int8_t ratio) {
-  return GetOnedCodaBarWriter()->SetWideNarrowRatio(ratio);
-}
-
-bool CBC_Codabar::Encode(const WideStringView& contents) {
-  if (contents.IsEmpty())
+bool CBC_Codabar::Encode(WideStringView contents) {
+  if (contents.IsEmpty() || contents.GetLength() > kMaxInputLengthBytes)
     return false;
 
   BCFORMAT format = BCFORMAT_CODABAR;
   int32_t outWidth = 0;
   int32_t outHeight = 0;
-  WideString filtercontents = GetOnedCodaBarWriter()->FilterContents(contents);
-  ByteString byteString = filtercontents.UTF8Encode();
-  m_renderContents = filtercontents;
+  m_renderContents = GetOnedCodaBarWriter()->FilterContents(contents);
+  ByteString byteString = m_renderContents.ToUTF8();
   auto* pWriter = GetOnedCodaBarWriter();
   std::unique_ptr<uint8_t, FxFreeDeleter> data(
       pWriter->Encode(byteString, format, outWidth, outHeight));
-  if (!data)
-    return false;
-
-  return pWriter->RenderResult(filtercontents.AsStringView(), data.get(),
-                               outWidth);
+  return data && pWriter->RenderResult(m_renderContents.AsStringView(),
+                                       data.get(), outWidth);
 }
 
 bool CBC_Codabar::RenderDevice(CFX_RenderDevice* device,

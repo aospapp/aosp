@@ -19,12 +19,12 @@ package android.platform.helpers.exceptions;
 /**
  * A UiTimeoutException is an exception specific to UI-driven app helpers. This should be thrown
  * when a specific UI condition is not met due to a timeout that has been exceeded.
- * <p>
- * Examples include (but are not limited to): waiting for the shutter button to be enabled in GCA
+ *
+ * <p>Examples include (but are not limited to): waiting for the shutter button to be enabled in GCA
  * or long loading times for Gmail. The reason or symptom may be clarified by the included message,
  * but should not speculate if there is any reasonable doubt.
  */
-public class UiTimeoutException extends RuntimeException {
+public class UiTimeoutException extends TestHelperException {
     public UiTimeoutException(String msg) {
         super(msg);
     }

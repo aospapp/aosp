@@ -21,6 +21,7 @@ import android.content.res.TypedArray;
 import android.os.Build;
 import androidx.recyclerview.widget.RecyclerView;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -236,6 +237,107 @@ public class HeaderRecyclerView extends RecyclerView {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
       event.setToIndex(Math.max(event.getToIndex() - numberOfHeaders, 0));
     }
+  }
+
+  private boolean handleDpadDown() {
+    View focusedView = findFocus();
+    if (focusedView == null) {
+      return false;
+    }
+
+    int[] focusdLocationInWindow = new int[2];
+    int[] myLocationInWindow = new int[2];
+
+    focusedView.getLocationInWindow(focusdLocationInWindow);
+    getLocationInWindow(myLocationInWindow);
+
+    int offset =
+        (focusdLocationInWindow[1] + focusedView.getMeasuredHeight())
+            - (myLocationInWindow[1] + getMeasuredHeight());
+
+    /*
+      (focusdLocationInWindow[1] + focusedView.getMeasuredHeight())
+      is the bottom position of focused view
+
+      (myLocationInWindow[1] + getMeasuredHeight())
+      is the bottom position of recycler view
+
+      If the bottom of focused view is out of recycler view, means we need to scroll down to show
+      more detail
+
+      We scroll 70% of recycler view to make sure user can have 30% of previous information, to make
+      sure user can keep reading easily.
+    */
+    if (offset > 0) {
+      // We expect only scroll 70% of recycler view
+      int scrollLength = (int) (getMeasuredHeight() * 0.7f);
+      smoothScrollBy(0, Math.min(scrollLength, offset));
+      return true;
+    }
+
+    return false;
+  }
+
+  private boolean handleDpadUp() {
+    View focusedView = findFocus();
+    if (focusedView == null) {
+      return false;
+    }
+
+    int[] focusedLocationInWindow = new int[2];
+    int[] myLocationInWindow = new int[2];
+
+    focusedView.getLocationInWindow(focusedLocationInWindow);
+    getLocationInWindow(myLocationInWindow);
+
+    int offset = (focusedLocationInWindow[1] - myLocationInWindow[1]);
+
+    /*
+      focusedLocationInWindow[1] is top of focused view
+      myLocationInWindow[1] is top of recycler view
+
+      If top of focused view is higher than recycler view we need scroll up to show more information
+      we try to scroll up 70% of recycler view ot scroll up to the top of focused view
+    */
+    if (offset < 0) {
+      // We expect only scroll 70% of recycler view
+      int scrollLength = (int) (getMeasuredHeight() * -0.7f);
+
+      smoothScrollBy(0, Math.max(scrollLength, offset));
+      return true;
+    }
+    return false;
+  }
+
+  private boolean shouldHandleActionUp = false;
+
+  private boolean handleKeyEvent(KeyEvent keyEvent) {
+    if (shouldHandleActionUp && keyEvent.getAction() == KeyEvent.ACTION_UP) {
+      shouldHandleActionUp = false;
+      return true;
+    } else if (keyEvent.getAction() == KeyEvent.ACTION_DOWN) {
+      boolean eventHandled = false;
+      switch (keyEvent.getKeyCode()) {
+        case KeyEvent.KEYCODE_DPAD_DOWN:
+          eventHandled = handleDpadDown();
+          break;
+        case KeyEvent.KEYCODE_DPAD_UP:
+          eventHandled = handleDpadUp();
+          break;
+        default: // fall out
+      }
+      shouldHandleActionUp = eventHandled;
+      return eventHandled;
+    }
+    return false;
+  }
+
+  @Override
+  public boolean dispatchKeyEvent(KeyEvent event) {
+    if (handleKeyEvent(event)) {
+      return true;
+    }
+    return super.dispatchKeyEvent(event);
   }
 
   /** Gets the header view of this RecyclerView, or {@code null} if there are no headers. */

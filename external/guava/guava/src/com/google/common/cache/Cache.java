@@ -1,51 +1,41 @@
 /*
  * Copyright (C) 2011 The Guava Authors
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
  * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.google.common.cache;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-
+import com.google.errorprone.annotations.CompatibleWith;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * A semi-persistent mapping from keys to values. Cache entries are manually added using
- * {@link #get(Object, Callable)} or {@link #put(Object, Object)}, and are stored in the cache until
- * either evicted or manually invalidated.
+ * A semi-persistent mapping from keys to values. Cache entries are manually added using {@link
+ * #get(Object, Callable)} or {@link #put(Object, Object)}, and are stored in the cache until either
+ * evicted or manually invalidated. The common way to build instances is using {@link CacheBuilder}.
  *
  * <p>Implementations of this interface are expected to be thread-safe, and can be safely accessed
  * by multiple concurrent threads.
  *
- * <p>Note that while this class is still annotated as {@link Beta}, the API is frozen from a
- * consumer's standpoint. In other words existing methods are all considered {@code non-Beta} and
- * won't be changed without going through an 18 month deprecation cycle; however new methods may be
- * added at any time.
- *
  * @author Charles Fry
  * @since 10.0
  */
-@Beta
 @GwtCompatible
 public interface Cache<K, V> {
 
@@ -56,25 +46,55 @@ public interface Cache<K, V> {
    * @since 11.0
    */
   @Nullable
-  V getIfPresent(Object key);
+  V getIfPresent(@CompatibleWith("K") Object key);
 
   /**
-   * Returns the value associated with {@code key} in this cache, obtaining that value from
-   * {@code valueLoader} if necessary. No observable state associated with this cache is modified
-   * until loading completes. This method provides a simple substitute for the conventional
-   * "if cached, return; otherwise create, cache and return" pattern.
+   * Returns the value associated with {@code key} in this cache, obtaining that value from {@code
+   * loader} if necessary. The method improves upon the conventional "if cached, return; otherwise
+   * create, cache and return" pattern. For further improvements, use {@link LoadingCache} and its
+   * {@link LoadingCache#get(Object) get(K)} method instead of this one.
    *
-   * <p><b>Warning:</b> as with {@link CacheLoader#load}, {@code valueLoader} <b>must not</b> return
+   * <p>Among the improvements that this method and {@code LoadingCache.get(K)} both provide are:
+   *
+   * <ul>
+   *   <li>{@linkplain LoadingCache#get(Object) awaiting the result of a pending load} rather than
+   *       starting a redundant one
+   *   <li>eliminating the error-prone caching boilerplate
+   *   <li>tracking load {@linkplain #stats statistics}
+   * </ul>
+   *
+   * <p>Among the further improvements that {@code LoadingCache} can provide but this method cannot:
+   *
+   * <ul>
+   *   <li>consolidation of the loader logic to {@linkplain CacheBuilder#build(CacheLoader) a single
+   *       authoritative location}
+   *   <li>{@linkplain LoadingCache#refresh refreshing of entries}, including {@linkplain
+   *       CacheBuilder#refreshAfterWrite automated refreshing}
+   *   <li>{@linkplain LoadingCache#getAll bulk loading requests}, including {@linkplain
+   *       CacheLoader#loadAll bulk loading implementations}
+   * </ul>
+   *
+   * <p><b>Warning:</b> For any given key, every {@code loader} used with it should compute the same
+   * value. Otherwise, a call that passes one {@code loader} may return the result of another call
+   * with a differently behaving {@code loader}. For example, a call that requests a short timeout
+   * for an RPC may wait for a similar call that requests a long timeout, or a call by an
+   * unprivileged user may return a resource accessible only to a privileged user making a similar
+   * call. To prevent this problem, create a key object that includes all values that affect the
+   * result of the query. Or use {@code LoadingCache.get(K)}, which lacks the ability to refer to
+   * state other than that in the key.
+   *
+   * <p><b>Warning:</b> as with {@link CacheLoader#load}, {@code loader} <b>must not</b> return
    * {@code null}; it may either return a non-null value or throw an exception.
+   *
+   * <p>No observable state associated with this cache is modified until loading completes.
    *
    * @throws ExecutionException if a checked exception was thrown while loading the value
    * @throws UncheckedExecutionException if an unchecked exception was thrown while loading the
    *     value
    * @throws ExecutionError if an error was thrown while loading the value
-   *
    * @since 11.0
    */
-  V get(K key, Callable<? extends V> valueLoader) throws ExecutionException;
+  V get(K key, Callable<? extends V> loader) throws ExecutionException;
 
   /**
    * Returns a map of the values associated with {@code keys} in this cache. The returned map will
@@ -103,12 +123,10 @@ public interface Cache<K, V> {
    *
    * @since 12.0
    */
-  void putAll(Map<? extends K,? extends V> m);
+  void putAll(Map<? extends K, ? extends V> m);
 
-  /**
-   * Discards any cached value for key {@code key}.
-   */
-  void invalidate(Object key);
+  /** Discards any cached value for key {@code key}. */
+  void invalidate(@CompatibleWith("K") Object key);
 
   /**
    * Discards any cached values for keys {@code keys}.
@@ -117,19 +135,21 @@ public interface Cache<K, V> {
    */
   void invalidateAll(Iterable<?> keys);
 
-  /**
-   * Discards all entries in the cache.
-   */
+  /** Discards all entries in the cache. */
   void invalidateAll();
 
-  /**
-   * Returns the approximate number of entries in this cache.
-   */
+  /** Returns the approximate number of entries in this cache. */
   long size();
 
   /**
-   * Returns a current snapshot of this cache's cumulative statistics. All stats are initialized
-   * to zero, and are monotonically increasing over the lifetime of the cache.
+   * Returns a current snapshot of this cache's cumulative statistics, or a set of default values if
+   * the cache is not recording statistics. All statistics begin at zero and never decrease over the
+   * lifetime of the cache.
+   *
+   * <p><b>Warning:</b> this cache may not be recording statistical data. For example, a cache
+   * created using {@link CacheBuilder} only does so if the {@link CacheBuilder#recordStats} method
+   * was called. If statistics are not being recorded, a {@code CacheStats} instance with zero for
+   * all values is returned.
    *
    */
   CacheStats stats();

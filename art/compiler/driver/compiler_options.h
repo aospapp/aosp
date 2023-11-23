@@ -62,8 +62,6 @@ class CompilerOptions final {
   // Guide heuristics to determine whether to compile method if profile data not available.
   static const size_t kDefaultHugeMethodThreshold = 10000;
   static const size_t kDefaultLargeMethodThreshold = 600;
-  static const size_t kDefaultSmallMethodThreshold = 60;
-  static const size_t kDefaultTinyMethodThreshold = 20;
   static const size_t kDefaultNumDexMethodsThreshold = 900;
   static constexpr double kDefaultTopKProfileThreshold = 90.0;
   static const bool kDefaultGenerateDebugInfo = false;
@@ -72,10 +70,10 @@ class CompilerOptions final {
   static constexpr size_t kUnsetInlineMaxCodeUnits = -1;
 
   enum class ImageType : uint8_t {
-    kNone,                // JIT or AOT app compilation producing only an oat file but no image.
-    kBootImage,           // Creating boot image.
-    kAppImage,            // Creating app image.
-    kApexBootImage,       // Creating the apex image for jit/zygote experiment b/119800099.
+    kNone,                    // JIT or AOT app compilation producing only an oat file but no image.
+    kBootImage,               // Creating boot image.
+    kBootImageExtension,      // Creating boot image extension.
+    kAppImage,                // Creating app image.
   };
 
   CompilerOptions();
@@ -105,6 +103,10 @@ class CompilerOptions final {
     return CompilerFilter::IsVerificationEnabled(compiler_filter_);
   }
 
+  bool AssumeDexFilesAreVerified() const {
+    return compiler_filter_ == CompilerFilter::kAssumeVerified;
+  }
+
   bool AssumeClassesAreVerified() const {
     return compiler_filter_ == CompilerFilter::kAssumeVerified;
   }
@@ -125,28 +127,12 @@ class CompilerOptions final {
     return large_method_threshold_;
   }
 
-  size_t GetSmallMethodThreshold() const {
-    return small_method_threshold_;
-  }
-
-  size_t GetTinyMethodThreshold() const {
-    return tiny_method_threshold_;
-  }
-
   bool IsHugeMethod(size_t num_dalvik_instructions) const {
     return num_dalvik_instructions > huge_method_threshold_;
   }
 
   bool IsLargeMethod(size_t num_dalvik_instructions) const {
     return num_dalvik_instructions > large_method_threshold_;
-  }
-
-  bool IsSmallMethod(size_t num_dalvik_instructions) const {
-    return num_dalvik_instructions > small_method_threshold_;
-  }
-
-  bool IsTinyMethod(size_t num_dalvik_instructions) const {
-    return num_dalvik_instructions > tiny_method_threshold_;
   }
 
   size_t GetNumDexMethodsThreshold() const {
@@ -209,13 +195,18 @@ class CompilerOptions final {
     return implicit_suspend_checks_;
   }
 
-  // Are we compiling a boot image?
-  bool IsBootImage() const {
-    return image_type_ == ImageType::kBootImage || image_type_ == ImageType::kApexBootImage;
+  bool IsGeneratingImage() const {
+    return IsBootImage() || IsBootImageExtension() || IsAppImage();
   }
 
-  bool IsApexBootImage() const {
-    return image_type_ == ImageType::kApexBootImage;
+  // Are we compiling a boot image?
+  bool IsBootImage() const {
+    return image_type_ == ImageType::kBootImage;
+  }
+
+  // Are we compiling a boot image extension?
+  bool IsBootImageExtension() const {
+    return image_type_ == ImageType::kBootImageExtension;
   }
 
   bool IsBaseline() const {
@@ -364,6 +355,10 @@ class CompilerOptions final {
     max_image_block_size_ = size;
   }
 
+  bool InitializeAppImageClasses() const {
+    return initialize_app_image_classes_;
+  }
+
   // Is `boot_image_filename` the name of a core image (small boot
   // image used for ART testing only)?
   static bool IsCoreImageFilename(const std::string& boot_image_filename);
@@ -375,8 +370,6 @@ class CompilerOptions final {
   CompilerFilter::Filter compiler_filter_;
   size_t huge_method_threshold_;
   size_t large_method_threshold_;
-  size_t small_method_threshold_;
-  size_t tiny_method_threshold_;
   size_t num_dex_methods_threshold_;
   size_t inline_max_code_units_;
 
@@ -448,6 +441,9 @@ class CompilerOptions final {
   // Whether we eagerly resolve all of the const strings that are loaded from startup methods in the
   // profile.
   bool resolve_startup_const_strings_;
+
+  // Whether we attempt to run class initializers for app image classes.
+  bool initialize_app_image_classes_;
 
   // When running profile-guided compilation, check that methods intended to be compiled end
   // up compiled and are not punted.

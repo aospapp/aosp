@@ -23,9 +23,12 @@ import static org.junit.Assert.assertEquals;
 import android.content.pm.ResolveInfo;
 
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.testing.TestProvidersAccess;
 import com.android.documentsui.testing.TestResolveInfo;
 
@@ -51,6 +54,7 @@ public class RootsFragmentTest {
             TestProvidersAccess.IMAGE.title,
             TestProvidersAccess.VIDEO.title,
             TestProvidersAccess.AUDIO.title,
+            TestProvidersAccess.DOCUMENT.title,
             TestProvidersAccess.DOWNLOADS.title,
             "" /* SpacerItem */,
             TestProvidersAccess.EXTERNALSTORAGE.title,
@@ -66,8 +70,14 @@ public class RootsFragmentTest {
 
     @Test
     public void testSortLoadResult_WithCorrectOrder() {
-        List<Item> items = mRootsFragment.sortLoadResult(createFakeRootInfoList(),
-                null /* excludePackage */, null /* handlerAppIntent */, new TestProvidersAccess());
+        List<Item> items = mRootsFragment.sortLoadResult(
+                InstrumentationRegistry.getInstrumentation().getTargetContext().getResources(),
+                new State(),
+                createFakeRootInfoList(),
+                null /* excludePackage */, null /* handlerAppIntent */, new TestProvidersAccess(),
+                UserId.DEFAULT_USER,
+                Collections.singletonList(UserId.DEFAULT_USER),
+                /* maybeShowBadge */ false);
         assertTrue(assertSortedResult(items));
     }
 
@@ -78,11 +88,11 @@ public class RootsFragmentTest {
         final RootsFragment.ItemComparator comp = new RootsFragment.ItemComparator(testPackageName);
         final List<Item> rootList = new ArrayList<>();
         rootList.add(new RootItem(TestProvidersAccess.HAMMY, null /* actionHandler */,
-                errorTestPackageName));
+                errorTestPackageName, /* maybeShowBadge= */ false));
         rootList.add(new RootItem(TestProvidersAccess.INSPECTOR, null /* actionHandler */,
-                errorTestPackageName));
+                errorTestPackageName, /* maybeShowBadge= */ false));
         rootList.add(new RootItem(TestProvidersAccess.PICKLES, null /* actionHandler */,
-                testPackageName));
+                testPackageName, /* maybeShowBadge= */ false));
         Collections.sort(rootList, comp);
 
         assertEquals(rootList.get(0).title, TestProvidersAccess.PICKLES.title);
@@ -96,15 +106,15 @@ public class RootsFragmentTest {
         final RootsFragment.ItemComparator comp = new RootsFragment.ItemComparator(testPackageName);
         final List<Item> rootList = new ArrayList<>();
         rootList.add(new RootItem(TestProvidersAccess.HAMMY, null /* actionHandler */,
-                testPackageName));
+                testPackageName, /* maybeShowBadge= */ false));
 
         final ResolveInfo info = TestResolveInfo.create();
         info.activityInfo.packageName = testPackageName;
 
-        rootList.add(new AppItem(info, TestProvidersAccess.PICKLES.title,
+        rootList.add(new AppItem(info, TestProvidersAccess.PICKLES.title, UserId.DEFAULT_USER,
                 null /* actionHandler */));
         rootList.add(new RootAndAppItem(TestProvidersAccess.INSPECTOR, info,
-                null /* actionHandler */));
+                null /* actionHandler */, /* maybeShowBadge= */ false));
 
         Collections.sort(rootList, comp);
 
@@ -138,6 +148,7 @@ public class RootsFragmentTest {
         fakeRootInfoList.add(TestProvidersAccess.RECENTS);
         fakeRootInfoList.add(TestProvidersAccess.IMAGE);
         fakeRootInfoList.add(TestProvidersAccess.EXTERNALSTORAGE);
+        fakeRootInfoList.add(TestProvidersAccess.DOCUMENT);
         return fakeRootInfoList;
     }
 }

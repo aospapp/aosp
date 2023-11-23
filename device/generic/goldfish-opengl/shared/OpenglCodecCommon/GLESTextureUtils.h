@@ -49,9 +49,27 @@ void computePackingOffsets2D(
         int packRowLength,
         int packSkipPixels,
         int packSkipRows,
+        int* bpp,
         int* startOffset,
         int* packingPixelRowSize,
         int* packingTotalRowSize);
+
+// For processing 3D textures exactly to the sizes of client buffers.
+void computePackingOffsets3D(
+        GLsizei width, GLsizei height, GLsizei depth,
+        GLenum format, GLenum type,
+        int packAlignment,
+        int packRowLength,
+        int packImageHeight,
+        int packSkipPixels,
+        int packSkipRows,
+        int packSkipImages,
+        int* bpp,
+        int* startOffset,
+        int* packingPixelRowSize,
+        int* packingTotalRowSize,
+        int* packingPixelImageSize,
+        int* packingTotalImageSize);
 
 } // namespace GLESTextureUtils
 #endif

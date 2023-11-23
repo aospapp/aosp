@@ -100,4 +100,8 @@ public class MyServiceClient {
     public void registerNetworkCallback(INetworkCallback cb) throws RemoteException {
         mService.registerNetworkCallback(cb);
     }
+
+    public void unregisterNetworkCallback() throws RemoteException {
+        mService.unregisterNetworkCallback();
+    }
 }

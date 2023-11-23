@@ -14,18 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef JNI_INVOCATION_H_included
-#define JNI_INVOCATION_H_included
+#ifndef LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_JNIINVOCATION_H_
+#define LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_JNIINVOCATION_H_
 
-#include <jni.h>
-#include "module_api.h"
-
-struct JniInvocationImpl;
-
-MODULE_API struct JniInvocationImpl* JniInvocationCreate();
-MODULE_API void JniInvocationDestroy(struct JniInvocationImpl* instance);
-MODULE_API int JniInvocationInit(struct JniInvocationImpl* instance, const char* library);
-MODULE_API const char* JniInvocationGetLibrary(const char* library, char* buffer);
+#include "libnativehelper_api.h"
 
 #ifdef __cplusplus
 
@@ -77,4 +69,4 @@ class JniInvocation final {
 
 #endif  // __cplusplus
 
-#endif  // JNI_INVOCATION_H_included
+#endif  // LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_JNIINVOCATION_H_

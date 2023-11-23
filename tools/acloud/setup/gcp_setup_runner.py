@@ -21,41 +21,45 @@ import os
 import re
 import subprocess
 
+import six
+
 from acloud import errors
 from acloud.internal.lib import utils
 from acloud.public import config
 from acloud.setup import base_task_runner
 from acloud.setup import google_sdk
 
+
+logger = logging.getLogger(__name__)
+
 # APIs that need to be enabled for GCP project.
 _ANDROID_BUILD_SERVICE = "androidbuildinternal.googleapis.com"
+_ANDROID_BUILD_MSG = (
+    "This service (%s) help to download images from Android Build. If it isn't "
+    "enabled, acloud only supports local images to create AVD."
+    % _ANDROID_BUILD_SERVICE)
 _COMPUTE_ENGINE_SERVICE = "compute.googleapis.com"
-_GOOGLE_CLOUD_STORAGE_SERVICE = "storage-component.googleapis.com"
-_GOOGLE_APIS = [
-    _GOOGLE_CLOUD_STORAGE_SERVICE, _ANDROID_BUILD_SERVICE,
-    _COMPUTE_ENGINE_SERVICE
-]
+_COMPUTE_ENGINE_MSG = (
+    "This service (%s) help to create instance in google cloud platform. If it "
+    "isn't enabled, acloud can't work anymore." % _COMPUTE_ENGINE_SERVICE)
+_OPEN_SERVICE_FAILED_MSG = (
+    "\n[Open Service Failed]\n"
+    "Service name: %(service_name)s\n"
+    "%(service_msg)s\n")
+
 _BUILD_SERVICE_ACCOUNT = "android-build-prod@system.gserviceaccount.com"
+_BILLING_ENABLE_MSG = "billingEnabled: true"
 _DEFAULT_SSH_FOLDER = os.path.expanduser("~/.ssh")
 _DEFAULT_SSH_KEY = "acloud_rsa"
 _DEFAULT_SSH_PRIVATE_KEY = os.path.join(_DEFAULT_SSH_FOLDER,
                                         _DEFAULT_SSH_KEY)
 _DEFAULT_SSH_PUBLIC_KEY = os.path.join(_DEFAULT_SSH_FOLDER,
                                        _DEFAULT_SSH_KEY + ".pub")
-# Bucket naming parameters
-_BUCKET_HEADER = "gs://"
-_BUCKET_LENGTH_LIMIT = 63
-_DEFAULT_BUCKET_HEADER = "acloud"
-_DEFAULT_BUCKET_REGION = "US"
-_INVALID_BUCKET_NAME_END_CHARS = "_-"
-_PROJECT_SEPARATOR = ":"
-# Regular expression to get project/zone/bucket information.
-_BUCKET_RE = re.compile(r"^gs://(?P<bucket>.+)/")
-_BUCKET_REGION_RE = re.compile(r"^Location constraint:(?P<region>.+)")
+_ENV_CLOUDSDK_PYTHON = "CLOUDSDK_PYTHON"
+_GCLOUD_COMPONENT_ALPHA = "alpha"
+# Regular expression to get project/zone information.
 _PROJECT_RE = re.compile(r"^project = (?P<project>.+)")
 _ZONE_RE = re.compile(r"^zone = (?P<zone>.+)")
-
-logger = logging.getLogger(__name__)
 
 
 def UpdateConfigFile(config_path, item, value):
@@ -147,6 +151,9 @@ class GoogleSDKBins(object):
         """
         self.gcloud_command_path = os.path.join(google_sdk_folder, "gcloud")
         self.gsutil_command_path = os.path.join(google_sdk_folder, "gsutil")
+        # TODO(137195528): Remove python2 environment after acloud support python3.
+        self._env = os.environ.copy()
+        self._env[_ENV_CLOUDSDK_PYTHON] = "python2"
 
     def RunGcloud(self, cmd, **kwargs):
         """Run gcloud command.
@@ -159,7 +166,8 @@ class GoogleSDKBins(object):
         Returns:
             String, return message after execute gcloud command.
         """
-        return subprocess.check_output([self.gcloud_command_path] + cmd, **kwargs)
+        return subprocess.check_output([self.gcloud_command_path] + cmd,
+                                       env=self._env, **kwargs)
 
     def RunGsutil(self, cmd, **kwargs):
         """Run gsutil command.
@@ -172,7 +180,58 @@ class GoogleSDKBins(object):
         Returns:
             String, return message after execute gsutil command.
         """
-        return subprocess.check_output([self.gsutil_command_path] + cmd, **kwargs)
+        return subprocess.check_output([self.gsutil_command_path] + cmd,
+                                       env=self._env, **kwargs)
+
+
+class GoogleAPIService(object):
+    """Class to enable api service in the gcp project."""
+
+    def __init__(self, service_name, error_msg, required=False):
+        """GoogleAPIService initialize.
+
+        Args:
+            service_name: String, name of api service.
+            error_msg: String, show messages if api service enable failed.
+            required: Boolean, True for service must be enabled for acloud.
+        """
+        self._name = service_name
+        self._error_msg = error_msg
+        self._required = required
+
+    def EnableService(self, gcloud_runner):
+        """Enable api service.
+
+        Args:
+            gcloud_runner: A GcloudRunner class to run "gcloud" command.
+        """
+        try:
+            gcloud_runner.RunGcloud(["services", "enable", self._name],
+                                    stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as error:
+            self.ShowFailMessages(error.output)
+
+    def ShowFailMessages(self, error):
+        """Show fail messages.
+
+        Show the fail messages to hint users the impact if the api service
+        isn't enabled.
+
+        Args:
+            error: String of error message when opening api service failed.
+        """
+        msg_color = (utils.TextColors.FAIL if self._required else
+                     utils.TextColors.WARNING)
+        utils.PrintColorString(
+            error + _OPEN_SERVICE_FAILED_MSG % {
+                "service_name": self._name,
+                "service_msg": self._error_msg}
+            , msg_color)
+
+    @property
+    def name(self):
+        """Return name."""
+        return self._name
 
 
 class GcpTaskRunner(base_task_runner.BaseTaskRunner):
@@ -198,7 +257,6 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
         self.config_path = config_mgr.user_config_path
         self.project = cfg.project
         self.zone = cfg.zone
-        self.storage_bucket_name = cfg.storage_bucket_name
         self.ssh_private_key_path = cfg.ssh_private_key_path
         self.ssh_public_key_path = cfg.ssh_public_key_path
         self.stable_host_image_name = cfg.stable_host_image_name
@@ -247,6 +305,8 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
         google_sdk_init = google_sdk.GoogleSDK()
         try:
             google_sdk_runner = GoogleSDKBins(google_sdk_init.GetSDKBinPath())
+            google_sdk_init.InstallGcloudComponent(google_sdk_runner,
+                                                   _GCLOUD_COMPONENT_ALPHA)
             self._SetupProject(google_sdk_runner)
             self._EnableGcloudServices(google_sdk_runner)
             self._CreateStableHostImage()
@@ -311,7 +371,7 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
 
         Setup project and zone.
         Setup client ID and client secret.
-        Setup Google Cloud Storage bucket.
+        Make sure billing account enabled in project.
 
         Args:
             gcloud_runner: A GcloudRunner class to run "gcloud" command.
@@ -321,7 +381,7 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
             project_changed = self._UpdateProject(gcloud_runner)
         if self._NeedClientIDSetup(project_changed):
             self._SetupClientIDSecret()
-        self._SetupStorageBucket(gcloud_runner)
+        self._CheckBillingEnable(gcloud_runner)
 
     def _UpdateProject(self, gcloud_runner):
         """Setup gcloud project name and zone name and check project changed.
@@ -365,179 +425,36 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
         self.client_id = None
         self.client_secret = None
         while _InputIsEmpty(self.client_id):
-            self.client_id = str(raw_input("Enter Client ID: ").strip())
+            self.client_id = str(six.moves.input("Enter Client ID: ").strip())
         while _InputIsEmpty(self.client_secret):
-            self.client_secret = str(raw_input("Enter Client Secret: ").strip())
+            self.client_secret = str(six.moves.input("Enter Client Secret: ").strip())
         UpdateConfigFile(self.config_path, "client_id", self.client_id)
         UpdateConfigFile(self.config_path, "client_secret", self.client_secret)
 
-    def _SetupStorageBucket(self, gcloud_runner):
-        """Setup storage_bucket_name in config file.
+    def _CheckBillingEnable(self, gcloud_runner):
+        """Check billing enabled in gcp project.
 
-        We handle the following cases:
-            1. Bucket set in the config && bucket is valid.
-                - Configure the bucket.
-            2. Bucket set in the config && bucket is invalid.
-                - Create a default acloud bucket and configure it
-            3. Bucket is not set in the config.
-                - Create a default acloud bucket and configure it.
-
-        Args:
-            gcloud_runner: A GcloudRunner class to run "gsutil" command.
-        """
-        if (not self.storage_bucket_name
-                or not self._BucketIsValid(self.storage_bucket_name, gcloud_runner)):
-            self.storage_bucket_name = self._CreateDefaultBucket(gcloud_runner)
-        self._ConfigureBucket(gcloud_runner)
-        UpdateConfigFile(self.config_path, "storage_bucket_name",
-                         self.storage_bucket_name)
-        logger.info("Storage bucket name set to [%s]", self.storage_bucket_name)
-
-    def _ConfigureBucket(self, gcloud_runner):
-        """Setup write access right for Android Build service account.
-
-        To avoid confuse user, we don't show messages for processing messages.
-        e.g. "No changes to gs://acloud-bucket/"
+        The billing info get by gcloud alpha command. Here is one example:
+        $ gcloud alpha billing projects describe project_name
+            billingAccountName: billingAccounts/011BXX-A30XXX-9XXXX
+            billingEnabled: true
+            name: projects/project_name/billingInfo
+            projectId: project_name
 
         Args:
-            gcloud_runner: A GcloudRunner class to run "gsutil" command.
-        """
-        gcloud_runner.RunGsutil([
-            "acl", "ch", "-u",
-            "%s:W" % (_BUILD_SERVICE_ACCOUNT),
-            "%s" % (_BUCKET_HEADER + self.storage_bucket_name)
-        ], stderr=subprocess.STDOUT)
-
-    def _BucketIsValid(self, bucket_name, gcloud_runner):
-        """Check bucket is valid or not.
-
-        If bucket exists and region is in default region,
-        then this bucket is valid.
-
-        Args:
-            bucket_name: String, name of storage bucket.
-            gcloud_runner: A GcloudRunner class to run "gsutil" command.
-
-        Returns:
-            Boolean: True if bucket is valid, otherwise False.
-        """
-        return (self._BucketExists(bucket_name, gcloud_runner) and
-                self._BucketInDefaultRegion(bucket_name, gcloud_runner))
-
-    def _CreateDefaultBucket(self, gcloud_runner):
-        """Setup bucket to default bucket name.
-
-        Default bucket name is "acloud-{project}".
-        If default bucket exist and its region is not "US",
-        then default bucket name is changed as "acloud-{project}-us"
-        If default bucket didn't exist, tool will create it.
-
-        Args:
-            gcloud_runner: A GcloudRunner class to run "gsutil" command.
-
-        Returns:
-            String: string of bucket name.
-        """
-        bucket_name = self._GenerateBucketName(self.project)
-        if (self._BucketExists(bucket_name, gcloud_runner) and
-                not self._BucketInDefaultRegion(bucket_name, gcloud_runner)):
-            bucket_name += ("-" + _DEFAULT_BUCKET_REGION.lower())
-        if not self._BucketExists(bucket_name, gcloud_runner):
-            self._CreateBucket(bucket_name, gcloud_runner)
-        return bucket_name
-
-    @staticmethod
-    def _GenerateBucketName(project_name):
-        """Generate GCS bucket name that meets the naming guidelines.
-
-        Naming guidelines: https://cloud.google.com/storage/docs/naming
-        1. Filter out organization name.
-        2. Filter out illegal characters.
-        3. Length limit.
-        4. Name must end with a number or letter.
-
-        Args:
-            project_name: String, name of project.
-
-        Returns:
-            String: GCS bucket name compliant with naming guidelines.
-        """
-        # Sanitize the project name by filtering out the org name (e.g.
-        # AOSP:fake_project -> fake_project)
-        if _PROJECT_SEPARATOR in project_name:
-            _, project_name = project_name.split(_PROJECT_SEPARATOR)
-
-        bucket_name = "%s-%s" % (_DEFAULT_BUCKET_HEADER, project_name)
-
-        # Rule 1: A bucket name can contain lowercase alphanumeric characters,
-        # hyphens, and underscores.
-        bucket_name = re.sub("[^a-zA-Z_/-]+", "", bucket_name).lower()
-
-        # Rule 2: Bucket names must limit to 63 characters.
-        if len(bucket_name) > _BUCKET_LENGTH_LIMIT:
-            bucket_name = bucket_name[:_BUCKET_LENGTH_LIMIT]
-
-        # Rule 3: Bucket names must end with a letter, strip out any ending
-        # "-" or "_" at the end of the name.
-        bucket_name = bucket_name.rstrip(_INVALID_BUCKET_NAME_END_CHARS)
-
-        return bucket_name
-
-    @staticmethod
-    def _BucketExists(bucket_name, gcloud_runner):
-        """Confirm bucket exist in project or not.
-
-        Args:
-            bucket_name: String, name of storage bucket.
-            gcloud_runner: A GcloudRunner class to run "gsutil" command.
-
-        Returns:
-            Boolean: True for bucket exist in project.
-        """
-        output = gcloud_runner.RunGsutil(["list"])
-        for output_line in output.splitlines():
-            match = _BUCKET_RE.match(output_line)
-            if match.group("bucket") == bucket_name:
-                return True
-        return False
-
-    @staticmethod
-    def _BucketInDefaultRegion(bucket_name, gcloud_runner):
-        """Confirm bucket region settings is "US" or not.
-
-        Args:
-            bucket_name: String, name of storage bucket.
-            gcloud_runner: A GcloudRunner class to run "gsutil" command.
-
-        Returns:
-            Boolean: True for bucket region is in default region.
+            gcloud_runner: A GcloudRunner class to run "gcloud" command.
 
         Raises:
-            errors.SetupError: For parsing bucket region information error.
+            NoBillingError: gcp project doesn't enable billing account.
         """
-        output = gcloud_runner.RunGsutil(
-            ["ls", "-L", "-b", "%s" % (_BUCKET_HEADER + bucket_name)])
-        for region_line in output.splitlines():
-            region_match = _BUCKET_REGION_RE.match(region_line.strip())
-            if region_match:
-                region = region_match.group("region").strip()
-                logger.info("Bucket[%s] is in %s (checking for %s)", bucket_name,
-                            region, _DEFAULT_BUCKET_REGION)
-                if region == _DEFAULT_BUCKET_REGION:
-                    return True
-                return False
-        raise errors.ParseBucketRegionError("Could not determine bucket region.")
-
-    @staticmethod
-    def _CreateBucket(bucket_name, gcloud_runner):
-        """Create new storage bucket in project.
-
-        Args:
-            bucket_name: String, name of storage bucket.
-            gcloud_runner: A GcloudRunner class to run "gsutil" command.
-        """
-        gcloud_runner.RunGsutil(["mb", "%s" % (_BUCKET_HEADER + bucket_name)])
-        logger.info("Create bucket [%s].", bucket_name)
+        billing_info = gcloud_runner.RunGcloud(
+            ["alpha", "billing", "projects", "describe", self.project])
+        if _BILLING_ENABLE_MSG not in billing_info:
+            raise errors.NoBillingError(
+                "Please set billing account to project(%s) by following the "
+                "instructions here: "
+                "https://cloud.google.com/billing/docs/how-to/modify-project"
+                % self.project)
 
     @staticmethod
     def _EnableGcloudServices(gcloud_runner):
@@ -545,13 +462,20 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
 
         1. Android build service
         2. Compute engine service
-        3. Google cloud storage service
         To avoid confuse user, we don't show messages for services processing
         messages. e.g. "Waiting for async operation operations ...."
 
         Args:
             gcloud_runner: A GcloudRunner class to run "gcloud" command.
         """
-        for service in _GOOGLE_APIS:
-            gcloud_runner.RunGcloud(["services", "enable", service],
-                                    stderr=subprocess.STDOUT)
+        google_apis = [
+            GoogleAPIService(_ANDROID_BUILD_SERVICE, _ANDROID_BUILD_MSG),
+            GoogleAPIService(_COMPUTE_ENGINE_SERVICE, _COMPUTE_ENGINE_MSG, required=True)
+        ]
+        enabled_services = gcloud_runner.RunGcloud(
+            ["services", "list", "--enabled", "--format", "value(NAME)"],
+            stderr=subprocess.STDOUT).splitlines()
+
+        for service in google_apis:
+            if service.name not in enabled_services:
+                service.EnableService(gcloud_runner)

@@ -501,23 +501,9 @@ public class Converter {
         return result;
       } else {
         ConstructorDoc m = (ConstructorDoc) o;
-        // Workaround for a JavaDoc behavior change introduced in OpenJDK 8 that breaks
-        // links in documentation and the content of API files like current.txt.
-        // http://b/18051133.
-        String name = m.name();
-        ClassDoc containingClass = m.containingClass();
-        if (containingClass.containingClass() != null) {
-          // This should detect the new behavior and be bypassed otherwise.
-          if (!name.contains(".")) {
-            // Constructors of inner classes do not contain the name of the enclosing class
-            // with OpenJDK 8. This simulates the old behavior:
-            name = containingClass.name();
-          }
-        }
-        // End of workaround.
         MethodInfo result =
             new MethodInfo(m.getRawCommentText(), new ArrayList<TypeInfo>(Arrays.asList(Converter.convertTypes(m.typeParameters()))),
-                name, m.signature(), Converter.obtainClass(m.containingClass()), Converter
+                m.name(), m.signature(), Converter.obtainClass(m.containingClass()), Converter
                 .obtainClass(m.containingClass()), m.isPublic(), m.isProtected(), m
                 .isPackagePrivate(), m.isPrivate(), m.isFinal(), m.isStatic(), m.isSynthetic(),
                 false, m.isSynchronized(), m.isNative(), false/*isDefault*/, false, "constructor", m.flatSignature(),

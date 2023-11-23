@@ -21,26 +21,26 @@ import (
 	"github.com/google/blueprint/proptools"
 )
 
-func globalFlags(ctx android.BaseContext) []string {
+func globalFlags(ctx android.LoadHookContext) []string {
 	var cflags []string
 
-	if ctx.AConfig().IsEnvTrue("FORCE_BUILD_LLVM_DISABLE_NDEBUG") {
+	if ctx.Config().IsEnvTrue("FORCE_BUILD_LLVM_DISABLE_NDEBUG") {
 		cflags = append(cflags, "-D_DEBUG", "-UNDEBUG")
 	}
 
 	return cflags
 }
 
-func deviceFlags(ctx android.BaseContext) []string {
+func deviceFlags(ctx android.LoadHookContext) []string {
 	var cflags []string
 
 	return cflags
 }
 
-func hostFlags(ctx android.BaseContext) []string {
+func hostFlags(ctx android.LoadHookContext) []string {
 	var cflags []string
 
-	if ctx.AConfig().IsEnvTrue("FORCE_BUILD_LLVM_DEBUG") {
+	if ctx.Config().IsEnvTrue("FORCE_BUILD_LLVM_DEBUG") {
 		cflags = append(cflags, "-O0", "-g")
 	}
 
@@ -70,7 +70,7 @@ func llvmDefaults(ctx android.LoadHookContext) {
 	// Mingw fails to link binaries with lots of debug information
 	p.Target.Not_windows.Cflags = hostFlags(ctx)
 
-	if ctx.AConfig().IsEnvTrue("DISABLE_LLVM_DEVICE_BUILDS") {
+	if ctx.Config().IsEnvTrue("DISABLE_LLVM_DEVICE_BUILDS") {
 		p.Target.Android.Enabled = proptools.BoolPtr(false)
 	}
 
@@ -79,10 +79,10 @@ func llvmDefaults(ctx android.LoadHookContext) {
 
 func forceBuildLlvmComponents(ctx android.LoadHookContext) {
 	forceBuild := false
-	if ctx.AConfig().IsEnvTrue("FORCE_BUILD_LLVM_COMPONENTS") {
+	if ctx.Config().IsEnvTrue("FORCE_BUILD_LLVM_COMPONENTS") {
 		forceBuild = true
 	}
-	if len(ctx.AConfig().SanitizeHost()) > 0 {
+	if len(ctx.Config().SanitizeHost()) > 0 {
 		forceBuild = true
 	}
 

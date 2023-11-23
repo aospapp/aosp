@@ -10,7 +10,7 @@
 
     <!-- Java functional tests-->
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-        <option name="test-file-name" value="GameQualificationJavaTestCases.apk" />
+        <option name="test-file-name" value="GameCoreJavaTestCases.apk" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.InstrumentationTest" >
@@ -22,7 +22,7 @@
     </test>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-        <option name="test-file-name" value="GameQualificationAllocstress.apk" />
+        <option name="test-file-name" value="GameCoreAllocStress.apk" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
@@ -32,12 +32,12 @@
     <!-- Native functional tests -->
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />
-        <option name="push" value="GameQualificationNativeTestCases->/data/local/tmp/GameQualificationNativeTestCases" />
+        <option name="push" value="GameCoreNativeTestCases->/data/local/tmp/GameCoreNativeTestCases" />
         <option name="abort-on-push-failure" value="true" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.GTest">
         <option name="native-test-device-path" value="/data/local/tmp" />
-        <option name="module-name" value="GameQualificationNativeTestCases" />
+        <option name="module-name" value="GameCoreNativeTestCases" />
     </test>
 
     <result_reporter class="com.android.game.qualification.reporter.GameQualificationResultReporter"/>

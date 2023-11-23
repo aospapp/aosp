@@ -28,10 +28,14 @@ import android.os.Parcel;
 import android.service.wallpaper.WallpaperService;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.asset.LiveWallpaperThumbAsset;
 import com.android.wallpaper.compat.BuildCompat;
+import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.module.LiveWallpaperInfoFactory;
 import com.android.wallpaper.util.ActivityUtils;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -44,8 +48,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-
-import androidx.annotation.Nullable;
 
 /**
  * Represents a live wallpaper from the system.
@@ -64,8 +66,8 @@ public class LiveWallpaperInfo extends WallpaperInfo {
                 }
             };
     private static final String TAG = "LiveWallpaperInfo";
-    private android.app.WallpaperInfo mInfo;
-    private LiveWallpaperThumbAsset mThumbAsset;
+    protected android.app.WallpaperInfo mInfo;
+    protected LiveWallpaperThumbAsset mThumbAsset;
     private boolean mVisibleTitle;
 
     /**
@@ -100,7 +102,8 @@ public class LiveWallpaperInfo extends WallpaperInfo {
                                              @Nullable List<String> excludedPackageNames) {
         List<ResolveInfo> resolveInfos = getAllOnDevice(context);
         List<WallpaperInfo> wallpaperInfos = new ArrayList<>();
-
+        LiveWallpaperInfoFactory factory =
+                InjectorProvider.getInjector().getLiveWallpaperInfoFactory(context);
         for (int i = 0; i < resolveInfos.size(); i++) {
             ResolveInfo resolveInfo = resolveInfos.get(i);
             android.app.WallpaperInfo wallpaperInfo;
@@ -119,7 +122,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
                 continue;
             }
 
-            wallpaperInfos.add(new LiveWallpaperInfo(wallpaperInfo));
+            wallpaperInfos.add(factory.getLiveWallpaperInfo(wallpaperInfo));
         }
 
         return wallpaperInfos;
@@ -139,6 +142,8 @@ public class LiveWallpaperInfo extends WallpaperInfo {
             resolveInfos = getAllOnDevice(context);
         }
         List<WallpaperInfo> wallpaperInfos = new ArrayList<>();
+        LiveWallpaperInfoFactory factory =
+                InjectorProvider.getInjector().getLiveWallpaperInfoFactory(context);
 
         for (int i = 0; i < resolveInfos.size(); i++) {
             ResolveInfo resolveInfo = resolveInfos.get(i);
@@ -162,7 +167,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
                 continue;
             }
 
-            wallpaperInfos.add(new LiveWallpaperInfo(wallpaperInfo, shouldShowTitle));
+            wallpaperInfos.add(factory.getLiveWallpaperInfo(wallpaperInfo, shouldShowTitle));
         }
 
         return wallpaperInfos;
@@ -240,7 +245,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
         return wallpaperInfos;
     }
 
-    static boolean isSystemApp(ApplicationInfo appInfo) {
+    private static boolean isSystemApp(ApplicationInfo appInfo) {
         return (appInfo.flags & (ApplicationInfo.FLAG_SYSTEM
                 | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
     }
@@ -257,17 +262,28 @@ public class LiveWallpaperInfo extends WallpaperInfo {
     @Override
     public List<String> getAttributions(Context context) {
         List<String> attributions = new ArrayList<>();
-        CharSequence labelCharSeq = mInfo.loadLabel(context.getPackageManager());
+        PackageManager packageManager = context.getPackageManager();
+        CharSequence labelCharSeq = mInfo.loadLabel(packageManager);
         attributions.add(labelCharSeq == null ? null : labelCharSeq.toString());
 
         try {
-            CharSequence authorCharSeq = mInfo.loadAuthor(context.getPackageManager());
+            CharSequence authorCharSeq = mInfo.loadAuthor(packageManager);
             if (authorCharSeq != null) {
                 String author = authorCharSeq.toString();
                 attributions.add(author);
             }
         } catch (Resources.NotFoundException e) {
             // No author specified, so no other attribution to add.
+        }
+
+        try {
+            CharSequence descCharSeq = mInfo.loadDescription(packageManager);
+            if (descCharSeq != null) {
+                String desc = descCharSeq.toString();
+                attributions.add(desc);
+            }
+        } catch (Resources.NotFoundException e) {
+            // No description specified, so no other attribution to add.
         }
 
         return attributions;
@@ -289,6 +305,18 @@ public class LiveWallpaperInfo extends WallpaperInfo {
         return null;
     }
 
+    /**
+     * Get an optional description for the action button if provided by this LiveWallpaper.
+     */
+    @Nullable
+    public CharSequence getActionDescription(Context context) {
+        try {
+            return mInfo.loadContextDescription(context.getPackageManager());
+        } catch (Resources.NotFoundException e) {
+            return null;
+        }
+    }
+
     @Override
     public Asset getAsset(Context context) {
         return null;
@@ -305,9 +333,14 @@ public class LiveWallpaperInfo extends WallpaperInfo {
     @Override
     public void showPreview(Activity srcActivity, InlinePreviewIntentFactory factory,
                             int requestCode) {
-        Intent preview = new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
-        preview.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, mInfo.getComponent());
-        ActivityUtils.startActivityForResultSafely(srcActivity, preview, requestCode);
+        //Only use internal live picker if available, otherwise, default to the Framework one
+        if (factory.shouldUseInternalLivePicker(srcActivity)) {
+            srcActivity.startActivityForResult(factory.newIntent(srcActivity, this), requestCode);
+        } else {
+            Intent preview = new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
+            preview.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, mInfo.getComponent());
+            ActivityUtils.startActivityForResultSafely(srcActivity, preview, requestCode);
+        }
     }
 
     @Override
@@ -324,5 +357,10 @@ public class LiveWallpaperInfo extends WallpaperInfo {
     @Override
     public String getCollectionId(Context context) {
         return context.getString(R.string.live_wallpaper_collection_id);
+    }
+
+    @Override
+    public String getWallpaperId() {
+        return mInfo.getServiceName();
     }
 }

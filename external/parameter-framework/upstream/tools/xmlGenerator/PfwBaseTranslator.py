@@ -53,10 +53,10 @@ class PfwBaseTranslator(object):
 
     def _getContext(self):
         return {
-                'domain': self._ctx_domain,
-                'configuration': self._ctx_configuration,
-                'sequence_aware': self._ctx_sequence_aware,
-                'command': self._ctx_command}
+            'domain': self._ctx_domain,
+            'configuration': self._ctx_configuration,
+            'sequence_aware': self._ctx_sequence_aware,
+            'command': self._ctx_command}
 
     def _check(self, func):
         """Check and handles exceptions

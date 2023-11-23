@@ -22,14 +22,8 @@ import static android.support.v4.media.MediaBrowserCompat.MediaItem.FLAG_PLAYABL
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID;
 
-import static com.android.car.media.common.MediaConstants.CONTENT_STYLE_BROWSABLE_HINT;
-import static com.android.car.media.common.MediaConstants.CONTENT_STYLE_GRID_ITEM_HINT_VALUE;
-import static com.android.car.media.common.MediaConstants.CONTENT_STYLE_LIST_ITEM_HINT_VALUE;
-import static com.android.car.media.common.MediaConstants.CONTENT_STYLE_PLAYABLE_HINT;
-
 import android.os.Bundle;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
-import android.support.v4.media.MediaBrowserCompat.MediaItem.Flags;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -47,8 +41,10 @@ public class TmaMediaItem {
     /** The name of each entry is the value used in the json file. */
     public enum ContentStyle {
         NONE (0),
-        LIST (CONTENT_STYLE_LIST_ITEM_HINT_VALUE),
-        GRID (CONTENT_STYLE_GRID_ITEM_HINT_VALUE);
+        LIST (MediaKeys.CONTENT_STYLE_LIST_ITEM_HINT_VALUE),
+        GRID (MediaKeys.CONTENT_STYLE_GRID_ITEM_HINT_VALUE),
+        LIST_CATEGORY(MediaKeys.CONTENT_STYLE_CATEGORY_LIST_ITEM_HINT_VALUE),
+        GRID_CATEGORY(MediaKeys.CONTENT_STYLE_CATEGORY_GRID_ITEM_HINT_VALUE);
         final int mBundleValue;
         ContentStyle(int value) {
             mBundleValue = value;
@@ -59,7 +55,9 @@ public class TmaMediaItem {
         HEART_PLUS_PLUS(CUSTOM_ACTION_PREFIX + "heart_plus_plus", R.string.heart_plus_plus,
                 R.drawable.ic_heart_plus_plus),
         HEART_LESS_LESS(CUSTOM_ACTION_PREFIX + "heart_less_less", R.string.heart_less_less,
-                R.drawable.ic_heart_less_less);
+                R.drawable.ic_heart_less_less),
+        REQUEST_LOCATION(CUSTOM_ACTION_PREFIX + "location", R.string.location,
+                R.drawable.ic_location);
 
         final String mId;
         final int mNameId;
@@ -70,16 +68,17 @@ public class TmaMediaItem {
             mNameId = name;
             mIcon = icon;
         }
-
     }
 
-    private final @MediaItem.Flags int mFlags;
+    private final int mFlags;
     private final MediaMetadataCompat mMediaMetadata;
     private final ContentStyle mPlayableStyle;
     private final ContentStyle mBrowsableStyle;
+    private final int mSelfUpdateMs;
 
-    /** Read only list. */
-    final List<TmaMediaItem> mChildren;
+
+    /** Internally modifiable list (for includes). */
+    private final List<TmaMediaItem> mChildren;
     /** Read only list. */
     private final List<TmaMediaItem> mPlayableChildren;
     /** Read only list. */
@@ -91,18 +90,20 @@ public class TmaMediaItem {
 
     private @Nullable TmaMediaItem mParent;
     int mHearts;
+    int mRevealCounter;
 
 
-    public TmaMediaItem(@Flags int flags, ContentStyle playableStyle, ContentStyle browsableStyle,
-            MediaMetadataCompat metadata, List<TmaCustomAction> customActions,
-            List<TmaMediaEvent> mediaEvents,
+    public TmaMediaItem(int flags, ContentStyle playableStyle, ContentStyle browsableStyle,
+            MediaMetadataCompat metadata, int selfUpdateMs,
+            List<TmaCustomAction> customActions, List<TmaMediaEvent> mediaEvents,
             List<TmaMediaItem> children, String include) {
         mFlags = flags;
         mPlayableStyle = playableStyle;
         mBrowsableStyle = browsableStyle;
         mMediaMetadata = metadata;
+        mSelfUpdateMs = selfUpdateMs;
         mCustomActions = Collections.unmodifiableList(customActions);
-        mChildren = Collections.unmodifiableList(children);
+        mChildren = children;
         mMediaEvents = Collections.unmodifiableList(mediaEvents);
         mInclude = include;
         List<TmaMediaItem> playableChildren = new ArrayList<>(children.size());
@@ -119,12 +120,24 @@ public class TmaMediaItem {
         mParent = parent;
     }
 
+    int getSelfUpdateDelay() {
+        return mSelfUpdateMs;
+    }
+
+    List<TmaMediaItem> getChildren() {
+        return Collections.unmodifiableList(mChildren);
+    }
+
     @Nullable
     TmaMediaItem getParent() {
         return mParent;
     }
 
+    @Nullable
     TmaMediaItem getPlayableByIndex(long index) {
+        if (index < 0 || index >= mPlayableChildren.size()) {
+            return null;
+        }
         return mPlayableChildren.get((int)index);
     }
 
@@ -155,12 +168,9 @@ public class TmaMediaItem {
         return result;
     }
 
-    TmaMediaItem append(List<TmaMediaItem> children) {
-        List<TmaMediaItem> allChildren = new ArrayList<>(mChildren.size() + children.size());
-        allChildren.addAll(mChildren);
-        allChildren.addAll(children);
-        return new TmaMediaItem(mFlags, mPlayableStyle, mBrowsableStyle, mMediaMetadata,
-                mCustomActions, mMediaEvents, allChildren, null);
+    void setChildren(List<TmaMediaItem> children) {
+        mChildren.clear();
+        mChildren.addAll(children);
     }
 
     void updateSessionMetadata(MediaSessionCompat session) {
@@ -209,8 +219,8 @@ public class TmaMediaItem {
             extras.putAll(metadataDescription.getExtras());
         }
 
-        extras.putInt(CONTENT_STYLE_PLAYABLE_HINT, mPlayableStyle.mBundleValue);
-        extras.putInt(CONTENT_STYLE_BROWSABLE_HINT, mBrowsableStyle.mBundleValue);
+        extras.putInt(MediaKeys.CONTENT_STYLE_PLAYABLE_HINT, mPlayableStyle.mBundleValue);
+        extras.putInt(MediaKeys.CONTENT_STYLE_BROWSABLE_HINT, mBrowsableStyle.mBundleValue);
 
         bob.setExtras(extras);
         return bob.build();

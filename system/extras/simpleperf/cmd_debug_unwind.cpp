@@ -94,7 +94,7 @@ class DebugUnwindCommand : public Command {
                ),
           input_filename_("perf.data"),
           output_filename_("perf.data.debug"),
-          offline_unwinder_(true),
+          offline_unwinder_(OfflineUnwinder::Create(true)),
           callchain_joiner_(DEFAULT_CALL_CHAIN_JOINER_CACHE_SIZE, 1, true),
           selected_time_(0) {
   }
@@ -126,7 +126,7 @@ class DebugUnwindCommand : public Command {
   std::unique_ptr<RecordFileReader> reader_;
   std::unique_ptr<RecordFileWriter> writer_;
   ThreadTree thread_tree_;
-  OfflineUnwinder offline_unwinder_;
+  std::unique_ptr<OfflineUnwinder> offline_unwinder_;
   CallChainJoiner callchain_joiner_;
   Stat stat_;
   uint64_t selected_time_;
@@ -236,12 +236,12 @@ bool DebugUnwindCommand::ProcessRecord(Record* record) {
       RegSet regs(r.regs_user_data.abi, r.regs_user_data.reg_mask, r.regs_user_data.regs);
       std::vector<uint64_t> ips;
       std::vector<uint64_t> sps;
-      if (!offline_unwinder_.UnwindCallChain(*thread, regs, r.stack_user_data.data,
+      if (!offline_unwinder_->UnwindCallChain(*thread, regs, r.stack_user_data.data,
                                              r.GetValidStackSize(), &ips, &sps)) {
         return false;
       }
 
-      const UnwindingResult& unwinding_result = offline_unwinder_.GetUnwindingResult();
+      const UnwindingResult& unwinding_result = offline_unwinder_->GetUnwindingResult();
       stat_.unwinding_sample_count++;
       stat_.total_unwinding_time_in_ns += unwinding_result.used_time;
       stat_.max_unwinding_time_in_ns = std::max(stat_.max_unwinding_time_in_ns,
@@ -371,9 +371,7 @@ bool DebugUnwindCommand::WriteFeatureSections() {
   // Write meta_info section.
   std::unordered_map<std::string, std::string> info_map;
   if (it != features.end() && it->first == PerfFileFormat::FEAT_META_INFO) {
-    if (!reader_->ReadMetaInfoFeature(&info_map)) {
-      return false;
-    }
+    info_map = reader_->GetMetaInfoFeature();
     ++it;
   }
   info_map["debug_unwind"] = "true";

@@ -19,6 +19,7 @@ package com.android.internal.telephony.ims;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -95,8 +96,8 @@ public class ImsManagerTest extends TelephonyTest {
         doReturn(mSubscriptionController).when(mBinder).queryLocalInterface(anyString());
         mServiceManagerMockedServices.put("isub", mBinder);
         // Stick to the CarrierConfig defaults unless explicitly overwritten.
-        doReturn("-1").when(mSubscriptionController)
-                .getSubscriptionProperty(anyInt(), anyString(), anyString());
+        doReturn("-1").when(mSubscriptionController).getSubscriptionProperty(anyInt(), anyString(),
+                anyString(), nullable(String.class));
 
 
         doReturn(true).when(mMmTelFeatureConnection).isBinderAlive();
@@ -133,6 +134,8 @@ public class ImsManagerTest extends TelephonyTest {
         mBundle.putBoolean(
                 CarrierConfigManager.KEY_USE_WFC_HOME_NETWORK_MODE_IN_ROAMING_NETWORK_BOOL,
                 WFC_NOT_USE_HOME_MODE_FOR_ROAMING_VAL);
+        mBundle.putBoolean(CarrierConfigManager.KEY_CARRIER_RCS_PROVISIONING_REQUIRED_BOOL, true);
+
     }
 
     @Test @SmallTest
@@ -143,38 +146,44 @@ public class ImsManagerTest extends TelephonyTest {
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         assertEquals(WFC_IMS_ROAMING_ENABLE_DEFAULT_VAL, imsManager.isWfcRoamingEnabledByUser());
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         assertEquals(ENHANCED_4G_MODE_DEFAULT_VAL,
                 imsManager.isEnhanced4gLteModeSettingEnabledByUser());
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.ENHANCED_4G_MODE_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         assertEquals(WFC_IMS_MODE_DEFAULT_VAL, imsManager.getWfcMode(false));
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         assertEquals(WFC_IMS_ROAMING_MODE_DEFAULT_VAL, imsManager.getWfcMode(true));
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         assertEquals(VT_IMS_ENABLE_DEFAULT_VAL, imsManager.isVtEnabledByUser());
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.VT_IMS_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
     }
 
     @Test @SmallTest
@@ -243,6 +252,10 @@ public class ImsManagerTest extends TelephonyTest {
         assertEquals(true, imsManager.isVolteProvisionedOnDevice());
         verify(mImsConfigImplBaseMock, times(1)).getConfigInt(
                 eq(ImsConfig.ConfigConstants.VLT_SETTING_ENABLED));
+
+        assertEquals(true, imsManager.isEabProvisionedOnDevice());
+        verify(mImsConfigImplBaseMock, times(1)).getConfigInt(
+                eq(ImsConfig.ConfigConstants.EAB_SETTING_ENABLED));
     }
 
     @Test
@@ -267,7 +280,30 @@ public class ImsManagerTest extends TelephonyTest {
                 eq(0));
         verify(mImsConfigImplBaseMock, times(1)).getConfigInt(
                 eq(ImsConfig.ConfigConstants.VOICE_OVER_WIFI_SETTING_ENABLED));
+    }
 
+    @Test
+    public void testEabSetProvisionedValues() throws Exception {
+        ImsManager imsManager = getImsManagerAndInitProvisionedValues();
+
+        assertEquals(true, imsManager.isEabProvisionedOnDevice());
+        verify(mImsConfigImplBaseMock, times(1)).getConfigInt(
+                eq(ImsConfig.ConfigConstants.EAB_SETTING_ENABLED));
+
+        imsManager.getConfigInterface().setProvisionedValue(
+                ImsConfig.ConfigConstants.EAB_SETTING_ENABLED,
+                ImsConfig.FeatureValueConstants.OFF);
+
+        assertEquals(0, (int) mProvisionedIntVals.get(
+                ImsConfig.ConfigConstants.EAB_SETTING_ENABLED));
+
+        assertEquals(false, imsManager.isEabProvisionedOnDevice());
+
+        verify(mImsConfigImplBaseMock, times(1)).setConfig(
+                eq(ImsConfig.ConfigConstants.EAB_SETTING_ENABLED),
+                eq(0));
+        verify(mImsConfigImplBaseMock, times(1)).getConfigInt(
+                eq(ImsConfig.ConfigConstants.EAB_SETTING_ENABLED));
     }
 
     /**
@@ -285,12 +321,14 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                         anyInt(),
                         eq(SubscriptionManager.WFC_IMS_MODE),
-                        anyString());
+                        anyString(),
+                        nullable(String.class));
         doReturn(String.valueOf(ImsConfig.WfcModeFeatureValueConstants.CELLULAR_PREFERRED))
                 .when(mSubscriptionController).getSubscriptionProperty(
                         anyInt(),
                         eq(SubscriptionManager.WFC_IMS_ROAMING_MODE),
-                        anyString());
+                        anyString(),
+                        nullable(String.class));
         ImsManager imsManager = getImsManagerAndInitProvisionedValues();
 
         // Roaming
@@ -345,7 +383,8 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         ImsManager imsManager = getImsManagerAndInitProvisionedValues();
 
@@ -380,7 +419,8 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         ImsManager imsManager = getImsManagerAndInitProvisionedValues();
 
@@ -454,7 +494,8 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         // The device is roaming
         doReturn(true).when(mTelephonyManager).isNetworkRoaming(eq(mSubId[0]));
@@ -500,7 +541,8 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         // The device is roaming
         doReturn(true).when(mTelephonyManager).isNetworkRoaming(eq(mSubId[0]));
@@ -534,13 +576,15 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
         // The user has enabled the "WFC while roaming" setting in the UI while WFC was enabled
         doReturn(String.valueOf(1 /*true*/))
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         ImsManager imsManager = getImsManagerAndInitProvisionedValues();
 
@@ -574,7 +618,8 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_ENABLED),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         ImsManager imsManager = getImsManagerAndInitProvisionedValues();
 
@@ -609,12 +654,14 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
         doReturn(String.valueOf(ImsConfig.WfcModeFeatureValueConstants.WIFI_ONLY))
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
         ImsManager imsManager = getImsManagerAndInitProvisionedValues();
 
         // Roaming
@@ -687,12 +734,14 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
         doReturn(String.valueOf(ImsConfig.WfcModeFeatureValueConstants.CELLULAR_PREFERRED))
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         ImsManager imsManager = getImsManagerAndInitProvisionedValues();
 
@@ -702,7 +751,8 @@ public class ImsManagerTest extends TelephonyTest {
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         // Set WFC roaming network mode to not editable.
         mBundle.putBoolean(CarrierConfigManager.KEY_EDITABLE_WFC_ROAMING_MODE_BOOL,
@@ -713,7 +763,8 @@ public class ImsManagerTest extends TelephonyTest {
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
     }
 
     /**
@@ -730,12 +781,14 @@ public class ImsManagerTest extends TelephonyTest {
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
         doReturn(String.valueOf(ImsConfig.WfcModeFeatureValueConstants.CELLULAR_PREFERRED))
                 .when(mSubscriptionController).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_ROAMING_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         // Set to use WFC home network mode in roaming network.
         mBundle.putBoolean(
@@ -749,7 +802,8 @@ public class ImsManagerTest extends TelephonyTest {
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
 
         // Set WFC home network mode to not editable.
         mBundle.putBoolean(CarrierConfigManager.KEY_EDITABLE_WFC_MODE_BOOL,
@@ -760,7 +814,8 @@ public class ImsManagerTest extends TelephonyTest {
         verify(mSubscriptionController, times(1)).getSubscriptionProperty(
                 anyInt(),
                 eq(SubscriptionManager.WFC_IMS_MODE),
-                anyString());
+                anyString(),
+                nullable(String.class));
     }
 
     /**
@@ -818,6 +873,7 @@ public class ImsManagerTest extends TelephonyTest {
             fail("failed with " + ex);
         }
 
+        ((ImsManager.ImsExecutorFactory) imsManager.mExecutorFactory).destroy();
         imsManager.mExecutorFactory = Runnable::run;
 
         return imsManager;

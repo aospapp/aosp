@@ -23,15 +23,15 @@ import android.os.SystemClock;
  * @hide
  */
 public class Stopwatch {
-    private long mStartTimeMs;
-    private long mStopTimeMs;
+    private long mStartTimeNs;
+    private long mStopTimeNs;
 
     public boolean isStarted() {
-        return (mStartTimeMs > 0);
+        return (mStartTimeNs > 0);
     }
 
     public boolean isStopped() {
-        return (mStopTimeMs > 0);
+        return (mStopTimeNs > 0);
     }
 
     public boolean isRunning() {
@@ -43,31 +43,40 @@ public class Stopwatch {
      */
     public Stopwatch start() {
         if (!isStarted()) {
-            mStartTimeMs = SystemClock.elapsedRealtime();
+            mStartTimeNs = SystemClock.elapsedRealtimeNanos();
         }
         return this;
     }
 
     /**
-     * Stop the Stopwatch.
-     * @return the total time recorded, in milliseconds, or 0 if not started.
+     * Restart the Stopwatch.
      */
-    public long stop() {
-        if (isRunning()) {
-            mStopTimeMs = SystemClock.elapsedRealtime();
-        }
-        // Return either the delta after having stopped, or 0.
-        return (mStopTimeMs - mStartTimeMs);
+    public Stopwatch restart() {
+        mStartTimeNs = SystemClock.elapsedRealtimeNanos();
+        mStopTimeNs = 0;
+        return this;
     }
 
     /**
-     * Return the total time recorded to date, in milliseconds.
+     * Stop the Stopwatch.
+     * @return the total time recorded, in microseconds, or 0 if not started.
+     */
+    public long stop() {
+        if (isRunning()) {
+            mStopTimeNs = SystemClock.elapsedRealtimeNanos();
+        }
+        // Return either the delta after having stopped, or 0.
+        return (mStopTimeNs - mStartTimeNs) / 1000;
+    }
+
+    /**
+     * Return the total time recorded to date, in microseconds.
      * If the Stopwatch is not running, returns the same value as stop(),
      * i.e. either the total time recorded before stopping or 0.
      */
     public long lap() {
         if (isRunning()) {
-            return (SystemClock.elapsedRealtime() - mStartTimeMs);
+            return (SystemClock.elapsedRealtimeNanos() - mStartTimeNs) / 1000;
         } else {
             return stop();
         }
@@ -77,7 +86,7 @@ public class Stopwatch {
      * Reset the Stopwatch. It will be stopped when this method returns.
      */
     public void reset() {
-        mStartTimeMs = 0;
-        mStopTimeMs = 0;
+        mStartTimeNs = 0;
+        mStopTimeNs = 0;
     }
 }

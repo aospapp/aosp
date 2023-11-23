@@ -18,6 +18,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.server.wm.backgroundactivity.appa">
 
+    <!-- To enable the app to start activities from the background. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application android:testOnly="true">
         <receiver
             android:name=".StartBackgroundActivityReceiver"

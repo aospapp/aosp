@@ -56,7 +56,7 @@ static void cras_expr_value_set_function(struct cras_expr_value *value,
 static void copy_value(struct cras_expr_value *value,
 		       struct cras_expr_value *original)
 {
-	cras_expr_value_free(value);  /* free the original value first */
+	cras_expr_value_free(value); /* free the original value first */
 	value->type = original->type;
 	switch (value->type) {
 	case CRAS_EXPR_VALUE_TYPE_NONE:
@@ -99,8 +99,7 @@ void cras_expr_value_dump(struct dumper *d, const struct cras_expr_value *value)
 		dumpf(d, "none");
 		break;
 	case CRAS_EXPR_VALUE_TYPE_BOOLEAN:
-		dumpf(d, "boolean(%s)",
-		      value->u.boolean ? "true" : "false");
+		dumpf(d, "boolean(%s)", value->u.boolean ? "true" : "false");
 		break;
 	case CRAS_EXPR_VALUE_TYPE_INT:
 		dumpf(d, "integer(%d)", value->u.integer);
@@ -120,7 +119,7 @@ static struct cras_expr_value *find_value(struct cras_expr_env *env,
 	int i;
 	const char **key;
 
-	FOR_ARRAY_ELEMENT(&env->keys, i, key) {
+	ARRAY_ELEMENT_FOREACH (&env->keys, i, key) {
 		if (strcmp(*key, name) == 0)
 			return ARRAY_ELEMENT(&env->values, i);
 	}
@@ -178,9 +177,9 @@ static void function_and(cras_expr_value_array *operands,
 	}
 
 	/* if there is any #f, return it */
-	FOR_ARRAY_ELEMENT(operands, i, value) {
+	ARRAY_ELEMENT_FOREACH (operands, i, value) {
 		if (i == 0)
-			continue;  /* ignore "and" itself */
+			continue; /* ignore "and" itself */
 		if (value->type == CRAS_EXPR_VALUE_TYPE_BOOLEAN &&
 		    !value->u.boolean) {
 			value_set_boolean(result, 0);
@@ -198,9 +197,9 @@ static void function_or(cras_expr_value_array *operands,
 	int i;
 	struct cras_expr_value *value;
 
-	FOR_ARRAY_ELEMENT(operands, i, value) {
+	ARRAY_ELEMENT_FOREACH (operands, i, value) {
 		if (i == 0)
-			continue;  /* ignore "or" itself */
+			continue; /* ignore "or" itself */
 		if (value->type != CRAS_EXPR_VALUE_TYPE_BOOLEAN ||
 		    value->u.boolean) {
 			copy_value(result, value);
@@ -216,9 +215,9 @@ static char function_equal_real(cras_expr_value_array *operands)
 	int i;
 	struct cras_expr_value *value, *prev;
 
-	FOR_ARRAY_ELEMENT(operands, i, value) {
+	ARRAY_ELEMENT_FOREACH (operands, i, value) {
 		if (i <= 1)
-			continue;  /* ignore equal? and first operand */
+			continue; /* ignore equal? and first operand */
 		/* compare with the previous operand */
 
 		prev = ARRAY_ELEMENT(operands, i - 1);
@@ -311,11 +310,11 @@ void cras_expr_env_free(struct cras_expr_env *env)
 	const char **key;
 	struct cras_expr_value *value;
 
-	FOR_ARRAY_ELEMENT(&env->keys, i, key) {
+	ARRAY_ELEMENT_FOREACH (&env->keys, i, key) {
 		free((char *)*key);
 	}
 
-	FOR_ARRAY_ELEMENT(&env->values, i, value) {
+	ARRAY_ELEMENT_FOREACH (&env->values, i, value) {
 		cras_expr_value_free(value);
 	}
 
@@ -330,7 +329,7 @@ void cras_expr_env_dump(struct dumper *d, const struct cras_expr_env *env)
 	struct cras_expr_value *value;
 
 	dumpf(d, "--- environment ---\n");
-	FOR_ARRAY_ELEMENT(&env->keys, i, key) {
+	ARRAY_ELEMENT_FOREACH (&env->keys, i, key) {
 		dumpf(d, " key=%s,", *key);
 		dumpf(d, " value=");
 		value = ARRAY_ELEMENT(&env->values, i);
@@ -421,8 +420,7 @@ static struct cras_expr_expression *parse_one_expr(const char **str)
 			(*str)++;
 			return new_boolean_literal(c == 't');
 		} else {
-			syslog(LOG_ERR, "unexpected char after #: '%c'",
-			       c);
+			syslog(LOG_ERR, "unexpected char after #: '%c'", c);
 		}
 		return NULL;
 	}
@@ -491,8 +489,7 @@ static void dump_value(struct dumper *d, const struct cras_expr_value *value,
 		dumpf(d, "%*s(none)", indent, "");
 		break;
 	case CRAS_EXPR_VALUE_TYPE_BOOLEAN:
-		dumpf(d, "%*s%s", indent, "",
-		      value->u.boolean ? "#t" : "#f");
+		dumpf(d, "%*s%s", indent, "", value->u.boolean ? "#t" : "#f");
 		break;
 	case CRAS_EXPR_VALUE_TYPE_INT:
 		dumpf(d, "%*s%d", indent, "", value->u.integer);
@@ -522,12 +519,11 @@ static void dump_one_expression(struct dumper *d,
 		dump_value(d, &expr->u.literal, indent + 2);
 		break;
 	case EXPR_TYPE_VARIABLE:
-		dumpf(d, "%*svariable (%s)", indent, "",
-		      expr->u.variable);
+		dumpf(d, "%*svariable (%s)", indent, "", expr->u.variable);
 		break;
 	case EXPR_TYPE_COMPOUND:
 		dumpf(d, "%*scompound", indent, "");
-		FOR_ARRAY_ELEMENT(&expr->u.children, i, sub) {
+		ARRAY_ELEMENT_FOREACH (&expr->u.children, i, sub) {
 			dump_one_expression(d, *sub, indent + 2);
 		}
 		break;
@@ -554,11 +550,10 @@ void cras_expr_expression_free(struct cras_expr_expression *expr)
 	case EXPR_TYPE_VARIABLE:
 		free((char *)expr->u.variable);
 		break;
-	case EXPR_TYPE_COMPOUND:
-	{
+	case EXPR_TYPE_COMPOUND: {
 		int i;
 		struct cras_expr_expression **psub;
-		FOR_ARRAY_ELEMENT(&expr->u.children, i, psub) {
+		ARRAY_ELEMENT_FOREACH (&expr->u.children, i, psub) {
 			cras_expr_expression_free(*psub);
 		}
 		ARRAY_FREE(&expr->u.children);
@@ -580,10 +575,9 @@ void cras_expr_expression_eval(struct cras_expr_expression *expr,
 	case EXPR_TYPE_LITERAL:
 		copy_value(result, &expr->u.literal);
 		break;
-	case EXPR_TYPE_VARIABLE:
-	{
-		struct cras_expr_value *value = find_value(env,
-							   expr->u.variable);
+	case EXPR_TYPE_VARIABLE: {
+		struct cras_expr_value *value =
+			find_value(env, expr->u.variable);
 		if (value == NULL) {
 			syslog(LOG_ERR, "cannot find value for %s",
 			       expr->u.variable);
@@ -592,14 +586,13 @@ void cras_expr_expression_eval(struct cras_expr_expression *expr,
 		}
 		break;
 	}
-	case EXPR_TYPE_COMPOUND:
-	{
+	case EXPR_TYPE_COMPOUND: {
 		int i;
 		struct cras_expr_expression **psub;
 		cras_expr_value_array values = ARRAY_INIT;
 		struct cras_expr_value *value;
 
-		FOR_ARRAY_ELEMENT(&expr->u.children, i, psub) {
+		ARRAY_ELEMENT_FOREACH (&expr->u.children, i, psub) {
 			value = ARRAY_APPEND_ZERO(&values);
 			cras_expr_expression_eval(*psub, env, value);
 		}
@@ -615,7 +608,7 @@ void cras_expr_expression_eval(struct cras_expr_expression *expr,
 			syslog(LOG_ERR, "empty compound expression?");
 		}
 
-		FOR_ARRAY_ELEMENT(&values, i, value) {
+		ARRAY_ELEMENT_FOREACH (&values, i, value) {
 			cras_expr_value_free(value);
 		}
 
@@ -626,8 +619,7 @@ void cras_expr_expression_eval(struct cras_expr_expression *expr,
 }
 
 int cras_expr_expression_eval_int(struct cras_expr_expression *expr,
-				  struct cras_expr_env *env,
-				  int *integer)
+				  struct cras_expr_env *env, int *integer)
 {
 	int rc = 0;
 	struct cras_expr_value value = CRAS_EXPR_VALUE_INIT;
@@ -644,8 +636,7 @@ int cras_expr_expression_eval_int(struct cras_expr_expression *expr,
 }
 
 int cras_expr_expression_eval_boolean(struct cras_expr_expression *expr,
-				      struct cras_expr_env *env,
-				      char *boolean)
+				      struct cras_expr_env *env, char *boolean)
 {
 	int rc = 0;
 	struct cras_expr_value value = CRAS_EXPR_VALUE_INIT;

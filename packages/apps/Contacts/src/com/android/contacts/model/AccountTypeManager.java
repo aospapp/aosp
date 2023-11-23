@@ -59,6 +59,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -404,28 +405,26 @@ class AccountTypeManagerImpl extends AccountTypeManager
 
         ContentResolver.addStatusChangeListener(ContentResolver.SYNC_OBSERVER_TYPE_SETTINGS, this);
 
-        if (Flags.getInstance().getBoolean(Experiments.CP2_DEVICE_ACCOUNT_DETECTION_ENABLED)) {
-            // Observe changes to RAW_CONTACTS so that we will update the list of "Device" accounts
-            // if a new device contact is added.
-            mContext.getContentResolver().registerContentObserver(
-                    ContactsContract.RawContacts.CONTENT_URI, /* notifyDescendents */ true,
-                    new ContentObserver(mMainThreadHandler) {
-                        @Override
-                        public boolean deliverSelfNotifications() {
-                            return true;
-                        }
+        // Observe changes to RAW_CONTACTS so that we will update the list of "Device" accounts
+        // if a new device contact is added or removed.
+        mContext.getContentResolver().registerContentObserver(
+                ContactsContract.RawContacts.CONTENT_URI, /* notifyDescendents */ true,
+                new ContentObserver(mMainThreadHandler) {
+                    @Override
+                    public boolean deliverSelfNotifications() {
+                        return true;
+                    }
 
-                        @Override
-                        public void onChange(boolean selfChange) {
-                            reloadLocalAccounts();
-                        }
+                    @Override
+                    public void onChange(boolean selfChange) {
+                        reloadLocalAccounts();
+                    }
 
-                        @Override
-                        public void onChange(boolean selfChange, Uri uri) {
-                            reloadLocalAccounts();
-                        }
-                    });
-        }
+                    @Override
+                    public void onChange(boolean selfChange, Uri uri) {
+                        reloadLocalAccounts();
+                    }
+                });
         loadAccountTypes();
     }
 
@@ -503,7 +502,8 @@ class AccountTypeManagerImpl extends AccountTypeManager
     private synchronized void reloadAccountTypes() {
         loadAccountTypes();
         Futures.addCallback(
-                Futures.transform(mAccountTypesFuture, mAccountsExtractor),
+                Futures.transform(mAccountTypesFuture, mAccountsExtractor,
+                        MoreExecutors.directExecutor()),
                 newAccountsUpdatedCallback(mAccountManagerAccounts),
                 mMainThreadExecutor);
     }
@@ -534,7 +534,8 @@ class AccountTypeManagerImpl extends AccountTypeManager
         final ListenableFuture<List<List<AccountWithDataSet>>> all =
                 Futures.nonCancellationPropagating(
                         Futures.successfulAsList(
-                                Futures.transform(mAccountTypesFuture, mAccountsExtractor),
+                                Futures.transform(mAccountTypesFuture, mAccountsExtractor,
+                                        MoreExecutors.directExecutor()),
                                 mLocalAccountsFuture));
 
         return Futures.transform(all, new Function<List<List<AccountWithDataSet>>,
@@ -560,7 +561,7 @@ class AccountTypeManagerImpl extends AccountTypeManager
                 AccountInfo.sortAccounts(null, result);
                 return result;
             }
-        });
+        }, MoreExecutors.directExecutor());
     }
 
     @Override

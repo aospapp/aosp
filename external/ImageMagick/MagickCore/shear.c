@@ -17,7 +17,7 @@
 %                                  July 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -730,16 +730,32 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
   assert(image != (Image *) NULL);
   page=image->page;
   rotations%=4;
-  if (rotations == 0)
-    return(CloneImage(image,0,0,MagickTrue,exception));
-  if ((rotations == 1) || (rotations == 3))
-    rotate_image=CloneImage(image,image->rows,image->columns,MagickTrue,
-      exception);
-  else
-    rotate_image=CloneImage(image,0,0,MagickTrue,
-      exception);
+  switch (rotations)
+  {
+    case 0:
+    default:
+    {
+      rotate_image=CloneImage(image,0,0,MagickTrue,exception);
+      break;
+    }
+    case 2:
+    {
+      rotate_image=CloneImage(image,image->columns,image->rows,MagickTrue,
+        exception);
+      break;
+    }
+    case 1:
+    case 3:
+    {
+      rotate_image=CloneImage(image,image->rows,image->columns,MagickTrue,
+        exception);
+      break;
+    }
+  }
   if (rotate_image == (Image *) NULL)
     return((Image *) NULL);
+  if (rotations == 0)
+    return(rotate_image);
   /*
     Integral rotate the image.
   */
@@ -765,7 +781,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
       tile_width=image->columns;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static) shared(status) \
-        magick_number_threads(image,image,image->rows/tile_height,1)
+        magick_number_threads(image,rotate_image,image->rows/tile_height,1)
 #endif
       for (tile_y=0; tile_y < (ssize_t) image->rows; tile_y+=(ssize_t) tile_height)
       {
@@ -834,7 +850,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
               {
                 PixelChannel channel = GetPixelChannelChannel(image,i);
                 PixelTrait traits = GetPixelChannelTraits(image,channel);
-                PixelTrait rotate_traits=GetPixelChannelTraits(rotate_image,
+                PixelTrait rotate_traits = GetPixelChannelTraits(rotate_image,
                   channel);
                 if ((traits == UndefinedPixelTrait) ||
                     (rotate_traits == UndefinedPixelTrait))
@@ -878,7 +894,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
       */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static) shared(status) \
-        magick_number_threads(image,image,image->rows,1)
+        magick_number_threads(image,rotate_image,image->rows,1)
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
@@ -915,7 +931,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
           {
             PixelChannel channel = GetPixelChannelChannel(image,i);
             PixelTrait traits = GetPixelChannelTraits(image,channel);
-            PixelTrait rotate_traits=GetPixelChannelTraits(rotate_image,
+            PixelTrait rotate_traits = GetPixelChannelTraits(rotate_image,
               channel);
             if ((traits == UndefinedPixelTrait) ||
                 (rotate_traits == UndefinedPixelTrait))
@@ -962,7 +978,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
       tile_width=image->columns;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
       #pragma omp parallel for schedule(static) shared(status) \
-        magick_number_threads(image,image,image->rows/tile_height,1)
+        magick_number_threads(image,rotate_image,image->rows/tile_height,1)
 #endif
       for (tile_y=0; tile_y < (ssize_t) image->rows; tile_y+=(ssize_t) tile_height)
       {
@@ -1030,7 +1046,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
               {
                 PixelChannel channel = GetPixelChannelChannel(image,i);
                 PixelTrait traits = GetPixelChannelTraits(image,channel);
-                PixelTrait rotate_traits=GetPixelChannelTraits(rotate_image,
+                PixelTrait rotate_traits = GetPixelChannelTraits(rotate_image,
                   channel);
                 if ((traits == UndefinedPixelTrait) ||
                     (rotate_traits == UndefinedPixelTrait))
@@ -1376,9 +1392,6 @@ static MagickBooleanType YShearImage(Image *image,const double degrees,
 #endif
   for (x=0; x < (ssize_t) width; x++)
   {
-    ssize_t
-      step;
-
     double
       area,
       displacement;
@@ -1397,6 +1410,9 @@ static MagickBooleanType YShearImage(Image *image,const double degrees,
 
     ShearDirection
       direction;
+
+    ssize_t
+      step;
 
     if (status == MagickFalse)
       continue;

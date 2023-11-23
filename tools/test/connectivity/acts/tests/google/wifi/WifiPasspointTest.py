@@ -73,16 +73,21 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
         self.unknown_fqdn = UNKNOWN_FQDN
         # Setup Uicd cli object for UI interation.
         self.ui = UicdCli(self.uicd_zip[0], self.uicd_workflows)
+        self.passpoint_workflow = "passpoint-login_%s" % self.dut.model
 
 
     def setup_test(self):
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
+        self.dut.unlock_screen()
 
 
     def teardown_test(self):
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
+        passpoint_configs = self.dut.droid.getPasspointConfigs()
+        for config in passpoint_configs:
+            wutils.delete_passpoint(self.dut, config)
         wutils.reset_wifi(self.dut)
 
 
@@ -117,20 +122,18 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
         """
         ad = self.dut
         ad.ed.clear_all_events()
-        wutils.start_wifi_connection_scan(ad)
-        scan_results = ad.droid.wifiGetScanResults()
-        # Wait for scan to complete.
-        time.sleep(5)
-        ssid = passpoint_network
-        wutils.assert_network_in_list({WifiEnums.SSID_KEY: ssid}, scan_results)
-        # Passpoint network takes longer time to connect than normal networks.
-        # Every try comes with a timeout of 30s. Setting total timeout to 120s.
-        wutils.wifi_passpoint_connect(self.dut, passpoint_network, num_of_tries=4)
+        try:
+            wutils.start_wifi_connection_scan_and_return_status(ad)
+            wutils.wait_for_connect(ad)
+        except:
+            pass
         # Re-verify we are connected to the correct network.
         network_info = self.dut.droid.wifiGetConnectionInfo()
-        if network_info[WifiEnums.SSID_KEY] != passpoint_network:
-            raise signals.TestFailure("Device did not connect to the passpoint"
-                                      " network.")
+        self.log.info("Network Info: %s" % network_info)
+        if not network_info or not network_info[WifiEnums.SSID_KEY] or \
+            network_info[WifiEnums.SSID_KEY] not in passpoint_network:
+              raise signals.TestFailure(
+                  "Device did not connect to passpoint network.")
 
 
     def get_configured_passpoint_and_delete(self):
@@ -180,7 +183,7 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
                     "Passpoint Provisioning status %s" % dut_event['data'][
                         'status'])
                 if int(dut_event['data']['status']) == 7:
-                    self.ui.run(self.dut.serial, "passpoint-login")
+                    self.ui.run(self.dut.serial, self.passpoint_workflow)
         # Clear all previous events.
         self.dut.ed.clear_all_events()
 
@@ -340,6 +343,7 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
         wutils.wait_for_disconnect(self.dut)
 
 
+    @test_tracker_info(uuid="37ae0223-0cb7-43f3-8ba8-474fad6e4b71")
     def test_install_att_passpoint_profile(self):
         """Add an AT&T Passpoint profile.
 
@@ -393,3 +397,26 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
     @test_tracker_info(uuid="f43ea759-673f-4567-aa11-da3bc2cabf08")
     def test_start_subscription_provisioning_and_toggle_wifi(self):
         self.start_subscription_provisioning(TOGGLE)
+
+    @test_tracker_info(uuid="ad6d5eb8-a3c5-4ce0-9e10-d0f201cd0f40")
+    def test_user_override_auto_join_on_passpoint_network(self):
+        """Add a Passpoint network, simulate user change the auto join to false, ensure the device
+        doesn't auto connect to this passponit network
+
+        Steps:
+            1. Install a Passpoint Profile.
+            2. Verify the device connects to the required Passpoint SSID.
+            3. Disable auto join Passpoint configuration using its FQDN.
+            4. disable and enable Wifi toggle, ensure we don't connect back
+        """
+        passpoint_config = self.passpoint_networks[BOINGO]
+        self.install_passpoint_profile(passpoint_config)
+        ssid = passpoint_config[WifiEnums.SSID_KEY]
+        self.check_passpoint_connection(ssid)
+        self.dut.log.info("Disable auto join on passpoint")
+        self.dut.droid.wifiEnableAutojoinPasspoint(passpoint_config['fqdn'], False)
+        wutils.wifi_toggle_state(self.dut, False)
+        wutils.wifi_toggle_state(self.dut, True)
+        asserts.assert_false(
+            wutils.wait_for_connect(self.dut, ssid, assert_on_fail=False),
+            "Device should not connect.")

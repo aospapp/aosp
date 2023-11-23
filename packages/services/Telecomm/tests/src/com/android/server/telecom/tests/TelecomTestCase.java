@@ -22,6 +22,7 @@ import android.telecom.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.concurrent.CountDownLatch;
@@ -36,6 +37,7 @@ public abstract class TelecomTestCase {
 
     public void setUp() throws Exception {
         Log.setTag(TESTING_TAG);
+        Log.setIsExtendedLoggingEnabled(true);
         mMockitoHelper.setUp(InstrumentationRegistry.getContext(), getClass());
         mComponentContextFixture = new ComponentContextFixture();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
@@ -47,6 +49,7 @@ public abstract class TelecomTestCase {
     public void tearDown() throws Exception {
         mComponentContextFixture = null;
         mMockitoHelper.tearDown();
+        Mockito.framework().clearInlineMocks();
     }
 
     protected static void waitForHandlerAction(Handler h, long timeoutMillis) {

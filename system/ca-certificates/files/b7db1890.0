@@ -23,7 +23,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 1 (0x1)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=TW, O=TAIWAN-CA, OU=Root CA, CN=TWCA Root Certification Authority
         Validity
             Not Before: Aug 28 07:24:33 2008 GMT
@@ -31,7 +31,7 @@ Certificate:
         Subject: C=TW, O=TAIWAN-CA, OU=Root CA, CN=TWCA Root Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:b0:7e:72:b8:a4:03:94:e6:a7:de:09:38:91:4a:
                     11:40:87:a7:7c:59:64:14:7b:b5:11:10:dd:fe:bf:

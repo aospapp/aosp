@@ -2,138 +2,234 @@
 #
 #   Copyright 2018 - The Android Open Source Project
 #
-#   Licensed under the Apache License, Version 2.0 (the "License");
+#   Licensed under the Apache License, Version 2.0 (the 'License');
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
 #
 #       http://www.apache.org/licenses/LICENSE-2.0
 #
 #   Unless required by applicable law or agreed to in writing, software
-#   distributed under the License is distributed on an "AS IS" BASIS,
+#   distributed under the License is distributed on an 'AS IS' BASIS,
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import WifiRvrTest
+import collections
+import logging
+import os
+from acts import asserts
 from acts import base_test
-from acts.test_decorators import test_tracker_info
+from acts.controllers import iperf_server as ipf
+from acts.controllers import iperf_client as ipc
+from acts.metrics.loggers.blackbox import BlackboxMappedMetricLogger
 from acts.test_utils.wifi import wifi_test_utils as wutils
+from acts.test_utils.wifi import wifi_performance_test_utils as wputils
+from WifiRvrTest import WifiRvrTest
+
+AccessPointTuple = collections.namedtuple(('AccessPointTuple'),
+                                          ['ap_settings'])
 
 
-class WifiSoftApRvrTest(WifiRvrTest.WifiRvrTest):
+class WifiSoftApRvrTest(WifiRvrTest):
     def __init__(self, controllers):
         base_test.BaseTestClass.__init__(self, controllers)
-        self.tests = ("test_rvr_TCP_DL_2GHz", "test_rvr_TCP_UL_2GHz",
-                      "test_rvr_TCP_DL_5GHz", "test_rvr_TCP_UL_5GHz")
+        self.tests = ('test_rvr_TCP_DL_2GHz', 'test_rvr_TCP_UL_2GHz',
+                      'test_rvr_TCP_DL_5GHz', 'test_rvr_TCP_UL_5GHz')
+        self.testcase_metric_logger = (
+            BlackboxMappedMetricLogger.for_test_case())
+        self.testclass_metric_logger = (
+            BlackboxMappedMetricLogger.for_test_class())
+        self.publish_testcase_metrics = True
+
+    def setup_class(self):
+        """Initializes common test hardware and parameters.
+
+        This function initializes hardwares and compiles parameters that are
+        common to all tests in this class.
+        """
+        self.dut = self.android_devices[-1]
+        req_params = ['sap_test_params', 'testbed_params', 'AndroidDevice']
+        opt_params = ['main_network', 'golden_files_list']
+        self.unpack_userparams(req_params, opt_params)
+        self.testclass_params = self.sap_test_params
+        self.num_atten = self.attenuators[0].instrument.num_atten
+        self.iperf_server = ipf.create([{
+            'AndroidDevice':
+            self.android_devices[0].serial,
+            'port':
+            '5201'
+        }])[0]
+        self.iperf_client = ipc.create([{
+            'AndroidDevice':
+            self.android_devices[1].serial,
+            'port':
+            '5201'
+        }])[0]
+
+        self.log_path = os.path.join(logging.log_path, 'results')
+        os.makedirs(self.log_path, exist_ok=True)
+        if not hasattr(self, 'golden_files_list'):
+            self.golden_files_list = [
+                os.path.join(self.testbed_params['golden_results_path'], file)
+                for file in os.listdir(
+                    self.testbed_params['golden_results_path'])
+            ]
+        if hasattr(self, 'bdf'):
+            self.log.info('Pushing WiFi BDF to DUT.')
+            wputils.push_bdf(self.dut, self.bdf)
+        if hasattr(self, 'firmware'):
+            self.log.info('Pushing WiFi firmware to DUT.')
+            wlanmdsp = [
+                file for file in self.firmware if 'wlanmdsp.mbn' in file
+            ][0]
+            data_msc = [file for file in self.firmware
+                        if 'Data.msc' in file][0]
+            wputils.push_firmware(self.dut, wlanmdsp, data_msc)
+        self.testclass_results = []
+
+        # Turn WiFi ON
+        for dev in self.android_devices:
+            wutils.wifi_toggle_state(dev, True)
+
+    def teardown_class(self):
+        # Turn WiFi OFF
+        wutils.stop_wifi_tethering(self.android_devices[0])
+        for dev in self.android_devices:
+            wutils.wifi_toggle_state(dev, False)
+        self.process_testclass_results()
+
+    def teardown_test(self):
+        wutils.stop_wifi_tethering(self.android_devices[0])
 
     def get_sap_connection_info(self):
         info = {}
-        info["client_ip_address"] = self.android_devices[
+        info['client_ip_address'] = self.android_devices[
             1].droid.connectivityGetIPv4Addresses('wlan0')[0]
-        info["ap_ip_address"] = self.android_devices[
-            0].droid.connectivityGetIPv4Addresses('wlan0')[0]
-        info["frequency"] = self.client_dut.adb.shell(
-            "wpa_cli status | grep freq").split("=")[1]
-        info["channel"] = wutils.WifiEnums.freq_to_channel[int(
-            info["frequency"])]
+        info['ap_ip_address'] = self.android_devices[
+            0].droid.connectivityGetIPv4Addresses('wlan1')[0]
+        info['frequency'] = self.android_devices[1].adb.shell(
+            'wpa_cli status | grep freq').split('=')[1]
+        info['channel'] = wutils.WifiEnums.freq_to_channel[int(
+            info['frequency'])]
         return info
 
-    def sap_rvr_test_func(self):
-        """Main function to test Soft AP RvR.
-
-        The function sets up the phones in the correct soft ap and client mode
-        configuration and calls run_rvr to sweep attenuation and measure
-        throughput
+    def setup_sap_rvr_test(self, testcase_params):
+        """Function that gets devices ready for the test.
 
         Args:
-            channel: Specifies AP's channel
-            mode: Specifies AP's bandwidth/mode (11g, VHT20, VHT40, VHT80)
-        Returns:
-            rvr_result: dict containing rvr_results and meta data
+            testcase_params: dict containing test-specific parameters
         """
-        #Initialize RvR test parameters
-        num_atten_steps = int((self.test_params["rvr_atten_stop"] -
-                               self.test_params["rvr_atten_start"]) /
-                              self.test_params["rvr_atten_step"])
-        self.rvr_atten_range = [
-            self.test_params["rvr_atten_start"] +
-            x * self.test_params["rvr_atten_step"]
-            for x in range(0, num_atten_steps)
-        ]
-        rvr_result = {}
+        for dev in self.android_devices:
+            if not wputils.health_check(dev, 20):
+                asserts.skip('DUT health check failed. Skipping test.')
         # Reset WiFi on all devices
         for dev in self.android_devices:
             wutils.reset_wifi(dev)
-            dev.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+            wutils.set_wifi_country_code(dev, wutils.WifiEnums.CountryCode.US)
+
         # Setup Soft AP
         sap_config = wutils.create_softap_config()
-        wutils.start_wifi_tethering(
-            self.android_devices[0], sap_config[wutils.WifiEnums.SSID_KEY],
-            sap_config[wutils.WifiEnums.PWD_KEY], self.sap_band_enum)
-        self.main_network = {
-            "SSID": sap_config[wutils.WifiEnums.SSID_KEY],
-            "password": sap_config[wutils.WifiEnums.PWD_KEY]
-        }
+        self.log.info('SoftAP Config: {}'.format(sap_config))
+        wutils.start_wifi_tethering(self.android_devices[0],
+                                    sap_config[wutils.WifiEnums.SSID_KEY],
+                                    sap_config[wutils.WifiEnums.PWD_KEY],
+                                    testcase_params['sap_band_enum'])
         # Set attenuator to 0 dB
         [self.attenuators[i].set_atten(0) for i in range(self.num_atten)]
         # Connect DUT to Network
-        wutils.wifi_connect(
-            self.android_devices[1],
-            self.main_network,
-            num_of_tries=5,
-            assert_on_fail=False)
-        connection_info = self.get_sap_connection_info()
-        self.test_params["iperf_server_address"] = connection_info[
-            "ap_ip_address"]
-        # Run RvR and log result
-        rvr_result["test_name"] = self.current_test_name
-        rvr_result["attenuation"] = list(self.rvr_atten_range)
-        rvr_result["fixed_attenuation"] = self.test_params[
-            "fixed_attenuation"][str(connection_info["channel"])]
-        rvr_result["throughput_receive"] = self.rvr_test()
-        self.testclass_results.append(rvr_result)
-        wutils.stop_wifi_tethering(self.android_devices[0])
-        return rvr_result
+        network = {
+            'SSID': sap_config[wutils.WifiEnums.SSID_KEY],
+            'password': sap_config[wutils.WifiEnums.PWD_KEY]
+        }
+        wutils.wifi_connect(self.android_devices[1],
+                            network,
+                            num_of_tries=5,
+                            check_connectivity=False)
+        # Compile meta data
+        self.access_point = AccessPointTuple(sap_config)
+        testcase_params['connection_info'] = self.get_sap_connection_info()
+        testcase_params['channel'] = testcase_params['connection_info'][
+            'channel']
+        if testcase_params['channel'] < 13:
+            testcase_params['mode'] = 'VHT20'
+        else:
+            testcase_params['mode'] = 'VHT80'
+        testcase_params['iperf_server_address'] = testcase_params[
+            'connection_info']['ap_ip_address']
 
-    def _test_rvr(self):
+    def compile_test_params(self, testcase_params):
+        """Function that completes all test params based on the test name.
+
+        Args:
+            testcase_params: dict containing test-specific parameters
+        """
+        num_atten_steps = int((self.testclass_params['atten_stop'] -
+                               self.testclass_params['atten_start']) /
+                              self.testclass_params['atten_step'])
+        testcase_params['atten_range'] = [
+            self.testclass_params['atten_start'] +
+            x * self.testclass_params['atten_step']
+            for x in range(0, num_atten_steps)
+        ]
+
+        if testcase_params['traffic_direction'] == 'DL':
+            testcase_params['iperf_args'] = wputils.get_iperf_arg_string(
+                duration=self.testclass_params['iperf_duration'],
+                reverse_direction=1,
+                traffic_type=testcase_params['traffic_type'])
+            testcase_params['use_client_output'] = True
+        else:
+            testcase_params['iperf_args'] = wputils.get_iperf_arg_string(
+                duration=self.testclass_params['iperf_duration'],
+                reverse_direction=0,
+                traffic_type=testcase_params['traffic_type'])
+            testcase_params['use_client_output'] = False
+        return testcase_params
+
+    def _test_sap_rvr(self, testcase_params):
         """ Function that gets called for each test case
 
-        The function gets called in each rvr test case. The function customizes
-        the rvr test based on the test name of the test that called it
+        Args:
+            testcase_params: dict containing test-specific parameters
         """
-        test_params = self.current_test_name.split("_")
-        self.sap_band = test_params[4]
-        if self.sap_band == "2GHz":
-            self.sap_band_enum = wutils.WifiEnums.WIFI_CONFIG_APBAND_2G
-        else:
-            self.sap_band_enum = wutils.WifiEnums.WIFI_CONFIG_APBAND_5G
-        self.iperf_args = '-i 1 -t {} -J '.format(
-            self.test_params["iperf_duration"])
-        if test_params[2] == "UDP":
-            self.iperf_args = self.iperf_args + "-u -b {}".format(
-                self.test_params["UDP_rates"]["VHT80"])
-        if test_params[3] == "DL":
-            self.iperf_args = self.iperf_args + ' -R'
-            self.use_client_output = True
-        else:
-            self.use_client_output = False
-        rvr_result = self.sap_rvr_test_func()
-        self.post_process_results(rvr_result)
-        self.pass_fail_check(rvr_result)
+        # Compile test parameters from config and test name
+        testcase_params = self.compile_test_params(testcase_params)
+
+        self.setup_sap_rvr_test(testcase_params)
+        result = self.run_rvr_test(testcase_params)
+        self.testclass_results.append(result)
+        self.process_test_results(result)
+        self.pass_fail_check(result)
 
     #Test cases
-    @test_tracker_info(uuid='7910112e-49fd-4e49-bc5c-f84da0cbb9f6')
     def test_rvr_TCP_DL_2GHz(self):
-        self._test_rvr()
+        testcase_params = collections.OrderedDict(
+            sap_band='2GHz',
+            sap_band_enum=wutils.WifiEnums.WIFI_CONFIG_APBAND_2G,
+            traffic_type='TCP',
+            traffic_direction='DL')
+        self._test_sap_rvr(testcase_params)
 
-    @test_tracker_info(uuid='b3c00814-6fdf-496b-b345-6a719bef657e')
     def test_rvr_TCP_UL_2GHz(self):
-        self._test_rvr()
+        testcase_params = collections.OrderedDict(
+            sap_band='2GHz',
+            sap_band_enum=wutils.WifiEnums.WIFI_CONFIG_APBAND_2G,
+            traffic_type='TCP',
+            traffic_direction='UL')
+        self._test_sap_rvr(testcase_params)
 
-    @test_tracker_info(uuid='a2f727b5-68ba-46e5-a7fe-f86c0a082fc9')
     def test_rvr_TCP_DL_5GHz(self):
-        self._test_rvr()
+        testcase_params = collections.OrderedDict(
+            sap_band='5GHz',
+            sap_band_enum=wutils.WifiEnums.WIFI_CONFIG_APBAND_5G,
+            traffic_type='TCP',
+            traffic_direction='DL')
+        self._test_sap_rvr(testcase_params)
 
-    @test_tracker_info(uuid='0cca9352-3f06-4bba-be17-8897a1b42a0f')
     def test_rvr_TCP_UL_5GHz(self):
-        self._test_rvr()
+        testcase_params = collections.OrderedDict(
+            sap_band='5GHz',
+            sap_band_enum=wutils.WifiEnums.WIFI_CONFIG_APBAND_5G,
+            traffic_type='TCP',
+            traffic_direction='UL')
+        self._test_sap_rvr(testcase_params)

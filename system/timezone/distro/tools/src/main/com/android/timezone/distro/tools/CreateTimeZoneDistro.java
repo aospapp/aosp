@@ -52,6 +52,8 @@ import java.util.Properties;
  *     <dd>The location of the ICU overlay .dat file.</dd>
  *     <dt>tzlookup.file</dt>
  *     <dd>The location of the tzlookup.xml file.</dd>
+ *     <dt>telephonylookup.file</dt>
+ *     <dd>The location of the telephonylookup.xml file.</dd>
  *     <dt>output.distro.dir</dt>
  *     <dd>The directory to write the distro.zip file to.</dd>
  *     <dt>output.version.file</dt>
@@ -94,15 +96,17 @@ public class CreateTimeZoneDistro {
 
         // Create a DistroVersion from the TzDataSetVersion.
         DistroVersion distroVersion = new DistroVersion(
-                tzDataSetVersion.formatMajorVersion,
-                tzDataSetVersion.formatMinorVersion,
-                tzDataSetVersion.rulesVersion,
-                tzDataSetVersion.revision);
+                tzDataSetVersion.getFormatMajorVersion(),
+                tzDataSetVersion.getFormatMinorVersion(),
+                tzDataSetVersion.getRulesVersion(),
+                tzDataSetVersion.getRevision());
         TimeZoneDistroBuilder builder = new TimeZoneDistroBuilder()
                 .setDistroVersion(distroVersion)
                 .setTzDataFile(getMandatoryPropertyFile(properties, "tzdata.file"))
                 .setIcuDataFile(getMandatoryPropertyFile(properties, "icu.file"))
-                .setTzLookupFile(getMandatoryPropertyFile(properties, "tzlookup.file"));
+                .setTzLookupFile(getMandatoryPropertyFile(properties, "tzlookup.file"))
+                .setTelephonyLookupFile(
+                        getMandatoryPropertyFile(properties, "telephonylookup.file"));
         byte[] distroBytes = builder.buildBytes();
 
         File outputDistroDir = getMandatoryPropertyFile(properties, "output.distro.dir");

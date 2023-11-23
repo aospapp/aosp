@@ -16,22 +16,23 @@
 
 package com.android.server.wifi.util;
 
-import java.io.Serializable;
+import com.android.internal.util.Preconditions;
+
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
- * A class to store data created by {@link DataIntegrityChecker}.
+ * A class to store data created by {@link WifiConfigStoreEncryptionUtil}.
  */
-public class EncryptedData implements Serializable {
-    private static final long serialVersionUID = 1337L;
+public class EncryptedData {
+    private final byte[] mEncryptedData;
+    private final byte[] mIv;
 
-    private byte[] mEncryptedData;
-    private byte[] mIv;
-    private String mKeyAlias;
-
-    public EncryptedData(byte[] encryptedData, byte[] iv, String keyAlias) {
+    public EncryptedData(byte[] encryptedData, byte[] iv) {
+        Preconditions.checkNotNull(encryptedData);
+        Preconditions.checkNotNull(iv);
         mEncryptedData = encryptedData;
         mIv = iv;
-        mKeyAlias = keyAlias;
     }
 
     public byte[] getEncryptedData() {
@@ -42,7 +43,16 @@ public class EncryptedData implements Serializable {
         return mIv;
     }
 
-    public String getKeyAlias() {
-        return mKeyAlias;
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof EncryptedData)) return false;
+        EncryptedData otherEncryptedData = (EncryptedData) other;
+        return Arrays.equals(this.mEncryptedData, otherEncryptedData.mEncryptedData)
+                && Arrays.equals(this.mIv, otherEncryptedData.mIv);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(Arrays.hashCode(mEncryptedData), Arrays.hashCode(mIv));
     }
 }

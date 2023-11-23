@@ -18,9 +18,11 @@ package android.permission.cts;
 
 import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
+import static android.Manifest.permission.PACKAGE_USAGE_STATS;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_FOREGROUND;
 import static android.app.AppOpsManager.MODE_IGNORED;
+import static android.app.AppOpsManager.OPSTR_GET_USAGE_STATS;
 import static android.app.AppOpsManager.permissionToOp;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_REVIEW_REQUIRED;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_REVOKE_ON_UPGRADE;
@@ -40,6 +42,7 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PermissionInfo;
+import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
 
@@ -54,7 +57,8 @@ import java.util.List;
  * Common utils for permission tests
  */
 public class PermissionUtils {
-    private static final long TIMEOUT_MILLIS = 10000;
+    private static String GRANT_RUNTIME_PERMISSIONS = "android.permission.GRANT_RUNTIME_PERMISSIONS";
+    private static String MANAGE_APP_OPS_MODES = "android.permission.MANAGE_APP_OPS_MODES";
 
     private static final int TESTED_FLAGS = FLAG_PERMISSION_USER_SET | FLAG_PERMISSION_USER_FIXED
             | FLAG_PERMISSION_REVOKE_ON_UPGRADE | FLAG_PERMISSION_REVIEW_REQUIRED
@@ -79,10 +83,9 @@ public class PermissionUtils {
      */
     public static int getAppOp(@NonNull String packageName, @NonNull String permission)
             throws Exception {
-        return callWithShellPermissionIdentity(
-                () -> sContext.getSystemService(AppOpsManager.class).unsafeCheckOpRaw(
+        return sContext.getSystemService(AppOpsManager.class).unsafeCheckOpRaw(
                         permissionToOp(permission),
-                        sContext.getPackageManager().getPackageUid(packageName, 0), packageName));
+                        sContext.getPackageManager().getPackageUid(packageName, 0), packageName);
     }
 
     /**
@@ -91,7 +94,12 @@ public class PermissionUtils {
      * @param apkFile The apk to install
      */
     public static void install(@NonNull String apkFile) {
-        runShellCommand("pm install -r --force-sdk " + apkFile);
+        final int sdkVersion = Build.VERSION.SDK_INT
+                + (Build.VERSION.RELEASE_OR_CODENAME.equals("REL") ? 0 : 1);
+        boolean forceQueryable = sdkVersion > Build.VERSION_CODES.Q;
+        runShellCommand("pm install -r --force-sdk "
+                + (forceQueryable ? "--force-queryable " : "")
+                + apkFile);
     }
 
     /**
@@ -124,7 +132,8 @@ public class PermissionUtils {
     public static void setAppOpByName(@NonNull String packageName, @NonNull String op, int mode) {
         runWithShellPermissionIdentity(
                 () -> sContext.getSystemService(AppOpsManager.class).setUidMode(op,
-                        sContext.getPackageManager().getPackageUid(packageName, 0), mode));
+                        sContext.getPackageManager().getPackageUid(packageName, 0), mode),
+                MANAGE_APP_OPS_MODES);
     }
 
     /**
@@ -201,7 +210,9 @@ public class PermissionUtils {
             } else {
                 setAppOp(packageName, ACCESS_COARSE_LOCATION, MODE_FOREGROUND);
             }
-        } else {
+        } else if (permission.equals(PACKAGE_USAGE_STATS)) {
+            setAppOpByName(packageName, OPSTR_GET_USAGE_STATS, MODE_ALLOWED);
+        } else if (permissionToOp(permission) != null) {
             setAppOp(packageName, permission, MODE_ALLOWED);
         }
     }
@@ -226,7 +237,9 @@ public class PermissionUtils {
             if (isGranted(packageName, ACCESS_COARSE_LOCATION)) {
                 setAppOp(packageName, ACCESS_COARSE_LOCATION, MODE_FOREGROUND);
             }
-        } else {
+        } else if (permission.equals(PACKAGE_USAGE_STATS)) {
+            setAppOpByName(packageName, OPSTR_GET_USAGE_STATS, MODE_IGNORED);
+        } else if (permissionToOp(permission) != null) {
             setAppOp(packageName, permission, MODE_IGNORED);
         }
     }
@@ -237,7 +250,7 @@ public class PermissionUtils {
      * @param packageName Package to clear
      */
     public static void clearAppState(@NonNull String packageName) {
-        runShellCommand("pm clear " + packageName);
+        runShellCommand("pm clear --user current " + packageName);
     }
 
     /**
@@ -252,7 +265,8 @@ public class PermissionUtils {
         try {
             return callWithShellPermissionIdentity(
                     () -> sContext.getPackageManager().getPermissionFlags(permission, packageName,
-                            UserHandle.getUserHandleForUid(Process.myUid())) & TESTED_FLAGS);
+                            UserHandle.getUserHandleForUid(Process.myUid())) & TESTED_FLAGS,
+                    GRANT_RUNTIME_PERMISSIONS);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -270,7 +284,8 @@ public class PermissionUtils {
             int mask, int flags) {
         runWithShellPermissionIdentity(
                 () -> sContext.getPackageManager().updatePermissionFlags(permission, packageName,
-                        mask, flags, UserHandle.getUserHandleForUid(Process.myUid())));
+                        mask, flags, UserHandle.getUserHandleForUid(Process.myUid())),
+                GRANT_RUNTIME_PERMISSIONS);
     }
 
     /**
@@ -309,43 +324,4 @@ public class PermissionUtils {
         return runtimePermissions;
     }
 
-    public interface ThrowingRunnable extends Runnable {
-        void runOrThrow() throws Exception;
-
-        @Override
-        default void run() {
-            try {
-                runOrThrow();
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-    }
-
-    /**
-     * Make sure that a {@link Runnable} eventually finishes without throwing a {@link
-     * Exception}.
-     *
-     * @param r The {@link Runnable} to run.
-     */
-    public static void eventually(@NonNull ThrowingRunnable r) {
-        long start = System.currentTimeMillis();
-
-        while (true) {
-            try {
-                r.run();
-                return;
-            } catch (Throwable e) {
-                if (System.currentTimeMillis() - start < TIMEOUT_MILLIS) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException ignored) {
-                        throw new RuntimeException(e);
-                    }
-                } else {
-                    throw e;
-                }
-            }
-        }
-    }
 }

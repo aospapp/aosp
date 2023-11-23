@@ -35,6 +35,10 @@ class GoldfishComputeClientTest(driver_test_lib.BaseDriverTest):
     BRANCH = "fake-branch"
     TARGET = "sdk_phone_x86_64-sdk"
     BUILD_ID = "2263051"
+    KERNEL_BRANCH = "kernel-p-dev-android-goldfish-4.14-x86-64"
+    KERNEL_BUILD_ID = "112233"
+    KERNEL_BUILD_TARGET = "kernel_x86_64"
+    KERNEL_BUILD_ARTIFACT = "bzImage"
     EMULATOR_BRANCH = "aosp-emu-master-dev"
     EMULATOR_BUILD_ID = "1234567"
     DPI = 160
@@ -45,6 +49,7 @@ class GoldfishComputeClientTest(driver_test_lib.BaseDriverTest):
     BOOT_DISK_SIZE_GB = 10
     GPU = "nvidia-tesla-k80"
     EXTRA_SCOPES = "scope1"
+    TAGS = ['http-server']
 
     def _GetFakeConfig(self):
         """Create a fake configuration object.
@@ -97,11 +102,18 @@ class GoldfishComputeClientTest(driver_test_lib.BaseDriverTest):
             "avd_type": "goldfish",
             "cvd_01_fetch_android_build_target": self.TARGET,
             "cvd_01_fetch_android_bid":
-            "{branch}/{build_id}".format(
-                branch=self.BRANCH, build_id=self.BUILD_ID),
+                "{branch}/{build_id}".format(
+                    branch=self.BRANCH, build_id=self.BUILD_ID),
+            "cvd_01_fetch_kernel_bid":
+                "{branch}/{build_id}".format(
+                    branch=self.KERNEL_BRANCH, build_id=self.KERNEL_BUILD_ID),
+            "cvd_01_fetch_kernel_build_target": self.KERNEL_BUILD_TARGET,
+            "cvd_01_fetch_kernel_build_artifact": self.KERNEL_BUILD_ARTIFACT,
+            "cvd_01_use_custom_kernel": "true",
             "cvd_01_fetch_emulator_bid":
-            "{branch}/{build_id}".format(
-                branch=self.EMULATOR_BRANCH, build_id=self.EMULATOR_BUILD_ID),
+                "{branch}/{build_id}".format(
+                    branch=self.EMULATOR_BRANCH,
+                    build_id=self.EMULATOR_BUILD_ID),
             "cvd_01_launch": "1",
             "cvd_01_dpi": str(self.DPI),
             "cvd_01_x_res": str(self.X_RES),
@@ -109,13 +121,17 @@ class GoldfishComputeClientTest(driver_test_lib.BaseDriverTest):
         }
         expected_metadata.update(self.METADATA)
         expected_disk_args = [{"fake_arg": "fake_value"}]
-        expected_labels = {'created_by': "fake_user"}
 
         self.goldfish_compute_client.CreateInstance(
             self.INSTANCE, self.IMAGE, self.IMAGE_PROJECT, self.TARGET,
-            self.BRANCH, self.BUILD_ID, self.EMULATOR_BRANCH,
+            self.BRANCH, self.BUILD_ID,
+            self.KERNEL_BRANCH,
+            self.KERNEL_BUILD_ID,
+            self.KERNEL_BUILD_TARGET,
+            self.EMULATOR_BRANCH,
             self.EMULATOR_BUILD_ID, self.EXTRA_DATA_DISK_SIZE_GB, self.GPU,
-            extra_scopes=self.EXTRA_SCOPES)
+            extra_scopes=self.EXTRA_SCOPES,
+            tags=self.TAGS)
 
         # pylint: disable=no-member
         gcompute_client.ComputeClient.CreateInstance.assert_called_with(
@@ -129,7 +145,7 @@ class GoldfishComputeClientTest(driver_test_lib.BaseDriverTest):
             network=self.NETWORK,
             zone=self.ZONE,
             gpu=self.GPU,
-            labels=expected_labels,
+            tags=self.TAGS,
             extra_scopes=self.EXTRA_SCOPES)
 
 

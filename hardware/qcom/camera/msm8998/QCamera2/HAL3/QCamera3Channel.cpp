@@ -4098,7 +4098,6 @@ void QCamera3PicChannel::putStreamBufs()
 
 int32_t QCamera3PicChannel::queueJpegSetting(uint32_t index, metadata_buffer_t *metadata)
 {
-    QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)mUserData;
     jpeg_settings_t *settings =
             (jpeg_settings_t *)malloc(sizeof(jpeg_settings_t));
 
@@ -4107,8 +4106,22 @@ int32_t QCamera3PicChannel::queueJpegSetting(uint32_t index, metadata_buffer_t *
         return -ENOMEM;
     }
 
+    auto ret = initializeJpegSetting(index, metadata, settings);
+    if (ret != NO_ERROR) {
+        return ret;
+    }
+
+    return m_postprocessor.processJpegSettingData(settings);
+}
+
+int32_t QCamera3PicChannel::initializeJpegSetting(uint32_t index, metadata_buffer_t *metadata,
+        jpeg_settings_t *settings) {
+    if ((settings == nullptr) || (metadata == nullptr)) {
+        return BAD_VALUE;
+    }
     memset(settings, 0, sizeof(jpeg_settings_t));
 
+    QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)mUserData;
     settings->out_buf_index = index;
 
     settings->jpeg_orientation = 0;
@@ -4184,7 +4197,7 @@ int32_t QCamera3PicChannel::queueJpegSetting(uint32_t index, metadata_buffer_t *
         }
     }
 
-    return m_postprocessor.processJpegSettingData(settings);
+    return NO_ERROR;
 }
 
 
@@ -4296,7 +4309,7 @@ int32_t QCamera3PicChannel::returnYuvBuffer(mm_camera_buf_def_t *frame)
 
 int32_t QCamera3PicChannel::returnYuvBufferAndEncode(mm_camera_buf_def_t *frame,
         buffer_handle_t *outBuffer, uint32_t frameNumber,
-        std::shared_ptr<metadata_buffer_t> metadata)
+        std::shared_ptr<metadata_buffer_t> metadata, mm_camera_buf_def_t *metaFrame)
 {
     int32_t rc = OK;
 
@@ -4312,9 +4325,6 @@ int32_t QCamera3PicChannel::returnYuvBufferAndEncode(mm_camera_buf_def_t *frame,
     dim.width = (int32_t)mYuvWidth;
     dim.height = (int32_t)mYuvHeight;
     setReprocConfig(reproc_cfg, nullptr, metadata.get(), mStreamFormat, dim);
-
-    // Override reprocess type to just JPEG encoding without reprocessing.
-    reproc_cfg.reprocess_type = REPROCESS_TYPE_NONE;
 
     // Get the index of the output jpeg buffer.
     int index = mMemory.getMatchBufIndex((void*)outBuffer);
@@ -4343,52 +4353,55 @@ int32_t QCamera3PicChannel::returnYuvBufferAndEncode(mm_camera_buf_def_t *frame,
     // Start postprocessor
     startPostProc(reproc_cfg);
 
-    // Queue jpeg settings
-    rc = queueJpegSetting((uint32_t)index, metadata.get());
-    if (rc != OK) {
-        ALOGE("%s: Queueing Jpeg setting for frame number (%u) buffer index (%d) failed: %s (%d)",
-                __FUNCTION__, frameNumber, index, strerror(-rc), rc);
-        return rc;
+    qcamera_hal3_jpeg_data_t *jpeg_job =
+            (qcamera_hal3_jpeg_data_t *) calloc(1, sizeof(qcamera_hal3_jpeg_data_t));
+    if (jpeg_job == NULL) {
+        LOGE("No memory for jpeg job");
+        return NO_MEMORY;
+    }
+
+    jpeg_job->jpeg_settings = (jpeg_settings_t *) calloc(1, sizeof(jpeg_settings_t));
+    if (jpeg_job->jpeg_settings == nullptr) {
+        LOGE("out of memory allocating jpeg_settings");
+        return NO_MEMORY;
+    }
+
+    auto ret = initializeJpegSetting(index, metadata.get(), jpeg_job->jpeg_settings);
+    if (ret != NO_ERROR) {
+        return ret;
     }
 
     // Allocate a buffer for the YUV input. It will be freed in QCamera3PostProc.
-    mm_camera_super_buf_t *src_frame =
+    jpeg_job->src_frame =
             (mm_camera_super_buf_t *)calloc(1, sizeof(mm_camera_super_buf_t));
-    if (src_frame == nullptr) {
+    if (jpeg_job->src_frame == nullptr) {
         LOGE("%s: No memory for src frame", __FUNCTION__);
         return NO_MEMORY;
     }
-    src_frame->camera_handle = m_camHandle;
-    src_frame->ch_id = getMyHandle();
-    src_frame->num_bufs = 1;
-    src_frame->bufs[0] = frame;
-
-    // Start processing the YUV buffer.
-    ALOGD("%s: %d: Post-process started", __FUNCTION__, __LINE__);
-    rc = m_postprocessor.processData(src_frame);
-    if (rc != OK) {
-        ALOGE("%s: Post processing frame (frame number: %u, jpeg buffer: %d) failed: %s (%d)",
-            __FUNCTION__, frameNumber, index, strerror(-rc), rc);
-        return rc;
-    }
+    jpeg_job->src_frame->camera_handle = m_camHandle;
+    jpeg_job->src_frame->ch_id = getMyHandle();
+    jpeg_job->src_frame->num_bufs = 1;
+    jpeg_job->src_frame->bufs[0] = frame;
 
     // Allocate a buffer for the metadata. It will be freed in QCamera3PostProc.
-    mm_camera_super_buf_t *metadataBuf =
+    jpeg_job->src_metadata =
             (mm_camera_super_buf_t *)calloc(1, sizeof(mm_camera_super_buf_t));
-    if (metadata == nullptr) {
+    if (jpeg_job->src_metadata == nullptr) {
         LOGE("%s: No memory for metadata", __FUNCTION__);
         return NO_MEMORY;
     }
-    metadataBuf->camera_handle = m_camHandle;
-    metadataBuf->ch_id = getMyHandle();
-    metadataBuf->num_bufs = 1;
-    metadataBuf->bufs[0] = (mm_camera_buf_def_t *)calloc(1, sizeof(mm_camera_buf_def_t));
-    metadataBuf->bufs[0]->buffer = metadata.get();
+    jpeg_job->src_metadata->camera_handle = m_camHandle;
+    jpeg_job->src_metadata->ch_id = getMyHandle();
+    jpeg_job->src_metadata->num_bufs = 1;
+    jpeg_job->src_metadata->bufs[0] = metaFrame;
+    jpeg_job->src_metadata->bufs[0]->buffer = metadata.get();
+    jpeg_job->metadata = metadata.get();
 
-    // Start processing the metadata
-    rc = m_postprocessor.processPPMetadata(metadataBuf);
+    // Start processing the jpeg job
+    jpeg_job->hdr_plus_processing = true;
+    rc = m_postprocessor.processJpegJob(jpeg_job);
     if (rc != OK) {
-        ALOGE("%s: Post processing metadata (frame number: %u, jpeg buffer: %d) failed: %s (%d)",
+        ALOGE("%s: Post processing jpeg (frame number: %u, jpeg buffer: %d) failed: %s (%d)",
                 __FUNCTION__, frameNumber, index, strerror(-rc), rc);
         return rc;
     }

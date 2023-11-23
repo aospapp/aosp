@@ -26,7 +26,7 @@
 
 package java.net;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class URI implements java.lang.Comparable<java.net.URI>, java.io.Serializable {

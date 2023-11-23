@@ -571,6 +571,7 @@ typedef struct {
   uint8_t shdl;               /* stream handle (hdi + 1) */
   uint8_t lidx;               /* (index+1) to LCB */
   tBTA_AV_FEAT peer_features; /* peer features mask */
+  uint16_t cover_art_psm;     /* BIP PSM for cover art feature */
 } tBTA_AV_RCB;
 #define BTA_AV_NUM_RCB (BTA_AV_NUM_STRS + 2)
 
@@ -602,6 +603,7 @@ typedef struct {
   tBTA_SEC sec_mask;            /* security mask */
   tBTA_AV_HNDL handle;          /* the handle for SDP activity */
   bool disabling;               /* true if api disabled called */
+  uint8_t enabling_attempts;    // counter to wait for previous disabling
   uint8_t
       disc; /* (hdi+1) or (rc_handle|BTA_AV_CHNL_MSK) if p_disc_db is in use */
   uint8_t state;          /* state machine state */
@@ -615,6 +617,10 @@ typedef struct {
   bool sco_occupied; /* true if SCO is being used or call is in progress */
   uint8_t audio_streams; /* handle mask of streaming audio channels */
 } tBTA_AV_CB;
+
+// total attempts are half seconds
+constexpr uint32_t kEnablingAttemptsIntervalMs = 100;
+constexpr uint8_t kEnablingAttemptsCountMaximum = 5;
 
 // A2DP offload VSC parameters
 class tBT_A2DP_OFFLOAD {
@@ -664,6 +670,7 @@ extern void bta_av_sink_data_cback(uint8_t handle, BT_HDR* p_pkt,
  ****************************************************************************/
 /* utility functions */
 extern tBTA_AV_SCB* bta_av_hndl_to_scb(uint16_t handle);
+tBTA_AV_SCB* bta_av_addr_to_scb(const RawAddress& bd_addr);
 extern bool bta_av_chk_start(tBTA_AV_SCB* p_scb);
 extern void bta_av_restore_switch(void);
 extern void bta_av_conn_cback(uint8_t handle, const RawAddress& bd_addr,

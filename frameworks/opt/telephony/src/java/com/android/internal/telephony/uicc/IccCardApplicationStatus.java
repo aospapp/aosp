@@ -16,11 +16,10 @@
 
 package com.android.internal.telephony.uicc;
 
-import android.annotation.UnsupportedAppUsage;
-import android.telephony.Rlog;
+import android.compat.annotation.UnsupportedAppUsage;
 
 import com.android.internal.telephony.uicc.IccCardStatus.PinState;
-
+import com.android.telephony.Rlog;
 
 /**
  * See also RIL_AppStatus in include/telephony/ril.h
@@ -29,6 +28,8 @@ import com.android.internal.telephony.uicc.IccCardStatus.PinState;
  */
 public class IccCardApplicationStatus {
     // TODO: Replace with constants from PhoneConstants.APPTYPE_xxx
+    @UnsupportedAppUsage(implicitMember =
+            "values()[Lcom/android/internal/telephony/uicc/IccCardApplicationStatus$AppType;")
     public enum AppType{
         @UnsupportedAppUsage
         APPTYPE_UNKNOWN,
@@ -44,6 +45,8 @@ public class IccCardApplicationStatus {
         APPTYPE_ISIM
     }
 
+    @UnsupportedAppUsage(implicitMember =
+            "values()[Lcom/android/internal/telephony/uicc/IccCardApplicationStatus$AppState;")
     public enum AppState{
         @UnsupportedAppUsage
         APPSTATE_UNKNOWN,
@@ -80,7 +83,9 @@ public class IccCardApplicationStatus {
         }
     }
 
-    public enum PersoSubState{
+    @UnsupportedAppUsage(implicitMember =
+            "values()[Lcom/android/internal/telephony/uicc/IccCardApplicationStatus$PersoSubState;")
+    public enum PersoSubState {
         @UnsupportedAppUsage
         PERSOSUBSTATE_UNKNOWN,
         PERSOSUBSTATE_IN_PROGRESS,
@@ -111,10 +116,31 @@ public class IccCardApplicationStatus {
         PERSOSUBSTATE_RUIM_HRPD_PUK,
         PERSOSUBSTATE_RUIM_CORPORATE_PUK,
         PERSOSUBSTATE_RUIM_SERVICE_PROVIDER_PUK,
-        PERSOSUBSTATE_RUIM_RUIM_PUK;
+        PERSOSUBSTATE_RUIM_RUIM_PUK,
+        PERSOSUBSTATE_SIM_SPN,
+        PERSOSUBSTATE_SIM_SPN_PUK,
+        PERSOSUBSTATE_SIM_SP_EHPLMN,
+        PERSOSUBSTATE_SIM_SP_EHPLMN_PUK,
+        PERSOSUBSTATE_SIM_ICCID,
+        PERSOSUBSTATE_SIM_ICCID_PUK,
+        PERSOSUBSTATE_SIM_IMPI,
+        PERSOSUBSTATE_SIM_IMPI_PUK,
+        PERSOSUBSTATE_SIM_NS_SP,
+        PERSOSUBSTATE_SIM_NS_SP_PUK;
 
         boolean isPersoSubStateUnknown() {
             return this == PERSOSUBSTATE_UNKNOWN;
+        }
+
+        public static boolean isPersoLocked(PersoSubState mState) {
+            switch (mState) {
+                case PERSOSUBSTATE_UNKNOWN:
+                case PERSOSUBSTATE_IN_PROGRESS:
+                case PERSOSUBSTATE_READY:
+                    return false;
+                default:
+                    return true;
+            }
         }
     }
 
@@ -131,6 +157,10 @@ public class IccCardApplicationStatus {
     public int            pin1_replaced;
     public PinState       pin1;
     public PinState       pin2;
+
+    @UnsupportedAppUsage
+    public IccCardApplicationStatus() {
+    }
 
     @UnsupportedAppUsage
     public AppType AppTypeFromRILInt(int type) {
@@ -196,6 +226,17 @@ public class IccCardApplicationStatus {
             case 22: newSubState = PersoSubState.PERSOSUBSTATE_RUIM_CORPORATE_PUK; break;
             case 23: newSubState = PersoSubState.PERSOSUBSTATE_RUIM_SERVICE_PROVIDER_PUK; break;
             case 24: newSubState = PersoSubState.PERSOSUBSTATE_RUIM_RUIM_PUK; break;
+            case 25: newSubState = PersoSubState.PERSOSUBSTATE_SIM_SPN; break;
+            case 26: newSubState = PersoSubState.PERSOSUBSTATE_SIM_SPN_PUK; break;
+            case 27: newSubState = PersoSubState.PERSOSUBSTATE_SIM_SP_EHPLMN; break;
+            case 28: newSubState = PersoSubState.PERSOSUBSTATE_SIM_SP_EHPLMN_PUK; break;
+            case 29: newSubState = PersoSubState.PERSOSUBSTATE_SIM_ICCID; break;
+            case 30: newSubState = PersoSubState.PERSOSUBSTATE_SIM_ICCID_PUK; break;
+            case 31: newSubState = PersoSubState.PERSOSUBSTATE_SIM_IMPI; break;
+            case 32: newSubState = PersoSubState.PERSOSUBSTATE_SIM_IMPI_PUK; break;
+            case 33: newSubState = PersoSubState.PERSOSUBSTATE_SIM_NS_SP; break;
+            case 34: newSubState = PersoSubState.PERSOSUBSTATE_SIM_NS_SP_PUK; break;
+
             default:
                 newSubState = PersoSubState.PERSOSUBSTATE_UNKNOWN;
                 loge("PersoSubstateFromRILInt: bad substate: " + substate

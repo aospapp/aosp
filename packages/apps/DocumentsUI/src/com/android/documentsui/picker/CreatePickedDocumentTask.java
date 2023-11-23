@@ -91,7 +91,7 @@ class CreatePickedDocumentTask extends PairedTask<Activity, Void, Uri> {
             mCallback.accept(result);
         } else {
             Snackbars.makeSnackbar(
-                    mOwner, R.string.save_error, Snackbar.LENGTH_SHORT).show();
+                    mOwner, R.string.save_error, Snackbar.LENGTH_LONG).show();
         }
 
         mInProgressStateListener.accept(false);

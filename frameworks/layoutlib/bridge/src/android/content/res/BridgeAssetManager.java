@@ -20,6 +20,9 @@ import android.annotation.Nullable;
 import com.android.ide.common.rendering.api.AssetRepository;
 import com.android.layoutlib.bridge.Bridge;
 
+import java.io.IOException;
+import java.io.InputStream;
+
 public class BridgeAssetManager extends AssetManager {
     @Nullable private AssetRepository mAssetRepository;
 
@@ -65,6 +68,17 @@ public class BridgeAssetManager extends AssetManager {
             throw new IllegalStateException("Asset repository is not set");
         }
         return mAssetRepository;
+    }
+
+    @Override
+    public InputStream open(String fileName, int accessMode) throws IOException {
+        return getAssetRepository().openAsset(fileName, accessMode);
+    }
+
+    @Override
+    public InputStream openNonAsset(int cookie, String fileName, int accessMode)
+            throws IOException {
+        return getAssetRepository().openNonAsset(cookie, fileName, accessMode);
     }
 
     public BridgeAssetManager() {

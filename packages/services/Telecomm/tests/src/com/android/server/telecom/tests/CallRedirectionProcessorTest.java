@@ -23,11 +23,15 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.UserHandle;
 import android.telecom.GatewayInfo;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
+
+import com.android.internal.telecom.ICallRedirectionAdapter;
 import com.android.internal.telecom.ICallRedirectionService;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallsManager;
@@ -39,22 +43,29 @@ import com.android.server.telecom.Timeouts;
 import com.android.server.telecom.callredirection.CallRedirectionProcessor;
 import com.android.server.telecom.callredirection.CallRedirectionProcessorHelper;
 
+import static org.junit.Assert.assertEquals;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import org.junit.Before;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
 
 @RunWith(JUnit4.class)
 public class CallRedirectionProcessorTest extends TelecomTestCase {
@@ -81,6 +92,11 @@ public class CallRedirectionProcessorTest extends TelecomTestCase {
 
     @Mock private Timeouts.Adapter mTimeoutsAdapter;
 
+    private static final Uri ORIGINAL_NUMBER_WITH_POST_DIAL = Uri.parse("tel:6505551212,,,1234");
+    private static final Uri ORIGINAL_NUMBER_NO_POST_DIAL = Uri.parse("tel:6505551212");
+    private static final Uri REDIRECTED_GATEWAY_NUMBER = Uri.parse("tel:6505551213");
+    private static final Uri REDIRECTED_GATEWAY_NUMBER_WITH_POST_DIAL =
+            Uri.parse("tel:6505551213,,,1234");
     private static final String USER_DEFINED_PKG_NAME = "user_defined_pkg";
     private static final String USER_DEFINED_CLS_NAME = "user_defined_cls";
     private static final String CARRIER_PKG_NAME = "carrier_pkg";
@@ -126,6 +142,14 @@ public class CallRedirectionProcessorTest extends TelecomTestCase {
                 anyInt(), eq(UserHandle.CURRENT))).thenReturn(true);
     }
 
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        mProcessor.getHandler().removeCallbacksAndMessages(null);
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TelecomSystemTest.TEST_TIMEOUT);
+        super.tearDown();
+    }
+
     private void setIsInCarMode(boolean isInCarMode) {
         when(mSystemStateHelper.isCarMode()).thenReturn(isInCarMode);
     }
@@ -151,7 +175,11 @@ public class CallRedirectionProcessorTest extends TelecomTestCase {
     }
 
     private void startProcessWithNoGateWayInfo() {
-        mProcessor = new CallRedirectionProcessor(mContext, mCallsManager, mCall, mHandle,
+        startProcessWithNoGateWayInfo(mHandle);
+    }
+
+    private void startProcessWithNoGateWayInfo(Uri handle) {
+        mProcessor = new CallRedirectionProcessor(mContext, mCallsManager, mCall, handle,
                 mPhoneAccountRegistrar, null, SPEAKER_PHONE_ON, VIDEO_STATE);
         mProcessor.setCallRedirectionServiceHelper(mCallRedirectionProcessorHelper);
     }
@@ -279,5 +307,51 @@ public class CallRedirectionProcessorTest extends TelecomTestCase {
         verify(mCallsManager, times(1)).onCallRedirectionComplete(eq(mCall), eq(mHandle),
                 eq(mPhoneAccountHandle), eq(mGatewayInfo), eq(SPEAKER_PHONE_ON), eq(VIDEO_STATE),
                 eq(false), eq(CallRedirectionProcessor.UI_TYPE_NO_ACTION));
+    }
+
+    @Test
+    public void testStripPostDialDigits() throws Exception {
+        startProcessWithNoGateWayInfo(ORIGINAL_NUMBER_WITH_POST_DIAL);
+        enableUserDefinedCallRedirectionService();
+        disableCarrierCallRedirectionService();
+
+        mProcessor.performCallRedirection();
+
+        // Capture binding and mock it out.
+        ArgumentCaptor<ServiceConnection> serviceConnectionCaptor = ArgumentCaptor.forClass(
+                ServiceConnection.class);
+        verify(mContext, times(1)).bindServiceAsUser(any(Intent.class),
+                serviceConnectionCaptor.capture(), anyInt(), any(UserHandle.class));
+
+        // Mock out a service which performed a redirection
+        IBinder mockBinder = mock(IBinder.class);
+        ICallRedirectionService mockCallRedirectionService = mock(ICallRedirectionService.class);
+        when(mockBinder.queryLocalInterface(anyString())).thenReturn(mockCallRedirectionService);
+        serviceConnectionCaptor.getValue().onServiceConnected(
+                USER_DEFINED_SERVICE_TEST_COMPONENT_NAME, mockBinder);
+
+        ArgumentCaptor<ICallRedirectionAdapter> redirectionAdapterCaptor = ArgumentCaptor.forClass(
+                ICallRedirectionAdapter.class);
+        ArgumentCaptor<Uri> uriArgumentCaptor = ArgumentCaptor.forClass(Uri.class);
+        verify(mockCallRedirectionService, times(1)).placeCall(redirectionAdapterCaptor.capture(),
+                uriArgumentCaptor.capture(), any(), anyBoolean());
+
+        // Verify the service did not get passed post-dial digits.
+        assertEquals(ORIGINAL_NUMBER_NO_POST_DIAL, uriArgumentCaptor.getValue());
+
+        // Pretend it was verified.
+        redirectionAdapterCaptor.getValue().redirectCall(REDIRECTED_GATEWAY_NUMBER,
+                mPhoneAccountHandle, false);
+
+        waitForHandlerAction(mProcessor.getHandler(), HANDLER_TIMEOUT_DELAY);
+
+        ArgumentCaptor<GatewayInfo> gatewayInfoArgumentCaptor = ArgumentCaptor.forClass(
+                GatewayInfo.class);
+        verify(mCallsManager, times(1)).onCallRedirectionComplete(eq(mCall),
+                eq(ORIGINAL_NUMBER_WITH_POST_DIAL), eq(mPhoneAccountHandle),
+                gatewayInfoArgumentCaptor.capture(), eq(SPEAKER_PHONE_ON), eq(VIDEO_STATE),
+                eq(false), eq(CallRedirectionProcessor.UI_TYPE_NO_ACTION));
+        assertEquals(REDIRECTED_GATEWAY_NUMBER_WITH_POST_DIAL,
+                gatewayInfoArgumentCaptor.getValue().getGatewayAddress());
     }
 }

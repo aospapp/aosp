@@ -291,8 +291,11 @@ void StressExitHook(std::shared_ptr<ir::DexFile> dex_ir) {
 // Test slicer::MethodInstrumenter
 void TestMethodInstrumenter(std::shared_ptr<ir::DexFile> dex_ir) {
   slicer::MethodInstrumenter mi(dex_ir);
-  mi.AddTransformation<slicer::EntryHook>(ir::MethodId("LTracer;", "onFooEntry"), true);
-  mi.AddTransformation<slicer::EntryHook>(ir::MethodId("LTracer;", "onFooEntry"), false);
+  mi.AddTransformation<slicer::EntryHook>(
+      ir::MethodId("LTracer;", "onFooEntry"),
+      slicer::EntryHook::Tweak::ThisAsObject);
+  mi.AddTransformation<slicer::EntryHook>(
+      ir::MethodId("LTracer;", "onFooEntry"));
   mi.AddTransformation<slicer::ExitHook>(ir::MethodId("LTracer;", "onFooExit"));
   mi.AddTransformation<slicer::DetourVirtualInvoke>(
       ir::MethodId("LBase;", "foo", "(ILjava/lang/String;)I"),
@@ -488,6 +491,30 @@ void RegsHistogram(std::shared_ptr<ir::DexFile> dex_ir) {
   PrintHistogram(regs_histogram, "Method extra registers (total - parameters)");
 }
 
+// Test slicer::MethodInstrumenter + Tweak::ArrayParams
+void TestArrayParamsEntryHook(std::shared_ptr<ir::DexFile> dex_ir) {
+  slicer::MethodInstrumenter mi(dex_ir);
+  mi.AddTransformation<slicer::EntryHook>(ir::MethodId("LTracer;", "onFooEntry"),
+                                          slicer::EntryHook::Tweak::ArrayParams);
+
+  auto method1 = ir::MethodId("LTarget;", "foo", "(ILjava/lang/String;)I");
+  SLICER_CHECK(mi.InstrumentMethod(method1));
+
+  auto method2 = ir::MethodId("LTarget;", "foo", "(I[[Ljava/lang/String;)Ljava/lang/Integer;");
+  SLICER_CHECK(mi.InstrumentMethod(method2));
+}
+
+// Test slicer::MethodInstrumenter + Tweak::ReturnAsObject
+void TestReturnAsObjectExitHook(std::shared_ptr<ir::DexFile> dex_ir) {
+  slicer::MethodInstrumenter mi(dex_ir);
+  mi.AddTransformation<slicer::ExitHook>(ir::MethodId("LTracer;", "onFooExit"),
+                                          slicer::ExitHook::Tweak::ReturnAsObject);
+
+  auto method = ir::MethodId("LTarget;", "foo", "(I[[Ljava/lang/String;)Ljava/lang/Integer;");
+  SLICER_CHECK(mi.InstrumentMethod(method));
+}
+
+
 void ListExperiments(std::shared_ptr<ir::DexFile> dex_ir);
 
 using Experiment = void (*)(std::shared_ptr<ir::DexFile>);
@@ -504,6 +531,9 @@ std::map<std::string, Experiment> experiments_registry = {
     { "stress_scratch_regs", &StressScratchRegs },
     { "regs_histogram", &RegsHistogram },
     { "code_coverage", &CodeCoverage },
+    { "array_param_entry_hook", &TestArrayParamsEntryHook },
+    { "return_obj_exit_hook", &TestReturnAsObjectExitHook },
+
 };
 
 // Lists all the registered experiments

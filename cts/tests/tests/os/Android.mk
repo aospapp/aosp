@@ -12,59 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_PATH:= $(call my-dir)
-
-include $(CLEAR_VARS)
-
-# don't include this package in any target
-LOCAL_MODULE_TAGS := optional
-# and when built explicitly put it in the data partition
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
-
-# Include both the 32 and 64 bit versions
-LOCAL_MULTILIB := both
-
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    android.hidl.manager-V1.0-java \
-    androidx.test.rules \
-    compatibility-device-util-axt \
-    ctstestrunner-axt \
-    truth-prebuilt \
-    guava \
-    junit
-
-LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libctsos_jni libnativehelper_compat_libc++
-
-LOCAL_SRC_FILES := \
-    $(call all-java-files-under, src) \
-    src/android/os/cts/IParcelFileDescriptorPeer.aidl \
-    src/android/os/cts/IEmptyService.aidl \
-    src/android/os/cts/ISeccompIsolatedService.aidl \
-    src/android/os/cts/ISecondary.aidl \
-    src/android/os/cts/ISharedMemoryService.aidl \
-    src/android/os/cts/IParcelExceptionService.aidl
-
-LOCAL_PACKAGE_NAME := CtsOsTestCases
-
-# Set its own test config to prevent sharing with cts-platform-version-check
-LOCAL_TEST_CONFIG := CtsOsTestCases.xml
-
-# Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-
-LOCAL_SDK_VERSION := test_current
-LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
-LOCAL_JAVA_LIBRARIES += android.test.base.stubs
-
-# Do not compress minijail policy files.
-LOCAL_AAPT_FLAGS := -0 .policy
-
-LOCAL_USE_AAPT2 := true
-
-include $(BUILD_CTS_PACKAGE)
-
-include $(call all-makefiles-under,$(LOCAL_PATH))
-
 # platform version check (b/32056228)
 # ============================================================
 include $(CLEAR_VARS)
@@ -74,10 +21,12 @@ LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
 
 cts_platform_version_path := cts/tests/tests/os/assets/platform_versions.txt
 cts_platform_version_string := $(shell cat $(cts_platform_version_path))
+cts_platform_release_path := cts/tests/tests/os/assets/platform_releases.txt
+cts_platform_release_string := $(shell cat $(cts_platform_release_path))
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
@@ -89,6 +38,17 @@ $(LOCAL_BUILT_MODULE) : $(cts_platform_version_path) build/core/version_defaults
 		echo "	$(cts_platform_version_path)" 1>&2; \
 		echo "" 1>&2; \
 		echo "Most likely PLATFORM_VERSION in build/core/version_defaults.mk" 1>&2; \
+		echo "has changed and a new version must be added to this CTS file." 1>&2; \
+		echo "============================================================" 1>&2; \
+		exit 1; \
+	fi
+	$(hide) if [ -z "$(findstring $(PLATFORM_VERSION_LAST_STABLE),$(cts_platform_release_string))" ]; then \
+		echo "============================================================" 1>&2; \
+		echo "Could not find version \"$(PLATFORM_VERSION_LAST_STABLE)\" in CTS platform release file:" 1>&2; \
+		echo "" 1>&2; \
+		echo "	$(cts_platform_release_path)" 1>&2; \
+		echo "" 1>&2; \
+		echo "Most likely PLATFORM_VERSION_LAST_STABLE in build/core/version_defaults.mk" 1>&2; \
 		echo "has changed and a new version must be added to this CTS file." 1>&2; \
 		echo "============================================================" 1>&2; \
 		exit 1; \

@@ -8,5 +8,5 @@ allow hal_nfc_default nxpese_hwservice:hwservice_manager find;
 add_hwservice(hal_nfc_default, nxpnfc_hwservice)
 get_prop(hal_nfc_default, vendor_nfc_prop)
 
-get_prop(hal_nfc_default, factory_ota_prop)
-set_prop(hal_nfc_default, factory_ota_prop)
+get_prop(hal_nfc_default, sota_prop)
+set_prop(hal_nfc_default, sota_prop)

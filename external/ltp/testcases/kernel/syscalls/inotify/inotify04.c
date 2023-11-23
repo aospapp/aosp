@@ -1,29 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2012 Linux Test Project.  All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
  * Ngie Cooper, April 2012
- */
-
-/****************************************************************************
+ *
  * DESCRIPTION
  *     verify that IN_DELETE_SELF functions as expected
  *
@@ -34,8 +13,7 @@
  *
  *     Because of how the inotify(7) API is designed, we also need to catch the
  *     IN_ATTRIB and IN_IGNORED events.
- *
- ****************************************************************************/
+ */
 
 #include "config.h"
 
@@ -95,16 +73,7 @@ static void cleanup(void)
 
 static void setup(void)
 {
-	fd_notify = myinotify_init();
-	if (fd_notify == -1) {
-		if (errno == ENOSYS) {
-			tst_brk(TCONF,
-				"inotify is not configured in this kernel.");
-		} else {
-			tst_brk(TBROK | TERRNO,
-				"inotify_init failed");
-		}
-	}
+	fd_notify = SAFE_MYINOTIFY_INIT();
 }
 
 void verify_inotify(void)
@@ -115,19 +84,10 @@ void verify_inotify(void)
 	SAFE_MKDIR(TEST_DIR, 00700);
 	close(SAFE_CREAT(TEST_FILE, 00600));
 
-	wd_dir = myinotify_add_watch(fd_notify, TEST_DIR, IN_ALL_EVENTS);
-	if (wd_dir == -1) {
-		tst_brk(TBROK | TERRNO,
-			"inotify_add_watch(%d, \"%s\", IN_ALL_EVENTS) [1] failed",
-			fd_notify, TEST_DIR);
-	}
+	wd_dir = SAFE_MYINOTIFY_ADD_WATCH(fd_notify, TEST_DIR, IN_ALL_EVENTS);
 	reap_wd_dir = 1;
 
-	wd_file = myinotify_add_watch(fd_notify, TEST_FILE, IN_ALL_EVENTS);
-	if (wd_file == -1)
-		tst_brk(TBROK | TERRNO,
-			"inotify_add_watch(%d, \"%s\", IN_ALL_EVENTS) [2] failed",
-			fd_notify, TEST_FILE);
+	wd_file = SAFE_MYINOTIFY_ADD_WATCH(fd_notify, TEST_FILE, IN_ALL_EVENTS);
 	reap_wd_file = 1;
 
 	SAFE_RMDIR(TEST_DIR);

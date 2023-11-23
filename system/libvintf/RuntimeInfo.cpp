@@ -91,7 +91,8 @@ bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string
     // HalManifest.device.mSepolicyVersion in HalManifest::checkCompatibility.
 
     if (flags.isKernelEnabled()) {
-        if (!mKernel.matchKernelRequirements(mat.framework.mKernels, error)) {
+        if (mKernel.getMatchedKernelRequirements(mat.framework.mKernels, kernelLevel(), error)
+                .empty()) {
             return false;
         }
     }
@@ -121,6 +122,14 @@ bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string
     }
 
     return true;
+}
+
+void RuntimeInfo::setKernelLevel(Level level) {
+    mKernel.mLevel = level;
+}
+
+Level RuntimeInfo::kernelLevel() const {
+    return mKernel.mLevel;
 }
 
 } // namespace vintf

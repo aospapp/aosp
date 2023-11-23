@@ -47,9 +47,9 @@
     <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> ചേർക്കുക"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"ഈ വിലാസത്തിൽ ‌പ്രിന്റർ ഒന്നും കണ്ടെത്തിയില്ല"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"പ്രിന്ററിന് പിന്തുണയില്ല"</string>
-    <string name="wifi_direct" msgid="4629404342852294985">"വൈഫൈ ഡയറക്‌ട്"</string>
-    <string name="find_wifi_direct" msgid="5270504288829123954">"വൈഫൈ ഡയറക്‌റ്റ് പ്രിന്‍ററുകൾ കണ്ടെത്തുക"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"വൈഫൈ ഡയറക്‌ട് പ്രിൻ്റിംഗ്"</string>
+    <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi ഡയറക്‌ട്"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi ഡയറക്‌റ്റ് പ്രിന്‍ററുകൾ കണ്ടെത്തുക"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi ഡയറക്‌ട് പ്രിൻ്റിംഗ്"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"വൈഫൈ ഡയറക്‌ട് പ്രിന്‍ററുകൾ"</string>
     <string name="searching" msgid="2114018057619514587">"തിരയുന്നു..."</string>
     <string name="connect_hint_text" msgid="587112503851044234">"പ്രിന്‍ററിന്‍റെ മുൻഭാഗത്തെ പാനലിൽ ഈ കണക്ഷന് അനുമതി നൽകേണ്ടതായി വന്നേക്കാം"</string>
@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"മറന്നു"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"വൈഫൈ ഡയറക്‌റ്റ് വഴി കണക്റ്റ് ചെയ്യുന്നു"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> വിലാസത്തിലെ നിലവിലെ നെറ്റ്‍വര്‍ക്ക് വഴി കണക്റ്റ് ചെയ്യുന്നു"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"ഡിഫോൾട്ട് പ്രിന്റ് സേവനം അടിസ്ഥാന ഓപ്ഷനുകൾ നൽകുന്നു. ഈ പ്രിന്ററിനുള്ള മറ്റ് ഓപ്ഷനുകൾ മറ്റ് പ്രിന്റ് സേവനത്തിൽ നിന്ന് ലഭ്യമായേക്കും."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"നിർദ്ദേശിച്ചിട്ടുള്ള സേവനങ്ങൾ"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"ഇൻസ്‌റ്റാൾ ചെയ്യാൻ തിരഞ്ഞെടുക്കുക"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"പ്രവർത്തനക്ഷമമാക്കാൻ തിരഞ്ഞെടുക്കുക"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"സേവനങ്ങൾ മാനേജ് ചെയ്യുക"</string>
     <string name="security" msgid="2279008326210305401">"സുരക്ഷ"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ഈ പ്രിന്റർ ഒരു പുതിയ സുരക്ഷാ സർട്ടിഫിക്കറ്റ് നൽകുകയോ മറ്റൊരു ഉപകരണം ഇതായി ആൾമാറാട്ടം നടത്തുകയോ ചെയ്യുന്നു. പുതിയ സർട്ടിഫിക്കറ്റ് സ്വീകരിക്കട്ടെ?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ഈ പ്രിന്റർ ഇനി എൻക്രിപ്റ്റ് ചെയ്‌ത ജോലികൾ സ്വീകരിക്കില്ല. പ്രിന്റ് ചെയ്യൽ തുടരണോ?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"കണക്ഷനുകൾ"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"സമീപമുള്ള ഉപകരണങ്ങൾ കണ്ടെത്താൻ ഡിഫോൾട്ട് പ്രിന്റ് സേവനത്തിന് ലൊക്കേഷൻ അനുമതി ആവശ്യമാണ്."</string>
     <string name="fix" msgid="7784394272611365393">"അനുമതി അവലോകനം"</string>
+    <string name="print" msgid="7851318072404916362">"അച്ചടിക്കുക"</string>
 </resources>

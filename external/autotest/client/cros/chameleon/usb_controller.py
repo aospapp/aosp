@@ -19,7 +19,7 @@ class USBController(object):
         @param chameleon_connection: A ChameleonConnection object.
 
         """
-        self._chameleond_proxy = chameleon_connection.chameleond_proxy
+        self._chameleond_proxy = chameleon_connection
 
 
     def set_playback_configs(self, playback_data_format):

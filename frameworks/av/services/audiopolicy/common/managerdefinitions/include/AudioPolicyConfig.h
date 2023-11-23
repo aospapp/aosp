@@ -19,17 +19,17 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <AudioGain.h>
-#include <AudioPort.h>
 #include <AudioPatch.h>
 #include <DeviceDescriptor.h>
 #include <IOProfile.h>
 #include <HwModule.h>
+#include <PolicyAudioPort.h>
 #include <AudioInputDescriptor.h>
 #include <AudioOutputDescriptor.h>
 #include <AudioPolicyMix.h>
 #include <EffectDescriptor.h>
 #include <SoundTriggerSession.h>
+#include <media/AudioProfile.h>
 
 namespace android {
 
@@ -37,14 +37,16 @@ class AudioPolicyConfig
 {
 public:
     AudioPolicyConfig(HwModuleCollection &hwModules,
-                      DeviceVector &availableOutputDevices,
-                      DeviceVector &availableInputDevices,
+                      DeviceVector &outputDevices,
+                      DeviceVector &inputDevices,
                       sp<DeviceDescriptor> &defaultOutputDevice)
-        : mHwModules(hwModules),
-          mAvailableOutputDevices(availableOutputDevices),
-          mAvailableInputDevices(availableInputDevices),
+        : mEngineLibraryNameSuffix(kDefaultEngineLibraryNameSuffix),
+          mHwModules(hwModules),
+          mOutputDevices(outputDevices),
+          mInputDevices(inputDevices),
           mDefaultOutputDevice(defaultOutputDevice),
-          mIsSpeakerDrcEnabled(false)
+          mIsSpeakerDrcEnabled(false),
+          mIsCallScreenModeSupported(false)
     {}
 
     const std::string& getSource() const {
@@ -55,28 +57,36 @@ public:
         mSource = file;
     }
 
+    const std::string& getEngineLibraryNameSuffix() const {
+        return mEngineLibraryNameSuffix;
+    }
+
+    void setEngineLibraryNameSuffix(const std::string& suffix) {
+        mEngineLibraryNameSuffix = suffix;
+    }
+
     void setHwModules(const HwModuleCollection &hwModules)
     {
         mHwModules = hwModules;
     }
 
-    void addAvailableDevice(const sp<DeviceDescriptor> &availableDevice)
+    void addDevice(const sp<DeviceDescriptor> &device)
     {
-        if (audio_is_output_device(availableDevice->type())) {
-            mAvailableOutputDevices.add(availableDevice);
-        } else if (audio_is_input_device(availableDevice->type())) {
-            mAvailableInputDevices.add(availableDevice);
+        if (audio_is_output_device(device->type())) {
+            mOutputDevices.add(device);
+        } else if (audio_is_input_device(device->type())) {
+            mInputDevices.add(device);
         }
     }
 
-    void addAvailableInputDevices(const DeviceVector &availableInputDevices)
+    void addInputDevices(const DeviceVector &inputDevices)
     {
-        mAvailableInputDevices.add(availableInputDevices);
+        mInputDevices.add(inputDevices);
     }
 
-    void addAvailableOutputDevices(const DeviceVector &availableOutputDevices)
+    void addOutputDevices(const DeviceVector &outputDevices)
     {
-        mAvailableOutputDevices.add(availableOutputDevices);
+        mOutputDevices.add(outputDevices);
     }
 
     bool isSpeakerDrcEnabled() const { return mIsSpeakerDrcEnabled; }
@@ -86,16 +96,24 @@ public:
         mIsSpeakerDrcEnabled = isSpeakerDrcEnabled;
     }
 
-    const HwModuleCollection getHwModules() const { return mHwModules; }
+    bool isCallScreenModeSupported() const { return mIsCallScreenModeSupported; }
 
-    const DeviceVector &getAvailableInputDevices() const
+    void setCallScreenModeSupported(bool isCallScreenModeSupported)
     {
-        return mAvailableInputDevices;
+        mIsCallScreenModeSupported = isCallScreenModeSupported;
     }
 
-    const DeviceVector &getAvailableOutputDevices() const
+
+    const HwModuleCollection getHwModules() const { return mHwModules; }
+
+    const DeviceVector &getInputDevices() const
     {
-        return mAvailableOutputDevices;
+        return mInputDevices;
+    }
+
+    const DeviceVector &getOutputDevices() const
+    {
+        return mOutputDevices;
     }
 
     void setDefaultOutputDevice(const sp<DeviceDescriptor> &defaultDevice)
@@ -108,29 +126,28 @@ public:
     void setDefault(void)
     {
         mSource = "AudioPolicyConfig::setDefault";
+        mEngineLibraryNameSuffix = kDefaultEngineLibraryNameSuffix;
         mDefaultOutputDevice = new DeviceDescriptor(AUDIO_DEVICE_OUT_SPEAKER);
-        mDefaultOutputDevice->addAudioProfile(AudioProfile::createFullDynamic());
+        mDefaultOutputDevice->addAudioProfile(AudioProfile::createFullDynamic(gDynamicFormat));
         sp<DeviceDescriptor> defaultInputDevice = new DeviceDescriptor(AUDIO_DEVICE_IN_BUILTIN_MIC);
-        defaultInputDevice->addAudioProfile(AudioProfile::createFullDynamic());
+        defaultInputDevice->addAudioProfile(AudioProfile::createFullDynamic(gDynamicFormat));
         sp<AudioProfile> micProfile = new AudioProfile(
                 AUDIO_FORMAT_PCM_16_BIT, AUDIO_CHANNEL_IN_MONO, 8000);
         defaultInputDevice->addAudioProfile(micProfile);
-        mAvailableOutputDevices.add(mDefaultOutputDevice);
-        mAvailableInputDevices.add(defaultInputDevice);
+        mOutputDevices.add(mDefaultOutputDevice);
+        mInputDevices.add(defaultInputDevice);
 
         sp<HwModule> module = new HwModule(AUDIO_HARDWARE_MODULE_ID_PRIMARY, 2 /*halVersionMajor*/);
         mHwModules.add(module);
-        mDefaultOutputDevice->attach(module);
-        defaultInputDevice->attach(module);
 
-        sp<OutputProfile> outProfile = new OutputProfile(String8("primary"));
+        sp<OutputProfile> outProfile = new OutputProfile("primary");
         outProfile->addAudioProfile(
                 new AudioProfile(AUDIO_FORMAT_PCM_16_BIT, AUDIO_CHANNEL_OUT_STEREO, 44100));
         outProfile->addSupportedDevice(mDefaultOutputDevice);
         outProfile->setFlags(AUDIO_OUTPUT_FLAG_PRIMARY);
         module->addOutputProfile(outProfile);
 
-        sp<InputProfile> inProfile = new InputProfile(String8("primary"));
+        sp<InputProfile> inProfile = new InputProfile("primary");
         inProfile->addAudioProfile(micProfile);
         inProfile->addSupportedDevice(defaultInputDevice);
         module->addInputProfile(inProfile);
@@ -167,15 +184,19 @@ public:
     }
 
 private:
+    static const constexpr char* const kDefaultEngineLibraryNameSuffix = "default";
+
     std::string mSource;
+    std::string mEngineLibraryNameSuffix;
     HwModuleCollection &mHwModules; /**< Collection of Module, with Profiles, i.e. Mix Ports. */
-    DeviceVector &mAvailableOutputDevices;
-    DeviceVector &mAvailableInputDevices;
+    DeviceVector &mOutputDevices;
+    DeviceVector &mInputDevices;
     sp<DeviceDescriptor> &mDefaultOutputDevice;
     // TODO: remove when legacy conf file is removed. true on devices that use DRC on the
     // DEVICE_CATEGORY_SPEAKER path to boost soft sounds, used to adjust volume curves accordingly.
     // Note: remove also speaker_drc_enabled from global configuration of XML config file.
     bool mIsSpeakerDrcEnabled;
+    bool mIsCallScreenModeSupported;
     SurroundFormats mSurroundFormats;
 };
 

@@ -75,6 +75,7 @@
         android:id="@+id/bytes_units"
         android:layout_width="@dimen/touch_target_size"
         android:layout_height="match_parent"
+        android:theme="@style/NumberPickerStyle"
         app:layout_constraintBottom_toTopOf="@+id/down_arrow_container"
         app:layout_constraintEnd_toEndOf="@+id/guideline_end"
         app:layout_constraintStart_toEndOf="@+id/bytes_threshold_container"

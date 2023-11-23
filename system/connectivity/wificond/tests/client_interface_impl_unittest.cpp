@@ -77,6 +77,8 @@ class ClientInterfaceImplTest : public ::testing::Test {
             OnFrameTxStatusEventHandler handler) {
           frame_tx_status_event_handler_ = handler;
         });
+    EXPECT_CALL(*netlink_utils_,
+                SubscribeChannelSwitchEvent(kTestInterfaceIndex, _));
     client_interface_.reset(new ClientInterfaceImpl{
         kTestWiphyIndex,
         kTestInterfaceName,
@@ -92,6 +94,8 @@ class ClientInterfaceImplTest : public ::testing::Test {
                 UnsubscribeMlmeEvent(kTestInterfaceIndex));
     EXPECT_CALL(*netlink_utils_,
                 UnsubscribeFrameTxStatusEvent(kTestInterfaceIndex));
+    EXPECT_CALL(*netlink_utils_,
+                UnsubscribeChannelSwitchEvent(kTestInterfaceIndex));
   }
 
   unique_ptr<NiceMock<MockInterfaceTool>> if_tool_{
@@ -109,45 +113,6 @@ class ClientInterfaceImplTest : public ::testing::Test {
 };  // class ClientInterfaceImplTest
 
 }  // namespace
-
-TEST_F(ClientInterfaceImplTest, SetMacAddressFailsOnInterfaceDownFailure) {
-  EXPECT_CALL(*if_tool_, SetWifiUpState(false)).WillOnce(Return(false));
-  EXPECT_FALSE(
-      client_interface_->SetMacAddress(std::array<uint8_t, ETH_ALEN>()));
-}
-
-TEST_F(ClientInterfaceImplTest, SetMacAddressFailsOnAddressChangeFailure) {
-  EXPECT_CALL(*if_tool_, SetWifiUpState(false)).WillOnce(Return(true));
-  EXPECT_CALL(*if_tool_, SetMacAddress(_, _)).WillOnce(Return(false));
-  EXPECT_FALSE(
-      client_interface_->SetMacAddress(std::array<uint8_t, ETH_ALEN>()));
-}
-
-TEST_F(ClientInterfaceImplTest, SetMacAddressFailsOnInterfaceUpFailure) {
-  EXPECT_CALL(*if_tool_, SetWifiUpState(false)).WillOnce(Return(true));
-  EXPECT_CALL(*if_tool_, SetMacAddress(_, _)).WillOnce(Return(true));
-  EXPECT_CALL(*if_tool_, SetWifiUpState(true)).WillOnce(Return(false));
-  EXPECT_FALSE(
-      client_interface_->SetMacAddress(std::array<uint8_t, ETH_ALEN>()));
-}
-
-TEST_F(ClientInterfaceImplTest, SetMacAddressReturnsTrueOnSuccess) {
-  EXPECT_CALL(*if_tool_, SetWifiUpState(false)).WillOnce(Return(true));
-  EXPECT_CALL(*if_tool_, SetMacAddress(_, _)).WillOnce(Return(true));
-  EXPECT_CALL(*if_tool_, SetWifiUpState(true)).WillOnce(Return(true));
-  EXPECT_TRUE(
-      client_interface_->SetMacAddress(std::array<uint8_t, ETH_ALEN>()));
-}
-
-TEST_F(ClientInterfaceImplTest, SetMacAddressPassesCorrectAddressToIfTool) {
-  EXPECT_CALL(*if_tool_, SetWifiUpState(false)).WillOnce(Return(true));
-  EXPECT_CALL(*if_tool_, SetMacAddress(_,
-      std::array<uint8_t, ETH_ALEN>{{1, 2, 3, 4, 5, 6}}))
-    .WillOnce(Return(true));
-  EXPECT_CALL(*if_tool_, SetWifiUpState(true)).WillOnce(Return(true));
-  EXPECT_TRUE(client_interface_->SetMacAddress(
-      std::array<uint8_t, ETH_ALEN>{{1, 2, 3, 4, 5, 6}}));
-}
 
 /**
  * If the device does not support sending mgmt frame at specified MCS rate,

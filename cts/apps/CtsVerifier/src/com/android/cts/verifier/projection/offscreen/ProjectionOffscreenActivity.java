@@ -68,8 +68,8 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
     protected int mPreviousColor = Color.BLACK;
     private long mTimeScreenTurnedOff = 0;
     private long mTimeKeyEventSent = 0;
-    private enum TestStatus { PASSED, FAILED, RUNNING };
-    protected TestStatus mTestStatus = TestStatus.RUNNING;
+    private enum TestStatus { CREATED, PASSED, FAILED, RUNNING };
+    protected TestStatus mTestStatus = TestStatus.CREATED;
 
     private final Runnable sendKeyEventRunnable = new Runnable() {
         @Override
@@ -99,6 +99,7 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
+            mTestStatus = TestStatus.RUNNING;
             Handler handler = new Handler(Looper.getMainLooper());
             handler.postDelayed(
                     sendKeyEventRunnable, DELAYED_RUNNABLE_TIME);
@@ -110,6 +111,9 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
             if (SystemClock.elapsedRealtime() - mTimeScreenTurnedOff < TIME_SCREEN_OFF) {
                 mStatusView.setText("ERROR: Turned on screen too early");
                 getPassButton().setEnabled(false);
+                mTestStatus = TestStatus.FAILED;
+            } else if (mTestStatus == TestStatus.RUNNING) {
+                mStatusView.setText("Failed: Image not rendered");
                 mTestStatus = TestStatus.FAILED;
             }
         }
@@ -170,6 +174,7 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
         setInfoResources(R.string.poa_test, R.string.poa_info, -1);
         setPassFailButtonClickListeners();
         mReader = ImageReader.newInstance(WIDTH, HEIGHT, PixelFormat.RGBA_8888, 2);
+
         mReader.setOnImageAvailableListener(this, null);
         bindService(new Intent(this, ProjectionService.class), mConnection,
                 Context.BIND_AUTO_CREATE);
@@ -203,6 +208,12 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
     @Override
     public void onImageAvailable(ImageReader reader) {
         Log.i(TAG, "onImageAvailable: " + reader);
+        if (mTestStatus == TestStatus.CREATED) {
+            Log.i(TAG, "onImageAvailable called before test started");
+            // Drop latest image to keep buffer clear.
+            dropLatestImage(reader);
+            return;
+        }
 
         if (mTimeKeyEventSent != 0
                 && mTestStatus == TestStatus.RUNNING
@@ -288,6 +299,13 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
             return Color.BLUE;
         } else {
             return -1;
+        }
+    }
+
+    private void dropLatestImage(ImageReader reader) {
+        Image image = reader.acquireLatestImage();
+        if (image != null) {
+            image.close();
         }
     }
 }

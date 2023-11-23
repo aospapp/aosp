@@ -16,16 +16,25 @@
 
 package android.server.wm.backgroundactivity.appa;
 
+import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.ACTION_FINISH_ACTIVITY;
+import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.ACTION_LAUNCH_BACKGROUND_ACTIVITIES;
 import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.LAUNCH_BACKGROUND_ACTIVITY_EXTRA;
+import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.LAUNCH_INTENTS_EXTRA;
 import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.LAUNCH_SECOND_BACKGROUND_ACTIVITY_EXTRA;
 import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.RELAUNCH_FOREGROUND_ACTIVITY_EXTRA;
 import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.START_ACTIVITY_FROM_FG_ACTIVITY_DELAY_MS_EXTRA;
 import static android.server.wm.backgroundactivity.appa.Components.ForegroundActivity.START_ACTIVITY_FROM_FG_ACTIVITY_NEW_TASK_EXTRA;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.os.SystemClock;
+
+import java.util.Arrays;
 
 /**
  * Foreground activity that makes AppA as foreground.
@@ -33,6 +42,21 @@ import android.os.SystemClock;
 public class ForegroundActivity extends Activity {
 
     private boolean mRelaunch = false;
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (ACTION_LAUNCH_BACKGROUND_ACTIVITIES.equals(action)) {
+                // Need to copy as a new array instead of just casting to Intent[] since a new
+                // array of type Parcelable[] is created when deserializing.
+                Parcelable[] intents = intent.getParcelableArrayExtra(LAUNCH_INTENTS_EXTRA);
+                startActivities(Arrays.copyOf(intents, intents.length, Intent[].class));
+            } else if (ACTION_FINISH_ACTIVITY.equals(action)) {
+                finish();
+            }
+        }
+    };
 
     @Override
     public void onCreate(Bundle bundle) {
@@ -66,6 +90,10 @@ public class ForegroundActivity extends Activity {
             newIntent.setClass(this, SecondBackgroundActivity.class);
             startActivity(newIntent);
         }
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_LAUNCH_BACKGROUND_ACTIVITIES);
+        filter.addAction(ACTION_FINISH_ACTIVITY);
+        registerReceiver(mReceiver, filter);
     }
 
     @Override
@@ -77,5 +105,11 @@ public class ForegroundActivity extends Activity {
             SystemClock.sleep(50);
             startActivity(getIntent());
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mReceiver);
     }
 }

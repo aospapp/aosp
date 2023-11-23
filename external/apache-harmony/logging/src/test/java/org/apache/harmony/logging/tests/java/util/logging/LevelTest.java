@@ -331,16 +331,16 @@ public class LevelTest extends TestCase implements Serializable {
     }
 
     public void testGetLocalName() {
-        ResourceBundle rb = ResourceBundle.getBundle("bundles/com/android/java/util/logging/res");
+        ResourceBundle rb = ResourceBundle.getBundle("bundles/java/util/logging/res");
         Level l = new MockLevel("level1", 120,
-                "bundles/com/android/java/util/logging/res");
+                "bundles/java/util/logging/res");
         assertEquals(rb.getString("level1"), l.getLocalizedName());
 
         // regression test for HARMONY-2415
         rb = ResourceBundle.getBundle(
-                "com.android.org.apache.harmony.logging.tests.java.util.logging.LevelTestResource");
+                "org.apache.harmony.logging.tests.java.util.logging.LevelTestResource");
         l = new MockLevel("Level_error", 120,
-                "com.android.org.apache.harmony.logging.tests.java.util.logging.LevelTestResource");
+                "org.apache.harmony.logging.tests.java.util.logging.LevelTestResource");
         assertEquals(rb.getString("Level_error"), l.getLocalizedName());
 
         l = new MockLevel("bad name", 120, "res");

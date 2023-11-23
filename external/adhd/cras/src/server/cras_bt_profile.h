@@ -27,8 +27,7 @@ struct cras_bt_profile {
 	void (*release)(struct cras_bt_profile *profile);
 	int (*new_connection)(DBusConnection *conn,
 			      struct cras_bt_profile *profile,
-			      struct cras_bt_device *device,
-			      int rfcomm_fd);
+			      struct cras_bt_device *device, int rfcomm_fd);
 	void (*request_disconnection)(struct cras_bt_profile *profile,
 				      struct cras_bt_device *device);
 	void (*cancel)(struct cras_bt_profile *profile);
@@ -40,8 +39,7 @@ struct cras_bt_profile {
  *    conn - The dbus connection.
  *    profile - Pointer to the profile structure to be add.
  */
-int cras_bt_add_profile(DBusConnection *conn,
-			struct cras_bt_profile *profile);
+int cras_bt_add_profile(DBusConnection *conn, struct cras_bt_profile *profile);
 
 /* Gets the profile by object path.
  * Args:

@@ -16,8 +16,28 @@
 
 package android.platform.helpers;
 
+import android.app.Notification;
+import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.UiObject2;
+
+import androidx.annotation.Nullable;
+
 /** An App Helper interface for the Notification. */
 public interface INotificationHelper extends IAppHelper {
+
+    String UI_PACKAGE_NAME_SYSUI = "com.android.systemui";
+    String UI_PACKAGE_NAME_ANDROID = "android";
+    String UI_NOTIFICATION_ID = "status_bar_latest_event_content";
+    String NOTIFICATION_TITLE_TEXT = "TEST NOTIFICATION";
+    String NOTIFICATION_CONTENT_TEXT = "Test notification content";
+    String NOTIFICATION_BIG_TEXT = "lorem ipsum dolor sit amet\n"
+            + "lorem ipsum dolor sit amet\n"
+            + "lorem ipsum dolor sit amet\n"
+            + "lorem ipsum dolor sit amet";
+    String NOTIFICATION_CHANNEL_NAME = "Test Channel";
+    String EXPAND_BUTTON_ID = "expand_button";
+    String APP_ICON_ID = "icon";
+
     /**
      * Setup expectations: Notification shade opened.
      *
@@ -25,7 +45,7 @@ public interface INotificationHelper extends IAppHelper {
      *
      * @param index The index of the notification to open.
      */
-    default public void openNotificationbyIndex(int index) {
+    default void openNotificationbyIndex(int index) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
@@ -38,7 +58,52 @@ public interface INotificationHelper extends IAppHelper {
      *
      * @param count The number of notifications to post.
      */
-    default public void postNotifications(int count) {
+    default void postNotifications(int count) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: Shade is open
+     *
+     * <p>Posts a notification using {@link android.app.Notification.BigTextStyle}.
+     *
+     * @param pkg App to launch, when clicking on notification.
+     */
+    default UiObject2 postBigTextNotification(@Nullable String pkg) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: Shade is open
+     *
+     * <p>Posts a notification using {@link android.app.Notification.BigPictureStyle}.
+     *
+     * @param pkg App to launch, when clicking on notification.
+     */
+    default UiObject2 postBigPictureNotification(String pkg) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: Shade is open
+     *
+     * <p>Posts a notification using {@link android.app.Notification.MessagingStyle}.
+     *
+     * @param pkg App to launch, when clicking on notification.
+     */
+    default UiObject2 postMessagingStyleNotification(String pkg) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: Shade is open
+     *
+     * <p>Posts a conversation notification. This notification is associated with a conversation
+     * shortcut and in {@link android.app.Notification.MessagingStyle}.
+     *
+     * @param pkg App to launch, when clicking on notification.
+     */
+    default UiObject2 postConversationNotification(String pkg) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
@@ -52,7 +117,33 @@ public interface INotificationHelper extends IAppHelper {
      * @param count The number of notifications to post.
      * @param pkg The application that will be launched by notifications.
      */
-    public default void postNotifications(int count, String pkg) {
+    default void postNotifications(int count, String pkg) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: None
+     *
+     * <p>Posts a number of notifications to the device with a package to launch. Successive calls
+     * to this should post new notifications in addition to those previously posted. Note that this
+     * may fail if the helper has surpassed the system-defined limit for per-package notifications.
+     *
+     * @param count The number of notifications to post.
+     * @param pkg The application that will be launched by notifications.
+     * @param interrupting If notification should make sounds and be on top section of the shade.
+     */
+    default void postNotifications(int count, String pkg, boolean interrupting) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: None
+     *
+     * <p>Posts notification.
+     *
+     * @param builder Builder for notification to post.
+     */
+    default void postNotification(Notification.Builder builder) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
@@ -61,7 +152,7 @@ public interface INotificationHelper extends IAppHelper {
      *
      * <p>Cancel any notifications posted by this helper.
      */
-    default public void cancelNotifications() {
+    default void cancelNotifications() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
@@ -75,7 +166,48 @@ public interface INotificationHelper extends IAppHelper {
      * @param expectedPkg The foreground application after opening a notification. Won't check the
      *     foreground application if the application is null
      */
-    public default void openNotificationByTitle(String title, String expectedPkg) {
+    default void openNotificationByTitle(String title, String expectedPkg) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Notification shade opened.
+     *
+     * <p>Taps the chevron or swipes down on the specified notification and checks if the
+     * expanded view contains the expected text.
+     *
+     * @param notification Notification that should be expanded.
+     * @param dragging By swiping down when {@code true}, by tapping the chevron otherwise.
+     */
+    default void expandNotification(UiObject2 notification, boolean dragging) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Long press on notification to show its hidden menu (a.k.a. guts)
+     *
+     * @param notification Notification.
+     */
+    default void showGuts(UiObject2 notification) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Taps the "Done" button on the notification guts.
+     *
+     * @param notification Notification.
+     */
+    default void hideGuts(UiObject2 notification) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Notification shade opened.
+     *
+     * <p>Find the screenshot notification; expand the notification if it's collapsed and click on
+     * the "share" button.
+     */
+    default void shareScreenshotFromNotification(BySelector pageSelector) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 }

@@ -18,7 +18,7 @@ package com.android.car.settings.system;
 
 import static android.content.pm.PackageManager.FEATURE_BLUETOOTH;
 
-import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -29,7 +29,6 @@ import android.content.Context;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowBluetoothAdapter;
 import com.android.car.settings.testutils.ShadowBluetoothPan;
@@ -39,13 +38,14 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
 /** Unit test for {@link BluetoothMacAddressPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowBluetoothAdapter.class, ShadowBluetoothPan.class})
 public class BluetoothMacAddressPreferenceControllerTest {
 
@@ -62,7 +62,7 @@ public class BluetoothMacAddressPreferenceControllerTest {
         // Construct controller.
         mPreference = new Preference(mContext);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
-            BluetoothMacAddressPreferenceController.class, mPreference);
+                BluetoothMacAddressPreferenceController.class, mPreference);
     }
 
     @After
@@ -98,12 +98,12 @@ public class BluetoothMacAddressPreferenceControllerTest {
     }
 
     @Test
-    public void getAvailabilityStatus_enableDefaultAdapter_available() {
+    public void getAvailabilityStatus_enableDefaultAdapter_availableForViewing() {
         Shadows.shadowOf(mContext.getPackageManager()).setSystemFeature(
                 FEATURE_BLUETOOTH, /* supported= */ true);
 
         assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
-                AVAILABLE);
+                AVAILABLE_FOR_VIEWING);
     }
 
     private ShadowBluetoothAdapter getShadowBluetoothAdapter() {

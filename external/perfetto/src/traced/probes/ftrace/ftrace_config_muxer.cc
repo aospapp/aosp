@@ -22,18 +22,21 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <iterator>
 
-#include "perfetto/base/utils.h"
+#include "perfetto/ext/base/utils.h"
+#include "protos/perfetto/trace/ftrace/sched.pbzero.h"
 #include "src/traced/probes/ftrace/atrace_wrapper.h"
+#include "src/traced/probes/ftrace/compact_sched.h"
 
 namespace perfetto {
 namespace {
 
+constexpr int kDefaultPerCpuBufferSizeKb = 2 * 1024;  // 2mb
+constexpr int kMaxPerCpuBufferSizeKb = 64 * 1024;     // 64mb
+
 // trace_clocks in preference order.
 constexpr const char* kClocks[] = {"boot", "global", "local"};
-
-constexpr int kDefaultPerCpuBufferSizeKb = 2 * 1024;  // 2mb
-constexpr int kMaxPerCpuBufferSizeKb = 64 * 1024;  // 64mb
 
 void AddEventGroup(const ProtoTranslationTable* table,
                    const std::string& group,
@@ -63,6 +66,28 @@ std::pair<std::string, std::string> EventToStringGroupAndName(
     return std::make_pair("", event);
   return std::make_pair(event.substr(0, slash_pos),
                         event.substr(slash_pos + 1));
+}
+
+void UnionInPlace(const std::vector<std::string>& unsorted_a,
+                  std::vector<std::string>* out) {
+  std::vector<std::string> a = unsorted_a;
+  std::sort(a.begin(), a.end());
+  std::sort(out->begin(), out->end());
+  std::vector<std::string> v;
+  std::set_union(a.begin(), a.end(), out->begin(), out->end(),
+                 std::back_inserter(v));
+  *out = std::move(v);
+}
+
+void IntersectInPlace(const std::vector<std::string>& unsorted_a,
+                      std::vector<std::string>* out) {
+  std::vector<std::string> a = unsorted_a;
+  std::sort(a.begin(), a.end());
+  std::sort(out->begin(), out->end());
+  std::vector<std::string> v;
+  std::set_intersection(a.begin(), a.end(), out->begin(), out->end(),
+                        std::back_inserter(v));
+  *out = std::move(v);
 }
 
 }  // namespace
@@ -105,7 +130,40 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
     for (const std::string& category : request.atrace_categories()) {
       if (category == "gfx") {
         AddEventGroup(table, "mdss", &events);
+        events.insert(GroupAndName("mdss", "rotator_bw_ao_as_context"));
+        events.insert(GroupAndName("mdss", "mdp_trace_counter"));
+        events.insert(GroupAndName("mdss", "tracing_mark_write"));
+        events.insert(GroupAndName("mdss", "mdp_cmd_wait_pingpong"));
+        events.insert(GroupAndName("mdss", "mdp_cmd_kickoff"));
+        events.insert(GroupAndName("mdss", "mdp_cmd_release_bw"));
+        events.insert(GroupAndName("mdss", "mdp_cmd_readptr_done"));
+        events.insert(GroupAndName("mdss", "mdp_cmd_pingpong_done"));
+        events.insert(GroupAndName("mdss", "mdp_misr_crc"));
+        events.insert(GroupAndName("mdss", "mdp_compare_bw"));
+        events.insert(GroupAndName("mdss", "mdp_perf_update_bus"));
+        events.insert(GroupAndName("mdss", "mdp_video_underrun_done"));
+        events.insert(GroupAndName("mdss", "mdp_commit"));
+        events.insert(GroupAndName("mdss", "mdp_mixer_update"));
+        events.insert(GroupAndName("mdss", "mdp_perf_prefill_calc"));
+        events.insert(GroupAndName("mdss", "mdp_perf_set_ot"));
+        events.insert(GroupAndName("mdss", "mdp_perf_set_wm_levels"));
+        events.insert(GroupAndName("mdss", "mdp_perf_set_panic_luts"));
+        events.insert(GroupAndName("mdss", "mdp_perf_set_qos_luts"));
+        events.insert(GroupAndName("mdss", "mdp_sspp_change"));
+        events.insert(GroupAndName("mdss", "mdp_sspp_set"));
+        AddEventGroup(table, "mali_systrace", &events);
+
         AddEventGroup(table, "sde", &events);
+        events.insert(GroupAndName("sde", "tracing_mark_write"));
+        events.insert(GroupAndName("sde", "sde_perf_update_bus"));
+        events.insert(GroupAndName("sde", "sde_perf_set_qos_luts"));
+        events.insert(GroupAndName("sde", "sde_perf_set_ot"));
+        events.insert(GroupAndName("sde", "sde_perf_set_danger_luts"));
+        events.insert(GroupAndName("sde", "sde_perf_crtc_update"));
+        events.insert(GroupAndName("sde", "sde_perf_calc_crtc"));
+        events.insert(GroupAndName("sde", "sde_evtlog"));
+        events.insert(GroupAndName("sde", "sde_encoder_underrun"));
+        events.insert(GroupAndName("sde", "sde_cmd_release_bw"));
         continue;
       }
 
@@ -114,27 +172,54 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
         continue;
       }
 
+      // Note: sched_wakeup intentionally removed (diverging from atrace), as it
+      // is high-volume, but mostly redundant when sched_waking is also enabled.
+      // The event can still be enabled explicitly when necessary.
       if (category == "sched") {
         events.insert(GroupAndName("sched", "sched_switch"));
-        events.insert(GroupAndName("sched", "sched_wakeup"));
         events.insert(GroupAndName("sched", "sched_waking"));
         events.insert(GroupAndName("sched", "sched_blocked_reason"));
         events.insert(GroupAndName("sched", "sched_cpu_hotplug"));
         events.insert(GroupAndName("sched", "sched_pi_setprio"));
         events.insert(GroupAndName("sched", "sched_process_exit"));
-        events.insert(GroupAndName("systrace", "0"));
         AddEventGroup(table, "cgroup", &events);
+        events.insert(GroupAndName("cgroup", "cgroup_transfer_tasks"));
+        events.insert(GroupAndName("cgroup", "cgroup_setup_root"));
+        events.insert(GroupAndName("cgroup", "cgroup_rmdir"));
+        events.insert(GroupAndName("cgroup", "cgroup_rename"));
+        events.insert(GroupAndName("cgroup", "cgroup_remount"));
+        events.insert(GroupAndName("cgroup", "cgroup_release"));
+        events.insert(GroupAndName("cgroup", "cgroup_mkdir"));
+        events.insert(GroupAndName("cgroup", "cgroup_destroy_root"));
+        events.insert(GroupAndName("cgroup", "cgroup_attach_task"));
         events.insert(GroupAndName("oom", "oom_score_adj_update"));
         events.insert(GroupAndName("task", "task_rename"));
         events.insert(GroupAndName("task", "task_newtask"));
+
         AddEventGroup(table, "systrace", &events);
+        events.insert(GroupAndName("systrace", "0"));
+
         AddEventGroup(table, "scm", &events);
+        events.insert(GroupAndName("scm", "scm_call_start"));
+        events.insert(GroupAndName("scm", "scm_call_end"));
         continue;
       }
 
       if (category == "irq") {
         AddEventGroup(table, "irq", &events);
+        events.insert(GroupAndName("irq", "tasklet_hi_exit"));
+        events.insert(GroupAndName("irq", "tasklet_hi_entry"));
+        events.insert(GroupAndName("irq", "tasklet_exit"));
+        events.insert(GroupAndName("irq", "tasklet_entry"));
+        events.insert(GroupAndName("irq", "softirq_raise"));
+        events.insert(GroupAndName("irq", "softirq_exit"));
+        events.insert(GroupAndName("irq", "softirq_entry"));
+        events.insert(GroupAndName("irq", "irq_handler_exit"));
+        events.insert(GroupAndName("irq", "irq_handler_entry"));
         AddEventGroup(table, "ipi", &events);
+        events.insert(GroupAndName("ipi", "ipi_raise"));
+        events.insert(GroupAndName("ipi", "ipi_exit"));
+        events.insert(GroupAndName("ipi", "ipi_entry"));
         continue;
       }
 
@@ -173,7 +258,17 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
         events.insert(GroupAndName("clk", "clk_disable"));
         events.insert(GroupAndName("clk", "clk_enable"));
         events.insert(GroupAndName("power", "cpu_frequency_limits"));
+        events.insert(GroupAndName("power", "suspend_resume"));
         AddEventGroup(table, "msm_bus", &events);
+        events.insert(GroupAndName("msm_bus", "bus_update_request_end"));
+        events.insert(GroupAndName("msm_bus", "bus_update_request"));
+        events.insert(GroupAndName("msm_bus", "bus_rules_matches"));
+        events.insert(GroupAndName("msm_bus", "bus_max_votes"));
+        events.insert(GroupAndName("msm_bus", "bus_client_status"));
+        events.insert(GroupAndName("msm_bus", "bus_bke_params"));
+        events.insert(GroupAndName("msm_bus", "bus_bimc_config_limiter"));
+        events.insert(GroupAndName("msm_bus", "bus_avail_bw"));
+        events.insert(GroupAndName("msm_bus", "bus_agg_bw"));
         continue;
       }
 
@@ -214,8 +309,19 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
       if (category == "sync") {
         // linux kernel < 4.9
         AddEventGroup(table, "sync", &events);
+        events.insert(GroupAndName("sync", "sync_pt"));
+        events.insert(GroupAndName("sync", "sync_timeline"));
+        events.insert(GroupAndName("sync", "sync_wait"));
         // linux kernel == 4.9.x
         AddEventGroup(table, "fence", &events);
+        events.insert(GroupAndName("fence", "fence_annotate_wait_on"));
+        events.insert(GroupAndName("fence", "fence_destroy"));
+        events.insert(GroupAndName("fence", "fence_emit"));
+        events.insert(GroupAndName("fence", "fence_enable_signal"));
+        events.insert(GroupAndName("fence", "fence_init"));
+        events.insert(GroupAndName("fence", "fence_signaled"));
+        events.insert(GroupAndName("fence", "fence_wait_end"));
+        events.insert(GroupAndName("fence", "fence_wait_start"));
         // linux kernel > 4.9
         AddEventGroup(table, "dma_fence", &events);
         continue;
@@ -223,6 +329,10 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
 
       if (category == "workq") {
         AddEventGroup(table, "workqueue", &events);
+        events.insert(GroupAndName("workqueue", "workqueue_queue_work"));
+        events.insert(GroupAndName("workqueue", "workqueue_execute_start"));
+        events.insert(GroupAndName("workqueue", "workqueue_execute_end"));
+        events.insert(GroupAndName("workqueue", "workqueue_activate_work"));
         continue;
       }
 
@@ -232,11 +342,20 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
         events.insert(GroupAndName("vmscan", "mm_vmscan_kswapd_wake"));
         events.insert(GroupAndName("vmscan", "mm_vmscan_kswapd_sleep"));
         AddEventGroup(table, "lowmemorykiller", &events);
+        events.insert(GroupAndName("lowmemorykiller", "lowmemory_kill"));
         continue;
       }
 
       if (category == "regulators") {
         AddEventGroup(table, "regulator", &events);
+        events.insert(
+            GroupAndName("regulator", "regulator_set_voltage_complete"));
+        events.insert(GroupAndName("regulator", "regulator_set_voltage"));
+        events.insert(GroupAndName("regulator", "regulator_enable_delay"));
+        events.insert(GroupAndName("regulator", "regulator_enable_complete"));
+        events.insert(GroupAndName("regulator", "regulator_enable"));
+        events.insert(GroupAndName("regulator", "regulator_disable_complete"));
+        events.insert(GroupAndName("regulator", "regulator_disable"));
         continue;
       }
 
@@ -257,6 +376,13 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
 
       if (category == "pagecache") {
         AddEventGroup(table, "filemap", &events);
+        events.insert(
+            GroupAndName("filemap", "mm_filemap_delete_from_page_cache"));
+        events.insert(
+            GroupAndName("filemap", "mm_filemap_delete_from_page_cache"));
+        events.insert(GroupAndName("filemap", "mm_filemap_add_to_page_cache"));
+        events.insert(GroupAndName("filemap", "filemap_set_wb_err"));
+        events.insert(GroupAndName("filemap", "file_check_and_advance_wb_err"));
         continue;
       }
 
@@ -264,6 +390,9 @@ std::set<GroupAndName> FtraceConfigMuxer::GetFtraceEvents(
         events.insert(GroupAndName("kmem", "rss_stat"));
         events.insert(GroupAndName("kmem", "ion_heap_grow"));
         events.insert(GroupAndName("kmem", "ion_heap_shrink"));
+        // ion_stat supersedes ion_heap_grow / shrink for kernel 4.19+
+        events.insert(GroupAndName("ion", "ion_stat"));
+        events.insert(GroupAndName("mm_event", "mm_event_record"));
         continue;
       }
     }
@@ -292,26 +421,28 @@ size_t ComputeCpuBufferSizeInPages(size_t requested_buffer_size_kb) {
   return pages;
 }
 
-FtraceConfigMuxer::FtraceConfigMuxer(FtraceProcfs* ftrace,
-                                     ProtoTranslationTable* table)
+FtraceConfigMuxer::FtraceConfigMuxer(
+    FtraceProcfs* ftrace,
+    ProtoTranslationTable* table,
+    std::map<std::string, std::vector<GroupAndName>> vendor_events)
     : ftrace_(ftrace),
       table_(table),
       current_state_(),
-      filters_(),
-      configs_() {}
+      ds_configs_(),
+      vendor_events_(vendor_events) {}
 FtraceConfigMuxer::~FtraceConfigMuxer() = default;
 
 FtraceConfigId FtraceConfigMuxer::SetupConfig(const FtraceConfig& request) {
   EventFilter filter;
-  FtraceConfig actual;
   bool is_ftrace_enabled = ftrace_->IsTracingEnabled();
-  if (configs_.empty()) {
+  if (ds_configs_.empty()) {
     PERFETTO_DCHECK(active_configs_.empty());
-    PERFETTO_DCHECK(!current_state_.tracing_on);
 
     // If someone outside of perfetto is using ftrace give up now.
-    if (is_ftrace_enabled)
+    if (is_ftrace_enabled) {
+      PERFETTO_ELOG("ftrace in use by non-Perfetto.");
       return 0;
+    }
 
     // Setup ftrace, without starting it. Setting buffers can be quite slow
     // (up to hundreds of ms).
@@ -319,11 +450,25 @@ FtraceConfigId FtraceConfigMuxer::SetupConfig(const FtraceConfig& request) {
     SetupBufferSize(request);
   } else {
     // Did someone turn ftrace off behind our back? If so give up.
-    if (!active_configs_.empty() && !is_ftrace_enabled)
+    if (!active_configs_.empty() && !is_ftrace_enabled) {
+      PERFETTO_ELOG("ftrace disabled by non-Perfetto.");
       return 0;
+    }
   }
 
   std::set<GroupAndName> events = GetFtraceEvents(request, table_);
+
+  // Vendors can provide a set of extra ftrace categories to be enabled when a
+  // specific atrace category is used (e.g. "gfx" -> ["my_hw/my_custom_event",
+  // "my_hw/my_special_gpu"]). Merge them with the hard coded events for each
+  // categories.
+  for (const std::string& category : request.atrace_categories()) {
+    if (vendor_events_.count(category)) {
+      for (const GroupAndName& event : vendor_events_[category]) {
+        events.insert(event);
+      }
+    }
+  }
 
   if (RequiresAtrace(request))
     UpdateAtrace(request);
@@ -335,57 +480,86 @@ FtraceConfigId FtraceConfigMuxer::SetupConfig(const FtraceConfig& request) {
                     group_and_name.ToString().c_str());
       continue;
     }
+    // Note: ftrace events are always implicitly enabled (and don't have an
+    // "enable" file). So they aren't tracked by the central event filter (but
+    // still need to be added to the per data source event filter to retain the
+    // events during parsing).
     if (current_state_.ftrace_events.IsEventEnabled(event->ftrace_event_id) ||
         std::string("ftrace") == event->group) {
       filter.AddEnabledEvent(event->ftrace_event_id);
-      *actual.add_ftrace_events() = group_and_name.ToString();
       continue;
     }
     if (ftrace_->EnableEvent(event->group, event->name)) {
       current_state_.ftrace_events.AddEnabledEvent(event->ftrace_event_id);
       filter.AddEnabledEvent(event->ftrace_event_id);
-      *actual.add_ftrace_events() = group_and_name.ToString();
     } else {
       PERFETTO_DPLOG("Failed to enable %s.", group_and_name.ToString().c_str());
     }
   }
 
+  auto compact_sched =
+      CreateCompactSchedConfig(request, table_->compact_sched_format());
+
+  std::vector<std::string> apps(request.atrace_apps());
+  std::vector<std::string> categories(request.atrace_categories());
+
   FtraceConfigId id = ++last_id_;
-  configs_.emplace(id, std::move(actual));
-  filters_.emplace(id, std::move(filter));
+  ds_configs_.emplace(
+      std::piecewise_construct, std::forward_as_tuple(id),
+      std::forward_as_tuple(std::move(filter), compact_sched, std::move(apps),
+                            std::move(categories)));
   return id;
 }
 
 bool FtraceConfigMuxer::ActivateConfig(FtraceConfigId id) {
-  if (!id || configs_.count(id) == 0) {
+  if (!id || ds_configs_.count(id) == 0) {
     PERFETTO_DFATAL("Config not found");
     return false;
   }
 
+  if (active_configs_.empty()) {
+    if (ftrace_->IsTracingEnabled()) {
+      // If someone outside of perfetto is using ftrace give up now.
+      PERFETTO_ELOG("ftrace in use by non-Perfetto.");
+      return false;
+    }
+    if (!ftrace_->EnableTracing()) {
+      PERFETTO_ELOG("Failed to enable ftrace.");
+      return false;
+    }
+  }
+
   active_configs_.insert(id);
-  if (active_configs_.size() > 1) {
-    PERFETTO_DCHECK(current_state_.tracing_on);
-    return true;  // We are not the first, ftrace is already enabled. All done.
-  }
-
-  PERFETTO_DCHECK(!current_state_.tracing_on);
-  if (ftrace_->IsTracingEnabled()) {
-    // If someone outside of perfetto is using ftrace give up now.
-    return false;
-  }
-
-  ftrace_->EnableTracing();
-  current_state_.tracing_on = true;
   return true;
 }
 
 bool FtraceConfigMuxer::RemoveConfig(FtraceConfigId config_id) {
-  if (!config_id || !filters_.erase(config_id) || !configs_.erase(config_id))
+  if (!config_id || !ds_configs_.erase(config_id))
     return false;
   EventFilter expected_ftrace_events;
-  for (const auto& id_filter : filters_) {
-    expected_ftrace_events.EnableEventsFrom(id_filter.second);
+  std::vector<std::string> expected_apps;
+  std::vector<std::string> expected_categories;
+  for (const auto& id_config : ds_configs_) {
+    const perfetto::FtraceDataSourceConfig& config = id_config.second;
+    expected_ftrace_events.EnableEventsFrom(config.event_filter);
+    UnionInPlace(config.atrace_apps, &expected_apps);
+    UnionInPlace(config.atrace_categories, &expected_categories);
   }
+  // At this point expected_{apps,categories} contains the union of the
+  // leftover configs (if any) that should be still on. However we did not
+  // necessarily succeed in turning on atrace for each of those configs
+  // previously so we now intersect the {apps,categories} that we *did* manage
+  // to turn on with those we want on to determine the new state we should aim
+  // for:
+  IntersectInPlace(current_state_.atrace_apps, &expected_apps);
+  IntersectInPlace(current_state_.atrace_categories, &expected_categories);
+  // Work out if there is any difference between the current state and the
+  // desired state: It's sufficient to compare sizes here (since we know from
+  // above that expected_{apps,categories} is now a subset of
+  // atrace_{apps,categories}:
+  bool atrace_changed =
+      (current_state_.atrace_apps.size() != expected_apps.size()) ||
+      (current_state_.atrace_categories.size() != expected_categories.size());
 
   // Disable any events that are currently enabled, but are not in any configs
   // anymore.
@@ -403,39 +577,48 @@ bool FtraceConfigMuxer::RemoveConfig(FtraceConfigId config_id) {
   // If there aren't any more active configs, disable ftrace.
   auto active_it = active_configs_.find(config_id);
   if (active_it != active_configs_.end()) {
-    PERFETTO_DCHECK(current_state_.tracing_on);
     active_configs_.erase(active_it);
     if (active_configs_.empty()) {
       // This was the last active config, disable ftrace.
-      ftrace_->DisableTracing();
-      current_state_.tracing_on = false;
+      if (!ftrace_->DisableTracing())
+        PERFETTO_ELOG("Failed to disable ftrace.");
     }
   }
 
   // Even if we don't have any other active configs, we might still have idle
   // configs around. Tear down the rest of the ftrace config only if all
   // configs are removed.
-  if (configs_.empty()) {
-    ftrace_->SetCpuBufferSizeInPages(0);
+  if (ds_configs_.empty()) {
+    if (ftrace_->SetCpuBufferSizeInPages(1))
+      current_state_.cpu_buffer_size_pages = 1;
     ftrace_->DisableAllEvents();
     ftrace_->ClearTrace();
-    if (current_state_.atrace_on)
+  }
+
+  if (current_state_.atrace_on) {
+    if (expected_apps.empty() && expected_categories.empty()) {
       DisableAtrace();
+    } else if (atrace_changed) {
+      // Update atrace to remove the no longer wanted categories/apps. For
+      // some categories this won't disable them (e.g. categories that just
+      // enable ftrace events) for those there is nothing we can do till the
+      // last ftrace config is removed.
+      if (StartAtrace(expected_apps, expected_categories)) {
+        // Update current_state_ to reflect this change.
+        current_state_.atrace_apps = expected_apps;
+        current_state_.atrace_categories = expected_categories;
+      }
+    }
   }
 
   return true;
 }
 
-const FtraceConfig* FtraceConfigMuxer::GetConfigForTesting(FtraceConfigId id) {
-  if (!configs_.count(id))
+const FtraceDataSourceConfig* FtraceConfigMuxer::GetDataSourceConfig(
+    FtraceConfigId id) {
+  if (!ds_configs_.count(id))
     return nullptr;
-  return &configs_.at(id);
-}
-
-const EventFilter* FtraceConfigMuxer::GetEventFilter(FtraceConfigId id) {
-  if (!filters_.count(id))
-    return nullptr;
-  return &filters_.at(id);
+  return &ds_configs_.at(id);
 }
 
 void FtraceConfigMuxer::SetupClock(const FtraceConfig&) {
@@ -459,30 +642,63 @@ void FtraceConfigMuxer::SetupBufferSize(const FtraceConfig& request) {
   current_state_.cpu_buffer_size_pages = pages;
 }
 
+size_t FtraceConfigMuxer::GetPerCpuBufferSizePages() {
+  return current_state_.cpu_buffer_size_pages;
+}
+
 void FtraceConfigMuxer::UpdateAtrace(const FtraceConfig& request) {
+  // We want to avoid poisoning current_state_.atrace_{categories, apps}
+  // if for some reason these args make atrace unhappy so we stash the
+  // union into temps and only update current_state_ if we successfully
+  // run atrace.
+
+  std::vector<std::string> combined_categories = request.atrace_categories();
+  UnionInPlace(current_state_.atrace_categories, &combined_categories);
+
+  std::vector<std::string> combined_apps = request.atrace_apps();
+  UnionInPlace(current_state_.atrace_apps, &combined_apps);
+
+  if (current_state_.atrace_on &&
+      combined_apps.size() == current_state_.atrace_apps.size() &&
+      combined_categories.size() == current_state_.atrace_categories.size()) {
+    return;
+  }
+
+  if (StartAtrace(combined_apps, combined_categories)) {
+    current_state_.atrace_categories = combined_categories;
+    current_state_.atrace_apps = combined_apps;
+    current_state_.atrace_on = true;
+  }
+}
+
+// static
+bool FtraceConfigMuxer::StartAtrace(
+    const std::vector<std::string>& apps,
+    const std::vector<std::string>& categories) {
   PERFETTO_DLOG("Update atrace config...");
 
   std::vector<std::string> args;
   args.push_back("atrace");  // argv0 for exec()
   args.push_back("--async_start");
   args.push_back("--only_userspace");
-  for (const auto& category : request.atrace_categories())
+
+  for (const auto& category : categories)
     args.push_back(category);
-  if (!request.atrace_apps().empty()) {
+
+  if (!apps.empty()) {
     args.push_back("-a");
     std::string arg = "";
-    for (const auto& app : request.atrace_apps()) {
+    for (const auto& app : apps) {
       arg += app;
-      if (app != request.atrace_apps().back())
-        arg += ",";
+      arg += ",";
     }
+    arg.resize(arg.size() - 1);
     args.push_back(arg);
   }
 
-  if (RunAtrace(args))
-    current_state_.atrace_on = true;
-
-  PERFETTO_DLOG("...done");
+  bool result = RunAtrace(args);
+  PERFETTO_DLOG("...done (%s)", result ? "success" : "fail");
+  return result;
 }
 
 void FtraceConfigMuxer::DisableAtrace() {
@@ -490,8 +706,11 @@ void FtraceConfigMuxer::DisableAtrace() {
 
   PERFETTO_DLOG("Stop atrace...");
 
-  if (RunAtrace({"atrace", "--async_stop", "--only_userspace"}))
+  if (RunAtrace({"atrace", "--async_stop", "--only_userspace"})) {
+    current_state_.atrace_categories.clear();
+    current_state_.atrace_apps.clear();
     current_state_.atrace_on = false;
+  }
 
   PERFETTO_DLOG("...done");
 }

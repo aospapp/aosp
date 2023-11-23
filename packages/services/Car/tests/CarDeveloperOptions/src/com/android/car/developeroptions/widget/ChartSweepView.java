@@ -35,8 +35,9 @@ import android.util.MathUtils;
 import android.view.MotionEvent;
 import android.view.View;
 
-import com.android.internal.util.Preconditions;
 import com.android.car.developeroptions.R;
+
+import java.util.Objects;
 
 /**
  * Sweep across a {@link ChartView} at a specific {@link ChartAxis} value, which
@@ -155,7 +156,7 @@ public class ChartSweepView extends View {
     };
 
     void init(ChartAxis axis) {
-        mAxis = Preconditions.checkNotNull(axis, "missing axis");
+        mAxis = Objects.requireNonNull(axis, "missing axis");
     }
 
     public void setNeighbors(ChartSweepView... neighbors) {

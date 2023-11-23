@@ -34,16 +34,21 @@ if with_shared_glapi
   endif
 
   test(
+    'dispatch-index-check',
+    files('dispatch-index-check'),
+    suite : ['glx'],
+  )
+  test(
     'glx-test',
     executable(
       'glx-test',
       [files_glx_test, glx_indirect_size_h, main_dispatch_h],
       link_with : [libglx, libglapi],
       include_directories : [
-        inc_src, inc_include, inc_mesa, inc_mapi, inc_gl_internal,
-        include_directories('..'),
+        inc_src, inc_include, inc_mesa, inc_mapi, inc_glx,
       ],
-      dependencies : [dep_libdrm, dep_thread, idep_gtest]
-    )
+      dependencies : [dep_libdrm, dep_glproto, dep_thread, idep_gtest]
+    ),
+    suite : ['glx'],
   )
 endif

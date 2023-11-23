@@ -15,7 +15,7 @@
  */
 package android.cts.statsd.uidmap;
 
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsd.atom.DeviceAtomTestCase;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
@@ -33,22 +33,19 @@ public class UidMapTests extends DeviceAtomTestCase {
 
     // Tests that every report has at least one snapshot.
     public void testUidSnapshotIncluded() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         // There should be at least the test app installed during the test setup.
         createAndUploadConfig(AtomsProto.Atom.UID_PROCESS_STATE_CHANGED_FIELD_NUMBER);
 
         ConfigMetricsReportList reports = getReportList();
-        assertTrue(reports.getReportsCount() > 0);
+        assertThat(reports.getReportsCount()).isGreaterThan(0);
 
         for (ConfigMetricsReport report : reports.getReportsList()) {
             UidMapping uidmap = report.getUidMap();
-            assertTrue(uidmap.getSnapshotsCount() > 0);
+            assertThat(uidmap.getSnapshotsCount()).isGreaterThan(0);
             for (PackageInfoSnapshot snapshot : uidmap.getSnapshotsList()) {
                 // There must be at least one element in each snapshot (at least one package is
                 // installed).
-                assertTrue(snapshot.getPackageInfoCount() > 0);
+                assertThat(snapshot.getPackageInfoCount()).isGreaterThan(0);
             }
         }
     }
@@ -67,9 +64,6 @@ public class UidMapTests extends DeviceAtomTestCase {
 
     // Tests that delta event included during app installation.
     public void testChangeFromInstallation() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         getDevice().uninstallPackage(DEVICE_SIDE_TEST_PACKAGE);
         createAndUploadConfig(AtomsProto.Atom.UID_PROCESS_STATE_CHANGED_FIELD_NUMBER);
         // Install the package after the config is sent to statsd. The uid map is not guaranteed to
@@ -81,7 +75,7 @@ public class UidMapTests extends DeviceAtomTestCase {
         Thread.sleep(WAIT_TIME_SHORT);
 
         ConfigMetricsReportList reports = getReportList();
-        assertTrue(reports.getReportsCount() > 0);
+        assertThat(reports.getReportsCount()).isGreaterThan(0);
 
         boolean found = false;
         int uid = getUid();
@@ -91,14 +85,11 @@ public class UidMapTests extends DeviceAtomTestCase {
                 found = true;
             }
         }
-        assertTrue(found);
+        assertThat(found).isTrue();
     }
 
     // We check that a re-installation gives a change event (similar to an app upgrade).
     public void testChangeFromReinstall() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         getDevice().installPackage(buildHelper.getTestFile(DEVICE_SIDE_TEST_APK), false, true);
         createAndUploadConfig(AtomsProto.Atom.UID_PROCESS_STATE_CHANGED_FIELD_NUMBER);
@@ -108,7 +99,7 @@ public class UidMapTests extends DeviceAtomTestCase {
         Thread.sleep(WAIT_TIME_SHORT);
 
         ConfigMetricsReportList reports = getReportList();
-        assertTrue(reports.getReportsCount() > 0);
+        assertThat(reports.getReportsCount()).isGreaterThan(0);
 
         boolean found = false;
         int uid = getUid();
@@ -118,13 +109,10 @@ public class UidMapTests extends DeviceAtomTestCase {
                 found = true;
             }
         }
-        assertTrue(found);
+        assertThat(found).isTrue();
     }
 
     public void testChangeFromUninstall() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         getDevice().installPackage(buildHelper.getTestFile(DEVICE_SIDE_TEST_APK), true, true);
         createAndUploadConfig(AtomsProto.Atom.UID_PROCESS_STATE_CHANGED_FIELD_NUMBER);
@@ -134,7 +122,7 @@ public class UidMapTests extends DeviceAtomTestCase {
         Thread.sleep(WAIT_TIME_SHORT);
 
         ConfigMetricsReportList reports = getReportList();
-        assertTrue(reports.getReportsCount() > 0);
+        assertThat(reports.getReportsCount()).isGreaterThan(0);
 
         boolean found = false;
         for (ConfigMetricsReport report : reports.getReportsList()) {
@@ -143,6 +131,6 @@ public class UidMapTests extends DeviceAtomTestCase {
                 found = true;
             }
         }
-        assertTrue(found);
+        assertThat(found).isTrue();
     }
 }

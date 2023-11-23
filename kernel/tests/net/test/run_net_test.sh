@@ -13,6 +13,7 @@ EOF
 
 # Common kernel options
 OPTIONS=" DEBUG_SPINLOCK DEBUG_ATOMIC_SLEEP DEBUG_MUTEXES DEBUG_RT_MUTEXES"
+OPTIONS="$OPTIONS WARN_ALL_UNSEEDED_RANDOM IKCONFIG IKCONFIG_PROC"
 OPTIONS="$OPTIONS DEVTMPFS DEVTMPFS_MOUNT FHANDLE"
 OPTIONS="$OPTIONS IPV6 IPV6_ROUTER_PREF IPV6_MULTIPLE_TABLES IPV6_ROUTE_INFO"
 OPTIONS="$OPTIONS TUN SYN_COOKIES IP_ADVANCED_ROUTER IP_MULTIPLE_TABLES"
@@ -29,7 +30,7 @@ OPTIONS="$OPTIONS NETFILTER_XT_MATCH_QUOTA2"
 OPTIONS="$OPTIONS NETFILTER_XT_MATCH_QUOTA2_LOG"
 OPTIONS="$OPTIONS NETFILTER_XT_MATCH_SOCKET"
 OPTIONS="$OPTIONS NETFILTER_XT_MATCH_QTAGUID"
-OPTIONS="$OPTIONS INET_UDP_DIAG INET_DIAG_DESTROY"
+OPTIONS="$OPTIONS INET_DIAG INET_UDP_DIAG INET_DIAG_DESTROY"
 OPTIONS="$OPTIONS IP_SCTP"
 OPTIONS="$OPTIONS IP_NF_TARGET_REJECT IP_NF_TARGET_REJECT_SKERR"
 OPTIONS="$OPTIONS IP6_NF_TARGET_REJECT IP6_NF_TARGET_REJECT_SKERR"
@@ -40,6 +41,7 @@ OPTIONS="$OPTIONS INET_XFRM_MODE_TUNNEL INET6_ESP"
 OPTIONS="$OPTIONS INET6_XFRM_MODE_TRANSPORT INET6_XFRM_MODE_TUNNEL"
 OPTIONS="$OPTIONS CRYPTO_SHA256 CRYPTO_SHA512 CRYPTO_AES_X86_64 CRYPTO_NULL"
 OPTIONS="$OPTIONS CRYPTO_GCM CRYPTO_ECHAINIV NET_IPVTI"
+OPTIONS="$OPTIONS DUMMY"
 
 # Kernel version specific options
 OPTIONS="$OPTIONS XFRM_INTERFACE"                # Various device kernels
@@ -57,17 +59,14 @@ OPTIONS="$OPTIONS NETFILTER_TPROXY"              # Removed in 3.11
 OPTIONS="$OPTIONS BLK_DEV_UBD HOSTFS"
 
 # QEMU specific options
-OPTIONS="$OPTIONS VIRTIO VIRTIO_PCI VIRTIO_BLK NET_9P NET_9P_VIRTIO 9P_FS"
-OPTIONS="$OPTIONS SERIAL_8250 SERIAL_8250_PCI"
+OPTIONS="$OPTIONS PCI VIRTIO VIRTIO_PCI VIRTIO_BLK NET_9P NET_9P_VIRTIO 9P_FS"
+OPTIONS="$OPTIONS CRYPTO_DEV_VIRTIO SERIAL_8250 SERIAL_8250_PCI"
 
 # Obsolete options present at some time in Android kernels
 OPTIONS="$OPTIONS IP_NF_TARGET_REJECT_SKERR IP6_NF_TARGET_REJECT_SKERR"
 
 # These two break the flo kernel due to differences in -Werror on recent GCC.
 DISABLE_OPTIONS=" REISERFS_FS ANDROID_PMEM"
-
-# This one breaks the fugu kernel due to a nonexistent sem_wait_array.
-DISABLE_OPTIONS="$DISABLE_OPTIONS SYSVIPC"
 
 # How many TAP interfaces to create to provide the VM with real network access
 # via the host. This requires privileges (e.g., root access) on the host.
@@ -88,7 +87,7 @@ URL=https://dl.google.com/dl/android/$COMPRESSED_ROOTFS
 
 # Parse arguments and figure out which test to run.
 ARCH=${ARCH:-um}
-J=${J:-64}
+J=${J:-$(nproc)}
 MAKE="make"
 OUT_DIR=$(readlink -f ${OUT_DIR:-.})
 KERNEL_DIR=$(readlink -f ${KERNEL_DIR:-.})
@@ -106,14 +105,36 @@ nowrite=1
 nobuild=0
 norun=0
 
+if [[ -z "${DEFCONFIG}" ]]; then
+  case "${ARCH}" in
+    um)
+      export DEFCONFIG=defconfig
+      ;;
+    arm64)
+      if [[ -e arch/arm64/configs/gki_defconfig ]]; then
+        export DEFCONFIG=gki_defconfig
+      elif [[ -e arch/arm64/configs/cuttlefish_defconfig ]]; then
+        export DEFCONFIG=cuttlefish_defconfig
+      fi
+      ;;
+    x86_64)
+      if [[ -e arch/x86/configs/gki_defconfig ]]; then
+        export DEFCONFIG=gki_defconfig
+      elif [[ -e arch/x86/configs/x86_64_cuttlefish_defconfig ]]; then
+        export DEFCONFIG=x86_64_cuttlefish_defconfig
+      fi
+  esac
+fi
+
 if tty >/dev/null; then
   verbose=
 else
   verbose=1
 fi
 
+test=all_tests.sh
 while [[ -n "$1" ]]; do
-  if [[ "$1" == "--builder" ]]; then
+  if [[ "$1" == "--builder" || "$1" == "-b" ]]; then
     consolemode="con=null,fd:1"
     testmode=builder
     shift
@@ -157,16 +178,17 @@ fi
 test_args=${@:2}
 
 function isRunningTest() {
-  [[ -n "$test" ]] && ! (( norun ))
+  ! (( norun ))
 }
 
 function isBuildOnly() {
-  [[ -z "$test" ]] && (( norun )) && ! (( nobuild ))
+  (( norun )) && ! (( nobuild ))
 }
 
 if ! isRunningTest && ! isBuildOnly; then
   echo "Usage:" >&2
-  echo "  $0 [--builder] [--readonly|--ro|--readwrite|--rw] [--nobuild] [--verbose] <test>" >&2
+  echo "  $0 [--builder] [--readonly|--ro|--readwrite|--rw] [--nobuild] [--verbose] [<test>]" >&2
+  echo "      - if [<test>] is not specified, run all_tests.sh" >&2
   echo "  $0 --norun" >&2
   exit 1
 fi
@@ -244,7 +266,6 @@ if ((nobuild == 0)); then
   fi
 
   # If there's no kernel config at all, create one or UML won't work.
-  [ -n "$DEFCONFIG" ] || DEFCONFIG=defconfig
   [ -f $CONFIG_FILE ] || (cd $KERNEL_DIR && $MAKE $make_flags $DEFCONFIG)
 
   # Enable the kernel config options listed in $OPTIONS.
@@ -275,8 +296,23 @@ if (( verbose == 1 )); then
   cmdline="$cmdline verbose=1"
 fi
 
-cmdline="$cmdline init=/sbin/net_test.sh"
+cmdline="$cmdline panic=1 init=/sbin/net_test.sh"
 cmdline="$cmdline net_test_args=\"$test_args\" net_test_mode=$testmode"
+
+# Experience shows that we need at least 128 bits of entropy for the
+# kernel's crng init to complete (before it fully initializes stuff behaves
+# *weirdly* and there's plenty of kernel warnings and some tests even fail),
+# hence net_test.sh needs at least 32 hex chars (which is the amount of hex
+# in a single random UUID) provided to it on the kernel cmdline.
+#
+# Just to be safe, we'll pass in 384 bits, and we'll do this as a random
+# 64 character base64 seed (because this is shorter than base16).
+# We do this by getting *three* random UUIDs and concatenating their hex
+# digits into an *even* length hex encoded string, which we then convert
+# into base64.
+entropy="$(cat /proc/sys/kernel/random{/,/,/}uuid | tr -d '\n-')"
+entropy="$(xxd -r -p <<< "${entropy}" | base64 -w 0)"
+cmdline="${cmdline} random.trust_cpu=on entropy=${entropy}"
 
 if [ "$ARCH" == "um" ]; then
   # Get the absolute path to the test file that's being run.
@@ -284,21 +320,6 @@ if [ "$ARCH" == "um" ]; then
 
   # Use UML's /proc/exitcode feature to communicate errors on test failure
   cmdline="$cmdline net_test_exitcode=/proc/exitcode"
-
-  # Experience shows that we need at least 128 bits of entropy for the
-  # kernel's crng init to complete (before it fully initializes stuff behaves
-  # *weirdly* and there's plenty of kernel warnings and some tests even fail),
-  # hence net_test.sh needs at least 32 hex chars (which is the amount of hex
-  # in a single random UUID) provided to it on the kernel cmdline.
-  #
-  # Just to be safe, we'll pass in 384 bits, and we'll do this as a random
-  # 64 character base64 seed (because this is shorter than base16).
-  # We do this by getting *three* random UUIDs and concatenating their hex
-  # digits into an *even* length hex encoded string, which we then convert
-  # into base64.
-  entropy="$(cat /proc/sys/kernel/random{/,/,/}uuid | tr -d '\n-')"
-  entropy="$(xxd -r -p <<< "${entropy}" | base64 -w 0)"
-  cmdline="${cmdline} entropy=${entropy}"
 
   # Map the --readonly flag to UML block device names
   if ((nowrite == 0)); then
@@ -323,13 +344,14 @@ if [ "$ARCH" == "um" ]; then
       zcat "/boot/config-$(uname -r).gz" || :
     } 2>/dev/null \
     | egrep -q '^CONFIG_LEGACY_VSYSCALL_NONE=y' \
-    && ! egrep -q '(^| )vsyscall=(native|emulate)( |$)' /proc/cmdline \
+    && ! egrep -q '(^| )vsyscall=(native|emulate|xonly)( |$)' /proc/cmdline \
     && {
       echo -e "\r"
       echo -e "-----=====-----\r"
       echo -e "If above you saw a 'net_test.sh[1]: segfault at ...' followed by\r"
       echo -e "'Kernel panic - not syncing: Attempted to kill init!' then please\r"
       echo -e "set 'vsyscall=emulate' on *host* kernel command line.\r"
+      echo -e "On Linux 5.2+ you can instead use the slightly safer 'vsyscall=xonly'.\r"
       echo -e "(for example via GRUB_CMDLINE_LINUX in /etc/default/grub)\r"
       echo -e "-----=====-----\r"
     }
@@ -367,13 +389,20 @@ else
     # Assume we have hardware-accelerated virtualization support for amd64
     qemu="qemu-system-x86_64 -machine pc,accel=kvm -cpu host"
 
-    # The assignment of 'ttyS1' here is magical -- we know 'ttyS0' will be our
-    # serial port from the hard-coded '-serial stdio' flag below, and so this
-    # second serial port will be 'ttyS1'.
+    # We know 'ttyS0' will be our serial port on x86 from the hard-coded
+    # '-serial mon:stdio' flag below
+    cmdline="$cmdline console=ttyS0"
+
+    # The assignment of 'ttyS1' here is magical; we know ttyS0 was used up
+    # by '-serial mon:stdio', and so this second serial port will be 'ttyS1'
     cmdline="$cmdline net_test_exitcode=/dev/ttyS1"
   elif [ "$ARCH" == "arm64" ]; then
     # This uses a software model CPU, based on cortex-a57
     qemu="qemu-system-aarch64 -machine virt -cpu cortex-a57"
+
+    # We know 'ttyAMA0' will be our serial port on arm64 from the hard-coded
+    # '-serial mon:stdio' flag below
+    cmdline="$cmdline console=ttyAMA0"
 
     # The kernel will print messages via a virtual ARM serial port (ttyAMA0),
     # but for command line consistency with x86, we put the exitcode serial
@@ -399,6 +428,7 @@ fi
 # UML reliably screws up the ptys, QEMU probably can as well...
 fixup_ptys
 stty sane || :
+tput smam || :
 
 echo "Returning exit code ${exitcode}." 1>&2
 exit "${exitcode}"

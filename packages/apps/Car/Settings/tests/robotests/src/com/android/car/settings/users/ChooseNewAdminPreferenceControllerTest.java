@@ -19,7 +19,6 @@ package com.android.car.settings.users;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -32,14 +31,14 @@ import android.content.pm.UserInfo;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
-import com.android.car.settings.R;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.ErrorDialog;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
+import com.android.car.settings.testutils.ShadowUserHelper;
 import com.android.car.settings.testutils.ShadowUserIconProvider;
+import com.android.car.settings.testutils.ShadowUserManager;
 
 import org.junit.After;
 import org.junit.Before;
@@ -47,11 +46,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowUserIconProvider.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowUserIconProvider.class,
+        ShadowUserManager.class, ShadowUserHelper.class})
 public class ChooseNewAdminPreferenceControllerTest {
 
     private static final UserInfo TEST_ADMIN_USER = new UserInfo(/* id= */ 10,
@@ -65,12 +66,15 @@ public class ChooseNewAdminPreferenceControllerTest {
     private ConfirmationDialogFragment mDialog;
     @Mock
     private CarUserManagerHelper mCarUserManagerHelper;
+    @Mock
+    private UserHelper mUserHelper;
 
     @Before
     public void setUp() {
         mContext = RuntimeEnvironment.application;
         MockitoAnnotations.initMocks(this);
         ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
+        ShadowUserHelper.setInstance(mUserHelper);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 ChooseNewAdminPreferenceController.class);
         mController = mControllerHelper.getController();
@@ -82,6 +86,7 @@ public class ChooseNewAdminPreferenceControllerTest {
     @After
     public void tearDown() {
         ShadowCarUserManagerHelper.reset();
+        ShadowUserManager.reset();
     }
 
     @Test
@@ -121,13 +126,12 @@ public class ChooseNewAdminPreferenceControllerTest {
     public void testAssignNewAdminAndRemoveOldAdmin_removeUserCalled() {
         mController.assignNewAdminAndRemoveOldAdmin(TEST_OTHER_USER);
 
-        verify(mCarUserManagerHelper).removeUser(eq(TEST_ADMIN_USER), anyString());
+        verify(mUserHelper).removeUser(any(Context.class), eq(TEST_ADMIN_USER));
     }
 
     @Test
     public void testAssignNewAdminAndRemoveOldAdmin_success_noErrorDialog() {
-        when(mCarUserManagerHelper.removeUser(TEST_ADMIN_USER,
-                mContext.getString(R.string.user_guest))).thenReturn(true);
+        when(mUserHelper.removeUser(any(Context.class), eq(TEST_ADMIN_USER))).thenReturn(true);
 
         mController.assignNewAdminAndRemoveOldAdmin(TEST_OTHER_USER);
 
@@ -137,8 +141,7 @@ public class ChooseNewAdminPreferenceControllerTest {
 
     @Test
     public void testAssignNewAdminAndRemoveOldAdmin_failure_errorDialog() {
-        when(mCarUserManagerHelper.removeUser(TEST_ADMIN_USER,
-                mContext.getString(R.string.user_guest))).thenReturn(false);
+        when(mUserHelper.removeUser(any(Context.class), eq(TEST_ADMIN_USER))).thenReturn(false);
 
         mController.assignNewAdminAndRemoveOldAdmin(TEST_OTHER_USER);
 

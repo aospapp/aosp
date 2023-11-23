@@ -24,22 +24,26 @@ import androidx.annotation.StringDef;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
-import com.android.car.apps.common.widget.CarTabLayout;
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.calllog.CallHistoryFragment;
 import com.android.car.dialer.ui.contact.ContactListFragment;
 import com.android.car.dialer.ui.dialpad.DialpadFragment;
 import com.android.car.dialer.ui.favorite.FavoriteFragment;
+import com.android.car.ui.toolbar.TabLayout;
 
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/** Tab presenting fragments. */
-public class TelecomPageTab extends CarTabLayout.CarTab {
+/**
+ * Tab presenting fragments.
+ */
+public class TelecomPageTab extends TabLayout.Tab {
 
-    /** Note: the strings must be consist with the items in string array tabs_config */
+    /**
+     * Note: the strings must be consist with the items in string array tabs_config
+     */
     @StringDef({
             TelecomPageTab.Page.FAVORITES,
             TelecomPageTab.Page.CALL_HISTORY,
@@ -77,17 +81,23 @@ public class TelecomPageTab extends CarTabLayout.CarTab {
         mWasFragmentRestored = true;
     }
 
-    /** Returns true if the fragment for this tab is restored from a saved state. */
+    /**
+     * Returns true if the fragment for this tab is restored from a saved state.
+     */
     public boolean wasFragmentRestored() {
         return mWasFragmentRestored;
     }
 
-    /** Returns the fragment for this tab. */
+    /**
+     * Returns the fragment for this tab.
+     */
     public Fragment getFragment() {
         return mFragment;
     }
 
-    /** Returns the fragment tag for this tab. */
+    /**
+     * Returns the fragment tag for this tab.
+     */
     public String getFragmentTag() {
         return mFragmentTag;
     }
@@ -96,7 +106,9 @@ public class TelecomPageTab extends CarTabLayout.CarTab {
         return String.format("%s:%s", getClass().getSimpleName(), page);
     }
 
-    /** Responsible for creating the top tab items and their fragments. */
+    /**
+     * Responsible for creating the top tab items and their fragments.
+     */
     public static class Factory {
 
         private static final ImmutableMap<String, Integer> TAB_LABELS =
@@ -145,6 +157,9 @@ public class TelecomPageTab extends CarTabLayout.CarTab {
             }
         }
 
+        /**
+         * Create the tab for the given {@param tabIndex}
+         */
         public TelecomPageTab createTab(Context context, int tabIndex) {
             String page = mTabs[tabIndex];
             TelecomPageTab telecomPageTab = new TelecomPageTab(
@@ -158,6 +173,9 @@ public class TelecomPageTab extends CarTabLayout.CarTab {
             return mTabs.length;
         }
 
+        /**
+         * Returns the index for the given {@param page}
+         */
         public int getTabIndex(@Page String page) {
             return mTabPageIndexMap.containsKey(page) ? mTabPageIndexMap.get(page) : -1;
         }

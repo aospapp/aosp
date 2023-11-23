@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_COMMON_TRACING_H
-#define ANDROID_ML_NN_COMMON_TRACING_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_TRACING_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_TRACING_H
 
 #define ATRACE_TAG ATRACE_TAG_NNAPI
-#include "utils/Trace.h"
+#include <utils/Trace.h>
 
 // Neural Networks API (NNAPI) systracing
 //
@@ -100,43 +100,41 @@
 // Layer Application - For native applications (e.g., unit tests)
 #define NNTRACE_APP(phase, detail) NNTRACE_FULL(NNTRACE_LAYER_APPLICATION, phase, detail)
 #define NNTRACE_APP_SWITCH(phase, detail) \
-        NNTRACE_FULL_SWITCH(NNTRACE_LAYER_APPLICATION, phase, detail)
+    NNTRACE_FULL_SWITCH(NNTRACE_LAYER_APPLICATION, phase, detail)
 // Layer Runtime - For the NNAPI runtime
 #define NNTRACE_RT(phase, detail) NNTRACE_FULL(NNTRACE_LAYER_RUNTIME, phase, detail)
 #define NNTRACE_RT_SWITCH(phase, detail) NNTRACE_FULL_SWITCH(NNTRACE_LAYER_RUNTIME, phase, detail)
 // Layer CPU - CPU executor
 #define NNTRACE_CPU(phase, detail) NNTRACE_FULL(NNTRACE_LAYER_CPU, phase, detail)
-#define NNTRACE_COMP(detail) NNTRACE_FULL(NNTRACE_LAYER_CPU, \
-                                          NNTRACE_PHASE_COMPUTATION, detail)
-#define NNTRACE_COMP_SWITCH(detail) NNTRACE_FULL_SWITCH(NNTRACE_LAYER_CPU, \
-                                                        NNTRACE_PHASE_COMPUTATION, detail)
-#define NNTRACE_TRANS(detail) NNTRACE_FULL(NNTRACE_LAYER_CPU, \
-                                           NNTRACE_PHASE_TRANSFORMATION, detail)
+#define NNTRACE_COMP(detail) NNTRACE_FULL(NNTRACE_LAYER_CPU, NNTRACE_PHASE_COMPUTATION, detail)
+#define NNTRACE_COMP_SWITCH(detail) \
+    NNTRACE_FULL_SWITCH(NNTRACE_LAYER_CPU, NNTRACE_PHASE_COMPUTATION, detail)
+#define NNTRACE_TRANS(detail) NNTRACE_FULL(NNTRACE_LAYER_CPU, NNTRACE_PHASE_TRANSFORMATION, detail)
 
 // Fully specified macros to be used when no convenience wrapper exists for your
 // need.
 #define NNTRACE_FULL(layer, phase, detail) NNTRACE_NAME_1(("[NN_" layer "_" phase "]" detail))
 #define NNTRACE_FULL_SWITCH(layer, phase, detail) \
-        NNTRACE_NAME_SWITCH(("[SW][NN_" layer "_" phase "]" detail))
+    NNTRACE_NAME_SWITCH(("[SW][NN_" layer "_" phase "]" detail))
 #define NNTRACE_FULL_SUBTRACT(layer, phase, detail) \
-        NNTRACE_NAME_1(("[SUB][NN_" layer "_" phase "]" detail))
+    NNTRACE_NAME_1(("[SUB][NN_" layer "_" phase "]" detail))
 // Raw macro without scoping requirements, for special cases
-#define NNTRACE_FULL_RAW(layer, phase, detail) android::ScopedTrace PASTE(___tracer, __LINE__) \
-        (ATRACE_TAG, ("[NN_" layer "_" phase "]" detail))
+#define NNTRACE_FULL_RAW(layer, phase, detail) \
+    android::ScopedTrace PASTE(___tracer, __LINE__)(ATRACE_TAG, ("[NN_" layer "_" phase "]" detail))
 
 // Tracing buckets - for calculating timing summaries over.
 //
 // Application-only phases
-#define NNTRACE_PHASE_OVERALL   "PO"    // Overall program, e.g., one benchmark case
-#define NNTRACE_PHASE_WARMUP    "PWU"   // Warmup (nesting multiple executions)
-#define NNTRACE_PHASE_BENCHMARK "PBM"   // Benchmark (nesting multiple executions)
+#define NNTRACE_PHASE_OVERALL "PO"     // Overall program, e.g., one benchmark case
+#define NNTRACE_PHASE_WARMUP "PWU"     // Warmup (nesting multiple executions)
+#define NNTRACE_PHASE_BENCHMARK "PBM"  // Benchmark (nesting multiple executions)
 // Main phases, usable by all layers
-#define NNTRACE_PHASE_INITIALIZATION "PI" // Initialization - not related to a model
-#define NNTRACE_PHASE_PREPARATION "PP"  // Model construction
-#define NNTRACE_PHASE_COMPILATION "PC"  // Model compilation
-#define NNTRACE_PHASE_EXECUTION "PE"    // Executing the model
-#define NNTRACE_PHASE_TERMINATION "PT"  // Tearing down
-#define NNTRACE_PHASE_UNSPECIFIED "PU"  // Helper code called from multiple phases
+#define NNTRACE_PHASE_INITIALIZATION "PI"  // Initialization - not related to a model
+#define NNTRACE_PHASE_PREPARATION "PP"     // Model construction
+#define NNTRACE_PHASE_COMPILATION "PC"     // Model compilation
+#define NNTRACE_PHASE_EXECUTION "PE"       // Executing the model
+#define NNTRACE_PHASE_TERMINATION "PT"     // Tearing down
+#define NNTRACE_PHASE_UNSPECIFIED "PU"     // Helper code called from multiple phases
 // Subphases of execution
 #define NNTRACE_PHASE_INPUTS_AND_OUTPUTS "PIO"  // Setting inputs/outputs and allocating buffers
 #define NNTRACE_PHASE_TRANSFORMATION "PTR"      // Transforming data for computation
@@ -149,8 +147,7 @@
 #define NNTRACE_LAYER_DRIVER "LD"
 #define NNTRACE_LAYER_CPU "LC"
 #define NNTRACE_LAYER_OTHER "LO"
-#define NNTRACE_LAYER_UTILITY "LU"              // Code used from multiple layers
-
+#define NNTRACE_LAYER_UTILITY "LU"  // Code used from multiple layers
 
 // Implementation
 //
@@ -162,13 +159,12 @@
 // Switching trace, more than one per scope allowed, translated by
 // systrace_parser.py. This is mainly useful for tracing multiple phases through
 // one function / scope.
-#define NNTRACE_NAME_SWITCH(name) android::ScopedTrace PASTE(___tracer, __LINE__) \
-        (ATRACE_TAG, name); \
-        (void)___tracer_1  // ensure switch is only used after a basic trace
-
+#define NNTRACE_NAME_SWITCH(name)                                      \
+    android::ScopedTrace PASTE(___tracer, __LINE__)(ATRACE_TAG, name); \
+    (void)___tracer_1  // ensure switch is only used after a basic trace
 
 // Disallow use of raw ATRACE macros
 #undef ATRACE_NAME
 #undef ATRACE_CALL
 
-#endif // ANDROID_ML_NN_COMMON_TRACING_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_TRACING_H

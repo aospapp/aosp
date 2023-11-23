@@ -18,7 +18,7 @@ package android.content;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
@@ -298,13 +298,19 @@ public final class ComponentName implements Parcelable, Cloneable, Comparable<Co
     }
 
     /** Put this here so that individual services don't have to reimplement this. @hide */
-    public void writeToProto(ProtoOutputStream proto, long fieldId) {
+    public void dumpDebug(ProtoOutputStream proto, long fieldId) {
         final long token = proto.start(fieldId);
         proto.write(ComponentNameProto.PACKAGE_NAME, mPackage);
         proto.write(ComponentNameProto.CLASS_NAME, mClass);
         proto.end(token);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Two components are considered to be equal if the packages in which they reside have the
+     * same name, and if the classes that implement each component also have the same name.
+     */
     @Override
     public boolean equals(Object obj) {
         try {

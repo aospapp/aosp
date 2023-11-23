@@ -49,4 +49,6 @@
     <string name="action_confirm_url_open" msgid="3458322738812921189">"இணைப்பைத் திற"</string>
     <string name="tag_read_error" msgid="2485274498885877547">"NFC குறியைப் படிக்க இயலவில்லை. பிறகு முயலவும்."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"இந்த NFC குறிக்கு ஏற்ற ஆப்ஸ் இல்லை"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC தடுக்கப்படலாம்"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"எப்படி சரிசெய்வது என்பதை அறிய தட்டவும்."</string>
 </resources>

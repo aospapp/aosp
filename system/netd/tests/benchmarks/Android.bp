@@ -5,17 +5,18 @@ cc_benchmark {
     defaults: ["netd_defaults"],
     shared_libs: [
         "libbase",
-        "libbinder",
+        "libbinder_ndk",
         "liblog",
         "libnetd_client",
         "libnetdutils",
+        "libutils",
     ],
     static_libs: [
-        "libnetd_test_dnsresponder",
-        "libutils",
-        "dnsresolver_aidl_interface-cpp",
-        "netd_aidl_interface-cpp",
-        "netd_event_listener_interface-cpp",
+        "libnetd_test_dnsresponder_ndk",
+        "dnsresolver_aidl_interface-unstable-ndk_platform",
+        "netd_aidl_interface-cpp", //  system/netd/server/UidRanges.h
+        "netd_aidl_interface-ndk_platform",
+        "netd_event_listener_interface-ndk_platform",
     ],
     aidl: {
         include_dirs: ["system/netd/server/binder"],
@@ -23,10 +24,8 @@ cc_benchmark {
     include_dirs: [
         "system/netd/include",
         "system/netd/client",
-        "system/netd/resolv/include",
         "system/netd/server",
         "system/netd/server/binder",
-        "system/netd/resolv/dns_responder",
     ],
     srcs: [
         "main.cpp",
@@ -38,13 +37,11 @@ cc_benchmark {
 cc_benchmark {
     name: "bpf_benchmark",
     defaults: ["netd_defaults"],
+    require_root: true,
     shared_libs: [
         "libbase",
         "libbpf_android",
         "libnetdutils",
-    ],
-    static_libs: [
-        "libutils",
     ],
     srcs: [
         "bpf_benchmark.cpp",

@@ -30,5 +30,7 @@ public interface HasBuildType {
         PROD
     }
 
+    /** @deprecated use injection instead. */
+    @Deprecated
     BuildType getBuildType();
 }

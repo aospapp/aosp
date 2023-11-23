@@ -20,13 +20,13 @@
 #include "cups-private.h"
 #include <stdlib.h>
 #include <sys/stat.h>
-#ifdef WIN32
+#ifdef _WIN32
 #  include <windows.h>
 #else
 #  include <pwd.h>
 #  include <termios.h>
 #  include <sys/utsname.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
 /*
@@ -54,7 +54,9 @@
 typedef struct _cups_client_conf_s	/**** client.conf config data ****/
 {
 #ifdef HAVE_SSL
-  int			ssl_options;	/* SSLOptions values */
+  int			ssl_options,	/* SSLOptions values */
+			ssl_min_version,/* Minimum SSL/TLS version */
+			ssl_max_version;/* Maximum SSL/TLS version */
 #endif /* HAVE_SSL */
   int			trust_first,	/* Trust on first use? */
 			any_root,	/* Allow any (e.g., self-signed) root */
@@ -488,12 +490,12 @@ cupsSetUserAgent(const char *user_agent)/* I - User-Agent string or @code NULL@ 
 {
   _cups_globals_t	*cg = _cupsGlobals();
 					/* Thread globals */
-#ifdef WIN32
+#ifdef _WIN32
   SYSTEM_INFO		sysinfo;	/* System information */
   OSVERSIONINFO		version;	/* OS version info */
 #else
   struct utsname	name;		/* uname info */
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
   if (user_agent)
@@ -502,7 +504,7 @@ cupsSetUserAgent(const char *user_agent)/* I - User-Agent string or @code NULL@ 
     return;
   }
 
-#ifdef WIN32
+#ifdef _WIN32
   version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
   GetVersionEx(&version);
   GetNativeSystemInfo(&sysinfo);
@@ -526,7 +528,7 @@ cupsSetUserAgent(const char *user_agent)/* I - User-Agent string or @code NULL@ 
   snprintf(cg->user_agent, sizeof(cg->user_agent),
            CUPS_MINIMAL " (%s %s; %s) IPP/2.0",
 	   name.sysname, name.release, name.machine);
-#endif /* WIN32 */
+#endif /* _WIN32 */
 }
 
 
@@ -578,7 +580,7 @@ cupsUserAgent(void)
 const char *				/* O - Password or @code NULL@ if none */
 _cupsGetPassword(const char *prompt)	/* I - Prompt string */
 {
-#ifdef WIN32
+#ifdef _WIN32
   HANDLE		tty;		/* Console handle */
   DWORD			mode;		/* Console mode */
   char			passch,		/* Current key press */
@@ -844,7 +846,7 @@ _cupsGetPassword(const char *prompt)	/* I - Prompt string */
     memset(cg->password, 0, sizeof(cg->password));
     return (NULL);
   }
-#endif /* WIN32 */
+#endif /* _WIN32 */
 }
 
 
@@ -903,7 +905,7 @@ _cupsSetDefaults(void)
 
 #  ifdef HAVE_GETEUID
   if ((geteuid() == getuid() || !getuid()) && getegid() == getgid() && (home = getenv("HOME")) != NULL)
-#  elif !defined(WIN32)
+#  elif !defined(_WIN32)
   if (getuid() && (home = getenv("HOME")) != NULL)
 #  else
   if ((home = getenv("HOME")) != NULL)
@@ -957,7 +959,7 @@ _cupsSetDefaults(void)
     cg->validate_certs = cc.validate_certs;
 
 #ifdef HAVE_SSL
-  _httpTLSSetOptions(cc.ssl_options | _HTTP_TLS_SET_DEFAULT);
+  _httpTLSSetOptions(cc.ssl_options | _HTTP_TLS_SET_DEFAULT, cc.ssl_min_version, cc.ssl_max_version);
 #endif /* HAVE_SSL */
 }
 
@@ -1099,7 +1101,7 @@ cups_finalize_client_conf(
 
   if (!cc->user[0])
   {
-#ifdef WIN32
+#ifdef _WIN32
    /*
     * Get the current user name from the OS...
     */
@@ -1135,7 +1137,7 @@ cups_finalize_client_conf(
     if (pw)
       strlcpy(cc->user, pw->pw_name, sizeof(cc->user));
     else
-#endif /* WIN32 */
+#endif /* _WIN32 */
     {
      /*
       * Use the default "unknown" user name...
@@ -1164,11 +1166,15 @@ cups_init_client_conf(
 
   memset(cc, 0, sizeof(_cups_client_conf_t));
 
-  cc->encryption     = (http_encryption_t)-1;
-  cc->trust_first    = -1;
-  cc->any_root       = -1;
-  cc->expired_certs  = -1;
-  cc->validate_certs = -1;
+#ifdef HAVE_SSL
+  cc->ssl_min_version = _HTTP_TLS_1_0;
+  cc->ssl_max_version = _HTTP_TLS_MAX;
+#endif /* HAVE_SSL */
+  cc->encryption      = (http_encryption_t)-1;
+  cc->trust_first     = -1;
+  cc->any_root        = -1;
+  cc->expired_certs   = -1;
+  cc->validate_certs  = -1;
 
  /*
   * Load settings from the org.cups.PrintingPrefs plist (which trump
@@ -1336,7 +1342,9 @@ cups_set_ssl_options(
   * SSLOptions [AllowRC4] [AllowSSL3] [AllowDH] [DenyTLS1.0] [None]
   */
 
-  int	options = _HTTP_TLS_NONE;	/* SSL/TLS options */
+  int	options = _HTTP_TLS_NONE,	/* SSL/TLS options */
+	min_version = _HTTP_TLS_1_0,	/* Minimum SSL/TLS version */
+	max_version = _HTTP_TLS_MAX;	/* Maximum SSL/TLS version */
   char	temp[256],			/* Copy of value */
 	*start,				/* Start of option */
 	*end;				/* End of option */
@@ -1364,20 +1372,38 @@ cups_set_ssl_options(
     if (!_cups_strcasecmp(start, "AllowRC4"))
       options |= _HTTP_TLS_ALLOW_RC4;
     else if (!_cups_strcasecmp(start, "AllowSSL3"))
-      options |= _HTTP_TLS_ALLOW_SSL3;
+      min_version = _HTTP_TLS_SSL3;
     else if (!_cups_strcasecmp(start, "AllowDH"))
       options |= _HTTP_TLS_ALLOW_DH;
     else if (!_cups_strcasecmp(start, "DenyCBC"))
       options |= _HTTP_TLS_DENY_CBC;
     else if (!_cups_strcasecmp(start, "DenyTLS1.0"))
-      options |= _HTTP_TLS_DENY_TLS10;
+      min_version = _HTTP_TLS_1_1;
+    else if (!_cups_strcasecmp(start, "MaxTLS1.0"))
+      max_version = _HTTP_TLS_1_0;
+    else if (!_cups_strcasecmp(start, "MaxTLS1.1"))
+      max_version = _HTTP_TLS_1_1;
+    else if (!_cups_strcasecmp(start, "MaxTLS1.2"))
+      max_version = _HTTP_TLS_1_2;
+    else if (!_cups_strcasecmp(start, "MaxTLS1.3"))
+      max_version = _HTTP_TLS_1_3;
+    else if (!_cups_strcasecmp(start, "MinTLS1.0"))
+      min_version = _HTTP_TLS_1_0;
+    else if (!_cups_strcasecmp(start, "MinTLS1.1"))
+      min_version = _HTTP_TLS_1_1;
+    else if (!_cups_strcasecmp(start, "MinTLS1.2"))
+      min_version = _HTTP_TLS_1_2;
+    else if (!_cups_strcasecmp(start, "MinTLS1.3"))
+      min_version = _HTTP_TLS_1_3;
     else if (!_cups_strcasecmp(start, "None"))
       options = _HTTP_TLS_NONE;
   }
 
-  cc->ssl_options = options;
+  cc->ssl_options     = options;
+  cc->ssl_max_version = max_version;
+  cc->ssl_min_version = min_version;
 
-  DEBUG_printf(("4cups_set_ssl_options(cc=%p, value=\"%s\") options=%x", (void *)cc, value, options));
+  DEBUG_printf(("4cups_set_ssl_options(cc=%p, value=\"%s\") options=%x, min_version=%d, max_version=%d", (void *)cc, value, options, min_version, max_version));
 }
 #endif /* HAVE_SSL */
 

@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/mobile_network_settings">
+    android:title="@string/mobile_network_settings"
+    android:key="@string/psk_mobile_network_list">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_mobile_network_list"
         settings:controller="com.android.car.settings.network.MobileNetworkListPreferenceController"/>

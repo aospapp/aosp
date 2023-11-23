@@ -23,11 +23,7 @@
 #include <errno.h>
 #include <linux/if_packet.h>
 #include <linux/kernel.h>
-// Ignore warning about unused static qemu pipe function
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-function"
-#include <qemu_pipe.h>
-#pragma clang diagnostic pop
+#include <qemu_pipe_bp.h>
 #include <string.h>
 #include <net/ethernet.h>
 #include <net/if.h>
@@ -127,7 +123,7 @@ Result WifiForwarder::init() {
         return Result::error("WifiForwarder already initialized");
     }
 
-    mPipeFd = qemu_pipe_open(kQemuPipeName);
+    mPipeFd = qemu_pipe_open_ns(NULL, kQemuPipeName, O_RDWR);
     if (mPipeFd == -1) {
         // It's OK if this fails, the emulator might not have been started with
         // this feature enabled. If it's not enabled we'll try again later, in
@@ -255,12 +251,12 @@ void WifiForwarder::forwardFromPcap() {
 
     WifiForwardHeader forwardHeader(header->caplen, radioLen);
 
-    if (!WriteFully(mPipeFd, &forwardHeader, sizeof(forwardHeader))) {
+    if (qemu_pipe_write_fully(mPipeFd, &forwardHeader, sizeof(forwardHeader))) {
         LOGE("WifiForwarder failed to write to pipe: %s", strerror(errno));
         return;
     }
 
-    if (!WriteFully(mPipeFd, data, header->caplen)) {
+    if (qemu_pipe_write_fully(mPipeFd, data, header->caplen)) {
         LOGE("WifiForwarder failed to write to pipe: %s", strerror(errno));
         return;
     }

@@ -29,6 +29,13 @@ public abstract class AbstractLoginActivityTestCase
 
     protected LoginActivity mActivity;
 
+    protected AbstractLoginActivityTestCase() {
+    }
+
+    protected AbstractLoginActivityTestCase(UiBot inlineUiBot) {
+        super(inlineUiBot);
+    }
+
     @Override
     protected AutofillActivityTestRule<LoginActivity> getActivityRule() {
         return new AutofillActivityTestRule<LoginActivity>(
@@ -55,7 +62,7 @@ public abstract class AbstractLoginActivityTestCase
         try {
             event = mUiBot.waitForWindowChange(() -> mActivity.onUsername(View::requestFocus),
                     Timeouts.WINDOW_CHANGE_NOT_GENERATED_NAPTIME_MS);
-        } catch (TimeoutException ex) {
+        } catch (WindowChangeTimeoutException ex) {
             // no window events! looking good
             return;
         }

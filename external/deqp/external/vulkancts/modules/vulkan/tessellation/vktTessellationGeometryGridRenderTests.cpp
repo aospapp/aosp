@@ -554,12 +554,12 @@ tcu::TestStatus GridRenderTestInstance::iterate (void)
 
 	// Pipeline: no vertex input attributes nor descriptors.
 
-	const Unique<VkImageView>		colorAttachmentView(makeImageView						(vk, device, *colorAttachmentImage, colorAttachmentViewType, colorFormat, colorImageAllLayersRange));
-	const Unique<VkRenderPass>		renderPass		   (makeRenderPass						(vk, device, colorFormat));
-	const Unique<VkFramebuffer>		framebuffer		   (makeFramebuffer						(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y(), m_params.numLayers));
-	const Unique<VkPipelineLayout>	pipelineLayout	   (makePipelineLayoutWithoutDescriptors(vk, device));
-	const Unique<VkCommandPool>		cmdPool			   (makeCommandPool						(vk, device, queueFamilyIndex));
-	const Unique<VkCommandBuffer>	cmdBuffer		   (allocateCommandBuffer				(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+	const Unique<VkImageView>		colorAttachmentView	(makeImageView			(vk, device, *colorAttachmentImage, colorAttachmentViewType, colorFormat, colorImageAllLayersRange));
+	const Unique<VkRenderPass>		renderPass			(makeRenderPass			(vk, device, colorFormat));
+	const Unique<VkFramebuffer>		framebuffer			(makeFramebuffer		(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y(), m_params.numLayers));
+	const Unique<VkPipelineLayout>	pipelineLayout		(makePipelineLayout		(vk, device));
+	const Unique<VkCommandPool>		cmdPool				(makeCommandPool		(vk, device, queueFamilyIndex));
+	const Unique<VkCommandBuffer>	cmdBuffer			(allocateCommandBuffer	(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
 	const Unique<VkPipeline> pipeline (GraphicsPipelineBuilder()
 		.setRenderSize	(renderSize)
@@ -604,12 +604,13 @@ tcu::TestStatus GridRenderTestInstance::iterate (void)
 
 	// Verify results
 	{
-		const Allocation& alloc = colorBuffer.getAllocation();
-		invalidateMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), colorBufferSizeBytes);
+		const Allocation&					alloc			(colorBuffer.getAllocation());
 
-		const tcu::ConstPixelBufferAccess imageAllLayers(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), m_params.numLayers, alloc.getHostPtr());
+		invalidateAlloc(vk, device, alloc);
 
-		bool allOk = true;
+		const tcu::ConstPixelBufferAccess	imageAllLayers	(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), m_params.numLayers, alloc.getHostPtr());
+		bool								allOk			(true);
+
 		for (int ndx = 0; ndx < m_params.numLayers; ++ndx)
 			allOk = allOk && verifyResultLayer(m_context.getTestContext().getLog(),
 											   tcu::getSubregion(imageAllLayers, 0, 0, ndx, renderSize.x(), renderSize.y(), 1),

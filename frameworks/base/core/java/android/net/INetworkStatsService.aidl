@@ -23,6 +23,8 @@ import android.net.NetworkState;
 import android.net.NetworkStats;
 import android.net.NetworkStatsHistory;
 import android.net.NetworkTemplate;
+import android.net.netstats.provider.INetworkStatsProvider;
+import android.net.netstats.provider.INetworkStatsProviderCallback;
 import android.os.IBinder;
 import android.os.Messenger;
 import com.android.internal.net.VpnInfo;
@@ -66,9 +68,9 @@ interface INetworkStatsService {
     /** Force update of ifaces. */
     void forceUpdateIfaces(
          in Network[] defaultNetworks,
-         in VpnInfo[] vpnArray,
          in NetworkState[] networkStates,
-         in String activeIface);
+         in String activeIface,
+         in VpnInfo[] vpnInfos);
     /** Force update of statistics. */
     @UnsupportedAppUsage
     void forceUpdate();
@@ -89,4 +91,7 @@ interface INetworkStatsService {
     /** Get the total network stats information since boot */
     long getTotalStats(int type);
 
+    /** Registers a network stats provider */
+    INetworkStatsProviderCallback registerNetworkStatsProvider(String tag,
+            in INetworkStatsProvider provider);
 }

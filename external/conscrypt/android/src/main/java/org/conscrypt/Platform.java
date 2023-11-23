@@ -45,9 +45,11 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIMatcher;
 import javax.net.ssl.SNIServerName;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
@@ -710,7 +712,7 @@ final class Platform {
     /**
      * Convert from an opaque AlgorithmParameters to the platform's GCMParameterSpec.
      */
-    @SuppressWarnings("LiteralClassName")
+    @SuppressWarnings({"LiteralClassName", "unchecked"})
     static AlgorithmParameterSpec fromGCMParameters(AlgorithmParameters params) {
         Class<?> gcmSpecClass;
         try {
@@ -747,9 +749,9 @@ final class Platform {
                 return (AlgorithmParameterSpec) constructor.newInstance(tagLenInBits, iv);
             } catch (NoSuchMethodException | InstantiationException | IllegalAccessException
                     | IllegalArgumentException e) {
-                e.printStackTrace();
+                logStackTraceSnippet("Can't find GCMParameterSpec class", e);
             } catch (InvocationTargetException e) {
-                e.getCause().printStackTrace();
+                logStackTraceSnippet("Can't find GCMParameterSpec class", e.getCause());
             }
         }
         return null;
@@ -992,5 +994,29 @@ final class Platform {
 
     static CTPolicy newDefaultPolicy(CTLogStore logStore) {
         return null;
+    }
+
+    static boolean serverNamePermitted(SSLParametersImpl parameters, String serverName) {
+        if (Build.VERSION.SDK_INT >= 24) {
+            return serverNamePermittedInternal(parameters, serverName);
+        }
+        return true;
+    }
+
+    @TargetApi(24)
+    private static boolean serverNamePermittedInternal(
+            SSLParametersImpl parameters, String serverName) {
+        Collection<SNIMatcher> sniMatchers = parameters.getSNIMatchers();
+        if (sniMatchers == null || sniMatchers.isEmpty()) {
+            return true;
+        }
+
+        for (SNIMatcher m : sniMatchers) {
+            boolean match = m.matches(new SNIHostName(serverName));
+            if (match) {
+                return true;
+            }
+        }
+        return false;
     }
 }

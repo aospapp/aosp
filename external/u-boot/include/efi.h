@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Extensible Firmware Interface
  * Based on 'Extensible Firmware Interface Specification' version 0.9,
@@ -29,15 +30,26 @@
  */
 #ifdef __x86_64__
 #define EFIAPI __attribute__((ms_abi))
+#define efi_va_list __builtin_ms_va_list
+#define efi_va_start __builtin_ms_va_start
+#define efi_va_arg __builtin_va_arg
+#define efi_va_end __builtin_ms_va_end
 #else
 #define EFIAPI asmlinkage
+#define efi_va_list va_list
+#define efi_va_start va_start
+#define efi_va_arg va_arg
+#define efi_va_end va_end
 #endif /* __x86_64__ */
+
+#define EFI32_LOADER_SIGNATURE	"EL32"
+#define EFI64_LOADER_SIGNATURE	"EL64"
 
 struct efi_device_path;
 
 typedef struct {
 	u8 b[16];
-} efi_guid_t;
+} efi_guid_t __attribute__((aligned(8)));
 
 #define EFI_BITS_PER_LONG	(sizeof(long) * 8)
 
@@ -84,7 +96,7 @@ typedef struct {
 typedef unsigned long efi_status_t;
 typedef u64 efi_physical_addr_t;
 typedef u64 efi_virtual_addr_t;
-typedef void *efi_handle_t;
+typedef struct efi_object *efi_handle_t;
 
 #define EFI_GUID(a, b, c, d0, d1, d2, d3, d4, d5, d6, d7) \
 	{{ (a) & 0xff, ((a) >> 8) & 0xff, ((a) >> 16) & 0xff, \
@@ -156,29 +168,33 @@ enum efi_mem_type {
 	 * part of the processor.
 	 */
 	EFI_PAL_CODE,
+	/*
+	 * Non-volatile memory.
+	 */
+	EFI_PERSISTENT_MEMORY_TYPE,
 
 	EFI_MAX_MEMORY_TYPE,
 	EFI_TABLE_END,	/* For efi_build_mem_table() */
 };
 
 /* Attribute values */
-enum {
-	EFI_MEMORY_UC_SHIFT	= 0,	/* uncached */
-	EFI_MEMORY_WC_SHIFT	= 1,	/* write-coalescing */
-	EFI_MEMORY_WT_SHIFT	= 2,	/* write-through */
-	EFI_MEMORY_WB_SHIFT	= 3,	/* write-back */
-	EFI_MEMORY_UCE_SHIFT	= 4,	/* uncached, exported */
-	EFI_MEMORY_WP_SHIFT	= 12,	/* write-protect */
-	EFI_MEMORY_RP_SHIFT	= 13,	/* read-protect */
-	EFI_MEMORY_XP_SHIFT	= 14,	/* execute-protect */
-	EFI_MEMORY_RUNTIME_SHIFT = 63,	/* range requires runtime mapping */
-
-	EFI_MEMORY_RUNTIME = 1ULL << EFI_MEMORY_RUNTIME_SHIFT,
-	EFI_MEM_DESC_VERSION	= 1,
-};
+#define EFI_MEMORY_UC		((u64)0x0000000000000001ULL)	/* uncached */
+#define EFI_MEMORY_WC		((u64)0x0000000000000002ULL)	/* write-coalescing */
+#define EFI_MEMORY_WT		((u64)0x0000000000000004ULL)	/* write-through */
+#define EFI_MEMORY_WB		((u64)0x0000000000000008ULL)	/* write-back */
+#define EFI_MEMORY_UCE		((u64)0x0000000000000010ULL)	/* uncached, exported */
+#define EFI_MEMORY_WP		((u64)0x0000000000001000ULL)	/* write-protect */
+#define EFI_MEMORY_RP		((u64)0x0000000000002000ULL)	/* read-protect */
+#define EFI_MEMORY_XP		((u64)0x0000000000004000ULL)	/* execute-protect */
+#define EFI_MEMORY_NV		((u64)0x0000000000008000ULL)	/* non-volatile */
+#define EFI_MEMORY_MORE_RELIABLE \
+				((u64)0x0000000000010000ULL)	/* higher reliability */
+#define EFI_MEMORY_RO		((u64)0x0000000000020000ULL)	/* read-only */
+#define EFI_MEMORY_RUNTIME	((u64)0x8000000000000000ULL)	/* range requires runtime mapping */
+#define EFI_MEM_DESC_VERSION	1
 
 #define EFI_PAGE_SHIFT		12
-#define EFI_PAGE_SIZE		(1UL << EFI_PAGE_SHIFT)
+#define EFI_PAGE_SIZE		(1ULL << EFI_PAGE_SHIFT)
 #define EFI_PAGE_MASK		(EFI_PAGE_SIZE - 1)
 
 struct efi_mem_desc {
@@ -240,6 +256,7 @@ enum efi_entry_t {
 	EFIET_END,	/* Signals this is the last (empty) entry */
 	EFIET_MEMORY_MAP,
 	EFIET_GOP_MODE,
+	EFIET_SYS_TABLE,
 
 	/* Number of entries */
 	EFIET_MEMORY_COUNT,
@@ -328,6 +345,15 @@ struct efi_entry_gopmode {
 		u32 pixel_bitmask[4];
 		u32 pixels_per_scanline;
 	} info[];
+};
+
+/**
+ * struct efi_entry_systable - system table passed to U-Boot
+ *
+ * @sys_table:	EFI system table address
+ */
+struct efi_entry_systable {
+	efi_physical_addr_t sys_table;
 };
 
 static inline struct efi_mem_desc *efi_get_next_mem_desc(

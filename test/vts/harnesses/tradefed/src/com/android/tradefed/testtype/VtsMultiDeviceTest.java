@@ -26,8 +26,9 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
-import com.android.tradefed.result.ITestLifeCycleReceiver;
+import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.VtsCoveragePreparer;
 import com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer;
@@ -36,19 +37,17 @@ import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.JsonUtil;
 import com.android.tradefed.util.OutputUtil;
+import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.VtsDashboardUtil;
 import com.android.tradefed.util.VtsPythonRunnerHelper;
 import com.android.tradefed.util.VtsVendorConfigFileUtil;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -59,9 +58,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
- * A Test that runs a vts multi device test package (part of Vendor Test Suite, VTS) on given
+ * A Test that runs a vts multi device test package (part of Vendor Test Suite, VTS10) on given
  * device.<p>
  * TODO: Complete unit tests
  */
@@ -231,10 +233,6 @@ public class VtsMultiDeviceTest
                     + "needed to run the test (e.g., android.hardware.graphics.mapper@2.0). "
                     + "this can override precondition-lshal option.")
     private String mPreconditionVintf = null;
-
-    @Option(name = "use-stdout-logs",
-            description = "Flag that determines whether to use std:out to parse output.")
-    private boolean mUseStdoutLogs = false;
 
     @Option(name = "enable-dashboard-uploading",
             description = "Enables the runner's dashboard result uploading feature.")
@@ -518,7 +516,7 @@ public class VtsMultiDeviceTest
 
     private IBuildInfo mBuildInfo = null;
     private String mRunName = null;
-    // the path to android-vts/testcases
+    // the path to android-vts10/testcases
     private String mTestCaseDir = "./";
 
     private VtsVendorConfigFileUtil configReader = null;
@@ -1297,7 +1295,7 @@ public class VtsMultiDeviceTest
      * @throws RuntimeException
      * @throws IllegalArgumentException
      */
-    private void doRunTest(ITestLifeCycleReceiver listener)
+    private void doRunTest(ITestInvocationListener listener)
             throws IllegalArgumentException, DeviceNotAvailableException {
         long methodStartTime = System.currentTimeMillis();
         CLog.d("Device serial number: " + mDevice.getSerialNumber());
@@ -1345,54 +1343,83 @@ public class VtsMultiDeviceTest
             printToDeviceLogcatAboutTestModuleStatus("BEGIN");
 
             CommandResult commandResult = new CommandResult();
-            String interruptMessage = vtsPythonRunnerHelper.runPythonRunner(
-                    cmd.toArray(new String[0]), commandResult, timeout);
+            String interruptMessage;
 
+            File stdOutFile = FileUtil.createTempFile("vts_python_runner_stdout", ".log");
+            File stdErrFile = FileUtil.createTempFile("vts_python_runner_stderr", ".log");
+
+            OutputStream stdOut = new FileOutputStream(stdOutFile);
+            OutputStream stdErr = new FileOutputStream(stdErrFile);
             List<String> errorMsgs = new ArrayList<>();
-            if (commandResult != null) {
-                CommandStatus commandStatus = commandResult.getStatus();
-                if (commandStatus != CommandStatus.SUCCESS
-                        && commandStatus != CommandStatus.TIMED_OUT) {
-                    errorMsgs.add("Python process failed");
-                    errorMsgs.add("Command stdout: " + commandResult.getStdout());
-                    errorMsgs.add("Command stderr: " + commandResult.getStderr());
-                    errorMsgs.add("Command status: " + commandStatus);
+
+            try {
+                interruptMessage = vtsPythonRunnerHelper.runPythonRunner(
+                        cmd.toArray(new String[0]), commandResult, timeout, stdOut, stdErr);
+
+                if (commandResult != null) {
+                    CommandStatus commandStatus = commandResult.getStatus();
+                    if (commandStatus != CommandStatus.SUCCESS
+                            && commandStatus != CommandStatus.TIMED_OUT) {
+                        errorMsgs.add("Python process failed");
+                        // Log the last 2k bytes of stdOutFile and stdErrFile
+                        String skippedBytesMsg = "";
+                        long startOffset = 0;
+                        if (stdOutFile.length() > 2048) {
+                            startOffset = stdOutFile.length() - 2048;
+                            skippedBytesMsg = String.format(
+                                    "...... <%d bytes skipped> ......\n", startOffset);
+                        }
+                        errorMsgs.add(String.format("Command stdout: %s%s", skippedBytesMsg,
+                                FileUtil.readStringFromFile(stdOutFile, startOffset, 2048)));
+                        skippedBytesMsg = "";
+                        startOffset = 0;
+                        if (stdErrFile.length() > 2048) {
+                            startOffset = stdErrFile.length() - 2048;
+                            skippedBytesMsg = String.format(
+                                    "...... <%d bytes skipped> ......\n", startOffset);
+                        }
+                        errorMsgs.add(String.format("Command stderr: %s%s", skippedBytesMsg,
+                                FileUtil.readStringFromFile(stdErrFile, startOffset, 2048)));
+                        errorMsgs.add("Command status: " + commandStatus);
+                    }
+                }
+            } finally {
+                StreamUtil.close(stdOut);
+                StreamUtil.close(stdErr);
+                listener.testLog(stdOutFile.getName(), LogDataType.TEXT,
+                        new FileInputStreamSource(stdOutFile));
+                listener.testLog(stdErrFile.getName(), LogDataType.TEXT,
+                        new FileInputStreamSource(stdErrFile));
+                FileUtil.deleteFile(stdOutFile);
+                FileUtil.deleteFile(stdErrFile);
+            }
+
+            // parse from test_run_summary.json instead of stdout
+            File testRunSummary = getFileTestRunSummary(vtsRunnerLogDir);
+            if (testRunSummary == null) {
+                errorMsgs.add("Couldn't locate the file : " + TEST_RUN_SUMMARY_FILE_NAME);
+            } else {
+                JSONObject object = null;
+                try {
+                    String jsonData = FileUtil.readStringFromFile(testRunSummary);
+                    CLog.d("Test Result Summary: %s", jsonData);
+                    object = new JSONObject(jsonData);
+                    parser.processJsonFile(object);
+                } catch (IOException | JSONException e) {
+                    errorMsgs.add("Error occurred in parsing Json file " + testRunSummary.toPath());
+                    CLog.e(e);
+                }
+                try {
+                    JSONObject planObject = object.getJSONObject(TESTMODULE);
+                    String test_module_name = planObject.getString("Name");
+                    long test_module_timestamp = planObject.getLong("Timestamp");
+                    AddTestModuleKeys(test_module_name, test_module_timestamp);
+                } catch (JSONException e) {
+                    // Do not report this as part of errorMsgs. These are optional metadata
+                    CLog.e(e);
                 }
             }
 
-            if (mUseStdoutLogs) {
-                if (commandResult.getStdout() == null) {
-                    errorMsgs.add("The stdout is null for CommandResult.");
-                }
-                parser.processNewLines(commandResult.getStdout().split("\n"));
-            } else {
-                // parse from test_run_summary.json instead of stdout
-                File testRunSummary = getFileTestRunSummary(vtsRunnerLogDir);
-                if (testRunSummary == null) {
-                    errorMsgs.add("Couldn't locate the file : " + TEST_RUN_SUMMARY_FILE_NAME);
-                } else {
-                    JSONObject object = null;
-                    try {
-                        String jsonData = FileUtil.readStringFromFile(testRunSummary);
-                        CLog.d("Test Result Summary: %s", jsonData);
-                        object = new JSONObject(jsonData);
-                        parser.processJsonFile(object);
-                    } catch (IOException | JSONException e) {
-                        errorMsgs.add(
-                                "Error occurred in parsing Json file " + testRunSummary.toPath());
-                        CLog.e(e);
-                    }
-                    try {
-                        JSONObject planObject = object.getJSONObject(TESTMODULE);
-                        String test_module_name = planObject.getString("Name");
-                        long test_module_timestamp = planObject.getLong("Timestamp");
-                        AddTestModuleKeys(test_module_name, test_module_timestamp);
-                    } catch (JSONException e) {
-                        // Do not report this as part of errorMsgs. These are optional metadata
-                        CLog.e(e);
-                    }
-                }
-            }
             if (errorMsgs.size() > 0) {
                 CLog.e(String.join(".\n", errorMsgs));
                 listener.testRunFailed(String.join(".\n", errorMsgs));
@@ -1404,6 +1431,8 @@ public class VtsMultiDeviceTest
             if (interruptMessage != null) {
                 throw new RuntimeException(interruptMessage);
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         } finally {
             try {
                 mOutputUtil.ZipVtsRunnerOutputDir(vtsRunnerLogDir);
@@ -1425,7 +1454,7 @@ public class VtsMultiDeviceTest
             }
             // If the framework was disabled in python, make sure we re-enable it no matter what.
             // The python side never re-enable the framework.
-            if (mBinaryTestDisableFramework || mStopNativeServers) {
+            if (mBinaryTestDisableFramework || mDisableFramework) {
                 for (ITestDevice device : mInvocationContext.getDevices()) {
                     device.executeShellCommand("start");
                 }
@@ -1467,7 +1496,7 @@ public class VtsMultiDeviceTest
     }
 
     /**
-     * Set the path for android-vts/testcases/ which keeps the VTS python code under vts.
+     * Set the path for android-vts10/testcases/ which keeps the VTS python code under vts.
      */
     private void setTestCaseDir() {
         try {

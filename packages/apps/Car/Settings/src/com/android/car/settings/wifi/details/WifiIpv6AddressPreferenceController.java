@@ -18,6 +18,7 @@ package com.android.car.settings.wifi.details;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.net.LinkAddress;
+import android.net.LinkProperties;
 
 import androidx.core.text.BidiFormatter;
 import androidx.preference.Preference;
@@ -45,11 +46,13 @@ public class WifiIpv6AddressPreferenceController extends
 
     @Override
     protected void updateState(Preference preference) {
+        LinkProperties linkProperties = getWifiInfoProvider().getLinkProperties();
         StringJoiner ipv6Addresses = new StringJoiner(System.lineSeparator());
-
-        for (LinkAddress addr : getWifiInfoProvider().getLinkProperties().getLinkAddresses()) {
-            if (addr.getAddress() instanceof Inet6Address) {
-                ipv6Addresses.add(addr.getAddress().getHostAddress());
+        if (linkProperties != null) {
+            for (LinkAddress addr : linkProperties.getLinkAddresses()) {
+                if (addr.getAddress() instanceof Inet6Address) {
+                    ipv6Addresses.add(addr.getAddress().getHostAddress());
+                }
             }
         }
 

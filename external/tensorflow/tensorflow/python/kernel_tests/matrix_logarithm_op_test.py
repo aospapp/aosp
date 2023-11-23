@@ -18,7 +18,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import numpy as np
 
 from tensorflow.python.client import session
@@ -60,6 +59,8 @@ class LogarithmOpTest(test.TestCase):
 
   @test_util.run_v1_only("b/120545219")
   def testNonsymmetric(self):
+    if test.is_built_with_rocm():
+      self.skipTest("ROCm does not support BLAS operations for complex types")
     # 2x2 matrices
     matrix1 = np.array([[1., 2.], [3., 4.]])
     matrix2 = np.array([[1., 3.], [3., 5.]])
@@ -74,6 +75,8 @@ class LogarithmOpTest(test.TestCase):
 
   @test_util.run_v1_only("b/120545219")
   def testSymmetricPositiveDefinite(self):
+    if test.is_built_with_rocm():
+      self.skipTest("ROCm does not support BLAS operations for complex types")
     # 2x2 matrices
     matrix1 = np.array([[2., 1.], [1., 2.]])
     matrix2 = np.array([[3., -1.], [-1., 3.]])
@@ -108,6 +111,8 @@ class LogarithmOpTest(test.TestCase):
 
   @test_util.run_v1_only("b/120545219")
   def testRandomSmallAndLargeComplex64(self):
+    if test.is_built_with_rocm():
+      self.skipTest("ROCm does not support BLAS operations for complex types")
     np.random.seed(42)
     for batch_dims in [(), (1,), (3,), (2, 2)]:
       for size in 8, 31, 32:
@@ -119,6 +124,8 @@ class LogarithmOpTest(test.TestCase):
 
   @test_util.run_v1_only("b/120545219")
   def testRandomSmallAndLargeComplex128(self):
+    if test.is_built_with_rocm():
+      self.skipTest("ROCm does not support BLAS operations for complex types")
     np.random.seed(42)
     for batch_dims in [(), (1,), (3,), (2, 2)]:
       for size in 8, 31, 32:

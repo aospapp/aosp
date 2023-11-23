@@ -6,4 +6,7 @@
     <int name="maxImageHeight" value="1944"/>
     <int name="maxMessageSize" value="614400"/>
     <int name="maxImageWidth" value="2592"/>
+    <string-array name="carrier_certificate_string_array" num="1">
+        <item value="a0058f6467628ea2031c4c9d8519abecb2671f6a1752b15a89369cdcb8d2952b"/>
+    </string-array>
 </carrier_config>

@@ -22,9 +22,12 @@
 #include <media/AudioTimestamp.h>
 #include <media/IAudioTrack.h>
 #include <media/AudioResamplerPublic.h>
-#include <media/MediaAnalyticsItem.h>
+#include <media/MediaMetricsItem.h>
 #include <media/Modulo.h>
 #include <utils/threads.h>
+
+#include "android/media/BnAudioTrackCallback.h"
+#include "android/media/IAudioTrackCallback.h"
 
 namespace android {
 
@@ -107,6 +110,11 @@ public:
             int16_t*    i16;      // signed 16-bit
             int8_t*     i8;       // unsigned 8-bit, offset by 0x80
         };                        // input to obtainBuffer(): unused, output: pointer to buffer
+
+        uint32_t    sequence;       // IAudioTrack instance sequence number, as of obtainBuffer().
+                                    // It is set by obtainBuffer() and confirmed by releaseBuffer().
+                                    // Not "user-serviceable".
+                                    // TODO Consider sp<IMemory> instead, or in addition to this.
     };
 
     /* As a convenience, if a callback is supplied, a handler thread
@@ -400,7 +408,20 @@ public:
     /*
      * return metrics information for the current track.
      */
-            status_t getMetrics(MediaAnalyticsItem * &item);
+            status_t getMetrics(mediametrics::Item * &item);
+
+    /*
+     * Set name of API that is using this object.
+     * For example "aaudio" or "opensles".
+     * This may be logged or reported as part of MediaMetrics.
+     */
+            void setCallerName(const std::string &name) {
+                mCallerName = name;
+            }
+
+            std::string getCallerName() const {
+                return mCallerName;
+            };
 
     /* After it's created the track is not active. Call start() to
      * make it active. If set, the callback will start being called.
@@ -692,14 +713,17 @@ public:
      *  frameCount  number of [empty slots for] frames requested
      *  size        ignored
      *  raw         ignored
+     *  sequence    ignored
      * After error return:
      *  frameCount  0
      *  size        0
      *  raw         undefined
+     *  sequence    undefined
      * After successful return:
      *  frameCount  actual number of [empty slots for] frames available, <= number requested
      *  size        actual number of bytes available
      *  raw         pointer to the buffer
+     *  sequence    IAudioTrack instance sequence number, as of obtainBuffer()
      */
             status_t    obtainBuffer(Buffer* audioBuffer, int32_t waitCount,
                                 size_t *nonContig = NULL);
@@ -877,8 +901,6 @@ public:
             virtual void onAudioDeviceUpdate(audio_io_handle_t audioIo,
                                              audio_port_handle_t deviceId);
 
-
-
     /* Obtain the pending duration in milliseconds for playback of pure PCM
      * (mixable without embedded timing) data remaining in AudioTrack.
      *
@@ -925,6 +947,10 @@ public:
      */
             audio_port_handle_t getPortId() const { return mPortId; };
 
+            void setAudioTrackCallback(const sp<media::IAudioTrackCallback>& callback) {
+                mAudioTrackCallback->setAudioTrackCallback(callback);
+            }
+
  protected:
     /* copying audio tracks is not allowed */
                         AudioTrack(const AudioTrack& other);
@@ -934,7 +960,7 @@ public:
     class AudioTrackThread : public Thread
     {
     public:
-        AudioTrackThread(AudioTrack& receiver);
+        explicit AudioTrackThread(AudioTrack& receiver);
 
         // Do not call Thread::requestExitAndWait() without first calling requestExit().
         // Thread::requestExitAndWait() is not virtual, and the implementation doesn't do enough.
@@ -1213,7 +1239,7 @@ public:
 private:
     class DeathNotifier : public IBinder::DeathRecipient {
     public:
-        DeathNotifier(AudioTrack* audioTrack) : mAudioTrack(audioTrack) { }
+        explicit DeathNotifier(AudioTrack* audioTrack) : mAudioTrack(audioTrack) { }
     protected:
         virtual void        binderDied(const wp<IBinder>& who);
     private:
@@ -1230,21 +1256,35 @@ private:
 private:
     class MediaMetrics {
       public:
-        MediaMetrics() : mAnalyticsItem(MediaAnalyticsItem::create("audiotrack")) {
+        MediaMetrics() : mMetricsItem(mediametrics::Item::create("audiotrack")) {
         }
         ~MediaMetrics() {
-            // mAnalyticsItem alloc failure will be flagged in the constructor
+            // mMetricsItem alloc failure will be flagged in the constructor
             // don't log empty records
-            if (mAnalyticsItem->count() > 0) {
-                mAnalyticsItem->selfrecord();
+            if (mMetricsItem->count() > 0) {
+                mMetricsItem->selfrecord();
             }
         }
         void gather(const AudioTrack *track);
-        MediaAnalyticsItem *dup() { return mAnalyticsItem->dup(); }
+        mediametrics::Item *dup() { return mMetricsItem->dup(); }
       private:
-        std::unique_ptr<MediaAnalyticsItem> mAnalyticsItem;
+        std::unique_ptr<mediametrics::Item> mMetricsItem;
     };
     MediaMetrics mMediaMetrics;
+    std::string mMetricsId;  // GUARDED_BY(mLock), could change in createTrack_l().
+    std::string mCallerName; // for example "aaudio"
+
+private:
+    class AudioTrackCallback : public media::BnAudioTrackCallback {
+    public:
+        binder::Status onCodecFormatChanged(const std::vector<uint8_t>& audioMetadata) override;
+
+        void setAudioTrackCallback(const sp<media::IAudioTrackCallback>& callback);
+    private:
+        Mutex mAudioTrackCbLock;
+        wp<media::IAudioTrackCallback> mCallback;
+    };
+    sp<AudioTrackCallback> mAudioTrackCallback;
 };
 
 }; // namespace android

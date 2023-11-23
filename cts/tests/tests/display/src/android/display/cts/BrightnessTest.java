@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
 import android.app.UiAutomation;
@@ -88,10 +89,9 @@ public class BrightnessTest {
 
     @Test
     public void testBrightnessSliderTracking() throws InterruptedException {
-        if (numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) == 0) {
-            // Don't run as there is no app that has permission to access slider usage.
-            return;
-        }
+        // Don't run as there is no app that has permission to access slider usage.
+        assumeTrue(
+                numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) > 0);
 
         int previousBrightness = getSystemSetting(Settings.System.SCREEN_BRIGHTNESS);
         int previousBrightnessMode =
@@ -139,10 +139,10 @@ public class BrightnessTest {
 
     @Test
     public void testNoTrackingForManualBrightness() throws InterruptedException {
-        if (numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) == 0) {
-            // Don't run as there is no app that has permission to access slider usage.
-            return;
-        }
+        // Don't run as there is no app that has permission to access slider usage.
+        assumeTrue(
+                numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) > 0);
+
         int previousBrightness = getSystemSetting(Settings.System.SCREEN_BRIGHTNESS);
         int previousBrightnessMode =
                 getSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE);
@@ -164,6 +164,52 @@ public class BrightnessTest {
             Thread.sleep(200);
             // There shouldn't be any events.
             assertTrue(getNewEvents().isEmpty());
+        } finally {
+            setSystemSetting(Settings.System.SCREEN_BRIGHTNESS, previousBrightness);
+            setSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE, previousBrightnessMode);
+        }
+    }
+
+    @Test
+    public void testNoColorSampleData() throws InterruptedException {
+          // Don't run as there is no app that has permission to access slider usage.
+        assumeTrue(
+                numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) > 0);
+
+        // Don't run as there is no app that has permission to push curves.
+        assumeTrue(numberOfSystemAppsWithPermission(
+                Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) > 0);
+
+        int previousBrightness = getSystemSetting(Settings.System.SCREEN_BRIGHTNESS);
+        int previousBrightnessMode =
+                getSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE);
+        try {
+            setSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
+            int mode = getSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE);
+            assertEquals(Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC, mode);
+
+            grantPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE);
+            grantPermission(Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS);
+
+            // Set brightness config to not sample color.
+            BrightnessConfiguration config =
+                    new BrightnessConfiguration.Builder(
+                            new float[]{0.0f, 1000.0f},new float[]{20.0f, 500.0f})
+                            .setShouldCollectColorSamples(false).build();
+            mDisplayManager.setBrightnessConfiguration(config);
+
+            // Setup and generate one slider event.
+            recordSliderEvents();
+            waitForFirstSliderEvent();
+            setSystemSetting(Settings.System.SCREEN_BRIGHTNESS, 20);
+            List<BrightnessChangeEvent> newEvents = getNewEvents(1);
+
+            // No color samples.
+            assertEquals(0, newEvents.get(0).colorSampleDuration);
+            assertNull(newEvents.get(0).colorValueBuckets);
+
+            // No test for sampling color as support is optional.
         } finally {
             setSystemSetting(Settings.System.SCREEN_BRIGHTNESS, previousBrightness);
             setSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE, previousBrightnessMode);
@@ -203,13 +249,13 @@ public class BrightnessTest {
 
     @Test
     public void testSetGetSimpleCurve() {
-        if (numberOfSystemAppsWithPermission(
-                    Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) == 0) {
-            // Don't run as there is no app that has permission to push curves.
-            return;
-        }
+        // Don't run as there is no app that has permission to push curves.
+        assumeTrue(numberOfSystemAppsWithPermission(
+                Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) > 0);
 
         grantPermission(Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS);
+
+        BrightnessConfiguration defaultConfig = mDisplayManager.getDefaultBrightnessConfiguration();
 
         BrightnessConfiguration config =
                 new BrightnessConfiguration.Builder(
@@ -218,16 +264,28 @@ public class BrightnessTest {
                                 BrightnessCorrection.createScaleAndTranslateLog(0.80f, 0.2f))
                         .addCorrectionByPackageName("some.package.name",
                                 BrightnessCorrection.createScaleAndTranslateLog(0.70f, 0.1f))
+                        .setShortTermModelTimeoutMillis(
+                                defaultConfig.getShortTermModelTimeoutMillis() + 1000L)
+                        .setShortTermModelLowerLuxMultiplier(
+                                defaultConfig.getShortTermModelLowerLuxMultiplier() + 0.2f)
+                        .setShortTermModelUpperLuxMultiplier(
+                                defaultConfig.getShortTermModelUpperLuxMultiplier() + 0.3f)
                         .setDescription("some test").build();
         mDisplayManager.setBrightnessConfiguration(config);
         BrightnessConfiguration returnedConfig = mDisplayManager.getBrightnessConfiguration();
         assertEquals(config, returnedConfig);
-        assertEquals(config.getCorrectionByCategory(ApplicationInfo.CATEGORY_IMAGE),
+        assertEquals(returnedConfig.getCorrectionByCategory(ApplicationInfo.CATEGORY_IMAGE),
                 BrightnessCorrection.createScaleAndTranslateLog(0.80f, 0.2f));
-        assertEquals(config.getCorrectionByPackageName("some.package.name"),
+        assertEquals(returnedConfig.getCorrectionByPackageName("some.package.name"),
                 BrightnessCorrection.createScaleAndTranslateLog(0.70f, 0.1f));
-        assertNull(config.getCorrectionByCategory(ApplicationInfo.CATEGORY_GAME));
-        assertNull(config.getCorrectionByPackageName("someother.package.name"));
+        assertNull(returnedConfig.getCorrectionByCategory(ApplicationInfo.CATEGORY_GAME));
+        assertNull(returnedConfig.getCorrectionByPackageName("someother.package.name"));
+        assertEquals(defaultConfig.getShortTermModelTimeoutMillis() + 1000L,
+                returnedConfig.getShortTermModelTimeoutMillis());
+        assertEquals(defaultConfig.getShortTermModelLowerLuxMultiplier() + 0.2f,
+                returnedConfig.getShortTermModelLowerLuxMultiplier(), 0.001f);
+        assertEquals(defaultConfig.getShortTermModelUpperLuxMultiplier() + 0.3f,
+                returnedConfig.getShortTermModelUpperLuxMultiplier(), 0.001f);
 
         // After clearing the curve we should get back the default curve.
         mDisplayManager.setBrightnessConfiguration(null);
@@ -237,10 +295,9 @@ public class BrightnessTest {
 
     @Test
     public void testGetDefaultCurve()  {
-        if (numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) == 0) {
-            // Don't run as there is no app that has permission to push curves.
-            return;
-        }
+        // Don't run as there is no app that has permission to push curves.
+        assumeTrue(numberOfSystemAppsWithPermission(
+                Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) > 0);
 
         grantPermission(Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS);
 
@@ -256,20 +313,24 @@ public class BrightnessTest {
         assertEquals(0.0, curve.first[0], 0.1);
         assertMonotonic(curve.first, true /*strictly increasing*/, "lux");
         assertMonotonic(curve.second, false /*strictly increasing*/, "nits");
+        assertTrue(defaultConfig.getShortTermModelLowerLuxMultiplier() > 0.0f);
+        assertTrue(defaultConfig.getShortTermModelLowerLuxMultiplier() < 10.0f);
+        assertTrue(defaultConfig.getShortTermModelUpperLuxMultiplier() > 0.0f);
+        assertTrue(defaultConfig.getShortTermModelUpperLuxMultiplier() < 10.0f);
+        assertTrue(defaultConfig.getShortTermModelTimeoutMillis() > 0L);
+        assertTrue(defaultConfig.getShortTermModelTimeoutMillis() < 24 * 60 * 60 * 1000L);
+        assertFalse(defaultConfig.shouldCollectColorSamples());
     }
 
 
     @Test
     public void testSliderEventsReflectCurves() throws InterruptedException {
-        if (numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) == 0) {
-            // Don't run as there is no app that has permission to access slider usage.
-            return;
-        }
-        if (numberOfSystemAppsWithPermission(
-                    Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) == 0) {
-            // Don't run as there is no app that has permission to push curves.
-            return;
-        }
+        // Don't run as there is no app that has permission to access slider usage.
+        assumeTrue(
+                numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) > 0);
+        // Don't run as there is no app that has permission to push curves.
+        assumeTrue(numberOfSystemAppsWithPermission(
+                Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) > 0);
 
         BrightnessConfiguration config =
                 new BrightnessConfiguration.Builder(

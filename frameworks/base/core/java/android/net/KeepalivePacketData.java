@@ -16,13 +16,13 @@
 
 package android.net;
 
-import static android.net.SocketKeepalive.ERROR_INVALID_IP_ADDRESS;
-import static android.net.SocketKeepalive.ERROR_INVALID_PORT;
+import static android.net.InvalidPacketException.ERROR_INVALID_IP_ADDRESS;
+import static android.net.InvalidPacketException.ERROR_INVALID_PORT;
 
-import android.net.SocketKeepalive.InvalidPacketException;
+import android.annotation.IntRange;
+import android.annotation.NonNull;
+import android.annotation.SystemApi;
 import android.net.util.IpUtils;
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.util.Log;
 
 import java.net.InetAddress;
@@ -30,38 +30,45 @@ import java.net.InetAddress;
 /**
  * Represents the actual packets that are sent by the
  * {@link android.net.SocketKeepalive} API.
- *
  * @hide
  */
-public class KeepalivePacketData implements Parcelable {
+@SystemApi
+public class KeepalivePacketData {
     private static final String TAG = "KeepalivePacketData";
 
     /** Source IP address */
-    public final InetAddress srcAddress;
+    @NonNull
+    private final InetAddress mSrcAddress;
 
     /** Destination IP address */
-    public final InetAddress dstAddress;
+    @NonNull
+    private final InetAddress mDstAddress;
 
     /** Source port */
-    public final int srcPort;
+    private final int mSrcPort;
 
     /** Destination port */
-    public final int dstPort;
+    private final int mDstPort;
 
     /** Packet data. A raw byte string of packet data, not including the link-layer header. */
     private final byte[] mPacket;
 
-    protected static final int IPV4_HEADER_LENGTH = 20;
-    protected static final int UDP_HEADER_LENGTH = 8;
+    // Note: If you add new fields, please modify the parcelling code in the child classes.
+
 
     // This should only be constructed via static factory methods, such as
-    // nattKeepalivePacket
-    protected KeepalivePacketData(InetAddress srcAddress, int srcPort,
-            InetAddress dstAddress, int dstPort, byte[] data) throws InvalidPacketException {
-        this.srcAddress = srcAddress;
-        this.dstAddress = dstAddress;
-        this.srcPort = srcPort;
-        this.dstPort = dstPort;
+    // nattKeepalivePacket.
+    /**
+     * A holding class for data necessary to build a keepalive packet.
+     */
+    protected KeepalivePacketData(@NonNull InetAddress srcAddress,
+            @IntRange(from = 0, to = 65535) int srcPort, @NonNull InetAddress dstAddress,
+            @IntRange(from = 0, to = 65535) int dstPort,
+            @NonNull byte[] data) throws InvalidPacketException {
+        this.mSrcAddress = srcAddress;
+        this.mDstAddress = dstAddress;
+        this.mSrcPort = srcPort;
+        this.mDstPort = dstPort;
         this.mPacket = data;
 
         // Check we have two IP addresses of the same family.
@@ -78,42 +85,34 @@ public class KeepalivePacketData implements Parcelable {
         }
     }
 
+    /** Get source IP address. */
+    @NonNull
+    public InetAddress getSrcAddress() {
+        return mSrcAddress;
+    }
+
+    /** Get destination IP address. */
+    @NonNull
+    public InetAddress getDstAddress() {
+        return mDstAddress;
+    }
+
+    /** Get source port number. */
+    public int getSrcPort() {
+        return mSrcPort;
+    }
+
+    /** Get destination port number. */
+    public int getDstPort() {
+        return mDstPort;
+    }
+
+    /**
+     * Returns a byte array of the given packet data.
+     */
+    @NonNull
     public byte[] getPacket() {
         return mPacket.clone();
     }
-
-    /* Parcelable Implementation */
-    public int describeContents() {
-        return 0;
-    }
-
-    /** Write to parcel */
-    public void writeToParcel(Parcel out, int flags) {
-        out.writeString(srcAddress.getHostAddress());
-        out.writeString(dstAddress.getHostAddress());
-        out.writeInt(srcPort);
-        out.writeInt(dstPort);
-        out.writeByteArray(mPacket);
-    }
-
-    protected KeepalivePacketData(Parcel in) {
-        srcAddress = NetworkUtils.numericToInetAddress(in.readString());
-        dstAddress = NetworkUtils.numericToInetAddress(in.readString());
-        srcPort = in.readInt();
-        dstPort = in.readInt();
-        mPacket = in.createByteArray();
-    }
-
-    /** Parcelable Creator */
-    public static final @android.annotation.NonNull Parcelable.Creator<KeepalivePacketData> CREATOR =
-            new Parcelable.Creator<KeepalivePacketData>() {
-                public KeepalivePacketData createFromParcel(Parcel in) {
-                    return new KeepalivePacketData(in);
-                }
-
-                public KeepalivePacketData[] newArray(int size) {
-                    return new KeepalivePacketData[size];
-                }
-            };
 
 }

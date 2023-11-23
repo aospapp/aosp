@@ -77,11 +77,13 @@ public class KeyValueBackupAgent extends BackupAgent {
 
     @Override
     public void onQuotaExceeded(long backupDataBytes, long quotaBytes) {
+        super.onQuotaExceeded(backupDataBytes, quotaBytes);
         Log.d(MainActivity.TAG, "Quota exceeded!");
     }
 
     @Override
     public void onRestoreFinished() {
+        super.onRestoreFinished();
         Log.d(MainActivity.TAG, "onRestoreFinished");
     }
 

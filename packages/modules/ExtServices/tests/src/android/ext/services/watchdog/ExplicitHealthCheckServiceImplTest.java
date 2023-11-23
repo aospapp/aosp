@@ -33,6 +33,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.os.RemoteCallback;
+import android.provider.DeviceConfig;
 import android.service.watchdog.ExplicitHealthCheckService;
 import android.service.watchdog.IExplicitHealthCheckService;
 
@@ -41,6 +42,7 @@ import androidx.test.rule.ServiceTestRule;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -54,6 +56,8 @@ import java.util.concurrent.CountDownLatch;
 public class ExplicitHealthCheckServiceImplTest {
     private static final String NETWORK_STACK_CONNECTOR_CLASS =
             "android.net.INetworkStackConnector";
+    private static final String PROPERTY_WATCHDOG_EXPLICIT_HEALTH_CHECK_ENABLED =
+            "watchdog_explicit_health_check_enabled";
 
     private final Context mContext = InstrumentationRegistry.getContext();
     private IExplicitHealthCheckService mService;
@@ -68,17 +72,32 @@ public class ExplicitHealthCheckServiceImplTest {
                 .getInstrumentation()
                 .getUiAutomation()
                 .adoptShellPermissionIdentity(
-                        Manifest.permission.BIND_EXPLICIT_HEALTH_CHECK_SERVICE);
+                        Manifest.permission.BIND_EXPLICIT_HEALTH_CHECK_SERVICE,
+                        Manifest.permission.WRITE_DEVICE_CONFIG);
 
+        executeShellCommand("svc wifi disable");
+        executeShellCommand("svc data disable");
         mServiceTestRule = new ServiceTestRule();
         mService = IExplicitHealthCheckService.Stub.asInterface(
                 mServiceTestRule.bindService(getExtServiceIntent()));
         mNetworkStackPackageName = getNetworkStackPackage();
         assumeFalse(mNetworkStackPackageName == null);
+        DeviceConfig.setProperty(DeviceConfig.NAMESPACE_ROLLBACK,
+                ExplicitHealthCheckServiceImpl.PROPERTY_WATCHDOG_REQUEST_TIMEOUT_MILLIS,
+                Long.toString(ExplicitHealthCheckServiceImpl.DEFAULT_REQUEST_TIMEOUT_MILLIS),
+                false);
+        DeviceConfig.setProperty(DeviceConfig.NAMESPACE_ROLLBACK,
+                PROPERTY_WATCHDOG_EXPLICIT_HEALTH_CHECK_ENABLED,
+                Boolean.toString(false), /* makeDefault */ false);
     }
 
     @After
     public void tearDown() {
+        DeviceConfig.setProperty(DeviceConfig.NAMESPACE_ROLLBACK,
+                PROPERTY_WATCHDOG_EXPLICIT_HEALTH_CHECK_ENABLED,
+                Boolean.toString(true), /* makeDefault */ false);
+        executeShellCommand("svc wifi enable");
+        executeShellCommand("svc data enable");
         InstrumentationRegistry
                 .getInstrumentation()
                 .getUiAutomation()
@@ -105,6 +124,7 @@ public class ExplicitHealthCheckServiceImplTest {
     }
 
     @Test
+    @Ignore
     public void testHealthCheckRequests() throws Exception {
         List<String> requestedPackages = new ArrayList<>();
         CountDownLatch latch1 = new CountDownLatch(1);
@@ -197,5 +217,12 @@ public class ExplicitHealthCheckServiceImplTest {
             return null;
         }
         return resolveInfo.serviceInfo;
+    }
+
+    private void executeShellCommand(String command) {
+        InstrumentationRegistry
+                .getInstrumentation()
+                .getUiAutomation()
+                .executeShellCommand(command);
     }
 }

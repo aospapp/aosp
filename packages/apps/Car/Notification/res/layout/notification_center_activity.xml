@@ -30,7 +30,7 @@
         android:focusable="true"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
-        <ImageButton
+        <ImageView
             android:layout_width="@dimen/notification_primary_icon_size"
             android:layout_height="@dimen/notification_primary_icon_size"
             android:layout_gravity="center"
@@ -59,7 +59,7 @@
         style="@style/ClearAllButtonHeader"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <com.android.car.apps.common.widget.PagedRecyclerView
+    <com.android.car.ui.recyclerview.CarUiRecyclerView
         android:id="@+id/notifications"
         android:layout_width="0dp"
         android:layout_height="0dp"

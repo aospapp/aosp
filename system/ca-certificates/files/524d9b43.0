@@ -31,7 +31,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             40:1a:c4:64:21:b3:13:21:03:0e:bb:e4:12:1a:c5:1d
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=(c) 2008 VeriSign, Inc. - For authorized use only, CN=VeriSign Universal Root Certification Authority
         Validity
             Not Before: Apr  2 00:00:00 2008 GMT
@@ -39,7 +39,7 @@ Certificate:
         Subject: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=(c) 2008 VeriSign, Inc. - For authorized use only, CN=VeriSign Universal Root Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:c7:61:37:5e:b1:01:34:db:62:d7:15:9b:ff:58:
                     5a:8c:23:23:d6:60:8e:91:d7:90:98:83:7a:e6:58:

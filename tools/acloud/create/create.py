@@ -22,7 +22,6 @@ image artifacts.
 
 from __future__ import print_function
 
-from distutils.spawn import find_executable
 import os
 import subprocess
 import sys
@@ -32,16 +31,20 @@ from acloud.create import avd_spec
 from acloud.create import cheeps_remote_image_remote_instance
 from acloud.create import gce_local_image_remote_instance
 from acloud.create import gce_remote_image_remote_instance
+from acloud.create import goldfish_local_image_local_instance
 from acloud.create import goldfish_remote_image_remote_instance
 from acloud.create import local_image_local_instance
 from acloud.create import local_image_remote_instance
+from acloud.create import local_image_remote_host
 from acloud.create import remote_image_remote_instance
 from acloud.create import remote_image_local_instance
+from acloud.create import remote_image_remote_host
 from acloud.internal import constants
 from acloud.internal.lib import utils
 from acloud.setup import setup
 from acloud.setup import gcp_setup_runner
 from acloud.setup import host_setup_runner
+
 
 _MAKE_CMD = "build/soong/soong_ui.bash"
 _MAKE_ARG = "--make-mode"
@@ -57,16 +60,22 @@ _CREATOR_CLASS_DICT = {
         local_image_local_instance.LocalImageLocalInstance,
     (constants.TYPE_CF, constants.IMAGE_SRC_LOCAL, constants.INSTANCE_TYPE_REMOTE):
         local_image_remote_instance.LocalImageRemoteInstance,
+    (constants.TYPE_CF, constants.IMAGE_SRC_LOCAL, constants.INSTANCE_TYPE_HOST):
+        local_image_remote_host.LocalImageRemoteHost,
     (constants.TYPE_CF, constants.IMAGE_SRC_REMOTE, constants.INSTANCE_TYPE_REMOTE):
         remote_image_remote_instance.RemoteImageRemoteInstance,
     (constants.TYPE_CF, constants.IMAGE_SRC_REMOTE, constants.INSTANCE_TYPE_LOCAL):
         remote_image_local_instance.RemoteImageLocalInstance,
+    (constants.TYPE_CF, constants.IMAGE_SRC_REMOTE, constants.INSTANCE_TYPE_HOST):
+        remote_image_remote_host.RemoteImageRemoteHost,
     # Cheeps types
     (constants.TYPE_CHEEPS, constants.IMAGE_SRC_REMOTE, constants.INSTANCE_TYPE_REMOTE):
         cheeps_remote_image_remote_instance.CheepsRemoteImageRemoteInstance,
     # GF types
     (constants.TYPE_GF, constants.IMAGE_SRC_REMOTE, constants.INSTANCE_TYPE_REMOTE):
         goldfish_remote_image_remote_instance.GoldfishRemoteImageRemoteInstance,
+    (constants.TYPE_GF, constants.IMAGE_SRC_LOCAL, constants.INSTANCE_TYPE_LOCAL):
+        goldfish_local_image_local_instance.GoldfishLocalImageLocalInstance,
 }
 
 
@@ -106,7 +115,7 @@ def _CheckForAutoconnect(args):
     Args:
         args: Namespace object from argparse.parse_args.
     """
-    if not args.autoconnect or find_executable(constants.ADB_BIN):
+    if not args.autoconnect or utils.FindExecutable(constants.ADB_BIN):
         return
 
     disable_autoconnect = False
@@ -151,18 +160,17 @@ def _CheckForSetup(args):
     Args:
         args: Namespace object from argparse.parse_args.
     """
-    run_setup = False
     # Need to set all these so if we need to run setup, it won't barf on us
     # because of some missing fields.
     args.gcp_init = False
     args.host = False
+    args.host_base = False
     args.force = False
     # Remote image/instance requires the GCP config setup.
     if not args.local_instance or args.local_image == "":
         gcp_setup = gcp_setup_runner.GcpTaskRunner(args.config_file)
         if gcp_setup.ShouldRun():
             args.gcp_init = True
-            run_setup = True
 
     # Local instance requires host to be setup. We'll assume that if the
     # packages were installed, then the user was added into the groups. This
@@ -174,7 +182,13 @@ def _CheckForSetup(args):
         host_pkg_setup = host_setup_runner.AvdPkgInstaller()
         if host_pkg_setup.ShouldRun():
             args.host = True
-            run_setup = True
+
+    # Install base packages if we haven't already.
+    host_base_setup = host_setup_runner.HostBasePkgInstaller()
+    if host_base_setup.ShouldRun():
+        args.host_base = True
+
+    run_setup = args.force or args.gcp_init or args.host or args.host_base
 
     if run_setup:
         answer = utils.InteractWithQuestion("Missing necessary acloud setup, "
@@ -201,13 +215,16 @@ def Run(args):
 
     Args:
         args: Namespace object from argparse.parse_args.
+
+    Returns:
+        A Report instance.
     """
-    PreRunCheck(args)
+    if not args.skip_pre_run_check:
+        PreRunCheck(args)
     spec = avd_spec.AVDSpec(args)
     avd_creator_class = GetAvdCreatorClass(spec.avd_type,
                                            spec.instance_type,
                                            spec.image_source)
     avd_creator = avd_creator_class()
     report = avd_creator.Create(spec, args.no_prompt)
-    if report and args.report_file:
-        report.Dump(args.report_file)
+    return report

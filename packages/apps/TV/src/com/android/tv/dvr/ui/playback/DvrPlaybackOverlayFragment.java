@@ -26,24 +26,25 @@ import android.media.tv.TvContentRating;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvTrackInfo;
 import android.os.Bundle;
-import android.support.v17.leanback.app.PlaybackFragment;
-import android.support.v17.leanback.app.PlaybackFragmentGlueHost;
-import android.support.v17.leanback.widget.ArrayObjectAdapter;
-import android.support.v17.leanback.widget.BaseOnItemViewClickedListener;
-import android.support.v17.leanback.widget.ClassPresenterSelector;
-import android.support.v17.leanback.widget.HeaderItem;
-import android.support.v17.leanback.widget.ListRow;
-import android.support.v17.leanback.widget.Presenter;
-import android.support.v17.leanback.widget.RowPresenter;
-import android.support.v17.leanback.widget.SinglePresenterSelector;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+import androidx.leanback.app.PlaybackFragment;
+import androidx.leanback.app.PlaybackFragmentGlueHost;
+import androidx.leanback.widget.ArrayObjectAdapter;
+import androidx.leanback.widget.BaseOnItemViewClickedListener;
+import androidx.leanback.widget.ClassPresenterSelector;
+import androidx.leanback.widget.HeaderItem;
+import androidx.leanback.widget.ListRow;
+import androidx.leanback.widget.Presenter;
+import androidx.leanback.widget.RowPresenter;
+import androidx.leanback.widget.SinglePresenterSelector;
 import com.android.tv.R;
-import com.android.tv.TvSingletons;
-import com.android.tv.data.BaseProgram;
+import com.android.tv.audio.AudioManagerHelper;
+import com.android.tv.common.buildtype.HasBuildType.BuildType;
+import com.android.tv.data.api.BaseProgram;
 import com.android.tv.dialog.PinDialogFragment;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.data.RecordedProgram;
@@ -55,8 +56,11 @@ import com.android.tv.ui.AppLayerTvView;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvTrackInfoUtils;
 import com.android.tv.util.Utils;
+import dagger.android.AndroidInjection;
+import com.android.tv.common.flags.LegacyFlags;
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
 
 public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     // TODO: Handles audio focus. Deals with block and ratings.
@@ -75,7 +79,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     private ArrayObjectAdapter mRowsAdapter;
     private SortedArrayAdapter<BaseProgram> mRelatedRecordingsRowAdapter;
     private DvrPlaybackCardPresenter mRelatedRecordingCardPresenter;
-    private DvrDataManager mDvrDataManager;
+    private AudioManagerHelper mAudioManagerHelper;
     private AppLayerTvView mTvView;
     private View mBlockScreenView;
     private ListRow mRelatedRecordingsRow;
@@ -97,9 +101,24 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
                 }
             };
 
+    @Inject DvrDataManager mDvrDataManager;
+    @Inject LegacyFlags mLegacyFlags;
+    @Inject BuildType buildType;
+
+    @Override
+    public void onAttach(Context context) {
+        if (DEBUG) {
+            Log.d(TAG, "onAttach");
+        }
+        AndroidInjection.inject(this);
+        super.onAttach(context);
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        if (DEBUG) Log.d(TAG, "onCreate");
+        if (DEBUG) {
+            Log.d(TAG, "onCreate");
+        }
         super.onCreate(savedInstanceState);
         mVerticalPaddingBase =
                 getActivity()
@@ -115,7 +134,6 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
                         .getResources()
                         .getDimensionPixelOffset(
                                 R.dimen.dvr_playback_overlay_padding_top_no_secondary_row);
-        mDvrDataManager = TvSingletons.getSingletons(getActivity()).getDvrDataManager();
         if (!mDvrDataManager.isRecordedProgramLoadFinished()) {
             mDvrDataManager.addRecordedProgramLoadFinishedListener(
                     new DvrDataManager.OnRecordedProgramLoadFinishedListener() {
@@ -153,6 +171,8 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         mTvView = getActivity().findViewById(R.id.dvr_tv_view);
+        mTvView.setUseSecureSurface(
+                buildType != BuildType.ENG && !mLegacyFlags.enableDeveloperFeatures());
         mBlockScreenView = getActivity().findViewById(R.id.block_screen);
         mDvrPlayer = new DvrPlayer(mTvView, getActivity());
         mMediaSessionHelper =
@@ -240,13 +260,16 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
                             setFadingEnabled(false);
                             long programId =
                                     ((RecordedProgram) itemViewHolder.view.getTag()).getId();
-                            if (DEBUG) Log.d(TAG, "Play Related Recording:" + programId);
+                            if (DEBUG) {
+                                Log.d(TAG, "Play Related Recording:" + programId);
+                            }
                             Intent intent = new Intent(getContext(), DvrPlaybackActivity.class);
                             intent.putExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_ID, programId);
                             getContext().startActivity(intent);
                         }
                     }
                 });
+        mAudioManagerHelper = new AudioManagerHelper(getActivity(), mDvrPlayer.getView());
         if (mProgram != null) {
             setUpRows();
             preparePlayback(getActivity().getIntent());
@@ -255,7 +278,9 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
 
     @Override
     public void onPause() {
-        if (DEBUG) Log.d(TAG, "onPause");
+        if (DEBUG) {
+            Log.d(TAG, "onPause");
+        }
         super.onPause();
         if (mMediaSessionHelper.getPlaybackState() == PlaybackState.STATE_FAST_FORWARDING
                 || mMediaSessionHelper.getPlaybackState() == PlaybackState.STATE_REWINDING) {
@@ -270,9 +295,12 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
 
     @Override
     public void onDestroy() {
-        if (DEBUG) Log.d(TAG, "onDestroy");
+        if (DEBUG) {
+            Log.d(TAG, "onDestroy");
+        }
         mPlaybackControlHelper.unregisterCallback();
         mMediaSessionHelper.release();
+        mAudioManagerHelper.abandonAudioFocus();
         mRelatedRecordingCardPresenter.unbindAllViewHolders();
         mDvrPlayer.release();
         super.onDestroy();
@@ -416,6 +444,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     private void preparePlayback(Intent intent) {
         mMediaSessionHelper.setupPlayback(mProgram, getSeekTimeFromIntent(intent));
         mPlaybackControlHelper.updateSecondaryRow(false, false);
+        mAudioManagerHelper.requestAudioFocus();
         getActivity().getMediaController().getTransportControls().prepare();
         updateRelatedRecordingsRow();
     }

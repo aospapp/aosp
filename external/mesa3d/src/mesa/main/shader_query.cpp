@@ -29,7 +29,6 @@
  */
 
 #include "main/context.h"
-#include "main/core.h"
 #include "main/enums.h"
 #include "main/shaderapi.h"
 #include "main/shaderobj.h"
@@ -534,6 +533,11 @@ _mesa_program_resource_find_name(struct gl_shader_program *shProg,
 
       /* Resource basename. */
       const char *rname = _mesa_program_resource_name(res);
+
+      /* Since ARB_gl_spirv lack of name reflections is a possibility */
+      if (rname == NULL)
+         continue;
+
       unsigned baselen = strlen(rname);
       unsigned baselen_without_array_index = baselen;
       const char *rname_last_square_bracket = strrchr(rname, '[');
@@ -859,7 +863,7 @@ program_resource_location(struct gl_program_resource *res, unsigned array_index)
       *     "A valid name cannot be a structure, an array of structures, or any
       *     portion of a single vector or a matrix."
       */
-      if (RESOURCE_UNI(res)->type->without_array()->is_record())
+      if (RESOURCE_UNI(res)->type->without_array()->is_struct())
          return -1;
 
       /* From the GL_ARB_uniform_buffer_object spec:

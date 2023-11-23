@@ -74,7 +74,7 @@ HOST_CORE_IMG_LOCATION := $(HOST_OUT_JAVA_LIBRARIES)/core.art
 TARGET_CORE_IMG_LOCATION := $(ART_TARGET_TEST_OUT)/core.art
 
 # Modules to compile for core.art.
-CORE_IMG_JARS := core-oj core-libart okhttp bouncycastle apache-xml
+CORE_IMG_JARS := core-oj core-libart core-icu4j okhttp bouncycastle apache-xml
 HOST_CORE_IMG_JARS   := $(addsuffix -hostdex,$(CORE_IMG_JARS))
 TARGET_CORE_IMG_JARS := $(addsuffix -testdex,$(CORE_IMG_JARS))
 HOST_CORE_IMG_DEX_LOCATIONS   := $(foreach jar,$(HOST_CORE_IMG_JARS),  $(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
@@ -102,7 +102,7 @@ TARGET_CORE_DEX_FILES := $(foreach jar,$(TARGET_TEST_CORE_JARS),$(call intermedi
 ART_HOST_DEX_DEPENDENCIES := $(foreach jar,$(HOST_TEST_CORE_JARS),$(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
 ART_TARGET_DEX_DEPENDENCIES := $(foreach jar,$(TARGET_TEST_CORE_JARS),$(TARGET_OUT_JAVA_LIBRARIES)/$(jar).jar)
 
-ART_CORE_SHARED_LIBRARIES := libjavacore libopenjdk libopenjdkjvm libopenjdkjvmti
+ART_CORE_SHARED_LIBRARIES := libicu_jni libjavacore libopenjdk libopenjdkjvm libopenjdkjvmti
 ART_CORE_SHARED_DEBUG_LIBRARIES := libopenjdkd libopenjdkjvmd libopenjdkjvmtid
 ART_HOST_SHARED_LIBRARY_DEPENDENCIES := $(foreach lib,$(ART_CORE_SHARED_LIBRARIES), $(ART_HOST_OUT_SHARED_LIBRARIES)/$(lib)$(ART_HOST_SHLIB_EXTENSION))
 ART_HOST_SHARED_LIBRARY_DEBUG_DEPENDENCIES := $(foreach lib,$(ART_CORE_SHARED_DEBUG_LIBRARIES), $(ART_HOST_OUT_SHARED_LIBRARIES)/$(lib)$(ART_HOST_SHLIB_EXTENSION))
@@ -111,10 +111,11 @@ ART_HOST_SHARED_LIBRARY_DEPENDENCIES += $(foreach lib,$(ART_CORE_SHARED_LIBRARIE
 ART_HOST_SHARED_LIBRARY_DEBUG_DEPENDENCIES += $(foreach lib,$(ART_CORE_SHARED_DEBUG_LIBRARIES), $(2ND_HOST_OUT_SHARED_LIBRARIES)/$(lib).so)
 endif
 
-ART_TARGET_SHARED_LIBRARY_DEPENDENCIES := $(foreach lib,$(ART_CORE_SHARED_LIBRARIES), $(TARGET_OUT_SHARED_LIBRARIES)/$(lib).so)
+# Both the primary and the secondary arches of the libs are built by depending
+# on the module name.
+ART_DEBUG_TARGET_SHARED_LIBRARY_DEPENDENCIES := $(foreach lib,$(ART_CORE_SHARED_LIBRARIES), $(lib).com.android.art.debug)
 ART_TARGET_SHARED_LIBRARY_DEBUG_DEPENDENCIES := $(foreach lib,$(ART_CORE_SHARED_DEBUG_LIBRARIES), $(TARGET_OUT_SHARED_LIBRARIES)/$(lib).so)
 ifdef TARGET_2ND_ARCH
-ART_TARGET_SHARED_LIBRARY_DEPENDENCIES += $(foreach lib,$(ART_CORE_SHARED_LIBRARIES), $(2ND_TARGET_OUT_SHARED_LIBRARIES)/$(lib).so)
 ART_TARGET_SHARED_LIBRARY_DEBUG_DEPENDENCIES += $(foreach lib,$(ART_CORE_SHARED_DEBUG_LIBRARIES), $(2ND_TARGET_OUT_SHARED_LIBRARIES)/$(lib).so)
 endif
 
@@ -146,5 +147,16 @@ endif
 ifneq ($(ART_BUILD_HOST_DEBUG),false)
 ART_HOST_EXECUTABLES += $(foreach name,$(ART_CORE_DEBUGGABLE_EXECUTABLES),$(name)d-host)
 endif
+
+# Release ART APEX, included by default in "user" builds.
+RELEASE_ART_APEX := com.android.art.release
+# Debug ART APEX, included by default in "userdebug" and "eng"
+# builds and used in ART device benchmarking.
+DEBUG_ART_APEX := com.android.art.debug
+# Testing ART APEX, used in ART device testing.
+TESTING_ART_APEX := com.android.art.testing
+
+# Conscrypt APEX
+CONSCRYPT_APEX := com.android.conscrypt
 
 endif # ART_ANDROID_COMMON_PATH_MK

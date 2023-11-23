@@ -17,6 +17,7 @@ import static android.app.AppOpsManager.OPSTR_BIND_ACCESSIBILITY_SERVICE;
 
 import static junit.framework.Assert.assertTrue;
 
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.content.Context;
 import android.platform.test.annotations.Presubmit;
 
@@ -25,12 +26,17 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.AppOpsUtils;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 @Presubmit
 public class AccessibilityLoggingTest {
+
+    @Rule
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
 
     /**
      * Tests that new accessibility services are logged by the system.

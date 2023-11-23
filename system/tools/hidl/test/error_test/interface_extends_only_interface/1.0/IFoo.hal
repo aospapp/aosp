@@ -15,5 +15,6 @@
  */
 package test.interface_extends_only_interface@1.0;
 
-interface IFoo extends IStruct /* struct, not interface */ {
+/* struct, not interface */
+interface IFoo extends IStruct {
 };

@@ -19,7 +19,7 @@ public class VvmDumpHandler {
         indentedWriter.println("******* OmtpVvm *******");
         indentedWriter.println("======= Configs =======");
         indentedWriter.increaseIndent();
-        for (PhoneAccountHandle handle : TelecomManager.from(context)
+        for (PhoneAccountHandle handle : context.getSystemService(TelecomManager.class)
                 .getCallCapablePhoneAccounts()) {
             int subId = PhoneAccountHandleConverter.toSubId(handle);
             indentedWriter.println(

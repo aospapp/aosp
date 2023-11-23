@@ -24,6 +24,7 @@ import android.telecom.Connection;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -38,6 +39,7 @@ import java.util.List;
  * able to be answered.
  */
 public class IncomingCallTestActivity extends PassFailButtons.Activity {
+    private static final String TAG = "TelecomIncomingCall";
 
     private Button mRegisterAndEnablePhoneAccount;
     private Button mConfirmPhoneAccountEnabled;
@@ -77,6 +79,7 @@ public class IncomingCallTestActivity extends PassFailButtons.Activity {
 
                 mConfirmPhoneAccountEnabled.setEnabled(true);
             } else {
+                Log.w(TAG, "Step 1 fail - couldn't register phone account");
                 mStep1Status.setImageResource(R.drawable.fs_error);
             }
         });
@@ -91,9 +94,11 @@ public class IncomingCallTestActivity extends PassFailButtons.Activity {
             PhoneAccount account = PhoneAccountUtils.getPhoneAccount(this);
             if (account != null && account.isEnabled()) {
                 getPassButton().setEnabled(true);
+                Log.i(TAG, "Step 1 pass - account is enabled.");
                 mStep1Status.setImageResource(R.drawable.fs_good);
                 mConfirmPhoneAccountEnabled.setEnabled(false);
             } else {
+                Log.w(TAG, "Step 1 fail - account is not enabled.");
                 mStep1Status.setImageResource(R.drawable.fs_error);
             }
         });
@@ -112,9 +117,11 @@ public class IncomingCallTestActivity extends PassFailButtons.Activity {
             TelecomManager telecomManager =
                     (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
             if (telecomManager == null) {
+                Log.w(TAG, "Step 2 fail - telecom service is null");
                 mStep2Status.setImageResource(R.drawable.fs_error);
                 return;
             }
+            Log.i(TAG, "Step 2 pass - adding new incoming call");
             telecomManager.addNewIncomingCall(PhoneAccountUtils.TEST_PHONE_ACCOUNT_HANDLE, extras);
             mStep2Status.setImageResource(R.drawable.fs_good);
         });
@@ -126,8 +133,10 @@ public class IncomingCallTestActivity extends PassFailButtons.Activity {
         }
         mConfirmIncomingCallAnswered.setOnClickListener(v -> {
             if (confirmIncomingCall()) {
+                Log.i(TAG, "Step 3 pass - new incoming call answered");
                 mStep3Status.setImageResource(R.drawable.fs_good);
             } else {
+                Log.w(TAG, "Step 3 fail - failed to answer new incoming call");
                 mStep3Status.setImageResource(R.drawable.fs_error);
             }
             PhoneAccountUtils.unRegisterTestPhoneAccount(this);
@@ -148,13 +157,16 @@ public class IncomingCallTestActivity extends PassFailButtons.Activity {
         List<CtsConnection> ongoingConnections =
                 CtsConnectionService.getConnectionService().getConnections();
         if (ongoingConnections == null || ongoingConnections.size() != 1) {
+            Log.w(TAG, "Step 3 fail - no ongoing call found");
             return false;
         }
         CtsConnection incomingConnection = ongoingConnections.get(0);
         if (!incomingConnection.isIncomingCall()) {
+            Log.w(TAG, "Step 3 fail - ongoing call isn't incoming");
             return false;
         }
         if (incomingConnection.getState() != Connection.STATE_ACTIVE) {
+            Log.w(TAG, "Step 3 fail - ongoing call is not active");
             return false;
         }
         incomingConnection.onDisconnect();

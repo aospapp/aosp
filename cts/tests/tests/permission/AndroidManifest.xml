@@ -47,6 +47,7 @@
                       android:name="android.permission.cts.groupC" />
 
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <application>
         <uses-library android:name="android.test.runner" />
         <activity android:name="android.permission.cts.PermissionStubActivity"

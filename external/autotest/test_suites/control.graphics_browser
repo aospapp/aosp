@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "graphics-gfx"
-NAME = "graphics"
+NAME = "graphics_browser"
 PURPOSE = "Test graphics browser level functionality."
 
 TIME = "MEDIUM"

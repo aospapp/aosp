@@ -32,7 +32,7 @@ namespace aarch64 {
 Counter::Counter(const char* name, CounterType type)
     : count_(0), enabled_(false), type_(type) {
   VIXL_ASSERT(name != NULL);
-  strncpy(name_, name, kCounterNameMaxLength);
+  strncpy(name_, name, kCounterNameMaxLength - 1);
   // Make sure `name_` is always NULL-terminated, even if the source's length is
   // higher.
   name_[kCounterNameMaxLength - 1] = '\0';
@@ -423,6 +423,14 @@ void Instrument::VisitLoadLiteral(const Instruction* instr) {
 }
 
 
+void Instrument::VisitLoadStorePAC(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("Load Integer");
+  counter->Increment();
+}
+
+
 void Instrument::InstrumentLoadStore(const Instruction* instr) {
   static Counter* load_int_counter = GetCounter("Load Integer");
   static Counter* store_int_counter = GetCounter("Store Integer");
@@ -487,6 +495,33 @@ void Instrument::VisitLoadStoreRegisterOffset(const Instruction* instr) {
   InstrumentLoadStore(instr);
 }
 
+void Instrument::VisitLoadStoreRCpcUnscaledOffset(const Instruction* instr) {
+  Update();
+  switch (instr->Mask(LoadStoreRCpcUnscaledOffsetMask)) {
+    case STLURB:
+    case STLURH:
+    case STLUR_w:
+    case STLUR_x: {
+      static Counter* counter = GetCounter("Store Integer");
+      counter->Increment();
+      break;
+    }
+    case LDAPURB:
+    case LDAPURSB_w:
+    case LDAPURSB_x:
+    case LDAPURH:
+    case LDAPURSH_w:
+    case LDAPURSH_x:
+    case LDAPUR_w:
+    case LDAPURSW:
+    case LDAPUR_x: {
+      static Counter* counter = GetCounter("Load Integer");
+      counter->Increment();
+      break;
+    }
+  }
+}
+
 
 void Instrument::VisitLoadStoreUnsignedOffset(const Instruction* instr) {
   Update();
@@ -522,6 +557,22 @@ void Instrument::VisitAddSubWithCarry(const Instruction* instr) {
   USE(instr);
   Update();
   static Counter* counter = GetCounter("Add/Sub DP");
+  counter->Increment();
+}
+
+
+void Instrument::VisitRotateRightIntoFlags(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("Other");
+  counter->Increment();
+}
+
+
+void Instrument::VisitEvaluateIntoFlags(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("Other");
   counter->Increment();
 }
 
@@ -892,6 +943,14 @@ void Instrument::VisitNEONPerm(const Instruction* instr) {
   USE(instr);
   Update();
   static Counter* counter = GetCounter("NEON");
+  counter->Increment();
+}
+
+
+void Instrument::VisitReserved(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("Other");
   counter->Increment();
 }
 

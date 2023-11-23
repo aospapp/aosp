@@ -1,7 +1,6 @@
 ###############################################################################
-# ERROR: AIDL API change detected on a released platform                      #
+# ERROR: AIDL API change detected                                             #
 ###############################################################################
-Above AIDL file(s) has changed and this is NEVER allowed on a release platform
-(i.e., PLATFORM_VERSION_CODENAME is REL). If a device is shipped with this
-change by ignoring this message, it has a high risk of breaking later when a
-module using the interface is updated, e.g., Maineline modules.
+Above AIDL file(s) has changed. Run `m %s-update-api` to reflect the changes
+to the current version so that it is reviewed by
+android-aidl-api-council@google.com

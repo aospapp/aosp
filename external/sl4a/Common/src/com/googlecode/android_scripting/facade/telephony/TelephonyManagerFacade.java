@@ -25,8 +25,9 @@ import android.database.Cursor;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.RemoteException;
-import android.os.SystemProperties;
 import android.provider.Telephony;
+import android.sysprop.TelephonyProperties;
+import android.telephony.AvailableNetworkInfo;
 import android.telephony.CellInfo;
 import android.telephony.CellLocation;
 import android.telephony.NeighboringCellInfo;
@@ -37,7 +38,6 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 
 import com.android.internal.telephony.RILConstants;
-import com.android.internal.telephony.TelephonyProperties;
 
 import com.google.common.io.BaseEncoding;
 import com.googlecode.android_scripting.Log;
@@ -45,9 +45,9 @@ import com.googlecode.android_scripting.facade.AndroidFacade;
 import com.googlecode.android_scripting.facade.EventFacade;
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
-                                                   .CallStateChangeListener;
-import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .ActiveDataSubIdChangeListener;
+import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
+                                                   .CallStateChangeListener;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .CellInfoChangeListener;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
@@ -66,6 +66,7 @@ import com.googlecode.android_scripting.rpc.RpcDefault;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -82,6 +83,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
     private final EventFacade mEventFacade;
     private final TelephonyManager mTelephonyManager;
     private final SubscriptionManager mSubscriptionManager;
+    private List<AvailableNetworkInfo> availableNetworkList;
     private HashMap<Integer, StateChangeListener> mStateChangeListeners =
                              new HashMap<Integer, StateChangeListener>();
 
@@ -131,6 +133,19 @@ public class TelephonyManagerFacade extends RpcReceiver {
             subId = SubscriptionManager.getDefaultVoiceSubscriptionId();
         }
         mTelephonyManager.factoryReset(subId);
+    }
+
+    /**
+    * Reset TelephonyManager settings to factory default.
+    * @param subId the subriber id to be reset, use default id if not provided.
+    */
+    @Rpc(description = "Resets Telephony and IMS settings to factory default.")
+    public void telephonyResetSettings(
+            @RpcOptional @RpcParameter(name = "subId") Integer subId) {
+        if (subId == null) {
+            subId = SubscriptionManager.getDefaultVoiceSubscriptionId();
+        }
+        mTelephonyManager.createForSubscriptionId(subId).resetSettings();
     }
 
     @Rpc(description = "Set network preference.")
@@ -737,9 +752,54 @@ public class TelephonyManagerFacade extends RpcReceiver {
             mTelephonyManager.getPhoneType());
     }
 
+    @Rpc(description = "Return if setAlwaysAllowMMSData is set correctly")
+    public boolean telephonySetAlwaysAllowMmsData(
+            @RpcParameter(name = "subId") Integer subId,
+            @RpcParameter(name = "alwaysAllow") Boolean alwaysAllow) {
+        return mTelephonyManager.createForSubscriptionId(subId).setAlwaysAllowMmsData(alwaysAllow);
+    }
+
+    /**
+    * Sets Data Roaming flag for a particular sub Id
+    * @param subId the subscriber id
+    * @param isEnabled can you set to true or false
+    */
+    @Rpc(description = "Sets data roaming for a sub Id")
+    public void telephonySetDataRoamingEnabled(
+            @RpcParameter(name = "subId") Integer subId,
+            @RpcParameter(name = "isEnabled") Boolean isEnabled) {
+        mTelephonyManager.createForSubscriptionId(subId).setDataRoamingEnabled(isEnabled);
+    }
+
     @Rpc(description = "Returns preferred opportunistic data subscription Id")
     public Integer telephonyGetPreferredOpportunisticDataSubscription() {
         return mTelephonyManager.getPreferredOpportunisticDataSubscription();
+    }
+
+    @Rpc(description = "Sets preferred opportunistic data subscription Id")
+    public void telephonySetPreferredOpportunisticDataSubscription(
+            @RpcParameter(name = "subId") Integer subId,
+            @RpcParameter(name = "needValidation") Boolean needValidation) {
+        mTelephonyManager.setPreferredOpportunisticDataSubscription(
+                   subId, needValidation, null, null);
+    }
+
+    @Rpc(description = "Updates Available Networks")
+    public void telephonyUpdateAvailableNetworks(
+            @RpcParameter(name = "subId") Integer subId) {
+
+        availableNetworkList = new ArrayList<>();
+        List<String> mccmmc = new ArrayList<String>();
+        List<Integer> bands = new ArrayList<Integer>();
+
+        availableNetworkList.add(
+            new AvailableNetworkInfo(
+                subId,
+                AvailableNetworkInfo.PRIORITY_HIGH,
+                mccmmc,
+                bands));
+
+        mTelephonyManager.updateAvailableNetworks(availableNetworkList, null, null);
     }
 
     /**
@@ -1164,7 +1224,8 @@ public class TelephonyManagerFacade extends RpcReceiver {
         String mcc = "";
         String mnc = "";
 
-        String numeric = SystemProperties.get(TelephonyProperties.PROPERTY_ICC_OPERATOR_NUMERIC);
+        List<String> numerics = TelephonyProperties.icc_operator_numeric();
+        String numeric = numerics.isEmpty() ? null : numerics.get(0);
         // MCC is first 3 chars and then in 2 - 3 chars of MNC
         if (numeric != null && numeric.length() > 4) {
             // Country code

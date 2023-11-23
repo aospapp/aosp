@@ -14,29 +14,45 @@
 
 import '../tracks/all_controller';
 
+import {reportError, setErrorHandler} from '../base/logging';
 import {Remote} from '../base/remote';
 import {warmupWasmEngine} from '../common/wasm_engine_proxy';
 
 import {AppController} from './app_controller';
 import {globals} from './globals';
 
-function main(port: MessagePort) {
-  warmupWasmEngine();
-  let receivedFrontendPort = false;
-  port.onmessage = ({data}) => {
-    if (receivedFrontendPort) {
-      globals.dispatch(data);
-      return;
-    }
-
-    const frontendPort = data as MessagePort;
-    const frontend = new Remote(frontendPort);
-    globals.initialize(new AppController(), frontend);
-    receivedFrontendPort = true;
+interface OnMessageArg {
+  data: {
+    frontendPort: MessagePort; controllerPort: MessagePort;
+    extensionPort: MessagePort;
+    errorReportingPort: MessagePort;
   };
 }
 
-main(self as {} as MessagePort);
+function main() {
+  self.addEventListener('error', e => reportError(e));
+  self.addEventListener('unhandledrejection', e => reportError(e));
+  warmupWasmEngine();
+  let initialized = false;
+  self.onmessage = ({data}: OnMessageArg) => {
+    if (initialized) {
+      console.error('Already initialized');
+      return;
+    }
+    initialized = true;
+    const frontendPort = data.frontendPort;
+    const controllerPort = data.controllerPort;
+    const extensionPort = data.extensionPort;
+    const errorReportingPort = data.errorReportingPort;
+    setErrorHandler((err: string) => errorReportingPort.postMessage(err));
+    const frontend = new Remote(frontendPort);
+    controllerPort.onmessage = ({data}) => globals.dispatch(data);
+
+    globals.initialize(new AppController(extensionPort), frontend);
+  };
+}
+
+main();
 
 // For devtools-based debugging.
 (self as {} as {globals: {}}).globals = globals;

@@ -20,8 +20,10 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.tv.TvInputManager;
 import android.support.annotation.IntDef;
+
 import com.android.tv.common.util.SharedPreferencesUtils;
 import com.android.tv.dvr.data.RecordedProgram;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -36,7 +38,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
  */
 public class DvrWatchedPositionManager {
     private SharedPreferences mWatchedPositions;
-    private final Map<Long, Set> mListeners = new HashMap<>();
+    private final Map<Long, Set<WatchedPositionChangedListener>> mListeners = new HashMap<>();
 
     /**
      * The minimum percentage of recorded program being watched that will be considered as being

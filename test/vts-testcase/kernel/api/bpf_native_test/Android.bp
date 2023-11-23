@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-cc_test {
-    name: "vts_test_binary_bpf_module",
+cc_defaults {
+    name: "binary_bpf_defaults",
     srcs: ["BpfTest.cpp"],
     shared_libs: [
         "libcgrouprc",
@@ -45,11 +45,28 @@ cc_test {
 
 bpf {
     name: "kern.o",
+    // header_libs: ["netd_bpf_progs_headers"],
+    include_dirs: ["system/netd/bpf_progs"],
     srcs: ["kern.c"],
     cflags: [
         "-Wall",
         "-Werror",
     ],
+}
+
+cc_test {
+    name: "bpf_module_test",
+    defaults: ["binary_bpf_defaults"],
+    test_config: "bpf_module_test.xml",
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
+}
+
+cc_test {
+    name: "vts_test_binary_bpf_module",
+    defaults: ["binary_bpf_defaults"],
 }
 
 vts_config {

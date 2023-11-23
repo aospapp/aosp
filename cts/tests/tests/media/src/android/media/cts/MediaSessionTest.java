@@ -18,8 +18,6 @@ package android.media.cts;
 import static android.media.AudioAttributes.USAGE_GAME;
 import static android.media.cts.Utils.compareRemoteUserInfo;
 
-import static org.junit.Assert.fail;
-
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -44,6 +42,7 @@ import android.os.Parcel;
 import android.os.Process;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
+import android.text.TextUtils;
 import android.view.KeyEvent;
 
 import java.util.ArrayList;
@@ -51,6 +50,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+@NonMediaMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaSessionTest extends AndroidTestCase {
     // The maximum time to wait for an operation that is expected to succeed.
@@ -62,10 +62,12 @@ public class MediaSessionTest extends AndroidTestCase {
     private static final String TEST_KEY = "test-key";
     private static final String TEST_VALUE = "test-val";
     private static final String TEST_SESSION_EVENT = "test-session-event";
+    private static final String TEST_VOLUME_CONTROL_ID = "test-volume-control-id";
     private static final int TEST_CURRENT_VOLUME = 10;
     private static final int TEST_MAX_VOLUME = 11;
     private static final long TEST_QUEUE_ID = 12L;
     private static final long TEST_ACTION = 55L;
+    private static final int TEST_TOO_MANY_SESSION_COUNT = 1000;
 
     private AudioManager mAudioManager;
     private Handler mHandler = new Handler(Looper.getMainLooper());
@@ -265,6 +267,86 @@ public class MediaSessionTest extends AndroidTestCase {
     }
 
     /**
+     * Test whether media button receiver can be a explicit broadcast receiver.
+     */
+    public void testSetMediaButtonReceiver_broadcastReceiver() throws Exception {
+        Intent intent = new Intent(mContext.getApplicationContext(), MediaButtonReceiver.class);
+        PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, intent, 0);
+
+        // Play a sound so this session can get the priority.
+        Utils.assertMediaPlaybackStarted(getContext());
+
+        // Sets the media button receiver. Framework would try to keep the pending intent in the
+        // persistent store.
+        mSession.setMediaButtonReceiver(pi);
+
+        // Call explicit release, so change in the media key event session can be notified with the
+        // pending intent.
+        mSession.release();
+
+        int keyCode = KeyEvent.KEYCODE_MEDIA_PLAY;
+        try {
+            CountDownLatch latch = new CountDownLatch(2);
+            MediaButtonReceiver.setCallback((keyEvent) -> {
+                assertEquals(keyCode, keyEvent.getKeyCode());
+                switch ((int) latch.getCount()) {
+                    case 2:
+                        assertEquals(KeyEvent.ACTION_DOWN, keyEvent.getAction());
+                        break;
+                    case 1:
+                        assertEquals(KeyEvent.ACTION_UP, keyEvent.getAction());
+                        break;
+                }
+                latch.countDown();
+            });
+            // Also try to dispatch media key event.
+            // System would try to dispatch event.
+            simulateMediaKeyInput(keyCode);
+
+            assertTrue(latch.await(TIME_OUT_MS, TimeUnit.MILLISECONDS));
+        } finally {
+            MediaButtonReceiver.setCallback(null);
+        }
+    }
+
+    /**
+     * Test whether system doesn't crash by
+     * {@link MediaSession#setMediaButtonReceiver(PendingIntent)} with implicit intent.
+     */
+    public void testSetMediaButtonReceiver_implicitIntent() throws Exception {
+        // Note: No such broadcast receiver exists.
+        Intent intent = new Intent("android.media.cts.ACTION_MEDIA_TEST");
+        PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, intent, 0);
+
+        // Play a sound so this session can get the priority.
+        Utils.assertMediaPlaybackStarted(getContext());
+
+        // Sets the media button receiver. Framework would try to keep the pending intent in the
+        // persistent store.
+        mSession.setMediaButtonReceiver(pi);
+
+        // Call explicit release, so change in the media key event session can be notified with the
+        // pending intent.
+        mSession.release();
+
+        // Also try to dispatch media key event. System would try to send key event via pending
+        // intent, but it would no-op because there's no receiver.
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+    }
+
+    /**
+     * Test public APIs of {@link VolumeProvider}.
+     */
+    public void testVolumeProvider() {
+        VolumeProvider vp = new VolumeProvider(VolumeProvider.VOLUME_CONTROL_RELATIVE,
+                TEST_MAX_VOLUME, TEST_CURRENT_VOLUME, TEST_VOLUME_CONTROL_ID) {};
+        assertEquals(VolumeProvider.VOLUME_CONTROL_RELATIVE, vp.getVolumeControl());
+        assertEquals(TEST_MAX_VOLUME, vp.getMaxVolume());
+        assertEquals(TEST_CURRENT_VOLUME, vp.getCurrentVolume());
+        assertEquals(TEST_VOLUME_CONTROL_ID, vp.getVolumeControlId());
+    }
+
+    /**
      * Test {@link MediaSession#setPlaybackToLocal} and {@link MediaSession#setPlaybackToRemote}.
      */
     public void testPlaybackToLocalAndRemote() throws Exception {
@@ -282,7 +364,7 @@ public class MediaSessionTest extends AndroidTestCase {
                 // expected
             }
             VolumeProvider vp = new VolumeProvider(VolumeProvider.VOLUME_CONTROL_FIXED,
-                    TEST_MAX_VOLUME, TEST_CURRENT_VOLUME) {};
+                    TEST_MAX_VOLUME, TEST_CURRENT_VOLUME, TEST_VOLUME_CONTROL_ID) {};
             mSession.setPlaybackToRemote(vp);
 
             MediaController.PlaybackInfo info = null;
@@ -295,7 +377,8 @@ public class MediaSessionTest extends AndroidTestCase {
                         && info.getMaxVolume() == TEST_MAX_VOLUME
                         && info.getVolumeControl() == VolumeProvider.VOLUME_CONTROL_FIXED
                         && info.getPlaybackType()
-                                == MediaController.PlaybackInfo.PLAYBACK_TYPE_REMOTE) {
+                                == MediaController.PlaybackInfo.PLAYBACK_TYPE_REMOTE
+                        && TextUtils.equals(info.getVolumeControlId(),TEST_VOLUME_CONTROL_ID)) {
                     break;
                 }
             }
@@ -304,6 +387,7 @@ public class MediaSessionTest extends AndroidTestCase {
             assertEquals(TEST_MAX_VOLUME, info.getMaxVolume());
             assertEquals(TEST_CURRENT_VOLUME, info.getCurrentVolume());
             assertEquals(VolumeProvider.VOLUME_CONTROL_FIXED, info.getVolumeControl());
+            assertEquals(TEST_VOLUME_CONTROL_ID, info.getVolumeControlId());
 
             info = controller.getPlaybackInfo();
             assertNotNull(info);
@@ -311,6 +395,7 @@ public class MediaSessionTest extends AndroidTestCase {
             assertEquals(TEST_MAX_VOLUME, info.getMaxVolume());
             assertEquals(TEST_CURRENT_VOLUME, info.getCurrentVolume());
             assertEquals(VolumeProvider.VOLUME_CONTROL_FIXED, info.getVolumeControl());
+            assertEquals(TEST_VOLUME_CONTROL_ID, info.getVolumeControlId());
 
             // test setPlaybackToLocal
             AudioAttributes attrs = new AudioAttributes.Builder().setUsage(USAGE_GAME).build();
@@ -320,6 +405,7 @@ public class MediaSessionTest extends AndroidTestCase {
             assertNotNull(info);
             assertEquals(MediaController.PlaybackInfo.PLAYBACK_TYPE_LOCAL, info.getPlaybackType());
             assertEquals(attrs, info.getAudioAttributes());
+            assertNull(info.getVolumeControlId());
         }
     }
 
@@ -496,8 +582,11 @@ public class MediaSessionTest extends AndroidTestCase {
     // This uses public APIs to dispatch key events, so sessions would consider this as
     // 'media key event from this application'.
     private void simulateMediaKeyInput(int keyCode) {
-        mAudioManager.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        mAudioManager.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
+        long downTime = System.currentTimeMillis();
+        mAudioManager.dispatchMediaKeyEvent(
+                new KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, keyCode, 0));
+        mAudioManager.dispatchMediaKeyEvent(
+                new KeyEvent(downTime, System.currentTimeMillis(), KeyEvent.ACTION_UP, keyCode, 0));
     }
 
     /**
@@ -569,6 +658,74 @@ public class MediaSessionTest extends AndroidTestCase {
             fail("Custom Parcelable shouldn't be accepted!");
         } catch (IllegalArgumentException e) {
             // Expected
+        }
+    }
+
+    /**
+     * An app should not be able to create too many sessions.
+     * See MediaSessionService#SESSION_CREATION_LIMIT_PER_UID
+     */
+    public void testSessionCreationLimit() {
+        List<MediaSession> sessions = new ArrayList<>();
+        try {
+            for (int i = 0; i < TEST_TOO_MANY_SESSION_COUNT; i++) {
+                sessions.add(new MediaSession(mContext, "testSessionCreationLimit"));
+            }
+            fail("The number of session should be limited!");
+        } catch (RuntimeException e) {
+            // Expected
+        } finally {
+            for (MediaSession session : sessions) {
+                session.release();
+            }
+        }
+    }
+
+    /**
+     * Check that calling {@link MediaSession#release()} multiple times for the same session
+     * does not decrement current session count multiple times.
+     */
+    public void testSessionCreationLimitWithMediaSessionRelease() {
+        MediaSession sessionToReleaseMultipleTimes = new MediaSession(
+                mContext, "testSessionCreationLimitWithMediaSessionRelease");
+        List<MediaSession> sessions = new ArrayList<>();
+        try {
+            for (int i = 0; i < TEST_TOO_MANY_SESSION_COUNT; i++) {
+                sessions.add(new MediaSession(
+                        mContext, "testSessionCreationLimitWithMediaSessionRelease"));
+                // Call release() many times with the same session.
+                sessionToReleaseMultipleTimes.release();
+            }
+            fail("The number of session should be limited!");
+        } catch (RuntimeException e) {
+            // Expected
+        } finally {
+            for (MediaSession session : sessions) {
+                session.release();
+            }
+        }
+    }
+
+    /**
+     * Check that calling {@link MediaSession2#close()} does not decrement current session count.
+     */
+    public void testSessionCreationLimitWithMediaSession2Release() {
+        List<MediaSession> sessions = new ArrayList<>();
+        try {
+            for (int i = 0; i < 1000; i++) {
+                sessions.add(new MediaSession(
+                        mContext, "testSessionCreationLimitWithMediaSession2Release"));
+
+                MediaSession2 session2 = new MediaSession2.Builder(mContext).build();
+                session2.close();
+            }
+            fail("The number of session should be limited!");
+        } catch (RuntimeException e) {
+            // Expected
+        } finally {
+            for (MediaSession session : sessions) {
+                session.release();
+            }
         }
     }
 

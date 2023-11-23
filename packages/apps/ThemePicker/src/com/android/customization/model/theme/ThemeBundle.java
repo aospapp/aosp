@@ -113,7 +113,7 @@ public class ThemeBundle implements CustomizationOption<ThemeBundle> {
                 mPreviewInfo.headlineFontFamily);
         if (mPreviewInfo.shapeDrawable != null) {
             ((ShapeDrawable) mPreviewInfo.shapeDrawable).getPaint().setColor(
-                    mPreviewInfo.colorAccentLight);
+                    mPreviewInfo.resolveAccentColor(res));
             ((ImageView) view.findViewById(R.id.theme_option_shape)).setImageDrawable(
                     mPreviewInfo.shapeDrawable);
         }

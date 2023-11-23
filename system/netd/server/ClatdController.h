@@ -63,8 +63,6 @@ class ClatdController {
         char v4iface[IFNAMSIZ];
         Fwmark fwmark;
         char fwmarkString[UINT32_STRLEN];
-        unsigned netId;
-        char netIdString[UINT32_STRLEN];
         in_addr v4;
         char v4Str[INET_ADDRSTRLEN];
         in6_addr v6;
@@ -82,6 +80,10 @@ class ClatdController {
     std::map<std::string, ClatdTracker> mClatdTrackers GUARDED_BY(mutex);
     ClatdTracker* getClatdTracker(const std::string& interface) REQUIRES(mutex);
 
+    void dumpEgress(netdutils::DumpWriter& dw) REQUIRES(mutex);
+    void dumpIngress(netdutils::DumpWriter& dw) REQUIRES(mutex);
+    void dumpTrackers(netdutils::DumpWriter& dw) REQUIRES(mutex);
+
     static in_addr_t selectIpv4Address(const in_addr ip, int16_t prefixlen);
     static int generateIpv6Address(const char* iface, const in_addr v4, const in6_addr& nat64Prefix,
                                    in6_addr* v6);
@@ -98,12 +100,12 @@ class ClatdController {
         return mClatEbpfMode;
     }
 
-    base::unique_fd mNetlinkFd GUARDED_BY(mutex);
+    bpf::BpfMap<ClatEgressKey, ClatEgressValue> mClatEgressMap GUARDED_BY(mutex);
     bpf::BpfMap<ClatIngressKey, ClatIngressValue> mClatIngressMap GUARDED_BY(mutex);
 
     void maybeStartBpf(const ClatdTracker& tracker) REQUIRES(mutex);
     void maybeStopBpf(const ClatdTracker& tracker) REQUIRES(mutex);
-    void maybeSetIptablesDropRule(bool add, const char* pfx96Str, const char* v6Str)
+    void setIptablesDropRule(bool add, const char* iface, const char* pfx96Str, const char* v6Str)
             REQUIRES(mutex);
 
     // For testing.

@@ -15,8 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.android.car.messenger">
+          package="com.android.car.messenger">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="26"/>
 
@@ -29,6 +28,7 @@
     <uses-permission android:name="android.permission.SEND_SMS"/>
     <uses-permission android:name="android.permission.READ_SMS"/>
     <uses-permission android:name="android.permission.WRITE_SMS"/>
+    <uses-permission android:name="android.car.permission.ACCESS_CAR_PROJECTION_STATUS"/>
 
     <application android:label="@string/app_name">
         <service android:name=".MessengerService"
@@ -85,13 +85,5 @@
                 <data android:scheme="mmsto" />
             </intent-filter>
         </activity>
-
-        <!-- Workaround for b/113294940 -->
-        <provider
-            android:name="androidx.lifecycle.ProcessLifecycleOwnerInitializer"
-            tools:replace="android:authorities"
-            android:authorities="${applicationId}.lifecycle-tests"
-            android:exported="false"
-            android:multiprocess="true" />
     </application>
 </manifest>

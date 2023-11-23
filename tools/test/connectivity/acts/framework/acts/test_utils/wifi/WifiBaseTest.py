@@ -24,10 +24,12 @@ import time
 import acts.controllers.access_point as ap
 
 from acts import asserts
+from acts import signals
 from acts import utils
 from acts.base_test import BaseTestClass
 from acts.signals import TestSignal
 from acts.controllers import android_device
+from acts.controllers.access_point import AccessPoint
 from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_bss_settings
 from acts.controllers.ap_lib import hostapd_constants
@@ -39,9 +41,7 @@ MAX_AP_COUNT = 2
 
 
 class WifiBaseTest(BaseTestClass):
-    def __init__(self, controllers):
-        if not hasattr(self, 'android_devices'):
-            BaseTestClass.__init__(self, controllers)
+    def setup_class(self):
         if hasattr(self, 'attenuators') and self.attenuators:
             for attenuator in self.attenuators:
                 attenuator.set_atten(0)
@@ -316,11 +316,6 @@ class WifiBaseTest(BaseTestClass):
             ent_network_pwd=False,
             radius_conf_pwd=None,
             ap_count=1):
-        asserts.assert_true(
-            len(self.user_params["AccessPoint"]) == 2,
-            "Exactly two access points must be specified. \
-             Each access point has 2 radios, one each for 2.4GHZ \
-             and 5GHz. A test can choose to use one or both APs.")
 
         config_count = 1
         count = 0
@@ -343,6 +338,11 @@ class WifiBaseTest(BaseTestClass):
             self.user_params["ent_networks"] = []
         if ent_network_pwd:
             self.user_params["ent_networks_pwd"] = []
+
+        # kill hostapd & dhcpd if the cleanup was not successful
+        for i in range(len(self.access_points)):
+            self.log.debug("Check ap state and cleanup")
+            self._cleanup_hostapd_and_dhcpd(i)
 
         for count in range(config_count):
 
@@ -454,6 +454,58 @@ class WifiBaseTest(BaseTestClass):
             self.populate_bssid(AP_2, self.access_points[AP_2],
                 orig_network_list_5g, orig_network_list_2g)
 
+    def _kill_processes(self, ap, daemon):
+        """ Kill hostapd and dhcpd daemons
+
+        Args:
+            ap: AP to cleanup
+            daemon: process to kill
+
+        Returns: True/False if killing process is successful
+        """
+        self.log.info("Killing %s" % daemon)
+        pids = ap.ssh.run('pidof %s' % daemon, ignore_status=True)
+        if pids.stdout:
+            ap.ssh.run('kill %s' % pids.stdout, ignore_status=True)
+        time.sleep(3)
+        pids = ap.ssh.run('pidof %s' % daemon, ignore_status=True)
+        if pids.stdout:
+            return False
+        return True
+
+    def _cleanup_hostapd_and_dhcpd(self, count):
+        """ Check if AP was cleaned up properly
+
+        Kill hostapd and dhcpd processes if cleanup was not successful in the
+        last run
+
+        Args:
+            count: AP to check
+
+        Returns:
+            New AccessPoint object if AP required cleanup
+
+        Raises:
+            Error: if the AccessPoint timed out to setup
+        """
+        ap = self.access_points[count]
+        phy_ifaces = ap.interfaces.get_physical_interface()
+        kill_hostapd = False
+        for iface in phy_ifaces:
+            if '2g_' in iface or '5g_' in iface or 'xg_' in iface:
+                kill_hostapd = True
+                break
+
+        if not kill_hostapd:
+            return
+
+        self.log.debug("Cleanup AP")
+        if not self._kill_processes(ap, 'hostapd') or \
+            not self._kill_processes(ap, 'dhcpd'):
+              raise("Failed to cleanup AP")
+
+        ap.__init__(self.user_params['AccessPoint'][count])
+
     def _generate_legacy_ap_config(self, network_list):
         bss_settings = []
         wlan_2g = self.access_points[AP_1].wlan_2g
@@ -552,3 +604,46 @@ class WifiBaseTest(BaseTestClass):
             hostapd_constants.BAND_5G, channel_5g)
         if not result:
             raise ValueError("Failed to configure channel for 5G band.")
+
+    @staticmethod
+    def wifi_test_wrap(fn):
+        def _safe_wrap_test_case(self, *args, **kwargs):
+            test_id = "%s:%s:%s" % (self.__class__.__name__, self.test_name,
+                                    self.log_begin_time.replace(' ', '-'))
+            self.test_id = test_id
+            self.result_detail = ""
+            tries = int(self.user_params.get("wifi_auto_rerun", 3))
+            for ad in self.android_devices:
+                ad.log_path = self.log_path
+            for i in range(tries + 1):
+                result = True
+                if i > 0:
+                    log_string = "[Test Case] RETRY:%s %s" % (i, self.test_name)
+                    self.log.info(log_string)
+                    self._teardown_test(self.test_name)
+                    self._setup_test(self.test_name)
+                try:
+                    result = fn(self, *args, **kwargs)
+                except signals.TestFailure as e:
+                    self.log.warn("Error msg: %s" % e)
+                    if self.result_detail:
+                        signal.details = self.result_detail
+                    result = False
+                except signals.TestSignal:
+                    if self.result_detail:
+                        signal.details = self.result_detail
+                    raise
+                except Exception as e:
+                    self.log.exception(e)
+                    asserts.fail(self.result_detail)
+                if result is False:
+                    if i < tries:
+                        continue
+                else:
+                    break
+            if result is not False:
+                asserts.explicit_pass(self.result_detail)
+            else:
+                asserts.fail(self.result_detail)
+
+        return _safe_wrap_test_case

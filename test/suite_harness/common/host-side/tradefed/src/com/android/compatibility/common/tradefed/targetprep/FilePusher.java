@@ -37,6 +37,12 @@ public final class FilePusher extends PushFilePreparer {
     public File resolveRelativeFilePath(IBuildInfo buildInfo, String fileName) {
         return super.resolveRelativeFilePath(
                 buildInfo,
-                String.format("%s%s", fileName, mAppendBitness ? getAbi().getBitness() : ""));
+                String.format(
+                        "%s%s", fileName, shouldAppendBitness() ? getAbi().getBitness() : ""));
+    }
+
+    /** Whether or not to append bitness to the file name. */
+    public boolean shouldAppendBitness() {
+        return mAppendBitness;
     }
 }

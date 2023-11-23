@@ -29,7 +29,10 @@
 
 namespace android {
 
-constexpr char COMPONENT_NAME[] = "c2.android.av1.decoder";
+constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
+
+// codecname set and passed in as a compile flag from Android.bp
+constexpr char COMPONENT_NAME[] = CODECNAME;
 
 class C2SoftAomDec::IntfImpl : public SimpleInterface<void>::BaseParams {
   public:
@@ -111,7 +114,7 @@ class C2SoftAomDec::IntfImpl : public SimpleInterface<void>::BaseParams {
         addParameter(
             DefineParam(mMaxInputSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
                 .withDefault(
-                    new C2StreamMaxBufferSizeInfo::input(0u, 320 * 240 * 3 / 4))
+                    new C2StreamMaxBufferSizeInfo::input(0u, kMinInputBufferSize))
                 .withFields({
                     C2F(mMaxInputSize, value).any(),
                 })
@@ -191,8 +194,8 @@ class C2SoftAomDec::IntfImpl : public SimpleInterface<void>::BaseParams {
         const C2P<C2StreamMaxPictureSizeTuning::output>& maxSize) {
         (void)mayBlock;
         // assume compression ratio of 2
-        me.set().value = (((maxSize.v.width + 63) / 64) *
-                          ((maxSize.v.height + 63) / 64) * 3072);
+        me.set().value = c2_max((((maxSize.v.width + 63) / 64)
+                * ((maxSize.v.height + 63) / 64) * 3072), kMinInputBufferSize);
         return C2R::Ok();
     }
     static C2R DefaultColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsTuning::output> &me) {
@@ -340,6 +343,7 @@ status_t C2SoftAomDec::initDecoder() {
     aom_codec_flags_t flags;
     memset(&flags, 0, sizeof(aom_codec_flags_t));
 
+    ALOGV("Using libaom AV1 software decoder.");
     aom_codec_err_t err;
     if ((err = aom_codec_dec_init(mCodecCtx, aom_codec_av1_dx(), &cfg, 0))) {
         ALOGE("av1 decoder failed to initialize. (%d)", err);

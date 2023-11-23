@@ -13,10 +13,12 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/daily_refresh"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_marginTop="8dp"
     android:background="@color/secondary_color"
     android:clickable="true"
     android:focusable="true"
@@ -24,12 +26,14 @@
     android:paddingEnd="@dimen/rotation_tile_padding_right"
     android:paddingLeft="@dimen/rotation_tile_padding_left"
     android:paddingRight="@dimen/rotation_tile_padding_right"
-    android:paddingStart="@dimen/rotation_tile_padding_left">
+    android:paddingStart="@dimen/rotation_tile_padding_left"
+    app:cardCornerRadius="?android:dialogCornerRadius"
+    app:cardElevation="0dp">
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
+        android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="@dimen/rotation_tile_textarea_margin_bottom"
         android:orientation="vertical">
 
@@ -69,4 +73,4 @@
 
     </LinearLayout>
 
-</FrameLayout>
+</androidx.cardview.widget.CardView>

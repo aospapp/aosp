@@ -125,7 +125,7 @@ func setupVisitTest(t *testing.T) *Context {
 		`),
 	})
 
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints")
+	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
 	if len(errs) > 0 {
 		t.Errorf("unexpected parse errors:")
 		for _, err := range errs {
@@ -149,13 +149,13 @@ func setupVisitTest(t *testing.T) *Context {
 func TestVisit(t *testing.T) {
 	ctx := setupVisitTest(t)
 
-	topModule := ctx.modulesFromName("A", nil)[0].logicModule.(*visitModule)
+	topModule := ctx.moduleGroupFromName("A", nil).modules[0].logicModule.(*visitModule)
 	assertString(t, topModule.properties.VisitDepsDepthFirst, "FEDCB")
 	assertString(t, topModule.properties.VisitDepsDepthFirstIf, "FEDC")
 	assertString(t, topModule.properties.VisitDirectDeps, "B")
 	assertString(t, topModule.properties.VisitDirectDepsIf, "")
 
-	eModule := ctx.modulesFromName("E", nil)[0].logicModule.(*visitModule)
+	eModule := ctx.moduleGroupFromName("E", nil).modules[0].logicModule.(*visitModule)
 	assertString(t, eModule.properties.VisitDepsDepthFirst, "F")
 	assertString(t, eModule.properties.VisitDepsDepthFirstIf, "F")
 	assertString(t, eModule.properties.VisitDirectDeps, "FF")

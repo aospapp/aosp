@@ -20,6 +20,7 @@
 PRODUCT_PACKAGE_OVERLAYS += packages/services/Car/car_product/overlay
 
 PRODUCT_PACKAGES += \
+    com.android.wifi \
     Home \
     BasicDreams \
     CaptivePortalLogin \
@@ -51,7 +52,6 @@ PRODUCT_PACKAGES += \
     libspeexresampler \
     libvariablespeed \
     libwebrtc_audio_preprocessing \
-    wifi-service \
     A2dpSinkService \
     PackageInstaller \
     car-bugreportd \
@@ -69,7 +69,19 @@ PRODUCT_COPY_FILES += \
 
 # Default permission grant exceptions
 PRODUCT_COPY_FILES += \
-    packages/services/Car/car_product/build/default-car-permissions.xml:system/etc/default-permissions/default-car-permissions.xml
+    packages/services/Car/car_product/build/default-car-permissions.xml:system/etc/default-permissions/default-car-permissions.xml \
+    packages/services/Car/car_product/build/preinstalled-packages-product-car-base.xml:system/etc/sysconfig/preinstalled-packages-product-car-base.xml
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_minimal.mk)
 
+# Default dex optimization configurations
+PRODUCT_PROPERTY_OVERRIDES += \
+     pm.dexopt.disable_bg_dexopt=true
+
+# Required init rc files for car
+PRODUCT_COPY_FILES += \
+    packages/services/Car/car_product/init/init.bootstat.rc:system/etc/init/init.bootstat.car.rc \
+    packages/services/Car/car_product/init/init.car.rc:system/etc/init/init.car.rc
+
+# Enable car watchdog
+include packages/services/Car/watchdog/product/carwatchdog.mk

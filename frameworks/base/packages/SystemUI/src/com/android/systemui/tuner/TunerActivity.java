@@ -33,11 +33,18 @@ import com.android.systemui.Dependency;
 import com.android.systemui.R;
 import com.android.systemui.fragments.FragmentService;
 
+import javax.inject.Inject;
+
 public class TunerActivity extends Activity implements
         PreferenceFragment.OnPreferenceStartFragmentCallback,
         PreferenceFragment.OnPreferenceStartScreenCallback {
 
     private static final String TAG_TUNER = "tuner";
+
+    @Inject
+    TunerActivity() {
+        super();
+    }
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -49,8 +56,6 @@ public class TunerActivity extends Activity implements
         if (toolbar != null) {
             setActionBar(toolbar);
         }
-
-        Dependency.initDependencies(this);
 
         if (getFragmentManager().findFragmentByTag(TAG_TUNER) == null) {
             final String action = getIntent().getAction();
@@ -67,7 +72,6 @@ public class TunerActivity extends Activity implements
     protected void onDestroy() {
         super.onDestroy();
         Dependency.destroy(FragmentService.class, s -> s.destroyAll());
-        Dependency.clearDependencies();
     }
 
     @Override

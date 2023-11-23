@@ -17,6 +17,7 @@
 package android.hardware.display;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.os.Parcel;
@@ -26,6 +27,7 @@ import com.android.internal.util.Preconditions;
 
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * AmbientBrightnessDayStats stores and manipulates brightness stats over a single day.
@@ -69,8 +71,8 @@ public final class AmbientBrightnessDayStats implements Parcelable {
      */
     public AmbientBrightnessDayStats(@NonNull LocalDate localDate,
             @NonNull float[] bucketBoundaries, float[] stats) {
-        Preconditions.checkNotNull(localDate);
-        Preconditions.checkNotNull(bucketBoundaries);
+        Objects.requireNonNull(localDate);
+        Objects.requireNonNull(bucketBoundaries);
         Preconditions.checkArrayElementsInRange(bucketBoundaries, 0, Float.MAX_VALUE,
                 "bucketBoundaries");
         if (bucketBoundaries.length < 1) {
@@ -136,7 +138,7 @@ public final class AmbientBrightnessDayStats implements Parcelable {
             };
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }
@@ -161,6 +163,7 @@ public final class AmbientBrightnessDayStats implements Parcelable {
         return result;
     }
 
+    @NonNull
     @Override
     public String toString() {
         StringBuilder bucketBoundariesString = new StringBuilder();

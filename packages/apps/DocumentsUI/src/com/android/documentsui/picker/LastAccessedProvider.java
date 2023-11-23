@@ -38,6 +38,7 @@ import android.util.Log;
 
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.DurableUtils;
+import com.android.documentsui.base.UserId;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -122,9 +123,15 @@ public class LastAccessedProvider extends ContentProvider {
     static void setLastAccessed(
             ContentResolver resolver, String packageName, DocumentStack stack) {
         final ContentValues values = new ContentValues();
-        final byte[] rawStack = DurableUtils.writeToArrayOrNull(stack);
         values.clear();
-        values.put(Columns.STACK, rawStack);
+        if (stack.getRoot() != null && !UserId.CURRENT_USER.equals(stack.getRoot().userId)) {
+            // Do not remember and clear the stack if it is not from the current user. Next time
+            // it will launch into default root.
+            values.put(Columns.STACK, (Byte) null);
+        } else {
+            final byte[] rawStack = DurableUtils.writeToArrayOrNull(stack);
+            values.put(Columns.STACK, rawStack);
+        }
         values.put(Columns.EXTERNAL, 0);
         resolver.insert(buildLastAccessed(packageName), values);
     }

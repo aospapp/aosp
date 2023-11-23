@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
-
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
@@ -33,26 +31,6 @@ class policy_EditBookmarksEnabled(enterprise_policy_base.EnterprisePolicyTest):
         'NotSet_Enable': None
     }
 
-    def is_edit_bookmark_disabled(self):
-        """
-        Check whether bookmarks can be edited.
-
-        Checks the value of the 'globalCanEdit_' boolean, which controls whether
-        the user can add, edit, or delete bookmarks. Its value should mirror
-        the edit bookmark policy.
-
-        @returns: True if globalCanEdit_ is disabled.
-        """
-        tab = self.navigate_to_url('chrome://bookmarks')
-
-        is_disabled = tab.EvaluateJavaScript(
-                'var bcm = bookmarks.CommandManager.getInstance(); '
-                '!bcm.globalCanEdit_;')
-        logging.info('editing bookmarks is disabled: %s' % is_disabled)
-        tab.Close()
-
-        return is_disabled
-
     def _test_edit_bookmarks_enabled(self, policy_value):
         """
         Verify CrOS enforces EditBookmarksEnabled policy.
@@ -70,13 +48,13 @@ class policy_EditBookmarksEnabled(enterprise_policy_base.EnterprisePolicyTest):
         @param policy_value: policy value for this case.
 
         """
-        edit_bookmark_is_disabled = self.is_edit_bookmark_disabled()
-        if policy_value or policy_value is None:
-            if edit_bookmark_is_disabled:
-                raise error.TestFail('Edit Bookmark should be enabled.')
-        else:
-            if not edit_bookmark_is_disabled:
-                raise error.TestFail('Edit Bookmark should be disabled.')
+        boomark_present = self.ui.item_present('/Bookmark/', isRegex=True)
+        if policy_value is False and boomark_present:
+            raise error.TestError(
+                'Boomark option present and it should not be.')
+        elif policy_value is not False and not boomark_present:
+            raise error.TestError(
+                'Bookmark option not present and it should be.')
 
     def run_once(self, case):
         """
@@ -87,4 +65,5 @@ class policy_EditBookmarksEnabled(enterprise_policy_base.EnterprisePolicyTest):
         """
         case_value = self.TEST_CASES[case]
         self.setup_case(user_policies={self.POLICY_NAME: case_value})
+        self.ui.start_ui_root(self.cr)
         self._test_edit_bookmarks_enabled(case_value)

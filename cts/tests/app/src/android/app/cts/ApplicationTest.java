@@ -16,11 +16,16 @@
 
 package android.app.cts;
 
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import android.app.Activity;
 import android.app.Application;
 import android.app.Instrumentation;
 import android.app.stubs.MockApplication;
 import android.app.stubs.MockApplicationActivity;
+import android.content.ComponentCallbacks2;
 import android.content.Context;
 import android.content.Intent;
 import android.test.InstrumentationTestCase;
@@ -54,6 +59,17 @@ public class ApplicationTest extends InstrumentationTestCase {
         assertTrue(mockApp.isOnCreateCalled);
         toggleFontScale();
         assertTrue(waitForOnConfigurationChange(mockApp));
+    }
+
+    public void testOnTrimMemory() {
+        final int level = 2;
+        Application app = new Application();
+        ComponentCallbacks2 mockCallBack2 = mock(ComponentCallbacks2.class, CALLS_REAL_METHODS);
+        app.registerComponentCallbacks(mockCallBack2);
+
+        app.onTrimMemory(level);
+
+        verify(mockCallBack2).onTrimMemory(level);
     }
 
     // Font scale is a global configuration.

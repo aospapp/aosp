@@ -83,6 +83,12 @@ public class MonitorContendedEnterTest extends JDWPSyncTestCase {
         assertEquals("Invalid monitor class signature: ", monitorSignature
                 , actualSignature);
         logWriter.println("==> CHECK: monitor class signature: " + actualSignature);
+
+        // We don't actually need these in this test. They're used for the Entered test.
+        // Debuggee thinks the monitor is contended.
+        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        // Wake up the blocking thread. Its job is done.
+        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
     }
 
 }

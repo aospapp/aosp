@@ -8,9 +8,28 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <limits>
+
+#include "third_party/base/compiler_specific.h"
+
+namespace {
+
+time_t DefaultTimeFunction() {
+  return time(nullptr);
+}
+
+struct tm* DefaultLocaltimeFunction(const time_t* tp) {
+  return localtime(tp);
+}
+
+time_t (*g_time_func)() = DefaultTimeFunction;
+struct tm* (*g_localtime_func)(const time_t*) = DefaultLocaltimeFunction;
+
+}  // namespace
 
 float FXSYS_wcstof(const wchar_t* pwsStr, int32_t iLength, int32_t* pUsedLen) {
   ASSERT(pwsStr);
+
   if (iLength < 0)
     iLength = static_cast<int32_t>(wcslen(pwsStr));
   if (iLength == 0)
@@ -21,6 +40,7 @@ float FXSYS_wcstof(const wchar_t* pwsStr, int32_t iLength, int32_t* pUsedLen) {
   switch (pwsStr[iUsedLen]) {
     case '-':
       bNegtive = true;
+      FALLTHROUGH;
     case '+':
       iUsedLen++;
       break;
@@ -29,7 +49,7 @@ float FXSYS_wcstof(const wchar_t* pwsStr, int32_t iLength, int32_t* pUsedLen) {
   float fValue = 0.0f;
   while (iUsedLen < iLength) {
     wchar_t wch = pwsStr[iUsedLen];
-    if (!std::iswdigit(wch))
+    if (!FXSYS_IsDecimalDigit(wch))
       break;
 
     fValue = fValue * 10.0f + (wch - L'0');
@@ -40,13 +60,55 @@ float FXSYS_wcstof(const wchar_t* pwsStr, int32_t iLength, int32_t* pUsedLen) {
     float fPrecise = 0.1f;
     while (++iUsedLen < iLength) {
       wchar_t wch = pwsStr[iUsedLen];
-      if (!std::iswdigit(wch))
+      if (!FXSYS_IsDecimalDigit(wch))
         break;
 
       fValue += (wch - L'0') * fPrecise;
       fPrecise *= 0.1f;
     }
   }
+
+  if (iUsedLen < iLength &&
+      (pwsStr[iUsedLen] == 'e' || pwsStr[iUsedLen] == 'E')) {
+    ++iUsedLen;
+
+    bool negative_exponent = false;
+    if (iUsedLen < iLength &&
+        (pwsStr[iUsedLen] == '-' || pwsStr[iUsedLen] == '+')) {
+      negative_exponent = pwsStr[iUsedLen] == '-';
+      ++iUsedLen;
+    }
+
+    int32_t exp_value = 0;
+    while (iUsedLen < iLength) {
+      wchar_t wch = pwsStr[iUsedLen];
+      if (!FXSYS_IsDecimalDigit(wch))
+        break;
+
+      exp_value = exp_value * 10.0f + (wch - L'0');
+      // Exponent is outside the valid range, fail.
+      if ((negative_exponent &&
+           -exp_value < std::numeric_limits<float>::min_exponent10) ||
+          (!negative_exponent &&
+           exp_value > std::numeric_limits<float>::max_exponent10)) {
+        if (pUsedLen)
+          *pUsedLen = 0;
+        return 0.0f;
+      }
+
+      ++iUsedLen;
+    }
+
+    for (size_t i = exp_value; i > 0; --i) {
+      if (exp_value > 0) {
+        if (negative_exponent)
+          fValue /= 10;
+        else
+          fValue *= 10;
+      }
+    }
+  }
+
   if (pUsedLen)
     *pUsedLen = iUsedLen;
 
@@ -54,7 +116,10 @@ float FXSYS_wcstof(const wchar_t* pwsStr, int32_t iLength, int32_t* pUsedLen) {
 }
 
 wchar_t* FXSYS_wcsncpy(wchar_t* dstStr, const wchar_t* srcStr, size_t count) {
-  ASSERT(dstStr && srcStr && count > 0);
+  ASSERT(dstStr);
+  ASSERT(srcStr);
+  ASSERT(count > 0);
+
   for (size_t i = 0; i < count; ++i)
     if ((dstStr[i] = srcStr[i]) == L'\0')
       break;
@@ -62,39 +127,18 @@ wchar_t* FXSYS_wcsncpy(wchar_t* dstStr, const wchar_t* srcStr, size_t count) {
 }
 
 int32_t FXSYS_wcsnicmp(const wchar_t* s1, const wchar_t* s2, size_t count) {
-  ASSERT(s1 && s2 && count > 0);
+  ASSERT(s1);
+  ASSERT(s2);
+  ASSERT(count > 0);
+
   wchar_t wch1 = 0, wch2 = 0;
   while (count-- > 0) {
-    wch1 = static_cast<wchar_t>(FXSYS_tolower(*s1++));
-    wch2 = static_cast<wchar_t>(FXSYS_tolower(*s2++));
+    wch1 = static_cast<wchar_t>(FXSYS_towlower(*s1++));
+    wch2 = static_cast<wchar_t>(FXSYS_towlower(*s2++));
     if (wch1 != wch2)
       break;
   }
   return wch1 - wch2;
-}
-
-uint32_t FX_HashCode_GetA(const ByteStringView& str, bool bIgnoreCase) {
-  uint32_t dwHashCode = 0;
-  if (bIgnoreCase) {
-    for (const auto& c : str)
-      dwHashCode = 31 * dwHashCode + FXSYS_tolower(c);
-  } else {
-    for (const auto& c : str)
-      dwHashCode = 31 * dwHashCode + c;
-  }
-  return dwHashCode;
-}
-
-uint32_t FX_HashCode_GetW(const WideStringView& str, bool bIgnoreCase) {
-  uint32_t dwHashCode = 0;
-  if (bIgnoreCase) {
-    for (const auto& c : str)
-      dwHashCode = 1313 * dwHashCode + FXSYS_tolower(c);
-  } else {
-    for (const auto& c : str)
-      dwHashCode = 1313 * dwHashCode + c;
-  }
-  return dwHashCode;
 }
 
 void FXSYS_IntToTwoHexChars(uint8_t n, char* buf) {
@@ -122,33 +166,21 @@ size_t FXSYS_ToUTF16BE(uint32_t unicode, char* buf) {
   return 8;
 }
 
-uint32_t GetBits32(const uint8_t* pData, int bitpos, int nbits) {
-  ASSERT(0 < nbits && nbits <= 32);
-  const uint8_t* dataPtr = &pData[bitpos / 8];
-  int bitShift;
-  int bitMask;
-  int dstShift;
-  int bitCount = bitpos & 0x07;
-  if (nbits < 8 && nbits + bitCount <= 8) {
-    bitShift = 8 - nbits - bitCount;
-    bitMask = (1 << nbits) - 1;
-    dstShift = 0;
-  } else {
-    bitShift = 0;
-    int bitOffset = 8 - bitCount;
-    bitMask = (1 << std::min(bitOffset, nbits)) - 1;
-    dstShift = nbits - bitOffset;
-  }
-  uint32_t result =
-      static_cast<uint32_t>((*dataPtr++ >> bitShift & bitMask) << dstShift);
-  while (dstShift >= 8) {
-    dstShift -= 8;
-    result |= *dataPtr++ << dstShift;
-  }
-  if (dstShift > 0) {
-    bitShift = 8 - dstShift;
-    bitMask = (1 << dstShift) - 1;
-    result |= *dataPtr++ >> bitShift & bitMask;
-  }
-  return result;
+void FXSYS_SetTimeFunction(time_t (*func)()) {
+  g_time_func = func ? func : DefaultTimeFunction;
+}
+
+void FXSYS_SetLocaltimeFunction(struct tm* (*func)(const time_t*)) {
+  g_localtime_func = func ? func : DefaultLocaltimeFunction;
+}
+
+time_t FXSYS_time(time_t* tloc) {
+  time_t ret_val = g_time_func();
+  if (tloc)
+    *tloc = ret_val;
+  return ret_val;
+}
+
+struct tm* FXSYS_localtime(const time_t* tp) {
+  return g_localtime_func(tp);
 }

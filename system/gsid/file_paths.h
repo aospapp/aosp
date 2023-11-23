@@ -16,21 +16,26 @@
 
 #pragma once
 
+#include <filesystem>
+
 namespace android {
 namespace gsi {
 
-static constexpr char kDefaultGsiImageFolder[] = "/data/gsi/dsu/";
+static constexpr char kDefaultDsuImageFolder[] = "/data/gsi/dsu/";
+static constexpr char kUserdataDevice[] = "/dev/block/by-name/userdata";
 
-static constexpr char kGsiLpMetadataFile[] = "/metadata/gsi/dsu/lp_metadata";
-static constexpr char kGsiOneShotBootFile[] = "/metadata/gsi/dsu/one_shot_boot";
-static constexpr char kGsiInstallDirFile[] = "/metadata/gsi/dsu/install_dir";
+static inline std::string MetadataDir(const std::string& dsu_slot) {
+    return std::filesystem::path(DSU_METADATA_PREFIX) / dsu_slot;
+}
+
+static constexpr char kDsuOneShotBootFile[] = DSU_METADATA_PREFIX "one_shot_boot";
 
 // This file can contain the following values:
 //   [int]      - boot attempt counter, starting from 0
 //   "ok"       - boot was marked successful
 //   "disabled" - boot into GSI no longer allowed
 //   "wipe"     - boot into GSI not allowed; next reboot will delete gsi
-static constexpr char kGsiInstallStatusFile[] = "/metadata/gsi/dsu/install_status";
+static constexpr char kDsuInstallStatusFile[] = DSU_METADATA_PREFIX "install_status";
 
 }  // namespace gsi
 }  // namespace android

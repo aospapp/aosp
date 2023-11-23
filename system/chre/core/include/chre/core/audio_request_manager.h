@@ -17,14 +17,13 @@
 #ifndef CHRE_CORE_AUDIO_REQUEST_MANAGER_H_
 #define CHRE_CORE_AUDIO_REQUEST_MANAGER_H_
 
-
 #include <cstdint>
 
-#include "chre_api/chre/audio.h"
 #include "chre/core/nanoapp.h"
 #include "chre/platform/platform_audio.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/non_copyable.h"
+#include "chre_api/chre/audio.h"
 
 namespace chre {
 
@@ -97,12 +96,10 @@ class AudioRequestManager : public NonCopyable {
    * Prints state in a string buffer. Must only be called from the context of
    * the main CHRE thread.
    *
-   * @param buffer Pointer to the start of the buffer.
-   * @param bufferPos Pointer to buffer position to start the print (in-out).
-   * @param size Size of the buffer in bytes.
+   * @param debugDump The debug dump wrapper where a string can be printed
+   *     into one of the buffers.
    */
-  void logStateToBuffer(char *buffer, size_t *bufferPos,
-                        size_t bufferSize) const;
+  void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
   /**
    * A convenience function to convert sample count and sample rate into a time
@@ -138,15 +135,15 @@ class AudioRequestManager : public NonCopyable {
     //
     // Example: 44100 * 60 seconds (in nanoseconds) fits into a uint64_t as an
     // intermediate value before casting to uint32_t.
-    return static_cast<uint32_t>((sampleRate * duration.toRawNanoseconds())
-        / kOneSecondInNanoseconds);
+    return static_cast<uint32_t>((sampleRate * duration.toRawNanoseconds()) /
+                                 kOneSecondInNanoseconds);
   }
 
   /**
    * @return the instance of platform audio to allow platform-specific
    * funtionality to call it. Example: handling host awake events.
    */
-  PlatformAudio& getPlatformAudio() {
+  PlatformAudio &getPlatformAudio() {
     return mPlatformAudio;
   }
 
@@ -183,6 +180,9 @@ class AudioRequestManager : public NonCopyable {
     //! Whether or not the source is available. It is unavailable by default.
     bool available = false;
 
+    //! The timestamp when the last audio data event was received.
+    Nanoseconds lastEventTimestamp;
+
     //! The request to post the next event to.
     AudioRequest *nextAudioRequest = nullptr;
 
@@ -217,7 +217,7 @@ class AudioRequestManager : public NonCopyable {
      * @return true if the supplied AudioDataEventRefCount is tracking the same
      *         published event as current object.
      */
-    bool operator==(const AudioDataEventRefCount& other) const {
+    bool operator==(const AudioDataEventRefCount &other) const {
       return (event == other.event);
     }
 
@@ -253,7 +253,9 @@ class AudioRequestManager : public NonCopyable {
    * @return true if the arguments are configured in a valid arrangement.
    */
   bool validateConfigureSourceArguments(uint32_t handle, bool enable,
-      uint64_t bufferDuration, uint64_t deliveryInterval, uint32_t *numSamples);
+                                        uint64_t bufferDuration,
+                                        uint64_t deliveryInterval,
+                                        uint32_t *numSamples);
 
   /**
    * Performs the configuration of an audio source with validated arguments. See
@@ -288,9 +290,8 @@ class AudioRequestManager : public NonCopyable {
    * @param deliveryInterval When to deliver the samples.
    * @return true if successful, false otherwise.
    */
-  bool createAudioRequest(
-      uint32_t handle, uint32_t instanceId, uint32_t numSamples,
-      Nanoseconds deliveryInterval);
+  bool createAudioRequest(uint32_t handle, uint32_t instanceId,
+                          uint32_t numSamples, Nanoseconds deliveryInterval);
 
   /**
    * Finds an audio request for a given audio handle and nanoapp instance ID. If
@@ -306,9 +307,9 @@ class AudioRequestManager : public NonCopyable {
    * @return The AudioRequest for this handle and instanceId, nullptr if not
    *     found.
    */
-  AudioRequest *findAudioRequestByInstanceId(
-      uint32_t handle, uint32_t instanceId, size_t *index,
-      size_t *instanceIdIndex);
+  AudioRequest *findAudioRequestByInstanceId(uint32_t handle,
+                                             uint32_t instanceId, size_t *index,
+                                             size_t *instanceIdIndex);
 
   /**
    * Finds an audio request for a given handle and configuration. If no existing
@@ -322,9 +323,10 @@ class AudioRequestManager : public NonCopyable {
    * @return The AudioRequest for this handle and configuration, nullptr if not
    *     found.
    */
-  AudioRequest *findAudioRequestByConfiguration(
-      uint32_t handle, uint32_t numSamples, Nanoseconds deliveryInterval,
-      size_t *index);
+  AudioRequest *findAudioRequestByConfiguration(uint32_t handle,
+                                                uint32_t numSamples,
+                                                Nanoseconds deliveryInterval,
+                                                size_t *index);
 
   /**
    * Finds the next expiring request for audio data for a given handle.
@@ -387,7 +389,7 @@ class AudioRequestManager : public NonCopyable {
    * @param instanceIds The list of nanoapp instance IDs to direct the event to.
    */
   void postAudioDataEventFatal(struct chreAudioDataEvent *event,
-                               const DynamicVector<uint32_t>& instanceIds);
+                               const DynamicVector<uint32_t> &instanceIds);
 
   /**
    * Invoked by the freeAudioDataEventCallback to decrement the reference count

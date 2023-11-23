@@ -9,6 +9,7 @@ import static android.os.Build.VERSION_CODES.N_MR1;
 import static android.os.Build.VERSION_CODES.O;
 import static android.os.Build.VERSION_CODES.P;
 import static android.os.Build.VERSION_CODES.Q;
+import static android.os.Build.VERSION_CODES.R;
 
 import android.accounts.IAccountManager;
 import android.app.IAlarmManager;
@@ -23,6 +24,7 @@ import android.app.usage.IUsageStatsManager;
 import android.content.Context;
 import android.content.IClipboard;
 import android.content.IRestrictionsManager;
+import android.content.pm.ICrossProfileApps;
 import android.content.pm.IShortcutService;
 import android.hardware.display.IColorDisplayManager;
 import android.hardware.fingerprint.IFingerprintService;
@@ -35,6 +37,7 @@ import android.media.IMediaRouterService;
 import android.media.session.ISessionManager;
 import android.net.IConnectivityManager;
 import android.net.INetworkScoreService;
+import android.net.ITetheringConnector;
 import android.net.nsd.INsdManager;
 import android.net.wifi.IWifiManager;
 import android.net.wifi.p2p.IWifiP2pManager;
@@ -44,10 +47,13 @@ import android.os.IBatteryPropertiesRegistrar;
 import android.os.IBinder;
 import android.os.IInterface;
 import android.os.IPowerManager;
+import android.os.IThermalService;
 import android.os.IUserManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.storage.IStorageManager;
+import android.service.persistentdata.IPersistentDataBlockService;
+
 import com.android.internal.app.IAppOpsService;
 import com.android.internal.app.IBatteryStats;
 import com.android.internal.appwidget.IAppWidgetService;
@@ -162,6 +168,10 @@ public class ShadowServiceManager {
       map.put(
           Context.MEDIA_SESSION_SERVICE,
           createDeepBinder(ISessionManager.class, "android.media.session.ISessionManager"));
+      map.put(
+          Context.PERSISTENT_DATA_BLOCK_SERVICE,
+          createBinder(IPersistentDataBlockService.class,
+                  "android.service.persistentdata.IPersistentDataBlockService"));
     }
     if (RuntimeEnvironment.getApiLevel() >= M) {
       map.put(
@@ -185,6 +195,9 @@ public class ShadowServiceManager {
       map.put(
           Context.SLICE_SERVICE,
           createBinder(ISliceManager.class, "android.app.slice.SliceManager"));
+      map.put(
+          Context.CROSS_PROFILE_APPS_SERVICE,
+          createBinder(ICrossProfileApps.class, "android.content.pm.ICrossProfileApps"));
     }
     // BEGIN-INTERNAL
     if (RuntimeEnvironment.getApiLevel() >= Q) {
@@ -194,6 +207,12 @@ public class ShadowServiceManager {
           "android.hardware.display.ColorDisplayManager"));
       map.put(Context.ROLE_SERVICE,
               createBinder(IRoleManager.class, "android.app.role.IRoleManager"));
+    }
+    if (RuntimeEnvironment.getApiLevel() >= R) {
+      map.put(Context.TETHERING_SERVICE,
+              createBinder(ITetheringConnector.class, "android.net.ITetheringConnector"));
+      map.put(Context.THERMAL_SERVICE,
+              createBinder(IThermalService.class, "android.os.IThermalService"));
     }
     // END-INTERNAL
     SERVICES = Collections.unmodifiableMap(map);

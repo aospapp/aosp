@@ -16,13 +16,12 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PersistableBundle;
-import android.os.SystemProperties;
 import android.telephony.CarrierConfigManager;
 import android.text.TextUtils;
 
@@ -74,6 +73,10 @@ public abstract class CallTracker extends Handler {
     protected static final int EVENT_CALL_WAITING_INFO_CDMA        = 15;
     protected static final int EVENT_THREE_WAY_DIAL_L2_RESULT_CDMA = 16;
     protected static final int EVENT_THREE_WAY_DIAL_BLANK_FLASH    = 20;
+
+    @UnsupportedAppUsage
+    public CallTracker() {
+    }
 
     protected void pollCallsWhenSafe() {
         mNeedsPoll = true;
@@ -163,52 +166,6 @@ public abstract class CallTracker extends Handler {
         return mPendingOperations == 0;
     }
 
-    /**
-     * Routine called from dial to check if the number is a test Emergency number
-     * and if so remap the number. This allows a short emergency number to be remapped
-     * to a regular number for testing how the frameworks handles emergency numbers
-     * without actually calling an emergency number.
-     *
-     * This is not a full test and is not a substitute for testing real emergency
-     * numbers but can be useful.
-     *
-     * To use this feature set a system property ril.test.emergencynumber to a pair of
-     * numbers separated by a colon. If the first number matches the number parameter
-     * this routine returns the second number. Example:
-     *
-     * ril.test.emergencynumber=112:1-123-123-45678
-     *
-     * To test Dial 112 take call then hang up on MO device to enter ECM
-     * see RIL#processSolicited RIL_REQUEST_HANGUP_FOREGROUND_RESUME_BACKGROUND
-     *
-     * @param dialString to test if it should be remapped
-     * @return the same number or the remapped number.
-     */
-    protected String checkForTestEmergencyNumber(String dialString) {
-        String testEn = SystemProperties.get("ril.test.emergencynumber");
-        if (DBG_POLL) {
-            log("checkForTestEmergencyNumber: dialString=" + dialString +
-                " testEn=" + testEn);
-        }
-        if (!TextUtils.isEmpty(testEn)) {
-            String values[] = testEn.split(":");
-            log("checkForTestEmergencyNumber: values.length=" + values.length);
-            if (values.length == 2) {
-                if (values[0].equals(
-                        android.telephony.PhoneNumberUtils.stripSeparators(dialString))) {
-                    // mCi will be null for ImsPhoneCallTracker.
-                    if (mCi != null) {
-                        mCi.testingEmergencyCall();
-                    }
-                    log("checkForTestEmergencyNumber: remap " +
-                            dialString + " to " + values[1]);
-                    dialString = values[1];
-                }
-            }
-        }
-        return dialString;
-    }
-
     protected String convertNumberIfNecessary(Phone phone, String dialNumber) {
         if (dialNumber == null) {
             return dialNumber;
@@ -291,6 +248,18 @@ public abstract class CallTracker extends Handler {
         }
         log("compareGid1 is " + (ret?"Same":"Different"));
         return ret;
+    }
+
+    /**
+     * Get the ringing connections which during SRVCC handover.
+     */
+    public Connection getRingingHandoverConnection() {
+        for (Connection hoConn : mHandoverConnections) {
+            if (hoConn.getCall().isRinging()) {
+                return hoConn;
+            }
+        }
+        return null;
     }
 
     //***** Overridden from Handler

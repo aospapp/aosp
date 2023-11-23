@@ -39,8 +39,9 @@ or on combining URL components into a URL string.
 
 .. function:: urlparse(urlstring, scheme='', allow_fragments=True)
 
-   Parse a URL into six components, returning a 6-tuple.  This corresponds to the
-   general structure of a URL: ``scheme://netloc/path;parameters?query#fragment``.
+   Parse a URL into six components, returning a 6-item :term:`named tuple`.  This
+   corresponds to the general structure of a URL:
+   ``scheme://netloc/path;parameters?query#fragment``.
    Each tuple item is a string, possibly empty. The components are not broken up in
    smaller parts (for example, the network location is a single string), and %
    escapes are not expanded. The delimiters as shown above are not part of the
@@ -88,8 +89,8 @@ or on combining URL components into a URL string.
    or query component, and :attr:`fragment` is set to the empty string in
    the return value.
 
-   The return value is actually an instance of a subclass of :class:`tuple`.  This
-   class has the following additional read-only convenience attributes:
+   The return value is a :term:`named tuple`, which means that its items can
+   be accessed by index or as named attributes, which are:
 
    +------------------+-------+--------------------------+----------------------+
    | Attribute        | Index | Value                    | Value if not present |
@@ -129,6 +130,24 @@ or on combining URL components into a URL string.
    ``#``, ``@``, or ``:`` will raise a :exc:`ValueError`. If the URL is
    decomposed before parsing, no error will be raised.
 
+   As is the case with all named tuples, the subclass has a few additional methods
+   and attributes that are particularly useful. One such method is :meth:`_replace`.
+   The :meth:`_replace` method will return a new ParseResult object replacing specified
+   fields with new values.
+
+   .. doctest::
+      :options: +NORMALIZE_WHITESPACE
+
+       >>> from urllib.parse import urlparse
+       >>> u = urlparse('//www.cwi.nl:80/%7Eguido/Python.html')
+       >>> u
+       ParseResult(scheme='', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
+                   params='', query='', fragment='')
+       >>> u._replace(scheme='http')
+       ParseResult(scheme='http', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
+                   params='', query='', fragment='')
+
+
    .. versionchanged:: 3.2
       Added IPv6 URL parsing capabilities.
 
@@ -141,7 +160,7 @@ or on combining URL components into a URL string.
       Out-of-range port numbers now raise :exc:`ValueError`, instead of
       returning :const:`None`.
 
-   .. versionchanged:: 3.7.3
+   .. versionchanged:: 3.8
       Characters that affect netloc parsing under NFKC normalization will
       now raise :exc:`ValueError`.
 
@@ -175,10 +194,11 @@ or on combining URL components into a URL string.
    parameter set to ``True``) to convert such dictionaries into query
    strings.
 
+
    .. versionchanged:: 3.2
       Add *encoding* and *errors* parameters.
 
-   .. versionchanged:: 3.7.2
+   .. versionchanged:: 3.8
       Added *max_num_fields* parameter.
 
 
@@ -212,8 +232,9 @@ or on combining URL components into a URL string.
    .. versionchanged:: 3.2
       Add *encoding* and *errors* parameters.
 
-   .. versionchanged:: 3.7.2
+   .. versionchanged:: 3.8
       Added *max_num_fields* parameter.
+
 
 .. function:: urlunparse(parts)
 
@@ -230,11 +251,13 @@ or on combining URL components into a URL string.
    This should generally be used instead of :func:`urlparse` if the more recent URL
    syntax allowing parameters to be applied to each segment of the *path* portion
    of the URL (see :rfc:`2396`) is wanted.  A separate function is needed to
-   separate the path segments and parameters.  This function returns a 5-tuple:
-   (addressing scheme, network location, path, query, fragment identifier).
+   separate the path segments and parameters.  This function returns a 5-item
+   :term:`named tuple`::
 
-   The return value is actually an instance of a subclass of :class:`tuple`.  This
-   class has the following additional read-only convenience attributes:
+      (addressing scheme, network location, path, query, fragment identifier).
+
+   The return value is a :term:`named tuple`, its items can be accessed by index
+   or as named attributes:
 
    +------------------+-------+-------------------------+----------------------+
    | Attribute        | Index | Value                   | Value if not present |
@@ -275,7 +298,7 @@ or on combining URL components into a URL string.
       Out-of-range port numbers now raise :exc:`ValueError`, instead of
       returning :const:`None`.
 
-   .. versionchanged:: 3.7.3
+   .. versionchanged:: 3.8
       Characters that affect netloc parsing under NFKC normalization will
       now raise :exc:`ValueError`.
 
@@ -330,8 +353,8 @@ or on combining URL components into a URL string.
    string.  If there is no fragment identifier in *url*, return *url* unmodified
    and an empty string.
 
-   The return value is actually an instance of a subclass of :class:`tuple`.  This
-   class has the following additional read-only convenience attributes:
+   The return value is a :term:`named tuple`, its items can be accessed by index
+   or as named attributes:
 
    +------------------+-------+-------------------------+----------------------+
    | Attribute        | Index | Value                   | Value if not present |
@@ -346,6 +369,13 @@ or on combining URL components into a URL string.
 
    .. versionchanged:: 3.2
       Result is a structured object rather than a simple 2-tuple.
+
+.. function:: unwrap(url)
+
+   Extract the url from a wrapped URL (that is, a string formatted as
+   ``<URL:scheme://host/path>``, ``<scheme://host/path>``, ``URL:scheme://host/path``
+   or ``scheme://host/path``). If *url* is not a wrapped URL, it is returned
+   without changes.
 
 .. _parsing-ascii-encoded-bytes:
 
@@ -499,7 +529,7 @@ task isn't already covered by the URL parsing functions above.
 
    .. versionchanged:: 3.7
       Moved from :rfc:`2396` to :rfc:`3986` for quoting URL strings. "~" is now
-      included in the set of reserved characters.
+      included in the set of unreserved characters.
 
    The optional *encoding* and *errors* parameters specify how to deal with
    non-ASCII characters, as accepted by the :meth:`str.encode` method.

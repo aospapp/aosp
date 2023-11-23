@@ -27,15 +27,20 @@ import android.bluetooth.BluetoothDevice;
  */
 interface IBluetoothA2dp {
     // Public API
+    @UnsupportedAppUsage
     boolean connect(in BluetoothDevice device);
+    @UnsupportedAppUsage
     boolean disconnect(in BluetoothDevice device);
+    @UnsupportedAppUsage
     List<BluetoothDevice> getConnectedDevices();
+    @UnsupportedAppUsage
     List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states);
+    @UnsupportedAppUsage
     int getConnectionState(in BluetoothDevice device);
     boolean setActiveDevice(in BluetoothDevice device);
     BluetoothDevice getActiveDevice();
-    boolean setPriority(in BluetoothDevice device, int priority);
-    int getPriority(in BluetoothDevice device);
+    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy);
+    int getConnectionPolicy(in BluetoothDevice device);
     boolean isAvrcpAbsoluteVolumeSupported();
     oneway void setAvrcpAbsoluteVolume(int volume);
     boolean isA2dpPlaying(in BluetoothDevice device);
@@ -47,4 +52,5 @@ interface IBluetoothA2dp {
     int supportsOptionalCodecs(in BluetoothDevice device);
     int getOptionalCodecsEnabled(in BluetoothDevice device);
     oneway void setOptionalCodecsEnabled(in BluetoothDevice device, int value);
+    int getPriority(in BluetoothDevice device);
 }

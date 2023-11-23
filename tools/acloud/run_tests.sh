@@ -86,7 +86,7 @@ function check_env() {
     local missing_py_packages=false
     for py_lib in {coverage,mock};
     do
-        if ! pip list --format=legacy | grep $py_lib &> /dev/null; then
+        if ! pip list | grep $py_lib &> /dev/null; then
             echo "Missing required python package: $py_lib (pip install $py_lib)"
             missing_py_packages=true
         fi

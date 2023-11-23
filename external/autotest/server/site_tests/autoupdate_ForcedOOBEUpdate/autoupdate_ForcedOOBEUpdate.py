@@ -35,16 +35,23 @@ class autoupdate_ForcedOOBEUpdate(update_engine_test.UpdateEngineTest):
         Repeated check status of update. It should move from DOWNLOADING to
         FINALIZING to COMPLETE (then reboot) to IDLE.
         """
-        # 20 minute timeout.
-        timeout_minutes = 20
+        timeout_minutes = 10
         timeout = time.time() + 60 * timeout_minutes
-        while True:
-            status = self._get_update_engine_status(timeout=10)
+        boot_id = self._host.get_boot_id()
 
-            # During reboot, status will be None
-            if status is not None:
-                if self._UPDATE_STATUS_IDLE == status[self._CURRENT_OP]:
+        while True:
+            try:
+                self._get_update_engine_status(timeout=10,
+                                               ignore_timeout=False)
+            except error.AutoservRunError as e:
+                # Check if command timed out because update-engine was taking
+                # a while or if the command didn't even start.
+                query = 'Querying Update Engine status...'
+                if query not in e.result_obj.stderr:
+                    # Command did not start. DUT rebooted at end of update.
+                    self._host.test_wait_for_boot(boot_id)
                     break
+
             time.sleep(1)
             if time.time() > timeout:
                 raise error.TestFail('OOBE update did not finish in %d '
@@ -52,99 +59,71 @@ class autoupdate_ForcedOOBEUpdate(update_engine_test.UpdateEngineTest):
 
 
     def run_once(self, full_payload=True, cellular=False,
-                 interrupt=False, max_updates=1, job_repo_url=None):
+                 interrupt=None, job_repo_url=None, moblab=False):
         """
         Runs a forced autoupdate during ChromeOS OOBE.
 
         @param full_payload: True for a full payload. False for delta.
         @param cellular: True to do the update over a cellualar connection.
                          Requires that the DUT have a sim card slot.
-        @param interrupt: True to interrupt the update in the middle.
-        @param max_updates: Used to tell the test how many times it is
-                            expected to ping its omaha server.
+        @param interrupt: Type of interrupt to try: [reboot, network, suspend]
         @param job_repo_url: Used for debugging locally. This is used to figure
                              out the current build and the devserver to use.
                              The test will read this from a host argument
                              when run in the lab.
+        @param moblab: True if we are running on moblab.
 
         """
-        tpm_utils.ClearTPMOwnerRequest(self._host)
-
         # veyron_rialto is a medical device with a different OOBE that auto
         # completes so this test is not valid on that device.
         if 'veyron_rialto' in self._host.get_board():
             raise error.TestNAError('Rialto has a custom OOBE. Skipping test.')
 
+        tpm_utils.ClearTPMOwnerRequest(self._host)
         update_url = self.get_update_url_for_test(job_repo_url,
                                                   full_payload=full_payload,
                                                   critical_update=True,
                                                   public=cellular,
-                                                  max_updates=max_updates)
+                                                  moblab=moblab)
         before = self._get_chromeos_version()
         payload_info = None
         if cellular:
             self._change_cellular_setting_in_update_engine(True)
-            # Get the payload's information (size, SHA256 etc) since we will be
-            # setting up our own omaha instance on the DUT. We pass this to
-            # the client test.
-            payload = self._get_payload_url(full_payload=full_payload)
-            staged_url = self._stage_payload_by_uri(payload)
-            payload_info = self._get_staged_file_info(staged_url)
 
         # Call client test to start the forced OOBE update.
         self._run_client_test_and_check_result('autoupdate_StartOOBEUpdate',
                                                image_url=update_url,
-                                               cellular=cellular,
-                                               payload_info=payload_info,
-                                               full_payload=full_payload)
+                                               cellular=cellular)
 
-
-        if interrupt:
+        if interrupt is not None:
             # Choose a random downloaded progress to interrupt the update.
-            progress = random.uniform(0.1, 0.8)
-            logging.debug('Progress when we will interrupt: %f', progress)
+            progress = random.uniform(0.1, 0.6)
+            logging.info('Progress when we will interrupt: %f', progress)
             self._wait_for_progress(progress)
-            logging.info('We will start interrupting the update.')
-
-            # Reboot the DUT during the update.
-            self._take_screenshot('before_reboot.png')
+            logging.info('We will now start interrupting the update.')
+            self._take_screenshot('before_interrupt.png')
             completed = self._get_update_progress()
-            self._host.reboot()
-            # Screenshot to check that if OOBE was not skipped by interruption.
-            self._take_screenshot('after_reboot.png')
-            if self._is_update_finished_downloading():
-                raise error.TestError('Reboot interrupt: Update finished '
-                                      'downloading before any more '
-                                      'interruptions. Started interrupting '
-                                      'at: %f' % progress)
+
+            if interrupt is 'reboot':
+                self._host.reboot()
+            elif interrupt is 'network':
+                self._disconnect_then_reconnect_network(update_url)
+            elif interrupt is 'suspend':
+                self._suspend_then_resume()
+            else:
+                raise error.TestFail('Unknown interrupt type: %s' % interrupt)
+            # Screenshot to check that OOBE was not skipped by interruption.
+            self._take_screenshot('after_interrupt.png')
+
             if self._is_update_engine_idle():
-                raise error.TestFail('The update was IDLE after reboot.')
-
-            # Disconnect / Reconnect network.
-            completed = self._get_update_progress()
-            self._disconnect_then_reconnect_network(update_url)
-            self._take_screenshot('after_network.png')
-            if self._is_update_finished_downloading():
-                raise error.TestError('Network interrupt: Update finished '
-                                      'downloading before any more '
-                                      'interruptions. Started interrupting '
-                                      'at: %f' % progress)
+                raise error.TestFail('The update was IDLE after interrupt.')
             if not self._update_continued_where_it_left_off(completed):
                 raise error.TestFail('The update did not continue where it '
-                                     'left off before disconnecting network.')
+                                     'left off after interruption.')
 
-            # Suspend / Resume.
-            completed = self._get_update_progress()
-            self._suspend_then_resume()
-            self._take_screenshot('after_suspend.png')
-            if self._is_update_finished_downloading():
-                raise error.TestError('Suspend interrupt: Update finished '
-                                      'downloading before any more '
-                                      'interruptions. Started interrupting '
-                                      'at: %f' % progress)
-            if not self._update_continued_where_it_left_off(completed):
-                raise error.TestFail('The update did not continue where it '
-                                     'left off after suspend/resume.')
+        # We create a new lsb-release file with no_update=True so there won't be
+        # any more actual updates happen.
+        self._create_custom_lsb_release(update_url, no_update=True)
 
         self._wait_for_oobe_update_to_complete()
 

@@ -22,13 +22,14 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Representation of a package in the API containing classes. */
 class ApiPackage implements HasCoverage {
 
     private final String mName;
 
-    private final Map<String, ApiClass> mApiClassMap = new HashMap<String, ApiClass>();
+    private final Map<String, ApiClass> mApiClassMap = new ConcurrentHashMap<>();
 
     ApiPackage(String name) {
         mName = name;
@@ -44,7 +45,7 @@ class ApiPackage implements HasCoverage {
     }
 
     public ApiClass getClass(String name) {
-        return mApiClassMap.get(name);
+        return name == null ? null : mApiClassMap.get(name);
     }
 
     public Collection<ApiClass> getClasses() {

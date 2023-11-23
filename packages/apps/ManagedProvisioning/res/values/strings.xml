@@ -171,9 +171,13 @@
   <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
   <string name="cant_set_up_device">Can\'t set up device</string>
   <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
+  <string name="something_went_wrong">Something went wrong</string>
+  <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
   <string name="couldnt_set_up_device">Couldn\'t set up device. For help, contact your IT admin.</string>
   <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
   <string name="contact_your_admin_for_help">Contact your IT admin for help</string>
+  <!-- Message of the error dialog in case of an unspecified error in financed device provisioning scenario. [CHAR LIMIT=NONE]. -->
+  <string name="reset_device">Reset this device and try setting it up again</string>
   <!-- Message of the error dialog when already provisioned. [CHAR LIMIT=NONE] -->
   <string name="device_already_set_up">Device is already set up</string>
   <!-- Message of the error dialog when setting up wifi failed. [CHAR LIMIT=NONE] -->
@@ -340,8 +344,10 @@
   <!-- Transition screen strings -->
   <!-- Screen title. This is letting the user know that they're finished setting up their work profile, and they can finish setting up the rest of their phone. [CHAR LIMIT=NONE]-->
   <string name="set_up_everything_else">Set up everything else</string>
-  <!-- Screen title. This is letting the user know that they're finished setting up their work profile, and they can finish setting up the rest of their phone. [CHAR LIMIT=NONE]-->
-  <string name="now_lets_set_up_everything_else">Now, let\'s set up everything else</string>
+  <!-- Screen title. This is letting the user know that they're finished setting up their work profile, and they can add a personal account to get their personal apps and content on the phone. [CHAR LIMIT=NONE]-->
+  <string name="now_lets_set_up_everything_else">Add a personal account to get more from your device</string>
+  <!-- Subtext on a screen. This is letting the user know that adding a personal account is an optional step. [CHAR LIMIT=NONE]-->
+  <string name="now_lets_set_up_everything_else_explanation">Now that your work profile is ready, you can also add a personal Google Account to access your apps and content.</string>
 
   <!-- Organization brand screen -->
   <!-- Screen title. This is letting the user know that their organization (e.g. company) owns the device. [CHAR LIMIT=NONE]-->
@@ -354,20 +360,18 @@
   <string name="downloading_administrator_header">Getting ready for work setup\u2026</string>
 
   <!-- Work profile setup screens -->
-  <!-- Screen title. This is letting the user know that they'll first set up their work profile before setting up the rest of their device. [CHAR LIMIT=NONE]-->
-  <string name="work_profile_provisioning_accept_header">First, let\'s set up your work profile</string>
   <!-- Screen title in the new phone setup flow. This text is letting the user know that they're about to set up a work profile on their new phone. [CHAR LIMIT=NONE]-->
   <string name="work_profile_provisioning_accept_header_post_suw">Let\'s set up your work profile</string>
   <!-- Screen title. This is letting the user know what the work profile is for, and that they can find all of their work apps in this profile. [CHAR LIMIT=NONE]-->
   <string name="work_profile_provisioning_step_1_header">Work apps are kept in your work profile</string>
   <!-- Screen title. This is letting the user know that they have to option to pause their work apps when they're done with work for the day or want to take a break. "Pausing" the apps means that they won't get any notifications or interruptions from those apps. [CHAR LIMIT=NONE]-->
   <string name="work_profile_provisioning_step_2_header">Pause work apps when you\'re done for the day</string>
-  <!-- Screen title. This is letting the user know that the only data on their device that's visible to their IT admin is the data in their work profile. [CHAR LIMIT=NONE]-->
-  <string name="work_profile_provisioning_step_3_header">Only the data in your work profile is visible to your IT admin</string>
+  <!-- Screen title. This is letting the user know that the data in their work profile is visible to their IT admin. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_step_3_header">Data in your work profile is visible to your IT admin</string>
   <!-- In-progress text that's part of a full-screen message. This is letting the user know that their work profile is being set up. [CHAR LIMIT=NONE]-->
   <string name="work_profile_provisioning_progress_label">Setting up your work profile\u2026</string>
   <!-- Spoken text for screen readers. This is summarizing the key features of the work profile while it's being set up. [CHAR LIMIT=NONE]-->
-  <string name="work_profile_provisioning_summary">Work apps are kept in your work profile. You can pause your work apps when you’re done for the day. Only the data in your work profile is visible to your IT admin.</string>
+  <string name="work_profile_provisioning_summary">Work apps are kept in your work profile. You can pause your work apps when you’re done for the day. The data in your work profile is visible to your IT admin.</string>
 
   <!-- Fully managed device setup screens -->
   <!-- Screen title. This is letting the user know that they're about to set up their new work device. [CHAR LIMIT=NONE]-->
@@ -383,6 +387,20 @@
   <!-- Spoken text for screen readers. This is summarizing the key features of their work device while it's being set up. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_summary">Use this device to easily access your work apps. This device isn\'t private, so your IT admin may be able to see your data and activity. To learn more, contact your IT admin.</string>
 
+  <!-- Work profile on organization-owned device setup screens -->
+  <!-- Screen title. This screen lets the user know that their work apps are kept in the work profile, and the work apps are managed by the user's IT admin. [CHAR LIMIT=90]-->
+  <string name="cope_provisioning_step_1_header">Work apps are kept in your work profile &amp; managed by your IT admin</string>
+  <!-- Screen title. This screen lets the user know that their personal apps are separate and hidden from their work apps. [CHAR LIMIT=90]-->
+  <string name="cope_provisioning_step_2_header">Personal apps are separate &amp; hidden from work apps</string>
+  <!-- Screen title. This is letting the user know that the IT admin can control this device and block certain apps. [CHAR LIMIT=90]-->
+  <string name="cope_provisioning_step_3_header">Your IT admin can control this device &amp; block certain apps</string>
+  <!-- Spoken text for screen readers. This is summarizing the key features of the work profile while it's being set up. [CHAR LIMIT=NONE]-->
+  <string name="cope_provisioning_summary">Work apps are kept in your work profile and managed by your IT admin. Personal apps are separate and hidden from work apps. Your IT admin can control this device and block certain apps.</string>
+
+  <!-- Financed device setup screens -->
+  <!-- Screen title. This is displayed when a user needs to wait for a moment during the device setup process. [CHAR LIMIT=NONE]-->
+  <string name="just_a_sec">Just a sec\u2026</string>
+
   <!-- Fully managed device privacy notification -->
   <!-- Notification title. This text is letting the user know about a privacy reminder before they start using their new work device. [CHAR LIMIT=NONE]-->
   <string name="fully_managed_device_provisioning_privacy_title">Privacy reminder</string>
@@ -394,4 +412,13 @@
   <string name="device_provisioning_finished">Your device is ready to go!</string>
   <string name="done">Done</string>
 
+  <!-- Financed device provisioning landing screen -->
+  <!-- Screen title in the device setup process. This is reminding the user that this device is provided by a creditor. This means the creditor can control the device, such as locking it if the user doesn't make payments. [CHAR LIMIT=NONE]-->
+  <string name="financed_device_screen_header">This device was purchased on credit from <xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g></string>
+  <!-- Part of a device setup screen. This screen lets the user know that their device was purchased from a creditor, and the creditor can control parts of the device, such as locking it if the user doesn't make payments. [CHAR LIMIT=NONE]-->
+  <string name="creditor_capabilities_header"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can:</string>
+  <!-- Part of a device setup screen. This screen lets the user know that their device was purchased from a creditor, and the creditor can control parts of the device, such as installing their app so the user can make payments. [CHAR LIMIT=NONE]-->
+  <string name="install_creditor_app_description">Install the <xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> app so you can make payments for this device</string>
+  <!-- Part of a device setup screen. This screen lets the user know that their device was purchased from a creditor, and the creditor can control parts of the device, such as restricting access if the user doesn't make payments. [CHAR LIMIT=NONE]-->
+  <string name="lock_device_description">Restrict access to this device if you don\'t make payments</string>
 </resources>

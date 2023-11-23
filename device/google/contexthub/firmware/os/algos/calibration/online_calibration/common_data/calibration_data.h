@@ -131,10 +131,9 @@ struct CalibrationDataThreeAxis {
   SensorType type = SensorType::kUndefined;
 
   // Optional pointer to an array of over-temperature model data (null when not
-  // used). For initialization, populating a model dataset will take precedence
-  // over the linear model parameters provided in the calibration data.
+  // used).
   OverTempModelThreeAxis* otc_model_data = nullptr;
-  int16_t num_model_pts = 0;
+  int16_t num_model_pts = 0;  // Length of otc_model_data array.
 
   // Helper function that resets the calibration data to a set of neutral
   // reference values where no calibration correction would be applied if used.
@@ -203,10 +202,9 @@ struct CalibrationDataSingleAxis {
   SensorType type = SensorType::kUndefined;
 
   // Optional pointer to an array of over-temperature model data (null when not
-  // used). For initialization, populating a model dataset will take precedence
-  // over the linear model parameters provided in the calibration data.
+  // used).
   OverTempModelSingleAxis* otc_model_data = nullptr;
-  int16_t num_model_pts = 0;
+  int16_t num_model_pts = 0;  // Length of otc_model_data array.
 
   // Helper function that resets the calibration data to a set of neutral
   // reference values where no calibration correction would be applied if used.

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 import logging, os, select, StringIO, subprocess, sys, unittest
 import common

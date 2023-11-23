@@ -146,7 +146,6 @@ smn{
         MF{"St. Martin"}
         MG{"Madagaskar"}
         MH{"Marshallsuolluuh"}
-        MK{"OJT Makedonia"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
@@ -262,5 +261,5 @@ smn{
         CD{"Kongo demokraattisâš täsiväldi"}
         CG{"Kongo täsiväldi"}
     }
-    Version{"2.1.38.69"}
+    Version{"36.1"}
 }

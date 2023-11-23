@@ -34,6 +34,12 @@
 namespace art {
 namespace hiddenapi {
 
+// Should be the same as dalvik.system.VMRuntime.HIDE_MAXTARGETSDK_P_HIDDEN_APIS and
+// dalvik.system.VMRuntime.HIDE_MAXTARGETSDK_Q_HIDDEN_APIS.
+// Corresponds to bug ids.
+static constexpr uint64_t kHideMaxtargetsdkPHiddenApis = 149997251;
+static constexpr uint64_t kHideMaxtargetsdkQHiddenApis = 149994052;
+
 // Set to true if we should always print a warning in logcat for all hidden API accesses, not just
 // dark grey and black. This can be set to true for developer preview / beta builds, but should be
 // false for public release builds.
@@ -41,6 +47,14 @@ namespace hiddenapi {
 // as it affects whether or not we warn for light grey APIs that have been added to the exemptions
 // list.
 static constexpr bool kLogAllAccesses = false;
+
+// Exemptions for logcat warning. Following signatures do not produce a warning as app developers
+// should not be alerted on the usage of these greylised APIs. See b/154851649.
+static const std::vector<std::string> kWarningExemptions = {
+    "Ljava/nio/Buffer;",
+    "Llibcore/io/Memory;",
+    "Lsun/misc/Unsafe;",
+};
 
 static inline std::ostream& operator<<(std::ostream& os, AccessMethod value) {
   switch (value) {
@@ -76,10 +90,10 @@ static inline std::ostream& operator<<(std::ostream& os, const AccessContext& va
 static Domain DetermineDomainFromLocation(const std::string& dex_location,
                                           ObjPtr<mirror::ClassLoader> class_loader) {
   // If running with APEX, check `path` against known APEX locations.
-  // These checks will be skipped on target buildbots where ANDROID_RUNTIME_ROOT
+  // These checks will be skipped on target buildbots where ANDROID_ART_ROOT
   // is set to "/system".
-  if (RuntimeModuleRootDistinctFromAndroidRoot()) {
-    if (LocationIsOnRuntimeModule(dex_location.c_str()) ||
+  if (ArtModuleRootDistinctFromAndroidRoot()) {
+    if (LocationIsOnArtModule(dex_location.c_str()) ||
         LocationIsOnConscryptModule(dex_location.c_str())) {
       return Domain::kCorePlatform;
     }
@@ -109,6 +123,28 @@ void InitializeDexFileDomain(const DexFile& dex_file, ObjPtr<mirror::ClassLoader
   // This may happen when DexFile is initialized as trusted.
   if (IsDomainMoreTrustedThan(dex_domain, dex_file.GetHiddenapiDomain())) {
     dex_file.SetHiddenapiDomain(dex_domain);
+  }
+}
+
+void InitializeCorePlatformApiPrivateFields() {
+  // The following fields in WellKnownClasses correspond to private fields in the Core Platform
+  // API that cannot be otherwise expressed and propagated through tooling (b/144502743).
+  jfieldID private_core_platform_api_fields[] = {
+    WellKnownClasses::java_io_FileDescriptor_descriptor,
+    WellKnownClasses::java_io_FileDescriptor_ownerId,
+    WellKnownClasses::java_nio_Buffer_address,
+    WellKnownClasses::java_nio_Buffer_elementSizeShift,
+    WellKnownClasses::java_nio_Buffer_limit,
+    WellKnownClasses::java_nio_Buffer_position,
+  };
+
+  ScopedObjectAccess soa(Thread::Current());
+  for (const auto private_core_platform_api_field : private_core_platform_api_fields) {
+    ArtField* field = jni::DecodeArtField(private_core_platform_api_field);
+    const uint32_t access_flags = field->GetAccessFlags();
+    uint32_t new_access_flags = access_flags | kAccCorePlatformApi;
+    DCHECK(new_access_flags != access_flags);
+    field->SetAccessFlags(new_access_flags);
   }
 }
 
@@ -181,7 +217,7 @@ bool MemberSignature::DoesPrefixMatch(const std::string& prefix) const {
   return pos == prefix.length();
 }
 
-bool MemberSignature::IsExempted(const std::vector<std::string>& exemptions) {
+bool MemberSignature::DoesPrefixMatchAny(const std::vector<std::string>& exemptions) {
   for (const std::string& exemption : exemptions) {
     if (DoesPrefixMatch(exemption)) {
       return true;
@@ -435,19 +471,14 @@ bool ShouldDenyAccessToMemberImpl(T* member, ApiList api_list, AccessMethod acce
   DCHECK(member != nullptr);
   Runtime* runtime = Runtime::Current();
 
-  EnforcementPolicy policy = runtime->GetHiddenApiEnforcementPolicy();
-  DCHECK(policy != EnforcementPolicy::kDisabled)
+  EnforcementPolicy hiddenApiPolicy = runtime->GetHiddenApiEnforcementPolicy();
+  DCHECK(hiddenApiPolicy != EnforcementPolicy::kDisabled)
       << "Should never enter this function when access checks are completely disabled";
-
-  const bool deny_access =
-      (policy == EnforcementPolicy::kEnabled) &&
-      IsSdkVersionSetAndMoreThan(runtime->GetTargetSdkVersion(),
-                                 api_list.GetMaxAllowedSdkVersion());
 
   MemberSignature member_signature(member);
 
   // Check for an exemption first. Exempted APIs are treated as white list.
-  if (member_signature.IsExempted(runtime->GetHiddenApiExemptions())) {
+  if (member_signature.DoesPrefixMatchAny(runtime->GetHiddenApiExemptions())) {
     // Avoid re-examining the exemption list next time.
     // Note this results in no warning for the member, which seems like what one would expect.
     // Exemptions effectively adds new members to the whitelist.
@@ -455,15 +486,39 @@ bool ShouldDenyAccessToMemberImpl(T* member, ApiList api_list, AccessMethod acce
     return false;
   }
 
-  if (access_method != AccessMethod::kNone) {
-    // Print a log message with information about this class member access.
-    // We do this if we're about to deny access, or the app is debuggable.
-    if (kLogAllAccesses || deny_access || runtime->IsJavaDebuggable()) {
-      member_signature.WarnAboutAccess(access_method, api_list, deny_access);
-    }
+  EnforcementPolicy testApiPolicy = runtime->GetTestApiEnforcementPolicy();
 
-    // If there is a StrictMode listener, notify it about this violation.
-    member_signature.NotifyHiddenApiListener(access_method);
+  bool deny_access = false;
+  if (hiddenApiPolicy == EnforcementPolicy::kEnabled) {
+    if (testApiPolicy == EnforcementPolicy::kDisabled && api_list.IsTestApi()) {
+      deny_access = false;
+    } else {
+      switch (api_list.GetMaxAllowedSdkVersion()) {
+        case SdkVersion::kP:
+          deny_access = runtime->isChangeEnabled(kHideMaxtargetsdkPHiddenApis);
+          break;
+        case SdkVersion::kQ:
+          deny_access = runtime->isChangeEnabled(kHideMaxtargetsdkQHiddenApis);
+          break;
+        default:
+          deny_access = IsSdkVersionSetAndMoreThan(runtime->GetTargetSdkVersion(),
+                                                         api_list.GetMaxAllowedSdkVersion());
+      }
+    }
+  }
+
+  if (access_method != AccessMethod::kNone) {
+    // Warn if non-greylisted signature is being accessed or it is not exempted.
+    if (deny_access || !member_signature.DoesPrefixMatchAny(kWarningExemptions)) {
+      // Print a log message with information about this class member access.
+      // We do this if we're about to deny access, or the app is debuggable.
+      if (kLogAllAccesses || deny_access || runtime->IsJavaDebuggable()) {
+        member_signature.WarnAboutAccess(access_method, api_list, deny_access);
+      }
+
+      // If there is a StrictMode listener, notify it about this violation.
+      member_signature.NotifyHiddenApiListener(access_method);
+    }
 
     // If event log sampling is enabled, report this violation.
     if (kIsTargetBuild && !kIsTargetLinux) {

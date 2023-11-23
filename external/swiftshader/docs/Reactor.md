@@ -61,7 +61,7 @@ The braces are superfluous. They just make the syntax look more like regular C++
 The Routine is obtained and materialized by "calling" the ```Function<>``` object to give it a name:
 
 ```C++
-Routine *routine = function("one");
+auto routine = function("one");
 ```
 
 Finally, we can obtain the function pointer to the entry point of the routine, and call it:
@@ -84,9 +84,9 @@ Function<Int(Int, Int)> function;
 {
     Int x = function.Arg<0>();
     Int y = function.Arg<1>();
-   
+
     Int sum = x + y;
-   
+
     Return(sum);
 }
 ```
@@ -119,9 +119,9 @@ Types can be cast using the constructor-style syntax:
 Function<Int(Float)> function;
 {
     Float x = function.Arg<0>();
-   
+
     Int cast = Int(x);
-   
+
     Return(cast);
 }
 ```
@@ -132,14 +132,16 @@ You can reinterpret-cast a variable using ```As<>```:
 Function<Int(Float)> function;
 {
     Float x = function.Arg<0>();
-   
+
     Int reinterpret = As<Int>(x);
-   
+
     Return(reinterpret);
 }
 ```
 
 Note that this is a bitwise cast. Unlike C++'s ```reinterpret_cast<>```, it does not allow casting between different sized types. Think of it as storing the value in memory and then loading from that same address into the casted type.
+
+An important exception is that 16-, 8-, and 4-byte vectors can be cast to other vectors of one of these sizes. Casting to a longer vector leaves the upper contents undefined.
 
 ### Pointers
 
@@ -185,7 +187,7 @@ To generate for example the [unit step](https://en.wikipedia.org/wiki/Heaviside_
 Function<Float(Float)> function;
 {
     Pointer<Float> x = function.Arg<0>();
-   
+
     If(x > 0.0f)
     {
         Return(1.0f);

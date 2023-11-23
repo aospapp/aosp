@@ -21,30 +21,20 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import javax.security.auth.x500.X500Principal;
-import junit.framework.TestCase;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
 import libcore.libcore.util.SerializationTester;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-import dalvik.system.VMRuntime;
-import sun.security.jca.Providers;
 
-
-public class X500PrincipalTest extends TestCase {
+public class X500PrincipalTest extends TestCaseWithRules {
 
     // Allow access to deprecated BC algorithms in this test, so we can ensure they
     // continue to work
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                VMRuntime.getRuntime().getTargetSdkVersion());
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
-        super.tearDown();
-    }
+    @Rule
+    public TestRule enableDeprecatedBCAlgorithmsRule =
+            EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
 
     public void testSerialization() {
         String expected = "aced0005737200266a617661782e73656375726974792e617574682e7"

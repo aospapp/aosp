@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
-
 from autotest_lib.client.common_lib.cros import tpm_utils
 from autotest_lib.server import autotest
 from autotest_lib.server import test
@@ -16,18 +14,10 @@ class policy_DeviceServer(test.test):
     """
     version = 1
 
-    def clear_tpm_if_owned(self):
-        """Clear the TPM only if device is already owned."""
-        tpm_status = tpm_utils.TPMStatus(self.host)
-        logging.info('TPM status: %s', tpm_status)
-        if tpm_status['Owned']:
-            logging.info('Clearing TPM because this device is owned.')
-            tpm_utils.ClearTPMOwnerRequest(self.host)
-
 
     def cleanup(self):
         """Cleanup for this test."""
-        self.clear_tpm_if_owned()
+        tpm_utils.ClearTPMIfOwned(self.host)
         self.host.reboot()
 
 
@@ -44,7 +34,7 @@ class policy_DeviceServer(test.test):
 
         # Clear TPM to ensure that client test can enroll device.
         self.host = host
-        self.clear_tpm_if_owned()
+        tpm_utils.ClearTPMIfOwned(self.host)
 
         self.autotest_client = autotest.Autotest(self.host)
         self.autotest_client.run_test(

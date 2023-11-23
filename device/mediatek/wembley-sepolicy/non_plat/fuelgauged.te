@@ -1,0 +1,71 @@
+# ==============================================
+# Policy File of /system/bin/fuelgauged Executable File 
+
+# ==============================================
+# Type Declaration
+# ==============================================
+type fuelgauged ,domain;
+type fuelgauged_exec , exec_type, file_type, vendor_file_type;
+type fuelgauged_file, file_type, data_file_type;
+
+# ==============================================
+# Android Policy Rule
+# ==============================================
+
+# ==============================================
+# NSA Policy Rule
+# ==============================================
+
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+init_daemon_domain(fuelgauged)
+
+# Data : WK14.43
+# Operation : Migration
+# Purpose : Fuel Gauge daemon for access driver node
+allow fuelgauged input_device:dir rw_dir_perms;
+allow fuelgauged input_device:file r_file_perms;
+
+# Data : WK14.43
+# Operation : Migration
+# Purpose : For meta tool calibration
+allow fuelgauged mtk-adc-cali_device:chr_file rw_file_perms;
+
+# Data : WK14.43
+# Operation : Migration
+# Purpose : For fg.log can be printed with kernel log
+allow fuelgauged kmsg_device:chr_file w_file_perms;
+
+# Data : WK14.43
+# Operation : Migration
+# Purpose : For fg daemon can comminucate with kernel
+allow fuelgauged self:netlink_socket create;
+allow fuelgauged self:netlink_socket create_socket_perms_no_ioctl;
+allow fuelgauged self:netlink_route_socket { bind create getattr write nlmsg_read read nlmsg_write };
+
+# Data : WK16.39
+allow fuelgauged self:capability { chown fsetid };
+
+# Date: W17.22
+# Operation : New Feature
+# Purpose : Add for A/B system
+allow fuelgauged kernel:system module_request;
+
+# Date: W18.03
+# Operation : change fuelgagued access from cache to nvcfg
+# Purpose : add fuelgauged to nvcfg read write permit
+allow fuelgauged nvcfg_file:dir { search write open read add_name create getattr};
+allow fuelgauged nvcfg_file:file { read write getattr open create };
+
+# Date: W18.17
+# Operation : add label for /sys/devices/platform/battery(/.*)
+# Purpose : add fuelgauged could access
+r_dir_file(fuelgauged, sysfs_batteryinfo);
+
+# Date : WK18.21
+# Operation: P migration
+# Purpose: Allow to search /mnt/vendor/nvdata for fstab when using NVM_Init()
+allow fuelgauged mnt_vendor_file:dir search;
+

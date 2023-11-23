@@ -17,8 +17,8 @@
 package android.preference;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
 import android.app.NotificationManager;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -151,7 +151,7 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
                 .PRIORITY_CATEGORY_ALARMS) != 0;
         mAllowMedia = (mNotificationPolicy.priorityCategories & NotificationManager.Policy
                 .PRIORITY_CATEGORY_MEDIA) != 0;
-        mAllowRinger = !ZenModeConfig.areAllPriorityOnlyNotificationZenSoundsMuted(
+        mAllowRinger = !ZenModeConfig.areAllPriorityOnlyRingerSoundsMuted(
                 mNotificationPolicy);
         mStreamType = streamType;
         mAffectedByRingerMode = mAudioManager.isStreamAffectedByRingerMode(mStreamType);
@@ -571,7 +571,7 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
                         .PRIORITY_CATEGORY_ALARMS) != 0;
                 mAllowMedia = (mNotificationPolicy.priorityCategories
                         & NotificationManager.Policy.PRIORITY_CATEGORY_MEDIA) != 0;
-                mAllowRinger = !ZenModeConfig.areAllPriorityOnlyNotificationZenSoundsMuted(
+                mAllowRinger = !ZenModeConfig.areAllPriorityOnlyRingerSoundsMuted(
                         mNotificationPolicy);
                 updateSlider();
             }

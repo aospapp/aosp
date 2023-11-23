@@ -2,7 +2,6 @@ package com.android.cts.managedprofile;
 
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS;
 import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_NUMERIC_COMPLEX;
-import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -44,6 +43,17 @@ public class DevicePolicyManagerParentSupportTest extends BaseManagedProfileTest
         assertThat(actualPasswordHistoryLength).isEqualTo(passwordHistoryLength);
     }
 
+    public void testGetPasswordComplexity_onParent() {
+        if (!mHasSecureLockScreen) {
+            return;
+        }
+
+        final int actualPasswordComplexity =
+                mParentDevicePolicyManager.getPasswordComplexity();
+        assertThat(actualPasswordComplexity).isEqualTo(
+                DevicePolicyManager.PASSWORD_COMPLEXITY_NONE);
+    }
+
     public void testSetAndGetPasswordExpirationTimeout_onParent() {
         if (!mHasSecureLockScreen) {
             return;
@@ -74,6 +84,9 @@ public class DevicePolicyManagerParentSupportTest extends BaseManagedProfileTest
     }
 
     public void testGetMaximumPasswordLength_onParent() {
+        if (!mHasSecureLockScreen) {
+            return;
+        }
         final int actualMaximumPasswordLength =
                 mParentDevicePolicyManager.getPasswordMaximumLength(
                         PASSWORD_QUALITY_NUMERIC_COMPLEX);

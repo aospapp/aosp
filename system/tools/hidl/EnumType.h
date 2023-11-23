@@ -22,6 +22,7 @@
 #include "Reference.h"
 #include "Scope.h"
 
+#include <string>
 #include <vector>
 
 namespace android {
@@ -30,14 +31,14 @@ struct EnumValue;
 struct BitFieldType;
 
 struct EnumType : public Scope {
-    EnumType(const char* localName, const FQName& fullName, const Location& location,
+    EnumType(const std::string& localName, const FQName& fullName, const Location& location,
              const Reference<Type>& storageType, Scope* parent);
 
     const Type *storageType() const;
     const std::vector<EnumValue *> &values() const;
     void addValue(EnumValue *value);
 
-    void forEachValueFromRoot(const std::function<void(EnumValue*)> f) const;
+    void forEachValueFromRoot(const std::function<void(const EnumValue*)> f) const;
 
     // This is the number of distinct keys (even if they have colliding values)
     size_t numValueNames() const;
@@ -75,6 +76,10 @@ struct EnumType : public Scope {
     status_t validate() const override;
     status_t validateUniqueNames() const;
 
+    void emitJavaFieldInitializer(Formatter&, const std::string&) const override;
+
+    void emitJavaFieldDefaultInitialValue(Formatter&, const std::string&) const override;
+
     void emitReaderWriter(
             Formatter &out,
             const std::string &name,
@@ -92,6 +97,7 @@ struct EnumType : public Scope {
             const std::string &offset,
             bool isReader) const override;
 
+    void emitHidlDefinition(Formatter& out) const override;
     void emitTypeDeclarations(Formatter& out) const override;
     void emitTypeForwardDeclaration(Formatter& out) const override;
     void emitGlobalTypeDeclarations(Formatter& out) const override;
@@ -141,7 +147,7 @@ struct EnumType : public Scope {
 };
 
 struct EnumValue : public LocalIdentifier, DocCommentable {
-    EnumValue(const char* name, ConstantExpression* value, const Location& location);
+    EnumValue(const std::string& name, ConstantExpression* value, const Location& location);
 
     std::string name() const;
     std::string rawValue(ScalarType::Kind castKind) const;

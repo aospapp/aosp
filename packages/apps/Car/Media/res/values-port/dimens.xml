@@ -15,15 +15,11 @@
   limitations under the License.
 -->
 <resources>
-    <!-- browse_playback_background.xml -->
-    <!-- Scale factor for the background image -->
-    <dimen name="browse_playback_album_art_margin_start">5dp</dimen>
-    <dimen name="browse_playback_album_art_margin_end">10dp</dimen>
-
     <!-- appbar_view.xml -->
-    <dimen name="browse_fragment_top_padding">@dimen/appbar_2_rows_height</dimen>
-    <dimen name="browse_fragment_top_padding_stacked">@dimen/appbar_first_row_height</dimen>
+    <!-- TODO: Replace this once CarUiRecyclerView is included -->
+    <dimen name="browse_fragment_top_padding">@dimen/car_ui_toolbar_row_height</dimen>
+    <dimen name="browse_fragment_top_padding_stacked">@dimen/car_ui_toolbar_row_height</dimen>
 
     <!-- x-axis margin of playback seekbar -->
-    <dimen name="playback_seekbar_margin_x">@*android:dimen/car_padding_5</dimen>
+    <dimen name="playback_seekbar_margin_x">@dimen/car_ui_padding_5</dimen>
 </resources>

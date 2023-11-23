@@ -57,8 +57,8 @@ public class TaskDescriptionTest {
 
     @Rule
     public ActivityTestRule<MockActivity> mTaskDescriptionActivity =
-        new ActivityTestRule<>(MockActivity.class,
-            false /* initialTouchMode */, false /* launchActivity */);
+            new ActivityTestRule<>(MockActivity.class,
+                    false /* initialTouchMode */, false /* launchActivity */);
 
     @Test
     public void testBitmapConstructor() throws Exception {
@@ -66,17 +66,37 @@ public class TaskDescriptionTest {
         final Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
         bitmap.eraseColor(0);
         activity.setTaskDescription(new TaskDescription(TEST_LABEL, bitmap, TEST_COLOR));
-        assertTaskDescription(activity, TEST_LABEL, TEST_NO_DATA);
+        assertTaskDescription(activity, TEST_LABEL, TEST_NO_DATA, bitmap);
+
+        activity.setTaskDescription(new TaskDescription(TEST_LABEL, bitmap));
+        assertTaskDescription(activity, TEST_LABEL, TEST_NO_DATA, bitmap);
     }
 
     @Test
     public void testResourceConstructor() throws Exception {
         final Activity activity = mTaskDescriptionActivity.launchActivity(null);
         activity.setTaskDescription(new TaskDescription(TEST_LABEL, TEST_RES_DATA, TEST_COLOR));
-        assertTaskDescription(activity, TEST_LABEL, TEST_RES_DATA);
+        assertTaskDescription(activity, TEST_LABEL, TEST_RES_DATA, null);
+
+        activity.setTaskDescription(new TaskDescription(TEST_LABEL, TEST_RES_DATA));
+        assertTaskDescription(activity, TEST_LABEL, TEST_RES_DATA, null);
     }
 
-    private void assertTaskDescription(Activity activity, String label, int resId) {
+    @Test
+    public void testLabelConstructor() throws Exception {
+        final Activity activity = mTaskDescriptionActivity.launchActivity(null);
+        activity.setTaskDescription(new TaskDescription(TEST_LABEL));
+        assertTaskDescription(activity, TEST_LABEL, TEST_NO_DATA, null);
+    }
+
+    @Test
+    public void testEmptyConstructor() throws Exception {
+        final Activity activity = mTaskDescriptionActivity.launchActivity(null);
+        activity.setTaskDescription(new TaskDescription());
+        assertTaskDescription(activity, null, TEST_NO_DATA, null);
+    }
+
+    private void assertTaskDescription(Activity activity, String label, int resId, Bitmap bitmap) {
         final ActivityManager am = (ActivityManager) activity.getSystemService(ACTIVITY_SERVICE);
         List<RecentTaskInfo> recentsTasks = am.getRecentTasks(1 /* maxNum */, 0 /* flags */);
         if (!recentsTasks.isEmpty()) {
@@ -84,7 +104,7 @@ public class TaskDescriptionTest {
             if (activity.getTaskId() == info.id) {
                 final TaskDescription td = info.taskDescription;
                 assertNotNull(td);
-                if (resId == TEST_NO_DATA) {
+                if (bitmap != null) {
                     // TaskPersister at the worst case scenario waits 3 secs (PRE_TASK_DELAY_MS) to
                     // write the image to disk if its write time has ended
                     waitFor("TaskDescription's icon is null", () -> td.getIcon() != null);

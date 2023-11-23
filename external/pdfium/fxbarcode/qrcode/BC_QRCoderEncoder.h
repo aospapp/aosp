@@ -7,9 +7,6 @@
 #ifndef FXBARCODE_QRCODE_BC_QRCODERENCODER_H_
 #define FXBARCODE_QRCODE_BC_QRCODERENCODER_H_
 
-#include <utility>
-#include <vector>
-
 #include "core/fxcrt/fx_string.h"
 
 class CBC_QRCoder;
@@ -17,10 +14,12 @@ class CBC_QRCoderErrorCorrectionLevel;
 
 class CBC_QRCoderEncoder {
  public:
-  CBC_QRCoderEncoder();
-  ~CBC_QRCoderEncoder();
+  CBC_QRCoderEncoder() = delete;
+  ~CBC_QRCoderEncoder() = delete;
 
-  static bool Encode(const WideString& content,
+  static void Initialize();
+  static void Finalize();
+  static bool Encode(WideStringView content,
                      const CBC_QRCoderErrorCorrectionLevel* ecLevel,
                      CBC_QRCoder* qrCode);
 };

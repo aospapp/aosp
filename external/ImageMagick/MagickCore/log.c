@@ -17,7 +17,7 @@
 %                                September 2002                               %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -50,16 +50,16 @@
 #include "MagickCore/log.h"
 #include "MagickCore/log-private.h"
 #include "MagickCore/memory_.h"
-#include "MagickCore/memory-private.h"
 #include "MagickCore/nt-base-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/timer.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
-#include "MagickCore/token.h"
 #include "MagickCore/thread_.h"
 #include "MagickCore/thread-private.h"
+#include "MagickCore/timer-private.h"
+#include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
 #include "MagickCore/version.h"
@@ -99,7 +99,7 @@ typedef struct _EventInfo
 typedef struct _HandlerInfo
 {
   const char
-    *name;
+    name[10];
 
   LogHandlerType
     handler;
@@ -136,11 +136,14 @@ struct _LogInfo
   TimerInfo
     timer;
 
-  size_t
-    signature;
-
   MagickLogMethod
     method;
+
+  SemaphoreInfo
+    *event_semaphore;
+
+  size_t
+    signature;
 };
 
 typedef struct _LogMapInfo
@@ -169,31 +172,31 @@ static const HandlerInfo
     { "None", NoHandler },
     { "Stderr", StderrHandler },
     { "Stdout", StdoutHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler },
-    { (char *) NULL, UndefinedHandler }
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler },
+    { "", UndefinedHandler }
   };
 
 static const LogMapInfo
@@ -213,22 +216,27 @@ static MagickBooleanType
   event_logging = MagickFalse;
 
 static SemaphoreInfo
-  *event_semaphore = (SemaphoreInfo *) NULL,
   *log_semaphore = (SemaphoreInfo *) NULL;
 
 /*
   Forward declarations.
 */
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
 static LogHandlerType
   ParseLogHandlers(const char *) magick_attribute((__pure__));
+#endif
 
 static LogInfo
   *GetLogInfo(const char *,ExceptionInfo *);
 
 static MagickBooleanType
-  IsLogCacheInstantiated(ExceptionInfo *) magick_attribute((__pure__)),
+  IsLogCacheInstantiated(ExceptionInfo *) magick_attribute((__pure__));
+
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
+static MagickBooleanType
   LoadLogCache(LinkedListInfo *,const char *,const char *,const size_t,
     ExceptionInfo *);
+#endif
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -273,7 +281,7 @@ static LinkedListInfo *AcquireLogCache(const char *filename,
   */
   cache=NewLinkedList(0);
   status=MagickTrue;
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -787,7 +795,7 @@ MagickExport MagickBooleanType ListLogInfo(FILE *file,ExceptionInfo *exception)
           size_t
             mask;
 
-          if (LogHandlers[j].name == (const char *) NULL)
+          if (*LogHandlers[j].name == '\0')
             break;
           mask=1;
           mask<<=j;
@@ -821,6 +829,248 @@ MagickExport MagickBooleanType ListLogInfo(FILE *file,ExceptionInfo *exception)
   return(MagickTrue);
 }
 
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   L o a d L o g C a c h e                                                   %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  LoadLogCache() loads the log configurations which provides a
+%  mapping between log attributes and log name.
+%
+%  The format of the LoadLogCache method is:
+%
+%      MagickBooleanType LoadLogCache(LinkedListInfo *cache,const char *xml,
+%        const char *filename,const size_t depth,ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o xml:  The log list in XML format.
+%
+%    o filename:  The log list filename.
+%
+%    o depth: depth of <include /> statements.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+static MagickBooleanType LoadLogCache(LinkedListInfo *cache,const char *xml,
+  const char *filename,const size_t depth,ExceptionInfo *exception)
+{
+  char
+    keyword[MagickPathExtent],
+    *token;
+
+  const char
+    *q;
+
+  LogInfo
+    *log_info = (LogInfo *) NULL;
+
+  MagickStatusType
+    status;
+
+  size_t
+    extent;
+
+  /*
+    Load the log map file.
+  */
+  if (xml == (const char *) NULL)
+    return(MagickFalse);
+  status=MagickTrue;
+  token=AcquireString(xml);
+  extent=strlen(token)+MagickPathExtent;
+  for (q=(const char *) xml; *q != '\0'; )
+  {
+    /*
+      Interpret XML.
+    */
+    (void) GetNextToken(q,&q,extent,token);
+    if (*token == '\0')
+      break;
+    (void) CopyMagickString(keyword,token,MagickPathExtent);
+    if (LocaleNCompare(keyword,"<!DOCTYPE",9) == 0)
+      {
+        /*
+          Doctype element.
+        */
+        while ((LocaleNCompare(q,"]>",2) != 0) && (*q != '\0'))
+          (void) GetNextToken(q,&q,extent,token);
+        continue;
+      }
+    if (LocaleNCompare(keyword,"<!--",4) == 0)
+      {
+        /*
+          Comment element.
+        */
+        while ((LocaleNCompare(q,"->",2) != 0) && (*q != '\0'))
+          (void) GetNextToken(q,&q,extent,token);
+        continue;
+      }
+    if (LocaleCompare(keyword,"<include") == 0)
+      {
+        /*
+          Include element.
+        */
+        while (((*token != '/') && (*(token+1) != '>')) && (*q != '\0'))
+        {
+          (void) CopyMagickString(keyword,token,MagickPathExtent);
+          (void) GetNextToken(q,&q,extent,token);
+          if (*token != '=')
+            continue;
+          (void) GetNextToken(q,&q,extent,token);
+          if (LocaleCompare(keyword,"file") == 0)
+            {
+              if (depth > MagickMaxRecursionDepth)
+                (void) ThrowMagickException(exception,GetMagickModule(),
+                  ConfigureError,"IncludeElementNestedTooDeeply","`%s'",token);
+              else
+                {
+                  char
+                    path[MagickPathExtent],
+                    *file_xml;
+
+                  GetPathComponent(filename,HeadPath,path);
+                  if (*path != '\0')
+                    (void) ConcatenateMagickString(path,DirectorySeparator,
+                      MagickPathExtent);
+                  if (*token == *DirectorySeparator)
+                    (void) CopyMagickString(path,token,MagickPathExtent);
+                  else
+                    (void) ConcatenateMagickString(path,token,MagickPathExtent);
+                  file_xml=FileToXML(path,~0UL);
+                  if (file_xml != (char *) NULL)
+                    {
+                      status&=LoadLogCache(cache,file_xml,path,depth+1,
+                        exception);
+                      file_xml=DestroyString(file_xml);
+                    }
+                }
+            }
+        }
+        continue;
+      }
+    if (LocaleCompare(keyword,"<logmap>") == 0)
+      {
+        /*
+          Allocate memory for the log list.
+        */
+        log_info=(LogInfo *) AcquireCriticalMemory(sizeof(*log_info));
+        (void) memset(log_info,0,sizeof(*log_info));
+        log_info->path=ConstantString(filename);
+        GetTimerInfo((TimerInfo *) &log_info->timer);
+        log_info->signature=MagickCoreSignature;
+        continue;
+      }
+    if (log_info == (LogInfo *) NULL)
+      continue;
+    if (LocaleCompare(keyword,"</logmap>") == 0)
+      {
+        status=AppendValueToLinkedList(cache,log_info);
+        if (status == MagickFalse)
+          (void) ThrowMagickException(exception,GetMagickModule(),
+            ResourceLimitError,"MemoryAllocationFailed","`%s'",filename);
+        log_info=(LogInfo *) NULL;
+        continue;
+      }
+    (void) GetNextToken(q,(const char **) NULL,extent,token);
+    if (*token != '=')
+      continue;
+    (void) GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
+    switch (*keyword)
+    {
+      case 'E':
+      case 'e':
+      {
+        if (LocaleCompare((char *) keyword,"events") == 0)
+          {
+            log_info->event_mask=(LogEventType) (log_info->event_mask |
+              ParseCommandOption(MagickLogEventOptions,MagickTrue,token));
+            break;
+          }
+        break;
+      }
+      case 'F':
+      case 'f':
+      {
+        if (LocaleCompare((char *) keyword,"filename") == 0)
+          {
+            if (log_info->filename != (char *) NULL)
+              log_info->filename=(char *)
+                RelinquishMagickMemory(log_info->filename);
+            log_info->filename=ConstantString(token);
+            break;
+          }
+        if (LocaleCompare((char *) keyword,"format") == 0)
+          {
+            if (log_info->format != (char *) NULL)
+              log_info->format=(char *)
+                RelinquishMagickMemory(log_info->format);
+            log_info->format=ConstantString(token);
+            break;
+          }
+        break;
+      }
+      case 'G':
+      case 'g':
+      {
+        if (LocaleCompare((char *) keyword,"generations") == 0)
+          {
+            if (LocaleCompare(token,"unlimited") == 0)
+              {
+                log_info->generations=(~0UL);
+                break;
+              }
+            log_info->generations=StringToUnsignedLong(token);
+            break;
+          }
+        break;
+      }
+      case 'L':
+      case 'l':
+      {
+        if (LocaleCompare((char *) keyword,"limit") == 0)
+          {
+            if (LocaleCompare(token,"unlimited") == 0)
+              {
+                log_info->limit=(~0UL);
+                break;
+              }
+            log_info->limit=StringToUnsignedLong(token);
+            break;
+          }
+        break;
+      }
+      case 'O':
+      case 'o':
+      {
+        if (LocaleCompare((char *) keyword,"output") == 0)
+          {
+            log_info->handler_mask=(LogHandlerType)
+              (log_info->handler_mask | ParseLogHandlers(token));
+            break;
+          }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  token=DestroyString(token);
+  if (cache == (LinkedListInfo *) NULL)
+    return(MagickFalse);
+  return(status != 0 ? MagickTrue : MagickFalse);
+}
+#endif
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -849,7 +1099,6 @@ MagickPrivate MagickBooleanType LogComponentGenesis(void)
   exception=AcquireExceptionInfo();
   (void) GetLogInfo("*",exception);
   exception=DestroyExceptionInfo(exception);
-  event_semaphore=AcquireSemaphoreInfo();
   return(MagickTrue);
 }
 
@@ -890,17 +1139,14 @@ static void *DestroyLogElement(void *log_info)
     p->path=DestroyString(p->path);
   if (p->filename != (char *) NULL)
     p->filename=DestroyString(p->filename);
+  if (p->event_semaphore != (SemaphoreInfo *) NULL)
+    RelinquishSemaphoreInfo(&p->event_semaphore);
   p=(LogInfo *) RelinquishMagickMemory(p);
   return((void *) NULL);
 }
 
 MagickPrivate void LogComponentTerminus(void)
 {
-  if (event_semaphore == (SemaphoreInfo *) NULL)
-    ActivateSemaphoreInfo(&event_semaphore);
-  LockSemaphoreInfo(event_semaphore);
-  UnlockSemaphoreInfo(event_semaphore);
-  RelinquishSemaphoreInfo(&event_semaphore);
   if (log_semaphore == (SemaphoreInfo *) NULL)
     ActivateSemaphoreInfo(&log_semaphore);
   LockSemaphoreInfo(log_semaphore);
@@ -975,7 +1221,7 @@ static char *TranslateEvent(const char *module,const char *function,
   exception=AcquireExceptionInfo();
   log_info=(LogInfo *) GetLogInfo("*",exception);
   exception=DestroyExceptionInfo(exception);
-  seconds=time((time_t *) NULL);
+  seconds=GetMagickTime();
   elapsed_time=GetElapsedTime(&log_info->timer);
   user_time=GetUserTime(&log_info->timer);
   text=AcquireString(event);
@@ -994,7 +1240,7 @@ static char *TranslateEvent(const char *module,const char *function,
       (void) FormatLocaleString(text,extent,
         "<entry>\n"
         "  <timestamp>%s</timestamp>\n"
-        "  <elapsed-time>%lu:%02lu.%03lu</elapsed-time>\n"
+        "  <elapsed-time>%lu:%02lu.%06lu</elapsed-time>\n"
         "  <user-time>%0.3f</user-time>\n"
         "  <process-id>%.20g</process-id>\n"
         "  <thread-id>%.20g</thread-id>\n"
@@ -1005,7 +1251,7 @@ static char *TranslateEvent(const char *module,const char *function,
         "  <event>%s</event>\n"
         "</entry>",timestamp,(unsigned long) (elapsed_time/60.0),
         (unsigned long) floor(fmod(elapsed_time,60.0)),(unsigned long)
-        (1000.0*(elapsed_time-floor(elapsed_time))+0.5),user_time,
+        (1000000.0*(elapsed_time-floor(elapsed_time))+0.5),user_time,
         (double) getpid(),(double) GetMagickThreadSignature(),module,function,
         (double) line,domain,event);
       return(text);
@@ -1034,6 +1280,7 @@ static char *TranslateEvent(const char *module,const char *function,
         %e   event
         %f   function
         %g   generation
+        %i   thread id
         %l   line
         %m   module
         %n   log name
@@ -1064,6 +1311,8 @@ static char *TranslateEvent(const char *module,const char *function,
         continue;
       }
     p++;
+    if (*p == '\0')
+      break;
     switch (*p)
     {
       case 'c':
@@ -1096,6 +1345,12 @@ static char *TranslateEvent(const char *module,const char *function,
           }
         q+=FormatLocaleString(q,extent,"%.20g",(double) (log_info->generation %
           log_info->generations));
+        break;
+      }
+      case 'i':
+      {
+        q+=FormatLocaleString(q,extent,"%.20g",(double)
+          GetMagickThreadSignature());
         break;
       }
       case 'l':
@@ -1216,8 +1471,15 @@ static char *TranslateFilename(const LogInfo *log_info)
         continue;
       }
     p++;
+    if (*p == '\0')
+      break;
     switch (*p)
     {
+      case '\0':
+      {
+        p--;
+        break;
+      }
       case 'c':
       {
         q+=CopyMagickString(q,GetClientName(),extent);
@@ -1290,12 +1552,12 @@ MagickExport MagickBooleanType LogMagickEventList(const LogEventType type,
   exception=AcquireExceptionInfo();
   log_info=(LogInfo *) GetLogInfo("*",exception);
   exception=DestroyExceptionInfo(exception);
-  if (event_semaphore == (SemaphoreInfo *) NULL)
-    ActivateSemaphoreInfo(&event_semaphore);
-  LockSemaphoreInfo(event_semaphore);
+  if (log_info->event_semaphore == (SemaphoreInfo *) NULL)
+    ActivateSemaphoreInfo(&log_info->event_semaphore);
+  LockSemaphoreInfo(log_info->event_semaphore);
   if ((log_info->event_mask & type) == 0)
     {
-      UnlockSemaphoreInfo(event_semaphore);
+      UnlockSemaphoreInfo(log_info->event_semaphore);
       return(MagickTrue);
     }
   domain=CommandOptionToMnemonic(MagickLogEventOptions,type);
@@ -1310,7 +1572,7 @@ MagickExport MagickBooleanType LogMagickEventList(const LogEventType type,
   if (text == (char *) NULL)
     {
       (void) ContinueTimer((TimerInfo *) &log_info->timer);
-      UnlockSemaphoreInfo(event_semaphore);
+      UnlockSemaphoreInfo(log_info->event_semaphore);
       return(MagickFalse);
     }
   if ((log_info->handler_mask & ConsoleHandler) != 0)
@@ -1339,7 +1601,7 @@ MagickExport MagickBooleanType LogMagickEventList(const LogEventType type,
       file_info.st_size=0;
       if (log_info->file != (FILE *) NULL)
         (void) fstat(fileno(log_info->file),&file_info);
-      if (file_info.st_size > (ssize_t) (1024*1024*log_info->limit))
+      if (file_info.st_size > (MagickOffsetType) (1024*1024*log_info->limit))
         {
           (void) FormatLocaleFile(log_info->file,"</log>\n");
           (void) fclose(log_info->file);
@@ -1354,7 +1616,7 @@ MagickExport MagickBooleanType LogMagickEventList(const LogEventType type,
           if (filename == (char *) NULL)
             {
               (void) ContinueTimer((TimerInfo *) &log_info->timer);
-              UnlockSemaphoreInfo(event_semaphore);
+              UnlockSemaphoreInfo(log_info->event_semaphore);
               return(MagickFalse);
             }
           log_info->append=IsPathAccessible(filename);
@@ -1362,7 +1624,7 @@ MagickExport MagickBooleanType LogMagickEventList(const LogEventType type,
           filename=(char  *) RelinquishMagickMemory(filename);
           if (log_info->file == (FILE *) NULL)
             {
-              UnlockSemaphoreInfo(event_semaphore);
+              UnlockSemaphoreInfo(log_info->event_semaphore);
               return(MagickFalse);
             }
           log_info->generation++;
@@ -1391,7 +1653,7 @@ MagickExport MagickBooleanType LogMagickEventList(const LogEventType type,
     }
   text=(char  *) RelinquishMagickMemory(text);
   (void) ContinueTimer((TimerInfo *) &log_info->timer);
-  UnlockSemaphoreInfo(event_semaphore);
+  UnlockSemaphoreInfo(log_info->event_semaphore);
   return(MagickTrue);
 }
 
@@ -1413,252 +1675,13 @@ MagickExport MagickBooleanType LogMagickEvent(const LogEventType type,
   return(status);
 }
 
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
 %                                                                             %
 %                                                                             %
-+   L o a d L o g C a c h e                                                   %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  LoadLogCache() loads the log configurations which provides a
-%  mapping between log attributes and log name.
-%
-%  The format of the LoadLogCache method is:
-%
-%      MagickBooleanType LoadLogCache(LinkedListInfo *cache,const char *xml,
-%        const char *filename,const size_t depth,ExceptionInfo *exception)
-%
-%  A description of each parameter follows:
-%
-%    o xml:  The log list in XML format.
-%
-%    o filename:  The log list filename.
-%
-%    o depth: depth of <include /> statements.
-%
-%    o exception: return any errors or warnings in this structure.
-%
-*/
-static MagickBooleanType LoadLogCache(LinkedListInfo *cache,const char *xml,
-  const char *filename,const size_t depth,ExceptionInfo *exception)
-{
-  char
-    keyword[MagickPathExtent],
-    *token;
-
-  const char
-    *q;
-
-  LogInfo
-    *log_info = (LogInfo *) NULL;
-
-  MagickStatusType
-    status;
-
-  size_t
-    extent;
-
-  /*
-    Load the log map file.
-  */
-  if (xml == (const char *) NULL)
-    return(MagickFalse);
-  status=MagickTrue;
-  token=AcquireString(xml);
-  extent=strlen(token)+MagickPathExtent;
-  for (q=(const char *) xml; *q != '\0'; )
-  {
-    /*
-      Interpret XML.
-    */
-    GetNextToken(q,&q,extent,token);
-    if (*token == '\0')
-      break;
-    (void) CopyMagickString(keyword,token,MagickPathExtent);
-    if (LocaleNCompare(keyword,"<!DOCTYPE",9) == 0)
-      {
-        /*
-          Doctype element.
-        */
-        while ((LocaleNCompare(q,"]>",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
-        continue;
-      }
-    if (LocaleNCompare(keyword,"<!--",4) == 0)
-      {
-        /*
-          Comment element.
-        */
-        while ((LocaleNCompare(q,"->",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
-        continue;
-      }
-    if (LocaleCompare(keyword,"<include") == 0)
-      {
-        /*
-          Include element.
-        */
-        while (((*token != '/') && (*(token+1) != '>')) && (*q != '\0'))
-        {
-          (void) CopyMagickString(keyword,token,MagickPathExtent);
-          GetNextToken(q,&q,extent,token);
-          if (*token != '=')
-            continue;
-          GetNextToken(q,&q,extent,token);
-          if (LocaleCompare(keyword,"file") == 0)
-            {
-              if (depth > MagickMaxRecursionDepth)
-                (void) ThrowMagickException(exception,GetMagickModule(),
-                  ConfigureError,"IncludeElementNestedTooDeeply","`%s'",token);
-              else
-                {
-                  char
-                    path[MagickPathExtent],
-                    *file_xml;
-
-                  GetPathComponent(filename,HeadPath,path);
-                  if (*path != '\0')
-                    (void) ConcatenateMagickString(path,DirectorySeparator,
-                      MagickPathExtent);
-                  if (*token == *DirectorySeparator)
-                    (void) CopyMagickString(path,token,MagickPathExtent);
-                  else
-                    (void) ConcatenateMagickString(path,token,MagickPathExtent);
-                  file_xml=FileToXML(path,~0UL);
-                  if (file_xml != (char *) NULL)
-                    {
-                      status&=LoadLogCache(cache,file_xml,path,depth+1,
-                        exception);
-                      file_xml=DestroyString(file_xml);
-                    }
-                }
-            }
-        }
-        continue;
-      }
-    if (LocaleCompare(keyword,"<logmap>") == 0)
-      {
-        /*
-          Allocate memory for the log list.
-        */
-        log_info=(LogInfo *) AcquireCriticalMemory(sizeof(*log_info));
-        (void) memset(log_info,0,sizeof(*log_info));
-        log_info->path=ConstantString(filename);
-        GetTimerInfo((TimerInfo *) &log_info->timer);
-        log_info->signature=MagickCoreSignature;
-        continue;
-      }
-    if (log_info == (LogInfo *) NULL)
-      continue;
-    if (LocaleCompare(keyword,"</logmap>") == 0)
-      {
-        status=AppendValueToLinkedList(cache,log_info);
-        if (status == MagickFalse)
-          (void) ThrowMagickException(exception,GetMagickModule(),
-            ResourceLimitError,"MemoryAllocationFailed","`%s'",filename);
-        log_info=(LogInfo *) NULL;
-        continue;
-      }
-    GetNextToken(q,(const char **) NULL,extent,token);
-    if (*token != '=')
-      continue;
-    GetNextToken(q,&q,extent,token);
-    GetNextToken(q,&q,extent,token);
-    switch (*keyword)
-    {
-      case 'E':
-      case 'e':
-      {
-        if (LocaleCompare((char *) keyword,"events") == 0)
-          {
-            log_info->event_mask=(LogEventType) (log_info->event_mask |
-              ParseCommandOption(MagickLogEventOptions,MagickTrue,token));
-            break;
-          }
-        break;
-      }
-      case 'F':
-      case 'f':
-      {
-        if (LocaleCompare((char *) keyword,"filename") == 0)
-          {
-            if (log_info->filename != (char *) NULL)
-              log_info->filename=(char *)
-                RelinquishMagickMemory(log_info->filename);
-            log_info->filename=ConstantString(token);
-            break;
-          }
-        if (LocaleCompare((char *) keyword,"format") == 0)
-          {
-            if (log_info->format != (char *) NULL)
-              log_info->format=(char *)
-                RelinquishMagickMemory(log_info->format);
-            log_info->format=ConstantString(token);
-            break;
-          }
-        break;
-      }
-      case 'G':
-      case 'g':
-      {
-        if (LocaleCompare((char *) keyword,"generations") == 0)
-          {
-            if (LocaleCompare(token,"unlimited") == 0)
-              {
-                log_info->generations=(~0UL);
-                break;
-              }
-            log_info->generations=StringToUnsignedLong(token);
-            break;
-          }
-        break;
-      }
-      case 'L':
-      case 'l':
-      {
-        if (LocaleCompare((char *) keyword,"limit") == 0)
-          {
-            if (LocaleCompare(token,"unlimited") == 0)
-              {
-                log_info->limit=(~0UL);
-                break;
-              }
-            log_info->limit=StringToUnsignedLong(token);
-            break;
-          }
-        break;
-      }
-      case 'O':
-      case 'o':
-      {
-        if (LocaleCompare((char *) keyword,"output") == 0)
-          {
-            log_info->handler_mask=(LogHandlerType)
-              (log_info->handler_mask | ParseLogHandlers(token));
-            break;
-          }
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  token=DestroyString(token);
-  if (cache == (LinkedListInfo *) NULL)
-    return(MagickFalse);
-  return(status != 0 ? MagickTrue : MagickFalse);
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
-+   P a r s e L o g H a n d l e r s                                           %
+%   P a r s e L o g H a n d l e r s                                           %
 %                                                                             %
 %                                                                             %
 %                                                                             %
@@ -1696,7 +1719,7 @@ static LogHandlerType ParseLogHandlers(const char *handlers)
     while ((*p != '\0') && ((isspace((int) ((unsigned char) *p)) != 0) ||
            (*p == ',')))
       p++;
-    for (i=0; LogHandlers[i].name != (char *) NULL; i++)
+    for (i=0; *LogHandlers[i].name != '\0'; i++)
     {
       length=strlen(LogHandlers[i].name);
       if (LocaleNCompare(p,LogHandlers[i].name,length) == 0)
@@ -1705,11 +1728,12 @@ static LogHandlerType ParseLogHandlers(const char *handlers)
           break;
         }
     }
-    if (LogHandlers[i].name == (char *) NULL)
+    if (*LogHandlers[i].name == '\0')
       return(UndefinedHandler);
   }
   return(handler_mask);
 }
+#endif
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

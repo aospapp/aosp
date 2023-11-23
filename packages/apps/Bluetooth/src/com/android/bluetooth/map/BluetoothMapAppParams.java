@@ -63,16 +63,16 @@ public class BluetoothMapAppParams {
     private static final int PRESENCE_AVAILABLE = 0x1C;
     private static final int PRESENCE_TEXT = 0x1D;
     private static final int LAST_ACTIVITY = 0x1E;
-    private static final int CHAT_STATE = 0x1F;
-    private static final int FILTER_CONVO_ID = 0x20;
-    private static final int CONVO_LISTING_SIZE = 0x21;
-    private static final int FILTER_PRESENCE = 0x22;
-    private static final int FILTER_UID_PRESENT = 0x23;
-    private static final int CHAT_STATE_CONVO_ID = 0x24;
-    private static final int FOLDER_VER_COUNTER = 0x25;
-    private static final int FILTER_MESSAGE_HANDLE = 0x26;
-    private static final int NOTIFICATION_FILTER = 0x27;
-    private static final int CONVO_PARAMETER_MASK = 0x28;
+    private static final int CHAT_STATE = 0x21;
+    private static final int FILTER_CONVO_ID = 0x22;
+    private static final int CONVO_LISTING_SIZE = 0x36;
+    private static final int FILTER_PRESENCE = 0x37;
+    private static final int FILTER_UID_PRESENT = 0x38;
+    private static final int CHAT_STATE_CONVO_ID = 0x39;
+    private static final int FOLDER_VER_COUNTER = 0x23;
+    private static final int FILTER_MESSAGE_HANDLE = 0x24;
+    private static final int NOTIFICATION_FILTER = 0x25;
+    private static final int CONVO_PARAMETER_MASK = 0x26;
 
     // Length defined for Application Parameters
     private static final int MAX_LIST_COUNT_LEN = 0x02; //, 0x0000, 0xFFFF),
@@ -104,8 +104,8 @@ public class BluetoothMapAppParams {
     private static final int CONVO_LISTING_SIZE_LEN = 0x02;
     private static final int FILTER_PRESENCE_LEN = 0x01;
     private static final int FILTER_UID_PRESENT_LEN = 0x01;
-    private static final int FOLDER_VER_COUNTER_LEN = 0x10;
-    private static final int FILTER_MESSAGE_HANDLE_LEN = 0x10;
+    private static final int FOLDER_VER_COUNTER_LEN = 0x20;
+    private static final int FILTER_MESSAGE_HANDLE_LEN = 0x08;
     private static final int NOTIFICATION_FILTER_LEN = 0x04;
     private static final int CONVO_PARAMETER_MASK_LEN = 0x04;
 
@@ -1046,7 +1046,7 @@ public class BluetoothMapAppParams {
     public void setFilterMsgHandle(String handle) {
         try {
             mFilterMsgHandle = BluetoothMapUtils.getLongFromString(handle);
-        } catch (UnsupportedEncodingException e) {
+        } catch (UnsupportedEncodingException | NumberFormatException e) {
             Log.w(TAG, "Error creating long from handle string", e);
         }
     }
@@ -1100,7 +1100,7 @@ public class BluetoothMapAppParams {
     public void setFilterConvoId(String id) {
         try {
             mFilterConvoId = SignedLongLong.fromString(id);
-        } catch (UnsupportedEncodingException e) {
+        } catch (UnsupportedEncodingException | NumberFormatException e) {
             Log.w(TAG, "Error creating long from id string", e);
         }
     }

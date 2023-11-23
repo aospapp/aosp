@@ -42,10 +42,14 @@ class MediaPlayerWrapper {
     private static final String TAG = "AvrcpMediaPlayerWrapper";
     private static final boolean DEBUG = false;
     static boolean sTesting = false;
+    private static final int PLAYBACK_STATE_CHANGE_EVENT_LOGGER_SIZE = 5;
+    private static final String PLAYBACK_STATE_CHANGE_LOGGER_EVENT_TITLE =
+            "Playback State change Event";
 
     private MediaController mMediaController;
     private String mPackageName;
     private Looper mLooper;
+    private final AvrcpEventLogger mPlaybackStateChangeEventLogger;
 
     private MediaData mCurrentData;
 
@@ -54,12 +58,9 @@ class MediaPlayerWrapper {
     private final Object mCallbackLock = new Object();
     private Callback mRegisteredCallback = null;
 
-    protected MediaPlayerWrapper() {
-        mCurrentData = new MediaData(null, null, null);
-    }
-
     public interface Callback {
         void mediaUpdatedCallback(MediaData data);
+        void sessionUpdatedCallback(String packageName);
     }
 
     boolean isPlaybackStateReady() {
@@ -80,30 +81,17 @@ class MediaPlayerWrapper {
         return true;
     }
 
-    // TODO (apanicke): Implement a factory to make testing and creating interop wrappers easier
-    static MediaPlayerWrapper wrap(MediaController controller, Looper looper) {
-        if (controller == null || looper == null) {
-            e("MediaPlayerWrapper.wrap(): Null parameter - Controller: " + controller
-                    + " | Looper: " + looper);
-            return null;
-        }
+    MediaPlayerWrapper(MediaController controller, Looper looper) {
+        mMediaController = controller;
+        mPackageName = controller.getPackageName();
+        mLooper = looper;
+        mPlaybackStateChangeEventLogger = new AvrcpEventLogger(
+                PLAYBACK_STATE_CHANGE_EVENT_LOGGER_SIZE, PLAYBACK_STATE_CHANGE_LOGGER_EVENT_TITLE);
 
-        MediaPlayerWrapper newWrapper;
-        if (controller.getPackageName().equals("com.google.android.music")) {
-            Log.v(TAG, "Creating compatibility wrapper for Google Play Music");
-            newWrapper = new GPMWrapper();
-        } else {
-            newWrapper = new MediaPlayerWrapper();
-        }
-
-        newWrapper.mMediaController = controller;
-        newWrapper.mPackageName = controller.getPackageName();
-        newWrapper.mLooper = looper;
-
-        newWrapper.mCurrentData.queue = Util.toMetadataList(newWrapper.getQueue());
-        newWrapper.mCurrentData.metadata = Util.toMetadata(newWrapper.getMetadata());
-        newWrapper.mCurrentData.state = newWrapper.getPlaybackState();
-        return newWrapper;
+        mCurrentData = new MediaData(null, null, null);
+        mCurrentData.queue = Util.toMetadataList(getQueue());
+        mCurrentData.metadata = Util.toMetadata(getMetadata());
+        mCurrentData.state = getPlaybackState();
     }
 
     void cleanup() {
@@ -134,8 +122,9 @@ class MediaPlayerWrapper {
     }
 
     long getActiveQueueID() {
-        if (mMediaController.getPlaybackState() == null) return -1;
-        return mMediaController.getPlaybackState().getActiveQueueItemId();
+        PlaybackState state = mMediaController.getPlaybackState();
+        if (state == null) return -1;
+        return state.getActiveQueueItemId();
     }
 
     List<Metadata> getCurrentQueue() {
@@ -329,7 +318,7 @@ class MediaPlayerWrapper {
 
             // TODO(apanicke): Add metric collection here.
 
-            if (sTesting) Log.wtfStack(TAG, "Crashing the stack");
+            if (sTesting) Log.wtf(TAG, "Crashing the stack");
         }
     }
 
@@ -416,7 +405,8 @@ class MediaPlayerWrapper {
                 return;
             }
 
-            Log.v(TAG, "onPlaybackStateChanged(): " + mPackageName + " : " + state.toString());
+            mPlaybackStateChangeEventLogger.logv(TAG, "onPlaybackStateChanged(): "
+                    + mPackageName + " : " + state.toString());
 
             if (!playstateEquals(state, getPlaybackState())) {
                 e("The callback playback state doesn't match the current state");
@@ -470,6 +460,7 @@ class MediaPlayerWrapper {
         @Override
         public void onSessionDestroyed() {
             Log.w(TAG, "The session was destroyed " + mPackageName);
+            mRegisteredCallback.sessionUpdatedCallback(mPackageName);
         }
 
         @VisibleForTesting
@@ -502,7 +493,7 @@ class MediaPlayerWrapper {
 
     private static void e(String message) {
         if (sTesting) {
-            Log.wtfStack(TAG, message);
+            Log.wtf(TAG, message);
         } else {
             Log.e(TAG, message);
         }
@@ -529,6 +520,7 @@ class MediaPlayerWrapper {
         for (Metadata data : mCurrentData.queue) {
             sb.append("    " + data + "\n");
         }
+        mPlaybackStateChangeEventLogger.dump(sb);
         return sb.toString();
     }
 }

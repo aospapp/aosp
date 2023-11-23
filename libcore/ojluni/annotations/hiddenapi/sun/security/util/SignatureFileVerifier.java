@@ -50,7 +50,7 @@ public class SignatureFileVerifier {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static boolean isBlockOrSF(java.lang.String s) {
         throw new RuntimeException("Stub!");
     }

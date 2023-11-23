@@ -16,15 +16,13 @@ extern "C" {
 #ifndef __BIONIC__
 #include <ieee754.h>
 #else
-union ieee754_float
-{
+union ieee754_float {
 	float f;
 	/* Little endian float fields */
-	struct
-	{
-		unsigned int mantissa:23;
-		unsigned int exponent:8;
-		unsigned int negative:1;
+	struct {
+		unsigned int mantissa : 23;
+		unsigned int exponent : 8;
+		unsigned int negative : 1;
 	} ieee;
 };
 #endif
@@ -42,22 +40,28 @@ union ieee754_float
 #define NEG_TWO_DB 0.7943282347242815f /* -2dB = 10^(-2/20) */
 
 #ifndef max
-#define max(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a > _b ? _a : _b; })
+#define max(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a > _b ? _a : _b;                                             \
+	})
 #endif
 
 #ifndef min
-#define min(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a < _b ? _a : _b; })
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a < _b ? _a : _b;                                             \
+	})
 #endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-#define PURE __attribute__ ((pure))
+#define PURE __attribute__((pure))
 static inline float decibels_to_linear(float decibels) PURE;
 static inline float linear_to_decibels(float linear) PURE;
 static inline float warp_sinf(float x) PURE;
@@ -103,7 +107,7 @@ static inline float decibels_to_linear(float decibels)
 	const float A0 = 1.0f;
 
 	float x2 = x * x;
-	return ((A3 * x + A2)*x2 + (A1 * x + A0)) * db_to_linear[i+100];
+	return ((A3 * x + A2) * x2 + (A1 * x + A0)) * db_to_linear[i + 100];
 #endif
 }
 
@@ -155,11 +159,11 @@ static inline float linear_to_decibels(float linear)
 
 	float x2 = x * x;
 	float x4 = x2 * x2;
-	return ((A5 * x + A4)*x4 + (A3 * x + A2)*x2 + (A1 * x + A0)) * 20.0f
-		+ exp * 6.0205999132796239f;
+	return ((A5 * x + A4) * x4 + (A3 * x + A2) * x2 + (A1 * x + A0)) *
+		       20.0f +
+	       exp * 6.0205999132796239f;
 #endif
 }
-
 
 static inline float warp_sinf(float x)
 {

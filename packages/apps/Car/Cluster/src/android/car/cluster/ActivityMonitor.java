@@ -16,6 +16,7 @@
 package android.car.cluster;
 
 import android.annotation.Nullable;
+import android.annotation.UiThread;
 import android.app.ActivityManager;
 import android.app.ActivityManager.StackInfo;
 import android.app.IActivityManager;
@@ -23,6 +24,7 @@ import android.app.IProcessObserver;
 import android.app.TaskStackListener;
 import android.content.ComponentName;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -35,6 +37,12 @@ import java.util.Set;
 /**
  * Top activity monitor, allows listeners to be notified when a new activity comes to the foreground
  * on a particular device.
+ *
+ * As a sanity check {@link #notifyTopActivities} is handed to the UI thread because it is triggered
+ * by {@link #mProcessObserver} and {@link #mTaskStackListener}, which may be called by background
+ * threads.
+ *
+ * {@link #start} and {@link #stop} should be called only by the UI thread to prevent possible NPEs.
  */
 public class ActivityMonitor {
     private static final String TAG = "Cluster.ActivityMonitor";
@@ -54,11 +62,17 @@ public class ActivityMonitor {
     private final Map<Integer, Set<ActivityListener>> mListeners = new HashMap<>();
     private final Handler mHandler = new Handler();
     private final IProcessObserver.Stub mProcessObserver = new IProcessObserver.Stub() {
+        /**
+         * Note: This function may sometimes be called from a background thread
+         */
         @Override
         public void onForegroundActivitiesChanged(int pid, int uid, boolean foregroundActivities) {
             notifyTopActivities();
         }
 
+        /**
+         * Note: This function may sometimes be called from a background thread
+         */
         @Override
         public void onForegroundServicesChanged(int pid, int uid, int serviceTypes) { }
 
@@ -68,6 +82,9 @@ public class ActivityMonitor {
         }
     };
     private final TaskStackListener mTaskStackListener = new TaskStackListener() {
+        /**
+         * Note: This function may sometimes be called from a background thread
+         */
         @Override
         public void onTaskStackChanged() {
             Log.i(TAG, "onTaskStackChanged");
@@ -79,7 +96,7 @@ public class ActivityMonitor {
      * Registers a new listener to receive activity updates on a particular display
      *
      * @param displayId identifier of the display to monitor
-     * @param listener listener to be notified
+     * @param listener  listener to be notified
      */
     public void addListener(int displayId, ActivityListener listener) {
         mListeners.computeIfAbsent(displayId, k -> new HashSet<>()).add(listener);
@@ -94,7 +111,10 @@ public class ActivityMonitor {
 
     /**
      * Starts monitoring activity changes. {@link #stop()} should be invoked to release resources.
+     *
+     * This method should be called on the UI thread. Otherwise, runtime exceptions may occur.
      */
+    @UiThread
     public void start() {
         mActivityManager = ActivityManager.getService();
         // Monitoring both listeners are necessary as there are cases where one listener cannot
@@ -111,10 +131,16 @@ public class ActivityMonitor {
 
     /**
      * Stops monitoring activity changes. Should be invoked when this monitor is not longer used.
+     *
+     * This method should be called on the UI thread. Otherwise, runtime exceptions may occur.
      */
+    @UiThread
     public void stop() {
         if (mActivityManager == null) {
             return;
+        }
+        if (Looper.getMainLooper().getThread() != Thread.currentThread()) {
+            Log.w(TAG, "stop() is called on non-UI thread. May cause NPE");
         }
         try {
             mActivityManager.unregisterProcessObserver(mProcessObserver);
@@ -126,14 +152,23 @@ public class ActivityMonitor {
     }
 
     /**
-     * Notifies listeners on changes of top activities. {@link ActivityManager} might trigger
-     * updates on threads different than UI.
+     * Notifies listeners on changes of top activities.
+     *
+     * Note: This method may sometimes be called by background threads, so it is synchronized on
+     * the UI thread with mHandler.post()
      */
     private void notifyTopActivities() {
         mHandler.post(() -> {
             try {
+                // return if the activity monitor is no longer used
+                if (mActivityManager == null) {
+                    return;
+                }
                 List<StackInfo> infos = mActivityManager.getAllStackInfos();
                 for (StackInfo info : infos) {
+                    if (!info.visible) {
+                        continue;
+                    }
                     Set<ActivityListener> listeners = mListeners.get(info.displayId);
                     if (listeners != null && !listeners.isEmpty()) {
                         for (ActivityListener listener : listeners) {

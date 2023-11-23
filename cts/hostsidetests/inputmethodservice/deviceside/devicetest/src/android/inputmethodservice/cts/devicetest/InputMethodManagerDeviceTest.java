@@ -28,7 +28,7 @@ import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -53,7 +53,7 @@ public class InputMethodManagerDeviceTest {
      */
     @Before
     public void setUpInputMethodManager() {
-        mImm = InstrumentationRegistry.getTargetContext()
+        mImm = InstrumentationRegistry.getInstrumentation().getTargetContext()
                 .getSystemService(InputMethodManager.class);
     }
 

@@ -136,6 +136,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
     public void tearDown() throws Exception {
         mGsmSmsDispatcher = null;
         mGsmSmsDispatcherTestHandler.quit();
+        mGsmSmsDispatcherTestHandler.join();
         super.tearDown();
     }
 
@@ -156,7 +157,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
                 .thenReturn(new Country("US", Country.COUNTRY_SOURCE_SIM));
 
         mGsmSmsDispatcher.sendText("6501002000", "121" /*scAddr*/, "test sms",
-                null, null, null, null, false, -1, false, -1, false);
+                null, null, null, null, false, -1, false, -1, false, 0L);
 
         verify(mSimulatedCommandsVerifier).sendSMS(anyString(), anyString(), any(Message.class));
         // Blocked number provider is notified about the emergency contact asynchronously.
@@ -176,7 +177,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
 
         mGsmSmsDispatcher.sendText(
                 getEmergencyNumberFromSystemPropertiesOrDefault(), "121" /*scAddr*/, "test sms",
-                null, null, null, null, false, -1, false, -1, false);
+                null, null, null, null, false, -1, false, -1, false, 0L);
 
         verify(mSimulatedCommandsVerifier).sendSMS(anyString(), anyString(), any(Message.class));
         // Blocked number provider is notified about the emergency contact asynchronously.
@@ -219,7 +220,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
         // send invalid dest address: +
         mReceivedTestIntent = false;
         mGsmSmsDispatcher.sendText("+", "222" /*scAddr*/, TAG,
-                pendingIntent, null, null, null, false, -1, false, -1, false);
+                pendingIntent, null, null, null, false, -1, false, -1, false, 0L);
         waitForMs(500);
         verify(mSimulatedCommandsVerifier, times(0)).sendSMS(anyString(), anyString(),
                 any(Message.class));
@@ -250,7 +251,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
         Settings.Global.putInt(mContext.getContentResolver(),
                 Settings.Global.DEVICE_PROVISIONED, 1);
 
-        mGsmSmsDispatcher.sendRawPdu(mSmsTracker);
+        mGsmSmsDispatcher.sendRawPdu(new SMSDispatcher.SmsTracker[] {mSmsTracker});
         waitForHandlerAction(mGsmSmsDispatcher, TIMEOUT_MS);
 
         verify(mSmsUsageMonitor, times(1)).checkDestination(any(), any());
@@ -287,7 +288,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
         // send SMS and check sentIntent
         mReceivedTestIntent = false;
         mGsmSmsDispatcher.sendMultipartText("+123" /*destAddr*/, "222" /*scAddr*/, parts,
-                sentIntents, null, null, null, false, -1, false, -1);
+                sentIntents, null, null, null, false, -1, false, -1, 0L);
 
         waitForMs(500);
         synchronized (mLock) {

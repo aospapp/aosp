@@ -17,5 +17,5 @@
   <include name="vts-base-common" />
 
   <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
-  <target_preparer class="com.android.tradefed.targetprep.VtsDeviceInfoCollector" />
+  <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsDeviceInfoCollector" />
 </configuration>

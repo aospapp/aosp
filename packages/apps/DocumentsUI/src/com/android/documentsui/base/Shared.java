@@ -19,34 +19,44 @@ package com.android.documentsui.base;
 import static com.android.documentsui.base.SharedMinimal.TAG;
 
 import android.app.Activity;
+import android.app.compat.CompatChanges;
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.EnabledAfter;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Looper;
+import android.os.Process;
 import android.provider.DocumentsContract;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.PluralsRes;
+import androidx.appcompat.app.AlertDialog;
+
 import com.android.documentsui.R;
 import com.android.documentsui.ui.MessageBuilder;
+import com.android.documentsui.util.VersionUtils;
 
 import java.text.Collator;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Nullable;
-
-import androidx.annotation.PluralsRes;
-import androidx.appcompat.app.AlertDialog;
 
 /** @hide */
 public final class Shared {
@@ -60,12 +70,6 @@ public final class Shared {
     public static final String METADATA_KEY_VIDEO = "android.media.metadata.video";
     public static final String METADATA_VIDEO_LATITUDE = "android.media.metadata.video:latitude";
     public static final String METADATA_VIDEO_LONGITUTE = "android.media.metadata.video:longitude";
-
-    /**
-     * Extra boolean flag for {@link #ACTION_PICK_COPY_DESTINATION}, which
-     * specifies if the destination directory needs to create new directory or not.
-     */
-    public static final String EXTRA_DIRECTORY_COPY = "com.android.documentsui.DIRECTORY_COPY";
 
     /**
      * Extra flag used to store the current stack so user opens in right spot.
@@ -132,7 +136,22 @@ public final class Shared {
      */
     public static final int CHECK_ANIMATION_DURATION = 100;
 
+    /**
+     * Class name of launcher icon avtivity.
+     */
+    public static final String LAUNCHER_TARGET_CLASS = "com.android.documentsui.LauncherActivity";
+
     private static final Collator sCollator;
+
+    /**
+     * We support restrict Storage Access Framework from {@link android.os.Build.VERSION_CODES#R}.
+     * App Compatibility flag that indicates whether the app should be restricted or not.
+     * This flag is turned on by default for all apps targeting >
+     * {@link android.os.Build.VERSION_CODES#Q}.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = android.os.Build.VERSION_CODES.Q)
+    private static final long RESTRICT_STORAGE_ACCESS_FRAMEWORK = 141600225L;
 
     static {
         sCollator = Collator.getInstance();
@@ -143,23 +162,41 @@ public final class Shared {
      * @deprecated use {@link MessageBuilder#getQuantityString}
      */
     @Deprecated
-    public static final String getQuantityString(Context context, @PluralsRes int resourceId, int quantity) {
+    public static String getQuantityString(Context context, @PluralsRes int resourceId,
+            int quantity) {
         return context.getResources().getQuantityString(resourceId, quantity, quantity);
+    }
+
+    /**
+     * Whether the calling app should be restricted in Storage Access Framework or not.
+     */
+    public static boolean shouldRestrictStorageAccessFramework(Activity activity) {
+        if (!VersionUtils.isAtLeastR()) {
+            return false;
+        }
+
+        final String packageName = getCallingPackageName(activity);
+        final boolean ret = CompatChanges.isChangeEnabled(RESTRICT_STORAGE_ACCESS_FRAMEWORK,
+                packageName, Process.myUserHandle());
+
+        Log.d(TAG,
+                "shouldRestrictStorageAccessFramework = " + ret + ", packageName = " + packageName);
+
+        return ret;
     }
 
     public static String formatTime(Context context, long when) {
         // TODO: DateUtils should make this easier
-        Time then = new Time();
-        then.set(when);
-        Time now = new Time();
-        now.setToNow();
+        ZoneId zoneId = ZoneId.systemDefault();
+        LocalDateTime then = LocalDateTime.ofInstant(Instant.ofEpochMilli(when), zoneId);
+        LocalDateTime now = LocalDateTime.ofInstant(Instant.now(), zoneId);
 
         int flags = DateUtils.FORMAT_NO_NOON | DateUtils.FORMAT_NO_MIDNIGHT
                 | DateUtils.FORMAT_ABBREV_ALL;
 
-        if (then.year != now.year) {
+        if (then.getYear() != now.getYear()) {
             flags |= DateUtils.FORMAT_SHOW_YEAR | DateUtils.FORMAT_SHOW_DATE;
-        } else if (then.yearDay != now.yearDay) {
+        } else if (then.getDayOfYear() != now.getDayOfYear()) {
             flags |= DateUtils.FORMAT_SHOW_DATE;
         } else {
             flags |= DateUtils.FORMAT_SHOW_TIME;
@@ -230,6 +267,31 @@ public final class Shared {
     }
 
     /**
+     * Returns the calling app name.
+     * @param activity
+     * @return the calling app name or general anonymous name if not found
+     */
+    @NonNull
+    public static String getCallingAppName(Activity activity) {
+        final String anonymous = activity.getString(R.string.anonymous_application);
+        final String packageName = getCallingPackageName(activity);
+        if (TextUtils.isEmpty(packageName)) {
+            return anonymous;
+        }
+
+        final PackageManager pm = activity.getPackageManager();
+        ApplicationInfo ai;
+        try {
+            ai = pm.getApplicationInfo(packageName, 0);
+        } catch (final PackageManager.NameNotFoundException e) {
+            return anonymous;
+        }
+
+        CharSequence result = pm.getApplicationLabel(ai);
+        return TextUtils.isEmpty(result) ? anonymous : result.toString();
+    }
+
+    /**
      * Returns the default directory to be presented after starting the activity.
      * Method can be overridden if the change of the behavior of the the child activity is needed.
      */
@@ -237,7 +299,9 @@ public final class Shared {
         Uri defaultUri = Uri.parse(activity.getResources().getString(R.string.default_root_uri));
 
         if (!DocumentsContract.isRootUri(activity, defaultUri)) {
-            throw new RuntimeException("Default Root URI is not a valid root URI.");
+            Log.e(TAG, "Default Root URI is not a valid root URI, falling back to Downloads.");
+            defaultUri = DocumentsContract.buildRootUri(Providers.AUTHORITY_DOWNLOADS,
+                    Providers.ROOT_ID_DOWNLOADS);
         }
 
         return defaultUri;
@@ -255,34 +319,19 @@ public final class Shared {
     }
 
     /**
-     * Returns true if "Documents" root should be shown.
-     */
-    public static boolean shouldShowDocumentsRoot(Context context) {
-        return context.getResources().getBoolean(R.bool.show_documents_root);
-    }
-
-    /**
      * Check config whether DocumentsUI is launcher enabled or not.
-     * @return true if "is_launcher_enabled" is true.
+     * @return true if launcher icon is shown.
      */
     public static boolean isLauncherEnabled(Context context) {
-        return context.getResources().getBoolean(R.bool.is_launcher_enabled);
-    }
+        PackageManager pm = context.getPackageManager();
+        if (pm != null) {
+            final ComponentName component = new ComponentName(
+                    context.getPackageName(), LAUNCHER_TARGET_CLASS);
+            final int value = pm.getComponentEnabledSetting(component);
+            return value == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+        }
 
-    /**
-     * Check config has quick viewer package value or not.
-     * @return true if "trusted_quick_viewer_package" has value.
-     */
-    public static boolean hasQuickViewer(Context context) {
-        return !TextUtils.isEmpty(context.getString(R.string.trusted_quick_viewer_package));
-    }
-
-    /*
-     * Returns true if the local/device storage root must be visible (this also hides
-     * the option to toggle visibility in the menu.)
-     */
-    public static boolean mustShowDeviceRoot(Intent intent) {
-        return intent.getBooleanExtra(DocumentsContract.EXTRA_SHOW_ADVANCED, false);
+        return false;
     }
 
     public static String getDeviceName(ContentResolver resolver) {

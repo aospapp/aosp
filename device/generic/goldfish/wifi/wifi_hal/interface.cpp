@@ -257,6 +257,24 @@ Interface::getWakeReasonStats(WLAN_DRIVER_WAKE_REASON_CNT* wakeReasonCount) {
     return WIFI_SUCCESS;
 }
 
+wifi_error Interface::startSendingOffloadedPacket(wifi_request_id /*id*/,
+                                                  u16 /*ether_type*/,
+                                                  u8 * /*ip_packet*/,
+                                                  u16 /*ip_packet_len*/,
+                                                  u8 * /*src_mac_addr*/,
+                                                  u8 * /*dst_mac_addr*/,
+                                                  u32 /*period_msec*/) {
+    // Drop the packet and pretend everything is fine. Currentlty this is only
+    // used for keepalive packets to allow the CPU to go to sleep and let the
+    // hardware send keepalive packets on its own. By dropping this we lose the
+    // keepalive packets but networking will still be fine.
+    return WIFI_SUCCESS;
+}
+
+wifi_error Interface::stopSendingOffloadedPacket(wifi_request_id /*id*/) {
+    return WIFI_SUCCESS;
+}
+
 void Interface::onLinkStatsReply(wifi_request_id requestId,
                                  wifi_stats_result_handler handler,
                                  const NetlinkMessage& message) {

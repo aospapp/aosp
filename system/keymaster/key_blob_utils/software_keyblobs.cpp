@@ -292,10 +292,16 @@ keymaster_error_t SetKeyBlobAuthorizations(const AuthorizationSet& key_descripti
         }
     }
 
-    sw_enforced->push_back(TAG_CREATION_DATETIME, java_time(time(nullptr)));
-    sw_enforced->push_back(TAG_ORIGIN, origin);
-    sw_enforced->push_back(TAG_OS_VERSION, os_version);
-    sw_enforced->push_back(TAG_OS_PATCHLEVEL, os_patchlevel);
+    // If hw_enforced is non-empty, we're pretending to be some sort of secure hardware.
+    AuthorizationSet* pseudo_hw_enforced = (hw_enforced->empty()) ? sw_enforced : hw_enforced;
+    pseudo_hw_enforced->push_back(TAG_ORIGIN, origin);
+    pseudo_hw_enforced->push_back(TAG_OS_VERSION, os_version);
+    pseudo_hw_enforced->push_back(TAG_OS_PATCHLEVEL, os_patchlevel);
+
+    // Honor caller creation, if provided.
+    if (!sw_enforced->Contains(TAG_CREATION_DATETIME)) {
+        sw_enforced->push_back(TAG_CREATION_DATETIME, java_time(time(nullptr)));
+    }
 
     return TranslateAuthorizationSetError(sw_enforced->is_valid());
 }

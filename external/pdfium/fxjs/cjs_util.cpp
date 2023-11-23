@@ -11,19 +11,20 @@
 #include <algorithm>
 #include <cmath>
 #include <cwctype>
-#include <string>
 #include <vector>
 
+#include "build/build_config.h"
 #include "core/fxcrt/fx_extension.h"
-#include "fxjs/JS_Define.h"
 #include "fxjs/cjs_event_context.h"
-#include "fxjs/cjs_eventhandler.h"
+#include "fxjs/cjs_eventrecorder.h"
 #include "fxjs/cjs_object.h"
 #include "fxjs/cjs_publicmethods.h"
 #include "fxjs/cjs_runtime.h"
+#include "fxjs/fx_date_helpers.h"
+#include "fxjs/js_define.h"
 #include "fxjs/js_resources.h"
 
-#if _FX_OS_ == _FX_OS_ANDROID_
+#if defined(OS_ANDROID)
 #include <ctype.h>
 #endif
 
@@ -48,12 +49,22 @@ const TbConvert TbConvertTable[] = {
     {L"ddd", L"%a"},  {L"dd", L"%d"},  {L"yyyy", L"%Y"}, {L"yy", L"%y"},
     {L"HH", L"%H"},   {L"hh", L"%I"},  {L"MM", L"%M"},   {L"ss", L"%S"},
     {L"TT", L"%p"},
-#if defined(_WIN32)
+#if defined(OS_WIN)
     {L"tt", L"%p"},   {L"h", L"%#I"},
 #else
     {L"tt", L"%P"},   {L"h", L"%l"},
 #endif
 };
+
+enum CaseMode { kPreserveCase, kUpperCase, kLowerCase };
+
+wchar_t TranslateCase(wchar_t input, CaseMode eMode) {
+  if (eMode == kLowerCase && FXSYS_iswupper(input))
+    return input | 0x20;
+  if (eMode == kUpperCase && FXSYS_iswlower(input))
+    return input & ~0x20;
+  return input;
+}
 
 }  // namespace
 
@@ -65,103 +76,107 @@ const JSMethodSpec CJS_Util::MethodSpecs[] = {
     {"byteToChar", byteToChar_static}};
 
 int CJS_Util::ObjDefnID = -1;
+const char CJS_Util::kName[] = "util";
+
+// static
+int CJS_Util::GetObjDefnID() {
+  return ObjDefnID;
+}
 
 // static
 void CJS_Util::DefineJSObjects(CFXJS_Engine* pEngine) {
-  ObjDefnID =
-      pEngine->DefineObj("util", FXJSOBJTYPE_STATIC,
-                         JSConstructor<CJS_Util, util>, JSDestructor<CJS_Util>);
-  DefineMethods(pEngine, ObjDefnID, MethodSpecs, FX_ArraySize(MethodSpecs));
+  ObjDefnID = pEngine->DefineObj(CJS_Util::kName, FXJSOBJTYPE_STATIC,
+                                 JSConstructor<CJS_Util>, JSDestructor);
+  DefineMethods(pEngine, ObjDefnID, MethodSpecs);
 }
 
-util::util(CJS_Object* pJSObject) : CJS_EmbedObj(pJSObject) {}
+CJS_Util::CJS_Util(v8::Local<v8::Object> pObject, CJS_Runtime* pRuntime)
+    : CJS_Object(pObject, pRuntime) {}
 
-util::~util() {}
+CJS_Util::~CJS_Util() = default;
 
-CJS_Return util::printf(CJS_Runtime* pRuntime,
-                        const std::vector<v8::Local<v8::Value>>& params) {
-  const size_t iSize = params.size();
-  if (iSize < 1)
-    return CJS_Return(false);
+CJS_Result CJS_Util::printf(CJS_Runtime* pRuntime,
+                            const std::vector<v8::Local<v8::Value>>& params) {
+  const size_t num_params = params.size();
+  if (num_params < 1)
+    return CJS_Result::Failure(JSMessage::kParamError);
 
-  std::wstring unsafe_fmt_string(pRuntime->ToWideString(params[0]).c_str());
-  std::vector<std::wstring> unsafe_conversion_specifiers;
-  int iOffset = 0;
-  int iOffend = 0;
-  unsafe_fmt_string.insert(unsafe_fmt_string.begin(), L'S');
-  while (iOffset != -1) {
-    iOffend = unsafe_fmt_string.find(L"%", iOffset + 1);
-    std::wstring strSub;
-    if (iOffend == -1)
-      strSub = unsafe_fmt_string.substr(iOffset);
-    else
-      strSub = unsafe_fmt_string.substr(iOffset, iOffend - iOffset);
-    unsafe_conversion_specifiers.push_back(strSub);
-    iOffset = iOffend;
+  // Use 'S' as a sentinel to ensure we always have some text before the first
+  // format specifier.
+  WideString unsafe_fmt_string = L'S' + pRuntime->ToWideString(params[0]);
+  std::vector<WideString> unsafe_conversion_specifiers;
+
+  {
+    size_t offset = 0;
+    while (true) {
+      Optional<size_t> offset_end = unsafe_fmt_string.Find(L"%", offset + 1);
+      if (!offset_end.has_value()) {
+        unsafe_conversion_specifiers.push_back(
+            unsafe_fmt_string.Last(unsafe_fmt_string.GetLength() - offset));
+        break;
+      }
+
+      unsafe_conversion_specifiers.push_back(
+          unsafe_fmt_string.Substr(offset, offset_end.value() - offset));
+      offset = offset_end.value();
+    }
   }
 
-  std::wstring c_strResult;
-  for (size_t iIndex = 0; iIndex < unsafe_conversion_specifiers.size();
-       ++iIndex) {
-    std::wstring c_strFormat = unsafe_conversion_specifiers[iIndex];
-    if (iIndex == 0) {
-      c_strResult = c_strFormat;
+  WideString result = unsafe_conversion_specifiers[0];
+  for (size_t i = 1; i < unsafe_conversion_specifiers.size(); ++i) {
+    WideString fmt = unsafe_conversion_specifiers[i];
+    if (i >= num_params) {
+      result += fmt;
       continue;
     }
 
-    if (iIndex >= iSize) {
-      c_strResult += c_strFormat;
-      continue;
-    }
-
-    WideString strSegment;
-    switch (ParseDataType(&c_strFormat)) {
+    WideString segment;
+    switch (ParseDataType(&fmt)) {
       case UTIL_INT:
-        strSegment = WideString::Format(c_strFormat.c_str(),
-                                        pRuntime->ToInt32(params[iIndex]));
+        segment = WideString::Format(fmt.c_str(), pRuntime->ToInt32(params[i]));
         break;
       case UTIL_DOUBLE:
-        strSegment = WideString::Format(c_strFormat.c_str(),
-                                        pRuntime->ToDouble(params[iIndex]));
+        segment =
+            WideString::Format(fmt.c_str(), pRuntime->ToDouble(params[i]));
         break;
       case UTIL_STRING:
-        strSegment =
-            WideString::Format(c_strFormat.c_str(),
-                               pRuntime->ToWideString(params[iIndex]).c_str());
+        segment = WideString::Format(fmt.c_str(),
+                                     pRuntime->ToWideString(params[i]).c_str());
         break;
       default:
-        strSegment = WideString::Format(L"%ls", c_strFormat.c_str());
+        segment = WideString::Format(L"%ls", fmt.c_str());
         break;
     }
-    c_strResult += strSegment.c_str();
+    result += segment;
   }
 
-  c_strResult.erase(c_strResult.begin());
-  return CJS_Return(pRuntime->NewString(c_strResult.c_str()));
+  // Remove the 'S' sentinel introduced earlier.
+  DCHECK_EQ(L'S', result[0]);
+  auto result_view = result.AsStringView();
+  return CJS_Result::Success(
+      pRuntime->NewString(result_view.Last(result_view.GetLength() - 1)));
 }
 
-CJS_Return util::printd(CJS_Runtime* pRuntime,
-                        const std::vector<v8::Local<v8::Value>>& params) {
+CJS_Result CJS_Util::printd(CJS_Runtime* pRuntime,
+                            const std::vector<v8::Local<v8::Value>>& params) {
   const size_t iSize = params.size();
   if (iSize < 2)
-    return CJS_Return(false);
+    return CJS_Result::Failure(JSMessage::kParamError);
 
   if (params[1].IsEmpty() || !params[1]->IsDate())
-    return CJS_Return(JSGetStringFromID(JSMessage::kSecondParamNotDateError));
+    return CJS_Result::Failure(JSMessage::kSecondParamNotDateError);
 
   v8::Local<v8::Date> v8_date = params[1].As<v8::Date>();
-  if (v8_date.IsEmpty() || std::isnan(pRuntime->ToDouble(v8_date))) {
-    return CJS_Return(
-        JSGetStringFromID(JSMessage::kSecondParamInvalidDateError));
-  }
+  if (v8_date.IsEmpty() || std::isnan(pRuntime->ToDouble(v8_date)))
+    return CJS_Result::Failure(JSMessage::kSecondParamInvalidDateError);
 
-  double date = JS_LocalTime(pRuntime->ToDouble(v8_date));
-  int year = JS_GetYearFromTime(date);
-  int month = JS_GetMonthFromTime(date) + 1;  // One-based.
-  int day = JS_GetDayFromTime(date);
-  int hour = JS_GetHourFromTime(date);
-  int min = JS_GetMinFromTime(date);
-  int sec = JS_GetSecFromTime(date);
+  double date = FX_LocalTime(pRuntime->ToDouble(v8_date));
+  int year = FX_GetYearFromTime(date);
+  int month = FX_GetMonthFromTime(date) + 1;  // One-based.
+  int day = FX_GetDayFromTime(date);
+  int hour = FX_GetHourFromTime(date);
+  int min = FX_GetMinFromTime(date);
+  int sec = FX_GetSecFromTime(date);
 
   if (params[0]->IsNumber()) {
     WideString swResult;
@@ -179,101 +194,91 @@ CJS_Return util::printd(CJS_Runtime* pRuntime,
                                       month, day, hour, min, sec);
         break;
       default:
-        return CJS_Return(JSGetStringFromID(JSMessage::kValueError));
+        return CJS_Result::Failure(JSMessage::kValueError);
     }
 
-    return CJS_Return(pRuntime->NewString(swResult.c_str()));
+    return CJS_Result::Success(pRuntime->NewString(swResult.AsStringView()));
   }
 
-  if (params[0]->IsString()) {
-    // We don't support XFAPicture at the moment.
-    if (iSize > 2 && pRuntime->ToBoolean(params[2]))
-      return CJS_Return(JSGetStringFromID(JSMessage::kNotSupportedError));
+  if (!params[0]->IsString())
+    return CJS_Result::Failure(JSMessage::kTypeError);
 
-    // Convert PDF-style format specifiers to wcsftime specifiers. Remove any
-    // pre-existing %-directives before inserting our own.
-    std::basic_string<wchar_t> cFormat =
-        pRuntime->ToWideString(params[0]).c_str();
-    cFormat.erase(std::remove(cFormat.begin(), cFormat.end(), '%'),
-                  cFormat.end());
+  // We don't support XFAPicture at the moment.
+  if (iSize > 2 && pRuntime->ToBoolean(params[2]))
+    return CJS_Result::Failure(JSMessage::kNotSupportedError);
 
-    for (size_t i = 0; i < FX_ArraySize(TbConvertTable); ++i) {
-      int iStart = 0;
-      int iEnd;
-      while ((iEnd = cFormat.find(TbConvertTable[i].lpszJSMark, iStart)) !=
-             -1) {
-        cFormat.replace(iEnd, wcslen(TbConvertTable[i].lpszJSMark),
-                        TbConvertTable[i].lpszCppMark);
-        iStart = iEnd;
-      }
+  // Convert PDF-style format specifiers to wcsftime specifiers. Remove any
+  // pre-existing %-directives before inserting our own.
+  std::basic_string<wchar_t> cFormat =
+      pRuntime->ToWideString(params[0]).c_str();
+  cFormat.erase(std::remove(cFormat.begin(), cFormat.end(), '%'),
+                cFormat.end());
+
+  for (size_t i = 0; i < FX_ArraySize(TbConvertTable); ++i) {
+    int iStart = 0;
+    int iEnd;
+    while ((iEnd = cFormat.find(TbConvertTable[i].lpszJSMark, iStart)) != -1) {
+      cFormat.replace(iEnd, wcslen(TbConvertTable[i].lpszJSMark),
+                      TbConvertTable[i].lpszCppMark);
+      iStart = iEnd;
     }
+  }
 
-    if (year < 0)
-      return CJS_Return(JSGetStringFromID(JSMessage::kValueError));
+  if (year < 0)
+    return CJS_Result::Failure(JSMessage::kValueError);
 
-    static const TbConvertAdditional cTableAd[] = {
-        {L"m", month}, {L"d", day},
-        {L"H", hour},  {L"h", hour > 12 ? hour - 12 : hour},
-        {L"M", min},   {L"s", sec},
-    };
+  const TbConvertAdditional cTableAd[] = {
+      {L"m", month}, {L"d", day},
+      {L"H", hour},  {L"h", hour > 12 ? hour - 12 : hour},
+      {L"M", min},   {L"s", sec},
+  };
 
-    for (size_t i = 0; i < FX_ArraySize(cTableAd); ++i) {
-      int iStart = 0;
-      int iEnd;
-      while ((iEnd = cFormat.find(cTableAd[i].lpszJSMark, iStart)) != -1) {
-        if (iEnd > 0) {
-          if (cFormat[iEnd - 1] == L'%') {
-            iStart = iEnd + 1;
-            continue;
-          }
+  for (size_t i = 0; i < FX_ArraySize(cTableAd); ++i) {
+    int iStart = 0;
+    int iEnd;
+    while ((iEnd = cFormat.find(cTableAd[i].lpszJSMark, iStart)) != -1) {
+      if (iEnd > 0) {
+        if (cFormat[iEnd - 1] == L'%') {
+          iStart = iEnd + 1;
+          continue;
         }
-        cFormat.replace(iEnd, wcslen(cTableAd[i].lpszJSMark),
-                        WideString::Format(L"%d", cTableAd[i].iValue).c_str());
-        iStart = iEnd;
       }
+      cFormat.replace(iEnd, wcslen(cTableAd[i].lpszJSMark),
+                      WideString::Format(L"%d", cTableAd[i].iValue).c_str());
+      iStart = iEnd;
     }
-
-    struct tm time = {};
-    time.tm_year = year - 1900;
-    time.tm_mon = month - 1;
-    time.tm_mday = day;
-    time.tm_hour = hour;
-    time.tm_min = min;
-    time.tm_sec = sec;
-
-    wchar_t buf[64] = {};
-    FXSYS_wcsftime(buf, 64, cFormat.c_str(), &time);
-    cFormat = buf;
-    return CJS_Return(pRuntime->NewString(cFormat.c_str()));
   }
 
-  return CJS_Return(JSGetStringFromID(JSMessage::kTypeError));
+  struct tm time = {};
+  time.tm_year = year - 1900;
+  time.tm_mon = month - 1;
+  time.tm_mday = day;
+  time.tm_hour = hour;
+  time.tm_min = min;
+  time.tm_sec = sec;
+
+  wchar_t buf[64] = {};
+  FXSYS_wcsftime(buf, 64, cFormat.c_str(), &time);
+  cFormat = buf;
+  return CJS_Result::Success(pRuntime->NewString(cFormat.c_str()));
 }
 
-CJS_Return util::printx(CJS_Runtime* pRuntime,
-                        const std::vector<v8::Local<v8::Value>>& params) {
+CJS_Result CJS_Util::printx(CJS_Runtime* pRuntime,
+                            const std::vector<v8::Local<v8::Value>>& params) {
   if (params.size() < 2)
-    return CJS_Return(JSGetStringFromID(JSMessage::kParamError));
+    return CJS_Result::Failure(JSMessage::kParamError);
 
-  return CJS_Return(
-      pRuntime->NewString(printx(pRuntime->ToWideString(params[0]),
-                                 pRuntime->ToWideString(params[1]))
-                              .c_str()));
+  return CJS_Result::Success(
+      pRuntime->NewString(StringPrintx(pRuntime->ToWideString(params[0]),
+                                       pRuntime->ToWideString(params[1]))
+                              .AsStringView()));
 }
 
-enum CaseMode { kPreserveCase, kUpperCase, kLowerCase };
-
-static wchar_t TranslateCase(wchar_t input, CaseMode eMode) {
-  if (eMode == kLowerCase && FXSYS_isupper(input))
-    return input | 0x20;
-  if (eMode == kUpperCase && FXSYS_islower(input))
-    return input & ~0x20;
-  return input;
-}
-
-WideString util::printx(const WideString& wsFormat,
-                        const WideString& wsSource) {
+// static
+WideString CJS_Util::StringPrintx(const WideString& wsFormat,
+                                  const WideString& wsSource) {
   WideString wsResult;
+  wsResult.Reserve(wsFormat.GetLength());
   size_t iSourceIdx = 0;
   size_t iFormatIdx = 0;
   CaseMode eCaseMode = kPreserveCase;
@@ -311,7 +316,7 @@ WideString util::printx(const WideString& wsFormat,
       } break;
       case 'X': {
         if (iSourceIdx < wsSource.GetLength()) {
-          if (FXSYS_iswalnum(wsSource[iSourceIdx])) {
+          if (isascii(wsSource[iSourceIdx]) && isalnum(wsSource[iSourceIdx])) {
             wsResult += TranslateCase(wsSource[iSourceIdx], eCaseMode);
             ++iFormatIdx;
           }
@@ -322,7 +327,7 @@ WideString util::printx(const WideString& wsFormat,
       } break;
       case 'A': {
         if (iSourceIdx < wsSource.GetLength()) {
-          if (FXSYS_iswalpha(wsSource[iSourceIdx])) {
+          if (isascii(wsSource[iSourceIdx]) && isalpha(wsSource[iSourceIdx])) {
             wsResult += TranslateCase(wsSource[iSourceIdx], eCaseMode);
             ++iFormatIdx;
           }
@@ -333,7 +338,7 @@ WideString util::printx(const WideString& wsFormat,
       } break;
       case '9': {
         if (iSourceIdx < wsSource.GetLength()) {
-          if (std::iswdigit(wsSource[iSourceIdx])) {
+          if (FXSYS_IsDecimalDigit(wsSource[iSourceIdx])) {
             wsResult += wsSource[iSourceIdx];
             ++iFormatIdx;
           }
@@ -359,47 +364,45 @@ WideString util::printx(const WideString& wsFormat,
   return wsResult;
 }
 
-CJS_Return util::scand(CJS_Runtime* pRuntime,
-                       const std::vector<v8::Local<v8::Value>>& params) {
+CJS_Result CJS_Util::scand(CJS_Runtime* pRuntime,
+                           const std::vector<v8::Local<v8::Value>>& params) {
   if (params.size() < 2)
-    return CJS_Return(false);
+    return CJS_Result::Failure(JSMessage::kParamError);
 
   WideString sFormat = pRuntime->ToWideString(params[0]);
   WideString sDate = pRuntime->ToWideString(params[1]);
-  double dDate = JS_GetDateTime();
+  double dDate = FX_GetDateTime();
   if (sDate.GetLength() > 0)
-    dDate = CJS_PublicMethods::MakeRegularDate(sDate, sFormat, nullptr);
-
+    dDate = CJS_PublicMethods::ParseDateUsingFormat(sDate, sFormat, nullptr);
   if (std::isnan(dDate))
-    return CJS_Return(pRuntime->NewUndefined());
-  return CJS_Return(pRuntime->NewDate(dDate));
+    return CJS_Result::Success(pRuntime->NewUndefined());
+
+  return CJS_Result::Success(pRuntime->NewDate(dDate));
 }
 
-CJS_Return util::byteToChar(CJS_Runtime* pRuntime,
-                            const std::vector<v8::Local<v8::Value>>& params) {
+CJS_Result CJS_Util::byteToChar(
+    CJS_Runtime* pRuntime,
+    const std::vector<v8::Local<v8::Value>>& params) {
   if (params.size() < 1)
-    return CJS_Return(JSGetStringFromID(JSMessage::kParamError));
+    return CJS_Result::Failure(JSMessage::kParamError);
 
   int arg = pRuntime->ToInt32(params[0]);
   if (arg < 0 || arg > 255)
-    return CJS_Return(JSGetStringFromID(JSMessage::kValueError));
+    return CJS_Result::Failure(JSMessage::kValueError);
 
   WideString wStr(static_cast<wchar_t>(arg));
-  return CJS_Return(pRuntime->NewString(wStr.c_str()));
+  return CJS_Result::Success(pRuntime->NewString(wStr.AsStringView()));
 }
 
-// Ensure that sFormat contains at most one well-understood printf formatting
-// directive which is safe to use with a single argument, and return the type
-// of argument expected, or -1 otherwise. If -1 is returned, it is NOT safe
-// to use sFormat with printf() and it must be copied byte-by-byte.
-int util::ParseDataType(std::wstring* sFormat) {
+// static
+int CJS_Util::ParseDataType(WideString* sFormat) {
   enum State { BEFORE, FLAGS, WIDTH, PRECISION, SPECIFIER, AFTER };
 
   int result = -1;
   State state = BEFORE;
   size_t precision_digits = 0;
   size_t i = 0;
-  while (i < sFormat->length()) {
+  while (i < sFormat->GetLength()) {
     wchar_t c = (*sFormat)[i];
     switch (state) {
       case BEFORE:
@@ -417,7 +420,7 @@ int util::ParseDataType(std::wstring* sFormat) {
       case WIDTH:
         if (c == L'*')
           return -1;
-        if (std::iswdigit(c)) {
+        if (FXSYS_IsDecimalDigit(c)) {
           // Stay in same state.
         } else if (c == L'.') {
           state = PRECISION;
@@ -429,7 +432,7 @@ int util::ParseDataType(std::wstring* sFormat) {
       case PRECISION:
         if (c == L'*')
           return -1;
-        if (std::iswdigit(c)) {
+        if (FXSYS_IsDecimalDigit(c)) {
           // Stay in same state.
           ++precision_digits;
         } else {
@@ -448,7 +451,7 @@ int util::ParseDataType(std::wstring* sFormat) {
           // Map s to S since we always deal internally with wchar_t strings.
           // TODO(tsepez): Probably 100% borked. %S is not a standard
           // conversion.
-          (*sFormat)[i] = L'S';
+          sFormat->SetAt(i, L'S');
           result = UTIL_STRING;
         } else {
           return -1;

@@ -145,4 +145,16 @@ public class DeviceBuildInfoTest {
         assertEquals("2", proto.getBuildId());
         assertEquals(DeviceBuildInfo.class.getCanonicalName(), proto.getBuildInfoClass());
     }
+
+    /** Test that {@link IDeviceBuildInfo#setDeviceBuildFlavor(String)} behaves as expected. */
+    @Test
+    public void testDeviceBuildFlavor() {
+        assertNull(mBuildInfo.getDeviceBuildFlavor());
+        mBuildInfo.setBuildFlavor("build-flavor");
+        assertEquals("build-flavor", mBuildInfo.getDeviceBuildFlavor());
+        assertEquals("build-flavor", mBuildInfo.getBuildFlavor());
+        mBuildInfo.setDeviceBuildFlavor("device-build-flavor");
+        assertEquals("device-build-flavor", mBuildInfo.getDeviceBuildFlavor());
+        assertEquals("build-flavor", mBuildInfo.getBuildFlavor());
+    }
 }

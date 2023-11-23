@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"ঠিক আছে"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" কে ফাইলটি পাঠানো হয়নি।"</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ফাইল: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"আবার চেষ্টা করুন"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"বন্ধ করুন"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ঠিক আছে"</string>
     <string name="unknown_file" msgid="6092727753965095366">"অজানা ফাইল"</string>
@@ -106,7 +105,7 @@
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> পাঠানো সম্পূর্ণ।"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"অন্তরমূখী স্থানান্তরগুলি"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"বহির্গামী স্থানান্তরগুলি"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"স্থানান্তরের ইতিহাস খালি।"</string>
+    <string name="no_transfers" msgid="3482965619151865672">"ট্রান্সফার করার ইতিহাস খালি।"</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"তালিকা থেকে সমস্ত আইটেম সাফ করা হবে।"</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"ব্লুটুথ share: পাঠানো ফাইলগুলি"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"ব্লুটুথ share: প্রাপ্ত করা ফাইলগুলি"</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ব্লুটুথ অডিওর সংযোগ বিচ্ছিন্ন হয়েছে"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ব্লুটুথ অডিও"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"৪GB থেকে বড় ফটো ট্রান্সফার করা যাবে না"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"ব্লুটুথের সাথে কানেক্ট করুন"</string>
 </resources>

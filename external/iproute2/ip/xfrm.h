@@ -30,6 +30,19 @@
 #include <linux/xfrm.h>
 #include <linux/ipsec.h>
 
+#ifdef __i386__
+/* b/138147164 */
+/* Adapted from checks in system/netd/server/XfrmController.h */
+_Static_assert(sizeof(struct xfrm_usersa_info) - offsetof(struct xfrm_usersa_info, flags) == 8,
+               "struct xfrm_usersa_info probably misaligned with kernel struct.");
+_Static_assert(sizeof(struct xfrm_usersa_info) % 8 == 0,
+               "struct xfrm_usersa_info is not 64-bit aligned.");
+_Static_assert(sizeof(struct xfrm_userpolicy_info) - offsetof(struct xfrm_userpolicy_info, share) == 5,
+               "struct xfrm_userpolicy_info probably misaligned with kernel struct.");
+_Static_assert(sizeof(struct xfrm_userpolicy_info) % 8 == 0,
+               "struct xfrm_userpolicy_info is not 64-bit aligned.");
+#endif /* __i386__ */
+
 #ifndef IPPROTO_MH
 #define IPPROTO_MH              135
 #endif

@@ -16,9 +16,9 @@
 
 package dalvik.system;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.system.ErrnoException;
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.annotation.optimization.ReachabilitySensitive;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -27,6 +27,8 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import libcore.io.Libcore;
+
+import dalvik.annotation.optimization.ReachabilitySensitive;
 
 /**
  * Loads DEX files. This class is meant for internal use and should not be used

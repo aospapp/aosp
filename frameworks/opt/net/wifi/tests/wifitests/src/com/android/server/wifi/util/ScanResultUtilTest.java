@@ -26,17 +26,20 @@ import android.net.wifi.WifiSsid;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.ScanDetail;
+import com.android.server.wifi.WifiBaseTest;
 
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Unit tests for {@link com.android.server.wifi.util.ScanResultUtil}.
  */
 @SmallTest
-public class ScanResultUtilTest {
+public class ScanResultUtilTest extends WifiBaseTest {
 
     @Test
     public void convertScanResult() {
@@ -114,6 +117,152 @@ public class ScanResultUtilTest {
         assertEquals(config.SSID, ScanResultUtil.createQuotedSSID(ssid));
         assertTrue(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP));
         assertTrue(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X));
+
+        scanResult.capabilities = "WAPI-PSK";
+        config = ScanResultUtil.createNetworkFromScanResult(scanResult);
+        assertEquals(config.SSID, ScanResultUtil.createQuotedSSID(ssid));
+        assertTrue(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WAPI_PSK));
+
+        scanResult.capabilities = "WAPI-CERT";
+        config = ScanResultUtil.createNetworkFromScanResult(scanResult);
+        assertEquals(config.SSID, ScanResultUtil.createQuotedSSID(ssid));
+        assertTrue(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WAPI_CERT));
+    }
+
+    /**
+     * Test that a PSK-SHA256+SAE network is detected as transition mode
+     */
+    @Test
+    public void testPskSha256SaeTransitionModeCheck() {
+        final String ssid = "WPA3-Transition";
+        String caps = "[WPA2-FT/PSK-CCMP][RSN-FT/PSK+PSK-SHA256+SAE+FT/SAE-CCMP][ESS][WPS]";
+
+        ScanResult input = new ScanResult(WifiSsid.createFromAsciiEncoded(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+
+        input.informationElements = new InformationElement[] {
+                createIE(InformationElement.EID_SSID, ssid.getBytes(StandardCharsets.UTF_8))
+        };
+
+        assertTrue(ScanResultUtil.isScanResultForPskSaeTransitionNetwork(input));
+    }
+
+    /**
+     * Test that a PSK+SAE network is detected as transition mode
+     */
+    @Test
+    public void testPskSaeTransitionModeCheck() {
+        final String ssid = "WPA3-Transition";
+        String caps = "[WPA2-FT/PSK+PSK+SAE+FT/SAE-CCMP][ESS][WPS]";
+
+        ScanResult input = new ScanResult(WifiSsid.createFromAsciiEncoded(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+
+        input.informationElements = new InformationElement[] {
+                createIE(InformationElement.EID_SSID, ssid.getBytes(StandardCharsets.UTF_8))
+        };
+
+        assertTrue(ScanResultUtil.isScanResultForPskSaeTransitionNetwork(input));
+    }
+
+    /**
+     * Test that a PSK network is not detected as transition mode
+     */
+    @Test
+    public void testPskNotInTransitionModeCheck() {
+        final String ssid = "WPA2-Network";
+        String caps = "[WPA2-FT/PSK+PSK][ESS][WPS]";
+
+        ScanResult input = new ScanResult(WifiSsid.createFromAsciiEncoded(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+
+        input.informationElements = new InformationElement[] {
+                createIE(InformationElement.EID_SSID, ssid.getBytes(StandardCharsets.UTF_8))
+        };
+
+        assertFalse(ScanResultUtil.isScanResultForPskSaeTransitionNetwork(input));
+    }
+
+    /**
+     * Test that an SAE network is not detected as transition mode
+     */
+    @Test
+    public void testSaeNotInTransitionModeCheck() {
+        final String ssid = "WPA3-Network";
+        String caps = "[WPA2-FT/SAE+SAE][ESS][WPS]";
+
+        ScanResult input = new ScanResult(WifiSsid.createFromAsciiEncoded(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+
+        input.informationElements = new InformationElement[] {
+                createIE(InformationElement.EID_SSID, ssid.getBytes(StandardCharsets.UTF_8))
+        };
+
+        assertFalse(ScanResultUtil.isScanResultForPskSaeTransitionNetwork(input));
+    }
+
+    /**
+     * Test that provided network supports FILS SHA256 AKM.
+     */
+    @Test
+    public void testFilsSha256AkmSupportedNetwork() {
+        final String ssid = "FILS-AP";
+        String caps = "[WPA2-EAP+EAP-SHA256+FILS-SHA256-CCMP]"
+                + "[RSN-EAP+EAP-SHA256+FILS-SHA256-CCMP][ESS]";
+
+        ScanResult input = new ScanResult(WifiSsid.createFromAsciiEncoded(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+
+        input.informationElements = new InformationElement[] {
+                createIE(InformationElement.EID_SSID, ssid.getBytes(StandardCharsets.UTF_8))
+        };
+
+        assertTrue(ScanResultUtil.isScanResultForFilsSha256Network(input));
+    }
+
+    /**
+     * Test that provided network supports FILS SHA384 AKM.
+     */
+    @Test
+    public void testFilsSha384AkmSupportedNetwork() {
+        final String ssid = "FILS-AP";
+        String caps = "[WPA2-EAP+EAP-SHA384+FILS-SHA384-CCMP]"
+                + "[RSN-EAP+EAP-SHA384+FILS-SHA384-CCMP][ESS]";
+
+        ScanResult input = new ScanResult(WifiSsid.createFromAsciiEncoded(ssid), ssid,
+                "ab:cd:01:ef:45:89", 1245, 0, caps, -78, 2450, 1025, 22, 33, 20, 0,
+                0, true);
+
+        input.informationElements = new InformationElement[] {
+                createIE(InformationElement.EID_SSID, ssid.getBytes(StandardCharsets.UTF_8))
+        };
+
+        assertTrue(ScanResultUtil.isScanResultForFilsSha384Network(input));
+    }
+
+    /**
+     * Verify ScanResultList validation.
+     */
+    @Test
+    public void testValidateScanResultList() {
+        List<ScanResult> scanResults = new ArrayList<>();
+        assertFalse(ScanResultUtil.validateScanResultList(null));
+        assertFalse(ScanResultUtil.validateScanResultList(scanResults));
+        scanResults.add(null);
+        assertFalse(ScanResultUtil.validateScanResultList(scanResults));
+        ScanResult scanResult = new ScanResult();
+        scanResults.clear();
+        scanResults.add(scanResult);
+        assertFalse(ScanResultUtil.validateScanResultList(scanResults));
+        scanResult.SSID = "test";
+        scanResult.capabilities = "[RSN-PSK-CCMP]";
+        scanResult.BSSID = "ab:cd:01:ef:45:89";
+        assertTrue(ScanResultUtil.validateScanResultList(scanResults));
     }
 
     private static InformationElement createIE(int id, byte[] bytes) {

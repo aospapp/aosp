@@ -2,11 +2,11 @@
 # Copyright 2017 The PDFium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Compares the performance of two versions of the pdfium code."""
 
 import argparse
 import functools
+import glob
 import json
 import multiprocessing
 import os
@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 
+# pylint: disable=relative-import
 from common import GetBooleanGnArg
 from common import PrintErr
 from common import RunCommandPropagateErr
@@ -24,6 +25,7 @@ from safetynet_conclusions import ComparisonConclusions
 from safetynet_conclusions import PrintConclusionsDictHumanReadable
 from safetynet_conclusions import RATING_IMPROVEMENT
 from safetynet_conclusions import RATING_REGRESSION
+from safetynet_image import ImageComparison
 
 
 def RunSingleTestCaseParallel(this, run_label, build_dir, test_case):
@@ -46,8 +48,7 @@ class CompareRun(object):
       self.safe_script_dir = os.path.join('testing', 'tools')
 
     self.safe_measure_script_path = os.path.abspath(
-        os.path.join(self.safe_script_dir,
-                     'safetynet_measure.py'))
+        os.path.join(self.safe_script_dir, 'safetynet_measure.py'))
 
     input_file_re = re.compile('^.+[.]pdf$')
     self.test_cases = []
@@ -80,12 +81,10 @@ class CompareRun(object):
     if self.args.branch_after:
       if self.args.this_repo:
         before, after = self._ProfileTwoOtherBranchesInThisRepo(
-            self.args.branch_before,
-            self.args.branch_after)
+            self.args.branch_before, self.args.branch_after)
       else:
-        before, after = self._ProfileTwoOtherBranches(
-            self.args.branch_before,
-            self.args.branch_after)
+        before, after = self._ProfileTwoOtherBranches(self.args.branch_before,
+                                                      self.args.branch_after)
     elif self.args.branch_before:
       if self.args.this_repo:
         before, after = self._ProfileCurrentAndOtherBranchInThisRepo(
@@ -107,6 +106,12 @@ class CompareRun(object):
 
     self._CleanUp(conclusions)
 
+    if self.args.png_dir:
+      image_comparison = ImageComparison(
+          self.after_build_dir, self.args.png_dir, ('before', 'after'),
+          self.args.num_workers, self.args.png_threshold)
+      image_comparison.Run(open_in_browser=not self.args.machine_readable)
+
     return 0
 
   def _FreezeMeasureScript(self):
@@ -118,8 +123,8 @@ class CompareRun(object):
     self.__FreezeFile(os.path.join('testing', 'tools', 'safetynet_measure.py'))
     self.__FreezeFile(os.path.join('testing', 'tools', 'common.py'))
 
-  def __FreezeFile(self, file):
-    RunCommandPropagateErr(['cp', file, self.safe_script_dir],
+  def __FreezeFile(self, filename):
+    RunCommandPropagateErr(['cp', filename, self.safe_script_dir],
                            exit_status_on_error=1)
 
   def _ProfileTwoOtherBranchesInThisRepo(self, before_branch, after_branch):
@@ -175,11 +180,9 @@ class CompareRun(object):
       mapping a test case name to the profiling values for that test case
       in the given branch.
     """
-    after = self._ProfileSeparateRepo('after',
-                                      self.after_build_dir,
+    after = self._ProfileSeparateRepo('after', self.after_build_dir,
                                       after_branch)
-    before = self._ProfileSeparateRepo('before',
-                                       self.before_build_dir,
+    before = self._ProfileSeparateRepo('before', self.before_build_dir,
                                        before_branch)
     return before, after
 
@@ -237,8 +240,7 @@ class CompareRun(object):
     self._BuildCurrentBranch(self.after_build_dir)
     after = self._MeasureCurrentBranch('after', self.after_build_dir)
 
-    before = self._ProfileSeparateRepo('before',
-                                       self.before_build_dir,
+    before = self._ProfileSeparateRepo('before', self.before_build_dir,
                                        other_branch)
 
     return before, after
@@ -301,8 +303,7 @@ class CompareRun(object):
       A dict mapping each test case name to the profiling values for that
       test case.
     """
-    build_dir = self._CreateTempRepo('repo_%s' % run_label,
-                                     relative_build_dir,
+    build_dir = self._CreateTempRepo('repo_%s' % run_label, relative_build_dir,
                                      branch)
 
     self._BuildCurrentBranch(build_dir)
@@ -334,13 +335,16 @@ class CompareRun(object):
     os.chdir(repo_dir)
     PrintErr('Syncing...')
 
-    cmd = ['gclient', 'config', '--unmanaged',
-           'https://pdfium.googlesource.com/pdfium.git']
+    cmd = [
+        'gclient', 'config', '--unmanaged',
+        'https://pdfium.googlesource.com/pdfium.git'
+    ]
     if self.args.cache_dir:
       cmd.append('--cache-dir=%s' % self.args.cache_dir)
     RunCommandPropagateErr(cmd, exit_status_on_error=1)
 
-    RunCommandPropagateErr(['gclient', 'sync'], exit_status_on_error=1)
+    RunCommandPropagateErr(['gclient', 'sync', '--force'],
+                           exit_status_on_error=1)
 
     PrintErr('Done.')
 
@@ -358,7 +362,6 @@ class CompareRun(object):
     os.chdir(cwd)
 
     return build_dir
-
 
   def _CheckoutBranch(self, branch):
     PrintErr("Checking out branch '%s'" % branch)
@@ -379,7 +382,8 @@ class CompareRun(object):
       build_dir: String with path to build directory
     """
     PrintErr('Syncing...')
-    RunCommandPropagateErr(['gclient', 'sync'], exit_status_on_error=1)
+    RunCommandPropagateErr(['gclient', 'sync', '--force'],
+                           exit_status_on_error=1)
     PrintErr('Done.')
 
     PrintErr('Building...')
@@ -436,15 +440,15 @@ class CompareRun(object):
     """
     results = {}
     pool = multiprocessing.Pool(self.args.num_workers)
-    worker_func = functools.partial(
-        RunSingleTestCaseParallel, self, run_label, build_dir)
+    worker_func = functools.partial(RunSingleTestCaseParallel, self, run_label,
+                                    build_dir)
 
     try:
       # The timeout is a workaround for http://bugs.python.org/issue8296
       # which prevents KeyboardInterrupt from working.
       one_year_in_seconds = 3600 * 24 * 365
-      worker_results = (pool.map_async(worker_func, self.test_cases)
-                        .get(one_year_in_seconds))
+      worker_results = (
+          pool.map_async(worker_func, self.test_cases).get(one_year_in_seconds))
       for worker_result in worker_results:
         test_case, result = worker_result
         if result is not None:
@@ -471,8 +475,10 @@ class CompareRun(object):
     Returns:
       The measured profiling value for that test case.
     """
-    command = [self.safe_measure_script_path, test_case,
-               '--build-dir=%s' % build_dir]
+    command = [
+        self.safe_measure_script_path, test_case,
+        '--build-dir=%s' % build_dir
+    ]
 
     if self.args.interesting_section:
       command.append('--interesting-section')
@@ -484,10 +490,19 @@ class CompareRun(object):
     if profile_file_path:
       command.append('--output-path=%s' % profile_file_path)
 
+    if self.args.png_dir:
+      command.append('--png')
+
+    if self.args.pages:
+      command.extend(['--pages', self.args.pages])
+
     output = RunCommandPropagateErr(command)
 
     if output is None:
       return None
+
+    if self.args.png_dir:
+      self._MoveImages(test_case, run_label)
 
     # Get the time number as output, making sure it's just a number
     output = output.strip()
@@ -496,11 +511,21 @@ class CompareRun(object):
 
     return None
 
+  def _MoveImages(self, test_case, run_label):
+    png_dir = os.path.join(self.args.png_dir, run_label)
+    if not os.path.exists(png_dir):
+      os.makedirs(png_dir)
+
+    test_case_dir, test_case_filename = os.path.split(test_case)
+    test_case_png_matcher = '%s.*.png' % test_case_filename
+    for output_png in glob.glob(
+        os.path.join(test_case_dir, test_case_png_matcher)):
+      shutil.move(output_png, png_dir)
+
   def _GetProfileFilePath(self, run_label, test_case):
     if self.args.output_dir:
-      output_filename = ('callgrind.out.%s.%s'
-                         % (test_case.replace('/', '_'),
-                            run_label))
+      output_filename = (
+          'callgrind.out.%s.%s' % (test_case.replace('/', '_'), run_label))
       return os.path.join(self.args.output_dir, output_filename)
     else:
       return None
@@ -583,69 +608,110 @@ class CompareRun(object):
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument('input_paths', nargs='+',
-                      help='pdf files or directories to search for pdf files '
-                           'to run as test cases')
-  parser.add_argument('--branch-before',
-                      help='git branch to use as "before" for comparison. '
-                           'Omitting this will use the current branch '
-                           'without uncommitted changes as the baseline.')
-  parser.add_argument('--branch-after',
-                      help='git branch to use as "after" for comparison. '
-                           'Omitting this will use the current branch '
-                           'with uncommitted changes.')
-  parser.add_argument('--build-dir', default=os.path.join('out', 'Release'),
-                      help='relative path from the base source directory '
-                           'to the build directory')
-  parser.add_argument('--build-dir-before',
-                      help='relative path from the base source directory '
-                           'to the build directory for the "before" branch, if '
-                           'different from the build directory for the '
-                           '"after" branch')
-  parser.add_argument('--cache-dir', default=None,
-                      help='directory with a new or preexisting cache for '
-                           'downloads. Default is to not use a cache.')
-  parser.add_argument('--this-repo', action='store_true',
-                      help='use the repository where the script is instead of '
-                           'checking out a temporary one. This is faster and '
-                           'does not require downloads, but although it '
-                           'restores the state of the local repo, if the '
-                           'script is killed or crashes the changes can remain '
-                           'stashed and you may be on another branch.')
-  parser.add_argument('--profiler', default='callgrind',
-                      help='which profiler to use. Supports callgrind and '
-                           'perfstat for now. Default is callgrind.')
-  parser.add_argument('--interesting-section', action='store_true',
-                      help='whether to measure just the interesting section or '
-                           'the whole test harness. Limiting to only the '
-                           'interesting section does not work on Release since '
-                           'the delimiters are optimized out')
-  parser.add_argument('--num-workers', default=multiprocessing.cpu_count(),
-                      type=int, help='run NUM_WORKERS jobs in parallel')
-  parser.add_argument('--output-dir',
-                      help='directory to write the profile data output files')
-  parser.add_argument('--threshold-significant', default=0.02, type=float,
-                      help='variations in performance above this factor are '
-                           'considered significant')
-  parser.add_argument('--machine-readable', action='store_true',
-                      help='whether to get output for machines. If enabled the '
-                           'output will be a json with the format specified in '
-                           'ComparisonConclusions.GetOutputDict(). Default is '
-                           'human-readable.')
-  parser.add_argument('--case-order', default=None,
-                      help='what key to use when sorting test cases in the '
-                           'output. Accepted values are "after", "before", '
-                           '"ratio" and "rating". Default is sorting by test '
-                           'case path.')
+  parser.add_argument(
+      'input_paths',
+      nargs='+',
+      help='pdf files or directories to search for pdf files '
+      'to run as test cases')
+  parser.add_argument(
+      '--branch-before',
+      help='git branch to use as "before" for comparison. '
+      'Omitting this will use the current branch '
+      'without uncommitted changes as the baseline.')
+  parser.add_argument(
+      '--branch-after',
+      help='git branch to use as "after" for comparison. '
+      'Omitting this will use the current branch '
+      'with uncommitted changes.')
+  parser.add_argument(
+      '--build-dir',
+      default=os.path.join('out', 'Release'),
+      help='relative path from the base source directory '
+      'to the build directory')
+  parser.add_argument(
+      '--build-dir-before',
+      help='relative path from the base source directory '
+      'to the build directory for the "before" branch, if '
+      'different from the build directory for the '
+      '"after" branch')
+  parser.add_argument(
+      '--cache-dir',
+      default=None,
+      help='directory with a new or preexisting cache for '
+      'downloads. Default is to not use a cache.')
+  parser.add_argument(
+      '--this-repo',
+      action='store_true',
+      help='use the repository where the script is instead of '
+      'checking out a temporary one. This is faster and '
+      'does not require downloads, but although it '
+      'restores the state of the local repo, if the '
+      'script is killed or crashes the changes can remain '
+      'stashed and you may be on another branch.')
+  parser.add_argument(
+      '--profiler',
+      default='callgrind',
+      help='which profiler to use. Supports callgrind, '
+      'perfstat, and none. Default is callgrind.')
+  parser.add_argument(
+      '--interesting-section',
+      action='store_true',
+      help='whether to measure just the interesting section or '
+      'the whole test harness. Limiting to only the '
+      'interesting section does not work on Release since '
+      'the delimiters are optimized out')
+  parser.add_argument(
+      '--pages',
+      help='selects some pages to be rendered. Page numbers '
+      'are 0-based. "--pages A" will render only page A. '
+      '"--pages A-B" will render pages A to B '
+      '(inclusive).')
+  parser.add_argument(
+      '--num-workers',
+      default=multiprocessing.cpu_count(),
+      type=int,
+      help='run NUM_WORKERS jobs in parallel')
+  parser.add_argument(
+      '--output-dir', help='directory to write the profile data output files')
+  parser.add_argument(
+      '--png-dir',
+      default=None,
+      help='outputs pngs to the specified directory that can '
+      'be compared with a static html generated. Will '
+      'affect performance measurements.')
+  parser.add_argument(
+      '--png-threshold',
+      default=0.0,
+      type=float,
+      help='Requires --png-dir. Threshold above which a png '
+      'is considered to have changed.')
+  parser.add_argument(
+      '--threshold-significant',
+      default=0.02,
+      type=float,
+      help='variations in performance above this factor are '
+      'considered significant')
+  parser.add_argument(
+      '--machine-readable',
+      action='store_true',
+      help='whether to get output for machines. If enabled the '
+      'output will be a json with the format specified in '
+      'ComparisonConclusions.GetOutputDict(). Default is '
+      'human-readable.')
+  parser.add_argument(
+      '--case-order',
+      default=None,
+      help='what key to use when sorting test cases in the '
+      'output. Accepted values are "after", "before", '
+      '"ratio" and "rating". Default is sorting by test '
+      'case path.')
 
   args = parser.parse_args()
 
   # Always start at the pdfium src dir, which is assumed to be two level above
   # this script.
   pdfium_src_dir = os.path.join(
-      os.path.dirname(__file__),
-      os.path.pardir,
-      os.path.pardir)
+      os.path.dirname(__file__), os.path.pardir, os.path.pardir)
   os.chdir(pdfium_src_dir)
 
   git = GitHelper()
@@ -668,9 +734,30 @@ def main():
       PrintErr('"%s" is not a directory' % args.output_dir)
       return 1
 
+  if args.png_dir:
+    args.png_dir = os.path.expanduser(args.png_dir)
+    if not os.path.isdir(args.png_dir):
+      PrintErr('"%s" is not a directory' % args.png_dir)
+      return 1
+
   if args.threshold_significant <= 0.0:
     PrintErr('--threshold-significant should receive a positive float')
     return 1
+
+  if args.png_threshold:
+    if not args.png_dir:
+      PrintErr('--png-threshold requires --png-dir to be specified.')
+      return 1
+
+    if args.png_threshold <= 0.0:
+      PrintErr('--png-threshold should receive a positive float')
+      return 1
+
+  if args.pages:
+    if not re.match(r'^\d+(-\d+)?$', args.pages):
+      PrintErr('Supported formats for --pages are "--pages 7" and '
+               '"--pages 3-6"')
+      return 1
 
   run = CompareRun(args)
   return run.Run()

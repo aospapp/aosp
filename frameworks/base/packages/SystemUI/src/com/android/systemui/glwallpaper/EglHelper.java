@@ -22,6 +22,7 @@ import static android.opengl.EGL14.EGL_CONFIG_CAVEAT;
 import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
 import static android.opengl.EGL14.EGL_DEFAULT_DISPLAY;
 import static android.opengl.EGL14.EGL_DEPTH_SIZE;
+import static android.opengl.EGL14.EGL_EXTENSIONS;
 import static android.opengl.EGL14.EGL_GREEN_SIZE;
 import static android.opengl.EGL14.EGL_NONE;
 import static android.opengl.EGL14.EGL_NO_CONTEXT;
@@ -41,6 +42,7 @@ import static android.opengl.EGL14.eglGetDisplay;
 import static android.opengl.EGL14.eglGetError;
 import static android.opengl.EGL14.eglInitialize;
 import static android.opengl.EGL14.eglMakeCurrent;
+import static android.opengl.EGL14.eglQueryString;
 import static android.opengl.EGL14.eglSwapBuffers;
 import static android.opengl.EGL14.eglTerminate;
 
@@ -49,20 +51,42 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLUtils;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A helper class to handle EGL management.
  */
 public class EglHelper {
     private static final String TAG = EglHelper.class.getSimpleName();
+    private static final int OPENGLES_VERSION = 2;
     // Below two constants make drawing at low priority, so other things can preempt our drawing.
     private static final int EGL_CONTEXT_PRIORITY_LEVEL_IMG = 0x3100;
     private static final int EGL_CONTEXT_PRIORITY_LOW_IMG = 0x3103;
+    private static final boolean DEBUG = true;
+
+    private static final int EGL_GL_COLORSPACE_KHR = 0x309D;
+    private static final int EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT = 0x3490;
+
+    private static final String EGL_IMG_CONTEXT_PRIORITY = "EGL_IMG_context_priority";
+
+    /**
+     * https://www.khronos.org/registry/EGL/extensions/KHR/EGL_KHR_gl_colorspace.txt
+     */
+    private static final String KHR_GL_COLOR_SPACE = "EGL_KHR_gl_colorspace";
+
+    /**
+     * https://www.khronos.org/registry/EGL/extensions/EXT/EGL_EXT_gl_colorspace_display_p3_passthrough.txt
+     */
+    private static final String EXT_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH =
+            "EGL_EXT_gl_colorspace_display_p3_passthrough";
 
     private EGLDisplay mEglDisplay;
     private EGLConfig mEglConfig;
@@ -70,16 +94,22 @@ public class EglHelper {
     private EGLSurface mEglSurface;
     private final int[] mEglVersion = new int[2];
     private boolean mEglReady;
+    private final Set<String> mExts;
+
+    public EglHelper() {
+        mExts = new HashSet<>();
+        connectDisplay();
+    }
 
     /**
-     * Initialize EGL and prepare EglSurface.
+     * Initialize render context.
      * @param surfaceHolder surface holder.
-     * @return true if EglSurface is ready.
+     * @param wideColorGamut claim if a wcg surface is necessary.
+     * @return true if the render context is ready.
      */
-    public boolean init(SurfaceHolder surfaceHolder) {
-        mEglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        if (mEglDisplay == EGL_NO_DISPLAY) {
-            Log.w(TAG, "eglGetDisplay failed: " + GLUtils.getEGLErrorString(eglGetError()));
+    public boolean init(SurfaceHolder surfaceHolder, boolean wideColorGamut) {
+        if (!hasEglDisplay() && !connectDisplay()) {
+            Log.w(TAG, "Can not connect display, abort!");
             return false;
         }
 
@@ -100,13 +130,38 @@ public class EglHelper {
             return false;
         }
 
-        if (!createEglSurface(surfaceHolder)) {
+        if (!createEglSurface(surfaceHolder, wideColorGamut)) {
             Log.w(TAG, "Can't create EGLSurface!");
             return false;
         }
 
         mEglReady = true;
         return true;
+    }
+
+    private boolean connectDisplay() {
+        mExts.clear();
+        mEglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        if (!hasEglDisplay()) {
+            Log.w(TAG, "eglGetDisplay failed: " + GLUtils.getEGLErrorString(eglGetError()));
+            return false;
+        }
+        String queryString = eglQueryString(mEglDisplay, EGL_EXTENSIONS);
+        if (!TextUtils.isEmpty(queryString)) {
+            Collections.addAll(mExts, queryString.split(" "));
+        }
+        return true;
+    }
+
+    boolean checkExtensionCapability(String extName) {
+        return mExts.contains(extName);
+    }
+
+    int getWcgCapability() {
+        if (checkExtensionCapability(EXT_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH)) {
+            return EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT;
+        }
+        return 0;
     }
 
     private EGLConfig chooseEglConfig() {
@@ -131,7 +186,7 @@ public class EglHelper {
             EGL_RED_SIZE, 8,
             EGL_GREEN_SIZE, 8,
             EGL_BLUE_SIZE, 8,
-            EGL_ALPHA_SIZE, 8,
+            EGL_ALPHA_SIZE, 0,
             EGL_DEPTH_SIZE, 0,
             EGL_STENCIL_SIZE, 0,
             EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
@@ -143,11 +198,28 @@ public class EglHelper {
     /**
      * Prepare an EglSurface.
      * @param surfaceHolder surface holder.
+     * @param wcg if need to support wcg.
      * @return true if EglSurface is ready.
      */
-    public boolean createEglSurface(SurfaceHolder surfaceHolder) {
-        mEglSurface = eglCreateWindowSurface(mEglDisplay, mEglConfig, surfaceHolder, null, 0);
-        if (mEglSurface == null || mEglSurface == EGL_NO_SURFACE) {
+    public boolean createEglSurface(SurfaceHolder surfaceHolder, boolean wcg) {
+        if (DEBUG) {
+            Log.d(TAG, "createEglSurface start");
+        }
+
+        if (hasEglDisplay() && surfaceHolder.getSurface().isValid()) {
+            int[] attrs = null;
+            int wcgCapability = getWcgCapability();
+            if (wcg && checkExtensionCapability(KHR_GL_COLOR_SPACE) && wcgCapability > 0) {
+                attrs = new int[] {EGL_GL_COLORSPACE_KHR, wcgCapability, EGL_NONE};
+            }
+            mEglSurface = askCreatingEglWindowSurface(surfaceHolder, attrs, 0 /* offset */);
+        } else {
+            Log.w(TAG, "Create EglSurface failed: hasEglDisplay=" + hasEglDisplay()
+                    + ", has valid surface=" + surfaceHolder.getSurface().isValid());
+            return false;
+        }
+
+        if (!hasEglSurface()) {
             Log.w(TAG, "createWindowSurface failed: " + GLUtils.getEGLErrorString(eglGetError()));
             return false;
         }
@@ -157,7 +229,14 @@ public class EglHelper {
             return false;
         }
 
+        if (DEBUG) {
+            Log.d(TAG, "createEglSurface done");
+        }
         return true;
+    }
+
+    EGLSurface askCreatingEglWindowSurface(SurfaceHolder holder, int[] attrs, int offset) {
+        return eglCreateWindowSurface(mEglDisplay, mEglConfig, holder, attrs, offset);
     }
 
     /**
@@ -167,7 +246,7 @@ public class EglHelper {
         if (hasEglSurface()) {
             eglMakeCurrent(mEglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
             eglDestroySurface(mEglDisplay, mEglSurface);
-            mEglSurface = null;
+            mEglSurface = EGL_NO_SURFACE;
         }
     }
 
@@ -184,12 +263,33 @@ public class EglHelper {
      * @return true if EglContext is ready.
      */
     public boolean createEglContext() {
-        int[] attrib_list = new int[] {EGL_CONTEXT_CLIENT_VERSION, 2,
-                EGL_CONTEXT_PRIORITY_LEVEL_IMG, EGL_CONTEXT_PRIORITY_LOW_IMG, EGL_NONE};
-        mEglContext = eglCreateContext(mEglDisplay, mEglConfig, EGL_NO_CONTEXT, attrib_list, 0);
-        if (mEglContext == EGL_NO_CONTEXT) {
+        if (DEBUG) {
+            Log.d(TAG, "createEglContext start");
+        }
+
+        int[] attrib_list = new int[5];
+        int idx = 0;
+        attrib_list[idx++] = EGL_CONTEXT_CLIENT_VERSION;
+        attrib_list[idx++] = OPENGLES_VERSION;
+        if (checkExtensionCapability(EGL_IMG_CONTEXT_PRIORITY)) {
+            attrib_list[idx++] = EGL_CONTEXT_PRIORITY_LEVEL_IMG;
+            attrib_list[idx++] = EGL_CONTEXT_PRIORITY_LOW_IMG;
+        }
+        attrib_list[idx] = EGL_NONE;
+        if (hasEglDisplay()) {
+            mEglContext = eglCreateContext(mEglDisplay, mEglConfig, EGL_NO_CONTEXT, attrib_list, 0);
+        } else {
+            Log.w(TAG, "mEglDisplay is null");
+            return false;
+        }
+
+        if (!hasEglContext()) {
             Log.w(TAG, "eglCreateContext failed: " + GLUtils.getEGLErrorString(eglGetError()));
             return false;
+        }
+
+        if (DEBUG) {
+            Log.d(TAG, "createEglContext done");
         }
         return true;
     }
@@ -200,7 +300,7 @@ public class EglHelper {
     public void destroyEglContext() {
         if (hasEglContext()) {
             eglDestroyContext(mEglDisplay, mEglContext);
-            mEglContext = null;
+            mEglContext = EGL_NO_CONTEXT;
         }
     }
 
@@ -209,7 +309,15 @@ public class EglHelper {
      * @return true if EglContext is ready.
      */
     public boolean hasEglContext() {
-        return mEglContext != null;
+        return mEglContext != null && mEglContext != EGL_NO_CONTEXT;
+    }
+
+    /**
+     * Check if we have EglDisplay.
+     * @return true if EglDisplay is ready.
+     */
+    public boolean hasEglDisplay() {
+        return mEglDisplay != null && mEglDisplay != EGL_NO_DISPLAY;
     }
 
     /**
@@ -235,8 +343,15 @@ public class EglHelper {
         if (hasEglContext()) {
             destroyEglContext();
         }
-        eglTerminate(mEglDisplay);
+        if (hasEglDisplay()) {
+            terminateEglDisplay();
+        }
         mEglReady = false;
+    }
+
+    void terminateEglDisplay() {
+        eglTerminate(mEglDisplay);
+        mEglDisplay = EGL_NO_DISPLAY;
     }
 
     /**

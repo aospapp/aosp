@@ -16,13 +16,14 @@
 
 package com.android.server.wifi;
 
+import android.os.BatteryStatsManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.util.Slog;
-import android.util.StatsLog;
+import android.os.WorkSource;
+import android.util.Log;
 
-import com.android.internal.app.IBatteryStats;
+import com.android.server.wifi.proto.WifiStatsLog;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -40,7 +41,7 @@ public class WifiMulticastLockManager {
     private int mMulticastEnabled = 0;
     private int mMulticastDisabled = 0;
     private boolean mVerboseLoggingEnabled = false;
-    private final IBatteryStats mBatteryStats;
+    private final BatteryStatsManager mBatteryStats;
     private final FilterController mFilterController;
 
     /** Delegate for handling state change events for multicast filtering. */
@@ -52,7 +53,8 @@ public class WifiMulticastLockManager {
         void stopFilteringMulticastPackets();
     }
 
-    public WifiMulticastLockManager(FilterController filterController, IBatteryStats batteryStats) {
+    public WifiMulticastLockManager(FilterController filterController,
+            BatteryStatsManager batteryStats) {
         mBatteryStats = batteryStats;
         mFilterController = filterController;
     }
@@ -75,7 +77,7 @@ public class WifiMulticastLockManager {
 
         @Override
         public void binderDied() {
-            Slog.e(TAG, "Multicaster binderDied");
+            Log.e(TAG, "Multicaster binderDied");
             synchronized (mMulticasters) {
                 int i = mMulticasters.indexOf(this);
                 if (i != -1) {
@@ -149,15 +151,11 @@ public class WifiMulticastLockManager {
 
         int uid = Binder.getCallingUid();
         final long ident = Binder.clearCallingIdentity();
-        try {
-            mBatteryStats.noteWifiMulticastEnabled(uid);
-            StatsLog.write_non_chained(
-                    StatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED, uid, null,
-                    StatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED__STATE__ON, tag);
-        } catch (RemoteException e) {
-        } finally {
-            Binder.restoreCallingIdentity(ident);
-        }
+        mBatteryStats.reportWifiMulticastEnabled(new WorkSource(uid));
+        WifiStatsLog.write_non_chained(
+                WifiStatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED, uid, null,
+                WifiStatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED__STATE__ON, tag);
+        Binder.restoreCallingIdentity(ident);
     }
 
     /** Releases a multicast lock */
@@ -187,15 +185,11 @@ public class WifiMulticastLockManager {
         }
 
         final long ident = Binder.clearCallingIdentity();
-        try {
-            mBatteryStats.noteWifiMulticastDisabled(uid);
-            StatsLog.write_non_chained(
-                    StatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED, uid, null,
-                    StatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED__STATE__OFF, tag);
-        } catch (RemoteException e) {
-        } finally {
-            Binder.restoreCallingIdentity(ident);
-        }
+        mBatteryStats.reportWifiMulticastDisabled(new WorkSource(uid));
+        WifiStatsLog.write_non_chained(
+                WifiStatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED, uid, null,
+                WifiStatsLog.WIFI_MULTICAST_LOCK_STATE_CHANGED__STATE__OFF, tag);
+        Binder.restoreCallingIdentity(ident);
     }
 
     /** Returns whether multicast should be allowed (filterning disabled). */

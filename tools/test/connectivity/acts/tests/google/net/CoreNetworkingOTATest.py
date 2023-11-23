@@ -84,7 +84,7 @@ class CoreNetworkingOTATest(BaseTestClass):
           for ad in self.android_devices:
               ota_updater.update(ad)
         except Exception as err:
-            raise signals.TestSkipClass(
+            raise signals.TestAbortClass(
                 "Failed up apply OTA update. Aborting tests")
 
     def on_fail(self, test_name, begin_time):

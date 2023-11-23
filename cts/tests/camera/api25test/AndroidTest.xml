@@ -15,9 +15,14 @@
 -->
 <configuration description="Config for CTS Camera API 25 test cases">
     <option name="test-suite-tag" value="cts" />
+    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
+      <option name="force-skip-system-props" value="true" /> <!-- avoid restarting device -->
+      <option name="screen-always-on" value="on" />
+    </target_preparer>
     <option name="config-descriptor:metadata" key="component" value="camera" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

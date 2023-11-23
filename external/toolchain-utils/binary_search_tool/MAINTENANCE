@@ -1,3 +1,7 @@
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 This document is for future maintainers of the binary search/bisection tools.
 
 Authors:
@@ -21,7 +25,9 @@ The following are good reference materials on how the tool works:
 
 TESTING:
 All unit tests live under the ./test directory. However, these tests
-specifically test binary_search_state.py, binary_search_perforce.py, bisect.py.
+specifically test binary_search_state.py, binary_search_perforce.py,
+run_bisect.py.
+
 These unit tests will not test the specific logic for ChromeOS/Android
 bisection. To test the ChromeOS/Android bisectors, use the common/hash_test.sh
 test. This is a simple test case that just checks the hashes of files on your
@@ -62,10 +68,11 @@ Some of the design decisions are a bit difficult to understand from just reading
 the code unfortunately. I will attempt to clear up the major offenders of this:
 
   1. common.py's argument dictionary:
-     binary_search_state.py and bisect.py both have to have near identical
-     arguments in order to support argument overriding in bisect.py. However
-     they do have to be slightly different. Mainly, bisect.py needs to have no
-     default values for arguments (so it can determine what's being overriden).
+     binary_search_state.py and run_bisect.py both have to have near identical
+     arguments in order to support argument overriding in run_bisect.py. However
+     they do have to be slightly different. Mainly, run_bisect.py needs to have
+     no default values for arguments (so it can determine what's being
+     overriden).
 
      In order to reduce huge amounts of code duplication for the argument
      building, we put argument building in common.py. That way both modules

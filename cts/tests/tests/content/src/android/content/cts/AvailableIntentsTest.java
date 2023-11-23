@@ -20,9 +20,12 @@ import static com.android.compatibility.common.util.RequiredServiceRule.hasServi
 
 import android.app.DownloadManager;
 import android.app.SearchManager;
+import android.content.ComponentName;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.media.RingtoneManager;
@@ -37,6 +40,7 @@ import android.provider.Telephony;
 import android.telecom.TelecomManager;
 import android.test.AndroidTestCase;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.FeatureUtil;
 
 import java.util.List;
@@ -74,6 +78,32 @@ public class AvailableIntentsTest extends AndroidTestCase {
         // the priority.
         for (ResolveInfo resolveInfo : resolveInfoList) {
             assertTrue(resolveInfo.priority <= 0);
+        }
+    }
+
+    private void assertHandledBySystemOnly(final Intent intent) {
+        PackageManager packageManager = mContext.getPackageManager();
+        List<ResolveInfo> resolveInfoList = packageManager.queryIntentActivities(intent, 0);
+        assertNotNull(resolveInfoList);
+
+        // At least one system activity can handle this intent.
+        assertTrue(resolveInfoList.size() > 0);
+        for (ResolveInfo resolveInfo : resolveInfoList) {
+            final int flags = resolveInfo.activityInfo.applicationInfo.flags;
+            assertTrue("Package: " + resolveInfo.getComponentInfo().packageName,
+                    (flags & ApplicationInfo.FLAG_SYSTEM) != 0);
+        }
+    }
+
+    private void assertHandledBySelfOnly(final Intent intent) {
+        PackageManager packageManager = mContext.getPackageManager();
+        List<ResolveInfo> resolveInfoList = packageManager.queryIntentActivities(intent, 0);
+        assertNotNull(resolveInfoList);
+
+        assertTrue(resolveInfoList.size() > 0);
+        for (ResolveInfo resolveInfo : resolveInfoList) {
+            final ActivityInfo ai = resolveInfo.activityInfo;
+            assertEquals("android.content.cts", ai.packageName);
         }
     }
 
@@ -231,6 +261,42 @@ public class AvailableIntentsTest extends AndroidTestCase {
         }
     }
 
+    /**
+     * TODO: This is a separate test so it can more easily be suppressed while we
+     * fix targets that are out of compliance.
+     */
+    public void testImageCaptureIntentsHandledBySystem() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)
+                || packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)) {
+
+            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            assertHandledBySystemOnly(intent);
+
+            intent.setAction(MediaStore.ACTION_VIDEO_CAPTURE);
+            assertHandledBySystemOnly(intent);
+
+            intent.setAction(MediaStore.INTENT_ACTION_VIDEO_CAMERA);
+            assertHandledBySystemOnly(intent);
+        }
+    }
+
+    public void testImageCaptureIntentWithExplicitTargeting() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)
+                || packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)) {
+            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            intent.setPackage("android.content.cts");
+            assertHandledBySelfOnly(intent);
+
+            intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            intent.setComponent(ComponentName.createRelative(
+                    "android.content.cts",
+                    "com.android.cts.content.StubCameraIntentHandlerActivity"));
+            assertHandledBySelfOnly(intent);
+        }
+    }
+
     public void testSettings() {
         assertCanBeHandled(new Intent(Settings.ACTION_SETTINGS));
     }
@@ -280,11 +346,17 @@ public class AvailableIntentsTest extends AndroidTestCase {
     }
 
     public void testAlarmClockDismissAlarm() {
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY)) {
+            return;
+        }
         Intent intent = new Intent(AlarmClock.ACTION_DISMISS_ALARM);
         assertCanBeHandled(intent);
     }
 
     public void testAlarmClockSnoozeAlarm() {
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY)) {
+            return;
+        }
         Intent intent = new Intent(AlarmClock.ACTION_SNOOZE_ALARM);
         intent.putExtra(AlarmClock.EXTRA_ALARM_SNOOZE_DURATION, 10);
         assertCanBeHandled(intent);
@@ -372,6 +444,13 @@ public class AvailableIntentsTest extends AndroidTestCase {
         }
     }
 
+    public void testInteractAcrossProfilesSettings() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_MANAGED_PROFILES)) {
+            assertCanBeHandled(new Intent(Settings.ACTION_MANAGE_CROSS_PROFILE_ACCESS));
+        }
+    }
+
     public void testChangeDefaultSmsApplication() {
         PackageManager packageManager = mContext.getPackageManager();
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
@@ -418,7 +497,14 @@ public class AvailableIntentsTest extends AndroidTestCase {
         }
     }
 
+    @CddTest(requirement = "7.4.2.6/C-1-1")
     public void testEasyConnectIntent() {
+        // Android only supports Initiator-... modes right now, which require the device to
+        // have a QR-code capture mechanism. Therefore this feature does not make sense on
+        // non-handheld devices.
+        if (!isHandheld()) {
+            return;
+        }
         WifiManager manager = mContext.getSystemService(WifiManager.class);
 
         if (manager.isEasyConnectSupported()) {
@@ -452,8 +538,17 @@ public class AvailableIntentsTest extends AndroidTestCase {
     }
 
     public void testVoiceInputSettingsIntent() {
+        // Non-handheld devices do not allow more than one VoiceInteractionService, and therefore do
+        // not have to support this Intent.
+        if (!isHandheld()) {
+            return;
+        }
         Intent intent = new Intent(Settings.ACTION_VOICE_INPUT_SETTINGS);
         assertCanBeHandled(intent);
+    }
+
+    public void testAddNetworksIntent() {
+        assertCanBeHandled(new Intent(Settings.ACTION_WIFI_ADD_NETWORKS));
     }
 
     private boolean isHandheld() {

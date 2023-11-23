@@ -33,7 +33,7 @@ namespace chre {
  * One good use of this class is for a class that owns the state of your
  * application (the "root" of a tree of object ownership).
  */
-template<typename ObjectType>
+template <typename ObjectType>
 class Singleton : public NonCopyable {
  public:
   /**
@@ -43,8 +43,8 @@ class Singleton : public NonCopyable {
    *
    * @param args The constructor arguments to pass to the singleton instance.
    */
-  template<typename... Args>
-  static void init(Args&&... args);
+  template <typename... Args>
+  static void init(Args &&... args);
 
   /**
    * Invokes the destructor on the underlying object if it has been constructed
@@ -81,8 +81,8 @@ class Singleton : public NonCopyable {
 
  private:
   //! Static storage for the type of this singleton.
-  static typename std::aligned_storage<
-      sizeof(ObjectType), alignof(ObjectType)>::type sObject;
+  static typename std::aligned_storage<sizeof(ObjectType),
+                                       alignof(ObjectType)>::type sObject;
 
   //! Static storage for the initialized state of this singleton.
   static bool sIsInitialized;

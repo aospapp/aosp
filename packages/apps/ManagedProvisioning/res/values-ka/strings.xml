@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"გადაყენება"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"პროფილის დაყენება ვერ მოხერხდა"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"მოწყობილობის დაყენება ვერ მოხერხდა"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"მოხდა შეცდომა"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"თქვენი მოწყობილობის დაყენება ვერ მოხერხდა. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"დახმარებისათვის თქვენს IT ადმინისტრატორს დაუკავშირდეთ"</string>
+    <string name="reset_device" msgid="5483853913241939262">"გადააყენეთ ეს მოწყობილობა და ცადეთ მისი ხელახლა დაყენება"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"მოწყობილობა უკვე დაყენებულია"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi ქსელთან დაკავშირება ვერ მოხერხდა"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"თქვენს მოწყობილობაზე ჩართულია გადაყენებისგან დაცვა. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"მიმდინარეობს სამსახურის მოწყობილობის დასაყენებლად მზადება…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"მიმდინარეობს ადმინისტრატორის აპის დაყენება"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"დააყენეთ დანარჩენი"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"ახლა დავაყენოთ დანარჩენი"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"დაამატეთ პირადი ანგარიში, რომ უფრო ეფექტურად გამოიყენოთ თქვენი მოწყობილობა"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"ახლა, როდესაც თქვენი სამსახურის პროფილი მზადაა, შეგიძლიათ დაამატოთ პირადი Google ანგარიშიც, თქვენს აპებზე და კონტენტზე წვდომის მიზნით."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ეს მოწყობილობა თქვენს ორგანიზაციას ეკუთვნის"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ქვემოთ მითითებული აპი გამოყენებული იქნება ამ ტელეფონის სამართავად და მონიტორინგისთვის"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"მზადება სამსახურისთვის დასაყენებლად…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"პირველ რიგში საჭიროა თქვენი სამსახურის პროფილის დაყენება"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"მოდით, გავმართოთ თქვენი სამსახურის პროფილი"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"სამსახურის აპები თქვენს სამსახურის პროფილში ინახება"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"დააპაუზეთ სამსახურის აპები, როდესაც მოცემულ დღეს მუშაობას დაასრულებთ"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"თქვენი IT ადმინისტრატორი მხოლოდ თქვენს სამსახურის პროფილში არსებულ მონაცემებს ხედავს"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"თქვენს სამსახურის პროფილში შენახული მონაცემები ხილულია თქვენი IT ადმინისტრატორისთვის"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"მიმდინარეობს თქვენი სამსახურის პროფილის დაყენება…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"სამსახურის აპები თქვენს სამსახურის პროფილში ინახება. შეგიძლიათ, დააპაუზოთ სამსახურის აპები, როდესაც მოცემულ დღეს მუშაობას დაასრულებთ. თქვენი IT ადმინისტრატორი მხოლოდ თქვენს სამსახურის პროფილში არსებულ მონაცემებს ხედავს."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"სამსახურის აპები თქვენს სამსახურის პროფილში ინახება. შეგიძლიათ, დააპაუზოთ სამსახურის აპები, როდესაც მოცემულ დღეს მუშაობას დაასრულებთ. თქვენი IT ადმინისტრატორი თქვენს სამსახურის პროფილში არსებულ მონაცემებს ხედავს."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"მოდით, გავმართოთ თქვენი სამუშაო მოწყობილობა"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"იქონიეთ სამსახურის აპები ადვილად მისაწვდომ ადგილზე"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ეს მოწყობილობა არ არის პირადი"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"თქვენი IT ადმინისტრატორი შეიძლება ხედავდეს თქვენს მონაცემებს და აქტივობას ამ მოწყობილობაზე."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"მიმდინარეობს თქვენი მოწყობილობის დაყენება…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"გამოიყენეთ ეს მოწყობილობა თქვენს სამუშაო აპებზე მარტივად წვდომისთვის. ეს მოწყობილობა არ არის პირადი, ამიტომ თქვენი IT ადმინისტრატორი შეიძლება ხედავდეს თქვენს მონაცემებს და აქტივობას. დამატებითი ინფორმაციისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"სამსახურის აპები თქვენს სამსახურის პროფილში ინახება. მათ თქვენი IT ადმინისტრატორი მართავს"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"პერსონალური აპები განცალკევებულია და თქვენი სამსახურის აპებისთვის უხილავია"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"თქვენს IT ადმინისტრატორს შეუძლია ამ მოწყობილობის გაკონტროლება და გარკვეული აპების დაბლოკვა"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"სამსახურის აპები თქვენს სამსახურის პროფილში ინახება და მათ თქვენი IT ადმინისტრატორი მართავს. პერსონალური აპები განცალკევებულია და თქვენი სამსახურის აპებისთვის უხილავია. თქვენს IT ადმინისტრატორს შეუძლია ამ მოწყობილობის მართვა და ზოგიერთი აპის დაბლოკვა."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"ერთი წამით…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"კონფიდენციალურობის შესახებ შეხსენება"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"თქვენი IT ადმინისტრატორი შეიძლება ხედავდეს თქვენს მონაცემებს და აქტივობას ამ მოწყობილობაზე"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"თქვენი მოწყობილობა გამოსაყენებლად მზად არის!"</string>
     <string name="done" msgid="7755227776955952318">"მზადაა"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"ეს მოწყობილობა შეძენილია კრედიტით <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-ისგან"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-ს შეუძლია:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> აპის ინსტალაცია, რომ გადახდები აწარმოოთ ამ მოწყობილობისთვის"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"ამ მოწყობილობაზე წვდომის შეზღუდვა, გადაუხდელობის შემთხვევაში"</string>
 </resources>

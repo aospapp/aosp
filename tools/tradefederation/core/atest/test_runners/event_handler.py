@@ -19,7 +19,10 @@ Atest test event handler class.
 from __future__ import print_function
 from collections import deque
 from datetime import timedelta
+import time
 import logging
+
+import atest_execution_info
 
 from test_runners import test_runner_base
 
@@ -56,6 +59,7 @@ ONE_HOUR = 3600000
 
 CONNECTION_STATE = {
     'current_test': None,
+    'test_run_name': None,
     'last_failed': None,
     'last_ignored': None,
     'last_assumption_failed': None,
@@ -70,20 +74,22 @@ class EventHandleError(Exception):
 class EventHandler(object):
     """Test Event handle class."""
 
-    event_stack = deque()
-
     def __init__(self, reporter, name):
         self.reporter = reporter
         self.runner_name = name
         self.state = CONNECTION_STATE.copy()
+        self.event_stack = deque()
 
     def _module_started(self, event_data):
+        if atest_execution_info.PREPARE_END_TIME is None:
+            atest_execution_info.PREPARE_END_TIME = time.time()
         self.state['current_group'] = event_data['moduleName']
         self.state['last_failed'] = None
         self.state['current_test'] = None
 
     def _run_started(self, event_data):
         # Technically there can be more than one run per module.
+        self.state['test_run_name'] = event_data.setdefault('runName', '')
         self.state['current_group_total'] = event_data['testCount']
         self.state['test_count'] = 0
         self.state['last_failed'] = None
@@ -124,7 +130,8 @@ class EventHandler(object):
             test_time='',
             runner_total=None,
             group_total=self.state['current_group_total'],
-            perf_info={}))
+            additional_info={},
+            test_run_name=self.state['test_run_name']))
 
     def _invocation_failed(self, event_data):
         # Broadest possible failure. May not even start the module/test run.
@@ -138,7 +145,8 @@ class EventHandler(object):
             test_time='',
             runner_total=None,
             group_total=self.state['current_group_total'],
-            perf_info={}))
+            additional_info={},
+            test_run_name=self.state['test_run_name']))
 
     def _run_ended(self, event_data):
         pass
@@ -170,14 +178,11 @@ class EventHandler(object):
             status = test_runner_base.PASSED_STATUS
             trace = None
 
-        cpu_time = event_data.get('cpu_time', None)
-        real_time = event_data.get('real_time', None)
-        iterations = event_data.get('iterations', None)
-        perf_info = {}
-        if (cpu_time and real_time and iterations):
-            perf_info['cpu_time'] = cpu_time
-            perf_info['real_time'] = real_time
-            perf_info['iterations'] = iterations
+        default_event_keys = ['className', 'end_time', 'testName']
+        additional_info = {}
+        for event_key in event_data.keys():
+            if event_key not in default_event_keys:
+                additional_info[event_key] = event_data.get(event_key, None)
 
         self.reporter.process_test_result(test_runner_base.TestResult(
             runner_name=self.runner_name,
@@ -188,8 +193,9 @@ class EventHandler(object):
             test_count=self.state['test_count'],
             test_time=test_time,
             runner_total=None,
-            perf_info=perf_info,
-            group_total=self.state['current_group_total']))
+            additional_info=additional_info,
+            group_total=self.state['current_group_total'],
+            test_run_name=self.state['test_run_name']))
 
     def _log_association(self, event_data):
         pass
@@ -253,7 +259,8 @@ class EventHandler(object):
                     test_time='',
                     runner_total=None,
                     group_total=self.state['current_group_total'],
-                    perf_info={}))
+                    additional_info={},
+                    test_run_name=self.state['test_run_name']))
             raise EventHandleError(EVENTS_NOT_BALANCED % (start_event,
                                                           event_name))
 

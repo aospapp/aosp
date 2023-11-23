@@ -35,6 +35,14 @@ public interface IDeviceBuildInfo extends IBuildInfo {
     public String getDeviceBuildFlavor();
 
     /**
+     * Set the build-flavor for the device part of the build info if different from {@link
+     * #setBuildFlavor(String)}.
+     *
+     * @param deviceBuildFlavor Flavor of the device build
+     */
+    public default void setDeviceBuildFlavor(String deviceBuildFlavor) {}
+
+    /**
      * Get the local device image zip file.
      */
     public File getDeviceImageFile();

@@ -8,11 +8,13 @@
 
 #include <algorithm>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "core/fxge/cfx_pathdata.h"
 #include "core/fxge/cfx_renderdevice.h"
 #include "fpdfsdk/pwl/cpwl_wnd.h"
+#include "third_party/base/ptr_util.h"
 
 namespace {
 
@@ -24,27 +26,14 @@ constexpr float kScrollBarTriangleHalfLength = 2.0f;
 
 #define PWL_DEFAULT_HEAVYGRAYCOLOR CFX_Color(CFX_Color::kGray, 0.50)
 
-PWL_FLOATRANGE::PWL_FLOATRANGE() {
-  Default();
-}
-
-PWL_FLOATRANGE::PWL_FLOATRANGE(float min, float max) {
-  Set(min, max);
-}
-
-void PWL_FLOATRANGE::Default() {
-  fMin = 0;
-  fMax = 0;
+void PWL_FLOATRANGE::Reset() {
+  fMin = 0.0f;
+  fMax = 0.0f;
 }
 
 void PWL_FLOATRANGE::Set(float min, float max) {
-  if (min > max) {
-    fMin = max;
-    fMax = min;
-  } else {
-    fMin = min;
-    fMax = max;
-  }
+  fMin = std::min(min, max);
+  fMax = std::max(min, max);
 }
 
 bool PWL_FLOATRANGE::In(float x) const {
@@ -61,7 +50,7 @@ PWL_SCROLL_PRIVATEDATA::PWL_SCROLL_PRIVATEDATA() {
 }
 
 void PWL_SCROLL_PRIVATEDATA::Default() {
-  ScrollRange.Default();
+  ScrollRange.Reset();
   fScrollPos = ScrollRange.fMin;
   fClientWidth = 0;
   fBigStep = 10;
@@ -117,23 +106,18 @@ void PWL_SCROLL_PRIVATEDATA::SubBig() {
     SetPos(ScrollRange.fMin);
 }
 
-CPWL_SBButton::CPWL_SBButton(PWL_SCROLLBAR_TYPE eScrollBarType,
-                             PWL_SBBUTTON_TYPE eButtonType) {
-  m_eScrollBarType = eScrollBarType;
-  m_eSBButtonType = eButtonType;
-
-  m_bMouseDown = false;
+CPWL_SBButton::CPWL_SBButton(
+    const CreateParams& cp,
+    std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData,
+    PWL_SCROLLBAR_TYPE eScrollBarType,
+    PWL_SBBUTTON_TYPE eButtonType)
+    : CPWL_Wnd(cp, std::move(pAttachedData)),
+      m_eScrollBarType(eScrollBarType),
+      m_eSBButtonType(eButtonType) {
+  GetCreationParams()->eCursorType = FXCT_ARROW;
 }
 
-CPWL_SBButton::~CPWL_SBButton() {}
-
-ByteString CPWL_SBButton::GetClassName() const {
-  return "CPWL_SBButton";
-}
-
-void CPWL_SBButton::OnCreate(CreateParams* pParamsToAdjust) {
-  pParamsToAdjust->eCursorType = FXCT_ARROW;
-}
+CPWL_SBButton::~CPWL_SBButton() = default;
 
 void CPWL_SBButton::DrawThisAppearance(CFX_RenderDevice* pDevice,
                                        const CFX_Matrix& mtUser2Device) {
@@ -187,15 +171,15 @@ void CPWL_SBButton::DrawThisAppearance(CFX_RenderDevice* pDevice,
   }
 
   // draw border
-  pDevice->DrawStrokeRect(&mtUser2Device, rectWnd,
+  pDevice->DrawStrokeRect(mtUser2Device, rectWnd,
                           ArgbEncode(nTransparency, 100, 100, 100), 0.0f);
-  pDevice->DrawStrokeRect(&mtUser2Device, rectWnd.GetDeflated(0.5f, 0.5f),
+  pDevice->DrawStrokeRect(mtUser2Device, rectWnd.GetDeflated(0.5f, 0.5f),
                           ArgbEncode(nTransparency, 255, 255, 255), 1.0f);
 
   if (m_eSBButtonType != PSBT_POS) {
     // draw background
     if (IsEnabled()) {
-      pDevice->DrawShadow(&mtUser2Device, true, false,
+      pDevice->DrawShadow(mtUser2Device, true, false,
                           rectWnd.GetDeflated(1.0f, 1.0f), nTransparency, 80,
                           220);
     } else {
@@ -208,24 +192,21 @@ void CPWL_SBButton::DrawThisAppearance(CFX_RenderDevice* pDevice,
       float fX = rectWnd.left + 1.5f;
       float fY = rectWnd.bottom;
       std::vector<CFX_PointF> pts;
-      if (m_eSBButtonType == PSBT_MIN) {
-        pts.push_back(CFX_PointF(fX + 2.5f, fY + 4.0f));
-        pts.push_back(CFX_PointF(fX + 2.5f, fY + 3.0f));
-        pts.push_back(CFX_PointF(fX + 4.5f, fY + 5.0f));
-        pts.push_back(CFX_PointF(fX + 6.5f, fY + 3.0f));
-        pts.push_back(CFX_PointF(fX + 6.5f, fY + 4.0f));
-        pts.push_back(CFX_PointF(fX + 4.5f, fY + 6.0f));
-        pts.push_back(CFX_PointF(fX + 2.5f, fY + 4.0f));
-      } else {
-        pts.push_back(CFX_PointF(fX + 2.5f, fY + 5.0f));
-        pts.push_back(CFX_PointF(fX + 2.5f, fY + 6.0f));
-        pts.push_back(CFX_PointF(fX + 4.5f, fY + 4.0f));
-        pts.push_back(CFX_PointF(fX + 6.5f, fY + 6.0f));
-        pts.push_back(CFX_PointF(fX + 6.5f, fY + 5.0f));
-        pts.push_back(CFX_PointF(fX + 4.5f, fY + 3.0f));
-        pts.push_back(CFX_PointF(fX + 2.5f, fY + 5.0f));
-      }
-      pDevice->DrawFillArea(&mtUser2Device, pts.data(), 7,
+      static constexpr float kOffsetsX[] = {2.5f, 2.5f, 4.5f, 6.5f,
+                                            6.5f, 4.5f, 2.5f};
+      static constexpr float kOffsetsY[] = {5.0f, 6.0f, 4.0f, 6.0f,
+                                            5.0f, 3.0f, 5.0f};
+      static constexpr float kOffsetsMinY[] = {4.0f, 3.0f, 5.0f, 3.0f,
+                                               4.0f, 6.0f, 4.0f};
+      static_assert(FX_ArraySize(kOffsetsX) == FX_ArraySize(kOffsetsY),
+                    "Wrong offset count");
+      static_assert(FX_ArraySize(kOffsetsX) == FX_ArraySize(kOffsetsMinY),
+                    "Wrong offset count");
+      const float* pOffsetsY =
+          m_eSBButtonType == PSBT_MIN ? kOffsetsMinY : kOffsetsY;
+      for (size_t i = 0; i < FX_ArraySize(kOffsetsX); ++i)
+        pts.push_back(CFX_PointF(fX + kOffsetsX[i], fY + pOffsetsY[i]));
+      pDevice->DrawFillArea(mtUser2Device, pts,
                             IsEnabled()
                                 ? ArgbEncode(nTransparency, 255, 255, 255)
                                 : PWL_DEFAULT_HEAVYGRAYCOLOR.ToFXColor(255));
@@ -318,24 +299,15 @@ bool CPWL_SBButton::OnMouseMove(const CFX_PointF& point, uint32_t nFlag) {
   return true;
 }
 
-CPWL_ScrollBar::CPWL_ScrollBar(PWL_SCROLLBAR_TYPE sbType)
-    : m_sbType(sbType),
-      m_pMinButton(nullptr),
-      m_pMaxButton(nullptr),
-      m_pPosButton(nullptr),
-      m_bMouseDown(false),
-      m_bMinOrMax(false),
-      m_bNotifyForever(true) {}
-
-CPWL_ScrollBar::~CPWL_ScrollBar() {}
-
-ByteString CPWL_ScrollBar::GetClassName() const {
-  return "CPWL_ScrollBar";
+CPWL_ScrollBar::CPWL_ScrollBar(
+    const CreateParams& cp,
+    std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData,
+    PWL_SCROLLBAR_TYPE sbType)
+    : CPWL_Wnd(cp, std::move(pAttachedData)), m_sbType(sbType) {
+  GetCreationParams()->eCursorType = FXCT_ARROW;
 }
 
-void CPWL_ScrollBar::OnCreate(CreateParams* pParamsToAdjust) {
-  pParamsToAdjust->eCursorType = FXCT_ARROW;
-}
+CPWL_ScrollBar::~CPWL_ScrollBar() = default;
 
 void CPWL_ScrollBar::OnDestroy() {
   // Until cleanup takes place in the virtual destructor for CPWL_Wnd
@@ -401,20 +373,17 @@ bool CPWL_ScrollBar::RePosChildWnd() {
       break;
   }
 
-  ObservedPtr thisObserved(this);
-
+  ObservedPtr<CPWL_ScrollBar> thisObserved(this);
   if (m_pMinButton) {
     m_pMinButton->Move(rcMinButton, true, false);
     if (!thisObserved)
       return false;
   }
-
   if (m_pMaxButton) {
     m_pMaxButton->Move(rcMaxButton, true, false);
     if (!thisObserved)
       return false;
   }
-
   if (!MovePosButton(false))
     return false;
 
@@ -506,9 +475,8 @@ bool CPWL_ScrollBar::OnLButtonUp(const CFX_PointF& point, uint32_t nFlag) {
     }
   }
 
-  EndTimer();
+  m_pTimer.reset();
   m_bMouseDown = false;
-
   return true;
 }
 
@@ -564,30 +532,36 @@ void CPWL_ScrollBar::NotifyMouseMove(CPWL_Wnd* child, const CFX_PointF& pos) {
 
 void CPWL_ScrollBar::CreateButtons(const CreateParams& cp) {
   CreateParams scp = cp;
-  scp.pParentWnd = this;
   scp.dwBorderWidth = 2;
   scp.nBorderStyle = BorderStyle::BEVELED;
-
   scp.dwFlags =
       PWS_VISIBLE | PWS_CHILD | PWS_BORDER | PWS_BACKGROUND | PWS_NOREFRESHCLIP;
 
   if (!m_pMinButton) {
-    m_pMinButton = new CPWL_SBButton(m_sbType, PSBT_MIN);
-    m_pMinButton->Create(scp);
+    auto pButton = pdfium::MakeUnique<CPWL_SBButton>(scp, CloneAttachedData(),
+                                                     m_sbType, PSBT_MIN);
+    m_pMinButton = pButton.get();
+    AddChild(std::move(pButton));
+    m_pMinButton->Realize();
   }
 
   if (!m_pMaxButton) {
-    m_pMaxButton = new CPWL_SBButton(m_sbType, PSBT_MAX);
-    m_pMaxButton->Create(scp);
+    auto pButton = pdfium::MakeUnique<CPWL_SBButton>(scp, CloneAttachedData(),
+                                                     m_sbType, PSBT_MAX);
+    m_pMaxButton = pButton.get();
+    AddChild(std::move(pButton));
+    m_pMaxButton->Realize();
   }
 
   if (!m_pPosButton) {
-    m_pPosButton = new CPWL_SBButton(m_sbType, PSBT_POS);
-
-    ObservedPtr thisObserved(this);
-    if (!m_pPosButton->SetVisible(false) || !thisObserved)
-      return;
-    m_pPosButton->Create(scp);
+    auto pButton = pdfium::MakeUnique<CPWL_SBButton>(scp, CloneAttachedData(),
+                                                     m_sbType, PSBT_POS);
+    m_pPosButton = pButton.get();
+    ObservedPtr<CPWL_ScrollBar> thisObserved(this);
+    if (m_pPosButton->SetVisible(false) && thisObserved) {
+      AddChild(std::move(pButton));
+      m_pPosButton->Realize();
+    }
   }
 }
 
@@ -604,10 +578,9 @@ void CPWL_ScrollBar::SetScrollRange(float fMin,
   if (!m_pPosButton)
     return;
 
+  ObservedPtr<CPWL_ScrollBar> thisObserved(this);
   m_sData.SetScrollRange(fMin, fMax);
   m_sData.SetClientWidth(fClientWidth);
-
-  ObservedPtr thisObserved(this);
 
   if (IsFloatSmaller(m_sData.ScrollRange.GetWidth(), 0.0f)) {
     m_pPosButton->SetVisible(false);
@@ -687,8 +660,7 @@ bool CPWL_ScrollBar::MovePosButton(bool bRefresh) {
         break;
     }
 
-    ObservedPtr thisObserved(this);
-
+    ObservedPtr<CPWL_ScrollBar> thisObserved(this);
     m_pPosButton->Move(rcPosButton, true, bRefresh);
     if (!thisObserved)
       return false;
@@ -701,12 +673,10 @@ void CPWL_ScrollBar::OnMinButtonLBDown(const CFX_PointF& point) {
   m_sData.SubSmall();
   if (!MovePosButton(true))
     return;
+
   NotifyScrollWindow();
-
   m_bMinOrMax = true;
-
-  EndTimer();
-  BeginTimer(100);
+  m_pTimer = pdfium::MakeUnique<CFX_Timer>(GetTimerHandler(), this, 100);
 }
 
 void CPWL_ScrollBar::OnMinButtonLBUp(const CFX_PointF& point) {}
@@ -717,12 +687,10 @@ void CPWL_ScrollBar::OnMaxButtonLBDown(const CFX_PointF& point) {
   m_sData.AddSmall();
   if (!MovePosButton(true))
     return;
+
   NotifyScrollWindow();
-
   m_bMinOrMax = false;
-
-  EndTimer();
-  BeginTimer(100);
+  m_pTimer = pdfium::MakeUnique<CFX_Timer>(GetTimerHandler(), this, 100);
 }
 
 void CPWL_ScrollBar::OnMaxButtonLBUp(const CFX_PointF& point) {}
@@ -833,10 +801,10 @@ CFX_FloatRect CPWL_ScrollBar::GetScrollArea() const {
   CFX_FloatRect rcMin = m_pMinButton->GetWindowRect();
   CFX_FloatRect rcMax = m_pMaxButton->GetWindowRect();
 
-  float fMinWidth = rcMin.right - rcMin.left;
-  float fMinHeight = rcMin.top - rcMin.bottom;
-  float fMaxWidth = rcMax.right - rcMax.left;
-  float fMaxHeight = rcMax.top - rcMax.bottom;
+  float fMinWidth = rcMin.Width();
+  float fMinHeight = rcMin.Height();
+  float fMaxWidth = rcMax.Width();
+  float fMaxHeight = rcMax.Height();
 
   switch (m_sbType) {
     case SBT_HSCROLL:
@@ -915,16 +883,18 @@ void CPWL_ScrollBar::CreateChildWnd(const CreateParams& cp) {
   CreateButtons(cp);
 }
 
-void CPWL_ScrollBar::TimerProc() {
+void CPWL_ScrollBar::OnTimerFired() {
   PWL_SCROLL_PRIVATEDATA sTemp = m_sData;
   if (m_bMinOrMax)
     m_sData.SubSmall();
   else
     m_sData.AddSmall();
 
-  if (sTemp != m_sData) {
-    if (!MovePosButton(true))
-      return;
-    NotifyScrollWindow();
-  }
+  if (sTemp == m_sData)
+    return;
+
+  if (!MovePosButton(true))
+    return;
+
+  NotifyScrollWindow();
 }

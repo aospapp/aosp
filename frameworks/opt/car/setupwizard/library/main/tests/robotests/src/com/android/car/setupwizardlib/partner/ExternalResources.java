@@ -22,6 +22,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
@@ -44,7 +45,7 @@ import java.util.Map;
  * used with {@link org.robolectric.shadows.ShadowPackageManager#resources} to simulate loading
  * resources from another package.
  */
-class ExternalResources {
+public class ExternalResources {
 
     public static Resources injectExternalResources(String packageName) {
         return injectExternalResources(createPackageInfo(packageName));
@@ -162,6 +163,24 @@ class ExternalResources {
             return (Drawable) get(id, ResType.DRAWABLE);
         }
 
+        @NonNull
+        @Override
+        public ColorStateList getColorStateList(int id) throws NotFoundException {
+            return (ColorStateList) get(id, ResType.COLOR_STATE_LIST);
+        }
+
+        @NonNull
+        @Override
+        public ColorStateList getColorStateList(int id, @Nullable Theme theme) {
+            return (ColorStateList) get(id, ResType.COLOR_STATE_LIST);
+        }
+
+        public void putColorStateList(String name, ColorStateList value) {
+            put(
+                    ResName.qualifyResName(name, mPackageName, "color"),
+                    new TypedResource<>(value, ResType.COLOR_STATE_LIST, null));
+        }
+
         public void putDrawable(String name, Drawable value) {
             put(
                     ResName.qualifyResName(name, mPackageName, "drawable"),
@@ -229,8 +248,13 @@ class ExternalResources {
 
         private Object get(@AnyRes int id, ResType type) {
             TypedResource<?> override = mOverrideResources.get(id);
-            if (override != null && override.getResType() == type) {
-                return override.getData();
+            if (override != null) {
+                if (override.getResType() == type) {
+                    return override.getData();
+                } else if (type == ResType.COLOR_STATE_LIST
+                        && override.getResType() == ResType.COLOR) {
+                    return ColorStateList.valueOf((Integer) override.getData());
+                }
             }
             throw new NotFoundException();
         }

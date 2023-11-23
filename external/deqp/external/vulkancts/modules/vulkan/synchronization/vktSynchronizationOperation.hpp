@@ -103,6 +103,25 @@ enum OperationName
 	OPERATION_NAME_READ_INDIRECT_BUFFER_DRAW_INDEXED,
 	OPERATION_NAME_READ_INDIRECT_BUFFER_DISPATCH,
 	OPERATION_NAME_READ_VERTEX_INPUT,
+
+	// Copy operations
+	OPERATION_NAME_COPY_BUFFER,
+	OPERATION_NAME_COPY_IMAGE,
+	OPERATION_NAME_BLIT_IMAGE,
+	OPERATION_NAME_COPY_SSBO_VERTEX,
+	OPERATION_NAME_COPY_SSBO_TESSELLATION_CONTROL,
+	OPERATION_NAME_COPY_SSBO_TESSELLATION_EVALUATION,
+	OPERATION_NAME_COPY_SSBO_GEOMETRY,
+	OPERATION_NAME_COPY_SSBO_FRAGMENT,
+	OPERATION_NAME_COPY_SSBO_COMPUTE,
+	OPERATION_NAME_COPY_SSBO_COMPUTE_INDIRECT,
+	OPERATION_NAME_COPY_IMAGE_VERTEX,
+	OPERATION_NAME_COPY_IMAGE_TESSELLATION_CONTROL,
+	OPERATION_NAME_COPY_IMAGE_TESSELLATION_EVALUATION,
+	OPERATION_NAME_COPY_IMAGE_GEOMETRY,
+	OPERATION_NAME_COPY_IMAGE_FRAGMENT,
+	OPERATION_NAME_COPY_IMAGE_COMPUTE,
+	OPERATION_NAME_COPY_IMAGE_COMPUTE_INDIRECT,
 };
 
 // Similar to Context, but allows test instance to decide which resources are used by the operation.
@@ -119,13 +138,12 @@ public:
 															 const vk::VkDevice			device,
 															 vk::Allocator&				allocator);
 
-									OperationContext		(const deUint32						apiVersion,
+									OperationContext		(Context&							context,
 															 const vk::InstanceInterface&		vki,
 															 const vk::DeviceInterface&			vkd,
 															 vk::VkPhysicalDevice				physicalDevice,
 															 vk::VkDevice						device,
 															 vk::Allocator&						allocator,
-															 const std::vector<std::string>&	deviceExtensions,
 															 vk::BinaryCollection&				programCollection,
 															 PipelineCacheData&					pipelineCacheData);
 
@@ -136,11 +154,14 @@ public:
 	vk::Allocator&					getAllocator			(void) const { return m_allocator; }
 	vk::BinaryCollection&			getBinaryCollection		(void) const { return m_progCollection; }
 	PipelineCacheData&				getPipelineCacheData	(void) const { return m_pipelineCacheData; }
-	const std::vector<std::string>&	getDeviceExtensions		(void) const { return m_deviceExtensions;}
-	deUint32						getUsedApiVersion		(void) const { return m_usedApiVersion; }
 
+	bool isDeviceFunctionalitySupported(const std::string& extension) const
+	{
+		return m_context.isDeviceFunctionalitySupported(extension);
+	}
 
 private:
+	const vkt::Context&				m_context;
 	const vk::InstanceInterface&	m_vki;
 	const vk::DeviceInterface&		m_vk;
 	const vk::VkPhysicalDevice		m_physicalDevice;
@@ -148,8 +169,6 @@ private:
 	vk::Allocator&					m_allocator;
 	vk::BinaryCollection&			m_progCollection;
 	PipelineCacheData&				m_pipelineCacheData;
-	const std::vector<std::string>&	m_deviceExtensions;
-	const deUint32					m_usedApiVersion;
 
 	// Disabled
 									OperationContext		(const OperationContext&);
@@ -222,8 +241,10 @@ public:
 	virtual				~Operation		(void) {}
 
 	virtual void		recordCommands	(const vk::VkCommandBuffer cmdBuffer) = 0;	// commands that carry out this operation
-	virtual SyncInfo	getSyncInfo		(void) const = 0;							// data required to properly synchronize this operation
+	virtual SyncInfo	getInSyncInfo	(void) const = 0;							// data required to properly synchronize this operation
+	virtual SyncInfo	getOutSyncInfo	(void) const = 0;							// data required to properly synchronize this operation
 	virtual Data		getData			(void) const = 0;							// get raw data that was written to or read from actual resource
+	virtual void		setData			(const Data& data) = 0;						// set raw data to be read from actual resource
 
 private:
 						Operation		(const Operation&);
@@ -235,18 +256,20 @@ private:
 class OperationSupport
 {
 public:
-									OperationSupport		(void) {}
-	virtual							~OperationSupport		(void) {}
+									OperationSupport			(void) {}
+	virtual							~OperationSupport			(void) {}
 
-	virtual deUint32				getResourceUsageFlags	(void) const = 0;
-	virtual vk::VkQueueFlags		getQueueFlags			(const OperationContext& context) const = 0;
-	virtual void					initPrograms			(vk::SourceCollections&) const {}	//!< empty by default
+	virtual deUint32				getInResourceUsageFlags		(void) const = 0;
+	virtual deUint32				getOutResourceUsageFlags	(void) const = 0;
+	virtual vk::VkQueueFlags		getQueueFlags				(const OperationContext& context) const = 0;
+	virtual void					initPrograms				(vk::SourceCollections&) const {}	//!< empty by default
 
-	virtual de::MovePtr<Operation>	build					(OperationContext& context, Resource& resource) const = 0;
+	virtual de::MovePtr<Operation>	build						(OperationContext& context, Resource& resource) const = 0;
+	virtual de::MovePtr<Operation>	build						(OperationContext& context, Resource& inResource, Resource& outResource) const = 0;
 
 private:
-									OperationSupport		(const OperationSupport&);
-	OperationSupport&				operator=				(const OperationSupport&);
+									OperationSupport			(const OperationSupport&);
+	OperationSupport&				operator=					(const OperationSupport&);
 };
 
 bool							isResourceSupported		(const OperationName opName, const ResourceDescription& resourceDesc);

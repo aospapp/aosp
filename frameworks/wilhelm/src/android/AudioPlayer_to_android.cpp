@@ -1695,6 +1695,10 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
                 (void *) pAudioPlayer,                               // user
                 notificationFrames,                                  // see comment above
                 pAudioPlayer->mSessionId);
+
+        // Set it here so it can be logged by the destructor if the open failed.
+        pat->setCallerName(ANDROID_OPENSLES_CALLER_NAME);
+
         android::status_t status = pat->initCheck();
         if (status != android::NO_ERROR) {
             // AudioTracks are meant to be refcounted, so their dtor is protected.

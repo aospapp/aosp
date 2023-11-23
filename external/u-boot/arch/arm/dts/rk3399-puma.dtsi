@@ -95,6 +95,8 @@
 		regulator-name = "usbhub_enable";
 		enable-active-low;
 		gpio = <&gpio4 RK_PA3 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&host_vbus_drv>;
 		regulator-boot-on;
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
@@ -146,16 +148,6 @@
 		regulator-always-on;
 	};
 
-	vcc5v0_host: vcc5v0-host-regulator {
-		compatible = "regulator-fixed";
-		enable-active-low;
-		gpio = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&host_vbus_drv>;
-		regulator-name = "vcc5v0_host";
-		regulator-always-on;
-	};
-
 	vcc5v0_sys: vcc5v0-sys {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc5v0_sys";
@@ -180,10 +172,7 @@
 		regulator-max-microvolt = <1400000>;
 		regulator-always-on;
 		regulator-boot-on;
-
-		/* for rockchip boot on */
-		rockchip,pwm_id= <2>;
-		rockchip,pwm_voltage = <1000000>;
+		regulator-init-microvolt = <950000>;
 	};
 };
 
@@ -208,8 +197,6 @@
 };
 
 &hdmi {
-	#address-cells = <1>;
-	#size-cells = <0>;
 	#sound-dai-cells = <0>;
 	status = "okay";
 };
@@ -220,7 +207,8 @@
 	i2c-scl-falling-time-ns = <4>;
 	clock-frequency = <400000>;
 
-	vdd_gpu: fan535555@60 {
+	vdd_gpu: vdd_gpu {
+		status = "okay";
 		compatible = "fcs,fan53555";
 		reg = <0x60>;
 		vsel-gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
@@ -422,7 +410,8 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
-	vdd_cpu_b: fan53555@60 {
+	vdd_cpu_b: vdd_cpu_b {
+		status = "okay";
 		compatible = "fcs,fan53555";
 		reg = <0x60>;
 		vsel-gpios = <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;
@@ -503,9 +492,8 @@
 };
 
 &sdmmc {
-	u-boot,dm-pre-reloc;
 	clock-frequency = <150000000>;
-	clock-freq-min-max = <100000 150000000>;
+	max-frequency = <40000000>;
 	supports-sd;
 	bus-width = <4>;
 	cap-mmc-highspeed;
@@ -651,7 +639,6 @@
 };
 
 &uart0 {
-	u-boot,dm-pre-reloc;
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_xfer &uart0_cts>;
 	status = "okay";
@@ -659,8 +646,6 @@
 
 
 &spi1 {
-	u-boot,dm-pre-reloc;
-
 	status = "okay";
 
 	#address-cells = <1>;
@@ -669,7 +654,7 @@
 	spiflash: w25q32dw@0 {
 		u-boot,dm-pre-reloc;
 
-		compatible = "spi-flash";
+		compatible = "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <49500000>;
 		spi-cpol;

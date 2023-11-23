@@ -24,8 +24,8 @@
 
 #include <binder/IPCThreadState.h>
 #include <binder/Parcel.h>
-#include <media/TimeCheck.h>
 #include <mediautils/ServiceUtilities.h>
+#include <mediautils/TimeCheck.h>
 #include "IAudioFlinger.h"
 
 namespace android {
@@ -90,9 +90,11 @@ enum {
     SET_MASTER_BALANCE,
     GET_MASTER_BALANCE,
     SET_EFFECT_SUSPENDED,
+    SET_AUDIO_HAL_PIDS
 };
 
 #define MAX_ITEMS_PER_LIST 1024
+
 
 class BpAudioFlinger : public BpInterface<IAudioFlinger>
 {
@@ -340,11 +342,11 @@ public:
         return reply.readInt32();
     }
 
-    virtual void setRecordSilenced(uid_t uid, bool silenced)
+    virtual void setRecordSilenced(audio_port_handle_t portId, bool silenced)
     {
         Parcel data, reply;
         data.writeInterfaceToken(IAudioFlinger::getInterfaceDescriptor());
-        data.writeInt32(uid);
+        data.writeInt32(portId);
         data.writeInt32(silenced ? 1 : 0);
         remote()->transact(SET_RECORD_SILENCED, data, &reply);
     }
@@ -392,20 +394,18 @@ public:
     virtual status_t openOutput(audio_module_handle_t module,
                                 audio_io_handle_t *output,
                                 audio_config_t *config,
-                                audio_devices_t *devices,
-                                const String8& address,
+                                const sp<DeviceDescriptorBase>& device,
                                 uint32_t *latencyMs,
                                 audio_output_flags_t flags)
     {
-        if (output == NULL || config == NULL || devices == NULL || latencyMs == NULL) {
+        if (output == nullptr || config == nullptr || device == nullptr || latencyMs == nullptr) {
             return BAD_VALUE;
         }
         Parcel data, reply;
         data.writeInterfaceToken(IAudioFlinger::getInterfaceDescriptor());
         data.writeInt32(module);
         data.write(config, sizeof(audio_config_t));
-        data.writeInt32(*devices);
-        data.writeString8(address);
+        data.writeParcelable(*device);
         data.writeInt32((int32_t) flags);
         status_t status = remote()->transact(OPEN_OUTPUT, data, &reply);
         if (status != NO_ERROR) {
@@ -420,7 +420,6 @@ public:
         *output = (audio_io_handle_t)reply.readInt32();
         ALOGV("openOutput() returned output, %d", *output);
         reply.read(config, sizeof(audio_config_t));
-        *devices = (audio_devices_t)reply.readInt32();
         *latencyMs = reply.readInt32();
         return NO_ERROR;
     }
@@ -572,12 +571,13 @@ public:
         return id;
     }
 
-    virtual void acquireAudioSessionId(audio_session_t audioSession, int pid)
+    void acquireAudioSessionId(audio_session_t audioSession, pid_t pid, uid_t uid) override
     {
         Parcel data, reply;
         data.writeInterfaceToken(IAudioFlinger::getInterfaceDescriptor());
         data.writeInt32(audioSession);
-        data.writeInt32(pid);
+        data.writeInt32((int32_t)pid);
+        data.writeInt32((int32_t)uid);
         remote()->transact(ACQUIRE_AUDIO_SESSION_ID, data, &reply);
     }
 
@@ -659,20 +659,21 @@ public:
                                     int32_t priority,
                                     audio_io_handle_t output,
                                     audio_session_t sessionId,
+                                    const AudioDeviceTypeAddr& device,
                                     const String16& opPackageName,
                                     pid_t pid,
+                                    bool probe,
                                     status_t *status,
                                     int *id,
                                     int *enabled)
     {
         Parcel data, reply;
         sp<IEffect> effect;
-
         if (pDesc == NULL) {
             if (status != NULL) {
                 *status = BAD_VALUE;
             }
-            return effect;
+            return nullptr;
         }
 
         data.writeInterfaceToken(IAudioFlinger::getInterfaceDescriptor());
@@ -681,8 +682,15 @@ public:
         data.writeInt32(priority);
         data.writeInt32((int32_t) output);
         data.writeInt32(sessionId);
+        if (data.writeParcelable(device) != NO_ERROR) {
+            if (status != NULL) {
+                *status = NO_INIT;
+            }
+            return nullptr;
+        }
         data.writeString16(opPackageName);
         data.writeInt32((int32_t) pid);
+        data.writeInt32(probe ? 1 : 0);
 
         status_t lStatus = remote()->transact(CREATE_EFFECT, data, &reply);
         if (lStatus != NO_ERROR) {
@@ -903,6 +911,20 @@ public:
         status = reply.readParcelableVector(microphones);
         return status;
     }
+    virtual status_t setAudioHalPids(const std::vector<pid_t>& pids)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IAudioFlinger::getInterfaceDescriptor());
+        data.writeInt32(pids.size());
+        for (auto pid : pids) {
+            data.writeInt32(pid);
+        }
+        status_t status = remote()->transact(SET_AUDIO_HAL_PIDS, data, &reply);
+        if (status != NO_ERROR) {
+            return status;
+        }
+        return static_cast <status_t> (reply.readInt32());
+    }
 };
 
 IMPLEMENT_META_INTERFACE(AudioFlinger, "android.media.IAudioFlinger");
@@ -958,7 +980,8 @@ status_t BnAudioFlinger::onTransact(
         case SET_MODE:
         case SET_MIC_MUTE:
         case SET_LOW_RAM_DEVICE:
-        case SYSTEM_READY: {
+        case SYSTEM_READY:
+        case SET_AUDIO_HAL_PIDS: {
             if (!isServiceUid(IPCThreadState::self()->getCallingUid())) {
                 ALOGW("%s: transaction %d received from PID %d unauthorized UID %d",
                       __func__, code, IPCThreadState::self()->getCallingPid(),
@@ -1156,11 +1179,9 @@ status_t BnAudioFlinger::onTransact(
         } break;
         case SET_RECORD_SILENCED: {
             CHECK_INTERFACE(IAudioFlinger, data, reply);
-            uid_t uid = data.readInt32();
-            audio_source_t source;
-            data.read(&source, sizeof(audio_source_t));
+            audio_port_handle_t portId = data.readInt32();
             bool silenced = data.readInt32() == 1;
-            setRecordSilenced(uid, silenced);
+            setRecordSilenced(portId, silenced);
             return NO_ERROR;
         } break;
         case SET_PARAMETERS: {
@@ -1200,19 +1221,21 @@ status_t BnAudioFlinger::onTransact(
             if (data.read(&config, sizeof(audio_config_t)) != NO_ERROR) {
                 ALOGE("b/23905951");
             }
-            audio_devices_t devices = (audio_devices_t)data.readInt32();
-            String8 address(data.readString8());
+            sp<DeviceDescriptorBase> device = new DeviceDescriptorBase(AUDIO_DEVICE_NONE);
+            status_t status = NO_ERROR;
+            if ((status = data.readParcelable(device.get())) != NO_ERROR) {
+                reply->writeInt32((int32_t)status);
+                return NO_ERROR;
+            }
             audio_output_flags_t flags = (audio_output_flags_t) data.readInt32();
             uint32_t latencyMs = 0;
             audio_io_handle_t output = AUDIO_IO_HANDLE_NONE;
-            status_t status = openOutput(module, &output, &config,
-                                         &devices, address, &latencyMs, flags);
+            status = openOutput(module, &output, &config, device, &latencyMs, flags);
             ALOGV("OPEN_OUTPUT output, %d", output);
             reply->writeInt32((int32_t)status);
             if (status == NO_ERROR) {
                 reply->writeInt32((int32_t)output);
                 reply->write(&config, sizeof(audio_config_t));
-                reply->writeInt32(devices);
                 reply->writeInt32(latencyMs);
             }
             return NO_ERROR;
@@ -1306,8 +1329,9 @@ status_t BnAudioFlinger::onTransact(
         case ACQUIRE_AUDIO_SESSION_ID: {
             CHECK_INTERFACE(IAudioFlinger, data, reply);
             audio_session_t audioSession = (audio_session_t) data.readInt32();
-            int pid = data.readInt32();
-            acquireAudioSessionId(audioSession, pid);
+            const pid_t pid = (pid_t)data.readInt32();
+            const uid_t uid = (uid_t)data.readInt32();
+            acquireAudioSessionId(audioSession, pid, uid);
             return NO_ERROR;
         } break;
         case RELEASE_AUDIO_SESSION_ID: {
@@ -1339,10 +1363,14 @@ status_t BnAudioFlinger::onTransact(
         }
         case GET_EFFECT_DESCRIPTOR: {
             CHECK_INTERFACE(IAudioFlinger, data, reply);
-            effect_uuid_t uuid;
-            data.read(&uuid, sizeof(effect_uuid_t));
-            effect_uuid_t type;
-            data.read(&type, sizeof(effect_uuid_t));
+            effect_uuid_t uuid = {};
+            if (data.read(&uuid, sizeof(effect_uuid_t)) != NO_ERROR) {
+                android_errorWriteLog(0x534e4554, "139417189");
+            }
+            effect_uuid_t type = {};
+            if (data.read(&type, sizeof(effect_uuid_t)) != NO_ERROR) {
+                android_errorWriteLog(0x534e4554, "139417189");
+            }
             uint32_t preferredTypeFlag = data.readUint32();
             effect_descriptor_t desc = {};
             status_t status = getEffectDescriptor(&uuid, &type, preferredTypeFlag, &desc);
@@ -1362,15 +1390,20 @@ status_t BnAudioFlinger::onTransact(
             int32_t priority = data.readInt32();
             audio_io_handle_t output = (audio_io_handle_t) data.readInt32();
             audio_session_t sessionId = (audio_session_t) data.readInt32();
+            AudioDeviceTypeAddr device;
+            status_t status = NO_ERROR;
+            if ((status = data.readParcelable(&device)) != NO_ERROR) {
+                return status;
+            }
             const String16 opPackageName = data.readString16();
             pid_t pid = (pid_t)data.readInt32();
+            bool probe = data.readInt32() == 1;
 
-            status_t status = NO_ERROR;
             int id = 0;
             int enabled = 0;
 
-            sp<IEffect> effect = createEffect(&desc, client, priority, output, sessionId,
-                    opPackageName, pid, &status, &id, &enabled);
+            sp<IEffect> effect = createEffect(&desc, client, priority, output, sessionId, device,
+                    opPackageName, pid, probe, &status, &id, &enabled);
             reply->writeInt32(status);
             reply->writeInt32(id);
             reply->writeInt32(enabled);
@@ -1541,6 +1574,31 @@ status_t BnAudioFlinger::onTransact(
             if (status == NO_ERROR) {
                 reply->writeParcelableVector(microphones);
             }
+            return NO_ERROR;
+        }
+        case SET_AUDIO_HAL_PIDS: {
+            CHECK_INTERFACE(IAudioFlinger, data, reply);
+            std::vector<pid_t> pids;
+            int32_t size;
+            status_t status = data.readInt32(&size);
+            if (status != NO_ERROR) {
+                return status;
+            }
+            if (size < 0) {
+                return BAD_VALUE;
+            }
+            if (size > MAX_ITEMS_PER_LIST) {
+                size = MAX_ITEMS_PER_LIST;
+            }
+            for (int32_t i = 0; i < size; i++) {
+                int32_t pid;
+                status =  data.readInt32(&pid);
+                if (status != NO_ERROR) {
+                    return status;
+                }
+                pids.push_back(pid);
+            }
+            reply->writeInt32(setAudioHalPids(pids));
             return NO_ERROR;
         }
         default:

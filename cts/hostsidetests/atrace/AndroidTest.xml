@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="uitoolkit" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsAtraceHostTestCases.jar" />
         <option name="runtime-hint" value="9m" />

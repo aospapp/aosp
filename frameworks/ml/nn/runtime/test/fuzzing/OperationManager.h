@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_MANAGER_H
-#define ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_MANAGER_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_MANAGER_H
+#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_MANAGER_H
 
 #include <functional>
 #include <map>
 #include <string>
 #include <vector>
 
+#include "TestHarness.h"
 #include "TestNeuralNetworksWrapper.h"
 #include "fuzzing/RandomGraphGenerator.h"
 #include "fuzzing/RandomVariable.h"
@@ -30,8 +31,6 @@ namespace android {
 namespace nn {
 namespace fuzzing_test {
 
-using test_wrapper::Type;
-
 struct OperandSignature {
     // Possible values are [INPUT | CONST | OUTPUT].
     // If CONST, the generator will avoid feeding the operand with another operation’s output.
@@ -39,14 +38,13 @@ struct OperandSignature {
 
     // The operand constructor is invoked before the operation constructor. This is for
     // setting the data type, quantization parameters, or optionally the scalar value.
-    std::function<void(Type, uint32_t, RandomOperand*)> constructor = nullptr;
+    std::function<void(test_helper::TestOperandType, uint32_t, RandomOperand*)> constructor =
+            nullptr;
 
     // The operand finalizer is invoked after the graph structure is frozen but before the operation
     // finalizer. This is for generating the buffer values for the operand.
     std::function<void(RandomOperand*)> finalizer = nullptr;
 };
-
-enum class HalVersion : int32_t { V1_0 = 0, V1_1 = 1, V1_2 = 2 };
 
 // A filter applied to OperationSignatures. An OperationSignature is filtered out if the opType, all
 // of supportedDataTypes, all of supportedRanks, or the version does not match with any entry in the
@@ -54,26 +52,26 @@ enum class HalVersion : int32_t { V1_0 = 0, V1_1 = 1, V1_2 = 2 };
 //
 // E.g.
 // - To get all 1.0 ADD operation signatures
-//       {.opcodes = {ANEURALNETWORKS_ADD}, .versions = {HalVersion::V1_0}}
+//       {.opcodes = {TestOperationType::ADD}, .versions = {TestHalVersion::V1_0}}
 //
 // - To get all 1.0 and 1.1 operations with rank 2 or 4
-//       {.ranks = {2, 4}, .versions = {HalVersion::V1_0, HalVersion::V1_1}}
+//       {.ranks = {2, 4}, .versions = {TestHalVersion::V1_0, TestHalVersion::V1_1}}
 //
 struct OperationFilter {
-    std::vector<ANeuralNetworksOperationType> opcodes;
-    std::vector<Type> dataTypes;
+    std::vector<test_helper::TestOperationType> opcodes;
+    std::vector<test_helper::TestOperandType> dataTypes;
     std::vector<uint32_t> ranks;
-    std::vector<HalVersion> versions;
+    std::vector<test_helper::TestHalVersion> versions;
 };
 
 struct OperationSignature {
     // Defines the basic metadata of an operation filterable by OperationFilter.
     // Upon generation, the random graph generator will randomly choose a supported data type and
     // rank, and pass the information to the constructors.
-    ANeuralNetworksOperationType opType;
-    std::vector<Type> supportedDataTypes;
+    test_helper::TestOperationType opType;
+    std::vector<test_helper::TestOperandType> supportedDataTypes;
     std::vector<uint32_t> supportedRanks;
-    HalVersion version;
+    test_helper::TestHalVersion version;
 
     // OperandSignatures for inputs and outputs.
     std::vector<OperandSignature> inputs;
@@ -83,7 +81,8 @@ struct OperationSignature {
     // setting the dimension relationship of random operands, and/or generating parameter values at
     // the operation level, e.g. a parameter depends on or affects another operand in the same
     // operation.
-    std::function<void(Type, uint32_t, RandomOperation*)> constructor = nullptr;
+    std::function<void(test_helper::TestOperandType, uint32_t, RandomOperation*)> constructor =
+            nullptr;
 
     // The operation finalizer is invoked after the graph structure is frozen and inputs and outputs
     // constructors are invoked. This is for generating operand buffers at the operation level, e.g.
@@ -127,4 +126,4 @@ class OperationManager {
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORK_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_MANAGER_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_FUZZING_OPERATION_MANAGER_H

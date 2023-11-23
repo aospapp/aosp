@@ -43,6 +43,8 @@ public class TransferProfileOwnerOutgoingTest extends DeviceAndProfileOwnerTrans
         DevicePolicyManager parentDevicePolicyManager =
                 mDevicePolicyManager.getParentProfileInstance(mOutgoingComponentName);
         mDevicePolicyManager.setCameraDisabled(mOutgoingComponentName, true);
+        mDevicePolicyManager.setPasswordQuality(
+                mOutgoingComponentName, DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
         mDevicePolicyManager.setPasswordMinimumLength(mOutgoingComponentName, passwordLength);
         mDevicePolicyManager.setCrossProfileCallerIdDisabled(mOutgoingComponentName, true);
         parentDevicePolicyManager.setPasswordExpirationTimeout(

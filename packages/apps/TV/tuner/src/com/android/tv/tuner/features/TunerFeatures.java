@@ -19,9 +19,9 @@ package com.android.tv.tuner.features;
 import static com.android.tv.common.feature.FeatureUtils.OFF;
 
 import com.android.tv.common.feature.CommonFeatures;
+import com.android.tv.common.feature.DeveloperPreferenceFeature;
 import com.android.tv.common.feature.Feature;
 import com.android.tv.common.feature.Model;
-import com.android.tv.common.feature.PropertyFeature;
 import com.android.tv.common.feature.Sdk;
 
 /**
@@ -39,10 +39,11 @@ public class TunerFeatures extends CommonFeatures {
      * <p>Prefer software based codec for SD channels.
      */
     public static final Feature USE_SW_CODEC_FOR_SD =
-            PropertyFeature.create(
+            DeveloperPreferenceFeature.create(
                     "use_sw_codec_for_sd",
-                    false
-                    );
+                    // On Nexus Player, SW codec is better than HW codec in terms of picture
+                    // quality.
+                    Model.NEXUS_PLAYER.isEnabled());
 
     /**
      * Does the TvProvider on the installed device allow systems inserts to the programs table.

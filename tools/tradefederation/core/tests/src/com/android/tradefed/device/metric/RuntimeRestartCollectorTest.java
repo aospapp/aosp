@@ -438,11 +438,12 @@ public class RuntimeRestartCollectorTest {
     }
 
     /**
-     * Test that the collector reports counts based on the {@link AppCrashOccurred} results when it
-     * disagrees with info from statsd metadata.
+     * Test that the collector reports counts based on the {@link StatsdStatsReport} results when it
+     * disagrees with info from the {@link AppCrashOccurred} atom.
      */
     @Test
-    public void testAddingMetrics_withRuntimeRestart_useAtomResultsForCount() throws Exception {
+    public void testAddingMetrics_withRuntimeRestart_useStatsdMetadataResultsForCount()
+            throws Exception {
         ITestDevice testDevice = mockTestDevice(DEVICE_SERIAL_1);
         doReturn(Arrays.asList(testDevice)).when(mContext).getDevices();
         // Two data points from the AppCrashOccurred data.
@@ -471,7 +472,7 @@ public class RuntimeRestartCollectorTest {
         // Count should be two as in the stubbed EventMetricDataResults, even though statsd metadata
         // only reported one timestamp.
         int count = getCount(runMetrics);
-        Assert.assertEquals(2, count);
+        Assert.assertEquals(1, count);
     }
 
     /**
@@ -518,14 +519,14 @@ public class RuntimeRestartCollectorTest {
                         .anyMatch(
                                 key ->
                                         (key.contains(DEVICE_SERIAL_1)
-                                                && (!key.contains(DEVICE_SERIAL_2)))));
+                                                && !key.contains(DEVICE_SERIAL_2))));
         Assert.assertTrue(
                 countMetricKeys
                         .stream()
                         .anyMatch(
                                 key ->
                                         (key.contains(DEVICE_SERIAL_2)
-                                                && (!key.contains(DEVICE_SERIAL_1)))));
+                                                && !key.contains(DEVICE_SERIAL_1))));
     }
 
     /** Helper method to get count from metrics. */

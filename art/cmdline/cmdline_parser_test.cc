@@ -20,7 +20,6 @@
 
 #include "gtest/gtest.h"
 
-#include "base/mutex.h"
 #include "base/utils.h"
 #include "jdwp_provider.h"
 #include "experimental_flags.h"
@@ -257,7 +256,7 @@ TEST_F(CmdlineParserTest, TestSimpleFailures) {
 TEST_F(CmdlineParserTest, TestLogVerbosity) {
   {
     const char* log_args = "-verbose:"
-        "class,compiler,gc,heap,jdwp,jni,monitor,profiler,signals,simulator,startup,"
+        "class,compiler,gc,heap,interpreter,jdwp,jni,monitor,profiler,signals,simulator,startup,"
         "third-party-jni,threads,verifier,verifier-debug";
 
     LogVerbosity log_verbosity = LogVerbosity();
@@ -265,6 +264,7 @@ TEST_F(CmdlineParserTest, TestLogVerbosity) {
     log_verbosity.compiler = true;
     log_verbosity.gc = true;
     log_verbosity.heap = true;
+    log_verbosity.interpreter = true;
     log_verbosity.jdwp = true;
     log_verbosity.jni = true;
     log_verbosity.monitor = true;
@@ -389,11 +389,6 @@ TEST_F(CmdlineParserTest, TestJdwpProviderEmpty) {
 TEST_F(CmdlineParserTest, TestJdwpProviderDefault) {
   const char* opt_args = "-XjdwpProvider:default";
   EXPECT_SINGLE_PARSE_VALUE(JdwpProvider::kDefaultJdwpProvider, opt_args, M::JdwpProvider);
-}  // TEST_F
-
-TEST_F(CmdlineParserTest, TestJdwpProviderInternal) {
-  const char* opt_args = "-XjdwpProvider:internal";
-  EXPECT_SINGLE_PARSE_VALUE(JdwpProvider::kInternal, opt_args, M::JdwpProvider);
 }  // TEST_F
 
 TEST_F(CmdlineParserTest, TestJdwpProviderNone) {
@@ -578,4 +573,21 @@ TEST_F(CmdlineParserTest, MultipleArguments) {
   EXPECT_KEY_VALUE(map, M::MethodTrace, Unit{});
   EXPECT_KEY_VALUE(map, M::LargeObjectSpace, gc::space::LargeObjectSpaceType::kMap);
 }  //  TEST_F
+
+TEST_F(CmdlineParserTest, TypesNotInRuntime) {
+  CmdlineType<std::vector<int32_t>> ct;
+  auto success0 =
+      CmdlineParseResult<std::vector<int32_t>>::Success(std::vector<int32_t>({1, 2, 3, 4}));
+  EXPECT_EQ(success0, ct.Parse("1,2,3,4"));
+  auto success1 = CmdlineParseResult<std::vector<int32_t>>::Success(std::vector<int32_t>({0}));
+  EXPECT_EQ(success1, ct.Parse("1"));
+
+  EXPECT_FALSE(ct.Parse("").IsSuccess());
+  EXPECT_FALSE(ct.Parse(",").IsSuccess());
+  EXPECT_FALSE(ct.Parse("1,").IsSuccess());
+  EXPECT_FALSE(ct.Parse(",1").IsSuccess());
+  EXPECT_FALSE(ct.Parse("1a2").IsSuccess());
+  EXPECT_EQ(CmdlineResult::kOutOfRange, ct.Parse("1,10000000000000").GetStatus());
+  EXPECT_EQ(CmdlineResult::kOutOfRange, ct.Parse("-10000000000000,123").GetStatus());
+}  // TEST_F
 }  // namespace art

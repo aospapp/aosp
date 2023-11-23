@@ -36,7 +36,7 @@ import com.android.ims.IRcsPresenceListener;
 import com.android.ims.RcsManager;
 import com.android.ims.RcsPresence;
 import com.android.ims.RcsException;
-import com.android.ims.RcsManager.ResultCode;
+import com.android.ims.ResultCode;
 import com.android.ims.internal.Logger;
 
 import java.util.ArrayList;
@@ -110,7 +110,8 @@ public class PollingAction extends AsyncTask<Void, Integer, Integer> {
             Looper.prepare();
         }
 
-        int requestExpiration = PresenceSetting.getCapabilityPollListSubscriptionExpiration();
+        int requestExpiration = PresenceSetting.getCapabilityPollListSubscriptionExpiration(
+                mPollingTask.mSubId);
         logger.print("getCapabilityPollListSubscriptionExpiration: " + requestExpiration);
         if (requestExpiration == -1) {
             requestExpiration = 30;

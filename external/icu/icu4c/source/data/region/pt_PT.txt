@@ -46,8 +46,7 @@ pt_PT{
         MC{"Mónaco"}
         MD{"Moldávia"}
         MG{"Madagáscar"}
-        MK{"Macedónia (ARJM)"}
-        MO{"Macau, RAE da China"}
+        MK{"Macedónia do Norte"}
         MS{"Monserrate"}
         MU{"Maurícia"}
         MW{"Maláui"}
@@ -61,6 +60,7 @@ pt_PT{
         SM{"São Marinho"}
         SV{"Salvador"}
         SX{"São Martinho (Sint Maarten)"}
+        TF{"Territórios Austrais Franceses"}
         TJ{"Tajiquistão"}
         TK{"Toquelau"}
         TM{"Turquemenistão"}
@@ -69,6 +69,8 @@ pt_PT{
         UZ{"Usbequistão"}
         VI{"Ilhas Virgens dos EUA"}
         VN{"Vietname"}
+        XA{"pseudoacentos"}
+        XB{"pseudobidirecional"}
         YE{"Iémen"}
         YT{"Maiote"}
         ZW{"Zimbabué"}
@@ -81,5 +83,5 @@ pt_PT{
         CI{"Costa do Marfim"}
         CZ{"República Checa"}
     }
-    Version{"2.1.44.9"}
+    Version{"36.1"}
 }

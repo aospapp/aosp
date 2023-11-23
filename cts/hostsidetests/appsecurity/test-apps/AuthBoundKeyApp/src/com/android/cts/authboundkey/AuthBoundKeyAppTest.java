@@ -26,18 +26,23 @@ import static org.junit.Assert.fail;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.util.Log;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.UnrecoverableKeyException;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
 
 public class AuthBoundKeyAppTest extends AndroidTestCase {
     private static final String KEY_NAME = "nice_key";
@@ -47,14 +52,21 @@ public class AuthBoundKeyAppTest extends AndroidTestCase {
         keyStore.load(null);
         KeyGenerator keyGenerator = KeyGenerator.getInstance(
                 KeyProperties.KEY_ALGORITHM_AES, KEYSTORE);
-        keyGenerator.init(new KeyGenParameterSpec.Builder(
-            KEY_NAME, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-            .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
-            .setUserAuthenticationRequired(true)
-            .setUserAuthenticationValidityDurationSeconds(15)
-            .build());
-        keyGenerator.generateKey();
+        KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
+                        KEY_NAME, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                        .setUserAuthenticationRequired(true)
+                        .setUserAuthenticationParameters(0, KeyProperties.AUTH_DEVICE_CREDENTIAL)
+                        .build();
+        assertEquals(spec.getUserAuthenticationType(), KeyProperties.AUTH_DEVICE_CREDENTIAL);
+        keyGenerator.init(spec);
+        SecretKey key = keyGenerator.generateKey();
+        SecretKeyFactory keyFactory = SecretKeyFactory.getInstance(key.getAlgorithm(),
+                                                                   "AndroidKeyStore");
+        KeyInfo info = (KeyInfo) keyFactory.getKeySpec(key, KeyInfo.class);
+        assertEquals(0, info.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(KeyProperties.AUTH_DEVICE_CREDENTIAL, info.getUserAuthenticationType());
     }
 
     public void testUseKey() throws Exception {

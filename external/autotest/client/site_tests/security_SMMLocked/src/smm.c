@@ -117,6 +117,11 @@ int guess_offset(struct pci_dev *northbridge)
         printf("Detected Cannon lake\n");
         offset = 0x88;
         break;
+    case 0x9b61:
+    case 0x9b71:
+        printf("Detected Comet lake\n");
+        offset = 0x88;
+        break;
     case 0x5af0:
         printf("Detected Apollo lake(uses SMRR).. skipping test\n");
         exit(EXIT_SUCCESS);

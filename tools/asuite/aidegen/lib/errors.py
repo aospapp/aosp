@@ -57,3 +57,28 @@ class IDENotExistError(AIDEgenError):
 
 class FakeModuleError(AIDEgenError):
     """Raised if the module is a fake module."""
+
+
+class InvalidXMLError(AIDEgenError):
+    """Raised if parsing xml file failed."""
+
+
+class InstanceNotExistError(AIDEgenError):
+    """Raised if instance does not exist."""
+
+
+class ModuleInfoEmptyError(AIDEgenError):
+    """Raised if module's info dictionary is empty."""
+
+
+class NoModuleNameDefinedInModuleInfoError(AIDEgenError):
+    """Raised if 'module_name' key isn't defined in module's info dictionary."""
+
+
+class NoPathDefinedInModuleInfoError(AIDEgenError):
+    """Raised if 'path' key isn't defined in module's info dictionary."""
+
+
+# The following error is used by aidegen_functional_test module.
+class CommitIDNotExistError(AIDEgenError):
+    """Raised if the commit id doesn't exist."""

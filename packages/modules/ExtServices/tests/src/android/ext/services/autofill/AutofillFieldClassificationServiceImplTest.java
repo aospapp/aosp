@@ -16,6 +16,7 @@
 
 package android.ext.services.autofill;
 
+import static android.ext.services.autofill.ExactMatch.MATCH_SUFFIX;
 import static android.service.autofill.AutofillFieldClassificationService.REQUIRED_ALGORITHM_EXACT_MATCH;
 import static android.view.autofill.AutofillValue.forText;
 
@@ -76,7 +77,7 @@ public class AutofillFieldClassificationServiceImplTest {
         algorithms.put("last4", REQUIRED_ALGORITHM_EXACT_MATCH);
 
         final Bundle last4Bundle = new Bundle();
-        last4Bundle.putInt("suffix", 4);
+        last4Bundle.putInt(MATCH_SUFFIX, 4);
 
         final HashMap<String, Bundle> args = new HashMap<>(1);
         args.put("last4", last4Bundle);

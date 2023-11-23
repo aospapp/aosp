@@ -22,29 +22,79 @@
 
 namespace chre {
 
-void debugDumpPrint(char *buffer, size_t *bufferPos, size_t bufferSize,
-                    const char *formatStr, ...) {
-  if (*bufferPos < bufferSize) {
-    va_list argList;
-    va_start(argList, formatStr);
-    int strLen = vsnprintf(&buffer[*bufferPos], bufferSize - *bufferPos,
-                           formatStr, argList);
-    va_end(argList);
+void DebugDumpWrapper::print(const char *formatStr, ...) {
+  va_list argList;
+  va_start(argList, formatStr);
+  print(formatStr, argList);
+  va_end(argList);
+}
 
-    if (strLen >= 0) {
-      size_t strLenBytes = static_cast<size_t>(strLen);
-      if (bufferSize < strLenBytes ||
-          *bufferPos >= (bufferSize - strLenBytes)) {
-        *bufferPos = bufferSize;
-        buffer[bufferSize - 1] = '\0';
-        LOG_OOM();
-      } else {
-        *bufferPos += strLenBytes;
+void DebugDumpWrapper::print(const char *formatStr, va_list argList) {
+  va_list argListCopy;
+  va_copy(argListCopy, argList);
+
+  if (mCurrBuff != nullptr || allocNewBuffer()) {
+    bool sizeValid;
+    size_t sizeOfStr;
+    if (!insertString(formatStr, argList, &sizeValid, &sizeOfStr)) {
+      if (!sizeValid) {
+        LOGE("Error inserting string into buffer in debug dump");
+      } else if (sizeOfStr >= kBuffSize) {
+        LOGE(
+            "String was too large to fit in a single buffer for debug dump "
+            "print");
+      } else if (allocNewBuffer()) {
+        // Insufficient space left in buffer, allocate a new one and it's
+        // guaranteed to succeed.
+        bool success =
+            insertString(formatStr, argListCopy, &sizeValid, &sizeOfStr);
+        CHRE_ASSERT(success);
       }
-    } else {
-      LOGE("Error formatting dump state");
     }
   }
+  va_end(argListCopy);
+}
+
+bool DebugDumpWrapper::allocNewBuffer() {
+  mCurrBuff = static_cast<char *>(memoryAlloc(kBuffSize));
+  if (mCurrBuff == nullptr) {
+    LOG_OOM();
+  } else {
+    mBuffers.emplace_back(mCurrBuff);
+    mBuffPos = 0;
+    mCurrBuff[0] = '\0';
+  }
+  return mCurrBuff != nullptr;
+}
+
+bool DebugDumpWrapper::insertString(const char *formatStr, va_list argList,
+                                    bool *sizeValid, size_t *sizeOfStr) {
+  CHRE_ASSERT(mCurrBuff != nullptr);
+  CHRE_ASSERT(mBuffPos <= kBuffSize);
+
+  // Buffer space left
+  size_t spaceLeft = kBuffSize - mBuffPos;
+
+  // Note strLen doesn't count the terminating null character.
+  int strLen = vsnprintf(&mCurrBuff[mBuffPos], spaceLeft, formatStr, argList);
+  size_t strSize = static_cast<size_t>(strLen);
+
+  bool success = false;
+  *sizeValid = false;
+  if (strLen >= 0) {
+    *sizeValid = true;
+
+    if (strSize >= spaceLeft) {
+      // Chop off the incomplete string.
+      mCurrBuff[mBuffPos] = '\0';
+    } else {
+      success = true;
+      mBuffPos += strSize;
+    }
+  }
+
+  *sizeOfStr = strSize;
+  return success;
 }
 
 }  // namespace chre

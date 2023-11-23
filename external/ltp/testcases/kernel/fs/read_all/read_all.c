@@ -1,18 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2017 Richard Palethorpe <rpalethorpe@suse.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 /*
  * Perform a small read on every file in a directory tree.
@@ -43,6 +31,7 @@
 #include <lapi/fnmatch.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
@@ -83,7 +72,6 @@ enum dent_action {
 static char *verbose;
 static char *quiet;
 static char *root_dir;
-static char *exclude;
 static char *str_reads;
 static int reads = 1;
 static char *str_worker_count;
@@ -93,6 +81,12 @@ static long max_workers = 15;
 static struct worker *workers;
 static char *drop_privs;
 
+static char *blacklist[] = {
+	NULL, /* reserved for -e parameter */
+	"/sys/power/wakeup_count",
+	"/sys/kernel/debug/*",
+};
+
 static struct tst_option options[] = {
 	{"v", &verbose,
 	 "-v       Print information about successful reads."},
@@ -100,7 +94,7 @@ static struct tst_option options[] = {
 	 "-q       Don't print file read or open errors."},
 	{"d:", &root_dir,
 	 "-d path  Path to the directory to read from, defaults to /sys."},
-	{"e:", &exclude,
+	{"e:", &blacklist[0],
 	 "-e pattern Ignore files which match an 'extended' pattern, see fnmatch(3)."},
 	{"r:", &str_reads,
 	 "-r count The number of times to schedule a file for reading."},
@@ -127,12 +121,12 @@ static int queue_pop(struct queue *q, char *buf)
 
 		if (++j >= BUFFER_SIZE - 1)
 			tst_brk(TBROK, "Buffer is too small for path");
-		if (++i >= QUEUE_SIZE)
-			i = 0;
+
+		 i = (i + 1) % QUEUE_SIZE;
 	}
 
 	buf[j] = '\0';
-	tst_atomic_store(i + 1, &q->front);
+	tst_atomic_store((i + 1) % QUEUE_SIZE, &q->front);
 
 	return 1;
 }
@@ -145,8 +139,8 @@ static int queue_push(struct queue *q, const char *buf)
 	do {
 		q->data[i] = buf[j];
 
-		if (++i >= QUEUE_SIZE)
-			i = 0;
+		i = (i + 1) % QUEUE_SIZE;
+
 		if (i == front)
 			return 0;
 
@@ -194,17 +188,29 @@ static void sanitize_str(char *buf, ssize_t count)
 		strcpy(buf + MAX_DISPLAY, "...");
 }
 
+static int is_blacklisted(const char *path)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(blacklist); i++) {
+		if (blacklist[i] && !fnmatch(blacklist[i], path, FNM_EXTMATCH)) {
+			if (verbose)
+				tst_res(TINFO, "Ignoring %s", path);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 static void read_test(const char *path)
 {
 	char buf[BUFFER_SIZE];
 	int fd;
 	ssize_t count;
 
-	if (exclude && !fnmatch(exclude, path, FNM_EXTMATCH)) {
-		if (verbose)
-			tst_res(TINFO, "Ignoring %s", path);
+	if (is_blacklisted(path))
 		return;
-	}
 
 	if (verbose)
 		tst_res(TINFO, "%s(%s)", __func__, path);
@@ -282,7 +288,7 @@ static void spawn_workers(void)
 	int i;
 	struct worker *wa = workers;
 
-	bzero(workers, worker_count * sizeof(*workers));
+	memset(workers, 0, worker_count * sizeof(*workers));
 
 	for (i = 0; i < worker_count; i++) {
 		wa[i].q = queue_init();
@@ -290,6 +296,35 @@ static void spawn_workers(void)
 		if (!wa[i].pid) {
 			maybe_drop_privs();
 			exit(worker_run(wa + i));
+		}
+	}
+}
+
+static void work_push_retry(int worker, const char *buf)
+{
+	int i, ret, worker_min, worker_max, usleep_time = 100;
+
+	if (worker < 0) {
+		/* pick any, try -worker first */
+		worker_min = worker * (-1);
+		worker_max = worker_count;
+	} else {
+		/* keep trying worker */
+		worker_min = worker;
+		worker_max = worker + 1;
+	}
+	i = worker_min;
+
+	for (;;) {
+		ret = queue_push(workers[i].q, buf);
+		if (ret == 1)
+			break;
+
+		if (++i >= worker_max) {
+			i = worker_min;
+			if (usleep_time < 100000)
+				usleep_time *= 2;
+			usleep(usleep_time);
 		}
 	}
 }
@@ -304,7 +339,7 @@ static void stop_workers(void)
 
 	for (i = 0; i < worker_count; i++) {
 		if (workers[i].q)
-			TST_RETRY_FUNC(queue_push(workers[i].q, stop_code), 1);
+			work_push_retry(i, stop_code);
 	}
 
 	for (i = 0; i < worker_count; i++) {
@@ -322,7 +357,7 @@ static void rep_sched_work(const char *path, int rep)
 	for (i = j = 0; i < rep; i++, j++) {
 		if (j >= worker_count)
 			j = 0;
-		TST_RETRY_FUNC(queue_push(workers[j].q, path), 1);
+		work_push_retry(-j, path);
 	}
 }
 

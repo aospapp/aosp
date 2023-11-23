@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ccp{
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"𑄃𑄝𑄨𑄘𑄴𑄎𑄚𑄴"}
@@ -1377,20 +1377,6 @@ ccp{
             ls{
                 "𑄃𑄧𑄌𑄴𑄑𑄳𑄢𑄬𑄣𑄨𑄠𑄧 𑄃𑄏𑄧𑄣𑄴 𑄉𑄧𑄢𑄳𑄦𑄢𑄴 𑄟𑄚𑄧𑄇𑄴 "
                 "𑄃𑄧𑄇𑄴𑄖𑄧"
-            }
-        }
-        "meta:Australia_CentralWestern"{
-            ld{
-                "𑄃𑄧𑄌𑄴𑄑𑄳𑄢𑄬𑄣𑄨𑄠𑄧 𑄃𑄏𑄧𑄣𑄴 𑄉𑄧𑄢𑄳𑄦𑄢𑄴 𑄛𑄧𑄏𑄨𑄟𑄬𑄘𑄨 "
-                "𑄘𑄨𑄚𑄮𑄃𑄣𑄮𑄢𑄴 𑄃𑄧𑄇𑄴𑄖𑄧"
-            }
-            lg{
-                "𑄃𑄧𑄌𑄴𑄑𑄳𑄢𑄬𑄣𑄨𑄠𑄧 𑄃𑄏𑄧𑄣𑄴 𑄉𑄧𑄢𑄳𑄦𑄢𑄴 𑄛𑄧𑄏𑄨𑄟𑄬𑄘𑄨 "
-                "𑄃𑄧𑄇𑄴𑄖𑄧"
-            }
-            ls{
-                "𑄃𑄧𑄌𑄴𑄑𑄳𑄢𑄬𑄣𑄨𑄠𑄧 𑄃𑄏𑄧𑄣𑄴 𑄉𑄧𑄢𑄳𑄦𑄢𑄴 𑄛𑄧𑄏𑄨𑄟𑄬𑄘𑄨 "
-                "𑄟𑄚𑄧𑄇𑄴 𑄃𑄧𑄇𑄴𑄖𑄧"
             }
         }
         "meta:Australia_Eastern"{

@@ -64,6 +64,7 @@
             <xs:element name="config" type="config" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="version" type="xs:string"/>
+        <xs:attribute name="level" type="xs:string"/>
     </xs:complexType>
     <xs:complexType name="config">
         <xs:sequence>

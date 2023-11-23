@@ -24,8 +24,11 @@ import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceE
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_START_INPUT;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_START_INPUT_VIEW;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_UNBIND_INPUT;
+import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.cts.DeviceEvent;
 import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType;
@@ -33,8 +36,15 @@ import android.inputmethodservice.cts.ime.ImeCommandReceiver.ImeCommandCallbacks
 import android.os.Bundle;
 import android.os.Process;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import java.util.function.Consumer;
 
@@ -74,6 +84,26 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         mImeCommandReceiver.register(this /* ime */);
     }
 
+    protected View createInputViewInternal(Watermark watermark) {
+        final FrameLayout layout = new FrameLayout(this);
+        layout.setForegroundGravity(Gravity.CENTER);
+
+        final TextView textView = new TextView(this);
+        textView.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT));
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        textView.setGravity(Gravity.CENTER);
+        textView.setText(getClass().getName());
+        textView.setBackgroundColor(0xffffaa99);
+        layout.addView(textView);
+
+        final ImageView imageView = new ImageView(this);
+        final Bitmap bitmap = watermark.toBitmap();
+        imageView.setImageBitmap(bitmap);
+        layout.addView(imageView, new FrameLayout.LayoutParams(
+                bitmap.getWidth(), bitmap.getHeight(), Gravity.CENTER));
+        return layout;
+    }
+
     @Override
     public void onBindInput() {
         if (DEBUG) {
@@ -81,6 +111,27 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         }
         sendEvent(ON_BIND_INPUT);
         super.onBindInput();
+    }
+
+    @Override
+    public boolean onEvaluateFullscreenMode() {
+        // Opt-out the fullscreen mode regardless of the existence of the hardware keyboard
+        // and screen rotation.  Otherwise test scenarios become unpredictable.
+        return false;
+    }
+
+    @Override
+    public boolean onEvaluateInputViewShown() {
+        // Always returns true regardless of the existence of the hardware keyboard.
+        // Otherwise test scenarios become unpredictable.
+        return true;
+    }
+
+    @Override
+    public boolean onShowInputRequested(int flags, boolean configChange) {
+        // Always returns true regardless of the existence of the hardware keyboard.
+        // Otherwise test scenarios become unpredictable.
+        return true;
     }
 
     @Override

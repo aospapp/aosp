@@ -17,9 +17,20 @@
 #ifndef CHRE_PLATFORM_SLPI_HOST_LINK_BASE_H_
 #define CHRE_PLATFORM_SLPI_HOST_LINK_BASE_H_
 
+#include <cstdbool>
+#include <cstddef>
+#include <cstdint>
+
 #include "timer.h"
 
 namespace chre {
+
+/**
+ * Helper function to send debug dump result to host.
+ */
+void sendDebugDumpResultToHost(uint16_t hostClientId, const char *debugStr,
+                               size_t debugStrSize, bool complete,
+                               uint32_t dataCount);
 
 class HostLinkBase {
  public:

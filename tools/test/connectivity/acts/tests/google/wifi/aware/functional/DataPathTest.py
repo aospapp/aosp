@@ -20,6 +20,7 @@ from acts import asserts
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.net import connectivity_const as cconsts
 from acts.test_utils.wifi import wifi_test_utils as wutils
+from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts.test_utils.wifi.aware import aware_const as aconsts
 from acts.test_utils.wifi.aware import aware_test_utils as autils
 from acts.test_utils.wifi.aware.AwareBaseTest import AwareBaseTest
@@ -50,9 +51,6 @@ class DataPathTest(AwareBaseTest):
     # with each other - useful for OOB test cases, where the OOB discovery would
     # take some time
     WAIT_FOR_CLUSTER = 5
-
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
 
     def create_config(self, dtype):
         """Create a base configuration based on input parameters.
@@ -599,15 +597,22 @@ class DataPathTest(AwareBaseTest):
 
         # Initiator & Responder:
         # - expect unavailable on the Initiator party if the
-        #   Initiator or Responder has a bad ID
-        # - but a Responder will keep waiting ...
+        #   Initiator and Responder with mac or encryption mismatch
+        # - For responder:
+        #   - If mac mismatch, responder will keep waiting ...
+        #   - If encryption mismatch, responder expect unavailable
         autils.wait_for_event_with_keys(
             init_dut, cconsts.EVENT_NETWORK_CALLBACK, autils.EVENT_NDP_TIMEOUT,
             (cconsts.NETWORK_CB_KEY_EVENT, cconsts.NETWORK_CB_UNAVAILABLE))
         time.sleep(autils.EVENT_NDP_TIMEOUT)
-        autils.fail_on_event_with_keys(
-            resp_dut, cconsts.EVENT_NETWORK_CALLBACK, 0,
-            (cconsts.NETWORK_CB_KEY_ID, init_req_key))
+        if init_mismatch_mac or resp_mismatch_mac:
+            autils.fail_on_event_with_keys(
+                resp_dut, cconsts.EVENT_NETWORK_CALLBACK, 0,
+                (cconsts.NETWORK_CB_KEY_ID, resp_req_key))
+        else:
+            autils.wait_for_event_with_keys(
+                resp_dut, cconsts.EVENT_NETWORK_CALLBACK, autils.EVENT_NDP_TIMEOUT,
+                (cconsts.NETWORK_CB_KEY_EVENT, cconsts.NETWORK_CB_UNAVAILABLE))
 
         # clean-up
         resp_dut.droid.connectivityUnregisterNetworkCallback(resp_req_key)
@@ -659,6 +664,7 @@ class DataPathTest(AwareBaseTest):
     #######################################
 
     @test_tracker_info(uuid="fa30bedc-d1de-4440-bf25-ec00d10555af")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_unsolicited_passive_open_specific(self):
         """Data-path: in-band, unsolicited/passive, open encryption, specific peer
 
@@ -671,6 +677,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=True)
 
     @test_tracker_info(uuid="57fc9d53-32ae-470f-a8b1-2fe37893687d")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_unsolicited_passive_open_any(self):
         """Data-path: in-band, unsolicited/passive, open encryption, any peer
 
@@ -683,6 +690,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=False)
 
     @test_tracker_info(uuid="93b2a23d-8579-448a-936c-7812929464cf")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_unsolicited_passive_passphrase_specific(self):
         """Data-path: in-band, unsolicited/passive, passphrase, specific peer
 
@@ -695,6 +703,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=True)
 
     @test_tracker_info(uuid="1736126f-a0ff-4712-acc4-f89b4eef5716")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_unsolicited_passive_passphrase_any(self):
         """Data-path: in-band, unsolicited/passive, passphrase, any peer
 
@@ -707,6 +716,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=False)
 
     @test_tracker_info(uuid="b9353d5b-3f77-46bf-bfd9-65d56a7c939a")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_unsolicited_passive_pmk_specific(self):
         """Data-path: in-band, unsolicited/passive, PMK, specific peer
 
@@ -719,6 +729,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=True)
 
     @test_tracker_info(uuid="06f3b2ab-4a10-4398-83a4-6a23851b1662")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_unsolicited_passive_pmk_any(self):
         """Data-path: in-band, unsolicited/passive, PMK, any peer
 
@@ -731,6 +742,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=False)
 
     @test_tracker_info(uuid="0ed7d8b3-a69e-46ba-aeb7-13e507ecf290")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_solicited_active_open_specific(self):
         """Data-path: in-band, solicited/active, open encryption, specific peer
 
@@ -743,6 +755,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=True)
 
     @test_tracker_info(uuid="c7ba6d28-5ef6-45d9-95d5-583ad6d981f3")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_solicited_active_open_any(self):
         """Data-path: in-band, solicited/active, open encryption, any peer
 
@@ -755,6 +768,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=False)
 
     @test_tracker_info(uuid="388cea99-0e2e-49ea-b00e-f3e56b6236e5")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_solicited_active_passphrase_specific(self):
         """Data-path: in-band, solicited/active, passphrase, specific peer
 
@@ -767,6 +781,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=True)
 
     @test_tracker_info(uuid="fcd3e28a-5eab-4169-8a0c-dc7204dcdc13")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_solicited_active_passphrase_any(self):
         """Data-path: in-band, solicited/active, passphrase, any peer
 
@@ -779,6 +794,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=False)
 
     @test_tracker_info(uuid="9d4eaad7-ba53-4a06-8ce0-e308daea3309")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_solicited_active_pmk_specific(self):
         """Data-path: in-band, solicited/active, PMK, specific peer
 
@@ -791,6 +807,7 @@ class DataPathTest(AwareBaseTest):
             use_peer_id=True)
 
     @test_tracker_info(uuid="129d850e-c312-4137-a67b-05ae95fe66cc")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_solicited_active_pmk_any(self):
         """Data-path: in-band, solicited/active, PMK, any peer
 
@@ -822,6 +839,7 @@ class DataPathTest(AwareBaseTest):
     #######################################
 
     @test_tracker_info(uuid="e855dd81-45c8-4bb2-a204-7687c48ff843")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_extra_pub_same_unsolicited_passive_open_specific(self):
         """Data-path: in-band, unsolicited/passive, open encryption, specific peer.
 
@@ -838,7 +856,8 @@ class DataPathTest(AwareBaseTest):
             pub_on_both=True,
             pub_on_both_same=True)
 
-    @test_tracker_info(uuid="57fc9d53-32ae-470f-a8b1-2fe37893687d")
+    @test_tracker_info(uuid="228ea657-82e6-44bc-8369-a2c719a5e252")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_extra_pub_same_unsolicited_passive_open_any(self):
         """Data-path: in-band, unsolicited/passive, open encryption, any peer.
 
@@ -856,6 +875,7 @@ class DataPathTest(AwareBaseTest):
             pub_on_both_same=True)
 
     @test_tracker_info(uuid="7a32f439-d745-4716-a75e-b54109aaaf82")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_extra_pub_diff_unsolicited_passive_open_specific(self):
         """Data-path: in-band, unsolicited/passive, open encryption, specific peer.
 
@@ -873,6 +893,7 @@ class DataPathTest(AwareBaseTest):
             pub_on_both_same=False)
 
     @test_tracker_info(uuid="a14ddc66-88fd-4b49-ab37-225533867c63")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_extra_pub_diff_unsolicited_passive_open_any(self):
         """Data-path: in-band, unsolicited/passive, open encryption, any peer.
 
@@ -906,6 +927,7 @@ class DataPathTest(AwareBaseTest):
     #######################################
 
     @test_tracker_info(uuid="7db17d8c-1dce-4084-b695-215bbcfe7d41")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_open_specific(self):
         """Data-path: out-of-band, open encryption, specific peer
 
@@ -915,6 +937,7 @@ class DataPathTest(AwareBaseTest):
             encr_type=self.ENCR_TYPE_OPEN, use_peer_id=True)
 
     @test_tracker_info(uuid="ad416d89-cb95-4a07-8d29-ee213117450b")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_open_any(self):
         """Data-path: out-of-band, open encryption, any peer
 
@@ -924,6 +947,7 @@ class DataPathTest(AwareBaseTest):
             encr_type=self.ENCR_TYPE_OPEN, use_peer_id=False)
 
     @test_tracker_info(uuid="74937a3a-d524-43e2-8979-4449271cab52")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_passphrase_specific(self):
         """Data-path: out-of-band, passphrase, specific peer
 
@@ -933,6 +957,7 @@ class DataPathTest(AwareBaseTest):
             encr_type=self.ENCR_TYPE_PASSPHRASE, use_peer_id=True)
 
     @test_tracker_info(uuid="afcbdc7e-d3a9-465b-b1da-ce2e42e3941e")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_passphrase_any(self):
         """Data-path: out-of-band, passphrase, any peer
 
@@ -942,6 +967,7 @@ class DataPathTest(AwareBaseTest):
             encr_type=self.ENCR_TYPE_PASSPHRASE, use_peer_id=False)
 
     @test_tracker_info(uuid="0d095031-160a-4537-aab5-41b6ad5d55f8")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_pmk_specific(self):
         """Data-path: out-of-band, PMK, specific peer
 
@@ -951,6 +977,7 @@ class DataPathTest(AwareBaseTest):
             encr_type=self.ENCR_TYPE_PMK, use_peer_id=True)
 
     @test_tracker_info(uuid="e45477bd-66cc-4eb7-88dd-4518c8aa2a74")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_pmk_any(self):
         """Data-path: out-of-band, PMK, any peer
 
@@ -960,6 +987,7 @@ class DataPathTest(AwareBaseTest):
             encr_type=self.ENCR_TYPE_PMK, use_peer_id=False)
 
     @test_tracker_info(uuid="dd464f24-b404-4eea-955c-d10c9e8adefc")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_ib_coex_open_specific(self):
         """Data-path: out-of-band, open encryption, specific peer - in-band coex:
     set up a concurrent discovery session to verify no impact. The session
@@ -973,6 +1001,7 @@ class DataPathTest(AwareBaseTest):
             setup_discovery_sessions=True)
 
     @test_tracker_info(uuid="088fcd3a-b015-4179-a9a5-91f782b03e3b")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_ib_coex_open_any(self):
         """Data-path: out-of-band, open encryption, any peer - in-band coex:
     set up a concurrent discovery session to verify no impact. The session
@@ -988,6 +1017,7 @@ class DataPathTest(AwareBaseTest):
     ##############################################################
 
     @test_tracker_info(uuid="1c2c9805-dc1e-43b5-a1b8-315e8c9a4337")
+    @WifiBaseTest.wifi_test_wrap
     def test_passphrase_min(self):
         """Data-path: minimum passphrase length
 
@@ -1001,6 +1031,7 @@ class DataPathTest(AwareBaseTest):
             passphrase_to_use=self.PASSPHRASE_MIN)
 
     @test_tracker_info(uuid="e696e2b9-87a9-4521-b337-61b9efaa2057")
+    @WifiBaseTest.wifi_test_wrap
     def test_passphrase_max(self):
         """Data-path: maximum passphrase length
 
@@ -1014,30 +1045,35 @@ class DataPathTest(AwareBaseTest):
             passphrase_to_use=self.PASSPHRASE_MAX)
 
     @test_tracker_info(uuid="533cd44c-ff30-4283-ac28-f71fd7b4f02d")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_publisher_peer_id(self):
         """Data-path: failure when publisher peer ID is mismatched"""
         self.run_mismatched_ib_data_path_test(
             pub_mismatch=True, sub_mismatch=False)
 
     @test_tracker_info(uuid="682f275e-722a-4f8b-85e7-0dcea9d25532")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_subscriber_peer_id(self):
         """Data-path: failure when subscriber peer ID is mismatched"""
         self.run_mismatched_ib_data_path_test(
             pub_mismatch=False, sub_mismatch=True)
 
     @test_tracker_info(uuid="7fa82796-7fc9-4d9e-bbbb-84b751788943")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_init_mac(self):
         """Data-path: failure when Initiator MAC address mismatch"""
         self.run_mismatched_oob_data_path_test(
             init_mismatch_mac=True, resp_mismatch_mac=False)
 
     @test_tracker_info(uuid="edeae959-4644-44f9-8d41-bdeb5216954e")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_resp_mac(self):
         """Data-path: failure when Responder MAC address mismatch"""
         self.run_mismatched_oob_data_path_test(
             init_mismatch_mac=False, resp_mismatch_mac=True)
 
     @test_tracker_info(uuid="91f46949-c47f-49f9-a90f-6fae699613a7")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_passphrase(self):
         """Data-path: failure when passphrases mismatch"""
         self.run_mismatched_oob_data_path_test(
@@ -1045,6 +1081,7 @@ class DataPathTest(AwareBaseTest):
             resp_encr_type=self.ENCR_TYPE_PASSPHRASE)
 
     @test_tracker_info(uuid="01c49c2e-dc92-4a27-bb47-c4fc67617c23")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_pmk(self):
         """Data-path: failure when PMK mismatch"""
         self.run_mismatched_oob_data_path_test(
@@ -1052,6 +1089,7 @@ class DataPathTest(AwareBaseTest):
             resp_encr_type=self.ENCR_TYPE_PMK)
 
     @test_tracker_info(uuid="4d651797-5fbb-408e-a4b6-a6e1944136da")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_open_passphrase(self):
         """Data-path: failure when initiator is open, and responder passphrase"""
         self.run_mismatched_oob_data_path_test(
@@ -1059,6 +1097,7 @@ class DataPathTest(AwareBaseTest):
             resp_encr_type=self.ENCR_TYPE_PASSPHRASE)
 
     @test_tracker_info(uuid="1ae697f4-5987-4187-aeef-1e22d07d4a7c")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_open_pmk(self):
         """Data-path: failure when initiator is open, and responder PMK"""
         self.run_mismatched_oob_data_path_test(
@@ -1066,6 +1105,7 @@ class DataPathTest(AwareBaseTest):
             resp_encr_type=self.ENCR_TYPE_PMK)
 
     @test_tracker_info(uuid="f027b1cc-0e7a-4075-b880-5e64b288afbd")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_pmk_passphrase(self):
         """Data-path: failure when initiator is pmk, and responder passphrase"""
         self.run_mismatched_oob_data_path_test(
@@ -1073,6 +1113,7 @@ class DataPathTest(AwareBaseTest):
             resp_encr_type=self.ENCR_TYPE_PASSPHRASE)
 
     @test_tracker_info(uuid="0819bbd4-72ae-49c4-bd46-5448db2b0a06")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_passphrase_open(self):
         """Data-path: failure when initiator is passphrase, and responder open"""
         self.run_mismatched_oob_data_path_test(
@@ -1080,6 +1121,7 @@ class DataPathTest(AwareBaseTest):
             resp_encr_type=self.ENCR_TYPE_OPEN)
 
     @test_tracker_info(uuid="7ef24f62-8e6b-4732-88a3-80a43584dda4")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_pmk_open(self):
         """Data-path: failure when initiator is PMK, and responder open"""
         self.run_mismatched_oob_data_path_test(
@@ -1087,6 +1129,7 @@ class DataPathTest(AwareBaseTest):
             resp_encr_type=self.ENCR_TYPE_OPEN)
 
     @test_tracker_info(uuid="7b9c9efc-1c06-465e-8a5e-d6a22ac1da97")
+    @WifiBaseTest.wifi_test_wrap
     def test_negative_mismatch_passphrase_pmk(self):
         """Data-path: failure when initiator is passphrase, and responder pmk"""
         self.run_mismatched_oob_data_path_test(
@@ -1135,6 +1178,7 @@ class DataPathTest(AwareBaseTest):
                     "Network specifier leak!")
 
     @test_tracker_info(uuid="2e325e2b-d552-4890-b470-20b40284395d")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_identical_networks(self):
         """Validate that creating multiple networks between 2 devices, each network
     with identical configuration is supported over a single NDP.
@@ -1275,6 +1319,8 @@ class DataPathTest(AwareBaseTest):
         for init_req_key in init_req_keys:
             init_dut.droid.connectivityUnregisterNetworkCallback(init_req_key)
 
+    @test_tracker_info(uuid="34cf12e8-5df6-49bd-b384-e9935d89a5b7")
+    @WifiBaseTest.wifi_test_wrap
     def test_identical_network_from_both_sides(self):
         """Validate that requesting two identical NDPs (Open) each being initiated
     from a different side, results in the same/single NDP.
@@ -1590,6 +1636,7 @@ class DataPathTest(AwareBaseTest):
             dut1.droid.connectivityUnregisterNetworkCallback(dut1_req_key)
 
     @test_tracker_info(uuid="2d728163-11cc-46ba-a973-c8e1e71397fc")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_open_passphrase(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (one open, one using passphrase). The result should use two
@@ -1597,6 +1644,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([None, self.PASSPHRASE])
 
     @test_tracker_info(uuid="5f2c32aa-20b2-41f0-8b1e-d0b68df73ada")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_open_pmk(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (one open, one using pmk). The result should use two
@@ -1604,6 +1652,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([None, self.PMK])
 
     @test_tracker_info(uuid="34467659-bcfb-40cd-ba25-7e50560fca63")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_passphrase_pmk(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (one using passphrase, one using pmk). The result should use
@@ -1611,6 +1660,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([self.PASSPHRASE, self.PMK])
 
     @test_tracker_info(uuid="d9194ce6-45b6-41b1-9cc8-ada79968966d")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_passphrases(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (using different passphrases). The result should use two
@@ -1618,6 +1668,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([self.PASSPHRASE, self.PASSPHRASE2])
 
     @test_tracker_info(uuid="879df795-62d2-40d4-a862-bd46d8f7e67f")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_pmks(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (using different PMKS). The result should use two different
@@ -1625,6 +1676,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([self.PMK, self.PMK2])
 
     @test_tracker_info(uuid="397d380a-8e41-466e-9ccb-cf8f413d83ba")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_open_passphrase_flip(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (one open, one using passphrase). The result should use two
@@ -1635,6 +1687,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([None, self.PASSPHRASE], flip_init_resp=True)
 
     @test_tracker_info(uuid="b3a4300b-1514-4cb8-a814-9c2baa449700")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_open_pmk_flip(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (one open, one using pmk). The result should use two
@@ -1645,6 +1698,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([None, self.PMK], flip_init_resp=True)
 
     @test_tracker_info(uuid="0bfea9e4-e57d-417f-8db4-245741e9bbd5")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_passphrase_pmk_flip(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (one using passphrase, one using pmk). The result should use
@@ -1655,6 +1709,7 @@ class DataPathTest(AwareBaseTest):
         self.run_multiple_ndi([self.PASSPHRASE, self.PMK], flip_init_resp=True)
 
     @test_tracker_info(uuid="74023483-5417-431b-a362-991ad4a03ab8")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_passphrases_flip(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (using different passphrases). The result should use two
@@ -1666,6 +1721,7 @@ class DataPathTest(AwareBaseTest):
             [self.PASSPHRASE, self.PASSPHRASE2], flip_init_resp=True)
 
     @test_tracker_info(uuid="873b2d91-28a1-403f-ae9c-d756bb2f59ee")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndi_pmks_flip(self):
         """Verify that between 2 DUTs can create 2 NDPs with different security
     configuration (using different PMKS). The result should use two different
@@ -1678,6 +1734,7 @@ class DataPathTest(AwareBaseTest):
     #######################################
 
     @test_tracker_info(uuid="2f10a9df-7fbd-490d-a238-3523f47ab54c")
+    @WifiBaseTest.wifi_test_wrap
     def test_ib_responder_any_usage(self):
         """Verify that configuring an in-band (Aware discovery) Responder to receive
     an NDP request from any peer is not permitted by current API level. Override
@@ -1706,6 +1763,7 @@ class DataPathTest(AwareBaseTest):
             expect_failure=True)
 
     @test_tracker_info(uuid="5889cd41-0a72-4b7b-ab82-5b9168b9b5b8")
+    @WifiBaseTest.wifi_test_wrap
     def test_oob_responder_any_usage(self):
         """Verify that configuring an out-of-band (Aware discovery) Responder to
     receive an NDP request from any peer is not permitted by current API level.
@@ -1743,8 +1801,8 @@ class DataPathTest(AwareBaseTest):
         init_dut = self.android_devices[0]
         resp_dut = self.android_devices[1]
 
-        init_dut.droid.wifiSetCountryCode(init_domain)
-        resp_dut.droid.wifiSetCountryCode(resp_domain)
+        wutils.set_wifi_country_code(init_dut, init_domain)
+        wutils.set_wifi_country_code(resp_dut, resp_domain)
 
         if use_ib:
             (resp_req_key, init_req_key, resp_aware_if, init_aware_if,
@@ -1769,6 +1827,7 @@ class DataPathTest(AwareBaseTest):
         init_dut.droid.connectivityUnregisterNetworkCallback(init_req_key)
 
     @test_tracker_info(uuid="eff53739-35c5-47a6-81f0-d70b51d89c3b")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_regulator_domains_ib_us_jp(self):
         """Verify data-path setup across multiple regulator domains.
 
@@ -1781,6 +1840,7 @@ class DataPathTest(AwareBaseTest):
             resp_domain=wutils.WifiEnums.CountryCode.JAPAN)
 
     @test_tracker_info(uuid="19af47cc-3204-40ef-b50f-14cf7b89cf4a")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_regulator_domains_ib_jp_us(self):
         """Verify data-path setup across multiple regulator domains.
 
@@ -1793,6 +1853,7 @@ class DataPathTest(AwareBaseTest):
             resp_domain=wutils.WifiEnums.CountryCode.US)
 
     @test_tracker_info(uuid="65285ab3-977f-4dbd-b663-d5a02f4fc663")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_regulator_domains_oob_us_jp(self):
         """Verify data-path setup across multiple regulator domains.
 
@@ -1805,6 +1866,7 @@ class DataPathTest(AwareBaseTest):
             resp_domain=wutils.WifiEnums.CountryCode.JAPAN)
 
     @test_tracker_info(uuid="8a417e24-aaf6-44b9-a089-a07c3ba8d954")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_regulator_domains_oob_jp_us(self):
         """Verify data-path setup across multiple regulator domains.
 
@@ -2059,6 +2121,7 @@ class DataPathTest(AwareBaseTest):
         init_dut.droid.connectivityUnregisterNetworkCallback(init_req_key)
 
     @test_tracker_info(uuid="d8a0839d-4ba0-43f2-af93-3cf1382f9f16")
+    @WifiBaseTest.wifi_test_wrap
     def test_identical_ndps_mix_ib_oob_ib_first_same_polarity(self):
         """Validate that a single NDP is created for multiple identical requests
     which are issued through either in-band (ib) or out-of-band (oob) APIs.
@@ -2070,6 +2133,7 @@ class DataPathTest(AwareBaseTest):
             same_request=True, ib_first=True, inits_on_same_dut=True)
 
     @test_tracker_info(uuid="70bbb811-0bed-4a19-96b3-f2446e777c8a")
+    @WifiBaseTest.wifi_test_wrap
     def test_identical_ndps_mix_ib_oob_oob_first_same_polarity(self):
         """Validate that a single NDP is created for multiple identical requests
     which are issued through either in-band (ib) or out-of-band (oob) APIs.
@@ -2081,6 +2145,7 @@ class DataPathTest(AwareBaseTest):
             same_request=True, ib_first=False, inits_on_same_dut=True)
 
     @test_tracker_info(uuid="d9796da5-f96a-4a51-be0f-89d6f5bfe3ad")
+    @WifiBaseTest.wifi_test_wrap
     def test_identical_ndps_mix_ib_oob_ib_first_diff_polarity(self):
         """Validate that a single NDP is created for multiple identical requests
     which are issued through either in-band (ib) or out-of-band (oob) APIs.
@@ -2091,7 +2156,8 @@ class DataPathTest(AwareBaseTest):
         self.run_mix_ib_oob(
             same_request=True, ib_first=True, inits_on_same_dut=False)
 
-    @test_tracker_info(uuid="72b16cbf-53ad-4f98-8dcf-a8cc5fa812e3")
+    @test_tracker_info(uuid="48b9005b-7851-4222-b41c-1fcbefbc704d")
+    @WifiBaseTest.wifi_test_wrap
     def test_identical_ndps_mix_ib_oob_oob_first_diff_polarity(self):
         """Validate that a single NDP is created for multiple identical requests
     which are issued through either in-band (ib) or out-of-band (oob) APIs.
@@ -2103,6 +2169,7 @@ class DataPathTest(AwareBaseTest):
             same_request=True, ib_first=False, inits_on_same_dut=False)
 
     @test_tracker_info(uuid="51f9581e-c5ee-48a7-84d2-adff4876c3d7")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndis_mix_ib_oob_ib_first_same_polarity(self):
         """Validate that multiple NDIs are created for NDPs which are requested with
     different security configurations. Use a mix of in-band and out-of-band APIs
@@ -2115,6 +2182,7 @@ class DataPathTest(AwareBaseTest):
             same_request=False, ib_first=True, inits_on_same_dut=True)
 
     @test_tracker_info(uuid="b1e3070e-4d38-4b31-862d-39b82e0f2853")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndis_mix_ib_oob_oob_first_same_polarity(self):
         """Validate that multiple NDIs are created for NDPs which are requested with
     different security configurations. Use a mix of in-band and out-of-band APIs
@@ -2127,6 +2195,7 @@ class DataPathTest(AwareBaseTest):
             same_request=False, ib_first=False, inits_on_same_dut=True)
 
     @test_tracker_info(uuid="b1e3070e-4d38-4b31-862d-39b82e0f2853")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndis_mix_ib_oob_ib_first_diff_polarity(self):
         """Validate that multiple NDIs are created for NDPs which are requested with
     different security configurations. Use a mix of in-band and out-of-band APIs
@@ -2139,6 +2208,7 @@ class DataPathTest(AwareBaseTest):
             same_request=False, ib_first=True, inits_on_same_dut=False)
 
     @test_tracker_info(uuid="596caadf-028e-494b-bbce-8304ccec2cbb")
+    @WifiBaseTest.wifi_test_wrap
     def test_multiple_ndis_mix_ib_oob_oob_first_diff_polarity(self):
         """Validate that multiple NDIs are created for NDPs which are requested with
     different security configurations. Use a mix of in-band and out-of-band APIs
@@ -2152,6 +2222,7 @@ class DataPathTest(AwareBaseTest):
 
     ########################################################################
 
+    @test_tracker_info(uuid="5ec10bf9-bfda-4093-8344-7ccc7764737e")
     def test_ndp_loop(self):
         """Validate that can create a loop (chain) of N NDPs between N devices,
     where N >= 3, e.g.
@@ -2162,8 +2233,8 @@ class DataPathTest(AwareBaseTest):
 
     The NDPs are all OPEN (no encryption).
     """
-        asserts.assert_true(
-            len(self.android_devices) >= 3,
+        asserts.skip_if(
+            len(self.android_devices) < 3,
             'A minimum of 3 devices is needed to run the test, have %d' % len(
                 self.android_devices))
 

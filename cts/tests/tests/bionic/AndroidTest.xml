@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="bionic" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
     <!-- TODO(b/126376458): Remove this when sharding is supported by libgtest_isolated -->
     <option name="not-shardable" value="true" />

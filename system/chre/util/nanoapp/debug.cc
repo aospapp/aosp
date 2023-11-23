@@ -35,8 +35,8 @@ void logBuffer(const uint8_t *buffer, size_t bufferSize) {
   size_t offsetChars = 0;
 
   if (bufferSize > 128) {
-    LOGD("Dumping first 128 bytes of buffer @ %p, size %zu",
-         buffer, bufferSize);
+    LOGD("Dumping first 128 bytes of buffer @ %p, size %zu", buffer,
+         bufferSize);
     bufferSize = 128;
   } else {
     LOGD("Dumping buffer @ %p, size %zu", buffer, bufferSize);
@@ -48,8 +48,8 @@ void logBuffer(const uint8_t *buffer, size_t bufferSize) {
     offset += static_cast<size_t>(
         snprintf(&line[offset], sizeof(line) - offset, "%02x ", buffer[i - 1]));
     offsetChars += static_cast<size_t>(
-        snprintf(&lineChars[offsetChars], sizeof(lineChars) - offsetChars,
-                 "%c", (isprint(buffer[i - 1])) ? buffer[i - 1] : '.'));
+        snprintf(&lineChars[offsetChars], sizeof(lineChars) - offsetChars, "%c",
+                 (isprint(buffer[i - 1])) ? buffer[i - 1] : '.'));
     if ((i % 8) == 0) {
       LOGD("  %s\t%s", line, lineChars);
       offset = 0;

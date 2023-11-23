@@ -20,7 +20,8 @@
 #if defined(__BIONIC__)
 #include <cutils/properties.h>
 #endif  // __BIONIC__
-#include <regex>
+#include <cctype>
+#include <cstring>
 #include <string>
 
 #include "android-base/file.h"
@@ -41,16 +42,23 @@
 
 namespace server_configurable_flags {
 
-static const std::regex NAME_VALID_CHARACTER_REGIX("^[\\w\\.\\-@:]*$");
-
 static std::string MakeSystemPropertyName(const std::string& experiment_category_name,
                                           const std::string& experiment_flag_name) {
   return SYSTEM_PROPERTY_PREFIX + experiment_category_name + "." + experiment_flag_name;
 }
 
+static bool ValidateCharacters(const std::string& segment) {
+  for (char c : segment) {
+    if (!isalnum(c) && !strchr(":@_.-", c)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static bool ValidateExperimentSegment(const std::string& segment) {
-  return std::regex_match(segment, NAME_VALID_CHARACTER_REGIX) && segment.find(".") != 0 &&
-         segment.find(".") != segment.size() - 1;
+  return ValidateCharacters(segment) && !segment.empty() && segment[0] != '.' &&
+         *segment.rbegin() != '.';
 }
 
 #if defined(__BIONIC__)

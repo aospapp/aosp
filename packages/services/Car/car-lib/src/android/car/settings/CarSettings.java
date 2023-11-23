@@ -1,25 +1,34 @@
 /*
  * Copyright (C) 2016 The Android Open Source Project
  *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package android.car.settings;
 
+import android.annotation.SystemApi;
+
 /**
- * System level car related settings.
+ * System-level, car-related settings.
+ *
+ * @hide
  */
+@SystemApi
 public class CarSettings {
+
+    private CarSettings() {
+        throw new UnsupportedOperationException("this class only provide constants");
+    }
 
     /**
      * Global car settings, containing preferences that always apply identically
@@ -27,47 +36,16 @@ public class CarSettings {
      * like the "Secure" settings, these are for preferences that the user must
      * explicitly modify through the system UI or specialized APIs for those values.
      *
-     * To read/write the global car settings, use {@link android.provider.Settings.Global}
+     * <p>To read/write the global car settings, use {@link android.provider.Settings.Global}
      * with the keys defined here.
+     *
+     * @hide
      */
     public static final class Global {
-        /**
-         * DEPRECATED. Will be removed in Q. Key for when to wake up to run garage mode.
-         * @deprecated not used by GarageMode anymore. Will be removed in Q.
-         */
-        @Deprecated
-        public static final String KEY_GARAGE_MODE_WAKE_UP_TIME =
-                "android.car.GARAGE_MODE_WAKE_UP_TIME";
-        /**
-         * DEPRECATED. Will be removed in Q. Key for whether garage mode is enabled.
-         * @deprecated not used by GarageMode anymore. Will be removed in Q.
-         */
-        @Deprecated
-        public static final String KEY_GARAGE_MODE_ENABLED = "android.car.GARAGE_MODE_ENABLED";
 
-        /**
-         * DEPRECATED. Will be removed in Q. Key for garage mode maintenance window.
-         * @deprecated not used by GarageMode anymore. Will be removed in Q.
-         */
-        @Deprecated
-        public static final String KEY_GARAGE_MODE_MAINTENANCE_WINDOW =
-                "android.car.GARAGE_MODE_MAINTENANCE_WINDOW";
-
-        /**
-         * Key for default user id to boot into.
-         *
-         * @hide
-         */
-        public static final String DEFAULT_USER_ID_TO_BOOT_INTO =
-                "android.car.DEFAULT_BOOT_INTO_USER_ID";
-
-        /**
-         * Key for user id that is last logged in to.
-         *
-         * @hide
-         */
-        public static final String LAST_ACTIVE_USER_ID =
-                "android.car.LAST_ACTIVE_USER_ID";
+        private Global() {
+            throw new UnsupportedOperationException("this class only provide constants");
+        }
 
         /**
          * Whether default restrictions for users have been set.
@@ -76,6 +54,50 @@ public class CarSettings {
          */
         public static final String DEFAULT_USER_RESTRICTIONS_SET =
                 "android.car.DEFAULT_USER_RESTRICTIONS_SET";
+
+        /**
+         * Developer settings String used to explicitly disable the instrumentation service (when
+         * set to {@code "true"}.
+         *
+         * @hide
+         */
+        public static final String DISABLE_INSTRUMENTATION_SERVICE =
+                "android.car.DISABLE_INSTRUMENTATION_SERVICE";
+
+        /**
+         * Developer settings String used to explicitly enable the user switch message when
+         * set to {@code "true"}.
+         *
+         * @hide
+         */
+        public static final String ENABLE_USER_SWITCH_DEVELOPER_MESSAGE =
+                "android.car.ENABLE_USER_SWITCH_DEVELOPER_MESSAGE";
+
+        /**
+         * User id of the last foreground user
+         *
+         * @hide
+         */
+        public static final String LAST_ACTIVE_USER_ID =
+                        "android.car.LAST_ACTIVE_USER_ID";
+
+        /**
+         * User id of the last persistent (i.e, not counting ephemeral guests) foreground user
+         *
+         * @hide
+         */
+        public static final String LAST_ACTIVE_PERSISTENT_USER_ID =
+                        "android.car.LAST_ACTIVE_PERSISTENT_USER_ID";
+
+        /**
+         * Defines global runtime overrides to system bar policy.
+         *
+         * See {@link com.android.systemui.wm.BarControlPolicy} for value format.
+         *
+         * @hide
+         */
+        public static final String SYSTEM_BAR_VISIBILITY_OVERRIDE =
+                "android.car.SYSTEM_BAR_VISIBILITY_OVERRIDE";
     }
 
     /**
@@ -95,7 +117,32 @@ public class CarSettings {
     /**
      * @hide
      */
+    @SystemApi
     public static final class Secure {
+
+        private Secure() {
+            throw new UnsupportedOperationException("this class only provide constants");
+        }
+
+        /**
+         * Key to indicate whether audio focus requests for
+         * {@link android.hardware.automotive.audiocontrol.V1_0.ContextNumber.NAVIGATION} should
+         * be rejected if focus is currently held by
+         * {@link android.hardware.automotive.audiocontrol.V1_0.ContextNumber.CALL}.
+         * <p>The value is a boolean (1 or 0) where:
+         * <ul>
+         * <li>1 indicates {@code NAVIGATION} should be rejected when a {@code CALL} is in progress.
+         * <li>0 indicates {@code NAVIGATION} and {@code CALL} should be allowed to hold focus
+         * concurrently.
+         * </ul>
+         *
+         * <p>Recommended {@code false} as default value.
+         *
+         * @hide
+         */
+        @SystemApi
+        public static final String KEY_AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL =
+                "android.car.KEY_AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL";
 
         /**
          * Key for a list of devices to automatically connect on Bluetooth A2DP Sink profile
@@ -144,5 +191,23 @@ public class CarSettings {
          */
         public static final String KEY_BLUETOOTH_PROFILES_INHIBITED =
                 "android.car.BLUETOOTH_PROFILES_INHIBITED";
+
+        /**
+         * Key to enable / disable initial notice screen that will be shown for all user-starting
+         * moments including cold boot, wake up from suspend, and user switching.
+         * The value is boolean (1 or 0).
+         * @hide
+         */
+        public static final String KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER =
+                "android.car.ENABLE_INITIAL_NOTICE_SCREEN_TO_USER";
+
+        /**
+         * Key to indicate Setup Wizard is in progress. It differs from USER_SETUP_COMPLETE in
+         * that this flag can be reset to 0 in deferred Setup Wizard flow.
+         * The value is boolean (1 or 0).
+         * @hide
+         */
+        public static final String KEY_SETUP_WIZARD_IN_PROGRESS =
+                "android.car.SETUP_WIZARD_IN_PROGRESS";
     }
 }

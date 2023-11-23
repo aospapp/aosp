@@ -26,6 +26,9 @@
  * SUCH DAMAGE.
  */
 
+#define __BIONIC_CTYPE_INLINE /* Out of line. */
+#include <bits/ctype_inlines.h>
+
 #include <ctype.h>
 
 int isalnum_l(int c, locale_t) {

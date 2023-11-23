@@ -29,8 +29,10 @@ import android.net.Uri;
 import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
+import android.view.KeyEvent;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -103,7 +105,21 @@ public class UninstallTest {
         assertNotNull(mUiDevice.findObject(By.text("Empty Test App")));
 
         // Confirm uninstall
-        mUiDevice.findObject(By.text("OK")).click();
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            UiObject2 clickableView = mUiDevice.findObject(By.focusable(true).hasDescendant(By.text("OK")));
+            if (!clickableView.isFocused()) {
+                mUiDevice.pressKeyCode(KeyEvent.KEYCODE_DPAD_DOWN);
+            }
+            for (int i = 0; i < 100; i++) {
+                if (clickableView.isFocused()) {
+                    break;
+                }
+                Thread.sleep(100);
+            }
+            mUiDevice.pressKeyCode(KeyEvent.KEYCODE_DPAD_CENTER);
+        } else {
+            mUiDevice.findObject(By.text("OK")).click();
+        }
 
         for (int i = 0; i < 30; i++) {
             // We can't detect the confirmation Toast with UiAutomator, so we'll poll

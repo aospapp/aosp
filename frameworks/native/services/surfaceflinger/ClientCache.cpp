@@ -42,7 +42,7 @@ bool ClientCache::getBuffer(const client_cache_t& cacheId,
         return false;
     }
 
-    auto& processBuffers = it->second;
+    auto& processBuffers = it->second.second;
 
     auto bufItr = processBuffers.find(id);
     if (bufItr == processBuffers.end()) {
@@ -55,16 +55,16 @@ bool ClientCache::getBuffer(const client_cache_t& cacheId,
     return true;
 }
 
-void ClientCache::add(const client_cache_t& cacheId, const sp<GraphicBuffer>& buffer) {
+bool ClientCache::add(const client_cache_t& cacheId, const sp<GraphicBuffer>& buffer) {
     auto& [processToken, id] = cacheId;
     if (processToken == nullptr) {
         ALOGE("failed to cache buffer: invalid process token");
-        return;
+        return false;
     }
 
     if (!buffer) {
         ALOGE("failed to cache buffer: invalid buffer");
-        return;
+        return false;
     }
 
     std::lock_guard lock(mMutex);
@@ -77,28 +77,31 @@ void ClientCache::add(const client_cache_t& cacheId, const sp<GraphicBuffer>& bu
         token = processToken.promote();
         if (!token) {
             ALOGE("failed to cache buffer: invalid token");
-            return;
+            return false;
         }
 
         status_t err = token->linkToDeath(mDeathRecipient);
         if (err != NO_ERROR) {
             ALOGE("failed to cache buffer: could not link to death");
-            return;
+            return false;
         }
         auto [itr, success] =
-                mBuffers.emplace(processToken, std::unordered_map<uint64_t, ClientCacheBuffer>());
+                mBuffers.emplace(processToken,
+                                 std::make_pair(token,
+                                                std::unordered_map<uint64_t, ClientCacheBuffer>()));
         LOG_ALWAYS_FATAL_IF(!success, "failed to insert new process into client cache");
         it = itr;
     }
 
-    auto& processBuffers = it->second;
+    auto& processBuffers = it->second.second;
 
     if (processBuffers.size() > BUFFER_CACHE_MAX_SIZE) {
         ALOGE("failed to cache buffer: cache is full");
-        return;
+        return false;
     }
 
     processBuffers[id].buffer = buffer;
+    return true;
 }
 
 void ClientCache::erase(const client_cache_t& cacheId) {
@@ -119,7 +122,7 @@ void ClientCache::erase(const client_cache_t& cacheId) {
             }
         }
 
-        mBuffers[processToken].erase(id);
+        mBuffers[processToken].second.erase(id);
     }
 
     for (auto& recipient : pendingErase) {
@@ -139,16 +142,17 @@ sp<GraphicBuffer> ClientCache::get(const client_cache_t& cacheId) {
     return buf->buffer;
 }
 
-void ClientCache::registerErasedRecipient(const client_cache_t& cacheId,
+bool ClientCache::registerErasedRecipient(const client_cache_t& cacheId,
                                           const wp<ErasedRecipient>& recipient) {
     std::lock_guard lock(mMutex);
 
     ClientCacheBuffer* buf = nullptr;
     if (!getBuffer(cacheId, &buf)) {
         ALOGE("failed to register erased recipient, could not retrieve buffer");
-        return;
+        return false;
     }
     buf->recipients.insert(recipient);
+    return true;
 }
 
 void ClientCache::unregisterErasedRecipient(const client_cache_t& cacheId,
@@ -178,7 +182,7 @@ void ClientCache::removeProcess(const wp<IBinder>& processToken) {
             return;
         }
 
-        for (auto& [id, clientCacheBuffer] : itr->second) {
+        for (auto& [id, clientCacheBuffer] : itr->second.second) {
             client_cache_t cacheId = {processToken, id};
             for (auto& recipient : clientCacheBuffer.recipients) {
                 sp<ErasedRecipient> erasedRecipient = recipient.promote();

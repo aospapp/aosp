@@ -36,7 +36,7 @@ Stream::Stream()
 }
 
 Stream::~Stream() {
-    delete mPeekBuffer;
+    delete[] mPeekBuffer;
 }
 
 size_t Stream::peek(void* buffer, size_t size) {
@@ -46,7 +46,7 @@ size_t Stream::peek(void* buffer, size_t size) {
         mPeekBuffer = new char[size];
         if (old_peek) {
             memcpy(mPeekBuffer, old_peek + mPeekOffset, peek_remaining);
-            delete old_peek;
+            delete[] old_peek;
         }
         size_t read = doRead(mPeekBuffer + mPeekOffset, size - peek_remaining);
         mPeekOffset = 0;
@@ -65,7 +65,7 @@ size_t Stream::read(void* buffer, size_t size) {
         memcpy(buffer, mPeekBuffer + mPeekOffset, bytes_read);
         mPeekOffset += bytes_read;
         if (mPeekOffset == mPeekSize) {
-            delete mPeekBuffer;
+            delete[] mPeekBuffer;
             mPeekBuffer = 0;
             mPeekOffset = 0;
             mPeekSize = 0;

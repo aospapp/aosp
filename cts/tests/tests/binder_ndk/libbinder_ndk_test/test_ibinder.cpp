@@ -48,6 +48,12 @@ TEST_F(NdkBinderTest_AIBinder, AssociateClass) {
   AIBinder_decStrong(binder);
 }
 
+TEST_F(NdkBinderTest_AIBinder, AssociateUnrelatedClassWithSameDescriptorFails) {
+  AIBinder* binder = SampleData::newBinder();
+  EXPECT_FALSE(AIBinder_associateClass(binder, SampleData::kAnotherClassWithSameDescriptor));
+  AIBinder_decStrong(binder);
+}
+
 TEST_F(NdkBinderTest_AIBinder, AssociateWrongClassFails) {
   AIBinder* binder = SampleData::newBinder();
   EXPECT_FALSE(AIBinder_associateClass(binder, SampleData::kAnotherClass));
@@ -139,6 +145,45 @@ TEST_F(NdkBinderTest_AIBinder, IsAlive) {
 TEST_F(NdkBinderTest_AIBinder, CanPing) {
   AIBinder* binder = SampleData::newBinder();
   EXPECT_OK(AIBinder_ping(binder));
+  AIBinder_decStrong(binder);
+}
+
+TEST_F(NdkBinderTest_AIBinder, GetExtensionImmediatelyReturnsNull) {
+  AIBinder* binder = SampleData::newBinder();
+  AIBinder* ext;
+  EXPECT_OK(AIBinder_getExtension(binder, &ext));
+  EXPECT_EQ(ext, nullptr);
+  AIBinder_decStrong(binder);
+}
+
+TEST_F(NdkBinderTest_AIBinder, GetSetExtensionLocally) {
+  AIBinder* binder = SampleData::newBinder();
+  AIBinder* ext = SampleData::newBinder();
+  EXPECT_OK(AIBinder_setExtension(binder, ext));
+
+  AIBinder* getExt;
+  EXPECT_OK(AIBinder_getExtension(binder, &getExt));
+  ASSERT_EQ(ext, getExt);
+
+  AIBinder_decStrong(ext);
+  AIBinder_decStrong(getExt);
+  AIBinder_decStrong(binder);
+}
+
+TEST_F(NdkBinderTest_AIBinder, GetSetExtensionRepeatedly) {
+  AIBinder* binder = SampleData::newBinder();
+  AIBinder* ext1 = SampleData::newBinder();
+  AIBinder* ext2 = SampleData::newBinder();
+  EXPECT_OK(AIBinder_setExtension(binder, ext1));
+  EXPECT_OK(AIBinder_setExtension(binder, ext2));
+
+  AIBinder* getExt;
+  EXPECT_OK(AIBinder_getExtension(binder, &getExt));
+  ASSERT_EQ(ext2, getExt);
+
+  AIBinder_decStrong(ext1);
+  AIBinder_decStrong(ext2);
+  AIBinder_decStrong(getExt);
   AIBinder_decStrong(binder);
 }
 
@@ -299,4 +344,7 @@ TEST_F(NdkBinderTest_AIBinder, NullArguments) {
 
   AIBinder_DeathRecipient_delete(recipient);
   AIBinder_decStrong(binder);
+
+  EXPECT_EQ(STATUS_UNEXPECTED_NULL, AIBinder_getExtension(nullptr, nullptr));
+  EXPECT_EQ(STATUS_UNEXPECTED_NULL, AIBinder_setExtension(nullptr, nullptr));
 }

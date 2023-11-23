@@ -71,7 +71,9 @@ static void* TestThreadNaming(void* arg) {
 
 
     if (javaVm->DetachCurrentThread() != JNI_OK) {
-        exception_message = new std::string("Detach failed");
+        if (exception_message == nullptr) {
+            exception_message = new std::string("Detach failed");
+        }
     }
 
     return exception_message;

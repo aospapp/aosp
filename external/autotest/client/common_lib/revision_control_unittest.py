@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/python2
 import logging, mox, os, shutil, tempfile, unittest, utils
 
 # This makes autotest_lib imports available.

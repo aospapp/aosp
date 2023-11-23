@@ -2,22 +2,22 @@ package com.github.javaparser.symbolsolver.resolution;
 
 import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
-import com.github.javaparser.symbolsolver.AbstractTest;
+import com.github.javaparser.symbolsolver.AbstractSymbolResolutionTest;
 import com.github.javaparser.symbolsolver.javassistmodel.JavassistEnumDeclaration;
 import com.github.javaparser.symbolsolver.model.resolution.SymbolReference;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.file.Path;
 
-import static org.junit.Assert.*;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class SymbolSolverWithJavassistEnumTest extends AbstractTest {
+class SymbolSolverWithJavassistEnumTest extends AbstractSymbolResolutionTest {
     private TypeSolver typeSolver;
     private SymbolSolver symbolSolver;
     private JavassistEnumDeclaration enumDeclarationConcrete;
@@ -25,10 +25,10 @@ public class SymbolSolverWithJavassistEnumTest extends AbstractTest {
     private JavassistEnumDeclaration enumDeclarationInterfaceUserIncludedJar;
     private JavassistEnumDeclaration enumDeclarationInterfaceUserExcludedJar;
 
-    @Before
-    public void setup() throws IOException {
-        final String pathToMainJar = adaptPath("src/test/resources/javassist_symbols/main_jar/main_jar.jar");
-        final String pathToIncludedJar = adaptPath("src/test/resources/javassist_symbols/included_jar/included_jar.jar");
+    @BeforeEach
+    void setup() throws IOException {
+        final Path pathToMainJar = adaptPath("src/test/resources/javassist_symbols/main_jar/main_jar.jar");
+        final Path pathToIncludedJar = adaptPath("src/test/resources/javassist_symbols/included_jar/included_jar.jar");
         typeSolver = new CombinedTypeSolver(new JarTypeSolver(pathToIncludedJar), new JarTypeSolver(pathToMainJar), new ReflectionTypeSolver());
 
         symbolSolver = new SymbolSolver(typeSolver);
@@ -40,27 +40,27 @@ public class SymbolSolverWithJavassistEnumTest extends AbstractTest {
     }
 
     @Test
-    public void testSolveSymbolInTypeCanResolveFirstEnumValue() {
+    void testSolveSymbolInTypeCanResolveFirstEnumValue() {
         assertCanSolveSymbol("ENUM_VAL_ONE", enumDeclarationConcrete);
     }
 
     @Test
-    public void testSolveSymbolInTypeCanResolveSecondEnumValue() {
+    void testSolveSymbolInTypeCanResolveSecondEnumValue() {
         assertCanSolveSymbol("ENUM_VAL_TWO", enumDeclarationConcrete);
     }
 
     @Test
-    public void testSolveSymbolInTypeCanResolveFirstNormalField() {
+    void testSolveSymbolInTypeCanResolveFirstNormalField() {
         assertCanSolveSymbol("STATIC_STRING", enumDeclarationConcrete);
     }
 
     @Test
-    public void testSolveSymbolInTypeCanResolveSecondNormalField() {
+    void testSolveSymbolInTypeCanResolveSecondNormalField() {
         assertCanSolveSymbol("SECOND_STRING", enumDeclarationConcrete);
     }
 
     @Test
-    public void testSolveSymbolInTypeCantResolveNonExistentField() {
+    void testSolveSymbolInTypeCantResolveNonExistentField() {
         SymbolReference<? extends ResolvedValueDeclaration> solvedSymbol = symbolSolver.solveSymbolInType(enumDeclarationConcrete, "FIELD_THAT_DOES_NOT_EXIST");
 
         assertFalse(solvedSymbol.isSolved());
@@ -76,17 +76,17 @@ public class SymbolSolverWithJavassistEnumTest extends AbstractTest {
     }
 
     @Test
-    public void testSolveSymbolInTypeCanResolveFieldInInterface() {
+    void testSolveSymbolInTypeCanResolveFieldInInterface() {
         assertCanSolveSymbol("INTERFACE_FIELD", enumDeclarationInterfaceUserOwnJar);
     }
 
     @Test
-    public void testSolveSymbolInTypeCanResolveFieldInInterfaceIncludedJar() {
+    void testSolveSymbolInTypeCanResolveFieldInInterfaceIncludedJar() {
         assertCanSolveSymbol("INTERFACE_FIELD", enumDeclarationInterfaceUserIncludedJar);
     }
 
     @Test
-    public void testSolveSymbolInTypeThrowsExceptionOnResolveFieldInInterfaceExcludedJar() {
+    void testSolveSymbolInTypeThrowsExceptionOnResolveFieldInInterfaceExcludedJar() {
         try {
             symbolSolver.solveSymbolInType(enumDeclarationInterfaceUserExcludedJar, "INTERFACE_FIELD");
         } catch (Exception e) {

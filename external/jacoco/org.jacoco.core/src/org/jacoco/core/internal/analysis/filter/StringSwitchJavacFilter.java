@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,8 +24,8 @@ import org.objectweb.asm.tree.TableSwitchInsnNode;
  */
 public final class StringSwitchJavacFilter implements IFilter {
 
-	public void filter(final String className, final String superClassName,
-			final MethodNode methodNode, final IFilterOutput output) {
+	public void filter(final MethodNode methodNode,
+			final IFilterContext context, final IFilterOutput output) {
 		AbstractInsnNode i = methodNode.instructions.getFirst();
 		while (i != null) {
 			filter(i, output);
@@ -68,12 +68,14 @@ public final class StringSwitchJavacFilter implements IFilter {
 			// Even if expression is not a variable, its result will be
 			// precomputed before the previous two instructions:
 			nextIsVar(Opcodes.ALOAD, "s");
-			nextIsInvokeVirtual("java/lang/String", "hashCode");
+			nextIsInvoke(Opcodes.INVOKEVIRTUAL, "java/lang/String", "hashCode",
+					"()I");
 			next();
 			while (true) {
 				nextIsVar(Opcodes.ALOAD, "s");
 				nextIs(Opcodes.LDC);
-				nextIsInvokeVirtual("java/lang/String", "equals");
+				nextIsInvoke(Opcodes.INVOKEVIRTUAL, "java/lang/String",
+						"equals", "(Ljava/lang/Object;)Z");
 				// jump to next comparison or second switch
 				nextIs(Opcodes.IFEQ);
 				// ICONST, BIPUSH or SIPUSH
@@ -91,7 +93,8 @@ public final class StringSwitchJavacFilter implements IFilter {
 				}
 			}
 			nextIsVar(Opcodes.ILOAD, "c");
-			nextIs(Opcodes.TABLESWITCH);
+			// Can be TABLESWITCH or LOOKUPSWITCH depending on number of cases
+			nextIsSwitch();
 			return cursor != null;
 		}
 	}

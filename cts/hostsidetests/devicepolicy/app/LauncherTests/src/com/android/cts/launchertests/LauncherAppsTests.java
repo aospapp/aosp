@@ -42,7 +42,9 @@ import android.os.UserManager;
 import android.test.AndroidTestCase;
 
 import androidx.test.InstrumentationRegistry;
+import com.android.compatibility.common.util.SystemUtil;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -53,12 +55,14 @@ import java.util.concurrent.TimeUnit;
 public class LauncherAppsTests extends AndroidTestCase {
 
     public static final String SIMPLE_APP_PACKAGE = "com.android.cts.launcherapps.simpleapp";
-    private static final String NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE =
-            "com.android.cts.nolaunchableactivityapp";
-    private static final String NO_COMPONENT_APP_PACKAGE =
-            "com.android.cts.nocomponentapp";
+    private static final String HAS_LAUNCHER_ACTIVITY_APP_PACKAGE =
+            "com.android.cts.haslauncheractivityapp";
+    private static final String NO_LAUNCHER_ACTIVITY_APP_PACKAGE =
+            "com.android.cts.nolauncheractivityapp";
     private static final String NO_PERMISSION_APP_PACKAGE =
             "com.android.cts.nopermissionapp";
+    private static final String LAUNCHER_ACTIVITY_COMPONENT =
+            "com.android.cts.haslauncheractivityapp/.MainActivity";
 
     private static final String SYNTHETIC_APP_DETAILS_ACTIVITY = "android.app.AppDetailsActivity";
 
@@ -216,15 +220,17 @@ public class LauncherAppsTests extends AndroidTestCase {
         assertFalse(mLauncherApps.isPackageEnabled("android", mUser));
     }
 
-    public void testNoLaunchableActivityAppHasAppDetailsActivityInjected() throws Exception {
-        // NoLaunchableActivityApp is installed for duration of this test - make sure
+    public void testHasLauncherActivityAppHasAppDetailsActivityInjected() throws Exception {
+        // HasLauncherActivityApp is installed for duration of this test - make sure
         // it's present on the activity list, has the synthetic activity generated, and it's
         // enabled and exported
-        assertActivityInjected(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE);
+        disableLauncherActivity();
+        assertActivityInjected(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE);
     }
 
     public void testGetSetSyntheticAppDetailsActivityEnabled() throws Exception {
-        assertActivityInjected(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE);
+        disableLauncherActivity();
+        assertActivityInjected(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE);
         PackageManager pm = mInstrumentation.getContext().getPackageManager();
         try {
             pm.setSyntheticAppDetailsActivityEnabled(mContext.getPackageName(), false);
@@ -233,7 +239,7 @@ public class LauncherAppsTests extends AndroidTestCase {
             // Expected: No permission
         }
         try {
-            pm.setSyntheticAppDetailsActivityEnabled(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE, false);
+            pm.setSyntheticAppDetailsActivityEnabled(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE, false);
             fail("Should not able to change other app's app details activity state");
         } catch (SecurityException e) {
             // Expected: No permission
@@ -241,17 +247,17 @@ public class LauncherAppsTests extends AndroidTestCase {
         mInstrumentation.getUiAutomation().adoptShellPermissionIdentity();
         try {
             assertTrue(
-                    pm.getSyntheticAppDetailsActivityEnabled(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE));
+                    pm.getSyntheticAppDetailsActivityEnabled(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE));
             // Disable app details activity and assert if the change is applied
-            pm.setSyntheticAppDetailsActivityEnabled(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE, false);
+            pm.setSyntheticAppDetailsActivityEnabled(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE, false);
             assertFalse(
-                    pm.getSyntheticAppDetailsActivityEnabled(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE));
-            assertInjectedActivityNotFound(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE);
+                    pm.getSyntheticAppDetailsActivityEnabled(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE));
+            assertInjectedActivityNotFound(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE);
             // Enable app details activity and assert if the change is applied
-            pm.setSyntheticAppDetailsActivityEnabled(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE, true);
+            pm.setSyntheticAppDetailsActivityEnabled(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE, true);
             assertTrue(
-                    pm.getSyntheticAppDetailsActivityEnabled(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE));
-            assertActivityInjected(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE);
+                    pm.getSyntheticAppDetailsActivityEnabled(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE));
+            assertActivityInjected(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE);
         } finally {
             mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
         }
@@ -262,10 +268,10 @@ public class LauncherAppsTests extends AndroidTestCase {
         assertActivityInjected(MANAGED_PROFILE_PKG);
     }
 
-    public void testNoComponentAppNotInjected() throws Exception {
-        // NoComponentApp is installed for duration of this test - make sure
+    public void testNoLauncherActivityAppNotInjected() throws Exception {
+        // NoLauncherActivityApp is installed for duration of this test - make sure
         // it's NOT present on the activity list
-        assertInjectedActivityNotFound(NO_COMPONENT_APP_PACKAGE);
+        assertInjectedActivityNotFound(NO_LAUNCHER_ACTIVITY_APP_PACKAGE);
     }
 
     public void testNoPermissionAppNotInjected() throws Exception {
@@ -275,10 +281,11 @@ public class LauncherAppsTests extends AndroidTestCase {
     }
 
     public void testDoPoNoTestAppInjectedActivityFound() throws Exception {
-        // NoLaunchableActivityApp is installed for duration of this test - make sure
+        // HasLauncherActivityApp is installed for duration of this test - make sure
         // it's NOT present on the activity list For example, DO / PO mode won't show icons.
         // This test is being called by DeviceOwnerTest.
-        assertInjectedActivityNotFound(NO_LAUNCHABLE_ACTIVITY_APP_PACKAGE);
+        disableLauncherActivity();
+        assertInjectedActivityNotFound(HAS_LAUNCHER_ACTIVITY_APP_PACKAGE);
     }
 
     public void testProfileOwnerInjectedActivityNotFound() throws Exception {
@@ -303,6 +310,11 @@ public class LauncherAppsTests extends AndroidTestCase {
                         SYNTHETIC_APP_DETAILS_ACTIVITY);
             }
         }
+    }
+
+    private void disableLauncherActivity() throws IOException {
+        SystemUtil.runShellCommand(mInstrumentation,
+                "pm disable --user " + mUser.getIdentifier() + " " + LAUNCHER_ACTIVITY_COMPONENT);
     }
 
     private void expectSecurityException(ExceptionRunnable action, String failMessage)
@@ -336,7 +348,7 @@ public class LauncherAppsTests extends AndroidTestCase {
             if (compName.getPackageName().equals(targetPackage)) {
                 noLaunchableActivityAppFound = true;
                 // make sure it points to the synthetic app details activity
-                assertEquals(activity.getName(), SYNTHETIC_APP_DETAILS_ACTIVITY);
+                assertEquals(SYNTHETIC_APP_DETAILS_ACTIVITY, activity.getName());
                 // make sure it's both exported and enabled
                 try {
                     PackageManager pm = mInstrumentation.getContext().getPackageManager();

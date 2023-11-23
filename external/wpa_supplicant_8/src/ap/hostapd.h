@@ -9,6 +9,10 @@
 #ifndef HOSTAPD_H
 #define HOSTAPD_H
 
+#ifdef CONFIG_SQLITE
+#include <sqlite3.h>
+#endif /* CONFIG_SQLITE */
+
 #include "common/defs.h"
 #include "utils/list.h"
 #include "ap_config.h"
@@ -33,6 +37,10 @@ union wps_event_data;
 #ifdef CONFIG_MESH
 struct mesh_conf;
 #endif /* CONFIG_MESH */
+
+#ifdef CONFIG_CTRL_IFACE_UDP
+#define CTRL_IFACE_COOKIE_LEN 8
+#endif /* CONFIG_CTRL_IFACE_UDP */
 
 struct hostapd_iface;
 
@@ -68,6 +76,11 @@ struct hapd_interfaces {
 #ifdef CONFIG_DPP
 	struct dpp_global *dpp;
 #endif /* CONFIG_DPP */
+
+#ifdef CONFIG_CTRL_IFACE_UDP
+       unsigned char ctrl_iface_cookie[CTRL_IFACE_COOKIE_LEN];
+#endif /* CONFIG_CTRL_IFACE_UDP */
+
 };
 
 enum hostapd_chan_status {
@@ -175,13 +188,12 @@ struct hostapd_data {
 	u64 acct_session_id;
 	struct radius_das_data *radius_das;
 
-	struct iapp_data *iapp;
-
 	struct hostapd_cached_radius_acl *acl_cache;
 	struct hostapd_acl_query_data *acl_queries;
 
 	struct wpa_authenticator *wpa_auth;
 	struct eapol_authenticator *eapol_auth;
+	struct eap_config *eap_cfg;
 
 	struct rsn_preauth_interface *preauth_iface;
 	struct os_reltime michael_mic_failure;
@@ -231,6 +243,10 @@ struct hostapd_data {
 
 	struct wps_stat wps_stats;
 #endif /* CONFIG_WPS */
+
+#ifdef CONFIG_MACSEC
+	struct ieee802_1x_kay *kay;
+#endif /* CONFIG_MACSEC */
 
 	struct hostapd_probereq_cb *probereq_cb;
 	size_t num_probereq_cb;
@@ -329,12 +345,10 @@ struct hostapd_data {
 	u8 last_gtk[WPA_GTK_MAX_LEN];
 	size_t last_gtk_len;
 
-#ifdef CONFIG_IEEE80211W
 	enum wpa_alg last_igtk_alg;
 	int last_igtk_key_idx;
 	u8 last_igtk[WPA_IGTK_MAX_LEN];
 	size_t last_igtk_len;
-#endif /* CONFIG_IEEE80211W */
 #endif /* CONFIG_TESTING_OPTIONS */
 
 #ifdef CONFIG_MBO
@@ -379,6 +393,21 @@ struct hostapd_data {
 	unsigned int dpp_ignore_netaccesskey_mismatch:1;
 #endif /* CONFIG_TESTING_OPTIONS */
 #endif /* CONFIG_DPP */
+
+#ifdef CONFIG_AIRTIME_POLICY
+	unsigned int num_backlogged_sta;
+	unsigned int airtime_weight;
+#endif /* CONFIG_AIRTIME_POLICY */
+
+	u8 last_1x_eapol_key_replay_counter[8];
+
+#ifdef CONFIG_SQLITE
+	sqlite3 *rad_attr_db;
+#endif /* CONFIG_SQLITE */
+
+#ifdef CONFIG_CTRL_IFACE_UDP
+       unsigned char ctrl_iface_cookie[CTRL_IFACE_COOKIE_LEN];
+#endif /* CONFIG_CTRL_IFACE_UDP */
 };
 
 
@@ -447,9 +476,7 @@ struct hostapd_iface {
 	struct ap_info *ap_hash[STA_HASH_SIZE];
 
 	u64 drv_flags;
-
-	/* SMPS modes supported by the driver (WPA_DRIVER_SMPS_MODE_*) */
-	unsigned int smps_modes;
+	u64 drv_flags2;
 
 	/*
 	 * A bitmap of supported protocols for probe response offload. See
@@ -542,6 +569,12 @@ struct hostapd_iface {
 	unsigned int num_sta_seen;
 
 	u8 dfs_domain;
+#ifdef CONFIG_AIRTIME_POLICY
+	unsigned int airtime_quantum;
+#endif /* CONFIG_AIRTIME_POLICY */
+
+	/* Previous WMM element information */
+	struct hostapd_wmm_ac_params prev_wmm[WMM_AC_NUM];
 };
 
 /* hostapd.c */
@@ -608,7 +641,8 @@ int hostapd_probe_req_rx(struct hostapd_data *hapd, const u8 *sa, const u8 *da,
 			 const u8 *bssid, const u8 *ie, size_t ie_len,
 			 int ssi_signal);
 void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
-			     int offset, int width, int cf1, int cf2);
+			     int offset, int width, int cf1, int cf2,
+			     int finished);
 struct survey_results;
 void hostapd_event_get_survey(struct hostapd_iface *iface,
 			      struct survey_results *survey_results);

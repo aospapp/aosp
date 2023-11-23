@@ -22,6 +22,8 @@ import logging
 import socket
 import ssl
 
+import six
+
 # pylint: disable=import-error
 from apiclient import errors as gerrors
 from apiclient.discovery import build
@@ -31,6 +33,7 @@ from oauth2client import client
 
 from acloud import errors
 from acloud.internal.lib import utils
+
 
 logger = logging.getLogger(__name__)
 
@@ -116,9 +119,8 @@ class BaseCloudApiClient(object):
         if isinstance(exception, errors.HttpError):
             if exception.code in retry_http_codes:
                 return True
-            else:
-                logger.debug("_ShouldRetry: Exception code %s not in %s: %s",
-                             exception.code, retry_http_codes, str(exception))
+            logger.debug("_ShouldRetry: Exception code %s not in %s: %s",
+                         exception.code, retry_http_codes, str(exception))
 
         logger.debug("_ShouldRetry: Exception %s is not one of %s: %s",
                      type(exception),
@@ -245,7 +247,7 @@ class BaseCloudApiClient(object):
             results[request_id] = (response, self._TranslateError(exception))
 
         batch = apiclient.http.BatchHttpRequest()
-        for request_id, request in requests.iteritems():
+        for request_id, request in six.iteritems(requests):
             batch.add(
                 request=request, callback=_CallBack, request_id=request_id)
         batch.execute()

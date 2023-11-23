@@ -58,7 +58,6 @@ public class StatsdSyncAdapter extends AbstractThreadedSyncAdapter {
         }
         synchronized (sLock) {
             Log.i(TAG, "onPerformSync");
-            sLock.notifyAll();
             if (sLatch != null) {
                 sLatch.countDown();
             } else {
@@ -79,8 +78,12 @@ public class StatsdSyncAdapter extends AbstractThreadedSyncAdapter {
         ContentResolver.requestSync(account, StatsdProvider.AUTHORITY, extras);
     }
 
-    public static synchronized CountDownLatch resetCountDownLatch() {
-        sLatch = new CountDownLatch(1);
+    public static CountDownLatch resetCountDownLatch() {
+        synchronized (sLock) {
+            if (sLatch == null || sLatch.getCount() == 0) {
+                sLatch = new CountDownLatch(1);
+            }
+        }
         return sLatch;
     }
 }

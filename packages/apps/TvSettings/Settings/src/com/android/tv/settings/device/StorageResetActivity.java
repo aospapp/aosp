@@ -17,7 +17,9 @@
 package com.android.tv.settings.device;
 
 import android.app.Fragment;
+import android.text.TextUtils;
 
+import com.android.tv.settings.R;
 import com.android.tv.settings.TvSettingsActivity;
 import com.android.tv.settings.overlay.FeatureFactory;
 
@@ -28,7 +30,11 @@ public class StorageResetActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
+        String fragmentName = StorageSummaryFragment.class.getName();
+        if (!TextUtils.isEmpty(getString(R.string.storage_summary_fragment_name))) {
+            fragmentName = getString(R.string.storage_summary_fragment_name);
+        }
         return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
-            .newSettingsFragment(StorageSummaryFragment.class.getName(), null);
+            .newSettingsFragment(fragmentName, null);
     }
 }

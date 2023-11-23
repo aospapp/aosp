@@ -38,9 +38,10 @@ public class AppBlockingPolicyProxy implements ServiceConnection {
     private final Context mContext;
     private final ServiceInfo mServiceInfo;
     private final ICarAppBlockingPolicySetterImpl mSetter;
+    private final Object mLock = new Object();
 
-    @GuardedBy("this")
-    private ICarAppBlockingPolicy mPolicyService = null;
+    @GuardedBy("mLock")
+    private ICarAppBlockingPolicy mPolicyService;
 
     /**
      * policy not set within this time after binding will be treated as failure and will be
@@ -48,10 +49,10 @@ public class AppBlockingPolicyProxy implements ServiceConnection {
      */
     private static final long TIMEOUT_MS = 5000;
     private static final int MAX_CRASH_RETRY = 2;
-    @GuardedBy("this")
-    private int mCrashCount = 0;
-    @GuardedBy("this")
-    private boolean mBound = false;
+    @GuardedBy("mLock")
+    private int mCrashCount;
+    @GuardedBy("mLock")
+    private boolean mBound;
 
     private final Handler mHandler;
     private final Runnable mTimeoutRunnable = new Runnable() {
@@ -81,14 +82,14 @@ public class AppBlockingPolicyProxy implements ServiceConnection {
         intent.setComponent(mServiceInfo.getComponentName());
         mContext.bindServiceAsUser(intent, this, Context.BIND_AUTO_CREATE | Context.BIND_IMPORTANT,
                 UserHandle.CURRENT_OR_SELF);
-        synchronized (this) {
+        synchronized (mLock) {
             mBound = true;
         }
         mHandler.postDelayed(mTimeoutRunnable, TIMEOUT_MS);
     }
 
     public void disconnect() {
-        synchronized (this) {
+        synchronized (mLock) {
             if (!mBound) {
                 return;
             }
@@ -107,7 +108,7 @@ public class AppBlockingPolicyProxy implements ServiceConnection {
     public void onServiceConnected(ComponentName name, IBinder service) {
         ICarAppBlockingPolicy policy = null;
         boolean failed = false;
-        synchronized (this) {
+        synchronized (mLock) {
             mPolicyService = ICarAppBlockingPolicy.Stub.asInterface(service);
             policy = mPolicyService;
             if (policy == null) {
@@ -120,7 +121,7 @@ public class AppBlockingPolicyProxy implements ServiceConnection {
             return;
         }
         try {
-            mPolicyService.setAppBlockingPolicySetter(mSetter);
+            policy.setAppBlockingPolicySetter(mSetter);
         } catch (RemoteException e) {
             // let retry handle this
         }
@@ -129,7 +130,7 @@ public class AppBlockingPolicyProxy implements ServiceConnection {
     @Override
     public void onServiceDisconnected(ComponentName name) {
         boolean failed = false;
-        synchronized (this) {
+        synchronized (mLock) {
             mCrashCount++;
             if (mCrashCount > MAX_CRASH_RETRY) {
                 mPolicyService = null;

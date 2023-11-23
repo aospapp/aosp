@@ -14,15 +14,22 @@
 #include "utils/common.h"
 #include "common/ieee802_11_common.h"
 #include "wpa_supplicant_i.h"
+#include "bss.h"
 
 
-static enum chan_allowed allow_channel(struct hostapd_hw_modes *mode, u8 chan,
+static enum chan_allowed allow_channel(struct hostapd_hw_modes *mode,
+				       u8 op_class, u8 chan,
 				       unsigned int *flags)
 {
 	int i;
+	int is_6ghz = op_class >= 131 && op_class <= 135;
 
 	for (i = 0; i < mode->num_channels; i++) {
-		if (mode->channels[i].chan == chan)
+		int chan_is_6ghz;
+
+		chan_is_6ghz = mode->channels[i].freq > 5940 &&
+			mode->channels[i].freq <= 7105;
+		if (is_6ghz == chan_is_6ghz && mode->channels[i].chan == chan)
 			break;
 	}
 
@@ -62,7 +69,8 @@ static int get_center_80mhz(struct hostapd_hw_modes *mode, u8 channel)
 }
 
 
-static enum chan_allowed verify_80mhz(struct hostapd_hw_modes *mode, u8 channel)
+static enum chan_allowed verify_80mhz(struct hostapd_hw_modes *mode,
+				      u8 op_class, u8 channel)
 {
 	u8 center_chan;
 	unsigned int i;
@@ -77,7 +85,8 @@ static enum chan_allowed verify_80mhz(struct hostapd_hw_modes *mode, u8 channel)
 		unsigned int flags;
 		u8 adj_chan = center_chan - 6 + i * 4;
 
-		if (allow_channel(mode, adj_chan, &flags) == NOT_ALLOWED)
+		if (allow_channel(mode, op_class, adj_chan, &flags) ==
+		    NOT_ALLOWED)
 			return NOT_ALLOWED;
 
 		if ((i == 0 && !(flags & HOSTAPD_CHAN_VHT_10_70)) ||
@@ -120,7 +129,7 @@ static int get_center_160mhz(struct hostapd_hw_modes *mode, u8 channel)
 
 
 static enum chan_allowed verify_160mhz(struct hostapd_hw_modes *mode,
-				       u8 channel)
+				       u8 op_class, u8 channel)
 {
 	u8 center_chan;
 	unsigned int i;
@@ -135,7 +144,8 @@ static enum chan_allowed verify_160mhz(struct hostapd_hw_modes *mode,
 		unsigned int flags;
 		u8 adj_chan = center_chan - 14 + i * 4;
 
-		if (allow_channel(mode, adj_chan, &flags) == NOT_ALLOWED)
+		if (allow_channel(mode, op_class, adj_chan, &flags) ==
+		    NOT_ALLOWED)
 			return NOT_ALLOWED;
 
 		if ((i == 0 && !(flags & HOSTAPD_CHAN_VHT_10_150)) ||
@@ -159,42 +169,42 @@ static enum chan_allowed verify_160mhz(struct hostapd_hw_modes *mode,
 }
 
 
-enum chan_allowed verify_channel(struct hostapd_hw_modes *mode, u8 channel,
-				 u8 bw)
+enum chan_allowed verify_channel(struct hostapd_hw_modes *mode, u8 op_class,
+				 u8 channel, u8 bw)
 {
 	unsigned int flag = 0;
 	enum chan_allowed res, res2;
 
-	res2 = res = allow_channel(mode, channel, &flag);
+	res2 = res = allow_channel(mode, op_class, channel, &flag);
 	if (bw == BW40MINUS) {
 		if (!(flag & HOSTAPD_CHAN_HT40MINUS))
 			return NOT_ALLOWED;
-		res2 = allow_channel(mode, channel - 4, NULL);
+		res2 = allow_channel(mode, op_class, channel - 4, NULL);
 	} else if (bw == BW40PLUS) {
 		if (!(flag & HOSTAPD_CHAN_HT40PLUS))
 			return NOT_ALLOWED;
-		res2 = allow_channel(mode, channel + 4, NULL);
+		res2 = allow_channel(mode, op_class, channel + 4, NULL);
 	} else if (bw == BW80) {
 		/*
 		 * channel is a center channel and as such, not necessarily a
 		 * valid 20 MHz channels. Override earlier allow_channel()
 		 * result and use only the 80 MHz specific version.
 		 */
-		res2 = res = verify_80mhz(mode, channel);
+		res2 = res = verify_80mhz(mode, op_class, channel);
 	} else if (bw == BW160) {
 		/*
 		 * channel is a center channel and as such, not necessarily a
 		 * valid 20 MHz channels. Override earlier allow_channel()
 		 * result and use only the 160 MHz specific version.
 		 */
-		res2 = res = verify_160mhz(mode, channel);
+		res2 = res = verify_160mhz(mode, op_class, channel);
 	} else if (bw == BW80P80) {
 		/*
 		 * channel is a center channel and as such, not necessarily a
 		 * valid 20 MHz channels. Override earlier allow_channel()
 		 * result and use only the 80 MHz specific version.
 		 */
-		res2 = res = verify_80mhz(mode, channel);
+		res2 = res = verify_80mhz(mode, op_class, channel);
 	}
 
 	if (res == NOT_ALLOWED || res2 == NOT_ALLOWED)
@@ -219,13 +229,14 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 	int freq2 = 0;
 	int freq5 = 0;
 
-	mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, op_class->mode);
+	mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, op_class->mode,
+			is_6ghz_op_class(op_class->op_class));
 	if (!mode)
 		return 0;
 
 	/* If we are configured to disable certain things, take that into
 	 * account here. */
-	if (ssid->freq_list && ssid->freq_list[0]) {
+	if (ssid && ssid->freq_list && ssid->freq_list[0]) {
 		for (z = 0; ; z++) {
 			int f = ssid->freq_list[z];
 
@@ -248,7 +259,7 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 		return 0;
 
 #ifdef CONFIG_HT_OVERRIDES
-	if (ssid->disable_ht) {
+	if (ssid && ssid->disable_ht) {
 		switch (op_class->op_class) {
 		case 83:
 		case 84:
@@ -272,7 +283,7 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_HT_OVERRIDES */
 
 #ifdef CONFIG_VHT_OVERRIDES
-	if (ssid->disable_vht) {
+	if (ssid && ssid->disable_vht) {
 		if (op_class->op_class >= 128 && op_class->op_class <= 130) {
 			/* Disable >= 80 MHz channels if VHT is disabled */
 			return 0;
@@ -284,7 +295,8 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 		u8 channels[] = { 42, 58, 106, 122, 138, 155 };
 
 		for (i = 0; i < ARRAY_SIZE(channels); i++) {
-			if (verify_channel(mode, channels[i], op_class->bw) !=
+			if (verify_channel(mode, op_class->op_class,
+					   channels[i], op_class->bw) !=
 			    NOT_ALLOWED)
 				return 1;
 		}
@@ -294,25 +306,35 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 
 	if (op_class->op_class == 129) {
 		/* Check if either 160 MHz channels is allowed */
-		return verify_channel(mode, 50, op_class->bw) != NOT_ALLOWED ||
-			verify_channel(mode, 114, op_class->bw) != NOT_ALLOWED;
+		return verify_channel(mode, op_class->op_class, 50,
+				      op_class->bw) != NOT_ALLOWED ||
+			verify_channel(mode, op_class->op_class, 114,
+				       op_class->bw) != NOT_ALLOWED;
 	}
 
 	if (op_class->op_class == 130) {
 		/* Need at least two non-contiguous 80 MHz segments */
 		found = 0;
 
-		if (verify_channel(mode, 42, op_class->bw) != NOT_ALLOWED ||
-		    verify_channel(mode, 58, op_class->bw) != NOT_ALLOWED)
+		if (verify_channel(mode, op_class->op_class, 42,
+				   op_class->bw) != NOT_ALLOWED ||
+		    verify_channel(mode, op_class->op_class, 58,
+				   op_class->bw) != NOT_ALLOWED)
 			found++;
-		if (verify_channel(mode, 106, op_class->bw) != NOT_ALLOWED ||
-		    verify_channel(mode, 122, op_class->bw) != NOT_ALLOWED ||
-		    verify_channel(mode, 138, op_class->bw) != NOT_ALLOWED)
+		if (verify_channel(mode, op_class->op_class, 106,
+				   op_class->bw) != NOT_ALLOWED ||
+		    verify_channel(mode, op_class->op_class, 122,
+				   op_class->bw) != NOT_ALLOWED ||
+		    verify_channel(mode, op_class->op_class, 138,
+				   op_class->bw) != NOT_ALLOWED)
 			found++;
-		if (verify_channel(mode, 106, op_class->bw) != NOT_ALLOWED &&
-		    verify_channel(mode, 138, op_class->bw) != NOT_ALLOWED)
+		if (verify_channel(mode, op_class->op_class, 106,
+				   op_class->bw) != NOT_ALLOWED &&
+		    verify_channel(mode, op_class->op_class, 138,
+				   op_class->bw) != NOT_ALLOWED)
 			found++;
-		if (verify_channel(mode, 155, op_class->bw) != NOT_ALLOWED)
+		if (verify_channel(mode, op_class->op_class, 155,
+				   op_class->bw) != NOT_ALLOWED)
 			found++;
 
 		if (found >= 2)
@@ -324,7 +346,8 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 	found = 0;
 	for (chan = op_class->min_chan; chan <= op_class->max_chan;
 	     chan += op_class->inc) {
-		if (verify_channel(mode, chan, op_class->bw) != NOT_ALLOWED) {
+		if (verify_channel(mode, op_class->op_class, chan,
+				   op_class->bw) != NOT_ALLOWED) {
 			found = 1;
 			break;
 		}
@@ -334,9 +357,25 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 }
 
 
+static int wpas_sta_secondary_channel_offset(struct wpa_bss *bss, u8 *current,
+					     u8 *channel)
+{
+
+	u8 *ies, phy_type;
+	size_t ies_len;
+
+	if (!bss)
+		return -1;
+	ies = (u8 *) (bss + 1);
+	ies_len = bss->ie_len ? bss->ie_len : bss->beacon_ie_len;
+	return wpas_get_op_chan_phy(bss->freq, ies, ies_len, current,
+				    channel, &phy_type);
+}
+
+
 size_t wpas_supp_op_class_ie(struct wpa_supplicant *wpa_s,
 			     struct wpa_ssid *ssid,
-			     int freq, u8 *pos, size_t len)
+			     struct wpa_bss *bss, u8 *pos, size_t len)
 {
 	struct wpabuf *buf;
 	u8 op, current, chan;
@@ -344,11 +383,13 @@ size_t wpas_supp_op_class_ie(struct wpa_supplicant *wpa_s,
 	size_t res;
 
 	/*
-	 * Assume 20 MHz channel for now.
-	 * TODO: Use the secondary channel and VHT channel width that will be
-	 * used after association.
+	 * Determine the current operating class correct mode based on
+	 * advertised BSS capabilities, if available. Fall back to a less
+	 * accurate guess based on frequency if the needed IEs are not available
+	 * or used.
 	 */
-	if (ieee80211_freq_to_channel_ext(freq, 0, VHT_CHANWIDTH_USE_HT,
+	if (wpas_sta_secondary_channel_offset(bss, &current, &chan) < 0 &&
+	    ieee80211_freq_to_channel_ext(bss->freq, 0, CHANWIDTH_USE_HT,
 					  &current, &chan) == NUM_HOSTAPD_MODES)
 		return 0;
 
@@ -384,4 +425,25 @@ size_t wpas_supp_op_class_ie(struct wpa_supplicant *wpa_s,
 
 	wpabuf_free(buf);
 	return res;
+}
+
+
+int * wpas_supp_op_classes(struct wpa_supplicant *wpa_s)
+{
+	int op;
+	unsigned int pos, max_num = 0;
+	int *classes;
+
+	for (op = 0; global_op_class[op].op_class; op++)
+		max_num++;
+	classes = os_zalloc((max_num + 1) * sizeof(int));
+	if (!classes)
+		return NULL;
+
+	for (op = 0, pos = 0; global_op_class[op].op_class; op++) {
+		if (wpas_op_class_supported(wpa_s, NULL, &global_op_class[op]))
+			classes[pos++] = global_op_class[op].op_class;
+	}
+
+	return classes;
 }

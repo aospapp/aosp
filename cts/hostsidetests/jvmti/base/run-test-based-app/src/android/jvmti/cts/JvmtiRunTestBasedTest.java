@@ -18,11 +18,14 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 
 import android.content.pm.PackageManager;
+import android.util.Log;
 
 import org.junit.After;
 import org.junit.Before;
@@ -36,19 +39,65 @@ public class JvmtiRunTestBasedTest extends JvmtiTestBase {
     private PrintStream oldOut, oldErr;
     private ByteArrayOutputStream bufferedOut, bufferedErr;
 
+    private class TeeLogcatOutputStream extends OutputStream {
+        private OutputStream os;
+        private ByteArrayOutputStream lc_os;
+        public TeeLogcatOutputStream(OutputStream os) {
+            this.lc_os = new ByteArrayOutputStream();
+            this.os = os;
+        }
+        public void write(int b) throws IOException {
+            os.write(b);
+            if (b == (int)'\n') {
+              lc_os.flush();
+              Log.i(mActivity.getPackageName(), "Test Output: " +  lc_os.toString());
+              lc_os.reset();
+            } else {
+              lc_os.write(b);
+            }
+        }
+        public void close() throws IOException {
+            flush();
+            os.close();
+            lc_os.close();
+        }
+        public void flush() throws IOException {
+            os.flush();
+            lc_os.flush();
+        }
+    }
+
     @Before
     public void setUp() throws Exception {
         oldOut = System.out;
         oldErr = System.err;
+        bufferedOut = new ByteArrayOutputStream();
+        bufferedErr = new ByteArrayOutputStream();
 
-        System.setOut(new PrintStream(bufferedOut = new ByteArrayOutputStream(), true));
-        System.setErr(new PrintStream(bufferedErr = new ByteArrayOutputStream(), true));
+        if (doExtraLogging()) {
+            setupExtraLogging();
+            System.setOut(new PrintStream(new TeeLogcatOutputStream(bufferedOut), true));
+            System.setErr(new PrintStream(new TeeLogcatOutputStream(bufferedErr), true));
+        } else {
+            System.setOut(new PrintStream(bufferedOut, true));
+            System.setErr(new PrintStream(bufferedErr, true));
+        }
     }
 
     @After
     public void tearDown() {
         System.setOut(oldOut);
         System.setErr(oldErr);
+    }
+
+    private native void setupExtraLogging();
+
+    protected boolean doExtraLogging() throws Exception {
+        return mActivity
+            .getPackageManager()
+            .getApplicationInfo(mActivity.getPackageName(), PackageManager.GET_META_DATA)
+            .metaData
+            .getBoolean("android.jvmti.cts.run_test.extra_logging", /*defaultValue*/false);
     }
 
     protected int getTestNumber() throws Exception {

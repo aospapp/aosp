@@ -47,6 +47,7 @@ public class WatchUidRunner {
     public static final int CMD_UNCACHED = 3;
     public static final int CMD_CACHED = 4;
     public static final int CMD_GONE = 5;
+    public static final int CMD_CAPABILITY = 6;
 
     public static final String STATE_PERSISTENT = "PER";
     public static final String STATE_PERSISTENT_UI = "PERU";
@@ -72,7 +73,7 @@ public class WatchUidRunner {
     public static final String STATE_NONEXISTENT = "NONE";
 
     static final String[] COMMAND_TO_STRING = new String[] {
-            "procstate", "active", "idle", "uncached", "cached", "gone"
+            "procstate", "active", "idle", "uncached", "cached", "gone", "capability"
     };
 
     final Instrumentation mInstrumentation;
@@ -133,7 +134,7 @@ public class WatchUidRunner {
 
     public void expect(int cmd, String procState, long timeout) {
         long waitUntil = SystemClock.uptimeMillis() + timeout;
-        String[] line = waitForNextLine(waitUntil, cmd, procState);
+        String[] line = waitForNextLine(waitUntil, cmd, procState, 0);
         if (!COMMAND_TO_STRING[cmd].equals(line[1])) {
             String msg = "Expected cmd " + COMMAND_TO_STRING[cmd]
                     + " uid " + mUid + " but next report was " + Arrays.toString(line);
@@ -151,26 +152,61 @@ public class WatchUidRunner {
         Log.d(TAG, "Got expected: " + Arrays.toString(line));
     }
 
+    public void waitFor(int cmd) {
+        waitFor(cmd, null, null, mDefaultWaitTime);
+    }
+
+    public void waitFor(int cmd, long timeout) {
+        waitFor(cmd, null, null, timeout);
+    }
+
     public void waitFor(int cmd, String procState) {
-        waitFor(cmd, procState, mDefaultWaitTime);
+        waitFor(cmd, procState, null, mDefaultWaitTime);
+    }
+
+    public void waitFor(int cmd, String procState, Integer capability) {
+        waitFor(cmd, procState, capability, mDefaultWaitTime);
     }
 
     public void waitFor(int cmd, String procState, long timeout) {
+        waitFor(cmd, procState, null, timeout);
+    }
+
+    public void waitFor(int cmd, String procState, Integer capability, long timeout) {
         long waitUntil = SystemClock.uptimeMillis() + timeout;
         while (true) {
-            String[] line = waitForNextLine(waitUntil, cmd, procState);
+            String[] line = waitForNextLine(waitUntil, cmd, procState, capability);
             if (COMMAND_TO_STRING[cmd].equals(line[1])) {
-                if (procState == null) {
+                if (procState == null && capability == null) {
                     Log.d(TAG, "Waited for: " + Arrays.toString(line));
                     return;
                 }
-                if (line.length >= 3 && procState.equals(line[2])) {
-                    Log.d(TAG, "Waited for: " + Arrays.toString(line));
-                    return;
+                if (cmd == CMD_PROCSTATE) {
+                    if (procState != null && capability != null) {
+                        if (procState.equals(line[2]) && capability.toString().equals(line[6])) {
+                            Log.d(TAG, "Waited for: " + Arrays.toString(line));
+                            return;
+                        }
+                    } else if (procState != null) {
+                        if (procState.equals(line[2])) {
+                            Log.d(TAG, "Waited for: " + Arrays.toString(line));
+                            return;
+                        }
+                    } else if (capability != null) {
+                        if (capability.toString().equals(line[6])) {
+                            Log.d(TAG, "Waited for: " + Arrays.toString(line));
+                            return;
+                        }
+                    }
                 } else {
-                    Log.d(TAG, "Skipping because procstate not " + procState + ": "
-                            + Arrays.toString(line));
+                    if (procState != null
+                            && procState.equals(line[2])) {
+                        Log.d(TAG, "Waited for: " + Arrays.toString(line));
+                        return;
+                    }
                 }
+                Log.d(TAG, "Skipping because procstate not " + procState + ": "
+                        + Arrays.toString(line));
             } else {
                 Log.d(TAG, "Skipping because not " + COMMAND_TO_STRING[cmd] + ": "
                         + Arrays.toString(line));
@@ -191,14 +227,15 @@ public class WatchUidRunner {
         }
     }
 
-    String[] waitForNextLine(long waitUntil, int cmd, String procState) {
+    String[] waitForNextLine(long waitUntil, int cmd, String procState, Integer capability) {
         synchronized (mPendingLines) {
             while (true) {
                 while (mPendingLines.size() == 0) {
                     long now = SystemClock.uptimeMillis();
                     if (now >= waitUntil) {
-                        String msg = "Timed out waiting for next line: "
-                                + "cmd=" + COMMAND_TO_STRING[cmd] + " procState=" + procState;
+                        String msg = "Timed out waiting for next line: uid=" + mUidStr
+                                + " cmd=" + COMMAND_TO_STRING[cmd] + " procState=" + procState
+                                + " capability=" + capability;
                         Log.d(TAG, msg);
                         throw new IllegalStateException(msg);
                     }
@@ -211,6 +248,7 @@ public class WatchUidRunner {
                 if (res[0].startsWith("#")) {
                     Log.d(TAG, "Note: " + res[0]);
                 } else {
+                    Log.v(TAG, "LINE: " + Arrays.toString(res));
                     return res;
                 }
             }

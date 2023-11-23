@@ -48,6 +48,7 @@ import java.util.Map;
 /**
  * Tests of MediaPlayer streaming capabilities.
  */
+@NonMediaMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
 

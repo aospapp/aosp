@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
@@ -251,6 +252,7 @@ public class AudioHelper {
         }
     }
 
+    @CddTest(requirement="5.10/C-1-6,C-1-7")
     public static class TimestampVerifier {
 
         // CDD 5.6 1ms timestamp accuracy
@@ -259,8 +261,9 @@ public class AudioHelper {
         private static final double TEST_STD_JITTER_MS_WARN = 1.;    // CDD requirement warning
 
         // CDD 5.6 100ms track startup latency
-        private static final double TEST_STARTUP_TIME_MS_ALLOWED = 500.; // flaky tolerance 5x
-        private static final double TEST_STARTUP_TIME_MS_WARN = 100.;    // CDD requirement warning
+        private static final double TEST_STARTUP_TIME_MS_ALLOWED = 500.; // error
+        private final double TEST_STARTUP_TIME_MS_WARN;                  // warning
+        private static final double TEST_STARTUP_TIME_MS_INFO = 100.;    // informational
 
         private static final int MILLIS_PER_SECOND = 1000;
         private static final long NANOS_PER_MILLISECOND = 1000000;
@@ -280,9 +283,12 @@ public class AudioHelper {
         private double mMaxAbsJitterMs = 0.;
         private int mWarmupCount = 0;
 
-        public TimestampVerifier(@Nullable String tag, @IntRange(from=4000) int sampleRate) {
+        public TimestampVerifier(@Nullable String tag, @IntRange(from=4000) int sampleRate,
+                boolean isProAudioDevice) {
             mTag = tag;  // Log accepts null
             mSampleRate = sampleRate;
+            // Warning if higher than MUST value for pro audio.  Zero means ignore.
+            TEST_STARTUP_TIME_MS_WARN = isProAudioDevice ? 200. : 0.;
         }
 
         public int getJitterCount() { return mJitterCount; }
@@ -352,13 +358,16 @@ public class AudioHelper {
             final double stdJitterMs = getStdJitterMs();
 
             // Check startup time
-            if (startupTimeMs > TEST_STARTUP_TIME_MS_WARN) {
+            assertTrue("expect startupTimeMs " + startupTimeMs
+                            + " <= " + TEST_STARTUP_TIME_MS_ALLOWED,
+                    startupTimeMs <= TEST_STARTUP_TIME_MS_ALLOWED);
+            if (TEST_STARTUP_TIME_MS_WARN > 0 && startupTimeMs > TEST_STARTUP_TIME_MS_WARN) {
                 Log.w(mTag, "CDD warning: startup time " + startupTimeMs
                         + " > " + TEST_STARTUP_TIME_MS_WARN);
+            } else if (startupTimeMs > TEST_STARTUP_TIME_MS_INFO) {
+                Log.i(mTag, "CDD informational: startup time " + startupTimeMs
+                        + " > " + TEST_STARTUP_TIME_MS_INFO);
             }
-            assertTrue("expect startupTimeMs " + startupTimeMs
-                            + " < " + TEST_STARTUP_TIME_MS_ALLOWED,
-                    startupTimeMs < TEST_STARTUP_TIME_MS_ALLOWED);
 
             // Check maximum jitter
             assertTrue("expect maxAbsJitterMs(" + mMaxAbsJitterMs + ") < "

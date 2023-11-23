@@ -1,7 +1,7 @@
 /*
  * Private string definitions for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -42,12 +42,12 @@
 #    include <bstring.h>
 #  endif /* HAVE_BSTRING_H */
 
-#  if defined(WIN32) && !defined(__CUPS_SSIZE_T_DEFINED)
+#  if defined(_WIN32) && !defined(__CUPS_SSIZE_T_DEFINED)
 #    define __CUPS_SSIZE_T_DEFINED
 #    include <stddef.h>
 /* Windows does not support the ssize_t type, so map it to long... */
 typedef long ssize_t;			/* @private@ */
-#  endif /* WIN32 && !__CUPS_SSIZE_T_DEFINED */
+#  endif /* _WIN32 && !__CUPS_SSIZE_T_DEFINED */
 
 
 /*
@@ -175,8 +175,7 @@ extern size_t _cups_strlcpy(char *, const char *, size_t);
 #  endif /* !HAVE_STRLCPY */
 
 #  ifndef HAVE_SNPRINTF
-extern int	_cups_snprintf(char *, size_t, const char *, ...)
-		__attribute__ ((__format__ (__printf__, 3, 4)));
+extern int	_cups_snprintf(char *, size_t, const char *, ...) _CUPS_FORMAT(3, 4);
 #    define snprintf _cups_snprintf
 #  endif /* !HAVE_SNPRINTF */
 

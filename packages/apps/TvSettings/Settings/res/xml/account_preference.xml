@@ -21,7 +21,6 @@
     <Preference android:key="remove_account"
                 android:title="@string/account_header_remove_account"/>
     <PreferenceCategory android:key="sync_adapters"
-                        android:layout="@layout/preference_category_compact_layout"
                         android:title="@string/account_sync"/>
 
 </PreferenceScreen>

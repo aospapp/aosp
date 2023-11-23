@@ -25,6 +25,7 @@ limitations under the License.
         android:id="@+id/user_profile_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:theme="@style/Theme.Dialer.BidiText"
         android:textAppearance="@style/TextAppearance.InCallUserTitle"
         android:paddingTop="@dimen/in_call_margin_between_avatar_and_text"
         android:singleLine="true"/>
@@ -32,14 +33,19 @@ limitations under the License.
         android:id="@+id/user_profile_phone_number"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:theme="@style/Theme.Dialer.BidiText"
         android:textAppearance="@style/TextAppearance.InCallUserPhoneNumber"
         android:singleLine="true"
         android:paddingTop="@dimen/in_call_phone_number_margin_top"/>
+
+    <!-- A textView without a fixed width will call requestLayout() every time its text is changed -->
+    <!-- So we have to make this Chronometer match_parent to avoid redrawing the whole screen -->
     <Chronometer
         android:id="@+id/user_profile_call_state"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textAppearance="@style/TextAppearance.InCallState"
         android:singleLine="true"
-        android:paddingTop="@dimen/in_call_state_margin_top"/>
+        android:paddingTop="@dimen/in_call_state_margin_top"
+        android:gravity="center"/>
 </LinearLayout>

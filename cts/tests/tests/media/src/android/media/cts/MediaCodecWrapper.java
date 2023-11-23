@@ -21,6 +21,7 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.Callback;
 import android.media.MediaFormat;
 import android.os.Bundle;
+import android.view.Surface;
 import java.nio.ByteBuffer;
 
 /**
@@ -32,6 +33,8 @@ public interface MediaCodecWrapper {
   void release();
 
   void configure(MediaFormat format, int flags);
+
+  void configure(MediaFormat format, int flags, Surface surface);
 
   void setInputSurface(InputSurfaceInterface inputSurface);
 

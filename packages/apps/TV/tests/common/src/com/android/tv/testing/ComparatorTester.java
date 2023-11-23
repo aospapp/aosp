@@ -16,128 +16,198 @@
 
 package com.android.tv.testing;
 
-import static junit.framework.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth.assert_;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
+import android.support.annotation.Nullable;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.primitives.Ints;
+
 import java.util.Comparator;
 import java.util.List;
 
 /**
- * Tester for {@link Comparator} relationships between groups of T.
- *
- * <p>To use, create a new {@link ComparatorTester} and add comparable groups where each group
- * contains objects that are {@link Comparator#compare(Object, Object)} == 0 to each other. Groups
- * are added in order asserting that all earlier groups have compare < 0 for all later groups.
+ * Tests that a given {@link Comparator} (or the implementation of {@link Comparable}) is correct.
+ * To use, repeatedly call {@link #addEqualityGroup(Object...)} with sets of objects that should be
+ * equal. The calls to {@link #addEqualityGroup(Object...)} must be made in sorted order. Then call
+ * {@link #testCompare()} to test the comparison. For example:
  *
  * <pre>{@code
- * ComparatorTester
- *     .withoutEqualsTest(String.CASE_INSENSITIVE_ORDER)
- *     .addComparableGroup("Hello", "HELLO")
- *     .addComparableGroup("World", "wORLD")
- *     .addComparableGroup("ZEBRA")
- *     .test();
+ * new ComparatorTester()
+ *     .addEqualityGroup(1)
+ *     .addEqualityGroup(2)
+ *     .addEqualityGroup(3)
+ *     .testCompare();
  * }</pre>
  *
- * @param <T> the type of objects to compare.
+ * <p>By default, a {@code Comparator} is not tested for compatibility with {@link
+ * Object#equals(Object)}. If that is desired, use the {link #requireConsistencyWithEquals()} to
+ * explicitly activate the check. For example:
+ *
+ * <pre>{@code
+ * new ComparatorTester(Comparator.naturalOrder())
+ *     .requireConsistencyWithEquals()
+ *     .addEqualityGroup(1)
+ *     .addEqualityGroup(2)
+ *     .addEqualityGroup(3)
+ *     .testCompare();
+ * }</pre>
+ *
+ * <p>If for some reason you need to suppress the compatibility check when testing a {@code
+ * Comparable}, use the {link #permitInconsistencyWithEquals()} to explicitly deactivate the check.
+ * For example:
+ *
+ * <pre>{@code
+ * new ComparatorTester()
+ *     .permitInconsistencyWithEquals()
+ *     .addEqualityGroup(1)
+ *     .addEqualityGroup(2)
+ *     .addEqualityGroup(3)
+ *     .testCompare();
+ * }</pre>
  */
-public class ComparatorTester<T> {
+public class ComparatorTester {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Nullable
+    private final Comparator comparator;
 
-    private final List<List<T>> listOfGroups = new ArrayList<>();
+    /** The items that we are checking, stored as a sorted set of equivalence classes. */
+    private final List<List<Object>> equalityGroups;
 
-    private final Comparator<T> comparator;
+    /** Whether to enforce a.equals(b) == (a.compareTo(b) == 0) */
+    private boolean testForEqualsCompatibility;
 
-    public static <T> ComparatorTester<T> withoutEqualsTest(Comparator<T> comparator) {
-        return new ComparatorTester<>(comparator);
+    /**
+     * Creates a new instance that tests the order of objects using the natural order (as defined by
+     * {@link Comparable}).
+     */
+    public ComparatorTester() {
+        this(null);
     }
 
-    private ComparatorTester(Comparator<T> comparator) {
+    /**
+     * Creates a new instance that tests the order of objects using the given comparator. Or, if the
+     * comparator is {@code null}, the natural ordering (as defined by {@link Comparable})
+     */
+    public ComparatorTester(@Nullable Comparator<?> comparator) {
+        this.equalityGroups = Lists.newArrayList();
         this.comparator = comparator;
+        this.testForEqualsCompatibility = (this.comparator == null);
     }
 
-    @SafeVarargs
-    public final ComparatorTester<T> addComparableGroup(T... items) {
-        listOfGroups.add(Arrays.asList(items));
+    /**
+     * Activates enforcement of {@code a.equals(b) == (a.compareTo(b) == 0)}. This is off by default
+     * when testing {@link Comparator}s, but can be turned on if required.
+     */
+    public ComparatorTester requireConsistencyWithEquals() {
+        testForEqualsCompatibility = true;
         return this;
     }
 
-    public void test() {
-        for (int i = 0; i < listOfGroups.size(); i++) {
-            List<T> currentGroup = listOfGroups.get(i);
-            for (int j = 0; j < i; j++) {
-                List<T> lhs = listOfGroups.get(j);
-                assertOrder(i, j, lhs, currentGroup);
-            }
-            assertZero(currentGroup);
-            for (int j = i + 1; j < listOfGroups.size(); j++) {
-                List<T> rhs = listOfGroups.get(j);
-                assertOrder(i, j, currentGroup, rhs);
-            }
+    /**
+     * Deactivates enforcement of {@code a.equals(b) == (a.compareTo(b) == 0)}. This is on by
+     * default when testing {@link Comparable}s, but can be turned off if required.
+     */
+    public ComparatorTester permitInconsistencyWithEquals() {
+        testForEqualsCompatibility = false;
+        return this;
+    }
+
+    /**
+     * Adds a set of objects to the test which should all compare as equal. All of the elements in
+     * {@code objects} must be greater than any element of {@code objects} in a previous call to
+     * {@link #addEqualityGroup(Object...)}.
+     *
+     * @return {@code this} (to allow chaining of calls)
+     */
+    public ComparatorTester addEqualityGroup(Object... objects) {
+        Preconditions.checkNotNull(objects);
+        Preconditions.checkArgument(objects.length > 0, "Array must not be empty");
+        equalityGroups.add(ImmutableList.copyOf(objects));
+        return this;
+    }
+
+    @SuppressWarnings({"unchecked"})
+    private int compare(Object a, Object b) {
+        int compareValue;
+        if (comparator == null) {
+            compareValue = ((Comparable<Object>) a).compareTo(b);
+        } else {
+            compareValue = comparator.compare(a, b);
         }
-        // TODO: also test equals
+        return compareValue;
     }
 
-    private void assertOrder(int less, int more, List<T> lessGroup, List<T> moreGroup) {
-        assertLess(less, more, lessGroup, moreGroup);
-        assertMore(more, less, moreGroup, lessGroup);
-    }
-
-    private void assertLess(
-            int left, int right, Collection<T> leftGroup, Collection<T> rightGroup) {
-        int leftSub = 0;
-        for (T leftItem : leftGroup) {
-            int rightSub = 0;
-            for (T rightItem : rightGroup) {
-                String leftName = "Item[" + left + "," + (leftSub++) + "]";
-                String rName = "Item[" + right + "," + (rightSub++) + "]";
-                assertEquals(
-                        leftName
-                                + " "
-                                + leftItem
-                                + " compareTo "
-                                + rName
-                                + " "
-                                + rightItem
-                                + " is <0",
-                        true,
-                        comparator.compare(leftItem, rightItem) < 0);
-            }
+    public final void testCompare() {
+        doTestEquivalanceGroupOrdering();
+        if (testForEqualsCompatibility) {
+            doTestEqualsCompatibility();
         }
     }
 
-    private void assertMore(
-            int left, int right, Collection<T> leftGroup, Collection<T> rightGroup) {
-        int leftSub = 0;
-        for (T leftItem : leftGroup) {
-            int rightSub = 0;
-            for (T rightItem : rightGroup) {
-                String leftName = "Item[" + left + "," + (leftSub++) + "]";
-                String rName = "Item[" + right + "," + (rightSub++) + "]";
-                assertEquals(
-                        leftName
-                                + " "
-                                + leftItem
-                                + " compareTo "
-                                + rName
-                                + " "
-                                + rightItem
-                                + " is >0",
-                        true,
-                        comparator.compare(leftItem, rightItem) > 0);
+    private final void doTestEquivalanceGroupOrdering() {
+        for (int referenceIndex = 0; referenceIndex < equalityGroups.size(); referenceIndex++) {
+            for (Object reference : equalityGroups.get(referenceIndex)) {
+                testNullCompare(reference);
+                testClassCast(reference);
+                for (int otherIndex = 0; otherIndex < equalityGroups.size(); otherIndex++) {
+                    for (Object other : equalityGroups.get(otherIndex)) {
+                        assertWithMessage("compare(%s, %s)", reference, other)
+                                .that(Integer.signum(compare(reference, other)))
+                                .isEqualTo(
+                                        Integer.signum(Ints.compare(referenceIndex, otherIndex)));
+                    }
+                }
             }
         }
     }
 
-    private void assertZero(Collection<T> group) {
-        // Test everything against everything in both directions, including against itself.
-        for (T leftItem : group) {
-            for (T rightItem : group) {
-                assertEquals(
-                        leftItem + " compareTo " + rightItem,
-                        0,
-                        comparator.compare(leftItem, rightItem));
+    private final void doTestEqualsCompatibility() {
+        for (List<Object> referenceGroup : equalityGroups) {
+            for (Object reference : referenceGroup) {
+                for (List<Object> otherGroup : equalityGroups) {
+                    for (Object other : otherGroup) {
+                        assertWithMessage(
+                                        "Testing equals() for compatibility with"
+                                            + " compare()/compareTo(), add a call to"
+                                            + " doNotRequireEqualsCompatibility() if this is not"
+                                            + " required")
+                                .withMessage("%s.equals(%s)", reference, other)
+                                .that(reference.equals(other))
+                                .isEqualTo(compare(reference, other) == 0);
+                    }
+                }
             }
         }
+    }
+
+    private void testNullCompare(Object obj) {
+        // Comparator does not require any specific behavior for null.
+        if (comparator == null) {
+            try {
+                compare(obj, null);
+                assert_().fail("Expected NullPointerException in %s.compare(null)", obj);
+            } catch (NullPointerException expected) {
+                // TODO(cpovirk): Consider accepting JavaScriptException under GWT
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void testClassCast(Object obj) {
+        if (comparator == null) {
+            try {
+                compare(obj, ICanNotBeCompared.INSTANCE);
+                assert_().fail("Expected ClassCastException in %s.compareTo(otherObject)", obj);
+            } catch (ClassCastException expected) {
+            }
+        }
+    }
+
+    private static final class ICanNotBeCompared {
+        static final ComparatorTester.ICanNotBeCompared INSTANCE = new ICanNotBeCompared();
     }
 }

@@ -25,8 +25,6 @@
 
 package sun.security.x509;
 
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class URIName implements sun.security.x509.GeneralNameInterface {
 
@@ -67,12 +65,12 @@ public class URIName implements sun.security.x509.GeneralNameInterface {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String getName() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.String getScheme() {
         throw new RuntimeException("Stub!");
     }

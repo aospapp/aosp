@@ -21,8 +21,8 @@ import static android.net.cts.PacketUtils.IP6_HDRLEN;
 import static android.net.cts.PacketUtils.IPPROTO_ESP;
 import static android.net.cts.PacketUtils.UDP_HDRLEN;
 import static android.system.OsConstants.IPPROTO_UDP;
+
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import android.os.ParcelFileDescriptor;
@@ -39,19 +39,18 @@ import java.util.function.Predicate;
 public class TunUtils {
     private static final String TAG = TunUtils.class.getSimpleName();
 
+    protected static final int IP4_ADDR_OFFSET = 12;
+    protected static final int IP4_ADDR_LEN = 4;
+    protected static final int IP6_ADDR_OFFSET = 8;
+    protected static final int IP6_ADDR_LEN = 16;
+    protected static final int IP4_PROTO_OFFSET = 9;
+    protected static final int IP6_PROTO_OFFSET = 6;
+
     private static final int DATA_BUFFER_LEN = 4096;
-    private static final int TIMEOUT = 100;
+    private static final int TIMEOUT = 1000;
 
-    private static final int IP4_PROTO_OFFSET = 9;
-    private static final int IP6_PROTO_OFFSET = 6;
-
-    private static final int IP4_ADDR_OFFSET = 12;
-    private static final int IP4_ADDR_LEN = 4;
-    private static final int IP6_ADDR_OFFSET = 8;
-    private static final int IP6_ADDR_LEN = 16;
-
-    private final ParcelFileDescriptor mTunFd;
     private final List<byte[]> mPackets = new ArrayList<>();
+    private final ParcelFileDescriptor mTunFd;
     private final Thread mReaderThread;
 
     public TunUtils(ParcelFileDescriptor tunFd) {
@@ -112,46 +111,15 @@ public class TunUtils {
         return null;
     }
 
-    /**
-     * Checks if the specified bytes were ever sent in plaintext.
-     *
-     * <p>Only checks for known plaintext bytes to prevent triggering on ICMP/RA packets or the like
-     *
-     * @param plaintext the plaintext bytes to check for
-     * @param startIndex the index in the list to check for
-     */
-    public boolean hasPlaintextPacket(byte[] plaintext, int startIndex) {
-        Predicate<byte[]> verifier =
-                (pkt) -> {
-                    return Collections.indexOfSubList(Arrays.asList(pkt), Arrays.asList(plaintext))
-                            != -1;
-                };
-        return getFirstMatchingPacket(verifier, startIndex) != null;
-    }
-
-    public byte[] getEspPacket(int spi, boolean encap, int startIndex) {
-        return getFirstMatchingPacket(
-                (pkt) -> {
-                    return isEsp(pkt, spi, encap);
-                },
-                startIndex);
-    }
-
-    public byte[] awaitEspPacketNoPlaintext(
-            int spi, byte[] plaintext, boolean useEncap, int expectedPacketSize) throws Exception {
+    protected byte[] awaitPacket(Predicate<byte[]> verifier) throws Exception {
         long endTime = System.currentTimeMillis() + TIMEOUT;
         int startIndex = 0;
 
         synchronized (mPackets) {
             while (System.currentTimeMillis() < endTime) {
-                byte[] espPkt = getEspPacket(spi, useEncap, startIndex);
-                if (espPkt != null) {
-                    // Validate packet size
-                    assertEquals(expectedPacketSize, espPkt.length);
-
-                    // Always check plaintext from start
-                    assertFalse(hasPlaintextPacket(plaintext, 0));
-                    return espPkt; // We've found the packet we're looking for.
+                final byte[] pkt = getFirstMatchingPacket(verifier, startIndex);
+                if (pkt != null) {
+                    return pkt; // We've found the packet we're looking for.
                 }
 
                 startIndex = mPackets.size();
@@ -162,10 +130,21 @@ public class TunUtils {
                     mPackets.wait(waitTimeout);
                 }
             }
-
-            fail("No such ESP packet found with SPI " + spi);
         }
-        return null;
+
+        fail("No packet found matching verifier");
+        throw new IllegalStateException("Impossible condition; should have thrown in fail()");
+    }
+
+    public byte[] awaitEspPacketNoPlaintext(
+            int spi, byte[] plaintext, boolean useEncap, int expectedPacketSize) throws Exception {
+        final byte[] espPkt = awaitPacket(
+                (pkt) -> isEspFailIfSpecifiedPlaintextFound(pkt, spi, useEncap, plaintext));
+
+        // Validate packet size
+        assertEquals(expectedPacketSize, espPkt.length);
+
+        return espPkt; // We've found the packet we're looking for.
     }
 
     private static boolean isSpiEqual(byte[] pkt, int espOffset, int spi) {
@@ -174,6 +153,24 @@ public class TunUtils {
                 && pkt[espOffset + 1] == (byte) ((spi >>> 16) & 0xff)
                 && pkt[espOffset + 2] == (byte) ((spi >>> 8) & 0xff)
                 && pkt[espOffset + 3] == (byte) (spi & 0xff);
+    }
+
+    /**
+     * Variant of isEsp that also fails the test if the provided plaintext is found
+     *
+     * @param pkt the packet bytes to verify
+     * @param spi the expected SPI to look for
+     * @param encap whether encap was enabled, and the packet has a UDP header
+     * @param plaintext the plaintext packet before outbound encryption, which MUST not appear in
+     *     the provided packet.
+     */
+    private static boolean isEspFailIfSpecifiedPlaintextFound(
+            byte[] pkt, int spi, boolean encap, byte[] plaintext) {
+        if (Collections.indexOfSubList(Arrays.asList(pkt), Arrays.asList(plaintext)) != -1) {
+            fail("Banned plaintext packet found");
+        }
+
+        return isEsp(pkt, spi, encap);
     }
 
     private static boolean isEsp(byte[] pkt, int spi, boolean encap) {
@@ -191,7 +188,7 @@ public class TunUtils {
         }
     }
 
-    private static boolean isIpv6(byte[] pkt) {
+    public static boolean isIpv6(byte[] pkt) {
         // First nibble shows IP version. 0x60 for IPv6
         return (pkt[0] & (byte) 0xF0) == (byte) 0x60;
     }

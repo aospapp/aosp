@@ -30,6 +30,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.PersistableBundle;
+
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
@@ -53,6 +55,7 @@ public class ProvisioningIntentProviderTest {
     private ProvisioningParams mParams;
     @Mock private Context mContext;
     @Mock private Utils mUtils;
+    @Mock private ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
 
     @Before
     public void setUp() {
@@ -69,18 +72,22 @@ public class ProvisioningIntentProviderTest {
     public void maybeLaunchDpc_success() {
         when(mUtils.canResolveIntentAsUser(any(), any(), anyInt())).thenReturn(true);
 
-        mProvisioningIntentProvider.maybeLaunchDpc(mParams, 0, mUtils, mContext);
+        mProvisioningIntentProvider.maybeLaunchDpc(mParams, 0, mUtils, mContext,
+                mProvisioningAnalyticsTracker);
 
         verify(mContext).startActivityAsUser(any(), any());
+        verify(mProvisioningAnalyticsTracker).logDpcSetupStarted(any(), any());
     }
 
     @Test
     public void maybeLaunchDpc_cannotResolveIntent() {
         when(mUtils.canResolveIntentAsUser(any(), any(), anyInt())).thenReturn(false);
 
-        mProvisioningIntentProvider.maybeLaunchDpc(mParams, 0, mUtils, mContext);
+        mProvisioningIntentProvider.maybeLaunchDpc(mParams, 0, mUtils, mContext,
+                mProvisioningAnalyticsTracker);
 
         verify(mContext, never()).startActivityAsUser(any(), any());
+        verify(mProvisioningAnalyticsTracker, never()).logDpcSetupStarted(any(), any());
     }
 
     @Test

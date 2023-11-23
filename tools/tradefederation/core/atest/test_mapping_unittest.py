@@ -17,6 +17,7 @@
 """Unittests for test_mapping"""
 
 import unittest
+import mock
 
 import test_mapping
 import unittest_constants as uc
@@ -51,6 +52,32 @@ class TestMappingUnittests(unittest.TestCase):
             test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_BAD_HOST_VALUE)
         self.assertEqual(
             'host can only have boolean value.', str(context.exception))
+
+    @mock.patch("atest_utils.get_modified_files")
+    def test_is_match_file_patterns(self, mock_modified_files):
+        """Test mathod is_match_file_patterns."""
+        test_mapping_file = ''
+        test_detail = {
+            "name": "Test",
+            "file_patterns": ["(/|^)test_fp1[^/]*\\.java",
+                              "(/|^)test_fp2[^/]*\\.java"]
+        }
+        mock_modified_files.return_value = {'/a/b/test_fp122.java',
+                                            '/a/b/c/d/test_fp222.java'}
+        self.assertTrue(test_mapping.is_match_file_patterns(test_mapping_file,
+                                                            test_detail))
+        mock_modified_files.return_value = {}
+        self.assertFalse(test_mapping.is_match_file_patterns(test_mapping_file,
+                                                             test_detail))
+        mock_modified_files.return_value = {'/a/b/test_fp3.java'}
+        self.assertFalse(test_mapping.is_match_file_patterns(test_mapping_file,
+                                                             test_detail))
+        test_mapping_file = '/a/b/TEST_MAPPING'
+        mock_modified_files.return_value = {'/a/b/test_fp3.java',
+                                            '/a/b/TEST_MAPPING'}
+        self.assertTrue(test_mapping.is_match_file_patterns(test_mapping_file,
+                                                            test_detail))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -16,8 +16,6 @@
 
 package com.android.documentsui;
 
-import androidx.annotation.Nullable;
-
 import static android.content.ContentResolver.wrap;
 
 import android.content.ContentProviderClient;
@@ -31,9 +29,13 @@ import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -46,18 +48,22 @@ import java.util.List;
 public interface DocumentsAccess {
 
     @Nullable DocumentInfo getRootDocument(RootInfo root);
-    @Nullable DocumentInfo getDocument(Uri uri);
-    @Nullable DocumentInfo getArchiveDocument(Uri uri);
+    @Nullable DocumentInfo getDocument(Uri uri, UserId userId);
+    @Nullable DocumentInfo getArchiveDocument(Uri uri, UserId userId);
 
     boolean isDocumentUri(Uri uri);
-    @Nullable Path findDocumentPath(Uri uri) throws RemoteException, FileNotFoundException;
 
-    List<DocumentInfo> getDocuments(String authority, List<String> docIds) throws RemoteException;
+    @Nullable
+    Path findDocumentPath(Uri uri, UserId userId)
+            throws RemoteException, FileNotFoundException, CrossProfileNoPermissionException;
+
+    List<DocumentInfo> getDocuments(UserId userId, String authority, List<String> docIds)
+            throws RemoteException, CrossProfileNoPermissionException;
 
     @Nullable Uri createDocument(DocumentInfo parentDoc, String mimeType, String displayName);
 
-    public static DocumentsAccess create(Context context) {
-        return new RuntimeDocumentAccess(context);
+    public static DocumentsAccess create(Context context, State state) {
+        return new RuntimeDocumentAccess(context, state);
     }
 
     public final class RuntimeDocumentAccess implements DocumentsAccess {
@@ -65,21 +71,26 @@ public interface DocumentsAccess {
         private static final String TAG = "DocumentAccess";
 
         private final Context mContext;
+        private final State mState;
 
-        private RuntimeDocumentAccess(Context context) {
+        private RuntimeDocumentAccess(Context context, State state) {
             mContext = context;
+            mState = state;
         }
 
         @Override
-        public @Nullable DocumentInfo getRootDocument(RootInfo root) {
-            return getDocument(
-                    DocumentsContract.buildDocumentUri(root.authority, root.documentId));
+        @Nullable
+        public DocumentInfo getRootDocument(RootInfo root) {
+            return getDocument(DocumentsContract.buildDocumentUri(root.authority, root.documentId),
+                    root.userId);
         }
 
         @Override
-        public @Nullable DocumentInfo getDocument(Uri uri) {
+        public @Nullable DocumentInfo getDocument(Uri uri, UserId userId) {
             try {
-                return DocumentInfo.fromUri(mContext.getContentResolver(), uri);
+                if (mState.canInteractWith(userId)) {
+                    return DocumentInfo.fromUri(userId.getContentResolver(mContext), uri, userId);
+                }
             } catch (FileNotFoundException e) {
                 Log.w(TAG, "Couldn't create DocumentInfo for uri: " + uri);
             }
@@ -88,11 +99,13 @@ public interface DocumentsAccess {
         }
 
         @Override
-        public List<DocumentInfo> getDocuments(String authority, List<String> docIds)
-                throws RemoteException {
-
-            try(final ContentProviderClient client = DocumentsApplication
-                    .acquireUnstableProviderOrThrow(mContext.getContentResolver(), authority)) {
+        public List<DocumentInfo> getDocuments(UserId userId, String authority, List<String> docIds)
+                throws RemoteException, CrossProfileNoPermissionException {
+            if (!mState.canInteractWith(userId)) {
+                throw new CrossProfileNoPermissionException();
+            }
+            try (ContentProviderClient client = DocumentsApplication.acquireUnstableProviderOrThrow(
+                    userId.getContentResolver(mContext), authority)) {
 
                 List<DocumentInfo> result = new ArrayList<>(docIds.size());
                 for (String docId : docIds) {
@@ -103,7 +116,7 @@ public interface DocumentsAccess {
                             throw new RemoteException("Failed to move cursor.");
                         }
 
-                        result.add(DocumentInfo.fromCursor(cursor, authority));
+                        result.add(DocumentInfo.fromCursor(cursor, userId, authority));
                     }
                 }
 
@@ -112,9 +125,10 @@ public interface DocumentsAccess {
         }
 
         @Override
-        public DocumentInfo getArchiveDocument(Uri uri) {
-            return getDocument(ArchivesProvider.buildUriForArchive(uri,
-                    ParcelFileDescriptor.MODE_READ_ONLY));
+        public DocumentInfo getArchiveDocument(Uri uri, UserId userId) {
+            return getDocument(
+                    ArchivesProvider.buildUriForArchive(uri, ParcelFileDescriptor.MODE_READ_ONLY),
+                    userId);
         }
 
         @Override
@@ -123,8 +137,12 @@ public interface DocumentsAccess {
         }
 
         @Override
-        public Path findDocumentPath(Uri docUri) throws RemoteException, FileNotFoundException {
-            final ContentResolver resolver = mContext.getContentResolver();
+        public Path findDocumentPath(Uri docUri, UserId userId)
+                throws RemoteException, FileNotFoundException, CrossProfileNoPermissionException {
+            if (!mState.canInteractWith(userId)) {
+                throw new CrossProfileNoPermissionException();
+            }
+            final ContentResolver resolver = userId.getContentResolver(mContext);
             try (final ContentProviderClient client = DocumentsApplication
                     .acquireUnstableProviderOrThrow(resolver, docUri.getAuthority())) {
                 return DocumentsContract.findDocumentPath(wrap(client), docUri);
@@ -133,15 +151,29 @@ public interface DocumentsAccess {
 
         @Override
         public Uri createDocument(DocumentInfo parentDoc, String mimeType, String displayName) {
-            final ContentResolver resolver = mContext.getContentResolver();
+            final ContentResolver resolver = parentDoc.userId.getContentResolver(mContext);
             try (ContentProviderClient client = DocumentsApplication.acquireUnstableProviderOrThrow(
-                        resolver, parentDoc.derivedUri.getAuthority())) {
-                return DocumentsContract.createDocument(
+                    resolver, parentDoc.derivedUri.getAuthority())) {
+                Uri createUri = DocumentsContract.createDocument(
                         wrap(client), parentDoc.derivedUri, mimeType, displayName);
+                // If the document info's user is the current user, we can simply return the uri.
+                // Otherwise, we need to create document with the content resolver from the other
+                // user. The uri returned from that content resolver does not contain the user
+                // info. Hence we need to append the other user info to the uri otherwise an app
+                // will think the uri is from the current user.
+                // The way to append a userInfo is to use the authority which contains user info
+                // obtained from the parentDoc.getDocumentUri().
+                return UserId.CURRENT_USER.equals(parentDoc.userId)
+                        ? createUri : appendEncodedParentAuthority(parentDoc, createUri);
             } catch (Exception e) {
                 Log.w(TAG, "Failed to create document", e);
                 return null;
             }
+        }
+
+        private Uri appendEncodedParentAuthority(DocumentInfo parentDoc, Uri uri) {
+            return uri.buildUpon().encodedAuthority(
+                    parentDoc.getDocumentUri().getAuthority()).build();
         }
     }
 }

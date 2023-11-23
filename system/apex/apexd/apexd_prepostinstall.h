@@ -20,17 +20,23 @@
 #include <string>
 #include <vector>
 
-#include "status.h"
+#include <android-base/result.h>
 
 namespace android {
 namespace apex {
 
 class ApexFile;
 
-Status StagePreInstall(const std::vector<ApexFile>& apexes);
+// Temp mounts given apexes and then forks into:
+// apexd --pre-install <mount-point-of-apex-with-hook> [<other-mount-points>]
+android::base::Result<void> StagePreInstall(
+    const std::vector<ApexFile>& apexes);
 int RunPreInstall(char** argv);
 
-Status StagePostInstall(const std::vector<ApexFile>& apexes);
+// Temp mounts given apexes and then forks into:
+// apexd --post-install <mount-point-of-apex-with-hook> [<other-mount-points>]
+android::base::Result<void> StagePostInstall(
+    const std::vector<ApexFile>& apexes);
 int RunPostInstall(char** argv);
 
 }  // namespace apex

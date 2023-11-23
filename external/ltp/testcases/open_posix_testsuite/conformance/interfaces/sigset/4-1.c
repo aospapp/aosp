@@ -18,7 +18,7 @@
 
 int signal_blocked = 0;
 
-void myhandler(int signo)
+void myhandler(int signo LTP_ATTRIBUTE_UNUSED)
 {
 	printf("SIGCHLD called. Inside handler\n");
 	sigset_t mask;

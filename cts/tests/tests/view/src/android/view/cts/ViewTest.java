@@ -2044,8 +2044,8 @@ public class ViewTest {
         final MockView view = (MockView) mActivity.findViewById(R.id.mock_view);
 
         float density = view.getContext().getResources().getDisplayMetrics().density;
-        int size1 = (int) (100 * density + 0.5);
-        int size2 = (int) (75 * density + 0.5);
+        int size1 = (int) (75 * density + 0.5);
+        int size2 = (int) (100 * density + 0.5);
 
         assertTrue(view.hasCalledOnMeasure());
         assertEquals(size1, view.getMeasuredWidth());
@@ -2750,8 +2750,8 @@ public class ViewTest {
         Rect rect = new Rect();
 
         float density = view.getContext().getResources().getDisplayMetrics().density;
-        int size1 = (int) (100 * density + 0.5);
-        int size2 = (int) (75 * density + 0.5);
+        int size1 = (int) (75 * density + 0.5);
+        int size2 = (int) (100 * density + 0.5);
 
         assertTrue(view.getLocalVisibleRect(rect));
         assertEquals(0, rect.left);
@@ -3923,28 +3923,26 @@ public class ViewTest {
         assertFalse(mockView.isInTouchMode());
         assertFalse(fitWindowsView.isInTouchMode());
 
-        // Mouse events should not trigger touch mode.
+        // Mouse events should trigger touch mode.
         final MotionEvent event =
                 CtsMouseUtil.obtainMouseEvent(MotionEvent.ACTION_SCROLL, mockView, 0, 0);
         mInstrumentation.sendPointerSync(event);
-        assertFalse(fitWindowsView.isInTouchMode());
-
-        event.setAction(MotionEvent.ACTION_DOWN);
-        mInstrumentation.sendPointerSync(event);
-        assertFalse(fitWindowsView.isInTouchMode());
-
-        // Stylus events should not trigger touch mode.
-        event.setSource(InputDevice.SOURCE_STYLUS);
-        mInstrumentation.sendPointerSync(event);
-        assertFalse(fitWindowsView.isInTouchMode());
-
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mockView);
         assertTrue(fitWindowsView.isInTouchMode());
 
-        event.setSource(InputDevice.SOURCE_MOUSE);
+        mInstrumentation.sendKeySync(keyEvent);
+        assertFalse(fitWindowsView.isInTouchMode());
+
         event.setAction(MotionEvent.ACTION_DOWN);
         mInstrumentation.sendPointerSync(event);
+        assertTrue(fitWindowsView.isInTouchMode());
+
+        mInstrumentation.sendKeySync(keyEvent);
         assertFalse(fitWindowsView.isInTouchMode());
+
+        // Stylus events should trigger touch mode.
+        event.setSource(InputDevice.SOURCE_STYLUS);
+        mInstrumentation.sendPointerSync(event);
+        assertTrue(fitWindowsView.isInTouchMode());
     }
 
     @UiThreadTest
@@ -5054,6 +5052,24 @@ public class ViewTest {
 
         assertEquals(View.VISIBLE, view.getVisibility());
         assertTrue(mMockParent.hasRequestLayout());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testIsShowingLayoutBounds() {
+        final View view = new View(mContext);
+
+        // detached view should not have debug enabled
+        assertFalse(view.isShowingLayoutBounds());
+
+        mActivity.setContentView(view);
+        view.setShowingLayoutBounds(true);
+
+        assertTrue(view.isShowingLayoutBounds());
+        mActivity.setContentView(new View(mContext));
+
+        // now that it is detached, it should be false.
+        assertFalse(view.isShowingLayoutBounds());
     }
 
     private static class MockDrawable extends Drawable {

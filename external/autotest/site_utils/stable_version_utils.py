@@ -6,6 +6,7 @@
 # boards.
 
 import common
+import logging
 import django.core.exceptions
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.frontend import setup_django_environment
@@ -60,12 +61,9 @@ def set(version, board=DEFAULT):
     @param version: The new value of stable version for given board.
     @param board: Name of the board, default to value `DEFAULT`.
     """
-    try:
-        stable_version = models.StableVersion.objects.get(board=board)
-        stable_version.version = version
-        stable_version.save()
-    except django.core.exceptions.ObjectDoesNotExist:
-        models.StableVersion.objects.create(board=board, version=version)
+
+    logging.warning("stable_version_utils::set: attmpted to set stable version. setting the stable version is not permitted")
+    return None    
 
 
 def delete(board):
@@ -73,5 +71,5 @@ def delete(board):
 
     @param board: Name of the board.
     """
-    stable_version = models.StableVersion.objects.get(board=board)
-    stable_version.delete()
+    logging.warning("stable_version_utils::set: attmpted to delete stable version. deleting the stable version is not permitted")
+    return None

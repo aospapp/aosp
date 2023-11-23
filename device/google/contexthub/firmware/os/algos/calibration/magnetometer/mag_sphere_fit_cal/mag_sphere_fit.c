@@ -60,8 +60,6 @@ void initMagCalSphere(
   magCalSphereOdrUpdate(mocs, default_odr_in_hz);
 }
 
-void magCalSphereDestroy(struct MagCalSphere *mocs) { (void)mocs; }
-
 void magCalSphereOdrUpdate(struct MagCalSphere *mocs, float odr_in_hz) {
   // Calculate the numbers of samples to be dropped, in order to fill up
   // the data set.

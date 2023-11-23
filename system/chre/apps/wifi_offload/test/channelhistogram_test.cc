@@ -20,9 +20,9 @@
 #include "include/random_generator.h"
 #include "include/utility.h"
 
-using wifi_offload_test::kNumFrequencies_Test;
-using wifi_offload_test::kAllFrequencies_Test;
 using wifi_offload_test::kAllChannels_Test;
+using wifi_offload_test::kAllFrequencies_Test;
+using wifi_offload_test::kNumFrequencies_Test;
 
 /**
  * This file includes all the unit tests for ChannelHistogram class, except ==

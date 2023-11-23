@@ -16,8 +16,9 @@
 package com.android.tv.modules;
 
 import com.android.tv.TvSingletons;
-import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ProgramDataManager;
+import com.android.tv.dvr.DvrWatchedPositionManager;
+
 import dagger.Module;
 import dagger.Provides;
 
@@ -36,8 +37,8 @@ public class TvSingletonsModule {
     }
 
     @Provides
-    ChannelDataManager providesChannelDataManager() {
-        return mTvSingletons.getChannelDataManager();
+    DvrWatchedPositionManager providesDvrWatchedPositionManager() {
+        return mTvSingletons.getDvrWatchedPositionManager();
     }
 
     @Provides

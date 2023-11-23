@@ -17,6 +17,9 @@
 #ifndef ART_LIBARTBASE_BASE_LOGGING_H_
 #define ART_LIBARTBASE_BASE_LOGGING_H_
 
+#include <sstream>
+#include <variant>
+
 #include "android-base/logging.h"
 #include "macros.h"
 
@@ -38,6 +41,7 @@ struct LogVerbosity {
   bool deopt;
   bool gc;
   bool heap;
+  bool interpreter;  // Enabled with "-verbose:interpreter".
   bool jdwp;
   bool jit;
   bool jni;
@@ -55,6 +59,7 @@ struct LogVerbosity {
   bool systrace_lock_logging;  // Enabled with "-verbose:sys-locks".
   bool agents;
   bool dex;  // Some dex access output etc.
+  bool plugin;  // Used by some plugins.
 };
 
 // Global log verbosity setting, initialized by InitLogging.
@@ -74,7 +79,7 @@ extern void InitLogging(char* argv[], AbortFunction& default_aborter);
 // performed.
 extern const char* GetCmdLine();
 
-// The command used to start the ART runtime, such as "/apex/com.android.runtime/bin/dalvikvm". If
+// The command used to start the ART runtime, such as "/apex/com.android.art/bin/dalvikvm". If
 // InitLogging hasn't been performed then just returns "art".
 extern const char* ProgramInvocationName();
 
@@ -105,8 +110,44 @@ bool PrintFileToLog(const std::string& file_name, android::base::LogSeverity lev
 // VLOG(jni) << "A JNI operation was performed";
 #define VLOG(module) if (VLOG_IS_ON(module)) LOG(INFO)
 
-// Return the stream associated with logging for the given module.
-#define VLOG_STREAM(module) LOG_STREAM(INFO)
+// Holder to implement VLOG_STREAM.
+class VlogMessage {
+ public:
+  // TODO Taken from android_base.
+  VlogMessage(bool enable,
+              const char* file,
+              unsigned int line,
+              ::android::base::LogSeverity severity,
+              const char* tag,
+              int error)
+      : msg_(std::in_place_type<std::ostringstream>) {
+    if (enable) {
+      msg_.emplace<::android::base::LogMessage>(file, line, severity, tag, error);
+    }
+  }
+
+  std::ostream& stream() {
+    if (std::holds_alternative<std::ostringstream>(msg_)) {
+      return std::get<std::ostringstream>(msg_);
+    } else {
+      return std::get<::android::base::LogMessage>(msg_).stream();
+    }
+  }
+
+ private:
+  std::variant<::android::base::LogMessage, std::ostringstream> msg_;
+};
+
+// Return the stream associated with logging for the given module. NB Unlike VLOG function calls
+// will still be performed. Output will be suppressed if the module is not on.
+#define VLOG_STREAM(module)                    \
+  ::art::VlogMessage(VLOG_IS_ON(module),       \
+                     __FILE__,                 \
+                     __LINE__,                 \
+                     ::android::base::INFO,    \
+                     _LOG_TAG_INTERNAL,        \
+                     -1)                       \
+      .stream()
 
 }  // namespace art
 

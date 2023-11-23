@@ -17,6 +17,7 @@ package com.android.car.notification;
 
 import android.annotation.Nullable;
 import android.app.ActivityManager;
+import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -30,7 +31,7 @@ import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
 
-import com.android.car.assist.client.CarAssistUtils;
+import com.android.car.notification.headsup.CarHeadsUpNotificationAppContainer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +42,8 @@ import java.util.stream.Stream;
 /**
  * NotificationListenerService that fetches all notifications from system.
  */
-public class CarNotificationListener extends NotificationListenerService {
+public class CarNotificationListener extends NotificationListenerService implements
+        CarHeadsUpNotificationManager.OnHeadsUpNotificationStateChange {
     private static final String TAG = "CarNotificationListener";
     static final String ACTION_LOCAL_BINDING = "local_binding";
     static final int NOTIFY_NOTIFICATION_POSTED = 1;
@@ -55,17 +57,19 @@ public class CarNotificationListener extends NotificationListenerService {
     private NotificationDataManager mNotificationDataManager;
 
     /**
-     * Map that contains all the active notifications. These notifications may or may not be
-     * visible to the user if they get filtered out. The only time these will be removed from the
-     * map is when the {@llink NotificationListenerService} calls the onNotificationRemoved method.
-     * New notifications will be added to the map from {@link CarHeadsUpNotificationManager}.
+     * Map that contains all the active notifications that are not currently HUN. These
+     * notifications may or may not be visible to the user if they get filtered out. The only time
+     * these will be removed from the map is when the {@llink NotificationListenerService} calls the
+     * onNotificationRemoved method. New notifications will be added to this map if the notification
+     * is posted as a non-HUN or when a HUN's state is changed to non-HUN.
      */
-    private Map<String, StatusBarNotification> mActiveNotifications = new HashMap<>();
+    private Map<String, AlertEntry> mActiveNotifications = new HashMap<>();
 
     /**
      * Call this if to register this service as a system service and connect to HUN. This is useful
      * if the notification service is being used as a lib instead of a standalone app. The
      * standalone app version has a manifest entry that will have the same effect.
+     *
      * @param context Context required for registering the service.
      * @param carUxRestrictionManagerWrapper will have the heads up manager registered with it.
      * @param carHeadsUpNotificationManager HUN controller.
@@ -76,12 +80,14 @@ public class CarNotificationListener extends NotificationListenerService {
             CarHeadsUpNotificationManager carHeadsUpNotificationManager,
             NotificationDataManager notificationDataManager) {
         try {
-        mNotificationDataManager = notificationDataManager;
+            mNotificationDataManager = notificationDataManager;
             registerAsSystemService(context,
                     new ComponentName(context.getPackageName(), getClass().getCanonicalName()),
                     ActivityManager.getCurrentUser());
             mHeadsUpManager = carHeadsUpNotificationManager;
-            carUxRestrictionManagerWrapper.setCarHeadsUpNotificationManager(carHeadsUpNotificationManager);
+            mHeadsUpManager.registerHeadsUpNotificationStateChangeListener(this);
+            carUxRestrictionManagerWrapper.setCarHeadsUpNotificationManager(
+                    carHeadsUpNotificationManager);
         } catch (RemoteException e) {
             Log.e(TAG, "Unable to register notification listener", e);
         }
@@ -92,11 +98,11 @@ public class CarNotificationListener extends NotificationListenerService {
         super.onCreate();
         mNotificationDataManager = new NotificationDataManager();
         NotificationApplication app = (NotificationApplication) getApplication();
-        app.getClickHandlerFactory().setNotificationDataManager(mNotificationDataManager);
 
-        mHeadsUpManager = new CarHeadsUpNotificationManager(/* context= */this,
-                app.getClickHandlerFactory(),
-                mNotificationDataManager);
+        app.getClickHandlerFactory().setNotificationDataManager(mNotificationDataManager);
+        mHeadsUpManager = new CarHeadsUpNotificationManager(/* context= */ this,
+                app.getClickHandlerFactory(), mNotificationDataManager, new CarHeadsUpNotificationAppContainer(this));
+        mHeadsUpManager.registerHeadsUpNotificationStateChangeListener(this);
         app.getCarUxRestrictionWrapper().setCarHeadsUpNotificationManager(mHeadsUpManager);
     }
 
@@ -109,41 +115,49 @@ public class CarNotificationListener extends NotificationListenerService {
     @Override
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
         Log.d(TAG, "onNotificationPosted: " + sbn);
-        // Notifications should only be shown for the current user and the the notifications from
-        // the system when CarNotification is running as SystemUI component.
-        if (sbn.getUser().getIdentifier() != ActivityManager.getCurrentUser()
-                && sbn.getUser().getIdentifier() != UserHandle.USER_ALL) {
+        if (!isNotificationForCurrentUser(sbn)) {
             return;
         }
-        mRankingMap = rankingMap;
-        notifyNotificationPosted(sbn);
+        AlertEntry alertEntry = new AlertEntry(sbn);
+        onNotificationRankingUpdate(rankingMap);
+        notifyNotificationPosted(alertEntry);
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
         Log.d(TAG, "onNotificationRemoved: " + sbn);
-        mActiveNotifications.remove(sbn.getKey());
-        mHeadsUpManager.maybeRemoveHeadsUp(sbn);
-        notifyNotificationRemoved(sbn);
+
+        AlertEntry alertEntry = mActiveNotifications.get(sbn.getKey());
+
+        if (alertEntry != null) {
+            mActiveNotifications.remove(alertEntry.getKey());
+        } else {
+            // HUN notifications are not tracked in mActiveNotifications but still need to be
+            // removed
+            alertEntry = new AlertEntry(sbn);
+        }
+
+        removeNotification(alertEntry);
     }
 
     @Override
     public void onNotificationRankingUpdate(RankingMap rankingMap) {
         mRankingMap = rankingMap;
-        for (StatusBarNotification sbn : mActiveNotifications.values()) {
-            if (!mRankingMap.getRanking(sbn.getKey(), mTemporaryRanking)) {
+        for (AlertEntry alertEntry : mActiveNotifications.values()) {
+            if (!mRankingMap.getRanking(alertEntry.getKey(), mTemporaryRanking)) {
                 continue;
             }
-            String oldOverrideGroupKey = sbn.getOverrideGroupKey();
-            String newOverrideGroupKey = getOverrideGroupKey(sbn.getKey());
+            String oldOverrideGroupKey =
+                    alertEntry.getStatusBarNotification().getOverrideGroupKey();
+            String newOverrideGroupKey = getOverrideGroupKey(alertEntry.getKey());
             if (!Objects.equals(oldOverrideGroupKey, newOverrideGroupKey)) {
-                sbn.setOverrideGroupKey(newOverrideGroupKey);
+                alertEntry.getStatusBarNotification().setOverrideGroupKey(newOverrideGroupKey);
             }
         }
     }
 
     /**
-     * Get the override group key of a {@link StatusBarNotification} given its key.
+     * Get the override group key of a {@link AlertEntry} given its key.
      */
     @Nullable
     private String getOverrideGroupKey(String key) {
@@ -155,12 +169,15 @@ public class CarNotificationListener extends NotificationListenerService {
     }
 
     /**
-     * Get all active notifications.
+     * Get all active notifications that are not heads-up notifications.
      *
      * @return a map of all active notifications with key being the notification key.
      */
-    Map<String, StatusBarNotification> getNotifications() {
-        return mActiveNotifications;
+    Map<String, AlertEntry> getNotifications() {
+        return mActiveNotifications.entrySet().stream()
+                .filter(x -> (isNotificationForCurrentUser(
+                        x.getValue().getStatusBarNotification())))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     @Override
@@ -171,7 +188,7 @@ public class CarNotificationListener extends NotificationListenerService {
     @Override
     public void onListenerConnected() {
         mActiveNotifications = Stream.of(getActiveNotifications()).collect(
-                Collectors.toMap(StatusBarNotification::getKey, sbn -> sbn));
+                Collectors.toMap(StatusBarNotification::getKey, sbn -> new AlertEntry(sbn)));
         mRankingMap = super.getCurrentRanking();
     }
 
@@ -183,31 +200,68 @@ public class CarNotificationListener extends NotificationListenerService {
         mHandler = handler;
     }
 
-    private void notifyNotificationRemoved(StatusBarNotification sbn) {
-        if (mHandler == null) {
-            return;
+    private void notifyNotificationPosted(AlertEntry alertEntry) {
+        if (shouldTrackUnseen(alertEntry)) {
+            mNotificationDataManager.addNewMessageNotification(alertEntry);
+        } else {
+            mNotificationDataManager.untrackUnseenNotification(alertEntry);
         }
-        Message msg = Message.obtain(mHandler);
-        msg.what = NOTIFY_NOTIFICATION_REMOVED;
-        msg.obj = sbn;
-        mHandler.sendMessage(msg);
+
+        boolean isShowingHeadsUp = mHeadsUpManager.maybeShowHeadsUp(alertEntry, getCurrentRanking(),
+                mActiveNotifications);
+
+        if (!isShowingHeadsUp) {
+            postNewNotification(alertEntry);
+        }
     }
 
-    private void notifyNotificationPosted(StatusBarNotification sbn) {
-        mNotificationDataManager.addNewMessageNotification(sbn);
-        mHeadsUpManager.maybeShowHeadsUp(sbn, getCurrentRanking(), mActiveNotifications);
-        if (mHandler == null) {
-            return;
+    private boolean isNotificationForCurrentUser(StatusBarNotification sbn) {
+        // Notifications should only be shown for the current user and the the notifications from
+        // the system when CarNotification is running as SystemUI component.
+        return (sbn.getUser().getIdentifier() == ActivityManager.getCurrentUser()
+                || sbn.getUser().getIdentifier() == UserHandle.USER_ALL);
+    }
+
+
+    @Override
+    public void onStateChange(AlertEntry alertEntry, boolean isHeadsUp) {
+        // No more a HUN
+        if (!isHeadsUp) {
+            postNewNotification(alertEntry);
         }
-        Message msg = Message.obtain(mHandler);
-        msg.what = NOTIFY_NOTIFICATION_POSTED;
-        msg.obj = sbn;
-        mHandler.sendMessage(msg);
     }
 
     class LocalBinder extends Binder {
         public CarNotificationListener getService() {
             return CarNotificationListener.this;
         }
+    }
+
+    private void postNewNotification(AlertEntry alertEntry) {
+        mActiveNotifications.put(alertEntry.getKey(), alertEntry);
+        sendNotificationEventToHandler(alertEntry, NOTIFY_NOTIFICATION_POSTED);
+    }
+
+    private void removeNotification(AlertEntry alertEntry) {
+        mHeadsUpManager.maybeRemoveHeadsUp(alertEntry);
+        sendNotificationEventToHandler(alertEntry, NOTIFY_NOTIFICATION_REMOVED);
+    }
+
+    private void sendNotificationEventToHandler(AlertEntry alertEntry, int eventType) {
+        if (mHandler == null) {
+            return;
+        }
+        Message msg = Message.obtain(mHandler);
+        msg.what = eventType;
+        msg.obj = alertEntry;
+        mHandler.sendMessage(msg);
+    }
+
+    // Don't show unseen markers for <= LOW importance notifications to be consistent
+    // with how these notifications are handled on phones
+    boolean shouldTrackUnseen(AlertEntry alertEntry) {
+        Ranking ranking = new NotificationListenerService.Ranking();
+        mRankingMap.getRanking(alertEntry.getKey(), ranking);
+        return ranking.getImportance() > NotificationManager.IMPORTANCE_LOW;
     }
 }

@@ -24,7 +24,7 @@
     <string name="pairing_peripheral" msgid="6983626861540899365">"Uparivanje <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
     <string name="pairing_peripheral_failed" msgid="6087643307743264679">"Ne može upariti <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
     <string name="failed_to_enable_bt" msgid="7229153323594758077">"Bluetooth se ne može omogućiti"</string>
-    <string name="confirm_pairing" msgid="4112568077038265363">"Da li ste sigurni da želite upariti Bluetooth uređaj <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
+    <string name="confirm_pairing" msgid="4112568077038265363">"Jeste li sigurni da želite upariti Bluetooth uređaj <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
     <string name="pair_yes" msgid="3525614878559994448">"Da"</string>
     <string name="pair_no" msgid="5022308368904055020">"Ne"</string>
     <string name="tap_again_to_pay" msgid="5754988005412859897">"Dodirnite o pet da platite pomoću <xliff:g id="APP">%1$s</xliff:g>"</string>
@@ -47,6 +47,8 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Vaš tablet je primio link preko NFC-a:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Vaš telefon je primio link preko NFC-a:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Otvori link"</string>
-    <string name="tag_read_error" msgid="2485274498885877547">"Greška prilikom očitavanja NFC-a. Pokušajte ponovo."</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"Greška prilikom čitanja NFC-a. Pokušajte ponovo."</string>
     <string name="tag_dispatch_failed" msgid="3562984995049738400">"Nema podržane aplikacije za ovu NFC oznaku"</string>
+    <string name="nfc_blocking_alert_title" msgid="1086172436984457085">"NFC je možda blokiran"</string>
+    <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"Dodirnite da saznate kako ispraviti problem."</string>
 </resources>

@@ -43,18 +43,19 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/param.h>
+#include <sys/types.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 
 #include "test.h"
 #include "safe_macros.h"
-#include "select.h"
 
-#define FILENAME	SELECT_TEST_FILENAME("select03")
+#define FILENAME	"select03"
 
 static void setup(void);
 static void cleanup(void);
 
-char *TCID = FILENAME;
+char *TCID = "select03";
 int TST_TOTAL = 1;
 
 int Fd;

@@ -20,6 +20,7 @@ import static android.os.Process.INVALID_UID;
 import static android.system.OsConstants.*;
 
 import android.annotation.Nullable;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -33,6 +34,7 @@ import android.net.Proxy;
 import android.net.ProxyInfo;
 import android.net.VpnService;
 import android.net.wifi.WifiManager;
+import android.provider.Settings;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.SystemProperties;
@@ -62,8 +64,11 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -95,6 +100,13 @@ import java.util.concurrent.TimeUnit;
  */
 public class VpnTest extends InstrumentationTestCase {
 
+    // These are neither public nor @TestApi.
+    // TODO: add them to @TestApi.
+    private static final String PRIVATE_DNS_MODE_SETTING = "private_dns_mode";
+    private static final String PRIVATE_DNS_MODE_PROVIDER_HOSTNAME = "hostname";
+    private static final String PRIVATE_DNS_MODE_OPPORTUNISTIC = "opportunistic";
+    private static final String PRIVATE_DNS_SPECIFIER_SETTING = "private_dns_specifier";
+
     public static String TAG = "VpnTest";
     public static int TIMEOUT_MS = 3 * 1000;
     public static int SOCKET_TIMEOUT_MS = 100;
@@ -112,6 +124,9 @@ public class VpnTest extends InstrumentationTestCase {
     final Object mLock = new Object();
     final Object mLockShutdown = new Object();
 
+    private String mOldPrivateDnsMode;
+    private String mOldPrivateDnsSpecifier;
+
     private boolean supportedHardware() {
         final PackageManager pm = getInstrumentation().getContext().getPackageManager();
         return !pm.hasSystemFeature("android.hardware.type.watch");
@@ -123,6 +138,7 @@ public class VpnTest extends InstrumentationTestCase {
 
         mNetwork = null;
         mCallback = null;
+        storePrivateDnsSetting();
 
         mDevice = UiDevice.getInstance(getInstrumentation());
         mActivity = launchActivity(getInstrumentation().getTargetContext().getPackageName(),
@@ -137,6 +153,7 @@ public class VpnTest extends InstrumentationTestCase {
 
     @Override
     public void tearDown() throws Exception {
+        restorePrivateDnsSetting();
         mRemoteSocketFactoryClient.unbind();
         if (mCallback != null) {
             mCM.unregisterNetworkCallback(mCallback);
@@ -567,6 +584,95 @@ public class VpnTest extends InstrumentationTestCase {
         }
     }
 
+    private ContentResolver getContentResolver() {
+        return getInstrumentation().getContext().getContentResolver();
+    }
+
+    private boolean isPrivateDnsInStrictMode() {
+        return PRIVATE_DNS_MODE_PROVIDER_HOSTNAME.equals(
+                Settings.Global.getString(getContentResolver(), PRIVATE_DNS_MODE_SETTING));
+    }
+
+    private void storePrivateDnsSetting() {
+        mOldPrivateDnsMode = Settings.Global.getString(getContentResolver(),
+                PRIVATE_DNS_MODE_SETTING);
+        mOldPrivateDnsSpecifier = Settings.Global.getString(getContentResolver(),
+                PRIVATE_DNS_SPECIFIER_SETTING);
+    }
+
+    private void restorePrivateDnsSetting() {
+        Settings.Global.putString(getContentResolver(), PRIVATE_DNS_MODE_SETTING,
+                mOldPrivateDnsMode);
+        Settings.Global.putString(getContentResolver(), PRIVATE_DNS_SPECIFIER_SETTING,
+                mOldPrivateDnsSpecifier);
+    }
+
+    // TODO: replace with CtsNetUtils.awaitPrivateDnsSetting in Q or above.
+    private void expectPrivateDnsHostname(final String hostname) throws Exception {
+        final NetworkRequest request = new NetworkRequest.Builder()
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .build();
+        final CountDownLatch latch = new CountDownLatch(1);
+        final NetworkCallback callback = new NetworkCallback() {
+            @Override
+            public void onLinkPropertiesChanged(Network network, LinkProperties lp) {
+                if (network.equals(mNetwork) &&
+                        Objects.equals(lp.getPrivateDnsServerName(), hostname)) {
+                    latch.countDown();
+                }
+            }
+        };
+
+        mCM.registerNetworkCallback(request, callback);
+
+        try {
+            assertTrue("Private DNS hostname was not " + hostname + " after " + TIMEOUT_MS + "ms",
+                    latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        } finally {
+            mCM.unregisterNetworkCallback(callback);
+        }
+    }
+
+    private void setAndVerifyPrivateDns(boolean strictMode) throws Exception {
+        final ContentResolver cr = getInstrumentation().getContext().getContentResolver();
+        String privateDnsHostname;
+
+        if (strictMode) {
+            privateDnsHostname = "vpncts-nx.metric.gstatic.com";
+            Settings.Global.putString(cr, PRIVATE_DNS_SPECIFIER_SETTING, privateDnsHostname);
+            Settings.Global.putString(cr, PRIVATE_DNS_MODE_SETTING,
+                    PRIVATE_DNS_MODE_PROVIDER_HOSTNAME);
+        } else {
+            Settings.Global.putString(cr, PRIVATE_DNS_MODE_SETTING, PRIVATE_DNS_MODE_OPPORTUNISTIC);
+            privateDnsHostname = null;
+        }
+
+        expectPrivateDnsHostname(privateDnsHostname);
+
+        String randomName = "vpncts-" + new Random().nextInt(1000000000) + "-ds.metric.gstatic.com";
+        if (strictMode) {
+            // Strict mode private DNS is enabled. DNS lookups should fail, because the private DNS
+            // server name is invalid.
+            try {
+                InetAddress.getByName(randomName);
+                fail("VPN DNS lookup should fail with private DNS enabled");
+            } catch (UnknownHostException expected) {
+            }
+        } else {
+            // Strict mode private DNS is disabled. DNS lookup should succeed, because the VPN
+            // provides no DNS servers, and thus DNS falls through to the default network.
+            assertNotNull("VPN DNS lookup should succeed with private DNS disabled",
+                    InetAddress.getByName(randomName));
+        }
+    }
+
+    // Tests that strict mode private DNS is used on VPNs.
+    private void checkStrictModePrivateDns() throws Exception {
+        final boolean initialMode = isPrivateDnsInStrictMode();
+        setAndVerifyPrivateDns(!initialMode);
+        setAndVerifyPrivateDns(initialMode);
+    }
+
     public void testDefault() throws Exception {
         if (!supportedHardware()) return;
         // If adb TCP port opened, this test may running by adb over network.
@@ -598,6 +704,9 @@ public class VpnTest extends InstrumentationTestCase {
         assertSocketClosed(fd, TEST_HOST);
 
         checkTrafficOnVpn();
+
+        checkStrictModePrivateDns();
+
         receiver.unregisterQuietly();
     }
 
@@ -615,6 +724,8 @@ public class VpnTest extends InstrumentationTestCase {
         assertSocketClosed(fd, TEST_HOST);
 
         checkTrafficOnVpn();
+
+        checkStrictModePrivateDns();
     }
 
     public void testAppDisallowed() throws Exception {
@@ -895,6 +1006,33 @@ public class VpnTest extends InstrumentationTestCase {
         // VPN's meteredness does not depend on underlying network since it is always metered.
         assertTrue(isNetworkMetered(mNetwork));
         assertTrue(mCM.isActiveNetworkMetered());
+    }
+
+    public void testB141603906() throws Exception {
+        final InetSocketAddress src = new InetSocketAddress(0);
+        final InetSocketAddress dst = new InetSocketAddress(0);
+        final int NUM_THREADS = 8;
+        final int NUM_SOCKETS = 5000;
+        final Thread[] threads = new Thread[NUM_THREADS];
+        startVpn(new String[] {"192.0.2.2/32", "2001:db8:1:2::ffe/128"},
+                 new String[] {"0.0.0.0/0", "::/0"},
+                 "" /* allowedApplications */, "com.android.shell" /* disallowedApplications */,
+                null /* proxyInfo */, null /* underlyingNetworks */, false /* isAlwaysMetered */);
+
+        for (int i = 0; i < NUM_THREADS; i++) {
+            threads[i] = new Thread(() -> {
+                for (int j = 0; j < NUM_SOCKETS; j++) {
+                    mCM.getConnectionOwnerUid(IPPROTO_TCP, src, dst);
+                }
+            });
+        }
+        for (Thread thread : threads) {
+            thread.start();
+        }
+        for (Thread thread : threads) {
+            thread.join();
+        }
+        stopVpn();
     }
 
     private boolean isNetworkMetered(Network network) {

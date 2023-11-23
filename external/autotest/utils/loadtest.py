@@ -38,9 +38,11 @@ loadtest.py $DS config.json --simultaneous 10 --total 100
 atest host mod -u DUT1 DUT2
 """
 
+import argparse
 import collections
 import datetime
 import json
+import logging
 import random
 import re
 import signal
@@ -51,8 +53,6 @@ import time
 import common
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib.cros import dev_server
-from chromite.lib import commandline
-from chromite.lib import cros_logging as logging
 from chromite.lib import locking
 from chromite.lib import parallel
 
@@ -69,7 +69,7 @@ BLACKLIST_TOTAL_FAILURE = 5
 
 def get_parser():
     """Creates the argparse parser."""
-    parser = commandline.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('server', type=str, action='store',
                         help='Devserver to load test.')
     parser.add_argument('config', type=str, action='store',

@@ -26,7 +26,7 @@
 
 package java.util.regex;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Matcher implements java.util.regex.MatchResult {

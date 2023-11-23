@@ -33,8 +33,8 @@ import android.net.InterfaceConfiguration;
 import android.net.IpPrefix;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
+import android.net.NetworkAgentConfig;
 import android.net.NetworkInfo;
-import android.net.NetworkMisc;
 import android.os.Handler;
 import android.os.INetworkManagementService;
 import android.os.test.TestLooper;
@@ -58,12 +58,13 @@ public class Nat464XlatTest {
 
     static final String BASE_IFACE = "test0";
     static final String STACKED_IFACE = "v4-test0";
+    static final LinkAddress V6ADDR = new LinkAddress("2001:db8:1::f00/64");
     static final LinkAddress ADDR = new LinkAddress("192.0.2.5/29");
     static final String NAT64_PREFIX = "64:ff9b::/96";
+    static final String OTHER_NAT64_PREFIX = "2001:db8:0:64::/96";
     static final int NETID = 42;
 
     @Mock ConnectivityService mConnectivity;
-    @Mock NetworkMisc mMisc;
     @Mock IDnsResolver mDnsResolver;
     @Mock INetd mNetd;
     @Mock INetworkManagementService mNms;
@@ -72,6 +73,7 @@ public class Nat464XlatTest {
 
     TestLooper mLooper;
     Handler mHandler;
+    NetworkAgentConfig mAgentConfig = new NetworkAgentConfig();
 
     Nat464Xlat makeNat464Xlat() {
         return new Nat464Xlat(mNai, mNetd, mDnsResolver, mNms) {
@@ -79,6 +81,14 @@ public class Nat464XlatTest {
                 return NETID;
             }
         };
+    }
+
+    private void markNetworkConnected() {
+        mNai.networkInfo.setDetailedState(NetworkInfo.DetailedState.CONNECTED, "", "");
+    }
+
+    private void markNetworkDisconnected() {
+        mNai.networkInfo.setDetailedState(NetworkInfo.DetailedState.DISCONNECTED, "", "");
     }
 
     @Before
@@ -92,8 +102,9 @@ public class Nat464XlatTest {
         mNai.linkProperties.setInterfaceName(BASE_IFACE);
         mNai.networkInfo = new NetworkInfo(null);
         mNai.networkInfo.setType(ConnectivityManager.TYPE_WIFI);
+        markNetworkConnected();
         when(mNai.connService()).thenReturn(mConnectivity);
-        when(mNai.netMisc()).thenReturn(mMisc);
+        when(mNai.netAgentConfig()).thenReturn(mAgentConfig);
         when(mNai.handler()).thenReturn(mHandler);
 
         when(mNms.getInterfaceConfig(eq(STACKED_IFACE))).thenReturn(mConfig);
@@ -104,7 +115,7 @@ public class Nat464XlatTest {
         String msg = String.format("requiresClat expected %b for type=%d state=%s skip=%b "
                 + "nat64Prefix=%s addresses=%s", expected, nai.networkInfo.getType(),
                 nai.networkInfo.getDetailedState(),
-                mMisc.skip464xlat, nai.linkProperties.getNat64Prefix(),
+                mAgentConfig.skip464xlat, nai.linkProperties.getNat64Prefix(),
                 nai.linkProperties.getLinkAddresses());
         assertEquals(msg, expected, Nat464Xlat.requiresClat(nai));
     }
@@ -113,7 +124,7 @@ public class Nat464XlatTest {
         String msg = String.format("shouldStartClat expected %b for type=%d state=%s skip=%b "
                 + "nat64Prefix=%s addresses=%s", expected, nai.networkInfo.getType(),
                 nai.networkInfo.getDetailedState(),
-                mMisc.skip464xlat, nai.linkProperties.getNat64Prefix(),
+                mAgentConfig.skip464xlat, nai.linkProperties.getNat64Prefix(),
                 nai.linkProperties.getLinkAddresses());
         assertEquals(msg, expected, Nat464Xlat.shouldStartClat(nai));
     }
@@ -139,7 +150,7 @@ public class Nat464XlatTest {
             for (NetworkInfo.DetailedState state : supportedDetailedStates) {
                 mNai.networkInfo.setDetailedState(state, "reason", "extraInfo");
 
-                mNai.linkProperties.setNat64Prefix(new IpPrefix("2001:db8:0:64::/96"));
+                mNai.linkProperties.setNat64Prefix(new IpPrefix(OTHER_NAT64_PREFIX));
                 assertRequiresClat(false, mNai);
                 assertShouldStartClat(false, mNai);
 
@@ -151,11 +162,11 @@ public class Nat464XlatTest {
                 assertRequiresClat(true, mNai);
                 assertShouldStartClat(true, mNai);
 
-                mMisc.skip464xlat = true;
+                mAgentConfig.skip464xlat = true;
                 assertRequiresClat(false, mNai);
                 assertShouldStartClat(false, mNai);
 
-                mMisc.skip464xlat = false;
+                mAgentConfig.skip464xlat = false;
                 assertRequiresClat(true, mNai);
                 assertShouldStartClat(true, mNai);
 
@@ -176,12 +187,21 @@ public class Nat464XlatTest {
         }
     }
 
-    @Test
-    public void testNormalStartAndStop() throws Exception {
+    private void makeClatUnnecessary(boolean dueToDisconnect) {
+        if (dueToDisconnect) {
+            markNetworkDisconnected();
+        } else {
+            mNai.linkProperties.addLinkAddress(ADDR);
+        }
+    }
+
+    private void checkNormalStartAndStop(boolean dueToDisconnect) throws Exception {
         Nat464Xlat nat = makeNat464Xlat();
         ArgumentCaptor<LinkProperties> c = ArgumentCaptor.forClass(LinkProperties.class);
 
-        nat.setNat64Prefix(new IpPrefix(NAT64_PREFIX));
+        mNai.linkProperties.addLinkAddress(V6ADDR);
+
+        nat.setNat64PrefixFromDns(new IpPrefix(NAT64_PREFIX));
 
         // Start clat.
         nat.start();
@@ -200,6 +220,7 @@ public class Nat464XlatTest {
         assertRunning(nat);
 
         // Stop clat (Network disconnects, IPv4 addr appears, ...).
+        makeClatUnnecessary(dueToDisconnect);
         nat.stop();
 
         verify(mNetd).clatdStop(eq(BASE_IFACE));
@@ -217,12 +238,24 @@ public class Nat464XlatTest {
         verifyNoMoreInteractions(mNetd, mNms, mConnectivity);
     }
 
+    @Test
+    public void testNormalStartAndStopDueToDisconnect() throws Exception {
+        checkNormalStartAndStop(true);
+    }
+
+    @Test
+    public void testNormalStartAndStopDueToIpv4Addr() throws Exception {
+        checkNormalStartAndStop(false);
+    }
+
     private void checkStartStopStart(boolean interfaceRemovedFirst) throws Exception {
         Nat464Xlat nat = makeNat464Xlat();
         ArgumentCaptor<LinkProperties> c = ArgumentCaptor.forClass(LinkProperties.class);
         InOrder inOrder = inOrder(mNetd, mConnectivity);
 
-        nat.setNat64Prefix(new IpPrefix(NAT64_PREFIX));
+        mNai.linkProperties.addLinkAddress(V6ADDR);
+
+        nat.setNat64PrefixFromDns(new IpPrefix(NAT64_PREFIX));
 
         nat.start();
 
@@ -309,7 +342,7 @@ public class Nat464XlatTest {
         Nat464Xlat nat = makeNat464Xlat();
         ArgumentCaptor<LinkProperties> c = ArgumentCaptor.forClass(LinkProperties.class);
 
-        nat.setNat64Prefix(new IpPrefix(NAT64_PREFIX));
+        nat.setNat64PrefixFromDns(new IpPrefix(NAT64_PREFIX));
 
         nat.start();
 
@@ -344,11 +377,12 @@ public class Nat464XlatTest {
         verifyNoMoreInteractions(mNetd, mNms, mConnectivity);
     }
 
-    @Test
-    public void testStopBeforeClatdStarts() throws Exception {
+    private void checkStopBeforeClatdStarts(boolean dueToDisconnect) throws Exception {
         Nat464Xlat nat = makeNat464Xlat();
 
-        nat.setNat64Prefix(new IpPrefix(NAT64_PREFIX));
+        mNai.linkProperties.addLinkAddress(new LinkAddress("2001:db8::1/64"));
+
+        nat.setNat64PrefixFromDns(new IpPrefix(NAT64_PREFIX));
 
         nat.start();
 
@@ -356,6 +390,7 @@ public class Nat464XlatTest {
         verify(mNetd).clatdStart(eq(BASE_IFACE), eq(NAT64_PREFIX));
 
         // ConnectivityService immediately stops clat (Network disconnects, IPv4 addr appears, ...)
+        makeClatUnnecessary(dueToDisconnect);
         nat.stop();
 
         verify(mNetd).clatdStop(eq(BASE_IFACE));
@@ -377,10 +412,21 @@ public class Nat464XlatTest {
     }
 
     @Test
-    public void testStopAndClatdNeverStarts() throws Exception {
+    public void testStopDueToDisconnectBeforeClatdStarts() throws Exception {
+        checkStopBeforeClatdStarts(true);
+    }
+
+    @Test
+    public void testStopDueToIpv4AddrBeforeClatdStarts() throws Exception {
+        checkStopBeforeClatdStarts(false);
+    }
+
+    private void checkStopAndClatdNeverStarts(boolean dueToDisconnect) throws Exception {
         Nat464Xlat nat = makeNat464Xlat();
 
-        nat.setNat64Prefix(new IpPrefix(NAT64_PREFIX));
+        mNai.linkProperties.addLinkAddress(new LinkAddress("2001:db8::1/64"));
+
+        nat.setNat64PrefixFromDns(new IpPrefix(NAT64_PREFIX));
 
         nat.start();
 
@@ -388,6 +434,7 @@ public class Nat464XlatTest {
         verify(mNetd).clatdStart(eq(BASE_IFACE), eq(NAT64_PREFIX));
 
         // ConnectivityService immediately stops clat (Network disconnects, IPv4 addr appears, ...)
+        makeClatUnnecessary(dueToDisconnect);
         nat.stop();
 
         verify(mNetd).clatdStop(eq(BASE_IFACE));
@@ -396,6 +443,57 @@ public class Nat464XlatTest {
         assertIdle(nat);
 
         verifyNoMoreInteractions(mNetd, mNms, mConnectivity);
+    }
+
+    @Test
+    public void testStopDueToDisconnectAndClatdNeverStarts() throws Exception {
+        checkStopAndClatdNeverStarts(true);
+    }
+
+    @Test
+    public void testStopDueToIpv4AddressAndClatdNeverStarts() throws Exception {
+        checkStopAndClatdNeverStarts(false);
+    }
+
+    @Test
+    public void testNat64PrefixPreference() throws Exception {
+        final IpPrefix prefixFromDns = new IpPrefix(NAT64_PREFIX);
+        final IpPrefix prefixFromRa = new IpPrefix(OTHER_NAT64_PREFIX);
+
+        Nat464Xlat nat = makeNat464Xlat();
+
+        final LinkProperties emptyLp = new LinkProperties();
+        LinkProperties fixedupLp;
+
+        fixedupLp = new LinkProperties();
+        nat.setNat64PrefixFromDns(prefixFromDns);
+        nat.fixupLinkProperties(emptyLp, fixedupLp);
+        assertEquals(prefixFromDns, fixedupLp.getNat64Prefix());
+
+        fixedupLp = new LinkProperties();
+        nat.setNat64PrefixFromRa(prefixFromRa);
+        nat.fixupLinkProperties(emptyLp, fixedupLp);
+        assertEquals(prefixFromRa, fixedupLp.getNat64Prefix());
+
+        fixedupLp = new LinkProperties();
+        nat.setNat64PrefixFromRa(null);
+        nat.fixupLinkProperties(emptyLp, fixedupLp);
+        assertEquals(prefixFromDns, fixedupLp.getNat64Prefix());
+
+        fixedupLp = new LinkProperties();
+        nat.setNat64PrefixFromRa(prefixFromRa);
+        nat.fixupLinkProperties(emptyLp, fixedupLp);
+        assertEquals(prefixFromRa, fixedupLp.getNat64Prefix());
+
+        fixedupLp = new LinkProperties();
+        nat.setNat64PrefixFromDns(null);
+        nat.fixupLinkProperties(emptyLp, fixedupLp);
+        assertEquals(prefixFromRa, fixedupLp.getNat64Prefix());
+
+        fixedupLp = new LinkProperties();
+        nat.setNat64PrefixFromRa(null);
+        nat.fixupLinkProperties(emptyLp, fixedupLp);
+        assertEquals(null, fixedupLp.getNat64Prefix());
     }
 
     static void assertIdle(Nat464Xlat nat) {

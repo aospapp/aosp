@@ -46,9 +46,12 @@ struct ConstantExpression {
     static std::unique_ptr<ConstantExpression> One(ScalarType::Kind kind);
     static std::unique_ptr<ConstantExpression> ValueOf(ScalarType::Kind kind, uint64_t value);
 
+    ConstantExpression(const std::string& expr);
     virtual ~ConstantExpression() {}
 
     virtual bool isReferenceConstantExpression() const;
+
+    void surroundWithParens();
 
     // Proceeds recursive pass
     // Makes sure to visit each node only once

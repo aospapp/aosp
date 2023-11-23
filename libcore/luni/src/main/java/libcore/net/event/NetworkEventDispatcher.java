@@ -16,7 +16,7 @@
 
 package libcore.net.event;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 

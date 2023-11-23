@@ -21,6 +21,7 @@ import android.view.View;
 import android.widget.ImageView;
 
 import com.android.documentsui.ActionHandler;
+import com.android.documentsui.base.UserId;
 
 /**
  * An {@link Item} for switch profile. This is only used in pickers.
@@ -28,7 +29,7 @@ import com.android.documentsui.ActionHandler;
 class ProfileItem extends AppItem {
 
     public ProfileItem(ResolveInfo info, String title, ActionHandler actionHandler) {
-        super(info, title, actionHandler);
+        super(info, title, UserId.CURRENT_USER, actionHandler);
     }
 
     @Override
@@ -45,6 +46,7 @@ class ProfileItem extends AppItem {
     public String toString() {
         return "ProfileItem{"
                 + "id=" + stringId
+                + ", userId=" + userId
                 + ", resolveInfo=" + info
                 + "}";
     }

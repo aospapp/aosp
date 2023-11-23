@@ -17,15 +17,26 @@
 package com.android.car.settings.system;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities.ResetOptionsActivity;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
  * Shows options to reset network settings, reset app preferences, and factory reset the device.
  */
+@SearchIndexable
 public class ResetOptionsFragment extends SettingsFragment {
 
     @Override
     protected int getPreferenceScreenResId() {
         return R.xml.reset_options_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.reset_options_fragment,
+                    ResetOptionsActivity.class);
 }

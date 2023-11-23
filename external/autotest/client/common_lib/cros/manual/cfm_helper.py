@@ -9,6 +9,7 @@ from __future__ import print_function
 import logging
 import re
 import time
+import common
 from autotest_lib.client.common_lib.cros.manual import get_usb_devices
 from autotest_lib.client.common_lib.cros import power_cycle_usb_util
 
@@ -102,26 +103,14 @@ def extract_peripherals_for_cfm(usb_data):
     @param usb_data: dict extracted from output of "usb-devices"
     """
     peripheral_map = {}
-
-    speaker_list = get_usb_devices.get_speakers(usb_data)
-    camera_list = get_usb_devices.get_cameras(usb_data)
-    display_list = get_usb_devices.get_display_mimo(usb_data)
-    controller_list = get_usb_devices.get_controller_mimo(usb_data)
-    for pid_vid, device_count in speaker_list.iteritems():
-        if device_count > 0:
-            peripheral_map[pid_vid] = device_count
-
-    for pid_vid, device_count in camera_list.iteritems():
-        if device_count > 0:
-            peripheral_map[pid_vid] = device_count
-
-    for pid_vid, device_count in controller_list.iteritems():
-        if device_count > 0:
-            peripheral_map[pid_vid] = device_count
-
-    for pid_vid, device_count in display_list.iteritems():
-        if device_count > 0:
-            peripheral_map[pid_vid] = device_count
+    get_devices_funcs = (get_usb_devices.get_speakers,
+            get_usb_devices.get_cameras, get_usb_devices.get_display_mimo,
+            get_usb_devices.get_controller_mimo)
+    for get_devices in get_devices_funcs:
+        device_list = get_devices(usb_data)
+        for pid_vid, device_count in device_list.iteritems():
+            if device_count > 0:
+                peripheral_map[pid_vid] = device_count
 
     for pid_vid, device_count in peripheral_map.iteritems():
         logging.info('---device: %s (%s), count: %d',

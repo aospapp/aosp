@@ -32,8 +32,9 @@ namespace android {
 
 EmulatedFakeCamera::EmulatedFakeCamera(int cameraId,
                                        bool facingBack,
-                                       struct hw_module_t* module)
-        : EmulatedCamera(cameraId, module),
+                                       struct hw_module_t* module,
+                                       GraphicBufferMapper* gbm)
+        : EmulatedCamera(cameraId, module, gbm),
           mFacingBack(facingBack),
           mFakeCameraDevice(nullptr)
 {

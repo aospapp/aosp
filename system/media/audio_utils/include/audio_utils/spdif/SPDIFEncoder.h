@@ -83,6 +83,7 @@ public:
 
 protected:
     void   clearBurstBuffer();
+    bool   wouldOverflowBuffer(size_t numBytes) const; // Would this many bytes cause an overflow?
     void   writeBurstBufferShorts(const uint16_t* buffer, size_t numBytes);
     void   writeBurstBufferBytes(const uint8_t* buffer, size_t numBytes);
     void   sendZeroPad();

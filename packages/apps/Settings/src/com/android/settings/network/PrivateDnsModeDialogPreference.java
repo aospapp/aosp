@@ -40,6 +40,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
@@ -176,6 +177,15 @@ public class PrivateDnsModeDialogPreference extends CustomDialogPreferenceCompat
         mRadioGroup.setOnCheckedChangeListener(this);
         mRadioGroup.check(PRIVATE_DNS_MAP.getOrDefault(mMode, R.id.private_dns_mode_opportunistic));
 
+        // Initial radio button text
+        final RadioButton offRadioButton = view.findViewById(R.id.private_dns_mode_off);
+        offRadioButton.setText(R.string.private_dns_mode_off);
+        final RadioButton opportunisticRadioButton =
+                view.findViewById(R.id.private_dns_mode_opportunistic);
+        opportunisticRadioButton.setText(R.string.private_dns_mode_opportunistic);
+        final RadioButton providerRadioButton = view.findViewById(R.id.private_dns_mode_provider);
+        providerRadioButton.setText(R.string.private_dns_mode_provider);
+
         final TextView helpTextView = view.findViewById(R.id.private_dns_help_info);
         helpTextView.setMovementMethod(LinkMovementMethod.getInstance());
         final Intent helpIntent = HelpUtils.getHelpIntent(context,
@@ -207,16 +217,12 @@ public class PrivateDnsModeDialogPreference extends CustomDialogPreferenceCompat
 
     @Override
     public void onCheckedChanged(RadioGroup group, int checkedId) {
-        switch (checkedId) {
-            case R.id.private_dns_mode_off:
-                mMode = PRIVATE_DNS_MODE_OFF;
-                break;
-            case R.id.private_dns_mode_opportunistic:
-                mMode = PRIVATE_DNS_MODE_OPPORTUNISTIC;
-                break;
-            case R.id.private_dns_mode_provider:
-                mMode = PRIVATE_DNS_MODE_PROVIDER_HOSTNAME;
-                break;
+        if (checkedId == R.id.private_dns_mode_off) {
+            mMode = PRIVATE_DNS_MODE_OFF;
+        } else if (checkedId == R.id.private_dns_mode_opportunistic) {
+            mMode = PRIVATE_DNS_MODE_OPPORTUNISTIC;
+        } else if (checkedId == R.id.private_dns_mode_provider) {
+            mMode = PRIVATE_DNS_MODE_PROVIDER_HOSTNAME;
         }
         updateDialogInfo();
     }

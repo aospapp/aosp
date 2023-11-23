@@ -16,13 +16,16 @@
 
 package com.android.server.telecom.bluetooth;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHearingAid;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.telecom.Log;
+import android.util.LocalLog;
 
+import com.android.internal.util.IndentingPrintWriter;
 import com.android.server.telecom.BluetoothAdapterProxy;
 import com.android.server.telecom.BluetoothHeadsetProxy;
 
@@ -43,18 +46,21 @@ public class BluetoothDeviceManager {
                     Log.startSession("BMSL.oSC");
                     try {
                         synchronized (mLock) {
+                            String logString;
                             if (profile == BluetoothProfile.HEADSET) {
                                 mBluetoothHeadsetService =
                                         new BluetoothHeadsetProxy((BluetoothHeadset) proxy);
-                                Log.i(this, "- Got BluetoothHeadset: " + mBluetoothHeadsetService);
+                                logString = "Got BluetoothHeadset: " + mBluetoothHeadsetService;
                             } else if (profile == BluetoothProfile.HEARING_AID) {
                                 mBluetoothHearingAidService = (BluetoothHearingAid) proxy;
-                                Log.i(this, "- Got BluetoothHearingAid: "
-                                        + mBluetoothHearingAidService);
+                                logString = "Got BluetoothHearingAid: "
+                                        + mBluetoothHearingAidService;
                             } else {
-                                Log.w(this, "Connected to non-requested bluetooth service." +
-                                        " Not changing bluetooth headset.");
+                                logString = "Connected to non-requested bluetooth service." +
+                                        " Not changing bluetooth headset.";
                             }
+                            Log.i(BluetoothDeviceManager.this, logString);
+                            mLocalLog.log(logString);
                         }
                     } finally {
                         Log.endSession();
@@ -67,23 +73,25 @@ public class BluetoothDeviceManager {
                     try {
                         synchronized (mLock) {
                             LinkedHashMap<String, BluetoothDevice> lostServiceDevices;
+                            String logString;
                             if (profile == BluetoothProfile.HEADSET) {
                                 mBluetoothHeadsetService = null;
-                                Log.i(BluetoothDeviceManager.this,
-                                        "Lost BluetoothHeadset service. " +
-                                                "Removing all tracked devices.");
                                 lostServiceDevices = mHfpDevicesByAddress;
                                 mBluetoothRouteManager.onActiveDeviceChanged(null, false);
+                                logString = "Lost BluetoothHeadset service. " +
+                                        "Removing all tracked devices";
                             } else if (profile == BluetoothProfile.HEARING_AID) {
                                 mBluetoothHearingAidService = null;
-                                Log.i(BluetoothDeviceManager.this,
-                                        "Lost BluetoothHearingAid service. " +
-                                                "Removing all tracked devices.");
+                                logString = "Lost BluetoothHearingAid service. " +
+                                        "Removing all tracked devices.";
                                 lostServiceDevices = mHearingAidDevicesByAddress;
                                 mBluetoothRouteManager.onActiveDeviceChanged(null, true);
                             } else {
                                 return;
                             }
+                            Log.i(BluetoothDeviceManager.this, logString);
+                            mLocalLog.log(logString);
+
                             List<BluetoothDevice> devicesToRemove = new LinkedList<>(
                                     lostServiceDevices.values());
                             lostServiceDevices.clear();
@@ -103,6 +111,7 @@ public class BluetoothDeviceManager {
             new LinkedHashMap<>();
     private final LinkedHashMap<BluetoothDevice, Long> mHearingAidDeviceSyncIds =
             new LinkedHashMap<>();
+    private final LocalLog mLocalLog = new LocalLog(20);
 
     // This lock only protects internal state -- it doesn't lock on anything going into Telecom.
     private final Object mLock = new Object();
@@ -111,9 +120,11 @@ public class BluetoothDeviceManager {
     private BluetoothHeadsetProxy mBluetoothHeadsetService;
     private BluetoothHearingAid mBluetoothHearingAidService;
     private BluetoothDevice mBluetoothHearingAidActiveDeviceCache;
+    private BluetoothAdapterProxy mBluetoothAdapterProxy;
 
     public BluetoothDeviceManager(Context context, BluetoothAdapterProxy bluetoothAdapter) {
         if (bluetoothAdapter != null) {
+            mBluetoothAdapterProxy = bluetoothAdapter;
             bluetoothAdapter.getProfileProxy(context, mBluetoothProfileServiceListener,
                     BluetoothProfile.HEADSET);
             bluetoothAdapter.getProfileProxy(context, mBluetoothProfileServiceListener,
@@ -188,6 +199,8 @@ public class BluetoothDeviceManager {
     }
 
     void onDeviceConnected(BluetoothDevice device, boolean isHearingAid) {
+        mLocalLog.log("Device connected -- address: " + device.getAddress() + " isHeadingAid: "
+                + isHearingAid);
         synchronized (mLock) {
             LinkedHashMap<String, BluetoothDevice> targetDeviceMap;
             if (isHearingAid) {
@@ -213,6 +226,8 @@ public class BluetoothDeviceManager {
     }
 
     void onDeviceDisconnected(BluetoothDevice device, boolean isHearingAid) {
+        mLocalLog.log("Device disconnected -- address: " + device.getAddress() + " isHeadingAid: "
+                + isHearingAid);
         synchronized (mLock) {
             LinkedHashMap<String, BluetoothDevice> targetDeviceMap;
             if (isHearingAid) {
@@ -234,7 +249,8 @@ public class BluetoothDeviceManager {
         } else {
             for (BluetoothDevice device : mBluetoothHearingAidService.getActiveDevices()) {
                 if (device != null) {
-                    mBluetoothHearingAidService.setActiveDevice(null);
+                    mBluetoothAdapterProxy.setActiveDevice(null,
+                        BluetoothAdapter.ACTIVE_DEVICE_ALL);
                 }
             }
         }
@@ -257,15 +273,17 @@ public class BluetoothDeviceManager {
                 Log.w(this, "Attempting to turn on audio when the hearing aid service is null");
                 return false;
             }
-            return mBluetoothHearingAidService.setActiveDevice(
-                    mHearingAidDevicesByAddress.get(address));
+            return mBluetoothAdapterProxy.setActiveDevice(
+                    mHearingAidDevicesByAddress.get(address),
+                    BluetoothAdapter.ACTIVE_DEVICE_ALL);
         } else if (mHfpDevicesByAddress.containsKey(address)) {
             BluetoothDevice device = mHfpDevicesByAddress.get(address);
             if (mBluetoothHeadsetService == null) {
                 Log.w(this, "Attempting to turn on audio when the headset service is null");
                 return false;
             }
-            boolean success = mBluetoothHeadsetService.setActiveDevice(device);
+            boolean success = mBluetoothAdapterProxy.setActiveDevice(device,
+                BluetoothAdapter.ACTIVE_DEVICE_PHONE_CALL);
             if (!success) {
                 Log.w(this, "Couldn't set active device to %s", address);
                 return false;
@@ -292,9 +310,14 @@ public class BluetoothDeviceManager {
 
     public void restoreHearingAidDevice() {
         if (mBluetoothHearingAidActiveDeviceCache != null && mBluetoothHearingAidService != null) {
-            mBluetoothHearingAidService.setActiveDevice(mBluetoothHearingAidActiveDeviceCache);
+            mBluetoothAdapterProxy.setActiveDevice(
+                mBluetoothHearingAidActiveDeviceCache,
+                BluetoothAdapter.ACTIVE_DEVICE_ALL);
             mBluetoothHearingAidActiveDeviceCache = null;
         }
     }
 
+    public void dump(IndentingPrintWriter pw) {
+        mLocalLog.dump(pw);
+    }
 }

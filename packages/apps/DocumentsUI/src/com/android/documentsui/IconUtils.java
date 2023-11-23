@@ -22,21 +22,29 @@ import android.content.pm.ProviderInfo;
 import android.graphics.drawable.Drawable;
 import android.util.TypedValue;
 
-import com.android.documentsui.base.MimeTypes;
+import com.android.documentsui.base.UserId;
 
 public class IconUtils {
-    public static Drawable loadPackageIcon(Context context, String authority, int icon) {
+    public static Drawable loadPackageIcon(Context context, UserId userId, String authority,
+            int icon, boolean maybeShowBadge) {
         if (icon != 0) {
+            final PackageManager pm = userId.getPackageManager(context);
+            Drawable packageIcon = null;
             if (authority != null) {
-                final PackageManager pm = context.getPackageManager();
                 final ProviderInfo info = pm.resolveContentProvider(authority, 0);
                 if (info != null) {
-                    return pm.getDrawable(info.packageName, icon, info.applicationInfo);
+                    packageIcon = pm.getDrawable(info.packageName, icon, info.applicationInfo);
                 }
             } else {
-                return context.getDrawable(icon);
+                packageIcon = userId.getDrawable(context, icon);
+            }
+            if (packageIcon != null && maybeShowBadge) {
+                return userId.getUserBadgedIcon(context, packageIcon);
+            } else {
+                return packageIcon;
             }
         }
+
         return null;
     }
 

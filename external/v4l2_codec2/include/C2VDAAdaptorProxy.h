@@ -14,8 +14,8 @@
 #include <arc/Future.h>
 #include <mojo/public/cpp/bindings/binding.h>
 
-#include <components/arc/common/video.mojom.h>
-#include <components/arc/common/video_decode_accelerator.mojom.h>
+#include <components/arc/mojom/video.mojom.h>
+#include <components/arc/mojom/video_decode_accelerator.mojom.h>
 
 namespace arc {
 class MojoProcessSupport;
@@ -39,8 +39,9 @@ public:
     Result initialize(media::VideoCodecProfile profile, bool secureMode,
                       VideoDecodeAcceleratorAdaptor::Client* client) override;
     void decode(int32_t bitstreamId, int handleFd, off_t offset, uint32_t size) override;
-    void assignPictureBuffers(uint32_t numOutputBuffers) override;
-    void importBufferForPicture(int32_t pictureBufferId, HalPixelFormat format, int handleFd,
+    void assignPictureBuffers(uint32_t numOutputBuffers, const media::Size& size) override;
+    void importBufferForPicture(int32_t pictureBufferId, HalPixelFormat format,
+                                std::vector<::base::ScopedFD> handleFds,
                                 const std::vector<VideoFramePlane>& planes) override;
     void reusePictureBuffer(int32_t pictureBufferId) override;
     void flush() override;
@@ -48,7 +49,9 @@ public:
     void destroy() override;
 
     // ::arc::mojom::VideoDecodeClient implementations.
-    void ProvidePictureBuffers(::arc::mojom::PictureBufferFormatPtr format) override;
+    void ProvidePictureBuffersDeprecated(::arc::mojom::PictureBufferFormatPtr format) override;
+    void ProvidePictureBuffers(::arc::mojom::PictureBufferFormatPtr format,
+                               const gfx::Rect& visible_rect) override;
     void PictureReady(::arc::mojom::PicturePtr picture) override;
     void NotifyEndOfBitstreamBuffer(int32_t bitstream_id) override;
     void NotifyError(::arc::mojom::VideoDecodeAccelerator::Result error) override;
@@ -73,10 +76,10 @@ private:
     void initializeOnMojoThread(const media::VideoCodecProfile profile, const bool mSecureMode,
                                 const ::arc::mojom::VideoDecodeAccelerator::InitializeCallback& cb);
     void decodeOnMojoThread(int32_t bitstreamId, int ashmemFd, off_t offset, uint32_t bytesUsed);
-    void assignPictureBuffersOnMojoThread(uint32_t numOutputBuffers);
+    void assignPictureBuffersOnMojoThread(uint32_t numOutputBuffers, const media::Size& size);
 
     void importBufferForPictureOnMojoThread(int32_t pictureBufferId, HalPixelFormat format,
-                                            int handleFd,
+                                            std::vector<::base::ScopedFD> handleFds,
                                             const std::vector<VideoFramePlane>& planes);
     void reusePictureBufferOnMojoThread(int32_t pictureBufferId);
     void flushOnMojoThread();

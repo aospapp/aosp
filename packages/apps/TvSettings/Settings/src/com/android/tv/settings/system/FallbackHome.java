@@ -16,31 +16,46 @@
 
 package com.android.tv.settings.system;
 
+import static android.os.UserHandle.USER_SYSTEM;
+
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.UserHandle;
+import android.os.RemoteException;
 import android.os.UserManager;
 import android.util.Log;
 
+import androidx.annotation.VisibleForTesting;
+
+import com.android.internal.widget.ILockSettings;
 import com.android.internal.widget.LockPatternUtils;
+import com.android.internal.widget.LockscreenCredential;
 import com.android.tv.settings.dialog.PinDialogFragment;
-import com.android.tv.settings.users.RestrictedProfileModel;
 import com.android.tv.settings.users.RestrictedProfilePinDialogFragment;
+import com.android.tv.settings.users.RestrictedProfilePinService;
 
 import java.util.Objects;
 
 /**
  * Triggered instead of the home screen when user-selected home app isn't encryption aware.
  */
-public class FallbackHome extends Activity implements RestrictedProfilePinDialogFragment.Callback {
+public class FallbackHome extends Activity implements PinDialogFragment.ResultListener {
+
     private static final String TAG = "FallbackHome";
+
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            maybeFinish();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,7 +79,7 @@ public class FallbackHome extends Activity implements RestrictedProfilePinDialog
         }
     };
 
-    private void maybeFinish() {
+    void maybeFinish() {
         if (isUserUnlocked()) {
             final Intent homeIntent = new Intent(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_HOME);
@@ -87,12 +102,38 @@ public class FallbackHome extends Activity implements RestrictedProfilePinDialog
      * encrypted and in RUNNING_LOCKED state. In order for various system functions to work
      * we will need to decrypt first.
      */
-    private void maybeStartPinDialog() {
-        if (isUserUnlocked() || !hasLockscreenSecurity(getUserId())
-                 || !LockPatternUtils.isFileEncryptionEnabled()) {
+    @VisibleForTesting
+    void maybeStartPinDialog() {
+        if (isUserUnlocked() || !hasLockscreenSecurity(getUserId()) || !isFileEncryptionEnabled()) {
             return;
         }
 
+        unlockDevice();
+    }
+
+    private void unlockDevice() {
+        LockscreenCredential pin = getPinFromSharedPreferences();
+
+        if (pin == null || pin.isNone()) {
+            showPinDialogToUnlockDevice();
+        } else {
+            // Give LockSettings the pin. This unlocks the device.
+            unlockDeviceWithPin(pin);
+        }
+    }
+
+    @VisibleForTesting
+    void unlockDeviceWithPin(LockscreenCredential pin) {
+        try {
+            getLockSettings().checkCredential(pin, USER_SYSTEM, null);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @VisibleForTesting
+    void showPinDialogToUnlockDevice() {
+        // Prompt the user with a dialog to dial the pin and unlock the device.
         RestrictedProfilePinDialogFragment restrictedProfilePinDialogFragment =
                 RestrictedProfilePinDialogFragment.newInstance(
                         PinDialogFragment.PIN_DIALOG_TYPE_ENTER_PIN);
@@ -100,41 +141,33 @@ public class FallbackHome extends Activity implements RestrictedProfilePinDialog
                 PinDialogFragment.DIALOG_TAG);
     }
 
+    @VisibleForTesting
+    LockscreenCredential getPinFromSharedPreferences() {
+        SharedPreferences sp = getSharedPreferences(RestrictedProfilePinService.PIN_STORE_NAME,
+                Context.MODE_PRIVATE);
+        return LockscreenCredential.createPinOrNone(
+                sp.getString(RestrictedProfilePinService.PIN_STORE_NAME, null));
+    }
 
-    private boolean isUserUnlocked() {
+    @VisibleForTesting
+    boolean isUserUnlocked() {
         return getSystemService(UserManager.class).isUserUnlocked();
     }
 
-    private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            maybeFinish();
-        }
-    };
-
-    @Override
-    public void saveLockPassword(String pin, String originalPin, int quality) {
-        Log.wtf(TAG, "Not supported", new Throwable());
-    }
-
-    @Override
-    public void clearLockPassword(String oldPin) {
-        Log.wtf(TAG, "Not supported", new Throwable());
-    }
-
-    @Override
-    public boolean checkPassword(String password) {
-        return new RestrictedProfileModel(this).checkPassword(password);
-    }
-
-    @Override
-    public boolean hasLockscreenSecurity() {
-        return hasLockscreenSecurity(UserHandle.USER_SYSTEM);
-    }
-
-    private boolean hasLockscreenSecurity(final int userId) {
+    @VisibleForTesting
+    boolean hasLockscreenSecurity(final int userId) {
         final LockPatternUtils lpu = new LockPatternUtils(this);
         return lpu.isLockPasswordEnabled(userId) || lpu.isLockPatternEnabled(userId);
+    }
+
+    @VisibleForTesting
+    boolean isFileEncryptionEnabled() {
+        return LockPatternUtils.isFileEncryptionEnabled();
+    }
+
+    @VisibleForTesting
+    ILockSettings getLockSettings() {
+        return new LockPatternUtils(this).getLockSettings();
     }
 
     @Override

@@ -130,14 +130,6 @@ public class PhoneAccountRegistrar {
                 PhoneAccount phoneAccount) {}
     }
 
-    /**
-     * Abstracts away dependency on the {@link PackageManager} required to fetch the label for an
-     * app.
-     */
-    public interface AppLabelProxy {
-        CharSequence getAppLabel(String packageName);
-    }
-
     public static final String FILE_NAME = "phone-account-registrar-state.xml";
     @VisibleForTesting
     public static final int EXPECTED_STATE_VERSION = 9;
@@ -154,6 +146,7 @@ public class PhoneAccountRegistrar {
     private final AppLabelProxy mAppLabelProxy;
     private State mState;
     private UserHandle mCurrentUserHandle;
+    private String mTestPhoneAccountPackageNameFilter;
     private interface PhoneAccountRegistrarWriteLock {}
     private final PhoneAccountRegistrarWriteLock mWriteLock =
             new PhoneAccountRegistrarWriteLock() {};
@@ -194,7 +187,7 @@ public class PhoneAccountRegistrar {
         if (account != null && account.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
             TelephonyManager tm =
                     (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
-            return tm.getSubIdForPhoneAccount(account);
+            return tm.getSubscriptionId(accountHandle);
         }
         return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     }
@@ -355,7 +348,7 @@ public class PhoneAccountRegistrar {
                 if (newSubId != currentVoiceSubId) {
                     Log.i(this, "setUserSelectedOutgoingPhoneAccount: update voice sub; "
                             + "account=%s, subId=%d", accountHandle, newSubId);
-                    mSubscriptionManager.setDefaultVoiceSubId(newSubId);
+                    mSubscriptionManager.setDefaultVoiceSubscriptionId(newSubId);
                 }
             } else {
                 Log.i(this, "setUserSelectedOutgoingPhoneAccount: %s is not a sub", accountHandle);
@@ -458,6 +451,34 @@ public class PhoneAccountRegistrar {
     }
 
     /**
+     * Sets a filter for which {@link PhoneAccount}s will be returned from
+     * {@link #filterRestrictedPhoneAccounts(List)}. If non-null, only {@link PhoneAccount}s
+     * with the package name packageNameFilter will be returned. If null, no filter is set.
+     * @param packageNameFilter The package name that will be used to filter only
+     * {@link PhoneAccount}s with the same package name.
+     */
+    public void setTestPhoneAccountPackageNameFilter(String packageNameFilter) {
+        mTestPhoneAccountPackageNameFilter = packageNameFilter;
+        Log.i(this, "filter set for PhoneAccounts, packageName=" + packageNameFilter);
+    }
+
+    /**
+     * Filter the given {@link List<PhoneAccount>} and keep only {@link PhoneAccount}s that have the
+     * #mTestPhoneAccountPackageNameFilter.
+     * @param accounts List of {@link PhoneAccount}s to filter.
+     * @return new list of filtered {@link PhoneAccount}s.
+     */
+    public List<PhoneAccount> filterRestrictedPhoneAccounts(List<PhoneAccount> accounts) {
+        if (TextUtils.isEmpty(mTestPhoneAccountPackageNameFilter)) {
+            return new ArrayList<>(accounts);
+        }
+        // Remove all PhoneAccounts that do not have the same package name as the filter.
+        return accounts.stream().filter(account -> mTestPhoneAccountPackageNameFilter.equals(
+                account.getAccountHandle().getComponentName().getPackageName()))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * If it is a outgoing call, sim call manager associated with the target phone account of the
      * call is returned (if one exists).
      * Otherwise, we return the sim call manager of the user associated with the
@@ -487,6 +508,14 @@ public class PhoneAccountRegistrar {
      */
     public PhoneAccountHandle getSimCallManagerFromHandle(PhoneAccountHandle targetPhoneAccount,
             UserHandle userHandle) {
+        // First, check if the specified target phone account handle is a connection manager; if
+        // it is, then just return it.
+        PhoneAccount phoneAccount = getPhoneAccountUnchecked(targetPhoneAccount);
+        if (phoneAccount != null
+                && phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_CONNECTION_MANAGER)) {
+            return targetPhoneAccount;
+        }
+
         int subId = getSubscriptionIdForPhoneAccount(targetPhoneAccount);
         if (SubscriptionManager.isValidSubscriptionId(subId)
                  && subId != SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
@@ -649,7 +678,7 @@ public class PhoneAccountRegistrar {
     public List<PhoneAccountHandle> getCallCapablePhoneAccounts(
             String uriScheme, boolean includeDisabledAccounts, UserHandle userHandle) {
         return getCallCapablePhoneAccounts(uriScheme, includeDisabledAccounts, userHandle,
-                0 /* capabilities */);
+                0 /* capabilities */, PhoneAccount.CAPABILITY_EMERGENCY_CALLS_ONLY);
     }
 
     /**
@@ -666,10 +695,10 @@ public class PhoneAccountRegistrar {
      */
     public List<PhoneAccountHandle> getCallCapablePhoneAccounts(
             String uriScheme, boolean includeDisabledAccounts, UserHandle userHandle,
-            int capabilities) {
+            int capabilities, int excludedCapabilities) {
         return getPhoneAccountHandles(
                 PhoneAccount.CAPABILITY_CALL_PROVIDER | capabilities,
-                PhoneAccount.CAPABILITY_EMERGENCY_CALLS_ONLY /*excludedCapabilities*/,
+                excludedCapabilities /*excludedCapabilities*/,
                 uriScheme, null, includeDisabledAccounts, userHandle);
     }
 
@@ -1201,6 +1230,9 @@ public class PhoneAccountRegistrar {
             for (PhoneAccount phoneAccount : mState.accounts) {
                 pw.println(phoneAccount);
             }
+            pw.decreaseIndent();
+            pw.increaseIndent();
+            pw.println("test emergency PhoneAccount filter: " + mTestPhoneAccountPackageNameFilter);
             pw.decreaseIndent();
         }
     }

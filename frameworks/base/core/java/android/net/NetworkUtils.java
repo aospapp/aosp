@@ -20,18 +20,18 @@ import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_INET6;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
-import android.net.shared.Inet4AddressUtils;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Build;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
 import android.util.Pair;
 
+import com.android.net.module.util.Inet4AddressUtils;
+
 import java.io.FileDescriptor;
 import java.math.BigInteger;
 import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -59,13 +59,6 @@ public class NetworkUtils {
      * @param fd the socket's {@link FileDescriptor}.
      */
     public static native void detachBPFFilter(FileDescriptor fd) throws SocketException;
-
-    /**
-     * Configures a socket for receiving ICMPv6 router solicitations and sending advertisements.
-     * @param fd the socket's {@link FileDescriptor}.
-     * @param ifIndex the interface index.
-     */
-    public native static void setupRaSocket(FileDescriptor fd, int ifIndex) throws SocketException;
 
     /**
      * Binds the current process to the network designated by {@code netId}.  All sockets created
@@ -161,6 +154,14 @@ public class NetworkUtils {
      * Attempts to get network which resolver will use if no network is explicitly selected.
      */
     public static native Network getDnsNetwork() throws ErrnoException;
+
+    /**
+     * Allow/Disallow creating AF_INET/AF_INET6 sockets and DNS lookups for current process.
+     *
+     * @param allowNetworking whether to allow or disallow creating AF_INET/AF_INET6 sockets
+     *                        and DNS lookups.
+     */
+    public static native void setAllowNetworkingForProcess(boolean allowNetworking);
 
     /**
      * Get the tcp repair window associated with the {@code fd}.
@@ -317,15 +318,6 @@ public class NetworkUtils {
         }
 
         return new Pair<InetAddress, Integer>(address, prefixLength);
-    }
-
-    /**
-     * Check if IP address type is consistent between two InetAddress.
-     * @return true if both are the same type.  False otherwise.
-     */
-    public static boolean addressTypeMatches(InetAddress left, InetAddress right) {
-        return (((left instanceof Inet4Address) && (right instanceof Inet4Address)) ||
-                ((left instanceof Inet6Address) && (right instanceof Inet6Address)));
     }
 
     /**

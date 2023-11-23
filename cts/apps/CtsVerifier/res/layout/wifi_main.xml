@@ -13,39 +13,69 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                style="@style/RootLayoutPadding">
+
+        <TextView android:id="@+id/wifi_ssid_label"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="@string/wifi_ssid_label"
+              style="@style/InstructionsSmallFont"
+        />
+        <EditText android:id="@+id/wifi_ssid"
               android:layout_width="match_parent"
-              android:layout_height="match_parent"
->
-
-    <FrameLayout
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_weight="1.0"
-    >
-
-        <ScrollView android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-        >
-            <TextView android:id="@+id/wifi_info"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
-                      style="@style/InstructionsFont"
-            />
-        </ScrollView>
-
-        <ProgressBar
-            android:id="@+id/wifi_progress"
+              android:layout_height="wrap_content"
+              android:layout_below="@id/wifi_ssid_label"
+              android:inputType="text"
+              style="@style/InstructionsSmallFont"
+        />
+        <TextView android:id="@+id/wifi_psk_label"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_below="@id/wifi_ssid"
+              android:text="@string/wifi_psk_label"
+              style="@style/InstructionsSmallFont"
+        />
+        <EditText android:id="@+id/wifi_psk"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_below="@id/wifi_psk_label"
+              android:inputType="textPassword"
+              style="@style/InstructionsSmallFont"
+        />
+        <Button android:id="@+id/wifi_start_test_btn"
+            android:text="@string/wifi_start_test_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_below="@id/wifi_psk"
+            android:layout_centerHorizontal="true"
+        />
+
+        <ScrollView android:id="@+id/wifi_info_scroll_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_below="@id/wifi_start_test_btn"
+        >
+        <TextView android:id="@+id/wifi_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/InstructionsSmallFont"
+        />
+        </ScrollView>
+        <ProgressBar android:id="@+id/wifi_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/wifi_info_scroll_view"
             android:indeterminate="true"
             android:layout_gravity="center"
             android:visibility="gone"
         />
-    </FrameLayout>
-
-    <include layout="@layout/pass_fail_buttons" />
-
-</LinearLayout>
+        <include android:id="@+id/pass_fail_buttons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            layout="@layout/pass_fail_buttons"/>
+</RelativeLayout>

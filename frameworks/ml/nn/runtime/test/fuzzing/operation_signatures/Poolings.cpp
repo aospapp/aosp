@@ -21,7 +21,7 @@ namespace nn {
 namespace fuzzing_test {
 
 // For pooling ops with explicit padding.
-static void poolingExplicitOpConstructor(Type, uint32_t rank, RandomOperation* op) {
+static void poolingExplicitOpConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     NN_FUZZER_CHECK(rank == 4);
 
     // Parameters
@@ -63,7 +63,7 @@ static void poolingExplicitOpConstructor(Type, uint32_t rank, RandomOperation* o
 }
 
 // For pooling ops with implicit padding.
-static void poolingImplicitOpConstructor(Type, uint32_t rank, RandomOperation* op) {
+static void poolingImplicitOpConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     NN_FUZZER_CHECK(rank == 4);
 
     // Parameters
@@ -98,99 +98,108 @@ static void poolingImplicitOpConstructor(Type, uint32_t rank, RandomOperation* o
     setSameQuantization(op->outputs[0], op->inputs[0]);
 }
 
-#define DEFINE_POOLING_SIGNATURE(op, ver, ...)                         \
-    DEFINE_OPERATION_SIGNATURE(op##_explicit_##ver){                   \
-            .opType = ANEURALNETWORKS_##op,                            \
-            .supportedDataTypes = {__VA_ARGS__},                       \
-            .supportedRanks = {4},                                     \
-            .version = HalVersion::ver,                                \
-            .inputs =                                                  \
-                    {                                                  \
-                            INPUT_DEFAULT,                             \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            PARAMETER_CHOICE(Type::INT32, 0, 1, 2, 3), \
-                    },                                                 \
-            .outputs = {OUTPUT_DEFAULT},                               \
-            .constructor = poolingExplicitOpConstructor};              \
-    DEFINE_OPERATION_SIGNATURE(op##_implicit_##ver){                   \
-            .opType = ANEURALNETWORKS_##op,                            \
-            .supportedDataTypes = {__VA_ARGS__},                       \
-            .supportedRanks = {4},                                     \
-            .version = HalVersion::ver,                                \
-            .inputs =                                                  \
-                    {                                                  \
-                            INPUT_DEFAULT,                             \
-                            PARAMETER_CHOICE(Type::INT32, 1, 2),       \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            PARAMETER_CHOICE(Type::INT32, 0, 1, 2, 3), \
-                    },                                                 \
-            .outputs = {OUTPUT_DEFAULT},                               \
+#define DEFINE_POOLING_SIGNATURE(op, ver, ...)                                    \
+    DEFINE_OPERATION_SIGNATURE(op##_explicit_##ver){                              \
+            .opType = TestOperationType::op,                                      \
+            .supportedDataTypes = {__VA_ARGS__},                                  \
+            .supportedRanks = {4},                                                \
+            .version = TestHalVersion::ver,                                       \
+            .inputs =                                                             \
+                    {                                                             \
+                            INPUT_DEFAULT,                                        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            PARAMETER_CHOICE(TestOperandType::INT32, 0, 1, 2, 3), \
+                    },                                                            \
+            .outputs = {OUTPUT_DEFAULT},                                          \
+            .constructor = poolingExplicitOpConstructor};                         \
+    DEFINE_OPERATION_SIGNATURE(op##_implicit_##ver){                              \
+            .opType = TestOperationType::op,                                      \
+            .supportedDataTypes = {__VA_ARGS__},                                  \
+            .supportedRanks = {4},                                                \
+            .version = TestHalVersion::ver,                                       \
+            .inputs =                                                             \
+                    {                                                             \
+                            INPUT_DEFAULT,                                        \
+                            PARAMETER_CHOICE(TestOperandType::INT32, 1, 2),       \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            PARAMETER_CHOICE(TestOperandType::INT32, 0, 1, 2, 3), \
+                    },                                                            \
+            .outputs = {OUTPUT_DEFAULT},                                          \
             .constructor = poolingImplicitOpConstructor};
 
-DEFINE_POOLING_SIGNATURE(AVERAGE_POOL_2D, V1_0, Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM);
-DEFINE_POOLING_SIGNATURE(L2_POOL_2D, V1_0, Type::TENSOR_FLOAT32);
-DEFINE_POOLING_SIGNATURE(MAX_POOL_2D, V1_0, Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM);
+DEFINE_POOLING_SIGNATURE(AVERAGE_POOL_2D, V1_0, TestOperandType::TENSOR_FLOAT32,
+                         TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_POOLING_SIGNATURE(L2_POOL_2D, V1_0, TestOperandType::TENSOR_FLOAT32);
+DEFINE_POOLING_SIGNATURE(MAX_POOL_2D, V1_0, TestOperandType::TENSOR_FLOAT32,
+                         TestOperandType::TENSOR_QUANT8_ASYMM);
 
-DEFINE_POOLING_SIGNATURE(AVERAGE_POOL_2D, V1_2, Type::TENSOR_FLOAT16);
-DEFINE_POOLING_SIGNATURE(L2_POOL_2D, V1_2, Type::TENSOR_FLOAT16);
-DEFINE_POOLING_SIGNATURE(MAX_POOL_2D, V1_2, Type::TENSOR_FLOAT16);
+DEFINE_POOLING_SIGNATURE(AVERAGE_POOL_2D, V1_2, TestOperandType::TENSOR_FLOAT16);
+DEFINE_POOLING_SIGNATURE(L2_POOL_2D, V1_2, TestOperandType::TENSOR_FLOAT16);
+DEFINE_POOLING_SIGNATURE(MAX_POOL_2D, V1_2, TestOperandType::TENSOR_FLOAT16);
 
-#define DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(op, ver, ...)             \
-    DEFINE_OPERATION_SIGNATURE(op##_explicit_layout_##ver){            \
-            .opType = ANEURALNETWORKS_##op,                            \
-            .supportedDataTypes = {__VA_ARGS__},                       \
-            .supportedRanks = {4},                                     \
-            .version = HalVersion::ver,                                \
-            .inputs =                                                  \
-                    {                                                  \
-                            INPUT_DEFAULT,                             \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            PARAMETER_CHOICE(Type::INT32, 0, 1, 2, 3), \
-                            PARAMETER_CHOICE(Type::BOOL, true, false), \
-                    },                                                 \
-            .outputs = {OUTPUT_DEFAULT},                               \
-            .constructor = poolingExplicitOpConstructor};              \
-    DEFINE_OPERATION_SIGNATURE(op##_implicit_layout_##ver){            \
-            .opType = ANEURALNETWORKS_##op,                            \
-            .supportedDataTypes = {__VA_ARGS__},                       \
-            .supportedRanks = {4},                                     \
-            .version = HalVersion::ver,                                \
-            .inputs =                                                  \
-                    {                                                  \
-                            INPUT_DEFAULT,                             \
-                            PARAMETER_CHOICE(Type::INT32, 1, 2),       \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            PARAMETER_RANGE(Type::INT32, 1, 3),        \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            RANDOM_INT_RANGE(1, 4),                    \
-                            PARAMETER_CHOICE(Type::INT32, 0, 1, 2, 3), \
-                            PARAMETER_CHOICE(Type::BOOL, true, false), \
-                    },                                                 \
-            .outputs = {OUTPUT_DEFAULT},                               \
+#define DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(op, ver, ...)                        \
+    DEFINE_OPERATION_SIGNATURE(op##_explicit_layout_##ver){                       \
+            .opType = TestOperationType::op,                                      \
+            .supportedDataTypes = {__VA_ARGS__},                                  \
+            .supportedRanks = {4},                                                \
+            .version = TestHalVersion::ver,                                       \
+            .inputs =                                                             \
+                    {                                                             \
+                            INPUT_DEFAULT,                                        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            PARAMETER_CHOICE(TestOperandType::INT32, 0, 1, 2, 3), \
+                            PARAMETER_CHOICE(TestOperandType::BOOL, true, false), \
+                    },                                                            \
+            .outputs = {OUTPUT_DEFAULT},                                          \
+            .constructor = poolingExplicitOpConstructor};                         \
+    DEFINE_OPERATION_SIGNATURE(op##_implicit_layout_##ver){                       \
+            .opType = TestOperationType::op,                                      \
+            .supportedDataTypes = {__VA_ARGS__},                                  \
+            .supportedRanks = {4},                                                \
+            .version = TestHalVersion::ver,                                       \
+            .inputs =                                                             \
+                    {                                                             \
+                            INPUT_DEFAULT,                                        \
+                            PARAMETER_CHOICE(TestOperandType::INT32, 1, 2),       \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            PARAMETER_RANGE(TestOperandType::INT32, 1, 3),        \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            RANDOM_INT_RANGE(1, 4),                               \
+                            PARAMETER_CHOICE(TestOperandType::INT32, 0, 1, 2, 3), \
+                            PARAMETER_CHOICE(TestOperandType::BOOL, true, false), \
+                    },                                                            \
+            .outputs = {OUTPUT_DEFAULT},                                          \
             .constructor = poolingImplicitOpConstructor};
 
-DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(AVERAGE_POOL_2D, V1_2, Type::TENSOR_FLOAT32,
-                                     Type::TENSOR_FLOAT16, Type::TENSOR_QUANT8_ASYMM);
-DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(L2_POOL_2D, V1_2, Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16);
-DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(MAX_POOL_2D, V1_2, Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16,
-                                     Type::TENSOR_QUANT8_ASYMM);
+DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(AVERAGE_POOL_2D, V1_2, TestOperandType::TENSOR_FLOAT32,
+                                     TestOperandType::TENSOR_FLOAT16,
+                                     TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(L2_POOL_2D, V1_2, TestOperandType::TENSOR_FLOAT32,
+                                     TestOperandType::TENSOR_FLOAT16);
+DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(MAX_POOL_2D, V1_2, TestOperandType::TENSOR_FLOAT32,
+                                     TestOperandType::TENSOR_FLOAT16,
+                                     TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(AVERAGE_POOL_2D, V1_3,
+                                     TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
+DEFINE_POOLING_WITH_LAYOUT_SIGNATURE(MAX_POOL_2D, V1_3,
+                                     TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
 
 }  // namespace fuzzing_test
 }  // namespace nn

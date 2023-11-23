@@ -53,6 +53,7 @@ EXCLUDE_PATTERNS = [
 	"framework/randomshaders/rsgTest.cpp",
 	"executor/tools/*",
 	"execserver/tools/*",
+	"external/vulkancts/framework/vulkan/vkRenderDocUtil.cpp",
 ]
 
 TEMPLATE = """

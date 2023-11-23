@@ -1,19 +1,37 @@
+/*
+ * Copyright (C) 2019 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package android.net.dhcp;
 
 import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_ALL;
 import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_ANY;
 
-import android.annotation.Nullable;
 import android.net.DhcpResults;
 import android.net.LinkAddress;
 import android.net.metrics.DhcpErrorEvent;
-import android.net.shared.Inet4AddressUtils;
 import android.os.Build;
 import android.os.SystemProperties;
 import android.system.OsConstants;
 import android.text.TextUtils;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+
+import com.android.net.module.util.Inet4AddressUtils;
+import com.android.networkstack.apishim.common.ShimUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
@@ -108,22 +126,22 @@ public abstract class DhcpPacket {
     /**
      * The client DHCP port.
      */
-    static final short DHCP_CLIENT = (short) 68;
+    public static final short DHCP_CLIENT = (short) 68;
 
     /**
      * The server DHCP port.
      */
-    static final short DHCP_SERVER = (short) 67;
+    public static final short DHCP_SERVER = (short) 67;
 
     /**
      * The message op code indicating a request from a client.
      */
-    protected static final byte DHCP_BOOTREQUEST = (byte) 1;
+    public static final byte DHCP_BOOTREQUEST = (byte) 1;
 
     /**
      * The message op code indicating a response from the server.
      */
-    protected static final byte DHCP_BOOTREPLY = (byte) 2;
+    public static final byte DHCP_BOOTREPLY = (byte) 2;
 
     /**
      * The code type used to identify an Ethernet MAC address in the
@@ -139,54 +157,54 @@ public abstract class DhcpPacket {
     /**
      * The magic cookie that identifies this as a DHCP packet instead of BOOTP.
      */
-    private static final int DHCP_MAGIC_COOKIE = 0x63825363;
+    public static final int DHCP_MAGIC_COOKIE = 0x63825363;
 
     /**
      * DHCP Optional Type: DHCP Subnet Mask
      */
-    protected static final byte DHCP_SUBNET_MASK = 1;
+    public static final byte DHCP_SUBNET_MASK = 1;
     protected Inet4Address mSubnetMask;
 
     /**
      * DHCP Optional Type: DHCP Router
      */
-    protected static final byte DHCP_ROUTER = 3;
+    public static final byte DHCP_ROUTER = 3;
     protected List <Inet4Address> mGateways;
 
     /**
      * DHCP Optional Type: DHCP DNS Server
      */
-    protected static final byte DHCP_DNS_SERVER = 6;
+    public static final byte DHCP_DNS_SERVER = 6;
     protected List<Inet4Address> mDnsServers;
 
     /**
      * DHCP Optional Type: DHCP Host Name
      */
-    protected static final byte DHCP_HOST_NAME = 12;
+    public static final byte DHCP_HOST_NAME = 12;
     protected String mHostName;
 
     /**
      * DHCP Optional Type: DHCP DOMAIN NAME
      */
-    protected static final byte DHCP_DOMAIN_NAME = 15;
+    public static final byte DHCP_DOMAIN_NAME = 15;
     protected String mDomainName;
 
     /**
      * DHCP Optional Type: DHCP Interface MTU
      */
-    protected static final byte DHCP_MTU = 26;
+    public static final byte DHCP_MTU = 26;
     protected Short mMtu;
 
     /**
      * DHCP Optional Type: DHCP BROADCAST ADDRESS
      */
-    protected static final byte DHCP_BROADCAST_ADDRESS = 28;
+    public static final byte DHCP_BROADCAST_ADDRESS = 28;
     protected Inet4Address mBroadcastAddress;
 
     /**
      * DHCP Optional Type: Vendor specific information
      */
-    protected static final byte DHCP_VENDOR_INFO = 43;
+    public static final byte DHCP_VENDOR_INFO = 43;
     protected String mVendorInfo;
 
     /**
@@ -197,7 +215,7 @@ public abstract class DhcpPacket {
     /**
      * DHCP Optional Type: Option overload option
      */
-    protected static final byte DHCP_OPTION_OVERLOAD = 52;
+    public static final byte DHCP_OPTION_OVERLOAD = 52;
 
     /**
      * Possible values of the option overload option.
@@ -209,86 +227,98 @@ public abstract class DhcpPacket {
     /**
      * DHCP Optional Type: DHCP Requested IP Address
      */
-    protected static final byte DHCP_REQUESTED_IP = 50;
-    protected Inet4Address mRequestedIp;
+    public static final byte DHCP_REQUESTED_IP = 50;
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+    public Inet4Address mRequestedIp;
 
     /**
      * DHCP Optional Type: DHCP Lease Time
      */
-    protected static final byte DHCP_LEASE_TIME = 51;
+    public static final byte DHCP_LEASE_TIME = 51;
     protected Integer mLeaseTime;
 
     /**
      * DHCP Optional Type: DHCP Message Type
      */
-    protected static final byte DHCP_MESSAGE_TYPE = 53;
+    public static final byte DHCP_MESSAGE_TYPE = 53;
     // the actual type values
-    protected static final byte DHCP_MESSAGE_TYPE_DISCOVER = 1;
-    protected static final byte DHCP_MESSAGE_TYPE_OFFER = 2;
-    protected static final byte DHCP_MESSAGE_TYPE_REQUEST = 3;
-    protected static final byte DHCP_MESSAGE_TYPE_DECLINE = 4;
-    protected static final byte DHCP_MESSAGE_TYPE_ACK = 5;
-    protected static final byte DHCP_MESSAGE_TYPE_NAK = 6;
-    protected static final byte DHCP_MESSAGE_TYPE_RELEASE = 7;
-    protected static final byte DHCP_MESSAGE_TYPE_INFORM = 8;
+    public static final byte DHCP_MESSAGE_TYPE_DISCOVER = 1;
+    public static final byte DHCP_MESSAGE_TYPE_OFFER = 2;
+    public static final byte DHCP_MESSAGE_TYPE_REQUEST = 3;
+    public static final byte DHCP_MESSAGE_TYPE_DECLINE = 4;
+    public static final byte DHCP_MESSAGE_TYPE_ACK = 5;
+    public static final byte DHCP_MESSAGE_TYPE_NAK = 6;
+    public static final byte DHCP_MESSAGE_TYPE_RELEASE = 7;
+    public static final byte DHCP_MESSAGE_TYPE_INFORM = 8;
 
     /**
      * DHCP Optional Type: DHCP Server Identifier
      */
-    protected static final byte DHCP_SERVER_IDENTIFIER = 54;
-    protected Inet4Address mServerIdentifier;
+    public static final byte DHCP_SERVER_IDENTIFIER = 54;
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+    public Inet4Address mServerIdentifier;
 
     /**
      * DHCP Optional Type: DHCP Parameter List
      */
-    protected static final byte DHCP_PARAMETER_LIST = 55;
+    public static final byte DHCP_PARAMETER_LIST = 55;
     protected byte[] mRequestedParams;
 
     /**
      * DHCP Optional Type: DHCP MESSAGE
      */
-    protected static final byte DHCP_MESSAGE = 56;
+    public static final byte DHCP_MESSAGE = 56;
     protected String mMessage;
 
     /**
      * DHCP Optional Type: Maximum DHCP Message Size
      */
-    protected static final byte DHCP_MAX_MESSAGE_SIZE = 57;
+    public static final byte DHCP_MAX_MESSAGE_SIZE = 57;
     protected Short mMaxMessageSize;
 
     /**
      * DHCP Optional Type: DHCP Renewal Time Value
      */
-    protected static final byte DHCP_RENEWAL_TIME = 58;
+    public static final byte DHCP_RENEWAL_TIME = 58;
     protected Integer mT1;
 
     /**
      * DHCP Optional Type: Rebinding Time Value
      */
-    protected static final byte DHCP_REBINDING_TIME = 59;
+    public static final byte DHCP_REBINDING_TIME = 59;
     protected Integer mT2;
 
     /**
      * DHCP Optional Type: Vendor Class Identifier
      */
-    protected static final byte DHCP_VENDOR_CLASS_ID = 60;
+    public static final byte DHCP_VENDOR_CLASS_ID = 60;
     protected String mVendorId;
 
     /**
      * DHCP Optional Type: DHCP Client Identifier
      */
-    protected static final byte DHCP_CLIENT_IDENTIFIER = 61;
+    public static final byte DHCP_CLIENT_IDENTIFIER = 61;
     protected byte[] mClientId;
+
+    /**
+     * DHCP zero-length Optional Type: Rapid Commit. Per RFC4039, both DHCPDISCOVER and DHCPACK
+     * packet may include this option.
+     */
+    public static final byte DHCP_RAPID_COMMIT = 80;
+    protected boolean mRapidCommit;
+
+    public static final byte DHCP_CAPTIVE_PORTAL = (byte) 114;
+    protected String mCaptivePortalUrl;
 
     /**
      * DHCP zero-length option code: pad
      */
-    protected static final byte DHCP_OPTION_PAD = 0x00;
+    public static final byte DHCP_OPTION_PAD = 0x00;
 
     /**
      * DHCP zero-length option code: end of options
      */
-    protected static final byte DHCP_OPTION_END = (byte) 0xff;
+    public static final byte DHCP_OPTION_END = (byte) 0xff;
 
     /**
      * The transaction identifier used in this particular DHCP negotiation
@@ -305,7 +335,8 @@ public abstract class DhcpPacket {
      * proposed by the client (from an earlier DHCP negotiation) or
      * supplied by the server.
      */
-    protected final Inet4Address mClientIp;
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+    public final Inet4Address mClientIp;
     protected final Inet4Address mYourIp;
     private final Inet4Address mNextIp;
     protected final Inet4Address mRelayIp;
@@ -341,7 +372,6 @@ public abstract class DhcpPacket {
     // Set in unit tests, to ensure that the test does not break when run on different devices and
     // on different releases.
     static String testOverrideVendorId = null;
-    static String testOverrideHostname = null;
 
     protected DhcpPacket(int transId, short secs, Inet4Address clientIp, Inet4Address yourIp,
                          Inet4Address nextIp, Inet4Address relayIp,
@@ -605,6 +635,14 @@ public abstract class DhcpPacket {
     }
 
     /**
+     * Adds an optional parameter containing zero-length value.
+     */
+    protected static void addTlv(ByteBuffer buf, byte type) {
+        buf.put(type);
+        buf.put((byte) 0);
+    }
+
+    /**
      * Adds an optional parameter containing an array of bytes.
      *
      * <p>This method is a no-op if the payload argument is null.
@@ -707,9 +745,16 @@ public abstract class DhcpPacket {
         return "android-dhcp-" + Build.VERSION.RELEASE;
     }
 
-    private String getHostname() {
-        if (testOverrideHostname != null) return testOverrideHostname;
-        return SystemProperties.get("net.hostname");
+    /**
+     * Get the DHCP client hostname after transliteration.
+     */
+    @VisibleForTesting
+    public String getHostname() {
+        if (mHostName == null
+                && !ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q)) {
+            return SystemProperties.get("net.hostname");
+        }
+        return mHostName;
     }
 
     /**
@@ -744,6 +789,7 @@ public abstract class DhcpPacket {
         if (mMtu != null && Short.toUnsignedInt(mMtu) >= IPV4_MIN_MTU) {
             addTlv(buf, DHCP_MTU, mMtu);
         }
+        addTlv(buf, DHCP_CAPTIVE_PORTAL, mCaptivePortalUrl);
     }
 
     /**
@@ -830,6 +876,23 @@ public abstract class DhcpPacket {
         }
     }
 
+    private static int skipOption(ByteBuffer packet, int optionLen)
+            throws BufferUnderflowException {
+        int expectedLen = 0;
+        for (int i = 0; i < optionLen; i++) {
+            expectedLen++;
+            packet.get();
+        }
+        return expectedLen;
+    }
+
+    private static boolean shouldSkipOption(byte optionType, byte[] optionsToSkip) {
+        for (byte option : optionsToSkip) {
+            if (option == optionType) return true;
+        }
+        return false;
+    }
+
     /**
      * Creates a concrete DhcpPacket from the supplied ByteBuffer.  The
      * buffer may have an L2 encapsulation (which is the full EthernetII
@@ -840,8 +903,8 @@ public abstract class DhcpPacket {
      * in object fields.
      */
     @VisibleForTesting
-    static DhcpPacket decodeFullPacket(ByteBuffer packet, int pktType) throws ParseException
-    {
+    static DhcpPacket decodeFullPacket(ByteBuffer packet, int pktType, byte[] optionsToSkip)
+            throws ParseException {
         // bootp parameters
         int transactionId;
         short secs;
@@ -858,6 +921,8 @@ public abstract class DhcpPacket {
         String message = null;
         String vendorId = null;
         String vendorInfo = null;
+        boolean rapidCommit = false;
+        String captivePortalUrl = null;
         byte[] expectedParams = null;
         String hostName = null;
         String domainName = null;
@@ -1038,6 +1103,11 @@ public abstract class DhcpPacket {
                     int optionLen = packet.get() & 0xFF;
                     int expectedLen = 0;
 
+                    if (shouldSkipOption(optionType, optionsToSkip)) {
+                        skipOption(packet, optionLen);
+                        continue;
+                    }
+
                     switch(optionType) {
                         case DHCP_SUBNET_MASK:
                             netMask = readIpAddress(packet);
@@ -1112,8 +1182,8 @@ public abstract class DhcpPacket {
                             vendorId = readAsciiString(packet, optionLen, true);
                             break;
                         case DHCP_CLIENT_IDENTIFIER: { // Client identifier
-                            byte[] id = new byte[optionLen];
-                            packet.get(id);
+                            clientId = new byte[optionLen];
+                            packet.get(clientId);
                             expectedLen = optionLen;
                         } break;
                         case DHCP_VENDOR_INFO:
@@ -1126,12 +1196,16 @@ public abstract class DhcpPacket {
                             optionOverload = packet.get();
                             optionOverload &= OPTION_OVERLOAD_BOTH;
                             break;
+                        case DHCP_RAPID_COMMIT:
+                            expectedLen = 0;
+                            rapidCommit = true;
+                            break;
+                        case DHCP_CAPTIVE_PORTAL:
+                            expectedLen = optionLen;
+                            captivePortalUrl = readAsciiString(packet, optionLen, true);
+                            break;
                         default:
-                            // ignore any other parameters
-                            for (int i = 0; i < optionLen; i++) {
-                                expectedLen++;
-                                byte throwaway = packet.get();
-                            }
+                            expectedLen = skipOption(packet, optionLen);
                     }
 
                     if (expectedLen != optionLen) {
@@ -1157,7 +1231,7 @@ public abstract class DhcpPacket {
                         "No DHCP message type option");
             case DHCP_MESSAGE_TYPE_DISCOVER:
                 newPacket = new DhcpDiscoverPacket(transactionId, secs, relayIp, clientMac,
-                        broadcast, ipSrc);
+                        broadcast, ipSrc, rapidCommit);
                 break;
             case DHCP_MESSAGE_TYPE_OFFER:
                 newPacket = new DhcpOfferPacket(
@@ -1169,12 +1243,13 @@ public abstract class DhcpPacket {
                 break;
             case DHCP_MESSAGE_TYPE_DECLINE:
                 newPacket = new DhcpDeclinePacket(
-                    transactionId, secs, clientIp, yourIp, nextIp, relayIp,
-                    clientMac);
+                    transactionId, secs, clientIp, yourIp, nextIp, relayIp, clientMac, requestedIp,
+                    serverIdentifier);
                 break;
             case DHCP_MESSAGE_TYPE_ACK:
                 newPacket = new DhcpAckPacket(
-                    transactionId, secs, broadcast, ipSrc, relayIp, clientIp, yourIp, clientMac);
+                    transactionId, secs, broadcast, ipSrc, relayIp, clientIp, yourIp, clientMac,
+                    rapidCommit);
                 break;
             case DHCP_MESSAGE_TYPE_NAK:
                 newPacket = new DhcpNakPacket(
@@ -1216,6 +1291,7 @@ public abstract class DhcpPacket {
         newPacket.mT2 = T2;
         newPacket.mVendorId = vendorId;
         newPacket.mVendorInfo = vendorInfo;
+        newPacket.mCaptivePortalUrl = captivePortalUrl;
         if ((optionOverload & OPTION_OVERLOAD_SNAME) == 0) {
             newPacket.mServerHostName = serverHostName;
         } else {
@@ -1227,16 +1303,24 @@ public abstract class DhcpPacket {
     /**
      * Parse a packet from an array of bytes, stopping at the given length.
      */
-    public static DhcpPacket decodeFullPacket(byte[] packet, int length, int pktType)
-            throws ParseException {
+    public static DhcpPacket decodeFullPacket(byte[] packet, int length, int pktType,
+            byte[] optionsToSkip) throws ParseException {
         ByteBuffer buffer = ByteBuffer.wrap(packet, 0, length).order(ByteOrder.BIG_ENDIAN);
         try {
-            return decodeFullPacket(buffer, pktType);
+            return decodeFullPacket(buffer, pktType, optionsToSkip);
         } catch (ParseException e) {
             throw e;
         } catch (Exception e) {
             throw new ParseException(DhcpErrorEvent.PARSING_ERROR, e.getMessage());
         }
+    }
+
+    /**
+     * Parse a packet from an array of bytes, stopping at the given length.
+     */
+    public static DhcpPacket decodeFullPacket(byte[] packet, int length, int pktType)
+            throws ParseException {
+        return decodeFullPacket(packet, length, pktType, new byte[0]);
     }
 
     /**
@@ -1281,6 +1365,7 @@ public abstract class DhcpPacket {
         results.leaseDuration = (mLeaseTime != null) ? mLeaseTime : INFINITE_LEASE;
         results.mtu = (mMtu != null && MIN_MTU <= mMtu && mMtu <= MAX_MTU) ? mMtu : 0;
         results.serverHostName = mServerHostName;
+        results.captivePortalApiUrl = mCaptivePortalUrl;
 
         return results;
     }
@@ -1304,10 +1389,12 @@ public abstract class DhcpPacket {
      * parameters.
      */
     public static ByteBuffer buildDiscoverPacket(int encap, int transactionId,
-        short secs, byte[] clientMac, boolean broadcast, byte[] expectedParams) {
+            short secs, byte[] clientMac, boolean broadcast, byte[] expectedParams,
+            boolean rapidCommit, String hostname) {
         DhcpPacket pkt = new DhcpDiscoverPacket(transactionId, secs, INADDR_ANY /* relayIp */,
-                clientMac, broadcast, INADDR_ANY /* srcIp */);
+                clientMac, broadcast, INADDR_ANY /* srcIp */, rapidCommit);
         pkt.mRequestedParams = expectedParams;
+        pkt.mHostName = hostname;
         return pkt.buildPacket(encap, DHCP_SERVER, DHCP_CLIENT);
     }
 
@@ -1316,11 +1403,11 @@ public abstract class DhcpPacket {
      * parameters.
      */
     public static ByteBuffer buildOfferPacket(int encap, int transactionId,
-        boolean broadcast, Inet4Address serverIpAddr, Inet4Address relayIp,
-        Inet4Address yourIp, byte[] mac, Integer timeout, Inet4Address netMask,
-        Inet4Address bcAddr, List<Inet4Address> gateways, List<Inet4Address> dnsServers,
-        Inet4Address dhcpServerIdentifier, String domainName, String hostname, boolean metered,
-        short mtu) {
+            boolean broadcast, Inet4Address serverIpAddr, Inet4Address relayIp,
+            Inet4Address yourIp, byte[] mac, Integer timeout, Inet4Address netMask,
+            Inet4Address bcAddr, List<Inet4Address> gateways, List<Inet4Address> dnsServers,
+            Inet4Address dhcpServerIdentifier, String domainName, String hostname, boolean metered,
+            short mtu, String captivePortalUrl) {
         DhcpPacket pkt = new DhcpOfferPacket(
                 transactionId, (short) 0, broadcast, serverIpAddr, relayIp,
                 INADDR_ANY /* clientIp */, yourIp, mac);
@@ -1333,6 +1420,7 @@ public abstract class DhcpPacket {
         pkt.mSubnetMask = netMask;
         pkt.mBroadcastAddress = bcAddr;
         pkt.mMtu = mtu;
+        pkt.mCaptivePortalUrl = captivePortalUrl;
         if (metered) {
             pkt.mVendorInfo = VENDOR_INFO_ANDROID_METERED;
         }
@@ -1343,14 +1431,14 @@ public abstract class DhcpPacket {
      * Builds a DHCP-ACK packet from the required specified parameters.
      */
     public static ByteBuffer buildAckPacket(int encap, int transactionId,
-        boolean broadcast, Inet4Address serverIpAddr, Inet4Address relayIp, Inet4Address yourIp,
-        Inet4Address requestClientIp, byte[] mac, Integer timeout, Inet4Address netMask,
-        Inet4Address bcAddr, List<Inet4Address> gateways, List<Inet4Address> dnsServers,
-        Inet4Address dhcpServerIdentifier, String domainName, String hostname, boolean metered,
-        short mtu) {
+            boolean broadcast, Inet4Address serverIpAddr, Inet4Address relayIp, Inet4Address yourIp,
+            Inet4Address requestClientIp, byte[] mac, Integer timeout, Inet4Address netMask,
+            Inet4Address bcAddr, List<Inet4Address> gateways, List<Inet4Address> dnsServers,
+            Inet4Address dhcpServerIdentifier, String domainName, String hostname, boolean metered,
+            short mtu, boolean rapidCommit, String captivePortalUrl) {
         DhcpPacket pkt = new DhcpAckPacket(
                 transactionId, (short) 0, broadcast, serverIpAddr, relayIp, requestClientIp, yourIp,
-                mac);
+                mac, rapidCommit);
         pkt.mGateways = gateways;
         pkt.mDnsServers = dnsServers;
         pkt.mLeaseTime = timeout;
@@ -1360,6 +1448,7 @@ public abstract class DhcpPacket {
         pkt.mServerIdentifier = dhcpServerIdentifier;
         pkt.mBroadcastAddress = bcAddr;
         pkt.mMtu = mtu;
+        pkt.mCaptivePortalUrl = captivePortalUrl;
         if (metered) {
             pkt.mVendorInfo = VENDOR_INFO_ANDROID_METERED;
         }
@@ -1382,15 +1471,27 @@ public abstract class DhcpPacket {
      * Builds a DHCP-REQUEST packet from the required specified parameters.
      */
     public static ByteBuffer buildRequestPacket(int encap,
-        int transactionId, short secs, Inet4Address clientIp, boolean broadcast,
-        byte[] clientMac, Inet4Address requestedIpAddress,
-        Inet4Address serverIdentifier, byte[] requestedParams, String hostName) {
+            int transactionId, short secs, Inet4Address clientIp, boolean broadcast,
+            byte[] clientMac, Inet4Address requestedIpAddress,
+            Inet4Address serverIdentifier, byte[] requestedParams, String hostName) {
         DhcpPacket pkt = new DhcpRequestPacket(transactionId, secs, clientIp,
                 INADDR_ANY /* relayIp */, clientMac, broadcast);
         pkt.mRequestedIp = requestedIpAddress;
         pkt.mServerIdentifier = serverIdentifier;
         pkt.mHostName = hostName;
         pkt.mRequestedParams = requestedParams;
+        ByteBuffer result = pkt.buildPacket(encap, DHCP_SERVER, DHCP_CLIENT);
+        return result;
+    }
+
+    /**
+     * Builds a DHCP-DECLINE packet from the required specified parameters.
+     */
+    public static ByteBuffer buildDeclinePacket(int encap, int transactionId, byte[] clientMac,
+            Inet4Address requestedIpAddress, Inet4Address serverIdentifier) {
+        DhcpPacket pkt = new DhcpDeclinePacket(transactionId, (short) 0 /* secs */,
+                INADDR_ANY /* clientIp */, INADDR_ANY /* yourIp */, INADDR_ANY /* nextIp */,
+                INADDR_ANY /* relayIp */, clientMac, requestedIpAddress, serverIdentifier);
         ByteBuffer result = pkt.buildPacket(encap, DHCP_SERVER, DHCP_CLIENT);
         return result;
     }

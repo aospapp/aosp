@@ -62,14 +62,12 @@ class AdvertisingSetTest(BluetoothBaseTest):
         ]
     }
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
-        self.adv_ad = self.android_devices[0]
-
     def setup_class(self):
         super(AdvertisingSetTest, self).setup_class()
+        self.adv_ad = self.android_devices[0]
+
         if not self.adv_ad.droid.bluetoothIsLeExtendedAdvertisingSupported():
-            raise signals.TestSkipClass(
+            raise signals.TestAbortClass(
                 "Advertiser does not support LE Extended Advertising")
 
     def teardown_test(self):

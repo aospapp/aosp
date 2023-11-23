@@ -42,6 +42,8 @@ namespace android {
 
 const int Scene::kSceneWidth = 20;
 const int Scene::kSceneHeight = 20;
+const int Scene::kMaxWidth = 20;
+const int Scene::kMaxHeight = 20;
 
 const uint8_t Scene::kScene[Scene::kSceneWidth * Scene::kSceneHeight] = {
     //      5         10        15        20
@@ -339,44 +341,15 @@ void Scene::calculateScene(nsecs_t time) {
     setReadoutPixel(0,0);
 }
 
-void Scene::setReadoutPixel(int x, int y) {
-    mCurrentX = x;
-    mCurrentY = y;
-    mSubX = (x + mOffsetX + mHandshakeX) % mMapDiv;
-    mSubY = (y + mOffsetY + mHandshakeY) % mMapDiv;
-    mSceneX = (x + mOffsetX + mHandshakeX) / mMapDiv;
-    mSceneY = (y + mOffsetY + mHandshakeY) / mMapDiv;
-    mSceneIdx = mSceneY * kSceneWidth + mSceneX;
-    mCurrentSceneMaterial = &(mCurrentColors[kScene[mSceneIdx]]);
-}
-
-const uint32_t* Scene::getPixelElectrons() {
-    const uint32_t *pixel = mCurrentSceneMaterial;
-    mCurrentX++;
-    mSubX++;
-    if (mCurrentX >= mSensorWidth) {
-        mCurrentX = 0;
-        mCurrentY++;
-        if (mCurrentY >= mSensorHeight) mCurrentY = 0;
-        setReadoutPixel(mCurrentX, mCurrentY);
-    } else if (mSubX > mMapDiv) {
-        mSceneIdx++;
-        mSceneX++;
-        mCurrentSceneMaterial = &(mCurrentColors[kScene[mSceneIdx]]);
-        mSubX = 0;
-    }
-    return pixel;
-}
-
 // Handshake model constants.
 // Frequencies measured in a nanosecond timebase
-const float Scene::kHorizShakeFreq1 = 2 * M_PI * 2  / 1e9; // 2 Hz
-const float Scene::kHorizShakeFreq2 = 2 * M_PI * 13 / 1e9; // 13 Hz
-const float Scene::kVertShakeFreq1  = 2 * M_PI * 3  / 1e9; // 3 Hz
-const float Scene::kVertShakeFreq2  = 2 * M_PI * 11 / 1e9; // 1 Hz
+const float Scene::kHorizShakeFreq1 = 2 * M_PI * 1  / 1e9; // 1 Hz
+const float Scene::kHorizShakeFreq2 = 2 * M_PI * 1 / 1e9; // 1 Hz
+const float Scene::kVertShakeFreq1  = 2 * M_PI * 1  / 1e9; // 1 Hz
+const float Scene::kVertShakeFreq2  = 2 * M_PI * 1 / 1e9; // 1 Hz
 const float Scene::kFreq1Magnitude  = 5;
 const float Scene::kFreq2Magnitude  = 1;
-const float Scene::kShakeFraction   = 0.03; // As a fraction of a scene tile
+const float Scene::kShakeFraction   = 0.2; // As a fraction of a scene tile
 
 // RGB->YUV, Jpeg standard
 const float Scene::kRgb2Yuv[12] = {

@@ -16,9 +16,12 @@
 
 package com.android.car.settings.users;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.UserInfo;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.UserManager;
 
 import com.android.car.settings.R;
@@ -45,9 +48,8 @@ public class UserUtils {
      * Returns the user name that should be displayed. The caller shouldn't use userInfo.name
      * directly, because the display name is modified for the current process user.
      */
-    public static String getUserDisplayName(Context context,
-            CarUserManagerHelper carUserManagerHelper, UserInfo userInfo) {
-        return carUserManagerHelper.isCurrentProcessUser(userInfo) ? context.getString(
+    public static String getUserDisplayName(Context context, UserInfo userInfo) {
+        return UserHelper.getInstance(context).isCurrentProcessUser(userInfo) ? context.getString(
                 R.string.current_user_name, userInfo.name) : userInfo.name;
     }
 
@@ -55,9 +57,17 @@ public class UserUtils {
      * Returns whether or not the current user is an admin and whether the user info they are
      * viewing is of a non-admin.
      */
-    public static boolean isAdminViewingNonAdmin(CarUserManagerHelper carUserManagerHelper,
-            UserInfo userInfo) {
-        return carUserManagerHelper.isCurrentProcessAdminUser() && !userInfo.isAdmin();
+    public static boolean isAdminViewingNonAdmin(UserManager userManager, UserInfo userInfo) {
+        return userManager.isAdminUser() && !userInfo.isAdmin();
     }
 
+    /**
+     * Returns a {@link Drawable} for the given {@code icon} scaled to the appropriate size.
+     */
+    public static BitmapDrawable scaleUserIcon(Resources res, Bitmap icon) {
+        int desiredSize = res.getDimensionPixelSize(R.dimen.icon_size);
+        Bitmap scaledIcon =
+                Bitmap.createScaledBitmap(icon, desiredSize, desiredSize, /*filter=*/true);
+        return new BitmapDrawable(res, scaledIcon);
+    }
 }

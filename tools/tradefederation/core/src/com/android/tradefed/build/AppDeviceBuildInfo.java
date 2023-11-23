@@ -16,13 +16,12 @@
 
 package com.android.tradefed.build;
 
-import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
-/** A {@link IDeviceBuildInfo} that also contains a {@link IAppBuildInfo}. */
+/**
+ * A {@link IDeviceBuildInfo} that also contains a {@link IAppBuildInfo}.
+ *
+ * @deprecated Use {@link IDeviceBuildInfo} directly.
+ */
+@Deprecated
 public class AppDeviceBuildInfo extends DeviceBuildInfo implements IAppBuildInfo {
 
     private static final long serialVersionUID = BuildSerializedVersion.VERSION;
@@ -32,27 +31,6 @@ public class AppDeviceBuildInfo extends DeviceBuildInfo implements IAppBuildInfo
      */
     public AppDeviceBuildInfo(String buildId, String buildName) {
         super(buildId, buildName);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addAppPackageFile(File appPackageFile, String version) {
-        setFile(BuildInfoFileKey.PACKAGE_FILES, appPackageFile, version);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<VersionedFile> getAppPackageFiles() {
-        List<VersionedFile> origList = getVersionedFiles(BuildInfoFileKey.PACKAGE_FILES);
-        List<VersionedFile> listCopy = new ArrayList<VersionedFile>();
-        if (origList != null) {
-            listCopy.addAll(origList);
-        }
-        return listCopy;
     }
 
     /** Copy all the files from the {@link IAppBuildInfo}. */

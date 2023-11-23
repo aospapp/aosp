@@ -1,13 +1,18 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-# Copyright 2015 Google Inc. All Rights Reserved.
+# Copyright 2015 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """This contains the unit tests for the new Crosperf task scheduler."""
 
 from __future__ import print_function
 
-import mock
+import functools
+import io
 import unittest
-import StringIO
+import unittest.mock as mock
 
 import benchmark_run
 import test_flag
@@ -20,6 +25,7 @@ from schedv2 import Schedv2
 EXPERIMENT_FILE_1 = """\
 board: daisy
 remote: chromeos-daisy1.cros chromeos-daisy2.cros
+locks_dir: /tmp
 
 benchmark: kraken {
   suite: telemetry_Crosperf
@@ -40,6 +46,7 @@ image2 {
 EXPERIMENT_FILE_WITH_FORMAT = """\
 board: daisy
 remote: chromeos-daisy1.cros chromeos-daisy2.cros
+locks_dir: /tmp
 
 benchmark: kraken {{
   suite: telemetry_Crosperf
@@ -73,7 +80,7 @@ class Schedv2Test(unittest.TestCase):
 
         Note - we mock out BenchmarkRun in this step.
     """
-    experiment_file = ExperimentFile(StringIO.StringIO(expstr))
+    experiment_file = ExperimentFile(io.StringIO(expstr))
     experiment = ExperimentFactory().GetExperiment(
         experiment_file, working_directory='', log_dir='')
     return experiment
@@ -125,16 +132,16 @@ class Schedv2Test(unittest.TestCase):
     # We have 9 * 2 == 18 brs, we use 5 threads, each reading 4, 4, 4,
     # 4, 2 brs respectively.
     # Assert that BenchmarkRunCacheReader() is called 5 times.
-    self.assertEquals(reader.call_count, 5)
+    self.assertEqual(reader.call_count, 5)
     # reader.call_args_list[n] - nth call.
     # reader.call_args_list[n][0] - positioned args in nth call.
     # reader.call_args_list[n][0][1] - the 2nd arg in nth call,
     # that is 'br_list' in 'schedv2.BenchmarkRunCacheReader'.
-    self.assertEquals(len(reader.call_args_list[0][0][1]), 4)
-    self.assertEquals(len(reader.call_args_list[1][0][1]), 4)
-    self.assertEquals(len(reader.call_args_list[2][0][1]), 4)
-    self.assertEquals(len(reader.call_args_list[3][0][1]), 4)
-    self.assertEquals(len(reader.call_args_list[4][0][1]), 2)
+    self.assertEqual(len(reader.call_args_list[0][0][1]), 4)
+    self.assertEqual(len(reader.call_args_list[1][0][1]), 4)
+    self.assertEqual(len(reader.call_args_list[2][0][1]), 4)
+    self.assertEqual(len(reader.call_args_list[3][0][1]), 4)
+    self.assertEqual(len(reader.call_args_list[4][0][1]), 2)
 
   @mock.patch('schedv2.BenchmarkRunCacheReader')
   def test_BenchmarkRunCacheReader_2(self, reader):
@@ -145,11 +152,11 @@ class Schedv2Test(unittest.TestCase):
     my_schedv2 = Schedv2(self.exp)
     self.assertFalse(my_schedv2.is_complete())
     # We have 8 * 2 == 16 brs, we use 4 threads, each reading 4 brs.
-    self.assertEquals(reader.call_count, 4)
-    self.assertEquals(len(reader.call_args_list[0][0][1]), 4)
-    self.assertEquals(len(reader.call_args_list[1][0][1]), 4)
-    self.assertEquals(len(reader.call_args_list[2][0][1]), 4)
-    self.assertEquals(len(reader.call_args_list[3][0][1]), 4)
+    self.assertEqual(reader.call_count, 4)
+    self.assertEqual(len(reader.call_args_list[0][0][1]), 4)
+    self.assertEqual(len(reader.call_args_list[1][0][1]), 4)
+    self.assertEqual(len(reader.call_args_list[2][0][1]), 4)
+    self.assertEqual(len(reader.call_args_list[3][0][1]), 4)
 
   @mock.patch('schedv2.BenchmarkRunCacheReader')
   def test_BenchmarkRunCacheReader_3(self, reader):
@@ -160,9 +167,9 @@ class Schedv2Test(unittest.TestCase):
     my_schedv2 = Schedv2(self.exp)
     self.assertFalse(my_schedv2.is_complete())
     # We have 3 * 2 == 6 brs, we use 2 threads.
-    self.assertEquals(reader.call_count, 2)
-    self.assertEquals(len(reader.call_args_list[0][0][1]), 3)
-    self.assertEquals(len(reader.call_args_list[1][0][1]), 3)
+    self.assertEqual(reader.call_count, 2)
+    self.assertEqual(len(reader.call_args_list[0][0][1]), 3)
+    self.assertEqual(len(reader.call_args_list[1][0][1]), 3)
 
   @mock.patch('schedv2.BenchmarkRunCacheReader')
   def test_BenchmarkRunCacheReader_4(self, reader):
@@ -173,8 +180,8 @@ class Schedv2Test(unittest.TestCase):
     my_schedv2 = Schedv2(self.exp)
     self.assertFalse(my_schedv2.is_complete())
     # We have 1 * 2 == 2 br, so only 1 instance.
-    self.assertEquals(reader.call_count, 1)
-    self.assertEquals(len(reader.call_args_list[0][0][1]), 2)
+    self.assertEqual(reader.call_count, 1)
+    self.assertEqual(len(reader.call_args_list[0][0][1]), 2)
 
   def test_cachehit(self):
     """Test cache-hit and none-cache-hit brs are properly organized."""
@@ -188,11 +195,11 @@ class Schedv2Test(unittest.TestCase):
       self.exp = self._make_fake_experiment(
           EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=30))
       my_schedv2 = Schedv2(self.exp)
-      self.assertEquals(len(my_schedv2.get_cached_run_list()), 30)
+      self.assertEqual(len(my_schedv2.get_cached_run_list()), 30)
       # The non-cache-hit brs are put into Schedv2._label_brl_map.
-      self.assertEquals(
-          reduce(lambda a, x: a + len(x[1]),
-                 my_schedv2.get_label_map().iteritems(), 0), 30)
+      self.assertEqual(
+          functools.reduce(lambda a, x: a + len(x[1]),
+                           my_schedv2.get_label_map().items(), 0), 30)
 
   def test_nocachehit(self):
     """Test no cache-hit."""
@@ -206,11 +213,11 @@ class Schedv2Test(unittest.TestCase):
       self.exp = self._make_fake_experiment(
           EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=30))
       my_schedv2 = Schedv2(self.exp)
-      self.assertEquals(len(my_schedv2.get_cached_run_list()), 0)
+      self.assertEqual(len(my_schedv2.get_cached_run_list()), 0)
       # The non-cache-hit brs are put into Schedv2._label_brl_map.
-      self.assertEquals(
-          reduce(lambda a, x: a + len(x[1]),
-                 my_schedv2.get_label_map().iteritems(), 0), 60)
+      self.assertEqual(
+          functools.reduce(lambda a, x: a + len(x[1]),
+                           my_schedv2.get_label_map().items(), 0), 60)
 
 
 if __name__ == '__main__':

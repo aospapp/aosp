@@ -20,8 +20,8 @@ import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 /**
  * A test suite for all host util unit tests.
- * <p/>
- * All tests listed here should be self-contained, and do not require any external dependencies.
+ *
+ * <p>All tests listed here should be self-contained, and do not require any external dependencies.
  */
 @RunWith(Suite.class)
 @SuiteClasses({
@@ -29,6 +29,7 @@ import org.junit.runners.Suite.SuiteClasses;
     DynamicConfigHandlerTest.class,
     ModuleResultTest.class,
     TestFilterTest.class,
+    PollingCheckTest.class,
 })
 public class HostUnitTests {
     // empty on purpose

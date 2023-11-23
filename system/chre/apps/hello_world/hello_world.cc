@@ -31,15 +31,16 @@ namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
 bool nanoappStart() {
-  chreLog(CHRE_LOG_INFO, "Hello, world from version 0x%08x", chreGetVersion());
+  chreLog(CHRE_LOG_INFO, "Hello, world from version 0x%08" PRIx32,
+          chreGetVersion());
   return true;
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId,
-                        uint16_t eventType,
+void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void * /*eventData*/) {
-  chreLog(CHRE_LOG_INFO, "Received event 0x%" PRIx16 " from 0x%" PRIx32 " at "
-          "time %" PRIu64, eventType, senderInstanceId, chreGetTime());
+  chreLog(CHRE_LOG_INFO,
+          "Received event 0x%" PRIx16 " from 0x%" PRIx32 " at time %" PRIu64,
+          eventType, senderInstanceId, chreGetTime());
 }
 
 void nanoappEnd() {
@@ -50,8 +51,8 @@ void nanoappEnd() {
 }  // anonymous namespace
 }  // namespace chre
 
-#include "chre/util/nanoapp/app_id.h"
 #include "chre/platform/static_nanoapp_init.h"
+#include "chre/util/nanoapp/app_id.h"
 
 CHRE_STATIC_NANOAPP_INIT(HelloWorld, chre::kHelloWorldAppId, 0);
 #endif  // CHRE_NANOAPP_INTERNAL

@@ -3,8 +3,35 @@
 # typical as you use for compilation/istallation. I use
 # /bin /sbin /usr/bin /usr/sbin /usr/local/bin, but it may
 # differ on your system.
-#
+
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:$PATH
+
+tst_cmd_available()
+{
+	if type command > /dev/null 2>&1; then
+		command -v $1 > /dev/null 2>&1 || return 1
+	else
+		which $1 > /dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			return 0
+		else
+			return 1
+		fi
+	fi
+}
+
+tst_cmd_run()
+{
+	local cmd="$1"
+	shift
+	tst_cmd_available $cmd && eval "$cmd $@"
+}
+
+is_enabled()
+{
+	[ -f "$1" ] && [ "$(cat $1)" = "Y" -o "$(cat $1)" = "1" ]
+}
+
 echo 'If some fields are empty or look unusual you may have an old version.'
 echo 'Compare to the current minimal requirements in Documentation/Changes.'
 
@@ -43,7 +70,7 @@ make --version 2>&1 | awk -F, '{print $1}' | awk \
 ld -v 2>&1 | awk -F\) '{print $1}' | awk \
       '/BFD/{print "binutils              ",$NF}'
 
-fdformat --version 2>&1 | awk -F\- '{print "util-linux            ", $NF}'
+mkswap -V 2>&1 | awk '{print "util-linux            ", $NF}'
 
 mount --version 2>&1 | awk -F\- '{print "mount                 ", $NF}'
 
@@ -85,6 +112,9 @@ ip -V 2>&1 | awk \
 ping -V 2>&1 | awk \
 'NR==1{print "iputils               ", $NF}'
 
+ethtool --version | grep version 2>&1 | awk \
+'NR==1{print "ethtool               ", $NF}'
+
 # Kbd needs 'loadkeys -h',
 loadkeys -h 2>&1 | awk \
 '(NR==1 && ($3 !~ /option/)) {print "Kbd                   ", $3}'
@@ -106,8 +136,19 @@ free
 
 echo
 echo 'cpuinfo:'
-if which lscpu > /dev/null 2>&1; then
-	lscpu
+tst_cmd_run lscpu || cat /proc/cpuinfo
+
+echo
+if is_enabled /sys/module/apparmor/parameters/enabled; then
+	echo 'AppArmor enabled'
+	tst_cmd_run aa-status
 else
-	cat /proc/cpuinfo
+	echo 'AppArmor disabled'
+fi
+
+echo
+
+if ! tst_cmd_run sestatus; then
+	printf 'SELinux mode: '
+	tst_cmd_run getenforce || echo 'unknown'
 fi

@@ -55,7 +55,6 @@ public:
 
     virtual BpHwBinder*   remoteBinder();
 
-            status_t    setConstantData(const void* data, size_t size);
             void        sendObituary();
                         // This refcount includes:
                         // 1. Strong references to the node by this and other processes
@@ -119,8 +118,8 @@ private:
     mutable String16            mDescriptorCache;
 };
 
-}; // namespace hardware
-}; // namespace android
+} // namespace hardware
+} // namespace android
 
 // ---------------------------------------------------------------------------
 

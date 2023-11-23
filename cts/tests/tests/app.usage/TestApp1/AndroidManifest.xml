@@ -22,5 +22,11 @@
         <activity android:name=".SomeActivity"
                   android:exported="true"
         />
+        <activity android:name=".SomeActivityWithLocus"
+                  android:exported="true"
+        />
+        <service android:name=".TestService"
+                  android:exported="true"
+        />
     </application>
 </manifest>

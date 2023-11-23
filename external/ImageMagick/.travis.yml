@@ -18,9 +18,12 @@ before_script:
 script: |
   set -e
   set -x
-  export OMP_NUM_THREADS=1
   export CFLAGS="-Wno-deprecated-declarations -Wdeclaration-after-statement -Wno-error=unused-variable"
-  ./configure --disable-openmp --with-quantum-depth=16 --enable-hdri=no --without-perl --prefix=/usr
+  if [ "$TRAVIS_COMPILER" == "gcc" ] ; then
+    ./configure --with-quantum-depth=16 --enable-hdri=no --without-perl --prefix=/usr
+  else
+    ./configure --disable-openmp --with-quantum-depth=16 --enable-hdri=no --without-perl --prefix=/usr
+  fi
   make
   make install DESTDIR=$(readlink -f appdir)
   # Build the fuzzers

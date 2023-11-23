@@ -18,11 +18,13 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/master_clear_confirm_title">
-    <Preference
+    android:title="@string/master_clear_confirm_title"
+    android:key="@string/psk_master_clear_confirm">
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_master_clear_confirm_desc"
         android:selectable="false"
         android:title="@string/master_clear_confirm_desc"
         settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
-        settings:singleLineTitle="false"/>
+        settings:singleLineTitle="false"
+        settings:showChevron="false"/>
 </PreferenceScreen>

@@ -29,6 +29,7 @@ import android.os.Environment;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.platform.helpers.exceptions.AccountException;
+import android.platform.helpers.exceptions.TestHelperException;
 import android.platform.helpers.exceptions.UnknownUiException;
 import android.platform.helpers.watchers.AppIsNotRespondingWatcher;
 import android.support.test.launcherhelper.ILauncherStrategy;
@@ -52,6 +53,7 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
     private static final String SCREENSHOT_DIR = "apphelper-screenshots";
     private static final String FAVOR_CMD = "favor-shell-commands";
     private static final String USE_HOME_CMD = "press-home-to-exit";
+    private static final String APP_IDLE_OPTION = "app-idle_ms";
     private static final String LAUNCH_TIMEOUT_OPTION = "app-launch-timeout_ms";
     private static final String ERROR_NOT_FOUND =
         "Element %s %s is not found in the application %s";
@@ -67,6 +69,7 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
             KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
     private final boolean mFavorShellCommands;
     private final boolean mPressHomeToExit;
+    private final long mAppIdle;
     private final long mLaunchTimeout;
 
     public AbstractStandardAppHelper(Instrumentation instr) {
@@ -78,6 +81,12 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
         mPressHomeToExit =
                 Boolean.valueOf(
                         InstrumentationRegistry.getArguments().getString(USE_HOME_CMD, "false"));
+        mAppIdle =
+                Long.valueOf(
+                        InstrumentationRegistry.getArguments()
+                                .getString(
+                                        APP_IDLE_OPTION,
+                                        String.valueOf(TimeUnit.SECONDS.toMillis(0))));
         //TODO(b/127356533): Choose a sensible default for app launch timeout after b/125356281.
         mLaunchTimeout =
                 Long.valueOf(
@@ -98,7 +107,7 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
                 mDevice.wakeUp();
             }
         } catch (RemoteException e) {
-            throw new RuntimeException("Could not unlock the device.", e);
+            throw new TestHelperException("Could not unlock the device.", e);
         }
         // Unlock the screen if necessary.
         if (mDevice.hasObject(By.res("com.android.systemui", "keyguard_bottom_area"))) {
@@ -114,15 +123,10 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
             String output = null;
             try {
                 Log.i(LOG_TAG, String.format("Sending command to launch: %s", pkg));
-                Intent intent =
-                        mInstrumentation
-                                .getContext()
-                                .getPackageManager()
-                                .getLaunchIntentForPackage(pkg);
-                mInstrumentation.getContext().startActivity(intent);
+                mInstrumentation.getContext().startActivity(getOpenAppIntent());
             } catch (ActivityNotFoundException e) {
                 removeDialogWatchers();
-                throw new RuntimeException(String.format("Failed to find package: %s", pkg), e);
+                throw new TestHelperException(String.format("Failed to find package: %s", pkg), e);
             }
         } else {
             // Launch using the UI and launcher strategy.
@@ -142,6 +146,33 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
                             pkg, System.currentTimeMillis() - launchInitiationTimeMs));
         }
         removeDialogWatchers();
+        // Idle for specified time after app launch
+        idleApp();
+    }
+
+    private void idleApp() {
+        if (mAppIdle != 0) {
+            Log.v(LOG_TAG, String.format("Idle app for %d ms", mAppIdle));
+            SystemClock.sleep(mAppIdle);
+        }
+    }
+
+    /**
+     * Returns the {@code Intent} used by {@code open()} to launch an {@code Activity}. The default
+     * implementation launches the default {@code Activity} of the package. Override this method to
+     * launch a different {@code Activity}.
+     */
+    public Intent getOpenAppIntent() {
+        Intent intent =
+                mInstrumentation
+                        .getContext()
+                        .getPackageManager()
+                        .getLaunchIntentForPackage(getPackage());
+        if (intent == null) {
+            throw new IllegalStateException(
+                    String.format("Failed to get intent of package: %s", getPackage()));
+        }
+        return intent;
     }
 
     /**
@@ -180,13 +211,14 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
         String pkg = getPackage();
 
         if (null == pkg || pkg.isEmpty()) {
-            throw new RuntimeException("Cannot find version of empty package");
+            throw new TestHelperException("Cannot find version of empty package");
         }
         PackageManager pm = mInstrumentation.getContext().getPackageManager();
         PackageInfo pInfo = pm.getPackageInfo(pkg, 0);
         String version = pInfo.versionName;
         if (null == version || version.isEmpty()) {
-            throw new RuntimeException(String.format("Version isn't found for package, %s", pkg));
+            throw new TestHelperException(
+                    String.format("Version isn't found for package, %s", pkg));
         }
 
         return version;
@@ -241,8 +273,7 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
             sScreenshotDirectory = new File(storage, SCREENSHOT_DIR);
             if (!sScreenshotDirectory.exists()) {
                 if (!sScreenshotDirectory.mkdirs()) {
-                    throw new RuntimeException(
-                            "Failed to create a screenshot directory.");
+                    throw new TestHelperException("Failed to create a screenshot directory.");
                 }
             }
         }

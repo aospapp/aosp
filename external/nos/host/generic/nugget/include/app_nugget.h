@@ -16,7 +16,6 @@
 #ifndef __CROS_EC_INCLUDE_APP_NUGGET_H
 #define __CROS_EC_INCLUDE_APP_NUGGET_H
 #include "application.h"
-#include "flash_layout.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,7 +27,7 @@ extern "C" {
  */
 /****************************************************************************/
 
-/* App-specific errors */
+/* App-specific errors (across all commands) */
 enum {
   NUGGET_ERROR_LOCKED = APP_SPECIFIC_ERROR,
   NUGGET_ERROR_RETRY,
@@ -52,10 +51,11 @@ enum {
 /****************************************************************************/
 /* Firmware upgrade stuff */
 
+#define NP_FLASH_BLOCK_SIZE 2048
 struct nugget_app_flash_block {
   uint32_t block_digest;                 /* first 4 bytes of sha1 of the rest */
   uint32_t offset;                       /* from start of flash */
-  uint8_t payload[CHIP_FLASH_BANK_SIZE]; /* data to write */
+  uint8_t payload[NP_FLASH_BLOCK_SIZE];  /* data to write */
 } __packed;
 
 #define NUGGET_PARAM_FLASH_BLOCK 0x0001
@@ -323,6 +323,15 @@ struct nugget_app_board_id {
  * @param reply_len    sizeof(uint32_t)
  */
 
+enum nugget_app_selftest_cmd {
+	/* Generic */
+	NUGGET_APP_SELFTEST_CMD_DEFAULT = 0,
+	NUGGET_APP_SELFTEST_CMD_HELP,
+
+	/* Application SelfTests */
+	NUGGET_APP_SELFTEST_CMD_TRNG = 0x10,
+};
+
 #define NUGGET_PARAM_SELFTEST 0x0101
 /*
  * Run an intentionally vaguely specified internal test.
@@ -377,6 +386,30 @@ struct nugget_app_low_power_stats {
 /* UNIMPLEMENTED */
 
 /****************************************************************************/
+/* Commands for code coverage and quality assurance */
+
+#define NUGGET_GET_COVERAGE_COUNTERS 0x0300
+/**
+ * Returns the counters back to the master
+ *
+ * @param args         module counter
+ * @param arg_len      1
+ * @param reply        buffer containing coverage data in utf-8 format
+ * @param reply_len    depends on the counters in the file
+ */
+
+/*
+ * Error returned if coverage data didn't fit in the buffer.
+ *
+ * TODO: Should really have a second arg which is an offset in the coverage
+ * data.  That way we could call repeatedly to return data too big to return in
+ * a single command.
+ */
+enum {
+  NUGGET_ERROR_COVERAGE_OVERFLOW = APP_SPECIFIC_ERROR + 0x300,
+};
+
+/****************************************************************************/
 /* These are bringup / debug functions only. */
 
 #define NUGGET_PARAM_READ32 0xF000
@@ -418,6 +451,53 @@ struct nugget_app_write32 {
  * @param arg_len      sizeof(command)
  * @param reply        recent console output
  * @param reply_len    len(recent console output)
+ */
+
+#define NUGGET_PARAM_MODULE_TEST 0xF003
+/**
+ * Run a module test based on a provided command.
+ *
+ * A default command is afforded (0x00), which runs each module test that is
+ * currently enabled. Specific tests can be specified, but are not enumerated
+ * here.
+ *
+ * The return code of the command (enum app_status) encodes the success state of
+ * the tests. A result of `APP_SUCCESS` is, unsurprisingly, a success for all
+ * specified tests. A failure of a given test is encoded using the
+ * `APP_SPECIFIC_ERROR` values. This allows a given test to not only report that
+ * an error has occured, but also to report which test threw the error, and in
+ * what point of the test the error was thrown.
+ * The encoding is as follows:
+ * `rv = (APP_SPECIFIC_ERROR + command + test_step)`
+ * where `command` is the 4-byte test value (in steps of 0x10), and where the
+ * test_step is a subdivision of the test, valued from 0-15.
+ *
+ * The return string will describe each test that passes, and each test that
+ * fails, and how it failed. Tests should abort after the first failure.
+ *
+ * @param args         uint32_t command
+ * @param arg_len      sizeof(uint32_t)
+ * @param reply        null-terminated string (usually)
+ * @param reply_len    number of bytes in reply (including trailing '\0')
+ */
+
+enum nugget_app_sleep_mode {
+	NUGGET_APP_SLEEP_MODE_DEFAULT,
+	NUGGET_APP_SLEEP_MODE_WFI,
+	NUGGET_APP_SLEEP_MODE_SLEEP
+};
+#define NUGGET_PARAM_SET_SLEEP_MODE 0xF004
+/**
+ * Set the Sleep mode of the GSC.
+ *
+ * In certain tests, we expect the GSC to be in either WFI mode, or in deep
+ * sleep mode. The sleep state should be provided by the host to the GSC, to
+ * ensure that the test is performed in the correct circumstances.
+ *
+ * @param args         enum nugget_app_sleep_mode selection
+ * @param arg_len      4
+ * @param reply        <none>
+ * @param reply_len    0
  */
 
 #ifdef __cplusplus

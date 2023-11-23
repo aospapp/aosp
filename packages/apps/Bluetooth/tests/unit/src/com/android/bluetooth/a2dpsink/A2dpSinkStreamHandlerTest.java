@@ -195,6 +195,39 @@ public class A2dpSinkStreamHandlerTest {
     }
 
     @Test
+    public void testFocusRerequest() {
+        // Focus was lost transiently, expect streaming to stop.
+        testSnkPlay();
+        mStreamHandler.handleMessage(
+                mStreamHandler.obtainMessage(A2dpSinkStreamHandler.AUDIO_FOCUS_CHANGE,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT));
+        verify(mMockAudioManager, times(0)).abandonAudioFocus(any());
+        verify(mMockA2dpSink, times(0)).informAudioFocusStateNative(0);
+        verify(mMockA2dpSink, times(1)).informAudioTrackGainNative(0);
+        mStreamHandler.handleMessage(
+                mStreamHandler.obtainMessage(A2dpSinkStreamHandler.REQUEST_FOCUS, true));
+        verify(mMockAudioManager, times(2)).requestAudioFocus(any());
+    }
+
+    @Test
+    public void testFocusGainTransient() {
+        // Focus was lost then regained.
+        testSnkPlay();
+        mStreamHandler.handleMessage(
+                mStreamHandler.obtainMessage(A2dpSinkStreamHandler.AUDIO_FOCUS_CHANGE,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT));
+        mStreamHandler.handleMessage(
+                mStreamHandler.obtainMessage(A2dpSinkStreamHandler.DELAYED_PAUSE));
+        mStreamHandler.handleMessage(
+                mStreamHandler.obtainMessage(A2dpSinkStreamHandler.AUDIO_FOCUS_CHANGE,
+                        AudioManager.AUDIOFOCUS_GAIN));
+        verify(mMockAudioManager, times(0)).abandonAudioFocus(any());
+        verify(mMockA2dpSink, times(0)).informAudioFocusStateNative(0);
+        verify(mMockA2dpSink, times(1)).informAudioTrackGainNative(0);
+        verify(mMockA2dpSink, times(2)).informAudioTrackGainNative(1.0f);
+    }
+
+    @Test
     public void testFocusLost() {
         // Focus was lost permanently, expect streaming to stop.
         testSnkPlay();

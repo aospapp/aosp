@@ -21,8 +21,7 @@ import static org.junit.Assert.assertTrue;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
-import com.android.tradefed.result.proto.ProtoResultReporter;
-import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
+import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.testtype.StubTest;
 import com.android.tradefed.testtype.suite.retry.ITestSuiteResultLoader;
 import com.android.tradefed.testtype.suite.retry.RetryRescheduler;
@@ -46,7 +45,7 @@ public class RetryConfigurationFactoryTest {
     private RetryConfigurationFactory mFactory;
     private File mConfig;
     private ITestSuiteResultLoader mMockLoader;
-    private TestRecord mFakeRecord;
+    private CollectingTestListener mFakeRecord;
 
     @Before
     public void setUp() throws Exception {
@@ -80,7 +79,7 @@ public class RetryConfigurationFactoryTest {
 
         mMockLoader.init();
         EasyMock.expect(mMockLoader.getCommandLine()).andReturn("suite/apct");
-        EasyMock.expect(mMockLoader.loadPreviousRecord()).andReturn(mFakeRecord);
+        EasyMock.expect(mMockLoader.loadPreviousResults()).andReturn(mFakeRecord);
         mMockLoader.customizeConfiguration(EasyMock.anyObject());
         mMockLoader.cleanUp();
 
@@ -97,17 +96,12 @@ public class RetryConfigurationFactoryTest {
     }
 
     private void populateFakeResults() {
-        ProtoResultReporter reporter =
-                new ProtoResultReporter() {
-                    @Override
-                    public void processFinalProto(TestRecord finalRecord) {
-                        mFakeRecord = finalRecord;
-                    }
-                };
+        CollectingTestListener reporter = new CollectingTestListener();
         IInvocationContext context = new InvocationContext();
         context.setConfigurationDescriptor(new ConfigurationDescriptor());
         context.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, new BuildInfo());
         reporter.invocationStarted(context);
         reporter.invocationEnded(0L);
+        mFakeRecord = reporter;
     }
 }

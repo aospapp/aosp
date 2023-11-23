@@ -28,13 +28,13 @@ android_test_helper_app {
         "junit",
         "android.test.base.stubs",
         "bouncycastle-unbundled",
+	"org.apache.http.legacy",
     ],
     static_libs: [
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
         "androidx.test.rules",
         "cts-security-test-support-library",
-        "testng",
         "truth-prebuilt",
         "androidx.legacy_legacy-support-v4",
     ],
@@ -43,7 +43,7 @@ android_test_helper_app {
     test_suites: [
         "arcts",
         "cts",
-        "vts",
+        "vts10",
         "general-tests",
     ],
 }

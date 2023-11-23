@@ -1,0 +1,8 @@
+{
+  "presubmit": [
+    {
+      "name": "libcras_tests_libcras",
+      "host": true
+    }
+  ]
+}

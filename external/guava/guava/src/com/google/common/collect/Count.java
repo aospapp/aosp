@@ -15,10 +15,8 @@
 package com.google.common.collect;
 
 import com.google.common.annotations.GwtCompatible;
-
 import java.io.Serializable;
-
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * A mutable value of type {@code int}, for multisets to use in tracking counts of values.
@@ -37,10 +35,8 @@ final class Count implements Serializable {
     return value;
   }
 
-  public int getAndAdd(int delta) {
-    int result = value;
-    value = result + delta;
-    return result;
+  public void add(int delta) {
+    value += delta;
   }
 
   public int addAndGet(int delta) {

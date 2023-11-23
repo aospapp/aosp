@@ -16,8 +16,9 @@ pa{
         "ਧ ਨ ਪ ਫ {ਫ\u0A3C} ਬ ਭ ਮ ਯ ਰ ਲ ਵ ੜ \u0A4D ਾ ਿ ੀ \u0A41 \u0A42 \u0A47 \u0A48 "
         "\u0A4B \u0A4C]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0੦ 1੧ 2੨ 3੩ 4੪ 5੫ 6੬ 7੭ 8੮ 9੯]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – — , ; \\: ! ? . ' ‘ ’ \u0022 “ ” ( ) \\[ \\] / \\& ′ ″]"}
+    ExemplarCharactersIndex{"[ੳ ਅ ੲ ਸ ਹ ਕ ਖ ਗ ਘ ਙ ਚ ਛ ਜ ਝ ਞ ਟ ਠ ਡ ਢ ਣ ਤ ਥ ਦ ਧ ਨ ਪ ਫ ਬ ਭ ਮ ਯ ਰ ਲ ਵ ੜ]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0੦ 1੧ 2੨ 3੩ 4੪ 5੫ 6੬ 7੭ 8੮ 9੯]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — , ; \\: ! ? . ' ‘ ’ \u0022 “ ” ( ) \\[ \\] / \\& ′ ″]"}
     MoreInformation{"?"}
     NumberElements{
         arabext{
@@ -256,7 +257,7 @@ pa{
         minimumGroupingDigits{"1"}
         native{"guru"}
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -508,7 +509,7 @@ pa{
                         "ਸੀਨ",
                         "ਹਮਲੇ",
                         "ਨੇਹਾਸੇ",
-                        "Pagumen",
+                        "ਪਾਗੂਮੇਨ",
                     }
                 }
             }
@@ -740,8 +741,8 @@ pa{
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMW{
-                    one{"MMM ਦਾ W ਹਫ਼ਤਾ"}
-                    other{"MMM ਦਾ W ਹਫ਼ਤਾ"}
+                    one{"MMMM ਦਾ W ਹਫ਼ਤਾ"}
+                    other{"MMMM ਦਾ W ਹਫ਼ਤਾ"}
                 }
                 MMMMd{"MMMM d"}
                 MMMd{"d MMM"}
@@ -1231,8 +1232,8 @@ pa{
                         "ਅਇਯਰ",
                         "ਸਿਵਾਨ",
                         "ਤਾਮੁਜ਼",
-                        "Av",
-                        "Elul",
+                        "ਅਵ",
+                        "ਏਲੁਲ",
                         "ਅਦਰ II",
                     }
                     narrow{
@@ -2539,9 +2540,21 @@ pa{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        or-narrow{
+            end{"{0}, ਜਾਂ {1}"}
+        }
+        or-short{
+            end{"{0}, ਜਾਂ {1}"}
+        }
         standard{
             2{"{0} ਅਤੇ {1}"}
             end{"{0} ਅਤੇ {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
@@ -2558,10 +2571,10 @@ pa{
             start{"{0}, {1}"}
         }
         unit-narrow{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-short{
             2{"{0}, {1}"}
@@ -2572,7 +2585,7 @@ pa{
     }
     measurementSystemNames{
         UK{"ਯੂ. ਕੇ."}
-        US{"ਯੂ. ਐਸ."}
+        US{"ਯੂ. ਐੱਸ."}
         metric{"ਮੀਟਰਿਕ"}
     }
     parse{

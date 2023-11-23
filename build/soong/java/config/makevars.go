@@ -29,18 +29,13 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("TARGET_DEFAULT_BOOTCLASSPATH_LIBRARIES", strings.Join(DefaultBootclasspathLibraries, " "))
 	ctx.Strict("DEFAULT_SYSTEM_MODULES", DefaultSystemModules)
 
-	if ctx.Config().TargetOpenJDK9() {
-		ctx.Strict("DEFAULT_JAVA_LANGUAGE_VERSION", "1.9")
-	} else {
-		ctx.Strict("DEFAULT_JAVA_LANGUAGE_VERSION", "1.8")
-	}
-
 	ctx.Strict("ANDROID_JAVA_HOME", "${JavaHome}")
 	ctx.Strict("ANDROID_JAVA8_HOME", "prebuilts/jdk/jdk8/${hostPrebuiltTag}")
 	ctx.Strict("ANDROID_JAVA9_HOME", "prebuilts/jdk/jdk9/${hostPrebuiltTag}")
+	ctx.Strict("ANDROID_JAVA11_HOME", "prebuilts/jdk/jdk11/${hostPrebuiltTag}")
 	ctx.Strict("ANDROID_JAVA_TOOLCHAIN", "${JavaToolchain}")
-	ctx.Strict("JAVA", "${JavaCmd}")
-	ctx.Strict("JAVAC", "${JavacCmd}")
+	ctx.Strict("JAVA", "${JavaCmd} ${JavaVmFlags}")
+	ctx.Strict("JAVAC", "${JavacCmd} ${JavacVmFlags}")
 	ctx.Strict("JAR", "${JarCmd}")
 	ctx.Strict("JAR_ARGS", "${JarArgsCmd}")
 	ctx.Strict("JAVADOC", "${JavadocCmd}")
@@ -58,8 +53,8 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 		ctx.Strict("ERROR_PRONE_CHECKS", "${ErrorProneChecks}")
 	}
 
-	ctx.Strict("TARGET_JAVAC", "${JavacCmd} ${CommonJdkFlags}")
-	ctx.Strict("HOST_JAVAC", "${JavacCmd} ${CommonJdkFlags}")
+	ctx.Strict("TARGET_JAVAC", "${JavacCmd}  ${JavacVmFlags} ${CommonJdkFlags}")
+	ctx.Strict("HOST_JAVAC", "${JavacCmd}  ${JavacVmFlags} ${CommonJdkFlags}")
 
 	ctx.Strict("JLINK", "${JlinkCmd}")
 	ctx.Strict("JMOD", "${JmodCmd}")
@@ -69,10 +64,11 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("ZIPSYNC", "${ZipSyncCmd}")
 
 	ctx.Strict("JACOCO_CLI_JAR", "${JacocoCLIJar}")
-	ctx.Strict("DEFAULT_JACOCO_EXCLUDE_FILTER", strings.Join(DefaultJacocoExcludeFilter, ","))
+	ctx.Strict("DEFAULT_JACOCO_EXCLUDE_FILTER", strings.Join(DefaultMakeJacocoExcludeFilter, ","))
 
 	ctx.Strict("EXTRACT_JAR_PACKAGES", "${ExtractJarPackagesCmd}")
 
+	ctx.Strict("MANIFEST_CHECK", "${ManifestCheckCmd}")
 	ctx.Strict("MANIFEST_FIXER", "${ManifestFixerCmd}")
 
 	ctx.Strict("ANDROID_MANIFEST_MERGER", "${ManifestMergerCmd}")
@@ -81,4 +77,17 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("HIDDENAPI", "${HiddenAPI}")
 
 	ctx.Strict("DEX_FLAGS", "${DexFlags}")
+
+	ctx.Strict("AIDL", "${AidlCmd}")
+	ctx.Strict("AAPT2", "${Aapt2Cmd}")
+	ctx.Strict("ZIPALIGN", "${ZipAlign}")
+	ctx.Strict("SIGNAPK_JAR", "${SignapkCmd}")
+	ctx.Strict("SIGNAPK_JNI_LIBRARY_PATH", "${SignapkJniLibrary}")
+
+	ctx.Strict("SOONG_ZIP", "${SoongZipCmd}")
+	ctx.Strict("MERGE_ZIPS", "${MergeZipsCmd}")
+	ctx.Strict("ZIP2ZIP", "${Zip2ZipCmd}")
+
+	ctx.Strict("ZIPTIME", "${Ziptime}")
+
 }

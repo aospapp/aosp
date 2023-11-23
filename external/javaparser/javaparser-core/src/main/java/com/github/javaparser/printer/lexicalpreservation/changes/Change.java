@@ -13,13 +13,13 @@ public interface Change {
     default boolean evaluate(CsmConditional csmConditional, Node node) {
         switch (csmConditional.getCondition()) {
             case FLAG:
-                return (Boolean) getValue(csmConditional.getProperty(), node);
+                return csmConditional.getProperties().stream().anyMatch(p -> (Boolean) getValue(p, node));
             case IS_NOT_EMPTY:
                 return !Utils.valueIsNullOrEmpty(getValue(csmConditional.getProperty(), node));
             case IS_EMPTY:
                 return Utils.valueIsNullOrEmpty(getValue(csmConditional.getProperty(), node));
             case IS_PRESENT:
-                return !Utils.valueIsNullOrEmpty(getValue(csmConditional.getProperty(), node));
+                return !Utils.valueIsNullOrEmptyStringOrOptional(getValue(csmConditional.getProperty(), node));
             default:
                 throw new UnsupportedOperationException("" + csmConditional.getProperty() + " " + csmConditional.getCondition());
         }

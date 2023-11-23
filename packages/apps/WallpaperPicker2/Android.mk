@@ -16,24 +16,13 @@
 
 LOCAL_PATH := $(call my-dir)
 
-#
-# Prebuilt Java Libraries
-#
-include $(CLEAR_VARS)
-LOCAL_MODULE := libStyleProtos
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_CLASS := JAVA_LIBRARIES
-LOCAL_SRC_FILES := libs/style_protos.jar
-LOCAL_UNINSTALLABLE_MODULE := true
-LOCAL_SDK_VERSION := current
-include $(BUILD_PREBUILT)
-
 include $(CLEAR_VARS)
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_MODULE := wallpaper2-glide-target
 LOCAL_SDK_VERSION := current
 LOCAL_SRC_FILES := ../../../prebuilts/maven_repo/bumptech/com/github/bumptech/glide/glide/SNAPSHOT/glide-SNAPSHOT$(COMMON_JAVA_PACKAGE_SUFFIX)
 LOCAL_UNINSTALLABLE_MODULE := true
+LOCAL_JETIFIER_ENABLED := true
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
@@ -64,7 +53,7 @@ LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/../../../external/subsampling-scale-image-vi
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_SDK_VERSION := current
-LOCAL_MIN_SDK_VERSION := 21
+LOCAL_MIN_SDK_VERSION := 26
 LOCAL_MODULE := wallpaper-subsampling-scale-image-view
 LOCAL_MANIFEST_FILE := ../../../external/subsampling-scale-image-view/library/src/main/AndroidManifest.xml
 
@@ -82,6 +71,7 @@ LOCAL_STATIC_ANDROID_LIBRARIES := \
     androidx.appcompat_appcompat \
     androidx.cardview_cardview \
     androidx.recyclerview_recyclerview \
+    androidx.slice_slice-view \
     androidx-constraintlayout_constraintlayout \
     com.google.android.material_material \
     androidx.exifinterface_exifinterface \
@@ -92,7 +82,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     wallpaper2-disklrucache-target \
     wallpaper2-gifdecoder-target \
     volley \
-    libbackup
+    libbackup \
+    SystemUISharedLib
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
@@ -100,13 +91,10 @@ LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_MANIFEST_FILE := AndroidManifest.xml
 
 ifneq (,$(wildcard frameworks/base))
-  LOCAL_STATIC_JAVA_LIBRARIES += SystemUISharedLib styleprotosnano
-  LOCAL_PRIVATE_PLATFORM_APIS := true
+    LOCAL_PRIVATE_PLATFORM_APIS := true
 else
-  LOCAL_STATIC_JAVA_LIBRARIES += libSharedSystemUI libStyleProtos
-  LOCAL_SDK_VERSION := current
+    LOCAL_SDK_VERSION := current
 endif
-
 LOCAL_MODULE := WallpaperPicker2CommonDepsLib
 LOCAL_PRIVILEGED_MODULE := true
 
@@ -131,12 +119,18 @@ LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 LOCAL_PROGUARD_ENABLED := disabled
 
+LOCAL_PRIVILEGED_MODULE := true
+
 ifneq (,$(wildcard frameworks/base))
   LOCAL_PRIVATE_PLATFORM_APIS := true
 else
   LOCAL_SDK_VERSION := system_current
+  LOCAL_STATIC_JAVA_LIBRARIES += libSharedWallpaper
 endif
+
 LOCAL_PACKAGE_NAME := WallpaperPicker2
 LOCAL_JETIFIER_ENABLED := true
 
 include $(BUILD_PACKAGE)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

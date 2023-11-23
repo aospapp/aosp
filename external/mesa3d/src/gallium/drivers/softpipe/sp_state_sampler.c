@@ -127,6 +127,7 @@ softpipe_set_sampler_views(struct pipe_context *pipe,
       if (sp_sviewsrc) {
          memcpy(sp_sviewdst, sp_sviewsrc, sizeof(*sp_sviewsrc));
          sp_sviewdst->compute_lambda = softpipe_get_lambda_func(&sp_sviewdst->base, shader);
+         sp_sviewdst->compute_lambda_from_grad = softpipe_get_lambda_from_grad_func(&sp_sviewdst->base, shader);
          sp_sviewdst->cache = softpipe->tex_cache[shader][start + i];
       }
       else {
@@ -181,8 +182,8 @@ prepare_shader_sampling(
    if (!num)
       return;
 
-   for (i = 0; i < PIPE_MAX_SHADER_SAMPLER_VIEWS; i++) {
-      struct pipe_sampler_view *view = i < num ? views[i] : NULL;
+   for (i = 0; i < num; i++) {
+      struct pipe_sampler_view *view = views[i];
 
       if (view) {
          struct pipe_resource *tex = view->texture;

@@ -26,9 +26,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "chre_api/chre/wwan.h"
 #include "chre/pal/system.h"
 #include "chre/pal/version.h"
+#include "chre_api/chre/wwan.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,95 +37,100 @@ extern "C" {
 /**
  * Initial version of the CHRE WWAN PAL, tied to CHRE API v1.1.
  */
-#define CHRE_PAL_WWAN_API_V1_0  CHRE_PAL_CREATE_API_VERSION(1, 0)
+#define CHRE_PAL_WWAN_API_V1_0 CHRE_PAL_CREATE_API_VERSION(1, 0)
+
+/**
+ * Introduced alongside CHRE API v1.4, adding support for NR5G Cell Info.
+ */
+#define CHRE_PAL_WWAN_API_V1_4 CHRE_PAL_CREATE_API_VERSION(1, 4)
 
 /**
  * The version of the CHRE WWAN PAL defined in this header file.
  */
-#define CHRE_PAL_WWAN_API_CURRENT_VERSION  CHRE_PAL_WWAN_API_V1_0
+#define CHRE_PAL_WWAN_API_CURRENT_VERSION CHRE_PAL_WWAN_API_V1_4
 
 struct chrePalWwanCallbacks {
-    /**
-     * Callback invoked to provide the result of a prior request to
-     * requestCellInfo in struct chrePalWwanApi.
-     *
-     * This function call passes ownership of the result's memory to the core
-     * CHRE system, i.e. the PAL module must not modify or free the provided
-     * data until the associated API function is called to release the memory.
-     *
-     * @param result
-     *
-     * @see chrePalWwanApi.requestCellInfo
-     * @see chrePalWwanApi.releaseCellInfoResult
-     */
-    void (*cellInfoResultCallback)(struct chreWwanCellInfoResult *result);
+  /**
+   * Callback invoked to provide the result of a prior request to
+   * requestCellInfo in struct chrePalWwanApi.
+   *
+   * This function call passes ownership of the result's memory to the core
+   * CHRE system, i.e. the PAL module must not modify or free the provided
+   * data until the associated API function is called to release the memory.
+   *
+   * @param result
+   *
+   * @see chrePalWwanApi.requestCellInfo
+   * @see chrePalWwanApi.releaseCellInfoResult
+   */
+  void (*cellInfoResultCallback)(struct chreWwanCellInfoResult *result);
 };
 
 struct chrePalWwanApi {
-    /**
-     * Version of the module providing this API. This value should be
-     * constructed from CHRE_PAL_CREATE_MODULE_VERSION using the supported
-     * API version constant (CHRE_PAL_WWAN_API_*) and the module-specific patch
-     * version.
-     */
-    uint32_t moduleVersion;
+  /**
+   * Version of the module providing this API. This value should be
+   * constructed from CHRE_PAL_CREATE_MODULE_VERSION using the supported
+   * API version constant (CHRE_PAL_WWAN_API_*) and the module-specific patch
+   * version.
+   */
+  uint32_t moduleVersion;
 
-    /**
-     * Initializes the WWAN module. Initialization must complete synchronously.
-     *
-     * @param systemApi Structure containing CHRE system function pointers which
-     *        the PAL implementation should prefer to use over equivalent
-     *        functionality exposed by the underlying platform. The module does
-     *        not need to deep-copy this structure; its memory remains
-     *        accessible at least until after close() is called.
-     * @param callbacks Structure containing entry points to the core CHRE
-     *        system. The module does not need to deep-copy this structure; its
-     *        memory remains accessible at least until after close() is called.
-     *
-     * @return true if initialization was successful, false otherwise
-     */
-    bool (*open)(const struct chrePalSystemApi *systemApi,
-                 const struct chrePalWwanCallbacks *callbacks);
+  /**
+   * Initializes the WWAN module. Initialization must complete synchronously.
+   *
+   * @param systemApi Structure containing CHRE system function pointers which
+   *        the PAL implementation should prefer to use over equivalent
+   *        functionality exposed by the underlying platform. The module does
+   *        not need to deep-copy this structure; its memory remains
+   *        accessible at least until after close() is called.
+   * @param callbacks Structure containing entry points to the core CHRE
+   *        system. The module does not need to deep-copy this structure; its
+   *        memory remains accessible at least until after close() is called.
+   *
+   * @return true if initialization was successful, false otherwise
+   */
+  bool (*open)(const struct chrePalSystemApi *systemApi,
+               const struct chrePalWwanCallbacks *callbacks);
 
-    /**
-     * Performs clean shutdown of the WWAN module, usually done in preparation
-     * for stopping the CHRE. The WWAN module must ensure that it will not
-     * invoke any callbacks past this point, and complete any relevant teardown
-     * activities before returning from this function.
-     */
-    void (*close)(void);
+  /**
+   * Performs clean shutdown of the WWAN module, usually done in preparation
+   * for stopping the CHRE. The WWAN module must ensure that it will not
+   * invoke any callbacks past this point, and complete any relevant teardown
+   * activities before returning from this function.
+   */
+  void (*close)(void);
 
-    /**
-     * Retrieves information about the features supported by this module. The
-     * value returned from this function must not change for the duration of
-     * execution.
-     *
-     * @return See chreWwanGetCapabilities()
-     *
-     * @see chreWwanGetCapabilities()
-     */
-    uint32_t (*getCapabilities)(void);
+  /**
+   * Retrieves information about the features supported by this module. The
+   * value returned from this function must not change for the duration of
+   * execution.
+   *
+   * @return See chreWwanGetCapabilities()
+   *
+   * @see chreWwanGetCapabilities()
+   */
+  uint32_t (*getCapabilities)(void);
 
-    /**
-     * Initiates a request for information about the current serving cell and
-     * its neighbors.
-     *
-     * @return true if the request was accepted, in which case a subsequent call
-     *         to cellInfoResultCallback will be used to communicate the result
-     *
-     * @see chreWwanGetCellInfoAsync()
-     * @see chrePalWwanCallbacks.cellInfoResultCallback
-     */
-    bool (*requestCellInfo)(void);
+  /**
+   * Initiates a request for information about the current serving cell and
+   * its neighbors.
+   *
+   * @return true if the request was accepted, in which case a subsequent call
+   *         to cellInfoResultCallback will be used to communicate the result
+   *
+   * @see chreWwanGetCellInfoAsync()
+   * @see chrePalWwanCallbacks.cellInfoResultCallback
+   */
+  bool (*requestCellInfo)(void);
 
-    /**
-     * Invoked when the core CHRE system no longer needs a raw measurement event
-     * structure that was provided to it via measurementEventCallback(). The
-     * GNSS module may use this to free associated memory, etc.
-     *
-     * @param result Result data to release
-     */
-    void (*releaseCellInfoResult)(struct chreWwanCellInfoResult *result);
+  /**
+   * Invoked when the core CHRE system no longer needs a raw measurement event
+   * structure that was provided to it via measurementEventCallback(). The
+   * GNSS module may use this to free associated memory, etc.
+   *
+   * @param result Result data to release
+   */
+  void (*releaseCellInfoResult)(struct chreWwanCellInfoResult *result);
 };
 
 /**
@@ -140,6 +145,21 @@ struct chrePalWwanApi {
  *         module is loaded.
  */
 const struct chrePalWwanApi *chrePalWwanGetApi(uint32_t requestedApiVersion);
+
+/**
+ * Helper setter for nci in the chreWwanCellIdentityNr struct.
+ *
+ * @param nci INT64_MAX if invalid/unreported.
+ *
+ * @see chreWwanCellIdentityNr
+ *
+ * @since v1.4
+ */
+static inline void chreWwanPackNrNci(int64_t nci,
+                                     struct chreWwanCellIdentityNr *nrCellId) {
+  nrCellId->nci1 = (nci >> 32) & 0xffffffff;
+  nrCellId->nci0 = nci & 0xffffffff;
+}
 
 #ifdef __cplusplus
 }

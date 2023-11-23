@@ -15,66 +15,82 @@
 #ifndef sw_Primitive_hpp
 #define sw_Primitive_hpp
 
+#include "Memset.hpp"
 #include "Vertex.hpp"
 #include "Device/Config.hpp"
+#include "System/Build.hpp"
 
-namespace sw
+namespace sw {
+
+struct Triangle MEMORY_SANITIZER_ONLY(
+    : Memset<Triangle>)
 {
-	struct Triangle
+#if MEMORY_SANITIZER_ENABLED
+	// Memory sanitizer cannot 'see' writes from JIT'd code, and can raise
+	// false-positives when read. By clearing the struct in the constructor,
+	// we can avoid triggering these false-positives.
+	inline Triangle()
+	    : Memset<Triangle>(this, 0)
+	{}
+#endif  // MEMORY_SANITIZER_ENABLED
+
+	Vertex v0;
+	Vertex v1;
+	Vertex v2;
+};
+
+struct PlaneEquation  // z = A * x + B * y + C
+{
+	float4 A;
+	float4 B;
+	float4 C;
+};
+
+struct Primitive MEMORY_SANITIZER_ONLY(
+    : Memset<Primitive>)
+{
+#if MEMORY_SANITIZER_ENABLED
+	// Memory sanitizer cannot 'see' writes from JIT'd code, and can raise
+	// false-positives when read. By clearing the struct in the constructor,
+	// we can avoid triggering these false-positives.
+	inline Primitive()
+	    : Memset<Primitive>(this, 0)
+	{}
+#endif  // MEMORY_SANITIZER_ENABLED
+
+	int yMin;
+	int yMax;
+
+	float4 xQuad;
+	float4 yQuad;
+
+	float pointCoordX;
+	float pointCoordY;
+
+	PlaneEquation z;
+	PlaneEquation w;
+	PlaneEquation V[MAX_INTERFACE_COMPONENTS];
+
+	PlaneEquation clipDistance[MAX_CLIP_DISTANCES];
+	PlaneEquation cullDistance[MAX_CULL_DISTANCES];
+
+	// Masks for two-sided stencil
+	int64_t clockwiseMask;
+	int64_t invClockwiseMask;
+
+	struct Span
 	{
-		Vertex v0;
-		Vertex v1;
-		Vertex v2;
+		unsigned short left;
+		unsigned short right;
 	};
 
-	struct PlaneEquation   // z = A * x + B * y + C
-	{
-		float4 A;
-		float4 B;
-		float4 C;
-	};
+	// The rasterizer adds a zero length span to the top and bottom of the polygon to allow
+	// for 2x2 pixel processing. We need an even number of spans to keep accesses aligned.
+	Span outlineUnderflow[2];
+	Span outline[OUTLINE_RESOLUTION];
+	Span outlineOverflow[2];
+};
 
-	struct Primitive
-	{
-		int yMin;
-		int yMax;
+}  // namespace sw
 
-		float4 xQuad;
-		float4 yQuad;
-
-		PlaneEquation z;
-		PlaneEquation w;
-
-		union
-		{
-			struct
-			{
-				PlaneEquation C[2][4];
-				PlaneEquation T[8][4];
-				PlaneEquation f;
-			};
-
-			PlaneEquation V[MAX_FRAGMENT_INPUTS][4];
-		};
-
-		float area;
-
-		// Masks for two-sided stencil
-		int64_t clockwiseMask;
-		int64_t invClockwiseMask;
-
-		struct Span
-		{
-			unsigned short left;
-			unsigned short right;
-		};
-
-		// The rasterizer adds a zero length span to the top and bottom of the polygon to allow
-		// for 2x2 pixel processing. We need an even number of spans to keep accesses aligned.
-		Span outlineUnderflow[2];
-		Span outline[OUTLINE_RESOLUTION];
-		Span outlineOverflow[2];
-	};
-}
-
-#endif   // sw_Primitive_hpp
+#endif  // sw_Primitive_hpp

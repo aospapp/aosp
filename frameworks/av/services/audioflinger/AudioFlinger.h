@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <limits.h>
 
+#include <android/media/IAudioTrackCallback.h>
 #include <android/os/BnExternalVibrationController.h>
 #include <android-base/macros.h>
 
@@ -65,13 +66,17 @@
 #include <media/audiohal/EffectBufferHalInterface.h>
 #include <media/audiohal/StreamHalInterface.h>
 #include <media/AudioBufferProvider.h>
+#include <media/AudioContainers.h>
+#include <media/AudioDeviceTypeAddr.h>
 #include <media/AudioMixer.h>
+#include <media/DeviceDescriptorBase.h>
 #include <media/ExtendedAudioBufferProvider.h>
-#include <media/LinearMap.h>
 #include <media/VolumeShaper.h>
+#include <mediautils/ServiceUtilities.h>
 
 #include <audio_utils/clock.h>
 #include <audio_utils/FdToString.h>
+#include <audio_utils/LinearMap.h>
 #include <audio_utils/SimpleLog.h>
 #include <audio_utils/TimestampVerifier.h>
 
@@ -83,6 +88,8 @@
 #include "SpdifStreamOut.h"
 #include "AudioHwDevice.h"
 #include "NBAIO_Tee.h"
+#include "ThreadMetrics.h"
+#include "TrackMetrics.h"
 
 #include <powermanager/IPowerManager.h>
 
@@ -100,6 +107,7 @@ class AudioMixer;
 class AudioBuffer;
 class AudioResampler;
 class DeviceHalInterface;
+class DevicesFactoryHalCallback;
 class DevicesFactoryHalInterface;
 class EffectsFactoryHalInterface;
 class FastMixer;
@@ -162,7 +170,7 @@ public:
     virtual     status_t    setMicMute(bool state);
     virtual     bool        getMicMute() const;
 
-    virtual     void        setRecordSilenced(uid_t uid, bool silenced);
+    virtual     void        setRecordSilenced(audio_port_handle_t portId, bool silenced);
 
     virtual     status_t    setParameters(audio_io_handle_t ioHandle, const String8& keyValuePairs);
     virtual     String8     getParameters(audio_io_handle_t ioHandle, const String8& keys) const;
@@ -175,8 +183,7 @@ public:
     virtual status_t openOutput(audio_module_handle_t module,
                                 audio_io_handle_t *output,
                                 audio_config_t *config,
-                                audio_devices_t *devices,
-                                const String8& address,
+                                const sp<DeviceDescriptorBase>& device,
                                 uint32_t *latencyMs,
                                 audio_output_flags_t flags);
 
@@ -211,7 +218,7 @@ public:
     // This is the binder API.  For the internal API see nextUniqueId().
     virtual audio_unique_id_t newAudioUniqueId(audio_unique_id_use_t use);
 
-    virtual void acquireAudioSessionId(audio_session_t audioSession, pid_t pid);
+    void acquireAudioSessionId(audio_session_t audioSession, pid_t pid, uid_t uid) override;
 
     virtual void releaseAudioSessionId(audio_session_t audioSession, pid_t pid);
 
@@ -230,8 +237,10 @@ public:
                         int32_t priority,
                         audio_io_handle_t io,
                         audio_session_t sessionId,
+                        const AudioDeviceTypeAddr& device,
                         const String16& opPackageName,
                         pid_t pid,
+                        bool probe,
                         status_t *status /*non-NULL*/,
                         int *id,
                         int *enabled);
@@ -279,6 +288,8 @@ public:
 
     virtual status_t getMicrophones(std::vector<media::MicrophoneInfo> *microphones);
 
+    virtual status_t setAudioHalPids(const std::vector<pid_t>& pids);
+
     virtual     status_t    onTransact(
                                 uint32_t code,
                                 const Parcel& data,
@@ -303,6 +314,12 @@ public:
 
     static int onExternalVibrationStart(const sp<os::ExternalVibration>& externalVibration);
     static void onExternalVibrationStop(const sp<os::ExternalVibration>& externalVibration);
+
+    status_t addEffectToHal(audio_port_handle_t deviceId,
+            audio_module_handle_t hwModuleId, sp<EffectHalInterface> effect);
+    status_t removeEffectFromHal(audio_port_handle_t deviceId,
+            audio_module_handle_t hwModuleId, sp<EffectHalInterface> effect);
+
 private:
     // FIXME The 400 is temporarily too high until a leak of writers in media.log is fixed.
     static const size_t kLogMemorySize = 400 * 1024;
@@ -331,7 +348,10 @@ public:
 
         virtual ~SyncEvent() {}
 
-        void trigger() { Mutex::Autolock _l(mLock); if (mCallback) mCallback(this); }
+        void trigger() {
+            Mutex::Autolock _l(mLock);
+            if (mCallback) mCallback(wp<SyncEvent>(this));
+        }
         bool isCancelled() const { Mutex::Autolock _l(mLock); return (mCallback == NULL); }
         void cancel() { Mutex::Autolock _l(mLock); mCallback = NULL; }
         AudioSystem::sync_event_t type() const { return mType; }
@@ -372,7 +392,7 @@ private:
     virtual     void        onFirstRef();
 
     AudioHwDevice*          findSuitableHwDev_l(audio_module_handle_t module,
-                                                audio_devices_t devices);
+                                                audio_devices_t deviceType);
 
     // Set kEnableExtendedChannels to true to enable greater than stereo output
     // for the MixerThread and device sink.  Number of channels allowed is
@@ -469,10 +489,13 @@ private:
     public:
                             NotificationClient(const sp<AudioFlinger>& audioFlinger,
                                                 const sp<IAudioFlingerClient>& client,
-                                                pid_t pid);
+                                                pid_t pid,
+                                                uid_t uid);
         virtual             ~NotificationClient();
 
                 sp<IAudioFlingerClient> audioFlingerClient() const { return mAudioFlingerClient; }
+                pid_t getPid() const { return mPid; }
+                uid_t getUid() const { return mUid; }
 
                 // IBinder::DeathRecipient
                 virtual     void        binderDied(const wp<IBinder>& who);
@@ -482,6 +505,7 @@ private:
 
         const sp<AudioFlinger>  mAudioFlinger;
         const pid_t             mPid;
+        const uid_t             mUid;
         const sp<IAudioFlingerClient> mAudioFlingerClient;
     };
 
@@ -528,9 +552,14 @@ private:
     class AsyncCallbackThread;
     class Track;
     class RecordTrack;
+    class EffectBase;
     class EffectModule;
     class EffectHandle;
     class EffectChain;
+    class DeviceEffectProxy;
+    class DeviceEffectManager;
+    class PatchPanel;
+    class DeviceEffectManagerCallback;
 
     struct AudioStreamIn;
     struct TeePatch;
@@ -547,6 +576,16 @@ private:
         bool        mute;
     };
 
+    // Abstraction for the Audio Source for the RecordThread (HAL or PassthruPatchRecord).
+    struct Source
+    {
+        virtual ~Source() = default;
+        // The following methods have the same signatures as in StreamHalInterface.
+        virtual status_t read(void *buffer, size_t bytes, size_t *read) = 0;
+        virtual status_t getCapturePosition(int64_t *frames, int64_t *time) = 0;
+        virtual status_t standby() = 0;
+    };
+
     // --- PlaybackThread ---
 #ifdef FLOAT_EFFECT_CHAIN
 #define EFFECT_BUFFER_FORMAT AUDIO_FORMAT_PCM_FLOAT
@@ -558,9 +597,11 @@ using effect_buffer_t = int16_t;
 
 #include "Threads.h"
 
+#include "PatchPanel.h"
+
 #include "Effects.h"
 
-#include "PatchPanel.h"
+#include "DeviceEffectManager.h"
 
     // Find io handle by session id.
     // Preference is given to an io handle with a matching effect chain to session id.
@@ -642,7 +683,8 @@ using effect_buffer_t = int16_t;
                                           struct audio_mmap_buffer_info *info);
         virtual status_t getMmapPosition(struct audio_mmap_position *position);
         virtual status_t start(const AudioClient& client,
-                                         audio_port_handle_t *handle);
+                               const audio_attributes_t *attr,
+                               audio_port_handle_t *handle);
         virtual status_t stop(audio_port_handle_t handle);
         virtual status_t standby();
 
@@ -668,11 +710,11 @@ using effect_buffer_t = int16_t;
                                            audio_devices_t outputDevice,
                                            const String8& outputDeviceAddress);
               sp<ThreadBase> openOutput_l(audio_module_handle_t module,
-                                              audio_io_handle_t *output,
-                                              audio_config_t *config,
-                                              audio_devices_t devices,
-                                              const String8& address,
-                                              audio_output_flags_t flags);
+                                          audio_io_handle_t *output,
+                                          audio_config_t *config,
+                                          audio_devices_t deviceType,
+                                          const String8& address,
+                                          audio_output_flags_t flags);
 
               void closeOutputFinish(const sp<PlaybackThread>& thread);
               void closeInputFinish(const sp<RecordThread>& thread);
@@ -707,7 +749,7 @@ using effect_buffer_t = int16_t;
 
               // return thread associated with primary hardware device, or NULL
               PlaybackThread *primaryPlaybackThread_l() const;
-              audio_devices_t primaryOutputDevice_l() const;
+              DeviceTypeSet primaryOutputDevice_l() const;
 
               // return the playback thread with smallest HAL buffer size, and prefer fast
               PlaybackThread *fastPlaybackThread_l() const;
@@ -741,6 +783,7 @@ using effect_buffer_t = int16_t;
                 std::vector< sp<EffectModule> > purgeStaleEffects_l();
 
                 void broacastParametersToRecordThreads_l(const String8& keyValuePairs);
+                void updateOutDevicesForRecordThreads_l(const DeviceDescriptorBaseVector& devices);
                 void forwardParametersToDownstreamPatches_l(
                         audio_io_handle_t upStream, const String8& keyValuePairs,
                         std::function<bool(const sp<PlaybackThread>&)> useThread = nullptr);
@@ -749,7 +792,7 @@ using effect_buffer_t = int16_t;
     // For emphasis, we could also make all pointers to them be "const *",
     // but that would clutter the code unnecessarily.
 
-    struct AudioStreamIn {
+    struct AudioStreamIn : public Source {
         AudioHwDevice* const audioHwDev;
         sp<StreamInHalInterface> stream;
         audio_input_flags_t flags;
@@ -758,6 +801,13 @@ using effect_buffer_t = int16_t;
 
         AudioStreamIn(AudioHwDevice *dev, sp<StreamInHalInterface> in, audio_input_flags_t flags) :
             audioHwDev(dev), stream(in), flags(flags) {}
+        status_t read(void *buffer, size_t bytes, size_t *read) override {
+            return stream->read(buffer, bytes, read);
+        }
+        status_t getCapturePosition(int64_t *frames, int64_t *time) override {
+            return stream->getCapturePosition(frames, time);
+        }
+        status_t standby() override { return stream->standby(); }
     };
 
     struct TeePatch {
@@ -767,10 +817,11 @@ using effect_buffer_t = int16_t;
 
     // for mAudioSessionRefs only
     struct AudioSessionRef {
-        AudioSessionRef(audio_session_t sessionid, pid_t pid) :
-            mSessionid(sessionid), mPid(pid), mCnt(1) {}
+        AudioSessionRef(audio_session_t sessionid, pid_t pid, uid_t uid) :
+            mSessionid(sessionid), mPid(pid), mUid(uid), mCnt(1) {}
         const audio_session_t mSessionid;
         const pid_t mPid;
+        const uid_t mUid;
         int         mCnt;
     };
 
@@ -786,11 +837,13 @@ using effect_buffer_t = int16_t;
                 // NOTE: If both mLock and mHardwareLock mutexes must be held,
                 // always take mLock before mHardwareLock
 
-                // These two fields are immutable after onFirstRef(), so no lock needed to access
-                AudioHwDevice*                      mPrimaryHardwareDev; // mAudioHwDevs[0] or NULL
+                // guarded by mHardwareLock
+                AudioHwDevice* mPrimaryHardwareDev;
                 DefaultKeyedVector<audio_module_handle_t, AudioHwDevice*>  mAudioHwDevs;
 
+                // These two fields are immutable after onFirstRef(), so no lock needed to access
                 sp<DevicesFactoryHalInterface> mDevicesFactoryHal;
+                sp<DevicesFactoryHalCallback> mDevicesFactoryHalCallback;
 
     // for dump, indicates which hardware operation is currently in progress (but not stream ops)
     enum hardware_call_state {
@@ -815,6 +868,7 @@ using effect_buffer_t = int16_t;
         AUDIO_HW_GET_PARAMETER,         // get_parameters
         AUDIO_HW_SET_MASTER_MUTE,       // set_master_mute
         AUDIO_HW_GET_MASTER_MUTE,       // get_master_mute
+        AUDIO_HW_GET_MICROPHONES,       // getMicrophones
     };
 
     mutable     hardware_call_state                 mHardwareStatus;    // for dump only
@@ -898,11 +952,17 @@ private:
     PatchPanel mPatchPanel;
     sp<EffectsFactoryHalInterface> mEffectsFactoryHal;
 
+    DeviceEffectManager mDeviceEffectManager;
+
     bool       mSystemReady;
+
+    mediautils::UidInfo mUidInfo;
 
     SimpleLog  mRejectedSetParameterLog;
     SimpleLog  mAppSetParameterLog;
     SimpleLog  mSystemSetParameterLog;
+
+    static inline constexpr const char *mMetricsId = AMEDIAMETRICS_KEY_AUDIO_FLINGER;
 };
 
 #undef INCLUDING_FROM_AUDIOFLINGER_H

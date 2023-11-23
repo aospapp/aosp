@@ -48,7 +48,7 @@ public class UT_script_group2_gatherscatter extends UnitTest {
     // on global allocations that are passed across kernels in a script group.
     // The test sums up all elements in the input int4 array of size ARRAY_SIZE.
     // To do so, it adds up the second half of the array to its first half using
-    // kernel function add() in addsup.rs, and then repeatedly applies the same
+    // kernel function add() in addsup.rscript, and then repeatedly applies the same
     // kernel function to the shrinking result arrays until the result is a
     // single int4 value.
     // These steps are created as a script group by repeatedly adding the

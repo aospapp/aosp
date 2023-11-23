@@ -18,6 +18,8 @@ package com.android.server.wifi.hotspot2;
 
 import static org.junit.Assert.*;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -25,7 +27,7 @@ import java.util.ArrayList;
 /**
  * Unit tests for {@link com.android.server.wifi.hotspot2.Utils}.
  */
-public class UtilsTest {
+public class UtilsTest extends WifiBaseTest {
     @Test
     public void testRoamingConsortiumsToStringLong() {
         assertEquals("null", Utils.roamingConsortiumsToString((long[]) null));

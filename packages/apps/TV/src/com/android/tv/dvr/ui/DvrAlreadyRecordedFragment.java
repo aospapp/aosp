@@ -22,14 +22,21 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
+
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
-import com.android.tv.data.Program;
+import com.android.tv.common.flags.DvrFlags;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.RecordedProgram;
+
 import java.util.List;
+
+import javax.inject.Inject;
+import dagger.android.AndroidInjection;
 
 /**
  * A fragment which notifies the user that the same episode has already been scheduled.
@@ -44,9 +51,11 @@ public class DvrAlreadyRecordedFragment extends DvrGuidedStepFragment {
 
     private Program mProgram;
     private RecordedProgram mDuplicate;
+    @Inject DvrFlags mDvrFlags;
 
     @Override
     public void onAttach(Context context) {
+        AndroidInjection.inject(this);
         super.onAttach(context);
         mProgram = getArguments().getParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM);
         DvrManager dvrManager = TvSingletons.getSingletons(context).getDvrManager();
@@ -56,13 +65,17 @@ public class DvrAlreadyRecordedFragment extends DvrGuidedStepFragment {
                         mProgram.getSeasonNumber(),
                         mProgram.getEpisodeNumber());
         if (mDuplicate == null) {
-            dvrManager.addSchedule(mProgram);
-            DvrUiHelper.showAddScheduleToast(
-                    context,
-                    mProgram.getTitle(),
-                    mProgram.getStartTimeUtcMillis(),
-                    mProgram.getEndTimeUtcMillis());
-            dismissDialog();
+            if (mDvrFlags.startEarlyEndLateEnabled()) {
+                DvrUiHelper.startRecordingSettingsActivity(getContext(), mProgram);
+            } else {
+                dvrManager.addSchedule(mProgram);
+                DvrUiHelper.showAddScheduleToast(
+                        context,
+                        mProgram.getTitle(),
+                        mProgram.getStartTimeUtcMillis(),
+                        mProgram.getEndTimeUtcMillis());
+                dismissDialog();
+            }
         }
     }
 
@@ -98,7 +111,11 @@ public class DvrAlreadyRecordedFragment extends DvrGuidedStepFragment {
     @Override
     public void onTrackedGuidedActionClicked(GuidedAction action) {
         if (action.getId() == ACTION_RECORD_ANYWAY) {
-            getDvrManager().addSchedule(mProgram);
+            if (mDvrFlags.startEarlyEndLateEnabled()) {
+                DvrUiHelper.startRecordingSettingsActivity(getContext(), mProgram);
+            } else {
+                getDvrManager().addSchedule(mProgram);
+            }
         } else if (action.getId() == ACTION_WATCH) {
             DvrUiHelper.startDetailsActivity(getActivity(), mDuplicate, null, false);
         }

@@ -188,9 +188,6 @@
 // ---------------------------------------------------------------------------
 namespace android {
 
-class TextOutput;
-TextOutput& printWeakPointer(TextOutput& to, const void* val);
-
 // ---------------------------------------------------------------------------
 
 #define COMPARE_WEAK(_op_)                                      \
@@ -298,8 +295,6 @@ public:
     { 
         getWeakRefs()->trackMe(enable, retain); 
     }
-
-    typedef RefBase basetype;
 
 protected:
                             RefBase();
@@ -459,10 +454,8 @@ private:
     weakref_type*   m_refs;
 };
 
-template <typename T>
-TextOutput& operator<<(TextOutput& to, const wp<T>& val);
-
 #undef COMPARE_WEAK
+#undef COMPARE_WEAK_FUNCTIONAL
 
 // ---------------------------------------------------------------------------
 // No user serviceable parts below here.
@@ -633,12 +626,6 @@ void wp<T>::clear()
         m_refs = 0;
         m_ptr = 0;
     }
-}
-
-template <typename T>
-inline TextOutput& operator<<(TextOutput& to, const wp<T>& val)
-{
-    return printWeakPointer(to, val.unsafe_get());
 }
 
 // ---------------------------------------------------------------------------

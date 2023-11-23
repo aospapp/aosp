@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.cros.audio import audio_test_data
+from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server import utils
 
@@ -15,7 +16,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:chameleon_audio_unstable"
-DEPENDENCIES = "chameleon, audio_board, audio_box, test_audiojack"
+DEPENDENCIES = "audio_box"
 JOB_RETRIES = 2
 
 DOC = """
@@ -39,7 +40,8 @@ def run(machine):
                  golden_data=(audio_test_data.FREQUENCY_TEST_FILE, 4000),
                  bind_from=chameleon_audio_ids.CrosIds.HEADPHONE,
                  bind_to=chameleon_audio_ids.ChameleonIds.LINEIN,
-                 audio_nodes=(['HEADPHONE'], None),
+                 audio_nodes=([audio_test_utils.get_headphone_node(host)],
+                              None),
                  plug_status=plug_status, tag = "headphone.unplug")
 
 parallel_simple(run, machines)

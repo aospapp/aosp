@@ -20,14 +20,16 @@ import static android.app.Activity.RESULT_OK;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.security.CheckLockActivity;
+import com.android.car.ui.toolbar.MenuItem;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Presents the user with information about restoring network settings to the factory default
@@ -39,6 +41,8 @@ public class ResetNetworkFragment extends SettingsFragment {
     // Arbitrary request code for starting CheckLockActivity when the reset button is clicked.
     private static final int REQUEST_CODE = 123;
 
+    private MenuItem mResetButton;
+
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
@@ -46,18 +50,19 @@ public class ResetNetworkFragment extends SettingsFragment {
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    public List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mResetButton);
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        Button resetSettingsButton = requireActivity().findViewById(R.id.action_button1);
-        resetSettingsButton.setText(requireContext().getString(R.string.reset_network_button_text));
-        resetSettingsButton.setOnClickListener(v -> startActivityForResult(new Intent(
-                getContext(), CheckLockActivity.class), REQUEST_CODE));
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mResetButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.reset_network_button_text)
+                .setOnClickListener(i -> startActivityForResult(
+                        new Intent(getContext(), CheckLockActivity.class), REQUEST_CODE))
+                .build();
     }
 
     @Override

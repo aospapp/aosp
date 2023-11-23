@@ -164,8 +164,8 @@ public class CarSensorEvent implements Parcelable {
         dest.writeLongArray(longValues);
     }
 
-    public static final Parcelable.Creator<CarSensorEvent> CREATOR
-    = new Parcelable.Creator<CarSensorEvent>() {
+    public static final Parcelable.Creator<CarSensorEvent> CREATOR =
+            new Parcelable.Creator<CarSensorEvent>() {
         public CarSensorEvent createFromParcel(Parcel in) {
             return new CarSensorEvent(in);
         }
@@ -203,6 +203,9 @@ public class CarSensorEvent implements Parcelable {
                 "Invalid sensor type: expected %d, got %d", type, sensorType));
     }
 
+    /**
+     * Environment data with timestamp and temperature.
+     */
     public static class EnvironmentData {
         public long timestamp;
         /** If unsupported by the car, this value is NaN. */
@@ -577,8 +580,7 @@ public class CarSensorEvent implements Parcelable {
      *     CarSensorEvent.
      * @hide
      */
-    public CarFuelDoorOpenData getCarFuelDoorOpenData(
-        CarFuelDoorOpenData data) {
+    public CarFuelDoorOpenData getCarFuelDoorOpenData(CarFuelDoorOpenData data) {
         checkType(CarSensorManager.SENSOR_TYPE_FUEL_DOOR_OPEN);
         if (data == null) {
             data = new CarFuelDoorOpenData();
@@ -608,8 +610,7 @@ public class CarSensorEvent implements Parcelable {
      *     CarSensorEvent.
      * @hide
      */
-    public CarEvBatteryLevelData getCarEvBatteryLevelData(
-        CarEvBatteryLevelData data) {
+    public CarEvBatteryLevelData getCarEvBatteryLevelData(CarEvBatteryLevelData data) {
         checkType(CarSensorManager.SENSOR_TYPE_EV_BATTERY_LEVEL);
         if (data == null) {
             data = new CarEvBatteryLevelData();
@@ -646,8 +647,7 @@ public class CarSensorEvent implements Parcelable {
      *     CarSensorEvent.
      * @hide
      */
-    public CarEvChargePortOpenData getCarEvChargePortOpenData(
-        CarEvChargePortOpenData data) {
+    public CarEvChargePortOpenData getCarEvChargePortOpenData(CarEvChargePortOpenData data) {
         checkType(CarSensorManager.SENSOR_TYPE_EV_CHARGE_PORT_OPEN);
         if (data == null) {
             data = new CarEvChargePortOpenData();
@@ -668,7 +668,7 @@ public class CarSensorEvent implements Parcelable {
 
     /**
      * Convenience method for obtaining a {@link CarEvChargePortConnectedData} object from a
-     * CarSensorEvent object with type {@link CarSensorManager#SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED}.
+     * CarSensorEvent with type {@link CarSensorManager#SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED}.
      *
      * @param data an optional output parameter which, if non-null, will be used by this method
      *     instead of a newly created object.
@@ -677,7 +677,7 @@ public class CarSensorEvent implements Parcelable {
      * @hide
      */
     public CarEvChargePortConnectedData getCarEvChargePortConnectedData(
-        CarEvChargePortConnectedData data) {
+            CarEvChargePortConnectedData data) {
         checkType(CarSensorManager.SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED);
         if (data == null) {
             data = new CarEvChargePortConnectedData();
@@ -709,7 +709,7 @@ public class CarSensorEvent implements Parcelable {
      * @hide
      */
     public CarEvBatteryChargeRateData getCarEvBatteryChargeRateData(
-        CarEvBatteryChargeRateData data) {
+            CarEvBatteryChargeRateData data) {
         checkType(CarSensorManager.SENSOR_TYPE_EV_BATTERY_CHARGE_RATE);
         if (data == null) {
             data = new CarEvBatteryChargeRateData();

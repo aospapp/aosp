@@ -17,6 +17,7 @@
 package com.android.car.assist.client.tts;
 
 import android.content.Context;
+import android.media.AudioAttributes;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
@@ -44,6 +45,14 @@ public interface TextToSpeechEngine {
      * @see TextToSpeech#setOnUtteranceProgressListener(UtteranceProgressListener)
      */
     void setOnUtteranceProgressListener(UtteranceProgressListener progressListener);
+
+    /**
+     * Sets the audio attributes to be used when speaking text or playing
+     * back a file.
+     *
+     * @see TextToSpeech#setAudioAttributes(AudioAttributes)
+     */
+    void setAudioAttributes(AudioAttributes audioAttributes);
 
     /**
      * Speaks out the provided text.

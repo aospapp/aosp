@@ -120,7 +120,7 @@ tcu::Vec4 linearToSRGBIfNeeded (const TextureFormat& format, const tcu::Vec4& co
 bool isCombinedDepthStencilType (TextureFormat::ChannelType type)
 {
 	// make sure to update this if type table is updated
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	return	type == TextureFormat::UNSIGNED_INT_16_8_8			||
 			type == TextureFormat::UNSIGNED_INT_24_8			||
@@ -162,7 +162,7 @@ bool hasDepthComponent (TextureFormat::ChannelOrder order)
 TextureChannelClass getTextureChannelClass (TextureFormat::ChannelType channelType)
 {
 	// make sure this table is updated if format table is updated
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	switch (channelType)
 	{
@@ -196,16 +196,24 @@ TextureChannelClass getTextureChannelClass (TextureFormat::ChannelType channelTy
 		case TextureFormat::SIGNED_INT8:					return TEXTURECHANNELCLASS_SIGNED_INTEGER;
 		case TextureFormat::SIGNED_INT16:					return TEXTURECHANNELCLASS_SIGNED_INTEGER;
 		case TextureFormat::SIGNED_INT32:					return TEXTURECHANNELCLASS_SIGNED_INTEGER;
+		case TextureFormat::SIGNED_INT64:					return TEXTURECHANNELCLASS_SIGNED_INTEGER;
 		case TextureFormat::UNSIGNED_INT8:					return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
 		case TextureFormat::UNSIGNED_INT16:					return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
 		case TextureFormat::UNSIGNED_INT24:					return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
 		case TextureFormat::UNSIGNED_INT32:					return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
+		case TextureFormat::UNSIGNED_INT64:					return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
 		case TextureFormat::HALF_FLOAT:						return TEXTURECHANNELCLASS_FLOATING_POINT;
 		case TextureFormat::FLOAT:							return TEXTURECHANNELCLASS_FLOATING_POINT;
 		case TextureFormat::FLOAT64:						return TEXTURECHANNELCLASS_FLOATING_POINT;
 		case TextureFormat::FLOAT_UNSIGNED_INT_24_8_REV:	return TEXTURECHANNELCLASS_LAST;					//!< packed float32-pad24-uint8
 		case TextureFormat::UNORM_SHORT_10:					return TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT;
 		case TextureFormat::UNORM_SHORT_12:					return TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT;
+		case TextureFormat::USCALED_INT8:					return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
+		case TextureFormat::USCALED_INT16:					return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
+		case TextureFormat::SSCALED_INT8:					return TEXTURECHANNELCLASS_SIGNED_INTEGER;
+		case TextureFormat::SSCALED_INT16:					return TEXTURECHANNELCLASS_SIGNED_INTEGER;
+		case TextureFormat::USCALED_INT_1010102_REV:		return TEXTURECHANNELCLASS_UNSIGNED_INTEGER;
+		case TextureFormat::SSCALED_INT_1010102_REV:		return TEXTURECHANNELCLASS_SIGNED_INTEGER;
 		default:
 			DE_FATAL("Unknown channel type");
 			return TEXTURECHANNELCLASS_LAST;
@@ -349,7 +357,7 @@ ConstPixelBufferAccess flipYAccess (const ConstPixelBufferAccess& access)
 static Vec2 getFloatChannelValueRange (TextureFormat::ChannelType channelType)
 {
 	// make sure this table is updated if format table is updated
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	float cMin = 0.0f;
 	float cMax = 0.0f;
@@ -393,6 +401,12 @@ static Vec2 getFloatChannelValueRange (TextureFormat::ChannelType channelType)
 		case TextureFormat::UNSIGNED_INT_999_E5_REV:		cMin = 0.0f;			cMax = 1e5f;			break;
 		case TextureFormat::UNSIGNED_BYTE_44:				cMin = 0.0f;			cMax = 15.f;			break;
 		case TextureFormat::UNSIGNED_SHORT_4444:			cMin = 0.0f;			cMax = 15.f;			break;
+		case TextureFormat::USCALED_INT8:					cMin = 0.0f;			cMax = 255.0f;			break;
+		case TextureFormat::USCALED_INT16:					cMin = 0.0f;			cMax = 65535.0f;		break;
+		case TextureFormat::SSCALED_INT8:					cMin = -128.0f;			cMax = 127.0f;			break;
+		case TextureFormat::SSCALED_INT16:					cMin = -32768.0f;		cMax = 32767.0f;		break;
+		case TextureFormat::USCALED_INT_1010102_REV:		cMin = 0.0f;			cMax = 1023.0f;			break;
+		case TextureFormat::SSCALED_INT_1010102_REV:		cMin = -512.0f;			cMax = 511.0f;			break;
 
 		default:
 			DE_ASSERT(false);
@@ -478,7 +492,9 @@ IVec4 getFormatMaxIntValue (const TextureFormat& format)
 {
 	DE_ASSERT(getTextureChannelClass(format.type) == TEXTURECHANNELCLASS_SIGNED_INTEGER);
 
-	if (format == TextureFormat(TextureFormat::RGBA, TextureFormat::SIGNED_INT_1010102_REV) ||
+	if (format == TextureFormat(TextureFormat::RGBA, TextureFormat::SIGNED_INT_1010102_REV)  ||
+		format == TextureFormat(TextureFormat::BGRA, TextureFormat::SSCALED_INT_1010102_REV) ||
+		format == TextureFormat(TextureFormat::RGBA, TextureFormat::SSCALED_INT_1010102_REV) ||
 		format == TextureFormat(TextureFormat::BGRA, TextureFormat::SIGNED_INT_1010102_REV))
 		return IVec4(511, 511, 511, 1);
 
@@ -487,6 +503,9 @@ IVec4 getFormatMaxIntValue (const TextureFormat& format)
 		case TextureFormat::SIGNED_INT8:	return IVec4(std::numeric_limits<deInt8>::max());
 		case TextureFormat::SIGNED_INT16:	return IVec4(std::numeric_limits<deInt16>::max());
 		case TextureFormat::SIGNED_INT32:	return IVec4(std::numeric_limits<deInt32>::max());
+
+		case TextureFormat::SSCALED_INT8:	return IVec4(std::numeric_limits<deInt8>::max());
+		case TextureFormat::SSCALED_INT16:	return IVec4(std::numeric_limits<deInt16>::max());
 
 		default:
 			DE_FATAL("Invalid channel type");
@@ -499,6 +518,8 @@ UVec4 getFormatMaxUintValue (const TextureFormat& format)
 	DE_ASSERT(getTextureChannelClass(format.type) == TEXTURECHANNELCLASS_UNSIGNED_INTEGER);
 
 	if (format == TextureFormat(TextureFormat::RGBA, TextureFormat::UNSIGNED_INT_1010102_REV) ||
+		format == TextureFormat(TextureFormat::RGBA, TextureFormat::USCALED_INT_1010102_REV)  ||
+		format == TextureFormat(TextureFormat::BGRA, TextureFormat::USCALED_INT_1010102_REV)  ||
 		format == TextureFormat(TextureFormat::BGRA, TextureFormat::UNSIGNED_INT_1010102_REV))
 		return UVec4(1023u, 1023u, 1023u, 3u);
 
@@ -509,6 +530,9 @@ UVec4 getFormatMaxUintValue (const TextureFormat& format)
 		case TextureFormat::UNSIGNED_INT24:	return UVec4(0xffffffu);
 		case TextureFormat::UNSIGNED_INT32:	return UVec4(std::numeric_limits<deUint32>::max());
 
+		case TextureFormat::USCALED_INT8:	return UVec4(std::numeric_limits<deUint8>::max());
+		case TextureFormat::USCALED_INT16:	return UVec4(std::numeric_limits<deUint16>::max());
+
 		default:
 			DE_FATAL("Invalid channel type");
 			return UVec4(0);
@@ -518,7 +542,7 @@ UVec4 getFormatMaxUintValue (const TextureFormat& format)
 static IVec4 getChannelBitDepth (TextureFormat::ChannelType channelType)
 {
 	// make sure this table is updated if format table is updated
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	switch (channelType)
 	{
@@ -562,6 +586,12 @@ static IVec4 getChannelBitDepth (TextureFormat::ChannelType channelType)
 		case TextureFormat::FLOAT_UNSIGNED_INT_24_8_REV:	return IVec4(32,8,0,0);
 		case TextureFormat::UNORM_SHORT_10:					return IVec4(10);
 		case TextureFormat::UNORM_SHORT_12:					return IVec4(12);
+		case TextureFormat::USCALED_INT8:					return IVec4(8);
+		case TextureFormat::USCALED_INT16:					return IVec4(16);
+		case TextureFormat::SSCALED_INT8:					return IVec4(8);
+		case TextureFormat::SSCALED_INT16:					return IVec4(16);
+		case TextureFormat::USCALED_INT_1010102_REV:		return IVec4(10,10,10,2);
+		case TextureFormat::SSCALED_INT_1010102_REV:		return IVec4(10,10,10,2);
 		default:
 			DE_ASSERT(false);
 			return IVec4(0);
@@ -587,7 +617,7 @@ IVec4 getTextureFormatBitDepth (const TextureFormat& format)
 static IVec4 getChannelMantissaBitDepth (TextureFormat::ChannelType channelType)
 {
 	// make sure this table is updated if format table is updated
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	switch (channelType)
 	{
@@ -626,6 +656,12 @@ static IVec4 getChannelMantissaBitDepth (TextureFormat::ChannelType channelType)
 		case TextureFormat::UNSIGNED_INT_999_E5_REV:
 		case TextureFormat::UNORM_SHORT_10:
 		case TextureFormat::UNORM_SHORT_12:
+		case TextureFormat::USCALED_INT8:
+		case TextureFormat::USCALED_INT16:
+		case TextureFormat::SSCALED_INT8:
+		case TextureFormat::SSCALED_INT16:
+		case TextureFormat::USCALED_INT_1010102_REV:
+		case TextureFormat::SSCALED_INT_1010102_REV:
 			return getChannelBitDepth(channelType);
 
 		case TextureFormat::HALF_FLOAT:						return IVec4(10);
@@ -1017,7 +1053,7 @@ void fillWithMetaballs (const PixelBufferAccess& dst, int numBalls, deUint32 see
 	}
 }
 
-void copy (const PixelBufferAccess& dst, const ConstPixelBufferAccess& src)
+void copy (const PixelBufferAccess& dst, const ConstPixelBufferAccess& src, const bool clearUnused)
 {
 	DE_ASSERT(src.getSize() == dst.getSize());
 
@@ -1063,7 +1099,7 @@ void copy (const PixelBufferAccess& dst, const ConstPixelBufferAccess& src)
 			for (int x = 0; x < width; x++)
 				dst.setPixDepth(src.getPixDepth(x, y, z), x, y, z);
 		}
-		else if (dstHasDepth && !srcHasDepth)
+		else if (dstHasDepth && !srcHasDepth && clearUnused)
 		{
 			// consistency with color copies
 			tcu::clearDepth(dst, 0.0f);
@@ -1076,7 +1112,7 @@ void copy (const PixelBufferAccess& dst, const ConstPixelBufferAccess& src)
 			for (int x = 0; x < width; x++)
 				dst.setPixStencil(src.getPixStencil(x, y, z), x, y, z);
 		}
-		else if (dstHasStencil && !srcHasStencil)
+		else if (dstHasStencil && !srcHasStencil && clearUnused)
 		{
 			// consistency with color copies
 			tcu::clearStencil(dst, 0u);
@@ -1231,14 +1267,19 @@ deUint32 packRGB999E5 (const tcu::Vec4& color)
 	float	gc		= deFloatClamp(color[1], 0.0f, maxVal);
 	float	bc		= deFloatClamp(color[2], 0.0f, maxVal);
 	float	maxc	= de::max(rc, de::max(gc, bc));
-	int		expp	= de::max(-eBias - 1, deFloorFloatToInt32(deFloatLog2(maxc))) + 1 + eBias;
-	float	e		= deFloatPow(2.0f, (float)(expp-eBias-mBits));
+	int		exps	= de::max(-eBias - 1, deFloorFloatToInt32(deFloatLog2(maxc))) + 1 + eBias;
+	float	e		= deFloatPow(2.0f, (float)(exps-eBias-mBits));
 	int		maxs	= deFloorFloatToInt32(maxc / e + 0.5f);
 
-	deUint32	exps	= maxs == (1<<mBits) ? expp+1 : expp;
-	deUint32	rs		= (deUint32)deClamp32(deFloorFloatToInt32(rc / e + 0.5f), 0, (1<<9)-1);
-	deUint32	gs		= (deUint32)deClamp32(deFloorFloatToInt32(gc / e + 0.5f), 0, (1<<9)-1);
-	deUint32	bs		= (deUint32)deClamp32(deFloorFloatToInt32(bc / e + 0.5f), 0, (1<<9)-1);
+	if (maxs == (1<<mBits))
+	{
+		exps++;
+		e *= 2.0f;
+	}
+
+	deUint32 rs = (deUint32)deFloorFloatToInt32(rc / e + 0.5f);
+	deUint32 gs = (deUint32)deFloorFloatToInt32(gc / e + 0.5f);
+	deUint32 bs = (deUint32)deFloorFloatToInt32(bc / e + 0.5f);
 
 	DE_ASSERT((exps & ~((1<<5)-1)) == 0);
 	DE_ASSERT((rs & ~((1<<9)-1)) == 0);
@@ -1264,7 +1305,7 @@ template <typename AccessType>
 static AccessType toSamplerAccess (const AccessType& baseAccess, Sampler::DepthStencilMode mode)
 {
 	// make sure to update this if type table is updated
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	if (!isCombinedDepthStencilType(baseAccess.getFormat().type))
 		return baseAccess;

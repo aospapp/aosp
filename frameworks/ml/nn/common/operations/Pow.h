@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_POW_H
-#define FRAMEWORKS_ML_NN_POW_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_POW_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_POW_H
 
 #include "CpuOperationUtils.h"
 
@@ -32,4 +32,4 @@ bool eval(const void* baseData, const Shape& baseShape, const void* exponentData
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_POW_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_POW_H

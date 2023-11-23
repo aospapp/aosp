@@ -21,6 +21,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.android.ddmlib.Log;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
@@ -212,7 +213,8 @@ public class FileDownloadCacheFuncTest {
                             while (!throwException.get()) {
                                 Thread.sleep(10);
                             }
-                            throw new BuildRetrievalError("download error");
+                            throw new BuildRetrievalError(
+                                    "download error", InfraErrorIdentifier.ARTIFACT_DOWNLOAD_ERROR);
                         }
                         File fileArg = (File) EasyMock.getCurrentArguments()[1];
                         FileUtil.writeToFile(DOWNLOADED_CONTENTS, fileArg);

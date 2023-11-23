@@ -37,7 +37,7 @@ namespace gtest_extras {
 
 class Isolate {
  public:
-  Isolate(const Options& options, const std::vector<const char*>& child_args)
+  Isolate(const Options& options, const std::vector<char*>& child_args)
       : options_(options), child_args_(child_args) {}
 
   void EnumerateTests();
@@ -79,7 +79,7 @@ class Isolate {
   }
 
   const Options& options_;
-  const std::vector<const char*>& child_args_;
+  const std::vector<char*>& child_args_;
 
   size_t total_suites_ = 0;
   size_t total_tests_ = 0;

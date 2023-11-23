@@ -42,7 +42,7 @@ public class AlgorithmIdentifier
         return null;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public AlgorithmIdentifier(
         ASN1ObjectIdentifier algorithm)
@@ -50,7 +50,7 @@ public class AlgorithmIdentifier
         this.algorithm = algorithm;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public AlgorithmIdentifier(
         ASN1ObjectIdentifier algorithm,

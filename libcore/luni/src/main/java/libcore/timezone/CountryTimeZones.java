@@ -38,27 +38,35 @@ public final class CountryTimeZones {
      * @hide
      */
     @libcore.api.CorePlatformApi
-    public final static class OffsetResult {
+    public static final class OffsetResult {
 
-        /** A zone that matches the supplied criteria. See also {@link #mOneMatch}. */
-        @libcore.api.CorePlatformApi
-        public final TimeZone mTimeZone;
+        /** A zone that matches the supplied criteria. See also {@link #isOnlyMatch}. */
+        private final TimeZone timeZone;
 
         /** True if there is one match for the supplied criteria */
-        @libcore.api.CorePlatformApi
-        public final boolean mOneMatch;
+        private final boolean isOnlyMatch;
 
-        public OffsetResult(TimeZone timeZone, boolean oneMatch) {
-            mTimeZone = java.util.Objects.requireNonNull(timeZone);
-            mOneMatch = oneMatch;
+        public OffsetResult(TimeZone timeZone, boolean isOnlyMatch) {
+            this.timeZone = java.util.Objects.requireNonNull(timeZone);
+            this.isOnlyMatch = isOnlyMatch;
+        }
+
+        @libcore.api.CorePlatformApi
+        public TimeZone getTimeZone() {
+            return timeZone;
+        }
+
+        @libcore.api.CorePlatformApi
+        public boolean isOnlyMatch() {
+            return isOnlyMatch;
         }
 
         @Override
         public String toString() {
-            return "Result{" +
-                    "mTimeZone='" + mTimeZone + '\'' +
-                    ", mOneMatch=" + mOneMatch +
-                    '}';
+            return "Result{"
+                    + "timeZone='" + timeZone + '\''
+                    + ", isOnlyMatch=" + isOnlyMatch
+                    + '}';
         }
     }
 
@@ -68,18 +76,64 @@ public final class CountryTimeZones {
      * @hide
      */
     @libcore.api.CorePlatformApi
-    public final static class TimeZoneMapping {
-        @libcore.api.CorePlatformApi
-        public final String timeZoneId;
-        @libcore.api.CorePlatformApi
-        public final boolean showInPicker;
-        @libcore.api.CorePlatformApi
-        public final Long notUsedAfter;
+    public static final class TimeZoneMapping {
+        private final String timeZoneId;
+        private final boolean shownInPicker;
+        private final Long notUsedAfter;
 
-        TimeZoneMapping(String timeZoneId, boolean showInPicker, Long notUsedAfter) {
-            this.timeZoneId = timeZoneId;
-            this.showInPicker = showInPicker;
+        /** Memoized TimeZone object for {@link #timeZoneId}. */
+        private TimeZone timeZone;
+
+        TimeZoneMapping(String timeZoneId, boolean shownInPicker, Long notUsedAfter) {
+            this.timeZoneId = Objects.requireNonNull(timeZoneId);
+            this.shownInPicker = shownInPicker;
             this.notUsedAfter = notUsedAfter;
+        }
+
+        @libcore.api.CorePlatformApi
+        public String getTimeZoneId() {
+            return timeZoneId;
+        }
+
+        @libcore.api.CorePlatformApi
+        public boolean isShownInPicker() {
+            return shownInPicker;
+        }
+
+        @libcore.api.CorePlatformApi
+        public Long getNotUsedAfter() {
+            return notUsedAfter;
+        }
+
+        /**
+         * Returns a {@link TimeZone} object for this mapping, or {@code null} if the ID is unknown.
+         */
+        @libcore.api.CorePlatformApi
+        public TimeZone getTimeZone() {
+            synchronized (this) {
+                if (timeZone == null) {
+                    TimeZone tz = TimeZone.getFrozenTimeZone(timeZoneId);
+                    timeZone = tz;
+                    if (TimeZone.UNKNOWN_ZONE_ID.equals(timeZone.getID())) {
+                        // This shouldn't happen given the validation that takes place in
+                        // createValidatedCountryTimeZones().
+                        throw new IllegalStateException("Invalid zone in TimeZoneMapping: " + this);
+                    }
+                }
+            }
+
+            return TimeZone.UNKNOWN_ZONE_ID.equals(timeZone.getID()) ? null : timeZone;
+        }
+
+        /**
+         * Returns {@code true} if the mapping is "effective" after {@code whenMillis}, i.e.
+         * it is distinct from other "effective" times zones used in the country at/after that
+         * time. This uses the {@link #notUsedAfter} metadata which ensures there is one time
+         * zone remaining when there are multiple candidate zones with the same rules. The one
+         * kept is based on country specific factors like population covered.
+         */
+        boolean isEffectiveAt(long whenMillis) {
+            return notUsedAfter == null || whenMillis <= notUsedAfter;
         }
 
         // VisibleForTesting
@@ -98,21 +152,21 @@ public final class CountryTimeZones {
                 return false;
             }
             TimeZoneMapping that = (TimeZoneMapping) o;
-            return showInPicker == that.showInPicker &&
+            return shownInPicker == that.shownInPicker &&
                     Objects.equals(timeZoneId, that.timeZoneId) &&
                     Objects.equals(notUsedAfter, that.notUsedAfter);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(timeZoneId, showInPicker, notUsedAfter);
+            return Objects.hash(timeZoneId, shownInPicker, notUsedAfter);
         }
 
         @Override
         public String toString() {
             return "TimeZoneMapping{"
                     + "timeZoneId='" + timeZoneId + '\''
-                    + ", showInPicker=" + showInPicker
+                    + ", shownInPicker=" + shownInPicker
                     + ", notUsedAfter=" + notUsedAfter
                     + '}';
         }
@@ -121,7 +175,7 @@ public final class CountryTimeZones {
          * Returns {@code true} if one of the supplied {@link TimeZoneMapping} objects is for the
          * specified time zone ID.
          */
-        public static boolean containsTimeZoneId(
+        static boolean containsTimeZoneId(
                 List<TimeZoneMapping> timeZoneMappings, String timeZoneId) {
             for (TimeZoneMapping timeZoneMapping : timeZoneMappings) {
                 if (timeZoneMapping.timeZoneId.equals(timeZoneId)) {
@@ -134,18 +188,26 @@ public final class CountryTimeZones {
 
     private final String countryIso;
     private final String defaultTimeZoneId;
+    /**
+     * {@code true} indicates the default time zone for a country is a good choice if a time zone
+     * cannot be determined by other means.
+     */
+    private final boolean defaultTimeZoneBoosted;
     private final List<TimeZoneMapping> timeZoneMappings;
     private final boolean everUsesUtc;
 
-    // Memoized frozen ICU TimeZone object for the default.
-    private TimeZone icuDefaultTimeZone;
-    // Memoized frozen ICU TimeZone objects for the timeZoneIds.
-    private List<TimeZone> icuTimeZones;
+    /**
+     * Memoized frozen ICU TimeZone object for the default. Can be {@link TimeZone#UNKNOWN_ZONE} if
+     * the {@link #defaultTimeZoneId} is missing or unrecognized.
+     */
+    private TimeZone defaultTimeZone;
 
-    private CountryTimeZones(String countryIso, String defaultTimeZoneId, boolean everUsesUtc,
+    private CountryTimeZones(String countryIso, String defaultTimeZoneId,
+            boolean defaultTimeZoneBoosted, boolean everUsesUtc,
             List<TimeZoneMapping> timeZoneMappings) {
         this.countryIso = java.util.Objects.requireNonNull(countryIso);
         this.defaultTimeZoneId = defaultTimeZoneId;
+        this.defaultTimeZoneBoosted = defaultTimeZoneBoosted;
         this.everUsesUtc = everUsesUtc;
         // Create a defensive copy of the mapping list.
         this.timeZoneMappings = Collections.unmodifiableList(new ArrayList<>(timeZoneMappings));
@@ -155,12 +217,13 @@ public final class CountryTimeZones {
      * Creates a {@link CountryTimeZones} object containing only known time zone IDs.
      */
     public static CountryTimeZones createValidated(String countryIso, String defaultTimeZoneId,
-            boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo) {
+            boolean defaultTimeZoneBoosted, boolean everUsesUtc,
+            List<TimeZoneMapping> timeZoneMappings, String debugInfo) {
 
         // We rely on ZoneInfoDB to tell us what the known valid time zone IDs are. ICU may
         // recognize more but we want to be sure that zone IDs can be used with java.util as well as
         // android.icu and ICU is expected to have a superset.
-        String[] validTimeZoneIdsArray = ZoneInfoDB.getInstance().getAvailableIDs();
+        String[] validTimeZoneIdsArray = ZoneInfoDb.getInstance().getAvailableIDs();
         HashSet<String> validTimeZoneIdsSet = new HashSet<>(Arrays.asList(validTimeZoneIdsArray));
         List<TimeZoneMapping> validCountryTimeZoneMappings = new ArrayList<>();
         for (TimeZoneMapping timeZoneMapping : timeZoneMappings) {
@@ -184,7 +247,8 @@ public final class CountryTimeZones {
 
         String normalizedCountryIso = normalizeCountryIso(countryIso);
         return new CountryTimeZones(
-                normalizedCountryIso, defaultTimeZoneId, everUsesUtc, validCountryTimeZoneMappings);
+                normalizedCountryIso, defaultTimeZoneId, defaultTimeZoneBoosted, everUsesUtc,
+                validCountryTimeZoneMappings);
     }
 
     /**
@@ -204,31 +268,41 @@ public final class CountryTimeZones {
     }
 
     /**
-     * Returns the default time zone ID for the country. Can return null in cases when no data is
+     * Returns the default time zone for the country. Can return null in cases when no data is
      * available or the time zone ID provided to
-     * {@link #createValidated(String, String, boolean, List, String)} was not recognized.
+     * {@link #createValidated(String, String, boolean, boolean, List, String)} was not recognized.
      */
+    @libcore.api.CorePlatformApi
     public synchronized TimeZone getDefaultTimeZone() {
-        if (icuDefaultTimeZone == null) {
-            TimeZone defaultTimeZone;
+        if (defaultTimeZone == null) {
+            TimeZone timeZone;
             if (defaultTimeZoneId == null) {
-                defaultTimeZone = null;
+                timeZone = TimeZone.UNKNOWN_ZONE;
             } else {
-                defaultTimeZone = getValidFrozenTimeZoneOrNull(defaultTimeZoneId);
+                timeZone = TimeZone.getFrozenTimeZone(defaultTimeZoneId);
             }
-            icuDefaultTimeZone = defaultTimeZone;
+            this.defaultTimeZone = timeZone;
         }
-        return icuDefaultTimeZone;
+        return TimeZone.UNKNOWN_ZONE_ID.equals(defaultTimeZone.getID()) ? null : defaultTimeZone;
     }
 
     /**
      * Returns the default time zone ID for the country. Can return null in cases when no data is
      * available or the time zone ID provided to
-     * {@link #createValidated(String, String, boolean, List, String)} was not recognized.
+     * {@link #createValidated(String, String, boolean, boolean, List, String)} was not recognized.
      */
     @libcore.api.CorePlatformApi
     public String getDefaultTimeZoneId() {
         return defaultTimeZoneId;
+    }
+
+    /**
+     * Qualifier for a country's default time zone. {@code true} indicates whether the default
+     * would be a good choice <em>generally</em> when there's no other information available.
+     */
+    @libcore.api.CorePlatformApi
+    public boolean isDefaultTimeZoneBoosted() {
+        return defaultTimeZoneBoosted;
     }
 
     /**
@@ -241,6 +315,24 @@ public final class CountryTimeZones {
         return timeZoneMappings;
     }
 
+    /**
+     * Returns an immutable, ordered list of time zone mappings for the country in an undefined but
+     * "priority" order, filtered so that only "effective" time zone IDs are returned. An
+     * "effective" time zone is one that differs from another time zone used in the country after
+     * {@code whenMillis}. The list can be empty if there were no zones configured or the configured
+     * zone IDs were not recognized.
+     */
+    @libcore.api.CorePlatformApi
+    public List<TimeZoneMapping> getEffectiveTimeZoneMappingsAt(long whenMillis) {
+        ArrayList<TimeZoneMapping> filteredList = new ArrayList<>(timeZoneMappings.size());
+        for (TimeZoneMapping timeZoneMapping : timeZoneMappings) {
+            if (timeZoneMapping.isEffectiveAt(whenMillis)) {
+                filteredList.add(timeZoneMapping);
+            }
+        }
+        return Collections.unmodifiableList(filteredList);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -249,58 +341,30 @@ public final class CountryTimeZones {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
         CountryTimeZones that = (CountryTimeZones) o;
-
-        if (everUsesUtc != that.everUsesUtc) {
-            return false;
-        }
-        if (!countryIso.equals(that.countryIso)) {
-            return false;
-        }
-        if (defaultTimeZoneId != null ? !defaultTimeZoneId.equals(that.defaultTimeZoneId)
-                : that.defaultTimeZoneId != null) {
-            return false;
-        }
-        return timeZoneMappings.equals(that.timeZoneMappings);
+        return defaultTimeZoneBoosted == that.defaultTimeZoneBoosted
+                && everUsesUtc == that.everUsesUtc
+                && countryIso.equals(that.countryIso)
+                && Objects.equals(defaultTimeZoneId, that.defaultTimeZoneId)
+                && timeZoneMappings.equals(that.timeZoneMappings);
     }
 
     @Override
     public int hashCode() {
-        int result = countryIso.hashCode();
-        result = 31 * result + (defaultTimeZoneId != null ? defaultTimeZoneId.hashCode() : 0);
-        result = 31 * result + timeZoneMappings.hashCode();
-        result = 31 * result + (everUsesUtc ? 1 : 0);
-        return result;
+        return Objects.hash(
+                countryIso, defaultTimeZoneId, defaultTimeZoneBoosted, timeZoneMappings,
+                everUsesUtc);
     }
 
-    /**
-     * Returns an ordered list of time zones for the country in an undefined but "priority"
-     * order for a country. The list can be empty if there were no zones configured or the
-     * configured zone IDs were not recognized.
-     */
-    public synchronized List<TimeZone> getIcuTimeZones() {
-        if (icuTimeZones == null) {
-            ArrayList<TimeZone> mutableList = new ArrayList<>(timeZoneMappings.size());
-            for (TimeZoneMapping timeZoneMapping : timeZoneMappings) {
-                String timeZoneId = timeZoneMapping.timeZoneId;
-                TimeZone timeZone;
-                if (timeZoneId.equals(defaultTimeZoneId)) {
-                    timeZone = getDefaultTimeZone();
-                } else {
-                    timeZone = getValidFrozenTimeZoneOrNull(timeZoneId);
-                }
-                // This shouldn't happen given the validation that takes place in
-                // createValidatedCountryTimeZones().
-                if (timeZone == null) {
-                    System.logW("Skipping invalid zone: " + timeZoneId);
-                    continue;
-                }
-                mutableList.add(timeZone);
-            }
-            icuTimeZones = Collections.unmodifiableList(mutableList);
-        }
-        return icuTimeZones;
+    @Override
+    public String toString() {
+        return "CountryTimeZones{"
+                + "countryIso='" + countryIso + '\''
+                + ", defaultTimeZoneId='" + defaultTimeZoneId + '\''
+                + ", defaultTimeZoneBoosted=" + defaultTimeZoneBoosted
+                + ", timeZoneMappings=" + timeZoneMappings
+                + ", everUsesUtc=" + everUsesUtc
+                + '}';
     }
 
     /**
@@ -313,8 +377,9 @@ public final class CountryTimeZones {
             return false;
         }
 
-        for (TimeZone zone : getIcuTimeZones()) {
-            if (zone.getOffset(whenMillis) == 0) {
+        for (TimeZoneMapping timeZoneMapping : getEffectiveTimeZoneMappingsAt(whenMillis)) {
+            TimeZone timeZone = timeZoneMapping.getTimeZone();
+            if (timeZone != null && timeZone.getOffset(whenMillis) == 0) {
                 return true;
             }
         }
@@ -322,68 +387,70 @@ public final class CountryTimeZones {
     }
 
     /**
-     * Returns {@code true} if the default time zone for the country is either the only zone used or
-     * if it has the same offsets as all other zones used by the country <em>at the specified time
-     * </em> making the default equivalent to all other zones used by the country <em>at that time
-     * </em>.
+     * Returns a time zone for the country, if there is one, that matches the supplied properties.
+     * If there are multiple matches and the {@code bias} is one of them then it is returned,
+     * otherwise an arbitrary match is returned based on the {@link
+     * #getEffectiveTimeZoneMappingsAt(long)} ordering.
+     *
+     * @param whenMillis the UTC time to match against
+     * @param bias the time zone to prefer, can be {@code null} to indicate there is no preference
+     * @param totalOffsetMillis the offset from UTC at {@code whenMillis}
+     * @param isDst the Daylight Savings Time state at {@code whenMillis}. {@code true} means DST,
+     *     {@code false} means not DST
+     * @return an {@link OffsetResult} with information about a matching zone, or {@code null} if
+     *     there is no match
      */
     @libcore.api.CorePlatformApi
-    public boolean isDefaultOkForCountryTimeZoneDetection(long whenMillis) {
+    public OffsetResult lookupByOffsetWithBias(long whenMillis, TimeZone bias,
+            int totalOffsetMillis, boolean isDst) {
+        return lookupByOffsetWithBiasInternal(whenMillis, bias, totalOffsetMillis, isDst);
+    }
+
+    /**
+     * Returns a time zone for the country, if there is one, that matches the supplied properties.
+     * If there are multiple matches and the {@code bias} is one of them then it is returned,
+     * otherwise an arbitrary match is returned based on the {@link
+     * #getEffectiveTimeZoneMappingsAt(long)} ordering.
+     *
+     * @param whenMillis the UTC time to match against
+     * @param bias the time zone to prefer, can be {@code null} to indicate there is no preference
+     * @param totalOffsetMillis the offset from UTC at {@code whenMillis}
+     * @return an {@link OffsetResult} with information about a matching zone, or {@code null} if
+     *     there is no match
+     */
+    @libcore.api.CorePlatformApi
+    public OffsetResult lookupByOffsetWithBias(long whenMillis, TimeZone bias,
+            int totalOffsetMillis) {
+        final Boolean isDst = null;
+        return lookupByOffsetWithBiasInternal(whenMillis, bias, totalOffsetMillis, isDst);
+    }
+
+    /**
+     * Returns a time zone for the country, if there is one, that matches the supplied properties.
+     * If there are multiple matches and the {@code bias} is one of them then it is returned,
+     * otherwise an arbitrary match is returned based on the {@link
+     * #getEffectiveTimeZoneMappingsAt(long)} ordering.
+     *
+     * @param whenMillis the UTC time to match against
+     * @param bias the time zone to prefer, can be {@code null}
+     * @param totalOffsetMillis the offset from UTC at {@code whenMillis}
+     * @param isDst the Daylight Savings Time state at {@code whenMillis}. {@code true} means DST,
+     *     {@code false} means not DST, {@code null} means unknown
+     */
+    private OffsetResult lookupByOffsetWithBiasInternal(long whenMillis, TimeZone bias,
+            int totalOffsetMillis, Boolean isDst) {
+        List<TimeZoneMapping> timeZoneMappings = getEffectiveTimeZoneMappingsAt(whenMillis);
         if (timeZoneMappings.isEmpty()) {
-            // Should never happen unless there's been an error loading the data.
-            return false;
-        } else if (timeZoneMappings.size() == 1) {
-            // The default is the only zone so it's a good candidate.
-            return true;
-        } else {
-            TimeZone countryDefault = getDefaultTimeZone();
-            if (countryDefault == null) {
-                return false;
-            }
-
-            int countryDefaultOffset = countryDefault.getOffset(whenMillis);
-            List<TimeZone> candidates = getIcuTimeZones();
-            for (TimeZone candidate : candidates) {
-                if (candidate == countryDefault) {
-                    continue;
-                }
-
-                int candidateOffset = candidate.getOffset(whenMillis);
-                if (countryDefaultOffset != candidateOffset) {
-                    // Multiple different offsets means the default should not be used.
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
-
-    /**
-     * Returns a time zone for the country, if there is one, that has the desired properties. If
-     * there are multiple matches and the {@code bias} is one of them then it is returned, otherwise
-     * an arbitrary match is returned based on the {@link #getTimeZoneMappings()} ordering.
-     *
-     * @param offsetMillis the offset from UTC at {@code whenMillis}
-     * @param isDst whether the zone is in DST
-     * @param whenMillis the UTC time to match against
-     * @param bias the time zone to prefer, can be null
-     * @deprecated Use {@link #lookupByOffsetWithBias(int, Integer, long, TimeZone)} instead
-     */
-    @libcore.api.CorePlatformApi
-    @Deprecated
-    public OffsetResult lookupByOffsetWithBias(int offsetMillis, boolean isDst, long whenMillis,
-            TimeZone bias) {
-        if (timeZoneMappings == null || timeZoneMappings.isEmpty()) {
             return null;
         }
-
-        List<TimeZone> candidates = getIcuTimeZones();
 
         TimeZone firstMatch = null;
         boolean biasMatched = false;
         boolean oneMatch = true;
-        for (TimeZone match : candidates) {
-            if (!offsetMatchesAtTime(match, offsetMillis, isDst, whenMillis)) {
+        for (TimeZoneMapping timeZoneMapping : timeZoneMappings) {
+            TimeZone match = timeZoneMapping.getTimeZone();
+            if (match == null
+                    || !offsetMatchesAtTime(whenMillis, match, totalOffsetMillis, isDst)) {
                 continue;
             }
 
@@ -408,92 +475,23 @@ public final class CountryTimeZones {
     }
 
     /**
-     * Returns {@code true} if the specified offset, DST state and time would be valid in the
-     * timeZone.
+     * Returns {@code true} if the specified {@code totalOffset} and {@code isDst} would be valid in
+     * the {@code timeZone} at time {@code whenMillis}.
+     * {@code totalOffetMillis} is always matched.
+     * If {@code isDst} is {@code null}, this means the DST state is unknown.
+     * If {@code isDst} is {@code false}, this means the zone must not be in DST.
+     * If {@code isDst} is {@code true}, this means the zone must be in DST.
      */
-    private static boolean offsetMatchesAtTime(TimeZone timeZone, int offsetMillis, boolean isDst,
-            long whenMillis) {
+    private static boolean offsetMatchesAtTime(long whenMillis, TimeZone timeZone,
+            int totalOffsetMillis, Boolean isDst) {
         int[] offsets = new int[2];
         timeZone.getOffset(whenMillis, false /* local */, offsets);
 
-        // offsets[1] == 0 when the zone is not in DST.
-        boolean zoneIsDst = offsets[1] != 0;
-        if (isDst != zoneIsDst) {
+        if (totalOffsetMillis != (offsets[0] + offsets[1])) {
             return false;
         }
-        return offsetMillis == (offsets[0] + offsets[1]);
-    }
 
-    /**
-     * Returns a time zone for the country, if there is one, that has the desired properties. If
-     * there are multiple matches and the {@code bias} is one of them then it is returned, otherwise
-     * an arbitrary match is returned based on the {@link #getTimeZoneMappings()} ordering.
-     *
-     * @param offsetMillis the offset from UTC at {@code whenMillis}
-     * @param dstOffsetMillis the part of {@code offsetMillis} contributed by DST, {@code null}
-     *                        means unknown
-     * @param whenMillis the UTC time to match against
-     * @param bias the time zone to prefer, can be null
-     */
-    public OffsetResult lookupByOffsetWithBias(int offsetMillis, Integer dstOffsetMillis,
-            long whenMillis, TimeZone bias) {
-        if (timeZoneMappings == null || timeZoneMappings.isEmpty()) {
-            return null;
-        }
-
-        List<TimeZone> candidates = getIcuTimeZones();
-
-        TimeZone firstMatch = null;
-        boolean biasMatched = false;
-        boolean oneMatch = true;
-        for (TimeZone match : candidates) {
-            if (!offsetMatchesAtTime(match, offsetMillis, dstOffsetMillis, whenMillis)) {
-                continue;
-            }
-
-            if (firstMatch == null) {
-                firstMatch = match;
-            } else {
-                oneMatch = false;
-            }
-            if (bias != null && match.getID().equals(bias.getID())) {
-                biasMatched = true;
-            }
-            if (firstMatch != null && !oneMatch && (bias == null || biasMatched)) {
-                break;
-            }
-        }
-        if (firstMatch == null) {
-            return null;
-        }
-
-        TimeZone toReturn = biasMatched ? bias : firstMatch;
-        return new OffsetResult(toReturn, oneMatch);
-    }
-
-    /**
-     * Returns {@code true} if the specified offset, DST and time would be valid in the
-     * timeZone.
-     */
-    private static boolean offsetMatchesAtTime(TimeZone timeZone, int offsetMillis,
-            Integer dstOffsetMillis, long whenMillis) {
-        int[] offsets = new int[2];
-        timeZone.getOffset(whenMillis, false /* local */, offsets);
-
-        if (dstOffsetMillis != null) {
-            if (dstOffsetMillis.intValue() != offsets[1]) {
-                return false;
-            }
-        }
-        return offsetMillis == (offsets[0] + offsets[1]);
-    }
-
-    private static TimeZone getValidFrozenTimeZoneOrNull(String timeZoneId) {
-        TimeZone timeZone = TimeZone.getFrozenTimeZone(timeZoneId);
-        if (timeZone.getID().equals(TimeZone.UNKNOWN_ZONE_ID)) {
-            return null;
-        }
-        return timeZone;
+        return isDst == null || (isDst == (offsets[1] != 0));
     }
 
     private static String normalizeCountryIso(String countryIso) {

@@ -16,9 +16,14 @@
 
 package com.android.pump.util;
 
+import android.content.ContentResolver;
+import android.content.UriMatcher;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Build;
+import android.provider.MediaStore;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
@@ -29,6 +34,7 @@ import androidx.collection.ArraySet;
 import com.android.pump.concurrent.Executors;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.LinkedList;
@@ -41,8 +47,22 @@ import java.util.concurrent.Executor;
 public class ImageLoader {
     private static final String TAG = Clog.tag(ImageLoader.class);
 
+    // TODO Replace with Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q throughout the code.
+    private static boolean isAtLeastRunningQ() {
+        return Build.VERSION.SDK_INT > Build.VERSION_CODES.P
+                || (Build.VERSION.SDK_INT == Build.VERSION_CODES.P
+                && Build.VERSION.PREVIEW_SDK_INT > 0);
+    }
+
+    private static final UriMatcher VIDEO_THUMBNAIL_URI_MATCHER =
+            new UriMatcher(UriMatcher.NO_MATCH);
+    static {
+        VIDEO_THUMBNAIL_URI_MATCHER.addURI("media", "*/video/media/#/thumbnail", 0);
+    }
+
     private final BitmapCache mBitmapCache = new BitmapCache();
     private final OrientationCache mOrientationCache = new OrientationCache();
+    private final ContentResolver mContentResolver;
     private final Executor mExecutor;
     private final Set<Map.Entry<Executor, Callback>> mCallbacks = new ArraySet<>();
     private final Map<Uri, List<Map.Entry<Executor, Callback>>> mLoadCallbacks = new ArrayMap<>();
@@ -52,7 +72,8 @@ public class ImageLoader {
         void onImageLoaded(@NonNull Uri uri, @Nullable Bitmap bitmap);
     }
 
-    public ImageLoader(@NonNull Executor executor) {
+    public ImageLoader(@NonNull ContentResolver contentResolver, @NonNull Executor executor) {
+        mContentResolver = contentResolver;
         mExecutor = executor;
     }
 
@@ -121,15 +142,26 @@ public class ImageLoader {
         @Override
         public void run() {
             try {
-                byte[] data;
-                if (Scheme.isFile(mUri)) {
-                    data = IoUtils.readFromFile(new File(mUri.getPath()));
-                } else if (Scheme.isHttp(mUri) || Scheme.isHttps(mUri)) {
-                    data = Http.get(mUri.toString());
+                Bitmap bitmap;
+                if (isAtLeastRunningQ() || !isVideoThumbnailUri(mUri)) {
+                    byte[] data;
+                    if (Scheme.isContent(mUri)) {
+                        data = readFromContent(mUri);
+                    } else if (Scheme.isFile(mUri)) {
+                        data = IoUtils.readFromFile(new File(mUri.getPath()));
+                    } else if (Scheme.isHttp(mUri) || Scheme.isHttps(mUri)) {
+                        data = Http.get(mUri.toString());
+                    } else {
+                        throw new IllegalArgumentException(
+                                "Unknown scheme '" + mUri.getScheme() + "'");
+                    }
+                    bitmap = decodeBitmapFromByteArray(data);
                 } else {
-                    throw new IllegalArgumentException("Unknown scheme '" + mUri.getScheme() + "'");
+                    // TODO This will always return a bitmap which is inconsistent with Q.
+                    bitmap = MediaStore.Video.Thumbnails.getThumbnail(mContentResolver,
+                            Long.parseLong(mUri.getPathSegments().get(3)),
+                            MediaStore.Video.Thumbnails.MINI_KIND, null);
                 }
-                Bitmap bitmap = decodeBitmapFromByteArray(data);
                 Set<Map.Entry<Executor, Callback>> callbacks;
                 List<Map.Entry<Executor, Callback>> loadCallbacks;
                 synchronized (ImageLoader.this) { // TODO(b/123708613) proper lock
@@ -163,6 +195,24 @@ public class ImageLoader {
             options.inJustDecodeBounds = false;
             options.inSampleSize = 1; // TODO(b/123708796) add scaling
             return BitmapFactory.decodeByteArray(data, 0, data.length, options);
+        }
+
+        private @NonNull byte[] readFromContent(@NonNull Uri uri) throws IOException {
+            // TODO(b/123708796) set EXTRA_SIZE in opts
+            AssetFileDescriptor assetFileDescriptor =
+                    mContentResolver.openTypedAssetFileDescriptor(uri, "image/*", null);
+            if (assetFileDescriptor == null) {
+                throw new FileNotFoundException(uri.toString());
+            }
+            try {
+                return IoUtils.readFromAssetFileDescriptor(assetFileDescriptor);
+            } finally {
+                IoUtils.close(assetFileDescriptor);
+            }
+        }
+
+        private boolean isVideoThumbnailUri(@NonNull Uri uri) {
+            return VIDEO_THUMBNAIL_URI_MATCHER.match(uri) != UriMatcher.NO_MATCH;
         }
     }
 }

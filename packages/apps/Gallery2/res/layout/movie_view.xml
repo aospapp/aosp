@@ -20,7 +20,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
     <VideoView android:id="@+id/surface_view"
-            android:visibility="invisible"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_centerInParent="true" />

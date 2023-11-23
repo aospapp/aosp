@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="component" value="neuralnetworks" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsTfliteNnapiDelegateTestCases->/data/local/tmp/CtsTfliteNnapiDelegateTestCases" />
@@ -30,4 +31,8 @@
         <!-- test-timeout unit is ms, value = 2 min -->
         <option name="native-test-timeout" value="120000" />
     </test>
+
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="com.google.android.neuralnetworks" />
+    </object>
 </configuration>

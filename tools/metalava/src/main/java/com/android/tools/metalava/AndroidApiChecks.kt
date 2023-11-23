@@ -17,7 +17,7 @@
 package com.android.tools.metalava
 
 import com.android.SdkConstants
-import com.android.tools.metalava.doclava1.Errors
+import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationAttributeValue
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
@@ -168,7 +168,7 @@ class AndroidApiChecks {
 
     private fun checkTodos(item: Item) {
         if (item.documentation.contains("TODO:") || item.documentation.contains("TODO(")) {
-            reporter.report(Errors.TODO, item, "Documentation mentions 'TODO'")
+            reporter.report(Issues.TODO, item, "Documentation mentions 'TODO'")
         }
     }
 
@@ -196,7 +196,7 @@ class AndroidApiChecks {
                         reporter.report(
                             // Why is that a problem? Sometimes you want to describe
                             // particular use cases.
-                            Errors.REQUIRES_PERMISSION, method, "Method '" + method.name() +
+                            Issues.REQUIRES_PERMISSION, method, "Method '" + method.name() +
                                 "' documentation mentions permissions already declared by @RequiresPermission"
                         )
                     }
@@ -204,7 +204,7 @@ class AndroidApiChecks {
             }
         } else if (text.contains("android.Manifest.permission") || text.contains("android.permission.")) {
             reporter.report(
-                Errors.REQUIRES_PERMISSION, method, "Method '" + method.name() +
+                Issues.REQUIRES_PERMISSION, method, "Method '" + method.name() +
                     "' documentation mentions permissions without declaring @RequiresPermission"
             )
         }
@@ -226,13 +226,13 @@ class AndroidApiChecks {
         ) {
             if (!hasBehavior) {
                 reporter.report(
-                    Errors.BROADCAST_BEHAVIOR, field,
+                    Issues.BROADCAST_BEHAVIOR, field,
                     "Field '" + field.name() + "' is missing @BroadcastBehavior"
                 )
             }
             if (!hasSdkConstant) {
                 reporter.report(
-                    Errors.SDK_CONSTANT, field, "Field '" + field.name() +
+                    Issues.SDK_CONSTANT, field, "Field '" + field.name() +
                         "' is missing @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)"
                 )
             }
@@ -241,7 +241,7 @@ class AndroidApiChecks {
         if (text.contains("Activity Action:")) {
             if (!hasSdkConstant) {
                 reporter.report(
-                    Errors.SDK_CONSTANT, field, "Field '" + field.name() +
+                    Issues.SDK_CONSTANT, field, "Field '" + field.name() +
                         "' is missing @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)"
                 )
             }
@@ -272,7 +272,7 @@ class AndroidApiChecks {
 
             if (!foundTypeDef) {
                 reporter.report(
-                    Errors.INT_DEF, item,
+                    Issues.INT_DEF, item,
                     // TODO: Include source code you can paste right into the code?
                     "$ident documentation mentions constants without declaring an @IntDef"
                 )
@@ -283,7 +283,7 @@ class AndroidApiChecks {
             !item.hasNullnessInfo()
         ) {
             reporter.report(
-                Errors.NULLABLE, item,
+                Issues.NULLABLE, item,
                 "$ident documentation mentions 'null' without declaring @NonNull or @Nullable"
             )
         }

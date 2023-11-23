@@ -27,6 +27,7 @@ import com.android.layoutlib.bridge.android.BridgeContext;
 import com.android.layoutlib.bridge.impl.ResourceHelper;
 import com.android.resources.ResourceType;
 
+import android.R.id;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -36,6 +37,7 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
+import android.view.Window;
 import android.widget.FrameLayout;
 
 import java.lang.reflect.Field;
@@ -67,8 +69,20 @@ public class AppCompatActionBar extends BridgeActionBar {
         int contentRootId = context.getResourceId(resource, 0);
         View contentView = getDecorContent().findViewById(contentRootId);
 
+        // We need to change the id of the content view, but before it needs to have
+        // been assigned inside the action bar, which happens when calling setWindowCallback.
+        ResourceReference parentResource = context.createAppCompatResourceReference(
+                ResourceType.ID, "decor_content_parent");
+        int parentId = context.getResourceId(parentResource, 0);
+        View parentView = getDecorContent().findViewById(parentId);
+        if (parentView != null) {
+            invoke(getMethod(parentView.getClass(), "setWindowCallback",
+                    Window.Callback.class), parentView, (Object) null);
+        }
+
         if (contentView != null) {
             assert contentView instanceof FrameLayout;
+            contentView.setId(id.content);
             setContentRoot((FrameLayout) contentView);
         } else {
             // Something went wrong. Create a new FrameLayout in the enclosing layout.
@@ -77,6 +91,7 @@ public class AppCompatActionBar extends BridgeActionBar {
             if (mEnclosingLayout != null) {
                 mEnclosingLayout.addView(contentRoot);
             }
+            contentRoot.setId(id.content);
             setContentRoot(contentRoot);
         }
         try {
@@ -101,9 +116,10 @@ public class AppCompatActionBar extends BridgeActionBar {
                     mWindowDecorActionBar == null ? null : mWindowDecorActionBar.getClass();
             inflateMenus();
             setupActionBar();
+            getContentRoot().setId(id.content);
         } catch (Exception e) {
             Bridge.getLog().warning(LayoutLog.TAG_BROKEN,
-                    "Failed to load AppCompat ActionBar with unknown error.", e);
+                    "Failed to load AppCompat ActionBar with unknown error.", null, e);
         }
     }
 

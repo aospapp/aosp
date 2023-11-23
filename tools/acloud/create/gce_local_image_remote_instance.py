@@ -44,7 +44,7 @@ class GceLocalImageRemoteInstance(base_avd_create.BaseAVDCreate):
         """
         logger.info("GCE local image: %s", avd_spec.local_image_artifact)
 
-        report = device_driver.CreateAndroidVirtualDevices(
+        report = device_driver.CreateGCETypeAVD(
             avd_spec.cfg,
             num=avd_spec.num,
             local_disk_image=avd_spec.local_image_artifact,
@@ -53,7 +53,7 @@ class GceLocalImageRemoteInstance(base_avd_create.BaseAVDCreate):
             avd_spec=avd_spec)
 
         # Launch vnc client if we're auto-connecting.
-        if avd_spec.autoconnect:
+        if avd_spec.connect_vnc:
             utils.LaunchVNCFromReport(report, avd_spec, no_prompts)
 
         return report

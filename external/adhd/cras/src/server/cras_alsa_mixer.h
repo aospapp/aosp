@@ -41,9 +41,19 @@ struct cras_alsa_mixer *cras_alsa_mixer_create(const char *card_name);
  * Returns:
  *    0 on success. Negative error code otherwise.
  */
-int cras_alsa_mixer_add_controls_in_section(
-		struct cras_alsa_mixer *cmix,
-		struct ucm_section *section);
+int cras_alsa_mixer_add_controls_in_section(struct cras_alsa_mixer *cmix,
+					    struct ucm_section *section);
+
+/* Adds main volume controls to a cras_alsa_mixer from the given list of mixer
+ * names of main volume controls.
+ * Args:
+ *    cmix - A pointer to cras_alsa_mixer.
+ *    mixer_names - A list of mixer names from the given UCM MainVolumeNames.
+ * Returns:
+ *    0 on success. Negative error code otherwise.
+ */
+int cras_alsa_mixer_add_main_volume_control_by_name(
+	struct cras_alsa_mixer *cmix, struct mixer_name *mixer_names);
 
 /* Adds controls to a cras_alsa_mixer instance by name matching.
  * Args:
@@ -54,9 +64,8 @@ int cras_alsa_mixer_add_controls_in_section(
  *    0 on success. Other error code if error happens.
  */
 int cras_alsa_mixer_add_controls_by_name_matching(
-		struct cras_alsa_mixer *cmix,
-		struct mixer_name *extra_controls,
-		struct mixer_name *coupled_controls);
+	struct cras_alsa_mixer *cmix, struct mixer_name *extra_controls,
+	struct mixer_name *coupled_controls);
 
 /* Destroys a cras_alsa_mixer that was returned from cras_alsa_mixer_create.
  * Args:
@@ -79,8 +88,7 @@ int cras_alsa_mixer_has_volume(const struct mixer_control *mixer_control);
  *    mixer_output - The mixer output to set if not all attenuation can be
  *      obtained from the main controls.  Can be null.
  */
-void cras_alsa_mixer_set_dBFS(struct cras_alsa_mixer *cras_mixer,
-			      long dBFS,
+void cras_alsa_mixer_set_dBFS(struct cras_alsa_mixer *cras_mixer, long dBFS,
 			      struct mixer_control *mixer_output);
 
 /* Gets the volume range of the mixer in dB.
@@ -93,8 +101,7 @@ long cras_alsa_mixer_get_dB_range(struct cras_alsa_mixer *cras_mixer);
  * Args:
  *    mixer_output - The mixer output to get the volume range.
  */
-long cras_alsa_mixer_get_output_dB_range(
-		struct mixer_control *mixer_output);
+long cras_alsa_mixer_get_output_dB_range(struct mixer_control *mixer_output);
 
 /* Sets the capture gain for the device associated with this mixer.
  * Args:
@@ -105,7 +112,7 @@ long cras_alsa_mixer_get_output_dB_range(
  */
 void cras_alsa_mixer_set_capture_dBFS(struct cras_alsa_mixer *cras_mixer,
 				      long dBFS,
-				      struct mixer_control* mixer_input);
+				      struct mixer_control *mixer_input);
 
 /* Gets the minimum allowed setting for capture gain.
  * Args:
@@ -116,8 +123,7 @@ void cras_alsa_mixer_set_capture_dBFS(struct cras_alsa_mixer *cras_mixer,
  *    The minimum allowed capture gain in dBFS * 100.
  */
 long cras_alsa_mixer_get_minimum_capture_gain(
-                struct cras_alsa_mixer *cmix,
-		struct mixer_control *mixer_input);
+	struct cras_alsa_mixer *cmix, struct mixer_control *mixer_input);
 
 /* Gets the maximum allowed setting for capture gain.
  * Args:
@@ -128,8 +134,7 @@ long cras_alsa_mixer_get_minimum_capture_gain(
  *    The maximum allowed capture gain in dBFS * 100.
  */
 long cras_alsa_mixer_get_maximum_capture_gain(
-		struct cras_alsa_mixer *cmix,
-		struct mixer_control *mixer_input);
+	struct cras_alsa_mixer *cmix, struct mixer_control *mixer_input);
 
 /* Sets the playback switch for the device.
  * Args:
@@ -138,8 +143,7 @@ long cras_alsa_mixer_get_maximum_capture_gain(
  *    mixer_output - The output specific mixer control to mute/unmute. Pass NULL
  *                   to skip it.
  */
-void cras_alsa_mixer_set_mute(struct cras_alsa_mixer *cras_mixer,
-			      int muted,
+void cras_alsa_mixer_set_mute(struct cras_alsa_mixer *cras_mixer, int muted,
 			      struct mixer_control *mixer_output);
 
 /* Sets the capture switch for the device.
@@ -160,8 +164,8 @@ void cras_alsa_mixer_set_capture_mute(struct cras_alsa_mixer *cras_mixer,
  *    cb - Function to call for each output (input).
  *    cb_arg - Argument to pass to cb.
  */
-typedef void (*cras_alsa_mixer_control_callback)(
-		struct mixer_control *control, void *arg);
+typedef void (*cras_alsa_mixer_control_callback)(struct mixer_control *control,
+						 void *arg);
 void cras_alsa_mixer_list_outputs(struct cras_alsa_mixer *cras_mixer,
 				  cras_alsa_mixer_control_callback cb,
 				  void *cb_arg);
@@ -171,8 +175,8 @@ void cras_alsa_mixer_list_inputs(struct cras_alsa_mixer *cras_mixer,
 				 void *cb_arg);
 
 /* Gets the name of a given control. */
-const char *cras_alsa_mixer_get_control_name(
-		const struct mixer_control *control);
+const char *
+cras_alsa_mixer_get_control_name(const struct mixer_control *control);
 
 /* Returns the mixer control matching the given direction and name.
  * Args:
@@ -184,10 +188,10 @@ const char *cras_alsa_mixer_get_control_name(
  * Returns:
  *    A pointer to the matching mixer control, or NULL if none found.
  */
-struct mixer_control *cras_alsa_mixer_get_control_matching_name(
-		struct cras_alsa_mixer *cras_mixer,
-		enum CRAS_STREAM_DIRECTION dir, const char *name,
-		int create_missing);
+struct mixer_control *
+cras_alsa_mixer_get_control_matching_name(struct cras_alsa_mixer *cras_mixer,
+					  enum CRAS_STREAM_DIRECTION dir,
+					  const char *name, int create_missing);
 
 /* Returns the mixer control associated with the given section.
  * The control is the one that matches 'mixer_name', or if that is not defined
@@ -199,9 +203,9 @@ struct mixer_control *cras_alsa_mixer_get_control_matching_name(
  * Returns:
  *    A pointer to the associated mixer control, or NULL if none found.
  */
-struct mixer_control *cras_alsa_mixer_get_control_for_section(
-		struct cras_alsa_mixer *cras_mixer,
-		const struct ucm_section *section);
+struct mixer_control *
+cras_alsa_mixer_get_control_for_section(struct cras_alsa_mixer *cras_mixer,
+					const struct ucm_section *section);
 
 /* Finds the output that matches the given string.  Used to match Jacks to Mixer
  * elements.
@@ -211,9 +215,9 @@ struct mixer_control *cras_alsa_mixer_get_control_for_section(
  * Returns:
  *    A pointer to the output with a mixer control that matches "name".
  */
-struct mixer_control *cras_alsa_mixer_get_output_matching_name(
-		struct cras_alsa_mixer *cras_mixer,
-		const char *name);
+struct mixer_control *
+cras_alsa_mixer_get_output_matching_name(struct cras_alsa_mixer *cras_mixer,
+					 const char *name);
 
 /* Finds the mixer control for that matches the control name of input control
  * name specified in ucm config.
@@ -223,13 +227,12 @@ struct mixer_control *cras_alsa_mixer_get_output_matching_name(
  * Returns:
  *    A pointer to the input with a mixer control that matches "name".
  */
-struct mixer_control *cras_alsa_mixer_get_input_matching_name(
-		struct cras_alsa_mixer *cras_mixer,
-		const char *name);
+struct mixer_control *
+cras_alsa_mixer_get_input_matching_name(struct cras_alsa_mixer *cras_mixer,
+					const char *name);
 
 /* Sets the given output active or inactive. */
-int cras_alsa_mixer_set_output_active_state(
-		struct mixer_control *output,
-		int active);
+int cras_alsa_mixer_set_output_active_state(struct mixer_control *output,
+					    int active);
 
 #endif /* _CRAS_ALSA_MIXER_H */

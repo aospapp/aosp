@@ -194,7 +194,13 @@ bool AC3FrameScanner::parseHeader()
 
         // Frame size is explicit in EAC3. Paragraph E2.3.1.3
         uint32_t frmsiz = ((mHeaderBuffer[2] & 0x07) << 8) + mHeaderBuffer[3];
-        mFrameSizeBytes = (frmsiz + 1) * sizeof(int16_t);
+        uint32_t frameSizeBytes = (frmsiz + 1) * sizeof(int16_t);
+        if (frameSizeBytes < mHeaderLength) {
+            ALOGW("AC3 frame size = %d, less than header size = %d", frameSizeBytes, mHeaderLength);
+            android_errorWriteLog(0x534e4554, "145262423");
+            return false;
+        }
+        mFrameSizeBytes = frameSizeBytes;
 
         uint32_t numblkscod = 3; // 6 blocks default
         if (fscod == 3) {
@@ -241,7 +247,7 @@ bool AC3FrameScanner::parseHeader()
                     * kAC3FrameSizeTable[frmsizcod][fscod];
         }
         mAudioBlocksPerSyncFrame = 6;
-        if (mFormat == AUDIO_FORMAT_E_AC3) {
+        if (mFormat == AUDIO_FORMAT_E_AC3 || mFormat == AUDIO_FORMAT_E_AC3_JOC) {
             ALOGV("Its a Ac3 substream in EAC3 stream");
             mStreamType = 2;
             mSubstreamID = 0;

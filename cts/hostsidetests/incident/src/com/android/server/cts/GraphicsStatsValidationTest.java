@@ -15,12 +15,14 @@
  */
 package com.android.server.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.service.GraphicsStatsHistogramBucketProto;
 import android.service.GraphicsStatsJankSummaryProto;
 import android.service.GraphicsStatsProto;
 import android.service.GraphicsStatsServiceDumpProto;
 
-import com.android.tradefed.log.LogUtil.CLog;
+import com.google.common.collect.Range;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -46,7 +48,7 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
         turnScreenOn();
         // Ensure that we have a starting point for our stats
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".SimpleDrawFrameTests",
-                "testDrawTenFrames");
+                "testNothing");
         // Kill to ensure that stats persist/merge across process death
         killTestApp();
     }
@@ -91,22 +93,24 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
         int jankyDelta = summaryAfter.getJankyFrames() - summaryBefore.getJankyFrames();
         // Test draws 50 frames + 1 initial frame. We expect 40 of them to be janky,
         // 10 of each of ANIMATION, LAYOUT, RECORD_DRAW, and MISSED_VSYNC
-        assertTrue(frameDelta < 55);
-        assertTrue(jankyDelta >= 40);
-        assertTrue(jankyDelta < 45);
+
+        assertThat(frameDelta).isAtLeast(50);
+        assertThat(jankyDelta).isAtLeast(40);
+        assertThat(jankyDelta).isLessThan(45);
 
         // Although our current stats don't distinguish between ANIMATION, LAYOUT, and RECORD_DRAW
         // so this will just be slowUi +30
         int slowUiDelta = summaryAfter.getSlowUiThreadCount() - summaryBefore.getSlowUiThreadCount();
-        assertTrue(slowUiDelta >= 30);
+        assertThat(slowUiDelta).isAtLeast(20);
         int missedVsyncDelta = summaryAfter.getMissedVsyncCount()
                 - summaryBefore.getMissedVsyncCount();
-        assertTrue(missedVsyncDelta >= 10);
-        assertTrue(missedVsyncDelta <= 11);
+        assertThat(missedVsyncDelta).isIn(Range.closed(10, 11));
 
         int veryJankyDelta = countFramesAbove(statsAfter, 60) - countFramesAbove(statsBefore, 60);
         // The 1st frame could be >40ms, but nothing after that should be
-        assertTrue(veryJankyDelta <= 1);
+        assertThat(veryJankyDelta).isAtMost(2);
+        int noGPUJank = countGPUFramesAbove(statsAfter, 60) - countGPUFramesAbove(statsBefore, 60);
+        assertThat(noGPUJank).isEqualTo(0);
     }
 
     public void testDaveyDrawFrame() throws Exception {
@@ -121,13 +125,12 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
         int jankyDelta = summaryAfter.getJankyFrames() - summaryBefore.getJankyFrames();
         // Test draws 40 frames + 1 initial frame. We expect 10 of them to be daveys,
         // 10 of them to be daveyjrs, and 20 to jank from missed vsync (from the davey/daveyjr prior to it)
-        assertTrue(frameDelta < 45);
-        assertTrue(jankyDelta >= 20);
-        assertTrue(jankyDelta < 25);
+        assertThat(frameDelta).isAtLeast(40);
+        assertThat(jankyDelta).isAtLeast(20);
+        assertThat(jankyDelta).isLessThan(25);
 
         int gt150msDelta = countFramesAbove(statsAfter, 150) - countFramesAbove(statsBefore, 150);
-        assertTrue(gt150msDelta >= 20); // 10 davey jrs + 10 daveys + maybe first frame
-        assertTrue(gt150msDelta <= 21);
+        assertThat(gt150msDelta).isIn(Range.closed(20, 22));
         int gt700msDelta = countFramesAbove(statsAfter, 700) - countFramesAbove(statsBefore, 700);
         assertEquals(10, gt700msDelta); // 10 daveys
     }
@@ -137,10 +140,10 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
     }
 
     private GraphicsStatsProto[] doRunDrawTest(String testName, boolean canRetry) throws Exception {
-        GraphicsStatsProto statsBefore = fetchStats();
-        assertNotNull(statsBefore);
         killTestApp();
         turnScreenOn();
+        GraphicsStatsProto statsBefore = fetchStats();
+        assertNotNull(statsBefore);
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".SimpleDrawFrameTests",  testName);
         killTestApp();
         GraphicsStatsProto statsAfter = fetchStats();
@@ -181,6 +184,9 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
         assertTrue(summary.getSlowBitmapUploadCount() <= summary.getJankyFrames());
         assertTrue(summary.getSlowDrawCount() <= summary.getJankyFrames());
         assertTrue(proto.getHistogramCount() > 0);
+        assertTrue(proto.getGpuHistogramCount() > 0);
+        assertTrue(proto.getPipeline() == GraphicsStatsProto.PipelineType.GL
+            || proto.getPipeline() == GraphicsStatsProto.PipelineType.VULKAN);
 
         int histogramTotal = countTotalFrames(proto);
         assertEquals(summary.getTotalFrames(), histogramTotal);
@@ -189,6 +195,16 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
     private int countFramesAbove(GraphicsStatsProto proto, int thresholdMs) {
         int totalFrames = 0;
         for (GraphicsStatsHistogramBucketProto bucket : proto.getHistogramList()) {
+            if (bucket.getRenderMillis() >= thresholdMs) {
+                totalFrames += bucket.getFrameCount();
+            }
+        }
+        return totalFrames;
+    }
+
+    private int countGPUFramesAbove(GraphicsStatsProto proto, int thresholdMs) {
+        int totalFrames = 0;
+        for (GraphicsStatsHistogramBucketProto bucket : proto.getGpuHistogramList()) {
             if (bucket.getRenderMillis() >= thresholdMs) {
                 totalFrames += bucket.getFrameCount();
             }

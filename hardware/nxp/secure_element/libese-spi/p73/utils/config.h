@@ -23,6 +23,7 @@ class ConfigValue {
  public:
   enum Type { UNSIGNED, STRING, BYTES };
 
+  ConfigValue();
   Type getType() const;
   std::string getString() const;
   unsigned getUnsigned() const;

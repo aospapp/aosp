@@ -20,7 +20,7 @@ class enterprise_CFM_MeetAppSanity(cfm_base_test.CfmBaseTest):
     def run_once(self):
         """Runs the test."""
         # Following triggers new Thor/Meetings APIs.
-        self.cfm_facade.wait_for_meetings_telemetry_commands()
+        self.cfm_facade.wait_for_telemetry_commands()
         self.cfm_facade.start_meeting_session()
         time.sleep(LONG_TIMEOUT)
         self.cfm_facade.end_meeting_session()

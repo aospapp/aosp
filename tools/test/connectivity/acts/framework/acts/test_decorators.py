@@ -95,11 +95,13 @@ class _TestInfoDecoratorFunc(object):
                 new_signal = signals.TestPass('')
             else:
                 new_signal = signals.TestFailure('')
-        except Exception as signal:
+        except signals.TestSignal as signal:
             new_signal = signal
+        except Exception as cause:
+            new_signal = signals.TestError(cause)
 
-        if getattr(new_signal, "extras", None) is None:
-            setattr(new_signal, "extras", {})
+        if new_signal.extras is None:
+            new_signal.extras = {}
         if not isinstance(new_signal.extras, dict):
             raise ValueError('test_info can only append to signal data '
                              'that has a dict as the extra value.')

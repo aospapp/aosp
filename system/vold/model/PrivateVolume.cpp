@@ -17,14 +17,15 @@
 #include "PrivateVolume.h"
 #include "EmulatedVolume.h"
 #include "Utils.h"
+#include "VolumeEncryption.h"
 #include "VolumeManager.h"
-#include "cryptfs.h"
 #include "fs/Ext4.h"
 #include "fs/F2fs.h"
 
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <cutils/fs.h>
+#include <libdm/dm.h>
 #include <private/android_filesystem_config.h>
 
 #include <fcntl.h>
@@ -35,15 +36,18 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <thread>
 
 using android::base::StringPrintf;
+using android::vold::IsVirtioBlkDevice;
 
 namespace android {
 namespace vold {
 
+static const unsigned int kMajorBlockLoop = 7;
 static const unsigned int kMajorBlockMmc = 179;
 
-PrivateVolume::PrivateVolume(dev_t device, const std::string& keyRaw)
+PrivateVolume::PrivateVolume(dev_t device, const KeyBuffer& keyRaw)
     : VolumeBase(Type::kPrivate), mRawDevice(device), mKeyRaw(keyRaw) {
     setId(StringPrintf("private:%u,%u", major(device), minor(device)));
     mRawDevPath = StringPrintf("/dev/block/vold/%s", getId().c_str());
@@ -64,23 +68,29 @@ status_t PrivateVolume::doCreate() {
     if (CreateDeviceNode(mRawDevPath, mRawDevice)) {
         return -EIO;
     }
-    if (mKeyRaw.size() != cryptfs_get_keysize()) {
-        PLOG(ERROR) << getId() << " Raw keysize " << mKeyRaw.size()
-                    << " does not match crypt keysize " << cryptfs_get_keysize();
+
+    // Recover from stale vold by tearing down any old mappings
+    auto& dm = dm::DeviceMapper::Instance();
+    // TODO(b/149396179) there appears to be a race somewhere in the system where trying
+    // to delete the device fails with EBUSY; for now, work around this by retrying.
+    bool ret;
+    int tries = 10;
+    while (tries-- > 0) {
+        ret = dm.DeleteDeviceIfExists(getId());
+        if (ret || errno != EBUSY) {
+            break;
+        }
+        PLOG(ERROR) << "Cannot remove dm device " << getId();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    if (!ret) {
         return -EIO;
     }
 
-    // Recover from stale vold by tearing down any old mappings
-    cryptfs_revert_ext_volume(getId().c_str());
-
     // TODO: figure out better SELinux labels for private volumes
 
-    unsigned char* key = (unsigned char*)mKeyRaw.data();
-    char crypto_blkdev[MAXPATHLEN];
-    int res = cryptfs_setup_ext_volume(getId().c_str(), mRawDevPath.c_str(), key, crypto_blkdev);
-    mDmDevPath = crypto_blkdev;
-    if (res != 0) {
-        PLOG(ERROR) << getId() << " failed to setup cryptfs";
+    if (!setup_ext_volume(getId(), mRawDevPath, mKeyRaw, &mDmDevPath)) {
+        LOG(ERROR) << getId() << " failed to setup metadata encryption";
         return -EIO;
     }
 
@@ -88,8 +98,21 @@ status_t PrivateVolume::doCreate() {
 }
 
 status_t PrivateVolume::doDestroy() {
-    if (cryptfs_revert_ext_volume(getId().c_str())) {
-        LOG(ERROR) << getId() << " failed to revert cryptfs";
+    auto& dm = dm::DeviceMapper::Instance();
+    // TODO(b/149396179) there appears to be a race somewhere in the system where trying
+    // to delete the device fails with EBUSY; for now, work around this by retrying.
+    bool ret;
+    int tries = 10;
+    while (tries-- > 0) {
+        ret = dm.DeleteDevice(getId());
+        if (ret || errno != EBUSY) {
+            break;
+        }
+        PLOG(ERROR) << "Cannot remove dm device " << getId();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    if (!ret) {
+        return -EIO;
     }
     return DestroyDeviceNode(mRawDevPath);
 }
@@ -155,14 +178,22 @@ status_t PrivateVolume::doMount() {
         return -EIO;
     }
 
-    // Create a new emulated volume stacked above us, it will automatically
-    // be destroyed during unmount
-    std::string mediaPath(mPath + "/media");
-    auto vol = std::shared_ptr<VolumeBase>(new EmulatedVolume(mediaPath, mRawDevice, mFsUuid));
-    addVolume(vol);
-    vol->create();
-
     return OK;
+}
+
+void PrivateVolume::doPostMount() {
+    auto vol_manager = VolumeManager::Instance();
+    std::string mediaPath(mPath + "/media");
+
+    // Create a new emulated volume stacked above us for all added users, they will automatically
+    // be destroyed during unmount
+    for (userid_t user : vol_manager->getStartedUsers()) {
+        auto vol = std::shared_ptr<VolumeBase>(
+                new EmulatedVolume(mediaPath, mRawDevice, mFsUuid, user));
+        vol->setMountUserId(user);
+        addVolume(vol);
+        vol->create();
+    }
 }
 
 status_t PrivateVolume::doUnmount() {
@@ -180,7 +211,10 @@ status_t PrivateVolume::doFormat(const std::string& fsType) {
     if (fsType == "auto") {
         // For now, assume that all MMC devices are flash-based SD cards, and
         // give everyone else ext4 because sysfs rotational isn't reliable.
-        if ((major(mRawDevice) == kMajorBlockMmc) && f2fs::IsSupported()) {
+        // Additionally, prefer f2fs for loop-based devices
+        if ((major(mRawDevice) == kMajorBlockMmc ||
+             major(mRawDevice) == kMajorBlockLoop ||
+             IsVirtioBlkDevice(major(mRawDevice))) && f2fs::IsSupported()) {
             resolvedFsType = "f2fs";
         } else {
             resolvedFsType = "ext4";

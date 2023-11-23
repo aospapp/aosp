@@ -19,8 +19,8 @@
 extern "C" {
 
 #include "HAP_farf.h"
-#include "timer.h"
 #include "qurt.h"
+#include "timer.h"
 
 }  // extern "C"
 
@@ -32,7 +32,6 @@ extern "C" {
 #include "chre/platform/log.h"
 #include "chre/platform/memory.h"
 #include "chre/platform/mutex.h"
-#include "chre/platform/slpi/debug_dump.h"
 #include "chre/platform/slpi/fastrpc.h"
 #include "chre/platform/slpi/uimg_util.h"
 #include "chre/util/lock_guard.h"
@@ -63,8 +62,9 @@ constexpr size_t kStackSize = (8 * 1024);
 //! Memory partition where the thread control block (TCB) should be stored,
 //! which controls micro-image support.
 //! @see qurt_thread_attr_set_tcb_partition
-constexpr unsigned char kTcbPartition = chre::isSlpiUimgSupported() ?
-    QURT_THREAD_ATTR_TCB_PARTITION_TCM : QURT_THREAD_ATTR_TCB_PARTITION_RAM;
+constexpr unsigned char kTcbPartition =
+    chre::isSlpiUimgSupported() ? QURT_THREAD_ATTR_TCB_PARTITION_TCM
+                                : QURT_THREAD_ATTR_TCB_PARTITION_RAM;
 
 //! The priority to set for the CHRE thread (value between 1-255, with 1 being
 //! the highest).
@@ -93,21 +93,6 @@ bool gThreadRunning;
 int gTlsKey;
 bool gTlsKeyValid;
 
-void performDebugDumpCallback(uint16_t /*eventType*/, void *data) {
-  auto *handle = static_cast<const uint32_t *>(data);
-  UniquePtr<char> dump = chre::EventLoopManagerSingleton::get()->debugDump();
-  chre::commitDebugDump(*handle, dump.get(), true /*done*/);
-}
-
-void onDebugDumpRequested(void * /*cookie*/, uint32_t handle) {
-  static uint32_t debugDumpHandle;
-
-  debugDumpHandle = handle;
-  chre::EventLoopManagerSingleton::get()->deferCallback(
-      chre::SystemCallbackType::PerformDebugDump, &debugDumpHandle,
-      performDebugDumpCallback);
-}
-
 /**
  * Entry point for the QuRT thread that runs CHRE.
  *
@@ -116,10 +101,8 @@ void onDebugDumpRequested(void * /*cookie*/, uint32_t handle) {
 void chreThreadEntry(void * /*data*/) {
   EventLoopManagerSingleton::get()->lateInit();
   chre::loadStaticNanoapps();
-  chre::registerDebugDumpCallback("CHRE", onDebugDumpRequested, nullptr);
   EventLoopManagerSingleton::get()->getEventLoop().run();
 
-  chre::unregisterDebugDumpCallback(onDebugDumpRequested);
   chre::deinit();
 #if defined(CHRE_SLPI_SEE) && !defined(IMPORT_CHRE_UTILS)
   chre::IslandVoteClientSingleton::deinit();

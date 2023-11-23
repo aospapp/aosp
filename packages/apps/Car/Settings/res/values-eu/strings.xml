@@ -50,7 +50,7 @@
     <string name="roaming_title" msgid="6218635014519017734">"Ibiltaritza"</string>
     <string name="roaming_summary" msgid="7476127740259728901">"Konektatu datu-zerbitzuetara ibiltaritzan"</string>
     <string name="roaming_alert_title" msgid="4433901635766775763">"Datu-ibiltaritza erabiltzeko baimena eman nahi duzu?"</string>
-    <string name="roaming_warning" msgid="5313281900566657209">"Baliteke kostu handiak ordaindu behar izatea."</string>
+    <string name="roaming_warning" msgid="4908184914868720704">"Baliteke ibiltaritza-kostuak ordaindu behar izatea."</string>
     <string name="data_usage_settings" msgid="7877132994777987848">"Datuen erabilera"</string>
     <string name="data_usage_title" msgid="2923515974389203812">"Datu nagusiak"</string>
     <string name="data_used_formatted" msgid="6684557577780068339">"<xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> erabilita"</string>
@@ -85,10 +85,10 @@
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Ezarri datuen erabilera-muga"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Ezarri"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"Wifia"</string>
-    <string name="wifi_starting" msgid="473253087503153167">"Wi-Fi konexioa aktibatzen…"</string>
-    <string name="wifi_stopping" msgid="3534173972547890148">"Wi-Fi konexioa desaktibatzen…"</string>
-    <string name="loading_wifi_list" msgid="8584901433195876465">"Wi‑Fi sareen zerrenda kargatzen"</string>
-    <string name="wifi_disabled" msgid="5013262438128749950">"Desgaituta dago Wi‑Fi konexioa"</string>
+    <string name="wifi_starting" msgid="473253087503153167">"Wifi-konexioa aktibatzen…"</string>
+    <string name="wifi_stopping" msgid="3534173972547890148">"Wifi-konexioa desaktibatzen…"</string>
+    <string name="loading_wifi_list" msgid="8584901433195876465">"Wifi‑sareen zerrenda kargatzen"</string>
+    <string name="wifi_disabled" msgid="5013262438128749950">"Desgaituta dago wifi-konexioa"</string>
     <string name="wifi_failed_forget_message" msgid="121732682699377206">"Ezin izan da ahaztu sarea"</string>
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"Ezin izan da konektatu sarera"</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"Gehitu sarea"</string>
@@ -133,12 +133,12 @@
     <string name="wifi_settings_scanning_required_turn_on" msgid="4464931023377210050">"Aktibatu"</string>
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Aktibatu da Wifi-sareen bilaketa"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Aldatu datu-konexiora automatikoki"</string>
-    <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi-Fi bidez ezin denean, erabili datu-konexioa Internetera konektatzeko. Agian datuen erabilera ordaindu beharko duzu."</string>
+    <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wifi bidez ezin denean, erabili datu-konexioa Internetera konektatzeko. Agian datuen erabilera ordaindu beharko duzu."</string>
     <string name="learn_more" msgid="8214605928933358604">"Lortu informazio gehiago"</string>
-    <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Sare publikoaren izena"</string>
+    <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Wifi-gunearen izena"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> aktibatzen…"</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Beste gailu batzuk konektatu egin daitezke <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> sare publikora"</string>
-    <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Sare publikoaren pasahitza"</string>
+    <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Wifi-gunearen pasahitza"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Segurtasuna"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2 pertsonala"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Bat ere ez"</string>
@@ -150,10 +150,10 @@
     <string name="wifi_ap_prefer_5G" msgid="8252845223773871750">"5,0 GHz-ko banda hobetsia"</string>
     <string name="wifi_ap_2G" msgid="5364135697314262014">"2,4 GHz"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5,0 GHz"</string>
-    <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Aukeratu gutxienez banda bat Wi-Fi sare publikorako:"</string>
-    <string name="tether_settings_title_all" msgid="4663704772599383169">"Sare publikoa eta konexioa partekatzea"</string>
-    <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Desaktibatu automatikoki sare publikoa"</string>
-    <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Wifi-sare publikoa desaktibatu egingo da ez badauka gailurik konektatuta"</string>
+    <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Aukeratu gutxienez banda bat wifi-gunerako:"</string>
+    <string name="tether_settings_title_all" msgid="4663704772599383169">"Wifi-gunea eta konexioa partekatzea"</string>
+    <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Desaktibatu automatikoki wifi-gunea"</string>
+    <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Wifi-gunea desaktibatu egingo da ez badauka gailurik konektatuta"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> aplikazioak wifia aktibatu nahi du"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> aplikazioak wifia desaktibatu nahi du"</string>
     <string name="wifi_error" msgid="3105105447117289410">"Errorea"</string>
@@ -161,11 +161,11 @@
     <string name="bluetooth_device" msgid="3178478829314083240">"Izenik gabeko gailua"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Parekatutako gailuak"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"Parekatu beste gailu batekin"</string>
-    <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"Bluetooth konexioa aktibatuko da parekatu ahal izateko"</string>
+    <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"Bluetooth bidezko konexioa aktibatuko da parekatu ahal izateko"</string>
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"Gailua deskonektatu nahi duzu?"</string>
     <string name="bluetooth_disconnect_all_profiles" msgid="2017519733701757244">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> gailutik deskonektatuko da ibilgailua."</string>
-    <string name="bluetooth_vehicle_mac_address" msgid="7069234636525805937">"Ibilgailuaren Bluetooth helbidea: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
-    <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"Gailuaren Bluetooth helbidea: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
+    <string name="bluetooth_vehicle_mac_address" msgid="7069234636525805937">"Ibilgailua Bluetooth bidez konektatzeko helbidea: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
+    <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"Gailua Bluetooth bidez konektatzeko helbidea: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
     <string name="bluetooth_name" msgid="2609869978821094114">"Ibilgailuaren izena"</string>
     <string name="bluetooth_rename_vehicle" msgid="5769424875066563154">"Aldatu ibilgailuaren izena"</string>
     <string name="bluetooth_rename_device" msgid="8406868875363878712">"Aldatu gailuaren izena"</string>
@@ -175,14 +175,14 @@
     <string name="bluetooth_error_title" msgid="2341600997536511742"></string>
     <string name="bluetooth_turning_on" msgid="7046983059601710414">"Bluetooth-a aktibatzen…"</string>
     <string name="bluetooth_turning_off" msgid="1753975097241024061">"Bluetooth-a desaktibatzen…"</string>
-    <string name="bluetooth_ask_enablement" msgid="8565428400407368667">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak Bluetooth konexioa aktibatu nahi du"</string>
-    <string name="bluetooth_ask_disablement" msgid="6056441896274912839">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak Bluetooth konexioa desaktibatu nahi du"</string>
-    <string name="bluetooth_ask_enablement_no_name" msgid="3191739265037605547">"Aplikazio batek Bluetooth konexioa aktibatu nahi du"</string>
-    <string name="bluetooth_ask_disablement_no_name" msgid="5694464250599567283">"Aplikazio batek Bluetooth konexioa desaktibatu nahi du"</string>
-    <string name="bluetooth_ask_discovery" msgid="8774333095928068465">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak gailu nagusia <xliff:g id="TIMEOUT">%2$d</xliff:g> segundoz ikusgai ezarri nahi du beste Bluetooth gailu batzuen aurrean."</string>
-    <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"Aplikazio batek gailu nagusia <xliff:g id="TIMEOUT">%1$d</xliff:g> segundoz ikusgai ezarri nahi du beste Bluetooth gailu batzuen aurrean."</string>
-    <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak Bluetooth konexioa aktibatu eta gailu nagusia <xliff:g id="TIMEOUT">%2$d</xliff:g> segundoz ikusgai ezarri nahi du beste gailu batzuen aurrean."</string>
-    <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"Aplikazio batek Bluetooth konexioa aktibatu eta gailu nagusia <xliff:g id="TIMEOUT">%1$d</xliff:g> segundoz ikusgai ezarri nahi du beste gailu batzuen aurrean."</string>
+    <string name="bluetooth_ask_enablement" msgid="8565428400407368667">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak Bluetooth-a aktibatu nahi du"</string>
+    <string name="bluetooth_ask_disablement" msgid="6056441896274912839">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak Bluetooth-a desaktibatu nahi du"</string>
+    <string name="bluetooth_ask_enablement_no_name" msgid="3191739265037605547">"Aplikazio batek Bluetooth-a aktibatu nahi du"</string>
+    <string name="bluetooth_ask_disablement_no_name" msgid="5694464250599567283">"Aplikazio batek Bluetooth-a desaktibatu nahi du"</string>
+    <string name="bluetooth_ask_discovery" msgid="8774333095928068465">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak gailu nagusia <xliff:g id="TIMEOUT">%2$d</xliff:g> segundoz ikusgai ezarri nahi du Bluetooth bidezko beste gailu batzuen aurrean."</string>
+    <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"Aplikazio batek gailu nagusia <xliff:g id="TIMEOUT">%1$d</xliff:g> segundoz ikusgai ezarri nahi du Bluetooth bidezko beste gailu batzuen aurrean."</string>
+    <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g> aplikazioak Bluetooth-a aktibatu, eta gailu nagusia <xliff:g id="TIMEOUT">%2$d</xliff:g> segundoz ikusgai ezarri nahi du beste gailu batzuen aurrean."</string>
+    <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"Aplikazio batek Bluetooth-a aktibatu, eta gailu nagusia <xliff:g id="TIMEOUT">%1$d</xliff:g> segundoz ikusgai ezarri nahi du beste gailu batzuen aurrean."</string>
     <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"Bluetooth bidez parekatzeko eskaera"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"Parekatu eta konektatu"</string>
     <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Bluetooth parekatze-kodea"</string>
@@ -199,6 +199,8 @@
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Aukeratu Bluetooth bidezko gailua"</string>
     <string name="language_settings" msgid="2079258598337245546">"Hizkuntzak"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Hizkuntzak eta idazketa"</string>
+    <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"Iradokitakoak"</string>
+    <string name="language_picker_list_all_header" msgid="1577387973934368428">"Hizkuntza guztiak"</string>
     <string name="keyboard_settings" msgid="1959697870618278081">"Teklatua"</string>
     <string name="manage_keyboard" msgid="4045394766282200132">"Kudeatu teklatuak"</string>
     <string name="text_to_speech_settings" msgid="811985746199507343">"Testua ahots bihurtzeko eginbidearen emaitza"</string>
@@ -283,9 +285,11 @@
     <string name="not_installed" msgid="4218816013370552746">"Ez dago instalatuta erabiltzaile honentzat"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Baimenak"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Jakinarazpenak"</string>
+    <string name="storage_application_label" msgid="5911779903670978586">"Memoria eta cachea"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Bertsioa: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Ez du baimenik"</string>
-    <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Ez du eskatu baimenik"</string>
+    <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Ez da baimenik eskatu"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s barneko memorian"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Datuen erabilera"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Aplik. datuen erabilera"</string>
     <string name="computing_size" msgid="5791407621793083965">"Kalkulatzen…"</string>
@@ -309,7 +313,7 @@
     <string name="autofill_add_service" msgid="6413893366443609951">"Gehitu zerbitzua"</string>
     <string name="app_launch_domain_links_title" msgid="774480184927726651">"Irekiko diren estekak"</string>
     <string name="domain_url_section_title" msgid="9070403140947787214">"Instalatutako aplikazioak"</string>
-    <string name="domain_urls_summary_none" msgid="3077803215088293183">"Ez ireki onartzen diren estekak"</string>
+    <string name="domain_urls_summary_none" msgid="3077803215088293183">"Ez ireki esteka bateragarriak"</string>
     <string name="domain_urls_summary_one" msgid="5072257421806034237">"Ireki <xliff:g id="DOMAIN">%s</xliff:g>"</string>
     <string name="domain_urls_summary_some" msgid="5523153458016701725">"Ireki <xliff:g id="DOMAIN">%s</xliff:g> eta beste URL batzuk"</string>
     <string name="app_launch_title" msgid="3442601467010363057">"Ireki modu lehenetsian"</string>
@@ -317,20 +321,20 @@
     <string name="auto_launch_disable_text" msgid="3595315315092716391">"Ez dago balio lehenetsirik ezarrita."</string>
     <string name="auto_launch_enable_text" msgid="7230832269574106901">"Ekintza batzuk egiterakoan aplikazioa modu lehenetsian abiaraztea aukeratu duzu."</string>
     <string name="auto_launch_reset_text" msgid="590439611312092392">"Garbitu balio lehenetsiak"</string>
-    <string name="app_launch_open_domain_urls_title" msgid="4705344946367759393">"Ireki onartzen diren estekak"</string>
+    <string name="app_launch_open_domain_urls_title" msgid="4705344946367759393">"Ireki esteka bateragarriak"</string>
     <string name="app_link_open_always" msgid="5783167184335545230">"Ireki aplikazio honetan"</string>
     <string name="app_link_open_ask" msgid="7242075065136237456">"Galdetu beti"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"Ez ireki aplikazio honetan"</string>
-    <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Onartzen diren estekak"</string>
+    <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Esteka bateragarriak"</string>
     <string name="special_access" msgid="5730278220917123811">"Aplikazio-baimen bereziak"</string>
-    <string name="show_system" msgid="4401355756969485287">"Erakutsi sistema"</string>
-    <string name="hide_system" msgid="8845453295584638040">"Ezkutatu sistema"</string>
-    <string name="modify_system_settings_title" msgid="4596320571562433972">"Sistemaren ezarpenak aldatzea"</string>
+    <string name="show_system" msgid="4401355756969485287">"Erakutsi sistemaren prozesuak"</string>
+    <string name="hide_system" msgid="8845453295584638040">"Ezkutatu sistemaren prozesuak"</string>
+    <string name="modify_system_settings_title" msgid="4596320571562433972">"Aldatu sistemaren ezarpenak"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"Baimen honekin, sistemaren ezarpenak alda ditzakete aplikazioek."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"Jakinarazpenetarako sarbidea"</string>
     <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"<xliff:g id="SERVICE">%1$s</xliff:g> zerbitzuari jakinarazpenetarako sarbidea eman nahi diozu?"</string>
-    <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> aplikazioak jakinarazpen guztiak irakurri ahal izango ditu, informazio pertsonala (adibidez, kontaktuen izenak eta jasotako testu-mezuak) dutenak barne. Horrez gain, jakinarazpenak baztertu eta haietako ekintza-botoiak abiarazi ahal izango ditu.\n\nGainera, Ez molestatu modua aktibatzeko eta desaktibatzeko aukera izango du aplikazioak, baita horrekin erlazionatutako ezarpenak aldatzekoa ere."</string>
-    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> aplikazioari jakinarazpenak atzitzeko aukera desaktibatzen badiozu, baliteke Ez molestatu modurako sarbidea era desaktibatzea."</string>
+    <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> aplikazioak jakinarazpen guztiak irakurri ahal izango ditu, informazio pertsonala (adibidez, kontaktuen izenak eta jasotako testu-mezuak) dutenak barne. Horrez gain, jakinarazpenak baztertu eta haietako ekintza-botoiak abiarazi ahal izango ditu.\n\nGainera, ez molestatzeko modua aktibatzeko eta desaktibatzeko aukera izango du aplikazioak, baita horrekin erlazionatutako ezarpenak aldatzekoa ere."</string>
+    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> aplikazioari jakinarazpenak atzitzeko aukera desaktibatzen badiozu, baliteke ez molestatzeko modurako sarbidea era desaktibatzea."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Desaktibatu"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Utzi"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Premium SMSetarako sarbidea"</string>
@@ -338,27 +342,23 @@
     <string name="usage_access_title" msgid="7153427122072303254">"Erabilera-datuetarako sarbidea"</string>
     <string name="usage_access_description" msgid="2413168719257435422">"Erabilera-datuek zer beste aplikazio eta zer maiztasunekin erabiltzen dituzun jakiteko baimena ematen die aplikazioei, baita zer operadore duzun, zer hizkuntza-ezarpen dituzun eta beste xehetasun batzuk ere."</string>
     <string name="wifi_control_title" msgid="5660436566907731929">"Wifi-konexioa kontrolatzea"</string>
-    <string name="wifi_control_description" msgid="6021926850423169261">"Wifia kontrolatzeko baimenarekin, aplikazioak hauek egin ditzake: wifi-konexioa aktibatu edo desaktibatu, wifi-sareak bilatu eta haietara konektatu, sareak gehitu edo kendu, edota sare publiko lokalak sortu."</string>
+    <string name="wifi_control_description" msgid="6021926850423169261">"Wifi-konexioa kontrolatzeko aukerarekin, aplikazioak hauek egin ditzake: wifi-konexioa aktibatu edo desaktibatu, wifi-sareak bilatu eta haietara konektatu, sareak gehitu edo kendu, edota wifi-gune lokalak sortu."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"Gehiago"</string>
     <string name="location_settings_title" msgid="901334356682423679">"Kokapena"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Azken kokapen-eskaerak"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Ez da egin kokapen-eskaerarik azkenaldian"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Aplikazio-mailako baimenak"</string>
-    <string name="location_settings_scanning_title" msgid="4253945869911300740">"Bilaketa"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Kokapen-zerbitzuak"</string>
-    <string name="location_settings_wifi_scanning_title" msgid="8021558840074023719">"Wifi-sareen bilaketa"</string>
-    <string name="location_settings_wifi_scanning_summary" msgid="2116283960258671324">"Eman wifi-sareak edozein unetan bilatzeko baimena aplikazioei eta zerbitzuei, baita wifi-konexioa desaktibatuta dagoenean ere. Kokapenean oinarritutako eginbideak eta zerbitzuak hobetzeko erabil daiteke hori, besteak beste."</string>
-    <string name="location_settings_bluetooth_scanning_title" msgid="2969682902241932059">"Bluetooth gailuak bilatzea"</string>
-    <string name="location_settings_bluetooth_scanning_summary" msgid="9158101751700727062">"Eman inguruko gailuak edozein unetan bilatzeko baimena aplikazioei eta zerbitzuei, baita Bluetooth konexioa desaktibatuta dagoenean ere. Kokapenean oinarritutako eginbideak eta zerbitzuak hobetzeko erabil daiteke hori, besteak beste."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Sistema"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Sistemaren eguneratzeak"</string>
-    <string name="firmware_version" msgid="8491753744549309333">"Android bertsioa"</string>
+    <string name="firmware_version" msgid="8491753744549309333">"Android-en bertsioa"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android segurtasun-adabakiaren maila"</string>
-    <string name="model_info" msgid="4966408071657934452">"Modeloa"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"Modeloa eta hardwarea"</string>
+    <string name="hardware_info_summary" msgid="8262576443254075921">"Modeloa: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"Oinarri-bandaren bertsioa"</string>
     <string name="kernel_version" msgid="7327212934187011508">"Kernel bertsioa"</string>
     <string name="build_number" msgid="3997326631001009102">"Konpilazio-zenbakia"</string>
-    <string name="bluetooth_mac_address" msgid="7641425947941688072">"Bluetooth helbidea"</string>
+    <string name="bluetooth_mac_address" msgid="7641425947941688072">"Bluetooth bidez konektatzeko helbidea"</string>
     <string name="device_info_not_available" msgid="2095601973977376655">"Ez dago erabilgarri"</string>
     <string name="device_status_activity_title" msgid="4083567497305368200">"Egoera"</string>
     <string name="device_status" msgid="267298179806290920">"Egoera"</string>
@@ -371,13 +371,16 @@
     <string name="contributors_title" msgid="7698463793409916113">"Kolaboratzaileak"</string>
     <string name="manual" msgid="4819839169843240804">"Eskuzko ezarpenak"</string>
     <string name="regulatory_labels" msgid="3165587388499646779">"Legezko etiketak"</string>
-    <string name="safety_and_regulatory_info" msgid="1204127697132067734">"Segurtasunaren eta legeen esku-liburua"</string>
+    <string name="safety_and_regulatory_info" msgid="1204127697132067734">"Segurtasunaren eta legeen eskuliburua"</string>
     <string name="copyright_title" msgid="4220237202917417876">"Copyrighta"</string>
     <string name="license_title" msgid="936705938435249965">"Lizentzia"</string>
     <string name="terms_title" msgid="5201471373602628765">"Zehaztapenak eta baldintzak"</string>
-    <string name="webview_license_title" msgid="6442372337052056463">"Sistemaren WebView lizentziak"</string>
+    <string name="webview_license_title" msgid="6442372337052056463">"Sistemaren WebView-ren lizentziak"</string>
     <string name="wallpaper_attributions" msgid="9201272150014500697">"Horma-paperak"</string>
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"Sateliteko irudien hornitzaileak:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="model_info" msgid="4966408071657934452">"Modeloa"</string>
+    <string name="status_serial_number" msgid="9158889113131907656">"Serie-zenbakia"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"Hardware-bertsioa"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Hirugarrenen lizentziak"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Arazo bat gertatu da lizentziak kargatzean."</string>
@@ -393,7 +396,7 @@
     <string name="reset_options_summary" msgid="5508201367420359293">"Sarea, aplikazioak edo gailua berrezartzea"</string>
     <string name="reset_network_title" msgid="1284233059990797263">"Berrezarri sarea"</string>
     <string name="reset_network_desc" msgid="602381374544634925">"Sareko ezarpen guztiak berrezarriko dira; besteak beste:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi konexioa"</li></string>
+    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wifi‑konexioa"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"Datu-konexioa"</li></string>
     <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"Bluetooth-a"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"Ezabatu ibilgailuaren eSIM txarteletako eduki guztia"</string>
@@ -478,6 +481,8 @@
     <string name="user_name_label" msgid="3210832645046206845">"Izena"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Konfiguratu gabe"</string>
     <string name="edit_user_name_title" msgid="6890782937520262478">"Editatu erabiltzaile-izena"</string>
+    <string name="name_input_blank_error" msgid="2088850865880984123">"Eremuak ezin du hutsik egon."</string>
+    <string name="name_input_invalid_error" msgid="3523545780580744273">"Idatzitako erabiltzaile-izenak ez du balio."</string>
     <string name="users_list_title" msgid="770764290290240909">"Erabiltzaileak"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s erabiltzailearen baimenak"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Memoria"</string>
@@ -497,18 +502,20 @@
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Aplikazioaren datuak ezabatu nahi dituzu?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Aplikazio honetako datu guztiak betiko ezabatuko dira; besteak beste, fitxategi, ezarpen, kontu eta datu-base guztiak."</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"Ezin izan da garbitu aplikazioaren biltegia."</string>
+    <string name="storage_unmount_success" msgid="1553591517580407021">"Atera da segurtasunez <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_failure" msgid="4591934911541762883">"Ezin izan da atera segurtasunez <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="accounts_settings_title" msgid="436190037084293471">"Kontuak"</string>
-    <string name="user_add_account_menu" msgid="6625351983590713721">"Gehitu kontua"</string>
+    <string name="user_add_account_menu" msgid="6625351983590713721">"Gehitu kontu bat"</string>
     <string name="no_accounts_added" msgid="5148163140691096055">"Ez da gehitu konturik"</string>
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> erabiltzailearen kontuak"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Sinkronizatu datuak automatikoki"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Utzi aplikazioei datuak automatikoki freskatzen"</string>
     <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Sinkronizazio automatikoa aktibatu nahi duzu?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Kontuei sarean egiten dizkiezun aldaketa guztiak automatikoki kopiatuko dira gailuan.\n\nHorrez gain, baliteke kontu batzuek sarean kopiatzea telefonoan egiten dituzun aldaketak. Google kontuek horrela funtzionatzen dute."</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Kontuei sarean egiten dizkiezun aldaketa guztiak automatikoki kopiatuko dira gailuan.\n\nHorrez gain, baliteke kontu batzuek sarean kopiatzea telefonoan egiten dituzun aldaketak. Google-ko kontuek horrela funtzionatzen dute."</string>
     <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Sinkronizazio automatikoa desaktibatu nahi duzu?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Datuak aurrezten lagunduko dizu, baina kontu bakoitza eskuz sinkronizatu beharko duzu informazio berriena biltzeko. Gainera, ez duzu jasoko berritasunen jakinarazpenik."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Kontuaren informazioa"</string>
-    <string name="add_account_title" msgid="5988746086885210040">"Gehitu kontua"</string>
+    <string name="add_account_title" msgid="5988746086885210040">"Gehitu kontu bat"</string>
     <string name="add_an_account" msgid="1072285034300995091">"Gehitu kontu bat"</string>
     <string name="user_cannot_add_accounts_message" msgid="6775605884544906797">"Profil murriztuek ezin dute gehitu konturik"</string>
     <string name="remove_account_title" msgid="8840386525787836381">"Kendu kontua"</string>
@@ -516,8 +523,8 @@
     <string name="really_remove_account_message" msgid="4296769280849579900">"Kontua kentzen baduzu, bertako mezu, kontaktu eta bestelako datu guztiak ezabatuko dira gailutik."</string>
     <string name="remove_account_error_title" msgid="8368044943174826635">"Ezin izan da kendu kontua."</string>
     <string name="account_sync_title" msgid="6541844336300236915">"Kontuaren sinkronizazioa"</string>
-    <string name="account_sync_summary_some_on" msgid="4525960296068027182">"<xliff:g id="ID_1">%1$d</xliff:g>/<xliff:g id="ID_2">%2$d</xliff:g> elementuk aktibatuta dute sinkronizazioa"</string>
-    <string name="account_sync_summary_all_on" msgid="3652264471870312725">"Elementu guztiek aktibatuta dute sinkronizazioa"</string>
+    <string name="account_sync_summary_some_on" msgid="4525960296068027182">"<xliff:g id="ID_1">%1$d</xliff:g>/<xliff:g id="ID_2">%2$d</xliff:g> elementuk aktibatuta daukate sinkronizazioa"</string>
+    <string name="account_sync_summary_all_on" msgid="3652264471870312725">"Elementu guztiek aktibatuta daukate sinkronizazioa"</string>
     <string name="account_sync_summary_all_off" msgid="6550959714035312414">"Elementu guztiek desaktibatuta dute sinkronizazioa"</string>
     <string name="sync_disabled" msgid="393531064334628258">"Sinkroniz. DESAKTIBATUTA"</string>
     <string name="sync_error" msgid="6698021343089247914">"Sinkronizazio-errorea"</string>
@@ -528,6 +535,7 @@
     <string name="sync_button_sync_now" msgid="5767643057970371315">"Sinkronizatu"</string>
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Utzi sinkronizazioa"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Sinkronizazioak arazoak ditu. Laster egongo da berriro erabilgarri."</string>
+    <string name="privacy_settings_title" msgid="3150145262029229572">"Pribatutasuna"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Segurtasuna"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Pantailaren blokeoa"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Bat ere ez"</string>
@@ -585,7 +593,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Gehienez <xliff:g id="NUMBER">%d</xliff:g> digitu izan behar ditu"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"0 eta 9 arteko zenbakiak soilik izan ditzake."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Gailuaren administratzaileak ez du eman beste PIN kode bat erabiltzeko baimenik"</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"IKT administratzaileak blokeatu egiten ditu asmatzen errazak diren PIN kodeak. Erabili beste PIN bat."</string>
+    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"IKT saileko administratzaileak blokeatu egiten ditu asmatzen errazak diren PIN kodeak. Erabili beste PIN bat."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Ezin da erabili onartzen ez den karaktererik."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Pasahitzak ez du balio; gutxienez lau karaktere izan behar ditu."</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -614,30 +622,15 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Gailuaren administratzaileak ez du eman beste pasahitz bat erabiltzeko baimenik"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Errore bat gertatu da pasahitza gordetzean"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"IKT administratzaileak blokeatu egiten ditu asmatzen errazak diren pasahitzak. Erabili beste pasahitz bat."</string>
+    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"IKT saileko administratzaileak blokeatu egiten ditu asmatzen errazak diren pasahitzak. Erabili beste pasahitz bat."</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Ezin da erabili goranzko, beheranzko edo errepikatutako digitu-sekuentziarik."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Pantaila blokeatzeko aukerak"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: duela <xliff:g id="NUM_DAYS">%3$s</xliff:g> egun"</string>
-    <string name="add_device_title" msgid="8452168024017866232">"Gehitu gailu fidagarria"</string>
-    <string name="add_device_summary" msgid="5368217520710573302">"Bluetooth konexioa aktibatu egingo da gailu fidagarria gehitzeko"</string>
-    <string name="trusted_device" msgid="5637378361866787603">"Gailu fidagarriak"</string>
-    <plurals name="trusted_device_subtitle" formatted="false" msgid="462041049834264945">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> gailu</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> gailu</item>
-    </plurals>
-    <string name="remove_device_message" msgid="6447820559674148349">"<xliff:g id="CONNECTED_DEVICE_NAME_0">%1$s</xliff:g> gailuak autoa desblokeatuko du konektatzen denean. Beste norbaitek <xliff:g id="CONNECTED_DEVICE_NAME_1">%1$s</xliff:g> autoa hartzen badu, agian gailua atzitu ahal izango du."</string>
-    <string name="trusted_device_confirm_button" msgid="102354635014627996">"Berretsi"</string>
-    <string name="trusted_device_remove_button" msgid="6140476996063415420">"Kendu gailu fidagarria"</string>
-    <string name="trusted_device_done_button" msgid="8481956533222625296">"Eginda"</string>
-    <string name="add_trusted_device_instruction" msgid="2280382609884918033">"Erabili aplikazio osagarria gailu fidagarri bat konfiguratzeko. Konfiguratu ostean, erabiltzaile-profila automatikoki desblokeatuko da telefonoa hautematen denean ibilgailuaren inguruan."</string>
-    <string name="trusted_device_download_app" msgid="6971096140154499983">"1. Deskargatu aplikazio osagarria telefonoan"</string>
-    <string name="trusted_device_select_device" msgid="198902765179270739">"2. Gailuak parekatzeko, hautatu <xliff:g id="CAR_NAME">%1$s</xliff:g> telefonoan"</string>
-    <string name="trusted_device_safety_alert" msgid="3834898922112046769">"Autoaren inguruan dagoen gailu fidagarri batek erabiltzailearen profila desblokeatuko du motorra martxan jartzean, baita gailua darabilena zeu ez bazara ere."</string>
-    <string name="trusted_device_pairing_code_dialog_title" msgid="8173792468216796873">"Berretsi parekatze-kodeak bat datozela"</string>
-    <string name="trusted_device_success_enrollment_toast" msgid="1238468775285575827">"Erregistratu da telefonoa"</string>
-    <string name="trusted_device_fail_enrollment_toast" msgid="6801324174861209092">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> gailuaren harpidetzeak huts egin du"</string>
-    <string name="trusted_device_set_authentication_reminder" msgid="5947077589994822305">"Gailu fidagarri bat gehitzen baduzu, autentifikazio-metodo bat ezartzea izango da hurrengo urratsa. Ez badaukazu gailu fidagarririk gertu, sistemak autentifikatzeko eskatuko dizu profila atzitzen duzunean."</string>
-    <string name="trusted_device_disconnected_toast" msgid="2541862946536880255">"Gailu deskonektatu egin da."</string>
+    <string name="credentials_reset" msgid="873900550885788639">"Garbitu kredentzialak"</string>
+    <string name="credentials_reset_summary" msgid="6067911547500459637">"Kendu ziurtagiri guztiak"</string>
+    <string name="credentials_reset_hint" msgid="3459271621754137661">"Eduki guztiak kendu nahi dituzu?"</string>
+    <string name="credentials_erased" msgid="2515915439705550379">"Ezabatu dira kredentzialen biltegiaren datuak."</string>
+    <string name="credentials_not_erased" msgid="6118567459076742720">"Ezin izan dira ezabatu kredentzialen biltegiaren datuak."</string>
     <string name="forget" msgid="3971143908183848527">"Ahaztu"</string>
     <string name="connect" msgid="5861699594602380150">"Konektatu"</string>
     <string name="disconnect" msgid="6140789953324820336">"Deskonektatu"</string>
@@ -653,6 +646,7 @@
     <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Demo kontua ezabatuko da eta sistemaren jatorrizko datuak berrezarriko dira. Erabiltzaile-datu guztiak galdu egingo dira."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Irten demo modutik"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"BAZTERTU"</string>
-    <string name="restricted_while_driving" msgid="6217369093121968299">"Eginbide hau ezin da erabili gidatu bitartean."</string>
-    <string name="add_user_restricted_while_driving" msgid="6384004350628271556">"Gidatu bitartean ezin da gehitu erabiltzailerik."</string>
+    <string name="restricted_while_driving" msgid="6587569249519274524">"Eginbide hau ezin da erabili gidatu bitartean"</string>
+    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Gidatu bitartean ezin da gehitu erabiltzailerik"</string>
+    <string name="default_search_query" msgid="3137420627428857068">"Bilatu"</string>
 </resources>

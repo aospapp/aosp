@@ -23,8 +23,8 @@ import os
 import random
 import time
 
+from acts import context
 from acts import signals
-from acts import utils
 from acts.libs.proc import job
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
@@ -39,21 +39,20 @@ from acts.test_utils.tel.tel_defines import NETWORK_MODE_GLOBAL
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_CDMA
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_GSM_ONLY
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_TDSCDMA_GSM_WCDMA
-from acts.test_utils.tel.tel_defines import RAT_LTE
-from acts.test_utils.tel.tel_defines import RAT_UNKNOWN
 from acts.test_utils.tel.tel_defines import WAIT_TIME_AFTER_MODE_CHANGE
 from acts.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts.test_utils.tel.tel_defines import WAIT_TIME_CHANGE_MESSAGE_SUB_ID
 from acts.test_utils.tel.tel_defines import WAIT_TIME_CHANGE_VOICE_SUB_ID
+from acts.test_utils.tel.tel_defines import WAIT_TIME_FOR_CBRS_DATA_SWITCH
 from acts.test_utils.tel.tel_lookup_tables import is_rat_svd_capable
 from acts.test_utils.tel.tel_test_utils import STORY_LINE
 from acts.test_utils.tel.tel_test_utils import active_file_download_test
 from acts.test_utils.tel.tel_test_utils import is_phone_in_call
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
-from acts.test_utils.tel.tel_test_utils import check_is_wifi_connected
 from acts.test_utils.tel.tel_test_utils import ensure_network_generation_for_subscription
 from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
+from acts.test_utils.tel.tel_test_utils import extract_test_log
 from acts.test_utils.tel.tel_test_utils import force_connectivity_metrics_upload
 from acts.test_utils.tel.tel_test_utils import get_device_epoch_time
 from acts.test_utils.tel.tel_test_utils import get_telephony_signal_strength
@@ -65,6 +64,7 @@ from acts.test_utils.tel.tel_test_utils import run_multithread_func
 from acts.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts.test_utils.tel.tel_test_utils import sms_send_receive_verify
 from acts.test_utils.tel.tel_test_utils import start_qxdm_loggers
+from acts.test_utils.tel.tel_test_utils import start_sdm_loggers
 from acts.test_utils.tel.tel_test_utils import start_adb_tcpdump
 from acts.test_utils.tel.tel_test_utils import synchronize_device_time
 from acts.test_utils.tel.tel_test_utils import mms_send_receive_verify
@@ -75,7 +75,7 @@ from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.test_utils.tel.tel_test_utils import wait_for_call_id_clearing
 from acts.test_utils.tel.tel_test_utils import wait_for_data_connection
 from acts.test_utils.tel.tel_test_utils import wait_for_in_call_active
-from acts.test_utils.tel.tel_test_utils import wifi_toggle_state
+from acts.test_utils.tel.tel_test_utils import is_current_data_on_cbrs
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
@@ -89,15 +89,13 @@ from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
 from acts.test_utils.tel.tel_voice_utils import phone_idle_iwlan
 from acts.test_utils.tel.tel_voice_utils import phone_idle_volte
 from acts.test_utils.tel.tel_voice_utils import get_current_voice_rat
-from acts.test_utils.tel.tel_subscription_utils import get_default_data_sub_id
-from acts.test_utils.tel.tel_subscription_utils import get_outgoing_message_sub_id
-from acts.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
-from acts.test_utils.tel.tel_subscription_utils import get_incoming_voice_sub_id
-from acts.test_utils.tel.tel_subscription_utils import get_incoming_message_sub_id
 from acts.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
+from acts.test_utils.tel.tel_subscription_utils import get_operatorname_from_slot_index
+from acts.test_utils.tel.tel_subscription_utils import get_carrierid_from_slot_index
 from acts.test_utils.tel.tel_subscription_utils import set_subid_for_data
 from acts.test_utils.tel.tel_subscription_utils import set_subid_for_message
 from acts.test_utils.tel.tel_subscription_utils import set_subid_for_outgoing_call
+from acts.test_utils.tel.tel_subscription_utils import set_slways_allow_mms_data
 from acts.utils import get_current_epoch_time
 from acts.utils import rand_ascii_str
 
@@ -127,9 +125,11 @@ class TelLiveStressTest(TelephonyBaseTest):
                 self.file_download_method = "curl"
         else:
             self.android_devices = self.android_devices[:2]
+        self.sdm_log = self.user_params.get("sdm_log", False)
         for ad in self.android_devices:
+            setattr(ad, "sdm_log", self.sdm_log)
             ad.adb.shell("setprop nfc.debug_enable 1")
-            if self.user_params.get("turn_on_tcpdump", True):
+            if self.user_params.get("turn_on_tcpdump", False):
                 start_adb_tcpdump(ad, interface="any", mask="all")
         self.user_params["telephony_auto_rerun"] = 0
         self.phone_call_iteration = int(
@@ -147,8 +147,11 @@ class TelLiveStressTest(TelephonyBaseTest):
             self.user_params.get("min_phone_call_duration", 10))
         self.crash_check_interval = int(
             self.user_params.get("crash_check_interval", 300))
+        self.cbrs_check_interval = int(
+            self.user_params.get("cbrs_check_interval", 100))
         self.dut_incall = False
         self.dsds_esim = self.user_params.get("dsds_esim", False)
+        self.cbrs_esim = self.user_params.get("cbrs_esim", False)
         telephony_info = getattr(self.dut, "telephony", {})
         self.dut_capabilities = telephony_info.get("capabilities", [])
         self.dut_wfc_modes = telephony_info.get("wfc_modes", [])
@@ -163,6 +166,28 @@ class TelLiveStressTest(TelephonyBaseTest):
 
     def on_fail(self, test_name, begin_time):
         pass
+
+    def _take_bug_report(self, test_name, begin_time):
+        if self._skip_bug_report(test_name):
+            return
+        src_dir = context.get_current_context().get_full_output_path()
+        dst_dir = os.path.join(self.log_path, test_name)
+
+        # Extract test_run_info.txt, test_run_debug.txt
+        for file_name in ("test_run_info.txt", "test_run_debug.txt"):
+            extract_test_log(self.log, os.path.join(src_dir, file_name),
+                             os.path.join(dst_dir,
+                                          "%s_%s" % (test_name, file_name)),
+                             "\[Test Case\] %s " % test_name)
+        super()._take_bug_report(test_name, begin_time)
+
+    def _ad_take_extra_logs(self, ad, test_name, begin_time):
+        src_file = os.path.join(ad.device_log_path,
+                                'adblog_%s_debug.txt' % ad.serial)
+        dst_file = os.path.join(ad.device_log_path, test_name,
+                                "%s_%s.logcat" % (ad.serial, test_name))
+        extract_test_log(self.log, src_file, dst_file, test_name)
+        return super()._ad_take_extra_logs(ad, test_name, begin_time)
 
     def _setup_wfc(self):
         for ad in self.android_devices:
@@ -226,6 +251,19 @@ class TelLiveStressTest(TelephonyBaseTest):
             ad.log.info("RAT 2G is enabled successfully.")
         return True
 
+    def _get_network_rat(self, slot_id):
+        rat = self.dut.adb.getprop("gsm.network.type")
+        if "," in rat:
+            if self.dsds_esim:
+                rat = rat.split(',')[slot_id]
+            else:
+                (rat1, rat2) = rat.split(',')
+                if rat1 == "Unknown":
+                    rat = rat2
+                else:
+                    rat = rat1
+        return rat
+
     def _send_message(self, max_wait_time=2 * MAX_WAIT_TIME_SMS_RECEIVE):
         slot_id_rx = None
         if self.single_phone_test:
@@ -251,12 +289,7 @@ class TelLiveStressTest(TelephonyBaseTest):
             0: sms_send_receive_verify,
             1: mms_send_receive_verify
         }
-        rat = self.dut.adb.getprop("gsm.network.type")
-        if "," in rat:
-            if self.dsds_esim:
-                rat = rat.split(',')[slot_id]
-            else:
-                rat = rat.split(',')[0]
+        rat = self._get_network_rat(slot_id)
         self.dut.log.info("Network in RAT %s", rat)
         if self.dut_incall and not is_rat_svd_capable(rat.upper()):
             self.dut.log.info("In call data not supported, test SMS only")
@@ -265,11 +298,14 @@ class TelLiveStressTest(TelephonyBaseTest):
         the_number = self.result_info["%s Total" % message_type] + 1
         begin_time = get_device_epoch_time(self.dut)
         test_name = "%s_No_%s_%s" % (self.test_name, the_number, message_type)
-        start_qxdm_loggers(self.log, self.android_devices)
+        if self.sdm_log:
+            start_sdm_loggers(self.log, self.android_devices)
+        else:
+            start_qxdm_loggers(self.log, self.android_devices)
         log_msg = "[Test Case] %s" % test_name
         self.log.info("%s begin", log_msg)
         for ad in self.android_devices:
-            if self.user_params.get("turn_on_tcpdump", True):
+            if self.user_params.get("turn_on_tcpdump", False):
                 start_adb_tcpdump(ad, interface="any", mask="all")
             if not getattr(ad, "messaging_droid", None):
                 ad.messaging_droid, ad.messaging_ed = ad.get_droid()
@@ -308,12 +344,7 @@ class TelLiveStressTest(TelephonyBaseTest):
                 self.log.error("%s fails", log_msg)
                 self.result_info["%s Failure" % message_type] += 1
             else:
-                rat = self.dut.adb.getprop("gsm.network.type")
-                if "," in rat:
-                    if self.dsds_esim:
-                        rat = rat.split(',')[slot_id]
-                    else:
-                        rat = rat.split(',')[0]
+                rat = self._get_network_rat(slot_id)
                 self.dut.log.info("Network in RAT %s", rat)
                 if self.dut_incall and not is_rat_svd_capable(rat.upper()):
                     self.dut.log.info(
@@ -356,7 +387,7 @@ class TelLiveStressTest(TelephonyBaseTest):
         self.log.info("%s for %s seconds begin", log_msg, duration)
         begin_time = get_device_epoch_time(ads[0])
         for ad in self.android_devices:
-            if self.user_params.get("turn_on_tcpdump", True):
+            if self.user_params.get("turn_on_tcpdump", False):
                 start_adb_tcpdump(ad, interface="any", mask="all")
             if not getattr(ad, "droid", None):
                 ad.droid, ad.ed = ad.get_droid()
@@ -373,7 +404,16 @@ class TelLiveStressTest(TelephonyBaseTest):
                     ad.droid, ad.ed = ad.get_droid()
                     ad.ed.start()
             ad.droid.logI("[BEGIN]%s" % log_msg)
-        start_qxdm_loggers(self.log, self.android_devices, begin_time)
+        if self.sdm_log:
+            for ad in ads:
+                ad.adb.shell("i2cset -fy 3 64 6 1 b", ignore_status=True)
+                ad.adb.shell("i2cset -fy 3 65 6 1 b", ignore_status=True)
+            start_sdm_loggers(self.log, self.android_devices)
+        else:
+            start_qxdm_loggers(self.log, self.android_devices)
+        if self.cbrs_esim:
+            self._cbrs_data_check_test(begin_time, expected_cbrs=True,
+                                       test_time="before")
         failure_reasons = set()
         self.dut_incall = True
         if self.single_phone_test:
@@ -418,6 +458,14 @@ class TelLiveStressTest(TelephonyBaseTest):
         else:
             elapsed_time = 0
             check_interval = 5
+            if self.sdm_log:
+                for ad in ads:
+                    ad.adb.shell("i2cset -fy 3 64 6 1 b", ignore_status=True)
+                    ad.adb.shell("i2cset -fy 3 65 6 1 b", ignore_status=True)
+            if self.cbrs_esim:
+                time.sleep(5)
+                self._cbrs_data_check_test(begin_time, expected_cbrs=False,
+                                           test_time="during")
             while (elapsed_time < duration):
                 check_interval = min(check_interval, duration - elapsed_time)
                 time.sleep(check_interval)
@@ -464,6 +512,10 @@ class TelLiveStressTest(TelephonyBaseTest):
                 pass
         self.log.info("%s end", log_msg)
         self.dut_incall = False
+        if self.cbrs_esim:
+            time.sleep(30)
+            self._cbrs_data_check_test(begin_time, expected_cbrs=True,
+                                       test_time="after")
         if not result:
             self.log.info("%s failed", log_msg)
             if self.gps_log_file:
@@ -471,7 +523,7 @@ class TelLiveStressTest(TelephonyBaseTest):
                     "tail %s" % self.gps_log_file, ignore_status=True)
                 if gps_info.stdout:
                     gps_log_path = os.path.join(self.log_path, test_name)
-                    utils.create_dir(gps_log_path)
+                    os.makedirs(gps_log_path, exist_ok=True)
                     job.run(
                         "tail %s > %s" %
                         (self.gps_log_file,
@@ -486,7 +538,7 @@ class TelLiveStressTest(TelephonyBaseTest):
             for ad in ads:
                 log_path = os.path.join(self.log_path, test_name,
                                         "%s_binder_logs" % ad.serial)
-                utils.create_dir(log_path)
+                os.makedirs(log_path, exist_ok=True)
                 ad.pull_files(BINDER_LOGS, log_path)
             try:
                 self._take_bug_report(test_name, begin_time)
@@ -503,17 +555,19 @@ class TelLiveStressTest(TelephonyBaseTest):
                     synchronize_device_time(ad)
                     force_connectivity_metrics_upload(ad)
                     if self.get_binder_logs:
-                        log_path = os.path.join(self.log_path,
-                                                "%s_binder_logs" % test_name,
+                        log_path = os.path.join(self.log_path, test_name,
                                                 "%s_binder_logs" % ad.serial)
-                        utils.create_dir(log_path)
+                        os.makedirs(log_path, exist_ok=True)
                         ad.pull_files(BINDER_LOGS, log_path)
         return result
 
     def _prefnetwork_mode_change(self, sub_id):
         # ModePref change to non-LTE
         begin_time = get_device_epoch_time(self.dut)
-        start_qxdm_loggers(self.log, self.android_devices)
+        if self.sdm_log:
+            start_sdm_loggers(self.log, self.android_devices)
+        else:
+            start_qxdm_loggers(self.log, self.android_devices)
         self.result_info["Network Change Request Total"] += 1
         test_name = "%s_network_change_iter_%s" % (
             self.test_name, self.result_info["Network Change Request Total"])
@@ -550,7 +604,10 @@ class TelLiveStressTest(TelephonyBaseTest):
     def _mobile_data_toggling(self, setup="volte"):
         # ModePref change to non-LTE
         begin_time = get_device_epoch_time(self.dut)
-        start_qxdm_loggers(self.log, self.android_devices)
+        if self.sdm_log:
+            start_sdm_loggers(self.log, self.android_devices)
+        else:
+            start_qxdm_loggers(self.log, self.android_devices)
         result = True
         self.result_info["Data Toggling Request Total"] += 1
         test_name = "%s_data_toggling_iter_%s" % (
@@ -644,6 +701,31 @@ class TelLiveStressTest(TelephonyBaseTest):
         else:
             return True
 
+    def _cbrs_data_check_test(self, begin_time, expected_cbrs=True,
+                              test_time="before"):
+        cbrs_fail_count = 0
+        the_number = self.result_info["CBRS Total"] + 1
+        test_name = "%s_cbrs_%s_call_No_%s" % (self.test_name,
+                                               test_time, the_number)
+        for ad in self.android_devices:
+            current_state = is_current_data_on_cbrs(ad, ad.cbrs)
+            if current_state == expected_cbrs:
+                self.result_info["CBRS-Check-Pass"] += 1
+            else:
+                self.result_info["CBRS-Check-Fail"] += 1
+                cbrs_fail_count += 1
+                try:
+                    self._ad_take_extra_logs(ad, test_name, begin_time)
+                    self._ad_take_bugreport(ad, test_name, begin_time)
+                except Exception as e:
+                    self.log.warning(e)
+        if cbrs_fail_count > 0:
+            ad.log.error("Found %d checks failed, expected cbrs %s",
+                         cbrs_fail_count, expected_cbrs)
+            cbrs_fail_count += 1
+        self.result_info["CBRS Total"] += 1
+        return True
+
     def call_test(self, call_verification_func=None):
         while time.time() < self.finishing_time:
             time.sleep(
@@ -694,18 +776,17 @@ class TelLiveStressTest(TelephonyBaseTest):
             self.dut.log.info("Data - slot_Id %d", slot_id)
             set_subid_for_data(self.dut, sub_id)
             self.dut.droid.telephonyToggleDataConnection(True)
-        start_qxdm_loggers(self.log, self.android_devices)
+        if self.sdm_log:
+            start_sdm_loggers(self.log, self.android_devices)
+        else:
+            start_qxdm_loggers(self.log, self.android_devices)
         self.dut.log.info(dict(self.result_info))
         selection = random.randrange(0, len(file_names))
         file_name = file_names[selection]
         self.result_info["Internet Connection Check Total"] += 1
+
+        rat = self._get_network_rat(slot_id)
         if not self.internet_connection_check_method(self.log, self.dut):
-            rat = self.dut.adb.getprop("gsm.network.type")
-            if "," in rat:
-                if self.dsds_esim:
-                    rat = rat.split(',')[slot_id]
-                else:
-                    rat = rat.split(',')[0]
             self.dut.log.info("Network in RAT %s", rat)
             if self.dut_incall and not is_rat_svd_capable(rat.upper()):
                 self.result_info[
@@ -778,7 +859,10 @@ class TelLiveStressTest(TelephonyBaseTest):
     def _data_call_test(self, sub_id, generation):
         self.dut.log.info(dict(self.result_info))
         begin_time = get_device_epoch_time(self.dut)
-        start_qxdm_loggers(self.log, self.android_devices)
+        if self.sdm_log:
+            start_sdm_loggers(self.log, self.android_devices)
+        else:
+            start_qxdm_loggers(self.log, self.android_devices)
         self.result_info["Network Change Request Total"] += 1
         test_name = "%s_network_change_test_iter_%s" % (
             self.test_name, self.result_info["Network Change Request Total"])
@@ -876,6 +960,32 @@ class TelLiveStressTest(TelephonyBaseTest):
         if not call_verification_func:
             call_verification_func = is_phone_in_call
         self.finishing_time = time.time() + self.max_run_time
+        # CBRS setup
+        if self.cbrs_esim:
+            cbrs_sub_count = 0
+            for ad in self.android_devices:
+                if not getattr(ad, 'cbrs', {}):
+                    setattr(ad, 'cbrs', None)
+                for i in range(0, 2):
+                    sub_id = get_subid_from_slot_index(ad.log, ad, i)
+                    operator = get_operatorname_from_slot_index(ad, i)
+                    carrier_id = get_carrierid_from_slot_index(ad, i)
+                    ad.log.info("Slot %d - Sub %s - %s - %d", i, sub_id, operator, carrier_id)
+                    if carrier_id == 2340:
+                        ad.cbrs = sub_id
+                        cbrs_sub_count += 1
+            if cbrs_sub_count != 2:
+                self.log.error("Expecting - 2 CBRS subs, found - %d", cbrs_sub_count)
+                raise signals.TestAbortClass("Cannot find all expected CBRS subs")
+        # DSDS setup
+        if self.dsds_esim:
+            for ad in self.android_devices:
+                for i in range(0, 2):
+                    sub_id = get_subid_from_slot_index(ad.log, ad, i)
+                    set_slways_allow_mms_data(ad, sub_id)
+                    operator = get_operatorname_from_slot_index(ad, i)
+                    ad.log.info("Slot %d - Sub %s - %s", i, sub_id, operator)
+        # Actual test trigger
         if not self.dsds_esim and self.check_incall_data():
             self.log.info(
                 "==== Start parallel voice/message/data stress test ====")
@@ -968,6 +1078,19 @@ class TelLiveStressTest(TelephonyBaseTest):
         self.result_detail = result_message
         return all(results)
 
+    def connect_to_wifi(self):
+        for ad in self.android_devices:
+            if not ensure_wifi_connected(
+                    self.log,
+                    ad,
+                    self.wifi_network_ssid,
+                    self.wifi_network_pass,
+                    retries=3):
+                ad.log.error("Bringing up Wifi connection fails.")
+                return False
+        ad.log.info("Phone WIFI is connected successfully.")
+        return True
+
     """ Tests Begin """
 
     @test_tracker_info(uuid="d035e5b9-476a-4e3d-b4e9-6fd86c51a68d")
@@ -976,12 +1099,17 @@ class TelLiveStressTest(TelephonyBaseTest):
         """ Default state stress test"""
         return self.parallel_tests()
 
+    @test_tracker_info(uuid="798a3c34-db75-4bcf-b8ef-e1116414a7fe")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_default_parallel_stress_with_wifi(self):
+        """ Default state stress test with Wifi enabled."""
+        if self.connect_to_wifi():
+            return self.parallel_tests()
+
     @test_tracker_info(uuid="c21e1f17-3282-4f0b-b527-19f048798098")
     @TelephonyBaseTest.tel_test_wrap
     def test_lte_volte_parallel_stress(self):
         """ VoLTE on stress test"""
-        if CAPABILITY_VOLTE not in self.dut_capabilities:
-            raise signals.TestSkipClass("VoLTE is not supported")
         return self.parallel_tests(
             setup_func=self._setup_lte_volte_enabled,
             call_verification_func=is_phone_in_call_volte)
@@ -998,8 +1126,6 @@ class TelLiveStressTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_wfc_parallel_stress(self):
         """ Wifi calling APM mode off stress test"""
-        if CAPABILITY_WFC not in self.dut_capabilities:
-            raise signals.TestSkipClass("WFC is not supported")
         if WFC_MODE_WIFI_PREFERRED not in self.dut_wfc_modes:
             raise signals.TestSkip("WFC_MODE_WIFI_PREFERRED is not supported")
         return self.parallel_tests(
@@ -1010,8 +1136,6 @@ class TelLiveStressTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_wfc_apm_parallel_stress(self):
         """ Wifi calling in APM mode on stress test"""
-        if CAPABILITY_WFC not in self.dut_capabilities:
-            raise signals.TestSkipClass("WFC is not supported")
         return self.parallel_tests(
             setup_func=self._setup_wfc_apm,
             call_verification_func=is_phone_in_call_iwlan)
@@ -1036,8 +1160,6 @@ class TelLiveStressTest(TelephonyBaseTest):
     @TelephonyBaseTest.tel_test_wrap
     def test_volte_modeprefchange_parallel_stress(self):
         """ VoLTE Mode Pref call stress test"""
-        if CAPABILITY_VOLTE not in self.dut_capabilities:
-            raise signals.TestSkipClass("VoLTE is not supported")
         return self.parallel_with_network_change_tests(
             setup_func=self._setup_lte_volte_enabled)
 

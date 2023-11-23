@@ -21,9 +21,10 @@ code path out of the test.
 """
 
 import logging
+import os
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros import upstart
 
 
 class ServiceStopper(object):
@@ -66,23 +67,18 @@ class ServiceStopper(object):
         """Turn off managed services."""
 
         for service in self.services_to_stop:
-            cmd = 'status %s' % service
-            out = utils.system_output(cmd, ignore_status=True)
-            is_stopped = 'start/running' not in out
-            if is_stopped:
+            if not upstart.has_service(service):
                 continue
-            try:
-                utils.system('stop %s' % service)
-                self._services_stopped.append(service)
-            except error.CmdError as e:
-                logging.warning('Error stopping service %s. %s',
-                                service, str(e))
+            if not upstart.is_running(service):
+                continue
+            upstart.stop_job(service)
+            self._services_stopped.append(service)
 
 
     def restore_services(self):
         """Restore services that were stopped."""
         for service in reversed(self._services_stopped):
-            utils.system('start %s' % service, ignore_status=True)
+            upstart.restart_job(service)
         self._services_stopped = []
 
 
@@ -98,6 +94,28 @@ class ServiceStopper(object):
     def close(self):
         """Equivalent to restore_services."""
         self.restore_services()
+
+
+    def _dptf_fixup_pl1(self):
+        """For intel devices that don't set their PL1 override in coreboot's
+        devicetree.cb (See 'register "tdp_pl1_override') stopping DPTF will
+        change the PL1 limit to the platform default.  For eve (KBL-Y) that
+        would be 4.5W.  To workaround this until FW can be fixed we should
+        instead query what the PL1 limit is for the proc_thermal driver and
+        write it to the PL1 constraint.
+
+        TODO(b/144020442)
+        """
+        pl1_max_path = \
+        '/sys/devices/pci0000:00/0000:00:04.0/power_limits/power_limit_0_max_uw'
+        pl1_constraint_path = \
+        '/sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw'
+        if not os.path.exists(pl1_max_path):
+            return
+
+        pl1 = int(utils.read_one_line(pl1_max_path))
+        logging.debug('PL1 set to %d uw', pl1)
+        utils.system('echo %d > %s' % (pl1, pl1_constraint_path))
 
 
 def get_thermal_service_stopper():

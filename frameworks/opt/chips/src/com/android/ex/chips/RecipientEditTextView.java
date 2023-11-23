@@ -347,6 +347,9 @@ public class RecipientEditTextView extends MultiAutoCompleteTextView implements
             @Override
             public void onItemClick(AdapterView<?> adapterView,View view, int position,
                     long rowId) {
+                if(mAlternatesPopup.getListView() != null){
+                    mAlternatesPopup.getListView().setOnItemClickListener(null);
+                }
                 mAlternatesPopup.setOnItemClickListener(null);
                 replaceChip(mSelectedChip, ((RecipientAlternatesAdapter) adapterView.getAdapter())
                         .getRecipientEntry(position));

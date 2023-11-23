@@ -9,6 +9,26 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
+    <include layout="@layout/audio_loopback_header_layout"/>
+
+    <LinearLayout android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <TextView
+            android:text="@string/proAudioHasProAudiolbl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:id="@+id/proAudioHasProAudioLbl"
+            android:textSize="18sp"/>
+    </LinearLayout>
+
     <LinearLayout android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -105,33 +125,9 @@
             android:textSize="18sp"/>
     </LinearLayout>
 
-    <TextView
-        android:text="@string/proAudioInputLbl"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"/>
+    <include layout="@layout/audio_loopback_device_layout" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
-        android:id="@+id/proAudioInputLbl"
-        android:textSize="18sp"/>
-
-    <TextView
-        android:text="@string/proAudioOutputLbl"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
-        android:id="@+id/proAudioOutputLbl"
-        android:textSize="18sp"/>
+    <include layout="@layout/audio_loopback_volume_layout" />
 
     <Button
         android:text="@string/audio_proaudio_roundtrip"
@@ -139,41 +135,7 @@
         android:layout_height="wrap_content"
         android:id="@+id/proAudio_runRoundtripBtn"/>
 
-    <LinearLayout android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-        <TextView
-            android:text="@string/proAudioRoundTripLbl"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:id="@+id/proAudioRoundTripLbl"
-            android:textSize="18sp"/>
-    </LinearLayout>
-
-    <LinearLayout android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-        <TextView
-            android:text="@string/proAudioConfidenceLbl"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:id="@+id/proAudioConfidenceLbl"
-            android:textSize="18sp"/>
-    </LinearLayout>
+    <include layout="@layout/audio_loopback_footer_layout"/>
 
     <include layout="@layout/pass_fail_buttons"/>
 </LinearLayout>

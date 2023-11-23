@@ -17,18 +17,25 @@
 
 package com.android.org.conscrypt;
 
+import static com.android.org.conscrypt.TestUtils.assumeJava8;
+import static com.android.org.conscrypt.TestUtils.isJavaVersion;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import com.android.org.conscrypt.testing.FailingSniMatcher;
+import com.android.org.conscrypt.testing.RestrictedAlgorithmConstraints;
 import java.lang.reflect.Method;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIMatcher;
 import javax.net.ssl.SNIServerName;
 import javax.net.ssl.SSLParameters;
-import org.junit.Assume;
 import org.junit.Test;
 
 /**
@@ -54,14 +61,6 @@ public class PlatformTest {
 
         SSL_PARAMETERS_GET_APPLICATION_PROTOCOLS_METHOD = getApplicationProtocolsMethod;
         SSL_PARAMETERS_SET_APPLICATION_PROTOCOLS_METHOD = setApplicationProtocolsMethod;
-    }
-
-    private static boolean isJavaVersion(int version) {
-        return Platform.javaVersion() >= version;
-    }
-
-    private static void assumeJava8() {
-        Assume.assumeTrue("Require Java 8: " + Platform.javaVersion(), isJavaVersion(8));
     }
 
     @Test
@@ -154,6 +153,42 @@ public class PlatformTest {
         if (isJavaVersion(9)) {
             assertArrayEquals(applicationProtocols, getApplicationProtocols(params));
         }
+    }
+
+    @Test
+    public void test_setAndGetSSLParameters() throws Exception {
+        assumeJava8();
+        ConscryptEngine engine = new ConscryptEngine(SSLParametersImpl.getDefault());
+        SSLParameters paramsIn = new SSLParameters();
+
+        List<SNIServerName> names = new ArrayList<>();
+        names.add(new SNIHostName("some.host"));
+        paramsIn.setServerNames(names);
+        paramsIn.setUseCipherSuitesOrder(true);
+        paramsIn.setEndpointIdentificationAlgorithm("ABC");
+        paramsIn.setWantClientAuth(true);
+        paramsIn.setSNIMatchers(Collections.singleton(FailingSniMatcher.create()));
+        paramsIn.setAlgorithmConstraints(new RestrictedAlgorithmConstraints());
+
+        engine.setSSLParameters(paramsIn);
+        SSLParameters paramsOut = engine.getSSLParameters();
+
+        assertEquals(paramsIn.getServerNames(), paramsOut.getServerNames());
+        assertEquals(paramsIn.getUseCipherSuitesOrder(), paramsOut.getUseCipherSuitesOrder());
+        assertEquals(paramsIn.getEndpointIdentificationAlgorithm(),
+                paramsOut.getEndpointIdentificationAlgorithm());
+        assertEquals(paramsIn.getWantClientAuth(), paramsOut.getWantClientAuth());
+        assertEquals(paramsIn.getNeedClientAuth(), paramsOut.getNeedClientAuth());
+        assertSNIMatchersEqual(paramsIn.getSNIMatchers(), paramsOut.getSNIMatchers());
+        assertEquals(paramsIn.getAlgorithmConstraints(), paramsOut.getAlgorithmConstraints());
+    }
+
+    private static void assertSNIMatchersEqual(Collection<SNIMatcher> a, Collection<SNIMatcher> b) {
+        assertEquals(a.size(), b.size());
+
+        HashSet<SNIMatcher> aSet = new HashSet<>(a);
+        aSet.removeAll(b);
+        assertEquals(0, aSet.size());
     }
 
     private static String[] getApplicationProtocols(SSLParameters params) {

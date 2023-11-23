@@ -16,83 +16,46 @@
 #define Vertex_hpp
 
 #include "Color.hpp"
-#include "System/Types.hpp"
 #include "Device/Config.hpp"
+#include "System/Types.hpp"
 
-namespace sw
+namespace sw {
+
+struct alignas(16) Vertex
 {
-	enum Out
+	union
 	{
-		// Default vertex output semantics
-		Pos = 0,
-		C0 = 1,   // Diffuse
-		C1 = 2,   // Specular
-		T0 = 3,
-		T1 = 4,
-		T2 = 5,
-		T3 = 6,
-		T4 = 7,
-		T5 = 8,
-		T6 = 9,
-		T7 = 10,
-		Fog = 11,    // x component
-		Pts = Fog,   // y component
-
-		// Variable semantics
-		V0 = 0,
-		Vn_1 = MAX_VERTEX_OUTPUTS - 1,
-
-		Unused,
-		VERTEX_OUTPUT_LAST = Unused,
-	};
-
-	struct UVWQ
-	{
-		float u;
-		float v;
-		float w;
-		float q;
-
-		float &operator[](int i)
+		struct
 		{
-			return (&u)[i];
-		}
-	};
-
-	ALIGN(16, struct Vertex
-	{
-		union
-		{
-			struct   // Fixed semantics
-			{
-				// Position
-				float x;
-				float y;
-				float z;
-				float w;
-
-				float4 C[2];   // Diffuse and specular color
-
-				UVWQ T[8];           // Texture coordinates
-
-				float f;             // Fog
-				float pSize;         // Point size
-			};
-
-			float4 v[MAX_VERTEX_OUTPUTS];   // Generic components using semantic declaration
+			float x;
+			float y;
+			float z;
+			float w;
 		};
 
-		// Projected coordinates
-		int X;
-		int Y;
-		float Z;
-		float W;
+		float4 position;
+	};
 
-		int clipFlags;
-		int padding[3];
-	});
+	float pointSize;
 
-	static_assert((sizeof(Vertex) & 0x0000000F) == 0, "Vertex size not a multiple of 16 bytes (alignment requirement)");
-}
+	int clipFlags;
+	int cullMask;
+	float clipDistance[MAX_CLIP_DISTANCES];
+	float cullDistance[MAX_CLIP_DISTANCES];
 
-#endif   // Vertex_hpp
+	alignas(16) struct
+	{
+		int x;
+		int y;
+		float z;
+		float w;
+	} projected;
+
+	alignas(16) float v[MAX_INTERFACE_COMPONENTS];
+};
+
+static_assert((sizeof(Vertex) & 0x0000000F) == 0, "Vertex size not a multiple of 16 bytes (alignment requirement)");
+
+}  // namespace sw
+
+#endif  // Vertex_hpp

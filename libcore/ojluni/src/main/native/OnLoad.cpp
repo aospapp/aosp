@@ -35,7 +35,6 @@ extern "C" void register_sun_nio_ch_IOUtil(JNIEnv* env);
 extern "C" void register_sun_nio_ch_SocketChannelImpl(JNIEnv* env);
 extern "C" void register_sun_nio_ch_FileChannelImpl(JNIEnv* env);
 extern "C" void register_sun_nio_ch_FileDispatcherImpl(JNIEnv* env);
-extern "C" void register_java_io_FileOutputStream(JNIEnv* env);
 extern "C" void register_java_io_FileInputStream(JNIEnv* env);
 extern "C" void register_java_util_prefs_FileSystemPreferences(JNIEnv* env);
 extern "C" void register_sun_nio_ch_NativeThread(JNIEnv* env);
@@ -104,7 +103,6 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   register_sun_nio_ch_SocketChannelImpl(env);
   register_sun_nio_ch_FileChannelImpl(env);
   register_sun_nio_ch_FileDispatcherImpl(env);
-  register_java_io_FileOutputStream(env);
   register_java_io_FileInputStream(env);
   register_java_util_prefs_FileSystemPreferences(env);
   register_sun_nio_ch_NativeThread(env);

@@ -16,6 +16,8 @@
 
 package com.android.car.internal;
 
+import android.util.SparseArray;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,7 +38,8 @@ public class CarRatedFloatListeners<T> {
 
     private float mUpdateRate;
 
-    protected long mLastUpdateTime = -1;
+    // key: areaId, value: lastUpdateTime in nanosecond
+    protected SparseArray<Long> mAreaIdToLastUpdateTime = new SparseArray<>();
 
     protected CarRatedFloatListeners(float rate) {
         mUpdateRate = rate;
@@ -105,7 +108,7 @@ public class CarRatedFloatListeners<T> {
      * @param eventTimeStamp
      * @return true if listener need to be notified.
      */
-    public boolean needUpdate(T listener, long eventTimeStamp) {
+    public boolean needUpdateForSelectedListener(T listener, long eventTimeStamp) {
         Long nextUpdateTime = mListenersUpdateTime.get(listener);
         Float updateRate = mListenersToRate.get(listener);
         /** Update ON_CHANGE property. */
@@ -120,6 +123,21 @@ public class CarRatedFloatListeners<T> {
         }
         return false;
     }
+
+    /**
+     * @param areaId AreaId in CarPropertyValue
+     * @param eventTime TimeStamp in CarPropertyValue
+     * @return true if eventTime is greater than the last event time for the same areaId.
+     */
+    public boolean needUpdateForAreaId(int areaId, long eventTime) {
+        long lastUpdateTime = mAreaIdToLastUpdateTime.get(areaId, 0L);
+        if (eventTime >= lastUpdateTime) {
+            mAreaIdToLastUpdateTime.put(areaId, eventTime);
+            return true;
+        }
+        return false;
+    }
+
 
     public Collection<T> getListeners() {
         return mListenersToRate.keySet();

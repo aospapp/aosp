@@ -139,7 +139,7 @@ public class OverlayableTest {
 
     @Test
     public void testFrameworkDoesNotDefineOverlayable() throws Exception {
-        assertTrue(InstrumentationRegistry.getTargetContext().getAssets().getOverlayableMap(
+        assertTrue(InstrumentationRegistry.getTargetContext().getAssets().getOverlayablesToString(
                 "android").isEmpty());
     }
 

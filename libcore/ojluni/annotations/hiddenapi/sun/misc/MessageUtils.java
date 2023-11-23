@@ -29,7 +29,7 @@ package sun.misc;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class MessageUtils {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public MessageUtils() {
         throw new RuntimeException("Stub!");
     }

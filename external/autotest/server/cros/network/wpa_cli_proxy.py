@@ -32,7 +32,8 @@ class WpaCliProxy(object):
             'COMPLETED',)
     ANDROID_CMD_FORMAT = '/system/bin/wpa_cli IFNAME={0[ifname]} {0[cmd]}'
     BRILLO_CMD_FORMAT = 'su system /system/bin/wpa_cli -i{0[ifname]} -p/data/misc/wifi/sockets {0[cmd]}'
-    CROS_CMD_FORMAT = 'su wpa -s /bin/bash -c "/usr/bin/wpa_cli {0[cmd]}"'
+    CROS_CMD_FORMAT = ('su wpa -s /bin/bash '
+                       '-c "/usr/bin/wpa_cli -i {0[ifname]} {0[cmd]}"')
     CAST_CMD_FORMAT = '/system/bin/wpa_cli -i {0[ifname]} {0[cmd]}'
 
 

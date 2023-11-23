@@ -21,20 +21,20 @@
     <!-- String for the TestCallActivity -->
     <string name="testCallActivityLabel">Test Connection Service App</string>
 
-    <!-- String for the TestDialerActivity -->
+    <!-- String for the CarModeDialerActivity -->
     <string name="testDialerActivityLabel">Test Dialer</string>
 
-    <!-- String for button in TestDialerActivity that reassigns the default Dialer -->
+    <!-- String for button in CarModeDialerActivity that reassigns the default Dialer -->
     <string name="defaultDialerButton">Default dialer request</string>
 
-    <!-- String for button in TestDialerActivity that places a test call -->
+    <!-- String for button in CarModeDialerActivity that places a test call -->
     <string name="placeCallButton">Place call</string>
 
-    <!-- String for button in TestDialerActivity that performs voicemail requests to verify
+    <!-- String for button in CarModeDialerActivity that performs voicemail requests to verify
             voicemail permissions -->
     <string name="testVoicemailButton">Exercise voicemail permissions</string>
 
-    <!-- String for button in TestDialerActivity that tries to exercise the
+    <!-- String for button in CarModeDialerActivity that tries to exercise the
             TelecomManager.cancelMissedCallNotifications() functionality -->
     <string name="cancelMissedButton">Cancel missed calls</string>
 
@@ -55,6 +55,12 @@
     <string name="muteButton">Mute</string>
 
     <string name="holdButton">Hold</string>
+
+    <string name="exit_audio_processing_noring_button">Exit AP (no ring)</string>
+
+    <string name="exit_audio_processing_ring_button">Exit AP (ring)</string>
+
+    <string name="reject_button">Reject</string>
 
     <string name="handoverButton">Handover</string>
 
@@ -90,6 +96,8 @@
 
     <string name="rttUiLabel">Test RTT UI</string>
 
+    <string name="postCallActivityLabel">Test Post Call Screen</string>
+
     <string-array name="rtt_mode_array">
         <item>Full</item>
         <item>HCO</item>
@@ -105,4 +113,6 @@
         <item>The FCC has mandated that I respond... I will do so begrudgingly</item>
         <item>😂😂😂💯</item>
     </string-array>
+
+    <string name="send_contact_discovery">Send Contact Discovery Intent</string>
 </resources>

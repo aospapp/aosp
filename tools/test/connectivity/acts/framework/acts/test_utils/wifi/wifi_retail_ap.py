@@ -15,6 +15,7 @@
 #   limitations under the License.
 
 import fcntl
+import os
 import selenium
 import splinter
 import time
@@ -70,7 +71,6 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
     The class is to be used within context managers (e.g. with statements) to
     ensure locks are always properly released.
     """
-
     def __init__(self, headless, timeout):
         """Constructor for BlockingBrowser class.
 
@@ -95,11 +95,22 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
         self.timeout = timeout
 
     def __enter__(self):
+        """Entry context manager for BlockingBrowser.
+
+        The enter context manager for BlockingBrowser attempts to lock the
+        browser file. If successful, it launches and returns a chromedriver
+        session. If an exception occurs while starting the browser, the lock
+        file is released.
+        """
         self.lock_file = open(self.lock_file_path, "r")
         start_time = time.time()
         while time.time() < start_time + self.timeout:
             try:
                 fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                time.sleep(BROWSER_WAIT_SHORT)
+                continue
+            try:
                 self.driver = selenium.webdriver.Chrome(
                     options=self.chrome_options,
                     desired_capabilities=self.chrome_capabilities)
@@ -109,11 +120,19 @@ class BlockingBrowser(splinter.driver.webdriver.chrome.WebDriver):
                 super(splinter.driver.webdriver.chrome.WebDriver,
                       self).__init__(2)
                 return super(BlockingBrowser, self).__enter__()
-            except BlockingIOError:
-                time.sleep(BROWSER_WAIT_SHORT)
+            except:
+                fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+                self.lock_file.close()
+                raise RuntimeError("Error starting browser. "
+                                   "Releasing lock file.")
         raise TimeoutError("Could not start chrome browser in time.")
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """Exit context manager for BlockingBrowser.
+
+        The exit context manager simply calls the parent class exit and
+        releases the lock file.
+        """
         try:
             super(BlockingBrowser, self).__exit__(exc_type, exc_value,
                                                   traceback)
@@ -182,9 +201,14 @@ class WifiRetailAP(object):
     If some functions such as set_power not supported by ap, checks will raise
     exceptions.
     """
-
     def __init__(self, ap_settings):
-        raise NotImplementedError
+        self.ap_settings = ap_settings.copy()
+        self.log = logger.create_tagged_trace_logger("AccessPoint|{}".format(
+            self._get_control_ip_address()))
+        # Lock AP
+        if self.ap_settings.get('lock_ap', 0):
+            self.lock_timeout = self.ap_settings.get('lock_timeout', 3600)
+            self._lock_ap()
 
     def read_ap_settings(self):
         """Function that reads current ap settings.
@@ -363,14 +387,46 @@ class WifiRetailAP(object):
                 return key
         raise ValueError("Invalid channel passed in argument.")
 
+    def _get_control_ip_address(self):
+        """Function to get AP's Control Interface IP address."""
+        if "ssh_config" in self.ap_settings.keys():
+            return self.ap_settings["ssh_config"]["host"]
+        else:
+            return self.ap_settings["ip_address"]
+
+    def _lock_ap(self):
+        """Function to lock the ap while tests are running."""
+        self.lock_file_path = "/tmp/{}_{}_{}.lock".format(
+            self.ap_settings['brand'], self.ap_settings['model'],
+            self._get_control_ip_address())
+        if not os.path.exists(self.lock_file_path):
+            with open(self.lock_file_path, 'w'):
+                pass
+        self.lock_file = open(self.lock_file_path, "r")
+        start_time = time.time()
+        self.log.info('Trying to acquire AP lock.')
+        while time.time() < start_time + self.lock_timeout:
+            try:
+                fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                time.sleep(BROWSER_WAIT_SHORT)
+                continue
+            self.log.info('AP lock acquired.')
+            return
+        raise RuntimeError("Could not lock AP in time.")
+
+    def _unlock_ap(self):
+        """Function to unlock the AP when tests are done."""
+        self.log.info('Releasing AP lock.')
+        if hasattr(self, "lock_file"):
+            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+            self.lock_file.close()
+
 
 class NetgearR7000AP(WifiRetailAP):
     """Class that implements Netgear R7500 AP."""
-
     def __init__(self, ap_settings):
-        self.ap_settings = ap_settings.copy()
-        self.log = logger.create_tagged_trace_logger("AccessPoint|{}".format(
-            self.ap_settings["ip_address"]))
+        super().__init__(ap_settings)
         self.init_gui_data()
         # Read and update AP settings
         self.read_ap_settings()
@@ -619,7 +675,6 @@ class NetgearR7000AP(WifiRetailAP):
 
 class NetgearR7000NAAP(NetgearR7000AP):
     """Class that implements Netgear R7000 NA AP."""
-
     def init_gui_data(self):
         """Function to initialize data used while interacting with web GUI"""
         super.init_gui_data()
@@ -628,11 +683,8 @@ class NetgearR7000NAAP(NetgearR7000AP):
 
 class NetgearR7500AP(WifiRetailAP):
     """Class that implements Netgear R7500 AP."""
-
     def __init__(self, ap_settings):
-        self.ap_settings = ap_settings.copy()
-        self.log = logger.create_tagged_trace_logger("AccessPoint|{}".format(
-            self.ap_settings["ip_address"]))
+        super().__init__(ap_settings)
         self.init_gui_data()
         # Read and update AP settings
         self.read_ap_settings()
@@ -730,11 +782,10 @@ class NetgearR7500AP(WifiRetailAP):
         # code will result in an error
         with BlockingBrowser(self.ap_settings["headless_browser"],
                              900) as browser:
-            browser.visit_persistent(
-                self.config_page,
-                BROWSER_WAIT_MED,
-                10,
-                check_for_element="wireless")
+            browser.visit_persistent(self.config_page,
+                                     BROWSER_WAIT_MED,
+                                     10,
+                                     check_for_element="wireless")
             wireless_button = browser.find_by_id("wireless").first
             wireless_button.click()
             time.sleep(BROWSER_WAIT_MED)
@@ -778,11 +829,10 @@ class NetgearR7500AP(WifiRetailAP):
         # Configure radios
         with BlockingBrowser(self.ap_settings["headless_browser"],
                              900) as browser:
-            browser.visit_persistent(
-                self.config_page,
-                BROWSER_WAIT_MED,
-                10,
-                check_for_element="wireless")
+            browser.visit_persistent(self.config_page,
+                                     BROWSER_WAIT_MED,
+                                     10,
+                                     check_for_element="wireless")
             wireless_button = browser.find_by_id("wireless").first
             wireless_button.click()
             time.sleep(BROWSER_WAIT_MED)
@@ -834,8 +884,8 @@ class NetgearR7500AP(WifiRetailAP):
                 for key, value in self.config_page_fields.items():
                     if "security_type" in key:
                         iframe.choose(
-                            value, self.ap_settings["{}_{}".format(
-                                key[1], key[0])])
+                            value,
+                            self.ap_settings["{}_{}".format(key[1], key[0])])
                         if self.ap_settings["{}_{}".format(
                                 key[1], key[0])] == "WPA2-PSK":
                             config_item = iframe.find_by_name(
@@ -868,11 +918,10 @@ class NetgearR7500AP(WifiRetailAP):
         with BlockingBrowser(self.ap_settings["headless_browser"],
                              900) as browser:
             browser.visit_persistent(self.config_page, BROWSER_WAIT_MED, 10)
-            browser.visit_persistent(
-                self.config_page_advanced,
-                BROWSER_WAIT_MED,
-                10,
-                check_for_element="advanced_bt")
+            browser.visit_persistent(self.config_page_advanced,
+                                     BROWSER_WAIT_MED,
+                                     10,
+                                     check_for_element="advanced_bt")
             advanced_button = browser.find_by_id("advanced_bt").first
             advanced_button.click()
             time.sleep(BROWSER_WAIT_MED)
@@ -901,11 +950,10 @@ class NetgearR7500AP(WifiRetailAP):
         with BlockingBrowser(self.ap_settings["headless_browser"],
                              900) as browser:
             browser.visit_persistent(self.config_page, BROWSER_WAIT_MED, 10)
-            browser.visit_persistent(
-                self.config_page_advanced,
-                BROWSER_WAIT_MED,
-                10,
-                check_for_element="advanced_bt")
+            browser.visit_persistent(self.config_page_advanced,
+                                     BROWSER_WAIT_MED,
+                                     10,
+                                     check_for_element="advanced_bt")
             advanced_button = browser.find_by_id("advanced_bt").first
             advanced_button.click()
             time.sleep(BROWSER_WAIT_SHORT)
@@ -928,11 +976,8 @@ class NetgearR7800AP(NetgearR7500AP):
     Since most of the class' implementation is shared with the R7500, this
     class inherits from NetgearR7500AP and simply redifines config parameters
     """
-
     def __init__(self, ap_settings):
-        self.ap_settings = ap_settings.copy()
-        self.log = logger.create_tagged_trace_logger("AccessPoint|{}".format(
-            self.ap_settings["ip_address"]))
+        super().__init__(ap_settings)
         self.init_gui_data()
         # Overwrite minor differences from R7500 AP
         self.bw_mode_text_2g["VHT20"] = "Up to 347 Mbps"
@@ -948,11 +993,8 @@ class NetgearR8000AP(NetgearR7000AP):
     Since most of the class' implementation is shared with the R7000, this
     class inherits from NetgearR7000AP and simply redifines config parameters
     """
-
     def __init__(self, ap_settings):
-        self.ap_settings = ap_settings.copy()
-        self.log = logger.create_tagged_trace_logger("AccessPoint|{}".format(
-            self.ap_settings["ip_address"]))
+        super().__init__(ap_settings)
         self.init_gui_data()
         # Overwrite minor differences from R7000 AP
         self.config_page = (
@@ -1016,11 +1058,8 @@ class NetgearR8500AP(NetgearR7000AP):
     Since most of the class' implementation is shared with the R7000, this
     class inherits from NetgearR7000AP and simply redifines config parameters
     """
-
     def __init__(self, ap_settings):
-        self.ap_settings = ap_settings.copy()
-        self.log = logger.create_tagged_trace_logger("AccessPoint|{}".format(
-            self.ap_settings["ip_address"]))
+        super().__init__(ap_settings)
         self.init_gui_data()
         # Overwrite minor differences from R8000 AP
         self.config_page = (
@@ -1089,11 +1128,9 @@ class GoogleWifiAP(WifiRetailAP):
 
     This class is a work in progress
     """
-
     def __init__(self, ap_settings):
-        self.ap_settings = ap_settings.copy()
-        self.log = logger.create_tagged_trace_logger("AccessPoint|{}".format(
-            self.ap_settings["ssh_config"]["host"]))
+        super().__init__(ap_settings)
+        # Initialize AP
         if self.ap_settings["status_2G"] and self.ap_settings["status_5G_1"]:
             raise ValueError("Error initializing Google Wifi AP. "
                              "Only one interface can be enabled at a time.")
@@ -1111,6 +1148,7 @@ class GoogleWifiAP(WifiRetailAP):
             "region": "United States",
             "brand": "Google",
             "model": "Wifi",
+            "hostapd_profile": "whirlwind",
             "status_2G": 0,
             "status_5G_1": 0,
             "ssid_2G": "GoogleWifi_2G",
@@ -1212,13 +1250,15 @@ class GoogleWifiAP(WifiRetailAP):
 
         bss_settings = []
         ssid = self.ap_settings["ssid_{}".format(network)]
-        if "WPA" in self.ap_settings["security_type_{}".format(network)]:
+        security_mode = self.ap_settings["security_type_{}".format(
+            network)].lower()
+        if "wpa" in security_mode:
             password = self.ap_settings["password_{}".format(network)]
-            security = hostapd_security.Security(
-                security_mode="wpa", password=password)
+            security = hostapd_security.Security(security_mode=security_mode,
+                                                 password=password)
         else:
-            security = hostapd_security.Security(
-                security_mode=None, password=None)
+            security = hostapd_security.Security(security_mode=None,
+                                                 password=None)
         channel = int(self.ap_settings["channel_{}".format(network)])
         bandwidth = self.BW_MODE_MAP[self.ap_settings["bandwidth_{}".format(
             network)]]
@@ -1228,12 +1268,12 @@ class GoogleWifiAP(WifiRetailAP):
             security=security,
             bss_settings=bss_settings,
             vht_bandwidth=bandwidth,
-            profile_name='whirlwind',
+            profile_name=self.ap_settings["hostapd_profile"],
             iface_wlan_2g=self.access_point.wlan_2g,
             iface_wlan_5g=self.access_point.wlan_5g)
         config_bridge = self.access_point.generate_bridge_configs(channel)
         brconfigs = bridge_interface.BridgeInterfaceConfigs(
-            config_bridge[0], config_bridge[1], config_bridge[2])
+            config_bridge[0], "lan0", config_bridge[2])
         self.access_point.bridge.startup(brconfigs)
         self.access_point.start_ap(config)
         self.set_power(network, self.ap_settings["power_{}".format(network)])
@@ -1295,8 +1335,10 @@ class GoogleWifiAP(WifiRetailAP):
             cmd_string = "iw dev {0} set bitrates legacy-{1} ht-mcs-{1} vht-mcs-{1} {2}:{3}".format(
                 interface, interface_short, num_streams, rate)
             if short_gi:
-                cmd_string = cmd_string + " sgi-interface_short"
+                cmd_string = cmd_string + " sgi-{}".format(interface_short)
         elif "ht" in mode.lower():
             cmd_string = "iw dev {0} set bitrates legacy-{1} ht-mcs-{1} {2} vht-mcs-{1}".format(
                 interface, interface_short, rate)
+            if short_gi:
+                cmd_string = cmd_string + " sgi-{}".format(interface_short)
         self.access_point.ssh.run(cmd_string)

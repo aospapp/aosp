@@ -15,6 +15,8 @@
  */
 package com.android.cts.devicepolicy;
 
+import org.junit.Test;
+
 /**
  * BaseDeviceAdminHostSideTest for device admin targeting API level 24.
  */
@@ -27,6 +29,7 @@ public class DeviceAdminHostSideTestApi24 extends BaseDeviceAdminHostSideTest {
     /**
      * Device admin must be protected with BIND_DEVICE_ADMIN, if the target SDK >= 24.
      */
+    @Test
     public void testAdminWithNoProtection() throws Exception {
         if (!mHasFeature) {
             return;

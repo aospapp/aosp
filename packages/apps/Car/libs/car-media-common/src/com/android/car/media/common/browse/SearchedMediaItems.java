@@ -18,16 +18,17 @@ package com.android.car.media.common.browse;
 
 import static java.util.stream.Collectors.toList;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.os.Bundle;
 import android.support.v4.media.MediaBrowserCompat;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
 import com.android.car.media.common.MediaItemMetadata;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A LiveData that provides access to a MediaBrowser's search results for a given query
@@ -43,7 +44,10 @@ public class SearchedMediaItems extends LiveData<List<MediaItemMetadata>> {
         public void onSearchResult(@NonNull String query, Bundle extras,
                                    @NonNull List<MediaBrowserCompat.MediaItem> items) {
             super.onSearchResult(query, extras, items);
-            setValue(items.stream().map(MediaItemMetadata::new).collect(toList()));
+            setValue(items.stream()
+                    .filter(Objects::nonNull)
+                    .map(MediaItemMetadata::new)
+                    .collect(toList()));
         }
 
         @Override

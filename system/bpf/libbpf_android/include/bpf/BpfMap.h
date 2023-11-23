@@ -19,12 +19,11 @@
 
 #include <linux/bpf.h>
 
+#include <android-base/result.h>
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 #include <utils/Log.h>
 #include "bpf/BpfUtils.h"
-#include "netdutils/Status.h"
-#include "netdutils/StatusOr.h"
 
 namespace android {
 namespace bpf {
@@ -46,118 +45,131 @@ namespace bpf {
 template <class Key, class Value>
 class BpfMap {
   public:
-    BpfMap<Key, Value>() : mMapFd(-1){};
-    explicit BpfMap<Key, Value>(int fd) : mMapFd(fd){};
-    BpfMap<Key, Value>(bpf_map_type map_type, uint32_t max_entries, uint32_t map_flags) {
-        int map_fd = createMap(map_type, sizeof(Key), sizeof(Value), max_entries, map_flags);
-        if (map_fd < 0) {
-            mMapFd.reset(-1);
-        } else {
-            mMapFd.reset(map_fd);
-        }
+    BpfMap<Key, Value>() {};
+
+  protected:
+    // flag must be within BPF_OBJ_FLAG_MASK, ie. 0, BPF_F_RDONLY, BPF_F_WRONLY
+    BpfMap<Key, Value>(const char* pathname, uint32_t flags) {
+        int map_fd = mapRetrieve(pathname, flags);
+        if (map_fd >= 0) mMapFd.reset(map_fd);
     }
 
-    netdutils::StatusOr<Key> getFirstKey() const {
+  public:
+    explicit BpfMap<Key, Value>(const char* pathname) : BpfMap<Key, Value>(pathname, 0) {}
+
+    BpfMap<Key, Value>(bpf_map_type map_type, uint32_t max_entries, uint32_t map_flags = 0) {
+        int map_fd = createMap(map_type, sizeof(Key), sizeof(Value), max_entries, map_flags);
+        if (map_fd >= 0) mMapFd.reset(map_fd);
+    }
+
+    base::Result<Key> getFirstKey() const {
         Key firstKey;
         if (getFirstMapKey(mMapFd, &firstKey)) {
-            return netdutils::statusFromErrno(
-                errno, base::StringPrintf("Get firstKey map %d failed", mMapFd.get()));
+            return ErrnoErrorf("Get firstKey map {} failed", mMapFd.get());
         }
         return firstKey;
     }
 
-    netdutils::StatusOr<Key> getNextKey(const Key& key) const {
+    base::Result<Key> getNextKey(const Key& key) const {
         Key nextKey;
-        if (getNextMapKey(mMapFd, const_cast<Key*>(&key), &nextKey)) {
-            return netdutils::statusFromErrno(
-                errno, base::StringPrintf("Get next key of map %d failed", mMapFd.get()));
+        if (getNextMapKey(mMapFd, &key, &nextKey)) {
+            return ErrnoErrorf("Get next key of map {} failed", mMapFd.get());
         }
         return nextKey;
     }
 
-    netdutils::Status writeValue(const Key& key, const Value& value, uint64_t flags) {
-        if (writeToMapEntry(mMapFd, const_cast<Key*>(&key), const_cast<Value*>(&value), flags)) {
-            return netdutils::statusFromErrno(
-                errno, base::StringPrintf("write to map %d failed", mMapFd.get()));
+    base::Result<void> writeValue(const Key& key, const Value& value, uint64_t flags) {
+        if (writeToMapEntry(mMapFd, &key, &value, flags)) {
+            return ErrnoErrorf("Write to map {} failed", mMapFd.get());
         }
-        return netdutils::status::ok;
+        return {};
     }
 
-    netdutils::StatusOr<Value> readValue(const Key key) const {
+    base::Result<Value> readValue(const Key key) const {
         Value value;
-        if (findMapEntry(mMapFd, const_cast<Key*>(&key), &value)) {
-            return netdutils::statusFromErrno(
-                errno, base::StringPrintf("read value of map %d failed", mMapFd.get()));
+        if (findMapEntry(mMapFd, &key, &value)) {
+            return ErrnoErrorf("Read value of map {} failed", mMapFd.get());
         }
         return value;
     }
 
-    netdutils::Status deleteValue(const Key& key) {
-        if (deleteMapEntry(mMapFd, const_cast<Key*>(&key))) {
-            return netdutils::statusFromErrno(
-                errno, base::StringPrintf("delete entry from map %d failed", mMapFd.get()));
+    base::Result<void> deleteValue(const Key& key) {
+        if (deleteMapEntry(mMapFd, &key)) {
+            return ErrnoErrorf("Delete entry from map {} failed", mMapFd.get());
         }
-        return netdutils::status::ok;
+        return {};
     }
 
     // Function that tries to get map from a pinned path.
-    netdutils::Status init(const char* path);
+    base::Result<void> init(const char* path);
 
     // Iterate through the map and handle each key retrieved based on the filter
     // without modification of map content.
-    netdutils::Status iterate(
-        const std::function<netdutils::Status(const Key& key, const BpfMap<Key, Value>& map)>&
-            filter) const;
+    base::Result<void> iterate(
+            const std::function<base::Result<void>(const Key& key, const BpfMap<Key, Value>& map)>&
+                    filter) const;
 
     // Iterate through the map and get each <key, value> pair, handle each <key,
     // value> pair based on the filter without modification of map content.
-    netdutils::Status iterateWithValue(
-        const std::function<netdutils::Status(const Key& key, const Value& value,
-                                              const BpfMap<Key, Value>& map)>& filter) const;
+    base::Result<void> iterateWithValue(
+            const std::function<base::Result<void>(const Key& key, const Value& value,
+                                                   const BpfMap<Key, Value>& map)>& filter) const;
 
     // Iterate through the map and handle each key retrieved based on the filter
-    netdutils::Status iterate(
-        const std::function<netdutils::Status(const Key& key, BpfMap<Key, Value>& map)>& filter);
+    base::Result<void> iterate(
+            const std::function<base::Result<void>(const Key& key, BpfMap<Key, Value>& map)>&
+                    filter);
 
     // Iterate through the map and get each <key, value> pair, handle each <key,
     // value> pair based on the filter.
-    netdutils::Status iterateWithValue(
-        const std::function<netdutils::Status(const Key& key, const Value& value,
-                                              BpfMap<Key, Value>& map)>& filter);
+    base::Result<void> iterateWithValue(
+            const std::function<base::Result<void>(const Key& key, const Value& value,
+                                                   BpfMap<Key, Value>& map)>& filter);
 
     const base::unique_fd& getMap() const { return mMapFd; };
+
+    // Copy assignment operator
+    BpfMap<Key, Value>& operator=(const BpfMap<Key, Value>& other) {
+        if (this != &other) mMapFd.reset(fcntl(other.mMapFd.get(), F_DUPFD_CLOEXEC, 0));
+        return *this;
+    }
 
     // Move constructor
     void operator=(BpfMap<Key, Value>&& other) noexcept {
         mMapFd = std::move(other.mMapFd);
-        other.reset();
+        other.reset(-1);
     }
 
-    void reset(int fd = -1) {
-        mMapFd.reset(fd);
-    }
+    void reset(base::unique_fd fd) = delete;
+
+    void reset(int fd) { mMapFd.reset(fd); }
 
     bool isValid() const { return mMapFd != -1; }
 
-    // It is only safe to call this method if it is guaranteed that nothing will concurrently
-    // iterate over the map in any process.
-    netdutils::Status clear() {
-        const auto deleteAllEntries = [](const Key& key, BpfMap<Key, Value>& map) {
-            netdutils::Status res = map.deleteValue(key);
-            if (!isOk(res) && (res.code() != ENOENT)) {
-                ALOGE("Failed to delete data %s\n", strerror(res.code()));
+    base::Result<void> clear() {
+        while (true) {
+            auto key = getFirstKey();
+            if (!key.ok()) {
+                if (key.error().code() == ENOENT) return {};  // empty: success
+                return key.error();                           // Anything else is an error
             }
-            return netdutils::status::ok;
-        };
-        RETURN_IF_NOT_OK(iterate(deleteAllEntries));
-        return netdutils::status::ok;
+            auto res = deleteValue(key.value());
+            if (!res.ok()) {
+                // Someone else could have deleted the key, so ignore ENOENT
+                if (res.error().code() == ENOENT) continue;
+                ALOGE("Failed to delete data %s", strerror(res.error().code()));
+                return res.error();
+            }
+        }
     }
 
-    netdutils::StatusOr<bool> isEmpty() const {
-        auto key = this->getFirstKey();
-        // Return error code ENOENT means the map is empty
-        if (!isOk(key) && key.status().code() == ENOENT) return true;
-        RETURN_IF_NOT_OK(key);
+    base::Result<bool> isEmpty() const {
+        auto key = getFirstKey();
+        if (!key.ok()) {
+            // Return error code ENOENT means the map is empty
+            if (key.error().code() == ENOENT) return true;
+            return key.error();
+        }
         return false;
     }
 
@@ -166,71 +178,83 @@ class BpfMap {
 };
 
 template <class Key, class Value>
-netdutils::Status BpfMap<Key, Value>::init(const char* path) {
-    mMapFd = base::unique_fd(mapRetrieve(path, 0));
+base::Result<void> BpfMap<Key, Value>::init(const char* path) {
+    mMapFd = base::unique_fd(mapRetrieveRW(path));
     if (mMapFd == -1) {
-        reset();
-        return netdutils::statusFromErrno(
-                errno,
-                base::StringPrintf("pinned map not accessible or does not exist: (%s)\n", path));
+        return ErrnoErrorf("Pinned map not accessible or does not exist: ({})", path);
     }
-    return netdutils::status::ok;
+    return {};
 }
 
 template <class Key, class Value>
-netdutils::Status BpfMap<Key, Value>::iterate(
-    const std::function<netdutils::Status(const Key& key, const BpfMap<Key, Value>& map)>& filter)
-    const {
-    netdutils::StatusOr<Key> curKey = getFirstKey();
-    while (isOk(curKey)) {
-        const netdutils::StatusOr<Key>& nextKey = getNextKey(curKey.value());
-        RETURN_IF_NOT_OK(filter(curKey.value(), *this));
+base::Result<void> BpfMap<Key, Value>::iterate(
+        const std::function<base::Result<void>(const Key& key, const BpfMap<Key, Value>& map)>&
+                filter) const {
+    base::Result<Key> curKey = getFirstKey();
+    while (curKey.ok()) {
+        const base::Result<Key>& nextKey = getNextKey(curKey.value());
+        base::Result<void> status = filter(curKey.value(), *this);
+        if (!status.ok()) return status;
         curKey = nextKey;
     }
-    return curKey.status().code() == ENOENT ? netdutils::status::ok : curKey.status();
+    if (curKey.error().code() == ENOENT) return {};
+    return curKey.error();
 }
 
 template <class Key, class Value>
-netdutils::Status BpfMap<Key, Value>::iterateWithValue(
-    const std::function<netdutils::Status(const Key& key, const Value& value,
-                                          const BpfMap<Key, Value>& map)>& filter) const {
-    netdutils::StatusOr<Key> curKey = getFirstKey();
-    while (isOk(curKey)) {
-        const netdutils::StatusOr<Key>& nextKey = getNextKey(curKey.value());
-        Value curValue;
-        ASSIGN_OR_RETURN(curValue, this->readValue(curKey.value()));
-        RETURN_IF_NOT_OK(filter(curKey.value(), curValue, *this));
+base::Result<void> BpfMap<Key, Value>::iterateWithValue(
+        const std::function<base::Result<void>(const Key& key, const Value& value,
+                                               const BpfMap<Key, Value>& map)>& filter) const {
+    base::Result<Key> curKey = getFirstKey();
+    while (curKey.ok()) {
+        const base::Result<Key>& nextKey = getNextKey(curKey.value());
+        base::Result<Value> curValue = readValue(curKey.value());
+        if (!curValue.ok()) return curValue.error();
+        base::Result<void> status = filter(curKey.value(), curValue.value(), *this);
+        if (!status.ok()) return status;
         curKey = nextKey;
     }
-    return curKey.status().code() == ENOENT ? netdutils::status::ok : curKey.status();
+    if (curKey.error().code() == ENOENT) return {};
+    return curKey.error();
 }
 
 template <class Key, class Value>
-netdutils::Status BpfMap<Key, Value>::iterate(
-    const std::function<netdutils::Status(const Key& key, BpfMap<Key, Value>& map)>& filter) {
-    netdutils::StatusOr<Key> curKey = getFirstKey();
-    while (isOk(curKey)) {
-        const netdutils::StatusOr<Key>& nextKey = getNextKey(curKey.value());
-        RETURN_IF_NOT_OK(filter(curKey.value(), *this));
+base::Result<void> BpfMap<Key, Value>::iterate(
+        const std::function<base::Result<void>(const Key& key, BpfMap<Key, Value>& map)>& filter) {
+    base::Result<Key> curKey = getFirstKey();
+    while (curKey.ok()) {
+        const base::Result<Key>& nextKey = getNextKey(curKey.value());
+        base::Result<void> status = filter(curKey.value(), *this);
+        if (!status.ok()) return status;
         curKey = nextKey;
     }
-    return curKey.status().code() == ENOENT ? netdutils::status::ok : curKey.status();
+    if (curKey.error().code() == ENOENT) return {};
+    return curKey.error();
 }
 
 template <class Key, class Value>
-netdutils::Status BpfMap<Key, Value>::iterateWithValue(
-    const std::function<netdutils::Status(const Key& key, const Value& value,
-                                          BpfMap<Key, Value>& map)>& filter) {
-    netdutils::StatusOr<Key> curKey = getFirstKey();
-    while (isOk(curKey)) {
-        const netdutils::StatusOr<Key>& nextKey = getNextKey(curKey.value());
-        Value curValue;
-        ASSIGN_OR_RETURN(curValue, this->readValue(curKey.value()));
-        RETURN_IF_NOT_OK(filter(curKey.value(), curValue, *this));
+base::Result<void> BpfMap<Key, Value>::iterateWithValue(
+        const std::function<base::Result<void>(const Key& key, const Value& value,
+                                               BpfMap<Key, Value>& map)>& filter) {
+    base::Result<Key> curKey = getFirstKey();
+    while (curKey.ok()) {
+        const base::Result<Key>& nextKey = getNextKey(curKey.value());
+        base::Result<Value> curValue = readValue(curKey.value());
+        if (!curValue.ok()) return curValue.error();
+        base::Result<void> status = filter(curKey.value(), curValue.value(), *this);
+        if (!status.ok()) return status;
         curKey = nextKey;
     }
-    return curKey.status().code() == ENOENT ? netdutils::status::ok : curKey.status();
+    if (curKey.error().code() == ENOENT) return {};
+    return curKey.error();
 }
+
+template <class Key, class Value>
+class BpfMapRO : public BpfMap<Key, Value> {
+  public:
+    explicit BpfMapRO<Key, Value>(const char* pathname)
+        : BpfMap<Key, Value>(pathname, BPF_F_RDONLY) {}
+};
 
 }  // namespace bpf
 }  // namespace android

@@ -21,7 +21,7 @@
 #include <linux/types.h>
 
 #include "format.h"
-#include "hal_public.h"
+#include "img_gralloc1_public.h"
 
 bool is_valid_format(uint32_t format)
 {

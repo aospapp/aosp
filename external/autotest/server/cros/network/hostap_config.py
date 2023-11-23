@@ -8,6 +8,7 @@ import logging
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import xmlrpc_security_types
+from autotest_lib.server.cros.network import packet_capturer
 
 
 class HostapConfig(object):
@@ -31,7 +32,9 @@ class HostapConfig(object):
                    2472: 13,
                    # 14 is for Japan, DSSS and CCK only.
                    2484: 14,
-                   # 34 valid in Japan.
+                   # 32 valid in Europe.
+                   5160: 32,
+                   # 34 valid in Europe.
                    5170: 34,
                    # 36-116 valid in the US, except 38, 42, and 46, which have
                    # mixed international support.
@@ -59,10 +62,12 @@ class HostapConfig(object):
                    5660: 132,
                    5680: 136,
                    5700: 140,
+                   5710: 142,
                    # 144 is supported by a subset of WiFi chips
                    # (e.g. bcm4354, but not ath9k).
                    5720: 144,
                    5745: 149,
+                   5755: 151,
                    5765: 153,
                    5785: 157,
                    5805: 161,
@@ -123,35 +128,45 @@ class HostapConfig(object):
     AC_CAPABILITY_TX_ANTENNA_PATTERN = object()
     AC_CAPABILITIES_MAPPING = {
             AC_CAPABILITY_VHT160: '[VHT160]',
-            AC_CAPABILITY_VHT160_80PLUS80: '[VHT160_80PLUS80]',
+            AC_CAPABILITY_VHT160_80PLUS80: '[VHT160-80PLUS80]',
             AC_CAPABILITY_RXLDPC: '[RXLDPC]',
-            AC_CAPABILITY_SHORT_GI_80: '[SHORT_GI_80]',
-            AC_CAPABILITY_SHORT_GI_160: '[SHORT_GI_160]',
-            AC_CAPABILITY_TX_STBC_2BY1: '[TX_STBC_2BY1',
-            AC_CAPABILITY_RX_STBC_1: '[RX_STBC_1]',
-            AC_CAPABILITY_RX_STBC_12: '[RX_STBC_12]',
-            AC_CAPABILITY_RX_STBC_123: '[RX_STBC_123]',
-            AC_CAPABILITY_RX_STBC_1234: '[RX_STBC_1234]',
-            AC_CAPABILITY_SU_BEAMFORMER: '[SU_BEAMFORMER]',
-            AC_CAPABILITY_SU_BEAMFORMEE: '[SU_BEAMFORMEE]',
-            AC_CAPABILITY_BF_ANTENNA_2: '[BF_ANTENNA_2]',
-            AC_CAPABILITY_SOUNDING_DIMENSION_2: '[SOUNDING_DIMENSION_2]',
-            AC_CAPABILITY_MU_BEAMFORMER: '[MU_BEAMFORMER]',
-            AC_CAPABILITY_MU_BEAMFORMEE: '[MU_BEAMFORMEE]',
-            AC_CAPABILITY_VHT_TXOP_PS: '[VHT_TXOP_PS]',
-            AC_CAPABILITY_HTC_VHT: '[HTC_VHT]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP0: '[MAX_A_MPDU_LEN_EXP0]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP1: '[MAX_A_MPDU_LEN_EXP1]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP2: '[MAX_A_MPDU_LEN_EXP2]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP3: '[MAX_A_MPDU_LEN_EXP3]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP4: '[MAX_A_MPDU_LEN_EXP4]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP5: '[MAX_A_MPDU_LEN_EXP5]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP6: '[MAX_A_MPDU_LEN_EXP6]',
-            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP7: '[MAX_A_MPDU_LEN_EXP7]',
-            AC_CAPABILITY_VHT_LINK_ADAPT2: '[VHT_LINK_ADAPT2]',
-            AC_CAPABILITY_VHT_LINK_ADAPT3: '[VHT_LINK_ADAPT3]',
-            AC_CAPABILITY_RX_ANTENNA_PATTERN: '[RX_ANTENNA_PATTERN]',
-            AC_CAPABILITY_TX_ANTENNA_PATTERN: '[TX_ANTENNA_PATTERN]'}
+            AC_CAPABILITY_SHORT_GI_80: '[SHORT-GI-80]',
+            AC_CAPABILITY_SHORT_GI_160: '[SHORT-GI-160]',
+            AC_CAPABILITY_TX_STBC_2BY1: '[TX-STBC-2BY1]',
+            AC_CAPABILITY_RX_STBC_1: '[RX-STBC-1]',
+            AC_CAPABILITY_RX_STBC_12: '[RX-STBC-12]',
+            AC_CAPABILITY_RX_STBC_123: '[RX-STBC-123]',
+            AC_CAPABILITY_RX_STBC_1234: '[RX-STBC-1234]',
+            AC_CAPABILITY_SU_BEAMFORMER: '[SU-BEAMFORMER]',
+            AC_CAPABILITY_SU_BEAMFORMEE: '[SU-BEAMFORMEE]',
+            AC_CAPABILITY_BF_ANTENNA_2: '[BF-ANTENNA-2]',
+            AC_CAPABILITY_SOUNDING_DIMENSION_2: '[SOUNDING-DIMENSION-2]',
+            AC_CAPABILITY_MU_BEAMFORMER: '[MU-BEAMFORMER]',
+            AC_CAPABILITY_MU_BEAMFORMEE: '[MU-BEAMFORMEE]',
+            AC_CAPABILITY_VHT_TXOP_PS: '[VHT-TXOP-PS]',
+            AC_CAPABILITY_HTC_VHT: '[HTC-VHT]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP0: '[MAX-A-MPDU-LEN-EXP0]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP1: '[MAX-A-MPDU-LEN-EXP1]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP2: '[MAX-A-MPDU-LEN-EXP2]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP3: '[MAX-A-MPDU-LEN-EXP3]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP4: '[MAX-A-MPDU-LEN-EXP4]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP5: '[MAX-A-MPDU-LEN-EXP5]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP6: '[MAX-A-MPDU-LEN-EXP6]',
+            AC_CAPABILITY_MAX_A_MPDU_LEN_EXP7: '[MAX-A-MPDU-LEN-EXP7]',
+            AC_CAPABILITY_VHT_LINK_ADAPT2: '[VHT-LINK-ADAPT2]',
+            AC_CAPABILITY_VHT_LINK_ADAPT3: '[VHT-LINK-ADAPT3]',
+            AC_CAPABILITY_RX_ANTENNA_PATTERN: '[RX-ANTENNA-PATTERN]',
+            AC_CAPABILITY_TX_ANTENNA_PATTERN: '[TX-ANTENNA-PATTERN]'}
+
+    HT_CHANNEL_WIDTH_20 = object()
+    HT_CHANNEL_WIDTH_40_PLUS = object()
+    HT_CHANNEL_WIDTH_40_MINUS = object()
+
+    HT_NAMES = {
+        HT_CHANNEL_WIDTH_20: 'HT20',
+        HT_CHANNEL_WIDTH_40_PLUS: 'HT40+',
+        HT_CHANNEL_WIDTH_40_MINUS: 'HT40-',
+    }
 
     VHT_CHANNEL_WIDTH_40 = object()
     VHT_CHANNEL_WIDTH_80 = object()
@@ -167,18 +182,18 @@ class HostapConfig(object):
     }
 
     # This is a loose merging of the rules for US and EU regulatory
-    # domains as taken from IEEE Std 802.11-2012 Appendix E.  For instance,
+    # domains as taken from IEEE Std 802.11-2016 Appendix E.  For instance,
     # we tolerate HT40 in channels 149-161 (not allowed in EU), but also
     # tolerate HT40+ on channel 7 (not allowed in the US).  We take the loose
     # definition so that we don't prohibit testing in either domain.
-    HT40_ALLOW_MAP = {N_CAPABILITY_HT40_MINUS: range(6, 14) +
-                                               range(40, 65, 8) +
-                                               range(104, 137, 8) +
-                                               [153, 161],
-                      N_CAPABILITY_HT40_PLUS: range(1, 8) +
-                                              range(36, 61, 8) +
-                                              range(100, 133, 8) +
-                                              [149, 157]}
+    HT40_ALLOW_MAP = {N_CAPABILITY_HT40_MINUS: range(5, 14) +
+                                           range(40, 65, 8) +
+                                           range(104, 145, 8) +
+                                           [153, 161],
+                  N_CAPABILITY_HT40_PLUS: range(1, 10) +
+                                           range(36, 61, 8) +
+                                           range(100, 141, 8) +
+                                           [149, 157]}
 
     PMF_SUPPORT_DISABLED = 0
     PMF_SUPPORT_ENABLED = 1
@@ -282,10 +297,7 @@ class HostapConfig(object):
     @property
     def _require_ht(self):
         """@return True iff clients should be required to support HT."""
-        # TODO(wiley) Why? (crbug.com/237370)
-        logging.warning('Not enforcing pure N mode because Snow does '
-                        'not seem to support it...')
-        return False
+        return self._mode == self.MODE_11N_PURE
 
 
     @property
@@ -378,29 +390,56 @@ class HostapConfig(object):
 
 
     @property
-    def ht_packet_capture_mode(self):
-        """Get an appropriate packet capture HT parameter.
+    def _ht_mode(self):
+        """
+        @return object one of ( None,
+                                HT_CHANNEL_WIDTH_40_PLUS,
+                                HT_CHANNEL_WIDTH_40_MINUS,
+                                HT_CHANNEL_WIDTH_20)
+        """
+        if self._is_11n or self.is_11ac:
+            if self._ht40_plus_allowed:
+                return self.HT_CHANNEL_WIDTH_40_PLUS
+            if self._ht40_minus_allowed:
+                return self.HT_CHANNEL_WIDTH_40_MINUS
+            return self.HT_CHANNEL_WIDTH_20
+        return None
+
+
+    @property
+    def packet_capture_mode(self):
+        """Get an appropriate packet capture HT/VHT parameter.
 
         When we go to configure a raw monitor we need to configure
         the phy to listen on the correct channel.  Part of doing
-        so is to specify the channel width for HT channels.  In the
+        so is to specify the channel width for HT/VHT channels.  In the
         case that the AP is configured to be either HT40+ or HT40-,
         we could return the wrong parameter because we don't know which
         configuration will be chosen by hostap.
 
-        @return string HT parameter for frequency configuration.
+        @return object width_type parameter from packet_capturer.
 
         """
-        if not self._is_11n:
-            return None
 
-        if self._ht40_plus_allowed:
-            return 'HT40+'
+        if (not self.vht_channel_width or
+                self.vht_channel_width == self.VHT_CHANNEL_WIDTH_40):
+            # if it is VHT40, capture packets on the correct 40MHz band since
+            # for packet capturing purposes, only the channel width matters
+            ht_mode = self._ht_mode
+            if ht_mode == self.HT_CHANNEL_WIDTH_40_PLUS:
+                return packet_capturer.WIDTH_HT40_PLUS
+            if ht_mode == self.HT_CHANNEL_WIDTH_40_MINUS:
+                return packet_capturer.WIDTH_HT40_MINUS
+            if ht_mode == self.HT_CHANNEL_WIDTH_20:
+                return packet_capturer.WIDTH_HT20
 
-        if self._ht40_minus_allowed:
-            return 'HT40-'
-
-        return 'HT20'
+        if self.vht_channel_width == self.VHT_CHANNEL_WIDTH_80:
+            return packet_capturer.WIDTH_VHT80
+        if self.vht_channel_width == self.VHT_CHANNEL_WIDTH_160:
+            return packet_capturer.WIDTH_VHT160
+        if self.vht_channel_width == self.VHT_CHANNEL_WIDTH_80_80:
+            return packet_capturer.WIDTH_VHT80_80
+        return None
 
 
     @property
@@ -416,13 +455,12 @@ class HostapConfig(object):
     def printable_mode(self):
         """@return human readable mode string."""
 
-        # Note: VHT capture is not yet supported in ht_packet_capture_mode()
-        # (nor cros.network.packet_capturer).
         if self.vht_channel_width is not None:
             return self.VHT_NAMES[self.vht_channel_width]
 
-        if self._is_11n:
-            return self.ht_packet_capture_mode
+        ht_mode = self._ht_mode
+        if ht_mode:
+            return self.HT_NAMES[ht_mode]
 
         return '11' + self._hw_mode.upper()
 
@@ -443,12 +481,6 @@ class HostapConfig(object):
     def hide_ssid(self):
         """@return bool _hide_ssid flag."""
         return self._hide_ssid
-
-
-    @property
-    def beacon_footer(self):
-        """@return bool _beacon_footer value."""
-        return self._beacon_footer
 
 
     @property
@@ -483,18 +515,26 @@ class HostapConfig(object):
         """@return int _max_stas value, or None."""
         return self._max_stas
 
+    @property
+    def supported_rates(self):
+        """@return list of supported bitrates (in Mbps, or None if not
+           specified.
+        """
+        return self._supported_rates
+
     def __init__(self, mode=MODE_11B, channel=None, frequency=None,
-                 n_capabilities=[], hide_ssid=None, beacon_interval=None,
+                 n_capabilities=None, hide_ssid=None, beacon_interval=None,
                  dtim_period=None, frag_threshold=None, ssid=None, bssid=None,
                  force_wmm=None, security_config=None,
                  pmf_support=PMF_SUPPORT_DISABLED,
                  obss_interval=None,
                  vht_channel_width=None,
                  vht_center_channel=None,
-                 ac_capabilities=[],
-                 beacon_footer='',
+                 ac_capabilities=None,
                  spectrum_mgmt_required=None,
                  scenario_name=None,
+                 supported_rates=None,
+                 basic_rates=None,
                  min_streams=None,
                  nas_id=None,
                  mdid=None,
@@ -529,12 +569,14 @@ class HostapConfig(object):
         @param vht_channel_width object channel width
         @param vht_center_channel int center channel of segment 0.
         @param ac_capabilities list of AC_CAPABILITY_x defined above.
-        @param beacon_footer string containing (unvalidated) IE data to be
-            placed at the end of the beacon.
         @param spectrum_mgmt_required True if we require the DUT to support
             spectrum management.
         @param scenario_name string to be included in file names, instead
             of the interface name.
+        @param supported_rates list of rates (in Mbps) that the AP should
+             advertise.
+        @param basic_rates list of basic rates (in Mbps) that the AP should
+            advertise.
         @param min_streams int number of spatial streams required.
         @param nas_id string for RADIUS messages (needed for 802.11r)
         @param mdid string used to indicate a group of APs for FT
@@ -550,6 +592,10 @@ class HostapConfig(object):
             raise error.TestError('Specify either frequency or channel '
                                   'but not both.')
 
+        if n_capabilities is None:
+            n_capabilities = []
+        if ac_capabilities is None:
+            ac_capabilities = []
         self._wmm_enabled = False
         unknown_caps = [cap for cap in n_capabilities
                         if cap not in self.ALL_N_CAPABILITIES]
@@ -609,9 +655,10 @@ class HostapConfig(object):
         # and operating channel.
         self._vht_oper_centr_freq_seg0_idx = vht_center_channel
         self._ac_capabilities = set(ac_capabilities)
-        self._beacon_footer = beacon_footer
         self._spectrum_mgmt_required = spectrum_mgmt_required
         self._scenario_name = scenario_name
+        self._supported_rates = supported_rates
+        self._basic_rates = basic_rates
         self._min_streams = min_streams
         self._nas_id = nas_id
         self._mdid = mdid
@@ -717,6 +764,16 @@ class HostapConfig(object):
             conf['bssid'] = self._bssid
         conf['channel'] = self.channel
         conf['hw_mode'] = self._hw_mode
+
+        # hostapd specifies rates in units of 100Kbps.
+        rate_to_100kbps = lambda rate: str(int(rate * 10))
+        if self._supported_rates:
+            conf['supported_rates'] = ' '.join(map(rate_to_100kbps,
+                                                   self._supported_rates))
+        if self._basic_rates:
+            conf['basic_rates'] = ' '.join(map(rate_to_100kbps,
+                                               self._basic_rates))
+
         if self._hide_ssid:
             conf['ignore_broadcast_ssid'] = 1
         if self._is_11n or self.is_11ac:
@@ -725,8 +782,9 @@ class HostapConfig(object):
         if self.is_11ac:
             conf['ieee80211ac'] = 1
             conf['vht_oper_chwidth'] = self._vht_oper_chwidth
-            conf['vht_oper_centr_freq_seg0_idx'] = \
-                    self._vht_oper_centr_freq_seg0_idx
+            if self._vht_oper_centr_freq_seg0_idx is not None:
+                conf['vht_oper_centr_freq_seg0_idx'] = \
+                        self._vht_oper_centr_freq_seg0_idx
             conf['vht_capab'] = self._hostapd_vht_capabilities
         if self._wmm_enabled:
             conf['wmm_enabled'] = 1

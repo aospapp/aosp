@@ -19,7 +19,7 @@
 #include <vector>
 
 #include <android-base/logging.h>
-#include "../apps/boot/include/ese/app/boot.h"
+#include <ese/app/boot.h>
 #include "ScopedEseConnection.h"
 
 namespace android {

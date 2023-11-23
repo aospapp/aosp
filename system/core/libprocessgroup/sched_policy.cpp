@@ -46,34 +46,17 @@ int set_cpuset_policy(int tid, SchedPolicy policy) {
 
     switch (policy) {
         case SP_BACKGROUND:
-            return SetTaskProfiles(tid,
-                                   {"HighEnergySaving", "ProcessCapacityLow", "LowIoPriority",
-                                    "TimerSlackHigh"},
-                                   true)
-                           ? 0
-                           : -1;
+            return SetTaskProfiles(tid, {"CPUSET_SP_BACKGROUND"}, true) ? 0 : -1;
         case SP_FOREGROUND:
         case SP_AUDIO_APP:
         case SP_AUDIO_SYS:
-            return SetTaskProfiles(tid,
-                                   {"HighPerformance", "ProcessCapacityHigh", "HighIoPriority",
-                                    "TimerSlackNormal"},
-                                   true)
-                           ? 0
-                           : -1;
+            return SetTaskProfiles(tid, {"CPUSET_SP_FOREGROUND"}, true) ? 0 : -1;
         case SP_TOP_APP:
-            return SetTaskProfiles(tid,
-                                   {"MaxPerformance", "ProcessCapacityMax", "MaxIoPriority",
-                                    "TimerSlackNormal"},
-                                   true)
-                           ? 0
-                           : -1;
+            return SetTaskProfiles(tid, {"CPUSET_SP_TOP_APP"}, true) ? 0 : -1;
         case SP_SYSTEM:
-            return SetTaskProfiles(tid, {"ServiceCapacityLow", "TimerSlackNormal"}, true) ? 0 : -1;
+            return SetTaskProfiles(tid, {"CPUSET_SP_SYSTEM"}, true) ? 0 : -1;
         case SP_RESTRICTED:
-            return SetTaskProfiles(tid, {"ServiceCapacityRestricted", "TimerSlackNormal"}, true)
-                           ? 0
-                           : -1;
+            return SetTaskProfiles(tid, {"CPUSET_SP_RESTRICTED"}, true) ? 0 : -1;
         default:
             break;
     }
@@ -134,17 +117,17 @@ int set_sched_policy(int tid, SchedPolicy policy) {
 
     switch (policy) {
         case SP_BACKGROUND:
-            return SetTaskProfiles(tid, {"HighEnergySaving", "TimerSlackHigh"}, true) ? 0 : -1;
+            return SetTaskProfiles(tid, {"SCHED_SP_BACKGROUND"}, true) ? 0 : -1;
         case SP_FOREGROUND:
         case SP_AUDIO_APP:
         case SP_AUDIO_SYS:
-            return SetTaskProfiles(tid, {"HighPerformance", "TimerSlackNormal"}, true) ? 0 : -1;
+            return SetTaskProfiles(tid, {"SCHED_SP_FOREGROUND"}, true) ? 0 : -1;
         case SP_TOP_APP:
-            return SetTaskProfiles(tid, {"MaxPerformance", "TimerSlackNormal"}, true) ? 0 : -1;
+            return SetTaskProfiles(tid, {"SCHED_SP_TOP_APP"}, true) ? 0 : -1;
         case SP_RT_APP:
-            return SetTaskProfiles(tid, {"RealtimePerformance", "TimerSlackNormal"}, true) ? 0 : -1;
+            return SetTaskProfiles(tid, {"SCHED_SP_RT_APP"}, true) ? 0 : -1;
         default:
-            return SetTaskProfiles(tid, {"TimerSlackNormal"}, true) ? 0 : -1;
+            return SetTaskProfiles(tid, {"SCHED_SP_DEFAULT"}, true) ? 0 : -1;
     }
 
     return 0;
@@ -155,8 +138,17 @@ bool cpusets_enabled() {
     return enabled;
 }
 
+static bool schedtune_enabled() {
+    return (CgroupMap::GetInstance().FindController("schedtune").IsUsable());
+}
+
+static bool cpuctl_enabled() {
+    return (CgroupMap::GetInstance().FindController("cpu").IsUsable());
+}
+
 bool schedboost_enabled() {
-    static bool enabled = (CgroupMap::GetInstance().FindController("schedtune").IsUsable());
+    static bool enabled = schedtune_enabled() || cpuctl_enabled();
+
     return enabled;
 }
 
@@ -179,7 +171,9 @@ int get_sched_policy(int tid, SchedPolicy* policy) {
 
     std::string group;
     if (schedboost_enabled()) {
-        if (getCGroupSubsys(tid, "schedtune", group) < 0) return -1;
+        if ((getCGroupSubsys(tid, "schedtune", group) < 0) &&
+            (getCGroupSubsys(tid, "cpu", group) < 0))
+		return -1;
     }
     if (group.empty() && cpusets_enabled()) {
         if (getCGroupSubsys(tid, "cpuset", group) < 0) return -1;
@@ -229,7 +223,45 @@ const char* get_sched_policy_name(SchedPolicy policy) {
     };
     static_assert(arraysize(kSchedPolicyNames) == SP_CNT, "missing name");
     if (policy < SP_BACKGROUND || policy >= SP_CNT) {
-        return "error";
+        return nullptr;
     }
     return kSchedPolicyNames[policy];
+}
+
+const char* get_cpuset_policy_profile_name(SchedPolicy policy) {
+    /*
+     *  cpuset profile array for:
+     *  SP_DEFAULT(-1), SP_BACKGROUND(0), SP_FOREGROUND(1),
+     *  SP_SYSTEM(2), SP_AUDIO_APP(3), SP_AUDIO_SYS(4),
+     *  SP_TOP_APP(5), SP_RT_APP(6), SP_RESTRICTED(7)
+     *  index is policy + 1
+     *  this need keep in sync with SchedPolicy enum
+     */
+    static constexpr const char* kCpusetProfiles[SP_CNT + 1] = {
+            "CPUSET_SP_DEFAULT", "CPUSET_SP_BACKGROUND", "CPUSET_SP_FOREGROUND",
+            "CPUSET_SP_SYSTEM",  "CPUSET_SP_FOREGROUND", "CPUSET_SP_FOREGROUND",
+            "CPUSET_SP_TOP_APP", "CPUSET_SP_DEFAULT",    "CPUSET_SP_RESTRICTED"};
+    if (policy < SP_DEFAULT || policy >= SP_CNT) {
+        return nullptr;
+    }
+    return kCpusetProfiles[policy + 1];
+}
+
+const char* get_sched_policy_profile_name(SchedPolicy policy) {
+    /*
+     *  sched profile array for:
+     *  SP_DEFAULT(-1), SP_BACKGROUND(0), SP_FOREGROUND(1),
+     *  SP_SYSTEM(2), SP_AUDIO_APP(3), SP_AUDIO_SYS(4),
+     *  SP_TOP_APP(5), SP_RT_APP(6), SP_RESTRICTED(7)
+     *  index is policy + 1
+     *  this need keep in sync with SchedPolicy enum
+     */
+    static constexpr const char* kSchedProfiles[SP_CNT + 1] = {
+            "SCHED_SP_DEFAULT", "SCHED_SP_BACKGROUND", "SCHED_SP_FOREGROUND",
+            "SCHED_SP_DEFAULT", "SCHED_SP_FOREGROUND", "SCHED_SP_FOREGROUND",
+            "SCHED_SP_TOP_APP", "SCHED_SP_RT_APP",     "SCHED_SP_DEFAULT"};
+    if (policy < SP_DEFAULT || policy >= SP_CNT) {
+        return nullptr;
+    }
+    return kSchedProfiles[policy + 1];
 }

@@ -20,13 +20,13 @@ class CPWL_EditImpl_Iterator;
 class CPWL_List_Notify;
 class IPVT_FontMap;
 
-class CPLST_Select {
+class CPLST_Select final {
  public:
   enum State { DESELECTING = -1, NORMAL = 0, SELECTING = 1 };
   using const_iterator = std::map<int32_t, State>::const_iterator;
 
   CPLST_Select();
-  virtual ~CPLST_Select();
+  ~CPLST_Select();
 
   void Add(int32_t nItemIndex);
   void Add(int32_t nBeginIndex, int32_t nEndIndex);
@@ -71,8 +71,9 @@ class CPWL_ListCtrl {
   void AddString(const WideString& str);
   void SetTopItem(int32_t nIndex);
   void Select(int32_t nItemIndex);
+  void Deselect(int32_t nItemIndex);
   void SetCaret(int32_t nItemIndex);
-  void Empty();
+  void Clear();
   void Cancel();
   WideString GetText() const;
 
@@ -114,9 +115,9 @@ class CPWL_ListCtrl {
    private:
     CPWL_EditImpl_Iterator* GetIterator() const;
 
-    std::unique_ptr<CPWL_EditImpl> m_pEdit;
-    bool m_bSelected;
+    bool m_bSelected = false;
     CFX_FloatRect m_rcListItem;
+    std::unique_ptr<CPWL_EditImpl> const m_pEdit;
   };
 
   CFX_PointF InToOut(const CFX_PointF& point) const;
@@ -144,7 +145,7 @@ class CPWL_ListCtrl {
   void SetScrollPosY(float fy);
   void AddItem(const WideString& str);
   WideString GetItemText(int32_t nIndex) const;
-  void SetItemSelect(int32_t nItemIndex, bool bSelected);
+  void SetItemSelect(int32_t nIndex, bool bSelected);
   int32_t GetLastSelected() const;
   CFX_PointF GetBTPoint() const {
     return CFX_PointF(m_rcPlate.left, m_rcPlate.top);

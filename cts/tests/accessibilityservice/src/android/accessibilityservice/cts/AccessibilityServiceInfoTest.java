@@ -16,20 +16,35 @@
 
 package android.accessibilityservice.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+
+import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.os.Parcel;
 import android.platform.test.annotations.Presubmit;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.MediumTest;
 import android.view.accessibility.AccessibilityEvent;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Class for testing {@link AccessibilityServiceInfo}.
  */
 @Presubmit
-public class AccessibilityServiceInfoTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityServiceInfoTest {
+
+    @Rule
+    public final AccessibilityDumpOnFailureRule mDumpOnFailureRule =
+            new AccessibilityDumpOnFailureRule();
 
     @MediumTest
+    @Test
     public void testMarshalling() throws Exception {
 
         // fully populate the service info to marshal
@@ -51,6 +66,7 @@ public class AccessibilityServiceInfoTest extends AndroidTestCase {
      * Tests whether the service info describes its contents consistently.
      */
     @MediumTest
+    @Test
     public void testDescribeContents() {
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
         assertSame("Accessibility service info always return 0 for this method.", 0,
@@ -64,6 +80,7 @@ public class AccessibilityServiceInfoTest extends AndroidTestCase {
      * Tests whether a feedback type is correctly transformed to a string.
      */
     @MediumTest
+    @Test
     public void testFeedbackTypeToString() {
         assertEquals("[FEEDBACK_AUDIBLE]", AccessibilityServiceInfo.feedbackTypeToString(
                 AccessibilityServiceInfo.FEEDBACK_AUDIBLE));
@@ -87,6 +104,7 @@ public class AccessibilityServiceInfoTest extends AndroidTestCase {
      * Tests whether a flag is correctly transformed to a string.
      */
     @MediumTest
+    @Test
     public void testFlagToString() {
         assertEquals("DEFAULT", AccessibilityServiceInfo.flagToString(
                 AccessibilityServiceInfo.DEFAULT));

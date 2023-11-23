@@ -34,7 +34,8 @@ namespace android {
 class EmulatedFakeCamera : public EmulatedCamera {
 public:
     /* Constructs EmulatedFakeCamera instance. */
-    EmulatedFakeCamera(int cameraId, bool facingBack, struct hw_module_t* module);
+    EmulatedFakeCamera(int cameraId, bool facingBack, struct hw_module_t* module,
+                       GraphicBufferMapper* gbm);
 
     /* Destructs EmulatedFakeCamera instance. */
     ~EmulatedFakeCamera();

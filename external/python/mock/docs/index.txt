@@ -1,58 +1,29 @@
-====================================
+===================================
  Mock - Mocking and Testing Library
-====================================
+===================================
 
-:Version: |release|
-:Date: |today|
-:Homepage: `Mock Homepage`_
-:Download: `Mock on PyPI`_
-:Documentation: `Python Docs`_
-:License: `BSD License`_
-:Support: `Mailing list (testing-in-python@lists.idyll.org)
- <http://lists.idyll.org/listinfo/testing-in-python>`_
-:Issue tracker: `GitHub Issues
- <https://github.com/testing-cabal/mock/issues>`_
-:Last sync: cb6aab1248c4aec4dd578bea717854505a6fb55d
-
-.. _Mock Homepage: https://github.com/testing-cabal/mock
-.. _BSD License: http://github.com/testing-cabal/mock/blob/master/LICENSE.txt
-.. _Python Docs: https://docs.python.org/dev/library/unittest.mock.html
+.. include:: ../README.rst
 
 .. module:: mock
    :synopsis: Mock object and testing library.
 
 .. index:: introduction
 
-TOC
-+++
-
 .. toctree::
-   :maxdepth: 2
+   :hidden:
 
    changelog
 
-Introduction
-++++++++++++
+Python Version Compatibility
+++++++++++++++++++++++++++++
 
-mock is a library for testing in Python. It allows you to replace parts of
-your system under test with mock objects and make assertions about how they
-have been used.
+* Version 1.0.1 is the last version compatible with Python < 2.6.
 
-mock is now part of the Python standard library, available as
-``unittest.mock`` in Python 3.3 onwards. However, if you are writing code that
-runs on multiple versions of Python the ``mock`` package is better, as you get
-the newest features from the latest release of Python available for all
-Pythons.
+* Version 1.3.0 is the last version compatible with Python 3.2.
 
-The ``mock`` package contains a rolling backport of the standard library mock
-code compatible with Python 2.7 and 3.3 and up.
+* Version 2.0.0 is the last version compatible with Python 2.6.
 
-* Python 2.6 is supported by mock 2.0.0 and below.
-
-* Python 3.2 is supported by mock 1.3.0 and below - with pip no longer
-supporting 3.2, we cannot test against that version anymore.
-
-Please see the standard library documentation for usage details.
+* Version 2.0.0 is the last version offering official Jython support.
 
 .. index:: installing
 .. _installing:
@@ -60,17 +31,13 @@ Please see the standard library documentation for usage details.
 Installing
 ++++++++++
 
-The current version is |release|. Mock is stable and widely used.
-
-* `mock on PyPI <http://pypi.python.org/pypi/mock>`_
-
 .. index:: repository
 .. index:: git
 
 You can checkout the latest development version from GitHub
 repository with the following command:
 
-    ``git clone https://github.com/testing-cabal/mock``
+    ``git clone https://github.com/testing-cabal/mock.git``
 
 
 .. index:: pip
@@ -79,18 +46,11 @@ You can install mock with pip:
 
     | ``pip install -U mock``
 
-Alternatively you can download the mock distribution from PyPI and after
-unpacking run:
-
-   ``python setup.py install``
-
-
 .. index:: bug reports
 
 Bug Reports
 +++++++++++
 
-Mock uses `unittest2 <http://pypi.python.org/pypi/unittest2>`_ for its own
 Issues with the backport process, such as compatibility with a particular
 Python, should be reported to the `bug tracker
 <https://github.com/testing-cabal/mock/issues>`_. Feature requests and issues
@@ -99,21 +59,10 @@ with Mock functionality should be reported to the `Python bug tracker
 
 .. index:: python changes
 
-Python Changes
-++++++++++++++
+Changelog
++++++++++
 
-Python NEWS entries from cPython:
-
-.. include:: ../NEWS
-
-.. index:: older versions
-
-Older Versions of Python
-++++++++++++++++++++++++
-
-Version 1.0.1 is the last version compatible with Python < 2.6.
-
-Version 2.0.0 is the last version compatible with Python 2.6.
+See the :doc:`change log <changelog>`.
 
 .. index:: maintainer notes
 
@@ -121,74 +70,112 @@ Maintainer Notes
 ++++++++++++++++
 
 Development
-===========
+-----------
 
 Checkout from git (see :ref:`installing`) and submit pull requests.
 
 Committers can just push as desired: since all semantic development takes
 place in cPython, the backport process is as lightweight as we can make it.
 
-mock is CI tested using Travis-CI on Python versions 2.7, 3.3, 3.4,
-3.5, nightly Python 3 builds, pypy, pypy3. Jython support is desired, if
-someone could contribute a patch to .travis.yml to support it that would be
-excellent.
+mock is CI tested using Travis-CI on Python versions 2.7, 3.4,
+3.5, 3.6, pypy, pypy3.
+
+If you end up fixing anything backport-specific, please add an entry
+to the top of ``CHANGELOG.rst`` so it shows up in the next release
+notes.
 
 Releasing
-=========
+---------
 
 NB: please use semver. Bump the major component on API breaks, minor on all
 non-bugfix changes, patch on bugfix only changes.
 
-1. tag -s, push --tags origin master
-2. setup.py sdist bdist_wheel upload -s
+1. Run ``release.py [major|minor|bugfix]`` which will roll out new
+   NEWS items, bump the version number and create a commit for the release.
 
+2. Review that commit, feel free to amend it if you want to note anything
+   manually in ``CHANGELOG.rst``.
+
+3. Push to the ``master`` branch on
+   https://github.com/testing-cabal/mock.git and the Circle CI
+   automation will take care of pushing releases to PyPI and
+   creating a tag.
 
 Backporting rules
-=================
+-----------------
 
-isinstance checks in cPython to ``type`` need to check ``ClassTypes``.
-Code calling ``obj.isidentifier`` needs to change to ``_isidentifier(obj)``.
+- ``isinstance`` checks in cPython to ``type`` need to check ``ClassTypes``.
+  Code calling ``obj.isidentifier`` needs to change to ``_isidentifier(obj)``.
+
+- f-strings need to be rewritten using some other string substitution.
+
+- ``assertRaisesRegex`` needs to be ``assertRaisesRegexp`` for Python 2.
+
+- If test code won't compile on a particular version of Python, move it to
+  a matching ``_py{version}.py`` file. If ``{version}`` isn't 3, adjust
+  ``conftest.py``.
+
+- If code such as this causes coverage checking to drop below 100%:
+
+  .. code-block:: python
+
+      def will_never_be_called():
+          pass
+
+  It should be adjusted to the following pattern, preferably upstream,
+  so that the ``.coveragerc`` in this repo knows to ignore it:
+
+  .. code-block:: python
+
+      def will_never_be_called(): pass
 
 Backporting process
-===================
+-------------------
 
-1. Patch your git am with `my patch <https://github.com/rbtcollins/git>`_.
-2. Install the applypatch-transform hook from tools/ to your .git hooks dir.
-3. Configure a pre-applypatch hook to test at least all the cPython versions
-   we support on each patch that is applied. I use containers, and a sample
-   script is in tools/pre-applypatch.
-4. Pull down the cPython git mirror: https://github.com/python/cpython.git
-5. Export the new revisions since the ``Last sync`` at the top of this
-   document::
+1. Clone cpython and mock into the same directory, eg:
 
-     revs=${lastsync}
-     rm migrate-export
-     git log --pretty="format:%H " $revs.. -- Lib/unittest/mock.py \
-       Lib/unittest/test/testmock/ > migrate-revs
-     tac migrate-revs > migrate-sorted-revs
-     for rev in $(< migrate-sorted-revs); do
-           git format-patch -1 $rev -k --stdout >> migrate-export;
-           done
-     echo NEW SYNC POINT: $(git rev-parse HEAD)
+   .. code-block:: bash
 
-6. Import into mock::
+       mkdir vcs
+       cd vcs
+       git clone https://github.com/python/cpython.git
+       git clone https://github.com/testing-cabal/mock.git
 
-     git am -k --reject $path-to-cpython/migrate-export
+   Make sure they both on master and up to date!
 
-   This will transform the patches automatically. Currently it will error
-   on every NEWS change as I haven't gotten around to making those patches
-   automatic. Fixup any errors that occur. When the patch is ready, do a ``git
-   add -u`` to update the index and then ``git am --continue`` to move onto
-   the next patch. If the patch is inappropriate e.g. the patch removing
-   __ne__ which would break older pythons, then either do ``git reset --hard;
-   git am --skip`` to discard any partially applied changes and skip over it,
-   or, if it has a NEWS entry thats worth preserving, edit it down to just
-   that, with a note such as we have for the ``__ne__`` patch, and continue on
-   from there.
+2. Create a branch in your ``mock`` clone and switch to it.
 
-   The goal is that every patch work at all times.
+3. Make sure you build a suitable virtualenv for Mock development
+   and activate it. For backporting, this should use Python 3.7+.
 
-7. After the import is complete, update this document with the new sync point.
+4. Run ``backport.py``:
 
-8. Push to a personal branch and propose a PR to the main repo. This will make
-   Travis-CI test it. If it works, push to the main repo.
+   .. code-block:: bash
+
+       cd vcs/mock
+       python backport.py
+
+   This will find the next cpython patch that needs to be applied, munge it
+   and attempt to apply it with ``git am``.
+
+   If it succeeds, run the tests and/or push your branch up to a fork and
+   do a pull request into the master branch of the main repo to kick off
+   the continuous integration tests.
+
+   If it fails, you'll have to manually work with what ``git status`` shows
+   to get the patch committed.
+
+   If it turns out that there's nothing that should be applied from the failed commit,
+   run ``python backport.py --skip-current``, maybe with ``--skip-reason``.
+
+   If you have to make changes, please do a ``git commit --amend`` and add notes
+   about what needed doing below the ``Signed-off-by`` block.
+
+   If you have to make changes because tests fail with an applied patch, please
+   make those changes in a followup commit and take note of the "Backporting rules"
+   above.
+
+5. Rinse and repeat until ``backport.py`` reports no more patches need applying.
+
+6. If ``backport.py`` has updated ``lastsync.txt``, now would be a good time
+   to commit that change.

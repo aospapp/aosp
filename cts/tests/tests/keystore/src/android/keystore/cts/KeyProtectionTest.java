@@ -47,7 +47,8 @@ public class KeyProtectionTest extends TestCase {
         assertTrue(spec.isRandomizedEncryptionRequired());
         MoreAsserts.assertEmpty(Arrays.asList(spec.getSignaturePaddings()));
         assertFalse(spec.isUserAuthenticationRequired());
-        assertEquals(-1, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(0, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(KeyProperties.AUTH_BIOMETRIC_STRONG, spec.getUserAuthenticationType());
         assertEquals(GateKeeper.INVALID_SECURE_USER_ID, spec.getBoundToSpecificSecureUserId());
         assertFalse(spec.isUnlockedDeviceRequired());
     }
@@ -72,7 +73,8 @@ public class KeyProtectionTest extends TestCase {
                 .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1,
                         KeyProperties.SIGNATURE_PADDING_RSA_PSS)
                 .setUserAuthenticationRequired(true)
-                .setUserAuthenticationValidityDurationSeconds(123456)
+                .setUserAuthenticationParameters(123456 /* validity duration seconds */,
+                        KeyProperties.AUTH_DEVICE_CREDENTIAL | KeyProperties.AUTH_BIOMETRIC_STRONG)
                 .setBoundToSpecificSecureUserId(654321)
                 .setUnlockedDeviceRequired(true)
                 .build();
@@ -94,6 +96,8 @@ public class KeyProtectionTest extends TestCase {
                 KeyProperties.SIGNATURE_PADDING_RSA_PKCS1, KeyProperties.SIGNATURE_PADDING_RSA_PSS);
         assertTrue(spec.isUserAuthenticationRequired());
         assertEquals(123456, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(KeyProperties.AUTH_DEVICE_CREDENTIAL | KeyProperties.AUTH_BIOMETRIC_STRONG,
+                spec.getUserAuthenticationType());
         assertEquals(654321, spec.getBoundToSpecificSecureUserId());
         assertTrue(spec.isUnlockedDeviceRequired());
     }

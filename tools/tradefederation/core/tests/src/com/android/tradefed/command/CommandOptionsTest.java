@@ -16,20 +16,24 @@
 
 package com.android.tradefed.command;
 
+import static org.junit.Assert.assertEquals;
+
 import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.config.ConfigurationException;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link CommandOptions}
- */
-public class CommandOptionsTest extends TestCase {
+/** Unit tests for {@link CommandOptions} */
+@RunWith(JUnit4.class)
+public class CommandOptionsTest {
 
     /**
      * Test that {@link CommandOptions#getLoopTime()} returns min-loop-time when
      * max-random-loop-time is not set.
      */
+    @Test
     public void testGetLoopTime_minset() throws ConfigurationException {
         CommandOptions co = new CommandOptions();
         ArgsOptionParser p = new ArgsOptionParser(co);
@@ -37,23 +41,8 @@ public class CommandOptionsTest extends TestCase {
         assertEquals(10, co.getLoopTime());
     }
 
-    /**
-     * Test that {@link CommandOptions#getLoopTime()} returns a random time between min loop time
-     * and max-random-loop-time.
-     */
-    public void testGetLoopTime_maxrandomset() throws ConfigurationException {
-        CommandOptions co = new CommandOptions();
-        ArgsOptionParser p = new ArgsOptionParser(co);
-        p.parse("--max-random-loop-time", "10", "--min-loop-time", "5");
-
-        long loop = co.getLoopTime();
-        assertTrue("Loop time less than min loop time " + loop, loop >= 5);
-        assertTrue("Loop time too high: " + loop, loop <= 10);
-    }
-
-    /**
-     * Test that setting multiple --min-loop-time values results in the latest value provided
-     */
+    /** Test that setting multiple --min-loop-time values results in the latest value provided */
+    @Test
     public void testGetLoopTime_least() throws ConfigurationException {
         CommandOptions co = new CommandOptions();
         ArgsOptionParser p = new ArgsOptionParser(co);

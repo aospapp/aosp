@@ -30,7 +30,7 @@ import sun.security.util.*;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CertificateIssuerName implements sun.security.x509.CertAttrSet<java.lang.String> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateIssuerName(sun.security.x509.X500Name name) {
         throw new RuntimeException("Stub!");
     }

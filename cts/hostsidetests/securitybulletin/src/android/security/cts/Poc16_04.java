@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,19 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc16_04 extends SecurityTestCase {
 
     /**
      * b/26323455
      */
+    @Test
     @SecurityTest(minPatchLevel = "2016-04")
     public void testPocCVE_2016_2419() throws Exception {
         AdbUtils.runCommandLine("logcat -c" , getDevice());
@@ -34,6 +40,7 @@ public class Poc16_04 extends SecurityTestCase {
     /**
     *  b/26324307
     */
+    @Test
     @SecurityTest(minPatchLevel = "2016-04")
     public void testPocCVE_2016_0844() throws Exception {
         AdbUtils.runPoc("CVE-2016-0844", getDevice(), 60);
@@ -42,12 +49,9 @@ public class Poc16_04 extends SecurityTestCase {
     /**
      * b/26593930
      */
+    @Test
     @SecurityTest(minPatchLevel = "2016-04")
     public void testPocCVE_2016_2412() throws Exception {
-        AdbUtils.runCommandLine("logcat -c" , getDevice());
-        AdbUtils.runPoc("CVE-2016-2412", getDevice(), 60);
-        String logcatOut = AdbUtils.runCommandLine("logcat -d", getDevice());
-        assertNotMatchesMultiLine("Fatal signal[\\s\\S]*>>> system_server <<<",
-            logcatOut);
+        AdbUtils.runPocAssertNoCrashes("CVE-2016-2412", getDevice(), "system_server");
     }
 }

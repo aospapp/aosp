@@ -60,19 +60,17 @@ class Bt5ScanTest(BluetoothBaseTest):
         ]
     }
 
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super(Bt5ScanTest, self).setup_class()
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
 
-    def setup_class(self):
-        super(Bt5ScanTest, self).setup_class()
         if not self.scn_ad.droid.bluetoothIsLeExtendedAdvertisingSupported():
-            raise signals.TestSkipClass(
+            raise signals.TestAbortClass(
                 "Scanner does not support LE Extended Advertising")
 
         if not self.adv_ad.droid.bluetoothIsLeExtendedAdvertisingSupported():
-            raise signals.TestSkipClass(
+            raise signals.TestAbortClass(
                 "Advertiser does not support LE Extended Advertising")
 
     def teardown_test(self):

@@ -37,35 +37,35 @@ public final class UseEmbeddedDexTest extends BaseAppSecurityTest {
 
     @Test
     public void testCanonicalInstall() throws Exception {
-        new InstallMultiple().addApk(APK_CANONICAL).run();
+        new InstallMultiple().addFile(APK_CANONICAL).run();
     }
 
     @Test
     public void testBadInstallWithCompressedDex() throws Exception {
-        new InstallMultiple().addApk(APK_DEX_COMPRESSED).runExpectingFailure();
+        new InstallMultiple().addFile(APK_DEX_COMPRESSED).runExpectingFailure();
     }
 
     @Test
     public void testCanonicalInstallWithSplit() throws Exception {
-        new InstallMultiple().addApk(APK_CANONICAL).addApk(APK_SPLIT_CANONICAL).run();
+        new InstallMultiple().addFile(APK_CANONICAL).addFile(APK_SPLIT_CANONICAL).run();
     }
 
     @Test
     public void testBadInstallWithDexCompressedSplit() throws Exception {
-        new InstallMultiple().addApk(APK_CANONICAL).addApk(APK_SPLIT_COMPRESSED_DEX)
+        new InstallMultiple().addFile(APK_CANONICAL).addFile(APK_SPLIT_COMPRESSED_DEX)
                 .runExpectingFailure();
     }
 
     @Test
     public void testCanonicalInstallWithBaseThenSplit() throws Exception {
-        new InstallMultiple().addApk(APK_CANONICAL).run();
-        new InstallMultiple().inheritFrom(PACKAGE_NAME).addApk(APK_SPLIT_CANONICAL).run();
+        new InstallMultiple().addFile(APK_CANONICAL).run();
+        new InstallMultiple().inheritFrom(PACKAGE_NAME).addFile(APK_SPLIT_CANONICAL).run();
     }
 
     @Test
     public void testBadInstallWithBaseThenDexCompressedSplit() throws Exception {
-        new InstallMultiple().addApk(APK_CANONICAL).run();
-        new InstallMultiple().inheritFrom(PACKAGE_NAME).addApk(APK_SPLIT_COMPRESSED_DEX)
+        new InstallMultiple().addFile(APK_CANONICAL).run();
+        new InstallMultiple().inheritFrom(PACKAGE_NAME).addFile(APK_SPLIT_COMPRESSED_DEX)
                 .runExpectingFailure();
     }
 }

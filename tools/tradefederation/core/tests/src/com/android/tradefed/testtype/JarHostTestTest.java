@@ -23,14 +23,21 @@ import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.ExecutionFiles.FilesKey;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestMetrics;
+import com.android.tradefed.testtype.suite.ModuleDefinition;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
+import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.junit.After;
 import org.junit.Before;
@@ -56,22 +63,12 @@ import java.util.Map;
 public class JarHostTestTest {
 
     private static final String TEST_JAR1 = "/testtype/testJar1.jar";
+    private static final String TEST_JAR2 = "/testtype/testJarJunit4.jar";
     private HostTest mTest;
     private DeviceBuildInfo mStubBuildInfo;
+    private TestInformation mTestInfo;
     private File mTestDir = null;
     private ITestInvocationListener mListener;
-
-    /** More testable version of {@link HostTest} */
-    public static class HostTestable extends HostTest {
-
-        public static File mTestDir;
-
-        public HostTestable() {}
-
-        public HostTestable(File testDir) {
-            mTestDir = testDir;
-        }
-    }
 
     @Before
     public void setUp() throws Exception {
@@ -82,6 +79,10 @@ public class JarHostTestTest {
         setter.setOptionValue("enable-pretty-logs", "false");
         mStubBuildInfo = new DeviceBuildInfo();
         mStubBuildInfo.setTestsDir(mTestDir, "v1");
+        IInvocationContext context = new InvocationContext();
+        context.addDeviceBuildInfo("device", mStubBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
+        mTestInfo.executionFiles().put(FilesKey.TESTS_DIRECTORY, mTestDir);
     }
 
     @After
@@ -133,7 +134,7 @@ public class JarHostTestTest {
     @Test
     public void testSplit_withJar() throws Exception {
         File testJar = getJarResource(TEST_JAR1, mTestDir);
-        mTest = new HostTestLoader(mTestDir, testJar);
+        mTest = new HostTestLoader(testJar);
         mTest.setBuild(mStubBuildInfo);
         ITestDevice device = EasyMock.createNiceMock(ITestDevice.class);
         mTest.setDevice(device);
@@ -141,9 +142,10 @@ public class JarHostTestTest {
         setter.setOptionValue("enable-pretty-logs", "false");
         setter.setOptionValue("jar", testJar.getName());
         // full class count without sharding
+        mTest.setTestInformation(mTestInfo);
         assertEquals(238, mTest.countTestCases());
 
-        List<IRemoteTest> tests = new ArrayList<>(mTest.split(5));
+        List<IRemoteTest> tests = new ArrayList<>(mTest.split(5, mTestInfo));
         // HostTest sharding does not respect the shard-count hint (expected)
         assertEquals(8, tests.size());
 
@@ -212,7 +214,7 @@ public class JarHostTestTest {
     @Test
     public void testSplit_countWithFilter() throws Exception {
         File testJar = getJarResource(TEST_JAR1, mTestDir);
-        mTest = new HostTestLoader(mTestDir, testJar);
+        mTest = new HostTestLoader(testJar);
         mTest.setBuild(mStubBuildInfo);
         ITestDevice device = EasyMock.createNiceMock(ITestDevice.class);
         mTest.setDevice(device);
@@ -222,20 +224,20 @@ public class JarHostTestTest {
         // Explicitly request a class from the jar
         setter.setOptionValue("class", "android.ui.cts.TestClass8");
         // full class count without sharding should be 238
+        mTest.setTestInformation(mTestInfo);
         assertEquals(238, mTest.countTestCases());
     }
 
     /**
      * Testable version of {@link HostTest} that allows adding jar to classpath for testing purpose.
      */
-    public static class HostTestLoader extends HostTestable {
+    public static class HostTestLoader extends HostTest {
 
         private static File mTestJar;
 
         public HostTestLoader() {}
 
-        public HostTestLoader(File testDir, File jar) {
-            super(testDir);
+        public HostTestLoader(File jar) {
             mTestJar = jar;
         }
 
@@ -265,22 +267,30 @@ public class JarHostTestTest {
         mTest.setBuild(new BuildInfo());
 
         mListener.testRunStarted(HostTest.class.getName(), 0);
-        mListener.testRunFailed(
-                "java.io.FileNotFoundException: Could not find jar: thisjardoesnotexistatall.jar");
+        Capture<FailureDescription> captured = new Capture<>();
+        mListener.testRunFailed(EasyMock.capture(captured));
         mListener.testRunEnded(0L, new HashMap<String, Metric>());
 
         EasyMock.replay(mListener);
         try {
-            mTest.run(mListener);
+            mTest.run(mTestInfo, mListener);
             fail("Should have thrown an exception.");
         } catch (IllegalArgumentException expected) {
             // expected
             assertEquals(
                     "java.io.FileNotFoundException: "
-                            + "Could not find jar: thisjardoesnotexistatall.jar",
+                            + "Could not find an artifact file associated with "
+                            + "thisjardoesnotexistatall.jar",
                     expected.getMessage());
         }
         EasyMock.verify(mListener);
+        assertTrue(
+                captured.getValue()
+                        .getErrorMessage()
+                        .contains(
+                                "java.io.FileNotFoundException: "
+                                        + "Could not find an artifact file associated with "
+                                        + "thisjardoesnotexistatall.jar"));
     }
 
     /** Test that metrics from tests in JarHost are reported and accounted for. */
@@ -297,7 +307,71 @@ public class JarHostTestTest {
                 EasyMock.eq(tid), EasyMock.eq(TfMetricProtoUtil.upgradeConvert(metrics)));
         mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mListener);
-        mTest.run(mListener);
+        mTest.run(mTestInfo, mListener);
+        EasyMock.verify(mListener);
+    }
+
+    @Test
+    public void testRunWithJar() throws Exception {
+        File testJar = getJarResource(TEST_JAR2, mTestDir);
+        mTest = new HostTest();
+        mTest.setBuild(mStubBuildInfo);
+        ITestDevice device = EasyMock.createNiceMock(ITestDevice.class);
+        mTest.setDevice(device);
+        OptionSetter setter = new OptionSetter(mTest);
+        setter.setOptionValue("enable-pretty-logs", "false");
+        setter.setOptionValue("jar", testJar.getName());
+        // full class count without sharding
+        mTest.setTestInformation(mTestInfo);
+        assertEquals(2, mTest.countTestCases());
+
+        mListener.testRunStarted("com.android.tradefed.JUnit4TfUnitTest", 2);
+        TestDescription testOne =
+                new TestDescription("com.android.tradefed.JUnit4TfUnitTest", "testOne");
+        TestDescription testTwo =
+                new TestDescription("com.android.tradefed.JUnit4TfUnitTest", "testTwo");
+        mListener.testStarted(testOne);
+        mListener.testEnded(EasyMock.eq(testOne), EasyMock.<HashMap<String, Metric>>anyObject());
+        mListener.testStarted(testTwo);
+        mListener.testEnded(EasyMock.eq(testTwo), EasyMock.<HashMap<String, Metric>>anyObject());
+        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
+
+        EasyMock.replay(mListener);
+        mTest.run(mTestInfo, mListener);
+        EasyMock.verify(mListener);
+    }
+
+    @Test
+    public void testRunWithClassFromExternalJar() throws Exception {
+        File testJar = getJarResource(TEST_JAR2, mTestDir);
+        mTestInfo
+                .getContext()
+                .addInvocationAttribute(
+                        ModuleDefinition.MODULE_NAME, FileUtil.getBaseName(testJar.getName()));
+        mTest = new HostTest();
+        mTest.setBuild(mStubBuildInfo);
+        ITestDevice device = EasyMock.createNiceMock(ITestDevice.class);
+        mTest.setDevice(device);
+        OptionSetter setter = new OptionSetter(mTest);
+        setter.setOptionValue("enable-pretty-logs", "false");
+        setter.setOptionValue("class", "com.android.tradefed.JUnit4TfUnitTest");
+        // full class count without sharding
+        mTest.setTestInformation(mTestInfo);
+        assertEquals(2, mTest.countTestCases());
+
+        mListener.testRunStarted("com.android.tradefed.JUnit4TfUnitTest", 2);
+        TestDescription testOne =
+                new TestDescription("com.android.tradefed.JUnit4TfUnitTest", "testOne");
+        TestDescription testTwo =
+                new TestDescription("com.android.tradefed.JUnit4TfUnitTest", "testTwo");
+        mListener.testStarted(testOne);
+        mListener.testEnded(EasyMock.eq(testOne), EasyMock.<HashMap<String, Metric>>anyObject());
+        mListener.testStarted(testTwo);
+        mListener.testEnded(EasyMock.eq(testTwo), EasyMock.<HashMap<String, Metric>>anyObject());
+        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
+
+        EasyMock.replay(mListener);
+        mTest.run(mTestInfo, mListener);
         EasyMock.verify(mListener);
     }
 }

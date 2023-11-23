@@ -15,7 +15,8 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-                  android:title="@string/reset_network_confirm_title">
+                  android:title="@string/reset_network_confirm_title"
+                  android:key="@string/psk_reset_network_confirm">
     <Preference
         android:selectable="false"
         android:title="@string/reset_network_confirm_desc"/>

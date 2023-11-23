@@ -69,7 +69,9 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
                     if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
                         requestPermissions(packageInfo.requestedPermissions,
                                 CTS_VERIFIER_PERMISSION_REQUEST);
-                        return;
+                        /* don't return here. Some tests (i.e. USB Restrict Access test)
+                         * which need to run even if permissions are incomplete.
+                         */
                     }
                 }
             }
@@ -91,7 +93,6 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
             View footer = getLayoutInflater().inflate(R.layout.test_list_footer, null);
 
             footer.findViewById(R.id.clear).setOnClickListener(this);
-            footer.findViewById(R.id.view).setOnClickListener(this);
             footer.findViewById(R.id.export).setOnClickListener(this);
 
             getListView().addFooterView(footer);
@@ -143,13 +144,6 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
             .show();
     }
 
-    private void handleViewItemSelected() {
-        TestResultsReport report = new TestResultsReport(this, mAdapter);
-        Intent intent = new Intent(this, ReportViewerActivity.class);
-        intent.putExtra(ReportViewerActivity.EXTRA_REPORT_CONTENTS, report.getContents());
-        startActivity(intent);
-    }
-
     private void handleExportItemSelected() {
         new ReportExporter(this, mAdapter).execute();
     }
@@ -157,8 +151,6 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
     private boolean handleMenuItemSelected(int id) {
         if (id == R.id.clear) {
             handleClearItemSelected();
-        } else if (id == R.id.view) {
-            handleViewItemSelected();
         } else if (id == R.id.export) {
             handleExportItemSelected();
         } else {

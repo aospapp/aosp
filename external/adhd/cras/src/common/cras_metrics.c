@@ -16,19 +16,17 @@ void cras_metrics_log_event(const char *event)
 
 	syslog(LOG_DEBUG, "UMA event: %s", event);
 	handle = CMetricsLibraryNew();
-	CMetricsLibraryInit(handle);
 	CMetricsLibrarySendCrosEventToUMA(handle, event);
 	CMetricsLibraryDelete(handle);
 }
 
-void cras_metrics_log_histogram(const char *name, int sample, int min,
-				int max, int nbuckets)
+void cras_metrics_log_histogram(const char *name, int sample, int min, int max,
+				int nbuckets)
 {
 	CMetricsLibrary handle;
 
 	syslog(LOG_DEBUG, "UMA name: %s", name);
 	handle = CMetricsLibraryNew();
-	CMetricsLibraryInit(handle);
 	CMetricsLibrarySendToUMA(handle, name, sample, min, max, nbuckets);
 	CMetricsLibraryDelete(handle);
 }
@@ -39,7 +37,6 @@ void cras_metrics_log_sparse_histogram(const char *name, int sample)
 
 	syslog(LOG_DEBUG, "UMA name: %s", name);
 	handle = CMetricsLibraryNew();
-	CMetricsLibraryInit(handle);
 	CMetricsLibrarySendSparseToUMA(handle, name, sample);
 	CMetricsLibraryDelete(handle);
 }
@@ -48,8 +45,8 @@ void cras_metrics_log_sparse_histogram(const char *name, int sample)
 void cras_metrics_log_event(const char *event)
 {
 }
-void cras_metrics_log_histogram(const char *name, int sample, int min,
-				int max, int nbuckets)
+void cras_metrics_log_histogram(const char *name, int sample, int min, int max,
+				int nbuckets)
 {
 }
 void cras_metrics_log_enum_histogram(const char *name, int sample, int max)

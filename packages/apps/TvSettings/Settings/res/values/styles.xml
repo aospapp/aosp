@@ -42,7 +42,6 @@
     <style name="Theme.Settings" parent="@style/Theme.Leanback">
         <item name="android:windowBackground">@color/settings_background</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
-        <item name="android:windowShowWallpaper">true</item>
         <item name="android:windowAnimationStyle">@style/SettingsWindowAnimationStyle</item>
         <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Leanback</item>
         <item name="wifi_signal">@drawable/wifi_signal</item>
@@ -286,5 +285,10 @@
 
     <style name="Setup.GuidedActionItemIcon" parent="@style/Widget.Leanback.GuidedActionItemIconStyle">
         <item name="android:layout_marginEnd">16dp</item>
+    </style>
+
+    <style name="TextAppearance.DialogMessage"
+           parent="@*android:style/TextAppearance.DeviceDefault.Body1">
+        <item name="android:textSize">16sp</item>
     </style>
 </resources>

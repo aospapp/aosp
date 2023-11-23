@@ -34,11 +34,10 @@ cc_defaults {
 
         "-Wall",
         "-Werror",
-        // Keep some warnings to check later
-        "-Wno-error=absolute-value",
-        "-Wno-error=undefined-internal",
-        "-Wno-error=uninitialized",
-        "-Wno-error=user-defined-warnings",
+        // These warnings should be checked and fixed upstream
+        "-Wno-absolute-value",
+        "-Wno-uninitialized",
+        "-Wno-user-defined-warnings",
         // Silence noisy warnings
         "-Wno-constant-conversion",
         "-Wno-deprecated",
@@ -46,11 +45,11 @@ cc_defaults {
         "-Wno-empty-body",
         "-Wno-format",
         "-Wno-gnu-designator",
-	"-Wno-implicit-function-declaration",
-	"-Wno-incompatible-pointer-types-discards-qualifiers",
+        "-Wno-implicit-function-declaration",
+        "-Wno-incompatible-pointer-types-discards-qualifiers",
         "-Wno-knr-promoted-parameter",
         "-Wno-macro-redefined",
-	"-Wno-missing-braces",
+        "-Wno-missing-braces",
         "-Wno-missing-field-initializers",
         "-Wno-parentheses-equality",
         "-Wno-pointer-arith",
@@ -58,6 +57,7 @@ cc_defaults {
         "-Wno-sign-compare",
         "-Wno-tautological-compare",
         "-Wno-unneeded-internal-declaration",
+        "-Wno-unreachable-code-loop-increment",
         "-Wno-unused-function",
         "-Wno-unused-parameter",
         "-Wno-unused-variable",

@@ -83,8 +83,10 @@
     <string name="reset" msgid="6467204151306265796">"Redefinir"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Não é possível configurar o perfil"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Não é possível configurar o dispositivo"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Algo deu errado"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Não foi possível configurar o dispositivo. Entre em contato com o administrador de TI para receber ajuda."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Entre em contato com seu administrador de TI se precisar de ajuda"</string>
+    <string name="reset_device" msgid="5483853913241939262">"Redefina o dispositivo e tente configurar novamente"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"O dispositivo já foi configurado"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Não foi possível conectar ao Wi-Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Seu dispositivo está com a proteção contra redefinição ativada. Entre em contato com o administrador de TI para receber ajuda."</string>
@@ -161,25 +163,34 @@
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Preparando para configurar o dispositivo de trabalho…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Configurando app de administração"</string>
     <string name="set_up_everything_else" msgid="4407706086957916501">"Configurar o restante"</string>
-    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Agora, vamos configurar o restante"</string>
+    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Adicione uma conta pessoal para aproveitar ao máximo o dispositivo"</string>
+    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Agora que seu perfil de trabalho está pronto, adicione uma Conta do Google pessoal para acessar seus apps e conteúdos."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Este dispositivo pertence à sua organização"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"O app a seguir será usado para gerenciar e monitorar este smartphone"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Preparando para configuração de trabalho…"</string>
-    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Primeiro, vamos configurar seu perfil de trabalho"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Vamos configurar seu perfil de trabalho"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Os apps de trabalho ficam no seu perfil de trabalho"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pause os apps de trabalho ao final do dia"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Somente os dados do seu perfil de trabalho podem ser vistos pelo administrador de TI"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Os dados do perfil de trabalho podem ser vistos pelo seu administrador de TI"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Configurando seu perfil de trabalho…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Os apps de trabalho ficam no seu perfil de trabalho. É possível pausar os apps de trabalho ao final do dia. Somente os dados do seu perfil de trabalho podem ser vistos pelo administrador de TI."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Os apps de trabalho ficam no seu perfil de trabalho. É possível pausar esses apps ao final do dia. Os dados do perfil de trabalho podem ser vistos pelo administrador de TI."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Vamos configurar seu dispositivo de trabalho"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Tenha os apps de trabalho na palma da sua mão"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Este dispositivo não é privado"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"O administrador de TI pode ver seus dados e atividade neste dispositivo."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Configurando seu dispositivo…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Use este dispositivo para acessar seus apps de trabalho com facilidade. Ele não é privado e, portanto, o administrador de TI pode ver seus dados e atividade. Para saber mais, entre em contato com o administrador de TI."</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Os apps de trabalho estão no perfil de trabalho e são gerenciados pelo administrador de TI"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Os apps pessoais ficam separados e ocultos dos apps de trabalho"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"O administrador de TI pode controlar este dispositivo e bloquear alguns apps"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"Os apps de trabalho são mantidos no perfil de trabalho e gerenciados pelo administrador de TI. Os apps pessoais ficam separados e ocultos dos apps de trabalho. O administrador de TI pode controlar este dispositivo e bloquear determinados apps."</string>
+    <string name="just_a_sec" msgid="6244676028626237220">"Só um segundo…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Lembrete de privacidade"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"O administrador de TI pode ver seus dados e atividade neste dispositivo"</string>
     <string name="device_provisioning_finished" msgid="3981783240592092906">"Seu dispositivo já pode ser usado!"</string>
     <string name="done" msgid="7755227776955952318">"Concluído"</string>
+    <string name="financed_device_screen_header" msgid="7890706080917322376">"Este dispositivo foi comprado com crédito de <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
+    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> pode:"</string>
+    <string name="install_creditor_app_description" msgid="6159751782301108878">"Instalar o app de <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> para fazer pagamentos por este dispositivo"</string>
+    <string name="lock_device_description" msgid="2940362560732989166">"Restringir o acesso ao dispositivo caso você não faça os pagamentos"</string>
 </resources>

@@ -19,8 +19,11 @@ package com.android.tv.data;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
-import com.android.tv.data.Program.CriticScore;
+
+import com.android.tv.data.api.Program;
+import com.android.tv.data.api.Program.CriticScore;
 import com.android.tv.dvr.data.RecordedProgram;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,7 +52,7 @@ public final class InternalDataUtils {
      * @param bytes the bytes to be deserialized
      * @param builder the builder for the Program class
      */
-    public static void deserializeInternalProviderData(byte[] bytes, Program.Builder builder) {
+    public static void deserializeInternalProviderData(byte[] bytes, ProgramImpl.Builder builder) {
         if (bytes == null || bytes.length == 0) {
             return;
         }

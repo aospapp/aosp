@@ -189,13 +189,20 @@ class RpcServerTracker(object):
                          delay_sec=min(max(timeout_seconds / 20.0, 0.1), 1))
             def ready_test():
                 """ Call proxy.ready_test_name(). """
-                getattr(proxy, ready_test_name)()
+                try:
+                    getattr(proxy, ready_test_name)()
+                except socket.error as e:
+                    e.filename = rpc_url.replace('http://', '')
+                    raise
             successful = False
             try:
                 logging.info('Waiting %d seconds for XMLRPC server '
                              'to start.', timeout_seconds)
                 ready_test()
                 successful = True
+            except socket.error as e:
+                e.filename = rpc_url.replace('http://', '')
+                raise
             finally:
                 if not successful:
                     logging.error('Failed to start XMLRPC server.')
@@ -288,7 +295,7 @@ class RpcServerTracker(object):
                     raise error.TestError('Failed to shutdown RPC server %s' %
                                           remote_name)
 
-        self._host.disconnect_ssh_tunnel(tunnel_proc, port)
+        self._host.disconnect_ssh_tunnel(tunnel_proc)
         del self._rpc_proxy_map[port]
 
 

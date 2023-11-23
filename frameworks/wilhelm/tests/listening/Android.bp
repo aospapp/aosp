@@ -9,6 +9,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -23,5 +24,6 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }

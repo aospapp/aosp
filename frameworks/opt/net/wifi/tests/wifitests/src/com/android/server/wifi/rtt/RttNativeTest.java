@@ -18,6 +18,7 @@
 package com.android.server.wifi.rtt;
 
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import android.hardware.wifi.V1_0.IWifiRttController;
+import android.hardware.wifi.V1_0.IWifiRttControllerEventCallback;
 import android.hardware.wifi.V1_0.RttBw;
 import android.hardware.wifi.V1_0.RttCapabilities;
 import android.hardware.wifi.V1_0.RttConfig;
@@ -42,10 +44,13 @@ import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
 import android.net.MacAddress;
 import android.net.wifi.rtt.RangingRequest;
+import android.net.wifi.rtt.RangingResult;
+import android.net.wifi.rtt.ResponderConfig;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.HalDeviceManager;
+import com.android.server.wifi.WifiBaseTest;
 
 import org.hamcrest.core.IsNull;
 import org.junit.Before;
@@ -63,7 +68,7 @@ import java.util.List;
  * Unit test harness for the RttNative class.
  */
 @SmallTest
-public class RttNativeTest {
+public class RttNativeTest extends WifiBaseTest {
     private RttNative mDut;
     private WifiStatus mStatusSuccess;
 
@@ -76,6 +81,8 @@ public class RttNativeTest {
             HalDeviceManager.InterfaceRttControllerLifecycleCallback.class);
     private ArgumentCaptor<IWifiRttController.getCapabilitiesCallback> mGetCapCbCatpr =
             ArgumentCaptor.forClass(IWifiRttController.getCapabilitiesCallback.class);
+    private ArgumentCaptor<IWifiRttControllerEventCallback.Stub> mEventCallbackArgumentCaptor =
+            ArgumentCaptor.forClass(IWifiRttControllerEventCallback.Stub.class);
 
     @Rule
     public ErrorCollector collector = new ErrorCollector();
@@ -97,7 +104,8 @@ public class RttNativeTest {
 
         mStatusSuccess = new WifiStatus();
         mStatusSuccess.code = WifiStatusCode.SUCCESS;
-        when(mockRttController.registerEventCallback(any())).thenReturn(mStatusSuccess);
+        when(mockRttController.registerEventCallback(mEventCallbackArgumentCaptor.capture()))
+                .thenReturn(mStatusSuccess);
         when(mockRttController.rangeRequest(anyInt(), any(ArrayList.class))).thenReturn(
                 mStatusSuccess);
         when(mockRttController.rangeCancel(anyInt(), any(ArrayList.class))).thenReturn(
@@ -114,6 +122,8 @@ public class RttNativeTest {
         verify(mockRttController).getCapabilities(mGetCapCbCatpr.capture());
         // will override capabilities (just call cb again) for specific tests
         mGetCapCbCatpr.getValue().onValues(mStatusSuccess, getFullRttCapabilities());
+        // This is for the castFrom() call
+        verify(mockRttController).asBinder();
         assertTrue(mDut.isReady());
     }
 
@@ -238,7 +248,7 @@ public class RttNativeTest {
         // verify contents of HAL request (hard codes knowledge from getDummyRangingRequest()).
         ArrayList<RttConfig> halRequest = mRttConfigCaptor.getValue();
 
-        collector.checkThat("number of entries", halRequest.size(), equalTo(2));
+        assertEquals("number of entries", halRequest.size(), 2);
 
         RttConfig rttConfig = halRequest.get(0);
         collector.checkThat("entry 0: MAC", rttConfig.addr,
@@ -360,6 +370,8 @@ public class RttNativeTest {
         verify(mockRttController, times(2)).registerEventCallback(any());
         verify(mockRttServiceImpl, times(2)).enableIfPossible();
         verify(mockRttController, times(2)).getCapabilities(mGetCapCbCatpr.capture());
+        // This is for the castFrom() calls
+        verify(mockRttController, times(2)).asBinder();
         assertTrue(mDut.isReady());
 
         verifyNoMoreInteractions(mockRttServiceImpl, mockRttController);
@@ -402,27 +414,27 @@ public class RttNativeTest {
         res.addr[5] = 10;
         res.status = RttStatus.SUCCESS;
         res.distanceInMm = 1500;
-        res.timeStampInUs = 666;
+        res.timeStampInUs = 6000;
         results.add(res);
 
         // (1) have HAL call native with results
-        mDut.onResults(cmdId, results);
+        mEventCallbackArgumentCaptor.getValue().onResults(cmdId, results);
 
         // (2) verify call to framework
         verify(mockRttServiceImpl).onRangingResults(eq(cmdId), mRttResultCaptor.capture());
 
         // verify contents of the framework results
-        List<RttResult> rttR = mRttResultCaptor.getValue();
+        List<RangingResult> rttR = mRttResultCaptor.getValue();
 
         collector.checkThat("number of entries", rttR.size(), equalTo(1));
 
-        RttResult rttResult = rttR.get(0);
-        collector.checkThat("status", rttResult.status,
-                equalTo(RttStatus.SUCCESS));
-        collector.checkThat("mac", rttResult.addr,
+        RangingResult rttResult = rttR.get(0);
+        collector.checkThat("status", rttResult.getStatus(),
+                equalTo(RttNative.FRAMEWORK_RTT_STATUS_SUCCESS));
+        collector.checkThat("mac", rttResult.getMacAddress().toByteArray(),
                 equalTo(MacAddress.fromString("05:06:07:08:09:0A").toByteArray()));
-        collector.checkThat("distanceCm", rttResult.distanceInMm, equalTo(1500));
-        collector.checkThat("timestamp", rttResult.timeStampInUs, equalTo(666L));
+        collector.checkThat("distanceCm", rttResult.getDistanceMm(), equalTo(1500));
+        collector.checkThat("timestamp", rttResult.getRangingTimestampMillis(), equalTo(6L));
 
         verifyNoMoreInteractions(mockRttController, mockRttServiceImpl);
     }
@@ -431,10 +443,10 @@ public class RttNativeTest {
      * Validate correct cleanup when a null array of results is provided by HAL.
      */
     @Test
-    public void testRangeResultsNullArray() {
+    public void testRangeResultsNullArray() throws Exception {
         int cmdId = 66;
 
-        mDut.onResults(cmdId, null);
+        mEventCallbackArgumentCaptor.getValue().onResults(cmdId, null);
         verify(mockRttServiceImpl).onRangingResults(eq(cmdId), mRttResultCaptor.capture());
 
         collector.checkThat("number of entries", mRttResultCaptor.getValue().size(), equalTo(0));
@@ -444,7 +456,7 @@ public class RttNativeTest {
      * Validate correct cleanup when an array of results containing null entries is provided by HAL.
      */
     @Test
-    public void testRangeResultsSomeNulls() {
+    public void testRangeResultsSomeNulls() throws Exception {
         int cmdId = 77;
 
         ArrayList<RttResult> results = new ArrayList<>();
@@ -455,7 +467,7 @@ public class RttNativeTest {
         results.add(new RttResult());
         results.add(null);
 
-        mDut.onResults(cmdId, results);
+        mEventCallbackArgumentCaptor.getValue().onResults(cmdId, results);
         verify(mockRttServiceImpl).onRangingResults(eq(cmdId), mRttResultCaptor.capture());
 
         List<RttResult> rttR = mRttResultCaptor.getValue();
@@ -463,6 +475,28 @@ public class RttNativeTest {
         for (int i = 0; i < rttR.size(); ++i) {
             collector.checkThat("entry", rttR.get(i), IsNull.notNullValue());
         }
+    }
+
+    /**
+     * Validation ranging with invalid bw and preamble combination will be ignored.
+     */
+    @Test
+    public void testRangingWithInvalidParameterCombination() throws Exception {
+        int cmdId = 88;
+        RangingRequest request = new RangingRequest.Builder().build();
+        ResponderConfig invalidConfig = new ResponderConfig(
+                MacAddress.fromString("08:09:08:07:06:88"), ResponderConfig.RESPONDER_AP, true,
+                ResponderConfig.CHANNEL_WIDTH_80MHZ, 0, 0, 0, ResponderConfig.PREAMBLE_HT);
+        ResponderConfig config = new ResponderConfig(MacAddress.fromString("08:09:08:07:06:89"),
+                ResponderConfig.RESPONDER_AP, true,
+                ResponderConfig.CHANNEL_WIDTH_80MHZ, 0, 0, 0, ResponderConfig.PREAMBLE_VHT);
+
+        // Add a ResponderConfig with invalid parameter, should be ignored.
+        request.mRttPeers.add(invalidConfig);
+        request.mRttPeers.add(config);
+        mDut.rangeRequest(cmdId, request, true);
+        verify(mockRttController).rangeRequest(eq(cmdId), mRttConfigCaptor.capture());
+        assertEquals(request.mRttPeers.size() - 1, mRttConfigCaptor.getValue().size());
     }
 
     // Utilities
@@ -480,7 +514,8 @@ public class RttNativeTest {
         cap.lciSupported = true;
         cap.lcrSupported = true;
         cap.responderSupported = true; // unused
-        cap.preambleSupport = RttPreamble.LEGACY | RttPreamble.HT | RttPreamble.VHT;
+        cap.preambleSupport = RttPreamble.LEGACY | RttPreamble.HT | RttPreamble.VHT
+                | android.hardware.wifi.V1_4.RttPreamble.HE;
         cap.bwSupport =
                 RttBw.BW_5MHZ | RttBw.BW_10MHZ | RttBw.BW_20MHZ | RttBw.BW_40MHZ | RttBw.BW_80MHZ
                         | RttBw.BW_160MHZ;

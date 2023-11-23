@@ -17,7 +17,9 @@
 package com.android.cts.verifier.wifi;
 
 import android.net.ConnectivityManager;
+import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.util.Log;
 import android.util.Pair;
 
@@ -42,7 +44,11 @@ public class CallbackUtils {
         private CountDownLatch mOnAvailableBlocker = new CountDownLatch(1);
         private CountDownLatch mOnUnAvailableBlocker = new CountDownLatch(1);
         private CountDownLatch mOnLostBlocker = new CountDownLatch(1);
+        // This is invoked multiple times, so initialize only when waitForCapabilitiesChanged() is
+        // invoked.
+        private CountDownLatch mOnCapabilitiesChangedBlocker = null;
         private Network mNetwork;
+        private NetworkCapabilities mNetworkCapabilities;
 
         public NetworkCallback() {
             mCallbackTimeoutInMs = DEFAULT_CALLBACK_TIMEOUT_MS;
@@ -53,10 +59,20 @@ public class CallbackUtils {
         }
 
         @Override
-        public void onAvailable(Network network) {
+        public void onAvailable(Network network, NetworkCapabilities networkCapabilities,
+                LinkProperties linkProperties, boolean isBlocked) {
             if (DBG) Log.v(TAG, "onAvailable");
             mNetwork = network;
+            mNetworkCapabilities = networkCapabilities;
             mOnAvailableBlocker.countDown();
+        }
+
+        @Override
+        public void onCapabilitiesChanged(Network network, NetworkCapabilities networkCapabilities) {
+            if (DBG) Log.v(TAG, "onCapabilitiesChanged");
+            mNetwork = network;
+            mNetworkCapabilities = networkCapabilities;
+            if (mOnCapabilitiesChangedBlocker != null) mOnCapabilitiesChangedBlocker.countDown();
         }
 
         @Override
@@ -70,6 +86,14 @@ public class CallbackUtils {
             if (DBG) Log.v(TAG, "onLost");
             mNetwork = network;
             mOnLostBlocker.countDown();
+        }
+
+        public Network getNetwork() {
+            return mNetwork;
+        }
+
+        public NetworkCapabilities getNetworkCapabilities() {
+            return mNetworkCapabilities;
         }
 
         /**
@@ -91,10 +115,7 @@ public class CallbackUtils {
          * @return true whether the callback was invoked.
          */
         public boolean waitForUnavailable() throws InterruptedException {
-            if (mOnUnAvailableBlocker.await(mCallbackTimeoutInMs, TimeUnit.MILLISECONDS)) {
-                return true;
-            }
-            return false;
+            return mOnUnAvailableBlocker.await(mCallbackTimeoutInMs, TimeUnit.MILLISECONDS);
         }
 
         /**
@@ -103,10 +124,18 @@ public class CallbackUtils {
          * @return true whether the callback was invoked.
          */
         public boolean waitForLost() throws InterruptedException {
-            if (mOnLostBlocker.await(mCallbackTimeoutInMs, TimeUnit.MILLISECONDS)) {
-                return true;
-            }
-            return false;
+            return mOnLostBlocker.await(mCallbackTimeoutInMs, TimeUnit.MILLISECONDS);
+        }
+
+        /**
+         * Wait (blocks) for {@link #onCapabilitiesChanged(Network, NetworkCapabilities)} or
+         * timeout.
+         *
+         * @return true whether the callback was invoked.
+         */
+        public boolean waitForCapabilitiesChanged() throws InterruptedException {
+            mOnCapabilitiesChangedBlocker = new CountDownLatch(1);
+            return mOnCapabilitiesChangedBlocker.await(mCallbackTimeoutInMs, TimeUnit.MILLISECONDS);
         }
     }
 }

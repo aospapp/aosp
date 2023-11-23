@@ -57,7 +57,14 @@ public class FilesActivityUiTest extends ActivityTest<FilesActivity> {
     // to be able to click on it.
     public void testClickRecent() throws Exception {
         bots.roots.openRoot("Recent");
-        bots.main.assertSearchBarShow();
+
+        boolean showSearchBar =
+                context.getResources().getBoolean(R.bool.show_search_bar);
+        if (showSearchBar) {
+            bots.main.assertSearchBarShow();
+        } else {
+            bots.main.assertWindowTitle("Recent");
+        }
     }
 
     public void testRootClick_SetsWindowTitle() throws Exception {
@@ -77,12 +84,11 @@ public class FilesActivityUiTest extends ActivityTest<FilesActivity> {
                 "file0.log", "file1.png", "file2.csv", "Ham & Cheese.sandwich");
     }
 
-    public void testNavigate_inFixedLayout_byBreadcrumb() throws Exception {
+    public void testNavigate_byBreadcrumb() throws Exception {
         bots.directory.openDocument(dirName1);
         bots.directory.waitForDocument(childDir1);  // wait for known content
         bots.directory.assertDocumentsPresent(childDir1);
 
-        bots.breadcrumb.revealAsNeeded();
         device.waitForIdle();
         bots.breadcrumb.assertItemsPresent(dirName1, "TEST_ROOT_0");
 

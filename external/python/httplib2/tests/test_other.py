@@ -232,3 +232,24 @@ def test_http_443_forced_https():
         assert len(m.call_args) > 0, "expected Http._request() call"
         conn = m.call_args[0][0]
         assert isinstance(conn, httplib2.HTTPConnectionWithTimeout)
+
+
+def test_close():
+    http = httplib2.Http()
+    assert len(http.connections) == 0
+    with tests.server_const_http() as uri:
+        http.request(uri)
+        assert len(http.connections) == 1
+        http.close()
+        assert len(http.connections) == 0
+
+
+def test_connect_exception_type():
+    # This autoformatting PR actually changed the behavior of error handling:
+    # https://github.com/httplib2/httplib2/pull/105/files#diff-c6669c781a2dee1b2d2671cab4e21c66L985
+    # potentially changing the type of the error raised by connect()
+    # https://github.com/httplib2/httplib2/pull/150
+    http = httplib2.Http()
+    with mock.patch("httplib2.socket.socket.connect", side_effect=socket.timeout("foo")):
+        with tests.assert_raises(socket.timeout):
+            http.request(tests.DUMMY_URL)

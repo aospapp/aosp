@@ -21,7 +21,7 @@ typedef enum mixer_name_type {
 
 /* Represents a list of mixer names found in ALSA. */
 struct mixer_name {
-	const char* name;
+	const char *name;
 	enum CRAS_STREAM_DIRECTION dir;
 	mixer_name_type type;
 	struct mixer_name *prev, *next;
@@ -39,8 +39,7 @@ struct mixer_name {
  *    Returns the new head of the list (which changes only
  *    when names is NULL).
  */
-struct mixer_name *mixer_name_add(struct mixer_name *names,
-				  const char *name,
+struct mixer_name *mixer_name_add(struct mixer_name *names, const char *name,
 				  enum CRAS_STREAM_DIRECTION dir,
 				  mixer_name_type type);
 
@@ -58,7 +57,7 @@ struct mixer_name *mixer_name_add(struct mixer_name *names,
  *    when names is NULL).
  */
 struct mixer_name *mixer_name_add_array(struct mixer_name *names,
-					const char * const *name_array,
+					const char *const *name_array,
 					size_t name_array_size,
 					enum CRAS_STREAM_DIRECTION dir,
 					mixer_name_type type);
@@ -84,8 +83,7 @@ void mixer_name_free(struct mixer_name *names);
  *    Returns a pointer to the matching struct mixer_name or NULL if
  *    not found.
  */
-struct mixer_name *mixer_name_find(struct mixer_name *names,
-				   const char *name,
+struct mixer_name *mixer_name_find(struct mixer_name *names, const char *name,
 				   enum CRAS_STREAM_DIRECTION dir,
 				   mixer_name_type type);
 

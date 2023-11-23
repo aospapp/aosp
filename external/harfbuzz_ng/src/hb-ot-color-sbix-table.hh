@@ -121,16 +121,16 @@ struct SBIXStrike
   HBUINT16	resolution;	/* The device pixel density (in PPI) for which this
 				 * strike was designed. (E.g., 96 PPI, 192 PPI.) */
   protected:
-  UnsizedArrayOf<LOffsetTo<SBIXGlyph> >
+  UnsizedArrayOf<LOffsetTo<SBIXGlyph>>
 		imageOffsetsZ;	/* Offset from the beginning of the strike data header
 				 * to bitmap data for an individual glyph ID. */
   public:
-  DEFINE_SIZE_STATIC (8);
+  DEFINE_SIZE_ARRAY (4, imageOffsetsZ);
 };
 
 struct sbix
 {
-  enum { tableTag = HB_OT_TAG_sbix };
+  static constexpr hb_tag_t tableTag = HB_OT_TAG_sbix;
 
   bool has_data () const { return version; }
 
@@ -173,11 +173,11 @@ struct sbix
     {
       unsigned count = table->strikes.len;
       if (unlikely (!count))
-        return Null(SBIXStrike);
+	return Null(SBIXStrike);
 
-      unsigned int requested_ppem = MAX (font->x_ppem, font->y_ppem);
+      unsigned int requested_ppem = hb_max (font->x_ppem, font->y_ppem);
       if (!requested_ppem)
-        requested_ppem = 1<<30; /* Choose largest strike. */
+	requested_ppem = 1<<30; /* Choose largest strike. */
       /* TODO Add DPI sensitivity as well? */
       unsigned int best_i = 0;
       unsigned int best_ppem = table->get_strike (0).ppem;
@@ -201,7 +201,7 @@ struct sbix
       HBUINT8	signature[8];
       struct
       {
-        struct
+	struct
 	{
 	  HBUINT32	length;
 	  Tag		type;
@@ -226,7 +226,7 @@ struct sbix
       /* Following code is safe to call even without data.
        * But faster to short-circuit. */
       if (!has_data ())
-        return false;
+	return false;
 
       int x_offset = 0, y_offset = 0;
       unsigned int strike_ppem = 0;
@@ -235,18 +235,25 @@ struct sbix
       const PNGHeader &png = *blob->as<PNGHeader>();
 
       extents->x_bearing = x_offset;
-      extents->y_bearing = y_offset;
+      extents->y_bearing = png.IHDR.height + y_offset;
       extents->width     = png.IHDR.width;
-      extents->height    = png.IHDR.height;
+      extents->height    = -png.IHDR.height;
 
       /* Convert to font units. */
       if (strike_ppem)
       {
-	double scale = font->face->get_upem () / (double) strike_ppem;
-	extents->x_bearing = round (extents->x_bearing * scale);
-	extents->y_bearing = round (extents->y_bearing * scale);
-	extents->width = round (extents->width * scale);
-	extents->height = round (extents->height * scale);
+	float scale = font->face->get_upem () / (float) strike_ppem;
+	extents->x_bearing = font->em_scalef_x (extents->x_bearing * scale);
+	extents->y_bearing = font->em_scalef_y (extents->y_bearing * scale);
+	extents->width = font->em_scalef_x (extents->width * scale);
+	extents->height = font->em_scalef_y (extents->height * scale);
+      }
+      else
+      {
+	extents->x_bearing = font->em_scale_x (extents->x_bearing);
+	extents->y_bearing = font->em_scale_y (extents->y_bearing);
+	extents->width = font->em_scale_x (extents->width);
+	extents->height = font->em_scale_y (extents->height);
       }
 
       hb_blob_destroy (blob);

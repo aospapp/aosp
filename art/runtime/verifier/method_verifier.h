@@ -72,6 +72,16 @@ enum RegisterTrackingMode {
   kTrackRegsAll,
 };
 
+// A class used by the verifier to tell users about what options need to be set for given methods.
+class VerifierCallback {
+ public:
+  virtual ~VerifierCallback() {}
+  virtual void SetDontCompile(ArtMethod* method, bool value)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+  virtual void SetMustCountLocks(ArtMethod* method, bool value)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+};
+
 // A mapping from a dex pc to the register line statuses as they are immediately prior to the
 // execution of that instruction.
 class PcToRegisterLineTable {
@@ -118,6 +128,16 @@ class MethodVerifier {
                                              uint32_t api_level)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Calculates the verification information for every instruction of the given method. The given
+  // dex-cache and class-loader will be used for lookups. No classes will be loaded. If verification
+  // fails hard nullptr will be returned. This should only be used if one needs to examine what the
+  // verifier believes about the registers of a given method.
+  static MethodVerifier* CalculateVerificationInfo(Thread* self,
+                                                   ArtMethod* method,
+                                                   Handle<mirror::DexCache> dex_cache,
+                                                   Handle<mirror::ClassLoader> class_loader)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   const DexFile& GetDexFile() const {
     DCHECK(dex_file_ != nullptr);
     return *dex_file_;
@@ -128,7 +148,7 @@ class MethodVerifier {
   }
 
   // Log a verification failure.
-  std::ostream& Fail(VerifyError error);
+  std::ostream& Fail(VerifyError error, bool pending_exc = true);
 
   // Log for verification information.
   ScopedNewLine LogVerifyInfo();
@@ -153,7 +173,7 @@ class MethodVerifier {
                                uint32_t api_level)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void Init() REQUIRES_SHARED(Locks::mutator_lock_);
+  static void Init(ClassLinker* class_linker) REQUIRES_SHARED(Locks::mutator_lock_);
   static void Shutdown();
 
   virtual ~MethodVerifier();
@@ -174,7 +194,7 @@ class MethodVerifier {
   bool HasCheckCasts() const;
   bool HasFailures() const;
   bool HasInstructionThatWillThrow() const {
-    return have_any_pending_runtime_throw_failure_;
+    return flags_.have_any_pending_runtime_throw_failure_;
   }
 
   virtual const RegType& ResolveCheckedClass(dex::TypeIndex class_idx)
@@ -184,14 +204,25 @@ class MethodVerifier {
     return encountered_failure_types_;
   }
 
+  ClassLinker* GetClassLinker() {
+    return class_linker_;
+  }
+
+  bool IsAotMode() const {
+    return flags_.aot_mode_;
+  }
+
  protected:
   MethodVerifier(Thread* self,
+                 ClassLinker* class_linker,
+                 ArenaPool* arena_pool,
                  const DexFile* dex_file,
                  const dex::CodeItem* code_item,
                  uint32_t dex_method_idx,
                  bool can_load_classes,
                  bool allow_thread_suspension,
-                 bool allow_soft_failures)
+                 bool allow_soft_failures,
+                 bool aot_mode)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Verification result for method(s). Includes a (maximum) failure kind, and (the union of)
@@ -216,6 +247,8 @@ class MethodVerifier {
    *      for code flow problems.
    */
   static FailureData VerifyMethod(Thread* self,
+                                  ClassLinker* class_linker,
+                                  ArenaPool* arena_pool,
                                   uint32_t method_idx,
                                   const DexFile* dex_file,
                                   Handle<mirror::DexCache> dex_cache,
@@ -225,15 +258,19 @@ class MethodVerifier {
                                   ArtMethod* method,
                                   uint32_t method_access_flags,
                                   CompilerCallbacks* callbacks,
+                                  VerifierCallback* verifier_callback,
                                   bool allow_soft_failures,
                                   HardFailLogMode log_level,
                                   bool need_precise_constants,
                                   uint32_t api_level,
+                                  bool aot_mode,
                                   std::string* hard_failure_msg)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <bool kVerifierDebug>
   static FailureData VerifyMethod(Thread* self,
+                                  ClassLinker* class_linker,
+                                  ArenaPool* arena_pool,
                                   uint32_t method_idx,
                                   const DexFile* dex_file,
                                   Handle<mirror::DexCache> dex_cache,
@@ -243,10 +280,12 @@ class MethodVerifier {
                                   ArtMethod* method,
                                   uint32_t method_access_flags,
                                   CompilerCallbacks* callbacks,
+                                  VerifierCallback* verifier_callback,
                                   bool allow_soft_failures,
                                   HardFailLogMode log_level,
                                   bool need_precise_constants,
                                   uint32_t api_level,
+                                  bool aot_mode,
                                   std::string* hard_failure_msg)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -305,19 +344,27 @@ class MethodVerifier {
   std::vector<VerifyError> failures_;
   // Error messages associated with failures.
   std::vector<std::ostringstream*> failure_messages_;
-  // Is there a pending hard failure?
-  bool have_pending_hard_failure_;
-  // Is there a pending runtime throw failure? A runtime throw failure is when an instruction
-  // would fail at runtime throwing an exception. Such an instruction causes the following code
-  // to be unreachable. This is set by Fail and used to ensure we don't process unreachable
-  // instructions that would hard fail the verification.
-  // Note: this flag is reset after processing each instruction.
-  bool have_pending_runtime_throw_failure_;
-  // Is there a pending experimental failure?
-  bool have_pending_experimental_failure_;
+  struct {
+    // Is there a pending hard failure?
+    bool have_pending_hard_failure_ : 1;
 
-  // A version of the above that is not reset and thus captures if there were *any* throw failures.
-  bool have_any_pending_runtime_throw_failure_;
+    // Is there a pending runtime throw failure? A runtime throw failure is when an instruction
+    // would fail at runtime throwing an exception. Such an instruction causes the following code
+    // to be unreachable. This is set by Fail and used to ensure we don't process unreachable
+    // instructions that would hard fail the verification.
+    // Note: this flag is reset after processing each instruction.
+    bool have_pending_runtime_throw_failure_ : 1;
+
+    // Is there a pending experimental failure?
+    bool have_pending_experimental_failure_ : 1;
+
+    // A version of the above that is not reset and thus captures if there were *any* throw
+    // failures.
+    bool have_any_pending_runtime_throw_failure_ : 1;
+
+    // Verify in AoT mode?
+    bool aot_mode_ : 1;
+  } flags_;
 
   // Info message log use primarily for verifier diagnostics.
   std::ostringstream info_messages_;
@@ -335,6 +382,9 @@ class MethodVerifier {
   // instruction. Aput-object operations implicitly check for array-store exceptions, similar to
   // check-cast.
   bool has_check_casts_;
+
+  // Classlinker to use when resolving.
+  ClassLinker* class_linker_;
 
   // Link, for the method verifier root linked list.
   MethodVerifier* link_;

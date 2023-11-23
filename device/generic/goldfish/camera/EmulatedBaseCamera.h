@@ -57,6 +57,8 @@ class EmulatedBaseCamera {
      ***************************************************************************/
 
   public:
+    int getCameraId() const { return mCameraID; }
+
     /* Creates connection to the emulated camera device.
      * This method is called in response to hw_module_methods_t::open callback.
      * NOTE: When this method is called the object is locked.

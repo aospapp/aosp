@@ -18,6 +18,7 @@ package com.android.tv.settings.device.apps.specialaccess;
 
 import android.Manifest;
 import android.app.AppOpsManager;
+import android.app.tvsettings.TvSettingsEnums;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -136,5 +137,10 @@ public class ExternalSources extends ManageAppOp {
     @Override
     public PreferenceGroup getAppPreferenceGroup() {
         return getPreferenceScreen();
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.APPS_SECURITY_RESTRICTIONS_UNKNOWN_SOURCES;
     }
 }

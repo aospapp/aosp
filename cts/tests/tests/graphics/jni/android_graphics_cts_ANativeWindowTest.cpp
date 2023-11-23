@@ -58,12 +58,29 @@ jint getBuffersDataSpace(JNIEnv* env, jclass, jobject jSurface) {
     return ANativeWindow_getBuffersDataSpace(window);
 }
 
-const std::array<JNINativeMethod, 3> JNI_METHODS = {{
-    { "nPushBufferWithTransform", "(Landroid/view/Surface;I)V", (void*)pushBufferWithTransform },
-    { "nSetBuffersDataSpace", "(Landroid/view/Surface;I)I", (void*)setBuffersDataSpace },
-    { "nGetBuffersDataSpace", "(Landroid/view/Surface;)I", (void*)getBuffersDataSpace },
-}};
+void tryAllocateBuffers(JNIEnv* env, jclass, jobject jSurface) {
+    ANativeWindow* window = nullptr;
+    if (jSurface) {
+      window = ANativeWindow_fromSurface(env, jSurface);
+    }
 
+    ANativeWindow_tryAllocateBuffers(window);
+
+    if (window) {
+      ANativeWindow_release(window);
+    }
+}
+
+const std::array<JNINativeMethod, 4> JNI_METHODS = {{
+    {"nPushBufferWithTransform", "(Landroid/view/Surface;I)V",
+     (void*)pushBufferWithTransform},
+    {"nSetBuffersDataSpace", "(Landroid/view/Surface;I)I",
+     (void*)setBuffersDataSpace},
+    {"nGetBuffersDataSpace", "(Landroid/view/Surface;)I",
+     (void*)getBuffersDataSpace},
+    {"nTryAllocateBuffers", "(Landroid/view/Surface;)V",
+     (void*)tryAllocateBuffers},
+}};
 }
 
 int register_android_graphics_cts_ANativeWindowTest(JNIEnv* env) {

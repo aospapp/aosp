@@ -16,7 +16,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             6e:47:a9:c8:8b:94:b6:e8:bb:3b:2a:d8:a2:b2:c1:99
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=US, O=Google Trust Services LLC, CN=GTS Root R4
         Validity
             Not Before: Jun 22 00:00:00 2016 GMT

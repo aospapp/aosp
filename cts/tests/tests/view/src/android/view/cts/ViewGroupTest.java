@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -2869,9 +2870,8 @@ public class ViewGroupTest implements CTSResult {
     }
 
     @UiThreadTest
-    @Ignore("Turn on once ViewRootImpl.USE_NEW_INSETS is switched to true")
     @Test
-    public void testDispatchInsets_consumeDoesntStopDispatch() {
+    public void testDispatchInsets_consumeStopsDispatch() {
         View v1 = new View(mContext);
         mMockViewGroup.addView(v1);
 
@@ -2884,7 +2884,7 @@ public class ViewGroupTest implements CTSResult {
         WindowInsets insets = new WindowInsets.Builder().setSystemWindowInsets(
                 Insets.of(10, 10, 10, 10)).build();
         mMockViewGroup.dispatchApplyWindowInsets(insets);
-        verify(listenerMock).onApplyWindowInsets(any(),
+        verify(listenerMock, never()).onApplyWindowInsets(any(),
                 eq(new WindowInsets.Builder().build()));
     }
 

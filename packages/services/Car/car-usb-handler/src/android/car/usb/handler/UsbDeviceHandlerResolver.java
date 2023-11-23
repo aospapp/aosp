@@ -30,6 +30,7 @@ import android.content.res.XmlResourceParser;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -41,6 +42,8 @@ import com.android.internal.util.XmlUtils;
 import org.xmlpull.v1.XmlPullParser;
 
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -68,18 +71,16 @@ public final class UsbDeviceHandlerResolver {
     private final PackageManager mPackageManager;
     private final UsbDeviceHandlerResolverCallback mDeviceCallback;
     private final Context mContext;
-    private final HandlerThread mHandlerThread;
-    private final UsbDeviceResolverHandler mHandler;
     private final AoapServiceManager mAoapServiceManager;
+    private HandlerThread mHandlerThread;
+    private UsbDeviceResolverHandler mHandler;
 
     public UsbDeviceHandlerResolver(UsbManager manager, Context context,
             UsbDeviceHandlerResolverCallback deviceListener) {
         mUsbManager = manager;
         mContext = context;
         mDeviceCallback = deviceListener;
-        mHandlerThread = new HandlerThread(TAG);
-        mHandlerThread.start();
-        mHandler = new UsbDeviceResolverHandler(mHandlerThread.getLooper());
+        createHandlerThread();
         mPackageManager = context.getPackageManager();
         mAoapServiceManager = new AoapServiceManager(mContext.getApplicationContext());
     }
@@ -101,9 +102,22 @@ public final class UsbDeviceHandlerResolver {
     }
 
     /**
+     * Listener for failed {@code startAosp} command.
+     *
+     * <p>If {@code startAosp} fails, the device could be left in a inconsistent state, that's why
+     * we go back to USB enumeration, instead of just repeating the command.
+     */
+    public interface StartAoapFailureListener {
+
+        /** Called if startAoap fails. */
+        void onFailure();
+    }
+
+    /**
      * Dispatches device to component.
      */
-    public boolean dispatch(UsbDevice device, ComponentName component, boolean inAoap) {
+    public boolean dispatch(UsbDevice device, ComponentName component, boolean inAoap,
+            StartAoapFailureListener failureListener) {
         if (LOCAL_LOGD) {
             Log.d(TAG, "dispatch: " + device + " component: " + component + " inAoap: " + inAoap);
         }
@@ -125,10 +139,20 @@ public final class UsbDeviceHandlerResolver {
                         packageMatches(activityInfo, intent.getAction(), device, true);
 
                 if (filter != null) {
+                    if (!mHandlerThread.isAlive()) {
+                        // Start a new thread. Used only when startAoap fails, and we need to
+                        // re-enumerate device in order to try again.
+                        createHandlerThread();
+                    }
                     mHandlerThread.getThreadHandler().post(() -> {
                         if (mAoapServiceManager.canSwitchDeviceToAoap(device,
                                 ComponentName.unflattenFromString(filter.mAoapService))) {
-                            requestAoapSwitch(device, filter);
+                            try {
+                                requestAoapSwitch(device, filter);
+                            } catch (IOException e) {
+                                Log.w(TAG, "Start AOAP command failed:" + e);
+                                failureListener.onFailure();
+                            }
                         } else {
                             Log.i(TAG, "Ignore AOAP switch for device " + device
                                     + " handled by " + filter.mAoapService);
@@ -146,6 +170,12 @@ public final class UsbDeviceHandlerResolver {
         mContext.startActivity(intent);
         mHandler.requestCompleteDeviceDispatch();
         return true;
+    }
+
+    private void createHandlerThread() {
+        mHandlerThread = new HandlerThread(TAG);
+        mHandlerThread.start();
+        mHandler = new UsbDeviceResolverHandler(mHandlerThread.getLooper());
     }
 
     private static Intent createDeviceAttachedIntent(UsbDevice device) {
@@ -189,13 +219,15 @@ public final class UsbDeviceHandlerResolver {
         return settings;
     }
 
-    private void requestAoapSwitch(UsbDevice device, UsbDeviceFilter filter) {
+    private void requestAoapSwitch(UsbDevice device, UsbDeviceFilter filter) throws IOException {
         UsbDeviceConnection connection = UsbUtil.openConnection(mUsbManager, device);
         if (connection == null) {
             Log.e(TAG, "Failed to connect to usb device.");
             return;
         }
+
         try {
+            String hashedSerial =  getHashed(Build.getSerial());
             UsbUtil.sendAoapAccessoryStart(
                     connection,
                     filter.mAoapManufacturer,
@@ -203,11 +235,19 @@ public final class UsbDeviceHandlerResolver {
                     filter.mAoapDescription,
                     filter.mAoapVersion,
                     filter.mAoapUri,
-                    filter.mAoapSerial);
-        } catch (IOException e) {
-            Log.w(TAG, "Failed to switch device into AOAP mode", e);
+                    hashedSerial);
+        } finally {
+            connection.close();
         }
-        connection.close();
+    }
+
+    private String getHashed(String serial) {
+        try {
+            return MessageDigest.getInstance("MD5").digest(serial.getBytes()).toString();
+        } catch (NoSuchAlgorithmException e) {
+            Log.w(TAG, "could not create MD5 for serial number: " + serial);
+            return Integer.toString(serial.hashCode());
+        }
     }
 
     private void deviceProbingComplete(UsbDevice device, List<UsbDeviceSettings> settings) {

@@ -108,7 +108,10 @@ public class CallExtrasTest extends TelecomSystemTest {
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
 
         Connection connection = mConnectionServiceFixtureA.mLatestConnection;
-        connection.putExtra(EXTRA_KEY_BOOL, true);
+
+        Bundle newExtras = new Bundle();
+        newExtras.putBoolean(EXTRA_KEY_BOOL, true);
+        connection.putExtras(newExtras);
         mInCallServiceFixtureX.waitForUpdate();
         assertTrue(mInCallServiceFixtureX.getCall(ids.mCallId).getExtras()
                 .containsKey(EXTRA_KEY_BOOL));
@@ -130,7 +133,9 @@ public class CallExtrasTest extends TelecomSystemTest {
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
 
         Connection connection = mConnectionServiceFixtureA.mLatestConnection;
-        connection.putExtra(EXTRA_KEY_INT, EXTRA_VALUE_INT);
+        Bundle newExtras = new Bundle();
+        newExtras.putInt(EXTRA_KEY_INT, EXTRA_VALUE_INT);
+        connection.putExtras(newExtras);
         mInCallServiceFixtureX.waitForUpdate();
         assertTrue(
                 mInCallServiceFixtureX.getCall(ids.mCallId).getExtras().containsKey(EXTRA_KEY_INT));
@@ -152,7 +157,9 @@ public class CallExtrasTest extends TelecomSystemTest {
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
 
         Connection connection = mConnectionServiceFixtureA.mLatestConnection;
-        connection.putExtra(EXTRA_KEY_STR, EXTRA_VALUE_STR);
+        Bundle newExtras = new Bundle();
+        newExtras.putString(EXTRA_KEY_STR, EXTRA_VALUE_STR);
+        connection.putExtras(newExtras);
 
         mInCallServiceFixtureX.waitForUpdate();
         assertTrue(
@@ -176,8 +183,10 @@ public class CallExtrasTest extends TelecomSystemTest {
 
         // Add something.
         Connection connection = mConnectionServiceFixtureA.mLatestConnection;
-        connection.putExtra(EXTRA_KEY_STR2, EXTRA_VALUE_STR);
-        connection.putExtra(EXTRA_KEY_STR, EXTRA_VALUE_STR);
+        Bundle newExtras = new Bundle();
+        newExtras.putString(EXTRA_KEY_STR2, EXTRA_VALUE_STR);
+        newExtras.putString(EXTRA_KEY_STR, EXTRA_VALUE_STR);
+        connection.putExtras(newExtras);
         mInCallServiceFixtureX.waitForUpdate();
         assertTrue(
                 mInCallServiceFixtureX.getCall(ids.mCallId).getExtras().containsKey(EXTRA_KEY_STR));
@@ -218,7 +227,9 @@ public class CallExtrasTest extends TelecomSystemTest {
         assertTrue(
                 mInCallServiceFixtureX.getCall(ids.mCallId).getExtras().containsKey(EXTRA_KEY_INT));
 
-        connection.putExtra(EXTRA_KEY_STR, EXTRA_VALUE2_STR);
+        Bundle newExtras = connection.getExtras();
+        newExtras.putString(EXTRA_KEY_STR, EXTRA_VALUE2_STR);
+        connection.putExtras(newExtras);
         mInCallServiceFixtureX.waitForUpdate();
         assertEquals(EXTRA_VALUE2_STR,
                 mInCallServiceFixtureX.getCall(ids.mCallId).getExtras().getString(EXTRA_KEY_STR));

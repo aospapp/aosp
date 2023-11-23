@@ -55,6 +55,7 @@ if(${ARCH} STREQUAL "arm")
     sha1-armv4-large.${ASM_EXT}
     sha256-armv4.${ASM_EXT}
     sha512-armv4.${ASM_EXT}
+    vpaes-armv7.${ASM_EXT}
   )
 endif()
 
@@ -121,6 +122,7 @@ perlasm(sha512-586.${ASM_EXT} sha/asm/sha512-586.pl)
 perlasm(sha512-armv4.${ASM_EXT} sha/asm/sha512-armv4.pl)
 perlasm(sha512-armv8.${ASM_EXT} sha/asm/sha512-armv8.pl)
 perlasm(sha512-x86_64.${ASM_EXT} sha/asm/sha512-x86_64.pl)
+perlasm(vpaes-armv7.${ASM_EXT} aes/asm/vpaes-armv7.pl)
 perlasm(vpaes-armv8.${ASM_EXT} aes/asm/vpaes-armv8.pl)
 perlasm(vpaes-x86_64.${ASM_EXT} aes/asm/vpaes-x86_64.pl)
 perlasm(vpaes-x86.${ASM_EXT} aes/asm/vpaes-x86.pl)
@@ -129,6 +131,10 @@ perlasm(x86_64-mont.${ASM_EXT} bn/asm/x86_64-mont.pl)
 perlasm(x86-mont.${ASM_EXT} bn/asm/x86-mont.pl)
 
 if(FIPS_DELOCATE)
+  if(FIPS_SHARED)
+    error("Can't set both delocate and shared mode for FIPS build")
+  endif()
+
   if(OPENSSL_NO_ASM)
     # If OPENSSL_NO_ASM was defined then ASM will not have been enabled, but in
     # FIPS mode we have to have it because the module build requires going via
@@ -189,12 +195,49 @@ if(FIPS_DELOCATE)
 
     OBJECT
 
+    fips_shared_support.c
     is_fips.c
   )
 
   add_dependencies(fipsmodule global_target)
 
   set_target_properties(fipsmodule PROPERTIES LINKER_LANGUAGE C)
+elseif(FIPS_SHARED)
+  if(NOT BUILD_SHARED_LIBS)
+    error("FIPS_SHARED set but not BUILD_SHARED_LIBS")
+  endif()
+
+  add_library(
+    fipsmodule
+
+    OBJECT
+
+    fips_shared_support.c
+    is_fips.c
+  )
+
+  add_dependencies(fipsmodule global_target)
+
+  add_library(
+    bcm_library
+
+    STATIC
+
+    bcm.c
+
+    ${BCM_ASM_SOURCES}
+  )
+
+  add_dependencies(bcm_library global_target)
+
+  add_custom_command(
+    OUTPUT bcm.o
+    COMMAND ${CMAKE_LINKER} -r -T ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared.lds -o bcm.o --whole-archive $<TARGET_FILE:bcm_library>
+    DEPENDS bcm_library fips_shared.lds
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  add_custom_target(bcm_o_target DEPENDS bcm.o)
 else()
   add_library(
     fipsmodule
@@ -202,6 +245,7 @@ else()
     OBJECT
 
     bcm.c
+    fips_shared_support.c
     is_fips.c
 
     ${BCM_ASM_SOURCES}

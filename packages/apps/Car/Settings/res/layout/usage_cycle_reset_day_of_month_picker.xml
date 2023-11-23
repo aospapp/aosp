@@ -59,6 +59,7 @@
         android:id="@+id/cycle_reset_day_of_month"
         android:layout_width="@dimen/touch_target_size"
         android:layout_height="match_parent"
+        android:theme="@style/NumberPickerStyle"
         app:layout_constraintBottom_toTopOf="@+id/down_arrow_container"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/subtitle_text"

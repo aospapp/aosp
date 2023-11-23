@@ -22,10 +22,10 @@
 
 #include <gui/IGraphicBufferProducer.h>
 #include <gui/Surface.h>
-#include <media/ICrypto.h>
+#include <mediadrm/ICrypto.h>
 #include <media/MediaBufferHolder.h>
 #include <media/MediaCodecBuffer.h>
-#include <media/MediaSource.h>
+#include <media/stagefright/MediaSource.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/ALooper.h>
@@ -221,6 +221,7 @@ void MediaCodecSource::Puller::pause() {
 
 void MediaCodecSource::Puller::resume() {
     Mutexed<Queue>::Locked queue(mQueue);
+    queue->flush();
     queue->mPaused = false;
 }
 

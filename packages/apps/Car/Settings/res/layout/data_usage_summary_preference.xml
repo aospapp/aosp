@@ -31,7 +31,6 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="@dimen/usage_indicator_preference_title_margin_bottom"
         android:layout_marginTop="@dimen/usage_indicator_preference_title_margin_top"
-        android:ellipsize="end"
         android:singleLine="true"
         android:textAppearance="?android:attr/textAppearanceLarge"/>
 

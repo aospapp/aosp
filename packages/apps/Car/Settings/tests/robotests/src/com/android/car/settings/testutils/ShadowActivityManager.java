@@ -18,6 +18,7 @@ package com.android.car.settings.testutils;
 
 import android.app.ActivityManager;
 import android.content.pm.IPackageDataObserver;
+import android.os.UserHandle;
 
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
@@ -25,14 +26,17 @@ import org.robolectric.annotation.Resetter;
 
 @Implements(value = ActivityManager.class)
 public class ShadowActivityManager extends org.robolectric.shadows.ShadowActivityManager {
+    private static final int DEFAULT_CURRENT_USER_ID = UserHandle.USER_SYSTEM;
 
     private static boolean sIsApplicationUserDataCleared;
+    private static int sCurrentUserId = DEFAULT_CURRENT_USER_ID;
 
     private String mMostRecentlyStoppedPackage;
 
     @Resetter
     public static void reset() {
         sIsApplicationUserDataCleared = false;
+        sCurrentUserId = DEFAULT_CURRENT_USER_ID;
     }
 
     @Implementation
@@ -51,5 +55,14 @@ public class ShadowActivityManager extends org.robolectric.shadows.ShadowActivit
 
     public static void setApplicationUserDataCleared(boolean applicationUserDataCleared) {
         sIsApplicationUserDataCleared = applicationUserDataCleared;
+    }
+
+    @Implementation
+    protected static int getCurrentUser() {
+        return sCurrentUserId;
+    }
+
+    public static void setCurrentUser(int userId) {
+        sCurrentUserId = userId;
     }
 }

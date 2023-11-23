@@ -173,7 +173,7 @@ class Sl4aSession(object):
         """Returns the EventDispatcher for this Sl4aSession."""
         if self._event_dispatcher is None:
             self._event_dispatcher = event_dispatcher.EventDispatcher(
-                self, self.rpc_client)
+                self.adb.serial, self.rpc_client)
         return self._event_dispatcher
 
     def _create_client_side_connection(self, ports):

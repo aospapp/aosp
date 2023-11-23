@@ -189,8 +189,7 @@ using Table = std::map<std::string, TableRow>;
 void insert(const HalManifest* manifest, Table* table, const RowMutator& mutate) {
     if (manifest == nullptr) return;
     manifest->forEachInstance([&](const auto& manifestInstance) {
-        std::string key = toFQNameString(manifestInstance.package(), manifestInstance.version(),
-                                         manifestInstance.interface(), manifestInstance.instance());
+        std::string key = manifestInstance.description();
         mutate(&(*table)[key]);
         return true;
     });
@@ -200,12 +199,11 @@ void insert(const CompatibilityMatrix* matrix, Table* table, const RowMutator& m
     if (matrix == nullptr) return;
     matrix->forEachInstance([&](const auto& matrixInstance) {
         for (auto minorVer = matrixInstance.versionRange().minMinor;
-             minorVer <= matrixInstance.versionRange().maxMinor; ++minorVer) {
-            std::string key = toFQNameString(
-                matrixInstance.package(), Version{matrixInstance.versionRange().majorVer, minorVer},
-                matrixInstance.interface(),
-                matrixInstance.isRegex() ? matrixInstance.regexPattern()
-                                         : matrixInstance.exactInstance());
+             minorVer >= matrixInstance.versionRange().minMinor &&
+             minorVer <= matrixInstance.versionRange().maxMinor;
+             ++minorVer) {
+            Version version{matrixInstance.versionRange().majorVer, minorVer};
+            std::string key = matrixInstance.description(version);
             auto it = table->find(key);
             if (it == table->end()) {
                 mutate(&(*table)[key]);
@@ -315,16 +313,17 @@ int main(int argc, char** argv) {
     }
 
     {
-        auto compatible = VintfObject::CheckCompatibility({}, &error);
-        std::cout << "VintfObject::CheckCompatibility?                         "
+        auto compatible = VintfObject::GetInstance()->checkCompatibility(&error);
+        std::cout << "VintfObject::checkCompatibility?                         "
                   << compatibleString(compatible);
         if (compatible != COMPATIBLE) std::cout << ", " << error;
         std::cout << std::endl;
     }
 
     if (vm && fcm) {
-        auto deprecate = VintfObject::CheckDeprecation(&error);
-        std::cout << "VintfObject::CheckDeprecation (against device manifest)? "
+        // TODO(b/131717099): Use correct information from libhidlmetadata
+        auto deprecate = VintfObject::GetInstance()->checkDeprecation({}, &error);
+        std::cout << "VintfObject::CheckDeprecation (against device manifest) (w/o hidlmetadata)? "
                   << deprecateString(deprecate);
         if (deprecate != NO_DEPRECATED_HALS) std::cout << ", " << error;
         std::cout << std::endl;

@@ -44,6 +44,13 @@
 #$(call add-clean-step, find $(OUT_DIR) -type f -name "IGTalkSession*" -print0 | xargs -0 rm -f)
 #$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/*)
 
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/CellBroadcastReceiver)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/CellBroadcastAppPlatform)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/CellBroadcastApp)
+
+# Build finger print update in order to trigger default permission grant policy on incremental build
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/ETC/system_build_prop_intermediates/build.prop)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/ETC/system_build_prop_intermediates/build.prop)
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

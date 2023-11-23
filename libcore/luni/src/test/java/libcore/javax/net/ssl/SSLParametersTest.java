@@ -16,13 +16,21 @@
 
 package libcore.javax.net.ssl;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.util.Arrays;
 import javax.net.ssl.SSLParameters;
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public class SSLParametersTest extends TestCase {
+@RunWith(JUnit4.class)
+public class SSLParametersTest {
 
-  public void test_applicationProtocols() {
+  @Test
+  public void applicationProtocols() {
     SSLParameters params = new SSLParameters();
     try {
       params.setApplicationProtocols(null);
@@ -61,4 +69,14 @@ public class SSLParametersTest extends TestCase {
     assertTrue(Arrays.equals(new String[] {"h2"}, params.getApplicationProtocols()));
   }
 
+  @Test
+  public void getSetUseCipherSuitesOrder() {
+    SSLParameters params = new SSLParameters();
+    // Default should be false
+    assertFalse(params.getUseCipherSuitesOrder());
+    params.setUseCipherSuitesOrder(true);
+    assertTrue(params.getUseCipherSuitesOrder());
+    params.setUseCipherSuitesOrder(false);
+    assertFalse(params.getUseCipherSuitesOrder());
+  }
 }

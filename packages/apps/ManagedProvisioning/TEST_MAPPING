@@ -1,0 +1,28 @@
+{
+  "presubmit": [
+    {
+      "name": "ManagedProvisioningTests",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.FlakyTest"
+        }
+      ]
+    },
+    {
+      "name": "ManagedProvisioningRoboTests",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.FlakyTest"
+        }
+      ]
+    }
+  ],
+  "postsubmit": [
+    {
+      "name": "ManagedProvisioningTests"
+    },
+    {
+      "name": "ManagedProvisioningRoboTests"
+    }
+  ]
+}

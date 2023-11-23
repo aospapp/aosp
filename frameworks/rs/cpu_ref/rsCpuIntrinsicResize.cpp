@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#if defined(ARCH_X86_HAVE_AVX2)
+#include <stdint.h>
+#include <x86intrin.h>
+#include <xmmintrin.h>
+#endif
 
 #include "rsCpuIntrinsic.h"
 #include "rsCpuIntrinsicInlines.h"
@@ -78,10 +83,20 @@ static float2 cubicInterpolate(float2 p0,float2 p1,float2 p2,float2 p3, float x)
             + x * (3.f * (p1 - p2) + p3 - p0)));
 }
 
+
+#if defined(ARCH_X86_HAVE_AVX2)
+static float cubicInterpolate(float p0,float p1,float p2,float p3 , float x) {
+   return p1 + 0.5f * x * (p2 - p0 + x * (2.f * p0 - 5.f * p1 +
+           _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(4.f), _mm_set1_ps(p2),_mm_set1_ps(p3)))
+           + x * (_mm_cvtss_f32(_mm_fmadd_ss (_mm_set1_ps(3.f),_mm_set1_ps(p1 - p2),_mm_set1_ps(p3 - p0))))));
+
+}
+#else
 static float cubicInterpolate(float p0,float p1,float p2,float p3 , float x) {
     return p1 + 0.5f * x * (p2 - p0 + x * (2.f * p0 - 5.f * p1 + 4.f * p2 - p3
             + x * (3.f * (p1 - p2) + p3 - p0)));
 }
+#endif
 
 static uchar4 OneBiCubic(const uchar4 *yp0, const uchar4 *yp1, const uchar4 *yp2, const uchar4 *yp3,
                          float xf, float yf, int width) {
@@ -317,7 +332,14 @@ void RsdCpuScriptIntrinsicResize::kernelU4(const RsExpandKernelDriverInfo *info,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
+
+#if defined(ARCH_X86_HAVE_AVX2)
+    float yf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(info->current.y + 0.5f),_mm_set1_ps(cp->scaleY), _mm_set1_ps(0.5f)));
+#else
     float yf = (info->current.y + 0.5f) * cp->scaleY - 0.5f;
+#endif
+
+
     int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
@@ -363,7 +385,11 @@ void RsdCpuScriptIntrinsicResize::kernelU4(const RsExpandKernelDriverInfo *info,
 #endif
 
     while(x1 < x2) {
+#if defined(ARCH_X86_HAVE_AVX2)
+        float xf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(x1 + 0.5f) , _mm_set1_ps(cp->scaleX) , _mm_set1_ps(0.5f)));
+#else
         float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
+#endif
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;
@@ -384,7 +410,13 @@ void RsdCpuScriptIntrinsicResize::kernelU2(const RsExpandKernelDriverInfo *info,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
+
+#if defined(ARCH_X86_HAVE_AVX2)
+    float yf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(info->current.y + 0.5f),_mm_set1_ps(cp->scaleY), _mm_set1_ps(0.5f)));
+#else
     float yf = (info->current.y + 0.5f) * cp->scaleY - 0.5f;
+#endif
+
     int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
@@ -430,7 +462,12 @@ void RsdCpuScriptIntrinsicResize::kernelU2(const RsExpandKernelDriverInfo *info,
 #endif
 
     while(x1 < x2) {
+
+#if defined(ARCH_X86_HAVE_AVX2)
+        float xf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(x1 + 0.5f) , _mm_set1_ps(cp->scaleX) , _mm_set1_ps(0.5f)));
+#else
         float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
+#endif
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;
@@ -451,7 +488,13 @@ void RsdCpuScriptIntrinsicResize::kernelU1(const RsExpandKernelDriverInfo *info,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
+
+#if defined(ARCH_X86_HAVE_AVX2)
+    float yf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(info->current.y + 0.5f),_mm_set1_ps(cp->scaleY), _mm_set1_ps(0.5f)));
+#else
     float yf = (info->current.y + 0.5f) * cp->scaleY - 0.5f;
+#endif
+
     int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
@@ -497,7 +540,13 @@ void RsdCpuScriptIntrinsicResize::kernelU1(const RsExpandKernelDriverInfo *info,
 #endif
 
     while(x1 < x2) {
+
+#if defined(ARCH_X86_HAVE_AVX2)
+        float xf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(x1 + 0.5f) , _mm_set1_ps(cp->scaleX) , _mm_set1_ps(0.5f)));
+#else
         float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
+#endif
+
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;
@@ -518,7 +567,12 @@ void RsdCpuScriptIntrinsicResize::kernelF4(const RsExpandKernelDriverInfo *info,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
+#if defined(ARCH_X86_HAVE_AVX2)
+    float yf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(info->current.y + 0.5f),_mm_set1_ps(cp->scaleY), _mm_set1_ps(0.5f)));
+#else
     float yf = (info->current.y + 0.5f) * cp->scaleY - 0.5f;
+#endif
+
     int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
@@ -537,7 +591,13 @@ void RsdCpuScriptIntrinsicResize::kernelF4(const RsExpandKernelDriverInfo *info,
     uint32_t x2 = xend;
 
     while(x1 < x2) {
+
+#if defined(ARCH_X86_HAVE_AVX2)
+        float xf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(x1 + 0.5f) , _mm_set1_ps(cp->scaleX) , _mm_set1_ps(0.5f)));
+#else
         float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
+#endif
+
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;
@@ -558,7 +618,13 @@ void RsdCpuScriptIntrinsicResize::kernelF2(const RsExpandKernelDriverInfo *info,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
+
+#if defined(ARCH_X86_HAVE_AVX2)
+    float yf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(info->current.y + 0.5f),_mm_set1_ps(cp->scaleY), _mm_set1_ps(0.5f)));
+#else
     float yf = (info->current.y + 0.5f) * cp->scaleY - 0.5f;
+#endif
+
     int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
@@ -577,7 +643,13 @@ void RsdCpuScriptIntrinsicResize::kernelF2(const RsExpandKernelDriverInfo *info,
     uint32_t x2 = xend;
 
     while(x1 < x2) {
+
+#if defined(ARCH_X86_HAVE_AVX2)
+        float xf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(x1 + 0.5f) , _mm_set1_ps(cp->scaleX) , _mm_set1_ps(0.5f)));
+#else
         float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
+#endif
+
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;
@@ -598,7 +670,13 @@ void RsdCpuScriptIntrinsicResize::kernelF1(const RsExpandKernelDriverInfo *info,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
+
+#if defined(ARCH_X86_HAVE_AVX2)
+    float yf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(info->current.y + 0.5f),_mm_set1_ps(cp->scaleY), _mm_set1_ps(0.5f)));
+#else
     float yf = (info->current.y + 0.5f) * cp->scaleY - 0.5f;
+#endif
+
     int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
@@ -617,7 +695,13 @@ void RsdCpuScriptIntrinsicResize::kernelF1(const RsExpandKernelDriverInfo *info,
     uint32_t x2 = xend;
 
     while(x1 < x2) {
+
+#if defined(ARCH_X86_HAVE_AVX2)
+        float xf = _mm_cvtss_f32(_mm_fmsub_ss(_mm_set1_ps(x1 + 0.5f) , _mm_set1_ps(cp->scaleX) , _mm_set1_ps(0.5f)));
+#else
         float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
+#endif
+
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;

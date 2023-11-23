@@ -104,8 +104,9 @@ public class DisplayAndInputProcessor {
     private static final CLDRLocale FARSI = CLDRLocale.getInstance("fa");
     private static final CLDRLocale GERMAN_SWITZERLAND = CLDRLocale.getInstance("de_CH");
     private static final CLDRLocale SWISS_GERMAN = CLDRLocale.getInstance("gsw");
+    private static final CLDRLocale FF_ADLAM = CLDRLocale.getInstance("ff_Adlm");
     public static final Set<String> LANGUAGES_USING_MODIFIER_APOSTROPHE = new HashSet<String>(
-        Arrays.asList("br", "bss", "cch", "gn", "ha", "ha_Latn", "lkt", "mgo", "moh", "nnh", "qu", "quc", "uk", "uz", "uz_Latn"));
+        Arrays.asList("br", "bss", "cic", "cch", "gn", "ha", "ha_Latn", "lkt", "mgo", "moh", "mus", "nnh", "qu", "quc", "uk", "uz", "uz_Latn"));
 
     // Ş ş Ţ ţ  =>  Ș ș Ț ț
     private static final char[][] ROMANIAN_CONVERSIONS = {
@@ -201,27 +202,31 @@ public class DisplayAndInputProcessor {
     }
 
     /**
-     * Constructor, taking locale.
+     * Constructor, taking ULocale and boolean.
      *
-     * @param locale
+     * @param locale the ULocale
+     * @param needsCollator true or false
+     *
+     * Called by getProcessor, with locale = SurveyMain.TRANS_HINT_LOCALE
      */
     public DisplayAndInputProcessor(ULocale locale, boolean needsCollator) {
         init(this.locale = CLDRLocale.getInstance(locale), needsCollator);
     }
 
     /**
-     * Constructor, taking locale.
+     * Constructor, taking ULocale.
      *
-     * @param locale
+     * @param locale the ULocale
      */
     public DisplayAndInputProcessor(ULocale locale) {
-        init(this.locale = CLDRLocale.getInstance(locale), true);
+        init(this.locale = CLDRLocale.getInstance(locale), true /* needsCollator */);
     }
 
     /**
-     * Constructor, taking locale.
+     * Constructor, taking CLDRLocale and boolean.
      *
-     * @param locale
+     * @param locale the CLDRLocale
+     * @param needsCollator true or false
      */
     public DisplayAndInputProcessor(CLDRLocale locale, boolean needsCollator) {
         init(this.locale = locale, needsCollator);
@@ -290,7 +295,7 @@ public class DisplayAndInputProcessor {
     static final UnicodeSet WHITESPACE = new UnicodeSet("[:whitespace:]").freeze();
     static final DateTimeCanonicalizer dtc = new DateTimeCanonicalizer(FIX_YEARS);
 
-    public static final Splitter SPLIT_BAR = Splitter.on('|').trimResults().omitEmptyStrings();
+    public static final Splitter SPLIT_BAR = Splitter.on(Pattern.compile("(\\||\\s+l\\s+)")).trimResults().omitEmptyStrings();
     static final Splitter SPLIT_SPACE = Splitter.on(' ').trimResults().omitEmptyStrings();
     static final Joiner JOIN_BAR = Joiner.on(" | ");
 
@@ -313,6 +318,15 @@ public class DisplayAndInputProcessor {
         if (internalException != null) {
             internalException[0] = null;
         }
+        // skip processing for inheritance marker
+        if (CldrUtility.INHERITANCE_MARKER.equals(value)) {
+            return value; // Reference: https://unicode.org/cldr/trac/ticket/11261
+        }
+        // for root annotations
+        if (CLDRLocale.ROOT.equals(locale) && path.contains("/annotations")) {
+            return value; // Reference: https://unicode.org/cldr/trac/ticket/11261
+        }
+
         try {
             // Normalise Malayalam characters.
             boolean isUnicodeSet = hasUnicodeSetValue(path);
@@ -338,6 +352,8 @@ public class DisplayAndInputProcessor {
                 value = replaceChars(path, value, KYRGYZ_CONVERSIONS, false);
             } else if (locale.childOf(URDU) || locale.childOf(PASHTO) || locale.childOf(FARSI)) {
                 value = replaceChars(path, value, URDU_PLUS_CONVERSIONS, true);
+            } else if (locale.childOf(FF_ADLAM) && !isUnicodeSet) {
+                value = fixAdlamNasalization(value);
             }
 
             if (UNICODE_WHITESPACE.containsSome(value)) {
@@ -813,6 +829,14 @@ public class DisplayAndInputProcessor {
         return value;
     }
 
+    static Pattern ADLAM_MISNASALIZED = PatternCache.get("([𞤲𞤐])['’‘]([𞤁𞤔𞤘𞤄𞤣𞤦𞤶𞤺])");
+    public static String ADLAM_NASALIZATION = "𞥋"; // U+1E94B (Unicode 12.0)
+
+    public static String fixAdlamNasalization(String fromString) {
+        return ADLAM_MISNASALIZED.matcher(fromString)
+        .replaceAll("$1"+ADLAM_NASALIZATION+"$2");  // replace quote with 𞥋
+    }
+
     static Pattern REMOVE_QUOTE1 = PatternCache.get("(\\s)(\\\\[-\\}\\]\\&])()");
     static Pattern REMOVE_QUOTE2 = PatternCache.get("(\\\\[\\-\\{\\[\\&])(\\s)"); // ([^\\])([\\-\\{\\[])(\\s)
 
@@ -834,6 +858,16 @@ public class DisplayAndInputProcessor {
             if (string.equals("ß") || string.equals("İ")) {
                 toAdd.add(string);
                 continue;
+            }
+            switch (string) {
+            case "\u2011": toAdd.add("-"); break; // nobreak hyphen
+            case "-": toAdd.add("\u2011"); break; // nobreak hyphen
+            
+            case " ": toAdd.add("\u00a0"); break; // nobreak space
+            case "\u00a0": toAdd.add(" "); break; // nobreak space
+            
+            case "\u202F": toAdd.add("\u2009"); break; // nobreak narrow space
+            case "\u2009": toAdd.add("\u202F"); break; // nobreak narrow space
             }
             if (exemplarType.convertUppercase) {
                 string = UCharacter.toLowerCase(ULocale.ENGLISH, string);

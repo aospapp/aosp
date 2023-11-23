@@ -187,17 +187,6 @@ bool TraceSchedCommand::ParseSchedEvents(const std::string& record_file_path) {
   if (!reader) {
     return false;
   }
-  std::unique_ptr<ScopedEventTypes> scoped_event_types;
-  if (reader->HasFeature(PerfFileFormat::FEAT_META_INFO)) {
-    std::unordered_map<std::string, std::string> meta_info;
-    if (!reader->ReadMetaInfoFeature(&meta_info)) {
-      return false;
-    }
-    auto it = meta_info.find("event_type_info");
-    if (it != meta_info.end()) {
-      scoped_event_types.reset(new ScopedEventTypes(it->second));
-    }
-  }
   const EventType* event = FindEventTypeByName("sched:sched_stat_runtime");
   std::vector<EventAttrWithId> attrs = reader->AttrSection();
   if (attrs.size() != 1u || attrs[0].attr->type != event->type ||

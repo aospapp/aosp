@@ -126,7 +126,8 @@ public final class InlineStaticMockMaker implements MockMaker {
     public InlineStaticMockMaker() {
         if (INITIALIZATION_ERROR != null) {
             throw new RuntimeException("Could not initialize inline mock maker.\n" + "\n" +
-                    "Release: Android " + Build.VERSION.RELEASE + " " + Build.VERSION.INCREMENTAL
+                    "Release: Android " + Build.VERSION.RELEASE_OR_CODENAME + " "
+                    + Build.VERSION.INCREMENTAL
                     + "Device: " + Build.BRAND + " " + Build.MODEL, INITIALIZATION_ERROR);
         }
 

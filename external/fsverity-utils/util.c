@@ -45,26 +45,6 @@ char *xstrdup(const char *s)
 	return xmemdup(s, strlen(s) + 1);
 }
 
-char *xasprintf(const char *format, ...)
-{
-	va_list va1, va2;
-	int size;
-	char *s;
-
-	va_start(va1, format);
-
-	va_copy(va2, va1);
-	size = vsnprintf(NULL, 0, format, va2);
-	va_end(va2);
-
-	ASSERT(size >= 0);
-	s = xmalloc(size + 1);
-	vsprintf(s, format, va1);
-
-	va_end(va1);
-	return s;
-}
-
 /* ========== Error messages and assertions ========== */
 
 void do_error_msg(const char *format, va_list va, int err)
@@ -121,26 +101,7 @@ bool open_file(struct filedes *file, const char *filename, int flags, int mode)
 				"reading and writing");
 		return false;
 	}
-	file->autodelete = false;
 	file->name = xstrdup(filename);
-	file->pos = 0;
-	return true;
-}
-
-bool open_tempfile(struct filedes *file)
-{
-	const char *tmpdir = getenv("TMPDIR") ?: P_tmpdir;
-	char *name = xasprintf("%s/fsverity-XXXXXX", tmpdir);
-
-	file->fd = mkstemp(name);
-	if (file->fd < 0) {
-		error_msg_errno("can't create temporary file");
-		free(name);
-		return false;
-	}
-	file->autodelete = true;
-	file->name = name;
-	file->pos = 0;
 	return true;
 }
 
@@ -153,19 +114,6 @@ bool get_file_size(struct filedes *file, u64 *size_ret)
 		return false;
 	}
 	*size_ret = stbuf.st_size;
-	return true;
-}
-
-bool filedes_seek(struct filedes *file, u64 pos, int whence)
-{
-	off_t res;
-
-	res = lseek(file->fd, pos, whence);
-	if (res < 0) {
-		error_msg_errno("seek error on '%s'", file->name);
-		return false;
-	}
-	file->pos = res;
 	return true;
 }
 
@@ -184,27 +132,6 @@ bool full_read(struct filedes *file, void *buf, size_t count)
 		}
 		buf += n;
 		count -= n;
-		file->pos += n;
-	}
-	return true;
-}
-
-bool full_pread(struct filedes *file, void *buf, size_t count, u64 offset)
-{
-	while (count) {
-		int n = pread(file->fd, buf, min(count, INT_MAX), offset);
-
-		if (n < 0) {
-			error_msg_errno("reading from '%s'", file->name);
-			return false;
-		}
-		if (n == 0) {
-			error_msg("unexpected end-of-file on '%s'", file->name);
-			return false;
-		}
-		buf += n;
-		count -= n;
-		offset += n;
 	}
 	return true;
 }
@@ -220,58 +147,6 @@ bool full_write(struct filedes *file, const void *buf, size_t count)
 		}
 		buf += n;
 		count -= n;
-		file->pos += n;
-	}
-	return true;
-}
-
-bool full_pwrite(struct filedes *file, const void *buf, size_t count,
-		 u64 offset)
-{
-	while (count) {
-		int n = pwrite(file->fd, buf, min(count, INT_MAX), offset);
-
-		if (n < 0) {
-			error_msg_errno("writing to '%s'", file->name);
-			return false;
-		}
-		buf += n;
-		count -= n;
-		offset += n;
-	}
-	return true;
-}
-
-/* Copy 'count' bytes of data from 'src' to 'dst' */
-bool copy_file_data(struct filedes *src, struct filedes *dst, u64 count)
-{
-	char buf[4096];
-
-	while (count) {
-		size_t n = min(count, sizeof(buf));
-
-		if (!full_read(src, buf, n))
-			return false;
-		if (!full_write(dst, buf, n))
-			return false;
-		count -= n;
-	}
-	return true;
-}
-
-/* Write 'count' bytes of zeroes to the file */
-bool write_zeroes(struct filedes *file, u64 count)
-{
-	char buf[4096];
-
-	memset(buf, 0, min(count, sizeof(buf)));
-
-	while (count) {
-		size_t n = min(count, sizeof(buf));
-
-		if (!full_write(file, buf, n))
-			return false;
-		count -= n;
 	}
 	return true;
 }
@@ -285,8 +160,6 @@ bool filedes_close(struct filedes *file)
 	res = close(file->fd);
 	if (res != 0)
 		error_msg_errno("closing '%s'", file->name);
-	if (file->autodelete)
-		(void)unlink(file->name);
 	file->fd = -1;
 	free(file->name);
 	file->name = NULL;
@@ -339,24 +212,4 @@ void bin2hex(const u8 *bin, size_t bin_len, char *hex)
 		bin++;
 	}
 	*hex = '\0';
-}
-
-void string_list_append(struct string_list *list, char *string)
-{
-	ASSERT(list->length <= list->capacity);
-	if (list->length == list->capacity) {
-		list->capacity = (list->capacity * 2) + 4;
-		list->strings = realloc(list->strings,
-					sizeof(list->strings[0]) *
-					list->capacity);
-		if (!list->strings)
-			fatal_error("out of memory");
-	}
-	list->strings[list->length++] = string;
-}
-
-void string_list_destroy(struct string_list *list)
-{
-	free(list->strings);
-	memset(list, 0, sizeof(*list));
 }

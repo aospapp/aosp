@@ -4,7 +4,7 @@
 
 AUTHOR = 'chromeos-gfx'
 NAME = "graphics_Idle.arc"
-ATTRIBUTES = "suite:bvt-arc"
+ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system"
 PURPOSE = "Verify that graphics behaves as expected on idle."
 CRITERIA = """
 This test will fail if we don't see the appropriate GPU idle states.

@@ -152,11 +152,22 @@ const char* getShaderTypeName (ShaderType shaderType)
 		"tess_control",
 		"tess_eval",
 		"compute",
+		"unused for GL",
+		"unused for GL",
+		"unused for GL",
+		"unused for GL",
+		"unused for GL",
+		"unused for GL",
 	};
 
 	DE_STATIC_ASSERT(DE_LENGTH_OF_ARRAY(s_names) == SHADERTYPE_LAST);
 	DE_ASSERT(deInBounds32((int)shaderType, 0, SHADERTYPE_LAST));
 	return s_names[(int)shaderType];
+}
+
+std::string getShaderTypePostfix (ShaderType shaderType)
+{
+	return "_" + std::string(getShaderTypeName(shaderType));
 }
 
 // Precision
@@ -173,6 +184,11 @@ const char* getPrecisionName (Precision precision)
 	DE_STATIC_ASSERT(DE_LENGTH_OF_ARRAY(s_names) == PRECISION_LAST);
 	DE_ASSERT(deInBounds32((int)precision, 0, PRECISION_LAST));
 	return s_names[(int)precision];
+}
+
+std::string getPrecisionPostfix (Precision precision)
+{
+	return "_" + std::string(getPrecisionName(precision));
 }
 
 // DataType

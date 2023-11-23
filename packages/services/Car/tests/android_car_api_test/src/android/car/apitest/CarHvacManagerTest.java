@@ -15,12 +15,20 @@
  */
 package android.car.apitest;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import static org.junit.Assert.fail;
+
 import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.hvac.CarHvacManager;
 import android.hardware.automotive.vehicle.V2_0.VehicleHvacFanDirection;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
+
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -33,13 +41,13 @@ public class CarHvacManagerTest extends CarApiTestBase {
 
     private CarHvacManager mHvacManager;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mHvacManager = (CarHvacManager) getCar().getCarManager(Car.HVAC_SERVICE);
-        assertNotNull(mHvacManager);
+        assertThat(mHvacManager).isNotNull();
     }
 
+    @Test
     public void testAllHvacProperties() throws Exception {
         List<CarPropertyConfig> properties = mHvacManager.getPropertyList();
         Set<Class> supportedTypes = new HashSet<>(Arrays.asList(
@@ -54,10 +62,11 @@ public class CarHvacManagerTest extends CarApiTestBase {
         }
     }
 
+    @Test
     public void testHvacPosition() {
-        assertEquals(CarHvacManager.FAN_DIRECTION_FACE, VehicleHvacFanDirection.FACE);
-        assertEquals(CarHvacManager.FAN_DIRECTION_FLOOR, VehicleHvacFanDirection.FLOOR);
-        assertEquals(CarHvacManager.FAN_DIRECTION_DEFROST, VehicleHvacFanDirection.DEFROST);
+        assertThat(VehicleHvacFanDirection.FACE).isEqualTo(CarHvacManager.FAN_DIRECTION_FACE);
+        assertThat(VehicleHvacFanDirection.FLOOR).isEqualTo(CarHvacManager.FAN_DIRECTION_FLOOR);
+        assertThat(VehicleHvacFanDirection.DEFROST).isEqualTo(CarHvacManager.FAN_DIRECTION_DEFROST);
     }
 
     private void assertTypeAndZone(CarPropertyConfig property) {
@@ -103,35 +112,37 @@ public class CarHvacManagerTest extends CarApiTestBase {
         }
     }
 
-    private void checkTypeAndGlobal(Class clazz, boolean global, CarPropertyConfig<Integer> property) {
-        assertEquals("Wrong type, expecting " + clazz + " type for id:" + property.getPropertyId(),
-                clazz, property.getPropertyType());
-        assertEquals("Wrong zone, should " + (global ? "" : "not ") + "be global for id: " +
-                        property.getPropertyId() + ", area type:" + property.getAreaType(),
-                global, property.isGlobalProperty());
+    private void checkTypeAndGlobal(Class<?> clazz, boolean global,
+            CarPropertyConfig<Integer> property) {
+        assertWithMessage("Wrong type, expecting %s type for id %s", clazz,
+                property.getPropertyId()).that(property.getPropertyType()).isEqualTo(clazz);
+        assertWithMessage(
+                "Wrong zone, should %s be global for id:%s, area type: %s" + property.getAreaType(),
+                property.getPropertyId(), property.getAreaType(), (global ? "" : "not "))
+                        .that(property.isGlobalProperty()).isEqualTo(global);
     }
 
     private void checkIntMinMax(CarPropertyConfig<Integer> property) {
         Log.i(TAG, "checkIntMinMax property:" + property);
         if (!property.isGlobalProperty()) {
             int[] areaIds = property.getAreaIds();
-            assertTrue(areaIds.length > 0);
-            assertEquals(areaIds.length, property.getAreaCount());
+            assertThat(areaIds.length).isGreaterThan(0);
+            assertThat(property.getAreaCount()).isEqualTo(areaIds.length);
 
             for (int areaId : areaIds) {
-                assertTrue(property.hasArea(areaId));
+                assertThat(property.hasArea(areaId)).isTrue();
                 int min = property.getMinValue(areaId) == null ? 0 : property.getMinValue(areaId);
                 int max = property.getMaxValue(areaId) == null ? 0 : property.getMaxValue(areaId);
-                assertTrue(min <= max);
+                assertThat(min).isAtMost(max);
             }
         } else {
             int min = property.getMinValue() == null ? 0 : property.getMinValue();
             int max = property.getMaxValue() == null ? 0 : property.getMinValue();
-            assertTrue(min <= max);
+            assertThat(min).isAtMost(max);
             for (int i = 0; i < 32; i++) {
-                assertFalse(property.hasArea(0x1 << i));
-                assertNull(property.getMinValue(0x1 << i));
-                assertNull(property.getMaxValue(0x1 << i));
+                assertThat(property.hasArea(0x1 << i)).isFalse();
+                assertThat(property.getMinValue(0x1 << i)).isNull();
+                assertThat(property.getMaxValue(0x1 << i)).isNull();
             }
         }
     }
@@ -140,25 +151,25 @@ public class CarHvacManagerTest extends CarApiTestBase {
         Log.i(TAG, "checkFloatMinMax property:" + property);
         if (!property.isGlobalProperty()) {
             int[] areaIds = property.getAreaIds();
-            assertTrue(areaIds.length > 0);
-            assertEquals(areaIds.length, property.getAreaCount());
+            assertThat(areaIds.length).isGreaterThan(0);
+            assertThat(property.getAreaCount()).isEqualTo(areaIds.length);
 
             for (int areaId : areaIds) {
-                assertTrue(property.hasArea(areaId));
+                assertThat(property.hasArea(areaId)).isTrue();
                 float min =
                         property.getMinValue(areaId) == null ? 0f : property.getMinValue(areaId);
                 float max =
                         property.getMaxValue(areaId) == null ? 0f : property.getMinValue(areaId);
-                assertTrue(min <= max);
+                assertThat(min).isAtMost(max);
             }
         } else {
             float min = property.getMinValue() == null ? 0f : property.getMinValue();
             float max = property.getMaxValue() == null ? 0f : property.getMinValue();
-            assertTrue(min <= max);
+            assertThat(min).isAtMost(max);
             for (int i = 0; i < 32; i++) {
-                assertFalse(property.hasArea(0x1 << i));
-                assertNull(property.getMinValue(0x1 << i));
-                assertNull(property.getMaxValue(0x1 << i));
+                assertThat(property.hasArea(0x1 << i)).isFalse();
+                assertThat(property.getMinValue(0x1 << i)).isNull();
+                assertThat(property.getMaxValue(0x1 << i)).isNull();
             }
         }
     }

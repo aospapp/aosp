@@ -19,6 +19,7 @@ package com.android.car.settings.testutils;
 import android.app.AppOpsManager;
 import android.app.AppOpsManager.OpEntry;
 import android.app.AppOpsManager.PackageOps;
+import android.util.Pair;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +67,7 @@ public class ShadowAppOpsManager {
                 if (mode == null) {
                     mode = AppOpsManager.opToDefaultMode(op);
                 }
-                OpEntry opEntry = new OpEntry(op, mode);
+                OpEntry opEntry = new OpEntry(op, mode, Collections.emptyMap());
                 PackageOps packageOp = new PackageOps(key.mPackageName, key.mUid,
                         Collections.singletonList(opEntry));
                 result.add(packageOp);

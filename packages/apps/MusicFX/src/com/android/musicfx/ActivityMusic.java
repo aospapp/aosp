@@ -60,7 +60,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Formatter;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -164,6 +166,23 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
      */
     private static final String[] PRESETREVERBPRESETSTRINGS = { "None", "SmallRoom", "MediumRoom",
             "LargeRoom", "MediumHall", "LargeHall", "Plate" };
+
+    /**
+     * Default localized equalizer preset names. Keep the same as EffectBundle::gEqualizerPresets.
+     */
+    private static final Map<String, Integer> LOCALIZED_EQUALIZER_PRESET_NAMES
+            = new HashMap<String, Integer>() {{
+            put("Normal", R.string.normal);
+            put("Classical", R.string.classical);
+            put("Dance", R.string.dance);
+            put("Flat", R.string.flat);
+            put("Folk", R.string.folk);
+            put("Heavy Metal", R.string.heavy_metal);
+            put("Hip Hop", R.string.hip_hop);
+            put("Jazz", R.string.jazz);
+            put("Pop", R.string.pop);
+            put("Rock", R.string.rock);
+    }};
 
     /**
      * Context field
@@ -287,6 +306,10 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
         for (short i = 0; i < numPresets; i++) {
             mEQPresetNames[i] = ControlPanelEffect.getParameterString(mContext,
                     mCallingPackageName, mAudioSession, ControlPanelEffect.Key.eq_preset_name, i);
+            Integer localizedNameId = LOCALIZED_EQUALIZER_PRESET_NAMES.get(mEQPresetNames[i]);
+            if (localizedNameId != null) {
+                mEQPresetNames[i] = getString(localizedNameId);
+            }
         }
         mEQPresetNames[numPresets] = getString(R.string.ci_extreme);
         mEQPresetNames[numPresets + 1] = getString(R.string.user);

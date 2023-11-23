@@ -27,7 +27,7 @@ This instrumentation dumps a heap, performs some configurable action (see the co
 then dumps another heap. You can run it manually as follows:
 
   make LibcoreHeapDumper
-  adb install -g -r ${ANDROID_PRODUCT_OUT}/data/app/LibcoreHeapDumper/LibcoreHeapDumper.apk
+  adb install -g -r ${ANDROID_PRODUCT_OUT}/testcases/LibcoreHeapDumper/arm64/LibcoreHeapDumper.apk
 
   DEVICE_EXTERNAL_STORAGE=$(adb shell 'echo -n ${EXTERNAL_STORAGE}')
   # Pick a suitable name here:

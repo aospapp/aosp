@@ -207,6 +207,8 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
 
     ps_dec_op->u4_output_present = 0;
     ps_dec_op->u4_progressive_frame_flag = 1;
+    ps_dec_op->i4_display_index = -1;
+    ps_dec_op->i4_reorder_depth = -1;
     if(ps_codec->i4_sps_done)
     {
         sps_t *ps_sps = (ps_codec->s_parse.ps_sps_base + ps_codec->i4_sps_id);
@@ -217,6 +219,8 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
         {
             ps_dec_op->u4_progressive_frame_flag = 0;
         }
+        ps_dec_op->i4_reorder_depth =
+                        ps_sps->ai1_sps_max_num_reorder_pics[ps_sps->i1_sps_max_sub_layers - 1];
     }
 
     ps_dec_op->u4_is_ref_flag = 1;
@@ -224,7 +228,6 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
     ps_dec_op->u4_is_ref_flag = 1;
 
     ps_dec_op->e4_fld_type = IV_FLD_TYPE_DEFAULT;
-
     ps_dec_op->u4_ts = (UWORD32)(-1);
     ps_dec_op->u4_disp_buf_id = ps_codec->i4_disp_buf_id;
     if(ps_codec->i4_flush_mode)
@@ -264,6 +267,7 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
                     break;
             }
         }
+        ps_dec_op->i4_display_index = ps_disp_buf->i4_abs_poc;
         ps_dec_op->u4_output_present = 1;
         ps_dec_op->u4_ts = ps_disp_buf->u4_ts;
         if((ps_codec->i4_flush_mode == 0) && (ps_codec->s_parse.i4_end_of_frame == 0))
@@ -622,6 +626,13 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
 
         nal_ofst = ihevcd_nal_search_start_code(ps_codec->pu1_inp_bitsbuf,
                                                 ps_codec->i4_bytes_remaining);
+        /* If there is no start code found, consume the data and break */
+        if(nal_ofst == ps_codec->i4_bytes_remaining)
+        {
+            ps_codec->pu1_inp_bitsbuf += nal_ofst;
+            ps_codec->i4_bytes_remaining -= nal_ofst;
+            break;
+        }
 
         ps_codec->i4_nal_ofst = nal_ofst;
         {

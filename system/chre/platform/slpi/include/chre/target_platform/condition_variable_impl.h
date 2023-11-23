@@ -36,13 +36,13 @@ inline void ConditionVariable::notify_one() {
   qurt_cond_signal(&mConditionVariable);
 }
 
-inline void ConditionVariable::wait(Mutex& mutex) {
+inline void ConditionVariable::wait(Mutex &mutex) {
   qurt_cond_wait(&mConditionVariable, &mutex.mMutex);
 }
 
 // Note: The wait_for function is designed to work for a single thread waiting
 // on the condition variable.
-inline bool ConditionVariable::wait_for(Mutex& mutex, Nanoseconds timeout) {
+inline bool ConditionVariable::wait_for(Mutex &mutex, Nanoseconds timeout) {
   if (!mTimerInitialized) {
     if (!mTimeoutTimer.init()) {
       FATAL_ERROR("Failed to initialize condition variable timer");
@@ -56,7 +56,7 @@ inline bool ConditionVariable::wait_for(Mutex& mutex, Nanoseconds timeout) {
     bool timedOut;
   };
   auto callback = [](void *data) {
-    auto cbData = static_cast<TimeoutCallbackData*>(data);
+    auto cbData = static_cast<TimeoutCallbackData *>(data);
     cbData->timedOut = true;
     cbData->cvPtr->notify_one();
   };

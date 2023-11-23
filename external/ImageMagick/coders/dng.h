@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -17,6 +17,8 @@
 #include "coders/coders-private.h"
 
 #define MagickDNGHeaders \
+  MagickCoderHeader("CR2", 0, "\115\115\000\052\000\020\000\000\122\103\002") \
+  MagickCoderHeader("CR2", 0, "\111\111\052\000\020\000\000\000\103\122\002") \
   MagickCoderHeader("CRW", 0, "II\x1a\x00\x00\x00HEAPCCDR") \
   MagickCoderHeader("ORF", 0, "IIRO\x08\x00\x00\x00") \
   MagickCoderHeader("MRW", 0, "\x00MRM") \
@@ -26,6 +28,7 @@
   MagickCoderAlias("DNG", "3FR") \
   MagickCoderAlias("DNG", "ARW") \
   MagickCoderAlias("DNG", "CR2") \
+  MagickCoderAlias("DNG", "CR3") \
   MagickCoderAlias("DNG", "CRW") \
   MagickCoderAlias("DNG", "DCR") \
   MagickCoderAlias("DNG", "DCRAW") \

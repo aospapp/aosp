@@ -12,13 +12,17 @@
 #include "core/fpdfapi/font/cpdf_cidfont.h"
 #include "core/fpdfapi/font/cpdf_font.h"
 #include "third_party/base/ptr_util.h"
-#include "third_party/base/stl_util.h"
+
+#define ISLATINWORD(u) (u != 0x20 && u <= 0x28FF)
 
 CPDF_TextObjectItem::CPDF_TextObjectItem() : m_CharCode(0) {}
 
 CPDF_TextObjectItem::~CPDF_TextObjectItem() = default;
 
-CPDF_TextObject::CPDF_TextObject() {}
+CPDF_TextObject::CPDF_TextObject(int32_t content_stream)
+    : CPDF_PageObject(content_stream) {}
+
+CPDF_TextObject::CPDF_TextObject() : CPDF_TextObject(kNoContentStream) {}
 
 CPDF_TextObject::~CPDF_TextObject() {
   // Move m_CharCodes to a local variable so it will be captured in crash dumps,
@@ -32,15 +36,14 @@ size_t CPDF_TextObject::CountItems() const {
 
 void CPDF_TextObject::GetItemInfo(size_t index,
                                   CPDF_TextObjectItem* pInfo) const {
+  ASSERT(index < m_CharCodes.size());
   pInfo->m_CharCode = m_CharCodes[index];
   pInfo->m_Origin = CFX_PointF(index > 0 ? m_CharPos[index - 1] : 0, 0);
   if (pInfo->m_CharCode == CPDF_Font::kInvalidCharCode)
     return;
 
-  CPDF_Font* pFont = m_TextState.GetFont();
-  if (!pFont->IsCIDFont())
-    return;
-  if (!pFont->AsCIDFont()->IsVertWriting())
+  RetainPtr<CPDF_Font> pFont = GetFont();
+  if (!pFont->IsCIDFont() || !pFont->AsCIDFont()->IsVertWriting())
     return;
 
   uint16_t CID = pFont->AsCIDFont()->CIDFromCharCode(pInfo->m_CharCode);
@@ -50,7 +53,7 @@ void CPDF_TextObject::GetItemInfo(size_t index,
   short vy;
   pFont->AsCIDFont()->GetVertOrigin(CID, vx, vy);
 
-  float fontsize = m_TextState.GetFontSize();
+  float fontsize = GetFontSize();
   pInfo->m_Origin.x -= fontsize * vx / 1000;
   pInfo->m_Origin.y -= fontsize * vy / 1000;
 }
@@ -98,6 +101,59 @@ void CPDF_TextObject::GetCharInfo(size_t index,
   }
 }
 
+int CPDF_TextObject::CountWords() const {
+  RetainPtr<CPDF_Font> pFont = GetFont();
+  bool bInLatinWord = false;
+  int nWords = 0;
+  for (size_t i = 0, sz = CountChars(); i < sz; ++i) {
+    uint32_t charcode = CPDF_Font::kInvalidCharCode;
+    float unused_kerning;
+    GetCharInfo(i, &charcode, &unused_kerning);
+
+    WideString swUnicode = pFont->UnicodeFromCharCode(charcode);
+    uint16_t unicode = 0;
+    if (swUnicode.GetLength() > 0)
+      unicode = swUnicode[0];
+
+    bool bIsLatin = ISLATINWORD(unicode);
+    if (bIsLatin && bInLatinWord)
+      continue;
+
+    bInLatinWord = bIsLatin;
+    if (unicode != 0x20)
+      nWords++;
+  }
+
+  return nWords;
+}
+
+WideString CPDF_TextObject::GetWordString(int nWordIndex) const {
+  RetainPtr<CPDF_Font> pFont = GetFont();
+  WideString swRet;
+  int nWords = 0;
+  bool bInLatinWord = false;
+  for (size_t i = 0, sz = CountChars(); i < sz; ++i) {
+    uint32_t charcode = CPDF_Font::kInvalidCharCode;
+    float unused_kerning;
+    GetCharInfo(i, &charcode, &unused_kerning);
+
+    WideString swUnicode = pFont->UnicodeFromCharCode(charcode);
+    uint16_t unicode = 0;
+    if (swUnicode.GetLength() > 0)
+      unicode = swUnicode[0];
+
+    bool bIsLatin = ISLATINWORD(unicode);
+    if (!bIsLatin || !bInLatinWord) {
+      bInLatinWord = bIsLatin;
+      if (unicode != 0x20)
+        nWords++;
+    }
+    if (nWords - 1 == nWordIndex)
+      swRet += unicode;
+  }
+  return swRet;
+}
+
 std::unique_ptr<CPDF_TextObject> CPDF_TextObject::Clone() const {
   auto obj = pdfium::MakeUnique<CPDF_TextObject>();
   obj->CopyData(this);
@@ -112,8 +168,7 @@ CPDF_PageObject::Type CPDF_TextObject::GetType() const {
 }
 
 void CPDF_TextObject::Transform(const CFX_Matrix& matrix) {
-  CFX_Matrix text_matrix = GetTextMatrix();
-  text_matrix.Concat(matrix);
+  CFX_Matrix text_matrix = GetTextMatrix() * matrix;
 
   float* pTextMatrix = m_TextState.GetMutableMatrix();
   pTextMatrix[0] = text_matrix.a;
@@ -144,40 +199,41 @@ CFX_Matrix CPDF_TextObject::GetTextMatrix() const {
 }
 
 void CPDF_TextObject::SetSegments(const ByteString* pStrs,
-                                  const float* pKerning,
-                                  int nsegs) {
+                                  const std::vector<float>& kernings,
+                                  size_t nSegs) {
   m_CharCodes.clear();
   m_CharPos.clear();
-  CPDF_Font* pFont = m_TextState.GetFont();
+  RetainPtr<CPDF_Font> pFont = GetFont();
   int nChars = 0;
-  for (int i = 0; i < nsegs; ++i)
-    nChars += pFont->CountChar(pStrs[i].c_str(), pStrs[i].GetLength());
-  nChars += nsegs - 1;
+  for (size_t i = 0; i < nSegs; ++i)
+    nChars += pFont->CountChar(pStrs[i].AsStringView());
+  nChars += nSegs - 1;
   m_CharCodes.resize(nChars);
   m_CharPos.resize(nChars - 1);
-  int index = 0;
-  for (int i = 0; i < nsegs; ++i) {
-    const char* segment = pStrs[i].c_str();
-    int len = pStrs[i].GetLength();
-    int offset = 0;
-    while (offset < len)
-      m_CharCodes[index++] = pFont->GetNextChar(segment, len, offset);
-    if (i != nsegs - 1) {
-      m_CharPos[index - 1] = pKerning[i];
+  size_t index = 0;
+  for (size_t i = 0; i < nSegs; ++i) {
+    ByteStringView segment = pStrs[i].AsStringView();
+    size_t offset = 0;
+    while (offset < segment.GetLength()) {
+      ASSERT(index < m_CharCodes.size());
+      m_CharCodes[index++] = pFont->GetNextChar(segment, &offset);
+    }
+    if (i != nSegs - 1) {
+      m_CharPos[index - 1] = kernings[i];
       m_CharCodes[index++] = CPDF_Font::kInvalidCharCode;
     }
   }
 }
 
 void CPDF_TextObject::SetText(const ByteString& str) {
-  SetSegments(&str, nullptr, 1);
+  SetSegments(&str, std::vector<float>(), 1);
   RecalcPositionData();
   SetDirty(true);
 }
 
 float CPDF_TextObject::GetCharWidth(uint32_t charcode) const {
-  float fontsize = m_TextState.GetFontSize() / 1000;
-  CPDF_Font* pFont = m_TextState.GetFont();
+  float fontsize = GetFontSize() / 1000;
+  RetainPtr<CPDF_Font> pFont = GetFont();
   bool bVertWriting = false;
   CPDF_CIDFont* pCIDFont = pFont->AsCIDFont();
   if (pCIDFont)
@@ -189,12 +245,16 @@ float CPDF_TextObject::GetCharWidth(uint32_t charcode) const {
   return pCIDFont->GetVertWidth(CID) * fontsize;
 }
 
-CPDF_Font* CPDF_TextObject::GetFont() const {
+RetainPtr<CPDF_Font> CPDF_TextObject::GetFont() const {
   return m_TextState.GetFont();
 }
 
 float CPDF_TextObject::GetFontSize() const {
   return m_TextState.GetFontSize();
+}
+
+TextRenderingMode CPDF_TextObject::GetTextRenderMode() const {
+  return m_TextState.GetTextMode();
 }
 
 CFX_PointF CPDF_TextObject::CalcPositionData(float horz_scale) {
@@ -203,13 +263,13 @@ CFX_PointF CPDF_TextObject::CalcPositionData(float horz_scale) {
   float max_x = -10000 * 1.0f;
   float min_y = 10000 * 1.0f;
   float max_y = -10000 * 1.0f;
-  CPDF_Font* pFont = m_TextState.GetFont();
+  RetainPtr<CPDF_Font> pFont = GetFont();
   bool bVertWriting = false;
   CPDF_CIDFont* pCIDFont = pFont->AsCIDFont();
   if (pCIDFont)
     bVertWriting = pCIDFont->IsVertWriting();
 
-  float fontsize = m_TextState.GetFontSize();
+  float fontsize = GetFontSize();
   for (size_t i = 0; i < m_CharCodes.size(); ++i) {
     uint32_t charcode = m_CharCodes[i];
     if (i > 0) {
@@ -268,30 +328,19 @@ CFX_PointF CPDF_TextObject::CalcPositionData(float horz_scale) {
     min_y = min_y * fontsize / 1000;
     max_y = max_y * fontsize / 1000;
   }
-  std::tie(m_Left, m_Right, m_Top, m_Bottom) =
-      GetTextMatrix().TransformRect(min_x, max_x, max_y, min_y);
+  SetRect(
+      GetTextMatrix().TransformRect(CFX_FloatRect(min_x, min_y, max_x, max_y)));
 
   if (!TextRenderingModeIsStrokeMode(m_TextState.GetTextMode()))
     return ret;
 
   float half_width = m_GraphState.GetLineWidth() / 2;
-  m_Left -= half_width;
-  m_Right += half_width;
-  m_Top += half_width;
-  m_Bottom -= half_width;
+  m_Rect.left -= half_width;
+  m_Rect.right += half_width;
+  m_Rect.top += half_width;
+  m_Rect.bottom -= half_width;
 
   return ret;
-}
-
-void CPDF_TextObject::SetPosition(float x, float y) {
-  float dx = x - m_Pos.x;
-  float dy = y - m_Pos.y;
-  m_Pos.x = x;
-  m_Pos.y = y;
-  m_Left += dx;
-  m_Right += dx;
-  m_Top += dy;
-  m_Bottom += dy;
 }
 
 void CPDF_TextObject::RecalcPositionData() {

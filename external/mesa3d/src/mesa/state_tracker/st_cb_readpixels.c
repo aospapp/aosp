@@ -46,6 +46,8 @@
 #include "state_tracker/st_format.h"
 #include "state_tracker/st_pbo.h"
 #include "state_tracker/st_texture.h"
+#include "state_tracker/st_util.h"
+
 
 /* The readpixels cache caches a blitted staging texture so that back-to-back
  * calls to glReadPixels with user pointers require less CPU-GPU synchronization.
@@ -112,7 +114,7 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
    if (texture->nr_samples > 1)
       return false;
 
-   if (!screen->is_format_supported(screen, dst_format, PIPE_BUFFER, 0,
+   if (!screen->is_format_supported(screen, dst_format, PIPE_BUFFER, 0, 0,
                                     PIPE_BIND_SHADER_IMAGE))
       return false;
 
@@ -199,6 +201,7 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
       image.resource = addr.buffer;
       image.format = dst_format;
       image.access = PIPE_IMAGE_ACCESS_WRITE;
+      image.shader_access = PIPE_IMAGE_ACCESS_WRITE;
       image.u.buf.offset = addr.first_element * addr.bytes_per_pixel;
       image.u.buf.size = (addr.last_element - addr.first_element + 1) *
                          addr.bytes_per_pixel;
@@ -270,8 +273,8 @@ blit_to_staging(struct st_context *st, struct st_renderbuffer *strb,
    /* We are creating a texture of the size of the region being read back.
     * Need to check for NPOT texture support. */
    if (!screen->get_param(screen, PIPE_CAP_NPOT_TEXTURES) &&
-       (!util_is_power_of_two(width) ||
-        !util_is_power_of_two(height)))
+       (!util_is_power_of_two_or_zero(width) ||
+        !util_is_power_of_two_or_zero(height)))
       return NULL;
 
    /* create the destination texture */
@@ -449,7 +452,7 @@ st_ReadPixels(struct gl_context *ctx, GLint x, GLint y,
 
    if (!src_format ||
        !screen->is_format_supported(screen, src_format, src->target,
-                                    src->nr_samples,
+                                    src->nr_samples, src->nr_storage_samples,
                                     PIPE_BIND_SAMPLER_VIEW)) {
       goto fallback;
    }

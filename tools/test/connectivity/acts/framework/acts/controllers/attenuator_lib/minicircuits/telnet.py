@@ -37,11 +37,12 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
     the functionality of AttenuatorInstrument is contingent upon a telnet
     connection being established.
     """
-
     def __init__(self, num_atten=0):
         super(AttenuatorInstrument, self).__init__(num_atten)
-        self._tnhelper = _tnhelper._TNHelper(
-            tx_cmd_separator='\r\n', rx_cmd_separator='\r\n', prompt='')
+        self._tnhelper = _tnhelper._TNHelper(tx_cmd_separator='\r\n',
+                                             rx_cmd_separator='\r\n',
+                                             prompt='')
+        self.address = None
 
     def __del__(self):
         if self.is_open():
@@ -57,6 +58,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
             port: An optional port number (defaults to telnet default 23)
         """
         self._tnhelper.open(host, port)
+        self.address = host
 
         if self.num_atten == 0:
             self.num_atten = 1
@@ -134,6 +136,9 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
             raise IndexError('Attenuator index out of range!', self.num_atten,
                              idx)
 
-        atten_val_str = self._tnhelper.cmd('CHAN:%s:ATT?' % (idx + 1))
+        if self.num_atten == 1:
+            atten_val_str = self._tnhelper.cmd(':ATT?')
+        else:
+            atten_val_str = self._tnhelper.cmd('CHAN:%s:ATT?' % (idx + 1))
         atten_val = float(atten_val_str)
         return atten_val

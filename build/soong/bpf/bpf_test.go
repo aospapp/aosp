@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"android/soong/android"
-	cc2 "android/soong/cc"
+	"android/soong/cc"
 )
 
 var buildDir string
@@ -48,122 +48,24 @@ func TestMain(m *testing.M) {
 	os.Exit(run())
 }
 
-func testContext(bp string) *android.TestContext {
-	ctx := android.NewTestArchContext()
-	ctx.RegisterModuleType("bpf", android.ModuleFactoryAdaptor(bpfFactory))
-	ctx.RegisterModuleType("cc_test", android.ModuleFactoryAdaptor(cc2.TestFactory))
-	ctx.RegisterModuleType("cc_library", android.ModuleFactoryAdaptor(cc2.LibraryFactory))
-	ctx.RegisterModuleType("cc_library_static", android.ModuleFactoryAdaptor(cc2.LibraryStaticFactory))
-	ctx.RegisterModuleType("cc_object", android.ModuleFactoryAdaptor(cc2.ObjectFactory))
-	ctx.RegisterModuleType("toolchain_library", android.ModuleFactoryAdaptor(cc2.ToolchainLibraryFactory))
-	ctx.PreDepsMutators(func(ctx android.RegisterMutatorsContext) {
-		ctx.BottomUp("link", cc2.LinkageMutator).Parallel()
-	})
-	ctx.Register()
-
-	// Add some modules that are required by the compiler and/or linker
-	bp = bp + `
-		toolchain_library {
-			name: "libatomic",
-			vendor_available: true,
-			recovery_available: true,
-			src: "",
-		}
-
-		toolchain_library {
-			name: "libclang_rt.builtins-arm-android",
-			vendor_available: true,
-			recovery_available: true,
-			src: "",
-		}
-
-		toolchain_library {
-			name: "libclang_rt.builtins-aarch64-android",
-			vendor_available: true,
-			recovery_available: true,
-			src: "",
-		}
-
-		toolchain_library {
-			name: "libgcc",
-			vendor_available: true,
-			recovery_available: true,
-			src: "",
-		}
-
-		cc_library {
-			name: "libc",
-			no_libgcc: true,
-			nocrt: true,
-			system_shared_libs: [],
-			recovery_available: true,
-		}
-
-		cc_library {
-			name: "libm",
-			no_libgcc: true,
-			nocrt: true,
-			system_shared_libs: [],
-			recovery_available: true,
-		}
-
-		cc_library {
-			name: "libdl",
-			no_libgcc: true,
-			nocrt: true,
-			system_shared_libs: [],
-			recovery_available: true,
-		}
-
-		cc_library {
-			name: "libgtest",
-			host_supported: true,
-			vendor_available: true,
-		}
-
-		cc_library {
-			name: "libgtest_main",
-			host_supported: true,
-			vendor_available: true,
-		}
-
-		cc_object {
-			name: "crtbegin_dynamic",
-			recovery_available: true,
-			vendor_available: true,
-		}
-
-		cc_object {
-			name: "crtend_android",
-			recovery_available: true,
-			vendor_available: true,
-		}
-
-		cc_object {
-			name: "crtbegin_so",
-			recovery_available: true,
-			vendor_available: true,
-		}
-
-		cc_object {
-			name: "crtend_so",
-			recovery_available: true,
-			vendor_available: true,
-		}
-	`
+func testConfig(buildDir string, env map[string]string, bp string) android.Config {
 	mockFS := map[string][]byte{
-		"Android.bp":  []byte(bp),
 		"bpf.c":       nil,
 		"BpfTest.cpp": nil,
 	}
 
-	ctx.MockFileSystem(mockFS)
+	return cc.TestConfig(buildDir, android.Android, env, bp, mockFS)
+}
+
+func testContext(config android.Config) *android.TestContext {
+	ctx := cc.CreateTestContext()
+	ctx.RegisterModuleType("bpf", bpfFactory)
+	ctx.Register(config)
 
 	return ctx
 }
 
 func TestBpfDataDependency(t *testing.T) {
-	config := android.TestArchConfig(buildDir, nil)
 	bp := `
 		bpf {
 			name: "bpf.o",
@@ -174,10 +76,13 @@ func TestBpfDataDependency(t *testing.T) {
 			name: "vts_test_binary_bpf_module",
 			srcs: ["BpfTest.cpp"],
 			data: [":bpf.o"],
+			gtest: false,
 		}
 	`
 
-	ctx := testContext(bp)
+	config := testConfig(buildDir, nil, bp)
+	ctx := testContext(config)
+
 	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
 	if errs == nil {
 		_, errs = ctx.PrepareBuildActions(config)

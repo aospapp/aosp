@@ -63,6 +63,27 @@ TARGET_NO_KERNEL := false
 BOARD_USES_RECOVERY_AS_BOOT := true
 BOARD_USES_METADATA_PARTITION := true
 
+# Board uses A/B OTA.
+AB_OTA_UPDATER := true
+
+AB_OTA_PARTITIONS += \
+    boot \
+    system \
+    vbmeta \
+    dtbo
+
+# Skip product and system_ext partition for nodap build
+ifeq ($(filter %_nodap,$(TARGET_PRODUCT)),)
+AB_OTA_PARTITIONS += \
+    product \
+    system_ext
+endif
+
+ifneq ($(filter %_mainline,$(TARGET_PRODUCT)),)
+AB_OTA_PARTITIONS += \
+    vbmeta_system
+endif
+
 # Partitions (listed in the file) to be wiped under recovery.
 TARGET_RECOVERY_WIPE := device/google/crosshatch/recovery.wipe
 ifneq ($(filter %_mainline,$(TARGET_PRODUCT)),)
@@ -72,16 +93,11 @@ TARGET_RECOVERY_FSTAB := device/google/crosshatch/fstab.hardware
 endif
 TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 TARGET_RECOVERY_UI_LIB := \
-    librecovery_ui_crosshatch \
-    libnos_citadel_for_recovery \
-    libnos_for_recovery \
-    libbootloader_message \
+    librecovery_ui_pixel \
     libfstab
 
 ifneq ($(filter %_mainline,$(TARGET_PRODUCT)),)
-# TODO (b/136154856) product_services partition is removed from
-# BOARD_AVB_VBMETA_SYSTEM. Instead, we will add system_ext once it is ready.
-BOARD_AVB_VBMETA_SYSTEM := system
+BOARD_AVB_VBMETA_SYSTEM := system system_ext
 BOARD_AVB_VBMETA_SYSTEM_KEY_PATH := external/avb/test/data/testkey_rsa2048.pem
 BOARD_AVB_VBMETA_SYSTEM_ALGORITHM := SHA256_RSA2048
 BOARD_AVB_VBMETA_SYSTEM_ROLLBACK_INDEX := $(PLATFORM_SECURITY_PATCH_TIMESTAMP)
@@ -107,8 +123,6 @@ ifeq ($(PRODUCT_NO_PRODUCT_PARTITION), true)
 else
   BOARD_SYSTEMIMAGE_EXTFS_INODE_COUNT := 4096
 endif
-else
-  BOARD_EXT4_SHARE_DUP_BLOCKS := true
 endif
 BOARD_SYSTEMIMAGE_JOURNAL_SIZE := 0
 
@@ -123,12 +137,24 @@ BOARD_PERSISTIMAGE_FILE_SYSTEM_TYPE := ext4
 # boot.img
 BOARD_BOOTIMAGE_PARTITION_SIZE := 0x04000000
 
+# system_ext.img
+ifneq ($(PRODUCT_USE_DYNAMIC_PARTITIONS), true)
+TARGET_COPY_OUT_SYSTEM_EXT := system/system_ext
+else
+BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := ext4
+endif
+ifeq ($(PRODUCT_NO_PRODUCT_PARTITION), true)
+# no system_ext partition as well
+TARGET_COPY_OUT_SYSTEM_EXT := system/system_ext
+endif
+
 ifeq ($(PRODUCT_USE_DYNAMIC_PARTITIONS), true)
 BOARD_SUPER_PARTITION_GROUPS := google_dynamic_partitions
 BOARD_GOOGLE_DYNAMIC_PARTITIONS_PARTITION_LIST := \
     system \
     vendor \
-    product
+    product \
+    system_ext
 
 ifeq ($(PRODUCT_RETROFIT_DYNAMIC_PARTITIONS), true)
 # Normal Pixel 3 must retrofit dynamic partitions.
@@ -144,28 +170,15 @@ BOARD_GOOGLE_DYNAMIC_PARTITIONS_SIZE := 4069523456
 else
 # Mainline Pixel 3 has an actual super partition.
 
-# TODO (b/136154856) product_services partition is removed.
-# Instead, we will add system_ext once it is ready.
-# BOARD_PRODUCT_SERVICESIMAGE_FILE_SYSTEM_TYPE := ext4
-# TARGET_COPY_OUT_PRODUCT_SERVICES := product_services
-
 BOARD_SUPER_PARTITION_SIZE := 12884901888
 # Assume 1MB metadata size.
 # TODO(b/117997386): Use correct metadata size.
 BOARD_GOOGLE_DYNAMIC_PARTITIONS_SIZE := 6441402368
 
-# TODO (b/136154856) product_services partition removed.
-# Instead, we will add system_ext once it is ready.
-# BOARD_GOOGLE_DYNAMIC_PARTITIONS_PARTITION_LIST += \
-#    product_services \
-
 endif # PRODUCT_RETROFIT_DYNAMIC_PARTITIONS
 endif # PRODUCT_USE_DYNAMIC_PARTITIONS
 
 BOARD_FLASH_BLOCK_SIZE := 131072
-
-# Generate an APEX image for experiment b/119800099.
-DEXPREOPT_GENERATE_APEX_IMAGE := true
 
 BOARD_ROOT_EXTRA_SYMLINKS := /vendor/dsp:/dsp
 BOARD_ROOT_EXTRA_SYMLINKS += /mnt/vendor/persist:/persist
@@ -204,6 +217,13 @@ OVERRIDE_RS_DRIVER := libRSDriver_adreno.so
 # Sensors
 USE_SENSOR_MULTI_HAL := true
 TARGET_SUPPORT_DIRECT_REPORT := true
+# Enable sensor Version V_2
+USE_SENSOR_HAL_VER := 2.0
+
+# CHRE
+CHRE_DAEMON_ENABLED := true
+CHRE_DAEMON_LPMA_ENABLED := true
+CHRE_DAEMON_USE_SDSPRPC := true
 
 # wlan
 BOARD_WLAN_DEVICE := qcwcn
@@ -215,6 +235,9 @@ BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_$(BOARD_WLAN_DEVICE)
 BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_$(BOARD_WLAN_DEVICE)
 WIFI_HIDL_FEATURE_AWARE := true
 WIFI_HIDL_FEATURE_DUAL_INTERFACE:= true
+WIFI_FEATURE_WIFI_EXT_HAL := true
+WIFI_FEATURE_IMU_DETECTION := false
+WIFI_HIDL_UNIFIED_SUPPLICANT_SERVICE_RC_ENTRY := true
 
 # Audio
 BOARD_USES_ALSA_AUDIO := true

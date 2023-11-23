@@ -13,151 +13,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.android.cts.devicepolicy;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
+import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
+import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.platform.test.annotations.FlakyTest;
+import android.platform.test.annotations.LargeTest;
 import android.stats.devicepolicy.EventId;
 
+import com.android.compatibility.common.util.LocationModeSetter;
 import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 
-import junit.framework.AssertionFailedError;
 
-import java.util.Collections;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.junit.Ignore;
+import org.junit.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Set of tests for Managed Profile use cases.
  */
-public class ManagedProfileTest extends BaseDevicePolicyTest {
+public class ManagedProfileTest extends BaseManagedProfileTest {
 
-    private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
-    private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
-
+    private static final String FEATURE_TELEPHONY = "android.hardware.telephony";
+    private static final String FEATURE_BLUETOOTH = "android.hardware.bluetooth";
+    private static final String FEATURE_CAMERA = "android.hardware.camera";
+    private static final String FEATURE_WIFI = "android.hardware.wifi";
+    private static final String FEATURE_CONNECTION_SERVICE = "android.software.connectionservice";
     private static final String DEVICE_OWNER_PKG = "com.android.cts.deviceowner";
     private static final String DEVICE_OWNER_APK = "CtsDeviceOwnerApp.apk";
     private static final String DEVICE_OWNER_ADMIN =
             DEVICE_OWNER_PKG + ".BaseDeviceOwnerTest$BasicAdminReceiver";
 
-    private static final String INTENT_SENDER_PKG = "com.android.cts.intent.sender";
-    private static final String INTENT_SENDER_APK = "CtsIntentSenderApp.apk";
-
-    private static final String INTENT_RECEIVER_PKG = "com.android.cts.intent.receiver";
-    private static final String INTENT_RECEIVER_APK = "CtsIntentReceiverApp.apk";
-
-    private static final String WIDGET_PROVIDER_APK = "CtsWidgetProviderApp.apk";
-    private static final String WIDGET_PROVIDER_PKG = "com.android.cts.widgetprovider";
-
-    private static final String DIRECTORY_PROVIDER_APK = "CtsContactDirectoryProvider.apk";
-    private static final String DIRECTORY_PROVIDER_PKG
-            = "com.android.cts.contactdirectoryprovider";
-    private static final String PRIMARY_DIRECTORY_PREFIX = "Primary";
-    private static final String MANAGED_DIRECTORY_PREFIX = "Managed";
-    private static final String DIRECTORY_PRIVOIDER_URI
-            = "content://com.android.cts.contact.directory.provider/";
-    private static final String SET_CUSTOM_DIRECTORY_PREFIX_METHOD = "set_prefix";
-
-    private static final String NOTIFICATION_APK = "CtsNotificationSenderApp.apk";
-    private static final String NOTIFICATION_PKG =
-            "com.android.cts.managedprofiletests.notificationsender";
-
-    private static final String ADMIN_RECEIVER_TEST_CLASS =
-            MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
-
-    private static final String FEATURE_BLUETOOTH = "android.hardware.bluetooth";
-    private static final String FEATURE_CAMERA = "android.hardware.camera";
-    private static final String FEATURE_WIFI = "android.hardware.wifi";
-    private static final String FEATURE_TELEPHONY = "android.hardware.telephony";
-    private static final String FEATURE_CONNECTION_SERVICE = "android.software.connectionservice";
-
-    private static final String SIMPLE_APP_APK = "CtsSimpleApp.apk";
-
-    private static final long TIMEOUT_USER_LOCKED_MILLIS = TimeUnit.MINUTES.toMillis(2);
-
-    private static final String PARAM_PROFILE_ID = "profile-id";
-
-    // Password needs to be in sync with ResetPasswordWithTokenTest.PASSWORD1
-    private static final String RESET_PASSWORD_TEST_DEFAULT_PASSWORD = "123456";
-
-    private static final String PROFILE_CREDENTIAL = "1234";
-    // This should be sufficiently larger than ProfileTimeoutTestHelper.TIMEOUT_MS
-    private static final int PROFILE_TIMEOUT_DELAY_MS = 40_000;
-
-    //The maximum time to wait for user to be unlocked.
-    private static final long USER_UNLOCK_TIMEOUT_NANO = 30_000_000_000L;
-
-    private static final String USER_UNLOCKED_SHELL_OUTPUT = "RUNNING_UNLOCKED";
-
-    private int mParentUserId;
-
-    // ID of the profile we'll create. This will always be a profile of the parent.
-    private int mProfileUserId;
-
-    private boolean mHasNfcFeature;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        // We need multi user to be supported in order to create a profile of the user owner.
-        mHasFeature = mHasFeature && hasDeviceFeature("android.software.managed_users");
-        mHasNfcFeature = hasDeviceFeature("android.hardware.nfc")
-                && hasDeviceFeature("android.sofware.nfc.beam");
-
-        if (mHasFeature) {
-            removeTestUsers();
-            mParentUserId = mPrimaryUserId;
-            mProfileUserId = createManagedProfile(mParentUserId);
-            startUser(mProfileUserId);
-
-            installAppAsUser(MANAGED_PROFILE_APK, mParentUserId);
-            installAppAsUser(MANAGED_PROFILE_APK, mProfileUserId);
-            setProfileOwnerOrFail(MANAGED_PROFILE_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
-                    mProfileUserId);
-            waitForUserUnlock();
-        }
-    }
-
-    private void waitForUserUnlock() throws Exception {
-        final String command = String.format("am get-started-user-state %d", mProfileUserId);
-        final long deadline = System.nanoTime() + USER_UNLOCK_TIMEOUT_NANO;
-        while (System.nanoTime() <= deadline) {
-            if (getDevice().executeShellCommand(command).startsWith(USER_UNLOCKED_SHELL_OUTPUT)) {
-                return;
-            }
-            Thread.sleep(100);
-        }
-        fail("Profile user is not unlocked.");
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        if (mHasFeature) {
-            removeUser(mProfileUserId);
-            getDevice().uninstallPackage(MANAGED_PROFILE_PKG);
-            getDevice().uninstallPackage(INTENT_SENDER_PKG);
-            getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
-            getDevice().uninstallPackage(NOTIFICATION_PKG);
-        }
-        super.tearDown();
-    }
-
-    public void testManagedProfilesSupportedWithLockScreenOnly() throws Exception {
-        if (mHasFeature) {
-            // Managed profiles should be only supported if the device supports the secure lock
-            // screen feature.
-            assertTrue(mHasSecureLockScreen);
-        }
-    }
-
+    @Test
     public void testManagedProfileSetup() throws Exception {
         if (!mHasFeature) {
             return;
@@ -167,319 +66,54 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 mProfileUserId);
     }
 
-    public void testWipeDataWithReason() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        assertTrue(listUsers().contains(mProfileUserId));
-        sendWipeProfileBroadcast("com.android.cts.managedprofile.WIPE_DATA_WITH_REASON");
-        // Note: the managed profile is removed by this test, which will make removeUserCommand in
-        // tearDown() to complain, but that should be OK since its result is not asserted.
-        assertUserGetsRemoved(mProfileUserId);
-        // testWipeDataWithReason() removes the managed profile,
-        // so it needs to separated from other tests.
-        // Check and clear the notification is presented after work profile got removed, so profile
-        // user no longer exists, verification should be run in primary user.
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG,
-                ".WipeDataNotificationTest",
-                "testWipeDataWithReasonVerification",
-                mParentUserId);
-    }
-
-    public void testWipeDataLogged() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        assertTrue(listUsers().contains(mProfileUserId));
-        assertMetricsLogged(getDevice(), () -> {
-            sendWipeProfileBroadcast("com.android.cts.managedprofile.WIPE_DATA_WITH_REASON");
-        }, new DevicePolicyEventWrapper.Builder(EventId.WIPE_DATA_WITH_REASON_VALUE)
-                .setAdminPackageName(MANAGED_PROFILE_PKG)
-                .setInt(0)
-                .build());
-        // Check and clear the notification is presented after work profile got removed, so profile
-        // user no longer exists, verification should be run in primary user.
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG,
-                ".WipeDataNotificationTest",
-                "testWipeDataWithReasonVerification",
-                mParentUserId);
-    }
-
-    public void testWipeDataWithoutReason() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        assertTrue(listUsers().contains(mProfileUserId));
-        sendWipeProfileBroadcast("com.android.cts.managedprofile.WIPE_DATA_WITHOUT_REASON");
-        // Note: the managed profile is removed by this test, which will make removeUserCommand in
-        // tearDown() to complain, but that should be OK since its result is not asserted.
-        assertUserGetsRemoved(mProfileUserId);
-        // testWipeDataWithoutReason() removes the managed profile,
-        // so it needs to separated from other tests.
-        // Check the notification is not presented after work profile got removed, so profile user
-        // no longer exists, verification should be run in primary user.
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG,
-                ".WipeDataNotificationTest",
-                "testWipeDataWithoutReasonVerification",
-                mParentUserId);
-    }
-
-    /**
-     * wipeData() test removes the managed profile, so it needs to be separated from other tests.
-     */
-    public void testWipeData() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        assertTrue(listUsers().contains(mProfileUserId));
-        sendWipeProfileBroadcast("com.android.cts.managedprofile.WIPE_DATA");
-        // Note: the managed profile is removed by this test, which will make removeUserCommand in
-        // tearDown() to complain, but that should be OK since its result is not asserted.
-        assertUserGetsRemoved(mProfileUserId);
-    }
-
-    private void sendWipeProfileBroadcast(String action) throws Exception {
-        final String cmd = "am broadcast --receiver-foreground --user " + mProfileUserId
-                + " -a " + action
-                + " com.android.cts.managedprofile/.WipeDataReceiver";
-        getDevice().executeShellCommand(cmd);
-    }
-
-    public void testLockNowWithKeyEviction() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
-        changeUserCredential("1234", null, mProfileUserId);
-        lockProfile();
-    }
-
-    private void lockProfile() throws Exception {
-        final String cmd = "am broadcast --receiver-foreground --user " + mProfileUserId
-                + " -a com.android.cts.managedprofile.LOCK_PROFILE"
-                + " com.android.cts.managedprofile/.LockProfileReceiver";
-        getDevice().executeShellCommand(cmd);
-        waitUntilProfileLocked();
-    }
-
-    private void waitUntilProfileLocked() throws Exception {
-        final String cmd = "dumpsys activity | grep 'User #" + mProfileUserId + ": state='";
-        final Pattern p = Pattern.compile("state=([\\p{Upper}_]+)$");
-        SuccessCondition userLocked = () -> {
-            final String activityDump = getDevice().executeShellCommand(cmd);
-            final Matcher m = p.matcher(activityDump);
-            return m.find() && m.group(1).equals("RUNNING_LOCKED");
-        };
-        tryWaitForSuccess(
-                userLocked,
-                "The managed profile has not been locked after calling "
-                        + "lockNow(FLAG_SECURE_USER_DATA)",
-                TIMEOUT_USER_LOCKED_MILLIS);
-    }
-
-    /** Profile should get locked if it is not in foreground no matter what. */
-    public void testWorkProfileTimeoutBackground() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        setUpWorkProfileTimeout();
-
-        startDummyActivity(mPrimaryUserId, true);
-        simulateUserInteraction(PROFILE_TIMEOUT_DELAY_MS);
-
-        verifyOnlyProfileLocked(true);
-    }
-
-    /** Profile should get locked if it is in foreground but with no user activity. */
-    public void testWorkProfileTimeoutIdleActivity() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        setUpWorkProfileTimeout();
-
-        startDummyActivity(mProfileUserId, false);
-        Thread.sleep(PROFILE_TIMEOUT_DELAY_MS);
-
-        verifyOnlyProfileLocked(true);
-    }
-
-    /** User activity in profile should prevent it from locking. */
-    public void testWorkProfileTimeoutUserActivity() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        setUpWorkProfileTimeout();
-
-        startDummyActivity(mProfileUserId, false);
-        simulateUserInteraction(PROFILE_TIMEOUT_DELAY_MS);
-
-        verifyOnlyProfileLocked(false);
-    }
-
-    /** Keep screen on window flag in the profile should prevent it from locking. */
-    public void testWorkProfileTimeoutKeepScreenOnWindow() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        setUpWorkProfileTimeout();
-
-        startDummyActivity(mProfileUserId, true);
-        Thread.sleep(PROFILE_TIMEOUT_DELAY_MS);
-
-        verifyOnlyProfileLocked(false);
-    }
-
-    private void setUpWorkProfileTimeout() throws DeviceNotAvailableException {
-        // Set separate challenge.
-        changeUserCredential(PROFILE_CREDENTIAL, null, mProfileUserId);
-
-        // Make sure the profile is not prematurely locked.
-        verifyUserCredential(PROFILE_CREDENTIAL, mProfileUserId);
-        verifyOnlyProfileLocked(false);
-        // Set profile timeout to 5 seconds.
-        runProfileTimeoutTest("testSetWorkProfileTimeout", mProfileUserId);
-    }
-
-    private void verifyOnlyProfileLocked(boolean locked) throws DeviceNotAvailableException {
-        final String expectedResultTest = locked ? "testDeviceLocked" : "testDeviceNotLocked";
-        runProfileTimeoutTest(expectedResultTest, mProfileUserId);
-        // Primary profile shouldn't be locked.
-        runProfileTimeoutTest("testDeviceNotLocked", mPrimaryUserId);
-    }
-
-    private void simulateUserInteraction(int timeMs) throws Exception {
-        final long endTime = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeMs);
-        final UserActivityEmulator helper = new UserActivityEmulator(getDevice());
-        while (System.nanoTime() < endTime) {
-            helper.tapScreenCenter();
-            // Just in case to prevent busy loop.
-            Thread.sleep(100);
-        }
-    }
-
-    private void runProfileTimeoutTest(String method, int userId)
-            throws DeviceNotAvailableException {
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".ProfileTimeoutTestHelper",
-                method, userId);
-    }
-
-    private void startDummyActivity(int profileUserId, boolean keepScreenOn) throws Exception {
-        getDevice().executeShellCommand(String.format(
-                "am start-activity -W --user %d --ez keep_screen_on %s %s/.TimeoutActivity",
-                profileUserId, keepScreenOn, MANAGED_PROFILE_PKG));
-    }
-
+    @Test
     public void testMaxOneManagedProfile() throws Exception {
         int newUserId = -1;
         try {
             newUserId = createManagedProfile(mParentUserId);
-        } catch (AssertionFailedError expected) {
+        } catch (AssertionError expected) {
         }
         if (newUserId > 0) {
             removeUser(newUserId);
-            fail(mHasFeature ? "Device must allow creating only one managed profile"
-                    : "Device must not allow creating a managed profile");
+            if (mHasFeature) {
+                // Exception is Android TV which can create multiple managed profiles
+                if (!hasDeviceFeature("android.software.leanback")) {
+                    fail("Device must allow creating only one managed profile");
+                }
+            } else {
+                fail("Device must not allow creating a managed profile");
+            }
         }
     }
 
     /**
      * Verify that removing a managed profile will remove all networks owned by that profile.
      */
+    @Test
     public void testProfileWifiCleanup() throws Exception {
         if (!mHasFeature || !hasDeviceFeature(FEATURE_WIFI)) {
             return;
         }
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG, ".WifiTest", "testRemoveWifiNetworkIfExists", mParentUserId);
 
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG, ".WifiTest", "testAddWifiNetwork", mProfileUserId);
-
-        // Now delete the user - should undo the effect of testAddWifiNetwork.
-        removeUser(mProfileUserId);
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG, ".WifiTest", "testWifiNetworkDoesNotExist",
-                mParentUserId);
-    }
-
-    public void testWifiMacAddress() throws Exception {
-        if (!mHasFeature || !hasDeviceFeature(FEATURE_WIFI)) {
-            return;
-        }
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG, ".WifiTest", "testCannotGetWifiMacAddress", mProfileUserId);
-    }
-
-    public void testCrossProfileIntentFilters() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        // Set up activities: ManagedProfileActivity will only be enabled in the managed profile and
-        // PrimaryUserActivity only in the primary one
-        disableActivityForUser("ManagedProfileActivity", mParentUserId);
-        disableActivityForUser("PrimaryUserActivity", mProfileUserId);
-
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
-                MANAGED_PROFILE_PKG + ".ManagedProfileTest", mProfileUserId);
-
-        assertMetricsLogged(getDevice(), () -> {
+        try (LocationModeSetter locationModeSetter = new LocationModeSetter(getDevice())) {
+            locationModeSetter.setLocationEnabled(true);
             runDeviceTestsAsUser(
-                    MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".ManagedProfileTest",
-                    "testAddCrossProfileIntentFilter_all", mProfileUserId);
-        }, new DevicePolicyEventWrapper.Builder(EventId.ADD_CROSS_PROFILE_INTENT_FILTER_VALUE)
-                .setAdminPackageName(MANAGED_PROFILE_PKG)
-                .setInt(1)
-                .setStrings("com.android.cts.managedprofile.ACTION_TEST_ALL_ACTIVITY")
-                .build());
+                    MANAGED_PROFILE_PKG, ".WifiTest", "testRemoveWifiNetworkIfExists",
+                    mParentUserId);
 
-        // Set up filters from primary to managed profile
-        String command = "am start -W --user " + mProfileUserId + " " + MANAGED_PROFILE_PKG
-                + "/.PrimaryUserFilterSetterActivity";
-        CLog.d("Output for command " + command + ": "
-                + getDevice().executeShellCommand(command));
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".PrimaryUserTest", mParentUserId);
-        // TODO: Test with startActivity
-    }
+            runDeviceTestsAsUser(
+                    MANAGED_PROFILE_PKG, ".WifiTest", "testAddWifiNetwork", mProfileUserId);
 
-    public void testDisallowSharingIntoProfileFromProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
+            // Now delete the user - should undo the effect of testAddWifiNetwork.
+            removeUser(mProfileUserId);
+            runDeviceTestsAsUser(
+                    MANAGED_PROFILE_PKG, ".WifiTest", "testWifiNetworkDoesNotExist",
+                    mParentUserId);
         }
-        // Set up activities: PrimaryUserActivity will only be enabled in the personal user
-        // This activity is used to find out the ground truth about the system's cross profile
-        // intent forwarding activity.
-        disableActivityForUser("PrimaryUserActivity", mProfileUserId);
-
-        // Tests from the profile side
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
-                ".DisallowSharingIntoProfileTest", "testSharingFromProfile", mProfileUserId);
     }
 
-    public void testDisallowSharingIntoProfileFromPersonal() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        // Set up activities: ManagedProfileActivity will only be enabled in the managed profile
-        // This activity is used to find out the ground truth about the system's cross profile
-        // intent forwarding activity.
-        disableActivityForUser("ManagedProfileActivity", mParentUserId);
-
-        // Tests from the personal side, which is mostly driven from host side.
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
-                "testSetUp", mProfileUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
-                "testDisableSharingIntoProfile", mProfileUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
-                "testSharingFromPersonalFails", mParentUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
-                "testEnableSharingIntoProfile", mProfileUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
-                "testSharingFromPersonalSucceeds", mParentUserId);
-    }
-
+    @LargeTest
+    @Test
     public void testAppLinks_verificationStatus() throws Exception {
         if (!mHasFeature) {
             return;
@@ -488,10 +122,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         // intents resolution.
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
                 "testDisableAllBrowsers", mProfileUserId);
-        installAppAsUser(INTENT_RECEIVER_APK, mParentUserId);
-        installAppAsUser(INTENT_SENDER_APK, mParentUserId);
-        installAppAsUser(INTENT_RECEIVER_APK, mProfileUserId);
-        installAppAsUser(INTENT_SENDER_APK, mProfileUserId);
+        installAppAsUser(INTENT_RECEIVER_APK, USER_ALL);
+        installAppAsUser(INTENT_SENDER_APK, USER_ALL);
 
         changeVerificationStatus(mParentUserId, INTENT_RECEIVER_PKG, "ask");
         changeVerificationStatus(mProfileUserId, INTENT_RECEIVER_PKG, "ask");
@@ -518,6 +150,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         assertAppLinkResult("testReceivedByAppLinkActivityInManaged");
     }
 
+    @LargeTest
+    @Test
     public void testAppLinks_enabledStatus() throws Exception {
         if (!mHasFeature) {
             return;
@@ -526,10 +160,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         // intents resolution.
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
                 "testDisableAllBrowsers", mProfileUserId);
-        installAppAsUser(INTENT_RECEIVER_APK, mParentUserId);
-        installAppAsUser(INTENT_SENDER_APK, mParentUserId);
-        installAppAsUser(INTENT_RECEIVER_APK, mProfileUserId);
-        installAppAsUser(INTENT_SENDER_APK, mProfileUserId);
+        installAppAsUser(INTENT_RECEIVER_APK, USER_ALL);
+        installAppAsUser(INTENT_SENDER_APK, USER_ALL);
 
         final String APP_HANDLER_COMPONENT = "com.android.cts.intent.receiver/.AppLinkActivity";
 
@@ -573,6 +205,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         assertAppLinkResult("testThreeReceivers");
     }
 
+    @Test
     public void testSettingsIntents() throws Exception {
         if (!mHasFeature) {
             return;
@@ -582,143 +215,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 mProfileUserId);
     }
 
-    public void testCrossProfileContent() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        // Storage permission shouldn't be granted, we check if missing permissions are respected
-        // in ContentTest#testSecurity.
-        installAppAsUser(INTENT_SENDER_APK, false /* grantPermissions */, mParentUserId);
-        installAppAsUser(INTENT_SENDER_APK, false /* grantPermissions */, mProfileUserId);
-        installAppAsUser(INTENT_RECEIVER_APK, mParentUserId);
-        installAppAsUser(INTENT_RECEIVER_APK, mProfileUserId);
-
-        // Test from parent to managed
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                "testRemoveAllFilters", mProfileUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                "testAddManagedCanAccessParentFilters", mProfileUserId);
-        runDeviceTestsAsUser(INTENT_SENDER_PKG, ".ContentTest", mParentUserId);
-
-        // Test from managed to parent
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                "testRemoveAllFilters", mProfileUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                "testAddParentCanAccessManagedFilters", mProfileUserId);
-        runDeviceTestsAsUser(INTENT_SENDER_PKG, ".ContentTest", mProfileUserId);
-
-    }
-
-    public void testCrossProfileNotificationListeners_EmptyWhitelist() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        installAppAsUser(NOTIFICATION_APK, mProfileUserId);
-        installAppAsUser(NOTIFICATION_APK, mParentUserId);
-
-        // Profile owner in the profile sets an empty whitelist
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testSetEmptyWhitelist", mProfileUserId,
-                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
-        // Listener outside the profile can only see personal notifications.
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testCannotReceiveProfileNotifications", mParentUserId,
-                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
-    }
-
-    public void testCrossProfileNotificationListeners_NullWhitelist() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        installAppAsUser(NOTIFICATION_APK, mProfileUserId);
-        installAppAsUser(NOTIFICATION_APK, mParentUserId);
-
-        // Profile owner in the profile sets a null whitelist
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testSetNullWhitelist", mProfileUserId,
-                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
-        // Listener outside the profile can see profile and personal notifications
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testCanReceiveNotifications", mParentUserId,
-                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
-    }
-
-    public void testCrossProfileNotificationListeners_InWhitelist() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        installAppAsUser(NOTIFICATION_APK, mProfileUserId);
-        installAppAsUser(NOTIFICATION_APK, mParentUserId);
-
-        // Profile owner in the profile adds listener to the whitelist
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testAddListenerToWhitelist", mProfileUserId,
-                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
-        // Listener outside the profile can see profile and personal notifications
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testCanReceiveNotifications", mParentUserId,
-                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
-    }
-
-    public void testCrossProfileNotificationListeners_setAndGet() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAppAsUser(NOTIFICATION_APK, mProfileUserId);
-        installAppAsUser(NOTIFICATION_APK, mParentUserId);
-
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testSetAndGetPermittedCrossProfileNotificationListeners", mProfileUserId,
-                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
-    }
-
-    public void testCrossProfileCopyPaste() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAppAsUser(INTENT_RECEIVER_APK, mParentUserId);
-        installAppAsUser(INTENT_SENDER_APK, mParentUserId);
-        installAppAsUser(INTENT_RECEIVER_APK, mProfileUserId);
-        installAppAsUser(INTENT_SENDER_APK, mProfileUserId);
-
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                "testAllowCrossProfileCopyPaste", mProfileUserId);
-        // Test that managed can see what is copied in the parent.
-        testCrossProfileCopyPasteInternal(mProfileUserId, true);
-        // Test that the parent can see what is copied in managed.
-        testCrossProfileCopyPasteInternal(mParentUserId, true);
-
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                "testDisallowCrossProfileCopyPaste", mProfileUserId);
-        // Test that managed can still see what is copied in the parent.
-        testCrossProfileCopyPasteInternal(mProfileUserId, true);
-        // Test that the parent cannot see what is copied in managed.
-        testCrossProfileCopyPasteInternal(mParentUserId, false);
-    }
-
-    private void testCrossProfileCopyPasteInternal(int userId, boolean shouldSucceed)
-            throws DeviceNotAvailableException {
-        final String direction = (userId == mParentUserId)
-                ? "testAddManagedCanAccessParentFilters"
-                : "testAddParentCanAccessManagedFilters";
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                "testRemoveAllFilters", mProfileUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                direction, mProfileUserId);
-        if (shouldSucceed) {
-            runDeviceTestsAsUser(INTENT_SENDER_PKG, ".CopyPasteTest",
-                    "testCanReadAcrossProfiles", userId);
-        } else {
-            runDeviceTestsAsUser(INTENT_SENDER_PKG, ".CopyPasteTest",
-                    "testCannotReadAcrossProfiles", userId);
-        }
-    }
-
     /** Tests for the API helper class. */
+    @Test
     public void testCurrentApiHelper() throws Exception {
         if (!mHasFeature) {
             return;
@@ -728,6 +226,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     }
 
     /** Test: unsupported public APIs are disabled on a parent profile. */
+    @Test
     public void testParentProfileApiDisabled() throws Exception {
         if (!mHasFeature) {
             return;
@@ -736,10 +235,26 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "testParentProfileApiDisabled", mProfileUserId);
     }
 
+    @Test
+    public void testCannotCallMethodsOnParentProfile() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ParentProfileTest",
+                "testCannotWipeParentProfile", mProfileUserId);
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ParentProfileTest",
+                "testCannotCallAutoTimeMethodsOnParentProfile", mProfileUserId);
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ParentProfileTest",
+                "testCannotCallSetDefaultSmsApplicationOnParentProfile", mProfileUserId);
+    }
+
     // TODO: This test is not specific to managed profiles, but applies to multi-user in general.
     // Move it to a MultiUserTest class when there is one. Should probably move
     // SetPolicyActivity to a more generic apk too as it might be useful for different kinds
     // of tests (same applies to ComponentDisablingActivity).
+    @Test
     public void testNoDebuggingFeaturesRestriction() throws Exception {
         if (!mHasFeature) {
             return;
@@ -768,6 +283,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     }
 
     // Test the bluetooth API from a managed profile.
+    @Test
     public void testBluetooth() throws Exception {
         boolean hasBluetooth = hasDeviceFeature(FEATURE_BLUETOOTH);
         if (!mHasFeature || !hasBluetooth) {
@@ -784,6 +300,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "testGetRemoteDevice", mProfileUserId);
     }
 
+    @Test
     public void testCameraPolicy() throws Exception {
         boolean hasCamera = hasDeviceFeature(FEATURE_CAMERA);
         if (!mHasFeature || !hasCamera) {
@@ -803,94 +320,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         }
     }
 
-
-    public void testManagedContactsUris() throws Exception {
-        runManagedContactsTest(new Callable<Void>() {
-            @Override
-            public Void call() throws Exception {
-                ContactsTestSet contactsTestSet = new ContactsTestSet(ManagedProfileTest.this,
-                        MANAGED_PROFILE_PKG, mParentUserId, mProfileUserId);
-
-                contactsTestSet.setCallerIdEnabled(true);
-                contactsTestSet.setContactsSearchEnabled(true);
-                contactsTestSet.checkIfCanLookupEnterpriseContacts(true);
-                contactsTestSet.checkIfCanFilterEnterpriseContacts(true);
-                contactsTestSet.checkIfCanFilterSelfContacts();
-                return null;
-            }
-        });
-    }
-
-    public void testManagedQuickContacts() throws Exception {
-        runManagedContactsTest(new Callable<Void>() {
-            @Override
-            public Void call() throws Exception {
-                runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                        "testQuickContact", mParentUserId);
-                return null;
-            }
-        });
-    }
-
-    public void testManagedContactsPolicies() throws Exception {
-        runManagedContactsTest(new Callable<Void>() {
-            @Override
-            public Void call() throws Exception {
-                ContactsTestSet contactsTestSet = new ContactsTestSet(ManagedProfileTest.this,
-                        MANAGED_PROFILE_PKG, mParentUserId, mProfileUserId);
-                try {
-                    contactsTestSet.setCallerIdEnabled(true);
-                    contactsTestSet.setContactsSearchEnabled(false);
-                    contactsTestSet.checkIfCanLookupEnterpriseContacts(true);
-                    contactsTestSet.checkIfCanFilterEnterpriseContacts(false);
-                    contactsTestSet.checkIfCanFilterSelfContacts();
-                    contactsTestSet.setCallerIdEnabled(false);
-                    contactsTestSet.setContactsSearchEnabled(true);
-                    contactsTestSet.checkIfCanLookupEnterpriseContacts(false);
-                    contactsTestSet.checkIfCanFilterEnterpriseContacts(true);
-                    contactsTestSet.checkIfCanFilterSelfContacts();
-                    contactsTestSet.setCallerIdEnabled(false);
-                    contactsTestSet.setContactsSearchEnabled(false);
-                    contactsTestSet.checkIfCanLookupEnterpriseContacts(false);
-                    contactsTestSet.checkIfCanFilterEnterpriseContacts(false);
-                    contactsTestSet.checkIfCanFilterSelfContacts();
-                    contactsTestSet.checkIfNoEnterpriseDirectoryFound();
-                    assertMetricsLogged(getDevice(), () -> {
-                        contactsTestSet.setCallerIdEnabled(true);
-                        contactsTestSet.setCallerIdEnabled(false);
-                    }, new DevicePolicyEventWrapper
-                                .Builder(EventId.SET_CROSS_PROFILE_CALLER_ID_DISABLED_VALUE)
-                                .setAdminPackageName(MANAGED_PROFILE_PKG)
-                                .setBoolean(false)
-                                .build(),
-                        new DevicePolicyEventWrapper
-                                .Builder(EventId.SET_CROSS_PROFILE_CALLER_ID_DISABLED_VALUE)
-                                .setAdminPackageName(MANAGED_PROFILE_PKG)
-                                .setBoolean(true)
-                                .build());
-                    assertMetricsLogged(getDevice(), () -> {
-                        contactsTestSet.setContactsSearchEnabled(true);
-                        contactsTestSet.setContactsSearchEnabled(false);
-                    }, new DevicePolicyEventWrapper
-                                .Builder(EventId.SET_CROSS_PROFILE_CONTACTS_SEARCH_DISABLED_VALUE)
-                                .setAdminPackageName(MANAGED_PROFILE_PKG)
-                                .setBoolean(false)
-                                .build(),
-                        new DevicePolicyEventWrapper
-                                .Builder(EventId.SET_CROSS_PROFILE_CONTACTS_SEARCH_DISABLED_VALUE)
-                                .setAdminPackageName(MANAGED_PROFILE_PKG)
-                                .setBoolean(true)
-                                .build());
-                    return null;
-                } finally {
-                    // reset policies
-                    contactsTestSet.setCallerIdEnabled(true);
-                    contactsTestSet.setContactsSearchEnabled(true);
-                }
-            }
-        });
-    }
-
+    @Test
     public void testOrganizationInfo() throws Exception {
         if (!mHasFeature) {
             return;
@@ -901,23 +331,18 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "testDefaultOrganizationNameIsNull", mProfileUserId);
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".OrganizationInfoTest",
                 mProfileUserId);
-        assertMetricsLogged(getDevice(), () -> {
-            runDeviceTestsAsUser(
-                    MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".OrganizationInfoTest",
-                    "testSetOrganizationColor", mProfileUserId);
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_ORGANIZATION_COLOR_VALUE)
-                .setAdminPackageName(MANAGED_PROFILE_PKG)
-                .build());
-    }
-
-    public void testPasswordMinimumRestrictions() throws Exception {
-        if (!mHasFeature) {
-            return;
+        if (isStatsdEnabled(getDevice())) {
+            assertMetricsLogged(getDevice(), () -> {
+                runDeviceTestsAsUser(
+                        MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".OrganizationInfoTest",
+                        "testSetOrganizationColor", mProfileUserId);
+            }, new DevicePolicyEventWrapper.Builder(EventId.SET_ORGANIZATION_COLOR_VALUE)
+                    .setAdminPackageName(MANAGED_PROFILE_PKG)
+                    .build());
         }
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PasswordMinimumRestrictionsTest",
-                mProfileUserId);
     }
 
+    @Test
     public void testDevicePolicyManagerParentSupport() throws Exception {
         if (!mHasFeature) {
             return;
@@ -926,6 +351,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 MANAGED_PROFILE_PKG, ".DevicePolicyManagerParentSupportTest", mProfileUserId);
     }
 
+    @Test
     public void testBluetoothContactSharingDisabled() throws Exception {
         if (!mHasFeature) {
             return;
@@ -945,6 +371,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                     .build());
     }
 
+    @Test
     public void testCannotSetProfileOwnerAgain() throws Exception {
         if (!mHasFeature) {
             return;
@@ -960,6 +387,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 /*expectFailure*/ true));
     }
 
+    @LargeTest
+    @Test
     public void testCannotSetDeviceOwnerWhenProfilePresent() throws Exception {
         if (!mHasFeature) {
             return;
@@ -976,6 +405,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         }
     }
 
+    @Test
     public void testNfcRestriction() throws Exception {
         if (!mHasFeature || !mHasNfcFeature) {
             return;
@@ -995,86 +425,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "testNfcShareEnabled", mParentUserId);
     }
 
-    public void testCrossProfileWidgets() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        try {
-            installAppAsUser(WIDGET_PROVIDER_APK, mProfileUserId);
-            installAppAsUser(WIDGET_PROVIDER_APK, mParentUserId);
-            getDevice().executeShellCommand("appwidget grantbind --user " + mParentUserId
-                    + " --package " + WIDGET_PROVIDER_PKG);
-            setIdleWhitelist(WIDGET_PROVIDER_PKG, true);
-            startWidgetHostService();
-
-            String commandOutput = changeCrossProfileWidgetForUser(WIDGET_PROVIDER_PKG,
-                    "add-cross-profile-widget", mProfileUserId);
-            assertTrue("Command was expected to succeed " + commandOutput,
-                    commandOutput.contains("Status: ok"));
-
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileWidgetTest",
-                    "testCrossProfileWidgetProviderAdded", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
-                    ".CrossProfileWidgetPrimaryUserTest",
-                    "testHasCrossProfileWidgetProvider_true", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
-                    ".CrossProfileWidgetPrimaryUserTest",
-                    "testHostReceivesWidgetUpdates_true", mParentUserId);
-
-            commandOutput = changeCrossProfileWidgetForUser(WIDGET_PROVIDER_PKG,
-                    "remove-cross-profile-widget", mProfileUserId);
-            assertTrue("Command was expected to succeed " + commandOutput,
-                    commandOutput.contains("Status: ok"));
-
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileWidgetTest",
-                    "testCrossProfileWidgetProviderRemoved", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
-                    ".CrossProfileWidgetPrimaryUserTest",
-                    "testHasCrossProfileWidgetProvider_false", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
-                    ".CrossProfileWidgetPrimaryUserTest",
-                    "testHostReceivesWidgetUpdates_false", mParentUserId);
-        } finally {
-            changeCrossProfileWidgetForUser(WIDGET_PROVIDER_PKG, "remove-cross-profile-widget",
-                    mProfileUserId);
-            getDevice().uninstallPackage(WIDGET_PROVIDER_PKG);
-        }
-    }
-
-    public void testCrossProfileWidgetsLogged() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        try {
-            installAppAsUser(WIDGET_PROVIDER_APK, mProfileUserId);
-            installAppAsUser(WIDGET_PROVIDER_APK, mParentUserId);
-            getDevice().executeShellCommand("appwidget grantbind --user " + mParentUserId
-                    + " --package " + WIDGET_PROVIDER_PKG);
-            setIdleWhitelist(WIDGET_PROVIDER_PKG, true);
-            startWidgetHostService();
-
-            assertMetricsLogged(getDevice(), () -> {
-                changeCrossProfileWidgetForUser(WIDGET_PROVIDER_PKG,
-                        "add-cross-profile-widget", mProfileUserId);
-                changeCrossProfileWidgetForUser(WIDGET_PROVIDER_PKG,
-                        "remove-cross-profile-widget", mProfileUserId);
-            }, new DevicePolicyEventWrapper
-                        .Builder(EventId.ADD_CROSS_PROFILE_WIDGET_PROVIDER_VALUE)
-                        .setAdminPackageName(MANAGED_PROFILE_PKG)
-                        .build(),
-                new DevicePolicyEventWrapper
-                        .Builder(EventId.REMOVE_CROSS_PROFILE_WIDGET_PROVIDER_VALUE)
-                        .setAdminPackageName(MANAGED_PROFILE_PKG)
-                        .build());
-        } finally {
-            changeCrossProfileWidgetForUser(WIDGET_PROVIDER_PKG, "remove-cross-profile-widget",
-                    mProfileUserId);
-            getDevice().uninstallPackage(WIDGET_PROVIDER_PKG);
-        }
-    }
-
+    @Test
     public void testIsProvisioningAllowed() throws DeviceNotAvailableException {
         if (!mHasFeature) {
             return;
@@ -1089,16 +440,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "testIsProvisioningAllowedTrue", mParentUserId);
     }
 
-    private void setDirectoryPrefix(String directoryName, int userId)
-            throws DeviceNotAvailableException {
-        String command = "content call --uri " + DIRECTORY_PRIVOIDER_URI
-                + " --user " + userId
-                + " --method " + SET_CUSTOM_DIRECTORY_PREFIX_METHOD
-                + " --arg " + directoryName;
-        CLog.d("Output for command " + command + ": "
-                + getDevice().executeShellCommand(command));
-    }
-
+    @Test
     public void testPhoneAccountVisibility() throws Exception {
         if (!mHasFeature) {
             return;
@@ -1139,6 +481,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         }
     }
 
+    @LargeTest
+    @Test
     public void testManagedCall() throws Exception {
         if (!mHasFeature) {
             return;
@@ -1189,52 +533,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 mParentUserId);
     }
 
-    private void givePackageWriteSettingsPermission(int userId, String pkg) throws Exception {
-        // Allow app to write to settings (for RingtoneManager.setActualDefaultUri to work)
-        String command = "appops set --user " + userId + " " + pkg
-                + " android:write_settings allow";
-        CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));
-    }
-
-    public void testRingtoneSync() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        givePackageWriteSettingsPermission(mProfileUserId, MANAGED_PROFILE_PKG);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
-                "testRingtoneSync", mProfileUserId);
-    }
-
-    // Test if setting RINGTONE disables sync
-    public void testRingtoneSyncAutoDisableRingtone() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        givePackageWriteSettingsPermission(mProfileUserId, MANAGED_PROFILE_PKG);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
-                "testRingtoneDisableSync", mProfileUserId);
-    }
-
-    // Test if setting NOTIFICATION disables sync
-    public void testRingtoneSyncAutoDisableNotification() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        givePackageWriteSettingsPermission(mProfileUserId, MANAGED_PROFILE_PKG);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
-                "testNotificationDisableSync", mProfileUserId);
-    }
-
-    // Test if setting ALARM disables sync
-    public void testRingtoneSyncAutoDisableAlarm() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        givePackageWriteSettingsPermission(mProfileUserId, MANAGED_PROFILE_PKG);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
-                "testAlarmDisableSync", mProfileUserId);
-    }
-
+    @Test
     public void testTrustAgentInfo() throws Exception {
         if (!mHasFeature || !mHasSecureLockScreen) {
             return;
@@ -1253,15 +552,19 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 mProfileUserId);
         // Non-unified case
         try {
-            changeUserCredential("1234", null, mProfileUserId);
+            changeUserCredential(TEST_PASSWORD, null, mProfileUserId);
             runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".TrustAgentInfoTest",
                     "testSetTrustAgentConfiguration_bothHaveTrustAgentConfigAndNonUnified",
                     mProfileUserId);
         } finally {
-            changeUserCredential(null, "1234", mProfileUserId);
+            changeUserCredential(null, TEST_PASSWORD, mProfileUserId);
         }
     }
 
+    // TODO(b/149580605): Fix this flaky test.
+    @Test
+    @FlakyTest
+    @Ignore
     public void testSanityCheck() throws Exception {
         if (!mHasFeature) {
             return;
@@ -1271,6 +574,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SanityTest", mProfileUserId);
     }
 
+    @Test
     public void testBluetoothSharingRestriction() throws Exception {
         final boolean hasBluetooth = hasDeviceFeature(FEATURE_BLUETOOTH);
         if (!mHasFeature || !hasBluetooth) {
@@ -1286,356 +590,23 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "testOppDisabledWhenRestrictionSet", mProfileUserId);
     }
 
-    public void testProfileOwnerCanGetDeviceIdentifiers() throws Exception {
+    //TODO(b/130844684): Re-enable once profile owner on personal device can no longer access
+    //identifiers.
+    @Ignore
+    @Test
+    public void testProfileOwnerOnPersonalDeviceCannotGetDeviceIdentifiers() throws Exception {
         // The Profile Owner should have access to all device identifiers.
         if (!mHasFeature) {
             return;
         }
 
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DeviceIdentifiersTest",
-                "testProfileOwnerCanGetDeviceIdentifiersWithPermission", mProfileUserId);
+                "testProfileOwnerOnPersonalDeviceCannotGetDeviceIdentifiers", mProfileUserId);
     }
 
-    public void testProfileOwnerCannotGetDeviceIdentifiersWithoutPermission() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        // Revoke the READ_PHONE_STATE permission for the profile user ID to ensure the profile
-        // owner cannot access device identifiers without consent.
-        getDevice().executeShellCommand(
-                "pm revoke --user " + mProfileUserId + " " + MANAGED_PROFILE_PKG
-                        + " android.permission.READ_PHONE_STATE");
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DeviceIdentifiersTest",
-                "testProfileOwnerCannotGetDeviceIdentifiersWithoutPermission", mProfileUserId);
-    }
-
-    public void testResetPasswordWithTokenBeforeUnlock() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
-
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                "testSetupWorkProfile", mProfileUserId);
-        lockProfile();
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                "testResetPasswordBeforeUnlock", mProfileUserId);
-        // Password needs to be in sync with ResetPasswordWithTokenTest.PASSWORD1
-        verifyUserCredential(RESET_PASSWORD_TEST_DEFAULT_PASSWORD, mProfileUserId);
-    }
-
-    public void testClearPasswordWithTokenBeforeUnlock() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
-
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                "testSetupWorkProfile", mProfileUserId);
-        lockProfile();
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                "testClearPasswordBeforeUnlock", mProfileUserId);
-        // Make sure profile has no password
-        verifyUserCredential("", mProfileUserId);
-    }
-
-    /**
-     * Test password reset token is still functional after the primary user clears and
-     * re-adds back its device lock. This is to detect a regression where the work profile
-     * undergoes an untrusted credential reset (causing synthetic password to change, invalidating
-     * existing password reset token) if it has unified work challenge and the primary user clears
-     * the device lock.
-     */
-    public void testResetPasswordTokenUsableAfterClearingLock() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
-        final String devicePassword = "1234";
-
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                "testSetResetPasswordToken", mProfileUserId);
-        try {
-            changeUserCredential(devicePassword, null, mParentUserId);
-            changeUserCredential(null, devicePassword, mParentUserId);
-            changeUserCredential(devicePassword, null, mParentUserId);
-            lockProfile();
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                    "testResetPasswordBeforeUnlock", mProfileUserId);
-            verifyUserCredential(RESET_PASSWORD_TEST_DEFAULT_PASSWORD, mProfileUserId);
-        } finally {
-            changeUserCredential(null, devicePassword, mParentUserId);
-            // Cycle the device screen to flush stale password information from keyguard,
-            // otherwise it will still ask for the non-existent password.
-            // return screen to be on for cts test runs
-            executeShellCommand("input keyevent KEYCODE_WAKEUP");
-            executeShellCommand("input keyevent KEYCODE_SLEEP");
-            executeShellCommand("input keyevent KEYCODE_WAKEUP");
-        }
-    }
-
-    public void testIsUsingUnifiedPassword() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
-
-        // Freshly created profile has no separate challenge.
-        verifyUnifiedPassword(true);
-
-        // Set separate challenge and verify that the API reports it correctly.
-        changeUserCredential("1234" /* newCredential */, null /* oldCredential */, mProfileUserId);
-        verifyUnifiedPassword(false);
-    }
-
-    public void testUnlockWorkProfile_deviceWidePassword() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
-        String password = "0000";
-        try {
-            // Add a device password after the work profile has been created.
-            changeUserCredential(password, /* oldCredential= */ null, mPrimaryUserId);
-            // Lock the profile with key eviction.
-            lockProfile();
-            // Turn on work profile, by unlocking the profile with the device password.
-            verifyUserCredential(password, mPrimaryUserId);
-
-            // Verify profile user is running unlocked by running a sanity test on the work profile.
-            installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SanityTest", mProfileUserId);
-        } finally {
-            // Clean up
-            changeUserCredential(/* newCredential= */ null, password, mPrimaryUserId);
-        }
-    }
-
-    public void testRebootDevice_unifiedPassword() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
-        // Waiting before rebooting prevents flakiness.
-        waitForBroadcastIdle();
-        String password = "0000";
-        changeUserCredential(password, /* oldCredential= */ null, mPrimaryUserId);
-        try {
-            rebootAndWaitUntilReady();
-            verifyUserCredential(password, mPrimaryUserId);
-            installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SanityTest", mProfileUserId);
-        } finally {
-            changeUserCredential(/* newCredential= */ null, password, mPrimaryUserId);
-            // Work-around for http://b/113866275 - password prompt being erroneously shown at the
-            // end.
-            pressPowerButton();
-        }
-    }
-
-    public void testRebootDevice_separatePasswords() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
-        // Waiting before rebooting prevents flakiness.
-        waitForBroadcastIdle();
-        String profilePassword = "profile";
-        String primaryPassword = "primary";
-        int managedProfileUserId = getFirstManagedProfileUserId();
-        changeUserCredential(
-                profilePassword, /* oldCredential= */ null, managedProfileUserId);
-        changeUserCredential(primaryPassword, /* oldCredential= */ null, mPrimaryUserId);
-        try {
-            rebootAndWaitUntilReady();
-            verifyUserCredential(profilePassword, managedProfileUserId);
-            verifyUserCredential(primaryPassword, mPrimaryUserId);
-            installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SanityTest", mProfileUserId);
-        } finally {
-            changeUserCredential(
-                    /* newCredential= */ null, profilePassword, managedProfileUserId);
-            changeUserCredential(/* newCredential= */ null, primaryPassword, mPrimaryUserId);
-            // Work-around for http://b/113866275 - password prompt being erroneously shown at the
-            // end.
-            pressPowerButton();
-        }
-    }
-
-    public void testCrossProfileCalendarPackage() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        assertMetricsLogged(getDevice(), () -> {
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCrossProfileCalendarPackage", mProfileUserId);
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_CROSS_PROFILE_CALENDAR_PACKAGES_VALUE)
-                    .setAdminPackageName(MANAGED_PROFILE_PKG)
-                    .setStrings(MANAGED_PROFILE_PKG)
-                    .build());
-    }
-
-    public void testCrossProfileCalendar() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        runCrossProfileCalendarTestsWhenWhitelistedAndEnabled();
-        runCrossProfileCalendarTestsWhenAllPackagesWhitelisted();
-        runCrossProfileCalendarTestsWhenDisabled();
-        runCrossProfileCalendarTestsWhenNotWhitelisted();
-    }
-
-    private void runCrossProfileCalendarTestsWhenWhitelistedAndEnabled() throws Exception {
-        try {
-            // Setup. Add the test package into cross-profile calendar whitelist, enable
-            // cross-profile calendar in settings, and insert test data into calendar provider.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testWhitelistManagedProfilePackage", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testEnableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkCalendarsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkEventsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesByDayWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch1", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch2", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearchByDay", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getExceptionWhenQueryNonWhitelistedColumns", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testViewEventCrossProfile_intentReceivedWhenWhitelisted", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupWhitelist", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-        }
-    }
-
-    private void runCrossProfileCalendarTestsWhenAllPackagesWhitelisted() throws Exception {
-        try {
-            // Setup. Allow all packages to access cross-profile calendar APIs by setting
-            // the whitelist to null, enable cross-profile calendar in settings,
-            // and insert test data into calendar provider.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testWhitelistAllPackages", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testEnableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkCalendarsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkEventsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesByDayWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch1", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch2", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearchByDay", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getExceptionWhenQueryNonWhitelistedColumns", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testViewEventCrossProfile_intentReceivedWhenWhitelisted", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupWhitelist", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-        }
-    }
-
-    private void runCrossProfileCalendarTestsWhenDisabled() throws Exception {
-        try {
-            // Setup. Add the test package into cross-profile calendar whitelist,
-            // and insert test data into calendar provider. But disable cross-profile calendar
-            // in settings. Thus cross-profile calendar Uris should not be accessible.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testWhitelistManagedProfilePackage", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkCalendarsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkEventsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkInstancesWhenDisabled", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupWhitelist", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-        }
-    }
-
-    private void runCrossProfileCalendarTestsWhenNotWhitelisted() throws Exception {
-        try {
-            // Setup. Enable cross-profile calendar in settings and insert test data into calendar
-            // provider. But make sure that the test package is not whitelisted for cross-profile
-            // calendar. Thus cross-profile calendar Uris should not be accessible.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testEnableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkCalendarsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkEventsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkInstancesWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testViewEventCrossProfile_intentFailedWhenNotWhitelisted", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-        }
-    }
-
-    public void testCreateSeparateChallengeChangedLogged() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
-        assertMetricsLogged(getDevice(), () -> {
-            changeUserCredential(
-                    "1234" /* newCredential */, null /* oldCredential */, mProfileUserId);
-        }, new DevicePolicyEventWrapper.Builder(EventId.SEPARATE_PROFILE_CHALLENGE_CHANGED_VALUE)
-                .setBoolean(true)
-                .build());
-    }
-
+    @Test
     public void testSetProfileNameLogged() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
             return;
         }
         assertMetricsLogged(getDevice(), () -> {
@@ -1647,21 +618,207 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 .build());
     }
 
-    private void verifyUnifiedPassword(boolean unified) throws DeviceNotAvailableException {
-        final String testMethod =
-                unified ? "testUsingUnifiedPassword" : "testNotUsingUnifiedPassword";
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".IsUsingUnifiedPasswordTest",
-                testMethod, mProfileUserId);
+    @Test
+    public void userManagerIsManagedProfileReturnsCorrectValues() throws Exception {
+        if (!mHasFeature) {
+            return ;
+        }
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".UserManagerTest",
+                "testIsManagedProfileReturnsTrue", mProfileUserId);
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".UserManagerTest",
+                "testIsManagedProfileReturnsFalse", mPrimaryUserId);
     }
 
-    private void disableActivityForUser(String activityName, int userId)
+    @Test
+    public void testCanGetWorkShortcutIconDrawableFromPersonalProfile()
             throws DeviceNotAvailableException {
-        String command = "am start -W --user " + userId
-                + " --es extra-package " + MANAGED_PROFILE_PKG
-                + " --es extra-class-name " + MANAGED_PROFILE_PKG + "." + activityName
-                + " " + MANAGED_PROFILE_PKG + "/.ComponentDisablingActivity ";
-        CLog.d("Output for command " + command + ": "
-                + getDevice().executeShellCommand(command));
+        if (!mHasFeature) {
+            return;
+        }
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".LauncherAppsTest",
+                "addDynamicShortcuts", mProfileUserId);
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put("otherProfileUserId", String.valueOf(mProfileUserId));
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".LauncherAppsTest",
+                    "shortcutIconDrawable_currentToOtherProfile_withUsersFullPermission_isNotNull",
+                    mPrimaryUserId, params);
+        } finally {
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".LauncherAppsTest",
+                    "removeAllDynamicShortcuts", mProfileUserId);
+        }
+    }
+
+    @Test
+    public void testCanGetPersonalShortcutIconDrawableFromWorkProfile()
+            throws DeviceNotAvailableException {
+        if (!mHasFeature) {
+            return;
+        }
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".LauncherAppsTest",
+                "addDynamicShortcuts", mPrimaryUserId);
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put("otherProfileUserId", String.valueOf(mPrimaryUserId));
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".LauncherAppsTest",
+                    "shortcutIconDrawable_currentToOtherProfile_withUsersFullPermission_isNotNull",
+                    mProfileUserId, params);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".LauncherAppsTest",
+                    "shortcutIconDrawable_currentToOtherProfile_withoutUsersFullPermission_isNull",
+                    mProfileUserId, params);
+        } finally {
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".LauncherAppsTest",
+                    "removeAllDynamicShortcuts", mPrimaryUserId);
+        }
+    }
+
+    @Test
+    public void testCanGetProfiles() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        // getAllProfiles should contain both the primary and profile
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".UserManagerTest",
+                "testGetAllProfiles", mPrimaryUserId);
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".UserManagerTest",
+                "testGetAllProfiles", mProfileUserId);
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".UserManagerTest",
+                "testIsProfileReturnsFalse_runAsPrimary", mPrimaryUserId);
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".UserManagerTest",
+                "testIsProfileReturnsTrue_runAsProfile", mProfileUserId);
+    }
+
+    @Test
+    public void testCanCreateProfile() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        // remove pre-created profile
+        removeUser(mProfileUserId);
+
+        // create profile from installed app
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".UserManagerTest",
+                "testCreateProfile_managedProfile", mPrimaryUserId);
+    }
+
+    @Test
+    public void testResolverActivityLaunchedFromPersonalProfileWithSelectedWorkTab()
+            throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(SHARING_APP_1_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_2_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_1_APK, mProfileUserId);
+        installAppAsUser(SHARING_APP_2_APK, mProfileUserId);
+        try {
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "addCrossProfileIntents", mProfileUserId);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "startSwitchToOtherProfileIntent", mPrimaryUserId);
+            assertResolverActivityInForeground(mPrimaryUserId);
+        } finally {
+            pressHome();
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "clearCrossProfileIntents", mProfileUserId);
+        }
+    }
+
+    @Test
+    public void testResolverActivityLaunchedFromWorkProfileWithSelectedPersonalTab()
+            throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(SHARING_APP_1_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_2_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_1_APK, mProfileUserId);
+        installAppAsUser(SHARING_APP_2_APK, mProfileUserId);
+        try {
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "addCrossProfileIntents", mProfileUserId);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "startSwitchToOtherProfileIntent", mProfileUserId);
+            assertResolverActivityInForeground(mProfileUserId);
+        } finally {
+            pressHome();
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "clearCrossProfileIntents", mProfileUserId);
+        }
+    }
+
+    @Test
+    public void testChooserActivityLaunchedFromPersonalProfileWithSelectedWorkTab()
+            throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(SHARING_APP_1_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_2_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_1_APK, mProfileUserId);
+        installAppAsUser(SHARING_APP_2_APK, mProfileUserId);
+        try {
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "addCrossProfileIntents", mProfileUserId);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "startSwitchToOtherProfileIntent_chooser", mPrimaryUserId);
+            assertChooserActivityInForeground(mPrimaryUserId);
+        } finally {
+            pressHome();
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "clearCrossProfileIntents", mProfileUserId);
+        }
+    }
+
+    @Test
+    public void testChooserActivityLaunchedFromWorkProfileWithSelectedPersonalTab()
+            throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(SHARING_APP_1_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_2_APK, mPrimaryUserId);
+        installAppAsUser(SHARING_APP_1_APK, mProfileUserId);
+        installAppAsUser(SHARING_APP_2_APK, mProfileUserId);
+        try {
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "addCrossProfileIntents", mProfileUserId);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "startSwitchToOtherProfileIntent_chooser", mProfileUserId);
+            assertChooserActivityInForeground(mProfileUserId);
+        } finally {
+            pressHome();
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileSharingTest",
+                    "clearCrossProfileIntents", mProfileUserId);
+        }
+    }
+
+    private void pressHome() throws Exception {
+        executeShellCommand("input keyevent KEYCODE_HOME");
+    }
+
+    private void assertChooserActivityInForeground(int userId)
+            throws DeviceNotAvailableException {
+        assertActivityInForeground("android/com.android.internal.app.ChooserActivity", userId);
+    }
+
+    private void assertResolverActivityInForeground(int userId)
+            throws DeviceNotAvailableException {
+        assertActivityInForeground("android/com.android.internal.app.ResolverActivity", userId);
+    }
+
+    private void assertActivityInForeground(String fullActivityName, int userId)
+            throws DeviceNotAvailableException {
+        String commandOutput =
+                getDevice().executeShellCommand("dumpsys activity activities | grep Resumed:");
+        assertThat(commandOutput).contains("u" + userId + " " + fullActivityName);
     }
 
     private void changeUserRestrictionOrFail(String key, boolean value, int userId)
@@ -1674,38 +831,10 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         return changeUserRestriction(key, value, userId, MANAGED_PROFILE_PKG);
     }
 
-    private void setIdleWhitelist(String packageName, boolean enabled)
-            throws DeviceNotAvailableException {
-        String command = "cmd deviceidle whitelist " + (enabled ? "+" : "-") + packageName;
-        CLog.d("Output for command " + command + ": "
-                + getDevice().executeShellCommand(command));
-    }
-
-    private String changeCrossProfileWidgetForUser(String packageName, String command, int userId)
-            throws DeviceNotAvailableException {
-        String adbCommand = "am start -W --user " + userId
-                + " -c android.intent.category.DEFAULT "
-                + " --es extra-command " + command
-                + " --es extra-package-name " + packageName
-                + " " + MANAGED_PROFILE_PKG + "/.SetPolicyActivity";
-        String commandOutput = getDevice().executeShellCommand(adbCommand);
-        CLog.d("Output for command " + adbCommand + ": " + commandOutput);
-        return commandOutput;
-    }
-
     // status should be one of never, undefined, ask, always
     private void changeVerificationStatus(int userId, String packageName, String status)
             throws DeviceNotAvailableException {
         String command = "pm set-app-link --user " + userId + " " + packageName + " " + status;
-        CLog.d("Output for command " + command + ": "
-                + getDevice().executeShellCommand(command));
-    }
-
-    protected void startWidgetHostService() throws Exception {
-        String command = "am startservice --user " + mParentUserId
-                + " -a " + WIDGET_PROVIDER_PKG + ".REGISTER_CALLBACK "
-                + "--ei user-extra " + getUserSerialNumber(mProfileUserId)
-                + " " + WIDGET_PROVIDER_PKG + "/.SimpleAppWidgetHostService";
         CLog.d("Output for command " + command + ": "
                 + getDevice().executeShellCommand(command));
     }
@@ -1717,292 +846,5 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
 
     private boolean shouldRunTelecomTest() throws DeviceNotAvailableException {
         return hasDeviceFeature(FEATURE_TELEPHONY) && hasDeviceFeature(FEATURE_CONNECTION_SERVICE);
-    }
-
-    private void runManagedContactsTest(Callable<Void> callable) throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        try {
-            // Allow cross profile contacts search.
-            // TODO test both on and off.
-            getDevice().executeShellCommand(
-                    "settings put --user " + mProfileUserId
-                    + " secure managed_profile_contact_remote_search 1");
-
-            // Add test account
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testAddTestAccount", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testAddTestAccount", mProfileUserId);
-
-            // Install directory provider to both primary and managed profile
-            installAppAsUser(DIRECTORY_PROVIDER_APK, mProfileUserId);
-            installAppAsUser(DIRECTORY_PROVIDER_APK, mParentUserId);
-            setDirectoryPrefix(PRIMARY_DIRECTORY_PREFIX, mParentUserId);
-            setDirectoryPrefix(MANAGED_DIRECTORY_PREFIX, mProfileUserId);
-
-            // Check enterprise directory API works
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testGetDirectoryListInPrimaryProfile", mParentUserId);
-
-            // Insert Primary profile Contacts
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testPrimaryProfilePhoneAndEmailLookup_insertedAndfound", mParentUserId);
-            // Insert Managed profile Contacts
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testManagedProfilePhoneAndEmailLookup_insertedAndfound", mProfileUserId);
-            // Insert a primary contact with same phone & email as other
-            // enterprise contacts
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testPrimaryProfileDuplicatedPhoneEmailContact_insertedAndfound",
-                    mParentUserId);
-            // Insert a enterprise contact with same phone & email as other
-            // primary contacts
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testManagedProfileDuplicatedPhoneEmailContact_insertedAndfound",
-                    mProfileUserId);
-
-            callable.call();
-
-        } finally {
-            // Clean up in managed profile and primary profile
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testCurrentProfileContacts_removeContacts", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ContactsTest",
-                    "testCurrentProfileContacts_removeContacts", mParentUserId);
-            getDevice().uninstallPackage(DIRECTORY_PROVIDER_PKG);
-        }
-    }
-
-
-    /*
-     * Container for running ContactsTest under multi-user environment
-     */
-    private static class ContactsTestSet {
-
-        private ManagedProfileTest mManagedProfileTest;
-        private String mManagedProfilePackage;
-        private int mParentUserId;
-        private int mProfileUserId;
-
-        public ContactsTestSet(ManagedProfileTest managedProfileTest, String managedProfilePackage,
-                int parentUserId, int profileUserId) {
-            mManagedProfileTest = managedProfileTest;
-            mManagedProfilePackage = managedProfilePackage;
-            mParentUserId = parentUserId;
-            mProfileUserId = profileUserId;
-        }
-
-        private void runDeviceTestsAsUser(String pkgName, String testClassName,
-                String testMethodName, Integer userId) throws DeviceNotAvailableException {
-            mManagedProfileTest.runDeviceTestsAsUser(pkgName, testClassName, testMethodName,
-                    userId);
-        }
-
-        // Enable / Disable
-        public void setCallerIdEnabled(boolean enabled) throws DeviceNotAvailableException {
-            if (enabled) {
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testSetCrossProfileCallerIdDisabled_false", mProfileUserId);
-            } else {
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testSetCrossProfileCallerIdDisabled_true", mProfileUserId);
-            }
-        }
-
-        // Enable / Disable cross profile contacts search
-        public void setContactsSearchEnabled(boolean enabled) throws DeviceNotAvailableException {
-            if (enabled) {
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testSetCrossProfileContactsSearchDisabled_false", mProfileUserId);
-            } else {
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testSetCrossProfileContactsSearchDisabled_true", mProfileUserId);
-            }
-        }
-
-        public void checkIfCanLookupEnterpriseContacts(boolean expected)
-                throws DeviceNotAvailableException {
-            // Primary user cannot use ordinary phone/email lookup api to access
-            // managed contacts
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfilePhoneLookup_canNotAccessEnterpriseContact", mParentUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEmailLookup_canNotAccessEnterpriseContact", mParentUserId);
-            // Primary user can use ENTERPRISE_CONTENT_FILTER_URI to access
-            // primary contacts
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterprisePhoneLookup_canAccessPrimaryContact",
-                    mParentUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterpriseEmailLookup_canAccessPrimaryContact",
-                    mParentUserId);
-            // When there exist contacts with the same phone/email in primary &
-            // enterprise,
-            // primary user can use ENTERPRISE_CONTENT_FILTER_URI to access the
-            // primary contact.
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterpriseEmailLookupDuplicated_canAccessPrimaryContact",
-                    mParentUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterprisePhoneLookupDuplicated_canAccessPrimaryContact",
-                    mParentUserId);
-
-            // Managed user cannot use ordinary phone/email lookup api to access
-            // primary contacts
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfilePhoneLookup_canNotAccessPrimaryContact", mProfileUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEmailLookup_canNotAccessPrimaryContact", mProfileUserId);
-            // Managed user can use ENTERPRISE_CONTENT_FILTER_URI to access
-            // enterprise contacts
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterprisePhoneLookup_canAccessEnterpriseContact",
-                    mProfileUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterpriseEmailLookup_canAccessEnterpriseContact",
-                    mProfileUserId);
-            // Managed user cannot use ENTERPRISE_CONTENT_FILTER_URI to access
-            // primary contacts
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterprisePhoneLookup_canNotAccessPrimaryContact",
-                    mProfileUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterpriseEmailLookup_canNotAccessPrimaryContact",
-                    mProfileUserId);
-            // When there exist contacts with the same phone/email in primary &
-            // enterprise,
-            // managed user can use ENTERPRISE_CONTENT_FILTER_URI to access the
-            // enterprise contact.
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterpriseEmailLookupDuplicated_canAccessEnterpriseContact",
-                    mProfileUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterprisePhoneLookupDuplicated_canAccessEnterpriseContact",
-                    mProfileUserId);
-
-            // Check if phone lookup can access primary directories
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterprisePhoneLookup_canAccessPrimaryDirectories",
-                    mParentUserId);
-
-            // Check if email lookup can access primary directories
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterpriseEmailLookup_canAccessPrimaryDirectories",
-                    mParentUserId);
-
-            if (expected) {
-                // Primary user can use ENTERPRISE_CONTENT_FILTER_URI to access
-                // managed profile contacts
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterprisePhoneLookup_canAccessEnterpriseContact",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseEmailLookup_canAccessEnterpriseContact",
-                        mParentUserId);
-
-                // Make sure SIP enterprise lookup works too.
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseSipLookup_canAccessEnterpriseContact",
-                        mParentUserId);
-
-                // Check if phone lookup can access enterprise directories
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterprisePhoneLookup_canAccessManagedDirectories",
-                        mParentUserId);
-
-                // Check if email lookup can access enterprise directories
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseEmailLookup_canAccessManagedDirectories",
-                        mParentUserId);
-            } else {
-                // Primary user cannot use ENTERPRISE_CONTENT_FILTER_URI to
-                // access managed contacts
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterprisePhoneLookup_canNotAccessEnterpriseContact",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterprisePhoneLookup_canNotAccessManagedDirectories",
-                        mParentUserId);
-
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseEmailLookup_canNotAccessManagedDirectories",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterprisePhoneLookup_canNotAccessManagedDirectories",
-                        mParentUserId);
-            }
-        }
-
-        public void checkIfCanFilterSelfContacts() throws DeviceNotAvailableException {
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterpriseCallableFilter_canAccessPrimaryDirectories",
-                    mParentUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterpriseCallableFilter_canAccessManagedDirectories",
-                    mProfileUserId);
-
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterpriseEmailFilter_canAccessPrimaryDirectories",
-                    mParentUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testEnterpriseProfileEnterpriseEmailFilter_canAccessManagedDirectories",
-                    mProfileUserId);
-
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterpriseContactFilter_canAccessPrimaryDirectories",
-                    mParentUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterpriseContactFilter_canAccessManagedDirectories",
-                    mProfileUserId);
-
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterprisePhoneFilter_canAccessPrimaryDirectories",
-                    mParentUserId);
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testManagedProfileEnterprisePhoneFilter_canAccessManagedDirectories",
-                    mProfileUserId);
-        }
-
-        public void checkIfCanFilterEnterpriseContacts(boolean expected)
-                throws DeviceNotAvailableException {
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testFilterUriWhenDirectoryParamMissing", mParentUserId);
-            if (expected) {
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseCallableFilter_canAccessManagedDirectories",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseEmailFilter_canAccessManagedDirectories",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseContactFilter_canAccessManagedDirectories",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterprisePhoneFilter_canAccessManagedDirectories",
-                        mParentUserId);
-            } else {
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseCallableFilter_canNotAccessManagedDirectories",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseEmailFilter_canNotAccessManagedDirectories",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterpriseContactFilter_canNotAccessManagedDirectories",
-                        mParentUserId);
-                runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                        "testPrimaryProfileEnterprisePhoneFilter_canNotAccessManagedDirectories",
-                        mParentUserId);
-            }
-        }
-
-        public void checkIfNoEnterpriseDirectoryFound() throws DeviceNotAvailableException {
-            runDeviceTestsAsUser(mManagedProfilePackage, ".ContactsTest",
-                    "testPrimaryProfileEnterpriseDirectories_canNotAccessManagedDirectories",
-                    mParentUserId);
-        }
     }
 }

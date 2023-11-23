@@ -11,8 +11,8 @@
 
 #include "core/fpdfapi/font/cpdf_cidfont.h"
 #include "core/fxcrt/retain_ptr.h"
+#include "third_party/base/span.h"
 
-class CPDF_CMapManager;
 struct FXCMAP_CMap;
 
 enum CIDCoding : uint8_t {
@@ -26,7 +26,7 @@ enum CIDCoding : uint8_t {
   CIDCODING_UTF16,
 };
 
-class CPDF_CMap : public Retainable {
+class CPDF_CMap final : public Retainable {
  public:
   enum CodingScheme : uint8_t {
     OneByte,
@@ -50,29 +50,23 @@ class CPDF_CMap : public Retainable {
   template <typename T, typename... Args>
   friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
 
-  void LoadPredefined(CPDF_CMapManager* pMgr,
-                      const ByteString& name,
-                      bool bPromptCJK);
-  void LoadEmbedded(const uint8_t* pData, uint32_t dwSize);
-
   bool IsLoaded() const { return m_bLoaded; }
   bool IsVertWriting() const { return m_bVertical; }
 
   uint16_t CIDFromCharCode(uint32_t charcode) const;
 
   int GetCharSize(uint32_t charcode) const;
-  uint32_t GetNextChar(const char* pString, int nStrLen, int& offset) const;
-  int CountChar(const char* pString, int size) const;
+  uint32_t GetNextChar(ByteStringView pString, size_t* pOffset) const;
+  size_t CountChar(ByteStringView pString) const;
   int AppendChar(char* str, uint32_t charcode) const;
 
   void SetVertical(bool vert) { m_bVertical = vert; }
   void SetCodingScheme(CodingScheme scheme) { m_CodingScheme = scheme; }
-  void SetMixedFourByteLeadingRanges(std::vector<CodeRange> range) {
-    m_MixedFourByteLeadingRanges = range;
-  }
+  void SetAdditionalMappings(std::vector<CIDRange> mappings);
+  void SetMixedFourByteLeadingRanges(std::vector<CodeRange> ranges);
 
   int GetCoding() const { return m_Coding; }
-  const FXCMAP_CMap* GetEmbedMap() const { return m_pEmbedMap; }
+  const FXCMAP_CMap* GetEmbedMap() const { return m_pEmbedMap.Get(); }
   CIDSet GetCharset() const { return m_Charset; }
   void SetCharset(CIDSet set) { m_Charset = set; }
 
@@ -84,20 +78,20 @@ class CPDF_CMap : public Retainable {
   }
 
  private:
-  CPDF_CMap();
+  explicit CPDF_CMap(ByteStringView bsPredefinedName);
+  explicit CPDF_CMap(pdfium::span<const uint8_t> spEmbeddedData);
   ~CPDF_CMap() override;
 
-  ByteString m_PredefinedCMap;
-  bool m_bLoaded;
-  bool m_bVertical;
-  CIDSet m_Charset;
-  CodingScheme m_CodingScheme;
-  int m_Coding;
+  bool m_bLoaded = false;
+  bool m_bVertical = false;
+  CIDSet m_Charset = CIDSET_UNKNOWN;
+  CodingScheme m_CodingScheme = TwoBytes;
+  int m_Coding = CIDCODING_UNKNOWN;
   std::vector<bool> m_MixedTwoByteLeadingBytes;
   std::vector<CodeRange> m_MixedFourByteLeadingRanges;
   std::vector<uint16_t> m_DirectCharcodeToCIDTable;
   std::vector<CIDRange> m_AdditionalCharcodeToCIDMappings;
-  const FXCMAP_CMap* m_pEmbedMap;
+  UnownedPtr<const FXCMAP_CMap> m_pEmbedMap;
 };
 
 #endif  // CORE_FPDFAPI_FONT_CPDF_CMAP_H_

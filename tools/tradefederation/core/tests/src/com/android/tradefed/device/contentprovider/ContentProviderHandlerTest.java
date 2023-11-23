@@ -64,7 +64,8 @@ public class ContentProviderHandlerTest {
     public void testSetUp_install() throws Exception {
         doReturn(1).when(mMockDevice).getCurrentUser();
         doReturn(null).when(mMockDevice).installPackage(any(), eq(true), eq(true));
-        doReturn(null)
+        CommandResult resSet = new CommandResult(CommandStatus.SUCCESS);
+        doReturn(resSet)
                 .when(mMockDevice)
                 .executeShellV2Command(
                         String.format(
@@ -169,6 +170,33 @@ public class ContentProviderHandlerTest {
         }
     }
 
+    /** Test {@link ContentProviderHandler#pushFile(File, String)} when the file doesn't exists */
+    @Test
+    public void testPushFile_notExists() throws Exception {
+        File toPush = new File("content-provider-test.txt");
+        try {
+            String devicePath = "path/somewhere/file.txt";
+            assertFalse(mProvider.pushFile(toPush, devicePath));
+        } finally {
+            FileUtil.deleteFile(toPush);
+        }
+    }
+
+    /**
+     * Test {@link ContentProviderHandler#pushFile(File, String)} when the file exists but is a
+     * directory
+     */
+    @Test
+    public void testPushFile_directory() throws Exception {
+        File toPush = FileUtil.createTempDir("content-provider-test");
+        try {
+            String devicePath = "path/somewhere/file.txt";
+            assertFalse(mProvider.pushFile(toPush, devicePath));
+        } finally {
+            FileUtil.recursiveDelete(toPush);
+        }
+    }
+
     /** Test {@link ContentProviderHandler#pullFile(String, File)}. */
     @Test
     public void testPullFile_verifyShellCommand() throws Exception {
@@ -234,6 +262,19 @@ public class ContentProviderHandlerTest {
 
         try {
             assertTrue(mProvider.pullDir("path/somewhere", pullTo));
+        } finally {
+            FileUtil.recursiveDelete(pullTo);
+        }
+    }
+
+    @Test
+    public void testPullDir_failedDevice() throws Exception {
+        File pullTo = FileUtil.createTempDir("content-provider-test");
+
+        doReturn("Something crashed").when(mMockDevice).executeShellCommand(anyString());
+
+        try {
+            assertFalse(mProvider.pullDir("path/somewhere", pullTo));
         } finally {
             FileUtil.recursiveDelete(pullTo);
         }
@@ -323,8 +364,8 @@ public class ContentProviderHandlerTest {
                 ContentProviderHandler.createEscapedContentUri("filepath/file name spaced (data)");
         // We expect the full url to be quoted to avoid space issues and the URL to be encoded.
         assertEquals(
-                "\"content://android.tradefed.contentprovider/filepath%252Ffile%2520name"
-                        + "%2520spaced%2520%28data%29\"",
+                "\"content://android.tradefed.contentprovider/filepath%252Ffile+name+spaced+"
+                        + "%2528data%2529\"",
                 espacedUrl);
     }
 

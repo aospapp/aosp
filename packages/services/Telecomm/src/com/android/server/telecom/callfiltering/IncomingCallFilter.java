@@ -27,10 +27,20 @@ import com.android.server.telecom.Call;
 import com.android.server.telecom.LogUtils;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.Timeouts;
+import com.android.server.telecom.callfiltering.CallFilteringResult.Builder;
 
 import java.util.List;
 
 public class IncomingCallFilter implements CallFilterResultCallback {
+
+    public static class Factory {
+        public IncomingCallFilter create(Context context, CallFilterResultCallback listener,
+                Call call, TelecomSystem.SyncRoot lock, Timeouts.Adapter timeoutsAdapter,
+                List<CallFilter> filters) {
+            return new IncomingCallFilter(context, listener, call, lock, timeoutsAdapter, filters,
+                    new Handler(Looper.getMainLooper()));
+        }
+    }
 
     public interface CallFilter {
         void startFilterLookup(Call call, CallFilterResultCallback listener);
@@ -38,25 +48,25 @@ public class IncomingCallFilter implements CallFilterResultCallback {
 
     private final TelecomSystem.SyncRoot mTelecomLock;
     private final Context mContext;
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final Handler mHandler;
     private final List<CallFilter> mFilters;
     private final Call mCall;
     private final CallFilterResultCallback mListener;
     private final Timeouts.Adapter mTimeoutsAdapter;
 
-    private CallFilteringResult mResult = new CallFilteringResult(
-            true, // shouldAllowCall
-            false, // shouldReject
-            true, // shouldAddToCallLog
-            true // shouldShowNotification
-    );
+    private CallFilteringResult mResult = new Builder()
+            .setShouldAllowCall(true)
+            .setShouldReject(false)
+            .setShouldAddToCallLog(true)
+            .setShouldShowNotification(true)
+            .build();
 
     private boolean mIsPending = true;
     private int mNumPendingFilters;
 
     public IncomingCallFilter(Context context, CallFilterResultCallback listener, Call call,
             TelecomSystem.SyncRoot lock, Timeouts.Adapter timeoutsAdapter,
-            List<CallFilter> filters) {
+            List<CallFilter> filters, Handler handler) {
         mContext = context;
         mListener = listener;
         mCall = call;
@@ -64,6 +74,7 @@ public class IncomingCallFilter implements CallFilterResultCallback {
         mFilters = filters;
         mNumPendingFilters = filters.size();
         mTimeoutsAdapter = timeoutsAdapter;
+        mHandler = handler;
     }
 
     public void performFiltering() {

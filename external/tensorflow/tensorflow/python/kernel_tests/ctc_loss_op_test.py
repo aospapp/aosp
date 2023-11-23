@@ -18,8 +18,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import parameterized
 import numpy as np
 
+from tensorflow.python.eager import backprop
+from tensorflow.python.eager import context
+from tensorflow.python.eager import def_function
 from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import errors_impl
@@ -27,6 +31,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.framework import random_seed
 from tensorflow.python.framework import sparse_tensor
 from tensorflow.python.framework import test_util
+from tensorflow.python.keras import keras_parameterized
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import ctc_ops
 from tensorflow.python.ops import gradients_impl
@@ -305,7 +310,7 @@ class CTCLossTest(test.TestCase):
 
 class CTCLossTestV2(test.TestCase):
 
-  @test_util.run_v1_only("b/120545219")
+  @test_util.run_in_graph_and_eager_modes
   def testCtcLossV2(self):
     random_seed.set_random_seed(5)
 
@@ -326,17 +331,21 @@ class CTCLossTestV2(test.TestCase):
     labels *= label_mask
     logit_length = [num_frames] * batch_size
 
-    ref_loss = ctc_ops.ctc_loss_v2(
-        labels=labels,
-        logits=logits,
-        label_length=label_length,
-        logit_length=logit_length)
-    ref_grad = gradients_impl.gradients(ref_loss, [logits])
+    with backprop.GradientTape() as t:
+      t.watch(logits)
+      ref_loss = ctc_ops.ctc_loss_v2(
+          labels=labels,
+          logits=logits,
+          label_length=label_length,
+          logit_length=logit_length)
+    ref_grad = t.gradient(ref_loss, [logits])
 
     sparse_labels = ctc_ops.dense_labels_to_sparse(labels, label_length)
 
     def assert_same_loss_and_grads(loss):
-      with self.cached_session() as sess:
+      if context.executing_eagerly():
+        return
+      with self.cached_session():
         self.assertAllClose(*self.evaluate([loss, ref_loss]))
         grad = gradients_impl.gradients(loss, [logits])
         self.assertAllClose(
@@ -497,7 +506,8 @@ class CTCLossTestV2(test.TestCase):
         logits[:, :, -1:],
         logits[:, :, blank_index:-1],
     ], axis=2)
-    shifted_labels = array_ops.where(labels < blank_index, labels, labels + 1)
+    shifted_labels = array_ops.where_v2(labels < blank_index, labels,
+                                        labels + 1)
 
     ctc_loss = ctc_ops.ctc_loss_dense(
         labels=shifted_labels,
@@ -831,6 +841,83 @@ class CTCLossTestV2(test.TestCase):
           initial=constant_op.constant([0.0, 0.0]))
       self.assertAllEqual(
           [[1.0, 2.0], [5.0, 8.0], [14.0, 20.0]], out)
+
+
+@keras_parameterized.run_all_keras_modes
+class CTCLossTestV3(keras_parameterized.TestCase):
+
+  @parameterized.parameters([False, True])
+  @test_util.run_v2_only
+  def testCtcLossV3(self, run_tf_func):
+    """Testing GPU CTC loss.
+
+
+    testing if GPU CTC loss will generate same result with CPU version
+    """
+    if not test.is_gpu_available():
+      self.skipTest("Need GPU for testing.")
+    random_seed.set_random_seed(5)
+
+    batch_size = 8
+    num_labels = 6
+    max_label_length = 5
+    num_frames = 12
+
+    labels = random_ops.random_uniform([batch_size, max_label_length],
+                                       minval=1,
+                                       maxval=num_labels,
+                                       dtype=dtypes.int64)
+    logits = random_ops.random_uniform([num_frames, batch_size, num_labels])
+
+    label_length = random_ops.random_uniform([batch_size],
+                                             minval=2,
+                                             maxval=max_label_length,
+                                             dtype=dtypes.int64)
+    label_mask = array_ops.sequence_mask(
+        label_length, maxlen=max_label_length, dtype=label_length.dtype)
+    labels *= label_mask
+    logit_length = [num_frames] * batch_size
+
+    def ctc_loss_cpu(labels, logits, label_length, logit_length):
+      with test_util.device(use_gpu=False):
+        sparse_labels = ctc_ops.dense_labels_to_sparse(labels, label_length)
+        with backprop.GradientTape() as t:
+          t.watch(logits)
+          ref_loss = ctc_ops.ctc_loss_v3(
+              labels=sparse_labels,
+              logits=logits,
+              label_length=label_length,
+              logit_length=logit_length,
+              blank_index=0)
+        ref_grad = t.gradient(ref_loss, [logits])
+        return ref_loss, ref_grad
+
+    def ctc_loss_gpu(labels, logits, label_length, logit_length):
+      with test_util.device(use_gpu=True):
+        sparse_labels = ctc_ops.dense_labels_to_sparse(labels, label_length)
+        with backprop.GradientTape() as t:
+          t.watch(logits)
+          loss = ctc_ops.ctc_loss_v3(
+              labels=sparse_labels,
+              logits=logits,
+              label_length=label_length,
+              logit_length=logit_length,
+              blank_index=0)
+        grad = t.gradient(loss, [logits])
+
+        return loss, grad
+
+    if run_tf_func:
+      ctc_loss_cpu = def_function.function(ctc_loss_cpu)
+      ctc_loss_gpu = def_function.function(ctc_loss_gpu)
+
+    ref_loss, ref_grad = ctc_loss_cpu(labels, logits, label_length,
+                                      logit_length)
+    loss, grad = ctc_loss_gpu(labels, logits, label_length, logit_length)
+
+    self.assertAllClose(loss, ref_loss, atol=1e-6)
+    self.assertAllClose(grad, ref_grad, atol=2e-6)
+
 
 if __name__ == "__main__":
   test.main()

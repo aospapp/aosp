@@ -15,5 +15,5 @@
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
        android:shape="oval">
-    <solid android:color="@color/emergency_shortcut_confirm_button_background_color"/>
+    <solid android:color="@color/emergency_shortcut_phone_type_icon_color"/>
 </shape>

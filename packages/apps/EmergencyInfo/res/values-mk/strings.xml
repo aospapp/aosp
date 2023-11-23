@@ -16,10 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"Информации за итни случаи"</string>
-    <string name="medical_info_title" msgid="3000192781136934887">"Медицински информации"</string>
+    <string name="app_label" msgid="1090682794607161063">"Податоци за итни случаи"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Медицински податоци"</string>
     <string name="add_medical_info" msgid="483921612415907139">"Додајте информации"</string>
-    <string name="edit_info" msgid="5973929805855224805">"Уредување информации за итни случаи"</string>
+    <string name="edit_info" msgid="5973929805855224805">"Изменете податоци за итни случаи"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Информации"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Контакти"</string>
     <string name="name" msgid="4286267457738861977">"Име"</string>
@@ -100,14 +100,14 @@
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Нема информации за сопственикот на телефонот"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Ако ова е вашиот телефон, допрете ја иконата со молив за да додадете информации што ќе се прикажат тука во итен случај"</string>
-    <string name="clear_all" msgid="8899013032870561633">"Исчисти ги сите"</string>
+    <string name="clear_all" msgid="8899013032870561633">"Избриши ги сите"</string>
     <string name="clear" msgid="3648880442502887163">"Исчисти"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Да се исчистат сите информации и контакти?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"Додавањето медицински информации и контакти за итни случаи може да им помогне на првите лица што ќе реагираат при итен случај.\n\nСекој ќе може да ги прочита информацииве од заклучениот екран и да ги повика контактите со допирање на нивните имиња, без да го отклучи телефонот."</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"Додајте информации за итни случаи"</string>
-    <string name="settings_suggestion_body" msgid="5559349261345837716">"Дозволете првите спасувачи да ги видат информациите"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Додавањето медицински податоци и контакти за итни случаи може да им помогне на првите лица што ќе реагираат при итен случај.\n\nСекој ќе може да ги прочита податоциве од заклучениот екран и да ги повика контактите со допирање на нивните имиња, без да го отклучи телефонот."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Додајте податоци за итни случаи"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Дозволете првите спасувачи да ги видат податоците"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Фотографирај"</string>
-    <string name="user_image_choose_photo" msgid="2442095378052415700">"Избери слика"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Изберете слика"</string>
     <string name="user_image_photo_selector" msgid="8941966433899876760">"Изберете ја фотографијата"</string>
     <string name="user_nickname" msgid="7956055372443961161">"Прекар"</string>
 </resources>

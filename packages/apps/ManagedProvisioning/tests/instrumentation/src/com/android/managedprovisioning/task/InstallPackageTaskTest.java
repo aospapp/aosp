@@ -18,6 +18,7 @@ package com.android.managedprovisioning.task;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.content.pm.PackageManager.INSTALL_ALLOW_TEST;
+import static android.content.pm.PackageManager.INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS;
 import static android.content.pm.PackageManager.INSTALL_REPLACE_EXISTING;
 
 import static com.android.managedprovisioning.task.InstallPackageTask.ERROR_INSTALLATION_FAILED;
@@ -141,7 +142,8 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         mTask.run(TEST_USER_ID);
 
         // THEN package installed is invoked with an install observer
-        IntentSender observer = verifyPackageInstalled(INSTALL_REPLACE_EXISTING);
+        IntentSender observer = verifyPackageInstalled(
+                INSTALL_REPLACE_EXISTING | INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS);
 
         // WHEN the package installed callback is invoked with success
         Intent fillIn = new Intent();
@@ -166,7 +168,8 @@ public class InstallPackageTaskTest extends AndroidTestCase {
 
         // THEN package installed is invoked with an install observer
         IntentSender observer = verifyPackageInstalled(
-                INSTALL_REPLACE_EXISTING | INSTALL_ALLOW_TEST);
+                INSTALL_REPLACE_EXISTING | INSTALL_ALLOW_TEST
+                        | INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS);
 
         // WHEN the package installed callback is invoked with success
         Intent fillIn = new Intent();
@@ -189,7 +192,8 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         mTask.run(TEST_USER_ID);
 
         // THEN package installed is invoked with an install observer
-        IntentSender observer = verifyPackageInstalled(INSTALL_REPLACE_EXISTING);
+        IntentSender observer = verifyPackageInstalled(
+                INSTALL_REPLACE_EXISTING | INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS);
 
         // WHEN the package installed callback is invoked with version downgrade error
         Intent fillIn = new Intent();
@@ -213,7 +217,8 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         mTask.run(TEST_USER_ID);
 
         // THEN package installed is invoked with an install observer
-        IntentSender observer = verifyPackageInstalled(INSTALL_REPLACE_EXISTING);
+        IntentSender observer = verifyPackageInstalled(
+                INSTALL_REPLACE_EXISTING | INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS);
 
         // WHEN the package installed callback is invoked with version invalid apk error
         Intent fillIn = new Intent();
@@ -237,7 +242,8 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         mTask.run(TEST_USER_ID);
 
         // THEN package installed is invoked with an install observer
-        IntentSender observer = verifyPackageInstalled(INSTALL_REPLACE_EXISTING);
+        IntentSender observer = verifyPackageInstalled(
+                INSTALL_REPLACE_EXISTING | INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS);
 
         // WHEN the package installed callback is invoked with the wrong package
         Intent fillIn = new Intent();

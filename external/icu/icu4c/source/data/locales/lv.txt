@@ -12,10 +12,10 @@ lv{
     }
     ExemplarCharacters{"[a ā b c č d e ē f g ģ h i ī j k ķ l ļ m n ņ o p r s š t u ū v z ž]"}
     ExemplarCharactersIndex{"[A Ā B C Č D E Ē F G Ģ H I Ī Y J K Ķ L Ļ M N Ņ O P Q R S Š T U Ū V W X Z Ž]"}
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ ‚ \u0022 “ ” „ ( ) \\[ \\] § @ * / \\& # † "
-        "‡ ′ ″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ ‚ \u0022 “ ” „ ( ) \\[ \\] § @ * / \\& # "
+        "† ‡ ′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -229,7 +229,6 @@ lv{
                 exponential{"E"}
                 group{" "}
                 infinity{"∞"}
-                list{";"}
                 minusSign{"-"}
                 nan{"NS"}
                 perMille{"‰"}
@@ -252,7 +251,7 @@ lv{
         minimumGroupingDigits{"2"}
         native{"latn"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -492,19 +491,22 @@ lv{
                 yyyyQQQQ{"y. 'gada' QQQQ G"}
             }
             intervalFormats{
-                H{
-                    H{"HH–HH"}
+                GyMMM{
+                    G{"G y. 'gada' MMM – G y 'gada' MMM"}
+                    M{"G y. 'gada' MMM–MMM"}
+                    y{"G y. 'gada' MMM – y. 'gada' MMM"}
                 }
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
+                GyMMMEd{
+                    G{"G y. 'gada' d. MMM, E – G y. 'gada' d. MMM, E"}
+                    M{"G y. 'gada' d. MMM, E – d. MMM, E"}
+                    d{"G y. 'gada' d. MMM, E – d. MMM, E"}
+                    y{"G y. 'gada' d. MMM, E – y. 'gada' d. MMM, E"}
                 }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
-                }
-                Hv{
-                    H{"HH–HH v"}
+                GyMMMd{
+                    G{"G y. 'gada' d. MMM – G y. 'gada' d. MMM"}
+                    M{"G y. 'gada' d. MMM – d. MMM"}
+                    d{"G y. 'gada' d.–d. MMM"}
+                    y{"G y. 'gada' d. MMM – y. 'gada' d. MMM"}
                 }
                 M{
                     M{"MM–MM"}
@@ -532,24 +534,6 @@ lv{
                     d{"d.–d."}
                 }
                 fallback{"{0}–{1}"}
-                h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
-                }
-                hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
-                }
-                hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
-                }
-                hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
-                }
                 y{
                     y{"y.–y. G"}
                 }
@@ -645,9 +629,9 @@ lv{
                 MMMEd{"E, d. MMM"}
                 MMMMEd{"E, d. MMMM"}
                 MMMMW{
-                    one{"MMM W. 'nedēļa'"}
-                    other{"MMM W. 'nedēļa'"}
-                    zero{"MMM W. 'nedēļa'"}
+                    one{"MMMM, W. 'nedēļa'"}
+                    other{"MMMM, W. 'nedēļa'"}
+                    zero{"MMMM, W. 'nedēļa'"}
                 }
                 MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}
@@ -819,6 +803,10 @@ lv{
                     "p.m.ē.",
                     "m.ē.",
                 }
+                abbreviated%variant{
+                    "p.m.ē.",
+                    "m.ē.",
+                }
                 narrow{
                     "p.m.ē.",
                     "m.ē.",
@@ -827,8 +815,29 @@ lv{
                     "pirms mūsu ēras",
                     "mūsu ērā",
                 }
+                wide%variant{
+                    "pirms mūsu ēras",
+                    "mūsu ērā",
+                }
             }
             intervalFormats{
+                GyMMM{
+                    G{"G y. 'gada' MMM – G y. 'gada' MMM"}
+                    M{"G y. 'gada' MMM–MMM"}
+                    y{"G y. 'gada' MMM – y. 'gada' MMM"}
+                }
+                GyMMMEd{
+                    G{"G y. 'gada' d. MMM, E – G y. 'gada' d. MMM, E"}
+                    M{"G y. 'gada' d. MMM, E – d. MMM, E"}
+                    d{"G y. 'gada' d. MMM, E – d. MMM, E"}
+                    y{"G y. 'gada' d. MMM, E – y. 'gada' d. MMM, E"}
+                }
+                GyMMMd{
+                    G{"G y. 'gada' d. MMM – G y. 'gada' d. MMM"}
+                    M{"G y. 'gada' d. MMM – d. MMM"}
+                    d{"G y. 'gada' d.–d. MMM"}
+                    y{"G y. 'gada' d. MMM – y. 'gada' d. MMM"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1058,12 +1067,6 @@ lv{
         }
         hebrew{
             eras{
-                abbreviated{
-                    "AM",
-                }
-                narrow{
-                    "AM",
-                }
                 wide{
                     "kopš pasaules radīšanas",
                 }
@@ -1140,17 +1143,6 @@ lv{
             }
         }
         indian{
-            eras{
-                abbreviated{
-                    "Saka",
-                }
-                narrow{
-                    "Saka",
-                }
-                wide{
-                    "Saka",
-                }
-            }
             monthNames{
                 format{
                     abbreviated{
@@ -1216,12 +1208,6 @@ lv{
         }
         islamic{
             eras{
-                abbreviated{
-                    "AH",
-                }
-                narrow{
-                    "AH",
-                }
                 wide{
                     "pēc hidžras",
                 }
@@ -1372,7 +1358,7 @@ lv{
         dingbats{"drukas ornamenti"}
         divination_symbols{"okultie simboli"}
         downwards_arrows{"lejupvērstās bultiņas"}
-        downwards_upwards_arrows{"augšupvērstās bultiņas"}
+        downwards_upwards_arrows{"lejupvērstās un augšupvērstās bultiņas"}
         east_asian_scripts{"Austrumāzijas rakstības"}
         emoji{"emocijzīmes"}
         european_scripts{"Eiropas rakstības"}
@@ -1393,8 +1379,7 @@ lv{
         heart{"sirds"}
         historic_scripts{"vēsturiskās rakstības"}
         ideographic_desc_characters{"hieroglifus aprakstošie simboli"}
-        japanese_kana{"japāņu hana"}
-        kanbun{"kambuns"}
+        japanese_kana{"japāņu kana"}
         kanji{"kandži"}
         keycap{"taustiņš"}
         leftwards_arrows{"pa kreisi vērstās bultiņas"}
@@ -1436,7 +1421,7 @@ lv{
         travel_places{"ceļojumi un vietas"}
         upwards_arrows{"augšupvērstās bultiņas"}
         variant_forms{"variantu formas"}
-        vocalic_jamo{"skanīgie džamo"}
+        vocalic_jamo{"vokāliskie džamo"}
         weather{"laikapstākļi"}
         western_asian_scripts{"Rietumāzijas rakstības"}
         whitespace{"nedrukājama rakstzīme"}
@@ -1759,6 +1744,11 @@ lv{
         }
         month-narrow{
             dn{"mēn."}
+            relative{
+                "-1"{"pag. mēn."}
+                "0"{"šajā mēn."}
+                "1"{"nāk. mēn."}
+            }
             relativeTime{
                 future{
                     one{"pēc {0} mēn."}
@@ -1774,6 +1764,11 @@ lv{
         }
         month-short{
             dn{"mēn."}
+            relative{
+                "-1"{"pag. mēn."}
+                "0"{"šajā mēn."}
+                "1"{"nāk. mēn."}
+            }
             relativeTime{
                 future{
                     one{"pēc {0} mēn."}
@@ -2193,6 +2188,11 @@ lv{
         }
         week-narrow{
             dn{"ned."}
+            relative{
+                "-1"{"pag. ned."}
+                "0"{"šajā ned."}
+                "1"{"nāk. ned."}
+            }
             relativePeriod{"{0}. ned."}
             relativeTime{
                 future{
@@ -2209,6 +2209,11 @@ lv{
         }
         week-short{
             dn{"ned."}
+            relative{
+                "-1"{"pag. ned."}
+                "0"{"šajā ned."}
+                "1"{"nāk. ned."}
+            }
             relativePeriod{"{0}. ned."}
             relativeTime{
                 future{
@@ -2272,6 +2277,11 @@ lv{
         }
         year-narrow{
             dn{"g."}
+            relative{
+                "-1"{"pag. gadā"}
+                "0"{"šajā g."}
+                "1"{"nāk. gadā"}
+            }
             relativeTime{
                 future{
                     one{"pēc {0} g."}
@@ -2287,6 +2297,11 @@ lv{
         }
         year-short{
             dn{"g."}
+            relative{
+                "-1"{"pag. gadā"}
+                "0"{"šajā g."}
+                "1"{"nāk. gadā"}
+            }
             relativeTime{
                 future{
                     one{"pēc {0} g."}

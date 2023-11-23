@@ -72,7 +72,6 @@ struct dsp_module {
 	void (*dump)(struct dsp_module *mod, struct dumper *d);
 };
 
-
 /* An external module interface working with existing dsp pipeline.
  * __________  ___________        ____________      __________
  * |        |  |         |        |          |      |        |
@@ -98,18 +97,12 @@ struct dsp_module {
  */
 struct ext_dsp_module {
 	float *ports[MAX_EXT_DSP_PORTS];
-	void (*run)(struct ext_dsp_module *ext,
-		    unsigned int nframes);
-	void (*configure)(struct ext_dsp_module *ext,
-			  unsigned int buffer_size,
-			  unsigned int num_channels,
-			  unsigned int rate);
+	void (*run)(struct ext_dsp_module *ext, unsigned int nframes);
+	void (*configure)(struct ext_dsp_module *ext, unsigned int buffer_size,
+			  unsigned int num_channels, unsigned int rate);
 };
 
-
-enum {
-	MODULE_INPLACE_BROKEN = 1  /* See ladspa.h for explanation */
-};
+enum { MODULE_INPLACE_BROKEN = 1 }; /* See ladspa.h for explanation */
 
 /* Connects an external dsp module to a builtin sink module. */
 void cras_dsp_module_set_sink_ext_module(struct dsp_module *module,

@@ -94,8 +94,7 @@ struct cras_alsa_mixer {
  *    mixdev - Name of the device to open the mixer for.
  *    mixer - Pointer filled with the opened mixer on success, NULL on failure.
  */
-static void alsa_mixer_open(const char *mixdev,
-			    snd_mixer_t **mixer)
+static void alsa_mixer_open(const char *mixdev, snd_mixer_t **mixer)
 {
 	int rc;
 
@@ -112,7 +111,8 @@ static void alsa_mixer_open(const char *mixdev,
 	}
 	rc = snd_mixer_selem_register(*mixer, NULL, NULL);
 	if (rc < 0) {
-		syslog(LOG_ERR, "snd_mixer_selem_register: %d: %s", rc, strerror(-rc));
+		syslog(LOG_ERR, "snd_mixer_selem_register: %d: %s", rc,
+		       strerror(-rc));
 		goto fail_after_open;
 	}
 	rc = snd_mixer_load(*mixer);
@@ -127,9 +127,9 @@ fail_after_open:
 	*mixer = NULL;
 }
 
-static struct mixer_control_element *mixer_control_element_create(
-					snd_mixer_elem_t *elem,
-					enum CRAS_STREAM_DIRECTION dir)
+static struct mixer_control_element *
+mixer_control_element_create(snd_mixer_elem_t *elem,
+			     enum CRAS_STREAM_DIRECTION dir)
 {
 	struct mixer_control_element *c;
 	long min, max;
@@ -151,19 +151,18 @@ static struct mixer_control_element *mixer_control_element_create(
 		c->has_mute = snd_mixer_selem_has_playback_switch(elem);
 
 		if (snd_mixer_selem_has_playback_volume(elem) &&
-		    snd_mixer_selem_get_playback_dB_range(
-						elem, &min, &max) == 0) {
+		    snd_mixer_selem_get_playback_dB_range(elem, &min, &max) ==
+			    0) {
 			c->max_volume_dB = max;
 			c->min_volume_dB = min;
 			c->has_volume = 1;
 		}
-	}
-	else if (dir == CRAS_STREAM_INPUT) {
+	} else if (dir == CRAS_STREAM_INPUT) {
 		c->has_mute = snd_mixer_selem_has_capture_switch(elem);
 
 		if (snd_mixer_selem_has_capture_volume(elem) &&
-		    snd_mixer_selem_get_capture_dB_range(
-						elem, &min, &max) == 0) {
+		    snd_mixer_selem_get_capture_dB_range(elem, &min, &max) ==
+			    0) {
 			c->max_volume_dB = max;
 			c->min_volume_dB = min;
 			c->has_volume = 1;
@@ -173,13 +172,14 @@ static struct mixer_control_element *mixer_control_element_create(
 	return c;
 }
 
-static void mixer_control_destroy(struct mixer_control *control) {
+static void mixer_control_destroy(struct mixer_control *control)
+{
 	struct mixer_control_element *elem;
 
 	if (!control)
 		return;
 
-	DL_FOREACH(control->elements, elem) {
+	DL_FOREACH (control->elements, elem) {
 		DL_DELETE(control->elements, elem);
 		free(elem);
 	}
@@ -193,7 +193,7 @@ static void mixer_control_destroy_list(struct mixer_control *control_list)
 	struct mixer_control *control;
 	if (!control_list)
 		return;
-	DL_FOREACH(control_list, control) {
+	DL_FOREACH (control_list, control) {
 		DL_DELETE(control_list, control);
 		mixer_control_destroy(control);
 	}
@@ -220,19 +220,18 @@ static int mixer_control_add_element(struct mixer_control *control,
 		/* Assume that all elements have a common volume range, and
 		 * that both min and max values are valid if one of the two
 		 * is valid. */
-		if (control->min_volume_dB ==
-		    MIXER_CONTROL_VOLUME_DB_INVALID) {
+		if (control->min_volume_dB == MIXER_CONTROL_VOLUME_DB_INVALID) {
 			control->min_volume_dB = elem->min_volume_dB;
 			control->max_volume_dB = elem->max_volume_dB;
 		} else if (control->min_volume_dB != elem->min_volume_dB ||
 			   control->max_volume_dB != elem->max_volume_dB) {
 			syslog(LOG_WARNING,
-			    "Element '%s' of control '%s' has different"
-			    "volume range: [%ld:%ld] ctrl: [%ld:%ld]",
-			    snd_mixer_selem_get_name(elem->elem),
-			    control->name,
-			    elem->min_volume_dB, elem->max_volume_dB,
-			    control->min_volume_dB, control->max_volume_dB);
+			       "Element '%s' of control '%s' has different"
+			       "volume range: [%ld:%ld] ctrl: [%ld:%ld]",
+			       snd_mixer_selem_get_name(elem->elem),
+			       control->name, elem->min_volume_dB,
+			       elem->max_volume_dB, control->min_volume_dB,
+			       control->max_volume_dB);
 		}
 	}
 
@@ -242,8 +241,7 @@ static int mixer_control_add_element(struct mixer_control *control,
 }
 
 static int mixer_control_create(struct mixer_control **control,
-				const char *name,
-				snd_mixer_elem_t *elem,
+				const char *name, snd_mixer_elem_t *elem,
 				enum CRAS_STREAM_DIRECTION dir)
 {
 	struct mixer_control *c;
@@ -304,12 +302,11 @@ error:
  *    Returns 0 for success, negative error code otherwise. *control is
  *    initialized to NULL on error, or has a valid pointer for success.
  */
-static int mixer_control_create_by_name(
-		struct mixer_control **control,
-		struct cras_alsa_mixer *cmix,
-		const char *name,
-		struct mixer_name *mixer_names,
-		enum CRAS_STREAM_DIRECTION dir)
+static int mixer_control_create_by_name(struct mixer_control **control,
+					struct cras_alsa_mixer *cmix,
+					const char *name,
+					struct mixer_name *mixer_names,
+					enum CRAS_STREAM_DIRECTION dir)
 {
 	snd_mixer_selem_id_t *sid;
 	snd_mixer_elem_t *elem;
@@ -334,7 +331,7 @@ static int mixer_control_create_by_name(
 
 	snd_mixer_selem_id_malloc(&sid);
 
-	DL_FOREACH(mixer_names, m_name) {
+	DL_FOREACH (mixer_names, m_name) {
 		snd_mixer_selem_id_set_index(sid, 0);
 		snd_mixer_selem_id_set_name(sid, m_name->name);
 		elem = snd_mixer_find_selem(cmix->mixer, sid);
@@ -358,56 +355,52 @@ static int mixer_control_create_by_name(
 	return 0;
 }
 
-static int mixer_control_set_dBFS(
-		const struct mixer_control *control, long to_set)
+static int mixer_control_set_dBFS(const struct mixer_control *control,
+				  long to_set)
 {
 	const struct mixer_control_element *elem = NULL;
 	int rc = -EINVAL;
 	if (!control)
 		return rc;
-	DL_FOREACH(control->elements, elem) {
-		if(elem->has_volume) {
+	DL_FOREACH (control->elements, elem) {
+		if (elem->has_volume) {
 			if (control->dir == CRAS_STREAM_OUTPUT)
 				rc = snd_mixer_selem_set_playback_dB_all(
-						elem->elem, to_set, 1);
+					elem->elem, to_set, 1);
 			else if (control->dir == CRAS_STREAM_INPUT)
 				rc = snd_mixer_selem_set_capture_dB_all(
-						elem->elem, to_set, 1);
+					elem->elem, to_set, 1);
 			if (rc)
 				break;
 			syslog(LOG_DEBUG, "%s:%s volume set to %ld",
 			       control->name,
-			       snd_mixer_selem_get_name(elem->elem),
-			       to_set);
+			       snd_mixer_selem_get_name(elem->elem), to_set);
 		}
 	}
 	if (rc && elem) {
 		syslog(LOG_ERR, "Failed to set volume of '%s:%s': %d",
-		       control->name,
-		       snd_mixer_selem_get_name(elem->elem), rc);
+		       control->name, snd_mixer_selem_get_name(elem->elem), rc);
 	}
 	return rc;
 }
 
-static int mixer_control_get_dBFS(
-		const struct mixer_control *control, long *to_get)
+static int mixer_control_get_dBFS(const struct mixer_control *control,
+				  long *to_get)
 {
 	const struct mixer_control_element *elem = NULL;
 	int rc = -EINVAL;
 	if (!control || !to_get)
 		return -EINVAL;
-	DL_FOREACH(control->elements, elem) {
+	DL_FOREACH (control->elements, elem) {
 		if (elem->has_volume) {
 			if (control->dir == CRAS_STREAM_OUTPUT)
 				rc = snd_mixer_selem_get_playback_dB(
-						elem->elem,
-						SND_MIXER_SCHN_FRONT_LEFT,
-						to_get);
+					elem->elem, SND_MIXER_SCHN_FRONT_LEFT,
+					to_get);
 			else if (control->dir == CRAS_STREAM_INPUT)
 				rc = snd_mixer_selem_get_capture_dB(
-						elem->elem,
-						SND_MIXER_SCHN_FRONT_LEFT,
-						to_get);
+					elem->elem, SND_MIXER_SCHN_FRONT_LEFT,
+					to_get);
 			/* Assume all of the elements of this control have
 			 * the same value. */
 			break;
@@ -415,21 +408,20 @@ static int mixer_control_get_dBFS(
 	}
 	if (rc && elem) {
 		syslog(LOG_ERR, "Failed to get volume of '%s:%s': %d",
-		       control->name,
-		       snd_mixer_selem_get_name(elem->elem), rc);
+		       control->name, snd_mixer_selem_get_name(elem->elem), rc);
 	}
 	return rc;
 }
 
-static int mixer_control_set_mute(
-		const struct mixer_control *control, int muted)
+static int mixer_control_set_mute(const struct mixer_control *control,
+				  int muted)
 {
 	const struct mixer_control_element *elem = NULL;
 	int rc;
 	if (!control)
 		return -EINVAL;
-	DL_FOREACH(control->elements, elem) {
-		if(elem->has_mute) {
+	DL_FOREACH (control->elements, elem) {
+		if (elem->has_mute) {
 			if (control->dir == CRAS_STREAM_OUTPUT)
 				rc = snd_mixer_selem_set_playback_switch_all(
 					elem->elem, !muted);
@@ -441,8 +433,7 @@ static int mixer_control_set_mute(
 		}
 	}
 	if (rc && elem) {
-		syslog(LOG_ERR, "Failed to mute '%s:%s': %d",
-		       control->name,
+		syslog(LOG_ERR, "Failed to mute '%s:%s': %d", control->name,
 		       snd_mixer_selem_get_name(elem->elem), rc);
 	}
 	return rc;
@@ -456,7 +447,8 @@ static int add_main_volume_control(struct cras_alsa_mixer *cmix,
 	if (snd_mixer_selem_has_playback_volume(elem)) {
 		long range;
 		struct mixer_control *c, *next;
-		int rc = mixer_control_create(&c, NULL, elem, CRAS_STREAM_OUTPUT);
+		int rc = mixer_control_create(&c, NULL, elem,
+					      CRAS_STREAM_OUTPUT);
 		if (rc)
 			return rc;
 
@@ -466,7 +458,7 @@ static int add_main_volume_control(struct cras_alsa_mixer *cmix,
 		}
 
 		range = c->max_volume_dB - c->min_volume_dB;
-		DL_FOREACH(cmix->main_volume_controls, next) {
+		DL_FOREACH (cmix->main_volume_controls, next) {
 			if (range > next->max_volume_dB - next->min_volume_dB)
 				break;
 		}
@@ -478,7 +470,7 @@ static int add_main_volume_control(struct cras_alsa_mixer *cmix,
 	/* If cmix doesn't yet have a playback switch and this is a playback
 	 * switch, use it. */
 	if (cmix->playback_switch == NULL &&
-			snd_mixer_selem_has_playback_switch(elem)) {
+	    snd_mixer_selem_has_playback_switch(elem)) {
 		syslog(LOG_DEBUG, "Using '%s' as playback switch.",
 		       snd_mixer_selem_get_name(elem));
 		cmix->playback_switch = elem;
@@ -498,7 +490,8 @@ static int add_main_capture_control(struct cras_alsa_mixer *cmix,
 
 	if (snd_mixer_selem_has_capture_volume(elem)) {
 		struct mixer_control *c;
-		int rc = mixer_control_create(&c, NULL, elem, CRAS_STREAM_INPUT);
+		int rc =
+			mixer_control_create(&c, NULL, elem, CRAS_STREAM_INPUT);
 		if (rc)
 			return rc;
 
@@ -521,8 +514,7 @@ static int add_main_capture_control(struct cras_alsa_mixer *cmix,
 /* Adds a control to the list. */
 static int add_control_with_name(struct cras_alsa_mixer *cmix,
 				 enum CRAS_STREAM_DIRECTION dir,
-				 snd_mixer_elem_t *elem,
-				 const char *name)
+				 snd_mixer_elem_t *elem, const char *name)
 {
 	int index; /* Index part of mixer simple element */
 	struct mixer_control *c;
@@ -530,8 +522,7 @@ static int add_control_with_name(struct cras_alsa_mixer *cmix,
 
 	index = snd_mixer_selem_get_index(elem);
 	syslog(LOG_DEBUG, "Add %s control: %s,%d\n",
-	       dir == CRAS_STREAM_OUTPUT ? "output" : "input",
-	       name, index);
+	       dir == CRAS_STREAM_OUTPUT ? "output" : "input", name, index);
 
 	rc = mixer_control_create(&c, name, elem, dir);
 	if (rc)
@@ -549,30 +540,27 @@ static int add_control_with_name(struct cras_alsa_mixer *cmix,
 }
 
 static int add_control(struct cras_alsa_mixer *cmix,
-		       enum CRAS_STREAM_DIRECTION dir,
-		       snd_mixer_elem_t *elem)
+		       enum CRAS_STREAM_DIRECTION dir, snd_mixer_elem_t *elem)
 {
 	return add_control_with_name(cmix, dir, elem,
 				     snd_mixer_selem_get_name(elem));
 }
 
 static void list_controls(struct mixer_control *control_list,
-			  cras_alsa_mixer_control_callback cb,
-			  void *cb_arg)
+			  cras_alsa_mixer_control_callback cb, void *cb_arg)
 {
 	struct mixer_control *control;
 
-	DL_FOREACH(control_list, control)
+	DL_FOREACH (control_list, control)
 		cb(control, cb_arg);
 }
 
-static struct mixer_control *get_control_matching_name(
-		struct mixer_control *control_list,
-		const char *name)
+static struct mixer_control *
+get_control_matching_name(struct mixer_control *control_list, const char *name)
 {
 	struct mixer_control *c;
 
-	DL_FOREACH(control_list, c) {
+	DL_FOREACH (control_list, c) {
 		if (strstr(name, c->name))
 			return c;
 	}
@@ -580,22 +568,20 @@ static struct mixer_control *get_control_matching_name(
 }
 
 /* Creates a mixer_control with multiple control elements. */
-static int add_control_with_coupled_mixers(
-				struct cras_alsa_mixer *cmix,
-				enum CRAS_STREAM_DIRECTION dir,
-				const char *name,
-				struct mixer_name *coupled_controls)
+static int add_control_with_coupled_mixers(struct cras_alsa_mixer *cmix,
+					   enum CRAS_STREAM_DIRECTION dir,
+					   const char *name,
+					   struct mixer_name *coupled_controls)
 {
 	struct mixer_control *c;
 	int rc;
 
-	rc = mixer_control_create_by_name(
-		 &c, cmix, name, coupled_controls, dir);
+	rc = mixer_control_create_by_name(&c, cmix, name, coupled_controls,
+					  dir);
 	if (rc)
 		return rc;
 	syslog(LOG_DEBUG, "Add %s control: %s\n",
-	       dir == CRAS_STREAM_OUTPUT ? "output" : "input",
-	       c->name);
+	       dir == CRAS_STREAM_OUTPUT ? "output" : "input", c->name);
 	mixer_name_dump(coupled_controls, "  elements");
 
 	if (c->has_volume)
@@ -610,8 +596,7 @@ static int add_control_with_coupled_mixers(
 }
 
 static int add_control_by_name(struct cras_alsa_mixer *cmix,
-			       enum CRAS_STREAM_DIRECTION dir,
-			       const char *name)
+			       enum CRAS_STREAM_DIRECTION dir, const char *name)
 {
 	struct mixer_control *c;
 	struct mixer_name *m_name;
@@ -626,8 +611,7 @@ static int add_control_by_name(struct cras_alsa_mixer *cmix,
 	if (rc)
 		return rc;
 	syslog(LOG_DEBUG, "Add %s control: %s\n",
-	       dir == CRAS_STREAM_OUTPUT ? "output" : "input",
-	       c->name);
+	       dir == CRAS_STREAM_OUTPUT ? "output" : "input", c->name);
 
 	if (c->has_volume)
 		syslog(LOG_DEBUG, "Control '%s' volume range: [%ld:%ld]",
@@ -660,30 +644,29 @@ struct cras_alsa_mixer *cras_alsa_mixer_create(const char *card_name)
 }
 
 int cras_alsa_mixer_add_controls_by_name_matching(
-		struct cras_alsa_mixer *cmix,
-		struct mixer_name *extra_controls,
-		struct mixer_name *coupled_controls)
+	struct cras_alsa_mixer *cmix, struct mixer_name *extra_controls,
+	struct mixer_name *coupled_controls)
 {
 	/* Names of controls for main system volume. */
-	static const char * const main_volume_names[] = {
+	static const char *const main_volume_names[] = {
 		"Master",
 		"Digital",
 		"PCM",
 	};
 	/* Names of controls for individual outputs. */
-	static const char * const output_names[] = {
+	static const char *const output_names[] = {
 		"Headphone",
 		"Headset",
 		"HDMI",
 		"Speaker",
 	};
 	/* Names of controls for capture gain/attenuation and mute. */
-	static const char * const main_capture_names[] = {
+	static const char *const main_capture_names[] = {
 		"Capture",
 		"Digital Capture",
 	};
 	/* Names of controls for individual inputs. */
-	static const char * const input_names[] = {
+	static const char *const input_names[] = {
 		"Mic",
 		"Microphone",
 	};
@@ -701,28 +684,30 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 		return 0;
 	}
 
-	default_controls = mixer_name_add_array(default_controls,
-				output_names, ARRAY_SIZE(output_names),
-				CRAS_STREAM_OUTPUT, MIXER_NAME_VOLUME);
-	default_controls = mixer_name_add_array(default_controls,
-				input_names, ARRAY_SIZE(input_names),
-				CRAS_STREAM_INPUT, MIXER_NAME_VOLUME);
 	default_controls =
-		mixer_name_add_array(default_controls,
-			main_volume_names, ARRAY_SIZE(main_volume_names),
-			CRAS_STREAM_OUTPUT, MIXER_NAME_MAIN_VOLUME);
+		mixer_name_add_array(default_controls, output_names,
+				     ARRAY_SIZE(output_names),
+				     CRAS_STREAM_OUTPUT, MIXER_NAME_VOLUME);
 	default_controls =
-		mixer_name_add_array(default_controls,
-			main_capture_names, ARRAY_SIZE(main_capture_names),
-			CRAS_STREAM_INPUT, MIXER_NAME_MAIN_VOLUME);
+		mixer_name_add_array(default_controls, input_names,
+				     ARRAY_SIZE(input_names), CRAS_STREAM_INPUT,
+				     MIXER_NAME_VOLUME);
+	default_controls =
+		mixer_name_add_array(default_controls, main_volume_names,
+				     ARRAY_SIZE(main_volume_names),
+				     CRAS_STREAM_OUTPUT,
+				     MIXER_NAME_MAIN_VOLUME);
+	default_controls =
+		mixer_name_add_array(default_controls, main_capture_names,
+				     ARRAY_SIZE(main_capture_names),
+				     CRAS_STREAM_INPUT, MIXER_NAME_MAIN_VOLUME);
 	extra_main_volume =
-		mixer_name_find(extra_controls, NULL,
-				CRAS_STREAM_OUTPUT,
+		mixer_name_find(extra_controls, NULL, CRAS_STREAM_OUTPUT,
 				MIXER_NAME_MAIN_VOLUME) != NULL;
 
 	/* Find volume and mute controls. */
-	for(elem = snd_mixer_first_elem(cmix->mixer);
-			elem != NULL; elem = snd_mixer_elem_next(elem)) {
+	for (elem = snd_mixer_first_elem(cmix->mixer); elem != NULL;
+	     elem = snd_mixer_elem_next(elem)) {
 		const char *name;
 		struct mixer_name *control;
 		int found = 0;
@@ -739,27 +724,27 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 		/* If our extra controls contain a main volume
 		 * entry, and we found a main volume entry, then
 		 * skip it. */
-		if (extra_main_volume &&
-		    control && control->type == MIXER_NAME_MAIN_VOLUME)
+		if (extra_main_volume && control &&
+		    control->type == MIXER_NAME_MAIN_VOLUME)
 			control = NULL;
 
 		/* If we didn't match any of the defaults, match
 		 * the extras list. */
 		if (!control)
 			control = mixer_name_find(extra_controls, name,
-					  CRAS_STREAM_OUTPUT,
-					  MIXER_NAME_UNDEFINED);
+						  CRAS_STREAM_OUTPUT,
+						  MIXER_NAME_UNDEFINED);
 
 		if (control) {
 			int rc = -1;
-			switch(control->type) {
+			switch (control->type) {
 			case MIXER_NAME_MAIN_VOLUME:
 				rc = add_main_volume_control(cmix, elem);
 				break;
 			case MIXER_NAME_VOLUME:
 				/* TODO(dgreid) - determine device index. */
-				rc = add_control(
-					cmix, CRAS_STREAM_OUTPUT, elem);
+				rc = add_control(cmix, CRAS_STREAM_OUTPUT,
+						 elem);
 				break;
 			case MIXER_NAME_UNDEFINED:
 				rc = -EINVAL;
@@ -784,18 +769,17 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 		   the extras list */
 		if (!control)
 			control = mixer_name_find(extra_controls, name,
-					  CRAS_STREAM_INPUT,
-					  MIXER_NAME_UNDEFINED);
+						  CRAS_STREAM_INPUT,
+						  MIXER_NAME_UNDEFINED);
 
 		if (control) {
 			int rc = -1;
-			switch(control->type) {
+			switch (control->type) {
 			case MIXER_NAME_MAIN_VOLUME:
 				rc = add_main_capture_control(cmix, elem);
 				break;
 			case MIXER_NAME_VOLUME:
-				rc = add_control(
-					cmix, CRAS_STREAM_INPUT, elem);
+				rc = add_control(cmix, CRAS_STREAM_INPUT, elem);
 				break;
 			case MIXER_NAME_UNDEFINED:
 				rc = -EINVAL;
@@ -816,8 +800,7 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 			 * in the list above, but has a playback volume
 			 * control and the largest volume range. */
 			long min, max, range;
-			if (snd_mixer_selem_get_playback_dB_range(elem,
-								  &min,
+			if (snd_mixer_selem_get_playback_dB_range(elem, &min,
 								  &max) != 0)
 				continue;
 
@@ -832,8 +815,7 @@ int cras_alsa_mixer_add_controls_by_name_matching(
 	/* Handle coupled output names for speaker */
 	if (coupled_controls) {
 		rc = add_control_with_coupled_mixers(
-				cmix, CRAS_STREAM_OUTPUT,
-				"Speaker", coupled_controls);
+			cmix, CRAS_STREAM_OUTPUT, "Speaker", coupled_controls);
 		if (rc) {
 			syslog(LOG_ERR, "Could not add coupled output");
 			goto out;
@@ -857,9 +839,40 @@ out:
 	return rc;
 }
 
-int cras_alsa_mixer_add_controls_in_section(
-		struct cras_alsa_mixer *cmix,
-		struct ucm_section *section)
+int cras_alsa_mixer_add_main_volume_control_by_name(
+	struct cras_alsa_mixer *cmix, struct mixer_name *mixer_names)
+{
+	snd_mixer_elem_t *elem;
+	struct mixer_name *m_name;
+	int rc = 0;
+	snd_mixer_selem_id_t *sid;
+
+	if (!mixer_names)
+		return -EINVAL;
+
+	snd_mixer_selem_id_malloc(&sid);
+
+	DL_FOREACH (mixer_names, m_name) {
+		snd_mixer_selem_id_set_index(sid, 0);
+		snd_mixer_selem_id_set_name(sid, m_name->name);
+		elem = snd_mixer_find_selem(cmix->mixer, sid);
+		if (!elem) {
+			rc = -ENOENT;
+			syslog(LOG_ERR, "Unable to find simple control %s, 0",
+			       m_name->name);
+			break;
+		}
+		rc = add_main_volume_control(cmix, elem);
+		if (rc)
+			break;
+	}
+
+	snd_mixer_selem_id_free(sid);
+	return rc;
+}
+
+int cras_alsa_mixer_add_controls_in_section(struct cras_alsa_mixer *cmix,
+					    struct ucm_section *section)
 {
 	int rc;
 
@@ -877,8 +890,8 @@ int cras_alsa_mixer_add_controls_in_section(
 	/* TODO(muirj) - Extra main volume controls when fully-specified. */
 
 	if (section->mixer_name) {
-		rc = add_control_by_name(
-				cmix, section->dir, section->mixer_name);
+		rc = add_control_by_name(cmix, section->dir,
+					 section->mixer_name);
 		if (rc) {
 			syslog(LOG_ERR, "Could not add mixer control '%s': %s",
 			       section->mixer_name, strerror(-rc));
@@ -888,8 +901,7 @@ int cras_alsa_mixer_add_controls_in_section(
 
 	if (section->coupled) {
 		rc = add_control_with_coupled_mixers(
-				cmix, section->dir,
-				section->name, section->coupled);
+			cmix, section->dir, section->name, section->coupled);
 		if (rc) {
 			syslog(LOG_ERR, "Could not add coupled control: %s",
 			       strerror(-rc));
@@ -912,8 +924,7 @@ void cras_alsa_mixer_destroy(struct cras_alsa_mixer *cras_mixer)
 	free(cras_mixer);
 }
 
-int cras_alsa_mixer_has_main_volume(
-		const struct cras_alsa_mixer *cras_mixer)
+int cras_alsa_mixer_has_main_volume(const struct cras_alsa_mixer *cras_mixer)
 {
 	return !!cras_mixer->main_volume_controls;
 }
@@ -923,8 +934,7 @@ int cras_alsa_mixer_has_volume(const struct mixer_control *mixer_control)
 	return mixer_control && mixer_control->has_volume;
 }
 
-void cras_alsa_mixer_set_dBFS(struct cras_alsa_mixer *cras_mixer,
-			      long dBFS,
+void cras_alsa_mixer_set_dBFS(struct cras_alsa_mixer *cras_mixer, long dBFS,
 			      struct mixer_control *mixer_output)
 {
 	struct mixer_control *c;
@@ -944,7 +954,7 @@ void cras_alsa_mixer_set_dBFS(struct cras_alsa_mixer *cras_mixer,
 	 * next one until we have the exact volume, or gotten as close as we
 	 * can. Once all of the volume is set the rest of the controls should be
 	 * set to 0dB. */
-	DL_FOREACH(cras_mixer->main_volume_controls, c) {
+	DL_FOREACH (cras_mixer->main_volume_controls, c) {
 		long actual_dB;
 
 		if (!c->has_volume)
@@ -965,8 +975,7 @@ long cras_alsa_mixer_get_dB_range(struct cras_alsa_mixer *cras_mixer)
 	return cras_mixer->max_volume_dB - cras_mixer->min_volume_dB;
 }
 
-long cras_alsa_mixer_get_output_dB_range(
-		struct mixer_control *mixer_output)
+long cras_alsa_mixer_get_output_dB_range(struct mixer_control *mixer_output)
 {
 	if (!cras_alsa_mixer_has_volume(mixer_output))
 		return 0;
@@ -988,7 +997,7 @@ void cras_alsa_mixer_set_capture_dBFS(struct cras_alsa_mixer *cras_mixer,
 	 * be set on the current control, move on to the next one until we have
 	 * the exact gain, or gotten as close as we can. Once all of the gain is
 	 * set the rest of the controls should be set to 0dB. */
-	DL_FOREACH(cras_mixer->main_capture_controls, c) {
+	DL_FOREACH (cras_mixer->main_capture_controls, c) {
 		long actual_dB;
 
 		if (!c->has_volume)
@@ -1003,52 +1012,47 @@ void cras_alsa_mixer_set_capture_dBFS(struct cras_alsa_mixer *cras_mixer,
 		mixer_control_set_dBFS(mixer_input, to_set);
 }
 
-long cras_alsa_mixer_get_minimum_capture_gain(
-                struct cras_alsa_mixer *cmix,
-		struct mixer_control *mixer_input)
+long cras_alsa_mixer_get_minimum_capture_gain(struct cras_alsa_mixer *cmix,
+					      struct mixer_control *mixer_input)
 {
 	struct mixer_control *c;
 	long total_min = 0;
 
 	assert(cmix);
-	DL_FOREACH(cmix->main_capture_controls, c)
+	DL_FOREACH (cmix->main_capture_controls, c)
 		if (c->has_volume)
 			total_min += c->min_volume_dB;
-	if (mixer_input &&
-	    mixer_input->has_volume)
+	if (mixer_input && mixer_input->has_volume)
 		total_min += mixer_input->min_volume_dB;
 
 	return total_min;
 }
 
-long cras_alsa_mixer_get_maximum_capture_gain(
-		struct cras_alsa_mixer *cmix,
-		struct mixer_control *mixer_input)
+long cras_alsa_mixer_get_maximum_capture_gain(struct cras_alsa_mixer *cmix,
+					      struct mixer_control *mixer_input)
 {
 	struct mixer_control *c;
 	long total_max = 0;
 
 	assert(cmix);
-	DL_FOREACH(cmix->main_capture_controls, c)
+	DL_FOREACH (cmix->main_capture_controls, c)
 		if (c->has_volume)
 			total_max += c->max_volume_dB;
 
-	if (mixer_input &&
-	    mixer_input->has_volume)
+	if (mixer_input && mixer_input->has_volume)
 		total_max += mixer_input->max_volume_dB;
 
 	return total_max;
 }
 
-void cras_alsa_mixer_set_mute(struct cras_alsa_mixer *cras_mixer,
-			      int muted,
+void cras_alsa_mixer_set_mute(struct cras_alsa_mixer *cras_mixer, int muted,
 			      struct mixer_control *mixer_output)
 {
 	assert(cras_mixer);
 
 	if (cras_mixer->playback_switch) {
 		snd_mixer_selem_set_playback_switch_all(
-				cras_mixer->playback_switch, !muted);
+			cras_mixer->playback_switch, !muted);
 	}
 	if (mixer_output && mixer_output->has_mute) {
 		mixer_control_set_mute(mixer_output, muted);
@@ -1062,7 +1066,7 @@ void cras_alsa_mixer_set_capture_mute(struct cras_alsa_mixer *cras_mixer,
 	assert(cras_mixer);
 	if (cras_mixer->capture_switch) {
 		snd_mixer_selem_set_capture_switch_all(
-				cras_mixer->capture_switch, !muted);
+			cras_mixer->capture_switch, !muted);
 		return;
 	}
 	if (mixer_input && mixer_input->has_mute)
@@ -1085,18 +1089,18 @@ void cras_alsa_mixer_list_inputs(struct cras_alsa_mixer *cras_mixer,
 	list_controls(cras_mixer->input_controls, cb, cb_arg);
 }
 
-const char *cras_alsa_mixer_get_control_name(
-		const struct mixer_control *control)
+const char *
+cras_alsa_mixer_get_control_name(const struct mixer_control *control)
 {
 	if (!control)
 		return NULL;
 	return control->name;
 }
 
-struct mixer_control *cras_alsa_mixer_get_control_matching_name(
-		struct cras_alsa_mixer *cras_mixer,
-		enum CRAS_STREAM_DIRECTION dir, const char *name,
-		int create_missing)
+struct mixer_control *
+cras_alsa_mixer_get_control_matching_name(struct cras_alsa_mixer *cras_mixer,
+					  enum CRAS_STREAM_DIRECTION dir,
+					  const char *name, int create_missing)
 {
 	struct mixer_control *c;
 
@@ -1105,14 +1109,13 @@ struct mixer_control *cras_alsa_mixer_get_control_matching_name(
 		return NULL;
 
 	if (dir == CRAS_STREAM_OUTPUT) {
-		c = get_control_matching_name(
-				cras_mixer->output_controls, name);
+		c = get_control_matching_name(cras_mixer->output_controls,
+					      name);
 	} else if (dir == CRAS_STREAM_INPUT) {
-		c = get_control_matching_name(
-				cras_mixer->input_controls, name);
+		c = get_control_matching_name(cras_mixer->input_controls, name);
 	} else {
 		return NULL;
-        }
+	}
 
 	/* TODO: Allowing creation of a new control is a workaround: we
 	 * should pass the input names in ucm config to
@@ -1121,49 +1124,48 @@ struct mixer_control *cras_alsa_mixer_get_control_matching_name(
 		int rc = add_control_by_name(cras_mixer, dir, name);
 		if (rc)
 			return NULL;
-		c = cras_alsa_mixer_get_control_matching_name(
-				cras_mixer, dir, name, 0);
+		c = cras_alsa_mixer_get_control_matching_name(cras_mixer, dir,
+							      name, 0);
 	}
 	return c;
 }
 
-struct mixer_control *cras_alsa_mixer_get_control_for_section(
-		struct cras_alsa_mixer *cras_mixer,
-		const struct ucm_section *section)
+struct mixer_control *
+cras_alsa_mixer_get_control_for_section(struct cras_alsa_mixer *cras_mixer,
+					const struct ucm_section *section)
 {
 	assert(cras_mixer && section);
 	if (section->mixer_name) {
 		return cras_alsa_mixer_get_control_matching_name(
-			   cras_mixer, section->dir, section->mixer_name, 0);
+			cras_mixer, section->dir, section->mixer_name, 0);
 	} else if (section->coupled) {
 		return cras_alsa_mixer_get_control_matching_name(
-			   cras_mixer, section->dir, section->name, 0);
+			cras_mixer, section->dir, section->name, 0);
 	}
 	return NULL;
 }
 
-struct mixer_control *cras_alsa_mixer_get_output_matching_name(
-		struct cras_alsa_mixer *cras_mixer,
-		const char * const name)
+struct mixer_control *
+cras_alsa_mixer_get_output_matching_name(struct cras_alsa_mixer *cras_mixer,
+					 const char *const name)
 {
 	return cras_alsa_mixer_get_control_matching_name(
-			cras_mixer, CRAS_STREAM_OUTPUT, name, 0);
+		cras_mixer, CRAS_STREAM_OUTPUT, name, 0);
 }
 
-struct mixer_control *cras_alsa_mixer_get_input_matching_name(
-		struct cras_alsa_mixer *cras_mixer,
-		const char *name)
+struct mixer_control *
+cras_alsa_mixer_get_input_matching_name(struct cras_alsa_mixer *cras_mixer,
+					const char *name)
 {
 	/* TODO: Allowing creation of a new control is a workaround: we
 	 * should pass the input names in ucm config to
 	 * cras_alsa_mixer_create. */
 	return cras_alsa_mixer_get_control_matching_name(
-			cras_mixer, CRAS_STREAM_INPUT, name, 1);
+		cras_mixer, CRAS_STREAM_INPUT, name, 1);
 }
 
-int cras_alsa_mixer_set_output_active_state(
-		struct mixer_control *output,
-		int active)
+int cras_alsa_mixer_set_output_active_state(struct mixer_control *output,
+					    int active)
 {
 	assert(output);
 	if (!output->has_mute)

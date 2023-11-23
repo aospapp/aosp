@@ -17,11 +17,17 @@ class firmware_Fingerprint(FingerprintTest):
     version = 1
 
     def initialize(self, host, test_exe, test_exe_args=None,
-                   use_dev_signed_fw=False):
+                   use_dev_signed_fw=False,
+                   enable_hardware_write_protect=True,
+                   enable_software_write_protect=True,
+                   force_firmware_flashing=False,
+                   init_entropy=True):
         test_dir = os.path.join(self.bindir, 'tests/')
         logging.info('test_dir: %s', test_dir)
         super(firmware_Fingerprint, self).initialize(
-            host, test_dir, use_dev_signed_fw)
+            host, test_dir, use_dev_signed_fw, enable_hardware_write_protect,
+            enable_software_write_protect, force_firmware_flashing,
+            init_entropy)
 
         self._test_exe = test_exe
 
@@ -36,6 +42,5 @@ class firmware_Fingerprint(FingerprintTest):
     def run_once(self):
         """Run the test."""
         logging.info('Running test: %s', self._test_exe)
-        self.set_hardware_write_protect(True)
         self.run_test(self._test_exe, *self._test_exe_args)
 

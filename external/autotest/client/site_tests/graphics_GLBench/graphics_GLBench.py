@@ -5,7 +5,7 @@
 import logging
 import os
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import perf
 from autotest_lib.client.cros import service_stopper
@@ -18,12 +18,16 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
   preserve_srcdir = True
   _services = None
 
+  glbench_directory = '/usr/local/glbench/'
   # Good images.
-  reference_images_file = 'deps/glbench/glbench_reference_images.txt'
+  reference_images_file = os.path.join(glbench_directory,
+                                       'files/glbench_reference_images.txt')
   # Images that are bad but for which the bug has not been fixed yet.
-  knownbad_images_file = 'deps/glbench/glbench_knownbad_images.txt'
+  knownbad_images_file = os.path.join(glbench_directory,
+                                      'files/glbench_knownbad_images.txt')
   # Images that are bad and for which a fix has been submitted.
-  fixedbad_images_file = 'deps/glbench/glbench_fixedbad_images.txt'
+  fixedbad_images_file = os.path.join(glbench_directory,
+                                      'files/glbench_fixedbad_images.txt')
 
   # These tests do not draw anything, they can only be used to check
   # performance.
@@ -50,9 +54,6 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
       '1280x768_fps': True
   }
 
-  def setup(self):
-    self.job.setup_dep(['glbench'])
-
   def initialize(self):
     super(graphics_GLBench, self).initialize()
     # If UI is running, we must stop it and restore later.
@@ -63,32 +64,6 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
     if self._services:
       self._services.restore_services()
     super(graphics_GLBench, self).cleanup()
-
-  def report_temperature(self, keyname):
-    """Report current max observed temperature with given keyname.
-
-    @param keyname: key to be used when reporting perf value.
-    """
-    temperature = utils.get_temperature_input_max()
-    logging.info('%s = %f degree Celsius', keyname, temperature)
-    self.output_perf_value(
-        description=keyname,
-        value=temperature,
-        units='Celsius',
-        higher_is_better=False)
-
-  def report_temperature_critical(self, keyname):
-    """Report temperature at which we will see throttling with given keyname.
-
-    @param keyname: key to be used when reporting perf value.
-    """
-    temperature = utils.get_temperature_critical()
-    logging.info('%s = %f degree Celsius', keyname, temperature)
-    self.output_perf_value(
-        description=keyname,
-        value=temperature,
-        units='Celsius',
-        higher_is_better=False)
 
   def is_no_checksum_test(self, testname):
     """Check if given test requires no screenshot checksum.
@@ -112,17 +87,18 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
 
   @graphics_utils.GraphicsTest.failure_report_decorator('graphics_GLBench')
   def run_once(self, options='', hasty=False):
-    dep = 'glbench'
-    dep_dir = os.path.join(self.autodir, 'deps', dep)
-    self.job.install_pkg(dep, 'dep', dep_dir)
+    """Run the test.
 
+    @param options: String of options to run the glbench executable with.
+    @param hasty: Run the test more quickly by running fewer iterations,
+        lower resolution, and without waiting for the dut to cool down.
+    """
     options += self.blacklist
-
     # Run the test, saving is optional and helps with debugging
     # and reference image management. If unknown images are
     # encountered one can take them from the outdir and copy
     # them (after verification) into the reference image dir.
-    exefile = os.path.join(self.autodir, 'deps/glbench/glbench')
+    exefile = os.path.join(self.glbench_directory, 'bin/glbench')
     outdir = self.outputdir
     options += ' -save -outdir=' + outdir
     # Using the -hasty option we run only a subset of tests without waiting
@@ -142,14 +118,13 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
                             stdout_tee=utils.TEE_TO_LOGS,
                             stderr_tee=utils.TEE_TO_LOGS).stdout
       else:
-        self.report_temperature_critical('temperature_critical')
-        self.report_temperature('temperature_1_start')
+        utils.report_temperature(self, 'temperature_1_start')
         # Wrap the test run inside of a PerfControl instance to make machine
         # behavior more consistent.
         with perf.PerfControl() as pc:
           if not pc.verify_is_valid():
             raise error.TestFail('Failed: %s' % pc.get_error_reason())
-          self.report_temperature('temperature_2_before_test')
+          utils.report_temperature(self, 'temperature_2_before_test')
 
           # Run the test. If it gets the CPU too hot pc should notice.
           summary = utils.run(cmd,
@@ -223,15 +198,6 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
             units=unit,
             higher_is_better=higher,
             graph=perf_value_name)
-        # Add extra value to the graph distinguishing different boards.
-        variant = utils.get_board_with_frequency_and_memory()
-        desc = '%s-%s' % (perf_value_name, variant)
-        self.output_perf_value(
-            description=desc,
-            value=testrating,
-            units=unit,
-            higher_is_better=higher,
-            graph=perf_value_name)
 
       # Classify result image.
       if testrating == -1.0:
@@ -272,7 +238,7 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
         f.write('# unknown [' + imagefile + '] (setting perf as -2.0)\n')
     f.close()
     if not hasty:
-      self.report_temperature('temperature_3_after_test')
+      utils.report_temperature(self, 'temperature_3_after_test')
       self.write_perf_keyval(keyvals)
 
     # Raise exception if images don't match.

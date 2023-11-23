@@ -69,18 +69,10 @@ public class SearchBot extends Bots.BaseBot {
     public void clickIcon() throws UiObjectNotFoundException {
         UiObject searchView = findSearchView();
         searchView.click();
-
-        UiObject fragmentSearchView = findFragmentSearchView();
-        assertTrue(fragmentSearchView.exists());
     }
 
     public void clickSearchViewClearButton() throws UiObjectNotFoundException {
         UiObject clear = findSearchViewClearButton();
-        clear.click();
-    }
-
-    public void clickFragmentSearchViewClearButton() throws UiObjectNotFoundException {
-        UiObject clear = findFragmentSearchClearButton();
         clear.click();
     }
 
@@ -121,19 +113,6 @@ public class SearchBot extends Bots.BaseBot {
         assertEquals(exists, findSearchViewTextField().exists());
     }
 
-    public void assertFragmentInputFocused(boolean focused)
-            throws UiObjectNotFoundException {
-        UiObject textField = findFragmentSearchViewTextField();
-
-        assertTrue(textField.exists());
-        assertEquals(focused, textField.isFocused());
-    }
-
-    public void assertFragmentInputExists(boolean exists)
-            throws UiObjectNotFoundException {
-        assertEquals(exists, findFragmentSearchViewTextField().exists());
-    }
-
     private UiObject findSearchView() {
         return findObject(mTargetPackage + ":id/option_menu_search");
     }
@@ -145,20 +124,6 @@ public class SearchBot extends Bots.BaseBot {
 
     private UiObject findSearchViewClearButton() {
         return findObject(mTargetPackage + ":id/option_menu_search",
-                mTargetPackage + ":id/search_close_btn");
-    }
-
-    private UiObject findFragmentSearchView() {
-        return findObject(mTargetPackage + ":id/search_view");
-    }
-
-    private UiObject findFragmentSearchViewTextField() {
-        return findObject(mTargetPackage + ":id/search_view",
-                mTargetPackage + ":id/search_src_text");
-    }
-
-    private UiObject findFragmentSearchClearButton() {
-        return findObject(mTargetPackage + ":id/search_view",
                 mTargetPackage + ":id/search_close_btn");
     }
 

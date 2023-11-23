@@ -27,6 +27,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.android.tv.R;
@@ -133,6 +134,13 @@ public abstract class BaseCardView<T> extends LinearLayout implements ItemListRo
             cancelFocusAnimationIfAny();
             setFocusAnimatedValue(SCALE_FACTOR_0F);
         }
+    }
+
+    /** Request focus and accessibility focus on card view. */
+    @Override
+    public boolean requestFocusWithAccessibility() {
+        return requestFocus() &&
+                performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
     }
 
     /** Sets text of this card view. */

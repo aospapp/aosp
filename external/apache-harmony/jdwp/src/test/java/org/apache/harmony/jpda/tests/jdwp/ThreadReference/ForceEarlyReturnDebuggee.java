@@ -62,6 +62,31 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
 
     static Object waitForFinish = new Object();
 
+    private final class NoCallSynchronizer extends Thread {
+        public volatile boolean signalReady = false;
+
+        public NoCallSynchronizer(String name) {
+          super(name + " - NoCallSynchronizer thread");
+        }
+
+        public void run() {
+            while (!signalReady) {
+                Thread.yield();
+            }
+            logWriter.println(getName() + ": " + "resuming debugger");
+            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        }
+
+        public void sjoin() {
+          try {
+              join();
+          } catch (InterruptedException ie) {
+              logWriter.println("Interrupted exception: " + ie);
+              throw new Error("join interrupted!", ie);
+          }
+        }
+    }
+
     @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
@@ -82,81 +107,81 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
     }
 
-    public Object func_Object() {
+    public Object func_Object(NoCallSynchronizer ncs) {
         logWriter.println("In func_Object");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return new Object();
     }
 
-    public int func_Int() {
+    public int func_Int(NoCallSynchronizer ncs) {
         logWriter.println("In func_Int");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return -1;
     }
 
-    public short func_Short() {
+    public short func_Short(NoCallSynchronizer ncs) {
         logWriter.println("In func_Short");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return -1;
     }
 
-    public byte func_Byte() {
+    public byte func_Byte(NoCallSynchronizer ncs) {
         logWriter.println("In func_Byte");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return -1;
     }
 
-    public char func_Char() {
+    public char func_Char(NoCallSynchronizer ncs) {
         logWriter.println("In func_Char");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return 'Z';
     }
 
-    public boolean func_Boolean() {
+    public boolean func_Boolean(NoCallSynchronizer ncs) {
         logWriter.println("In func_Boolean");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return false;
     }
 
-    public long func_Long() {
+    public long func_Long(NoCallSynchronizer ncs) {
         logWriter.println("In func_Long");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return -1;
     }
 
-    public float func_Float() {
+    public float func_Float(NoCallSynchronizer ncs) {
         logWriter.println("In func_Float");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return -1;
     }
 
-    public double func_Double() {
+    public double func_Double(NoCallSynchronizer ncs) {
         logWriter.println("In func_Double");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         return -1;
     }
 
-    public void func_Void() {
+    public void func_Void(NoCallSynchronizer ncs) {
         logWriter.println("In func_Void");
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+        ncs.signalReady = true;
         while (condition)
             ;
         isFuncVoidBreak = false;
@@ -171,6 +196,8 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
 
         @Override
         public void run() {
+            NoCallSynchronizer ncs = new NoCallSynchronizer(getName());
+            ncs.start();
 
             synchronized (ForceEarlyReturnDebuggee.waitForFinish) {
 
@@ -181,7 +208,8 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
                     logWriter.println(getName() + ": started");
 
                     if (getName().equals(THREAD_OBJECT)) {
-                        Object result = func_Object();
+                        Object result = func_Object(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + "Object");
                         if (result instanceof TestObject) {
                             synchronizer.sendMessage("TRUE");
@@ -192,54 +220,63 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
                                 .println(getName() + ": func_Object returned.");
 
                     } else if (getName().equals(THREAD_INT)) {
-                        int result = func_Int();
+                        int result = func_Int(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer
                                 .sendMessage(new Integer(result).toString());
                         logWriter.println(getName() + ": func_Int returned.");
                     } else if (getName().equals(THREAD_SHORT)) {
-                        short result = func_Short();
+                        short result = func_Short(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer
                                 .sendMessage(new Integer(result).toString());
                         logWriter.println(getName() + ": func_Short returned.");
                     } else if (getName().equals(THREAD_BYTE)) {
-                        byte result = func_Byte();
+                        byte result = func_Byte(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer
                                 .sendMessage(new Integer(result).toString());
                         logWriter.println(getName() + ": func_Byte returned.");
                     } else if (getName().equals(THREAD_CHAR)) {
-                        char result = func_Char();
+                        char result = func_Char(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer.sendMessage(new Character(result)
                                 .toString());
                         logWriter.println(getName() + ": func_Char returned.");
                     } else if (getName().equals(THREAD_BOOLEAN)) {
-                        Boolean result = func_Boolean();
+                        Boolean result = func_Boolean(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer
                                 .sendMessage(new Boolean(result).toString());
                         logWriter.println(getName()
                                 + ": func_Boolean returned.");
                     } else if (getName().equals(THREAD_LONG)) {
-                        long result = func_Long();
+                        long result = func_Long(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer.sendMessage(new Long(result).toString());
                         logWriter.println(getName() + ": func_Long returned.");
                     } else if (getName().equals(THREAD_FLOAT)) {
-                        float result = func_Float();
+                        float result = func_Float(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer.sendMessage(new Float(result).toString());
                         logWriter.println(getName() + ": func_Float returned.");
                     } else if (getName().equals(THREAD_DOUBLE)) {
-                        double result = func_Double();
+                        double result = func_Double(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + result);
                         synchronizer.sendMessage(new Double(result).toString());
                         logWriter
                                 .println(getName() + ": func_Double returned.");
                     } else if (getName().equals(THREAD_VOID)) {
-                        func_Void();
+                        func_Void(ncs);
+                        ncs.sjoin();
                         logWriter.println(getName() + ": " + "void");
                         if (isFuncVoidBreak) {
                             synchronizer.sendMessage("TRUE");
@@ -249,7 +286,8 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
                         logWriter.println(getName() + ": func_Void returned.");
                     } else {
                         logWriter.println(getName() + ": no func is called.");
-                        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+                        ncs.signalReady = true;
+                        ncs.sjoin();
                         synchronizer.receiveMessage("ThreadExit");
                     }
 

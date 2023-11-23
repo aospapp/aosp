@@ -55,6 +55,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.runners.Parameterized;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(Parameterized.class)
 public class HeifWriterTest extends Camera2AndroidTestCase {
     private static final String TAG = HeifWriterTest.class.getSimpleName();
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -79,6 +84,7 @@ public class HeifWriterTest extends Camera2AndroidTestCase {
         super.tearDown();
     }
 
+    @Test
     public void testHeif() throws Exception {
         final int NUM_SINGLE_CAPTURE_TESTED = 3;
         final int NUM_HEIC_CAPTURE_TESTED = 2;
@@ -93,7 +99,7 @@ public class HeifWriterTest extends Camera2AndroidTestCase {
         boolean sessionFailure = false;
         Integer[] sessionStates = {BlockingSessionCallback.SESSION_READY,
                 BlockingSessionCallback.SESSION_CONFIGURE_FAILED};
-        for (String id : mCameraIds) {
+        for (String id : mCameraIdsUnderTest) {
             try {
                 Log.v(TAG, "Testing HEIF capture for Camera " + id);
                 openDevice(id);

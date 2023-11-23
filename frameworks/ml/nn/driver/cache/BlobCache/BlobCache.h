@@ -14,8 +14,8 @@
  ** limitations under the License.
  */
 
-#ifndef ANDROID_BLOB_CACHE_H
-#define ANDROID_BLOB_CACHE_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_DRIVER_CACHE_BLOB_CACHE_BLOB_CACHE_H
+#define ANDROID_FRAMEWORKS_ML_NN_DRIVER_CACHE_BLOB_CACHE_BLOB_CACHE_H
 
 #include <stddef.h>
 
@@ -34,7 +34,7 @@ namespace android {
 // serialization is non-portable and the data should only be used by the device
 // that generated it.
 class BlobCache {
-public:
+   public:
     enum class Select {
         RANDOM,  // evict random entries
         LRU,     // evict least-recently-used entries
@@ -86,8 +86,7 @@ public:
     //   0 < keySize
     //   value != NULL
     //   0 < valueSize
-    void set(const void* key, size_t keySize, const void* value,
-            size_t valueSize);
+    void set(const void* key, size_t keySize, const void* value, size_t valueSize);
 
     // get retrieves from the cache the binary value associated with a given
     // binary key.  If the key is present in the cache then the length of the
@@ -131,7 +130,7 @@ public:
     size_t get(const void* key, size_t keySize, void** value, std::function<void*(size_t)> alloc);
     template <typename T>
     size_t get(const void* key, size_t keySize, T** value, std::function<void*(size_t)> alloc) {
-        void *valueVoid;
+        void* valueVoid;
         const size_t size = get(key, keySize, &valueVoid, alloc);
         *value = static_cast<T*>(valueVoid);
         return size;
@@ -158,7 +157,7 @@ public:
     //
     int unflatten(void const* buffer, size_t size);
 
-private:
+   private:
     // Copying is disallowed.
     BlobCache(const BlobCache&);
     void operator=(const BlobCache&);
@@ -204,7 +203,7 @@ private:
 
     // A Blob is an immutable sized unstructured data blob.
     class Blob {
-    public:
+       public:
         Blob(const void* data, size_t size, bool copyData);
         ~Blob();
 
@@ -213,7 +212,7 @@ private:
         const void* getData() const;
         size_t getSize() const;
 
-    private:
+       private:
         // Copying is not allowed.
         Blob(const Blob&);
         void operator=(const Blob&);
@@ -231,9 +230,10 @@ private:
 
     // A CacheEntry is a single key/value pair in the cache.
     class CacheEntry {
-    public:
+       public:
         CacheEntry();
-        CacheEntry(const std::shared_ptr<Blob>& key, const std::shared_ptr<Blob>& value, uint32_t recency);
+        CacheEntry(const std::shared_ptr<Blob>& key, const std::shared_ptr<Blob>& value,
+                   uint32_t recency);
         CacheEntry(const CacheEntry& ce);
 
         bool operator<(const CacheEntry& rhs) const;
@@ -247,8 +247,7 @@ private:
         uint32_t getRecency() const;
         void setRecency(uint32_t recency);
 
-    private:
-
+       private:
         // mKey is the key that identifies the cache entry.
         std::shared_ptr<Blob> mKey;
 
@@ -349,6 +348,6 @@ private:
     std::vector<CacheEntry> mCacheEntries;
 };
 
-}
+}  // namespace android
 
-#endif // ANDROID_BLOB_CACHE_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_DRIVER_CACHE_BLOB_CACHE_BLOB_CACHE_H

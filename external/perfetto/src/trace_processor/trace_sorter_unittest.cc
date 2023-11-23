@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/trace_processor/proto_trace_parser.h"
+#include "src/trace_processor/importers/proto/proto_trace_parser.h"
 
 #include <map>
 #include <random>
 #include <vector>
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-
 #include "perfetto/trace_processor/basic_types.h"
-#include "src/trace_processor/trace_processor_context.h"
+#include "src/trace_processor/timestamped_trace_piece.h"
 #include "src/trace_processor/trace_sorter.h"
+#include "src/trace_processor/types/trace_processor_context.h"
+#include "test/gtest_and_gmock.h"
 
 namespace perfetto {
 namespace trace_processor {
@@ -33,6 +32,7 @@ namespace {
 using ::testing::_;
 using ::testing::InSequence;
 using ::testing::Invoke;
+using ::testing::MockFunction;
 using ::testing::NiceMock;
 
 class MockTraceParser : public ProtoTraceParser {
@@ -47,17 +47,18 @@ class MockTraceParser : public ProtoTraceParser {
 
   void ParseFtracePacket(uint32_t cpu,
                          int64_t timestamp,
-                         TraceSorter::TimestampedTracePiece ttp) override {
-    TraceBlobView& tbv = ttp.blob_view;
-    MOCK_ParseFtracePacket(cpu, timestamp, tbv.data(), tbv.length());
+                         TimestampedTracePiece ttp) override {
+    bool isNonCompact = ttp.type == TimestampedTracePiece::Type::kFtraceEvent;
+    MOCK_ParseFtracePacket(cpu, timestamp,
+                           isNonCompact ? ttp.ftrace_event.data() : nullptr,
+                           isNonCompact ? ttp.ftrace_event.length() : 0);
   }
 
   MOCK_METHOD3(MOCK_ParseTracePacket,
                void(int64_t ts, const uint8_t* data, size_t length));
 
-  void ParseTracePacket(int64_t ts,
-                        TraceSorter::TimestampedTracePiece ttp) override {
-    TraceBlobView& tbv = ttp.blob_view;
+  void ParseTracePacket(int64_t ts, TimestampedTracePiece ttp) override {
+    TraceBlobView& tbv = ttp.packet_data.packet;
     MOCK_ParseTracePacket(ts, tbv.data(), tbv.length());
   }
 };
@@ -75,9 +76,13 @@ class TraceSorterTest : public ::testing::Test {
       : test_buffer_(std::unique_ptr<uint8_t[]>(new uint8_t[8]), 0, 8) {
     storage_ = new NiceMock<MockTraceStorage>();
     context_.storage.reset(storage_);
-    context_.sorter.reset(new TraceSorter(&context_, 0 /*window_size*/));
-    parser_ = new MockTraceParser(&context_);
-    context_.parser.reset(parser_);
+
+    std::unique_ptr<MockTraceParser> parser(new MockTraceParser(&context_));
+    parser_ = parser.get();
+
+    context_.sorter.reset(
+        new TraceSorter(std::move(parser),
+                        std::numeric_limits<int64_t>::max() /*window_size*/));
   }
 
  protected:
@@ -97,14 +102,16 @@ TEST_F(TraceSorterTest, TestFtrace) {
 }
 
 TEST_F(TraceSorterTest, TestTracePacket) {
+  PacketSequenceState state(&context_);
   TraceBlobView view = test_buffer_.slice(0, 1);
   EXPECT_CALL(*parser_, MOCK_ParseTracePacket(1000, view.data(), 1));
-  context_.sorter->PushTracePacket(1000, std::move(view));
+  context_.sorter->PushTracePacket(1000, &state, std::move(view));
   context_.sorter->FinalizeFtraceEventBatch(1000);
   context_.sorter->ExtractEventsForced();
 }
 
 TEST_F(TraceSorterTest, Ordering) {
+  PacketSequenceState state(&context_);
   TraceBlobView view_1 = test_buffer_.slice(0, 1);
   TraceBlobView view_2 = test_buffer_.slice(0, 2);
   TraceBlobView view_3 = test_buffer_.slice(0, 3);
@@ -117,16 +124,63 @@ TEST_F(TraceSorterTest, Ordering) {
   EXPECT_CALL(*parser_, MOCK_ParseTracePacket(1100, view_3.data(), 3));
   EXPECT_CALL(*parser_, MOCK_ParseFtracePacket(2, 1200, view_4.data(), 4));
 
-  context_.sorter->set_window_ns_for_testing(200);
+  context_.sorter->SetWindowSizeNs(200);
   context_.sorter->PushFtraceEvent(2 /*cpu*/, 1200 /*timestamp*/,
                                    std::move(view_4));
   context_.sorter->FinalizeFtraceEventBatch(2);
-  context_.sorter->PushTracePacket(1001, std::move(view_2));
-  context_.sorter->PushTracePacket(1100, std::move(view_3));
+  context_.sorter->PushTracePacket(1001, &state, std::move(view_2));
+  context_.sorter->PushTracePacket(1100, &state, std::move(view_3));
   context_.sorter->PushFtraceEvent(0 /*cpu*/, 1000 /*timestamp*/,
                                    std::move(view_1));
 
   context_.sorter->FinalizeFtraceEventBatch(0);
+  context_.sorter->ExtractEventsForced();
+}
+
+TEST_F(TraceSorterTest, SetWindowSize) {
+  PacketSequenceState state(&context_);
+  TraceBlobView view_1 = test_buffer_.slice(0, 1);
+  TraceBlobView view_2 = test_buffer_.slice(0, 2);
+  TraceBlobView view_3 = test_buffer_.slice(0, 3);
+  TraceBlobView view_4 = test_buffer_.slice(0, 4);
+
+  MockFunction<void(std::string check_point_name)> check;
+
+  {
+    InSequence s;
+
+    EXPECT_CALL(*parser_, MOCK_ParseFtracePacket(0, 1000, view_1.data(), 1));
+    EXPECT_CALL(*parser_, MOCK_ParseTracePacket(1001, view_2.data(), 2));
+    EXPECT_CALL(check, Call("1"));
+    EXPECT_CALL(*parser_, MOCK_ParseTracePacket(1100, view_3.data(), 3));
+    EXPECT_CALL(check, Call("2"));
+    EXPECT_CALL(*parser_, MOCK_ParseFtracePacket(2, 1200, view_4.data(), 4));
+  }
+
+  context_.sorter->SetWindowSizeNs(200);
+  context_.sorter->PushFtraceEvent(2 /*cpu*/, 1200 /*timestamp*/,
+                                   std::move(view_4));
+  context_.sorter->FinalizeFtraceEventBatch(2);
+  context_.sorter->PushTracePacket(1001, &state, std::move(view_2));
+  context_.sorter->PushTracePacket(1100, &state, std::move(view_3));
+
+  context_.sorter->PushFtraceEvent(0 /*cpu*/, 1000 /*timestamp*/,
+                                   std::move(view_1));
+  context_.sorter->FinalizeFtraceEventBatch(0);
+
+  // At this point, we should just flush the 1000 and 1001 packets.
+  context_.sorter->SetWindowSizeNs(101);
+
+  // Inform the mock about where we are.
+  check.Call("1");
+
+  // Now we should flush the 1100 packet.
+  context_.sorter->SetWindowSizeNs(99);
+
+  // Inform the mock about where we are.
+  check.Call("2");
+
+  // Now we should flush the 1200 packet.
   context_.sorter->ExtractEventsForced();
 }
 

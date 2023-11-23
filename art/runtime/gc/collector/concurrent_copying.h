@@ -18,11 +18,13 @@
 #define ART_RUNTIME_GC_COLLECTOR_CONCURRENT_COPYING_H_
 
 #include "garbage_collector.h"
+#include "gc/accounting/space_bitmap.h"
 #include "immune_spaces.h"
 #include "offsets.h"
 
 #include <map>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace art {
@@ -148,11 +150,12 @@ class ConcurrentCopying : public GarbageCollector {
   bool IsWeakRefAccessEnabled() REQUIRES(Locks::thread_list_lock_) {
     return weak_ref_access_enabled_;
   }
-  void RevokeThreadLocalMarkStack(Thread* thread) REQUIRES_SHARED(Locks::mutator_lock_)
-      REQUIRES(!mark_stack_lock_);
+  void RevokeThreadLocalMarkStack(Thread* thread) REQUIRES(!mark_stack_lock_);
 
   mirror::Object* IsMarked(mirror::Object* from_ref) override
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void AssertNoThreadMarkStackMapping(Thread* thread) REQUIRES(!mark_stack_lock_);
 
  private:
   void PushOntoMarkStack(Thread* const self, mirror::Object* obj)
@@ -321,6 +324,12 @@ class ConcurrentCopying : public GarbageCollector {
   void ProcessMarkStackForMarkingAndComputeLiveBytes() REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!mark_stack_lock_);
 
+  void RemoveThreadMarkStackMapping(Thread* thread, accounting::ObjectStack* tl_mark_stack)
+      REQUIRES(mark_stack_lock_);
+  void AddThreadMarkStackMapping(Thread* thread, accounting::ObjectStack* tl_mark_stack)
+      REQUIRES(mark_stack_lock_);
+  void AssertEmptyThreadMarkStackMap() REQUIRES(mark_stack_lock_);
+
   space::RegionSpace* region_space_;      // The underlying region space.
   std::unique_ptr<Barrier> gc_barrier_;
   std::unique_ptr<accounting::ObjectStack> gc_mark_stack_;
@@ -351,12 +360,19 @@ class ConcurrentCopying : public GarbageCollector {
   // (see use case in ConcurrentCopying::MarkFromReadBarrier).
   bool rb_mark_bit_stack_full_;
 
+  // Guards access to pooled_mark_stacks_ and revoked_mark_stacks_ vectors.
+  // Also guards destruction and revocations of thread-local mark-stacks.
+  // Clearing thread-local mark-stack (by other threads or during destruction)
+  // should be guarded by it.
   Mutex mark_stack_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
   std::vector<accounting::ObjectStack*> revoked_mark_stacks_
       GUARDED_BY(mark_stack_lock_);
   static constexpr size_t kMarkStackSize = kPageSize;
   static constexpr size_t kMarkStackPoolSize = 256;
   std::vector<accounting::ObjectStack*> pooled_mark_stacks_
+      GUARDED_BY(mark_stack_lock_);
+  // TODO(lokeshgidra b/140119552): remove this after bug fix.
+  std::unordered_map<Thread*, accounting::ObjectStack*> thread_mark_stack_map_
       GUARDED_BY(mark_stack_lock_);
   Thread* thread_running_gc_;
   bool is_marking_;                       // True while marking is ongoing.
@@ -409,8 +425,8 @@ class ConcurrentCopying : public GarbageCollector {
   size_t gc_count_;
   // Bit is set if the corresponding object has inter-region references that
   // were found during the marking phase of two-phase full-heap GC cycle.
-  std::unique_ptr<accounting::ContinuousSpaceBitmap> region_space_inter_region_bitmap_;
-  std::unique_ptr<accounting::ContinuousSpaceBitmap> non_moving_space_inter_region_bitmap_;
+  accounting::ContinuousSpaceBitmap region_space_inter_region_bitmap_;
+  accounting::ContinuousSpaceBitmap non_moving_space_inter_region_bitmap_;
 
   // reclaimed_bytes_ratio = reclaimed_bytes/num_allocated_bytes per GC cycle
   float reclaimed_bytes_ratio_sum_;

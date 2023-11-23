@@ -120,6 +120,7 @@ def generateHal20():
     print("    TYPE_INT64   = [VEHICLEPROPERTYTYPE_INT64]", file=vhal_20_file)
     print("    TYPE_FLOAT   = [VEHICLEPROPERTYTYPE_FLOAT]", file=vhal_20_file)
     print("    TYPE_INT32S  = [VEHICLEPROPERTYTYPE_INT32_VEC]", file=vhal_20_file)
+    print("    TYPE_INT64S  = [VEHICLEPROPERTYTYPE_INT64_VEC]", file=vhal_20_file)
     print("    TYPE_FLOATS  = [VEHICLEPROPERTYTYPE_FLOAT_VEC]", file=vhal_20_file)
     print("    TYPE_MIXED   = [VEHICLEPROPERTYTYPE_MIXED]", file=vhal_20_file)
 

@@ -17,14 +17,19 @@
 package android.telecom;
 
 import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
+import android.annotation.TestApi;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelFileDescriptor;
+
+import com.android.internal.telecom.IVideoProvider;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -117,6 +122,20 @@ public final class Call {
      * manifest.
      */
     public static final int STATE_PULLING_CALL = 11;
+
+    /**
+     * The state of a call that is active with the network, but the audio from the call is
+     * being intercepted by an app on the local device. Telecom does not hold audio focus in this
+     * state, and the call will be invisible to the user except for a persistent notification.
+     */
+    public static final int STATE_AUDIO_PROCESSING = 12;
+
+    /**
+     * The state of a call that is being presented to the user after being in
+     * {@link #STATE_AUDIO_PROCESSING}. The call is still active with the network in this case, and
+     * Telecom will hold audio focus and play a ringtone if appropriate.
+     */
+    public static final int STATE_SIMULATED_RINGING = 13;
 
     /**
      * The key to retrieve the optional {@code PhoneAccount}s Telecom can bundle with its Call
@@ -248,6 +267,29 @@ public final class Call {
     public static final String EVENT_HANDOVER_FAILED =
             "android.telecom.event.HANDOVER_FAILED";
 
+
+    /**
+     * Reject reason used with {@link #reject(int)} to indicate that the user is rejecting this
+     * call because they have declined to answer it.  This typically means that they are unable
+     * to answer the call at this time and would prefer it be sent to voicemail.
+     */
+    public static final int REJECT_REASON_DECLINED = 1;
+
+    /**
+     * Reject reason used with {@link #reject(int)} to indicate that the user is rejecting this
+     * call because it is an unwanted call.  This allows the user to indicate that they are
+     * rejecting a call because it is likely a nuisance call.
+     */
+    public static final int REJECT_REASON_UNWANTED = 2;
+
+    /**
+     * @hide
+     */
+    @IntDef(prefix = { "REJECT_REASON_" },
+            value = {REJECT_REASON_DECLINED, REJECT_REASON_UNWANTED})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface RejectReason {};
+
     public static class Details {
         /** @hide */
         @Retention(RetentionPolicy.SOURCE)
@@ -272,7 +314,6 @@ public final class Call {
          * Indicates that the call is an outgoing call.
          */
         public static final int DIRECTION_OUTGOING = 1;
-
 
         /** Call can currently be put on hold or unheld. */
         public static final int CAPABILITY_HOLD = 0x00000001;
@@ -419,8 +460,33 @@ public final class Call {
         /** Call supports the deflect feature. */
         public static final int CAPABILITY_SUPPORT_DEFLECT = 0x01000000;
 
+        /**
+         * Call supports adding participants to the call via
+         * {@link #addConferenceParticipants(List)}.
+         * @hide
+         */
+        public static final int CAPABILITY_ADD_PARTICIPANT = 0x02000000;
+
+        /**
+         * When set for a call, indicates that this {@code Call} can be transferred to another
+         * number.
+         * Call supports the blind and assured call transfer feature.
+         *
+         * @hide
+         */
+        public static final int CAPABILITY_TRANSFER = 0x04000000;
+
+        /**
+         * When set for a call, indicates that this {@code Call} can be transferred to another
+         * ongoing call.
+         * Call supports the consultative call transfer feature.
+         *
+         * @hide
+         */
+        public static final int CAPABILITY_TRANSFER_CONSULTATIVE = 0x08000000;
+
         //******************************************************************************************
-        // Next CAPABILITY value: 0x02000000
+        // Next CAPABILITY value: 0x10000000
         //******************************************************************************************
 
         /**
@@ -497,10 +563,10 @@ public final class Call {
 
         /**
          * Indicates the call used Assisted Dialing.
-         * See also {@link Connection#PROPERTY_ASSISTED_DIALING_USED}
-         * @hide
+         *
+         * @see TelecomManager#EXTRA_USE_ASSISTED_DIALING
          */
-        public static final int PROPERTY_ASSISTED_DIALING_USED = 0x00000200;
+        public static final int PROPERTY_ASSISTED_DIALING = 0x00000200;
 
         /**
          * Indicates that the call is an RTT call. Use {@link #getRttCall()} to get the
@@ -531,8 +597,15 @@ public final class Call {
          */
         public static final int PROPERTY_VOIP_AUDIO_MODE = 0x00001000;
 
+        /**
+         * Indicates that the call is an adhoc conference call. This property can be set for both
+         * incoming and outgoing calls.
+         * @hide
+         */
+        public static final int PROPERTY_IS_ADHOC_CONFERENCE = 0x00002000;
+
         //******************************************************************************************
-        // Next PROPERTY value: 0x00002000
+        // Next PROPERTY value: 0x00004000
         //******************************************************************************************
 
         private final String mTelecomCallId;
@@ -552,7 +625,9 @@ public final class Call {
         private final Bundle mExtras;
         private final Bundle mIntentExtras;
         private final long mCreationTimeMillis;
+        private final String mContactDisplayName;
         private final @CallDirection int mCallDirection;
+        private final @Connection.VerificationStatus int mCallerNumberVerificationStatus;
 
         /**
          * Whether the supplied capabilities  supports the specified capability.
@@ -641,6 +716,15 @@ public final class Call {
             if (can(capabilities, CAPABILITY_SUPPORT_DEFLECT)) {
                 builder.append(" CAPABILITY_SUPPORT_DEFLECT");
             }
+            if (can(capabilities, CAPABILITY_ADD_PARTICIPANT)) {
+                builder.append(" CAPABILITY_ADD_PARTICIPANT");
+            }
+            if (can(capabilities, CAPABILITY_TRANSFER)) {
+                builder.append(" CAPABILITY_TRANSFER");
+            }
+            if (can(capabilities, CAPABILITY_TRANSFER_CONSULTATIVE)) {
+                builder.append(" CAPABILITY_TRANSFER_CONSULTATIVE");
+            }
             builder.append("]");
             return builder.toString();
         }
@@ -696,7 +780,7 @@ public final class Call {
             if (hasProperty(properties, PROPERTY_HAS_CDMA_VOICE_PRIVACY)) {
                 builder.append(" PROPERTY_HAS_CDMA_VOICE_PRIVACY");
             }
-            if (hasProperty(properties, PROPERTY_ASSISTED_DIALING_USED)) {
+            if (hasProperty(properties, PROPERTY_ASSISTED_DIALING)) {
                 builder.append(" PROPERTY_ASSISTED_DIALING_USED");
             }
             if (hasProperty(properties, PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL)) {
@@ -708,11 +792,15 @@ public final class Call {
             if (hasProperty(properties, PROPERTY_VOIP_AUDIO_MODE)) {
                 builder.append(" PROPERTY_VOIP_AUDIO_MODE");
             }
+            if (hasProperty(properties, PROPERTY_IS_ADHOC_CONFERENCE)) {
+                builder.append(" PROPERTY_IS_ADHOC_CONFERENCE");
+            }
             builder.append("]");
             return builder.toString();
         }
 
         /** {@hide} */
+        @TestApi
         public String getTelecomCallId() {
             return mTelecomCallId;
         }
@@ -854,11 +942,31 @@ public final class Call {
         }
 
         /**
+         * Returns the name of the caller on the remote end, as derived from a
+         * {@link android.provider.ContactsContract} lookup of the call's handle.
+         * @return The name of the caller, or {@code null} if the lookup is not yet complete, if
+         *         there's no contacts entry for the caller, or if the {@link InCallService} does
+         *         not hold the {@link android.Manifest.permission#READ_CONTACTS} permission.
+         */
+        public @Nullable String getContactDisplayName() {
+            return mContactDisplayName;
+        }
+
+        /**
          * Indicates whether the call is an incoming or outgoing call.
          * @return The call's direction.
          */
         public @CallDirection int getCallDirection() {
             return mCallDirection;
+        }
+
+        /**
+         * Gets the verification status for the phone number of an incoming call as identified in
+         * ATIS-1000082.
+         * @return the verification status.
+         */
+        public @Connection.VerificationStatus int getCallerNumberVerificationStatus() {
+            return mCallerNumberVerificationStatus;
         }
 
         @Override
@@ -882,7 +990,10 @@ public final class Call {
                         areBundlesEqual(mExtras, d.mExtras) &&
                         areBundlesEqual(mIntentExtras, d.mIntentExtras) &&
                         Objects.equals(mCreationTimeMillis, d.mCreationTimeMillis) &&
-                        Objects.equals(mCallDirection, d.mCallDirection);
+                        Objects.equals(mContactDisplayName, d.mContactDisplayName) &&
+                        Objects.equals(mCallDirection, d.mCallDirection) &&
+                        Objects.equals(mCallerNumberVerificationStatus,
+                                d.mCallerNumberVerificationStatus);
             }
             return false;
         }
@@ -904,7 +1015,9 @@ public final class Call {
                             mExtras,
                             mIntentExtras,
                             mCreationTimeMillis,
-                            mCallDirection);
+                            mContactDisplayName,
+                            mCallDirection,
+                            mCallerNumberVerificationStatus);
         }
 
         /** {@hide} */
@@ -925,7 +1038,9 @@ public final class Call {
                 Bundle extras,
                 Bundle intentExtras,
                 long creationTimeMillis,
-                int callDirection) {
+                String contactDisplayName,
+                int callDirection,
+                int callerNumberVerificationStatus) {
             mTelecomCallId = telecomCallId;
             mHandle = handle;
             mHandlePresentation = handlePresentation;
@@ -942,7 +1057,9 @@ public final class Call {
             mExtras = extras;
             mIntentExtras = intentExtras;
             mCreationTimeMillis = creationTimeMillis;
+            mContactDisplayName = contactDisplayName;
             mCallDirection = callDirection;
+            mCallerNumberVerificationStatus = callerNumberVerificationStatus;
         }
 
         /** {@hide} */
@@ -964,7 +1081,9 @@ public final class Call {
                     parcelableCall.getExtras(),
                     parcelableCall.getIntentExtras(),
                     parcelableCall.getCreationTimeMillis(),
-                    parcelableCall.getCallDirection());
+                    parcelableCall.getContactDisplayName(),
+                    parcelableCall.getCallDirection(),
+                    parcelableCall.getCallerNumberVerificationStatus());
         }
 
         @Override
@@ -1165,7 +1284,8 @@ public final class Call {
         public void onConferenceableCallsChanged(Call call, List<Call> conferenceableCalls) {}
 
         /**
-         * Invoked when a {@link Call} receives an event from its associated {@link Connection}.
+         * Invoked when a {@link Call} receives an event from its associated {@link Connection} or
+         * {@link Conference}.
          * <p>
          * Where possible, the Call should make an attempt to handle {@link Connection} events which
          * are part of the {@code android.telecom.*} namespace.  The Call should ignore any events
@@ -1173,7 +1293,8 @@ public final class Call {
          * possible that a {@link ConnectionService} has defined its own Connection events which a
          * Call is not aware of.
          * <p>
-         * See {@link Connection#sendConnectionEvent(String, Bundle)}.
+         * See {@link Connection#sendConnectionEvent(String, Bundle)},
+         * {@link Conference#sendConferenceEvent(String, Bundle)}.
          *
          * @param call The {@code Call} receiving the event.
          * @param event The event.
@@ -1410,6 +1531,7 @@ public final class Call {
 
     private boolean mChildrenCached;
     private String mParentId = null;
+    private String mActiveGenericConferenceChild = null;
     private int mState;
     private List<String> mCannedTextResponses = null;
     private String mCallingPackage;
@@ -1458,6 +1580,40 @@ public final class Call {
     }
 
     /**
+     * Instructs the {@link ConnectionService} providing this {@link #STATE_RINGING} call that the
+     * user has chosen to reject the call and has indicated a reason why the call is being rejected.
+     *
+     * @param rejectReason the reason the call is being rejected.
+     */
+    public void reject(@RejectReason int rejectReason) {
+        mInCallAdapter.rejectCall(mTelecomCallId, rejectReason);
+    }
+
+    /**
+     * Instructs this {@code Call} to be transferred to another number.
+     *
+     * @param targetNumber The address to which the call will be transferred.
+     * @param isConfirmationRequired if {@code true} it will initiate ASSURED transfer,
+     * if {@code false}, it will initiate BLIND transfer.
+     *
+     * @hide
+     */
+    public void transfer(@NonNull Uri targetNumber, boolean isConfirmationRequired) {
+        mInCallAdapter.transferCall(mTelecomCallId, targetNumber, isConfirmationRequired);
+    }
+
+    /**
+     * Instructs this {@code Call} to be transferred to another ongoing call.
+     * This will initiate CONSULTATIVE transfer.
+     * @param toCall The other ongoing {@code Call} to which this call will be transferred.
+     *
+     * @hide
+     */
+    public void transfer(@NonNull android.telecom.Call toCall) {
+        mInCallAdapter.transferCall(mTelecomCallId, toCall.mTelecomCallId);
+    }
+
+    /**
      * Instructs this {@code Call} to disconnect.
      */
     public void disconnect() {
@@ -1476,6 +1632,55 @@ public final class Call {
      */
     public void unhold() {
         mInCallAdapter.unholdCall(mTelecomCallId);
+    }
+
+    /**
+     * Instructs Telecom to put the call into the background audio processing state.
+     * <p>
+     * This method can be called either when the call is in {@link #STATE_RINGING} or
+     * {@link #STATE_ACTIVE}. After Telecom acknowledges the request by setting the call's state to
+     * {@link #STATE_AUDIO_PROCESSING}, your app may setup the audio paths with the audio stack in
+     * order to capture and play audio on the call stream.
+     * <p>
+     * This method can only be called by the default dialer app.
+     * <p>
+     * Apps built with SDK version {@link android.os.Build.VERSION_CODES#R} or later which are using
+     * the microphone as part of audio processing should specify the foreground service type using
+     * the attribute {@link android.R.attr#foregroundServiceType} in the {@link InCallService}
+     * service element of the app's manifest file.
+     * The {@link ServiceInfo#FOREGROUND_SERVICE_TYPE_MICROPHONE} attribute should be specified.
+     * @see <a href="https://developer.android.com/preview/privacy/foreground-service-types">
+     * the Android Developer Site</a> for more information.
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    public void enterBackgroundAudioProcessing() {
+        if (mState != STATE_ACTIVE && mState != STATE_RINGING) {
+            throw new IllegalStateException("Call must be active or ringing");
+        }
+        mInCallAdapter.enterBackgroundAudioProcessing(mTelecomCallId);
+    }
+
+    /**
+     * Instructs Telecom to come out of the background audio processing state requested by
+     * {@link #enterBackgroundAudioProcessing()} or from the call screening service.
+     *
+     * This method can only be called when the call is in {@link #STATE_AUDIO_PROCESSING}.
+     *
+     * @param shouldRing If true, Telecom will put the call into the
+     *                   {@link #STATE_SIMULATED_RINGING} state and notify other apps that there is
+     *                   a ringing call. Otherwise, the call will go into {@link #STATE_ACTIVE}
+     *                   immediately.
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    public void exitBackgroundAudioProcessing(boolean shouldRing) {
+        if (mState != STATE_AUDIO_PROCESSING) {
+            throw new IllegalStateException("Call must in the audio processing state");
+        }
+        mInCallAdapter.exitBackgroundAudioProcessing(mTelecomCallId, shouldRing);
     }
 
     /**
@@ -1563,6 +1768,17 @@ public final class Call {
      */
     public void swapConference() {
         mInCallAdapter.swapConference(mTelecomCallId);
+    }
+
+    /**
+     * Pulls participants to existing call by forming a conference call.
+     * See {@link Details#CAPABILITY_ADD_PARTICIPANT}.
+     *
+     * @param participants participants to be pulled to existing call.
+     * @hide
+     */
+    public void addConferenceParticipants(@NonNull List<Uri> participants) {
+        mInCallAdapter.addConferenceParticipants(mTelecomCallId, participants);
     }
 
     /**
@@ -1867,6 +2083,31 @@ public final class Call {
     }
 
     /**
+     * Returns the child {@link Call} in a generic conference that is currently active.
+     *
+     * A "generic conference" is the mechanism used to support two simultaneous calls on a device
+     * in CDMA networks. It is effectively equivalent to having one call active and one call on hold
+     * in GSM or IMS calls. This method returns the currently active call.
+     *
+     * In a generic conference, the network exposes the conference to us as a single call, and we
+     * switch between talking to the two participants using a CDMA flash command. Since the network
+     * exposes no additional information about the call, the only way we know which caller we're
+     * currently talking to is by keeping track of the flash commands that we've sent to the
+     * network.
+     *
+     * For calls that are not generic conferences, or when the generic conference has more than
+     * 2 children, returns {@code null}.
+     * @see Details#PROPERTY_GENERIC_CONFERENCE
+     * @return The active child call.
+     */
+    public @Nullable Call getGenericConferenceActiveChildCall() {
+        if (mActiveGenericConferenceChild != null) {
+            return mPhone.internalGetCallByTelecomId(mActiveGenericConferenceChild);
+        }
+        return null;
+    }
+
+    /**
      * Obtains a list of canned, pre-configured message responses to present to the user as
      * ways of rejecting this {@code Call} using via a text message.
      *
@@ -1990,6 +2231,10 @@ public final class Call {
                 return "DISCONNECTING";
             case STATE_SELECT_PHONE_ACCOUNT:
                 return "SELECT_PHONE_ACCOUNT";
+            case STATE_SIMULATED_RINGING:
+                return "SIMULATED_RINGING";
+            case STATE_AUDIO_PROCESSING:
+                return "AUDIO_PROCESSING";
             default:
                 Log.w(Call.class, "Unknown state %d", state);
                 return "UNKNOWN";
@@ -2067,18 +2312,30 @@ public final class Call {
             cannedTextResponsesChanged = true;
         }
 
-        VideoCallImpl newVideoCallImpl = parcelableCall.getVideoCallImpl(mCallingPackage,
-                mTargetSdkVersion);
-        boolean videoCallChanged = parcelableCall.isVideoCallProviderChanged() &&
-                !Objects.equals(mVideoCallImpl, newVideoCallImpl);
+        IVideoProvider previousVideoProvider = mVideoCallImpl == null ? null :
+                mVideoCallImpl.getVideoProvider();
+        IVideoProvider newVideoProvider = parcelableCall.getVideoProvider();
+
+        // parcelableCall.isVideoCallProviderChanged is only true when we have a video provider
+        // specified; so we should check if the actual IVideoProvider changes as well.
+        boolean videoCallChanged = parcelableCall.isVideoCallProviderChanged()
+                && !Objects.equals(previousVideoProvider, newVideoProvider);
         if (videoCallChanged) {
-            mVideoCallImpl = newVideoCallImpl;
+            if (mVideoCallImpl != null) {
+                mVideoCallImpl.destroy();
+            }
+            mVideoCallImpl = parcelableCall.isVideoCallProviderChanged() ?
+                    parcelableCall.getVideoCallImpl(mCallingPackage, mTargetSdkVersion) : null;
         }
+
         if (mVideoCallImpl != null) {
             mVideoCallImpl.setVideoState(getDetails().getVideoState());
         }
 
         int state = parcelableCall.getState();
+        if (mTargetSdkVersion < Phone.SDK_VERSION_R && state == Call.STATE_SIMULATED_RINGING) {
+            state = Call.STATE_RINGING;
+        }
         boolean stateChanged = mState != state;
         if (stateChanged) {
             mState = state;
@@ -2096,6 +2353,13 @@ public final class Call {
             mChildrenIds.clear();
             mChildrenIds.addAll(parcelableCall.getChildCallIds());
             mChildrenCached = false;
+        }
+
+        String activeChildCallId = parcelableCall.getActiveChildCallId();
+        boolean activeChildChanged = !Objects.equals(activeChildCallId,
+                mActiveGenericConferenceChild);
+        if (activeChildChanged) {
+            mActiveGenericConferenceChild = activeChildCallId;
         }
 
         List<String> conferenceableCallIds = parcelableCall.getConferenceableCallIds();
@@ -2157,7 +2421,7 @@ public final class Call {
         if (parentChanged) {
             fireParentChanged(getParent());
         }
-        if (childrenChanged) {
+        if (childrenChanged || activeChildChanged) {
             fireChildrenChanged(getChildren());
         }
         if (isRttChanged) {

@@ -32,9 +32,8 @@ void cras_fmt_conv_destroy(struct cras_fmt_conv **conv);
  *    coefficient - Float array of length N * N representing the conversion
  *        matrix, where matrix[i][j] corresponds to coefficient[i * N + j]
  */
-struct cras_fmt_conv *cras_channel_remix_conv_create(
-		unsigned int num_channels,
-		const float *coefficient);
+struct cras_fmt_conv *cras_channel_remix_conv_create(unsigned int num_channels,
+						     const float *coefficient);
 
 /* Converts nframes of sample from in_buf, using given remix converter.
  * Args:
@@ -45,16 +44,15 @@ struct cras_fmt_conv *cras_channel_remix_conv_create(
  */
 void cras_channel_remix_convert(struct cras_fmt_conv *conv,
 				const struct cras_audio_format *fmt,
-				uint8_t *in_buf,
-				size_t nframes);
+				uint8_t *in_buf, size_t nframes);
 
 /* Get the input format of the converter. */
-const struct cras_audio_format *cras_fmt_conv_in_format(
-		const struct cras_fmt_conv *conv);
+const struct cras_audio_format *
+cras_fmt_conv_in_format(const struct cras_fmt_conv *conv);
 
 /* Get the output format of the converter. */
-const struct cras_audio_format *cras_fmt_conv_out_format(
-		const struct cras_fmt_conv *conv);
+const struct cras_audio_format *
+cras_fmt_conv_out_format(const struct cras_fmt_conv *conv);
 
 /* Get the number of output frames that will result from converting in_frames */
 size_t cras_fmt_conv_in_frames_to_out(struct cras_fmt_conv *conv,
@@ -64,8 +62,7 @@ size_t cras_fmt_conv_out_frames_to_in(struct cras_fmt_conv *conv,
 				      size_t out_frames);
 /* Sets the input and output rate to the linear resampler. */
 void cras_fmt_conv_set_linear_resample_rates(struct cras_fmt_conv *conv,
-					     float from,
-					     float to);
+					     float from, float to);
 /* Converts in_frames samples from in_buf, storing the results in out_buf.
  * Args:
  *    conv - The format converter returned from cras_fmt_conv_create().
@@ -78,10 +75,8 @@ void cras_fmt_conv_set_linear_resample_rates(struct cras_fmt_conv *conv,
  *      frames, this can be checked with cras_fmt_conv_in_frames_to_out().
  * Return number of frames put in out_buf. */
 size_t cras_fmt_conv_convert_frames(struct cras_fmt_conv *conv,
-				    const uint8_t *in_buf,
-				    uint8_t *out_buf,
-				    unsigned int *in_frames,
-				    size_t out_frames);
+				    const uint8_t *in_buf, uint8_t *out_buf,
+				    unsigned int *in_frames, size_t out_frames);
 
 /* Checks if format conversion is needed for a fmt converter.
  * Args:

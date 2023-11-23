@@ -9,4 +9,5 @@
 .*/usr/lib64/python2.7/site-packages/selenium/webdriver/firefox/.*/x_ignore_nofocus\.so\.debug
 .*/lib.*/libiptc\.so.*\.debug
 .*/autotest/.*\.debug
+.*/opt/intel/fw_parser\.debug
 # todos:

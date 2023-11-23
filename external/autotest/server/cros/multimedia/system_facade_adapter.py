@@ -127,3 +127,21 @@ class SystemFacadeRemoteAdapter(object):
         Fetches statistics for a storage device.
         """
         return self._system_proxy.get_storage_statistics(device)
+
+    def start_bg_worker(self, command):
+        """
+        Start executing the command in a background worker.
+        """
+        return self._system_proxy.start_bg_worker(command)
+
+    def get_and_discard_bg_worker_output(self):
+        """
+        Returns the output collected so far since the last call to this method.
+        """
+        return self._system_proxy.get_and_discard_bg_worker_output()
+
+    def stop_bg_worker(self):
+        """
+        Stop the worker.
+        """
+        return self._system_proxy.stop_bg_worker()

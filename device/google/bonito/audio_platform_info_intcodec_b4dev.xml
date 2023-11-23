@@ -48,6 +48,15 @@
         <device name="SND_DEVICE_OUT_VOICE_TTY_HCO_SPEAKER" acdb_id="14"/>
         <device name="SND_DEVICE_IN_VOICE_TTY_VCO_SPEAKER_MIC" acdb_id="19"/>
     </acdb_ids>
+
+    <audio_input_source_delay>
+        <audio_source_delay name="AUDIO_SOURCE_CAMCORDER" delay="20"/>
+    </audio_input_source_delay>
+
+    <audio_output_usecase_delay>
+        <audio_usecase_delay name="USECASE_AUDIO_PLAYBACK_DEEP_BUFFER" delay="20"/>
+    </audio_output_usecase_delay>
+
     <bit_width_configs>
         <device name="SND_DEVICE_OUT_SPEAKER" bit_width="24"/>
     </bit_width_configs>
@@ -83,7 +92,7 @@
         <usecase name="USECASE_AUDIO_HFP_SCO_WB" type="in" id="12" />
     </pcm_ids>
     <config_params>
-        <param key="input_mic_max_count" value="3"/>
+        <param key="input_mic_max_count" value="2"/>
         <param key="snd_card_name" value="sdm670-intcodec-b4dev-snd-card"/>
     </config_params>
 

@@ -9,10 +9,10 @@ third_party {
     type: GIT
     value: "https://github.com/httplib2/httplib2.git"
   }
-  version: "v0.12.1"
+  version: "v0.15.0"
   last_upgrade_date {
     year: 2019
-    month: 2
-    day: 21
+    month: 12
+    day: 23
   }
 }

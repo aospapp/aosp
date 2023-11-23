@@ -13,7 +13,7 @@
         "MEDIA_ID": "art_nature_128 bee",
         "DISPLAY_TITLE": "Bee",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/bee.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/bee.jpg"
       }
     },
     {
@@ -22,7 +22,7 @@
         "MEDIA_ID": "art_nature_128 clouds",
         "DISPLAY_TITLE": "Clouds",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/clouds.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/clouds.jpg"
       }
     },
     {
@@ -31,7 +31,7 @@
         "MEDIA_ID": "art_nature_128 flower1",
         "DISPLAY_TITLE": "Flower 1",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/flower1.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/flower1.jpg"
       }
     },
     {
@@ -40,7 +40,7 @@
         "MEDIA_ID": "art_nature_128 flower2",
         "DISPLAY_TITLE": "Flower 2",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/flower2.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/flower2.jpg"
       }
     },
     {
@@ -49,7 +49,7 @@
         "MEDIA_ID": "art_nature_128 flower3",
         "DISPLAY_TITLE": "Flower3 ",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/flower3.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/flower3.jpg"
       }
     },
     {
@@ -58,7 +58,7 @@
         "MEDIA_ID": "art_nature_128 flowers",
         "DISPLAY_TITLE": "Flowers",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/flowers.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/flowers.jpg"
       }
     },
     {
@@ -67,7 +67,7 @@
         "MEDIA_ID": "art_nature_128 leaves",
         "DISPLAY_TITLE": "Leaves",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/leaves.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/leaves.jpg"
       }
     },
     {
@@ -76,7 +76,7 @@
         "MEDIA_ID": "art_nature_128 sage",
         "DISPLAY_TITLE": "Sage",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/sage.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/sage.jpg"
       }
     },
     {
@@ -85,7 +85,7 @@
         "MEDIA_ID": "art_nature_128 tree",
         "DISPLAY_TITLE": "Tree",
         "DURATION": 10000,
-        "ART_URI": "bitmaps/nature-128/tree.jpg"
+        "ART_URI": "assets/bitmaps/nature-128/tree.jpg"
       }
     }
   ]

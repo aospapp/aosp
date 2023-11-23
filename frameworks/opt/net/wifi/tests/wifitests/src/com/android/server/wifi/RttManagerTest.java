@@ -31,7 +31,7 @@ import org.junit.Test;
  * Unit test for {@link RttManager}
  */
 @SmallTest
-public class RttManagerTest {
+public class RttManagerTest extends WifiBaseTest {
 
     // Verify ParcelableRttParams are the same after writing and reading from parcel.
     private void verifyReadWriteParcelForRttParams(ParcelableRttParams params) {

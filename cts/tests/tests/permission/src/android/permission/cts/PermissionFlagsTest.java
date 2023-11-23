@@ -26,12 +26,13 @@ import static android.content.pm.PackageManager.FLAG_PERMISSION_REVOKE_WHEN_REQU
 import static android.content.pm.PackageManager.FLAG_PERMISSION_USER_FIXED;
 import static android.content.pm.PackageManager.FLAG_PERMISSION_USER_SET;
 import static android.permission.cts.PermissionUtils.clearAppState;
-import static android.permission.cts.PermissionUtils.eventually;
 import static android.permission.cts.PermissionUtils.getPermissionFlags;
 import static android.permission.cts.PermissionUtils.install;
 import static android.permission.cts.PermissionUtils.isGranted;
 import static android.permission.cts.PermissionUtils.setPermissionFlags;
 import static android.permission.cts.PermissionUtils.uninstallApp;
+
+import static com.android.compatibility.common.util.SystemUtil.eventually;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

@@ -1,4 +1,9 @@
-# Copyright 2012 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Tests for misc."""
 
 from __future__ import print_function
@@ -9,7 +14,7 @@ __author__ = 'asharif@google.com (Ahmad Sharif)'
 import unittest
 
 # Local modules
-import misc
+from cros_utils import misc
 
 
 class UtilsTest(unittest.TestCase):

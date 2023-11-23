@@ -16,7 +16,9 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.documentclient">
-    <application>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+
+    <application android:debuggable="true" android:forceQueryable="true">
         <uses-library android:name="android.test.runner" />
         <activity android:name=".MyActivity" />
     </application>

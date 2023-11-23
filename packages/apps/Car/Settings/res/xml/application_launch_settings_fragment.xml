@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/app_launch_title">
+    android:title="@string/app_launch_title"
+    android:key="@string/psk_application_launch_settings">
     <Preference
         android:key="@string/pk_opening_links_app_details"
         settings:controller="com.android.car.settings.applications.managedomainurls.ApplicationWithVersionPreferenceController"/>

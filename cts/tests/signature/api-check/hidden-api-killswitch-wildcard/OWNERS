@@ -1,4 +1,2 @@
-# Bug component: 86431
-dbrazdil@google.com
-mathewi@google.com
-ngeoffray@google.com
+# Bug component: 610774
+include ../hidden-api-blacklist-current-api/OWNERS

@@ -16,6 +16,11 @@
 
 package com.android.layoutlib.bridge.impl;
 
+import static java.awt.image.BufferedImage.TYPE_INT_ARGB;
+import static java.awt.image.BufferedImage.TYPE_INT_RGB;
+import static java.lang.Math.min;
+import static java.lang.Math.max;
+
 import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 
@@ -61,6 +66,7 @@ import java.util.ArrayList;
  * ({@link Layer#getGraphics()}) is configured only for the new snapshot.
  */
 public class GcSnapshot {
+    private static final AffineTransform IDENTITY_TRANSFORM = new AffineTransform();
 
     private final GcSnapshot mPrevious;
     private final int mFlags;
@@ -302,8 +308,8 @@ public class GcSnapshot {
                     baseLayer.getImage().getWidth(),
                     baseLayer.getImage().getHeight(),
                     (mFlags & Canvas.HAS_ALPHA_LAYER_SAVE_FLAG) != 0 ?
-                            BufferedImage.TYPE_INT_ARGB :
-                                BufferedImage.TYPE_INT_RGB);
+                            TYPE_INT_ARGB :
+                                TYPE_INT_RGB);
 
             // create a graphics for it so that drawing can be done.
             Graphics2D layerGraphics = layerImage.createGraphics();
@@ -330,7 +336,7 @@ public class GcSnapshot {
                 int h = mLayerBounds.height();
                 for (int i = 0 ; i < mLayers.size() - 1 ; i++) {
                     Layer layer = mLayers.get(i);
-                    BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+                    BufferedImage image = new BufferedImage(w, h, TYPE_INT_ARGB);
                     Graphics2D graphics = image.createGraphics();
                     graphics.drawImage(layer.getImage(),
                             0, 0, w, h,
@@ -502,8 +508,6 @@ public class GcSnapshot {
             area = Region_Delegate.combineShapes(getClip(), shape, regionOp);
         }
 
-        assert area != null;
-
         if (mLayers.size() > 0) {
             if (area != null) {
                 for (Layer layer : mLayers) {
@@ -600,6 +604,38 @@ public class GcSnapshot {
         }
     }
 
+    /**
+     * This function calculates a minimum (in area) integer rectangle that contains the input
+     * rectangle after applying to it the affine transform
+     *
+     * @param rect input rectangle
+     * @param transform affine transform applied to the input rectangle
+     *
+     * Returns an output rectangle
+     */
+    private static Rectangle transformRect(Rectangle rect, AffineTransform transform) {
+        double[] coords = new double[16];
+        coords[0] = rect.x;
+        coords[1] = rect.y;
+        coords[2] = rect.x + rect.width;
+        coords[3] = rect.y + rect.height;
+        coords[4] = rect.x;
+        coords[5] = rect.y + rect.height;
+        coords[6] = rect.x + rect.width;
+        coords[7] = rect.y;
+        transform.transform(coords, 0, coords, 8, 4);
+        // From 4 transformed vertices of the input rectangle we search for the minimum and maximum
+        // for both coordinates. We round the found extrema to the closest integer, smaller of equal
+        // for the minimums and larger or equal for the maximums. These values represent the border
+        // or the minimum rectangle with sides parallel to the coordinate axis that contains
+        // the transformed rectangle
+        int x = (int) Math.floor(min(min(coords[8], coords[10]), min(coords[12], coords[14])));
+        int y = (int) Math.floor(min(min(coords[9], coords[11]), min(coords[13], coords[15])));
+        int w = (int) Math.ceil(max(max(coords[8], coords[10]), max(coords[12], coords[14]))) - x;
+        int h = (int) Math.ceil(max(max(coords[9], coords[11]), max(coords[13], coords[15]))) - y;
+        return new Rectangle(x, y, w, h);
+    }
+
     private void drawInLayer(Layer layer, Drawable drawable, Paint_Delegate paint,
             boolean compositeOnly, int forceMode) {
         Graphics2D originalGraphics = layer.getGraphics();
@@ -618,22 +654,31 @@ public class GcSnapshot {
 
             Rectangle clipBounds = originalGraphics.getClip() != null ? originalGraphics
                     .getClipBounds() : null;
+            AffineTransform transform = originalGraphics.getTransform();
+            Rectangle imgRect;
             if (clipBounds != null) {
                 if (clipBounds.width == 0 || clipBounds.height == 0) {
                     // Clip is 0 so no need to paint anything.
                     return;
                 }
+                // Calculate integer rectangle that contains clipBounds after the transform, that is
+                // the minimum image size we can use to render the drawable
+                imgRect = transformRect(clipBounds, transform);
+                transform = new AffineTransform(
+                        transform.getScaleX(),
+                        transform.getShearY(),
+                        transform.getShearX(),
+                        transform.getScaleY(),
+                        transform.getTranslateX() - imgRect.x,
+                        transform.getTranslateY() - imgRect.y);
+            } else {
+                imgRect =
+                        new Rectangle(
+                                0, 0, layer.getImage().getWidth(), layer.getImage().getHeight());
             }
 
-            // b/63692596:
-            // Don't use the size of clip bound because it may be smaller than original size.
-            // Which makes Vector Drawable pixelized.
-            int width = layer.getImage().getWidth();
-            int height = layer.getImage().getHeight();
-
             // Create a temporary image to which the color filter will be applied.
-            BufferedImage image = new BufferedImage(width, height,
-                    BufferedImage.TYPE_INT_ARGB);
+            BufferedImage image = new BufferedImage(imgRect.width, imgRect.height, TYPE_INT_ARGB);
             Graphics2D imageBaseGraphics = (Graphics2D) image.getGraphics();
             // Configure the Graphics2D object with drawing parameters and shader.
             Graphics2D imageGraphics = createCustomGraphics(
@@ -643,23 +688,23 @@ public class GcSnapshot {
             // get a Graphics2D object configured with the drawing parameters, but no shader.
             Graphics2D configuredGraphics = createCustomGraphics(originalGraphics, paint,
                     true /*compositeOnly*/, forceMode);
-            configuredGraphics.setTransform(new AffineTransform());
+            configuredGraphics.setTransform(IDENTITY_TRANSFORM);
             try {
                 // The main draw operation.
                 // We translate the operation to take into account that the rendering does not
                 // know about the clipping area.
-                imageGraphics.setTransform(originalGraphics.getTransform());
+                imageGraphics.setTransform(transform);
                 drawable.draw(imageGraphics, paint);
 
                 // Apply the color filter.
                 // Restore the original coordinates system and apply the filter only to the
                 // clipped area.
-                imageGraphics.setTransform(new AffineTransform());
-                filter.applyFilter(imageGraphics, width, height);
+                imageGraphics.setTransform(IDENTITY_TRANSFORM);
+                filter.applyFilter(imageGraphics, imgRect.width, imgRect.height);
 
                 // Draw the tinted image on the main layer using as start point the clipping
                 // upper left coordinates.
-                configuredGraphics.drawImage(image, 0, 0, null);
+                configuredGraphics.drawImage(image, imgRect.x, imgRect.y, null);
                 layer.change();
             } finally {
                 // dispose Graphics2D objects
@@ -872,7 +917,7 @@ public class GcSnapshot {
             bounds.x += latestTransform.getTranslateX() - originalTransform.getTranslateX();
             bounds.y += latestTransform.getTranslateY() - originalTransform.getTranslateY();
         } catch (NoninvertibleTransformException e) {
-            Bridge.getLog().warning(null, "Non invertible transformation", null);
+            Bridge.getLog().warning(null, "Non invertible transformation", null, null);
         }
         return bounds;
     }

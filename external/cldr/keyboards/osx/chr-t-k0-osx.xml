@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE keyboard SYSTEM "../dtd/ldmlKeyboard.dtd">
 <keyboard locale="chr-t-k0-osx">
-	<version platform="10.9" number="$Revision: 11914 $"/>
+	<version platform="10.9" number="$Revision$"/>
 	<names>
 		<name value="Cherokee-Nation"/>
 	</names>

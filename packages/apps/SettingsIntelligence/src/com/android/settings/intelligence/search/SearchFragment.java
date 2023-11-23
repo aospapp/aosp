@@ -20,14 +20,14 @@ package com.android.settings.intelligence.search;
 import static com.android.settings.intelligence.nano.SettingsIntelligenceLogProto.SettingsIntelligenceEvent;
 
 import android.app.Activity;
-import android.app.Fragment;
-import android.app.LoaderManager;
 import android.content.Context;
-import android.content.Loader;
 import android.os.Bundle;
 import androidx.annotation.VisibleForTesting;
+import androidx.loader.content.Loader;
+import androidx.loader.app.LoaderManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.fragment.app.Fragment;
 import android.text.TextUtils;
 import android.util.EventLog;
 import android.util.Log;
@@ -63,21 +63,6 @@ import java.util.List;
 public class SearchFragment extends Fragment implements SearchView.OnQueryTextListener,
         LoaderManager.LoaderCallbacks<List<? extends SearchResult>>, IndexingCallback {
     private static final String TAG = "SearchFragment";
-
-    // State values
-    private static final String STATE_QUERY = "state_query";
-    private static final String STATE_SHOWING_SAVED_QUERY = "state_showing_saved_query";
-    private static final String STATE_NEVER_ENTERED_QUERY = "state_never_entered_query";
-
-    public static final class SearchLoaderId {
-        // Search Query IDs
-        public static final int SEARCH_RESULT = 1;
-
-        // Saved Query IDs
-        public static final int SAVE_QUERY_TASK = 2;
-        public static final int REMOVE_QUERY_TASK = 3;
-        public static final int SAVED_QUERIES = 4;
-    }
 
     @VisibleForTesting
     String mQuery;
@@ -134,9 +119,9 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
         mSearchFeatureProvider.initFeedbackButton();
 
         if (savedInstanceState != null) {
-            mQuery = savedInstanceState.getString(STATE_QUERY);
-            mNeverEnteredQuery = savedInstanceState.getBoolean(STATE_NEVER_ENTERED_QUERY);
-            mShowingSavedQuery = savedInstanceState.getBoolean(STATE_SHOWING_SAVED_QUERY);
+            mQuery = savedInstanceState.getString(SearchCommon.STATE_QUERY);
+            mNeverEnteredQuery = savedInstanceState.getBoolean(SearchCommon.STATE_NEVER_ENTERED_QUERY);
+            mShowingSavedQuery = savedInstanceState.getBoolean(SearchCommon.STATE_SHOWING_SAVED_QUERY);
         } else {
             mShowingSavedQuery = true;
         }
@@ -208,9 +193,9 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putString(STATE_QUERY, mQuery);
-        outState.putBoolean(STATE_NEVER_ENTERED_QUERY, mNeverEnteredQuery);
-        outState.putBoolean(STATE_SHOWING_SAVED_QUERY, mShowingSavedQuery);
+        outState.putString(SearchCommon.STATE_QUERY, mQuery);
+        outState.putBoolean(SearchCommon.STATE_NEVER_ENTERED_QUERY, mNeverEnteredQuery);
+        outState.putBoolean(SearchCommon.STATE_SHOWING_SAVED_QUERY, mShowingSavedQuery);
     }
 
     @Override
@@ -238,7 +223,7 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
 
         if (isEmptyQuery) {
             final LoaderManager loaderManager = getLoaderManager();
-            loaderManager.destroyLoader(SearchLoaderId.SEARCH_RESULT);
+            loaderManager.destroyLoader(SearchCommon.SearchLoaderId.SEARCH_RESULT);
             mShowingSavedQuery = true;
             mSavedQueryController.loadSavedQueries();
             mSearchFeatureProvider.hideFeedbackButton(getView());
@@ -263,7 +248,7 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
         final Activity activity = getActivity();
 
         switch (id) {
-            case SearchLoaderId.SEARCH_RESULT:
+            case SearchCommon.SearchLoaderId.SEARCH_RESULT:
                 return mSearchFeatureProvider.getSearchResultLoader(activity, mQuery);
             default:
                 return null;
@@ -292,7 +277,7 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
             mSavedQueryController.loadSavedQueries();
         } else {
             final LoaderManager loaderManager = getLoaderManager();
-            loaderManager.initLoader(SearchLoaderId.SEARCH_RESULT, null /* args */,
+            loaderManager.initLoader(SearchCommon.SearchLoaderId.SEARCH_RESULT, null /* args */,
                     this /* callback */);
         }
 
@@ -338,8 +323,8 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
     private void restartLoaders() {
         mShowingSavedQuery = false;
         final LoaderManager loaderManager = getLoaderManager();
-        loaderManager.restartLoader(
-                SearchLoaderId.SEARCH_RESULT, null /* args */, this /* callback */);
+        loaderManager.restartLoader(SearchCommon.SearchLoaderId.SEARCH_RESULT,
+                null /* args */, this /* callback */);
     }
 
     public String getQuery() {

@@ -1034,6 +1034,10 @@ gd{
             "UYU",
             "Peso Uruguaidheach",
         }
+        UYW{
+            "UYW",
+            "aonad inneacs tuarastail ainmeach Uruguaidh",
+        }
         UZS{
             "UZS",
             "Som Usbagach",
@@ -2863,6 +2867,12 @@ gd{
             other{"peso Uruguaidheach"}
             two{"pheso Uruguaidheach"}
         }
+        UYW{
+            few{"aonadan inneacs tuarastail ainmeach Uruguaidh"}
+            one{"aonad inneacs tuarastail ainmeach Uruguaidh"}
+            other{"aonad inneacs tuarastail ainmeach Uruguaidh"}
+            two{"aonad inneacs tuarastail ainmeach Uruguaidh"}
+        }
         UZS{
             few{"som Usbagach"}
             one{"som Usbagach"}
@@ -3134,5 +3144,5 @@ gd{
         other{"{0} {1}"}
         two{"{0} {1}"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

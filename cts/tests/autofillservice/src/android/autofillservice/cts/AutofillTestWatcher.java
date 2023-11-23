@@ -21,6 +21,7 @@ import android.util.Log;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.TestNameUtils;
 
@@ -35,6 +36,18 @@ import java.util.Set;
  * <p>This class is not thread safe, but should be fine...
  */
 public final class AutofillTestWatcher extends TestWatcher {
+
+    /**
+     * Cleans up all launched activities between the tests and retries.
+     */
+    public void cleanAllActivities() {
+        try {
+            finishActivities();
+            waitUntilAllDestroyed();
+        } finally {
+            resetStaticState();
+        }
+    }
 
     private static final String TAG = "AutofillTestWatcher";
 
@@ -54,13 +67,9 @@ public final class AutofillTestWatcher extends TestWatcher {
 
     @Override
     protected void finished(Description description) {
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         final String testName = description.getDisplayName();
-        try {
-            finishActivities();
-            waitUntilAllDestroyed();
-        } finally {
-            resetStaticState();
-        }
+        cleanAllActivities();
         Log.i(TAG, "Finished " + testName);
         TestNameUtils.setCurrentTestName(null);
     }

@@ -261,8 +261,8 @@ DisplayError HWTVDRM::UpdateHDRMetaData(HWLayers *hw_layers) {
     // metadata. This will be replaced with an idle timer implementation in the future.
     if (reset_hdr_flag) {
       gettimeofday(&hdr_reset_end, NULL);
-      float hdr_reset_time_start = ((hdr_reset_start.tv_sec*1000) + (hdr_reset_start.tv_usec/1000));
-      float hdr_reset_time_end = ((hdr_reset_end.tv_sec*1000) + (hdr_reset_end.tv_usec/1000));
+      float hdr_reset_time_start = FLOAT((hdr_reset_start.tv_sec*1000) + (hdr_reset_start.tv_usec/1000));
+      float hdr_reset_time_end = FLOAT((hdr_reset_end.tv_sec*1000) + (hdr_reset_end.tv_usec/1000));
 
       if (((hdr_reset_time_end-hdr_reset_time_start)/1000) >= MIN_HDR_RESET_WAITTIME) {
         memset(&hdr_metadata_, 0, sizeof(hdr_metadata_));

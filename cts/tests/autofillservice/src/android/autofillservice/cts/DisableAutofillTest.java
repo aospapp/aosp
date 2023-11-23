@@ -202,10 +202,10 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
         sReplier.addResponse(new CannedFillResponse.Builder().disableAutofill(duration).build());
 
         // Trigger autofill for the first time.
-        long passedTime = launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
+        launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
 
         // Launch activity again.
-        passedTime += launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
+        long passedTime = launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
 
         // Wait for the timeout, then try again, autofilling it this time.
         sleep(passedTime, duration);
@@ -275,10 +275,10 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
                 .build());
 
         // Trigger autofill for the first time.
-        long passedTime = launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
+        launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
 
         // Launch activity again.
-        passedTime += launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
+        long passedTime = launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
 
         // Make sure other app is working.
         passedTime += launchPreSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
@@ -334,7 +334,6 @@ public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityL
         }
         Log.v(TAG, "Sleeping for " + napTime + "ms (duration=" + disableDuration + "ms, passedTime="
                 + passedTime + ")");
-
         SystemClock.sleep(napTime);
     }
 }

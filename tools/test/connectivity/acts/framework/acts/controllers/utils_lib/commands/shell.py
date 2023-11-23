@@ -180,7 +180,7 @@ class ShellCommand(object):
             file_name: The name of the file to delete.
         """
         try:
-            self.run('rm %s' % file_name)
+            self.run('rm -r %s' % file_name)
         except job.Error as e:
             if 'No such file or directory' in e.result.stderr:
                 return

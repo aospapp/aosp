@@ -157,17 +157,14 @@ uint32_t constructBuildChecksum(uint8_t const *bitcode, size_t bitcodeSize,
 
 #ifdef __LP64__
 #define SYSLIBPATH "/system/lib64"
-#define SYSLIBPATH_VNDK "/system/lib64/vndk-sp"
 #define SYSLIBPATH_BC "/system/lib64"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib64"
 #elif defined(BUILD_ARM_FOR_X86) && defined(__arm__)
 #define SYSLIBPATH "/system/lib/arm"
-#define SYSLIBPATH_VNDK "/system/lib/arm/vndk-sp"
 #define SYSLIBPATH_BC "/system/lib"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib/arm"
 #else
 #define SYSLIBPATH "/system/lib"
-#define SYSLIBPATH_VNDK "/system/lib/vndk-sp"
 #define SYSLIBPATH_BC "/system/lib"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib"
 #endif
@@ -197,11 +194,11 @@ inline bool is_force_recompile() {
 inline std::string getVndkSysLibPath() {
   char buf[PROP_VALUE_MAX];
   android::renderscript::property_get("ro.vndk.version", buf, "");
-  std::string versionStr = buf;
-  if (versionStr != "" && versionStr != "current") {
-    return SYSLIBPATH_VNDK "-" + versionStr;
-  }
-  return SYSLIBPATH_VNDK;
+  std::string vndk_path = "/apex/com.android.vndk.v" + std::string(buf) + "/lib";
+  #ifdef __LP64__
+  vndk_path += "64";
+  #endif
+  return vndk_path;
 }
 
 }  // anonymous namespace

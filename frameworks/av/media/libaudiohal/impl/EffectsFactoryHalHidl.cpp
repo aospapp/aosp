@@ -19,10 +19,10 @@
 
 #include <cutils/native_handle.h>
 
-#include "EffectsFactoryHalHidl.h"
 #include "ConversionHelperHidl.h"
 #include "EffectBufferHalHidl.h"
 #include "EffectHalHidl.h"
+#include "EffectsFactoryHalHidl.h"
 #include "HidlUtils.h"
 
 using ::android::hardware::audio::common::CPP_VERSION::implementation::HidlUtils;
@@ -35,12 +35,10 @@ namespace CPP_VERSION {
 using namespace ::android::hardware::audio::common::CPP_VERSION;
 using namespace ::android::hardware::audio::effect::CPP_VERSION;
 
-EffectsFactoryHalHidl::EffectsFactoryHalHidl() : ConversionHelperHidl("EffectsFactory") {
-    mEffectsFactory = IEffectsFactory::getService();
-    if (mEffectsFactory == 0) {
-        ALOGE("Failed to obtain IEffectsFactory service, terminating process.");
-        exit(1);
-    }
+EffectsFactoryHalHidl::EffectsFactoryHalHidl(sp<IEffectsFactory> effectsFactory)
+        : ConversionHelperHidl("EffectsFactory") {
+    ALOG_ASSERT(effectsFactory != nullptr, "Provided IDevicesFactory service is NULL");
+    mEffectsFactory = effectsFactory;
 }
 
 status_t EffectsFactoryHalHidl::queryAllDescriptors() {
@@ -106,12 +104,26 @@ status_t EffectsFactoryHalHidl::getDescriptor(
 
 status_t EffectsFactoryHalHidl::createEffect(
         const effect_uuid_t *pEffectUuid, int32_t sessionId, int32_t ioId,
-        sp<EffectHalInterface> *effect) {
+        int32_t deviceId __unused, sp<EffectHalInterface> *effect) {
     if (mEffectsFactory == 0) return NO_INIT;
     Uuid hidlUuid;
     HidlUtils::uuidFromHal(*pEffectUuid, &hidlUuid);
     Result retval = Result::NOT_INITIALIZED;
-    Return<void> ret = mEffectsFactory->createEffect(
+    Return<void> ret;
+#if MAJOR_VERSION >= 6
+    ret = mEffectsFactory->createEffect(
+            hidlUuid, sessionId, ioId, deviceId,
+            [&](Result r, const sp<IEffect>& result, uint64_t effectId) {
+                retval = r;
+                if (retval == Result::OK) {
+                    *effect = new EffectHalHidl(result, effectId);
+                }
+            });
+#else
+    if (sessionId == AUDIO_SESSION_DEVICE && ioId == AUDIO_IO_HANDLE_NONE) {
+        return INVALID_OPERATION;
+    }
+    ret = mEffectsFactory->createEffect(
             hidlUuid, sessionId, ioId,
             [&](Result r, const sp<IEffect>& result, uint64_t effectId) {
                 retval = r;
@@ -119,6 +131,7 @@ status_t EffectsFactoryHalHidl::createEffect(
                     *effect = new EffectHalHidl(result, effectId);
                 }
             });
+#endif
     if (ret.isOk()) {
         if (retval == Result::OK) return OK;
         else if (retval == Result::INVALID_ARGUMENTS) return NAME_NOT_FOUND;
@@ -147,4 +160,10 @@ status_t EffectsFactoryHalHidl::mirrorBuffer(void* external, size_t size,
 
 } // namespace CPP_VERSION
 } // namespace effect
+
+extern "C" __attribute__((visibility("default"))) void* createIEffectsFactory() {
+    auto service = hardware::audio::effect::CPP_VERSION::IEffectsFactory::getService();
+    return service ? new effect::CPP_VERSION::EffectsFactoryHalHidl(service) : nullptr;
+}
+
 } // namespace android

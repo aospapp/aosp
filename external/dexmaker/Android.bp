@@ -40,7 +40,7 @@ java_library_static {
 // Build dispatcher for Dexmaker's inline MockMaker
 java_library_static {
     name: "dexmaker-inline-mockmaker-dispatcher",
-    sdk_version: "current",
+    sdk_version: "core_current",
     srcs: ["dexmaker-mockito-inline-dispatcher/src/main/java/**/*.java"],
 }
 
@@ -77,8 +77,8 @@ cc_defaults {
         "libz",
     ],
 
-    include_dirs: [
-        "art/openjdkjvmti/include",
+    header_libs: [
+	    "libopenjdkjvmti_headers",
     ],
 }
 
@@ -145,7 +145,6 @@ java_library_static {
 // methods.
 java_library_static {
     name: "mockito-target",
-    no_framework_libs: true,
     static_libs: [
         "mockito-target-minus-junit4",
         "junit",
@@ -156,7 +155,6 @@ java_library_static {
 // Same as mockito-target but does not bundle junit
 java_library_static {
     name: "mockito-target-minus-junit4",
-    no_framework_libs: true,
     static_libs: [
         "mockito",
         "dexmaker",
@@ -174,7 +172,6 @@ java_library_static {
 // Project depending on this also need to depend on the static JNI library libdexmakerjvmtiagent
 java_library_static {
     name: "mockito-target-inline",
-    no_framework_libs: true,
     static_libs: [
         "mockito-target-inline-minus-junit4",
         "junit",
@@ -185,7 +182,6 @@ java_library_static {
 // Same as mockito-target-inline but does not bundle junit
 java_library_static {
     name: "mockito-target-inline-minus-junit4",
-    no_framework_libs: true,
     static_libs: [
         "mockito",
         "dexmaker",
@@ -204,7 +200,6 @@ java_library_static {
 // libdexmakerjvmtiagent
 java_library_static {
     name: "mockito-target-extended",
-    no_framework_libs: true,
     static_libs: [
         "mockito-target-extended-minus-junit4",
         "junit",
@@ -215,7 +210,6 @@ java_library_static {
 // Same as mockito-target-extended but does not bundle junit
 java_library_static {
     name: "mockito-target-extended-minus-junit4",
-    no_framework_libs: true,
     static_libs: [
         "mockito",
         "dexmaker",

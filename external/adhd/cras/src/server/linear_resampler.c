@@ -28,9 +28,8 @@ struct linear_resampler {
 };
 
 struct linear_resampler *linear_resampler_create(unsigned int num_channels,
-					     unsigned int format_bytes,
-					     float src_rate,
-					     float dst_rate)
+						 unsigned int format_bytes,
+						 float src_rate, float dst_rate)
 {
 	struct linear_resampler *lr;
 
@@ -51,8 +50,8 @@ void linear_resampler_destroy(struct linear_resampler *lr)
 		free(lr);
 }
 
-void linear_resampler_set_rates(struct linear_resampler *lr,
-				float from, float to)
+void linear_resampler_set_rates(struct linear_resampler *lr, float from,
+				float to)
 {
 	lr->f = (float)to / from;
 	lr->to_times_100 = to * 100;
@@ -108,10 +107,8 @@ int linear_resampler_needed(struct linear_resampler *lr)
 }
 
 unsigned int linear_resampler_resample(struct linear_resampler *lr,
-			     uint8_t *src,
-			     unsigned int *src_frames,
-			     uint8_t *dst,
-			     unsigned dst_frames)
+				       uint8_t *src, unsigned int *src_frames,
+				       uint8_t *dst, unsigned dst_frames)
 {
 	int ch;
 	unsigned int src_idx = 0;
@@ -152,11 +149,12 @@ unsigned int linear_resampler_resample(struct linear_resampler *lr,
 				out[ch] = in[ch];
 		} else {
 			for (ch = 0; ch < lr->num_channels; ch++) {
-				out[ch] = in[ch] + (src_pos - src_idx) *
-					(in[lr->num_channels + ch] - in[ch]);
+				out[ch] = in[ch] +
+					  (src_pos - src_idx) *
+						  (in[lr->num_channels + ch] -
+						   in[ch]);
 			}
 		}
-
 	}
 
 	*src_frames = src_idx + 1;

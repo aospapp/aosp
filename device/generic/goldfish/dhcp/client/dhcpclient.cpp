@@ -50,8 +50,9 @@ static std::string addrToStr(in_addr_t address) {
     return inet_ntop(AF_INET, &addr, buffer, sizeof(buffer));
 }
 
-DhcpClient::DhcpClient()
-    : mRandomEngine(std::random_device()()),
+DhcpClient::DhcpClient(uint32_t options)
+    : mOptions(options),
+      mRandomEngine(std::random_device()()),
       mRandomDistribution(-kTimeoutSpan, kTimeoutSpan),
       mState(State::Init),
       mNextTimeout(kInitialTimeout),
@@ -299,8 +300,6 @@ void DhcpClient::waitAndReceive(const sigset_t& pollSignalMask) {
 }
 
 bool DhcpClient::configureDhcp(const Message& msg) {
-    uint8_t optLength = 0;
-
     size_t optsSize = msg.optionsSize();
     if (optsSize < 4) {
         // Message is too small
@@ -382,11 +381,13 @@ bool DhcpClient::configureDhcp(const Message& msg) {
                     mDhcpInfo.dns[3] =
                         *reinterpret_cast<const in_addr_t*>(opt + 12);
                 }
+                break;
             case OPT_SERVER_ID:
                 if (optLength == 4) {
                     mDhcpInfo.serverId =
                         *reinterpret_cast<const in_addr_t*>(opt);
                 }
+                break;
             default:
                 break;
         }
@@ -419,45 +420,50 @@ bool DhcpClient::configureDhcp(const Message& msg) {
         }
     }
 
-    res = mInterface.setAddress(mDhcpInfo.offeredAddress);
-    if (!res) {
-        ALOGE("Could not configure DHCP: %s", res.c_str());
-        return false;
-    }
-
-    res = mInterface.setSubnetMask(mDhcpInfo.subnetMask);
-    if (!res) {
-        ALOGE("Could not configure DHCP: %s", res.c_str());
-        return false;
-    }
-
-    res = mRouter.setDefaultGateway(mDhcpInfo.gateway, mInterface.getIndex());
-    if (!res) {
-        ALOGE("Could not configure DHCP: %s", res.c_str());
-        return false;
-    }
     char propName[64];
     snprintf(propName, sizeof(propName), "net.%s.gw",
              mInterface.getName().c_str());
-    property_set(propName, addrToStr(mDhcpInfo.gateway).c_str());
+    if (property_set(propName, addrToStr(mDhcpInfo.gateway).c_str()) != 0) {
+        ALOGE("Failed to set %s: %s", propName, strerror(errno));
+    }
 
     int numDnsEntries = sizeof(mDhcpInfo.dns) / sizeof(mDhcpInfo.dns[0]);
     for (int i = 0; i < numDnsEntries; ++i) {
         snprintf(propName, sizeof(propName), "net.%s.dns%d",
                  mInterface.getName().c_str(), i + 1);
         if (mDhcpInfo.dns[i] != 0) {
-            property_set(propName, addrToStr(mDhcpInfo.dns[i]).c_str());
+            if (property_set(propName,
+                             addrToStr(mDhcpInfo.dns[i]).c_str()) != 0) {
+                ALOGE("Failed to set %s: %s", propName, strerror(errno));
+            }
         } else {
             // Clear out any previous value here in case it was set
-            property_set(propName, "");
+            if (property_set(propName, "") != 0) {
+                ALOGE("Failed to clear %s: %s", propName, strerror(errno));
+            }
         }
     }
 
+    res = mInterface.setAddress(mDhcpInfo.offeredAddress,
+                                mDhcpInfo.subnetMask);
+    if (!res) {
+        ALOGE("Could not configure DHCP: %s", res.c_str());
+        return false;
+    }
+
+    if ((mOptions & static_cast<uint32_t>(ClientOption::NoGateway)) == 0) {
+        res = mRouter.setDefaultGateway(mDhcpInfo.gateway,
+                                        mInterface.getIndex());
+        if (!res) {
+            ALOGE("Could not configure DHCP: %s", res.c_str());
+            return false;
+        }
+    }
     return true;
 }
 
 void DhcpClient::haltNetwork() {
-    Result res = mInterface.setAddress(0);
+    Result res = mInterface.setAddress(0, 0);
     if (!res) {
         ALOGE("Could not halt network: %s", res.c_str());
     }

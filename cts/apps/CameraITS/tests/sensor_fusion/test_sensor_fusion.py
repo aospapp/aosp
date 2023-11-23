@@ -73,11 +73,6 @@ THRESH_MAX_CORR_DIST = 0.005
 THRESH_MAX_SHIFT_MS = 1
 THRESH_MIN_ROT = 0.001
 
-# lens facing
-FACING_FRONT = 0
-FACING_BACK = 1
-FACING_EXTERNAL = 2
-
 # Chart distance
 CHART_DISTANCE = 25  # cm
 
@@ -133,7 +128,7 @@ def main():
     else:
         events, frames, _, h = load_data()
 
-    # Sanity check camera timestamps are enclosed by sensor timestamps
+    # Check that camera timestamps are enclosed by sensor timestamps
     # This will catch bugs where camera and gyro timestamps go completely out
     # of sync
     cam_times = get_cam_times(events["cam"])
@@ -353,9 +348,9 @@ def get_cam_rotations(frames, facing, h):
         p1, st, _ = cv2.calcOpticalFlowPyrLK(gframe0, gframe1, p0_filtered,
                                              None, **LK_PARAMS)
         tform = procrustes_rotation(p0_filtered[st == 1], p1[st == 1])
-        if facing == FACING_BACK:
+        if facing == its.caps.FACING_BACK:
             rot = -math.atan2(tform[0, 1], tform[0, 0])
-        elif facing == FACING_FRONT:
+        elif facing == its.caps.FACING_FRONT:
             rot = math.atan2(tform[0, 1], tform[0, 0])
         else:
             print "Unknown lens facing", facing
@@ -430,10 +425,7 @@ def collect_data(fps, w, h, test_length):
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         props = cam.override_with_hidden_physical_camera_props(props)
-        its.caps.skip_unless(its.caps.read_3a and
-                             its.caps.sensor_fusion(props) and
-                             props["android.lens.facing"] != FACING_EXTERNAL and
-                             cam.get_sensors().get("gyro"))
+        its.caps.skip_unless(its.caps.sensor_fusion_capable(props))
 
         print "Starting sensor event collection"
         cam.start_sensor_events()
@@ -443,7 +435,7 @@ def collect_data(fps, w, h, test_length):
 
         # Capture the frames. OIS is disabled for manual captures.
         facing = props["android.lens.facing"]
-        if facing != FACING_FRONT and facing != FACING_BACK:
+        if facing != its.caps.FACING_FRONT and facing != its.caps.FACING_BACK:
             print "Unknown lens facing", facing
             assert 0
 

@@ -25,8 +25,10 @@ import android.app.usage.UsageStats;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.os.Environment;
+import android.os.UserHandle;
 import android.os.storage.StorageManager;
-import android.os.storage.VolumeInfo;
+import android.os.storage.StorageVolume;
 import android.test.ServiceTestCase;
 
 import org.junit.Before;
@@ -44,9 +46,9 @@ public class CacheQuotaServiceImplTest extends ServiceTestCase<CacheQuotaService
     private static final String sTestVolUuid = "uuid";
     private static final String sSecondTestVolUuid = "otherUuid";
 
+    private List<StorageVolume> mStorageVolumes = new ArrayList<>();
     @Mock private Context mContext;
     @Mock private File mFile;
-    @Mock private VolumeInfo mVolume;
     @Mock(answer = Answers.RETURNS_DEEP_STUBS) private StorageManager mStorageManager;
 
     public CacheQuotaServiceImplTest() {
@@ -59,12 +61,11 @@ public class CacheQuotaServiceImplTest extends ServiceTestCase<CacheQuotaService
         MockitoAnnotations.initMocks(this);
         mContext = Mockito.spy(new ContextWrapper(getSystemContext()));
         setContext(mContext);
-        when(mContext.getSystemService(Context.STORAGE_SERVICE)).thenReturn(mStorageManager);
+        mStorageVolumes.add(makeNewStorageVolume("1", mFile, sTestVolUuid));
 
+        when(mContext.getSystemService(Context.STORAGE_SERVICE)).thenReturn(mStorageManager);
+        when(mStorageManager.getStorageVolumes()).thenReturn(mStorageVolumes);
         when(mFile.getUsableSpace()).thenReturn(10000L);
-        when(mVolume.getPath()).thenReturn(mFile);
-        when(mStorageManager.findVolumeByUuid(sTestVolUuid)).thenReturn(mVolume);
-        when(mStorageManager.findVolumeByUuid(sSecondTestVolUuid)).thenReturn(mVolume);
 
         Intent intent = new Intent(getContext(), CacheQuotaServiceImpl.class);
         startService(intent);
@@ -104,6 +105,7 @@ public class CacheQuotaServiceImplTest extends ServiceTestCase<CacheQuotaService
 
     @Test
     public void testTwoAppsTwoVolumes() throws Exception {
+        mStorageVolumes.add(makeNewStorageVolume("2", mFile, sSecondTestVolUuid));
         ArrayList<CacheQuotaHint> requests = new ArrayList<>();
         requests.add(makeNewRequest("com.test", sTestVolUuid, 1001, 100L));
         requests.add(makeNewRequest("com.test2", sSecondTestVolUuid, 1002, 99L));
@@ -129,6 +131,7 @@ public class CacheQuotaServiceImplTest extends ServiceTestCase<CacheQuotaService
 
     @Test
     public void testTwoAppsTwoVolumesTwoUuidsShouldBESeparate() throws Exception {
+        mStorageVolumes.add(makeNewStorageVolume("2", mFile, sSecondTestVolUuid));
         ArrayList<CacheQuotaHint> requests = new ArrayList<>();
         requests.add(makeNewRequest("com.test", sTestVolUuid, 1001, 100L));
         requests.add(makeNewRequest("com.test2", sSecondTestVolUuid, 1001, 99L));
@@ -140,11 +143,18 @@ public class CacheQuotaServiceImplTest extends ServiceTestCase<CacheQuotaService
         assertThat(output.get(1).getQuota()).isEqualTo(1500);
     }
 
-    private CacheQuotaHint makeNewRequest(String packageName, String uuid, int uid, long foregroundTime) {
+    private CacheQuotaHint makeNewRequest(String packageName, String uuid, int uid,
+            long foregroundTime) {
         UsageStats stats = new UsageStats();
         stats.mPackageName = packageName;
         stats.mTotalTimeInForeground = foregroundTime;
         return new CacheQuotaHint.Builder()
                 .setVolumeUuid(uuid).setUid(uid).setUsageStats(stats).setQuota(-1).build();
+    }
+
+    private StorageVolume makeNewStorageVolume(String id, File path, String fsUuid) {
+        return new StorageVolume(id, path, path, /* description */ "", /* primary */ false,
+                /* removable */ false, /* emulated */ true, /* allowMassStorage */ false,
+                /* maxFileSize */ -1, UserHandle.CURRENT, fsUuid, Environment.MEDIA_MOUNTED);
     }
 }

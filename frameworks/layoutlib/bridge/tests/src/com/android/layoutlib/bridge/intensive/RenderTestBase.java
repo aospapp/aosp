@@ -89,6 +89,16 @@ import static org.junit.Assert.fail;
  */
 public class RenderTestBase {
 
+    /**
+     * Listener for render process.
+     */
+    public interface RenderSessionListener {
+
+        /**
+         * Called before session is disposed after rendering.
+         */
+        void beforeDisposed(RenderSession session);
+    }
     private static final String PLATFORM_DIR_PROPERTY = "platform.dir";
     private static final String RESOURCE_DIR_PROPERTY = "test_res.dir";
 
@@ -308,11 +318,14 @@ public class RenderTestBase {
                 };
         sProjectResources.loadResources();
 
-        File fontLocation = new File(data_dir, "fonts");
+        // The fonts are built into out/host/common/obj/PACKAGING/sdk-fonts_intermediates as specified in
+        // build/make/core/sdk_font.mk, and PLATFORM_DIR is out/host/[arch]/sdk/sdk*/android-sdk*/platforms/android*
+        File fontLocation = new File(PLATFORM_DIR,
+                "../../../../../../common/obj/PACKAGING/sdk-fonts_intermediates");
         File buildProp = new File(PLATFORM_DIR, "build.prop");
         File attrs = new File(res, "values" + File.separator + "attrs.xml");
         sBridge = new Bridge();
-        sBridge.init(ConfigGenerator.loadProperties(buildProp), fontLocation, null,
+        sBridge.init(ConfigGenerator.loadProperties(buildProp), fontLocation, null, null,
                 ConfigGenerator.getEnumMap(attrs), getLayoutLog());
         Bridge.getLock().lock();
         try {
@@ -340,6 +353,14 @@ public class RenderTestBase {
     protected static RenderResult render(com.android.ide.common.rendering.api.Bridge bridge,
             SessionParams params,
             long frameTimeNanos) {
+        return render(bridge, params, frameTimeNanos, null);
+    }
+
+    @NonNull
+    protected static RenderResult render(com.android.ide.common.rendering.api.Bridge bridge,
+            SessionParams params,
+            long frameTimeNanos,
+            @Nullable RenderSessionListener listener) {
         // TODO: Set up action bar handler properly to test menu rendering.
         // Create session params.
         System_Delegate.setBootTimeNanos(TimeUnit.MILLISECONDS.toNanos(871732800000L));
@@ -362,6 +383,9 @@ public class RenderTestBase {
                     getLogger().error(session.getResult().getException(),
                             session.getResult().getErrorMessage());
                 }
+            }
+            if (listener != null) {
+                listener.beforeDisposed(session);
             }
 
             return RenderResult.getFromSession(session);
@@ -413,7 +437,7 @@ public class RenderTestBase {
         if (sLayoutLibLog == null) {
             sLayoutLibLog = new LayoutLog() {
                 @Override
-                public void warning(String tag, String message, Object data) {
+                public void warning(String tag, String message, Object cookie, Object data) {
                     System.out.println("Warning " + tag + ": " + message);
                     failWithMsg(message);
                 }
@@ -430,13 +454,14 @@ public class RenderTestBase {
                 }
 
                 @Override
-                public void error(String tag, String message, Object data) {
+                public void error(String tag, String message, Object cookie, Object data) {
                     System.out.println("Error " + tag + ": " + message);
                     failWithMsg(message);
                 }
 
                 @Override
-                public void error(String tag, String message, Throwable throwable, Object data) {
+                public void error(String tag, String message, Throwable throwable, Object cookie,
+                        Object data) {
                     System.out.println("Error " + tag + ": " + message);
                     if (throwable != null) {
                         throwable.printStackTrace();

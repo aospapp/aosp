@@ -42,4 +42,9 @@ public class SecurityPatchPreferenceController extends PreferenceController<Pref
     protected void updateState(Preference preference) {
         preference.setSummary(DeviceInfoUtils.getSecurityPatch());
     }
+
+    @Override
+    protected int getAvailabilityStatus() {
+        return AVAILABLE_FOR_VIEWING;
+    }
 }

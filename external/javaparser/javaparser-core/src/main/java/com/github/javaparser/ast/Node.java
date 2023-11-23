@@ -39,21 +39,21 @@ import com.github.javaparser.metamodel.*;
 import com.github.javaparser.printer.PrettyPrinter;
 import com.github.javaparser.printer.PrettyPrinterConfiguration;
 import com.github.javaparser.resolution.SymbolResolver;
-import javax.annotation.Generated;
+import com.github.javaparser.resolution.types.ResolvedType;
+
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
 import static com.github.javaparser.ast.Node.Parsedness.PARSED;
 import static com.github.javaparser.ast.Node.TreeTraversal.PREORDER;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Spliterator.DISTINCT;
 import static java.util.Spliterator.NONNULL;
-import com.github.javaparser.ast.Node;
-import com.github.javaparser.metamodel.NodeMetaModel;
-import com.github.javaparser.metamodel.JavaParserMetaModel;
 
 /**
  * Base class for all nodes of the abstract syntax tree.
@@ -143,7 +143,7 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
         return 0;
     };
 
-    private static final PrettyPrinter toStringPrinter = new PrettyPrinter(new PrettyPrinterConfiguration());
+    private static PrettyPrinterConfiguration toStringPrettyPrinterConfiguration = new PrettyPrinterConfiguration();
 
     protected static final PrettyPrinterConfiguration prettyPrinterNoCommentsConfiguration = new PrettyPrinterConfiguration().setPrintComments(false);
 
@@ -222,7 +222,7 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
 
     /**
      * @param range the range of characters in the source code that this node covers. null can be used to indicate that
-     * no range information is known, or that it is not of interest.
+     *              no range information is known, or that it is not of interest.
      */
     public Node setRange(Range range) {
         if (this.range == range) {
@@ -238,12 +238,9 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
      *
      * @param comment to be set
      */
-    public final Node setComment(final Comment comment) {
+    public Node setComment(final Comment comment) {
         if (this.comment == comment) {
             return this;
-        }
-        if (comment != null && (this instanceof Comment)) {
-            throw new RuntimeException("A comment can not be commented");
         }
         notifyPropertyChange(ObservableProperty.COMMENT, this.comment, comment);
         if (this.comment != null) {
@@ -275,15 +272,18 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
     }
 
     /**
-     * Return the String representation of this node.
-     *
-     * @return the String representation of this node
+     * @return pretty printed source code for this node and its children.
+     * Formatting can be configured with Node.setToStringPrettyPrinterConfiguration.
      */
     @Override
     public final String toString() {
-        return toStringPrinter.print(this);
+        return new PrettyPrinter(toStringPrettyPrinterConfiguration).print(this);
     }
 
+    /**
+     * @return pretty printed source code for this node and its children.
+     * Formatting can be configured with parameter prettyPrinterConfiguration.
+     */
     public final String toString(PrettyPrinterConfiguration prettyPrinterConfiguration) {
         return new PrettyPrinter(prettyPrinterConfiguration).print(this);
     }
@@ -324,6 +324,7 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
     public boolean removeOrphanComment(Comment comment) {
         boolean removed = orphanComments.remove(comment);
         if (removed) {
+            notifyPropertyChange(ObservableProperty.COMMENT, comment, null);
             comment.setParentNode(null);
         }
         return removed;
@@ -403,24 +404,17 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
 
     public static final int ABSOLUTE_END_LINE = -2;
 
-    /**
-     * @deprecated use getComment().isPresent()
-     */
-    @Deprecated
-    public boolean hasComment() {
-        return comment != null;
-    }
-
     public void tryAddImportToParentCompilationUnit(Class<?> clazz) {
-        getAncestorOfType(CompilationUnit.class).ifPresent(p -> p.addImport(clazz));
+        findAncestor(CompilationUnit.class).ifPresent(p -> p.addImport(clazz));
     }
 
     /**
      * Recursively finds all nodes of a certain type.
      *
      * @param clazz the type of node to find.
-     * @deprecated use find(Class)
+     * @deprecated use {@link Node#findAll(Class)} but be aware that findAll also considers the initial node.
      */
+    @Deprecated
     public <N extends Node> List<N> getChildNodesByType(Class<N> clazz) {
         List<N> nodes = new ArrayList<>();
         for (Node child : getChildNodes()) {
@@ -433,7 +427,7 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
     }
 
     /**
-     * @deprecated use findAll(Class)
+     * @deprecated use {@link Node#findAll(Class)} but be aware that findAll also considers the initial node.
      */
     @Deprecated
     public <N extends Node> List<N> getNodesByType(Class<N> clazz) {
@@ -445,23 +439,41 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
      *
      * @param <M> The type of the data.
      * @param key The key for the data
-     * @return The data or null of no data was found for the given key
+     * @return The data.
+     * @throws IllegalStateException if the key was not set in this node.
+     * @see Node#containsData(DataKey)
      * @see DataKey
      */
     @SuppressWarnings("unchecked")
     public <M> M getData(final DataKey<M> key) {
         if (data == null) {
-            return null;
+            throw new IllegalStateException("No data of this type found. Use containsData to check for this first.");
         }
-        return (M) data.get(key);
+        M value = (M) data.get(key);
+        if (value == null) {
+            throw new IllegalStateException("No data of this type found. Use containsData to check for this first.");
+        }
+        return value;
+    }
+
+    /**
+     * This method was added to support the clone method.
+     *
+     * @return all known data keys.
+     */
+    public Set<DataKey<?>> getDataKeys() {
+        if (data == null) {
+            return emptySet();
+        }
+        return data.keySet();
     }
 
     /**
      * Sets data for this node using the given key.
      * For information on creating DataKey, see {@link DataKey}.
      *
-     * @param <M> The type of data
-     * @param key The singleton key for the data
+     * @param <M>    The type of data
+     * @param key    The singleton key for the data
      * @param object The data object
      * @see DataKey
      */
@@ -474,12 +486,24 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
 
     /**
      * @return does this node have data for this key?
+     * @see DataKey
      */
     public boolean containsData(DataKey<?> key) {
         if (data == null) {
             return false;
         }
-        return data.get(key) != null;
+        return data.containsKey(key);
+    }
+
+    /**
+     * Remove data by key.
+     *
+     * @see DataKey
+     */
+    public void removeData(DataKey<ResolvedType> key) {
+        if (data != null) {
+            data.remove(key);
+        }
     }
 
     /**
@@ -557,7 +581,7 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
         if (mode == null) {
             throw new IllegalArgumentException("Mode should be not null");
         }
-        switch(mode) {
+        switch (mode) {
             case JUST_THIS_NODE:
                 register(observer);
                 break;
@@ -640,6 +664,14 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
         return this;
     }
 
+    public static PrettyPrinterConfiguration getToStringPrettyPrinterConfiguration() {
+        return toStringPrettyPrinterConfiguration;
+    }
+
+    public static void setToStringPrettyPrinterConfiguration(PrettyPrinterConfiguration toStringPrettyPrinterConfiguration) {
+        Node.toStringPrettyPrinterConfiguration = toStringPrettyPrinterConfiguration;
+    }
+
     @Generated("com.github.javaparser.generator.core.node.ReplaceMethodGenerator")
     public boolean replace(Node node, Node replacementNode) {
         if (node == null)
@@ -695,7 +727,7 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
     }
 
     private Iterator<Node> treeIterator(TreeTraversal traversal) {
-        switch(traversal) {
+        switch (traversal) {
             case BREADTHFIRST:
                 return new BreadthFirstIterator(this);
             case POSTORDER:
@@ -823,17 +855,14 @@ public abstract class Node implements Cloneable, HasParentNode<Node>, Visitable,
     }
 
     /**
-     * Walks the parents of this node, returning the first node of type "nodeType" or empty() if none is found.
+     * Determines whether this node is an ancestor of the given node. A node is <i>not</i> an ancestor of itself.
+     *
+     * @param descendant the node for which to determine whether it has this node as an ancestor.
+     * @return {@code true} if this node is an ancestor of the given node, and {@code false} otherwise.
+     * @see HasParentNode#isDescendantOf(Node)
      */
-    public <N extends Node> Optional<N> findParent(Class<N> nodeType) {
-        Node n = this;
-        while (n.getParentNode().isPresent()) {
-            n = n.getParentNode().get();
-            if (nodeType.isAssignableFrom(n.getClass())) {
-                return Optional.of(nodeType.cast(n));
-            }
-        }
-        return Optional.empty();
+    public boolean isAncestorOf(Node descendant) {
+        return this != descendant && findFirst(Node.class, n -> n == descendant).isPresent();
     }
 
     /**

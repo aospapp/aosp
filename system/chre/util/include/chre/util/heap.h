@@ -35,8 +35,8 @@ namespace chre {
  * @param container The container that is used to store the elements.
  * @param compare The object that provides the custom ordering of the elements.
  */
-template<typename ContainerType, typename CompareFunction>
-void push_heap(ContainerType& container, const CompareFunction& compare);
+template <typename ContainerType, typename CompareFunction>
+void push_heap(ContainerType &container, const CompareFunction &compare);
 
 /**
  * Removes the first element from the heap and adjusts the heap accordingly.
@@ -46,8 +46,8 @@ void push_heap(ContainerType& container, const CompareFunction& compare);
  * @param container The container that is used to store the elements.
  * @param compare The object that provides the custom ordering of the elements.
  */
-template<typename ContainerType, typename CompareFunction>
-void pop_heap(ContainerType& container, const CompareFunction& compare);
+template <typename ContainerType, typename CompareFunction>
+void pop_heap(ContainerType &container, const CompareFunction &compare);
 
 /**
  * Removes an element from the heap and adjusts the heap accordingly.
@@ -59,9 +59,9 @@ void pop_heap(ContainerType& container, const CompareFunction& compare);
  * @param index The index of the element to be removed from the heap
  * @param compare The object that provides the custom ordering of the elements.
  */
-template<typename ContainerType, typename CompareFunction>
-void remove_heap(ContainerType& container, size_t index,
-                 const CompareFunction& compare);
+template <typename ContainerType, typename CompareFunction>
+void remove_heap(ContainerType &container, size_t index,
+                 const CompareFunction &compare);
 
 }  // namespace chre
 

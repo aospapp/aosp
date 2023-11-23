@@ -48,7 +48,7 @@ static inline long long tst_timespec_to_us(struct timespec t)
 }
 
 /*
- * Converts timespec to miliseconds.
+ * Converts timespec to milliseconds.
  */
 static inline long long tst_timespec_to_ms(struct timespec t)
 {
@@ -64,7 +64,7 @@ static inline long long tst_timeval_to_us(struct timeval t)
 }
 
 /*
- * Converts timeval to miliseconds.
+ * Converts timeval to milliseconds.
  */
 static inline long long tst_timeval_to_ms(struct timeval t)
 {
@@ -146,6 +146,42 @@ static inline struct timespec tst_timespec_add_us(struct timespec t,
 	if (t.tv_nsec >= 1000000000) {
 		t.tv_sec++;
 		t.tv_nsec -= 1000000000;
+	}
+
+	return t;
+}
+
+/*
+ * Adds two timespec structures.
+ */
+static inline struct timespec tst_timespec_add(struct timespec t1,
+                                               struct timespec t2)
+{
+	struct timespec res;
+
+	res.tv_sec = t1.tv_sec + t2.tv_sec;
+	res.tv_nsec = t1.tv_nsec + t2.tv_nsec;
+
+	if (res.tv_nsec >= 1000000000) {
+		res.tv_sec++;
+		res.tv_nsec -= 1000000000;
+	}
+
+	return res;
+}
+
+/*
+ * Subtracts us microseconds from t.
+ */
+static inline struct timespec tst_timespec_sub_us(struct timespec t,
+                                                  long long us)
+{
+	t.tv_sec -= us / 1000000;
+	t.tv_nsec -= (us % 1000000) * 1000;
+
+	if (t.tv_nsec < 0) {
+		t.tv_sec--;
+		t.tv_nsec += 1000000000;
 	}
 
 	return t;
@@ -266,7 +302,7 @@ void tst_timer_start(clockid_t clk_id);
  * Returns true if timer started by tst_timer_start() has been running for
  * longer than ms seconds.
  *
- * @ms: Time interval in miliseconds.
+ * @ms: Time interval in milliseconds.
  */
 int tst_timer_expired_ms(long long ms);
 
@@ -281,7 +317,7 @@ void tst_timer_stop(void);
 struct timespec tst_timer_elapsed(void);
 
 /*
- * Returns elapsed time in miliseconds.
+ * Returns elapsed time in milliseconds.
  */
 static inline long long tst_timer_elapsed_ms(void)
 {
@@ -295,5 +331,10 @@ static inline long long tst_timer_elapsed_us(void)
 {
 	return tst_timespec_to_us(tst_timer_elapsed());
 }
+
+/*
+ * Returns a string containing given clock type name
+ */
+const char *tst_clock_name(clockid_t);
 
 #endif /* TST_TIMER */

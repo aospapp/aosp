@@ -26,7 +26,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 0 (0x0)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=US, O=The Go Daddy Group, Inc., OU=Go Daddy Class 2 Certification Authority
         Validity
             Not Before: Jun 29 17:06:20 2004 GMT
@@ -34,7 +34,7 @@ Certificate:
         Subject: C=US, O=The Go Daddy Group, Inc., OU=Go Daddy Class 2 Certification Authority
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:de:9d:d7:ea:57:18:49:a1:5b:eb:d7:5f:48:86:
                     ea:be:dd:ff:e4:ef:67:1c:f4:65:68:b3:57:71:a0:

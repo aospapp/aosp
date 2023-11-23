@@ -148,8 +148,12 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
         String systemBrand = getProperty("ro.product.system.brand");
         String systemModel = getProperty("ro.product.system.model");
         String systemProduct = getProperty("ro.product.system.name");
-        if (("Android".equals(systemBrand) || "generic".equals(systemBrand)) &&
-            (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_"))) {
+        // not all devices may have system_ext partition
+        String systemExtProduct = getProperty("ro.product.system_ext.name");
+        if (("Android".equals(systemBrand) || "generic".equals(systemBrand) ||
+                "mainline".equals(systemBrand)) &&
+            (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_") ||
+                systemExtProduct.startsWith("aosp_"))) {
             return true;
         }
         return false;

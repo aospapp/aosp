@@ -16,8 +16,11 @@
 
 package android.net.ip;
 
-import android.net.DhcpResults;
+import android.net.DhcpResultsParcelable;
+import android.net.Layer2PacketParcelable;
 import android.net.LinkProperties;
+
+import java.util.List;
 
 /**
  * Callbacks for handling IpClient events.
@@ -63,7 +66,16 @@ public class IpClientCallbacks {
      * <p>DHCPv4 or static IPv4 configuration failure or success can be determined by whether or not
      * the passed-in DhcpResults object is null.
      */
-    public void onNewDhcpResults(DhcpResults dhcpResults) {}
+    public void onNewDhcpResults(DhcpResultsParcelable dhcpResults) {
+        // In general callbacks would not use a parcelable directly (DhcpResultsParcelable), and
+        // would use a wrapper instead, because of the lack of safety of stable parcelables. But
+        // there are already two classes in the tree for DHCP information: DhcpInfo and DhcpResults,
+        // and neither of them exposes an appropriate API (they are bags of mutable fields and can't
+        // be changed because they are public API and @UnsupportedAppUsage, being no better than the
+        // stable parcelable). Adding a third class would cost more than the gain considering that
+        // the only client of this callback is WiFi, which will end up converting the results to
+        // DhcpInfo anyway.
+    }
 
     /**
      * Indicates that provisioning was successful.
@@ -116,4 +128,9 @@ public class IpClientCallbacks {
      * whenever 464xlat is being started or stopped.
      */
     public void setNeighborDiscoveryOffload(boolean enable) {}
+
+    /**
+     * Invoked on starting preconnection process.
+     */
+    public void onPreconnectionStart(List<Layer2PacketParcelable> packets) {}
 }

@@ -22,17 +22,25 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.metric.IMetricCollector;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.invoker.shard.token.ITokenRequest;
 import com.android.tradefed.log.ILogRegistry;
 import com.android.tradefed.log.ILogRegistry.EventType;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IReportNotExecuted;
 import com.android.tradefed.testtype.StubTest;
@@ -59,6 +67,8 @@ public class TestsPoolPollerTest {
     private ITestDevice mDevice;
     private List<IMetricCollector> mMetricCollectors;
     private ILogRegistry mMockRegistry;
+    private IConfiguration mConfiguration;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
@@ -66,7 +76,12 @@ public class TestsPoolPollerTest {
         mDevice = Mockito.mock(ITestDevice.class);
         mMockRegistry = Mockito.mock(ILogRegistry.class);
         Mockito.doReturn("serial").when(mDevice).getSerialNumber();
+        mConfiguration = new Configuration("test", "test");
         mMetricCollectors = new ArrayList<>();
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device", mDevice);
+        context.addDeviceBuildInfo("device", new BuildInfo());
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
     }
 
     /**
@@ -99,14 +114,18 @@ public class TestsPoolPollerTest {
     }
 
     /**
-     * Tests that {@link TestsPoolPoller#run(ITestInvocationListener)} is properly running and
-     * redirecting the invocation callbacks.
+     * Tests that {@link TestsPoolPoller#run(TestInformation, ITestInvocationListener)} is properly
+     * running and redirecting the invocation callbacks.
      */
     @Test
     public void testPollingRun() throws Exception {
+        StubTest first = new StubTest();
+        OptionSetter setterFirst = new OptionSetter(first);
+        setterFirst.setOptionValue("run-a-test", "true");
         int numTests = 5;
         List<IRemoteTest> testsList = new ArrayList<>();
-        for (int i = 0; i < numTests; i++) {
+        testsList.add(first);
+        for (int i = 0; i < numTests - 1; i++) {
             IRemoteTest test = new StubTest();
             OptionSetter setter = new OptionSetter(test);
             setter.setOptionValue("run-a-test", "true");
@@ -114,18 +133,22 @@ public class TestsPoolPollerTest {
         }
         CountDownLatch tracker = new CountDownLatch(1);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
+        poller.setConfiguration(mConfiguration);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.run(mListener);
+        poller.run(mTestInfo, mListener);
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
         assertEquals(0, tracker.getCount());
+
+        // Ensure that the configuration set is the one that we passed.
+        assertEquals(mConfiguration, first.getConfiguration());
     }
 
     /**
-     * Tests that {@link TestsPoolPoller#run(ITestInvocationListener)} will continue to run tests
-     * even if one of them throws a {@link RuntimeException}.
+     * Tests that {@link TestsPoolPoller#run(TestInformation, ITestInvocationListener)} will
+     * continue to run tests even if one of them throws a {@link RuntimeException}.
      */
     @Test
     public void testRun_runtimeException() throws Exception {
@@ -146,7 +169,7 @@ public class TestsPoolPollerTest {
         CountDownLatch tracker = new CountDownLatch(1);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.run(mListener);
+        poller.run(mTestInfo, mListener);
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests))
@@ -155,8 +178,8 @@ public class TestsPoolPollerTest {
     }
 
     /**
-     * Tests that {@link TestsPoolPoller#run(ITestInvocationListener)} will continue to run tests
-     * even if one of them throws a {@link DeviceUnresponsiveException}.
+     * Tests that {@link TestsPoolPoller#run(TestInformation, ITestInvocationListener)} will
+     * continue to run tests even if one of them throws a {@link DeviceUnresponsiveException}.
      */
     @Test
     public void testRun_deviceUnresponsive() throws Exception {
@@ -177,7 +200,7 @@ public class TestsPoolPollerTest {
         CountDownLatch tracker = new CountDownLatch(1);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.run(mListener);
+        poller.run(mTestInfo, mListener);
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests))
@@ -186,8 +209,8 @@ public class TestsPoolPollerTest {
     }
 
     /**
-     * Tests that {@link TestsPoolPoller#run(ITestInvocationListener)} will stop to run tests if one
-     * of them throws a {@link DeviceNotAvailableException}.
+     * Tests that {@link TestsPoolPoller#run(TestInformation, ITestInvocationListener)} will stop to
+     * run tests if one of them throws a {@link DeviceNotAvailableException}.
      */
     @Test
     public void testRun_dnae() throws Exception {
@@ -208,10 +231,9 @@ public class TestsPoolPollerTest {
         CountDownLatch tracker = new CountDownLatch(1);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.setDevice(mDevice);
         poller.setLogRegistry(mMockRegistry);
         try {
-            poller.run(mListener);
+            poller.run(mTestInfo, mListener);
             fail("Should have thrown an exception.");
         } catch (DeviceNotAvailableException expected) {
             // expected
@@ -244,14 +266,13 @@ public class TestsPoolPollerTest {
         // Add tests that from a suite that can report their not executed tests.
         int numTests = 5;
         ITestSuite suite = new TestSuiteImpl(numTests);
-        testsList.addAll(suite.split(3));
+        testsList.addAll(suite.split(3, mTestInfo));
         CountDownLatch tracker = new CountDownLatch(1);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.setDevice(mDevice);
         poller.setLogRegistry(mMockRegistry);
         try {
-            poller.run(mListener);
+            poller.run(mTestInfo, mListener);
             fail("Should have thrown an exception.");
         } catch (DeviceNotAvailableException expected) {
             // expected
@@ -273,7 +294,10 @@ public class TestsPoolPollerTest {
                 .testRunStarted(
                         Mockito.eq("test4"), Mockito.eq(0), Mockito.eq(0), Mockito.anyLong());
         Mockito.verify(mListener, Mockito.times(5))
-                .testRunFailed(IReportNotExecuted.NOT_EXECUTED_FAILURE);
+                .testRunFailed(
+                        FailureDescription.create(
+                                IReportNotExecuted.NOT_EXECUTED_FAILURE,
+                                FailureStatus.NOT_EXECUTED));
         Mockito.verify(mListener, Mockito.times(5))
                 .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
         assertEquals(0, tracker.getCount());
@@ -308,9 +332,8 @@ public class TestsPoolPollerTest {
         CountDownLatch tracker = new CountDownLatch(3);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.setDevice(mDevice);
 
-        poller.run(mListener);
+        poller.run(mTestInfo, mListener);
         // The callbacks from all the other tests because the device was recovered
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
@@ -348,14 +371,13 @@ public class TestsPoolPollerTest {
         CountDownLatch tracker = new CountDownLatch(3);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.setDevice(mDevice);
         poller.setLogRegistry(mMockRegistry);
 
-        Mockito.doThrow(new DeviceNotAvailableException())
+        Mockito.doThrow(new DeviceNotAvailableException("test", "serial"))
                 .when(mDevice)
                 .waitForDeviceAvailable(Mockito.anyLong());
         try {
-            poller.run(mListener);
+            poller.run(mTestInfo, mListener);
             fail("Should have thrown an exception.");
         } catch (DeviceNotAvailableException expected) {
             assertEquals(StubTest.DNAE_MESSAGE, expected.getMessage());
@@ -400,8 +422,7 @@ public class TestsPoolPollerTest {
         CountDownLatch tracker = new CountDownLatch(1);
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tokenList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
-        poller.setDevice(mDevice);
-        poller.run(mListener);
+        poller.run(mTestInfo, mListener);
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests))

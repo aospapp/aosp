@@ -127,6 +127,20 @@ class ProcessScope(object):
                              for thread in threads]
         return result
 
+    def merge_by_thread_name(self, process):
+        self.event_count += process.event_count
+        thread_list = list(self.threads.values()) + list(process.threads.values())
+        new_threads = {}  # map from thread name to ThreadScope
+        for thread in thread_list:
+            cur_thread = new_threads.get(thread.name)
+            if cur_thread is None:
+                new_threads[thread.name] = thread
+            else:
+                cur_thread.merge(thread)
+        self.threads = {}
+        for thread in new_threads.values():
+            self.threads[thread.tid] = thread
+
 
 class ThreadScope(object):
 
@@ -200,6 +214,18 @@ class ThreadScope(object):
         result['rg'] = self.reverse_call_graph.gen_sample_info()
         return result
 
+    def merge(self, thread):
+        self.event_count += thread.event_count
+        self.sample_count += thread.sample_count
+        for lib_id, lib in thread.libs.items():
+            cur_lib = self.libs.get(lib_id)
+            if cur_lib is None:
+                self.libs[lib_id] = lib
+            else:
+                cur_lib.merge(lib)
+        self.call_graph.merge(thread.call_graph)
+        self.reverse_call_graph.merge(thread.reverse_call_graph)
+
 
 class LibScope(object):
 
@@ -221,6 +247,15 @@ class LibScope(object):
         result['functions'] = [func.gen_sample_info(gen_addr_hit_map)
                                for func in self.functions.values()]
         return result
+
+    def merge(self, lib):
+        self.event_count += lib.event_count
+        for func_id, function in lib.functions.items():
+            cur_function = self.functions.get(func_id)
+            if cur_function is None:
+                self.functions[func_id] = function
+            else:
+                cur_function.merge(function)
 
 
 class FunctionScope(object):
@@ -274,6 +309,28 @@ class FunctionScope(object):
             result['a'] = items
         return result
 
+    def merge(self, function):
+        self.sample_count += function.sample_count
+        self.event_count += function.event_count
+        self.subtree_event_count += function.subtree_event_count
+        self.addr_hit_map = self.__merge_hit_map(self.addr_hit_map, function.addr_hit_map)
+        self.line_hit_map = self.__merge_hit_map(self.line_hit_map, function.line_hit_map)
+
+    @staticmethod
+    def __merge_hit_map(map1, map2):
+        if not map1:
+            return map2
+        if not map2:
+            return map1
+        for key, value2 in map2.items():
+            value1 = map1.get(key)
+            if value1 is None:
+                map1[key] = value2
+            else:
+                value1[0] += value2[0]
+                value1[1] += value2[1]
+        return map1
+
 
 class CallNode(object):
 
@@ -314,6 +371,16 @@ class CallNode(object):
         result['f'] = self.func_id
         result['c'] = [child.gen_sample_info() for child in self.children.values()]
         return result
+
+    def merge(self, node):
+        self.event_count += node.event_count
+        self.subtree_event_count += node.subtree_event_count
+        for key, child in node.children.items():
+            cur_child = self.children.get(key)
+            if cur_child is None:
+                self.children[key] = child
+            else:
+                cur_child.merge(child)
 
 
 class LibSet(object):
@@ -558,10 +625,24 @@ class RecordData(object):
             for thread in event.threads:
                 thread.update_subtree_event_count()
 
+    def aggregate_by_thread_name(self):
+        for event in self.events.values():
+            new_processes = {}  # from process name to ProcessScope
+            for process in event.processes.values():
+                cur_process = new_processes.get(process.name)
+                if cur_process is None:
+                    new_processes[process.name] = process
+                else:
+                    cur_process.merge_by_thread_name(process)
+            event.processes = {}
+            for process in new_processes.values():
+                event.processes[process.pid] = process
+
     def limit_percents(self, min_func_percent, min_callchain_percent):
         hit_func_ids = set()
         for event in self.events.values():
             min_limit = event.event_count * min_func_percent * 0.01
+            to_del_processes = []
             for process in event.processes.values():
                 to_del_threads = []
                 for thread in process.threads.values():
@@ -571,6 +652,10 @@ class RecordData(object):
                         thread.limit_percents(min_limit, min_callchain_percent, hit_func_ids)
                 for thread in to_del_threads:
                     del process.threads[thread]
+                if not process.threads:
+                    to_del_processes.append(process.pid)
+            for process in to_del_processes:
+                del event.processes[process]
         self.functions.trim_functions(hit_func_ids)
 
     def _get_event(self, event_name):
@@ -833,6 +918,9 @@ def main():
     parser.add_argument('--no_browser', action='store_true', help="Don't open report in browser.")
     parser.add_argument('--show_art_frames', action='store_true',
                         help='Show frames of internal methods in the ART Java interpreter.')
+    parser.add_argument('--aggregate-by-thread-name', action='store_true', help="""aggregate
+                        samples by thread name instead of thread id. This is useful for
+                        showing multiple perf.data generated for the same app.""")
     args = parser.parse_args()
 
     # 1. Process args.
@@ -854,6 +942,8 @@ def main():
     record_data = RecordData(binary_cache_path, ndk_path, build_addr_hit_map)
     for record_file in args.record_file:
         record_data.load_record_file(record_file, args.show_art_frames)
+    if args.aggregate_by_thread_name:
+        record_data.aggregate_by_thread_name()
     record_data.limit_percents(args.min_func_percent, args.min_callchain_percent)
 
     def filter_lib(lib_name):

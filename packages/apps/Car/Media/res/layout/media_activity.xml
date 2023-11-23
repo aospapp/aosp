@@ -14,9 +14,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<androidx.constraintlayout.widget.ConstraintLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/media_activity_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -24,39 +23,23 @@
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:visibility="visible"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+    />
 
     <FrameLayout
         android:id="@+id/search_container"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+    />
 
     <FrameLayout
         android:id="@+id/error_container"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@+id/app_bar"
-        app:layout_constraintBottom_toBottomOf="parent">
-    </FrameLayout>
-
-    <FrameLayout
-        android:id="@+id/app_selection_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-
-    <com.android.car.media.widgets.AppBarView
-        android:id="@+id/app_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/app_bar_background_color"
-        app:layout_constraintTop_toTopOf="parent"/>
+    />
 
     <com.android.car.media.common.MinimizedPlaybackControlBar
         android:id="@+id/minimized_playback_controls"
@@ -64,16 +47,14 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="@dimen/minimized_control_bar_margin_x"
         android:layout_marginBottom="@dimen/minimized_control_bar_margin_bottom"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        android:layout_gravity="bottom"
+    />
 
     <FrameLayout
         android:id="@+id/playback_container"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+    />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

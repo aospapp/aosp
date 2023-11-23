@@ -12,12 +12,20 @@
 #include <errno.h>
 #include <malloc.h>
 #include <mmc.h>
+#include <clk.h>
+#include <reset.h>
 #include <asm/io.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/cpu.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/mmc.h>
 #include <asm-generic/gpio.h>
+
+#ifdef CONFIG_DM_MMC
+struct sunxi_mmc_variant {
+	u16 mclk_offset;
+};
+#endif
 
 struct sunxi_mmc_plat {
 	struct mmc_config cfg;
@@ -32,6 +40,9 @@ struct sunxi_mmc_priv {
 	int cd_inverted;		/* Inverted Card Detect */
 	struct sunxi_mmc *reg;
 	struct mmc_config cfg;
+#ifdef CONFIG_DM_MMC
+	const struct sunxi_mmc_variant *variant;
+#endif
 };
 
 #if !CONFIG_IS_ENABLED(DM_MMC)
@@ -70,10 +81,12 @@ static int mmc_resource_init(int sdc_no)
 		priv->reg = (struct sunxi_mmc *)SUNXI_MMC2_BASE;
 		priv->mclkreg = &ccm->sd2_clk_cfg;
 		break;
+#ifdef SUNXI_MMC3_BASE
 	case 3:
 		priv->reg = (struct sunxi_mmc *)SUNXI_MMC3_BASE;
 		priv->mclkreg = &ccm->sd3_clk_cfg;
 		break;
+#endif
 	default:
 		printf("Wrong mmc number %d\n", sdc_no);
 		return -1;
@@ -96,18 +109,20 @@ static int mmc_resource_init(int sdc_no)
 static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 {
 	unsigned int pll, pll_hz, div, n, oclk_dly, sclk_dly;
-	bool new_mode = false;
+	bool new_mode = true;
+	bool calibrate = false;
 	u32 val = 0;
 
-	if (IS_ENABLED(CONFIG_MMC_SUNXI_HAS_NEW_MODE) && (priv->mmc_no == 2))
-		new_mode = true;
+	if (!IS_ENABLED(CONFIG_MMC_SUNXI_HAS_NEW_MODE))
+		new_mode = false;
 
-	/*
-	 * The MMC clock has an extra /2 post-divider when operating in the new
-	 * mode.
-	 */
-	if (new_mode)
-		hz = hz * 2;
+	/* A83T support new mode only on eMMC */
+	if (IS_ENABLED(CONFIG_MACH_SUN8I_A83T) && priv->mmc_no != 2)
+		new_mode = false;
+
+#if defined(CONFIG_MACH_SUN50I) || defined(CONFIG_MACH_SUN50I_H6)
+	calibrate = true;
+#endif
 
 	if (hz <= 24000000) {
 		pll = CCM_MMC_CTRL_OSCM24;
@@ -116,6 +131,9 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 #ifdef CONFIG_MACH_SUN9I
 		pll = CCM_MMC_CTRL_PLL_PERIPH0;
 		pll_hz = clock_get_pll4_periph0();
+#elif defined(CONFIG_MACH_SUN50I_H6)
+		pll = CCM_MMC_CTRL_PLL6X2;
+		pll_hz = clock_get_pll6() * 2;
 #else
 		pll = CCM_MMC_CTRL_PLL6;
 		pll_hz = clock_get_pll6();
@@ -166,10 +184,16 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 
 	if (new_mode) {
 #ifdef CONFIG_MMC_SUNXI_HAS_NEW_MODE
+#ifdef CONFIG_MMC_SUNXI_HAS_MODE_SWITCH
 		val = CCM_MMC_CTRL_MODE_SEL_NEW;
+#endif
 		setbits_le32(&priv->reg->ntsr, SUNXI_MMC_NTSR_MODE_SEL_NEW);
 #endif
-	} else {
+	} else if (!calibrate) {
+		/*
+		 * Use hardcoded delay values if controller doesn't support
+		 * calibration
+		 */
 		val = CCM_MMC_CTRL_OCLK_DLY(oclk_dly) |
 			CCM_MMC_CTRL_SCLK_DLY(sclk_dly);
 	}
@@ -222,6 +246,16 @@ static int mmc_config_clock(struct sunxi_mmc_priv *priv, struct mmc *mmc)
 	/* Clear internal divider */
 	rval &= ~SUNXI_MMC_CLK_DIVIDER_MASK;
 	writel(rval, &priv->reg->clkcr);
+
+#if defined(CONFIG_MACH_SUN50I) || defined(CONFIG_MACH_SUN50I_H6)
+	/* A64 supports calibration of delays on MMC controller and we
+	 * have to set delay of zero before starting calibration.
+	 * Allwinner BSP driver sets a delay only in the case of
+	 * using HS400 which is not supported by mainline U-Boot or
+	 * Linux at the moment
+	 */
+	writel(SUNXI_MMC_CAL_DL_SW_EN, &priv->reg->samp_dl);
+#endif
 
 	/* Re-enable Clock */
 	rval |= SUNXI_MMC_CLK_ENABLE;
@@ -494,7 +528,7 @@ struct mmc *sunxi_mmc_init(int sdc_no)
 
 	cfg->voltages = MMC_VDD_32_33 | MMC_VDD_33_34;
 	cfg->host_caps = MMC_MODE_4BIT;
-#if defined(CONFIG_MACH_SUN50I) || defined(CONFIG_MACH_SUN8I)
+#if defined(CONFIG_MACH_SUN50I) || defined(CONFIG_MACH_SUN8I) || defined(CONFIG_MACH_SUN50I_H6)
 	if (sdc_no == 2)
 		cfg->host_caps = MMC_MODE_8BIT;
 #endif
@@ -509,6 +543,7 @@ struct mmc *sunxi_mmc_init(int sdc_no)
 
 	/* config ahb clock */
 	debug("init mmc %d clock and io\n", sdc_no);
+#if !defined(CONFIG_MACH_SUN50I_H6)
 	setbits_le32(&ccm->ahb_gate0, 1 << AHB_GATE_OFFSET_MMC(sdc_no));
 
 #ifdef CONFIG_SUNXI_GEN_SUN6I
@@ -519,6 +554,11 @@ struct mmc *sunxi_mmc_init(int sdc_no)
 	/* sun9i has a mmc-common module, also set the gate and reset there */
 	writel(SUNXI_MMC_COMMON_CLK_GATE | SUNXI_MMC_COMMON_RESET,
 	       SUNXI_MMC_COMMON_BASE + 4 * sdc_no);
+#endif
+#else /* CONFIG_MACH_SUN50I_H6 */
+	setbits_le32(&ccm->sd_gate_reset, 1 << sdc_no);
+	/* unassert reset */
+	setbits_le32(&ccm->sd_gate_reset, 1 << (RESET_SHIFT + sdc_no));
 #endif
 	ret = mmc_set_mod_clk(priv, 24000000);
 	if (ret)
@@ -568,9 +608,11 @@ static int sunxi_mmc_probe(struct udevice *dev)
 	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(dev);
 	struct sunxi_mmc_plat *plat = dev_get_platdata(dev);
 	struct sunxi_mmc_priv *priv = dev_get_priv(dev);
+	struct reset_ctl_bulk reset_bulk;
+	struct clk gate_clk;
 	struct mmc_config *cfg = &plat->cfg;
 	struct ofnode_phandle_args args;
-	u32 *gate_reg;
+	u32 *ccu_reg;
 	int bus_width, ret;
 
 	cfg->name = dev->name;
@@ -589,28 +631,35 @@ static int sunxi_mmc_probe(struct udevice *dev)
 	cfg->f_max = 52000000;
 
 	priv->reg = (void *)dev_read_addr(dev);
+	priv->variant =
+		(const struct sunxi_mmc_variant *)dev_get_driver_data(dev);
 
 	/* We don't have a sunxi clock driver so find the clock address here */
 	ret = dev_read_phandle_with_args(dev, "clocks", "#clock-cells", 0,
 					  1, &args);
 	if (ret)
 		return ret;
-	priv->mclkreg = (u32 *)ofnode_get_addr(args.node);
+	ccu_reg = (u32 *)ofnode_get_addr(args.node);
 
-	ret = dev_read_phandle_with_args(dev, "clocks", "#clock-cells", 0,
-					  0, &args);
-	if (ret)
-		return ret;
-	gate_reg = (u32 *)ofnode_get_addr(args.node);
-	setbits_le32(gate_reg, 1 << args.args[0]);
-	priv->mmc_no = args.args[0] - 8;
+	priv->mmc_no = ((uintptr_t)priv->reg - SUNXI_MMC0_BASE) / 0x1000;
+	priv->mclkreg = (void *)ccu_reg +
+			(priv->variant->mclk_offset + (priv->mmc_no * 4));
+
+	ret = clk_get_by_name(dev, "ahb", &gate_clk);
+	if (!ret)
+		clk_enable(&gate_clk);
+
+	ret = reset_get_bulk(dev, &reset_bulk);
+	if (!ret)
+		reset_deassert_bulk(&reset_bulk);
 
 	ret = mmc_set_mod_clk(priv, 24000000);
 	if (ret)
 		return ret;
 
 	/* This GPIO is optional */
-	if (!gpio_request_by_name(dev, "cd-gpios", 0, &priv->cd_gpio,
+	if (!dev_read_bool(dev, "non-removable") &&
+	    !gpio_request_by_name(dev, "cd-gpios", 0, &priv->cd_gpio,
 				  GPIOD_IS_IN)) {
 		int cd_pin = gpio_get_number(&priv->cd_gpio);
 
@@ -636,9 +685,56 @@ static int sunxi_mmc_bind(struct udevice *dev)
 	return mmc_bind(dev, &plat->mmc, &plat->cfg);
 }
 
+static const struct sunxi_mmc_variant sun4i_a10_variant = {
+	.mclk_offset = 0x88,
+};
+
+static const struct sunxi_mmc_variant sun9i_a80_variant = {
+	.mclk_offset = 0x410,
+};
+
+static const struct sunxi_mmc_variant sun50i_h6_variant = {
+	.mclk_offset = 0x830,
+};
+
 static const struct udevice_id sunxi_mmc_ids[] = {
-	{ .compatible = "allwinner,sun5i-a13-mmc" },
-	{ }
+	{
+	  .compatible = "allwinner,sun4i-a10-mmc",
+	  .data = (ulong)&sun4i_a10_variant,
+	},
+	{
+	  .compatible = "allwinner,sun5i-a13-mmc",
+	  .data = (ulong)&sun4i_a10_variant,
+	},
+	{
+	  .compatible = "allwinner,sun7i-a20-mmc",
+	  .data = (ulong)&sun4i_a10_variant,
+	},
+	{
+	  .compatible = "allwinner,sun8i-a83t-emmc",
+	  .data = (ulong)&sun4i_a10_variant,
+	},
+	{
+	  .compatible = "allwinner,sun9i-a80-mmc",
+	  .data = (ulong)&sun9i_a80_variant,
+	},
+	{
+	  .compatible = "allwinner,sun50i-a64-mmc",
+	  .data = (ulong)&sun4i_a10_variant,
+	},
+	{
+	  .compatible = "allwinner,sun50i-a64-emmc",
+	  .data = (ulong)&sun4i_a10_variant,
+	},
+	{
+	  .compatible = "allwinner,sun50i-h6-mmc",
+	  .data = (ulong)&sun50i_h6_variant,
+	},
+	{
+	  .compatible = "allwinner,sun50i-h6-emmc",
+	  .data = (ulong)&sun50i_h6_variant,
+	},
+	{ /* sentinel */ }
 };
 
 U_BOOT_DRIVER(sunxi_mmc_drv) = {

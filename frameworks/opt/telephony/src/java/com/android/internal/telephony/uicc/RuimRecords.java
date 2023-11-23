@@ -16,15 +16,12 @@
 
 package com.android.internal.telephony.uicc;
 
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_TEST_CSIM;
-
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.AsyncResult;
 import android.os.Message;
-import android.os.SystemProperties;
-import android.telephony.Rlog;
+import android.sysprop.TelephonyProperties;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
@@ -37,6 +34,7 @@ import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.cdma.sms.UserData;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
 import com.android.internal.util.BitwiseInputStream;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -119,20 +117,12 @@ public class RuimRecords extends IccRecords {
 
         // Start off by setting empty state
         resetRecords();
-
-        mParentApp.registerForReady(this, EVENT_APP_READY, null);
-        mParentApp.registerForLocked(this, EVENT_APP_LOCKED, null);
-        mParentApp.registerForNetworkLocked(this, EVENT_APP_NETWORK_LOCKED, null);
         if (DBG) log("RuimRecords X ctor this=" + this);
     }
 
     @Override
     public void dispose() {
         if (DBG) log("Disposing RuimRecords " + this);
-        //Unregister for all events
-        mParentApp.unregisterForReady(this);
-        mParentApp.unregisterForLocked(this);
-        mParentApp.unregisterForNetworkLocked(this);
         resetRecords();
         super.dispose();
     }
@@ -334,7 +324,7 @@ public class RuimRecords extends IccRecords {
                     // SPN is checked to have characters in printable ASCII
                     // range. If not, they are decoded with
                     // ENCODING_GSM_7BIT_ALPHABET scheme.
-                    if (TextUtils.isPrintableAsciiOnly(spn)) {
+                    if (isPrintableAsciiOnly(spn)) {
                         setServiceProviderName(spn);
                     } else {
                         if (DBG) log("Some corruption in SPN decoding = " + spn);
@@ -357,6 +347,22 @@ public class RuimRecords extends IccRecords {
             mTelephonyManager.setSimOperatorNameForPhone(
                     mParentApp.getPhoneId(), getServiceProviderName());
         }
+    }
+
+    private static boolean isPrintableAsciiOnly(final CharSequence str) {
+        final int len = str.length();
+        for (int i = 0; i < len; i++) {
+            if (!isPrintableAscii(str.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isPrintableAscii(final char c) {
+        final int asciiFirst = 0x20;
+        final int asciiLast = 0x7E;  // included
+        return (asciiFirst <= c && c <= asciiLast) || c == '\r' || c == '\n';
     }
 
     private class EfCsimMdnLoaded implements IccRecordLoaded {
@@ -613,15 +619,6 @@ public class RuimRecords extends IccRecords {
 
         try {
             switch (msg.what) {
-            case EVENT_APP_READY:
-                onReady();
-                break;
-
-                case EVENT_APP_LOCKED:
-                case EVENT_APP_NETWORK_LOCKED:
-                    onLocked(msg.what);
-                    break;
-
             case EVENT_GET_DEVICE_IDENTITY_DONE:
                 log("Event EVENT_GET_DEVICE_IDENTITY_DONE Received");
             break;
@@ -837,10 +834,10 @@ public class RuimRecords extends IccRecords {
         mCi.getCDMASubscription(obtainMessage(EVENT_GET_CDMA_SUBSCRIPTION_DONE));
     }
 
-    private void onLocked(int msg) {
+    @Override
+    protected void onLocked() {
         if (DBG) log("only fetch EF_ICCID in locked state");
-        mLockedRecordsReqReason = msg == EVENT_APP_LOCKED ? LOCKED_RECORDS_REQ_REASON_LOCKED :
-                LOCKED_RECORDS_REQ_REASON_NETWORK_LOCKED;
+        super.onLocked();
 
         mFh.loadEFTransparent(EF_ICCID, obtainMessage(EVENT_GET_ICCID_DONE));
         mRecordsToLoad++;
@@ -892,6 +889,8 @@ public class RuimRecords extends IccRecords {
         mFh.loadEFTransparent(EF_CSIM_MIPUPP,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfCsimMipUppLoaded()));
         mRecordsToLoad++;
+        mFh.getEFLinearRecordSize(EF_SMS, obtainMessage(EVENT_GET_SMS_RECORD_SIZE_DONE));
+        mRecordsToLoad++;
 
         if (DBG) log("fetchRuimRecords " + mRecordsToLoad + " requested: " + mRecordsRequested);
         // Further records that can be inserted are Operator/OEM dependent
@@ -903,9 +902,9 @@ public class RuimRecords extends IccRecords {
         // to determine if the SIM is provisioned.  Otherwise,
         // consider the SIM is provisioned. (for case of ordinal
         // USIM only UICC.)
-        // If PROPERTY_TEST_CSIM is defined, bypess provision check
-        // and consider the SIM is provisioned.
-        if (SystemProperties.getBoolean(PROPERTY_TEST_CSIM, false)) {
+        // If test_csim is true, bypess provision check and
+        // consider the SIM is provisioned.
+        if (TelephonyProperties.test_csim().orElse(false)) {
             return true;
         }
 
@@ -937,6 +936,7 @@ public class RuimRecords extends IccRecords {
 
     @Override
     protected void handleFileUpdate(int efid) {
+        mLoaded.set(false);
         mAdnCache.reset();
         fetchRuimRecords();
     }
@@ -965,13 +965,21 @@ public class RuimRecords extends IccRecords {
     @UnsupportedAppUsage
     @Override
     protected void log(String s) {
-        Rlog.d(LOG_TAG, "[RuimRecords] " + s);
+        if (mParentApp != null) {
+            Rlog.d(LOG_TAG, "[RuimRecords-" + mParentApp.getPhoneId() + "] " + s);
+        } else {
+            Rlog.d(LOG_TAG, "[RuimRecords] " + s);
+        }
     }
 
     @UnsupportedAppUsage
     @Override
     protected void loge(String s) {
-        Rlog.e(LOG_TAG, "[RuimRecords] " + s);
+        if (mParentApp != null) {
+            Rlog.e(LOG_TAG, "[RuimRecords-" + mParentApp.getPhoneId() + "] " + s);
+        } else {
+            Rlog.e(LOG_TAG, "[RuimRecords] " + s);
+        }
     }
 
     @Override

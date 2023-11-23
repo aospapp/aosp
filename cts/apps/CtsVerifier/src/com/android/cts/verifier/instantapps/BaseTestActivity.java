@@ -37,7 +37,7 @@ public abstract class BaseTestActivity extends PassFailButtons.Activity
         implements OnClickListener {
 
     private static final String TAG = "InstantApps";
-    private static final String APP_URL = "https://instantapp.cts.android.com";
+    private static final String APP_URL = "https://source.android.com";
     private static final String APP_PACKAGE = "com.android.cts.instantapp";
 
     private ImageButton mPassButton;

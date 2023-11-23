@@ -16,15 +16,22 @@
 
 package com.android.server.wifi;
 
+import android.annotation.IntDef;
+import android.content.Context;
 import android.util.Log;
 
+import com.android.wifi.resources.R;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This class is used to recover the wifi stack from a fatal failure. The recovery mechanism
  * involves triggering a stack restart (essentially simulating an airplane mode toggle) using
- * {@link WifiController}.
+ * {@link ActiveModeWarden}.
  * The current triggers for:
  * 1. Last resort watchdog bite.
  * 2. HAL/wificond crashes during normal operation.
@@ -39,22 +46,30 @@ public class SelfRecovery {
     public static final int REASON_LAST_RESORT_WATCHDOG = 0;
     public static final int REASON_WIFINATIVE_FAILURE = 1;
     public static final int REASON_STA_IFACE_DOWN = 2;
-    public static final long MAX_RESTARTS_IN_TIME_WINDOW = 2; // 2 restarts per hour
-    public static final long MAX_RESTARTS_TIME_WINDOW_MILLIS = 60 * 60 * 1000; // 1 hour
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"REASON_"}, value = {
+            REASON_LAST_RESORT_WATCHDOG,
+            REASON_WIFINATIVE_FAILURE,
+            REASON_STA_IFACE_DOWN})
+    public @interface RecoveryReason {}
+
     protected static final String[] REASON_STRINGS = {
             "Last Resort Watchdog",  // REASON_LAST_RESORT_WATCHDOG
             "WifiNative Failure",    // REASON_WIFINATIVE_FAILURE
             "Sta Interface Down"     // REASON_STA_IFACE_DOWN
     };
 
-    private final WifiController mWifiController;
+    private final Context mContext;
+    private final ActiveModeWarden mActiveModeWarden;
     private final Clock mClock;
     // Time since boot (in millis) that restart occurred
     private final LinkedList<Long> mPastRestartTimes;
-    public SelfRecovery(WifiController wifiController, Clock clock) {
-        mWifiController = wifiController;
+    public SelfRecovery(Context context, ActiveModeWarden activeModeWarden, Clock clock) {
+        mContext = context;
+        mActiveModeWarden = activeModeWarden;
         mClock = clock;
-        mPastRestartTimes = new LinkedList<Long>();
+        mPastRestartTimes = new LinkedList<>();
     }
 
     /**
@@ -63,13 +78,13 @@ public class SelfRecovery {
      * This method does the following:
      * 1. Checks reason code used to trigger recovery
      * 2. Checks for sta iface down triggers and disables wifi by sending {@link
-     * WifiController#CMD_RECOVERY_DISABLE_WIFI} to {@link WifiController} to disable wifi.
+     * ActiveModeWarden#recoveryDisableWifi()} to {@link ActiveModeWarden} to disable wifi.
      * 3. Throttles restart calls for underlying native failures
-     * 4. Sends {@link WifiController#CMD_RECOVERY_RESTART_WIFI} to {@link WifiController} to
+     * 4. Sends {@link ActiveModeWarden#recoveryRestartWifi(int)} to {@link ActiveModeWarden} to
      * initiate the stack restart.
      * @param reason One of the above |REASON_*| codes.
      */
-    public void trigger(int reason) {
+    public void trigger(@RecoveryReason int reason) {
         if (!(reason == REASON_LAST_RESORT_WATCHDOG || reason == REASON_WIFINATIVE_FAILURE
                   || reason == REASON_STA_IFACE_DOWN)) {
             Log.e(TAG, "Invalid trigger reason. Ignoring...");
@@ -77,23 +92,29 @@ public class SelfRecovery {
         }
         if (reason == REASON_STA_IFACE_DOWN) {
             Log.e(TAG, "STA interface down, disable wifi");
-            mWifiController.sendMessage(WifiController.CMD_RECOVERY_DISABLE_WIFI);
+            mActiveModeWarden.recoveryDisableWifi();
             return;
         }
 
         Log.e(TAG, "Triggering recovery for reason: " + REASON_STRINGS[reason]);
         if (reason == REASON_WIFINATIVE_FAILURE) {
+            int maxRecoveriesPerHour = mContext.getResources().getInteger(
+                    R.integer.config_wifiMaxNativeFailureSelfRecoveryPerHour);
+            if (maxRecoveriesPerHour == 0) {
+                Log.e(TAG, "Recovery disabled. Disabling wifi");
+                mActiveModeWarden.recoveryDisableWifi();
+                return;
+            }
             trimPastRestartTimes();
-            // Ensure there haven't been too many restarts within MAX_RESTARTS_TIME_WINDOW
-            if (mPastRestartTimes.size() >= MAX_RESTARTS_IN_TIME_WINDOW) {
-                Log.e(TAG, "Already restarted wifi (" + MAX_RESTARTS_IN_TIME_WINDOW + ") times in"
-                        + " last (" + MAX_RESTARTS_TIME_WINDOW_MILLIS + "ms ). Disabling wifi");
-                mWifiController.sendMessage(WifiController.CMD_RECOVERY_DISABLE_WIFI);
+            if (mPastRestartTimes.size() >= maxRecoveriesPerHour) {
+                Log.e(TAG, "Already restarted wifi " + maxRecoveriesPerHour + " times in"
+                        + " last 1 hour. Disabling wifi");
+                mActiveModeWarden.recoveryDisableWifi();
                 return;
             }
             mPastRestartTimes.add(mClock.getElapsedSinceBootMillis());
         }
-        mWifiController.sendMessage(WifiController.CMD_RECOVERY_RESTART_WIFI, reason);
+        mActiveModeWarden.recoveryRestartWifi(reason);
     }
 
     /**
@@ -104,7 +125,7 @@ public class SelfRecovery {
         long now = mClock.getElapsedSinceBootMillis();
         while (iter.hasNext()) {
             Long restartTimeMillis = iter.next();
-            if (now - restartTimeMillis > MAX_RESTARTS_TIME_WINDOW_MILLIS) {
+            if (now - restartTimeMillis > TimeUnit.HOURS.toMillis(1)) {
                 iter.remove();
             } else {
                 break;

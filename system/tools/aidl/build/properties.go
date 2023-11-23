@@ -30,6 +30,7 @@ type ccProperties struct {
 	Owner                     *string
 	Defaults                  []string
 	Vendor_available          *bool
+	Host_supported            *bool
 	Generated_sources         []string
 	Generated_headers         []string
 	Shared                    sharedLib
@@ -42,17 +43,22 @@ type ccProperties struct {
 	Stl                       *string
 	Cpp_std                   *string
 	Cflags                    []string
+	Stem                      *string
+	Apex_available            []string
+	Min_sdk_version           *string
 }
 
 type javaProperties struct {
-	Name              *string
-	Owner             *string
-	Defaults          []string
-	Installable       *bool
-	No_framework_libs *bool
-	Sdk_version       *string
-	Srcs              []string
-	Static_libs       []string
+	Name            *string
+	Owner           *string
+	Defaults        []string
+	Installable     *bool
+	Sdk_version     *string
+	Platform_apis   *bool
+	Srcs            []string
+	Static_libs     []string
+	Apex_available  []string
+	Min_sdk_version *string
 }
 
 type phonyProperties struct {

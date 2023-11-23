@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import dbus
 import logging
 import time
 
@@ -66,15 +67,14 @@ class network_DhcpFailureWithStaticIP(dhcp_test_base.DhcpTestBase):
                 self.ethernet_pair.peer_interface_name)
 
         static_ip_address = '192.168.1.101'
-        prefix_len = 23
-        service.SetProperty('StaticIP.Address', static_ip_address)
-        service.SetProperty('StaticIP.Prefixlen', prefix_len)
         name_servers = [ '10.10.10.10', '10.10.11.11' ]
-        service.SetProperty('StaticIP.NameServers',
-                            ','.join(name_servers))
-        ipconfig = self.get_ipconfig()
-        ipconfig.Refresh()
+        config = {'Address' : static_ip_address,
+                  'Prefixlen' : 23,
+                  'NameServers' : name_servers}
+        service.SetProperty(self.shill_proxy.SERVICE_PROPERTY_STATIC_IP_CONFIG,
+                            dbus.Dictionary(config, signature='sv'))
 
+        ipconfig = self.get_ipconfig()
         self.check_static_ip_config(ipconfig, static_ip_address, name_servers)
 
         # Make sure configuration is still correct after DHCP timeout.

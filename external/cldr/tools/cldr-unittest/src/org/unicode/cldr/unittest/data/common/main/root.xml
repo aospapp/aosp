@@ -2,7 +2,7 @@
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
 <ldml>
 	<identity>
-		<version number="$Revision: 13071 $" />
+		<version number="$Revision$" />
 		<language type="root" />
 	</identity>
 

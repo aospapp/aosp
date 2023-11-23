@@ -70,6 +70,17 @@ def log_exit(msg):
 def disable_debug_log():
     logging.getLogger().setLevel(logging.WARN)
 
+def set_log_level(level_name):
+    if level_name == 'debug':
+        level = logging.DEBUG
+    elif level_name == 'info':
+        level = logging.INFO
+    elif level_name == 'warning':
+        level = logging.WARNING
+    else:
+        log_fatal('unknown log level: %s' % level_name)
+    logging.getLogger().setLevel(level)
+
 def str_to_bytes(str_value):
     if not is_python3():
         return str_value
@@ -137,15 +148,16 @@ EXPECTED_TOOLS = {
     'adb': {
         'is_binutils': False,
         'test_option': 'version',
-        'path_in_ndk': '../platform-tools/adb',
+        'path_in_ndk': lambda _: '../platform-tools/adb',
     },
     'readelf': {
         'is_binutils': True,
         'accept_tool_without_arch': True,
     },
-    'addr2line': {
-        'is_binutils': True,
-        'accept_tool_without_arch': True
+    'llvm-symbolizer': {
+        'is_binutils': False,
+        'path_in_ndk':
+            lambda platform: 'toolchains/llvm/prebuilt/%s-x86_64/bin/llvm-symbolizer' % platform,
     },
     'objdump': {
         'is_binutils': True,
@@ -160,16 +172,16 @@ def _get_binutils_path_in_ndk(toolname, arch, platform):
         arch = 'arm64'
     if arch == 'arm64':
         name = 'aarch64-linux-android-' + toolname
-        path = 'toolchains/aarch64-linux-android-4.9/prebuilt/%s-x86_64/bin/%s' % (platform, name)
+        path = 'toolchains/llvm/prebuilt/%s-x86_64/bin/%s' % (platform, name)
     elif arch == 'arm':
         name = 'arm-linux-androideabi-' + toolname
-        path = 'toolchains/arm-linux-androideabi-4.9/prebuilt/%s-x86_64/bin/%s' % (platform, name)
+        path = 'toolchains/llvm/prebuilt/%s-x86_64/bin/%s' % (platform, name)
     elif arch == 'x86_64':
         name = 'x86_64-linux-android-' + toolname
-        path = 'toolchains/x86_64-4.9/prebuilt/%s-x86_64/bin/%s' % (platform, name)
+        path = 'toolchains/llvm/prebuilt/%s-x86_64/bin/%s' % (platform, name)
     elif arch == 'x86':
         name = 'i686-linux-android-' + toolname
-        path = 'toolchains/x86-4.9/prebuilt/%s-x86_64/bin/%s' % (platform, name)
+        path = 'toolchains/llvm/prebuilt/%s-x86_64/bin/%s' % (platform, name)
     else:
         log_fatal('unexpected arch %s' % arch)
     return (name, path)
@@ -185,7 +197,7 @@ def find_tool_path(toolname, ndk_path=None, arch=None):
         toolname_with_arch, path_in_ndk = _get_binutils_path_in_ndk(toolname, arch, platform)
     else:
         toolname_with_arch = toolname
-        path_in_ndk = tool_info['path_in_ndk']
+        path_in_ndk = tool_info['path_in_ndk'](platform)
     path_in_ndk = path_in_ndk.replace('/', os.sep)
 
     # 1. Find tool in the given ndk path.
@@ -231,24 +243,21 @@ class AdbHelper(object):
         return self.run_and_return_output(adb_args)[0]
 
 
-    def run_and_return_output(self, adb_args, stdout_file=None, log_output=True):
+    def run_and_return_output(self, adb_args, log_output=True, log_stderr=True):
         adb_args = [self.adb_path] + adb_args
         log_debug('run adb cmd: %s' % adb_args)
-        if stdout_file:
-            with open(stdout_file, 'wb') as stdout_fh:
-                returncode = subprocess.call(adb_args, stdout=stdout_fh)
-            stdoutdata = ''
-        else:
-            subproc = subprocess.Popen(adb_args, stdout=subprocess.PIPE)
-            (stdoutdata, _) = subproc.communicate()
-            stdoutdata = bytes_to_str(stdoutdata)
-            returncode = subproc.returncode
+        subproc = subprocess.Popen(adb_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout_data, stderr_data = subproc.communicate()
+        stdout_data = bytes_to_str(stdout_data)
+        stderr_data = bytes_to_str(stderr_data)
+        returncode = subproc.returncode
         result = (returncode == 0)
-        if stdoutdata and adb_args[1] != 'push' and adb_args[1] != 'pull':
-            if log_output:
-                log_debug(stdoutdata)
+        if log_output and stdout_data and adb_args[1] != 'push' and adb_args[1] != 'pull':
+            log_debug(stdout_data)
+        if log_stderr and stderr_data:
+            log_warning(stderr_data)
         log_debug('run adb cmd: %s  [result %s]' % (adb_args, result))
-        return (result, stdoutdata)
+        return (result, stdout_data)
 
     def check_run(self, adb_args):
         self.check_run_and_return_output(adb_args)
@@ -314,6 +323,7 @@ class AdbHelper(object):
 
 
     def get_android_version(self):
+        """ Get Android version on device, like 7 is for Android N, 8 is for Android O."""
         build_version = self.get_property('ro.build.version.release')
         android_version = 0
         if build_version:
@@ -363,15 +373,11 @@ def open_report_in_browser(report_path):
 def is_elf_file(path):
     if os.path.isfile(path):
         with open(path, 'rb') as fh:
-            data = fh.read(4)
-            if len(data) == 4 and bytes_to_str(data) == '\x7fELF':
-                return True
+            return fh.read(4) == b'\x7fELF'
     return False
 
 def find_real_dso_path(dso_path_in_record_file, binary_cache_path):
     """ Given the path of a shared library in perf.data, find its real path in the file system. """
-    if dso_path_in_record_file[0] != '/' or dso_path_in_record_file == '//anon':
-        return None
     if binary_cache_path:
         tmp_path = os.path.join(binary_cache_path, dso_path_in_record_file[1:])
         if is_elf_file(tmp_path):
@@ -382,7 +388,7 @@ def find_real_dso_path(dso_path_in_record_file, binary_cache_path):
 
 
 class Addr2Nearestline(object):
-    """ Use addr2line to convert (dso_path, func_addr, addr) to (source_file, line) pairs.
+    """ Use llvm-symbolizer to convert (dso_path, func_addr, addr) to (source_file, line).
         For instructions generated by C++ compilers without a matching statement in source code
         (like stack corruption check, switch optimization, etc.), addr2line can't generate
         line information. However, we want to assign the instruction to the nearest line before
@@ -426,9 +432,9 @@ class Addr2Nearestline(object):
             self.source_lines = None
 
     def __init__(self, ndk_path, binary_cache_path, with_function_name):
-        self.addr2line_path = find_tool_path('addr2line', ndk_path)
-        if not self.addr2line_path:
-            log_exit("Can't find addr2line. Please set ndk path with --ndk_path option.")
+        self.symbolizer_path = find_tool_path('llvm-symbolizer', ndk_path)
+        if not self.symbolizer_path:
+            log_exit("Can't find llvm-symbolizer. Please set ndk path with --ndk_path option.")
         self.readelf = ReadElf(ndk_path)
         self.dso_map = {}  # map from dso_path to Dso.
         self.binary_cache_path = binary_cache_path
@@ -495,12 +501,11 @@ class Addr2Nearestline(object):
                     break
         if not addr_set:
             return
-        addr_request = '\n'.join(['%x' % addr for addr in sorted(addr_set)])
+        addr_request = '\n'.join(['0x%x' % addr for addr in sorted(addr_set)])
 
         # 2. Use addr2line to collect line info.
         try:
-            option = '-ai' + ('fC' if self.with_function_name else '')
-            subproc = subprocess.Popen([self.addr2line_path, option, '-e', real_path],
+            subproc = subprocess.Popen(self._build_symbolizer_args(real_path),
                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             (stdoutdata, _) = subproc.communicate(str_to_bytes(addr_request))
             stdoutdata = bytes_to_str(stdoutdata)
@@ -511,6 +516,9 @@ class Addr2Nearestline(object):
         need_function_name = self.with_function_name
         cur_function_name = None
         for line in stdoutdata.strip().split('\n'):
+            line = line.strip()
+            if not line:
+                continue
             if line[:2] == '0x':
                 # a new address
                 cur_line_list = addr_map[int(line, 16)] = []
@@ -519,26 +527,15 @@ class Addr2Nearestline(object):
                 need_function_name = False
             else:
                 need_function_name = self.with_function_name
-                # a file:line.
                 if cur_line_list is None:
                     continue
-                # Handle lines like "C:\Users\...\file:32".
-                items = line.rsplit(':', 1)
-                if len(items) != 2:
-                    continue
-                if '?' in line:
-                    # if ? in line, it doesn't have a valid line info.
+                file_path, line_number = self._parse_source_location(line)
+                if not file_path or not line_number:
                     # An addr can have a list of (file, line), when the addr belongs to an inlined
                     # function. Sometimes only part of the list has ? mark. In this case, we think
                     # the line info is valid if the first line doesn't have ? mark.
                     if not cur_line_list:
                         cur_line_list = None
-                    continue
-                (file_path, line_number) = items
-                line_number = line_number.split()[0]  # Remove comments after line number
-                try:
-                    line_number = int(line_number)
-                except ValueError:
                     continue
                 file_id = self._get_file_id(file_path)
                 if self.with_function_name:
@@ -560,6 +557,29 @@ class Addr2Nearestline(object):
                     break
                 if shifted_addr == addr_obj.func_addr:
                     break
+
+    def _build_symbolizer_args(self, binary_path):
+        args = [self.symbolizer_path, '-print-address', '-inlining', '-obj=%s' % binary_path]
+        if self.with_function_name:
+            args += ['-functions=linkage', '-demangle']
+        else:
+            args.append('-functions=none')
+        return args
+
+    def _parse_source_location(self, line):
+        file_path, line_number = None, None
+        # Handle lines in format filename:line:column, like "runtest/two_functions.cpp:14:25".
+        # Filename may contain ':' like "C:\Users\...\file".
+        items = line.rsplit(':', 2)
+        if len(items) == 3:
+            file_path, line_number = items[:2]
+        if not file_path or ('?' in file_path) or not line_number or ('?' in line_number):
+            return None, None
+        try:
+            line_number = int(line_number)
+        except ValueError:
+            return None, None
+        return file_path, line_number
 
     def _get_file_id(self, file_path):
         file_id = self.file_name_to_id.get(file_path)
@@ -731,7 +751,7 @@ class ReadElf(object):
                 pass
         return 'unknown'
 
-    def get_build_id(self, elf_file_path):
+    def get_build_id(self, elf_file_path, with_padding=True):
         """ Get build id of an elf file. """
         if is_elf_file(elf_file_path):
             try:
@@ -740,15 +760,21 @@ class ReadElf(object):
                 result = re.search(r'Build ID:\s*(\S+)', output)
                 if result:
                     build_id = result.group(1)
-                    if len(build_id) < 40:
-                        build_id += '0' * (40 - len(build_id))
-                    else:
-                        build_id = build_id[:40]
-                    build_id = '0x' + build_id
+                    if with_padding:
+                        build_id = self.pad_build_id(build_id)
                     return build_id
             except subprocess.CalledProcessError:
                 pass
         return ""
+
+    @staticmethod
+    def pad_build_id(build_id):
+        """ Pad build id to 40 hex numbers (20 bytes). """
+        if len(build_id) < 40:
+            build_id += '0' * (40 - len(build_id))
+        else:
+            build_id = build_id[:40]
+        return '0x' + build_id
 
     def get_sections(self, elf_file_path):
         """ Get sections of an elf file. """

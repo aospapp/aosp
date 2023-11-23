@@ -47,7 +47,7 @@ import java.util.regex.Pattern;
  * - The ANDROID_BUILD_TOP environment variable must be set to point to the
  * AOSP root directory (parent of libcore).
  *
- * To check out upstreams OpenJDK 7u40, 8u60, 8u121-b13, and 9+181, run:
+ * To check out upstreams OpenJDK 7u40, 8u60, 8u121-b13, 8u222-b01 and 9+181, run:
  *
  *  mkdir ~/openjdk
  *  cd ~/openjdk
@@ -58,6 +58,8 @@ import java.util.regex.Pattern;
  *  (cd !$ ; hg update -r jdk8u121-b13 && sh get_source.sh && sh common/bin/hgforest.sh update -r jdk8u121-b13)
  *  hg clone http://hg.openjdk.java.net/jdk8u/jdk8u60/ 8u60
  *  (cd !$ ; sh get_source.sh)
+ *  hg clone http://hg.openjdk.java.net/jdk8u/jdk8u 8u222-b01
+ *  (cd !$ ; hg update -r jdk8u222-b01 && sh get_source.sh && sh common/bin/hgforest.sh update -r jdk8u222-b01)
  *  hg clone http://hg.openjdk.java.net/jdk9/jdk9/ 9+181
  *  (cd !$ ; hg update -r jdk-9+181 && sh get_source.sh && sh common/bin/hgforest.sh update -r jdk-9+181)
  *
@@ -68,6 +70,17 @@ import java.util.regex.Pattern;
  *  To get OpenJDK head: hg clone http://hg.openjdk.java.net/jdk/jdk/ head
  */
 public class CompareUpstreams {
+
+    /**
+     * Whether to compare against snapshots based on (a) the output of {@link CopyUpstreamFiles},
+     * as opposed to (b) directly against checked-out upstream source {@link Repository}s.
+     *
+     * Because the snapshots are currently kept on x20 which is slow to access, (b) run much
+     * faster (a few seconds vs. 30 minutes), but it requires the checked-out and compiled
+     * upstream repositories to exist which is not the case for everyone / not easily achievable
+     * (OpenJDK 8 requires an old C++ compiler to build).
+     */
+    public static final boolean COMPARE_AGAINST_UPSTREAM_SNAPSHOT = true;
 
     private final StandardRepositories standardRepositories;
 
@@ -153,9 +166,13 @@ public class CompareUpstreams {
         }
         headers.add("diff");
         printTsv(out, headers);
+
+        Path snapshotRoot = COMPARE_AGAINST_UPSTREAM_SNAPSHOT
+                ? Util.pathFromEnvOrThrow("OJLUNI_UPSTREAMS")
+                : null;
+
         for (Path relPath : relPaths) {
-            Repository expectedUpstream = standardRepositories.referenceUpstreamAsOfAndroidP(
-                relPath);
+            Repository expectedUpstream = standardRepositories.referenceUpstream(relPath);
             out.print(relPath + "\t");
             Path ojluniFile = standardRepositories.ojluni().absolutePath(relPath);
             List<String> linesB = Util.readLines(ojluniFile);
@@ -167,7 +184,15 @@ public class CompareUpstreams {
             List<String> comparisons = new ArrayList<>(upstreams.size());
             for (Repository upstream : upstreams) {
                 final String comparison;
-                Path upstreamFile = upstream.absolutePath(relPath);
+                final Path upstreamFile;
+                if (COMPARE_AGAINST_UPSTREAM_SNAPSHOT) {
+                    Path maybePath = snapshotRoot
+                            .resolve(upstream.name())
+                            .resolve(relPath);
+                    upstreamFile = maybePath.toFile().exists() ? maybePath : null;
+                } else {
+                    upstreamFile = upstream.absolutePath(relPath);
+                }
                 if (upstreamFile == null) {
                     comparison = "missing";
                 } else {

@@ -131,7 +131,7 @@ public abstract class NotificationPreferenceController extends AbstractPreferenc
                 return false;
             }
 
-            return mChannel.isBlockableSystem() || !mAppRow.systemApp
+            return mChannel.isBlockable() || !mAppRow.systemApp
                     || mChannel.getImportance() == IMPORTANCE_NONE;
         }
         return false;

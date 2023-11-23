@@ -17,6 +17,7 @@ package android.host.multiuser;
 
 import static com.android.tradefed.log.LogUtil.CLog;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.ddmlib.Log;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -69,6 +70,7 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
                 + "command output: " + output, isErrorOutput);
     }
 
+    @CddTest(requirement="9.5/A-1-3")
     @Test
     public void testCanCreateGuestUserWhenUserLimitReached() throws Exception {
         if (!isAutomotiveDevice()) {

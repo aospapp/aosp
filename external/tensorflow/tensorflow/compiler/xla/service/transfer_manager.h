@@ -216,11 +216,20 @@ class TransferManager {
   // region for a host-to-device transfer.
   virtual int64 GetByteSizeRequirement(const Shape& shape) const = 0;
 
+  // Chooses a compact layout for 'shape', ignoring any existing layout on
+  // 'shape'. What "reasonable" means is left up to the backend. The
+  // intended use case is to choose a layout that avoids excessive padding on
+  // devices that have tiled memory architectures.
+  // The default implementation always picks a default (major-to-minor) layout.
+  // Fails if 'shape' cannot be represented by the device.
+  virtual StatusOr<Shape> ChooseCompactLayoutForShape(
+      const Shape& host_shape) const;
+
   // Allocates a ScopedShapedBuffer which can hold data with the given on-host
   // shape. The on-device shape may be different as indicated by
   // HostShapeToDeviceShape.
   StatusOr<ScopedShapedBuffer> AllocateScopedShapedBuffer(
-      const Shape& on_host_shape, DeviceMemoryAllocator* allocator,
+      const Shape& on_host_shape, se::DeviceMemoryAllocator* allocator,
       int device_ordinal);
 
   // The given ShapedBuffer holds a handle to allocated memory, but it is not
@@ -261,6 +270,13 @@ class TransferManager {
   static StatusOr<TransferManager*> GetForPlatform(
       const se::Platform* platform);
 
+  // Writes the given device-memory pointers in 'elements' to the given region
+  // to construct a tuple index table in the platform-specific tuple
+  // representation.
+  virtual Status WriteSingleTupleIndexTable(
+      se::Stream* stream, absl::Span<const se::DeviceMemoryBase> elements,
+      const Shape& shape, se::DeviceMemoryBase* region) = 0;
+
  protected:
   // Transfer a memory block of the given size from the device source into the
   // 'destination' buffer.
@@ -277,13 +293,6 @@ class TransferManager {
   virtual Status TransferBufferToDevice(se::Stream* stream, int64 size,
                                         const void* source,
                                         se::DeviceMemoryBase* destination);
-
-  // Writes the given device-memory pointers in 'elements' to the given region
-  // to construct a tuple index table in the platform-specific tuple
-  // representation.
-  virtual Status WriteSingleTupleIndexTable(
-      se::Stream* stream, absl::Span<const se::DeviceMemoryBase> elements,
-      const Shape& shape, se::DeviceMemoryBase* region) = 0;
 
  private:
   // The mutex that guards the platform-to-transfer manager map.

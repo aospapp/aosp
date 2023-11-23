@@ -28,6 +28,7 @@
 
 
 #include "goldfish_vk_private_defs.h"
+#include <functional>
 #include <memory>
 class IOStream;
 
@@ -39,6 +40,12 @@ class VkEncoder {
 public:
     VkEncoder(IOStream* stream);
     ~VkEncoder();
+
+    void flush();
+
+    using CleanupCallback = std::function<void()>;
+    void registerCleanupCallback(void* handle, CleanupCallback cb);
+    void unregisterCleanupCallback(void* handle);
 #ifdef VK_VERSION_1_0
     VkResult vkCreateInstance(
     const VkInstanceCreateInfo* pCreateInfo,
@@ -1781,6 +1788,38 @@ public:
     void vkResetCommandBufferAsyncGOOGLE(
     VkCommandBuffer commandBuffer,
         VkCommandBufferResetFlags flags);
+    void vkCommandBufferHostSyncGOOGLE(
+    VkCommandBuffer commandBuffer,
+        uint32_t needHostSync,
+        uint32_t sequenceNumber);
+#endif
+#ifdef VK_GOOGLE_create_resources_with_requirements
+    VkResult vkCreateImageWithRequirementsGOOGLE(
+    VkDevice device,
+        const VkImageCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator,
+        VkImage* pImage,
+        VkMemoryRequirements* pMemoryRequirements);
+    VkResult vkCreateBufferWithRequirementsGOOGLE(
+    VkDevice device,
+        const VkBufferCreateInfo* pCreateInfo,
+        const VkAllocationCallbacks* pAllocator,
+        VkBuffer* pBuffer,
+        VkMemoryRequirements* pMemoryRequirements);
+#endif
+#ifdef VK_GOOGLE_address_space_info
+    VkResult vkGetMemoryHostAddressInfoGOOGLE(
+    VkDevice device,
+        VkDeviceMemory memory,
+        uint64_t* pAddress,
+        uint64_t* pSize,
+        uint64_t* pHostmemId);
+#endif
+#ifdef VK_GOOGLE_free_memory_sync
+    VkResult vkFreeMemorySyncGOOGLE(
+    VkDevice device,
+        VkDeviceMemory memory,
+        const VkAllocationCallbacks* pAllocator);
 #endif
 
 private:

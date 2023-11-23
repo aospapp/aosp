@@ -23,7 +23,7 @@
 %                             February 1997                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -575,6 +575,8 @@ static struct
     { "CLAHE", { {"geometry", StringReference}, {"width", IntegerReference},
       {"height", IntegerReference}, {"number-bins", IntegerReference},
       {"clip-limit", RealReference} } },
+    { "Kmeans", { {"geometry", StringReference}, {"colors", IntegerReference},
+      {"iterations", IntegerReference}, {"tolerance", RealReference} } },
   };
 
 static SplayTreeInfo
@@ -7646,6 +7648,8 @@ Mogrify(ref,...)
     RangeThresholdImage= 296
     CLAHE              = 297
     CLAHEImage         = 298
+    Kmeans             = 299
+    KMeansImage        = 300
     MogrifyRegion      = 666
   PPCODE:
   {
@@ -11507,6 +11511,27 @@ Mogrify(ref,...)
             geometry_info.psi,exception);
           break;
         }
+        case 150:  /* Kmeans */
+        {
+          if (attribute_flag[0] != 0)
+            {
+              flags=ParseGeometry(argument_list[0].string_reference,
+                &geometry_info);
+              if ((flags & SigmaValue) == 0)
+                geometry_info.sigma=100.0;
+              if ((flags & XiValue) == 0)
+                geometry_info.xi=0.01;
+            }
+          if (attribute_flag[1] != 0)
+            geometry_info.rho=argument_list[1].integer_reference;
+          if (attribute_flag[2] != 0)
+            geometry_info.sigma=argument_list[2].integer_reference;
+          if (attribute_flag[3] != 0)
+            geometry_info.xi=(ChannelType) argument_list[3].real_reference;
+          (void) KmeansImage(image,geometry_info.rho,geometry_info.sigma,
+            geometry_info.xi,exception);
+          break;
+        }
       }
       if (next != (Image *) NULL)
         (void) CatchImageException(next);
@@ -13727,10 +13752,10 @@ QueryFormat(ref,...)
         PUSHs(&sv_undef);
       else
         PUSHs(sv_2mortal(newSVpv(magick_info->description,0)));
-      if (magick_info->module == (char *) NULL)
+      if (magick_info->magick_module == (char *) NULL)
         PUSHs(&sv_undef);
       else
-        PUSHs(sv_2mortal(newSVpv(magick_info->module,0)));
+        PUSHs(sv_2mortal(newSVpv(magick_info->magick_module,0)));
     }
 
   PerlException:

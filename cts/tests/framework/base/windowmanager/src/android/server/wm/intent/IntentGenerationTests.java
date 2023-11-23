@@ -63,6 +63,17 @@ import java.util.Map;
  *
  * Build/Install/Run:
  * atest CtsWindowManagerDeviceTestCases:IntentGenerationTests
+ *
+ *
+ * <p>NOTE: It is also possible to use this to manually verify a single test (useful for local
+ * debugging). To do that:
+ * 1. Put the correct test name in {@link #verifySingle()} and remove the @Ignore annotation
+ * 2. Push the file under test to device, e.g.
+ *    adb shell mkdir /storage/emulated/0/Documents/relinquishTaskIdentity/
+ *    adb push cts/tests/framework/base/windowmanager/intent_tests/relinquishTaskIdentity/test-0.json /storage/emulated/0/Documents/relinquishTaskIdentity/
+ * 3. Run the test
+ *    atest CtsWindowManagerDeviceTestCases:IntentGenerationTests#verifySingle
+ * </p>
  */
 public class IntentGenerationTests extends IntentTestBase {
     private static final Cases CASES = new Cases();
@@ -106,9 +117,11 @@ public class IntentGenerationTests extends IntentTestBase {
      * @throws JSONException if the file has invalid json in it.
      */
     @Test
+    // Comment the following line to test locally
     @Ignore
     public void verifySingle() throws IOException, JSONException {
-        String test = "forResult/test-1.json";
+        // Replace this line with the test you need
+        String test = "relinquishTaskIdentity/test-0.json";
         TestCase testCase = readFromStorage(test);
         mLaunchRunner.verify(mTargetContext, testCase);
     }

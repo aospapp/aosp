@@ -27,11 +27,9 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 
 import com.android.car.settings.R;
-import com.android.car.settings.bluetooth.BluetoothSettingsFragment;
-import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.CarSettingActivities;
+import com.android.car.settings.common.FragmentHost;
 import com.android.car.settings.common.Logger;
-import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
-import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
 /**
  * Controls Bluetooth tile on quick setting page.
@@ -40,8 +38,7 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
     private static final Logger LOG = new Logger(BluetoothTile.class);
     private final Context mContext;
     private final StateChangedListener mStateChangedListener;
-    private LocalBluetoothAdapter mLocalAdapter;
-    private LocalBluetoothManager mLocalManager;
+    private BluetoothAdapter mBluetoothAdapter;
     private View.OnLongClickListener mLaunchBluetoothSettings;
 
     @DrawableRes
@@ -90,26 +87,18 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
     BluetoothTile(
             Context context,
             StateChangedListener stateChangedListener,
-            FragmentController fragmentController) {
+            FragmentHost fragmentHost) {
         mStateChangedListener = stateChangedListener;
         mContext = context;
-        mLocalManager = LocalBluetoothManager.getInstance(
-                mContext, /* onInitCallback= */ null);
-        if (mLocalManager == null) {
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null) {
             LOG.e("Bluetooth is not supported on this device");
             return;
         }
         mText = mContext.getString(R.string.bluetooth_settings_title);
-        mLocalAdapter = mLocalManager.getBluetoothAdapter();
-        if (mLocalAdapter.isEnabled()) {
-            mIconRes = R.drawable.ic_settings_bluetooth;
-            mState = State.ON;
-        } else {
-            mIconRes = R.drawable.ic_settings_bluetooth_disabled;
-            mState = State.OFF;
-        }
         mLaunchBluetoothSettings = v -> {
-            fragmentController.launchFragment(new BluetoothSettingsFragment());
+            context.startActivity(new Intent(context,
+                    CarSettingActivities.BluetoothSettingsActivity.class));
             return true;
         };
     }
@@ -121,7 +110,7 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
 
     @Override
     public boolean isAvailable() {
-        return mLocalManager != null;
+        return mBluetoothAdapter != null;
     }
 
     @Override
@@ -147,6 +136,7 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
         mBtStateChangeFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         mBtStateChangeFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
         mContext.registerReceiver(mBtStateReceiver, mBtStateChangeFilter);
+        updateBluetoothIconState();
     }
 
     @Override
@@ -156,9 +146,28 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
 
     @Override
     public void onClick(View v) {
-        if (mLocalAdapter == null) {
+        if (mBluetoothAdapter == null) {
             return;
         }
-        mLocalAdapter.setBluetoothEnabled(!mLocalAdapter.isEnabled());
+        if (mBluetoothAdapter.isEnabled()) {
+            mBluetoothAdapter.disable();
+        } else {
+            mBluetoothAdapter.enable();
+        }
+    }
+
+    private void updateBluetoothIconState() {
+        if (mBluetoothAdapter.getConnectionState() == BluetoothAdapter.STATE_CONNECTED) {
+            mIconRes = R.drawable.ic_settings_bluetooth_connected;
+            mState = State.ON;
+        } else if (mBluetoothAdapter.isEnabled()) {
+            mIconRes = R.drawable.ic_settings_bluetooth;
+            mState = State.ON;
+        } else {
+            mIconRes = R.drawable.ic_settings_bluetooth_disabled;
+            mState = State.OFF;
+        }
+
+        mStateChangedListener.onStateChanged();
     }
 }

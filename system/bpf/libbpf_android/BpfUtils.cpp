@@ -37,170 +37,15 @@
 #include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 #include <log/log.h>
-#include <netdutils/MemBlock.h>
-#include <netdutils/Slice.h>
 #include <processgroup/processgroup.h>
 
-using android::base::GetUintProperty;
 using android::base::unique_fd;
-using android::netdutils::MemBlock;
-using android::netdutils::Slice;
 
 // The buffer size for the buffer that records program loading logs, needs to be large enough for
 // the largest kernel program.
 
 namespace android {
 namespace bpf {
-
-/*  The bpf_attr is a union which might have a much larger size then the struct we are using, while
- *  The inline initializer only reset the field we are using and leave the reset of the memory as
- *  is. The bpf kernel code will performs a much stricter check to ensure all unused field is 0. So
- *  this syscall will normally fail with E2BIG if we don't do a memset to bpf_attr.
- */
-bool operator==(const StatsKey& lhs, const StatsKey& rhs) {
-    return ((lhs.uid == rhs.uid) && (lhs.tag == rhs.tag) && (lhs.counterSet == rhs.counterSet) &&
-            (lhs.ifaceIndex == rhs.ifaceIndex));
-}
-
-bool operator==(const UidTag& lhs, const UidTag& rhs) {
-    return ((lhs.uid == rhs.uid) && (lhs.tag == rhs.tag));
-}
-
-bool operator==(const StatsValue& lhs, const StatsValue& rhs) {
-    return ((lhs.rxBytes == rhs.rxBytes) && (lhs.txBytes == rhs.txBytes) &&
-            (lhs.rxPackets == rhs.rxPackets) && (lhs.txPackets == rhs.txPackets));
-}
-
-int bpf(int cmd, Slice bpfAttr) {
-    return syscall(__NR_bpf, cmd, bpfAttr.base(), bpfAttr.size());
-}
-
-int createMap(bpf_map_type map_type, uint32_t key_size, uint32_t value_size, uint32_t max_entries,
-              uint32_t map_flags) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.map_type = map_type;
-    attr.key_size = key_size;
-    attr.value_size = value_size;
-    attr.max_entries = max_entries;
-    attr.map_flags = map_flags;
-
-    return bpf(BPF_MAP_CREATE, Slice(&attr, sizeof(attr)));
-}
-
-int writeToMapEntry(const base::unique_fd& map_fd, void* key, void* value, uint64_t flags) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.map_fd = map_fd.get();
-    attr.key = ptr_to_u64(key);
-    attr.value = ptr_to_u64(value);
-    attr.flags = flags;
-
-    return bpf(BPF_MAP_UPDATE_ELEM, Slice(&attr, sizeof(attr)));
-}
-
-int findMapEntry(const base::unique_fd& map_fd, void* key, void* value) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.map_fd = map_fd.get();
-    attr.key = ptr_to_u64(key);
-    attr.value = ptr_to_u64(value);
-
-    return bpf(BPF_MAP_LOOKUP_ELEM, Slice(&attr, sizeof(attr)));
-}
-
-int deleteMapEntry(const base::unique_fd& map_fd, void* key) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.map_fd = map_fd.get();
-    attr.key = ptr_to_u64(key);
-
-    return bpf(BPF_MAP_DELETE_ELEM, Slice(&attr, sizeof(attr)));
-}
-
-int getNextMapKey(const base::unique_fd& map_fd, void* key, void* next_key) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.map_fd = map_fd.get();
-    attr.key = ptr_to_u64(key);
-    attr.next_key = ptr_to_u64(next_key);
-
-    return bpf(BPF_MAP_GET_NEXT_KEY, Slice(&attr, sizeof(attr)));
-}
-
-int getFirstMapKey(const base::unique_fd& map_fd, void* firstKey) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.map_fd = map_fd.get();
-    attr.key = 0;
-    attr.next_key = ptr_to_u64(firstKey);
-
-    return bpf(BPF_MAP_GET_NEXT_KEY, Slice(&attr, sizeof(attr)));
-}
-
-int bpfProgLoad(bpf_prog_type prog_type, Slice bpf_insns, const char* license,
-                uint32_t kern_version, Slice bpf_log) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.prog_type = prog_type;
-    attr.insns = ptr_to_u64(bpf_insns.base());
-    attr.insn_cnt = bpf_insns.size() / sizeof(struct bpf_insn);
-    attr.license = ptr_to_u64((void*)license);
-    attr.log_buf = ptr_to_u64(bpf_log.base());
-    attr.log_size = bpf_log.size();
-    attr.log_level = DEFAULT_LOG_LEVEL;
-    attr.kern_version = kern_version;
-    int ret = bpf(BPF_PROG_LOAD, Slice(&attr, sizeof(attr)));
-
-    if (ret < 0) {
-        std::string prog_log = netdutils::toString(bpf_log);
-        std::istringstream iss(prog_log);
-        for (std::string line; std::getline(iss, line);) {
-            ALOGE("%s", line.c_str());
-        }
-    }
-    return ret;
-}
-
-int bpfFdPin(const base::unique_fd& map_fd, const char* pathname) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.pathname = ptr_to_u64((void*)pathname);
-    attr.bpf_fd = map_fd.get();
-
-    return bpf(BPF_OBJ_PIN, Slice(&attr, sizeof(attr)));
-}
-
-int bpfFdGet(const char* pathname, uint32_t flag) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.pathname = ptr_to_u64((void*)pathname);
-    attr.file_flags = flag;
-    return bpf(BPF_OBJ_GET, Slice(&attr, sizeof(attr)));
-}
-
-int mapRetrieve(const char* pathname, uint32_t flag) {
-    return bpfFdGet(pathname, flag);
-}
-
-int attachProgram(bpf_attach_type type, uint32_t prog_fd, uint32_t cg_fd) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.target_fd = cg_fd;
-    attr.attach_bpf_fd = prog_fd;
-    attr.attach_type = type;
-
-    return bpf(BPF_PROG_ATTACH, Slice(&attr, sizeof(attr)));
-}
-
-int detachProgram(bpf_attach_type type, uint32_t cg_fd) {
-    bpf_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.target_fd = cg_fd;
-    attr.attach_type = type;
-
-    return bpf(BPF_PROG_DETACH, Slice(&attr, sizeof(attr)));
-}
 
 uint64_t getSocketCookie(int sockFd) {
     uint64_t sock_cookie;
@@ -240,8 +85,8 @@ int synchronizeKernelRCU() {
 int setrlimitForTest() {
     // Set the memory rlimit for the test process if the default MEMLOCK rlimit is not enough.
     struct rlimit limit = {
-            .rlim_cur = TEST_LIMIT,
-            .rlim_max = TEST_LIMIT,
+            .rlim_cur = 1073741824,  // 1 GiB
+            .rlim_max = 1073741824,  // 1 GiB
     };
     int res = setrlimit(RLIMIT_MEMLOCK, &limit);
     if (res) {
@@ -250,43 +95,69 @@ int setrlimitForTest() {
     return res;
 }
 
+#define KVER(a, b, c) ((a)*65536 + (b)*256 + (c))
+
+unsigned kernelVersion() {
+    struct utsname buf;
+    int ret = uname(&buf);
+    if (ret) return 0;
+
+    unsigned kver_major;
+    unsigned kver_minor;
+    unsigned kver_sub;
+    char dummy;
+    ret = sscanf(buf.release, "%u.%u.%u%c", &kver_major, &kver_minor, &kver_sub, &dummy);
+    // Check the device kernel version
+    if (ret < 3) return 0;
+
+    return KVER(kver_major, kver_minor, kver_sub);
+}
+
 std::string BpfLevelToString(BpfLevel bpfLevel) {
     switch (bpfLevel) {
-        case BpfLevel::NONE:      return "NONE_SUPPORT";
-        case BpfLevel::BASIC:     return "BPF_LEVEL_BASIC";
-        case BpfLevel::EXTENDED:  return "BPF_LEVEL_EXTENDED";
-        // No default statement. We want to see errors of the form:
-        // "enumeration value 'BPF_LEVEL_xxx' not handled in switch [-Werror,-Wswitch]".
+        case BpfLevel::NONE:
+            return "None [pre-4.9 or pre-P]";
+        case BpfLevel::BASIC_4_9:
+            return "Basic [4.9 P+]";
+        case BpfLevel::EXTENDED_4_14:
+            return "Extended [4.14]";
+        case BpfLevel::EXTENDED_4_19:
+            return "Extended [4.19]";
+        case BpfLevel::EXTENDED_5_4:
+            return "Extended [5.4+]";
+            // No default statement. We want to see errors of the form:
+            // "enumeration value 'BPF_LEVEL_xxx' not handled in switch [-Werror,-Wswitch]".
     }
 }
 
-BpfLevel getBpfSupportLevel() {
-    struct utsname buf;
-    int kernel_version_major;
-    int kernel_version_minor;
+static BpfLevel getUncachedBpfSupportLevel() {
+    unsigned kver = kernelVersion();
 
-    uint64_t api_level = GetUintProperty<uint64_t>("ro.product.first_api_level", 0);
+    if (kver >= KVER(5, 4, 0)) return BpfLevel::EXTENDED_5_4;
+    if (kver >= KVER(4, 19, 0)) return BpfLevel::EXTENDED_4_19;
+    if (kver >= KVER(4, 14, 0)) return BpfLevel::EXTENDED_4_14;
+
+    // Override for devices launched with O but now on a 4.9-P+ kernel.
+    bool ebpf_supported = base::GetBoolProperty("ro.kernel.ebpf.supported", false);
+    if (ebpf_supported) return BpfLevel::BASIC_4_9;
+
+    uint64_t api_level = base::GetUintProperty<uint64_t>("ro.product.first_api_level", 0);
     if (api_level == 0) {
         ALOGE("Cannot determine initial API level of the device");
-        api_level = GetUintProperty<uint64_t>("ro.build.version.sdk", 0);
+        api_level = base::GetUintProperty<uint64_t>("ro.build.version.sdk", 0);
     }
 
     // Check if the device is shipped originally with android P.
     if (api_level < MINIMUM_API_REQUIRED) return BpfLevel::NONE;
 
-    int ret = uname(&buf);
-    if (ret) {
-        return BpfLevel::NONE;
-    }
-    char dummy;
-    ret = sscanf(buf.release, "%d.%d%c", &kernel_version_major, &kernel_version_minor, &dummy);
-    // Check the device kernel version
-    if (ret < 2) return BpfLevel::NONE;
-    if (kernel_version_major > 4 || (kernel_version_major == 4 && kernel_version_minor >= 14))
-        return BpfLevel::EXTENDED;
-    if (kernel_version_major == 4 && kernel_version_minor >= 9) return BpfLevel::BASIC;
+    if (kver >= KVER(4, 9, 0)) return BpfLevel::BASIC_4_9;
 
     return BpfLevel::NONE;
+}
+
+BpfLevel getBpfSupportLevel() {
+    static BpfLevel cache = getUncachedBpfSupportLevel();
+    return cache;
 }
 
 }  // namespace bpf

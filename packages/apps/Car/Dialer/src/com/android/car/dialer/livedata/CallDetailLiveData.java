@@ -19,7 +19,7 @@ package com.android.car.dialer.livedata;
 import android.telecom.Call;
 import android.telecom.InCallService;
 
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 
 import com.android.car.telephony.common.CallDetail;
@@ -31,23 +31,23 @@ import java.util.List;
  */
 public class CallDetailLiveData extends LiveData<CallDetail> {
 
-    private final Call mTelecomCall;
-
-    public CallDetailLiveData(@NonNull Call telecomCall) {
-        mTelecomCall = telecomCall;
-    }
+    private Call mTelecomCall;
 
     @Override
     protected void onActive() {
         super.onActive();
         setTelecomCallDetail(mTelecomCall);
-        mTelecomCall.registerCallback(mCallback);
+        if (mTelecomCall != null) {
+            mTelecomCall.registerCallback(mCallback);
+        }
     }
 
     @Override
     protected void onInactive() {
         super.onInactive();
-        mTelecomCall.unregisterCallback(mCallback);
+        if (mTelecomCall != null) {
+            mTelecomCall.unregisterCallback(mCallback);
+        }
     }
 
     private Call.Callback mCallback = new Call.Callback() {
@@ -88,7 +88,19 @@ public class CallDetailLiveData extends LiveData<CallDetail> {
         }
     };
 
-    private void setTelecomCallDetail(Call telecomCall) {
-        setValue(CallDetail.fromTelecomCallDetail(telecomCall.getDetails()));
+    /**
+     * Sets the {@link Call} of which this live data sources.
+     */
+    public void setTelecomCall(Call telecomCall) {
+        mTelecomCall = telecomCall;
+        setTelecomCallDetail(mTelecomCall);
+        if (mTelecomCall != null) {
+            mTelecomCall.registerCallback(mCallback);
+        }
+    }
+
+    private void setTelecomCallDetail(@Nullable Call telecomCall) {
+        setValue(telecomCall != null ? CallDetail.fromTelecomCallDetail(telecomCall.getDetails())
+                : null);
     }
 }

@@ -16,7 +16,6 @@
 
 package com.android.car.settings.bluetooth;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -26,16 +25,17 @@ import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.DialogFragment;
 
 import com.android.car.settings.R;
+import com.android.car.ui.AlertDialogBuilder;
+import com.android.car.ui.preference.CarUiDialogFragment;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
 /**
  * Displays a dialog which prompts the user to confirm disconnecting from a remote Bluetooth device.
  */
-public class BluetoothDisconnectConfirmDialogFragment extends DialogFragment {
+public class BluetoothDisconnectConfirmDialogFragment extends CarUiDialogFragment {
 
     private static final String KEY_DEVICE_ADDRESS = "device_address";
 
@@ -76,13 +76,17 @@ public class BluetoothDisconnectConfirmDialogFragment extends DialogFragment {
         String title = context.getString(R.string.bluetooth_disconnect_title);
         String message = context.getString(R.string.bluetooth_disconnect_all_profiles, name);
 
-        return new AlertDialog.Builder(context)
+        return new AlertDialogBuilder(context)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton(android.R.string.ok,
                         (dialog, which) -> mCachedDevice.disconnect())
                 .setNegativeButton(android.R.string.cancel, /* listener= */ null)
                 .create();
+    }
+
+    @Override
+    protected void onDialogClosed(boolean positiveResult) {
     }
 
     @Override

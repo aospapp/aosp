@@ -23,7 +23,7 @@
 %                                 August 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -2858,6 +2858,34 @@ WandExport MagickBooleanType MagickSetSamplingFactors(MagickWand *wand,
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%   M a g i c k S e t S e e d                                                 %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  MagickSetSeed() sets the pseudo-random number generator seed.  Use it to
+%  generate a pedictable sequence of random numbers.
+%
+%  The format of the MagickSetSeed method is:
+%
+%      void MagickSetSeed(const unsigned long seed)
+%
+%  A description of each parameter follows:
+%
+%    o seed: the seed.
+%
+*/
+WandExport void MagickSetSeed(const unsigned long seed)
+{
+  SetRandomSecretKey(seed);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 %   M a g i c k S e t S e c u r i t y P o l i c y                             %
 %                                                                             %
 %                                                                             %
@@ -3018,7 +3046,6 @@ WandExport MagickBooleanType MagickSetType(MagickWand *wand,
   assert(wand->signature == MagickWandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-
   wand->image_info->type=image_type;
   return(MagickTrue);
 }

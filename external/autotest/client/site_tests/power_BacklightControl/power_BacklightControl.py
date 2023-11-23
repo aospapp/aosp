@@ -191,7 +191,7 @@ class power_BacklightControl(test.test):
 
 
     def _get_current_energy_rate(self):
-        return power_status.get_status().battery[0].energy_rate
+        return power_status.get_status().battery.energy_rate
 
 
     def _wait_for_stable_energy_rate(self,

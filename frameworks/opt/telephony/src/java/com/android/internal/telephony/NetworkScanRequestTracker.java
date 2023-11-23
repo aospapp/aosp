@@ -16,14 +16,15 @@
 
 package com.android.internal.telephony;
 
-import static android.os.Binder.withCleanCallingIdentity;
 import static android.telephony.AccessNetworkConstants.AccessNetworkType.EUTRAN;
 import static android.telephony.AccessNetworkConstants.AccessNetworkType.GERAN;
+import static android.telephony.AccessNetworkConstants.AccessNetworkType.NGRAN;
 import static android.telephony.AccessNetworkConstants.AccessNetworkType.UTRAN;
 
 import android.content.Context;
 import android.hardware.radio.V1_0.RadioError;
 import android.os.AsyncResult;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -66,10 +67,12 @@ public final class NetworkScanRequestTracker {
     private static final int EVENT_STOP_NETWORK_SCAN_DONE = 5;
     private static final int CMD_INTERRUPT_NETWORK_SCAN = 6;
     private static final int EVENT_INTERRUPT_NETWORK_SCAN_DONE = 7;
+    private static final int EVENT_MODEM_RESET = 8;
 
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
+            Log.d(TAG, "Received Event :" + msg.what);
             switch (msg.what) {
                 case CMD_START_NETWORK_SCAN:
                     mScheduler.doStartScan((NetworkScanRequestInfo) msg.obj);
@@ -98,6 +101,14 @@ public final class NetworkScanRequestTracker {
                 case EVENT_INTERRUPT_NETWORK_SCAN_DONE:
                     mScheduler.interruptScanDone((AsyncResult) msg.obj);
                     break;
+
+                case EVENT_MODEM_RESET:
+                    AsyncResult ar = (AsyncResult) msg.obj;
+                    mScheduler.deleteScanAndMayNotify(
+                            (NetworkScanRequestInfo) ar.userObj,
+                            NetworkScan.ERROR_MODEM_ERROR,
+                            true);
+                    break;
             }
         }
     };
@@ -123,7 +134,8 @@ public final class NetworkScanRequestTracker {
         }
         for (RadioAccessSpecifier ras : nsri.mRequest.getSpecifiers()) {
             if (ras.getRadioAccessNetwork() != GERAN && ras.getRadioAccessNetwork() != UTRAN
-                    && ras.getRadioAccessNetwork() != EUTRAN) {
+                    && ras.getRadioAccessNetwork() != EUTRAN
+                    && ras.getRadioAccessNetwork() != NGRAN) {
                 return false;
             }
             if (ras.getBands() != null && ras.getBands().length > NetworkScanRequest.MAX_BANDS) {
@@ -178,10 +190,16 @@ public final class NetworkScanRequestTracker {
      * scan when scan results are restricted due to location privacy.
      */
     public static Set<String> getAllowedMccMncsForLocationRestrictedScan(Context context) {
-        return withCleanCallingIdentity(() -> SubscriptionController.getInstance()
-            .getAvailableSubscriptionInfoList(context.getOpPackageName()).stream()
-            .flatMap(NetworkScanRequestTracker::getAllowableMccMncsFromSubscriptionInfo)
-            .collect(Collectors.toSet()));
+        final long token = Binder.clearCallingIdentity();
+        try {
+            return SubscriptionController.getInstance()
+                    .getAvailableSubscriptionInfoList(context.getOpPackageName(),
+                            context.getAttributionTag()).stream()
+                    .flatMap(NetworkScanRequestTracker::getAllowableMccMncsFromSubscriptionInfo)
+                    .collect(Collectors.toSet());
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
     }
 
     private static Stream<String> getAllowableMccMncsFromSubscriptionInfo(SubscriptionInfo info) {
@@ -525,12 +543,12 @@ public final class NetworkScanRequestTracker {
         // stopped, a new scan will automatically start with nsri.
         // The new scan can interrupt the live scan only when all the below requirements are met:
         //   1. There is 1 live scan and no other pending scan
-        //   2. The new scan is requested by mobile network setting menu (owned by PHONE process)
+        //   2. The new scan is requested by mobile network setting menu (owned by SYSTEM process)
         //   3. The live scan is not requested by mobile network setting menu
         private synchronized boolean interruptLiveScan(NetworkScanRequestInfo nsri) {
             if (mLiveRequestInfo != null && mPendingRequestInfo == null
-                    && nsri.mUid == Process.PHONE_UID
-                            && mLiveRequestInfo.mUid != Process.PHONE_UID) {
+                    && nsri.mUid == Process.SYSTEM_UID
+                            && mLiveRequestInfo.mUid != Process.SYSTEM_UID) {
                 doInterruptScan(mLiveRequestInfo.mScanId);
                 mPendingRequestInfo = nsri;
                 notifyMessenger(mLiveRequestInfo, TelephonyScanManager.CALLBACK_SCAN_ERROR,
@@ -551,6 +569,7 @@ public final class NetworkScanRequestTracker {
                 mLiveRequestInfo = nsri;
                 nsri.mPhone.startNetworkScan(nsri.getRequest(),
                         mHandler.obtainMessage(EVENT_START_NETWORK_SCAN_DONE, nsri));
+                nsri.mPhone.mCi.registerForModemReset(mHandler, EVENT_MODEM_RESET, nsri);
                 return true;
             }
             return false;
@@ -570,6 +589,7 @@ public final class NetworkScanRequestTracker {
                                 null);
                     }
                 }
+                mLiveRequestInfo.mPhone.mCi.unregisterForModemReset(mHandler);
                 mLiveRequestInfo = null;
                 if (mPendingRequestInfo != null) {
                     startNewScan(mPendingRequestInfo);

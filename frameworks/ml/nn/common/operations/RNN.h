@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_RNN_H
-#define FRAMEWORKS_ML_NN_RNN_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_RNN_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_RNN_H
+
+#include <vector>
 
 #include "ActivationFunctor.h"
-#include "HalOperation.h"
+#include "HalInterfaces.h"
 
 namespace android {
 namespace nn {
@@ -28,14 +30,14 @@ struct Shape;
 
 class RNN {
    public:
-    RNN(const Operation& operation, std::vector<RunTimeOperandInfo>& operands);
+    RNN(const hal::Operation& operation, RunTimeOperandInfo* operands);
 
-    static bool Prepare(const Operation& operation, std::vector<RunTimeOperandInfo>& operands,
+    static bool Prepare(const hal::Operation& operation, RunTimeOperandInfo* operands,
                         Shape* hiddenStateShape, Shape* outputShape);
     bool Eval();
 
     static constexpr int kInputTensor = 0;
-    static constexpr int kWeightsTensor = 1;  // Optional
+    static constexpr int kWeightsTensor = 1;
     static constexpr int kRecurrentWeightsTensor = 2;
     static constexpr int kBiasTensor = 3;
     static constexpr int kHiddenStateInTensor = 4;
@@ -75,4 +77,4 @@ class RNN {
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_RNN_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_RNN_H

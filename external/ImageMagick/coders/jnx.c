@@ -16,7 +16,7 @@
 %                                 July 2012                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -267,7 +267,10 @@ static Image *ReadJNXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       (void) ReadBlobLSBShort(image); /* width */
       (void) ReadBlobLSBShort(image); /* height */
       if (EOFBlob(image) != MagickFalse)
-        ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
+        {
+          images=DestroyImageList(images);
+          ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
+        }
       tile_length=ReadBlobLSBLong(image);
       tile_offset=ReadBlobLSBSignedLong(image);
       if (tile_offset == -1)
@@ -282,13 +285,15 @@ static Image *ReadJNXImage(const ImageInfo *image_info,ExceptionInfo *exception)
         Read a tile.
       */
       if (((MagickSizeType) tile_length) > GetBlobSize(image))
-        ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+        {
+          images=DestroyImageList(images);
+          ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+        }
       blob=(unsigned char *) AcquireQuantumMemory((size_t) tile_length+2,
         sizeof(*blob));
       if (blob == (unsigned char *) NULL)
         {
-          if (images != (Image *) NULL)
-            images=DestroyImageList(images);
+          images=DestroyImageList(images);
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         }
       blob[0]=0xFF;
@@ -296,8 +301,7 @@ static Image *ReadJNXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       count=ReadBlob(image,tile_length,blob+2);
       if (count != (ssize_t) tile_length)
         {
-          if (images != (Image *) NULL)
-            images=DestroyImageList(images);
+          images=DestroyImageList(images);
           blob=(unsigned char *) RelinquishMagickMemory(blob);
           ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
         }
@@ -331,8 +335,6 @@ static Image *ReadJNXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   }
   (void) CloseBlob(image);
   image=DestroyImage(image);
-  if (images == (Image *) NULL)
-    return((Image *) NULL);
   return(GetFirstImageInList(images));
 }
 

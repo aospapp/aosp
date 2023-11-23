@@ -28,173 +28,239 @@ import (
 
 func TestClasspath(t *testing.T) {
 	var classpathTestcases = []struct {
-		name          string
-		unbundled     bool
-		pdk           bool
-		moduleType    string
-		host          android.OsClass
-		properties    string
-		bootclasspath []string
-		system        string
-		classpath     []string
-		aidl          string
+		name       string
+		unbundled  bool
+		pdk        bool
+		moduleType string
+		host       android.OsClass
+		properties string
+
+		// for java 8
+		bootclasspath  []string
+		java8classpath []string
+
+		// for java 9
+		system         string
+		java9classpath []string
+
+		forces8 bool // if set, javac will always be called with java 8 arguments
+
+		aidl string
 	}{
 		{
-			name:          "default",
-			bootclasspath: config.DefaultBootclasspathLibraries,
-			system:        config.DefaultSystemModules,
-			classpath:     config.DefaultLibraries,
-			aidl:          "-Iframework/aidl",
+			name:           "default",
+			bootclasspath:  config.DefaultBootclasspathLibraries,
+			system:         config.DefaultSystemModules,
+			java8classpath: config.DefaultLibraries,
+			java9classpath: config.DefaultLibraries,
+			aidl:           "-Iframework/aidl",
 		},
 		{
-			name:          "blank sdk version",
-			properties:    `sdk_version: "",`,
-			bootclasspath: config.DefaultBootclasspathLibraries,
-			system:        config.DefaultSystemModules,
-			classpath:     config.DefaultLibraries,
-			aidl:          "-Iframework/aidl",
+			name:           `sdk_version:"core_platform"`,
+			properties:     `sdk_version:"core_platform"`,
+			bootclasspath:  config.DefaultBootclasspathLibraries,
+			system:         config.DefaultSystemModules,
+			java8classpath: []string{},
+			aidl:           "",
 		},
 		{
-
-			name:          "sdk v25",
-			properties:    `sdk_version: "25",`,
-			bootclasspath: []string{`""`},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			classpath:     []string{"prebuilts/sdk/25/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
-			aidl:          "-pprebuilts/sdk/25/public/framework.aidl",
-		},
-		{
-
-			name:          "current",
-			properties:    `sdk_version: "current",`,
-			bootclasspath: []string{"android_stubs_current", "core-lambda-stubs"},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			aidl:          "-p" + buildDir + "/framework.aidl",
+			name:           "blank sdk version",
+			properties:     `sdk_version: "",`,
+			bootclasspath:  config.DefaultBootclasspathLibraries,
+			system:         config.DefaultSystemModules,
+			java8classpath: config.DefaultLibraries,
+			java9classpath: config.DefaultLibraries,
+			aidl:           "-Iframework/aidl",
 		},
 		{
 
-			name:          "system_current",
-			properties:    `sdk_version: "system_current",`,
-			bootclasspath: []string{"android_system_stubs_current", "core-lambda-stubs"},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			aidl:          "-p" + buildDir + "/framework.aidl",
+			name:           "sdk v29",
+			properties:     `sdk_version: "29",`,
+			bootclasspath:  []string{`""`},
+			forces8:        true,
+			java8classpath: []string{"prebuilts/sdk/29/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/29/public/framework.aidl",
 		},
 		{
 
-			name:          "system_25",
-			properties:    `sdk_version: "system_25",`,
-			bootclasspath: []string{`""`},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			classpath:     []string{"prebuilts/sdk/25/system/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
-			aidl:          "-pprebuilts/sdk/25/public/framework.aidl",
+			name:           "sdk v30",
+			properties:     `sdk_version: "30",`,
+			bootclasspath:  []string{`""`},
+			system:         "sdk_public_30_system_modules",
+			java8classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			java9classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/30/public/framework.aidl",
 		},
 		{
 
-			name:          "test_current",
-			properties:    `sdk_version: "test_current",`,
-			bootclasspath: []string{"android_test_stubs_current", "core-lambda-stubs"},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			aidl:          "-p" + buildDir + "/framework.aidl",
+			name:           "current",
+			properties:     `sdk_version: "current",`,
+			bootclasspath:  []string{"android_stubs_current", "core-lambda-stubs"},
+			system:         "core-current-stubs-system-modules",
+			java9classpath: []string{"android_stubs_current"},
+			aidl:           "-p" + buildDir + "/framework.aidl",
 		},
 		{
 
-			name:          "core_current",
-			properties:    `sdk_version: "core_current",`,
-			bootclasspath: []string{"core.current.stubs", "core-lambda-stubs"},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
+			name:           "system_current",
+			properties:     `sdk_version: "system_current",`,
+			bootclasspath:  []string{"android_system_stubs_current", "core-lambda-stubs"},
+			system:         "core-current-stubs-system-modules",
+			java9classpath: []string{"android_system_stubs_current"},
+			aidl:           "-p" + buildDir + "/framework.aidl",
 		},
 		{
 
-			name:          "nostdlib",
-			properties:    `no_standard_libs: true, system_modules: "none"`,
-			system:        "none",
-			bootclasspath: []string{`""`},
-			classpath:     []string{},
+			name:           "system_29",
+			properties:     `sdk_version: "system_29",`,
+			bootclasspath:  []string{`""`},
+			forces8:        true,
+			java8classpath: []string{"prebuilts/sdk/29/system/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/29/public/framework.aidl",
 		},
 		{
 
-			name:          "nostdlib system_modules",
-			properties:    `no_standard_libs: true, system_modules: "core-platform-api-stubs-system-modules"`,
-			system:        "core-platform-api-stubs-system-modules",
-			bootclasspath: []string{`""`},
-			classpath:     []string{},
+			name:           "system_30",
+			properties:     `sdk_version: "system_30",`,
+			bootclasspath:  []string{`""`},
+			system:         "sdk_public_30_system_modules",
+			java8classpath: []string{"prebuilts/sdk/30/system/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			java9classpath: []string{"prebuilts/sdk/30/system/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/30/public/framework.aidl",
 		},
 		{
 
-			name:          "host default",
-			moduleType:    "java_library_host",
-			properties:    ``,
-			host:          android.Host,
-			bootclasspath: []string{"jdk8/jre/lib/jce.jar", "jdk8/jre/lib/rt.jar"},
-			classpath:     []string{},
-		},
-		{
-			name:       "host nostdlib",
-			moduleType: "java_library_host",
-			host:       android.Host,
-			properties: `no_standard_libs: true`,
-			classpath:  []string{},
+			name:           "test_current",
+			properties:     `sdk_version: "test_current",`,
+			bootclasspath:  []string{"android_test_stubs_current", "core-lambda-stubs"},
+			system:         "core-current-stubs-system-modules",
+			java9classpath: []string{"android_test_stubs_current"},
+			aidl:           "-p" + buildDir + "/framework.aidl",
 		},
 		{
 
-			name:          "host supported default",
-			host:          android.Host,
-			properties:    `host_supported: true,`,
-			classpath:     []string{},
-			bootclasspath: []string{"jdk8/jre/lib/jce.jar", "jdk8/jre/lib/rt.jar"},
-		},
-		{
-			name:       "host supported nostdlib",
-			host:       android.Host,
-			properties: `host_supported: true, no_standard_libs: true, system_modules: "none"`,
-			classpath:  []string{},
+			name:           "core_current",
+			properties:     `sdk_version: "core_current",`,
+			bootclasspath:  []string{"core.current.stubs", "core-lambda-stubs"},
+			system:         "core-current-stubs-system-modules",
+			java9classpath: []string{"core.current.stubs"},
 		},
 		{
 
-			name:          "unbundled sdk v25",
-			unbundled:     true,
-			properties:    `sdk_version: "25",`,
-			bootclasspath: []string{`""`},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			classpath:     []string{"prebuilts/sdk/25/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
-			aidl:          "-pprebuilts/sdk/25/public/framework.aidl",
+			name:           "nostdlib",
+			properties:     `sdk_version: "none", system_modules: "none"`,
+			system:         "none",
+			bootclasspath:  []string{`""`},
+			java8classpath: []string{},
 		},
 		{
 
-			name:          "unbundled current",
-			unbundled:     true,
-			properties:    `sdk_version: "current",`,
-			bootclasspath: []string{`""`},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			classpath:     []string{"prebuilts/sdk/current/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
-			aidl:          "-pprebuilts/sdk/current/public/framework.aidl",
+			name:           "nostdlib system_modules",
+			properties:     `sdk_version: "none", system_modules: "core-platform-api-stubs-system-modules"`,
+			system:         "core-platform-api-stubs-system-modules",
+			bootclasspath:  []string{"core-platform-api-stubs-system-modules-lib"},
+			java8classpath: []string{},
+		},
+		{
+
+			name:           "host default",
+			moduleType:     "java_library_host",
+			properties:     ``,
+			host:           android.Host,
+			bootclasspath:  []string{"jdk8/jre/lib/jce.jar", "jdk8/jre/lib/rt.jar"},
+			java8classpath: []string{},
+		},
+		{
+
+			name:           "host supported default",
+			host:           android.Host,
+			properties:     `host_supported: true,`,
+			java8classpath: []string{},
+			bootclasspath:  []string{"jdk8/jre/lib/jce.jar", "jdk8/jre/lib/rt.jar"},
+		},
+		{
+			name:           "host supported nostdlib",
+			host:           android.Host,
+			properties:     `host_supported: true, sdk_version: "none", system_modules: "none"`,
+			java8classpath: []string{},
+		},
+		{
+
+			name:           "unbundled sdk v29",
+			unbundled:      true,
+			properties:     `sdk_version: "29",`,
+			bootclasspath:  []string{`""`},
+			forces8:        true,
+			java8classpath: []string{"prebuilts/sdk/29/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/29/public/framework.aidl",
+		},
+		{
+
+			name:           "unbundled sdk v30",
+			unbundled:      true,
+			properties:     `sdk_version: "30",`,
+			bootclasspath:  []string{`""`},
+			system:         "sdk_public_30_system_modules",
+			java8classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			java9classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/30/public/framework.aidl",
+		},
+		{
+
+			name:           "unbundled current",
+			unbundled:      true,
+			properties:     `sdk_version: "current",`,
+			bootclasspath:  []string{`""`},
+			system:         "sdk_public_current_system_modules",
+			java8classpath: []string{"prebuilts/sdk/current/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			java9classpath: []string{"prebuilts/sdk/current/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/current/public/framework.aidl",
 		},
 
 		{
-			name:          "pdk default",
-			pdk:           true,
-			bootclasspath: []string{`""`},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			classpath:     []string{"prebuilts/sdk/25/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
-			aidl:          "-pprebuilts/sdk/25/public/framework.aidl",
+			name:           "pdk default",
+			pdk:            true,
+			bootclasspath:  []string{`""`},
+			system:         "sdk_public_30_system_modules",
+			java8classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			java9classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/30/public/framework.aidl",
 		},
 		{
-			name:          "pdk current",
-			pdk:           true,
-			properties:    `sdk_version: "current",`,
-			bootclasspath: []string{`""`},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			classpath:     []string{"prebuilts/sdk/25/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
-			aidl:          "-pprebuilts/sdk/25/public/framework.aidl",
+			name:           "pdk current",
+			pdk:            true,
+			properties:     `sdk_version: "current",`,
+			bootclasspath:  []string{`""`},
+			system:         "sdk_public_30_system_modules",
+			java8classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			java9classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/30/public/framework.aidl",
 		},
 		{
-			name:          "pdk 25",
-			pdk:           true,
-			properties:    `sdk_version: "25",`,
-			bootclasspath: []string{`""`},
-			system:        "bootclasspath", // special value to tell 1.9 test to expect bootclasspath
-			classpath:     []string{"prebuilts/sdk/25/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
-			aidl:          "-pprebuilts/sdk/25/public/framework.aidl",
+			name:           "pdk 29",
+			pdk:            true,
+			properties:     `sdk_version: "29",`,
+			bootclasspath:  []string{`""`},
+			system:         "sdk_public_30_system_modules",
+			java8classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			java9classpath: []string{"prebuilts/sdk/30/public/android.jar", "prebuilts/sdk/tools/core-lambda-stubs.jar"},
+			aidl:           "-pprebuilts/sdk/30/public/framework.aidl",
+		},
+		{
+			name:           "module_current",
+			properties:     `sdk_version: "module_current",`,
+			bootclasspath:  []string{"android_module_lib_stubs_current", "core-lambda-stubs"},
+			system:         "core-current-stubs-system-modules",
+			java9classpath: []string{"android_module_lib_stubs_current"},
+			aidl:           "-p" + buildDir + "/framework_non_updatable.aidl",
+		},
+		{
+			name:           "system_server_current",
+			properties:     `sdk_version: "system_server_current",`,
+			bootclasspath:  []string{"android_system_server_stubs_current", "core-lambda-stubs"},
+			system:         "core-current-stubs-system-modules",
+			java9classpath: []string{"android_system_server_stubs_current"},
+			aidl:           "-p" + buildDir + "/framework.aidl",
 		},
 	}
 
@@ -205,7 +271,7 @@ func TestClasspath(t *testing.T) {
 				moduleType = testcase.moduleType
 			}
 
-			bp := moduleType + ` {
+			props := `
 				name: "foo",
 				srcs: ["a.java"],
 				target: {
@@ -213,6 +279,10 @@ func TestClasspath(t *testing.T) {
 						srcs: ["bar-doc/IFoo.aidl"],
 					},
 				},
+				`
+			bp := moduleType + " {" + props + testcase.properties + `
+			}`
+			bpJava8 := moduleType + " {" + props + `java_version: "1.8",
 				` + testcase.properties + `
 			}`
 
@@ -230,101 +300,135 @@ func TestClasspath(t *testing.T) {
 			}
 
 			bootclasspath := convertModulesToPaths(testcase.bootclasspath)
-			classpath := convertModulesToPaths(testcase.classpath)
+			java8classpath := convertModulesToPaths(testcase.java8classpath)
+			java9classpath := convertModulesToPaths(testcase.java9classpath)
 
-			bc := strings.Join(bootclasspath, ":")
-			if bc != "" {
-				bc = "-bootclasspath " + bc
+			bc := ""
+			var bcDeps []string
+			if len(bootclasspath) > 0 {
+				bc = "-bootclasspath " + strings.Join(bootclasspath, ":")
+				if bootclasspath[0] != `""` {
+					bcDeps = bootclasspath
+				}
 			}
 
-			c := strings.Join(classpath, ":")
-			if c != "" {
-				c = "-classpath " + c
+			j8c := ""
+			if len(java8classpath) > 0 {
+				j8c = "-classpath " + strings.Join(java8classpath, ":")
 			}
+
+			j9c := ""
+			if len(java9classpath) > 0 {
+				j9c = "-classpath " + strings.Join(java9classpath, ":")
+			}
+
 			system := ""
+			var systemDeps []string
 			if testcase.system == "none" {
 				system = "--system=none"
 			} else if testcase.system != "" {
-				system = "--system=" + filepath.Join(buildDir, ".intermediates", testcase.system, "android_common", "system") + "/"
+				dir := ""
+				if strings.HasPrefix(testcase.system, "sdk_public_") {
+					dir = "prebuilts/sdk"
+				}
+				system = "--system=" + filepath.Join(buildDir, ".intermediates", dir, testcase.system, "android_common", "system")
+				// The module-relative parts of these paths are hardcoded in system_modules.go:
+				systemDeps = []string{
+					filepath.Join(buildDir, ".intermediates", dir, testcase.system, "android_common", "system", "lib", "modules"),
+					filepath.Join(buildDir, ".intermediates", dir, testcase.system, "android_common", "system", "lib", "jrt-fs.jar"),
+					filepath.Join(buildDir, ".intermediates", dir, testcase.system, "android_common", "system", "release"),
+				}
 			}
 
-			checkClasspath := func(t *testing.T, ctx *android.TestContext) {
-				javac := ctx.ModuleForTests("foo", variant).Rule("javac")
+			checkClasspath := func(t *testing.T, ctx *android.TestContext, isJava8 bool) {
+				foo := ctx.ModuleForTests("foo", variant)
+				javac := foo.Rule("javac")
+				var deps []string
+
+				aidl := foo.MaybeRule("aidl")
+				if aidl.Rule != nil {
+					deps = append(deps, aidl.Output.String())
+				}
 
 				got := javac.Args["bootClasspath"]
-				if got != bc {
-					t.Errorf("bootclasspath expected %q != got %q", bc, got)
+				expected := ""
+				if isJava8 || testcase.forces8 {
+					expected = bc
+					deps = append(deps, bcDeps...)
+				} else {
+					expected = system
+					deps = append(deps, systemDeps...)
+				}
+				if got != expected {
+					t.Errorf("bootclasspath expected %q != got %q", expected, got)
 				}
 
+				if isJava8 || testcase.forces8 {
+					expected = j8c
+					deps = append(deps, java8classpath...)
+				} else {
+					expected = j9c
+					deps = append(deps, java9classpath...)
+				}
 				got = javac.Args["classpath"]
-				if got != c {
-					t.Errorf("classpath expected %q != got %q", c, got)
+				if got != expected {
+					t.Errorf("classpath expected %q != got %q", expected, got)
 				}
-
-				var deps []string
-				if len(bootclasspath) > 0 && bootclasspath[0] != `""` {
-					deps = append(deps, bootclasspath...)
-				}
-				deps = append(deps, classpath...)
 
 				if !reflect.DeepEqual(javac.Implicits.Strings(), deps) {
 					t.Errorf("implicits expected %q != got %q", deps, javac.Implicits.Strings())
 				}
 			}
 
-			t.Run("1.8", func(t *testing.T) {
-				// Test default javac 1.8
-				config := testConfig(nil)
+			// Test with legacy javac -source 1.8 -target 1.8
+			t.Run("Java language level 8", func(t *testing.T) {
+				config := testConfig(nil, bpJava8, nil)
 				if testcase.unbundled {
 					config.TestProductVariables.Unbundled_build = proptools.BoolPtr(true)
 				}
 				if testcase.pdk {
 					config.TestProductVariables.Pdk = proptools.BoolPtr(true)
 				}
-				ctx := testContext(config, bp, nil)
+				ctx := testContext()
 				run(t, ctx, config)
 
-				checkClasspath(t, ctx)
+				checkClasspath(t, ctx, true /* isJava8 */)
 
 				if testcase.host != android.Host {
 					aidl := ctx.ModuleForTests("foo", variant).Rule("aidl")
 
-					aidlFlags := aidl.Args["aidlFlags"]
-					// Trim trailing "-I." to avoid having to specify it in every test
-					aidlFlags = strings.TrimSpace(strings.TrimSuffix(aidlFlags, "-I."))
-
-					if g, w := aidlFlags, testcase.aidl; g != w {
-						t.Errorf("want aidl flags %q, got %q", w, g)
+					if g, w := aidl.RuleParams.Command, testcase.aidl+" -I."; !strings.Contains(g, w) {
+						t.Errorf("want aidl command to contain %q, got %q", w, g)
 					}
 				}
 			})
 
-			// Test again with javac 1.9
-			t.Run("1.9", func(t *testing.T) {
-				config := testConfig(map[string]string{"EXPERIMENTAL_USE_OPENJDK9": "true"})
+			// Test with default javac -source 9 -target 9
+			t.Run("Java language level 9", func(t *testing.T) {
+				config := testConfig(nil, bp, nil)
 				if testcase.unbundled {
 					config.TestProductVariables.Unbundled_build = proptools.BoolPtr(true)
 				}
 				if testcase.pdk {
 					config.TestProductVariables.Pdk = proptools.BoolPtr(true)
 				}
-				ctx := testContext(config, bp, nil)
+				ctx := testContext()
 				run(t, ctx, config)
 
-				javac := ctx.ModuleForTests("foo", variant).Rule("javac")
-				got := javac.Args["bootClasspath"]
-				expected := system
-				if testcase.system == "bootclasspath" {
-					expected = bc
-				}
-				if got != expected {
-					t.Errorf("bootclasspath expected %q != got %q", expected, got)
+				checkClasspath(t, ctx, false /* isJava8 */)
+
+				if testcase.host != android.Host {
+					aidl := ctx.ModuleForTests("foo", variant).Rule("aidl")
+
+					if g, w := aidl.RuleParams.Command, testcase.aidl+" -I."; !strings.Contains(g, w) {
+						t.Errorf("want aidl command to contain %q, got %q", w, g)
+					}
 				}
 			})
 
-			// Test again with PLATFORM_VERSION_CODENAME=REL
-			t.Run("REL", func(t *testing.T) {
-				config := testConfig(nil)
+			// Test again with PLATFORM_VERSION_CODENAME=REL, javac -source 8 -target 8
+			t.Run("REL + Java language level 8", func(t *testing.T) {
+				config := testConfig(nil, bpJava8, nil)
 				config.TestProductVariables.Platform_sdk_codename = proptools.StringPtr("REL")
 				config.TestProductVariables.Platform_sdk_final = proptools.BoolPtr(true)
 
@@ -334,12 +438,29 @@ func TestClasspath(t *testing.T) {
 				if testcase.pdk {
 					config.TestProductVariables.Pdk = proptools.BoolPtr(true)
 				}
-				ctx := testContext(config, bp, nil)
+				ctx := testContext()
 				run(t, ctx, config)
 
-				checkClasspath(t, ctx)
+				checkClasspath(t, ctx, true /* isJava8 */)
+			})
+
+			// Test again with PLATFORM_VERSION_CODENAME=REL, javac -source 9 -target 9
+			t.Run("REL + Java language level 9", func(t *testing.T) {
+				config := testConfig(nil, bp, nil)
+				config.TestProductVariables.Platform_sdk_codename = proptools.StringPtr("REL")
+				config.TestProductVariables.Platform_sdk_final = proptools.BoolPtr(true)
+
+				if testcase.unbundled {
+					config.TestProductVariables.Unbundled_build = proptools.BoolPtr(true)
+				}
+				if testcase.pdk {
+					config.TestProductVariables.Pdk = proptools.BoolPtr(true)
+				}
+				ctx := testContext()
+				run(t, ctx, config)
+
+				checkClasspath(t, ctx, false /* isJava8 */)
 			})
 		})
 	}
-
 }

@@ -142,7 +142,10 @@ void MeasuredText::measure(const U16StringPiece& textBuf, bool computeHyphenatio
 
         proc.updateLocaleIfNecessary(*run);
         for (uint32_t i = range.getStart(); i < range.getEnd(); ++i) {
-            proc.feedChar(i, textBuf[i], widths[i], run->canBreak());
+            // Even if the run is not a candidate of line break, treat the end of run as the line
+            // break candidate.
+            const bool canBreak = run->canBreak() || (i + 1) == range.getEnd();
+            proc.feedChar(i, textBuf[i], widths[i], canBreak);
 
             const uint32_t nextCharOffset = i + 1;
             if (nextCharOffset != proc.nextWordBreak) {

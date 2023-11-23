@@ -24,6 +24,7 @@ class firmware_DevModeStress(FirmwareTest):
         self.setup_usbkey(usbkey=False)
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         for i in xrange(self.faft_iterations):
             logging.info('======== Running FAFT ITERATION %d/%s ========',
                          i + 1, self.faft_iterations)

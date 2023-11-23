@@ -15,6 +15,8 @@
  */
 package android.cts.statsd.metric;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import com.android.internal.os.StatsdConfigProto;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
 import com.android.internal.os.StatsdConfigProto.EventActivation;
@@ -25,8 +27,6 @@ import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.google.protobuf.Message;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
-
-import static org.junit.Assert.assertTrue;
 
 public class MetricsUtils {
     public static final long COUNT_METRIC_ID = 3333;
@@ -156,7 +156,8 @@ public class MetricsUtils {
                    endMillis != null && bucketInfo.hasField(endMillis)) {
             found = true;
         }
-        assertTrue("Bucket info did not have either bucket num or start and end elapsed millis",
-                found);
+        assertWithMessage(
+                "Bucket info did not have either bucket num or start and end elapsed millis"
+        ).that(found).isTrue();
     }
 }

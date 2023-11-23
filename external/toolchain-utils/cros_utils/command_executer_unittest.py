@@ -1,4 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Unittest for command_executer.py."""
 
 from __future__ import print_function
@@ -6,7 +11,7 @@ from __future__ import print_function
 import time
 import unittest
 
-import command_executer
+from cros_utils import command_executer
 
 
 class CommandExecuterTest(unittest.TestCase):

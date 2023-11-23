@@ -12,11 +12,10 @@ import tempfile
 
 from autotest_lib.client.cros.audio import audio_data
 from autotest_lib.client.cros.audio import audio_test_data
-from autotest_lib.client.cros.audio import cras_configs
 from autotest_lib.client.cros.audio import sox_utils
+from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids as ids
 from autotest_lib.client.cros.chameleon import chameleon_port_finder
-
 
 _CHAMELEON_FILE_PATH = os.path.join(os.path.dirname(__file__))
 
@@ -83,17 +82,38 @@ class AudioInputWidget(AudioWidget):
         self._init_channel_map_without_link()
 
 
-    def start_recording(self):
-        """Starts recording."""
+    def start_recording(self, pinned=False, block_size=None):
+        """Starts recording.
+
+        @param pinned: Pins the audio to the input device.
+        @param block_size: The number for frames per callback.
+
+        """
         self._remote_rec_path = None
         self._rec_binary = None
         self._rec_format = None
-        self.handler.start_recording()
+        node_type = None
+        if pinned:
+            node_type = audio_test_utils.cros_port_id_to_cras_node_type(
+                    self.port_id)
+
+        self.handler.start_recording(node_type=node_type, block_size=block_size)
 
 
-    def stop_recording(self):
-        """Stops recording."""
-        self._remote_rec_path, self._rec_format = self.handler.stop_recording()
+    def stop_recording(self, pinned=False):
+        """Stops recording.
+
+        @param pinned: Stop the recording on the pinned input device.
+                       False means to stop the active selected one.
+
+        """
+        node_type = None
+        if pinned:
+            node_type = audio_test_utils.cros_port_id_to_cras_node_type(
+                    self.port_id)
+
+        self._remote_rec_path, self._rec_format = self.handler.stop_recording(
+                node_type=node_type)
 
 
     def start_listening(self):
@@ -277,13 +297,22 @@ class AudioOutputWidget(AudioWidget):
 
         return self._remote_playback_path
 
-    def start_playback(self, blocking=False):
+    def start_playback(self, blocking=False, pinned=False, block_size=None):
         """Starts playing audio specified in previous set_playback_data call.
 
         @param blocking: Blocks this call until playback finishes.
+        @param pinned: Pins the audio to the active output device.
+        @param block_size: The number for frames per callback.
 
         """
-        self.handler.start_playback(self._remote_playback_path, blocking)
+        node_type = None
+        if pinned:
+            node_type = audio_test_utils.cros_port_id_to_cras_node_type(
+                    self.port_id)
+
+        self.handler.start_playback(
+                self._remote_playback_path, blocking, node_type=node_type,
+                block_size=block_size)
 
     def start_playback_with_path(self, remote_playback_path, blocking=False):
         """Starts playing audio specified in previous set_playback_data call
@@ -384,16 +413,22 @@ class ChameleonInputWidgetHandler(ChameleonWidgetHandler):
     This class abstracts a Chameleon audio input widget handler.
 
     """
-    def start_recording(self):
-        """Starts recording."""
+    def start_recording(self, **kargs):
+        """Starts recording.
+
+        @param kargs: Other arguments that Chameleon doesn't support.
+
+        """
         self._port.start_capturing_audio()
 
 
-    def stop_recording(self):
+    def stop_recording(self, **kargs):
         """Stops recording.
 
         Gets remote recorded path and format from Chameleon. The format can
         then be used in get_recorded_binary()
+
+        @param kargs: Other arguments that Chameleon doesn't support.
 
         @returns: A tuple (remote_path, data_format) for recorded data.
                   Refer to stop_capturing_audio call of ChameleonAudioInput.
@@ -544,12 +579,14 @@ class ChameleonOutputWidgetHandler(ChameleonWidgetHandler):
             test_data_for_chameleon.delete()
 
 
-    def start_playback(self, path, blocking=False):
+    def start_playback(self, path, blocking=False, **kargs):
         """Starts playback.
 
         @param path: The path to the file to play on Chameleon.
         @param blocking: Blocks this call until playback finishes.
+        @param kargs: Other arguments that Chameleon doesn't support.
 
+        @raises: NotImplementedError if blocking is True.
         """
         if blocking:
             raise NotImplementedError(
@@ -617,95 +654,24 @@ class CrosWidgetHandler(WidgetHandler):
     Properties:
         _audio_facade: An AudioFacadeRemoteAdapter to access Cros device
                        audio functionality.
-        _plug_handler: A PlugHandler for performing plug and unplug.
 
     """
-    def __init__(self, audio_facade, plug_handler):
+    def __init__(self, audio_facade):
         """Initializes a CrosWidgetHandler.
 
         @param audio_facade: An AudioFacadeRemoteAdapter to access Cros device
                              audio functionality.
-        @param plug_handler: A PlugHandler object for plug and unplug.
 
         """
         self._audio_facade = audio_facade
-        self._plug_handler = plug_handler
-
 
     def plug(self):
         """Plugs this widget."""
         logging.info('CrosWidgetHandler: plug')
-        self._plug_handler.plug()
-
 
     def unplug(self):
         """Unplugs this widget."""
         logging.info('CrosWidgetHandler: unplug')
-        self._plug_handler.unplug()
-
-
-class PlugHandler(object):
-    """This class abstracts plug/unplug action for widgets on Cros device.
-
-    This class will be used by CrosWidgetHandler when performinng plug/unplug.
-
-    """
-    def __init__(self):
-        """Initializes a PlugHandler."""
-
-
-    def plug(self):
-        """Plugs in the widget/device."""
-        raise NotImplementedError('plug() not implemented.')
-
-
-    def unplug(self):
-        """Unplugs the widget/device."""
-        raise NotImplementedError('unplug() not implemented.')
-
-
-class DummyPlugHandler(PlugHandler):
-    """A dummy class that does not do anything for plug() or unplug().
-
-    This class can be used by Cros widgets that have alternative ways of
-    performing plug and unplug.
-
-    """
-
-    def plug(self):
-        """Does nothing for plug."""
-        logging.info('DummyPlugHandler: plug')
-
-
-    def unplug(self):
-        """Does nothing for unplug."""
-        logging.info('DummyPlugHandler: unplug')
-
-
-class JackPluggerPlugHandler(PlugHandler):
-    """This class abstracts plug/unplug action with motor on Cros device.
-
-    Properties:
-        _jack_plugger: A JackPlugger object to access the jack plugger robot
-
-    """
-
-    def __init__(self, jack_plugger):
-        """Initializes a JackPluggerPlugHandler.
-
-        @param jack_plugger: A JackPlugger object
-        """
-        self._jack_plugger = jack_plugger
-
-
-    def plug(self):
-        """plugs in the jack to the cros device."""
-        self._jack_plugger.plug()
-
-
-    def unplug(self):
-        """Unplugs the jack from the cros device."""
-        self._jack_plugger.unplug()
 
 
 class CrosInputWidgetHandlerError(Exception):
@@ -721,14 +687,31 @@ class CrosInputWidgetHandler(CrosWidgetHandler):
                                 sample_format='S16_LE',
                                 channel=1,
                                 rate=48000)
+    _recording_on = None
+    _SELECTED = "Selected"
 
-    def start_recording(self):
-        """Starts recording audio."""
-        self._audio_facade.start_recording(self._DEFAULT_DATA_FORMAT)
+    def start_recording(self, node_type=None, block_size=None):
+        """Starts recording audio.
+
+        @param node_type: A Cras node type defined in cras_utils.CRAS_NODE_TYPES
+        @param block_size: The number for frames per callback.
+
+        @raises: CrosInputWidgetHandlerError if a recording was already started.
+        """
+        if self._recording_on:
+            raise CrosInputWidgetHandlerError(
+                    "A recording was already started on %s." %
+                    self._recording_on)
+
+        self._recording_on = node_type if node_type else self._SELECTED
+        self._audio_facade.start_recording(self._DEFAULT_DATA_FORMAT, node_type,
+                                           block_size)
 
 
-    def stop_recording(self):
+    def stop_recording(self, node_type=None):
         """Stops recording audio.
+
+        @param node_type: A Cras node type defined in cras_utils.CRAS_NODE_TYPES
 
         @returns:
             A tuple (remote_path, format).
@@ -740,8 +723,23 @@ class CrosInputWidgetHandler(CrosWidgetHandler):
                     channel: channel number.
                     rate: sampling rate.
 
+        @raises: CrosInputWidgetHandlerError if no corresponding responding
+        device could be stopped.
         """
-        return self._audio_facade.stop_recording(), self._DEFAULT_DATA_FORMAT
+        if self._recording_on is None:
+            raise CrosInputWidgetHandlerError("No recording was started.")
+
+        if node_type is None and self._recording_on != self._SELECTED:
+            raise CrosInputWidgetHandlerError(
+                    "No recording on selected device.")
+
+        if node_type and node_type != self._recording_on:
+            raise CrosInputWidgetHandlerError(
+                    "No recording was started on %s." % node_type)
+
+        self._recording_on = None
+        return (self._audio_facade.stop_recording(node_type=node_type),
+                self._DEFAULT_DATA_FORMAT)
 
 
     def get_recorded_binary(self, remote_path, record_format):
@@ -782,53 +780,6 @@ class CrosUSBInputWidgetHandler(CrosInputWidgetHandler):
                                 rate=48000)
 
 
-class CrosIntMicInputWidgetHandler(CrosInputWidgetHandler):
-    """
-    This class abstracts a Cros device audio input widget handler on int mic.
-
-    """
-    def __init__(self, audio_facade, plug_handler, system_facade):
-        """Initializes a CrosWidgetHandler.
-
-        @param audio_facade: An AudioFacadeRemoteAdapter to access Cros device
-                             audio functionality.
-        @param plug_handler: A PlugHandler object for plug and unplug.
-        @param system_facade: A SystemFacadeRemoteAdapter to access Cros device
-                             audio functionality.
-
-        """
-        super(CrosIntMicInputWidgetHandler, self).__init__(
-                audio_facade, plug_handler)
-        self._system_facade = system_facade
-
-
-    def set_proper_gain(self):
-        """Sets a proper gain.
-
-        On some boards, the default gain is too high. It relies on automatic
-        gain control in application level to adjust the gain. Since there is no
-        automatic gain control in the test, we set a proper gain before
-        recording.
-
-        """
-        board = self._system_facade.get_current_board()
-        proper_gain = cras_configs.get_proper_internal_mic_gain(board)
-
-        if proper_gain is None:
-            logging.debug('No proper gain for %s', board)
-            return
-
-        logging.debug('Set gain to %f dB on internal mic for %s ',
-                      proper_gain / 100, board)
-        self._audio_facade.set_input_gain(proper_gain)
-
-
-    def start_recording(self):
-        """Starts recording audio with proper gain."""
-        self.set_proper_gain()
-        self._audio_facade.start_recording(self._DEFAULT_DATA_FORMAT)
-
-
 class CrosHotwordingWidgetHandler(CrosInputWidgetHandler):
     """
     This class abstracts a Cros device audio input widget handler on hotwording.
@@ -839,18 +790,17 @@ class CrosHotwordingWidgetHandler(CrosInputWidgetHandler):
                                 channel=1,
                                 rate=16000)
 
-    def __init__(self, audio_facade, plug_handler, system_facade):
+    def __init__(self, audio_facade, system_facade):
         """Initializes a CrosWidgetHandler.
 
         @param audio_facade: An AudioFacadeRemoteAdapter to access Cros device
                              audio functionality.
-        @param plug_handler: A PlugHandler object for plug and unplug.
         @param system_facade: A SystemFacadeRemoteAdapter to access Cros device
                              system functionality.
 
         """
         super(CrosHotwordingWidgetHandler, self).__init__(
-                audio_facade, plug_handler)
+                audio_facade)
         self._system_facade = system_facade
 
 
@@ -895,15 +845,18 @@ class CrosOutputWidgetHandler(CrosWidgetHandler):
         return self._audio_facade.set_playback_file(test_data.path)
 
 
-    def start_playback(self, path, blocking=False):
+    def start_playback(self, path, blocking=False, node_type=None,
+                       block_size=None):
         """Starts playing audio.
 
         @param path: The path to the file to play on Cros device.
         @param blocking: Blocks this call until playback finishes.
+        @param node_type: A Cras node type defined in cras_utils.CRAS_NODE_TYPES
+        @param block_size: The number for frames per callback.
 
         """
-        self._audio_facade.playback(path, self._DEFAULT_DATA_FORMAT, blocking)
-
+        self._audio_facade.playback(path, self._DEFAULT_DATA_FORMAT, blocking,
+                node_type, block_size)
 
     def stop_playback(self):
         """Stops playing audio."""

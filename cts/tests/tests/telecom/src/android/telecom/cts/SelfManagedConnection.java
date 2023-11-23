@@ -64,6 +64,12 @@ public class SelfManagedConnection extends Connection {
     }
 
     @Override
+    public void onDisconnect() {
+        super.onDisconnect();
+        disconnectAndDestroy();
+    }
+
+    @Override
     public void onShowIncomingCallUi() {
         mOnShowIncomingUiInvokeCounter.invoke();
     }

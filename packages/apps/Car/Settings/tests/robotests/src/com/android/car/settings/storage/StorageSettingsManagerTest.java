@@ -31,7 +31,6 @@ import android.util.SparseArray;
 
 import androidx.loader.app.LoaderManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.settingslib.deviceinfo.PrivateStorageInfo;
 import com.android.settingslib.deviceinfo.StorageVolumeProvider;
 
@@ -42,10 +41,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 /** Unit test for {@link StorageSettingsManager}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class StorageSettingsManagerTest {
 
     private Context mContext;

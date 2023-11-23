@@ -53,7 +53,7 @@ def main():
     logging.basicConfig(level=log_level)
 
     if args.host:
-        test_location = os.path.join(os.environ['ANDROID_HOST_OUT'], 'bin')
+        test_location = os.path.join(os.environ['ANDROID_HOST_OUT'], 'nativetest64')
     else:
         data_dir = os.path.join(os.environ['OUT'], 'data')
         test_location = os.path.join(data_dir, 'nativetest64')
@@ -62,22 +62,28 @@ def main():
 
     num_tests = 0
     failures = []
-    logger().debug('Scanning %s for tests', test_location)
-    for test in os.listdir(test_location):
-        if not test.startswith('gtest') and not test.startswith('gmock'):
-            logger().debug('Skipping %s', test)
+    for test_dir in ['gtest_tests', 'gtest_ndk_tests', 'gmock_tests']:
+        test_dir = os.path.join(test_location, test_dir)
+        if not os.path.isdir(test_dir):
+            logger().debug('Skipping %s', test_dir)
             continue
-        num_tests += 1
 
-        if args.host:
-            cmd = [os.path.join(test_location, test)]
-            if call(cmd) != 0:
-                failures.append(test)
-        else:
-            device_dir = test_location.replace(os.environ['OUT'], '')
-            cmd = ['adb', 'shell', 'cd {} && ./{}'.format(device_dir, test)]
-            if call(cmd) != 0:
-                failures.append(test)
+        logger().debug('Scanning %s for tests', test_dir)
+        for test in os.listdir(test_dir):
+            if not test.startswith('gtest') and not test.startswith('gmock'):
+                logger().debug('Skipping %s', test)
+                continue
+            num_tests += 1
+
+            if args.host:
+                cmd = [os.path.join(test_dir, test)]
+                if call(cmd) != 0:
+                    failures.append(test)
+            else:
+                device_dir = test_dir.replace(os.environ['OUT'], '')
+                cmd = ['adb', 'shell', 'cd {} && ./{}'.format(device_dir, test)]
+                if call(cmd) != 0:
+                    failures.append(test)
 
     if num_tests == 0:
         logger().error('No tests found!')

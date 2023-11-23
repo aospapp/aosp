@@ -183,7 +183,7 @@ cs{
         MF{"Svatý Martin (Francie)"}
         MG{"Madagaskar"}
         MH{"Marshallovy ostrovy"}
-        MK{"Makedonie (FYROM)"}
+        MK{"Severní Makedonie"}
         ML{"Mali"}
         MM{"Myanmar (Barma)"}
         MN{"Mongolsko"}
@@ -287,6 +287,8 @@ cs{
         VU{"Vanuatu"}
         WF{"Wallis a Futuna"}
         WS{"Samoa"}
+        XA{"simulovaná diakritika"}
+        XB{"simulovaný obousměrný zápis"}
         XK{"Kosovo"}
         YE{"Jemen"}
         YT{"Mayotte"}
@@ -305,6 +307,8 @@ cs{
         CG{"Kongo (republika)"}
         CI{"Côte d’Ivoire"}
         CZ{"Česká republika"}
+        SZ{"Eswatini"}
+        TL{"Timor-Leste"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

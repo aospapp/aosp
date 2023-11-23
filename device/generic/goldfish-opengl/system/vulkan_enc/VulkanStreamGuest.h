@@ -16,6 +16,8 @@
 #include "android/base/files/Stream.h"
 #include "android/base/files/StreamSerializing.h"
 
+#include "goldfish_vk_private_defs.h"
+
 #include "VulkanHandleMapping.h"
 
 #include <memory>
@@ -51,6 +53,9 @@ public:
     VulkanHandleMapping* handleMapping() const;
 
     void flush();
+
+    uint32_t getFeatureBits() const;
+
 private:
     class Impl;
     std::unique_ptr<Impl> mImpl;

@@ -66,7 +66,7 @@ public class HandsFreeProfileOutputPreferenceController extends AudioSwitchPrefe
             final BluetoothDevice btDevice = mConnectedDevices.get(connectedDeviceIndex);
             mSelectedIndex = connectedDeviceIndex;
             setActiveBluetoothDevice(btDevice);
-            listPreference.setSummary(btDevice.getAliasName());
+            listPreference.setSummary(btDevice.getAlias());
         }
         return true;
     }
@@ -143,7 +143,7 @@ public class HandsFreeProfileOutputPreferenceController extends AudioSwitchPrefe
         mediaValues[mSelectedIndex] = defaultSummary;
         for (int i = 0, size = mConnectedDevices.size(); i < size; i++) {
             final BluetoothDevice btDevice = mConnectedDevices.get(i);
-            mediaOutputs[i] = btDevice.getAliasName();
+            mediaOutputs[i] = btDevice.getAlias();
             mediaValues[i] = btDevice.getAddress();
             if (btDevice.equals(activeDevice)) {
                 // select the active connected device.
@@ -171,7 +171,8 @@ public class HandsFreeProfileOutputPreferenceController extends AudioSwitchPrefe
         if (hapProfile != null && hfpProfile != null && device == null) {
             hfpProfile.setActiveDevice(null);
             hapProfile.setActiveDevice(null);
-        } else if (hapProfile != null && hapProfile.getHiSyncId(device) != HI_SYNC_ID_INVALID) {
+        } else if (hapProfile != null && device != null
+                && hapProfile.getHiSyncId(device) != HI_SYNC_ID_INVALID) {
             hapProfile.setActiveDevice(device);
         } else if (hfpProfile != null) {
             hfpProfile.setActiveDevice(device);

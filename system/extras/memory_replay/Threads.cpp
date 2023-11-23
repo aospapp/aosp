@@ -26,7 +26,8 @@
 
 #include <new>
 
-#include "Action.h"
+#include "Alloc.h"
+#include "Pointers.h"
 #include "Thread.h"
 #include "Threads.h"
 
@@ -34,11 +35,11 @@ void* ThreadRunner(void* data) {
   Thread* thread = reinterpret_cast<Thread*>(data);
   while (true) {
     thread->WaitForPending();
-    Action* action = thread->GetAction();
-    thread->AddTimeNsecs(action->Execute(thread->pointers()));
-    bool end_thread = action->EndThread();
+    const AllocEntry& entry = thread->GetAllocEntry();
+    thread->AddTimeNsecs(AllocExecute(entry, thread->pointers()));
+    bool thread_done = entry.type == THREAD_DONE;
     thread->ClearPending();
-    if (end_thread) {
+    if (thread_done) {
       break;
     }
   }
@@ -55,11 +56,6 @@ Threads::Threads(Pointers* pointers, size_t max_threads)
   if (memory == MAP_FAILED) {
     err(1, "Failed to map in memory for Threads: map size %zu, max threads %zu\n",
         data_size_, max_threads_);
-  }
-
-  if (Thread::ACTION_SIZE < Action::MaxActionSize()) {
-    err(1, "Thread action size is too small: ACTION_SIZE %zu, max size %zu\n",
-        Thread::ACTION_SIZE, Action::MaxActionSize());
   }
 
   threads_ = new (memory) Thread[max_threads_];
@@ -85,7 +81,7 @@ Thread* Threads::CreateThread(pid_t tid) {
   thread->tid_ = tid;
   thread->pointers_ = pointers_;
   thread->total_time_nsecs_ = 0;
-  if (pthread_create(&thread->thread_id_, nullptr, ThreadRunner, thread) == -1) {
+  if ((errno = pthread_create(&thread->thread_id_, nullptr, ThreadRunner, thread)) != 0) {
     err(1, "Failed to create thread %d: %s\n", tid, strerror(errno));
   }
 
@@ -149,9 +145,10 @@ void Threads::Finish(Thread* thread) {
 }
 
 void Threads::FinishAll() {
+  AllocEntry thread_done = {.type = THREAD_DONE};
   for (size_t i = 0; i < max_threads_; i++) {
     if (threads_[i].tid_ != 0) {
-      threads_[i].CreateAction(0, "thread_done", nullptr);
+      threads_[i].SetAllocEntry(&thread_done);
       threads_[i].SetPending();
       Finish(threads_ + i);
     }

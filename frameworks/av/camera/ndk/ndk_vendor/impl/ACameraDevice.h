@@ -36,6 +36,7 @@
 
 #include <camera/NdkCameraManager.h>
 #include <camera/NdkCameraCaptureSession.h>
+
 #include "ACameraMetadata.h"
 #include "utils.h"
 
@@ -134,10 +135,11 @@ class CameraDevice final : public RefBase {
     inline ACameraDevice* getWrapper() const { return mWrapper; };
 
     // Stop the looper thread and unregister the handler
-    void stopLooper();
+    void stopLooperAndDisconnect();
 
   private:
     friend ACameraCaptureSession;
+    friend ACameraDevice;
 
     camera_status_t checkCameraClosedOrErrorLocked() const;
 
@@ -387,7 +389,6 @@ struct ACameraDevice {
             mDevice(new android::acam::CameraDevice(id, cb, std::move(chars), this)) {}
 
     ~ACameraDevice();
-
     /*******************
      * NDK public APIs *
      *******************/

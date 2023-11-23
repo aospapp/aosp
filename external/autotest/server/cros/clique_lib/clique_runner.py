@@ -4,15 +4,12 @@
 
 import datetime
 import logging
-import os
 import pprint
 import time
-import re
 
 import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import ap_constants
-from autotest_lib.server import hosts
 from autotest_lib.server import site_linux_system
 from autotest_lib.server.cros import host_lock_manager
 from autotest_lib.server.cros.ap_configurators import ap_batch_locker
@@ -294,7 +291,7 @@ class CliqueRunner(object):
                     self._test,
                     capturer=capturer,
                     capturer_frequency=networks[0].frequency,
-                    capturer_ht_type=networks[0].ht,
+                    capturer_ht_type=networks[0].width,
                     dut_pool=self._dut_pool,
                     assoc_params_list=assoc_params_list,
                     tries=tries,

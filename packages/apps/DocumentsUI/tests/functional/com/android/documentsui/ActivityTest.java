@@ -36,8 +36,9 @@ import android.view.MotionEvent;
 
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.bots.Bots;
-import com.android.documentsui.bots.UiBot;
+import com.android.documentsui.files.FilesActivity;
 
 import javax.annotation.Nullable;
 
@@ -64,6 +65,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
     public Bots bots;
     public UiDevice device;
     public Context context;
+    public UserId userId;
     public UiAutomation automation;
 
     public Features features;
@@ -110,6 +112,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
         device = UiDevice.getInstance(getInstrumentation());
         // NOTE: Must be the "target" context, else security checks in content provider will fail.
         context = getInstrumentation().getTargetContext();
+        userId = UserId.DEFAULT_USER;
         automation = getInstrumentation().getUiAutomation();
         features = new Features.RuntimeFeatures(context.getResources(), null);
 
@@ -118,8 +121,8 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
         Configurator.getInstance().setToolType(MotionEvent.TOOL_TYPE_MOUSE);
 
         mResolver = context.getContentResolver();
-        mClient = mResolver.acquireUnstableContentProviderClient(getTestingProviderAuthority());
-        mDocsHelper = new DocumentsProviderHelper(getTestingProviderAuthority(), mClient);
+        mDocsHelper = new DocumentsProviderHelper(userId, getTestingProviderAuthority(), context,
+                getTestingProviderAuthority());
 
         device.setOrientationNatural();
         setupTestingRoots();
@@ -140,13 +143,12 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
     @Override
     public void tearDown() throws Exception {
         device.unfreezeRotation();
-        mClient.release();
+        mDocsHelper.cleanUp();
         super.tearDown();
     }
 
     protected void launchActivity() {
-        final Intent intent = context.getPackageManager().getLaunchIntentForPackage(
-                UiBot.targetPackageName);
+        final Intent intent = new Intent(context, FilesActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         if (getInitialRoot() != null) {
             intent.setAction(Intent.ACTION_VIEW);
@@ -157,7 +159,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
     }
 
     protected void resetStorage() throws RemoteException {
-        mClient.call("clear", null, null);
+        mDocsHelper.clear(null, null);
         device.waitForIdle();
     }
 

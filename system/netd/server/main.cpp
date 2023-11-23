@@ -14,27 +14,27 @@
  * limitations under the License.
  */
 
-#include <chrono>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <errno.h>
 #include <string.h>
-#include <mutex>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-
-#include <fcntl.h>
-#include <dirent.h>
+#include <chrono>
+#include <cinttypes>
+#include <mutex>
 
 #define LOG_TAG "Netd"
 
 #include "log/log.h"
 
-#include <android-base/properties.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
+#include <libbpf_android.h>
 #include <netdutils/Stopwatch.h>
 
 #include "Controllers.h"
@@ -48,9 +48,9 @@
 #include "Process.h"
 
 #include "netd_resolv/resolv.h"
-#include "netd_resolv/resolv_stub.h"
 
 using android::IPCThreadState;
+using android::sp;
 using android::status_t;
 using android::String16;
 using android::net::FwmarkServer;
@@ -82,13 +82,25 @@ void logCallback(const char* msg) {
     gLog.info(std::string(msg));
 }
 
+int tagSocketCallback(int sockFd, uint32_t tag, uid_t uid, pid_t) {
+    // Workaround for secureVPN with VpnIsolation enabled, refer to b/159994981 for details.
+    if (tag == TAG_SYSTEM_DNS) uid = AID_DNS;
+    return gCtls->trafficCtrl.tagSocket(sockFd, tag, uid, geteuid());
+}
+
+bool evaluateDomainNameCallback(const android_net_context&, const char* /*name*/) {
+    return true;
+}
+
 bool initDnsResolver() {
     ResolverNetdCallbacks callbacks = {
+            .check_calling_permission = &checkCallingPermissionCallback,
             .get_network_context = &getNetworkContextCallback,
             .log = &logCallback,
-            .check_calling_permission = &checkCallingPermissionCallback,
+            .tagSocket = &tagSocketCallback,
+            .evaluate_domain_name = &evaluateDomainNameCallback,
     };
-    return RESOLV_STUB.resolv_init(callbacks);
+    return resolv_init(&callbacks);
 }
 
 }  // namespace
@@ -108,14 +120,8 @@ int main() {
         setCloseOnExec(sock);
     }
 
-    // Before we start any threads, populate the resolver stub pointers.
-    resolv_stub_init();
-
     // Make sure BPF programs are loaded before doing anything
-    while (!android::base::WaitForProperty("bpf.progs_loaded", "1",
-           std::chrono::seconds(5))) {
-        ALOGD("netd waited 5s for bpf.progs_loaded, still waiting...");
-    }
+    android::bpf::waitForProgsLoaded();
 
     NetlinkManager *nm = NetlinkManager::Instance();
     if (nm == nullptr) {
@@ -175,20 +181,18 @@ int main() {
         ALOGE("Unable to start NetdNativeService: %d", ret);
         exit(1);
     }
-    gLog.info("Registering NetdNativeService: %.1fms", subTime.getTimeAndReset());
+    gLog.info("Registering NetdNativeService: %" PRId64 "us", subTime.getTimeAndResetUs());
 
     android::net::process::ScopedPidFile pidFile(PID_FILE_PATH);
 
-    // Now that netd is ready to process commands, advertise service
-    // availability for HAL clients.
-    NetdHwService mHwSvc;
-    if ((ret = mHwSvc.start()) != android::OK) {
+    // Now that netd is ready to process commands, advertise service availability for HAL clients.
+    sp<NetdHwService> mHwSvc(new NetdHwService());
+    if ((ret = mHwSvc->start()) != android::OK) {
         ALOGE("Unable to start NetdHwService: %d", ret);
         exit(1);
     }
-    gLog.info("Registering NetdHwService: %.1fms", subTime.getTimeAndReset());
-
-    gLog.info("Netd started in %dms", static_cast<int>(s.timeTaken()));
+    gLog.info("Registering NetdHwService: %" PRId64 "us", subTime.getTimeAndResetUs());
+    gLog.info("Netd started in %" PRId64 "us", s.timeTakenUs());
 
     IPCThreadState::self()->joinThreadPool();
 

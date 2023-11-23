@@ -13,21 +13,72 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-android_app {
-    name: "CarSystemUI",
-
-    overrides: [
-        "SystemUI",
-    ],
+android_library {
+    name: "CarSystemUI-core",
 
     srcs: [
         "src/**/*.java",
         "src/**/I*.aidl",
     ],
 
+    resource_dirs: [
+        "res-keyguard",
+        "res",
+    ],
+
     static_libs: [
-        "CarNotificationLib",
         "SystemUI-core",
+        "CarNotificationLib",
+        "SystemUIPluginLib",
+        "SystemUISharedLib",
+        "SettingsLib",
+        "car-ui-lib",
+        "android.car.userlib",
+        "androidx.legacy_legacy-support-v4",
+        "androidx.recyclerview_recyclerview",
+        "androidx.preference_preference",
+        "androidx.appcompat_appcompat",
+        "androidx.mediarouter_mediarouter",
+        "androidx.palette_palette",
+        "androidx.legacy_legacy-preference-v14",
+        "androidx.leanback_leanback",
+        "androidx.slice_slice-core",
+        "androidx.slice_slice-view",
+        "androidx.slice_slice-builders",
+        "androidx.arch.core_core-runtime",
+        "androidx.lifecycle_lifecycle-extensions",
+        "SystemUI-tags",
+        "SystemUI-proto",
+        "dagger2-2.19",
+        "//external/kotlinc:kotlin-annotations",
+    ],
+
+    libs: [
+        "android.car",
+    ],
+
+    manifest: "AndroidManifest.xml",
+
+    plugins: ["dagger2-compiler-2.19"],
+
+}
+
+android_library {
+    name: "CarSystemUI-tests",
+    manifest: "tests/AndroidManifest.xml",
+    resource_dirs: [
+        "tests/res",
+        "res-keyguard",
+        "res",
+    ],
+    srcs: [
+        "tests/src/**/*.java",
+        "src/**/*.java",
+        "src/**/I*.aidl",
+    ],
+    static_libs: [
+        "SystemUI-tests",
+        "CarNotificationLib",
         "SystemUIPluginLib",
         "SystemUISharedLib",
         "SettingsLib",
@@ -45,19 +96,50 @@ android_app {
         "androidx.slice_slice-builders",
         "androidx.arch.core_core-runtime",
         "androidx.lifecycle_lifecycle-extensions",
+        "car-ui-lib",
         "SystemUI-tags",
         "SystemUI-proto",
+        "metrics-helper-lib",
+        "androidx.test.rules", "hamcrest-library",
+        "mockito-target-inline-minus-junit4",
+        "testables",
+        "truth-prebuilt",
+        "dagger2-2.19",
+        "//external/kotlinc:kotlin-annotations",
     ],
-
     libs: [
-        "telephony-common",
+        "android.test.runner",
+        "android.test.base",
         "android.car",
     ],
 
-    manifest: "AndroidManifest.xml",
+    aaptflags: [
+        "--extra-packages",
+        "com.android.systemui",
+    ],
+
+    plugins: ["dagger2-compiler-2.19"],
+}
+
+android_app {
+    name: "CarSystemUI",
+
+    static_libs: [
+        "CarSystemUI-core",
+    ],
+
+    libs: [
+        "android.car",
+    ],
+
+    resource_dirs: [],
+
+     overrides: [
+        "SystemUI",
+    ],
 
     platform_apis: true,
-    product_specific: true,
+    system_ext_specific: true,
     certificate: "platform",
     privileged: true,
 
@@ -66,18 +148,14 @@ android_app {
             "proguard.flags",
         ],
     },
-    resource_dirs: [
-        "res-keyguard",
-        "res",
-    ],
-
-
     dxflags: ["--multi-dex"],
 
     aaptflags: [
         "--extra-packages",
         "com.android.keyguard",
     ],
+
+    kotlincflags: ["-Xjvm-default=enable"],
 
     plugins: ["dagger2-compiler-2.19"],
 

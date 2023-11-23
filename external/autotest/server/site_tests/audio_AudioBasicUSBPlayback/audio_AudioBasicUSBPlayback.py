@@ -72,6 +72,11 @@ class audio_AudioBasicUSBPlayback(audio_test.AudioTest):
                 utils.poll_for_condition(condition=factory.ready,
                                          timeout=self.RPC_RECONNECT_TIMEOUT,
                                          desc='multimedia server reconnect')
+                # Explicitly select the node as there is a known issue
+                # that the selected node might change after a suspension.
+                # We should remove this after the issue is addressed
+                # (crbug:987529).
+                audio_facade.set_selected_node_types(['USB'], None)
                 audio_test_utils.check_audio_nodes(audio_facade,
                                                    (['USB'], None))
 

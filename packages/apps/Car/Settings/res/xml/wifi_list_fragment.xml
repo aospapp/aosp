@@ -16,22 +16,28 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
-                  android:title="@string/wifi_settings">
-    <Preference
+                  android:title="@string/wifi_settings"
+                  android:key="@string/psk_wifi_list">
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_wifi_status"
-        settings:controller="com.android.car.settings.wifi.WifiStatusPreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.WifiStatusPreferenceController"
+        settings:showChevron="false"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_wifi_list"
         settings:controller="com.android.car.settings.wifi.AccessPointListPreferenceController"/>
     <Preference
-        android:fragment="com.android.car.settings.wifi.AddWifiFragment"
         android:icon="@drawable/ic_add"
         android:key="@string/pk_add_wifi"
         android:title="@string/wifi_setup_add_network"
-        settings:controller="com.android.car.settings.wifi.AddWifiPreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.AddWifiPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$AddWifiActivity"/>
+    </Preference>
     <Preference
-        android:fragment="com.android.car.settings.wifi.preferences.WifiPreferencesFragment"
         android:key="@string/pk_wifi_preferences"
         android:title="@string/wifi_preferences_title"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
+        <intent android:targetPackage="com.android.car.settings"
+                android:targetClass="com.android.car.settings.common.CarSettingActivities$WifiPreferencesActivity"/>
+    </Preference>
 </PreferenceScreen>

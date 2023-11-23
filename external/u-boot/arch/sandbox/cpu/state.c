@@ -355,10 +355,18 @@ void state_reset_for_test(struct sandbox_state *state)
 {
 	/* No reset yet, so mark it as such. Always allow power reset */
 	state->last_sysreset = SYSRESET_COUNT;
-	state->sysreset_allowed[SYSRESET_POWER] = true;
+	state->sysreset_allowed[SYSRESET_POWER_OFF] = true;
 
 	memset(&state->wdt, '\0', sizeof(state->wdt));
 	memset(state->spi, '\0', sizeof(state->spi));
+
+	/*
+	 * Set up the memory tag list. Use the top of emulated SDRAM for the
+	 * first tag number, since that address offset is outside the legal
+	 * range, and can be assumed to be a tag.
+	 */
+	INIT_LIST_HEAD(&state->mapmem_head);
+	state->next_tag = state->ram_size;
 }
 
 int state_init(void)
@@ -385,7 +393,7 @@ int state_uninit(void)
 
 	state = &main_state;
 
-	if (state->write_ram_buf && !state->ram_buf_rm) {
+	if (state->write_ram_buf) {
 		err = os_write_ram_buf(state->ram_buf_fname);
 		if (err) {
 			printf("Failed to write RAM buffer\n");
@@ -399,6 +407,10 @@ int state_uninit(void)
 			return -1;
 		}
 	}
+
+	/* Remove old memory file if required */
+	if (state->ram_buf_rm && state->ram_buf_fname)
+		os_unlink(state->ram_buf_fname);
 
 	/* Delete this at the last moment so as not to upset gdb too much */
 	if (state->jumped_fname)

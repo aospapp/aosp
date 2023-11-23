@@ -29,6 +29,8 @@ import android.os.RemoteException;
 import android.os.test.TestLooper;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -39,7 +41,7 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for {@link com.android.server.wifi.util.ExternalCallbackTracker}.
  */
 @SmallTest
-public class ExternalCallbackTrackerTest {
+public class ExternalCallbackTrackerTest extends WifiBaseTest {
     private static final int TEST_CALLBACK_IDENTIFIER = 56;
     @Mock Handler mHandler;
     @Mock ISoftApCallback mCallback;
@@ -85,7 +87,7 @@ public class ExternalCallbackTrackerTest {
     public void testRemoveCallback() throws Exception {
         testAddCallback();
 
-        assertTrue(mExternalCallbackTracker.remove(TEST_CALLBACK_IDENTIFIER));
+        assertNotNull(mExternalCallbackTracker.remove(TEST_CALLBACK_IDENTIFIER));
         assertEquals(0, mExternalCallbackTracker.getNumCallbacks());
         assertTrue(mExternalCallbackTracker.getCallbacks().isEmpty());
         verify(mBinder).unlinkToDeath(any(), anyInt());
@@ -99,7 +101,7 @@ public class ExternalCallbackTrackerTest {
     public void testRemoveCallbackFailureOnWrongIdentifier() throws Exception {
         testAddCallback();
 
-        assertFalse(mExternalCallbackTracker.remove(TEST_CALLBACK_IDENTIFIER + 5));
+        assertNull(mExternalCallbackTracker.remove(TEST_CALLBACK_IDENTIFIER + 5));
         assertEquals(1, mExternalCallbackTracker.getNumCallbacks());
         assertEquals(mCallback, mExternalCallbackTracker.getCallbacks().get(0));
     }

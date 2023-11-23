@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="6006277287245076524">"అత్యవసర హెచ్చరికలు"</string>
-    <string name="sms_cb_settings" msgid="3795852619005211509">"అత్యవసర హెచ్చరికలు"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"ఈ వినియోగదారుకు సెల్ ప్రసార సెట్టింగ్‌లు అందుబాటులో లేవు"</string>
+    <string name="app_label" msgid="2008319089248760277">"వైర్‌లెస్ ఎమర్జెన్సీ అలర్ట్‌లు"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"వైర్‌లెస్ ఎమర్జెన్సీ అలర్ట్‌లు"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"ఈ వినియోగదారుకి వైర్‌లెస్ అత్యవసర హెచ్చరిక సెట్టింగ్‌లు అందుబాటులో లేవు"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"సరే"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"మునుపటి హెచ్చరికలు లేవు"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"ప్రసారాలను తొలగించు"</string>
@@ -26,6 +26,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"వివరాలను వీక్షించండి"</string>
     <string name="menu_delete" msgid="128380070910799366">"ప్రసారాన్ని తొలగించు"</string>
     <string name="view_details_title" msgid="1780427629491781473">"హెచ్చరిక వివరాలు"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"డీబగ్గింగ్ కోసం అలర్ట్ వివరాలు"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"ఈ ప్రసారాన్ని తొలగించాలా?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"అన్ని స్వీకరించిన ప్రసార సందేశాలను తొలగించాలా?"</string>
     <string name="button_delete" msgid="4672451757925194350">"తొలగించు"</string>
@@ -48,18 +49,18 @@
     <string name="public_safety_message" msgid="9119928798786998252">"ప్రజా భద్రత సందేశం"</string>
     <string name="state_local_test_alert" msgid="8003145745857480200">"రాష్ట్రీయ/స్థానిక పరీక్ష"</string>
     <string name="emergency_alert" msgid="624783871477634263">"అత్యవసర హెచ్చరిక"</string>
-    <string name="emergency_alerts_title" msgid="6605036374197485429">"హెచ్చరికలు"</string>
+    <string name="emergency_alerts_title" msgid="6605036374197485429">"అలర్ట్‌లు"</string>
     <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"ప్రసార సందేశాలు"</string>
     <string name="notification_channel_emergency_alerts" msgid="5008287980979183617">"అత్యవసర హెచ్చరికలు"</string>
-    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"హెచ్చరికలను అనుమతించండి"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="699552922381916044">"అత్యవసర నోటిఫికేషన్‌లను స్వీకరించండి"</string>
-    <string name="alert_reminder_interval_title" msgid="7466642011937564868">"హెచ్చరిక రిమైండర్ ధ్వని"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"హెచ్చరిక సందేశాన్ని చదివి వినిపించు"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"అత్యవసర హెచ్చరిక సందేశాలను చదివి వినిపించడానికి వచన ప్రసంగాన్ని ఉపయోగించు"</string>
-    <string name="emergency_alert_history_title" msgid="8310173569237268431">"అత్యవసర హెచ్చరికల చరిత్ర"</string>
+    <string name="notification_channel_broadcast_messages_in_voicecall" msgid="3291001780110813190">"వాయిస్ కాల్‌లో అత్యవసర అలర్ట్‌లు"</string>
+    <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"అలర్ట్‌లను అనుమతించండి"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"వైర్‌లెస్ ఎమర్జెన్సీ అలర్ట్ నోటిఫికేషన్‌లను పొందండి"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"హెచ్చరిక రిమైండర్"</string>
+    <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"రిమైండర్ శబ్దం క్రమ విరామాల వద్ద ప్లే అవుతుంది"</string>
+    <string name="emergency_alert_history_title" msgid="8310173569237268431">"ఎమర్జెన్సీ అలర్ట్‌ల చరిత్ర"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"హెచ్చరిక ప్రాధాన్యతలు"</string>
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ETWS పరీక్ష ప్రసారాలు"</string>
-    <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"భూకంపం సునామీ హెచ్చరిక సిస్టమ్ కోసం పరీక్ష ప్రసారాలు"</string>
+    <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"\'భూకంప సునామీ హెచ్చరిక సిస్టమ్\' కోసం పరీక్ష ప్రసారాలు"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="5416260219062637770">"అత్యంత తీవ్ర అపాయాలు"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"ప్రాణానికి మరియు ఆస్తికి అత్యంత తీవ్ర అపాయాలు"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"తీవ్ర అపాయాలు"</string>
@@ -74,14 +75,13 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"రాష్ట్రీయ మరియు స్థానిక అధికార సంస్థల నుండి పరీక్ష సందేశాలను స్వీకరిస్తుంది"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"అత్యవసర హెచ్చరికలు"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"ప్రాణాంతకమైన సంఘటనల గురించి హెచ్చరించు"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="1319231576046146463">"నెలవారీ పరీక్ష అవసరం"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="588517403520088484">"భద్రతా హెచ్చరిక సిస్టమ్ కోసం టెస్ట్‌ సందేశాలను స్వీకరించండి"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"పరీక్ష అలర్ట్‌లు"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"భద్రతా అలర్ట్ సిస్టమ్ నుండి క్యారియర్ పరిక్షలను, నెలవారీ పరిక్షలను స్వీకరించండి"</string>
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"వైబ్రేషన్"</string>
-    <string name="use_full_volume_title" msgid="8581439612945182255">"పూర్తి వాల్యూమ్‌ను ఉపయోగించు"</string>
-    <string name="use_full_volume_summary" msgid="3560764277281704697">"ఇతర వాల్యూమ్ మరియు అంతరాయం కలిగించవద్దు ప్రాధాన్యతలను విస్మరిస్తుంది"</string>
+    <string name="override_dnd_title" msgid="5120805993144214421">"ఎల్లప్పుడూ పూర్తి వాల్యూమ్ వద్ద హెచ్చరించు"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"అంతరాయం కలిగించవద్దు &amp; ఇతర వాల్యూమ్ సెట్టింగ్‌లను తిరస్కరించండి"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"ప్రాంతీయ అప్‌డేట్ ప్రసారాలు"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"SIM స్థితిలో అప్‌డేట్ సమాచారాన్ని చూపు"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"డెవలపర్ ఎంపికలు"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"హెచ్చరిక వర్గం:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"భూభౌతిక సంబంధితం"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"వాతావరణ శాస్త్ర సంబంధితం"</string>
@@ -118,16 +118,35 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"కొత్త హెచ్చరికలు"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"మొదటి హెచ్చరిక (అధ్యక్ష హెచ్చరిక మినహా) కనిపించిన తర్వాత నిలిపివేత డైలాగ్‌ను చూపు."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"నిలిపివేత డైలాగ్‌ను చూపు"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"మీరు ప్రస్తుతం అత్యవసర హెచ్చరికలను స్వీకరిస్తున్నారు. మీరు అత్యవసర హెచ్చరికలను స్వీకరించడం కొనసాగించాలనుకుంటున్నారా?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"మీరు ప్రస్తుతం వైర్‌లెస్ అత్యవసర హెచ్చరికలను పొందుతున్నారు. మీరు అత్యవసర హెచ్చరికలను పొందటం కొనసాగించాలనుకుంటున్నారా?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"అవును"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"లేదు"</string>
-    <string name="cb_list_activity_title" msgid="1433502151877791724">"అత్యవసర హెచ్చరికల చరిత్ర"</string>
+    <string name="cb_list_activity_title" msgid="1433502151877791724">"ఎమర్జెన్సీ అలర్ట్‌ల చరిత్ర"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"ఒకసారి"</item>
     <item msgid="9097229303902157183">"ప్రతి 2 నిమిషాలకు"</item>
     <item msgid="5718214950343391480">"ప్రతి 5 నిమిషాలకు"</item>
     <item msgid="3863339891188103437">"ప్రతి 15 నిమిషాలకు"</item>
-    <item msgid="6868848414437854609">"ఆఫ్"</item>
+    <item msgid="7388573183644474611">"ఎప్పుడూ వద్దు"</item>
   </string-array>
-    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"వైర్‌లెస్ అత్యవసర హెచ్చరికలు"</string>
+    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"వైర్‌లెస్ ఎమర్జెన్సీ అలర్ట్‌లు"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"అధ్యక్ష హెచ్చరికలు"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"అధ్యక్షుడు జారీ చేసిన జాతీయ హెచ్చరిక సందేశాలు. వీటిని ఆఫ్ చేయలేరు."</string>
+    <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
+    <string name="receive_cmas_in_second_language_summary" msgid="7704105502782770718"></string>
+    <string name="alerts_header_summary" msgid="4700985191868591788"></string>
+    <string name="testing_mode_enabled" msgid="8296556666392297467">"\'సెల్ ప్రసారం టెస్టింగ్ మోడ్\' ఎనేబుల్ అయ్యింది."</string>
+    <string name="testing_mode_disabled" msgid="8381408377958182661">"\'సెల్ ప్రసారం టెస్టింగ్ మోడ్\' డిజేబుల్ అయ్యింది."</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"అన్ని మెసేజ్‌లను చూపించు"</string>
+    <string name="show_regular_messages" msgid="7376885150513522515">"సాధారణ మెసేజ్ లను చూపించు"</string>
+    <string name="message_identifier" msgid="5558338496219327850">"ఐడెంటిఫయర్:"</string>
+    <string name="message_serial_number" msgid="3386553658712978964">"క్రమ సంఖ్య:"</string>
+    <string name="data_coding_scheme" msgid="4628901196730870577">"డేటా కోడింగ్ స్కీమ్:"</string>
+    <string name="message_content" msgid="6204502929879474632">"మెసేజ్ కంటెంట్:"</string>
+    <string name="location_check_time" msgid="4105326161240531207">"లొకేషన్ చెక్ టైమ్:"</string>
+    <string name="message_displayed" msgid="5091678195925617971">"మెసేజ్ ప్రదర్శించబడింది:"</string>
+    <string name="message_coordinates" msgid="356333576818059052">"అక్షాంశాలు:"</string>
+    <string name="maximum_waiting_time" msgid="3504809124079381356">"గరిష్ఠ వెయిటింగ్ టైమ్:"</string>
+    <string name="seconds" msgid="141450721520515025">"సెకన్లు"</string>
+    <string name="message_copied" msgid="6922953753733166675">"మెసేజ్ కాపీ చేయబడింది"</string>
 </resources>

@@ -20,14 +20,20 @@
 
     <uses-sdk android:targetSdkVersion="28" />
 
+    <!-- This is required for android.provider.cts.media.MediaStore_MetadataKeysTest
+    when upgrading targetSdkVersion to R+
+    <queries>
+        <intent>
+            <action android:name="android.provider.action.REVIEW" />
+        </intent>
+    </queries> -->
+
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
     <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
-    <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
@@ -54,17 +60,6 @@
             </intent-filter>
         </activity>
 
-        <service android:name="android.provider.cts.contacts.account.MockAccountService"
-                 process="android.provider.cts"
-                 android:exported="true">
-            <intent-filter>
-                <action android:name="android.accounts.AccountAuthenticator"/>
-            </intent-filter>
-
-            <meta-data android:name="android.accounts.AccountAuthenticator"
-                       android:resource="@xml/contactprovider_authenticator"/>
-        </service>
-
         <service android:name=".MockInputMethodService"
                  android:label="UserDictionaryInputMethodTestService"
                  android:permission="android.permission.BIND_INPUT_METHOD">
@@ -74,14 +69,6 @@
             <meta-data android:name="android.view.im"
                        android:resource="@xml/method" />
         </service>
-
-        <provider
-            android:name=".contacts.DummyGalProvider"
-            android:authorities="android.provider.cts.contacts.dgp"
-            android:exported="true"
-            android:readPermission="android.permission.BIND_DIRECTORY_SEARCH" >
-            <meta-data android:name="android.content.ContactDirectory" android:value="true" />
-        </provider>
 
         <provider android:name="android.provider.cts.MockFontProvider"
                   android:authorities="android.provider.fonts.cts.font"
@@ -143,10 +130,5 @@
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
-
-    <instrumentation android:name="android.provider.cts.CalendarTest$CalendarEmmaTestRunner"
-                     android:targetPackage="android.provider.cts"
-                     android:label="Augmented CTS tests of Calendar provider"/>
-
 </manifest>
 

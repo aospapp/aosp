@@ -23,6 +23,7 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 
@@ -42,6 +43,7 @@ public class NativeBenchmarkTestTest {
     private NativeBenchmarkTest mBenchmark;
     private ITestInvocationListener mListener;
     private ITestDevice mDevice;
+    private TestInformation mTestInfo;
 
     @Before
     public void setUp() {
@@ -49,6 +51,7 @@ public class NativeBenchmarkTestTest {
         mListener = EasyMock.createMock(ITestInvocationListener.class);
         mDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mDevice.getSerialNumber()).andStubReturn("SERIAL");
+        mTestInfo = TestInformation.newBuilder().build();
     }
 
     private void replayMocks(Object... mocks) {
@@ -65,7 +68,7 @@ public class NativeBenchmarkTestTest {
     public void testRun_noDevice() throws DeviceNotAvailableException {
         try {
             replayMocks();
-            mBenchmark.run(mListener);
+            mBenchmark.run(mTestInfo, mListener);
             fail("An exception should have been thrown");
         } catch (IllegalArgumentException expected) {
             assertEquals("Device has not been set", expected.getMessage());
@@ -94,7 +97,7 @@ public class NativeBenchmarkTestTest {
         mBenchmark.setDevice(mDevice);
         EasyMock.expect(mDevice.getFileEntry((String) EasyMock.anyObject())).andReturn(null);
         replayMocks();
-        mBenchmark.run(mListener);
+        mBenchmark.run(mTestInfo, mListener);
         verifyMocks();
     }
 
@@ -123,7 +126,7 @@ public class NativeBenchmarkTestTest {
                 + "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq > "
                 + "/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq"))).andReturn("");
         replayMocks(fakeEntry);
-        mBenchmark.run(mListener);
+        mBenchmark.run(mTestInfo, mListener);
         verifyMocks(fakeEntry);
     }
 
@@ -145,10 +148,10 @@ public class NativeBenchmarkTestTest {
         EasyMock.expectLastCall();
         mListener.testRunStarted(EasyMock.eq(fakeRunName), EasyMock.anyInt());
         EasyMock.expectLastCall();
-        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.expectLastCall();
         replayMocks(fakeEntry);
-        mBenchmark.run(mListener);
+        mBenchmark.run(mTestInfo, mListener);
         verifyMocks(fakeEntry);
     }
 }

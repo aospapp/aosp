@@ -16,25 +16,24 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.database.ContentObserver;
 import android.database.Cursor;
+import android.database.MergeCursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.FileUtils;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.OperationCanceledException;
 import android.os.RemoteException;
+import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
 import androidx.loader.content.AsyncTaskLoader;
 
 import com.android.documentsui.archives.ArchivesProvider;
@@ -46,9 +45,12 @@ import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.sorting.SortModel;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
@@ -61,6 +63,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
 
     private final LockingContentObserver mObserver;
     private final RootInfo mRoot;
+    private final State mState;
     private final Uri mUri;
     private final SortModel mModel;
     private final Lookup<String, String> mFileTypeLookup;
@@ -68,6 +71,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
     private final Bundle mQueryArgs;
     private final boolean mPhotoPicking;
 
+    @Nullable
     private DocumentInfo mDoc;
     private CancellationSignal mSignal;
     private DirectoryResult mResult;
@@ -85,6 +89,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
 
         super(context);
         mFeatures = features;
+        mState = state;
         mRoot = state.stack.getRoot();
         mUri = uri;
         mModel = state.sortModel;
@@ -110,7 +115,6 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
             mSignal = new CancellationSignal();
         }
 
-        final ContentResolver resolver = getContext().getContentResolver();
         final String authority = mUri.getAuthority();
 
         final DirectoryResult result = new DirectoryResult();
@@ -119,17 +123,46 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
         ContentProviderClient client = null;
         Cursor cursor;
         try {
-            client = DocumentsApplication.acquireUnstableProviderOrThrow(resolver, authority);
-            if (mDoc.isInArchive()) {
-                ArchivesProvider.acquireArchive(client, mUri);
-            }
-            result.client = client;
-
             final Bundle queryArgs = new Bundle();
             mModel.addQuerySortArgs(queryArgs);
 
+            final List<UserId> userIds = new ArrayList<>();
             if (mSearchMode) {
                 queryArgs.putAll(mQueryArgs);
+                if (shouldSearchAcrossProfile()) {
+                    for (UserId userId : DocumentsApplication.getUserIdManager(
+                            getContext()).getUserIds()) {
+                        if (mState.canInteractWith(userId)) {
+                            userIds.add(userId);
+                        }
+                    }
+                }
+            }
+            if (userIds.isEmpty()) {
+                userIds.add(mRoot.userId);
+            }
+
+            if (userIds.size() == 1) {
+                if (!mState.canInteractWith(mRoot.userId)) {
+                    result.exception = new CrossProfileNoPermissionException();
+                    return result;
+                } else if (mRoot.userId.isQuietModeEnabled(getContext())) {
+                    result.exception = new CrossProfileQuietModeException(mRoot.userId);
+                    return result;
+                } else if (mDoc == null) {
+                    // TODO (b/35996595): Consider plumbing through the actual exception, though it
+                    // might not be very useful (always pointing to
+                    // DatabaseUtils#readExceptionFromParcel()).
+                    result.exception = new IllegalStateException("Failed to load root document.");
+                    return result;
+                }
+            }
+
+            if (mDoc != null && mDoc.isInArchive()) {
+                final ContentResolver resolver = mRoot.userId.getContentResolver(getContext());
+                client = DocumentsApplication.acquireUnstableProviderOrThrow(resolver, authority);
+                ArchivesProvider.acquireArchive(client, mUri);
+                result.client = client;
             }
 
             if (mFeatures.isContentPagingEnabled()) {
@@ -138,15 +171,15 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
                 DebugFlags.addForcedPagingArgs(queryArgs);
             }
 
-            cursor = client.query(mUri, null, queryArgs, mSignal);
+            cursor = queryOnUsers(userIds, authority, queryArgs);
 
             if (cursor == null) {
                 throw new RemoteException("Provider returned null");
             }
-
             cursor.registerContentObserver(mObserver);
 
-            cursor = new RootCursorWrapper(mUri.getAuthority(), mRoot.rootId, cursor, -1);
+            // Filter hidden files.
+            cursor = new FilteringCursorWrapper(cursor, mState.showHiddenFiles);
 
             if (mSearchMode && !mFeatures.isFoldersInSearchResultsEnabled()) {
                 // There is no findDocumentPath API. Enable filtering on folders in search mode.
@@ -169,15 +202,52 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
         } catch (Exception e) {
             Log.w(TAG, "Failed to query", e);
             result.exception = e;
+            FileUtils.closeQuietly(client);
         } finally {
             synchronized (this) {
                 mSignal = null;
             }
-            // TODO: Remove this call.
-            FileUtils.closeQuietly(client);
         }
 
         return result;
+    }
+
+    private boolean shouldSearchAcrossProfile() {
+        return mState.supportsCrossProfile()
+                && mRoot.supportsCrossProfile()
+                && mQueryArgs.containsKey(DocumentsContract.QUERY_ARG_DISPLAY_NAME);
+    }
+
+    @Nullable
+    private Cursor queryOnUsers(List<UserId> userIds, String authority, Bundle queryArgs)
+            throws RemoteException {
+        final List<Cursor> cursors = new ArrayList<>(userIds.size());
+        for (UserId userId : userIds) {
+            try (ContentProviderClient userClient =
+                         DocumentsApplication.acquireUnstableProviderOrThrow(
+                                 userId.getContentResolver(getContext()), authority)) {
+                Cursor c = userClient.query(mUri, /* projection= */null, queryArgs, mSignal);
+                if (c != null) {
+                    cursors.add(new RootCursorWrapper(userId, mUri.getAuthority(), mRoot.rootId,
+                            c, /* maxCount= */-1));
+                }
+            } catch (RemoteException e) {
+                Log.d(TAG, "Failed to query for user " + userId, e);
+                // Searching on other profile may not succeed because profile may be in quiet mode.
+                if (UserId.CURRENT_USER.equals(userId)) {
+                    throw e;
+                }
+            }
+        }
+        int size = cursors.size();
+        switch (size) {
+            case 0:
+                return null;
+            case 1:
+                return cursors.get(0);
+            default:
+                return new MergeCursor(cursors.toArray(new Cursor[size]));
+        }
     }
 
     @Override
@@ -236,33 +306,11 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
         // Ensure the loader is stopped
         onStopLoading();
 
+        if (mResult != null && mResult.cursor != null && mObserver != null) {
+            mResult.cursor.unregisterContentObserver(mObserver);
+        }
+
         FileUtils.closeQuietly(mResult);
         mResult = null;
-
-        getContext().getContentResolver().unregisterContentObserver(mObserver);
-    }
-
-    private static final class LockingContentObserver extends ContentObserver {
-        private final ContentLock mLock;
-        private final Runnable mContentChangedCallback;
-
-        public LockingContentObserver(ContentLock lock, Runnable contentChangedCallback) {
-            super(new Handler(Looper.getMainLooper()));
-            mLock = lock;
-            mContentChangedCallback = contentChangedCallback;
-        }
-
-        @Override
-        public boolean deliverSelfNotifications() {
-            return true;
-        }
-
-        @Override
-        public void onChange(boolean selfChange) {
-            if (DEBUG) {
-                Log.d(TAG, "Directory content updated.");
-            }
-            mLock.runWhenUnlocked(mContentChangedCallback);
-        }
     }
 }

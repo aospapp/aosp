@@ -16,7 +16,20 @@
 
 package android.platform.helpers;
 
+
 public interface IAutoDialHelper extends IAppHelper {
+
+    /** enum class for contact list order type. */
+    enum OrderType {
+        FIRST_NAME,
+        LAST_NAME
+    }
+    /** enum class for phone call audio channel. */
+    enum AudioSource {
+        PHONE,
+        CAR_SPEAKERS,
+    }
+
     /**
      * Setup expectations: The app is open and the dialpad is open
      *
@@ -85,39 +98,136 @@ public interface IAutoDialHelper extends IAppHelper {
     String getRecentCallHistory();
 
     /**
-     * Setup expectations: The app is open and phonenumber is entered on the dialpad
+     * Setup expectations: The app is open and phonenumber is entered on the dialpad.
      *
-     * <p>This method is used to make/receive a call using softkey
+     * <p>This method is used to make/receive a call using softkey.
      */
     void makeCall();
 
     /**
-     * Setup expectations: The app is open
+     * Setup expectations: The app is open.
      *
-     * <p>This method is used to dial a number from a list (Favorites, Call History, Contact)
+     * <p>This method is used to dial a number from a list (Favorites, Call History, Contact).
      *
      * @param contact (number or name) dial.
      */
     void dialFromList(String contact);
 
     /**
-     * Setup expectations: The app is open and there is an ongoing call
+     * Setup expectations: The app is open and there is an ongoing call.
      *
-     * <p>This method is used to enter number on the in-call dialpad
+     * <p>This method is used to enter number on the in-call dialpad.
+     *
+     * @param phoneNumber to dial.
      */
     void inCallDialPad(String phoneNumber);
 
     /**
-     * Setup expectations: The app is open and there is an ongoing call
+     * Setup expectations: The app is open and there is an ongoing call.
      *
-     * <p>This method is used to mute the ongoing call
+     * <p>This method is used to mute the ongoing call.
      */
     void muteCall();
 
     /**
-     * Setup expectations: The app is open and there is an ongoing call
+     * Setup expectations: The app is open and there is an ongoing call.
      *
-     * <p>This method is used to unmute the ongoing call
+     * <p>This method is used to unmute the ongoing call.
      */
     void unmuteCall();
+
+    /**
+     * Setup expectations: The app is open and there is an ongoing call.
+     *
+     * <p>This method is used to change voice channel to handset/bluetooth.
+     *
+     * @param source to switch to.
+     */
+    void changeAudioSource(AudioSource source);
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to make a call to the first history from Call History.
+     */
+    void callMostRecentHistory();
+
+    /**
+     * Setup expectations: The app is open and there is an ongoing call.
+     *
+     * <p>This method is used to get the contact name being called.
+     */
+    String getContactName();
+
+    /**
+     * Setup expectations: The app is open and there is an ongoing call
+     *
+     * <p>This method is used to get the contact type (Mobile, Work, Home and etc.) being called.
+     */
+    String getContactType();
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to search a contact in the contact list.
+     *
+     * @param contact to search.
+     */
+    void searchContactsByName(String contact);
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to search a number in the contact list.
+     *
+     * @param number to search.
+     */
+    void searchContactsByNumber(String number);
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to get the first search result for contact.
+     */
+    String getFirstSearchResult();
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to order the contact list based on first/last name.
+     *
+     * @param orderType to use.
+     */
+    void sortContactListBy(OrderType orderType);
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to get the first contact name from contact list.
+     */
+    String getFirstContactFromContactList();
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to verify if a contact is added to Favorites.
+     *
+     * @param contact to check.
+     */
+    boolean isContactInFavorites(String contact);
+
+    /**
+     * Setup expectations: The contact's details page is open.
+     *
+     * <p>This method is used to close the details page.
+     *
+     * @param contact Contact's details page to be opened.
+     */
+    void openDetailsPage(String contact);
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>This method is used to check if phone is paired.
+     */
+    boolean isPhonePaired();
 }

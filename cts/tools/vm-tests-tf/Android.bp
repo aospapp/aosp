@@ -67,18 +67,6 @@ java_genrule_host {
     out: ["vmtests_dfh_dex_generated.jar"],
 }
 
-java_genrule_host {
-    name: "vmtests-dasm-dex-generated",
-    tools: [
-        "dasm",
-        "soong_zip",
-    ],
-    tool_files: ["etc/vmtests-dasm.sh"],
-    srcs: [ "src/dot/**/*.d" ],
-    cmd: "$(location etc/vmtests-dasm.sh) $(location dasm) $(location soong_zip) $(genDir) $(out) $(in)",
-    out: ["vmtests_dasm_dex_generated.jar"],
-}
-
 java_genrule {
     name: "vmtests_generated_mains_test_sources",
     tools: [
@@ -106,7 +94,6 @@ java_library_host {
     static_libs: [
         "host-cts-vmtests",
         "vmtests-dfh-dex-generated",
-        "vmtests-dasm-dex-generated",
     ],
     installable: false,
 }

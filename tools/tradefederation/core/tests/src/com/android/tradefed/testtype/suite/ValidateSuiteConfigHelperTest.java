@@ -18,7 +18,6 @@ package com.android.tradefed.testtype.suite;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.LocalFolderBuildProvider;
 import com.android.tradefed.build.StubBuildProvider;
 import com.android.tradefed.command.CommandOptions;
@@ -26,20 +25,13 @@ import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IDeviceConfiguration;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.metric.BaseDeviceMetricCollector;
 import com.android.tradefed.device.metric.FilePullerLogCollector;
 import com.android.tradefed.device.metric.IMetricCollector;
-import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TextResultReporter;
-import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.StubTargetPreparer;
-import com.android.tradefed.targetprep.TargetSetupError;
-import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
 import com.android.tradefed.targetprep.multi.StubMultiTargetPreparer;
 import com.android.tradefed.testtype.suite.module.TestFailureModuleController;
 
@@ -153,63 +145,6 @@ public class ValidateSuiteConfigHelperTest {
         config.setTargetPreparer(new StubTargetPreparer());
         config.setMultiTargetPreparer(new StubMultiTargetPreparer());
         ValidateSuiteConfigHelper.validateConfig(config);
-    }
-
-    /**
-     * Test that a config that contains a target preparer that implements both single and multi
-     * target preparer. It should be rejected.
-     */
-    @Test
-    public void testTargetPrep_badPreparer() {
-        IConfiguration config = new Configuration("test", "test description");
-        config.setTargetPreparer(new BadSingleMultiPreparer());
-        try {
-            ValidateSuiteConfigHelper.validateConfig(config);
-            fail("Should have thrown an exception.");
-        } catch (RuntimeException expected) {
-            assertTrue(expected.getMessage().contains(Configuration.TARGET_PREPARER_TYPE_NAME));
-            assertTrue(expected.getMessage().contains(Configuration.MULTI_PREPARER_TYPE_NAME));
-        }
-    }
-
-    /**
-     * Test that a config that contains a multi target preparer that implements both single and
-     * multi target preparer. It should be rejected.
-     */
-    @Test
-    public void testTargetPrep_badMultiPreparer() {
-        IConfiguration config = new Configuration("test", "test description");
-        config.setMultiTargetPreparer(new BadSingleMultiPreparer());
-        try {
-            ValidateSuiteConfigHelper.validateConfig(config);
-            fail("Should have thrown an exception.");
-        } catch (RuntimeException expected) {
-            assertTrue(expected.getMessage().contains(Configuration.TARGET_PREPARER_TYPE_NAME));
-            assertTrue(expected.getMessage().contains(Configuration.MULTI_PREPARER_TYPE_NAME));
-        }
-    }
-
-    /**
-     * Test class of a badly implemented preparer that extends both concepts: multiple and single
-     * devices.
-     */
-    public static class BadSingleMultiPreparer implements ITargetPreparer, IMultiTargetPreparer {
-        @Override
-        public void setUp(IInvocationContext context)
-                throws TargetSetupError, BuildError, DeviceNotAvailableException {
-            // ignore
-        }
-
-        @Override
-        public void setUp(ITestDevice device, IBuildInfo buildInfo)
-                throws TargetSetupError, BuildError, DeviceNotAvailableException {
-            // ignore
-        }
-
-        @Override
-        public void setDisable(boolean isDisabled) {
-            // ignore
-        }
     }
 
     /** Test that metric collectors cannot be specified inside a module for a suite. */

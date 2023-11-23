@@ -23,6 +23,7 @@ import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_ICON_SYSUI;
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_ICON_THEMEPICKER;
 import static com.android.customization.model.ResourceConstants.OVERLAY_CATEGORY_SHAPE;
+
 import android.graphics.Point;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -37,6 +38,7 @@ import com.android.customization.module.ThemesUserEventLogger;
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.model.LiveWallpaperInfo;
+import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.WallpaperPersister.SetWallpaperCallback;
 import com.android.wallpaper.module.WallpaperSetter;
 import com.android.wallpaper.util.WallpaperCropUtils;
@@ -106,7 +108,7 @@ public class ThemeManager implements CustomizationManager<ThemeBundle> {
     private SetWallpaperCallback createSetWallpaperCallback(ThemeBundle theme, Callback callback) {
         return new SetWallpaperCallback() {
             @Override
-            public void onSuccess() {
+            public void onSuccess(WallpaperInfo wallpaperInfo) {
                 applyWallpaperOptions(theme);
                 applyOverlays(theme, callback);
             }

@@ -21,6 +21,7 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements.Measure
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric.Builder;
 import com.android.tradefed.metrics.proto.MetricMeasurement.NumericValues;
+import com.android.tradefed.result.LogFile;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,7 +33,8 @@ public class AveragePostProcessor extends BasePostProcessor {
     public static final String AVERAGE_KEY_TAG = "_avg";
 
     @Override
-    public Map<String, Builder> processRunMetrics(HashMap<String, Metric> rawMetrics) {
+    public Map<String, Builder> processRunMetricsAndLogs(
+            HashMap<String, Metric> rawMetrics, Map<String, LogFile> runLogs) {
         Map<String, Builder> newMetrics = new HashMap<>();
         for (String key : rawMetrics.keySet()) {
             Metric metric = rawMetrics.get(key);

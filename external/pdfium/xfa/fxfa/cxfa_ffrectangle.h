@@ -7,9 +7,9 @@
 #ifndef XFA_FXFA_CXFA_FFRECTANGLE_H_
 #define XFA_FXFA_CXFA_FFRECTANGLE_H_
 
-#include "xfa/fxfa/cxfa_ffdraw.h"
+#include "xfa/fxfa/cxfa_ffwidget.h"
 
-class CXFA_FFRectangle : public CXFA_FFDraw {
+class CXFA_FFRectangle final : public CXFA_FFWidget {
  public:
   explicit CXFA_FFRectangle(CXFA_Node* pNode);
   ~CXFA_FFRectangle() override;
@@ -17,7 +17,7 @@ class CXFA_FFRectangle : public CXFA_FFDraw {
   // CXFA_FFWidget
   void RenderWidget(CXFA_Graphics* pGS,
                     const CFX_Matrix& matrix,
-                    uint32_t dwStatus) override;
+                    HighlightOption highlight) override;
 };
 
 #endif  // XFA_FXFA_CXFA_FFRECTANGLE_H_

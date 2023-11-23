@@ -59,6 +59,9 @@ import json
 import logging
 import os
 
+from acloud.internal import constants
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -146,6 +149,43 @@ class Report(object):
                 "report: Current status is %s, "
                 "requested to update to a status with lower severity %s, ignored.",
                 self.status, status)
+
+    def AddDevice(self, instance_name, ip_address, adb_port, vnc_port,
+                  key="devices"):
+        """Add a record of a device.
+
+        Args:
+            instance_name: A string.
+            ip_address: A string.
+            adb_port: An integer.
+            vnc_port: An integer.
+            key: A string, the data entry where the record is added.
+        """
+        device = {constants.INSTANCE_NAME: instance_name}
+        if adb_port:
+            device[constants.ADB_PORT] = adb_port
+            device[constants.IP] = "%s:%d" % (ip_address, adb_port)
+        else:
+            device[constants.IP] = ip_address
+
+        if vnc_port:
+            device[constants.VNC_PORT] = vnc_port
+        self.AddData(key=key, value=device)
+
+    def AddDeviceBootFailure(self, instance_name, ip_address, adb_port,
+                             vnc_port, error):
+        """Add a record of device boot failure.
+
+        Args:
+            instance_name: A string.
+            ip_address: A string.
+            adb_port: An integer.
+            vnc_port: An integer. Can be None if the device doesn't support it.
+            error: A string, the error message.
+        """
+        self.AddDevice(instance_name, ip_address, adb_port, vnc_port,
+                       "devices_failing_boot")
+        self.AddError(error)
 
     def Dump(self, report_file):
         """Dump report content to a file.

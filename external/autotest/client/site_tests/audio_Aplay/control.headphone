@@ -19,4 +19,4 @@ DOC = """
 Check that the system plays audio via headphone.
 """
 
-job.run_test('audio_Aplay', output_node="HEADPHONE")
+job.run_test('audio_Aplay', test_headphone=True)

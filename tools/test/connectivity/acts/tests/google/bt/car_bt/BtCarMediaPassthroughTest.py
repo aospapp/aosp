@@ -68,7 +68,7 @@ class BtCarMediaPassthroughTest(BluetoothBaseTest):
             self.log.info("Media ready to push as is.")
         elif not os.path.isdir(self.local_media_path):
             self.local_media_path = os.path.join(
-                self.user_params[Config.key_config_path],
+                self.user_params[Config.key_config_path.value],
                 self.local_media_path)
             if not os.path.isdir(self.local_media_path):
                 self.log.error("Unable to load user config " + self.

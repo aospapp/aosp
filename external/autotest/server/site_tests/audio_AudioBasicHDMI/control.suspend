@@ -8,13 +8,13 @@ AUTHOR = "chromeos-chameleon"
 NAME = "audio_AudioBasicHDMI.suspend"
 PURPOSE = "Remotely controlled HDMI after suspend audio test."
 CRITERIA = "This test will fail if the captured audio does not match original file."
-ATTRIBUTES = "suite:chameleon_audio_perbuild"
+ATTRIBUTES = "suite:audio_advanced"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
 DEPENDENCIES = 'chameleon:hdmi, audio_board, test_hdmiaudio'
-JOB_RETRIES = 2
+JOB_RETRIES = 1
 
 DOC = """
 This test remotely tests HDMI audio function after suspend-resume.

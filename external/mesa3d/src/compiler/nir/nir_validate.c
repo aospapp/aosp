@@ -26,6 +26,7 @@
  */
 
 #include "nir.h"
+#include "c11/threads.h"
 #include <assert.h>
 
 /*
@@ -96,7 +97,9 @@ typedef struct {
    /* bitset of registers we have currently found; used to check uniqueness */
    BITSET_WORD *regs_found;
 
-   /* map of local variable -> function implementation where it is defined */
+   /* map of variable -> function implementation where it is defined or NULL
+    * if it is a global variable
+    */
    struct hash_table *var_defs;
 
    /* map of instruction/var/etc to failed assert string */
@@ -127,11 +130,11 @@ log_error(validate_state *state, const char *cond, const char *file, int line)
    } while (0)
 
 static void validate_src(nir_src *src, validate_state *state,
-                         unsigned bit_size, unsigned num_components);
+                         unsigned bit_sizes, unsigned num_components);
 
 static void
 validate_reg_src(nir_src *src, validate_state *state,
-                 unsigned bit_size, unsigned num_components)
+                 unsigned bit_sizes, unsigned num_components)
 {
    validate_assert(state, src->reg.reg != NULL);
 
@@ -148,17 +151,13 @@ validate_reg_src(nir_src *src, validate_state *state,
       _mesa_set_add(reg_state->if_uses, src);
    }
 
-   if (!src->reg.reg->is_global) {
-      validate_assert(state, reg_state->where_defined == state->impl &&
-             "using a register declared in a different function");
-   }
+   validate_assert(state, reg_state->where_defined == state->impl &&
+          "using a register declared in a different function");
 
-   if (!src->reg.reg->is_packed) {
-      if (bit_size)
-         validate_assert(state, src->reg.reg->bit_size == bit_size);
-      if (num_components)
-         validate_assert(state, src->reg.reg->num_components == num_components);
-   }
+   if (bit_sizes)
+      validate_assert(state, src->reg.reg->bit_size & bit_sizes);
+   if (num_components)
+      validate_assert(state, src->reg.reg->num_components == num_components);
 
    validate_assert(state, (src->reg.reg->num_array_elems == 0 ||
           src->reg.base_offset < src->reg.reg->num_array_elems) &&
@@ -175,7 +174,7 @@ validate_reg_src(nir_src *src, validate_state *state,
 
 static void
 validate_ssa_src(nir_src *src, validate_state *state,
-                 unsigned bit_size, unsigned num_components)
+                 unsigned bit_sizes, unsigned num_components)
 {
    validate_assert(state, src->ssa != NULL);
 
@@ -198,8 +197,8 @@ validate_ssa_src(nir_src *src, validate_state *state,
       _mesa_set_add(def_state->if_uses, src);
    }
 
-   if (bit_size)
-      validate_assert(state, src->ssa->bit_size == bit_size);
+   if (bit_sizes)
+      validate_assert(state, src->ssa->bit_size & bit_sizes);
    if (num_components)
       validate_assert(state, src->ssa->num_components == num_components);
 
@@ -208,7 +207,7 @@ validate_ssa_src(nir_src *src, validate_state *state,
 
 static void
 validate_src(nir_src *src, validate_state *state,
-             unsigned bit_size, unsigned num_components)
+             unsigned bit_sizes, unsigned num_components)
 {
    if (state->instr)
       validate_assert(state, src->parent_instr == state->instr);
@@ -216,9 +215,9 @@ validate_src(nir_src *src, validate_state *state,
       validate_assert(state, src->parent_if == state->if_stmt);
 
    if (src->is_ssa)
-      validate_ssa_src(src, state, bit_size, num_components);
+      validate_ssa_src(src, state, bit_sizes, num_components);
    else
-      validate_reg_src(src, state, bit_size, num_components);
+      validate_reg_src(src, state, bit_sizes, num_components);
 }
 
 static void
@@ -226,17 +225,9 @@ validate_alu_src(nir_alu_instr *instr, unsigned index, validate_state *state)
 {
    nir_alu_src *src = &instr->src[index];
 
-   unsigned num_components;
-   if (src->src.is_ssa) {
-      num_components = src->src.ssa->num_components;
-   } else {
-      if (src->src.reg.reg->is_packed)
-         num_components = 4; /* can't check anything */
-      else
-         num_components = src->src.reg.reg->num_components;
-   }
-   for (unsigned i = 0; i < 4; i++) {
-      validate_assert(state, src->swizzle[i] < 4);
+   unsigned num_components = nir_src_num_components(src->src);
+   for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++) {
+      validate_assert(state, src->swizzle[i] < NIR_MAX_VEC_COMPONENTS);
 
       if (nir_alu_instr_channel_used(instr, index, i))
          validate_assert(state, src->swizzle[i] < num_components);
@@ -247,7 +238,7 @@ validate_alu_src(nir_alu_instr *instr, unsigned index, validate_state *state)
 
 static void
 validate_reg_dest(nir_reg_dest *dest, validate_state *state,
-                  unsigned bit_size, unsigned num_components)
+                  unsigned bit_sizes, unsigned num_components)
 {
    validate_assert(state, dest->reg != NULL);
 
@@ -261,17 +252,13 @@ validate_reg_dest(nir_reg_dest *dest, validate_state *state,
    reg_validate_state *reg_state = (reg_validate_state *) entry2->data;
    _mesa_set_add(reg_state->defs, dest);
 
-   if (!dest->reg->is_global) {
-      validate_assert(state, reg_state->where_defined == state->impl &&
-             "writing to a register declared in a different function");
-   }
+   validate_assert(state, reg_state->where_defined == state->impl &&
+          "writing to a register declared in a different function");
 
-   if (!dest->reg->is_packed) {
-      if (bit_size)
-         validate_assert(state, dest->reg->bit_size == bit_size);
-      if (num_components)
-         validate_assert(state, dest->reg->num_components == num_components);
-   }
+   if (bit_sizes)
+      validate_assert(state, dest->reg->bit_size & bit_sizes);
+   if (num_components)
+      validate_assert(state, dest->reg->num_components == num_components);
 
    validate_assert(state, (dest->reg->num_array_elems == 0 ||
           dest->base_offset < dest->reg->num_array_elems) &&
@@ -294,7 +281,9 @@ validate_ssa_def(nir_ssa_def *def, validate_state *state)
 
    validate_assert(state, def->parent_instr == state->instr);
 
-   validate_assert(state, def->num_components <= 4);
+   validate_assert(state, (def->num_components <= 4) ||
+                          (def->num_components == 8) ||
+                          (def->num_components == 16));
 
    list_validate(&def->uses);
    list_validate(&def->if_uses);
@@ -302,25 +291,23 @@ validate_ssa_def(nir_ssa_def *def, validate_state *state)
    ssa_def_validate_state *def_state = ralloc(state->ssa_defs,
                                               ssa_def_validate_state);
    def_state->where_defined = state->impl;
-   def_state->uses = _mesa_set_create(def_state, _mesa_hash_pointer,
-                                      _mesa_key_pointer_equal);
-   def_state->if_uses = _mesa_set_create(def_state, _mesa_hash_pointer,
-                                         _mesa_key_pointer_equal);
+   def_state->uses = _mesa_pointer_set_create(def_state);
+   def_state->if_uses = _mesa_pointer_set_create(def_state);
    _mesa_hash_table_insert(state->ssa_defs, def, def_state);
 }
 
 static void
 validate_dest(nir_dest *dest, validate_state *state,
-              unsigned bit_size, unsigned num_components)
+              unsigned bit_sizes, unsigned num_components)
 {
    if (dest->is_ssa) {
-      if (bit_size)
-         validate_assert(state, dest->ssa.bit_size == bit_size);
+      if (bit_sizes)
+         validate_assert(state, dest->ssa.bit_size & bit_sizes);
       if (num_components)
          validate_assert(state, dest->ssa.num_components == num_components);
       validate_ssa_def(&dest->ssa, state);
    } else {
-      validate_reg_dest(&dest->reg, state, bit_size, num_components);
+      validate_reg_dest(&dest->reg, state, bit_sizes, num_components);
    }
 }
 
@@ -329,15 +316,12 @@ validate_alu_dest(nir_alu_instr *instr, validate_state *state)
 {
    nir_alu_dest *dest = &instr->dest;
 
-   unsigned dest_size =
-      dest->dest.is_ssa ? dest->dest.ssa.num_components
-                        : dest->dest.reg.reg->num_components;
-   bool is_packed = !dest->dest.is_ssa && dest->dest.reg.reg->is_packed;
+   unsigned dest_size = nir_dest_num_components(dest->dest);
    /*
     * validate that the instruction doesn't write to components not in the
     * register/SSA value
     */
-   validate_assert(state, is_packed || !(dest->write_mask & ~((1 << dest_size) - 1)));
+   validate_assert(state, !(dest->write_mask & ~((1 << dest_size) - 1)));
 
    /* validate that saturate is only ever used on instructions with
     * destinations of type float
@@ -397,19 +381,68 @@ validate_alu_instr(nir_alu_instr *instr, validate_state *state)
 }
 
 static void
-validate_deref_chain(nir_deref *deref, nir_variable_mode mode,
-                     validate_state *state)
+validate_var_use(nir_variable *var, validate_state *state)
 {
-   validate_assert(state, deref->child == NULL || ralloc_parent(deref->child) == deref);
+   struct hash_entry *entry = _mesa_hash_table_search(state->var_defs, var);
+   validate_assert(state, entry);
+   if (var->data.mode == nir_var_function_temp)
+      validate_assert(state, (nir_function_impl *) entry->data == state->impl);
+}
 
-   nir_deref *parent = NULL;
-   while (deref != NULL) {
-      switch (deref->deref_type) {
+static void
+validate_deref_instr(nir_deref_instr *instr, validate_state *state)
+{
+   if (instr->deref_type == nir_deref_type_var) {
+      /* Variable dereferences are stupid simple. */
+      validate_assert(state, instr->mode == instr->var->data.mode);
+      validate_assert(state, instr->type == instr->var->type);
+      validate_var_use(instr->var, state);
+   } else if (instr->deref_type == nir_deref_type_cast) {
+      /* For cast, we simply have to trust the instruction.  It's up to
+       * lowering passes and front/back-ends to make them sane.
+       */
+      validate_src(&instr->parent, state, 0, 0);
+
+      /* We just validate that the type and mode are there */
+      validate_assert(state, instr->mode);
+      validate_assert(state, instr->type);
+   } else {
+      /* We require the parent to be SSA.  This may be lifted in the future */
+      validate_assert(state, instr->parent.is_ssa);
+
+      /* The parent pointer value must have the same number of components
+       * as the destination.
+       */
+      validate_src(&instr->parent, state, nir_dest_bit_size(instr->dest),
+                   nir_dest_num_components(instr->dest));
+
+      nir_instr *parent_instr = instr->parent.ssa->parent_instr;
+
+      /* The parent must come from another deref instruction */
+      validate_assert(state, parent_instr->type == nir_instr_type_deref);
+
+      nir_deref_instr *parent = nir_instr_as_deref(parent_instr);
+
+      validate_assert(state, instr->mode == parent->mode);
+
+      switch (instr->deref_type) {
+      case nir_deref_type_struct:
+         validate_assert(state, glsl_type_is_struct_or_ifc(parent->type));
+         validate_assert(state,
+            instr->strct.index < glsl_get_length(parent->type));
+         validate_assert(state, instr->type ==
+            glsl_get_struct_field(parent->type, instr->strct.index));
+         break;
+
       case nir_deref_type_array:
-         if (mode == nir_var_shared) {
-            /* Shared variables have a bit more relaxed rules because we need
-             * to be able to handle array derefs on vectors.  Fortunately,
-             * nir_lower_io handles these just fine.
+      case nir_deref_type_array_wildcard:
+         if (instr->mode == nir_var_mem_ubo ||
+             instr->mode == nir_var_mem_ssbo ||
+             instr->mode == nir_var_mem_shared ||
+             instr->mode == nir_var_mem_global) {
+            /* Shared variables and UBO/SSBOs have a bit more relaxed rules
+             * because we need to be able to handle array derefs on vectors.
+             * Fortunately, nir_lower_io handles these just fine.
              */
             validate_assert(state, glsl_type_is_array(parent->type) ||
                                    glsl_type_is_matrix(parent->type) ||
@@ -419,126 +452,125 @@ validate_deref_chain(nir_deref *deref, nir_variable_mode mode,
             validate_assert(state, glsl_type_is_array(parent->type) ||
                                    glsl_type_is_matrix(parent->type));
          }
-         validate_assert(state, deref->type == glsl_get_array_element(parent->type));
-         if (nir_deref_as_array(deref)->deref_array_type ==
-             nir_deref_array_type_indirect)
-            validate_src(&nir_deref_as_array(deref)->indirect, state, 32, 1);
+         validate_assert(state,
+            instr->type == glsl_get_array_element(parent->type));
+
+         if (instr->deref_type == nir_deref_type_array) {
+            validate_src(&instr->arr.index, state,
+                         nir_dest_bit_size(instr->dest), 1);
+         }
          break;
 
-      case nir_deref_type_struct:
-         assume(parent); /* cannot happen: deref change starts w/ nir_deref_var */
-         validate_assert(state, deref->type ==
-                glsl_get_struct_field(parent->type,
-                                      nir_deref_as_struct(deref)->index));
-         break;
-
-      case nir_deref_type_var:
+      case nir_deref_type_ptr_as_array:
+         /* ptr_as_array derefs must have a parent that is either an array,
+          * ptr_as_array, or cast.  If the parent is a cast, we get the stride
+          * information (if any) from the cast deref.
+          */
+         validate_assert(state,
+                         parent->deref_type == nir_deref_type_array ||
+                         parent->deref_type == nir_deref_type_ptr_as_array ||
+                         parent->deref_type == nir_deref_type_cast);
+         validate_src(&instr->arr.index, state,
+                      nir_dest_bit_size(instr->dest), 1);
          break;
 
       default:
-         validate_assert(state, !"Invalid deref type");
-         break;
+         unreachable("Invalid deref instruction type");
       }
-
-      parent = deref;
-      deref = deref->child;
    }
-}
 
-static void
-validate_var_use(nir_variable *var, validate_state *state)
-{
-   if (var->data.mode == nir_var_local) {
-      struct hash_entry *entry = _mesa_hash_table_search(state->var_defs, var);
+   /* We intentionally don't validate the size of the destination because we
+    * want to let other compiler components such as SPIR-V decide how big
+    * pointers should be.
+    */
+   validate_dest(&instr->dest, state, 0, 0);
 
-      validate_assert(state, entry);
-      validate_assert(state, (nir_function_impl *) entry->data == state->impl);
-   }
-}
-
-static void
-validate_deref_var(void *parent_mem_ctx, nir_deref_var *deref, validate_state *state)
-{
-   validate_assert(state, deref != NULL);
-   validate_assert(state, ralloc_parent(deref) == parent_mem_ctx);
-   validate_assert(state, deref->deref.type == deref->var->type);
-
-   validate_var_use(deref->var, state);
-
-   validate_deref_chain(&deref->deref, deref->var->data.mode, state);
+   /* Deref instructions as if conditions don't make sense because if
+    * conditions expect well-formed Booleans.  If you want to compare with
+    * NULL, an explicit comparison operation should be used.
+    */
+   validate_assert(state, list_empty(&instr->dest.ssa.if_uses));
 }
 
 static void
 validate_intrinsic_instr(nir_intrinsic_instr *instr, validate_state *state)
 {
-   unsigned bit_size = 0;
-   if (instr->intrinsic == nir_intrinsic_load_var ||
-       instr->intrinsic == nir_intrinsic_store_var) {
-      const struct glsl_type *type =
-         nir_deref_tail(&instr->variables[0]->deref)->type;
-      bit_size = glsl_get_bit_size(type);
+   unsigned dest_bit_size = 0;
+   unsigned src_bit_sizes[NIR_INTRINSIC_MAX_INPUTS] = { 0, };
+   switch (instr->intrinsic) {
+   case nir_intrinsic_load_param: {
+      unsigned param_idx = nir_intrinsic_param_idx(instr);
+      validate_assert(state, param_idx < state->impl->function->num_params);
+      nir_parameter *param = &state->impl->function->params[param_idx];
+      validate_assert(state, instr->num_components == param->num_components);
+      dest_bit_size = param->bit_size;
+      break;
+   }
+
+   case nir_intrinsic_load_deref: {
+      nir_deref_instr *src = nir_src_as_deref(instr->src[0]);
+      validate_assert(state, glsl_type_is_vector_or_scalar(src->type) ||
+                      (src->mode == nir_var_uniform &&
+                       glsl_get_base_type(src->type) == GLSL_TYPE_SUBROUTINE));
+      validate_assert(state, instr->num_components ==
+                             glsl_get_vector_elements(src->type));
+      dest_bit_size = glsl_get_bit_size(src->type);
+      /* Also allow 32-bit boolean load operations */
+      if (glsl_type_is_boolean(src->type))
+         dest_bit_size |= 32;
+      break;
+   }
+
+   case nir_intrinsic_store_deref: {
+      nir_deref_instr *dst = nir_src_as_deref(instr->src[0]);
+      validate_assert(state, glsl_type_is_vector_or_scalar(dst->type));
+      validate_assert(state, instr->num_components ==
+                             glsl_get_vector_elements(dst->type));
+      src_bit_sizes[1] = glsl_get_bit_size(dst->type);
+      /* Also allow 32-bit boolean store operations */
+      if (glsl_type_is_boolean(dst->type))
+         src_bit_sizes[1] |= 32;
+      validate_assert(state, (dst->mode & (nir_var_shader_in |
+                                           nir_var_uniform)) == 0);
+      validate_assert(state, (nir_intrinsic_write_mask(instr) & ~((1 << instr->num_components) - 1)) == 0);
+      break;
+   }
+
+   case nir_intrinsic_copy_deref: {
+      nir_deref_instr *dst = nir_src_as_deref(instr->src[0]);
+      nir_deref_instr *src = nir_src_as_deref(instr->src[1]);
+      validate_assert(state, glsl_get_bare_type(dst->type) ==
+                             glsl_get_bare_type(src->type));
+      validate_assert(state, (dst->mode & (nir_var_shader_in |
+                                           nir_var_uniform)) == 0);
+      break;
+   }
+
+   default:
+      break;
    }
 
    unsigned num_srcs = nir_intrinsic_infos[instr->intrinsic].num_srcs;
    for (unsigned i = 0; i < num_srcs; i++) {
-      unsigned components_read =
-         nir_intrinsic_infos[instr->intrinsic].src_components[i];
-      if (components_read == 0)
-         components_read = instr->num_components;
+      unsigned components_read = nir_intrinsic_src_components(instr, i);
 
       validate_assert(state, components_read > 0);
 
-      validate_src(&instr->src[i], state, bit_size, components_read);
-   }
-
-   unsigned num_vars = nir_intrinsic_infos[instr->intrinsic].num_variables;
-   for (unsigned i = 0; i < num_vars; i++) {
-      validate_deref_var(instr, instr->variables[i], state);
+      validate_src(&instr->src[i], state, src_bit_sizes[i], components_read);
    }
 
    if (nir_intrinsic_infos[instr->intrinsic].has_dest) {
-      unsigned components_written =
-         nir_intrinsic_infos[instr->intrinsic].dest_components;
-      if (components_written == 0)
-         components_written = instr->num_components;
+      unsigned components_written = nir_intrinsic_dest_components(instr);
+      unsigned bit_sizes = nir_intrinsic_infos[instr->intrinsic].dest_bit_sizes;
 
       validate_assert(state, components_written > 0);
 
-      validate_dest(&instr->dest, state, bit_size, components_written);
-   }
+      if (dest_bit_size && bit_sizes)
+         validate_assert(state, dest_bit_size & bit_sizes);
+      else
+         dest_bit_size = dest_bit_size ? dest_bit_size : bit_sizes;
 
-   switch (instr->intrinsic) {
-   case nir_intrinsic_load_var: {
-      const struct glsl_type *type =
-         nir_deref_tail(&instr->variables[0]->deref)->type;
-      validate_assert(state, glsl_type_is_vector_or_scalar(type) ||
-             (instr->variables[0]->var->data.mode == nir_var_uniform &&
-              glsl_get_base_type(type) == GLSL_TYPE_SUBROUTINE));
-      validate_assert(state, instr->num_components == glsl_get_vector_elements(type));
-      break;
-   }
-   case nir_intrinsic_store_var: {
-      const struct glsl_type *type =
-         nir_deref_tail(&instr->variables[0]->deref)->type;
-      validate_assert(state, glsl_type_is_vector_or_scalar(type) ||
-             (instr->variables[0]->var->data.mode == nir_var_uniform &&
-              glsl_get_base_type(type) == GLSL_TYPE_SUBROUTINE));
-      validate_assert(state, instr->num_components == glsl_get_vector_elements(type));
-      validate_assert(state, instr->variables[0]->var->data.mode != nir_var_shader_in &&
-             instr->variables[0]->var->data.mode != nir_var_uniform &&
-             instr->variables[0]->var->data.mode != nir_var_shader_storage);
-      validate_assert(state, (nir_intrinsic_write_mask(instr) & ~((1 << instr->num_components) - 1)) == 0);
-      break;
-   }
-   case nir_intrinsic_copy_var:
-      validate_assert(state, nir_deref_tail(&instr->variables[0]->deref)->type ==
-             nir_deref_tail(&instr->variables[1]->deref)->type);
-      validate_assert(state, instr->variables[0]->var->data.mode != nir_var_shader_in &&
-             instr->variables[0]->var->data.mode != nir_var_uniform &&
-             instr->variables[0]->var->data.mode != nir_var_shader_storage);
-      break;
-   default:
-      break;
+      validate_dest(&instr->dest, state, dest_bit_size, components_written);
    }
 }
 
@@ -554,13 +586,23 @@ validate_tex_instr(nir_tex_instr *instr, validate_state *state)
       src_type_seen[instr->src[i].src_type] = true;
       validate_src(&instr->src[i].src, state,
                    0, nir_tex_instr_src_size(instr, i));
+
+      switch (instr->src[i].src_type) {
+      case nir_tex_src_texture_deref:
+      case nir_tex_src_sampler_deref:
+         validate_assert(state, instr->src[i].src.is_ssa);
+         validate_assert(state,
+                         instr->src[i].src.ssa->parent_instr->type == nir_instr_type_deref);
+         break;
+      default:
+         break;
+      }
    }
 
-   if (instr->texture != NULL)
-      validate_deref_var(instr, instr->texture, state);
-
-   if (instr->sampler != NULL)
-      validate_deref_var(instr, instr->sampler, state);
+   if (nir_tex_instr_has_explicit_tg4_offsets(instr)) {
+      validate_assert(state, instr->op == nir_texop_tg4);
+      validate_assert(state, !src_type_seen[nir_tex_src_offset]);
+   }
 
    validate_dest(&instr->dest, state, 0, nir_tex_instr_dest_size(instr));
 }
@@ -568,25 +610,54 @@ validate_tex_instr(nir_tex_instr *instr, validate_state *state)
 static void
 validate_call_instr(nir_call_instr *instr, validate_state *state)
 {
-   if (instr->return_deref == NULL) {
-      validate_assert(state, glsl_type_is_void(instr->callee->return_type));
-   } else {
-      validate_assert(state, instr->return_deref->deref.type == instr->callee->return_type);
-      validate_deref_var(instr, instr->return_deref, state);
-   }
-
    validate_assert(state, instr->num_params == instr->callee->num_params);
 
    for (unsigned i = 0; i < instr->num_params; i++) {
-      validate_assert(state, instr->callee->params[i].type == instr->params[i]->deref.type);
-      validate_deref_var(instr, instr->params[i], state);
+      validate_src(&instr->params[i], state,
+                   instr->callee->params[i].bit_size,
+                   instr->callee->params[i].num_components);
    }
+}
+
+static void
+validate_const_value(nir_const_value *val, unsigned bit_size,
+                     validate_state *state)
+{
+   /* In order for block copies to work properly for things like instruction
+    * comparisons and [de]serialization, we require the unused bits of the
+    * nir_const_value to be zero.
+    */
+   nir_const_value cmp_val;
+   memset(&cmp_val, 0, sizeof(cmp_val));
+   switch (bit_size) {
+   case 1:
+      cmp_val.b = val->b;
+      break;
+   case 8:
+      cmp_val.u8 = val->u8;
+      break;
+   case 16:
+      cmp_val.u16 = val->u16;
+      break;
+   case 32:
+      cmp_val.u32 = val->u32;
+      break;
+   case 64:
+      cmp_val.u64 = val->u64;
+      break;
+   default:
+      validate_assert(state, !"Invalid load_const bit size");
+   }
+   validate_assert(state, memcmp(val, &cmp_val, sizeof(cmp_val)) == 0);
 }
 
 static void
 validate_load_const_instr(nir_load_const_instr *instr, validate_state *state)
 {
    validate_ssa_def(&instr->def, state);
+
+   for (unsigned i = 0; i < instr->def.num_components; i++)
+      validate_const_value(&instr->value[i], instr->def.bit_size, state);
 }
 
 static void
@@ -620,6 +691,10 @@ validate_instr(nir_instr *instr, validate_state *state)
    switch (instr->type) {
    case nir_instr_type_alu:
       validate_alu_instr(nir_instr_as_alu(instr), state);
+      break;
+
+   case nir_instr_type_deref:
+      validate_deref_instr(nir_instr_as_deref(instr), state);
       break;
 
    case nir_instr_type_call:
@@ -725,7 +800,6 @@ validate_block(nir_block *block, validate_state *state)
       }
    }
 
-   struct set_entry *entry;
    set_foreach(block->predecessors, entry) {
       const nir_block *pred = entry->key;
       validate_assert(state, pred->successors[0] == block ||
@@ -817,7 +891,7 @@ validate_if(nir_if *if_stmt, validate_state *state)
    nir_cf_node *next_node = nir_cf_node_next(&if_stmt->cf_node);
    validate_assert(state, next_node->type == nir_cf_node_block);
 
-   validate_src(&if_stmt->condition, state, 32, 1);
+   validate_src(&if_stmt->condition, state, 0, 1);
 
    validate_assert(state, !exec_list_is_empty(&if_stmt->then_list));
    validate_assert(state, !exec_list_is_empty(&if_stmt->else_list));
@@ -890,14 +964,9 @@ validate_cf_node(nir_cf_node *node, validate_state *state)
 }
 
 static void
-prevalidate_reg_decl(nir_register *reg, bool is_global, validate_state *state)
+prevalidate_reg_decl(nir_register *reg, validate_state *state)
 {
-   validate_assert(state, reg->is_global == is_global);
-
-   if (is_global)
-      validate_assert(state, reg->index < state->shader->reg_alloc);
-   else
-      validate_assert(state, reg->index < state->impl->reg_alloc);
+   validate_assert(state, reg->index < state->impl->reg_alloc);
    validate_assert(state, !BITSET_TEST(state->regs_found, reg->index));
    BITSET_SET(state->regs_found, reg->index);
 
@@ -906,14 +975,11 @@ prevalidate_reg_decl(nir_register *reg, bool is_global, validate_state *state)
    list_validate(&reg->if_uses);
 
    reg_validate_state *reg_state = ralloc(state->regs, reg_validate_state);
-   reg_state->uses = _mesa_set_create(reg_state, _mesa_hash_pointer,
-                                      _mesa_key_pointer_equal);
-   reg_state->if_uses = _mesa_set_create(reg_state, _mesa_hash_pointer,
-                                         _mesa_key_pointer_equal);
-   reg_state->defs = _mesa_set_create(reg_state, _mesa_hash_pointer,
-                                      _mesa_key_pointer_equal);
+   reg_state->uses = _mesa_pointer_set_create(reg_state);
+   reg_state->if_uses = _mesa_pointer_set_create(reg_state);
+   reg_state->defs = _mesa_pointer_set_create(reg_state);
 
-   reg_state->where_defined = is_global ? NULL : state->impl;
+   reg_state->where_defined = state->impl;
 
    _mesa_hash_table_insert(state->regs, reg, reg_state);
 }
@@ -934,7 +1000,6 @@ postvalidate_reg_decl(nir_register *reg, validate_state *state)
 
    if (reg_state->uses->entries != 0) {
       printf("extra entries in register uses:\n");
-      struct set_entry *entry;
       set_foreach(reg_state->uses, entry)
          printf("%p\n", entry->key);
 
@@ -949,7 +1014,6 @@ postvalidate_reg_decl(nir_register *reg, validate_state *state)
 
    if (reg_state->if_uses->entries != 0) {
       printf("extra entries in register if_uses:\n");
-      struct set_entry *entry;
       set_foreach(reg_state->if_uses, entry)
          printf("%p\n", entry->key);
 
@@ -964,7 +1028,6 @@ postvalidate_reg_decl(nir_register *reg, validate_state *state)
 
    if (reg_state->defs->entries != 0) {
       printf("extra entries in register defs:\n");
-      struct set_entry *entry;
       set_foreach(reg_state->defs, entry)
          printf("%p\n", entry->key);
 
@@ -980,7 +1043,7 @@ validate_var_decl(nir_variable *var, bool is_global, validate_state *state)
    validate_assert(state, is_global == nir_variable_is_global(var));
 
    /* Must have exactly one mode set */
-   validate_assert(state, util_bitcount(var->data.mode) == 1);
+   validate_assert(state, util_is_power_of_two_nonzero(var->data.mode));
 
    if (var->data.compact) {
       /* The "compact" flag is only valid on arrays of scalars. */
@@ -995,14 +1058,20 @@ validate_var_decl(nir_variable *var, bool is_global, validate_state *state)
       }
    }
 
+   if (var->num_members > 0) {
+      const struct glsl_type *without_array = glsl_without_array(var->type);
+      validate_assert(state, glsl_type_is_struct_or_ifc(without_array));
+      validate_assert(state, var->num_members == glsl_get_length(without_array));
+      validate_assert(state, var->members != NULL);
+   }
+
    /*
     * TODO validate some things ir_validate.cpp does (requires more GLSL type
     * support)
     */
 
-   if (!is_global) {
-      _mesa_hash_table_insert(state->var_defs, var, state->impl);
-   }
+   _mesa_hash_table_insert(state->var_defs, var,
+                           is_global ? NULL : state->impl);
 
    state->var = NULL;
 }
@@ -1025,7 +1094,6 @@ postvalidate_ssa_def(nir_ssa_def *def, void *void_state)
 
    if (def_state->uses->entries != 0) {
       printf("extra entries in SSA def uses:\n");
-      struct set_entry *entry;
       set_foreach(def_state->uses, entry)
          printf("%p\n", entry->key);
 
@@ -1040,7 +1108,6 @@ postvalidate_ssa_def(nir_ssa_def *def, void *void_state)
 
    if (def_state->if_uses->entries != 0) {
       printf("extra entries in SSA def uses:\n");
-      struct set_entry *entry;
       set_foreach(def_state->if_uses, entry)
          printf("%p\n", entry->key);
 
@@ -1055,23 +1122,6 @@ validate_function_impl(nir_function_impl *impl, validate_state *state)
 {
    validate_assert(state, impl->function->impl == impl);
    validate_assert(state, impl->cf_node.parent == NULL);
-
-   validate_assert(state, impl->num_params == impl->function->num_params);
-   for (unsigned i = 0; i < impl->num_params; i++) {
-      validate_assert(state, impl->params[i]->type == impl->function->params[i].type);
-      validate_assert(state, impl->params[i]->data.mode == nir_var_param);
-      validate_assert(state, impl->params[i]->data.location == i);
-      validate_var_decl(impl->params[i], false, state);
-   }
-
-   if (glsl_type_is_void(impl->function->return_type)) {
-      validate_assert(state, impl->return_var == NULL);
-   } else {
-      validate_assert(state, impl->return_var->type == impl->function->return_type);
-      validate_assert(state, impl->return_var->data.mode == nir_var_param);
-      validate_assert(state, impl->return_var->data.location == -1);
-      validate_var_decl(impl->return_var, false, state);
-   }
 
    validate_assert(state, exec_list_is_empty(&impl->end_block->instr_list));
    validate_assert(state, impl->end_block->successors[0] == NULL);
@@ -1092,7 +1142,7 @@ validate_function_impl(nir_function_impl *impl, validate_state *state)
                                 sizeof(BITSET_WORD));
    exec_list_validate(&impl->registers);
    foreach_list_typed(nir_register, reg, node, &impl->registers) {
-      prevalidate_reg_decl(reg, false, state);
+      prevalidate_reg_decl(reg, state);
    }
 
    state->ssa_defs_found = realloc(state->ssa_defs_found,
@@ -1127,16 +1177,12 @@ validate_function(nir_function *func, validate_state *state)
 static void
 init_validate_state(validate_state *state)
 {
-   state->regs = _mesa_hash_table_create(NULL, _mesa_hash_pointer,
-                                         _mesa_key_pointer_equal);
-   state->ssa_defs = _mesa_hash_table_create(NULL, _mesa_hash_pointer,
-                                             _mesa_key_pointer_equal);
+   state->regs = _mesa_pointer_hash_table_create(NULL);
+   state->ssa_defs = _mesa_pointer_hash_table_create(NULL);
    state->ssa_defs_found = NULL;
    state->regs_found = NULL;
-   state->var_defs = _mesa_hash_table_create(NULL, _mesa_hash_pointer,
-                                             _mesa_key_pointer_equal);
-   state->errors = _mesa_hash_table_create(NULL, _mesa_hash_pointer,
-                                           _mesa_key_pointer_equal);
+   state->var_defs = _mesa_pointer_hash_table_create(NULL);
+   state->errors = _mesa_pointer_hash_table_create(NULL);
 
    state->loop = NULL;
    state->instr = NULL;
@@ -1154,29 +1200,43 @@ destroy_validate_state(validate_state *state)
    _mesa_hash_table_destroy(state->errors, NULL);
 }
 
+mtx_t fail_dump_mutex = _MTX_INITIALIZER_NP;
+
 static void
-dump_errors(validate_state *state)
+dump_errors(validate_state *state, const char *when)
 {
    struct hash_table *errors = state->errors;
 
-   fprintf(stderr, "%d errors:\n", _mesa_hash_table_num_entries(errors));
+   /* Lock around dumping so that we get clean dumps in a multi-threaded
+    * scenario
+    */
+   mtx_lock(&fail_dump_mutex);
+
+   if (when) {
+      fprintf(stderr, "NIR validation failed %s\n", when);
+      fprintf(stderr, "%d errors:\n", _mesa_hash_table_num_entries(errors));
+   } else {
+      fprintf(stderr, "NIR validation failed with %d errors:\n",
+              _mesa_hash_table_num_entries(errors));
+   }
 
    nir_print_shader_annotated(state->shader, stderr, errors);
 
    if (_mesa_hash_table_num_entries(errors) > 0) {
       fprintf(stderr, "%d additional errors:\n",
               _mesa_hash_table_num_entries(errors));
-      struct hash_entry *entry;
       hash_table_foreach(errors, entry) {
          fprintf(stderr, "%s\n", (char *)entry->data);
       }
    }
 
+   mtx_unlock(&fail_dump_mutex);
+
    abort();
 }
 
 void
-nir_validate_shader(nir_shader *shader)
+nir_validate_shader(nir_shader *shader, const char *when)
 {
    static int should_validate = -1;
    if (should_validate < 0)
@@ -1219,27 +1279,13 @@ nir_validate_shader(nir_shader *shader)
      validate_var_decl(var, true, &state);
    }
 
-   state.regs_found = realloc(state.regs_found,
-                              BITSET_WORDS(shader->reg_alloc) *
-                              sizeof(BITSET_WORD));
-   memset(state.regs_found, 0, BITSET_WORDS(shader->reg_alloc) *
-                               sizeof(BITSET_WORD));
-   exec_list_validate(&shader->registers);
-   foreach_list_typed(nir_register, reg, node, &shader->registers) {
-      prevalidate_reg_decl(reg, true, &state);
-   }
-
    exec_list_validate(&shader->functions);
    foreach_list_typed(nir_function, func, node, &shader->functions) {
       validate_function(func, &state);
    }
 
-   foreach_list_typed(nir_register, reg, node, &shader->registers) {
-      postvalidate_reg_decl(reg, &state);
-   }
-
    if (_mesa_hash_table_num_entries(state.errors) > 0)
-      dump_errors(&state);
+      dump_errors(&state, when);
 
    destroy_validate_state(&state);
 }

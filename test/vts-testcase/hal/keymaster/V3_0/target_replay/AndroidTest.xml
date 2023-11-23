@@ -29,6 +29,6 @@
         <option name="binary-test-type" value="hal_hidl_replay_test"/>
         <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/keymaster/V3_0/android.hardware.keymaster_3.0_40741352389.vts.trace"/>
         <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/keymaster/V3_0/android.hardware.keymaster_3.0_203096852418.vts.trace"/>
-        <option name="test-timeout" value="5m"/>
+        <option name="test-timeout" value="6m"/>
     </test>
 </configuration>

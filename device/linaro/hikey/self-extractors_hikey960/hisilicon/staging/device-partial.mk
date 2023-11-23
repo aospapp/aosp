@@ -15,18 +15,13 @@
 # Blobs needed for HiKey960 video decoding hardware
 TARGET_HISI_CODEC_VERSION := 1
 
-PRODUCT_COPY_FILES  += vendor/linaro/hikey960/hisilicon/proprietary/libOMX.hisi.video.decoder.so:$(TARGET_COPY_OUT_VENDOR)/lib/libOMX.hisi.video.decoder.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/lib64/libOMX.hisi.video.decoder.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libOMX.hisi.video.decoder.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/libOMX.hisi.vdec.core.so:$(TARGET_COPY_OUT_VENDOR)/lib/libOMX.hisi.vdec.core.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/lib64/libOMX.hisi.vdec.core.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libOMX.hisi.vdec.core.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/libOMX_Core.so:$(TARGET_COPY_OUT_VENDOR)/lib/libOMX_Core.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/lib64/libOMX_Core.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libOMX_Core.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/libstagefrighthw.so:$(TARGET_COPY_OUT_VENDOR)/lib/libstagefrighthw.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/lib64/libstagefrighthw.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libstagefrighthw.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/libc_secshared.so:$(TARGET_COPY_OUT_VENDOR)/lib/libc_secshared.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/lib64/libc_secshared.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libc_secshared.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/lib64/libhilog.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libhilog.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/libhilog.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhilog.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/lib64/libhiion.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libhiion.so \
-    vendor/linaro/hikey960/hisilicon/proprietary/libhiion.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhiion.so
+PRODUCT_SOONG_NAMESPACES += vendor/linaro/hikey960/hisilicon/proprietary
 
+PRODUCT_PACKAGES += \
+    libc_secshared \
+    libhiion \
+    libhilog \
+    libOMX_Core \
+    libOMX.hisi.vdec.core \
+    libOMX.hisi.video.decoder \
+    libstagefrighthw

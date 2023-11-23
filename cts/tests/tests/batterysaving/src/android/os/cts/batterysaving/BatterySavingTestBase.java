@@ -15,6 +15,7 @@
  */
 package android.os.cts.batterysaving;
 
+import static com.android.compatibility.common.util.BatteryUtils.enableBatterySaver;
 import static com.android.compatibility.common.util.BatteryUtils.runDumpsysBatteryReset;
 import static com.android.compatibility.common.util.BatteryUtils.turnOnScreen;
 import static com.android.compatibility.common.util.SystemUtil.runCommandAndPrintOnLogcat;
@@ -33,6 +34,9 @@ import androidx.test.InstrumentationRegistry;
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.BeforeAfterRule;
 import com.android.compatibility.common.util.OnFailureRule;
+import com.android.compatibility.common.util.ProtoUtils;
+import com.android.server.job.nano.JobSchedulerServiceDumpProto;
+import com.android.server.job.nano.StateControllerProto;
 
 import org.junit.Rule;
 import org.junit.rules.RuleChain;
@@ -55,6 +59,7 @@ public class BatterySavingTestBase {
             runCommandAndPrintOnLogcat(TAG, "dumpsys alarm");
             runCommandAndPrintOnLogcat(TAG, "dumpsys jobscheduler");
             runCommandAndPrintOnLogcat(TAG, "dumpsys content");
+            runCommandAndPrintOnLogcat(TAG, "dumpsys battery");
         }
     };
 
@@ -70,6 +75,7 @@ public class BatterySavingTestBase {
         protected void onAfter(Statement base, Description description) throws Throwable {
             runDumpsysBatteryReset();
             turnOnScreen(true);
+            enableBatterySaver(false);
         }
     };
 
@@ -94,9 +100,19 @@ public class BatterySavingTestBase {
     }
 
     public void waitUntilJobForceAppStandby(boolean expected) throws Exception {
-        waitUntil("Force all apps standby still " + !expected + " (job)", () ->
-                runShellCommand("dumpsys jobscheduler")
-                        .contains("Force all apps standby: " + expected));
+        waitUntil("Force all apps standby still " + !expected + " (job)", () -> {
+            JobSchedulerServiceDumpProto proto = ProtoUtils.getProto(
+                    InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                    JobSchedulerServiceDumpProto.class,
+                    ProtoUtils.DUMPSYS_JOB_SCHEDULER);
+            for (StateControllerProto controllerProto : proto.controllers) {
+                if (controllerProto.hasBackground()) {
+                    return controllerProto.getBackground().appStateTracker.forceAllAppsStandby
+                            == expected;
+                }
+            }
+            return false;
+        });
     }
 
     public void waitUntilForceBackgroundCheck(boolean expected) throws Exception {

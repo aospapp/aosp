@@ -20,4 +20,6 @@
     android:canRetrieveWindowContent="true"
     android:canRequestTouchExplorationMode="true"
     android:nonInteractiveUiTimeout="2000"
+    android:animatedImageDrawable="@drawable/png_72_72"
+    android:htmlDescription="@string/html_description_vibrating_accessibility_service"
     android:interactiveUiTimeout="5000"/>

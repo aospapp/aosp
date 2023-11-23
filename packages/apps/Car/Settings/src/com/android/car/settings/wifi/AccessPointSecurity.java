@@ -36,7 +36,10 @@ public class AccessPointSecurity {
             AccessPoint.SECURITY_NONE,
             AccessPoint.SECURITY_WEP,
             AccessPoint.SECURITY_PSK,
-            AccessPoint.SECURITY_EAP);
+            AccessPoint.SECURITY_EAP,
+            AccessPoint.SECURITY_SAE,
+            AccessPoint.SECURITY_OWE,
+            AccessPoint.SECURITY_EAP_SUITE_B);
 
     public static List<AccessPointSecurity> getSecurityTypes(Context context) {
         List<AccessPointSecurity> securities = new ArrayList<>();
@@ -58,12 +61,18 @@ public class AccessPointSecurity {
     @Override
     public String toString() {
         switch(mSecurityType) {
+            case AccessPoint.SECURITY_EAP_SUITE_B:
+                return mContext.getString(R.string.wifi_security_eap_suiteb);
             case AccessPoint.SECURITY_EAP:
                 return mContext.getString(R.string.wifi_security_eap);
+            case AccessPoint.SECURITY_SAE:
+                return mContext.getString(R.string.wifi_security_sae);
             case AccessPoint.SECURITY_PSK:
                 return mContext.getString(R.string.wifi_security_psk_generic);
             case AccessPoint.SECURITY_WEP:
                 return mContext.getString(R.string.wifi_security_wep);
+            case AccessPoint.SECURITY_OWE:
+                return mContext.getString(R.string.wifi_security_owe);
             case AccessPoint.SECURITY_NONE:
             default:
                 return mContext.getString(R.string.wifi_security_none);

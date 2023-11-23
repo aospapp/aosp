@@ -1,7 +1,5 @@
 name: "pyasn1-modules"
-description:
-    "A collection of ASN.1-based protocols modules."
-
+description: "A collection of ASN.1-based protocols modules."
 third_party {
   url {
     type: HOMEPAGE
@@ -11,6 +9,10 @@ third_party {
     type: GIT
     value: "https://github.com/etingof/pyasn1-modules"
   }
-  version: "0.2.1"
-  last_upgrade_date { year: 2018 month: 6 day: 13 }
+  version: "v0.2.6"
+  last_upgrade_date {
+    year: 2019
+    month: 8
+    day: 1
+  }
 }

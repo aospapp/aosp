@@ -13,22 +13,38 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/tile"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_margin="8dp"
+    android:layout_height="wrap_content"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="true"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/category_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/grid_item_category_label_padding_top"
+        android:layout_marginBottom="@dimen/grid_item_category_label_padding_bottom"
+        android:background="@color/category_title_scrim_color"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:minHeight="@dimen/grid_item_category_label_minimum_height"
+        android:textAppearance="@style/OptionTitleTextAppearance"
+        tools:text="Wallpaper category" />
+
     <androidx.cardview.widget.CardView
+        android:id="@+id/category"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/category_title"
         android:foreground="?attr/selectableItemBackground"
-        app:cardElevation="0dp"
-        app:cardCornerRadius="?android:dialogCornerRadius">
+        app:cardCornerRadius="?android:dialogCornerRadius"
+        app:cardElevation="0dp">
+
         <ImageView
             android:id="@+id/image"
             android:layout_width="match_parent"
@@ -40,21 +56,6 @@
             android:id="@+id/overlay_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginBottom="@dimen/grid_item_category_overlay_icon_margin_bottom" />
+            android:layout_gravity="center" />
     </androidx.cardview.widget.CardView>
-    <TextView
-        android:id="@+id/category_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:background="@color/category_title_scrim_color"
-        android:gravity="start"
-        android:paddingVertical="@dimen/grid_item_category_label_padding"
-        android:textColor="@color/category_title_text_color"
-        android:textSize="@dimen/abc_text_size_subhead_material"
-        android:textAlignment="viewStart"
-        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title"
-        tools:text="Wallpaper category" />
-
-</RelativeLayout>
+</LinearLayout>

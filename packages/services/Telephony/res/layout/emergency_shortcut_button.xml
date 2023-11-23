@@ -16,7 +16,8 @@
 <com.android.phone.EmergencyShortcutButton
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_height="@dimen/emergency_shortcut_button_height"
-    android:layout_width="match_parent">
+    android:layout_width="match_parent"
+    android:layout_marginBottom="@dimen/emergency_shortcut_button_margin_bottom">
     <!-- Normal emergency call button view -->
     <FrameLayout
         android:id="@+id/emergency_call_number_info_view"
@@ -42,7 +43,8 @@
                     android:id="@+id/phone_type_icon"
                     android:layout_width="@dimen/phone_number_type_image_height"
                     android:layout_height="@dimen/phone_number_type_image_width"
-                    android:layout_gravity="center"/>
+                    android:layout_gravity="center"
+                    android:scaleType="centerInside"/>
             </FrameLayout>
             <LinearLayout
                 android:layout_height="wrap_content"
@@ -57,7 +59,6 @@
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:lineHeight="@dimen/phone_number_line_height"
-                    android:fontFamily="@*android:string/config_headlineFontFamily"
                     android:textAppearance="@style/PhoneNumberTextAppearance"/>
                 <TextView
                     android:id="@+id/phone_number_description"
@@ -66,8 +67,7 @@
                     android:alpha="0.7"
                     android:maxLines="1"
                     android:ellipsize="end"
-                    android:fontFamily="sans-serif-medium"
-                    android:textAppearance="@style/SubtitleTextAppearance"/>
+                    android:textAppearance="@style/PhoneNumberTypeAppearance"/>
             </LinearLayout>
         </LinearLayout>
         <FrameLayout
@@ -79,7 +79,9 @@
                 android:id="@+id/microphone_icon"
                 android:layout_height="@dimen/phone_icon_height"
                 android:layout_width="@dimen/phone_icon_width"
-                android:src="@drawable/ic_emergency_callback_mode"/>
+                android:src="@drawable/ic_emergency_callback_mode"
+                android:tint="@color/emergency_call_icon_color"
+                android:scaleType="centerInside"/>
         </FrameLayout>
     </FrameLayout>
 
@@ -111,6 +113,7 @@
                     android:layout_width="@dimen/phone_number_type_image_height"
                     android:layout_height="@dimen/phone_number_type_image_width"
                     android:layout_gravity="center"
+                    android:scaleType="centerInside"
                     android:tint="@color/emergency_shortcut_confirm_button_background_color"/>
             </FrameLayout>
             <FrameLayout
@@ -124,8 +127,7 @@
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:lineHeight="@dimen/phone_call_hint_line_height"
-                    android:fontFamily="@*android:string/config_headlineFontFamily"
-                    android:textAppearance="@style/PhoneCallHintTextAppearance"/>
+                    android:textAppearance="@style/PhoneNumberTapHintAppearance"/>
             </FrameLayout>
         </LinearLayout>
         <FrameLayout
@@ -137,7 +139,9 @@
             <ImageView
                 android:layout_height="@dimen/phone_icon_height"
                 android:layout_width="@dimen/phone_icon_width"
-                android:src="@drawable/ic_emergency_callback_mode"/>
+                android:src="@drawable/ic_emergency_callback_mode"
+                android:tint="@color/emergency_call_icon_color"
+                android:scaleType="centerInside"/>
         </FrameLayout>
     </FrameLayout>
 </com.android.phone.EmergencyShortcutButton>

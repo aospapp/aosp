@@ -24,12 +24,15 @@ import android.os.Message;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.Pair;
+
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer.BufferReason;
+
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.SampleHolder;
 import com.google.android.exoplayer.util.MimeTypes;
-import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
+import com.google.auto.factory.AutoFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -64,7 +67,6 @@ public class SampleChunkIoHelper implements Handler.Callback {
     private final BufferManager mBufferManager;
     private final SamplePool mSamplePool;
     private final IoCallback mIoCallback;
-    private final ConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags;
 
     private Handler mIoHandler;
     private final ConcurrentLinkedQueue<SampleHolder> mReadSampleBuffers[];
@@ -113,6 +115,22 @@ public class SampleChunkIoHelper implements Handler.Callback {
     }
 
     /**
+     * Factory for {@link SampleChunkIoHelper}.
+     *
+     * <p>This wrapper class keeps other classes from needing to reference the {@link AutoFactory}
+     * generated class.
+     */
+    public interface Factory {
+        public SampleChunkIoHelper create(
+                List<String> ids,
+                List<MediaFormat> mediaFormats,
+                @BufferReason int bufferReason,
+                BufferManager bufferManager,
+                SamplePool samplePool,
+                IoCallback ioCallback);
+    }
+
+    /**
      * Creates {@link SampleChunk} I/O handler.
      *
      * @param ids track names
@@ -121,16 +139,15 @@ public class SampleChunkIoHelper implements Handler.Callback {
      * @param bufferManager manager of {@link SampleChunk} collections
      * @param samplePool allocator for a sample
      * @param ioCallback listeners for I/O events
-     * @param concurrentDvrPlaybackFlags
      */
+    @AutoFactory(implementing = Factory.class)
     public SampleChunkIoHelper(
             List<String> ids,
             List<MediaFormat> mediaFormats,
             @BufferReason int bufferReason,
             BufferManager bufferManager,
             SamplePool samplePool,
-            IoCallback ioCallback,
-            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags) {
+            IoCallback ioCallback) {
         mTrackCount = ids.size();
         mIds = ids;
         mMediaFormats = mediaFormats;
@@ -138,7 +155,6 @@ public class SampleChunkIoHelper implements Handler.Callback {
         mBufferManager = bufferManager;
         mSamplePool = samplePool;
         mIoCallback = ioCallback;
-        mConcurrentDvrPlaybackFlags = concurrentDvrPlaybackFlags;
 
         mReadSampleBuffers = new ConcurrentLinkedQueue[mTrackCount];
         mHandlerReadSampleBuffers = new ConcurrentLinkedQueue[mTrackCount];
@@ -184,9 +200,7 @@ public class SampleChunkIoHelper implements Handler.Callback {
         }
 
         try {
-            if (mConcurrentDvrPlaybackFlags.enabled()
-                    && mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING
-                    && mTrackCount > 0) {
+            if (mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING && mTrackCount > 0) {
                 // Saves meta information for recording.
                 List<BufferManager.TrackFormat> audios = new ArrayList<>(mTrackCount);
                 List<BufferManager.TrackFormat> videos = new ArrayList<>(mTrackCount);
@@ -194,6 +208,15 @@ public class SampleChunkIoHelper implements Handler.Callback {
                     android.media.MediaFormat format =
                             mMediaFormats.get(i).getFrameworkMediaFormatV16();
                     format.setLong(android.media.MediaFormat.KEY_DURATION, mBufferDurationUs);
+                    if (mMediaFormats.get(i).pixelWidthHeightRatio > 0) {
+                        // MediaFormats doesn't store aspect ratio so updating the width
+                        // to maintain aspect ratio.
+                        format.setInteger(
+                                android.media.MediaFormat.KEY_WIDTH,
+                                (int)
+                                        (mMediaFormats.get(i).width
+                                                * mMediaFormats.get(i).pixelWidthHeightRatio));
+                    }
                     if (MimeTypes.isAudio(mMediaFormats.get(i).mimeType)) {
                         audios.add(new BufferManager.TrackFormat(mIds.get(i), format));
                     } else if (MimeTypes.isVideo(mMediaFormats.get(i).mimeType)) {
@@ -302,6 +325,15 @@ public class SampleChunkIoHelper implements Handler.Callback {
                     android.media.MediaFormat format =
                             mMediaFormats.get(i).getFrameworkMediaFormatV16();
                     format.setLong(android.media.MediaFormat.KEY_DURATION, mBufferDurationUs);
+                    if (mMediaFormats.get(i).pixelWidthHeightRatio > 0) {
+                        // MediaFormats doesn't store aspect ratio so updating the width
+                        // to maintain aspect ratio.
+                        format.setInteger(
+                                android.media.MediaFormat.KEY_WIDTH,
+                                (int)
+                                        (mMediaFormats.get(i).width
+                                                * mMediaFormats.get(i).pixelWidthHeightRatio));
+                    }
                     if (MimeTypes.isAudio(mMediaFormats.get(i).mimeType)) {
                         audios.add(new BufferManager.TrackFormat(mIds.get(i), format));
                     } else if (MimeTypes.isVideo(mMediaFormats.get(i).mimeType)) {
@@ -384,8 +416,7 @@ public class SampleChunkIoHelper implements Handler.Callback {
 
     private void doOpenWrite(int index) throws IOException {
         boolean updateIndexFile =
-                mConcurrentDvrPlaybackFlags.enabled()
-                        && (mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING)
+                (mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING)
                         && (MimeTypes.isVideo(mMediaFormats.get(index).mimeType)
                                 || MimeTypes.isAudio(mMediaFormats.get(index).mimeType));
 
@@ -426,13 +457,10 @@ public class SampleChunkIoHelper implements Handler.Callback {
             SampleHolder sample = mReadIoStates[index].read();
             if (sample != null) {
                 mHandlerReadSampleBuffers[index].offer(sample);
-                if (mConcurrentDvrPlaybackFlags.enabled()) {
-                    mReadChunkOffset[index] = mReadIoStates[index].getOffset();
-                    mReadChunkPositionUs[index] = sample.timeUs;
-                }
+                mReadChunkOffset[index] = mReadIoStates[index].getOffset();
+                mReadChunkPositionUs[index] = sample.timeUs;
             } else {
-                if (mConcurrentDvrPlaybackFlags.enabled()
-                        && mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDED_PLAYBACK) {
+                if (mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDED_PLAYBACK) {
                     // Update Index, to load new Samples
                     updateIndex(index, mReadChunkOffset[index]);
                 }
@@ -485,9 +513,7 @@ public class SampleChunkIoHelper implements Handler.Callback {
                                     : mWriteIoStates[params.index].getChunk();
                     int currentOffset = (int) mWriteIoStates[params.index].getOffset();
                     boolean updateIndexFile =
-                            mConcurrentDvrPlaybackFlags.enabled()
-                                    && (mBufferReason
-                                            == RecordingSampleBuffer.BUFFER_REASON_RECORDING)
+                            (mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING)
                                     && (MimeTypes.isVideo(mMediaFormats.get(index).mimeType)
                                             || MimeTypes.isAudio(
                                                     mMediaFormats.get(index).mimeType));

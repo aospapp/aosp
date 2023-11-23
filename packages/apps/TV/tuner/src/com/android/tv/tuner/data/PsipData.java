@@ -20,8 +20,8 @@ import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import com.android.tv.common.util.StringUtils;
-import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
+import com.android.tv.tuner.data.Track.AtscAudioTrack;
+import com.android.tv.tuner.data.Track.AtscCaptionTrack;
 import com.android.tv.tuner.util.ConvertUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -495,10 +495,10 @@ public class PsipData {
         public String toString() {
             return String.format(
                     Locale.US,
-                    "AC3 audio stream sampleRateCode: %d, bsid: %d, bitRateCode: %d, "
-                            + "surroundMode: %d, bsmod: %d, numChannels: %d, fullSvc: %s, langCod: %d, "
-                            + "langCod2: %d, mainId: %d, priority: %d, avcflags: %d, text: %s, language: %s"
-                            + ", language2: %s",
+                    "AC3 audio stream sampleRateCode: %d, bsid: %d, bitRateCode: %d, surroundMode:"
+                            + " %d, bsmod: %d, numChannels: %d, fullSvc: %s, langCod: %d, langCod2:"
+                            + " %d, mainId: %d, priority: %d, avcflags: %d, text: %s, language: %s,"
+                            + " language2: %s",
                     mSampleRateCode,
                     mBsid,
                     mBitRateCode,
@@ -832,7 +832,7 @@ public class PsipData {
             }
             ArrayList<String> languages = new ArrayList<>();
             for (AtscAudioTrack audioTrack : mAudioTracks) {
-                languages.add(audioTrack.language);
+                languages.add(audioTrack.getLanguage());
             }
             return TextUtils.join(",", languages);
         }

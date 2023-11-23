@@ -15,21 +15,50 @@
  */
 package android.car;
 
-import android.annotation.SystemApi;
+import android.annotation.IntDef;
+import android.car.hardware.CarPropertyConfig;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
- * VehicleAreaWheel is an abstraction for the wheels on a car.  It exists to isolate the java APIs
- * from the VHAL definitions.
- * @hide
+ * Object used to indicate area value for car properties which have area type
+ * {@link VehicleAreaType#VEHICLE_AREA_TYPE_WHEEL}.
+ * <p>
+ * The constants defined by {@link VehicleAreaWheel} indicate the position for area type
+ * {@link VehicleAreaType#VEHICLE_AREA_TYPE_WHEEL}. A property can have a single or a combination of
+ * positions. Developers can query the position using
+ * {@link android.car.hardware.property.CarPropertyManager#getAreaId(int, int)}.
+ * </p><p>
+ * Refer to {@link CarPropertyConfig#getAreaIds()} for more information about areaId.
+ * </p>
  */
-@SystemApi
+
+// This class is only designed to provide constants for VehicleAreaWheel. The constants should
+// exactly be same as VehicleAreaWheel in /hardware/interfaces/automotive/vehicle/2.0/types.hal.
 public final class VehicleAreaWheel {
+    /** Unknown wheel*/
     public static final int WHEEL_UNKNOWN = 0x00;
+    /** Constant for left front wheel.*/
     public static final int WHEEL_LEFT_FRONT = 0x01;
+    /** Constant for right front wheel.*/
     public static final int WHEEL_RIGHT_FRONT = 0x02;
+    /** Constant for left rear wheel.*/
     public static final int WHEEL_LEFT_REAR = 0x04;
+    /** Constant for right rear wheel.*/
     public static final int WHEEL_RIGHT_REAR = 0x08;
 
+    /** @hide */
+    @IntDef(prefix = {"WHEEL_"}, value = {
+            WHEEL_UNKNOWN,
+            WHEEL_LEFT_FRONT,
+            WHEEL_RIGHT_FRONT,
+            WHEEL_LEFT_REAR,
+            WHEEL_RIGHT_REAR
+    })
+    @Retention(RetentionPolicy.SOURCE)
+
+    public  @interface Enum {}
     private VehicleAreaWheel() {}
 }
 

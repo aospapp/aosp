@@ -25,7 +25,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             fe:dc:e3:01:0f:c9:48:ff
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=FR, O=Dhimyotis, CN=Certigna
         Validity
             Not Before: Jun 29 15:13:05 2007 GMT
@@ -33,7 +33,7 @@ Certificate:
         Subject: C=FR, O=Dhimyotis, CN=Certigna
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:c8:68:f1:c9:d6:d6:b3:34:75:26:82:1e:ec:b4:
                     be:ea:5c:e1:26:ed:11:47:61:e1:a2:7c:16:78:40:

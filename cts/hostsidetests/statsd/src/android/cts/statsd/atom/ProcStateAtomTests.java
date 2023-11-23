@@ -15,6 +15,8 @@
  */
 package android.cts.statsd.atom;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.app.ProcessStateEnum; // From enums.proto for atoms.proto's UidProcessStateChanged.
 
 import com.android.os.AtomsProto.Atom;
@@ -38,7 +40,7 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     private static final int WAIT_TIME_FOR_CONFIG_UPDATE_MS = 200;
     // ActivityManager can take a while to register screen state changes, mandating an extra delay.
     private static final int WAIT_TIME_FOR_CONFIG_AND_SCREEN_MS = 1_000;
-    private static final int EXTRA_WAIT_TIME_MS = 1_000; // as buffer when proc state changing.
+    private static final int EXTRA_WAIT_TIME_MS = 5_000; // as buffer when proc state changing.
     private static final int STATSD_REPORT_WAIT_TIME_MS = 500; // make sure statsd finishes log.
 
     private static final String FEATURE_WATCH = "android.hardware.type.watch";
@@ -94,9 +96,6 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     }
 
     public void testForegroundService() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         Set<Integer> onStates = new HashSet<>(Arrays.asList(
                 ProcessStateEnum.PROCESS_STATE_FOREGROUND_SERVICE_VALUE));
         Set<Integer> offStates = complement(onStates);
@@ -106,8 +105,8 @@ public class ProcStateAtomTests extends ProcStateTestCase {
         Thread.sleep(WAIT_TIME_FOR_CONFIG_UPDATE_MS);
 
         executeForegroundService();
-        final int waitTime = SLEEP_OF_FOREGROUND_SERVICE + EXTRA_WAIT_TIME_MS;
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
+        final int waitTime = SLEEP_OF_FOREGROUND_SERVICE;
+        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
 
         List<EventMetricData> data = getEventMetricDataList();
         popUntilFind(data, onStates, PROC_STATE_FUNCTION); // clear out initial proc states.
@@ -115,9 +114,6 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     }
 
     public void testForeground() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         Set<Integer> onStates = new HashSet<>(Arrays.asList(
                 ProcessStateEnum.PROCESS_STATE_IMPORTANT_FOREGROUND_VALUE));
         // There are no offStates, since the app remains in foreground until killed.
@@ -137,9 +133,6 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     }
 
     public void testBackground() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         Set<Integer> onStates = BG_STATES;
         Set<Integer> offStates = complement(onStates);
 
@@ -148,8 +141,8 @@ public class ProcStateAtomTests extends ProcStateTestCase {
         Thread.sleep(WAIT_TIME_FOR_CONFIG_UPDATE_MS);
 
         executeBackgroundService(ACTION_BACKGROUND_SLEEP);
-        final int waitTime = SLEEP_OF_ACTION_BACKGROUND_SLEEP + EXTRA_WAIT_TIME_MS;
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
+        final int waitTime = SLEEP_OF_ACTION_BACKGROUND_SLEEP;
+        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
 
         List<EventMetricData> data = getEventMetricDataList();
         popUntilFind(data, onStates, PROC_STATE_FUNCTION); // clear out initial proc states.
@@ -157,9 +150,6 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     }
 
     public void testTop() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         Set<Integer> onStates = new HashSet<>(Arrays.asList(
                 ProcessStateEnum.PROCESS_STATE_TOP_VALUE));
         Set<Integer> offStates = complement(onStates);
@@ -170,8 +160,8 @@ public class ProcStateAtomTests extends ProcStateTestCase {
         Thread.sleep(WAIT_TIME_FOR_CONFIG_AND_SCREEN_MS);
 
         executeForegroundActivity(ACTION_SLEEP_WHILE_TOP);
-        final int waitTime = SLEEP_OF_ACTION_SLEEP_WHILE_TOP + EXTRA_WAIT_TIME_MS;
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
+        final int waitTime = SLEEP_OF_ACTION_SLEEP_WHILE_TOP;
+        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
 
         List<EventMetricData> data = getEventMetricDataList();
         popUntilFind(data, onStates, PROC_STATE_FUNCTION); // clear out initial proc states.
@@ -179,9 +169,6 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     }
 
     public void testTopSleeping() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         if (!hasFeature(FEATURE_WATCH, false)) return;
         Set<Integer> onStates = new HashSet<>(Arrays.asList(
                 ProcessStateEnum.PROCESS_STATE_TOP_SLEEPING_VALUE));
@@ -210,9 +197,6 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     }
 
     public void testCached() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         Set<Integer> onStates = CACHED_STATES;
         Set<Integer> offStates = complement(onStates);
 
@@ -245,11 +229,8 @@ public class ProcStateAtomTests extends ProcStateTestCase {
     }
 
     public void testValidityOfStates() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
-        assertFalse("UNKNOWN_TO_PROTO should not be a valid state",
-                ALL_STATES.contains(ProcessStateEnum.PROCESS_STATE_UNKNOWN_TO_PROTO_VALUE));
+        assertWithMessage("UNKNOWN_TO_PROTO should not be a valid state")
+            .that(ALL_STATES).doesNotContain(ProcessStateEnum.PROCESS_STATE_UNKNOWN_TO_PROTO_VALUE);
     }
 
     /** Returns the a set containing elements of a that are not elements of b. */

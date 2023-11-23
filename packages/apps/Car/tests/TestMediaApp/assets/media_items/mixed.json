@@ -1,7 +1,7 @@
 {
   "FLAGS": "browsable",
   "PLAYABLE_HINT": "GRID",
-  "BROWSABLE_HINT": "LIST",
+  "BROWSABLE_HINT": "LIST_CATEGORY",
 
   "METADATA": {
     "MEDIA_ID": "mixed",

@@ -23,6 +23,7 @@ import android.content.Context;
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 import com.android.car.setupwizardlib.InitialLockSetupConstants.ValidateLockFlags;
+import com.android.internal.widget.LockscreenCredential;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.List;
  */
 public class PasswordHelper {
     public static final String EXTRA_CURRENT_SCREEN_LOCK = "extra_current_screen_lock";
+    public static final String EXTRA_CURRENT_PASSWORD_QUALITY = "extra_current_password_quality";
     /**
      * Required minimum length of PIN or password.
      */
@@ -65,8 +67,9 @@ public class PasswordHelper {
      * @return the error code which should be non-zero where there is error. Otherwise
      * {@link #NO_ERROR} should be returned.
      */
-    public int validate(byte[] password) {
-        return mIsPin ? validatePin(password) : validatePassword(password);
+    public int validate(LockscreenCredential password) {
+        return mIsPin ? validatePin(password.getCredential())
+                : validatePassword(password.getCredential());
     }
 
     /**

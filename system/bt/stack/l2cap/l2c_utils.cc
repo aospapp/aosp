@@ -1902,13 +1902,13 @@ uint8_t l2cu_process_peer_cfg_req(tL2C_CCB* p_ccb, tL2CAP_CFG_INFO* p_cfg) {
     /* Make sure service type is not a reserved value; otherwise let upper
        layer decide if acceptable
     */
-    if (p_cfg->qos.service_type <= GUARANTEED) {
+    if (p_cfg->qos.service_type <= SVC_TYPE_GUARANTEED) {
       p_ccb->peer_cfg.qos = p_cfg->qos;
       p_ccb->peer_cfg.qos_present = true;
       p_ccb->peer_cfg_bits |= L2CAP_CH_CFG_MASK_QOS;
     } else /* Illegal service type value */
     {
-      p_cfg->qos.service_type = BEST_EFFORT;
+      p_cfg->qos.service_type = SVC_TYPE_BEST_EFFORT;
       qos_type_ok = false;
     }
   }
@@ -2244,7 +2244,8 @@ bool l2cu_create_conn_after_switch(tL2C_LCB* p_lcb) {
 
   /* Check with the BT manager if details about remote device are known */
   p_inq_info = BTM_InqDbRead(p_lcb->remote_bd_addr);
-  if (p_inq_info != NULL) {
+  if ((p_inq_info != NULL) &&
+      (p_inq_info->results.inq_result_type & BTM_INQ_RESULT_BR)) {
     page_scan_rep_mode = p_inq_info->results.page_scan_rep_mode;
     page_scan_mode = p_inq_info->results.page_scan_mode;
     clock_offset = (uint16_t)(p_inq_info->results.clock_offset);

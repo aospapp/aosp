@@ -28,6 +28,37 @@
   "\n" \
   "var object;\n" \
 
+#define B_139806216_JS \
+  u""\
+  "function FindProxyForURL(url, host){\n" \
+  "    var x = new ArrayBuffer(1);\n" \
+  "    return \"DIRECT\";\n" \
+  "}\n" \
+
+#define B_147664838_JS \
+  u""\
+  "function FindProxyForURL(url, host){\n" \
+  "  let re = /x/y;\n" \
+  "  let cnt = 0;\n" \
+  "  let str = re[Symbol.replace](\"x\", {\n" \
+  "    toString: () => {\n" \
+  "      cnt++;\n" \
+  "      if (cnt == 2) {\n" \
+  "        re.lastIndex = {valueOf: () => {\n" \
+  "          re.x = 42;\n" \
+  "          return 0;\n" \
+  "        }};\n" \
+  "      }\n" \
+  "      return 'y$';\n" \
+  "    }\n" \
+  "  });\n" \
+  "  if (str != \"y$\") {\n" \
+  "    throw \"regex mutated\";\n" \
+  "    return \"FAIL\";\n" \
+  "  }\n" \
+  "  return \"DIRECT\";\n" \
+  "}\n" \
+
 #define BINDING_FROM_GLOBAL_JS \
   u""\
   "// Calls a bindings outside of FindProxyForURL(). This causes the code to\n" \

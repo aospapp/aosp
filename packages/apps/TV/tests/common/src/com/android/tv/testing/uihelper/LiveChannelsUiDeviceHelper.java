@@ -30,7 +30,7 @@ import com.android.tv.common.CommonConstants;
 import com.android.tv.testing.utils.Utils;
 import junit.framework.Assert;
 
-/** Helper for testing the Live TV Application. */
+/** Helper for testing the TV application. */
 public class LiveChannelsUiDeviceHelper extends BaseUiDeviceHelper {
     private static final String TAG = "LiveChannelsUiDevice";
     private static final int APPLICATION_START_TIMEOUT_MSEC = 5000;
@@ -56,7 +56,7 @@ public class LiveChannelsUiDeviceHelper extends BaseUiDeviceHelper {
         waitForCondition(mUiDevice, Until.hasObject(Constants.TV_VIEW));
 
         Assert.assertTrue(
-            Constants.TV_APP_PACKAGE + " did not start",
+                Constants.TV_APP_PACKAGE + " did not start",
                 mUiDevice.wait(
                         Until.hasObject(By.pkg(Constants.TV_APP_PACKAGE).depth(0)),
                         APPLICATION_START_TIMEOUT_MSEC));

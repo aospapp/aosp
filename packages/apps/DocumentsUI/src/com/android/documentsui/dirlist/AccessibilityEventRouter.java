@@ -27,6 +27,8 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.Accessibilit
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerViewAccessibilityDelegate;
 
+import com.android.documentsui.BreadcrumbHolder;
+
 import java.util.function.Function;
 
 /**
@@ -64,7 +66,11 @@ public class AccessibilityEventRouter extends RecyclerViewAccessibilityDelegate 
                 // if the viewHolder is a DocumentsHolder instance and the ItemDetails
                 // is null, it can't be clicked
                 if (holder instanceof DocumentHolder) {
-                    if (((DocumentHolder)holder).getItemDetails() != null) {
+                    if (((DocumentHolder) holder).getItemDetails() != null) {
+                        addAction(info);
+                    }
+                } else if (holder instanceof BreadcrumbHolder) {
+                    if (!((BreadcrumbHolder) holder).isLast()) {
                         addAction(info);
                     }
                 } else {

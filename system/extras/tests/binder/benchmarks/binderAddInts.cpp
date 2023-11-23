@@ -81,7 +81,6 @@ class AddIntsService : public BBinder
 static bool server(void);
 static void BM_addInts(benchmark::State& state);
 static void bindCPU(unsigned int cpu);
-static ostream &operator<<(ostream &stream, const String16& str);
 static ostream &operator<<(ostream &stream, const cpu_set_t& set);
 
 static bool server(void)
@@ -216,19 +215,6 @@ static void bindCPU(unsigned int cpu)
         perror(NULL);
         exit(30);
     }
-}
-
-static ostream &operator<<(ostream &stream, const String16& str)
-{
-    for (unsigned int n1 = 0; n1 < str.size(); n1++) {
-        if ((str[n1] > 0x20) && (str[n1] < 0x80)) {
-            stream << (char) str[n1];
-        } else {
-            stream << '~';
-        }
-    }
-
-    return stream;
 }
 
 static ostream &operator<<(ostream &stream, const cpu_set_t& set)

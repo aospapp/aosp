@@ -94,8 +94,13 @@ public abstract class UrisSupplier implements Parcelable {
         return create(uris, storage);
     }
 
-    @VisibleForTesting
-    static UrisSupplier create(List<Uri> uris, ClipStore storage) throws IOException {
+    /**
+     * Get a uri supplier.
+     *
+     * @param uris uris of the selection.
+     * @param storage the ClipStorage.
+     */
+    public static UrisSupplier create(List<Uri> uris, ClipStore storage) throws IOException {
         UrisSupplier urisSupplier = (uris.size() > Shared.MAX_DOCS_IN_INTENT)
                 ? new JumboUrisSupplier(uris, storage)
                 : new StandardUrisSupplier(uris);

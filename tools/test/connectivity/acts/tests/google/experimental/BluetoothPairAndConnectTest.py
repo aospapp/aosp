@@ -27,8 +27,11 @@ from acts.controllers.buds_lib.test_actions.bt_utils import BTUtilsError
 from acts.controllers.buds_lib.test_actions.apollo_acts import ApolloTestActions
 from acts.signals import TestFailure
 from acts.signals import TestPass
+from acts.test_decorators import test_tracker_info
+from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import factory_reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import enable_bluetooth
+from acts.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
 from acts.test_utils.bt.loggers.bluetooth_metric_logger import BluetoothMetricLogger
 from acts.utils import set_location_service
 
@@ -52,8 +55,8 @@ class BluetoothPairAndConnectTest(BaseTestClass):
        bt_utils: BTUtils test action object
     """
 
-    def __init__(self, configs):
-        BaseTestClass.__init__(self, configs)
+    def setup_class(self):
+        super().setup_class()
         # Sanity check of the devices under test
         # TODO(b/119051823): Investigate using a config validator to replace this.
         if not self.android_devices:
@@ -74,10 +77,10 @@ class BluetoothPairAndConnectTest(BaseTestClass):
         self.bt_logger = BluetoothMetricLogger.for_test_case()
 
     def setup_test(self):
+        setup_multiple_devices_for_bt_test(self.android_devices)
         # Make sure Bluetooth is on
         enable_bluetooth(self.phone.droid, self.phone.ed)
         set_location_service(self.phone, True)
-        factory_reset_bluetooth([self.phone])
         self.apollo_act.factory_reset()
         self.log.info('===== START BLUETOOTH PAIR AND CONNECT TEST  =====')
 
@@ -116,6 +119,8 @@ class BluetoothPairAndConnectTest(BaseTestClass):
 
         return pair_time, connection_time
 
+    @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='c914fd08-350d-465a-96cf-970d40e71060')
     def test_bluetooth_connect(self):
         # Store metrics
         metrics = {}

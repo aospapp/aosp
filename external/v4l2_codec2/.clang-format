@@ -31,3 +31,5 @@ IndentCaseLabels: false
 ReflowComments: false
 # Android does support C++11 now.
 Standard: Cpp11
+# Don't merge include blocks.
+IncludeBlocks: Preserve

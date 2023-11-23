@@ -17,11 +17,6 @@ import re
 import struct
 import sys
 import time
-#import traceback
-# Please limit the use of the uinput library to this file. Try not to spread
-# dependencies and abstract as much as possible to make switching to a different
-# input library in the future easier.
-import uinput
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
@@ -30,6 +25,12 @@ from autotest_lib.client.common_lib import test as test_utils
 from autotest_lib.client.cros.input_playback import input_playback
 from autotest_lib.client.cros.power import power_utils
 from functools import wraps
+
+# The uinput module might not be available at SDK test time.
+try:
+  from autotest_lib.client.cros.graphics import graphics_uinput
+except ImportError:
+  graphics_uinput = None
 
 
 class GraphicsTest(test.test):
@@ -78,14 +79,16 @@ class GraphicsTest(test.test):
             replace_existing_values=True
         )
 
-        # Enable the graphics tests to use keyboard interaction.
-        self._player = input_playback.InputPlayback()
-        self._player.emulate(input_type='keyboard')
-        self._player.find_connected_inputs()
-
         if hasattr(super(GraphicsTest, self), "initialize"):
             test_utils._cherry_pick_call(super(GraphicsTest, self).initialize,
                                          *args, **kwargs)
+
+    def input_check(self):
+        """Check if it exists and initialize input player."""
+        if self._player is None:
+            self._player = input_playback.InputPlayback()
+            self._player.emulate(input_type='keyboard')
+            self._player.find_connected_inputs()
 
     def cleanup(self, *args, **kwargs):
         """Finalize state checker and report values to perf dashboard."""
@@ -116,8 +119,12 @@ class GraphicsTest(test.test):
         """
         # Assume failed at the beginning
         self.add_failures(name, subtest=subtest)
-        yield {}
-        self.remove_failures(name, subtest=subtest)
+        try:
+            yield {}
+            self.remove_failures(name, subtest=subtest)
+        except (error.TestWarn, error.TestNAError) as e:
+            self.remove_failures(name, subtest=subtest)
+            raise e
 
     @classmethod
     def failure_report_decorator(cls, name, subtest=None):
@@ -262,12 +269,14 @@ class GraphicsTest(test.test):
 
     def open_vt1(self):
         """Switch to VT1 with keyboard."""
+        self.input_check()
         self._player.blocking_playback_of_default_file(
             input_type='keyboard', filename='keyboard_ctrl+alt+f1')
         time.sleep(5)
 
     def open_vt2(self):
         """Switch to VT2 with keyboard."""
+        self.input_check()
         self._player.blocking_playback_of_default_file(
             input_type='keyboard', filename='keyboard_ctrl+alt+f2')
         time.sleep(5)
@@ -319,9 +328,9 @@ def hide_typing_cursor():
 def screen_wakeup():
     """Wake up the screen if it is dark."""
     # Move the mouse a little bit to wake up the screen.
-    device = _get_uinput_device_mouse_rel()
-    _uinput_emit(device, 'REL_X', 1)
-    _uinput_emit(device, 'REL_X', -1)
+    device = graphics_uinput.get_device_mouse_rel()
+    graphics_uinput.emit(device, 'REL_X', 1)
+    graphics_uinput.emit(device, 'REL_X', -1)
 
 
 def switch_screen_on(on):
@@ -333,116 +342,6 @@ def switch_screen_on(on):
     raise error.TestFail('switch_screen_on is not implemented.')
 
 
-# Don't create a device during build_packages or for tests that don't need it.
-uinput_device_keyboard = None
-uinput_device_touch = None
-uinput_device_mouse_rel = None
-
-# Don't add more events to this list than are used. For a complete list of
-# available events check python2.7/site-packages/uinput/ev.py.
-UINPUT_DEVICE_EVENTS_KEYBOARD = [
-    uinput.KEY_F4,
-    uinput.KEY_F11,
-    uinput.KEY_KPPLUS,
-    uinput.KEY_KPMINUS,
-    uinput.KEY_LEFTCTRL,
-    uinput.KEY_TAB,
-    uinput.KEY_UP,
-    uinput.KEY_DOWN,
-    uinput.KEY_LEFT,
-    uinput.KEY_RIGHT,
-    uinput.KEY_RIGHTSHIFT,
-    uinput.KEY_LEFTALT,
-    uinput.KEY_A,
-    uinput.KEY_M,
-    uinput.KEY_Q,
-    uinput.KEY_V
-]
-# TODO(ihf): Find an ABS sequence that actually works.
-UINPUT_DEVICE_EVENTS_TOUCH = [
-    uinput.BTN_TOUCH,
-    uinput.ABS_MT_SLOT,
-    uinput.ABS_MT_POSITION_X + (0, 2560, 0, 0),
-    uinput.ABS_MT_POSITION_Y + (0, 1700, 0, 0),
-    uinput.ABS_MT_TRACKING_ID + (0, 10, 0, 0),
-    uinput.BTN_TOUCH
-]
-UINPUT_DEVICE_EVENTS_MOUSE_REL = [
-    uinput.REL_X,
-    uinput.REL_Y,
-    uinput.BTN_MOUSE,
-    uinput.BTN_LEFT,
-    uinput.BTN_RIGHT
-]
-
-
-def _get_uinput_device_keyboard():
-    """
-    Lazy initialize device and return it. We don't want to create a device
-    during build_packages or for tests that don't need it, hence init with None.
-    """
-    global uinput_device_keyboard
-    if uinput_device_keyboard is None:
-        uinput_device_keyboard = uinput.Device(UINPUT_DEVICE_EVENTS_KEYBOARD)
-    return uinput_device_keyboard
-
-
-def _get_uinput_device_mouse_rel():
-    """
-    Lazy initialize device and return it. We don't want to create a device
-    during build_packages or for tests that don't need it, hence init with None.
-    """
-    global uinput_device_mouse_rel
-    if uinput_device_mouse_rel is None:
-        uinput_device_mouse_rel = uinput.Device(UINPUT_DEVICE_EVENTS_MOUSE_REL)
-    return uinput_device_mouse_rel
-
-
-def _get_uinput_device_touch():
-    """
-    Lazy initialize device and return it. We don't want to create a device
-    during build_packages or for tests that don't need it, hence init with None.
-    """
-    global uinput_device_touch
-    if uinput_device_touch is None:
-        uinput_device_touch = uinput.Device(UINPUT_DEVICE_EVENTS_TOUCH)
-    return uinput_device_touch
-
-
-def _uinput_translate_name(event_name):
-    """
-    Translates string |event_name| to uinput event.
-    """
-    return getattr(uinput, event_name)
-
-
-def _uinput_emit(device, event_name, value, syn=True):
-    """
-    Wrapper for uinput.emit. Emits event with value.
-    Example: ('REL_X', 20), ('BTN_RIGHT', 1)
-    """
-    event = _uinput_translate_name(event_name)
-    device.emit(event, value, syn)
-
-
-def _uinput_emit_click(device, event_name, syn=True):
-    """
-    Wrapper for uinput.emit_click. Emits click event. Only KEY and BTN events
-    are accepted, otherwise ValueError is raised. Example: 'KEY_A'
-    """
-    event = _uinput_translate_name(event_name)
-    device.emit_click(event, syn)
-
-
-def _uinput_emit_combo(device, event_names, syn=True):
-    """
-    Wrapper for uinput.emit_combo. Emits sequence of events.
-    Example: ['KEY_LEFTCTRL', 'KEY_LEFTALT', 'KEY_F5']
-    """
-    events = [_uinput_translate_name(en) for en in event_names]
-    device.emit_combo(events, syn)
-
-
 def press_keys(key_list):
     """Presses the given keys as one combination.
 
@@ -450,7 +349,7 @@ def press_keys(key_list):
 
     @param key: A list of key strings, e.g. ['LEFTCTRL', 'F4']
     """
-    _uinput_emit_combo(_get_uinput_device_keyboard(), key_list)
+    graphics_uinput.emit_combo(graphics_uinput.get_device_keyboard(), key_list)
 
 
 def click_mouse():
@@ -459,18 +358,18 @@ def click_mouse():
     """
     logging.info('click_mouse()')
     # Move a little to make the cursor appear.
-    device = _get_uinput_device_mouse_rel()
-    _uinput_emit(device, 'REL_X', 1)
+    device = graphics_uinput.get_device_mouse_rel()
+    graphics_uinput.emit(device, 'REL_X', 1)
     # Some sleeping is needed otherwise events disappear.
     time.sleep(0.1)
     # Move cursor back to not drift.
-    _uinput_emit(device, 'REL_X', -1)
+    graphics_uinput.emit(device, 'REL_X', -1)
     time.sleep(0.1)
     # Click down.
-    _uinput_emit(device, 'BTN_LEFT', 1)
+    graphics_uinput.emit(device, 'BTN_LEFT', 1)
     time.sleep(0.2)
     # Release click.
-    _uinput_emit(device, 'BTN_LEFT', 0)
+    graphics_uinput.emit(device, 'BTN_LEFT', 0)
 
 
 # TODO(ihf): this function is broken. Make it work.
@@ -483,14 +382,16 @@ def activate_focus_at(rel_x, rel_y):
     @param rel_y: relattive vertical position between 0 and 1.
     """
     width, height = get_internal_resolution()
-    device = _get_uinput_device_touch()
-    _uinput_emit(device, 'ABS_MT_SLOT', 0, syn=False)
-    _uinput_emit(device, 'ABS_MT_TRACKING_ID', 1, syn=False)
-    _uinput_emit(device, 'ABS_MT_POSITION_X', int(rel_x * width), syn=False)
-    _uinput_emit(device, 'ABS_MT_POSITION_Y', int(rel_y * height), syn=False)
-    _uinput_emit(device, 'BTN_TOUCH', 1, syn=True)
+    device = graphics_uinput.get_device_touch()
+    graphics_uinput.emit(device, 'ABS_MT_SLOT', 0, syn=False)
+    graphics_uinput.emit(device, 'ABS_MT_TRACKING_ID', 1, syn=False)
+    graphics_uinput.emit(device, 'ABS_MT_POSITION_X', int(rel_x * width),
+                         syn=False)
+    graphics_uinput.emit(device, 'ABS_MT_POSITION_Y', int(rel_y * height),
+                         syn=False)
+    graphics_uinput.emit(device, 'BTN_TOUCH', 1, syn=True)
     time.sleep(0.2)
-    _uinput_emit(device, 'BTN_TOUCH', 0, syn=True)
+    graphics_uinput.emit(device, 'BTN_TOUCH', 0, syn=True)
 
 
 def take_screenshot(resultsdir, fname_prefix):
@@ -544,11 +445,30 @@ def take_screenshot_crop(fullpath, box=None, crtc_id=None):
     return fullpath
 
 
+# id      encoder status          name            size (mm)       modes   encoders
+# 39      0       connected       eDP-1           256x144         1       38
 _MODETEST_CONNECTOR_PATTERN = re.compile(
-    r'^(\d+)\s+\d+\s+(connected|disconnected)\s+(\S+)\s+\d+x\d+\s+\d+\s+\d+')
+    r'^(\d+)\s+(\d+)\s+(connected|disconnected)\s+(\S+)\s+\d+x\d+\s+\d+\s+\d+')
 
+# id      crtc    type    possible crtcs  possible clones
+# 38      0       TMDS    0x00000002      0x00000000
+_MODETEST_ENCODER_PATTERN = re.compile(
+    r'^(\d+)\s+(\d+)\s+\S+\s+0x[0-9a-fA-F]+\s+0x[0-9a-fA-F]+')
+
+# Group names match the drmModeModeInfo struct
 _MODETEST_MODE_PATTERN = re.compile(
-    r'\s+.+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+flags:.+type:'
+    r'\s+(?P<name>.+)'
+    r'\s+(?P<vrefresh>\d+)'
+    r'\s+(?P<hdisplay>\d+)'
+    r'\s+(?P<hsync_start>\d+)'
+    r'\s+(?P<hsync_end>\d+)'
+    r'\s+(?P<htotal>\d+)'
+    r'\s+(?P<vdisplay>\d+)'
+    r'\s+(?P<vsync_start>\d+)'
+    r'\s+(?P<vsync_end>\d+)'
+    r'\s+(?P<vtotal>\d+)'
+    r'\s+(?P<clock>\d+)'
+    r'\s+flags:.+type:'
     r' preferred')
 
 _MODETEST_CRTCS_START_PATTERN = re.compile(r'^id\s+fb\s+pos\s+size')
@@ -565,12 +485,19 @@ _MODETEST_PLANE_PATTERN = re.compile(
 Connector = collections.namedtuple(
     'Connector', [
         'cid',  # connector id (integer)
+        'eid',  # encoder id (integer)
         'ctype',  # connector type, e.g. 'eDP', 'HDMI-A', 'DP'
         'connected',  # boolean
-        'size',  # current screen size, e.g. (1024, 768)
+        'size',  # current screen size in mm, e.g. (256, 144)
         'encoder',  # encoder id (integer)
         # list of resolution tuples, e.g. [(1920,1080), (1600,900), ...]
         'modes',
+    ])
+
+Encoder = collections.namedtuple(
+    'Encoder', [
+        'eid',  # encoder id (integer)
+        'crtc_id',  # CRTC id (integer)
     ])
 
 CRTC = collections.namedtuple(
@@ -579,6 +506,7 @@ CRTC = collections.namedtuple(
         'fb',  # fb id
         'pos',  # position, e.g. (0,0)
         'size',  # size, e.g. (1366,768)
+        'is_internal',  # True if for the internal display
     ])
 
 Plane = collections.namedtuple(
@@ -636,27 +564,78 @@ def get_modetest_connectors():
         connector_match = re.match(_MODETEST_CONNECTOR_PATTERN, line)
         if connector_match is not None:
             cid = int(connector_match.group(1))
+            eid = int(connector_match.group(2))
             connected = False
-            if connector_match.group(2) == 'connected':
+            if connector_match.group(3) == 'connected':
                 connected = True
-            ctype = connector_match.group(3)
+            ctype = connector_match.group(4)
             size = (-1, -1)
             encoder = -1
             modes = None
             connectors.append(
-                Connector(cid, ctype, connected, size, encoder, modes))
+                Connector(cid, eid, ctype, connected, size, encoder, modes))
         else:
             # See if we find corresponding line with modes, sizes etc.
             mode_match = re.match(_MODETEST_MODE_PATTERN, line)
             if mode_match is not None:
-                size = (int(mode_match.group(1)), int(mode_match.group(2)))
+                size = (int(mode_match.group('hdisplay')),
+                        int(mode_match.group('vdisplay')))
                 # Update display size of last connector in list.
                 c = connectors.pop()
                 connectors.append(
                     Connector(
-                        c.cid, c.ctype, c.connected, size, c.encoder,
+                        c.cid, c.eid, c.ctype, c.connected, size, c.encoder,
                         c.modes))
     return connectors
+
+
+def get_modetest_encoders():
+    """
+    Retrieves a list of Encoders using modetest.
+
+    Return value: List of Encoders.
+    """
+    encoders = []
+    modetest_output = utils.system_output('modetest -e')
+    for line in modetest_output.splitlines():
+        encoder_match = re.match(_MODETEST_ENCODER_PATTERN, line)
+        if encoder_match is None:
+            continue
+
+        eid = int(encoder_match.group(1))
+        crtc_id = int(encoder_match.group(2))
+        encoders.append(Encoder(eid, crtc_id))
+    return encoders
+
+
+def find_eid_from_crtc_id(crtc_id):
+    """
+    Finds the integer Encoder ID matching a CRTC ID.
+
+    @param crtc_id: The integer CRTC ID.
+
+    @return: The integer Encoder ID or None.
+    """
+    encoders = get_modetest_encoders()
+    for encoder in encoders:
+        if encoder.crtc_id == crtc_id:
+            return encoder.eid
+    return None
+
+
+def find_connector_from_eid(eid):
+    """
+    Finds the Connector object matching an Encoder ID.
+
+    @param eid: The integer Encoder ID.
+
+    @return: The Connector object or None.
+    """
+    connectors = get_modetest_connectors()
+    for connector in connectors:
+        if connector.eid == eid:
+            return connector
+    return None
 
 
 def get_modetest_crtcs():
@@ -683,7 +662,15 @@ def get_modetest_crtcs():
                 # CRTCs with fb=0 are disabled, but lets skip anything with
                 # trivial width/height just in case.
                 if not (fb == 0 or width == 0 or height == 0):
-                    crtcs.append(CRTC(crtc_id, fb, (x, y), (width, height)))
+                    eid = find_eid_from_crtc_id(crtc_id)
+                    connector = find_connector_from_eid(eid)
+                    if connector is None:
+                        is_internal = False
+                    else:
+                        is_internal = (connector.ctype ==
+                                       get_internal_connector_name())
+                    crtcs.append(CRTC(crtc_id, fb, (x, y), (width, height),
+                                      is_internal))
             elif line and not line[0].isspace():
                 return crtcs
         if re.match(_MODETEST_CRTCS_START_PATTERN, line) is not None:
@@ -746,11 +733,26 @@ def get_output_rect(output):
     return (0, 0, 0, 0)
 
 
+def get_internal_crtc():
+    for crtc in get_modetest_crtcs():
+        if crtc.is_internal:
+            return crtc
+    return None
+
+
+def get_external_crtc(index=0):
+    for crtc in get_modetest_crtcs():
+        if not crtc.is_internal:
+            if index == 0:
+                return crtc
+            index -= 1
+    return None
+
+
 def get_internal_resolution():
-    if has_internal_display():
-        crtcs = get_modetest_crtcs()
-        if len(crtcs) > 0:
-            return crtcs[0].size
+    crtc = get_internal_crtc()
+    if crtc:
+        return crtc.size
     return (-1, -1)
 
 
@@ -768,10 +770,9 @@ def get_external_resolution():
     @return A tuple of (width, height) or None if no external display is
             connected.
     """
-    offset = 1 if has_internal_display() else 0
-    crtcs = get_modetest_crtcs()
-    if len(crtcs) > offset and crtcs[offset].size != (0, 0):
-        return crtcs[offset].size
+    crtc = get_external_crtc()
+    if crtc:
+        return crtc.size
     return None
 
 
@@ -798,19 +799,17 @@ def set_display_output(output_name, enable):
 
 
 # TODO(ihf): Fix this for multiple external connectors.
-def get_external_crtc(index=0):
-    offset = 1 if has_internal_display() else 0
-    crtcs = get_modetest_crtcs()
-    if len(crtcs) > offset + index:
-        return crtcs[offset + index].id
+def get_external_crtc_id(index=0):
+    crtc = get_external_crtc(index)
+    if crtc is not None:
+        return crtc.id
     return -1
 
 
-def get_internal_crtc():
-    if has_internal_display():
-        crtcs = get_modetest_crtcs()
-        if len(crtcs) > 0:
-            return crtcs[0].id
+def get_internal_crtc_id():
+    crtc = get_internal_crtc()
+    if crtc is not None:
+        return crtc.id
     return -1
 
 
@@ -956,6 +955,10 @@ class GraphicsKernelMemory(object):
         'gem_objects': ['/sys/kernel/debug/dri/0/i915_gem_objects'],
         'memory': ['/sys/kernel/debug/dri/0/i915_gem_gtt'],
     }
+    # In Linux Kernel 5, i915_gem_gtt merged into i915_gem_objects
+    i915_fields_kernel_5 = {
+        'gem_objects': ['/sys/kernel/debug/dri/0/i915_gem_objects'],
+    }
     cirrus_fields = {}
     virtio_fields = {}
 
@@ -965,6 +968,7 @@ class GraphicsKernelMemory(object):
         'cirrus': cirrus_fields,
         'exynos5': exynos_fields,
         'i915': i915_fields,
+        'i915_kernel_5': i915_fields_kernel_5,
         'mediatek': mediatek_fields,
         'qualcomm': qualcomm_fields,
         'rockchip': rockchip_fields,
@@ -997,12 +1001,15 @@ class GraphicsKernelMemory(object):
         soc = utils.get_cpu_soc_family()
 
         arch = utils.get_cpu_arch()
+        kernel_version = utils.get_kernel_version()[0:4].rstrip(".")
         if arch == 'x86_64' or arch == 'i386':
             pci_vga_device = utils.run("lspci | grep VGA").stdout.rstrip('\n')
             if "Advanced Micro Devices" in pci_vga_device:
                 soc = 'amdgpu'
             elif "Intel Corporation" in pci_vga_device:
                 soc = 'i915'
+                if utils.compare_versions(kernel_version, "4.19") > 0:
+                    soc = 'i915_kernel_5'
             elif "Cirrus Logic" in pci_vga_device:
                 # Used on qemu with kernels 3.18 and lower. Limited to 800x600
                 # resolution.
@@ -1022,7 +1029,7 @@ class GraphicsKernelMemory(object):
             possible_field_paths = fields[field_name]
             field_value = None
             for path in possible_field_paths:
-                if utils.system('ls %s' % path):
+                if utils.system('ls %s' % path, ignore_status=True):
                     continue
                 field_value = utils.system_output('cat %s' % path)
                 break
@@ -1063,6 +1070,19 @@ class GraphicsKernelMemory(object):
         """
         results = {}
         labels = ['bytes', 'objects']
+
+        # First handle i915_gem_objects in 5.x kernels. Example:
+        #     296 shrinkable [0 free] objects, 274833408 bytes
+        #     frecon: 3 objects, 72192000 bytes (0 active, 0 inactive, 0 unbound, 0 closed)
+        #     chrome: 6 objects, 74629120 bytes (0 active, 0 inactive, 376832 unbound, 0 closed)
+        #     <snip>
+        i915_gem_objects_pattern = re.compile(
+            r'(?P<objects>\d*) shrinkable.*objects, (?P<bytes>\d*) bytes')
+        i915_gem_objects_match = i915_gem_objects_pattern.match(output)
+        if i915_gem_objects_match is not None:
+            results['bytes'] = int(i915_gem_objects_match.group('bytes'))
+            results['objects'] = int(i915_gem_objects_match.group('objects'))
+            return results
 
         for line in output.split('\n'):
             # Strip any commas to make parsing easier.

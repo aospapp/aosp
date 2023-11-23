@@ -49,7 +49,7 @@ public class CRLNumberExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CRLNumberExtension(java.lang.Boolean critical, java.lang.Object value)
             throws java.io.IOException {
         throw new RuntimeException("Stub!");
@@ -65,7 +65,7 @@ public class CRLNumberExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void encodeThis() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -74,7 +74,7 @@ public class CRLNumberExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.math.BigInteger get(java.lang.String name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

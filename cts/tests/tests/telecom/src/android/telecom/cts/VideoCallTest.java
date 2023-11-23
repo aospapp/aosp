@@ -103,7 +103,7 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
         }
 
         placeAndVerifyCall(VideoProfile.STATE_AUDIO_ONLY);
-        verifyConnectionForOutgoingCall();
+        Connection connection = verifyConnectionForOutgoingCall();
 
         final MockInCallService inCallService = mInCallCallbacks.getService();
         final Call call = inCallService.getLastCall();
@@ -114,6 +114,7 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
         InCallService.VideoCall videoCall = call.getVideoCall();
         videoCall.sendSessionModifyRequest(new VideoProfile(VideoProfile.STATE_BIDIRECTIONAL));
         assertVideoState(call, VideoProfile.STATE_BIDIRECTIONAL);
+        assertEquals(VideoProfile.STATE_BIDIRECTIONAL, connection.getVideoState());
         assertResponseVideoProfileReceived(inCallService.getVideoCallCallback(call),
                 VideoProfile.STATE_BIDIRECTIONAL);
     }

@@ -20,13 +20,13 @@
 #include <utils/StrongPointer.h>
 #include <wifi_system/interface_tool.h>
 
-#include "android/net/wifi/IApInterface.h"
-#include "android/net/wifi/IWificond.h"
+#include "android/net/wifi/nl80211/IApInterface.h"
+#include "android/net/wifi/nl80211/IWificond.h"
 #include "wificond/tests/integration/process_utils.h"
 #include "wificond/tests/mock_ap_interface_event_callback.h"
 
-using android::net::wifi::IApInterface;
-using android::net::wifi::IWificond;
+using android::net::wifi::nl80211::IApInterface;
+using android::net::wifi::nl80211::IWificond;
 using android::wifi_system::InterfaceTool;
 using android::wificond::MockApInterfaceEventCallback;
 using android::wificond::tests::integration::ScopedDevModeWificond;

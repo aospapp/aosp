@@ -1,7 +1,7 @@
 <component name="libraryTable">
   <library name="objenesis">
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/../../out/host/common/obj/JAVA_LIBRARIES/objenesis-host_intermediates/javalib.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../out/soong/.intermediates/external/objenesis/objenesis/linux_glibc_common/javac/objenesis.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

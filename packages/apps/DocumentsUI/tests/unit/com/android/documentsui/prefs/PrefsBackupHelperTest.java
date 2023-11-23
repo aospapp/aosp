@@ -43,7 +43,6 @@ public class PrefsBackupHelperTest {
 
     private static final String LOCAL_PREFERENCE_1 = "rootViewMode-validPreference1";
     private static final String LOCAL_PREFERENCE_2 = "rootViewMode-validPreference2";
-    private static final String SCOPED_PREFERENCE = "includeDeviceRoot";
     private static final String NON_BACKUP_PREFERENCE = "notBackup-invalidPreference";
 
     private SharedPreferences mDefaultPrefs;
@@ -75,15 +74,6 @@ public class PrefsBackupHelperTest {
         mPrefsBackupHelper.getBackupPreferences(mBackupPrefs);
 
         assertEquals(mBackupPrefs.getInt(LOCAL_PREFERENCE_1, 0), 1);
-    }
-
-    @Test
-    public void testPrepareBackupFile_BackupScopedPreferences() {
-        mDefaultPrefs.edit().putBoolean(SCOPED_PREFERENCE, true).commit();
-
-        mPrefsBackupHelper.getBackupPreferences(mBackupPrefs);
-
-        assertEquals(mBackupPrefs.getBoolean(SCOPED_PREFERENCE, false), true);
     }
 
     @Test
@@ -120,15 +110,6 @@ public class PrefsBackupHelperTest {
     }
 
     @Test
-    public void testRestorePreferences_RestoreScopedPreferences() {
-        mBackupPrefs.edit().putBoolean(SCOPED_PREFERENCE, true).commit();
-
-        mPrefsBackupHelper.putBackupPreferences(mBackupPrefs);
-
-        assertEquals(mDefaultPrefs.getBoolean(SCOPED_PREFERENCE, false), true);
-    }
-
-    @Test
     public void testEndToEnd() {
         // Simulating an end to end backup & restore process. At the begining, all preferences are
         // stored in the default shared preferences file, includes preferences that we don't want
@@ -145,7 +126,6 @@ public class PrefsBackupHelperTest {
         // Set preferences to the default file, includes preferences that are not backed up.
         editor.putInt(LOCAL_PREFERENCE_1, 1);
         editor.putInt(LOCAL_PREFERENCE_2, 2);
-        editor.putBoolean(SCOPED_PREFERENCE, true);
         editor.putBoolean(NON_BACKUP_PREFERENCE, true);
         editor.commit();
 
@@ -165,7 +145,6 @@ public class PrefsBackupHelperTest {
         // Check all preferences are correctly restored.
         assertEquals(mDefaultPrefs.getInt(LOCAL_PREFERENCE_1, 0), 1);
         assertEquals(mDefaultPrefs.getInt(LOCAL_PREFERENCE_2, 0), 2);
-        assertEquals(mDefaultPrefs.getBoolean(SCOPED_PREFERENCE, false), true);
         assertFalse(mDefaultPrefs.contains(NON_BACKUP_PREFERENCE));
     }
 

@@ -1,3 +1,3 @@
 To build the add-on:
-	make -j8 PRODUCT-sample_addon-sdk_addon
-   
+	lunch sample_addon-userdebug
+	m sdk_addon

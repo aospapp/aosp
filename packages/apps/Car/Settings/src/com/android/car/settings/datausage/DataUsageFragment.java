@@ -16,12 +16,20 @@
 
 package com.android.car.settings.datausage;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.network.NetworkUtils;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Data usage settings homepage. */
+@SearchIndexable
 public class DataUsageFragment extends SettingsFragment {
 
     @Override
@@ -29,4 +37,14 @@ public class DataUsageFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.data_usage_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.data_usage_fragment,
+                    Settings.ACTION_MOBILE_DATA_USAGE) {
+                @Override
+                protected boolean isPageSearchEnabled(Context context) {
+                    return NetworkUtils.hasMobileNetwork(
+                            context.getSystemService(ConnectivityManager.class));
+                }
+            };
 }

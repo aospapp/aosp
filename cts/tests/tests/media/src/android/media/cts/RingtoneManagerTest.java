@@ -70,8 +70,7 @@ public class RingtoneManagerTest
         mDefaultUri = RingtoneManager.getActualDefaultRingtoneUri(mContext,
                 RingtoneManager.TYPE_RINGTONE);
 
-        if (mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_SILENT
-                && !ActivityManager.isLowRamDeviceStatic()) {
+        if (mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_SILENT) {
             try {
                 Utils.toggleNotificationPolicyAccess(
                         mContext.getPackageName(), getInstrumentation(), true);
@@ -87,19 +86,17 @@ public class RingtoneManagerTest
 
     @Override
     protected void tearDown() throws Exception {
-        if (!ActivityManager.isLowRamDeviceStatic()) {
-            try {
-                Utils.toggleNotificationPolicyAccess(
-                        mContext.getPackageName(), getInstrumentation(), true);
-                // restore original ringer settings
-                if (mAudioManager != null) {
-                    mAudioManager.setStreamVolume(AudioManager.STREAM_RING, mOriginalVolume,
-                            AudioManager.FLAG_ALLOW_RINGER_MODES);
-                }
-            } finally {
-                Utils.toggleNotificationPolicyAccess(
-                        mContext.getPackageName(), getInstrumentation(), false);
+        try {
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), true);
+            // restore original ringer settings
+            if (mAudioManager != null) {
+                mAudioManager.setStreamVolume(AudioManager.STREAM_RING, mOriginalVolume,
+                        AudioManager.FLAG_ALLOW_RINGER_MODES);
             }
+        } finally {
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), false);
         }
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE,
                 mDefaultUri);

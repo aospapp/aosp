@@ -19,6 +19,7 @@ package com.android.server.telecom.settings;
 import android.annotation.Nullable;
 import android.app.ActionBar;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
@@ -34,9 +35,11 @@ import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.BlockedNumberContract;
+import android.provider.ContactsContract;
 import android.telephony.PhoneNumberFormattingTextWatcher;
 import android.telephony.PhoneNumberUtils;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -53,6 +56,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.server.telecom.R;
+
 
 /**
  * Activity to manage blocked numbers using {@link BlockedNumberContract}.
@@ -79,6 +83,7 @@ public class BlockedNumbersActivity extends ListActivity
     private ProgressBar mProgressBar;
     private RelativeLayout mButterBar;
     @Nullable private Button mBlockButton;
+    @Nullable private Button mBlockButtonNegative;
     private TextView mReEnableButton;
 
     private BroadcastReceiver mBlockingStatusReceiver;
@@ -260,6 +265,10 @@ public class BlockedNumbersActivity extends ListActivity
                     public void onShow(DialogInterface dialog) {
                         mBlockButton = ((AlertDialog) dialog)
                                 .getButton(AlertDialog.BUTTON_POSITIVE);
+                        mBlockButtonNegative = ((AlertDialog) dialog)
+                                .getButton(AlertDialog.BUTTON_NEGATIVE);
+                        mBlockButton.setAllCaps(false);
+                        mBlockButtonNegative.setAllCaps(false);
                         mBlockButton.setEnabled(false);
                         // show keyboard
                         InputMethodManager inputMethodManager =

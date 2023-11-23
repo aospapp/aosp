@@ -96,13 +96,19 @@ public class HttpFacade extends RpcReceiver {
      * Send an http request and get the response.
      *
      * @param url The url to send request to.
+     * @param timeout Time to load the page
      * @return The HttpURLConnection object.
      */
-    private HttpURLConnection httpRequest(String url) throws IOException {
+    private HttpURLConnection httpRequest(String url, Integer timeout) throws IOException {
+        if (timeout == null) {
+            timeout = 50000;
+        }
         URL targetURL = new URL(url);
         HttpURLConnection urlConnection;
         try {
             urlConnection = (HttpURLConnection) targetURL.openConnection();
+            urlConnection.setConnectTimeout(9000);
+            urlConnection.setReadTimeout(timeout);
             urlConnection.connect();
             int respCode = urlConnection.getResponseCode();
             String respMsg = urlConnection.getResponseMessage();
@@ -132,7 +138,7 @@ public class HttpFacade extends RpcReceiver {
     public void httpDownloadFile(@RpcParameter(name = "url") String url,
             @RpcParameter(name="outPath") @RpcOptional String outPath) throws IOException {
         // Create the input stream
-        HttpURLConnection urlConnection = httpRequest(url);
+        HttpURLConnection urlConnection = httpRequest(url, null);
         // Parse destination path and create the output stream. The function assumes that the path
         // is specified relative to the system default Download dir.
         File outFile = FileUtils.getExternalDownload();
@@ -179,20 +185,18 @@ public class HttpFacade extends RpcReceiver {
     }
 
     @Rpc(description = "Make an http request and return the response message.")
-    public HttpURLConnection httpPing(@RpcParameter(name = "url") String url) throws IOException {
-        try {
-            HttpURLConnection urlConnection = null;
-            urlConnection = httpRequest(url);
-            urlConnection.disconnect();
-            return urlConnection;
-        } catch (UnknownHostException e) {
-            return null;
-        }
+    public HttpURLConnection httpPing(
+            @RpcParameter(name = "url") String url,
+            @RpcParameter(name = "timeout") @RpcOptional Integer timeout) throws IOException {
+        HttpURLConnection urlConnection = null;
+        urlConnection = httpRequest(url, timeout);
+        urlConnection.disconnect();
+        return urlConnection;
     }
 
     @Rpc(description = "Make an http request and return the response content as a string.")
     public String httpRequestString(@RpcParameter(name = "url") String url) throws IOException {
-        HttpURLConnection urlConnection = httpRequest(url);
+        HttpURLConnection urlConnection = httpRequest(url, null);
         InputStream in = new BufferedInputStream(urlConnection.getInputStream());
         String result = inputStreamToString(in);
         Log.d("Fetched: " + result);

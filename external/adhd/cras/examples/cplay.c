@@ -19,14 +19,11 @@ struct stream_data {
 };
 
 /* Run from callback thread. */
-static int put_samples(struct cras_client *client,
-		       cras_stream_id_t stream_id,
-		       uint8_t *captured_samples,
-		       uint8_t *playback_samples,
+static int put_samples(struct cras_client *client, cras_stream_id_t stream_id,
+		       uint8_t *captured_samples, uint8_t *playback_samples,
 		       unsigned int frames,
 		       const struct timespec *captured_time,
-		       const struct timespec *playback_time,
-		       void *user_arg)
+		       const struct timespec *playback_time, void *user_arg)
 {
 	struct stream_data *data = (struct stream_data *)user_arg;
 	int nread;
@@ -39,10 +36,8 @@ static int put_samples(struct cras_client *client,
 }
 
 /* Run from callback thread. */
-static int stream_error(struct cras_client *client,
-			cras_stream_id_t stream_id,
-			int err,
-			void *arg)
+static int stream_error(struct cras_client *client, cras_stream_id_t stream_id,
+			int err, void *arg)
 {
 	printf("Stream error %d\n", err);
 	exit(err);
@@ -82,8 +77,9 @@ int main(int argc, char **argv)
 	data->frame_bytes = 4;
 
 	rc = cras_helper_add_stream_simple(client, CRAS_STREAM_OUTPUT, data,
-			put_samples, stream_error, SND_PCM_FORMAT_S16_LE, rate,
-			num_channels, NO_DEVICE, &stream_id);
+					   put_samples, stream_error,
+					   SND_PCM_FORMAT_S16_LE, rate,
+					   num_channels, NO_DEVICE, &stream_id);
 	if (rc < 0) {
 		fprintf(stderr, "adding a stream %d\n", rc);
 		goto destroy_exit;

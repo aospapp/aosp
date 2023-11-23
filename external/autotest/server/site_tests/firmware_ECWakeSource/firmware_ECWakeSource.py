@@ -35,6 +35,7 @@ class firmware_ECWakeSource(FirmwareTest):
         self.servo.power_short_press()
 
     def run_once(self, host):
+        """Runs a single iteration of the test."""
         # TODO(victoryang): make this test run on both x86 and arm
         if not self.check_ec_capability(['x86', 'lid']):
             raise error.TestNAError("Nothing needs to be tested on this device")
@@ -73,8 +74,7 @@ class firmware_ECWakeSource(FirmwareTest):
         if boot_id != original_boot_id:
             raise error.TestFail('Different boot_id. Unexpected reboot.')
 
-        use_ccd = 'ccd_cr50' in self.servo.get_servo_version()
-        if use_ccd:
+        if self.servo.main_device_is_ccd():
             logging.info("Using CCD, ignore waking by power button.")
         else:
             logging.info("EC hibernate and wake by power button.")

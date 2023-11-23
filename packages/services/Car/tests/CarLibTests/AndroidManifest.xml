@@ -16,13 +16,5 @@
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.car.testapi.tests">
-
-  <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                   android:targetPackage="android.car.testapi.tests"
-                   android:label="Unit Tests for Car APIs"/>
-
-  <application>
-      <uses-library android:name="android.test.runner" />
-  </application>
-
+    <application/>
 </manifest>

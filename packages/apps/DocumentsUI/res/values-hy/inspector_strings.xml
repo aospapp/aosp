@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"Տեղեկություններ"</string>
     <string name="inspector_load_error" msgid="7522190243413249291">"Չհաջողվեց բեռնել ֆայլի տվյալները"</string>
-    <string name="inspector_debug_section" msgid="2576052661505700421">"Վրիպազերծման տեղեկություններ (միայն մշակող)"</string>
+    <string name="inspector_debug_section" msgid="2576052661505700421">"Վրիպազերծման տեղեկություններ (միայն ծրագրավորողների համար)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"Raw մետատվյալներ՝ <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"Մեդիա տվյալներ"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"Այս տեսակի ֆայլերի բացման հավելվածը"</string>

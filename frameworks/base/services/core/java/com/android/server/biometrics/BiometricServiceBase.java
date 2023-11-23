@@ -17,6 +17,7 @@
 package com.android.server.biometrics;
 
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
+import static android.hardware.biometrics.BiometricConstants.BIOMETRIC_ERROR_HW_UNAVAILABLE;
 
 import android.app.ActivityManager;
 import android.app.ActivityTaskManager;
@@ -30,6 +31,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.hardware.biometrics.BiometricAuthenticator;
 import android.hardware.biometrics.BiometricConstants;
+import android.hardware.biometrics.BiometricManager;
 import android.hardware.biometrics.BiometricsProtoEnums;
 import android.hardware.biometrics.IBiometricService;
 import android.hardware.biometrics.IBiometricServiceLockoutResetCallback;
@@ -42,6 +44,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.IHwBinder;
 import android.os.IRemoteCallback;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.Process;
 import android.os.RemoteException;
@@ -50,10 +53,12 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Slog;
-import android.util.StatsLog;
 
+import com.android.internal.R;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.statusbar.IStatusBarService;
+import com.android.internal.util.FrameworkStatsLog;
 import com.android.server.SystemService;
 
 import java.util.ArrayList;
@@ -92,7 +97,22 @@ public abstract class BiometricServiceBase extends SystemService
     protected final Map<Integer, Long> mAuthenticatorIds =
             Collections.synchronizedMap(new HashMap<>());
     protected final AppOpsManager mAppOps;
-    protected final H mHandler = new H();
+
+    /**
+     * Handler which all subclasses should post events to.
+     */
+    protected final Handler mHandler = new Handler(Looper.getMainLooper()) {
+        @Override
+        public void handleMessage(android.os.Message msg) {
+            switch (msg.what) {
+                case MSG_USER_SWITCHING:
+                    handleUserSwitching(msg.arg1);
+                    break;
+                default:
+                    Slog.w(getTag(), "Unknown message:" + msg.what);
+            }
+        }
+    };
 
     private final IBinder mToken = new Binder(); // Used for internal enumeration
     private final ArrayList<UserTemplate> mUnknownHALTemplates = new ArrayList<>();
@@ -103,6 +123,7 @@ public abstract class BiometricServiceBase extends SystemService
     private PerformanceStats mPerformanceStats;
     protected int mCurrentUserId = UserHandle.USER_NULL;
     protected long mHalDeviceId;
+    private int mOEMStrength; // Tracks the OEM configured biometric modality strength
     // Tracks if the current authentication makes use of CryptoObjects.
     protected boolean mIsCrypto;
     // Normal authentications are tracked by mPerformanceMap.
@@ -282,10 +303,10 @@ public abstract class BiometricServiceBase extends SystemService
         public EnrollClientImpl(Context context, DaemonWrapper daemon, long halDeviceId,
                 IBinder token, ServiceListener listener, int userId, int groupId,
                 byte[] cryptoToken, boolean restricted, String owner,
-                final int[] disabledFeatures) {
+                final int[] disabledFeatures, int timeoutSec) {
             super(context, getConstants(), daemon, halDeviceId, token, listener,
                     userId, groupId, cryptoToken, restricted, owner, getBiometricUtils(),
-                    disabledFeatures);
+                    disabledFeatures, timeoutSec);
         }
 
         @Override
@@ -370,7 +391,7 @@ public abstract class BiometricServiceBase extends SystemService
                         + identifier.getName());
                 mUtils.removeBiometricForUser(getContext(),
                         getTargetUserId(), identifier.getBiometricId());
-                StatsLog.write(StatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED,
+                FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED,
                         statsModality(),
                         BiometricsProtoEnums.ISSUE_UNKNOWN_TEMPLATE_ENROLLED_FRAMEWORK);
             }
@@ -411,8 +432,8 @@ public abstract class BiometricServiceBase extends SystemService
             throw new UnsupportedOperationException("Stub!");
         }
 
-        default void onAuthenticationSucceededInternal(boolean requireConfirmation, byte[] token)
-                throws RemoteException {
+        default void onAuthenticationSucceededInternal(boolean requireConfirmation, byte[] token,
+                boolean isStrongBiometric) throws RemoteException {
             throw new UnsupportedOperationException("Stub!");
         }
 
@@ -420,7 +441,7 @@ public abstract class BiometricServiceBase extends SystemService
             throw new UnsupportedOperationException("Stub!");
         }
 
-        default void onAuthenticationFailedInternal(int cookie, boolean requireConfirmation)
+        default void onAuthenticationFailedInternal()
                 throws RemoteException {
             throw new UnsupportedOperationException("Stub!");
         }
@@ -449,18 +470,19 @@ public abstract class BiometricServiceBase extends SystemService
         }
 
         @Override
-        public void onAuthenticationSucceededInternal(boolean requireConfirmation, byte[] token)
-                throws RemoteException {
+        public void onAuthenticationSucceededInternal(boolean requireConfirmation, byte[] token,
+                boolean isStrongBiometric) throws RemoteException {
             if (getWrapperReceiver() != null) {
-                getWrapperReceiver().onAuthenticationSucceeded(requireConfirmation, token);
+                getWrapperReceiver().onAuthenticationSucceeded(requireConfirmation, token,
+                        isStrongBiometric);
             }
         }
 
         @Override
-        public void onAuthenticationFailedInternal(int cookie, boolean requireConfirmation)
+        public void onAuthenticationFailedInternal()
                 throws RemoteException {
             if (getWrapperReceiver() != null) {
-                getWrapperReceiver().onAuthenticationFailed(cookie, requireConfirmation);
+                getWrapperReceiver().onAuthenticationFailed();
             }
         }
     }
@@ -480,26 +502,9 @@ public abstract class BiometricServiceBase extends SystemService
         void resetLockout(byte[] token) throws RemoteException;
     }
 
-    /**
-     * Handler which all subclasses should post events to.
-     */
-    protected final class H extends Handler {
+    private final Runnable mOnTaskStackChangedRunnable = new Runnable() {
         @Override
-        public void handleMessage(android.os.Message msg) {
-            switch (msg.what) {
-                case MSG_USER_SWITCHING:
-                    handleUserSwitching(msg.arg1);
-                    break;
-
-                default:
-                    Slog.w(getTag(), "Unknown message:" + msg.what);
-            }
-        }
-    }
-
-    private final class BiometricTaskStackListener extends TaskStackListener {
-        @Override
-        public void onTaskStackChanged() {
+        public void run() {
             try {
                 if (!(mCurrentClient instanceof AuthenticationClient)) {
                     return;
@@ -514,14 +519,21 @@ public abstract class BiometricServiceBase extends SystemService
                     final String topPackage = runningTasks.get(0).topActivity.getPackageName();
                     if (!topPackage.contentEquals(currentClient)
                             && !mCurrentClient.isAlreadyDone()) {
-                        Slog.e(getTag(), "Stopping background authentication, top: " + topPackage
-                                + " currentClient: " + currentClient);
+                        Slog.e(getTag(), "Stopping background authentication, top: "
+                                + topPackage + " currentClient: " + currentClient);
                         mCurrentClient.stop(false /* initiatedByClient */);
                     }
                 }
             } catch (RemoteException e) {
                 Slog.e(getTag(), "Unable to get running tasks", e);
             }
+        }
+    };
+
+    private final class BiometricTaskStackListener extends TaskStackListener {
+        @Override
+        public void onTaskStackChanged() {
+            mHandler.post(mOnTaskStackChangedRunnable);
         }
     }
 
@@ -543,11 +555,13 @@ public abstract class BiometricServiceBase extends SystemService
                     + " failed to respond to cancel, starting client "
                     + (mPendingClient != null ? mPendingClient.getOwnerString() : "null"));
 
-            StatsLog.write(StatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED,
+            FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED,
                     statsModality(), BiometricsProtoEnums.ISSUE_CANCEL_TIMED_OUT);
 
+            ClientMonitor newClient = mPendingClient;
             mCurrentClient = null;
-            startClient(mPendingClient, false);
+            mPendingClient = null;
+            startClient(newClient, false);
         }
     }
 
@@ -637,8 +651,9 @@ public abstract class BiometricServiceBase extends SystemService
         mContext = context;
         mStatusBarService = IStatusBarService.Stub.asInterface(
                 ServiceManager.getService(Context.STATUS_BAR_SERVICE));
-        mKeyguardPackage = ComponentName.unflattenFromString(context.getResources().getString(
-                com.android.internal.R.string.config_keyguardComponent)).getPackageName();
+        final ComponentName keyguardComponent = ComponentName.unflattenFromString(
+                context.getResources().getString(R.string.config_keyguardComponent));
+        mKeyguardPackage = keyguardComponent != null ? keyguardComponent.getPackageName() : null;
         mAppOps = context.getSystemService(AppOpsManager.class);
         mActivityTaskManager = ((ActivityTaskManager) context.getSystemService(
                 Context.ACTIVITY_TASK_SERVICE)).getService();
@@ -658,11 +673,29 @@ public abstract class BiometricServiceBase extends SystemService
         mMetricsLogger.count(getConstants().tagHalDied(), 1);
         mHALDeathCount++;
         mCurrentUserId = UserHandle.USER_NULL;
-        handleError(getHalDeviceId(), BiometricConstants.BIOMETRIC_ERROR_HW_UNAVAILABLE,
-                0 /*vendorCode */);
 
-        StatsLog.write(StatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED, statsModality(),
-                BiometricsProtoEnums.ISSUE_HAL_DEATH);
+        // All client lifecycle must be managed on the handler.
+        mHandler.post(() -> {
+            Slog.e(getTag(), "Sending BIOMETRIC_ERROR_HW_UNAVAILABLE after HAL crash");
+            handleError(getHalDeviceId(), BIOMETRIC_ERROR_HW_UNAVAILABLE, 0 /* vendorCode */);
+        });
+
+        FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED,
+                statsModality(), BiometricsProtoEnums.ISSUE_HAL_DEATH);
+    }
+
+    protected void initConfiguredStrengthInternal(int strength) {
+        if (DEBUG) {
+            Slog.d(getTag(), "initConfiguredStrengthInternal(" + strength + ")");
+        }
+        mOEMStrength = strength;
+    }
+
+    protected boolean isStrongBiometric() {
+        // TODO(b/141025588): need to calculate actual strength when downgrading tiers
+        final int biometricBits = mOEMStrength
+                & BiometricManager.Authenticators.BIOMETRIC_MIN_STRENGTH;
+        return biometricBits == BiometricManager.Authenticators.BIOMETRIC_STRONG;
     }
 
     protected ClientMonitor getCurrentClient() {
@@ -713,8 +746,6 @@ public abstract class BiometricServiceBase extends SystemService
             // already generated a new authenticator id when the new biometric is enrolled.
             if (identifier instanceof Fingerprint) {
                 updateActiveGroup(((Fingerprint)identifier).getGroupId(), null);
-            } else {
-                updateActiveGroup(mCurrentUserId, null);
             }
         }
     }
@@ -772,9 +803,10 @@ public abstract class BiometricServiceBase extends SystemService
     }
 
     protected void handleEnumerate(BiometricAuthenticator.Identifier identifier, int remaining) {
-        ClientMonitor client = getCurrentClient();
-
-        client.onEnumerationResult(identifier, remaining);
+        ClientMonitor client = mCurrentClient;
+        if (client != null) {
+            client.onEnumerationResult(identifier, remaining);
+        }
 
         // All templates in the HAL for this user were enumerated
         if (remaining == 0) {
@@ -792,7 +824,7 @@ public abstract class BiometricServiceBase extends SystemService
                 }
                 removeClient(client);
                 startCleanupUnknownHALTemplates();
-            } else {
+            } else if (client != null) {
                 removeClient(client);
             }
         }
@@ -872,12 +904,16 @@ public abstract class BiometricServiceBase extends SystemService
 
     protected void cancelAuthenticationInternal(final IBinder token, final String opPackageName,
             int callingUid, int callingPid, int callingUserId, boolean fromClient) {
+
+        if (DEBUG) Slog.v(getTag(), "cancelAuthentication(" + opPackageName + ")");
         if (fromClient) {
             // Only check this if cancel was called from the client (app). If cancel was called
             // from BiometricService, it means the dialog was dismissed due to user interaction.
             if (!canUseBiometric(opPackageName, true /* foregroundOnly */, callingUid, callingPid,
                     callingUserId)) {
-                if (DEBUG) Slog.v(getTag(), "cancelAuthentication(): reject " + opPackageName);
+                if (DEBUG) {
+                    Slog.v(getTag(), "cancelAuthentication(): reject " + opPackageName);
+                }
                 return;
             }
         }
@@ -903,8 +939,12 @@ public abstract class BiometricServiceBase extends SystemService
     }
 
     protected void setActiveUserInternal(int userId) {
-        // Do not put on handler, since it should finish before returning to caller.
-        updateActiveGroup(userId, null /* clientPackage */);
+        mHandler.post(() -> {
+            if (DEBUG) {
+                Slog.d(getTag(), "setActiveUser(" + userId + ")");
+            }
+            updateActiveGroup(userId, null /* clientPackage */);
+        });
     }
 
     protected void removeInternal(RemovalClient client) {
@@ -938,6 +978,10 @@ public abstract class BiometricServiceBase extends SystemService
     }
 
     protected void addLockoutResetCallback(IBiometricServiceLockoutResetCallback callback) {
+        if (callback == null) {
+            Slog.w(getTag(), "Null LockoutResetCallback");
+            return;
+        }
         mHandler.post(() -> {
            final LockoutResetMonitor monitor = new LockoutResetMonitor(callback);
            if (!mLockoutMonitors.contains(monitor)) {
@@ -1000,8 +1044,13 @@ public abstract class BiometricServiceBase extends SystemService
 
     private boolean isForegroundActivity(int uid, int pid) {
         try {
-            List<ActivityManager.RunningAppProcessInfo> procs =
+            final List<ActivityManager.RunningAppProcessInfo> procs =
                     ActivityManager.getService().getRunningAppProcesses();
+            if (procs == null) {
+                Slog.e(getTag(), "Processes null, defaulting to true");
+                return true;
+            }
+
             int N = procs.size();
             for (int i = 0; i < N; i++) {
                 ActivityManager.RunningAppProcessInfo proc = procs.get(i);
@@ -1024,7 +1073,8 @@ public abstract class BiometricServiceBase extends SystemService
      * @param newClient the new client that wants to connect
      * @param initiatedByClient true for authenticate, remove and enroll
      */
-    private void startClient(ClientMonitor newClient, boolean initiatedByClient) {
+    @VisibleForTesting
+    void startClient(ClientMonitor newClient, boolean initiatedByClient) {
         ClientMonitor currentClient = mCurrentClient;
         if (currentClient != null) {
             if (DEBUG) Slog.v(getTag(), "request stop current client " +
@@ -1087,16 +1137,27 @@ public abstract class BiometricServiceBase extends SystemService
             Slog.e(getTag(), "Trying to start null client!");
             return;
         }
+
         if (DEBUG) Slog.v(getTag(), "starting client "
                 + mCurrentClient.getClass().getSuperclass().getSimpleName()
                 + "(" + mCurrentClient.getOwnerString() + ")"
+                + " targetUserId: " + mCurrentClient.getTargetUserId()
+                + " currentUserId: " + mCurrentUserId
                 + " cookie: " + cookie + "/" + mCurrentClient.getCookie());
+
         if (cookie != mCurrentClient.getCookie()) {
             Slog.e(getTag(), "Mismatched cookie");
             return;
         }
-        notifyClientActiveCallbacks(true);
-        mCurrentClient.start();
+
+        int status = mCurrentClient.start();
+        if (status == 0) {
+            notifyClientActiveCallbacks(true);
+        } else {
+            mCurrentClient.onError(getHalDeviceId(), BIOMETRIC_ERROR_HW_UNAVAILABLE,
+                    0 /* vendorCode */);
+            removeClient(mCurrentClient);
+        }
     }
 
     protected void removeClient(ClientMonitor client) {
@@ -1108,7 +1169,7 @@ public abstract class BiometricServiceBase extends SystemService
             }
         }
         if (mCurrentClient != null) {
-            if (DEBUG) Slog.v(getTag(), "Done with client: " + client.getOwnerString());
+            if (DEBUG) Slog.v(getTag(), "Done with client: " + mCurrentClient.getOwnerString());
             mCurrentClient = null;
         }
         if (mPendingClient == null) {
@@ -1187,11 +1248,10 @@ public abstract class BiometricServiceBase extends SystemService
     }
 
     /***
-     * @param opPackageName the name of the calling package
      * @return authenticator id for the calling user
      */
-    protected long getAuthenticatorId(String opPackageName) {
-        final int userId = getUserOrWorkProfileId(opPackageName, UserHandle.getCallingUserId());
+    protected long getAuthenticatorId(int callingUserId) {
+        final int userId = getUserOrWorkProfileId(null /* clientPackage */, callingUserId);
         return mAuthenticatorIds.getOrDefault(userId, 0L);
     }
 
@@ -1223,7 +1283,7 @@ public abstract class BiometricServiceBase extends SystemService
                     template.mIdentifier.getBiometricId(), 0 /* groupId */, template.mUserId,
                     restricted, getContext().getPackageName());
             removeInternal(client);
-            StatsLog.write(StatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED,
+            FrameworkStatsLog.write(FrameworkStatsLog.BIOMETRIC_SYSTEM_HEALTH_ISSUE_DETECTED,
                     statsModality(),
                     BiometricsProtoEnums.ISSUE_UNKNOWN_TEMPLATE_ENROLLED_HAL);
         } else {

@@ -21,7 +21,7 @@
     <string name="inspector_debug_section" msgid="2576052661505700421">"Informação de depuração (apenas programadores)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"Metadados não processados: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"Detalhes de multimédia"</string>
-    <string name="handler_app_file_opens_with" msgid="5272329600389613550">"Este tipo de ficheiro abre com a aplicação"</string>
+    <string name="handler_app_file_opens_with" msgid="5272329600389613550">"Este tipo de ficheiro abre com a app"</string>
     <string name="handler_app_belongs_to" msgid="5444507329303253553">"Este ficheiro é fornecido por"</string>
     <string name="handler_app_not_selected" msgid="1294439257183908786">"Não selecionada"</string>
     <string name="handler_app_unknown" msgid="5911661530593229287">"Desconhecida"</string>

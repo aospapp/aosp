@@ -108,7 +108,7 @@ public final class BlockedNumbersUtil {
                     .setContentText(message)
                     .setContentIntent(pendingIntent)
                     .setShowWhen(true)
-                    .setChannel(NotificationChannelManager.CHANNEL_ID_CALL_BLOCKING)
+                    .setChannelId(NotificationChannelManager.CHANNEL_ID_CALL_BLOCKING)
                     .build();
 
             notification.flags |= Notification.FLAG_NO_CLEAR;

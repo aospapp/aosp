@@ -1,5 +1,6 @@
-# Default code reviewers picked from top 3 or more developers.
-# Please update this list if you find better candidates.
+# Bug component: 684135
+include platform/external/conscrypt:/OWNERS
+
+# Only for emergency escalations, do not send reviews here:
 bdc@google.com
-flooey@google.com
-prb@google.com
+

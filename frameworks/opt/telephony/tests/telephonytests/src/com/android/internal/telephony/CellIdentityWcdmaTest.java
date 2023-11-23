@@ -21,9 +21,12 @@ import android.telephony.CellIdentityWcdma;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import java.util.Collections;
+
 /** Unit tests for {@link CellIdentityWcdma}. */
 
 public class CellIdentityWcdmaTest extends AndroidTestCase {
+    private static final String LOG_TAG = "CellIdentityWcdmaTest";
 
     // Location Area Code ranges from 0 to 65535.
     private static final int LAC = 65535;
@@ -44,7 +47,7 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
     public void testDefaultConstructor() {
         CellIdentityWcdma ci =
                 new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR,
-                        ALPHA_LONG, ALPHA_SHORT);
+                        ALPHA_LONG, ALPHA_SHORT, Collections.emptyList(), null);
 
         assertEquals(LAC, ci.getLac());
         assertEquals(CID, ci.getCid());
@@ -65,13 +68,17 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
         final String mncWithThreeDigit = "061";
         CellIdentityWcdma ci =
                 new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, mncWithThreeDigit,
-                        ALPHA_LONG, ALPHA_SHORT);
+                        ALPHA_LONG, ALPHA_SHORT, Collections.emptyList(), null);
 
         assertEquals(MCC, ci.getMcc());
         assertEquals(61, ci.getMnc());
         assertEquals(MCC_STR, ci.getMccString());
         assertEquals(mncWithThreeDigit, ci.getMncString());
         assertEquals(MCC_STR + mncWithThreeDigit, ci.getMobileNetworkOperator());
+
+        String globalCi = MCC_STR + mncWithThreeDigit + Integer.toString(LAC, 16)
+                + Integer.toString(CID, 16);
+        assertEquals(globalCi, ci.getGlobalCellId());
     }
 
     @SmallTest
@@ -79,7 +86,7 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
         final String mncWithTwoDigit = "61";
         CellIdentityWcdma ci =
                 new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, mncWithTwoDigit,
-                        ALPHA_LONG, ALPHA_SHORT);
+                        ALPHA_LONG, ALPHA_SHORT, Collections.emptyList(), null);
 
         assertEquals(MCC, ci.getMcc());
         assertEquals(61, ci.getMnc());
@@ -92,7 +99,8 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
     public void testConstructorWithEmptyMccMnc() {
         final String integerMaxValue = String.valueOf(Integer.MAX_VALUE);
         CellIdentityWcdma ci =
-                new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
+                new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT,
+                        Collections.emptyList(), null);
 
         assertEquals(Integer.MAX_VALUE, ci.getMcc());
         assertEquals(Integer.MAX_VALUE, ci.getMnc());
@@ -100,7 +108,8 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
         assertNull(ci.getMncString());
         assertNull(ci.getMobileNetworkOperator());
 
-        ci = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, null, ALPHA_LONG, ALPHA_SHORT);
+        ci = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, null, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
 
         assertEquals(MCC, ci.getMcc());
         assertEquals(Integer.MAX_VALUE, ci.getMnc());
@@ -108,7 +117,8 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
         assertNull(ci.getMncString());
         assertNull(ci.getMobileNetworkOperator());
 
-        ci = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, MNC_STR, ALPHA_LONG, ALPHA_SHORT);
+        ci = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, MNC_STR, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
 
         assertEquals(MNC, ci.getMnc());
         assertEquals(Integer.MAX_VALUE, ci.getMcc());
@@ -116,7 +126,8 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
         assertNull(ci.getMccString());
         assertNull(ci.getMobileNetworkOperator());
 
-        ci = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, "", "", ALPHA_LONG, ALPHA_SHORT);
+        ci = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, "", "", ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
 
         assertEquals(Integer.MAX_VALUE, ci.getMcc());
         assertEquals(Integer.MAX_VALUE, ci.getMnc());
@@ -128,19 +139,25 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
     @SmallTest
     public void testEquals() {
         CellIdentityWcdma ciA = new CellIdentityWcdma(
-                LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT);
+                LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
         CellIdentityWcdma ciB = new CellIdentityWcdma(
-                LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT);
+                LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
 
         assertTrue(ciA.equals(ciB));
 
-        ciA = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
-        ciB = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
+        ciA = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
+        ciB = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
 
         assertTrue(ciA.equals(ciB));
 
-        ciA = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, null, ALPHA_LONG, ALPHA_SHORT);
-        ciB = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
+        ciA = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, null, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
+        ciB = new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT,
+                Collections.emptyList(), null);
 
         assertFalse(ciA.equals(ciB));
     }
@@ -149,7 +166,7 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
     public void testParcel() {
         CellIdentityWcdma ci =
                 new CellIdentityWcdma(LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR,
-                        ALPHA_LONG, ALPHA_SHORT);
+                        ALPHA_LONG, ALPHA_SHORT, Collections.emptyList(), null);
 
         Parcel p = Parcel.obtain();
         ci.writeToParcel(p, 0);
@@ -162,7 +179,8 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
     @SmallTest
     public void testParcelWithUnknowMccMnc() {
         CellIdentityWcdma ci =
-                new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
+                new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT,
+                        Collections.emptyList(), null);
 
         Parcel p = Parcel.obtain();
         ci.writeToParcel(p, 0);
@@ -177,7 +195,8 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
         final String invalidMcc = "randomStuff";
         final String invalidMnc = "randomStuff";
         CellIdentityWcdma ci =
-                new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
+                new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT,
+                        Collections.emptyList(), null);
 
         Parcel p = Parcel.obtain();
         ci.writeToParcel(p, 0);

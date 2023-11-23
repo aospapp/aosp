@@ -16,7 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.signature.cts.api.killswitch_debug_class">
+          package="android.signature.cts.api.killswitch_debug_class"
+          android:targetSandboxVersion="2">
 
     <application android:debuggable="true"
                  android:extractNativeLibs="true"

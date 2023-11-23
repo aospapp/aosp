@@ -17,15 +17,9 @@
 package android.view.accessibility.cts;
 
 import android.accessibility.cts.common.InstrumentedAccessibilityService;
-import android.app.Instrumentation;
 
 /**
  * Stub accessibility service that reports itself as providing multiple feedback types.
  */
 public class SpeakingAndVibratingAccessibilityService extends InstrumentedAccessibilityService {
-    public static SpeakingAndVibratingAccessibilityService enableSelf(
-            Instrumentation instrumentation) {
-        return InstrumentedAccessibilityService.enableService(instrumentation,
-                SpeakingAndVibratingAccessibilityService.class);
-    }
 }

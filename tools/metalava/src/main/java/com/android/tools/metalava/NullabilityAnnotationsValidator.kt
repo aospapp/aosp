@@ -16,7 +16,7 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.Errors
+import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
@@ -207,7 +207,7 @@ class NullabilityAnnotationsValidator {
 
         // Fatal issues are thrown.
         if (fatalIssues.isNotEmpty()) {
-            fatalIssues.forEach { reporter.report(Errors.INVALID_NULLABILITY_ANNOTATION, it.method, it.toString()) }
+            fatalIssues.forEach { reporter.report(Issues.INVALID_NULLABILITY_ANNOTATION, it.method, it.toString()) }
         }
 
         // Non-fatal issues are written to the warnings .txt file if present, else logged.
@@ -217,7 +217,7 @@ class NullabilityAnnotationsValidator {
             }
         } else {
             nonFatalIssues.forEach {
-                reporter.report(Errors.INVALID_NULLABILITY_ANNOTATION_WARNING, it.method, "Nullability issue: $it")
+                reporter.report(Issues.INVALID_NULLABILITY_ANNOTATION_WARNING, it.method, "Nullability issue: $it")
             }
         }
     }

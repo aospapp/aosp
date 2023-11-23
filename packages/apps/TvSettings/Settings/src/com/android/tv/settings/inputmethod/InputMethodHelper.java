@@ -26,6 +26,8 @@ import android.util.Log;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 
+import com.android.tv.settings.util.SliceUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -107,5 +109,16 @@ public class InputMethodHelper {
             intent = null;
         }
         return intent;
+    }
+
+    /**
+     * Find potential slice provider based on settings activity name.
+     */
+    public static String getInputMethodsSettingsUri(Context context, InputMethodInfo imi) {
+        String sliceUri = "content://" + imi.getPackageName() + ".tv.sliceprovider" + "/general";
+        if (SliceUtils.isSliceProviderValid(context, sliceUri)) {
+            return sliceUri;
+        }
+        return null;
     }
 }

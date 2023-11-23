@@ -34,12 +34,17 @@ import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.Lookup;
+import com.android.documentsui.base.LookupApplicationName;
+import com.android.documentsui.base.Menus;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.base.UserId;
 import com.android.documentsui.queries.SearchViewManager;
 
 import java.util.List;
 import java.util.function.IntFunction;
+import java.util.function.IntSupplier;
 
 public final class MenuManager extends com.android.documentsui.MenuManager {
 
@@ -47,7 +52,7 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     private final Context mContext;
     private final SelectionTracker<String> mSelectionManager;
     private final Lookup<String, Uri> mUriLookup;
-    private final Lookup<String, String> mAppNameLookup;
+    private final LookupApplicationName mAppNameLookup;
 
     public MenuManager(
             Features features,
@@ -56,10 +61,11 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
             DirectoryDetails dirDetails,
             Context context,
             SelectionTracker<String> selectionManager,
-            Lookup<String, String> appNameLookup,
-            Lookup<String, Uri> uriLookup) {
+            LookupApplicationName appNameLookup,
+            Lookup<String, Uri> uriLookup,
+            IntSupplier filesCountSupplier) {
 
-        super(searchManager, displayState, dirDetails);
+        super(searchManager, displayState, dirDetails, filesCountSupplier);
 
         mFeatures = features;
         mContext = context;
@@ -103,9 +109,10 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     }
 
     @Override
-    public void inflateContextMenuForContainer(Menu menu, MenuInflater inflater) {
+    public void inflateContextMenuForContainer(
+            Menu menu, MenuInflater inflater, SelectionDetails selectionDetails) {
         inflater.inflate(R.menu.container_context_menu, menu);
-        updateContextMenuForContainer(menu);
+        updateContextMenuForContainer(menu, selectionDetails);
     }
 
     @Override
@@ -133,39 +140,34 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
 
     @Override
     protected void updateSettings(MenuItem settings, RootInfo root) {
-        settings.setVisible(true);
-        settings.setEnabled(root.hasSettings());
+        Menus.setEnabledAndVisible(settings, root.hasSettings());
     }
 
     @Override
     protected void updateEject(MenuItem eject, RootInfo root) {
-        eject.setVisible(root.supportsEject());
-        eject.setEnabled(!root.ejecting);
+        Menus.setEnabledAndVisible(eject, root.supportsEject() && !root.ejecting);
     }
 
     @Override
     protected void updateSettings(MenuItem settings) {
         boolean enabled = mDirDetails.hasRootSettings();
-        settings.setVisible(enabled);
-        settings.setEnabled(enabled);
+        Menus.setEnabledAndVisible(settings, enabled);
     }
 
     @Override
     protected void updateNewWindow(MenuItem newWindow) {
-        newWindow.setVisible(true);
+        Menus.setEnabledAndVisible(newWindow, true);
     }
 
     @Override
     protected void updateOpenWith(MenuItem openWith, SelectionDetails selectionDetails) {
-        openWith.setVisible(true);
-        openWith.setEnabled(selectionDetails.canOpenWith());
+        Menus.setEnabledAndVisible(openWith, selectionDetails.canOpenWith());
     }
 
     @Override
     protected void updateOpenInNewWindow(
             MenuItem openInNewWindow, SelectionDetails selectionDetails) {
-        openInNewWindow.setVisible(true);
-        openInNewWindow.setEnabled(selectionDetails.size() == 1
+        Menus.setEnabledAndVisible(openInNewWindow, selectionDetails.size() == 1
             && !selectionDetails.containsPartialFiles());
     }
 
@@ -176,42 +178,40 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
 
     @Override
     protected void updateMoveTo(MenuItem moveTo, SelectionDetails selectionDetails) {
-        moveTo.setVisible(true);
-        moveTo.setEnabled(!selectionDetails.containsPartialFiles() && selectionDetails.canDelete());
+        Menus.setEnabledAndVisible(moveTo,
+                !selectionDetails.containsPartialFiles() && selectionDetails.canDelete());
     }
 
     @Override
     protected void updateCopyTo(MenuItem copyTo, SelectionDetails selectionDetails) {
-        copyTo.setVisible(true);
-        copyTo.setEnabled(!selectionDetails.containsPartialFiles() &&
-                !selectionDetails.canExtract());
+        Menus.setEnabledAndVisible(copyTo, !selectionDetails.containsPartialFiles()
+                && !selectionDetails.canExtract());
     }
 
     @Override
     protected void updateCompress(MenuItem compress, SelectionDetails selectionDetails) {
         final boolean readOnly = !mDirDetails.canCreateDoc();
-        compress.setVisible(mFeatures.isArchiveCreationEnabled());
-        compress.setEnabled(!readOnly && !selectionDetails.containsPartialFiles() &&
-                !selectionDetails.canExtract());
+        Menus.setEnabledAndVisible(compress, mFeatures.isArchiveCreationEnabled()
+                && !readOnly
+                && !selectionDetails.containsPartialFiles()
+                && !selectionDetails.canExtract());
     }
 
     @Override
     protected void updateExtractTo(MenuItem extractTo, SelectionDetails selectionDetails) {
         boolean enabled = selectionDetails.canExtract();
-        extractTo.setVisible(enabled);
-        extractTo.setEnabled(enabled);
+        Menus.setEnabledAndVisible(extractTo, enabled);
     }
 
     @Override
     protected void updatePasteInto(MenuItem pasteInto, SelectionDetails selectionDetails) {
-        pasteInto.setVisible(true);
-        pasteInto.setEnabled(selectionDetails.canPasteInto() && mDirDetails.hasItemsToPaste());
+        Menus.setEnabledAndVisible(pasteInto,
+                selectionDetails.canPasteInto() && mDirDetails.hasItemsToPaste());
     }
 
     @Override
     protected void updatePasteInto(MenuItem pasteInto, RootInfo root, DocumentInfo docInfo) {
-        pasteInto.setVisible(true);
-        pasteInto.setEnabled(root.supportsCreate()
+        Menus.setEnabledAndVisible(pasteInto, root.supportsCreate()
                 && docInfo != null
                 && docInfo.isCreateSupported()
                 && mDirDetails.hasItemsToPaste());
@@ -219,14 +219,24 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
 
     @Override
     protected void updateSelectAll(MenuItem selectAll) {
-        selectAll.setVisible(true);
-        selectAll.setEnabled(true);
+        Menus.setEnabledAndVisible(selectAll, true);
+    }
+
+    @Override
+    protected void updateSelectAll(MenuItem selectAll, SelectionDetails selectionDetails) {
+        final boolean visible = selectionDetails.size() < mFilesCountSupplier.getAsInt();
+        Menus.setEnabledAndVisible(selectAll, visible);
+    }
+
+    @Override
+    protected void updateDeselectAll(MenuItem deselectAll, SelectionDetails selectionDetails) {
+        final boolean visible = selectionDetails.size() == mFilesCountSupplier.getAsInt();
+        Menus.setEnabledAndVisible(deselectAll, visible);
     }
 
     @Override
     protected void updateCreateDir(MenuItem createDir) {
-        createDir.setVisible(true);
-        createDir.setEnabled(mDirDetails.canCreateDirectory());
+        Menus.setEnabledAndVisible(createDir, mDirDetails.canCreateDirectory());
     }
 
     @Override
@@ -234,52 +244,55 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
         boolean enabled = !selectionDetails.containsDirectories()
                 && !selectionDetails.containsPartialFiles()
                 && !selectionDetails.canExtract();
-        share.setVisible(enabled);
-        share.setEnabled(enabled);
+        Menus.setEnabledAndVisible(share, enabled);
     }
 
     @Override
     protected void updateDelete(MenuItem delete, SelectionDetails selectionDetails) {
         boolean enabled = selectionDetails.canDelete();
-        delete.setVisible(enabled);
-        delete.setEnabled(enabled);
+        Menus.setEnabledAndVisible(delete, enabled);
     }
 
     @Override
     protected void updateRename(MenuItem rename, SelectionDetails selectionDetails) {
-        rename.setVisible(true);
-        rename.setEnabled(!selectionDetails.containsPartialFiles() && selectionDetails.canRename());
+        Menus.setEnabledAndVisible(rename,
+                !selectionDetails.containsPartialFiles() && selectionDetails.canRename());
     }
 
     @Override
     protected void updateInspect(MenuItem inspect) {
         boolean visible = mFeatures.isInspectorEnabled();
-        inspect.setVisible(visible);
-        inspect.setEnabled(visible && mDirDetails.canInspectDirectory());
+        Menus.setEnabledAndVisible(inspect, visible && mDirDetails.canInspectDirectory());
     }
 
     @Override
     protected void updateInspect(MenuItem inspect, SelectionDetails selectionDetails) {
-        boolean visible = mFeatures.isInspectorEnabled();
-        inspect.setVisible(visible);
-        inspect.setEnabled(visible && selectionDetails.size() <= 1);
+        boolean visible = mFeatures.isInspectorEnabled() && selectionDetails.size() <= 1;
+        Menus.setEnabledAndVisible(inspect, visible);
     }
 
     @Override
     protected void updateViewInOwner(MenuItem view, SelectionDetails selectionDetails) {
         if (selectionDetails.canViewInOwner() &&
                 mSelectionManager.getSelection().iterator().hasNext()) {
-            view.setVisible(true);
-            view.setEnabled(true);
+            Menus.setEnabledAndVisible(view, true);
             Resources res = mContext.getResources();
             String selectedModelId = mSelectionManager.getSelection().iterator().next();
             Uri selectedUri = mUriLookup.lookup(selectedModelId);
-            String appName = mAppNameLookup.lookup(selectedUri.getAuthority());
+            String appName = mAppNameLookup.getApplicationName(UserId.DEFAULT_USER,
+                    selectedUri.getAuthority());
             String title = res.getString(R.string.menu_view_in_owner, appName);
             view.setTitle(title);
         }
         else {
-            view.setVisible(false);
+            Menus.setEnabledAndVisible(view, false);
         }
+    }
+
+    @Override
+    protected void updateLauncher(MenuItem launcher) {
+        Menus.setEnabledAndVisible(launcher, mState.debugMode);
+        launcher.setTitle(Shared.isLauncherEnabled(mContext)
+                ? "Hide launcher icon" : "Show launcher icon");
     }
 }

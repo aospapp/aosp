@@ -18,59 +18,20 @@ package android.car.apitest;
 
 import android.car.Car;
 import android.car.hardware.CarSensorManager;
-import android.content.ComponentName;
-import android.content.ServiceConnection;
-import android.os.IBinder;
-import android.os.Looper;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import static com.google.common.truth.Truth.assertThat;
+
+import org.junit.Test;
 
 @MediumTest
-public class CarSensorManagerTest extends AndroidTestCase {
-    private static final long DEFAULT_WAIT_TIMEOUT_MS = 3000;
+public class CarSensorManagerTest extends CarApiTestBase {
 
-    private final Semaphore mConnectionWait = new Semaphore(0);
-
-    private Car mCar;
-    private CarSensorManager mCarSensorManager;
-
-    private final ServiceConnection mConnectionListener = new ServiceConnection() {
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            assertMainThread();
-        }
-
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            assertMainThread();
-            mConnectionWait.release();
-        }
-    };
-
-    private void assertMainThread() {
-        assertTrue(Looper.getMainLooper().isCurrentThread());
-    }
-    private void waitForConnection(long timeoutMs) throws InterruptedException {
-        mConnectionWait.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
+    @Test
+    public void testCreate() throws Exception {
+        CarSensorManager carSensorManager = (CarSensorManager) getCar()
+                .getCarManager(Car.SENSOR_SERVICE);
+        assertThat(carSensorManager).isNotNull();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mCar = Car.createCar(getContext(), mConnectionListener);
-        mCar.connect();
-        waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
-        mCarSensorManager =
-                (CarSensorManager) mCar.getCarManager(Car.SENSOR_SERVICE);
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        mCar.disconnect();
-    }
 }

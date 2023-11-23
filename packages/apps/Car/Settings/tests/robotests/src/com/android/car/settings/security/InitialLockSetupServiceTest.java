@@ -24,7 +24,6 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.os.RemoteException;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.setupservice.InitialLockSetupService;
 import com.android.car.settings.testutils.ShadowLockPatternUtils;
 import com.android.car.setupwizardlib.IInitialLockSetupService;
@@ -40,6 +39,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -53,7 +53,7 @@ import java.util.List;
  * Tests that the {@link InitialLockSetupService} properly handles connections and lock requests.
  */
 @Config(shadows = ShadowLockPatternUtils.class)
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class InitialLockSetupServiceTest {
 
     private static final String LOCK_PERMISSION = "com.android.car.settings.SET_INITIAL_LOCK";
@@ -211,8 +211,8 @@ public class InitialLockSetupServiceTest {
         }
         int result = service.setLock(LockTypes.PATTERN, patternBytes);
         assertThat(result).isEqualTo(SetLockCodes.SUCCESS);
-        List<LockPatternView.Cell> savedPattern = ShadowLockPatternUtils.getSavedPattern();
-        assertThat(savedPattern).containsExactlyElementsIn(pattern);
+        byte[] savedPattern = ShadowLockPatternUtils.getSavedPattern();
+        assertThat(savedPattern).isEqualTo(LockPatternUtils.patternToByteArray(pattern));
     }
 
     @Test

@@ -6,8 +6,11 @@
 
 #include "xfa/fxfa/cxfa_ffdocview.h"
 
+#include <set>
+#include <utility>
+
 #include "core/fxcrt/fx_extension.h"
-#include "fxjs/cfxjse_engine.h"
+#include "fxjs/xfa/cfxjse_engine.h"
 #include "fxjs/xfa/cjx_object.h"
 #include "third_party/base/ptr_util.h"
 #include "third_party/base/stl_util.h"
@@ -15,7 +18,6 @@
 #include "xfa/fxfa/cxfa_ffbarcode.h"
 #include "xfa/fxfa/cxfa_ffcheckbutton.h"
 #include "xfa/fxfa/cxfa_ffdoc.h"
-#include "xfa/fxfa/cxfa_ffdraw.h"
 #include "xfa/fxfa/cxfa_ffexclgroup.h"
 #include "xfa/fxfa/cxfa_fffield.h"
 #include "xfa/fxfa/cxfa_ffimage.h"
@@ -23,68 +25,57 @@
 #include "xfa/fxfa/cxfa_ffpageview.h"
 #include "xfa/fxfa/cxfa_ffpushbutton.h"
 #include "xfa/fxfa/cxfa_ffsignature.h"
-#include "xfa/fxfa/cxfa_ffsubform.h"
 #include "xfa/fxfa/cxfa_fftext.h"
 #include "xfa/fxfa/cxfa_ffwidget.h"
 #include "xfa/fxfa/cxfa_ffwidgethandler.h"
 #include "xfa/fxfa/cxfa_fwladapterwidgetmgr.h"
+#include "xfa/fxfa/cxfa_readynodeiterator.h"
 #include "xfa/fxfa/cxfa_textprovider.h"
-#include "xfa/fxfa/cxfa_widgetacciterator.h"
+#include "xfa/fxfa/layout/cxfa_layoutprocessor.h"
 #include "xfa/fxfa/parser/cxfa_acrobat.h"
 #include "xfa/fxfa/parser/cxfa_binditems.h"
 #include "xfa/fxfa/parser/cxfa_calculate.h"
-#include "xfa/fxfa/parser/cxfa_layoutprocessor.h"
 #include "xfa/fxfa/parser/cxfa_pageset.h"
 #include "xfa/fxfa/parser/cxfa_present.h"
 #include "xfa/fxfa/parser/cxfa_subform.h"
 #include "xfa/fxfa/parser/cxfa_validate.h"
 #include "xfa/fxfa/parser/xfa_resolvenode_rs.h"
+#include "xfa/fxfa/parser/xfa_utils.h"
 
-const XFA_AttributeEnum gs_EventActivity[] = {
-    XFA_AttributeEnum::Click,      XFA_AttributeEnum::Change,
-    XFA_AttributeEnum::DocClose,   XFA_AttributeEnum::DocReady,
-    XFA_AttributeEnum::Enter,      XFA_AttributeEnum::Exit,
-    XFA_AttributeEnum::Full,       XFA_AttributeEnum::IndexChange,
-    XFA_AttributeEnum::Initialize, XFA_AttributeEnum::MouseDown,
-    XFA_AttributeEnum::MouseEnter, XFA_AttributeEnum::MouseExit,
-    XFA_AttributeEnum::MouseUp,    XFA_AttributeEnum::PostExecute,
-    XFA_AttributeEnum::PostOpen,   XFA_AttributeEnum::PostPrint,
-    XFA_AttributeEnum::PostSave,   XFA_AttributeEnum::PostSign,
-    XFA_AttributeEnum::PostSubmit, XFA_AttributeEnum::PreExecute,
-    XFA_AttributeEnum::PreOpen,    XFA_AttributeEnum::PrePrint,
-    XFA_AttributeEnum::PreSave,    XFA_AttributeEnum::PreSign,
-    XFA_AttributeEnum::PreSubmit,  XFA_AttributeEnum::Ready,
-    XFA_AttributeEnum::Unknown,
+const XFA_AttributeValue gs_EventActivity[] = {
+    XFA_AttributeValue::Click,      XFA_AttributeValue::Change,
+    XFA_AttributeValue::DocClose,   XFA_AttributeValue::DocReady,
+    XFA_AttributeValue::Enter,      XFA_AttributeValue::Exit,
+    XFA_AttributeValue::Full,       XFA_AttributeValue::IndexChange,
+    XFA_AttributeValue::Initialize, XFA_AttributeValue::MouseDown,
+    XFA_AttributeValue::MouseEnter, XFA_AttributeValue::MouseExit,
+    XFA_AttributeValue::MouseUp,    XFA_AttributeValue::PostExecute,
+    XFA_AttributeValue::PostOpen,   XFA_AttributeValue::PostPrint,
+    XFA_AttributeValue::PostSave,   XFA_AttributeValue::PostSign,
+    XFA_AttributeValue::PostSubmit, XFA_AttributeValue::PreExecute,
+    XFA_AttributeValue::PreOpen,    XFA_AttributeValue::PrePrint,
+    XFA_AttributeValue::PreSave,    XFA_AttributeValue::PreSign,
+    XFA_AttributeValue::PreSubmit,  XFA_AttributeValue::Ready,
+    XFA_AttributeValue::Unknown,
 };
 
-CXFA_FFDocView::CXFA_FFDocView(CXFA_FFDoc* pDoc)
-    : m_bLayoutEvent(false),
-      m_pListFocusWidget(nullptr),
-      m_bInLayoutStatus(false),
-      m_pDoc(pDoc),
-      m_pXFADocLayout(nullptr),
-      m_iStatus(XFA_DOCVIEW_LAYOUTSTATUS_None),
-      m_iLock(0) {}
+CXFA_FFDocView::CXFA_FFDocView(CXFA_FFDoc* pDoc) : m_pDoc(pDoc) {}
 
-CXFA_FFDocView::~CXFA_FFDocView() {
-  DestroyDocView();
-}
+CXFA_FFDocView::~CXFA_FFDocView() = default;
 
 void CXFA_FFDocView::InitLayout(CXFA_Node* pNode) {
   RunBindItems();
-  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_Initialize, false, true,
-                               nullptr);
-  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_IndexChange, false, true,
-                               nullptr);
+  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_Initialize, false, true);
+  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_IndexChange, false, true);
 }
 
-int32_t CXFA_FFDocView::StartLayout(int32_t iStartPage) {
+int32_t CXFA_FFDocView::StartLayout() {
   m_iStatus = XFA_DOCVIEW_LAYOUTSTATUS_Start;
   m_pDoc->GetXFADoc()->DoProtoMerge();
   m_pDoc->GetXFADoc()->DoDataMerge();
   m_pXFADocLayout = GetXFALayout();
 
-  int32_t iStatus = m_pXFADocLayout->StartLayout();
+  int32_t iStatus = m_pXFADocLayout->StartLayout(false);
   if (iStatus < 0)
     return iStatus;
 
@@ -97,14 +88,13 @@ int32_t CXFA_FFDocView::StartLayout(int32_t iStartPage) {
   InitCalculate(pRootItem);
   InitValidate(pRootItem);
 
-  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, true, true, nullptr);
+  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, true, true);
   m_iStatus = XFA_DOCVIEW_LAYOUTSTATUS_Start;
   return iStatus;
 }
 
 int32_t CXFA_FFDocView::DoLayout() {
-  int32_t iStatus = 100;
-  iStatus = m_pXFADocLayout->DoLayout();
+  int32_t iStatus = m_pXFADocLayout->DoLayout();
   if (iStatus != 100)
     return iStatus;
 
@@ -135,24 +125,19 @@ void CXFA_FFDocView::StopLayout() {
   InitCalculate(pPageSetNode);
   InitValidate(pPageSetNode);
 
-  ExecEventActivityByDeepFirst(pPageSetNode, XFA_EVENT_Ready, true, true,
-                               nullptr);
-  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, false, true,
-                               nullptr);
-  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_DocReady, false, true,
-                               nullptr);
+  ExecEventActivityByDeepFirst(pPageSetNode, XFA_EVENT_Ready, true, true);
+  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, false, true);
+  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_DocReady, false, true);
 
   RunCalculateWidgets();
   RunValidate();
 
-  if (RunLayout()) {
-    ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, false, true,
-                                 nullptr);
-  }
+  if (RunLayout())
+    ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, false, true);
 
-  m_CalculateAccs.clear();
-  if (m_pFocusAcc && !m_pFocusWidget)
-    SetFocusWidgetAcc(m_pFocusAcc.Get());
+  m_CalculateNodes.clear();
+  if (m_pFocusNode && !m_pFocusWidget)
+    SetFocusNode(m_pFocusNode.Get());
 
   m_iStatus = XFA_DOCVIEW_LAYOUTSTATUS_End;
 }
@@ -174,8 +159,9 @@ void CXFA_FFDocView::ShowNullTestMsg() {
                            L"validation errors not reported.",
                            iRemain);
     }
-    pAppProvider->MsgBox(wsMsg, pAppProvider->GetAppTitle(), XFA_MBICON_Status,
-                         XFA_MB_OK);
+    pAppProvider->MsgBox(wsMsg, pAppProvider->GetAppTitle(),
+                         static_cast<uint32_t>(AlertIcon::kStatus),
+                         static_cast<uint32_t>(AlertButton::kOK));
   }
   m_arrNullTestMsg.clear();
 }
@@ -185,12 +171,13 @@ void CXFA_FFDocView::UpdateDocView() {
     return;
 
   LockUpdate();
-  for (CXFA_Node* pNode : m_NewAddedNodes) {
+  while (!m_NewAddedNodes.empty()) {
+    CXFA_Node* pNode = m_NewAddedNodes.front();
+    m_NewAddedNodes.pop_front();
     InitCalculate(pNode);
     InitValidate(pNode);
-    ExecEventActivityByDeepFirst(pNode, XFA_EVENT_Ready, true, true, nullptr);
+    ExecEventActivityByDeepFirst(pNode, XFA_EVENT_Ready, true, true);
   }
-  m_NewAddedNodes.clear();
 
   RunSubformIndexChange();
   RunCalculateWidgets();
@@ -202,9 +189,28 @@ void CXFA_FFDocView::UpdateDocView() {
     RunEventLayoutReady();
 
   m_bLayoutEvent = false;
-  m_CalculateAccs.clear();
-  RunInvalidate();
+  m_CalculateNodes.clear();
   UnlockUpdate();
+}
+
+void CXFA_FFDocView::UpdateUIDisplay(CXFA_Node* pNode, CXFA_FFWidget* pExcept) {
+  CXFA_FFWidget* pWidget = GetWidgetForNode(pNode);
+  CXFA_FFWidget* pNext = nullptr;
+  for (; pWidget; pWidget = pNext) {
+    pNext = pWidget->GetNextFFWidget();
+    if (pWidget == pExcept || !pWidget->IsLoaded() ||
+        (pNode->GetFFWidgetType() != XFA_FFWidgetType::kCheckButton &&
+         pWidget->IsFocused())) {
+      continue;
+    }
+    ObservedPtr<CXFA_FFWidget> pWatched(pWidget);
+    ObservedPtr<CXFA_FFWidget> pWatchedNext(pNext);
+    pWatched->UpdateFWLData();
+    if (pWatched)
+      pWatched->InvalidateRect();
+    if (!pWatchedNext)
+      break;
+  }
 }
 
 int32_t CXFA_FFDocView::CountPageViews() const {
@@ -214,37 +220,37 @@ int32_t CXFA_FFDocView::CountPageViews() const {
 CXFA_FFPageView* CXFA_FFDocView::GetPageView(int32_t nIndex) const {
   if (!m_pXFADocLayout)
     return nullptr;
-  return static_cast<CXFA_FFPageView*>(m_pXFADocLayout->GetPage(nIndex));
+  auto* pPage = m_pXFADocLayout->GetPage(nIndex);
+  return pPage ? pPage->GetPageView() : nullptr;
 }
 
 CXFA_LayoutProcessor* CXFA_FFDocView::GetXFALayout() const {
-  return m_pDoc->GetXFADoc()->GetDocLayout();
+  return CXFA_LayoutProcessor::FromDocument(m_pDoc->GetXFADoc());
 }
 
-bool CXFA_FFDocView::ResetSingleWidgetAccData(CXFA_WidgetAcc* pWidgetAcc) {
-  CXFA_Node* pNode = pWidgetAcc->GetNode();
+bool CXFA_FFDocView::ResetSingleNodeData(CXFA_Node* pNode) {
   XFA_Element eType = pNode->GetElementType();
   if (eType != XFA_Element::Field && eType != XFA_Element::ExclGroup)
     return false;
 
-  pWidgetAcc->ResetData();
-  pWidgetAcc->UpdateUIDisplay(this, nullptr);
+  pNode->ResetData();
+  UpdateUIDisplay(pNode, nullptr);
   CXFA_Validate* validate = pNode->GetValidateIfExists();
   if (!validate)
     return true;
 
-  AddValidateWidget(pWidgetAcc);
-  validate->SetFlag(XFA_NodeFlag_NeedsInitApp, false);
+  AddValidateNode(pNode);
+  validate->SetFlag(XFA_NodeFlag_NeedsInitApp);
   return true;
 }
 
-void CXFA_FFDocView::ResetWidgetAcc(CXFA_WidgetAcc* pWidgetAcc) {
+void CXFA_FFDocView::ResetNode(CXFA_Node* pNode) {
   m_bLayoutEvent = true;
   bool bChanged = false;
   CXFA_Node* pFormNode = nullptr;
-  if (pWidgetAcc) {
-    bChanged = ResetSingleWidgetAccData(pWidgetAcc);
-    pFormNode = pWidgetAcc->GetNode();
+  if (pNode) {
+    bChanged = ResetSingleNodeData(pNode);
+    pFormNode = pNode;
   } else {
     pFormNode = GetRootSubform();
   }
@@ -253,65 +259,19 @@ void CXFA_FFDocView::ResetWidgetAcc(CXFA_WidgetAcc* pWidgetAcc) {
 
   if (pFormNode->GetElementType() != XFA_Element::Field &&
       pFormNode->GetElementType() != XFA_Element::ExclGroup) {
-    CXFA_WidgetAccIterator Iterator(pFormNode);
-    while (CXFA_WidgetAcc* pAcc = Iterator.MoveToNext()) {
-      bChanged |= ResetSingleWidgetAccData(pAcc);
-      if (pAcc->GetNode()->GetElementType() == XFA_Element::ExclGroup)
-        Iterator.SkipTree();
+    CXFA_ReadyNodeIterator it(pFormNode);
+    while (CXFA_Node* next_node = it.MoveToNext()) {
+      bChanged |= ResetSingleNodeData(next_node);
+      if (next_node->GetElementType() == XFA_Element::ExclGroup)
+        it.SkipTree();
     }
   }
   if (bChanged)
     m_pDoc->GetDocEnvironment()->SetChangeMark(m_pDoc.Get());
 }
 
-int32_t CXFA_FFDocView::ProcessWidgetEvent(CXFA_EventParam* pParam,
-                                           CXFA_WidgetAcc* pWidgetAcc) {
-  if (!pParam)
-    return XFA_EVENTERROR_Error;
-
-  if (pParam->m_eType == XFA_EVENT_Validate) {
-    WideString wsValidateStr(L"preSubmit");
-    CXFA_Node* pConfigItem =
-        ToNode(m_pDoc->GetXFADoc()->GetXFAObject(XFA_HASHCODE_Config));
-    if (pConfigItem) {
-      CXFA_Acrobat* pAcrobatNode =
-          pConfigItem->GetChild<CXFA_Acrobat>(0, XFA_Element::Acrobat, false);
-      CXFA_Validate* pValidateNode =
-          pAcrobatNode ? pAcrobatNode->GetChild<CXFA_Validate>(
-                             0, XFA_Element::Validate, false)
-                       : nullptr;
-      if (!pValidateNode) {
-        CXFA_Present* pPresentNode =
-            pConfigItem->GetChild<CXFA_Present>(0, XFA_Element::Present, false);
-        pValidateNode = pPresentNode ? pPresentNode->GetChild<CXFA_Validate>(
-                                           0, XFA_Element::Validate, false)
-                                     : nullptr;
-      }
-      if (pValidateNode)
-        wsValidateStr = pValidateNode->JSObject()->GetContent(false);
-    }
-
-    if (!wsValidateStr.Contains(L"preSubmit"))
-      return XFA_EVENTERROR_Success;
-  }
-
-  CXFA_Node* pNode = pWidgetAcc ? pWidgetAcc->GetNode() : nullptr;
-  if (!pNode) {
-    CXFA_Node* pRootItem =
-        ToNode(m_pDoc->GetXFADoc()->GetXFAObject(XFA_HASHCODE_Form));
-    if (!pRootItem)
-      return XFA_EVENTERROR_Error;
-
-    pNode = pRootItem->GetChild<CXFA_Node>(0, XFA_Element::Subform, false);
-  }
-
-  ExecEventActivityByDeepFirst(pNode, pParam->m_eType, pParam->m_bIsFormReady,
-                               true, nullptr);
-  return XFA_EVENTERROR_Success;
-}
-
 CXFA_FFWidget* CXFA_FFDocView::GetWidgetForNode(CXFA_Node* node) {
-  return static_cast<CXFA_FFWidget*>(GetXFALayout()->GetLayoutItem(node));
+  return GetFFWidget(ToContentLayoutItem(GetXFALayout()->GetLayoutItem(node)));
 }
 
 CXFA_FFWidgetHandler* CXFA_FFDocView::GetWidgetHandler() {
@@ -320,74 +280,60 @@ CXFA_FFWidgetHandler* CXFA_FFDocView::GetWidgetHandler() {
   return m_pWidgetHandler.get();
 }
 
-std::unique_ptr<CXFA_WidgetAccIterator>
-CXFA_FFDocView::CreateWidgetAccIterator() {
+std::unique_ptr<CXFA_ReadyNodeIterator>
+CXFA_FFDocView::CreateReadyNodeIterator() {
   CXFA_Subform* pFormRoot = GetRootSubform();
-  return pFormRoot ? pdfium::MakeUnique<CXFA_WidgetAccIterator>(pFormRoot)
+  return pFormRoot ? pdfium::MakeUnique<CXFA_ReadyNodeIterator>(pFormRoot)
                    : nullptr;
 }
 
-void CXFA_FFDocView::KillFocus() {
-  if (m_pFocusWidget &&
-      (m_pFocusWidget->GetStatus() & XFA_WidgetStatus_Focused)) {
-    m_pFocusWidget->OnKillFocus(nullptr);
-  }
-  m_pFocusAcc = nullptr;
-  m_pFocusWidget = nullptr;
-  m_pOldFocusWidget = nullptr;
-}
-
-bool CXFA_FFDocView::SetFocus(CXFA_FFWidget* hWidget) {
-  CXFA_FFWidget* pNewFocus = hWidget;
-  if (m_pOldFocusWidget == pNewFocus)
+bool CXFA_FFDocView::SetFocus(CXFA_FFWidget* pNewFocus) {
+  if (pNewFocus == m_pFocusWidget)
     return false;
 
-  CXFA_FFWidget* pOldFocus = m_pOldFocusWidget.Get();
-  m_pOldFocusWidget = pNewFocus;
-  if (pOldFocus) {
-    if (m_pFocusWidget != m_pOldFocusWidget &&
-        (pOldFocus->GetStatus() & XFA_WidgetStatus_Focused)) {
-      m_pFocusWidget = pOldFocus;
-      pOldFocus->OnKillFocus(pNewFocus);
-    } else if ((pOldFocus->GetStatus() & XFA_WidgetStatus_Visible)) {
-      if (!pOldFocus->IsLoaded())
-        pOldFocus->LoadWidget();
-
-      pOldFocus->OnSetFocus(m_pFocusWidget.Get());
-      m_pFocusWidget = pOldFocus;
-      pOldFocus->OnKillFocus(pNewFocus);
+  ObservedPtr<CXFA_FFWidget> pNewWatched(pNewFocus);
+  if (m_pFocusWidget) {
+    CXFA_ContentLayoutItem* pItem = m_pFocusWidget->GetLayoutItem();
+    if (pItem->TestStatusBits(XFA_WidgetStatus_Visible) &&
+        !pItem->TestStatusBits(XFA_WidgetStatus_Focused)) {
+      if (!m_pFocusWidget->IsLoaded())
+        m_pFocusWidget->LoadWidget();
+      if (!m_pFocusWidget->OnSetFocus(m_pFocusWidget.Get()))
+        m_pFocusWidget.Reset();
     }
   }
-  if (m_pFocusWidget == m_pOldFocusWidget)
-    return false;
+  if (m_pFocusWidget) {
+    if (!m_pFocusWidget->OnKillFocus(pNewWatched.Get()))
+      return false;
+  }
 
-  pNewFocus = m_pOldFocusWidget.Get();
-  if (m_pListFocusWidget && pNewFocus == m_pListFocusWidget) {
-    m_pFocusAcc = nullptr;
-    m_pFocusWidget = nullptr;
-    m_pListFocusWidget = nullptr;
-    m_pOldFocusWidget = nullptr;
-    return false;
+  if (pNewWatched) {
+    if (pNewWatched->GetLayoutItem()->TestStatusBits(
+            XFA_WidgetStatus_Visible)) {
+      if (!pNewWatched->IsLoaded())
+        pNewWatched->LoadWidget();
+      if (!pNewWatched->OnSetFocus(m_pFocusWidget.Get()))
+        pNewWatched.Reset();
+    }
   }
-  if (pNewFocus && (pNewFocus->GetStatus() & XFA_WidgetStatus_Visible)) {
-    if (!pNewFocus->IsLoaded())
-      pNewFocus->LoadWidget();
-    pNewFocus->OnSetFocus(m_pFocusWidget.Get());
+  if (pNewWatched) {
+    CXFA_Node* node = pNewWatched->GetNode();
+    m_pFocusNode = node->IsWidgetReady() ? node : nullptr;
+    m_pFocusWidget.Reset(pNewWatched.Get());
+  } else {
+    m_pFocusNode.Reset();
+    m_pFocusWidget.Reset();
   }
-  m_pFocusAcc = pNewFocus ? pNewFocus->GetNode()->GetWidgetAcc() : nullptr;
-  m_pFocusWidget = pNewFocus;
-  m_pOldFocusWidget = m_pFocusWidget;
+
   return true;
 }
 
-void CXFA_FFDocView::SetFocusWidgetAcc(CXFA_WidgetAcc* pWidgetAcc) {
-  CXFA_FFWidget* pNewFocus = nullptr;
-  if (pWidgetAcc)
-    pNewFocus = GetWidgetForNode(pWidgetAcc->GetNode());
+void CXFA_FFDocView::SetFocusNode(CXFA_Node* node) {
+  CXFA_FFWidget* pNewFocus = node ? GetWidgetForNode(node) : nullptr;
   if (!SetFocus(pNewFocus))
     return;
 
-  m_pFocusAcc = pWidgetAcc;
+  m_pFocusNode = node;
   if (m_iStatus != XFA_DOCVIEW_LAYOUTSTATUS_End)
     return;
 
@@ -396,177 +342,136 @@ void CXFA_FFDocView::SetFocusWidgetAcc(CXFA_WidgetAcc* pWidgetAcc) {
 }
 
 void CXFA_FFDocView::DeleteLayoutItem(CXFA_FFWidget* pWidget) {
-  if (m_pFocusAcc && m_pFocusAcc->GetNode() != pWidget->GetNode())
+  if (m_pFocusNode != pWidget->GetNode())
     return;
 
-  m_pFocusAcc = nullptr;
-  m_pFocusWidget = nullptr;
-  m_pOldFocusWidget = nullptr;
+  m_pFocusNode.Reset();
+  m_pFocusWidget.Reset();
 }
 
-static int32_t XFA_ProcessEvent(CXFA_FFDocView* pDocView,
-                                CXFA_WidgetAcc* pWidgetAcc,
-                                CXFA_EventParam* pParam) {
+static XFA_EventError XFA_ProcessEvent(CXFA_FFDocView* pDocView,
+                                       CXFA_Node* pNode,
+                                       CXFA_EventParam* pParam) {
   if (!pParam || pParam->m_eType == XFA_EVENT_Unknown)
-    return XFA_EVENTERROR_NotExist;
-  if (!pWidgetAcc)
-    return XFA_EVENTERROR_NotExist;
-
-  CXFA_Node* node = pWidgetAcc->GetNode();
-  if (node && node->GetElementType() == XFA_Element::Draw)
-    return XFA_EVENTERROR_NotExist;
+    return XFA_EventError::kNotExist;
+  if (pNode && pNode->GetElementType() == XFA_Element::Draw)
+    return XFA_EventError::kNotExist;
 
   switch (pParam->m_eType) {
     case XFA_EVENT_Calculate:
-      return node->ProcessCalculate(pDocView);
+      return pNode->ProcessCalculate(pDocView);
     case XFA_EVENT_Validate:
       if (pDocView->GetDoc()->GetDocEnvironment()->IsValidationsEnabled(
               pDocView->GetDoc())) {
-        return node->ProcessValidate(pDocView, 0x01);
+        return pNode->ProcessValidate(pDocView, 0x01);
       }
-      return XFA_EVENTERROR_Disabled;
+      return XFA_EventError::kDisabled;
     case XFA_EVENT_InitCalculate: {
-      CXFA_Calculate* calc = node->GetCalculateIfExists();
+      CXFA_Calculate* calc = pNode->GetCalculateIfExists();
       if (!calc)
-        return XFA_EVENTERROR_NotExist;
-      if (node->IsUserInteractive())
-        return XFA_EVENTERROR_Disabled;
+        return XFA_EventError::kNotExist;
+      if (pNode->IsUserInteractive())
+        return XFA_EventError::kDisabled;
 
-      return node->ExecuteScript(pDocView, calc->GetScriptIfExists(), pParam);
+      return pNode->ExecuteScript(pDocView, calc->GetScriptIfExists(), pParam);
     }
     default:
-      break;
+      return pNode->ProcessEvent(pDocView, gs_EventActivity[pParam->m_eType],
+                                 pParam);
   }
-
-  return node->ProcessEvent(pDocView, gs_EventActivity[pParam->m_eType],
-                            pParam);
 }
 
-int32_t CXFA_FFDocView::ExecEventActivityByDeepFirst(CXFA_Node* pFormNode,
-                                                     XFA_EVENTTYPE eEventType,
-                                                     bool bIsFormReady,
-                                                     bool bRecursive,
-                                                     CXFA_Node* pExclude) {
-  if (pFormNode == pExclude)
-    return XFA_EVENTERROR_NotExist;
+XFA_EventError CXFA_FFDocView::ExecEventActivityByDeepFirst(
+    CXFA_Node* pFormNode,
+    XFA_EVENTTYPE eEventType,
+    bool bIsFormReady,
+    bool bRecursive) {
+  if (!pFormNode)
+    return XFA_EventError::kNotExist;
 
   XFA_Element elementType = pFormNode->GetElementType();
   if (elementType == XFA_Element::Field) {
     if (eEventType == XFA_EVENT_IndexChange)
-      return XFA_EVENTERROR_NotExist;
+      return XFA_EventError::kNotExist;
 
-    CXFA_WidgetAcc* pWidgetAcc = pFormNode->GetWidgetAcc();
-    if (!pWidgetAcc)
-      return XFA_EVENTERROR_NotExist;
+    if (!pFormNode->IsWidgetReady())
+      return XFA_EventError::kNotExist;
 
     CXFA_EventParam eParam;
     eParam.m_eType = eEventType;
-    eParam.m_pTarget = pWidgetAcc;
+    eParam.m_pTarget = pFormNode;
     eParam.m_bIsFormReady = bIsFormReady;
-    return XFA_ProcessEvent(this, pWidgetAcc, &eParam);
+    return XFA_ProcessEvent(this, pFormNode, &eParam);
   }
 
-  int32_t iRet = XFA_EVENTERROR_NotExist;
+  XFA_EventError iRet = XFA_EventError::kNotExist;
   if (bRecursive) {
     for (CXFA_Node* pNode = pFormNode->GetFirstContainerChild(); pNode;
          pNode = pNode->GetNextContainerSibling()) {
       elementType = pNode->GetElementType();
       if (elementType != XFA_Element::Variables &&
           elementType != XFA_Element::Draw) {
-        iRet |= ExecEventActivityByDeepFirst(pNode, eEventType, bIsFormReady,
-                                             bRecursive, pExclude);
+        XFA_EventErrorAccumulate(
+            &iRet, ExecEventActivityByDeepFirst(pNode, eEventType, bIsFormReady,
+                                                bRecursive));
       }
     }
   }
-  CXFA_WidgetAcc* pWidgetAcc = pFormNode->GetWidgetAcc();
-  if (!pWidgetAcc)
+  if (!pFormNode->IsWidgetReady())
     return iRet;
 
   CXFA_EventParam eParam;
   eParam.m_eType = eEventType;
-  eParam.m_pTarget = pWidgetAcc;
+  eParam.m_pTarget = pFormNode;
   eParam.m_bIsFormReady = bIsFormReady;
-  iRet |= XFA_ProcessEvent(this, pWidgetAcc, &eParam);
 
+  XFA_EventErrorAccumulate(&iRet, XFA_ProcessEvent(this, pFormNode, &eParam));
   return iRet;
 }
 
 CXFA_FFWidget* CXFA_FFDocView::GetWidgetByName(const WideString& wsName,
                                                CXFA_FFWidget* pRefWidget) {
-  CXFA_WidgetAcc* pRefAcc =
-      pRefWidget ? pRefWidget->GetNode()->GetWidgetAcc() : nullptr;
-  CXFA_WidgetAcc* pAcc = GetWidgetAccByName(wsName, pRefAcc);
-  if (!pAcc)
-    return nullptr;
-  return GetWidgetForNode(pAcc->GetNode());
-}
-
-CXFA_WidgetAcc* CXFA_FFDocView::GetWidgetAccByName(
-    const WideString& wsName,
-    CXFA_WidgetAcc* pRefWidgetAcc) {
-  WideString wsExpression;
-  uint32_t dwStyle = XFA_RESOLVENODE_Children | XFA_RESOLVENODE_Properties |
-                     XFA_RESOLVENODE_Siblings | XFA_RESOLVENODE_Parent;
   CFXJSE_Engine* pScriptContext = m_pDoc->GetXFADoc()->GetScriptContext();
-  if (!pScriptContext)
-    return nullptr;
-
-  CXFA_Node* refNode = nullptr;
-  if (pRefWidgetAcc) {
-    refNode = pRefWidgetAcc->GetNode();
-    wsExpression = wsName;
-  } else {
-    wsExpression = L"$form." + wsName;
+  CXFA_Node* pRefNode = nullptr;
+  if (pRefWidget) {
+    CXFA_Node* node = pRefWidget->GetNode();
+    pRefNode = node->IsWidgetReady() ? node : nullptr;
   }
+  WideString wsExpression = (!pRefNode ? L"$form." : L"") + wsName;
 
   XFA_RESOLVENODE_RS resolveNodeRS;
-  if (!pScriptContext->ResolveObjects(refNode, wsExpression.AsStringView(),
-                                      &resolveNodeRS, dwStyle, nullptr)) {
+  constexpr uint32_t kStyle = XFA_RESOLVENODE_Children |
+                              XFA_RESOLVENODE_Properties |
+                              XFA_RESOLVENODE_Siblings | XFA_RESOLVENODE_Parent;
+  if (!pScriptContext->ResolveObjects(pRefNode, wsExpression.AsStringView(),
+                                      &resolveNodeRS, kStyle, nullptr)) {
     return nullptr;
   }
 
   if (resolveNodeRS.dwFlags == XFA_ResolveNode_RSType_Nodes) {
     CXFA_Node* pNode = resolveNodeRS.objects.front()->AsNode();
-    if (pNode)
-      return pNode->GetWidgetAcc();
+    if (pNode && pNode->IsWidgetReady())
+      return GetWidgetForNode(pNode);
   }
   return nullptr;
 }
 
-void CXFA_FFDocView::OnPageEvent(CXFA_ContainerLayoutItem* pSender,
+void CXFA_FFDocView::OnPageEvent(CXFA_ViewLayoutItem* pSender,
                                  uint32_t dwEvent) {
-  CXFA_FFPageView* pFFPageView = static_cast<CXFA_FFPageView*>(pSender);
+  CXFA_FFPageView* pFFPageView = pSender ? pSender->GetPageView() : nullptr;
   m_pDoc->GetDocEnvironment()->PageViewEvent(pFFPageView, dwEvent);
 }
 
-
-void CXFA_FFDocView::AddInvalidateRect(CXFA_FFWidget* pWidget,
-                                       const CFX_RectF& rtInvalidate) {
-  AddInvalidateRect(pWidget->GetPageView(), rtInvalidate);
-}
-
-void CXFA_FFDocView::AddInvalidateRect(CXFA_FFPageView* pPageView,
-                                       const CFX_RectF& rtInvalidate) {
-  if (m_mapPageInvalidate[pPageView]) {
-    m_mapPageInvalidate[pPageView]->Union(rtInvalidate);
-    return;
-  }
-
-  m_mapPageInvalidate[pPageView] = pdfium::MakeUnique<CFX_RectF>(rtInvalidate);
-}
-
-void CXFA_FFDocView::RunInvalidate() {
-  for (const auto& pair : m_mapPageInvalidate)
-    m_pDoc->GetDocEnvironment()->InvalidateRect(pair.first, *pair.second);
-
-  m_mapPageInvalidate.clear();
+void CXFA_FFDocView::InvalidateRect(CXFA_FFPageView* pPageView,
+                                    const CFX_RectF& rtInvalidate) {
+  m_pDoc->GetDocEnvironment()->InvalidateRect(pPageView, rtInvalidate);
 }
 
 bool CXFA_FFDocView::RunLayout() {
   LockUpdate();
   m_bInLayoutStatus = true;
   if (!m_pXFADocLayout->IncrementLayout() &&
-      m_pXFADocLayout->StartLayout() < 100) {
+      m_pXFADocLayout->StartLayout(false) < 100) {
     m_pXFADocLayout->DoLayout();
     UnlockUpdate();
     m_bInLayoutStatus = false;
@@ -583,16 +488,19 @@ bool CXFA_FFDocView::RunLayout() {
 }
 
 void CXFA_FFDocView::RunSubformIndexChange() {
-  for (CXFA_Node* pSubformNode : m_IndexChangedSubforms) {
-    if (!pSubformNode->GetWidgetAcc())
+  std::set<CXFA_Node*> seen;
+  while (!m_IndexChangedSubforms.empty()) {
+    CXFA_Node* pSubformNode = m_IndexChangedSubforms.front();
+    m_IndexChangedSubforms.pop_front();
+    bool bInserted = seen.insert(pSubformNode).second;
+    if (!bInserted || !pSubformNode->IsWidgetReady())
       continue;
 
     CXFA_EventParam eParam;
     eParam.m_eType = XFA_EVENT_IndexChange;
-    eParam.m_pTarget = pSubformNode->GetWidgetAcc();
-    pSubformNode->ProcessEvent(this, XFA_AttributeEnum::IndexChange, &eParam);
+    eParam.m_pTarget = pSubformNode;
+    pSubformNode->ProcessEvent(this, XFA_AttributeValue::IndexChange, &eParam);
   }
-  m_IndexChangedSubforms.clear();
 }
 
 void CXFA_FFDocView::AddNewFormNode(CXFA_Node* pNode) {
@@ -602,7 +510,8 @@ void CXFA_FFDocView::AddNewFormNode(CXFA_Node* pNode) {
 
 void CXFA_FFDocView::AddIndexChangedSubform(CXFA_Node* pNode) {
   ASSERT(pNode->GetElementType() == XFA_Element::Subform);
-  m_IndexChangedSubforms.push_back(pNode);
+  if (!pdfium::ContainsValue(m_IndexChangedSubforms, pNode))
+    m_IndexChangedSubforms.push_back(pNode);
 }
 
 void CXFA_FFDocView::RunDocClose() {
@@ -611,24 +520,14 @@ void CXFA_FFDocView::RunDocClose() {
   if (!pRootItem)
     return;
 
-  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_DocClose, false, true,
-                               nullptr);
+  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_DocClose, false, true);
 }
 
-void CXFA_FFDocView::DestroyDocView() {
-  ClearInvalidateList();
-  m_iStatus = XFA_DOCVIEW_LAYOUTSTATUS_None;
-  m_iLock = 0;
-  m_ValidateAccs.clear();
-  m_BindItems.clear();
-  m_CalculateAccs.clear();
-}
-
-void CXFA_FFDocView::AddCalculateWidgetAcc(CXFA_WidgetAcc* pWidgetAcc) {
-  CXFA_WidgetAcc* pCurrentAcc =
-      !m_CalculateAccs.empty() ? m_CalculateAccs.back() : nullptr;
-  if (pCurrentAcc != pWidgetAcc)
-    m_CalculateAccs.push_back(pWidgetAcc);
+void CXFA_FFDocView::AddCalculateNode(CXFA_Node* node) {
+  CXFA_Node* pCurrentNode =
+      !m_CalculateNodes.empty() ? m_CalculateNodes.back() : nullptr;
+  if (pCurrentNode != node)
+    m_CalculateNodes.push_back(node);
 }
 
 void CXFA_FFDocView::AddCalculateNodeNotify(CXFA_Node* pNodeChange) {
@@ -637,54 +536,56 @@ void CXFA_FFDocView::AddCalculateNodeNotify(CXFA_Node* pNodeChange) {
     return;
 
   for (auto* pResult : pGlobalData->m_Globals) {
-    if (!pResult->HasRemovedChildren())
-      AddCalculateWidgetAcc(pResult->GetWidgetAcc());
+    if (!pResult->HasRemovedChildren() && pResult->IsWidgetReady())
+      AddCalculateNode(pResult);
   }
 }
 
 size_t CXFA_FFDocView::RunCalculateRecursive(size_t index) {
-  while (index < m_CalculateAccs.size()) {
-    CXFA_Node* node = m_CalculateAccs[index]->GetNode();
+  while (index < m_CalculateNodes.size()) {
+    CXFA_Node* node = m_CalculateNodes[index];
 
     AddCalculateNodeNotify(node);
     size_t recurse = node->JSObject()->GetCalcRecursionCount() + 1;
     node->JSObject()->SetCalcRecursionCount(recurse);
     if (recurse > 11)
       break;
-    if (node->ProcessCalculate(this) == XFA_EVENTERROR_Success)
-      AddValidateWidget(node->GetWidgetAcc());
+    if (node->ProcessCalculate(this) == XFA_EventError::kSuccess &&
+        node->IsWidgetReady()) {
+      AddValidateNode(node);
+    }
 
     index = RunCalculateRecursive(++index);
   }
   return index;
 }
 
-int32_t CXFA_FFDocView::RunCalculateWidgets() {
+XFA_EventError CXFA_FFDocView::RunCalculateWidgets() {
   if (!m_pDoc->GetDocEnvironment()->IsCalculationsEnabled(m_pDoc.Get()))
-    return XFA_EVENTERROR_Disabled;
-  if (!m_CalculateAccs.empty())
+    return XFA_EventError::kDisabled;
+
+  if (!m_CalculateNodes.empty())
     RunCalculateRecursive(0);
 
-  for (CXFA_WidgetAcc* pCurAcc : m_CalculateAccs)
-    pCurAcc->GetNode()->JSObject()->SetCalcRecursionCount(0);
+  for (CXFA_Node* node : m_CalculateNodes)
+    node->JSObject()->SetCalcRecursionCount(0);
 
-  m_CalculateAccs.clear();
-  return XFA_EVENTERROR_Success;
+  m_CalculateNodes.clear();
+  return XFA_EventError::kSuccess;
 }
 
-void CXFA_FFDocView::AddValidateWidget(CXFA_WidgetAcc* pWidget) {
-  if (!pdfium::ContainsValue(m_ValidateAccs, pWidget))
-    m_ValidateAccs.push_back(pWidget);
+void CXFA_FFDocView::AddValidateNode(CXFA_Node* node) {
+  if (!pdfium::ContainsValue(m_ValidateNodes, node))
+    m_ValidateNodes.push_back(node);
 }
 
 void CXFA_FFDocView::InitCalculate(CXFA_Node* pNode) {
-  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_InitCalculate, false, true,
-                               nullptr);
+  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_InitCalculate, false, true);
 }
 
-void CXFA_FFDocView::ProcessValueChanged(CXFA_WidgetAcc* widgetAcc) {
-  AddValidateWidget(widgetAcc);
-  AddCalculateWidgetAcc(widgetAcc);
+void CXFA_FFDocView::ProcessValueChanged(CXFA_Node* node) {
+  AddValidateNode(node);
+  AddCalculateNode(node);
   RunCalculateWidgets();
   RunValidate();
 }
@@ -693,8 +594,8 @@ bool CXFA_FFDocView::InitValidate(CXFA_Node* pNode) {
   if (!m_pDoc->GetDocEnvironment()->IsValidationsEnabled(m_pDoc.Get()))
     return false;
 
-  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_Validate, false, true, nullptr);
-  m_ValidateAccs.clear();
+  ExecEventActivityByDeepFirst(pNode, XFA_EVENT_Validate, false, true);
+  m_ValidateNodes.clear();
   return true;
 }
 
@@ -702,12 +603,12 @@ bool CXFA_FFDocView::RunValidate() {
   if (!m_pDoc->GetDocEnvironment()->IsValidationsEnabled(m_pDoc.Get()))
     return false;
 
-  for (CXFA_WidgetAcc* pAcc : m_ValidateAccs) {
-    CXFA_Node* node = pAcc->GetNode();
+  while (!m_ValidateNodes.empty()) {
+    CXFA_Node* node = m_ValidateNodes.front();
+    m_ValidateNodes.pop_front();
     if (!node->HasRemovedChildren())
       node->ProcessValidate(this, 0);
   }
-  m_ValidateAccs.clear();
   return true;
 }
 
@@ -717,44 +618,46 @@ bool CXFA_FFDocView::RunEventLayoutReady() {
   if (!pRootItem)
     return false;
 
-  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, false, true,
-                               nullptr);
+  ExecEventActivityByDeepFirst(pRootItem, XFA_EVENT_Ready, false, true);
   RunLayout();
   return true;
 }
 
 void CXFA_FFDocView::RunBindItems() {
-  for (auto* item : m_BindItems) {
+  while (!m_BindItems.empty()) {
+    CXFA_BindItems* item = m_BindItems.front();
+    m_BindItems.pop_front();
     if (item->HasRemovedChildren())
       continue;
 
     CXFA_Node* pWidgetNode = item->GetParent();
-    CXFA_WidgetAcc* pAcc = pWidgetNode->GetWidgetAcc();
-    if (!pAcc)
+    if (!pWidgetNode || !pWidgetNode->IsWidgetReady())
       continue;
 
     CFXJSE_Engine* pScriptContext =
         pWidgetNode->GetDocument()->GetScriptContext();
     WideString wsRef = item->GetRef();
-    uint32_t dwStyle = XFA_RESOLVENODE_Children | XFA_RESOLVENODE_Properties |
-                       XFA_RESOLVENODE_Siblings | XFA_RESOLVENODE_Parent |
-                       XFA_RESOLVENODE_ALL;
+    constexpr uint32_t kStyle =
+        XFA_RESOLVENODE_Children | XFA_RESOLVENODE_Properties |
+        XFA_RESOLVENODE_Siblings | XFA_RESOLVENODE_Parent | XFA_RESOLVENODE_ALL;
     XFA_RESOLVENODE_RS rs;
     pScriptContext->ResolveObjects(pWidgetNode, wsRef.AsStringView(), &rs,
-                                   dwStyle, nullptr);
-    pAcc->DeleteItem(-1, false, false);
+                                   kStyle, nullptr);
+    pWidgetNode->DeleteItem(-1, false, false);
     if (rs.dwFlags != XFA_ResolveNode_RSType_Nodes || rs.objects.empty())
       continue;
 
     WideString wsValueRef = item->GetValueRef();
     WideString wsLabelRef = item->GetLabelRef();
     const bool bUseValue = wsLabelRef.IsEmpty() || wsLabelRef == wsValueRef;
-    const bool bLabelUseContent = wsLabelRef.IsEmpty() || wsLabelRef == L"$";
-    const bool bValueUseContent = wsValueRef.IsEmpty() || wsValueRef == L"$";
+    const bool bLabelUseContent =
+        wsLabelRef.IsEmpty() || wsLabelRef.EqualsASCII("$");
+    const bool bValueUseContent =
+        wsValueRef.IsEmpty() || wsValueRef.EqualsASCII("$");
     WideString wsValue;
     WideString wsLabel;
     uint32_t uValueHash = FX_HashCode_GetW(wsValueRef.AsStringView(), false);
-    for (CXFA_Object* refObject : rs.objects) {
+    for (auto& refObject : rs.objects) {
       CXFA_Node* refNode = refObject->AsNode();
       if (!refNode)
         continue;
@@ -779,10 +682,9 @@ void CXFA_FFDocView::RunBindItems() {
       } else {
         wsLabel = wsValue;
       }
-      pAcc->InsertItem(wsLabel, wsValue, false);
+      pWidgetNode->InsertItem(wsLabel, wsValue, false);
     }
   }
-  m_BindItems.clear();
 }
 
 void CXFA_FFDocView::SetChangeMark() {

@@ -28,9 +28,12 @@ import com.android.car.settings.common.FragmentController;
 public class EditUserNameEntryPreferenceController extends
         UserDetailsBasePreferenceController<ButtonPreference> {
 
+    private final UserHelper mUserHelper;
+
     public EditUserNameEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+        mUserHelper = UserHelper.getInstance(getContext());
     }
 
     @Override
@@ -44,13 +47,11 @@ public class EditUserNameEntryPreferenceController extends
             getFragmentController().launchFragment(EditUsernameFragment.newInstance(getUserInfo()));
         });
 
-        Drawable icon = new UserIconProvider(getCarUserManagerHelper()).getUserIcon(getUserInfo(),
-                getContext());
+        Drawable icon = new UserIconProvider().getRoundedUserIcon(getUserInfo(), getContext());
         preference.setIcon(icon);
-        preference.setTitle(UserUtils.getUserDisplayName(getContext(), getCarUserManagerHelper(),
-                getUserInfo()));
+        preference.setTitle(UserUtils.getUserDisplayName(getContext(), getUserInfo()));
 
-        if (!getCarUserManagerHelper().isCurrentProcessUser(getUserInfo())) {
+        if (!mUserHelper.isCurrentProcessUser(getUserInfo())) {
             preference.showAction(false);
         }
         preference.setSummary(getSummary());
@@ -61,7 +62,7 @@ public class EditUserNameEntryPreferenceController extends
             return getContext().getString(R.string.user_summary_not_set_up);
         }
         if (getUserInfo().isAdmin()) {
-            return getCarUserManagerHelper().isCurrentProcessUser(getUserInfo())
+            return mUserHelper.isCurrentProcessUser(getUserInfo())
                     ? getContext().getString(R.string.signed_in_admin_user)
                     : getContext().getString(R.string.user_admin);
         }

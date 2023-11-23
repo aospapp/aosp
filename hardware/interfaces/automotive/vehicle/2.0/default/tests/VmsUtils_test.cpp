@@ -214,10 +214,17 @@ TEST(VmsUtilsTest, invalidPublisherIdResponse) {
     EXPECT_EQ(parsePublisherIdResponse(*message), -1);
 }
 
-TEST(VmsUtilsTest, validSequenceNumberForSubscriptionsState) {
+TEST(VmsUtilsTest, validSequenceNumberForSubscriptionsChange) {
     auto message = createBaseVmsMessage(2);
     message->value.int32Values =
             hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE), 1234};
+    EXPECT_EQ(getSequenceNumberForSubscriptionsState(*message), 1234);
+}
+
+TEST(VmsUtilsTest, validSequenceNumberForSubscriptionsResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_RESPONSE), 1234};
     EXPECT_EQ(getSequenceNumberForSubscriptionsState(*message), 1234);
 }
 
@@ -226,45 +233,63 @@ TEST(VmsUtilsTest, invalidSubscriptionsState) {
     EXPECT_EQ(getSequenceNumberForSubscriptionsState(*message), -1);
 }
 
-TEST(VmsUtilsTest, newSequenceNumberForExistingSmallerNumber) {
+TEST(VmsUtilsTest, newSequenceNumberForExistingSmallerNumberForChange) {
     auto message = createBaseVmsMessage(2);
     message->value.int32Values =
             hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE), 1234};
     EXPECT_TRUE(isSequenceNumberNewer(*message, 1233));
 }
 
-TEST(VmsUtilsTest, newSequenceNumberForExistingGreaterNumber) {
+TEST(VmsUtilsTest, newSequenceNumberForExistingSmallerNumberForResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_RESPONSE), 1234};
+    EXPECT_TRUE(isSequenceNumberNewer(*message, 1233));
+}
+
+TEST(VmsUtilsTest, newSequenceNumberForExistingGreaterNumberForChange) {
     auto message = createBaseVmsMessage(2);
     message->value.int32Values =
             hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE), 1234};
     EXPECT_FALSE(isSequenceNumberNewer(*message, 1235));
 }
 
-TEST(VmsUtilsTest, newSequenceNumberForSameNumber) {
+TEST(VmsUtilsTest, newSequenceNumberForExistingGreaterNumberForResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_RESPONSE), 1234};
+    EXPECT_FALSE(isSequenceNumberNewer(*message, 1235));
+}
+
+TEST(VmsUtilsTest, newSequenceNumberForSameNumberForChange) {
     auto message = createBaseVmsMessage(2);
     message->value.int32Values =
             hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE), 1234};
     EXPECT_FALSE(isSequenceNumberNewer(*message, 1234));
 }
 
-TEST(VmsUtilsTest, subscribedLayers) {
+TEST(VmsUtilsTest, newSequenceNumberForSameNumberForResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_RESPONSE), 1234};
+    EXPECT_FALSE(isSequenceNumberNewer(*message, 1234));
+}
+
+void testSubscribedLayers(VmsMessageType type) {
     VmsOffers offers = {123,
                         {VmsLayerOffering(VmsLayer(1, 0, 1), {VmsLayer(4, 1, 1)}),
                          VmsLayerOffering(VmsLayer(2, 0, 1))}};
-    auto message = createBaseVmsMessage(2);
-    message->value.int32Values = hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE),
+    auto message = createBaseVmsMessage(16);
+    message->value.int32Values = hidl_vec<int32_t>{toInt(type),
                                                    1234,  // sequence number
                                                    2,     // number of layers
                                                    1,     // number of associated layers
                                                    1,     // layer 1
-                                                   0,
-                                                   1,
+                                                   0,           1,
                                                    4,  // layer 2
-                                                   1,
-                                                   1,
+                                                   1,           1,
                                                    2,  // associated layer
-                                                   0,
-                                                   1,
+                                                   0,           1,
                                                    2,    // number of publisher IDs
                                                    111,  // publisher IDs
                                                    123};
@@ -275,10 +300,37 @@ TEST(VmsUtilsTest, subscribedLayers) {
     EXPECT_EQ(result.at(1), VmsLayer(2, 0, 1));
 }
 
-TEST(VmsUtilsTest, subscribedLayersWithDifferentSubtype) {
-    VmsOffers offers = {123, {VmsLayerOffering(VmsLayer(1, 0, 1))}};
+TEST(VmsUtilsTest, subscribedLayersForChange) {
+    testSubscribedLayers(VmsMessageType::SUBSCRIPTIONS_CHANGE);
+}
+
+TEST(VmsUtilsTest, subscribedLayersForResponse) {
+    testSubscribedLayers(VmsMessageType::SUBSCRIPTIONS_RESPONSE);
+}
+
+void testGetSubscribedLayersMalformedData(VmsMessageType type) {
+    VmsOffers offers = {123,
+                        {VmsLayerOffering(VmsLayer(1, 0, 1), {VmsLayer(4, 1, 1)}),
+                         VmsLayerOffering(VmsLayer(2, 0, 1))}};
     auto message = createBaseVmsMessage(2);
-    message->value.int32Values = hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE),
+    message->value.int32Values = hidl_vec<int32_t>{toInt(type), 1234};  // sequence number
+    EXPECT_TRUE(isValidVmsMessage(*message));
+    auto result = getSubscribedLayers(*message, offers);
+    EXPECT_EQ(static_cast<int>(result.size()), 0);
+}
+
+TEST(VmsUtilsTest, subscribedLayersForMalformedChange) {
+    testGetSubscribedLayersMalformedData(VmsMessageType::SUBSCRIPTIONS_CHANGE);
+}
+
+TEST(VmsUtilsTest, subscribedLayersForMalformedResponse) {
+    testGetSubscribedLayersMalformedData(VmsMessageType::SUBSCRIPTIONS_RESPONSE);
+}
+
+void testSubscribedLayersWithDifferentSubtype(VmsMessageType type) {
+    VmsOffers offers = {123, {VmsLayerOffering(VmsLayer(1, 0, 1))}};
+    auto message = createBaseVmsMessage(7);
+    message->value.int32Values = hidl_vec<int32_t>{toInt(type),
                                                    1234,  // sequence number
                                                    1,     // number of layers
                                                    0,     // number of associated layers
@@ -289,34 +341,56 @@ TEST(VmsUtilsTest, subscribedLayersWithDifferentSubtype) {
     EXPECT_TRUE(getSubscribedLayers(*message, offers).empty());
 }
 
-TEST(VmsUtilsTest, subscribedLayersWithDifferentVersion) {
+TEST(VmsUtilsTest, subscribedLayersWithDifferentSubtypeForChange) {
+    testSubscribedLayersWithDifferentSubtype(VmsMessageType::SUBSCRIPTIONS_CHANGE);
+}
+
+TEST(VmsUtilsTest, subscribedLayersWithDifferentSubtypeForResponse) {
+    testSubscribedLayersWithDifferentSubtype(VmsMessageType::SUBSCRIPTIONS_RESPONSE);
+}
+
+void subscribedLayersWithDifferentVersion(VmsMessageType type) {
     VmsOffers offers = {123, {VmsLayerOffering(VmsLayer(1, 0, 1))}};
-    auto message = createBaseVmsMessage(2);
-    message->value.int32Values = hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE),
-                                                   1234,  // sequence number
-                                                   1,     // number of layers
-                                                   0,     // number of associated layers
-                                                   1,     // layer 1
-                                                   0,
-                                                   2};  // different version
+    auto message = createBaseVmsMessage(7);
+    message->value.int32Values = hidl_vec<int32_t>{toInt(type),
+                                                   1234,             // sequence number
+                                                   1,                // number of layers
+                                                   0,                // number of associated layers
+                                                   1,                // layer 1
+                                                   0,           2};  // different version
     EXPECT_TRUE(isValidVmsMessage(*message));
     EXPECT_TRUE(getSubscribedLayers(*message, offers).empty());
 }
 
-TEST(VmsUtilsTest, subscribedLayersWithDifferentPublisherId) {
+TEST(VmsUtilsTest, subscribedLayersWithDifferentVersionForChange) {
+    subscribedLayersWithDifferentVersion(VmsMessageType::SUBSCRIPTIONS_CHANGE);
+}
+
+TEST(VmsUtilsTest, subscribedLayersWithDifferentVersionForResponse) {
+    subscribedLayersWithDifferentVersion(VmsMessageType::SUBSCRIPTIONS_RESPONSE);
+}
+
+void subscribedLayersWithDifferentPublisherId(VmsMessageType type) {
     VmsOffers offers = {123, {VmsLayerOffering(VmsLayer(1, 0, 1))}};
-    auto message = createBaseVmsMessage(2);
-    message->value.int32Values = hidl_vec<int32_t>{toInt(VmsMessageType::SUBSCRIPTIONS_CHANGE),
+    auto message = createBaseVmsMessage(9);
+    message->value.int32Values = hidl_vec<int32_t>{toInt(type),
                                                    1234,  // sequence number
                                                    0,     // number of layers
                                                    1,     // number of associated layers
                                                    1,     // associated layer 1
-                                                   0,
-                                                   1,
+                                                   0,           1,
                                                    1,     // number of publisher IDs
                                                    234};  // publisher ID 1
     EXPECT_TRUE(isValidVmsMessage(*message));
     EXPECT_TRUE(getSubscribedLayers(*message, offers).empty());
+}
+
+TEST(VmsUtilsTest, subscribedLayersWithDifferentPublisherIdForChange) {
+    subscribedLayersWithDifferentPublisherId(VmsMessageType::SUBSCRIPTIONS_CHANGE);
+}
+
+TEST(VmsUtilsTest, subscribedLayersWithDifferentPublisherIdForResponse) {
+    subscribedLayersWithDifferentPublisherId(VmsMessageType::SUBSCRIPTIONS_RESPONSE);
 }
 
 TEST(VmsUtilsTest, serviceNewlyStarted) {
@@ -418,6 +492,113 @@ TEST(VmsUtilsTest, startSessionInvalidMessageFormat) {
     EXPECT_EQ(parseStartSessionMessage(*message, 123, 456, &new_service_id),
               VmsSessionStatus::kInvalidMessage);
     EXPECT_EQ(new_service_id, 123);
+}
+
+TEST(VmsUtilsTest, newAvailabilitySequenceNumberForExistingSmallerNumberForChange) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_CHANGE), 1234};
+    EXPECT_TRUE(isAvailabilitySequenceNumberNewer(*message, 1233));
+}
+
+TEST(VmsUtilsTest, newAvailabilitySequenceNumberForExistingSmallerNumberForResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_RESPONSE), 1234};
+    EXPECT_TRUE(isAvailabilitySequenceNumberNewer(*message, 1233));
+}
+
+TEST(VmsUtilsTest, newAvailabilitySequenceNumberForExistingGreaterNumberForChange) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_CHANGE), 1234};
+    EXPECT_FALSE(isAvailabilitySequenceNumberNewer(*message, 1235));
+}
+
+TEST(VmsUtilsTest, newAvailabilitySequenceNumberForExistingGreaterNumberForResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_RESPONSE), 1234};
+    EXPECT_FALSE(isAvailabilitySequenceNumberNewer(*message, 1235));
+}
+
+TEST(VmsUtilsTest, newAvailabilitySequenceNumberForSameNumberForChange) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_CHANGE), 1234};
+    EXPECT_FALSE(isAvailabilitySequenceNumberNewer(*message, 1234));
+}
+
+TEST(VmsUtilsTest, newAvailabilitySequenceNumberForSameNumberForResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_RESPONSE), 1234};
+    EXPECT_FALSE(isAvailabilitySequenceNumberNewer(*message, 1234));
+}
+
+TEST(VmsUtilsTest, validSequenceNumberForAvailabilityChange) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_CHANGE), 1234};
+    EXPECT_EQ(getSequenceNumberForAvailabilityState(*message), 1234);
+}
+
+TEST(VmsUtilsTest, validSequenceNumberForAvailabilityResponse) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values =
+            hidl_vec<int32_t>{toInt(VmsMessageType::AVAILABILITY_RESPONSE), 1234};
+    EXPECT_EQ(getSequenceNumberForAvailabilityState(*message), 1234);
+}
+
+TEST(VmsUtilsTest, invalidAvailabilityState) {
+    auto message = createBaseVmsMessage(1);
+    EXPECT_EQ(getSequenceNumberForAvailabilityState(*message), -1);
+}
+
+void testGetAvailableLayers(VmsMessageType type) {
+    auto message = createBaseVmsMessage(13);
+    message->value.int32Values = hidl_vec<int32_t>{toInt(type),
+                                                   1234,  // sequence number
+                                                   2,     // number of associated layers
+                                                   1,     // associated layer 1
+                                                   0,           1,
+                                                   2,    // number of publisher IDs
+                                                   111,  // publisher IDs
+                                                   123,
+                                                   2,                   // associated layer 2
+                                                   0,           1, 0};  // number of publisher IDs
+    EXPECT_TRUE(isValidVmsMessage(*message));
+    auto result = getAvailableLayers(*message);
+    EXPECT_EQ(static_cast<int>(result.size()), 2);
+    EXPECT_EQ(result.at(0).layer, VmsLayer(1, 0, 1));
+    EXPECT_EQ(result.at(0).publisher_ids.at(0), 111);
+    EXPECT_EQ(result.at(0).publisher_ids.at(1), 123);
+    EXPECT_EQ(result.at(1).layer, VmsLayer(2, 0, 1));
+    EXPECT_EQ(static_cast<int>(result.at(1).publisher_ids.size()), 0);
+}
+
+TEST(VmsUtilsTest, availableLayersForChange) {
+    testGetAvailableLayers(VmsMessageType::AVAILABILITY_CHANGE);
+}
+
+TEST(VmsUtilsTest, availableLayersForResponse) {
+    testGetAvailableLayers(VmsMessageType::AVAILABILITY_RESPONSE);
+}
+
+void testGetAvailableLayersMalformedData(VmsMessageType type) {
+    auto message = createBaseVmsMessage(2);
+    message->value.int32Values = hidl_vec<int32_t>{toInt(type), 1234};  // sequence number
+    EXPECT_TRUE(isValidVmsMessage(*message));
+    auto result = getAvailableLayers(*message);
+    EXPECT_EQ(static_cast<int>(result.size()), 0);
+}
+
+TEST(VmsUtilsTest, availableLayersForMalformedChange) {
+    testGetAvailableLayersMalformedData(VmsMessageType::AVAILABILITY_CHANGE);
+}
+
+TEST(VmsUtilsTest, availableLayersForMalformedResponse) {
+    testGetAvailableLayersMalformedData(VmsMessageType::AVAILABILITY_RESPONSE);
 }
 
 }  // namespace

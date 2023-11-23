@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -29,7 +31,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.IPAddressTypeAvailabilityElement}.
  */
 @SmallTest
-public class IPAddressTypeAvailabilityElementTest {
+public class IPAddressTypeAvailabilityElementTest extends WifiBaseTest {
     private static final int TEST_IPV4_AVAILABILITY =
             IPAddressTypeAvailabilityElement.IPV4_PUBLIC;
     private static final int TEST_IPV6_AVAILABILITY =

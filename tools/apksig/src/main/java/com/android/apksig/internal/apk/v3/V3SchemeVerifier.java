@@ -53,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -228,7 +229,7 @@ public abstract class V3SchemeVerifier {
      * expected to be encountered on an Android platform version in the
      * {@code [minSdkVersion, maxSdkVersion]} range.
      */
-    private static void parseSigners(
+    public static void parseSigners(
             ByteBuffer apkSignatureSchemeV3Block,
             Set<ContentDigestAlgorithm> contentDigestsToVerify,
             ApkSigningBlockUtils.Result result) throws NoSuchAlgorithmException {
@@ -432,7 +433,14 @@ public abstract class V3SchemeVerifier {
             return;
         }
         X509Certificate mainCertificate = result.certs.get(0);
-        byte[] certificatePublicKeyBytes = mainCertificate.getPublicKey().getEncoded();
+        byte[] certificatePublicKeyBytes;
+        try {
+            certificatePublicKeyBytes = ApkSigningBlockUtils.encodePublicKey(mainCertificate.getPublicKey());
+        } catch (InvalidKeyException e) {
+            System.out.println("Caught an exception encoding the public key: " + e);
+            e.printStackTrace();
+            certificatePublicKeyBytes = mainCertificate.getPublicKey().getEncoded();
+        }
         if (!Arrays.equals(publicKeyBytes, certificatePublicKeyBytes)) {
             result.addError(
                     Issue.V3_SIG_PUBLIC_KEY_MISMATCH_BETWEEN_CERTIFICATE_AND_SIGNATURES_RECORD,
@@ -514,5 +522,4 @@ public abstract class V3SchemeVerifier {
             }
         }
     }
-
 }

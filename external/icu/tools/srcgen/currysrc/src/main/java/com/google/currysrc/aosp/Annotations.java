@@ -31,7 +31,7 @@ public final class Annotations {
   }
 
   /**
-   * Add dalvik.annotation.compat.UnsupportedAppUsage annotations to the body declarations
+   * Add android.compat.annotation.UnsupportedAppUsage annotations to the body declarations
    * specified in the supplied file.
    *
    * <p>The supplied file is a JSON file consisting of a top level array containing objects of the
@@ -42,6 +42,7 @@ public final class Annotations {
    *  "maxTargetSdk": <int>|<placeholder>,
    *  "trackingBug": <long>|<placeholder>,
    *  "expectedSignature": <string>,
+   *  "publicAlternatives": <string>,
    * }
    * }</pre>
    *
@@ -55,7 +56,7 @@ public final class Annotations {
    * string.</li>
    * <li>{@code <placeholder>} is a quoted JSON string that is inserted into the source as if it
    * was a constant expression. It is used to reference constants in annotation values, e.g.
-   * {@code dalvik.annotation.compat.UnsupportedAppUsage.VERSION_CODES.P}.</li>
+   * {@code android.compat.annotation.UnsupportedAppUsage.VERSION_CODES.P}.</li>
    * </ul>
    *
    * <p>See external/icu/tools/srcgen/unsupported-app-usage.json for an example.
@@ -65,11 +66,12 @@ public final class Annotations {
    */
   public static AddAnnotation addUnsupportedAppUsage(Path unsupportedAppUsagePath) {
     AnnotationClass annotationClass = new AnnotationClass(
-        "dalvik.annotation.compat.UnsupportedAppUsage")
+        "android.compat.annotation.UnsupportedAppUsage")
         .addProperty("maxTargetSdk", int.class)
         .addProperty("trackingBug", long.class)
         .addProperty("implicitMember", String.class)
-        .addProperty("expectedSignature", String.class);
+        .addProperty("expectedSignature", String.class)
+        .addProperty("publicAlternatives", String.class);
     try {
       return AddAnnotation.fromJsonFile(annotationClass, unsupportedAppUsagePath);
     } catch (IOException e) {

@@ -51,12 +51,12 @@ struct SmallGlyphMetrics
     return_trace (c->check_struct (this));
   }
 
-  void get_extents (hb_glyph_extents_t *extents) const
+  void get_extents (hb_font_t *font, hb_glyph_extents_t *extents) const
   {
-    extents->x_bearing = bearingX;
-    extents->y_bearing = bearingY;
-    extents->width = width;
-    extents->height = -height;
+    extents->x_bearing = font->em_scale_x (bearingX);
+    extents->y_bearing = font->em_scale_y (bearingY);
+    extents->width = font->em_scale_x (width);
+    extents->height = font->em_scale_y (-height);
   }
 
   HBUINT8	height;
@@ -144,7 +144,7 @@ struct IndexSubtableFormat1Or3
   }
 
   IndexSubtableHeader	header;
-  UnsizedArrayOf<Offset<OffsetType> >
+  UnsizedArrayOf<Offset<OffsetType>>
  			offsetArrayZ;
   public:
   DEFINE_SIZE_ARRAY(8, offsetArrayZ);
@@ -226,8 +226,8 @@ struct IndexSubtableRecord
 						   offset, length, format);
   }
 
-  GlyphID			firstGlyphIndex;
-  GlyphID			lastGlyphIndex;
+  HBGlyphID			firstGlyphIndex;
+  HBGlyphID			lastGlyphIndex;
   LOffsetTo<IndexSubtable>	offsetToSubtable;
   public:
   DEFINE_SIZE_STATIC(8);
@@ -251,7 +251,7 @@ struct IndexSubtableArray
       unsigned int firstGlyphIndex = indexSubtablesZ[i].firstGlyphIndex;
       unsigned int lastGlyphIndex = indexSubtablesZ[i].lastGlyphIndex;
       if (firstGlyphIndex <= glyph && glyph <= lastGlyphIndex)
-        return &indexSubtablesZ[i];
+	return &indexSubtablesZ[i];
     }
     return nullptr;
   }
@@ -283,15 +283,15 @@ struct BitmapSizeTable
   }
 
   protected:
-  LOffsetTo<IndexSubtableArray, false>
+  LNNOffsetTo<IndexSubtableArray>
 			indexSubtableArrayOffset;
   HBUINT32		indexTablesSize;
   HBUINT32		numberOfIndexSubtables;
   HBUINT32		colorRef;
   SBitLineMetrics	horizontal;
   SBitLineMetrics	vertical;
-  GlyphID		startGlyphIndex;
-  GlyphID		endGlyphIndex;
+  HBGlyphID		startGlyphIndex;
+  HBGlyphID		endGlyphIndex;
   HBUINT8		ppemX;
   HBUINT8		ppemY;
   HBUINT8		bitDepth;
@@ -332,7 +332,7 @@ struct CBLC
 {
   friend struct CBDT;
 
-  enum { tableTag = HB_OT_TAG_CBLC };
+  static constexpr hb_tag_t tableTag = HB_OT_TAG_CBLC;
 
   bool sanitize (hb_sanitize_context_t *c) const
   {
@@ -349,15 +349,15 @@ struct CBLC
     if (unlikely (!count))
       return Null(BitmapSizeTable);
 
-    unsigned int requested_ppem = MAX (font->x_ppem, font->y_ppem);
+    unsigned int requested_ppem = hb_max (font->x_ppem, font->y_ppem);
     if (!requested_ppem)
       requested_ppem = 1<<30; /* Choose largest strike. */
     unsigned int best_i = 0;
-    unsigned int best_ppem = MAX (sizeTables[0].ppemX, sizeTables[0].ppemY);
+    unsigned int best_ppem = hb_max (sizeTables[0].ppemX, sizeTables[0].ppemY);
 
     for (unsigned int i = 1; i < count; i++)
     {
-      unsigned int ppem = MAX (sizeTables[i].ppemX, sizeTables[i].ppemY);
+      unsigned int ppem = hb_max (sizeTables[i].ppemX, sizeTables[i].ppemY);
       if ((requested_ppem <= ppem && ppem < best_ppem) ||
 	  (requested_ppem > best_ppem && ppem > best_ppem))
       {
@@ -378,7 +378,7 @@ struct CBLC
 
 struct CBDT
 {
-  enum { tableTag = HB_OT_TAG_CBDT };
+  static constexpr hb_tag_t tableTag = HB_OT_TAG_CBDT;
 
   struct accelerator_t
   {
@@ -424,7 +424,7 @@ struct CBDT
 	      return false;
 	    const GlyphBitmapDataFormat17& glyphFormat17 =
 		StructAtOffset<GlyphBitmapDataFormat17> (this->cbdt, image_offset);
-	    glyphFormat17.glyphMetrics.get_extents (extents);
+	    glyphFormat17.glyphMetrics.get_extents (font, extents);
 	    break;
 	  }
 	  case 18: {
@@ -432,7 +432,7 @@ struct CBDT
 	      return false;
 	    const GlyphBitmapDataFormat18& glyphFormat18 =
 		StructAtOffset<GlyphBitmapDataFormat18> (this->cbdt, image_offset);
-	    glyphFormat18.glyphMetrics.get_extents (extents);
+	    glyphFormat18.glyphMetrics.get_extents (font, extents);
 	    break;
 	  }
 	  default:
@@ -442,18 +442,18 @@ struct CBDT
       }
 
       /* Convert to font units. */
-      double x_scale = upem / (double) strike.ppemX;
-      double y_scale = upem / (double) strike.ppemY;
-      extents->x_bearing = round (extents->x_bearing * x_scale);
-      extents->y_bearing = round (extents->y_bearing * y_scale);
-      extents->width = round (extents->width * x_scale);
-      extents->height = round (extents->height * y_scale);
+      float x_scale = upem / (float) strike.ppemX;
+      float y_scale = upem / (float) strike.ppemY;
+      extents->x_bearing = roundf (extents->x_bearing * x_scale);
+      extents->y_bearing = roundf (extents->y_bearing * y_scale);
+      extents->width = roundf (extents->width * x_scale);
+      extents->height = roundf (extents->height * y_scale);
 
       return true;
     }
 
     hb_blob_t* reference_png (hb_font_t      *font,
-				     hb_codepoint_t  glyph) const
+			      hb_codepoint_t  glyph) const
     {
       const void *base;
       const BitmapSizeTable &strike = this->cblc->choose_strike (font);

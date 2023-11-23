@@ -10,6 +10,8 @@
 #include <utility>
 #include <vector>
 
+#include "third_party/base/ptr_util.h"
+#include "third_party/base/stl_util.h"
 #include "xfa/fwl/cfwl_listbox.h"
 #include "xfa/fwl/cfwl_notedriver.h"
 #include "xfa/fwl/cfwl_widget.h"
@@ -24,74 +26,75 @@ CFWL_ListBox* ToListBox(CFWL_Widget* widget) {
 
 }  // namespace
 
-CXFA_FFListBox::CXFA_FFListBox(CXFA_Node* pNode)
-    : CXFA_FFField(pNode), m_pOldDelegate(nullptr) {}
+CXFA_FFListBox::CXFA_FFListBox(CXFA_Node* pNode) : CXFA_FFDropDown(pNode) {}
 
 CXFA_FFListBox::~CXFA_FFListBox() {
-  if (!m_pNormalWidget)
+  if (!GetNormalWidget())
     return;
 
   CFWL_NoteDriver* pNoteDriver =
-      m_pNormalWidget->GetOwnerApp()->GetNoteDriver();
-  pNoteDriver->UnregisterEventTarget(m_pNormalWidget.get());
+      GetNormalWidget()->GetOwnerApp()->GetNoteDriver();
+  pNoteDriver->UnregisterEventTarget(GetNormalWidget());
 }
 
 bool CXFA_FFListBox::LoadWidget() {
+  ASSERT(!IsLoaded());
   auto pNew = pdfium::MakeUnique<CFWL_ListBox>(
       GetFWLApp(), pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr);
   CFWL_ListBox* pListBox = pNew.get();
   pListBox->ModifyStyles(FWL_WGTSTYLE_VScroll | FWL_WGTSTYLE_NoBackground,
                          0xFFFFFFFF);
-  m_pNormalWidget = std::move(pNew);
-  m_pNormalWidget->SetLayoutItem(this);
+  SetNormalWidget(std::move(pNew));
+  pListBox->SetAdapterIface(this);
 
-  CFWL_NoteDriver* pNoteDriver =
-      m_pNormalWidget->GetOwnerApp()->GetNoteDriver();
-  pNoteDriver->RegisterEventTarget(m_pNormalWidget.get(),
-                                   m_pNormalWidget.get());
-  m_pOldDelegate = m_pNormalWidget->GetDelegate();
-  m_pNormalWidget->SetDelegate(this);
-  m_pNormalWidget->LockUpdate();
+  CFWL_NoteDriver* pNoteDriver = pListBox->GetOwnerApp()->GetNoteDriver();
+  pNoteDriver->RegisterEventTarget(pListBox, pListBox);
+  m_pOldDelegate = pListBox->GetDelegate();
+  pListBox->SetDelegate(this);
 
-  for (const auto& label : m_pNode->GetWidgetAcc()->GetChoiceListItems(false))
-    pListBox->AddString(label.AsStringView());
+  {
+    CFWL_Widget::ScopedUpdateLock update_lock(pListBox);
+    for (const auto& label : m_pNode->GetChoiceListItems(false))
+      pListBox->AddString(label);
 
-  uint32_t dwExtendedStyle = FWL_STYLEEXT_LTB_ShowScrollBarFocus;
-  if (m_pNode->GetWidgetAcc()->IsChoiceListMultiSelect())
-    dwExtendedStyle |= FWL_STYLEEXT_LTB_MultiSelection;
+    uint32_t dwExtendedStyle = FWL_STYLEEXT_LTB_ShowScrollBarFocus;
+    if (m_pNode->IsChoiceListMultiSelect())
+      dwExtendedStyle |= FWL_STYLEEXT_LTB_MultiSelection;
 
-  dwExtendedStyle |= GetAlignment();
-  m_pNormalWidget->ModifyStylesEx(dwExtendedStyle, 0xFFFFFFFF);
-  for (int32_t selected : m_pNode->GetWidgetAcc()->GetSelectedItems())
-    pListBox->SetSelItem(pListBox->GetItem(nullptr, selected), true);
+    dwExtendedStyle |= GetAlignment();
+    pListBox->ModifyStylesEx(dwExtendedStyle, 0xFFFFFFFF);
+    for (int32_t selected : m_pNode->GetSelectedItems())
+      pListBox->SetSelItem(pListBox->GetItem(nullptr, selected), true);
+  }
 
-  m_pNormalWidget->UnlockUpdate();
   return CXFA_FFField::LoadWidget();
 }
 
 bool CXFA_FFListBox::OnKillFocus(CXFA_FFWidget* pNewFocus) {
+  ObservedPtr<CXFA_FFListBox> pWatched(this);
+  ObservedPtr<CXFA_FFWidget> pNewWatched(pNewFocus);
   if (!ProcessCommittedData())
     UpdateFWLData();
 
-  CXFA_FFField::OnKillFocus(pNewFocus);
-  return true;
+  return pWatched && pNewWatched &&
+         CXFA_FFField::OnKillFocus(pNewWatched.Get());
 }
 
 bool CXFA_FFListBox::CommitData() {
-  auto* pListBox = ToListBox(m_pNormalWidget.get());
+  auto* pListBox = ToListBox(GetNormalWidget());
   std::vector<int32_t> iSelArray;
   int32_t iSels = pListBox->CountSelItems();
   for (int32_t i = 0; i < iSels; ++i)
     iSelArray.push_back(pListBox->GetSelIndex(i));
 
-  m_pNode->GetWidgetAcc()->SetSelectedItems(iSelArray, true, false, true);
+  m_pNode->SetSelectedItems(iSelArray, true, false, true);
   return true;
 }
 
 bool CXFA_FFListBox::IsDataChanged() {
-  std::vector<int32_t> iSelArray = m_pNode->GetWidgetAcc()->GetSelectedItems();
+  std::vector<int32_t> iSelArray = m_pNode->GetSelectedItems();
   int32_t iOldSels = pdfium::CollectionSize<int32_t>(iSelArray);
-  auto* pListBox = ToListBox(m_pNormalWidget.get());
+  auto* pListBox = ToListBox(GetNormalWidget());
   int32_t iSels = pListBox->CountSelItems();
   if (iOldSels != iSels)
     return true;
@@ -111,16 +114,16 @@ uint32_t CXFA_FFListBox::GetAlignment() {
 
   uint32_t dwExtendedStyle = 0;
   switch (para->GetHorizontalAlign()) {
-    case XFA_AttributeEnum::Center:
+    case XFA_AttributeValue::Center:
       dwExtendedStyle |= FWL_STYLEEXT_LTB_CenterAlign;
       break;
-    case XFA_AttributeEnum::Justify:
+    case XFA_AttributeValue::Justify:
       break;
-    case XFA_AttributeEnum::JustifyAll:
+    case XFA_AttributeValue::JustifyAll:
       break;
-    case XFA_AttributeEnum::Radix:
+    case XFA_AttributeValue::Radix:
       break;
-    case XFA_AttributeEnum::Right:
+    case XFA_AttributeValue::Right:
       dwExtendedStyle |= FWL_STYLEEXT_LTB_RightAlign;
       break;
     default:
@@ -131,11 +134,11 @@ uint32_t CXFA_FFListBox::GetAlignment() {
 }
 
 bool CXFA_FFListBox::UpdateFWLData() {
-  if (!m_pNormalWidget)
+  if (!GetNormalWidget())
     return false;
 
-  auto* pListBox = ToListBox(m_pNormalWidget.get());
-  std::vector<int32_t> iSelArray = m_pNode->GetWidgetAcc()->GetSelectedItems();
+  auto* pListBox = ToListBox(GetNormalWidget());
+  std::vector<int32_t> iSelArray = m_pNode->GetSelectedItems();
   std::vector<CFWL_ListItem*> selItemArray(iSelArray.size());
   std::transform(iSelArray.begin(), iSelArray.end(), selItemArray.begin(),
                  [pListBox](int32_t val) { return pListBox->GetSelItem(val); });
@@ -144,48 +147,40 @@ bool CXFA_FFListBox::UpdateFWLData() {
   for (CFWL_ListItem* pItem : selItemArray)
     pListBox->SetSelItem(pItem, true);
 
-  m_pNormalWidget->Update();
+  GetNormalWidget()->Update();
   return true;
 }
 
 void CXFA_FFListBox::OnSelectChanged(CFWL_Widget* pWidget) {
   CXFA_EventParam eParam;
   eParam.m_eType = XFA_EVENT_Change;
-  eParam.m_pTarget = m_pNode->GetWidgetAcc();
-  eParam.m_wsPrevText = m_pNode->GetWidgetAcc()->GetValue(XFA_VALUEPICTURE_Raw);
-
-  auto* pListBox = ToListBox(m_pNormalWidget.get());
-  int32_t iSels = pListBox->CountSelItems();
-  if (iSels > 0) {
-    CFWL_ListItem* item = pListBox->GetSelItem(0);
-    eParam.m_wsNewText = item ? item->GetText() : L"";
-  }
-  m_pNode->ProcessEvent(GetDocView(), XFA_AttributeEnum::Change, &eParam);
+  eParam.m_pTarget = m_pNode.Get();
+  eParam.m_wsPrevText = m_pNode->GetValue(XFA_VALUEPICTURE_Raw);
+  m_pNode->ProcessEvent(GetDocView(), XFA_AttributeValue::Change, &eParam);
 }
 
 void CXFA_FFListBox::SetItemState(int32_t nIndex, bool bSelected) {
-  auto* pListBox = ToListBox(m_pNormalWidget.get());
+  auto* pListBox = ToListBox(GetNormalWidget());
   pListBox->SetSelItem(pListBox->GetSelItem(nIndex), bSelected);
-  m_pNormalWidget->Update();
-  AddInvalidateRect();
+  GetNormalWidget()->Update();
+  InvalidateRect();
 }
 
-void CXFA_FFListBox::InsertItem(const WideStringView& wsLabel, int32_t nIndex) {
-  WideString wsTemp(wsLabel);
-  ToListBox(m_pNormalWidget.get())->AddString(wsTemp.AsStringView());
-  m_pNormalWidget->Update();
-  AddInvalidateRect();
+void CXFA_FFListBox::InsertItem(const WideString& wsLabel, int32_t nIndex) {
+  ToListBox(GetNormalWidget())->AddString(wsLabel);
+  GetNormalWidget()->Update();
+  InvalidateRect();
 }
 
 void CXFA_FFListBox::DeleteItem(int32_t nIndex) {
-  auto* pListBox = ToListBox(m_pNormalWidget.get());
+  auto* pListBox = ToListBox(GetNormalWidget());
   if (nIndex < 0)
     pListBox->DeleteAll();
   else
     pListBox->DeleteString(pListBox->GetItem(nullptr, nIndex));
 
   pListBox->Update();
-  AddInvalidateRect();
+  InvalidateRect();
 }
 
 void CXFA_FFListBox::OnProcessMessage(CFWL_Message* pMessage) {
@@ -196,7 +191,7 @@ void CXFA_FFListBox::OnProcessEvent(CFWL_Event* pEvent) {
   CXFA_FFField::OnProcessEvent(pEvent);
   switch (pEvent->GetType()) {
     case CFWL_Event::Type::SelectChanged:
-      OnSelectChanged(m_pNormalWidget.get());
+      OnSelectChanged(GetNormalWidget());
       break;
     default:
       break;

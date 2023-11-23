@@ -117,13 +117,15 @@ class FacadeResource(object):
         return True
 
 
-    def start_default_chrome(self, restart=False, extra_browser_args=None):
+    def start_default_chrome(self, restart=False, extra_browser_args=None,
+                             disable_arc=False):
         """Start the default Chrome.
 
         @param restart: True to start Chrome without clearing previous state.
         @param extra_browser_args: A list containing extra browser args passed
                                    to Chrome. This list will be appened to
                                    default EXTRA_BROWSER_ARGS.
+        @param disable_arc: True to disable ARC++.
 
         @return: True on success, False otherwise.
 
@@ -131,9 +133,10 @@ class FacadeResource(object):
         # TODO: (crbug.com/618111) Add test driven switch for
         # supporting arc_mode enabled or disabled. At this time
         # if ARC build is tested, arc_mode is always enabled.
-        arc_mode = self.ARC_DISABLED
-        if utils.get_board_property(self.ARC_VERSION):
+        if not disable_arc and utils.get_board_property(self.ARC_VERSION):
             arc_mode = self.ARC_ENABLED
+        else:
+            arc_mode = self.ARC_DISABLED
         kwargs = {
             'extension_paths': [constants.AUDIO_TEST_EXTENSION,
                                 constants.DISPLAY_TEST_EXTENSION],

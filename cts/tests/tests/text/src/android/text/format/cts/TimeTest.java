@@ -37,10 +37,14 @@ import org.junit.runner.RunWith;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.JulianFields;
 import java.time.zone.ZoneOffsetTransition;
 import java.time.zone.ZoneRules;
 import java.util.ArrayList;
@@ -221,11 +225,44 @@ public class TimeTest {
 
     @Test
     public void testIsEpoch() {
-        Time time = new Time();
+        // Create a Time that uses UTC to provide a behavior baseline.
+        Time time = new Time(Time.TIMEZONE_UTC);
+
+        // Time is initialized to 1970-01-01 00:00:00
         assertTrue(Time.isEpoch(time));
-        time.set(1, 2, 1970);
+
+        // 1970-01-01 23:59:59
+        checkIsEpochResult(time, 1970, 0 /* Jan */, 1, 23, 59, 59, true);
+
+        // 1970-01-02 00:00:00
+        checkIsEpochResult(time, 1970, 0 /* Jan */, 2, 0, 0, 0, false);
+
+        // 1969-12-31 23:59:59
+        checkIsEpochResult(time, 1969, 11 /* Dec */, 31, 23, 59, 59, false);
+
+        // Now demonstrate that the isEpoch() method just checks against the Julian day
+        // calculated for UTC. America/Los_Angeles is UTC-8 so all times have to be adjusted
+        // by 8 hours.
+        time.timezone = "America/Los_Angeles";
+
+        // 1969-12-31 15:59:59 == 1969-12-31 23:59:59 in UTC
+        checkIsEpochResult(time, 1969, 11 /* Dec */, 31, 15, 59, 59, false);
+
+        // 1969-12-31 16:00:00 == 1970-01-01 00:00:00 in UTC
+        checkIsEpochResult(time, 1969, 11 /* Dec */, 31, 16, 0, 0, true);
+
+        // 1970-01-01 15:59:59 == 1970-01-01 23:59:59 in UTC
+        checkIsEpochResult(time, 1970, 0 /* Jan */, 1, 15, 59, 59, true);
+
+        // 1970-01-01 16:00:00 == 1970-01-02 00:00:00 in UTC
+        checkIsEpochResult(time, 1970, 0 /* Jan */, 1, 16, 0, 0, false);
+    }
+
+    private void checkIsEpochResult(Time time, int year, int month, int monthDay, int hour,
+            int minute, int second, boolean expectedIsEpoch) {
+        time.set(second, minute, hour, monthDay, month, year);
         time.normalize(false);
-        assertFalse(Time.isEpoch(time));
+        assertEquals(expectedIsEpoch, Time.isEpoch(time));
     }
 
     @Test
@@ -1572,7 +1609,7 @@ public class TimeTest {
     }
 
     @Test
-    public void testToMillis_beforeTzRecords() {
+    public void testToMillis_before32BitSeconds() {
         int[] timeFields = new int[] { 1900, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
         verifyToMillisInvalid(timeFields, PstPdt.ID);
         verifyToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
@@ -1613,7 +1650,7 @@ public class TimeTest {
     }
 
     @Test
-    public void testToMillis_afterTzRecords() {
+    public void testToMillis_after32BitSeconds() {
         int[] timeFields = new int[] { 2039, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
         verifyToMillisInvalid(timeFields, PstPdt.ID);
         verifyToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
@@ -1913,50 +1950,71 @@ public class TimeTest {
         "Pacific/Midway",
     };
 
+    /**
+     * This test uses java.time classes to construct test times so that it can test various years
+     * including those outside of the int32 seconds range.
+     */
     @Test
     public void testGetJulianDay() {
-        Time time = new Time();
+        int[] years = { 2008, 1900, 1969, 2100 };
+        for (int year : years) {
+            for (String timeZone : mTimeZones) {
+                checkGetJulianDayForYearAndTimeZone(year, timeZone);
+            }
+        }
+    }
 
-        // For every 15th day of 2008, and for each of the timezones listed above,
-        // get the Julian day for 12am and then check that if we change the time we get the
-        // same Julian day. Note that one of the many problems with the Time class
-        // is its lack of error handling. If we accidentally hit a time that doesn't
-        // exist (because it was skipped by a daylight savings transition), rather than
-        // an error, you'll silently get 1970-01-01. We should @deprecate Time.
-        for (int monthDay = 1; monthDay <= 366; monthDay += 15) {
-            for (int zoneIndex = 0; zoneIndex < mTimeZones.length; zoneIndex++) {
-                // We leave the "month" as zero because we are changing the
-                // "monthDay" from 1 to 366. The call to normalize() will
-                // then change the "month" (but we don't really care).
-                time.set(0, 0, 12, monthDay, 0, 2008);
-                time.timezone = mTimeZones[zoneIndex];
-                long millis = time.normalize(true);
-                if (zoneIndex == 0) {
-                    Log.i(TAG, time.format("%B %d, %Y"));
-                }
+    private static void checkGetJulianDayForYearAndTimeZone(int year, String timeZone) {
+        final LocalTime midday = LocalTime.of(12, 0);
 
-                // This is the Julian day for 12pm for this day of the year
-                int julianDay = Time.getJulianDay(millis, time.gmtoff);
+        // For every 15th day of the year get the Julian day for 12pm and then check that if we
+        // change the time we get the same Julian day.
+        final LocalDate startDate = LocalDate.of(year, Month.JANUARY, 1);
+        final LocalDate stopDate = startDate.plusYears(1);
+        for (LocalDate testDate = startDate; testDate.isBefore(stopDate);
+                testDate = testDate.plusDays(15)) {
 
-                // Change the time during the day and check that we get the same
-                // Julian day.
-                for (int hour = 0; hour < 24; hour++) {
-                    for (int minute = 0; minute < 60; minute += 15) {
-                        time.set(0, minute, hour, monthDay, 0, 2008);
-                        millis = time.normalize(true);
-                        if (millis == -1) {
-                            // millis == -1 means the wall time does not exist in the chosen
-                            // timezone due to a DST change. We cannot calculate a JulianDay for -1.
-                            continue;
-                        }
+            LocalDateTime middayLocalDateTime = LocalDateTime.of(testDate, midday);
+            ZoneOffset middayOffset = ZoneId.of(timeZone).getRules().getOffset(middayLocalDateTime);
+            Instant middayInstant = middayLocalDateTime.toInstant(middayOffset);
 
-                        int day = Time.getJulianDay(millis, time.gmtoff);
-                        assertEquals("Julian day: " + day + " at time "
-                                + time.hour + ":" + time.minute
-                                + " != today's Julian day: " + julianDay
-                                + " timezone: " + time.timezone, day, julianDay);
-                    }
-                }
+            // Record the Julian day for the date/time given. Since we want to know the local
+            // calendar date we have to provide the time zone's UTC offset too.
+            int middayJulianDay =
+                    Time.getJulianDay(middayInstant.toEpochMilli(), middayOffset.getTotalSeconds());
+
+            // Check Time.getJulianDay() agrees with java.time's Julian day calculations.
+            assertEquals(middayJulianDay, JulianFields.JULIAN_DAY.getFrom(middayLocalDateTime));
+
+            checkGetJulianDayVariousTimes(timeZone, testDate);
+        }
+    }
+
+    private static void checkGetJulianDayVariousTimes(String timeZone, LocalDate testDate) {
+        long expectedJulianDay = JulianFields.JULIAN_DAY.getFrom(testDate);
+
+        // Change the time during the day and check that we get the same Julian day as the one
+        // for midday.
+        for (int hour = 0; hour < 24; hour++) {
+            for (int minute = 0; minute < 60; minute += 15) {
+                LocalTime localTime = LocalTime.of(hour, minute);
+                LocalDateTime localDateTime = LocalDateTime.of(testDate, localTime);
+                ZoneOffset localDateTimeOffset =
+                        ZoneId.of(timeZone).getRules().getOffset(localDateTime);
+                Instant instant = localDateTime.toInstant(localDateTimeOffset);
+                long millis = instant.toEpochMilli();
+
+                // Find the Julian day for the date/time by supplying the offset. Since we want
+                // to know the local calendar date we have to provide the UTC offset too.
+                int julianDay = Time.getJulianDay(millis, localDateTimeOffset.getTotalSeconds());
+
+                assertEquals("Julian day: " + julianDay + " at time "
+                                + hour + ":" + minute
+                                + " != today's Julian day: " + expectedJulianDay
+                                + " millis: " + millis
+                                + " localDatetime: " + localDateTime
+                                + " timeZone: " + timeZone,
+                        julianDay, expectedJulianDay);
             }
         }
     }
@@ -2515,7 +2573,7 @@ public class TimeTest {
     }
 
     @Test
-    public void testNormalize_beforeTzRecords() {
+    public void testNormalize_before32BitSeconds() {
         int[] timeFields = new int[] { 1900, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
         verifyNormalizeInvalid(timeFields, PstPdt.ID);
         verifyNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
@@ -2569,7 +2627,7 @@ public class TimeTest {
     }
 
     @Test
-    public void testNormalize_afterTzRecords() {
+    public void testNormalize_after32BitSeconds() {
         int[] timeFields = new int[] { 2039, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
         verifyNormalizeInvalid(timeFields, PstPdt.ID);
         verifyNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
@@ -2843,7 +2901,7 @@ public class TimeTest {
         LocalDateTime localDateTime = LocalDateTime.of(2018, Month.OCTOBER, 30, 12, 48, 32);
         assertLocalTimeMillis("Asia/Singapore", localDateTime, 1540874912000L);
 
-        // The following tests check the upper limits of what we support. There's no guarantee
+        // The following tests check the upper limits of what Time supports. There's no guarantee
         // we can't deal with values higher that this but the exact value depends on the version of
         // zic being used as a transition at exactly Integer.MAX_VALUE can affect our ability to
         // deal with times. So, we just assert what we know we must be able to do to catch major
@@ -2861,16 +2919,21 @@ public class TimeTest {
         // Negative offset, has no MAX_VALUE transition with zic 2018e.
         checkUpperSupportedLimit("America/Los_Angeles");
 
-        // See comment above, but for Integer.MIN_VALUE / lower bound. Most zones have a MIN_VALUE
-        // transition with zic 2018e so it is harder to test zones without them so we just cover the
-        // same ones as we do for upper bound above.
+        // See comment above, but for Integer.MIN_VALUE / lower bound. Most zones do not have an
+        // explicit MIN_VALUE transition with zic 2018e 64-bit data but some zones differ around
+        // whether there are known transitions before Integer.MIN_VALUE.
 
-        // Positive offset, has MIN_VALUE transition with zic 2018e.
+        // Positive offset zones with first transition before Integer.MIN_VALUE.
         checkLowerSupportedLimit("Asia/Singapore");
         checkLowerSupportedLimit("Asia/Shanghai");
-        // Negative offset, has MIN_VALUE transition with zic 2018e.
+        // Negative offset zones with first transition before Integer.MIN_VALUE.
         checkLowerSupportedLimit("America/Argentina/Buenos_Aires");
         checkLowerSupportedLimit("America/Los_Angeles");
+
+        // Positive offset zone with first transition after Integer.MIN_VALUE.
+        checkLowerSupportedLimit("Asia/Kathmandu");
+        // Negative offset zone with first transition after Integer.MIN_VALUE.
+        checkLowerSupportedLimit("America/Yellowknife");
     }
 
     private static void checkUpperSupportedLimit(String timeZoneId) {
@@ -2930,6 +2993,9 @@ public class TimeTest {
                 testLocalTime.getSecond(),
                 0 /* isDst */, 0, 0, 0);
         assertEquals(expectedMillis, t.toMillis(true /* ignoreDst */));
+
+        // Check that Time agrees with native localtime / mktime.
+        NativeTimeFunctions.assertNativeTimeResults(timeZoneId, testLocalTime, expectedMillis);
     }
 
     /**
@@ -2965,8 +3031,26 @@ public class TimeTest {
                         + time, timeZone.inDaylightTime(new Date(timeInMillis)), (time.isDst != 0));
                 assertEquals(timeZone.getOffset(timeInMillis),
                         Duration.ofSeconds(time.gmtoff).toMillis());
+
+                // Check that Time agrees with native localtime / mktime.
+                NativeTimeFunctions.assertNativeTimeResults(
+                        tzId, createLocalDateTime(calendar), timeInMillis);
             }
         }
+    }
+
+    /**
+     * Creates a LocalDateTime from a Calendar by reading out the current date/time (to second
+     * precision only!).
+     */
+    private static LocalDateTime createLocalDateTime(Calendar calendar) {
+        return LocalDateTime.of(
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1,
+                calendar.get(Calendar.DAY_OF_MONTH),
+                calendar.get(Calendar.HOUR_OF_DAY),
+                calendar.get(Calendar.MINUTE),
+                calendar.get(Calendar.SECOND));
     }
 
     private static List<Long> calculateToMillisTestTimes(String tzId) {
@@ -3042,7 +3126,8 @@ public class TimeTest {
         // should pass regardless of zic version used as the Android behavior is stable for this
         // zone as we have fixed the logic used to determine the offset before the first transition
         // AND the first transition for the zone is after Integer.MIN_VALUE.
-        Time t = new Time("Africa/Abidjan");
+        String tzId = "Africa/Abidjan";
+        Time t = new Time(tzId);
         // Jan 1, 1912 12:16:08 AM UTC / Jan 1, 1912 00:00:00 local time
         Instant oldEarliestTransition = Instant.ofEpochSecond(-1830383032);
         Instant beforeOldEarliestTransition = oldEarliestTransition.minus(Duration.ofDays(1));
@@ -3050,10 +3135,14 @@ public class TimeTest {
 
         // The expected local time equivalent to the oldEarliestTransition time minus 1 day and
         // offset by -968 seconds.
-        Time expected = new Time("Africa/Abidjan");
+        Time expected = new Time(tzId);
         Fields.set(expected, 1911, 11, 31, 0, 0, 0, 0 /* isDst */, -968, 364, 0);
-
         Fields.verifyTimeEquals(expected, t);
+
+        // Check that Time agrees with native localtime / mktime.
+        NativeTimeFunctions.assertNativeTimeResults(
+                tzId, LocalDateTime.of(1911, Month.DECEMBER, 31, 0, 0, 0),
+                beforeOldEarliestTransition.toEpochMilli());
     }
 
     private static void verifyNormalizeResult(boolean normalizeArgument, Time toNormalize,

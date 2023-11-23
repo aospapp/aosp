@@ -53,11 +53,10 @@ static inline int timespec_sooner(const struct timespec *a,
 
 /* Exported Interface. */
 
-struct cras_timer *cras_tm_create_timer(
-		struct cras_tm *tm,
-		unsigned int ms,
-		void (*cb)(struct cras_timer *t, void *data),
-		void *cb_data)
+struct cras_timer *cras_tm_create_timer(struct cras_tm *tm, unsigned int ms,
+					void (*cb)(struct cras_timer *t,
+						   void *data),
+					void *cb_data)
 {
 	struct cras_timer *t;
 
@@ -91,7 +90,7 @@ void cras_tm_deinit(struct cras_tm *tm)
 {
 	struct cras_timer *t;
 
-	DL_FOREACH(tm->timers, t) {
+	DL_FOREACH (tm->timers, t) {
 		DL_DELETE(tm->timers, t);
 		free(t);
 	}
@@ -108,7 +107,7 @@ int cras_tm_get_next_timeout(const struct cras_tm *tm, struct timespec *ts)
 		return 0;
 
 	min = &tm->timers->ts;
-	DL_FOREACH(tm->timers, t)
+	DL_FOREACH (tm->timers, t)
 		if (timespec_sooner(&t->ts, min))
 			min = &t->ts;
 

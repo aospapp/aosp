@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libjnimultiplersfiles
 
-LOCAL_SRC_FILES := jnimultiplersfiles.cpp first.rs second.rs
+LOCAL_SRC_FILES := jnimultiplersfiles.cpp first.rscript second.rscript
 
 LOCAL_RENDERSCRIPT_FLAGS := -g
 

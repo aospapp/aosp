@@ -30,15 +30,16 @@
 #include <unwindstack/Regs.h>
 #include <unwindstack/RegsGetLocal.h>
 
+#include <algorithm>
 #include <atomic>
 #include <new>
 
 #include "perfetto/base/logging.h"
-#include "perfetto/base/scoped_file.h"
 #include "perfetto/base/thread_utils.h"
 #include "perfetto/base/time.h"
-#include "perfetto/base/unix_socket.h"
-#include "perfetto/base/utils.h"
+#include "perfetto/ext/base/scoped_file.h"
+#include "perfetto/ext/base/unix_socket.h"
+#include "perfetto/ext/base/utils.h"
 #include "src/profiling/memory/sampler.h"
 #include "src/profiling/memory/scoped_spinlock.h"
 #include "src/profiling/memory/wire_protocol.h"
@@ -55,8 +56,12 @@ inline bool IsMainThread() {
   return getpid() == base::GetThreadId();
 }
 
-// TODO(b/117203899): Remove this after making bionic implementation safe to
-// use.
+// The implementation of pthread_getattr_np for the main thread uses malloc,
+// so we cannot use it in GetStackBase, which we use inside of RecordMalloc
+// (which is called from malloc). We would re-enter malloc if we used it.
+//
+// This is why we find the stack base for the main-thread when constructing
+// the client and remember it.
 char* FindMainThreadStack() {
   base::ScopedFstream maps(fopen("/proc/self/maps", "r"));
   if (!maps) {
@@ -83,6 +88,15 @@ int UnsetDumpable(int) {
 
 }  // namespace
 
+uint64_t GetMaxTries(const ClientConfiguration& client_config) {
+  if (!client_config.block_client)
+    return 1u;
+  if (client_config.block_client_timeout_us == 0)
+    return kInfiniteTries;
+  return std::max<uint64_t>(
+      1ul, client_config.block_client_timeout_us / kResendBackoffUs);
+}
+
 const char* GetThreadStackBase() {
   pthread_attr_t attr;
   if (pthread_getattr_np(pthread_self(), &attr) != 0)
@@ -101,7 +115,8 @@ const char* GetThreadStackBase() {
 // static
 base::Optional<base::UnixSocketRaw> Client::ConnectToHeapprofd(
     const std::string& sock_name) {
-  auto sock = base::UnixSocketRaw::CreateMayFail(base::SockType::kStream);
+  auto sock = base::UnixSocketRaw::CreateMayFail(base::SockFamily::kUnix,
+                                                 base::SockType::kStream);
   if (!sock || !sock.Connect(sock_name)) {
     PERFETTO_PLOG("Failed to connect to %s", sock_name.c_str());
     return base::nullopt;
@@ -122,7 +137,7 @@ std::shared_ptr<Client> Client::CreateAndHandshake(
     base::UnixSocketRaw sock,
     UnhookedAllocator<Client> unhooked_allocator) {
   if (!sock) {
-    PERFETTO_DFATAL("Socket not connected.");
+    PERFETTO_DFATAL_OR_ELOG("Socket not connected.");
     return nullptr;
   }
 
@@ -142,28 +157,38 @@ std::shared_ptr<Client> Client::CreateAndHandshake(
     prctl(PR_SET_DUMPABLE, 1);
   }
 
+  size_t num_send_fds = kHandshakeSize;
+
   base::ScopedFile maps(base::OpenFile("/proc/self/maps", O_RDONLY));
   if (!maps) {
-    PERFETTO_DFATAL("Failed to open /proc/self/maps");
+    PERFETTO_DFATAL_OR_ELOG("Failed to open /proc/self/maps");
     return nullptr;
   }
   base::ScopedFile mem(base::OpenFile("/proc/self/mem", O_RDONLY));
   if (!mem) {
-    PERFETTO_DFATAL("Failed to open /proc/self/mem");
+    PERFETTO_DFATAL_OR_ELOG("Failed to open /proc/self/mem");
     return nullptr;
   }
+
+  base::ScopedFile page_idle(base::OpenFile("/proc/self/page_idle", O_RDWR));
+  if (!page_idle) {
+    PERFETTO_DLOG("Failed to open /proc/self/page_idle. Continuing.");
+    num_send_fds = kHandshakeSize - 1;
+  }
+
   // Restore original dumpability value if we overrode it.
   unset_dumpable.reset();
 
   int fds[kHandshakeSize];
   fds[kHandshakeMaps] = *maps;
   fds[kHandshakeMem] = *mem;
+  fds[kHandshakePageIdle] = *page_idle;
 
   // Send an empty record to transfer fds for /proc/self/maps and
   // /proc/self/mem.
-  if (sock.Send(kSingleByte, sizeof(kSingleByte), fds, kHandshakeSize) !=
+  if (sock.Send(kSingleByte, sizeof(kSingleByte), fds, num_send_fds) !=
       sizeof(kSingleByte)) {
-    PERFETTO_DFATAL("Failed to send file descriptors.");
+    PERFETTO_DFATAL_OR_ELOG("Failed to send file descriptors.");
     return nullptr;
   }
 
@@ -191,21 +216,18 @@ std::shared_ptr<Client> Client::CreateAndHandshake(
   }
 
   if (!shmem_fd) {
-    PERFETTO_DFATAL("Did not receive shmem fd.");
+    PERFETTO_DFATAL_OR_ELOG("Did not receive shmem fd.");
     return nullptr;
   }
 
   auto shmem = SharedRingBuffer::Attach(std::move(shmem_fd));
   if (!shmem || !shmem->is_valid()) {
-    PERFETTO_DFATAL("Failed to attach to shmem.");
+    PERFETTO_DFATAL_OR_ELOG("Failed to attach to shmem.");
     return nullptr;
   }
 
   PERFETTO_DCHECK(client_config.interval >= 1);
-  // TODO(fmayer): Always make this nonblocking.
-  // This is so that without block_client, we get the old behaviour that rate
-  // limits using the blocking socket. We do not want to change that for Q.
-  sock.SetBlocking(!client_config.block_client);
+  sock.SetBlocking(false);
   Sampler sampler{client_config.interval};
   // note: the shared_ptr will retain a copy of the unhooked_allocator
   return std::allocate_shared<Client>(unhooked_allocator, std::move(sock),
@@ -221,11 +243,26 @@ Client::Client(base::UnixSocketRaw sock,
                pid_t pid_at_creation,
                const char* main_thread_stack_base)
     : client_config_(client_config),
+      max_shmem_tries_(GetMaxTries(client_config_)),
       sampler_(std::move(sampler)),
       sock_(std::move(sock)),
       main_thread_stack_base_(main_thread_stack_base),
       shmem_(std::move(shmem)),
       pid_at_creation_(pid_at_creation) {}
+
+Client::~Client() {
+  // This is work-around for code like the following:
+  // https://android.googlesource.com/platform/libcore/+/4ecb71f94378716f88703b9f7548b5d24839262f/ojluni/src/main/native/UNIXProcess_md.c#427
+  // They fork, close all fds by iterating over /proc/self/fd using opendir.
+  // Unfortunately closedir calls free, which detects the fork, and then tries
+  // to destruct this Client.
+  //
+  // ScopedResource crashes on failure to close, so we explicitly ignore
+  // failures here.
+  int fd = sock_.ReleaseFd().release();
+  if (fd != -1)
+    close(fd);
+}
 
 const char* Client::GetStackBase() {
   if (IsMainThread()) {
@@ -236,6 +273,50 @@ const char* Client::GetStackBase() {
     return main_thread_stack_base_;
   }
   return GetThreadStackBase();
+}
+
+// Best-effort detection of whether we're continuing work in a forked child of
+// the profiled process, in which case we want to stop. Note that due to
+// malloc_hooks.cc's atfork handler, the proper fork calls should leak the child
+// before reaching this point. Therefore this logic exists primarily to handle
+// clone and vfork.
+// TODO(rsavitski): rename/delete |disable_fork_teardown| config option if this
+// logic sticks, as the option becomes more clone-specific, and quite narrow.
+bool Client::IsPostFork() {
+  if (PERFETTO_UNLIKELY(getpid() != pid_at_creation_)) {
+    // Only print the message once, even if we do not shut down the client.
+    if (!detected_fork_) {
+      detected_fork_ = true;
+      const char* vfork_detected = "";
+
+      // We use the fact that vfork does not update Bionic's TID cache, so
+      // we will have a mismatch between the actual TID (from the syscall)
+      // and the cached one.
+      //
+      // What we really want to check is if we are sharing virtual memory space
+      // with the original process. This would be
+      // syscall(__NR_kcmp, syscall(__NR_getpid), pid_at_creation_,
+      //         KCMP_VM, 0, 0),
+      //  but that is not compiled into our kernels and disallowed by seccomp.
+      if (!client_config_.disable_vfork_detection &&
+          syscall(__NR_gettid) != base::GetThreadId()) {
+        postfork_return_value_ = true;
+        vfork_detected = " (vfork detected)";
+      } else {
+        postfork_return_value_ = client_config_.disable_fork_teardown;
+      }
+      const char* action =
+          postfork_return_value_ ? "Not shutting down" : "Shutting down";
+      const char* force =
+          postfork_return_value_ ? " (fork teardown disabled)" : "";
+      PERFETTO_LOG(
+          "Detected post-fork child situation. Not profiling the child. "
+          "%s client%s%s",
+          action, force, vfork_detected);
+    }
+    return true;
+  }
+  return false;
 }
 
 // The stack grows towards numerically smaller addresses, so the stack layout
@@ -250,12 +331,11 @@ const char* Client::GetStackBase() {
 //               +------------+    |
 //               |  main      |    v
 // stackbase +-> +------------+ 0xffff
-bool Client::RecordMalloc(uint64_t alloc_size,
-                          uint64_t total_size,
+bool Client::RecordMalloc(uint64_t sample_size,
+                          uint64_t alloc_size,
                           uint64_t alloc_address) {
-  if (PERFETTO_UNLIKELY(getpid() != pid_at_creation_)) {
-    PERFETTO_LOG("Detected post-fork child situation, stopping profiling.");
-    return false;
+  if (PERFETTO_UNLIKELY(IsPostFork())) {
+    return postfork_return_value_;
   }
 
   AllocMetadata metadata;
@@ -263,13 +343,13 @@ bool Client::RecordMalloc(uint64_t alloc_size,
   const char* stacktop = reinterpret_cast<char*>(__builtin_frame_address(0));
   unwindstack::AsmGetRegs(metadata.register_data);
 
-  if (stackbase < stacktop) {
-    PERFETTO_DFATAL("Stackbase >= stacktop.");
+  if (PERFETTO_UNLIKELY(stackbase < stacktop)) {
+    PERFETTO_DFATAL_OR_ELOG("Stackbase >= stacktop.");
     return false;
   }
 
   uint64_t stack_size = static_cast<uint64_t>(stackbase - stacktop);
-  metadata.total_size = total_size;
+  metadata.sample_size = sample_size;
   metadata.alloc_size = alloc_size;
   metadata.alloc_address = alloc_address;
   metadata.stack_pointer = reinterpret_cast<uint64_t>(stacktop);
@@ -299,20 +379,26 @@ bool Client::RecordMalloc(uint64_t alloc_size,
 }
 
 bool Client::SendWireMessageWithRetriesIfBlocking(const WireMessage& msg) {
-  for (;;) {
+  for (uint64_t i = 0;
+       max_shmem_tries_ == kInfiniteTries || i < max_shmem_tries_; ++i) {
     if (PERFETTO_LIKELY(SendWireMessage(&shmem_, msg)))
       return true;
     // retry if in blocking mode and still connected
     if (client_config_.block_client && base::IsAgain(errno) && IsConnected()) {
       usleep(kResendBackoffUs);
-      continue;
+    } else {
+      break;
     }
-    PERFETTO_PLOG("Failed to write to shared ring buffer. Disconnecting.");
-    return false;
   }
+  PERFETTO_PLOG("Failed to write to shared ring buffer. Disconnecting.");
+  return false;
 }
 
 bool Client::RecordFree(const uint64_t alloc_address) {
+  if (PERFETTO_UNLIKELY(IsPostFork())) {
+    return postfork_return_value_;
+  }
+
   uint64_t sequence_number =
       1 + sequence_number_.fetch_add(1, std::memory_order_acq_rel);
 
@@ -333,11 +419,6 @@ bool Client::RecordFree(const uint64_t alloc_address) {
 }
 
 bool Client::FlushFreesLocked() {
-  if (PERFETTO_UNLIKELY(getpid() != pid_at_creation_)) {
-    PERFETTO_LOG("Detected post-fork child situation, stopping profiling.");
-    return false;
-  }
-
   WireMessage msg = {};
   msg.record_type = RecordType::Free;
   msg.free_header = &free_batch_;
@@ -368,10 +449,12 @@ bool Client::IsConnected() {
 }
 
 bool Client::SendControlSocketByte() {
-  // TODO(fmayer): Fix the special casing that only block_client uses a
-  // nonblocking socket.
+  // If base::IsAgain(errno), the socket buffer is full, so the service will
+  // pick up the notification even without adding another byte.
+  // In other error cases (usually EPIPE) we want to disconnect, because that
+  // is how the service signals the tracing session was torn down.
   if (sock_.Send(kSingleByte, sizeof(kSingleByte)) == -1 &&
-      (!client_config_.block_client || !base::IsAgain(errno))) {
+      !base::IsAgain(errno)) {
     PERFETTO_PLOG("Failed to send control socket byte.");
     return false;
   }

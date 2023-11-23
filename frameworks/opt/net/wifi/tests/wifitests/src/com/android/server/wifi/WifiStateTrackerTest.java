@@ -21,9 +21,9 @@ import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import androidx.test.filters.SmallTest;
+import android.os.BatteryStatsManager;
 
-import com.android.internal.app.IBatteryStats;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -34,10 +34,11 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for {@link com.android.server.wifi.WifiStateTracker}.
  */
 @SmallTest
-public class WifiStateTrackerTest {
+public class WifiStateTrackerTest extends WifiBaseTest {
 
     private static final String TAG = "WifiStateTrackerTest";
-    @Mock IBatteryStats mBatteryStats;
+    @Mock
+    BatteryStatsManager mBatteryStats;
     private WifiStateTracker mWifiStateTracker;
 
     /**
@@ -50,7 +51,7 @@ public class WifiStateTrackerTest {
     }
 
     /**
-     * Ensure BatteryStats's noteWifiState() is called when the method
+     * Ensure BatteryStats's reportWifiState() is called when the method
      * updateState() is invoked on WifiStateTracker for relevant states.
      */
     @Test
@@ -61,11 +62,11 @@ public class WifiStateTrackerTest {
         for (int i = 0; i < relevantStates.length; i++) {
             mWifiStateTracker.updateState(relevantStates[i]);
         }
-        verify(mBatteryStats, times(relevantStates.length)).noteWifiState(anyInt(), any());
+        verify(mBatteryStats, times(relevantStates.length)).reportWifiState(anyInt(), any());
     }
 
     /**
-     * Ensure BatteryStats's noteWifiState() is not called when the method
+     * Ensure BatteryStats's reportWifiState() is not called when the method
      * updateState() is invoked on WifiStateTracker for irrelevant states.
      */
     @Test
@@ -75,6 +76,6 @@ public class WifiStateTrackerTest {
         for (int i = 0; i < irrelevantStates.length; i++) {
             mWifiStateTracker.updateState(irrelevantStates[i]);
         }
-        verify(mBatteryStats, times(0)).noteWifiState(anyInt(), any());
+        verify(mBatteryStats, times(0)).reportWifiState(anyInt(), any());
     }
 }

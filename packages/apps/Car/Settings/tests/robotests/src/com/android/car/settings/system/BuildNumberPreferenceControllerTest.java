@@ -18,37 +18,30 @@ package com.android.car.settings.system;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.UserInfo;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.development.DevelopmentSettingsUtil;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
+import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowToast;
+import org.robolectric.shadows.ShadowUserManager;
 
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
 public class BuildNumberPreferenceControllerTest {
 
     private Context mContext;
@@ -56,13 +49,10 @@ public class BuildNumberPreferenceControllerTest {
             mPreferenceControllerHelper;
     private BuildNumberPreferenceController mController;
     private Preference mPreference;
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
         mContext = RuntimeEnvironment.application;
         mPreference = new Preference(mContext);
         mPreferenceControllerHelper = new PreferenceControllerTestHelper<>(mContext,
@@ -70,13 +60,14 @@ public class BuildNumberPreferenceControllerTest {
         mController = mPreferenceControllerHelper.getController();
 
         // By default, user is an admin user.
-        when(mCarUserManagerHelper.isCurrentProcessAdminUser()).thenReturn(true);
-        when(mCarUserManagerHelper.isCurrentProcessDemoUser()).thenReturn(false);
+        setCurrentUserWithFlags(UserInfo.FLAG_ADMIN);
 
         // By default, no restrictions on debugging features.
-        when(mCarUserManagerHelper.getCurrentProcessUserInfo()).thenReturn(new UserInfo());
-        when(mCarUserManagerHelper.hasUserRestriction(eq(UserManager.DISALLOW_DEBUGGING_FEATURES),
-                any(UserInfo.class))).thenReturn(false);
+        getShadowUserManager()
+                .setUserRestriction(
+                        UserHandle.of(UserHandle.myUserId()),
+                        UserManager.DISALLOW_DEBUGGING_FEATURES,
+                        false);
 
         // By default device is provisioned.
         Settings.Global.putInt(mContext.getContentResolver(),
@@ -88,11 +79,6 @@ public class BuildNumberPreferenceControllerTest {
         mPreferenceControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_RESUME);
     }
 
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
-    }
-
     @Test
     public void testHandlePreferenceClicked_notProvisioned_returnFalse() {
         Settings.Global.putInt(mContext.getContentResolver(),
@@ -102,22 +88,22 @@ public class BuildNumberPreferenceControllerTest {
 
     @Test
     public void testHandlePreferenceClicked_nonAdmin_returnFalse() {
-        when(mCarUserManagerHelper.isCurrentProcessAdminUser()).thenReturn(false);
-        when(mCarUserManagerHelper.isCurrentProcessDemoUser()).thenReturn(false);
+        setCurrentUserWithFlags(/* flags= */ 0);
 
         assertThat(mController.handlePreferenceClicked(mPreference)).isFalse();
     }
 
     @Test
-    public void testHandlePreferenceClicked_demoUser_returnsTrue() {
-        when(mCarUserManagerHelper.isCurrentProcessAdminUser()).thenReturn(false);
-        when(mCarUserManagerHelper.isCurrentProcessDemoUser()).thenReturn(true);
+    public void testHandlePreferenceClicked_demoUser_returnsFalse() {
+        setCurrentUserWithFlags(UserInfo.FLAG_DEMO);
 
-        assertThat(mController.handlePreferenceClicked(mPreference)).isTrue();
+        assertThat(mController.handlePreferenceClicked(mPreference)).isFalse();
     }
 
     @Test
     public void testHandlePreferenceClicked_adminUser_returnsTrue() {
+        setCurrentUserWithFlags(UserInfo.FLAG_ADMIN);
+
         assertThat(mController.handlePreferenceClicked(mPreference)).isTrue();
     }
 
@@ -154,7 +140,7 @@ public class BuildNumberPreferenceControllerTest {
             mPreference.performClick();
         }
         assertThat(DevelopmentSettingsUtil.isDevelopmentSettingsEnabled(mContext,
-                mCarUserManagerHelper)).isTrue();
+                UserManager.get(mContext))).isTrue();
     }
 
     @Test
@@ -184,5 +170,14 @@ public class BuildNumberPreferenceControllerTest {
     private int getTapsToShowToast() {
         return mContext.getResources().getInteger(
                 R.integer.enable_developer_settings_clicks_to_show_toast_count);
+    }
+
+    private void setCurrentUserWithFlags(int flags) {
+        UserInfo userInfo = new UserInfo(UserHandle.myUserId(), null, flags);
+        getShadowUserManager().addUser(userInfo.id, userInfo.name, userInfo.flags);
+    }
+
+    private ShadowUserManager getShadowUserManager() {
+        return Shadows.shadowOf(UserManager.get(mContext));
     }
 }

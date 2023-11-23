@@ -21,7 +21,7 @@ namespace android {
 namespace hardware {
 namespace automotive {
 namespace evs {
-namespace V1_0 {
+namespace V1_1 {
 namespace implementation {
 
 
@@ -71,10 +71,12 @@ void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
     // an even multiple of 16 bytes for both the Y and UV arrays.
 
     // Target  and source image layout properties (They match since the formats match!)
-    const unsigned strideLum = align<16>(tgtBuff.width);
-    const unsigned sizeY = strideLum * tgtBuff.height;
+    const AHardwareBuffer_Desc* pDesc =
+        reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
+    const unsigned strideLum = align<16>(pDesc->width);
+    const unsigned sizeY = strideLum * pDesc->height;
     const unsigned strideColor = strideLum;   // 1/2 the samples, but two interleaved channels
-    const unsigned sizeColor = strideColor * tgtBuff.height/2;
+    const unsigned sizeColor = strideColor * pDesc->height/2;
     const unsigned totalBytes = sizeY + sizeColor;
 
     // Simply copy the data byte for byte
@@ -100,8 +102,10 @@ void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
     };
 
     // Target image layout properties
-    const unsigned strideLum = align<16>(tgtBuff.width);
-    const unsigned sizeY = strideLum * tgtBuff.height;
+    const AHardwareBuffer_Desc* pDesc =
+        reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
+    const unsigned strideLum = align<16>(pDesc->width);
+    const unsigned sizeY = strideLum * pDesc->height;
     const unsigned strideColor = strideLum;   // 1/2 the samples, but two interleaved channels
 
     // Source image layout properties
@@ -111,14 +115,14 @@ void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
     uint32_t* botSrcRow =  srcDataYUYV + srcRowPixels;
 
     // We're going to work on one 2x2 cell in the output image at at time
-    for (unsigned cellRow = 0; cellRow < tgtBuff.height/2; cellRow++) {
+    for (unsigned cellRow = 0; cellRow < pDesc->height/2; cellRow++) {
 
         // Set up the output pointers
         uint8_t* yTopRow = tgt + (cellRow*2) * strideLum;
         uint8_t* yBotRow = yTopRow + strideLum;
         uint8_t* uvRow   = (tgt + sizeY) + cellRow * strideColor;
 
-        for (unsigned cellCol = 0; cellCol < tgtBuff.width/2; cellCol++) {
+        for (unsigned cellCol = 0; cellCol < pDesc->width/2; cellCol++) {
             // Collect the values from the YUYV interleaved data
             const YUYVpixel* pTopMacroPixel = (YUYVpixel*)&topSrcRow[cellCol];
             const YUYVpixel* pBotMacroPixel = (YUYVpixel*)&botSrcRow[cellCol];
@@ -144,12 +148,14 @@ void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 
 
 void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
-    unsigned width = tgtBuff.width;
-    unsigned height = tgtBuff.height;
+    const AHardwareBuffer_Desc* pDesc =
+        reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
+    unsigned width = pDesc->width;
+    unsigned height = pDesc->height;
     uint32_t* src = (uint32_t*)imgData;
     uint32_t* dst = (uint32_t*)tgt;
     unsigned srcStridePixels = imgStride / 2;
-    unsigned dstStridePixels = tgtBuff.stride;
+    unsigned dstStridePixels = pDesc->stride;
 
     const int srcRowPadding32 = srcStridePixels/2 - width/2;  // 2 bytes per pixel, 4 bytes per word
     const int dstRowPadding32 = dstStridePixels   - width;    // 4 bytes per pixel, 4 bytes per word
@@ -178,12 +184,14 @@ void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 
 
 void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
-    unsigned width = tgtBuff.width;
-    unsigned height = tgtBuff.height;
+    const AHardwareBuffer_Desc* pDesc =
+        reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
+    unsigned width = pDesc->width;
+    unsigned height = pDesc->height;
     uint8_t* src = (uint8_t*)imgData;
     uint8_t* dst = (uint8_t*)tgt;
     unsigned srcStrideBytes = imgStride;
-    unsigned dstStrideBytes = tgtBuff.stride * 2;
+    unsigned dstStrideBytes = pDesc->stride * 2;
 
     for (unsigned r=0; r<height; r++) {
         // Copy a pixel row at a time (2 bytes per pixel, averaged over a YUYV macro pixel)
@@ -193,12 +201,14 @@ void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 
 
 void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
-    unsigned width = tgtBuff.width;
-    unsigned height = tgtBuff.height;
+    const AHardwareBuffer_Desc* pDesc =
+        reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
+    unsigned width = pDesc->width;
+    unsigned height = pDesc->height;
     uint32_t* src = (uint32_t*)imgData;
     uint32_t* dst = (uint32_t*)tgt;
     unsigned srcStridePixels = imgStride / 2;
-    unsigned dstStridePixels = tgtBuff.stride;
+    unsigned dstStridePixels = pDesc->stride;
 
     const int srcRowPadding32 = srcStridePixels/2 - width/2;  // 2 bytes per pixel, 4 bytes per word
     const int dstRowPadding32 = dstStridePixels/2 - width/2;  // 2 bytes per pixel, 4 bytes per word
@@ -228,7 +238,7 @@ void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 
 
 } // namespace implementation
-} // namespace V1_0
+} // namespace V1_1
 } // namespace evs
 } // namespace automotive
 } // namespace hardware

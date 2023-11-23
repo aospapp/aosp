@@ -7,7 +7,7 @@
 
     <original-package android:name="com.android.gallery3d" />
 
-    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="28" />
+    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="29" />
 
     <permission android:name="com.android.gallery3d.permission.GALLERY_PROVIDER"
             android:protectionLevel="signatureOrSystem" />
@@ -44,6 +44,7 @@
             android:largeHeap="true"
             android:restoreAnyVersion="true"
             android:supportsRtl="true"
+            android:requestLegacyExternalStorage="true"
             usesCleartextHttp="true">
         <uses-library android:name="com.google.android.media.effects" android:required="false" />
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
@@ -71,7 +72,6 @@
                 <data android:mimeType="video/3gpp2" />
                 <data android:mimeType="video/webm" />
                 <data android:mimeType="video/avi" />
-                <data android:mimeType="application/sdp" />
              </intent-filter>
              <intent-filter>
                 <!-- HTTP live support -->
@@ -153,7 +153,6 @@
                 <data android:mimeType="video/3gp" />
                 <data android:mimeType="video/3gpp" />
                 <data android:mimeType="video/3gpp2" />
-                <data android:mimeType="application/sdp" />
             </intent-filter>
         </activity>
 

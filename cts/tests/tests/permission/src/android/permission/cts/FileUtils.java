@@ -16,9 +16,9 @@ package android.permission.cts;
  * limitations under the License.
  */
 
-import com.google.common.primitives.Ints;
-
 import android.system.OsConstants;
+
+import com.google.common.primitives.Ints;
 
 import java.util.HashSet;
 import java.util.Set;

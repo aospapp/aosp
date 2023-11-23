@@ -79,7 +79,7 @@ public class WifiAwareAgentNetworkSpecifierTest {
     public void testEmptyDoesntMatchAnything() {
         WifiAwareAgentNetworkSpecifier dut = new WifiAwareAgentNetworkSpecifier();
         WifiAwareNetworkSpecifier ns = getDummyNetworkSpecifier(6);
-        collector.checkThat("No match expected", ns.satisfiedBy(dut), equalTo(false));
+        collector.checkThat("No match expected", ns.canBeSatisfiedBy(dut), equalTo(false));
     }
 
     /**
@@ -91,8 +91,8 @@ public class WifiAwareAgentNetworkSpecifierTest {
         WifiAwareNetworkSpecifier nsThis = getDummyNetworkSpecifier(6);
         WifiAwareAgentNetworkSpecifier dut = new WifiAwareAgentNetworkSpecifier(nsThis);
         WifiAwareNetworkSpecifier nsOther = getDummyNetworkSpecifier(8);
-        collector.checkThat("Match expected", nsThis.satisfiedBy(dut), equalTo(true));
-        collector.checkThat("No match expected", nsOther.satisfiedBy(dut), equalTo(false));
+        collector.checkThat("Match expected", nsThis.canBeSatisfiedBy(dut), equalTo(true));
+        collector.checkThat("No match expected", nsOther.canBeSatisfiedBy(dut), equalTo(false));
     }
 
     /**
@@ -113,9 +113,9 @@ public class WifiAwareAgentNetworkSpecifierTest {
         WifiAwareNetworkSpecifier nsOther = getDummyNetworkSpecifier(10000);
 
         for (WifiAwareNetworkSpecifier nsThis: nsSet) {
-            collector.checkThat("Match expected", nsThis.satisfiedBy(dut), equalTo(true));
+            collector.checkThat("Match expected", nsThis.canBeSatisfiedBy(dut), equalTo(true));
         }
-        collector.checkThat("No match expected", nsOther.satisfiedBy(dut), equalTo(false));
+        collector.checkThat("No match expected", nsOther.canBeSatisfiedBy(dut), equalTo(false));
     }
 
     /**
@@ -137,7 +137,7 @@ public class WifiAwareAgentNetworkSpecifierTest {
         WifiAwareAgentNetworkSpecifier newNs = new WifiAwareAgentNetworkSpecifier(
                 nsSet.toArray(new WifiAwareNetworkSpecifier[nsSet.size()]));
 
-        collector.checkThat("Match expected", oldNs.satisfiedBy(newNs), equalTo(true));
+        collector.checkThat("Match expected", oldNs.canBeSatisfiedBy(newNs), equalTo(true));
     }
 
     /**
@@ -159,18 +159,7 @@ public class WifiAwareAgentNetworkSpecifierTest {
         WifiAwareAgentNetworkSpecifier oldNs = new WifiAwareAgentNetworkSpecifier(
                 nsSet.toArray(new WifiAwareNetworkSpecifier[nsSet.size()]));
 
-        collector.checkThat("Match unexpected", oldNs.satisfiedBy(newNs), equalTo(false));
-    }
-
-    /**
-     * Validate that agent network specifier cannot be used as in network requests - i.e. that
-     * throws an exception when queried for UID validity.
-     */
-    @Test(expected = SecurityException.class)
-    public void testNoUsageInRequest() {
-        WifiAwareAgentNetworkSpecifier dut = new WifiAwareAgentNetworkSpecifier();
-
-        dut.assertValidFromUid(0);
+        collector.checkThat("Match unexpected", oldNs.canBeSatisfiedBy(newNs), equalTo(false));
     }
 
     // utilities
@@ -182,6 +171,6 @@ public class WifiAwareAgentNetworkSpecifierTest {
     WifiAwareNetworkSpecifier getDummyNetworkSpecifier(int clientId) {
         return new WifiAwareNetworkSpecifier(WifiAwareNetworkSpecifier.NETWORK_SPECIFIER_TYPE_OOB,
                 WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_INITIATOR, clientId, 0, 0, new byte[6],
-                null, null, 10, 5, 0);
+                null, null, 10, 5);
     }
 }

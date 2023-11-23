@@ -133,6 +133,11 @@ class KeymasterEnforcement {
     virtual uint64_t get_current_time_ms() const = 0;
 
     /*
+     * Get whether or not we're in early boot.  See early_boot_ended() below.
+     */
+    bool in_early_boot() const { return in_early_boot_; }
+
+    /*
      * Get current time in seconds from some starting point.  This value is used to compute relative
      * times between events.  It must be monotonically increasing, and must not skip or lag.  It
      * need not have any relation to any external time standard (other than the duration of
@@ -179,6 +184,22 @@ class KeymasterEnforcement {
      */
     virtual bool CreateKeyId(const keymaster_key_blob_t& key_blob, km_id_t* keyid) const = 0;
 
+    /*
+     * Inform the KeymasterEnforcement object that early boot stage has ended.
+     */
+    void early_boot_ended() { in_early_boot_ = false; }
+
+    /*
+     * Inform the KeymasterEnforcement object that the device is locked, so it knows not to permit
+     * UNLOCKED_DEVICE_REQUIRED keys to be used until a fresh (later than "now") auth token is
+     * provided.  If password_only is true, the fresh auth token must additionally be a password
+     * auth token.
+     */
+    void device_locked(bool password_only) {
+        device_locked_at_ = get_current_time_ms();
+        password_unlock_only_ = password_only;
+    }
+
   private:
     keymaster_error_t AuthorizeUpdateOrFinish(const AuthProxy& auth_set,
                                               const AuthorizationSet& operation_params,
@@ -186,6 +207,8 @@ class KeymasterEnforcement {
 
     bool MinTimeBetweenOpsPassed(uint32_t min_time_between, const km_id_t keyid);
     bool MaxUsesPerBootNotExceeded(const km_id_t keyid, uint32_t max_uses);
+    bool GetAndValidateAuthToken(const AuthorizationSet& operation_params,
+                                 const hw_auth_token_t** token, uint32_t* token_auth_type) const;
     bool AuthTokenMatches(const AuthProxy& auth_set, const AuthorizationSet& operation_params,
                           const uint64_t user_secure_id, const int auth_type_index,
                           const int auth_timeout_index,
@@ -194,6 +217,9 @@ class KeymasterEnforcement {
 
     AccessTimeMap* access_time_map_;
     AccessCountMap* access_count_map_;
+    bool in_early_boot_ = false;  // TODO(swillden): default to true when vold sends signal.
+    uint64_t device_locked_at_ = 0;
+    bool password_unlock_only_ = false;
 };
 
 }; /* namespace keymaster */

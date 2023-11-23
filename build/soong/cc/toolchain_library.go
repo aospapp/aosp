@@ -29,6 +29,9 @@ func init() {
 type toolchainLibraryProperties struct {
 	// the prebuilt toolchain library, as a path from the top of the source tree
 	Src *string `android:"arch_variant"`
+
+	// Repack the archive with only the selected objects.
+	Repack_objects_to_keep []string `android:"arch_variant"`
 }
 
 type toolchainLibraryDecorator struct {
@@ -50,6 +53,9 @@ func (library *toolchainLibraryDecorator) linkerProps() []interface{} {
 	return append(props, &library.Properties, &library.stripper.StripProperties)
 }
 
+// toolchain_library is used internally by the build tool to link the specified
+// static library in src property to the device libraries that are shipped with
+// gcc.
 func ToolchainLibraryFactory() android.Module {
 	module, library := NewLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyStatic()
@@ -61,6 +67,7 @@ func ToolchainLibraryFactory() android.Module {
 	module.stl = nil
 	module.sanitize = nil
 	module.installer = nil
+	module.Properties.Sdk_version = StringPtr("current")
 	return module.Init()
 }
 
@@ -83,7 +90,15 @@ func (library *toolchainLibraryDecorator) link(ctx ModuleContext,
 		fileName := ctx.ModuleName() + staticLibraryExtension
 		outputFile := android.PathForModuleOut(ctx, fileName)
 		buildFlags := flagsToBuilderFlags(flags)
-		library.stripper.strip(ctx, srcPath, outputFile, buildFlags)
+		library.stripper.stripStaticLib(ctx, srcPath, outputFile, buildFlags)
+		return outputFile
+	}
+
+	if library.Properties.Repack_objects_to_keep != nil {
+		fileName := ctx.ModuleName() + staticLibraryExtension
+		outputFile := android.PathForModuleOut(ctx, fileName)
+		TransformArchiveRepack(ctx, srcPath, outputFile, library.Properties.Repack_objects_to_keep)
+
 		return outputFile
 	}
 

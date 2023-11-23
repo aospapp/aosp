@@ -35,7 +35,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             5d:93:8d:30:67:36:c8:06:1d:1a:c7:54:84:69:07
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=ES, O=FNMT-RCM, OU=AC RAIZ FNMT-RCM
         Validity
             Not Before: Oct 29 15:59:56 2008 GMT
@@ -43,7 +43,7 @@ Certificate:
         Subject: C=ES, O=FNMT-RCM, OU=AC RAIZ FNMT-RCM
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (4096 bit)
+                RSA Public-Key: (4096 bit)
                 Modulus:
                     00:ba:71:80:7a:4c:86:6e:7f:c8:13:6d:c0:c6:7d:
                     1c:00:97:8f:2c:0c:23:bb:10:9a:40:a9:1a:b7:87:

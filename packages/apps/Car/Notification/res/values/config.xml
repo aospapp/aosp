@@ -23,4 +23,15 @@
     <bool name="config_enableCardBackgroundColorForSystemApp">false</bool>
     <!-- Whether small icon accent color can be set or not. -->
     <bool name="config_enableSmallIconAccentColor">true</bool>
+    <!-- Whether to show header for the notifications list -->
+    <bool name="config_showHeaderForNotifications">false</bool>
+    <!-- Whether to show for the notifications list -->
+    <bool name="config_showFooterForNotifications">true</bool>
+    <!-- Whether to apply notification dismiss animation in the bottom up order on clear all notifications event -->
+    <bool name="config_clearAllNotificationsAnimationFromBottomUp">true</bool>
+    <!-- Whether to collapse notification shade panel on clear all notification animation end -->
+    <bool name="config_collapseShadePanelAfterClearAllNotifications">false</bool>
+    <!-- Animation helper for animating heads up notification showing on screen and leaving the screen. -->
+    <string name="config_headsUpNotificationAnimationHelper" translatable="false">
+        com.android.car.notification.headsup.animationhelper.CarHeadsUpNotificationTopAnimationHelper</string>
 </resources>

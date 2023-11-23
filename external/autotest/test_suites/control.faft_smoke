@@ -38,7 +38,7 @@ _BUG_TEMPLATE = {
 }
 
 args_dict['file_bugs'] = False
-args_dict['name'] = NAME
+args_dict['name'] = 'faft_smoke'
 args_dict['job'] = job
 args_dict['add_experimental'] = True
 args_dict['bug_template'] = _BUG_TEMPLATE

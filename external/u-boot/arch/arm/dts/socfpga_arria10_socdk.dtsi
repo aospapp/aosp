@@ -14,7 +14,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "socfpga_arria10_socdk_sdmmc_handoff.dtsi"
+
+#include "socfpga_arria10.dtsi"
 
 / {
 	model = "Altera SOCFPGA Arria 10";
@@ -23,6 +24,7 @@
 	aliases {
 		ethernet0 = &gmac0;
 		serial0 = &uart1;
+		i2c0 = &i2c1;
 	};
 
 	chosen {
@@ -34,6 +36,7 @@
 		name = "memory";
 		device_type = "memory";
 		reg = <0x0 0x40000000>; /* 1GB */
+		u-boot,dm-pre-reloc;
 	};
 
 	a10leds {
@@ -152,7 +155,6 @@
 };
 
 &uart1 {
-	clock-frequency = <50000000>;
 	u-boot,dm-pre-reloc;
 	status = "okay";
 };
@@ -164,4 +166,17 @@
 
 &watchdog1 {
 	status = "okay";
+};
+
+/* Clock available early */
+&main_periph_ref_clk {
+	u-boot,dm-pre-reloc;
+};
+
+&l4_mp_clk {
+	u-boot,dm-pre-reloc;
+};
+
+&l4_sp_clk {
+	u-boot,dm-pre-reloc;
 };

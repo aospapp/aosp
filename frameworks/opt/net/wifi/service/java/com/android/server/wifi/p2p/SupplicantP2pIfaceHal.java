@@ -36,12 +36,12 @@ import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pGroupList;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
-import android.os.HwRemoteBinder;
+import android.os.IHwBinder.DeathRecipient;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.internal.util.ArrayUtils;
+import com.android.server.wifi.util.ArrayUtils;
 import com.android.server.wifi.util.NativeUtil;
 
 import java.nio.ByteBuffer;
@@ -96,7 +96,7 @@ public class SupplicantP2pIfaceHal {
             }
         }
     };
-    private final HwRemoteBinder.DeathRecipient mServiceManagerDeathRecipient =
+    private final DeathRecipient mServiceManagerDeathRecipient =
             cookie -> {
                 Log.w(TAG, "IServiceManager died: cookie=" + cookie);
                 synchronized (mLock) {
@@ -104,9 +104,9 @@ public class SupplicantP2pIfaceHal {
                     mIServiceManager = null; // Will need to register a new ServiceNotification
                 }
             };
-    private final HwRemoteBinder.DeathRecipient mSupplicantDeathRecipient =
+    private final DeathRecipient mSupplicantDeathRecipient =
             cookie -> {
-                Log.w(TAG, "ISupplicant/ISupplicantStaIface died: cookie=" + cookie);
+                Log.w(TAG, "ISupplicant/ISupplicantP2pIface died: cookie=" + cookie);
                 synchronized (mLock) {
                     supplicantServiceDiedHandler();
                 }
@@ -446,7 +446,7 @@ public class SupplicantP2pIfaceHal {
         synchronized (mLock) {
             try {
                 return android.hardware.wifi.supplicant.V1_1.ISupplicant.castFrom(
-                        ISupplicant.getService());
+                        mISupplicant);
             } catch (NoSuchElementException e) {
                 Log.e(TAG, "Failed to get ISupplicant", e);
                 return null;
@@ -512,14 +512,20 @@ public class SupplicantP2pIfaceHal {
     }
 
     /**
-     * Returns false if SupplicantP2pIface is null, and logs failure to call methodStr
+     * Returns SupplicantP2pIface on success, logs failure to call methodStr
+     * and returns false otherwise
      */
-    private boolean checkSupplicantP2pIfaceAndLogFailureV1_2(String method) {
-        if (getP2pIfaceMockableV1_2() == null) {
-            Log.e(TAG, "Can't call " + method + ": ISupplicantP2pIface is null");
-            return false;
+    private android.hardware.wifi.supplicant.V1_2.ISupplicantP2pIface
+            getSupplicantP2pIfaceAndLogFailureV1_2(String method) {
+        synchronized (mLock) {
+            android.hardware.wifi.supplicant.V1_2.ISupplicantP2pIface p2pIfaceV12 =
+                    getP2pIfaceMockableV1_2();
+            if (p2pIfaceV12 == null) {
+                Log.e(TAG, "Can't call " + method + ": ISupplicantP2pIface is null");
+                return null;
+            }
+            return p2pIfaceV12;
         }
-        return true;
     }
 
     private int wpsInfoToConfigMethod(int info) {
@@ -820,7 +826,7 @@ public class SupplicantP2pIfaceHal {
             }
             // NOTE: preSelectedPin cannot be null, otherwise hal would crash.
             String preSelectedPin = TextUtils.isEmpty(config.wps.pin) ? "" : config.wps.pin;
-            boolean persistent = (config.netId == WifiP2pGroup.PERSISTENT_NET_ID);
+            boolean persistent = (config.netId == WifiP2pGroup.NETWORK_ID_PERSISTENT);
 
             int goIntent = 0;
             if (!joinExistingGroup) {
@@ -1195,7 +1201,10 @@ public class SupplicantP2pIfaceHal {
     public boolean groupAdd(String networkName, String passphrase,
             boolean isPersistent, int freq, String peerAddress, boolean join) {
         synchronized (mLock) {
-            if (!checkSupplicantP2pIfaceAndLogFailureV1_2("groupAdd_1_2")) return false;
+            android.hardware.wifi.supplicant.V1_2.ISupplicantP2pIface ifaceV12 =
+                    getSupplicantP2pIfaceAndLogFailureV1_2("groupAdd_1_2");
+            if (ifaceV12 == null) return false;
+
             java.util.ArrayList<Byte> ssid = NativeUtil.decodeSsid("\"" + networkName + "\"");
             byte[] macAddress = null;
             try {
@@ -1205,8 +1214,6 @@ public class SupplicantP2pIfaceHal {
                 return false;
             }
 
-            android.hardware.wifi.supplicant.V1_2.ISupplicantP2pIface ifaceV12 =
-                    getP2pIfaceMockableV1_2();
             SupplicantResult<Void> result =
                     new SupplicantResult("groupAdd(" + networkName + ", "
                         + (TextUtils.isEmpty(passphrase) ? "<Empty>" : "<Non-Empty>")
@@ -2369,10 +2376,10 @@ public class SupplicantP2pIfaceHal {
      */
     public boolean setMacRandomization(boolean enable) {
         synchronized (mLock) {
-            if (!checkSupplicantP2pIfaceAndLogFailureV1_2("setMacRandomization")) return false;
-
             android.hardware.wifi.supplicant.V1_2.ISupplicantP2pIface ifaceV12 =
-                    getP2pIfaceMockableV1_2();
+                    getSupplicantP2pIfaceAndLogFailureV1_2("setMacRandomization");
+            if (ifaceV12 == null) return false;
+
             SupplicantResult<Void> result = new SupplicantResult(
                     "setMacRandomization(" + enable + ")");
             try {

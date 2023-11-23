@@ -16,6 +16,8 @@
 
 package com.android.internal.telephony;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doAnswer;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.app.DownloadManager;
@@ -52,6 +55,7 @@ import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
@@ -59,6 +63,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IInterface;
 import android.os.PersistableBundle;
+import android.os.PowerWhitelistManager;
+import android.os.SystemConfigManager;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
@@ -68,6 +74,7 @@ import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.TelephonyRegistryManager;
 import android.telephony.euicc.EuiccManager;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
@@ -221,6 +228,8 @@ public class ContextFixture implements TestFixture<Context> {
             switch (name) {
                 case Context.TELEPHONY_SERVICE:
                     return mTelephonyManager;
+                case Context.ACTIVITY_SERVICE:
+                    return mActivityManager;
                 case Context.APP_OPS_SERVICE:
                     return mAppOpsManager;
                 case Context.NOTIFICATION_SERVICE:
@@ -247,11 +256,19 @@ public class ContextFixture implements TestFixture<Context> {
                     return mTelecomManager;
                 case Context.DOWNLOAD_SERVICE:
                     return mDownloadManager;
+                case Context.TELEPHONY_REGISTRY_SERVICE:
+                    return mTelephonyRegistryManager;
+                case Context.SYSTEM_CONFIG_SERVICE:
+                    return mSystemConfigManager;
+                case Context.BATTERY_STATS_SERVICE:
                 case Context.DISPLAY_SERVICE:
                 case Context.POWER_SERVICE:
-                    // PowerManager and DisplayManager are final classes so cannot be mocked,
+                case Context.PERMISSION_SERVICE:
+                    // These are final classes so cannot be mocked,
                     // return real services.
                     return TestApplication.getAppContext().getSystemService(name);
+                case Context.POWER_WHITELIST_MANAGER:
+                    return mPowerWhitelistManager;
                 default:
                     return null;
             }
@@ -265,6 +282,14 @@ public class ContextFixture implements TestFixture<Context> {
                 return Context.APP_OPS_SERVICE;
             } else if (serviceClass == TelecomManager.class) {
                 return Context.TELECOM_SERVICE;
+            } else if (serviceClass == UserManager.class) {
+                return Context.USER_SERVICE;
+            } else if (serviceClass == ConnectivityManager.class) {
+                return Context.CONNECTIVITY_SERVICE;
+            } else if (serviceClass == PowerWhitelistManager.class) {
+                return Context.POWER_WHITELIST_MANAGER;
+            } else if (serviceClass == SystemConfigManager.class) {
+                return Context.SYSTEM_CONFIG_SERVICE;
             }
             return super.getSystemServiceName(serviceClass);
         }
@@ -310,18 +335,28 @@ public class ContextFixture implements TestFixture<Context> {
 
         @Override
         public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
-            return registerReceiver(receiver, filter, null, null);
+            return registerReceiverFakeImpl(receiver, filter);
         }
 
         @Override
         public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter,
                 String broadcastPermission, Handler scheduler) {
-            return registerReceiverAsUser(receiver, null, filter, broadcastPermission, scheduler);
+            return registerReceiverFakeImpl(receiver, filter);
+        }
+
+        @Override
+        public Intent registerReceiverForAllUsers(BroadcastReceiver receiver,
+                IntentFilter filter, String broadcastPermission, Handler scheduler) {
+            return registerReceiverFakeImpl(receiver, filter);
         }
 
         @Override
         public Intent registerReceiverAsUser(BroadcastReceiver receiver, UserHandle user,
                 IntentFilter filter, String broadcastPermission, Handler scheduler) {
+            return registerReceiverFakeImpl(receiver, filter);
+        }
+
+        private Intent registerReceiverFakeImpl(BroadcastReceiver receiver, IntentFilter filter) {
             Intent result = null;
             synchronized (mBroadcastReceiversByAction) {
                 for (int i = 0 ; i < filter.countActions() ; i++) {
@@ -405,6 +440,11 @@ public class ContextFixture implements TestFixture<Context> {
         }
 
         @Override
+        public Context createContextAsUser(UserHandle user, int flags) {
+            return this;
+        }
+
+        @Override
         public void sendOrderedBroadcastAsUser(Intent intent, UserHandle user,
                 String receiverPermission, BroadcastReceiver resultReceiver, Handler scheduler,
                 int initialCode, String initialData, Bundle initialExtras) {
@@ -436,6 +476,20 @@ public class ContextFixture implements TestFixture<Context> {
                 BroadcastReceiver resultReceiver, Handler scheduler, int initialCode,
                 String initialData, Bundle initialExtras) {
             logd("sendOrderedBroadcastAsUser called for " + intent.getAction());
+            mLastBroadcastOptions = options;
+            sendBroadcast(intent);
+            if (resultReceiver != null) {
+                synchronized (mOrderedBroadcastReceivers) {
+                    mOrderedBroadcastReceivers.put(intent, resultReceiver);
+                }
+            }
+        }
+
+        @Override
+        public void sendOrderedBroadcast(Intent intent, int initialCode, String receiverPermission,
+                String receiverAppOp, BroadcastReceiver resultReceiver, Handler scheduler,
+                String initialData, Bundle initialExtras, Bundle options) {
+            logd("sendOrderedBroadcast called for " + intent.getAction());
             mLastBroadcastOptions = options;
             sendBroadcast(intent);
             if (resultReceiver != null) {
@@ -552,6 +606,7 @@ public class ContextFixture implements TestFixture<Context> {
     private final ApplicationInfo mApplicationInfo = mock(ApplicationInfo.class);
     private final PackageManager mPackageManager = mock(PackageManager.class);
     private final TelephonyManager mTelephonyManager = mock(TelephonyManager.class);
+    private final ActivityManager mActivityManager = mock(ActivityManager.class);
     private final DownloadManager mDownloadManager = mock(DownloadManager.class);
     private final AppOpsManager mAppOpsManager = mock(AppOpsManager.class);
     private final NotificationManager mNotificationManager = mock(NotificationManager.class);
@@ -567,6 +622,10 @@ public class ContextFixture implements TestFixture<Context> {
     private final EuiccManager mEuiccManager = mock(EuiccManager.class);
     private final TelecomManager mTelecomManager = mock(TelecomManager.class);
     private final PackageInfo mPackageInfo = mock(PackageInfo.class);
+    private final TelephonyRegistryManager mTelephonyRegistryManager =
+        mock(TelephonyRegistryManager.class);
+    private final SystemConfigManager mSystemConfigManager = mock(SystemConfigManager.class);
+    private final PowerWhitelistManager mPowerWhitelistManager = mock(PowerWhitelistManager.class);
 
     private final ContentProvider mContentProvider = spy(new FakeContentProvider());
 
@@ -595,10 +654,10 @@ public class ContextFixture implements TestFixture<Context> {
                         (Intent) invocation.getArguments()[0],
                         (Integer) invocation.getArguments()[1]);
             }
-        }).when(mPackageManager).queryIntentServicesAsUser((Intent) any(), anyInt(), anyInt());
+        }).when(mPackageManager).queryIntentServicesAsUser((Intent) any(), anyInt(), any());
 
         try {
-            doReturn(mPackageInfo).when(mPackageManager).getPackageInfoAsUser(any(), anyInt(),
+            doReturn(mPackageInfo).when(mPackageManager).getPackageInfo(nullable(String.class),
                     anyInt());
         } catch (NameNotFoundException e) {
         }
@@ -607,9 +666,18 @@ public class ContextFixture implements TestFixture<Context> {
                 invocation -> mSystemFeatures.contains((String) invocation.getArgument(0)))
                 .when(mPackageManager).hasSystemFeature(any());
 
+        try {
+            doReturn(mResources).when(mPackageManager).getResourcesForApplication(anyString());
+        } catch (NameNotFoundException ex) {
+            Log.d(TAG, "NameNotFoundException: " + ex);
+        }
+
         doReturn(mBundle).when(mCarrierConfigManager).getConfigForSubId(anyInt());
         //doReturn(mBundle).when(mCarrierConfigManager).getConfig(anyInt());
         doReturn(mBundle).when(mCarrierConfigManager).getConfig();
+
+        doReturn(mock(Network.class)).when(mConnectivityManager).registerNetworkAgent(
+                any(), any(), any(), any(), anyInt(), any(), anyInt());
 
         doReturn(true).when(mEuiccManager).isEnabled();
 

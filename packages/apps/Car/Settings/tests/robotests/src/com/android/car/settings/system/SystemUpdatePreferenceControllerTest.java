@@ -21,32 +21,29 @@ import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.when;
-
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ResolveInfo;
+import android.content.pm.UserInfo;
 import android.os.PersistableBundle;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowCarrierConfigManager;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -57,12 +54,10 @@ import org.robolectric.shadows.ShadowPackageManager;
 import java.util.List;
 
 /** Unit test for {@link SystemUpdatePreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowCarrierConfigManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowCarrierConfigManager.class})
 public class SystemUpdatePreferenceControllerTest {
 
-    @Mock
-    private CarUserManagerHelper mCarUserManagerHelper;
     private Context mContext;
     private Preference mPreference;
     private PreferenceControllerTestHelper<SystemUpdatePreferenceController> mControllerHelper;
@@ -71,31 +66,25 @@ public class SystemUpdatePreferenceControllerTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mCarUserManagerHelper);
-        when(mCarUserManagerHelper.isCurrentProcessAdminUser()).thenReturn(true);
-
         mContext = RuntimeEnvironment.application;
+        setCurrentUserWithFlags(UserInfo.FLAG_ADMIN);
+
         mPreference = new Preference(mContext);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 SystemUpdatePreferenceController.class, mPreference);
         mController = mControllerHelper.getController();
     }
 
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
-    }
-
     @Test
     public void getAvailabilityStatus_adminUser_available() {
-        when(mCarUserManagerHelper.isCurrentProcessAdminUser()).thenReturn(true);
+        setCurrentUserWithFlags(UserInfo.FLAG_ADMIN);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
     }
 
     @Test
     public void getAvailabilityStatus_nonAdminUser_disabledForUser() {
-        when(mCarUserManagerHelper.isCurrentProcessAdminUser()).thenReturn(false);
+        setCurrentUserWithFlags(/* flags= */ 0);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
     }
@@ -173,5 +162,10 @@ public class SystemUpdatePreferenceControllerTest {
 
     private ShadowCarrierConfigManager getShadowCarrierConfigManager() {
         return Shadow.extract(mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE));
+    }
+
+    private void setCurrentUserWithFlags(int flags) {
+        Shadows.shadowOf(UserManager.get(mContext))
+                .addUser(UserHandle.myUserId(), "test name", flags);
     }
 }

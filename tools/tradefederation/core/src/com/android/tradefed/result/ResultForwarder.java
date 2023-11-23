@@ -118,6 +118,21 @@ public class ResultForwarder implements ITestInvocationListener {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void invocationFailed(FailureDescription failure) {
+        for (ITestInvocationListener listener : mListeners) {
+            try {
+                listener.invocationFailed(failure);
+            } catch (RuntimeException e) {
+                CLog.e(
+                        "Exception while invoking %s#invocationFailed",
+                        listener.getClass().getName());
+                CLog.e(e);
+            }
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -178,6 +193,19 @@ public class ResultForwarder implements ITestInvocationListener {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void testRunStarted(String runName, int testCount, int attemptNumber, long startTime) {
+        for (ITestInvocationListener listener : mListeners) {
+            try {
+                listener.testRunStarted(runName, testCount, attemptNumber, startTime);
+            } catch (RuntimeException e) {
+                CLog.e("Exception while invoking %s#testRunStarted", listener.getClass().getName());
+                CLog.e(e);
+            }
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -186,6 +214,19 @@ public class ResultForwarder implements ITestInvocationListener {
         for (ITestInvocationListener listener : mListeners) {
             try {
                 listener.testRunFailed(errorMessage);
+            } catch (RuntimeException e) {
+                CLog.e("Exception while invoking %s#testRunFailed", listener.getClass().getName());
+                CLog.e(e);
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void testRunFailed(FailureDescription failure) {
+        for (ITestInvocationListener listener : mListeners) {
+            try {
+                listener.testRunFailed(failure);
             } catch (RuntimeException e) {
                 CLog.e("Exception while invoking %s#testRunFailed", listener.getClass().getName());
                 CLog.e(e);
@@ -246,6 +287,19 @@ public class ResultForwarder implements ITestInvocationListener {
         for (ITestInvocationListener listener : mListeners) {
             try {
                 listener.testFailed(test, trace);
+            } catch (RuntimeException e) {
+                CLog.e("Exception while invoking %s#testFailed", listener.getClass().getName());
+                CLog.e(e);
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void testFailed(TestDescription test, FailureDescription failure) {
+        for (ITestInvocationListener listener : mListeners) {
+            try {
+                listener.testFailed(test, failure);
             } catch (RuntimeException e) {
                 CLog.e("Exception while invoking %s#testFailed", listener.getClass().getName());
                 CLog.e(e);

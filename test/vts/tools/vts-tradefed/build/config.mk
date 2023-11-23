@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-COMPATIBILITY_TESTCASES_OUT_vts := $(HOST_OUT)/vts/android-vts/testcases
+COMPATIBILITY_TESTCASES_OUT_vts10 := $(HOST_OUT)/vts10/android-vts10/testcases

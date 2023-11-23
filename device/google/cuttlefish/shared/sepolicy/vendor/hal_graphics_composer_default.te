@@ -1,0 +1,5 @@
+hal_client_domain(hal_graphics_composer_default, hal_graphics_allocator);
+vndbinder_use(hal_graphics_composer_default)
+
+allow hal_graphics_composer_default self:netlink_kobject_uevent_socket { bind create read };
+get_prop(hal_graphics_composer_default, cf_graphics_config_prop)

@@ -8,8 +8,14 @@
 
 #include <algorithm>
 
-#include "core/fpdfapi/parser/cpdf_array.h"
-#include "core/fpdfapi/parser/cpdf_simple_parser.h"
+// Color types are orded by increasing number of components so we can
+// choose a best color type during some conversions.
+static_assert(CFX_Color::kTransparent < CFX_Color::kGray,
+              "color type values must be ordered");
+static_assert(CFX_Color::kGray < CFX_Color::kRGB,
+              "color type values must be ordered");
+static_assert(CFX_Color::kRGB < CFX_Color::kCMYK,
+              "color type values must be ordered");
 
 namespace {
 
@@ -62,47 +68,6 @@ CFX_Color ConvertRGB2CMYK(float dR, float dG, float dB) {
 }
 
 }  // namespace
-
-// Static.
-CFX_Color CFX_Color::ParseColor(const CPDF_Array& array) {
-  CFX_Color rt;
-  switch (array.GetCount()) {
-    case 1:
-      rt = CFX_Color(CFX_Color::kGray, array.GetFloatAt(0));
-      break;
-    case 3:
-      rt = CFX_Color(CFX_Color::kRGB, array.GetFloatAt(0), array.GetFloatAt(1),
-                     array.GetFloatAt(2));
-      break;
-    case 4:
-      rt = CFX_Color(CFX_Color::kCMYK, array.GetFloatAt(0), array.GetFloatAt(1),
-                     array.GetFloatAt(2), array.GetFloatAt(3));
-      break;
-  }
-  return rt;
-}
-
-// Static.
-CFX_Color CFX_Color::ParseColor(const ByteString& str) {
-  CPDF_SimpleParser syntax(str.AsStringView());
-  if (syntax.FindTagParamFromStart("g", 1))
-    return CFX_Color(CFX_Color::kGray, FX_atof(syntax.GetWord()));
-
-  if (syntax.FindTagParamFromStart("rg", 3)) {
-    float f1 = FX_atof(syntax.GetWord());
-    float f2 = FX_atof(syntax.GetWord());
-    float f3 = FX_atof(syntax.GetWord());
-    return CFX_Color(CFX_Color::kRGB, f1, f2, f3);
-  }
-  if (syntax.FindTagParamFromStart("k", 4)) {
-    float f1 = FX_atof(syntax.GetWord());
-    float f2 = FX_atof(syntax.GetWord());
-    float f3 = FX_atof(syntax.GetWord());
-    float f4 = FX_atof(syntax.GetWord());
-    return CFX_Color(CFX_Color::kCMYK, f1, f2, f3, f4);
-  }
-  return CFX_Color(CFX_Color::kTransparent);
-}
 
 CFX_Color CFX_Color::ConvertColorType(int32_t nConvertColorType) const {
   if (nColorType == nConvertColorType)

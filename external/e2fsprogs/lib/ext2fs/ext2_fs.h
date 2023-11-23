@@ -238,6 +238,7 @@ struct ext2_dx_root_info {
 #define EXT2_HASH_LEGACY_UNSIGNED	3 /* reserved for userspace lib */
 #define EXT2_HASH_HALF_MD4_UNSIGNED	4 /* reserved for userspace lib */
 #define EXT2_HASH_TEA_UNSIGNED		5 /* reserved for userspace lib */
+#define EXT2_HASH_SIPHASH		6
 
 #define EXT2_HASH_FLAG_INCOMPAT	0x1
 
@@ -339,10 +340,11 @@ struct ext2_dx_tail {
 #define EXT4_SNAPFILE_SHRUNK_FL		0x08000000  /* Snapshot shrink has completed */
 #define EXT4_INLINE_DATA_FL		0x10000000 /* Inode has inline data */
 #define EXT4_PROJINHERIT_FL		0x20000000 /* Create with parents projid */
+#define EXT4_CASEFOLD_FL		0x40000000 /* Casefolded file */
 #define EXT2_RESERVED_FL		0x80000000 /* reserved for ext2 lib */
 
-#define EXT2_FL_USER_VISIBLE		0x204BDFFF /* User visible flags */
-#define EXT2_FL_USER_MODIFIABLE		0x204B80FF /* User modifiable flags */
+#define EXT2_FL_USER_VISIBLE		0x604BDFFF /* User visible flags */
+#define EXT2_FL_USER_MODIFIABLE		0x604B80FF /* User modifiable flags */
 
 /*
  * ioctl commands
@@ -748,7 +750,16 @@ struct ext2_super_block {
 /*268*/	__le32	s_lpf_ino;		/* Location of the lost+found inode */
 	__le32  s_prj_quota_inum;	/* inode for tracking project quota */
 /*270*/	__le32	s_checksum_seed;	/* crc32c(orig_uuid) if csum_seed set */
-	__le32	s_reserved[98];		/* Padding to the end of the block */
+/*274*/	__u8	s_wtime_hi;
+	__u8	s_mtime_hi;
+	__u8	s_mkfs_time_hi;
+	__u8	s_lastcheck_hi;
+	__u8	s_first_error_time_hi;
+	__u8	s_last_error_time_hi;
+	__u8	s_pad[2];
+/*27c*/ __le16	s_encoding;		/* Filename charset encoding */
+	__le16	s_encoding_flags;	/* Filename charset encoding flags */
+	__le32	s_reserved[95];		/* Padding to the end of the block */
 /*3fc*/	__u32	s_checksum;		/* crc32c(superblock) */
 };
 
@@ -800,6 +811,7 @@ struct ext2_super_block {
 /* #define EXT2_FEATURE_COMPAT_EXCLUDE_INODE	0x0080 not used, legacy */
 #define EXT2_FEATURE_COMPAT_EXCLUDE_BITMAP	0x0100
 #define EXT4_FEATURE_COMPAT_SPARSE_SUPER2	0x0200
+#define EXT4_FEATURE_COMPAT_STABLE_INODES	0x0800
 
 
 #define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
@@ -839,6 +851,7 @@ struct ext2_super_block {
 #define EXT4_FEATURE_INCOMPAT_LARGEDIR		0x4000 /* >2GB or 3-lvl htree */
 #define EXT4_FEATURE_INCOMPAT_INLINE_DATA	0x8000 /* data in inode */
 #define EXT4_FEATURE_INCOMPAT_ENCRYPT		0x10000
+#define EXT4_FEATURE_INCOMPAT_CASEFOLD		0x20000
 
 #define EXT4_FEATURE_COMPAT_FUNCS(name, ver, flagname) \
 static inline int ext2fs_has_feature_##name(struct ext2_super_block *sb) \
@@ -900,6 +913,7 @@ EXT4_FEATURE_COMPAT_FUNCS(dir_index,		2, DIR_INDEX)
 EXT4_FEATURE_COMPAT_FUNCS(lazy_bg,		2, LAZY_BG)
 EXT4_FEATURE_COMPAT_FUNCS(exclude_bitmap,	2, EXCLUDE_BITMAP)
 EXT4_FEATURE_COMPAT_FUNCS(sparse_super2,	4, SPARSE_SUPER2)
+EXT4_FEATURE_COMPAT_FUNCS(stable_inodes,	4, STABLE_INODES)
 
 EXT4_FEATURE_RO_COMPAT_FUNCS(sparse_super,	2, SPARSE_SUPER)
 EXT4_FEATURE_RO_COMPAT_FUNCS(large_file,	2, LARGE_FILE)
@@ -932,6 +946,7 @@ EXT4_FEATURE_INCOMPAT_FUNCS(csum_seed,		4, CSUM_SEED)
 EXT4_FEATURE_INCOMPAT_FUNCS(largedir,		4, LARGEDIR)
 EXT4_FEATURE_INCOMPAT_FUNCS(inline_data,	4, INLINE_DATA)
 EXT4_FEATURE_INCOMPAT_FUNCS(encrypt,		4, ENCRYPT)
+EXT4_FEATURE_INCOMPAT_FUNCS(casefold,		4, CASEFOLD)
 
 #define EXT2_FEATURE_COMPAT_SUPP	0
 #define EXT2_FEATURE_INCOMPAT_SUPP    (EXT2_FEATURE_INCOMPAT_FILETYPE| \
@@ -967,6 +982,12 @@ EXT4_FEATURE_INCOMPAT_FUNCS(encrypt,		4, ENCRYPT)
 #define EXT4_DEFM_DISCARD	0x0400
 #define EXT4_DEFM_NODELALLOC	0x0800
 
+static inline int ext4_hash_in_dirent(const struct ext2_inode *inode)
+{
+	return (inode->i_flags & EXT4_ENCRYPT_FL) &&
+		(inode->i_flags & EXT4_CASEFOLD_FL);
+}
+
 /*
  * Structure of a directory entry
  */
@@ -1000,6 +1021,25 @@ struct ext2_dir_entry_2 {
 	__u8	file_type;
 	char	name[EXT2_NAME_LEN];	/* File name */
 };
+
+/*
+ * Hashes for ext4_dir_entry for casefolded and ecrypted directories.
+ * This is located at the first 4 bit aligned location after the name.
+ */
+
+struct ext2_dir_entry_hash {
+	__le32 hash;
+	__le32 minor_hash;
+};
+
+#define EXT2_DIRENT_HASHES(entry) \
+	((struct ext2_dir_entry_hash *) &entry->name[\
+		(ext2fs_dirent_name_len(entry) + \
+			EXT2_DIR_ROUND) & ~EXT2_DIR_ROUND])
+#define EXT2_DIRENT_HASH(entry) \
+		ext2fs_le32_to_cpu(EXT2_DIRENT_HASHES(entry)->hash)
+#define EXT2_DIRENT_MINOR_HASH(entry) \
+		ext2fs_le32_to_cpu(EXT2_DIRENT_HASHES(entry)->minor_hash)
 
 /*
  * This is a bogus directory entry at the end of each leaf block that
@@ -1041,12 +1081,21 @@ struct ext2_dir_entry_tail {
  * NOTE: It must be a multiple of 4
  */
 #define EXT2_DIR_ENTRY_HEADER_LEN	8
+#define EXT2_DIR_ENTRY_HASH_LEN		8
 #define EXT2_DIR_PAD			4
 #define EXT2_DIR_ROUND			(EXT2_DIR_PAD - 1)
-#define EXT2_DIR_REC_LEN(name_len)	(((name_len) + \
-					  EXT2_DIR_ENTRY_HEADER_LEN + \
-					  EXT2_DIR_ROUND) & \
-					 ~EXT2_DIR_ROUND)
+#define EXT2_DIR_REC_LEN(name_len) ext2fs_dir_rec_len(name_len, 0)
+
+static inline unsigned int ext2fs_dir_rec_len(__u8 name_len,
+						int extended)
+{
+	int rec_len = (name_len + EXT2_DIR_ENTRY_HEADER_LEN + EXT2_DIR_ROUND);
+
+	rec_len &= ~EXT2_DIR_ROUND;
+	if (extended)
+		rec_len += EXT2_DIR_ENTRY_HASH_LEN;
+	return rec_len;
+}
 
 /*
  * Constants for ext4's extended time encoding
@@ -1115,5 +1164,9 @@ struct mmp_struct {
  * Size of a parent inode in inline data directory.
  */
 #define EXT4_INLINE_DATA_DOTDOT_SIZE	(4)
+
+#define EXT4_ENC_UTF8_12_1	1
+
+#define EXT4_ENC_STRICT_MODE_FL			(1 << 0) /* Reject invalid sequences */
 
 #endif	/* _LINUX_EXT2_FS_H */

@@ -25,27 +25,30 @@
 #include <android-base/logging.h>
 
 #include "base/globals.h"
-#include "base/hiddenapi_domain.h"
 #include "base/macros.h"
 #include "base/value_object.h"
-#include "class_iterator.h"
 #include "dex_file_structs.h"
 #include "dex_file_types.h"
 #include "jni.h"
 #include "modifiers.h"
-#include "signature.h"
 
 namespace art {
 
 class ClassDataItemIterator;
+class ClassIterator;
 class CompactDexFile;
 class DexInstructionIterator;
 enum InvokeType : uint32_t;
 template <typename Iter> class IterationRange;
 class MemMap;
 class OatDexFile;
+class Signature;
 class StandardDexFile;
 class ZipArchive;
+
+namespace hiddenapi {
+enum class Domain : char;
+}  // namespace hiddenapi
 
 // Some instances of DexFile own the storage referred to by DexFile.  Clients who create
 // such management do so by subclassing Container.

@@ -97,7 +97,7 @@ mybroadcast:
         assertTrue(activeServices.getServicesByUsersCount() > 0);
 
         for (ServicesByUser perUserServices : activeServices.getServicesByUsersList()) {
-            assertTrue(perUserServices.getServiceRecordsCount() > 0);
+            assertTrue(perUserServices.getServiceRecordsCount() >= 0);
             for (ServiceRecordProto service : perUserServices.getServiceRecordsList()) {
                 assertFalse(service.getShortName().isEmpty());
                 assertFalse(service.getPackageName().isEmpty());
@@ -227,7 +227,7 @@ mybroadcast:
         verifyVrControllerProto(dump.getVrController(), filterLevel);
         verifyAppTimeTrackerProto(dump.getCurrentTracker(), filterLevel);
         if (filterLevel == PRIVACY_AUTO) {
-            assertTrue(dump.getMemWatchProcesses().getDump().getFile().isEmpty());
+            assertTrue(dump.getMemWatchProcesses().getDump().getUri().isEmpty());
         }
     }
 

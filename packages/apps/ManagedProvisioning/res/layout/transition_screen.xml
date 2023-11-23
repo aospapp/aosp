@@ -21,16 +21,29 @@
     android:id="@+id/setup_wizard_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-  <RelativeLayout
-      style="@style/SudContentFrame"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent">
-    <ImageView
-        android:id="@+id/animation"
-        android:src="@drawable/everything_else_animation_intro"
-        android:layout_centerInParent="true"
-        android:layout_width="wrap_content"
-        android:layout_height="@dimen/animation_height"
-        android:scaleType="centerCrop"/>
-  </RelativeLayout>
+    <LinearLayout
+        style="@style/SudContentFrame"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+        <TextView
+            style="@style/SudDescription.Glif"
+            android:id="@+id/subheader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:text="@string/now_lets_set_up_everything_else_explanation"/>
+        <RelativeLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent">
+            <ImageView
+                android:id="@+id/animation"
+                android:src="@drawable/everything_else_animation_intro"
+                android:layout_centerInParent="true"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/animation_height"
+                android:scaleType="centerCrop"/>
+        </RelativeLayout>
+    </LinearLayout>
 </com.google.android.setupdesign.GlifLayout>

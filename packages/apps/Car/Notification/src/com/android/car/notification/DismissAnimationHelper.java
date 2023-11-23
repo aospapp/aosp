@@ -22,7 +22,9 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.IntDef;
 import android.content.Context;
+import android.os.Handler;
 import android.util.Log;
+import android.view.ViewPropertyAnimator;
 
 import com.android.car.notification.template.CarNotificationBaseViewHolder;
 
@@ -42,8 +44,8 @@ class DismissAnimationHelper {
     /**
      * The direction of motion.
      * <ol>
-     *     <li> LEFT means swiping to the left.
-     *     <li> RIGHT means swiping to the right.
+     * <li> LEFT means swiping to the left.
+     * <li> RIGHT means swiping to the right.
      * </ol>
      */
     @Retention(SOURCE)
@@ -96,15 +98,15 @@ class DismissAnimationHelper {
         viewHolder.setIsAnimating(true);
 
         int viewWidth = viewHolder.itemView.getWidth();
-        viewHolder.itemView.animate()
+        ViewPropertyAnimator viewPropertyAnimator = viewHolder.itemView.animate()
                 .translationX(swipeDirection == Direction.RIGHT ? viewWidth : -viewWidth)
-                .alpha(0)
-                .setListener(new AnimatorListenerAdapter() {
-                    @Override
-                    public void onAnimationEnd(Animator animation) {
-                        mCallBacks.onDismiss(viewHolder);
-                    }
-                });
+                .alpha(0);
+
+        new Handler().postDelayed(() -> {
+            viewHolder.setIsAnimating(false);
+            mCallBacks.onDismiss(viewHolder);
+        }, viewPropertyAnimator.getDuration());
+        viewPropertyAnimator.start();
     }
 
     /** Animate the restore back of the given item back to it's initial state. */
@@ -112,7 +114,6 @@ class DismissAnimationHelper {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "animateRestore velocityX=" + velocityX);
         }
-
         viewHolder.setIsAnimating(true);
 
         viewHolder.itemView.animate()
@@ -133,7 +134,7 @@ class DismissAnimationHelper {
 
         int width = viewHolder.itemView.getWidth();
         return SWIPE_DISTANCE_WEIGHT_ON_ALPHA * (1 - Math.min(Math.abs(translateX / width), 1))
-                + (1  - SWIPE_DISTANCE_WEIGHT_ON_ALPHA);
+                + (1 - SWIPE_DISTANCE_WEIGHT_ON_ALPHA);
     }
 
     float calculateTranslateDistance(CarNotificationBaseViewHolder viewHolder, float moveDeltaX) {

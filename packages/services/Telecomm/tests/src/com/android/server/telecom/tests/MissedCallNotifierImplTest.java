@@ -39,7 +39,7 @@ import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import com.android.internal.telephony.CallerInfo;
+import android.telecom.CallerInfo;
 import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.Constants;
 import com.android.server.telecom.DefaultDialerCache;
@@ -187,6 +187,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     public void tearDown() throws Exception {
         TelecomSystem.setInstance(null);
         when(mTelecomSystem.isBootComplete()).thenReturn(false);
+        super.tearDown();
     }
 
     @SmallTest
@@ -444,7 +445,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
                         CallLog.Calls.PRESENTATION_ALLOWED, CALL_TIMESTAMP)
                 .build();
 
-        when(cp.query(anyString(), eq(queryUri), nullable(String[].class),
+        when(cp.query(anyString(), nullable(String.class), eq(queryUri), nullable(String[].class),
                 nullable(Bundle.class), nullable(ICancellationSignal.class)))
                 .thenReturn(mockMissedCallsCursor);
 
@@ -513,7 +514,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
                 PRIMARY_USER.getIdentifier());
         IContentProvider cp = getContentProviderForUser(PRIMARY_USER.getIdentifier());
 
-        when(cp.query(anyString(), eq(queryUri), nullable(String[].class),
+        when(cp.query(anyString(), nullable(String.class), eq(queryUri), nullable(String[].class),
                 nullable(Bundle.class), nullable(ICancellationSignal.class)))
                 .thenReturn(mockMissedCallsCursor);
 

@@ -68,17 +68,18 @@ public class ChooseNewAdminPreferenceController extends UsersBasePreferenceContr
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
                         ConfirmationDialogFragment.TAG);
 
-        ConfirmationDialogFragment.resetListeners(dialogFragment,
-                mConfirmListener, /* rejectListener= */ null);
+        ConfirmationDialogFragment.resetListeners(
+                dialogFragment,
+                mConfirmListener,
+                /* rejectListener= */ null,
+                /* neutralListener= */ null);
     }
 
     @Override
     protected void userClicked(UserInfo userToMakeAdmin) {
-
         ConfirmationDialogFragment dialogFragment =
                 UsersDialogProvider.getConfirmGrantAdminDialogFragment(getContext(),
                         mConfirmListener, /* rejectListener= */ null, userToMakeAdmin);
-
         getFragmentController().showDialog(dialogFragment, ConfirmationDialogFragment.TAG);
     }
 
@@ -89,8 +90,8 @@ public class ChooseNewAdminPreferenceController extends UsersBasePreferenceContr
     }
 
     private void removeOldAdmin() {
-        if (!getCarUserManagerHelper().removeUser(mAdminInfo,
-                getContext().getString(R.string.user_guest))) {
+        Context context = getContext();
+        if (!UserHelper.getInstance(context).removeUser(context, mAdminInfo)) {
             // If failed, need to show error dialog for users.
             getFragmentController().showDialog(
                     ErrorDialog.newInstance(R.string.delete_user_error_title), /* tag= */ null);

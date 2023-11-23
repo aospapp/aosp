@@ -24,23 +24,23 @@
 
 namespace chre {
 
-template<typename ObjectType>
+template <typename ObjectType>
 typename std::aligned_storage<sizeof(ObjectType), alignof(ObjectType)>::type
     Singleton<ObjectType>::sObject;
 
-template<typename ObjectType>
+template <typename ObjectType>
 bool Singleton<ObjectType>::sIsInitialized = false;
 
-template<typename ObjectType>
-template<typename... Args>
-void Singleton<ObjectType>::init(Args&&... args) {
+template <typename ObjectType>
+template <typename... Args>
+void Singleton<ObjectType>::init(Args &&... args) {
   if (!sIsInitialized) {
     sIsInitialized = true;
     new (get()) ObjectType(std::forward<Args>(args)...);
   }
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 void Singleton<ObjectType>::deinit() {
   if (sIsInitialized) {
     get()->~ObjectType();
@@ -48,17 +48,17 @@ void Singleton<ObjectType>::deinit() {
   }
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 bool Singleton<ObjectType>::isInitialized() {
   return sIsInitialized;
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 ObjectType *Singleton<ObjectType>::get() {
   return reinterpret_cast<ObjectType *>(&sObject);
 }
 
-template<typename ObjectType>
+template <typename ObjectType>
 ObjectType *Singleton<ObjectType>::safeGet() {
   if (sIsInitialized) {
     return reinterpret_cast<ObjectType *>(&sObject);

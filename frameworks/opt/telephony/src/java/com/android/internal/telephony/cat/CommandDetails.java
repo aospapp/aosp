@@ -16,7 +16,7 @@
 
 package com.android.internal.telephony.cat;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -28,7 +28,7 @@ abstract class ValueObject {
  * Class for Command Details object of proactive commands from SIM.
  * {@hide}
  */
-class CommandDetails extends ValueObject implements Parcelable {
+public class CommandDetails extends ValueObject implements Parcelable {
     @UnsupportedAppUsage
     public boolean compRequired;
     @UnsupportedAppUsage

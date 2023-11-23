@@ -26,7 +26,7 @@
 
 package java.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class EnumSet<E extends java.lang.Enum<E>> extends java.util.AbstractSet<E>

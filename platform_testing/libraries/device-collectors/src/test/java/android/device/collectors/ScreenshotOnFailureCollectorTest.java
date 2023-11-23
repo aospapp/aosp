@@ -243,7 +243,7 @@ public class ScreenshotOnFailureCollectorTest {
         for (int i = 1; i < NUM_TEST_CASE; i++) {
             screenshotSaveVerifier
                     .verify(mListener)
-                    .takeScreenshot(endsWith(String.format("%d.png", i + 1)));
+                    .takeScreenshot(endsWith(String.format("%d-screenshot-on-failure.png", i + 1)));
         }
 
         // Verifies that XMLs are saved with iterations that start with 1.

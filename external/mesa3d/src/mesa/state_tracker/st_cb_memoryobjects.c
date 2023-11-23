@@ -29,6 +29,7 @@
 
 #include "st_context.h"
 #include "st_cb_memoryobjects.h"
+#include "st_util.h"
 
 #include "state_tracker/drm_driver.h"
 #include "pipe/p_context.h"
@@ -65,7 +66,7 @@ st_import_memoryobj_fd(struct gl_context *ctx,
    struct pipe_screen *screen = pipe->screen;
    struct winsys_handle whandle;
 
-   whandle.type = DRM_API_HANDLE_TYPE_FD;
+   whandle.type = WINSYS_HANDLE_TYPE_FD;
    whandle.handle = fd;
    whandle.offset = 0;
    whandle.layer = 0;

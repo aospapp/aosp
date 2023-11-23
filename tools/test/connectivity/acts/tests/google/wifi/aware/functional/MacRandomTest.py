@@ -35,9 +35,6 @@ class MacRandomTest(AwareBaseTest):
     # take some time
     WAIT_FOR_CLUSTER = 5
 
-    def __init__(self, controllers):
-        AwareBaseTest.__init__(self, controllers)
-
     def request_network(self, dut, ns):
         """Request a Wi-Fi Aware network.
 

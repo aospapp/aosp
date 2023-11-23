@@ -16,9 +16,10 @@
 
 package com.android.car.media.common.playback;
 
-import android.annotation.IntDef;
-import android.annotation.LongDef;
 import android.media.session.PlaybackState;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.LongDef;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

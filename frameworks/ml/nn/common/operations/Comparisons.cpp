@@ -16,6 +16,9 @@
 
 #define LOG_TAG "Operations"
 
+#include <functional>
+#include <vector>
+
 #include "HalInterfaces.h"
 #include "IndexedShapeWrapper.h"
 #include "OperationResolver.h"
@@ -34,6 +37,8 @@ constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
+using namespace hal;
+
 template <typename DataType, typename ComparisonType>
 bool compute(const std::function<bool(ComparisonType, ComparisonType)>& func, const DataType* aData,
              const Shape& aShape, const DataType* bData, const Shape& bShape, bool8* outputData,
@@ -51,7 +56,8 @@ bool compute(const std::function<bool(ComparisonType, ComparisonType)>& func, co
         uint32_t bFlatIndex;
         NN_RET_CHECK(bShapeIndexed.broadcastedIndexToFlatIndex(curIndex, &bFlatIndex));
 
-        if (aShape.type == OperandType::TENSOR_QUANT8_ASYMM) {
+        if (aShape.type == OperandType::TENSOR_QUANT8_ASYMM ||
+            aShape.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
             const float realA = (aData[aFlatIndex] - aShape.offset) * aShape.scale;
             const float realB = (bData[bFlatIndex] - bShape.offset) * bShape.scale;
             outputData[outputFlatIndex] = func(realA, realB);
@@ -127,11 +133,16 @@ bool validate(const IOperationValidationContext* context) {
     NN_RET_CHECK(
             inputType == OperandType::TENSOR_BOOL8 || inputType == OperandType::TENSOR_FLOAT16 ||
             inputType == OperandType::TENSOR_FLOAT32 || inputType == OperandType::TENSOR_INT32 ||
-            inputType == OperandType::TENSOR_QUANT8_ASYMM)
+            inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+            inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
             << "Unsupported input operand type for comparison op: " << toString(inputType);
     NN_RET_CHECK(validateInputTypes(context, {inputType, inputType}));
     NN_RET_CHECK(validateOutputTypes(context, {OperandType::TENSOR_BOOL8}));
-    return validateHalVersion(context, HalVersion::V1_2);
+    if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        return validateHalVersion(context, HalVersion::V1_3);
+    } else {
+        return validateHalVersion(context, HalVersion::V1_2);
+    }
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -152,6 +163,8 @@ bool executeLess(IOperationExecutionContext* context) {
             return executeLessTyped<int32_t, int32_t>(context);
         case OperandType::TENSOR_QUANT8_ASYMM:
             return executeLessTyped<uint8_t, float>(context);
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return executeLessTyped<int8_t, float>(context);
         case OperandType::TENSOR_BOOL8:
             return executeLessTyped<bool8, bool8>(context);
         default:
@@ -169,6 +182,8 @@ bool executeLessEqual(IOperationExecutionContext* context) {
             return executeLessEqualTyped<int32_t, int32_t>(context);
         case OperandType::TENSOR_QUANT8_ASYMM:
             return executeLessEqualTyped<uint8_t, float>(context);
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return executeLessEqualTyped<int8_t, float>(context);
         case OperandType::TENSOR_BOOL8:
             return executeLessEqualTyped<bool8, bool8>(context);
         default:
@@ -186,6 +201,8 @@ bool executeEqual(IOperationExecutionContext* context) {
             return executeEqualTyped<int32_t, int32_t>(context);
         case OperandType::TENSOR_QUANT8_ASYMM:
             return executeEqualTyped<uint8_t, float>(context);
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return executeEqualTyped<int8_t, float>(context);
         case OperandType::TENSOR_BOOL8:
             return executeEqualTyped<bool8, bool8>(context);
         default:
@@ -203,6 +220,8 @@ bool executeNotEqual(IOperationExecutionContext* context) {
             return executeNotEqualTyped<int32_t, int32_t>(context);
         case OperandType::TENSOR_QUANT8_ASYMM:
             return executeNotEqualTyped<uint8_t, float>(context);
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return executeNotEqualTyped<int8_t, float>(context);
         case OperandType::TENSOR_BOOL8:
             return executeNotEqualTyped<bool8, bool8>(context);
         default:
@@ -220,6 +239,8 @@ bool executeGreaterEqual(IOperationExecutionContext* context) {
             return executeGreaterEqualTyped<int32_t, int32_t>(context);
         case OperandType::TENSOR_QUANT8_ASYMM:
             return executeGreaterEqualTyped<uint8_t, float>(context);
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return executeGreaterEqualTyped<int8_t, float>(context);
         case OperandType::TENSOR_BOOL8:
             return executeGreaterEqualTyped<bool8, bool8>(context);
         default:
@@ -237,6 +258,8 @@ bool executeGreater(IOperationExecutionContext* context) {
             return executeGreaterTyped<int32_t, int32_t>(context);
         case OperandType::TENSOR_QUANT8_ASYMM:
             return executeGreaterTyped<uint8_t, float>(context);
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return executeGreaterTyped<int8_t, float>(context);
         case OperandType::TENSOR_BOOL8:
             return executeGreaterTyped<bool8, bool8>(context);
         default:

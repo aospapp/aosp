@@ -19,6 +19,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.preference.PreferenceManager;
+
 import androidx.annotation.VisibleForTesting;
 
 import java.util.Map;
@@ -62,7 +63,7 @@ final class PrefsBackupHelper {
 
     private void copyMatchingPreferences(SharedPreferences source, Editor destination) {
         for (Map.Entry<String, ?> preference : source.getAll().entrySet()) {
-            if (Preferences.shouldBackup(preference.getKey())) {
+            if (LocalPreferences.shouldBackup(preference.getKey())) {
                 setPreference(destination, preference);
             }
         }

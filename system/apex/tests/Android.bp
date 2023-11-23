@@ -12,127 +12,194 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-java_test_host {
-    name: "timezone_data_e2e_tests",
-
-    srcs:  ["src/**/TimezoneDataHostTest.java"],
-
-    libs: ["tradefed"],
-
+java_defaults {
+    name: "apex_e2e_test_defaults",
+    libs: [
+        "tradefed",
+        "truth-prebuilt",
+    ],
     static_libs: [
         "apex_e2e_base_test",
+    ],
+}
+
+java_test_host {
+    name: "adbd_e2e_tests",
+    srcs:  ["src/**/AdbdHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.adbd",
+    ],
+    test_config: "adbd-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
+
+java_test_host {
+    name: "timezone_data_e2e_tests",
+    srcs:  ["src/**/TimezoneDataHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    static_libs: [
         "platformprotos",
     ],
-
     data: [
         ":test1_com.android.tzdata",
     ],
-
     test_config: "timezone-data-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
 
-    test_suites: ["general-tests"],
+java_test_host {
+    name: "statsd_e2e_tests",
+    srcs:  ["src/**/StatsdHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.os.statsd",
+    ],
+    test_config: "statsd-e2e-tests.xml",
+    test_suites: ["device-tests"],
 }
 
 java_test_host {
     name: "media_e2e_tests",
-
     srcs:  ["src/**/MediaHostTest.java"],
-
-    libs: ["tradefed"],
-
-    static_libs: ["apex_e2e_base_test"],
-
+    defaults: ["apex_e2e_test_defaults"],
     data: [
         ":test_com.android.media",
     ],
-
     test_config: "media-e2e-tests.xml",
-
-    test_suites: ["general-tests"],
+    test_suites: ["device-tests"],
 }
 
 java_test_host {
     name: "media_swcodec_e2e_tests",
-
     srcs:  ["src/**/MediaSwCodecHostTest.java"],
-
-    libs: ["tradefed"],
-
-    static_libs: ["apex_e2e_base_test"],
-
+    defaults: ["apex_e2e_test_defaults"],
     data: [
         ":test_com.android.media.swcodec",
     ],
-
     test_config: "media-swcodec-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
 
-    test_suites: ["general-tests"],
+java_test_host {
+    name: "mediaprovider_e2e_tests",
+    srcs:  ["src/**/MediaProviderHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.mediaprovider",
+    ],
+    test_config: "mediaprovider-e2e-tests.xml",
+    test_suites: ["device-tests"],
 }
 
 java_test_host {
     name: "conscrypt_e2e_tests",
-
     srcs:  ["src/**/ConscryptHostTest.java"],
-
-    libs: ["tradefed"],
-
-    static_libs: ["apex_e2e_base_test"],
-
+    defaults: ["apex_e2e_test_defaults"],
     data: [
         ":test_com.android.conscrypt",
     ],
-
     test_config: "conscrypt-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
 
-    test_suites: ["general-tests"],
+java_test_host {
+    name: "neuralnetworks_e2e_tests",
+    srcs:  ["src/**/NeuralNetworksHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.neuralnetworks",
+    ],
+    test_config: "neuralnetworks-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
+
+
+java_test_host {
+    name: "cellbroadcast_e2e_tests",
+    srcs:  ["src/**/CellbroadcastHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.cellbroadcast",
+    ],
+    test_config: "cellbroadcast-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
+
+java_test_host {
+    name: "ipsec_e2e_tests",
+    srcs:  ["src/**/IpSecHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.ipsec",
+    ],
+    test_config: "ipsec-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
+
+java_test_host {
+    name: "permission_e2e_tests",
+    srcs:  ["src/**/PermissionHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.permission",
+    ],
+    test_config: "permission-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
+
+java_test_host {
+    name: "wifi_e2e_tests",
+    srcs:  ["src/**/WifiHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.wifi",
+    ],
+    test_config: "wifi-e2e-tests.xml",
+    test_suites: ["device-tests"],
+}
+
+java_test_host {
+    name: "extservices_e2e_tests",
+    srcs:  ["src/**/ExtServicesHostTest.java"],
+    defaults: ["apex_e2e_test_defaults"],
+    data: [
+        ":test_com.android.extservices",
+    ],
+    test_config: "extservices-e2e-tests.xml",
+    test_suites: ["device-tests"],
 }
 
 java_test_host {
     name: "apex_targetprep_tests",
-
     libs: ["tradefed"],
-
     srcs:  ["src/**/ApexTargetPrepTest.java"],
-
     data: [":StagedInstallTestApexV2"],
-
     test_config: "apex-targetprep-tests.xml",
-
     test_suites: ["general-tests"],
 }
 
 java_library_host {
     name: "apex_e2e_base_test",
-    srcs: ["src/**/ApexE2EBaseHostTest.java","src/**/ApexTestUtils.java"],
-    libs: ["tradefed"],
+    srcs: ["src/**/ApexE2EBaseHostTest.java"],
+    static_libs: [
+        "module_test_util",
+    ],
+    libs: [
+        "tradefed",
+    ],
+}
+
+java_library_host {
+    name: "module_test_util",
+    srcs: ["util/**/ModuleTestUtils.java"],
+    libs: ["tradefed", "truth-prebuilt"],
 }
 
 apex {
     name: "apex.test",
     manifest: "testdata/apex_manifest.json",
     prebuilts: ["sample_prebuilt_file"],
-    key: "apex.test.key",
-    certificate: ":apex.test.certificate",
-    installable: false,
-}
-
-// This target is not consumed by anyone. It's a sanity
-// check for the build features.
-apex {
-    name: "apex_test_build_features",
-    file_contexts: "apex.test",
-    manifest: "testdata/apex_manifest.json",
-    androidManifest: "testdata/AndroidManifest.xml",
-    binaries: ["surfaceflinger", "vold"],
-    multilib: {
-        prefer32: {
-            binaries: ["dex2oat"],
-        },
-    },
-    native_shared_libs: ["libc", "libcutils"],
-    java_libs: ["conscrypt"],
-    prebuilts: ["sample_prebuilt_file", "apex.test.ld.config.txt", "apex.test.init.rc"],
-    compile_multilib: "both",
     key: "apex.test.key",
     certificate: ":apex.test.certificate",
     installable: false,
@@ -168,4 +235,62 @@ prebuilt_etc {
     src: "testdata/init.rc",
     filename: "init.rc",
     installable: false,
+}
+
+cc_binary {
+    name: "sample_prefer32_binary",
+    srcs: ["sample_prefer32_binary.cc"],
+    target: {
+        android: {
+            compile_multilib: "prefer32",
+        },
+    },
+}
+
+java_test_host {
+    name: "apex_rollback_tests",
+    srcs:  ["src/**/ApexRollbackTests.java", "src/**/ApexTestUtils.java"],
+    libs: ["tradefed", "truth-prebuilt"],
+    static_libs: ["module_test_util"],
+    test_config: "apex-rollback-tests.xml",
+    test_suites: ["general-tests"],
+
+    data: [
+        "testdata/trigger_watchdog.rc",
+        "testdata/trigger_watchdog.sh",
+        "testdata/trigger_reboot.sh",
+        ":apex.apexd_test_v2",
+        ":com.android.apex.cts.shim.v2_prebuilt",
+    ],
+}
+
+java_test_host {
+    name: "module_test_utils_tests",
+    srcs:  ["src/**/ModuleTestUtilsTest.java"],
+    libs: ["tradefed", "truth-prebuilt"],
+    static_libs: ["module_test_util"],
+    test_config: "module-test-utils-tests.xml",
+    test_suites: ["general-tests"],
+    data: [":com.android.apex.cts.shim.v2_prebuilt"],
+}
+
+java_test_host {
+    name: "apexd_host_tests",
+    srcs:  ["src/**/ApexdHostTest.java"],
+    libs: ["tradefed"],
+    static_libs: [
+        "module_test_util",
+        "truth-prebuilt",
+        "apex_manifest_proto_java",
+    ],
+    test_config: "apexd-host-tests.xml",
+    test_suites: ["general-tests"],
+    data: [
+        ":apex.apexd_test",
+        ":apex.apexd_test_v2",
+        ":apex.apexd_test_v2_no_pb",
+        ":apex.apexd_test_v3",
+        ":com.android.apex.cts.shim.v2_prebuilt",
+        ":com.android.apex.cts.shim.v2_no_pb",
+    ],
 }

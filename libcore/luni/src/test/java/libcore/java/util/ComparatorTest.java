@@ -16,6 +16,7 @@
 
 package libcore.java.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -35,17 +36,22 @@ public final class ComparatorTest extends TestCase {
     private static final Item ONEZERO = new Item(1, 0);
     private static final Item ONEONE = new Item(1, 1);
 
-    private static final Item[] orderedItems = new Item[]{ZERO, ONE, TWO, THREE, FOUR};
-    private static final Item[] nullsFirstItems = new Item[]{null, ZERO, ONE, TWO, THREE, FOUR};
-    private static final Item[] nullsLastItems = new Item[]{ZERO, ONE, TWO, THREE, FOUR, null};
-    private static final Item[] orderedItemsMatrix = new Item[]{ZEROZERO, ZEROONE, ONEZERO, ONEONE};
+    private final List<Item> orderedItems = listOf(ZERO, ONE, TWO, THREE, FOUR);
+    private final List<Item> nullsFirstItems = listOf(null, ZERO, ONE, TWO, THREE, FOUR);
+    private final List<Item> nullsLastItems = listOf(ZERO, ONE, TWO, THREE, FOUR, null);
+    private final List<Item> orderedItemsMatrix = listOf(ZEROZERO, ZEROONE, ONEZERO, ONEONE);
 
-    private <T> void checkComparison(Comparator<T> comparator, T[] items) {
-        for (int i = 0; i < items.length - 1; ++i) {
-            assertEquals(0, comparator.compare(items[i], items[i]));
-            for (int j = i + 1; j < items.length; ++j) {
-                assertTrue(comparator.compare(items[i], items[j]) < 0);
-                assertTrue(comparator.compare(items[j], items[i]) > 0);
+    private static<T> List<T> listOf(T... values) {
+        return Collections.unmodifiableList(Arrays.asList(values));
+    }
+
+    private <T> void checkComparison(Comparator<T> comparator, List<T> items) {
+        for (int i = 0; i < items.size() - 1; ++i) {
+            T a = items.get(i);
+            assertEquals(0, comparator.compare(a, a));
+            for (T b : items.subList(i+1, items.size())) {
+                assertTrue(comparator.compare(a, b) < 0);
+                assertTrue(comparator.compare(b, a) > 0);
             }
         }
     }
@@ -83,10 +89,11 @@ public final class ComparatorTest extends TestCase {
     }
 
     public void testReverseOrder() {
-        List<Item> itemsList = Arrays.asList(orderedItems);
+        // Make a copy that we can reverse. http://b/139015474
+        List<Item> itemsList = new ArrayList<>(orderedItems);
         Collections.reverse(itemsList);
         Comparator<Item> comparator = Comparator.reverseOrder();
-        checkComparison(comparator, (Item[]) itemsList.toArray());
+        checkComparison(comparator, itemsList);
     }
 
     public void testReverse() {

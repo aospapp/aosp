@@ -111,6 +111,13 @@ Simulator::Simulator(Decoder* decoder, FILE* stream)
   // time they are encountered. This warning can be silenced using
   // SilenceExclusiveAccessWarning().
   print_exclusive_access_warning_ = true;
+
+  guard_pages_ = false;
+
+  // Initialize the common state of RNDR and RNDRRS.
+  uint16_t seed[3] = {11, 22, 33};
+  VIXL_STATIC_ASSERT(sizeof(seed) == sizeof(rndr_state_));
+  memcpy(rndr_state_, seed, sizeof(rndr_state_));
 }
 
 
@@ -141,6 +148,9 @@ void Simulator::ResetState() {
   }
   // Returning to address 0 exits the Simulator.
   WriteLr(kEndOfSimAddress);
+
+  btype_ = DefaultBType;
+  next_btype_ = DefaultBType;
 }
 
 
@@ -236,19 +246,19 @@ const char* Simulator::XRegNameForCode(unsigned code, Reg31Mode mode) {
 
 
 const char* Simulator::HRegNameForCode(unsigned code) {
-  VIXL_ASSERT(code < kNumberOfFPRegisters);
+  VIXL_ASSERT(code < kNumberOfVRegisters);
   return hreg_names[code];
 }
 
 
 const char* Simulator::SRegNameForCode(unsigned code) {
-  VIXL_ASSERT(code < kNumberOfFPRegisters);
+  VIXL_ASSERT(code < kNumberOfVRegisters);
   return sreg_names[code];
 }
 
 
 const char* Simulator::DRegNameForCode(unsigned code) {
-  VIXL_ASSERT(code < kNumberOfFPRegisters);
+  VIXL_ASSERT(code < kNumberOfVRegisters);
   return dreg_names[code];
 }
 
@@ -1040,6 +1050,18 @@ void Simulator::PrintTakenBranch(const Instruction* target) {
 
 // Visitors---------------------------------------------------------------------
 
+
+void Simulator::VisitReserved(const Instruction* instr) {
+  // UDF is the only instruction in this group, and the Decoder is precise here.
+  VIXL_ASSERT(instr->Mask(ReservedMask) == UDF);
+
+  printf("UDF (permanently undefined) instruction at %p: 0x%08" PRIx32 "\n",
+         reinterpret_cast<const void*>(instr),
+         instr->GetInstructionBits());
+  VIXL_ABORT_WITH_MSG("UNDEFINED (UDF)\n");
+}
+
+
 void Simulator::VisitUnimplemented(const Instruction* instr) {
   printf("Unimplemented instruction at %p: 0x%08" PRIx32 "\n",
          reinterpret_cast<const void*>(instr),
@@ -1085,13 +1107,33 @@ void Simulator::VisitConditionalBranch(const Instruction* instr) {
   }
 }
 
+BType Simulator::GetBTypeFromInstruction(const Instruction* instr) const {
+  switch (instr->Mask(UnconditionalBranchToRegisterMask)) {
+    case BLR:
+    case BLRAA:
+    case BLRAB:
+    case BLRAAZ:
+    case BLRABZ:
+      return BranchAndLink;
+    case BR:
+    case BRAA:
+    case BRAB:
+    case BRAAZ:
+    case BRABZ:
+      if ((instr->GetRn() == 16) || (instr->GetRn() == 17) ||
+          !PcIsInGuardedPage()) {
+        return BranchFromUnguardedOrToIP;
+      }
+      return BranchFromGuardedNotToIP;
+  }
+  return DefaultBType;
+}
 
 void Simulator::VisitUnconditionalBranchToRegister(const Instruction* instr) {
   bool authenticate = false;
   bool link = false;
-  uint64_t addr = 0;
+  uint64_t addr = ReadXRegister(instr->GetRn());
   uint64_t context = 0;
-  Instruction* target;
 
   switch (instr->Mask(UnconditionalBranchToRegisterMask)) {
     case BLR:
@@ -1099,7 +1141,6 @@ void Simulator::VisitUnconditionalBranchToRegister(const Instruction* instr) {
       VIXL_FALLTHROUGH();
     case BR:
     case RET:
-      addr = ReadXRegister(instr->GetRn());
       break;
 
     case BLRAAZ:
@@ -1109,7 +1150,6 @@ void Simulator::VisitUnconditionalBranchToRegister(const Instruction* instr) {
     case BRAAZ:
     case BRABZ:
       authenticate = true;
-      addr = ReadXRegister(instr->GetRn());
       break;
 
     case BLRAA:
@@ -1119,7 +1159,6 @@ void Simulator::VisitUnconditionalBranchToRegister(const Instruction* instr) {
     case BRAA:
     case BRAB:
       authenticate = true;
-      addr = ReadXRegister(instr->GetRn());
       context = ReadXRegister(instr->GetRd());
       break;
 
@@ -1147,8 +1186,8 @@ void Simulator::VisitUnconditionalBranchToRegister(const Instruction* instr) {
     }
   }
 
-  target = Instruction::Cast(addr);
-  WritePc(target);
+  WritePc(Instruction::Cast(addr));
+  WriteNextBType(GetBTypeFromInstruction(instr));
 }
 
 
@@ -1285,6 +1324,33 @@ void Simulator::VisitAddSubWithCarry(const Instruction* instr) {
 }
 
 
+void Simulator::VisitRotateRightIntoFlags(const Instruction* instr) {
+  switch (instr->Mask(RotateRightIntoFlagsMask)) {
+    case RMIF: {
+      uint64_t value = ReadRegister<uint64_t>(instr->GetRn());
+      unsigned shift = instr->GetImmRMIFRotation();
+      unsigned mask = instr->GetNzcv();
+      uint64_t rotated = RotateRight(value, shift, kXRegSize);
+
+      ReadNzcv().SetFlags((rotated & mask) | (ReadNzcv().GetFlags() & ~mask));
+      break;
+    }
+  }
+}
+
+
+void Simulator::VisitEvaluateIntoFlags(const Instruction* instr) {
+  uint32_t value = ReadRegister<uint32_t>(instr->GetRn());
+  unsigned msb = (instr->Mask(EvaluateIntoFlagsMask) == SETF16) ? 15 : 7;
+
+  unsigned sign_bit = (value >> msb) & 1;
+  unsigned overflow_bit = (value >> (msb + 1)) & 1;
+  ReadNzcv().SetN(sign_bit);
+  ReadNzcv().SetZ((value << (31 - msb)) == 0);
+  ReadNzcv().SetV(sign_bit ^ overflow_bit);
+}
+
+
 void Simulator::VisitLogicalShifted(const Instruction* instr) {
   unsigned reg_size = instr->GetSixtyFourBits() ? kXRegSize : kWRegSize;
   Shift shift_type = static_cast<Shift>(instr->GetShiftDP());
@@ -1397,6 +1463,147 @@ void Simulator::VisitLoadStorePreIndex(const Instruction* instr) {
 
 void Simulator::VisitLoadStorePostIndex(const Instruction* instr) {
   LoadStoreHelper(instr, instr->GetImmLS(), PostIndex);
+}
+
+
+template <typename T1, typename T2>
+void Simulator::LoadAcquireRCpcUnscaledOffsetHelper(const Instruction* instr) {
+  unsigned rt = instr->GetRt();
+  unsigned rn = instr->GetRn();
+
+  unsigned element_size = sizeof(T2);
+  uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
+  int offset = instr->GetImmLS();
+  address += offset;
+
+  // Verify that the address is available to the host.
+  VIXL_ASSERT(address == static_cast<uintptr_t>(address));
+
+  // Check the alignment of `address`.
+  if (AlignDown(address, 16) != AlignDown(address + element_size - 1, 16)) {
+    VIXL_ALIGNMENT_EXCEPTION();
+  }
+
+  WriteRegister<T1>(rt, static_cast<T1>(Memory::Read<T2>(address)));
+
+  // Approximate load-acquire by issuing a full barrier after the load.
+  __sync_synchronize();
+
+  LogRead(address, rt, GetPrintRegisterFormat(element_size));
+}
+
+
+template <typename T>
+void Simulator::StoreReleaseUnscaledOffsetHelper(const Instruction* instr) {
+  unsigned rt = instr->GetRt();
+  unsigned rn = instr->GetRn();
+
+  unsigned element_size = sizeof(T);
+  uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
+  int offset = instr->GetImmLS();
+  address += offset;
+
+  // Verify that the address is available to the host.
+  VIXL_ASSERT(address == static_cast<uintptr_t>(address));
+
+  // Check the alignment of `address`.
+  if (AlignDown(address, 16) != AlignDown(address + element_size - 1, 16)) {
+    VIXL_ALIGNMENT_EXCEPTION();
+  }
+
+  // Approximate store-release by issuing a full barrier after the load.
+  __sync_synchronize();
+
+  Memory::Write<T>(address, ReadRegister<T>(rt));
+
+  LogWrite(address, rt, GetPrintRegisterFormat(element_size));
+}
+
+
+void Simulator::VisitLoadStoreRCpcUnscaledOffset(const Instruction* instr) {
+  switch (instr->Mask(LoadStoreRCpcUnscaledOffsetMask)) {
+    case LDAPURB:
+      LoadAcquireRCpcUnscaledOffsetHelper<uint8_t, uint8_t>(instr);
+      break;
+    case LDAPURH:
+      LoadAcquireRCpcUnscaledOffsetHelper<uint16_t, uint16_t>(instr);
+      break;
+    case LDAPUR_w:
+      LoadAcquireRCpcUnscaledOffsetHelper<uint32_t, uint32_t>(instr);
+      break;
+    case LDAPUR_x:
+      LoadAcquireRCpcUnscaledOffsetHelper<uint64_t, uint64_t>(instr);
+      break;
+    case LDAPURSB_w:
+      LoadAcquireRCpcUnscaledOffsetHelper<int32_t, int8_t>(instr);
+      break;
+    case LDAPURSB_x:
+      LoadAcquireRCpcUnscaledOffsetHelper<int64_t, int8_t>(instr);
+      break;
+    case LDAPURSH_w:
+      LoadAcquireRCpcUnscaledOffsetHelper<int32_t, int16_t>(instr);
+      break;
+    case LDAPURSH_x:
+      LoadAcquireRCpcUnscaledOffsetHelper<int64_t, int16_t>(instr);
+      break;
+    case LDAPURSW:
+      LoadAcquireRCpcUnscaledOffsetHelper<int64_t, int32_t>(instr);
+      break;
+    case STLURB:
+      StoreReleaseUnscaledOffsetHelper<uint8_t>(instr);
+      break;
+    case STLURH:
+      StoreReleaseUnscaledOffsetHelper<uint16_t>(instr);
+      break;
+    case STLUR_w:
+      StoreReleaseUnscaledOffsetHelper<uint32_t>(instr);
+      break;
+    case STLUR_x:
+      StoreReleaseUnscaledOffsetHelper<uint64_t>(instr);
+      break;
+  }
+}
+
+
+void Simulator::VisitLoadStorePAC(const Instruction* instr) {
+  unsigned dst = instr->GetRt();
+  unsigned addr_reg = instr->GetRn();
+
+  uint64_t address = ReadXRegister(addr_reg, Reg31IsStackPointer);
+
+  PACKey key = (instr->ExtractBit(23) == 0) ? kPACKeyDA : kPACKeyDB;
+  address = AuthPAC(address, 0, key, kDataPointer);
+
+  int error_lsb = GetTopPACBit(address, kInstructionPointer) - 2;
+  if (((address >> error_lsb) & 0x3) != 0x0) {
+    VIXL_ABORT_WITH_MSG("Failed to authenticate pointer.");
+  }
+
+
+  if ((addr_reg == 31) && ((address % 16) != 0)) {
+    // When the base register is SP the stack pointer is required to be
+    // quadword aligned prior to the address calculation and write-backs.
+    // Misalignment will cause a stack alignment fault.
+    VIXL_ALIGNMENT_EXCEPTION();
+  }
+
+  int64_t offset = instr->GetImmLSPAC();
+  address += offset;
+
+  if (instr->Mask(LoadStorePACPreBit) == LoadStorePACPreBit) {
+    // Pre-index mode.
+    VIXL_ASSERT(offset != 0);
+    WriteXRegister(addr_reg, address, LogRegWrites, Reg31IsStackPointer);
+  }
+
+  uintptr_t addr_ptr = static_cast<uintptr_t>(address);
+
+  // Verify that the calculated address is available to the host.
+  VIXL_ASSERT(address == addr_ptr);
+
+  WriteXRegister(dst, Memory::Read<uint64_t>(addr_ptr), NoRegLog);
+  unsigned access_size = 1 << 3;
+  LogRead(addr_ptr, dst, GetPrintRegisterFormatForSize(access_size));
 }
 
 
@@ -1650,19 +1857,6 @@ void Simulator::LoadStorePairHelper(const Instruction* instr,
 }
 
 
-void Simulator::PrintExclusiveAccessWarning() {
-  if (print_exclusive_access_warning_) {
-    fprintf(stderr,
-            "%sWARNING:%s VIXL simulator support for "
-            "load-/store-/clear-exclusive "
-            "instructions is limited. Refer to the README for details.%s\n",
-            clr_warning,
-            clr_warning_message,
-            clr_normal);
-    print_exclusive_access_warning_ = false;
-  }
-}
-
 template <typename T>
 void Simulator::CompareAndSwapHelper(const Instruction* instr) {
   unsigned rs = instr->GetRs();
@@ -1671,6 +1865,8 @@ void Simulator::CompareAndSwapHelper(const Instruction* instr) {
 
   unsigned element_size = sizeof(T);
   uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
+
+  CheckIsValidUnalignedAtomicAccess(rn, address, element_size);
 
   bool is_acquire = instr->ExtractBit(22) == 1;
   bool is_release = instr->ExtractBit(15) == 1;
@@ -1700,6 +1896,7 @@ void Simulator::CompareAndSwapHelper(const Instruction* instr) {
   LogRead(address, rs, GetPrintRegisterFormatForSize(element_size));
 }
 
+
 template <typename T>
 void Simulator::CompareAndSwapPairHelper(const Instruction* instr) {
   VIXL_ASSERT((sizeof(T) == 4) || (sizeof(T) == 8));
@@ -1711,6 +1908,9 @@ void Simulator::CompareAndSwapPairHelper(const Instruction* instr) {
 
   unsigned element_size = sizeof(T);
   uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
+
+  CheckIsValidUnalignedAtomicAccess(rn, address, element_size * 2);
+
   uint64_t address2 = address + element_size;
 
   bool is_acquire = instr->ExtractBit(22) == 1;
@@ -1758,39 +1958,23 @@ void Simulator::CompareAndSwapPairHelper(const Instruction* instr) {
 }
 
 
+void Simulator::PrintExclusiveAccessWarning() {
+  if (print_exclusive_access_warning_) {
+    fprintf(stderr,
+            "%sWARNING:%s VIXL simulator support for "
+            "load-/store-/clear-exclusive "
+            "instructions is limited. Refer to the README for details.%s\n",
+            clr_warning,
+            clr_warning_message,
+            clr_normal);
+    print_exclusive_access_warning_ = false;
+  }
+}
+
+
 void Simulator::VisitLoadStoreExclusive(const Instruction* instr) {
-  PrintExclusiveAccessWarning();
-
-  unsigned rs = instr->GetRs();
-  unsigned rt = instr->GetRt();
-  unsigned rt2 = instr->GetRt2();
-  unsigned rn = instr->GetRn();
-
   LoadStoreExclusive op =
       static_cast<LoadStoreExclusive>(instr->Mask(LoadStoreExclusiveMask));
-
-  bool is_exclusive = !instr->GetLdStXNotExclusive();
-  bool is_acquire_release = !is_exclusive || instr->GetLdStXAcquireRelease();
-  bool is_load = instr->GetLdStXLoad();
-  bool is_pair = instr->GetLdStXPair();
-
-  unsigned element_size = 1 << instr->GetLdStXSizeLog2();
-  unsigned access_size = is_pair ? element_size * 2 : element_size;
-  uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
-
-  // Verify that the address is available to the host.
-  VIXL_ASSERT(address == static_cast<uintptr_t>(address));
-
-  // Check the alignment of `address`.
-  if (AlignDown(address, access_size) != address) {
-    VIXL_ALIGNMENT_EXCEPTION();
-  }
-
-  // The sp must be aligned to 16 bytes when it is accessed.
-  if ((rn == 31) && (AlignDown(address, 16) != address)) {
-    VIXL_ALIGNMENT_EXCEPTION();
-  }
-
 
   switch (op) {
     case CAS_w:
@@ -1830,6 +2014,25 @@ void Simulator::VisitLoadStoreExclusive(const Instruction* instr) {
       CompareAndSwapPairHelper<uint64_t>(instr);
       break;
     default:
+      PrintExclusiveAccessWarning();
+
+      unsigned rs = instr->GetRs();
+      unsigned rt = instr->GetRt();
+      unsigned rt2 = instr->GetRt2();
+      unsigned rn = instr->GetRn();
+
+      bool is_exclusive = !instr->GetLdStXNotExclusive();
+      bool is_acquire_release =
+          !is_exclusive || instr->GetLdStXAcquireRelease();
+      bool is_load = instr->GetLdStXLoad();
+      bool is_pair = instr->GetLdStXPair();
+
+      unsigned element_size = 1 << instr->GetLdStXSizeLog2();
+      unsigned access_size = is_pair ? element_size * 2 : element_size;
+      uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
+
+      CheckIsValidUnalignedAtomicAccess(rn, address, access_size);
+
       if (is_load) {
         if (is_exclusive) {
           local_monitor_.MarkExclusive(address, access_size);
@@ -1981,8 +2184,7 @@ void Simulator::AtomicMemorySimpleHelper(const Instruction* instr) {
   unsigned element_size = sizeof(T);
   uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
 
-  // Verify that the address is available to the host.
-  VIXL_ASSERT(address == static_cast<uintptr_t>(address));
+  CheckIsValidUnalignedAtomicAccess(rn, address, element_size);
 
   T value = ReadRegister<T>(rs);
 
@@ -2046,8 +2248,7 @@ void Simulator::AtomicMemorySwapHelper(const Instruction* instr) {
   unsigned element_size = sizeof(T);
   uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
 
-  // Verify that the address is available to the host.
-  VIXL_ASSERT(address == static_cast<uintptr_t>(address));
+  CheckIsValidUnalignedAtomicAccess(rn, address, element_size);
 
   T data = Memory::Read<T>(address);
   if (is_acquire) {
@@ -2075,8 +2276,8 @@ void Simulator::LoadAcquireRCpcHelper(const Instruction* instr) {
   unsigned element_size = sizeof(T);
   uint64_t address = ReadRegister<uint64_t>(rn, Reg31IsStackPointer);
 
-  // Verify that the address is available to the host.
-  VIXL_ASSERT(address == static_cast<uintptr_t>(address));
+  CheckIsValidUnalignedAtomicAccess(rn, address, element_size);
+
   WriteRegister<T>(rt, Memory::Read<T>(address));
 
   // Approximate load-acquire by issuing a full barrier after the load.
@@ -3312,6 +3513,7 @@ void Simulator::VisitFPDataProcessing1Source(const Instruction* instr) {
   SimVRegister& rd = ReadVRegister(instr->GetRd());
   SimVRegister& rn = ReadVRegister(instr->GetRn());
   bool inexact_exception = false;
+  FrintMode frint_mode = kFrintToInteger;
 
   unsigned fd = instr->GetRd();
   unsigned fn = instr->GetRn();
@@ -3369,6 +3571,28 @@ void Simulator::VisitFPDataProcessing1Source(const Instruction* instr) {
       // Explicitly log the register update whilst we have type information.
       LogVRegister(fd, GetPrintRegisterFormatFP(vform));
       return;
+    case FRINT32X_s:
+    case FRINT32X_d:
+      inexact_exception = true;
+      frint_mode = kFrintToInt32;
+      break;  // Use FPCR rounding mode.
+    case FRINT64X_s:
+    case FRINT64X_d:
+      inexact_exception = true;
+      frint_mode = kFrintToInt64;
+      break;  // Use FPCR rounding mode.
+    case FRINT32Z_s:
+    case FRINT32Z_d:
+      inexact_exception = true;
+      frint_mode = kFrintToInt32;
+      fpcr_rounding = FPZero;
+      break;
+    case FRINT64Z_s:
+    case FRINT64Z_d:
+      inexact_exception = true;
+      frint_mode = kFrintToInt64;
+      fpcr_rounding = FPZero;
+      break;
     case FRINTI_h:
     case FRINTI_s:
     case FRINTI_d:
@@ -3408,7 +3632,7 @@ void Simulator::VisitFPDataProcessing1Source(const Instruction* instr) {
   }
 
   // Only FRINT* instructions fall through the switch above.
-  frint(vform, rd, rn, fpcr_rounding, inexact_exception);
+  frint(vform, rd, rn, fpcr_rounding, inexact_exception, frint_mode);
   // Explicitly log the register update whilst we have type information.
   LogVRegister(fd, GetPrintRegisterFormatFP(vform));
 }
@@ -3610,6 +3834,8 @@ void Simulator::SysOp_W(int op, int64_t val) {
     case IVAU:
     case CVAC:
     case CVAU:
+    case CVAP:
+    case CVADP:
     case CIVAC: {
       // Perform a dummy memory access to ensure that we have read access
       // to the specified address.
@@ -3641,7 +3867,48 @@ void Simulator::VisitSystem(const Instruction* instr) {
   // makes the decoding tricky.
   if (instr->GetInstructionBits() == XPACLRI) {
     WriteXRegister(30, StripPAC(ReadXRegister(30), kInstructionPointer));
+  } else if (instr->Mask(SystemPStateFMask) == SystemPStateFixed) {
+    switch (instr->Mask(SystemPStateMask)) {
+      case CFINV:
+        ReadNzcv().SetC(!ReadC());
+        break;
+      case AXFLAG:
+        ReadNzcv().SetN(0);
+        ReadNzcv().SetZ(ReadNzcv().GetZ() | ReadNzcv().GetV());
+        ReadNzcv().SetC(ReadNzcv().GetC() & ~ReadNzcv().GetV());
+        ReadNzcv().SetV(0);
+        break;
+      case XAFLAG: {
+        // Can't set the flags in place due to the logical dependencies.
+        uint32_t n = (~ReadNzcv().GetC() & ~ReadNzcv().GetZ()) & 1;
+        uint32_t z = ReadNzcv().GetZ() & ReadNzcv().GetC();
+        uint32_t c = ReadNzcv().GetC() | ReadNzcv().GetZ();
+        uint32_t v = ~ReadNzcv().GetC() & ReadNzcv().GetZ();
+        ReadNzcv().SetN(n);
+        ReadNzcv().SetZ(z);
+        ReadNzcv().SetC(c);
+        ReadNzcv().SetV(v);
+        break;
+      }
+    }
   } else if (instr->Mask(SystemPAuthFMask) == SystemPAuthFixed) {
+    // Check BType allows PACI[AB]SP instructions.
+    if (PcIsInGuardedPage()) {
+      Instr i = instr->Mask(SystemPAuthMask);
+      if ((i == PACIASP) || (i == PACIBSP)) {
+        switch (ReadBType()) {
+          case BranchFromGuardedNotToIP:
+          // TODO: This case depends on the value of SCTLR_EL1.BT0, which we
+          // assume here to be zero. This allows execution of PACI[AB]SP when
+          // BTYPE is BranchFromGuardedNotToIP (0b11).
+          case DefaultBType:
+          case BranchFromUnguardedOrToIP:
+          case BranchAndLink:
+            break;
+        }
+      }
+    }
+
     switch (instr->Mask(SystemPAuthMask)) {
 #define DEFINE_PAUTH_FUNCS(SUFFIX, DST, MOD, KEY)                              \
   case PACI##SUFFIX:                                                           \
@@ -3679,6 +3946,19 @@ void Simulator::VisitSystem(const Instruction* instr) {
           case FPCR:
             WriteXRegister(instr->GetRt(), ReadFpcr().GetRawValue());
             break;
+          case RNDR:
+          case RNDRRS: {
+            uint64_t high = jrand48(rndr_state_);
+            uint64_t low = jrand48(rndr_state_);
+            uint64_t rand_num = (high << 32) | (low & 0xffffffff);
+            WriteXRegister(instr->GetRt(), rand_num);
+            // Simulate successful random number generation.
+            // TODO: Return failure occasionally as a random number cannot be
+            // returned in a period of time.
+            ReadNzcv().SetRawValue(NoFlag);
+            LogSystemRegister(NZCV);
+            break;
+          }
           default:
             VIXL_UNIMPLEMENTED();
         }
@@ -3706,6 +3986,22 @@ void Simulator::VisitSystem(const Instruction* instr) {
       case NOP:
       case ESB:
       case CSDB:
+      case BTI_jc:
+        break;
+      case BTI:
+        if (PcIsInGuardedPage() && (ReadBType() != DefaultBType)) {
+          VIXL_ABORT_WITH_MSG("Executing BTI with wrong BType.");
+        }
+        break;
+      case BTI_c:
+        if (PcIsInGuardedPage() && (ReadBType() == BranchFromGuardedNotToIP)) {
+          VIXL_ABORT_WITH_MSG("Executing BTI c with wrong BType.");
+        }
+        break;
+      case BTI_j:
+        if (PcIsInGuardedPage() && (ReadBType() == BranchAndLink)) {
+          VIXL_ABORT_WITH_MSG("Executing BTI j with wrong BType.");
+        }
         break;
       default:
         VIXL_UNIMPLEMENTED();
@@ -3887,6 +4183,7 @@ void Simulator::VisitNEON2RegMisc(const Instruction* instr) {
     VectorFormat fpf = nfd.GetVectorFormat(nfd.FPFormatMap());
     FPRounding fpcr_rounding = static_cast<FPRounding>(ReadFpcr().GetRMode());
     bool inexact_exception = false;
+    FrintMode frint_mode = kFrintToInteger;
 
     // These instructions all use a one bit size field, except XTN, SQXTUN,
     // SHLL, SQXTN and UQXTN, which use a two bit size field.
@@ -3924,6 +4221,24 @@ void Simulator::VisitNEON2RegMisc(const Instruction* instr) {
 
       // The following instructions break from the switch statement, rather
       // than return.
+      case NEON_FRINT32X:
+        inexact_exception = true;
+        frint_mode = kFrintToInt32;
+        break;  // Use FPCR rounding mode.
+      case NEON_FRINT32Z:
+        inexact_exception = true;
+        frint_mode = kFrintToInt32;
+        fpcr_rounding = FPZero;
+        break;
+      case NEON_FRINT64X:
+        inexact_exception = true;
+        frint_mode = kFrintToInt64;
+        break;  // Use FPCR rounding mode.
+      case NEON_FRINT64Z:
+        inexact_exception = true;
+        frint_mode = kFrintToInt64;
+        fpcr_rounding = FPZero;
+        break;
       case NEON_FRINTI:
         break;  // Use FPCR rounding mode.
       case NEON_FRINTX:
@@ -4041,7 +4356,7 @@ void Simulator::VisitNEON2RegMisc(const Instruction* instr) {
     }
 
     // Only FRINT* instructions fall through the switch above.
-    frint(fpf, rd, rn, fpcr_rounding, inexact_exception);
+    frint(fpf, rd, rn, fpcr_rounding, inexact_exception, frint_mode);
   }
 }
 
@@ -4263,7 +4578,23 @@ void Simulator::VisitNEON3Same(const Instruction* instr) {
         fminnmp(vf, rd, rn, rm);
         break;
       default:
-        VIXL_UNIMPLEMENTED();
+        // FMLAL{2} and FMLSL{2} have special-case encodings.
+        switch (instr->Mask(NEON3SameFHMMask)) {
+          case NEON_FMLAL:
+            fmlal(vf, rd, rn, rm);
+            break;
+          case NEON_FMLAL2:
+            fmlal2(vf, rd, rn, rm);
+            break;
+          case NEON_FMLSL:
+            fmlsl(vf, rd, rn, rm);
+            break;
+          case NEON_FMLSL2:
+            fmlsl2(vf, rd, rn, rm);
+            break;
+          default:
+            VIXL_UNIMPLEMENTED();
+        }
     }
   } else {
     VectorFormat vf = nfd.GetVectorFormat();
@@ -4761,10 +5092,31 @@ void Simulator::VisitNEONByIndexedElement(const Instruction* instr) {
   ByElementOp Op = NULL;
 
   int rm_reg = instr->GetRm();
+  int rm_low_reg = instr->GetRmLow16();
   int index = (instr->GetNEONH() << 1) | instr->GetNEONL();
+  int index_hlm = (index << 1) | instr->GetNEONM();
+
+  switch (instr->Mask(NEONByIndexedElementFPLongMask)) {
+    // These are oddballs and are best handled as special cases.
+    // - Rm is encoded with only 4 bits (and must be in the lower 16 registers).
+    // - The index is always H:L:M.
+    case NEON_FMLAL_H_byelement:
+      fmlal(vf_r, rd, rn, ReadVRegister(rm_low_reg), index_hlm);
+      return;
+    case NEON_FMLAL2_H_byelement:
+      fmlal2(vf_r, rd, rn, ReadVRegister(rm_low_reg), index_hlm);
+      return;
+    case NEON_FMLSL_H_byelement:
+      fmlsl(vf_r, rd, rn, ReadVRegister(rm_low_reg), index_hlm);
+      return;
+    case NEON_FMLSL2_H_byelement:
+      fmlsl2(vf_r, rd, rn, ReadVRegister(rm_low_reg), index_hlm);
+      return;
+  }
+
   if (instr->GetNEONSize() == 1) {
-    rm_reg &= 0xf;
-    index = (index << 1) | instr->GetNEONM();
+    rm_reg = rm_low_reg;
+    index = index_hlm;
   }
 
   switch (instr->Mask(NEONByIndexedElementMask)) {
@@ -4904,10 +5256,11 @@ void Simulator::VisitNEONByIndexedElement(const Instruction* instr) {
           Op = &Simulator::fmulx;
           break;
         default:
-          if (instr->GetNEONSize() == 2)
+          if (instr->GetNEONSize() == 2) {
             index = instr->GetNEONH();
-          else
+          } else {
             index = (instr->GetNEONH() << 1) | instr->GetNEONL();
+          }
           switch (instr->Mask(NEONByIndexedElementFPComplexMask)) {
             case NEON_FCMLA_byelement:
               vf = vf_r;

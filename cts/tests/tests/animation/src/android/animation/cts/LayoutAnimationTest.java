@@ -26,6 +26,7 @@ import android.animation.LayoutTransition.TransitionListener;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.animation.TimeInterpolator;
+import android.animation.ValueAnimator;
 import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
@@ -38,6 +39,7 @@ import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -46,6 +48,8 @@ import org.junit.runner.RunWith;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -54,6 +58,7 @@ public class LayoutAnimationTest {
     private LayoutTransition mLayoutTransition;
     private LinearLayout mView;
     private Button mButton;
+    private float mOldAnimationScale = 1f;
 
     @Rule
     public ActivityTestRule<LayoutAnimationActivity> mActivityRule =
@@ -61,11 +66,18 @@ public class LayoutAnimationTest {
 
     @Before
     public void setup() {
+        mOldAnimationScale = ValueAnimator.getDurationScale();
+        ValueAnimator.setDurationScale(1f);
         InstrumentationRegistry.getInstrumentation().setInTouchMode(true);
         mActivity = mActivityRule.getActivity();
         mView = (LinearLayout) mActivity.findViewById(R.id.container);
         mButton = (Button)mActivity.findViewById(R.id.button1);
         mLayoutTransition = new LayoutTransition();
+    }
+
+    @After
+    public void teardown() {
+        ValueAnimator.setDurationScale(mOldAnimationScale);
     }
 
     @Test
@@ -90,7 +102,7 @@ public class LayoutAnimationTest {
 
     @Test
     public void testIsChangingLayout() throws Throwable {
-        long duration = 2000l;
+        long duration = 5000L;
         mView.setLayoutTransition(mLayoutTransition);
         mLayoutTransition.setDuration(duration);
         mLayoutTransition.setInterpolator(LayoutTransition.CHANGE_APPEARING,
@@ -194,7 +206,7 @@ public class LayoutAnimationTest {
     }
 
     private void setDefaultTransition() {
-        long duration = 1000;
+        long duration = 5000;
         mView.setLayoutTransition(mLayoutTransition);
         mLayoutTransition.setDuration(duration);
         mLayoutTransition.setInterpolator(LayoutTransition.APPEARING,
@@ -202,8 +214,32 @@ public class LayoutAnimationTest {
     }
 
     private void clickButton() throws Throwable {
+        CountDownLatch startLatch = new CountDownLatch(1);
+        TransitionListener listener = new TransitionListener() {
+
+            @Override
+            public void startTransition(
+                    LayoutTransition layoutTransition,
+                    ViewGroup viewGroup,
+                    View view,
+                    int i
+            ) {
+                startLatch.countDown();
+            }
+
+            @Override
+            public void endTransition(
+                    LayoutTransition layoutTransition,
+                    ViewGroup viewGroup,
+                    View view,
+                    int i
+            ) {
+            }
+        };
+        mLayoutTransition.addTransitionListener(listener);
         mActivityRule.runOnUiThread(mButton::callOnClick);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        assertTrue(startLatch.await(5, TimeUnit.SECONDS));
     }
 
     class MyTransitionListener implements LayoutTransition.TransitionListener {

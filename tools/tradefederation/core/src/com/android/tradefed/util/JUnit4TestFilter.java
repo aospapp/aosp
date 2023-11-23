@@ -18,15 +18,20 @@ package com.android.tradefed.util;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
+import java.io.File;
+import java.util.List;
+
 /**
  * Helper Class that provides the filtering for JUnit4 runner by extending the {@link Filter}.
  */
 public class JUnit4TestFilter extends Filter {
 
     private TestFilterHelper mFilterHelper;
+    private List<File> mJarFiles;
 
-    public JUnit4TestFilter(TestFilterHelper filterHelper) {
+    public JUnit4TestFilter(TestFilterHelper filterHelper, List<File> extraJarFiles) {
         mFilterHelper = filterHelper;
+        mJarFiles = extraJarFiles;
     }
 
     /**
@@ -42,7 +47,7 @@ public class JUnit4TestFilter extends Filter {
                 }
             }
         }
-        return mFilterHelper.shouldRun(description);
+        return mFilterHelper.shouldRun(description, mJarFiles);
     }
 
     @Override

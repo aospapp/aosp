@@ -1,8 +1,9 @@
-#!/usr/bin/env python2
-#
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Given a specially-formatted JSON object, generates results report(s).
 
 The JSON object should look like:
@@ -67,8 +68,7 @@ def CountBenchmarks(benchmark_runs):
   def _MaxLen(results):
     return 0 if not results else max(len(r) for r in results)
 
-  return [(name, _MaxLen(results))
-          for name, results in benchmark_runs.iteritems()]
+  return [(name, _MaxLen(results)) for name, results in benchmark_runs.items()]
 
 
 def CutResultsInPlace(results, max_keys=50, complain_on_update=True):
@@ -104,7 +104,7 @@ def CutResultsInPlace(results, max_keys=50, complain_on_update=True):
   }
   """
   actually_updated = False
-  for bench_results in results.itervalues():
+  for bench_results in results.values():
     for platform_results in bench_results:
       for i, result in enumerate(platform_results):
         # Keep the keys that come earliest when sorted alphabetically.
@@ -125,21 +125,6 @@ def CutResultsInPlace(results, max_keys=50, complain_on_update=True):
     print(
         'Warning: Some benchmark keyvals have been truncated.', file=sys.stderr)
   return results
-
-
-def _ConvertToASCII(obj):
-  """Convert an object loaded from JSON to ASCII; JSON gives us unicode."""
-
-  # Using something like `object_hook` is insufficient, since it only fires on
-  # actual JSON objects. `encoding` fails, too, since the default decoder always
-  # uses unicode() to decode strings.
-  if isinstance(obj, unicode):
-    return str(obj)
-  if isinstance(obj, dict):
-    return {_ConvertToASCII(k): _ConvertToASCII(v) for k, v in obj.iteritems()}
-  if isinstance(obj, list):
-    return [_ConvertToASCII(v) for v in obj]
-  return obj
 
 
 def _PositiveInt(s):
@@ -274,10 +259,8 @@ def _ParseArgs(argv):
 
 def Main(argv):
   args = _ParseArgs(argv)
-  # JSON likes to load UTF-8; our results reporter *really* doesn't like
-  # UTF-8.
   with PickInputFile(args.input) as in_file:
-    raw_results = _ConvertToASCII(json.load(in_file))
+    raw_results = json.load(in_file)
 
   platform_names = raw_results['platforms']
   results = raw_results['data']

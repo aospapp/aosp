@@ -17,6 +17,7 @@ package com.android.compatibility.common.util;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +31,14 @@ import java.util.Set;
  */
 public class InvocationResult implements IInvocationResult {
 
+    /** Helper object for JSON conversion. */
+    public static final class RunHistory {
+        public long startTime;
+        public long endTime;
+    }
+
+    private Collection<RunHistory> mRunHistories = new ArrayList<>();
+
     private long mTimestamp;
     private Map<String, IModuleResult> mModuleResults = new LinkedHashMap<>();
     private Map<String, String> mInvocationInfo = new HashMap<>();
@@ -39,6 +48,11 @@ public class InvocationResult implements IInvocationResult {
     private String mCommandLineArgs;
     private RetryChecksumStatus mRetryChecksumStatus = RetryChecksumStatus.NotRetry;
     private File mRetryDirectory = null;
+
+    /** @return a collection of the run history of previous runs. */
+    public Collection<RunHistory> getRunHistories() {
+        return mRunHistories;
+    }
 
     /**
      * {@inheritDoc}

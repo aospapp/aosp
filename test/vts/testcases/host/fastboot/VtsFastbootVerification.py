@@ -98,9 +98,19 @@ class VtsFastbootVerificationTest(base_test.BaseTestClass):
         retcode = subprocess.call(fastboot_gtest_cmd_lp_flashing)
         asserts.assertTrue(retcode == 0, "Error in flashing logical partitions")
 
+    def testCpuAbiInfo(self):
+        """Devices launching with DAP must export cpu-abi."""
+        first_line = self.dut.fastboot.getvar("cpu-abi").splitlines()[0]
+        # Extracts the ABI from the first line, which is something like: 'cpu-abi: arm64-v8a'.
+        cpu_abi = first_line[len("cpu-abi: "):].strip()
+        asserts.assertTrue(cpu_abi in ['armeabi-v7a', 'arm64-v8a',
+                                       'mips', 'mips64',
+                                       'x86', 'x86_64'],
+                           "Unknown CPU ABI '%s' found in fastbootd" % cpu_abi)
+
     def tearDownClass(self):
         """Reboot to Android."""
-        if self.dut.isBootloaderMode:
+        if self.dut.isBootloaderMode or self.dut.fastboot.isFastbootOverTcp(self.dut.serial):
             self.dut.reboot()
             self.dut.waitForBootCompletion()
 

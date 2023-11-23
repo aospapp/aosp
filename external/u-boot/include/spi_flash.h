@@ -11,107 +11,42 @@
 
 #include <dm.h>	/* Because we dereference struct udevice here */
 #include <linux/types.h>
+#include <linux/mtd/spi-nor.h>
 
-#ifndef CONFIG_SF_DEFAULT_SPEED
-# define CONFIG_SF_DEFAULT_SPEED	1000000
+/* by default ENV use the same parameters than SF command */
+#ifndef CONFIG_ENV_SPI_BUS
+# define CONFIG_ENV_SPI_BUS	CONFIG_SF_DEFAULT_BUS
 #endif
-#ifndef CONFIG_SF_DEFAULT_MODE
-# define CONFIG_SF_DEFAULT_MODE		SPI_MODE_3
+#ifndef CONFIG_ENV_SPI_CS
+# define CONFIG_ENV_SPI_CS	CONFIG_SF_DEFAULT_CS
 #endif
-#ifndef CONFIG_SF_DEFAULT_CS
-# define CONFIG_SF_DEFAULT_CS		0
+#ifndef CONFIG_ENV_SPI_MAX_HZ
+# define CONFIG_ENV_SPI_MAX_HZ	CONFIG_SF_DEFAULT_SPEED
 #endif
-#ifndef CONFIG_SF_DEFAULT_BUS
-# define CONFIG_SF_DEFAULT_BUS		0
+#ifndef CONFIG_ENV_SPI_MODE
+# define CONFIG_ENV_SPI_MODE	CONFIG_SF_DEFAULT_MODE
 #endif
 
 struct spi_slave;
-
-/**
- * struct spi_flash - SPI flash structure
- *
- * @spi:		SPI slave
- * @dev:		SPI flash device
- * @name:		Name of SPI flash
- * @dual_flash:		Indicates dual flash memories - dual stacked, parallel
- * @shift:		Flash shift useful in dual parallel
- * @flags:		Indication of spi flash flags
- * @size:		Total flash size
- * @page_size:		Write (page) size
- * @sector_size:	Sector size
- * @erase_size:		Erase size
- * @bank_read_cmd:	Bank read cmd
- * @bank_write_cmd:	Bank write cmd
- * @bank_curr:		Current flash bank
- * @erase_cmd:		Erase cmd 4K, 32K, 64K
- * @read_cmd:		Read cmd - Array Fast, Extn read and quad read.
- * @write_cmd:		Write cmd - page and quad program.
- * @dummy_byte:		Dummy cycles for read operation.
- * @memory_map:		Address of read-only SPI flash access
- * @flash_lock:		lock a region of the SPI Flash
- * @flash_unlock:	unlock a region of the SPI Flash
- * @flash_is_locked:	check if a region of the SPI Flash is completely locked
- * @read:		Flash read ops: Read len bytes at offset into buf
- *			Supported cmds: Fast Array Read
- * @write:		Flash write ops: Write len bytes from buf into offset
- *			Supported cmds: Page Program
- * @erase:		Flash erase ops: Erase len bytes from offset
- *			Supported cmds: Sector erase 4K, 32K, 64K
- * return 0 - Success, 1 - Failure
- */
-struct spi_flash {
-	struct spi_slave *spi;
-#ifdef CONFIG_DM_SPI_FLASH
-	struct udevice *dev;
-#endif
-	const char *name;
-	u8 dual_flash;
-	u8 shift;
-	u16 flags;
-
-	u32 size;
-	u32 page_size;
-	u32 sector_size;
-	u32 erase_size;
-#ifdef CONFIG_SPI_FLASH_BAR
-	u8 bank_read_cmd;
-	u8 bank_write_cmd;
-	u8 bank_curr;
-#endif
-	u8 erase_cmd;
-	u8 read_cmd;
-	u8 write_cmd;
-	u8 dummy_byte;
-
-	void *memory_map;
-
-	int (*flash_lock)(struct spi_flash *flash, u32 ofs, size_t len);
-	int (*flash_unlock)(struct spi_flash *flash, u32 ofs, size_t len);
-	int (*flash_is_locked)(struct spi_flash *flash, u32 ofs, size_t len);
-#ifndef CONFIG_DM_SPI_FLASH
-	/*
-	 * These are not strictly needed for driver model, but keep them here
-	 * while the transition is in progress.
-	 *
-	 * Normally each driver would provide its own operations, but for
-	 * SPI flash most chips use the same algorithms. One approach is
-	 * to create a 'common' SPI flash device which knows how to talk
-	 * to most devices, and then allow other drivers to be used instead
-	 * if required, perhaps with a way of scanning through the list to
-	 * find the driver that matches the device.
-	 */
-	int (*read)(struct spi_flash *flash, u32 offset, size_t len, void *buf);
-	int (*write)(struct spi_flash *flash, u32 offset, size_t len,
-			const void *buf);
-	int (*erase)(struct spi_flash *flash, u32 offset, size_t len);
-#endif
-};
 
 struct dm_spi_flash_ops {
 	int (*read)(struct udevice *dev, u32 offset, size_t len, void *buf);
 	int (*write)(struct udevice *dev, u32 offset, size_t len,
 		     const void *buf);
 	int (*erase)(struct udevice *dev, u32 offset, size_t len);
+	/**
+	 * get_sw_write_prot() - Check state of software write-protect feature
+	 *
+	 * SPI flash chips can lock a region of the flash defined by a
+	 * 'protected area'. This function checks if this protected area is
+	 * defined.
+	 *
+	 * @dev:	SPI flash device
+	 * @return 0 if no region is write-protected, 1 if a region is
+	 *	write-protected, -ENOSYS if the driver does not implement this,
+	 *	other -ve value on error
+	 */
+	int (*get_sw_write_prot)(struct udevice *dev);
 };
 
 /* Access the serial operations for a device */
@@ -153,6 +88,20 @@ int spi_flash_write_dm(struct udevice *dev, u32 offset, size_t len,
  */
 int spi_flash_erase_dm(struct udevice *dev, u32 offset, size_t len);
 
+/**
+ * spl_flash_get_sw_write_prot() - Check state of software write-protect feature
+ *
+ * SPI flash chips can lock a region of the flash defined by a
+ * 'protected area'. This function checks if this protected area is
+ * defined.
+ *
+ * @dev:	SPI flash device
+ * @return 0 if no region is write-protected, 1 if a region is
+ *	write-protected, -ENOSYS if the driver does not implement this,
+ *	other -ve value on error
+ */
+int spl_flash_get_sw_write_prot(struct udevice *dev);
+
 int spi_flash_probe_bus_cs(unsigned int busnum, unsigned int cs,
 			   unsigned int max_hz, unsigned int spi_mode,
 			   struct udevice **devp);
@@ -185,7 +134,7 @@ static inline int spi_flash_erase(struct spi_flash *flash, u32 offset,
 struct sandbox_state;
 
 int sandbox_sf_bind_emul(struct sandbox_state *state, int busnum, int cs,
-			 struct udevice *bus, int of_offset, const char *spec);
+			 struct udevice *bus, ofnode node, const char *spec);
 
 void sandbox_sf_unbind_emul(struct sandbox_state *state, int busnum, int cs);
 
@@ -198,19 +147,37 @@ void spi_flash_free(struct spi_flash *flash);
 static inline int spi_flash_read(struct spi_flash *flash, u32 offset,
 		size_t len, void *buf)
 {
-	return flash->read(flash, offset, len, buf);
+	struct mtd_info *mtd = &flash->mtd;
+	size_t retlen;
+
+	return mtd->_read(mtd, offset, len, &retlen, buf);
 }
 
 static inline int spi_flash_write(struct spi_flash *flash, u32 offset,
 		size_t len, const void *buf)
 {
-	return flash->write(flash, offset, len, buf);
+	struct mtd_info *mtd = &flash->mtd;
+	size_t retlen;
+
+	return mtd->_write(mtd, offset, len, &retlen, buf);
 }
 
 static inline int spi_flash_erase(struct spi_flash *flash, u32 offset,
 		size_t len)
 {
-	return flash->erase(flash, offset, len);
+	struct mtd_info *mtd = &flash->mtd;
+	struct erase_info instr;
+
+	if (offset % mtd->erasesize || len % mtd->erasesize) {
+		printf("SF: Erase offset/length not multiple of erase size\n");
+		return -EINVAL;
+	}
+
+	memset(&instr, 0, sizeof(instr));
+	instr.addr = offset;
+	instr.len = len;
+
+	return mtd->_erase(mtd, &instr);
 }
 #endif
 

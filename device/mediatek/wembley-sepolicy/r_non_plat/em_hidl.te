@@ -1,0 +1,130 @@
+# ==============================================
+# Policy File of /vendor/bin/em_hidi Executable File
+# ==============================================
+type em_hidl, domain;
+type em_hidl_exec, exec_type, file_type, vendor_file_type;
+
+# Date :  2018/06/28
+init_daemon_domain(em_hidl)
+
+# Date :  2018/06/28
+# Purpose: EM_HILD
+hal_server_domain(em_hidl, mtk_hal_em)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set ims operator
+set_prop(em_hidl, mtk_operator_id_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set mtk_simswitch_emmode_prop
+set_prop(em_hidl, mtk_simswitch_emmode_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set mtk_dsbp_support_prop
+set_prop(em_hidl, mtk_dsbp_support_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set mtk_imstestmode_prop
+set_prop(em_hidl, mtk_imstestmode_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set mtk_smsformat_prop
+set_prop(em_hidl, mtk_smsformat_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set mtk_gprs_prefer_prop
+set_prop(em_hidl, mtk_gprs_prefer_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set mtk_testsim_cardtype_prop
+set_prop(em_hidl, mtk_testsim_cardtype_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should set mtk_ct_ir_engmode_prop
+set_prop(em_hidl, mtk_ct_ir_engmode_prop)
+
+# Date :  2018/06/28
+# Operation : EM DEBUG
+# Purpose: EM should mtk_disable_c2k_cap_prop
+set_prop(em_hidl, mtk_disable_c2k_cap_prop)
+
+# Date :  2018/06/29
+# Operation : EM DEBUG
+# Purpose: EM should mtk_debug_md_reset_prop
+set_prop(em_hidl, mtk_debug_md_reset_prop)
+
+
+# Date :  2018/06/29
+# Operation : EM DEBUG
+# Purpose: EM should video log mtk_omx_log_prop
+set_prop(em_hidl, mtk_omx_log_prop)
+
+# Date :  2018/06/29
+# Operation : EM DEBUG
+# Purpose: EM should video log mtk_vdec_log_prop
+set_prop(em_hidl, mtk_vdec_log_prop)
+
+# Date :  2018/06/29
+# Operation : EM DEBUG
+# Purpose: EM should video log mtk_vdectlc_log_prop
+set_prop(em_hidl, mtk_vdectlc_log_prop)
+
+# Date :  2018/06/29
+# Operation : EM DEBUG
+# Purpose: EM should video log mtk_venc_h264_showlog_prop
+set_prop(em_hidl, mtk_venc_h264_showlog_prop)
+
+# Date :  2018/06/29
+# Operation : EM DEBUG
+# Purpose: EM should video log mtk_modem_warning_prop
+set_prop(em_hidl, mtk_modem_warning_prop)
+
+# Date :  2018/07/06
+# Operation : EM DEBUG
+# Purpose: EM allow usb vendor_em_usb_prop
+set_prop(em_hidl, vendor_em_usb_prop)
+
+# Date :  2018/07/06
+# Operation : EM DEBUG
+# Purpose: for setting usb otg enable property
+set_prop(em_hidl, vendor_usb_otg_switch)
+
+# Data : 2018/07/06
+# Purpose : EM MCF read nvdata dir and file
+allow em_hidl nvdata_file:dir { read open add_name search getattr};
+allow em_hidl nvdata_file:file { getattr read open };
+
+# Data : 2018/07/06
+# Purpose : EM MCF search vendor dir
+allow em_hidl mnt_vendor_file:dir search;
+allow em_hidl vendor_default_prop:file read;
+
+# Data : 2018/08/10
+# Purpose : EM BT usage
+allow em_hidl stpbt_device:chr_file { read write open };
+allow em_hidl sysfs_boot_mode:file { read open };
+allow em_hidl ttyGS_device:chr_file { read write ioctl open };
+allow em_hidl vendor_usb_prop:file { read getattr open };
+set_prop(em_hidl, vendor_usb_prop)
+
+# Date :  2018/08/28
+# Operation : EM DEBUG
+# Purpose: for em set hidl configure
+set_prop(em_hidl, mtk_em_hidl_prop)
+
+# Date :  2019/08/22
+# Operation : EM AAL
+# Purpose: for em set aal property
+set_prop(em_hidl, mtk_pq_prop)
+# Date :  2019/09/10
+# Operation : EM wcn coredump
+# Purpose: for em set wcn coredump property
+set_prop(em_hidl, coredump_prop)

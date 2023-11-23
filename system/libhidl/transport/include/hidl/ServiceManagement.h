@@ -18,6 +18,7 @@
 #define ANDROID_HARDWARE_ISERVICE_MANAGER_H
 
 #include <string>
+#include <vector>
 
 #include <android/hidl/base/1.0/IBase.h>
 #include <utils/StrongPointer.h>
@@ -69,6 +70,14 @@ sp<::android::hidl::manager::V1_1::IServiceManager> defaultServiceManager1_1();
 sp<::android::hidl::manager::V1_2::IServiceManager> defaultServiceManager1_2();
 sp<::android::hidl::manager::V1_0::IServiceManager> getPassthroughServiceManager();
 sp<::android::hidl::manager::V1_1::IServiceManager> getPassthroughServiceManager1_1();
+
+/**
+ * Given a descriptor (e.g. from IFoo::descriptor), return a list of all instance names
+ * on a device (e.g. the VINTF manifest). These HALs may not be currently running, but
+ * the expectation is that if they aren't running, they should start as lazy HALs.
+ * So, getService should return for each of these instance names.
+ */
+std::vector<std::string> getAllHalInstanceNames(const std::string& descriptor);
 
 /**
  * Given a service that is in passthrough mode, this function will go ahead and load the

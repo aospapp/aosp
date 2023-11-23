@@ -39,39 +39,29 @@ import javax.crypto.SecretKey;
 import javax.crypto.ShortBufferException;
 import javax.crypto.spec.DHGenParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
 import org.apache.harmony.crypto.tests.support.MyMacSpi;
 import org.apache.harmony.security.tests.support.SpiEngUtils;
-import junit.framework.TestCase;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 import libcore.java.security.StandardNames;
 import libcore.javax.crypto.MockKey;
 import libcore.javax.crypto.MockKey2;
-
-import dalvik.system.VMRuntime;
-import sun.security.jca.Providers;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
 /**
  * Tests for Mac class constructors and methods
  *
  */
-public class MacTest extends TestCase {
+public class MacTest extends TestCaseWithRules {
 
     // Allow access to deprecated BC algorithms in this test, so we can ensure they
     // continue to work
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                VMRuntime.getRuntime().getTargetSdkVersion());
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        Providers.setMaximumAllowableApiLevelForBcDeprecation(
-                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
-        super.tearDown();
-    }
+    @Rule
+    public TestRule enableDeprecatedBCAlgorithmsRule =
+            EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
 
     public static final String srvMac = "Mac";
 

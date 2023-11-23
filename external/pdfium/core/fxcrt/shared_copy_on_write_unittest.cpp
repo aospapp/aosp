@@ -29,7 +29,7 @@ class Observer {
   std::map<std::string, int> destruction_counts_;
 };
 
-class Object : public Retainable {
+class Object final : public Retainable {
  public:
   Object(Observer* observer, const std::string& name)
       : name_(name), observer_(observer) {
@@ -39,6 +39,8 @@ class Object : public Retainable {
     observer_->OnConstruct(name_);
   }
   ~Object() override { observer_->OnDestruct(name_); }
+
+  RetainPtr<Object> Clone() const { return pdfium::MakeRetain<Object>(*this); }
 
  private:
   std::string name_;

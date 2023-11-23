@@ -33,6 +33,7 @@ libintel_compiler_files = files(
   'brw_compiler.h',
   'brw_dead_control_flow.cpp',
   'brw_dead_control_flow.h',
+  'brw_debug_recompile.c',
   'brw_disasm.c',
   'brw_disasm_info.c',
   'brw_disasm_info.h',
@@ -55,15 +56,13 @@ libintel_compiler_files = files(
   'brw_fs.h',
   'brw_fs_live_variables.cpp',
   'brw_fs_live_variables.h',
-  'brw_fs_lower_conversions.cpp',
   'brw_fs_lower_pack.cpp',
+  'brw_fs_lower_regioning.cpp',
   'brw_fs_nir.cpp',
   'brw_fs_reg_allocate.cpp',
   'brw_fs_register_coalesce.cpp',
   'brw_fs_saturate_propagation.cpp',
   'brw_fs_sel_peephole.cpp',
-  'brw_fs_surface_builder.cpp',
-  'brw_fs_surface_builder.h',
   'brw_fs_validate.cpp',
   'brw_fs_visitor.cpp',
   'brw_inst.h',
@@ -76,7 +75,10 @@ libintel_compiler_files = files(
   'brw_nir_analyze_boolean_resolves.c',
   'brw_nir_analyze_ubo_ranges.c',
   'brw_nir_attribute_workarounds.c',
+  'brw_nir_lower_conversions.c',
   'brw_nir_lower_cs_intrinsics.c',
+  'brw_nir_lower_image_load_store.c',
+  'brw_nir_lower_mem_access_bit_sizes.c',
   'brw_nir_opt_peephole_ffma.c',
   'brw_nir_tcs_workarounds.c',
   'brw_packed_float.c',
@@ -122,7 +124,7 @@ brw_nir_trig = custom_target(
   input : 'brw_nir_trig_workarounds.py',
   output : 'brw_nir_trig_workarounds.c',
   command : [
-    prog_python2, '@INPUT@',
+    prog_python, '@INPUT@',
     '-p', join_paths(meson.source_root(), 'src/compiler/nir/'),
   ],
   depend_files : nir_algebraic_py,
@@ -144,7 +146,8 @@ if with_tests
   foreach t : ['fs_cmod_propagation', 'fs_copy_propagation',
                'fs_saturate_propagation', 'vf_float_conversions',
                'vec4_register_coalesce', 'vec4_copy_propagation',
-               'vec4_cmod_propagation', 'eu_compact', 'eu_validate']
+               'vec4_cmod_propagation', 'vec4_dead_code_eliminate',
+               'eu_compact', 'eu_validate']
     test(
       t,
       executable(
@@ -152,10 +155,11 @@ if with_tests
         'test_@0@.cpp'.format(t),
         include_directories : [inc_common, inc_intel],
         link_with : [
-          libintel_compiler, libintel_common, libmesa_util, libisl,
+          libintel_compiler, libintel_common, libintel_dev, libmesa_util, libisl,
         ],
         dependencies : [dep_thread, dep_dl, idep_gtest, idep_nir],
-      )
+      ),
+      suite : ['intel'],
     )
   endforeach
 endif

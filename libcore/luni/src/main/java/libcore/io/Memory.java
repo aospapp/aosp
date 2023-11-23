@@ -17,12 +17,11 @@
 
 package libcore.io;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.annotation.optimization.FastNative;
-import java.io.FileDescriptor;
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.nio.ByteOrder;
+
+import dalvik.annotation.optimization.FastNative;
 
 /**
  * Unsafe access to memory.

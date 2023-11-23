@@ -1,5 +1,5 @@
+#!/usr/bin/python2
 # pylint: disable-msg=C0111
-#!/usr/bin/python
 #
 # Copyright 2008 Google Inc. All Rights Reserved.
 

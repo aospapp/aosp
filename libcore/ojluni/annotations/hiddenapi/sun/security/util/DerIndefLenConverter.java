@@ -29,7 +29,7 @@ package sun.security.util;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 class DerIndefLenConverter {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     DerIndefLenConverter() {
         throw new RuntimeException("Stub!");
     }
@@ -42,27 +42,27 @@ class DerIndefLenConverter {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     static boolean isIndefinite(int lengthByte) {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void parseTag() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void writeTag() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private int parseLength() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void writeLengthAndValue() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -79,7 +79,7 @@ class DerIndefLenConverter {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     private void parseValue(int curLen) {
         throw new RuntimeException("Stub!");
     }
@@ -88,7 +88,7 @@ class DerIndefLenConverter {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     byte[] convert(byte[] indefData) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -105,21 +105,21 @@ class DerIndefLenConverter {
 
     private static final int TAG_MASK = 31; // 0x1f
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private byte[] data;
+    @android.compat.annotation.UnsupportedAppUsage private byte[] data;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private int dataPos;
+    @android.compat.annotation.UnsupportedAppUsage private int dataPos;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private int dataSize;
+    @android.compat.annotation.UnsupportedAppUsage private int dataSize;
 
     private int index;
 
     private java.util.ArrayList<java.lang.Object> ndefsList;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private byte[] newData;
+    @android.compat.annotation.UnsupportedAppUsage private byte[] newData;
 
     private int newDataPos;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage private int numOfTotalLenBytes = 0; // 0x0
+    @android.compat.annotation.UnsupportedAppUsage private int numOfTotalLenBytes = 0; // 0x0
 
     private int unresolved = 0; // 0x0
 }

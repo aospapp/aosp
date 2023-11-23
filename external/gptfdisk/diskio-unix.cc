@@ -32,6 +32,8 @@
 #endif
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 #include "diskio.h"
 
@@ -68,6 +70,7 @@ int DiskIO::OpenForRead(void) {
             cerr << "The specified file does not exist!\n";
          realFilename = "";
          userFilename = "";
+         modelName = "";
          isOpen = 0;
          openForWrite = 0;
       } else {
@@ -76,7 +79,8 @@ int DiskIO::OpenForRead(void) {
          if (fstat64(fd, &st) == 0) {
             if (S_ISDIR(st.st_mode))
                cerr << "The specified path is a directory!\n";
-#if !defined(__FreeBSD__) && !defined(__APPLE__)
+#if !(defined(__FreeBSD__) || defined(__FreeBSD_kernel__)) \
+                       && !defined(__APPLE__)
             else if (S_ISCHR(st.st_mode))
                cerr << "The specified path is a character device!\n";
 #endif
@@ -87,6 +91,16 @@ int DiskIO::OpenForRead(void) {
             else
                isOpen = 1;
          } // if (fstat64()...)
+#if defined(__linux__) && !defined(EFI)
+         if (isOpen && realFilename.substr(0,4) == "/dev") {
+            ostringstream modelNameFilename;
+            modelNameFilename << "/sys/block" << realFilename.substr(4,512) << "/device/model";
+            ifstream modelNameFile(modelNameFilename.str().c_str());
+            if (modelNameFile.is_open()) {
+               getline(modelNameFile, modelName);
+            } // if
+         } // if
+#endif
       } // if/else
    } // if
 
@@ -178,6 +192,27 @@ int DiskIO::GetBlockSize(void) {
    return (blockSize);
 } // DiskIO::GetBlockSize()
 
+// Returns the physical block size of the device, if possible. If this is
+// not supported, or if an error occurs, this function returns 0.
+// TODO: Get this working in more OSes than Linux.
+int DiskIO::GetPhysBlockSize(void) {
+   int err = -1, physBlockSize = 0;
+
+   // If disk isn't open, try to open it....
+   if (!isOpen) {
+      OpenForRead();
+   } // if
+
+   if (isOpen) {
+#if defined __linux__ && !defined(EFI)
+      err = ioctl(fd, BLKPBSZGET, &physBlockSize);
+#endif
+   } // if (isOpen)
+   if (err == -1)
+      physBlockSize = 0;
+   return (physBlockSize);
+} // DiskIO::GetPhysBlockSize(void)
+
 // Returns the number of heads, according to the kernel, or 255 if the
 // correct value can't be determined.
 uint32_t DiskIO::GetNumHeads(void) {
@@ -255,7 +290,8 @@ int DiskIO::DiskSync(void) {
       i = ioctl(fd, BLKRRPART);
       if (i) {
          cout << "Warning: The kernel is still using the old partition table.\n"
-              << "The new table will be used at the next reboot.\n";
+              << "The new table will be used at the next reboot or after you\n"
+              << "run partprobe(8) or kpartx(8)\n";
       } else {
          retval = 1;
       } // if/else

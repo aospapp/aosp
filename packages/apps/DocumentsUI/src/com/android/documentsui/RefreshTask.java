@@ -85,6 +85,12 @@ public class RefreshTask extends TimeoutTask<Void, Boolean> {
             return false;
         }
 
+        if (!mState.canInteractWith(mDoc.userId) || mDoc.userId.isQuietModeEnabled(mContext)) {
+            // No result was returned by these errors so it does not support refresh.
+            Log.w(TAG, "Cannot refresh due to cross profile error.");
+            return false;
+        }
+
         // API O introduces ContentResolver#refresh, and if available and the ContentProvider
         // supports it, the ContentProvider will automatically send a content updated notification
         // and we will update accordingly. Else, we just tell the callback that Refresh is not
@@ -94,7 +100,7 @@ public class RefreshTask extends TimeoutTask<Void, Boolean> {
             return false;
         }
 
-        final ContentResolver resolver = mContext.getContentResolver();
+        final ContentResolver resolver = mDoc.userId.getContentResolver(mContext);
         final String authority = mDoc.authority;
         boolean refreshSupported = false;
         ContentProviderClient client = null;

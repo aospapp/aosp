@@ -34,7 +34,7 @@
         android:textColor="@color/option_item_text_color"
         android:singleLine="true" />
 
-    <android.support.v17.leanback.widget.VerticalGridView
+    <androidx.leanback.widget.VerticalGridView
         android:id="@+id/side_panel_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

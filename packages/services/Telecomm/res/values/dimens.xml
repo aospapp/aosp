@@ -24,6 +24,7 @@
     <dimen name="blocked_numbers_large_padding">16dp</dimen>
     <dimen name="blocked_numbers_extra_large_padding">32dp</dimen>
     <dimen name="blocked_numbers_button_bottom_margin">20dp</dimen>
+    <dimen name="blocked_numbers_button_large_padding">15dp</dimen>
     <dimen name="blocked_numbers_dialog_padding">24dp</dimen>
     <dimen name="blocked_numbers_delete_icon_padding">12dp</dimen>
     <dimen name="blocked_numbers_progress_bar_padding">100dp</dimen>

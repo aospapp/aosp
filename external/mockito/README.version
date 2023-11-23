@@ -9,4 +9,4 @@ Dexmaker module.
 The source can be updated using the update_source.sh script.
 
 Local Modifications:
-        None
+         New API to clean up all inline mocks after test (8bdfbf053ab6e4fc14a3eaecb613f5838fdf0f09)

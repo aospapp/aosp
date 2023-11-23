@@ -38,15 +38,14 @@ struct FragmentedLoadRequest {
   size_t appTotalSizeBytes;
   std::vector<uint8_t> binary;
 
-  FragmentedLoadRequest(
-      size_t fragmentId, uint32_t transactionId,
-      const std::vector<uint8_t>& binary) :
-    FragmentedLoadRequest(fragmentId, transactionId, 0, 0, 0, 0, binary) {}
+  FragmentedLoadRequest(size_t fragmentId, uint32_t transactionId,
+                        const std::vector<uint8_t> &binary)
+      : FragmentedLoadRequest(fragmentId, transactionId, 0, 0, 0, 0, binary) {}
 
-  FragmentedLoadRequest(
-      size_t fragmentId, uint32_t transactionId, uint64_t appId,
-      uint32_t appVersion, uint32_t targetApiVersion, size_t appTotalSizeBytes,
-      const std::vector<uint8_t>& binary)
+  FragmentedLoadRequest(size_t fragmentId, uint32_t transactionId,
+                        uint64_t appId, uint32_t appVersion,
+                        uint32_t targetApiVersion, size_t appTotalSizeBytes,
+                        const std::vector<uint8_t> &binary)
       : fragmentId(fragmentId),
         transactionId(transactionId),
         appId(appId),
@@ -66,18 +65,18 @@ struct FragmentedLoadRequest {
  */
 class FragmentedLoadTransaction {
  public:
-   /**
-    * @param transactionId the unique ID of the unfragmented load transaction
-    * @param appId the unique ID of the nanoapp
-    * @param appVersion the version of the nanoapp
-    * @param targetApiVersion the API version this nanoapp is targeted for
-    * @param appBinary the nanoapp binary data
-    * @param fragmentSize the size of each fragment in bytes
-    */
-  FragmentedLoadTransaction(
-      uint32_t transactionId, uint64_t appId, uint32_t appVersion,
-      uint32_t targetApiVersion, const std::vector<uint8_t>& appBinary,
-      size_t fragmentSize = kDefaultFragmentSize);
+  /**
+   * @param transactionId the unique ID of the unfragmented load transaction
+   * @param appId the unique ID of the nanoapp
+   * @param appVersion the version of the nanoapp
+   * @param targetApiVersion the API version this nanoapp is targeted for
+   * @param appBinary the nanoapp binary data
+   * @param fragmentSize the size of each fragment in bytes
+   */
+  FragmentedLoadTransaction(uint32_t transactionId, uint64_t appId,
+                            uint32_t appVersion, uint32_t targetApiVersion,
+                            const std::vector<uint8_t> &appBinary,
+                            size_t fragmentSize = kDefaultFragmentSize);
 
   /**
    * Retrieves the FragmentedLoadRequest including the next fragment of the
@@ -89,7 +88,7 @@ class FragmentedLoadTransaction {
    *
    * @return returns a reference to the next fragment.
    */
-  const FragmentedLoadRequest& getNextRequest();
+  const FragmentedLoadRequest &getNextRequest();
 
   /**
    * @return true if the last fragment has been retrieved by getNextRequest(),

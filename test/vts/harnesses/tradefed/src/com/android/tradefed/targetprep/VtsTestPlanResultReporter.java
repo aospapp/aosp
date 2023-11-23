@@ -24,7 +24,6 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
@@ -64,8 +63,7 @@ import org.json.JSONObject;
  * an OAuth2 credential kept in a json file.
  */
 @OptionClass(alias = "vts-plan-result")
-public class VtsTestPlanResultReporter
-        implements ITargetPreparer, ITargetCleaner, IMultiTargetPreparer {
+public class VtsTestPlanResultReporter implements ITargetPreparer, ITargetCleaner {
     private static final String PLUS_ME = "https://www.googleapis.com/auth/plus.me";
     private static final String TEST_PLAN_EXECUTION_RESULT = "vts-test-plan-execution-result";
     private static final String TEST_PLAN_REPORT_FILE = "TEST_PLAN_REPORT_FILE";
@@ -119,15 +117,6 @@ public class VtsTestPlanResultReporter
      * {@inheritDoc}
      */
     @Override
-    public void setUp(IInvocationContext context)
-            throws TargetSetupError, DeviceNotAvailableException {
-        setUp(context.getDevices().get(0), context.getBuildInfos().get(0));
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e) {
         File reportFile = buildInfo.getFile(TEST_PLAN_REPORT_FILE);
         if (reportFile == null) {
@@ -168,15 +157,6 @@ public class VtsTestPlanResultReporter
         if (found) {
             dashboardUtil.Upload(postMessage);
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void tearDown(IInvocationContext context, Throwable e)
-            throws DeviceNotAvailableException {
-        tearDown(context.getDevices().get(0), context.getBuildInfos().get(0), e);
     }
 
     /**

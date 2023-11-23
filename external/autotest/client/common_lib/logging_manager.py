@@ -40,7 +40,7 @@ python logging in a very consistent way.
 """
 
 
-import fcntl, logging, os, signal, sys, warnings
+import fcntl, logging, os, signal, sys, time, warnings
 
 # primary public APIs
 
@@ -520,6 +520,10 @@ class _FdRedirectionStreamManager(_StreamManager):
     get rid of all this business with subprocesses.  Another option would be
     to capture all stray output to a single, separate destination.
     """
+
+    WAITPID_TIMEOUT_S = 5
+    WAITPID_SAMPLE_TIME_S = 0.1
+
     def __init__(self, stream, level, stream_setter):
         if not hasattr(stream, 'fileno'):
             # with fake, in-process file objects, subprocess output won't be
@@ -620,7 +624,10 @@ class _FdRedirectionStreamManager(_StreamManager):
         Always run from a subprocess.  Read from read_fd and write to the
         logging module until EOF.
         """
-        signal.signal(signal.SIGTERM, signal.SIG_DFL) # clear handler
+        # A SIGTERM will be issued by the main process if it believes this
+        # subprocess to the stuck. In that case, simply exit with status 1.
+        # See below for pending TODO on how to remove this.
+        signal.signal(signal.SIGTERM, lambda signum, stack: os._exit(1))
         input_file = os.fdopen(read_fd, 'r')
         for line in iter(input_file.readline, ''):
             logging.log(self._level, line.rstrip('\n'))
@@ -650,7 +657,20 @@ class _FdRedirectionStreamManager(_StreamManager):
         child_pid = my_context['child_pid']
         try:
             os.close(self._fd)
-            os.waitpid(child_pid, 0)
+            # TODO(crbug.com/970115): remove this work-around in favor of
+            # a clean waitpid(child_pid, 0) once the issue described in the
+            # bug is root caused and resolved.
+            end = time.time() + self.WAITPID_TIMEOUT_S
+            while time.time() < end:
+                if os.waitpid(child_pid, os.WNOHANG) != (0, 0):
+                    break
+                time.sleep(self.WAITPID_SAMPLE_TIME_S)
+            else:
+                # After timeout the process still hasn't finished. Send a
+                # SIGTERM as it's likely stuck.
+                os.kill(child_pid, signal.SIGTERM)
+                logging.exception('Ended up killing logging subprocess at %s.',
+                                  child_pid)
         except OSError:
             logging.exception('Failed to cleanly shutdown logging subprocess:')
 

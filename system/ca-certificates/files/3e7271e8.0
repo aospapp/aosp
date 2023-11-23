@@ -27,7 +27,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number: 946069240 (0x3863def8)
-    Signature Algorithm: sha1WithRSAEncryption
+        Signature Algorithm: sha1WithRSAEncryption
         Issuer: O=Entrust.net, OU=www.entrust.net/CPS_2048 incorp. by ref. (limits liab.), OU=(c) 1999 Entrust.net Limited, CN=Entrust.net Certification Authority (2048)
         Validity
             Not Before: Dec 24 17:50:51 1999 GMT
@@ -35,7 +35,7 @@ Certificate:
         Subject: O=Entrust.net, OU=www.entrust.net/CPS_2048 incorp. by ref. (limits liab.), OU=(c) 1999 Entrust.net Limited, CN=Entrust.net Certification Authority (2048)
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:ad:4d:4b:a9:12:86:b2:ea:a3:20:07:15:16:64:
                     2a:2b:4b:d1:bf:0b:4a:4d:8e:ed:80:76:a5:67:b7:

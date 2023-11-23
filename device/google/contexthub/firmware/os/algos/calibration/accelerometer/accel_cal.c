@@ -22,7 +22,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined(ACCEL_CAL_DBG_ENABLED) || defined(IMU_TEMP_DBG_ENABLED)
 #include "calibration/util/cal_log.h"
+#endif  // ACCEL_CAL_DBG_ENABLED || IMU_TEMP_DBG_ENABLED
 
 // clang-format off
 #define KSCALE \

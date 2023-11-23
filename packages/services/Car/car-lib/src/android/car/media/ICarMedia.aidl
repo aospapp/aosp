@@ -17,6 +17,7 @@
 package android.car.media;
 
 import android.car.media.ICarMediaSourceListener;
+import android.content.ComponentName;
 
 /**
  * Binder interface for {@link android.car.media.CarMediaManager}.
@@ -25,8 +26,18 @@ import android.car.media.ICarMediaSourceListener;
  * @hide
  */
 interface ICarMedia {
-    String getMediaSource();
-    void setMediaSource(in String mediaSource);
-    void registerMediaSourceListener(in ICarMediaSourceListener callback);
-    void unregisterMediaSourceListener(in ICarMediaSourceListener callback);
+    /** Gets the currently active media source for the provided mode */
+    ComponentName getMediaSource(int mode);
+    /** Sets the currently active media source for the provided mode */
+    void setMediaSource(in ComponentName mediaSource, int mode);
+    /** Register a callback that receives updates to the active media source */
+    void registerMediaSourceListener(in ICarMediaSourceListener callback, int mode);
+    /** Unregister a callback that receives updates to the active media source */
+    void unregisterMediaSourceListener(in ICarMediaSourceListener callback, int mode);
+    /** Retrieve a list of media sources, ordered by most recently used */
+    List<ComponentName> getLastMediaSources(int mode);
+    /** Returns whether the browse and playback sources can be changed independently. */
+    boolean isIndependentPlaybackConfig();
+    /** Sets whether the browse and playback sources can be changed independently. */
+    void setIndependentPlaybackConfig(boolean independent);
 }

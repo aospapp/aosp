@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Glöm"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Ansluter via Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Ansluter via det nuvarande nätverket på <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Standardutskriftstjänsten har de grundläggande alternativen. Med en annan utskriftstjänst kan det finnas fler alternativ tillgängliga för den här skrivaren."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Rekommenderade tjänster"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Välj om du vill installera"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Välj om du vill aktivera"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Hantera tjänster"</string>
     <string name="security" msgid="2279008326210305401">"Säkerhet"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Skrivaren har ett nytt säkerhetscertifikat, om inte en annan enhet har övertagit dess identitet. Godkänner du det nya certifikatet?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Krypterade jobb godkänns inte längre på denna skrivare. Vill du fortsätta att skriva ut?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Anslutningar"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standardtjänsten för utskrift behöver platsbehörighet för att kunna upptäcka enheter i närheten."</string>
     <string name="fix" msgid="7784394272611365393">"Granska behörighet"</string>
+    <string name="print" msgid="7851318072404916362">"Skriv ut"</string>
 </resources>

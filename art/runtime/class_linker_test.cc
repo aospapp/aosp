@@ -92,7 +92,7 @@ class ClassLinkerTest : public CommonRuntimeTest {
     EXPECT_TRUE(primitive->GetSuperClass() == nullptr);
     EXPECT_FALSE(primitive->HasSuperClass());
     EXPECT_TRUE(primitive->GetClassLoader() == nullptr);
-    EXPECT_EQ(ClassStatus::kInitialized, primitive->GetStatus());
+    EXPECT_EQ(ClassStatus::kVisiblyInitialized, primitive->GetStatus());
     EXPECT_FALSE(primitive->IsErroneous());
     EXPECT_TRUE(primitive->IsLoaded());
     EXPECT_TRUE(primitive->IsResolved());
@@ -131,7 +131,8 @@ class ClassLinkerTest : public CommonRuntimeTest {
     EXPECT_TRUE(JavaLangObject->GetSuperClass() == nullptr);
     EXPECT_FALSE(JavaLangObject->HasSuperClass());
     EXPECT_TRUE(JavaLangObject->GetClassLoader() == nullptr);
-    EXPECT_EQ(ClassStatus::kInitialized, JavaLangObject->GetStatus());
+    class_linker_->MakeInitializedClassesVisiblyInitialized(Thread::Current(), /*wait=*/ true);
+    EXPECT_EQ(ClassStatus::kVisiblyInitialized, JavaLangObject->GetStatus());
     EXPECT_FALSE(JavaLangObject->IsErroneous());
     EXPECT_TRUE(JavaLangObject->IsLoaded());
     EXPECT_TRUE(JavaLangObject->IsResolved());
@@ -207,7 +208,7 @@ class ClassLinkerTest : public CommonRuntimeTest {
     EXPECT_TRUE(array->HasSuperClass());
     ASSERT_TRUE(array->GetComponentType() != nullptr);
     ASSERT_GT(strlen(array->GetComponentType()->GetDescriptor(&temp)), 0U);
-    EXPECT_EQ(ClassStatus::kInitialized, array->GetStatus());
+    EXPECT_EQ(ClassStatus::kVisiblyInitialized, array->GetStatus());
     EXPECT_FALSE(array->IsErroneous());
     EXPECT_TRUE(array->IsLoaded());
     EXPECT_TRUE(array->IsResolved());
@@ -478,6 +479,7 @@ struct CheckOffsets {
     ObjPtr<mirror::Class> klass =
         Runtime::Current()->GetClassLinker()->FindSystemClass(self, class_descriptor.c_str());
     CHECK(klass != nullptr) << class_descriptor;
+    CHECK(klass->IsMirrored()) << class_descriptor;
 
     bool error = false;
 
@@ -610,6 +612,9 @@ struct ClassOffsets : public CheckOffsets<mirror::Class> {
 
 struct ClassExtOffsets : public CheckOffsets<mirror::ClassExt> {
   ClassExtOffsets() : CheckOffsets<mirror::ClassExt>(false, "Ldalvik/system/ClassExt;") {
+    addOffset(OFFSETOF_MEMBER(mirror::ClassExt, instance_jfield_ids_), "instanceJfieldIDs");
+    addOffset(OFFSETOF_MEMBER(mirror::ClassExt, jmethod_ids_), "jmethodIDs");
+    addOffset(OFFSETOF_MEMBER(mirror::ClassExt, obsolete_class_), "obsoleteClass");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, obsolete_dex_caches_), "obsoleteDexCaches");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, obsolete_methods_), "obsoleteMethods");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, original_dex_file_), "originalDexFile");
@@ -617,6 +622,7 @@ struct ClassExtOffsets : public CheckOffsets<mirror::ClassExt> {
               "preRedefineClassDefIndex");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, pre_redefine_dex_file_ptr_),
               "preRedefineDexFilePtr");
+    addOffset(OFFSETOF_MEMBER(mirror::ClassExt, static_jfield_ids_), "staticJfieldIDs");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, verify_error_), "verifyError");
   }
 };
@@ -666,6 +672,7 @@ struct ProxyOffsets : public CheckOffsets<mirror::Proxy> {
 
 struct DexCacheOffsets : public CheckOffsets<mirror::DexCache> {
   DexCacheOffsets() : CheckOffsets<mirror::DexCache>(false, "Ljava/lang/DexCache;") {
+    addOffset(OFFSETOF_MEMBER(mirror::DexCache, class_loader_), "classLoader");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, dex_file_), "dexFile");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, location_), "location");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_preresolved_strings_), "numPreResolvedStrings");
@@ -713,8 +720,8 @@ struct AccessibleObjectOffsets : public CheckOffsets<mirror::AccessibleObject> {
 struct FieldOffsets : public CheckOffsets<mirror::Field> {
   FieldOffsets() : CheckOffsets<mirror::Field>(false, "Ljava/lang/reflect/Field;") {
     addOffset(OFFSETOF_MEMBER(mirror::Field, access_flags_), "accessFlags");
+    addOffset(OFFSETOF_MEMBER(mirror::Field, art_field_index_), "artFieldIndex");
     addOffset(OFFSETOF_MEMBER(mirror::Field, declaring_class_), "declaringClass");
-    addOffset(OFFSETOF_MEMBER(mirror::Field, dex_field_index_), "dexFieldIndex");
     addOffset(OFFSETOF_MEMBER(mirror::Field, offset_), "offset");
     addOffset(OFFSETOF_MEMBER(mirror::Field, type_), "type");
   }
@@ -1522,7 +1529,7 @@ TEST_F(ClassLinkerTest, RegisterDexFileName) {
     ASSERT_TRUE(dex_cache != nullptr);
   }
   // Make a copy of the dex cache and change the name.
-  dex_cache.Assign(dex_cache->Clone(soa.Self())->AsDexCache());
+  dex_cache.Assign(mirror::Object::Clone(dex_cache, soa.Self())->AsDexCache());
   const uint16_t data[] = { 0x20AC, 0x20A1 };
   Handle<mirror::String> location(hs.NewHandle(mirror::String::AllocFromUtf16(soa.Self(),
                                                                               arraysize(data),

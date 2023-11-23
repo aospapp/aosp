@@ -22,6 +22,10 @@ cc_test {
         "LibVintfTest.cpp",
     ],
 
+    header_libs: [
+        "libvintf_local_headers",
+    ],
+
     shared_libs: [
         "libbase",
         "libcutils",
@@ -92,35 +96,3 @@ cc_test {
     ],
 }
 
-// run this with: ./vintf_object_recovery_test.sh
-cc_test {
-    name: "vintf_object_recovery_test",
-    defaults: ["libvintf-defaults"],
-
-    static_libs: [
-        "libvintf_recovery",
-        "libvintf",
-        "libhidl-gen-utils",
-        "libfs_mgr",
-        "liblp",
-        "libcrypto",
-        "libcrypto_utils",
-        "libext4_utils",
-        "libcutils",
-        "libgtest",
-        "libbase",
-        "liblog",
-        "libselinux",
-        "libtinyxml2",
-        "libz",
-    ],
-
-    cflags: [
-        "-O0",
-        "-g",
-    ],
-
-    srcs: [
-        "VintfObjectRecoveryTest.cpp",
-    ],
-}

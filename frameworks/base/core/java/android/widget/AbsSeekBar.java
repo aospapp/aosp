@@ -18,7 +18,7 @@ package android.widget;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
@@ -91,10 +91,12 @@ public abstract class AbsSeekBar extends ProgressBar {
     @UnsupportedAppUsage
     private float mDisabledAlpha;
 
+    private int mThumbExclusionMaxSize;
     private int mScaledTouchSlop;
     private float mTouchDownX;
     @UnsupportedAppUsage
     private boolean mIsDragging;
+    private float mTouchThumbOffset = 0.0f;
 
     private List<Rect> mUserGestureExclusionRects = Collections.emptyList();
     private final List<Rect> mGestureExclusionRects = new ArrayList<>();
@@ -170,6 +172,8 @@ public abstract class AbsSeekBar extends ProgressBar {
         applyTickMarkTint();
 
         mScaledTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        mThumbExclusionMaxSize = getResources().getDimensionPixelSize(
+                com.android.internal.R.dimen.seekbar_thumb_exclusion_max_size);
     }
 
     /**
@@ -762,9 +766,27 @@ public abstract class AbsSeekBar extends ProgressBar {
         }
         mGestureExclusionRects.clear();
         thumb.copyBounds(mThumbRect);
+        mThumbRect.offset(mPaddingLeft - mThumbOffset, mPaddingTop);
+        growRectTo(mThumbRect, Math.min(getHeight(), mThumbExclusionMaxSize));
         mGestureExclusionRects.add(mThumbRect);
         mGestureExclusionRects.addAll(mUserGestureExclusionRects);
         super.setSystemGestureExclusionRects(mGestureExclusionRects);
+    }
+
+    /**
+     * Grows {@code r} from its center such that each dimension is at least {@code minimumSize}.
+     */
+    private void growRectTo(Rect r, int minimumSize) {
+        int dy = (minimumSize - r.height()) / 2;
+        if (dy > 0) {
+            r.top -= dy;
+            r.bottom += dy;
+        }
+        int dx = (minimumSize - r.width()) / 2;
+        if (dx > 0) {
+            r.left -= dx;
+            r.right += dx;
+        }
     }
 
     /**
@@ -874,6 +896,14 @@ public abstract class AbsSeekBar extends ProgressBar {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+                if (mThumb != null) {
+                    final int availableWidth = getWidth() - mPaddingLeft - mPaddingRight;
+                    mTouchThumbOffset = (getProgress() - getMin()) / (float) (getMax()
+                        - getMin()) - (event.getX() - mPaddingLeft) / availableWidth;
+                    if (Math.abs(mTouchThumbOffset * availableWidth) > getThumbOffset()) {
+                        mTouchThumbOffset = 0;
+                    }
+                }
                 if (isInScrollingContainer()) {
                     mTouchDownX = event.getX();
                 } else {
@@ -956,7 +986,8 @@ public abstract class AbsSeekBar extends ProgressBar {
             } else if (x < mPaddingLeft) {
                 scale = 1.0f;
             } else {
-                scale = (availableWidth - x + mPaddingLeft) / (float) availableWidth;
+                scale = (availableWidth - x + mPaddingLeft) / (float) availableWidth
+                    + mTouchThumbOffset;
                 progress = mTouchProgressOffset;
             }
         } else {
@@ -965,7 +996,7 @@ public abstract class AbsSeekBar extends ProgressBar {
             } else if (x > width - mPaddingRight) {
                 scale = 1.0f;
             } else {
-                scale = (x - mPaddingLeft) / (float) availableWidth;
+                scale = (x - mPaddingLeft) / (float) availableWidth + mTouchThumbOffset;
                 progress = mTouchProgressOffset;
             }
         }

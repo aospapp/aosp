@@ -24,8 +24,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
-
 
 public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothConnector {
 
@@ -33,27 +34,67 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
 
     private static final boolean DEBUG = false;
 
+    private static final int MSG_CONNECT_TIMEOUT = 1;
+    private static final int MSG_CONNECT = 2;
+
+    private static final int CONNECT_TIMEOUT_MS = 10000;
+    private static final int CONNECT_DELAY = 1000;
+
     private Context mContext;
     private BluetoothDevice mTarget;
     private BluetoothDevicePairer.OpenConnectionCallback mOpenConnectionCallback;
     private BluetoothA2dp mA2dpProfile;
     private boolean mConnectionStateReceiverRegistered = false;
 
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message m) {
+            switch (m.what) {
+                case MSG_CONNECT_TIMEOUT:
+                    failed();
+                    break;
+                case MSG_CONNECT:
+                    if (mA2dpProfile == null) {
+                        break;
+                    }
+                    mA2dpProfile.connect(mTarget);
+                    // must set PRIORITY_AUTO_CONNECT or auto-connection will not
+                    // occur, however this setting does not appear to be sticky
+                    // across a reboot
+                    mA2dpProfile.setPriority(mTarget, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+
     private BroadcastReceiver mConnectionStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            BluetoothDevice device = (BluetoothDevice) intent.getParcelableExtra(
-                    BluetoothDevice.EXTRA_DEVICE);
+            BluetoothDevice device =
+                    (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
             if (DEBUG) {
                 Log.d(TAG, "There was a connection status change for: " + device.getAddress());
             }
 
-            if (device.equals(mTarget)) {
+            if (!device.equals(mTarget)) {
+                return;
+            }
+
+            if (BluetoothDevice.ACTION_UUID.equals(intent.getAction())) {
+                // regardless of the UUID content, at this point, we're sure we can initiate a
+                // profile connection.
+                mHandler.sendEmptyMessageDelayed(MSG_CONNECT_TIMEOUT, CONNECT_TIMEOUT_MS);
+                if (!mHandler.hasMessages(MSG_CONNECT)) {
+                    mHandler.sendEmptyMessageDelayed(MSG_CONNECT, CONNECT_DELAY);
+                }
+            } else { // BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED
+
                 int previousState = intent.getIntExtra(
-                        BluetoothA2dp.EXTRA_PREVIOUS_STATE,
-                        BluetoothA2dp.STATE_CONNECTING);
-                int state = intent.getIntExtra(BluetoothA2dp.EXTRA_STATE,
-                        BluetoothA2dp.STATE_CONNECTING);
+                        BluetoothA2dp.EXTRA_PREVIOUS_STATE, BluetoothA2dp.STATE_CONNECTING);
+                int state = intent.getIntExtra(
+                        BluetoothA2dp.EXTRA_STATE, BluetoothA2dp.STATE_CONNECTING);
 
                 if (DEBUG) {
                     Log.d(TAG, "Connection states: old = " + previousState + ", new = " + state);
@@ -61,10 +102,10 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
 
                 if (previousState == BluetoothA2dp.STATE_CONNECTING) {
                     if (state == BluetoothA2dp.STATE_CONNECTED) {
-                        mOpenConnectionCallback.succeeded();
+                        succeeded();
                     } else if (state == BluetoothA2dp.STATE_DISCONNECTED) {
                         Log.d(TAG, "Failed to connect");
-                        mOpenConnectionCallback.failed();
+                        failed();
                     }
 
                     unregisterConnectionStateReceiver();
@@ -74,6 +115,16 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
         }
     };
 
+    private void succeeded() {
+        mHandler.removeCallbacksAndMessages(null);
+        mOpenConnectionCallback.succeeded();
+    }
+
+    private void failed() {
+        mHandler.removeCallbacksAndMessages(null);
+        mOpenConnectionCallback.failed();
+    }
+
     private BluetoothProfile.ServiceListener mServiceConnection =
             new BluetoothProfile.ServiceListener() {
 
@@ -82,7 +133,7 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
             Log.w(TAG, "Service disconnected, perhaps unexpectedly");
             unregisterConnectionStateReceiver();
             closeA2dpProfileProxy();
-            mOpenConnectionCallback.failed();
+            failed();
         }
 
         @Override
@@ -90,21 +141,15 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
             if (DEBUG) {
                 Log.d(TAG, "Connection made to bluetooth proxy." );
             }
-            BluetoothA2dp mA2dpProfile = (BluetoothA2dp) proxy;
+            mA2dpProfile = (BluetoothA2dp) proxy;
             if (DEBUG) {
                 Log.d(TAG, "Connecting to target: " + mTarget.getAddress());
             }
 
             registerConnectionStateReceiver();
-
-            // TODO need to start a timer, otherwise if the connection fails we might be
-            // stuck here forever
-            mA2dpProfile.connect(mTarget);
-
-            // must set PRIORITY_AUTO_CONNECT or auto-connection will not
-            // occur, however this setting does not appear to be sticky
-            // across a reboot
-            mA2dpProfile.setPriority(mTarget, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+            // We initiate SDP because connecting to A2DP before services are discovered leads to
+            // error.
+            mTarget.fetchUuidsWithSdp();
         }
     };
 
@@ -124,11 +169,12 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
             Log.d(TAG, "opening connection");
         }
         if (!adapter.getProfileProxy(mContext, mServiceConnection, BluetoothProfile.A2DP)) {
-            mOpenConnectionCallback.failed();
+            failed();
         }
     }
 
     private void closeA2dpProfileProxy() {
+        mHandler.removeCallbacksAndMessages(null);
         if (mA2dpProfile != null) {
             try {
                 BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
@@ -143,6 +189,7 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
     private void registerConnectionStateReceiver() {
         if (DEBUG) Log.d(TAG, "registerConnectionStateReceiver()");
         IntentFilter filter = new IntentFilter(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothDevice.ACTION_UUID);
         mContext.registerReceiver(mConnectionStateReceiver, filter);
         mConnectionStateReceiverRegistered = true;
     }

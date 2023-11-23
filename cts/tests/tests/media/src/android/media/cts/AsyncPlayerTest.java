@@ -24,6 +24,7 @@ import android.net.Uri;
 import android.provider.Settings;
 import android.test.AndroidTestCase;
 
+@NonMediaMainlineTest
 public class AsyncPlayerTest extends AndroidTestCase {
 
     public void testAsyncPlayer() throws Exception {

@@ -18,13 +18,12 @@ package com.android.settings.wifi.calling;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
 import android.content.Intent;
 import android.provider.Settings;
 import android.telephony.SubscriptionInfo;
@@ -32,14 +31,19 @@ import android.view.View;
 
 import androidx.fragment.app.FragmentActivity;
 
+import com.android.ims.ImsManager;
 import com.android.settings.R;
 import com.android.settings.network.SubscriptionUtil;
+import com.android.settings.network.ims.MockWifiCallingQueryImsState;
 import com.android.settings.widget.RtlCompatibleViewPager;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.androidx.fragment.FragmentController;
 
 import java.util.ArrayList;
@@ -48,12 +52,37 @@ import java.util.Collections;
 
 @RunWith(RobolectricTestRunner.class)
 public class WifiCallingSettingsTest {
+    private static final int SUB_ID1 = 111;
+    private static final int SUB_ID2 = 222;
+
+    private Context mContext;
+
+    @Mock
+    private ImsManager mImsManager;
 
     private WifiCallingSettings mFragment;
 
+    private MockWifiCallingQueryImsState mQueryImsState1;
+    private MockWifiCallingQueryImsState mQueryImsState2;
+
     @Before
     public void setUp() {
+        MockitoAnnotations.initMocks(this);
+
+        mContext = spy(RuntimeEnvironment.application);
+
+        mQueryImsState1 = new MockWifiCallingQueryImsState(mContext, SUB_ID1);
+        mQueryImsState2 = new MockWifiCallingQueryImsState(mContext, SUB_ID2);
+        mQueryImsState1.setIsEnabledByUser(true);
+        mQueryImsState2.setIsEnabledByUser(true);
+        mQueryImsState1.setIsEnabledByPlatform(true);
+        mQueryImsState2.setIsEnabledByPlatform(true);
+        mQueryImsState1.setIsProvisionedOnDevice(true);
+        mQueryImsState2.setIsProvisionedOnDevice(true);
+
         mFragment = spy(new WifiCallingSettings());
+        doReturn(mQueryImsState1).when(mFragment).queryImsState(SUB_ID1);
+        doReturn(mQueryImsState2).when(mFragment).queryImsState(SUB_ID2);
     }
 
     @Test
@@ -64,72 +93,71 @@ public class WifiCallingSettingsTest {
 
     @Test
     public void setupFragment_oneSubscription_noCrash() {
-        SubscriptionInfo info = mock(SubscriptionInfo.class);
-        when(info.getSubscriptionId()).thenReturn(111);
+        final SubscriptionInfo info = mock(SubscriptionInfo.class);
+        when(info.getSubscriptionId()).thenReturn(SUB_ID1);
 
         SubscriptionUtil.setActiveSubscriptionsForTesting(new ArrayList<>(
                 Collections.singletonList(info)));
-        doReturn(true).when(mFragment).isWfcEnabledByPlatform(any(SubscriptionInfo.class));
+        mQueryImsState1.setIsEnabledByPlatform(true);
+        mQueryImsState1.setIsProvisionedOnDevice(true);
 
-        Intent intent = new Intent();
+        final Intent intent = new Intent();
         intent.putExtra(Settings.EXTRA_SUB_ID, info.getSubscriptionId());
         FragmentController.of(mFragment, intent).create(0 /* containerViewId*/,
                 null /* bundle */).start().resume().visible().get();
 
-        View view = mFragment.getView();
-        RtlCompatibleViewPager pager = view.findViewById(R.id.view_pager);
-        WifiCallingSettings.WifiCallingViewPagerAdapter adapter =
+        final View view = mFragment.getView();
+        final RtlCompatibleViewPager pager = view.findViewById(R.id.view_pager);
+        final WifiCallingSettings.WifiCallingViewPagerAdapter adapter =
                 (WifiCallingSettings.WifiCallingViewPagerAdapter) pager.getAdapter();
         assertThat(adapter.getCount()).isEqualTo(1);
     }
 
     @Test
     public void setupFragment_twoSubscriptions_correctSelection() {
-        SubscriptionInfo info1 = mock(SubscriptionInfo.class);
-        SubscriptionInfo info2 = mock(SubscriptionInfo.class);
-        when(info1.getSubscriptionId()).thenReturn(111);
-        when(info2.getSubscriptionId()).thenReturn(222);
+        final SubscriptionInfo info1 = mock(SubscriptionInfo.class);
+        final SubscriptionInfo info2 = mock(SubscriptionInfo.class);
+        when(info1.getSubscriptionId()).thenReturn(SUB_ID1);
+        when(info2.getSubscriptionId()).thenReturn(SUB_ID2);
 
         SubscriptionUtil.setActiveSubscriptionsForTesting(new ArrayList<>(
                 Arrays.asList(info1, info2)));
-        doReturn(true).when(mFragment).isWfcEnabledByPlatform(any(SubscriptionInfo.class));
 
-        Intent intent = new Intent();
+        final Intent intent = new Intent();
         intent.putExtra(Settings.EXTRA_SUB_ID, info2.getSubscriptionId());
         FragmentController.of(mFragment, intent).create(0 /* containerViewId*/,
                 null /* bundle */).start().resume().visible().get();
 
-        View view = mFragment.getView();
-        RtlCompatibleViewPager pager = view.findViewById(R.id.view_pager);
+        final View view = mFragment.getView();
+        final RtlCompatibleViewPager pager = view.findViewById(R.id.view_pager);
         assertThat(pager.getCurrentItem()).isEqualTo(1);
 
-        WifiCallingSettings.WifiCallingViewPagerAdapter adapter =
+        final WifiCallingSettings.WifiCallingViewPagerAdapter adapter =
                 (WifiCallingSettings.WifiCallingViewPagerAdapter) pager.getAdapter();
         assertThat(adapter.getCount()).isEqualTo(2);
     }
 
     @Test
     public void setupFragment_twoSubscriptionsOneNotProvisionedOnDevice_oneResult() {
-        SubscriptionInfo info1 = mock(SubscriptionInfo.class);
-        SubscriptionInfo info2 = mock(SubscriptionInfo.class);
-        when(info1.getSubscriptionId()).thenReturn(111);
-        when(info2.getSubscriptionId()).thenReturn(222);
+        final SubscriptionInfo info1 = mock(SubscriptionInfo.class);
+        final SubscriptionInfo info2 = mock(SubscriptionInfo.class);
+        when(info1.getSubscriptionId()).thenReturn(SUB_ID1);
+        when(info2.getSubscriptionId()).thenReturn(SUB_ID2);
 
         SubscriptionUtil.setActiveSubscriptionsForTesting(new ArrayList<>(
                 Arrays.asList(info1, info2)));
-        doReturn(true).when(mFragment).isWfcEnabledByPlatform(any(SubscriptionInfo.class));
-        doReturn(false).when(mFragment).isWfcProvisionedOnDevice(eq(info2));
+        mQueryImsState2.setIsProvisionedOnDevice(false);
 
-        Intent intent = new Intent();
+        final Intent intent = new Intent();
         intent.putExtra(Settings.EXTRA_SUB_ID, info1.getSubscriptionId());
         FragmentController.of(mFragment, intent).create(0 /* containerViewId*/,
                 null /* bundle */).start().resume().visible().get();
 
-        View view = mFragment.getView();
-        RtlCompatibleViewPager pager = view.findViewById(R.id.view_pager);
+        final View view = mFragment.getView();
+        final RtlCompatibleViewPager pager = view.findViewById(R.id.view_pager);
         assertThat(pager.getCurrentItem()).isEqualTo(0);
 
-        WifiCallingSettings.WifiCallingViewPagerAdapter adapter =
+        final WifiCallingSettings.WifiCallingViewPagerAdapter adapter =
                 (WifiCallingSettings.WifiCallingViewPagerAdapter) pager.getAdapter();
         assertThat(adapter.getCount()).isEqualTo(1);
     }

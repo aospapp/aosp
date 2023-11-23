@@ -261,7 +261,7 @@ public class ProviderPermissionTest extends AndroidTestCase {
                     ui.adoptShellPermissionIdentity("android.permission.GET_RUNTIME_PERMISSIONS");
                     try {
                         flags = pm.getPermissionFlags(WRITE_EXTERNAL_STORAGE, pkg.packageName,
-                                UserHandle.SYSTEM);
+                                android.os.Process.myUserHandle());
                     } finally {
                         ui.dropShellPermissionIdentity();
                     }

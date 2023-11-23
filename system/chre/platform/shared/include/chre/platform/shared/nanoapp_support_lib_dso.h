@@ -37,17 +37,17 @@ extern "C" {
 #endif
 
 //! Special magic value to uniquely identify the nanoapp info structure
-#define CHRE_NSL_NANOAPP_INFO_MAGIC  UINT32_C(0x50e69977)
+#define CHRE_NSL_NANOAPP_INFO_MAGIC UINT32_C(0x50e69977)
 
 //! The minor version in the nanoapp info structure to determine which fields
 //! are available to support backwards compatibility.
-#define CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION  UINT8_C(2)
+#define CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION UINT8_C(2)
 
 //! The symbol name expected from the nanoapp's definition of its info struct
-#define CHRE_NSL_DSO_NANOAPP_INFO_SYMBOL_NAME  "_chreNslDsoNanoappInfo"
+#define CHRE_NSL_DSO_NANOAPP_INFO_SYMBOL_NAME "_chreNslDsoNanoappInfo"
 
 //! Maximum length of vendor and name strings
-#define CHRE_NSL_DSO_NANOAPP_STRING_MAX_LEN  (32)
+#define CHRE_NSL_DSO_NANOAPP_STRING_MAX_LEN (32)
 
 /**
  * DSO-based nanoapps must expose this struct under a symbol whose name is given
@@ -64,18 +64,18 @@ struct chreNslNanoappInfo {
   //! Set to 1 if this nanoapp is a "system nanoapp" that should not show up in
   //! the context hub HAL, likely because it implements some device
   //! functionality beneath the HAL.
-  uint8_t isSystemNanoapp:1;
+  uint8_t isSystemNanoapp : 1;
 
   //! Set to 1 if this nanoapp runs in tightly coupled memory. This flag is only
   //! relevant to platforms that have the ability to run nanoapps within tightly
   //! coupled memory.
   //!
   //! @since minor version 1
-  uint8_t isTcmNanoapp:1;
+  uint8_t isTcmNanoapp : 1;
 
   //! Reserved for future use, set to 0. Assignment of this field to some use
   //! must be accompanied by an increase of the struct minor version.
-  uint8_t reservedFlags:6;
+  uint8_t reservedFlags : 6;
   uint8_t reserved;
 
   //! The CHRE API version that the nanoapp was compiled against

@@ -14,6 +14,8 @@
 #include <dm/device-internal.h>
 #include <dm/uclass-internal.h>
 #include <dm/util.h>
+#include <dm/lists.h>
+#include <dm/of_access.h>
 #include <test/ut.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -53,10 +55,13 @@ static int testfdt_drv_probe(struct udevice *dev)
 
 	/*
 	 * If this device is on a bus, the uclass_flag will be set before
-	 * calling this function. This is used by
-	 * dm_test_bus_child_pre_probe_uclass().
+	 * calling this function. In the meantime the uclass_postp is
+	 * initlized to a value -1. These are used respectively by
+	 * dm_test_bus_child_pre_probe_uclass() and
+	 * dm_test_bus_child_post_probe_uclass().
 	 */
 	priv->uclass_total += priv->uclass_flag;
+	priv->uclass_postp = -1;
 
 	return 0;
 }
@@ -80,6 +85,25 @@ U_BOOT_DRIVER(testfdt_drv) = {
 	.ops	= &test_ops,
 	.priv_auto_alloc_size = sizeof(struct dm_test_priv),
 	.platdata_auto_alloc_size = sizeof(struct dm_test_pdata),
+};
+
+static const struct udevice_id testfdt1_ids[] = {
+	{
+		.compatible = "denx,u-boot-fdt-test1",
+		.data = DM_TEST_TYPE_FIRST },
+	{ }
+};
+
+U_BOOT_DRIVER(testfdt1_drv) = {
+	.name	= "testfdt1_drv",
+	.of_match	= testfdt1_ids,
+	.id	= UCLASS_TEST_FDT,
+	.ofdata_to_platdata = testfdt_ofdata_to_platdata,
+	.probe	= testfdt_drv_probe,
+	.ops	= &test_ops,
+	.priv_auto_alloc_size = sizeof(struct dm_test_priv),
+	.platdata_auto_alloc_size = sizeof(struct dm_test_pdata),
+	.flags = DM_FLAG_PRE_RELOC,
 };
 
 /* From here is the testfdt uclass code */
@@ -166,7 +190,7 @@ int dm_check_devices(struct unit_test_state *uts, int num_devices)
 /* Test that FDT-based binding works correctly */
 static int dm_test_fdt(struct unit_test_state *uts)
 {
-	const int num_devices = 7;
+	const int num_devices = 8;
 	struct udevice *dev;
 	struct uclass *uc;
 	int ret;
@@ -195,6 +219,29 @@ static int dm_test_fdt(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_fdt, 0);
 
+static int dm_test_alias_highest_id(struct unit_test_state *uts)
+{
+	int ret;
+
+	ret = dev_read_alias_highest_id("eth");
+	ut_asserteq(5, ret);
+
+	ret = dev_read_alias_highest_id("gpio");
+	ut_asserteq(2, ret);
+
+	ret = dev_read_alias_highest_id("pci");
+	ut_asserteq(2, ret);
+
+	ret = dev_read_alias_highest_id("i2c");
+	ut_asserteq(0, ret);
+
+	ret = dev_read_alias_highest_id("deadbeef");
+	ut_asserteq(-1, ret);
+
+	return 0;
+}
+DM_TEST(dm_test_alias_highest_id, 0);
+
 static int dm_test_fdt_pre_reloc(struct unit_test_state *uts)
 {
 	struct uclass *uc;
@@ -206,8 +253,12 @@ static int dm_test_fdt_pre_reloc(struct unit_test_state *uts)
 	ret = uclass_get(UCLASS_TEST_FDT, &uc);
 	ut_assert(!ret);
 
-	/* These is only one pre-reloc device */
-	ut_asserteq(1, list_count_items(&uc->dev_head));
+	/*
+	 * These are 2 pre-reloc devices:
+	 * one with "u-boot,dm-pre-reloc" property (a-test node), and the other
+	 * one whose driver marked with DM_FLAG_PRE_RELOC flag (h-test node).
+	 */
+	ut_asserteq(2, list_count_items(&uc->dev_head));
 
 	return 0;
 }
@@ -439,6 +490,7 @@ U_BOOT_DRIVER(fdt_dummy_drv) = {
 static int dm_test_fdt_translation(struct unit_test_state *uts)
 {
 	struct udevice *dev;
+	fdt32_t dma_addr[2];
 
 	/* Some simple translations */
 	ut_assertok(uclass_find_device_by_seq(UCLASS_TEST_DUMMY, 0, true, &dev));
@@ -458,11 +510,21 @@ static int dm_test_fdt_translation(struct unit_test_state *uts)
 	ut_asserteq_str("dev@42", dev->name);
 	ut_asserteq(0x42, dev_read_addr(dev));
 
+	/* dma address translation */
+	ut_assertok(uclass_find_device_by_seq(UCLASS_TEST_DUMMY, 0, true, &dev));
+	dma_addr[0] = cpu_to_be32(0);
+	dma_addr[1] = cpu_to_be32(0);
+	ut_asserteq(0x10000000, dev_translate_dma_address(dev, dma_addr));
+
+	ut_assertok(uclass_find_device_by_seq(UCLASS_TEST_DUMMY, 1, true, &dev));
+	dma_addr[0] = cpu_to_be32(1);
+	dma_addr[1] = cpu_to_be32(0x100);
+	ut_asserteq(0x20000000, dev_translate_dma_address(dev, dma_addr));
+
 	return 0;
 }
 DM_TEST(dm_test_fdt_translation, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
 
-/* Test devfdt_remap_addr_index() */
 static int dm_test_fdt_remap_addr_flat(struct unit_test_state *uts)
 {
 	struct udevice *dev;
@@ -483,7 +545,50 @@ static int dm_test_fdt_remap_addr_flat(struct unit_test_state *uts)
 DM_TEST(dm_test_fdt_remap_addr_flat,
 	DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT | DM_TESTF_FLAT_TREE);
 
-/* Test dev_remap_addr_index() */
+static int dm_test_fdt_remap_addr_index_flat(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	fdt_addr_t addr;
+	fdt_size_t size;
+	void *paddr;
+
+	ut_assertok(uclass_find_device_by_seq(UCLASS_TEST_DUMMY, 0, true, &dev));
+
+	addr = devfdt_get_addr_size_index(dev, 0, &size);
+	ut_asserteq(0x8000, addr);
+	ut_asserteq(0x1000, size);
+
+	paddr = map_physmem(addr, 0, MAP_NOCACHE);
+	ut_assertnonnull(paddr);
+	ut_asserteq_ptr(paddr, devfdt_remap_addr_index(dev, 0));
+
+	return 0;
+}
+DM_TEST(dm_test_fdt_remap_addr_index_flat,
+	DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT | DM_TESTF_FLAT_TREE);
+
+static int dm_test_fdt_remap_addr_name_flat(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	fdt_addr_t addr;
+	fdt_size_t size;
+	void *paddr;
+
+	ut_assertok(uclass_find_device_by_seq(UCLASS_TEST_DUMMY, 0, true, &dev));
+
+	addr = devfdt_get_addr_size_name(dev, "sandbox-dummy-0", &size);
+	ut_asserteq(0x8000, addr);
+	ut_asserteq(0x1000, size);
+
+	paddr = map_physmem(addr, 0, MAP_NOCACHE);
+	ut_assertnonnull(paddr);
+	ut_asserteq_ptr(paddr, devfdt_remap_addr_name(dev, "sandbox-dummy-0"));
+
+	return 0;
+}
+DM_TEST(dm_test_fdt_remap_addr_name_flat,
+	DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT | DM_TESTF_FLAT_TREE);
+
 static int dm_test_fdt_remap_addr_live(struct unit_test_state *uts)
 {
 	struct udevice *dev;
@@ -503,3 +608,209 @@ static int dm_test_fdt_remap_addr_live(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_fdt_remap_addr_live,
 	DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
+
+static int dm_test_fdt_remap_addr_index_live(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	fdt_addr_t addr;
+	fdt_size_t size;
+	void *paddr;
+
+	ut_assertok(uclass_find_device_by_seq(UCLASS_TEST_DUMMY, 0, true, &dev));
+
+	addr = dev_read_addr_size_index(dev, 0, &size);
+	ut_asserteq(0x8000, addr);
+	ut_asserteq(0x1000, size);
+
+	paddr = map_physmem(addr, 0, MAP_NOCACHE);
+	ut_assertnonnull(paddr);
+	ut_asserteq_ptr(paddr, dev_remap_addr_index(dev, 0));
+
+	return 0;
+}
+DM_TEST(dm_test_fdt_remap_addr_index_live,
+	DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
+
+static int dm_test_fdt_remap_addr_name_live(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	fdt_addr_t addr;
+	fdt_size_t size;
+	void *paddr;
+
+	ut_assertok(uclass_find_device_by_seq(UCLASS_TEST_DUMMY, 0, true, &dev));
+
+	addr = dev_read_addr_size_name(dev, "sandbox-dummy-0", &size);
+	ut_asserteq(0x8000, addr);
+	ut_asserteq(0x1000, size);
+
+	paddr = map_physmem(addr, 0, MAP_NOCACHE);
+	ut_assertnonnull(paddr);
+	ut_asserteq_ptr(paddr, dev_remap_addr_name(dev, "sandbox-dummy-0"));
+
+	return 0;
+}
+DM_TEST(dm_test_fdt_remap_addr_name_live,
+	DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
+
+static int dm_test_fdt_livetree_writing(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	ofnode node;
+
+	if (!of_live_active()) {
+		printf("Live tree not active; ignore test\n");
+		return 0;
+	}
+
+	/* Test enabling devices */
+
+	node = ofnode_path("/usb@2");
+
+	ut_assert(!of_device_is_available(ofnode_to_np(node)));
+	ofnode_set_enabled(node, true);
+	ut_assert(of_device_is_available(ofnode_to_np(node)));
+
+	device_bind_driver_to_node(dm_root(), "usb_sandbox", "usb@2", node,
+				   &dev);
+	ut_assertok(uclass_find_device_by_seq(UCLASS_USB, 2, true, &dev));
+
+	/* Test string property setting */
+
+	ut_assert(device_is_compatible(dev, "sandbox,usb"));
+	ofnode_write_string(node, "compatible", "gdsys,super-usb");
+	ut_assert(device_is_compatible(dev, "gdsys,super-usb"));
+	ofnode_write_string(node, "compatible", "sandbox,usb");
+	ut_assert(device_is_compatible(dev, "sandbox,usb"));
+
+	/* Test setting generic properties */
+
+	/* Non-existent in DTB */
+	ut_asserteq(FDT_ADDR_T_NONE, dev_read_addr(dev));
+	/* reg = 0x42, size = 0x100 */
+	ut_assertok(ofnode_write_prop(node, "reg", 8,
+				      "\x00\x00\x00\x42\x00\x00\x01\x00"));
+	ut_asserteq(0x42, dev_read_addr(dev));
+
+	/* Test disabling devices */
+
+	device_remove(dev, DM_REMOVE_NORMAL);
+	device_unbind(dev);
+
+	ut_assert(of_device_is_available(ofnode_to_np(node)));
+	ofnode_set_enabled(node, false);
+	ut_assert(!of_device_is_available(ofnode_to_np(node)));
+
+	return 0;
+}
+DM_TEST(dm_test_fdt_livetree_writing, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
+
+static int dm_test_fdt_disable_enable_by_path(struct unit_test_state *uts)
+{
+	ofnode node;
+
+	if (!of_live_active()) {
+		printf("Live tree not active; ignore test\n");
+		return 0;
+	}
+
+	node = ofnode_path("/usb@2");
+
+	/* Test enabling devices */
+
+	ut_assert(!of_device_is_available(ofnode_to_np(node)));
+	dev_enable_by_path("/usb@2");
+	ut_assert(of_device_is_available(ofnode_to_np(node)));
+
+	/* Test disabling devices */
+
+	ut_assert(of_device_is_available(ofnode_to_np(node)));
+	dev_disable_by_path("/usb@2");
+	ut_assert(!of_device_is_available(ofnode_to_np(node)));
+
+	return 0;
+}
+DM_TEST(dm_test_fdt_disable_enable_by_path, DM_TESTF_SCAN_PDATA |
+					    DM_TESTF_SCAN_FDT);
+
+/* Test a few uclass phandle functions */
+static int dm_test_fdt_phandle(struct unit_test_state *uts)
+{
+	struct udevice *back, *dev, *dev2;
+
+	ut_assertok(uclass_find_first_device(UCLASS_PANEL_BACKLIGHT, &back));
+	ut_asserteq(-ENOENT, uclass_find_device_by_phandle(UCLASS_REGULATOR,
+							back, "missing", &dev));
+	ut_assertok(uclass_find_device_by_phandle(UCLASS_REGULATOR, back,
+						  "power-supply", &dev));
+	ut_asserteq(0, device_active(dev));
+	ut_asserteq_str("ldo1", dev->name);
+	ut_assertok(uclass_get_device_by_phandle(UCLASS_REGULATOR, back,
+						 "power-supply", &dev2));
+	ut_asserteq_ptr(dev, dev2);
+
+	return 0;
+}
+DM_TEST(dm_test_fdt_phandle, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
+
+/* Test device_find_first_child_by_uclass() */
+static int dm_test_first_child(struct unit_test_state *uts)
+{
+	struct udevice *i2c, *dev, *dev2;
+
+	ut_assertok(uclass_first_device_err(UCLASS_I2C, &i2c));
+	ut_assertok(device_find_first_child_by_uclass(i2c, UCLASS_RTC, &dev));
+	ut_asserteq_str("rtc@43", dev->name);
+	ut_assertok(device_find_child_by_name(i2c, "rtc@43", &dev2));
+	ut_asserteq_ptr(dev, dev2);
+	ut_assertok(device_find_child_by_name(i2c, "rtc@61", &dev2));
+	ut_asserteq_str("rtc@61", dev2->name);
+
+	ut_assertok(device_find_first_child_by_uclass(i2c, UCLASS_I2C_EEPROM,
+						      &dev));
+	ut_asserteq_str("eeprom@2c", dev->name);
+	ut_assertok(device_find_child_by_name(i2c, "eeprom@2c", &dev2));
+	ut_asserteq_ptr(dev, dev2);
+
+	ut_asserteq(-ENODEV, device_find_first_child_by_uclass(i2c,
+							UCLASS_VIDEO, &dev));
+	ut_asserteq(-ENODEV, device_find_child_by_name(i2c, "missing", &dev));
+
+	return 0;
+}
+DM_TEST(dm_test_first_child, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);
+
+/* Test integer functions in dm_read_...() */
+static int dm_test_read_int(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	u32 val32;
+	s32 sval;
+	uint val;
+
+	ut_assertok(uclass_first_device_err(UCLASS_TEST_FDT, &dev));
+	ut_asserteq_str("a-test", dev->name);
+	ut_assertok(dev_read_u32(dev, "int-value", &val32));
+	ut_asserteq(1234, val32);
+
+	ut_asserteq(-EINVAL, dev_read_u32(dev, "missing", &val32));
+	ut_asserteq(6, dev_read_u32_default(dev, "missing", 6));
+
+	ut_asserteq(1234, dev_read_u32_default(dev, "int-value", 6));
+	ut_asserteq(1234, val32);
+
+	ut_asserteq(-EINVAL, dev_read_s32(dev, "missing", &sval));
+	ut_asserteq(6, dev_read_s32_default(dev, "missing", 6));
+
+	ut_asserteq(-1234, dev_read_s32_default(dev, "uint-value", 6));
+	ut_assertok(dev_read_s32(dev, "uint-value", &sval));
+	ut_asserteq(-1234, sval);
+
+	val = 0;
+	ut_asserteq(-EINVAL, dev_read_u32u(dev, "missing", &val));
+	ut_assertok(dev_read_u32u(dev, "uint-value", &val));
+	ut_asserteq(-1234, val);
+
+	return 0;
+}
+DM_TEST(dm_test_read_int, DM_TESTF_SCAN_PDATA | DM_TESTF_SCAN_FDT);

@@ -2,6 +2,8 @@
 Merge OpenType Layout tables (GDEF / GPOS / GSUB).
 """
 from __future__ import print_function, division, absolute_import
+import copy
+from operator import ior
 from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import otRound
 from fontTools.misc import classifyTools
@@ -12,6 +14,7 @@ from fontTools.varLib import builder, models, varStore
 from fontTools.varLib.models import nonNone, allNone, allEqual, allEqualTo
 from fontTools.varLib.varStore import VarStoreInstancer
 from functools import reduce
+from fontTools.otlLib.builder import buildSinglePos
 
 
 class Merger(object):
@@ -119,10 +122,10 @@ def merge(merger, self, lst):
 		assert allNone(lst), (lst)
 		return
 
+	lst = [l.classDefs for l in lst]
 	self.classDefs = {}
 	# We only care about the .classDefs
 	self = self.classDefs
-	lst = [l.classDefs for l in lst]
 
 	allKeys = set()
 	allKeys.update(*[l.keys() for l in lst])
@@ -289,7 +292,8 @@ def merge(merger, self, lst):
 			if vpair is None:
 				v1, v2 = None, None
 			else:
-				v1, v2 = vpair.Value1, vpair.Value2
+				v1 = getattr(vpair, "Value1", None)
+				v2 = getattr(vpair, "Value2", None)
 			v.Value1 = otBase.ValueRecord(merger.valueFormat1, src=v1) if merger.valueFormat1 else None
 			v.Value2 = otBase.ValueRecord(merger.valueFormat2, src=v2) if merger.valueFormat2 else None
 			values[j] = v
@@ -455,7 +459,7 @@ def _PairPosFormat2_align_matrices(self, lst, font, transparent=False):
 					exemplarGlyph = next(iter(classSet))
 					klass = classDef2.get(exemplarGlyph, 0)
 					rec2 = oldClass2Records[klass]
-				class2Records.append(rec2)
+				class2Records.append(copy.deepcopy(rec2))
 			class1Records.append(rec1new)
 		new_matrices.append(class1Records)
 	matrices = new_matrices
@@ -515,19 +519,19 @@ def merge(merger, self, lst):
 	if self.Format == 1:
 		for pairSet in self.PairSet:
 			for pairValueRecord in pairSet.PairValueRecord:
-				pv1 = pairValueRecord.Value1
+				pv1 = getattr(pairValueRecord, "Value1", None)
 				if pv1 is not None:
 					vf1 |= pv1.getFormat()
-				pv2 = pairValueRecord.Value2
+				pv2 = getattr(pairValueRecord, "Value2", None)
 				if pv2 is not None:
 					vf2 |= pv2.getFormat()
 	elif self.Format == 2:
 		for class1Record in self.Class1Record:
 			for class2Record in class1Record.Class2Record:
-				pv1 = class2Record.Value1
+				pv1 = getattr(class2Record, "Value1", None)
 				if pv1 is not None:
 					vf1 |= pv1.getFormat()
-				pv2 = class2Record.Value2
+				pv2 = getattr(class2Record, "Value2", None)
 				if pv2 is not None:
 					vf2 |= pv2.getFormat()
 	self.ValueFormat1 = vf1
@@ -726,6 +730,30 @@ def _Lookup_PairPos_subtables_canonicalize(lst, font):
 
 	return lst
 
+def _Lookup_SinglePos_subtables_flatten(lst, font, min_inclusive_rec_format):
+	glyphs, _ = _merge_GlyphOrders(font,
+		[v.Coverage.glyphs for v in lst], None)
+	num_glyphs = len(glyphs)
+	new = ot.SinglePos()
+	new.Format = 2
+	new.ValueFormat = min_inclusive_rec_format
+	new.Coverage = ot.Coverage()
+	new.Coverage.glyphs = glyphs
+	new.ValueCount = num_glyphs
+	new.Value = [None] * num_glyphs
+	for singlePos in lst:
+		if singlePos.Format == 1:
+			val_rec = singlePos.Value
+			for gname in singlePos.Coverage.glyphs:
+				i = glyphs.index(gname)
+				new.Value[i] = copy.deepcopy(val_rec)
+		elif singlePos.Format == 2:
+			for j, gname in enumerate(singlePos.Coverage.glyphs):
+				val_rec = singlePos.Value[j]
+				i = glyphs.index(gname)
+				new.Value[i] = copy.deepcopy(val_rec)
+	return [new]
+
 @AligningMerger.merger(ot.Lookup)
 def merge(merger, self, lst):
 	subtables = merger.lookup_subtables = [l.SubTable for l in lst]
@@ -745,12 +773,28 @@ def merge(merger, self, lst):
 	isPairPos = self.SubTable and isinstance(self.SubTable[0], ot.PairPos)
 
 	if isPairPos:
-
 		# AFDKO and feaLib sometimes generate two Format1 subtables instead of one.
 		# Merge those before continuing.
 		# https://github.com/fonttools/fonttools/issues/719
 		self.SubTable = _Lookup_PairPos_subtables_canonicalize(self.SubTable, merger.font)
 		subtables = merger.lookup_subtables = [_Lookup_PairPos_subtables_canonicalize(st, merger.font) for st in subtables]
+	else:
+		isSinglePos = self.SubTable and isinstance(self.SubTable[0], ot.SinglePos)
+		if isSinglePos:
+			numSubtables = [len(st) for st in subtables]
+			if not all([nums == numSubtables[0] for nums in numSubtables]):
+				# Flatten list of SinglePos subtables to single Format 2 subtable,
+				# with all value records set to the rec format type.
+				# We use buildSinglePos() to optimize the lookup after merging.
+				valueFormatList = [t.ValueFormat for st in subtables for t in st]
+				# Find the minimum value record that can accomodate all the singlePos subtables.
+				mirf = reduce(ior, valueFormatList)
+				self.SubTable = _Lookup_SinglePos_subtables_flatten(self.SubTable, merger.font, mirf)
+				subtables = merger.lookup_subtables = [
+					_Lookup_SinglePos_subtables_flatten(st, merger.font, mirf) for st in subtables]
+				flattened = True
+			else:
+				flattened = False
 
 	merger.mergeLists(self.SubTable, subtables)
 	self.SubTableCount = len(self.SubTable)
@@ -768,6 +812,16 @@ def merge(merger, self, lst):
 			self.SubTable.pop(-1)
 			self.SubTableCount -= 1
 
+	elif isSinglePos and flattened:
+		singlePosTable = self.SubTable[0]
+		glyphs = singlePosTable.Coverage.glyphs
+		# We know that singlePosTable is Format 2, as this is set
+		# in _Lookup_SinglePos_subtables_flatten.
+		singlePosMapping = {
+			gname: valRecord
+			for gname, valRecord in zip(glyphs, singlePosTable.Value)
+		}
+		self.SubTable = buildSinglePos(singlePosMapping, merger.font.getReverseGlyphMap())
 	merger.mergeObjects(self, lst, exclude=['SubTable', 'SubTableCount'])
 
 	del merger.lookup_subtables
@@ -833,17 +887,10 @@ class MutatorMerger(AligningMerger):
 	the operation can benefit from many operations that the
 	aligning merger does."""
 
-	def __init__(self, font, location):
+	def __init__(self, font, instancer, deleteVariations=True):
 		Merger.__init__(self, font)
-		self.location = location
-
-		store = None
-		if 'GDEF' in font:
-			gdef = font['GDEF'].table
-			if gdef.Version >= 0x00010003:
-				store = gdef.VarStore
-
-		self.instancer = VarStoreInstancer(store, font['fvar'].axes, location)
+		self.instancer = instancer
+		self.deleteVariations = deleteVariations
 
 @MutatorMerger.merger(ot.CaretValue)
 def merge(merger, self, lst):
@@ -856,14 +903,16 @@ def merge(merger, self, lst):
 
 	instancer = merger.instancer
 	dev = self.DeviceTable
-	del self.DeviceTable
+	if merger.deleteVariations:
+		del self.DeviceTable
 	if dev:
 		assert dev.DeltaFormat == 0x8000
 		varidx = (dev.StartSize << 16) + dev.EndSize
 		delta = otRound(instancer[varidx])
-		self.Coordinate  += delta
+		self.Coordinate += delta
 
-	self.Format = 1
+	if merger.deleteVariations:
+		self.Format = 1
 
 @MutatorMerger.merger(ot.Anchor)
 def merge(merger, self, lst):
@@ -880,7 +929,8 @@ def merge(merger, self, lst):
 		if not hasattr(self, tableName):
 			continue
 		dev = getattr(self, tableName)
-		delattr(self, tableName)
+		if merger.deleteVariations:
+			delattr(self, tableName)
 		if dev is None:
 			continue
 
@@ -891,7 +941,8 @@ def merge(merger, self, lst):
 		attr = v+'Coordinate'
 		setattr(self, attr, getattr(self, attr) + delta)
 
-	self.Format = 1
+	if merger.deleteVariations:
+		self.Format = 1
 
 @MutatorMerger.merger(otBase.ValueRecord)
 def merge(merger, self, lst):
@@ -900,7 +951,6 @@ def merge(merger, self, lst):
 	self.__dict__ = lst[0].__dict__.copy()
 
 	instancer = merger.instancer
-	# TODO Handle differing valueformats
 	for name, tableName in [('XAdvance','XAdvDevice'),
 				('YAdvance','YAdvDevice'),
 				('XPlacement','XPlaDevice'),
@@ -909,7 +959,8 @@ def merge(merger, self, lst):
 		if not hasattr(self, tableName):
 			continue
 		dev = getattr(self, tableName)
-		delattr(self, tableName)
+		if merger.deleteVariations:
+			delattr(self, tableName)
 		if dev is None:
 			continue
 

@@ -53,11 +53,12 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
             STATE_PROVISIONING_FINALIZED})
     private @interface ProvisioningState {}
 
-    private static final String ERROR_DIALOG_OK = "ErrorDialogOk";
-    private static final String ERROR_DIALOG_RESET = "ErrorDialogReset";
-    private static final String CANCEL_PROVISIONING_DIALOG_OK = "CancelProvisioningDialogOk";
-    private static final String CANCEL_PROVISIONING_DIALOG_RESET =
-            "CancelProvisioningDialogReset";
+    @VisibleForTesting static final String ERROR_DIALOG_OK = "ErrorDialogOk";
+    @VisibleForTesting static final String ERROR_DIALOG_RESET = "ErrorDialogReset";
+    @VisibleForTesting static final String CANCEL_PROVISIONING_DIALOG_OK
+            = "CancelProvisioningDialogOk";
+    @VisibleForTesting static final String CANCEL_PROVISIONING_DIALOG_RESET
+            = "CancelProvisioningDialogReset";
 
     protected ProvisioningManagerInterface mProvisioningManager;
     protected ProvisioningParams mParams;

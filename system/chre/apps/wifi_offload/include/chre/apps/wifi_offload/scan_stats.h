@@ -20,7 +20,7 @@
 #include "chre/apps/wifi_offload/wifi_offload.h"
 
 #include "chre/apps/wifi_offload/channel_histogram.h"
-#include "chre/apps/wifi_offload/flatbuffers_types_generated.h"
+#include "chre/apps/wifi_offload/generated/flatbuffers_types_generated.h"
 #include "chre/apps/wifi_offload/rpc_log_record.h"
 #include "chre/apps/wifi_offload/scan_record.h"
 

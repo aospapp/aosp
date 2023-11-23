@@ -8,4 +8,4 @@ set -e -o pipefail
 target="$1"
 shift
 
-ssh ${target} "$*"
+ssh -i ${HOME}/.ssh/testing_rsa ${target} "$*"

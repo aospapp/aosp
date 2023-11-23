@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote fetch=".." name="aosp" review="https://android-review.googlesource.com/"/>
+  
+  <default remote="aosp" revision="master" sync-j="4"/>
+  
+  <manifest-server url="http://android-smartsync.corp.google.com/android.googlesource.com/manifestserver"/>
+  
+  <project clone-depth="1" name="device/generic/goldfish-opengl" revision="90ea14103ae7675ddd8e28fbb9af62b4ae512f5d"/>
+  <project clone-depth="1" name="device/generic/vulkan-cereal" revision="ea978cef5a41c292dd9bd0ce9bf08648e76ca030"/>
+  <project groups="pdk" name="platform/external/adhd" path="external/adhd" revision="2e5b55c9a2bf11058945639ff8ddd513871c9a97" upstream="master"/>
+  <project clone-depth="1" name="platform/external/angle" path="external/angle" revision="c37c696b94bd7ddecc12a2c3192f5e48eae7842e"/>
+  <project clone-depth="1" name="platform/external/astc-codec" path="external/astc-codec" revision="17ae36822a8084f45ae51f9031e81f8318254f33"/>
+  <project clone-depth="1" name="platform/external/boringssl" path="external/boringssl" revision="ca167a7fa32afdadad014cc9e8a7ab2f4f879f8d"/>
+  <project clone-depth="1" name="platform/external/c-ares" path="external/cares" revision="b88261c9132d21c234dfbf36db3c6c3f5780051a"/>
+  <project groups="pdk" name="platform/external/crosvm" path="platform/crosvm" revision="75113cccf457a4458ea9fd99ffdacceb2f31f84c" upstream="master"/>
+  <project clone-depth="1" name="platform/external/curl" path="external/curl" revision="1da4b04273638c8afe6f88bd7a7ccfb693640773"/>
+  <project clone-depth="1" name="platform/external/deqp" path="external/deqp" revision="2e0e4509307699b52548cfd63c75b3f8dce07073"/>
+  <project clone-depth="1" name="platform/external/ffmpeg" path="external/ffmpeg" revision="5c6f92dd1b16590153367ce79ed9b098cace354f"/>
+  <project clone-depth="1" name="platform/external/google-benchmark" path="external/google-benchmark" revision="db1632fadc79df388a2a7248157c965ee40248a1"/>
+  <project clone-depth="1" name="platform/external/google-breakpad" path="external/google-breakpad" revision="a1414818b9f9810a3b45f1f55d9c00f5116ec7d9"/>
+  <project clone-depth="1" name="platform/external/googletest" path="external/googletest" revision="da5c5afa6ee2e79b9060290abbe763210b610e8c"/>
+  <project clone-depth="1" name="platform/external/grpc-grpc" path="external/grpc" revision="0d80ea35ba09d0462ca13f236cc9ddc3fb749c57"/>
+  <project groups="pdk" name="platform/external/libepoxy" path="third_party/libepoxy" revision="199985a9b74aa5610a2ce75be2997e7a272dd9fe" upstream="crosvm-master"/>
+  <project clone-depth="1" name="platform/external/libffi" path="external/libffi" revision="30bc66eb2043d8434e94f29beda87001e58c2a34"/>
+  <project clone-depth="1" name="platform/external/libpng" path="external/libpng" revision="5d19b1bb0f5694f2ae47b3cc2ccfeb571764b439"/>
+  <project clone-depth="1" name="platform/external/libvpx" path="external/libvpx" revision="62332cf39b0302e240acb10ed78d61d5ea282a39"/>
+  <project clone-depth="1" name="platform/external/libyuv" path="external/libyuv" revision="d4c7aec7a2fdbad1bfdebd4a45bb879dd43a8a2d"/>
+  <project clone-depth="1" name="platform/external/lz4" path="external/lz4" revision="1a184fdeb99f4cc11b774ac5b0b824b38105ec6c"/>
+  <project groups="pdk" name="platform/external/minigbm" path="third_party/minigbm" revision="82e37a6c196d089140bf71a83dc0f6042d22ffd2" upstream="crosvm-master"/>
+  <project groups="pdk" name="platform/external/minijail" path="external/minijail" revision="2f2c20780cf7bbfe92657829cdae5a76cc4cb0c0" upstream="master"/>
+  <project clone-depth="1" name="platform/external/nasm" path="external/nasm" revision="645e4f02c622ba67eb754000cc00c9db8be31f85"/>
+  <project clone-depth="1" name="platform/external/protobuf" path="external/protobuf" revision="ca15ad7fb89a626c0d2a98240b11a2523727f9be"/>
+  <project clone-depth="1" name="platform/external/qemu" path="external/qemu" revision="6a0bdbf9182deb9667ae3f603b3b03a8c1d06b3a"/>
+  <project clone-depth="1" name="platform/external/tinyobjloader" path="external/tinyobjloader" revision="d16a940067fbc191364fc1d3e2a2d907209c9320"/>
+  <project groups="pdk" name="platform/external/virglrenderer" path="third_party/virglrenderer" revision="f0c2fba5827abb3634b1992855264d7fe990b89d" upstream="crosvm-master"/>
+  <project clone-depth="1" name="platform/external/zlib" path="external/zlib" revision="7656f9eff09cc38244978773777ee64b7b31155d"/>
+  <project clone-depth="1" name="platform/prebuilts/android-emulator-build/common" path="prebuilts/android-emulator-build/common" revision="c8893ac24400c26d66eb4fceb2295ba1a75a2354"/>
+  <project clone-depth="1" name="platform/prebuilts/android-emulator-build/curl" path="prebuilts/android-emulator-build/curl" revision="06f0905068b9ebfdd2d11b4d310c36b68c2fbe2f"/>
+  <project clone-depth="1" name="platform/prebuilts/android-emulator-build/mesa" path="prebuilts/android-emulator-build/mesa" revision="be7c00f399b415511d73308f0af0c0310512aced"/>
+  <project clone-depth="1" name="platform/prebuilts/android-emulator-build/mesa-deps" path="prebuilts/android-emulator-build/mesa-deps" revision="17837fdb1889014fa01cbbbda56afc9b6034815f"/>
+  <project clone-depth="1" name="platform/prebuilts/android-emulator-build/protobuf" path="prebuilts/android-emulator-build/protobuf" revision="8e2a5472dd374e6c971d30eb3d00898a8c1a25c8"/>
+  <project clone-depth="1" name="platform/prebuilts/android-emulator-build/qemu-android-deps" path="prebuilts/android-emulator-build/qemu-android-deps" revision="cf6e0381dfef9c0030c5df3d6525a99a6232bddd"/>
+  <project clone-depth="1" name="platform/prebuilts/clang/host/linux-x86" path="prebuilts/clang/host/linux-x86" revision="d7d410db700b18e9760f545294467921b8df7c72"/>
+  <project clone-depth="1" name="platform/prebuilts/cmake/linux-x86" path="prebuilts/cmake/linux-x86" revision="40dcb6f55bd2e8731e3e4f1a1721f7ff0fb83cb1"/>
+  <project clone-depth="1" name="platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" path="prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" revision="4533a4d0efa68949dc3c0dfec00214feaddd6c7b"/>
+  <project clone-depth="1" name="platform/prebuilts/ninja/linux-x86" path="prebuilts/ninja/linux-x86" revision="7ef4cb95e1ed4305e99f03a8e8ad28d26134a45b"/>
+  <project groups="adt-infra,cts,developers,motodev,pdk,tools,tradefed" name="platform/tools/repohooks" path="tools/repohooks" revision="8eb7cd76622697f630a52cfcaf14a4971be21e38" upstream="crosvm-master"/>
+  
+  <repo-hooks enabled-list="pre-upload" in-project="platform/tools/repohooks"/>
+</manifest>

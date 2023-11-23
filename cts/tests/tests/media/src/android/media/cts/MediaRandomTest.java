@@ -38,6 +38,7 @@ import java.util.Random;
  * Blender Foundation / www.bigbuckbunny.org, and are licensed under the Creative Commons
  * Attribution 3.0 License at http://creativecommons.org/licenses/by/3.0/us/.
  */
+@NonMediaMainlineTest
 @MediaHeavyPresubmitTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {

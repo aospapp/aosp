@@ -30,6 +30,7 @@ import six
 from six.moves import http_client
 
 from apitools.base.py import buffered_stream
+from apitools.base.py import compression
 from apitools.base.py import exceptions
 from apitools.base.py import http_wrapper
 from apitools.base.py import stream_slice
@@ -164,12 +165,12 @@ class _Transfer(object):
     def EnsureInitialized(self):
         if not self.initialized:
             raise exceptions.TransferInvalidError(
-                'Cannot use uninitialized %s', self._type_name)
+                'Cannot use uninitialized %s' % self._type_name)
 
     def EnsureUninitialized(self):
         if self.initialized:
             raise exceptions.TransferInvalidError(
-                'Cannot re-initialize %s', self._type_name)
+                'Cannot re-initialize %s' % self._type_name)
 
     def __del__(self):
         if self.__close_stream:
@@ -283,6 +284,7 @@ class Download(_Transfer):
         http_request.headers['Range'] = 'bytes=0-%d' % (self.chunksize - 1,)
 
     def __SetTotal(self, info):
+        """Sets the total size based off info if possible otherwise 0."""
         if 'content-range' in info:
             _, _, total = info['content-range'].rpartition('/')
             if total != '*':
@@ -330,13 +332,16 @@ class Download(_Transfer):
             self.StreamInChunks()
 
     def __NormalizeStartEnd(self, start, end=None):
+        """Normalizes start and end values based on total size."""
         if end is not None:
             if start < 0:
                 raise exceptions.TransferInvalidError(
-                    'Cannot have end index with negative start index')
+                    'Cannot have end index with negative start index ' +
+                    '[start=%d, end=%d]' % (start, end))
             elif start >= self.total_size:
                 raise exceptions.TransferInvalidError(
-                    'Cannot have start index greater than total size')
+                    'Cannot have start index greater than total size ' +
+                    '[start=%d, total_size=%d]' % (start, self.total_size))
             end = min(end, self.total_size - 1)
             if end < start:
                 raise exceptions.TransferInvalidError(
@@ -350,7 +355,7 @@ class Download(_Transfer):
     def __SetRangeHeader(self, request, start, end=None):
         if start < 0:
             request.headers['range'] = 'bytes=%d' % start
-        elif end is None:
+        elif end is None or end < start:
             request.headers['range'] = 'bytes=%d-' % start
         else:
             request.headers['range'] = 'bytes=%d-%d' % (start, end)
@@ -421,7 +426,10 @@ class Download(_Transfer):
                 raise exceptions.TransferRetryError(response.content)
         if response.status_code in (http_client.OK,
                                     http_client.PARTIAL_CONTENT):
-            self.stream.write(response.content)
+            try:
+                self.stream.write(six.ensure_binary(response.content))
+            except TypeError:
+                self.stream.write(six.ensure_text(response.content))
             self.__progress += response.length
             if response.info and 'content-encoding' in response.info:
                 # TODO(craigcitro): Handle the case where this changes over a
@@ -478,6 +486,13 @@ class Download(_Transfer):
             response = self.__ProcessResponse(response)
             progress += response.length
             if response.length == 0:
+                if response.status_code == http_client.OK:
+                    # There can legitimately be no Content-Length header sent
+                    # in some cases (e.g., when there's a Transfer-Encoding
+                    # header) and if this was a 200 response (as opposed to
+                    # 206 Partial Content) we know we're done now without
+                    # looping further on received length.
+                    return
                 raise exceptions.TransferRetryError(
                     'Zero bytes unexpectedly returned in download response')
 
@@ -529,6 +544,26 @@ class Download(_Transfer):
         self._ExecuteCallback(finish_callback, response)
 
 
+if six.PY3:
+    class MultipartBytesGenerator(email_generator.BytesGenerator):
+        """Generates a bytes Message object tree for multipart messages
+
+        This is a BytesGenerator that has been modified to not attempt line
+        termination character modification in the bytes payload. Known to
+        work with the compat32 policy only. It may work on others, but not
+        tested. The outfp object must accept bytes in its write method.
+        """
+        def _handle_text(self, msg):
+            # If the string has surrogates the original source was bytes, so
+            # just write it back out.
+            if msg._payload is None:
+                return
+            self.write(msg._payload)
+
+        # Default body handler
+        _writeBody = _handle_text
+
+
 class Upload(_Transfer):
 
     """Data for a single Upload.
@@ -548,7 +583,7 @@ class Upload(_Transfer):
     def __init__(self, stream, mime_type, total_size=None, http=None,
                  close_stream=False, chunksize=None, auto_transfer=True,
                  progress_callback=None, finish_callback=None,
-                 **kwds):
+                 gzip_encoded=False, **kwds):
         super(Upload, self).__init__(
             stream, close_stream=close_stream, chunksize=chunksize,
             auto_transfer=auto_transfer, http=http, **kwds)
@@ -559,6 +594,7 @@ class Upload(_Transfer):
         self.__server_chunk_granularity = None
         self.__strategy = None
         self.__total_size = None
+        self.__gzip_encoded = gzip_encoded
 
         self.progress_callback = progress_callback
         self.finish_callback = finish_callback
@@ -569,7 +605,8 @@ class Upload(_Transfer):
         return self.__progress
 
     @classmethod
-    def FromFile(cls, filename, mime_type=None, auto_transfer=True, **kwds):
+    def FromFile(cls, filename, mime_type=None, auto_transfer=True,
+                 gzip_encoded=False, **kwds):
         """Create a new Upload object from a filename."""
         path = os.path.expanduser(filename)
         if not os.path.exists(path):
@@ -581,20 +618,23 @@ class Upload(_Transfer):
                     'Could not guess mime type for %s' % path)
         size = os.stat(path).st_size
         return cls(open(path, 'rb'), mime_type, total_size=size,
-                   close_stream=True, auto_transfer=auto_transfer, **kwds)
+                   close_stream=True, auto_transfer=auto_transfer,
+                   gzip_encoded=gzip_encoded, **kwds)
 
     @classmethod
     def FromStream(cls, stream, mime_type, total_size=None, auto_transfer=True,
-                   **kwds):
+                   gzip_encoded=False, **kwds):
         """Create a new Upload object from a stream."""
         if mime_type is None:
             raise exceptions.InvalidUserInputError(
                 'No mime_type specified for stream')
         return cls(stream, mime_type, total_size=total_size,
-                   close_stream=False, auto_transfer=auto_transfer, **kwds)
+                   close_stream=False, auto_transfer=auto_transfer,
+                   gzip_encoded=gzip_encoded, **kwds)
 
     @classmethod
-    def FromData(cls, stream, json_data, http, auto_transfer=None, **kwds):
+    def FromData(cls, stream, json_data, http, auto_transfer=None,
+                 gzip_encoded=False, **kwds):
         """Create a new Upload of stream from serialized json_data and http."""
         info = json.loads(json_data)
         missing_keys = cls._REQUIRED_SERIALIZATION_KEYS - set(info.keys())
@@ -606,7 +646,8 @@ class Upload(_Transfer):
             raise exceptions.InvalidUserInputError(
                 'Cannot override total_size on serialized Upload')
         upload = cls.FromStream(stream, info['mime_type'],
-                                total_size=info.get('total_size'), **kwds)
+                                total_size=info.get('total_size'),
+                                gzip_encoded=gzip_encoded, **kwds)
         if isinstance(stream, io.IOBase) and not stream.seekable():
             raise exceptions.InvalidUserInputError(
                 'Cannot restart resumable upload on non-seekable stream')
@@ -723,6 +764,23 @@ class Upload(_Transfer):
             else:
                 url_builder.query_params['uploadType'] = 'media'
                 self.__ConfigureMediaRequest(http_request)
+            # Once the entire body is written, compress the body if configured
+            # to. Both multipart and media request uploads will read the
+            # entire stream into memory, which means full compression is also
+            # safe to perform. Because the strategy is set to SIMPLE_UPLOAD,
+            # StreamInChunks throws an exception, meaning double compression
+            # cannot happen.
+            if self.__gzip_encoded:
+                http_request.headers['Content-Encoding'] = 'gzip'
+                # Turn the body into a stream so that we can compress it, then
+                # read the compressed bytes.  In the event of a retry (e.g. if
+                # our access token has expired), we need to be able to re-read
+                # the body, which we can't do with a stream. So, we consume the
+                # bytes from the stream now and store them in a re-readable
+                # bytes container.
+                http_request.body = (
+                    compression.CompressStream(
+                        six.BytesIO(http_request.body))[0].read())
         else:
             url_builder.relative_path = upload_config.resumable_path
             url_builder.query_params['uploadType'] = 'resumable'
@@ -758,7 +816,7 @@ class Upload(_Transfer):
         #       `> ` to `From ` lines.
         fp = six.BytesIO()
         if six.PY3:
-            generator_class = email_generator.BytesGenerator
+            generator_class = MultipartBytesGenerator
         else:
             generator_class = email_generator.Generator
         g = generator_class(fp, mangle_from_=False)
@@ -861,8 +919,13 @@ class Upload(_Transfer):
         chunksize = chunksize or self.chunksize
         if chunksize % self.__server_chunk_granularity:
             raise exceptions.ConfigurationValueError(
-                'Server requires chunksize to be a multiple of %d',
+                'Server requires chunksize to be a multiple of %d' %
                 self.__server_chunk_granularity)
+
+    def __IsRetryable(self, response):
+        return (response.status_code >= 500 or
+                response.status_code == http_wrapper.TOO_MANY_REQUESTS or
+                response.retry_after)
 
     def __StreamMedia(self, callback=None, finish_callback=None,
                       additional_headers=None, use_chunks=True):
@@ -874,17 +937,44 @@ class Upload(_Transfer):
         finish_callback = finish_callback or self.finish_callback
         # final_response is set if we resumed an already-completed upload.
         response = self.__final_response
-        send_func = self.__SendChunk if use_chunks else self.__SendMediaBody
+
+        def CallSendChunk(start):
+            return self.__SendChunk(
+                start, additional_headers=additional_headers)
+
+        def CallSendMediaBody(start):
+            return self.__SendMediaBody(
+                start, additional_headers=additional_headers)
+
+        send_func = CallSendChunk if use_chunks else CallSendMediaBody
+        if not use_chunks and self.__gzip_encoded:
+            raise exceptions.InvalidUserInputError(
+                'Cannot gzip encode non-chunked upload')
         if use_chunks:
             self.__ValidateChunksize(self.chunksize)
         self.EnsureInitialized()
         while not self.complete:
-            response = send_func(self.stream.tell(),
-                                 additional_headers=additional_headers)
+            response = send_func(self.stream.tell())
             if response.status_code in (http_client.OK, http_client.CREATED):
                 self.__complete = True
                 break
-            self.__progress = self.__GetLastByte(response.info['range'])
+            if response.status_code not in (
+                    http_client.OK, http_client.CREATED,
+                    http_wrapper.RESUME_INCOMPLETE):
+                # Only raise an exception if the error is something we can't
+                # recover from.
+                if (self.strategy != RESUMABLE_UPLOAD or
+                        not self.__IsRetryable(response)):
+                    raise exceptions.HttpError.FromResponse(response)
+                # We want to reset our state to wherever the server left us
+                # before this failed request, and then raise.
+                self.RefreshResumableUploadState()
+
+                self._ExecuteCallback(callback, response)
+                continue
+
+            self.__progress = self.__GetLastByte(
+                self._GetRangeHeaderFromResponse(response))
             if self.progress + 1 != self.stream.tell():
                 # TODO(craigcitro): Add a better way to recover here.
                 raise exceptions.CommunicationError(
@@ -931,20 +1021,21 @@ class Upload(_Transfer):
 
     def __SendMediaRequest(self, request, end):
         """Request helper function for SendMediaBody & SendChunk."""
+        def CheckResponse(response):
+            if response is None:
+                # Caller shouldn't call us if the response is None,
+                # but handle anyway.
+                raise exceptions.RequestError(
+                    'Request to url %s did not return a response.' %
+                    response.request_url)
         response = http_wrapper.MakeRequest(
             self.bytes_http, request, retry_func=self.retry_func,
-            retries=self.num_retries)
-        if response.status_code not in (http_client.OK, http_client.CREATED,
-                                        http_wrapper.RESUME_INCOMPLETE):
-            # We want to reset our state to wherever the server left us
-            # before this failed request, and then raise.
-            self.RefreshResumableUploadState()
-            raise exceptions.HttpError.FromResponse(response)
+            retries=self.num_retries, check_response_func=CheckResponse)
         if response.status_code == http_wrapper.RESUME_INCOMPLETE:
             last_byte = self.__GetLastByte(
                 self._GetRangeHeaderFromResponse(response))
             if last_byte + 1 != end:
-                self.stream.seek(last_byte)
+                self.stream.seek(last_byte + 1)
         return response
 
     def __SendMediaBody(self, start, additional_headers=None):
@@ -976,7 +1067,17 @@ class Upload(_Transfer):
         """Send the specified chunk."""
         self.EnsureInitialized()
         no_log_body = self.total_size is None
-        if self.total_size is None:
+        request = http_wrapper.Request(url=self.url, http_method='PUT')
+        if self.__gzip_encoded:
+            request.headers['Content-Encoding'] = 'gzip'
+            body_stream, read_length, exhausted = compression.CompressStream(
+                self.stream, self.chunksize)
+            end = start + read_length
+            # If the stream length was previously unknown and the input stream
+            # is exhausted, then we're at the end of the stream.
+            if self.total_size is None and exhausted:
+                self.__total_size = end
+        elif self.total_size is None:
             # For the streaming resumable case, we need to detect when
             # we're at the end of the stream.
             body_stream = buffered_stream.BufferedStream(
@@ -995,8 +1096,7 @@ class Upload(_Transfer):
             body_stream = stream_slice.StreamSlice(self.stream, end - start)
         # TODO(craigcitro): Think about clearer errors on "no data in
         # stream".
-        request = http_wrapper.Request(url=self.url, http_method='PUT',
-                                       body=body_stream)
+        request.body = body_stream
         request.headers['Content-Type'] = self.mime_type
         if no_log_body:
             # Disable logging of streaming body.

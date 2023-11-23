@@ -1,6 +1,7 @@
 /*
  * hostapd / DPP integration
  * Copyright (c) 2017, Qualcomm Atheros, Inc.
+ * Copyright (c) 2018-2020, The Linux Foundation
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -10,6 +11,9 @@
 #define DPP_HOSTAPD_H
 
 int hostapd_dpp_qr_code(struct hostapd_data *hapd, const char *cmd);
+int hostapd_dpp_nfc_uri(struct hostapd_data *hapd, const char *cmd);
+int hostapd_dpp_nfc_handover_req(struct hostapd_data *hapd, const char *cmd);
+int hostapd_dpp_nfc_handover_sel(struct hostapd_data *hapd, const char *cmd);
 int hostapd_dpp_auth_init(struct hostapd_data *hapd, const char *cmd);
 int hostapd_dpp_listen(struct hostapd_data *hapd, const char *cmd);
 void hostapd_dpp_listen_stop(struct hostapd_data *hapd);
@@ -19,7 +23,8 @@ void hostapd_dpp_tx_status(struct hostapd_data *hapd, const u8 *dst,
 			   const u8 *data, size_t data_len, int ok);
 struct wpabuf *
 hostapd_dpp_gas_req_handler(struct hostapd_data *hapd, const u8 *sa,
-			    const u8 *query, size_t query_len);
+			    const u8 *query, size_t query_len,
+			    const u8 *data, size_t data_len);
 void hostapd_dpp_gas_status_handler(struct hostapd_data *hapd, int ok);
 int hostapd_dpp_configurator_add(struct hostapd_data *hapd, const char *cmd);
 int hostapd_dpp_configurator_remove(struct hostapd_data *hapd, const char *id);

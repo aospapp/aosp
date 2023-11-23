@@ -16,12 +16,8 @@
 
 package android.server.wm;
 
-import static android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
-import static android.server.wm.ComponentNameUtils.getActivityName;
-import static android.server.wm.UiDeviceUtils.pressBackButton;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
 import static android.server.wm.displaysize.Components.SMALLEST_WIDTH_ACTIVITY;
-import static android.server.wm.displaysize.Components.SmallestWidthActivity.EXTRA_LAUNCH_ANOTHER_ACTIVITY;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -46,6 +42,7 @@ import org.junit.Test;
  *     atest CtsWindowManagerDeviceTestCases:DisplaySizeTest
  */
 @Presubmit
+@android.server.wm.annotation.Group3
 public class DisplaySizeTest extends ActivityManagerTestBase {
 
     /** @see com.android.server.wm.UnsupportedDisplaySizeDialog */
@@ -53,65 +50,55 @@ public class DisplaySizeTest extends ActivityManagerTestBase {
             "UnsupportedDisplaySizeDialog";
 
     @After
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-
+    public void tearDown() {
         // Ensure app process is stopped.
         stopTestPackage(SMALLEST_WIDTH_ACTIVITY.getPackageName());
         stopTestPackage(TEST_ACTIVITY.getPackageName());
     }
 
     @Test
-    public void testCompatibilityDialog() throws Exception {
+    public void testCompatibilityDialog() {
         // Launch some other app (not to perform density change on launcher).
         launchActivity(TEST_ACTIVITY);
-        mAmWmState.assertActivityDisplayed(TEST_ACTIVITY);
+        mWmState.assertActivityDisplayed(TEST_ACTIVITY);
 
-        try (final ScreenDensitySession screenDensitySession = new ScreenDensitySession()) {
-            screenDensitySession.setUnsupportedDensity();
+        createManagedScreenDensitySession().setUnsupportedDensity();
 
-            // Launch target app.
-            launchActivity(SMALLEST_WIDTH_ACTIVITY);
-            mAmWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
-            mAmWmState.assertWindowDisplayed(UNSUPPORTED_DISPLAY_SIZE_DIALOG_NAME);
-        }
-    }
-
-    @Test
-    public void testCompatibilityDialogWhenFocused() throws Exception {
-        launchActivity(SMALLEST_WIDTH_ACTIVITY);
-        mAmWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
-
-        try (final ScreenDensitySession screenDensitySession = new ScreenDensitySession()) {
-            screenDensitySession.setUnsupportedDensity();
-
-            mAmWmState.assertWindowDisplayed(UNSUPPORTED_DISPLAY_SIZE_DIALOG_NAME);
-        }
-    }
-
-    @Test
-    public void testCompatibilityDialogAfterReturn() throws Exception {
         // Launch target app.
         launchActivity(SMALLEST_WIDTH_ACTIVITY);
-        mAmWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
+        mWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
+        mWmState.assertWindowDisplayed(UNSUPPORTED_DISPLAY_SIZE_DIALOG_NAME);
+    }
+
+    @Test
+    public void testCompatibilityDialogWhenFocused() {
+        launchActivity(SMALLEST_WIDTH_ACTIVITY);
+        mWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
+
+        createManagedScreenDensitySession().setUnsupportedDensity();
+
+        mWmState.assertWindowDisplayed(UNSUPPORTED_DISPLAY_SIZE_DIALOG_NAME);
+    }
+
+    @Test
+    public void testCompatibilityDialogAfterReturn() {
+        // Launch target app.
+        launchActivity(SMALLEST_WIDTH_ACTIVITY);
+        mWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
         // Launch another activity.
-        final String startActivityOnTop = String.format("%s -f 0x%x --es %s %s",
-                getAmStartCmd(SMALLEST_WIDTH_ACTIVITY), FLAG_ACTIVITY_SINGLE_TOP,
-                EXTRA_LAUNCH_ANOTHER_ACTIVITY, getActivityName(TEST_ACTIVITY));
-        executeShellCommand(startActivityOnTop);
-        mAmWmState.assertActivityDisplayed(TEST_ACTIVITY);
+        final CommandSession.ActivitySession activity = createManagedActivityClientSession()
+                .startActivity(getLaunchActivityBuilder().setUseInstrumentation()
+                        .setTargetActivity(TEST_ACTIVITY));
+        mWmState.assertActivityDisplayed(TEST_ACTIVITY);
         separateTestJournal();
 
-        try (final ScreenDensitySession screenDensitySession = new ScreenDensitySession()) {
-            screenDensitySession.setUnsupportedDensity();
+        createManagedScreenDensitySession().setUnsupportedDensity();
 
-            assertActivityLifecycle(TEST_ACTIVITY, true /* relaunched */);
-            pressBackButton();
+        assertActivityLifecycle(TEST_ACTIVITY, true /* relaunched */);
+        activity.finish();
 
-            mAmWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
-            mAmWmState.assertWindowDisplayed(UNSUPPORTED_DISPLAY_SIZE_DIALOG_NAME);
-        }
+        mWmState.assertActivityDisplayed(SMALLEST_WIDTH_ACTIVITY);
+        mWmState.assertWindowDisplayed(UNSUPPORTED_DISPLAY_SIZE_DIALOG_NAME);
     }
 
     @Test
@@ -120,7 +107,7 @@ public class DisplaySizeTest extends ActivityManagerTestBase {
         try {
             final int initialLength = 500;
             final int newLength = 1000;
-            final DisplayManager displayManager = mContext.getSystemService(DisplayManager.class);
+            final DisplayManager displayManager = mDm;
             virtualDisplay = displayManager.createVirtualDisplay("CtsDisplay", initialLength,
                     initialLength, 160 /* densityDpi */, null /* surface */, 0 /* flags */);
             final Display targetDisplay = virtualDisplay.getDisplay();
@@ -164,6 +151,10 @@ public class DisplaySizeTest extends ActivityManagerTestBase {
                 virtualDisplay.release();
             }
         }
+    }
+
+    protected ScreenDensitySession createManagedScreenDensitySession() {
+        return mObjectTracker.manage(new ScreenDensitySession());
     }
 
     private static class ScreenDensitySession implements AutoCloseable {

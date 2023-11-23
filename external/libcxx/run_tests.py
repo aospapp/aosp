@@ -131,7 +131,11 @@ def get_build_cmds(bitness, host):
 
     # Generate $OUT_DIR/combined-$TARGET_PRODUCT.ninja and build the
     # template target's dependencies.
-    check_call(['make', '-C', ANDROID_DIR, target])
+    check_call([
+        'bash',
+        os.path.join(ANDROID_DIR, 'build/soong/soong_ui.bash'), '--make-mode',
+        target
+    ])
 
     ninja_path = os.path.join(
         out_dir, 'combined-' + os.getenv('TARGET_PRODUCT') + '.ninja')

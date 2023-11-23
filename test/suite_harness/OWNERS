@@ -11,4 +11,5 @@ yuji@google.com
 nickrose@google.com
 
 # File Specific Approvers
-per-file Backup* = anniemeng@google.com, brufino@google.com, nathch@google.com, rthakohov@google.com
+per-file Backup* = alsutton@google.com, anniemeng@google.com, brufino@google.com, nathch@google.com, rthakohov@google.com
+per-file cts-meerkat.xml = alanstokes@google.com, brufino@google.com, lus@google.com, rickywai@google.com

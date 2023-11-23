@@ -28,6 +28,8 @@ import android.util.Log;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.concurrent.GuardedBy;
+
 /**
  * Handles callback from the framework {@link android.app.job.JobScheduler}.
  * Runs a job for 0.5 seconds. Provides a countdown latch to wait on, by the test that schedules it.
@@ -38,6 +40,10 @@ public class StatsdJobService extends JobService {
 
   JobInfo mRunningJobInfo;
   JobParameters mRunningParams;
+
+  private static final Object sLock = new Object();
+
+  @GuardedBy("sLock")
   private static CountDownLatch sLatch;
 
   final Handler mHandler = new Handler();
@@ -47,21 +53,24 @@ public class StatsdJobService extends JobService {
         Thread.sleep(500);
       } catch (InterruptedException e) {
       }
+
       jobFinished(mRunningParams, false);
-      if (sLatch != null) {
-        sLatch.countDown();
+
+      synchronized (sLock) {
+        if (sLatch != null) {
+          sLatch.countDown();
+        }
       }
     }
   };
 
   public static synchronized CountDownLatch resetCountDownLatch() {
-    sLatch = new CountDownLatch(1);
+    synchronized (sLock) {
+      if (sLatch == null || sLatch.getCount() == 0) {
+        sLatch = new CountDownLatch(1);
+      }
+    }
     return sLatch;
-  }
-
-  @Override
-  public void onCreate() {
-    super.onCreate();
   }
 
   @Override

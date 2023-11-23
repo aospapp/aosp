@@ -72,6 +72,7 @@ public class ActivityTransitionTest extends BaseTransitionTest {
     @Override
     public void setup() {
         super.setup();
+        ActivityOptions.setExitTransitionTimeout(10000);
         setTransitions(new TrackingVisibility(), new TrackingVisibility(),
                 new TrackingTransition());
     }
@@ -102,6 +103,7 @@ public class ActivityTransitionTest extends BaseTransitionTest {
             }
         });
         TargetActivity.clearCreated();
+        ActivityOptions.setExitTransitionTimeout(1000);
     }
 
     // When using ActivityOptions.makeBasic(), no transitions should run

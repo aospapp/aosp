@@ -16,7 +16,7 @@
 package android.car;
 
 import android.annotation.IntDef;
-import android.annotation.SystemApi;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 

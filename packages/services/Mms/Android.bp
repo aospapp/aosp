@@ -19,7 +19,6 @@ android_app {
     name: "MmsService",
     platform_apis: true,
     privileged: true,
-    libs: ["telephony-common"],
     srcs: ["src/**/*.java"],
     resource_dirs: ["res"],
     aaptflags: ["--auto-add-overlay"],

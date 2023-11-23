@@ -28,6 +28,7 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
+@NonMediaMainlineTest
 public class AudioFocusTest extends CtsAndroidTestCase {
     private static final String TAG = "AudioFocusTest";
 

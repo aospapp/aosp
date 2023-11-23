@@ -37,6 +37,7 @@ import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.model.ProvisioningParams;
+import com.android.managedprovisioning.task.interactacrossprofiles.CrossProfileAppsSnapshot;
 import com.android.managedprovisioning.task.nonrequiredapps.NonRequiredAppsLogic;
 
 import org.junit.Before;
@@ -60,6 +61,7 @@ public class CreateManagedProfileTaskTest {
 
     private @Mock UserManager mUserManager;
     private @Mock NonRequiredAppsLogic mLogic;
+    private @Mock CrossProfileAppsSnapshot mCrossProfileAppsSnapshot;
     private @Mock AbstractProvisioningTask.Callback mCallback;
 
     private CreateManagedProfileTask mTask;
@@ -68,7 +70,7 @@ public class CreateManagedProfileTaskTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         mTask = new CreateManagedProfileTask(InstrumentationRegistry.getTargetContext(),
-                TEST_PARAMS, mCallback, mUserManager, mLogic,
+                TEST_PARAMS, mCallback, mUserManager, mLogic, mCrossProfileAppsSnapshot,
                 mock(ProvisioningAnalyticsTracker.class));
         // GIVEN that a set of system apps should not be installed on the new user
         when(mLogic.getSystemAppsToRemove(TEST_PARENT_USER_ID))
@@ -79,7 +81,7 @@ public class CreateManagedProfileTaskTest {
     public void testSuccess() {
         // GIVEN that a new profile can be created
         when(mUserManager.createProfileForUserEvenWhenDisallowed(
-                        anyString(), anyInt(), eq(TEST_PARENT_USER_ID),
+                        anyString(), anyString(), anyInt(), eq(TEST_PARENT_USER_ID),
                         aryEq(SYSTEM_APPS_TO_DELETE)))
                 .thenReturn(new UserInfo(TEST_USER_ID, null, 0));
 
@@ -91,6 +93,8 @@ public class CreateManagedProfileTaskTest {
         verifyNoMoreInteractions(mCallback);
         // THEN list of system apps in the new user should be saved
         verify(mLogic).maybeTakeSystemAppsSnapshot(TEST_USER_ID);
+        // THEN cross profile apps should be saved
+        verify(mCrossProfileAppsSnapshot).takeNewSnapshot(anyInt());
         // THEN the id of the new profile should be returned by getProfileUserId
         assertEquals(TEST_USER_ID, mTask.getProfileUserId());
     }
@@ -99,7 +103,7 @@ public class CreateManagedProfileTaskTest {
     public void testError() {
         // GIVEN that a new profile can't be created
         when(mUserManager.createProfileForUserEvenWhenDisallowed(
-                        anyString(), anyInt(), eq(TEST_PARENT_USER_ID),
+                        anyString(), anyString(), anyInt(), eq(TEST_PARENT_USER_ID),
                         aryEq(SYSTEM_APPS_TO_DELETE)))
                 .thenReturn(null);
 

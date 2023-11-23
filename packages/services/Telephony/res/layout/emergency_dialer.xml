@@ -46,7 +46,9 @@
                 android:layout_height="@dimen/dialpad_button_height"
                 android:background="@drawable/floating_action_button_red"
                 android:contentDescription="@string/description_dialpad_button"
-                android:src="@drawable/ic_dialpad_white_24"/>
+                android:src="@drawable/ic_dialpad_white_24"
+                android:scaleType="centerInside"
+                android:backgroundTint="@color/emergency_dialpad_fab_tint_color"/>
         </FrameLayout>
     </FrameLayout>
 
@@ -56,8 +58,6 @@
         android:accessibilityPaneTitle="@string/pane_title_emergency_dialpad"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingLeft="36dp"
-        android:paddingRight="36dp"
         android:paddingBottom="@dimen/dialpad_bottom_padding"
         android:visibility="visible">
         <LinearLayout
@@ -71,6 +71,7 @@
                 android:id="@+id/emergency_action_group"
                 android:layout_height="64dp"
                 android:layout_width="match_parent"
+                android:layout_marginHorizontal="36dp"
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="24dp">
 
@@ -108,7 +109,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:backgroundTint="#ffe53935"
+                        android:backgroundTint="#ffe32926"
                         android:focusable="false"
                         android:clickable="false"
                         style="?android:attr/buttonStyle"/>
@@ -153,8 +154,14 @@
                 </FrameLayout>
 
             </com.android.phone.EmergencyActionGroup>
-
+            <Space
+                android:id="@+id/emergency_info_dialpad_spacer"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"/>
             <include layout="@layout/dialpad_view_unthemed"
+                     android:layout_height="wrap_content"
+                     android:layout_width="match_parent"
                      android:theme="?attr/dialpadTheme" />
 
         </LinearLayout>

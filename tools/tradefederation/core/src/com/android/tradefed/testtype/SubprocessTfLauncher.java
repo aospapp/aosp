@@ -22,13 +22,17 @@ import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.proto.StreamProtoReceiver;
+import com.android.tradefed.result.proto.StreamProtoResultReporter;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
@@ -36,7 +40,9 @@ import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.IRunUtil.EnvPriority;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.SubprocessExceptionParser;
 import com.android.tradefed.util.SubprocessTestResultsParser;
+import com.android.tradefed.util.SystemUtil;
 import com.android.tradefed.util.TimeUtil;
 import com.android.tradefed.util.UniqueMultiMap;
 
@@ -46,8 +52,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A {@link IRemoteTest} for running tests against a separate TF installation.
@@ -76,9 +85,20 @@ public abstract class SubprocessTfLauncher
     @Option(name = "config-name", description = "The config that runs the TF tests")
     private String mConfigName;
 
+    @Option(
+            name = "local-sharding-mode",
+            description =
+                    "If sharding is requested, allow the launcher to run with local sharding.")
+    private boolean mLocalShardingMode = false;
+
     @Option(name = "use-event-streaming", description = "Use a socket to receive results as they"
             + "arrived instead of using a temporary file and parsing at the end.")
     private boolean mEventStreaming = true;
+
+    @Option(
+            name = "use-proto-reporting",
+            description = "Use a proto result reporter for the results from the subprocess.")
+    private boolean mUseProtoReporting = false;
 
     @Option(name = "sub-global-config", description = "The global config name to pass to the"
             + "sub process, can be local or from jar resources. Be careful of conflicts with "
@@ -90,8 +110,60 @@ public abstract class SubprocessTfLauncher
             description = "Pass the invocation-data to the subprocess if enabled.")
     private boolean mInjectInvocationData = true;
 
+    @Option(name = "ignore-test-log", description = "Only rely on logAssociation for logs.")
+    private boolean mIgnoreTestLog = true;
+
+    @Option(
+        name = "disable-stderr-test",
+        description = "Whether or not to disable the stderr validation check."
+    )
+    private boolean mDisableStderrTest = false;
+
+    @Option(
+        name = "disable-add-opens",
+        description = "Whether or not to add the java add-opens flags"
+    )
+    private boolean mDisableJavaOpens = false;
+
+    @Option(name = "add-opens", description = "Whether or not to add the java add-opens flags")
+    private Set<String> mAddOpens =
+            new LinkedHashSet<>(
+                    Arrays.asList(
+                            "java.base/java.nio",
+                            "java.base/sun.reflect.annotation",
+                            "java.base/java.io"));
+
     // Temp global configuration filtered from the parent process.
     private String mFilteredGlobalConfig = null;
+
+    private static final List<String> TRADEFED_JARS =
+            new ArrayList<>(
+                    Arrays.asList(
+                            // Loganalysis
+                            "loganalysis.jar",
+                            "loganalysis-tests.jar",
+                            // Aosp Tf jars
+                            "tradefed.jar",
+                            "tradefed-test-framework.jar",
+                            "tradefed-tests.jar",
+                            // libs
+                            "tools-common-prebuilt.jar",
+                            // jar in older branches
+                            "tf-prod-tests.jar",
+                            "tf-prod-metatests.jar",
+                            // Aosp contrib jars
+                            "tradefed-contrib.jar",
+                            "tf-contrib-tests.jar",
+                            // Google Tf jars
+                            "google-tf-prod-tests.jar",
+                            "google-tf-prod-metatests.jar",
+                            "google-tradefed.jar",
+                            "google-tradefed-tests.jar",
+                            // Google contrib jars
+                            "google-tradefed-contrib.jar",
+                            // Older jar required for coverage tests
+                            "jack-jacoco-reporter.jar",
+                            "emmalib.jar"));
 
     /** Timeout to wait for the events received from subprocess to finish being processed.*/
     private static final long EVENT_THREAD_JOIN_TIMEOUT_MS = 30 * 1000;
@@ -148,11 +220,20 @@ public abstract class SubprocessTfLauncher
         Assert.assertNotNull(mBuildInfo);
         Assert.assertNotNull(mConfigName);
         IFolderBuildInfo tfBuild = (IFolderBuildInfo) mBuildInfo;
-        mRootDir = tfBuild.getRootDir().getAbsolutePath();
-        String jarClasspath = FileUtil.getPath(mRootDir, "*");
+        File rootDirFile = tfBuild.getRootDir();
+        mRootDir = rootDirFile.getAbsolutePath();
+        String jarClasspath = "";
+        List<String> paths = new ArrayList<>();
+        for (String jar : TRADEFED_JARS) {
+            File f = FileUtil.findFile(rootDirFile, jar);
+            if (f != null && f.exists()) {
+                paths.add(f.getAbsolutePath());
+            }
+        }
+        jarClasspath = String.join(":", paths);
 
         mCmdArgs = new ArrayList<String>();
-        mCmdArgs.add("java");
+        mCmdArgs.add(SystemUtil.getRunningJavaBinaryPath().getAbsolutePath());
 
         try {
             mTmpDir = FileUtil.createTempDir("subprocess-" + tfBuild.getBuildId());
@@ -167,13 +248,23 @@ public abstract class SubprocessTfLauncher
         if (mRemoteDebug) {
             mCmdArgs.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=10088");
         }
-        // FIXME: b/72742216: This prevent the illegal reflective access
-        mCmdArgs.add("--add-opens=java.base/java.nio=ALL-UNNAMED");
+        // This prevent the illegal reflective access warnings by allowing some packages.
+        if (!mDisableJavaOpens) {
+            for (String modulePackage : mAddOpens) {
+                mCmdArgs.add("--add-opens=" + modulePackage + "=ALL-UNNAMED");
+            }
+        }
         mCmdArgs.add("-cp");
 
         mCmdArgs.add(jarClasspath);
         mCmdArgs.add("com.android.tradefed.command.CommandRunner");
         mCmdArgs.add(mConfigName);
+
+        Integer shardCount = mConfig.getCommandOptions().getShardCount();
+        if (mLocalShardingMode && shardCount != null & shardCount > 1) {
+            mCmdArgs.add("--shard-count");
+            mCmdArgs.add(Integer.toString(shardCount));
+        }
 
         // clear the TF_GLOBAL_CONFIG env, so another tradefed will not reuse the global config file
         mRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
@@ -239,7 +330,8 @@ public abstract class SubprocessTfLauncher
 
     /** {@inheritDoc} */
     @Override
-    public void run(ITestInvocationListener listener) {
+    public void run(TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         preRun();
         addInvocationData();
 
@@ -247,6 +339,7 @@ public abstract class SubprocessTfLauncher
         File stderrFile = null;
         File eventFile = null;
         SubprocessTestResultsParser eventParser = null;
+        StreamProtoReceiver protoReceiver = null;
         FileOutputStream stdout = null;
         FileOutputStream stderr = null;
 
@@ -259,27 +352,48 @@ public abstract class SubprocessTfLauncher
             stderr = new FileOutputStream(stderrFile);
             stdout = new FileOutputStream(stdoutFile);
 
-            eventParser = new SubprocessTestResultsParser(listener, mEventStreaming, mContext);
-            if (mEventStreaming) {
-                mCmdArgs.add("--subprocess-report-port");
-                mCmdArgs.add(Integer.toString(eventParser.getSocketServerPort()));
+            if (mUseProtoReporting) {
+                protoReceiver = new StreamProtoReceiver(listener, mContext, false, false);
+                mCmdArgs.add("--" + StreamProtoResultReporter.PROTO_REPORT_PORT_OPTION);
+                mCmdArgs.add(Integer.toString(protoReceiver.getSocketServerPort()));
             } else {
-                eventFile = FileUtil.createTempFile("event_subprocess_", ".log");
-                mCmdArgs.add("--subprocess-report-file");
-                mCmdArgs.add(eventFile.getAbsolutePath());
+                eventParser = new SubprocessTestResultsParser(listener, mEventStreaming, mContext);
+                if (mEventStreaming) {
+                    mCmdArgs.add("--subprocess-report-port");
+                    mCmdArgs.add(Integer.toString(eventParser.getSocketServerPort()));
+                } else {
+                    eventFile = FileUtil.createTempFile("event_subprocess_", ".log");
+                    mCmdArgs.add("--subprocess-report-file");
+                    mCmdArgs.add(eventFile.getAbsolutePath());
+                }
+                eventParser.setIgnoreTestLog(mIgnoreTestLog);
             }
             startTime = System.currentTimeMillis();
             CommandResult result = mRunUtil.runTimedCmd(mMaxTfRunTime, stdout,
                     stderr, mCmdArgs.toArray(new String[0]));
-            if (eventParser.getStartTime() != null) {
-                startTime = eventParser.getStartTime();
-            }
-            elapsedTime = System.currentTimeMillis() - startTime;
-            // We possibly allow for a little more time if the thread is still processing events.
-            if (!eventParser.joinReceiver(EVENT_THREAD_JOIN_TIMEOUT_MS)) {
-                elapsedTime = -1l;
-                throw new RuntimeException(String.format("Event receiver thread did not complete:"
-                        + "\n%s", FileUtil.readStringFromFile(stderrFile)));
+
+            if (eventParser != null) {
+                if (eventParser.getStartTime() != null) {
+                    startTime = eventParser.getStartTime();
+                }
+                elapsedTime = System.currentTimeMillis() - startTime;
+                // We possibly allow for a little more time if the thread is still processing
+                // events.
+                if (!eventParser.joinReceiver(EVENT_THREAD_JOIN_TIMEOUT_MS)) {
+                    elapsedTime = -1l;
+                    throw new RuntimeException(
+                            String.format(
+                                    "Event receiver thread did not complete:" + "\n%s",
+                                    FileUtil.readStringFromFile(stderrFile)));
+                }
+            } else if (protoReceiver != null) {
+                if (!protoReceiver.joinReceiver(EVENT_THREAD_JOIN_TIMEOUT_MS)) {
+                    elapsedTime = -1l;
+                    throw new RuntimeException(
+                            String.format(
+                                    "Event receiver thread did not complete:" + "\n%s",
+                                    FileUtil.readStringFromFile(stderrFile)));
+                }
             }
             if (result.getStatus().equals(CommandStatus.SUCCESS)) {
                 CLog.d("Successfully ran TF tests for build %s", mBuildInfo.getBuildId());
@@ -287,19 +401,21 @@ public abstract class SubprocessTfLauncher
             } else {
                 CLog.w("Failed ran TF tests for build %s, status %s",
                         mBuildInfo.getBuildId(), result.getStatus());
-                CLog.v("TF tests output:\nstdout:\n%s\nstderror:\n%s",
+                CLog.v(
+                        "TF tests output:\nstdout:\n%s\nstderr:\n%s",
                         result.getStdout(), result.getStderr());
                 exception = true;
                 String errMessage = null;
                 if (result.getStatus().equals(CommandStatus.TIMED_OUT)) {
                     errMessage = String.format("Timeout after %s",
                             TimeUtil.formatElapsedTime(mMaxTfRunTime));
+                    throw new RuntimeException(
+                            String.format(
+                                    "%s Tests subprocess failed due to:\n%s\n",
+                                    mConfigName, errMessage));
                 } else {
-                    errMessage = FileUtil.readStringFromFile(stderrFile);
+                    SubprocessExceptionParser.handleStderrException(result);
                 }
-                throw new RuntimeException(
-                        String.format("%s Tests subprocess failed due to:\n%s\n", mConfigName,
-                                errMessage));
             }
         } catch (IOException e) {
             exception = true;
@@ -314,6 +430,7 @@ public abstract class SubprocessTfLauncher
                 logAndCleanFile(eventFile, listener);
             }
             StreamUtil.close(eventParser);
+            StreamUtil.close(protoReceiver);
 
             postRun(listener, exception, elapsedTime);
 
@@ -359,6 +476,9 @@ public abstract class SubprocessTfLauncher
      */
     private void testCleanStdErr(File stdErrFile, ITestInvocationListener listener)
             throws IOException {
+        if (mDisableStderrTest) {
+            return;
+        }
         listener.testRunStarted("StdErr", 1);
         TestDescription tid = new TestDescription("stderr-test", "checkIsEmpty");
         listener.testStarted(tid);

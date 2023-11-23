@@ -34,11 +34,11 @@ namespace aarch64 {
 
 const unsigned kNumberOfRegisters = 32;
 const unsigned kNumberOfVRegisters = 32;
-const unsigned kNumberOfFPRegisters = kNumberOfVRegisters;
 // Callee saved registers are x21-x30(lr).
 const int kNumberOfCalleeSavedRegisters = 10;
 const int kFirstCalleeSavedRegisterIndex = 21;
-// Callee saved FP registers are d8-d15.
+// Callee saved FP registers are d8-d15. Note that the high parts of v8-v15 are
+// still caller-saved.
 const int kNumberOfCalleeSavedFPRegisters = 8;
 const int kFirstCalleeSavedFPRegisterIndex = 8;
 
@@ -51,13 +51,14 @@ const int kFirstCalleeSavedFPRegisterIndex = 8;
 
 #define INSTRUCTION_FIELDS_LIST(V_)                                          \
 /* Register fields */                                                        \
-V_(Rd, 4, 0, ExtractBits)                 /* Destination register.        */ \
-V_(Rn, 9, 5, ExtractBits)                 /* First source register.       */ \
-V_(Rm, 20, 16, ExtractBits)               /* Second source register.      */ \
-V_(Ra, 14, 10, ExtractBits)               /* Third source register.       */ \
-V_(Rt, 4, 0, ExtractBits)                 /* Load/store register.         */ \
-V_(Rt2, 14, 10, ExtractBits)              /* Load/store second register.  */ \
-V_(Rs, 20, 16, ExtractBits)               /* Exclusive access status.     */ \
+V_(Rd, 4, 0, ExtractBits)         /* Destination register.                */ \
+V_(Rn, 9, 5, ExtractBits)         /* First source register.               */ \
+V_(Rm, 20, 16, ExtractBits)       /* Second source register.              */ \
+V_(RmLow16, 19, 16, ExtractBits)  /* Second source register (code 0-15).  */ \
+V_(Ra, 14, 10, ExtractBits)       /* Third source register.               */ \
+V_(Rt, 4, 0, ExtractBits)         /* Load/store register.                 */ \
+V_(Rt2, 14, 10, ExtractBits)      /* Load/store second register.          */ \
+V_(Rs, 20, 16, ExtractBits)       /* Exclusive access status.             */ \
                                                                              \
 /* Common bits */                                                            \
 V_(SixtyFourBits, 31, 31, ExtractBits)                                       \
@@ -119,6 +120,8 @@ V_(ImmPrefetchOperation, 4, 0, ExtractBits)                                  \
 V_(PrefetchHint, 4, 3, ExtractBits)                                          \
 V_(PrefetchTarget, 2, 1, ExtractBits)                                        \
 V_(PrefetchStream, 0, 0, ExtractBits)                                        \
+V_(ImmLSPACHi, 22, 22, ExtractSignedBits)                                    \
+V_(ImmLSPACLo, 20, 12, ExtractBits)                                          \
                                                                              \
 /* Other immediates */                                                       \
 V_(ImmUncondBranch, 25, 0, ExtractSignedBits)                                \
@@ -128,6 +131,7 @@ V_(ImmException, 20, 5, ExtractBits)                                         \
 V_(ImmHint, 11, 5, ExtractBits)                                              \
 V_(ImmBarrierDomain, 11, 10, ExtractBits)                                    \
 V_(ImmBarrierType, 9, 8, ExtractBits)                                        \
+V_(ImmUdf, 15, 0, ExtractBits)                                               \
                                                                              \
 /* System (MRS, MSR, SYS) */                                                 \
 V_(ImmSystemRegister, 20, 5, ExtractBits)                                    \
@@ -138,6 +142,7 @@ V_(SysOp1, 18, 16, ExtractBits)                                              \
 V_(SysOp2, 7, 5, ExtractBits)                                                \
 V_(CRn, 15, 12, ExtractBits)                                                 \
 V_(CRm, 11, 8, ExtractBits)                                                  \
+V_(ImmRMIFRotation, 20, 15, ExtractBits)                                     \
                                                                              \
 /* Load-/store-exclusive */                                                  \
 V_(LdStXLoad, 22, 22, ExtractBits)                                           \
@@ -299,14 +304,31 @@ enum Extend {
 };
 
 enum SystemHint {
-  NOP   = 0,
-  YIELD = 1,
-  WFE   = 2,
-  WFI   = 3,
-  SEV   = 4,
-  SEVL  = 5,
-  ESB   = 16,
-  CSDB  = 20
+  NOP    = 0,
+  YIELD  = 1,
+  WFE    = 2,
+  WFI    = 3,
+  SEV    = 4,
+  SEVL   = 5,
+  ESB    = 16,
+  CSDB   = 20,
+  BTI    = 32,
+  BTI_c  = 34,
+  BTI_j  = 36,
+  BTI_jc = 38
+};
+
+enum BranchTargetIdentifier {
+  EmitBTI_none = NOP,
+  EmitBTI = BTI,
+  EmitBTI_c = BTI_c,
+  EmitBTI_j = BTI_j,
+  EmitBTI_jc = BTI_jc,
+
+  // These correspond to the values of the CRm:op2 fields in the equivalent HINT
+  // instruction.
+  EmitPACIASP = 25,
+  EmitPACIBSP = 27
 };
 
 enum BarrierDomain {
@@ -346,6 +368,23 @@ enum PrefetchOperation {
   PSTL3STRM = 0x15
 };
 
+enum BType {
+  // Set when executing any instruction on a guarded page, except those cases
+  // listed below.
+  DefaultBType = 0,
+
+  // Set when an indirect branch is taken from an unguarded page to a guarded
+  // page, or from a guarded page to ip0 or ip1 (x16 or x17), eg "br ip0".
+  BranchFromUnguardedOrToIP = 1,
+
+  // Set when an indirect branch and link (call) is taken, eg. "blr x0".
+  BranchAndLink = 2,
+
+  // Set when an indirect branch is taken from a guarded page to a register
+  // that is not ip0 or ip1 (x16 or x17), eg, "br x0".
+  BranchFromGuardedNotToIP = 3
+};
+
 template<int op0, int op1, int crn, int crm, int op2>
 class SystemRegisterEncoder {
  public:
@@ -359,10 +398,12 @@ class SystemRegisterEncoder {
 
 // System/special register names.
 // This information is not encoded as one field but as the concatenation of
-// multiple fields (Op0<0>, Op1, Crn, Crm, Op2).
+// multiple fields (Op0, Op1, Crn, Crm, Op2).
 enum SystemRegister {
   NZCV = SystemRegisterEncoder<3, 3, 4, 2, 0>::value,
-  FPCR = SystemRegisterEncoder<3, 3, 4, 4, 0>::value
+  FPCR = SystemRegisterEncoder<3, 3, 4, 4, 0>::value,
+  RNDR = SystemRegisterEncoder<3, 3, 2, 4, 0>::value,    // Random number.
+  RNDRRS = SystemRegisterEncoder<3, 3, 2, 4, 1>::value   // Reseeded random number.
 };
 
 template<int op1, int crn, int crm, int op2>
@@ -382,6 +423,8 @@ enum InstructionCacheOp {
 enum DataCacheOp {
   CVAC = CacheOpEncoder<3, 7, 10, 1>::value,
   CVAU = CacheOpEncoder<3, 7, 11, 1>::value,
+  CVAP = CacheOpEncoder<3, 7, 12, 1>::value,
+  CVADP = CacheOpEncoder<3, 7, 13, 1>::value,
   CIVAC = CacheOpEncoder<3, 7, 14, 1>::value,
   ZVA = CacheOpEncoder<3, 7, 4, 1>::value
 };
@@ -534,6 +577,23 @@ enum AddSubWithCarryOp {
   SBC                  = SBC_w,
   SBCS_w               = AddSubWithCarryFixed | SUBS,
   SBCS_x               = AddSubWithCarryFixed | SUBS | SixtyFourBits
+};
+
+// Rotate right into flags.
+enum RotateRightIntoFlagsOp {
+  RotateRightIntoFlagsFixed = 0x1A000400,
+  RotateRightIntoFlagsFMask = 0x1FE07C00,
+  RotateRightIntoFlagsMask  = 0xFFE07C10,
+  RMIF                      = RotateRightIntoFlagsFixed | 0xA0000000
+};
+
+// Evaluate into flags.
+enum EvaluateIntoFlagsOp {
+  EvaluateIntoFlagsFixed = 0x1A000800,
+  EvaluateIntoFlagsFMask = 0x1FE03C00,
+  EvaluateIntoFlagsMask  = 0xFFE07C1F,
+  SETF8                  = EvaluateIntoFlagsFixed | 0x2000000D,
+  SETF16                 = EvaluateIntoFlagsFixed | 0x2000400D
 };
 
 
@@ -719,6 +779,15 @@ enum SystemSysRegOp {
   MSR               = SystemSysRegFixed | 0x00000000
 };
 
+enum SystemPStateOp {
+  SystemPStateFixed = 0xD5004000,
+  SystemPStateFMask = 0xFFF8F000,
+  SystemPStateMask  = 0xFFFFF0FF,
+  CFINV             = SystemPStateFixed | 0x0000001F,
+  XAFLAG            = SystemPStateFixed | 0x0000003F,
+  AXFLAG            = SystemPStateFixed | 0x0000005F
+};
+
 enum SystemHintOp {
   SystemHintFixed = 0xD503201F,
   SystemHintFMask = 0xFFFFF01F,
@@ -866,6 +935,18 @@ enum LoadStorePairNonTemporalOp {
   LDNP_d = LoadStorePairNonTemporalFixed | LDP_d,
   STNP_q = LoadStorePairNonTemporalFixed | STP_q,
   LDNP_q = LoadStorePairNonTemporalFixed | LDP_q
+};
+
+// Load with pointer authentication.
+enum LoadStorePACOp {
+  LoadStorePACFixed  = 0xF8200400,
+  LoadStorePACFMask  = 0xFF200400,
+  LoadStorePACMask   = 0xFFA00C00,
+  LoadStorePACPreBit = 0x00000800,
+  LDRAA     = LoadStorePACFixed | 0x00000000,
+  LDRAA_pre = LoadStorePACPreBit | LDRAA,
+  LDRAB     = LoadStorePACFixed | 0x00800000,
+  LDRAB_pre = LoadStorePACPreBit | LDRAB
 };
 
 // Load literal.
@@ -1055,6 +1136,26 @@ enum LoadStoreExclusive {
   CASPL_x  = CASPFixed | LSEBit_o0 | LSEBit_sz,
   CASPAL_w = CASPFixed | LSEBit_l | LSEBit_o0,
   CASPAL_x = CASPFixed | LSEBit_l | LSEBit_o0 | LSEBit_sz
+};
+
+// Load/store RCpc unscaled offset.
+enum LoadStoreRCpcUnscaledOffsetOp {
+  LoadStoreRCpcUnscaledOffsetFixed = 0x19000000,
+  LoadStoreRCpcUnscaledOffsetFMask = 0x3F200C00,
+  LoadStoreRCpcUnscaledOffsetMask  = 0xFFE00C00,
+  STLURB     = LoadStoreRCpcUnscaledOffsetFixed | 0x00000000,
+  LDAPURB    = LoadStoreRCpcUnscaledOffsetFixed | 0x00400000,
+  LDAPURSB_x = LoadStoreRCpcUnscaledOffsetFixed | 0x00800000,
+  LDAPURSB_w = LoadStoreRCpcUnscaledOffsetFixed | 0x00C00000,
+  STLURH     = LoadStoreRCpcUnscaledOffsetFixed | 0x40000000,
+  LDAPURH    = LoadStoreRCpcUnscaledOffsetFixed | 0x40400000,
+  LDAPURSH_x = LoadStoreRCpcUnscaledOffsetFixed | 0x40800000,
+  LDAPURSH_w = LoadStoreRCpcUnscaledOffsetFixed | 0x40C00000,
+  STLUR_w    = LoadStoreRCpcUnscaledOffsetFixed | 0x80000000,
+  LDAPUR_w   = LoadStoreRCpcUnscaledOffsetFixed | 0x80400000,
+  LDAPURSW   = LoadStoreRCpcUnscaledOffsetFixed | 0x80800000,
+  STLUR_x    = LoadStoreRCpcUnscaledOffsetFixed | 0xC0000000,
+  LDAPUR_x   = LoadStoreRCpcUnscaledOffsetFixed | 0xC0400000
 };
 
 #define ATOMIC_MEMORY_SIMPLE_OPC_LIST(V) \
@@ -1348,6 +1449,18 @@ enum FPDataProcessing1SourceOp {
   FCVT_hd  = FPDataProcessing1SourceFixed | FP64 | 0x00038000,
   FCVT_sh  = FPDataProcessing1SourceFixed | 0x00C20000,
   FCVT_dh  = FPDataProcessing1SourceFixed | 0x00C28000,
+  FRINT32X_s = FPDataProcessing1SourceFixed | 0x00088000,
+  FRINT32X_d = FPDataProcessing1SourceFixed | FP64 | 0x00088000,
+  FRINT32X = FRINT32X_s,
+  FRINT32Z_s = FPDataProcessing1SourceFixed | 0x00080000,
+  FRINT32Z_d = FPDataProcessing1SourceFixed | FP64 | 0x00080000,
+  FRINT32Z = FRINT32Z_s,
+  FRINT64X_s = FPDataProcessing1SourceFixed | 0x00098000,
+  FRINT64X_d = FPDataProcessing1SourceFixed | FP64 | 0x00098000,
+  FRINT64X = FRINT64X_s,
+  FRINT64Z_s = FPDataProcessing1SourceFixed | 0x00090000,
+  FRINT64Z_d = FPDataProcessing1SourceFixed | FP64 | 0x00090000,
+  FRINT64Z = FRINT64Z_s,
   FRINTN_h = FPDataProcessing1SourceFixed | FP16 | 0x00040000,
   FRINTN_s = FPDataProcessing1SourceFixed | 0x00040000,
   FRINTN_d = FPDataProcessing1SourceFixed | FP64 | 0x00040000,
@@ -1643,6 +1756,10 @@ enum NEON2RegMiscOp {
   NEON_FCVTN  = NEON2RegMiscFixed | 0x00016000,
   NEON_FCVTXN = NEON2RegMiscFixed | 0x20016000,
   NEON_FCVTL  = NEON2RegMiscFixed | 0x00017000,
+  NEON_FRINT32X = NEON2RegMiscFixed | 0x2001E000,
+  NEON_FRINT32Z = NEON2RegMiscFixed | 0x0001E000,
+  NEON_FRINT64X = NEON2RegMiscFixed | 0x2001F000,
+  NEON_FRINT64Z = NEON2RegMiscFixed | 0x0001F000,
   NEON_FRINTN = NEON2RegMiscFixed | 0x00018000,
   NEON_FRINTA = NEON2RegMiscFixed | 0x20018000,
   NEON_FRINTP = NEON2RegMiscFixed | 0x00818000,
@@ -1806,7 +1923,14 @@ enum NEON3SameOp {
   NEON_BIC = NEON3SameLogicalFixed | 0x00400000,
   NEON_BIF = NEON3SameLogicalFixed | 0x20C00000,
   NEON_BIT = NEON3SameLogicalFixed | 0x20800000,
-  NEON_BSL = NEON3SameLogicalFixed | 0x20400000
+  NEON_BSL = NEON3SameLogicalFixed | 0x20400000,
+
+  // FHM (FMLAL-like) instructions have an oddball encoding scheme under 3Same.
+  NEON3SameFHMMask = 0xBFE0FC00,                // U  size  opcode
+  NEON_FMLAL   = NEON3SameFixed | 0x0000E800,   // 0    00   11101
+  NEON_FMLAL2  = NEON3SameFixed | 0x2000C800,   // 1    00   11001
+  NEON_FMLSL   = NEON3SameFixed | 0x0080E800,   // 0    10   11101
+  NEON_FMLSL2  = NEON3SameFixed | 0x2080C800    // 1    10   11001
 };
 
 
@@ -1978,6 +2102,7 @@ enum NEONByIndexedElementOp {
   NEON_SQRDMLAH_byelement = NEONByIndexedElementFixed | 0x2000D000,
   NEON_UDOT_byelement = NEONByIndexedElementFixed | 0x2000E000,
   NEON_SQRDMLSH_byelement = NEONByIndexedElementFixed | 0x2000F000,
+
   NEON_FMLA_H_byelement   = NEONByIndexedElementFixed | 0x00001000,
   NEON_FMLS_H_byelement   = NEONByIndexedElementFixed | 0x00005000,
   NEON_FMUL_H_byelement   = NEONByIndexedElementFixed | 0x00009000,
@@ -1990,10 +2115,22 @@ enum NEONByIndexedElementOp {
   NEON_FMLS_byelement  = NEONByIndexedElementFPFixed | 0x00005000,
   NEON_FMUL_byelement  = NEONByIndexedElementFPFixed | 0x00009000,
   NEON_FMULX_byelement = NEONByIndexedElementFPFixed | 0x20009000,
-  NEON_FCMLA_byelement = NEONByIndexedElementFixed | 0x20001000,
 
-  // Complex instruction(s) this is necessary because 'rot' encoding moves into the NEONByIndex..Mask space
-  NEONByIndexedElementFPComplexMask = 0xBF009400
+  // FMLAL-like instructions.
+  // For all cases: U = x, size = 10, opcode = xx00
+  NEONByIndexedElementFPLongFixed = NEONByIndexedElementFixed | 0x00800000,
+  NEONByIndexedElementFPLongFMask = NEONByIndexedElementFMask | 0x00C03000,
+  NEONByIndexedElementFPLongMask = 0xBFC0F400,
+  NEON_FMLAL_H_byelement  = NEONByIndexedElementFixed | 0x00800000,
+  NEON_FMLAL2_H_byelement = NEONByIndexedElementFixed | 0x20808000,
+  NEON_FMLSL_H_byelement  = NEONByIndexedElementFixed | 0x00804000,
+  NEON_FMLSL2_H_byelement = NEONByIndexedElementFixed | 0x2080C000,
+
+  // Complex instruction(s).
+  // This is necessary because the 'rot' encoding moves into the
+  // NEONByIndex..Mask space.
+  NEONByIndexedElementFPComplexMask = 0xBF009400,
+  NEON_FCMLA_byelement = NEONByIndexedElementFixed | 0x20001000
 };
 
 // NEON register copy.
@@ -2521,6 +2658,14 @@ enum NEONScalarShiftImmediateOp {
   NEON_UCVTF_imm_scalar =  NEON_Q | NEONScalar | NEON_UCVTF_imm,
   NEON_FCVTZS_imm_scalar = NEON_Q | NEONScalar | NEON_FCVTZS_imm,
   NEON_FCVTZU_imm_scalar = NEON_Q | NEONScalar | NEON_FCVTZU_imm
+};
+
+enum ReservedOp {
+  ReservedFixed = 0x00000000,
+  ReservedFMask = 0x1E000000,
+  ReservedMask = 0xFFFF0000,
+
+  UDF = ReservedFixed | 0x00000000
 };
 
 // Unimplemented and unallocated instructions. These are defined to make fixed

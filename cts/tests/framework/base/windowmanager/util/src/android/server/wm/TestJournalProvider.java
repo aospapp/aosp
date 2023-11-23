@@ -90,19 +90,19 @@ public class TestJournalProvider extends ContentProvider {
         switch (method) {
             case METHOD_ADD_CALLBACK:
                 ensureExtras(method, extras);
-                TestJournalContainer.get().addCallback(
+                TestJournalContainer.getInstance().addCallback(
                         extras.getString(EXTRA_KEY_OWNER), extras.getParcelable(method));
                 break;
 
             case METHOD_SET_LAST_CONFIG_INFO:
                 ensureExtras(method, extras);
-                TestJournalContainer.get().setLastConfigInfo(
+                TestJournalContainer.getInstance().setLastConfigInfo(
                         extras.getString(EXTRA_KEY_OWNER), extras.getParcelable(method));
                 break;
 
             case METHOD_PUT_EXTRAS:
                 ensureExtras(method, extras);
-                TestJournalContainer.get().putExtras(
+                TestJournalContainer.getInstance().putExtras(
                         extras.getString(EXTRA_KEY_OWNER), extras);
                 break;
         }
@@ -267,7 +267,17 @@ public class TestJournalProvider extends ContentProvider {
 
         @NonNull
         public static TestJournal get(String owner) {
-            return get().getTestJournal(owner);
+            return getInstance().getTestJournal(owner);
+        }
+
+        /**
+         * Perform the action which may have thread safety concerns when accessing the fields of
+         * {@link TestJournal}.
+         */
+        public static void withThreadSafeAccess(Runnable action) {
+            synchronized (getInstance()) {
+                action.run();
+            }
         }
 
         private synchronized TestJournal getTestJournal(String owner) {
@@ -291,7 +301,7 @@ public class TestJournalProvider extends ContentProvider {
             getTestJournal(owner).extras.putAll(extras);
         }
 
-        private synchronized static TestJournalContainer get() {
+        private synchronized static TestJournalContainer getInstance() {
             if (!TestJournalProvider.sCrossProcessAccessGuard) {
                 throw new IllegalAccessError(TestJournalProvider.class.getSimpleName()
                         + " is not alive in this process");
@@ -308,7 +318,7 @@ public class TestJournalProvider extends ContentProvider {
          */
         @NonNull
         public static TestJournalContainer start() {
-            final TestJournalContainer instance = get();
+            final TestJournalContainer instance = getInstance();
             synchronized (instance) {
                 instance.mContainer.clear();
             }

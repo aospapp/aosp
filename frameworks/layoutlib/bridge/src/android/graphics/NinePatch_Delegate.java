@@ -80,7 +80,8 @@ public final class NinePatch_Delegate {
             oos = new ObjectOutputStream(baos);
             oos.writeObject(chunk);
         } catch (IOException e) {
-            Bridge.getLog().error(null, "Failed to serialize NinePatchChunk.", e, null /*data*/);
+            Bridge.getLog().error(null, "Failed to serialize NinePatchChunk.", e, null,
+                    null /*data*/);
             return null;
         } finally {
             if (oos != null) {
@@ -120,11 +121,11 @@ public final class NinePatch_Delegate {
                 }
             } catch (IOException e) {
                 Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                        "Failed to deserialize NinePatchChunk content.", e, null /*data*/);
+                        "Failed to deserialize NinePatchChunk content.", e, null, null /*data*/);
                 return null;
             } catch (ClassNotFoundException e) {
                 Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                        "Failed to deserialize NinePatchChunk class.", e, null /*data*/);
+                        "Failed to deserialize NinePatchChunk class.", e, null, null /*data*/);
                 return null;
             }
         }

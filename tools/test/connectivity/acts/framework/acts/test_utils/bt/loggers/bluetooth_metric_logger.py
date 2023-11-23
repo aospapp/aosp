@@ -21,11 +21,7 @@ import time
 
 from acts.metrics.core import ProtoMetric
 from acts.metrics.logger import MetricLogger
-
-# Initializes the path to the protobuf
-PROTO_PATH = os.path.join(os.path.dirname(__file__),
-                          'protos',
-                          'bluetooth_metric.proto')
+from acts.test_utils.bt.loggers.protos import bluetooth_metric_pb2
 
 
 def recursive_assign(proto, dct):
@@ -50,7 +46,7 @@ class BluetoothMetricLogger(MetricLogger):
 
     def __init__(self, event):
         super().__init__(event=event)
-        self.proto_module = self._compile_proto(PROTO_PATH)
+        self.proto_module = bluetooth_metric_pb2
         self.results = []
         self.start_time = int(time.time())
 
@@ -63,6 +59,8 @@ class BluetoothMetricLogger(MetricLogger):
                           'BluetoothLatencyTest': self.proto_module
                               .BluetoothDataTestResult(),
                           'BtCodecSweepTest': self.proto_module
+                              .BluetoothAudioTestResult(),
+                          'BtRangeCodecTest': self.proto_module
                               .BluetoothAudioTestResult(),
                           }
 

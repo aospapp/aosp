@@ -18,14 +18,21 @@ package android.appsecurity.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 
+import com.android.tradefed.device.DeviceNotAvailableException;
+
+import com.google.common.collect.ImmutableSet;
+
 /**
  * Set of tests that verify behavior of
  * {@link android.provider.DocumentsContract} and related intents.
  */
 public class DocumentsTest extends DocumentsTestCase {
     private static final String PROVIDER_PKG = "com.android.cts.documentprovider";
+    private static final String DUMMYIME_PKG = "com.android.cts.dummyime";
     private static final String PROVIDER_APK = "CtsDocumentProvider.apk";
     private static final String DUMMYIME_APK = "CtsDummyIme.apk";
+
+    private static final long RESTRICT_STORAGE_ACCESS_FRAMEWORK = 141600225L;
 
     @Override
     protected void setUp() throws Exception {
@@ -42,7 +49,7 @@ public class DocumentsTest extends DocumentsTestCase {
         super.tearDown();
 
         getDevice().uninstallPackage(PROVIDER_PKG);
-        getDevice().uninstallPackage(DUMMYIME_APK);
+        getDevice().uninstallPackage(DUMMYIME_PKG);
     }
 
     public void testOpenSimple() throws Exception {
@@ -95,6 +102,13 @@ public class DocumentsTest extends DocumentsTestCase {
         runDeviceTests(CLIENT_PKG, ".DocumentsClientTest", "testOpenDocumentTreeAtInitialLocation");
     }
 
+    public void testOpenDocumentTreeWithScopedStorage() throws Exception {
+        if (isAtLeastR()) {
+            runDeviceTests(CLIENT_PKG, ".DocumentsClientTest",
+                "testOpenDocumentTreeWithScopedStorage");
+        }
+    }
+
     public void testOpenRootWithoutRootIdAtInitialLocation() throws Exception {
         runDeviceTests(CLIENT_PKG, ".DocumentsClientTest",
                 "testOpenRootWithoutRootIdAtInitialLocation");
@@ -110,5 +124,49 @@ public class DocumentsTest extends DocumentsTestCase {
 
     public void testEject() throws Exception {
         runDeviceTests(CLIENT_PKG, ".DocumentsClientTest", "testEject");
+    }
+
+    public void testRestrictStorageAccessFrameworkEnabled_blockFromTree() throws Exception {
+        if (isAtLeastR() && isSupportedHardware()) {
+            runDeviceCompatTest(CLIENT_PKG, ".DocumentsClientTest",
+                "testRestrictStorageAccessFrameworkEnabled_blockFromTree",
+                /* enabledChanges */ ImmutableSet.of(RESTRICT_STORAGE_ACCESS_FRAMEWORK),
+                /* disabledChanges */ ImmutableSet.of());
+        }
+    }
+
+    public void testRestrictStorageAccessFrameworkDisabled_notBlockFromTree() throws Exception {
+        if (isAtLeastR() && isSupportedHardware()) {
+            runDeviceCompatTest(CLIENT_PKG, ".DocumentsClientTest",
+                "testRestrictStorageAccessFrameworkDisabled_notBlockFromTree",
+                /* enabledChanges */ ImmutableSet.of(),
+                /* disabledChanges */ ImmutableSet.of(RESTRICT_STORAGE_ACCESS_FRAMEWORK));
+        }
+    }
+
+    private boolean isAtLeastR() {
+        try {
+            String apiString = getDevice().getProperty("ro.build.version.sdk");
+            if (apiString == null) {
+                return false;
+            }
+            int apiLevel = Integer.parseInt(apiString);
+            return apiLevel > 29;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isSupportedHardware() {
+        try {
+            if (getDevice().hasFeature("feature:android.hardware.type.television")
+                    || getDevice().hasFeature("feature:android.hardware.type.watch")
+                    || getDevice().hasFeature("feature:android.hardware.type.automotive")) {
+                return false;
+            }
+        } catch (DeviceNotAvailableException e) {
+            return true;
+        }
+        return true;
     }
 }

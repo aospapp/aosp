@@ -25,9 +25,6 @@
 
 package sun.security.x509;
 
-import java.util.*;
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X509CRLImpl extends java.security.cert.X509CRL
         implements sun.security.util.DerEncoder {
@@ -36,17 +33,17 @@ public class X509CRLImpl extends java.security.cert.X509CRL
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CRLImpl(byte[] crlData) throws java.security.cert.CRLException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CRLImpl(sun.security.util.DerValue val) throws java.security.cert.CRLException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509CRLImpl(java.io.InputStream inStrm) throws java.security.cert.CRLException {
         throw new RuntimeException("Stub!");
     }
@@ -75,7 +72,7 @@ public class X509CRLImpl extends java.security.cert.X509CRL
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public byte[] getEncodedInternal() throws java.security.cert.CRLException {
         throw new RuntimeException("Stub!");
     }

@@ -404,7 +404,7 @@ WindingTestInstance::WindingTestInstance (Context&					context,
 
 void WindingTestInstance::requireExtension (const char* name) const
 {
-	if(!isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), name))
+	if(!m_context.isDeviceFunctionalitySupported(name))
 		TCU_THROW(NotSupportedError, (std::string(name) + " is not supported").c_str());
 }
 
@@ -432,10 +432,10 @@ tcu::TestStatus WindingTestInstance::iterate (void)
 
 	// Pipeline
 
-	const Unique<VkImageView>		colorAttachmentView(makeImageView                       (vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
-	const Unique<VkRenderPass>		renderPass         (makeRenderPass                      (vk, device, colorFormat));
-	const Unique<VkFramebuffer>		framebuffer        (makeFramebuffer                     (vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y(), 1u));
-	const Unique<VkPipelineLayout>	pipelineLayout     (makePipelineLayoutWithoutDescriptors(vk, device));
+	const Unique<VkImageView>		colorAttachmentView	(makeImageView		(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
+	const Unique<VkRenderPass>		renderPass			(makeRenderPass		(vk, device, colorFormat));
+	const Unique<VkFramebuffer>		framebuffer			(makeFramebuffer	(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y()));
+	const Unique<VkPipelineLayout>	pipelineLayout		(makePipelineLayout	(vk, device));
 
 	const VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
 
@@ -444,20 +444,20 @@ tcu::TestStatus WindingTestInstance::iterate (void)
 	const Unique<VkPipeline> pipelineCounterClockwise(GraphicsPipelineBuilder()
 		.setCullModeFlags				(cullMode)
 		.setFrontFace					(VK_FRONT_FACE_COUNTER_CLOCKWISE)
-		.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,				   m_context.getBinaryCollection().get("vert"), DE_NULL)
-		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,    m_context.getBinaryCollection().get("tesc"), DE_NULL)
-		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, m_context.getBinaryCollection().get("tese"), DE_NULL)
-		.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,				   m_context.getBinaryCollection().get("frag"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,					m_context.getBinaryCollection().get("vert"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,		m_context.getBinaryCollection().get("tesc"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,	m_context.getBinaryCollection().get("tese"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,					m_context.getBinaryCollection().get("frag"), DE_NULL)
 		.setTessellationDomainOrigin	(m_domainOrigin)
 		.build							(vk, device, *pipelineLayout, *renderPass));
 
 	const Unique<VkPipeline> pipelineClockwise(GraphicsPipelineBuilder()
 		.setCullModeFlags				(cullMode)
 		.setFrontFace					(VK_FRONT_FACE_CLOCKWISE)
-		.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,				   m_context.getBinaryCollection().get("vert"), DE_NULL)
-		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,	   m_context.getBinaryCollection().get("tesc"), DE_NULL)
-		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, m_context.getBinaryCollection().get("tese"), DE_NULL)
-		.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,				   m_context.getBinaryCollection().get("frag"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,					m_context.getBinaryCollection().get("vert"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,		m_context.getBinaryCollection().get("tesc"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,	m_context.getBinaryCollection().get("tese"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,					m_context.getBinaryCollection().get("frag"), DE_NULL)
 		.setTessellationDomainOrigin	(m_domainOrigin)
 		.build							(vk, device, *pipelineLayout, *renderPass));
 
@@ -541,10 +541,12 @@ tcu::TestStatus WindingTestInstance::iterate (void)
 
 		{
 			// Log rendered image
-			const Allocation& colorBufferAlloc = colorBuffer.getAllocation();
-			invalidateMappedMemoryRange(vk, device, colorBufferAlloc.getMemory(), colorBufferAlloc.getOffset(), colorBufferSizeBytes);
+			const Allocation&					colorBufferAlloc	= colorBuffer.getAllocation();
 
-			const tcu::ConstPixelBufferAccess imagePixelAccess(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, colorBufferAlloc.getHostPtr());
+			invalidateAlloc(vk, device, colorBufferAlloc);
+
+			const tcu::ConstPixelBufferAccess	imagePixelAccess	(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, colorBufferAlloc.getHostPtr());
+
 			log << tcu::TestLog::Image("color0", "Rendered image", imagePixelAccess);
 
 			// Verify case result

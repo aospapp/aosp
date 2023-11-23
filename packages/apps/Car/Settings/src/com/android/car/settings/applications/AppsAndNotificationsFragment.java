@@ -19,13 +19,24 @@ package com.android.car.settings.applications;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Shows subsettings related to apps and notifications. */
+@SearchIndexable
 public class AppsAndNotificationsFragment extends SettingsFragment {
     @Override
     @XmlRes
     protected int getPreferenceScreenResId() {
         return R.xml.apps_and_notifications_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.apps_and_notifications_fragment,
+                    CarSettingActivities.AppsAndNotificationsActivity.class);
 }

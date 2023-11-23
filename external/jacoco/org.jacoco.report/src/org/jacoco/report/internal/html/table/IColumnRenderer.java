@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -36,7 +36,7 @@ public interface IColumnRenderer {
 	 *            the summary of all coverage data items in the table
 	 * @return <code>true</code> if the column should be visible
 	 */
-	public boolean init(List<? extends ITableItem> items, ICoverageNode total);
+	boolean init(List<? extends ITableItem> items, ICoverageNode total);
 
 	/**
 	 * Renders the footer for this column.
@@ -52,8 +52,8 @@ public interface IColumnRenderer {
 	 * @throws IOException
 	 *             in case of IO problems with the element output
 	 */
-	public void footer(HTMLElement td, ICoverageNode total,
-			Resources resources, ReportOutputFolder base) throws IOException;
+	void footer(HTMLElement td, ICoverageNode total, Resources resources,
+			ReportOutputFolder base) throws IOException;
 
 	/**
 	 * Renders a single item in this column.
@@ -69,7 +69,7 @@ public interface IColumnRenderer {
 	 * @throws IOException
 	 *             in case of IO problems with the element output
 	 */
-	public void item(HTMLElement td, ITableItem item, Resources resources,
+	void item(HTMLElement td, ITableItem item, Resources resources,
 			ReportOutputFolder base) throws IOException;
 
 	/**
@@ -77,6 +77,6 @@ public interface IColumnRenderer {
 	 * 
 	 * @return comparator for this column
 	 */
-	public Comparator<ITableItem> getComparator();
+	Comparator<ITableItem> getComparator();
 
 }

@@ -16,12 +16,17 @@
 
 package com.android.car.settings.applications.assist;
 
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Assistant management settings screen. */
+@SearchIndexable
 public class ManageAssistFragment extends SettingsFragment {
 
     @Override
@@ -29,4 +34,11 @@ public class ManageAssistFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.manage_assist_fragment;
     }
+
+    /**
+     * Data provider for Settings Search.
+     */
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.manage_assist_fragment,
+                    Settings.ACTION_VOICE_INPUT_SETTINGS);
 }

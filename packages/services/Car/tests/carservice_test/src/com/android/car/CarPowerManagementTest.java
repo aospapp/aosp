@@ -30,8 +30,8 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
 import android.os.SystemClock;
 
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.SystemInterface;
@@ -44,6 +44,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -51,6 +52,10 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 @MediumTest
 public class CarPowerManagementTest extends MockedCarTestBase {
+
+    private static final int STATE_POLLING_INTERVAL_MS = 1; // Milliseconds
+    private static final int STATE_TRANSITION_MAX_WAIT_MS = 5 * STATE_POLLING_INTERVAL_MS;
+    private static final int TEST_SHUTDOWN_TIMEOUT_MS = 100 * STATE_POLLING_INTERVAL_MS;
 
     private final PowerStatePropertyHandler mPowerStateHandler = new PowerStatePropertyHandler();
     private final MockDisplayInterface mMockDisplayInterface = new MockDisplayInterface();
@@ -134,12 +139,27 @@ public class CarPowerManagementTest extends MockedCarTestBase {
                 VehicleApPowerStateReport.SHUTDOWN_CANCELLED);
     }
 
+    @Test
+    @UiThreadTest
+    public void testCancelShutdownFromWaitForFinish() throws Exception {
+        assertWaitForVhal();
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP,
+                VehicleApPowerStateReport.DEEP_SLEEP_ENTRY);
+        // After DEEP_SLEEP_ENTRY, we're in WAIT_FOR_FINISH
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.CANCEL_SHUTDOWN,
+                0,
+                VehicleApPowerStateReport.SHUTDOWN_CANCELLED);
+    }
+
     /**********************************************************************************************
      * Test for invalid state transtions
      **********************************************************************************************/
     @Test
     @UiThreadTest
-    public void testInivalidTransitionsFromWaitForVhal() throws Exception {
+    public void testInvalidTransitionsFromWaitForVhal() throws Exception {
         assertWaitForVhal();
         mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0);
         mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.FINISHED, 0);
@@ -162,8 +182,6 @@ public class CarPowerManagementTest extends MockedCarTestBase {
     @UiThreadTest
     public void testInvalidTransitionsFromPrepareShutdown() throws Exception {
         assertWaitForVhal();
-        // Increase the timeout to handle all the test cases here
-        CarPowerManagementService.setShutdownPrepareTimeout(15 * 1000);
         // Transition to SHUTDOWN_PREPARE first
         mPowerStateHandler.sendStateAndCheckResponse(
                 VehicleApPowerStateReq.SHUTDOWN_PREPARE,
@@ -191,9 +209,6 @@ public class CarPowerManagementTest extends MockedCarTestBase {
                 VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.CAN_SLEEP,
                 VehicleApPowerStateReport.DEEP_SLEEP_ENTRY);
-        // Once the device has entered WAIT_FOR_FINISH, shutdown cannot be cancelled.
-        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0);
-        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.ON, 0);
         mPowerStateHandler.sendStateAndExpectNoResponse(
                 VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.CAN_SLEEP);
@@ -214,9 +229,6 @@ public class CarPowerManagementTest extends MockedCarTestBase {
                 VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.SHUTDOWN_ONLY,
                 VehicleApPowerStateReport.SHUTDOWN_START);
-        // Once the device has entered WAIT_FOR_FINISH, shutdown cannot be cancelled.
-        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0);
-        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.ON, 0);
         mPowerStateHandler.sendStateAndExpectNoResponse(
                 VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.CAN_SLEEP);
@@ -246,7 +258,11 @@ public class CarPowerManagementTest extends MockedCarTestBase {
         mPowerStateHandler.sendPowerState(
                 VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.CAN_SLEEP);
-        assertResponse(VehicleApPowerStateReport.SHUTDOWN_PREPARE, 0, true);
+        // The state machine should go to SHUTDOWN_PREPARE, but may
+        // quickly transition to SHUTDOWN_POSTPONE. Report success
+        // if we got to SHUTDOWN_PREPARE, even if we're not there now.
+        assertResponseTransient(VehicleApPowerStateReport.SHUTDOWN_PREPARE, 0, true);
+
         mMockDisplayInterface.waitForDisplayState(false);
         assertResponse(VehicleApPowerStateReport.DEEP_SLEEP_ENTRY, 0, false);
         mMockDisplayInterface.waitForDisplayState(false);
@@ -255,6 +271,23 @@ public class CarPowerManagementTest extends MockedCarTestBase {
         mMockDisplayInterface.waitForDisplayState(false);
     }
 
+    @Test
+    @UiThreadTest
+    public void testSleepImmediateEntry() throws Exception {
+        assertWaitForVhal();
+        mMockDisplayInterface.waitForDisplayState(false);
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.ON,
+                0,
+                VehicleApPowerStateReport.ON);
+        mMockDisplayInterface.waitForDisplayState(true);
+        mPowerStateHandler.sendPowerState(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SLEEP_IMMEDIATELY);
+        assertResponseTransient(VehicleApPowerStateReport.DEEP_SLEEP_ENTRY, 0, true);
+    }
+
+    // Check that 'expectedState' was reached and is the current state.
     private void assertResponse(int expectedState, int expectedParam, boolean checkParam)
             throws Exception {
         LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
@@ -266,6 +299,21 @@ public class CarPowerManagementTest extends MockedCarTestBase {
         }
     }
 
+    // Check that 'expectedState' was reached. (But it's OK if it is not still current.)
+    private void assertResponseTransient(int expectedState, int expectedParam, boolean checkParam)
+            throws Exception {
+        LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
+                DEFAULT_WAIT_TIMEOUT_MS, expectedState);
+        for (int[] aState : setEvents) {
+            if (expectedState != aState[0]) continue;
+            if (checkParam) {
+                assertEquals(expectedParam, aState[1]);
+            }
+            return; // Success
+        }
+        fail("Did not find expected state: " + expectedState);
+    }
+
     private void assertWaitForVhal() throws Exception {
         mPowerStateHandler.waitForSubscription(DEFAULT_WAIT_TIMEOUT_MS);
         LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
@@ -273,7 +321,6 @@ public class CarPowerManagementTest extends MockedCarTestBase {
         int[] first = setEvents.getFirst();
         assertEquals(VehicleApPowerStateReport.WAIT_FOR_VHAL, first[0]);
         assertEquals(0, first[1]);
-        CarPowerManagementService.setShutdownPrepareTimeout(0);
     }
 
     private final class MockDisplayInterface implements DisplayInterface {
@@ -300,16 +347,18 @@ public class CarPowerManagementTest extends MockedCarTestBase {
         }
 
         @Override
-        public void startDisplayStateMonitoring(CarPowerManagementService service) {}
+        public void startDisplayStateMonitoring(CarPowerManagementService service) {
+            // To reduce test duration, decrease the polling interval and the
+            // time to wait for a shutdown
+            service.setShutdownTimersForTest(STATE_POLLING_INTERVAL_MS,
+                    TEST_SHUTDOWN_TIMEOUT_MS);
+        }
 
         @Override
         public void stopDisplayStateMonitoring() {}
 
         @Override
         public void refreshDisplayBrightness() {}
-
-        @Override
-        public void reconfigureSecondaryDisplays() {}
     }
 
     private class PowerStatePropertyHandler implements VehicleHalPropertyHandler {
@@ -362,7 +411,7 @@ public class CarPowerManagementTest extends MockedCarTestBase {
             }
         }
 
-        private LinkedList<int[]> waitForStateSetAndGetAll(long timeoutMs, int expectedSet)
+        private LinkedList<int[]> waitForStateSetAndGetAll(long timeoutMs, int expectedState)
                 throws Exception {
             while (true) {
                 if (!mSetWaitSemaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS)) {
@@ -371,43 +420,55 @@ public class CarPowerManagementTest extends MockedCarTestBase {
                 synchronized (this) {
                     boolean found = false;
                     for (int[] state : mSetStates) {
-                        if (state[0] == expectedSet) {
+                        if (state[0] == expectedState) {
                             found = true;
+                            break;
                         }
                     }
                     if (found) {
                         LinkedList<int[]> res = mSetStates;
                         mSetStates = new LinkedList<>();
+                        mSetWaitSemaphore.drainPermits();
                         return res;
                     }
                 }
             }
         }
 
-        private void sendStateAndCheckResponse(int state, int param, int expectedSet)
+        private void sendStateAndCheckResponse(int state, int param, int expectedState)
                 throws Exception {
             sendPowerState(state, param);
-            waitForStateSetAndGetAll(DEFAULT_WAIT_TIMEOUT_MS, expectedSet);
+            waitForStateSetAndGetAll(DEFAULT_WAIT_TIMEOUT_MS, expectedState);
         }
 
         /**
-         * Checks that a power state transition does NOT occur.  If any state does occur during
-         * the timeout period, then the test fails.
+         * Checks that a power state transition does NOT occur. If any state does occur during
+         * the timeout period (other than a POSTPONE), then the test fails.
          */
         private void sendStateAndExpectNoResponse(int state, int param) throws Exception {
             sendPowerState(state, param);
             // Wait to see if a state transition occurs
-            if (!mSetWaitSemaphore.tryAcquire(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                // No state transition, this is a success!
-                return;
-            } else {
+            long startTime = SystemClock.elapsedRealtime();
+            while (true) {
+                long timeWaitingMs = SystemClock.elapsedRealtime() - startTime;
+                if (timeWaitingMs > STATE_TRANSITION_MAX_WAIT_MS) {
+                    // No meaningful state transition: this is a success!
+                    return;
+                }
+                if (!mSetWaitSemaphore.tryAcquire(STATE_TRANSITION_MAX_WAIT_MS,
+                        TimeUnit.MILLISECONDS)) {
+                    // No state transition, this is a success!
+                    return;
+                }
                 synchronized (this) {
-                    int[] newState = mSetStates.pop();
-                    if (newState[0] != VehicleApPowerStateReport.SHUTDOWN_POSTPONE) {
-                        fail("Unexpected state change occured, state=" + newState[0]);
+                    while (!mSetStates.isEmpty()) {
+                        int[] newState = mSetStates.pop();
+                        if (newState[0] != VehicleApPowerStateReport.SHUTDOWN_POSTPONE) {
+                            fail("Unexpected state change occurred, state="
+                                    + Arrays.toString(newState));
+                        }
                     }
-                    // Reset the collected states
-                    mSetStates = new LinkedList<>();
+                    mSetWaitSemaphore.drainPermits();
                 }
             }
         }

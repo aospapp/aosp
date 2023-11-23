@@ -68,16 +68,19 @@ class network_WiFi_RoamFT(wifi_cell_test_base.WiFiCellTestBase):
         """Hook into super class to take control files parameters.
 
         @param commandline_args dict of parsed parameters from the autotest.
-        @param additional_params xmlrpc_security_types security config.
+        @param additional_params list of xmlrpc_security_types security config.
 
         """
-        self._security_config = additional_params
+        self._security_configs = additional_params
 
-    def test_body(self):
-        """Test body."""
+    def test_body(self, config):
+        """Test body.
 
-        if self._security_config.ft_mode == \
-                xmlrpc_security_types.WPAConfig.FT_MODE_PURE:
+        @param config xmlrpc_security_types security config to use in the APs
+                      and DUT.
+        """
+
+        if config.ft_mode == xmlrpc_security_types.WPAConfig.FT_MODE_PURE:
             self.context.client.require_capabilities(
                 [site_linux_system.LinuxSystem.CAPABILITY_SME])
 
@@ -90,7 +93,7 @@ class network_WiFi_RoamFT(wifi_cell_test_base.WiFiCellTestBase):
         mdid = 'a1b2'
         router0_conf = hostap_config.HostapConfig(channel=1,
                        mode=hostap_config.HostapConfig.MODE_11G,
-                       security_config=self._security_config,
+                       security_config=config,
                        bssid=mac0,
                        mdid=mdid,
                        nas_id=id0,
@@ -107,7 +110,7 @@ class network_WiFi_RoamFT(wifi_cell_test_base.WiFiCellTestBase):
                        ac_capabilities=ac_caps,
                        vht_channel_width=channel_width_80_mhz,
                        vht_center_channel=155,
-                       security_config=self._security_config,
+                       security_config=config,
                        bssid=mac1,
                        mdid=mdid,
                        nas_id=id1,
@@ -116,7 +119,7 @@ class network_WiFi_RoamFT(wifi_cell_test_base.WiFiCellTestBase):
                        r1kh='%s %s %s' % (mac0, mac0, key0),
                        use_bridge=True)
         client_conf = xmlrpc_datatypes.AssociationParameters(
-                      security_config=self._security_config)
+                      security_config=config)
 
         # Configure the inital AP.
         self.context.configure(router0_conf)
@@ -208,15 +211,17 @@ class network_WiFi_RoamFT(wifi_cell_test_base.WiFiCellTestBase):
         self.context.client.require_capabilities(
             [site_linux_system.LinuxSystem.CAPABILITY_SUPPLICANT_ROAMING])
 
-        with self.context.client.set_manager_property(self.GLOBAL_FT_PROPERTY,
-                                                      True):
-            self.test_body()
-        if self._security_config.ft_mode == \
-            xmlrpc_security_types.WPAConfig.FT_MODE_MIXED:
-            logging.info("Disable FT on client and try again.")
+        assert len(self._security_configs) == 1 or \
+                len(self._security_configs) == 2
+
+        with self.context.client.set_manager_property(
+                self.GLOBAL_FT_PROPERTY, True):
+            self.test_body(self._security_configs[0])
+        if len(self._security_configs) > 1:
+            logging.info("Disabling FT and trying again")
             with self.context.client.set_manager_property(
                     self.GLOBAL_FT_PROPERTY, False):
-                self.test_body()
+                self.test_body(self._security_configs[1])
 
     def cleanup(self):
         """Cleanup function."""

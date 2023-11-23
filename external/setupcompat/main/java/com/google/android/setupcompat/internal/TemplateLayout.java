@@ -192,10 +192,6 @@ public class TemplateLayout extends FrameLayout {
   }
 
   protected ViewGroup findContainer(int containerId) {
-    if (containerId == 0) {
-      // Maintain compatibility with the deprecated way of specifying container ID.
-      containerId = getContainerId();
-    }
     return (ViewGroup) findViewById(containerId);
   }
 
@@ -213,16 +209,6 @@ public class TemplateLayout extends FrameLayout {
    * need to be done before onTemplateInflated which is called while still in the constructor.
    */
   protected void onBeforeTemplateInflated(AttributeSet attrs, int defStyleAttr) {}
-
-  /**
-   * @return ID of the default container for this layout. This will be used to find the container
-   *     ViewGroup, which all children views of this layout will be placed in.
-   * @deprecated Override {@link #findContainer(int)} instead.
-   */
-  @Deprecated
-  protected int getContainerId() {
-    return 0;
-  }
 
   /* Animator support */
 

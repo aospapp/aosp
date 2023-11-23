@@ -17,6 +17,7 @@
 package com.android.car.developeroptions.wifi;
 
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
+import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLED;
 import static android.os.UserManager.DISALLOW_CONFIG_WIFI;
 
 import android.annotation.NonNull;
@@ -61,20 +62,19 @@ import com.android.car.developeroptions.SettingsActivity;
 import com.android.car.developeroptions.core.FeatureFlags;
 import com.android.car.developeroptions.core.SubSettingLauncher;
 import com.android.car.developeroptions.dashboard.SummaryLoader;
-import com.android.car.developeroptions.datausage.DataUsageUtils;
 import com.android.car.developeroptions.datausage.DataUsagePreference;
+import com.android.car.developeroptions.datausage.DataUsageUtils;
 import com.android.car.developeroptions.location.ScanningSettings;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
-import com.android.car.developeroptions.search.SearchIndexableRaw;
 import com.android.car.developeroptions.widget.SummaryUpdater.OnSummaryChangeListener;
 import com.android.car.developeroptions.widget.SwitchBarController;
 import com.android.car.developeroptions.wifi.details.WifiNetworkDetailsFragment;
 import com.android.car.developeroptions.wifi.dpp.WifiDppUtils;
-import com.android.car.developeroptions.wifi.savedaccesspoints.SavedAccessPointsWifiSettings;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtilsInternal;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
+import com.android.settingslib.search.SearchIndexableRaw;
 import com.android.settingslib.wifi.AccessPoint;
 import com.android.settingslib.wifi.AccessPoint.AccessPointListener;
 import com.android.settingslib.wifi.AccessPointPreference;
@@ -699,7 +699,8 @@ public class WifiSettings extends RestrictedSettingsFragment
         }
         WifiConfiguration.NetworkSelectionStatus networkStatus =
                 config.getNetworkSelectionStatus();
-        if (networkStatus == null || networkStatus.isNetworkEnabled()) {
+        if (networkStatus == null
+                || networkStatus.getNetworkSelectionStatus() == NETWORK_SELECTION_ENABLED) {
             return false;
         }
         int reason = networkStatus.getNetworkSelectionDisableReason();
@@ -965,10 +966,8 @@ public class WifiSettings extends RestrictedSettingsFragment
         final Context context = getContext();
         final PowerManager powerManager = context.getSystemService(PowerManager.class);
         final ContentResolver contentResolver = context.getContentResolver();
-        return Settings.Global.getInt(contentResolver,
-                Settings.Global.WIFI_WAKEUP_ENABLED, 0) == 1
-                && Settings.Global.getInt(contentResolver,
-                Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE, 0) == 1
+        return mWifiManager.isAutoWakeupEnabled()
+                && mWifiManager.isScanAlwaysAvailable()
                 && Settings.Global.getInt(contentResolver,
                 Settings.Global.AIRPLANE_MODE_ON, 0) == 0
                 && !powerManager.isPowerSaveMode();
@@ -979,8 +978,8 @@ public class WifiSettings extends RestrictedSettingsFragment
         // Don't use WifiManager.isScanAlwaysAvailable() to check the Wi-Fi scanning mode. Instead,
         // read the system settings directly. Because when the device is in Airplane mode, even if
         // Wi-Fi scanning mode is on, WifiManager.isScanAlwaysAvailable() still returns "off".
-        final boolean wifiScanningMode = Settings.Global.getInt(getActivity().getContentResolver(),
-                Settings.Global.WIFI_SCAN_ALWAYS_AVAILABLE, 0) == 1;
+        // TODO(b/149421497): Fix this?
+        final boolean wifiScanningMode = mWifiManager.isScanAlwaysAvailable();
         final CharSequence description = wifiScanningMode ? getText(R.string.wifi_scan_notify_text)
                 : getText(R.string.wifi_scan_notify_text_scanning_off);
         final LinkifyUtils.OnClickListener clickListener =

@@ -15,10 +15,11 @@
  */
 package android.ext.services.notification;
 
-import android.annotation.NonNull;
 import android.util.ArrayMap;
 import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextLinks;
+
+import androidx.annotation.NonNull;
 
 /**
  * Counts the entity types for smart actions. Some entity types are considered the same

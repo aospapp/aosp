@@ -35,7 +35,7 @@ public class KeyUsageExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public KeyUsageExtension(boolean[] bitString) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -69,7 +69,7 @@ public class KeyUsageExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public java.lang.Boolean get(java.lang.String name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

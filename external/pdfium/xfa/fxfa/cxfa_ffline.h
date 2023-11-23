@@ -7,9 +7,9 @@
 #ifndef XFA_FXFA_CXFA_FFLINE_H_
 #define XFA_FXFA_CXFA_FFLINE_H_
 
-#include "xfa/fxfa/cxfa_ffdraw.h"
+#include "xfa/fxfa/cxfa_ffwidget.h"
 
-class CXFA_FFLine : public CXFA_FFDraw {
+class CXFA_FFLine final : public CXFA_FFWidget {
  public:
   explicit CXFA_FFLine(CXFA_Node* pNode);
   ~CXFA_FFLine() override;
@@ -17,11 +17,11 @@ class CXFA_FFLine : public CXFA_FFDraw {
   // CXFA_FFWidget
   void RenderWidget(CXFA_Graphics* pGS,
                     const CFX_Matrix& matrix,
-                    uint32_t dwStatus) override;
+                    HighlightOption highlight) override;
 
  private:
   void GetRectFromHand(CFX_RectF& rect,
-                       XFA_AttributeEnum iHand,
+                       XFA_AttributeValue iHand,
                        float fLineWidth);
 };
 

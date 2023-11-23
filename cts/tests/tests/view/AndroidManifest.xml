@@ -352,7 +352,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.view.cts.KeyEventInterceptTestActivity">
+        <activity android:name="android.view.cts.InputEventInterceptTestActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -382,6 +382,21 @@
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
+
+        <activity android:name="android.view.cts.ViewUnbufferedTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="android.view.textclassifier.cts.CtsTextClassifierService"
+            android:exported="true"
+            android:permission="android.permission.BIND_TEXTCLASSIFIER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.textclassifier.TextClassifierService"/>
+            </intent-filter>
+        </service>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

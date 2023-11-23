@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {hsl} from 'color-convert';
+import {translateState} from '../common/thread_state';
 import {ThreadDesc} from './globals';
 
 export interface Color {
@@ -19,6 +21,7 @@ export interface Color {
   h: number;
   s: number;
   l: number;
+  a?: number;
 }
 
 const MD_PALETTE: Color[] = [
@@ -62,21 +65,53 @@ export function hueForCpu(cpu: number): number {
   return (128 + (32 * cpu)) % 256;
 }
 
-export function colorForState(state: string): Color {
-  switch (state) {
-    case 'Running':
-    case 'Busy':
-      return {c: 'dark green', h: 120, s: 44, l: 34};
-    case 'Runnable':
-    case 'R':
-    case 'R+':
-      return {c: 'lime green', h: 75, s: 55, l: 47};
-    default:
-      return {c: 'light grey', h: 0, s: 0, l: 87};
+const DARK_GREEN: Color = {
+  c: 'dark green',
+  h: 120,
+  s: 44,
+  l: 34
+};
+const LIME_GREEN: Color = {
+  c: 'lime green',
+  h: 75,
+  s: 55,
+  l: 47
+};
+const TRANSPARENT_WHITE: Color = {
+  c: 'white',
+  h: 0,
+  s: 1,
+  l: 97,
+  a: 0.55,
+};
+const ORANGE: Color = {
+  c: 'orange',
+  h: 36,
+  s: 100,
+  l: 50
+};
+const INDIGO: Color = {
+  c: 'indigo',
+  h: 231,
+  s: 48,
+  l: 48
+};
+
+export function colorForState(stateCode: string): Readonly<Color> {
+  const state = translateState(stateCode);
+  if (state === 'Running') {
+    return DARK_GREEN;
+  } else if (state.startsWith('Runnable')) {
+    return LIME_GREEN;
+  } else if (state.includes('Uninterruptible Sleep')) {
+    return ORANGE;
+  } else if (state.includes('Sleeping')) {
+    return TRANSPARENT_WHITE;
   }
+  return INDIGO;
 }
 
-export function colorForTid(tid: number) {
+export function colorForTid(tid: number): Color {
   const colorIdx = hash(tid.toString(), MD_PALETTE.length);
   return Object.assign({}, MD_PALETTE[colorIdx]);
 }
@@ -87,4 +122,10 @@ export function colorForThread(thread: ThreadDesc|undefined): Color {
   }
   const tid = thread.pid ? thread.pid : thread.tid;
   return colorForTid(tid);
+}
+
+// 40 different random hues 9 degrees apart.
+export function randomColor(): string {
+  const hue = Math.floor(Math.random() * 40) * 9;
+  return '#' + hsl.hex([hue, 90, 30]);
 }

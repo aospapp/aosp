@@ -15,22 +15,29 @@
  */
 package android.app.cts;
 
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
+import android.os.RemoteCallback;
 import android.os.SystemClock;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -57,6 +64,8 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class DownloadManagerTestBase {
     protected static final String TAG = "DownloadManagerTest";
@@ -69,6 +78,13 @@ public class DownloadManagerTestBase {
 
     protected static final long SHORT_TIMEOUT = 5 * DateUtils.SECOND_IN_MILLIS;
     protected static final long LONG_TIMEOUT = 3 * DateUtils.MINUTE_IN_MILLIS;
+    private static final String ACTION_CREATE_FILE_WITH_CONTENT =
+            "com.android.cts.action.CREATE_FILE_WITH_CONTENT";
+    private static final String EXTRA_PATH = "path";
+    private static final String EXTRA_CONTENTS = "contents";
+    private static final String EXTRA_CALLBACK = "callback";
+    private static final String KEY_ERROR = "error";
+    private static final String STORAGE_DELEGATOR_PACKAGE = "com.android.test.storagedelegator";
 
     protected Context mContext;
     protected DownloadManager mDownloadManager;
@@ -107,20 +123,76 @@ public class DownloadManagerTestBase {
         }
     }
 
-    protected Uri getMediaStoreUri(Uri downloadUri) throws Exception {
+    protected static Uri getMediaStoreUri(Uri downloadUri) throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        Cursor cursor = context.getContentResolver().query(downloadUri, null, null, null);
+        if (cursor != null && cursor.moveToFirst()) {
+            // DownloadManager.COLUMN_MEDIASTORE_URI is not a column in the query result.
+            // COLUMN_MEDIAPROVIDER_URI value maybe the same as COLUMN_MEDIASTORE_URI but NOT
+            // guaranteed.
+            int index = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_MEDIAPROVIDER_URI);
+            return Uri.parse(cursor.getString(index));
+        } else {
+            throw new FileNotFoundException("Failed to find entry for " + downloadUri);
+        }
+    }
+
+    protected String getMediaStoreColumnValue(Uri mediaStoreUri, String columnName)
+            throws Exception {
+        if (!MediaStore.Files.FileColumns.MEDIA_TYPE.equals(columnName)) {
+            final int mediaType = getMediaType(mediaStoreUri);
+            final String volumeName = MediaStore.getVolumeName(mediaStoreUri);
+            final long id = ContentUris.parseId(mediaStoreUri);
+            switch (mediaType) {
+                case MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO:
+                    mediaStoreUri = ContentUris.withAppendedId(
+                            MediaStore.Audio.Media.getContentUri(volumeName), id);
+                    break;
+                case MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE:
+                    mediaStoreUri = ContentUris.withAppendedId(
+                            MediaStore.Images.Media.getContentUri(volumeName), id);
+                    break;
+                case MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO:
+                    mediaStoreUri = ContentUris.withAppendedId(
+                            MediaStore.Video.Media.getContentUri(volumeName), id);
+                    break;
+            }
+        }
         // Need to pass in the user id to support multi-user scenarios.
         final int userId = getUserId();
         final String cmd = String.format("content query --uri %s --projection %s --user %s",
-                downloadUri, DownloadManager.COLUMN_MEDIASTORE_URI, userId);
+                mediaStoreUri, columnName, userId);
         final String res = runShellCommand(cmd).trim();
-        final String str = DownloadManager.COLUMN_MEDIASTORE_URI + "=";
+        final String str = columnName + "=";
         final int i = res.indexOf(str);
         if (i >= 0) {
-            return Uri.parse(res.substring(i + str.length()));
+            return res.substring(i + str.length());
         } else {
             throw new FileNotFoundException("Failed to find "
-                    + DownloadManager.COLUMN_MEDIASTORE_URI + " for "
-                    + downloadUri + "; found " + res);
+                    + columnName + " for "
+                    + mediaStoreUri + "; found " + res);
+        }
+    }
+
+    private int getMediaType(Uri mediaStoreUri) throws Exception {
+        final Uri filesUri = MediaStore.Files.getContentUri(
+                MediaStore.getVolumeName(mediaStoreUri),
+                ContentUris.parseId(mediaStoreUri));
+        return Integer.parseInt(getMediaStoreColumnValue(filesUri,
+                MediaStore.Files.FileColumns.MEDIA_TYPE));
+    }
+
+    protected int getTotalBytes(InputStream in) throws Exception {
+        try {
+            int total = 0;
+            final byte[] buf = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = in.read(buf)) != -1) {
+                total += bytesRead;
+            }
+            return total;
+        } finally {
+            FileUtils.closeQuietly(in);
         }
     }
 
@@ -154,7 +226,8 @@ public class DownloadManagerTestBase {
 
     protected static String readFromRawFile(String filePath) throws Exception {
         Log.d(TAG, "Reading form file: " + filePath);
-        return runShellCommand("cat " + filePath);
+        return readFromFile(
+            ParcelFileDescriptor.open(new File(filePath), ParcelFileDescriptor.MODE_READ_ONLY));
     }
 
     protected static String readFromFile(ParcelFileDescriptor pfd) throws Exception {
@@ -200,26 +273,21 @@ public class DownloadManagerTestBase {
         assertEquals(contents, actual);
     }
 
-    protected static void writeToFileFromShell(File file, String contents) throws Exception {
-        runShellCommand("mkdir -p " + file.getParentFile());
-        runShellCommand("rm " + file);
+    protected void writeToFileWithDelegator(File file, String contents) throws Exception {
+        final CompletableFuture<Bundle> callbackResult = new CompletableFuture<>();
 
-        final String cmd = "dd of=" + file.getAbsolutePath();
-        final ParcelFileDescriptor[] pfds = InstrumentationRegistry.getInstrumentation()
-                .getUiAutomation().executeShellCommandRw(cmd);
-        try (final PrintWriter out =
-                     new PrintWriter(new ParcelFileDescriptor.AutoCloseOutputStream(pfds[1]))) {
-            out.print(contents);
+        mContext.startActivity(new Intent(ACTION_CREATE_FILE_WITH_CONTENT)
+                .setPackage(STORAGE_DELEGATOR_PACKAGE)
+                .putExtra(EXTRA_PATH, file.getAbsolutePath())
+                .putExtra(EXTRA_CONTENTS, contents)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(EXTRA_CALLBACK, new RemoteCallback(callbackResult::complete)));
+
+        final Bundle resultBundle = callbackResult.get(SHORT_TIMEOUT, TimeUnit.MILLISECONDS);
+        if (resultBundle.getString(KEY_ERROR) != null) {
+            fail("Failed to create the file " + file + ", error:"
+                    + resultBundle.getString(KEY_ERROR));
         }
-
-        final String res;
-        try (FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(pfds[0])) {
-            res = readFromInputStream(fis);
-        }
-        Log.d(TAG, "Output of '" + cmd + "': '" + res + "'");
-        runShellCommand("sync");
-
-        assertFileContents(file, contents);
     }
 
     private static String readFromInputStream(InputStream inputStream) throws Exception {
@@ -230,13 +298,6 @@ public class DownloadManagerTestBase {
             res.append(new String(buf, 0, bytesRead));
         }
         return res.toString();
-    }
-
-    protected static void assertFileContents(File file, String contents) {
-        final String cmd = "cat " + file.getAbsolutePath();
-        final String output = runShellCommand(cmd);
-        Log.d(TAG, "Output of '" + cmd + "': '" + output + "'");
-        assertEquals(contents, output);
     }
 
     protected void clearDownloads() {

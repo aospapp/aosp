@@ -20,16 +20,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.IManagedTestDevice;
-import com.android.tradefed.device.ITestDevice.ApexInfo;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.util.CommandResult;
 
-import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,26 +40,8 @@ public class MediaSwCodecHostTest extends ApexE2EBaseHostTest {
     private static final Pattern CODEC_NAME_REGEX =
             Pattern.compile("\\s+name: (.+)");
 
-    /**
-     * Tests that if Apex package can be staged, activated and uninstalled successfully.
-     */
-    @Test
-    public void testStageActivateUninstallApexPackage()
-                                throws DeviceNotAvailableException, IOException {
-        // Run tests only when the device has swcodec apex installed.
-        for (ApexInfo info : getDevice().getActiveApexes()) {
-            if (info.name.equals("com.android.media.swcodec")
-                    || info.name.equals("com.google.android.media.swcodec")) {
-                doTestStageActivateUninstallApexPackage();
-                return;
-            }
-        }
-        CLog.i("The device does not have swcodec apex installed. Skipping the test.");
-    }
-
     @Override
     public void additionalCheck() {
-        assertTrue(((IManagedTestDevice) getDevice()).getMonitor().waitForBootComplete(60000));
         checkCodecs();
     }
 

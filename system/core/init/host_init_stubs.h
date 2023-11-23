@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _INIT_HOST_INIT_STUBS_H
-#define _INIT_HOST_INIT_STUBS_H
+#pragma once
 
 #include <stddef.h>
 #include <sys/socket.h>
@@ -23,39 +22,40 @@
 
 #include <string>
 
+#include <android-base/properties.h>
+
 // android/api-level.h
 #define __ANDROID_API_P__ 28
+#define __ANDROID_API_Q__ 29
+#define __ANDROID_API_R__ 30
 
 // sys/system_properties.h
 #define PROP_VALUE_MAX 92
 
-// unistd.h
-int setgroups(size_t __size, const gid_t* __list);
-
 namespace android {
 namespace init {
 
-// init.h
-extern std::string default_console;
-
 // property_service.h
-bool CanReadProperty(const std::string& source_context, const std::string& name);
-extern uint32_t (*property_set)(const std::string& name, const std::string& value);
-uint32_t HandlePropertySet(const std::string& name, const std::string& value,
-                           const std::string& source_context, const ucred& cr, std::string* error);
+inline bool CanReadProperty(const std::string&, const std::string&) {
+    return true;
+}
 
 // reboot_utils.h
 inline void SetFatalRebootTarget() {}
-inline void __attribute__((noreturn)) InitFatalReboot() {
+inline void __attribute__((noreturn)) InitFatalReboot(int signal_number) {
     abort();
 }
 
+// selabel.h
+inline void SelabelInitialize() {}
+inline bool SelabelLookupFileContext(const std::string&, int, std::string*) {
+    return false;
+}
+
 // selinux.h
-int SelinuxGetVendorAndroidVersion();
-void SelabelInitialize();
-bool SelabelLookupFileContext(const std::string& key, int type, std::string* result);
+inline int SelinuxGetVendorAndroidVersion() {
+    return 10000;
+}
 
 }  // namespace init
 }  // namespace android
-
-#endif

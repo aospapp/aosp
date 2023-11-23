@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from autotest_lib.server import utils
+
 AUTHOR = "louiscollard, apronin"
 NAME = "firmware_Cr50VirtualNVRamServer"
 TIME = "SHORT"
@@ -16,6 +18,11 @@ This test clears the TPM if necessary, the runs a client side test that checks
 Virtual NVRAM functionality in cr50. Finally, it clears the TPM again.
 Every time the TPM is cleared, the system is rebooted.
 """
+
+if 'args_dict' not in locals():
+    args_dict = {}
+
+args_dict.update(utils.args_to_dict(args))
 
 def run_test(machine):
     host = hosts.create_host(machine)

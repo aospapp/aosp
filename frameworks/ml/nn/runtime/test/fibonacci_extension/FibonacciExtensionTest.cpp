@@ -29,6 +29,8 @@
 #include "FibonacciDriver.h"
 #include "FibonacciExtension.h"
 
+#include <vector>
+
 namespace android {
 namespace nn {
 namespace {
@@ -62,10 +64,10 @@ class FibonacciExtensionTest : public ::testing::Test {
             ANeuralNetworksDevice* device = nullptr;
             EXPECT_EQ(ANeuralNetworks_getDevice(i, &device), ANEURALNETWORKS_NO_ERROR);
             bool supportsFibonacciExtension;
-            ASSERT_EQ(ANeuralNetworksDevice_getExtensionSupport(
-                              device, TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
-                              &supportsFibonacciExtension),
-                      ANEURALNETWORKS_NO_ERROR);
+            ASSERT_EQ(
+                    ANeuralNetworksDevice_getExtensionSupport(
+                            device, EXAMPLE_FIBONACCI_EXTENSION_NAME, &supportsFibonacciExtension),
+                    ANEURALNETWORKS_NO_ERROR);
             if (supportsFibonacciExtension) {
                 ASSERT_EQ(fibonacciDevice, nullptr) << "Found multiple Fibonacci drivers";
                 fibonacciDevice = device;
@@ -150,9 +152,9 @@ void createModel(ExtensionModel* model, ExtensionOperandType inputType,
     if (addNopOperations) {
         addNopOperation(model, inputType, modelInput, fibonacciInput);
     }
-    model->addOperation(model->getExtensionOperationType(TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
-                                                         TEST_VENDOR_FIBONACCI),
-                        {fibonacciInput}, {fibonacciOutput});
+    model->addOperation(
+            model->getExtensionOperationType(EXAMPLE_FIBONACCI_EXTENSION_NAME, EXAMPLE_FIBONACCI),
+            {fibonacciInput}, {fibonacciOutput});
     if (addNopOperations) {
         addNopOperation(model, outputType, fibonacciOutput, modelOutput);
     }
@@ -167,15 +169,14 @@ TEST_F(FibonacciExtensionTest, ModelWithExtensionOperandTypes) {
     constexpr double scale = 0.5;
     constexpr int64_t zeroPoint = 10;
 
-    ExtensionOperandType inputType(
-            static_cast<Type>(mModel.getExtensionOperandType(TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
-                                                             TEST_VENDOR_INT64)),
-            {});
+    ExtensionOperandType inputType(static_cast<Type>(mModel.getExtensionOperandType(
+                                           EXAMPLE_FIBONACCI_EXTENSION_NAME, EXAMPLE_INT64)),
+                                   {});
     ExtensionOperandType outputType(
-            static_cast<Type>(mModel.getExtensionOperandType(TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
-                                                             TEST_VENDOR_TENSOR_QUANT64_ASYMM)),
+            static_cast<Type>(mModel.getExtensionOperandType(EXAMPLE_FIBONACCI_EXTENSION_NAME,
+                                                             EXAMPLE_TENSOR_QUANT64_ASYMM)),
             {N},
-            ExtensionOperandParams(TestVendorQuant64AsymmParams{
+            ExtensionOperandParams(ExampleQuant64AsymmParams{
                     .scale = scale,
                     .zeroPoint = zeroPoint,
             }));
@@ -282,9 +283,9 @@ TEST_F(FibonacciExtensionTest, InvalidNumInputs) {
     uint32_t input1 = mModel.addOperand(&inputType);
     uint32_t input2 = mModel.addOperand(&inputType);  // Extra input.
     uint32_t output = mModel.addOperand(&outputType);
-    mModel.addOperation(mModel.getExtensionOperationType(TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
-                                                         TEST_VENDOR_FIBONACCI),
-                        {input1, input2}, {output});
+    mModel.addOperation(
+            mModel.getExtensionOperationType(EXAMPLE_FIBONACCI_EXTENSION_NAME, EXAMPLE_FIBONACCI),
+            {input1, input2}, {output});
     mModel.identifyInputsAndOutputs({input1, input2}, {output});
     mModel.finish();
     ASSERT_TRUE(mModel.isValid());
@@ -301,9 +302,9 @@ TEST_F(FibonacciExtensionTest, InvalidNumOutputs) {
     uint32_t input = mModel.addOperand(&inputType);
     uint32_t output1 = mModel.addOperand(&outputType);
     uint32_t output2 = mModel.addOperand(&outputType);  // Extra output.
-    mModel.addOperation(mModel.getExtensionOperationType(TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
-                                                         TEST_VENDOR_FIBONACCI),
-                        {input}, {output1, output2});
+    mModel.addOperation(
+            mModel.getExtensionOperationType(EXAMPLE_FIBONACCI_EXTENSION_NAME, EXAMPLE_FIBONACCI),
+            {input}, {output1, output2});
     mModel.identifyInputsAndOutputs({input}, {output1, output2});
     mModel.finish();
     ASSERT_TRUE(mModel.isValid());
@@ -320,8 +321,8 @@ TEST_F(FibonacciExtensionTest, InvalidOperation) {
     uint32_t input = mModel.addOperand(&inputType);
     uint32_t output = mModel.addOperand(&outputType);
     mModel.addOperation(mModel.getExtensionOperationType(
-                                TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
-                                TEST_VENDOR_FIBONACCI + 1),  // This operation should not exist.
+                                EXAMPLE_FIBONACCI_EXTENSION_NAME,
+                                EXAMPLE_FIBONACCI + 1),  // This operation should not exist.
                         {input}, {output});
     mModel.identifyInputsAndOutputs({input}, {output});
     mModel.finish();

@@ -33,7 +33,6 @@ genfscon sysfs /devices/platform/soc/1d84000.ufshc/slowio_write_cnt          u:o
 genfscon sysfs /devices/platform/soc/1d84000.ufshc/slowio_unmap_cnt          u:object_r:sysfs_scsi_devices_0000:s0
 genfscon sysfs /devices/platform/soc/1d84000.ufshc/slowio_sync_cnt           u:object_r:sysfs_scsi_devices_0000:s0
 
-genfscon sysfs /class/thermal                                           u:object_r:sysfs_thermal:s0
 genfscon sysfs /class/uio                                               u:object_r:sysfs_uio:s0
 genfscon sysfs /devices/platform/soc/894000.i2c                                  u:object_r:sysfs_msm_subsys:s0
 genfscon sysfs /devices/platform/soc/soc:qcom,gpubw                              u:object_r:sysfs_msm_subsys:s0
@@ -57,7 +56,6 @@ genfscon sysfs /devices/platform/soc/8300000.qcom,turing                        
 genfscon sysfs /devices/platform/soc/0.qcom,rmtfs_sharedmem                      u:object_r:sysfs_rmtfs:s0
 genfscon sysfs /devices/platform/soc/soc:fp_fpc1020                              u:object_r:sysfs_fingerprint:s0
 genfscon sysfs /devices/platform/soc/ae00000.qcom,mdss_mdp/idle_state            u:object_r:sysfs_graphics:s0
-genfscon sysfs /devices/virtual/thermal                                 u:object_r:sysfs_thermal:s0
 genfscon sysfs /devices/virtual/wahoo_laser                             u:object_r:sysfs_laser:s0
 genfscon sysfs /module/msm_thermal                                      u:object_r:sysfs_thermal:s0
 genfscon sysfs /devices/platform/soc/17d41000.qcom,cpucc/17d41000.qcom,cpucc:qcom,limits-dcvs@0  u:object_r:sysfs_thermal:s0
@@ -89,6 +87,7 @@ genfscon sysfs /kernel/wifi/wlan                                        u:object
 
 genfscon sysfs /module/diagchar                                         u:object_r:sysfs_diag:s0
 genfscon sysfs /module/msm_poweroff                                     u:object_r:sysfs_poweroff:s0
+genfscon sysfs /module/wlan/parameters/con_mode                         u:object_r:sysfs_wifi_conmode:s0
 
 genfscon sysfs /class/gpio/export                     u:object_r:sysfs_gpio_export:s0
 genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm660@0:pinctrl@c000 u:object_r:sysfs_pinctrl:s0
@@ -99,6 +98,7 @@ genfscon sysfs /power/system_sleep/stats                                u:object
 
 genfscon debugfs /kgsl/proc                           u:object_r:debugfs_kgsl:s0
 genfscon debugfs /clk/debug_suspend                   u:object_r:debugfs_clk:s0
+genfscon debugfs /wlan                                u:object_r:debugfs_wlan:s0
 genfscon debugfs /wlan0                               u:object_r:debugfs_wlan:s0
 genfscon debugfs /mnh_sm                              u:object_r:debugfs_easel:s0
 

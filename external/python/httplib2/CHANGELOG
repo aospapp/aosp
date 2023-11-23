@@ -1,3 +1,33 @@
+0.15.0
+
+  python2: regression in connect() error handling
+  https://github.com/httplib2/httplib2/pull/150
+
+  add support for password protected certificate files
+  https://github.com/httplib2/httplib2/pull/143
+
+  feature: Http.close() to clean persistent connections and sensitive data
+  https://github.com/httplib2/httplib2/pull/149
+
+0.14.0
+
+  Python3: PROXY_TYPE_SOCKS5 with str user/pass raised TypeError
+  https://github.com/httplib2/httplib2/pull/145
+
+0.13.1
+
+  Python3: Use no_proxy
+  https://github.com/httplib2/httplib2/pull/140
+
+0.13.0
+
+  Allow setting TLS max/min versions
+  https://github.com/httplib2/httplib2/pull/138
+
+0.12.3
+
+  No changes to library. Distribute py3 wheels.
+
 0.12.1
 
   Catch socket timeouts and clear dead connection

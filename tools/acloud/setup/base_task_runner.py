@@ -26,6 +26,7 @@ import logging
 import os
 import textwrap
 
+
 logger = logging.getLogger(__name__)
 _PARAGRAPH_BREAK = "="
 
@@ -65,7 +66,7 @@ class BaseTaskRunner(object):
 
         # define the layout of message.
         console_width = int(os.popen('stty size', 'r').read().split()[1])
-        break_width = console_width / 2
+        break_width = int(console_width / 2)
 
         # start to print welcome message.
         print("\n" +_PARAGRAPH_BREAK * break_width)

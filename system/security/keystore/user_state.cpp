@@ -37,7 +37,7 @@ namespace keystore {
 
 UserState::UserState(uid_t userId)
     : mMasterKeyEntry(".masterkey", "user_" + std::to_string(userId), userId, /* masterkey */ true),
-      mUserId(userId), mState(STATE_UNINITIALIZED), mRetry(MAX_RETRY) {}
+      mUserId(userId), mState(STATE_UNINITIALIZED) {}
 
 bool UserState::operator<(const UserState& rhs) const {
     return getUserId() < rhs.getUserId();
@@ -69,9 +69,6 @@ bool UserState::initialize() {
 
 void UserState::setState(State state) {
     mState = state;
-    if (mState == STATE_NO_ERROR || mState == STATE_UNINITIALIZED) {
-        mRetry = MAX_RETRY;
-    }
 }
 
 void UserState::zeroizeMasterKeysInMemory() {
@@ -140,10 +137,13 @@ ResponseCode UserState::copyMasterKeyFile(LockedUserState<UserState>* src) {
 }
 
 ResponseCode UserState::writeMasterKey(const android::String8& pw) {
-    std::vector<uint8_t> passwordKey(MASTER_KEY_SIZE_BYTES);
+    std::vector<uint8_t> passwordKey(mMasterKey.size());
     generateKeyFromPassword(passwordKey, pw, mSalt);
-    Blob masterKeyBlob(mMasterKey.data(), mMasterKey.size(), mSalt, sizeof(mSalt),
-                       TYPE_MASTER_KEY_AES256);
+    auto blobType = TYPE_MASTER_KEY_AES256;
+    if (mMasterKey.size() == kAes128KeySizeBytes) {
+        blobType = TYPE_MASTER_KEY;
+    }
+    Blob masterKeyBlob(mMasterKey.data(), mMasterKey.size(), mSalt, sizeof(mSalt), blobType);
     auto lockedEntry = LockedKeyBlobEntry::get(mMasterKeyEntry);
     return lockedEntry.writeBlobs(masterKeyBlob, {}, passwordKey, STATE_NO_ERROR);
 }
@@ -174,7 +174,7 @@ ResponseCode UserState::readMasterKey(const android::String8& pw) {
 
     size_t masterKeySize = MASTER_KEY_SIZE_BYTES;
     if (rawBlob.type == TYPE_MASTER_KEY) {
-        masterKeySize = SHA1_DIGEST_SIZE_BYTES;
+        masterKeySize = kAes128KeySizeBytes;
     }
 
     std::vector<uint8_t> passwordKey(masterKeySize);
@@ -205,23 +205,9 @@ ResponseCode UserState::readMasterKey(const android::String8& pw) {
         }
         return response;
     }
-    if (mRetry <= 0) {
-        reset();
-        return ResponseCode::UNINITIALIZED;
-    }
-    --mRetry;
-    switch (mRetry) {
-    case 0:
-        return ResponseCode::WRONG_PASSWORD_0;
-    case 1:
-        return ResponseCode::WRONG_PASSWORD_1;
-    case 2:
-        return ResponseCode::WRONG_PASSWORD_2;
-    case 3:
-        return ResponseCode::WRONG_PASSWORD_3;
-    default:
-        return ResponseCode::WRONG_PASSWORD_3;
-    }
+
+    LOG(ERROR) << "Invalid password presented";
+    return ResponseCode::WRONG_PASSWORD_0;
 }
 
 bool UserState::reset() {
@@ -263,7 +249,7 @@ void UserState::generateKeyFromPassword(std::vector<uint8_t>& key, const android
     const EVP_MD* digest = EVP_sha256();
 
     // SHA1 was used prior to increasing the key size
-    if (key.size() == SHA1_DIGEST_SIZE_BYTES) {
+    if (key.size() == kAes128KeySizeBytes) {
         digest = EVP_sha1();
     }
 

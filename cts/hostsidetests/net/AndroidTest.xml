@@ -18,16 +18,24 @@
     <option name="config-descriptor:metadata" key="component" value="networking" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
-    <target_preparer class="com.android.cts.net.NetPolicyTestsPreparer" />
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
+    <target_preparer class="com.android.cts.net.NetworkPolicyTestsPreparer" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="teardown-command" value="cmd power set-mode 0" />
         <option name="teardown-command" value="cmd battery reset" />
+        <option name="teardown-command" value="cmd netpolicy stop-watching" />
     </target_preparer>
 
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsHostsideNetworkTests.jar" />
         <option name="runtime-hint" value="3m56s" />
     </test>
+
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/sdcard/CtsHostsideNetworkTests" />
+        <option name="collect-on-run-ended-only" value="true" />
+    </metrics_collector>
 </configuration>

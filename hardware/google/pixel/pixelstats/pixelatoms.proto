@@ -37,6 +37,14 @@ enum Ids {
     CHARGE_STATS = 105000;
     VOLTAGE_TIER_STATS = 105001;
     BATTERY_CAPACITY = 105002;
+    STORAGE_UFS_HEALTH = 105003;
+    F2FS_STATS = 105004;
+    ZRAM_MM_STAT = 105005;
+    ZRAM_BD_STAT = 105006;
+    BOOT_STATS = 105007;
+    WIRELESS_CHARGING_STATS = 105008;
+    DEVICE_ORIENTATION = 105009;
+    FG_CAPACITY = 105010;
     // AOSP atom ID range ends at 109999
 }
 
@@ -62,10 +70,10 @@ message ChargeStats {
         ADAPTER_TYPE_USB_PD_BRICKID = 10;
         ADAPTER_TYPE_HVDCP = 11;
         ADAPTER_TYPE_HVDCP3 = 12;
-        ADAPTER_TYPE_WLC  = 13;
-        ADAPTER_TYPE_WLC_EPP = 14;
-        ADAPTER_TYPE_WLC_SPP = 15;
-        ADAPTER_TYPE_FLOAT = 16;
+        ADAPTER_TYPE_FLOAT = 13;
+        ADAPTER_TYPE_WLC  = 14;
+        ADAPTER_TYPE_WLC_EPP = 15;
+        ADAPTER_TYPE_WLC_SPP = 16;
     }
     /* Type of charge adapter, enumerated above. */
     optional AdapterType adapter_type = 2;
@@ -128,3 +136,117 @@ message BatteryCapacity {
     /* Sum of the change in state of charge (battery level). */
     optional int32 delta_vfsoc_sum = 3;
 }
+
+/* A message containing health values of UFS */
+message StorageUfsHealth {
+    /* The value of lifetimeA for UFS health */
+    optional int32 lifetime_a = 2;
+    /* The value of lifetimeB for UFS health */
+    optional int32 lifetime_b = 3;
+    /* The value of lifetimeC for UFS health */
+    optional int32 lifetime_c = 4;
+}
+
+/* A message containing filesystem stats of F2FS */
+message F2fsStatsInfo {
+    /* The value of dirty segments of f2fs */
+    optional int32 dirty_segments = 2;
+    /* The value of free segments of f2fs */
+    optional int32 free_segments = 3;
+    /* The times of checkpoint function called in foreground*/
+    optional int32 cp_calls_fg = 4;
+    /* The times of checkpoint function called in background */
+    optional int32 cp_calls_bg = 5;
+    /* The times of garbage collection function called in foreground */
+    optional int32 gc_calls_fg = 6;
+    /* The times of garbage collection function called in background */
+    optional int32 gc_calls_bg = 7;
+    /* The amount of blocks been moved by garbage collection in foreground */
+    optional int32 moved_blocks_fg = 8;
+    /* The amount of blocks been moved by garbage collection in background */
+    optional int32 moved_blocks_bg = 9;
+    /* The average of how many valid blocks is in a segment */
+    optional int32 valid_blocks = 10;
+}
+
+message ZramMmStat {
+    /* The value of original memory size */
+    optional int64 orig_data_size = 2;
+    /* The value of compressed memory size */
+    optional int64 compr_data_size = 3;
+    /* The value of consumed memory size to store compressed memory */
+    optional int64 mem_used_total = 4;
+    /* The value of number of page filled with same elements data */
+    optional int64 same_pages = 5;
+    /* The value of number of incompressible page */
+    optional int64 huge_pages = 6;
+}
+
+message ZramBdStat {
+    /* the number of pages in backing device */
+    optional int64 bd_count = 2;
+    /* The number of pages readed from backing device */
+    optional int64 bd_reads = 3;
+    /* The number of pages written to backing device */
+    optional int64 bd_writes = 4;
+}
+
+/* A message containing boot times */
+message BootStatsInfo {
+    /* The F2FS fsck time in secs */
+    optional int32 fsck_time_sec = 2;
+    /* The F2FS mounted time in secs */
+    optional int32 mounted_time_sec = 3;
+    /* The F2FS checkpoint=disable time in secs */
+    optional int32 checkpoint_time_sec = 4;
+}
+
+/* A message containing wireless charging health info. */
+message WirelessChargingStats {
+    /* Captures if a google charger used when start wireless charging */
+    enum ChargerVendor {
+        VENDOR_UNKNOWN = 0;
+        VENDOR_GOOGLE = 1;
+    }
+
+    optional ChargerVendor charger_vendor = 2;
+}
+
+/* Current device Orientation */
+message DeviceOrientation {
+    enum Orientation {
+        ORIENTATION_UNKNOWN = 0;
+        ORIENTATION_0 = 1;
+        ORIENTATION_90 = 2;
+        ORIENTATION_180 = 3;
+        ORIENTATION_270 = 4;
+    }
+
+    /* Device orientation. */
+    optional Orientation orientation = 2;
+}
+
+/* Raw battery capacity stats */
+message BatteryCapacityFG {
+    enum LogReason {
+        LOG_REASON_UNKNOWN = 0;
+        LOG_REASON_CONNECTED = 1;
+        LOG_REASON_DISCONNECTED = 2;
+        LOG_REASON_FULL_CHARGE = 3;
+        LOG_REASON_PERCENT_SKIP = 4;
+        LOG_REASON_DIVERGING_FG = 5;
+    }
+
+    /* Uevent logging reason, enumerated above. */
+    optional LogReason capacity_log_reason = 2;
+
+    /* The battery capacity reported from the FG (fuel gauge) hardware  */
+    optional float capacity_gdf = 3;
+    /* The filtered system battery capacity reported to the UI */
+    optional float capacity_ssoc = 4;
+    /* The fuel gauge capacity curve midpoint FG (fuel gauge) value */
+    optional float capacity_gdf_curve = 5;
+    /* The fuel gauge capacity curve midpoint UI value */
+    optional float capacity_ssoc_curve = 6;
+}
+

@@ -21,7 +21,6 @@
 package com.github.javaparser.ast.expr;
 
 import com.github.javaparser.ast.AllFieldsConstructor;
-import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.observer.ObservableProperty;
 import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
@@ -31,43 +30,44 @@ import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.OptionalProperty;
 import com.github.javaparser.metamodel.ThisExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import com.github.javaparser.resolution.Resolvable;
-import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedTypeDeclaration;
 import java.util.function.Consumer;
+import com.github.javaparser.ast.Generated;
 
 /**
- * An occurrence of the "this" keyword. <br/><code>World.this.greet()</code> is a MethodCallExpr of method name greet,
- * and scope "World.super" which is a ThisExpr with classExpr "World". <br/><code>this.name</code> is a
- * FieldAccessExpr of field greet, and a ThisExpr as its scope. The ThisExpr has no classExpr.
+ * An occurrence of the "this" keyword. <br/>
+ * <code>World.this.greet()</code> is a MethodCallExpr of method name greet,
+ * and scope "World.this" which is a ThisExpr with typeName "World". <br/>
+ * <code>this.name</code> is a FieldAccessExpr of field greet, and a ThisExpr as its scope.
+ * This ThisExpr has no typeName.
  *
  * @author Julio Vilmar Gesser
  * @see com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt
- * @see ThisExpr
+ * @see SuperExpr
  */
-public final class ThisExpr extends Expression implements Resolvable<ResolvedTypeDeclaration> {
+public class ThisExpr extends Expression implements Resolvable<ResolvedTypeDeclaration> {
 
     @OptionalProperty
-    private Expression classExpr;
+    private Name typeName;
 
     public ThisExpr() {
         this(null, null);
     }
 
     @AllFieldsConstructor
-    public ThisExpr(final Expression classExpr) {
-        this(null, classExpr);
+    public ThisExpr(final Name typeName) {
+        this(null, typeName);
     }
 
     /**
      * This constructor is used by the parser and is considered private.
      */
     @Generated("com.github.javaparser.generator.core.node.MainConstructorGenerator")
-    public ThisExpr(TokenRange tokenRange, Expression classExpr) {
+    public ThisExpr(TokenRange tokenRange, Name typeName) {
         super(tokenRange);
-        setClassExpr(classExpr);
+        setTypeName(typeName);
         customInitialization();
     }
 
@@ -84,20 +84,20 @@ public final class ThisExpr extends Expression implements Resolvable<ResolvedTyp
     }
 
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
-    public Optional<Expression> getClassExpr() {
-        return Optional.ofNullable(classExpr);
+    public Optional<Name> getTypeName() {
+        return Optional.ofNullable(typeName);
     }
 
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
-    public ThisExpr setClassExpr(final Expression classExpr) {
-        if (classExpr == this.classExpr) {
+    public ThisExpr setTypeName(final Name typeName) {
+        if (typeName == this.typeName) {
             return (ThisExpr) this;
         }
-        notifyPropertyChange(ObservableProperty.CLASS_EXPR, this.classExpr, classExpr);
-        if (this.classExpr != null)
-            this.classExpr.setParentNode(null);
-        this.classExpr = classExpr;
-        setAsParentNodeOf(classExpr);
+        notifyPropertyChange(ObservableProperty.TYPE_NAME, this.typeName, typeName);
+        if (this.typeName != null)
+            this.typeName.setParentNode(null);
+        this.typeName = typeName;
+        setAsParentNodeOf(typeName);
         return this;
     }
 
@@ -106,9 +106,9 @@ public final class ThisExpr extends Expression implements Resolvable<ResolvedTyp
     public boolean remove(Node node) {
         if (node == null)
             return false;
-        if (classExpr != null) {
-            if (node == classExpr) {
-                removeClassExpr();
+        if (typeName != null) {
+            if (node == typeName) {
+                removeTypeName();
                 return true;
             }
         }
@@ -116,8 +116,8 @@ public final class ThisExpr extends Expression implements Resolvable<ResolvedTyp
     }
 
     @Generated("com.github.javaparser.generator.core.node.RemoveMethodGenerator")
-    public ThisExpr removeClassExpr() {
-        return setClassExpr((Expression) null);
+    public ThisExpr removeClassName() {
+        return setTypeName((Name) null);
     }
 
     @Override
@@ -137,9 +137,9 @@ public final class ThisExpr extends Expression implements Resolvable<ResolvedTyp
     public boolean replace(Node node, Node replacementNode) {
         if (node == null)
             return false;
-        if (classExpr != null) {
-            if (node == classExpr) {
-                setClassExpr((Expression) replacementNode);
+        if (typeName != null) {
+            if (node == typeName) {
+                setTypeName((Name) replacementNode);
                 return true;
             }
         }
@@ -172,5 +172,10 @@ public final class ThisExpr extends Expression implements Resolvable<ResolvedTyp
     @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
     public Optional<ThisExpr> toThisExpr() {
         return Optional.of(this);
+    }
+
+    @Generated("com.github.javaparser.generator.core.node.RemoveMethodGenerator")
+    public ThisExpr removeTypeName() {
+        return setTypeName((Name) null);
     }
 }

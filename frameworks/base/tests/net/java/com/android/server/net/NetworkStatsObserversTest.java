@@ -28,8 +28,6 @@ import static android.net.NetworkTemplate.buildTemplateWifiWildcard;
 import static android.net.TrafficStats.MB_IN_BYTES;
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 
-import static com.android.internal.util.TestUtils.waitForIdleHandler;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
@@ -54,8 +52,8 @@ import android.util.ArrayMap;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.internal.net.VpnInfo;
 import com.android.server.net.NetworkStatsServiceTest.LatchedHandler;
+import com.android.testutils.HandlerUtilsKt;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -93,8 +91,6 @@ public class NetworkStatsObserversTest {
     private static final long THRESHOLD_BYTES = 2 * MB_IN_BYTES;
     private static final long BASE_BYTES = 7 * MB_IN_BYTES;
     private static final int INVALID_TYPE = -1;
-
-    private static final VpnInfo[] VPN_INFO = new VpnInfo[0];
 
     private long mElapsedRealtime;
 
@@ -244,12 +240,11 @@ public class NetworkStatsObserversTest {
 
         // Baseline
         NetworkStats xtSnapshot = new NetworkStats(TEST_START, 1 /* initialSize */)
-                .addIfaceValues(TEST_IFACE, BASE_BYTES, 8L, BASE_BYTES, 16L);
+                .insertEntry(TEST_IFACE, BASE_BYTES, 8L, BASE_BYTES, 16L);
         NetworkStats uidSnapshot = null;
 
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
         waitForObserverToIdle();
     }
 
@@ -269,18 +264,16 @@ public class NetworkStatsObserversTest {
 
         // Baseline
         NetworkStats xtSnapshot = new NetworkStats(TEST_START, 1 /* initialSize */)
-                .addIfaceValues(TEST_IFACE, BASE_BYTES, 8L, BASE_BYTES, 16L);
+                .insertEntry(TEST_IFACE, BASE_BYTES, 8L, BASE_BYTES, 16L);
         NetworkStats uidSnapshot = null;
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
 
         // Delta
         xtSnapshot = new NetworkStats(TEST_START, 1 /* initialSize */)
-                .addIfaceValues(TEST_IFACE, BASE_BYTES + 1024L, 10L, BASE_BYTES + 2048L, 20L);
+                .insertEntry(TEST_IFACE, BASE_BYTES + 1024L, 10L, BASE_BYTES + 2048L, 20L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
         waitForObserverToIdle();
     }
 
@@ -301,19 +294,17 @@ public class NetworkStatsObserversTest {
 
         // Baseline
         NetworkStats xtSnapshot = new NetworkStats(TEST_START, 1 /* initialSize */)
-                .addIfaceValues(TEST_IFACE, BASE_BYTES, 8L, BASE_BYTES, 16L);
+                .insertEntry(TEST_IFACE, BASE_BYTES, 8L, BASE_BYTES, 16L);
         NetworkStats uidSnapshot = null;
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
 
         // Delta
         xtSnapshot = new NetworkStats(TEST_START + MINUTE_IN_MILLIS, 1 /* initialSize */)
-                .addIfaceValues(TEST_IFACE, BASE_BYTES + THRESHOLD_BYTES, 12L,
+                .insertEntry(TEST_IFACE, BASE_BYTES + THRESHOLD_BYTES, 12L,
                         BASE_BYTES + THRESHOLD_BYTES, 22L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
         waitForObserverToIdle();
         assertEquals(NetworkStatsManager.CALLBACK_LIMIT_REACHED, mHandler.lastMessageType);
     }
@@ -335,20 +326,18 @@ public class NetworkStatsObserversTest {
         // Baseline
         NetworkStats xtSnapshot = null;
         NetworkStats uidSnapshot = new NetworkStats(TEST_START, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                .insertEntry(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
                         DEFAULT_NETWORK_YES, BASE_BYTES, 2L, BASE_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
 
         // Delta
         uidSnapshot = new NetworkStats(TEST_START + 2 * MINUTE_IN_MILLIS, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                .insertEntry(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
                         DEFAULT_NETWORK_NO, BASE_BYTES + THRESHOLD_BYTES, 2L,
                         BASE_BYTES + THRESHOLD_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
         waitForObserverToIdle();
         assertEquals(NetworkStatsManager.CALLBACK_LIMIT_REACHED, mHandler.lastMessageType);
     }
@@ -370,20 +359,18 @@ public class NetworkStatsObserversTest {
         // Baseline
         NetworkStats xtSnapshot = null;
         NetworkStats uidSnapshot = new NetworkStats(TEST_START, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                .insertEntry(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
                         DEFAULT_NETWORK_NO, BASE_BYTES, 2L, BASE_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
 
         // Delta
         uidSnapshot = new NetworkStats(TEST_START + 2 * MINUTE_IN_MILLIS, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                .insertEntry(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
                         DEFAULT_NETWORK_NO, BASE_BYTES + THRESHOLD_BYTES, 2L,
                         BASE_BYTES + THRESHOLD_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
         waitForObserverToIdle();
     }
 
@@ -404,20 +391,18 @@ public class NetworkStatsObserversTest {
         // Baseline
         NetworkStats xtSnapshot = null;
         NetworkStats uidSnapshot = new NetworkStats(TEST_START, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                .insertEntry(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
                         DEFAULT_NETWORK_YES, BASE_BYTES, 2L, BASE_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
 
         // Delta
         uidSnapshot = new NetworkStats(TEST_START + 2 * MINUTE_IN_MILLIS, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                .insertEntry(TEST_IFACE, UID_RED, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
                         DEFAULT_NETWORK_YES, BASE_BYTES + THRESHOLD_BYTES, 2L,
                         BASE_BYTES + THRESHOLD_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
         waitForObserverToIdle();
         assertEquals(NetworkStatsManager.CALLBACK_LIMIT_REACHED, mHandler.lastMessageType);
     }
@@ -439,25 +424,23 @@ public class NetworkStatsObserversTest {
         // Baseline
         NetworkStats xtSnapshot = null;
         NetworkStats uidSnapshot = new NetworkStats(TEST_START, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_ANOTHER_USER, SET_DEFAULT, TAG_NONE, METERED_NO,
+                .insertEntry(TEST_IFACE, UID_ANOTHER_USER, SET_DEFAULT, TAG_NONE, METERED_NO,
                         ROAMING_NO, DEFAULT_NETWORK_YES, BASE_BYTES, 2L, BASE_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
 
         // Delta
         uidSnapshot = new NetworkStats(TEST_START + 2 * MINUTE_IN_MILLIS, 2 /* initialSize */)
-                .addValues(TEST_IFACE, UID_ANOTHER_USER, SET_DEFAULT, TAG_NONE, METERED_NO,
+                .insertEntry(TEST_IFACE, UID_ANOTHER_USER, SET_DEFAULT, TAG_NONE, METERED_NO,
                         ROAMING_NO, DEFAULT_NETWORK_NO, BASE_BYTES + THRESHOLD_BYTES, 2L,
                         BASE_BYTES + THRESHOLD_BYTES, 2L, 0L);
         mStatsObservers.updateStats(
-                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces,
-                VPN_INFO, TEST_START);
+                xtSnapshot, uidSnapshot, mActiveIfaces, mActiveUidIfaces, TEST_START);
         waitForObserverToIdle();
     }
 
     private void waitForObserverToIdle() {
-        waitForIdleHandler(mObserverHandlerThread, WAIT_TIMEOUT_MS);
-        waitForIdleHandler(mHandler, WAIT_TIMEOUT_MS);
+        HandlerUtilsKt.waitForIdle(mObserverHandlerThread, WAIT_TIMEOUT_MS);
+        HandlerUtilsKt.waitForIdle(mHandler, WAIT_TIMEOUT_MS);
     }
 }

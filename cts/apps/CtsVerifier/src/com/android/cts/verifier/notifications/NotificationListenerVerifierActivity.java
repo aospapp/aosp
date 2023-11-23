@@ -35,13 +35,13 @@ import static com.android.cts.verifier.notifications.MockListener.JSON_WHEN;
 import static com.android.cts.verifier.notifications.MockListener.REASON_LISTENER_CANCEL;
 
 import android.annotation.SuppressLint;
-import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.provider.Settings.Secure;
@@ -107,37 +107,32 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
     @Override
     protected List<InteractiveTestCase> createTestItems() {
         List<InteractiveTestCase> tests = new ArrayList<>(17);
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        if (am.isLowRamDevice()) {
-            tests.add(new CannotBeEnabledTest());
-            tests.add(new ServiceStoppedTest());
-            tests.add(new NotificationNotReceivedTest());
-        } else {
-            tests.add(new IsEnabledTest());
-            tests.add(new ServiceStartedTest());
-            tests.add(new NotificationReceivedTest());
-            tests.add(new DataIntactTest());
-            tests.add(new AudiblyAlertedTest());
-            tests.add(new DismissOneTest());
-            tests.add(new DismissOneWithReasonTest());
-            tests.add(new DismissOneWithStatsTest());
-            tests.add(new DismissAllTest());
-            tests.add(new SnoozeNotificationForTimeTest());
-            tests.add(new SnoozeNotificationForTimeCancelTest());
-            tests.add(new GetSnoozedNotificationTest());
-            tests.add(new EnableHintsTest());
-            tests.add(new ReceiveAppBlockNoticeTest());
-            tests.add(new ReceiveAppUnblockNoticeTest());
+        tests.add(new IsEnabledTest());
+        tests.add(new ServiceStartedTest());
+        tests.add(new NotificationReceivedTest());
+        tests.add(new DataIntactTest());
+        tests.add(new AudiblyAlertedTest());
+        tests.add(new DismissOneTest());
+        tests.add(new DismissOneWithReasonTest());
+        tests.add(new DismissOneWithStatsTest());
+        tests.add(new DismissAllTest());
+        tests.add(new SnoozeNotificationForTimeTest());
+        tests.add(new SnoozeNotificationForTimeCancelTest());
+        tests.add(new GetSnoozedNotificationTest());
+        tests.add(new EnableHintsTest());
+        tests.add(new ReceiveAppBlockNoticeTest());
+        tests.add(new ReceiveAppUnblockNoticeTest());
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
             tests.add(new ReceiveChannelBlockNoticeTest());
             tests.add(new ReceiveGroupBlockNoticeTest());
-            tests.add(new RequestUnbindTest());
-            tests.add(new RequestBindTest());
-            tests.add(new MessageBundleTest());
-            tests.add(new EnableHintsTest());
-            tests.add(new IsDisabledTest());
-            tests.add(new ServiceStoppedTest());
-            tests.add(new NotificationNotReceivedTest());
         }
+        tests.add(new RequestUnbindTest());
+        tests.add(new RequestBindTest());
+        tests.add(new MessageBundleTest());
+        tests.add(new EnableHintsTest());
+        tests.add(new IsDisabledTest());
+        tests.add(new ServiceStoppedTest());
+        tests.add(new NotificationNotReceivedTest());
         return tests;
     }
 
@@ -679,7 +674,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
                     } else if (payload.getString(JSON_PACKAGE).equals(mPackageString)) {
                         found.add(tag);
                         boolean lastAudiblyAlertedSet
-                                = payload.getLong(JSON_LAST_AUDIBLY_ALERTED) > -1;
+                                = payload.getLong(JSON_LAST_AUDIBLY_ALERTED) > 0;
                         if (lastAudiblyAlertedSet) {
                             logWithStack(
                                     "noisy notification test: getLastAudiblyAlertedMillis set "

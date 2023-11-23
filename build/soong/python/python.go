@@ -306,22 +306,17 @@ func (p *Module) DepsMutator(ctx android.BottomUpMutatorContext) {
 			if p.bootstrapper.autorun() {
 				launcherModule = "py2-launcher-autorun"
 			}
-			ctx.AddFarVariationDependencies([]blueprint.Variation{
-				{Mutator: "arch", Variation: ctx.Target().String()},
-			}, launcherTag, launcherModule)
+			ctx.AddFarVariationDependencies(ctx.Target().Variations(), launcherTag, launcherModule)
 
 			// Add py2-launcher shared lib dependencies. Ideally, these should be
 			// derived from the `shared_libs` property of "py2-launcher". However, we
 			// cannot read the property at this stage and it will be too late to add
 			// dependencies later.
-			ctx.AddFarVariationDependencies([]blueprint.Variation{
-				{Mutator: "arch", Variation: ctx.Target().String()},
-			}, launcherSharedLibTag, "libsqlite")
+			ctx.AddFarVariationDependencies(ctx.Target().Variations(), launcherSharedLibTag, "libsqlite")
 
 			if ctx.Target().Os.Bionic() {
-				ctx.AddFarVariationDependencies([]blueprint.Variation{
-					{Mutator: "arch", Variation: ctx.Target().String()},
-				}, launcherSharedLibTag, "libc", "libdl", "libm")
+				ctx.AddFarVariationDependencies(ctx.Target().Variations(), launcherSharedLibTag,
+					"libc", "libdl", "libm")
 			}
 		}
 
@@ -331,9 +326,29 @@ func (p *Module) DepsMutator(ctx android.BottomUpMutatorContext) {
 				p.properties.Version.Py3.Libs)...)
 
 		if p.bootstrapper != nil && p.isEmbeddedLauncherEnabled(pyVersion3) {
-			//TODO(nanzhang): Add embedded launcher for Python3.
-			ctx.PropertyErrorf("version.py3.embedded_launcher",
-				"is not supported yet for Python3.")
+			ctx.AddVariationDependencies(nil, pythonLibTag, "py3-stdlib")
+
+			launcherModule := "py3-launcher"
+			if p.bootstrapper.autorun() {
+				launcherModule = "py3-launcher-autorun"
+			}
+			ctx.AddFarVariationDependencies(ctx.Target().Variations(), launcherTag, launcherModule)
+
+			// Add py3-launcher shared lib dependencies. Ideally, these should be
+			// derived from the `shared_libs` property of "py3-launcher". However, we
+			// cannot read the property at this stage and it will be too late to add
+			// dependencies later.
+			ctx.AddFarVariationDependencies(ctx.Target().Variations(), launcherSharedLibTag, "libsqlite")
+
+			if ctx.Device() {
+				ctx.AddFarVariationDependencies(ctx.Target().Variations(), launcherSharedLibTag,
+					"liblog")
+			}
+
+			if ctx.Target().Os.Bionic() {
+				ctx.AddFarVariationDependencies(ctx.Target().Variations(), launcherSharedLibTag,
+					"libc", "libdl", "libm")
+			}
 		}
 	default:
 		panic(fmt.Errorf("unknown Python Actual_version: %q for module: %q.",
@@ -375,11 +390,11 @@ func (p *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	// Only Python binaries and test has non-empty bootstrapper.
 	if p.bootstrapper != nil {
 		p.walkTransitiveDeps(ctx)
-		// TODO(nanzhang): Since embedded launcher is not supported for Python3 for now,
-		// so we initialize "embedded_launcher" to false.
 		embeddedLauncher := false
 		if p.properties.Actual_version == pyVersion2 {
 			embeddedLauncher = p.isEmbeddedLauncherEnabled(pyVersion2)
+		} else {
+			embeddedLauncher = p.isEmbeddedLauncherEnabled(pyVersion3)
 		}
 		p.installSource = p.bootstrapper.bootstrap(ctx, p.properties.Actual_version,
 			embeddedLauncher, p.srcsPathMappings, p.srcsZip, p.depsSrcsZips)

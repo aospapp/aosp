@@ -30,6 +30,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.applications.ApplicationDetailsFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiPreference;
 import com.android.settingslib.location.RecentLocationApps;
 import com.android.settingslib.location.RecentLocationApps.Request;
 
@@ -78,7 +79,7 @@ public class RecentLocationRequestsPreferenceController extends
             mRecentLocationRequests = newRequests;
         }
         if (mRecentLocationRequests.isEmpty()) {
-            Preference emptyMessagePref = new Preference(getContext());
+            CarUiPreference emptyMessagePref = new CarUiPreference(getContext());
             emptyMessagePref.setTitle(R.string.location_settings_recent_requests_empty_message);
             group.addPreference(emptyMessagePref);
         } else {
@@ -91,7 +92,7 @@ public class RecentLocationRequestsPreferenceController extends
     }
 
     private Preference createPreference(Request request) {
-        Preference pref = new Preference(getContext());
+        CarUiPreference pref = new CarUiPreference(getContext());
         pref.setSummary(request.contentDescription);
         pref.setIcon(request.icon);
         pref.setTitle(request.label);

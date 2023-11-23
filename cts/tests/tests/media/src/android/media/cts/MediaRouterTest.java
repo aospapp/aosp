@@ -39,6 +39,7 @@ import java.util.ArrayList;
 /**
  * Test {@link android.media.MediaRouter}.
  */
+@NonMediaMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaRouterTest extends InstrumentationTestCase {
 

@@ -24,6 +24,9 @@
 #include <string>
 #include <vector>
 
+#include <hidl/metadata.h>
+
+#include "CheckFlags.h"
 #include "FileSystem.h"
 #include "HalGroup.h"
 #include "KernelInfo.h"
@@ -63,8 +66,9 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // Given a component name (e.g. "android.hardware.camera"),
     // return getHal(name)->transport if the component exist and v exactly matches
     // one of the versions in that component, else EMPTY
-    Transport getTransport(const std::string &name, const Version &v,
-            const std::string &interfaceName, const std::string &instanceName) const;
+    Transport getHidlTransport(const std::string& name, const Version& v,
+                               const std::string& interfaceName,
+                               const std::string& instanceName) const;
 
     // Check compatibility against a compatibility matrix. Considered compatible if
     // - framework manifest vs. device compat-mat
@@ -73,7 +77,8 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // - device manifest vs. framework compat-mat
     //     - checkIncompatibility for HALs returns only optional HALs
     //     - manifest.sepolicy.version match one of compat-mat.sepolicy.sepolicy-version
-    bool checkCompatibility(const CompatibilityMatrix &mat, std::string *error = nullptr) const;
+    bool checkCompatibility(const CompatibilityMatrix& mat, std::string* error = nullptr,
+                            CheckFlags::Type flags = CheckFlags::DEFAULT) const;
 
     // Generate a compatibility matrix such that checkCompatibility will return true.
     CompatibilityMatrix generateCompatibleMatrix() const;
@@ -84,6 +89,7 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // Returns all component names and versions, e.g.
     // "android.hardware.camera.device@1.0", "android.hardware.camera.device@3.2",
     // "android.hardware.nfc@1.0"]
+    // For AIDL HALs, versions are stripped away.
     std::set<std::string> getHalNamesAndVersions() const;
 
     // Type of the manifest. FRAMEWORK or DEVICE.
@@ -110,26 +116,25 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // Get metaversion of this manifest.
     Version getMetaVersion() const;
 
-    bool forEachInstanceOfVersion(
-        const std::string& package, const Version& expectVersion,
-        const std::function<bool(const ManifestInstance&)>& func) const override;
-
     // Alternative to forEachInstance if you just need a set of instance names instead.
-    std::set<std::string> getInstances(const std::string& halName, const Version& version,
-                                       const std::string& interfaceName) const;
+    std::set<std::string> getHidlInstances(const std::string& package, const Version& version,
+                                           const std::string& interfaceName) const;
+    std::set<std::string> getAidlInstances(const std::string& package,
+                                           const std::string& interfaceName) const;
 
-    // Return whether instance is in getInstances(...).
-    bool hasInstance(const std::string& halName, const Version& version,
-                     const std::string& interfaceName, const std::string& instance) const;
+    // Return whether instance is in getHidlInstances(...).
+    bool hasHidlInstance(const std::string& package, const Version& version,
+                         const std::string& interfaceName, const std::string& instance) const;
+
+    // Return whether a given AIDL instance is in this manifest.
+    bool hasAidlInstance(const std::string& package, const std::string& interfaceName,
+                         const std::string& instance) const;
 
     // Insert the given instance. After inserting it, the instance will be available via
     // forEachInstance* functions. This modifies the manifest.
     // Return whether this operation is successful.
     bool insertInstance(const FqInstance& fqInstance, Transport transport, Arch arch, HalFormat fmt,
                         std::string* error = nullptr);
-
-    // Get the <kernel> tag. Assumes type() == DEVICE.
-    const std::optional<KernelInfo>& kernel() const;
 
     // Add everything from another manifest. If no errors (return true), it is guaranteed
     // that other->empty() == true after execution.
@@ -139,6 +144,10 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // Check before add()
     bool shouldAdd(const ManifestHal& toAdd) const override;
     bool shouldAddXmlFile(const ManifestXmlFile& toAdd) const override;
+
+    bool forEachInstanceOfVersion(
+        HalFormat format, const std::string& package, const Version& expectVersion,
+        const std::function<bool(const ManifestInstance&)>& func) const override;
 
    private:
     friend struct HalManifestConverter;
@@ -168,15 +177,37 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // required HAL.
     // That is, return empty list iff
     // (instance in manifest) => (instance in matrix).
-    std::set<std::string> checkUnusedHals(const CompatibilityMatrix& mat) const;
+    std::set<std::string> checkUnusedHals(
+        const CompatibilityMatrix& mat,
+        const std::vector<HidlInterfaceMetadata>& hidlMetadata) const;
 
     // Check that manifest has no entries.
     bool empty() const;
 
+    // Alternative to forEachInstance if you just need a set of instance names instead.
+    std::set<std::string> getInstances(HalFormat format, const std::string& package,
+                                       const Version& version,
+                                       const std::string& interfaceName) const;
+
+    // Return whether instance is in getInstances(...).
+    bool hasInstance(HalFormat format, const std::string& package, const Version& version,
+                     const std::string& interfaceName, const std::string& instance) const;
+
+    // Get the <kernel> tag. Assumes type() == DEVICE.
+    // - On host, <kernel> tag only exists for the fully assembled HAL manifest.
+    // - On device, this only contain information about level(). Other information should be
+    //   looked up via RuntimeInfo.
+    const std::optional<KernelInfo>& kernel() const;
+
+    // Merge information of other to this.
+    bool mergeKernel(std::optional<KernelInfo>* other, std::string* error = nullptr);
+
+    // Whether the manifest contains information about the kernel for compatibility checks.
+    // True if kernel()->checkCompatibility can be called.
+    bool shouldCheckKernelCompatibility() const;
+
     SchemaType mType;
     Level mLevel = Level::UNSPECIFIED;
-    // version attribute. Default is 1.0 for manifests created programatically.
-    Version mMetaVersion{1, 0};
 
     // entries for device hal manifest only
     struct {

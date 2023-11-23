@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import logging
+import socket
 import time
 import urlparse
 
@@ -67,9 +68,12 @@ class cellular_Smoke(test.test):
                     device, shill_proxy.ShillProxy.DEVICE_PROPERTY_INTERFACE)
             logging.info('Expected interface for %s: %s',
                          service.object_path, interface)
+            # TODO(b/114292737): Once IPv6 support is enabled on
+            # cellular, we should not need to limit this check to just
+            # AF_INET.
             network.CheckInterfaceForDestination(
                 urlparse.urlparse(url_pattern).hostname,
-                interface)
+                interface, socket.AF_INET)
 
             fetch_time = network.FetchUrl(url_pattern, bytes_to_fetch,
                                           self.fetch_timeout)

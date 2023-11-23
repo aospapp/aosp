@@ -5,8 +5,8 @@ pt_MO{
     Currencies{
         MOP{
             "MOP$",
-            "Pataca de Macau",
+            "pataca macaense",
         }
     }
-    Version{"2.1.38.39"}
+    Version{"36.1"}
 }

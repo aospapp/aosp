@@ -535,4 +535,28 @@ public class FileUtilTest {
             FileUtil.recursiveDelete(tmpDir);
         }
     }
+
+    @Test
+    public void testReadPartialStringFromFile() throws IOException {
+        File tmpFile = FileUtil.createTempFile("test", ".txt");
+        try {
+            StringBuilder content = new StringBuilder();
+            StringBuilder partialContent = new StringBuilder();
+            for (int i = 0; i < 1024; i++) {
+                content.append('A');
+            }
+            for (int i = 0; i < 1024; i++) {
+                content.append('C');
+                partialContent.append('C');
+            }
+            FileUtil.writeToFile(content.toString(), tmpFile);
+            // Test to read the whole file with `length` greater than the file length.
+            assertEquals(content.toString(), FileUtil.readStringFromFile(tmpFile, -1024, 4096 * 2));
+            // Test to read the tailing part of the file.
+            assertEquals(
+                    partialContent.toString(), FileUtil.readStringFromFile(tmpFile, 1024, 4096));
+        } finally {
+            FileUtil.deleteFile(tmpFile);
+        }
+    }
 }

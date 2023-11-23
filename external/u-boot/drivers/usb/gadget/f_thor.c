@@ -14,6 +14,7 @@
  * Sanghee Kim <sh0130.kim@samsung.com>
  */
 
+#include <command.h>
 #include <errno.h>
 #include <common.h>
 #include <console.h>
@@ -877,14 +878,14 @@ static void thor_func_disable(struct usb_function *f)
 
 	/* Avoid freeing memory when ep is still claimed */
 	if (dev->in_ep->driver_data) {
-		free_ep_req(dev->in_ep, dev->in_req);
 		usb_ep_disable(dev->in_ep);
+		free_ep_req(dev->in_ep, dev->in_req);
 		dev->in_ep->driver_data = NULL;
 	}
 
 	if (dev->out_ep->driver_data) {
-		usb_ep_free_request(dev->out_ep, dev->out_req);
 		usb_ep_disable(dev->out_ep);
+		usb_ep_free_request(dev->out_ep, dev->out_req);
 		dev->out_ep->driver_data = NULL;
 	}
 
@@ -941,6 +942,13 @@ static int thor_eps_setup(struct usb_function *f)
 	dev->out_req = req;
 	/* ACM control EP */
 	ep = dev->int_ep;
+	d = ep_desc(gadget, &hs_int_desc, &fs_int_desc);
+	debug("(d)bEndpointAddress: 0x%x\n", d->bEndpointAddress);
+
+	result = usb_ep_enable(ep, d);
+	if (result)
+		goto err;
+
 	ep->driver_data = cdev;	/* claim */
 
 	return 0;

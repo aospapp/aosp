@@ -18,6 +18,7 @@ package com.android.tradefed.device.metric;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.util.FileUtil;
@@ -26,11 +27,12 @@ import com.android.tradefed.util.proto.TfMetricProtoUtil;
 import java.io.File;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -40,16 +42,15 @@ import java.util.regex.Pattern;
 public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCollector {
 
     @Option(
-        name = "pull-pattern-keys",
-        description = "The pattern key name to be pull from the device as a file. Can be repeated."
-    )
-    private List<String> mKeys = new ArrayList<>();
+            name = "pull-pattern-keys",
+            description =
+                    "The pattern key name to be pull from the device as a file. Can be repeated.")
+    private Set<String> mKeys = new HashSet<>();
 
     @Option(
-        name = "directory-keys",
-        description = "Path to the directory on the device that contains the metrics."
-        )
-    protected List<String> mDirectoryKeys = new ArrayList<>();
+            name = "directory-keys",
+            description = "Path to the directory on the device that contains the metrics.")
+    protected Set<String> mDirectoryKeys = new HashSet<>();
 
     @Option(
         name = "clean-up",
@@ -121,9 +122,11 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
             return;
         }
         for (String key : mKeys) {
-            Entry<String, File> pulledMetrics = pullMetricFile(key, currentMetrics);
-            if (pulledMetrics != null) {
-                processMetricFile(pulledMetrics.getKey(), pulledMetrics.getValue(), data);
+            Map<String, File> pulledMetrics = pullMetricFile(key, currentMetrics);
+
+            // Process all the metric files that matched the key pattern.
+            for (Map.Entry<String, File> entry : pulledMetrics.entrySet()) {
+                processMetricFile(entry.getKey(), entry.getValue(), data);
             }
         }
 
@@ -136,20 +139,27 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
 
     }
 
-    private Entry<String, File> pullMetricFile(
+
+    private Map<String, File> pullMetricFile(
             String pattern, final Map<String, String> currentMetrics) {
+        Map<String, File> matchedFiles = new HashMap<>();
         Pattern p = Pattern.compile(pattern);
         for (Entry<String, String> entry : currentMetrics.entrySet()) {
             if (p.matcher(entry.getKey()).find()) {
                 for (ITestDevice device : getDevices()) {
+                    // Skip StubDevices
+                    if (device.getIDevice() instanceof StubDevice) {
+                        continue;
+                    }
                     try {
-                        File attemptPull = device.pullFile(entry.getValue());
+                        File attemptPull = retrieveFile(device, entry.getValue());
                         if (attemptPull != null) {
                             if (mCleanUp) {
                                 device.deleteFile(entry.getValue());
                             }
-                            // Return the actual key and the file associated
-                            return new SimpleEntry<String, File>(entry.getKey(), attemptPull);
+                            // Store all the keys that matches the pattern and the corresponding
+                            // files pulled from the device.
+                            matchedFiles.put(entry.getKey(), attemptPull);
                         }
                     } catch (DeviceNotAvailableException e) {
                         CLog.e(
@@ -160,9 +170,26 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
                 }
             }
         }
-        // Not a hard failure, just nice to know
-        CLog.d("Could not find a device file associated to pattern '%s'.", pattern);
-        return null;
+
+        if (matchedFiles.isEmpty()) {
+            // Not a hard failure, just nice to know
+            CLog.d("Could not find a device file associated to pattern '%s'.", pattern);
+
+        }
+        return matchedFiles;
+    }
+
+    /**
+     * Pull the file from the specified path in the device.
+     *
+     * @param device which has the file.
+     * @param remoteFilePath location in the device.
+     * @return File retrieved from the given path in the device.
+     * @throws DeviceNotAvailableException
+     */
+    protected File retrieveFile(ITestDevice device, String remoteFilePath)
+            throws DeviceNotAvailableException {
+        return device.pullFile(remoteFilePath);
     }
 
     /**
@@ -177,6 +204,10 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
         try {
             File tmpDestDir = FileUtil.createTempDir("host_tmp");
             for (ITestDevice device : getDevices()) {
+                // Skip StubDevices
+                if (device.getIDevice() instanceof StubDevice) {
+                    continue;
+                }
                 try {
                     if (device.pullDir(keyDirectory, tmpDestDir)) {
                         if (mCleanUp) {

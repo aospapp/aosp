@@ -18,14 +18,17 @@
 
 #include <dirent.h>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <mutex>
 
 #include <android-base/logging.h>
+#include <android-base/result.h>
+#include <android-base/strings.h>
+#include <hidl/metadata.h>
 
 #include "CompatibilityMatrix.h"
-#include "VintfObjectAfterUpdate.h"
 #include "parse_string.h"
 #include "parse_xml.h"
 #include "utils.h"
@@ -45,19 +48,24 @@ static constexpr bool kIsTarget = false;
 #endif
 
 template <typename T, typename F>
-static std::shared_ptr<const T> Get(
-        LockedSharedPtr<T> *ptr,
-        bool skipCache,
-        const F &fetchAllInformation) {
+static std::shared_ptr<const T> Get(const char* id, LockedSharedPtr<T>* ptr, bool skipCache,
+                                    const F& fetchAllInformation) {
     std::unique_lock<std::mutex> _lock(ptr->mutex);
     if (skipCache || !ptr->fetchedOnce) {
+        LOG(INFO) << id << ": Reading VINTF information.";
         ptr->object = std::make_unique<T>();
         std::string error;
-        if (fetchAllInformation(ptr->object.get(), &error) != OK) {
-            LOG(WARNING) << error;
+        status_t status = fetchAllInformation(ptr->object.get(), &error);
+        if (status == OK) {
+            ptr->fetchedOnce = true;
+            LOG(INFO) << id << ": Successfully processed VINTF information";
+        } else {
+            // Doubled because a malformed error std::string might cause us to
+            // lose the status.
+            LOG(ERROR) << id << ": status from fetching VINTF information: " << status;
+            LOG(ERROR) << id << ": " << status << " VINTF parse error: " << error;
             ptr->object = nullptr; // frees the old object
         }
-        ptr->fetchedOnce = true;
     }
     return ptr->object;
 }
@@ -82,8 +90,8 @@ static std::unique_ptr<PropertyFetcher> createDefaultPropertyFetcher() {
     return propertyFetcher;
 }
 
-details::LockedSharedPtr<VintfObject> VintfObject::sInstance{};
 std::shared_ptr<VintfObject> VintfObject::GetInstance() {
+    static details::LockedSharedPtr<VintfObject> sInstance{};
     std::unique_lock<std::mutex> lock(sInstance.mutex);
     if (sInstance.object == nullptr) {
         sInstance.object = std::shared_ptr<VintfObject>(VintfObject::Builder().build().release());
@@ -96,7 +104,7 @@ std::shared_ptr<const HalManifest> VintfObject::GetDeviceHalManifest(bool skipCa
 }
 
 std::shared_ptr<const HalManifest> VintfObject::getDeviceHalManifest(bool skipCache) {
-    return Get(&mDeviceManifest, skipCache,
+    return Get(__func__, &mDeviceManifest, skipCache,
                std::bind(&VintfObject::fetchDeviceHalManifest, this, _1, _2));
 }
 
@@ -105,7 +113,7 @@ std::shared_ptr<const HalManifest> VintfObject::GetFrameworkHalManifest(bool ski
 }
 
 std::shared_ptr<const HalManifest> VintfObject::getFrameworkHalManifest(bool skipCache) {
-    return Get(&mFrameworkManifest, skipCache,
+    return Get(__func__, &mFrameworkManifest, skipCache,
                std::bind(&VintfObject::fetchFrameworkHalManifest, this, _1, _2));
 }
 
@@ -115,7 +123,8 @@ std::shared_ptr<const CompatibilityMatrix> VintfObject::GetDeviceCompatibilityMa
 
 std::shared_ptr<const CompatibilityMatrix> VintfObject::getDeviceCompatibilityMatrix(
     bool skipCache) {
-    return Get(&mDeviceMatrix, skipCache, std::bind(&VintfObject::fetchDeviceMatrix, this, _1, _2));
+    return Get(__func__, &mDeviceMatrix, skipCache,
+               std::bind(&VintfObject::fetchDeviceMatrix, this, _1, _2));
 }
 
 std::shared_ptr<const CompatibilityMatrix> VintfObject::GetFrameworkCompatibilityMatrix(bool skipCache) {
@@ -130,13 +139,13 @@ std::shared_ptr<const CompatibilityMatrix> VintfObject::getFrameworkCompatibilit
     std::unique_lock<std::mutex> _lock(mFrameworkCompatibilityMatrixMutex);
 
     auto combined =
-        Get(&mCombinedFrameworkMatrix, skipCache,
+        Get(__func__, &mCombinedFrameworkMatrix, skipCache,
             std::bind(&VintfObject::getCombinedFrameworkMatrix, this, deviceManifest, _1, _2));
     if (combined != nullptr) {
         return combined;
     }
 
-    return Get(&mFrameworkMatrix, skipCache,
+    return Get(__func__, &mFrameworkMatrix, skipCache,
                std::bind(&CompatibilityMatrix::fetchAllInformation, _1, getFileSystem().get(),
                          kSystemLegacyMatrix, _2));
 }
@@ -227,20 +236,22 @@ status_t VintfObject::addDirectoryManifests(const std::string& directory, HalMan
 }
 
 // Priority for loading vendor manifest:
-// 1. /vendor/etc/vintf/manifest.xml + device fragments + ODM manifest (optional) + odm fragments
-// 2. /vendor/etc/vintf/manifest.xml + device fragments
+// 1. Vendor manifest + device fragments + ODM manifest (optional) + odm fragments
+// 2. Vendor manifest + device fragments
 // 3. ODM manifest (optional) + odm fragments
 // 4. /vendor/manifest.xml (legacy, no fragments)
 // where:
 // A + B means unioning <hal> tags from A and B. If B declares an override, then this takes priority
 // over A.
 status_t VintfObject::fetchDeviceHalManifest(HalManifest* out, std::string* error) {
-    status_t vendorStatus = fetchOneHalManifest(kVendorManifest, out, error);
+    HalManifest vendorManifest;
+    status_t vendorStatus = fetchVendorHalManifest(&vendorManifest, error);
     if (vendorStatus != OK && vendorStatus != NAME_NOT_FOUND) {
         return vendorStatus;
     }
 
     if (vendorStatus == OK) {
+        *out = std::move(vendorManifest);
         status_t fragmentStatus = addDirectoryManifests(kVendorManifestFragmentDir, out, error);
         if (fragmentStatus != OK) {
             return fragmentStatus;
@@ -273,6 +284,33 @@ status_t VintfObject::fetchDeviceHalManifest(HalManifest* out, std::string* erro
 
     // Use legacy /vendor/manifest.xml
     return out->fetchAllInformation(getFileSystem().get(), kVendorLegacyManifest, error);
+}
+
+// Priority:
+// 1. if {vendorSku} is defined, /vendor/etc/vintf/manifest_{vendorSku}.xml
+// 2. /vendor/etc/vintf/manifest.xml
+// where:
+// {vendorSku} is the value of ro.boot.product.vendor.sku
+status_t VintfObject::fetchVendorHalManifest(HalManifest* out, std::string* error) {
+    status_t status;
+
+    std::string vendorSku;
+    vendorSku = getPropertyFetcher()->getProperty("ro.boot.product.vendor.sku", "");
+
+    if (!vendorSku.empty()) {
+        status =
+            fetchOneHalManifest(kVendorVintfDir + "manifest_" + vendorSku + ".xml", out, error);
+        if (status == OK || status != NAME_NOT_FOUND) {
+            return status;
+        }
+    }
+
+    status = fetchOneHalManifest(kVendorManifest, out, error);
+    if (status == OK || status != NAME_NOT_FOUND) {
+        return status;
+    }
+
+    return NAME_NOT_FOUND;
 }
 
 // "out" is written to iff return status is OK.
@@ -353,21 +391,31 @@ status_t VintfObject::fetchFrameworkHalManifest(HalManifest* out, std::string* e
             return dirStatus;
         }
 
-        HalManifest productManifest;
-        auto productStatus = fetchOneHalManifest(kProductManifest, &productManifest, error);
-        if (productStatus != OK && productStatus != NAME_NOT_FOUND) {
-            return productStatus;
-        }
-        if (productStatus == OK) {
-            if (!out->addAll(&productManifest, error)) {
-                if (error) {
-                    error->insert(0, "Cannot add " + kProductManifest + ":");
+        std::vector<std::pair<const std::string&, const std::string&>> extensions{
+            {kProductManifest, kProductManifestFragmentDir},
+            {kSystemExtManifest, kSystemExtManifestFragmentDir},
+        };
+        for (auto&& [manifestPath, frags] : extensions) {
+            HalManifest halManifest;
+            auto status = fetchOneHalManifest(manifestPath, &halManifest, error);
+            if (status != OK && status != NAME_NOT_FOUND) {
+                return status;
+            }
+            if (status == OK) {
+                if (!out->addAll(&halManifest, error)) {
+                    if (error) {
+                        error->insert(0, "Cannot add " + manifestPath + ":");
+                    }
+                    return UNKNOWN_ERROR;
                 }
-                return UNKNOWN_ERROR;
+            }
+
+            auto fragmentStatus = addDirectoryManifests(frags, out, error);
+            if (fragmentStatus != OK) {
+                return fragmentStatus;
             }
         }
-
-        return addDirectoryManifests(kProductManifestFragmentDir, out, error);
+        return OK;
     } else {
         LOG(WARNING) << "Cannot fetch " << kSystemManifest << ": "
                      << (error ? *error : strerror(-systemEtcStatus));
@@ -402,43 +450,49 @@ status_t VintfObject::getOneMatrix(const std::string& path, Named<CompatibilityM
 
 status_t VintfObject::getAllFrameworkMatrixLevels(std::vector<Named<CompatibilityMatrix>>* results,
                                                   std::string* error) {
-    std::vector<std::string> fileNames;
-
-    status_t listStatus = getFileSystem()->listFiles(kSystemVintfDir, &fileNames, error);
-    if (listStatus != OK) {
-        return listStatus;
-    }
-    for (const std::string& fileName : fileNames) {
-        std::string path = kSystemVintfDir + fileName;
-        Named<CompatibilityMatrix> namedMatrix;
-        std::string matrixError;
-        status_t matrixStatus = getOneMatrix(path, &namedMatrix, &matrixError);
-        if (matrixStatus != OK) {
-            // System manifests and matrices share the same dir. Client may not have enough
-            // permissions to read system manifests, or may not be able to parse it.
-            auto logLevel = matrixStatus == BAD_VALUE ? base::DEBUG : base::ERROR;
-            LOG(logLevel) << "Framework Matrix: Ignore file " << path << ": " << matrixError;
+    std::vector<std::string> dirs = {
+        kSystemVintfDir,
+        kSystemExtVintfDir,
+        kProductVintfDir,
+    };
+    for (const auto& dir : dirs) {
+        std::vector<std::string> fileNames;
+        status_t listStatus = getFileSystem()->listFiles(dir, &fileNames, error);
+        if (listStatus == NAME_NOT_FOUND) {
             continue;
         }
-        results->emplace_back(std::move(namedMatrix));
-    }
+        if (listStatus != OK) {
+            return listStatus;
+        }
+        for (const std::string& fileName : fileNames) {
+            std::string path = dir + fileName;
+            Named<CompatibilityMatrix> namedMatrix;
+            std::string matrixError;
+            status_t matrixStatus = getOneMatrix(path, &namedMatrix, &matrixError);
+            if (matrixStatus != OK) {
+                // Manifests and matrices share the same dir. Client may not have enough
+                // permissions to read system manifests, or may not be able to parse it.
+                auto logLevel = matrixStatus == BAD_VALUE ? base::DEBUG : base::ERROR;
+                LOG(logLevel) << "Framework Matrix: Ignore file " << path << ": " << matrixError;
+                continue;
+            }
+            results->emplace_back(std::move(namedMatrix));
+        }
 
-    Named<CompatibilityMatrix> productMatrix;
-    std::string productError;
-    status_t productStatus = getOneMatrix(kProductMatrix, &productMatrix, &productError);
-    if (productStatus == OK) {
-        results->emplace_back(std::move(productMatrix));
-    } else if (productStatus == NAME_NOT_FOUND) {
-        LOG(DEBUG) << "Framework Matrix: missing " << kProductMatrix;
-    } else {
-        if (error) *error = std::move(productError);
-        return productStatus;
+        if (dir == kSystemVintfDir && results->empty()) {
+            if (error) {
+                *error = "No framework matrices under " + dir + " can be fetched or parsed.\n";
+            }
+            return NAME_NOT_FOUND;
+        }
     }
 
     if (results->empty()) {
         if (error) {
             *error =
-                "No framework matrices under " + kSystemVintfDir + " can be fetched or parsed.\n";
+                "No framework matrices can be fetched or parsed. "
+                "The following directories are searched:\n  " +
+                android::base::Join(dirs, "\n  ");
         }
         return NAME_NOT_FOUND;
     }
@@ -461,6 +515,21 @@ std::shared_ptr<const RuntimeInfo> VintfObject::getRuntimeInfo(bool skipCache,
         mDeviceRuntimeInfo.object = getRuntimeInfoFactory()->make_shared();
     }
 
+    // Fetch kernel FCM version from device HAL manifest and store it in RuntimeInfo too.
+    if ((flags & RuntimeInfo::FetchFlag::KERNEL_FCM) != 0) {
+        auto manifest = getDeviceHalManifest();
+        if (!manifest) {
+            mDeviceRuntimeInfo.fetchedFlags &= ~RuntimeInfo::FetchFlag::KERNEL_FCM;
+            return nullptr;
+        }
+        Level level = Level::UNSPECIFIED;
+        if (manifest->kernel().has_value()) {
+            level = manifest->kernel()->level();
+        }
+        mDeviceRuntimeInfo.object->setKernelLevel(level);
+        flags &= ~RuntimeInfo::FetchFlag::KERNEL_FCM;
+    }
+
     status_t status = mDeviceRuntimeInfo.object->fetchAllInformation(flags);
     if (status != OK) {
         mDeviceRuntimeInfo.fetchedFlags &= (~flags);  // mark the fields as "not fetched"
@@ -469,77 +538,6 @@ std::shared_ptr<const RuntimeInfo> VintfObject::getRuntimeInfo(bool skipCache,
 
     mDeviceRuntimeInfo.fetchedFlags |= flags;
     return mDeviceRuntimeInfo.object;
-}
-
-namespace details {
-
-enum class ParseStatus {
-    OK,
-    PARSE_ERROR,
-    DUPLICATED_FWK_ENTRY,
-    DUPLICATED_DEV_ENTRY,
-};
-
-static std::string toString(ParseStatus status) {
-    switch(status) {
-        case ParseStatus::OK:                   return "OK";
-        case ParseStatus::PARSE_ERROR:          return "parse error";
-        case ParseStatus::DUPLICATED_FWK_ENTRY: return "duplicated framework";
-        case ParseStatus::DUPLICATED_DEV_ENTRY: return "duplicated device";
-    }
-    return "";
-}
-
-template <typename T>
-static ParseStatus tryParse(const std::string& xml, const XmlConverter<T>& parse,
-                            VintfObjectAfterUpdate* afterUpdate) {
-    std::shared_ptr<T> ret = std::make_shared<T>();
-    if (!parse(ret.get(), xml, nullptr /* error */)) {
-        return ParseStatus::PARSE_ERROR;
-    }
-    if (!afterUpdate->set(ret)) {
-        if (ret->type() == SchemaType::FRAMEWORK) {
-            return ParseStatus::DUPLICATED_FWK_ENTRY;
-        } else if (ret->type() == SchemaType::DEVICE) {
-            return ParseStatus::DUPLICATED_DEV_ENTRY;
-        }
-        LOG(FATAL) << "unknown SchemaType: "
-                   << static_cast<std::underlying_type_t<SchemaType>>(ret->type());
-    }
-    return ParseStatus::OK;
-}
-
-}  // namespace details
-
-// Simulate applying xmls to VintfObject, then checkCompatibility as usual.
-int32_t VintfObject::checkCompatibility(const std::vector<std::string>& xmls, std::string* error,
-                                        CheckFlags::Type flags) {
-    VintfObjectAfterUpdate afterUpdate(this);
-    ParseStatus parseStatus = ParseStatus::OK;
-
-    // parse all information from package
-    for (const auto &xml : xmls) {
-        parseStatus = tryParse(xml, gHalManifestConverter, &afterUpdate);
-        if (parseStatus == ParseStatus::OK) {
-            continue; // work on next one
-        }
-        if (parseStatus != ParseStatus::PARSE_ERROR) {
-            appendLine(error, toString(parseStatus) + " manifest");
-            return ALREADY_EXISTS;
-        }
-        parseStatus = tryParse(xml, gCompatibilityMatrixConverter, &afterUpdate);
-        if (parseStatus == ParseStatus::OK) {
-            continue; // work on next one
-        }
-        if (parseStatus != ParseStatus::PARSE_ERROR) {
-            appendLine(error, toString(parseStatus) + " matrix");
-            return ALREADY_EXISTS;
-        }
-        appendLine(error, toString(parseStatus));  // parse error
-        return BAD_VALUE;
-    }
-
-    return afterUpdate.checkCompatibility(error, flags);
 }
 
 int32_t VintfObject::checkCompatibility(std::string* error, CheckFlags::Type flags) {
@@ -586,15 +584,9 @@ int32_t VintfObject::checkCompatibility(std::string* error, CheckFlags::Type fla
         return INCOMPATIBLE;
     }
 
-    CheckFlags::Type runtimeInfoCheckFlags = flags;
-    if (!!getDeviceHalManifest()->kernel()) {
-        // Use kernel from incoming OTA package, but not on the device.
-        runtimeInfoCheckFlags = runtimeInfoCheckFlags.disableKernel();
-    }
-
     if (flags.isRuntimeInfoEnabled()) {
         if (!getRuntimeInfo()->checkCompatibility(*getFrameworkCompatibilityMatrix(), error,
-                                                  runtimeInfoCheckFlags)) {
+                                                  flags)) {
             if (error) {
                 error->insert(0,
                               "Runtime info and framework compatibility matrix are incompatible: ");
@@ -612,6 +604,7 @@ const std::string kSystemVintfDir = "/system/etc/vintf/";
 const std::string kVendorVintfDir = "/vendor/etc/vintf/";
 const std::string kOdmVintfDir = "/odm/etc/vintf/";
 const std::string kProductVintfDir = "/product/etc/vintf/";
+const std::string kSystemExtVintfDir = "/system_ext/etc/vintf/";
 
 const std::string kVendorManifest = kVendorVintfDir + "manifest.xml";
 const std::string kSystemManifest = kSystemVintfDir + "manifest.xml";
@@ -619,11 +612,13 @@ const std::string kVendorMatrix = kVendorVintfDir + "compatibility_matrix.xml";
 const std::string kOdmManifest = kOdmVintfDir + "manifest.xml";
 const std::string kProductMatrix = kProductVintfDir + "compatibility_matrix.xml";
 const std::string kProductManifest = kProductVintfDir + "manifest.xml";
+const std::string kSystemExtManifest = kSystemExtVintfDir + "manifest.xml";
 
 const std::string kVendorManifestFragmentDir = kVendorVintfDir + "manifest/";
 const std::string kSystemManifestFragmentDir = kSystemVintfDir + "manifest/";
 const std::string kOdmManifestFragmentDir = kOdmVintfDir + "manifest/";
 const std::string kProductManifestFragmentDir = kProductVintfDir + "manifest/";
+const std::string kSystemExtManifestFragmentDir = kSystemExtVintfDir + "manifest/";
 
 const std::string kVendorLegacyManifest = "/vendor/manifest.xml";
 const std::string kVendorLegacyMatrix = "/vendor/compatibility_matrix.xml";
@@ -639,6 +634,7 @@ std::vector<std::string> dumpFileList() {
         kVendorVintfDir,
         kOdmVintfDir,
         kProductVintfDir,
+        kSystemExtVintfDir,
         kOdmLegacyVintfDir,
         kVendorLegacyManifest,
         kVendorLegacyMatrix,
@@ -650,33 +646,29 @@ std::vector<std::string> dumpFileList() {
 
 }  // namespace details
 
-int32_t VintfObject::CheckCompatibility(const std::vector<std::string>& xmls, std::string* error,
-                                        CheckFlags::Type flags) {
-    return GetInstance()->checkCompatibility(xmls, error, flags);
-}
-
 bool VintfObject::IsHalDeprecated(const MatrixHal& oldMatrixHal,
                                   const CompatibilityMatrix& targetMatrix,
-                                  const ListInstances& listInstances, std::string* error) {
+                                  const ListInstances& listInstances,
+                                  const ChildrenMap& childrenMap, std::string* appendedError) {
     bool isDeprecated = false;
     oldMatrixHal.forEachInstance([&](const MatrixInstance& oldMatrixInstance) {
-        if (IsInstanceDeprecated(oldMatrixInstance, targetMatrix, listInstances, error)) {
+        if (IsInstanceDeprecated(oldMatrixInstance, targetMatrix, listInstances, childrenMap,
+                                 appendedError)) {
             isDeprecated = true;
         }
-        return !isDeprecated;  // continue if no deprecated instance is found.
+        return true;  // continue to check next instance
     });
     return isDeprecated;
 }
 
-// Let oldMatrixInstance = package@x.y-w::interface with instancePattern.
-// If any "servedInstance" in listInstances(package@x.y::interface) matches instancePattern, return
-// true iff:
-// 1. package@x.?::interface/servedInstance is not in targetMatrix; OR
-// 2. package@x.z::interface/servedInstance is in targetMatrix but
-//    servedInstance is not in listInstances(package@x.z::interface)
+// Let oldMatrixInstance = package@x.y-w::interface/instancePattern.
+// If any "@servedVersion::interface/servedInstance" in listInstances(package@x.y::interface)
+// matches instancePattern, return true iff for all child interfaces (from
+// GetListedInstanceInheritance), IsFqInstanceDeprecated returns false.
 bool VintfObject::IsInstanceDeprecated(const MatrixInstance& oldMatrixInstance,
                                        const CompatibilityMatrix& targetMatrix,
-                                       const ListInstances& listInstances, std::string* error) {
+                                       const ListInstances& listInstances,
+                                       const ChildrenMap& childrenMap, std::string* appendedError) {
     const std::string& package = oldMatrixInstance.package();
     const Version& version = oldMatrixInstance.versionRange().minVer();
     const std::string& interface = oldMatrixInstance.interface();
@@ -686,60 +678,152 @@ bool VintfObject::IsInstanceDeprecated(const MatrixInstance& oldMatrixInstance,
         instanceHint.push_back(oldMatrixInstance.exactInstance());
     }
 
+    std::vector<std::string> accumulatedErrors;
     auto list = listInstances(package, version, interface, instanceHint);
+
     for (const auto& pair : list) {
         const std::string& servedInstance = pair.first;
         Version servedVersion = pair.second;
+        std::string servedFqInstanceString =
+            toFQNameString(package, servedVersion, interface, servedInstance);
         if (!oldMatrixInstance.matchInstance(servedInstance)) {
+            // ignore unrelated instance
             continue;
         }
 
-        // Find any package@x.? in target matrix, and check if instance is in target matrix.
-        bool foundInstance = false;
-        Version targetMatrixMinVer;
-        targetMatrix.forEachInstanceOfPackage(package, [&](const auto& targetMatrixInstance) {
-            if (targetMatrixInstance.versionRange().majorVer == version.majorVer &&
-                targetMatrixInstance.interface() == interface &&
-                targetMatrixInstance.matchInstance(servedInstance)) {
-                targetMatrixMinVer = targetMatrixInstance.versionRange().minVer();
-                foundInstance = true;
-            }
-            return !foundInstance;  // continue if not found
-        });
-        if (!foundInstance) {
-            if (error) {
-                *error = toFQNameString(package, servedVersion, interface, servedInstance) +
-                         " is deprecated in compatibility matrix at FCM Version " +
-                         to_string(targetMatrix.level()) + "; it should not be served.";
-            }
-            return true;
+        auto inheritance = GetListedInstanceInheritance(package, servedVersion, interface,
+                                                        servedInstance, listInstances, childrenMap);
+        if (!inheritance.has_value()) {
+            accumulatedErrors.push_back(inheritance.error().message());
+            continue;
         }
 
-        // Assuming that targetMatrix requires @x.u-v, require that at least @x.u is served.
-        bool targetVersionServed = false;
-        for (const auto& newPair :
-             listInstances(package, targetMatrixMinVer, interface, instanceHint)) {
-            if (newPair.first == servedInstance) {
-                targetVersionServed = true;
+        std::vector<std::string> errors;
+        for (const auto& fqInstance : *inheritance) {
+            auto result = IsFqInstanceDeprecated(targetMatrix, oldMatrixInstance.format(),
+                                                 fqInstance, listInstances);
+            if (result.ok()) {
+                errors.clear();
                 break;
             }
+            errors.push_back(result.error().message());
         }
 
-        if (!targetVersionServed) {
-            appendLine(error, toFQNameString(package, servedVersion, interface, servedInstance) +
-                                  " is deprecated; requires at least " +
-                                  to_string(targetMatrixMinVer));
+        if (errors.empty()) {
+            continue;
+        }
+        accumulatedErrors.insert(accumulatedErrors.end(), errors.begin(), errors.end());
+    }
+
+    if (accumulatedErrors.empty()) {
+        return false;
+    }
+    appendLine(appendedError, android::base::Join(accumulatedErrors, "\n"));
+    return true;
+}
+
+// Check if fqInstance is listed in |listInstances|.
+bool VintfObject::IsInstanceListed(const ListInstances& listInstances,
+                                   const FqInstance& fqInstance) {
+    auto list =
+        listInstances(fqInstance.getPackage(), fqInstance.getVersion(), fqInstance.getInterface(),
+                      {fqInstance.getInstance()} /* instanceHint*/);
+    return std::any_of(list.begin(), list.end(),
+                       [&](const auto& pair) { return pair.first == fqInstance.getInstance(); });
+}
+
+// Return a list of FqInstance, where each element:
+// - is listed in |listInstances|; AND
+// - is, or inherits from, package@version::interface/instance (as specified by |childrenMap|)
+android::base::Result<std::vector<FqInstance>> VintfObject::GetListedInstanceInheritance(
+    const std::string& package, const Version& version, const std::string& interface,
+    const std::string& instance, const ListInstances& listInstances,
+    const ChildrenMap& childrenMap) {
+    FqInstance fqInstance;
+    if (!fqInstance.setTo(package, version.majorVer, version.minorVer, interface, instance)) {
+        return android::base::Error() << toFQNameString(package, version, interface, instance)
+                                      << " is not a valid FqInstance";
+    }
+
+    if (!IsInstanceListed(listInstances, fqInstance)) {
+        return {};
+    }
+
+    const FQName& fqName = fqInstance.getFqName();
+
+    std::vector<FqInstance> ret;
+    ret.push_back(fqInstance);
+
+    auto childRange = childrenMap.equal_range(fqName.string());
+    for (auto it = childRange.first; it != childRange.second; ++it) {
+        const auto& childFqNameString = it->second;
+        FQName childFqName;
+        if (!childFqName.setTo(childFqNameString)) {
+            return android::base::Error() << "Cannot parse " << childFqNameString << " as FQName";
+        }
+        FqInstance childFqInstance;
+        if (!childFqInstance.setTo(childFqName, fqInstance.getInstance())) {
+            return android::base::Error() << "Cannot merge " << childFqName.string() << "/"
+                                          << fqInstance.getInstance() << " as FqInstance";
+            continue;
+        }
+        if (!IsInstanceListed(listInstances, childFqInstance)) {
+            continue;
+        }
+        ret.push_back(childFqInstance);
+    }
+    return ret;
+}
+
+// Check if |fqInstance| is in |targetMatrix|; essentially equal to
+// targetMatrix.matchInstance(fqInstance), but provides richer error message. In details:
+// 1. package@x.?::interface/servedInstance is not in targetMatrix; OR
+// 2. package@x.z::interface/servedInstance is in targetMatrix but
+//    servedInstance is not in listInstances(package@x.z::interface)
+android::base::Result<void> VintfObject::IsFqInstanceDeprecated(
+    const CompatibilityMatrix& targetMatrix, HalFormat format, const FqInstance& fqInstance,
+    const ListInstances& listInstances) {
+    // Find minimum package@x.? in target matrix, and check if instance is in target matrix.
+    bool foundInstance = false;
+    Version targetMatrixMinVer{SIZE_MAX, SIZE_MAX};
+    targetMatrix.forEachInstanceOfPackage(
+        format, fqInstance.getPackage(), [&](const auto& targetMatrixInstance) {
+            if (targetMatrixInstance.versionRange().majorVer == fqInstance.getMajorVersion() &&
+                targetMatrixInstance.interface() == fqInstance.getInterface() &&
+                targetMatrixInstance.matchInstance(fqInstance.getInstance())) {
+                targetMatrixMinVer =
+                    std::min(targetMatrixMinVer, targetMatrixInstance.versionRange().minVer());
+                foundInstance = true;
+            }
             return true;
+        });
+    if (!foundInstance) {
+        return android::base::Error()
+               << fqInstance.string() << " is deprecated in compatibility matrix at FCM Version "
+               << targetMatrix.level() << "; it should not be served.";
+    }
+
+    // Assuming that targetMatrix requires @x.u-v, require that at least @x.u is served.
+    bool targetVersionServed = false;
+    for (const auto& newPair :
+         listInstances(fqInstance.getPackage(), targetMatrixMinVer, fqInstance.getInterface(),
+                       {fqInstance.getInstance()} /* instanceHint */)) {
+        if (newPair.first == fqInstance.getInstance()) {
+            targetVersionServed = true;
+            break;
         }
     }
 
-    return false;
+    if (!targetVersionServed) {
+        return android::base::Error()
+               << fqInstance.string() << " is deprecated; requires at least " << targetMatrixMinVer;
+    }
+    return {};
 }
 
-int32_t VintfObject::CheckDeprecation(const ListInstances& listInstances, std::string* error) {
-    return GetInstance()->checkDeprecation(listInstances, error);
-}
-int32_t VintfObject::checkDeprecation(const ListInstances& listInstances, std::string* error) {
+int32_t VintfObject::checkDeprecation(const ListInstances& listInstances,
+                                      const std::vector<HidlInterfaceMetadata>& hidlMetadata,
+                                      std::string* error) {
     std::vector<Named<CompatibilityMatrix>> matrixFragments;
     auto matrixFragmentsStatus = getAllFrameworkMatrixLevels(&matrixFragments, error);
     if (matrixFragmentsStatus != OK) {
@@ -774,24 +858,33 @@ int32_t VintfObject::checkDeprecation(const ListInstances& listInstances, std::s
         return NAME_NOT_FOUND;
     }
 
-    bool hasDeprecatedHals = false;
+    std::multimap<std::string, std::string> childrenMap;
+    for (const auto& child : hidlMetadata) {
+        for (const auto& parent : child.inherited) {
+            childrenMap.emplace(parent, child.name);
+        }
+    }
+
+    // Find a list of possibly deprecated HALs by comparing |listInstances| with older matrices.
+    // Matrices with unspecified level are considered "current".
+    bool isDeprecated = false;
     for (const auto& namedMatrix : matrixFragments) {
         if (namedMatrix.object.level() == Level::UNSPECIFIED) continue;
         if (namedMatrix.object.level() >= deviceLevel) continue;
 
         const auto& oldMatrix = namedMatrix.object;
         for (const MatrixHal& hal : oldMatrix.getHals()) {
-            hasDeprecatedHals |= IsHalDeprecated(hal, *targetMatrix, listInstances, error);
+            if (IsHalDeprecated(hal, *targetMatrix, listInstances, childrenMap, error)) {
+                isDeprecated = true;
+            }
         }
     }
 
-    return hasDeprecatedHals ? DEPRECATED : NO_DEPRECATED_HALS;
+    return isDeprecated ? DEPRECATED : NO_DEPRECATED_HALS;
 }
 
-int32_t VintfObject::CheckDeprecation(std::string* error) {
-    return GetInstance()->checkDeprecation(error);
-}
-int32_t VintfObject::checkDeprecation(std::string* error) {
+int32_t VintfObject::checkDeprecation(const std::vector<HidlInterfaceMetadata>& hidlMetadata,
+                                      std::string* error) {
     using namespace std::placeholders;
     auto deviceManifest = getDeviceHalManifest();
     ListInstances inManifest =
@@ -799,14 +892,28 @@ int32_t VintfObject::checkDeprecation(std::string* error) {
                           const std::vector<std::string>& /* hintInstances */) {
             std::vector<std::pair<std::string, Version>> ret;
             deviceManifest->forEachInstanceOfInterface(
-                package, version, interface, [&ret](const ManifestInstance& manifestInstance) {
+                HalFormat::HIDL, package, version, interface,
+                [&ret](const ManifestInstance& manifestInstance) {
                     ret.push_back(
                         std::make_pair(manifestInstance.instance(), manifestInstance.version()));
                     return true;
                 });
             return ret;
         };
-    return checkDeprecation(inManifest, error);
+    return checkDeprecation(inManifest, hidlMetadata, error);
+}
+
+Level VintfObject::getKernelLevel(std::string* error) {
+    auto manifest = getDeviceHalManifest();
+    if (!manifest) {
+        if (error) *error = "Cannot retrieve device manifest.";
+        return Level::UNSPECIFIED;
+    }
+    if (manifest->kernel().has_value() && manifest->kernel()->level() != Level::UNSPECIFIED) {
+        return manifest->kernel()->level();
+    }
+    if (error) *error = "Device manifest does not specify kernel FCM version.";
+    return Level::UNSPECIFIED;
 }
 
 const std::unique_ptr<FileSystem>& VintfObject::getFileSystem() {
@@ -819,6 +926,61 @@ const std::unique_ptr<PropertyFetcher>& VintfObject::getPropertyFetcher() {
 
 const std::unique_ptr<ObjectFactory<RuntimeInfo>>& VintfObject::getRuntimeInfoFactory() {
     return mRuntimeInfoFactory;
+}
+
+android::base::Result<bool> VintfObject::hasFrameworkCompatibilityMatrixExtensions() {
+    std::vector<Named<CompatibilityMatrix>> matrixFragments;
+    std::string error;
+    status_t status = getAllFrameworkMatrixLevels(&matrixFragments, &error);
+    if (status != OK) {
+        return android::base::Error(-status)
+               << "Cannot get all framework matrix fragments: " << error;
+    }
+    for (const auto& namedMatrix : matrixFragments) {
+        // Returns true if product matrix exists.
+        if (android::base::StartsWith(namedMatrix.name, kProductVintfDir)) {
+            return true;
+        }
+        // Returns true if system_ext matrix exists.
+        if (android::base::StartsWith(namedMatrix.name, kSystemExtVintfDir)) {
+            return true;
+        }
+        // Returns true if device system matrix exists.
+        if (android::base::StartsWith(namedMatrix.name, kSystemVintfDir) &&
+            namedMatrix.object.level() == Level::UNSPECIFIED &&
+            !namedMatrix.object.getHals().empty()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+android::base::Result<void> VintfObject::checkUnusedHals(
+    const std::vector<HidlInterfaceMetadata>& hidlMetadata) {
+    auto matrix = getFrameworkCompatibilityMatrix();
+    if (matrix == nullptr) {
+        return android::base::Error(-NAME_NOT_FOUND) << "Missing framework matrix.";
+    }
+    auto manifest = getDeviceHalManifest();
+    if (manifest == nullptr) {
+        return android::base::Error(-NAME_NOT_FOUND) << "Missing device manifest.";
+    }
+    auto unused = manifest->checkUnusedHals(*matrix, hidlMetadata);
+    if (!unused.empty()) {
+        return android::base::Error()
+               << "The following instances are in the device manifest but "
+               << "not specified in framework compatibility matrix: \n"
+               << "    " << android::base::Join(unused, "\n    ") << "\n"
+               << "Suggested fix:\n"
+               << "1. Update deprecated HALs to the latest version.\n"
+               << "2. Check for any typos in device manifest or framework compatibility "
+               << "matrices with FCM version >= " << matrix->level() << ".\n"
+               << "3. For new platform HALs, add them to any framework compatibility matrix "
+               << "with FCM version >= " << matrix->level() << " where applicable.\n"
+               << "4. For device-specific HALs, add to DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE "
+               << "or DEVICE_PRODUCT_COMPATIBILITY_MATRIX_FILE.";
+    }
+    return {};
 }
 
 // make_unique does not work because VintfObject constructor is private.

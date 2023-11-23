@@ -9,10 +9,10 @@ third_party {
     type: GIT
     value: "https://github.com/jacoco/jacoco.git"
   }
-  version: "v0.8.0"
+  version: "v0.8.4"
   last_upgrade_date {
-    year: 2018
-    month: 1
-    day: 5
+    year: 2019
+    month: 5
+    day: 13
   }
 }

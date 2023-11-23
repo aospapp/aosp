@@ -648,7 +648,7 @@ typedef struct
         3 - QP modulation level 3*/
     WORD32 i4_cu_level_rc;
 
-    /* Factor used in capped VBR mode to fine tune for quality */
+    /* Unused variable retained for backward compatibility*/
     WORD32 i4_rate_factor;
 
     /** Enable stuffing 0 - disabled (default); 1 -enabled */
@@ -675,11 +675,6 @@ typedef struct
 
     /** Maximum search range in full pel units.  vertical direction */
     WORD32 i4_max_search_range_vert;
-
-    /* Variable used to save old rate factor */
-    /* Used only for plugin */
-    WORD32 i4_old_rate_factor;
-
 } ihevce_config_prms_t;
 
 /**
@@ -705,9 +700,6 @@ typedef struct
 
     /** New Peak Bit-rate for on the fly change */
     WORD32 i4_new_peak_bitrate;
-
-    /** New Rate Factor for on the fly change */
-    WORD32 i4_new_rate_factor;
 } ihevce_dyn_config_prms_t;
 
 /**

@@ -207,3 +207,13 @@ bootstrap_go_package {
     deps: ["golang-protobuf-proto"],
     srcs: ["ptypes/wrappers/wrappers.pb.go"],
 }
+
+bootstrap_go_package {
+    name: "golang-protobuf-jsonpb",
+    pkgPath: "github.com/golang/protobuf/jsonpb",
+    srcs: ["jsonpb/jsonpb.go"],
+    deps: [
+        "golang-protobuf-proto",
+        "golang-protobuf-ptypes-struct",
+    ],
+}

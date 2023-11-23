@@ -16,11 +16,13 @@
 
 package com.android.tradefed.util;
 
-import com.android.tradefed.config.ConfigurationDef.OptionDef;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationDescriptor.LocalTestRunner;
+import com.android.tradefed.config.OptionDef;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.TestDescription;
+
+import java.util.List;
 
 /** Utility to compile the instruction to run test locally. */
 public class LocalRunInstructionBuilder {
@@ -75,6 +77,26 @@ public class LocalRunInstructionBuilder {
             ConfigurationDescriptor configDescriptor, TestDescription testId) {
         StringBuilder instruction = new StringBuilder();
         instruction.append("Run following command to try the test in a local setup:\n");
+        instruction.append(getCommand(configDescriptor, testId, LocalTestRunner.ATEST));
+        return instruction.toString();
+    }
+
+    /**
+     * Return a command to run a test locally.
+     *
+     * @param configDescriptor {@link ConfiguratonDescriptor} configuration for the test run.
+     * @param testId {@link TestDescription} to specify which test to run.
+     * @param LocalTestRunner {@link LocalTestRunner} to use for running the test.
+     * @return {@link String} command to run the test locally.
+     */
+    public static String getCommand(
+            ConfigurationDescriptor configDescriptor,
+            TestDescription testId,
+            LocalTestRunner runner) {
+        if (runner != LocalTestRunner.ATEST) {
+            return "";
+        }
+        StringBuilder instruction = new StringBuilder();
         StringBuilder testName = new StringBuilder(configDescriptor.getModuleName());
         boolean testMethodAdded = false;
         if (testId != null) {
@@ -105,6 +127,14 @@ public class LocalRunInstructionBuilder {
                 }
                 instruction.append(" " + option);
             }
+        }
+        // Ensure repro is aligned with parameterized modules.
+        List<String> paramMetadata =
+                configDescriptor.getMetaData(ConfigurationDescriptor.ACTIVE_PARAMETER_KEY);
+        if (paramMetadata != null
+                && paramMetadata.size() > 0
+                && "instant".equals(paramMetadata.get(0))) {
+            instruction.append(" --instant");
         }
         return instruction.toString();
     }

@@ -238,6 +238,7 @@ Context::~Context()
 	mState.pixelPackBuffer = nullptr;
 	mState.pixelUnpackBuffer = nullptr;
 	mState.genericUniformBuffer = nullptr;
+	mState.genericTransformFeedbackBuffer = nullptr;
 
 	for(int i = 0; i < MAX_UNIFORM_BUFFER_BINDINGS; i++) {
 		mState.uniformBuffers[i].set(nullptr, 0, 0);
@@ -693,6 +694,20 @@ void Context::setScissorParams(GLint x, GLint y, GLsizei width, GLsizei height)
 {
 	mState.scissorX = x;
 	mState.scissorY = y;
+
+	// An overflow happens when (infinite precision) X + Width > INT32_MAX. We
+	// can change that formula to "X > INT32_MAX - Width". And when we bring it
+	// down to 32-bit precision, we know it's safe because width is non-negative.
+	if (x > INT32_MAX - width)
+	{
+		width = INT32_MAX - x;
+	}
+
+	if (y > INT32_MAX - height)
+	{
+		height = INT32_MAX - y;
+	}
+
 	mState.scissorWidth = width;
 	mState.scissorHeight = height;
 }
@@ -1171,12 +1186,7 @@ void Context::bindTransformFeedbackBuffer(GLuint buffer)
 {
 	mResourceManager->checkBufferAllocation(buffer);
 
-	TransformFeedback* transformFeedback = getTransformFeedback(mState.transformFeedback);
-
-	if(transformFeedback)
-	{
-		transformFeedback->setGenericBuffer(getBuffer(buffer));
-	}
+	mState.genericTransformFeedbackBuffer = getBuffer(buffer);
 }
 
 void Context::bindTexture(TextureType type, GLuint texture)
@@ -1259,7 +1269,7 @@ void Context::bindGenericTransformFeedbackBuffer(GLuint buffer)
 {
 	mResourceManager->checkBufferAllocation(buffer);
 
-	getTransformFeedback()->setGenericBuffer(getBuffer(buffer));
+	mState.genericTransformFeedbackBuffer = getBuffer(buffer);
 }
 
 void Context::bindIndexedTransformFeedbackBuffer(GLuint buffer, GLuint index, GLintptr offset, GLsizeiptr size)
@@ -1268,6 +1278,7 @@ void Context::bindIndexedTransformFeedbackBuffer(GLuint buffer, GLuint index, GL
 
 	Buffer* bufferObject = getBuffer(buffer);
 	getTransformFeedback()->setBuffer(index, bufferObject, offset, size);
+	mState.genericTransformFeedbackBuffer = bufferObject;
 }
 
 void Context::bindTransformFeedback(GLuint id)
@@ -1556,15 +1567,34 @@ Buffer *Context::getGenericUniformBuffer() const
 	return mState.genericUniformBuffer;
 }
 
-GLsizei Context::getRequiredBufferSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type) const
+// The "required buffer size" is the number of bytes from the start of the
+// buffer to the last byte referenced within the buffer. If the caller of this
+// function has to worry about offsets within the buffer, it only needs to add
+// that byte offset to this function's return value to get its required buffer
+// size.
+size_t Context::getRequiredBufferSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type) const
 {
-	GLsizei inputWidth = (mState.unpackParameters.rowLength == 0) ? width : mState.unpackParameters.rowLength;
-	GLsizei inputPitch = gl::ComputePitch(inputWidth, format, type, mState.unpackParameters.alignment);
-	GLsizei inputHeight = (mState.unpackParameters.imageHeight == 0) ? height : mState.unpackParameters.imageHeight;
-	return inputPitch * inputHeight * depth;
+	// 0-dimensional images have no bytes in them.
+	if (width == 0 || height == 0 || depth == 0)
+	{
+		return 0;
+	}
+
+	GLint pixelsPerRow = (mState.unpackParameters.rowLength) > 0 ? mState.unpackParameters.rowLength : width;
+	GLint rowsPerImage = (mState.unpackParameters.imageHeight) > 0 ? mState.unpackParameters.imageHeight : height;
+
+	GLint bytesPerPixel = gl::ComputePixelSize(format, type);
+	GLint bytesPerRow = gl::ComputePitch(pixelsPerRow, format, type, mState.unpackParameters.alignment);
+	GLint bytesPerImage = rowsPerImage * bytesPerRow;
+
+	// Depth and height are subtracted by 1, while width is not, because we're not
+	// reading the full last row or image, but we are reading the full last pixel.
+	return (mState.unpackParameters.skipImages + (depth - 1))  * bytesPerImage
+		 + (mState.unpackParameters.skipRows   + (height - 1)) * bytesPerRow
+		 + (mState.unpackParameters.skipPixels + (width))      * bytesPerPixel;
 }
 
-GLenum Context::getPixels(const GLvoid **pixels, GLenum type, GLsizei imageSize) const
+GLenum Context::getPixels(const GLvoid **pixels, GLenum type, size_t imageSize) const
 {
 	if(mState.pixelUnpackBuffer)
 	{
@@ -1587,7 +1617,7 @@ GLenum Context::getPixels(const GLvoid **pixels, GLenum type, GLsizei imageSize)
 			return GL_INVALID_OPERATION;
 		}
 
-		if(mState.pixelUnpackBuffer->size() - offset < static_cast<size_t>(imageSize))
+		if(mState.pixelUnpackBuffer->size() - offset < imageSize)
 		{
 			return GL_INVALID_OPERATION;
 		}
@@ -1621,10 +1651,7 @@ bool Context::getBuffer(GLenum target, es2::Buffer **buffer) const
 		*buffer = getPixelUnpackBuffer();
 		break;
 	case GL_TRANSFORM_FEEDBACK_BUFFER:
-		{
-			TransformFeedback* transformFeedback = getTransformFeedback();
-			*buffer = transformFeedback ? static_cast<es2::Buffer*>(transformFeedback->getGenericBuffer()) : nullptr;
-		}
+		*buffer = static_cast<es2::Buffer*>(mState.genericTransformFeedbackBuffer);
 		break;
 	case GL_UNIFORM_BUFFER:
 		*buffer = getGenericUniformBuffer();
@@ -1643,6 +1670,27 @@ TransformFeedback *Context::getTransformFeedback() const
 Program *Context::getCurrentProgram() const
 {
 	return mResourceManager->getProgram(mState.currentProgram);
+}
+
+Texture *Context::getTargetTexture(GLenum target) const
+{
+	Texture *texture = nullptr;
+
+	switch(target)
+	{
+	case GL_TEXTURE_2D:            texture = getTexture2D();       break;
+	case GL_TEXTURE_2D_ARRAY:      texture = getTexture2DArray();  break;
+	case GL_TEXTURE_3D:            texture = getTexture3D();       break;
+	case GL_TEXTURE_CUBE_MAP:      texture = getTextureCubeMap();  break;
+	case GL_TEXTURE_EXTERNAL_OES:  texture = getTextureExternal(); break;
+	case GL_TEXTURE_RECTANGLE_ARB: texture = getTexture2DRect();   break;
+	default:
+		return error(GL_INVALID_ENUM, nullptr);
+	}
+
+	ASSERT(texture);  // Must always have a default texture to fall back to.
+
+	return texture;
 }
 
 Texture2D *Context::getTexture2D() const
@@ -2362,7 +2410,7 @@ template<typename T> bool Context::getIntegerv(GLenum pname, T *params) const
 			TransformFeedback* transformFeedback = getTransformFeedback(mState.transformFeedback);
 			if(transformFeedback)
 			{
-				*params = transformFeedback->getGenericBufferName();
+				*params = mState.genericTransformFeedbackBuffer.name();
 			}
 			else
 			{
@@ -2767,6 +2815,23 @@ bool Context::applyRenderTarget()
 	viewport.height = mState.viewportHeight;
 	viewport.minZ = zNear;
 	viewport.maxZ = zFar;
+
+	if (viewport.x0 > es2::IMPLEMENTATION_MAX_RENDERBUFFER_SIZE ||
+		viewport.y0 > es2::IMPLEMENTATION_MAX_RENDERBUFFER_SIZE)
+	{
+		TransformFeedback* transformFeedback = getTransformFeedback();
+		if (!transformFeedback->isActive() || transformFeedback->isPaused())
+		{
+			return false;
+		}
+		else
+		{
+			viewport.x0 = 0;
+			viewport.y0 = 0;
+			viewport.width = 0;
+			viewport.height = 0;
+		}
+	}
 
 	device->setViewport(viewport);
 
@@ -3329,7 +3394,6 @@ void Context::readPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum
 	switch(format)
 	{
 	case GL_DEPTH_COMPONENT:     // GL_NV_read_depth
-	case GL_DEPTH_STENCIL_OES:   // GL_NV_read_depth_stencil
 		renderTarget = framebuffer->getDepthBuffer();
 		break;
 	case GL_STENCIL_INDEX_OES:   // GL_NV_read_stencil
@@ -3349,64 +3413,12 @@ void Context::readPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum
 	sw::SliceRect dstRect(0, 0, width, height, 0);
 	srcRect.clip(0.0f, 0.0f, (float)renderTarget->getWidth(), (float)renderTarget->getHeight());
 
-	if(format != GL_DEPTH_STENCIL_OES)   // The blitter only handles reading either depth or stencil.
-	{
-		sw::Surface *externalSurface = sw::Surface::create(width, height, 1, es2::ConvertReadFormatType(format, type), pixels, outputPitch, outputPitch  *  outputHeight);
-		device->blit(renderTarget, srcRect, externalSurface, dstRect, false, false, false);
-		externalSurface->lockExternal(0, 0, 0, sw::LOCK_READONLY, sw::PUBLIC);
-		externalSurface->unlockExternal();
-		delete externalSurface;
-	}
-	else   // format == GL_DEPTH_STENCIL_OES
-	{
-		ASSERT(renderTarget->getInternalFormat() == sw::FORMAT_D32F_LOCKABLE);
-		float *depth = (float*)renderTarget->lockInternal((int)srcRect.x0, (int)srcRect.y0, 0, sw::LOCK_READONLY, sw::PUBLIC);
-		uint8_t *stencil = (uint8_t*)renderTarget->lockStencil((int)srcRect.x0, (int)srcRect.y0, 0, sw::PUBLIC);
-
-		switch(type)
-		{
-		case GL_UNSIGNED_INT_24_8_OES:
-			{
-				uint32_t *output = (uint32_t*)pixels;
-
-				for(int y = 0; y < height; y++)
-				{
-					for(int x = 0; x < width; x++)
-					{
-						output[x] = ((uint32_t)roundf(depth[x] * 0xFFFFFF00) & 0xFFFFFF00) | stencil[x];
-					}
-
-					depth += renderTarget->getInternalPitchP();
-					stencil += renderTarget->getStencilPitchB();
-					(uint8_t*&)output += outputPitch;
-				}
-			}
-			break;
-		case GL_FLOAT_32_UNSIGNED_INT_24_8_REV:
-			{
-				struct D32FS8 { float depth32f; unsigned int stencil24_8; };
-				D32FS8 *output = (D32FS8*)pixels;
-
-				for(int y = 0; y < height; y++)
-				{
-					for(int x = 0; x < width; x++)
-					{
-						output[x].depth32f = depth[x];
-						output[x].stencil24_8 = stencil[x];
-					}
-
-					depth += renderTarget->getInternalPitchP();
-					stencil += renderTarget->getStencilPitchB();
-					(uint8_t*&)output += outputPitch;
-				}
-			}
-			break;
-		default: UNREACHABLE(type);
-		}
-
-		renderTarget->unlockInternal();
-		renderTarget->unlockStencil();
-	}
+	ASSERT(format != GL_DEPTH_STENCIL_OES);  // The blitter only handles reading either depth or stencil.
+	sw::Surface *externalSurface = sw::Surface::create(width, height, 1, es2::ConvertReadFormatType(format, type), pixels, outputPitch, outputPitch  *  outputHeight);
+	device->blit(renderTarget, srcRect, externalSurface, dstRect, false, false, false);
+	externalSurface->lockExternal(0, 0, 0, sw::LOCK_READONLY, sw::PUBLIC);
+	externalSurface->unlockExternal();
+	delete externalSurface;
 
 	renderTarget->release();
 }
@@ -3840,6 +3852,10 @@ void Context::detachBuffer(GLuint buffer)
 	{
 		mState.genericUniformBuffer = nullptr;
 	}
+	if (mState.genericTransformFeedbackBuffer.name() == buffer)
+	{
+		mState.genericTransformFeedbackBuffer = nullptr;
+	}
 
 	if(getArrayBufferName() == buffer)
 	{
@@ -4096,7 +4112,11 @@ void Context::blitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1
 	if(mState.scissorTestEnabled)   // Only write to parts of the destination framebuffer which pass the scissor test
 	{
 		sw::Rect scissorRect(mState.scissorX, mState.scissorY, mState.scissorX + mState.scissorWidth, mState.scissorY + mState.scissorHeight);
-		Device::ClipDstRect(sourceScissoredRect, destScissoredRect, scissorRect, flipX, flipY);
+		if (!Device::ClipDstRect(sourceScissoredRect, destScissoredRect, scissorRect, flipX, flipY))
+		{
+			// Failed to clip, blitting can't happen.
+			return error(GL_INVALID_OPERATION);
+		}
 	}
 
 	sw::SliceRectF sourceTrimmedRect = sourceScissoredRect;
@@ -4105,10 +4125,18 @@ void Context::blitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1
 	// The source & destination rectangles also may need to be trimmed if
 	// they fall out of the bounds of the actual draw and read surfaces.
 	sw::Rect sourceTrimRect(0, 0, readBufferWidth, readBufferHeight);
-	Device::ClipSrcRect(sourceTrimmedRect, destTrimmedRect, sourceTrimRect, flipX, flipY);
+	if (!Device::ClipSrcRect(sourceTrimmedRect, destTrimmedRect, sourceTrimRect, flipX, flipY))
+	{
+		// Failed to clip, blitting can't happen.
+		return error(GL_INVALID_OPERATION);
+	}
 
 	sw::Rect destTrimRect(0, 0, drawBufferWidth, drawBufferHeight);
-	Device::ClipDstRect(sourceTrimmedRect, destTrimmedRect, destTrimRect, flipX, flipY);
+	if (!Device::ClipDstRect(sourceTrimmedRect, destTrimmedRect, destTrimRect, flipX, flipY))
+	{
+		// Failed to clip, blitting can't happen.
+		return error(GL_INVALID_OPERATION);
+	}
 
 	bool partialBufferCopy = false;
 
@@ -4130,8 +4158,8 @@ void Context::blitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1
 	{
 		GLenum readColorbufferType = readFramebuffer->getReadBufferType();
 		GLenum drawColorbufferType = drawFramebuffer->getColorbufferType(0);
-		const bool validReadType = readColorbufferType == GL_TEXTURE_2D || readColorbufferType == GL_TEXTURE_RECTANGLE_ARB || Framebuffer::IsRenderbuffer(readColorbufferType);
-		const bool validDrawType = drawColorbufferType == GL_TEXTURE_2D || drawColorbufferType == GL_TEXTURE_RECTANGLE_ARB || Framebuffer::IsRenderbuffer(drawColorbufferType);
+		const bool validReadType = readColorbufferType == GL_TEXTURE_2D || readColorbufferType == GL_TEXTURE_RECTANGLE_ARB || readColorbufferType == GL_TEXTURE_2D_ARRAY || readColorbufferType == GL_TEXTURE_3D || Framebuffer::IsRenderbuffer(readColorbufferType);
+		const bool validDrawType = drawColorbufferType == GL_TEXTURE_2D || drawColorbufferType == GL_TEXTURE_RECTANGLE_ARB || readColorbufferType == GL_TEXTURE_2D_ARRAY || readColorbufferType == GL_TEXTURE_3D || Framebuffer::IsRenderbuffer(drawColorbufferType);
 		if(!validReadType || !validDrawType)
 		{
 			return error(GL_INVALID_OPERATION);
@@ -4347,17 +4375,13 @@ EGLenum Context::validateSharedImage(EGLenum target, GLuint name, GLuint texture
 
 	switch(target)
 	{
-	case EGL_GL_TEXTURE_2D_KHR:
-		textureTarget = GL_TEXTURE_2D;
-		break;
-	case EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_X_KHR:
-	case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_X_KHR:
-	case EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Y_KHR:
-	case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_KHR:
-	case EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Z_KHR:
-	case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_KHR:
-		textureTarget = GL_TEXTURE_CUBE_MAP;
-		break;
+	case EGL_GL_TEXTURE_2D_KHR:                  textureTarget = GL_TEXTURE_2D;                  break;
+	case EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_X_KHR: textureTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X; break;
+	case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_X_KHR: textureTarget = GL_TEXTURE_CUBE_MAP_NEGATIVE_X; break;
+	case EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Y_KHR: textureTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_Y; break;
+	case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_KHR: textureTarget = GL_TEXTURE_CUBE_MAP_NEGATIVE_Y; break;
+	case EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Z_KHR: textureTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_Z; break;
+	case EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_KHR: textureTarget = GL_TEXTURE_CUBE_MAP_NEGATIVE_Z; break;
 	case EGL_GL_RENDERBUFFER_KHR:
 		break;
 	default:
@@ -4373,7 +4397,17 @@ EGLenum Context::validateSharedImage(EGLenum target, GLuint name, GLuint texture
 	{
 		es2::Texture *texture = getTexture(name);
 
-		if(!texture || texture->getTarget() != textureTarget)
+		if(!texture)
+		{
+			return EGL_BAD_PARAMETER;
+		}
+
+		if (texture->getTarget() != GL_TEXTURE_CUBE_MAP && texture->getTarget() != textureTarget)
+		{
+			return EGL_BAD_PARAMETER;
+		}
+
+		if (texture->getTarget() == GL_TEXTURE_CUBE_MAP && !IsCubemapTextureTarget(textureTarget))
 		{
 			return EGL_BAD_PARAMETER;
 		}
@@ -4388,7 +4422,7 @@ EGLenum Context::validateSharedImage(EGLenum target, GLuint name, GLuint texture
 			return EGL_BAD_PARAMETER;
 		}
 
-		if(textureLevel == 0 && !(texture->isSamplerComplete(nullptr) && texture->getTopLevel() == 0))
+		if(textureLevel == 0 && !texture->isSamplerComplete(nullptr) && texture->hasNonBaseLevels())
 		{
 			return EGL_BAD_PARAMETER;
 		}
@@ -4490,6 +4524,7 @@ const GLubyte *Context::getExtensions(GLuint index, GLuint *numExt) const
 		"GL_EXT_color_buffer_float",   // OpenGL ES 3.0 specific.
 		"GL_EXT_color_buffer_half_float",
 		"GL_EXT_draw_buffers",
+		"GL_EXT_float_blend",
 		"GL_EXT_instanced_arrays",
 		"GL_EXT_occlusion_query_boolean",
 		"GL_EXT_read_format_bgra",
@@ -4507,14 +4542,13 @@ const GLubyte *Context::getExtensions(GLuint index, GLuint *numExt) const
 		"GL_ANGLE_instanced_arrays",
 		"GL_ANGLE_texture_compression_dxt3",
 		"GL_ANGLE_texture_compression_dxt5",
-		"GL_APPLE_texture_format_BGRA8888",
+	//	"GL_APPLE_texture_format_BGRA8888",  // b/147536183
 		"GL_CHROMIUM_color_buffer_float_rgba", // A subset of EXT_color_buffer_float on top of OpenGL ES 2.0
 		"GL_CHROMIUM_texture_filtering_hint",
 		"GL_NV_depth_buffer_float2",
 		"GL_NV_fence",
-		"GL_NV_framebuffer_blit",
+	//	"GL_NV_framebuffer_blit",  // b/147536183
 		"GL_NV_read_depth",
-		"GL_NV_read_depth_stencil",
 		"GL_NV_read_stencil",
 	};
 

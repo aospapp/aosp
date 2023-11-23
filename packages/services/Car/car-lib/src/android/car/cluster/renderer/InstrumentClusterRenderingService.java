@@ -22,6 +22,7 @@ import android.annotation.MainThread;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
+import android.annotation.UserIdInt;
 import android.app.ActivityOptions;
 import android.app.Service;
 import android.car.Car;
@@ -51,6 +52,7 @@ import android.view.KeyEvent;
 import com.android.internal.annotations.GuardedBy;
 
 import java.io.FileDescriptor;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Collection;
@@ -82,26 +84,34 @@ import java.util.stream.Collectors;
  */
 @SystemApi
 public abstract class InstrumentClusterRenderingService extends Service {
+    /**
+     * Key to pass IInstrumentClusterHelper binder in onBind call {@link Intent} through extra
+     * {@link Bundle). Both extra bundle and binder itself use this key.
+     *
+     * @hide
+     */
+    public static final String EXTRA_BUNDLE_KEY_FOR_INSTRUMENT_CLUSTER_HELPER =
+            "android.car.cluster.renderer.IInstrumentClusterHelper";
+
     private static final String TAG = CarLibLog.TAG_CLUSTER;
 
-    /**
-     * This constant is kept here for backwards compatibility only.
-     * @deprecated TODO (b/130255007): Remove this along {@link NavigationRenderer#onEvent(int,
-     * Bundle)}
-     */
-    @Deprecated
-    private static final int NAVIGATION_STATE_EVENT_ID = 1;
     private static final String BITMAP_QUERY_WIDTH = "w";
     private static final String BITMAP_QUERY_HEIGHT = "h";
+    private static final String BITMAP_QUERY_OFFLANESALPHA = "offLanesAlpha";
+
+    private final Handler mUiHandler = new Handler(Looper.getMainLooper());
 
     private final Object mLock = new Object();
+    // Main thread only
     private RendererBinder mRendererBinder;
-    private Handler mUiHandler = new Handler(Looper.getMainLooper());
     private ActivityOptions mActivityOptions;
     private ClusterActivityState mActivityState;
     private ComponentName mNavigationComponent;
     @GuardedBy("mLock")
     private ContextOwner mNavContextOwner;
+
+    @GuardedBy("mLock")
+    private IInstrumentClusterHelper mInstrumentClusterHelper;
 
     private static final int IMAGE_CACHE_SIZE_BYTES = 4 * 1024 * 1024; /* 4 mb */
     private final LruCache<String, Bitmap> mCache = new LruCache<String, Bitmap>(
@@ -164,6 +174,18 @@ public abstract class InstrumentClusterRenderingService extends Service {
             Log.d(TAG, "onBind, intent: " + intent);
         }
 
+        Bundle bundle = intent.getBundleExtra(EXTRA_BUNDLE_KEY_FOR_INSTRUMENT_CLUSTER_HELPER);
+        IBinder binder = null;
+        if (bundle != null) {
+            binder = bundle.getBinder(EXTRA_BUNDLE_KEY_FOR_INSTRUMENT_CLUSTER_HELPER);
+        }
+        if (binder == null) {
+            Log.wtf(TAG, "IInstrumentClusterHelper not passed through binder");
+        } else {
+            synchronized (mLock) {
+                mInstrumentClusterHelper = IInstrumentClusterHelper.Stub.asInterface(binder);
+            }
+        }
         if (mRendererBinder == null) {
             mRendererBinder = new RendererBinder(getNavigationRenderer());
         }
@@ -201,6 +223,77 @@ public abstract class InstrumentClusterRenderingService extends Service {
      */
     @MainThread
     public void onNavigationComponentReleased() {
+    }
+
+    @Nullable
+    private IInstrumentClusterHelper getClusterHelper() {
+        synchronized (mLock) {
+            if (mInstrumentClusterHelper == null) {
+                Log.w("mInstrumentClusterHelper still null, should wait until onBind",
+                        new RuntimeException());
+            }
+            return mInstrumentClusterHelper;
+        }
+    }
+
+    /**
+     * Start Activity in fixed mode.
+     *
+     * <p>Activity launched in this way will stay visible across crash, package updatge
+     * or other Activity launch. So this should be carefully used for case like apps running
+     * in instrument cluster.</p>
+     *
+     * <p> Only one Activity can stay in this mode for a display and launching other Activity
+     * with this call means old one get out of the mode. Alternatively
+     * {@link #stopFixedActivityMode(int)} can be called to get the top activitgy out of this
+     * mode.</p>
+     *
+     * @param intent Should include specific {@code ComponentName}.
+     * @param options Should include target display.
+     * @param userId Target user id
+     * @return {@code true} if succeeded. {@code false} may mean the target component is not ready
+     *         or available. Note that failure can happen during early boot-up stage even if the
+     *         target Activity is in normal state and client should retry when it fails. Once it is
+     *         successfully launched, car service will guarantee that it is running across crash or
+     *         other events.
+     */
+    public boolean startFixedActivityModeForDisplayAndUser(@NonNull Intent intent,
+            @NonNull ActivityOptions options, @UserIdInt int userId) {
+        IInstrumentClusterHelper helper = getClusterHelper();
+        if (helper == null) {
+            return false;
+        }
+        if (mActivityState != null
+                && intent.getBundleExtra(Car.CAR_EXTRA_CLUSTER_ACTIVITY_STATE) == null) {
+            intent = new Intent(intent).putExtra(Car.CAR_EXTRA_CLUSTER_ACTIVITY_STATE,
+                    mActivityState.toBundle());
+        }
+        try {
+            return helper.startFixedActivityModeForDisplayAndUser(intent, options.toBundle(),
+                    userId);
+        } catch (RemoteException e) {
+            Log.w("Remote exception from car service", e);
+            // Probably car service will restart and rebind. So do nothing.
+        }
+        return false;
+    }
+
+
+    /**
+     * Stop fixed mode for top Activity in the display. Crashing or launching other Activity
+     * will not re-launch the top Activity any more.
+     */
+    public void stopFixedActivityMode(int displayId) {
+        IInstrumentClusterHelper helper = getClusterHelper();
+        if (helper == null) {
+            return;
+        }
+        try {
+            helper.stopFixedActivityMode(displayId);
+        } catch (RemoteException e) {
+            Log.w("Remote exception from car service, displayId:" + displayId, e);
+            // Probably car service will restart and rebind. So do nothing.
+        }
     }
 
     /**
@@ -319,22 +412,21 @@ public abstract class InstrumentClusterRenderingService extends Service {
             startActivityAsUser(intent, mActivityOptions.toBundle(), UserHandle.CURRENT);
             Log.i(TAG, String.format("Activity launched: %s (options: %s, displayId: %d)",
                     mActivityOptions, intent, mActivityOptions.getLaunchDisplayId()));
-        } catch (ActivityNotFoundException ex) {
+        } catch (ActivityNotFoundException e) {
             Log.w(TAG, "Unable to find activity for intent: " + intent);
             return false;
-        } catch (Exception ex) {
+        } catch (RuntimeException e) {
             // Catch all other possible exception to prevent service disruption by misbehaving
             // applications.
-            Log.e(TAG, "Error trying to launch intent: " + intent + ". Ignored", ex);
+            Log.e(TAG, "Error trying to launch intent: " + intent + ". Ignored", e);
             return false;
         }
         return true;
     }
 
     /**
-     * @deprecated Use {@link #setClusterActivityLaunchOptions(ActivityOptions)} instead.
-     *
      * @hide
+     * @deprecated Use {@link #setClusterActivityLaunchOptions(ActivityOptions)} instead.
      */
     @Deprecated
     public void setClusterActivityLaunchOptions(String category, ActivityOptions activityOptions) {
@@ -355,9 +447,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
     }
 
     /**
-     * @deprecated Use {@link #setClusterActivityState(ClusterActivityState)} instead.
-     *
      * @hide
+     * @deprecated Use {@link #setClusterActivityState(ClusterActivityState)} instead.
      */
     @Deprecated
     public void setClusterActivityState(String category, Bundle state) {
@@ -379,16 +470,19 @@ public abstract class InstrumentClusterRenderingService extends Service {
     @CallSuper
     @Override
     protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
-        writer.println("**" + getClass().getSimpleName() + "**");
-        writer.println("renderer binder: " + mRendererBinder);
-        if (mRendererBinder != null) {
-            writer.println("navigation renderer: " + mRendererBinder.mNavigationRenderer);
+        synchronized (mLock) {
+            writer.println("**" + getClass().getSimpleName() + "**");
+            writer.println("renderer binder: " + mRendererBinder);
+            if (mRendererBinder != null) {
+                writer.println("navigation renderer: " + mRendererBinder.mNavigationRenderer);
+            }
+            writer.println("navigation focus owner: " + getNavigationContextOwner());
+            writer.println("activity options: " + mActivityOptions);
+            writer.println("activity state: " + mActivityState);
+            writer.println("current nav component: " + mNavigationComponent);
+            writer.println("current nav packages: " + getNavigationContextOwner().mPackageNames);
+            writer.println("mInstrumentClusterHelper" + mInstrumentClusterHelper);
         }
-        writer.println("navigation focus owner: " + getNavigationContextOwner());
-        writer.println("activity options: " + mActivityOptions);
-        writer.println("activity state: " + mActivityState);
-        writer.println("current nav component: " + mNavigationComponent);
-        writer.println("current nav packages: " + getNavigationContextOwner().mPackageNames);
     }
 
     private class RendererBinder extends IInstrumentCluster.Stub {
@@ -431,11 +525,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
         @SuppressWarnings("deprecation")
         public void onNavigationStateChanged(@Nullable Bundle bundle) throws RemoteException {
             assertClusterManagerPermission();
-            assertContextOwnership();
             mUiHandler.post(() -> {
                 if (mNavigationRenderer != null) {
-                    // Invoking deprecated method to maintain backwards compatibility
-                    mNavigationRenderer.onEvent(NAVIGATION_STATE_EVENT_ID, bundle);
                     mNavigationRenderer.onNavigationStateChanged(bundle);
                 }
             });
@@ -445,18 +536,6 @@ public abstract class InstrumentClusterRenderingService extends Service {
         public CarNavigationInstrumentCluster getInstrumentClusterInfo() throws RemoteException {
             assertClusterManagerPermission();
             return runAndWaitResult(() -> mNavigationRenderer.getNavigationProperties());
-        }
-
-        private void assertContextOwnership() {
-            int uid = getCallingUid();
-            int pid = getCallingPid();
-
-            synchronized (mLock) {
-                if (mNavContextOwner.mUid != uid || mNavContextOwner.mPid != pid) {
-                    throw new IllegalStateException("Client {uid:" + uid + ", pid: " + pid + "} is"
-                            + " not an owner of APP_FOCUS_TYPE_NAVIGATION " + mNavContextOwner);
-                }
-            }
         }
     }
 
@@ -495,16 +574,21 @@ public abstract class InstrumentClusterRenderingService extends Service {
      * This is a costly operation. Returned bitmaps should be cached and fetching should be done on
      * a secondary thread.
      *
-     * Will be deprecated. Replaced by {@link #getBitmap(Uri, int, int)}.
+     * @param uri The URI of the bitmap
+     *
+     * @throws IllegalArgumentException if {@code uri} does not have width and height query params.
+     *
+     * @deprecated Replaced by {@link #getBitmap(Uri, int, int)}.
      */
+    @Deprecated
     @Nullable
     public Bitmap getBitmap(Uri uri) {
         try {
             if (uri.getQueryParameter(BITMAP_QUERY_WIDTH).isEmpty() || uri.getQueryParameter(
                     BITMAP_QUERY_HEIGHT).isEmpty()) {
                 throw new IllegalArgumentException(
-                        "Uri must have '" + BITMAP_QUERY_WIDTH + "' and '" + BITMAP_QUERY_HEIGHT
-                                + "' query parameters");
+                    "Uri must have '" + BITMAP_QUERY_WIDTH + "' and '" + BITMAP_QUERY_HEIGHT
+                            + "' query parameters");
             }
 
             ContextOwner contextOwner = getNavigationContextOwner();
@@ -514,7 +598,6 @@ public abstract class InstrumentClusterRenderingService extends Service {
             }
 
             String host = uri.getHost();
-
             if (!contextOwner.mAuthorities.contains(host)) {
                 Log.e(TAG, "Uri points to an authority not handled by the current context owner: "
                         + uri + " (valid authorities: " + contextOwner.mAuthorities + ")");
@@ -530,25 +613,33 @@ public abstract class InstrumentClusterRenderingService extends Service {
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "Requesting bitmap: " + uri);
             }
-            ParcelFileDescriptor fileDesc = getContentResolver()
-                    .openFileDescriptor(filteredUid, "r");
-            if (fileDesc != null) {
-                Bitmap bitmap = BitmapFactory.decodeFileDescriptor(fileDesc.getFileDescriptor());
-                fileDesc.close();
-                return bitmap;
-            } else {
-                Log.e(TAG, "Failed to create pipe for uri string: " + uri);
+            try (ParcelFileDescriptor fileDesc = getContentResolver()
+                    .openFileDescriptor(filteredUid, "r")) {
+                if (fileDesc != null) {
+                    Bitmap bitmap = BitmapFactory.decodeFileDescriptor(
+                            fileDesc.getFileDescriptor());
+                    return bitmap;
+                } else {
+                    Log.e(TAG, "Failed to create pipe for uri string: " + uri);
+                }
             }
-        } catch (Throwable e) {
+        } catch (IOException e) {
             Log.e(TAG, "Unable to fetch uri: " + uri, e);
         }
-
         return null;
     }
 
     /**
+     * See {@link #getBitmap(Uri, int, int, float)}
+     */
+    @Nullable
+    public Bitmap getBitmap(@NonNull Uri uri, int width, int height) {
+        return getBitmap(uri, width, height, 1f);
+    }
+
+    /**
      * Fetches a bitmap from the navigation context owner (application holding navigation focus)
-     * of the given width and height. The fetched bitmaps are cached.
+     * of the given width and height and off lane opacity. The fetched bitmaps are cached.
      * It returns null if:
      * <ul>
      * <li>there is no navigation context owner
@@ -557,12 +648,19 @@ public abstract class InstrumentClusterRenderingService extends Service {
      * </ul>
      * This is a costly operation. Returned bitmaps should be fetched on a secondary thread.
      *
-     * @hide
+     * @param uri           The URI of the bitmap
+     * @param width         Requested width
+     * @param height        Requested height
+     * @param offLanesAlpha Opacity value of the off-lane images. Only used for lane guidance images
+     * @throws IllegalArgumentException if width, height <= 0, or 0 > offLanesAlpha > 1
      */
     @Nullable
-    public Bitmap getBitmap(Uri uri, int width, int height) throws InvalidSizeException {
+    public Bitmap getBitmap(@NonNull Uri uri, int width, int height, float offLanesAlpha) {
         if (width <= 0 || height <= 0) {
-            throw new InvalidSizeException("Width and height must be > 0");
+            throw new IllegalArgumentException("Width and height must be > 0");
+        }
+        if (offLanesAlpha < 0 || offLanesAlpha > 1) {
+            throw new IllegalArgumentException("offLanesAlpha must be between [0, 1]");
         }
 
         try {
@@ -575,6 +673,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
             uri = uri.buildUpon()
                     .appendQueryParameter(BITMAP_QUERY_WIDTH, String.valueOf(width))
                     .appendQueryParameter(BITMAP_QUERY_HEIGHT, String.valueOf(height))
+                    .appendQueryParameter(BITMAP_QUERY_OFFLANESALPHA, String.valueOf(offLanesAlpha))
                     .build();
 
             String host = uri.getHost();
@@ -596,27 +695,24 @@ public abstract class InstrumentClusterRenderingService extends Service {
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
                     Log.d(TAG, "Requesting bitmap: " + uri);
                 }
-                ParcelFileDescriptor fileDesc = getContentResolver()
-                        .openFileDescriptor(filteredUid, "r");
-                if (fileDesc != null) {
-                    bitmap = BitmapFactory.decodeFileDescriptor(fileDesc.getFileDescriptor());
-                    fileDesc.close();
-                    return bitmap;
-                } else {
-                    Log.e(TAG, "Failed to create pipe for uri string: " + uri);
+                try (ParcelFileDescriptor fileDesc = getContentResolver()
+                        .openFileDescriptor(filteredUid, "r")) {
+                    if (fileDesc != null) {
+                        bitmap = BitmapFactory.decodeFileDescriptor(fileDesc.getFileDescriptor());
+                        return bitmap;
+                    } else {
+                        Log.e(TAG, "Failed to create pipe for uri string: " + uri);
+                    }
                 }
-
                 if (bitmap.getWidth() != width || bitmap.getHeight() != height) {
                     bitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
                 }
                 mCache.put(uri.toString(), bitmap);
             }
-
             return bitmap;
-        } catch (Throwable e) {
+        } catch (IOException e) {
             Log.e(TAG, "Unable to fetch uri: " + uri, e);
         }
-
         return null;
     }
 }

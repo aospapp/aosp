@@ -38,15 +38,25 @@ public final class Log {
     }
 
     /** See {@link android.util.Log#v}. */
-    public static int v(@Nullable String tag, @NonNull String msg) {
+    public static int v(@Nullable String tag, @NonNull String format, @Nullable Object...args) {
         if (!isLoggable(tag, VERBOSE)) return 0;
-        return android.util.Log.v(tag, msg);
+
+        if (args != null) {
+            return android.util.Log.v(tag, String.format(format, args));
+        } else {
+            return android.util.Log.v(tag, format);
+        }
     }
 
     /** See {@link android.util.Log#d}. */
-    public static int d(@Nullable String tag, @NonNull String msg) {
+    public static int d(@Nullable String tag, @NonNull String format, @Nullable Object...args) {
         if (!isLoggable(tag, DEBUG)) return 0;
-        return android.util.Log.d(tag, msg);
+
+        if (args != null) {
+            return android.util.Log.d(tag, String.format(format, args));
+        } else {
+            return android.util.Log.d(tag, format);
+        }
     }
 
     /** See {@link android.util.Log#i}. */

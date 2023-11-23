@@ -28,11 +28,9 @@ from acts.test_utils.tel.tel_test_utils import initiate_call
 
 class WlanWithHfpPerformanceTest(CoexPerformanceBaseTest):
 
-    def __init__(self, controllers):
-        super().__init__(controllers)
-
     def setup_class(self):
         super().setup_class()
+
         req_params = ["sim_conf_file"]
         self.unpack_userparams(req_params)
         self.ag_phone_number, self.re_phone_number = setup_tel_config(

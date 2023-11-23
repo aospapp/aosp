@@ -21,7 +21,6 @@
 
 #define CONFIG_MACH_TYPE	4289
 
-#define CONFIG_NR_DRAM_BANKS	8
 #define CONFIG_SYS_SDRAM_BASE	0x40000000
 #define SDRAM_BANK_SIZE		(256 << 20)	/* 256 MB */
 #define PHYS_SDRAM_1		CONFIG_SYS_SDRAM_BASE
@@ -37,12 +36,11 @@
 #include <linux/sizes.h>
 
 /* select serial console configuration */
-#define CONFIG_SERIAL1
 
 /* Console configuration */
 
-#define CONFIG_BOOTCOMMAND		"run autoboot"
-#define CONFIG_DEFAULT_CONSOLE		"ttySAC1,115200n8"
+#define CONFIG_BOOTCOMMAND		"run distro_bootcmd ; run autoboot"
+#define CONFIG_DEFAULT_CONSOLE		"console=ttySAC1,115200n8\0"
 
 #define CONFIG_SYS_INIT_SP_ADDR	(CONFIG_SYS_LOAD_ADDR \
 					- GENERATED_GBL_DATA_SIZE)
@@ -50,8 +48,6 @@
 #define CONFIG_SYS_MONITOR_BASE	0x00000000
 
 #define CONFIG_SYS_MMC_ENV_DEV		CONFIG_MMC_DEFAULT_DEV
-#define CONFIG_ENV_SIZE			4096
-#define CONFIG_ENV_OFFSET		(SZ_1K * 1280) /* 1.25 MiB offset */
 #define CONFIG_ENV_OVERWRITE
 
 /* Partitions name */
@@ -83,6 +79,12 @@
 	"bl2 raw 0x1f 0x1d;" \
 	"tzsw raw 0x83f 0x138\0"
 
+#define BOOT_TARGET_DEVICES(func) \
+	func(MMC, mmc, 1) \
+	func(MMC, mmc, 0)
+
+#include <config_distro_bootcmd.h>
+
 /*
  * Bootable media layout:
  * dev:    SD   eMMC(part boot)
@@ -100,21 +102,21 @@
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"loadbootscript=load mmc ${mmcbootdev}:${mmcbootpart} ${scriptaddr} " \
 		"boot.scr\0" \
-	"loadkernel=load mmc ${mmcbootdev}:${mmcbootpart} ${kerneladdr} " \
+	"loadkernel=load mmc ${mmcbootdev}:${mmcbootpart} ${kernel_addr_r} " \
 		"${kernelname}\0" \
-	"loadinitrd=load mmc ${mmcbootdev}:${mmcbootpart} ${initrdaddr} " \
+	"loadinitrd=load mmc ${mmcbootdev}:${mmcbootpart} ${ramdisk_addr_r} " \
 		"${initrdname}\0" \
-	"loaddtb=load mmc ${mmcbootdev}:${mmcbootpart} ${fdtaddr} " \
+	"loaddtb=load mmc ${mmcbootdev}:${mmcbootpart} ${fdt_addr_r} " \
 		"${fdtfile}\0" \
 	"check_ramdisk=" \
 		"if run loadinitrd; then " \
-			"setenv initrd_addr ${initrdaddr};" \
+			"setenv initrd_addr ${ramdisk_addr_r};" \
 		"else " \
 			"setenv initrd_addr -;" \
 		"fi;\0" \
 	"check_dtb=" \
 		"if run loaddtb; then " \
-			"setenv fdt_addr ${fdtaddr};" \
+			"setenv fdt_addr ${fdt_addr_r};" \
 		"else " \
 			"setenv fdt_addr;" \
 		"fi;\0" \
@@ -125,27 +127,24 @@
 		"run loadbootscript;" \
 		"source ${scriptaddr}\0" \
 	"boot_fit=" \
-		"setenv kerneladdr 0x42000000;" \
 		"setenv kernelname Image.itb;" \
 		"run loadkernel;" \
 		"run kernel_args;" \
-		"bootm ${kerneladdr}#${boardname}\0" \
+		"bootm ${kernel_addr_r}#${board_name}\0" \
 	"boot_uimg=" \
-		"setenv kerneladdr 0x40007FC0;" \
 		"setenv kernelname uImage;" \
 		"run check_dtb;" \
 		"run check_ramdisk;" \
 		"run loadkernel;" \
 		"run kernel_args;" \
-		"bootm ${kerneladdr} ${initrd_addr} ${fdt_addr};\0" \
+		"bootm ${kernel_addr_r} ${initrd_addr} ${fdt_addr};\0" \
 	"boot_zimg=" \
-		"setenv kerneladdr 0x40007FC0;" \
 		"setenv kernelname zImage;" \
 		"run check_dtb;" \
 		"run check_ramdisk;" \
 		"run loadkernel;" \
 		"run kernel_args;" \
-		"bootz ${kerneladdr} ${initrd_addr} ${fdt_addr};\0" \
+		"bootz ${kernel_addr_r} ${initrd_addr} ${fdt_addr};\0" \
 	"autoboot=" \
 		"if test -e mmc 0 boot.scr; then; " \
 			"run boot_script; " \
@@ -156,20 +155,21 @@
 		"elif test -e mmc 0 uImage; then; " \
 			"run boot_uimg;" \
 		"fi;\0" \
-	"console=" CONFIG_DEFAULT_CONSOLE "\0" \
+	"console=" CONFIG_DEFAULT_CONSOLE \
 	"mmcbootdev=0\0" \
 	"mmcbootpart=1\0" \
 	"mmcrootdev=0\0" \
 	"mmcrootpart=2\0" \
-	"bootdelay=0\0" \
 	"dfu_alt_system="CONFIG_DFU_ALT \
 	"dfu_alt_info=Please reset the board\0" \
 	"consoleon=set console console=ttySAC1,115200n8; save; reset\0" \
 	"consoleoff=set console console=ram; save; reset\0" \
 	"initrdname=uInitrd\0" \
-	"initrdaddr=42000000\0" \
+	"ramdisk_addr_r=0x42000000\0" \
 	"scriptaddr=0x42000000\0" \
-	"fdtaddr=40800000\0"
+	"fdt_addr_r=0x40800000\0" \
+	"kernel_addr_r=0x41000000\0" \
+	BOOTENV
 
 /* GPT */
 
@@ -184,8 +184,6 @@
  * TODO: Add Odroid X support
  */
 #define CONFIG_MISC_COMMON
-#define CONFIG_BOARD_TYPES
-#define CONFIG_MISC_INIT_R
 
 #undef CONFIG_REVISION_TAG
 

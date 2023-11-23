@@ -1,17 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2016 Fujitsu Ltd.
  * Author: Xiao Yang <yangx.jy@cn.fujitsu.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * You should have received a copy of the GNU General Public License
- * alone with this program.
  */
 
 /*
@@ -98,7 +88,7 @@ static void check_epoll_ctl(int opt, int exp_num)
 
 	while (events) {
 		int events_matched = 0;
-		bzero(res_evs, sizeof(res_evs));
+		memset(res_evs, 0, sizeof(res_evs));
 
 		res = epoll_wait(epfd, res_evs, 2, -1);
 		if (res <= 0) {

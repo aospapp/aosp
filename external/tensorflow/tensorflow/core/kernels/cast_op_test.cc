@@ -20,6 +20,7 @@ limitations under the License.
 #include "tensorflow/core/framework/types.pb.h"
 #include "tensorflow/core/kernels/ops_testutil.h"
 #include "tensorflow/core/kernels/ops_util.h"
+#include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/platform/test_benchmark.h"
 
@@ -132,9 +133,9 @@ static void BM_gpu_float_int64(int iters, int num) {
   testing::BytesProcessed(static_cast<int64>(iters) * num *
                           (sizeof(float) + sizeof(int64)));
   testing::UseRealTime();
-#if GOOGLE_CUDA
+#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
   test::Benchmark("gpu", Cast<float, int64>(num)).Run(iters);
-#endif  // GOOGLE_CUDA
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 #ifdef TENSORFLOW_USE_SYCL
   test::Benchmark("sycl", Cast<float, int64>(num)).Run(iters);
 #endif  // TENSORFLOW_USE_SYCL
@@ -155,9 +156,9 @@ static void BM_gpu_bool_float(int iters, int num) {
   testing::BytesProcessed(static_cast<int64>(iters) * num *
                           (sizeof(bool) + sizeof(float)));
   testing::UseRealTime();
-#if GOOGLE_CUDA
+#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
   test::Benchmark("gpu", Cast<bool, float>(num)).Run(iters);
-#endif  // GOOGLE_CUDA
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 #ifdef TENSORFLOW_USE_SYCL
   test::Benchmark("sycl", Cast<bool, float>(num)).Run(iters);
 #endif  // TENSORFLOW_USE_SYCL
@@ -205,9 +206,9 @@ static void BM_gpu_float_half(int iters, int num) {
   testing::BytesProcessed(static_cast<int64>(iters) * num *
                           (sizeof(float) + sizeof(Eigen::half)));
   testing::UseRealTime();
-#if GOOGLE_CUDA
+#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
   test::Benchmark("gpu", Cast<float, Eigen::half>(num)).Run(iters);
-#endif  // GOOGLE_CUDA
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 }
 BENCHMARK(BM_gpu_float_half)->Arg(64 << 10)->Arg(32 << 20);
 
@@ -216,9 +217,9 @@ static void BM_gpu_half_float(int iters, int num) {
   testing::BytesProcessed(static_cast<int64>(iters) * num *
                           (sizeof(float) + sizeof(Eigen::half)));
   testing::UseRealTime();
-#if GOOGLE_CUDA
+#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
   test::Benchmark("gpu", Cast<Eigen::half, float>(num)).Run(iters);
-#endif  // GOOGLE_CUDA
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 }
 BENCHMARK(BM_gpu_half_float)->Arg(64 << 10)->Arg(32 << 20);
 

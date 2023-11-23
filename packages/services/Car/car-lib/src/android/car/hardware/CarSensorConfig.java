@@ -19,7 +19,6 @@ package android.car.hardware;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import java.util.ArrayList;
 
 /**
  * A CarSensorConfig object corresponds to a single sensor type coming from the car.
@@ -28,20 +27,20 @@ import java.util.ArrayList;
 public class CarSensorConfig implements Parcelable {
     /** List of property specific mapped elements in bundle for WHEEL_TICK_DISTANCE sensor*/
     /** @hide */
-    public final static String WHEEL_TICK_DISTANCE_SUPPORTED_WHEELS =
-        "android.car.wheelTickDistanceSupportedWheels";
+    public static final String WHEEL_TICK_DISTANCE_SUPPORTED_WHEELS =
+            "android.car.wheelTickDistanceSupportedWheels";
     /** @hide */
-    public final static String WHEEL_TICK_DISTANCE_FRONT_LEFT_UM_PER_TICK =
-        "android.car.wheelTickDistanceFrontLeftUmPerTick";
+    public static final String WHEEL_TICK_DISTANCE_FRONT_LEFT_UM_PER_TICK =
+            "android.car.wheelTickDistanceFrontLeftUmPerTick";
     /** @hide */
-    public final static String WHEEL_TICK_DISTANCE_FRONT_RIGHT_UM_PER_TICK =
-        "android.car.wheelTickDistanceFrontRightUmPerTick";
+    public static final String WHEEL_TICK_DISTANCE_FRONT_RIGHT_UM_PER_TICK =
+            "android.car.wheelTickDistanceFrontRightUmPerTick";
     /** @hide */
-    public final static String WHEEL_TICK_DISTANCE_REAR_RIGHT_UM_PER_TICK =
-        "android.car.wheelTickDistanceRearRightUmPerTick";
+    public static final String WHEEL_TICK_DISTANCE_REAR_RIGHT_UM_PER_TICK =
+            "android.car.wheelTickDistanceRearRightUmPerTick";
     /** @hide */
-    public final static String WHEEL_TICK_DISTANCE_REAR_LEFT_UM_PER_TICK =
-        "android.car.wheelTickDistanceRearLeftUmPerTick";
+    public static final String WHEEL_TICK_DISTANCE_REAR_LEFT_UM_PER_TICK =
+            "android.car.wheelTickDistanceRearLeftUmPerTick";
 
     /** Config data stored in Bundle */
     private final Bundle mConfig;
@@ -67,16 +66,19 @@ public class CarSensorConfig implements Parcelable {
     }
 
     /** @hide */
-    public static final Parcelable.Creator<CarSensorConfig> CREATOR
-    = new Parcelable.Creator<CarSensorConfig>() {
-        public CarSensorConfig createFromParcel(Parcel in) {
-            return new CarSensorConfig(in);
-        }
+    public static final Parcelable.Creator<CarSensorConfig> CREATOR =
+            new Parcelable.Creator<CarSensorConfig>() {
 
-        public CarSensorConfig[] newArray(int size) {
-            return new CarSensorConfig[size];
-        }
-    };
+            @Override
+            public CarSensorConfig createFromParcel(Parcel in) {
+                return new CarSensorConfig(in);
+            }
+
+            @Override
+            public CarSensorConfig[] newArray(int size) {
+                return new CarSensorConfig[size];
+            }
+        };
 
     /** @hide */
     public CarSensorConfig(int type, Bundle b) {
@@ -101,10 +103,9 @@ public class CarSensorConfig implements Parcelable {
     public int getInt(String key) {
         if (mConfig.containsKey(key)) {
             return mConfig.getInt(key);
-        } else {
-            throw new IllegalArgumentException("SensorType " + mType +
-                " does not contain key: " + key);
         }
+        throw new IllegalArgumentException("SensorType " + mType
+            + " does not contain key: " + key);
     }
 
     /** @hide */

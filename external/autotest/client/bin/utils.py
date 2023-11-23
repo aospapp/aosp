@@ -11,6 +11,7 @@ Convenience functions for use by tests or whomever.
 import base64
 import collections
 import commands
+import errno
 import fnmatch
 import glob
 import json
@@ -31,6 +32,7 @@ import uuid
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import magic
 from autotest_lib.client.common_lib import utils
+from autotest_lib.client.common_lib.cros import cros_config
 
 from autotest_lib.client.common_lib.utils import *
 
@@ -112,7 +114,7 @@ def extract_tarball(tarball):
         topdir = line.split('/')[0]
         if os.path.isdir(topdir):
             if dir:
-                assert(dir == topdir)
+                assert(dir == topdir), 'tarball must be a a single directory'
             else:
                 dir = topdir
     if dir:
@@ -325,6 +327,8 @@ INTEL_UARCH_TABLE = {
     '06_47': 'Broadwell',
     '06_4F': 'Broadwell',
     '06_56': 'Broadwell',
+    '06_A5': 'Comet Lake',
+    '06_A6': 'Comet Lake',
     '06_0D': 'Dothan',
     '06_5C': 'Goldmont',
     '06_7A': 'Goldmont',
@@ -332,6 +336,8 @@ INTEL_UARCH_TABLE = {
     '06_45': 'Haswell',
     '06_46': 'Haswell',
     '06_3F': 'Haswell-E',
+    '06_7D': 'Ice Lake',
+    '06_7E': 'Ice Lake',
     '06_3A': 'Ivy Bridge',
     '06_3E': 'Ivy Bridge-E',
     '06_8E': 'Kaby Lake',
@@ -357,6 +363,8 @@ INTEL_UARCH_TABLE = {
     '06_4E': 'Skylake',
     '06_5E': 'Skylake',
     '06_55': 'Skylake',
+    '06_8C': 'Tiger Lake',
+    '06_8D': 'Tiger Lake',
     '06_25': 'Westmere',
     '06_2C': 'Westmere',
     '06_2F': 'Westmere',
@@ -1111,6 +1119,34 @@ def process_is_alive(name_pattern):
     return utils.system("pgrep -f '^([^ /]*/)*(%s)([ ]|$)'" % name_pattern,
                         ignore_status=True) == 0
 
+def set_hwclock(time='system',
+                utc=True,
+                rtc=None,
+                noadjfile=False,
+                ignore_status=False):
+    """Uses the hwclock command to set time of an RTC.
+
+    @param time: Either 'system', meaning use the system time, or a string
+                 to be passed to the --date argument of hwclock.
+    @param utc: Boolean of whether to use UTC or localtime.
+    @param rtc: String to be passed to the --rtc arg of hwclock.
+    @param noadjfile: Boolean of whether to use --noadjfile flag with hwclock.
+    @param ignore_status: Boolean of whether to ignore exit code of hwclock.
+    """
+    cmd = '/sbin/hwclock'
+    if time == 'system':
+        cmd += ' --systohc'
+    else:
+        cmd += ' --set --date "{}"'.format(time)
+    if utc:
+        cmd += ' --utc'
+    else:
+        cmd += ' --localtime'
+    if rtc is not None:
+        cmd += ' --rtc={}'.format(rtc)
+    if noadjfile:
+        cmd += ' --noadjfile'
+    return utils.system(cmd, ignore_status=ignore_status)
 
 def get_hwclock_seconds(utc=True):
     """
@@ -1735,7 +1771,7 @@ def wait_for_cool_machine():
     temperature = get_current_temperature_max()
     # We got here with a cold machine, return immediately. This should be the
     # most common case.
-    if temperature < 50:
+    if temperature < 45:
         return True
     logging.info('Got a hot machine of %dC. Sleeping 1 minute.', temperature)
     # A modest wait should cool the machine.
@@ -1756,6 +1792,21 @@ def wait_for_cool_machine():
     logging.warning('Did not cool down (%dC), giving up.', temperature)
     log_process_activity()
     return False
+
+
+def report_temperature(test, keyname):
+    """Report current max observed temperature with given keyname.
+
+    @param test: autotest_lib.client.bin.test.test instance
+    @param keyname: key to be used when reporting perf value.
+    """
+    temperature = get_current_temperature_max()
+    logging.info('%s = %f degree Celsius', keyname, temperature)
+    test.output_perf_value(
+        description=keyname,
+        value=temperature,
+        units='Celsius',
+        higher_is_better=False)
 
 
 # System paths for machine performance state.
@@ -1821,61 +1872,58 @@ def _get_hex_from_file(path, line, prefix, postfix):
     return int(match, 16)
 
 
-# The paths don't change. Avoid running find all the time.
-_hwmon_paths = None
+def is_system_thermally_throttled():
+    """
+    Returns whether the system appears to be thermally throttled.
+    """
+    for path in glob.glob('/sys/class/thermal/cooling_device*/type'):
+        with _open_file(path) as f:
+            cdev_type = f.read().strip()
 
-def _get_hwmon_paths(file_pattern):
-    """
-    Returns a list of paths to the temperature sensors.
-    """
+        if not (cdev_type == 'Processor' or
+                cdev_type.startswith('thermal-devfreq') or
+                cdev_type.startswith('thermal-cpufreq')):
+            continue
+
+        cur_state_path = os.path.join(os.path.dirname(path), 'cur_state')
+        if _get_int_from_file(cur_state_path, 0, None, None) > 0:
+            return True
+
+    return False
+
+
+# The paths don't change. Avoid running find all the time.
+_hwmon_paths = {}
+
+def _get_hwmon_datas(file_pattern):
+    """Returns a list of reading from hwmon."""
     # Some systems like daisy_spring only have the virtual hwmon.
     # And other systems like rambi only have coretemp.0. See crbug.com/360249.
     #    /sys/class/hwmon/hwmon*/
     #    /sys/devices/virtual/hwmon/hwmon*/
     #    /sys/devices/platform/coretemp.0/
-    if not _hwmon_paths:
-        cmd = 'find /sys/ -name "' + file_pattern + '"'
-        _hwon_paths = utils.run(cmd, verbose=False).stdout.splitlines()
-    return _hwon_paths
+    if file_pattern not in _hwmon_paths:
+        cmd = 'find /sys/class /sys/devices -name "' + file_pattern + '"'
+        _hwmon_paths[file_pattern] = \
+            utils.run(cmd, verbose=False).stdout.splitlines()
+    for _hwmon_path in _hwmon_paths[file_pattern]:
+        try:
+            yield _get_float_from_file(_hwmon_path, 0, None, None) * 0.001
+        except IOError as err:
+            # Files under /sys may get truncated and result in ENODATA.
+            # Ignore those.
+            if err.errno is not errno.ENODATA:
+                raise
 
 
-def get_temperature_critical():
+def _get_hwmon_temperatures():
     """
-    Returns temperature at which we will see some throttling in the system.
+    Returns the currently observed temperatures from hwmon
     """
-    min_temperature = 1000.0
-    paths = _get_hwmon_paths('temp*_crit')
-    for path in paths:
-        temperature = _get_float_from_file(path, 0, None, None) * 0.001
-        # Today typical for Intel is 98'C to 105'C while ARM is 85'C. Clamp to 98
-        # if Intel device or the lowest known value otherwise.
-        result = utils.system_output('crossystem arch', retain_output=True,
-                                     ignore_status=True)
-        if (min_temperature < 60.0) or min_temperature > 150.0:
-            if 'x86' in result:
-                min_temperature = 98.0
-            else:
-                min_temperature = 85.0
-            logging.warning('Critical temperature was reset to %.1fC.',
-                            min_temperature)
-
-        min_temperature = min(temperature, min_temperature)
-    return min_temperature
+    return list(_get_hwmon_datas('temp*_input'))
 
 
-def get_temperature_input_max():
-    """
-    Returns the maximum currently observed temperature.
-    """
-    max_temperature = -1000.0
-    paths = _get_hwmon_paths('temp*_input')
-    for path in paths:
-        temperature = _get_float_from_file(path, 0, None, None) * 0.001
-        max_temperature = max(temperature, max_temperature)
-    return max_temperature
-
-
-def get_thermal_zone_temperatures():
+def _get_thermal_zone_temperatures():
     """
     Returns the maximum currently observered temperature in thermal_zones.
     """
@@ -1923,9 +1971,13 @@ def get_current_temperature_max():
     """
     Returns the highest reported board temperature (all sensors) in Celsius.
     """
-    temperature = max([get_temperature_input_max()] +
-                      get_thermal_zone_temperatures() +
-                      get_ec_temperatures())
+    all_temps = (_get_hwmon_temperatures() +
+                 _get_thermal_zone_temperatures() +
+                 get_ec_temperatures())
+    if all_temps:
+        temperature = max(all_temps)
+    else:
+        temperature = -1
     # Sanity check for real world values.
     assert ((temperature > 10.0) and
             (temperature < 150.0)), ('Unreasonable temperature %.1fC.' %
@@ -2024,6 +2076,15 @@ def get_board_type():
     return get_board_property('DEVICETYPE')
 
 
+def get_chromeos_version():
+    """
+    Get the ChromeOS build version from /etc/lsb-release.
+
+    @return chromeos release version.
+    """
+    return get_board_property('CHROMEOS_RELEASE_VERSION')
+
+
 def get_platform():
     """
     Get the ChromeOS platform name.
@@ -2035,15 +2096,20 @@ def get_platform():
 
     @returns platform name
     """
-    platform = ''
-    command = 'mosys platform model'
-    result = utils.run(command, ignore_status=True)
-    if result.exit_status == 0:
-        platform = result.stdout.strip()
-
+    platform = cros_config.call_cros_config_get_output('/ name', utils.run)
     if platform == '':
         platform = get_board()
     return platform
+
+
+def get_sku():
+    """
+    Get the SKU number.
+
+    @returns SKU number
+    """
+    return cros_config.call_cros_config_get_output('/identity sku-id',
+                                                   utils.run)
 
 
 def get_ec_version():
@@ -2320,6 +2386,23 @@ def get_root_device():
     Example: return /dev/sdb for falco booted from usb
     """
     return utils.system_output('rootdev -s -d')
+
+
+def get_other_device():
+    """
+    Return the non root devices.
+    Will return a list of other block devices, that are not the root device.
+    """
+
+    cmd = 'lsblk -dpn -o NAME | grep -v loop | grep -v zram'
+    devs = utils.system_output(cmd).splitlines()
+
+    for dev in devs[:]:
+        if not re.match(r'/dev/(sd[a-z]|mmcblk[0-9]+|nvme[0-9]+)p?[0-9]*', dev):
+            devs.remove(dev)
+        if dev == get_root_device():
+            devs.remove(dev)
+    return devs
 
 
 def get_root_partition():

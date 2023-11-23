@@ -20,7 +20,7 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioSystem;
@@ -190,6 +190,16 @@ public class AudioMix {
     /** @hide */
     public boolean isAffectingUsage(int usage) {
         return mRule.isAffectingUsage(usage);
+    }
+
+    /**
+      * Returns {@code true} if the rule associated with this mix contains a
+      * RULE_MATCH_ATTRIBUTE_USAGE criterion for the given usage
+      *
+      * @hide
+      */
+    public boolean containsMatchAttributeRuleForUsage(int usage) {
+        return mRule.containsMatchAttributeRuleForUsage(usage);
     }
 
     /** @hide */

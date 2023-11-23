@@ -34,6 +34,7 @@
         <item name="android:colorForeground">@*android:color/car_card_light</item>
         <item name="android:editTextColor">@*android:color/car_body1</item>
         <item name="android:listPreferredItemHeightSmall">@*android:dimen/car_single_line_list_item_height</item>
+        <item name="android:selectableItemBackground">@*android:drawable/item_background</item>
         <item name="android:textColorHint">@*android:color/car_body2</item>
         <item name="android:textColorPrimary">@*android:color/text_color_primary</item>
         <item name="android:textColorSecondary">@*android:color/car_body2</item>
@@ -53,6 +54,7 @@
         <item name="android:textAppearanceListItem">@*android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSmall">@*android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSecondary">@*android:style/TextAppearance.DeviceDefault.Small</item>
+        <item name="android:textAppearanceButton">@*android:style/Widget.DeviceDefault.Button</item>
         <item name="android:borderlessButtonStyle">@*android:style/Widget.DeviceDefault.Button.Borderless.Colored</item>
         <item name="android:buttonBarButtonStyle">@*android:style/Widget.DeviceDefault.Button.ButtonBar.AlertDialog</item>
         <item name="android:buttonStyle">@*android:style/Widget.DeviceDefault.Button</item>
@@ -65,9 +67,11 @@
         <item name="android:colorPrimaryDark">@*android:color/primary_device_default_dark</item>
         <item name="android:colorForeground">@*android:color/car_card_light</item>
         <item name="android:editTextColor">@*android:color/car_body1</item>
+        <item name="android:selectableItemBackground">@*android:drawable/item_background</item>
         <item name="android:textColorHint">@*android:color/car_body2</item>
         <item name="android:textColorPrimary">@*android:color/text_color_primary</item>
         <item name="android:textColorSecondary">@*android:color/car_body2</item>
+        <item name="android:windowTitleStyle">?android:attr/textAppearanceLarge</item>
     </style>
 
     <style name="Theme.DeviceDefault.Dialog.NoActionBar" parent="android:Theme.DeviceDefault.Dialog">
@@ -76,6 +80,11 @@
     </style>
 
     <style name="Theme.DeviceDefault.Dialog.Alert" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:textAppearanceLarge">@*android:style/TextAppearance.DeviceDefault.Large</item>
+        <item name="android:textAppearanceMedium">@*android:style/TextAppearance.DeviceDefault.Medium</item>
+        <item name="android:textAppearanceSmall">@*android:style/TextAppearance.DeviceDefault.Small</item>
+        <item name="android:textAppearanceButton">@*android:style/Widget.DeviceDefault.Button</item>
+        <item name="android:alertDialogStyle">@*android:style/AlertDialog.DeviceDefault</item>
         <item name="android:borderlessButtonStyle">@*android:style/Widget.DeviceDefault.Button.Borderless.Colored</item>
         <item name="android:buttonBarButtonStyle">@*android:style/Widget.DeviceDefault.Button.ButtonBar.AlertDialog</item>
         <item name="android:buttonStyle">@*android:style/Widget.DeviceDefault.Button</item>
@@ -88,12 +97,14 @@
         <item name="android:colorPrimaryDark">@*android:color/primary_device_default_dark</item>
         <item name="android:colorForeground">@*android:color/car_card_light</item>
         <item name="android:editTextColor">@*android:color/car_body1</item>
+        <item name="android:selectableItemBackground">@*android:drawable/item_background</item>
         <item name="android:textColorHint">@*android:color/car_body2</item>
         <item name="android:textColorPrimary">@*android:color/text_color_primary</item>
         <item name="android:textColorSecondary">@*android:color/car_body2</item>
         <item name="android:textAppearanceListItem">@*android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSmall">@*android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSecondary">@*android:style/TextAppearance.DeviceDefault.Small</item>
+        <item name="android:windowTitleStyle">?android:attr/textAppearanceLarge</item>
     </style>
 
     <style name="Theme.DeviceDefault.Settings.Dialog" parent="android:Theme.DeviceDefault.Dialog.Alert">
@@ -120,6 +131,7 @@
         <item name="android:colorAccent">@*android:color/accent_device_default_light</item>
         <item name="android:colorBackground">@*android:color/primary_device_default_light</item>
         <item name="android:listDivider">@*android:color/car_keyboard_divider_line</item>
+        <item name="android:selectableItemBackground">@*android:drawable/item_background</item>
         <item name="android:textColorPrimary">@*android:color/car_keyboard_text_primary_color</item>
         <item name="android:textColorSecondary">@*android:color/car_keyboard_text_secondary_color</item>
     </style>
@@ -181,6 +193,10 @@
         <item name="android:textAppearanceListItem">@android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSmall">@android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSecondary">@android:style/TextAppearance.DeviceDefault.Small</item>
+
+        <!-- Icon sizes -->
+        <item name="*android:iconfactoryIconSize">@*android:dimen/resolver_icon_size</item>
+        <item name="*android:iconfactoryBadgeSize">@*android:dimen/resolver_badge_size</item>
     </style>
 
 
@@ -278,6 +294,8 @@
         <!-- Hide action bar -->
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
+
+        <item name="android:selectableItemBackground">@*android:drawable/item_background</item>
     </style>
 
     <style name="Theme.DeviceDefault.Light.Panel" parent="android:Theme.DeviceDefault.Panel"/>

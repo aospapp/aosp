@@ -41,7 +41,6 @@ using android::hardware::health::V2_0::Result;
 using android::hardware::health::V2_0::StorageInfo;
 
 const string emmc_info_t::emmc_sysfs = "/sys/bus/mmc/devices/mmc0:0001/";
-const string emmc_info_t::emmc_debugfs = "/d/mmc0/mmc0:0001/ext_csd";
 const char* emmc_info_t::emmc_ver_str[9] = {
     "4.0", "4.1", "4.2", "4.3", "Obsolete", "4.41", "4.5", "5.0", "5.1"
 };
@@ -62,10 +61,8 @@ storage_info_t* storage_info_t::get_storage_info(const sp<IHealth>& healthServic
     if (healthService != nullptr) {
         return new health_storage_info_t(healthService);
     }
-    if (FileExists(emmc_info_t::emmc_sysfs) ||
-        FileExists(emmc_info_t::emmc_debugfs)) {
-        return new emmc_info_t;
-    }
+    if (FileExists(emmc_info_t::emmc_sysfs)) return new emmc_info_t;
+
     if (FileExists(ufs_info_t::health_file)) {
         return new ufs_info_t;
     }
@@ -79,7 +76,7 @@ void storage_info_t::load_perf_history_proto(const IOPerfHistory& perf_history)
     if (!perf_history.has_day_start_sec() ||
         perf_history.daily_perf_size() > (int)daily_perf.size() ||
         perf_history.weekly_perf_size() > (int)weekly_perf.size()) {
-        LOG_TO(SYSTEM, ERROR) << "Invalid IOPerfHistory proto";
+        LOG(ERROR) << "Invalid IOPerfHistory proto";
         return;
     }
 
@@ -117,7 +114,7 @@ void storage_info_t::refresh(IOPerfHistory* perf_history)
 {
     struct statvfs buf;
     if (statvfs(userdata_path.c_str(), &buf) != 0) {
-        PLOG_TO(SYSTEM, WARNING) << "Failed to get userdata info";
+        PLOG(WARNING) << "Failed to get userdata info";
         return;
     }
 
@@ -241,8 +238,7 @@ uint32_t storage_info_t::get_recent_perf() {
 
 void emmc_info_t::report()
 {
-    if (!report_sysfs() && !report_debugfs())
-        return;
+    if (!report_sysfs()) return;
 
     publish();
 }
@@ -278,54 +274,6 @@ bool emmc_info_t::report_sysfs()
 
     if (sscanf(buffer.c_str(), "0x%hx 0x%hx", &lifetime_a, &lifetime_b) < 2 ||
         (lifetime_a == 0 && lifetime_b == 0)) {
-        return false;
-    }
-
-    return true;
-}
-
-namespace {
-
-const size_t EXT_CSD_FILE_MIN_SIZE = 1024;
-/* 2 characters in string for each byte */
-const size_t EXT_CSD_REV_IDX = 192 * 2;
-const size_t EXT_PRE_EOL_INFO_IDX = 267 * 2;
-const size_t EXT_DEVICE_LIFE_TIME_EST_A_IDX = 268 * 2;
-const size_t EXT_DEVICE_LIFE_TIME_EST_B_IDX = 269 * 2;
-
-} // namespace
-
-bool emmc_info_t::report_debugfs()
-{
-    string buffer;
-    uint16_t rev = 0;
-
-    if (!ReadFileToString(emmc_debugfs, &buffer) ||
-        buffer.length() < (size_t)EXT_CSD_FILE_MIN_SIZE) {
-        return false;
-    }
-
-    string str = buffer.substr(EXT_CSD_REV_IDX, 2);
-    if (!ParseUint(str, &rev) ||
-        rev < 7 || rev > ARRAY_SIZE(emmc_ver_str)) {
-        return false;
-    }
-
-    version = "emmc ";
-    version += emmc_ver_str[rev];
-
-    str = buffer.substr(EXT_PRE_EOL_INFO_IDX, 2);
-    if (!ParseUint(str, &eol)) {
-        return false;
-    }
-
-    str = buffer.substr(EXT_DEVICE_LIFE_TIME_EST_A_IDX, 2);
-    if (!ParseUint(str, &lifetime_a)) {
-        return false;
-    }
-
-    str = buffer.substr(EXT_DEVICE_LIFE_TIME_EST_B_IDX, 2);
-    if (!ParseUint(str, &lifetime_b)) {
         return false;
     }
 
@@ -380,12 +328,12 @@ void ufs_info_t::report()
 void health_storage_info_t::report() {
     auto ret = mHealth->getStorageInfo([this](auto result, const auto& halInfos) {
         if (result == Result::NOT_SUPPORTED) {
-            LOG_TO(SYSTEM, DEBUG) << "getStorageInfo is not supported on health HAL.";
+            LOG(DEBUG) << "getStorageInfo is not supported on health HAL.";
             return;
         }
         if (result != Result::SUCCESS || halInfos.size() == 0) {
-            LOG_TO(SYSTEM, ERROR) << "getStorageInfo failed with result " << toString(result)
-                                  << " and size " << halInfos.size();
+            LOG(ERROR) << "getStorageInfo failed with result " << toString(result) << " and size "
+                       << halInfos.size();
             return;
         }
         set_values_from_hal_storage_info(halInfos[0]);
@@ -393,7 +341,7 @@ void health_storage_info_t::report() {
     });
 
     if (!ret.isOk()) {
-        LOG_TO(SYSTEM, ERROR) << "getStorageInfo failed with " << ret.description();
+        LOG(ERROR) << "getStorageInfo failed with " << ret.description();
     }
 }
 

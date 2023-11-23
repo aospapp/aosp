@@ -15,13 +15,20 @@
  */
 package android.ext.services.autofill;
 
-import android.annotation.Nullable;
 import android.os.Bundle;
 import android.view.autofill.AutofillValue;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 final class ExactMatch {
+
+    /**
+     * Arg for {@link #calculateScore} that enforces only matching the last N values.
+     *
+     * <p>Must supply an int N.</p>
+     */
+    public static final String MATCH_SUFFIX = "MATCH_SUFFIX";
 
     /**
      * Gets the field classification score of 2 values based on whether they are an exact match
@@ -35,33 +42,32 @@ final class ExactMatch {
 
         final String actualValueText = actualValue.getTextValue().toString();
 
-        final int suffixLength;
-        if (args != null) {
-            suffixLength = args.getInt("suffix", -1);
-
-            if (suffixLength < 0) {
-                throw new IllegalArgumentException("suffix argument is invalid");
-            }
-
-            final String actualValueSuffix;
-            if (suffixLength < actualValueText.length()) {
-                actualValueSuffix = actualValueText.substring(actualValueText.length()
-                        - suffixLength);
-            } else {
-                actualValueSuffix = actualValueText;
-            }
-
-            final String userDataValueSuffix;
-            if (suffixLength < userDataValue.length()) {
-                userDataValueSuffix = userDataValue.substring(userDataValue.length()
-                        - suffixLength);
-            } else {
-                userDataValueSuffix = userDataValue;
-            }
-
-            return (actualValueSuffix.equalsIgnoreCase(userDataValueSuffix)) ? 1 : 0;
-        } else {
+        if (args == null) {
             return actualValueText.equalsIgnoreCase(userDataValue) ? 1 : 0;
         }
+
+        final int suffixLength = args.getInt(MATCH_SUFFIX, -1);
+
+        if (suffixLength < 0) {
+            throw new IllegalArgumentException("suffix argument is invalid");
+        }
+
+        final String actualValueSuffix;
+        if (suffixLength < actualValueText.length()) {
+            actualValueSuffix = actualValueText.substring(actualValueText.length()
+                    - suffixLength);
+        } else {
+            actualValueSuffix = actualValueText;
+        }
+
+        final String userDataValueSuffix;
+        if (suffixLength < userDataValue.length()) {
+            userDataValueSuffix = userDataValue.substring(userDataValue.length()
+                    - suffixLength);
+        } else {
+            userDataValueSuffix = userDataValue;
+        }
+
+        return (actualValueSuffix.equalsIgnoreCase(userDataValueSuffix)) ? 1 : 0;
     }
 }

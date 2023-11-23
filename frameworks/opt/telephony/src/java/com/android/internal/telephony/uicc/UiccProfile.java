@@ -34,10 +34,10 @@ import android.os.Message;
 import android.os.PersistableBundle;
 import android.os.Registrant;
 import android.os.RegistrantList;
+import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -58,9 +58,11 @@ import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.cat.CatService;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
+import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
 import com.android.internal.telephony.uicc.IccCardStatus.CardState;
 import com.android.internal.telephony.uicc.IccCardStatus.PinState;
 import com.android.internal.telephony.uicc.euicc.EuiccCard;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -126,6 +128,7 @@ public class UiccProfile extends IccCard {
     private static final int EVENT_SIM_IO_DONE = 12;
     private static final int EVENT_CARRIER_PRIVILEGES_LOADED = 13;
     private static final int EVENT_CARRIER_CONFIG_CHANGED = 14;
+    // NOTE: any new EVENT_* values must be added to eventToString.
 
     private TelephonyManager mTelephonyManager;
 
@@ -136,19 +139,37 @@ public class UiccProfile extends IccCard {
     private IccRecords mIccRecords = null;
     private IccCardConstants.State mExternalState = IccCardConstants.State.UNKNOWN;
 
+    // The number of UiccApplications modem reported. It's different from mUiccApplications.length
+    // which is always CARD_MAX_APPS, and only updated when modem sends an update, and NOT updated
+    // during SIM refresh. It's currently only used to help identify empty profile.
+    private int mLastReportedNumOfUiccApplications;
+
     private final ContentObserver mProvisionCompleteContentObserver =
             new ContentObserver(new Handler()) {
                 @Override
                 public void onChange(boolean selfChange) {
-                    mContext.getContentResolver().unregisterContentObserver(this);
-                    for (String pkgName : getUninstalledCarrierPackages()) {
-                        InstallCarrierAppUtils.showNotification(mContext, pkgName);
-                        InstallCarrierAppUtils.registerPackageInstallReceiver(mContext);
+                    synchronized (mLock) {
+                        mContext.getContentResolver().unregisterContentObserver(this);
+                        mProvisionCompleteContentObserverRegistered = false;
+                        showCarrierAppNotificationsIfPossible();
                     }
                 }
             };
+    private boolean mProvisionCompleteContentObserverRegistered;
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver mUserUnlockReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            synchronized (mLock) {
+                mContext.unregisterReceiver(this);
+                mUserUnlockReceiverRegistered = false;
+                showCarrierAppNotificationsIfPossible();
+            }
+        }
+    };
+    private boolean mUserUnlockReceiverRegistered;
+
+    private final BroadcastReceiver mCarrierConfigChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED)) {
@@ -161,6 +182,7 @@ public class UiccProfile extends IccCard {
     public final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
+            String eventName = eventToString(msg.what);
             // We still need to handle the following response messages even the UiccProfile has been
             // disposed because whoever sent the request may be still waiting for the response.
             if (mDisposed && msg.what != EVENT_OPEN_LOGICAL_CHANNEL_DONE
@@ -168,21 +190,22 @@ public class UiccProfile extends IccCard {
                     && msg.what != EVENT_TRANSMIT_APDU_LOGICAL_CHANNEL_DONE
                     && msg.what != EVENT_TRANSMIT_APDU_BASIC_CHANNEL_DONE
                     && msg.what != EVENT_SIM_IO_DONE) {
-                loge("handleMessage: Received " + msg.what
+                loge("handleMessage: Received " + eventName
                         + " after dispose(); ignoring the message");
                 return;
             }
-            loglocal("handleMessage: Received " + msg.what + " for phoneId " + mPhoneId);
+            logWithLocalLog("handleMessage: Received " + eventName + " for phoneId " + mPhoneId);
             switch (msg.what) {
                 case EVENT_NETWORK_LOCKED:
-                    mNetworkLockedRegistrants.notifyRegistrants();
+                    mNetworkLockedRegistrants.notifyRegistrants(new AsyncResult(
+                            null, mUiccApplication.getPersoSubState().ordinal(), null));
                     // intentional fall through
                 case EVENT_RADIO_OFF_OR_UNAVAILABLE:
                 case EVENT_ICC_LOCKED:
                 case EVENT_APP_READY:
                 case EVENT_RECORDS_LOADED:
                 case EVENT_EID_READY:
-                    if (VDBG) log("handleMessage: Received " + msg.what);
+                    if (VDBG) log("handleMessage: Received " + eventName);
                     updateExternalState();
                     break;
 
@@ -215,8 +238,8 @@ public class UiccProfile extends IccCard {
                 case EVENT_SIM_IO_DONE:
                     AsyncResult ar = (AsyncResult) msg.obj;
                     if (ar.exception != null) {
-                        loglocal("handleMessage: Exception " + ar.exception);
-                        log("handleMessage: Error in SIM access with exception" + ar.exception);
+                        logWithLocalLog("handleMessage: Error in SIM access with exception "
+                                + ar.exception);
                     }
                     AsyncResult.forMessage((Message) ar.userObj, ar.result, ar.exception);
                     ((Message) ar.userObj).sendToTarget();
@@ -253,7 +276,7 @@ public class UiccProfile extends IccCard {
 
         IntentFilter intentfilter = new IntentFilter();
         intentfilter.addAction(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
-        c.registerReceiver(mReceiver, intentfilter);
+        c.registerReceiver(mCarrierConfigChangedReceiver, intentfilter);
     }
 
     /**
@@ -271,11 +294,22 @@ public class UiccProfile extends IccCard {
             unregisterAllAppEvents();
             unregisterCurrAppEvents();
 
+            if (mProvisionCompleteContentObserverRegistered) {
+                mContext.getContentResolver()
+                        .unregisterContentObserver(mProvisionCompleteContentObserver);
+                mProvisionCompleteContentObserverRegistered = false;
+            }
+
+            if (mUserUnlockReceiverRegistered) {
+                mContext.unregisterReceiver(mUserUnlockReceiver);
+                mUserUnlockReceiverRegistered = false;
+            }
+
             InstallCarrierAppUtils.hideAllNotifications(mContext);
             InstallCarrierAppUtils.unregisterPackageInstallReceiver(mContext);
 
             mCi.unregisterForOffOrNotAvailable(mHandler);
-            mContext.unregisterReceiver(mReceiver);
+            mContext.unregisterReceiver(mCarrierConfigChangedReceiver);
 
             if (mCatService != null) mCatService.dispose();
             for (UiccCardApplication app : mUiccApplications) {
@@ -312,7 +346,12 @@ public class UiccProfile extends IccCard {
             if (isGsm) {
                 mCurrentAppType = UiccController.APP_FAM_3GPP;
             } else {
-                mCurrentAppType = UiccController.APP_FAM_3GPP2;
+                UiccCardApplication newApp = getApplication(UiccController.APP_FAM_3GPP2);
+                if(newApp != null) {
+                    mCurrentAppType = UiccController.APP_FAM_3GPP2;
+                } else {
+                    mCurrentAppType = UiccController.APP_FAM_3GPP;
+                }
             }
         }
     }
@@ -342,8 +381,8 @@ public class UiccProfile extends IccCard {
         String ccName = config.getString(CarrierConfigManager.KEY_CARRIER_NAME_STRING);
 
         String newCarrierName = null;
-        String currSpn = getServiceProviderName();
-        int nameSource = SubscriptionManager.NAME_SOURCE_SIM_SOURCE;
+        String currSpn = getServiceProviderName();  // Get the name from EF_SPN.
+        int nameSource = SubscriptionManager.NAME_SOURCE_SIM_SPN;
         // If carrier config is priority, use it regardless - the preference
         // and the name were both set by the carrier, so this is safe;
         // otherwise, if the SPN is priority but we don't have one *and* we have
@@ -352,10 +391,18 @@ public class UiccProfile extends IccCard {
             newCarrierName = ccName;
             nameSource = SubscriptionManager.NAME_SOURCE_CARRIER;
         } else if (TextUtils.isEmpty(currSpn)) {
-            // currSpn is empty and could not get name from carrier config; get name from carrier id
+            // currSpn is empty and could not get name from carrier config; get name from PNN or
+            // carrier id
             Phone phone = PhoneFactory.getPhone(mPhoneId);
             if (phone != null) {
-                newCarrierName = phone.getCarrierName();
+                String currPnn = phone.getPlmn();   // Get the name from EF_PNN.
+                if (!TextUtils.isEmpty(currPnn)) {
+                    newCarrierName = currPnn;
+                    nameSource = SubscriptionManager.NAME_SOURCE_SIM_PNN;
+                } else {
+                    newCarrierName = phone.getCarrierName();    // Get the name from carrier id.
+                    nameSource = SubscriptionManager.NAME_SOURCE_CARRIER_ID;
+                }
             }
         }
 
@@ -406,7 +453,7 @@ public class UiccProfile extends IccCard {
             int nameSource) {
         /* update display name with carrier override */
         SubscriptionInfo subInfo = subCon.getActiveSubscriptionInfo(
-                subId, mContext.getOpPackageName());
+                subId, mContext.getOpPackageName(), mContext.getAttributionTag());
 
         if (subInfo == null) {
             return;
@@ -506,8 +553,7 @@ public class UiccProfile extends IccCard {
                 cardLocked = true;
                 lockedState = IccCardConstants.State.PUK_REQUIRED;
             } else if (appState == IccCardApplicationStatus.AppState.APPSTATE_SUBSCRIPTION_PERSO) {
-                if (mUiccApplication.getPersoSubState()
-                        == IccCardApplicationStatus.PersoSubState.PERSOSUBSTATE_SIM_NETWORK) {
+                if (PersoSubState.isPersoLocked(mUiccApplication.getPersoSubState())) {
                     if (VDBG) log("updateExternalState: PERSOSUBSTATE_SIM_NETWORK");
                     cardLocked = true;
                     lockedState = IccCardConstants.State.NETWORK_LOCKED;
@@ -549,6 +595,12 @@ public class UiccProfile extends IccCard {
                  */
                 if (VDBG) {
                     log("updateExternalState: app state is unknown; setting state to NOT_READY");
+                }
+                setExternalState(IccCardConstants.State.NOT_READY);
+                break;
+            case APPSTATE_DETECTED:
+                if (VDBG) {
+                    log("updateExternalState: app state is detected; setting state to NOT_READY");
                 }
                 setExternalState(IccCardConstants.State.NOT_READY);
                 break;
@@ -719,7 +771,8 @@ public class UiccProfile extends IccCard {
             mNetworkLockedRegistrants.add(r);
 
             if (getState() == IccCardConstants.State.NETWORK_LOCKED) {
-                r.notifyRegistrant();
+                r.notifyRegistrant(
+                        new AsyncResult(null, mUiccApplication.getPersoSubState().ordinal(), null));
             }
         }
     }
@@ -802,6 +855,20 @@ public class UiccProfile extends IccCard {
     }
 
     @Override
+    public void supplySimDepersonalization(PersoSubState persoType, String pin, Message onComplete) {
+        synchronized (mLock) {
+            if (mUiccApplication != null) {
+                mUiccApplication.supplySimDepersonalization(persoType, pin, onComplete);
+            } else if (onComplete != null) {
+                Exception e = new RuntimeException("CommandsInterface is not set.");
+                AsyncResult.forMessage(onComplete).exception = e;
+                onComplete.sendToTarget();
+                return;
+            }
+        }
+    }
+
+    @Override
     public boolean getIccLockEnabled() {
         synchronized (mLock) {
             /* defaults to false, if ICC is absent/deactivated */
@@ -839,10 +906,11 @@ public class UiccProfile extends IccCard {
     public boolean isEmptyProfile() {
         // If there's no UiccCardApplication, it's an empty profile.
         // Empty profile is a valid case of eSIM (default boot profile).
-        for (UiccCardApplication app : mUiccApplications) {
-            if (app != null) return false;
-        }
-        return true;
+        // But we clear all apps of mUiccCardApplication to be null during refresh (see
+        // resetAppWithAid) but not mLastReportedNumOfUiccApplications.
+        // So if mLastReportedNumOfUiccApplications == 0, it means modem confirmed that we landed
+        // on empty profile.
+        return mLastReportedNumOfUiccApplications == 0;
     }
 
     @Override
@@ -939,6 +1007,8 @@ public class UiccProfile extends IccCard {
 
             //update applications
             if (DBG) log(ics.mApplications.length + " applications");
+            mLastReportedNumOfUiccApplications = ics.mApplications.length;
+
             for (int i = 0; i < mUiccApplications.length; i++) {
                 if (mUiccApplications[i] == null) {
                     //Create newly added Applications
@@ -1158,10 +1228,13 @@ public class UiccProfile extends IccCard {
         }
     }
 
-    static boolean isPackageInstalled(Context context, String pkgName) {
+    static boolean isPackageBundled(Context context, String pkgName) {
         PackageManager pm = context.getPackageManager();
         try {
-            pm.getPackageInfo(pkgName, PackageManager.GET_ACTIVITIES);
+            // We also match hidden-until-installed apps. The assumption here is that some other
+            // mechanism (like CarrierAppUtils) would automatically enable such an app, so we
+            // shouldn't prompt the user about it.
+            pm.getApplicationInfo(pkgName, PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS);
             if (DBG) log(pkgName + " is installed.");
             return true;
         } catch (PackageManager.NameNotFoundException e) {
@@ -1188,21 +1261,47 @@ public class UiccProfile extends IccCard {
 
         synchronized (mLock) {
             mCarrierPrivilegeRegistrants.notifyRegistrants();
-            boolean isProvisioned = Settings.Global.getInt(
-                    mContext.getContentResolver(),
-                    Settings.Global.DEVICE_PROVISIONED, 1) == 1;
-            // Only show dialog if the phone is through with Setup Wizard.  Otherwise, wait for
-            // completion and show a notification instead
-            if (isProvisioned) {
+            boolean isProvisioned = isProvisioned();
+            boolean isUnlocked = isUserUnlocked();
+            // Only show dialog if the phone is through with Setup Wizard and is unlocked.
+            // Otherwise, wait for completion and unlock and show a notification instead.
+            if (isProvisioned && isUnlocked) {
                 for (String pkgName : getUninstalledCarrierPackages()) {
                     promptInstallCarrierApp(pkgName);
                 }
             } else {
-                final Uri uri = Settings.Global.getUriFor(Settings.Global.DEVICE_PROVISIONED);
-                mContext.getContentResolver().registerContentObserver(
-                        uri,
-                        false,
-                        mProvisionCompleteContentObserver);
+                if (!isProvisioned) {
+                    final Uri uri = Settings.Global.getUriFor(Settings.Global.DEVICE_PROVISIONED);
+                    mContext.getContentResolver().registerContentObserver(
+                            uri,
+                            false,
+                            mProvisionCompleteContentObserver);
+                    mProvisionCompleteContentObserverRegistered = true;
+                }
+                if (!isUnlocked) {
+                    mContext.registerReceiver(
+                            mUserUnlockReceiver, new IntentFilter(Intent.ACTION_USER_UNLOCKED));
+                    mUserUnlockReceiverRegistered = true;
+                }
+            }
+        }
+    }
+
+    private boolean isProvisioned() {
+        return Settings.Global.getInt(
+                mContext.getContentResolver(),
+                Settings.Global.DEVICE_PROVISIONED, 1) == 1;
+    }
+
+    private boolean isUserUnlocked() {
+        return mContext.getSystemService(UserManager.class).isUserUnlocked();
+    }
+
+    private void showCarrierAppNotificationsIfPossible() {
+        if (isProvisioned() && isUserUnlocked()) {
+            for (String pkgName : getUninstalledCarrierPackages()) {
+                InstallCarrierAppUtils.showNotification(mContext, pkgName);
+                InstallCarrierAppUtils.registerPackageInstallReceiver(mContext);
             }
         }
     }
@@ -1226,7 +1325,7 @@ public class UiccProfile extends IccCard {
         for (UiccAccessRule accessRule : accessRules) {
             String certHexString = accessRule.getCertificateHexString().toUpperCase();
             String pkgName = certPackageMap.get(certHexString);
-            if (!TextUtils.isEmpty(pkgName) && !isPackageInstalled(mContext, pkgName)) {
+            if (!TextUtils.isEmpty(pkgName) && !isPackageBundled(mContext, pkgName)) {
                 uninstalledCarrierPackages.add(pkgName);
             }
         }
@@ -1393,8 +1492,8 @@ public class UiccProfile extends IccCard {
      * Exposes {@link CommandsInterface#iccOpenLogicalChannel}
      */
     public void iccOpenLogicalChannel(String aid, int p2, Message response) {
-        loglocal("iccOpenLogicalChannel: " + aid + " , " + p2 + " by pid:" + Binder.getCallingPid()
-                + " uid:" + Binder.getCallingUid());
+        logWithLocalLog("iccOpenLogicalChannel: " + aid + " , " + p2 + " by pid:"
+                + Binder.getCallingPid() + " uid:" + Binder.getCallingUid());
         mCi.iccOpenLogicalChannel(aid, p2,
                 mHandler.obtainMessage(EVENT_OPEN_LOGICAL_CHANNEL_DONE, response));
     }
@@ -1403,7 +1502,7 @@ public class UiccProfile extends IccCard {
      * Exposes {@link CommandsInterface#iccCloseLogicalChannel}
      */
     public void iccCloseLogicalChannel(int channel, Message response) {
-        loglocal("iccCloseLogicalChannel: " + channel);
+        logWithLocalLog("iccCloseLogicalChannel: " + channel);
         mCi.iccCloseLogicalChannel(channel,
                 mHandler.obtainMessage(EVENT_CLOSE_LOGICAL_CHANNEL_DONE, response));
     }
@@ -1567,6 +1666,21 @@ public class UiccProfile extends IccCard {
     }
 
     /**
+     * Make sure the iccid in SIM record matches the current active subId. If not, return false.
+     * When SIM switching in eSIM is happening, there are rare cases that setOperatorBrandOverride
+     * is called on old subId while new iccid is already loaded on SIM record. For those cases
+     * setOperatorBrandOverride would apply to the wrong (new) iccid. This check is to avoid it.
+     */
+    private boolean checkSubIdAndIccIdMatch(String iccid) {
+        if (TextUtils.isEmpty(iccid)) return false;
+        SubscriptionInfo subInfo = SubscriptionController.getInstance()
+                .getActiveSubscriptionInfoForSimSlotIndex(
+                        getPhoneId(), mContext.getOpPackageName(), null);
+        return subInfo != null && IccUtils.stripTrailingFs(subInfo.getIccId()).equals(
+                IccUtils.stripTrailingFs(iccid));
+    }
+
+    /**
      * Sets the overridden operator brand.
      */
     public boolean setOperatorBrandOverride(String brand) {
@@ -1575,6 +1689,10 @@ public class UiccProfile extends IccCard {
 
         String iccId = getIccId();
         if (TextUtils.isEmpty(iccId)) {
+            return false;
+        }
+        if (!checkSubIdAndIccIdMatch(iccId)) {
+            loge("iccId doesn't match current active subId.");
             return false;
         }
 
@@ -1618,6 +1736,26 @@ public class UiccProfile extends IccCard {
         return null;
     }
 
+    private static String eventToString(int event) {
+        switch (event) {
+            case EVENT_RADIO_OFF_OR_UNAVAILABLE: return "RADIO_OFF_OR_UNAVAILABLE";
+            case EVENT_ICC_LOCKED: return "ICC_LOCKED";
+            case EVENT_APP_READY: return "APP_READY";
+            case EVENT_RECORDS_LOADED: return "RECORDS_LOADED";
+            case EVENT_NETWORK_LOCKED: return "NETWORK_LOCKED";
+            case EVENT_EID_READY: return "EID_READY";
+            case EVENT_ICC_RECORD_EVENTS: return "ICC_RECORD_EVENTS";
+            case EVENT_OPEN_LOGICAL_CHANNEL_DONE: return "OPEN_LOGICAL_CHANNEL_DONE";
+            case EVENT_CLOSE_LOGICAL_CHANNEL_DONE: return "CLOSE_LOGICAL_CHANNEL_DONE";
+            case EVENT_TRANSMIT_APDU_LOGICAL_CHANNEL_DONE: return "TRANSMIT_APDU_LOGICAL_CHANNEL_DONE";
+            case EVENT_TRANSMIT_APDU_BASIC_CHANNEL_DONE: return "TRANSMIT_APDU_BASIC_CHANNEL_DONE";
+            case EVENT_SIM_IO_DONE: return "SIM_IO_DONE";
+            case EVENT_CARRIER_PRIVILEGES_LOADED: return "CARRIER_PRIVILEGES_LOADED";
+            case EVENT_CARRIER_CONFIG_CHANGED: return "CARRIER_CONFIG_CHANGED";
+            default: return "UNKNOWN(" + event + ")";
+        }
+    }
+
     private static void log(String msg) {
         Rlog.d(LOG_TAG, msg);
     }
@@ -1626,8 +1764,9 @@ public class UiccProfile extends IccCard {
         Rlog.e(LOG_TAG, msg);
     }
 
-    private void loglocal(String msg) {
-        if (DBG) UiccController.sLocalLog.log("UiccProfile[" + mPhoneId + "]: " + msg);
+    private void logWithLocalLog(String msg) {
+        Rlog.d(LOG_TAG, msg);
+        if (DBG) UiccController.addLocalLog("UiccProfile[" + mPhoneId + "]: " + msg);
     }
 
     /**

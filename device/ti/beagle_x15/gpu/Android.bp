@@ -1,0 +1,151 @@
+// Copyright 2018 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+// Core dependencies
+
+cc_prebuilt_library_shared {
+    name: "libIMGegl",
+    srcs: ["libIMGegl.so"],
+    shared_libs: ["libc", "libhardware", "libsrv_um"],
+    required: ["libpvrANDROID_WSEGL"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libglslcompiler",
+    srcs: ["libglslcompiler.so"],
+    shared_libs: ["libc", "libm", "libsrv_um", "libusc"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libpvr2d",
+    srcs: ["libpvr2d.so"],
+    shared_libs: ["libc", "libsrv_um"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libpvrANDROID_WSEGL",
+    srcs: ["libpvrANDROID_WSEGL.so"],
+    shared_libs: ["libc", "libcutils", "libhardware", "libsrv_um", "libsync"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libsrv_init",
+    srcs: ["libsrv_init.so"],
+    shared_libs: ["libc", "libsrv_um"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libsrv_um",
+    srcs: ["libsrv_um.so"],
+    shared_libs: ["libc", "libdl", "libhardware", "liblog"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libusc",
+    srcs: ["libusc.so"],
+    shared_libs: ["libc"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+// Pulled in as-needed
+
+cc_prebuilt_library_shared {
+    name: "gralloc.am57x",
+    srcs: ["gralloc.am57x.so"],
+    shared_libs: ["libc", "libcutils", "libdl", "libdrm_omap", "liblog", "libpvr2d", "libsrv_um", "libsync"],
+    relative_install_path: "hw",
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libEGL_POWERVR_SGX544_116",
+    srcs: ["libEGL_POWERVR_SGX544_116.so"],
+    shared_libs: ["libIMGegl", "libc"],
+    relative_install_path: "egl",
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libGLESv1_CM_POWERVR_SGX544_116",
+    srcs: ["libGLESv1_CM_POWERVR_SGX544_116.so"],
+    shared_libs: ["libIMGegl", "libc", "libm", "libsrv_um", "libusc"],
+    relative_install_path: "egl",
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libGLESv2_POWERVR_SGX544_116",
+    srcs: ["libGLESv2_POWERVR_SGX544_116.so"],
+    shared_libs: ["libIMGegl", "libc", "libm", "libsrv_um"],
+    required: ["libglslcompiler"],
+    relative_install_path: "egl",
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_library_shared {
+    name: "libPVRScopeServices",
+    srcs: ["libPVRScopeServices.so"],
+    shared_libs: ["libc++", "libc", "libsrv_um"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE, _Znaj, _Znwj
+}
+
+cc_prebuilt_library_shared {
+    name: "memtrack.am57x",
+    srcs: ["memtrack.am57x.so"],
+    shared_libs: ["libc", "libhardware", "libm", "libsrv_um"],
+    relative_install_path: "hw",
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}
+
+cc_prebuilt_binary {
+    name: "pvrsrvctl",
+    srcs: ["pvrsrvctl"],
+    shared_libs: ["libc", "libsrv_init", "libsrv_um"],
+    strip: { none: true, },
+    vendor: true,
+    allow_undefined_symbols: true,  // LIBC_PRIVATE
+}

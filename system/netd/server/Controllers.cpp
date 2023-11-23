@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cinttypes>
 #include <regex>
 #include <set>
 #include <string>
@@ -239,39 +240,39 @@ void Controllers::initChildChains() {
 void Controllers::initIptablesRules() {
     Stopwatch s;
     initChildChains();
-    gLog.info("Creating child chains: %.1fms", s.getTimeAndReset());
+    gLog.info("Creating child chains: %" PRId64 "us", s.getTimeAndResetUs());
 
     // Let each module setup their child chains
     setupOemIptablesHook();
-    gLog.info("Setting up OEM hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up OEM hooks: %" PRId64 "us", s.getTimeAndResetUs());
 
     /* When enabled, DROPs all packets except those matching rules. */
     firewallCtrl.setupIptablesHooks();
-    gLog.info("Setting up FirewallController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up FirewallController hooks: %" PRId64 "us", s.getTimeAndResetUs());
 
     /* Does DROPs in FORWARD by default */
     tetherCtrl.setupIptablesHooks();
-    gLog.info("Setting up TetherController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up TetherController hooks: %" PRId64 "us", s.getTimeAndResetUs());
 
     /*
      * Does REJECT in INPUT, OUTPUT. Does counting also.
      * No DROP/REJECT allowed later in netfilter-flow hook order.
      */
     bandwidthCtrl.setupIptablesHooks();
-    gLog.info("Setting up BandwidthController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up BandwidthController hooks: %" PRId64 "us", s.getTimeAndResetUs());
 
     /*
      * Counts in nat: PREROUTING, POSTROUTING.
      * No DROP/REJECT allowed later in netfilter-flow hook order.
      */
     idletimerCtrl.setupIptablesHooks();
-    gLog.info("Setting up IdletimerController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up IdletimerController hooks: %" PRId64 "us", s.getTimeAndResetUs());
 
     /*
      * Add rules for detecting IPv6/IPv4 TCP/UDP connections with TLS/DTLS header
      */
     strictCtrl.setupIptablesHooks();
-    gLog.info("Setting up StrictController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up StrictController hooks: %" PRId64 "us", s.getTimeAndResetUs());
 }
 
 void Controllers::init() {
@@ -279,28 +280,28 @@ void Controllers::init() {
     Stopwatch s;
 
     clatdCtrl.init();
-    gLog.info("Initializing ClatdController: %.1fms", s.getTimeAndReset());
+    gLog.info("Initializing ClatdController: %" PRId64 "us", s.getTimeAndResetUs());
 
     netdutils::Status tcStatus = trafficCtrl.start();
     if (!isOk(tcStatus)) {
         gLog.error("Failed to start trafficcontroller: (%s)", toString(tcStatus).c_str());
     }
-    gLog.info("Initializing traffic control: %.1fms", s.getTimeAndReset());
+    gLog.info("Initializing traffic control: %" PRId64 "us", s.getTimeAndResetUs());
 
-    bandwidthCtrl.setBpfEnabled(trafficCtrl.getBpfLevel() != android::bpf::BpfLevel::NONE);
+    bandwidthCtrl.setBpfEnabled(trafficCtrl.getBpfEnabled());
     bandwidthCtrl.enableBandwidthControl();
-    gLog.info("Enabling bandwidth control: %.1fms", s.getTimeAndReset());
+    gLog.info("Enabling bandwidth control: %" PRId64 "us", s.getTimeAndResetUs());
 
     if (int ret = RouteController::Init(NetworkController::LOCAL_NET_ID)) {
         gLog.error("Failed to initialize RouteController (%s)", strerror(-ret));
     }
-    gLog.info("Initializing RouteController: %.1fms", s.getTimeAndReset());
+    gLog.info("Initializing RouteController: %" PRId64 "us", s.getTimeAndResetUs());
 
     netdutils::Status xStatus = XfrmController::Init();
     if (!isOk(xStatus)) {
         gLog.error("Failed to initialize XfrmController (%s)", netdutils::toString(xStatus).c_str());
     };
-    gLog.info("Initializing XfrmController: %.1fms", s.getTimeAndReset());
+    gLog.info("Initializing XfrmController: %" PRId64 "us", s.getTimeAndResetUs());
 }
 
 Controllers* gCtls = nullptr;

@@ -34,7 +34,7 @@
 
 package java.util.concurrent;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class CopyOnWriteArrayList<E>

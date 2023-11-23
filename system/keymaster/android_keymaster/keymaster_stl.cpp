@@ -15,7 +15,7 @@
 ** limitations under the License.
 */
 
-#include <keymaster/new>
+#include <keymaster/new.h>
 #include <stdlib.h>
 
 namespace std {

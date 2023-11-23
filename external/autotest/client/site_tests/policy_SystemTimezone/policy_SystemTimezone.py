@@ -6,6 +6,9 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
+import logging
+import time
+
 
 class policy_SystemTimezone(
         enterprise_policy_base.EnterprisePolicyTest):
@@ -19,39 +22,42 @@ class policy_SystemTimezone(
     version = 1
     POLICY_NAME = 'SystemTimezone'
 
-    JS_WRAPPER = "document.querySelector('{ID}'){action}"
-    DROPDOWN_MENU = "* /deep/ #timezoneSelector /deep/ #userTimeZoneSelector /deep/ #dropdownMenu"
-
-    def change_timezone(self, settings_tab, selection):
+    def _navigate_chromeos_settings_to_timezone(self):
         """
-        Change the timezone via the dropdown menu on the settings page.
-
-        @param settings_tab: The tab object for the settings page.
-        @param selection: int, index of item in DROPDOWN_MENU to change to.
+        Will navigate the ChromeOS Settings (New as of R79) to the 'Time zone'
+        page.
 
         """
-        SELECT_INDEX = ".selectedIndex = '{n}'"
+        self.ui.click_and_wait_for_item_with_retries('/tray/', 'Settings', True)
+        self.ui.click_and_wait_for_item_with_retries('Settings', 'Advanced')
+        self.ui.click_and_wait_for_item_with_retries('Advanced',
+                                                     'Date and time')
+        self.ui.click_and_wait_for_item_with_retries('Date and time',
+                                                     'Time zone')
+        self.ui.click_and_wait_for_item_with_retries('Time zone',
+                                                     'Choose from list',
+                                                     click_role='link')
 
-        selected_index = SELECT_INDEX.format(n=selection)
-        change_timezone = self.JS_WRAPPER.format(ID=self.DROPDOWN_MENU,
-                                                 action=selected_index)
-        settings_tab.ExecuteJavaScript(change_timezone)
-        settings_tab.WaitForDocumentReadyStateToBeComplete()
-        self._dispatch_event(settings_tab)
-
-    def _dispatch_event(self, settings_tab):
+    def _is_timezone_selectable(self):
         """
-        Confirms the dropdown select by running a JS dispatchEvent().
+        Check if the timezone is selectable via the UI. If the timezone
+        dropdown is greyed out, then it is not selectable.
 
-        @param settings_tab: The tab object for the settings page.
+        @returns: True if dropdown is usable, False if not.
 
         """
-        new_event = "var event = new Event('change');"
-        dispatch = ".dispatchEvent(event);"
-        settings_tab.ExecuteJavaScript(new_event)
-        settings_tab.ExecuteJavaScript(
-            self.JS_WRAPPER.format(ID=self.DROPDOWN_MENU,
-                                   action=dispatch))
+        self._navigate_chromeos_settings_to_timezone()
+        self.ui.doDefault_on_obj('Choose from list')
+
+        # Give the dropdown a second to load (there is no object to wait on).
+        time.sleep(2)
+        return not self.ui.is_obj_restricted('Time zone', role='popUpButton')
+
+    def _set_timezone(self):
+        """Sets the timezone to the first option in the list."""
+        self.ui.doDefault_on_obj('/(UTC-10:00)/',
+                                 isRegex=True,
+                                 role='menuListOption')
 
     def _test_timezone(self, expected):
         """
@@ -62,13 +68,15 @@ class policy_SystemTimezone(
 
         """
         def check_timezone(expected):
-            return utils.system_output('date +%z') == expected
+            result = utils.system_output('date +%z')
+            logging.info('date result {}'.format(result))
+            return result == expected
 
         utils.poll_for_condition(
             lambda: check_timezone(expected),
             exception=error.TestFail('Time zone was not set! Expected {}'
                                      .format(expected)),
-            timeout=5,
+            timeout=30,
             sleep_interval=1,
             desc='Polling for timezone change')
 
@@ -81,54 +89,44 @@ class policy_SystemTimezone(
         luck.
 
         """
-        cases = [{'policy': 'America/Costa_Rica', 'expected': '-0600'},
-                 {'policy': 'Asia/Kathmandu', 'expected': '+0545'}]
+        case = {'policy': 'Asia/Kathmandu', 'expected': '+0545'}
 
-        for setting in cases:
-            policy_value = setting['policy']
-            expected = setting['expected']
-            policies = {self.POLICY_NAME: policy_value}
-            self.setup_case(device_policies=policies, enroll=True)
+        policy_value = case['policy']
+        expected = case['expected']
+        policies = {self.POLICY_NAME: policy_value}
+        self.setup_case(device_policies=policies, enroll=True)
+        self.ui.start_ui_root(self.cr)
+        # Logout so the policy can take effect
+        if self._is_timezone_selectable():
+            raise error.TestError(
+                'Timezone is selectable when the policy is set')
+        self.log_out_via_keyboard()
+        self._test_timezone(expected)
 
-            # Logout so the policy can take effect
-            self.log_out_via_keyboard()
-
-            self._test_timezone(expected)
 
     def set_empty_timezone(self):
         """
-        Manually set and verify the timezone when the policy is empty.
+        Set and verify the timezone when the policy is empty.
 
         This will be done by adjusting the setting on the ://settings page,
         and verfying the date reported. Additionally log out, then verify the
         timezone matches as well.
 
         """
-        SETTINGS_URL = "chrome://settings/dateTime/timeZone"
-        CLICK = ".click()"
-        USER_TIMEZONE_BUTTON = "* /deep/ #timeZoneAutoDetectOff"
-        autodetect_disable = self.JS_WRAPPER.format(ID=USER_TIMEZONE_BUTTON,
-                                                    action=CLICK)
 
         policies = {self.POLICY_NAME: ''}
         self.setup_case(device_policies=policies, enroll=True)
+        self.ui.start_ui_root(self.cr)
 
-        # Open the Timezone settings page
-        settings_tab = self.navigate_to_url(SETTINGS_URL)
-        settings_tab.WaitForDocumentReadyStateToBeComplete()
+        # Check if the Timezone is changable in the settings.
+        if not self._is_timezone_selectable():
+            raise error.TestError('User cannot change timezone')
+        self._set_timezone()
 
-        # Select the manual timezone settings radio button
-        settings_tab.ExecuteJavaScript(autodetect_disable)
-        settings_tab.WaitForDocumentReadyStateToBeComplete()
+        self._test_timezone('-1000')
 
-        # Change the timezone to the first index on the list
-        self.change_timezone(settings_tab, 0)
-        self._test_timezone('-1100')
-
-        # Close the tab, then logout
-        settings_tab.Close()
         self.log_out_via_keyboard()
-        self._test_timezone('-1100')
+        self._test_timezone('-1000')
 
     def run_once(self, case):
         """

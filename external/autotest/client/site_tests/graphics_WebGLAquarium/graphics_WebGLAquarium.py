@@ -27,6 +27,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.common_lib.cros import memory_eater
 from autotest_lib.client.cros.graphics import graphics_utils
+from autotest_lib.client.cros import perf
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.power import power_rapl, power_status, power_utils
 
@@ -460,28 +461,41 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
         """
         self.test_duration_secs = test_duration_secs
         self.test_setting_num_fishes = test_setting_num_fishes
+        pc_error_reason = None
 
         with chrome.Chrome(logged_in=False, init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.srcdir)
             test_url = cr.browser.platform.http_server.UrlOf(
                 os.path.join(self.srcdir, 'aquarium.html'))
 
-            if not utils.wait_for_idle_cpu(60.0, 0.1):
-                if not utils.wait_for_idle_cpu(20.0, 0.2):
-                    raise error.TestFail('Failed: Could not get idle CPU.')
-            if not utils.wait_for_cool_machine():
-               raise error.TestFail('Failed: Could not get cold machine.')
-            if memory_pressure:
-                self.run_fish_test_with_memory_pressure(
-                    cr.browser, test_url, num_fishes=1000,
-                    memory_pressure=memory_pressure)
-                self.tear_down_webpage()
-            elif power_test:
-                self._test_power = True
-                self.run_power_test(cr.browser, test_url, ac_ok)
-                self.tear_down_webpage()
-            else:
-                for n in self.test_setting_num_fishes:
-                    self.run_fish_test(cr.browser, test_url, n)
+            utils.report_temperature(self, 'temperature_1_start')
+            # Wrap the test run inside of a PerfControl instance to make machine
+            # behavior more consistent.
+            with perf.PerfControl() as pc:
+                if not pc.verify_is_valid():
+                    raise error.TestFail('Failed: %s' % pc.get_error_reason())
+                utils.report_temperature(self, 'temperature_2_before_test')
+
+                if memory_pressure:
+                    self.run_fish_test_with_memory_pressure(
+                        cr.browser, test_url, num_fishes=1000,
+                        memory_pressure=memory_pressure)
                     self.tear_down_webpage()
+                elif power_test:
+                    self._test_power = True
+                    self.run_power_test(cr.browser, test_url, ac_ok)
+                    self.tear_down_webpage()
+                else:
+                    for n in self.test_setting_num_fishes:
+                        self.run_fish_test(cr.browser, test_url, n)
+                        self.tear_down_webpage()
+
+                if not pc.verify_is_valid():
+                    # Defer error handling until after perf report.
+                    pc_error_reason = pc.get_error_reason()
+
+        utils.report_temperature(self, 'temperature_3_after_test')
         self.write_perf_keyval(self.perf_keyval)
+
+        if pc_error_reason:
+            raise error.TestWarn('Warning: %s' % pc_error_reason)

@@ -16,22 +16,35 @@
 
 package android.systemui.cts;
 
+import static android.provider.DeviceConfig.NAMESPACE_ANDROID;
+import static android.provider.AndroidDeviceConfig.KEY_SYSTEM_GESTURE_EXCLUSION_LIMIT_DP;
+import static android.view.View.SYSTEM_UI_CLEARABLE_FLAGS;
+import static android.view.View.SYSTEM_UI_FLAG_FULLSCREEN;
+import static android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+import static android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+import static android.view.View.SYSTEM_UI_FLAG_VISIBLE;
+
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.TestCase.fail;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.Insets;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
+import android.provider.DeviceConfig;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
@@ -40,11 +53,18 @@ import android.support.test.uiautomator.Until;
 import android.util.ArrayMap;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.ThrowingRunnable;
+
+import com.google.common.collect.Lists;
 
 import org.junit.After;
 import org.junit.Before;
@@ -53,12 +73,12 @@ import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 @RunWith(AndroidJUnit4.class)
 public class WindowInsetsBehaviorTests {
@@ -66,14 +86,23 @@ public class WindowInsetsBehaviorTests {
             "/sdcard/WindowInsetsBehaviorTests";
     private static final String SETTINGS_PACKAGE_NAME = "com.android.settings";
     private static final String ARGUMENT_KEY_FORCE_ENABLE = "force_enable_gesture_navigation";
+    private static final String NAV_BAR_INTERACTION_MODE_RES_NAME = "config_navBarInteractionMode";
     private static final int STEPS = 10;
-    private static final int DIP_INTERVAL = 40;
+
+    // The minimum value of the system gesture exclusion limit is 200 dp. The value here should be
+    // greater than that, so that we can test if the limit can be changed by DeviceConfig or not.
+    private static final int EXCLUSION_LIMIT_DP = 210;
+
+    private static final int NAV_BAR_INTERACTION_MODE_GESTURAL = 2;
 
     private final boolean mForceEnableGestureNavigation;
     private final Map<String, Boolean> mSystemGestureOptionsMap;
     private float mPixelsPerDp;
+    private float mDensityPerCm;
+    private int mDisplayWidth;
+    private int mExclusionLimit;
     private UiDevice mDevice;
-    private Rect mDragBound;
+    private Rect mSwipeBound;
     private String mEdgeToEdgeNavigationTitle;
     private String mSystemNavigationTitle;
     private String mGesturePreferenceTitle;
@@ -257,6 +286,9 @@ public class WindowInsetsBehaviorTests {
         final DisplayMetrics metrics = new DisplayMetrics();
         display.getRealMetrics(metrics);
         mPixelsPerDp = metrics.density;
+        mDensityPerCm = (int) ((float) metrics.densityDpi / 2.54);
+        mDisplayWidth = metrics.widthPixels;
+        mExclusionLimit = (int) (EXCLUSION_LIMIT_DP * mPixelsPerDp);
 
         // To setup the Edge to Edge environment by do the operation on Settings
         boolean isOperatedSettingsToExpectedOption = launchToSettingsSystemGesture();
@@ -284,7 +316,7 @@ public class WindowInsetsBehaviorTests {
         mActivity.setInitialFinishCallBack(isFinish -> latch.countDown());
         mDevice.waitForIdle();
 
-        latch.await(5, TimeUnit.SECONDS);
+        latch.await(5, SECONDS);
     }
 
     /**
@@ -311,8 +343,8 @@ public class WindowInsetsBehaviorTests {
     }
 
 
-    private void dragByUiDevice(Point p1, Point p2) {
-        mDevice.drag(p1.x, p1.y, p2.x, p2.y, STEPS);
+    private void swipeByUiDevice(Point p1, Point p2) {
+        mDevice.swipe(p1.x, p1.y, p2.x, p2.y, STEPS);
     }
 
     private void clickAndWaitByUiDevice(Point p) {
@@ -327,7 +359,7 @@ public class WindowInsetsBehaviorTests {
 
         /* wait until the OnClickListener triggered, and then click the next point */
         try {
-            latch.await(5, TimeUnit.SECONDS);
+            latch.await(5, SECONDS);
         } catch (InterruptedException e) {
             fail("Wait too long and onClickEvent doesn't receive");
         }
@@ -337,7 +369,7 @@ public class WindowInsetsBehaviorTests {
         }
     }
 
-    private int dragBigX(Rect viewBoundary, BiConsumer<Point, Point> callback) {
+    private int swipeBigX(Rect viewBoundary, BiConsumer<Point, Point> callback) {
         final int theLeftestLine = viewBoundary.left + 1;
         final int theToppestLine = viewBoundary.top + 1;
         final int theRightestLine = viewBoundary.right - 1;
@@ -362,7 +394,7 @@ public class WindowInsetsBehaviorTests {
             Consumer<Point> callback) {
         final int theLeftestLine = viewBoundary.left + 1;
         final int theRightestLine = viewBoundary.right - 1;
-        final float interval = mPixelsPerDp * DIP_INTERVAL;
+        final float interval = mDensityPerCm;
 
         int count = 0;
         for (int i = theLeftestLine; i < theRightestLine; i += interval) {
@@ -385,7 +417,7 @@ public class WindowInsetsBehaviorTests {
     private int clickAllOfSamplePoints(Rect viewBoundary, Consumer<Point> callback) {
         final int theToppestLine = viewBoundary.top + 1;
         final int theBottomestLine = viewBoundary.bottom - 1;
-        final float interval = mPixelsPerDp * DIP_INTERVAL;
+        final float interval = mDensityPerCm;
         int count = 0;
         for (int i = theToppestLine; i < theBottomestLine; i += interval) {
             count += clickAllOfHorizontalSamplePoints(viewBoundary, i, callback);
@@ -395,7 +427,7 @@ public class WindowInsetsBehaviorTests {
         return count;
     }
 
-    private int dragAllOfHorizontalLinesFromLeftToRight(Rect viewBoundary,
+    private int swipeAllOfHorizontalLinesFromLeftToRight(Rect viewBoundary,
             BiConsumer<Point, Point> callback) {
         final int theLeftestLine = viewBoundary.left + 1;
         final int theToppestLine = viewBoundary.top + 1;
@@ -403,7 +435,7 @@ public class WindowInsetsBehaviorTests {
 
         int count = 0;
 
-        for (int i = theToppestLine; i < theBottomestLine; i += mPixelsPerDp * DIP_INTERVAL) {
+        for (int i = theToppestLine; i < theBottomestLine; i += mDensityPerCm) {
             if (callback != null) {
                 callback.accept(new Point(theLeftestLine, i),
                         new Point(viewBoundary.centerX(), i));
@@ -421,14 +453,14 @@ public class WindowInsetsBehaviorTests {
         return count;
     }
 
-    private int dragAllOfHorizontalLinesFromRightToLeft(Rect viewBoundary,
+    private int swipeAllOfHorizontalLinesFromRightToLeft(Rect viewBoundary,
             BiConsumer<Point, Point> callback) {
         final int theToppestLine = viewBoundary.top + 1;
         final int theRightestLine = viewBoundary.right - 1;
         final int theBottomestLine = viewBoundary.bottom - 1;
 
         int count = 0;
-        for (int i = theToppestLine; i < theBottomestLine; i += mPixelsPerDp * DIP_INTERVAL) {
+        for (int i = theToppestLine; i < theBottomestLine; i += mDensityPerCm) {
             if (callback != null) {
                 callback.accept(new Point(theRightestLine, i),
                         new Point(viewBoundary.centerX(), i));
@@ -446,23 +478,23 @@ public class WindowInsetsBehaviorTests {
         return count;
     }
 
-    private int dragAllOfHorizontalLines(Rect viewBoundary, BiConsumer<Point, Point> callback) {
+    private int swipeAllOfHorizontalLines(Rect viewBoundary, BiConsumer<Point, Point> callback) {
         int count = 0;
 
-        count += dragAllOfHorizontalLinesFromLeftToRight(viewBoundary, callback);
-        count += dragAllOfHorizontalLinesFromRightToLeft(viewBoundary, callback);
+        count += swipeAllOfHorizontalLinesFromLeftToRight(viewBoundary, callback);
+        count += swipeAllOfHorizontalLinesFromRightToLeft(viewBoundary, callback);
 
         return count;
     }
 
-    private int dragAllOfVerticalLinesFromTopToBottom(Rect viewBoundary,
+    private int swipeAllOfVerticalLinesFromTopToBottom(Rect viewBoundary,
             BiConsumer<Point, Point> callback) {
         final int theLeftestLine = viewBoundary.left + 1;
         final int theToppestLine = viewBoundary.top + 1;
         final int theRightestLine = viewBoundary.right - 1;
 
         int count = 0;
-        for (int i = theLeftestLine; i < theRightestLine; i += mPixelsPerDp * DIP_INTERVAL) {
+        for (int i = theLeftestLine; i < theRightestLine; i += mDensityPerCm) {
             if (callback != null) {
                 callback.accept(new Point(i, theToppestLine),
                         new Point(i, viewBoundary.centerY()));
@@ -480,14 +512,14 @@ public class WindowInsetsBehaviorTests {
         return count;
     }
 
-    private int dragAllOfVerticalLinesFromBottomToTop(Rect viewBoundary,
+    private int swipeAllOfVerticalLinesFromBottomToTop(Rect viewBoundary,
             BiConsumer<Point, Point> callback) {
         final int theLeftestLine = viewBoundary.left + 1;
         final int theRightestLine = viewBoundary.right - 1;
         final int theBottomestLine = viewBoundary.bottom - 1;
 
         int count = 0;
-        for (int i = theLeftestLine; i < theRightestLine; i += mPixelsPerDp * DIP_INTERVAL) {
+        for (int i = theLeftestLine; i < theRightestLine; i += mDensityPerCm) {
             if (callback != null) {
                 callback.accept(new Point(i, theBottomestLine),
                         new Point(i, viewBoundary.centerY()));
@@ -505,40 +537,71 @@ public class WindowInsetsBehaviorTests {
         return count;
     }
 
-    private int dragAllOfVerticalLines(Rect viewBoundary, BiConsumer<Point, Point> callback) {
+    private int swipeAllOfVerticalLines(Rect viewBoundary, BiConsumer<Point, Point> callback) {
         int count = 0;
 
-        count += dragAllOfVerticalLinesFromTopToBottom(viewBoundary, callback);
-        count += dragAllOfVerticalLinesFromBottomToTop(viewBoundary, callback);
+        count += swipeAllOfVerticalLinesFromTopToBottom(viewBoundary, callback);
+        count += swipeAllOfVerticalLinesFromBottomToTop(viewBoundary, callback);
 
         return count;
     }
 
-    private int dragInViewBoundary(Rect viewBoundary, BiConsumer<Point, Point> callback) {
+    private int swipeInViewBoundary(Rect viewBoundary, BiConsumer<Point, Point> callback) {
         int count = 0;
 
-        count += dragBigX(viewBoundary, callback);
-        count += dragAllOfHorizontalLines(viewBoundary, callback);
-        count += dragAllOfVerticalLines(viewBoundary, callback);
+        count += swipeBigX(viewBoundary, callback);
+        count += swipeAllOfHorizontalLines(viewBoundary, callback);
+        count += swipeAllOfVerticalLines(viewBoundary, callback);
 
         return count;
     }
 
-    private int dragInViewBoundary(Rect viewBoundary) {
-        return dragInViewBoundary(viewBoundary, this::dragByUiDevice);
+    private int swipeInViewBoundary(Rect viewBoundary) {
+        return swipeInViewBoundary(viewBoundary, this::swipeByUiDevice);
+    }
+
+    private List<Rect> splitBoundsAccordingToExclusionLimit(Rect rect) {
+        final int exclusionHeightLimit = (int) (getPropertyOfMaxExclusionHeight() * mPixelsPerDp
+                + 0.5f);
+
+        final List<Rect> bounds = new ArrayList<>();
+        if (rect.height() < exclusionHeightLimit) {
+            bounds.add(rect);
+            return bounds;
+        }
+
+        int nextTop = rect.top;
+        while (nextTop >= rect.bottom) {
+            final int top = nextTop;
+            int bottom = top + exclusionHeightLimit;
+            if (bottom > rect.bottom) {
+                bottom = rect.bottom;
+            }
+
+            bounds.add(new Rect(rect.left, top, rect.right, bottom));
+
+            nextTop += bottom;
+        }
+
+        return bounds;
     }
 
     @Test
-    public void mandatorySystemGesture_excludeViewRects_withoutAnyCancel() {
+    public void mandatorySystemGesture_excludeViewRects_withoutAnyCancel()
+            throws InterruptedException {
         assumeTrue(hasSystemGestureFeature());
 
-        mainThreadRun(() -> mActivity.setSystemGestureExclusion(true));
         mainThreadRun(() -> mContentViewWindowInsets = mActivity.getDecorViewWindowInsets());
-        mainThreadRun(() -> mDragBound = mActivity.getOperationArea(
+        mainThreadRun(() -> mSwipeBound = mActivity.getOperationArea(
                 mContentViewWindowInsets.getMandatorySystemGestureInsets(),
                 mContentViewWindowInsets));
 
-        int dragCount = dragInViewBoundary(mDragBound);
+        final List<Rect> swipeBounds = splitBoundsAccordingToExclusionLimit(mSwipeBound);
+        int swipeCount = 0;
+        for (Rect swipeBound : swipeBounds) {
+            setAndWaitForSystemGestureExclusionRectsListenerTrigger(swipeBound);
+            swipeCount += swipeInViewBoundary(swipeBound);
+        }
 
         mainThreadRun(() -> {
             mActionDownPoints = mActivity.getActionDownPoints();
@@ -548,20 +611,24 @@ public class WindowInsetsBehaviorTests {
         mScreenshotTestRule.capture();
 
         assertEquals(0, mActionCancelPoints.size());
-        assertEquals(dragCount, mActionUpPoints.size());
-        assertEquals(dragCount, mActionDownPoints.size());
+        assertEquals(swipeCount, mActionUpPoints.size());
+        assertEquals(swipeCount, mActionDownPoints.size());
     }
 
     @Test
     public void systemGesture_notExcludeViewRects_withoutAnyCancel() {
         assumeTrue(hasSystemGestureFeature());
 
-        mainThreadRun(() -> mActivity.setSystemGestureExclusion(false));
+        mainThreadRun(() -> mActivity.setSystemGestureExclusion(null));
         mainThreadRun(() -> mContentViewWindowInsets = mActivity.getDecorViewWindowInsets());
-        mainThreadRun(() -> mDragBound = mActivity.getOperationArea(
+        mainThreadRun(() -> mSwipeBound = mActivity.getOperationArea(
                 mContentViewWindowInsets.getSystemGestureInsets(), mContentViewWindowInsets));
 
-        int dragCount = dragInViewBoundary(mDragBound);
+        final List<Rect> swipeBounds = splitBoundsAccordingToExclusionLimit(mSwipeBound);
+        int swipeCount = 0;
+        for (Rect swipeBound : swipeBounds) {
+            swipeCount += swipeInViewBoundary(swipeBound);
+        }
 
         mainThreadRun(() -> {
             mActionDownPoints = mActivity.getActionDownPoints();
@@ -571,20 +638,23 @@ public class WindowInsetsBehaviorTests {
         mScreenshotTestRule.capture();
 
         assertEquals(0, mActionCancelPoints.size());
-        assertEquals(dragCount, mActionUpPoints.size());
-        assertEquals(dragCount, mActionDownPoints.size());
+        assertEquals(swipeCount, mActionUpPoints.size());
+        assertEquals(swipeCount, mActionDownPoints.size());
     }
 
     @Test
-    public void tappableElements_tapSamplePoints_excludeViewRects_withoutAnyCancel() {
+    public void tappableElements_tapSamplePoints_excludeViewRects_withoutAnyCancel()
+            throws InterruptedException {
         assumeTrue(hasSystemGestureFeature());
 
-        mainThreadRun(() -> mActivity.setSystemGestureExclusion(true));
+        final Rect[] rects = new Rect[1];
+        mainThreadRun(() -> rects[0] = mActivity.getViewBound(mActivity.getContentView()));
+        setAndWaitForSystemGestureExclusionRectsListenerTrigger(rects[0]);
         mainThreadRun(() -> mContentViewWindowInsets = mActivity.getDecorViewWindowInsets());
-        mainThreadRun(() -> mDragBound = mActivity.getOperationArea(
+        mainThreadRun(() -> mSwipeBound = mActivity.getOperationArea(
                 mContentViewWindowInsets.getTappableElementInsets(), mContentViewWindowInsets));
 
-        int count = clickAllOfSamplePoints(mDragBound, this::clickAndWaitByUiDevice);
+        final int count = clickAllOfSamplePoints(mSwipeBound, this::clickAndWaitByUiDevice);
 
         mainThreadRun(() -> {
             mClickCount = mActivity.getClickCount();
@@ -601,12 +671,12 @@ public class WindowInsetsBehaviorTests {
     public void tappableElements_tapSamplePoints_notExcludeViewRects_withoutAnyCancel() {
         assumeTrue(hasSystemGestureFeature());
 
-        mainThreadRun(() -> mActivity.setSystemGestureExclusion(false));
+        mainThreadRun(() -> mActivity.setSystemGestureExclusion(null));
         mainThreadRun(() -> mContentViewWindowInsets = mActivity.getDecorViewWindowInsets());
-        mainThreadRun(() -> mDragBound = mActivity.getOperationArea(
+        mainThreadRun(() -> mSwipeBound = mActivity.getOperationArea(
                 mContentViewWindowInsets.getTappableElementInsets(), mContentViewWindowInsets));
 
-        int count = clickAllOfSamplePoints(mDragBound, this::clickAndWaitByUiDevice);
+        final int count = clickAllOfSamplePoints(mSwipeBound, this::clickAndWaitByUiDevice);
 
         mainThreadRun(() -> {
             mClickCount = mActivity.getClickCount();
@@ -617,5 +687,200 @@ public class WindowInsetsBehaviorTests {
         assertEquals("The number of click not match", count, mClickCount);
         assertEquals("The Number of the canceled points not match", 0,
                 mActionCancelPoints.size());
+    }
+
+    @Test
+    public void swipeInsideLimit_systemUiVisible_noEventCanceled() throws Throwable {
+        assumeTrue(hasSystemGestureFeature());
+
+        final int swipeCount = 1;
+        final boolean insideLimit = true;
+        testSystemGestureExclusionLimit(swipeCount, insideLimit, SYSTEM_UI_FLAG_VISIBLE);
+
+        assertEquals("Swipe must not be canceled.", 0, mActionCancelPoints.size());
+        assertEquals("Action up points.", swipeCount, mActionUpPoints.size());
+        assertEquals("Action down points.", swipeCount, mActionDownPoints.size());
+    }
+
+    @Test
+    public void swipeOutsideLimit_systemUiVisible_allEventsCanceled() throws Throwable {
+        assumeTrue(hasSystemGestureFeature());
+
+        assumeGestureNavigationMode();
+
+        final int swipeCount = 1;
+        final boolean insideLimit = false;
+        testSystemGestureExclusionLimit(swipeCount, insideLimit, SYSTEM_UI_FLAG_VISIBLE);
+
+        assertEquals("Swipe must be always canceled.", swipeCount, mActionCancelPoints.size());
+        assertEquals("Action up points.", 0, mActionUpPoints.size());
+        assertEquals("Action down points.", swipeCount, mActionDownPoints.size());
+    }
+
+    @Test
+    public void swipeInsideLimit_immersiveSticky_noEventCanceled() throws Throwable {
+        assumeTrue(hasSystemGestureFeature());
+
+        // The first event may be never canceled. So we need to swipe at least twice.
+        final int swipeCount = 2;
+        final boolean insideLimit = true;
+        testSystemGestureExclusionLimit(swipeCount, insideLimit, SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | SYSTEM_UI_FLAG_FULLSCREEN | SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+
+        assertEquals("Swipe must not be canceled.", 0, mActionCancelPoints.size());
+        assertEquals("Action up points.", swipeCount, mActionUpPoints.size());
+        assertEquals("Action down points.", swipeCount, mActionDownPoints.size());
+    }
+
+    @Test
+    public void swipeOutsideLimit_immersiveSticky_noEventCanceled() throws Throwable {
+        assumeTrue(hasSystemGestureFeature());
+
+        // The first event may be never canceled. So we need to swipe at least twice.
+        final int swipeCount = 2;
+        final boolean insideLimit = false;
+        testSystemGestureExclusionLimit(swipeCount, insideLimit, SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | SYSTEM_UI_FLAG_FULLSCREEN | SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+
+        assertEquals("Swipe must not be canceled.", 0, mActionCancelPoints.size());
+        assertEquals("Action up points.", swipeCount, mActionUpPoints.size());
+        assertEquals("Action down points.", swipeCount, mActionDownPoints.size());
+    }
+
+    private void testSystemGestureExclusionLimit(int swipeCount, boolean insideLimit,
+            int systemUiVisibility) throws Throwable {
+        final int shiftY = insideLimit ? 1 : -1;
+        assumeGestureNavigation();
+        doInExclusionLimitSession(() -> {
+            setSystemUiVisibility(systemUiVisibility);
+            setAndWaitForSystemGestureExclusionRectsListenerTrigger(null);
+
+            // The limit is consumed from bottom to top.
+            final int[] bottom = new int[1];
+            mainThreadRun(() -> {
+                final View rootView = mActivity.getWindow().getDecorView();
+                bottom[0] = rootView.getLocationOnScreen()[1] + rootView.getHeight();
+            });
+            final int swipeY = bottom[0] - mExclusionLimit + shiftY;
+
+            for (int i = 0; i < swipeCount; i++) {
+                swipeFromLeftToRight(swipeY, mDisplayWidth);
+            }
+
+            mainThreadRun(() -> {
+                mActionDownPoints = mActivity.getActionDownPoints();
+                mActionUpPoints = mActivity.getActionUpPoints();
+                mActionCancelPoints = mActivity.getActionCancelPoints();
+            });
+        });
+    }
+
+    private void assumeGestureNavigation() {
+        final Insets[] insets = new Insets[1];
+        mainThreadRun(() -> {
+            final View view = mActivity.getWindow().getDecorView();
+            insets[0] = view.getRootWindowInsets().getSystemGestureInsets();
+        });
+        assumeTrue("Gesture navigation required.", insets[0].left > 0);
+    }
+
+    private void assumeGestureNavigationMode() {
+        // TODO: b/153032202 consider the CTS on GSI case.
+        Resources res = mTargetContext.getResources();
+        int naviMode = res.getIdentifier(NAV_BAR_INTERACTION_MODE_RES_NAME, "integer", "android");
+
+        assumeTrue("Gesture navigation required", naviMode == NAV_BAR_INTERACTION_MODE_GESTURAL);
+    }
+
+    /**
+     * Set system UI visibility and wait for it is applied by the system.
+     *
+     * @param flags the visibility flags.
+     * @throws InterruptedException when the test gets aborted.
+     */
+    private void setSystemUiVisibility(int flags) throws InterruptedException {
+        final CountDownLatch flagsApplied = new CountDownLatch(1);
+        final int targetFlags = SYSTEM_UI_CLEARABLE_FLAGS & flags;
+        mainThreadRun(() -> {
+            final View view = mActivity.getWindow().getDecorView();
+            if ((view.getSystemUiVisibility() & SYSTEM_UI_CLEARABLE_FLAGS) == targetFlags) {
+                // System UI visibility is already what we want. Stop waiting for the callback.
+                flagsApplied.countDown();
+                return;
+            }
+            view.setOnSystemUiVisibilityChangeListener(visibility -> {
+                if (visibility == targetFlags) {
+                    flagsApplied.countDown();
+                }
+            });
+            view.setSystemUiVisibility(flags);
+        });
+        assertTrue("System UI visibility must be applied.", flagsApplied.await(3, SECONDS));
+    }
+
+    /**
+     * Set an exclusion rectangle and wait for it is applied by the system.
+     * <p>
+     *     if the parameter rect doesn't provide or is null, the decorView will be used to set into
+     *     the exclusion rects.
+     * </p>
+     *
+     * @param rect the rectangle that is added into the system gesture exclusion rects.
+     * @throws InterruptedException when the test gets aborted.
+     */
+    private void setAndWaitForSystemGestureExclusionRectsListenerTrigger(Rect rect)
+            throws InterruptedException {
+        final CountDownLatch exclusionApplied = new CountDownLatch(1);
+        mainThreadRun(() -> {
+            final View view = mActivity.getWindow().getDecorView();
+            final ViewTreeObserver vto = view.getViewTreeObserver();
+            vto.addOnSystemGestureExclusionRectsChangedListener(
+                    rects -> exclusionApplied.countDown());
+            Rect exclusiveRect = new Rect(0, 0, view.getWidth(), view.getHeight());
+            if (rect != null) {
+                exclusiveRect = rect;
+            }
+            view.setSystemGestureExclusionRects(Lists.newArrayList(exclusiveRect));
+        });
+        assertTrue("Exclusion must be applied.", exclusionApplied.await(3, SECONDS));
+    }
+
+    private void swipeFromLeftToRight(int y, int distance) {
+        mDevice.swipe(0, y, distance, y, STEPS);
+    }
+
+    private static int getPropertyOfMaxExclusionHeight() {
+        final int[] originalLimitDp = new int[1];
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            originalLimitDp[0] = DeviceConfig.getInt(NAMESPACE_ANDROID,
+                    KEY_SYSTEM_GESTURE_EXCLUSION_LIMIT_DP, -1);
+            DeviceConfig.setProperty(
+                    NAMESPACE_ANDROID,
+                    KEY_SYSTEM_GESTURE_EXCLUSION_LIMIT_DP,
+                    Integer.toString(EXCLUSION_LIMIT_DP), false /* makeDefault */);
+        });
+
+        return originalLimitDp[0];
+    }
+
+    /**
+     * Run the given task while the system gesture exclusion limit has been changed to
+     * {@link #EXCLUSION_LIMIT_DP}, and then restore the value while the task is finished.
+     *
+     * @param task the task to be run.
+     * @throws Throwable when something goes unexpectedly.
+     */
+    private static void doInExclusionLimitSession(ThrowingRunnable task) throws Throwable {
+        int originalLimitDp = getPropertyOfMaxExclusionHeight();
+        try {
+            task.run();
+        } finally {
+            // Restore the value
+            SystemUtil.runWithShellPermissionIdentity(() -> DeviceConfig.setProperty(
+                    NAMESPACE_ANDROID,
+                    KEY_SYSTEM_GESTURE_EXCLUSION_LIMIT_DP,
+                    (originalLimitDp != -1) ? Integer.toString(originalLimitDp) : null,
+                    false /* makeDefault */));
+        }
     }
 }

@@ -46,7 +46,7 @@
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"Автоматтык"</string>
-    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Нускама"</string>
+    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Кол менен"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"Азыр орун бошотуу"</string>
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Сактагычты автоматтык түрдө башкаруу"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"Телефонуңузда бош орун жетишсиз"</string>

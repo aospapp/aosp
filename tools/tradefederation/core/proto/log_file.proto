@@ -24,7 +24,7 @@ message LogFileInfo {
   string path = 1;
   // The remote path of the log file once logged
   string url = 2;
-  // The type of the log file
+  // The type of the log file (For example: Logcat, screenshot)
   string log_type = 3;
   // Whether the file is a text file
   bool is_text = 4;
@@ -32,4 +32,6 @@ message LogFileInfo {
   bool is_compressed = 5;
   // Size of the file in bytes
   int64 size = 6;
+  // The actual mime content type of the file
+  string content_type = 7;
 }

@@ -17,6 +17,7 @@ package com.android.tradefed.device.metric;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.TestDeviceState;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
@@ -29,7 +30,10 @@ public class ScreenshotOnFailureCollector extends BaseDeviceMetricCollector {
 
     @Override
     public void onTestFail(DeviceMetricData testData, TestDescription test) {
-        for (ITestDevice device : getDevices()) {
+        for (ITestDevice device : getRealDevices()) {
+            if (!shouldCollect(device)) {
+                continue;
+            }
             try (InputStreamSource screenSource = device.getScreenshot()) {
                 super.testLog(
                         String.format(NAME_FORMAT, test.toString(), device.getSerialNumber()),
@@ -41,5 +45,14 @@ public class ScreenshotOnFailureCollector extends BaseDeviceMetricCollector {
                         device.getSerialNumber(), e.toString());
             }
         }
+    }
+
+    private boolean shouldCollect(ITestDevice device) {
+        TestDeviceState state = device.getDeviceState();
+        if (!TestDeviceState.ONLINE.equals(state)) {
+            CLog.d("Skip ScreenshotOnFailureCollector device is in state '%s'", state);
+            return false;
+        }
+        return true;
     }
 }

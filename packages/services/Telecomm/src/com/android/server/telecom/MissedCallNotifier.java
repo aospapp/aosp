@@ -20,7 +20,7 @@ import android.net.Uri;
 import android.os.UserHandle;
 import android.telecom.PhoneAccountHandle;
 
-import com.android.internal.telephony.CallerInfo;
+import android.telecom.CallerInfo;
 
 /**
  * Creates a notification for calls that the user missed (neither answered nor rejected).
@@ -75,11 +75,11 @@ public interface MissedCallNotifier extends CallsManager.CallsManagerListener {
         }
 
         public String getPhoneNumber() {
-            return mCallerInfo == null ? null : mCallerInfo.phoneNumber;
+            return mCallerInfo == null ? null : mCallerInfo.getPhoneNumber();
         }
 
         public String getName() {
-            return mCallerInfo == null ? null : mCallerInfo.name;
+            return mCallerInfo == null ? null : mCallerInfo.getName();
         }
     }
 

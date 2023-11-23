@@ -32,6 +32,7 @@
 
 package com.android.bluetooth.opp;
 
+import android.bluetooth.AlertActivity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
@@ -40,8 +41,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.bluetooth.R;
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
 
 /**
  * This class is designed to show BT enable confirmation dialog;
@@ -57,14 +56,12 @@ public class BluetoothOppBtEnableActivity extends AlertActivity
         // Set up the "dialog"
         mOppManager = BluetoothOppManager.getInstance(this);
         mOppManager.mSendingFlag = false;
-        final AlertController.AlertParams p = mAlertParams;
-        p.mIconAttrId = android.R.attr.alertDialogIcon;
-        p.mTitle = getString(R.string.bt_enable_title);
-        p.mView = createView();
-        p.mPositiveButtonText = getString(R.string.bt_enable_ok);
-        p.mPositiveButtonListener = this;
-        p.mNegativeButtonText = getString(R.string.bt_enable_cancel);
-        p.mNegativeButtonListener = this;
+
+        mAlertBuilder.setIconAttribute(android.R.attr.alertDialogIcon);
+        mAlertBuilder.setTitle(getString(R.string.bt_enable_title));
+        mAlertBuilder.setView(createView());
+        mAlertBuilder.setPositiveButton(R.string.bt_enable_ok, this);
+        mAlertBuilder.setNegativeButton(R.string.bt_enable_cancel, this);
         setupAlert();
     }
 

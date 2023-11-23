@@ -41,6 +41,11 @@
     <string name="sms_channel_name">SMS Channel</string>
     <string name="sms_channel_description">Phone SMS Receiver Service</string>
 
+    <!-- Default Sender name that appears in message notification if sender name is not available. [CHAR_LIMIT=NONE] -->
+    <string name="name_not_available">Name not available</string>
+    <!-- Separator between names in a list (i.e. ", " for "Harry, Ron"). [CHAR_LIMIT=NONE] -->
+    <string name="name_separator">,&#160;</string>
+
     <string name="app_running_msg_channel_name">Uncategorized</string>
     <string name="app_running_msg_notification_title">Messaging service is active</string>
     <string name="app_running_msg_notification_content">Receiving SMS through Bluetooth</string>

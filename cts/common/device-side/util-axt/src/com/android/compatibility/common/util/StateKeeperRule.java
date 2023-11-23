@@ -18,8 +18,6 @@ package com.android.compatibility.common.util;
 
 import androidx.annotation.NonNull;
 
-import com.google.common.base.Preconditions;
-
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -43,7 +41,7 @@ public class StateKeeperRule<T> implements TestRule {
      * @param stateManager abstraction used to mange the state.
      */
     public StateKeeperRule(@NonNull StateManager<T> stateManager) {
-        mStateManager = Preconditions.checkNotNull(stateManager);
+        mStateManager = Objects.requireNonNull(stateManager);
     }
 
     /**

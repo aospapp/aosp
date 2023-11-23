@@ -109,6 +109,15 @@ public class CtsConnectionService extends ConnectionService {
     }
 
     @Override
+    public void onCreateIncomingConnectionFailed(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        if (sConnectionService != null) {
+            sConnectionService.onCreateIncomingConnectionFailed(connectionManagerPhoneAccount,
+                    request);
+        }
+    }
+
+    @Override
     public void onConference(Connection connection1, Connection connection2) {
         synchronized(sLock) {
             if (sConnectionService != null) {

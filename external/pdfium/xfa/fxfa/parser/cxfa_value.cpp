@@ -6,8 +6,8 @@
 
 #include "xfa/fxfa/parser/cxfa_value.h"
 
+#include "fxjs/xfa/cjx_node.h"
 #include "fxjs/xfa/cjx_object.h"
-#include "fxjs/xfa/cjx_value.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fxfa/parser/cxfa_arc.h"
 #include "xfa/fxfa/parser/cxfa_exdata.h"
@@ -17,7 +17,7 @@
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kValuePropertyData[] = {
     {XFA_Element::Arc, 1, XFA_PROPERTYFLAG_OneOf},
     {XFA_Element::Text, 1, XFA_PROPERTYFLAG_OneOf},
     {XFA_Element::Time, 1, XFA_PROPERTYFLAG_OneOf},
@@ -31,16 +31,15 @@ const CXFA_Node::PropertyData kPropertyData[] = {
     {XFA_Element::Date, 1, XFA_PROPERTYFLAG_OneOf},
     {XFA_Element::Float, 1, XFA_PROPERTYFLAG_OneOf},
     {XFA_Element::Line, 1, XFA_PROPERTYFLAG_OneOf},
-    {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+};
+
+const CXFA_Node::AttributeData kValueAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Relevant, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Override, XFA_AttributeType::Boolean, (void*)0},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"value";
+};
 
 }  // namespace
 
@@ -50,12 +49,11 @@ CXFA_Value::CXFA_Value(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Value,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Value>(this)) {}
+                kValuePropertyData,
+                kValueAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Value::~CXFA_Value() {}
+CXFA_Value::~CXFA_Value() = default;
 
 XFA_Element CXFA_Value::GetChildValueClassID() const {
   CXFA_Node* pNode = GetFirstChild();
@@ -64,41 +62,49 @@ XFA_Element CXFA_Value::GetChildValueClassID() const {
 
 WideString CXFA_Value::GetChildValueContent() const {
   CXFA_Node* pNode = GetFirstChild();
-  return pNode ? pNode->JSObject()->TryContent(false, true).value_or(L"") : L"";
+  return pNode
+             ? pNode->JSObject()->TryContent(false, true).value_or(WideString())
+             : WideString();
 }
 
 CXFA_Arc* CXFA_Value::GetArcIfExists() const {
   CXFA_Node* node = GetFirstChild();
-  ASSERT(!node || node->GetElementType() == XFA_Element::Arc);
+  if (!node || node->GetElementType() != XFA_Element::Arc)
+    return nullptr;
   return static_cast<CXFA_Arc*>(node);
 }
 
 CXFA_Line* CXFA_Value::GetLineIfExists() const {
   CXFA_Node* node = GetFirstChild();
-  ASSERT(!node || node->GetElementType() == XFA_Element::Line);
+  if (!node || node->GetElementType() != XFA_Element::Line)
+    return nullptr;
   return static_cast<CXFA_Line*>(node);
 }
 
 CXFA_Rectangle* CXFA_Value::GetRectangleIfExists() const {
   CXFA_Node* node = GetFirstChild();
-  ASSERT(!node || node->GetElementType() == XFA_Element::Rectangle);
+  if (!node || node->GetElementType() != XFA_Element::Rectangle)
+    return nullptr;
   return static_cast<CXFA_Rectangle*>(node);
 }
 
 CXFA_Text* CXFA_Value::GetTextIfExists() const {
   CXFA_Node* node = GetFirstChild();
-  ASSERT(!node || node->GetElementType() == XFA_Element::Text);
+  if (!node || node->GetElementType() != XFA_Element::Text)
+    return nullptr;
   return static_cast<CXFA_Text*>(node);
 }
 
 CXFA_ExData* CXFA_Value::GetExDataIfExists() const {
   CXFA_Node* node = GetFirstChild();
-  ASSERT(!node || node->GetElementType() == XFA_Element::ExData);
+  if (!node || node->GetElementType() != XFA_Element::ExData)
+    return nullptr;
   return static_cast<CXFA_ExData*>(node);
 }
 
 CXFA_Image* CXFA_Value::GetImageIfExists() const {
   CXFA_Node* node = GetFirstChild();
-  ASSERT(!node || node->GetElementType() == XFA_Element::Image);
+  if (!node || node->GetElementType() != XFA_Element::Image)
+    return nullptr;
   return static_cast<CXFA_Image*>(node);
 }

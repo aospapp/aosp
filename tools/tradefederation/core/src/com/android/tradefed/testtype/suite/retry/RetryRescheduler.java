@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.testtype.suite.retry;
 
+import static org.junit.Assert.assertNull;
+
 import com.android.annotations.VisibleForTesting;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
@@ -24,7 +26,9 @@ import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.IDeviceSelection;
 import com.android.tradefed.invoker.IRescheduler;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.FileLogger;
 import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -34,13 +38,12 @@ import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestResult;
 import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.result.TextResultReporter;
-import com.android.tradefed.result.proto.TestRecordProto.TestRecord;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.suite.BaseTestSuite;
+import com.android.tradefed.testtype.suite.ITestSuite;
 import com.android.tradefed.testtype.suite.SuiteTestFilter;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.QuotationAwareTokenizer;
-import com.android.tradefed.util.TestRecordInterpreter;
 
 import com.google.inject.Inject;
 
@@ -56,9 +59,6 @@ import java.util.Set;
 /**
  * A special runner that allows to reschedule a previous run tests that failed or where not
  * executed.
- *
- * <p>TODO: Ensure a configuration should not have several of that runner. Consider having this
- * configuration built-in TF.
  */
 public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiver {
 
@@ -75,6 +75,13 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
                             + "and \"not_executed\".")
     private RetryType mRetryType = null;
 
+    @Option(
+        name = BaseTestSuite.MODULE_OPTION,
+        shortName = BaseTestSuite.MODULE_OPTION_SHORT_NAME,
+        description = "the test module to run. Only works for configuration in the tests dir."
+    )
+    private String mModuleName = null;
+
     /**
      * It's possible to add extra exclusion from the rerun. But these tests will not change their
      * state.
@@ -86,6 +93,13 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
     )
     private Set<String> mExcludeFilters = new HashSet<>();
 
+    // Carry some options from suites that are convenient and don't impact the tests selection.
+    @Option(
+        name = ITestSuite.REBOOT_BEFORE_TEST,
+        description = "Reboot the device before the test suite starts."
+    )
+    private boolean mRebootBeforeTest = false;
+
     public static final String PREVIOUS_LOADER_NAME = "previous_loader";
 
     private IConfiguration mConfiguration;
@@ -96,7 +110,13 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
     private IConfiguration mRescheduledConfiguration;
 
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(
+            TestInformation testInfo /* do not use - should be null */,
+            ITestInvocationListener listener /* do not use - should be null */)
+            throws DeviceNotAvailableException {
+        assertNull(testInfo);
+        assertNull(listener);
+
         // Get the re-loader for previous results
         Object loader = mConfiguration.getConfigurationObject(PREVIOUS_LOADER_NAME);
         if (loader == null) {
@@ -131,9 +151,10 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
             originalConfig
                     .getCommandOptions()
                     .setShardIndex(mConfiguration.getCommandOptions().getShardIndex());
-            // TODO: Use serial from parent config
-            List<String> serials = mConfiguration.getDeviceRequirements().getSerials();
-            originalConfig.getDeviceRequirements().setSerial(serials.toArray(new String[0]));
+            IDeviceSelection requirements = mConfiguration.getDeviceRequirements();
+            // It should be safe to use the current requirements against the old config because
+            // There will be more checks like fingerprint if it was supposed to run.
+            originalConfig.setDeviceRequirements(requirements);
 
             // Transfer log level from retry to subconfig
             ILeveledLogOutput originalLogger = originalConfig.getLogOutput();
@@ -148,12 +169,8 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
             throw new RuntimeException(e);
         }
         // Get previous results
-        TestRecord previousRecord = previousLoader.loadPreviousRecord();
-        CollectingTestListener collectedTests =
-                TestRecordInterpreter.interpreteRecord(previousRecord);
-
+        CollectingTestListener collectedTests = previousLoader.loadPreviousResults();
         previousLoader.cleanUp();
-        previousRecord = null;
 
         // Appropriately update the configuration
         IRemoteTest test = originalConfig.getTests().get(0);
@@ -168,6 +185,10 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
         updateConfiguration(originalConfig, replayer);
         // Do the customization of the configuration for specialized use cases.
         customizeConfig(previousLoader, originalConfig);
+
+        if (mRebootBeforeTest) {
+            suite.enableRebootBeforeTest();
+        }
 
         mRescheduledConfiguration = originalConfig;
 
@@ -224,6 +245,22 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
             types.add(mRetryType);
         }
 
+        // Expand the --module option in case no abi is specified.
+        Set<String> expandedModuleOption = new HashSet<>();
+        if (mModuleName != null) {
+            SuiteTestFilter moduleFilter = SuiteTestFilter.createFrom(mModuleName);
+            expandedModuleOption.add(mModuleName);
+            if (moduleFilter.getAbi() == null) {
+                Set<String> abis = AbiUtils.getAbisSupportedByCompatibility();
+                for (String abi : abis) {
+                    SuiteTestFilter namingFilter =
+                            new SuiteTestFilter(
+                                    abi, moduleFilter.getName(), moduleFilter.getTest());
+                    expandedModuleOption.add(namingFilter.toString());
+                }
+            }
+        }
+
         // Expand the exclude-filter in case no abi is specified.
         Set<String> extendedExcludeRetryFilters = new HashSet<>();
         for (String excludeFilter : mExcludeFilters) {
@@ -245,6 +282,8 @@ public final class RetryRescheduler implements IRemoteTest, IConfigurationReceiv
         for (TestRunResult moduleResult : results.getMergedTestRunResults()) {
             // If the module is explicitly excluded from retries, preserve the original results.
             if (!extendedExcludeRetryFilters.contains(moduleResult.getName())
+                    && (expandedModuleOption.isEmpty()
+                            || expandedModuleOption.contains(moduleResult.getName()))
                     && RetryResultHelper.shouldRunModule(moduleResult, types)) {
                 if (types.contains(RetryType.NOT_EXECUTED)) {
                     // Clear the run failure since we are attempting to rerun all non-executed

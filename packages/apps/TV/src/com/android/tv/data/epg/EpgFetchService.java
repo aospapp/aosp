@@ -18,22 +18,24 @@ package com.android.tv.data.epg;
 
 import android.app.job.JobParameters;
 import android.app.job.JobService;
+
 import com.android.tv.Starter;
-import com.android.tv.TvSingletons;
 import com.android.tv.data.ChannelDataManager;
+
+import dagger.android.AndroidInjection;
+
+import javax.inject.Inject;
 
 /** JobService to Fetch EPG data. */
 public class EpgFetchService extends JobService {
-    private EpgFetcher mEpgFetcher;
-    private ChannelDataManager mChannelDataManager;
+    @Inject EpgFetcher mEpgFetcher;
+    @Inject ChannelDataManager mChannelDataManager;
 
     @Override
     public void onCreate() {
+        AndroidInjection.inject(this);
         super.onCreate();
         Starter.start(this);
-        TvSingletons tvSingletons = TvSingletons.getSingletons(getApplicationContext());
-        mEpgFetcher = tvSingletons.getEpgFetcher();
-        mChannelDataManager = tvSingletons.getChannelDataManager();
     }
 
     @Override

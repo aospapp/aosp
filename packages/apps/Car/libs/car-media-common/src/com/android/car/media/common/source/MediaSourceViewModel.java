@@ -16,31 +16,29 @@
 
 package com.android.car.media.common.source;
 
+import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
+
 import static com.android.car.apps.common.util.CarAppsDebugUtils.idHash;
 import static com.android.car.arch.common.LiveDataFunctions.dataOf;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.app.Application;
 import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.media.CarMediaManager;
 import android.content.ComponentName;
-import android.content.ContentValues;
 import android.media.session.MediaController;
 import android.os.Handler;
-import android.os.RemoteException;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-
-import com.android.car.media.common.MediaConstants;
 
 import java.util.Objects;
 
@@ -51,12 +49,13 @@ import java.util.Objects;
 public class MediaSourceViewModel extends AndroidViewModel {
     private static final String TAG = "MediaSourceViewModel";
 
-    private static MediaSourceViewModel sInstance;
+    private static MediaSourceViewModel[] sInstances = new MediaSourceViewModel[2];
     private final Car mCar;
     private CarMediaManager mCarMediaManager;
 
     // Primary media source.
     private final MutableLiveData<MediaSource> mPrimaryMediaSource = dataOf(null);
+
     // Connected browser for the primary media source.
     private final MutableLiveData<MediaBrowserCompat> mConnectedMediaBrowser = dataOf(null);
     // Media controller for the connected browser.
@@ -79,15 +78,23 @@ public class MediaSourceViewModel extends AndroidViewModel {
 
         CarMediaManager getCarMediaManager(Car carApi) throws CarNotConnectedException;
 
-        MediaSource getMediaSource(String packageName);
+        MediaSource getMediaSource(ComponentName componentName);
+    }
+
+    /**
+     * Returns the MediaSourceViewModel singleton tied to the application.
+     * @deprecated should use get(Application application, int mode) instead
+     */
+    public static MediaSourceViewModel get(@NonNull Application application) {
+        return get(application, MEDIA_SOURCE_MODE_PLAYBACK);
     }
 
     /** Returns the MediaSourceViewModel singleton tied to the application. */
-    public static MediaSourceViewModel get(@NonNull Application application) {
-        if (sInstance == null) {
-            sInstance = new MediaSourceViewModel(application);
+    public static MediaSourceViewModel get(@NonNull Application application, int mode) {
+        if (sInstances[mode] == null) {
+            sInstances[mode] = new MediaSourceViewModel(application, mode);
         }
-        return sInstance;
+        return sInstances[mode];
     }
 
     /**
@@ -95,8 +102,8 @@ public class MediaSourceViewModel extends AndroidViewModel {
      *
      * @see AndroidViewModel
      */
-    private MediaSourceViewModel(@NonNull Application application) {
-        this(application, new InputFactory() {
+    private MediaSourceViewModel(@NonNull Application application, int mode) {
+        this(application, mode, new InputFactory() {
             @Override
             public MediaBrowserConnector createMediaBrowserConnector(
                     @NonNull Application application,
@@ -107,13 +114,7 @@ public class MediaSourceViewModel extends AndroidViewModel {
             @Override
             public MediaControllerCompat getControllerForSession(
                     @Nullable MediaSessionCompat.Token token) {
-                if (token == null) return null;
-                try {
-                    return new MediaControllerCompat(application, token);
-                } catch (RemoteException e) {
-                    Log.e(TAG, "Couldn't get MediaControllerCompat", e);
-                    return null;
-                }
+                return token == null ? null : new MediaControllerCompat(application, token);
             }
 
             @Override
@@ -127,8 +128,9 @@ public class MediaSourceViewModel extends AndroidViewModel {
             }
 
             @Override
-            public MediaSource getMediaSource(String packageName) {
-                return packageName == null ? null : new MediaSource(application, packageName);
+            public MediaSource getMediaSource(ComponentName componentName) {
+                return componentName == null ? null : MediaSource.create(application,
+                        componentName);
             }
         });
     }
@@ -138,7 +140,8 @@ public class MediaSourceViewModel extends AndroidViewModel {
     private final MediaBrowserConnector.Callback mConnectedBrowserCallback;
 
     @VisibleForTesting
-    MediaSourceViewModel(@NonNull Application application, @NonNull InputFactory inputFactory) {
+    MediaSourceViewModel(@NonNull Application application, int mode,
+            @NonNull InputFactory inputFactory) {
         super(application);
 
         mInputFactory = inputFactory;
@@ -149,7 +152,7 @@ public class MediaSourceViewModel extends AndroidViewModel {
             if (browser != null) {
                 if (!browser.isConnected()) {
                     Log.e(TAG, "Browser is NOT connected !! "
-                            + mPrimaryMediaSource.getValue().getPackageName() + idHash(browser));
+                            + mPrimaryMediaSource.getValue().toString() + idHash(browser));
                     mMediaController.setValue(null);
                 } else {
                     mMediaController.setValue(mInputFactory.getControllerForSession(
@@ -163,16 +166,22 @@ public class MediaSourceViewModel extends AndroidViewModel {
                 mConnectedBrowserCallback);
 
         mHandler = new Handler(application.getMainLooper());
-        mMediaSourceListener = packageName -> mHandler.post(
-                () -> updateModelState(mInputFactory.getMediaSource(packageName)));
+        mMediaSourceListener = componentName -> mHandler.post(
+                () -> updateModelState(mInputFactory.getMediaSource(componentName)));
 
         try {
             mCarMediaManager = mInputFactory.getCarMediaManager(mCar);
-            mCarMediaManager.registerMediaSourceListener(mMediaSourceListener);
-            updateModelState(mInputFactory.getMediaSource(mCarMediaManager.getMediaSource()));
+            mCarMediaManager.addMediaSourceListener(mMediaSourceListener, mode);
+            updateModelState(mInputFactory.getMediaSource(mCarMediaManager.getMediaSource(mode)));
         } catch (CarNotConnectedException e) {
             Log.e(TAG, "Car not connected", e);
         }
+    }
+
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        mCar.disconnect();
     }
 
     @VisibleForTesting
@@ -188,13 +197,10 @@ public class MediaSourceViewModel extends AndroidViewModel {
     }
 
     /**
-     * Updates the primary media source, and notifies content provider of new source
+     * Updates the primary media source.
      */
-    public void setPrimaryMediaSource(MediaSource mediaSource) {
-        ContentValues values = new ContentValues();
-        values.put(MediaConstants.KEY_PACKAGE_NAME, mediaSource.getPackageName());
-
-        mCarMediaManager.setMediaSource(mediaSource.getPackageName());
+    public void setPrimaryMediaSource(@NonNull MediaSource mediaSource, int mode) {
+        mCarMediaManager.setMediaSource(mediaSource.getBrowseServiceComponentName(), mode);
     }
 
     /**
@@ -222,23 +228,13 @@ public class MediaSourceViewModel extends AndroidViewModel {
             return;
         }
 
-        // Reset dependent values to avoid propagating inconsistencies.
-        mMediaController.setValue(null);
-        mConnectedMediaBrowser.setValue(null);
-        mBrowserConnector.connectTo(null);
-
         // Broadcast the new source
         mPrimaryMediaSource.setValue(newMediaSource);
 
         // Recompute dependent values
-        if (newMediaSource == null) {
-            return;
+        if (newMediaSource != null) {
+            ComponentName browseService = newMediaSource.getBrowseServiceComponentName();
+            mBrowserConnector.connectTo(browseService);
         }
-
-        ComponentName browseService = newMediaSource.getBrowseServiceComponentName();
-        if (browseService == null) {
-            Log.e(TAG, "No browseService for source: " + newMediaSource.getPackageName());
-        }
-        mBrowserConnector.connectTo(browseService);
     }
 }

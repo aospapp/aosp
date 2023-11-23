@@ -16,40 +16,44 @@
 
 package com.android.tests.apex;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import static org.junit.Assume.assumeTrue;
+
+import android.platform.test.annotations.RequiresDevice;
+
+import com.android.tests.util.ModuleTestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice.ApexInfo;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-import com.android.tradefed.util.CommandResult;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 /**
  * Base test to check if Apex can be staged, activated and uninstalled successfully.
  */
 public abstract class ApexE2EBaseHostTest extends BaseHostJUnit4Test {
-    private static final Duration WAIT_FOR_SESSION_READY_TTL = Duration.ofSeconds(10);
-    private static final Duration SLEEP_FOR = Duration.ofMillis(200);
 
-    protected static final String OPTION_APEX_FILE_NAME = "apex_file_name";
+    private static final String OPTION_APEX_FILE_NAME = "apex_file_name";
 
-    protected final Pattern mIsSessionReadyPattern = Pattern.compile("isStagedSessionReady = true");
-    protected final Pattern mIsSessionAppliedPattern =
-            Pattern.compile("isStagedSessionApplied = true;");
+    private static final Duration BOOT_COMPLETE_TIMEOUT = Duration.ofMinutes(2);
+
+    private static final String USERSPACE_REBOOT_SUPPORTED_PROP =
+            "init.userspace_reboot.is_supported";
 
     /* protected so that derived tests can have access to test utils automatically */
-    protected final ApexTestUtils mUtils = new ApexTestUtils(this);
+    protected final ModuleTestUtils mUtils = new ModuleTestUtils(this);
 
     @Option(name = OPTION_APEX_FILE_NAME,
             description = "The file name of the apex module.",
@@ -59,84 +63,107 @@ public abstract class ApexE2EBaseHostTest extends BaseHostJUnit4Test {
     protected String mApexFileName = null;
 
     @Before
-    public synchronized void setUp() throws Exception {
-        uninstallApex();
+    public void setUp() throws Exception {
+        assumeTrue("Updating APEX is not supported", mUtils.isApexUpdateSupported());
+        mUtils.abandonActiveStagedSession();
+        uninstallAllApexes();
     }
 
-    /**
-     * Check if Apex package can be staged, activated and uninstalled successfully.
-     */
-    public void doTestStageActivateUninstallApexPackage()
-                                throws DeviceNotAvailableException, IOException {
+    @After
+    public void tearDown() throws Exception {
+        assumeTrue("Updating APEX is not supported", mUtils.isApexUpdateSupported());
+        mUtils.abandonActiveStagedSession();
+        uninstallAllApexes();
+    }
 
-        File testAppFile = mUtils.getTestFile(mApexFileName);
-        CLog.i("Found test apex file: " + testAppFile.getAbsoluteFile());
+    protected List<String> getAllApexFilenames() {
+        return List.of(mApexFileName);
+    }
 
-        // Install apex package
-        String installResult = getDevice().installPackage(testAppFile, false);
-        Assert.assertNull(
-                String.format("failed to install test app %s. Reason: %s",
-                    mApexFileName, installResult),
-                installResult);
+    @Test
+    public final void testStageActivateUninstallApexPackage()  throws Exception {
+        stageActivateUninstallApexPackage(false/*userspaceReboot*/);
+    }
 
-        // TODO: implement wait for session ready logic inside PackageManagerShellCommand instead.
-        boolean sessionReady = false;
-        Duration spentWaiting = Duration.ZERO;
-        while (spentWaiting.compareTo(WAIT_FOR_SESSION_READY_TTL) < 0) {
-            CommandResult res = getDevice().executeShellV2Command("pm get-stagedsessions");
-            Assert.assertEquals("", res.getStderr());
-            sessionReady = Stream.of(res.getStdout().split("\n")).anyMatch(this::isReadyNotApplied);
-            if (sessionReady) {
-                CLog.i("Done waiting after " + spentWaiting);
-                break;
-            }
-            try {
-                Thread.sleep(SLEEP_FOR.toMillis());
-                spentWaiting = spentWaiting.plus(SLEEP_FOR);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-        }
-        Assert.assertTrue("Staged session wasn't ready in " + WAIT_FOR_SESSION_READY_TTL,
-                sessionReady);
-        ApexInfo testApexInfo = mUtils.getApexInfo(testAppFile);
-        Assert.assertNotNull(testApexInfo);
+    @Test
+    @RequiresDevice // TODO(b/147726967): Remove when Userspace reboot works on cuttlefish
+    public final void testStageActivateUninstallApexPackageWithUserspaceReboot()  throws Exception {
+        assumeTrue("Userspace reboot not supported on the device",
+                getDevice().getBooleanProperty(USERSPACE_REBOOT_SUPPORTED_PROP, false));
+        stageActivateUninstallApexPackage(true/*userspaceReboot*/);
+    }
 
-        getDevice().reboot(); // for install to take affect
+    private void stageActivateUninstallApexPackage(boolean userspaceReboot)  throws Exception {
+        ApexInfo apex = installApex(mApexFileName);
 
+        reboot(userspaceReboot); // for install to take affect
         Set<ApexInfo> activatedApexes = getDevice().getActiveApexes();
-        Assert.assertTrue(
-                String.format("Failed to activate %s %s",
-                    testApexInfo.name, testApexInfo.versionCode),
-                activatedApexes.contains(testApexInfo));
+        assertWithMessage("Failed to activate %s", apex).that(activatedApexes).contains(apex);
 
         additionalCheck();
     }
 
-    private boolean isReadyNotApplied(String sessionInfo) {
-        boolean isReady = mIsSessionReadyPattern.matcher(sessionInfo).find();
-        boolean isApplied = mIsSessionAppliedPattern.matcher(sessionInfo).find();
-        return isReady && !isApplied;
+    private void uninstallAllApexes() throws Exception {
+        for (String filename : getAllApexFilenames()) {
+            ApexInfo apex = mUtils.getApexInfo(mUtils.getTestFile(filename));
+            uninstallApex(apex.name);
+        }
+    }
+
+    protected final ApexInfo installApex(String filename) throws Exception {
+        File testAppFile = mUtils.getTestFile(filename);
+
+        String installResult = getDevice().installPackage(testAppFile, false, "--wait");
+        assertWithMessage("failed to install test app %s. Reason: %s", filename, installResult)
+                .that(installResult).isNull();
+
+        ApexInfo testApexInfo = mUtils.getApexInfo(testAppFile);
+        Assert.assertNotNull(testApexInfo);
+        return testApexInfo;
+    }
+
+    protected final void installApexes(String... filenames) throws Exception {
+        // We don't use the installApex method from the super class here, because that won't install
+        // the two apexes into the same session.
+        String[] args = new String[filenames.length + 1];
+        args[0] = "install-multi-package";
+        for (int i = 0; i < filenames.length; i++) {
+            args[i + 1] = mUtils.getTestFile(filenames[i]).getAbsolutePath();
+        }
+        String stdout = getDevice().executeAdbCommand(args);
+        assertThat(stdout).isNotNull();
+    }
+
+    protected final void reboot(boolean userspaceReboot) throws Exception {
+        if (userspaceReboot) {
+            assertThat(getDevice().setProperty("test.userspace_reboot.requested", "1")).isTrue();
+            getDevice().rebootUserspace();
+        } else {
+            getDevice().reboot();
+        }
+        boolean success = getDevice().waitForBootComplete(BOOT_COMPLETE_TIMEOUT.toMillis());
+        assertWithMessage("Device didn't boot in %s", BOOT_COMPLETE_TIMEOUT).that(success).isTrue();
+        if (userspaceReboot) {
+            // If userspace reboot fails and fallback to hard reboot is triggered then
+            // test.userspace_reboot.requested won't be set.
+            boolean res = getDevice().getBooleanProperty("test.userspace_reboot.requested", false);
+            String message = "Userspace reboot failed, fallback to full reboot was triggered. ";
+            message += "Boot reason: " + getDevice().getProperty("sys.boot.reason.last");
+            assertWithMessage(message).that(res).isTrue();
+        }
     }
 
     /**
-     * Do some additional check, invoked by doTestStageActivateUninstallApexPackage.
+     * Do some additional check, invoked by {@link #testStageActivateUninstallApexPackage()}.
      */
-    public abstract void additionalCheck();
+    public void additionalCheck() throws Exception {};
 
-    @After
-    public void tearDown() throws Exception {
-        uninstallApex();
-    }
-
-    private void uninstallApex() throws Exception {
-        ApexInfo apex = mUtils.getApexInfo(mUtils.getTestFile(mApexFileName));
-        String uninstallResult = getDevice().uninstallPackage(apex.name);
-        if (uninstallResult != null) {
+    protected final void uninstallApex(String apexName) throws Exception {
+        String res = getDevice().uninstallPackage(apexName);
+        if (res != null) {
             // Uninstall failed. Most likely this means that there were no apex installed. No need
             // to reboot.
-            CLog.w("Failed to uninstall apex " + apex.name + " : " + uninstallResult);
+            CLog.i("Uninstall of %s failed: %s, likely already on factory version", apexName, res);
         } else {
             // Uninstall succeeded. Need to reboot.
             getDevice().reboot(); // for the uninstall to take affect

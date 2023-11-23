@@ -48,25 +48,20 @@ else:
 PY_FILE_REGEX = re.compile('.+\.py$')
 
 BLACKLIST = [
+    'acts/controllers/rohdeschwarz_lib/contest.py',
     'acts/controllers/native.py',
     'acts/controllers/native_android_device.py',
     'acts/controllers/packet_sender.py',
+    'acts/test_utils/wifi/ota_chamber.py',
     'acts/controllers/buds_lib/dev_utils/proto/gen/nanopb_pb2.py',
-    'acts/controllers/buds_lib/data_storage/bigquery/bigquery_logger_utils.py',
-    'acts/controllers/buds_lib/data_storage/bigquery/test_bigquery_utils.py',
-    'acts/controllers/buds_lib/data_storage/bigquery/test_bigquery_logger.py',
-    'acts/controllers/buds_lib/data_storage/bigquery/bigquery_buffer.py',
-    'acts/controllers/buds_lib/data_storage/bigquery/bigquery_logger.py',
-    'acts/controllers/buds_lib/data_storage/bigquery/bigquery_scheduled_automatic_client.py',
-    'acts/controllers/buds_lib/data_storage/_sponge/sponge_client_lite.py',
     'acts/test_utils/wifi/wifi_performance_test_utils.py',
     'acts/test_utils/wifi/wifi_power_test_utils.py',
     'acts/test_utils/wifi/wifi_retail_ap.py',
     'acts/test_utils/bt/bt_power_test_utils.py',
     'acts/test_utils/coex/coex_test_utils.py',
     'acts/test_utils/tel/twilio_client.py',
-    'acts/test_utils/bt/A2dpCodecBaseTest.py',
-    'acts/test_utils/bt/BtRangeBaseTest.py',
+    'acts/test_utils/bt/A2dpBaseTest.py',
+    'acts/test_utils/bt/BtSarBaseTest.py',
     'tests/google/ble/beacon_tests/BeaconSwarmTest.py',
     'tests/google/bt/pts/BtCmdLineTest.py',
     'tests/google/bt/headphone_automation/SineWaveQualityTest.py',
@@ -89,16 +84,22 @@ BLACKLIST = [
     'tests/google/tel/live/TelLiveConnectivityMonitorTest.py',
     'tests/google/tel/live/TelLiveConnectivityMonitorMobilityTest.py',
     'tests/google/fuchsia/bt/FuchsiaCmdLineTest.py',
-    'tests/google/fuchsia/bt/gatt/GattServerSetupTest.py'
+    'tests/google/fuchsia/bt/gatt/GattServerSetupTest.py',
+    'tests/google/fuchsia/wlan/RebootStressTest.py',
+    'acts/test_utils/gnss/gnss_testlog_utils.py',
+    'tests/google/fuchsia/bt/BluetoothCmdLineTest.py',
 ]
 
 BLACKLIST_DIRECTORIES = [
+    'acts/controllers/buds_lib',
     'acts/test_utils/audio_analysis_lib/',
     'acts/test_utils/coex/',
     'acts/test_utils/power/',
     'tests/google/coex/',
+    'tests/google/gnss/',
     'tests/google/power/',
-    'tests/google/bt/performance/'
+    'tests/google/bt/performance/',
+    'tests/google/bt/sar/',
 ]
 
 BANNED_IMPORTS = ['mobly.controllers']
@@ -143,9 +144,10 @@ class ActsImportUnitTest(unittest.TestCase):
         self.longMessage = False
 
         for banned_import in BANNED_IMPORTS:
-            self.assertNotIn(banned_import, sys.modules,
-                             'Attempted to import the banned package/module '
-                             '%s.' % banned_import)
+            self.assertNotIn(
+                banned_import, sys.modules,
+                'Attempted to import the banned package/module '
+                '%s.' % banned_import)
 
 
 if __name__ == '__main__':

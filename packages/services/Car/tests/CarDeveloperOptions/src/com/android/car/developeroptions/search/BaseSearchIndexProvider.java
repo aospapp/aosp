@@ -36,6 +36,8 @@ import com.android.car.developeroptions.core.PreferenceControllerListHelper;
 import com.android.car.developeroptions.core.PreferenceControllerMixin;
 import com.android.car.developeroptions.core.PreferenceXmlParserUtils;
 import com.android.settingslib.core.AbstractPreferenceController;
+import com.android.settingslib.search.Indexable;
+import com.android.settingslib.search.SearchIndexableRaw;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -60,6 +62,11 @@ public class BaseSearchIndexProvider implements Indexable.SearchIndexProvider {
 
     @Override
     public List<SearchIndexableRaw> getRawDataToIndex(Context context, boolean enabled) {
+        return null;
+    }
+
+    @Override
+    public List<SearchIndexableRaw> getDynamicRawDataToIndex(Context context, boolean enabled) {
         return null;
     }
 
@@ -92,7 +99,6 @@ public class BaseSearchIndexProvider implements Indexable.SearchIndexProvider {
         return nonIndexableKeys;
     }
 
-    @Override
     public List<AbstractPreferenceController> getPreferenceControllers(Context context) {
         final List<AbstractPreferenceController> controllersFromCode =
                 createPreferenceControllers(context);

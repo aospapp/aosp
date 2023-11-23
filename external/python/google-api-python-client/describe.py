@@ -20,10 +20,13 @@ Command-line tool that creates documentation for all APIs listed in discovery.
 The documentation is generated from a combination of the discovery document and
 the generated API surface itself.
 """
+from __future__ import print_function
 
 __author__ = 'jcgregorio@google.com (Joe Gregorio)'
 
+from collections import OrderedDict
 import argparse
+import collections
 import json
 import os
 import re
@@ -335,7 +338,8 @@ def document_collection_recursive(resource, path, root_discovery, discovery):
   for name in dir(resource):
     if (not name.startswith('_')
         and callable(getattr(resource, name))
-        and hasattr(getattr(resource, name), '__is_resource__')):
+        and hasattr(getattr(resource, name), '__is_resource__')
+        and discovery != {}):
       dname = name.rsplit('_')[0]
       collection = getattr(resource, name)()
       document_collection_recursive(collection, path + name + '.', root_discovery,
@@ -351,7 +355,7 @@ def document_api(name, version):
   try:
     service = build(name, version)
   except UnknownApiNameOrVersion as e:
-    print 'Warning: {} {} found but could not be built.'.format(name, version)
+    print('Warning: {} {} found but could not be built.'.format(name, version))
     return
 
   http = build_http()
@@ -393,6 +397,7 @@ if __name__ == '__main__':
   if FLAGS.discovery_uri:
     document_api_from_discovery_document(FLAGS.discovery_uri)
   else:
+    api_directory = collections.defaultdict(list)
     http = build_http()
     resp, content = http.request(
         FLAGS.directory_uri,
@@ -401,5 +406,22 @@ if __name__ == '__main__':
       directory = json.loads(content)['items']
       for api in directory:
         document_api(api['name'], api['version'])
+        api_directory[api['name']].append(api['version'])
+      
+      # sort by api name and version number
+      for api in api_directory:
+        api_directory[api] = sorted(api_directory[api])
+      api_directory = OrderedDict(sorted(api_directory.items(), key = lambda x: x[0]))
+
+      markdown = []
+      for api, versions in api_directory.items():
+          markdown.append('## %s' % api)
+          for version in versions:
+              markdown.append('* [%s](http://googleapis.github.io/google-api-python-client/docs/dyn/%s_%s.html)' % (version, api, version))
+          markdown.append('\n')
+
+      with open('docs/dyn/index.md', 'w') as f:
+        f.write('\n'.join(markdown).encode('utf-8'))
+
     else:
       sys.exit("Failed to load the discovery document.")

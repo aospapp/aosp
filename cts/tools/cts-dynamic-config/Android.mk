@@ -20,7 +20,7 @@ LOCAL_MODULE := cts-dynamic-config
 LOCAL_MODULE_CLASS := FAKE
 LOCAL_IS_HOST_MODULE := true
 
-LOCAL_COMPATIBILITY_SUITE := cts general-tests vts
+LOCAL_COMPATIBILITY_SUITE := cts general-tests vts10 mts
 
 # my_test_config_file := DynamicConfig.xml
 # TODO (sbasi): Update to use BUILD_HOST_TEST_CONFIG when it's primary install

@@ -37,7 +37,6 @@
 #include <stdlib.h>
 #include "ErrorLog.h"
 #include <utils/threads.h>
-#include "FixedBuffer.h"
 #include "auto_goldfish_dma_context.h"
 #include "IndexRangeCache.h"
 #include "SmartPtr.h"
@@ -58,7 +57,7 @@ struct BufferData {
     uint64_t m_guest_paddr;
 
     // Internal bookkeeping
-    FixedBuffer m_fixedBuffer; // actual buffer is shadowed here
+    std::vector<char> m_fixedBuffer; // actual buffer is shadowed here
     IndexRangeCache m_indexRangeCache;
 
     // DMA support
@@ -71,7 +70,6 @@ private:
         GLint base;
         GLint size;
         GLenum type;
-        GLint appBase;
         GLint hostLocsPerElement;
         GLuint flags;
         GLint samplerValue; // only set for sampler uniforms
@@ -80,7 +78,6 @@ private:
     GLuint m_numIndexes;
     IndexInfo* m_Indexes;
     bool m_initialized;
-    bool m_locShiftWAR;
 
     std::vector<GLuint> m_shaders;
 
@@ -97,11 +94,6 @@ public:
     void setIndexFlags(GLuint index, GLuint flags);
     GLuint getIndexForLocation(GLint location);
     GLenum getTypeForLocation(GLint location);
-
-    bool needUniformLocationWAR() const { return m_locShiftWAR; }
-    void setupLocationShiftWAR();
-    GLint locationWARHostToApp(GLint hostLoc, GLint arrIndex);
-    GLint locationWARAppToHost(GLint appLoc);
 
     GLint getNextSamplerUniform(GLint index, GLint* val, GLenum* target);
     bool setSamplerUniform(GLint appLoc, GLint val, GLenum* target);
@@ -165,10 +157,6 @@ public:
     void    deleteProgramData(GLuint program);
     void    setProgramIndexInfo(GLuint program, GLuint index, GLint base, GLint size, GLenum type, const char* name);
     GLenum  getProgramUniformType(GLuint program, GLint location);
-    void    setupLocationShiftWAR(GLuint program);
-    GLint   locationWARHostToApp(GLuint program, GLint hostLoc, GLint arrIndex);
-    GLint   locationWARAppToHost(GLuint program, GLint appLoc);
-    bool    needUniformLocationWAR(GLuint program);
     GLint   getNextSamplerUniform(GLuint program, GLint index, GLint* val, GLenum* target) const;
     bool    setSamplerUniform(GLuint program, GLint appLoc, GLint val, GLenum* target);
 
@@ -187,7 +175,6 @@ public:
     void deleteShaderProgramData(GLuint shaderProgramName);
     void initShaderProgramData(GLuint shaderProgram, GLuint numIndices);
     void setShaderProgramIndexInfo(GLuint shaderProgram, GLuint index, GLint base, GLint size, GLenum type, const char* name);
-    void setupShaderProgramLocationShiftWAR(GLuint shaderProgram);
 };
 
 typedef SmartPtr<GLSharedGroup> GLSharedGroupPtr; 

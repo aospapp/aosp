@@ -231,12 +231,14 @@ class Sensor: private Thread, public virtual RefBase {
     nsecs_t mNextCaptureTime;
     Buffers *mNextCapturedBuffers;
 
+    int mSceneWidth;
+    int mSceneHeight;
     Scene mScene;
 
     void captureRaw(uint8_t *img, uint32_t gain, uint32_t stride);
     void captureRGBA(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
     void captureRGB(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
-    void captureNV21(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
+    void captureYU12(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
     void captureDepth(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
     void captureDepthCloud(uint8_t *img);
 

@@ -26,13 +26,20 @@ import static org.junit.Assert.fail;
 
 import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
+import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.ITestLogger;
+import com.android.tradefed.targetprep.CreateUserPreparer;
 import com.android.tradefed.testtype.Abi;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.suite.params.ModuleParameters;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
 
@@ -43,6 +50,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -55,6 +64,7 @@ public class BaseTestSuiteTest {
     private BaseTestSuite mRunner;
     private IDeviceBuildInfo mBuildInfo;
     private ITestDevice mMockDevice;
+    private TestInformation mTestInfo;
 
     private static final String TEST_MODULE = "test-module";
 
@@ -65,6 +75,11 @@ public class BaseTestSuiteTest {
         mRunner = new AbiBaseTestSuite();
         mRunner.setBuild(mBuildInfo);
         mRunner.setDevice(mMockDevice);
+
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
+        context.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, mBuildInfo);
+        mTestInfo = TestInformation.newBuilder().setInvocationContext(context).build();
 
         EasyMock.expect(mMockDevice.getProperty(EasyMock.anyObject())).andReturn("arm64-v8a");
         EasyMock.expect(mMockDevice.getProperty(EasyMock.anyObject())).andReturn("armeabi-v7a");
@@ -107,8 +122,7 @@ public class BaseTestSuiteTest {
     @Test
     public void testSetupFilters_match_parameterized() throws Exception {
         File tmpDir = FileUtil.createTempDir(TEST_MODULE);
-        File moduleConfig = new File(tmpDir, "CtsGestureTestCases.config");
-        moduleConfig.createNewFile();
+        createConfig(tmpDir, "CtsGestureTestCases.config");
         try {
             OptionSetter setter = new OptionSetter(mRunner);
             setter.setOptionValue("module", "Gesture");
@@ -133,11 +147,44 @@ public class BaseTestSuiteTest {
         }
     }
 
+    /**
+     * Test that we create a module and the parameterized version of it for the include filter if
+     * not explicitly excluded.
+     */
+    @Test
+    public void testSetupFilters_parameterized_filter() throws Exception {
+        File tmpDir = FileUtil.createTempDir(TEST_MODULE);
+        createConfig(tmpDir, "CtsGestureTestCases.config");
+        try {
+            OptionSetter setter = new OptionSetter(mRunner);
+            setter.setOptionValue("enable-parameterized-modules", "true");
+            // The Gesture module has a parameter "instant".
+            setter.setOptionValue("module", "Gesture");
+            mRunner.setupFilters(tmpDir);
+            assertEquals(2, mRunner.getIncludeFilter().size());
+            assertThat(
+                    mRunner.getIncludeFilter(),
+                    hasItem(
+                            new SuiteTestFilter(
+                                            mRunner.getRequestedAbi(), "CtsGestureTestCases", null)
+                                    .toString()));
+            assertThat(
+                    mRunner.getIncludeFilter(),
+                    hasItem(
+                            new SuiteTestFilter(
+                                            mRunner.getRequestedAbi(),
+                                            "CtsGestureTestCases[instant]",
+                                            null)
+                                    .toString()));
+        } finally {
+            FileUtil.recursiveDelete(tmpDir);
+        }
+    }
+
     @Test
     public void testSetupFilters_match() throws Exception {
         File tmpDir = FileUtil.createTempDir(TEST_MODULE);
-        File moduleConfig = new File(tmpDir, "CtsGestureTestCases.config");
-        moduleConfig.createNewFile();
+        createConfig(tmpDir, "CtsGestureTestCases.config");
         try {
             OptionSetter setter = new OptionSetter(mRunner);
             setter.setOptionValue("module", "Gesture");
@@ -160,10 +207,8 @@ public class BaseTestSuiteTest {
     @Test
     public void testSetupFilters_oneMatch() throws Exception {
         File tmpDir = FileUtil.createTempDir(TEST_MODULE);
-        File moduleConfig = new File(tmpDir, "module_name.config");
-        File moduleConfig2 = new File(tmpDir, "module_name2.config");
-        moduleConfig.createNewFile();
-        moduleConfig2.createNewFile();
+        createConfig(tmpDir, "module_name.config");
+        createConfig(tmpDir, "module_name2.config");
         try {
             OptionSetter setter = new OptionSetter(mRunner);
             setter.setOptionValue("module", "module_name2");
@@ -186,10 +231,8 @@ public class BaseTestSuiteTest {
     @Test
     public void testSetupFilters_multiMatchNoExactMatch() throws Exception {
         File tmpDir = FileUtil.createTempDir(TEST_MODULE);
-        File moduleConfig = new File(tmpDir, "module_name1.config");
-        File moduleConfig2 = new File(tmpDir, "module_name2.config");
-        moduleConfig.createNewFile();
-        moduleConfig2.createNewFile();
+        createConfig(tmpDir, "module_name1.config");
+        createConfig(tmpDir, "module_name2.config");
         try {
             OptionSetter setter = new OptionSetter(mRunner);
             setter.setOptionValue("module", "module_name");
@@ -211,10 +254,8 @@ public class BaseTestSuiteTest {
     @Test
     public void testSetupFilters_multiMatchOneExactMatch() throws Exception {
         File tmpDir = FileUtil.createTempDir(TEST_MODULE);
-        File moduleConfig = new File(tmpDir, "module_name.config");
-        File moduleConfig2 = new File(tmpDir, "module_name2.config");
-        moduleConfig.createNewFile();
-        moduleConfig2.createNewFile();
+        createConfig(tmpDir, "module_name.config");
+        createConfig(tmpDir, "module_name2.config");
         try {
             OptionSetter setter = new OptionSetter(mRunner);
             setter.setOptionValue("module", "module_name");
@@ -261,13 +302,50 @@ public class BaseTestSuiteTest {
         assertTrue(configMap.containsKey("armeabi-v7a suite/stub1"));
     }
 
+    /**
+     * Test for {@link BaseTestSuite#loadTests()} implementation, for configuration with include
+     * filter set to a non-existent test.
+     */
+    @Test
+    public void testLoadTests_emptyFilter() throws Exception {
+        OptionSetter setter = new OptionSetter(mRunner);
+        setter.setOptionValue("include-filter", "Doesntexist");
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("run-suite-tag", "example-suite");
+        LinkedHashMap<String, IConfiguration> configMap = mRunner.loadTests();
+        assertEquals(0, configMap.size());
+    }
+
+    /**
+     * Test for {@link BaseTestSuite#loadTests()} implementation, for configuration with include
+     * filter set to a non-existent test and enabled failure on empty test set.
+     */
+    @Test
+    public void testLoadTests_emptyFilterWithFailOnEmpty() throws Exception {
+        OptionSetter setter = new OptionSetter(mRunner);
+        setter.setOptionValue("include-filter", "Doesntexist");
+        setter.setOptionValue("fail-on-everything-filtered", "true");
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("run-suite-tag", "example-suite");
+        try {
+            mRunner.loadTests();
+            fail("Should have thrown exception");
+        } catch (IllegalStateException ex) {
+            assertEquals(
+                    "Include filter '{arm64-v8a Doesntexist=[Doesntexist], armeabi-v7a "
+                            + "Doesntexist=[Doesntexist]}' was specified but resulted in "
+                            + "an empty test set.",
+                    ex.getMessage());
+        }
+    }
+
     /** Test that when splitting, the instance of the implementation is used. */
     @Test
     public void testSplit() throws Exception {
         OptionSetter setter = new OptionSetter(mRunner);
         setter.setOptionValue("suite-config-prefix", "suite");
         setter.setOptionValue("run-suite-tag", "example-suite");
-        Collection<IRemoteTest> tests = mRunner.split(2);
+        Collection<IRemoteTest> tests = mRunner.split(2, mTestInfo);
         assertEquals(4, tests.size());
         for (IRemoteTest test : tests) {
             assertTrue(test instanceof BaseTestSuite);
@@ -284,6 +362,29 @@ public class BaseTestSuiteTest {
         setter.setOptionValue("suite-config-prefix", "doesnotexists");
         setter.setOptionValue("run-suite-tag", "doesnotexists");
         assertNull(mRunner.split(2));
+    }
+
+    /** Ensure that during sharding we don't attempt to log the filter files. */
+    @Test
+    public void testSplit_withFilters() throws Exception {
+        OptionSetter setter = new OptionSetter(mRunner);
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("run-suite-tag", "example-suite");
+        Set<String> excludeModule = new HashSet<>();
+        for (int i = 0; i < 25; i++) {
+            excludeModule.add("arm64-v8a suite/load-filter-test" + i);
+        }
+        mRunner.setExcludeFilter(excludeModule);
+        ITestLogger logger = EasyMock.createMock(ITestLogger.class);
+        mRunner.setTestLogger(logger);
+
+        EasyMock.replay(logger);
+        Collection<IRemoteTest> tests = mRunner.split(2, mTestInfo);
+        assertEquals(4, tests.size());
+        for (IRemoteTest test : tests) {
+            assertTrue(test instanceof BaseTestSuite);
+        }
+        EasyMock.verify(logger);
     }
 
     /**
@@ -399,6 +500,31 @@ public class BaseTestSuiteTest {
         // version from being created, and the other abi.
         assertTrue(configMap.containsKey("arm64-v8a suite/load-filter-test"));
         assertTrue(configMap.containsKey("armeabi-v7a suite/load-filter-test"));
+        EasyMock.verify(mockDevice);
+    }
+
+    /**
+     * If include-filters specify a base module id but we forced a specific parameter we can
+     * implicitly decide to match it as a parameterized one.
+     */
+    @Test
+    public void testLoadTests_forcedModule_load_with_filter_param() throws Exception {
+        ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
+        mRunner.setDevice(mockDevice);
+        mRunner.setModuleParameter(ModuleParameters.INSTANT_APP);
+        Set<String> includeModule = new HashSet<>();
+        includeModule.add("arm64-v8a suite/load-filter-test");
+        mRunner.setIncludeFilter(includeModule);
+        OptionSetter setter = new OptionSetter(mRunner);
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("run-suite-tag", "test-filter-load");
+        setter.setOptionValue("enable-parameterized-modules", "true");
+        EasyMock.replay(mockDevice);
+        LinkedHashMap<String, IConfiguration> configMap = mRunner.loadTests();
+        assertEquals(1, configMap.size());
+        // Config main abi parameterized is filtered, this shouldn't prevent the non-parameterized
+        // version from being created, and the other abi.
+        assertTrue(configMap.containsKey("arm64-v8a suite/load-filter-test[instant]"));
         EasyMock.verify(mockDevice);
     }
 
@@ -568,10 +694,9 @@ public class BaseTestSuiteTest {
                         + "exclude-annotation:android.platform.test.annotations.AppModeInstant");
         EasyMock.replay(mockDevice);
         LinkedHashMap<String, IConfiguration> configMap = mRunner.loadTests();
-        assertEquals(2, configMap.size());
+        assertEquals(1, configMap.size());
         // stub-parameterized-abi is parameterized and not multi_abi so it creates only one abi
         assertTrue(configMap.containsKey("arm64-v8a suite/stub-parameterized-abi4"));
-        assertTrue(configMap.containsKey("arm64-v8a suite/stub-parameterized-abi4[instant]"));
         EasyMock.verify(mockDevice);
     }
 
@@ -647,5 +772,93 @@ public class BaseTestSuiteTest {
                     expected.getMessage());
         }
         EasyMock.verify(mockDevice);
+    }
+
+    /** Test that loading the option parameterization is gated by the option. */
+    @Test
+    public void testLoadTests_optionalParameterizedModule() throws Exception {
+        ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
+        mRunner.setDevice(mockDevice);
+        OptionSetter setter = new OptionSetter(mRunner);
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("run-suite-tag", "example-suite-parameters");
+        setter.setOptionValue("enable-parameterized-modules", "true");
+        setter.setOptionValue("enable-optional-parameterization", "true");
+        setter.setOptionValue(
+                "test-arg",
+                "com.android.tradefed.testtype.suite.TestSuiteStub:"
+                        + "exclude-annotation:android.platform.test.annotations.AppModeInstant");
+        EasyMock.replay(mockDevice);
+        LinkedHashMap<String, IConfiguration> configMap = mRunner.loadTests();
+        assertEquals(4, configMap.size());
+        assertTrue(configMap.containsKey("arm64-v8a suite/stub-parameterized"));
+        assertTrue(configMap.containsKey("arm64-v8a suite/stub-parameterized[instant]"));
+        assertTrue(configMap.containsKey("arm64-v8a suite/stub-parameterized[secondary_user]"));
+        assertTrue(configMap.containsKey("armeabi-v7a suite/stub-parameterized"));
+        EasyMock.verify(mockDevice);
+    }
+
+    /** Test that we can explicitly request the option parameterization type. */
+    @Test
+    public void testLoadTests_optionalParameterizedModule_filter() throws Exception {
+        ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
+        mRunner.setDevice(mockDevice);
+        OptionSetter setter = new OptionSetter(mRunner);
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("run-suite-tag", "example-suite-parameters");
+        setter.setOptionValue("enable-parameterized-modules", "true");
+        setter.setOptionValue("enable-optional-parameterization", "true");
+        setter.setOptionValue("module-parameter", "SECONDARY_USER");
+        setter.setOptionValue(
+                "test-arg",
+                "com.android.tradefed.testtype.suite.TestSuiteStub:"
+                        + "exclude-annotation:android.platform.test.annotations.AppModeInstant");
+        EasyMock.replay(mockDevice);
+        LinkedHashMap<String, IConfiguration> configMap = mRunner.loadTests();
+        // Only the secondary_user requested is created
+        assertEquals(1, configMap.size());
+        assertTrue(configMap.containsKey("arm64-v8a suite/stub-parameterized[secondary_user]"));
+        EasyMock.verify(mockDevice);
+    }
+
+    /**
+     * Test for {@link BaseTestSuite#loadTests()} when loading a configuration with parameterized
+     * metadata that target preparer options are injected after preparers are added to the config.
+     */
+    @Test
+    public void testLoadTests_parameterizedModule_optionSetupAfterConfigAdded() throws Exception {
+        ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
+        mRunner.setDevice(mockDevice);
+        OptionSetter setter = new OptionSetter(mRunner);
+        setter.setOptionValue("suite-config-prefix", "suite");
+        setter.setOptionValue("run-suite-tag", "example-suite-parameters");
+        setter.setOptionValue("enable-parameterized-modules", "true");
+        setter.setOptionValue("enable-optional-parameterization", "true");
+        setter.setOptionValue("module-parameter", "SECONDARY_USER");
+        setter.setOptionValue(
+                "test-arg",
+                "com.android.tradefed.targetprep.CreateUserPreparer:reuse-test-user:true");
+        EasyMock.replay(mockDevice);
+        LinkedHashMap<String, IConfiguration> configMap = mRunner.loadTests();
+        // We only create the primary abi of the parameterized module version.
+        assertEquals(1, configMap.size());
+        assertTrue(configMap.containsKey("arm64-v8a suite/stub-parameterized[secondary_user]"));
+        EasyMock.verify(mockDevice);
+
+        IConfiguration config = configMap.get("arm64-v8a suite/stub-parameterized[secondary_user]");
+
+        // Check if the target preparer was correctly inserted in addParameterSpecificConfig.
+        assertTrue(config.getTargetPreparers().get(0) instanceof CreateUserPreparer);
+
+        // Check if the option mReuseTestUser was injected on the preparer in setUpConfig.
+        Field reuseTestUser = CreateUserPreparer.class.getDeclaredField("mReuseTestUser");
+        reuseTestUser.setAccessible(true);
+        assertTrue(reuseTestUser.getBoolean(config.getTargetPreparers().get(0)));
+        reuseTestUser.setAccessible(false);
+    }
+
+    private void createConfig(File tmpDir, String name) throws IOException {
+        File moduleConfig = new File(tmpDir, name);
+        FileUtil.writeToFile("<configuration></configuration>", moduleConfig);
     }
 }

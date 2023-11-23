@@ -16,12 +16,17 @@
 
 package android.assist.cts;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import static org.junit.Assert.fail;
+
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.util.Log;
 
-import java.util.concurrent.TimeUnit;
+import org.junit.Test;
 
+import java.util.concurrent.TimeUnit;
 
 /**
  *  Test that the AssistStructure returned is properly formatted.
@@ -34,12 +39,12 @@ public class AssistStructureTest extends AssistTestBase {
     private AutoResetLatch mHasDrawedLatch;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    protected void customSetup() throws Exception {
         mHasDrawedLatch = new AutoResetLatch(1);
         mActionLatchReceiver = new ActionLatchReceiver(Utils.APP_3P_HASDRAWED, mHasDrawedLatch);
         startTestActivity(TEST_CASE_TYPE);
     }
+
     private void waitForOnDraw() throws Exception {
         Log.i(TAG, "waiting for onDraw() before continuing");
         if (!mHasDrawedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
@@ -47,6 +52,7 @@ public class AssistStructureTest extends AssistTestBase {
         }
     }
 
+    @Test
     public void testAssistStructure() throws Throwable {
         if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
             Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
@@ -59,9 +65,10 @@ public class AssistStructureTest extends AssistTestBase {
         final AutoResetLatch latch = startSession();
         waitForContext(latch);
         getInstrumentation().waitForIdleSync();
-        runTestOnUiThread(() -> {
+        getInstrumentation().runOnMainSync(() -> {
             verifyAssistDataNullness(false, false, false, false);
-            verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false /*FLAG_SECURE set*/);
+            verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE),
+                    false /*FLAG_SECURE set*/);
         });
     }
 }

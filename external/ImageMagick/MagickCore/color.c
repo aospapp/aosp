@@ -16,7 +16,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -56,7 +56,6 @@
 #include "MagickCore/geometry.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/memory_.h"
-#include "MagickCore/memory-private.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/option.h"
@@ -66,6 +65,7 @@
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/string-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
@@ -80,10 +80,10 @@
 /*
   Typedef declarations.
 */
-typedef struct _ColorMapInfo
+typedef struct _ColormapInfo
 {
   const char
-    *name;
+    name[21];
 
   const unsigned char
     red,
@@ -95,13 +95,13 @@ typedef struct _ColorMapInfo
 
   const ssize_t
     compliance;
-} ColorMapInfo;
+} ColormapInfo;
 
 /*
   Static declarations.
 */
-static const ColorMapInfo
-  ColorMap[] =
+static const ColormapInfo
+  Colormap[] =
   {
     { "none", 0, 0, 0, 0, SVGCompliance | XPMCompliance },
     { "black", 0, 0, 0, 1, SVGCompliance | X11Compliance | XPMCompliance },
@@ -796,9 +796,13 @@ static SemaphoreInfo
   Forward declarations.
 */
 static MagickBooleanType
-  IsColorCacheInstantiated(ExceptionInfo *),
+  IsColorCacheInstantiated(ExceptionInfo *);
+
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
+static MagickBooleanType
   LoadColorCache(LinkedListInfo *,const char *,const char *,const size_t,
     ExceptionInfo *);
+#endif
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -843,7 +847,7 @@ static LinkedListInfo *AcquireColorCache(const char *filename,
   */
   cache=NewLinkedList(0);
   status=MagickTrue;
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -865,15 +869,15 @@ static LinkedListInfo *AcquireColorCache(const char *filename,
   /*
     Load built-in color map.
   */
-  for (i=0; i < (ssize_t) (sizeof(ColorMap)/sizeof(*ColorMap)); i++)
+  for (i=0; i < (ssize_t) (sizeof(Colormap)/sizeof(*Colormap)); i++)
   {
     ColorInfo
       *color_info;
 
-    register const ColorMapInfo
+    register const ColormapInfo
       *p;
 
-    p=ColorMap+i;
+    p=Colormap+i;
     color_info=(ColorInfo *) AcquireMagickMemory(sizeof(*color_info));
     if (color_info == (ColorInfo *) NULL)
       {
@@ -1127,30 +1131,66 @@ MagickExport void ConcatenateColorComponent(const PixelInfo *pixel,
   char
     component[MagickPathExtent];
 
-  double
-    color;
+  float
+    color,
+    scale;
 
-  color=0.0;
+  color=0.0f;
+  scale=QuantumRange;
+  if (compliance != NoCompliance)
+    scale=255.0f;
   switch (channel)
   {
     case RedPixelChannel:
     {
       color=pixel->red;
+      if ((pixel->colorspace == HCLColorspace) ||
+          (pixel->colorspace == HCLpColorspace) ||
+          (pixel->colorspace == HSBColorspace) ||
+          (pixel->colorspace == HSIColorspace) ||
+          (pixel->colorspace == HSLColorspace) ||
+          (pixel->colorspace == HSVColorspace) ||
+          (pixel->colorspace == HWBColorspace))
+        scale=360.0f;
+      if ((compliance != NoCompliance) && (pixel->colorspace == LabColorspace))
+        scale=100.0f;
       break;
     }
     case GreenPixelChannel:
     {
       color=pixel->green;
+      if ((pixel->colorspace == HCLColorspace) ||
+          (pixel->colorspace == HCLpColorspace) ||
+          (pixel->colorspace == HSBColorspace) ||
+          (pixel->colorspace == HSIColorspace) ||
+          (pixel->colorspace == HSLColorspace) ||
+          (pixel->colorspace == HSVColorspace) ||
+          (pixel->colorspace == HWBColorspace))
+        scale=100.0f;
+      if ((compliance != NoCompliance) && (pixel->colorspace == LabColorspace))
+        color-=QuantumRange/2.0f;
       break;
     }
     case BluePixelChannel:
     {
       color=pixel->blue;
+      if ((pixel->colorspace == HCLColorspace) ||
+          (pixel->colorspace == HCLpColorspace) ||
+          (pixel->colorspace == HSBColorspace) ||
+          (pixel->colorspace == HSIColorspace) ||
+          (pixel->colorspace == HSLColorspace) ||
+          (pixel->colorspace == HSVColorspace) ||
+          (pixel->colorspace == HWBColorspace))
+        scale=100.0f;
+      if (pixel->colorspace == LabColorspace)
+        color-=QuantumRange/2.0f;
       break;
     }
     case AlphaPixelChannel:
     {
       color=pixel->alpha;
+      if (compliance != NoCompliance)
+        scale=1.0f;
       break;
     }
     case BlackPixelChannel:
@@ -1158,86 +1198,23 @@ MagickExport void ConcatenateColorComponent(const PixelInfo *pixel,
       color=pixel->black;
       break;
     }
+    case IndexPixelChannel:
+    {
+      color=pixel->index;
+      break;
+    }
     default:
       break;
   }
-  if (compliance == NoCompliance)
-    {
-      if (pixel->colorspace == LabColorspace)
-        {
-          (void) FormatLocaleString(component,MagickPathExtent,"%.*g",
-            GetMagickPrecision(),(double) color);
-          (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-          return;
-        }
-      (void) FormatLocaleString(component,MagickPathExtent,"%.*g",
-        GetMagickPrecision(),(double) ClampToQuantum(color));
-      (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-      return;
-    }
-  if (compliance != SVGCompliance)
-    {
-      if (pixel->depth > 16)
-        {
-          (void) FormatLocaleString(component,MagickPathExtent,"%10lu",
-            (unsigned long) ScaleQuantumToLong(ClampToQuantum(color)));
-          (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-          return;
-        }
-      if (pixel->depth > 8)
-        {
-          (void) FormatLocaleString(component,MagickPathExtent,"%5d",
-            ScaleQuantumToShort(ClampToQuantum(color)));
-          (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-          return;
-        }
-      (void) FormatLocaleString(component,MagickPathExtent,"%3d",
-        ScaleQuantumToChar(ClampToQuantum(color)));
-      (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-      return;
-    }
-  if (channel == AlphaPixelChannel)
-    {
-      (void) FormatLocaleString(component,MagickPathExtent,"%.*g",
-        GetMagickPrecision(),(double) QuantumScale*ClampToQuantum(color));
-      (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-      return;
-    }
-  if ((pixel->colorspace == HCLColorspace) ||
-      (pixel->colorspace == HCLpColorspace) ||
-      (pixel->colorspace == HSBColorspace) ||
-      (pixel->colorspace == HSIColorspace) ||
-      (pixel->colorspace == HSLColorspace) ||
-      (pixel->colorspace == HSVColorspace) ||
-      (pixel->colorspace == HWBColorspace))
-    {
-      if (channel == RedPixelChannel)
-        (void) FormatLocaleString(component,MagickPathExtent,"%.*g",
-          GetMagickPrecision(),(double) ClampToQuantum(360.0*QuantumScale*
-            color));
-      else
-        (void) FormatLocaleString(component,MagickPathExtent,"%.*g%%",
-          GetMagickPrecision(),(double) ClampToQuantum(100.0*QuantumScale*
-            color));
-      (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-      return;
-    }
-  if (pixel->colorspace == LabColorspace)
-    {
-      (void) FormatLocaleString(component,MagickPathExtent,"%.*g%%",
-        GetMagickPrecision(),100.0*QuantumScale*color);
-      (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-      return;
-    }
-  if (pixel->depth > 8)
-    {
-      (void) FormatLocaleString(component,MagickPathExtent,"%.*g%%",
-        GetMagickPrecision(),(double) ClampToQuantum(100.0*QuantumScale*color));
-      (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
-      return;
-    }
-  (void) FormatLocaleString(component,MagickPathExtent,"%d",ScaleQuantumToChar(
-    ClampToQuantum(color)));
+  if ((pixel->colorspace == sRGBColorspace) &&
+      (fabs((double) color-(ssize_t) color) > 0.01f))
+    scale=100.0f;
+  if (scale != 100.0f)
+    (void) FormatLocaleString(component,MagickPathExtent,"%.*g",
+      GetMagickPrecision(),(double) (scale*QuantumScale*color));
+  else
+    (void) FormatLocaleString(component,MagickPathExtent,"%.*g%%",
+      GetMagickPrecision(),(double) (scale*QuantumScale*color));
   (void) ConcatenateMagickString(tuple,component,MagickPathExtent);
 }
 
@@ -1965,6 +1942,7 @@ MagickExport MagickBooleanType ListColorInfo(FILE *file,
   return(MagickTrue);
 }
 
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -2030,7 +2008,7 @@ static MagickBooleanType LoadColorCache(LinkedListInfo *cache,const char *xml,
     /*
       Interpret XML.
     */
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     if (*token == '\0')
       break;
     (void) CopyMagickString(keyword,token,MagickPathExtent);
@@ -2040,7 +2018,7 @@ static MagickBooleanType LoadColorCache(LinkedListInfo *cache,const char *xml,
           Doctype element.
         */
         while ((LocaleNCompare(q,"]>",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleNCompare(keyword,"<!--",4) == 0)
@@ -2049,7 +2027,7 @@ static MagickBooleanType LoadColorCache(LinkedListInfo *cache,const char *xml,
           Comment element.
         */
         while ((LocaleNCompare(q,"->",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleCompare(keyword,"<include") == 0)
@@ -2060,10 +2038,10 @@ static MagickBooleanType LoadColorCache(LinkedListInfo *cache,const char *xml,
         while (((*token != '/') && (*(token+1) != '>')) && (*q != '\0'))
         {
           (void) CopyMagickString(keyword,token,MagickPathExtent);
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (*token != '=')
             continue;
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"file") == 0)
             {
               if (depth > MagickMaxRecursionDepth)
@@ -2120,11 +2098,11 @@ static MagickBooleanType LoadColorCache(LinkedListInfo *cache,const char *xml,
         color_info=(ColorInfo *) NULL;
         continue;
       }
-    GetNextToken(q,(const char **) NULL,extent,token);
+    (void) GetNextToken(q,(const char **) NULL,extent,token);
     if (*token != '=')
       continue;
-    GetNextToken(q,&q,extent,token);
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     switch (*keyword)
     {
       case 'C':
@@ -2142,11 +2120,11 @@ static MagickBooleanType LoadColorCache(LinkedListInfo *cache,const char *xml,
               compliance;
 
             compliance=color_info->compliance;
-            if (GlobExpression(token,"*SVG*",MagickTrue) != MagickFalse)
+            if (StringLocateSubstring(token,"SVG") != (char *) NULL)
               compliance|=SVGCompliance;
-            if (GlobExpression(token,"*X11*",MagickTrue) != MagickFalse)
+            if (StringLocateSubstring(token,"X11") != (char *) NULL)
               compliance|=X11Compliance;
-            if (GlobExpression(token,"*XPM*",MagickTrue) != MagickFalse)
+            if (StringLocateSubstring(token,"XPM") != (char *) NULL)
               compliance|=XPMCompliance;
             color_info->compliance=(ComplianceType) compliance;
             break;
@@ -2180,6 +2158,7 @@ static MagickBooleanType LoadColorCache(LinkedListInfo *cache,const char *xml,
   token=(char *) RelinquishMagickMemory(token);
   return(status != 0 ? MagickTrue : MagickFalse);
 }
+#endif
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2243,11 +2222,11 @@ MagickExport MagickBooleanType QueryColorCompliance(const char *name,
   assert(name != (const char *) NULL);
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",name);
   assert(color != (PixelInfo *) NULL);
-  GetPixelInfo((Image *) NULL,color);
   if ((name == (char *) NULL) || (*name == '\0'))
     name=BackgroundColor;
   while (isspace((int) ((unsigned char) *name)) != 0)
     name++;
+  GetPixelInfo((Image *) NULL,color);
   if (*name == '#')
     {
       char
@@ -2269,7 +2248,8 @@ MagickExport MagickBooleanType QueryColorCompliance(const char *name,
       (void) memset(&pixel,0,sizeof(pixel));
       name++;
       for (n=0; isxdigit((int) ((unsigned char) name[n])) != 0; n++) ;
-      if ((n % 3) == 0)
+      if ((n == 3) || (n == 6) || (n == 9) || (n == 12) || (n == 24) ||
+          (n == 48))
         {
           do
           {
@@ -2296,7 +2276,7 @@ MagickExport MagickBooleanType QueryColorCompliance(const char *name,
         }
       else
         {
-          if ((n % 4) != 0)
+          if ((n != 4) && (n != 8) && (n != 16) && (n != 32) && (n != 64))
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
                 OptionWarning,"UnrecognizedColor","`%s'",name);
@@ -2428,8 +2408,14 @@ MagickExport MagickBooleanType QueryColorCompliance(const char *name,
           if (LocaleCompare(name,colorname) != 0)
             status=QueryColorCompliance(colorname,AllCompliance,color,
               exception);
-          colorname=DestroyString(colorname);
           color->colorspace=colorspaceType;
+          if (*colorname == '\0')
+            {
+              (void) ThrowMagickException(exception,GetMagickModule(),
+                OptionWarning,"UnrecognizedColor","`%s'",name);
+              status=MagickFalse;
+            }
+          colorname=DestroyString(colorname);
           return(status);
         }
       if ((flags & PercentValue) != 0)
@@ -2459,6 +2445,8 @@ MagickExport MagickBooleanType QueryColorCompliance(const char *name,
         color->alpha=(double) ClampToQuantum(QuantumRange*geometry_info.chi);
       if (color->colorspace == LabColorspace)
         {
+          color->red=(MagickRealType) ClampToQuantum((MagickRealType)
+            (QuantumRange*geometry_info.rho/100.0));
           if ((flags & SigmaValue) != 0)
             color->green=(MagickRealType) ClampToQuantum((MagickRealType)
               (scale*geometry_info.sigma+(QuantumRange+1)/2.0));
@@ -2466,7 +2454,8 @@ MagickExport MagickBooleanType QueryColorCompliance(const char *name,
             color->blue=(MagickRealType) ClampToQuantum((MagickRealType)
               (scale*geometry_info.xi+(QuantumRange+1)/2.0));
         }
-      if (LocaleCompare(colorspace,"gray") == 0)
+      if ((LocaleCompare(colorspace,"gray") == 0) ||
+          (LocaleCompare(colorspace,"lineargray") == 0))
         {
           color->green=color->red;
           color->blue=color->red;
@@ -2474,12 +2463,6 @@ MagickExport MagickBooleanType QueryColorCompliance(const char *name,
               (color->alpha_trait != UndefinedPixelTrait))
             color->alpha=(double) ClampToQuantum(QuantumRange*
               geometry_info.sigma);
-          if ((icc_color == MagickFalse) &&
-              (color->colorspace == LinearGRAYColorspace))
-            {
-              color->colorspace=GRAYColorspace;
-              color->depth=8;
-            }
         }
       if ((LocaleCompare(colorspace,"HCL") == 0) ||
           (LocaleCompare(colorspace,"HSB") == 0) ||

@@ -40,8 +40,9 @@ import android.util.JsonReader;
 import android.util.JsonWriter;
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.vehiclehal.DiagnosticEventBuilder;
 import com.android.car.vehiclehal.DiagnosticJson;
@@ -200,6 +201,13 @@ public class CarDiagnosticManagerTest extends MockedCarTestBase {
                 }
             }
         }
+    }
+
+    @Override
+    protected synchronized void configureResourceOverrides(MockResources resources) {
+        super.configureResourceOverrides(resources);
+        resources.overrideResource(com.android.car.R.array.config_allowed_optional_car_features,
+                new String[]{Car.DIAGNOSTIC_SERVICE});
     }
 
     @Override
@@ -487,7 +495,9 @@ public class CarDiagnosticManagerTest extends MockedCarTestBase {
         assertFalse(compressionIgnitionMonitors.NMHCCatalyst.incomplete);
     }
 
-    @Test public void testFuelType() throws Exception {
+    @Test
+    @FlakyTest
+    public void testFuelType() throws Exception {
         Listener listener = new Listener();
         mCarDiagnosticManager.registerListener(
                 listener,

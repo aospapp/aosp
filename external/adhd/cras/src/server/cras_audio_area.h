@@ -42,9 +42,8 @@ struct cras_audio_area {
  *    ca - the channel area to set channel bit set.
  *    channel - the channel bit to add to the channel area.
  */
-static
-inline void channel_area_set_channel(struct cras_channel_area *ca,
-				     enum CRAS_CHANNEL channel)
+static inline void channel_area_set_channel(struct cras_channel_area *ca,
+					    enum CRAS_CHANNEL channel)
 {
 	ca->ch_set |= (1 << channel);
 }

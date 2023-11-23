@@ -43,18 +43,18 @@ import tests.util.CallVerificationStack;
  */
 public class LoggerTest extends TestCase {
 
-    private final static String VALID_RESOURCE_BUNDLE = "bundles/com/android/java/util/logging/res";
+    private final static String VALID_RESOURCE_BUNDLE = "bundles/java/util/logging/res";
 
     private final static String VALID_RESOURCE_BUNDLE2 =
-            "bundles/com/android/java/util/logging/res2";
+            "bundles/java/util/logging/res2";
 
     private final static String VALID_RESOURCE_BUNDLE3 =
-            "bundles/com/android/java/util/logging/res3";
+            "bundles/java/util/logging/res3";
 
     private final static String INVALID_RESOURCE_BUNDLE = "impossible_not_existing";
 
     private final static String LOGGING_CONFIG_RESOURCE =
-            "config/com/android/java/util/logging/logging.config";
+            "config/java/util/logging/logging.config";
 
     private final static String VALID_KEY = "LOGGERTEST";
 
@@ -332,9 +332,9 @@ public class LoggerTest extends TestCase {
       */
     public void testGetLogger_WithParentNormal() {
         assertNull(LogManager.getLogManager().getLogger(
-                "testGetLogger_WithParent_ParentLogger"));
+                "testGetLogger_WithParentNormal_ParentLogger"));
         // create the parent logger
-        Logger pLog = Logger.getLogger("testGetLogger_WithParent_ParentLogger",
+        Logger pLog = Logger.getLogger("testGetLogger_WithParentNormal_ParentLogger",
                 VALID_RESOURCE_BUNDLE);
         pLog.setLevel(Level.CONFIG);
         pLog.addHandler(new MockHandler());
@@ -342,14 +342,14 @@ public class LoggerTest extends TestCase {
         pLog.setUseParentHandlers(false);
 
         assertNull(LogManager.getLogManager().getLogger(
-                "testGetLogger_WithParent_ParentLogger.child"));
+                "testGetLogger_WithParentNormal_ParentLogger.child"));
         // create the child logger
         Logger log = Logger
-                .getLogger("testGetLogger_WithParent_ParentLogger.child");
+                .getLogger("testGetLogger_WithParentNormal_ParentLogger.child");
         assertNull(log.getFilter());
         assertEquals(0, log.getHandlers().length);
         assertNull(log.getLevel());
-        assertEquals("testGetLogger_WithParent_ParentLogger.child", log
+        assertEquals("testGetLogger_WithParentNormal_ParentLogger.child", log
                 .getName());
         assertSame(log.getParent(), pLog);
         assertNull(log.getResourceBundle());
@@ -532,25 +532,25 @@ public class LoggerTest extends TestCase {
       */
     public void testGetLoggerWithRes_WithParentNormal() {
         assertNull(LogManager.getLogManager().getLogger(
-                "testGetLoggerWithRes_WithParent_ParentLogger"));
+                "testGetLoggerWithRes_WithParentNormal_ParentLogger"));
         // create the parent logger
         Logger pLog = Logger
-                .getLogger("testGetLoggerWithRes_WithParent_ParentLogger");
+                .getLogger("testGetLoggerWithRes_WithParentNormal_ParentLogger");
         pLog.setLevel(Level.CONFIG);
         pLog.addHandler(new MockHandler());
         pLog.setFilter(new MockFilter());
         pLog.setUseParentHandlers(false);
 
         assertNull(LogManager.getLogManager().getLogger(
-                "testGetLoggerWithRes_WithParent_ParentLogger.child"));
+                "testGetLoggerWithRes_WithParentNormal_ParentLogger.child"));
         // create the child logger
         Logger log = Logger.getLogger(
-                "testGetLoggerWithRes_WithParent_ParentLogger.child",
+                "testGetLoggerWithRes_WithParentNormal_ParentLogger.child",
                 VALID_RESOURCE_BUNDLE);
         assertNull(log.getFilter());
         assertEquals(0, log.getHandlers().length);
         assertNull(log.getLevel());
-        assertEquals("testGetLoggerWithRes_WithParent_ParentLogger.child", log
+        assertEquals("testGetLoggerWithRes_WithParentNormal_ParentLogger.child", log
                 .getName());
         assertSame(log.getParent(), pLog);
         assertEquals(VALID_VALUE, log.getResourceBundle().getString(VALID_KEY));

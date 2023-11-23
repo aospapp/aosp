@@ -23,6 +23,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.dialer.R;
 import com.android.car.dialer.livedata.CallHistoryLiveData;
 import com.android.car.dialer.telecom.UiCallManager;
@@ -30,7 +31,6 @@ import com.android.car.dialer.ui.common.entity.UiCallLog;
 import com.android.car.dialer.ui.view.ContactAvatarOutputlineProvider;
 import com.android.car.dialer.widget.CallTypeIconsView;
 import com.android.car.telephony.common.Contact;
-import com.android.car.telephony.common.InMemoryPhoneBook;
 import com.android.car.telephony.common.PhoneCallLog;
 import com.android.car.telephony.common.TelecomUtils;
 
@@ -65,53 +65,68 @@ public class CallLogViewHolder extends RecyclerView.ViewHolder {
         mDivider = itemView.findViewById(R.id.divider);
     }
 
-    public void onBind(UiCallLog uiCallLog) {
+    /**
+     * Binds the view holder with relevant data.
+     */
+    public void bind(UiCallLog uiCallLog) {
+        Contact contact = uiCallLog.getContact();
+
         TelecomUtils.setContactBitmapAsync(
                 mAvatarView.getContext(),
                 mAvatarView,
-                uiCallLog.getAvatarUri(),
-                uiCallLog.getTitle());
-        mTitleView.setText(uiCallLog.getTitle());
-        if (uiCallLog.getMostRecentCallType() == CallHistoryLiveData.CallType.MISSED_TYPE) {
-            mTitleView.setTextAppearance(R.style.TextAppearance_CallLogTitleMissedCall);
-        } else {
-            mTitleView.setTextAppearance(R.style.TextAppearance_CallLogTitleDefault);
-        }
+                contact,
+                uiCallLog.getNumber());
 
+        mTitleView.setText(uiCallLog.getTitle());
         for (PhoneCallLog.Record record : uiCallLog.getCallRecords()) {
             mCallTypeIconsView.add(record.getCallType());
         }
-
         mCallCountTextView.setText(mCallTypeIconsView.getCallCountText());
         mCallCountTextView.setVisibility(
                 mCallTypeIconsView.getCallCountText() == null ? View.GONE : View.VISIBLE);
         mTextView.setText(uiCallLog.getText());
 
-        mPlaceCallView.setOnClickListener(
+        if (uiCallLog.getMostRecentCallType() == CallHistoryLiveData.CallType.MISSED_TYPE) {
+            mTitleView.setTextAppearance(R.style.TextAppearance_CallLogTitleMissedCall);
+            mCallCountTextView.setTextAppearance(R.style.TextAppearance_CallLogCallCountMissedCall);
+            mTextView.setTextAppearance(R.style.TextAppearance_CallLogTimestampMissedCall);
+        } else {
+            mTitleView.setTextAppearance(R.style.TextAppearance_CallLogTitleDefault);
+            mCallCountTextView.setTextAppearance(R.style.TextAppearance_CallLogCallCountDefault);
+            mTextView.setTextAppearance(R.style.TextAppearance_CallLogTimestampDefault);
+        }
+
+        ViewUtils.setOnClickListener(mPlaceCallView,
                 view -> UiCallManager.get().placeCall(uiCallLog.getNumber()));
 
-        setUpActionButton(uiCallLog);
+        setUpActionButton(contact);
     }
 
-    public void onRecycle() {
+    /**
+     * Recycles views.
+     */
+    public void recycle() {
         mCallTypeIconsView.clear();
+        ViewUtils.setOnClickListener(mPlaceCallView, null);
     }
 
-    private void setUpActionButton(UiCallLog uiCallLog) {
+    private void setUpActionButton(Contact contact) {
         if (mActionButton == null) {
             return;
         }
 
-        Contact contact = InMemoryPhoneBook.get().lookupContactEntry(uiCallLog.getNumber());
+        boolean forceShowActionButton = itemView.getResources().getBoolean(
+                R.bool.config_show_calllog_action_button_for_non_contact);
 
-        if (contact == null) {
-            mActionButton.setVisibility(View.GONE);
-            mDivider.setVisibility(View.GONE);
-            return;
+        ViewUtils.setVisible(mDivider, contact != null || forceShowActionButton);
+        ViewUtils.setVisible(mActionButton, contact != null || forceShowActionButton);
+        ViewUtils.setEnabled(mActionButton, contact != null);
+
+        if (contact != null) {
+            ViewUtils.setOnClickListener(mActionButton,
+                    view -> mOnShowContactDetailListener.onShowContactDetail(contact));
+        } else {
+            ViewUtils.setOnClickListener(mActionButton, null);
         }
-        mDivider.setVisibility(View.VISIBLE);
-        mActionButton.setVisibility(View.VISIBLE);
-        mActionButton.setOnClickListener(
-                view -> mOnShowContactDetailListener.onShowContactDetail(contact));
     }
 }

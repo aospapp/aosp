@@ -187,15 +187,17 @@ public class ListMixin implements Mixin {
       if (defaultDivider == null) {
         defaultDivider = listView.getDivider();
       }
-      divider =
-          DrawableLayoutDirectionHelper.createRelativeInsetDrawable(
-              defaultDivider,
-              dividerInsetStart /* start */,
-              0 /* top */,
-              dividerInsetEnd /* end */,
-              0 /* bottom */,
-              templateLayout);
-      listView.setDivider(divider);
+      if (defaultDivider != null) {
+        divider =
+            DrawableLayoutDirectionHelper.createRelativeInsetDrawable(
+                defaultDivider,
+                dividerInsetStart /* start */,
+                0 /* top */,
+                dividerInsetEnd /* end */,
+                0 /* bottom */,
+                templateLayout);
+        listView.setDivider(divider);
+      }
     }
   }
 

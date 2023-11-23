@@ -18,7 +18,6 @@ package com.android.documentsui;
 
 import androidx.recyclerview.selection.DefaultSelectionTracker;
 import androidx.recyclerview.selection.SelectionPredicates;
-import androidx.recyclerview.selection.SelectionTracker;
 import androidx.recyclerview.selection.SelectionTracker.SelectionPredicate;
 import androidx.recyclerview.selection.StorageStrategy;
 
@@ -40,19 +39,13 @@ public class SelectionHelpers {
 
     public static DocsSelectionHelper createTestInstance(List<String> docs) {
         DocsSelectionHelper manager = new DocsSelectionHelper(
-                new DocsSelectionHelper.DelegateFactory() {
+                new DocsSelectionHelper.DelegateFactory());
 
-                    @Override
-                    SelectionTracker<String> create(SelectionTracker<String> selectionTracker) {
-                        return new DefaultSelectionTracker<String>(
-                                Integer.toHexString(System.identityHashCode(docs)),
-                                new TestStableIdProvider(docs),
-                                CAN_SET_ANYTHING,
-                                StorageStrategy.createStringStorage());
-                    }
-                });
-
-        manager.reset(null);
+        manager.reset(new DefaultSelectionTracker<String>(
+                Integer.toHexString(System.identityHashCode(docs)),
+                new TestStableIdProvider(docs),
+                CAN_SET_ANYTHING,
+                StorageStrategy.createStringStorage()));
         return manager;
     }
 }

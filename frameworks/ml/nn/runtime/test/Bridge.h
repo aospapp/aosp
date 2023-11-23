@@ -20,8 +20,8 @@
 // contains a few utilities for tests to call that trampoline to the
 // internal headers.
 
-#ifndef ANDROID_ML_NN_RUNTIME_TEST_BRIDGE_H
-#define ANDROID_ML_NN_RUNTIME_TEST_BRIDGE_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_BRIDGE_H
+#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_BRIDGE_H
 
 #include <iostream>
 
@@ -39,4 +39,4 @@ void graphDump(const char* name, const ModelBuilder* model, std::ostream* outStr
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_ML_NN_RUNTIME_TEST_BRIDGE_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_BRIDGE_H

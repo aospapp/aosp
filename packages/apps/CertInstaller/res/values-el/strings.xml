@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Εξαγωγή πιστοποιητικού"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Εξαγωγή..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Εξαγωγή από %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Δώστε όνομα στο πιστοποιητικό"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Όνομα πιστοποιητικού:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Ονομάστε αυτό το πιστοποιητικό"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Όνομα πιστοποιητικού"</string>
     <string name="credential_password" msgid="3520176519550993326">"Πληκτρολογήστε τον κωδικό πρόσβασης για να γίνει εξαγωγή των πιστοποιητικών."</string>
     <string name="credential_info" msgid="2436768402308470397">"Το πακέτο περιέχει:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Πιστοποιητικά στο χώρο αποθήκευσης κλειδιών PKCS12."</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Το πιστοποιητικό δεν είναι έγκυρο."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"Απαιτείται ιδιωτικό κλειδί για την εγκατάσταση κάποιου πιστοποιητικού"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Απαιτείται πιστοποιητικό για την εγκατάσταση κάποιου ιδιωτικού κλειδιού"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"Το <xliff:g id="CREDENTIAL">%s</xliff:g> είναι εγκατεστημένο."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Επιλογή τύπου πιστοποιητικών"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Εγκαταστήστε πιστοποιητικά CA στις Ρυθμίσεις"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Η εγκατάσταση αυτού του πιστοποιητικού από την εφαρμογή <xliff:g id="REQUESTING_APP">%1$s</xliff:g> πρέπει να πραγματοποιηθεί στις Ρυθμίσεις. Εγκαθιστάτε πιστοποιητικά CA μόνο από οργανισμούς που εμπιστεύεστε."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Κλείσιμο"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Δεν μπορείτε να χρησιμοποιήσετε αυτό το αρχείο"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Κλείσιμο"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Αυτό το αρχείο δεν μπορεί να χρησιμοποιηθεί ως <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Πιστοποιητικό"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"Πιστοποιητικό CA"</string>
+    <string name="user_certificate" msgid="514888069820553128">"Πιστοποιητικό χρήστη VPN και εφαρμογής"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Πιστοποιητικό Wi‑Fi"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Εγκαταστάθηκε πιστοποιητικό CA"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Εγκαταστάθηκε πιστοποιητικό χρήστη"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Εγκαταστάθηκε πιστοποιητικό Wi‑Fi"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Δεν ήταν δυνατή η εγκατάσταση, επειδή το μέγεθος του πιστοποιητικού είναι πολύ μεγάλο."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Δεν ήταν δυνατή η εγκατάσταση, επειδή δεν ήταν δυνατό να εντοπιστεί το αρχείο πιστοποιητικού."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Δεν ήταν δυνατή η εγκατάσταση, επειδή δεν ήταν δυνατό να γίνει ανάγνωση του αρχείου πιστοποιητικού."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Προσωρινή αποτυχία. Δοκιμάστε ξανά αργότερα."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Μόνο ο κάτοχος αυτής της συσκευής μπορεί να εγκαταστήσει πιστοποιητικά."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Χρήση διαπιστευτηρίων:"</string>
   <string-array name="credential_usage">

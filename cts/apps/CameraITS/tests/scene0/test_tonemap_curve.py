@@ -21,17 +21,36 @@ import its.objects
 import numpy as np
 
 NAME = os.path.basename(__file__).split('.')[0]
-PATTERN = 2  # Note scene0/test_test_patterns must PASS
+COLOR_BAR_PATTERN = 2
 COLOR_BARS = ['WHITE', 'YELLOW', 'CYAN', 'GREEN', 'MAGENTA', 'RED',
               'BLUE', 'BLACK']
 COLOR_CHECKER = {'BLACK': [0, 0, 0], 'RED': [1, 0, 0], 'GREEN': [0, 1, 0],
                  'BLUE': [0, 0, 1], 'MAGENTA': [1, 0, 1], 'CYAN': [0, 1, 1],
                  'YELLOW': [1, 1, 0], 'WHITE': [1, 1, 1]}
 DELTA = 0.0005  # crop on edge of color bars
+LINEAR_TONEMAP = sum([[t/63.0, t/126.0] for t in range(64)], [])  # max of 0.5
+N_BARS = len(COLOR_BARS)
 RAW_TOL = 0.001  # 1 DN in [0:1] (1/(1023-64)
 RGB_VAR_TOL = 0.0039  # 1/255
 RGB_MEAN_TOL = 0.1
 TONEMAP_MAX = 0.5
+YUV_H = 480
+YUV_W = 640
+# fixed patch coordinates
+WNORM = 1.0 / N_BARS - 2 * DELTA
+YNORM = 0.0
+HNORM = 1.0
+
+def compute_xnorm(num):
+    """Compute xnorm (x location in image) patch based on COLOR_BAR number.
+
+    Args:
+        num:    int; index number in COLOR_BARS
+
+    Returns:
+        xnorm
+    """
+    return float(num) / N_BARS + DELTA
 
 
 def check_raw_pattern(img_raw):
@@ -42,12 +61,11 @@ def check_raw_pattern(img_raw):
     """
 
     print 'Checking RAW/PATTERN match'
-    n_bars = len(COLOR_BARS)
     color_match = []
-    for i in range(n_bars):
+    for i in range(N_BARS):
         print 'patch:', i,
         raw_patch = its.image.get_image_patch(
-                img_raw, float(i)/n_bars+DELTA, 0.0, 1.0/n_bars-2*DELTA, 1.0)
+                img_raw, compute_xnorm(i), YNORM, WNORM, HNORM)
         raw_means = its.image.compute_image_means(raw_patch)
         for color in COLOR_BARS:
             if np.allclose(COLOR_CHECKER[color], raw_means, atol=RAW_TOL):
@@ -67,14 +85,14 @@ def check_yuv_vs_raw(img_raw, img_yuv):
     """
 
     print 'Checking YUV/RAW match'
-    n_bars = len(COLOR_BARS)
     color_match_errs = []
     color_variance_errs = []
-    for i in range(n_bars):
+    for i in range(N_BARS):
+        xnorm = compute_xnorm(i)
         raw_patch = its.image.get_image_patch(
-                img_raw, float(i)/n_bars+DELTA, 0.0, 1.0/n_bars-2*DELTA, 1.0)
+                img_raw, xnorm, YNORM, WNORM, HNORM)
         yuv_patch = its.image.get_image_patch(
-                img_yuv, float(i)/n_bars+DELTA, 0.0, 1.0/n_bars-2*DELTA, 1.0)
+                img_yuv, xnorm, YNORM, WNORM, HNORM)
         raw_means = np.array(its.image.compute_image_means(raw_patch))
         raw_vars = np.array(its.image.compute_image_variances(raw_patch))
         yuv_means = np.array(its.image.compute_image_means(yuv_patch))
@@ -106,64 +124,60 @@ def test_tonemap_curve(cam, props):
         props: Properties of cam
     """
 
-    avail_patterns = props['android.sensor.availableTestPatternModes']
-    print 'avail_patterns: ', avail_patterns
     sens_min, _ = props['android.sensor.info.sensitivityRange']
     exp = min(props['android.sensor.info.exposureTimeRange'])
 
-    # Linear tonemap with maximum of 0.5
-    tmap = sum([[i/63.0, i/126.0] for i in range(64)], [])
+    # RAW image
+    req_raw = its.objects.manual_capture_request(int(sens_min), exp)
+    req_raw['android.sensor.testPatternMode'] = COLOR_BAR_PATTERN
+    fmt_raw = {'format': 'raw'}
+    cap_raw = cam.do_capture(req_raw, fmt_raw)
+    img_raw = its.image.convert_capture_to_rgb_image(
+            cap_raw, props=props)
 
-    if PATTERN in avail_patterns:
-        # RAW image
-        req_raw = its.objects.manual_capture_request(int(sens_min), exp)
-        req_raw['android.sensor.testPatternMode'] = PATTERN
-        fmt_raw = {'format': 'raw'}
-        cap_raw = cam.do_capture(req_raw, fmt_raw)
-        img_raw = its.image.convert_capture_to_rgb_image(
-                cap_raw, props=props)
+    # Save RAW pattern
+    its.image.write_image(img_raw, '%s_raw_%d.jpg' % (
+            NAME, COLOR_BAR_PATTERN), True)
+    check_raw_pattern(img_raw)
 
-        # Save RAW pattern
-        its.image.write_image(img_raw, '%s_raw_%d.jpg' % (
-                NAME, PATTERN), True)
-        check_raw_pattern(img_raw)
+    # YUV image
+    req_yuv = its.objects.manual_capture_request(int(sens_min), exp)
+    req_yuv['android.sensor.testPatternMode'] = COLOR_BAR_PATTERN
+    req_yuv['android.distortionCorrection.mode'] = 0
+    req_yuv['android.tonemap.mode'] = 0
+    req_yuv['android.tonemap.curve'] = {
+            'red': LINEAR_TONEMAP,
+            'green': LINEAR_TONEMAP,
+            'blue': LINEAR_TONEMAP}
+    fmt_yuv = {'format': 'yuv', 'width': YUV_W, 'height': YUV_H}
+    cap_yuv = cam.do_capture(req_yuv, fmt_yuv)
+    img_yuv = its.image.convert_capture_to_rgb_image(cap_yuv, True)
 
-        # YUV image
-        req_yuv = its.objects.manual_capture_request(int(sens_min), exp)
-        req_yuv['android.sensor.testPatternMode'] = PATTERN
-        req_yuv['android.distortionCorrection.mode'] = 0
-        req_yuv['android.tonemap.mode'] = 0
-        req_yuv['android.tonemap.curve'] = {
-                'red': tmap, 'green': tmap, 'blue': tmap}
-        fmt_yuv = {'format': 'yuv', 'width': 640, 'height': 480}
-        cap_yuv = cam.do_capture(req_yuv, fmt_yuv)
-        img_yuv = its.image.convert_capture_to_rgb_image(cap_yuv, True)
+    # Save YUV pattern
+    its.image.write_image(img_yuv, '%s_yuv_%d.jpg' % (
+            NAME, COLOR_BAR_PATTERN), True)
 
-        # Save YUV pattern
-        its.image.write_image(img_yuv, '%s_yuv_%d.jpg' % (
-                NAME, PATTERN), True)
-
-        # Check pattern for correctness
-        check_yuv_vs_raw(img_raw, img_yuv)
-    else:
-        print 'Pattern not in android.sensor.availableTestPatternModes.'
-        assert 0
+    # Check pattern for correctness
+    check_yuv_vs_raw(img_raw, img_yuv)
 
 
 def main():
-    """Test conversion of test pattern from RAW to YUV.
+    """Test conversion of test pattern from RAW to YUV with linear tonemap.
 
-    android.sensor.testPatternMode
-    2: COLOR_BARS
+    Test requires android.sensor.testPatternMode = 2 (COLOR_BARS) to
+    generate perfect image pattern for tonemap conversion.
     """
 
     print '\nStarting %s' % NAME
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
+        avail_patterns = props['android.sensor.availableTestPatternModes']
+        print 'avail_patterns: ', avail_patterns
         its.caps.skip_unless(its.caps.raw16(props) and
                              its.caps.manual_sensor(props) and
                              its.caps.per_frame_control(props) and
-                             its.caps.manual_post_proc(props))
+                             its.caps.manual_post_proc(props) and
+                             COLOR_BAR_PATTERN in avail_patterns)
 
         test_tonemap_curve(cam, props)
 

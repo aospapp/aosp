@@ -17,15 +17,19 @@
 package android.view.inputmethod.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-import android.graphics.Typeface;
 import android.os.Parcel;
+import android.text.Annotation;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
-import android.text.style.StyleSpan;
 import android.view.inputmethod.ExtractedText;
 
+import androidx.annotation.AnyThread;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -35,35 +39,110 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class ExtractedTextTest {
-    @Test
-    public void testWriteToParcel() {
-        ExtractedText extractedText = new ExtractedText();
-        extractedText.flags = 1;
-        extractedText.selectionEnd = 11;
-        extractedText.selectionStart = 2;
-        extractedText.startOffset = 1;
-        CharSequence text = "test";
-        extractedText.text = text;
-        SpannableStringBuilder hint = new SpannableStringBuilder("hint");
-        hint.setSpan(new StyleSpan(Typeface.BOLD), 1, 3, Spanned.SPAN_INCLUSIVE_INCLUSIVE);
-        extractedText.hint = hint;
-        Parcel p = Parcel.obtain();
-        extractedText.writeToParcel(p, 0);
-        p.setDataPosition(0);
-        ExtractedText target = ExtractedText.CREATOR.createFromParcel(p);
-        assertEquals(extractedText.flags, target.flags);
-        assertEquals(extractedText.selectionEnd, target.selectionEnd);
-        assertEquals(extractedText.selectionStart, target.selectionStart);
-        assertEquals(extractedText.startOffset, target.startOffset);
-        assertEquals(extractedText.partialStartOffset, target.partialStartOffset);
-        assertEquals(extractedText.partialEndOffset, target.partialEndOffset);
-        assertEquals(extractedText.text.toString(), target.text.toString());
-        assertEquals(extractedText.hint.toString(), target.hint.toString());
-        final Spannable hintText = (Spannable) extractedText.hint;
-        assertEquals(1, hintText.getSpans(0, hintText.length(), StyleSpan.class).length);
+
+    private static final int EXPECTED_FLAGS = ExtractedText.FLAG_SINGLE_LINE;
+    private static final int EXPECTED_SELECTION_START = 2;
+    private static final int EXPECTED_SELECTION_END = 11;
+    private static final int EXPECTED_START_OFFSET = 1;
+
+    private static final Annotation EXPECTED_TEXT_ANNOTATION =
+            new Annotation("testKey", "testValue");
+    private static final Annotation EXPECTED_HINT_ANNOTATION =
+            new Annotation("testHintKey", "testHintValue");
+
+    private static SpannableStringBuilder getExpectedText() {
+        final SpannableStringBuilder text = new SpannableStringBuilder(
+                "01234567890abcdef".subSequence(EXPECTED_SELECTION_START, EXPECTED_SELECTION_END));
+        text.setSpan(EXPECTED_TEXT_ANNOTATION, 0, text.length(),
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return text;
+    }
+
+    private static SpannableStringBuilder getExpectedHint() {
+        final SpannableStringBuilder text = new SpannableStringBuilder("hint");
+        final Annotation span = new Annotation("testHintKey", "testHintValue");
+        text.setSpan(EXPECTED_HINT_ANNOTATION, 1, 2, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return text;
+    }
+
+    /**
+     * @return An instance of {@link ExtractedText} for test.
+     */
+    @AnyThread
+    @NonNull
+    static ExtractedText createForTest() {
+        final ExtractedText extractedText = new ExtractedText();
+        extractedText.flags = EXPECTED_FLAGS;
+        extractedText.selectionStart = EXPECTED_SELECTION_START;
+        extractedText.selectionEnd = EXPECTED_SELECTION_END;
+        extractedText.startOffset = EXPECTED_START_OFFSET;
+        extractedText.text = getExpectedText();
+        extractedText.hint = getExpectedHint();
+        return extractedText;
+    }
+
+    /**
+     * Ensures that the specified object is equivalent to the one returned from
+     * {@link #createForTest()}.
+     *
+     * @param extractedText {@link ExtractedText} to be tested.
+     */
+    static void assertTestInstance(@Nullable ExtractedText extractedText) {
+        assertNotNull(extractedText);
+
+        assertEquals(EXPECTED_FLAGS, extractedText.flags);
+        assertEquals(EXPECTED_SELECTION_START, extractedText.selectionStart);
+        assertEquals(EXPECTED_SELECTION_END, extractedText.selectionEnd);
+        assertEquals(EXPECTED_START_OFFSET, extractedText.startOffset);
+
+        assertEquals(getExpectedText().toString(), extractedText.text.toString());
+        {
+            assertTrue(extractedText.text instanceof Spanned);
+            final Spanned spannedText = (Spanned) extractedText.text;
+            final Annotation[] textAnnotations =
+                    spannedText.getSpans(0, spannedText.length(), Annotation.class);
+            assertEquals(1, textAnnotations.length);
+            final Annotation textAnnotation = textAnnotations[0];
+            assertEquals(EXPECTED_TEXT_ANNOTATION.getKey(), textAnnotation.getKey());
+            assertEquals(EXPECTED_TEXT_ANNOTATION.getValue(), textAnnotation.getValue());
+        }
+
+        assertEquals(getExpectedHint().toString(), extractedText.hint.toString());
+        {
+            assertTrue(extractedText.hint instanceof Spanned);
+            final Spanned spannedHint = (Spanned) extractedText.hint;
+            final Annotation[] hintAnnotations =
+                    spannedHint.getSpans(0, spannedHint.length(), Annotation.class);
+            assertEquals(1, hintAnnotations.length);
+            final Annotation hintAnnotation = hintAnnotations[0];
+            assertEquals(EXPECTED_HINT_ANNOTATION.getKey(), hintAnnotation.getKey());
+            assertEquals(EXPECTED_HINT_ANNOTATION.getValue(), hintAnnotation.getValue());
+        }
 
         assertEquals(0, extractedText.describeContents());
+    }
 
-        p.recycle();
+
+    /**
+     * Ensures that {@link ExtractedText} can be serialized and deserialized via {@link Parcel}.
+     */
+    @Test
+    public void testWriteToParcel() {
+        final ExtractedText original = createForTest();
+        assertTestInstance(original);
+        final ExtractedText copied = cloneViaParcel(original);
+        assertTestInstance(copied);
+    }
+
+    @NonNull
+    private static ExtractedText cloneViaParcel(@NonNull ExtractedText src) {
+        final Parcel parcel = Parcel.obtain();
+        try {
+            src.writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            return ExtractedText.CREATOR.createFromParcel(parcel);
+        } finally {
+            parcel.recycle();
+        }
     }
 }

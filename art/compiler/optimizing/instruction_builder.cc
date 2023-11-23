@@ -29,6 +29,7 @@
 #include "driver/dex_compilation_unit.h"
 #include "driver/compiler_options.h"
 #include "imtable-inl.h"
+#include "jit/jit.h"
 #include "mirror/dex_cache.h"
 #include "oat_file.h"
 #include "optimizing_compiler_stats.h"
@@ -1001,14 +1002,27 @@ bool HInstructionBuilder::BuildInvoke(const Instruction& instruction,
                                              resolved_method->GetMethodIndex());
   } else {
     DCHECK_EQ(invoke_type, kInterface);
-    ScopedObjectAccess soa(Thread::Current());  // Needed for the IMT index.
-    invoke = new (allocator_) HInvokeInterface(allocator_,
+    ScopedObjectAccess soa(Thread::Current());  // Needed for the IMT index and class check below.
+    if (resolved_method->GetDeclaringClass()->IsObjectClass()) {
+      // If the resolved method is from j.l.Object, emit a virtual call instead.
+      // The IMT conflict stub only handles interface methods.
+      invoke = new (allocator_) HInvokeVirtual(allocator_,
                                                number_of_arguments,
                                                return_type,
                                                dex_pc,
                                                method_idx,
                                                resolved_method,
-                                               ImTable::GetImtIndex(resolved_method));
+                                               resolved_method->GetMethodIndex());
+    } else {
+      DCHECK(resolved_method->GetDeclaringClass()->IsInterface());
+      invoke = new (allocator_) HInvokeInterface(allocator_,
+                                                 number_of_arguments,
+                                                 return_type,
+                                                 dex_pc,
+                                                 method_idx,
+                                                 resolved_method,
+                                                 ImTable::GetImtIndex(resolved_method));
+    }
   }
   return HandleInvoke(invoke, operands, shorty, /* is_unresolved= */ false, clinit_check);
 }
@@ -1139,12 +1153,15 @@ void HInstructionBuilder::BuildConstructorFenceForAllocation(HInstruction* alloc
 
 static bool IsInBootImage(ObjPtr<mirror::Class> cls, const CompilerOptions& compiler_options)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  if (compiler_options.IsBootImage()) {
+  if (Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(cls)) {
+    return true;
+  }
+  if (compiler_options.IsBootImage() || compiler_options.IsBootImageExtension()) {
     std::string temp;
     const char* descriptor = cls->GetDescriptor(&temp);
     return compiler_options.IsImageClass(descriptor);
   } else {
-    return Runtime::Current()->GetHeap()->FindSpaceFromObject(cls, false)->IsImageSpace();
+    return false;
   }
 }
 
@@ -1290,15 +1307,20 @@ bool HInstructionBuilder::IsInitialized(Handle<mirror::Class> cls) const {
   // Check if the class will be initialized at runtime.
   if (cls->IsInitialized()) {
     Runtime* runtime = Runtime::Current();
-    if (!runtime->IsAotCompiler()) {
+    if (runtime->IsAotCompiler()) {
+      // Assume loaded only if klass is in the boot image. App classes cannot be assumed
+      // loaded because we don't even know what class loader will be used to load them.
+      if (IsInBootImage(cls.Get(), code_generator_->GetCompilerOptions())) {
+        return true;
+      }
+    } else {
       DCHECK(runtime->UseJitCompilation());
-      // For JIT, the class cannot revert to an uninitialized state.
-      return true;
-    }
-    // Assume loaded only if klass is in the boot image. App classes cannot be assumed
-    // loaded because we don't even know what class loader will be used to load them.
-    if (IsInBootImage(cls.Get(), code_generator_->GetCompilerOptions())) {
-      return true;
+      if (Runtime::Current()->GetJit()->CanAssumeInitialized(
+              cls.Get(),
+              graph_->IsCompilingForSharedJitCode())) {
+        // For JIT, the class cannot revert to an uninitialized state.
+        return true;
+      }
     }
   }
 
@@ -3090,6 +3112,7 @@ bool HInstructionBuilder::ProcessDexInstruction(const Instruction& instruction,
           LoadLocal(instruction.VRegA_11x(), DataType::Type::kReference),
           HMonitorOperation::OperationKind::kEnter,
           dex_pc));
+      graph_->SetHasMonitorOperations(true);
       break;
     }
 
@@ -3098,6 +3121,7 @@ bool HInstructionBuilder::ProcessDexInstruction(const Instruction& instruction,
           LoadLocal(instruction.VRegA_11x(), DataType::Type::kReference),
           HMonitorOperation::OperationKind::kExit,
           dex_pc));
+      graph_->SetHasMonitorOperations(true);
       break;
     }
 

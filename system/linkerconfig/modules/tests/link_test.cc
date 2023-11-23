@@ -29,7 +29,8 @@ TEST(linkerconfig_link, link_with_all_shared_libs) {
   android::linkerconfig::modules::ConfigWriter writer;
 
   auto link = std::make_shared<android::linkerconfig::modules::Link>(
-      "originalNamespace", "targetNamespace", true);
+      "originalNamespace", "targetNamespace");
+  link->AllowAllSharedLibs();
 
   link->WriteConfig(writer);
   auto config_text = writer.ToString();

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_MANAGER_HIDLSERVICE_H
-#define ANDROID_HARDWARE_MANAGER_HIDLSERVICE_H
+#pragma once
 
 #include <set>
 
@@ -68,16 +67,23 @@ struct HidlService {
     void registerPassthroughClient(pid_t pid);
 
     // also sends onClients(true) if we have clients
-    void addClientCallback(const sp<IClientCallback>& callback);
+    // knownClientCount, see forceHandleClientCallbacks
+    void addClientCallback(const sp<IClientCallback>& callback, size_t knownClientCount);
     bool removeClientCallback(const sp<IClientCallback>& callback);
 
-    // return is number of clients (-1 means this is not implemented or we didn't check)
-    // count includes one held by hwservicemanager
-    ssize_t handleClientCallbacks(bool isCalledOnInterval);
+    // return is if we are guaranteed to have a client
+    // knownClientCount, see forceHandleClientCallbacks
+    bool handleClientCallbacks(bool isCalledOnInterval, size_t knownClientCount);
 
     // Updates client callbacks (even if mClientCallbacks is emtpy)
     // see handleClientCallbacks
-    ssize_t forceHandleClientCallbacks(bool isCalledOnInterval);
+    //
+    // knownClientCount - this is the number of clients that is currently
+    // expected to be in use by known actors. This number of clients must be
+    // exceeded in order to consider the service to have clients.
+    //
+    // returns whether or not this service has clients
+    bool forceHandleClientCallbacks(bool isCalledOnInterval, size_t knownClientCount);
 
     // when giving out a handle to a client, but the kernel might not know this yet
     void guaranteeClient();
@@ -116,5 +122,3 @@ private:
 }  // namespace manager
 }  // namespace hidl
 }  // namespace android
-
-#endif // ANDROID_HARDWARE_MANAGER_HIDLSERVICE_H

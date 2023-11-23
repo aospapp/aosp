@@ -55,8 +55,8 @@ gatt_server_read_descriptor_sample = {
 
 
 class GattServerExampleTest(BluetoothBaseTest):
-    def __init__(self, controllers):
-        BluetoothBaseTest.__init__(self, controllers)
+    def setup_class(self):
+        super().setup_class()
         self.dut = self.android_devices[0]
 
     @BluetoothBaseTest.bt_test_wrap

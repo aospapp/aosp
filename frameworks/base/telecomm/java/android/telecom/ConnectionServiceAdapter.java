@@ -100,6 +100,19 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         }
     }
 
+    void handleCreateConferenceComplete(
+            String id,
+            ConnectionRequest request,
+            ParcelableConference conference) {
+        for (IConnectionServiceAdapter adapter : mAdapters) {
+            try {
+                adapter.handleCreateConferenceComplete(id, request, conference,
+                        Log.getExternalSession());
+            } catch (RemoteException e) {
+            }
+        }
+    }
+
     /**
      * Sets a call's state to active (e.g., an ongoing call where two parties can actively
      * communicate).
@@ -677,6 +690,22 @@ final class ConnectionServiceAdapter implements DeathRecipient {
             try {
                 adapter.setConferenceState(callId, isConference, Log.getExternalSession());
             } catch (RemoteException ignored) {
+            }
+        }
+    }
+
+    /**
+     * Sets the direction of a call. Setting a new direction of an existing call is usually only
+     * applicable during single caller emulation during conferencing, see
+     * {@link Conference#setConferenceState(boolean)} for more information.
+     * @param callId The identifier of the call.
+     * @param direction The new direction of the call.
+     */
+    void setCallDirection(String callId, @Call.Details.CallDirection int direction) {
+        for (IConnectionServiceAdapter a : mAdapters) {
+            try {
+                a.setCallDirection(callId, direction, Log.getExternalSession());
+            } catch (RemoteException e) {
             }
         }
     }

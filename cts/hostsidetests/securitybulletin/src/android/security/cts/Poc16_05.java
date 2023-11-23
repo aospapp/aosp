@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,18 @@
 package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@SecurityTest
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc16_05 extends SecurityTestCase {
     /**
      *  b/27555981
      */
+    @Test
     @SecurityTest(minPatchLevel = "2016-05")
     public void testPocCVE_2016_2460() throws Exception {
         AdbUtils.runCommandLine("logcat -c" , getDevice());
@@ -35,8 +41,10 @@ public class Poc16_05 extends SecurityTestCase {
     /**
      *  b/27275324
      */
+    @Test
     @SecurityTest(minPatchLevel = "2016-05")
     public void testPocCVE_2015_1805() throws Exception {
-      AdbUtils.runPoc("CVE-2015-1805", getDevice(), 300);
+      getOomCatcher().setHighMemoryTest();
+      AdbUtils.runPoc("CVE-2015-1805", getDevice(), TIMEOUT_NONDETERMINISTIC);
     }
 }

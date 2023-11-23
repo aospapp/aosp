@@ -517,7 +517,7 @@ ssize_t bunzip(semanage_handle_t *sh, FILE *f, char **data)
 	size_t  size = 1<<18;
 	size_t  bufsize = size;
 	int     bzerror;
-	size_t  total=0;
+	size_t  total = 0;
 	char*   uncompress = NULL;
 	char*   tmpalloc = NULL;
 	int     ret = -1;
@@ -1460,6 +1460,13 @@ rebuild:
 			goto cleanup;
 
 		cil_db_destroy(&cildb);
+
+		/* Remove redundancies in binary policy if requested. */
+		if (sh->conf->optimize_policy) {
+			retval = sepol_policydb_optimize(out);
+			if (retval < 0)
+				goto cleanup;
+		}
 
 		/* Write the linked policy before merging local changes. */
 		retval = semanage_write_policydb(sh, out,

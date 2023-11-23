@@ -8,19 +8,6 @@ import time
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, utils
 
-
-def FindDriver(ifname):
-  """Finds the driver associated with network interface.
-
-  @param ifname Interface name
-  @return String containing the kernel driver name for this interface
-  """
-
-  driver_file = '/sys/class/net/%s/device/driver/module' % ifname
-  if os.path.exists(driver_file):
-    return os.path.basename(os.readlink(driver_file))
-
-
 def GetInterfaceList():
   """Gets the list of network interfaces on this host.
 
@@ -29,17 +16,15 @@ def GetInterfaceList():
   return os.listdir('/sys/class/net')
 
 
-def FindInterface(typelist=('wlan','mlan','eth')):
+def FindInterface(typelist=('wlan','mlan')):
   """Finds an interface that we can unload the driver for.
 
-  Retrieves a dict containing the name of a network interface
-  that can quite likely be removed using the "rmmod" command,
-  and the name of the module used to load the driver.
+  Retrieves the name of a network interface that can be
+  removed by unbinding/rebinding its device.
 
   @param typelist An iterable of interface prefixes to filter from. Only
                   return an interface that matches one of these prefixes
-  @return Dict containing a 'intf' key with the interface name
-          and a 'wlan' key with the kernel module name for the driver.
+  @return string The name of the interface
 
   """
   interface_list = GetInterfaceList()
@@ -47,15 +32,13 @@ def FindInterface(typelist=('wlan','mlan','eth')):
   for prefix in typelist:
     for intf in interface_list:
       if intf.startswith(prefix):
-        driver = FindDriver(intf)
-        if driver is not None:
-          return {'intf': intf, 'driver': driver}
+        return intf
 
   logging.debug('Could not find an interface')
 
 
 def RestartInterface():
-  """Find and restart a network interface using "rmmod" and "modprobe".
+  """Find and restart a network interface by unbinding and rebinding the device.
 
   This function simulates a device eject and re-insert.
 
@@ -69,19 +52,27 @@ def RestartInterface():
 
   logging.debug('Using %s for restart', str(interface))
 
-  try:
-    utils.system('rmmod %s' % interface['driver'])
-  except error.CmdError, e:
-    logging.debug(e)
+  devicePath = '/sys/class/net/%s/device' % interface
+  deviceRealPath = os.path.realpath(devicePath)
 
+  payload = os.path.basename(deviceRealPath)
+
+  driverPath = os.path.join(devicePath, 'driver')
+  driverRealPath = os.path.realpath(driverPath)
+
+  # Unbind the wireless device
   try:
-    utils.system('modprobe %s' % interface['driver'])
-  except error.CmdError, e:
-    logging.debug(e)
-    raise error.TestFail('Failed to reload driver %s' % interface['driver'])
+    utils.open_write_close(os.path.join(driverRealPath, 'unbind'), payload)
+  except Exception, e:
+    raise error.TestFail('Could not unbind %s driver: %s' % (interface, e))
+
+  # Rebind the wireless device
+  try:
+    utils.open_write_close(os.path.join(driverRealPath, 'bind'), payload)
+  except Exception, e:
+    raise error.TestFail('Could not bind %s driver: %s' % (interface, e))
 
   return True
-
 
 def Upstart(service, action='status'):
   """Front-end to the 'initctl' command.
@@ -169,5 +160,6 @@ class network_UdevRename(test.test):
   version = 1
 
   def run_once(self):
+    """Run the tests"""
     TestUdevDeviceList(RestartUdev)
     TestUdevDeviceList(RestartInterface)

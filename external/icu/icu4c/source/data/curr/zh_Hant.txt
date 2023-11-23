@@ -1212,6 +1212,9 @@ zh_Hant{
             "辛巴威元 (2008)",
         }
     }
+    Currencies%formal{
+        TWD{"NT$"}
+    }
     Currencies%narrow{
         AOA{"Kz"}
         ARS{"$"}
@@ -1243,7 +1246,6 @@ zh_Hant{
         FJD{"$"}
         FKP{"£"}
         GBP{"£"}
-        GEL{"₾"}
         GIP{"£"}
         GNF{"FG"}
         GTQ{"Q"}
@@ -2222,5 +2224,5 @@ zh_Hant{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

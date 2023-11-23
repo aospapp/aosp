@@ -174,7 +174,7 @@ statement executed in the first suite skips the rest of the suite and continues
 with the next item, or with the :keyword:`!else` clause if there is no next
 item.
 
-The for-loop makes assignments to the variables(s) in the target list.
+The for-loop makes assignments to the variables in the target list.
 This overwrites all previous assignments to those variables including
 those made in the suite of the for-loop::
 
@@ -325,8 +325,8 @@ not handled, the exception is temporarily saved. The :keyword:`!finally` clause
 is executed.  If there is a saved exception it is re-raised at the end of the
 :keyword:`!finally` clause.  If the :keyword:`!finally` clause raises another
 exception, the saved exception is set as the context of the new exception.
-If the :keyword:`!finally` clause executes a :keyword:`return` or :keyword:`break`
-statement, the saved exception is discarded::
+If the :keyword:`!finally` clause executes a :keyword:`return`, :keyword:`break`
+or :keyword:`continue` statement, the saved exception is discarded::
 
    >>> def f():
    ...     try:
@@ -347,10 +347,7 @@ the :keyword:`finally` clause.
 
 When a :keyword:`return`, :keyword:`break` or :keyword:`continue` statement is
 executed in the :keyword:`try` suite of a :keyword:`!try`...\ :keyword:`!finally`
-statement, the :keyword:`finally` clause is also executed 'on the way out.' A
-:keyword:`continue` statement is illegal in the :keyword:`!finally` clause. (The
-reason is a problem with the current implementation --- this restriction may be
-lifted in the future).
+statement, the :keyword:`finally` clause is also executed 'on the way out.'
 
 The return value of a function is determined by the last :keyword:`return`
 statement executed.  Since the :keyword:`finally` clause always executes, a
@@ -369,6 +366,10 @@ always be the last one executed::
 Additional information on exceptions can be found in section :ref:`exceptions`,
 and information on using the :keyword:`raise` statement to generate exceptions
 may be found in section :ref:`raise`.
+
+.. versionchanged:: 3.8
+   Prior to Python 3.8, a :keyword:`continue` statement was illegal in the
+   :keyword:`finally` clause due to a problem with the implementation.
 
 
 .. _with:
@@ -482,8 +483,10 @@ A function definition defines a user-defined function object (see section
    decorators: `decorator`+
    decorator: "@" `dotted_name` ["(" [`argument_list` [","]] ")"] NEWLINE
    dotted_name: `identifier` ("." `identifier`)*
-   parameter_list: `defparameter` ("," `defparameter`)* ["," [`parameter_list_starargs`]]
-                 : | `parameter_list_starargs`
+   parameter_list: `defparameter` ("," `defparameter`)* "," "/" ["," [`parameter_list_no_posonly`]]
+                 :   | `parameter_list_no_posonly`
+   parameter_list_no_posonly: `defparameter` ("," `defparameter`)* ["," [`parameter_list_starargs`]]
+                            : | `parameter_list_starargs`
    parameter_list_starargs: "*" [`parameter`] ("," `defparameter`)* ["," ["**" `parameter` [","]]]
                           : | "**" `parameter` [","]
    parameter: `identifier` [":" `expression`]

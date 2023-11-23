@@ -59,13 +59,6 @@ public:
 #endif  // HEADER_INCLUDE_GUARD_H_
 )";
 
-const char kExpectedEnumOutput[] =
-R"(enum Foo {
-  BAR = 42,
-  BAZ,
-};
-)";
-
 const char kExpectedSwitchOutput[] =
 R"(switch (var) {
 case 2:
@@ -146,11 +139,34 @@ TEST_F(AstCppTests, GeneratesHeader) {
   CompareGeneratedCode(cpp_header, kExpectedHeaderOutput);
 }
 
-TEST_F(AstCppTests, GeneratesEnum) {
-  Enum e("Foo");
+TEST_F(AstCppTests, GeneratesUnscopedEnum) {
+  Enum e("Foo", "", false);
   e.AddValue("BAR", "42");
   e.AddValue("BAZ", "");
-  CompareGeneratedCode(e, kExpectedEnumOutput);
+
+  string expected =
+      R"(enum Foo {
+  BAR = 42,
+  BAZ,
+};
+)";
+
+  CompareGeneratedCode(e, expected);
+}
+
+TEST_F(AstCppTests, GeneratesScopedEnum) {
+  Enum e("Foo", "int32_t", true);
+  e.AddValue("BAR", "42");
+  e.AddValue("BAZ", "");
+
+  string expected =
+      R"(enum class Foo : int32_t {
+  BAR = 42,
+  BAZ,
+};
+)";
+
+  CompareGeneratedCode(e, expected);
 }
 
 TEST_F(AstCppTests, GeneratesArgList) {

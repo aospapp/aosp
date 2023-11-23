@@ -150,6 +150,20 @@ static int find_heap_id(int ion_client, char *name)
 	return heap_id;
 }
 
+static int alloc_ion_fd(int ion_fd, size_t size, unsigned int heap_mask, unsigned int flags, int *shared_fd)
+{
+	int heap;
+
+	if (!gralloc_legacy_ion) {
+		heap = 1 << system_heap_id;
+		if (heap_mask == ION_HEAP_TYPE_DMA_MASK)
+			heap = 1 << cma_heap_id;
+	} else {
+		heap = heap_mask;
+	}
+
+	return ion_alloc_fd(ion_fd, size, 0, heap, flags, shared_fd);
+}
 
 static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int heap_mask, unsigned int flags, int *min_pgsz)
 {
@@ -161,16 +175,7 @@ static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int heap_mask, 
 		return -1;
 	}
 
-	/**
-	 * step 1: ion_alloc new ion_hnd
-	 * step 2: ion_share from ion_hnd and get shared_fd
-	 * step 3: ion free the given ion_hnd
-	 * step 4: when we need to free this ion buffer, just close the shared_fd,
-	 *            kernel will count the reference of file struct, so it's safe to
-	 *            be transfered between processes.
-	 */
-	ret = ion_alloc(ion_fd, size, 0, heap_mask, flags, &ion_hnd);
-
+	ret = alloc_ion_fd(ion_fd, size, heap_mask, flags, &(shared_fd));
 	if (ret < 0)
 	{
 #if defined(ION_HEAP_SECURE_MASK)
@@ -185,25 +190,8 @@ static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int heap_mask, 
 			/* If everything else failed try system heap */
 			flags = 0; /* Fallback option flags are not longer valid */
 			heap_mask = ION_HEAP_SYSTEM_MASK;
-			ret = ion_alloc(ion_fd, size, 0, heap_mask, flags, &ion_hnd);
+			ret = alloc_ion_fd(ion_fd, size, heap_mask, flags, &(shared_fd));
 		}
-	}
-
-	ret = ion_share(ion_fd, ion_hnd, &shared_fd);
-
-	if (ret != 0)
-	{
-		AERR("ion_share( %d ) failed", ion_fd);
-		shared_fd = -1;
-	}
-
-	ret = ion_free(ion_fd, ion_hnd);
-
-	if (0 != ret)
-	{
-		AERR("ion_free( %d ) failed", ion_fd);
-		close(shared_fd);
-		shared_fd = -1;
 	}
 
 	if (ret >= 0)
@@ -449,24 +437,8 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 		}
 
 		set_ion_flags(heap_mask, usage, &priv_heap_flag, &ion_flags);
-		if (gralloc_legacy_ion)
-		{
-			shared_fd = alloc_from_ion_heap(m->ion_client, max_bufDescriptor->size, heap_mask, ion_flags, &min_pgsz);
-		}
-		else
-		{
-			int heap = 1 << system_heap_id;
-			if (heap_mask == ION_HEAP_TYPE_DMA_MASK)
-				heap = 1 << cma_heap_id;
 
-			ret = ion_alloc_fd(m->ion_client, max_bufDescriptor->size, 0, heap, 0, &(shared_fd));
-			if (ret != 0)
-			{
-				AERR("Failed to ion_alloc_fd from ion_client:%d", m->ion_client);
-				return -1;
-			}
-			min_pgsz = SZ_4K;
-		}
+		shared_fd = alloc_from_ion_heap(m->ion_client, max_bufDescriptor->size, heap_mask, ion_flags, &min_pgsz);
 
 		if (shared_fd < 0)
 		{
@@ -528,25 +500,8 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 			}
 
 			set_ion_flags(heap_mask, usage, &priv_heap_flag, &ion_flags);
-			if (gralloc_legacy_ion)
-			{
-				shared_fd = alloc_from_ion_heap(m->ion_client, bufDescriptor->size, heap_mask, ion_flags, &min_pgsz);
-			}
-			else
-			{
-				int heap = 1 << system_heap_id;
-				if (heap_mask == ION_HEAP_TYPE_DMA_MASK)
-					heap = 1 << cma_heap_id;
 
-				ret = ion_alloc_fd(m->ion_client, bufDescriptor->size, 0, heap, 0, &(shared_fd));
-				if (ret != 0)
-				{
-					AERR("Failed to ion_alloc_fd from ion_client:%d", m->ion_client);
-					mali_gralloc_ion_free_internal(pHandle, numDescriptors);
-					return -1;
-				}
-				min_pgsz = SZ_4K;
-			}
+			shared_fd = alloc_from_ion_heap(m->ion_client, bufDescriptor->size, heap_mask, ion_flags, &min_pgsz);
 
 			if (shared_fd < 0)
 			{

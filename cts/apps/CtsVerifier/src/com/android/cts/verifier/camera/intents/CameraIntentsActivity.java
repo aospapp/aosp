@@ -26,6 +26,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
 import android.hardware.Camera;
+import android.media.ExifInterface;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -51,6 +52,8 @@ import static android.media.MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO;
 import static android.media.MediaMetadataRetriever.METADATA_KEY_LOCATION;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.TreeSet;
 import java.util.Date;
 import java.text.SimpleDateFormat;
@@ -88,13 +91,15 @@ implements OnClickListener, SurfaceHolder.Callback {
     private static final int STAGE_APP_PICTURE = 0;
     private static final int STAGE_APP_VIDEO = 1;
     private static final int STAGE_INTENT_PICTURE = 2;
-    private static final int STAGE_INTENT_VIDEO = 3;
-    private static final int NUM_STAGES = 4;
+    private static final int STAGE_INTENT_PICTURE_SECURE = 3;
+    private static final int STAGE_INTENT_VIDEO = 4;
+    private static final int NUM_STAGES = 5;
     private static final String STAGE_INDEX_EXTRA = "stageIndex";
 
     private static String[]  EXPECTED_INTENTS = new String[] {
         Camera.ACTION_NEW_PICTURE,
         Camera.ACTION_NEW_VIDEO,
+        null,
         null,
         Camera.ACTION_NEW_VIDEO
     };
@@ -103,7 +108,8 @@ implements OnClickListener, SurfaceHolder.Callback {
     private ImageButton mFailButton;
     private Button mStartTestButton;
     private Button mSettingsButton;
-    private File mVideoTargetDir = null;
+    private File mDebugFolder = null;
+    private File mImageTarget = null;
     private File mVideoTarget = null;
     private int mState = STATE_OFF;
     // MediaStore.Images.Media.EXTERNAL_CONTENT_URI or
@@ -131,6 +137,7 @@ implements OnClickListener, SurfaceHolder.Callback {
     private static int[] TEST_JOB_TYPES = new int[] {
         JOB_TYPE_IMAGE,
         JOB_TYPE_VIDEO,
+        JOB_TYPE_IMAGE,
         JOB_TYPE_IMAGE,
         JOB_TYPE_VIDEO
     };
@@ -226,6 +233,9 @@ implements OnClickListener, SurfaceHolder.Callback {
         if (stageIndex == STAGE_INTENT_PICTURE) {
             return "Intent Picture";
         }
+        if (stageIndex == STAGE_INTENT_PICTURE_SECURE) {
+            return "Intent Picture Secure";
+        }
         if (stageIndex == STAGE_INTENT_VIDEO) {
             return "Intent Video";
         }
@@ -244,6 +254,9 @@ implements OnClickListener, SurfaceHolder.Callback {
         if (stageIndex == STAGE_INTENT_PICTURE) {
             return android.hardware.Camera.ACTION_NEW_PICTURE;
         }
+        if (stageIndex == STAGE_INTENT_PICTURE_SECURE) {
+            return android.hardware.Camera.ACTION_NEW_PICTURE + " (Secure)";
+        }
         if (stageIndex == STAGE_INTENT_VIDEO) {
             return android.hardware.Camera.ACTION_NEW_VIDEO;
         }
@@ -261,6 +274,9 @@ implements OnClickListener, SurfaceHolder.Callback {
         }
         if (stageIndex == STAGE_INTENT_PICTURE) {
             return getString(R.string.ci_instruction_text_intent_picture_label);
+        }
+        if (stageIndex == STAGE_INTENT_PICTURE_SECURE) {
+            return getString(R.string.ci_instruction_text_intent_picture_secure_label);
         }
         if (stageIndex == STAGE_INTENT_VIDEO) {
             return getString(R.string.ci_instruction_text_intent_video_label);
@@ -401,6 +417,7 @@ implements OnClickListener, SurfaceHolder.Callback {
         the intents by taking a photo/video
         */
         if (getStageIndex() == STAGE_INTENT_PICTURE ||
+            getStageIndex() == STAGE_INTENT_PICTURE_SECURE ||
             getStageIndex() == STAGE_INTENT_VIDEO) {
 
             if (mActivityResult && mState == STATE_STARTED) {
@@ -420,47 +437,91 @@ implements OnClickListener, SurfaceHolder.Callback {
             mActivityResult = true;
             synchronized(mLock) {
                 if (mState != STATE_FAILED) {
-                    /**
-                     * For images, we don't need to do more checks, since location in image exif is
-                     * checked by cts test: MediaStoreUiTest .
-                     */
-                    if (stageIndex == STAGE_INTENT_PICTURE) {
-                        mActionSuccess = true;
-                        // Set UriSuccess to true to avoid long wait in WaitForTriggerTask
-                        mUriSuccess = true;
-                        updateSuccessState();
-                        return;
+                    switch (stageIndex) {
+                        case STAGE_INTENT_PICTURE:
+                        case STAGE_INTENT_PICTURE_SECURE:
+                            handleIntentPictureResult();
+                            // No broadcast should be received. Proceed to update test result
+                            updateSuccessState();
+                            break;
+                        case STAGE_INTENT_VIDEO:
+                            handleIntentVideoResult();
+                            break;
+                        default:
+                            return;
                     }
-                    if (stageIndex != STAGE_INTENT_VIDEO) {
-                        return;
-                    }
-
-                    if (mVideoTarget == null) {
-                        Log.d(TAG, "Video target was not set");
-                        return;
-                    }
-                    /**
-                     * Check that there is no location data in video.
-                     */
-                    MediaMetadataRetriever mediaRetriever = new MediaMetadataRetriever();
-                    mediaRetriever.setDataSource(mVideoTarget.toString());
-                    if (mediaRetriever.extractMetadata(METADATA_KEY_HAS_VIDEO) == null ||
-                        mediaRetriever.extractMetadata(METADATA_KEY_LOCATION) != null) {
-                        mState = STATE_FAILED;
-                    } else {
-                        mVideoTarget.delete();
-                    }
-                    Log.d(TAG, "METADATA_KEY_HAS_VIDEO: " +
-                            mediaRetriever.extractMetadata(METADATA_KEY_HAS_VIDEO) +
-                            " METADATA_KEY_LOCATION: " +
-                            mediaRetriever.extractMetadata(METADATA_KEY_LOCATION));
-                    mediaRetriever.release();
-                    /* successful, unless we get the URI trigger back
-                     at some point later on */
-                    mActionSuccess = true;
                 }
             }
         }
+    }
+
+    private void handleIntentPictureResult() {
+        if (mImageTarget == null) {
+            Log.d(TAG, "Image target was not set");
+            return;
+        }
+        try {
+            if (!mImageTarget.exists() || mImageTarget.length() == 0) {
+                Log.d(TAG, "Image target does not exist or is empty");
+                mState = STATE_FAILED;
+                return;
+            }
+
+            try {
+                final ExifInterface exif = new ExifInterface(new FileInputStream(mImageTarget));
+                if (!checkExifAttribute(exif, ExifInterface.TAG_MAKE)
+                    || !checkExifAttribute(exif, ExifInterface.TAG_MODEL)
+                    || !checkExifAttribute(exif, ExifInterface.TAG_DATETIME)) {
+                    Log.d(TAG, "The required tag does not appear in the exif");
+                    mState = STATE_FAILED;
+                    return;
+                }
+
+                float[] latLong = new float[2];
+                if (exif.getLatLong(latLong)) {
+                    Log.d(TAG, "Should not contain location information");
+                    mState = STATE_FAILED;
+                    return;
+                }
+                mActionSuccess = true;
+            } catch (IOException ex) {
+                Log.e(TAG, "Failed to verify Exif", ex);
+                mState = STATE_FAILED;
+                return;
+            }
+        } finally {
+            mImageTarget.delete();
+        }
+    }
+
+    private void handleIntentVideoResult() {
+        if (mVideoTarget == null) {
+            Log.d(TAG, "Video target was not set");
+            return;
+        }
+        /**
+         * Check that there is no location data in video.
+         */
+        MediaMetadataRetriever mediaRetriever = new MediaMetadataRetriever();
+        mediaRetriever.setDataSource(mVideoTarget.toString());
+        if (mediaRetriever.extractMetadata(METADATA_KEY_HAS_VIDEO) == null ||
+            mediaRetriever.extractMetadata(METADATA_KEY_LOCATION) != null) {
+            mState = STATE_FAILED;
+        } else {
+            mVideoTarget.delete();
+        }
+        Log.d(TAG, "METADATA_KEY_HAS_VIDEO: " +
+              mediaRetriever.extractMetadata(METADATA_KEY_HAS_VIDEO) +
+              " METADATA_KEY_LOCATION: " +
+              mediaRetriever.extractMetadata(METADATA_KEY_LOCATION));
+        mediaRetriever.release();
+        /* successful, unless we get the URI trigger back at some point later on. */
+        mActionSuccess = true;
+    }
+
+    private boolean checkExifAttribute(ExifInterface exif, String tag) {
+        final String res = exif.getAttribute(tag);
+        return res != null && res.length() > 0;
     }
 
     @Override
@@ -487,8 +548,9 @@ implements OnClickListener, SurfaceHolder.Callback {
 
                         // For STAGE_INTENT_PICTURE test, if EXTRA_OUTPUT is not assigned in intent,
                         // file should NOT be saved so triggering this is a test failure.
-                        if (getStageIndex() == STAGE_INTENT_PICTURE) {
-                            Log.e(TAG, "FAIL: STAGE_INTENT_PICTURE test should not create file");
+                        if (getStageIndex() == STAGE_INTENT_PICTURE ||
+                            getStageIndex() == STAGE_INTENT_PICTURE_SECURE) {
+                            Log.e(TAG, "FAIL: STAGE_INTENT_PICTURE or STAGE_INTENT_PICTURE_SECURE test should not create file");
                             mState = STATE_FAILED;
                         }
 
@@ -503,8 +565,9 @@ implements OnClickListener, SurfaceHolder.Callback {
                 e.printStackTrace();
             }
 
-            if (getStageIndex() == STAGE_INTENT_PICTURE) {
-                // STAGE_INTENT_PICTURE should timeout
+            if (getStageIndex() == STAGE_INTENT_PICTURE ||
+                getStageIndex() == STAGE_INTENT_PICTURE_SECURE) {
+                // STAGE_INTENT_PICTURE or STAGE_INTENT_PICTURE_SECURE should timeout
                 return true;
             } else {
                 Log.e(TAG, "FAIL: timeout waiting for URI trigger");
@@ -537,6 +600,11 @@ implements OnClickListener, SurfaceHolder.Callback {
             mUriSuccess = false;
             mActionSuccess = false;
 
+            // Skip URI check for stages that should not receive intent
+            if (EXPECTED_INTENTS[stageIndex] == null) {
+                mUriSuccess = true;
+            }
+
             JobScheduler jobScheduler = (JobScheduler) getSystemService(
                     Context.JOB_SCHEDULER_SERVICE);
             jobScheduler.cancelAll();
@@ -549,7 +617,9 @@ implements OnClickListener, SurfaceHolder.Callback {
              * Video intents do not need to wait on a ContentProvider broadcast since we're starting
              * the intent activity with EXTRA_OUTPUT set
              */
-            if (stageIndex != STAGE_INTENT_VIDEO) {
+            if (stageIndex != STAGE_INTENT_VIDEO &&
+                stageIndex != STAGE_INTENT_PICTURE &&
+                stageIndex != STAGE_INTENT_PICTURE_SECURE) {
                 JobInfo job = makeJobInfo(TEST_JOB_TYPES[stageIndex]);
                 jobScheduler.schedule(job);
                 new WaitForTriggerTask().execute();
@@ -569,27 +639,43 @@ implements OnClickListener, SurfaceHolder.Callback {
             if (stageIndex == STAGE_INTENT_PICTURE) {
                 intentStr = android.provider.MediaStore.ACTION_IMAGE_CAPTURE;
             }
+            else if (stageIndex == STAGE_INTENT_PICTURE_SECURE) {
+                intentStr = android.provider.MediaStore.ACTION_IMAGE_CAPTURE_SECURE;
+            }
             else if (stageIndex == STAGE_INTENT_VIDEO) {
                 intentStr = android.provider.MediaStore.ACTION_VIDEO_CAPTURE;
             }
 
             if (intentStr != null) {
                 cameraIntent = new Intent(intentStr);
-                if (stageIndex == STAGE_INTENT_VIDEO) {
-                    String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-                    mVideoTargetDir = new File(this.getFilesDir(), "debug");
-                    mVideoTarget = new File(mVideoTargetDir, timeStamp  + "video.mp4");
-                    mVideoTargetDir.mkdirs();
-                    if (!mVideoTargetDir.exists()) {
-                        Toast.makeText(this, R.string.ci_directory_creation_error,
-                                Toast.LENGTH_SHORT).show();
-                        Log.v(TAG, "Could not create directory");
-                        return;
-                    }
-                    cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(this,
-                              "com.android.cts.verifier.managedprovisioning.fileprovider",
-                              mVideoTarget));
+                mDebugFolder = new File(this.getFilesDir(), "debug");
+                mDebugFolder.mkdirs();
+                if (!mDebugFolder.exists()) {
+                    Toast.makeText(this, R.string.ci_directory_creation_error,
+                            Toast.LENGTH_SHORT).show();
+                    Log.v(TAG, "Could not create directory");
+                    return;
                 }
+
+                File targetFile;
+                String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+                switch (stageIndex) {
+                    case STAGE_INTENT_PICTURE:
+                    case STAGE_INTENT_PICTURE_SECURE:
+                        mImageTarget = new File(mDebugFolder, timeStamp + "capture.jpg");
+                        targetFile = mImageTarget;
+                        break;
+                    case STAGE_INTENT_VIDEO:
+                        mVideoTarget = new File(mDebugFolder, timeStamp  + "video.mp4");
+                        targetFile = mVideoTarget;
+                        break;
+                    default:
+                        Log.wtf(TAG, "Unexpected stage index to send intent with extras");
+                        return;
+                }
+                cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(this,
+                              "com.android.cts.verifier.managedprovisioning.fileprovider",
+                              targetFile));
                 startActivityForResult(cameraIntent, 1337 + getStageIndex());
             }
 

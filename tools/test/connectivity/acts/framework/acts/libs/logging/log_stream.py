@@ -201,11 +201,6 @@ class _LogStream(object):
         subcontext: Location of logs relative to the test context path.
         stream_format: Format used for log output to stream
         file_format: Format used for log output to files
-
-        _test_case_handler_descriptors: The list of HandlerDescriptors that are
-            used to create LogHandlers for each new test case.
-        _test_case_log_handlers: The list of current LogHandlers for the current
-            test case.
     """
 
     def __init__(self, name, log_name=None, base_path='', subcontext='',

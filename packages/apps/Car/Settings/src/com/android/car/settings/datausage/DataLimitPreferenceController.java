@@ -75,7 +75,8 @@ public class DataLimitPreferenceController extends
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
                         ConfirmationDialogFragment.TAG),
                 /* confirmListener= */ this,
-                /* rejectListener= */ null);
+                /* rejectListener= */ null,
+                /* neutralListener= */ null);
 
         UsageBytesThresholdPickerDialog dialog =
                 (UsageBytesThresholdPickerDialog) getFragmentController().findDialogByTag(

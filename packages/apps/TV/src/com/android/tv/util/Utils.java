@@ -39,17 +39,19 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
 import android.view.View;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.BaseSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.util.Clock;
 import com.android.tv.data.GenreItems;
-import com.android.tv.data.Program;
+import com.android.tv.data.ProgramImpl;
 import com.android.tv.data.StreamInfo;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
+
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
@@ -324,7 +326,7 @@ public class Utils {
                         TvContract.buildChannelUri(channelId), timeMs, timeMs);
         ContentResolver resolver = context.getContentResolver();
 
-        String[] projection = Program.PROJECTION;
+        String[] projection = ProgramImpl.PROJECTION;
         if (TvProviderUtils.checkSeriesIdColumn(context, TvContract.Programs.CONTENT_URI)) {
             if (Utils.isProgramsUri(uri)) {
                 projection =
@@ -334,7 +336,7 @@ public class Utils {
         }
         try (Cursor cursor = resolver.query(uri, projection, null, null, null)) {
             if (cursor != null && cursor.moveToNext()) {
-                return Program.fromCursor(cursor);
+                return ProgramImpl.fromCursor(cursor);
             }
         }
         return null;
@@ -603,6 +605,7 @@ public class Utils {
     }
 
     /** Returns the label for a given input. Returns the custom label, if any. */
+    @Nullable
     public static String loadLabel(Context context, TvInputInfo input) {
         if (input == null) {
             return null;
@@ -612,7 +615,7 @@ public class Utils {
         CharSequence customLabel = inputManager.loadCustomLabel(input);
         String label = (customLabel == null) ? null : customLabel.toString();
         if (TextUtils.isEmpty(label)) {
-            label = inputManager.loadLabel(input).toString();
+            label = inputManager.loadLabel(input);
         }
         return label;
     }
@@ -712,33 +715,6 @@ public class Utils {
         Configuration config = new Configuration(context.getResources().getConfiguration());
         config.setLocale(locale);
         return context.createConfigurationContext(config).getText(resourceId);
-    }
-
-    /** Checks where there is any internal TV input. */
-    public static boolean hasInternalTvInputs(Context context, boolean tunerInputOnly) {
-        for (TvInputInfo input :
-                TvSingletons.getSingletons(context)
-                        .getTvInputManagerHelper()
-                        .getTvInputInfos(true, tunerInputOnly)) {
-            if (isInternalTvInput(context, input.getId())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** Returns the internal TV inputs. */
-    public static List<TvInputInfo> getInternalTvInputs(Context context, boolean tunerInputOnly) {
-        List<TvInputInfo> inputs = new ArrayList<>();
-        for (TvInputInfo input :
-                TvSingletons.getSingletons(context)
-                        .getTvInputManagerHelper()
-                        .getTvInputInfos(true, tunerInputOnly)) {
-            if (isInternalTvInput(context, input.getId())) {
-                inputs.add(input);
-            }
-        }
-        return inputs;
     }
 
     /** Checks whether the input is internal or not. */

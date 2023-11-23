@@ -48,7 +48,10 @@ class SignatureWriter(
     showUnannotated = options.showUnannotated
 ) {
     override fun skip(item: Item): Boolean {
-        return super.skip(item) || item is ClassItem && item.notStrippable
+        val superSkip = super.skip(item)
+        val otherSkip = item is ClassItem && item.notStrippable
+        val skipped = superSkip || otherSkip
+        return skipped
     }
 
     init {

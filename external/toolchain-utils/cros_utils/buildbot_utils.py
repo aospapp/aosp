@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Utilities for launching and accessing ChromeOS buildbots."""
 
+from __future__ import division
 from __future__ import print_function
 
 import ast
@@ -17,9 +20,9 @@ from cros_utils import logger
 INITIAL_SLEEP_TIME = 7200  # 2 hours; wait time before polling buildbot.
 SLEEP_TIME = 600  # 10 minutes; time between polling of buildbot.
 
-# Some of our slower builders (llmv-next) are taking more
-# than 8 hours. So, increase this TIME_OUT to 9 hours.
-TIME_OUT = 32400  # Decide the build is dead or will never finish
+# Some of our slower builders (llvm-next) are taking more
+# than 11 hours. So, increase this TIME_OUT to 12 hours.
+TIME_OUT = 43200  # Decide the build is dead or will never finish
 
 
 class BuildbotTimeout(Exception):
@@ -58,6 +61,10 @@ def PeekTrybotImage(chromeos_root, buildbucket_id):
     return ('running', None)
 
   results = json.loads(out)[buildbucket_id]
+
+  # Handle the case where the tryjob failed to launch correctly.
+  if results['artifacts_url'] is None:
+    return (results['status'], '')
 
   return (results['status'], results['artifacts_url'].rstrip('/'))
 
@@ -110,7 +117,7 @@ def SubmitTryjob(chromeos_root,
 
   # Launch buildbot with appropriate flags.
   build = buildbot_name
-  command = ('cros tryjob --yes --json --nochromesdk  %s %s %s' %
+  command = ('cros_sdk -- cros tryjob --yes --json --nochromesdk  %s %s %s' %
              (tryjob_flags, patch_arg, build))
   print('CMD: %s' % command)
   _, out, _ = RunCommandInPath(chromeos_root, command)
@@ -127,7 +134,7 @@ def GetTrybotImage(chromeos_root,
                    patch_list,
                    tryjob_flags=None,
                    build_toolchain=False,
-                   async=False):
+                   asynchronous=False):
   """Launch buildbot and get resulting trybot artifact name.
 
   This function launches a buildbot with the appropriate flags to
@@ -145,7 +152,7 @@ def GetTrybotImage(chromeos_root,
     tryjob_flags: See cros tryjob --help for available options.
     build_toolchain: builds and uses the latest toolchain, rather than the
                      prebuilt one in SDK.
-    async: don't wait for artifacts; just return the buildbucket id
+    asynchronous: don't wait for artifacts; just return the buildbucket id
 
   Returns:
     (buildbucket id, partial image url) e.g.
@@ -153,7 +160,7 @@ def GetTrybotImage(chromeos_root,
   """
   buildbucket_id = SubmitTryjob(chromeos_root, buildbot_name, patch_list,
                                 tryjob_flags, build_toolchain)
-  if async:
+  if asynchronous:
     return buildbucket_id, ' '
 
   # The trybot generally takes more than 2 hours to finish.
@@ -240,10 +247,15 @@ def GetLatestImage(chromeos_root, path):
   _, out, _ = ce.ChrootRunCommandWOutput(
       chromeos_root, command, print_to_console=False)
   candidates = [l.split('/')[-2] for l in out.split()]
-  candidates = map(fmt.match, candidates)
+  candidates = [fmt.match(c) for c in candidates]
   candidates = [[int(r) for r in m.group(1, 2, 3, 4)] for m in candidates if m]
   candidates.sort(reverse=True)
   for c in candidates:
     build = '%s/R%d-%d.%d.%d' % (path, c[0], c[1], c[2], c[3])
+    # Blacklist "R79-12384.0.0" image released by mistake.
+    # TODO(crbug.com/992242): Remove the filter by 2019-09-05.
+    if c == [79, 12384, 0, 0]:
+      continue
+
     if DoesImageExist(chromeos_root, build):
       return build

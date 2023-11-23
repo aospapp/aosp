@@ -105,7 +105,8 @@ public class TvContractTest extends AndroidTestCase {
     private static final String WHITE_SPACES = " \r \n \t \f ";
 
     private static final String PARAM_CANONICAL_GENRE = "canonical_genre";
-    private static final String NON_EXISTING_COLUMN_NAME = "non_existing_column";
+    private static final String[] NON_EXISTING_COLUMN_NAMES =
+            {"non_existing_column", "another non-existing column --"};
 
     private String mInputId;
     private ContentResolver mContentResolver;
@@ -336,15 +337,20 @@ public class TvContractTest extends AndroidTestCase {
     private void verifyNonExistingColumn(Uri channelUri, long channelId) {
         String[] projection = {
                 Channels._ID,
-                NON_EXISTING_COLUMN_NAME
+                NON_EXISTING_COLUMN_NAMES[0],
+                NON_EXISTING_COLUMN_NAMES[1]
         };
         try (Cursor cursor = mContentResolver.query(channelUri, projection, null, null, null)) {
             assertNotNull(cursor);
             assertEquals(cursor.getCount(), 1);
             assertTrue(cursor.moveToNext());
             assertEquals(channelId, cursor.getLong(0));
+            assertEquals(NON_EXISTING_COLUMN_NAMES[0], cursor.getColumnName(1));
             assertNull(cursor.getString(1));
             assertEquals(0, cursor.getInt(1));
+            assertEquals(NON_EXISTING_COLUMN_NAMES[1], cursor.getColumnName(2));
+            assertNull(cursor.getString(2));
+            assertEquals(0, cursor.getInt(2));
         }
     }
 
@@ -533,7 +539,8 @@ public class TvContractTest extends AndroidTestCase {
             return;
         }
         ContentValues values = createDummyChannelValues(mInputId, false);
-        values.put(NON_EXISTING_COLUMN_NAME, "dummy value");
+        values.put(NON_EXISTING_COLUMN_NAMES[0], "dummy value 0");
+        values.put(NON_EXISTING_COLUMN_NAMES[1], "dummy value 1");
         Uri rowUri = mContentResolver.insert(mChannelsUri, values);
         long channelId = ContentUris.parseId(rowUri);
         Uri channelUri = TvContract.buildChannelUri(channelId);

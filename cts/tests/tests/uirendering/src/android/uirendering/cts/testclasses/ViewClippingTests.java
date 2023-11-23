@@ -122,7 +122,7 @@ public class ViewClippingTests extends ActivityTestBase {
                             mPath.reset();
                             mPath.addOval(0, 0, view.getWidth(), view.getHeight(),
                                     Path.Direction.CW);
-                            outline.setConvexPath(mPath);
+                            outline.setPath(mPath);
                             assertFalse(outline.canClip());
                         }
                     });
@@ -133,8 +133,9 @@ public class ViewClippingTests extends ActivityTestBase {
 
     @Test
     public void testConcaveOutlineClip() {
-        // As of Q, Outline#setConvexPath no longer throws on a concave path, but as above, it does
-        // not result in clipping. (hw no-op's the arbitrary path, and sw doesn't support Outline
+        // As of Q, Outline#setPath (previously called setConvexPath) no longer throws on a concave
+        // path, but it does not result in clipping, which is only supported when explicitly calling
+        // one of the other setters. (hw no-op's the arbitrary path, and sw doesn't support Outline
         // clipping.)
         createTest()
                 .addLayout(R.layout.blue_padded_layout, view -> {
@@ -147,7 +148,7 @@ public class ViewClippingTests extends ActivityTestBase {
                             mPath.addRect(0, 0, 100, 10, Path.Direction.CW);
                             assertFalse(mPath.isConvex());
 
-                            outline.setConvexPath(mPath);
+                            outline.setPath(mPath);
                             assertFalse(outline.canClip());
                         }
                     });

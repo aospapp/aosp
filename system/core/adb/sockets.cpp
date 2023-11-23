@@ -31,6 +31,8 @@
 #include <string>
 #include <vector>
 
+#include <android-base/strings.h>
+
 #if !ADB_HOST
 #include <android-base/properties.h>
 #include <log/log_properties.h>
@@ -123,8 +125,7 @@ static SocketFlushResult local_socket_flush_incoming(asocket* s) {
         if (rc > 0 && static_cast<size_t>(rc) == s->packet_queue.size()) {
             s->packet_queue.clear();
         } else if (rc > 0) {
-            // TODO: Implement a faster drop_front?
-            s->packet_queue.take_front(rc);
+            s->packet_queue.drop_front(rc);
             fdevent_add(s->fde, FDE_WRITE);
             return SocketFlushResult::TryAgain;
         } else if (rc == -1 && errno == EAGAIN) {
@@ -624,7 +625,8 @@ bool parse_host_service(std::string_view* out_serial, std::string_view* out_comm
         return true;
     };
 
-    static constexpr std::string_view prefixes[] = {"usb:", "product:", "model:", "device:"};
+    static constexpr std::string_view prefixes[] = {
+            "usb:", "product:", "model:", "device:", "localfilesystem:"};
     for (std::string_view prefix : prefixes) {
         if (command.starts_with(prefix)) {
             consume(prefix.size());
@@ -755,26 +757,28 @@ static int smart_socket_enqueue(asocket* s, apacket::payload_type data) {
 
 #if ADB_HOST
     service = std::string_view(s->smart_socket_data).substr(4);
-    if (ConsumePrefix(&service, "host-serial:")) {
+
+    // TODO: These should be handled in handle_host_request.
+    if (android::base::ConsumePrefix(&service, "host-serial:")) {
         // serial number should follow "host:" and could be a host:port string.
         if (!internal::parse_host_service(&serial, &service, service)) {
             LOG(ERROR) << "SS(" << s->id << "): failed to parse host service: " << service;
             goto fail;
         }
-    } else if (ConsumePrefix(&service, "host-transport-id:")) {
+    } else if (android::base::ConsumePrefix(&service, "host-transport-id:")) {
         if (!ParseUint(&transport_id, service, &service)) {
             LOG(ERROR) << "SS(" << s->id << "): failed to parse host transport id: " << service;
             return -1;
         }
-        if (!ConsumePrefix(&service, ":")) {
+        if (!android::base::ConsumePrefix(&service, ":")) {
             LOG(ERROR) << "SS(" << s->id << "): host-transport-id without command";
             return -1;
         }
-    } else if (ConsumePrefix(&service, "host-usb:")) {
+    } else if (android::base::ConsumePrefix(&service, "host-usb:")) {
         type = kTransportUsb;
-    } else if (ConsumePrefix(&service, "host-local:")) {
+    } else if (android::base::ConsumePrefix(&service, "host-local:")) {
         type = kTransportLocal;
-    } else if (ConsumePrefix(&service, "host:")) {
+    } else if (android::base::ConsumePrefix(&service, "host:")) {
         type = kTransportAny;
     } else {
         service = std::string_view{};

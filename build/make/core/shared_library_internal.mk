@@ -39,11 +39,6 @@ my_target_libcrt_builtins :=
 else
 my_target_libcrt_builtins := $($(LOCAL_2ND_ARCH_VAR_PREFIX)$(my_prefix)LIBCRT_BUILTINS)
 endif
-ifeq ($(LOCAL_NO_LIBGCC),true)
-my_target_libgcc :=
-else
-my_target_libgcc := $(call intermediates-dir-for,STATIC_LIBRARIES,libgcc,,,$(LOCAL_2ND_ARCH_VAR_PREFIX))/libgcc.a
-endif
 my_target_libatomic := $(call intermediates-dir-for,STATIC_LIBRARIES,libatomic,,,$(LOCAL_2ND_ARCH_VAR_PREFIX))/libatomic.a
 ifeq ($(LOCAL_NO_CRT),true)
 my_target_crtbegin_so_o :=
@@ -60,7 +55,6 @@ my_target_crtbegin_so_o := $(wildcard $(my_ndk_sysroot_lib)/crtbegin_so.o)
 my_target_crtend_so_o := $(wildcard $(my_ndk_sysroot_lib)/crtend_so.o)
 endif
 $(linked_module): PRIVATE_TARGET_LIBCRT_BUILTINS := $(my_target_libcrt_builtins)
-$(linked_module): PRIVATE_TARGET_LIBGCC := $(my_target_libgcc)
 $(linked_module): PRIVATE_TARGET_LIBATOMIC := $(my_target_libatomic)
 $(linked_module): PRIVATE_TARGET_CRTBEGIN_SO_O := $(my_target_crtbegin_so_o)
 $(linked_module): PRIVATE_TARGET_CRTEND_SO_O := $(my_target_crtend_so_o)
@@ -71,13 +65,12 @@ $(linked_module): \
         $(my_target_crtbegin_so_o) \
         $(my_target_crtend_so_o) \
         $(my_target_libcrt_builtins) \
-        $(my_target_libgcc) \
         $(my_target_libatomic) \
-        $(LOCAL_ADDITIONAL_DEPENDENCIES)
+        $(LOCAL_ADDITIONAL_DEPENDENCIES) $(CLANG_CXX)
 	$(transform-o-to-shared-lib)
 
 ifeq ($(my_native_coverage),true)
-gcno_suffix := .gcnodir
+gcno_suffix := .zip
 
 built_whole_gcno_libraries := \
     $(foreach lib,$(my_whole_static_libraries), \
@@ -99,11 +92,11 @@ endif
 
 GCNO_ARCHIVE := $(basename $(my_installed_module_stem))$(gcno_suffix)
 
+$(intermediates)/$(GCNO_ARCHIVE) : $(SOONG_ZIP) $(MERGE_ZIPS)
 $(intermediates)/$(GCNO_ARCHIVE) : PRIVATE_ALL_OBJECTS := $(strip $(LOCAL_GCNO_FILES))
 $(intermediates)/$(GCNO_ARCHIVE) : PRIVATE_ALL_WHOLE_STATIC_LIBRARIES := $(strip $(built_whole_gcno_libraries)) $(strip $(built_static_gcno_libraries))
-$(intermediates)/$(GCNO_ARCHIVE) : PRIVATE_INTERMEDIATES_DIR := $(intermediates)
 $(intermediates)/$(GCNO_ARCHIVE) : $(LOCAL_GCNO_FILES) $(built_whole_gcno_libraries) $(built_static_gcno_libraries)
-	$(transform-o-to-static-lib)
+	$(package-coverage-files)
 
 $(my_coverage_path)/$(GCNO_ARCHIVE) : $(intermediates)/$(GCNO_ARCHIVE)
 	$(copy-file-to-target)

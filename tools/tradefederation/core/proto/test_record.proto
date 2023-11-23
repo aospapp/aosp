@@ -94,4 +94,50 @@ message DebugInfo {
 
   // A stacktrace.
   string trace = 2;
+
+  // A more detailed failure status description.
+  FailureStatus failure_status = 3;
+
+  // Optional context to the failure
+  DebugInfoContext debug_info_context = 4;
+}
+
+// A Fail TestStatus can be associated with a more granular failure status that helps understanding
+// the context.
+enum FailureStatus {
+  UNSET = 0;
+  // The test in progress was the reason for the failure.
+  TEST_FAILURE = 1;
+  // A timeout condition on the operation in progress occurred.
+  TIMED_OUT = 2;
+  // The test in progress was cancelled.
+  CANCELLED = 3;
+  // A failure attributed to something not functioning properly.
+  INFRA_FAILURE = 10;
+  // System under test crashed and caused the test to fail.
+  SYSTEM_UNDER_TEST_CRASHED = 20;
+  // The test was expected to run but did not.
+  NOT_EXECUTED = 30;
+  // System under test became unavailable and never came back available again.
+  LOST_SYSTEM_UNDER_TEST = 35;
+}
+
+// A context to DebugInfo that allows to optionally specify some debugging context.
+message DebugInfoContext {
+  // Category of the action that was in progress during the failure
+  string action_in_progress = 1;
+
+  // A free-formed text that can help debugging the issue at hand.
+  string debug_help_message = 10;
+
+  // The fully-qualified name of the exception class associated with the error.
+  string error_type = 20;
+
+  // Error Identifiers
+  // The name identifying the error
+  string error_name = 30;
+  // The class that raised the error
+  string origin = 31;
+  // The error code associated with the error_name
+  int64 error_code = 32;
 }

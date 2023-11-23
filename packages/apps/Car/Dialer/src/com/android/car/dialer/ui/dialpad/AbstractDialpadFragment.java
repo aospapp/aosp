@@ -89,6 +89,7 @@ public abstract class AbstractDialpadFragment extends DialerBaseFragment impleme
     @CallSuper
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
         mTitleView = view.findViewById(R.id.title);
         if (mTitleView != null && getResources().getBoolean(R.bool.config_enable_dial_motion)) {
             mInputMotionAnimator = (ValueAnimator) AnimatorInflater.loadAnimator(getContext(),

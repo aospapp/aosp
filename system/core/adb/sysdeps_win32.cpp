@@ -18,8 +18,9 @@
 
 #include "sysdeps.h"
 
-#include <winsock2.h> /* winsock.h *must* be included before windows.h. */
+#include <lmcons.h>
 #include <windows.h>
+#include <winsock2.h> /* winsock.h *must* be included before windows.h. */
 
 #include <errno.h>
 #include <stdio.h>
@@ -60,6 +61,7 @@ typedef struct FHClassRec_ {
     int (*_fh_read)(FH, void*, int);
     int (*_fh_write)(FH, const void*, int);
     int (*_fh_writev)(FH, const adb_iovec*, int);
+    intptr_t (*_fh_get_os_handle)(FH);
 } FHClassRec;
 
 static void _fh_file_init(FH);
@@ -68,14 +70,11 @@ static int64_t _fh_file_lseek(FH, int64_t, int);
 static int _fh_file_read(FH, void*, int);
 static int _fh_file_write(FH, const void*, int);
 static int _fh_file_writev(FH, const adb_iovec*, int);
+static intptr_t _fh_file_get_os_handle(FH f);
 
 static const FHClassRec _fh_file_class = {
-    _fh_file_init,
-    _fh_file_close,
-    _fh_file_lseek,
-    _fh_file_read,
-    _fh_file_write,
-    _fh_file_writev,
+        _fh_file_init,  _fh_file_close,  _fh_file_lseek,         _fh_file_read,
+        _fh_file_write, _fh_file_writev, _fh_file_get_os_handle,
 };
 
 static void _fh_socket_init(FH);
@@ -84,14 +83,11 @@ static int64_t _fh_socket_lseek(FH, int64_t, int);
 static int _fh_socket_read(FH, void*, int);
 static int _fh_socket_write(FH, const void*, int);
 static int _fh_socket_writev(FH, const adb_iovec*, int);
+static intptr_t _fh_socket_get_os_handle(FH f);
 
 static const FHClassRec _fh_socket_class = {
-    _fh_socket_init,
-    _fh_socket_close,
-    _fh_socket_lseek,
-    _fh_socket_read,
-    _fh_socket_write,
-    _fh_socket_writev,
+        _fh_socket_init,  _fh_socket_close,  _fh_socket_lseek,         _fh_socket_read,
+        _fh_socket_write, _fh_socket_writev, _fh_socket_get_os_handle,
 };
 
 #if defined(assert)
@@ -145,16 +141,14 @@ static  std::mutex&  _win32_lock = *new std::mutex();
 static  FHRec        _win32_fhs[ WIN32_MAX_FHS ];
 static  int          _win32_fh_next;  // where to start search for free FHRec
 
-static FH
-_fh_from_int( int   fd, const char*   func )
-{
-    FH  f;
+static FH _fh_from_int(borrowed_fd bfd, const char* func) {
+    FH f;
 
+    int fd = bfd.get();
     fd -= WIN32_FH_BASE;
 
     if (fd < 0 || fd >= WIN32_MAX_FHS) {
-        D( "_fh_from_int: invalid fd %d passed to %s", fd + WIN32_FH_BASE,
-           func );
+        D("_fh_from_int: invalid fd %d passed to %s", fd + WIN32_FH_BASE, func);
         errno = EBADF;
         return nullptr;
     }
@@ -162,8 +156,7 @@ _fh_from_int( int   fd, const char*   func )
     f = &_win32_fhs[fd];
 
     if (f->used == 0) {
-        D( "_fh_from_int: invalid fd %d passed to %s", fd + WIN32_FH_BASE,
-           func );
+        D("_fh_from_int: invalid fd %d passed to %s", fd + WIN32_FH_BASE, func);
         errno = EBADF;
         return nullptr;
     }
@@ -171,20 +164,15 @@ _fh_from_int( int   fd, const char*   func )
     return f;
 }
 
-
-static int
-_fh_to_int( FH  f )
-{
+static int _fh_to_int(FH f) {
     if (f && f->used && f >= _win32_fhs && f < _win32_fhs + WIN32_MAX_FHS)
         return (int)(f - _win32_fhs) + WIN32_FH_BASE;
 
     return -1;
 }
 
-static FH
-_fh_alloc( FHClass  clazz )
-{
-    FH   f = nullptr;
+static FH _fh_alloc(FHClass clazz) {
+    FH f = nullptr;
 
     std::lock_guard<std::mutex> lock(_win32_lock);
 
@@ -206,10 +194,7 @@ _fh_alloc( FHClass  clazz )
     return nullptr;
 }
 
-
-static int
-_fh_close( FH   f )
-{
+static int _fh_close(FH f) {
     // Use lock so that closing only happens once and so that _fh_alloc can't
     // allocate a FH that we're in the middle of closing.
     std::lock_guard<std::mutex> lock(_win32_lock);
@@ -342,6 +327,10 @@ static int64_t _fh_file_lseek(FH f, int64_t pos, int origin) {
     return li.QuadPart;
 }
 
+static intptr_t _fh_file_get_os_handle(FH f) {
+    return reinterpret_cast<intptr_t>(f->u.handle);
+}
+
 /**************************************************************************/
 /**************************************************************************/
 /*****                                                                *****/
@@ -456,7 +445,7 @@ int adb_creat(const char* path, int mode) {
     return _fh_to_int(f);
 }
 
-int adb_read(int fd, void* buf, int len) {
+int adb_read(borrowed_fd fd, void* buf, int len) {
     FH f = _fh_from_int(fd, __func__);
 
     if (f == nullptr) {
@@ -467,7 +456,27 @@ int adb_read(int fd, void* buf, int len) {
     return f->clazz->_fh_read(f, buf, len);
 }
 
-int adb_write(int fd, const void* buf, int len) {
+int adb_pread(borrowed_fd fd, void* buf, int len, off64_t offset) {
+    OVERLAPPED overlapped = {};
+    overlapped.Offset = static_cast<DWORD>(offset);
+    overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
+    DWORD bytes_read;
+    if (!::ReadFile(adb_get_os_handle(fd), buf, static_cast<DWORD>(len), &bytes_read,
+                    &overlapped)) {
+        D("adb_pread: could not read %d bytes from FD %d", len, fd.get());
+        switch (::GetLastError()) {
+            case ERROR_IO_PENDING:
+                errno = EAGAIN;
+                return -1;
+            default:
+                errno = EINVAL;
+                return -1;
+        }
+    }
+    return static_cast<int>(bytes_read);
+}
+
+int adb_write(borrowed_fd fd, const void* buf, int len) {
     FH f = _fh_from_int(fd, __func__);
 
     if (f == nullptr) {
@@ -478,7 +487,7 @@ int adb_write(int fd, const void* buf, int len) {
     return f->clazz->_fh_write(f, buf, len);
 }
 
-ssize_t adb_writev(int fd, const adb_iovec* iov, int iovcnt) {
+ssize_t adb_writev(borrowed_fd fd, const adb_iovec* iov, int iovcnt) {
     FH f = _fh_from_int(fd, __func__);
 
     if (f == nullptr) {
@@ -489,7 +498,26 @@ ssize_t adb_writev(int fd, const adb_iovec* iov, int iovcnt) {
     return f->clazz->_fh_writev(f, iov, iovcnt);
 }
 
-int64_t adb_lseek(int fd, int64_t pos, int where) {
+int adb_pwrite(borrowed_fd fd, const void* buf, int len, off64_t offset) {
+    OVERLAPPED params = {};
+    params.Offset = static_cast<DWORD>(offset);
+    params.OffsetHigh = static_cast<DWORD>(offset >> 32);
+    DWORD bytes_written = 0;
+    if (!::WriteFile(adb_get_os_handle(fd), buf, len, &bytes_written, &params)) {
+        D("adb_pwrite: could not write %d bytes to FD %d", len, fd.get());
+        switch (::GetLastError()) {
+            case ERROR_IO_PENDING:
+                errno = EAGAIN;
+                return -1;
+            default:
+                errno = EINVAL;
+                return -1;
+        }
+    }
+    return static_cast<int>(bytes_written);
+}
+
+int64_t adb_lseek(borrowed_fd fd, int64_t pos, int where) {
     FH f = _fh_from_int(fd, __func__);
     if (!f) {
         errno = EBADF;
@@ -509,6 +537,20 @@ int adb_close(int fd) {
     D("adb_close: %s", f->name);
     _fh_close(f);
     return 0;
+}
+
+HANDLE adb_get_os_handle(borrowed_fd fd) {
+    FH f = _fh_from_int(fd, __func__);
+
+    if (!f) {
+        errno = EBADF;
+        return nullptr;
+    }
+
+    D("adb_get_os_handle: %s", f->name);
+    const intptr_t intptr_handle = f->clazz->_fh_get_os_handle(f);
+    const HANDLE handle = reinterpret_cast<const HANDLE>(intptr_handle);
+    return handle;
 }
 
 /**************************************************************************/
@@ -621,15 +663,6 @@ static void _fh_socket_init(FH f) {
 
 static int _fh_socket_close(FH f) {
     if (f->fh_socket != INVALID_SOCKET) {
-        /* gently tell any peer that we're closing the socket */
-        if (shutdown(f->fh_socket, SD_BOTH) == SOCKET_ERROR) {
-            // If the socket is not connected, this returns an error. We want to
-            // minimize logging spam, so don't log these errors for now.
-#if 0
-            D("socket shutdown failed: %s",
-              android::base::SystemErrorCodeToString(WSAGetLastError()).c_str());
-#endif
-        }
         if (closesocket(f->fh_socket) == SOCKET_ERROR) {
             // Don't set errno here, since adb_close will ignore it.
             const DWORD err = WSAGetLastError();
@@ -708,10 +741,14 @@ static int _fh_socket_writev(FH f, const adb_iovec* iov, int iovcnt) {
               android::base::SystemErrorCodeToString(err).c_str());
         }
         _socket_set_errno(err);
-        result = -1;
+        return -1;
     }
     CHECK_GE(static_cast<DWORD>(std::numeric_limits<int>::max()), bytes_written);
     return static_cast<int>(bytes_written);
+}
+
+static intptr_t _fh_socket_get_os_handle(FH f) {
+    return f->u.socket;
 }
 
 /**************************************************************************/
@@ -884,7 +921,8 @@ static int _network_server(int port, int type, u_long interface_address, std::st
     return fd;
 }
 
-int network_loopback_server(int port, int type, std::string* error) {
+int network_loopback_server(int port, int type, std::string* error, bool prefer_ipv4) {
+    // TODO implement IPv6 support on windows
     return _network_server(port, type, INADDR_LOOPBACK, error);
 }
 
@@ -972,12 +1010,61 @@ int adb_register_socket(SOCKET s) {
     return _fh_to_int(f);
 }
 
+static bool isBlankStr(const char* str) {
+    for (; *str != '\0'; ++str) {
+        if (!isblank(*str)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int adb_gethostname(char* name, size_t len) {
+    const char* computerName = adb_getenv("COMPUTERNAME");
+    if (computerName && !isBlankStr(computerName)) {
+        strncpy(name, computerName, len);
+        name[len - 1] = '\0';
+        return 0;
+    }
+
+    wchar_t buffer[MAX_COMPUTERNAME_LENGTH + 1];
+    DWORD size = sizeof(buffer);
+    if (!GetComputerNameW(buffer, &size)) {
+        return -1;
+    }
+    std::string name_utf8;
+    if (!android::base::WideToUTF8(buffer, &name_utf8)) {
+        return -1;
+    }
+
+    strncpy(name, name_utf8.c_str(), len);
+    name[len - 1] = '\0';
+    return 0;
+}
+
+int adb_getlogin_r(char* buf, size_t bufsize) {
+    wchar_t buffer[UNLEN + 1];
+    DWORD len = sizeof(buffer);
+    if (!GetUserNameW(buffer, &len)) {
+        return -1;
+    }
+
+    std::string login;
+    if (!android::base::WideToUTF8(buffer, &login)) {
+        return -1;
+    }
+
+    strncpy(buf, login.c_str(), bufsize);
+    buf[bufsize - 1] = '\0';
+    return 0;
+}
+
 #undef accept
-int adb_socket_accept(int serverfd, struct sockaddr* addr, socklen_t* addrlen) {
+int adb_socket_accept(borrowed_fd serverfd, struct sockaddr* addr, socklen_t* addrlen) {
     FH serverfh = _fh_from_int(serverfd, __func__);
 
     if (!serverfh || serverfh->clazz != &_fh_socket_class) {
-        D("adb_socket_accept: invalid fd %d", serverfd);
+        D("adb_socket_accept: invalid fd %d", serverfd.get());
         errno = EBADF;
         return -1;
     }
@@ -992,7 +1079,7 @@ int adb_socket_accept(int serverfd, struct sockaddr* addr, socklen_t* addrlen) {
     fh->fh_socket = accept(serverfh->fh_socket, addr, addrlen);
     if (fh->fh_socket == INVALID_SOCKET) {
         const DWORD err = WSAGetLastError();
-        LOG(ERROR) << "adb_socket_accept: accept on fd " << serverfd
+        LOG(ERROR) << "adb_socket_accept: accept on fd " << serverfd.get()
                    << " failed: " + android::base::SystemErrorCodeToString(err);
         _socket_set_errno(err);
         return -1;
@@ -1000,16 +1087,16 @@ int adb_socket_accept(int serverfd, struct sockaddr* addr, socklen_t* addrlen) {
 
     const int fd = _fh_to_int(fh.get());
     snprintf(fh->name, sizeof(fh->name), "%d(accept:%s)", fd, serverfh->name);
-    D("adb_socket_accept on fd %d returns fd %d", serverfd, fd);
+    D("adb_socket_accept on fd %d returns fd %d", serverfd.get(), fd);
     fh.release();
     return fd;
 }
 
-int adb_setsockopt(int fd, int level, int optname, const void* optval, socklen_t optlen) {
+int adb_setsockopt(borrowed_fd fd, int level, int optname, const void* optval, socklen_t optlen) {
     FH fh = _fh_from_int(fd, __func__);
 
     if (!fh || fh->clazz != &_fh_socket_class) {
-        D("adb_setsockopt: invalid fd %d", fd);
+        D("adb_setsockopt: invalid fd %d", fd.get());
         errno = EBADF;
         return -1;
     }
@@ -1022,7 +1109,7 @@ int adb_setsockopt(int fd, int level, int optname, const void* optval, socklen_t
         setsockopt(fh->fh_socket, level, optname, reinterpret_cast<const char*>(optval), optlen);
     if (result == SOCKET_ERROR) {
         const DWORD err = WSAGetLastError();
-        D("adb_setsockopt: setsockopt on fd %d level %d optname %d failed: %s\n", fd, level,
+        D("adb_setsockopt: setsockopt on fd %d level %d optname %d failed: %s\n", fd.get(), level,
           optname, android::base::SystemErrorCodeToString(err).c_str());
         _socket_set_errno(err);
         result = -1;
@@ -1030,11 +1117,11 @@ int adb_setsockopt(int fd, int level, int optname, const void* optval, socklen_t
     return result;
 }
 
-int adb_getsockname(int fd, struct sockaddr* sockaddr, socklen_t* optlen) {
+static int adb_getsockname(borrowed_fd fd, struct sockaddr* sockaddr, socklen_t* optlen) {
     FH fh = _fh_from_int(fd, __func__);
 
     if (!fh || fh->clazz != &_fh_socket_class) {
-        D("adb_getsockname: invalid fd %d", fd);
+        D("adb_getsockname: invalid fd %d", fd.get());
         errno = EBADF;
         return -1;
     }
@@ -1042,7 +1129,7 @@ int adb_getsockname(int fd, struct sockaddr* sockaddr, socklen_t* optlen) {
     int result = getsockname(fh->fh_socket, sockaddr, optlen);
     if (result == SOCKET_ERROR) {
         const DWORD err = WSAGetLastError();
-        D("adb_getsockname: setsockopt on fd %d failed: %s\n", fd,
+        D("adb_getsockname: setsockopt on fd %d failed: %s\n", fd.get(),
           android::base::SystemErrorCodeToString(err).c_str());
         _socket_set_errno(err);
         result = -1;
@@ -1050,7 +1137,7 @@ int adb_getsockname(int fd, struct sockaddr* sockaddr, socklen_t* optlen) {
     return result;
 }
 
-int adb_socket_get_local_port(int fd) {
+int adb_socket_get_local_port(borrowed_fd fd) {
     sockaddr_storage addr_storage;
     socklen_t addr_len = sizeof(addr_storage);
 
@@ -1068,11 +1155,11 @@ int adb_socket_get_local_port(int fd) {
     return ntohs(reinterpret_cast<sockaddr_in*>(&addr_storage)->sin_port);
 }
 
-int adb_shutdown(int fd, int direction) {
+int adb_shutdown(borrowed_fd fd, int direction) {
     FH f = _fh_from_int(fd, __func__);
 
     if (!f || f->clazz != &_fh_socket_class) {
-        D("adb_shutdown: invalid fd %d", fd);
+        D("adb_shutdown: invalid fd %d", fd.get());
         errno = EBADF;
         return -1;
     }
@@ -1080,7 +1167,7 @@ int adb_shutdown(int fd, int direction) {
     D("adb_shutdown: %s", f->name);
     if (shutdown(f->fh_socket, direction) == SOCKET_ERROR) {
         const DWORD err = WSAGetLastError();
-        D("socket shutdown fd %d failed: %s", fd,
+        D("socket shutdown fd %d failed: %s", fd.get(),
           android::base::SystemErrorCodeToString(err).c_str());
         _socket_set_errno(err);
         return -1;
@@ -1096,7 +1183,7 @@ int adb_socketpair(int sv[2]) {
     int local_port = -1;
     std::string error;
 
-    server = network_loopback_server(0, SOCK_STREAM, &error);
+    server = network_loopback_server(0, SOCK_STREAM, &error, true);
     if (server < 0) {
         D("adb_socketpair: failed to create server: %s", error.c_str());
         goto fail;
@@ -1138,12 +1225,12 @@ fail:
     return -1;
 }
 
-bool set_file_block_mode(int fd, bool block) {
+bool set_file_block_mode(borrowed_fd fd, bool block) {
     FH fh = _fh_from_int(fd, __func__);
 
     if (!fh || !fh->used) {
         errno = EBADF;
-        D("Setting nonblocking on bad file descriptor %d", fd);
+        D("Setting nonblocking on bad file descriptor %d", fd.get());
         return false;
     }
 
@@ -1152,22 +1239,22 @@ bool set_file_block_mode(int fd, bool block) {
         if (ioctlsocket(fh->u.socket, FIONBIO, &x) != 0) {
             int error = WSAGetLastError();
             _socket_set_errno(error);
-            D("Setting %d nonblocking failed (%d)", fd, error);
+            D("Setting %d nonblocking failed (%d)", fd.get(), error);
             return false;
         }
         return true;
     } else {
         errno = ENOTSOCK;
-        D("Setting nonblocking on non-socket %d", fd);
+        D("Setting nonblocking on non-socket %d", fd.get());
         return false;
     }
 }
 
-bool set_tcp_keepalive(int fd, int interval_sec) {
+bool set_tcp_keepalive(borrowed_fd fd, int interval_sec) {
     FH fh = _fh_from_int(fd, __func__);
 
     if (!fh || fh->clazz != &_fh_socket_class) {
-        D("set_tcp_keepalive(%d) failed: invalid fd", fd);
+        D("set_tcp_keepalive(%d) failed: invalid fd", fd.get());
         errno = EBADF;
         return false;
     }
@@ -1181,7 +1268,7 @@ bool set_tcp_keepalive(int fd, int interval_sec) {
     if (WSAIoctl(fh->fh_socket, SIO_KEEPALIVE_VALS, &keepalive, sizeof(keepalive), nullptr, 0,
                  &bytes_returned, nullptr, nullptr) != 0) {
         const DWORD err = WSAGetLastError();
-        D("set_tcp_keepalive(%d) failed: %s", fd,
+        D("set_tcp_keepalive(%d) failed: %s", fd.get(),
           android::base::SystemErrorCodeToString(err).c_str());
         _socket_set_errno(err);
         return false;
@@ -1228,12 +1315,12 @@ bool set_tcp_keepalive(int fd, int interval_sec) {
 // Returns a console HANDLE if |fd| is a console, otherwise returns nullptr.
 // If a valid HANDLE is returned and |mode| is not null, |mode| is also filled
 // with the console mode. Requires GENERIC_READ access to the underlying HANDLE.
-static HANDLE _get_console_handle(int fd, DWORD* mode=nullptr) {
+static HANDLE _get_console_handle(borrowed_fd fd, DWORD* mode = nullptr) {
     // First check isatty(); this is very fast and eliminates most non-console
     // FDs, but returns 1 for both consoles and character devices like NUL.
 #pragma push_macro("isatty")
 #undef isatty
-    if (!isatty(fd)) {
+    if (!isatty(fd.get())) {
         return nullptr;
     }
 #pragma pop_macro("isatty")
@@ -1241,7 +1328,7 @@ static HANDLE _get_console_handle(int fd, DWORD* mode=nullptr) {
     // To differentiate between character devices and consoles we need to get
     // the underlying HANDLE and use GetConsoleMode(), which is what requires
     // GENERIC_READ permissions.
-    const intptr_t intptr_handle = _get_osfhandle(fd);
+    const intptr_t intptr_handle = _get_osfhandle(fd.get());
     if (intptr_handle == -1) {
         return nullptr;
     }
@@ -1265,7 +1352,7 @@ static HANDLE _get_console_handle(FILE* const stream) {
     return _get_console_handle(fd);
 }
 
-int unix_isatty(int fd) {
+int unix_isatty(borrowed_fd fd) {
     return _get_console_handle(fd) ? 1 : 0;
 }
 
@@ -1645,7 +1732,7 @@ static char _get_decimal_char() {
 
 // Prefix the len bytes in buf with the escape character, and then return the
 // new buffer length.
-size_t _escape_prefix(char* const buf, const size_t len) {
+static size_t _escape_prefix(char* const buf, const size_t len) {
     // If nothing to prefix, don't do anything. We might be called with
     // len == 0, if alt was held down with a dead key which produced nothing.
     if (len == 0) {
@@ -2073,7 +2160,7 @@ void stdin_raw_restore() {
 }
 
 // Called by 'adb shell' and 'adb exec-in' (via unix_read()) to read from stdin.
-int unix_read_interruptible(int fd, void* buf, size_t len) {
+int unix_read_interruptible(borrowed_fd fd, void* buf, size_t len) {
     if ((fd == STDIN_FILENO) && (_console_handle != nullptr)) {
         // If it is a request to read from stdin, and stdin_raw_init() has been
         // called, and it successfully configured the console, then read from
@@ -2093,7 +2180,7 @@ int unix_read_interruptible(int fd, void* buf, size_t len) {
         // plain read() in favor of unix_read() or adb_read().
 #pragma push_macro("read")
 #undef read
-        return read(fd, buf, len);
+        return read(fd.get(), buf, len);
 #pragma pop_macro("read")
     }
 }
@@ -2303,6 +2390,20 @@ int adb_mkdir(const std::string& path, int mode) {
     }
 
     return _wmkdir(path_wide.c_str());
+}
+
+int adb_rename(const char* oldpath, const char* newpath) {
+    std::wstring oldpath_wide, newpath_wide;
+    if (!android::base::UTF8ToWide(oldpath, &oldpath_wide)) {
+        return -1;
+    }
+    if (!android::base::UTF8ToWide(newpath, &newpath_wide)) {
+        return -1;
+    }
+
+    // MSDN just says the return value is non-zero on failure, make sure it
+    // returns -1 on failure so that it behaves the same as other systems.
+    return _wrename(oldpath_wide.c_str(), newpath_wide.c_str()) ? -1 : 0;
 }
 
 // Version of utime() that takes a UTF-8 path.
@@ -2617,7 +2718,9 @@ extern "C" int main(int argc, char** argv);
 extern "C" int wmain(int argc, wchar_t **argv) {
     // Convert args from UTF-16 to UTF-8 and pass that to main().
     NarrowArgs narrow_args(argc, argv);
-    return main(argc, narrow_args.data());
+
+    // Avoid destructing NarrowArgs: argv might have been mutated to point to string literals.
+    _exit(main(argc, narrow_args.data()));
 }
 
 // Shadow UTF-8 environment variable name/value pairs that are created from
@@ -2730,6 +2833,66 @@ char* adb_getcwd(char* buf, int size) {
     strcpy(buf, buf_utf8.c_str());
 
     return buf;
+}
+
+void enable_inherit(borrowed_fd fd) {
+    auto osh = adb_get_os_handle(fd);
+    const auto h = reinterpret_cast<HANDLE>(osh);
+    ::SetHandleInformation(h, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+}
+
+void disable_inherit(borrowed_fd fd) {
+    auto osh = adb_get_os_handle(fd);
+    const auto h = reinterpret_cast<HANDLE>(osh);
+    ::SetHandleInformation(h, HANDLE_FLAG_INHERIT, 0);
+}
+
+Process adb_launch_process(std::string_view executable, std::vector<std::string> args,
+                           std::initializer_list<int> fds_to_inherit) {
+    std::wstring wexe;
+    if (!android::base::UTF8ToWide(executable.data(), executable.size(), &wexe)) {
+        return Process();
+    }
+
+    std::wstring wargs = L"\"" + wexe + L"\"";
+    std::wstring warg;
+    for (auto arg : args) {
+        warg.clear();
+        if (!android::base::UTF8ToWide(arg.data(), arg.size(), &warg)) {
+            return Process();
+        }
+        wargs += L" \"";
+        wargs += warg;
+        wargs += L'\"';
+    }
+
+    STARTUPINFOW sinfo = {sizeof(sinfo)};
+    PROCESS_INFORMATION pinfo = {};
+
+    // TODO: use the Vista+ API to pass the list of inherited handles explicitly;
+    // see http://blogs.msdn.com/b/oldnewthing/archive/2011/12/16/10248328.aspx
+    for (auto fd : fds_to_inherit) {
+        enable_inherit(fd);
+    }
+    const auto created = CreateProcessW(wexe.c_str(), wargs.data(),
+                                        nullptr,                    // process attributes
+                                        nullptr,                    // thread attributes
+                                        fds_to_inherit.size() > 0,  // inherit any handles?
+                                        0,                          // flags
+                                        nullptr,                    // environment
+                                        nullptr,                    // current directory
+                                        &sinfo,                     // startup info
+                                        &pinfo);
+    for (auto fd : fds_to_inherit) {
+        disable_inherit(fd);
+    }
+
+    if (!created) {
+        return Process();
+    }
+
+    ::CloseHandle(pinfo.hThread);
+    return Process(pinfo.hProcess);
 }
 
 // The SetThreadDescription API was brought in version 1607 of Windows 10.

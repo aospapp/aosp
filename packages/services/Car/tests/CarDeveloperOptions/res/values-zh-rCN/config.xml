@@ -17,5 +17,4 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="config_backup_settings_label" msgid="5230713622702899641"></string>
-    <string name="config_grayscale_settings_intent" msgid="7661066612238245852"></string>
 </resources>

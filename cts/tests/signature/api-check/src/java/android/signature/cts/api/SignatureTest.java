@@ -23,13 +23,11 @@ import android.signature.cts.ClassProvider;
 import android.signature.cts.FailureType;
 import android.signature.cts.JDiffClassDescription;
 import android.signature.cts.ReflectionHelper;
-import java.io.IOException;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.xmlpull.v1.XmlPullParserException;
 
 /**
  * Performs the signature check via a JUnit test.
@@ -43,7 +41,7 @@ public class SignatureTest extends AbstractApiTest {
     private String[] unexpectedApiFiles;
 
     @Override
-    protected void initializeFromArgs(Bundle instrumentationArgs) throws Exception {
+    protected void initializeFromArgs(Bundle instrumentationArgs) {
         expectedApiFiles = getCommaSeparatedList(instrumentationArgs, "expected-api-files");
         baseApiFiles = getCommaSeparatedList(instrumentationArgs, "base-api-files");
         unexpectedApiFiles = getCommaSeparatedList(instrumentationArgs, "unexpected-api-files");
@@ -75,7 +73,7 @@ public class SignatureTest extends AbstractApiTest {
 
             ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG);
 
-            parseApiFilesAsStream(apiDocumentParser, expectedApiFiles)
+            parseApiResourcesAsStream(apiDocumentParser, expectedApiFiles)
                     .filter(not(unexpectedClasses::contains))
                     .forEach(complianceChecker::checkSignatureCompliance);
 
@@ -97,11 +95,9 @@ public class SignatureTest extends AbstractApiTest {
         }
     }
 
-    private Set<JDiffClassDescription> loadUnexpectedClasses()
-            throws IOException, XmlPullParserException {
-
+    private Set<JDiffClassDescription> loadUnexpectedClasses() {
         ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG);
-        return parseApiFilesAsStream(apiDocumentParser, unexpectedApiFiles)
+        return parseApiResourcesAsStream(apiDocumentParser, unexpectedApiFiles)
                 .collect(Collectors.toCollection(SignatureTest::newSetOfClassDescriptions));
     }
 
@@ -109,12 +105,9 @@ public class SignatureTest extends AbstractApiTest {
         return new TreeSet<>(Comparator.comparing(JDiffClassDescription::getAbsoluteClassName));
     }
 
-    private void loadBaseClasses(ApiComplianceChecker complianceChecker)
-            throws IOException, XmlPullParserException {
-
-        ApiDocumentParser apiDocumentParser =
-                new ApiDocumentParser(TAG);
-        parseApiFilesAsStream(apiDocumentParser, baseApiFiles)
+    private void loadBaseClasses(ApiComplianceChecker complianceChecker) {
+        ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG);
+        parseApiResourcesAsStream(apiDocumentParser, baseApiFiles)
                 .forEach(complianceChecker::addBaseClass);
     }
 }

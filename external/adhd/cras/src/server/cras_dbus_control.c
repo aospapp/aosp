@@ -22,101 +22,107 @@
 
 #define CRAS_CONTROL_INTERFACE "org.chromium.cras.Control"
 #define CRAS_ROOT_OBJECT_PATH "/org/chromium/cras"
-#define CONTROL_INTROSPECT_XML                                          \
-    DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                           \
-    "<node>\n"                                                          \
-    "  <interface name=\""CRAS_CONTROL_INTERFACE"\">\n"                 \
-    "    <method name=\"SetOutputVolume\">\n"                           \
-    "      <arg name=\"volume\" type=\"i\" direction=\"in\"/>\n"        \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetOutputNodeVolume\">\n"                       \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "      <arg name=\"volume\" type=\"i\" direction=\"in\"/>\n"        \
-    "    </method>\n"                                                   \
-    "    <method name=\"SwapLeftRight\">\n"                             \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "      <arg name=\"swap\" type=\"b\" direction=\"in\"/>\n"          \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetOutputMute\">\n"                             \
-    "      <arg name=\"mute_on\" type=\"b\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetOutputUserMute\">\n"                         \
-    "      <arg name=\"mute_on\" type=\"b\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetSuspendAudio\">\n"                           \
-    "      <arg name=\"suspend\" type=\"b\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetInputGain\">\n"                              \
-    "      <arg name=\"gain\" type=\"i\" direction=\"in\"/>\n"          \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetInputNodeGain\">\n"                          \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "      <arg name=\"gain\" type=\"i\" direction=\"in\"/>\n"          \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetInputMute\">\n"                              \
-    "      <arg name=\"mute_on\" type=\"b\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"GetVolumeState\">\n"                            \
-    "      <arg name=\"output_volume\" type=\"i\" direction=\"out\"/>\n"\
-    "      <arg name=\"output_mute\" type=\"b\" direction=\"out\"/>\n"  \
-    "      <arg name=\"input_gain\" type=\"i\" direction=\"out\"/>\n"   \
-    "      <arg name=\"input_mute\" type=\"b\" direction=\"out\"/>\n"   \
-    "      <arg name=\"output_user_mute\" type=\"b\" direction=\"out\"/>\n"\
-    "    </method>\n"                                                   \
-    "    <method name=\"GetDefaultOutputBufferSize\">\n"                    \
-    "      <arg name=\"buffer_size\" type=\"i\" direction=\"out\"/>\n"  \
-    "    </method>\n"                                                   \
-    "    <method name=\"GetNodes\">\n"                                  \
-    "      <arg name=\"nodes\" type=\"a{sv}\" direction=\"out\"/>\n"    \
-    "    </method>\n"                                                   \
-    "    <method name=\"GetSystemAecSupported\">\n"                     \
-    "      <arg name=\"supported\" type=\"b\" direction=\"out\"/>\n"    \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetActiveOutputNode\">\n"                       \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetActiveInputNode\">\n"                        \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"AddActiveInputNode\">\n"                        \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"AddActiveOutputNode\">\n"                       \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"RemoveActiveInputNode\">\n"                     \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"RemoveActiveOutputNode\">\n"                    \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "    </method>\n"                                                   \
-    "    <method name=\"GetNumberOfActiveStreams\">\n"                  \
-    "      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"          \
-    "    </method>\n"                                                   \
-    "    <method name=\"GetNumberOfActiveOutputStreams\">\n"            \
-    "      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"          \
-    "    </method>\n"                                                   \
-    "    <method name=\"GetNumberOfActiveInputStreams\">\n"             \
-    "      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"          \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetGlobalOutputChannelRemix\">\n"               \
-    "      <arg name=\"num_channels\" type=\"i\" direction=\"in\"/>\n"  \
-    "      <arg name=\"coefficient\" type=\"ad\" direction=\"in\"/>\n"  \
-    "    </method>\n"                                                   \
-    "    <method name=\"SetHotwordModel\">\n"                           \
-    "      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"       \
-    "      <arg name=\"model_name\" type=\"s\" direction=\"in\"/>\n"    \
-    "    </method>\n"                                                   \
-    "    <method name=\"IsAudioOutputActive\">\n"                       \
-    "      <arg name=\"active\" type=\"b\" direction=\"out\"/>\n"       \
-    "    </method>\n"                                                   \
-    "  </interface>\n"                                                  \
-    "  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"        \
-    "    <method name=\"Introspect\">\n"                                \
-    "      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"         \
-    "    </method>\n"                                                   \
-    "  </interface>\n"                                                  \
-    "</node>\n"
+#define CONTROL_INTROSPECT_XML                                                  \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                               \
+	"<node>\n"                                                              \
+	"  <interface name=\"" CRAS_CONTROL_INTERFACE "\">\n"                   \
+	"    <method name=\"SetOutputVolume\">\n"                               \
+	"      <arg name=\"volume\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetOutputNodeVolume\">\n"                           \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"      <arg name=\"volume\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                       \
+	"    <method name=\"SwapLeftRight\">\n"                                 \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"      <arg name=\"swap\" type=\"b\" direction=\"in\"/>\n"              \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetOutputMute\">\n"                                 \
+	"      <arg name=\"mute_on\" type=\"b\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetOutputUserMute\">\n"                             \
+	"      <arg name=\"mute_on\" type=\"b\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetSuspendAudio\">\n"                               \
+	"      <arg name=\"suspend\" type=\"b\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetInputGain\">\n"                                  \
+	"      <arg name=\"gain\" type=\"i\" direction=\"in\"/>\n"              \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetInputNodeGain\">\n"                              \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"      <arg name=\"gain\" type=\"i\" direction=\"in\"/>\n"              \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetInputMute\">\n"                                  \
+	"      <arg name=\"mute_on\" type=\"b\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetVolumeState\">\n"                                \
+	"      <arg name=\"output_volume\" type=\"i\" direction=\"out\"/>\n"    \
+	"      <arg name=\"output_mute\" type=\"b\" direction=\"out\"/>\n"      \
+	"      <arg name=\"input_gain\" type=\"i\" direction=\"out\"/>\n"       \
+	"      <arg name=\"input_mute\" type=\"b\" direction=\"out\"/>\n"       \
+	"      <arg name=\"output_user_mute\" type=\"b\" direction=\"out\"/>\n" \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetDefaultOutputBufferSize\">\n"                    \
+	"      <arg name=\"buffer_size\" type=\"i\" direction=\"out\"/>\n"      \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetNodes\">\n"                                      \
+	"      <arg name=\"nodes\" type=\"a{sv}\" direction=\"out\"/>\n"        \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetSystemAecSupported\">\n"                         \
+	"      <arg name=\"supported\" type=\"b\" direction=\"out\"/>\n"        \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetSystemAecGroupId\">\n"                           \
+	"      <arg name=\"group_id\" type=\"i\" direction=\"out\"/>\n"         \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetActiveOutputNode\">\n"                           \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetActiveInputNode\">\n"                            \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"AddActiveInputNode\">\n"                            \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"AddActiveOutputNode\">\n"                           \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"RemoveActiveInputNode\">\n"                         \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"RemoveActiveOutputNode\">\n"                        \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetNumberOfActiveStreams\">\n"                      \
+	"      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"              \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetNumberOfActiveOutputStreams\">\n"                \
+	"      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"              \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetNumberOfActiveInputStreams\">\n"                 \
+	"      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"              \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetGlobalOutputChannelRemix\">\n"                   \
+	"      <arg name=\"num_channels\" type=\"i\" direction=\"in\"/>\n"      \
+	"      <arg name=\"coefficient\" type=\"ad\" direction=\"in\"/>\n"      \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetHotwordModel\">\n"                               \
+	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
+	"      <arg name=\"model_name\" type=\"s\" direction=\"in\"/>\n"        \
+	"    </method>\n"                                                       \
+	"    <method name=\"IsAudioOutputActive\">\n"                           \
+	"      <arg name=\"active\" type=\"b\" direction=\"out\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetWbsEnabled\">\n"                                 \
+	"      <arg name=\"enabled\" type=\"b\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"  </interface>\n"                                                      \
+	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"            \
+	"    <method name=\"Introspect\">\n"                                    \
+	"      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"             \
+	"    </method>\n"                                                       \
+	"  </interface>\n"                                                      \
+	"</node>\n"
 
 struct cras_dbus_control {
 	DBusConnection *conn;
@@ -131,11 +137,9 @@ static int get_single_arg(DBusMessage *message, int dbus_type, void *arg)
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   dbus_type, arg,
+	if (!dbus_message_get_args(message, &dbus_error, dbus_type, arg,
 				   DBUS_TYPE_INVALID)) {
-		syslog(LOG_WARNING,
-		       "Bad method received: %s",
+		syslog(LOG_WARNING, "Bad method received: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -160,8 +164,7 @@ static void send_empty_reply(DBusConnection *conn, DBusMessage *message)
 }
 
 /* Helper to send an int32 reply. */
-static void send_int32_reply(DBusConnection *conn,
-			     DBusMessage *message,
+static void send_int32_reply(DBusConnection *conn, DBusMessage *message,
 			     dbus_int32_t value)
 {
 	DBusMessage *reply;
@@ -171,8 +174,7 @@ static void send_int32_reply(DBusConnection *conn,
 	if (!reply)
 		return;
 
-	dbus_message_append_args(reply,
-				 DBUS_TYPE_INT32, &value,
+	dbus_message_append_args(reply, DBUS_TYPE_INT32, &value,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(conn, reply, &serial);
 
@@ -180,10 +182,8 @@ static void send_int32_reply(DBusConnection *conn,
 }
 
 /* Handlers for exported DBus method calls. */
-static DBusHandlerResult handle_set_output_volume(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_set_output_volume(DBusConnection *conn, DBusMessage *message, void *arg)
 {
 	int rc;
 	dbus_int32_t new_vol;
@@ -199,10 +199,9 @@ static DBusHandlerResult handle_set_output_volume(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_output_node_volume(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_set_output_node_volume(DBusConnection *conn,
+						       DBusMessage *message,
+						       void *arg)
 {
 	dbus_int32_t new_vol;
 	cras_node_id_t id;
@@ -210,12 +209,10 @@ static DBusHandlerResult handle_set_output_node_volume(
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   DBUS_TYPE_UINT64, &id,
+	if (!dbus_message_get_args(message, &dbus_error, DBUS_TYPE_UINT64, &id,
 				   DBUS_TYPE_INT32, &new_vol,
 				   DBUS_TYPE_INVALID)) {
-		syslog(LOG_WARNING,
-		       "Bad method received: %s",
+		syslog(LOG_WARNING, "Bad method received: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -228,10 +225,8 @@ static DBusHandlerResult handle_set_output_node_volume(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_swap_left_right(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_swap_left_right(DBusConnection *conn,
+						DBusMessage *message, void *arg)
 {
 	cras_node_id_t id;
 	dbus_bool_t swap;
@@ -239,29 +234,24 @@ static DBusHandlerResult handle_swap_left_right(
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   DBUS_TYPE_UINT64, &id,
+	if (!dbus_message_get_args(message, &dbus_error, DBUS_TYPE_UINT64, &id,
 				   DBUS_TYPE_BOOLEAN, &swap,
 				   DBUS_TYPE_INVALID)) {
-		syslog(LOG_WARNING,
-		       "Bad method received: %s",
+		syslog(LOG_WARNING, "Bad method received: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	cras_iodev_list_set_node_attr(id, IONODE_ATTR_SWAP_LEFT_RIGHT,
-				      swap);
+	cras_iodev_list_set_node_attr(id, IONODE_ATTR_SWAP_LEFT_RIGHT, swap);
 
 	send_empty_reply(conn, message);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_output_mute(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_set_output_mute(DBusConnection *conn,
+						DBusMessage *message, void *arg)
 {
 	int rc;
 	dbus_bool_t new_mute;
@@ -277,10 +267,9 @@ static DBusHandlerResult handle_set_output_mute(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_output_user_mute(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_set_output_user_mute(DBusConnection *conn,
+						     DBusMessage *message,
+						     void *arg)
 {
 	int rc;
 	dbus_bool_t new_mute;
@@ -296,10 +285,8 @@ static DBusHandlerResult handle_set_output_user_mute(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_suspend_audio(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_set_suspend_audio(DBusConnection *conn, DBusMessage *message, void *arg)
 {
 	int rc;
 	dbus_bool_t suspend;
@@ -314,10 +301,8 @@ static DBusHandlerResult handle_set_suspend_audio(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_input_gain(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_set_input_gain(DBusConnection *conn,
+					       DBusMessage *message, void *arg)
 {
 	int rc;
 	dbus_int32_t new_gain;
@@ -333,10 +318,9 @@ static DBusHandlerResult handle_set_input_gain(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_input_node_gain(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_set_input_node_gain(DBusConnection *conn,
+						    DBusMessage *message,
+						    void *arg)
 {
 	dbus_int32_t new_gain;
 	cras_node_id_t id;
@@ -344,12 +328,10 @@ static DBusHandlerResult handle_set_input_node_gain(
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   DBUS_TYPE_UINT64, &id,
+	if (!dbus_message_get_args(message, &dbus_error, DBUS_TYPE_UINT64, &id,
 				   DBUS_TYPE_INT32, &new_gain,
 				   DBUS_TYPE_INVALID)) {
-		syslog(LOG_WARNING,
-		       "Bad method received: %s",
+		syslog(LOG_WARNING, "Bad method received: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -362,10 +344,8 @@ static DBusHandlerResult handle_set_input_node_gain(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_input_mute(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_set_input_mute(DBusConnection *conn,
+					       DBusMessage *message, void *arg)
 {
 	int rc;
 	dbus_bool_t new_mute;
@@ -381,10 +361,8 @@ static DBusHandlerResult handle_set_input_mute(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_get_volume_state(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_get_volume_state(DBusConnection *conn, DBusMessage *message, void *arg)
 {
 	DBusMessage *reply;
 	dbus_uint32_t serial = 0;
@@ -402,8 +380,7 @@ static DBusHandlerResult handle_get_volume_state(
 	capture_gain = cras_system_get_capture_gain();
 	capture_muted = cras_system_get_capture_mute();
 
-	dbus_message_append_args(reply,
-				 DBUS_TYPE_INT32, &volume,
+	dbus_message_append_args(reply, DBUS_TYPE_INT32, &volume,
 				 DBUS_TYPE_BOOLEAN, &system_muted,
 				 DBUS_TYPE_INT32, &capture_gain,
 				 DBUS_TYPE_BOOLEAN, &capture_muted,
@@ -417,10 +394,9 @@ static DBusHandlerResult handle_get_volume_state(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_get_default_output_buffer_size(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_get_default_output_buffer_size(DBusConnection *conn,
+				      DBusMessage *message, void *arg)
 {
 	DBusMessage *reply;
 	dbus_uint32_t serial = 0;
@@ -429,8 +405,7 @@ static DBusHandlerResult handle_get_default_output_buffer_size(
 	reply = dbus_message_new_method_return(message);
 
 	buffer_size = cras_system_get_default_output_buffer_size();
-	dbus_message_append_args(reply,
-				 DBUS_TYPE_INT32, &buffer_size,
+	dbus_message_append_args(reply, DBUS_TYPE_INT32, &buffer_size,
 				 DBUS_TYPE_INVALID);
 
 	dbus_connection_send(conn, reply, &serial);
@@ -452,13 +427,12 @@ static dbus_bool_t append_node_dict(DBusMessageIter *iter,
 	dbus_uint64_t id;
 	const char *dev_name = dev->name;
 	dbus_uint64_t stable_dev_id = node->stable_id;
-	dbus_uint64_t stable_dev_id_new = node->stable_id_new;
 	const char *node_type = node->type;
 	const char *node_name = node->name;
 	const char *mic_positions = node->mic_positions;
 	dbus_bool_t active;
 	dbus_uint64_t plugged_time = node->plugged_time.tv_sec * 1000000ULL +
-		node->plugged_time.tv_usec;
+				     node->plugged_time.tv_usec;
 	dbus_uint64_t node_volume = node->volume;
 	dbus_int64_t node_capture_gain = node->capture_gain;
 	char *models, *empty_models = "";
@@ -480,11 +454,12 @@ static dbus_bool_t append_node_dict(DBusMessageIter *iter,
 	if (!append_key_value(&dict, "DeviceName", DBUS_TYPE_STRING,
 			      DBUS_TYPE_STRING_AS_STRING, &dev_name))
 		return FALSE;
+	/*
+	 * If stable id migration is needed, use key 'StableDeviceIdNew'
+	 * together with 'StableDeviceId'.
+	 */
 	if (!append_key_value(&dict, "StableDeviceId", DBUS_TYPE_UINT64,
 			      DBUS_TYPE_UINT64_AS_STRING, &stable_dev_id))
-		return FALSE;
-	if (!append_key_value(&dict, "StableDeviceIdNew", DBUS_TYPE_UINT64,
-			      DBUS_TYPE_UINT64_AS_STRING, &stable_dev_id_new))
 		return FALSE;
 	if (!append_key_value(&dict, "Type", DBUS_TYPE_STRING,
 			      DBUS_TYPE_STRING_AS_STRING, &node_type))
@@ -560,8 +535,7 @@ static dbus_bool_t append_nodes(enum CRAS_STREAM_DIRECTION direction,
 }
 
 static DBusHandlerResult handle_get_nodes(DBusConnection *conn,
-					  DBusMessage *message,
-					  void *arg)
+					  DBusMessage *message, void *arg)
 {
 	DBusMessage *reply;
 	DBusMessageIter array;
@@ -579,10 +553,9 @@ static DBusHandlerResult handle_get_nodes(DBusConnection *conn,
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_get_system_aec_supported(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_get_system_aec_supported(DBusConnection *conn,
+							 DBusMessage *message,
+							 void *arg)
 {
 	DBusMessage *reply;
 	dbus_uint32_t serial = 0;
@@ -591,8 +564,28 @@ static DBusHandlerResult handle_get_system_aec_supported(
 	reply = dbus_message_new_method_return(message);
 
 	system_aec_supported = cras_system_get_aec_supported();
-	dbus_message_append_args(reply,
-				 DBUS_TYPE_BOOLEAN, &system_aec_supported,
+	dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN,
+				 &system_aec_supported, DBUS_TYPE_INVALID);
+
+	dbus_connection_send(conn, reply, &serial);
+
+	dbus_message_unref(reply);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_get_system_aec_group_id(DBusConnection *conn,
+							DBusMessage *message,
+							void *arg)
+{
+	DBusMessage *reply;
+	dbus_uint32_t serial = 0;
+	dbus_int32_t system_aec_group_id;
+
+	reply = dbus_message_new_method_return(message);
+
+	system_aec_group_id = cras_system_get_aec_group_id();
+	dbus_message_append_args(reply, DBUS_TYPE_INT32, &system_aec_group_id,
 				 DBUS_TYPE_INVALID);
 
 	dbus_connection_send(conn, reply, &serial);
@@ -603,9 +596,7 @@ static DBusHandlerResult handle_get_system_aec_supported(
 }
 
 static DBusHandlerResult
-handle_set_active_node(DBusConnection *conn,
-		       DBusMessage *message,
-		       void *arg,
+handle_set_active_node(DBusConnection *conn, DBusMessage *message, void *arg,
 		       enum CRAS_STREAM_DIRECTION direction)
 {
 	int rc;
@@ -623,10 +614,8 @@ handle_set_active_node(DBusConnection *conn,
 }
 
 static DBusHandlerResult
-handle_add_active_node(DBusConnection *conn,
-		       DBusMessage *message,
-		       void *arg,
-                       enum CRAS_STREAM_DIRECTION direction)
+handle_add_active_node(DBusConnection *conn, DBusMessage *message, void *arg,
+		       enum CRAS_STREAM_DIRECTION direction)
 {
 	int rc;
 	cras_node_id_t id;
@@ -643,72 +632,68 @@ handle_add_active_node(DBusConnection *conn,
 }
 
 static DBusHandlerResult
-handle_rm_active_node(DBusConnection *conn,
-                      DBusMessage *message,
-                      void *arg,
-                      enum CRAS_STREAM_DIRECTION direction)
+handle_rm_active_node(DBusConnection *conn, DBusMessage *message, void *arg,
+		      enum CRAS_STREAM_DIRECTION direction)
 {
-        int rc;
-        cras_node_id_t id;
+	int rc;
+	cras_node_id_t id;
 
-        rc = get_single_arg(message, DBUS_TYPE_UINT64, &id);
-        if (rc)
-                return rc;
+	rc = get_single_arg(message, DBUS_TYPE_UINT64, &id);
+	if (rc)
+		return rc;
 
-        cras_iodev_list_rm_active_node(direction, id);
+	cras_iodev_list_rm_active_node(direction, id);
 
-        send_empty_reply(conn, message);
+	send_empty_reply(conn, message);
 
-        return DBUS_HANDLER_RESULT_HANDLED;
+	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_get_num_active_streams(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult handle_get_num_active_streams(DBusConnection *conn,
+						       DBusMessage *message,
+						       void *arg)
 {
 	send_int32_reply(conn, message, cras_system_state_get_active_streams());
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_get_num_active_streams_use_input_hw(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_get_num_active_streams_use_input_hw(DBusConnection *conn,
+					   DBusMessage *message, void *arg)
 {
 	dbus_int32_t num = 0;
 	unsigned i;
 
 	for (i = 0; i < CRAS_NUM_DIRECTIONS; i++) {
 		if (cras_stream_uses_input_hw(i))
-			num += cras_system_state_get_active_streams_by_direction(i);
+			num += cras_system_state_get_active_streams_by_direction(
+				i);
 	}
 	send_int32_reply(conn, message, num);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_get_num_active_streams_use_output_hw(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_get_num_active_streams_use_output_hw(DBusConnection *conn,
+					    DBusMessage *message, void *arg)
 {
 	dbus_int32_t num = 0;
 	unsigned i;
 
 	for (i = 0; i < CRAS_NUM_DIRECTIONS; i++) {
 		if (cras_stream_uses_output_hw(i))
-			num += cras_system_state_get_active_streams_by_direction(i);
+			num += cras_system_state_get_active_streams_by_direction(
+				i);
 	}
 	send_int32_reply(conn, message, num);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_global_output_channel_remix(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_set_global_output_channel_remix(DBusConnection *conn,
+				       DBusMessage *message, void *arg)
 {
 	dbus_int32_t num_channels;
 	double *coeff_array;
@@ -719,13 +704,12 @@ static DBusHandlerResult handle_set_global_output_channel_remix(
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-			DBUS_TYPE_INT32, &num_channels,
-			DBUS_TYPE_ARRAY,
-			      DBUS_TYPE_DOUBLE, &coeff_array, &count,
-			      DBUS_TYPE_INVALID)) {
+	if (!dbus_message_get_args(message, &dbus_error, DBUS_TYPE_INT32,
+				   &num_channels, DBUS_TYPE_ARRAY,
+				   DBUS_TYPE_DOUBLE, &coeff_array, &count,
+				   DBUS_TYPE_INVALID)) {
 		syslog(LOG_WARNING, "Set global output channel remix error: %s",
-			dbus_error.message);
+		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -737,20 +721,16 @@ static DBusHandlerResult handle_set_global_output_channel_remix(
 	for (i = 0; i < count; i++)
 		coefficient[i] = coeff_array[i];
 
-	audio_thread_config_global_remix(
-			cras_iodev_list_get_audio_thread(),
-			num_channels,
-			coefficient);
+	audio_thread_config_global_remix(cras_iodev_list_get_audio_thread(),
+					 num_channels, coefficient);
 
 	send_empty_reply(conn, message);
 	free(coefficient);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_set_hotword_model(
-	DBusConnection *conn,
-	DBusMessage *message,
-	void *arg)
+static DBusHandlerResult
+handle_set_hotword_model(DBusConnection *conn, DBusMessage *message, void *arg)
 {
 	cras_node_id_t id;
 	const char *model_name;
@@ -759,12 +739,10 @@ static DBusHandlerResult handle_set_hotword_model(
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_message_get_args(message, &dbus_error,
-				   DBUS_TYPE_UINT64, &id,
+	if (!dbus_message_get_args(message, &dbus_error, DBUS_TYPE_UINT64, &id,
 				   DBUS_TYPE_STRING, &model_name,
 				   DBUS_TYPE_INVALID)) {
-		syslog(LOG_WARNING,
-		       "Bad method received: %s",
+		syslog(LOG_WARNING, "Bad method received: %s",
 		       dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -776,10 +754,8 @@ static DBusHandlerResult handle_set_hotword_model(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult handle_is_audio_active(
-		DBusConnection *conn,
-		DBusMessage *message,
-		void* arg)
+static DBusHandlerResult handle_is_audio_active(DBusConnection *conn,
+						DBusMessage *message, void *arg)
 {
 	dbus_int32_t active = cras_system_state_get_non_empty_status();
 
@@ -788,18 +764,33 @@ static DBusHandlerResult handle_is_audio_active(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult handle_set_wbs_enabled(DBusConnection *conn,
+						DBusMessage *message, void *arg)
+{
+	int rc;
+	dbus_bool_t enabled;
+
+	rc = get_single_arg(message, DBUS_TYPE_BOOLEAN, &enabled);
+	if (rc)
+		return rc;
+
+	cras_system_set_bt_wbs_enabled(enabled);
+
+	send_empty_reply(conn, message);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 /* Handle incoming messages. */
 static DBusHandlerResult handle_control_message(DBusConnection *conn,
-						DBusMessage *message,
-						void *arg)
+						DBusMessage *message, void *arg)
 {
 	syslog(LOG_DEBUG, "Control message: %s %s %s",
 	       dbus_message_get_path(message),
 	       dbus_message_get_interface(message),
 	       dbus_message_get_member(message));
 
-	if (dbus_message_is_method_call(message,
-					DBUS_INTERFACE_INTROSPECTABLE,
+	if (dbus_message_is_method_call(message, DBUS_INTERFACE_INTROSPECTABLE,
 					"Introspect")) {
 		DBusMessage *reply;
 		const char *xml = CONTROL_INTROSPECT_XML;
@@ -807,8 +798,7 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 		reply = dbus_message_new_method_return(message);
 		if (!reply)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
-		if (!dbus_message_append_args(reply,
-					      DBUS_TYPE_STRING, &xml,
+		if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &xml,
 					      DBUS_TYPE_INVALID))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		if (!dbus_connection_send(conn, reply, NULL))
@@ -817,115 +807,99 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 		dbus_message_unref(reply);
 		return DBUS_HANDLER_RESULT_HANDLED;
 
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetOutputVolume")) {
 		return handle_set_output_volume(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetOutputNodeVolume")) {
 		return handle_set_output_node_volume(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SwapLeftRight")) {
 		return handle_swap_left_right(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetOutputMute")) {
 		return handle_set_output_mute(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetOutputUserMute")) {
 		return handle_set_output_user_mute(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetSuspendAudio")) {
 		return handle_set_suspend_audio(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetInputGain")) {
 		return handle_set_input_gain(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetInputNodeGain")) {
 		return handle_set_input_node_gain(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetInputMute")) {
 		return handle_set_input_mute(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "GetVolumeState")) {
 		return handle_get_volume_state(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "GetDefaultOutputBufferSize")) {
-		return handle_get_default_output_buffer_size(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+		return handle_get_default_output_buffer_size(conn, message,
+							     arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "GetNodes")) {
 		return handle_get_nodes(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "GetSystemAecSupported")) {
 		return handle_get_system_aec_supported(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "GetSystemAecGroupId")) {
+		return handle_get_system_aec_group_id(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetActiveOutputNode")) {
 		return handle_set_active_node(conn, message, arg,
 					      CRAS_STREAM_OUTPUT);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetActiveInputNode")) {
 		return handle_set_active_node(conn, message, arg,
 					      CRAS_STREAM_INPUT);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "AddActiveInputNode")) {
 		return handle_add_active_node(conn, message, arg,
-                                              CRAS_STREAM_INPUT);
-        } else if (dbus_message_is_method_call(message,
-                                               CRAS_CONTROL_INTERFACE,
-                                               "AddActiveOutputNode")) {
-                return handle_add_active_node(conn, message, arg,
-                                              CRAS_STREAM_OUTPUT);
-        } else if (dbus_message_is_method_call(message,
-                                               CRAS_CONTROL_INTERFACE,
-                                               "RemoveActiveInputNode")) {
-                return handle_rm_active_node(conn, message, arg,
-                                             CRAS_STREAM_INPUT);
-        } else if (dbus_message_is_method_call(message,
-                                               CRAS_CONTROL_INTERFACE,
-                                               "RemoveActiveOutputNode")) {
-                return handle_rm_active_node(conn, message, arg,
-                                             CRAS_STREAM_OUTPUT);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+					      CRAS_STREAM_INPUT);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "AddActiveOutputNode")) {
+		return handle_add_active_node(conn, message, arg,
+					      CRAS_STREAM_OUTPUT);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "RemoveActiveInputNode")) {
+		return handle_rm_active_node(conn, message, arg,
+					     CRAS_STREAM_INPUT);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "RemoveActiveOutputNode")) {
+		return handle_rm_active_node(conn, message, arg,
+					     CRAS_STREAM_OUTPUT);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "GetNumberOfActiveStreams")) {
 		return handle_get_num_active_streams(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-						   CRAS_CONTROL_INTERFACE,
-						   "GetNumberOfActiveInputStreams")) {
-		return handle_get_num_active_streams_use_input_hw(
-				conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-						   CRAS_CONTROL_INTERFACE,
-						   "GetNumberOfActiveOutputStreams")) {
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_CONTROL_INTERFACE,
+			   "GetNumberOfActiveInputStreams")) {
+		return handle_get_num_active_streams_use_input_hw(conn, message,
+								  arg);
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_CONTROL_INTERFACE,
+			   "GetNumberOfActiveOutputStreams")) {
 		return handle_get_num_active_streams_use_output_hw(
-				conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+			conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetGlobalOutputChannelRemix")) {
-		return handle_set_global_output_channel_remix(
-				conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+		return handle_set_global_output_channel_remix(conn, message,
+							      arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetHotwordModel")) {
 		return handle_set_hotword_model(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       CRAS_CONTROL_INTERFACE,
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "IsAudioOutputActive")) {
 		return handle_is_audio_active(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "SetWbsEnabled")) {
+		return handle_set_wbs_enabled(conn, message, arg);
 	}
 
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -936,8 +910,7 @@ static DBusMessage *create_dbus_message(const char *name)
 {
 	DBusMessage *msg;
 	msg = dbus_message_new_signal(CRAS_ROOT_OBJECT_PATH,
-				      CRAS_CONTROL_INTERFACE,
-				      name);
+				      CRAS_CONTROL_INTERFACE, name);
 	if (!msg)
 		syslog(LOG_ERR, "Failed to create signal");
 
@@ -957,8 +930,7 @@ static void signal_output_volume(void *context, int32_t volume)
 		return;
 
 	volume = cras_system_get_volume();
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_INT32, &volume,
+	dbus_message_append_args(msg, DBUS_TYPE_INT32, &volume,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
 	dbus_message_unref(msg);
@@ -977,8 +949,7 @@ static void signal_output_mute(void *context, int muted, int user_muted,
 
 	muted = cras_system_get_system_mute();
 	user_muted = cras_system_get_user_mute();
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_BOOLEAN, &muted,
+	dbus_message_append_args(msg, DBUS_TYPE_BOOLEAN, &muted,
 				 DBUS_TYPE_BOOLEAN, &user_muted,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
@@ -995,8 +966,7 @@ static void signal_capture_gain(void *context, int32_t gain)
 	if (!msg)
 		return;
 
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_INT32, &gain,
+	dbus_message_append_args(msg, DBUS_TYPE_INT32, &gain,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
 	dbus_message_unref(msg);
@@ -1012,8 +982,7 @@ static void signal_capture_mute(void *context, int muted, int mute_locked)
 	if (!msg)
 		return;
 
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_BOOLEAN, &muted,
+	dbus_message_append_args(msg, DBUS_TYPE_BOOLEAN, &muted,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
 	dbus_message_unref(msg);
@@ -1041,21 +1010,19 @@ static void signal_active_node_changed(void *context,
 	DBusMessage *msg;
 	dbus_uint32_t serial = 0;
 
-	msg = create_dbus_message((dir == CRAS_STREAM_OUTPUT)
-			? "ActiveOutputNodeChanged"
-			: "ActiveInputNodeChanged");
+	msg = create_dbus_message((dir == CRAS_STREAM_OUTPUT) ?
+					  "ActiveOutputNodeChanged" :
+					  "ActiveInputNodeChanged");
 	if (!msg)
 		return;
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_UINT64, &node_id,
+	dbus_message_append_args(msg, DBUS_TYPE_UINT64, &node_id,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
 	dbus_message_unref(msg);
 }
 
 /* Called by iodev_list when a node volume changes. */
-static void signal_node_volume_changed(void *context,
-				       cras_node_id_t node_id,
+static void signal_node_volume_changed(void *context, cras_node_id_t node_id,
 				       int32_t volume)
 {
 	struct cras_dbus_control *control = (struct cras_dbus_control *)context;
@@ -1066,10 +1033,8 @@ static void signal_node_volume_changed(void *context,
 	if (!msg)
 		return;
 
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_UINT64, &node_id,
-				 DBUS_TYPE_INT32, &volume,
-				 DBUS_TYPE_INVALID);
+	dbus_message_append_args(msg, DBUS_TYPE_UINT64, &node_id,
+				 DBUS_TYPE_INT32, &volume, DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
 	dbus_message_unref(msg);
 }
@@ -1086,8 +1051,7 @@ static void signal_node_capture_gain_changed(void *context,
 	if (!msg)
 		return;
 
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_UINT64, &node_id,
+	dbus_message_append_args(msg, DBUS_TYPE_UINT64, &node_id,
 				 DBUS_TYPE_INT32, &capture_gain,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
@@ -1106,8 +1070,7 @@ static void signal_node_left_right_swapped_changed(void *context,
 	if (!msg)
 		return;
 
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_UINT64, &node_id,
+	dbus_message_append_args(msg, DBUS_TYPE_UINT64, &node_id,
 				 DBUS_TYPE_BOOLEAN, &swapped,
 				 DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
@@ -1128,15 +1091,12 @@ static void signal_num_active_streams_changed(void *context,
 		return;
 
 	num = cras_system_state_get_active_streams();
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_INT32, &num,
-				 DBUS_TYPE_INVALID);
+	dbus_message_append_args(msg, DBUS_TYPE_INT32, &num, DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
 	dbus_message_unref(msg);
 }
 
-static void signal_hotword_triggered(void *context,
-				     int64_t tv_sec,
+static void signal_hotword_triggered(void *context, int64_t tv_sec,
 				     int64_t tv_nsec)
 {
 	struct cras_dbus_control *control = (struct cras_dbus_control *)context;
@@ -1147,10 +1107,8 @@ static void signal_hotword_triggered(void *context,
 	if (!msg)
 		return;
 
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_INT64, &tv_sec,
-				 DBUS_TYPE_INT64, &tv_nsec,
-				 DBUS_TYPE_INVALID);
+	dbus_message_append_args(msg, DBUS_TYPE_INT64, &tv_sec, DBUS_TYPE_INT64,
+				 &tv_nsec, DBUS_TYPE_INVALID);
 	dbus_connection_send(control->conn, msg, &serial);
 	dbus_message_unref(msg);
 }
@@ -1166,8 +1124,7 @@ static void signal_non_empty_audio_state_changed(void *context, int non_empty)
 	if (!msg)
 		return;
 
-	dbus_message_append_args(msg,
-				 DBUS_TYPE_BOOLEAN, &non_empty,
+	dbus_message_append_args(msg, DBUS_TYPE_BOOLEAN, &non_empty,
 				 DBUS_TYPE_INVALID);
 
 	dbus_connection_send(control->conn, msg, &serial);
@@ -1188,12 +1145,10 @@ void cras_dbus_control_start(DBusConnection *conn)
 	dbus_control.conn = conn;
 	dbus_connection_ref(dbus_control.conn);
 
-	if (!dbus_connection_register_object_path(conn,
-						  CRAS_ROOT_OBJECT_PATH,
+	if (!dbus_connection_register_object_path(conn, CRAS_ROOT_OBJECT_PATH,
 						  &control_vtable,
 						  &dbus_error)) {
-		syslog(LOG_WARNING,
-		       "Couldn't register CRAS control: %s: %s",
+		syslog(LOG_WARNING, "Couldn't register CRAS control: %s: %s",
 		       CRAS_ROOT_OBJECT_PATH, dbus_error.message);
 		dbus_error_free(&dbus_error);
 		return;
@@ -1205,16 +1160,16 @@ void cras_dbus_control_start(DBusConnection *conn)
 	observer_ops.capture_gain_changed = signal_capture_gain;
 	observer_ops.capture_mute_changed = signal_capture_mute;
 	observer_ops.num_active_streams_changed =
-			signal_num_active_streams_changed;
+		signal_num_active_streams_changed;
 	observer_ops.nodes_changed = signal_nodes_changed;
 	observer_ops.active_node_changed = signal_active_node_changed;
 	observer_ops.input_node_gain_changed = signal_node_capture_gain_changed;
 	observer_ops.output_node_volume_changed = signal_node_volume_changed;
 	observer_ops.node_left_right_swapped_changed =
-			signal_node_left_right_swapped_changed;
+		signal_node_left_right_swapped_changed;
 	observer_ops.hotword_triggered = signal_hotword_triggered;
 	observer_ops.non_empty_audio_state_changed =
-			signal_non_empty_audio_state_changed;
+		signal_non_empty_audio_state_changed;
 
 	dbus_control.observer = cras_observer_add(&observer_ops, &dbus_control);
 }

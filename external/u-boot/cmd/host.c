@@ -89,7 +89,7 @@ static int do_host_info(cmd_tbl_t *cmdtp, int flag, int argc,
 		struct host_block_dev *host_dev;
 
 #ifdef CONFIG_BLK
-		host_dev = dev_get_priv(blk_dev->bdev);
+		host_dev = dev_get_platdata(blk_dev->bdev);
 #else
 		host_dev = blk_dev->priv;
 #endif
@@ -166,11 +166,6 @@ static int do_host(cmd_tbl_t *cmdtp, int flag, int argc,
 	else
 		return CMD_RET_USAGE;
 }
-
-U_BOOT_CMD(
-	sb,	8,	1,	do_host,
-	"Deprecated: use 'host' command instead.", ""
-);
 
 U_BOOT_CMD(
 	host, 8, 1, do_host,

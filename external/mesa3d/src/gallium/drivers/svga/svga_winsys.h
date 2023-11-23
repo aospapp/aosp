@@ -36,6 +36,7 @@
 #define SVGA_WINSYS_H_
 
 #include "svga_types.h"
+#include "svga3d_types.h"
 #include "svga_reg.h"
 #include "svga3d_reg.h"
 
@@ -529,7 +530,7 @@ struct svga_winsys_screen
     */
    struct svga_winsys_surface *
    (*surface_create)(struct svga_winsys_screen *sws,
-                     SVGA3dSurfaceFlags flags,
+                     SVGA3dSurfaceAllFlags flags,
                      SVGA3dSurfaceFormat format,
                      unsigned usage,
                      SVGA3dSize size,
@@ -582,7 +583,8 @@ struct svga_winsys_screen
                          SVGA3dSurfaceFormat format,
                          SVGA3dSize size,
                          uint32 numLayers,
-                         uint32 numMipLevels);
+                         uint32 numMipLevels,
+                         uint32 numSamples);
 
    /**
     * Buffer management. Buffer attributes are mostly fixed over its lifetime.
@@ -751,9 +753,17 @@ struct svga_winsys_screen
    void
    (*stats_time_pop)();
 
+   /**
+    * Send a host log message
+    */
+   void
+   (*host_log)(struct svga_winsys_screen *sws, const char *message);
 
    /** Have VGPU v10 hardware? */
    boolean have_vgpu10;
+
+   /** Have SM4_1 hardware? */
+   boolean have_sm4_1;
 
    /** To rebind resources at the beginnning of a new command buffer */
    boolean need_to_rebind_resources;
@@ -762,6 +772,7 @@ struct svga_winsys_screen
    boolean have_set_predication_cmd;
    boolean have_transfer_from_buffer_cmd;
    boolean have_fence_fd;
+   boolean have_intra_surface_copy;
 };
 
 

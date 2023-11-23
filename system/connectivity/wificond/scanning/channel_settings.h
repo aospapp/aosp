@@ -20,11 +20,10 @@
 #include <binder/Parcel.h>
 #include <binder/Parcelable.h>
 
-namespace com {
 namespace android {
-namespace server {
+namespace net {
 namespace wifi {
-namespace wificond {
+namespace nl80211 {
 
 class ChannelSettings : public ::android::Parcelable {
  public:
@@ -39,10 +38,9 @@ class ChannelSettings : public ::android::Parcelable {
   int32_t frequency_;
 };
 
-}  // namespace wificond
+}  // namespace nl80211
 }  // namespace wifi
-}  // namespace server
+}  // namespace net
 }  // namespace android
-}  // namespace com
 
 #endif  // WIFICOND_SCANNING_CHANNEL_SETTINGS_H_

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import math
+
 # model
 model = Model()
 

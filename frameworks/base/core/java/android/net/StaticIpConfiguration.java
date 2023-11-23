@@ -20,10 +20,12 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.net.shared.InetAddressUtils;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import com.android.internal.util.Preconditions;
+import com.android.net.module.util.InetAddressUtils;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -113,8 +115,8 @@ public final class StaticIpConfiguration implements Parcelable {
     }
 
     /**
-     * Get a {@link String} listing in priority order of the comma separated domains to search when
-     * resolving host names on the link.
+     * Get a {@link String} containing the comma separated domains to search when resolving host
+     * names on this link, in priority order.
      */
     public @Nullable String getDomains() {
         return domains;
@@ -152,6 +154,7 @@ public final class StaticIpConfiguration implements Parcelable {
          * @return The {@link Builder} for chaining.
          */
         public @NonNull Builder setDnsServers(@NonNull Iterable<InetAddress> dnsServers) {
+            Preconditions.checkNotNull(dnsServers);
             mDnsServers = dnsServers;
             return this;
         }
@@ -175,8 +178,10 @@ public final class StaticIpConfiguration implements Parcelable {
             final StaticIpConfiguration config = new StaticIpConfiguration();
             config.ipAddress = mIpAddress;
             config.gateway = mGateway;
-            for (InetAddress server : mDnsServers) {
-                config.dnsServers.add(server);
+            if (mDnsServers != null) {
+                for (InetAddress server : mDnsServers) {
+                    config.dnsServers.add(server);
+                }
             }
             config.domains = mDomains;
             return config;
@@ -236,6 +241,7 @@ public final class StaticIpConfiguration implements Parcelable {
         return lp;
     }
 
+    @NonNull
     @Override
     public String toString() {
         StringBuffer str = new StringBuffer();
@@ -267,7 +273,7 @@ public final class StaticIpConfiguration implements Parcelable {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) return true;
 
         if (!(obj instanceof StaticIpConfiguration)) return false;

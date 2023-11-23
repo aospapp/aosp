@@ -38,10 +38,12 @@ import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.tv.TvSingletons;
 import com.android.tv.common.BuildConfig;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.buildtype.HasBuildType;
+import com.android.tv.common.dagger.annotations.ApplicationContext;
 import com.android.tv.common.util.Clock;
 import com.android.tv.common.util.CommonUtils;
 import com.android.tv.common.util.LocationUtils;
@@ -52,17 +54,22 @@ import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ChannelImpl;
 import com.android.tv.data.ChannelLogoFetcher;
 import com.android.tv.data.Lineup;
-import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
+import com.android.tv.data.epg.EpgReader.EpgChannel;
 import com.android.tv.features.TvFeatures;
 import com.android.tv.perf.EventNames;
 import com.android.tv.perf.PerformanceMonitor;
 import com.android.tv.perf.TimerEvent;
 import com.android.tv.util.Utils;
+
 import com.google.android.tv.partner.support.EpgInput;
 import com.google.android.tv.partner.support.EpgInputs;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
 import com.android.tv.common.flags.BackendKnobsFlags;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,6 +79,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import javax.inject.Inject;
 
 /**
  * The service class to fetch EPG routinely or on-demand during channel scanning
@@ -109,7 +118,6 @@ public class EpgFetcherImpl implements EpgFetcher {
     private static final int MSG_FINISH_FETCH_DURING_SCAN = 3;
     private static final int MSG_RETRY_PREPARE_FETCH_DURING_SCAN = 4;
 
-    private static final int QUERY_CHANNEL_COUNT = 50;
     private static final int MINIMUM_CHANNELS_TO_DECIDE_LINEUP = 3;
 
     private final Context mContext;
@@ -130,31 +138,9 @@ public class EpgFetcherImpl implements EpgFetcher {
 
     private Clock mClock;
 
-    public static EpgFetcher create(Context context) {
-        context = context.getApplicationContext();
-        TvSingletons tvSingletons = TvSingletons.getSingletons(context);
-        ChannelDataManager channelDataManager = tvSingletons.getChannelDataManager();
-        PerformanceMonitor performanceMonitor = tvSingletons.getPerformanceMonitor();
-        EpgReader epgReader = tvSingletons.providesEpgReader().get();
-        Clock clock = tvSingletons.getClock();
-        EpgInputWhiteList epgInputWhiteList =
-                new EpgInputWhiteList(tvSingletons.getCloudEpgFlags());
-        BackendKnobsFlags backendKnobsFlags = tvSingletons.getBackendKnobs();
-        HasBuildType.BuildType buildType = tvSingletons.getBuildType();
-        return new EpgFetcherImpl(
-                context,
-                epgInputWhiteList,
-                channelDataManager,
-                epgReader,
-                performanceMonitor,
-                clock,
-                backendKnobsFlags,
-                buildType);
-    }
-
-    @VisibleForTesting
-    EpgFetcherImpl(
-            Context context,
+    @Inject
+    public EpgFetcherImpl(
+            @ApplicationContext Context context,
             EpgInputWhiteList epgInputWhiteList,
             ChannelDataManager channelDataManager,
             EpgReader epgReader,
@@ -469,23 +455,16 @@ public class EpgFetcherImpl implements EpgFetcher {
         if (epgChannels.size() == 0) {
             return;
         }
-        Set<EpgReader.EpgChannel> batch = new HashSet<>(QUERY_CHANNEL_COUNT);
-        for (EpgReader.EpgChannel epgChannel : epgChannels) {
-            batch.add(epgChannel);
-            if (batch.size() >= QUERY_CHANNEL_COUNT) {
-                batchUpdateEpg(mEpgReader.getPrograms(batch, durationSec));
-                batch.clear();
-            }
-        }
-        if (!batch.isEmpty()) {
-            batchUpdateEpg(mEpgReader.getPrograms(batch, durationSec));
+        int batchSize = (int) Math.max(1, mBackendKnobsFlags.epgFetcherChannelsPerProgramFetch());
+        for (Iterable<EpgChannel> batch : Iterables.partition(epgChannels, batchSize)) {
+            batchUpdateEpg(mEpgReader.getPrograms(ImmutableSet.copyOf(batch), durationSec));
         }
     }
 
     @WorkerThread
     private void batchUpdateEpg(Map<EpgReader.EpgChannel, Collection<Program>> allPrograms) {
         for (Map.Entry<EpgReader.EpgChannel, Collection<Program>> entry : allPrograms.entrySet()) {
-            List<Program> programs = new ArrayList(entry.getValue());
+            List<Program> programs = new ArrayList<>(entry.getValue());
             if (programs == null) {
                 continue;
             }
@@ -604,6 +583,7 @@ public class EpgFetcherImpl implements EpgFetcher {
                             ? ((Integer) REASON_CLOUD_EPG_FAILURE)
                             : anyCloudEpgSuccess ? null : builtInResult;
                 }
+                clearUnusedLineups(null);
                 return builtInResult;
             } finally {
                 TrafficStats.setThreadStatsTag(oldTag);

@@ -37,9 +37,6 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.util.Log;
 
-import com.google.android.collect.Lists;
-
-import java.io.File;
 import java.util.ArrayList;
 
 /**
@@ -105,7 +102,7 @@ public class BluetoothOppBatch {
     public BluetoothOppBatch(Context context, BluetoothOppShareInfo info) {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         mContext = context;
-        mShares = Lists.newArrayList();
+        mShares = new ArrayList();
         mTimestamp = info.mTimestamp;
         mDirection = info.mDirection;
         mDestination = adapter.getRemoteDevice(info.mDestination);
@@ -150,8 +147,8 @@ public class BluetoothOppBatch {
             BluetoothOppShareInfo info = mShares.get(i);
 
             if (info.mStatus < 200) {
-                if (info.mDirection == BluetoothShare.DIRECTION_INBOUND && info.mFilename != null) {
-                    new File(info.mFilename).delete();
+                if (info.mDirection == BluetoothShare.DIRECTION_INBOUND && info.mUri != null) {
+                    mContext.getContentResolver().delete(info.mUri, null, null);
                 }
                 if (V) {
                     Log.v(TAG, "Cancel batch for info " + info.mId);

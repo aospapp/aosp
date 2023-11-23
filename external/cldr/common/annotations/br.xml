@@ -1,18 +1,34 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 13933 $"/>
+		<version number="$Revision$"/>
 		<language type="br"/>
 	</identity>
 	<annotations>
+		<annotation cp="🦤">dodo</annotation>
+		<annotation cp="🦤" type="tts">dodo</annotation>
+		<annotation cp="🦬">bizon</annotation>
+		<annotation cp="🦬" type="tts">bizon</annotation>
+		<annotation cp="🪰">kelienenn</annotation>
+		<annotation cp="🪰" type="tts">kelienenn</annotation>
+		<annotation cp="🪱">buzhugenn</annotation>
+		<annotation cp="🪱" type="tts">buzhugenn</annotation>
+		<annotation cp="🪲">amprevan | cʼhwil</annotation>
+		<annotation cp="🪲" type="tts">cʼhwil</annotation>
+		<annotation cp="🪳">amprevan | cʼhwil-du</annotation>
+		<annotation cp="🪳" type="tts">cʼhwil-du</annotation>
+		<annotation cp="🪶">pluenn</annotation>
+		<annotation cp="🪶" type="tts">pluenn</annotation>
 		<annotation cp="👺">gobilin</annotation>
 		<annotation cp="👺" type="tts">gobilin</annotation>
+		<annotation cp="🕳">toull</annotation>
+		<annotation cp="🕳" type="tts">toull</annotation>
 		<annotation cp="👶">babig | yaouank</annotation>
 		<annotation cp="👶" type="tts">babig</annotation>
 		<annotation cp="🧒">bugel | yaouank</annotation>
@@ -109,99 +125,63 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🤶" type="tts">Mamm Nedeleg</annotation>
 		<annotation cp="🧙">maj</annotation>
 		<annotation cp="🧙" type="tts">maj</annotation>
-		<annotation cp="🧙‍♀">hudourez</annotation>
-		<annotation cp="🧙‍♀" type="tts">hudourez</annotation>
 		<annotation cp="🧙‍♂">hudour</annotation>
 		<annotation cp="🧙‍♂" type="tts">hudour</annotation>
-		<annotation cp="🧛‍♀">sunerez-gwad</annotation>
-		<annotation cp="🧛‍♀" type="tts">sunerez-gwad</annotation>
+		<annotation cp="🧙‍♀">hudourez</annotation>
+		<annotation cp="🧙‍♀" type="tts">hudourez</annotation>
 		<annotation cp="🧛‍♂">suner-gwad</annotation>
 		<annotation cp="🧛‍♂" type="tts">suner-gwad</annotation>
-		<annotation cp="🧟‍♀">zombiez</annotation>
-		<annotation cp="🧟‍♀" type="tts">zombiez</annotation>
+		<annotation cp="🧛‍♀">sunerez-gwad</annotation>
+		<annotation cp="🧛‍♀" type="tts">sunerez-gwad</annotation>
 		<annotation cp="🧟‍♂">zombi</annotation>
 		<annotation cp="🧟‍♂" type="tts">zombi</annotation>
-		<annotation cp="🕳">toull</annotation>
-		<annotation cp="🕳" type="tts">toull</annotation>
-		<annotation cp="👓">lunedoù</annotation>
-		<annotation cp="👓" type="tts">lunedoù</annotation>
-		<annotation cp="🕶">lunedoù-heol</annotation>
-		<annotation cp="🕶" type="tts">lunedoù-heol</annotation>
-		<annotation cp="👔">kravatenn</annotation>
-		<annotation cp="👔" type="tts">kravatenn</annotation>
-		<annotation cp="👖">jeanʼs</annotation>
-		<annotation cp="👖" type="tts">jeanʼs</annotation>
-		<annotation cp="🧣">skerb</annotation>
-		<annotation cp="🧣" type="tts">skerb</annotation>
-		<annotation cp="🧤">manegoù</annotation>
-		<annotation cp="🧤" type="tts">manegoù</annotation>
-		<annotation cp="🧥">mantell</annotation>
-		<annotation cp="🧥" type="tts">mantell</annotation>
-		<annotation cp="🧦">loeroù</annotation>
-		<annotation cp="🧦" type="tts">loeroù</annotation>
-		<annotation cp="👗">sae</annotation>
-		<annotation cp="👗" type="tts">sae</annotation>
-		<annotation cp="👘">kimono</annotation>
-		<annotation cp="👘" type="tts">kimono</annotation>
-		<annotation cp="👙">bikini</annotation>
-		<annotation cp="👙" type="tts">bikini</annotation>
-		<annotation cp="👛">doug-moneiz</annotation>
-		<annotation cp="👛" type="tts">doug-moneiz</annotation>
-		<annotation cp="👜">sacʼh-dorn</annotation>
-		<annotation cp="👜" type="tts">sacʼh-dorn</annotation>
-		<annotation cp="🎒">sacʼh-skol</annotation>
-		<annotation cp="🎒" type="tts">sacʼh-skol</annotation>
-		<annotation cp="👟">botez sport</annotation>
-		<annotation cp="👟" type="tts">botez sport</annotation>
-		<annotation cp="👑">kurunenn</annotation>
-		<annotation cp="👑" type="tts">kurunenn</annotation>
-		<annotation cp="🎩">tog moull uhel</annotation>
-		<annotation cp="🎩" type="tts">tog moull uhel</annotation>
-		<annotation cp="📿">chapeled</annotation>
-		<annotation cp="📿" type="tts">chapeled</annotation>
-		<annotation cp="💄">ruz-muzelloù</annotation>
-		<annotation cp="💄" type="tts">ruz-muzelloù</annotation>
-		<annotation cp="💍">gwalenn</annotation>
-		<annotation cp="💍" type="tts">gwalenn</annotation>
-		<annotation cp="💎">maen prizius</annotation>
-		<annotation cp="💎" type="tts">maen prizius</annotation>
+		<annotation cp="🧟‍♀">zombiez</annotation>
+		<annotation cp="🧟‍♀" type="tts">zombiez</annotation>
+		<annotation cp="🐵">marmouz | penn</annotation>
+		<annotation cp="🐵" type="tts">penn marmouz</annotation>
 		<annotation cp="🐒">marmouz</annotation>
 		<annotation cp="🐒" type="tts">marmouz</annotation>
 		<annotation cp="🦍">gorilh</annotation>
 		<annotation cp="🦍" type="tts">gorilh</annotation>
-		<annotation cp="🐶">penn ki</annotation>
+		<annotation cp="🦧">loen | orangoutan</annotation>
+		<annotation cp="🦧" type="tts">orangoutan</annotation>
+		<annotation cp="🐶">ki | penn</annotation>
 		<annotation cp="🐶" type="tts">penn ki</annotation>
-		<annotation cp="🐕">ki</annotation>
+		<annotation cp="🐕">ki | loen</annotation>
 		<annotation cp="🐕" type="tts">ki</annotation>
-		<annotation cp="🐩">ki rodellek</annotation>
+		<annotation cp="🦮">dall | ki-heñchañ</annotation>
+		<annotation cp="🦮" type="tts">ki-heñchañ</annotation>
+		<annotation cp="🐩">ki | ki rodellek</annotation>
 		<annotation cp="🐩" type="tts">ki rodellek</annotation>
-		<annotation cp="🐺">penn bleiz</annotation>
-		<annotation cp="🐺" type="tts">penn bleiz</annotation>
-		<annotation cp="🦊">penn louarn</annotation>
-		<annotation cp="🦊" type="tts">penn louarn</annotation>
-		<annotation cp="🐱">penn kazh</annotation>
+		<annotation cp="🐺">bleiz | penn</annotation>
+		<annotation cp="🐺" type="tts">bleiz</annotation>
+		<annotation cp="🦊">louarn | penn</annotation>
+		<annotation cp="🦊" type="tts">louarn</annotation>
+		<annotation cp="🦝">loen | rakoun</annotation>
+		<annotation cp="🦝" type="tts">rakoun</annotation>
+		<annotation cp="🐱">kazh | penn</annotation>
 		<annotation cp="🐱" type="tts">penn kazh</annotation>
-		<annotation cp="🐈">kazh</annotation>
+		<annotation cp="🐈">kazh | loen</annotation>
 		<annotation cp="🐈" type="tts">kazh</annotation>
-		<annotation cp="🦁">penn leon</annotation>
-		<annotation cp="🦁" type="tts">penn leon</annotation>
-		<annotation cp="🐯">penn tigr</annotation>
+		<annotation cp="🦁">leon | penn</annotation>
+		<annotation cp="🦁" type="tts">leon</annotation>
+		<annotation cp="🐯">penn | tigr</annotation>
 		<annotation cp="🐯" type="tts">penn tigr</annotation>
 		<annotation cp="🐅">tigr</annotation>
 		<annotation cp="🐅" type="tts">tigr</annotation>
 		<annotation cp="🐆">loupard</annotation>
 		<annotation cp="🐆" type="tts">loupard</annotation>
-		<annotation cp="🐴">penn marcʼh</annotation>
+		<annotation cp="🐴">marcʼh | penn</annotation>
 		<annotation cp="🐴" type="tts">penn marcʼh</annotation>
 		<annotation cp="🐎">marcʼh</annotation>
 		<annotation cp="🐎" type="tts">marcʼh</annotation>
-		<annotation cp="🦄">unkorneg</annotation>
+		<annotation cp="🦄">penn | unkorneg</annotation>
 		<annotation cp="🦄" type="tts">unkorneg</annotation>
 		<annotation cp="🦓">roudenneg</annotation>
 		<annotation cp="🦓" type="tts">roudenneg</annotation>
 		<annotation cp="🦌">karv</annotation>
 		<annotation cp="🦌" type="tts">karv</annotation>
-		<annotation cp="🐮">penn buocʼh</annotation>
+		<annotation cp="🐮">buocʼh | penn</annotation>
 		<annotation cp="🐮" type="tts">penn buocʼh</annotation>
 		<annotation cp="🐂">ejen</annotation>
 		<annotation cp="🐂" type="tts">ejen</annotation>
@@ -233,8 +213,12 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🐁" type="tts">logodenn</annotation>
 		<annotation cp="🐀">razh</annotation>
 		<annotation cp="🐀" type="tts">razh</annotation>
-		<annotation cp="🐹">penn hamster</annotation>
-		<annotation cp="🐹" type="tts">penn hamster</annotation>
+		<annotation cp="🐹">hamster | penn</annotation>
+		<annotation cp="🐹" type="tts">hamster</annotation>
+		<annotation cp="🐰">lapin | penn</annotation>
+		<annotation cp="🐰" type="tts">penn lapin</annotation>
+		<annotation cp="🐇">lapin | loen</annotation>
+		<annotation cp="🐇" type="tts">lapin</annotation>
 		<annotation cp="🐿">gwiñver</annotation>
 		<annotation cp="🐿" type="tts">gwiñver</annotation>
 		<annotation cp="🦔">heureuchin</annotation>
@@ -243,26 +227,42 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🐻" type="tts">penn arzh</annotation>
 		<annotation cp="🐨">koala</annotation>
 		<annotation cp="🐨" type="tts">koala</annotation>
-		<annotation cp="🐼">penn panda</annotation>
-		<annotation cp="🐼" type="tts">penn panda</annotation>
-		<annotation cp="🦃">kog-Spagn</annotation>
+		<annotation cp="🐼">panda | penn</annotation>
+		<annotation cp="🐼" type="tts">panda</annotation>
+		<annotation cp="🦨">skoñs</annotation>
+		<annotation cp="🦨" type="tts">skoñs</annotation>
+		<annotation cp="🦡">brocʼh</annotation>
+		<annotation cp="🦡" type="tts">brocʼh</annotation>
+		<annotation cp="🦃">evn | kog-Spagn</annotation>
 		<annotation cp="🦃" type="tts">kog-Spagn</annotation>
-		<annotation cp="🐔">yar</annotation>
+		<annotation cp="🐔">evn | yar</annotation>
 		<annotation cp="🐔" type="tts">yar</annotation>
-		<annotation cp="🐓">kilhog</annotation>
+		<annotation cp="🐓">evn | kilhog</annotation>
 		<annotation cp="🐓" type="tts">kilhog</annotation>
-		<annotation cp="🐤">poñsin</annotation>
+		<annotation cp="🐤">evn | poñsin</annotation>
 		<annotation cp="🐤" type="tts">poñsin</annotation>
-		<annotation cp="🐧">god</annotation>
+		<annotation cp="🐦">evn</annotation>
+		<annotation cp="🐦" type="tts">evn</annotation>
+		<annotation cp="🐧">evn | god</annotation>
 		<annotation cp="🐧" type="tts">god</annotation>
-		<annotation cp="🕊">koulm</annotation>
+		<annotation cp="🕊">evn | koulm</annotation>
 		<annotation cp="🕊" type="tts">koulm</annotation>
-		<annotation cp="🦅">erer</annotation>
+		<annotation cp="🦅">erer | evn</annotation>
 		<annotation cp="🦅" type="tts">erer</annotation>
-		<annotation cp="🦆">houad</annotation>
+		<annotation cp="🦆">evn | houad</annotation>
 		<annotation cp="🦆" type="tts">houad</annotation>
-		<annotation cp="🦉">kaouenn</annotation>
+		<annotation cp="🦢">alarcʼh | evn</annotation>
+		<annotation cp="🦢" type="tts">alarcʼh</annotation>
+		<annotation cp="🦉">evn | kaouenn</annotation>
 		<annotation cp="🦉" type="tts">kaouenn</annotation>
+		<annotation cp="🦩">flammeg</annotation>
+		<annotation cp="🦩" type="tts">flammeg</annotation>
+		<annotation cp="🦚">paun</annotation>
+		<annotation cp="🦚" type="tts">paun</annotation>
+		<annotation cp="🦜">peroked</annotation>
+		<annotation cp="🦜" type="tts">peroked</annotation>
+		<annotation cp="🐸">penn | ran</annotation>
+		<annotation cp="🐸" type="tts">ran</annotation>
 		<annotation cp="🐊">krokodil</annotation>
 		<annotation cp="🐊" type="tts">krokodil</annotation>
 		<annotation cp="🐢">baot</annotation>
@@ -271,6 +271,12 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🦎" type="tts">glazard</annotation>
 		<annotation cp="🐍">naer</annotation>
 		<annotation cp="🐍" type="tts">naer</annotation>
+		<annotation cp="🐲">dragon | penn</annotation>
+		<annotation cp="🐲" type="tts">penn dragon</annotation>
+		<annotation cp="🐉">dragon | loen</annotation>
+		<annotation cp="🐉" type="tts">dragon</annotation>
+		<annotation cp="🦖">tiranosaor roue</annotation>
+		<annotation cp="🦖" type="tts">tiranosaor roue</annotation>
 		<annotation cp="🐋">balum</annotation>
 		<annotation cp="🐋" type="tts">balum</annotation>
 		<annotation cp="🐬">delfin</annotation>
@@ -283,39 +289,49 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🦈" type="tts">rinkin</annotation>
 		<annotation cp="🐙">morgazh</annotation>
 		<annotation cp="🐙" type="tts">morgazh</annotation>
-		<annotation cp="🦀">krank</annotation>
-		<annotation cp="🦀" type="tts">krank</annotation>
-		<annotation cp="🦐">chevr</annotation>
-		<annotation cp="🦐" type="tts">chevr</annotation>
-		<annotation cp="🦑">stivell</annotation>
-		<annotation cp="🦑" type="tts">stivell</annotation>
 		<annotation cp="🐌">maligorn</annotation>
 		<annotation cp="🐌" type="tts">maligorn</annotation>
-		<annotation cp="🦋">balafenn</annotation>
+		<annotation cp="🦋">amprevan | balafenn</annotation>
 		<annotation cp="🦋" type="tts">balafenn</annotation>
-		<annotation cp="🐛">biskoulenn</annotation>
+		<annotation cp="🐛">amprevan | biskoulenn</annotation>
 		<annotation cp="🐛" type="tts">biskoulenn</annotation>
-		<annotation cp="🐜">merienenn</annotation>
+		<annotation cp="🐜">amprevan | merienenn</annotation>
 		<annotation cp="🐜" type="tts">merienenn</annotation>
-		<annotation cp="🐝">gwenanenn</annotation>
+		<annotation cp="🐝">amprevan | gwenanenn</annotation>
 		<annotation cp="🐝" type="tts">gwenanenn</annotation>
-		<annotation cp="🐞">buocʼhan</annotation>
+		<annotation cp="🐞">amprevan | buocʼhan</annotation>
 		<annotation cp="🐞" type="tts">buocʼhan</annotation>
-		<annotation cp="🦗">krank-raden</annotation>
+		<annotation cp="🦗">amprevan | krank-raden</annotation>
 		<annotation cp="🦗" type="tts">krank-raden</annotation>
 		<annotation cp="🕷">kevnidenn</annotation>
 		<annotation cp="🕷" type="tts">kevnidenn</annotation>
 		<annotation cp="🦂">krug</annotation>
 		<annotation cp="🦂" type="tts">krug</annotation>
-		<annotation cp="🌲">avalpineg</annotation>
+		<annotation cp="🦟">moustik</annotation>
+		<annotation cp="🦟" type="tts">moustik</annotation>
+		<annotation cp="🦠">mikrob</annotation>
+		<annotation cp="🦠" type="tts">mikrob</annotation>
+		<annotation cp="💐">bleunioù | boked</annotation>
+		<annotation cp="💐" type="tts">boked bleunioù</annotation>
+		<annotation cp="🌹">bleunienn | rozenn</annotation>
+		<annotation cp="🌹" type="tts">rozenn</annotation>
+		<annotation cp="🌺">bleunienn | hibiskuz</annotation>
+		<annotation cp="🌺" type="tts">hibiskuz</annotation>
+		<annotation cp="🌻">bleunienn | tro-heol</annotation>
+		<annotation cp="🌻" type="tts">tro-heol</annotation>
+		<annotation cp="🌼">bleunienn | broñs</annotation>
+		<annotation cp="🌼" type="tts">broñs</annotation>
+		<annotation cp="🌷">bleunienn | tulipezenn</annotation>
+		<annotation cp="🌷" type="tts">tulipezenn</annotation>
+		<annotation cp="🌲">avalpineg | gwez</annotation>
 		<annotation cp="🌲" type="tts">avalpineg</annotation>
-		<annotation cp="🌳">deliaoueg</annotation>
+		<annotation cp="🌳">deliaoueg | gwez</annotation>
 		<annotation cp="🌳" type="tts">deliaoueg</annotation>
-		<annotation cp="🌴">gwez-palmez</annotation>
+		<annotation cp="🌴">gwez | gwez-palmez | palmez</annotation>
 		<annotation cp="🌴" type="tts">gwez-palmez</annotation>
-		<annotation cp="🌵">kaktuz</annotation>
+		<annotation cp="🌵">kaktuz | plant</annotation>
 		<annotation cp="🌵" type="tts">kaktuz</annotation>
-		<annotation cp="☘">melchon</annotation>
+		<annotation cp="☘">melchon | plant</annotation>
 		<annotation cp="☘" type="tts">melchon</annotation>
 		<annotation cp="🍇">rezin</annotation>
 		<annotation cp="🍇" type="tts">rezin</annotation>
@@ -387,6 +403,12 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🥚" type="tts">vi</annotation>
 		<annotation cp="🍳">vi war ar plad</annotation>
 		<annotation cp="🍳" type="tts">vi war ar plad</annotation>
+		<annotation cp="🦀">krank</annotation>
+		<annotation cp="🦀" type="tts">krank</annotation>
+		<annotation cp="🦐">chevr</annotation>
+		<annotation cp="🦐" type="tts">chevr</annotation>
+		<annotation cp="🦑">stivell</annotation>
+		<annotation cp="🦑" type="tts">stivell</annotation>
 		<annotation cp="🍧">greunitad</annotation>
 		<annotation cp="🍧" type="tts">greunitad</annotation>
 		<annotation cp="🍨">dienn-skorn</annotation>
@@ -701,6 +723,48 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="♣" type="tts">treflez</annotation>
 		<annotation cp="🃏">joker | kartenn joker</annotation>
 		<annotation cp="🃏" type="tts">joker</annotation>
+		<annotation cp="👓">lunedoù</annotation>
+		<annotation cp="👓" type="tts">lunedoù</annotation>
+		<annotation cp="🕶">lunedoù-heol</annotation>
+		<annotation cp="🕶" type="tts">lunedoù-heol</annotation>
+		<annotation cp="👔">kravatenn</annotation>
+		<annotation cp="👔" type="tts">kravatenn</annotation>
+		<annotation cp="👖">jeanʼs</annotation>
+		<annotation cp="👖" type="tts">jeanʼs</annotation>
+		<annotation cp="🧣">skerb</annotation>
+		<annotation cp="🧣" type="tts">skerb</annotation>
+		<annotation cp="🧤">manegoù</annotation>
+		<annotation cp="🧤" type="tts">manegoù</annotation>
+		<annotation cp="🧥">mantell</annotation>
+		<annotation cp="🧥" type="tts">mantell</annotation>
+		<annotation cp="🧦">loeroù</annotation>
+		<annotation cp="🧦" type="tts">loeroù</annotation>
+		<annotation cp="👗">sae</annotation>
+		<annotation cp="👗" type="tts">sae</annotation>
+		<annotation cp="👘">kimono</annotation>
+		<annotation cp="👘" type="tts">kimono</annotation>
+		<annotation cp="👙">bikini</annotation>
+		<annotation cp="👙" type="tts">bikini</annotation>
+		<annotation cp="👛">doug-moneiz</annotation>
+		<annotation cp="👛" type="tts">doug-moneiz</annotation>
+		<annotation cp="👜">sacʼh-dorn</annotation>
+		<annotation cp="👜" type="tts">sacʼh-dorn</annotation>
+		<annotation cp="🎒">sacʼh-skol</annotation>
+		<annotation cp="🎒" type="tts">sacʼh-skol</annotation>
+		<annotation cp="👟">botez sport</annotation>
+		<annotation cp="👟" type="tts">botez sport</annotation>
+		<annotation cp="👑">kurunenn</annotation>
+		<annotation cp="👑" type="tts">kurunenn</annotation>
+		<annotation cp="🎩">tog moull uhel</annotation>
+		<annotation cp="🎩" type="tts">tog moull uhel</annotation>
+		<annotation cp="📿">chapeled</annotation>
+		<annotation cp="📿" type="tts">chapeled</annotation>
+		<annotation cp="💄">ruz-muzelloù</annotation>
+		<annotation cp="💄" type="tts">ruz-muzelloù</annotation>
+		<annotation cp="💍">gwalenn</annotation>
+		<annotation cp="💍" type="tts">gwalenn</annotation>
+		<annotation cp="💎">maen prizius</annotation>
+		<annotation cp="💎" type="tts">maen prizius</annotation>
 		<annotation cp="📢">uhelgomzer</annotation>
 		<annotation cp="📢" type="tts">uhelgomzer</annotation>
 		<annotation cp="📣">megafon</annotation>

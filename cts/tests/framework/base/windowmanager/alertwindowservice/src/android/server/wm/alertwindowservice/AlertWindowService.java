@@ -17,6 +17,7 @@
 package android.server.wm.alertwindowservice;
 
 import static android.graphics.Color.BLUE;
+import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.Gravity.LEFT;
 import static android.view.Gravity.TOP;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
@@ -25,14 +26,17 @@ import static android.view.WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
+import android.hardware.display.DisplayManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.util.Log;
+import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
@@ -59,6 +63,9 @@ public final class AlertWindowService extends Service {
     private Messenger mOutgoingMessenger = null;
     private final Messenger mIncomingMessenger = new Messenger(new IncomingHandler());
 
+    private Context mWindowContext;
+    private WindowManager mWindowManager;
+
     private class IncomingHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
@@ -80,8 +87,8 @@ public final class AlertWindowService extends Service {
 
     private void addAlertWindow() {
         final Point size = new Point();
-        final WindowManager wm = getSystemService(WindowManager.class);
-        wm.getDefaultDisplay().getSize(size);
+        final WindowManager wm = mWindowManager;
+        mWindowContext.getDisplay().getSize(size);
 
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 TYPE_APPLICATION_OVERLAY,
@@ -90,7 +97,7 @@ public final class AlertWindowService extends Service {
         params.height = size.y / 3;
         params.gravity = TOP | LEFT;
 
-        final TextView view = new TextView(this);
+        final TextView view = new TextView(mWindowContext);
         view.setText("AlertWindowService" + mAlertWindows.size());
         view.setBackgroundColor(BLUE);
         wm.addView(view, params);
@@ -110,7 +117,7 @@ public final class AlertWindowService extends Service {
         if (mAlertWindows.size() == 0) {
             return;
         }
-        final WindowManager wm = getSystemService(WindowManager.class);
+        final WindowManager wm = mWindowManager;
         wm.removeView(mAlertWindows.pop());
 
         if (DEBUG) Log.e(TAG, "removeAlertWindow " + mAlertWindows.size());
@@ -127,6 +134,15 @@ public final class AlertWindowService extends Service {
         while (mAlertWindows.size() > 0) {
             removeAlertWindow();
         }
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        final Display display = getSystemService(DisplayManager.class).getDisplay(DEFAULT_DISPLAY);
+        mWindowContext = createDisplayContext(display)
+                .createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
+        mWindowManager = mWindowContext.getSystemService(WindowManager.class);
     }
 
     @Override

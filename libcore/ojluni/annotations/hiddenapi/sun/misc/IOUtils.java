@@ -34,7 +34,7 @@ public class IOUtils {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static byte[] readFully(java.io.InputStream is, int length, boolean readAll)
             throws java.io.IOException {
         throw new RuntimeException("Stub!");

@@ -15,6 +15,8 @@
  */
 package android.cts.statsd.alarm;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.cts.statsd.atom.AtomTestCase;
 
 import com.android.internal.os.StatsdConfigProto;
@@ -49,9 +51,6 @@ public class AlarmTests extends AtomTestCase {
     }
 
     public void testAlarm() throws Exception {
-        if (statsdDisabled()) {
-            return;
-        }
         StatsdConfig.Builder config = getBaseConfig();
         turnScreenOn();
         uploadConfig(config);
@@ -59,24 +58,20 @@ public class AlarmTests extends AtomTestCase {
         String markTime = getCurrentLogcatDate();
         Thread.sleep(9_000);
 
-        if (INCIDENTD_TESTS_ENABLED) assertTrue("No incident", didIncidentdFireSince(markTime));
+        if (INCIDENTD_TESTS_ENABLED) assertThat(didIncidentdFireSince(markTime)).isTrue();
     }
 
 
     private final StatsdConfig.Builder getBaseConfig() throws Exception {
-        return StatsdConfig.newBuilder().setId(CONFIG_ID)
-                .addAlarm(Alarm.newBuilder()
-                        .setId(ALARM_ID)
-                        .setOffsetMillis(2)
-                        .setPeriodMillis(5_000) // every 5 seconds.
-                )
-                .addSubscription(Subscription.newBuilder()
-                        .setId(SUBSCRIPTION_ID_INCIDENTD)
-                        .setRuleType(Subscription.RuleType.ALARM)
-                        .setRuleId(ALARM_ID)
-                        .setIncidentdDetails(IncidentdDetails.newBuilder()
-                                .addSection(INCIDENTD_SECTION))
-                )
-                .addAllowedLogSource("AID_SYSTEM");
+      return createConfigBuilder()
+          .addAlarm(Alarm.newBuilder().setId(ALARM_ID).setOffsetMillis(2).setPeriodMillis(
+              5_000) // every 5 seconds.
+              )
+          .addSubscription(Subscription.newBuilder()
+                               .setId(SUBSCRIPTION_ID_INCIDENTD)
+                               .setRuleType(Subscription.RuleType.ALARM)
+                               .setRuleId(ALARM_ID)
+                               .setIncidentdDetails(
+                                   IncidentdDetails.newBuilder().addSection(INCIDENTD_SECTION)));
     }
 }

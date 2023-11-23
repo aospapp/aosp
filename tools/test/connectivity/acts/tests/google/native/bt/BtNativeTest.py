@@ -1,4 +1,3 @@
-mport time
 from acts.base_test import BaseTestClass
 from acts.controllers import native_android_device
 from acts.test_utils.bt.native_bt_test_utils import setup_native_bluetooth
@@ -10,13 +9,15 @@ class BtNativeTest(BaseTestClass):
 
     def __init__(self, controllers):
         BaseTestClass.__init__(self, controllers)
-        setup_native_bluetooth(self.native_android_devices)
-        self.droid = self.native_android_devices[0].droid
         self.tests = (
             "test_binder_get_name",
             "test_binder_get_name_invalid_parameter",
             "test_binder_set_name_get_name",
             "test_binder_get_address", )
+
+    def setup_class(self):
+        setup_native_bluetooth(self.native_android_devices)
+        self.droid = self.native_android_devices[0].droid
         if len(self.native_android_devices) > 1:
             self.droid1 = self.native_android_devices[1].droid
             self.tests = self.tests + ("test_two_devices_set_get_name", )

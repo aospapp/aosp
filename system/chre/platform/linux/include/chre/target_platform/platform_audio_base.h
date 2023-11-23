@@ -34,7 +34,7 @@ class PlatformAudioBase {
    * @param source the audio source to provide. Ownership is transferred to the
    *     PlatformAudio implementation.
    */
-  static void addAudioSource(UniquePtr<AudioSource>& source);
+  static void addAudioSource(UniquePtr<AudioSource> &source);
 };
 
 }  // namespace chre

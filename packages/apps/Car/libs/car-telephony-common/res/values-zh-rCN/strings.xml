@@ -17,12 +17,12 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="unknown" msgid="3237922751873109097">"未知"</string>
-    <string name="voicemail" msgid="2125552157407909509">"语音邮件"</string>
+    <string name="voicemail" msgid="2125552157407909509">"语音信息"</string>
     <string name="phone_label_with_info" msgid="4652109530699808645">"<xliff:g id="LABEL">%1$s</xliff:g>  ·  <xliff:g id="DURATION">%2$s</xliff:g>"</string>
     <string name="call_state_connecting" msgid="5930724746375294866">"正在连接…"</string>
     <string name="call_state_dialing" msgid="1534599871716648114">"正在拨号…"</string>
-    <string name="call_state_hold" msgid="6834028102796624100">"呼叫等待"</string>
-    <string name="call_state_call_ended" msgid="4159349597599886429">"通话已结束"</string>
+    <string name="call_state_hold" msgid="8063542005458186874">"保持"</string>
+    <string name="call_state_call_ended" msgid="1432127342949555464">"通话已结束"</string>
     <string name="call_state_call_active" msgid="2769644783657864202">"已连接"</string>
     <string name="call_state_call_ringing" msgid="4618803402954375017">"正在响铃…"</string>
     <string name="call_state_call_ending" msgid="5037498349965472247">"正在断开连接…"</string>

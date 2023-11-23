@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import glob, logging, os, re, struct, time
+import errno, glob, logging, os, re, struct, sys, time
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
@@ -221,8 +221,10 @@ class graphics_Idle(graphics_utils.GraphicsTest):
 
         exynos_node = '/sys/devices/11800000.mali/'
         rk3288_node = '/sys/devices/ffa30000.gpu/'
+        rk3288_419_node = '/sys/devices/platform/ffa30000.gpu/'
         rk3399_node = '/sys/devices/platform/ff9a0000.gpu/'
         mt8173_node = '/sys/devices/soc/13000000.mfgsys-gpu/'
+        mt8173_419_node = '/sys/devices/platform/soc/13000000.mfgsys-gpu/'
         mt8183_node = '/sys/devices/platform/soc/13040000.mali/'
 
         if self._cpu_type == 'exynos5':
@@ -240,6 +242,9 @@ class graphics_Idle(graphics_utils.GraphicsTest):
                 use_devfreq = False
                 enable_node = 'dvfs_enable'
                 enable_value = '1'
+            elif os.path.isdir(rk3288_419_node):
+                node = rk3288_419_node
+                use_devfreq = True
             elif os.path.isdir(rk3399_node):
                 node = rk3399_node
                 use_devfreq = True
@@ -249,6 +254,9 @@ class graphics_Idle(graphics_utils.GraphicsTest):
         elif self._cpu_type == 'mediatek':
             if os.path.isdir(mt8173_node):
                 node = mt8173_node
+                use_devfreq = True
+            elif os.path.isdir(mt8173_419_node):
+                node = mt8173_419_node
                 use_devfreq = True
             elif os.path.isdir(mt8183_node):
                 node = mt8183_node
@@ -362,14 +370,25 @@ class graphics_Idle(graphics_utils.GraphicsTest):
         # we can watch for the active values
         with open(param_path, 'r') as psr_info_file:
             match = None
-            for line in psr_info_file:
-                match = re.search(r'Enabled: yes', line)
-                if match:
-                    logging.info('PSR enabled')
-                    break
-            if not match:
-                logging.warning('PSR not enabled')
-                return ''
+            try:
+                for line in psr_info_file:
+                    match = re.search(r'Enabled: yes', line)
+                    if match:
+                        logging.info('PSR enabled')
+                        break
+                if not match:
+                    logging.warning('PSR not enabled')
+                    return ''
+            except IOError as e:
+                num, strerror = e.args
+                # Newer kernels might report ENODEV when PSR not available.
+                if num == errno.ENODEV:
+                    logging.warning('PSR not enabled')
+                    return ''
+                else:
+                    logging.error('While accessing %s', param_path)
+                    logging.error(e)
+                    return self.handle_error('Unexpected PSR read failure. ')
         while not found and tries < 20:
             time.sleep(1)
             with open(param_path, 'r') as psr_info_file:

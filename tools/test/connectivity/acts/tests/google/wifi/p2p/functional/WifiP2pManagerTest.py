@@ -30,6 +30,7 @@ WPS_PBC = wp2putils.WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_PBC
 WPS_DISPLAY = wp2putils.WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_DISPLAY
 WPS_KEYPAD = wp2putils.WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_KEYPAD
 
+
 class WifiP2pManagerTest(WifiP2pBaseTest):
     """Tests for APIs in Android's WifiP2pManager class.
 
@@ -37,7 +38,6 @@ class WifiP2pManagerTest(WifiP2pBaseTest):
     * At least two Android devices
     * 3 Android devices for WifiP2pMultiPeersTest.py
     """
-
     def __init__(self, controllers):
         WifiP2pBaseTest.__init__(self, controllers)
 
@@ -77,7 +77,9 @@ class WifiP2pManagerTest(WifiP2pBaseTest):
             go_dut = self.dut2
             gc_dut = self.dut1
 
-        wp2putils.p2p_connection_ping_test(gc_dut, p2pconsts.GO_IP_ADDRESS)
+        go_ip = wp2putils.p2p_go_ip(gc_dut)
+        wp2putils.p2p_connection_ping_test(gc_dut, go_ip)
+
         # trigger disconnect
         wp2putils.p2p_disconnect(self.dut1)
         wp2putils.check_disconnect(self.dut2)
@@ -98,7 +100,8 @@ class WifiP2pManagerTest(WifiP2pBaseTest):
         gc_dut.ed.clear_all_events()
         wp2putils.p2p_connect(gc_dut, go_dut, True, WPS_PBC)
         wp2putils.p2p_disconnect(gc_dut)
-        wp2putils.check_disconnect(go_dut)
+        wp2putils.check_disconnect(
+            go_dut, timeout=p2pconsts.DEFAULT_GROUP_CLIENT_LOST_TIME)
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
 
     @test_tracker_info(uuid="12bbe73a-5a6c-4307-9797-c77c7efdc4b5")
@@ -125,7 +128,9 @@ class WifiP2pManagerTest(WifiP2pBaseTest):
             go_dut = self.dut2
             gc_dut = self.dut1
 
-        wp2putils.p2p_connection_ping_test(gc_dut, p2pconsts.GO_IP_ADDRESS)
+        go_ip = wp2putils.p2p_go_ip(gc_dut)
+        wp2putils.p2p_connection_ping_test(gc_dut, go_ip)
+
         # trigger disconnect
         wp2putils.p2p_disconnect(self.dut1)
         wp2putils.check_disconnect(self.dut2)
@@ -146,7 +151,8 @@ class WifiP2pManagerTest(WifiP2pBaseTest):
         gc_dut.ed.clear_all_events()
         wp2putils.p2p_connect(gc_dut, go_dut, True, WPS_DISPLAY)
         wp2putils.p2p_disconnect(gc_dut)
-        wp2putils.check_disconnect(go_dut)
+        wp2putils.check_disconnect(
+            go_dut, timeout=p2pconsts.DEFAULT_GROUP_CLIENT_LOST_TIME)
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)
 
     @test_tracker_info(uuid="efe88f57-5a08-4195-9592-2f6945a9d18a")
@@ -173,7 +179,8 @@ class WifiP2pManagerTest(WifiP2pBaseTest):
             go_dut = self.dut2
             gc_dut = self.dut1
 
-        wp2putils.p2p_connection_ping_test(gc_dut, p2pconsts.GO_IP_ADDRESS)
+        go_ip = wp2putils.p2p_go_ip(gc_dut)
+        wp2putils.p2p_connection_ping_test(gc_dut, go_ip)
 
         # trigger disconnect
         wp2putils.p2p_disconnect(self.dut1)
@@ -195,5 +202,6 @@ class WifiP2pManagerTest(WifiP2pBaseTest):
         gc_dut.ed.clear_all_events()
         wp2putils.p2p_connect(gc_dut, go_dut, True, WPS_KEYPAD)
         wp2putils.p2p_disconnect(gc_dut)
-        wp2putils.check_disconnect(go_dut)
+        wp2putils.check_disconnect(
+            go_dut, timeout=p2pconsts.DEFAULT_GROUP_CLIENT_LOST_TIME)
         time.sleep(p2pconsts.DEFAULT_FUNCTION_SWITCH_TIME)

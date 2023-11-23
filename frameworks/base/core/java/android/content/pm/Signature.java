@@ -16,7 +16,7 @@
 
 package android.content.pm;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -120,6 +120,21 @@ public class Signature implements Parcelable {
         }
 
         mSignature = sig;
+    }
+
+    /**
+     * Copy constructor that creates a new instance from the provided {@code other} Signature.
+     *
+     * @hide
+     */
+    public Signature(Signature other) {
+        mSignature = other.mSignature.clone();
+        Certificate[] otherCertificateChain = other.mCertificateChain;
+        if (otherCertificateChain != null && otherCertificateChain.length > 1) {
+            mCertificateChain = Arrays.copyOfRange(otherCertificateChain, 1,
+                    otherCertificateChain.length);
+        }
+        mFlags = other.mFlags;
     }
 
     /**

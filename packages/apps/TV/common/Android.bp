@@ -28,22 +28,28 @@ android_library {
     resource_dirs: ["res"],
 
     libs: [
+        "android-support-annotations",
         "tv-auto-value-jar",
         "tv-auto-factory-jar",
-        "android-support-annotations",
         "tv-error-prone-annotations-jar",
-        "tv-guava-android-jar",
-        "jsr330",
-        "tv-lib-dagger",
-        "tv-lib-exoplayer",
-        "tv-lib-exoplayer-v2-core",
-        "android-support-compat",
-        "android-support-core-ui",
-        "android-support-v7-recyclerview",
-        "android-support-v17-leanback",
+        "tv-javax-annotations-jar",
+
     ],
 
-    static_libs: ["tv-lib-dagger-android"],
+    static_libs: [
+            "androidx.legacy_legacy-support-core-ui",
+            "androidx.appcompat_appcompat",
+            "androidx.preference_preference",
+            "androidx.leanback_leanback",
+            "androidx.tvprovider_tvprovider",
+            "tv-guava-android-jar",
+            "tv-guava-failureaccess-jar",
+            "jsr330",
+            "tv-lib-dagger",
+            "tv-lib-exoplayer",
+            "tv-lib-exoplayer-v2-core",
+            "tv-lib-dagger-android",
+    ],
 
     plugins: [
         "tv-auto-value",

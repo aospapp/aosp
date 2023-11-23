@@ -23,16 +23,22 @@ import java.util.List;
 public abstract class XsdComplexType extends XsdType {
     final private XsdType base;
     final private List<XsdAttribute> attributes;
+    final private List<XsdAttributeGroup> attributeGroups;
     final private List<XsdElement> elements;
+    final private XsdGroup group;
 
     XsdComplexType(String name, XsdType base, List<XsdAttribute> attributes,
-            List<XsdElement> elements) {
+            List<XsdAttributeGroup> attributeGroups,
+            List<XsdElement> elements, XsdGroup group) {
         super(name, null);
         this.base = base;
         this.attributes = Collections.unmodifiableList(
                 attributes != null ? attributes : new ArrayList<>());
+        this.attributeGroups = Collections.unmodifiableList(
+                attributeGroups != null ? attributeGroups : new ArrayList<>());
         this.elements = Collections.unmodifiableList(
                 elements != null ? elements : new ArrayList<>());
+        this.group = group;
     }
 
     public XsdType getBase() {
@@ -43,7 +49,15 @@ public abstract class XsdComplexType extends XsdType {
         return attributes;
     }
 
+    public List<XsdAttributeGroup> getAttributeGroups() {
+        return attributeGroups;
+    }
+
     public List<XsdElement> getElements() {
         return elements;
+    }
+
+    public XsdGroup getGroup() {
+        return group;
     }
 }

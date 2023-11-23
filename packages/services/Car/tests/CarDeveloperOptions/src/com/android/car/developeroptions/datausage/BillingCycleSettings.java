@@ -26,7 +26,6 @@ import android.net.NetworkPolicy;
 import android.net.NetworkTemplate;
 import android.os.Bundle;
 import android.provider.SearchIndexableResource;
-import android.text.format.Time;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -43,13 +42,14 @@ import androidx.preference.SwitchPreference;
 import com.android.car.developeroptions.R;
 import com.android.car.developeroptions.core.instrumentation.InstrumentedDialogFragment;
 import com.android.car.developeroptions.search.BaseSearchIndexProvider;
-import com.android.car.developeroptions.search.Indexable;
 import com.android.settingslib.NetworkPolicyEditor;
 import com.android.settingslib.net.DataUsageController;
+import com.android.settingslib.search.Indexable;
 import com.android.settingslib.search.SearchIndexable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TimeZone;
 
 @SearchIndexable
 public class BillingCycleSettings extends DataUsageBaseFragment implements
@@ -118,8 +118,6 @@ public class BillingCycleSettings extends DataUsageBaseFragment implements
         mEnableDataLimit = (SwitchPreference) findPreference(KEY_SET_DATA_LIMIT);
         mEnableDataLimit.setOnPreferenceChangeListener(this);
         mDataLimit = findPreference(KEY_DATA_LIMIT);
-
-        mFooterPreferenceMixin.createFooterPreference().setTitle(R.string.data_warning_footnote);
     }
 
     @Override
@@ -405,7 +403,7 @@ public class BillingCycleSettings extends DataUsageBaseFragment implements
             mCycleDayPicker.clearFocus();
 
             final int cycleDay = mCycleDayPicker.getValue();
-            final String cycleTimezone = new Time().timezone;
+            final String cycleTimezone = TimeZone.getDefault().getID();
             editor.setPolicyCycleDay(template, cycleDay, cycleTimezone);
             target.updateDataUsage();
         }

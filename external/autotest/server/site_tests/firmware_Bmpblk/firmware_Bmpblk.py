@@ -22,6 +22,7 @@ class firmware_Bmpblk(FirmwareTest):
     version = 1
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         self.faft_client.bios.dump_whole(BIOS_PATH)
         layout = self.faft_client.system.run_shell_command_get_output(
                             LAYOUT_CBFS_CMD)

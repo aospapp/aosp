@@ -21,6 +21,9 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+# ! Whenever updating this file, make sure to keep mesa_common_defaults in the
+# ! Android.bp up to date.
+
 ifeq ($(LOCAL_IS_HOST_MODULE),true)
 LOCAL_CFLAGS += -D_GNU_SOURCE
 endif
@@ -32,12 +35,12 @@ LOCAL_C_INCLUDES += \
 MESA_VERSION := $(shell cat $(MESA_TOP)/VERSION)
 LOCAL_CFLAGS += \
 	-Wno-error \
+	-Werror=incompatible-pointer-types \
 	-Wno-unused-parameter \
 	-Wno-pointer-arith \
 	-Wno-missing-field-initializers \
 	-Wno-initializer-overrides \
 	-Wno-mismatched-tags \
-	-DVERSION=\"$(MESA_VERSION)\" \
 	-DPACKAGE_VERSION=\"$(MESA_VERSION)\" \
 	-DPACKAGE_BUGREPORT=\"https://bugs.freedesktop.org/enter_bug.cgi?product=Mesa\"
 
@@ -52,6 +55,7 @@ LOCAL_CFLAGS += \
 	-DHAVE___BUILTIN_EXPECT \
 	-DHAVE___BUILTIN_FFS \
 	-DHAVE___BUILTIN_FFSLL \
+	-DHAVE_DLFCN_H \
 	-DHAVE_FUNC_ATTRIBUTE_FLATTEN \
 	-DHAVE_FUNC_ATTRIBUTE_UNUSED \
 	-DHAVE_FUNC_ATTRIBUTE_FORMAT \
@@ -73,8 +77,29 @@ LOCAL_CFLAGS += \
 	-DHAVE_ENDIAN_H \
 	-DHAVE_ZLIB \
 	-DMAJOR_IN_SYSMACROS \
+	-DVK_USE_PLATFORM_ANDROID_KHR \
 	-fvisibility=hidden \
-	-Wno-sign-compare
+	-fno-math-errno \
+	-fno-trapping-math \
+	-Werror \
+	-Wno-\#warnings \
+	-Wno-asm-operand-widths \
+	-Wno-cast-calling-convention \
+	-Wno-constant-logical-operand \
+	-Wno-enum-conversion \
+	-Wno-format \
+	-Wno-gnu-variable-sized-type-not-at-end \
+	-Wno-implicit-fallthrough \
+	-Wno-incompatible-pointer-types \
+	-Wno-missing-braces \
+	-Wno-overloaded-virtual \
+	-Wno-self-assign \
+	-Wno-shift-negative-value \
+	-Wno-sign-compare \
+	-Wno-sometimes-uninitialized \
+	-Wno-switch \
+	-Wno-typedef-redefinition \
+	-Wno-uninitialized \
 
 LOCAL_CPPFLAGS += \
 	-D__STDC_CONSTANT_MACROS \
@@ -89,7 +114,10 @@ LOCAL_CONLYFLAGS += \
 
 # c11 timespec_get is part of bionic as well
 # https://android-review.googlesource.com/c/718518
+# This means releases from P and earlier won't need this
+ifeq ($(filter 5 6 7 8 9, $(MESA_ANDROID_MAJOR_VERSION)),)
 LOCAL_CFLAGS += -DHAVE_TIMESPEC_GET
+endif
 
 ifeq ($(strip $(MESA_ENABLE_ASM)),true)
 ifeq ($(TARGET_ARCH),x86)

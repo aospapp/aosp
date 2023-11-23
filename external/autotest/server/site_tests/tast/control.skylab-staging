@@ -29,6 +29,6 @@ def run(machine):
                         'example.Pass',
                         'example.Perf',
                         'example.ReconnectToDUT',
-                 ])
+                 ], command_args=args)
 
 parallel_simple(run, machines)

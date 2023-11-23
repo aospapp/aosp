@@ -15,52 +15,17 @@
 #ifndef IORAP_SRC_INODE2FILENAME_SEARCH_DIRECTORIES_H_
 #define IORAP_SRC_INODE2FILENAME_SEARCH_DIRECTORIES_H_
 
-#include "common/expected.h"
 #include "inode2filename/inode.h"
 #include "inode2filename/system_call.h"
+#include "inode2filename/inode_resolver.h"
 
 #include <fruit/fruit.h>
 
 #include <rxcpp/rx.hpp>
 namespace iorap::inode2filename {
 
-// Tuple of (Inode -> (Filename|Errno))
-struct InodeResult {
-  // We set this error when all root directories have been searched and
-  // yet we still could not find a corresponding filename for the inode under search.
-  static constexpr int kCouldNotFindFilename = -ENOENT;
-
-  Inode inode;
-  // Value: Contains the filename (with a root directory as a prefix).
-  // Error: Contains the errno, usually -ENOENT or perhaps a security error.
-  iorap::expected<std::string /*filename*/, int /*errno*/> data;
-
-  static InodeResult makeSuccess(Inode inode, std::string filename) {
-    return InodeResult{inode, std::move(filename)};
-  }
-
-  static InodeResult makeFailure(Inode inode, int err_no) {
-    return InodeResult{inode, iorap::unexpected{err_no}};
-  }
-
-  constexpr operator bool() const {
-    return data.has_value();
-  }
-};
-
-enum class SearchMode {
-  // Test modes:
-  kInProcessDirect,  // Execute the code directly.
-  kInProcessIpc,     // Execute code via IPC layer using multiple threads.
-  // Shipping mode:
-  kOutOfProcessIpc,  // Execute code via fork+exec with IPC.
-
-  // Note: in-process system-wide stat(2)/readdir/etc is blocked by selinux.
-  // Attempting to call the test modes will fail with -EPERM.
-  //
-  // Use fork+exec mode in shipping configurations, which spawns inode2filename
-  // as a separate command.
-};
+// TODO: rename.
+using SearchMode = ProcessMode;
 
 struct SearchDirectories {
   // Type-erased subset of rxcpp::connectable_observable<?>
@@ -100,7 +65,7 @@ struct SearchDirectories {
   rxcpp::observable<InodeResult>
       FindFilenamesFromInodes(std::vector<std::string> root_directories,
                               std::vector<Inode> inode_list,
-                              SearchMode mode);
+                              SearchMode mode) const;
 
   // Create a cold observable of inode results (a lazy stream) corresponding
   // to the inode search list.
@@ -126,7 +91,37 @@ struct SearchDirectories {
   std::pair<rxcpp::observable<InodeResult>, std::unique_ptr<RxAnyConnectable>>
       FindFilenamesFromInodesPair(std::vector<std::string> root_directories,
                                   std::vector<Inode> inode_list,
-                                  SearchMode mode);
+                                  SearchMode mode) const;
+
+  // No items on the output stream will be emitted until 'inodes' completes.
+  //
+  // The current algorithm is a naive DFS, so if it began too early it would either
+  // miss the search items or require traversal restarts.
+  //
+  // See above for more details.
+  rxcpp::observable<InodeResult>
+      FindFilenamesFromInodes(std::vector<std::string> root_directories,
+                              rxcpp::observable<Inode> inodes,
+                              SearchMode mode) const;
+
+  rxcpp::observable<InodeResult>
+      ListAllFilenames(std::vector<std::string> root_directories) const;
+
+  rxcpp::observable<InodeResult> FilterFilenamesForSpecificInodes(
+      // haystack that will be subscribed to until all in inode_list are found.
+      rxcpp::observable<InodeResult> all_inodes,
+      // key list: traverse all_inodes until we emit all results from inode_list.
+      std::vector<Inode> inode_list,
+      // all_inodes have a missing device number: use stat(2) to fill it in.
+      bool missing_device_number,
+      bool needs_verification) const;
+
+  rxcpp::observable<InodeResult> EmitAllFilenames(
+      // haystack that will be subscribed to until all in inode_list are found.
+      rxcpp::observable<InodeResult> all_inodes,
+      // all_inodes have a missing device number: use stat(2) to fill it in.
+      bool missing_device_number,
+      bool needs_verification) const;
 
   // Any borrowed parameters here can also be borrowed by the observables returned by the above
   // member functions.

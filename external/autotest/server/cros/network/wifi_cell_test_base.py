@@ -4,10 +4,8 @@
 
 import logging
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
-from autotest_lib.client.cros import constants
 from autotest_lib.server import test
 from autotest_lib.server.cros.network import wifi_test_context_manager
 
@@ -28,16 +26,6 @@ class WiFiCellTestBase(test.test):
     client.
 
     """
-
-    def initialize(self, host):
-        # There are some DUTs that have different types of wifi modules.
-        # In order to generate separate performance graphs, a variant
-        # name is needed.  Writing this key will generate results with
-        # the name of <board>-<variant>.
-        info = host.host_info_store.get()
-        variant_name = info.get_label_value('variant')
-        if variant_name:
-            self.write_test_keyval({constants.VARIANT_KEY: variant_name})
 
     @property
     def context(self):

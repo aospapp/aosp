@@ -37,7 +37,7 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
     private ViewGroup mItemList;
     private View mPostTarget;
 
-    protected View getPostTarget() {
+    public View getPostTarget() {
         return mPostTarget;
     }
 
@@ -57,14 +57,14 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
         getPassButton().setEnabled(false);
     }
 
-    protected void setButtonEnabled(View item, boolean enabled) {
+    public static void setButtonEnabled(View item, boolean enabled) {
         View button = item.findViewById(R.id.user_action_button);
         button.setFocusable(enabled);
         button.setClickable(enabled);
         button.setEnabled(enabled);
     }
 
-    protected void setPassState(View item, boolean passed) {
+    public static void setPassState(View item, boolean passed) {
         ImageView status = (ImageView) item.findViewById(R.id.status);
         status.setImageResource(passed ? R.drawable.fs_good : R.drawable.fs_error);
         setButtonEnabled(item, false);
@@ -78,7 +78,7 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
     /**
      * Call this to create a test step where the user must perform some action.
      */
-    protected View createUserItem(int instructionTextId, int buttonTextId, View.OnClickListener l) {
+    public View createUserItem(int instructionTextId, int buttonTextId, View.OnClickListener l) {
         View item = mInflater.inflate(R.layout.tv_item, mItemList, false);
         TextView instructions = (TextView) item.findViewById(R.id.instructions);
         instructions.setText(instructionTextId);
@@ -93,7 +93,7 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
     /**
      * Call this to create a test step where the user must perform some action.
      */
-    protected View createUserItem(CharSequence instructionCharSequence,
+    public View createUserItem(CharSequence instructionCharSequence,
                                   int buttonTextId, View.OnClickListener l) {
         View item = mInflater.inflate(R.layout.tv_item, mItemList, false);
         TextView instructions = (TextView) item.findViewById(R.id.instructions);
@@ -110,7 +110,7 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
      * Call this to create a test step where the test automatically evaluates whether
      * an expected condition is satisfied.
      */
-    protected View createAutoItem(int stringId) {
+    public View createAutoItem(int stringId) {
         View item = mInflater.inflate(R.layout.tv_item, mItemList, false);
         TextView instructions = (TextView) item.findViewById(R.id.instructions);
         instructions.setText(stringId);
@@ -119,9 +119,21 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
     }
 
     /**
+     * Call this to create a test step where the test automatically evaluates whether
+     * an expected condition is satisfied.
+     */
+    public View createAutoItem(CharSequence instructionCharSequence) {
+        View item = mInflater.inflate(R.layout.tv_item, mItemList, false);
+        TextView instructions = (TextView) item.findViewById(R.id.instructions);
+        instructions.setText(instructionCharSequence);
+        mItemList.addView(item);
+        return item;
+    }
+
+    /**
      * Call this to create alternative choice for the previous test step.
      */
-    protected View createButtonItem(int buttonTextId, View.OnClickListener l) {
+    public View createButtonItem(int buttonTextId, View.OnClickListener l) {
         View item = mInflater.inflate(R.layout.tv_item, mItemList, false);
         Button button = (Button) item.findViewById(R.id.user_action_button);
         button.setVisibility(View.VISIBLE);

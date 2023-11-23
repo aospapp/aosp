@@ -19,14 +19,14 @@ package com.android.tv.settings.users;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.UserInfo;
-import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.util.Log;
 
 import com.android.internal.widget.LockPatternUtils;
-import com.android.internal.widget.VerifyCredentialResponse;
+import com.android.internal.widget.LockPatternUtils.RequestThrottledException;
+import com.android.internal.widget.LockscreenCredential;
 
 /**
  * Manipulate and list restricted profiles on the device.
@@ -165,26 +165,12 @@ public class RestrictedProfileModel {
      * @return {@code true} if {@code password} is a correct PIN for exiting the restricted user.
      */
     public boolean checkPassword(String password) {
-        try {
+        try (LockscreenCredential credential = LockscreenCredential.createPinOrNone(password)) {
             final int userId = getOwnerUserId();
-            final byte[] passwordBytes = password != null ? password.getBytes() : null;
-            return VerifyCredentialResponse.RESPONSE_OK
-                    == new LockPatternUtils(mContext).getLockSettings().checkCredential(
-                            passwordBytes, LockPatternUtils.CREDENTIAL_TYPE_PASSWORD, userId, null)
-                                    .getResponseCode();
-        } catch (RemoteException e) {
+            return new LockPatternUtils(mContext).checkCredential(credential, userId, null);
+        } catch (RequestThrottledException e) {
             Log.e(TAG, "Unable to check password for unlocking the user", e);
         }
         return false;
-    }
-
-    /**
-     * @return {@code true} if the owner user has a PIN set to prevent access from the restricted
-     * profile.
-     */
-    public boolean hasLockscreenSecurity() {
-        final int userId = getOwnerUserId();
-        final LockPatternUtils lpu = new LockPatternUtils(mContext);
-        return lpu.isLockPasswordEnabled(userId) || lpu.isLockPatternEnabled(userId);
     }
 }

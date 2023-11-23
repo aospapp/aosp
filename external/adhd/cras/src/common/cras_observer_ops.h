@@ -17,8 +17,8 @@ struct cras_observer_ops {
 	/* System output volume changed. */
 	void (*output_volume_changed)(void *context, int32_t volume);
 	/* System output mute changed. */
-	void (*output_mute_changed)(void *context,
-				    int muted, int user_muted, int mute_locked);
+	void (*output_mute_changed)(void *context, int muted, int user_muted,
+				    int mute_locked);
 	/* System input/capture gain changed. */
 	void (*capture_gain_changed)(void *context, int32_t gain);
 	/* System input/capture mute changed. */
@@ -39,19 +39,17 @@ struct cras_observer_ops {
 						cras_node_id_t node_id,
 						int swapped);
 	/* Input gain changed. */
-	void (*input_node_gain_changed)(void *context,
-					cras_node_id_t node_id,
+	void (*input_node_gain_changed)(void *context, cras_node_id_t node_id,
 					int32_t gain);
 	/* Suspend state changed. */
-	void (*suspend_changed)(void *context,
-				int suspended);
+	void (*suspend_changed)(void *context, int suspended);
 	/* Number of active streams changed. */
 	void (*num_active_streams_changed)(void *context,
 					   enum CRAS_STREAM_DIRECTION dir,
 					   uint32_t num_active_streams);
 	/* Hotword triggered. */
-	void (*hotword_triggered)(void *context,
-				  int64_t tv_sec, int64_t tv_nsec);
+	void (*hotword_triggered)(void *context, int64_t tv_sec,
+				  int64_t tv_nsec);
 	/* State regarding whether non-empty audio is being played/captured has
 	 * changed. */
 	void (*non_empty_audio_state_changed)(void *context, int non_empty);

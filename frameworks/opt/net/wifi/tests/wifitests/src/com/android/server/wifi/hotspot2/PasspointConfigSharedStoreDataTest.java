@@ -24,7 +24,9 @@ import android.util.Xml;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiConfigStore;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -41,7 +43,7 @@ import java.nio.charset.StandardCharsets;
  * Unit tests for {@link com.android.server.wifi.hotspot2.PasspointConfigSharedStoreData}.
  */
 @SmallTest
-public class PasspointConfigSharedStoreDataTest {
+public class PasspointConfigSharedStoreDataTest extends WifiBaseTest {
     @Mock PasspointConfigSharedStoreData.DataSource mDataSource;
     PasspointConfigSharedStoreData mConfigStoreData;
 
@@ -62,7 +64,7 @@ public class PasspointConfigSharedStoreDataTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mConfigStoreData.serializeData(out);
+        mConfigStoreData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
         out.flush();
         return outputStream.toByteArray();
     }
@@ -77,7 +79,9 @@ public class PasspointConfigSharedStoreDataTest {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mConfigStoreData.deserializeData(in, in.getDepth());
+        mConfigStoreData.deserializeData(in, in.getDepth(),
+                WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                mock(WifiConfigStoreEncryptionUtil.class));
     }
 
     /**

@@ -28,26 +28,28 @@
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="wrap_content"
-  android:layout_height="@dimen/breadcrumb_item_height"
-  android:layout_alignParentTop="true"
+  android:layout_height="wrap_content"
+  android:minHeight="48dp"
   android:focusable="true"
   android:gravity="center_vertical"
   android:orientation="horizontal">
 
-    <com.android.documentsui.DragOverTextView
+    <TextView
         android:id="@+id/breadcrumb_text"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
+        android:maxWidth="275dp"
         android:gravity="center_vertical"
         android:duplicateParentState="true"
-        android:textAppearance="@android:style/TextAppearance.Material.Widget.ActionBar.Title"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textAppearance="@style/BreadcrumbText"
         android:background="@drawable/breadcrumb_item_background" />
 
     <ImageView
         android:id="@+id/breadcrumb_arrow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:src="@drawable/ic_breadcrumb_arrow"
-        android:layout_marginTop="2dp" />
+        android:src="@drawable/ic_breadcrumb_arrow"/>
 
 </LinearLayout>

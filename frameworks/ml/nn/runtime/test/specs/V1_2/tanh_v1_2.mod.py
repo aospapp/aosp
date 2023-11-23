@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import math
+
 # TEST 1
 input0 = Input("input0", "TENSOR_FLOAT16", "{1, 2, 2, 1}")
 output0 = Output("output0", "TENSOR_FLOAT16", "{1, 2, 2, 1}")
@@ -80,10 +82,9 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 1.0 / 128, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddVariations("relaxed", quant8, "float16")

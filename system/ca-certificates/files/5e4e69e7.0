@@ -24,7 +24,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             2f:80:fe:23:8c:0e:22:0f:48:67:12:28:91:87:ac:b3
-    Signature Algorithm: ecdsa-with-SHA384
+        Signature Algorithm: ecdsa-with-SHA384
         Issuer: C=US, O=VeriSign, Inc., OU=VeriSign Trust Network, OU=(c) 2007 VeriSign, Inc. - For authorized use only, CN=VeriSign Class 3 Public Primary Certification Authority - G4
         Validity
             Not Before: Nov  5 00:00:00 2007 GMT

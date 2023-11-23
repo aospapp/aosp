@@ -5,7 +5,6 @@
 
 CONFIG_STANDALONE_LOAD_ADDR ?= 0x40000
 
-PLATFORM_CPPFLAGS += -fno-strict-aliasing
 PLATFORM_CPPFLAGS += -fomit-frame-pointer
 PF_CPPFLAGS_X86   := $(call cc-option, -fno-toplevel-reorder, \
 		     $(call cc-option, -fno-unit-at-a-time))
@@ -24,17 +23,18 @@ endif
 ifeq ($(IS_32BIT),y)
 PLATFORM_CPPFLAGS += -march=i386 -m32
 else
-PLATFORM_CPPFLAGS += $(if $(CONFIG_SPL_BUILD),,-fpic) -fno-common -m64
+PLATFORM_CPPFLAGS += $(if $(CONFIG_SPL_BUILD),,-fpic) -fno-common -march=core2 -m64
+PLATFORM_CPPFLAGS += -mno-mmx -mno-sse
 endif
 
-PLATFORM_RELFLAGS += -ffunction-sections -fvisibility=hidden
+PLATFORM_RELFLAGS += -fdata-sections -ffunction-sections -fvisibility=hidden
 
 PLATFORM_LDFLAGS += -Bsymbolic -Bsymbolic-functions
 PLATFORM_LDFLAGS += -m $(if $(IS_32BIT),elf_i386,elf_x86_64)
 
 # This is used in the top-level Makefile which does not include
 # PLATFORM_LDFLAGS
-LDFLAGS_EFI_PAYLOAD := -Bsymbolic -Bsymbolic-functions -shared --no-undefined
+LDFLAGS_EFI_PAYLOAD := -Bsymbolic -Bsymbolic-functions -shared --no-undefined -s
 
 OBJCOPYFLAGS_EFI := -j .text -j .sdata -j .data -j .dynamic -j .dynsym \
 	-j .rel -j .rela -j .reloc
@@ -65,7 +65,7 @@ CPPFLAGS_crt0-efi-$(EFIARCH).o += $(CFLAGS_EFI)
 ifeq ($(CONFIG_EFI_APP),y)
 
 PLATFORM_CPPFLAGS += $(CFLAGS_EFI)
-LDFLAGS_FINAL += -znocombreloc -shared
+LDFLAGS_FINAL += -znocombreloc -shared -s
 LDSCRIPT := $(LDSCRIPT_EFI)
 
 else

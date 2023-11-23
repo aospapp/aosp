@@ -23,6 +23,7 @@ import java.io.File
 
 object SignatureFileLoader {
     private val map = mutableMapOf<File, Codebase>()
+
     fun load(
         file: File,
         kotlinStyleNulls: Boolean? = null
@@ -39,11 +40,23 @@ object SignatureFileLoader {
         kotlinStyleNulls: Boolean? = null
     ): Codebase {
         try {
-            val codebase = ApiFile.parseApi(File(file.path), kotlinStyleNulls)
+            val codebase = ApiFile.parseApi(File(file.path), kotlinStyleNulls ?: false)
             codebase.description = "Codebase loaded from ${file.path}"
             return codebase
         } catch (ex: ApiParseException) {
             val message = "Unable to parse signature file $file: ${ex.message}"
+            throw DriverException(message)
+        }
+    }
+
+    fun loadFiles(files: List<File>, kotlinStyleNulls: Boolean? = null): Codebase {
+        if (files.isEmpty()) {
+            throw IllegalArgumentException("files must not be empty")
+        }
+        try {
+            return ApiFile.parseApi(files, kotlinStyleNulls ?: false)
+        } catch (ex: ApiParseException) {
+            val message = "Unable to parse signature file: ${ex.message}"
             throw DriverException(message)
         }
     }

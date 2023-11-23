@@ -20,7 +20,9 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.app.role.cts.app">
 
-    <application>
+    <uses-permission android:name="android.permission.SEND_SMS" />
+
+    <application android:label="CtsRoleTestApp">
 
         <activity
             android:name=".RequestRoleActivity"
@@ -28,6 +30,14 @@
 
         <activity
             android:name=".IsRoleHeldActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".ChangeDefaultDialerActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".ChangeDefaultSmsActivity"
             android:exported="true" />
 
         <!-- Dialer -->

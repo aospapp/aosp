@@ -28,8 +28,6 @@ import android.view.Window;
 
 import java.util.concurrent.TimeUnit;
 
-import androidx.test.filters.FlakyTest;
-
 public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarActivity> {
 
     private ActionBarActivity mActivity;
@@ -88,7 +86,6 @@ public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarAct
         assertEquals(t3, mBar.getTabAt(4));
     }
 
-    @FlakyTest(bugId = 133760851)
     public void testOptionsMenuKey() throws Exception {
         boolean hasPermanentMenuKey = ViewConfiguration.get(getActivity()).hasPermanentMenuKey();
         if (!mActivity.getWindow().hasFeature(Window.FEATURE_OPTIONS_PANEL)
@@ -101,11 +98,11 @@ public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarAct
         // Wait here for test activity to gain focus before sending keyevent.
         // Visibility listener needs the action bar to be visible.
         getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
-        getInstrumentation().waitForIdleSync();
+
         assertTrue(menuIsVisible[0]);
         assertTrue(mActivity.windowFocusSignal.await(1000, TimeUnit.MILLISECONDS));
         getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
-        getInstrumentation().waitForIdleSync();
+
         assertTrue(mActivity.windowFocusSignal.await(1000, TimeUnit.MILLISECONDS));
         assertFalse(menuIsVisible[0]);
     }
@@ -120,11 +117,26 @@ public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarAct
         mActivity.getActionBar().addOnMenuVisibilityListener(
                 isVisible -> menuIsVisible[0] = isVisible);
         getInstrumentation().runOnMainSync(() -> mActivity.openOptionsMenu());
-        getInstrumentation().waitForIdleSync();
+
         assertTrue(menuIsVisible[0]);
         getInstrumentation().runOnMainSync(() -> mActivity.closeOptionsMenu());
-        getInstrumentation().waitForIdleSync();
+
         assertFalse(menuIsVisible[0]);
+    }
+
+    @UiThreadTest
+    public void testElevation() {
+        if (mBar == null) {
+            return;
+        }
+        final float oldElevation = mBar.getElevation();
+        try {
+            final float newElevation = 42;
+            mBar.setElevation(newElevation);
+            assertEquals(newElevation, mBar.getElevation());
+        } finally {
+            mBar.setElevation(oldElevation);
+        }
     }
 
     private Tab createTab(String name) {

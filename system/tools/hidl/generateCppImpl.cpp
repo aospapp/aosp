@@ -24,12 +24,13 @@
 #include "ScalarType.h"
 #include "Scope.h"
 
-#include <algorithm>
-#include <hidl-util/Formatter.h>
 #include <android-base/logging.h>
+#include <android-base/strings.h>
+#include <hidl-util/Formatter.h>
+#include <algorithm>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 namespace android {
 
@@ -68,6 +69,12 @@ void AST::generateStubImplMethod(Formatter& out, const std::string& className,
     return;
 }
 
+static std::string getImplNamespace(const FQName& fqName) {
+    std::vector<std::string> components = fqName.getPackageComponents();
+    components.push_back("implementation");
+    return base::Join(components, "::");
+}
+
 void AST::generateCppImplHeader(Formatter& out) const {
     if (!AST::isInterface()) {
         // types.hal does not get a stub header.
@@ -80,13 +87,13 @@ void AST::generateCppImplHeader(Formatter& out) const {
     out << "// FIXME: your file license if you have one\n\n";
     out << "#pragma once\n\n";
 
-    generateCppPackageInclude(out, mPackage, iface->localName());
+    generateCppPackageInclude(out, mPackage, iface->definedName());
 
     out << "#include <hidl/MQDescriptor.h>\n";
     out << "#include <hidl/Status.h>\n\n";
 
-    enterLeaveNamespace(out, true /* enter */);
-    out << "namespace implementation {\n\n";
+    const std::string nspace = getImplNamespace(mPackage);
+    out << "namespace " << nspace << " {\n\n";
 
     out << "using ::android::hardware::hidl_array;\n";
     out << "using ::android::hardware::hidl_memory;\n";
@@ -98,11 +105,8 @@ void AST::generateCppImplHeader(Formatter& out) const {
 
     out << "\n";
 
-    out << "struct "
-        << baseName
-        << " : public "
-        << iface->localName()
-        << " {\n";
+    out << "struct " << baseName << " : public " << iface->fqName().sanitizedVersion()
+        << "::" << iface->definedName() << " {\n";
 
     out.indent();
 
@@ -121,14 +125,11 @@ void AST::generateCppImplHeader(Formatter& out) const {
     out << "};\n\n";
 
     out << "// FIXME: most likely delete, this is only for passthrough implementations\n"
-        << "// extern \"C\" "
-        << iface->localName()
-        << "* ";
-    generateFetchSymbol(out, iface->localName());
+        << "// extern \"C\" " << iface->definedName() << "* ";
+    generateFetchSymbol(out, iface->definedName());
     out << "(const char* name);\n\n";
 
-    out << "}  // namespace implementation\n";
-    enterLeaveNamespace(out, false /* leave */);
+    out << "}  // namespace " << nspace << "\n";
 }
 
 void AST::generateCppImplSource(Formatter& out) const {
@@ -143,26 +144,24 @@ void AST::generateCppImplSource(Formatter& out) const {
     out << "// FIXME: your file license if you have one\n\n";
     out << "#include \"" << baseName << ".h\"\n\n";
 
-    enterLeaveNamespace(out, true /* enter */);
-    out << "namespace implementation {\n\n";
+    const std::string nspace = getImplNamespace(mPackage);
+    out << "namespace " << nspace << " {\n\n";
 
     generateMethods(out, [&](const Method* method, const Interface*) {
         generateStubImplMethod(out, baseName, method);
     });
 
-    out.setLinePrefix("//");
-    out << iface->localName()
-        << "* ";
-    generateFetchSymbol(out, iface->localName());
+    out.pushLinePrefix("//");
+    out << iface->definedName() << "* ";
+    generateFetchSymbol(out, iface->definedName());
     out << "(const char* /* name */) {\n";
     out.indent();
     out << "return new " << baseName << "();\n";
     out.unindent();
     out << "}\n\n";
-    out.unsetLinePrefix();
+    out.popLinePrefix();
 
-    out << "}  // namespace implementation\n";
-    enterLeaveNamespace(out, false /* leave */);
+    out << "}  // namespace " << nspace << "\n";
 }
 
 }  // namespace android

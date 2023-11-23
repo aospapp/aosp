@@ -565,7 +565,6 @@ struct problem_context {
 #define PR_1_EXTENTS_SET			0x01005A
 
 /* inode is in extents format, but superblock is missing EXTENTS feature */
-/* inode has extents, superblock missing INCOMPAT_EXTENTS feature */
 #define PR_1_EXTENT_FEATURE			0x01005B
 
 /* inode missing EXTENTS_FL, but is an extent inode */
@@ -692,6 +691,24 @@ struct problem_context {
 
 /* EA inode for parent inode does not have EXT4_EA_INODE_FL flag */
 #define PR_1_ATTR_SET_EA_INODE_FL		0x010086
+
+/* Offer to clear uninitialized flag on an extent */
+#define PR_1_CLEAR_UNINIT_EXTENT		0x010087
+
+/* Casefold flag set on a non-directory */
+#define PR_1_CASEFOLD_NONDIR			0x010088
+
+/* Casefold flag set, but file system is missing the casefold feature */
+#define PR_1_CASEFOLD_FEATURE			0x010089
+
+/* Error allocating memory for casefolded directory list */
+#define PR_1_ALLOCATE_CASEFOLDED_DIRLIST	0x01008C
+
+/* Htree directory should use SipHash but does not */
+#define PR_1_HTREE_NEEDS_SIPHASH		0x01008D
+
+/* Htree directory uses SipHash but should not */
+#define PR_1_HTREE_CANNOT_SIPHASH		0x01008E
 
 
 /*
@@ -1008,6 +1025,9 @@ struct problem_context {
 
 /* Encrypted directory entry is too short */
 #define PR_2_BAD_ENCRYPTED_NAME		0x020050
+
+/* Non-unique filename found, but can't rename */
+#define PR_2_NON_UNIQUE_FILE_NO_RENAME	0x020053
 
 /*
  * Pass 3 errors

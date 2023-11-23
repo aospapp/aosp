@@ -34,10 +34,21 @@
 #include <netlink/handlers.h>
 
 #include <ctype.h>
+#include <errno.h>
 
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
+
+pthread_mutex_t ResponseMutex;
+void InitResponseLock() {
+    pthread_mutex_init(&ResponseMutex, NULL);
+}
+
+void DestroyResponseLock()
+{
+    pthread_mutex_destroy(&ResponseMutex);
+}
 
 void appendFmt(char *buf, int &offset, const char *fmt, ...)
 {
@@ -607,7 +618,8 @@ int WifiCommand::requestResponse() {
 }
 
 int WifiCommand::requestResponse(WifiRequest& request) {
-    int err = 0;
+    pthread_mutex_lock(&ResponseMutex);
+    int err = 0, res = 0;
 
     struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb)
@@ -633,6 +645,7 @@ int WifiCommand::requestResponse(WifiRequest& request) {
     }
 out:
     nl_cb_put(cb);
+    pthread_mutex_unlock(&ResponseMutex);
     return err;
 }
 

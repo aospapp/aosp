@@ -48,6 +48,7 @@ SPDIFEncoder::SPDIFEncoder(audio_format_t format)
     switch(format) {
         case AUDIO_FORMAT_AC3:
         case AUDIO_FORMAT_E_AC3:
+        case AUDIO_FORMAT_E_AC3_JOC:
             mFramer = new AC3FrameScanner(format);
             break;
         case AUDIO_FORMAT_DTS:
@@ -88,6 +89,7 @@ bool SPDIFEncoder::isFormatSupported(audio_format_t format)
     switch(format) {
         case AUDIO_FORMAT_AC3:
         case AUDIO_FORMAT_E_AC3:
+        case AUDIO_FORMAT_E_AC3_JOC:
         case AUDIO_FORMAT_DTS:
         case AUDIO_FORMAT_DTS_HD:
             return true;
@@ -101,14 +103,21 @@ int SPDIFEncoder::getBytesPerOutputFrame()
     return SPDIF_ENCODED_CHANNEL_COUNT * sizeof(int16_t);
 }
 
+bool SPDIFEncoder::wouldOverflowBuffer(size_t numBytes) const {
+    // Avoid numeric overflow when calculating whether the buffer would overflow.
+    return (numBytes > mBurstBufferSizeBytes)
+        || (mByteCursor > (mBurstBufferSizeBytes - numBytes));  // (max - n) won't overflow
+}
+
 void SPDIFEncoder::writeBurstBufferShorts(const uint16_t *buffer, size_t numShorts)
 {
     // avoid static analyser warning
     LOG_ALWAYS_FATAL_IF((mBurstBuffer == NULL), "mBurstBuffer never allocated");
+
     mByteCursor = (mByteCursor + 1) & ~1; // round up to even byte
     size_t bytesToWrite = numShorts * sizeof(uint16_t);
-    if ((mByteCursor + bytesToWrite) > mBurstBufferSizeBytes) {
-        ALOGE("SPDIFEncoder: Burst buffer overflow!");
+    if (wouldOverflowBuffer(bytesToWrite)) {
+        ALOGE("SPDIFEncoder::%s() Burst buffer overflow!", __func__);
         reset();
         return;
     }
@@ -126,14 +135,13 @@ void SPDIFEncoder::writeBurstBufferShorts(const uint16_t *buffer, size_t numShor
 // Big and Little Endian CPUs.
 void SPDIFEncoder::writeBurstBufferBytes(const uint8_t *buffer, size_t numBytes)
 {
-    size_t bytesToWrite = numBytes;
-    if ((mByteCursor + bytesToWrite) > mBurstBufferSizeBytes) {
-        ALOGE("SPDIFEncoder: Burst buffer overflow!");
+    if (wouldOverflowBuffer(numBytes)) {
+        ALOGE("SPDIFEncoder::%s() Burst buffer overflow!", __func__);
         clearBurstBuffer();
         return;
     }
     uint16_t pad = mBurstBuffer[mByteCursor >> 1];
-    for (size_t i = 0; i < bytesToWrite; i++) {
+    for (size_t i = 0; i < numBytes; i++) {
         if (mByteCursor & 1 ) {
             pad |= *buffer++; // put second byte in LSB
             mBurstBuffer[mByteCursor >> 1] = pad;
@@ -219,9 +227,16 @@ void SPDIFEncoder::startDataBurst()
 size_t SPDIFEncoder::startSyncFrame()
 {
     // Write start of encoded frame that was buffered in frame detector.
-    size_t syncSize = mFramer->getHeaderSizeBytes();
-    writeBurstBufferBytes(mFramer->getHeaderAddress(), syncSize);
-    return mFramer->getFrameSizeBytes() - syncSize;
+    size_t headerSize = mFramer->getHeaderSizeBytes();
+    writeBurstBufferBytes(mFramer->getHeaderAddress(), headerSize);
+    // This is provided by the encoded audio file and may be invalid.
+    size_t frameSize = mFramer->getFrameSizeBytes();
+    if (frameSize < headerSize) {
+        ALOGE("SPDIFEncoder: invalid frameSize = %zu", frameSize);
+        return 0;
+    }
+    // Calculate how many more bytes we need to complete the frame.
+    return frameSize - headerSize;
 }
 
 // Wraps raw encoded data into a data burst.

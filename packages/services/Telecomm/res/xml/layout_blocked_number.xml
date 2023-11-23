@@ -29,6 +29,8 @@
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:paddingTop="@dimen/blocked_numbers_delete_icon_padding"
+        android:layout_alignParentLeft="true"
+        android:layout_toLeftOf="@+id/delete_blocked_number"
         android:textDirection="ltr" />
 
     <ImageView

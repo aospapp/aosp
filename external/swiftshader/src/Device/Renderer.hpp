@@ -15,470 +15,232 @@
 #ifndef sw_Renderer_hpp
 #define sw_Renderer_hpp
 
-#include "VertexProcessor.hpp"
-#include "PixelProcessor.hpp"
-#include "SetupProcessor.hpp"
-#include "Plane.hpp"
 #include "Blitter.hpp"
-#include "System/MutexLock.hpp"
-#include "System/Thread.hpp"
+#include "PixelProcessor.hpp"
+#include "Plane.hpp"
+#include "Primitive.hpp"
+#include "SetupProcessor.hpp"
+#include "VertexProcessor.hpp"
 #include "Device/Config.hpp"
+#include "Vulkan/VkDescriptorSet.hpp"
 
+#include "marl/finally.h"
+#include "marl/pool.h"
+#include "marl/ticket.h"
+
+#include <atomic>
 #include <list>
+#include <mutex>
+#include <thread>
 
-namespace sw
+namespace vk {
+
+class DescriptorSet;
+class Device;
+class Query;
+
+}  // namespace vk
+
+namespace sw {
+
+struct DrawCall;
+class PixelShader;
+class VertexShader;
+struct Task;
+class TaskEvents;
+class Resource;
+struct Constants;
+
+static constexpr int MaxBatchSize = 128;
+static constexpr int MaxBatchCount = 16;
+static constexpr int MaxClusterCount = 16;
+static constexpr int MaxDrawCount = 16;
+
+using TriangleBatch = std::array<Triangle, MaxBatchSize>;
+using PrimitiveBatch = std::array<Primitive, MaxBatchSize>;
+
+struct DrawData
 {
-	class Clipper;
-	struct DrawCall;
-	class PixelShader;
-	class VertexShader;
-	class SwiftConfig;
-	struct Task;
-	class Resource;
-	struct Constants;
+	const Constants *constants;
 
-	enum TranscendentalPrecision
+	vk::DescriptorSet::Bindings descriptorSets = {};
+	vk::DescriptorSet::DynamicOffsets descriptorDynamicOffsets = {};
+
+	const void *input[MAX_INTERFACE_COMPONENTS / 4];
+	unsigned int robustnessSize[MAX_INTERFACE_COMPONENTS / 4];
+	unsigned int stride[MAX_INTERFACE_COMPONENTS / 4];
+	const void *indices;
+
+	int instanceID;
+	int baseVertex;
+	float lineWidth;
+	int viewID;
+
+	PixelProcessor::Stencil stencil[2];  // clockwise, counterclockwise
+	PixelProcessor::Factor factor;
+	unsigned int occlusion[MaxClusterCount];  // Number of pixels passing depth test
+
+	float4 WxF;
+	float4 HxF;
+	float4 X0xF;
+	float4 Y0xF;
+	float4 halfPixelX;
+	float4 halfPixelY;
+	float viewportHeight;
+	float slopeDepthBias;
+	float depthRange;
+	float depthNear;
+
+	unsigned int *colorBuffer[RENDERTARGETS];
+	int colorPitchB[RENDERTARGETS];
+	int colorSliceB[RENDERTARGETS];
+	float *depthBuffer;
+	int depthPitchB;
+	int depthSliceB;
+	unsigned char *stencilBuffer;
+	int stencilPitchB;
+	int stencilSliceB;
+
+	int scissorX0;
+	int scissorX1;
+	int scissorY0;
+	int scissorY1;
+
+	float4 a2c0;
+	float4 a2c1;
+	float4 a2c2;
+	float4 a2c3;
+
+	PushConstantStorage pushConstants;
+};
+
+struct DrawCall
+{
+	struct BatchData
 	{
-		APPROXIMATE,
-		PARTIAL,	// 2^-10
-		ACCURATE,
-		WHQL,		// 2^-21
-		IEEE		// 2^-23
+		using Pool = marl::BoundedPool<BatchData, MaxBatchCount, marl::PoolPolicy::Preserve>;
+
+		TriangleBatch triangles;
+		PrimitiveBatch primitives;
+		VertexTask vertexTask;
+		unsigned int id;
+		unsigned int firstPrimitive;
+		unsigned int numPrimitives;
+		int numVisible;
+		marl::Ticket clusterTickets[MaxClusterCount];
 	};
 
-	extern TranscendentalPrecision logPrecision;
-	extern TranscendentalPrecision expPrecision;
-	extern TranscendentalPrecision rcpPrecision;
-	extern TranscendentalPrecision rsqPrecision;
-	extern bool perspectiveCorrection;
-
-	struct Conventions
-	{
-		bool halfIntegerCoordinates;
-		bool symmetricNormalizedDepth;
-		bool booleanFaceRegister;
-		bool fullPixelPositionRegister;
-		bool leadingVertexFirst;
-		bool secondaryColor;
-		bool colorsDefaultToZero;
-	};
-
-	static const Conventions OpenGL =
-	{
-		true,    // halfIntegerCoordinates
-		true,    // symmetricNormalizedDepth
-		true,    // booleanFaceRegister
-		true,    // fullPixelPositionRegister
-		false,   // leadingVertexFirst
-		false,   // secondaryColor
-		true,    // colorsDefaultToZero
-	};
-
-	static const Conventions Direct3D =
-	{
-		false,   // halfIntegerCoordinates
-		false,   // symmetricNormalizedDepth
-		false,   // booleanFaceRegister
-		false,   // fullPixelPositionRegister
-		true,    // leadingVertexFirst
-		true,    // secondardyColor
-		false,   // colorsDefaultToZero
-	};
-
-	struct Query
-	{
-		enum Type { FRAGMENTS_PASSED, TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN };
-
-		Query(Type type) : building(false), reference(0), data(0), type(type)
-		{
-		}
-
-		void begin()
-		{
-			building = true;
-			data = 0;
-		}
-
-		void end()
-		{
-			building = false;
-		}
-
-		bool building;
-		AtomicInt reference;
-		AtomicInt data;
-
-		const Type type;
-	};
-
-	struct DrawData
-	{
-		const Constants *constants;
-
-		const void *input[MAX_VERTEX_INPUTS];
-		unsigned int stride[MAX_VERTEX_INPUTS];
-		Texture mipmap[TOTAL_IMAGE_UNITS];
-		const void *indices;
-
-		struct VS
-		{
-			float4 c[VERTEX_UNIFORM_VECTORS + 1];   // One extra for indices out of range, c[VERTEX_UNIFORM_VECTORS] = {0, 0, 0, 0}
-			byte* u[MAX_UNIFORM_BUFFER_BINDINGS];
-			byte* t[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS];
-			unsigned int reg[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS]; // Offset used when reading from registers, in components
-			unsigned int row[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS]; // Number of rows to read
-			unsigned int col[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS]; // Number of columns to read
-			unsigned int str[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS]; // Number of components between each varying in output buffer
-			int4 i[16];
-			bool b[16];
-		};
-
-		struct PS
-		{
-			float4 c[FRAGMENT_UNIFORM_VECTORS];
-			byte* u[MAX_UNIFORM_BUFFER_BINDINGS];
-			int4 i[16];
-			bool b[16];
-		};
-
-		VS vs;
-		PS ps;
-
-		int instanceID;
-
-		float pointSizeMin;
-		float pointSizeMax;
-		float lineWidth;
-
-		PixelProcessor::Stencil stencil[2];   // clockwise, counterclockwise
-		PixelProcessor::Stencil stencilCCW;
-		PixelProcessor::Factor factor;
-		unsigned int occlusion[16];   // Number of pixels passing depth test
-
-		#if PERF_PROFILE
-			int64_t cycles[PERF_TIMERS][16];
-		#endif
-
-		float4 Wx16;
-		float4 Hx16;
-		float4 X0x16;
-		float4 Y0x16;
-		float4 halfPixelX;
-		float4 halfPixelY;
-		float viewportHeight;
-		float slopeDepthBias;
-		float depthRange;
-		float depthNear;
-		Plane clipPlane[6];
-
-		unsigned int *colorBuffer[RENDERTARGETS];
-		int colorPitchB[RENDERTARGETS];
-		int colorSliceB[RENDERTARGETS];
-		float *depthBuffer;
-		int depthPitchB;
-		int depthSliceB;
-		unsigned char *stencilBuffer;
-		int stencilPitchB;
-		int stencilSliceB;
-
-		int scissorX0;
-		int scissorX1;
-		int scissorY0;
-		int scissorY1;
-
-		float4 a2c0;
-		float4 a2c1;
-		float4 a2c2;
-		float4 a2c3;
-	};
-
-	class Renderer : public VertexProcessor, public PixelProcessor, public SetupProcessor
-	{
-		struct Task
-		{
-			enum Type
-			{
-				PRIMITIVES,
-				PIXELS,
-
-				RESUME,
-				SUSPEND
-			};
-
-			AtomicInt type;
-			AtomicInt primitiveUnit;
-			AtomicInt pixelCluster;
-		};
-
-		struct PrimitiveProgress
-		{
-			void init()
-			{
-				drawCall = 0;
-				firstPrimitive = 0;
-				primitiveCount = 0;
-				visible = 0;
-				references = 0;
-			}
-
-			AtomicInt drawCall;
-			AtomicInt firstPrimitive;
-			AtomicInt primitiveCount;
-			AtomicInt visible;
-			AtomicInt references;
-		};
-
-		struct PixelProgress
-		{
-			void init()
-			{
-				drawCall = 0;
-				processedPrimitives = 0;
-				executing = false;
-			}
-
-			AtomicInt drawCall;
-			AtomicInt processedPrimitives;
-			AtomicInt executing;
-		};
-
-	public:
-		Renderer(Context *context, Conventions conventions, bool exactColorRounding);
-
-		virtual ~Renderer();
-
-		void *operator new(size_t size);
-		void operator delete(void * mem);
-
-		void draw(DrawType drawType, unsigned int indexOffset, unsigned int count, bool update = true);
-
-		void clear(void *value, VkFormat format, Surface *dest, const Rect &rect, unsigned int rgbaMask);
-		void blit(Surface *source, const SliceRectF &sRect, Surface *dest, const SliceRect &dRect, bool filter, bool isStencil = false, bool sRGBconversion = true);
-		void blit3D(Surface *source, Surface *dest);
-
-		void setContext(const sw::Context& context);
-		void setIndexBuffer(Resource *indexBuffer);
-
-		void setMultiSampleMask(unsigned int mask);
-		void setTransparencyAntialiasing(TransparencyAntialiasing transparencyAntialiasing);
-
-		void setTextureResource(unsigned int sampler, Resource *resource);
-		void setTextureLevel(unsigned int sampler, unsigned int face, unsigned int level, Surface *surface, TextureType type);
-
-		void setTextureFilter(SamplerType type, int sampler, FilterType textureFilter);
-		void setMipmapFilter(SamplerType type, int sampler, MipmapType mipmapFilter);
-		void setGatherEnable(SamplerType type, int sampler, bool enable);
-		void setAddressingModeU(SamplerType type, int sampler, AddressingMode addressingMode);
-		void setAddressingModeV(SamplerType type, int sampler, AddressingMode addressingMode);
-		void setAddressingModeW(SamplerType type, int sampler, AddressingMode addressingMode);
-		void setReadSRGB(SamplerType type, int sampler, bool sRGB);
-		void setMipmapLOD(SamplerType type, int sampler, float bias);
-		void setBorderColor(SamplerType type, int sampler, const Color<float> &borderColor);
-		void setMaxAnisotropy(SamplerType type, int sampler, float maxAnisotropy);
-		void setHighPrecisionFiltering(SamplerType type, int sampler, bool highPrecisionFiltering);
-		void setSwizzleR(SamplerType type, int sampler, SwizzleType swizzleR);
-		void setSwizzleG(SamplerType type, int sampler, SwizzleType swizzleG);
-		void setSwizzleB(SamplerType type, int sampler, SwizzleType swizzleB);
-		void setSwizzleA(SamplerType type, int sampler, SwizzleType swizzleA);
-		void setCompareFunc(SamplerType type, int sampler, CompareFunc compare);
-		void setBaseLevel(SamplerType type, int sampler, int baseLevel);
-		void setMaxLevel(SamplerType type, int sampler, int maxLevel);
-		void setMinLod(SamplerType type, int sampler, float minLod);
-		void setMaxLod(SamplerType type, int sampler, float maxLod);
-
-		void setLineWidth(float width);
-
-		void setDepthBias(float bias);
-		void setSlopeDepthBias(float slopeBias);
-
-		void setRasterizerDiscard(bool rasterizerDiscard);
-
-		// Programmable pipelines
-		void setPixelShader(const PixelShader *shader);
-		void setVertexShader(const VertexShader *shader);
-
-		void setPixelShaderConstantF(unsigned int index, const float value[4], unsigned int count = 1);
-		void setPixelShaderConstantI(unsigned int index, const int value[4], unsigned int count = 1);
-		void setPixelShaderConstantB(unsigned int index, const int *boolean, unsigned int count = 1);
-
-		void setVertexShaderConstantF(unsigned int index, const float value[4], unsigned int count = 1);
-		void setVertexShaderConstantI(unsigned int index, const int value[4], unsigned int count = 1);
-		void setVertexShaderConstantB(unsigned int index, const int *boolean, unsigned int count = 1);
-
-		// Viewport & Clipper
-		void setViewport(const VkViewport &viewport);
-		void setScissor(const Rect &scissor);
-		void setClipFlags(int flags);
-		void setClipPlane(unsigned int index, const float plane[4]);
-
-		// Partial transform
-		void setModelMatrix(const Matrix &M, int i = 0);
-		void setViewMatrix(const Matrix &V);
-		void setBaseMatrix(const Matrix &B);
-		void setProjectionMatrix(const Matrix &P);
-
-		void addQuery(Query *query);
-		void removeQuery(Query *query);
-
-		void synchronize();
-
-		#if PERF_HUD
-			// Performance timers
-			int getThreadCount();
-			int64_t getVertexTime(int thread);
-			int64_t getSetupTime(int thread);
-			int64_t getPixelTime(int thread);
-			void resetTimers();
-		#endif
-
-		static int getClusterCount() { return clusterCount; }
-
-	private:
-		static void threadFunction(void *parameters);
-		void threadLoop(int threadIndex);
-		void taskLoop(int threadIndex);
-		void findAvailableTasks();
-		void scheduleTask(int threadIndex);
-		void executeTask(int threadIndex);
-		void finishRendering(Task &pixelTask);
-
-		void processPrimitiveVertices(int unit, unsigned int start, unsigned int count, unsigned int loop, int thread);
-
-		int setupTriangles(int batch, int count);
-		int setupLines(int batch, int count);
-		int setupPoints(int batch, int count);
-
-		bool setupLine(Primitive &primitive, Triangle &triangle, const DrawCall &draw);
-		bool setupPoint(Primitive &primitive, Triangle &triangle, const DrawCall &draw);
-
-		bool isReadWriteTexture(int sampler);
-		void updateClipper();
-		void updateConfiguration(bool initialUpdate = false);
-		void initializeThreads();
-		void terminateThreads();
-
-		void loadConstants(const VertexShader *vertexShader);
-		void loadConstants(const PixelShader *pixelShader);
-
-		Context *context;
-		Clipper *clipper;
-		Blitter *blitter;
-		VkViewport viewport;
-		Rect scissor;
-		int clipFlags;
-
-		Triangle *triangleBatch[16];
-		Primitive *primitiveBatch[16];
-
-		// User-defined clipping planes
-		Plane userPlane[MAX_CLIP_PLANES];
-		Plane clipPlane[MAX_CLIP_PLANES];   // Tranformed to clip space
-		bool updateClipPlanes;
-
-		AtomicInt exitThreads;
-		AtomicInt threadsAwake;
-		Thread *worker[16];
-		Event *resume[16];         // Events for resuming threads
-		Event *suspend[16];        // Events for suspending threads
-		Event *resumeApp;          // Event for resuming the application thread
-
-		PrimitiveProgress primitiveProgress[16];
-		PixelProgress pixelProgress[16];
-		Task task[16];   // Current tasks for threads
-
-		enum {
-			DRAW_COUNT = 16,   // Number of draw calls buffered (must be power of 2)
-			DRAW_COUNT_BITS = DRAW_COUNT - 1,
-		};
-		DrawCall *drawCall[DRAW_COUNT];
-		DrawCall *drawList[DRAW_COUNT];
-
-		AtomicInt currentDraw;
-		AtomicInt nextDraw;
-
-		enum {
-			TASK_COUNT = 32,   // Size of the task queue (must be power of 2)
-			TASK_COUNT_BITS = TASK_COUNT - 1,
-		};
-		Task taskQueue[TASK_COUNT];
-		AtomicInt qHead;
-		AtomicInt qSize;
-
-		static AtomicInt unitCount;
-		static AtomicInt clusterCount;
-
-		MutexLock schedulerMutex;
-
-		#if PERF_HUD
-			int64_t vertexTime[16];
-			int64_t setupTime[16];
-			int64_t pixelTime[16];
-		#endif
-
-		VertexTask *vertexTask[16];
-
-		SwiftConfig *swiftConfig;
-
-		std::list<Query*> queries;
-		Resource *sync;
-
-		VertexProcessor::State vertexState;
-		SetupProcessor::State setupState;
-		PixelProcessor::State pixelState;
-
-		Routine *vertexRoutine;
-		Routine *setupRoutine;
-		Routine *pixelRoutine;
-	};
-
-	struct DrawCall
-	{
-		DrawCall();
-
-		~DrawCall();
-
-		AtomicInt drawType;
-		AtomicInt batchSize;
-
-		Routine *vertexRoutine;
-		Routine *setupRoutine;
-		Routine *pixelRoutine;
-
-		VertexProcessor::RoutinePointer vertexPointer;
-		SetupProcessor::RoutinePointer setupPointer;
-		PixelProcessor::RoutinePointer pixelPointer;
-
-		int (Renderer::*setupPrimitives)(int batch, int count);
-		SetupProcessor::State setupState;
-
-		Resource *vertexStream[MAX_VERTEX_INPUTS];
-		Resource *indexBuffer;
-		Surface *renderTarget[RENDERTARGETS];
-		Surface *depthBuffer;
-		Surface *stencilBuffer;
-		Resource *texture[TOTAL_IMAGE_UNITS];
-		Resource* pUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
-		Resource* vUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
-		Resource* transformFeedbackBuffers[MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS];
-
-		unsigned int vsDirtyConstF;
-		unsigned int vsDirtyConstI;
-		unsigned int vsDirtyConstB;
-
-		unsigned int psDirtyConstF;
-		unsigned int psDirtyConstI;
-		unsigned int psDirtyConstB;
-
-		std::list<Query*> *queries;
-
-		AtomicInt clipFlags;
-
-		AtomicInt primitive;    // Current primitive to enter pipeline
-		AtomicInt count;        // Number of primitives to render
-		AtomicInt references;   // Remaining references to this draw call, 0 when done drawing, -1 when resources unlocked and slot is free
-
-		DrawData *data;
-	};
-}
-
-#endif   // sw_Renderer_hpp
+	using Pool = marl::BoundedPool<DrawCall, MaxDrawCount, marl::PoolPolicy::Preserve>;
+	using SetupFunction = int (*)(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+
+	DrawCall();
+	~DrawCall();
+
+	static void run(const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *tickets, marl::Ticket::Queue clusterQueues[MaxClusterCount]);
+	static void processVertices(DrawCall *draw, BatchData *batch);
+	static void processPrimitives(DrawCall *draw, BatchData *batch);
+	static void processPixels(const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally);
+	void setup();
+	void teardown();
+
+	int id;
+
+	BatchData::Pool *batchDataPool;
+	unsigned int numPrimitives;
+	unsigned int numPrimitivesPerBatch;
+	unsigned int numBatches;
+
+	VkPrimitiveTopology topology;
+	VkProvokingVertexModeEXT provokingVertexMode;
+	VkIndexType indexType;
+	VkLineRasterizationModeEXT lineRasterizationMode;
+
+	VertexProcessor::RoutineType vertexRoutine;
+	SetupProcessor::RoutineType setupRoutine;
+	PixelProcessor::RoutineType pixelRoutine;
+
+	SetupFunction setupPrimitives;
+	SetupProcessor::State setupState;
+
+	vk::ImageView *renderTarget[RENDERTARGETS];
+	vk::ImageView *depthBuffer;
+	vk::ImageView *stencilBuffer;
+	TaskEvents *events;
+
+	vk::Query *occlusionQuery;
+
+	DrawData *data;
+
+	static void processPrimitiveVertices(
+	    unsigned int triangleIndicesOut[MaxBatchSize + 1][3],
+	    const void *primitiveIndices,
+	    VkIndexType indexType,
+	    unsigned int start,
+	    unsigned int triangleCount,
+	    VkPrimitiveTopology topology,
+	    VkProvokingVertexModeEXT provokingVertexMode);
+
+	static int setupSolidTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupWireframeTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupPointTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupLines(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupPoints(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+
+	static bool setupLine(Primitive &primitive, Triangle &triangle, const DrawCall &draw);
+	static bool setupPoint(Primitive &primitive, Triangle &triangle, const DrawCall &draw);
+};
+
+class alignas(16) Renderer : public VertexProcessor, public PixelProcessor, public SetupProcessor
+{
+public:
+	Renderer(vk::Device *device);
+
+	virtual ~Renderer();
+
+	void *operator new(size_t size);
+	void operator delete(void *mem);
+
+	bool hasOcclusionQuery() const { return occlusionQuery != nullptr; }
+
+	void draw(const sw::Context *context, VkIndexType indexType, unsigned int count, int baseVertex,
+	          TaskEvents *events, int instanceID, int viewID, void *indexBuffer, const VkExtent3D &framebufferExtent,
+	          PushConstantStorage const &pushConstants, bool update = true);
+
+	// Viewport & Clipper
+	void setViewport(const VkViewport &viewport);
+	void setScissor(const VkRect2D &scissor);
+
+	void addQuery(vk::Query *query);
+	void removeQuery(vk::Query *query);
+
+	void advanceInstanceAttributes(Stream *inputs);
+
+	void synchronize();
+
+private:
+	VkViewport viewport;
+	VkRect2D scissor;
+
+	DrawCall::Pool drawCallPool;
+	DrawCall::BatchData::Pool batchDataPool;
+
+	std::atomic<int> nextDrawID = { 0 };
+
+	vk::Query *occlusionQuery = nullptr;
+	marl::Ticket::Queue drawTickets;
+	marl::Ticket::Queue clusterQueues[MaxClusterCount];
+
+	VertexProcessor::State vertexState;
+	SetupProcessor::State setupState;
+	PixelProcessor::State pixelState;
+
+	VertexProcessor::RoutineType vertexRoutine;
+	SetupProcessor::RoutineType setupRoutine;
+	PixelProcessor::RoutineType pixelRoutine;
+
+	vk::Device *device;
+};
+
+}  // namespace sw
+
+#endif  // sw_Renderer_hpp

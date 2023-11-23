@@ -16,6 +16,7 @@
 
 #include <initializer_list>
 
+#include "OpenCLDebugInfo100.h"
 #include "source/disassemble.h"
 #include "source/opt/fold.h"
 #include "source/opt/ir_context.h"
@@ -30,6 +31,11 @@ const uint32_t kTypeImageDimIndex = 1;
 const uint32_t kLoadBaseIndex = 0;
 const uint32_t kVariableStorageClassIndex = 0;
 const uint32_t kTypeImageSampledIndex = 5;
+
+// Constants for OpenCL.DebugInfo.100 extension instructions.
+const uint32_t kDebugScopeNumWords = 7;
+const uint32_t kDebugScopeNumWordsWithoutInlinedAt = 6;
+const uint32_t kDebugNoScopeNumWords = 5;
 }  // namespace
 
 Instruction::Instruction(IRContext* c)
@@ -38,7 +44,8 @@ Instruction::Instruction(IRContext* c)
       opcode_(SpvOpNop),
       has_type_id_(false),
       has_result_id_(false),
-      unique_id_(c->TakeNextUniqueId()) {}
+      unique_id_(c->TakeNextUniqueId()),
+      dbg_scope_(kNoDebugScope, kNoInlinedAt) {}
 
 Instruction::Instruction(IRContext* c, SpvOp op)
     : utils::IntrusiveNodeBase<Instruction>(),
@@ -46,7 +53,8 @@ Instruction::Instruction(IRContext* c, SpvOp op)
       opcode_(op),
       has_type_id_(false),
       has_result_id_(false),
-      unique_id_(c->TakeNextUniqueId()) {}
+      unique_id_(c->TakeNextUniqueId()),
+      dbg_scope_(kNoDebugScope, kNoInlinedAt) {}
 
 Instruction::Instruction(IRContext* c, const spv_parsed_instruction_t& inst,
                          std::vector<Instruction>&& dbg_line)
@@ -55,9 +63,27 @@ Instruction::Instruction(IRContext* c, const spv_parsed_instruction_t& inst,
       has_type_id_(inst.type_id != 0),
       has_result_id_(inst.result_id != 0),
       unique_id_(c->TakeNextUniqueId()),
-      dbg_line_insts_(std::move(dbg_line)) {
+      dbg_line_insts_(std::move(dbg_line)),
+      dbg_scope_(kNoDebugScope, kNoInlinedAt) {
   assert((!IsDebugLineInst(opcode_) || dbg_line.empty()) &&
          "Op(No)Line attaching to Op(No)Line found");
+  for (uint32_t i = 0; i < inst.num_operands; ++i) {
+    const auto& current_payload = inst.operands[i];
+    std::vector<uint32_t> words(
+        inst.words + current_payload.offset,
+        inst.words + current_payload.offset + current_payload.num_words);
+    operands_.emplace_back(current_payload.type, std::move(words));
+  }
+}
+
+Instruction::Instruction(IRContext* c, const spv_parsed_instruction_t& inst,
+                         const DebugScope& dbg_scope)
+    : context_(c),
+      opcode_(static_cast<SpvOp>(inst.opcode)),
+      has_type_id_(inst.type_id != 0),
+      has_result_id_(inst.result_id != 0),
+      unique_id_(c->TakeNextUniqueId()),
+      dbg_scope_(dbg_scope) {
   for (uint32_t i = 0; i < inst.num_operands; ++i) {
     const auto& current_payload = inst.operands[i];
     std::vector<uint32_t> words(
@@ -75,7 +101,8 @@ Instruction::Instruction(IRContext* c, SpvOp op, uint32_t ty_id,
       has_type_id_(ty_id != 0),
       has_result_id_(res_id != 0),
       unique_id_(c->TakeNextUniqueId()),
-      operands_() {
+      operands_(),
+      dbg_scope_(kNoDebugScope, kNoInlinedAt) {
   if (has_type_id_) {
     operands_.emplace_back(spv_operand_type_t::SPV_OPERAND_TYPE_TYPE_ID,
                            std::initializer_list<uint32_t>{ty_id});
@@ -94,7 +121,12 @@ Instruction::Instruction(Instruction&& that)
       has_result_id_(that.has_result_id_),
       unique_id_(that.unique_id_),
       operands_(std::move(that.operands_)),
-      dbg_line_insts_(std::move(that.dbg_line_insts_)) {}
+      dbg_line_insts_(std::move(that.dbg_line_insts_)),
+      dbg_scope_(that.dbg_scope_) {
+  for (auto& i : dbg_line_insts_) {
+    i.dbg_scope_ = that.dbg_scope_;
+  }
+}
 
 Instruction& Instruction::operator=(Instruction&& that) {
   opcode_ = that.opcode_;
@@ -103,6 +135,7 @@ Instruction& Instruction::operator=(Instruction&& that) {
   unique_id_ = that.unique_id_;
   operands_ = std::move(that.operands_);
   dbg_line_insts_ = std::move(that.dbg_line_insts_);
+  dbg_scope_ = that.dbg_scope_;
   return *this;
 }
 
@@ -114,6 +147,7 @@ Instruction* Instruction::Clone(IRContext* c) const {
   clone->unique_id_ = c->TakeNextUniqueId();
   clone->operands_ = operands_;
   clone->dbg_line_insts_ = dbg_line_insts_;
+  clone->dbg_scope_ = dbg_scope_;
   return clone;
 }
 
@@ -155,12 +189,6 @@ bool Instruction::IsReadOnlyLoad() const {
 }
 
 Instruction* Instruction::GetBaseAddress() const {
-  assert((IsLoad() || opcode() == SpvOpStore || opcode() == SpvOpAccessChain ||
-          opcode() == SpvOpPtrAccessChain ||
-          opcode() == SpvOpInBoundsAccessChain || opcode() == SpvOpCopyObject ||
-          opcode() == SpvOpImageTexelPointer) &&
-         "GetBaseAddress should only be called on instructions that take a "
-         "pointer or image.");
   uint32_t base = GetSingleWordInOperand(kLoadBaseIndex);
   Instruction* base_inst = context()->get_def_use_mgr()->GetDef(base);
   bool done = false;
@@ -181,24 +209,6 @@ Instruction* Instruction::GetBaseAddress() const {
         done = true;
         break;
     }
-  }
-
-  switch (opcode()) {
-    case SpvOpLoad:
-    case SpvOpStore:
-    case SpvOpAccessChain:
-    case SpvOpInBoundsAccessChain:
-    case SpvOpPtrAccessChain:
-    case SpvOpImageTexelPointer:
-    case SpvOpCopyObject:
-      // A load or store through a pointer.
-      assert(base_inst->IsValidBasePointer() &&
-             "We cannot have a base pointer come from this load");
-      break;
-    default:
-      // A load or store of an image.
-      assert(base_inst->IsValidBaseImage() && "We are expecting an image.");
-      break;
   }
   return base_inst;
 }
@@ -222,6 +232,14 @@ bool Instruction::IsVulkanStorageImage() const {
 
   Instruction* base_type =
       context()->get_def_use_mgr()->GetDef(GetSingleWordInOperand(1));
+
+  // Unpack the optional layer of arraying.
+  if (base_type->opcode() == SpvOpTypeArray ||
+      base_type->opcode() == SpvOpTypeRuntimeArray) {
+    base_type = context()->get_def_use_mgr()->GetDef(
+        base_type->GetSingleWordInOperand(0));
+  }
+
   if (base_type->opcode() != SpvOpTypeImage) {
     return false;
   }
@@ -248,6 +266,14 @@ bool Instruction::IsVulkanSampledImage() const {
 
   Instruction* base_type =
       context()->get_def_use_mgr()->GetDef(GetSingleWordInOperand(1));
+
+  // Unpack the optional layer of arraying.
+  if (base_type->opcode() == SpvOpTypeArray ||
+      base_type->opcode() == SpvOpTypeRuntimeArray) {
+    base_type = context()->get_def_use_mgr()->GetDef(
+        base_type->GetSingleWordInOperand(0));
+  }
+
   if (base_type->opcode() != SpvOpTypeImage) {
     return false;
   }
@@ -274,6 +300,14 @@ bool Instruction::IsVulkanStorageTexelBuffer() const {
 
   Instruction* base_type =
       context()->get_def_use_mgr()->GetDef(GetSingleWordInOperand(1));
+
+  // Unpack the optional layer of arraying.
+  if (base_type->opcode() == SpvOpTypeArray ||
+      base_type->opcode() == SpvOpTypeRuntimeArray) {
+    base_type = context()->get_def_use_mgr()->GetDef(
+        base_type->GetSingleWordInOperand(0));
+  }
+
   if (base_type->opcode() != SpvOpTypeImage) {
     return false;
   }
@@ -296,6 +330,13 @@ bool Instruction::IsVulkanStorageBuffer() const {
 
   Instruction* base_type =
       context()->get_def_use_mgr()->GetDef(GetSingleWordInOperand(1));
+
+  // Unpack the optional layer of arraying.
+  if (base_type->opcode() == SpvOpTypeArray ||
+      base_type->opcode() == SpvOpTypeRuntimeArray) {
+    base_type = context()->get_def_use_mgr()->GetDef(
+        base_type->GetSingleWordInOperand(0));
+  }
 
   if (base_type->opcode() != SpvOpTypeStruct) {
     return false;
@@ -330,6 +371,14 @@ bool Instruction::IsVulkanUniformBuffer() const {
 
   Instruction* base_type =
       context()->get_def_use_mgr()->GetDef(GetSingleWordInOperand(1));
+
+  // Unpack the optional layer of arraying.
+  if (base_type->opcode() == SpvOpTypeArray ||
+      base_type->opcode() == SpvOpTypeRuntimeArray) {
+    base_type = context()->get_def_use_mgr()->GetDef(
+        base_type->GetSingleWordInOperand(0));
+  }
+
   if (base_type->opcode() != SpvOpTypeStruct) {
     return false;
   }
@@ -396,6 +445,11 @@ uint32_t Instruction::GetTypeComponent(uint32_t element) const {
   return subtype;
 }
 
+Instruction* Instruction::InsertBefore(std::unique_ptr<Instruction>&& i) {
+  i.get()->InsertBefore(this);
+  return i.release();
+}
+
 Instruction* Instruction::InsertBefore(
     std::vector<std::unique_ptr<Instruction>>&& list) {
   Instruction* first_node = list.front().get();
@@ -404,11 +458,6 @@ Instruction* Instruction::InsertBefore(
   }
   list.clear();
   return first_node;
-}
-
-Instruction* Instruction::InsertBefore(std::unique_ptr<Instruction>&& i) {
-  i.get()->InsertBefore(this);
-  return i.release();
 }
 
 bool Instruction::IsValidBasePointer() const {
@@ -493,7 +542,7 @@ bool Instruction::IsOpaqueType() const {
 
 bool Instruction::IsFoldable() const {
   return IsFoldableByFoldScalar() ||
-         context()->get_instruction_folder().HasConstFoldingRule(opcode());
+         context()->get_instruction_folder().HasConstFoldingRule(this);
 }
 
 bool Instruction::IsFoldableByFoldScalar() const {
@@ -507,7 +556,17 @@ bool Instruction::IsFoldableByFoldScalar() const {
 
 bool Instruction::IsFloatingPointFoldingAllowed() const {
   // TODO: Add the rules for kernels.  For now it will be pessimistic.
-  if (!context_->get_feature_mgr()->HasCapability(SpvCapabilityShader)) {
+  // For now, do not support capabilities introduced by SPV_KHR_float_controls.
+  if (!context_->get_feature_mgr()->HasCapability(SpvCapabilityShader) ||
+      context_->get_feature_mgr()->HasCapability(SpvCapabilityDenormPreserve) ||
+      context_->get_feature_mgr()->HasCapability(
+          SpvCapabilityDenormFlushToZero) ||
+      context_->get_feature_mgr()->HasCapability(
+          SpvCapabilitySignedZeroInfNanPreserve) ||
+      context_->get_feature_mgr()->HasCapability(
+          SpvCapabilityRoundingModeRTZ) ||
+      context_->get_feature_mgr()->HasCapability(
+          SpvCapabilityRoundingModeRTE)) {
     return false;
   }
 
@@ -747,6 +806,29 @@ bool Instruction::IsOpcodeSafeToDelete() const {
     default:
       return false;
   }
+}
+
+void DebugScope::ToBinary(uint32_t type_id, uint32_t result_id,
+                          uint32_t ext_set,
+                          std::vector<uint32_t>* binary) const {
+  uint32_t num_words = kDebugScopeNumWords;
+  OpenCLDebugInfo100Instructions dbg_opcode = OpenCLDebugInfo100DebugScope;
+  if (GetLexicalScope() == kNoDebugScope) {
+    num_words = kDebugNoScopeNumWords;
+    dbg_opcode = OpenCLDebugInfo100DebugNoScope;
+  } else if (GetInlinedAt() == kNoInlinedAt) {
+    num_words = kDebugScopeNumWordsWithoutInlinedAt;
+  }
+  std::vector<uint32_t> operands = {
+      (num_words << 16) | static_cast<uint16_t>(SpvOpExtInst),
+      type_id,
+      result_id,
+      ext_set,
+      static_cast<uint32_t>(dbg_opcode),
+  };
+  binary->insert(binary->end(), operands.begin(), operands.end());
+  if (GetLexicalScope() != kNoDebugScope) binary->push_back(GetLexicalScope());
+  if (GetInlinedAt() != kNoInlinedAt) binary->push_back(GetInlinedAt());
 }
 
 }  // namespace opt

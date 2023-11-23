@@ -153,10 +153,6 @@ class UserCrashTest(crash_test.CrashTest):
         # Crash reason:  SIGSEGV /0x00000000
         match = re.search(r'Crash reason:\s+([^\s]*)', stack)
         expected_address = '0x16'
-        if from_crash_reporter:
-            # We cannot yet determine the crash address when coming
-            # through core files via crash_reporter.
-            expected_address = '0x0'
         if not match or match.group(1) != 'SIGSEGV':
             raise error.TestFail('Did not identify SIGSEGV cause')
         match = re.search(r'Crash address:\s+(.*)', stack)
@@ -318,22 +314,30 @@ class UserCrashTest(crash_test.CrashTest):
         group = grp.getgrgid(stat_info.st_gid).gr_name
         mode = stat.S_IMODE(stat_info.st_mode)
 
-        expected_mode = 0o700
-        if crash_dir == '/var/spool/crash':
+        if crash_dir.startswith('/var/spool/crash'):
+            if stat.S_ISDIR(stat_info.st_mode):
+                utils.system('ls -l %s' % crash_dir)
+                for f in os.listdir(crash_dir):
+                    self._check_crash_directory_permissions(
+                        os.path.join(crash_dir, f))
+                permitted_modes = set([0o2770])
+            else:
+                permitted_modes = set([0o660, 0o640, 0o644])
             expected_user = 'root'
-            expected_group = 'root'
+            expected_group = 'crash-access'
         else:
+            permitted_modes = set([0o2770])
             expected_user = 'chronos'
-            expected_group = 'chronos'
+            expected_group = 'crash-user-access'
 
         if user != expected_user or group != expected_group:
             raise error.TestFail(
                 'Expected %s.%s ownership of %s (actual %s.%s)' %
                 (expected_user, expected_group, crash_dir, user, group))
-        if mode != expected_mode:
+        if mode not in permitted_modes:
             raise error.TestFail(
-                'Expected %s to have mode %o (actual %o)' %
-                (crash_dir, expected_mode, mode))
+                'Expected %s to have mode in %s (actual %o)' %
+                (crash_dir, ("%o" % m for m in permitted_modes), mode))
 
 
     def _check_minidump_stackwalk(self, minidump_path, basename,
@@ -397,6 +401,7 @@ class UserCrashTest(crash_test.CrashTest):
             return result
 
         crash_dir = self._get_crash_dir(username, self._force_user_crash_dir)
+        crash_dir = self._canonicalize_crash_dir(crash_dir)
 
         if not consent:
             if os.path.exists(crash_dir):

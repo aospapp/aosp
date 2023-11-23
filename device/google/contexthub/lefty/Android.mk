@@ -45,7 +45,6 @@ LOCAL_SHARED_LIBRARIES := \
     libbase \
     libcutils \
     libhidlbase \
-    libhidltransport \
     libhubconnection \
     liblog \
     libutils \
@@ -82,7 +81,6 @@ LOCAL_SHARED_LIBRARIES := \
     libbase \
     libcutils \
     libhidlbase \
-    libhidltransport \
     libhubconnection \
     liblog \
     libutils \

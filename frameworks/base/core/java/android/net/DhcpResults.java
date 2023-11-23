@@ -16,12 +16,14 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
-import android.net.shared.InetAddressUtils;
+import android.annotation.Nullable;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.net.module.util.InetAddressUtils;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -66,6 +68,9 @@ public final class DhcpResults implements Parcelable {
 
     public String serverHostName;
 
+    @Nullable
+    public String captivePortalApiUrl;
+
     public DhcpResults() {
         super();
     }
@@ -100,6 +105,7 @@ public final class DhcpResults implements Parcelable {
             leaseDuration = source.leaseDuration;
             mtu = source.mtu;
             serverHostName = source.serverHostName;
+            captivePortalApiUrl = source.captivePortalApiUrl;
         }
     }
 
@@ -133,6 +139,7 @@ public final class DhcpResults implements Parcelable {
         leaseDuration = 0;
         mtu = 0;
         serverHostName = null;
+        captivePortalApiUrl = null;
     }
 
     @Override
@@ -144,6 +151,9 @@ public final class DhcpResults implements Parcelable {
         str.append(" lease ").append(leaseDuration).append(" seconds");
         if (mtu != 0) str.append(" MTU ").append(mtu);
         str.append(" Servername ").append(serverHostName);
+        if (captivePortalApiUrl != null) {
+            str.append(" CaptivePortalApiUrl ").append(captivePortalApiUrl);
+        }
 
         return str.toString();
     }
@@ -161,7 +171,8 @@ public final class DhcpResults implements Parcelable {
                 && Objects.equals(vendorInfo, target.vendorInfo)
                 && Objects.equals(serverHostName, target.serverHostName)
                 && leaseDuration == target.leaseDuration
-                && mtu == target.mtu;
+                && mtu == target.mtu
+                && Objects.equals(captivePortalApiUrl, target.captivePortalApiUrl);
     }
 
     /**
@@ -186,6 +197,7 @@ public final class DhcpResults implements Parcelable {
         InetAddressUtils.parcelInetAddress(dest, serverAddress, flags);
         dest.writeString(vendorInfo);
         dest.writeString(serverHostName);
+        dest.writeString(captivePortalApiUrl);
     }
 
     @Override
@@ -201,6 +213,7 @@ public final class DhcpResults implements Parcelable {
         dhcpResults.serverAddress = (Inet4Address) InetAddressUtils.unparcelInetAddress(in);
         dhcpResults.vendorInfo = in.readString();
         dhcpResults.serverHostName = in.readString();
+        dhcpResults.captivePortalApiUrl = in.readString();
         return dhcpResults;
     }
 
@@ -304,5 +317,13 @@ public final class DhcpResults implements Parcelable {
 
     public void setMtu(int mtu) {
         this.mtu = mtu;
+    }
+
+    public String getCaptivePortalApiUrl() {
+        return captivePortalApiUrl;
+    }
+
+    public void setCaptivePortalApiUrl(String url) {
+        captivePortalApiUrl = url;
     }
 }

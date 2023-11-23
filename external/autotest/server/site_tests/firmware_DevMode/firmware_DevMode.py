@@ -17,8 +17,8 @@ class firmware_DevMode(FirmwareTest):
     version = 1
 
     def initialize(self, host, cmdline_args, ec_wp=None):
-        super(firmware_DevMode, self).initialize(host, cmdline_args,
-                                                 ec_wp=ec_wp)
+        super(firmware_DevMode, self).initialize(
+                host, cmdline_args, ec_wp=ec_wp)
         self.switcher.setup_mode('normal')
         self.setup_usbkey(usbkey=False)
 
@@ -48,14 +48,14 @@ class firmware_DevMode(FirmwareTest):
         """Method which actually runs the test."""
         logging.info("Enable dev mode.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '0',
-                              'mainfw_type': 'normal',
-                              }))
+                'devsw_boot': '0',
+                'mainfw_type': 'normal',
+        }))
 
         self.switcher._enable_dev_mode_and_reboot()
         # To validate the Menu navigation method to bypass the developer
         # warning screen on tablets/detachables.
-        if self.faft_config.fw_bypasser_type == 'tablet_detachable_bypasser':
+        if self.faft_config.mode_switcher_type == 'tablet_detachable_switcher':
             self.bypass_dev_mode_menu_navigation()
         else:
             self.switcher.bypass_dev_mode()
@@ -63,20 +63,20 @@ class firmware_DevMode(FirmwareTest):
 
         logging.info("Expected developer mode boot and enable normal mode.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '1',
-                              'mainfw_type': 'developer',
-                              }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.switcher.reboot_to_mode(to_mode='normal')
 
         logging.info("Expected normal mode boot, done.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '0',
-                              'mainfw_type': 'normal',
-                              }))
+                'devsw_boot': '0',
+                'mainfw_type': 'normal',
+        }))
 
-        if (self.check_ec_capability() and
-            self.faft_config.mode_switcher_type in
-                ['keyboard_dev_switcher', 'tablet_detachable_switcher']):
+        if self.check_ec_capability() and \
+                self.faft_config.mode_switcher_type not in (
+                    'keyboard_dev_switcher', 'tablet_detachable_switcher'):
             if self.gbb_flags & vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC:
                 # In order to test that entering dev mode does not work when
                 # EC_IN_RW=1, EC software sync must be enabled.  If EC software
@@ -100,6 +100,6 @@ class firmware_DevMode(FirmwareTest):
 
             logging.info("DUT is back up, should still be in normal mode now.")
             self.check_state((self.checkers.crossystem_checker, {
-                                'devsw_boot': '0',
-                                'mainfw_type': 'normal',
-                            }))
+                    'devsw_boot': '0',
+                    'mainfw_type': 'normal',
+            }))

@@ -1,6 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 #
-# Copyright 2010 Google Inc. All Rights Reserved.
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Script to checkout the ChromeOS source.
 
 This script sets up the ChromeOS source in the given directory, matching a
@@ -92,8 +96,8 @@ def Main(argv):
       dest='debug',
       default=False,
       action='store_true',
-      help=("Optional. Build chrome browser with \"-g -O0\". "
-            "Notice, this also turns on \'--dev\'. "
+      help=('Optional. Build chrome browser with "-g -O0". '
+            "Notice, this also turns on '--dev'. "
             'Defaults to False.'))
   parser.add_argument(
       '--env', dest='env', default='', help='Env to pass to build_packages.')
@@ -133,7 +137,7 @@ def Main(argv):
          'This flags is used internally by this script. '
          'Contact the author for more detail.'))
 
-  if options.rebuild == True:
+  if options.rebuild:
     build_packages_env += ' EXTRA_BOARD_FLAGS=-e'
     # EXTRA_BOARD_FLAGS=-e should clean up the object files for the chrome
     # browser but it doesn't. So do it here.
@@ -166,10 +170,9 @@ def Main(argv):
   if not os.path.isdir(options.chromeos_root + '/chroot/build/' +
                        options.board) or options.clobber_board:
     # Run build_tc.py from binary package
-    ret = cmd_executer.ChrootRunCommand(options.chromeos_root,
-                                        misc.GetSetupBoardCommand(
-                                            options.board,
-                                            force=options.clobber_board))
+    ret = cmd_executer.ChrootRunCommand(
+        options.chromeos_root,
+        misc.GetSetupBoardCommand(options.board, force=options.clobber_board))
     logger.GetLogger().LogFatalIf(ret, 'setup_board failed')
   else:
     logger.GetLogger().LogOutput('Did not setup_board '
@@ -179,23 +182,23 @@ def Main(argv):
     # Perform 2-step build_packages to build a debug chrome browser.
 
     # Firstly, build everything that chromeos-chrome depends on normally.
-    if options.rebuild == True:
+    if options.rebuild:
       # Give warning about "--rebuild" and "--debug". Under this combination,
       # only dependencies of "chromeos-chrome" get rebuilt.
       logger.GetLogger().LogWarning(
-          "\"--rebuild\" does not correctly re-build every package when "
-          "\"--debug\" is enabled. ")
+          '--rebuild" does not correctly re-build every package when '
+          '"--debug" is enabled. ')
 
       # Replace EXTRA_BOARD_FLAGS=-e with "-e --onlydeps"
       build_packages_env = build_packages_env.replace(
-          'EXTRA_BOARD_FLAGS=-e', 'EXTRA_BOARD_FLAGS=\"-e --onlydeps\"')
+          'EXTRA_BOARD_FLAGS=-e', 'EXTRA_BOARD_FLAGS="-e --onlydeps"')
     else:
       build_packages_env += ' EXTRA_BOARD_FLAGS=--onlydeps'
 
     ret = cmd_executer.ChrootRunCommand(
-        options.chromeos_root, "CFLAGS=\"$(portageq-%s envvar CFLAGS) %s\" "
-        "CXXFLAGS=\"$(portageq-%s envvar CXXFLAGS) %s\" "
-        "LDFLAGS=\"$(portageq-%s envvar LDFLAGS) %s\" "
+        options.chromeos_root, 'CFLAGS="$(portageq-%s envvar CFLAGS) %s" '
+        'CXXFLAGS="$(portageq-%s envvar CXXFLAGS) %s" '
+        'LDFLAGS="$(portageq-%s envvar LDFLAGS) %s" '
         'CHROME_ORIGIN=SERVER_SOURCE '
         '%s '
         '%s --skip_chroot_upgrade'
@@ -208,16 +211,16 @@ def Main(argv):
 
     # Secondly, build chromeos-chrome using debug mode.
     # Replace '--onlydeps' with '--nodeps'.
-    if options.rebuild == True:
+    if options.rebuild:
       build_packages_env = build_packages_env.replace(
-          'EXTRA_BOARD_FLAGS=\"-e --onlydeps\"', 'EXTRA_BOARD_FLAGS=--nodeps')
+          'EXTRA_BOARD_FLAGS="-e --onlydeps"', 'EXTRA_BOARD_FLAGS=--nodeps')
     else:
       build_packages_env = build_packages_env.replace(
           'EXTRA_BOARD_FLAGS=--onlydeps', 'EXTRA_BOARD_FLAGS=--nodeps')
     ret = cmd_executer.ChrootRunCommand(
-        options.chromeos_root, "CFLAGS=\"$(portageq-%s envvar CFLAGS) %s\" "
-        "CXXFLAGS=\"$(portageq-%s envvar CXXFLAGS) %s\" "
-        "LDFLAGS=\"$(portageq-%s envvar LDFLAGS) %s\" "
+        options.chromeos_root, 'CFLAGS="$(portageq-%s envvar CFLAGS) %s" '
+        'CXXFLAGS="$(portageq-%s envvar CXXFLAGS) %s" '
+        'LDFLAGS="$(portageq-%s envvar LDFLAGS) %s" '
         'CHROME_ORIGIN=SERVER_SOURCE BUILDTYPE=Debug '
         '%s '
         '%s --skip_chroot_upgrade'
@@ -237,11 +240,11 @@ def Main(argv):
     # Up to now, we have a debug built chromos-chrome browser.
     # Fall through to build the rest of the world.
 
-    # Build packages
+  # Build packages
   ret = cmd_executer.ChrootRunCommand(
-      options.chromeos_root, "CFLAGS=\"$(portageq-%s envvar CFLAGS) %s\" "
-      "CXXFLAGS=\"$(portageq-%s envvar CXXFLAGS) %s\" "
-      "LDFLAGS=\"$(portageq-%s envvar LDFLAGS) %s\" "
+      options.chromeos_root, 'CFLAGS="$(portageq-%s envvar CFLAGS) %s" '
+      'CXXFLAGS="$(portageq-%s envvar CXXFLAGS) %s" '
+      'LDFLAGS="$(portageq-%s envvar LDFLAGS) %s" '
       'CHROME_ORIGIN=SERVER_SOURCE '
       '%s '
       '%s --skip_chroot_upgrade' %
@@ -261,19 +264,18 @@ def Main(argv):
   flags_file_name = 'flags.txt'
   flags_file_path = ('%s/src/build/images/%s/latest/%s' %
                      (options.chromeos_root, options.board, flags_file_name))
-  flags_file = open(flags_file_path, 'wb')
-  flags_file.write('CFLAGS=%s\n' % options.cflags)
-  flags_file.write('CXXFLAGS=%s\n' % options.cxxflags)
-  flags_file.write('LDFLAGS=%s\n' % options.ldflags)
-  flags_file.close()
+  with open(flags_file_path, 'w', encoding='utf-8') as flags_file:
+    flags_file.write('CFLAGS=%s\n' % options.cflags)
+    flags_file.write('CXXFLAGS=%s\n' % options.cxxflags)
+    flags_file.write('LDFLAGS=%s\n' % options.ldflags)
 
   if options.label:
     image_dir_path = ('%s/src/build/images/%s/latest' % (options.chromeos_root,
                                                          options.board))
     real_image_dir_path = os.path.realpath(image_dir_path)
-    command = ('ln -sf -T %s %s/%s' %
-               (os.path.basename(real_image_dir_path),
-                os.path.dirname(real_image_dir_path), options.label))
+    command = ('ln -sf -T %s %s/%s' % (os.path.basename(real_image_dir_path),
+                                       os.path.dirname(real_image_dir_path),
+                                       options.label))
 
     ret = cmd_executer.RunCommand(command)
     logger.GetLogger().LogFatalIf(

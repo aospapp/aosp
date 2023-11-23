@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 3.39.0
+Version: 3.44.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -27,10 +27,10 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         FontTools requires `Python <http://www.python.org/download/>`__ 2.7, 3.4
         or later.
         
-        **NOTE** After January 1 2019, until no later than June 30 2019, the support
-        for *Python 2.7* will be limited to only bug fixes, and no new features will
-        be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
-        *Python 3.5* or above. You can read more `here <https://python3statement.org>`__
+        **NOTE** From August 2019, until no later than January 1 2020, the support
+        for *Python 2.7* will be limited to only critical bug fixes, and no new features
+        will be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
+        *Python 3.6* or above. You can read more `here <https://python3statement.org>`__
         and `here <https://github.com/fonttools/fonttools/issues/765>`__ for the
         reasons behind this decision.
         
@@ -238,8 +238,8 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
           To use the latest available data, you can install:
         
           * `unicodedata2 <https://pypi.python.org/pypi/unicodedata2>`__:
-            ``unicodedata`` backport for Python 2.7 and 3.5 updated to the latest
-            Unicode version 9.0. Note this is not necessary if you use Python 3.6
+            ``unicodedata`` backport for Python 2.7 and 3.x updated to the latest
+            Unicode version 12.0. Note this is not necessary if you use Python 3.8
             as the latter already comes with an up-to-date ``unicodedata``.
         
           *Extra:* ``unicode``
@@ -373,15 +373,15 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Olivier Berten, Samyak Bhuta, Erik van Blokland, Petr van Blokland,
         Jelle Bosma, Sascha Brawer, Tom Byrer, Frédéric Coiffier, Vincent
-        Connare, Dave Crossland, Simon Daniels, Behdad Esfahbod, Behnam
-        Esfahbod, Hannes Famira, Sam Fishman, Matt Fontaine, Yannis Haralambous,
-        Greg Hitchcock, Jeremie Hornus, Khaled Hosny, John Hudson, Denis Moyogo
-        Jacquerye, Jack Jansen, Tom Kacvinsky, Jens Kutilek, Antoine Leca,
-        Werner Lemberg, Tal Leming, Peter Lofting, Cosimo Lupo, Masaya Nakamura,
-        Dave Opstad, Laurence Penney, Roozbeh Pournader, Garret Rieger, Read
-        Roberts, Guido van Rossum, Just van Rossum, Andreas Seidel, Georg
-        Seifert, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov, Paul
-        Wise.
+        Connare, Dave Crossland, Simon Daniels, Peter Dekkers, Behdad Esfahbod,
+        Behnam Esfahbod, Hannes Famira, Sam Fishman, Matt Fontaine, Yannis
+        Haralambous, Greg Hitchcock, Jeremie Hornus, Khaled Hosny, John Hudson,
+        Denis Moyogo Jacquerye, Jack Jansen, Tom Kacvinsky, Jens Kutilek,
+        Antoine Leca, Werner Lemberg, Tal Leming, Peter Lofting, Cosimo Lupo,
+        Masaya Nakamura, Dave Opstad, Laurence Penney, Roozbeh Pournader, Garret
+        Rieger, Read Roberts, Guido van Rossum, Just van Rossum, Andreas Seidel,
+        Georg Seifert, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov,
+        Paul Wise.
         
         Copyrights
         ~~~~~~~~~~
@@ -414,6 +414,133 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        3.44.0 (released 2019-08-02)
+        ----------------------------
+        
+        - NOTE: This is the last scheduled release to support Python 2.7. The upcoming fonttools
+          v4.x series is going to require Python 3.6 or greater.
+        - [varLib] Added new ``varLib.instancer`` module for partially instantiating variable
+          fonts. This extends (and will eventually replace) ``varLib.mutator`` module, as
+          it allows to create not just full static instances from a variable font, but also
+          "partial" or "less variable" fonts where some of the axes are dropped or
+          instantiated at a particular value.
+          Also available from the command-line as `fonttools varLib.instancer --help`
+          (#1537, #1628).
+        - [cffLib] Added support for ``FDSelect`` format 4 (#1677).
+        - [subset] Added support for subsetting ``sbix`` (Apple bitmap color font) table.
+        - [t1Lib] Fixed issue parsing ``eexec`` section in Type1 fonts when whitespace
+          characters are interspersed among the trailing zeros (#1676).
+        - [cffLib.specializer] Fixed bug in ``programToCommands`` with CFF2 charstrings (#1669).
+        
+        3.43.2 (released 2019-07-10)
+        ----------------------------
+        
+        - [featureVars] Fixed region-merging code on python3 (#1659).
+        - [varLib.cff] Fixed merging of sparse PrivateDict items (#1653).
+        
+        3.43.1 (released 2019-06-19)
+        ----------------------------
+        
+        - [subset] Fixed regression when passing ``--flavor=woff2`` option with an input font
+          that was already compressed as WOFF 1.0 (#1650).
+        
+        3.43.0 (released 2019-06-18)
+        ----------------------------
+        
+        - [woff2] Added support for compressing/decompressing WOFF2 fonts with non-transformed
+          ``glyf`` and ``loca`` tables, as well as with transformed ``hmtx`` table.
+          Removed ``Snippets/woff2_compress.py`` and ``Snippets/woff2_decompress.py`` scripts,
+          and replaced them with a new console entry point ``fonttools ttLib.woff2``
+          that provides two sub-commands ``compress`` and ``decompress``.
+        - [varLib.cff] Fixed bug when merging CFF2 ``PrivateDicts``. The ``PrivateDict``
+          data from the first region font was incorrecty used for all subsequent fonts.
+          The bug would only affect variable CFF2 fonts with hinting (#1643, #1644).
+          Also, fixed a merging bug when VF masters have no blends or marking glyphs (#1632,
+          #1642).
+        - [loggingTools] Removed unused backport of ``LastResortLogger`` class.
+        - [subset] Gracefully handle partial MATH table (#1635).
+        - [featureVars] Avoid duplicate references to ``rvrn`` feature record in
+          ``DefaultLangSys`` tables when calling ``addFeatureVariations`` on a font that
+          does not already have a ``GSUB`` table (aa8a5bc6).
+        - [varLib] Fixed merging of class-based kerning. Before, the process could introduce
+          rogue kerning values and variations for random classes against class zero (everything
+          not otherwise classed).
+        - [varLib] Fixed merging GPOS tables from master fonts with different number of
+          ``SinglePos`` subtables (#1621, #1641).
+        - [unicodedata] Updated Blocks, Scripts and ScriptExtensions to Unicode 12.1.
+        
+        3.42.0 (released 2019-05-28)
+        ----------------------------
+        
+        - [OS/2] Fixed sign of ``fsType``: it should be ``uint16``, not ``int16`` (#1619).
+        - [subset] Skip out-of-range class values in mark attachment (#1478).
+        - [fontBuilder] Add an empty ``DSIG`` table with ``setupDummyDSIG`` method (#1621).
+        - [varLib.merger] Fixed bug whereby ``GDEF.GlyphClassDef`` were being dropped
+          when generating instance via ``varLib.mutator`` (#1614).
+        - [varLib] Added command-line options ``-v`` and ``-q`` to configure logging (#1613).
+        - [subset] Update font extents in head table (#1612).
+        - [subset] Make --retain-gids truncate empty glyphs after the last non-empty glyph
+          (#1611).
+        - [requirements] Updated ``unicodedata2`` backport for Unicode 12.0.
+        
+        3.41.2 (released 2019-05-13)
+        ----------------------------
+        
+        - [cffLib] Fixed issue when importing a ``CFF2`` variable font from XML, whereby
+          the VarStore state was not propagated to PrivateDict (#1598).
+        - [varLib] Don't drop ``post`` glyph names when building CFF2 variable font (#1609).
+        
+        
+        3.41.1 (released 2019-05-13)
+        ----------------------------
+        
+        - [designspaceLib] Added ``loadSourceFonts`` method to load source fonts using
+          custom opener function (#1606).
+        - [head] Round font bounding box coordinates to integers to fix compile error
+          if CFF font has float coordinates (#1604, #1605).
+        - [feaLib] Don't write ``None`` in ``ast.ValueRecord.asFea()`` (#1599).
+        - [subset] Fixed issue ``AssertionError`` when using ``--desubroutinize`` option
+          (#1590, #1594).
+        - [graphite] Fixed bug in ``Silf`` table's ``decompile`` method unmasked by
+          previous typo fix (#1597). Decode languange code as UTF-8 in ``Sill`` table's
+          ``decompile`` method (#1600).
+        
+        3.41.0 (released 2019-04-29)
+        ----------------------------
+        
+        - [varLib/cffLib] Added support for building ``CFF2`` variable font from sparse
+          masters, or masters with more than one model (multiple ``VarStore.VarData``).
+          In ``cffLib.specializer``, added support for ``CFF2`` CharStrings with
+          ``blend`` operators (#1547, #1591).
+        - [subset] Fixed subsetting ``HVAR`` and ``VVAR`` with ``--retain-gids`` option,
+          and when advances mapping is null while sidebearings mappings are non-null
+          (#1587, #1588).
+        - Added ``otlLib.maxContextCalc`` module to compute ``OS/2.usMaxContext`` value.
+          Calculate it automatically when compiling features with feaLib. Added option
+          ``--recalc-max-context`` to ``subset`` module (#1582).
+        - [otBase/otTables] Fixed ``AttributeError`` on missing OT table fields after
+          importing font from TTX (#1584).
+        - [graphite] Fixed typo ``Silf`` table's ``decompile`` method (#1586).
+        - [otlLib] Better compress ``GPOS`` SinglePos (LookupType 1) subtables (#1539).
+        
+        3.40.0 (released 2019-04-08)
+        ----------------------------
+        
+        - [subset] Fixed error while subsetting ``VVAR`` with ``--retain-gids``
+          option (#1552).
+        - [designspaceLib] Use up-to-date default location in ``findDefault`` method
+          (#1554).
+        - [voltLib] Allow passing file-like object to Parser.
+        - [arrayTools/glyf] ``calcIntBounds`` (used to compute bounding boxes of glyf
+          table's glyphs) now uses ``otRound`` instead of ``round3`` (#1566).
+        - [svgLib] Added support for converting more SVG shapes to path ``d`` strings
+          (ellipse, line, polyline), as well as support for ``transform`` attributes.
+          Only ``matrix`` transformations are currently supported (#1564, #1564).
+        - [varLib] Added support for building ``VVAR`` table from ``vmtx`` and ``VORG``
+          tables (#1551).
+        - [fontBuilder] Enable making CFF2 fonts with ``post`` table format 2 (#1557).
+        - Fixed ``DeprecationWarning`` on invalid escape sequences (#1562).
         
         3.39.0 (released 2019-03-19)
         ----------------------------
@@ -1684,13 +1811,13 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
+Provides-Extra: woff
+Provides-Extra: all
 Provides-Extra: symfont
+Provides-Extra: interpolatable
+Provides-Extra: unicode
 Provides-Extra: type1
 Provides-Extra: lxml
 Provides-Extra: ufo
-Provides-Extra: interpolatable
-Provides-Extra: all
-Provides-Extra: woff
 Provides-Extra: plot
-Provides-Extra: unicode
 Provides-Extra: graphite

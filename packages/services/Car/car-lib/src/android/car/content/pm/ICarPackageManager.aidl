@@ -16,6 +16,7 @@
 
 package android.car.content.pm;
 
+import android.app.PendingIntent;
 import android.car.content.pm.CarAppBlockingPolicy;
 import android.content.ComponentName;
 
@@ -27,4 +28,5 @@ interface ICarPackageManager {
     boolean isActivityBackedBySafeActivity(in ComponentName activityName) = 3;
     void setEnableActivityBlocking(boolean enable) = 4;
     void restartTask(int taskId) = 5;
+    boolean isPendingIntentDistractionOptimized(in PendingIntent pendingIntent) = 6;
 }

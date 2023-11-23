@@ -16,7 +16,10 @@
 
 package com.android.tv.settings.system;
 
+import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
+
 import android.app.AlertDialog;
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -439,6 +442,7 @@ public class TextToSpeechFragment extends SettingsPreferenceFragment implements
     @Override
     public boolean onPreferenceChange(Preference preference, Object objValue) {
         if (KEY_DEFAULT_RATE.equals(preference.getKey())) {
+            logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_TTS_SPEECH_RATE);
             // Default rate
             mDefaultRate = Integer.parseInt((String) objValue);
             try {
@@ -462,6 +466,7 @@ public class TextToSpeechFragment extends SettingsPreferenceFragment implements
     @Override
     public boolean onPreferenceClick(Preference preference) {
         if (preference == mPlayExample) {
+            logEntrySelected(TvSettingsEnums.SYSTEM_A11Y_TTS_LISTEN_EXAMPLE);
             // Get the sample text from the TTS engine; onActivityResult will do
             // the actual speaking
             speakSampleText();
@@ -626,5 +631,10 @@ public class TextToSpeechFragment extends SettingsPreferenceFragment implements
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.TTS_TEXT_TO_SPEECH;
+    }
+
+    @Override
+    protected int getPageId() {
+        return TvSettingsEnums.SYSTEM_A11Y_TTS;
     }
 }

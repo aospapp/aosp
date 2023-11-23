@@ -1,12 +1,15 @@
-#!/usr/bin/env python2
-#
-# Copyright 2014 Google Inc.  All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """unittest for settings."""
 
 from __future__ import print_function
 
-import mock
 import unittest
+import unittest.mock as mock
 
 import settings
 import settings_factory
@@ -34,7 +37,7 @@ class TestSettings(unittest.TestCase):
     settings_parent = {'fake_parent_entry': 0}
     self.settings.SetParentSettings(settings_parent)
     self.assertIsNotNone(self.settings.parent)
-    self.assertEqual(type(self.settings.parent), dict)
+    self.assertTrue(isinstance(self.settings.parent, dict))
     self.assertEqual(self.settings.parent, settings_parent)
 
   def test_add_field(self):
@@ -85,7 +88,7 @@ class TestSettings(unittest.TestCase):
             description="A comma-separated list of ip's of "
             'chromeos devices to run '
             'experiments on.'))
-    self.assertEqual(type(self.settings.fields), dict)
+    self.assertTrue(isinstance(self.settings.fields, dict))
     self.assertEqual(len(self.settings.fields), 2)
     res = self.settings.fields['remote']
     self.assertEqual(res.Get(), [])
@@ -197,27 +200,35 @@ class TestSettings(unittest.TestCase):
     official_str = 'lumpy-release/R34-5417.0.0'
     xbuddy_str = 'latest-dev'
     autotest_path = ''
+    debug_path = ''
+    download_debug = False
 
-    self.settings.GetXbuddyPath(trybot_str, autotest_path, board, chromeos_root,
-                                log_level)
+    self.settings.GetXbuddyPath(trybot_str, autotest_path, debug_path, board,
+                                chromeos_root, log_level, download_debug)
     self.assertEqual(mock_run.call_count, 1)
-    self.assertEqual(mock_run.call_args_list[0][0],
-                     ('/tmp/chromeos',
-                      'remote/trybot-lumpy-paladin/R34-5417.0.0-b1506', ''))
+    self.assertEqual(mock_run.call_args_list[0][0], (
+        '/tmp/chromeos',
+        'remote/trybot-lumpy-paladin/R34-5417.0.0-b1506',
+        '',
+        '',
+        False,
+    ))
 
     mock_run.reset_mock()
-    self.settings.GetXbuddyPath(official_str, autotest_path, board,
-                                chromeos_root, log_level)
+    self.settings.GetXbuddyPath(official_str, autotest_path, debug_path, board,
+                                chromeos_root, log_level, download_debug)
     self.assertEqual(mock_run.call_count, 1)
-    self.assertEqual(mock_run.call_args_list[0][0],
-                     ('/tmp/chromeos', 'remote/lumpy-release/R34-5417.0.0', ''))
+    self.assertEqual(
+        mock_run.call_args_list[0][0],
+        ('/tmp/chromeos', 'remote/lumpy-release/R34-5417.0.0', '', '', False))
 
     mock_run.reset_mock()
-    self.settings.GetXbuddyPath(xbuddy_str, autotest_path, board, chromeos_root,
-                                log_level)
+    self.settings.GetXbuddyPath(xbuddy_str, autotest_path, debug_path, board,
+                                chromeos_root, log_level, download_debug)
     self.assertEqual(mock_run.call_count, 1)
-    self.assertEqual(mock_run.call_args_list[0][0],
-                     ('/tmp/chromeos', 'remote/lumpy/latest-dev', ''))
+    self.assertEqual(
+        mock_run.call_args_list[0][0],
+        ('/tmp/chromeos', 'remote/lumpy/latest-dev', '', '', False))
 
     if mock_logger:
       return

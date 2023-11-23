@@ -58,18 +58,31 @@ struct MapEntry {
   MapEntry() {}
 
   uint64_t get_end_addr() const { return start_addr + len; }
+
+  uint64_t Contains(uint64_t addr) const {
+    return addr >= start_addr && addr < get_end_addr();
+  }
+
+  uint64_t GetVaddrInFile(uint64_t addr) const {
+    if (Contains(addr)) {
+      return dso->IpToVaddrInFile(addr, start_addr, pgoff);
+    }
+    return 0;
+  }
 };
 
 struct MapSet {
   std::map<uint64_t, const MapEntry*> maps;  // Map from start_addr to a MapEntry.
   uint64_t version = 0u;  // incremented each time changing maps
+
+  const MapEntry* FindMapByAddr(uint64_t addr) const;
 };
 
 struct ThreadEntry {
   int pid;
   int tid;
   const char* comm;  // It always refers to the latest comm.
-  MapSet* maps;
+  std::shared_ptr<MapSet> maps;  // maps is shared by threads in the same process.
 };
 
 // ThreadTree contains thread information (in ThreadEntry) and mmap information
@@ -92,9 +105,12 @@ class ThreadTree {
 
   void SetThreadName(int pid, int tid, const std::string& comm);
   void ForkThread(int pid, int tid, int ppid, int ptid);
+  ThreadEntry* FindThread(int tid);
   ThreadEntry* FindThreadOrNew(int pid, int tid);
+  void ExitThread(int pid, int tid);
   void AddKernelMap(uint64_t start_addr, uint64_t len, uint64_t pgoff,
                     const std::string& filename);
+  const MapSet& GetKernelMaps() { return kernel_maps_; }
   void AddThreadMap(int pid, int tid, uint64_t start_addr, uint64_t len,
                     uint64_t pgoff, const std::string& filename, uint32_t flags = 0);
   const MapEntry* FindMap(const ThreadEntry* thread, uint64_t ip,
@@ -125,7 +141,6 @@ class ThreadTree {
   void Update(const Record& record);
 
   std::vector<Dso*> GetAllDsos() const;
-  std::vector<const ThreadEntry*> GetAllThreads() const;
 
  private:
   ThreadEntry* CreateThread(int pid, int tid);
@@ -138,7 +153,6 @@ class ThreadTree {
   std::unordered_map<int, std::unique_ptr<ThreadEntry>> thread_tree_;
   std::vector<std::unique_ptr<std::string>> thread_comm_storage_;
 
-  std::vector<std::unique_ptr<MapSet>> map_set_storage_;
   MapSet kernel_maps_;
   std::vector<std::unique_ptr<MapEntry>> map_storage_;
   MapEntry unknown_map_;

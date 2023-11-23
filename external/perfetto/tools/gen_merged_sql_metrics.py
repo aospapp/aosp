@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (C) 2019 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,20 +54,9 @@ namespace sql_metrics {
 
 FILE_TO_SQL_STRUCT = '''
 struct FileToSql {
-  const char* filename;
+  const char* path;
   const char* sql;
 };
-'''
-
-FIND_SQL_FN = '''
-inline const char* GetBundledMetric(const char* filename) {
-  for (const auto& filename_to_sql : sql_metrics::kFileToSql) {
-    if (strcmp(filename_to_sql.filename, filename) == 0) {
-      return filename_to_sql.sql;
-    }
-  }
-  return nullptr;
-}
 '''
 
 NAMESPACE_END = '''
@@ -77,8 +66,10 @@ NAMESPACE_END = '''
 }  // namsepace perfetto
 '''
 
+
 def filename_to_variable(filename):
   return "k" + "".join([x.capitalize() for x in filename.split("_")])
+
 
 def main():
   parser = argparse.ArgumentParser()
@@ -86,38 +77,45 @@ def main():
   parser.add_argument('sql_files', nargs='*')
   args = parser.parse_args()
 
+  root_path = os.path.commonprefix([os.path.abspath(x) for x in args.sql_files])
+
   # Extract the SQL output from each file.
-  escaped_sql_outputs = {}
+  sql_outputs = {}
   for file_name in args.sql_files:
     with open(file_name, 'r') as f:
-      basename = os.path.basename(file_name)
-
-      # Escape any quote characters.
-      escaped_sql_outputs[basename] = "".join(f.readlines())
+      relpath = os.path.relpath(file_name, root_path)
+      sql_outputs[relpath] = "".join(
+          x for x in f.readlines() if not x.startswith('--'))
 
   with open(args.cpp_out, 'w+') as output:
     output.write(REPLACEMENT_HEADER)
     output.write(NAMESPACE_BEGIN)
 
     # Create the C++ variable for each SQL file.
-    for name, sql in escaped_sql_outputs.items():
+    for path, sql in sql_outputs.items():
+      name = os.path.basename(path)
       variable = filename_to_variable(os.path.splitext(name)[0])
-      output.write('\nconst char {}[] = R"gendelimiter(\n{})gendelimiter";\n'
-        .format(variable, sql))
+      output.write(
+          '\nconst char {}[] = R"gendelimiter(\n{})gendelimiter";\n'.format(
+              variable, sql))
 
     output.write(FILE_TO_SQL_STRUCT)
 
     # Create mapping of filename to variable name for each variable.
     output.write("\nconst FileToSql kFileToSql[] = {")
-    for name in escaped_sql_outputs.keys():
+    for path in sql_outputs.keys():
+      name = os.path.basename(path)
       variable = filename_to_variable(os.path.splitext(name)[0])
-      output.write('\n  {{"{}", {}}},\n'.format(name, variable))
+
+      # This is for Windows which has \ as a path separator.
+      path = path.replace("\\", "/")
+      output.write('\n  {{"{}", {}}},\n'.format(path, variable))
     output.write("};\n")
 
-    output.write(FIND_SQL_FN)
     output.write(NAMESPACE_END)
 
   return 0
+
 
 if __name__ == '__main__':
   sys.exit(main())

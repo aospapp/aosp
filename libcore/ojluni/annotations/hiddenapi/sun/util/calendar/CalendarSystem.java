@@ -34,12 +34,12 @@ public abstract class CalendarSystem {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static sun.util.calendar.Gregorian getGregorianCalendar() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static sun.util.calendar.CalendarSystem forName(java.lang.String calendarName) {
         throw new RuntimeException("Stub!");
     }
@@ -62,10 +62,10 @@ public abstract class CalendarSystem {
 
     public abstract sun.util.calendar.CalendarDate newCalendarDate();
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public abstract sun.util.calendar.CalendarDate newCalendarDate(java.util.TimeZone zone);
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public abstract long getTime(sun.util.calendar.CalendarDate date);
 
     public abstract int getYearLength(sun.util.calendar.CalendarDate date);
@@ -88,7 +88,7 @@ public abstract class CalendarSystem {
     public abstract sun.util.calendar.CalendarDate setTimeOfDay(
             sun.util.calendar.CalendarDate date, int timeOfDay);
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public abstract boolean validate(sun.util.calendar.CalendarDate date);
 
     public abstract boolean normalize(sun.util.calendar.CalendarDate date);

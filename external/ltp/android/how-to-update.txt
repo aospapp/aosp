@@ -1,18 +1,10 @@
-WARNING
-
-You MUST NOT have the following packages installed before running the
-below instructions, otherwise these dependencies will be picked up by the
-generated makefiles:
-
-glusterfs-common
-libacl1-dev
-libaio-dev
-libcap-dev
-libnuma-dev
-
 INSTRUCTIONS
 
+You'll need docker installed, so that a clean environment can be created.
+
 (1) checkout updated LTP tree under external/ltp
+(2) ensure your LTP tree is clean by running
+        git clean -x -f -d
 (2) run the gen_android_build.sh script
         android/tools/gen_android_build.sh
 (3) commit changes to gen.bp, android/Android.ltp.mk, android/ltp_package_list.mk

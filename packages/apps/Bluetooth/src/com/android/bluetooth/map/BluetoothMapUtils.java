@@ -27,7 +27,7 @@ import java.nio.charset.IllegalCharsetNameException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Date;
+import java.util.Calendar;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -96,6 +96,8 @@ public class BluetoothMapUtils {
     static final int MAP_MESSAGE_LISTING_FORMAT_V10 = 10; // MAP spec below 1.3
     static final int MAP_MESSAGE_LISTING_FORMAT_V11 = 11; // MAP spec 1.3
 
+    private static boolean mPeerSupportUtcTimeStamp = false;
+
     /**
      * This enum is used to convert from the bMessage type property to a type safe
      * type. Hence do not change the names of the enum values.
@@ -111,13 +113,6 @@ public class BluetoothMapUtils {
             return NONE;
         }
     }
-
-    public static String getDateTimeString(long timestamp) {
-        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd'T'HHmmss");
-        Date date = new Date(timestamp);
-        return format.format(date); // Format to YYYYMMDDTHHMMSS local time
-    }
-
 
     public static void printCursor(Cursor c) {
         if (D) {
@@ -669,6 +664,27 @@ public class BluetoothMapUtils {
             //cannot happen
             return "";
         }
+    }
+
+
+    static String getDateTimeString( long timestamp) {
+        SimpleDateFormat format = (mPeerSupportUtcTimeStamp) ? new
+            SimpleDateFormat("yyyyMMdd'T'HHmmssZ") : new SimpleDateFormat("yyyyMMdd'T'HHmmss");
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(timestamp);
+        if (V) Log.v(TAG, "getDateTimeString  timestamp :" + timestamp + " time:"
+                + format.format(cal.getTime()));
+        return format.format(cal.getTime());
+    }
+
+    static void savePeerSupportUtcTimeStamp(int remoteFeatureMask) {
+        if ((remoteFeatureMask & MAP_FEATURE_DEFINED_TIMESTAMP_FORMAT_BIT)
+                == MAP_FEATURE_DEFINED_TIMESTAMP_FORMAT_BIT) {
+            mPeerSupportUtcTimeStamp = true;
+        } else {
+            mPeerSupportUtcTimeStamp = false;
+        }
+        if (V) Log.v(TAG, "savePeerSupportUtcTimeStamp " + mPeerSupportUtcTimeStamp);
     }
 
 }

@@ -25,9 +25,6 @@
 
 package sun.security.x509;
 
-import java.util.*;
-import sun.security.util.*;
-
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class X509CRLEntryImpl extends java.security.cert.X509CRLEntry
         implements java.lang.Comparable<sun.security.x509.X509CRLEntryImpl> {
@@ -120,7 +117,7 @@ public class X509CRLEntryImpl extends java.security.cert.X509CRLEntry
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.x509.Extension getExtension(sun.security.util.ObjectIdentifier oid) {
         throw new RuntimeException("Stub!");
     }

@@ -116,6 +116,9 @@
 // hboehm@google.com 11/20/2018.
 // Fix an exception-safety issue in gl_pi_CR.approximate.
 // hboehm@google.com 3/3/2019.
+// Near-overflow floating point exponents were not handled correctly in
+// doubleValue(). Fixed.
+// hboehm@google.com 7/23/2019.
 
 package com.hp.creals;
 
@@ -413,7 +416,7 @@ public volatile static boolean please_stop = false;
       {
         int prec = 0;
 
-        for (;prec > n + 30; prec = (prec * 3)/2 - 16) {
+        for (; prec > n + 30; prec = (prec * 3)/2 - 16) {
             int msd = msd(prec);
             if (msd != Integer.MIN_VALUE) return msd;
             check_prec(prec);
@@ -747,10 +750,11 @@ public volatile static boolean please_stop = false;
         long scaled_int_rep = Double.doubleToLongBits(scaled_int);
         long exp_adj = may_underflow? needed_prec + 96 : needed_prec;
         long orig_exp = (scaled_int_rep >> 52) & 0x7ff;
-        if (((orig_exp + exp_adj) & ~0x7ff) != 0) {
-            // Original unbiased exponent is > 50. Exp_adj > -1050.
-            // Thus this can overflow the 11 bit exponent only if the result
-            // itself overflows.
+        // Original unbiased exponent is > 50. Exp_adj > -1050.
+        // Thus the sum must be > the smallest representable exponent
+        // of -1023.
+        if (orig_exp + exp_adj >= 0x7ff) {
+            // Exponent overflowed.
             if (scaled_int < 0.0) {
                 return Double.NEGATIVE_INFINITY;
             } else {
@@ -760,6 +764,8 @@ public volatile static boolean please_stop = false;
         scaled_int_rep += exp_adj << 52;
         double result = Double.longBitsToDouble(scaled_int_rep);
         if (may_underflow) {
+            // Exponent is too large by 96. Compensate, relying on fp arithmetic
+            // to handle gradual underflow correctly.
             double two48 = (double)(1L << 48);
             return result/two48/two48;
         } else {

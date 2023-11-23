@@ -9,6 +9,7 @@ NAME = "telemetry_AFDOGenerate"
 PURPOSE = "Produce profile (AFDO format) of normal browsing for optimization."
 ATTRIBUTES = "suite:AFDO_record"
 TIME = "LONG"
+MAX_RESULT_SIZE_KB = 512000
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "telemetry"
 TEST_TYPE = "server"
@@ -28,13 +29,6 @@ Example invocation:
 
 args_dict = utils.args_to_dict(args)
 
-profiler = 'custom_perf'
-# These are arguments to the linux "perf" tool.
-# The -e value is processor specific and comes from the Intel SDM vol 3b
-profiler_args = 'record -a -e r20c4 -c 500000 -b '
-
-job.default_profile_only = True
-job.profilers.add(profiler, profiler_args)
 
 def run_telemetry_AFDOGenerate(machine):
     run_host = hosts.create_host(machine)
@@ -43,10 +37,7 @@ def run_telemetry_AFDOGenerate(machine):
     # Pass "disable_sysinfo=True" to run_test since it would be nice
     # to avoid copying all the logs back to the server. However, we
     # cannot do this because of crosbug 308646
-    job.run_test('telemetry_AFDOGenerate', host=run_host,
-                  args=args_dict)
+    job.run_test('telemetry_AFDOGenerate', host=run_host, args=args_dict)
+
 
 job.parallel_simple(run_telemetry_AFDOGenerate, machines)
-
-if profiler:
-    job.profilers.delete(profiler)

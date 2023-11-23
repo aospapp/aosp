@@ -43,7 +43,6 @@ public class WindowInsetsActivity extends LightBarBaseActivity implements View.O
     private static final int DISPLAY_CUTOUT_SLACK_DP = 20;
 
     private TextView mContent;
-    private boolean mIsSetViewBound;
     private WindowInsets mContentWindowInsets;
     private WindowInsets mDecorViewWindowInsets;
     private Rect mDecorBound;
@@ -164,25 +163,21 @@ public class WindowInsetsActivity extends LightBarBaseActivity implements View.O
      * To present the WindowInsets information to mContent.
      * To show all of results of getSystemWindowInsets(), getMandatorySytemGestureInsets(),
      * getSystemGestureInsets(), getTappableElementsInsets() and the exclude rects
+     *
+     * @param rect the rectangle want to add or pass into to setSystemGestureExclusionRects
      */
     @MainThread
-    public void setSystemGestureExclusion(boolean isSetViewBoundary) {
-        mIsSetViewBound = isSetViewBoundary;
+    public void setSystemGestureExclusion(Rect rect) {
         List<Rect> rects = new ArrayList<>();
-        if (mIsSetViewBound) {
-            rects.add(new Rect(0 /* content view full match activity's width*/,
-                    0 /* content view full match activity's height */,
-                    mContent.getWidth(),
-                    mContent.getHeight()));
+        if (rect != null) {
+            rects.add(rect);
         }
-
         getContentView().setSystemGestureExclusionRects(rects);
         showInfoInTextView();
     }
 
     private void showInfoInTextView() {
         StringBuilder sb = new StringBuilder();
-        sb.append(mIsSetViewBound ? "setSystemGestureExclusionRects" : "no set").append("\n");
         sb.append("exclude rect list = " + Arrays.deepToString(mContent
                 .getSystemGestureExclusionRects().toArray())).append("\n");
 

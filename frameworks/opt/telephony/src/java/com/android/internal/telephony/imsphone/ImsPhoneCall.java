@@ -16,21 +16,22 @@
 
 package com.android.internal.telephony.imsphone;
 
-import android.annotation.UnsupportedAppUsage;
-import android.telecom.ConferenceParticipant;
-import android.telephony.Rlog;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.telephony.DisconnectCause;
+import android.telephony.ims.ImsStreamMediaProfile;
 import android.util.Log;
 
+import com.android.ims.ImsCall;
+import com.android.ims.ImsException;
+import com.android.ims.internal.ConferenceParticipant;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
-import com.android.ims.ImsCall;
-import com.android.ims.ImsException;
-import android.telephony.ims.ImsStreamMediaProfile;
+import com.android.telephony.Rlog;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -79,9 +80,9 @@ public class ImsPhoneCall extends Call {
             //Rlog.e(LOG_TAG, "dispose: unexpected error on hangup", ex);
             //while disposing, ignore the exception and clean the connections
         } finally {
-            for(int i = 0, s = mConnections.size(); i < s; i++) {
-                ImsPhoneConnection c = (ImsPhoneConnection) mConnections.get(i);
-                c.onDisconnect(DisconnectCause.LOST_SIGNAL);
+            List<Connection> connections = getConnections();
+            for (Connection conn : connections) {
+                conn.onDisconnect(DisconnectCause.LOST_SIGNAL);
             }
         }
     }
@@ -90,9 +91,8 @@ public class ImsPhoneCall extends Call {
 
     @UnsupportedAppUsage
     @Override
-    public List<Connection>
-    getConnections() {
-        return mConnections;
+    public ArrayList<Connection> getConnections() {
+        return super.getConnections();
     }
 
     @Override
@@ -123,17 +123,24 @@ public class ImsPhoneCall extends Call {
     }
 
     @Override
+    public void hangup(@android.telecom.Call.RejectReason int rejectReason)
+            throws CallStateException {
+        mOwner.hangup(this, rejectReason);
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+        List<Connection> connections = getConnections();
         sb.append("[ImsPhoneCall ");
         sb.append(mCallContext);
         sb.append(" state: ");
         sb.append(mState.toString());
         sb.append(" ");
-        if (mConnections.size() > 1) {
+        if (connections.size() > 1) {
             sb.append(" ERROR_MULTIPLE ");
         }
-        for (Connection conn : mConnections) {
+        for (Connection conn : connections) {
             sb.append(conn);
             sb.append(" ");
         }
@@ -144,6 +151,9 @@ public class ImsPhoneCall extends Call {
 
     @Override
     public List<ConferenceParticipant> getConferenceParticipants() {
+         if (!mOwner.isConferenceEventPackageEnabled()) {
+             return null;
+         }
          ImsCall call = getImsCall();
          if (call == null) {
              return null;
@@ -158,7 +168,7 @@ public class ImsPhoneCall extends Call {
             Rlog.v(LOG_TAG, "attach : " + mCallContext + " conn = " + conn);
         }
         clearDisconnected();
-        mConnections.add(conn);
+        addConnection(conn);
 
         mOwner.logState();
     }
@@ -187,15 +197,18 @@ public class ImsPhoneCall extends Call {
 
             boolean hasOnlyDisconnectedConnections = true;
 
-            for (int i = 0, s = mConnections.size()  ; i < s; i ++) {
-                if (mConnections.get(i).getState() != State.DISCONNECTED) {
+            ArrayList<Connection> connections = getConnections();
+            for (Connection cn : connections) {
+                if (cn.getState() != State.DISCONNECTED) {
                     hasOnlyDisconnectedConnections = false;
                     break;
                 }
             }
 
             if (hasOnlyDisconnectedConnections) {
-                mState = State.DISCONNECTED;
+                synchronized(this) {
+                    mState = State.DISCONNECTED;
+                }
                 if (VDBG) {
                     Rlog.v(LOG_TAG, "connectionDisconnected : " + mCallContext + " state = " +
                             mState);
@@ -211,7 +224,7 @@ public class ImsPhoneCall extends Call {
         if (VDBG) {
             Rlog.v(LOG_TAG, "detach : " + mCallContext + " conn = " + conn);
         }
-        mConnections.remove(conn);
+        removeConnection(conn);
         clearDisconnected();
 
         mOwner.logState();
@@ -223,7 +236,7 @@ public class ImsPhoneCall extends Call {
      */
     /*package*/ boolean
     isFull() {
-        return mConnections.size() == ImsPhoneCallTracker.MAX_CONNECTIONS_PER_CALL;
+        return getConnectionsCount() == ImsPhoneCallTracker.MAX_CONNECTIONS_PER_CALL;
     }
 
     //***** Called from ImsPhoneCallTracker
@@ -231,13 +244,18 @@ public class ImsPhoneCall extends Call {
      * Called when this Call is being hung up locally (eg, user pressed "end")
      */
     @UnsupportedAppUsage
-    void
-    onHangupLocal() {
-        for (int i = 0, s = mConnections.size(); i < s; i++) {
-            ImsPhoneConnection cn = (ImsPhoneConnection)mConnections.get(i);
-            cn.onHangupLocal();
+    @VisibleForTesting
+    public void onHangupLocal() {
+        ArrayList<Connection> connections = getConnections();
+        for (Connection conn : connections) {
+            ImsPhoneConnection imsConn = (ImsPhoneConnection) conn;
+            imsConn.onHangupLocal();
         }
-        mState = State.DISCONNECTING;
+        synchronized(this) {
+            if (mState.isAlive()) {
+                mState = State.DISCONNECTING;
+            }
+        }
         if (VDBG) {
             Rlog.v(LOG_TAG, "onHangupLocal : " + mCallContext + " state = " + mState);
         }
@@ -245,15 +263,20 @@ public class ImsPhoneCall extends Call {
 
     @VisibleForTesting
     public ImsPhoneConnection getFirstConnection() {
-        if (mConnections.size() == 0) return null;
+        List<Connection> connections = getConnections();
+        if (connections.size() == 0) return null;
 
-        return (ImsPhoneConnection) mConnections.get(0);
+        return (ImsPhoneConnection) connections.get(0);
     }
 
-    /*package*/ void
-    setMute(boolean mute) {
-        ImsCall imsCall = getFirstConnection() == null ?
-                null : getFirstConnection().getImsCall();
+    /**
+     * Sets the mute state of the call.
+     * @param mute {@code true} if the call could be muted; {@code false} otherwise.
+     */
+    @VisibleForTesting
+    public void setMute(boolean mute) {
+        ImsPhoneConnection connection = getFirstConnection();
+        ImsCall imsCall = connection == null ? null : connection.getImsCall();
         if (imsCall != null) {
             try {
                 imsCall.setMute(mute);
@@ -297,9 +320,10 @@ public class ImsPhoneCall extends Call {
      * @return The {@link ImsCall}.
      */
     @VisibleForTesting
-    public ImsCall
-    getImsCall() {
-        return (getFirstConnection() == null) ? null : getFirstConnection().getImsCall();
+    @UnsupportedAppUsage
+    public ImsCall getImsCall() {
+        ImsPhoneConnection connection = getFirstConnection();
+        return (connection == null) ? null : connection.getImsCall();
     }
 
     /*package*/ static boolean isLocalTone(ImsCall imsCall) {
@@ -378,9 +402,9 @@ public class ImsPhoneCall extends Call {
     }
 
     private void takeOver(ImsPhoneCall that) {
-        mConnections = that.mConnections;
+        copyConnectionFrom(that);
         mState = that.mState;
-        for (Connection c : mConnections) {
+        for (Connection c : getConnections()) {
             ((ImsPhoneConnection) c).changeParent(this);
         }
     }

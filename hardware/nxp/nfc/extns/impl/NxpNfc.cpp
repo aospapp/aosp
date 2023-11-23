@@ -38,6 +38,10 @@ Return<void> NxpNfc::ioctl(uint64_t ioctlType,
   nfc_nci_IoctlInOutData_t* pInOutData =
       (nfc_nci_IoctlInOutData_t*)&inOutData[0];
 
+  if (inOutData.size() < sizeof (nfc_nci_IoctlInOutData_t)) {
+    ALOGE("%s invalid inOutData size, size = %d", __func__, (int)inOutData.size());
+    return Void();
+  }
   /*data from proxy->stub is copied to local data which can be updated by
    * underlying HAL implementation since its an inout argument*/
   memcpy(&inpOutData, pInOutData, sizeof(nfc_nci_IoctlInOutData_t));

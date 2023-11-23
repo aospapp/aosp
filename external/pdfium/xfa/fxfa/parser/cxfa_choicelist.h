@@ -9,10 +9,13 @@
 
 #include "xfa/fxfa/parser/cxfa_node.h"
 
-class CXFA_ChoiceList : public CXFA_Node {
+class CXFA_ChoiceList final : public CXFA_Node {
  public:
   CXFA_ChoiceList(CXFA_Document* doc, XFA_PacketType packet);
   ~CXFA_ChoiceList() override;
+
+  XFA_Element GetValueNodeType() const override;
+  XFA_FFWidgetType GetDefaultFFWidgetType() const override;
 };
 
 #endif  // XFA_FXFA_PARSER_CXFA_CHOICELIST_H_

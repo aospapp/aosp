@@ -33,6 +33,7 @@ import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
 import android.graphics.Typeface;
 import android.os.LocaleList;
+import android.platform.test.annotations.SecurityTest;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.Layout.Alignment;
@@ -1680,5 +1681,34 @@ public class StaticLayoutTest {
         start = LOREM_IPSUM.length() / 2;
         end = LOREM_IPSUM.length();
         testLineBackgroundSpanInRange(LOREM_IPSUM, start, end);
+    }
+
+    // This is for b/140755449
+    @SecurityTest
+    @Test
+    public void testBidiVisibleEnd() {
+        TextPaint paint = new TextPaint();
+        // The default text size is too small and not useful for handling line breaks.
+        // Make it bigger.
+        paint.setTextSize(32);
+
+        final String input = "\u05D0aaaaaa\u3000 aaaaaa";
+        // To make line break happen, pass slightly shorter width from the full text width.
+        final int lineBreakWidth = (int) (paint.measureText(input) * 0.8);
+        final StaticLayout layout = StaticLayout.Builder.obtain(
+                input, 0, input.length(), paint, lineBreakWidth).build();
+
+        // Make sure getLineMax won't cause crashes.
+        // getLineMax eventually calls TextLine.measure which was the problematic method.
+        layout.getLineMax(0);
+
+        final Bitmap bmp = Bitmap.createBitmap(
+                layout.getWidth(),
+                layout.getHeight(),
+                Bitmap.Config.RGB_565);
+        final Canvas c = new Canvas(bmp);
+        // Make sure draw won't cause crashes.
+        // draw eventualy calls TextLine.draw which was the problematic method.
+        layout.draw(c);
     }
 }

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"ସୂଚନା"</string>
     <string name="inspector_load_error" msgid="7522190243413249291">"ଫାଇଲ୍‍ ସୂଚନା ଲୋଡ୍‍ କରିହେଲା ନାହିଁ"</string>
-    <string name="inspector_debug_section" msgid="2576052661505700421">"ଡିବଗ୍‍ ସୂଚନା (କେବଳ ଡିଭାଇସ୍‍)"</string>
+    <string name="inspector_debug_section" msgid="2576052661505700421">"ଡିବଗ୍‍ ସୂଚନା (କେବଳ ଡେଭଲପର୍)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"ମୂଳ ମେଟାଡାଟା: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"ମିଡିଆ ବିବରଣୀ"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"ଏହି ପ୍ରକାରର ଫାଇଲ୍‍ ଏଥିରେ ଖୋଲେ"</string>

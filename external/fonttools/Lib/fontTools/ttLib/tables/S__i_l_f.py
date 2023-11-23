@@ -82,6 +82,12 @@ Silf_pseudomap_format = '''
     nPseudo:            H
 '''
 
+Silf_pseudomap_format_h = '''
+    >
+    unicode:            H
+    nPseudo:            H
+'''
+
 Silf_classmap_format = '''
     >
     numClass:           H
@@ -219,7 +225,7 @@ def disassemble(aCode):
         pc += struct.calcsize(fmt)
     return res
 
-instre = re.compile("^\s*([^(]+)\s*(?:\(([^)]+)\))?")
+instre = re.compile(r"^\s*([^(]+)\s*(?:\(([^)]+)\))?")
 def assemble(instrs):
     res = b""
     for inst in instrs:
@@ -231,7 +237,7 @@ def assemble(instrs):
         if m.group(2):
             if parmfmt == 0:
                 continue
-            parms = [int(x) for x in re.split(",\s*", m.group(2))]
+            parms = [int(x) for x in re.split(r",\s*", m.group(2))]
             if parmfmt == -1:
                 l = len(parms)
                 res += struct.pack(("%dB" % (l+1)), l, *parms)
@@ -406,7 +412,7 @@ class Silf(object):
             if version >= 3.0:
                 pseudo = sstruct.unpack(Silf_pseudomap_format, data[8+6*i:14+6*i], _Object())
             else:
-                pseudo = struct.unpack('>HH', data[8+4*i:12+4*i], _Object())
+                pseudo = sstruct.unpack(Silf_pseudomap_format_h, data[8+4*i:12+4*i], _Object())
             self.pMap[pseudo.unicode] = ttFont.getGlyphName(pseudo.nPseudo)
         data = data[8 + 6 * numPseudo:]
         currpos = (sstruct.calcsize(Silf_part1_format)

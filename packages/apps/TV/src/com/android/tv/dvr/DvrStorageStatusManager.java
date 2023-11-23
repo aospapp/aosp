@@ -114,7 +114,7 @@ public class DvrStorageStatusManager extends RecordingStorageStatusManager {
                     return;
                 }
                 for (TvInputInfo info : tvInputInfoList) {
-                    if (CommonUtils.isBundledInput(info.getId())) {
+                    if (CommonUtils.isBundledInput(info.getId()) && dvrManager != null) {
                         dvrManager.forgetStorage(info.getId());
                     }
                 }

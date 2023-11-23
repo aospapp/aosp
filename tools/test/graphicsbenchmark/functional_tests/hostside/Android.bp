@@ -13,11 +13,12 @@
 // limitations under the License.
 
 java_test_host {
-    name: "GameQualificationHostTestCases",
+    name: "GameCoreHostTestCases",
     srcs: ["src/**/*.java"],
 
     libs: [
         "tradefed",
+        "GameCoreHelperHost",
     ],
     static_libs: [
         "truth-prebuilt-host-jar",

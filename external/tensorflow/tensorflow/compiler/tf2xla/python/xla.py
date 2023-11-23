@@ -81,7 +81,8 @@ ceil = _unary_op(math_ops.ceil)
 digamma = _unary_op(math_ops.digamma)
 erf = _unary_op(math_ops.erf)
 erfc = _unary_op(math_ops.erfc)
-# TODO(phawkins): implement erfinv
+erfinv = _unary_op(math_ops.erfinv)
+ndtri = _unary_op(math_ops.ndtri)
 exp = _unary_op(math_ops.exp)
 expm1 = _unary_op(math_ops.expm1)
 floor = _unary_op(math_ops.floor)
@@ -99,6 +100,10 @@ round = _unary_op(math_ops.round)
 sin = _unary_op(math_ops.sin)
 sign = _unary_op(math_ops.sign)
 tanh = _unary_op(math_ops.tanh)
+
+# Bessel
+bessel_i0e = _unary_op(math_ops.bessel_i0e)
+bessel_i1e = _unary_op(math_ops.bessel_i1e)
 
 # Binary operators
 
@@ -193,6 +198,9 @@ pow = _broadcasting_binary_op(math_ops.pow)
 shift_left = _broadcasting_binary_op(bitwise_ops.left_shift)
 shift_right_logical = _broadcasting_binary_op(_shift_right_logical_helper)
 shift_right_arithmetic = _broadcasting_binary_op(_shift_right_arithmetic_helper)
+
+igamma = _broadcasting_binary_op(math_ops.igamma)
+igammac = _broadcasting_binary_op(math_ops.igammac)
 
 
 def _binary_op(fn):
@@ -306,26 +314,6 @@ dynamic_slice = gen_xla_ops.xla_dynamic_slice
 dynamic_update_slice = gen_xla_ops.xla_dynamic_update_slice
 einsum = gen_xla_ops.xla_einsum
 
-
-@ops.RegisterGradient('XlaEinsum')
-def _einsum_grad(op, grad):
-  equation = op.get_attr('equation')
-  inputs, output = equation.split('->')
-  left, right = inputs.split(',')
-
-  return [
-      gen_xla_ops.xla_einsum(
-          grad,
-          op.inputs[1],
-          equation='{},{}->{}'.format(output, right, left),
-          name=None),
-      gen_xla_ops.xla_einsum(
-          grad,
-          op.inputs[0],
-          equation='{},{}->{}'.format(output, left, right),
-          name=None)
-  ]
-
 # TODO(phawkins): generalize tf.pad to support interior padding, and then remove
 # the XLA-specific pad operator.
 pad = gen_xla_ops.xla_pad
@@ -392,6 +380,9 @@ def reduce_window(operand,
       name=name)
 
 
+replica_id = gen_xla_ops.xla_replica_id
+
+
 def reshape(x, new_sizes, dimensions=None, name=None):
   if dimensions is not None:
     x = array_ops.transpose(x, dimensions)
@@ -415,7 +406,39 @@ def slice(x, start_dims, limit_dims, strides):
   return x[tuple(spec)]
 
 
+sharding = gen_xla_ops.xla_sharding
+
+
+@ops.RegisterGradient("XlaSharding")
+def _sharding_grad(op, grad):
+  del op  # Unused
+  return [grad]
+
+
 sort = gen_xla_ops.xla_sort
 key_value_sort = gen_xla_ops.xla_key_value_sort
 while_loop = gen_xla_ops.xla_while
 dequantize = gen_xla_ops.xla_dequantize
+
+
+def gather(operand, start_indices, dimension_numbers, slice_sizes,
+           indices_are_sorted=False, name=None):
+  return gen_xla_ops.xla_gather(
+      operand,
+      start_indices,
+      slice_sizes=slice_sizes,
+      dimension_numbers=dimension_numbers.SerializeToString(),
+      indices_are_sorted=indices_are_sorted,
+      name=name)
+
+
+def scatter(operand, scatter_indices, updates, update_computation,
+            dimension_numbers, indices_are_sorted=False, name=None):
+  return gen_xla_ops.xla_scatter(
+      operand,
+      scatter_indices,
+      updates,
+      update_computation=update_computation,
+      dimension_numbers=dimension_numbers.SerializeToString(),
+      indices_are_sorted=indices_are_sorted,
+      name=name)

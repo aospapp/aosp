@@ -32,9 +32,10 @@ public class BusinessLogicDeviceExecutor extends BusinessLogicExecutor {
     private Context mContext;
     private Object mTestObj;
 
-    public BusinessLogicDeviceExecutor(Context context, Object testObj) {
+    public BusinessLogicDeviceExecutor(Context context, Object testObj, List<String> redactionRegexes) {
         mContext = context;
         mTestObj = testObj;
+        mRedactionRegexes = redactionRegexes;
     }
 
     /**
@@ -66,7 +67,7 @@ public class BusinessLogicDeviceExecutor extends BusinessLogicExecutor {
      */
     @Override
     protected String formatExecutionString(String method, String... args) {
-        return String.format("%s(%s)", method, TextUtils.join(", ", args));
+        return String.format("%s(%s)", method, TextUtils.join(", ", formatArgs(args)));
     }
 
     /**

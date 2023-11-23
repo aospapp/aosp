@@ -47,6 +47,11 @@ public class ProfileManager {
     private static final String mBuiltInprofiles =
         "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>" +
             "<ProfileList Version=\"1.0.0\">" +
+            "<PeripheralProfile ProfileName=\"Google USB-C Headset\" ProfileDescription=\"Google USB-C Headset\" ProductName=\"USB-Audio - Pixel USB-C earbuds\">" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
+                "<InputDevInfo ChanCounts=\"1\" ChanPosMasks=\"16\" ChanIndexMasks=\"1\" Encodings=\"2\" SampleRates=\"44100,48000\" />" +
+                "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" HasBtnD=\"0\" />" +
+            "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"AudioBox USB 96\" ProfileDescription=\"PreSonus AudioBox USB 96\" ProductName=\"USB-Audio - AudioBox USB 96\">" +
                 "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\"/>" +
                 "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\"/>" +

@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 
 import org.unicode.cldr.test.CoverageLevel2;
 import org.unicode.cldr.test.ExampleGenerator;
+import org.unicode.cldr.test.ExampleGenerator.ExampleType;
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRFile.Status;
@@ -29,6 +30,7 @@ import org.unicode.cldr.util.Containment;
 import org.unicode.cldr.util.Counter;
 import org.unicode.cldr.util.DtdData;
 import org.unicode.cldr.util.DtdType;
+import org.unicode.cldr.util.Emoji;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.LanguageTagParser;
 import org.unicode.cldr.util.Level;
@@ -178,7 +180,12 @@ public class TestPathHeader extends TestFmwkPlus {
                 // logln("\t" + failure);
                 // }
                 // }
-                PathHeader ph = pathHeaderFactory2.fromPath(p);
+                PathHeader ph;
+                try {
+                    ph = pathHeaderFactory2.fromPath(p);
+                } catch (Exception e1) {
+                    throw new IllegalArgumentException(locale + ":\t" + p);
+                }
                 if (ph == null) {
                     errln("Failed to create path from: " + p);
                     continue;
@@ -323,10 +330,8 @@ public class TestPathHeader extends TestFmwkPlus {
             assertEquals("appendItem:Timezone placeholders", "Pacific Time",
                 placeholderInfo2.example);
         }
-        ExampleGenerator eg = new ExampleGenerator(cldrFile, cldrFile,
-            CLDRPaths.SUPPLEMENTAL_DIRECTORY);
-        String example = eg.getExampleHtml(APPEND_TIMEZONE,
-            cldrFile.getStringValue(APPEND_TIMEZONE));
+        ExampleGenerator eg = new ExampleGenerator(cldrFile, cldrFile, CLDRPaths.SUPPLEMENTAL_DIRECTORY);
+        String example = eg.getExampleHtml(APPEND_TIMEZONE, cldrFile.getStringValue(APPEND_TIMEZONE), ExampleType.NATIVE);
         String result = ExampleGenerator.simplify(example, false);
         assertEquals("", "〖❬6:25:59 PM❭ ❬GMT❭〗", result);
     }
@@ -1049,8 +1054,8 @@ public class TestPathHeader extends TestFmwkPlus {
         logln("\nInternal Counter:\t" + counterData.size());
         for (PathHeader.Factory.CounterData item : counterData.keySet()) {
             logln("\t" + counterData.getCount(item) + "\t" + item.get2() // externals
-                + "\t" + item.get3() + "\t" + item.get0() // internals
-                + "\t" + item.get1());
+            + "\t" + item.get3() + "\t" + item.get0() // internals
+            + "\t" + item.get1());
         }
         logln("\nMenus/Headers:\t" + threeLevel.size());
         for (String item : threeLevel) {
@@ -1219,10 +1224,10 @@ public class TestPathHeader extends TestFmwkPlus {
         CLDRFile supplementalFile = CLDRConfig.getInstance().getSupplementalFactory().make("supplementalData", false);
         List<String> failures = new ArrayList<>();
         Multimap<String, String> pathValuePairs = LinkedListMultimap.create();
-        XPathParts parts = new XPathParts();
         for (String test : With.in(supplementalFile.iterator("//supplementalData/weekData"))) {
             failures.clear();
-            supplementalFile.getDtdData().getRegularizedPaths(parts.set(supplementalFile.getFullXPath(test)), pathValuePairs);
+            XPathParts parts = XPathParts.getFrozenInstance(supplementalFile.getFullXPath(test));
+            supplementalFile.getDtdData().getRegularizedPaths(parts, pathValuePairs);
             for (Entry<String, Collection<String>> entry : pathValuePairs.asMap().entrySet()) {
                 final String normalizedPath = entry.getKey();
                 final Collection<String> normalizedValue = entry.getValue();
@@ -1254,7 +1259,7 @@ public class TestPathHeader extends TestFmwkPlus {
             assertEquals("flexible formats", test[1] + "|" + test[0], pathHeader.getHeader() + "|" + pathHeader.getCode());
         }
     }
-    
+
     // Moved from TestAnnotations and generalized
     public void testPathHeaderSize() {
         String locale = "ar"; // choose one with lots of plurals
@@ -1292,4 +1297,39 @@ public class TestPathHeader extends TestFmwkPlus {
             }
         }
     }
+    public void TestCLDR_11454() {
+        PathHeader.Factory phf = PathHeader.getFactory();
+        PathHeader century = phf.fromPath("//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"duration-century\"]/displayName");
+        PathHeader decade =  phf.fromPath("//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"duration-decade\"]/displayName");
+        assertEquals("Section", century.getSectionId(), decade.getSectionId());
+        assertEquals("Page", century.getPageId(), decade.getPageId());
+    }
+
+    public void TestEmojiOrder() {
+        PathHeader.Factory phf = PathHeader.getFactory();
+        String[] desiredOrder = {
+            "🧑‍⚕", "👨‍⚕", "👩‍⚕",
+            "🧑‍⚖", "👨‍⚖", "👩‍⚖"};
+        List<PathHeader> pathHeaders = new ArrayList<>();
+        for (String emoji : desiredOrder) {
+            String base = "//ldml/annotations/annotation[@cp=\"" + emoji + "\"]";
+            pathHeaders.add(phf.fromPath(base + "[@type=\"tts\"]"));
+            pathHeaders.add(phf.fromPath(base));
+            logln(emoji
+                + ": getEmojiMinorOrder="+ Emoji.getEmojiMinorOrder(Emoji.getMinorCategory(emoji))
+                + ", getEmojiToOrder="+ Emoji.getEmojiToOrder(emoji)
+                );
+        }
+        PathHeader lastItem = null;
+        for (PathHeader item : pathHeaders) {
+            if (lastItem != null) {
+                assertEquals("Section", lastItem.getSectionId(), item.getSectionId());
+                assertEquals("Page", lastItem.getPageId(), item.getPageId());
+                assertEquals("Header", lastItem.getHeader(), item.getHeader());
+                assertTrue(lastItem + " < " + item, lastItem.compareTo(item) < 0);
+            }
+            lastItem = item;
+        }
+    }
+
 }

@@ -30,6 +30,7 @@ import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.RoleManagerAdapter;
 import com.android.server.telecom.TelecomSystem;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -99,6 +100,12 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
         when(mRoleManagerAdapter.getDefaultDialerApp(eq(USER0))).thenReturn(DIALER1);
         when(mRoleManagerAdapter.getDefaultDialerApp(eq(USER1))).thenReturn(DIALER2);
         when(mRoleManagerAdapter.getDefaultDialerApp(eq(USER2))).thenReturn(DIALER3);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     @SmallTest

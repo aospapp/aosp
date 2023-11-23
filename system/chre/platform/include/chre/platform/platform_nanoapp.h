@@ -17,11 +17,12 @@
 #ifndef CHRE_PLATFORM_PLATFORM_NANOAPP_H_
 #define CHRE_PLATFORM_PLATFORM_NANOAPP_H_
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
-#include "chre/util/non_copyable.h"
 #include "chre/target_platform/platform_nanoapp_base.h"
+#include "chre/util/non_copyable.h"
+#include "chre/util/system/debug_dump.h"
 
 namespace chre {
 
@@ -89,6 +90,11 @@ class PlatformNanoapp : public PlatformNanoappBase, public NonCopyable {
   uint32_t getTargetApiVersion() const;
 
   /**
+   * Retrieves the human-friendly name for the nanoapp (null-terminated string).
+   */
+  const char *getAppName() const;
+
+  /**
    * Returns true if the nanoapp should not appear in the context hub HAL list
    * of nanoapps, e.g. because it implements some device functionality purely
    * beneath the HAL.
@@ -99,12 +105,10 @@ class PlatformNanoapp : public PlatformNanoappBase, public NonCopyable {
    * Prints state in a string buffer. Must only be called from the context of
    * the main CHRE thread.
    *
-   * @param buffer Pointer to the start of the buffer.
-   * @param bufferPos Pointer to buffer position to start the print (in-out).
-   * @param size Size of the buffer in bytes.
+   * @param debugDump The debug dump wrapper object where logs are printed
+   * into.
    */
-  void logStateToBuffer(char *buffer, size_t *bufferPos,
-                        size_t bufferSize) const;
+  void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
  protected:
   /**

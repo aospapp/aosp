@@ -54,7 +54,7 @@ enum {
 #define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP { { ((PTHREAD_MUTEX_ERRORCHECK & 3) << 14) } }
 
 #define PTHREAD_COND_INITIALIZER  { { 0 } }
-#if __ANDROID_API__ >= __ANDROID_API_L__
+#if __ANDROID_API__ >= 21
 #define PTHREAD_COND_INITIALIZER_MONOTONIC_NP  { { 1 << 1 } }
 #endif
 
@@ -67,8 +67,8 @@ enum {
 
 #define PTHREAD_ONCE_INIT 0
 
-#if __ANDROID_API__ >= __ANDROID_API_N__
-#define PTHREAD_BARRIER_SERIAL_THREAD -1
+#if __ANDROID_API__ >= 24
+#define PTHREAD_BARRIER_SERIAL_THREAD (-1)
 #endif
 
 #if defined(__LP64__)
@@ -92,7 +92,7 @@ enum {
 #define PTHREAD_SCOPE_SYSTEM 0
 #define PTHREAD_SCOPE_PROCESS 1
 
-int pthread_atfork(void (*__prepare)(void), void (*__parent)(void), void (*__child)(void)) __INTRODUCED_IN(12);
+int pthread_atfork(void (*__prepare)(void), void (*__parent)(void), void (*__child)(void));
 
 int pthread_attr_destroy(pthread_attr_t* __attr);
 int pthread_attr_getdetachstate(const pthread_attr_t* __attr, int* __state);
@@ -121,6 +121,8 @@ int pthread_condattr_setclock(pthread_condattr_t* __attr, clockid_t __clock) __I
 int pthread_condattr_setpshared(pthread_condattr_t* __attr, int __shared);
 
 int pthread_cond_broadcast(pthread_cond_t* __cond);
+int pthread_cond_clockwait(pthread_cond_t* __cond, pthread_mutex_t* __mutex, clockid_t __clock,
+                           const struct timespec* __timeout) __INTRODUCED_IN(30);
 int pthread_cond_destroy(pthread_cond_t* __cond);
 int pthread_cond_init(pthread_cond_t* __cond, const pthread_condattr_t* __attr);
 int pthread_cond_signal(pthread_cond_t* __cond);
@@ -130,8 +132,10 @@ int pthread_cond_timedwait(pthread_cond_t* __cond, pthread_mutex_t* __mutex, con
  * typically inappropriate, since that clock can change dramatically, causing the timeout to
  * either expire earlier or much later than intended.
  * Condition variables have an initialization option to use CLOCK_MONOTONIC, and in addition,
- * Android provides this API to use CLOCK_MONOTONIC on a condition variable for this single wait
- * no matter how it was initialized.
+ * Android provides pthread_cond_timedwait_monotonic_np to use CLOCK_MONOTONIC on a condition
+ * variable for this single wait no matter how it was initialized.
+ * Note that pthread_cond_clockwait() allows specifying an arbitrary clock and has superseded this
+ * function.
  */
 int pthread_cond_timedwait_monotonic_np(pthread_cond_t* __cond, pthread_mutex_t* __mutex,
                                         const struct timespec* __timeout) __INTRODUCED_IN_64(28);
@@ -181,6 +185,8 @@ int pthread_mutexattr_setpshared(pthread_mutexattr_t* __attr, int __shared);
 int pthread_mutexattr_settype(pthread_mutexattr_t* __attr, int __type);
 int pthread_mutexattr_setprotocol(pthread_mutexattr_t* __attr, int __protocol) __INTRODUCED_IN(28);
 
+int pthread_mutex_clocklock(pthread_mutex_t* __mutex, clockid_t __clock,
+                            const struct timespec* __abstime) __INTRODUCED_IN(30);
 int pthread_mutex_destroy(pthread_mutex_t* __mutex);
 int pthread_mutex_init(pthread_mutex_t* __mutex, const pthread_mutexattr_t* __attr);
 int pthread_mutex_lock(pthread_mutex_t* __mutex);
@@ -188,11 +194,13 @@ int pthread_mutex_timedlock(pthread_mutex_t* __mutex, const struct timespec* __t
   __INTRODUCED_IN(21);
 
 /*
- * POSIX only supports using pthread_mutex_timedlock() with CLOCK_REALTIME, however that is
- * typically inappropriate, since that clock can change dramatically, causing the timeout to
+ * POSIX historically only supported using pthread_mutex_timedlock() with CLOCK_REALTIME, however
+ * that is typically inappropriate, since that clock can change dramatically, causing the timeout to
  * either expire earlier or much later than intended.
  * This function is added to use a timespec based on CLOCK_MONOTONIC that does not suffer
  * from this issue.
+ * Note that pthread_mutex_clocklock() allows specifying an arbitrary clock and has superseded this
+ * function.
  */
 int pthread_mutex_timedlock_monotonic_np(pthread_mutex_t* __mutex, const struct timespec* __timeout)
     __INTRODUCED_IN(28);
@@ -226,6 +234,10 @@ int pthread_rwlockattr_getkind_np(const pthread_rwlockattr_t* __attr, int* __kin
   __INTRODUCED_IN(23);
 int pthread_rwlockattr_setkind_np(pthread_rwlockattr_t* __attr, int __kind) __INTRODUCED_IN(23);
 
+int pthread_rwlock_clockrdlock(pthread_rwlock_t* __rwlock, clockid_t __clock,
+                               const struct timespec* __timeout) __INTRODUCED_IN(30);
+int pthread_rwlock_clockwrlock(pthread_rwlock_t* __rwlock, clockid_t __clock,
+                               const struct timespec* __timeout) __INTRODUCED_IN(30);
 int pthread_rwlock_destroy(pthread_rwlock_t* __rwlock);
 int pthread_rwlock_init(pthread_rwlock_t* __rwlock, const pthread_rwlockattr_t* __attr);
 int pthread_rwlock_rdlock(pthread_rwlock_t* __rwlock);
@@ -242,20 +254,20 @@ int pthread_rwlock_trywrlock(pthread_rwlock_t* __rwlock);
 int pthread_rwlock_unlock(pthread_rwlock_t* __rwlock);
 int pthread_rwlock_wrlock(pthread_rwlock_t* __rwlock);
 
-#if __ANDROID_API__ >= __ANDROID_API_N__
+#if __ANDROID_API__ >= 24
 int pthread_barrierattr_init(pthread_barrierattr_t* __attr) __INTRODUCED_IN(24);
 int pthread_barrierattr_destroy(pthread_barrierattr_t* __attr) __INTRODUCED_IN(24);
 int pthread_barrierattr_getpshared(const pthread_barrierattr_t* __attr, int* __shared) __INTRODUCED_IN(24);
 int pthread_barrierattr_setpshared(pthread_barrierattr_t* __attr, int __shared) __INTRODUCED_IN(24);
 #endif
 
-#if __ANDROID_API__ >= __ANDROID_API_N__
+#if __ANDROID_API__ >= 24
 int pthread_barrier_init(pthread_barrier_t* __barrier, const pthread_barrierattr_t* __attr, unsigned __count) __INTRODUCED_IN(24);
 int pthread_barrier_destroy(pthread_barrier_t* __barrier) __INTRODUCED_IN(24);
 int pthread_barrier_wait(pthread_barrier_t* __barrier) __INTRODUCED_IN(24);
 #endif
 
-#if __ANDROID_API__ >= __ANDROID_API_N__
+#if __ANDROID_API__ >= 24
 int pthread_spin_destroy(pthread_spinlock_t* __spinlock) __INTRODUCED_IN(24);
 int pthread_spin_init(pthread_spinlock_t* __spinlock, int __shared) __INTRODUCED_IN(24);
 int pthread_spin_lock(pthread_spinlock_t* __spinlock) __INTRODUCED_IN(24);

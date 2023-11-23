@@ -17,16 +17,16 @@ int arch_auxiliary_core_up(u32 core_id, ulong boot_private_data)
 	if (!boot_private_data)
 		return -EINVAL;
 
-	stack = *(ulong *)boot_private_data;
-	pc = *(ulong *)(boot_private_data + 4);
+	stack = *(u32 *)boot_private_data;
+	pc = *(u32 *)(boot_private_data + 4);
 
 	/* Set the stack and pc to M4 bootROM */
 	writel(stack, M4_BOOTROM_BASE_ADDR);
 	writel(pc, M4_BOOTROM_BASE_ADDR + 4);
 
 	/* Enable M4 */
-#ifdef CONFIG_MX8M
-	call_imx_sip(IMX_SIP_SRC, IMX_SIP_SRC_M4_START, 0, 0);
+#ifdef CONFIG_IMX8M
+	call_imx_sip(IMX_SIP_SRC, IMX_SIP_SRC_M4_START, 0, 0, 0);
 #else
 	clrsetbits_le32(SRC_BASE_ADDR + SRC_M4_REG_OFFSET,
 			SRC_M4C_NON_SCLR_RST_MASK, SRC_M4_ENABLE_MASK);
@@ -37,8 +37,8 @@ int arch_auxiliary_core_up(u32 core_id, ulong boot_private_data)
 
 int arch_auxiliary_core_check_up(u32 core_id)
 {
-#ifdef CONFIG_MX8M
-	return call_imx_sip(IMX_SIP_SRC, IMX_SIP_SRC_M4_STARTED, 0, 0);
+#ifdef CONFIG_IMX8M
+	return call_imx_sip(IMX_SIP_SRC, IMX_SIP_SRC_M4_STARTED, 0, 0, 0);
 #else
 	unsigned int val;
 

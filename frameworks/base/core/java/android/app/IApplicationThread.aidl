@@ -30,6 +30,7 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ParceledListSlice;
 import android.content.pm.ProviderInfo;
+import android.content.pm.ProviderInfoList;
 import android.content.pm.ServiceInfo;
 import android.content.res.CompatibilityInfo;
 import android.content.res.Configuration;
@@ -66,14 +67,14 @@ oneway interface IApplicationThread {
     @UnsupportedAppUsage
     void scheduleStopService(IBinder token);
     void bindApplication(in String packageName, in ApplicationInfo info,
-            in List<ProviderInfo> providers, in ComponentName testName,
+            in ProviderInfoList providerList, in ComponentName testName,
             in ProfilerInfo profilerInfo, in Bundle testArguments,
             IInstrumentationWatcher testWatcher, IUiAutomationConnection uiAutomationConnection,
             int debugMode, boolean enableBinderTracking, boolean trackAllocation,
             boolean restrictedBackupMode, boolean persistent, in Configuration config,
             in CompatibilityInfo compatInfo, in Map services,
             in Bundle coreSettings, in String buildSerial, in AutofillOptions autofillOptions,
-            in ContentCaptureOptions contentCaptureOptions);
+            in ContentCaptureOptions contentCaptureOptions, in long[] disabledCompatChanges);
     void runIsolatedEntryPoint(in String entryPoint, in String[] entryPointArgs);
     void scheduleExit();
     void scheduleServiceArgs(IBinder token, in ParceledListSlice args);
@@ -91,7 +92,6 @@ oneway interface IApplicationThread {
             int resultCode, in String data, in Bundle extras, boolean ordered,
             boolean sticky, int sendingUser, int processState);
     void scheduleLowMemory();
-    void scheduleSleeping(IBinder token, boolean sleeping);
     void profilerControl(boolean start, in ProfilerInfo profilerInfo, int profileType);
     void setSchedulingGroup(int group);
     void scheduleCreateBackupAgent(in ApplicationInfo app, in CompatibilityInfo compatInfo,
@@ -119,6 +119,7 @@ oneway interface IApplicationThread {
             boolean dumpInfo, boolean dumpDalvik, boolean dumpSummaryOnly, boolean dumpUnreachable,
             in String[] args);
     void dumpGfxInfo(in ParcelFileDescriptor fd, in String[] args);
+    void dumpCacheInfo(in ParcelFileDescriptor fd, in String[] args);
     void dumpProvider(in ParcelFileDescriptor fd, IBinder servicetoken,
             in String[] args);
     void dumpDbInfo(in ParcelFileDescriptor fd, in String[] args);
@@ -137,6 +138,7 @@ oneway interface IApplicationThread {
             IVoiceInteractor voiceInteractor);
     void handleTrustStorageUpdate();
     void attachAgent(String path);
+    void attachStartupAgents(String dataDir);
     void scheduleApplicationInfoChanged(in ApplicationInfo ai);
     void setNetworkBlockSeq(long procStateSeq);
     void scheduleTransaction(in ClientTransaction transaction);

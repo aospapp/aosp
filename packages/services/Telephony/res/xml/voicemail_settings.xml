@@ -15,7 +15,7 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:phone="http://schemas.android.com/apk/res/com.android.phone"
+    xmlns:phone="http://schemas.android.com/apk/res-auto"
     android:title="@string/voicemail">
 
     <com.android.phone.settings.VoicemailProviderListPreference

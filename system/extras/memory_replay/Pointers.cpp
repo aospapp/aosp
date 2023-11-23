@@ -32,12 +32,12 @@ Pointers::Pointers(size_t max_allocs) {
   // Align to a page.
   pointers_size_ = (max_allocs * 4 * sizeof(pointer_data) + pagesize - 1) & ~(pagesize - 1);
   max_pointers_ = pointers_size_ / sizeof(pointer_data);
-  void* memory = mmap(nullptr, pointers_size_, PROT_READ | PROT_WRITE,
-                      MAP_ANON | MAP_PRIVATE, -1, 0);
+  void* memory =
+      mmap(nullptr, pointers_size_, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
   if (memory == MAP_FAILED) {
     err(1, "Unable to allocate data for pointer hash: %zu total_allocs\n", max_allocs);
   }
-  // Make sure that all of the PSS for this is counted right away.
+  // Set all of the pointers to be empty.
   memset(memory, 0, pointers_size_);
   pointers_ = reinterpret_cast<pointer_data*>(memory);
 }
@@ -74,7 +74,7 @@ void* Pointers::Remove(uintptr_t key_pointer) {
   return pointer;
 }
 
-pointer_data* Pointers::Find(uintptr_t key_pointer) {
+Pointers::pointer_data* Pointers::Find(uintptr_t key_pointer) {
   size_t index = GetHash(key_pointer);
   for (size_t entries = max_pointers_; entries != 0; entries--) {
     if (atomic_load(&pointers_[index].key_pointer) == key_pointer) {
@@ -87,7 +87,7 @@ pointer_data* Pointers::Find(uintptr_t key_pointer) {
   return nullptr;
 }
 
-pointer_data* Pointers::FindEmpty(uintptr_t key_pointer) {
+Pointers::pointer_data* Pointers::FindEmpty(uintptr_t key_pointer) {
   size_t index = GetHash(key_pointer);
   for (size_t entries = 0; entries < max_pointers_; entries++) {
     uintptr_t empty = 0;

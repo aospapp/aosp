@@ -104,12 +104,17 @@ public:
 	//! Check if test case is in supplied test case list.
 	bool							checkTestCaseName			(const char* caseName) const;
 
+	//! Check if test group passes the case fraction filter.
+	bool							checkCaseFraction			(int i, const std::string& testCaseName) const;
+
 private:
 	CaseListFilter												(const CaseListFilter&);	// not allowed!
 	CaseListFilter&					operator=					(const CaseListFilter&);	// not allowed!
 
 	CaseTreeNode*					m_caseTree;
 	de::MovePtr<const CasePaths>	m_casePaths;
+	std::vector<int>				m_caseFraction;
+	de::MovePtr<const CasePaths>	m_caseFractionMandatoryTests;
 };
 
 /*--------------------------------------------------------------------*//*!
@@ -228,6 +233,15 @@ public:
 
 	//! Enable RenderDoc frame markers (--deqp-renderdoc)
 	bool							isRenderDocEnabled			(void) const;
+
+	//! Get case list fraction
+	const std::vector<int>&			getCaseFraction				(void) const;
+
+	//! Get must-list filename
+	const char*						getCaseFractionMandatoryTests(void) const;
+
+	//! Get archive directory path
+	const char*						getArchiveDir				(void) const;
 
 	/*--------------------------------------------------------------------*//*!
 	 * \brief Creates case list filter

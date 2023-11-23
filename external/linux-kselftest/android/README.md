@@ -34,38 +34,44 @@ directories/files:
 * `external/linux-kselftest/android/kselftest_test_list.mk`: Lists all tests that will get pulled into VTS - VTS depends on this list.
 * `external/linux-kselftest/android/README`: Lists details on why particular tests are not enabled in Android.
 * `external/linux-kselftest/tools/testing/selftests`: Kselftest sources.
-* `test/vts-testcase/kernel/linux_kselftest/kselftest_config.py`: Lists the tests included in the staging and stable VTS kselftest suites (VtsKernelLinuxKselftest, VtsKernelLinuxKselftestStaging). If a test is not listed here then it will not be run by VTS.
+* `test/vts-testcase/kernel/linux_kselftest/testcases/`: tests to run in VTS kselftest suites are
+specified in each of the test XML file, e.g, vts_linux_kselftest_arm_32.xml contains tests for 32 bit ARM platform.
 
-To run VTS kselftest it must first be built. VTS is not device specific, you
-need not compile it specifically for the device you wish to run it on, assuming
+Running Kselftest through atest
+-------------------------------
+You can run Kselftest tests with atest, which handles all the setup and build steps.
+
+To run all 32 bit Kselftest tests:
+* `atest vts_linux_kselftest_arm`
+
+To run all 64 bit Kselftest tests:
+* `atest vts_linux_kselftest_arm_64`
+
+To run a single test:
+* `atest vts_linux_kselftest_arm_64:timers_valid-adjtimex_arm_64`
+
+Running Kselftest through VTS
+-----------------------------
+To run VTS kselftest through VTS, it must first be built. VTS is not device specific,
+you need not compile it specifically for the device you wish to run it on, assuming
 it is the same architecture.
 * `. build/envsetup.sh`
 * `lunch`
 * `make -j vts`
 
-Before running VTS ensure your host has the required prerequisites (this need
-only be done once):
-* `. test/vts/script/setup.sh`
-
-Then open vts-tradefed and run the VTS stable set:
+Then open vts-tradefed and run the VTS tests (64 bit ARM platform as an example):
 * `vts-tradefed`
-* `vts-tf > run vts-kernel -m VtsKernelLinuxKselftest`
+* `vts-tf > run vts-kernel -m vts_linux_kselftest_arm_64`
 
 If you regularly work with multiple devices it may be useful to specify the
 specific device you wish to run VTS on via the serial number:
-* `vts-tf > run vts-kernel -m VtsKernelLinuxKselftest -s 000123456789`
+* `vts-tf > run vts-kernel -m vts_linux_kselftest_arm_64 -s 000123456789`
 
-Or we can run the staging set:
-* `vts-tf > run vts-kernel -m VtsKernelLinuxKselftestStaging`
+Or a specific test:
+* `vts-tf > run vts-kernel -m vts_linux_kselftest_arm_64 -t net_socket`
 
-Or a specific test within the stable set:
-* `vts-tf > run vts-kernel -m VtsKernelLinuxKselftest -t net_socket`
-
-Maybe several:
-* `vts-tf > run vts-kernel -m VtsKernelLinuxKselftest -t net_socket,timers_posix_timers`
-
-Running Kselftest Faster
-------------------------
+Running Kselftest Directly
+--------------------------
 
 Running kselftest tests within VTS can be quite cumbersome, especially if you
 are iterating a lot trying to debug something. Build and run kselftest tests
@@ -95,6 +101,10 @@ aware of what the tests will do and are okay with it. These tests may
 destabilize your box or cause data loss. If you need to run tests on an x86
 platform and are unsure if they are safe you should run them in emulation, in a
 virtualized environment, or on a dedicated development x86 platform.
+
+To run Kselftest tests for x86 platform, you can do:
+* `atest vts_linux_kselftest_x86`
+* `atest vts_linux_kselftest_x86_64`
 
 Sending Fixes Upstream
 ----------------------
@@ -143,6 +153,10 @@ To merge in a new upstream version of kselftest:
 3. Apply the patches in android/patches/, resolving conflicts as required.
 4. Test on all supported kernel versions, ensuring that any tests currently enabled in VTS do not generate new failures.
 5. Commit the merge.
+
+If the runtime of kselftest changes significantly be sure to update the runtime-hint and test-timeout parameters to VTS in
+test config files under
+`test/vts-testcase/kernel/linux_kselftest/testcases/`.
 
 Notes on Individual Tests
 -------------------------

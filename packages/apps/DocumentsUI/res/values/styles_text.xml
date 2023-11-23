@@ -36,9 +36,14 @@
     </style>
 
     <style name="AppsItemText">
-        <item name="android:textColor">?android:attr/textColorSecondary</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="android:textSize">12sp</item>
         <item name="fontFamily">@string/config_fontFamily</item>
+    </style>
+
+    <style name="AppsItemSubText">
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
+        <item name="android:textSize">11sp</item>
     </style>
 
     <style name="AutoCompleteText" parent="@style/TextAppearance.AppCompat.Medium">
@@ -50,12 +55,23 @@
         <item name="android:textSize">14sp</item>
     </style>
 
+    <style name="ActionModeTitle" parent="@style/ToolbarTitle">
+        <item name="android:textSize">@dimen/action_mode_text_size</item>
+    </style>
+
     <style name="ToolbarTitle" parent="@android:style/TextAppearance.Material.Title">
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
     <style name="DrawerMenuTitle" parent="@android:style/TextAppearance.Material.Title">
         <item name="android:textSize">24sp</item>
+        <item name="fontFamily">@string/config_fontFamilyMedium</item>
+    </style>
+
+    <style name="DrawerMenuHeader" parent="@android:style/TextAppearance.Material.Subhead">
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textSize">11sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
@@ -77,6 +93,38 @@
     <style name="MaterialButtonTextAppearance" parent="@style/TextAppearance.MaterialComponents.Button">
         <item name="android:textAllCaps">@bool/config_button_all_caps</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
+    </style>
+
+    <style name="BreadcrumbText" parent="@style/TextAppearance.Widget.AppCompat.Toolbar.Subtitle">
+        <item name="android:textColor">?android:attr/colorControlNormal</item>
+        <item name="android:textSize">14sp</item>
+        <item name="fontFamily">@string/config_fontFamilyMedium</item>
+    </style>
+
+    <style name="EmptyStateTitleText">
+        <item name="android:textColor">@color/empty_state_text</item>
+        <item name="android:textSize">14sp</item>
+        <item name="fontFamily">@string/config_fontFamilyMedium</item>
+    </style>
+
+    <style name="EmptyStateMessageText">
+        <item name="android:textColor">@color/empty_state_text</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="EmptyStateButtonTextAppearance">
+        <item name="android:textColor">@color/cross_profile_button_text_color</item>
+        <item name="android:textSize">14sp</item>
+        <item name="fontFamily">@string/config_fontFamilyMedium</item>
+    </style>
+
+    <style name="TabTextAppearance" parent="@android:style/TextAppearance.DeviceDefault.Medium">
+        <item name="android:textSize">14sp</item>
+        <item name="fontFamily">@string/config_fontFamilyMedium</item>
+    </style>
+
+    <style name="ItemDocListCaptionText" parent="@android:style/TextAppearance.Material.Caption">
+        <item name="android:textColor">@color/doc_list_item_subtitle_color</item>
     </style>
 
 </resources>

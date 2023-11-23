@@ -124,3 +124,20 @@ class CfmFacadeNativeUnitTest(unittest.TestCase):
         self.cfm_facade.reboot_device_with_chrome_api()
         dummy_ctx.ExecuteJavaScript.assert_called_with(
             'chrome.runtime.restart();')
+
+    @mock.patch.object(cfm_facade_native, 'kiosk_utils')
+    def test_large_integers_in_media_info_data_points(self, mock_kiosk_utils):
+        hotrod_ctx = create_mock_context('www.qbc?screen=%s' % self.screen)
+        mock_kiosk_utils.get_webview_contexts.return_value = [hotrod_ctx]
+        hotrod_ctx.EvaluateJavaScript.return_value = [{
+                'a': 123,
+                'b': {
+                        'c': 2**31 - 1,
+                        'd': 2**31
+                }
+        }, [-123]]
+        data_points = self.cfm_facade.get_media_info_data_points()
+        self.assertIsInstance(data_points[0]['a'], int)
+        self.assertIsInstance(data_points[0]['b']['c'], int)
+        self.assertIsInstance(data_points[0]['b']['d'], float)
+        self.assertIsInstance(data_points[1][0], int)

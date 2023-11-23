@@ -21,5 +21,8 @@
     <style name="Theme.Settings.NoActionBar">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
+        <item name="android:windowSoftInputMode">adjustPan</item>
     </style>
+
+    <style name="Theme.CarSettings" parent="@style/Theme.CarUi.WithToolbar"/>
 </resources>

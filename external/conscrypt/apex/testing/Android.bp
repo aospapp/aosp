@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-apex {
+apex_test {
     name: "test_com.android.conscrypt",
+    visibility: [
+        "//system/apex/tests",
+    ],
     defaults: ["com.android.conscrypt-defaults"],
     manifest: "test_apex_manifest.json",
-    file_contexts: "com.android.conscrypt",
+    file_contexts: ":com.android.conscrypt-file_contexts",
     // Test APEX, should never be installed
-    installable: false
+    installable: false,
 }

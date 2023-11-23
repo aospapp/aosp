@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python2 -u
 # Copyright 2007-2008 Martin J. Bligh <mbligh@google.com>, Google Inc.
 # Released under the GPL v2
 
@@ -383,7 +383,6 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
         if use_ssp and results:
             correct_results_folder_permission(results)
 
-        # TODO (sbasi) - remove the time.sleep when crbug.com/302815 is solved.
         # This sleep allows the pending output to be logged before the kill
         # signal is sent.
         time.sleep(.1)
@@ -395,8 +394,10 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
                 container = bucket.get_container(container_id)
                 if container:
                     container.destroy()
+                    logging.debug("Container %s destroyed.", container_id)
                 else:
                     logging.debug('Container %s is not found.', container_id)
+                    bucket.scrub_container_location(container_id)
             except:
                 # Handle any exception so the autoserv process can be aborted.
                 logging.exception('Failed to destroy container %s.',
@@ -498,6 +499,12 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     if group_name and len(machines) < 2:
         parser.parser.error('-G %r may only be supplied with more than one '
                             'machine.' % group_name)
+
+    logging.debug("Parser.args is %r", parser.args)
+    try:
+      logging.debug("Parser.options.args is %r", parser.options.args)
+    except AttributeError:
+      logging.debug("No Parser.options.args.")
 
     job_kwargs = {
             'control': control,
@@ -727,6 +734,7 @@ def main():
             no_console_prefix=parser.options.no_console_prefix)
 
     logging.debug('autoserv is running in drone %s.', socket.gethostname())
+    logging.debug('autoserv environment: %r', os.environ)
     logging.debug('autoserv command was: %s', ' '.join(sys.argv))
     logging.debug('autoserv parsed options: %s', parser.options)
 

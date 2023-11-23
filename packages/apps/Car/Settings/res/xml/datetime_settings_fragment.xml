@@ -18,7 +18,8 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:settings="http://schemas.android.com/apk/res-auto"
-    android:title="@string/date_and_time_settings_title">
+    android:title="@string/date_and_time_settings_title"
+    android:key="@string/psk_datetime_settings">
     <SwitchPreference
         android:key="@string/pk_auto_datetime_switch"
         android:summary="@string/date_time_auto_summary"

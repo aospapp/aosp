@@ -19,6 +19,7 @@ package com.android.mediaframeworktest.unit;
 import static android.media.MediaFile.getFormatCode;
 import static android.media.MediaFile.getMimeType;
 import static android.media.MediaFile.isAudioMimeType;
+import static android.media.MediaFile.isDocumentMimeType;
 import static android.media.MediaFile.isImageMimeType;
 import static android.media.MediaFile.isPlayListMimeType;
 import static android.media.MediaFile.isVideoMimeType;
@@ -31,7 +32,7 @@ import android.mtp.MtpConstants;
 
 import androidx.test.runner.AndroidJUnit4;
 
-import libcore.net.MimeUtils;
+import libcore.content.type.MimeMap;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -83,11 +84,23 @@ public class MediaFileTest {
 
     @Test
     public void testPlayList() throws Exception {
-        assertTrue(isPlayListMimeType(MimeUtils.guessMimeTypeFromExtension("pls")));
-        assertTrue(isPlayListMimeType(MimeUtils.guessMimeTypeFromExtension("wpl")));
-        assertTrue(isPlayListMimeType(MimeUtils.guessMimeTypeFromExtension("m3u")));
-        assertTrue(isPlayListMimeType(MimeUtils.guessMimeTypeFromExtension("m3u8")));
-        assertTrue(isPlayListMimeType(MimeUtils.guessMimeTypeFromExtension("asf")));
+        MimeMap mimeMap = MimeMap.getDefault();
+        assertTrue(isPlayListMimeType(mimeMap.guessMimeTypeFromExtension("pls")));
+        assertTrue(isPlayListMimeType(mimeMap.guessMimeTypeFromExtension("wpl")));
+        assertTrue(isPlayListMimeType(mimeMap.guessMimeTypeFromExtension("m3u")));
+        assertTrue(isPlayListMimeType(mimeMap.guessMimeTypeFromExtension("m3u8")));
+    }
+
+    @Test
+    public void testDocument() throws Exception {
+        assertTrue(isDocumentMimeType("text/csv"));
+        assertTrue(isDocumentMimeType("text/plain"));
+        assertTrue(isDocumentMimeType("application/pdf"));
+        assertTrue(isDocumentMimeType("application/msword"));
+        assertTrue(isDocumentMimeType("application/vnd.ms-excel.addin.macroEnabled.12"));
+        assertTrue(isDocumentMimeType("application/vnd.ms-powerpoint.addin.macroEnabled.12"));
+        assertTrue(isDocumentMimeType("application/vnd.ms-word.document.macroEnabled.12"));
+        assertFalse(isDocumentMimeType("audio/mpeg"));
     }
 
     @Test

@@ -16,9 +16,10 @@
 
 package com.android.server.connectivity.ipmemorystore;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.net.ipmemorystore.Blob;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /** {@hide} */
 public class Utils {

@@ -17,16 +17,16 @@
 #define LOG_TAG "DevicesFactoryHalHybrid"
 //#define LOG_NDEBUG 0
 
+#include "DevicesFactoryHalHidl.h"
 #include "DevicesFactoryHalHybrid.h"
 #include "DevicesFactoryHalLocal.h"
-#include "DevicesFactoryHalHidl.h"
 
 namespace android {
 namespace CPP_VERSION {
 
-DevicesFactoryHalHybrid::DevicesFactoryHalHybrid()
+DevicesFactoryHalHybrid::DevicesFactoryHalHybrid(sp<IDevicesFactory> hidlFactory)
         : mLocalFactory(new DevicesFactoryHalLocal()),
-          mHidlFactory(new DevicesFactoryHalHidl()) {
+          mHidlFactory(new DevicesFactoryHalHidl(hidlFactory)) {
 }
 
 status_t DevicesFactoryHalHybrid::openDevice(const char *name, sp<DeviceHalInterface> *device) {
@@ -37,5 +37,25 @@ status_t DevicesFactoryHalHybrid::openDevice(const char *name, sp<DeviceHalInter
     return mLocalFactory->openDevice(name, device);
 }
 
+status_t DevicesFactoryHalHybrid::getHalPids(std::vector<pid_t> *pids) {
+    if (mHidlFactory != 0) {
+        return mHidlFactory->getHalPids(pids);
+    }
+    return INVALID_OPERATION;
+}
+
+status_t DevicesFactoryHalHybrid::setCallbackOnce(sp<DevicesFactoryHalCallback> callback) {
+    if (mHidlFactory) {
+        return mHidlFactory->setCallbackOnce(callback);
+    }
+    return INVALID_OPERATION;
+}
+
 } // namespace CPP_VERSION
+
+extern "C" __attribute__((visibility("default"))) void* createIDevicesFactory() {
+    auto service = hardware::audio::CPP_VERSION::IDevicesFactory::getService();
+    return service ? new CPP_VERSION::DevicesFactoryHalHybrid(service) : nullptr;
+}
+
 } // namespace android

@@ -16,7 +16,6 @@
 
 package com.android.server.wifi.hotspot2;
 
-import android.os.Environment;
 import android.util.Log;
 
 import java.io.IOException;
@@ -32,10 +31,8 @@ import java.util.Set;
  */
 public class WfaKeyStore {
     private static final String TAG = "PasspointWfaKeyStore";
-    // The WFA Root certs are checked in to /system/ca-certificates/cacerts_wfa
-    // The location on device is configured in the corresponding Android.mk
-    private static final String DEFAULT_WFA_CERT_DIR =
-            Environment.getRootDirectory() + "/etc/security/cacerts_wfa";
+    /* package */ static final String DEFAULT_WFA_CERT_DIR =
+            "/apex/com.android.wifi/etc/security/cacerts_wfa";
 
     private boolean mVerboseLoggingEnabled = false;
     private KeyStore mKeyStore = null;

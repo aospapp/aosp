@@ -49,6 +49,7 @@ static void U_CALLCONV
 strprepProfileLineFn(void *context,
               char *fields[][2], int32_t fieldCount,
               UErrorCode *pErrorCode) {
+    (void)fieldCount; // suppress compiler warnings about unused variable
     uint32_t mapping[40];
     char *end, *map;
     uint32_t code;
@@ -273,20 +274,11 @@ compareFlagsForRange(UStringPrepProfile* data,
 
 void
 doStringPrepTest(const char* binFileName, const char* txtFileName, int32_t options, UErrorCode* errorCode){
-
+    (void)options; // suppress compiler warnings about unused variable
     const char *testdatapath = loadTestData(errorCode);
-    const char *srcdatapath = NULL;
-    const char *relativepath = NULL;
+    const char *srcdatapath = ctest_testDataDir();
     char *filename = NULL;
     UStringPrepProfile* profile = NULL;
-
-#ifdef U_TOPSRCDIR
-    srcdatapath = U_TOPSRCDIR;
-    relativepath = U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
-#else
-    srcdatapath = ctest_dataOutDir();
-    relativepath = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
-#endif
 
     profile = usprep_open(testdatapath, binFileName, errorCode);
 
@@ -297,10 +289,9 @@ doStringPrepTest(const char* binFileName, const char* txtFileName, int32_t optio
         log_err("Failed to load %s data file. Error: %s \n", binFileName, u_errorName(*errorCode));
         return;
     }
-    filename = (char*) malloc(strlen(srcdatapath)+strlen(relativepath)+strlen(txtFileName)+10 );
+    filename = (char*)malloc(strlen(srcdatapath) + strlen(txtFileName) + 1);
     /* open and load the txt file */
     strcpy(filename,srcdatapath);
-    strcat(filename,relativepath);
     strcat(filename,txtFileName);
 
     parseMappings(filename,profile, TRUE,errorCode);

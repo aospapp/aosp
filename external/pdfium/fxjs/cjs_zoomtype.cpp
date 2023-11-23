@@ -21,5 +21,5 @@ int CJS_Zoomtype::ObjDefnID = -1;
 void CJS_Zoomtype::DefineJSObjects(CFXJS_Engine* pEngine) {
   ObjDefnID =
       pEngine->DefineObj("zoomtype", FXJSOBJTYPE_STATIC, nullptr, nullptr);
-  DefineConsts(pEngine, ObjDefnID, ConstSpecs, FX_ArraySize(ConstSpecs));
+  DefineConsts(pEngine, ObjDefnID, ConstSpecs);
 }

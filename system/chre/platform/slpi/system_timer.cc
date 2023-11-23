@@ -55,13 +55,14 @@ bool SystemTimer::init() {
 }
 
 bool SystemTimer::set(SystemTimerCallback *callback, void *data,
-    Nanoseconds delay) {
+                      Nanoseconds delay) {
   bool wasSet = false;
   if (mInitialized) {
     mCallback = callback;
     mData = data;
-    SlpiTimerErrorType status = slpiTimerSet64(&mTimerHandle,
-        Microseconds(delay).getMicroseconds(), 0, SlpiTimerMicroUnit);
+    SlpiTimerErrorType status =
+        slpiTimerSet64(&mTimerHandle, Microseconds(delay).getMicroseconds(), 0,
+                       SlpiTimerMicroUnit);
     if (status != SLPI_TIMER_SUCCESS) {
       LOGE("Error setting timer %d", status);
     } else {
@@ -75,8 +76,8 @@ bool SystemTimer::set(SystemTimerCallback *callback, void *data,
 bool SystemTimer::cancel() {
   bool wasCancelled = false;
   if (mInitialized) {
-    SlpiTimerTickType ticksRemaining = slpiTimerClr64(&mTimerHandle,
-                                                      SlpiTimerTickUnit);
+    SlpiTimerTickType ticksRemaining =
+        slpiTimerClr64(&mTimerHandle, SlpiTimerTickUnit);
     wasCancelled = (ticksRemaining > 0);
   }
 
@@ -84,12 +85,13 @@ bool SystemTimer::cancel() {
 }
 
 bool SystemTimer::isActive() {
-  SlpiTimerTickType ticksRemaining = slpiTimerGet64(&mTimerHandle,
-                                                    SlpiTimerTickUnit);
+  SlpiTimerTickType ticksRemaining =
+      slpiTimerGet64(&mTimerHandle, SlpiTimerTickUnit);
   return (mInitialized && ticksRemaining > 0);
 }
 
-void SystemTimerBase::systemTimerNotifyCallback(SlpiTimerCallbackDataType data) {
+void SystemTimerBase::systemTimerNotifyCallback(
+    SlpiTimerCallbackDataType data) {
   SystemTimer *systemTimer = reinterpret_cast<SystemTimer *>(data);
   systemTimer->mCallback(systemTimer->mData);
 }

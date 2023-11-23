@@ -84,7 +84,8 @@ int cras_file_wait_process_event(struct cras_file_wait *file_wait,
 {
 	cras_file_wait_event_t file_wait_event;
 
-	syslog(LOG_DEBUG, "file_wait->watch_id: %d, event->wd: %d"
+	syslog(LOG_DEBUG,
+	       "file_wait->watch_id: %d, event->wd: %d"
 	       ", event->mask: %x, event->name: %s",
 	       file_wait->watch_id, event->wd, event->mask,
 	       event->len ? event->name : "");
@@ -105,9 +106,9 @@ int cras_file_wait_process_event(struct cras_file_wait *file_wait,
 		return 0;
 	}
 
-	if ((event->mask & (IN_CREATE|IN_MOVED_TO)) != 0)
+	if ((event->mask & (IN_CREATE | IN_MOVED_TO)) != 0)
 		file_wait_event = CRAS_FILE_WAIT_EVENT_CREATED;
-	else if ((event->mask & (IN_DELETE|IN_MOVED_FROM)) != 0)
+	else if ((event->mask & (IN_DELETE | IN_MOVED_FROM)) != 0)
 		file_wait_event = CRAS_FILE_WAIT_EVENT_DELETED;
 	else
 		return 0;
@@ -146,8 +147,8 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 			       CRAS_FILE_WAIT_EVENT_SIZE);
 		if (read_rc < 0) {
 			rc = -errno;
-			if ((rc == -EAGAIN || rc == -EWOULDBLOCK)
-			    && file_wait->watch_id < 0) {
+			if ((rc == -EAGAIN || rc == -EWOULDBLOCK) &&
+			    file_wait->watch_id < 0) {
 				/* Really nothing to read yet: we need to
 				 * setup a watch. */
 				rc = 0;
@@ -157,16 +158,19 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 		} else if (file_wait->watch_id < 0) {
 			/* Processing messages related to old watches. */
 			rc = 0;
-		} else while (rc == 0 && read_offset < read_rc) {
-			event = (struct inotify_event *)
-				(file_wait->event_buf + read_offset);
-			read_offset += sizeof(*event) + event->len;
-			rc = cras_file_wait_process_event(file_wait, event);
-		}
+		} else
+			while (rc == 0 && read_offset < read_rc) {
+				event = (struct inotify_event
+						 *)(file_wait->event_buf +
+						    read_offset);
+				read_offset += sizeof(*event) + event->len;
+				rc = cras_file_wait_process_event(file_wait,
+								  event);
+			}
 	}
 
 	/* Report errors from above here. */
-	if (rc != 0)
+	if (rc < 0)
 		return rc;
 
 	if (file_wait->watch_id >= 0) {
@@ -176,7 +180,7 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 
 	/* Initialize inotify if we haven't already. */
 	if (file_wait->inotify_fd < 0) {
-		file_wait->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+		file_wait->inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
 		if (file_wait->inotify_fd < 0)
 			return -errno;
 	}
@@ -199,7 +203,7 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 		/* Treat consecutive '/' characters as one. */
 		while (watch_dir_end > file_wait->watch_dir &&
 		       *(watch_dir_end - 1) == '/')
-		       watch_dir_end--;
+			watch_dir_end--;
 		watch_dir_len = watch_dir_end - file_wait->watch_dir;
 
 		if (watch_dir_len == 0) {
@@ -225,10 +229,9 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 			file_wait->flags &= ~CRAS_FILE_WAIT_FLAG_MOCK_RACE;
 		}
 
-		flags = IN_CREATE|IN_MOVED_TO|IN_DELETE|IN_MOVED_FROM;
-		file_wait->watch_id =
-			inotify_add_watch(file_wait->inotify_fd,
-					  file_wait->watch_dir, flags);
+		flags = IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM;
+		file_wait->watch_id = inotify_add_watch(
+			file_wait->inotify_fd, file_wait->watch_dir, flags);
 		if (file_wait->watch_id < 0) {
 			rc = -errno;
 			continue;
@@ -256,7 +259,7 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 
 		/* Start over again. */
 		rc = cras_file_wait_rm_watch(file_wait);
-		if (rc != 0)
+		if (rc < 0)
 			return rc;
 		rc = -ENOENT;
 		strcpy(file_wait->watch_dir, file_wait->file_path);
@@ -267,8 +270,7 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 	return rc;
 }
 
-int cras_file_wait_create(const char *file_path,
-			  cras_file_wait_flag_t flags,
+int cras_file_wait_create(const char *file_path, cras_file_wait_flag_t flags,
 			  cras_file_wait_callback_t callback,
 			  void *callback_context,
 			  struct cras_file_wait **file_wait_out)
@@ -283,8 +285,8 @@ int cras_file_wait_create(const char *file_path,
 
 	/* Create a struct cras_file_wait to track waiting for this file. */
 	file_path_len = strlen(file_path);
-	file_wait = (struct cras_file_wait *)
-		    calloc(1, sizeof(*file_wait) + ((file_path_len + 1) * 5));
+	file_wait = (struct cras_file_wait *)calloc(
+		1, sizeof(*file_wait) + ((file_path_len + 1) * 5));
 	if (!file_wait)
 		return -ENOMEM;
 	file_wait->callback = callback;
@@ -298,8 +300,8 @@ int cras_file_wait_create(const char *file_path,
 	 * watch_dir, and watch_file_name data are appended to the end of
 	 * our cras_file_wait structure. */
 	file_wait->file_path = (const char *)file_wait + sizeof(*file_wait);
-	file_wait->watch_path = (char *)file_wait->file_path +
-				file_path_len + 1;
+	file_wait->watch_path =
+		(char *)file_wait->file_path + file_path_len + 1;
 	file_wait->watch_dir = file_wait->watch_path + file_path_len + 1;
 	file_wait->watch_file_name = file_wait->watch_dir + file_path_len + 1;
 	memcpy((void *)file_wait->file_path, file_path, file_path_len + 1);
@@ -307,9 +309,11 @@ int cras_file_wait_create(const char *file_path,
 	/* Setup the first watch. If that fails unexpectedly, then we destroy
 	 * the file wait structure immediately. */
 	rc = cras_file_wait_dispatch(file_wait);
-	if (rc != 0)
+	if (rc < 0) {
 		cras_file_wait_destroy(file_wait);
-	else
-		*file_wait_out = file_wait;
-	return rc;
+		return rc;
+	}
+
+	*file_wait_out = file_wait;
+	return 0;
 }

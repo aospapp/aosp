@@ -48,8 +48,8 @@ constexpr uint32_t TEST_TAG = 0xFF0F0F0F;
 constexpr uint32_t SOCK_CLOSE_WAIT_US = 20 * 1000;
 constexpr uint32_t ENOBUFS_POLL_WAIT_US = 10 * 1000;
 
-using android::netdutils::Status;
-using android::netdutils::statusFromErrno;
+using android::base::Result;
+using android::base::ResultError;
 
 // This test set up a SkDestroyListener that is runing parallel with the production
 // SkDestroyListener. The test will create thousands of sockets and tag them on the
@@ -64,46 +64,46 @@ using android::netdutils::statusFromErrno;
 class NetlinkListenerTest : public testing::Test {
   protected:
     NetlinkListenerTest() {}
-    BpfMap<uint64_t, UidTag> mCookieTagMap;
+    BpfMap<uint64_t, UidTagValue> mCookieTagMap;
 
     void SetUp() {
         SKIP_IF_BPF_NOT_SUPPORTED;
 
-        mCookieTagMap.reset(android::bpf::mapRetrieve(COOKIE_TAG_MAP_PATH, 0));
+        mCookieTagMap.reset(android::bpf::mapRetrieveRW(COOKIE_TAG_MAP_PATH));
         ASSERT_TRUE(mCookieTagMap.isValid());
     }
 
     void TearDown() {
         SKIP_IF_BPF_NOT_SUPPORTED;
 
-        const auto deleteTestCookieEntries = [](const uint64_t& key, const UidTag& value,
-                                                BpfMap<uint64_t, UidTag>& map) {
+        const auto deleteTestCookieEntries = [](const uint64_t& key, const UidTagValue& value,
+                                                BpfMap<uint64_t, UidTagValue>& map) {
             if ((value.uid == TEST_UID) && (value.tag == TEST_TAG)) {
-                Status res = map.deleteValue(key);
-                if (isOk(res) || (res.code() == ENOENT)) {
-                    return android::netdutils::status::ok;
+                Result<void> res = map.deleteValue(key);
+                if (res.ok() || (res.error().code() == ENOENT)) {
+                    return Result<void>();
                 }
                 ALOGE("Failed to delete data(cookie = %" PRIu64 "): %s\n", key,
-                      strerror(res.code()));
+                      strerror(res.error().code()));
             }
             // Move forward to next cookie in the map.
-            return android::netdutils::status::ok;
+            return Result<void>();
         };
-        EXPECT_OK(mCookieTagMap.iterateWithValue(deleteTestCookieEntries));
+        EXPECT_RESULT_OK(mCookieTagMap.iterateWithValue(deleteTestCookieEntries));
     }
 
-    Status checkNoGarbageTagsExist() {
-        const auto checkGarbageTags = [](const uint64_t&, const UidTag& value,
-                                         const BpfMap<uint64_t, UidTag>&) {
+    Result<void> checkNoGarbageTagsExist() {
+        const auto checkGarbageTags = [](const uint64_t&, const UidTagValue& value,
+                                         const BpfMap<uint64_t, UidTagValue>&) -> Result<void> {
             if ((TEST_UID == value.uid) && (TEST_TAG == value.tag)) {
-                return statusFromErrno(EUCLEAN, "Closed socket is not untagged");
+                return ResultError("Closed socket is not untagged", EUCLEAN);
             }
-            return android::netdutils::status::ok;
+            return Result<void>();
         };
         return mCookieTagMap.iterateWithValue(checkGarbageTags);
     }
 
-    void checkMassiveSocketDestroy(const int totalNumber, bool expectError) {
+    void checkMassiveSocketDestroy(int totalNumber, bool expectError) {
         std::unique_ptr<android::net::NetlinkListenerInterface> skDestroyListener;
         auto result = android::net::TrafficController::makeSkDestroyListener();
         if (!isOk(result)) {
@@ -118,16 +118,24 @@ class NetlinkListenerTest : public testing::Test {
         int fds[totalNumber];
         for (int i = 0; i < totalNumber; i++) {
             fds[i] = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
-            EXPECT_LE(0, fds[i]);
+            // The likely reason for a failure is running out of available file descriptors.
+            EXPECT_LE(0, fds[i]) << i << " of " << totalNumber;
+            if (fds[i] < 0) {
+                // EXPECT_LE already failed above, so test case is a failure, but we don't
+                // want potentially tens of thousands of extra failures creating and then
+                // closing all these fds cluttering up the logs.
+                totalNumber = i;
+                break;
+            };
             qtaguid_tagSocket(fds[i], TEST_TAG, TEST_UID);
         }
 
-        // TODO: Use a separate thread that have it's own fd table so we can
-        // close socket faster by terminating that threads.
+        // TODO: Use a separate thread that has it's own fd table so we can
+        // close sockets even faster simply by terminating that thread.
         for (int i = 0; i < totalNumber; i++) {
             EXPECT_EQ(0, close(fds[i]));
         }
-        // wait a bit for netlink listner to handle all the messages.
+        // wait a bit for netlink listener to handle all the messages.
         usleep(SOCK_CLOSE_WAIT_US);
         if (expectError) {
             // If ENOBUFS triggered, check it only called into the handler once, ie.
@@ -137,7 +145,7 @@ class NetlinkListenerTest : public testing::Test {
             usleep(ENOBUFS_POLL_WAIT_US);
             EXPECT_EQ(currentErrorCount, rxErrorCount);
         } else {
-            EXPECT_TRUE(isOk(checkNoGarbageTagsExist()));
+            EXPECT_RESULT_OK(checkNoGarbageTagsExist());
             EXPECT_EQ(0, rxErrorCount);
         }
     }
@@ -153,5 +161,5 @@ TEST_F(NetlinkListenerTest, TestAllSocketUntagged) {
 TEST_F(NetlinkListenerTest, TestSkDestroyError) {
     SKIP_IF_BPF_NOT_SUPPORTED;
 
-    checkMassiveSocketDestroy(20000, true);
+    checkMassiveSocketDestroy(32500, true);
 }

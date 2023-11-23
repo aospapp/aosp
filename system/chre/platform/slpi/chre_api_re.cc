@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "chre_api/chre/re.h"
 #include "chre/platform/log.h"
-#include "chre/platform/slpi/debug_dump.h"
 #include "chre/util/macros.h"
+#include "chre_api/chre/re.h"
 
 #ifdef CHRE_USE_FARF_LOGGING
 inline void logToFarf(enum chreLogLevel level, const char *logStr) {
@@ -72,7 +71,7 @@ DLL_EXPORT void chreLog(enum chreLogLevel level, const char *formatStr, ...) {
   char logBuf[kDebugMaxLogEntrySize];
   vsnprintf(logBuf, sizeof(logBuf), formatStr, args);
   logToFarf(level, logBuf);
-#else  // CHRE_USE_FARF_LOGGING
+#else   // CHRE_USE_FARF_LOGGING
   ashVaLog(ASH_SOURCE_CHRE, chreLogLevelToAshLogLevel(level), formatStr, args);
 #endif  // CHRE_USE_FARF_LOGGING
   va_end(args);

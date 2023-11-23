@@ -38,12 +38,22 @@ namespace SpirVAssembly
 
 using namespace vk;
 
+std::string VariableLocation::toString() const
+{
+	return "set_" + de::toString(set) + "_binding_" + de::toString(binding);
+}
+
+std::string VariableLocation::toDescription() const
+{
+	return "Set " + de::toString(set) + " and Binding " + de::toString(binding);
+}
+
 bool is8BitStorageFeaturesSupported (const Context& context, Extension8BitStorageFeatures toCheck)
 {
 	VkPhysicalDevice8BitStorageFeaturesKHR extensionFeatures = context.get8BitStorageFeatures();
 
 	if ((toCheck & EXT8BITSTORAGEFEATURES_STORAGE_BUFFER) != 0 && extensionFeatures.storageBuffer8BitAccess == VK_FALSE)
-		TCU_FAIL("storageBuffer8BitAccess has to be supported");
+		return false;
 
 	if ((toCheck & EXT8BITSTORAGEFEATURES_UNIFORM_STORAGE_BUFFER) != 0 && extensionFeatures.uniformAndStorageBuffer8BitAccess == VK_FALSE)
 		return false;
@@ -143,7 +153,7 @@ bool is16BitStorageFeaturesSupported (const Context& context, Extension16BitStor
 
 bool isVariablePointersFeaturesSupported (const Context& context, ExtensionVariablePointersFeatures toCheck)
 {
-	const VkPhysicalDeviceVariablePointerFeatures& extensionFeatures = context.getVariablePointerFeatures();
+	const VkPhysicalDeviceVariablePointersFeatures& extensionFeatures = context.getVariablePointersFeatures();
 
 	if ((toCheck & EXTVARIABLEPOINTERSFEATURES_VARIABLE_POINTERS_STORAGEBUFFER) != 0 && extensionFeatures.variablePointersStorageBuffer == VK_FALSE)
 		return false;
@@ -156,7 +166,7 @@ bool isVariablePointersFeaturesSupported (const Context& context, ExtensionVaria
 
 bool isFloat16Int8FeaturesSupported (const Context& context, ExtensionFloat16Int8Features toCheck)
 {
-	const VkPhysicalDeviceFloat16Int8FeaturesKHR& extensionFeatures = context.getFloat16Int8Features();
+	const VkPhysicalDeviceShaderFloat16Int8Features& extensionFeatures = context.getShaderFloat16Int8Features();
 
 	if ((toCheck & EXTFLOAT16INT8FEATURES_FLOAT16) != 0 && extensionFeatures.shaderFloat16 == VK_FALSE)
 		return false;
@@ -167,21 +177,48 @@ bool isFloat16Int8FeaturesSupported (const Context& context, ExtensionFloat16Int
 	return true;
 }
 
+bool isVulkanMemoryModelFeaturesSupported (const Context& context, ExtensionVulkanMemoryModelFeatures toCheck)
+{
+	const VkPhysicalDeviceVulkanMemoryModelFeaturesKHR& extensionFeatures = context.getVulkanMemoryModelFeatures();
+
+	if ((toCheck & EXTVULKANMEMORYMODELFEATURES_ENABLE) != 0 && extensionFeatures.vulkanMemoryModel == VK_FALSE)
+		return false;
+
+	if ((toCheck & EXTVULKANMEMORYMODELFEATURES_DEVICESCOPE) != 0 && extensionFeatures.vulkanMemoryModelDeviceScope == VK_FALSE)
+		return false;
+
+	if ((toCheck & EXTVULKANMEMORYMODELFEATURES_AVAILABILITYVISIBILITYCHAINS) != 0 && extensionFeatures.vulkanMemoryModelAvailabilityVisibilityChains == VK_FALSE)
+		return false;
+
+	return true;
+}
+
 bool isFloatControlsFeaturesSupported (const Context& context, const ExtensionFloatControlsFeatures& toCheck)
 {
-	ExtensionFloatControlsFeatures refControls;
-	deMemset(&refControls, 0, sizeof(ExtensionFloatControlsFeatures));
-
-	// compare with all flags set to false to verify if any float control features are actualy requested by the test
-	if (deMemCmp(&toCheck, &refControls, sizeof(ExtensionFloatControlsFeatures)) == 0)
+	// if all flags are set to false then no float control features are actualy requested by the test
+	if ((toCheck.shaderSignedZeroInfNanPreserveFloat16 ||
+		 toCheck.shaderSignedZeroInfNanPreserveFloat32 ||
+		 toCheck.shaderSignedZeroInfNanPreserveFloat64 ||
+		 toCheck.shaderDenormPreserveFloat16 ||
+		 toCheck.shaderDenormPreserveFloat32 ||
+		 toCheck.shaderDenormPreserveFloat64 ||
+		 toCheck.shaderDenormFlushToZeroFloat16 ||
+		 toCheck.shaderDenormFlushToZeroFloat32 ||
+		 toCheck.shaderDenormFlushToZeroFloat64 ||
+		 toCheck.shaderRoundingModeRTEFloat16 ||
+		 toCheck.shaderRoundingModeRTEFloat32 ||
+		 toCheck.shaderRoundingModeRTEFloat64 ||
+		 toCheck.shaderRoundingModeRTZFloat16 ||
+		 toCheck.shaderRoundingModeRTZFloat32 ||
+		 toCheck.shaderRoundingModeRTZFloat64) == false)
 		return true;
 
 	// return false when float control features are requested and proper extension is not supported
-	const std::vector<std::string>& deviceExtensions = context.getDeviceExtensions();
-	if (!isDeviceExtensionSupported(context.getUsedApiVersion(), deviceExtensions, "VK_KHR_shader_float_controls"))
+	if (!context.isDeviceFunctionalitySupported("VK_KHR_shader_float_controls"))
 		return false;
 
 	// perform query to get supported float control properties
+	ExtensionFloatControlsFeatures refControls;
 	{
 		refControls.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES_KHR;
 		refControls.pNext = DE_NULL;
@@ -196,8 +233,23 @@ bool isFloatControlsFeaturesSupported (const Context& context, const ExtensionFl
 		instanceInterface.getPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
 	}
 
+	using FCIndependence = VkShaderFloatControlsIndependence;
+	FCIndependence fcInd32		= VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY_KHR;
+	FCIndependence fcIndAll		= VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL_KHR;
+	FCIndependence fcIndNone	= VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR;
+
+	bool requiredDenormBehaviorNotSupported =
+		((toCheck.denormBehaviorIndependence == fcIndAll) && (refControls.denormBehaviorIndependence != fcIndAll)) ||
+		((toCheck.denormBehaviorIndependence == fcInd32)  && (refControls.denormBehaviorIndependence == fcIndNone));
+
+	bool requiredRoundingModeNotSupported =
+		((toCheck.roundingModeIndependence == fcIndAll) && (refControls.roundingModeIndependence != fcIndAll)) ||
+		((toCheck.roundingModeIndependence == fcInd32)  && (refControls.roundingModeIndependence == fcIndNone));
+
 	// check if flags needed by the test are not supported by the device
 	bool requiredFeaturesNotSupported =
+		requiredDenormBehaviorNotSupported ||
+		requiredRoundingModeNotSupported ||
 		(toCheck.shaderDenormFlushToZeroFloat16			&& !refControls.shaderDenormFlushToZeroFloat16) ||
 		(toCheck.shaderDenormPreserveFloat16			&& !refControls.shaderDenormPreserveFloat16) ||
 		(toCheck.shaderRoundingModeRTEFloat16			&& !refControls.shaderRoundingModeRTEFloat16) ||
@@ -228,7 +280,10 @@ deUint32 getMinRequiredVulkanVersion (const SpirvVersion version)
 	case SPIRV_VERSION_1_1:
 	case SPIRV_VERSION_1_2:
 	case SPIRV_VERSION_1_3:
+	case SPIRV_VERSION_1_4:
 		return VK_API_VERSION_1_1;
+	case SPIRV_VERSION_1_5:
+		return VK_API_VERSION_1_2;
 	default:
 		DE_ASSERT(0);
 	}
@@ -597,6 +652,52 @@ std::vector<deFloat16> getFloat16s (de::Random& rnd, deUint32 count)
 		float16.push_back(rnd.getUint16());
 
 	return float16;
+}
+
+std::string getOpCapabilityShader()
+{
+	return	"OpCapability Shader\n";
+}
+
+std::string getUnusedEntryPoint()
+{
+	return	"OpEntryPoint Vertex %unused_func \"unused_func\"\n";
+}
+
+std::string getUnusedDecorations(const VariableLocation& location)
+{
+	return	"OpMemberDecorate %UnusedBufferType 0 Offset 0\n"
+            "OpMemberDecorate %UnusedBufferType 1 Offset 4\n"
+            "OpDecorate %UnusedBufferType BufferBlock\n"
+            "OpDecorate %unused_buffer DescriptorSet " + de::toString(location.set) + "\n"
+            "OpDecorate %unused_buffer Binding " + de::toString(location.binding) + "\n";
+}
+
+std::string getUnusedTypesAndConstants()
+{
+	return	"%c_f32_101 = OpConstant %f32 101\n"
+			"%c_i32_201 = OpConstant %i32 201\n"
+			"%UnusedBufferType = OpTypeStruct %f32 %i32\n"
+			"%unused_ptr_Uniform_UnusedBufferType = OpTypePointer Uniform %UnusedBufferType\n"
+			"%unused_ptr_Uniform_float = OpTypePointer Uniform %f32\n"
+			"%unused_ptr_Uniform_int = OpTypePointer Uniform %i32\n";
+}
+
+std::string getUnusedBuffer()
+{
+	return	"%unused_buffer = OpVariable %unused_ptr_Uniform_UnusedBufferType Uniform\n";
+}
+
+std::string getUnusedFunctionBody()
+{
+	return	"%unused_func = OpFunction %void None %voidf\n"
+			"%unused_func_label = OpLabel\n"
+			"%unused_out_float_ptr = OpAccessChain %unused_ptr_Uniform_float %unused_buffer %c_i32_0\n"
+            "OpStore %unused_out_float_ptr %c_f32_101\n"
+			"%unused_out_int_ptr = OpAccessChain %unused_ptr_Uniform_int %unused_buffer %c_i32_1\n"
+            "OpStore %unused_out_int_ptr %c_i32_201\n"
+            "OpReturn\n"
+            "OpFunctionEnd\n";
 }
 
 } // SpirVAssembly

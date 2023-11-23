@@ -17,43 +17,54 @@
 #ifndef ANDROID_SYSTEM_SYSTEM_SUSPEND_V1_0_H
 #define ANDROID_SYSTEM_SYSTEM_SUSPEND_V1_0_H
 
-#include "SuspendControlService.h"
-
+#include <android-base/result.h>
 #include <android-base/unique_fd.h>
 #include <android/system/suspend/1.0/ISystemSuspend.h>
 #include <hidl/HidlTransportSupport.h>
-#include <system/hardware/interfaces/suspend/1.0/default/SystemSuspendStats.pb.h>
 
 #include <condition_variable>
 #include <mutex>
 #include <string>
+
+#include "SuspendControlService.h"
+#include "WakeLockEntryList.h"
 
 namespace android {
 namespace system {
 namespace suspend {
 namespace V1_0 {
 
+using ::android::base::Result;
 using ::android::base::unique_fd;
-using ::android::hardware::hidl_death_recipient;
-using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
 using ::android::hardware::interfacesEqual;
 using ::android::hardware::Return;
-
-using TimestampType = uint64_t;
-using WakeLockIdType = std::string;
 
 using namespace std::chrono_literals;
 
 class SystemSuspend;
 
+struct SuspendStats {
+    int success = 0;
+    int fail = 0;
+    int failedFreeze = 0;
+    int failedPrepare = 0;
+    int failedSuspend = 0;
+    int failedSuspendLate = 0;
+    int failedSuspendNoirq = 0;
+    int failedResume = 0;
+    int failedResumeEarly = 0;
+    int failedResumeNoirq = 0;
+    std::string lastFailedDev;
+    int lastFailedErrno = 0;
+    std::string lastFailedStep;
+};
+
 std::string readFd(int fd);
-TimestampType getEpochTimeNow();
 
 class WakeLock : public IWakeLock {
    public:
-    WakeLock(SystemSuspend* systemSuspend, const WakeLockIdType& id, const std::string& name);
+    WakeLock(SystemSuspend* systemSuspend, const std::string& name, int pid);
     ~WakeLock();
 
     Return<void> release();
@@ -63,22 +74,26 @@ class WakeLock : public IWakeLock {
     std::once_flag mReleased;
 
     SystemSuspend* mSystemSuspend;
-    WakeLockIdType mId;
     std::string mName;
+    int mPid;
 };
 
 class SystemSuspend : public ISystemSuspend {
    public:
-    SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, size_t maxStatsEntries,
+    SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, unique_fd suspendStatsFd,
+                  size_t maxNativeStatsEntries, unique_fd kernelWakelockStatsFd,
                   std::chrono::milliseconds baseSleepTime,
                   const sp<SuspendControlService>& controlService, bool useSuspendCounter = true);
     Return<sp<IWakeLock>> acquireWakeLock(WakeLockType type, const hidl_string& name) override;
-    Return<void> debug(const hidl_handle& handle, const hidl_vec<hidl_string>& options) override;
     void incSuspendCounter(const std::string& name);
     void decSuspendCounter(const std::string& name);
-    void deleteWakeLockStatsEntry(WakeLockIdType id);
     bool enableAutosuspend();
     bool forceSuspend();
+
+    const WakeLockEntryList& getStatsList() const;
+    void updateWakeLockStatOnRelease(const std::string& name, int pid, TimestampType timeNow);
+    void updateStatsNow();
+    Result<SuspendStats> getSuspendStats();
 
    private:
     void initAutosuspend();
@@ -89,17 +104,7 @@ class SystemSuspend : public ISystemSuspend {
     unique_fd mWakeupCountFd;
     unique_fd mStateFd;
 
-    // mStats can be inconsistent with with mSuspendCounter since we use two separate locks to
-    // protect these. However, since mStats is only for debugging we prioritize performance.
-    // Never hold both locks at the same time to avoid deadlock.
-    std::mutex mStatsLock;
-    //  We don't want mStats to grow unboundedly in memory. This constant limits amount of
-    //  information mStats can collect on the device.
-    size_t mMaxStatsEntries;
-    // Used to evict the least recently used wake lock stats entry in case mMaxStatsEntries is
-    // reached.
-    std::map<TimestampType, WakeLockIdType> mLruWakeLockId;
-    SystemSuspendStats mStats;
+    unique_fd mSuspendStatsFd;
 
     // Amount of sleep time between consecutive iterations of the suspend loop.
     std::chrono::milliseconds mBaseSleepTime;
@@ -108,6 +113,8 @@ class SystemSuspend : public ISystemSuspend {
     void updateSleepTime(bool success);
 
     sp<SuspendControlService> mControlService;
+
+    WakeLockEntryList mStatsList;
 
     // If true, use mSuspendCounter to keep track of native wake locks. Otherwise, rely on
     // /sys/power/wake_lock interface to block suspend.

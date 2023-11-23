@@ -21,8 +21,11 @@ import static android.net.ConnectivityManager.NETID_UNSET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED;
 import static android.net.RouteInfo.RTN_THROW;
 import static android.net.RouteInfo.RTN_UNREACHABLE;
+
+import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.Manifest;
 import android.annotation.NonNull;
@@ -46,22 +49,33 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.net.ConnectivityManager;
 import android.net.INetworkManagementEventObserver;
+import android.net.Ikev2VpnProfile;
 import android.net.IpPrefix;
+import android.net.IpSecManager;
+import android.net.IpSecManager.IpSecTunnelInterface;
+import android.net.IpSecTransform;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.net.Network;
 import android.net.NetworkAgent;
+import android.net.NetworkAgentConfig;
 import android.net.NetworkCapabilities;
-import android.net.NetworkFactory;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
-import android.net.NetworkMisc;
-import android.net.NetworkUtils;
+import android.net.NetworkProvider;
+import android.net.NetworkRequest;
 import android.net.RouteInfo;
 import android.net.UidRange;
+import android.net.VpnManager;
 import android.net.VpnService;
+import android.net.ipsec.ike.ChildSessionCallback;
+import android.net.ipsec.ike.ChildSessionConfiguration;
+import android.net.ipsec.ike.ChildSessionParams;
+import android.net.ipsec.ike.IkeSession;
+import android.net.ipsec.ike.IkeSessionCallback;
+import android.net.ipsec.ike.IkeSessionParams;
 import android.os.Binder;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
@@ -95,7 +109,7 @@ import com.android.internal.net.VpnProfile;
 import com.android.internal.notification.SystemNotificationChannels;
 import com.android.internal.util.ArrayUtils;
 import com.android.server.ConnectivityService;
-import com.android.server.DeviceIdleController;
+import com.android.server.DeviceIdleInternal;
 import com.android.server.LocalServices;
 import com.android.server.net.BaseNetworkObserver;
 
@@ -110,16 +124,19 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -159,17 +176,30 @@ public class Vpn {
     // is actually O(n²)+O(n²).
     private static final int MAX_ROUTES_TO_EVALUATE = 150;
 
+    /**
+     * Largest profile size allowable for Platform VPNs.
+     *
+     * <p>The largest platform VPN profiles use IKEv2 RSA Certificate Authentication and have two
+     * X509Certificates, and one RSAPrivateKey. This should lead to a max size of 2x 12kB for the
+     * certificates, plus a reasonable upper bound on the private key of 32kB. The rest of the
+     * profile is expected to be negligible in size.
+     */
+    @VisibleForTesting static final int MAX_VPN_PROFILE_SIZE_BYTES = 1 << 17; // 128kB
+
     // TODO: create separate trackers for each unique VPN to support
     // automated reconnection
 
     private final Context mContext;
     private final NetworkInfo mNetworkInfo;
-    private String mPackage;
+    @VisibleForTesting protected String mPackage;
     private int mOwnerUID;
     private boolean mIsPackageTargetingAtLeastQ;
     private String mInterface;
     private Connection mConnection;
-    private LegacyVpnRunner mLegacyVpnRunner;
+
+    /** Tracks the runners for all VPN types managed by the platform (eg. LegacyVpn, PlatformVpn) */
+    @VisibleForTesting protected VpnRunner mVpnRunner;
+
     private PendingIntent mStatusIntent;
     private volatile boolean mEnableTeardown = true;
     private final INetworkManagementService mNetd;
@@ -181,19 +211,20 @@ public class Vpn {
     @VisibleForTesting
     protected final NetworkCapabilities mNetworkCapabilities;
     private final SystemServices mSystemServices;
+    private final Ikev2SessionCreator mIkev2SessionCreator;
 
     /**
      * Whether to keep the connection active after rebooting, or upgrading or reinstalling. This
      * only applies to {@link VpnService} connections.
      */
-    private boolean mAlwaysOn = false;
+    @VisibleForTesting protected boolean mAlwaysOn = false;
 
     /**
      * Whether to disable traffic outside of this VPN even when the VPN is not connected. System
      * apps can still bypass by choosing explicit networks. Has no effect if {@link mAlwaysOn} is
-     * not set.
+     * not set. Applies to all types of VPNs.
      */
-    private boolean mLockdown = false;
+    @VisibleForTesting protected boolean mLockdown = false;
 
     /**
      * Set of packages in addition to the VPN app itself that can access the network directly when
@@ -201,30 +232,42 @@ public class Vpn {
      */
     private @NonNull List<String> mLockdownWhitelist = Collections.emptyList();
 
-    /**
-     * List of UIDs for which networking should be blocked until VPN is ready, during brief periods
-     * when VPN is not running. For example, during system startup or after a crash.
+     /**
+     * A memory of what UIDs this class told netd to block for the lockdown feature.
+     *
+     * Netd maintains ranges of UIDs for which network should be restricted to using only the VPN
+     * for the lockdown feature. This class manages these UIDs and sends this information to netd.
+     * To avoid sending the same commands multiple times (which would be wasteful) and to be able
+     * to revoke lists (when the rules should change), it's simplest to keep this cache of what
+     * netd knows, so it can be diffed and sent most efficiently.
+     *
+     * The contents of this list must only be changed when updating the UIDs lists with netd,
+     * since it needs to keep in sync with the picture netd has of them.
+     *
      * @see mLockdown
      */
     @GuardedBy("this")
-    private Set<UidRange> mBlockedUsers = new ArraySet<>();
+    private final Set<UidRange> mBlockedUidsAsToldToNetd = new ArraySet<>();
 
     // Handle of the user initiating VPN.
     private final int mUserHandle;
 
     public Vpn(Looper looper, Context context, INetworkManagementService netService,
-            @UserIdInt int userHandle) {
-        this(looper, context, netService, userHandle, new SystemServices(context));
+            @UserIdInt int userHandle, @NonNull KeyStore keyStore) {
+        this(looper, context, netService, userHandle, keyStore,
+                new SystemServices(context), new Ikev2SessionCreator());
     }
 
     @VisibleForTesting
     protected Vpn(Looper looper, Context context, INetworkManagementService netService,
-            int userHandle, SystemServices systemServices) {
+            int userHandle, @NonNull KeyStore keyStore, SystemServices systemServices,
+            Ikev2SessionCreator ikev2SessionCreator) {
         mContext = context;
         mNetd = netService;
         mUserHandle = userHandle;
         mLooper = looper;
         mSystemServices = systemServices;
+        mIkev2SessionCreator = ikev2SessionCreator;
 
         mPackage = VpnConfig.LEGACY_VPN;
         mOwnerUID = getAppUid(mPackage, mUserHandle);
@@ -243,7 +286,7 @@ public class Vpn {
         mNetworkCapabilities.removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN);
         updateCapabilities(null /* defaultNetwork */);
 
-        loadAlwaysOnPackage();
+        loadAlwaysOnPackage(keyStore);
     }
 
     /**
@@ -256,7 +299,7 @@ public class Vpn {
     }
 
     /**
-     * Update current state, dispaching event to listeners.
+     * Update current state, dispatching event to listeners.
      */
     @VisibleForTesting
     protected void updateState(DetailedState detailedState, String reason) {
@@ -276,8 +319,7 @@ public class Vpn {
      *
      * @param defaultNetwork underlying network for VPNs following platform's default
      */
-    public synchronized NetworkCapabilities updateCapabilities(
-            @Nullable Network defaultNetwork) {
+    public synchronized NetworkCapabilities updateCapabilities(@Nullable Network defaultNetwork) {
         if (mConfig == null) {
             // VPN is not running.
             return null;
@@ -309,11 +351,10 @@ public class Vpn {
         int[] transportTypes = new int[] { NetworkCapabilities.TRANSPORT_VPN };
         int downKbps = NetworkCapabilities.LINK_BANDWIDTH_UNSPECIFIED;
         int upKbps = NetworkCapabilities.LINK_BANDWIDTH_UNSPECIFIED;
-        // VPN's meteredness is OR'd with isAlwaysMetered and meteredness of its underlying
-        // networks.
-        boolean metered = isAlwaysMetered;
-        boolean roaming = false;
-        boolean congested = false;
+        boolean metered = isAlwaysMetered; // metered if any underlying is metered, or alwaysMetered
+        boolean roaming = false; // roaming if any underlying is roaming
+        boolean congested = false; // congested if any underlying is congested
+        boolean suspended = true; // suspended if all underlying are suspended
 
         boolean hadUnderlyingNetworks = false;
         if (null != underlyingNetworks) {
@@ -326,15 +367,24 @@ public class Vpn {
                     transportTypes = ArrayUtils.appendInt(transportTypes, underlyingType);
                 }
 
-                // When we have multiple networks, we have to assume the
-                // worst-case link speed and restrictions.
+                // Merge capabilities of this underlying network. For bandwidth, assume the
+                // worst case.
                 downKbps = NetworkCapabilities.minBandwidth(downKbps,
                         underlyingCaps.getLinkDownstreamBandwidthKbps());
                 upKbps = NetworkCapabilities.minBandwidth(upKbps,
                         underlyingCaps.getLinkUpstreamBandwidthKbps());
+                // If this underlying network is metered, the VPN is metered (it may cost money
+                // to send packets on this network).
                 metered |= !underlyingCaps.hasCapability(NET_CAPABILITY_NOT_METERED);
+                // If this underlying network is roaming, the VPN is roaming (the billing structure
+                // is different than the usual, local one).
                 roaming |= !underlyingCaps.hasCapability(NET_CAPABILITY_NOT_ROAMING);
+                // If this underlying network is congested, the VPN is congested (the current
+                // condition of the network affects the performance of this network).
                 congested |= !underlyingCaps.hasCapability(NET_CAPABILITY_NOT_CONGESTED);
+                // If this network is not suspended, the VPN is not suspended (the VPN
+                // is able to transfer some data).
+                suspended &= !underlyingCaps.hasCapability(NET_CAPABILITY_NOT_SUSPENDED);
             }
         }
         if (!hadUnderlyingNetworks) {
@@ -342,6 +392,7 @@ public class Vpn {
             metered = true;
             roaming = false;
             congested = false;
+            suspended = false;
         }
 
         caps.setTransportTypes(transportTypes);
@@ -350,6 +401,7 @@ public class Vpn {
         caps.setCapability(NET_CAPABILITY_NOT_METERED, !metered);
         caps.setCapability(NET_CAPABILITY_NOT_ROAMING, !roaming);
         caps.setCapability(NET_CAPABILITY_NOT_CONGESTED, !congested);
+        caps.setCapability(NET_CAPABILITY_NOT_SUSPENDED, !suspended);
     }
 
     /**
@@ -395,21 +447,34 @@ public class Vpn {
     /**
      * Checks if a VPN app supports always-on mode.
      *
-     * In order to support the always-on feature, an app has to
+     * <p>In order to support the always-on feature, an app has to either have an installed
+     * PlatformVpnProfile, or:
+     *
      * <ul>
-     *     <li>target {@link VERSION_CODES#N API 24} or above, and
-     *     <li>not opt out through the {@link VpnService#SERVICE_META_DATA_SUPPORTS_ALWAYS_ON}
-     *         meta-data field.
+     *   <li>target {@link VERSION_CODES#N API 24} or above, and
+     *   <li>not opt out through the {@link VpnService#SERVICE_META_DATA_SUPPORTS_ALWAYS_ON}
+     *       meta-data field.
      * </ul>
      *
      * @param packageName the canonical package name of the VPN app
+     * @param keyStore the keystore instance to use for checking if the app has a Platform VPN
+     *     profile installed.
      * @return {@code true} if and only if the VPN app exists and supports always-on mode
      */
-    public boolean isAlwaysOnPackageSupported(String packageName) {
+    public boolean isAlwaysOnPackageSupported(String packageName, @NonNull KeyStore keyStore) {
         enforceSettingsPermission();
 
         if (packageName == null) {
             return false;
+        }
+
+        final long oldId = Binder.clearCallingIdentity();
+        try {
+            if (getVpnProfilePrivileged(packageName, keyStore) != null) {
+                return true;
+            }
+        } finally {
+            Binder.restoreCallingIdentity(oldId);
         }
 
         PackageManager pm = mContext.getPackageManager();
@@ -443,27 +508,31 @@ public class Vpn {
     }
 
     /**
-     * Configures an always-on VPN connection through a specific application.
-     * This connection is automatically granted and persisted after a reboot.
+     * Configures an always-on VPN connection through a specific application. This connection is
+     * automatically granted and persisted after a reboot.
      *
-     * <p>The designated package should exist and declare a {@link VpnService} in its
-     *    manifest guarded by {@link android.Manifest.permission.BIND_VPN_SERVICE},
-     *    otherwise the call will fail.
+     * <p>The designated package should either have a PlatformVpnProfile installed, or declare a
+     * {@link VpnService} in its manifest guarded by {@link
+     * android.Manifest.permission.BIND_VPN_SERVICE}, otherwise the call will fail.
      *
      * <p>Note that this method does not check if the VPN app supports always-on mode. The check is
-     *    delayed to {@link #startAlwaysOnVpn()}, which is always called immediately after this
-     *    method in {@link android.net.IConnectivityManager#setAlwaysOnVpnPackage}.
+     * delayed to {@link #startAlwaysOnVpn()}, which is always called immediately after this method
+     * in {@link android.net.IConnectivityManager#setAlwaysOnVpnPackage}.
      *
      * @param packageName the package to designate as always-on VPN supplier.
      * @param lockdown whether to prevent traffic outside of a VPN, for example while connecting.
      * @param lockdownWhitelist packages to be whitelisted from lockdown.
+     * @param keyStore the Keystore instance to use for checking of PlatformVpnProfile(s)
      * @return {@code true} if the package has been set as always-on, {@code false} otherwise.
      */
     public synchronized boolean setAlwaysOnPackage(
-            String packageName, boolean lockdown, List<String> lockdownWhitelist) {
+            @Nullable String packageName,
+            boolean lockdown,
+            @Nullable List<String> lockdownWhitelist,
+            @NonNull KeyStore keyStore) {
         enforceControlPermissionOrInternalCaller();
 
-        if (setAlwaysOnPackageInternal(packageName, lockdown, lockdownWhitelist)) {
+        if (setAlwaysOnPackageInternal(packageName, lockdown, lockdownWhitelist, keyStore)) {
             saveAlwaysOnPackage();
             return true;
         }
@@ -471,20 +540,22 @@ public class Vpn {
     }
 
     /**
-     * Configures an always-on VPN connection through a specific application, the same as
-     * {@link #setAlwaysOnPackage}.
+     * Configures an always-on VPN connection through a specific application, the same as {@link
+     * #setAlwaysOnPackage}.
      *
-     * Does not perform permission checks. Does not persist any of the changes to storage.
+     * <p>Does not perform permission checks. Does not persist any of the changes to storage.
      *
      * @param packageName the package to designate as always-on VPN supplier.
      * @param lockdown whether to prevent traffic outside of a VPN, for example while connecting.
      * @param lockdownWhitelist packages to be whitelisted from lockdown. This is only used if
-     *        {@code lockdown} is {@code true}. Packages must not contain commas.
+     *     {@code lockdown} is {@code true}. Packages must not contain commas.
+     * @param keyStore the system keystore instance to check for profiles
      * @return {@code true} if the package has been set as always-on, {@code false} otherwise.
      */
     @GuardedBy("this")
     private boolean setAlwaysOnPackageInternal(
-            String packageName, boolean lockdown, List<String> lockdownWhitelist) {
+            @Nullable String packageName, boolean lockdown,
+            @Nullable List<String> lockdownWhitelist, @NonNull KeyStore keyStore) {
         if (VpnConfig.LEGACY_VPN.equals(packageName)) {
             Log.w(TAG, "Not setting legacy VPN \"" + packageName + "\" as always-on.");
             return false;
@@ -500,8 +571,18 @@ public class Vpn {
         }
 
         if (packageName != null) {
+            final VpnProfile profile;
+            final long oldId = Binder.clearCallingIdentity();
+            try {
+                profile = getVpnProfilePrivileged(packageName, keyStore);
+            } finally {
+                Binder.restoreCallingIdentity(oldId);
+            }
+
             // Pre-authorize new always-on VPN package.
-            if (!setPackageAuthorization(packageName, true)) {
+            final int grantType =
+                    (profile == null) ? VpnManager.TYPE_VPN_SERVICE : VpnManager.TYPE_VPN_PLATFORM;
+            if (!setPackageAuthorization(packageName, grantType)) {
                 return false;
             }
             mAlwaysOn = true;
@@ -566,11 +647,9 @@ public class Vpn {
         }
     }
 
-    /**
-     * Load the always-on package and lockdown config from Settings.Secure
-     */
+    /** Load the always-on package and lockdown config from Settings. */
     @GuardedBy("this")
-    private void loadAlwaysOnPackage() {
+    private void loadAlwaysOnPackage(@NonNull KeyStore keyStore) {
         final long token = Binder.clearCallingIdentity();
         try {
             final String alwaysOnPackage = mSystemServices.settingsSecureGetStringForUser(
@@ -581,17 +660,21 @@ public class Vpn {
                     Settings.Secure.ALWAYS_ON_VPN_LOCKDOWN_WHITELIST, mUserHandle);
             final List<String> whitelistedPackages = TextUtils.isEmpty(whitelistString)
                     ? Collections.emptyList() : Arrays.asList(whitelistString.split(","));
-            setAlwaysOnPackageInternal(alwaysOnPackage, alwaysOnLockdown, whitelistedPackages);
+            setAlwaysOnPackageInternal(
+                    alwaysOnPackage, alwaysOnLockdown, whitelistedPackages, keyStore);
         } finally {
             Binder.restoreCallingIdentity(token);
         }
     }
 
     /**
+     * Starts the currently selected always-on VPN
+     *
+     * @param keyStore the keyStore instance for looking up PlatformVpnProfile(s)
      * @return {@code true} if the service was started, the service was already connected, or there
-     *         was no always-on VPN to start. {@code false} otherwise.
+     *     was no always-on VPN to start. {@code false} otherwise.
      */
-    public boolean startAlwaysOnVpn() {
+    public boolean startAlwaysOnVpn(@NonNull KeyStore keyStore) {
         final String alwaysOnPackage;
         synchronized (this) {
             alwaysOnPackage = getAlwaysOnPackage();
@@ -600,8 +683,8 @@ public class Vpn {
                 return true;
             }
             // Remove always-on VPN if it's not supported.
-            if (!isAlwaysOnPackageSupported(alwaysOnPackage)) {
-                setAlwaysOnPackage(null, false, null);
+            if (!isAlwaysOnPackageSupported(alwaysOnPackage, keyStore)) {
+                setAlwaysOnPackage(null, false, null, keyStore);
                 return false;
             }
             // Skip if the service is already established. This isn't bulletproof: it's not bound
@@ -612,12 +695,27 @@ public class Vpn {
             }
         }
 
-        // Tell the OS that background services in this app need to be allowed for
-        // a short time, so we can bootstrap the VPN service.
         final long oldId = Binder.clearCallingIdentity();
         try {
-            DeviceIdleController.LocalService idleController =
-                    LocalServices.getService(DeviceIdleController.LocalService.class);
+            // Prefer VPN profiles, if any exist.
+            VpnProfile profile = getVpnProfilePrivileged(alwaysOnPackage, keyStore);
+            if (profile != null) {
+                startVpnProfilePrivileged(profile, alwaysOnPackage,
+                        null /* keyStore for private key retrieval - unneeded */);
+
+                // If the above startVpnProfilePrivileged() call returns, the Ikev2VpnProfile was
+                // correctly parsed, and the VPN has started running in a different thread. The only
+                // other possibility is that the above call threw an exception, which will be
+                // caught below, and returns false (clearing the always-on VPN). Once started, the
+                // Platform VPN cannot permanently fail, and is resilient to temporary failures. It
+                // will continue retrying until shut down by the user, or always-on is toggled off.
+                return true;
+            }
+
+            // Tell the OS that background services in this app need to be allowed for
+            // a short time, so we can bootstrap the VPN service.
+            DeviceIdleInternal idleController =
+                    LocalServices.getService(DeviceIdleInternal.class);
             idleController.addPowerSaveTempWhitelistApp(Process.myUid(), alwaysOnPackage,
                     VPN_LAUNCH_IDLE_WHITELIST_DURATION_MS, mUserHandle, false, "vpn");
 
@@ -630,6 +728,9 @@ public class Vpn {
                 Log.e(TAG, "VpnService " + serviceIntent + " failed to start", e);
                 return false;
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting always-on VPN", e);
+            return false;
         } finally {
             Binder.restoreCallingIdentity(oldId);
         }
@@ -649,6 +750,11 @@ public class Vpn {
      * It uses {@link VpnConfig#LEGACY_VPN} as its package name, and
      * it can be revoked by itself.
      *
+     * The permission checks to verify that the VPN has already been granted
+     * user consent are dependent on the type of the VPN being prepared. See
+     * {@link AppOpsManager#OP_ACTIVATE_VPN} and {@link
+     * AppOpsManager#OP_ACTIVATE_PLATFORM_VPN} for more information.
+     *
      * Note: when we added VPN pre-consent in
      * https://android.googlesource.com/platform/frameworks/base/+/0554260
      * the names oldPackage and newPackage became misleading, because when
@@ -667,10 +773,12 @@ public class Vpn {
      *
      * @param oldPackage The package name of the old VPN application
      * @param newPackage The package name of the new VPN application
-     *
+     * @param vpnType The type of VPN being prepared. One of {@link VpnManager.VpnType} Preparing a
+     *     platform VPN profile requires only the lesser ACTIVATE_PLATFORM_VPN appop.
      * @return true if the operation succeeded.
      */
-    public synchronized boolean prepare(String oldPackage, String newPackage) {
+    public synchronized boolean prepare(
+            String oldPackage, String newPackage, @VpnManager.VpnType int vpnType) {
         if (oldPackage != null) {
             // Stop an existing always-on VPN from being dethroned by other apps.
             if (mAlwaysOn && !isCurrentPreparedPackage(oldPackage)) {
@@ -681,13 +789,14 @@ public class Vpn {
             if (!isCurrentPreparedPackage(oldPackage)) {
                 // The package doesn't match. We return false (to obtain user consent) unless the
                 // user has already consented to that VPN package.
-                if (!oldPackage.equals(VpnConfig.LEGACY_VPN) && isVpnUserPreConsented(oldPackage)) {
+                if (!oldPackage.equals(VpnConfig.LEGACY_VPN)
+                        && isVpnPreConsented(mContext, oldPackage, vpnType)) {
                     prepareInternal(oldPackage);
                     return true;
                 }
                 return false;
             } else if (!oldPackage.equals(VpnConfig.LEGACY_VPN)
-                    && !isVpnUserPreConsented(oldPackage)) {
+                    && !isVpnPreConsented(mContext, oldPackage, vpnType)) {
                 // Currently prepared VPN is revoked, so unprepare it and return false.
                 prepareInternal(VpnConfig.LEGACY_VPN);
                 return false;
@@ -714,11 +823,13 @@ public class Vpn {
 
     private boolean isCurrentPreparedPackage(String packageName) {
         // We can't just check that packageName matches mPackage, because if the app was uninstalled
-        // and reinstalled it will no longer be prepared. Instead check the UID.
-        return getAppUid(packageName, mUserHandle) == mOwnerUID;
+        // and reinstalled it will no longer be prepared. Similarly if there is a shared UID, the
+        // calling package may not be the same as the prepared package. Check both UID and package.
+        return getAppUid(packageName, mUserHandle) == mOwnerUID && mPackage.equals(packageName);
     }
 
     /** Prepare the VPN for the given package. Does not perform permission checks. */
+    @GuardedBy("this")
     private void prepareInternal(String newPackage) {
         long token = Binder.clearCallingIdentity();
         try {
@@ -731,7 +842,7 @@ public class Vpn {
                 mNetworkCapabilities.setUids(null);
             }
 
-            // Revoke the connection or stop LegacyVpnRunner.
+            // Revoke the connection or stop the VpnRunner.
             if (mConnection != null) {
                 try {
                     mConnection.mService.transact(IBinder.LAST_CALL_TRANSACTION,
@@ -740,10 +851,10 @@ public class Vpn {
                     // ignore
                 }
                 mContext.unbindService(mConnection);
-                mConnection = null;
-            } else if (mLegacyVpnRunner != null) {
-                mLegacyVpnRunner.exit();
-                mLegacyVpnRunner = null;
+                cleanupVpnStateLocked();
+            } else if (mVpnRunner != null) {
+                // cleanupVpnStateLocked() is called from mVpnRunner.exit()
+                mVpnRunner.exit();
             }
 
             try {
@@ -770,25 +881,49 @@ public class Vpn {
         }
     }
 
-    /**
-     * Set whether a package has the ability to launch VPNs without user intervention.
-     */
-    public boolean setPackageAuthorization(String packageName, boolean authorized) {
+    /** Set whether a package has the ability to launch VPNs without user intervention. */
+    public boolean setPackageAuthorization(String packageName, @VpnManager.VpnType int vpnType) {
         // Check if the caller is authorized.
         enforceControlPermissionOrInternalCaller();
 
-        int uid = getAppUid(packageName, mUserHandle);
+        final int uid = getAppUid(packageName, mUserHandle);
         if (uid == -1 || VpnConfig.LEGACY_VPN.equals(packageName)) {
             // Authorization for nonexistent packages (or fake ones) can't be updated.
             return false;
         }
 
-        long token = Binder.clearCallingIdentity();
+        final long token = Binder.clearCallingIdentity();
         try {
-            AppOpsManager appOps =
+            final int[] toChange;
+
+            // Clear all AppOps if the app is being unauthorized.
+            switch (vpnType) {
+                case VpnManager.TYPE_VPN_NONE:
+                    toChange = new int[] {
+                            AppOpsManager.OP_ACTIVATE_VPN, AppOpsManager.OP_ACTIVATE_PLATFORM_VPN
+                    };
+                    break;
+                case VpnManager.TYPE_VPN_PLATFORM:
+                    toChange = new int[] {AppOpsManager.OP_ACTIVATE_PLATFORM_VPN};
+                    break;
+                case VpnManager.TYPE_VPN_SERVICE:
+                    toChange = new int[] {AppOpsManager.OP_ACTIVATE_VPN};
+                    break;
+                default:
+                    Log.wtf(TAG, "Unrecognized VPN type while granting authorization");
+                    return false;
+            }
+
+            final AppOpsManager appOpMgr =
                     (AppOpsManager) mContext.getSystemService(Context.APP_OPS_SERVICE);
-            appOps.setMode(AppOpsManager.OP_ACTIVATE_VPN, uid, packageName,
-                    authorized ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_IGNORED);
+            for (final int appOp : toChange) {
+                appOpMgr.setMode(
+                        appOp,
+                        uid,
+                        packageName,
+                        vpnType == VpnManager.TYPE_VPN_NONE
+                                ? AppOpsManager.MODE_IGNORED : AppOpsManager.MODE_ALLOWED);
+            }
             return true;
         } catch (Exception e) {
             Log.wtf(TAG, "Failed to set app ops for package " + packageName + ", uid " + uid, e);
@@ -798,27 +933,47 @@ public class Vpn {
         return false;
     }
 
-    private boolean isVpnUserPreConsented(String packageName) {
-        AppOpsManager appOps =
-                (AppOpsManager) mContext.getSystemService(Context.APP_OPS_SERVICE);
-
-        // Verify that the caller matches the given package and has permission to activate VPNs.
-        return appOps.noteOpNoThrow(AppOpsManager.OP_ACTIVATE_VPN, Binder.getCallingUid(),
-                packageName) == AppOpsManager.MODE_ALLOWED;
+    private static boolean isVpnPreConsented(Context context, String packageName, int vpnType) {
+        switch (vpnType) {
+            case VpnManager.TYPE_VPN_SERVICE:
+                return isVpnServicePreConsented(context, packageName);
+            case VpnManager.TYPE_VPN_PLATFORM:
+                return isVpnProfilePreConsented(context, packageName);
+            default:
+                return false;
+        }
     }
 
-    private int getAppUid(String app, int userHandle) {
+    private static boolean doesPackageHaveAppop(Context context, String packageName, int appop) {
+        final AppOpsManager appOps =
+                (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
+
+        // Verify that the caller matches the given package and has the required permission.
+        return appOps.noteOpNoThrow(appop, Binder.getCallingUid(), packageName)
+                == AppOpsManager.MODE_ALLOWED;
+    }
+
+    private static boolean isVpnServicePreConsented(Context context, String packageName) {
+        return doesPackageHaveAppop(context, packageName, AppOpsManager.OP_ACTIVATE_VPN);
+    }
+
+    private static boolean isVpnProfilePreConsented(Context context, String packageName) {
+        return doesPackageHaveAppop(context, packageName, AppOpsManager.OP_ACTIVATE_PLATFORM_VPN)
+                || isVpnServicePreConsented(context, packageName);
+    }
+
+    private int getAppUid(final String app, final int userHandle) {
         if (VpnConfig.LEGACY_VPN.equals(app)) {
             return Process.myUid();
         }
         PackageManager pm = mContext.getPackageManager();
-        int result;
-        try {
-            result = pm.getPackageUidAsUser(app, userHandle);
-        } catch (NameNotFoundException e) {
-            result = -1;
-        }
-        return result;
+        return Binder.withCleanCallingIdentity(() -> {
+            try {
+                return pm.getPackageUidAsUser(app, userHandle);
+            } catch (NameNotFoundException e) {
+                return -1;
+            }
+        });
     }
 
     private boolean doesPackageTargetAtLeastQ(String packageName) {
@@ -841,7 +996,11 @@ public class Vpn {
     }
 
     public int getNetId() {
-        return mNetworkAgent != null ? mNetworkAgent.netId : NETID_UNSET;
+        final NetworkAgent agent = mNetworkAgent;
+        if (null == agent) return NETID_UNSET;
+        final Network network = agent.getNetwork();
+        if (null == network) return NETID_UNSET;
+        return network.netId;
     }
 
     private LinkProperties makeLinkProperties() {
@@ -896,41 +1055,13 @@ public class Vpn {
         }
         lp.setDomains(buffer.toString().trim());
 
-        // TODO: Stop setting the MTU in jniCreate and set it here.
+        if (mConfig.mtu > 0) {
+            lp.setMtu(mConfig.mtu);
+        }
+
+        // TODO: Stop setting the MTU in jniCreate
 
         return lp;
-    }
-
-    /**
-     * Analyzes the passed LinkedProperties to figure out whether it routes to most of the IP space.
-     *
-     * This returns true if the passed LinkedProperties contains routes to either most of the IPv4
-     * space or to most of the IPv6 address space, where "most" is defined by the value of the
-     * MOST_IPV{4,6}_ADDRESSES_COUNT constants : if more than this number of addresses are matched
-     * by any of the routes, then it's decided that most of the space is routed.
-     * @hide
-     */
-    @VisibleForTesting
-    static boolean providesRoutesToMostDestinations(LinkProperties lp) {
-        final List<RouteInfo> routes = lp.getAllRoutes();
-        if (routes.size() > MAX_ROUTES_TO_EVALUATE) return true;
-        final Comparator<IpPrefix> prefixLengthComparator = IpPrefix.lengthComparator();
-        TreeSet<IpPrefix> ipv4Prefixes = new TreeSet<>(prefixLengthComparator);
-        TreeSet<IpPrefix> ipv6Prefixes = new TreeSet<>(prefixLengthComparator);
-        for (final RouteInfo route : routes) {
-            if (route.getType() == RouteInfo.RTN_UNREACHABLE) continue;
-            IpPrefix destination = route.getDestination();
-            if (destination.isIPv4()) {
-                ipv4Prefixes.add(destination);
-            } else {
-                ipv6Prefixes.add(destination);
-            }
-        }
-        if (NetworkUtils.routedIPv4AddressCount(ipv4Prefixes) > MOST_IPV4_ADDRESSES_COUNT) {
-            return true;
-        }
-        return NetworkUtils.routedIPv6AddressCount(ipv6Prefixes)
-                .compareTo(MOST_IPV6_ADDRESSES_COUNT) >= 0;
     }
 
     /**
@@ -939,7 +1070,7 @@ public class Vpn {
      * has certain changes, in which case this method would just return {@code false}.
      */
     private boolean updateLinkPropertiesInPlaceIfPossible(NetworkAgent agent, VpnConfig oldConfig) {
-        // NetworkMisc cannot be updated without registering a new NetworkAgent.
+        // NetworkAgentConfig cannot be updated without registering a new NetworkAgent.
         if (oldConfig.allowBypass != mConfig.allowBypass) {
             Log.i(TAG, "Handover not possible due to changes to allowBypass");
             return false;
@@ -963,26 +1094,28 @@ public class Vpn {
         // VPN either provide a default route (IPv4 or IPv6 or both), or they are a split tunnel
         // that falls back to the default network, which by definition provides INTERNET (unless
         // there is no default network, in which case none of this matters in any sense).
-        // Also, it guarantees that when a VPN applies to an app, the VPN will always be reported
-        // as the network by getDefaultNetwork and registerDefaultNetworkCallback. This in turn
-        // protects the invariant that apps calling CM#bindProcessToNetwork(getDefaultNetwork())
-        // the same as if they use the default network.
+        // Also, always setting the INTERNET bit guarantees that when a VPN applies to an app,
+        // the VPN will always be reported as the network by getDefaultNetwork and callbacks
+        // registered with registerDefaultNetworkCallback. This in turn protects the invariant
+        // that an app calling ConnectivityManager#bindProcessToNetwork(getDefaultNetwork())
+        // behaves the same as when it uses the default network.
         mNetworkCapabilities.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
 
         mNetworkInfo.setDetailedState(DetailedState.CONNECTING, null, null);
 
-        NetworkMisc networkMisc = new NetworkMisc();
-        networkMisc.allowBypass = mConfig.allowBypass && !mLockdown;
+        NetworkAgentConfig networkAgentConfig = new NetworkAgentConfig();
+        networkAgentConfig.allowBypass = mConfig.allowBypass && !mLockdown;
 
-        mNetworkCapabilities.setEstablishingVpnAppUid(Binder.getCallingUid());
+        mNetworkCapabilities.setOwnerUid(mOwnerUID);
+        mNetworkCapabilities.setAdministratorUids(new int[] {mOwnerUID});
         mNetworkCapabilities.setUids(createUserAndRestrictedProfilesRanges(mUserHandle,
                 mConfig.allowedApplications, mConfig.disallowedApplications));
         long token = Binder.clearCallingIdentity();
         try {
             mNetworkAgent = new NetworkAgent(mLooper, mContext, NETWORKTYPE /* logtag */,
                     mNetworkInfo, mNetworkCapabilities, lp,
-                    ConnectivityConstants.VPN_DEFAULT_SCORE, networkMisc,
-                    NetworkFactory.SerialNumber.VPN) {
+                    ConnectivityConstants.VPN_DEFAULT_SCORE, networkAgentConfig,
+                    NetworkProvider.ID_VPN) {
                             @Override
                             public void unwanted() {
                                 // We are user controlled, not driven by NetworkRequest.
@@ -1025,17 +1158,19 @@ public class Vpn {
      * Establish a VPN network and return the file descriptor of the VPN interface. This methods
      * returns {@code null} if the application is revoked or not prepared.
      *
+     * <p>This method supports ONLY VpnService-based VPNs. For Platform VPNs, see {@link
+     * provisionVpnProfile} and {@link startVpnProfile}
+     *
      * @param config The parameters to configure the network.
      * @return The file descriptor of the VPN interface.
      */
     public synchronized ParcelFileDescriptor establish(VpnConfig config) {
         // Check if the caller is already prepared.
-        UserManager mgr = UserManager.get(mContext);
         if (Binder.getCallingUid() != mOwnerUID) {
             return null;
         }
         // Check to ensure consent hasn't been revoked since we were prepared.
-        if (!isVpnUserPreConsented(mPackage)) {
+        if (!isVpnServicePreConsented(mContext, mPackage)) {
             return null;
         }
         // Check if the service is properly declared.
@@ -1044,10 +1179,7 @@ public class Vpn {
         long token = Binder.clearCallingIdentity();
         try {
             // Restricted users are not allowed to create VPNs, they are tied to Owner
-            UserInfo user = mgr.getUserInfo(mUserHandle);
-            if (user.isRestricted()) {
-                throw new SecurityException("Restricted users cannot establish VPNs");
-            }
+            enforceNotRestrictedUser();
 
             ResolveInfo info = AppGlobals.getPackageManager().resolveService(intent,
                     null, 0, mUserHandle);
@@ -1078,7 +1210,8 @@ public class Vpn {
             // TEMP use the old jni calls until there is support for netd address setting
             StringBuilder builder = new StringBuilder();
             for (LinkAddress address : config.addresses) {
-                builder.append(" " + address);
+                builder.append(" ");
+                builder.append(address);
             }
             if (jniSetAddresses(interfaze, builder.toString()) < 1) {
                 throw new IllegalArgumentException("At least one address must be specified");
@@ -1132,7 +1265,11 @@ public class Vpn {
             }
         } catch (RuntimeException e) {
             IoUtils.closeQuietly(tun);
-            agentDisconnect();
+            // If this is not seamless handover, disconnect partially-established network when error
+            // occurs.
+            if (oldNetworkAgent != mNetworkAgent) {
+                agentDisconnect();
+            }
             // restore old state
             mConfig = oldConfig;
             mConnection = oldConnection;
@@ -1158,7 +1295,7 @@ public class Vpn {
 
     // Note: Return type guarantees results are deduped and sorted, which callers require.
     private SortedSet<Integer> getAppsUids(List<String> packageNames, int userHandle) {
-        SortedSet<Integer> uids = new TreeSet<Integer>();
+        SortedSet<Integer> uids = new TreeSet<>();
         for (String app : packageNames) {
             int uid = getAppUid(app, userHandle);
             if (uid != -1) uids.add(uid);
@@ -1261,7 +1398,7 @@ public class Vpn {
         // UidRange#createForUser returns the entire range of UIDs available to a macro-user.
         // This is something like 0-99999 ; {@see UserHandle#PER_USER_RANGE}
         final UidRange userRange = UidRange.createForUser(userHandle);
-        final List<UidRange> ranges = new ArrayList<UidRange>();
+        final List<UidRange> ranges = new ArrayList<>();
         for (UidRange range : existingRanges) {
             if (userRange.containsRange(range)) {
                 ranges.add(range);
@@ -1353,7 +1490,7 @@ public class Vpn {
      *                {@link Vpn} goes through a VPN connection or is blocked until one is
      *                available, {@code false} to lift the requirement.
      *
-     * @see #mBlockedUsers
+     * @see #mBlockedUidsAsToldToNetd
      */
     @GuardedBy("this")
     private void setVpnForcedLocked(boolean enforce) {
@@ -1364,37 +1501,47 @@ public class Vpn {
             exemptedPackages = new ArrayList<>(mLockdownWhitelist);
             exemptedPackages.add(mPackage);
         }
-        final Set<UidRange> removedRanges = new ArraySet<>(mBlockedUsers);
+        final Set<UidRange> rangesToTellNetdToRemove = new ArraySet<>(mBlockedUidsAsToldToNetd);
 
-        Set<UidRange> addedRanges = Collections.emptySet();
+        final Set<UidRange> rangesToTellNetdToAdd;
         if (enforce) {
-            addedRanges = createUserAndRestrictedProfilesRanges(mUserHandle,
-                    /* allowedApplications */ null,
-                    /* disallowedApplications */ exemptedPackages);
+            final Set<UidRange> rangesThatShouldBeBlocked =
+                    createUserAndRestrictedProfilesRanges(mUserHandle,
+                            /* allowedApplications */ null,
+                            /* disallowedApplications */ exemptedPackages);
 
             // The UID range of the first user (0-99999) would block the IPSec traffic, which comes
             // directly from the kernel and is marked as uid=0. So we adjust the range to allow
             // it through (b/69873852).
-            for (UidRange range : addedRanges) {
+            for (UidRange range : rangesThatShouldBeBlocked) {
                 if (range.start == 0) {
-                    addedRanges.remove(range);
+                    rangesThatShouldBeBlocked.remove(range);
                     if (range.stop != 0) {
-                        addedRanges.add(new UidRange(1, range.stop));
+                        rangesThatShouldBeBlocked.add(new UidRange(1, range.stop));
                     }
                 }
             }
 
-            removedRanges.removeAll(addedRanges);
-            addedRanges.removeAll(mBlockedUsers);
+            rangesToTellNetdToRemove.removeAll(rangesThatShouldBeBlocked);
+            rangesToTellNetdToAdd = rangesThatShouldBeBlocked;
+            // The ranges to tell netd to add are the ones that should be blocked minus the
+            // ones it already knows to block. Note that this will change the contents of
+            // rangesThatShouldBeBlocked, but the list of ranges that should be blocked is
+            // not used after this so it's fine to destroy it.
+            rangesToTellNetdToAdd.removeAll(mBlockedUidsAsToldToNetd);
+        } else {
+            rangesToTellNetdToAdd = Collections.emptySet();
         }
 
-        setAllowOnlyVpnForUids(false, removedRanges);
-        setAllowOnlyVpnForUids(true, addedRanges);
+        // If mBlockedUidsAsToldToNetd used to be empty, this will always be a no-op.
+        setAllowOnlyVpnForUids(false, rangesToTellNetdToRemove);
+        // If nothing should be blocked now, this will now be a no-op.
+        setAllowOnlyVpnForUids(true, rangesToTellNetdToAdd);
     }
 
     /**
-     * Either add or remove a list of {@link UidRange}s to the list of UIDs that are only allowed
-     * to make connections through sockets that have had {@code protect()} called on them.
+     * Tell netd to add or remove a list of {@link UidRange}s to the list of UIDs that are only
+     * allowed to make connections through sockets that have had {@code protect()} called on them.
      *
      * @param enforce {@code true} to add to the blacklist, {@code false} to remove.
      * @param ranges {@link Collection} of {@link UidRange}s to add (if {@param enforce} is
@@ -1416,9 +1563,9 @@ public class Vpn {
             return false;
         }
         if (enforce) {
-            mBlockedUsers.addAll(ranges);
+            mBlockedUidsAsToldToNetd.addAll(ranges);
         } else {
-            mBlockedUsers.removeAll(ranges);
+            mBlockedUidsAsToldToNetd.removeAll(ranges);
         }
         return true;
     }
@@ -1444,8 +1591,8 @@ public class Vpn {
         @Override
         public void interfaceStatusChanged(String interfaze, boolean up) {
             synchronized (Vpn.this) {
-                if (!up && mLegacyVpnRunner != null) {
-                    mLegacyVpnRunner.check(interfaze);
+                if (!up && mVpnRunner != null && mVpnRunner instanceof LegacyVpnRunner) {
+                    ((LegacyVpnRunner) mVpnRunner).exitIfOuterInterfaceIs(interfaze);
                 }
             }
         }
@@ -1454,22 +1601,29 @@ public class Vpn {
         public void interfaceRemoved(String interfaze) {
             synchronized (Vpn.this) {
                 if (interfaze.equals(mInterface) && jniCheck(interfaze) == 0) {
-                    mStatusIntent = null;
-                    mNetworkCapabilities.setUids(null);
-                    mConfig = null;
-                    mInterface = null;
                     if (mConnection != null) {
                         mContext.unbindService(mConnection);
-                        mConnection = null;
-                        agentDisconnect();
-                    } else if (mLegacyVpnRunner != null) {
-                        mLegacyVpnRunner.exit();
-                        mLegacyVpnRunner = null;
+                        cleanupVpnStateLocked();
+                    } else if (mVpnRunner != null) {
+                        // cleanupVpnStateLocked() is called from mVpnRunner.exit()
+                        mVpnRunner.exit();
                     }
                 }
             }
         }
     };
+
+    private void cleanupVpnStateLocked() {
+        mStatusIntent = null;
+        mNetworkCapabilities.setUids(null);
+        mConfig = null;
+        mInterface = null;
+
+        // Unconditionally clear both VpnService and VpnRunner fields.
+        mVpnRunner = null;
+        mConnection = null;
+        agentDisconnect();
+    }
 
     private void enforceControlPermission() {
         mContext.enforceCallingPermission(Manifest.permission.CONTROL_VPN, "Unauthorized Caller");
@@ -1583,19 +1737,39 @@ public class Vpn {
     }
 
     /**
+     * Gets the currently running App-based VPN type
+     *
+     * @return the {@link VpnManager.VpnType}. {@link VpnManager.TYPE_VPN_NONE} if not running an
+     *     app-based VPN. While VpnService-based VPNs are always app VPNs and LegacyVpn is always
+     *     Settings-based, the Platform VPNs can be initiated by both apps and Settings.
+     */
+    public synchronized int getActiveAppVpnType() {
+        if (VpnConfig.LEGACY_VPN.equals(mPackage)) {
+            return VpnManager.TYPE_VPN_NONE;
+        }
+
+        if (mVpnRunner != null && mVpnRunner instanceof IkeV2VpnRunner) {
+            return VpnManager.TYPE_VPN_PLATFORM;
+        } else {
+            return VpnManager.TYPE_VPN_SERVICE;
+        }
+    }
+
+    /**
      * @param uid The target uid.
      *
-     * @return {@code true} if {@code uid} is included in one of the mBlockedUsers ranges and the
-     * VPN is not connected, or if the VPN is connected but does not apply to the {@code uid}.
+     * @return {@code true} if {@code uid} is included in one of the mBlockedUidsAsToldToNetd
+     * ranges and the VPN is not connected, or if the VPN is connected but does not apply to
+     * the {@code uid}.
      *
      * @apiNote This method don't check VPN lockdown status.
-     * @see #mBlockedUsers
+     * @see #mBlockedUidsAsToldToNetd
      */
     public synchronized boolean isBlockingUid(int uid) {
         if (mNetworkInfo.isConnected()) {
             return !appliesToUid(uid);
         } else {
-            return UidRange.containsUid(mBlockedUsers, uid);
+            return UidRange.containsUid(mBlockedUidsAsToldToNetd, uid);
         }
     }
 
@@ -1684,6 +1858,10 @@ public class Vpn {
         public int settingsSecureGetIntForUser(String key, int def, int userId) {
             return Settings.Secure.getIntForUser(mContext.getContentResolver(), key, def, userId);
         }
+
+        public boolean isCallerSystem() {
+            return Binder.getCallingUid() == Process.SYSTEM_UID;
+        }
     }
 
     private native int jniCreate(int mtu);
@@ -1703,6 +1881,17 @@ public class Vpn {
         }
 
         throw new IllegalStateException("Unable to find IPv4 default gateway");
+    }
+
+    private void enforceNotRestrictedUser() {
+        Binder.withCleanCallingIdentity(() -> {
+            final UserManager mgr = UserManager.get(mContext);
+            final UserInfo user = mgr.getUserInfo(mUserHandle);
+
+            if (user.isRestricted()) {
+                throw new SecurityException("Restricted users cannot configure VPNs");
+            }
+        });
     }
 
     /**
@@ -1760,13 +1949,36 @@ public class Vpn {
             byte[] value = keyStore.get(Credentials.USER_CERTIFICATE + profile.ipsecServerCert);
             serverCert = (value == null) ? null : new String(value, StandardCharsets.UTF_8);
         }
-        if (privateKey == null || userCert == null || caCert == null || serverCert == null) {
+        if (userCert == null || caCert == null || serverCert == null) {
             throw new IllegalStateException("Cannot load credentials");
         }
 
         // Prepare arguments for racoon.
         String[] racoon = null;
         switch (profile.type) {
+            case VpnProfile.TYPE_IKEV2_IPSEC_RSA:
+                // Secret key is still just the alias (not the actual private key). The private key
+                // is retrieved from the KeyStore during conversion of the VpnProfile to an
+                // Ikev2VpnProfile.
+                profile.ipsecSecret = Ikev2VpnProfile.PREFIX_KEYSTORE_ALIAS + privateKey;
+                profile.ipsecUserCert = userCert;
+                // Fallthrough
+            case VpnProfile.TYPE_IKEV2_IPSEC_USER_PASS:
+                profile.ipsecCaCert = caCert;
+
+                // Start VPN profile
+                profile.setAllowedAlgorithms(Ikev2VpnProfile.DEFAULT_ALGORITHMS);
+                startVpnProfilePrivileged(profile, VpnConfig.LEGACY_VPN, keyStore);
+                return;
+            case VpnProfile.TYPE_IKEV2_IPSEC_PSK:
+                // Ikev2VpnProfiles expect a base64-encoded preshared key.
+                profile.ipsecSecret =
+                        Ikev2VpnProfile.encodeForIpsecSecret(profile.ipsecSecret.getBytes());
+
+                // Start VPN profile
+                profile.setAllowedAlgorithms(Ikev2VpnProfile.DEFAULT_ALGORITHMS);
+                startVpnProfilePrivileged(profile, VpnConfig.LEGACY_VPN, keyStore);
+                return;
             case VpnProfile.TYPE_L2TP_IPSEC_PSK:
                 racoon = new String[] {
                     iface, profile.server, "udppsk", profile.ipsecIdentifier,
@@ -1842,23 +2054,40 @@ public class Vpn {
 
     private synchronized void startLegacyVpn(VpnConfig config, String[] racoon, String[] mtpd,
             VpnProfile profile) {
-        stopLegacyVpnPrivileged();
+        stopVpnRunnerPrivileged();
 
         // Prepare for the new request.
         prepareInternal(VpnConfig.LEGACY_VPN);
         updateState(DetailedState.CONNECTING, "startLegacyVpn");
 
         // Start a new LegacyVpnRunner and we are done!
-        mLegacyVpnRunner = new LegacyVpnRunner(config, racoon, mtpd, profile);
-        mLegacyVpnRunner.start();
+        mVpnRunner = new LegacyVpnRunner(config, racoon, mtpd, profile);
+        mVpnRunner.start();
     }
 
-    /** Stop legacy VPN. Permissions must be checked by callers. */
-    public synchronized void stopLegacyVpnPrivileged() {
-        if (mLegacyVpnRunner != null) {
-            mLegacyVpnRunner.exit();
-            mLegacyVpnRunner = null;
+    /**
+     * Checks if this the currently running VPN (if any) was started by the Settings app
+     *
+     * <p>This includes both Legacy VPNs and Platform VPNs.
+     */
+    private boolean isSettingsVpnLocked() {
+        return mVpnRunner != null && VpnConfig.LEGACY_VPN.equals(mPackage);
+    }
 
+    /** Stop VPN runner. Permissions must be checked by callers. */
+    public synchronized void stopVpnRunnerPrivileged() {
+        if (!isSettingsVpnLocked()) {
+            return;
+        }
+
+        final boolean isLegacyVpn = mVpnRunner instanceof LegacyVpnRunner;
+
+        mVpnRunner.exit();
+        mVpnRunner = null;
+
+        // LegacyVpn uses daemons that must be shut down before new ones are brought up.
+        // The same limitation does not apply to Platform VPNs.
+        if (isLegacyVpn) {
             synchronized (LegacyVpnRunner.TAG) {
                 // wait for old thread to completely finish before spinning up
                 // new instance, otherwise state updates can be out of order.
@@ -1879,8 +2108,8 @@ public class Vpn {
      * Return the information of the current ongoing legacy VPN.
      * Callers are responsible for checking permissions if needed.
      */
-    public synchronized LegacyVpnInfo getLegacyVpnInfoPrivileged() {
-        if (mLegacyVpnRunner == null) return null;
+    private synchronized LegacyVpnInfo getLegacyVpnInfoPrivileged() {
+        if (!isSettingsVpnLocked()) return null;
 
         final LegacyVpnInfo info = new LegacyVpnInfo();
         info.key = mConfig.user;
@@ -1891,11 +2120,395 @@ public class Vpn {
         return info;
     }
 
-    public VpnConfig getLegacyVpnConfig() {
-        if (mLegacyVpnRunner != null) {
+    public synchronized VpnConfig getLegacyVpnConfig() {
+        if (isSettingsVpnLocked()) {
             return mConfig;
         } else {
             return null;
+        }
+    }
+
+    /** This class represents the common interface for all VPN runners. */
+    private abstract class VpnRunner extends Thread {
+
+        protected VpnRunner(String name) {
+            super(name);
+        }
+
+        public abstract void run();
+
+        /**
+         * Disconnects the NetworkAgent and cleans up all state related to the VpnRunner.
+         *
+         * <p>All outer Vpn instance state is cleaned up in cleanupVpnStateLocked()
+         */
+        protected abstract void exitVpnRunner();
+
+        /**
+         * Triggers the cleanup of the VpnRunner, and additionally cleans up Vpn instance-wide state
+         *
+         * <p>This method ensures that simple calls to exit() will always clean up global state
+         * properly.
+         */
+        protected final void exit() {
+            synchronized (Vpn.this) {
+                exitVpnRunner();
+                cleanupVpnStateLocked();
+            }
+        }
+    }
+
+    interface IkeV2VpnRunnerCallback {
+        void onDefaultNetworkChanged(@NonNull Network network);
+
+        void onChildOpened(
+                @NonNull Network network, @NonNull ChildSessionConfiguration childConfig);
+
+        void onChildTransformCreated(
+                @NonNull Network network, @NonNull IpSecTransform transform, int direction);
+
+        void onSessionLost(@NonNull Network network);
+    }
+
+    /**
+     * Internal class managing IKEv2/IPsec VPN connectivity
+     *
+     * <p>The IKEv2 VPN will listen to, and run based on the lifecycle of Android's default Network.
+     * As a new default is selected, old IKE sessions will be torn down, and a new one will be
+     * started.
+     *
+     * <p>This class uses locking minimally - the Vpn instance lock is only ever held when fields of
+     * the outer class are modified. As such, care must be taken to ensure that no calls are added
+     * that might modify the outer class' state without acquiring a lock.
+     *
+     * <p>The overall structure of the Ikev2VpnRunner is as follows:
+     *
+     * <ol>
+     *   <li>Upon startup, a NetworkRequest is registered with ConnectivityManager. This is called
+     *       any time a new default network is selected
+     *   <li>When a new default is connected, an IKE session is started on that Network. If there
+     *       were any existing IKE sessions on other Networks, they are torn down before starting
+     *       the new IKE session
+     *   <li>Upon establishment, the onChildTransformCreated() callback is called twice, one for
+     *       each direction, and finally onChildOpened() is called
+     *   <li>Upon the onChildOpened() call, the VPN is fully set up.
+     *   <li>Subsequent Network changes result in new onDefaultNetworkChanged() callbacks. See (2).
+     * </ol>
+     */
+    class IkeV2VpnRunner extends VpnRunner implements IkeV2VpnRunnerCallback {
+        @NonNull private static final String TAG = "IkeV2VpnRunner";
+
+        @NonNull private final IpSecManager mIpSecManager;
+        @NonNull private final Ikev2VpnProfile mProfile;
+        @NonNull private final ConnectivityManager.NetworkCallback mNetworkCallback;
+
+        /**
+         * Executor upon which ALL callbacks must be run.
+         *
+         * <p>This executor MUST be a single threaded executor, in order to ensure the consistency
+         * of the mutable Ikev2VpnRunner fields. The Ikev2VpnRunner is built mostly lock-free by
+         * virtue of everything being serialized on this executor.
+         */
+        @NonNull private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
+
+        /** Signal to ensure shutdown is honored even if a new Network is connected. */
+        private boolean mIsRunning = true;
+
+        @Nullable private IpSecTunnelInterface mTunnelIface;
+        @Nullable private IkeSession mSession;
+        @Nullable private Network mActiveNetwork;
+
+        IkeV2VpnRunner(@NonNull Ikev2VpnProfile profile) {
+            super(TAG);
+            mProfile = profile;
+            mIpSecManager = (IpSecManager) mContext.getSystemService(Context.IPSEC_SERVICE);
+            mNetworkCallback = new VpnIkev2Utils.Ikev2VpnNetworkCallback(TAG, this);
+        }
+
+        @Override
+        public void run() {
+            // Unless the profile is restricted to test networks, explicitly use only the network
+            // that ConnectivityService thinks is the "best." In other words, only ever use the
+            // currently selected default network. This does mean that in both onLost() and
+            // onConnected(), any old sessions MUST be torn down. This does NOT include VPNs.
+            //
+            // When restricted to test networks, select any network with TRANSPORT_TEST. Since the
+            // creator of the profile and the test network creator both have MANAGE_TEST_NETWORKS,
+            // this is considered safe.
+            final ConnectivityManager cm = ConnectivityManager.from(mContext);
+            final NetworkRequest req;
+
+            if (mProfile.isRestrictedToTestNetworks()) {
+                req = new NetworkRequest.Builder()
+                        .clearCapabilities()
+                        .addTransportType(NetworkCapabilities.TRANSPORT_TEST)
+                        .build();
+            } else {
+                req = cm.getDefaultRequest();
+            }
+
+            cm.requestNetwork(req, mNetworkCallback);
+        }
+
+        private boolean isActiveNetwork(@Nullable Network network) {
+            return Objects.equals(mActiveNetwork, network) && mIsRunning;
+        }
+
+        /**
+         * Called when an IKE Child session has been opened, signalling completion of the startup.
+         *
+         * <p>This method is only ever called once per IkeSession, and MUST run on the mExecutor
+         * thread in order to ensure consistency of the Ikev2VpnRunner fields.
+         */
+        public void onChildOpened(
+                @NonNull Network network, @NonNull ChildSessionConfiguration childConfig) {
+            if (!isActiveNetwork(network)) {
+                Log.d(TAG, "onOpened called for obsolete network " + network);
+
+                // Do nothing; this signals that either: (1) a new/better Network was found,
+                // and the Ikev2VpnRunner has switched to it in onDefaultNetworkChanged, or (2) this
+                // IKE session was already shut down (exited, or an error was encountered somewhere
+                // else). In both cases, all resources and sessions are torn down via
+                // resetIkeState().
+                return;
+            }
+
+            try {
+                final String interfaceName = mTunnelIface.getInterfaceName();
+                final int maxMtu = mProfile.getMaxMtu();
+                final List<LinkAddress> internalAddresses = childConfig.getInternalAddresses();
+                final List<String> dnsAddrStrings = new ArrayList<>();
+
+                final Collection<RouteInfo> newRoutes = VpnIkev2Utils.getRoutesFromTrafficSelectors(
+                        childConfig.getOutboundTrafficSelectors());
+                for (final LinkAddress address : internalAddresses) {
+                    mTunnelIface.addAddress(address.getAddress(), address.getPrefixLength());
+                }
+                for (InetAddress addr : childConfig.getInternalDnsServers()) {
+                    dnsAddrStrings.add(addr.getHostAddress());
+                }
+
+                final NetworkAgent networkAgent;
+                final LinkProperties lp;
+
+                synchronized (Vpn.this) {
+                    mInterface = interfaceName;
+                    mConfig.mtu = maxMtu;
+                    mConfig.interfaze = mInterface;
+
+                    mConfig.addresses.clear();
+                    mConfig.addresses.addAll(internalAddresses);
+
+                    mConfig.routes.clear();
+                    mConfig.routes.addAll(newRoutes);
+
+                    if (mConfig.dnsServers == null) mConfig.dnsServers = new ArrayList<>();
+                    mConfig.dnsServers.clear();
+                    mConfig.dnsServers.addAll(dnsAddrStrings);
+
+                    networkAgent = mNetworkAgent;
+
+                    // The below must be done atomically with the mConfig update, otherwise
+                    // isRunningLocked() will be racy.
+                    if (networkAgent == null) {
+                        if (isSettingsVpnLocked()) {
+                            prepareStatusIntent();
+                        }
+                        agentConnect();
+                        return; // Link properties are already sent.
+                    }
+
+                    lp = makeLinkProperties(); // Accesses VPN instance fields; must be locked
+                }
+
+                networkAgent.sendLinkProperties(lp);
+            } catch (Exception e) {
+                Log.d(TAG, "Error in ChildOpened for network " + network, e);
+                onSessionLost(network);
+            }
+        }
+
+        /**
+         * Called when an IPsec transform has been created, and should be applied.
+         *
+         * <p>This method is called multiple times over the lifetime of an IkeSession (or default
+         * network), and is MUST always be called on the mExecutor thread in order to ensure
+         * consistency of the Ikev2VpnRunner fields.
+         */
+        public void onChildTransformCreated(
+                @NonNull Network network, @NonNull IpSecTransform transform, int direction) {
+            if (!isActiveNetwork(network)) {
+                Log.d(TAG, "ChildTransformCreated for obsolete network " + network);
+
+                // Do nothing; this signals that either: (1) a new/better Network was found,
+                // and the Ikev2VpnRunner has switched to it in onDefaultNetworkChanged, or (2) this
+                // IKE session was already shut down (exited, or an error was encountered somewhere
+                // else). In both cases, all resources and sessions are torn down via
+                // resetIkeState().
+                return;
+            }
+
+            try {
+                // Transforms do not need to be persisted; the IkeSession will keep
+                // them alive for us
+                mIpSecManager.applyTunnelModeTransform(mTunnelIface, direction, transform);
+            } catch (IOException e) {
+                Log.d(TAG, "Transform application failed for network " + network, e);
+                onSessionLost(network);
+            }
+        }
+
+        /**
+         * Called when a new default network is connected.
+         *
+         * <p>The Ikev2VpnRunner will unconditionally switch to the new network, killing the old IKE
+         * state in the process, and starting a new IkeSession instance.
+         *
+         * <p>This method is called multiple times over the lifetime of the Ikev2VpnRunner, and is
+         * called on the ConnectivityService thread. Thus, the actual work MUST be proxied to the
+         * mExecutor thread in order to ensure consistency of the Ikev2VpnRunner fields.
+         */
+        public void onDefaultNetworkChanged(@NonNull Network network) {
+            Log.d(TAG, "Starting IKEv2/IPsec session on new network: " + network);
+
+            // Proxy to the Ikev2VpnRunner (single-thread) executor to ensure consistency in lieu
+            // of locking.
+            mExecutor.execute(() -> {
+                try {
+                    if (!mIsRunning) {
+                        Log.d(TAG, "onDefaultNetworkChanged after exit");
+                        return; // VPN has been shut down.
+                    }
+
+                    // Without MOBIKE, we have no way to seamlessly migrate. Close on old
+                    // (non-default) network, and start the new one.
+                    resetIkeState();
+                    mActiveNetwork = network;
+
+                    final IkeSessionParams ikeSessionParams =
+                            VpnIkev2Utils.buildIkeSessionParams(mContext, mProfile, network);
+                    final ChildSessionParams childSessionParams =
+                            VpnIkev2Utils.buildChildSessionParams(mProfile.getAllowedAlgorithms());
+
+                    // TODO: Remove the need for adding two unused addresses with
+                    // IPsec tunnels.
+                    final InetAddress address = InetAddress.getLocalHost();
+                    mTunnelIface =
+                            mIpSecManager.createIpSecTunnelInterface(
+                                    address /* unused */,
+                                    address /* unused */,
+                                    network);
+                    mNetd.setInterfaceUp(mTunnelIface.getInterfaceName());
+
+                    mSession = mIkev2SessionCreator.createIkeSession(
+                            mContext,
+                            ikeSessionParams,
+                            childSessionParams,
+                            mExecutor,
+                            new VpnIkev2Utils.IkeSessionCallbackImpl(
+                                    TAG, IkeV2VpnRunner.this, network),
+                            new VpnIkev2Utils.ChildSessionCallbackImpl(
+                                    TAG, IkeV2VpnRunner.this, network));
+                    Log.d(TAG, "Ike Session started for network " + network);
+                } catch (Exception e) {
+                    Log.i(TAG, "Setup failed for network " + network + ". Aborting", e);
+                    onSessionLost(network);
+                }
+            });
+        }
+
+        /**
+         * Handles loss of a session
+         *
+         * <p>The loss of a session might be due to an onLost() call, the IKE session getting torn
+         * down for any reason, or an error in updating state (transform application, VPN setup)
+         *
+         * <p>This method MUST always be called on the mExecutor thread in order to ensure
+         * consistency of the Ikev2VpnRunner fields.
+         */
+        public void onSessionLost(@NonNull Network network) {
+            if (!isActiveNetwork(network)) {
+                Log.d(TAG, "onSessionLost() called for obsolete network " + network);
+
+                // Do nothing; this signals that either: (1) a new/better Network was found,
+                // and the Ikev2VpnRunner has switched to it in onDefaultNetworkChanged, or (2) this
+                // IKE session was already shut down (exited, or an error was encountered somewhere
+                // else). In both cases, all resources and sessions are torn down via
+                // onSessionLost() and resetIkeState().
+                return;
+            }
+
+            mActiveNetwork = null;
+
+            // Close all obsolete state, but keep VPN alive incase a usable network comes up.
+            // (Mirrors VpnService behavior)
+            Log.d(TAG, "Resetting state for network: " + network);
+
+            synchronized (Vpn.this) {
+                // Since this method handles non-fatal errors only, set mInterface to null to
+                // prevent the NetworkManagementEventObserver from killing this VPN based on the
+                // interface going down (which we expect).
+                mInterface = null;
+                mConfig.interfaze = null;
+
+                // Set as unroutable to prevent traffic leaking while the interface is down.
+                if (mConfig != null && mConfig.routes != null) {
+                    final List<RouteInfo> oldRoutes = new ArrayList<>(mConfig.routes);
+
+                    mConfig.routes.clear();
+                    for (final RouteInfo route : oldRoutes) {
+                        mConfig.routes.add(new RouteInfo(route.getDestination(), RTN_UNREACHABLE));
+                    }
+                    if (mNetworkAgent != null) {
+                        mNetworkAgent.sendLinkProperties(makeLinkProperties());
+                    }
+                }
+            }
+
+            resetIkeState();
+        }
+
+        /**
+         * Cleans up all IKE state
+         *
+         * <p>This method MUST always be called on the mExecutor thread in order to ensure
+         * consistency of the Ikev2VpnRunner fields.
+         */
+        private void resetIkeState() {
+            if (mTunnelIface != null) {
+                // No need to call setInterfaceDown(); the IpSecInterface is being fully torn down.
+                mTunnelIface.close();
+                mTunnelIface = null;
+            }
+            if (mSession != null) {
+                mSession.kill(); // Kill here to make sure all resources are released immediately
+                mSession = null;
+            }
+        }
+
+        /**
+         * Cleans up all Ikev2VpnRunner internal state
+         *
+         * <p>This method MUST always be called on the mExecutor thread in order to ensure
+         * consistency of the Ikev2VpnRunner fields.
+         */
+        private void shutdownVpnRunner() {
+            mActiveNetwork = null;
+            mIsRunning = false;
+
+            resetIkeState();
+
+            final ConnectivityManager cm = ConnectivityManager.from(mContext);
+            cm.unregisterNetworkCallback(mNetworkCallback);
+
+            mExecutor.shutdown();
+        }
+
+        @Override
+        public void exitVpnRunner() {
+            mExecutor.execute(() -> {
+                shutdownVpnRunner();
+            });
         }
     }
 
@@ -1906,7 +2519,7 @@ public class Vpn {
      * requests will pile up. This could be done in a Handler as a state
      * machine, but it is much easier to read in the current form.
      */
-    private class LegacyVpnRunner extends Thread {
+    private class LegacyVpnRunner extends VpnRunner {
         private static final String TAG = "LegacyVpnRunner";
 
         private final String[] mDaemons;
@@ -1976,16 +2589,27 @@ public class Vpn {
             mContext.registerReceiver(mBroadcastReceiver, filter);
         }
 
-        public void check(String interfaze) {
+        /**
+         * Checks if the parameter matches the underlying interface
+         *
+         * <p>If the underlying interface is torn down, the LegacyVpnRunner also should be. It has
+         * no ability to migrate between interfaces (or Networks).
+         */
+        public void exitIfOuterInterfaceIs(String interfaze) {
             if (interfaze.equals(mOuterInterface)) {
                 Log.i(TAG, "Legacy VPN is going down with " + interfaze);
-                exit();
+                exitVpnRunner();
             }
         }
 
-        public void exit() {
+        /** Tears down this LegacyVpn connection */
+        @Override
+        public void exitVpnRunner() {
             // We assume that everything is reset after stopping the daemons.
             interrupt();
+
+            // Always disconnect. This may be called again in cleanupVpnStateLocked() if
+            // exitVpnRunner() was called from exit(), but it will be a no-op.
             agentDisconnect();
             try {
                 mContext.unregisterReceiver(mBroadcastReceiver);
@@ -2033,7 +2657,6 @@ public class Vpn {
 
         private void bringup() {
             // Catch all exceptions so we can clean up a few things.
-            boolean initFinished = false;
             try {
                 // Initialize the timer.
                 mBringupStartTime = SystemClock.elapsedRealtime();
@@ -2052,7 +2675,6 @@ public class Vpn {
                     throw new IllegalStateException("Cannot delete the state");
                 }
                 new File("/data/misc/vpn/abort").delete();
-                initFinished = true;
 
                 // Check if we need to restart any of the daemons.
                 boolean restart = false;
@@ -2112,7 +2734,6 @@ public class Vpn {
                     }
                     out.write(0xFF);
                     out.write(0xFF);
-                    out.flush();
 
                     // Wait for End-of-File.
                     InputStream in = mSockets[i].getInputStream();
@@ -2212,7 +2833,7 @@ public class Vpn {
             } catch (Exception e) {
                 Log.i(TAG, "Aborting", e);
                 updateState(DetailedState.FAILED, e.getMessage());
-                exit();
+                exitVpnRunner();
             }
         }
 
@@ -2233,6 +2854,262 @@ public class Vpn {
                     }
                 }
             }
+        }
+    }
+
+    private void verifyCallingUidAndPackage(String packageName) {
+        if (getAppUid(packageName, mUserHandle) != Binder.getCallingUid()) {
+            throw new SecurityException("Mismatched package and UID");
+        }
+    }
+
+    @VisibleForTesting
+    String getProfileNameForPackage(String packageName) {
+        return Credentials.PLATFORM_VPN + mUserHandle + "_" + packageName;
+    }
+
+    @VisibleForTesting
+    void validateRequiredFeatures(VpnProfile profile) {
+        switch (profile.type) {
+            case VpnProfile.TYPE_IKEV2_IPSEC_USER_PASS:
+            case VpnProfile.TYPE_IKEV2_IPSEC_PSK:
+            case VpnProfile.TYPE_IKEV2_IPSEC_RSA:
+                if (!mContext.getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_IPSEC_TUNNELS)) {
+                    throw new UnsupportedOperationException(
+                            "Ikev2VpnProfile(s) requires PackageManager.FEATURE_IPSEC_TUNNELS");
+                }
+                break;
+            default:
+                return;
+        }
+    }
+
+    /**
+     * Stores an app-provisioned VPN profile and returns whether the app is already prepared.
+     *
+     * @param packageName the package name of the app provisioning this profile
+     * @param profile the profile to be stored and provisioned
+     * @param keyStore the System keystore instance to save VPN profiles
+     * @returns whether or not the app has already been granted user consent
+     */
+    public synchronized boolean provisionVpnProfile(
+            @NonNull String packageName, @NonNull VpnProfile profile, @NonNull KeyStore keyStore) {
+        checkNotNull(packageName, "No package name provided");
+        checkNotNull(profile, "No profile provided");
+        checkNotNull(keyStore, "KeyStore missing");
+
+        verifyCallingUidAndPackage(packageName);
+        enforceNotRestrictedUser();
+        validateRequiredFeatures(profile);
+
+        if (profile.isRestrictedToTestNetworks) {
+            mContext.enforceCallingPermission(Manifest.permission.MANAGE_TEST_NETWORKS,
+                    "Test-mode profiles require the MANAGE_TEST_NETWORKS permission");
+        }
+
+        final byte[] encodedProfile = profile.encode();
+        if (encodedProfile.length > MAX_VPN_PROFILE_SIZE_BYTES) {
+            throw new IllegalArgumentException("Profile too big");
+        }
+
+        // Permissions checked during startVpnProfile()
+        Binder.withCleanCallingIdentity(
+                () -> {
+                    keyStore.put(
+                            getProfileNameForPackage(packageName),
+                            encodedProfile,
+                            Process.SYSTEM_UID,
+                            0 /* flags */);
+                });
+
+        // TODO: if package has CONTROL_VPN, grant the ACTIVATE_PLATFORM_VPN appop.
+        // This mirrors the prepareAndAuthorize that is used by VpnService.
+
+        // Return whether the app is already pre-consented
+        return isVpnProfilePreConsented(mContext, packageName);
+    }
+
+    private boolean isCurrentIkev2VpnLocked(@NonNull String packageName) {
+        return isCurrentPreparedPackage(packageName) && mVpnRunner instanceof IkeV2VpnRunner;
+    }
+
+    /**
+     * Deletes an app-provisioned VPN profile.
+     *
+     * @param packageName the package name of the app provisioning this profile
+     * @param keyStore the System keystore instance to save VPN profiles
+     */
+    public synchronized void deleteVpnProfile(
+            @NonNull String packageName, @NonNull KeyStore keyStore) {
+        checkNotNull(packageName, "No package name provided");
+        checkNotNull(keyStore, "KeyStore missing");
+
+        verifyCallingUidAndPackage(packageName);
+        enforceNotRestrictedUser();
+
+        Binder.withCleanCallingIdentity(
+                () -> {
+                    // If this profile is providing the current VPN, turn it off, disabling
+                    // always-on as well if enabled.
+                    if (isCurrentIkev2VpnLocked(packageName)) {
+                        if (mAlwaysOn) {
+                            // Will transitively call prepareInternal(VpnConfig.LEGACY_VPN).
+                            setAlwaysOnPackage(null, false, null, keyStore);
+                        } else {
+                            prepareInternal(VpnConfig.LEGACY_VPN);
+                        }
+                    }
+
+                    keyStore.delete(getProfileNameForPackage(packageName), Process.SYSTEM_UID);
+                });
+    }
+
+    /**
+     * Retrieves the VpnProfile.
+     *
+     * <p>Must be used only as SYSTEM_UID, otherwise the key/UID pair will not match anything in the
+     * keystore.
+     */
+    @VisibleForTesting
+    @Nullable
+    VpnProfile getVpnProfilePrivileged(@NonNull String packageName, @NonNull KeyStore keyStore) {
+        if (!mSystemServices.isCallerSystem()) {
+            Log.wtf(TAG, "getVpnProfilePrivileged called as non-System UID ");
+            return null;
+        }
+
+        final byte[] encoded = keyStore.get(getProfileNameForPackage(packageName));
+        if (encoded == null) return null;
+
+        return VpnProfile.decode("" /* Key unused */, encoded);
+    }
+
+    /**
+     * Starts an already provisioned VPN Profile, keyed by package name.
+     *
+     * <p>This method is meant to be called by apps (via VpnManager and ConnectivityService).
+     * Privileged (system) callers should use startVpnProfilePrivileged instead. Otherwise the UIDs
+     * will not match during appop checks.
+     *
+     * @param packageName the package name of the app provisioning this profile
+     * @param keyStore the System keystore instance to retrieve VPN profiles
+     */
+    public synchronized void startVpnProfile(
+            @NonNull String packageName, @NonNull KeyStore keyStore) {
+        checkNotNull(packageName, "No package name provided");
+        checkNotNull(keyStore, "KeyStore missing");
+
+        enforceNotRestrictedUser();
+
+        // Prepare VPN for startup
+        if (!prepare(packageName, null /* newPackage */, VpnManager.TYPE_VPN_PLATFORM)) {
+            throw new SecurityException("User consent not granted for package " + packageName);
+        }
+
+        Binder.withCleanCallingIdentity(
+                () -> {
+                    final VpnProfile profile = getVpnProfilePrivileged(packageName, keyStore);
+                    if (profile == null) {
+                        throw new IllegalArgumentException("No profile found for " + packageName);
+                    }
+
+                    startVpnProfilePrivileged(profile, packageName,
+                            null /* keyStore for private key retrieval - unneeded */);
+                });
+    }
+
+    private synchronized void startVpnProfilePrivileged(
+            @NonNull VpnProfile profile, @NonNull String packageName, @Nullable KeyStore keyStore) {
+        // Make sure VPN is prepared. This method can be called by user apps via startVpnProfile(),
+        // by the Setting app via startLegacyVpn(), or by ConnectivityService via
+        // startAlwaysOnVpn(), so this is the common place to prepare the VPN. This also has the
+        // nice property of ensuring there are no other VpnRunner instances running.
+        prepareInternal(packageName);
+        updateState(DetailedState.CONNECTING, "startPlatformVpn");
+
+        try {
+            // Build basic config
+            mConfig = new VpnConfig();
+            if (VpnConfig.LEGACY_VPN.equals(packageName)) {
+                mConfig.legacy = true;
+                mConfig.session = profile.name;
+                mConfig.user = profile.key;
+
+                // TODO: Add support for configuring meteredness via Settings. Until then, use a
+                // safe default.
+                mConfig.isMetered = true;
+            } else {
+                mConfig.user = packageName;
+                mConfig.isMetered = profile.isMetered;
+            }
+            mConfig.startTime = SystemClock.elapsedRealtime();
+            mConfig.proxyInfo = profile.proxy;
+
+            switch (profile.type) {
+                case VpnProfile.TYPE_IKEV2_IPSEC_USER_PASS:
+                case VpnProfile.TYPE_IKEV2_IPSEC_PSK:
+                case VpnProfile.TYPE_IKEV2_IPSEC_RSA:
+                    mVpnRunner =
+                            new IkeV2VpnRunner(Ikev2VpnProfile.fromVpnProfile(profile, keyStore));
+                    mVpnRunner.start();
+                    break;
+                default:
+                    updateState(DetailedState.FAILED, "Invalid platform VPN type");
+                    Log.d(TAG, "Unknown VPN profile type: " + profile.type);
+                    break;
+            }
+        } catch (IOException | GeneralSecurityException e) {
+            // Reset mConfig
+            mConfig = null;
+
+            updateState(DetailedState.FAILED, "VPN startup failed");
+            throw new IllegalArgumentException("VPN startup failed", e);
+        }
+    }
+
+    /**
+     * Stops an already running VPN Profile for the given package.
+     *
+     * <p>This method is meant to be called by apps (via VpnManager and ConnectivityService).
+     * Privileged (system) callers should (re-)prepare the LEGACY_VPN instead.
+     *
+     * @param packageName the package name of the app provisioning this profile
+     */
+    public synchronized void stopVpnProfile(@NonNull String packageName) {
+        checkNotNull(packageName, "No package name provided");
+
+        enforceNotRestrictedUser();
+
+        // To stop the VPN profile, the caller must be the current prepared package and must be
+        // running an Ikev2VpnProfile.
+        if (isCurrentIkev2VpnLocked(packageName)) {
+            prepareInternal(VpnConfig.LEGACY_VPN);
+        }
+    }
+
+    /**
+     * Proxy to allow testing
+     *
+     * @hide
+     */
+    @VisibleForTesting
+    public static class Ikev2SessionCreator {
+        /** Creates a IKE session */
+        public IkeSession createIkeSession(
+                @NonNull Context context,
+                @NonNull IkeSessionParams ikeSessionParams,
+                @NonNull ChildSessionParams firstChildSessionParams,
+                @NonNull Executor userCbExecutor,
+                @NonNull IkeSessionCallback ikeSessionCallback,
+                @NonNull ChildSessionCallback firstChildSessionCallback) {
+            return new IkeSession(
+                    context,
+                    ikeSessionParams,
+                    firstChildSessionParams,
+                    userCbExecutor,
+                    ikeSessionCallback,
+                    firstChildSessionCallback);
         }
     }
 }

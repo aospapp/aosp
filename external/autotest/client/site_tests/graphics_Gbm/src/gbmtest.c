@@ -46,7 +46,6 @@
 #define ARRAY_SIZE(A) (sizeof(A)/sizeof(*(A)))
 
 #define ENODRM	   -1
-#define ENODISPLAY -2
 
 static int fd;
 static struct gbm_device *gbm;
@@ -262,8 +261,8 @@ static int drm_open()
 {
 	int fd;
 	unsigned i;
-	bool has_drm_device = false;
 
+	/* Find the first drm device with a connected display. */
 	for (i = 0; i < DRM_MAX_MINOR; i++) {
 		char* dev_name;
 		drmModeRes *res = NULL;
@@ -285,7 +284,6 @@ static int drm_open()
 		}
 
 		if (res->count_crtcs > 0 && res->count_connectors > 0) {
-			has_drm_device = true;
 			if (find_first_connected_connector(fd, res)) {
 				drmModeFreeResources(res);
 				return fd;
@@ -296,10 +294,27 @@ static int drm_open()
 		drmModeFreeResources(res);
 	}
 
-	if (has_drm_device)
-		return ENODISPLAY;
-	else
-		return ENODRM;
+	/*
+	 * If no drm device has a connected display, fall back to the first
+	 * drm device. 
+	 */
+	for (i = 0; i < DRM_MAX_MINOR; i++) {
+		char* dev_name;
+		int ret;
+
+		ret = asprintf(&dev_name, DRM_DEV_NAME, DRM_DIR_NAME, i);
+		if (ret < 0)
+			continue;
+
+		fd = open(dev_name, O_RDWR, 0);
+		free(dev_name);
+		if (fd < 0)
+			continue;
+
+		return fd;
+	}
+
+	return ENODRM;
 }
 
 static int drm_open_vgem()
@@ -363,8 +378,7 @@ static int create_vgem_bo(int fd, size_t size, uint32_t * handle)
 static int test_init()
 {
 	fd = drm_open();
-	if (fd == ENODISPLAY)
-		return ENODISPLAY;
+
 	CHECK(fd >= 0);
 
 	gbm = gbm_create_device(fd);
@@ -999,10 +1013,7 @@ int main(int argc, char *argv[])
 	int result, i, j;
 
 	result = test_init();
-	if (result == ENODISPLAY) {
-		printf("[  PASSED  ] graphics_Gbm test no connected display found\n");
-		return EXIT_SUCCESS;
-	} else if (!result) {
+	if (result == ENODRM) {
 		printf("[  FAILED  ] graphics_Gbm test initialization failed\n");
 		return EXIT_FAILURE;
 	}

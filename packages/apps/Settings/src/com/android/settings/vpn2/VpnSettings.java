@@ -16,6 +16,7 @@
 
 package com.android.settings.vpn2;
 
+import static android.app.AppOpsManager.OP_ACTIVATE_PLATFORM_VPN;
 import static android.app.AppOpsManager.OP_ACTIVATE_VPN;
 
 import android.annotation.UiThread;
@@ -153,17 +154,15 @@ public class VpnSettings extends RestrictedSettingsFragment implements
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.vpn_create: {
-                // Generate a new key. Here we just use the current time.
-                long millis = System.currentTimeMillis();
-                while (mLegacyVpnPreferences.containsKey(Long.toHexString(millis))) {
-                    ++millis;
-                }
-                VpnProfile profile = new VpnProfile(Long.toHexString(millis));
-                ConfigDialogFragment.show(this, profile, true /* editing */, false /* exists */);
-                return true;
+        // Generate a new key. Here we just use the current time.
+        if (item.getItemId() == R.id.vpn_create) {
+            long millis = System.currentTimeMillis();
+            while (mLegacyVpnPreferences.containsKey(Long.toHexString(millis))) {
+                ++millis;
             }
+            VpnProfile profile = new VpnProfile(Long.toHexString(millis));
+            ConfigDialogFragment.show(this, profile, true /* editing */, false /* exists */);
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -524,7 +523,8 @@ public class VpnSettings extends RestrictedSettingsFragment implements
 
         // Fetch VPN-enabled apps from AppOps.
         AppOpsManager aom = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
-        List<AppOpsManager.PackageOps> apps = aom.getPackagesForOps(new int[] {OP_ACTIVATE_VPN});
+        List<AppOpsManager.PackageOps> apps =
+                aom.getPackagesForOps(new int[] {OP_ACTIVATE_VPN, OP_ACTIVATE_PLATFORM_VPN});
         if (apps != null) {
             for (AppOpsManager.PackageOps pkg : apps) {
                 int userId = UserHandle.getUserId(pkg.getUid());
@@ -535,8 +535,8 @@ public class VpnSettings extends RestrictedSettingsFragment implements
                 // Look for a MODE_ALLOWED permission to activate VPN.
                 boolean allowed = false;
                 for (AppOpsManager.OpEntry op : pkg.getOps()) {
-                    if (op.getOp() == OP_ACTIVATE_VPN &&
-                            op.getMode() == AppOpsManager.MODE_ALLOWED) {
+                    if ((op.getOp() == OP_ACTIVATE_VPN || op.getOp() == OP_ACTIVATE_PLATFORM_VPN)
+                            && op.getMode() == AppOpsManager.MODE_ALLOWED) {
                         allowed = true;
                     }
                 }

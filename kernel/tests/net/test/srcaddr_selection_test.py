@@ -72,6 +72,9 @@ class IPv6SourceAddressSelectionTest(multinetwork_base.MultiNetworkBaseTest):
   def SetUseOptimistic(self, ifname, value):
     self.SetSysctl("/proc/sys/net/ipv6/conf/%s/use_optimistic" % ifname, value)
 
+  def SetForwarding(self, value):
+    self.SetSysctl("/proc/sys/net/ipv6/conf/all/forwarding", value)
+
   def GetSourceIP(self, netid, mode="mark"):
     s = self.BuildSocket(6, net_test.UDPSocket, netid, mode)
     # Because why not...testing for temporary addresses is a separate thing.
@@ -162,6 +165,12 @@ class MultiInterfaceSourceAddressSelectionTest(IPv6SourceAddressSelectionTest):
     # test fails. This might be due to us disabling DAD only after the
     # link-local address is generated.
     self.WaitForDad(self.test_lladdr)
+
+    # Disable forwarding, because optimistic addresses don't work when
+    # forwarding is on. Forwarding will be re-enabled when the sysctls are
+    # restored by MultiNetworkBaseTest.tearDownClass.
+    # TODO: Fix this and remove this hack.
+    self.SetForwarding("0")
 
 
 class TentativeAddressTest(MultiInterfaceSourceAddressSelectionTest):
@@ -287,6 +296,7 @@ class DadFailureTest(MultiInterfaceSourceAddressSelectionTest):
                    scapy.ICMPv6ND_NA(tgt=self.test_ip, R=0, S=0, O=1) /
                    scapy.ICMPv6NDOptDstLLAddr(lladdr=conflict_macaddr))
     self.ReceiveEtherPacketOn(self.test_netid, dad_defense)
+    self.WaitForDad(self.test_lladdr)
 
     # The address should have failed DAD, and therefore no longer be usable.
     self.assertAddressNotUsable(self.test_ip, self.test_netid)

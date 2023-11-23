@@ -18,7 +18,7 @@ if("${gRPC_CARES_PROVIDER}" STREQUAL "module")
   endif()
   set(CARES_SHARED OFF CACHE BOOL "disable shared library")
   set(CARES_STATIC ON CACHE BOOL "link cares statically")
-  add_subdirectory(third_party/cares/cares)
+  add_subdirectory(${CARES_ROOT_DIR} third_party/cares/cares)
 
   if(TARGET c-ares)
     set(_gRPC_CARES_LIBRARIES c-ares)

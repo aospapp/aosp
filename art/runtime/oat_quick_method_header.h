@@ -18,6 +18,7 @@
 #define ART_RUNTIME_OAT_QUICK_METHOD_HEADER_H_
 
 #include "arch/instruction_set.h"
+#include "base/locks.h"
 #include "base/macros.h"
 #include "base/utils.h"
 #include "quick/quick_method_frame_info.h"
@@ -37,6 +38,10 @@ class PACKED(4) OatQuickMethodHeader {
         code_size_(code_size) {
   }
 
+  static OatQuickMethodHeader* NterpMethodHeader;
+
+  bool IsNterpMethodHeader() const;
+
   static OatQuickMethodHeader* FromCodePointer(const void* code_ptr) {
     uintptr_t code = reinterpret_cast<uintptr_t>(code_ptr);
     uintptr_t header = code - OFFSETOF_MEMBER(OatQuickMethodHeader, code_);
@@ -48,6 +53,10 @@ class PACKED(4) OatQuickMethodHeader {
 
   static OatQuickMethodHeader* FromEntryPoint(const void* entry_point) {
     return FromCodePointer(EntryPointToCodePointer(entry_point));
+  }
+
+  static size_t InstructionAlignedSize() {
+    return RoundUp(sizeof(OatQuickMethodHeader), GetInstructionSetAlignment(kRuntimeISA));
   }
 
   OatQuickMethodHeader(const OatQuickMethodHeader&) = default;
@@ -76,6 +85,10 @@ class PACKED(4) OatQuickMethodHeader {
   }
 
   uint32_t GetCodeSize() const {
+    // ART compiled method are prefixed with header, but we can also easily
+    // accidentally use a function pointer to one of the stubs/trampolines.
+    // We prefix those with 0xFF in the aseembly so that we can do DCHECKs.
+    CHECK_NE(code_size_, 0xFFFFFFFF) << code_size_;
     return code_size_ & kCodeSizeMask;
   }
 
@@ -101,7 +114,8 @@ class PACKED(4) OatQuickMethodHeader {
   }
 
   bool Contains(uintptr_t pc) const {
-    uintptr_t code_start = reinterpret_cast<uintptr_t>(code_);
+    // Remove hwasan tag to make comparison below valid. The PC from the stack does not have it.
+    uintptr_t code_start = reinterpret_cast<uintptr_t>(HWASanUntag(code_));
     static_assert(kRuntimeISA != InstructionSet::kThumb2, "kThumb2 cannot be a runtime ISA");
     if (kRuntimeISA == InstructionSet::kArm) {
       // On Thumb-2, the pc is offset by one.
@@ -140,7 +154,10 @@ class PACKED(4) OatQuickMethodHeader {
                             bool is_for_catch_handler,
                             bool abort_on_failure = true) const;
 
-  uint32_t ToDexPc(ArtMethod* method, const uintptr_t pc, bool abort_on_failure = true) const;
+  uint32_t ToDexPc(ArtMethod** frame,
+                   const uintptr_t pc,
+                   bool abort_on_failure = true) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetHasShouldDeoptimizeFlag() {
     DCHECK_EQ(code_size_ & kShouldDeoptimizeMask, 0u);

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,26 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import java.util.concurrent.Callable;
 
+import android.platform.test.annotations.SecurityTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import static org.junit.Assert.*;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class Poc17_03 extends SecurityTestCase {
 
     /**
      *  b/31824853
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-03")
     public void testPocCVE_2016_8479() throws Exception {
         if (containsDriver(getDevice(), "/dev/kgsl-3d0")) {
-             AdbUtils.runPocNoOutput("CVE-2016-8479", getDevice(), 180);
+             AdbUtils.runPocNoOutput("CVE-2016-8479", getDevice(), TIMEOUT_NONDETERMINISTIC);
             // CTS begins the next test before device finishes rebooting,
             // sleep to allow time for device to reboot.
             Thread.sleep(70000);
@@ -36,6 +45,7 @@ public class Poc17_03 extends SecurityTestCase {
     /**
      *  b/33940449
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-03")
     public void testPocCVE_2017_0508() throws Exception {
         if (containsDriver(getDevice(), "/dev/ion") &&
@@ -50,6 +60,7 @@ public class Poc17_03 extends SecurityTestCase {
     /**
      *  b/33899363
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-03")
     public void testPocCVE_2017_0333() throws Exception {
         if (containsDriver(getDevice(), "/dev/dri/renderD128")) {
@@ -62,30 +73,46 @@ public class Poc17_03 extends SecurityTestCase {
     /**
      *  b/33245849
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-03")
     public void testPocCVE_2017_0334() throws Exception {
         if (containsDriver(getDevice(), "/dev/dri/renderD129")) {
-           String out = AdbUtils.runPoc("CVE-2017-0334", getDevice());
-           assertNotMatchesMultiLine("Leaked ptr is (0x[fF]{6}[cC]0[a-fA-F0-9]{8}"
-               +"|0x[c-fC-F][a-fA-F0-9]{7})",out);
+            String out = AdbUtils.runPoc("CVE-2017-0334", getDevice());
+            // info leak sample
+            // "leaked ptr is 0xffffffc038ed1980"
+            String[] lines = out.split("\n");
+            String pattern = "Leaked ptr is 0x";
+            assertNotKernelPointer(new Callable<String>() {
+                int index = 0;
+                @Override
+                public String call() {
+                    for (; index < lines.length; index++) {
+                        String line = lines[index];
+                        int index = line.indexOf(pattern);
+                        if (index == -1) {
+                            continue;
+                        }
+                        return line.substring(index + pattern.length());
+                    }
+                    return null;
+                }
+            }, null);
         }
     }
 
     /**
      * b/32707507
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-03")
     public void testPocCVE_2017_0479() throws Exception {
-        AdbUtils.runCommandLine("logcat -c" , getDevice());
-        AdbUtils.runPocNoOutput("CVE-2017-0479", getDevice(), 60);
-        String logcatOut = AdbUtils.runCommandLine("logcat -d", getDevice());
-        assertNotMatchesMultiLine("Fatal signal 11 \\(SIGSEGV\\).*>>> /system/bin/" +
-                         "audioserver <<<", logcatOut);
+        AdbUtils.runPocAssertNoCrashes("CVE-2017-0479", getDevice(), "audioserver");
     }
 
     /*
      *  b/33178389
      */
+    @Test
     @SecurityTest(minPatchLevel = "2017-03")
     public void testPocCVE_2017_0490() throws Exception {
         String bootCountBefore =

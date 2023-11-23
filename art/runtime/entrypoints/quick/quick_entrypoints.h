@@ -34,6 +34,7 @@ class Array;
 class Class;
 template<class MirrorType> class CompressedReference;
 class Object;
+class String;
 }  // namespace mirror
 
 class ArtMethod;
@@ -78,6 +79,11 @@ extern mirror::Object* JniMethodEndWithReferenceSynchronized(jobject result,
                                                              jobject locked, Thread* self)
     NO_THREAD_SAFETY_ANALYSIS HOT_ATTR;
 
+extern "C" mirror::String* artStringBuilderAppend(uint32_t format,
+                                                  const uint32_t* args,
+                                                  Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) HOT_ATTR;
+
 extern void ReadBarrierJni(mirror::CompressedReference<mirror::Object>* handle_on_stack,
                            Thread* self)
     NO_THREAD_SAFETY_ANALYSIS HOT_ATTR;
@@ -85,7 +91,7 @@ extern void ReadBarrierJni(mirror::CompressedReference<mirror::Object>* handle_o
 
 // Read barrier entrypoints.
 //
-// Compilers for ARM, ARM64, MIPS, MIPS64 can insert a call to these
+// Compilers for ARM, ARM64 can insert a call to these
 // functions directly.  For x86 and x86-64, compilers need a wrapper
 // assembly function, to handle mismatch in ABI.
 

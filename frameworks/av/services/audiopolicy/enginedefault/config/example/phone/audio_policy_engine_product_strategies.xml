@@ -72,6 +72,12 @@
             <Attributes> <Usage value="AUDIO_USAGE_ASSISTANCE_NAVIGATION_GUIDANCE"/> </Attributes>
             <Attributes></Attributes>
         </AttributesGroup>
+        <AttributesGroup streamType="AUDIO_STREAM_ASSISTANT" volumeGroup="assistant">
+            <Attributes>
+                <ContentType value="AUDIO_CONTENT_TYPE_SPEECH"/>
+                <Usage value="AUDIO_USAGE_ASSISTANT"/>
+            </Attributes>
+        </AttributesGroup>
         <AttributesGroup streamType="AUDIO_STREAM_SYSTEM" volumeGroup="system">
             <Attributes> <Usage value="AUDIO_USAGE_ASSISTANCE_SONIFICATION"/> </Attributes>
         </AttributesGroup>
@@ -90,21 +96,6 @@
             <Attributes> <Flags value="AUDIO_FLAG_BEACON"/> </Attributes>
         </AttributesGroup>
     </ProductStrategy>
-
-    <!-- Routing Strategy rerouting may be removed as following media??? -->
-    <ProductStrategy name="STRATEGY_REROUTING">
-        <AttributesGroup streamType="AUDIO_STREAM_REROUTING" volumeGroup="rerouting">
-            <Attributes></Attributes>
-        </AttributesGroup>
-    </ProductStrategy>
-
-    <!-- Default product strategy has empty attributes -->
-    <ProductStrategy name="STRATEGY_PATCH">
-        <AttributesGroup streamType="AUDIO_STREAM_PATCH" volumeGroup="patch">
-            <Attributes></Attributes>
-        </AttributesGroup>
-    </ProductStrategy>
-
 
 </ProductStrategies>
 

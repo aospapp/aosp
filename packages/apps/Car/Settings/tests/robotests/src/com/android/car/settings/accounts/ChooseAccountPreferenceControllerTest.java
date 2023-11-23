@@ -16,33 +16,33 @@
 
 package com.android.car.settings.accounts;
 
+import static com.android.car.settings.accounts.ChooseAccountPreferenceController.ADD_ACCOUNT_REQUEST_CODE;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.robolectric.RuntimeEnvironment.application;
 
 import android.accounts.AccountManager;
 import android.accounts.AuthenticatorDescription;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.Intent;
-import android.content.SyncAdapterType;
 import android.content.pm.UserInfo;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ActivityResultCallback;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowAccountManager;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowContentResolver;
+import com.android.car.settings.testutils.ShadowUserHelper;
+import com.android.car.settings.users.UserHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -51,26 +51,21 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-
 /** Unit tests for {@link ChooseAccountPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowCarUserManagerHelper.class, ShadowContentResolver.class,
-        ShadowAccountManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowUserHelper.class, ShadowContentResolver.class, ShadowAccountManager.class})
 public class ChooseAccountPreferenceControllerTest {
-    private static final int ADD_ACCOUNT_REQUEST_CODE = 1;
     private static final int USER_ID = 0;
 
     PreferenceControllerTestHelper<ChooseAccountPreferenceController> mHelper;
     private PreferenceGroup mPreferenceGroup;
     private ChooseAccountPreferenceController mController;
     @Mock
-    private CarUserManagerHelper mMockCarUserManagerHelper;
+    private UserHelper mMockUserHelper;
 
     private AccountManager mAccountManager = AccountManager.get(application);
 
@@ -79,9 +74,9 @@ public class ChooseAccountPreferenceControllerTest {
         MockitoAnnotations.initMocks(this);
 
         // Set up user info
-        ShadowCarUserManagerHelper.setMockInstance(mMockCarUserManagerHelper);
-        doReturn(new UserInfo(USER_ID, "name", 0)).when(
-                mMockCarUserManagerHelper).getCurrentProcessUserInfo();
+        ShadowUserHelper.setInstance(mMockUserHelper);
+        when(mMockUserHelper.getCurrentProcessUserInfo())
+                .thenReturn(new UserInfo(USER_ID, "name", 0));
 
         // Add authenticated account types
         addAuthenticator(/* type= */ "com.acct1", /* label= */ R.string.account_type1_label);
@@ -97,87 +92,12 @@ public class ChooseAccountPreferenceControllerTest {
 
     @After
     public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
+        ShadowUserHelper.reset();
         ShadowContentResolver.reset();
     }
 
     @Test
     public void refreshUi_authenticatorPreferencesShouldBeSet() {
-        mController.refreshUi();
-
-        assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(2);
-
-        Preference acct1Pref = mPreferenceGroup.getPreference(0);
-        assertThat(acct1Pref.getTitle()).isEqualTo("Type 1");
-
-        Preference acct2Pref = mPreferenceGroup.getPreference(1);
-        assertThat(acct2Pref.getTitle()).isEqualTo("Type 2");
-    }
-
-    @Test
-    public void refreshUi_hasAccountTypeFilter_shouldFilterAccounts() {
-        // Add a filter that should filter out the second account type (com.acct2)
-        Set<String> accountTypesFilter = new HashSet<>();
-        accountTypesFilter.add("com.acct1");
-        mController.setAccountTypesFilter(accountTypesFilter);
-
-        mController.refreshUi();
-
-        assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(1);
-
-        Preference acct1Pref = mPreferenceGroup.getPreference(0);
-        assertThat(acct1Pref.getTitle()).isEqualTo("Type 1");
-    }
-
-    @Test
-    public void refreshUi_hasAccountExclusionFilter_shouldFilterAccounts() {
-        // Add a filter that should filter out the first account type (com.acct1)
-        Set<String> accountExclusionTypesFilter = new HashSet<>();
-        accountExclusionTypesFilter.add("com.acct1");
-        mController.setAccountTypesExclusionFilter(accountExclusionTypesFilter);
-
-        mController.refreshUi();
-
-        assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(1);
-
-        Preference acct1Pref = mPreferenceGroup.getPreference(0);
-        assertThat(acct1Pref.getTitle()).isEqualTo("Type 2");
-    }
-
-    @Test
-    public void refreshUi_doesNotHaveAuthoritiesInFilter_shouldNotBeShown() {
-        // Adds a sync adapter type for the com.acct1 account type that does not have the same
-        // authority as the one passed to someAuthority
-        SyncAdapterType syncAdapterType = new SyncAdapterType("someAuthority",
-                "com.acct1", /* userVisible */ true, /* supportsUploading */ true);
-        SyncAdapterType[] syncAdapters = {syncAdapterType};
-        ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
-
-        mController.setAuthorities(Collections.singletonList("someOtherAuthority"));
-
-        // Force an authenticator refresh so the authorities are refreshed
-        mController.getAuthenticatorHelper().onReceive(application, null);
-        mController.refreshUi();
-
-        assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(1);
-
-        Preference acct2Pref = mPreferenceGroup.getPreference(0);
-        assertThat(acct2Pref.getTitle()).isEqualTo("Type 2");
-    }
-
-    @Test
-    public void refreshUi_hasAuthoritiesInFilter_shouldBeShown() {
-        // Adds a sync adapter type for the com.acct1 account type that has the same authority as
-        // the one passed to someAuthority
-        SyncAdapterType syncAdapterType = new SyncAdapterType("someAuthority",
-                "com.acct1", /* userVisible */ true, /* supportsUploading */ true);
-        SyncAdapterType[] syncAdapters = {syncAdapterType};
-        ShadowContentResolver.setSyncAdapterTypes(syncAdapters);
-
-        mController.setAuthorities(Collections.singletonList("someAuthority"));
-
-        // Force an authenticator refresh so the authorities are refreshed
-        mController.getAuthenticatorHelper().onReceive(application, null);
         mController.refreshUi();
 
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(2);

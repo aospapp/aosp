@@ -28,6 +28,7 @@ import com.android.server.telecom.CallState;
 import com.android.server.telecom.HandoverState;
 import com.android.server.telecom.ui.IncomingCallNotifier;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,6 +80,12 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
         when(mRingingCall.getVideoState()).thenReturn(VideoProfile.STATE_AUDIO_ONLY);
         when(mRingingCall.getTargetPhoneAccountLabel()).thenReturn("Foo");
         when(mRingingCall.getHandoverState()).thenReturn(HandoverState.HANDOVER_NONE);
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 
     /**

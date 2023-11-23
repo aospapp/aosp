@@ -15,7 +15,6 @@
  */
 package com.android.car.dialer;
 
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 
 import androidx.annotation.Nullable;
@@ -43,11 +42,6 @@ public class FragmentTestActivity extends FragmentActivity implements
                 .beginTransaction()
                 .replace(R.id.test_fragment_container, fragment)
                 .commit();
-    }
-
-    @Override
-    public void setBackground(Drawable background) {
-        // Do nothing
     }
 
     @Override

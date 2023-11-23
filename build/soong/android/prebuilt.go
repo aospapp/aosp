@@ -16,6 +16,7 @@ package android
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -24,11 +25,25 @@ import (
 // This file implements common functionality for handling modules that may exist as prebuilts,
 // source, or both.
 
+func RegisterPrebuiltMutators(ctx RegistrationContext) {
+	ctx.PreArchMutators(RegisterPrebuiltsPreArchMutators)
+	ctx.PostDepsMutators(RegisterPrebuiltsPostDepsMutators)
+}
+
 type prebuiltDependencyTag struct {
 	blueprint.BaseDependencyTag
 }
 
-var prebuiltDepTag prebuiltDependencyTag
+var PrebuiltDepTag prebuiltDependencyTag
+
+// Mark this tag so dependencies that use it are excluded from visibility enforcement.
+func (t prebuiltDependencyTag) ExcludeFromVisibilityEnforcement() {}
+
+// Mark this tag so dependencies that use it are excluded from APEX contents.
+func (t prebuiltDependencyTag) ExcludeFromApexContents() {}
+
+var _ ExcludeFromVisibilityEnforcementTag = PrebuiltDepTag
+var _ ExcludeFromApexContentsTag = PrebuiltDepTag
 
 type PrebuiltProperties struct {
 	// When prefer is set to true the prebuilt will be used instead of any source module with
@@ -41,36 +56,49 @@ type PrebuiltProperties struct {
 
 type Prebuilt struct {
 	properties PrebuiltProperties
-	module     Module
-	srcs       *[]string
-	src        *string
+
+	srcsSupplier     PrebuiltSrcsSupplier
+	srcsPropertyName string
 }
 
 func (p *Prebuilt) Name(name string) string {
 	return "prebuilt_" + name
 }
 
+func (p *Prebuilt) ForcePrefer() {
+	p.properties.Prefer = proptools.BoolPtr(true)
+}
+
+func (p *Prebuilt) Prefer() bool {
+	return proptools.Bool(p.properties.Prefer)
+}
+
+// The below source-related functions and the srcs, src fields are based on an assumption that
+// prebuilt modules have a static source property at the moment. Currently there is only one
+// exception, android_app_import, which chooses a source file depending on the product's DPI
+// preference configs. We'll want to add native support for dynamic source cases if we end up having
+// more modules like this.
 func (p *Prebuilt) SingleSourcePath(ctx ModuleContext) Path {
-	if p.srcs != nil {
-		if len(*p.srcs) == 0 {
-			ctx.PropertyErrorf("srcs", "missing prebuilt source file")
+	if p.srcsSupplier != nil {
+		srcs := p.srcsSupplier()
+
+		if len(srcs) == 0 {
+			ctx.PropertyErrorf(p.srcsPropertyName, "missing prebuilt source file")
 			return nil
 		}
 
-		if len(*p.srcs) > 1 {
-			ctx.PropertyErrorf("srcs", "multiple prebuilt source files")
+		if len(srcs) > 1 {
+			ctx.PropertyErrorf(p.srcsPropertyName, "multiple prebuilt source files")
 			return nil
 		}
 
 		// Return the singleton source after expanding any filegroup in the
 		// sources.
-		return PathForModuleSrc(ctx, (*p.srcs)[0])
+		src := srcs[0]
+		return PathForModuleSrc(ctx, src)
 	} else {
-		if proptools.String(p.src) == "" {
-			ctx.PropertyErrorf("src", "missing prebuilt source file")
-			return nil
-		}
-		return PathForModuleSrc(ctx, *p.src)
+		ctx.ModuleErrorf("prebuilt source was not set")
+		return nil
 	}
 }
 
@@ -78,16 +106,80 @@ func (p *Prebuilt) UsePrebuilt() bool {
 	return p.properties.UsePrebuilt
 }
 
-func InitPrebuiltModule(module PrebuiltInterface, srcs *[]string) {
+// Called to provide the srcs value for the prebuilt module.
+//
+// Return the src value or nil if it is not available.
+type PrebuiltSrcsSupplier func() []string
+
+// Initialize the module as a prebuilt module that uses the provided supplier to access the
+// prebuilt sources of the module.
+//
+// The supplier will be called multiple times and must return the same values each time it
+// is called. If it returns an empty array (or nil) then the prebuilt module will not be used
+// as a replacement for a source module with the same name even if prefer = true.
+//
+// If the Prebuilt.SingleSourcePath() is called on the module then this must return an array
+// containing exactly one source file.
+//
+// The provided property name is used to provide helpful error messages in the event that
+// a problem arises, e.g. calling SingleSourcePath() when more than one source is provided.
+func InitPrebuiltModuleWithSrcSupplier(module PrebuiltInterface, srcsSupplier PrebuiltSrcsSupplier, srcsPropertyName string) {
 	p := module.Prebuilt()
 	module.AddProperties(&p.properties)
-	p.srcs = srcs
+
+	if srcsSupplier == nil {
+		panic(fmt.Errorf("srcsSupplier must not be nil"))
+	}
+	if srcsPropertyName == "" {
+		panic(fmt.Errorf("srcsPropertyName must not be empty"))
+	}
+
+	p.srcsSupplier = srcsSupplier
+	p.srcsPropertyName = srcsPropertyName
 }
 
-func InitSingleSourcePrebuiltModule(module PrebuiltInterface, src *string) {
-	p := module.Prebuilt()
-	module.AddProperties(&p.properties)
-	p.src = src
+func InitPrebuiltModule(module PrebuiltInterface, srcs *[]string) {
+	if srcs == nil {
+		panic(fmt.Errorf("srcs must not be nil"))
+	}
+
+	srcsSupplier := func() []string {
+		return *srcs
+	}
+
+	InitPrebuiltModuleWithSrcSupplier(module, srcsSupplier, "srcs")
+}
+
+func InitSingleSourcePrebuiltModule(module PrebuiltInterface, srcProps interface{}, srcField string) {
+	srcPropsValue := reflect.ValueOf(srcProps).Elem()
+	srcStructField, _ := srcPropsValue.Type().FieldByName(srcField)
+	if !srcPropsValue.IsValid() || srcStructField.Name == "" {
+		panic(fmt.Errorf("invalid single source prebuilt %+v", module))
+	}
+
+	if srcPropsValue.Kind() != reflect.Struct && srcPropsValue.Kind() != reflect.Interface {
+		panic(fmt.Errorf("invalid single source prebuilt %+v", srcProps))
+	}
+
+	srcFieldIndex := srcStructField.Index
+	srcPropertyName := proptools.PropertyNameForField(srcField)
+
+	srcsSupplier := func() []string {
+		value := srcPropsValue.FieldByIndex(srcFieldIndex)
+		if value.Kind() == reflect.Ptr {
+			value = value.Elem()
+		}
+		if value.Kind() != reflect.String {
+			panic(fmt.Errorf("prebuilt src field %q should be a string or a pointer to one but was %d %q", srcPropertyName, value.Kind(), value))
+		}
+		src := value.String()
+		if src == "" {
+			return nil
+		}
+		return []string{src}
+	}
+
+	InitPrebuiltModuleWithSrcSupplier(module, srcsSupplier, srcPropertyName)
 }
 
 type PrebuiltInterface interface {
@@ -111,7 +203,7 @@ func PrebuiltMutator(ctx BottomUpMutatorContext) {
 		p := m.Prebuilt()
 		name := m.base().BaseModuleName()
 		if ctx.OtherModuleExists(name) {
-			ctx.AddReverseDependency(ctx.Module(), prebuiltDepTag, name)
+			ctx.AddReverseDependency(ctx.Module(), PrebuiltDepTag, name)
 			p.properties.SourceExists = true
 		} else {
 			ctx.Rename(name)
@@ -124,14 +216,14 @@ func PrebuiltMutator(ctx BottomUpMutatorContext) {
 func PrebuiltSelectModuleMutator(ctx TopDownMutatorContext) {
 	if m, ok := ctx.Module().(PrebuiltInterface); ok && m.Prebuilt() != nil {
 		p := m.Prebuilt()
-		if p.srcs == nil && p.src == nil {
+		if p.srcsSupplier == nil {
 			panic(fmt.Errorf("prebuilt module did not have InitPrebuiltModule called on it"))
 		}
 		if !p.properties.SourceExists {
 			p.properties.UsePrebuilt = p.usePrebuilt(ctx, nil)
 		}
 	} else if s, ok := ctx.Module().(Module); ok {
-		ctx.VisitDirectDepsWithTag(prebuiltDepTag, func(m Module) {
+		ctx.VisitDirectDepsWithTag(PrebuiltDepTag, func(m Module) {
 			p := m.(PrebuiltInterface).Prebuilt()
 			if p.usePrebuilt(ctx, s) {
 				p.properties.UsePrebuilt = true
@@ -163,11 +255,7 @@ func PrebuiltPostDepsMutator(ctx BottomUpMutatorContext) {
 // usePrebuilt returns true if a prebuilt should be used instead of the source module.  The prebuilt
 // will be used if it is marked "prefer" or if the source module is disabled.
 func (p *Prebuilt) usePrebuilt(ctx TopDownMutatorContext, source Module) bool {
-	if p.srcs != nil && len(*p.srcs) == 0 {
-		return false
-	}
-
-	if p.src != nil && *p.src == "" {
+	if p.srcsSupplier != nil && len(p.srcsSupplier()) == 0 {
 		return false
 	}
 

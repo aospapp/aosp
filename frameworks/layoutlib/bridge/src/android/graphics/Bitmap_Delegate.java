@@ -300,14 +300,14 @@ public final class Bitmap_Delegate {
     /*package*/ static void nativeReconfigure(long nativeBitmap, int width, int height,
             int config, boolean isPremultiplied) {
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
-                "Bitmap.reconfigure() is not supported", null /*data*/);
+                "Bitmap.reconfigure() is not supported", null, null /*data*/);
     }
 
     @LayoutlibDelegate
     /*package*/ static boolean nativeCompress(long nativeBitmap, int format, int quality,
             OutputStream stream, byte[] tempStorage) {
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
-                "Bitmap.compress() is not supported", null /*data*/);
+                "Bitmap.compress() is not supported", null, null /*data*/);
         return true;
     }
 
@@ -427,14 +427,14 @@ public final class Bitmap_Delegate {
     /*package*/ static void nativeCopyPixelsToBuffer(long nativeBitmap, Buffer dst) {
         // FIXME implement native delegate
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Bitmap.copyPixelsToBuffer is not supported.", null, null /*data*/);
+                "Bitmap.copyPixelsToBuffer is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
     /*package*/ static void nativeCopyPixelsFromBuffer(long nb, Buffer src) {
         // FIXME implement native delegate
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Bitmap.copyPixelsFromBuffer is not supported.", null, null /*data*/);
+                "Bitmap.copyPixelsFromBuffer is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
@@ -453,18 +453,17 @@ public final class Bitmap_Delegate {
         // used during aidl call so really this should not be called.
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
                 "AIDL is not suppored, and therefore Bitmaps cannot be created from parcels.",
-                null /*data*/);
+                null, null /*data*/);
         return null;
     }
 
     @LayoutlibDelegate
-    /*package*/ static boolean nativeWriteToParcel(long nativeBitmap, boolean isMutable,
-            int density, Parcel p) {
+    /*package*/ static boolean nativeWriteToParcel(long nativeBitmap, int density, Parcel p) {
         // This is only called when sending a bitmap through aidl, so really this should not
         // be called.
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
                 "AIDL is not suppored, and therefore Bitmaps cannot be written to parcels.",
-                null /*data*/);
+                null, null /*data*/);
         return false;
     }
 
@@ -482,7 +481,7 @@ public final class Bitmap_Delegate {
         if (paint != null && paint.getMaskFilter() != null) {
             Bridge.getLog().fidelityWarning(LayoutLog.TAG_MASKFILTER,
                     "MaskFilter not supported in Bitmap.extractAlpha",
-                    null, null /*data*/);
+                    null, null, null /*data*/);
         }
 
         int alpha = paint != null ? paint.getAlpha() : 0xFF;
@@ -639,27 +638,27 @@ public final class Bitmap_Delegate {
     @LayoutlibDelegate
     /*package*/ static boolean nativeIsSRGB(long nativeBitmap) {
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
-                "Color spaces are not supported", null /*data*/);
+                "Color spaces are not supported", null, null /*data*/);
         return false;
     }
 
     @LayoutlibDelegate
     /*package*/ static ColorSpace nativeComputeColorSpace(long nativePtr) {
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
-                "Color spaces are not supported", null /*data*/);
+                "Color spaces are not supported", null, null /*data*/);
         return null;
     }
 
     @LayoutlibDelegate
     /*package*/ static void nativeSetColorSpace(long nativePtr, long nativeColorSpace) {
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
-                "Color spaces are not supported", null /*data*/);
+                "Color spaces are not supported", null, null /*data*/);
     }
 
     @LayoutlibDelegate
     /*package*/ static boolean nativeIsSRGBLinear(long nativePtr) {
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
-                "Color spaces are not supported", null /*data*/);
+                "Color spaces are not supported", null, null /*data*/);
         return false;
     }
 
@@ -679,6 +678,13 @@ public final class Bitmap_Delegate {
             return false;
         }
         return !bmpDelegate.mIsMutable;
+    }
+
+    @LayoutlibDelegate
+    /*package*/ static HardwareBuffer nativeGetHardwareBuffer(long nativeBitmap) {
+        Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
+                "HardwareBuffer is not supported", null, null /*data*/);
+        return null;
     }
 
     // ---- Private delegate/helper methods ----

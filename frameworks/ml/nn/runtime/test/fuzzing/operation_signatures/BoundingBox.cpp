@@ -14,31 +14,33 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <vector>
+
 #include "fuzzing/operation_signatures/OperationSignatureUtils.h"
 
 namespace android {
 namespace nn {
 namespace fuzzing_test {
 
-static void roiTensorConstructor(Type dataType, uint32_t, RandomOperand* op) {
+static void roiTensorConstructor(TestOperandType dataType, uint32_t, RandomOperand* op) {
     op->dataType = dataType;
-    if (dataType == Type::TENSOR_QUANT8_ASYMM) {
-        op->dataType = Type::TENSOR_QUANT16_ASYMM;
+    if (isQuantizedType(dataType)) {
+        op->dataType = TestOperandType::TENSOR_QUANT16_ASYMM;
         op->scale = 0.125f;
         op->zeroPoint = 0;
     }
 }
 
-// TODO: Have a version that makes roi tensor an input.
-static const OperandSignature kInputRoiTensor = {.type = RandomOperandType::CONST,
+static const OperandSignature kInputRoiTensor = {.type = RandomOperandType::INPUT,
                                                  .constructor = roiTensorConstructor};
 static const OperandSignature kOutputRoiTensor = {.type = RandomOperandType::OUTPUT,
                                                   .constructor = roiTensorConstructor};
 
-static void roiConstructor(Type, uint32_t rank, RandomOperation* op) {
+static void roiConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     NN_FUZZER_CHECK(rank == 4);
     bool useNchw;
-    if (op->opType == ANEURALNETWORKS_ROI_ALIGN) {
+    if (op->opType == TestOperationType::ROI_ALIGN) {
         useNchw = op->inputs[9]->value<bool8>();
     } else {
         useNchw = op->inputs[7]->value<bool8>();
@@ -58,9 +60,13 @@ static void roiConstructor(Type, uint32_t rank, RandomOperation* op) {
         op->outputs[0]->dimensions = {outBatch, outHeight, outWidth, outDepth};
     }
 
-    if (op->opType == ANEURALNETWORKS_ROI_POOLING) {
+    if (op->opType == TestOperationType::ROI_POOLING) {
         setSameQuantization(op->outputs[0], op->inputs[0]);
     }
+
+    // The values of the RoI tensor has a special format and cannot be generated from another
+    // operation.
+    op->inputs[1]->doNotConnect = true;
 }
 
 template <typename T>
@@ -77,7 +83,7 @@ inline void fillRoiTensor(uint32_t numRois, T maxH, T maxW, RandomOperand* op) {
 
 static void roiFinalizer(RandomOperation* op) {
     bool useNchw;
-    if (op->opType == ANEURALNETWORKS_ROI_ALIGN) {
+    if (op->opType == TestOperationType::ROI_ALIGN) {
         useNchw = op->inputs[9]->value<bool8>();
     } else {
         useNchw = op->inputs[7]->value<bool8>();
@@ -89,12 +95,12 @@ static void roiFinalizer(RandomOperation* op) {
     uint32_t numRois = op->inputs[1]->dimensions[0].getValue();
     // Fill values to the roi tensor with format [x1, y1, x2, y2].
     switch (op->inputs[1]->dataType) {
-        case Type::TENSOR_FLOAT32: {
+        case TestOperandType::TENSOR_FLOAT32: {
             float maxH = static_cast<float>(height) * op->inputs[5]->value<float>();
             float maxW = static_cast<float>(width) * op->inputs[6]->value<float>();
             fillRoiTensor<float>(numRois, maxH, maxW, op->inputs[1].get());
         } break;
-        case Type::TENSOR_QUANT16_ASYMM: {
+        case TestOperandType::TENSOR_QUANT16_ASYMM: {
             uint16_t maxH = static_cast<float>(height) * op->inputs[5]->value<float>();
             uint16_t maxW = static_cast<float>(width) * op->inputs[6]->value<float>();
             fillRoiTensor<uint16_t>(numRois, maxH, maxW, op->inputs[1].get());
@@ -112,54 +118,64 @@ static void roiFinalizer(RandomOperation* op) {
     for (uint32_t i = 0; i < numRois; i++) op->inputs[2]->value<int32_t>(i) = batchIndex[i];
 }
 
-// Type::TENSOR_FLOAT16 is intentionally excluded for all bounding box ops because
+// TestOperandType::TENSOR_FLOAT16 is intentionally excluded for all bounding box ops because
 // 1. It has limited precision for compuation on bounding box indices, which will lead to poor
 //    accuracy evaluation.
 // 2. There is no actual graph that uses this data type on bounding boxes.
 
-DEFINE_OPERATION_SIGNATURE(ROI_ALIGN_V1_2){
-        .opType = ANEURALNETWORKS_ROI_ALIGN,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {4},
-        .version = HalVersion::V1_2,
-        .inputs =
-                {
-                        INPUT_DEFAULT,
-                        kInputRoiTensor,
-                        PARAMETER_NONE(Type::TENSOR_INT32),
-                        RANDOM_INT_FREE,
-                        RANDOM_INT_FREE,
-                        PARAMETER_FLOAT_RANGE(0.1f, 10.0f),
-                        PARAMETER_FLOAT_RANGE(0.1f, 10.0f),
-                        PARAMETER_RANGE(Type::INT32, 0, 10),
-                        PARAMETER_RANGE(Type::INT32, 0, 10),
-                        PARAMETER_CHOICE(Type::BOOL, true, false),
-                },
-        .outputs = {OUTPUT_DEFAULT},
-        .constructor = roiConstructor,
-        .finalizer = roiFinalizer};
+#define DEFINE_ROI_ALIGN_SIGNATURE(ver, ...)                                      \
+    DEFINE_OPERATION_SIGNATURE(ROI_ALIGN_##ver){                                  \
+            .opType = TestOperationType::ROI_ALIGN,                               \
+            .supportedDataTypes = {__VA_ARGS__},                                  \
+            .supportedRanks = {4},                                                \
+            .version = TestHalVersion::ver,                                       \
+            .inputs =                                                             \
+                    {                                                             \
+                            INPUT_DEFAULT,                                        \
+                            kInputRoiTensor,                                      \
+                            PARAMETER_NONE(TestOperandType::TENSOR_INT32),        \
+                            RANDOM_INT_FREE,                                      \
+                            RANDOM_INT_FREE,                                      \
+                            PARAMETER_FLOAT_RANGE(0.1f, 10.0f),                   \
+                            PARAMETER_FLOAT_RANGE(0.1f, 10.0f),                   \
+                            PARAMETER_RANGE(TestOperandType::INT32, 0, 10),       \
+                            PARAMETER_RANGE(TestOperandType::INT32, 0, 10),       \
+                            PARAMETER_CHOICE(TestOperandType::BOOL, true, false), \
+                    },                                                            \
+            .outputs = {OUTPUT_DEFAULT},                                          \
+            .constructor = roiConstructor,                                        \
+            .finalizer = roiFinalizer};
 
-DEFINE_OPERATION_SIGNATURE(ROI_POOLING_V1_2){
-        .opType = ANEURALNETWORKS_ROI_POOLING,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {4},
-        .version = HalVersion::V1_2,
-        .inputs =
-                {
-                        INPUT_DEFAULT,
-                        kInputRoiTensor,
-                        PARAMETER_NONE(Type::TENSOR_INT32),
-                        RANDOM_INT_FREE,
-                        RANDOM_INT_FREE,
-                        PARAMETER_FLOAT_RANGE(0.1f, 10.0f),
-                        PARAMETER_FLOAT_RANGE(0.1f, 10.0f),
-                        PARAMETER_CHOICE(Type::BOOL, true, false),
-                },
-        .outputs = {OUTPUT_DEFAULT},
-        .constructor = roiConstructor,
-        .finalizer = roiFinalizer};
+DEFINE_ROI_ALIGN_SIGNATURE(V1_2, TestOperandType::TENSOR_FLOAT32,
+                           TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_ROI_ALIGN_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
 
-static void heatmapMaxKeypointConstructor(Type, uint32_t rank, RandomOperation* op) {
+#define DEFINE_ROI_POOLING_SIGNATURE(ver, ...)                                    \
+    DEFINE_OPERATION_SIGNATURE(ROI_POOLING_##ver){                                \
+            .opType = TestOperationType::ROI_POOLING,                             \
+            .supportedDataTypes = {__VA_ARGS__},                                  \
+            .supportedRanks = {4},                                                \
+            .version = TestHalVersion::ver,                                       \
+            .inputs =                                                             \
+                    {                                                             \
+                            INPUT_DEFAULT,                                        \
+                            kInputRoiTensor,                                      \
+                            PARAMETER_NONE(TestOperandType::TENSOR_INT32),        \
+                            RANDOM_INT_FREE,                                      \
+                            RANDOM_INT_FREE,                                      \
+                            PARAMETER_FLOAT_RANGE(0.1f, 10.0f),                   \
+                            PARAMETER_FLOAT_RANGE(0.1f, 10.0f),                   \
+                            PARAMETER_CHOICE(TestOperandType::BOOL, true, false), \
+                    },                                                            \
+            .outputs = {OUTPUT_DEFAULT},                                          \
+            .constructor = roiConstructor,                                        \
+            .finalizer = roiFinalizer};
+
+DEFINE_ROI_POOLING_SIGNATURE(V1_2, TestOperandType::TENSOR_FLOAT32,
+                             TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_ROI_POOLING_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
+
+static void heatmapMaxKeypointConstructor(TestOperandType, uint32_t rank, RandomOperation* op) {
     NN_FUZZER_CHECK(rank == 4);
     bool useNchw = op->inputs[2]->value<bool8>();
     RandomVariable heatmapSize = RandomVariableType::FREE;
@@ -188,11 +204,11 @@ static void heatmapMaxKeypointFinalizer(RandomOperation* op) {
     uint32_t heatmapSize = op->inputs[0]->dimensions[2].getValue();
     // Fill values to the roi tensor with format [x1, y1, x2, y2].
     switch (op->inputs[1]->dataType) {
-        case Type::TENSOR_FLOAT32: {
+        case TestOperandType::TENSOR_FLOAT32: {
             float maxSize = heatmapSize;
             fillRoiTensor<float>(numRois, maxSize, maxSize, op->inputs[1].get());
         } break;
-        case Type::TENSOR_QUANT16_ASYMM: {
+        case TestOperandType::TENSOR_QUANT16_ASYMM: {
             uint16_t maxSize = static_cast<uint16_t>(heatmapSize * 8);
             fillRoiTensor<uint16_t>(numRois, maxSize, maxSize, op->inputs[1].get());
         } break;
@@ -201,15 +217,21 @@ static void heatmapMaxKeypointFinalizer(RandomOperation* op) {
     }
 }
 
-DEFINE_OPERATION_SIGNATURE(HEATMAP_MAX_KEYPOINT_V1_2){
-        .opType = ANEURALNETWORKS_HEATMAP_MAX_KEYPOINT,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
-        .supportedRanks = {4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, kInputRoiTensor, PARAMETER_CHOICE(Type::BOOL, true, false)},
-        .outputs = {OUTPUT_DEFAULT, kOutputRoiTensor},
-        .constructor = heatmapMaxKeypointConstructor,
-        .finalizer = heatmapMaxKeypointFinalizer};
+#define DEFINE_HEATMAP_MAX_KEYPOINT_SIGNATURE(ver, ...)                       \
+    DEFINE_OPERATION_SIGNATURE(HEATMAP_MAX_KEYPOINT_##ver){                   \
+            .opType = TestOperationType::HEATMAP_MAX_KEYPOINT,                \
+            .supportedDataTypes = {__VA_ARGS__},                              \
+            .supportedRanks = {4},                                            \
+            .version = TestHalVersion::ver,                                   \
+            .inputs = {INPUT_DEFAULT, kInputRoiTensor,                        \
+                       PARAMETER_CHOICE(TestOperandType::BOOL, true, false)}, \
+            .outputs = {OUTPUT_DEFAULT, kOutputRoiTensor},                    \
+            .constructor = heatmapMaxKeypointConstructor,                     \
+            .finalizer = heatmapMaxKeypointFinalizer};
+
+DEFINE_HEATMAP_MAX_KEYPOINT_SIGNATURE(V1_2, TestOperandType::TENSOR_FLOAT32,
+                                      TestOperandType::TENSOR_QUANT8_ASYMM);
+DEFINE_HEATMAP_MAX_KEYPOINT_SIGNATURE(V1_3, TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
 
 }  // namespace fuzzing_test
 }  // namespace nn

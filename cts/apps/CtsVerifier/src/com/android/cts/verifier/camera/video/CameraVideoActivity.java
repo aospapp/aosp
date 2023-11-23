@@ -138,16 +138,12 @@ public class CameraVideoActivity extends PassFailButtons.Activity
      * @see #MEDIA_TYPE_IMAGE
      * @see #MEDIA_TYPE_VIDEO
      */
-    private static File getOutputMediaFile(int type) {
-        // Question: why do I need to comment this to get it working?
-        // Logcat says "external storage not ready"
-        // if (Environment.getExternalStorageState() != Environment.MEDIA_MOUNTED) {
-        //     Log.e(TAG, "external storage not ready");
-        //     return null;
-        // }
-
-        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_MOVIES), TAG);
+    private File getOutputMediaFile(int type) {
+        File mediaStorageDir = new File(getExternalFilesDir(null), TAG);
+        if (mediaStorageDir == null) {
+            Log.e(TAG, "failed to retrieve external files directory");
+            return null;
+        }
 
         if (!mediaStorageDir.exists()) {
             if (!mediaStorageDir.mkdirs()) {
@@ -306,7 +302,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
         mCameraSpinner = (Spinner) findViewById(R.id.cameras_selection);
         mCameraSpinner.setAdapter(
             new ArrayAdapter<String>(
-                this, R.layout.cf_format_list_item, cameraNames));
+                this, R.layout.camera_list_item, cameraNames));
         mCameraSpinner.setOnItemSelectedListener(mCameraSpinnerListener);
 
         mResolutionSpinner = (Spinner) findViewById(R.id.resolution_selection);
@@ -545,7 +541,8 @@ public class CameraVideoActivity extends PassFailButtons.Activity
                                     mUntestedCombinations.remove(combination);
                                     mTestedCombinations.add(combination);
 
-                                    if (mUntestedCombinations.isEmpty()) {
+                                    if (mUntestedCombinations.isEmpty() &&
+                                            mUntestedCameras.isEmpty()) {
                                         mPassButton.setEnabled(true);
                                         if (VERBOSE) {
                                             Log.v(TAG, "run: test success");
@@ -819,7 +816,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
 
         mResolutionSpinner.setAdapter(
             new ArrayAdapter<String>(
-                this, R.layout.cf_format_list_item, availableVideoSizeNames));
+                this, R.layout.camera_list_item, availableVideoSizeNames));
 
         // Update untested
         mUntestedCameras.remove("All combinations for Camera " + id + "\n");

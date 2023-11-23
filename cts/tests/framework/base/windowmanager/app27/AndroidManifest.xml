@@ -34,6 +34,17 @@
                   android:exported="true"
         />
 
+        <activity android:name=".LaunchEnterPipActivity"
+                  android:exported="true"
+        />
+
+        <activity android:name=".PipActivity"
+                  android:resizeableActivity="false"
+                  android:supportsPictureInPicture="true"
+                  android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
+                  android:exported="true"
+        />
+
         <activity android:name=".HomeActivity"
                         android:enabled="false"
                         android:exported="true">

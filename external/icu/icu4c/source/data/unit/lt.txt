@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 lt{
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     durationUnits{
         hm{"hh:mm"}
         hms{"hh:mm:ss"}
@@ -68,6 +68,13 @@ lt{
                 many{"{0} akro"}
                 one{"{0} akras"}
                 other{"{0} akrų"}
+            }
+            dunam{
+                dnam{"dunamai"}
+                few{"{0} dunamai"}
+                many{"{0} dunamo"}
+                one{"{0} dunamas"}
+                other{"{0} dunamų"}
             }
             hectare{
                 dnam{"hektarai"}
@@ -155,6 +162,13 @@ lt{
                 many{"{0} milimoliai litre"}
                 one{"{0} milimolis litre"}
                 other{"{0} milimolių litre"}
+            }
+            mole{
+                dnam{"moliai"}
+                few{"{0} moliai"}
+                many{"{0} molio"}
+                one{"{0} molis"}
+                other{"{0} molių"}
             }
             part-per-million{
                 dnam{"milijoninės dalys"}
@@ -310,6 +324,13 @@ lt{
                 other{"{0} dienų"}
                 per{"{0} per dieną"}
             }
+            decade{
+                dnam{"dekados"}
+                few{"{0} dekados"}
+                many{"{0} dekados"}
+                one{"{0} dekada"}
+                other{"{0} dekadų"}
+            }
             hour{
                 dnam{"valandos"}
                 few{"{0} valandos"}
@@ -411,12 +432,22 @@ lt{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"britiškieji šilumos vienetai"}
+            }
             calorie{
                 dnam{"kalorijos"}
                 few{"{0} kalorijos"}
                 many{"{0} kalorijos"}
                 one{"{0} kalorija"}
                 other{"{0} kalorijų"}
+            }
+            electronvolt{
+                dnam{"elektronvoltai"}
+                few{"{0} elektronvoltai"}
+                many{"{0} elektronvolto"}
+                one{"{0} elektronvoltas"}
+                other{"{0} elektronvoltų"}
             }
             foodcalorie{
                 dnam{"kalorijos"}
@@ -453,6 +484,29 @@ lt{
                 one{"{0} kilovatvalandė"}
                 other{"{0} kilovatvalandžių"}
             }
+            therm-us{
+                dnam{"JAV termos"}
+                few{"{0} JAV termos"}
+                many{"{0} JAV termos"}
+                one{"{0} JAV terma"}
+                other{"{0} JAV termų"}
+            }
+        }
+        force{
+            newton{
+                dnam{"niutonai"}
+                few{"{0} niutonai"}
+                many{"{0} niutono"}
+                one{"{0} niutonas"}
+                other{"{0} niutonų"}
+            }
+            pound-force{
+                dnam{"jėgos svarai"}
+                few{"{0} jėgos svarai"}
+                many{"{0} jėgos svaro"}
+                one{"{0} jėgos svaras"}
+                other{"{0} jėgos svarų"}
+            }
         }
         frequency{
             gigahertz{
@@ -482,6 +536,53 @@ lt{
                 many{"{0} megaherco"}
                 one{"{0} megahercas"}
                 other{"{0} megahercų"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"taškai centimetre"}
+                few{"{0} taškai centimetre"}
+                many{"{0} taško centimetre"}
+                one{"{0} taškas centimetre"}
+                other{"{0} taškų centimetre"}
+            }
+            dot-per-inch{
+                dnam{"taškai colyje"}
+                few{"{0} taškai colyje"}
+                many{"{0} taško colyje"}
+                one{"{0} taškas colyje"}
+                other{"{0} taškų colyje"}
+            }
+            em{
+                dnam{"tipografinis emas"}
+            }
+            megapixel{
+                dnam{"megapikseliai"}
+                few{"{0} megapikseliai"}
+                many{"{0} megapikselio"}
+                one{"{0} megapikselis"}
+                other{"{0} megapikselių"}
+            }
+            pixel{
+                dnam{"pikseliai"}
+                few{"{0} pikseliai"}
+                many{"{0} pikselio"}
+                one{"{0} pikselis"}
+                other{"{0} pikselių"}
+            }
+            pixel-per-centimeter{
+                dnam{"pikseliai centimetre"}
+                few{"{0} pikseliai centimetre"}
+                many{"{0} pikselio centimetre"}
+                one{"{0} pikselis centimetre"}
+                other{"{0} pikselių centimetre"}
+            }
+            pixel-per-inch{
+                dnam{"pikseliai colyje"}
+                few{"{0} pikseliai colyje"}
+                many{"{0} pikselio colyje"}
+                one{"{0} pikselis colyje"}
+                other{"{0} pikselių colyje"}
             }
         }
         length{
@@ -623,6 +724,9 @@ lt{
                 one{"{0} punktas"}
                 other{"{0} punkto"}
             }
+            solar-radius{
+                dnam{"saulės spinduliuotė"}
+            }
             yard{
                 dnam{"jardai"}
                 few{"{0} jardai"}
@@ -639,6 +743,9 @@ lt{
                 one{"{0} liuksas"}
                 other{"{0} liuksų"}
             }
+            solar-luminosity{
+                dnam{"saulės šviesis"}
+            }
         }
         mass{
             carat{
@@ -647,6 +754,16 @@ lt{
                 many{"{0} karato"}
                 one{"{0} karatas"}
                 other{"{0} karatų"}
+            }
+            dalton{
+                dnam{"daltonai"}
+                few{"{0} daltonai"}
+                many{"{0} daltono"}
+                one{"{0} daltonas"}
+                other{"{0} daltonų"}
+            }
+            earth-mass{
+                dnam{"žemės masė"}
             }
             gram{
                 dnam{"gramai"}
@@ -707,6 +824,9 @@ lt{
                 one{"{0} svaras"}
                 other{"{0} svarų"}
                 per{"{0}/lb"}
+            }
+            solar-mass{
+                dnam{"saulės masė"}
             }
             stone{
                 dnam{"stonai"}
@@ -775,6 +895,13 @@ lt{
                 one{"{0} atmosfera"}
                 other{"{0} atmosferų"}
             }
+            bar{
+                dnam{"baras"}
+                few{"{0} barai"}
+                many{"{0} baro"}
+                one{"{0} baras"}
+                other{"{0} barų"}
+            }
             hectopascal{
                 dnam{"hektopaskaliai"}
                 few{"{0} hektopaskaliai"}
@@ -789,6 +916,20 @@ lt{
                 one{"{0} gyvsidabrio stulpelio colis"}
                 other{"{0} gyvsidabrio stulpelio colių"}
             }
+            kilopascal{
+                dnam{"kilopaskaliai"}
+                few{"{0} kilopaskaliai"}
+                many{"{0} kilopaskalio"}
+                one{"{0} kilopaskalis"}
+                other{"{0} kilopaskalių"}
+            }
+            megapascal{
+                dnam{"megapaskaliai"}
+                few{"{0} megapaskaliai"}
+                many{"{0} megapaskalio"}
+                one{"{0} megapaskalis"}
+                other{"{0} megapaskalių"}
+            }
             millibar{
                 dnam{"milibarai"}
                 few{"{0} milibarai"}
@@ -802,6 +943,13 @@ lt{
                 many{"{0} gysidabrio stulpelio milimetro"}
                 one{"{0} gysidabrio stulpelio milimetras"}
                 other{"{0} gysidabrio stulpelio milimetrų"}
+            }
+            pascal{
+                dnam{"paskaliai"}
+                few{"{0} paskaliai"}
+                many{"{0} paskalio"}
+                one{"{0} paskalis"}
+                other{"{0} paskalių"}
             }
             pound-per-square-inch{
                 dnam{"svarai kv. colyje"}
@@ -871,6 +1019,18 @@ lt{
                 other{"{0} kelvinų"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"niutonmetrai"}
+                few{"{0} niutonmetrai"}
+                many{"{0} niutonmetro"}
+                one{"{0} niutonmetras"}
+                other{"{0} niutonmetrų"}
+            }
+            pound-foot{
+                dnam{"svarų pėdos"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"pėdos akre"}
@@ -878,6 +1038,13 @@ lt{
                 many{"{0} pėdos akre"}
                 one{"{0} pėda akre"}
                 other{"{0} pėdų akre"}
+            }
+            barrel{
+                dnam{"bareliai"}
+                few{"{0} bareliai"}
+                many{"{0} barelio"}
+                one{"{0} barelis"}
+                other{"{0} barelių"}
             }
             bushel{
                 dnam{"bušeliai"}
@@ -971,6 +1138,13 @@ lt{
                 many{"{0} skysčio uncijos"}
                 one{"{0} skysčio uncija"}
                 other{"{0} skysčio uncijų"}
+            }
+            fluid-ounce-imperial{
+                dnam{"imperatoriškosios skysčio uncijos"}
+                few{"{0} imp. skysčio uncijos"}
+                many{"{0} imp. skysčio uncijos"}
+                one{"{0} imp. skysčio uncija"}
+                other{"{0} imp. skysčio uncijų"}
             }
             gallon{
                 dnam{"galonai"}
@@ -1620,6 +1794,13 @@ lt{
                 one{"{0} a."}
                 other{"{0} a."}
             }
+            dunam{
+                dnam{"dunamai"}
+                few{"{0} dunamai"}
+                many{"{0} dunamo"}
+                one{"{0} dunamas"}
+                other{"{0} dunamų"}
+            }
             hectare{
                 dnam{"hektarai"}
                 few{"{0} ha"}
@@ -1861,6 +2042,13 @@ lt{
                 other{"{0} d."}
                 per{"{0}/d."}
             }
+            decade{
+                dnam{"dekados"}
+                few{"{0} dek."}
+                many{"{0} dek."}
+                one{"{0} dek."}
+                other{"{0} dek."}
+            }
             hour{
                 dnam{"valandos"}
                 few{"{0} val."}
@@ -2004,6 +2192,13 @@ lt{
                 one{"{0} kWh"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"JAV terma"}
+                few{"{0} JAV termos"}
+                many{"{0} JAV termos"}
+                one{"{0} JAV terma"}
+                other{"{0} JAV termų"}
+            }
         }
         frequency{
             gigahertz{
@@ -2033,6 +2228,45 @@ lt{
                 many{"{0} MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"taškai centimetre"}
+                few{"{0} tšk./cm"}
+                many{"{0} tšk./cm"}
+                one{"{0} tšk./cm"}
+                other{"{0} tšk./cm"}
+            }
+            dot-per-inch{
+                dnam{"taškai colyje"}
+                few{"{0} tšk./in"}
+                many{"{0} tšk./in"}
+                one{"{0} tšk./in"}
+                other{"{0} tšk./in"}
+            }
+            em{
+                dnam{"tipografinis emas"}
+            }
+            megapixel{
+                dnam{"megapikseliai"}
+            }
+            pixel{
+                dnam{"pikseliai"}
+                few{"{0} p"}
+                many{"{0} p"}
+                one{"{0} p"}
+                other{"{0} p"}
+            }
+            pixel-per-centimeter{
+                dnam{"pikseliai centimetre"}
+                few{"{0} p/cm"}
+                many{"{0} p/cm"}
+                one{"{0} p/cm"}
+                other{"{0} p/cm"}
+            }
+            pixel-per-inch{
+                dnam{"pikseliai colyje"}
             }
         }
         length{
@@ -2326,6 +2560,13 @@ lt{
                 one{"{0} atm"}
                 other{"{0} atm"}
             }
+            bar{
+                dnam{"baras"}
+                few{"{0} ba"}
+                many{"{0} ba"}
+                one{"{0} ba"}
+                other{"{0} ba"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 few{"{0} hPa"}
@@ -2353,6 +2594,9 @@ lt{
                 many{"{0} mm Hg"}
                 one{"{0} mm Hg"}
                 other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"paskaliai"}
             }
             pound-per-square-inch{
                 dnam{"lb in²"}
@@ -2420,6 +2664,15 @@ lt{
                 many{"{0} K"}
                 one{"{0} K"}
                 other{"{0} K"}
+            }
+        }
+        torque{
+            newton-meter{
+                dnam{"N-m"}
+                few{"{0} N-m"}
+                many{"{0} N-m"}
+                one{"{0} N-m"}
+                other{"{0} N-m"}
             }
         }
         volume{
@@ -2522,6 +2775,13 @@ lt{
                 many{"{0} skysčio oz"}
                 one{"{0} skysčio oz"}
                 other{"{0} skysčio oz"}
+            }
+            fluid-ounce-imperial{
+                dnam{"imp. skysčio uncija"}
+                few{"{0} imp. fl oz"}
+                many{"{0} imp. fl oz"}
+                one{"{0} imp. fl oz"}
+                other{"{0} imp. fl oz"}
             }
             gallon{
                 dnam{"gal"}

@@ -1,0 +1,29 @@
+body {
+    background-color:black
+},
+html {
+#    position: fixed;
+}
+
+.noscroll {
+    touch-action: none;
+}
+
+.one {
+    float: left;
+}
+
+.two {
+}
+
+#logcat {
+    display: none;
+    font-family: monospace;
+    padding: 10px;
+}
+
+button.selected {
+    background-color: #aaaaaa;
+    border-style: solid;
+    border-color: #aaaaaa;
+}

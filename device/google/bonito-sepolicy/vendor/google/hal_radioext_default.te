@@ -26,4 +26,6 @@ userdebug_or_eng(`
 
 allow hal_radioext_default modem_stat_data_file:file create_file_perms;
 
+set_prop(hal_radioext_default, vendor_radio_prop)
+
 dontaudit hal_radioext_default kernel:system module_request;

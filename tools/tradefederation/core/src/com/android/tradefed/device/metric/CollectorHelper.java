@@ -19,6 +19,7 @@ package com.android.tradefed.device.metric;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.testtype.IRemoteTest;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,10 +42,14 @@ public class CollectorHelper {
         for (IMetricCollector collector : originalCollectors) {
             try {
                 // TF object should all have a constructore with no args, so this should be safe.
-                IMetricCollector clone = collector.getClass().newInstance();
+                IMetricCollector clone =
+                        collector.getClass().getDeclaredConstructor().newInstance();
                 OptionCopier.copyOptionsNoThrow(collector, clone);
                 cloneList.add(clone);
-            } catch (InstantiationException | IllegalAccessException e) {
+            } catch (InstantiationException
+                    | IllegalAccessException
+                    | InvocationTargetException
+                    | NoSuchMethodException e) {
                 throw new RuntimeException(e);
             }
         }

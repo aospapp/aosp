@@ -7,7 +7,7 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50SetBoardId"
 PURPOSE = "Verify cr50-set-board-id"
-ATTRIBUTES = "suite:cr50_stress_experimental"
+ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"
@@ -17,7 +17,7 @@ Verify cr50-set-board-id.sh sets the right board id and flags with the given
 phase.
 
 @param iterations: Number of times to run the test
-@param dev_path: local path for the dev image
+@param cr50_dbg_image_path: local path for the DBG image
 """
 
 if 'args_dict' not in locals():
@@ -30,9 +30,8 @@ def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
 
     iterations = int(args_dict.get("iterations", 1))
-    dev_path = args_dict.get("dev_path", "")
 
     job.run_test("firmware_Cr50SetBoardId", host=host, cmdline_args=args,
-                 full_args=args_dict, iterations=iterations, dev_path=dev_path)
+                 full_args=args_dict, iterations=iterations)
 
 parallel_simple(run, machines)

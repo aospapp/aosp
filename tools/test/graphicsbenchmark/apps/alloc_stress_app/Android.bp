@@ -22,7 +22,7 @@ cc_test_library {
 }
 
 android_test_helper_app {
-    name: "GameQualificationAllocstress",
+    name: "GameCoreAllocStress",
     sdk_version: "26", // Oreo
     jni_libs: ["libstress"],
     test_suites: ["device-tests"],

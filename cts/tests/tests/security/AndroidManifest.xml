@@ -25,6 +25,10 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- For FileIntegrityManager -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />
@@ -51,6 +55,36 @@
         </activity>
 
         <activity
+            android:name="android.security.cts.BinderExploitTest$CVE_2019_2213_Activity"
+            android:label="Test Binder Exploit Race Condition activity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="android.security.cts.NanoAppBundleTest$FailActivity"
+            android:label="Test Nano AppBundle customized failure catch activity">
+            <intent-filter>
+                <action android:name="android.intent.action.RUN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="android.security.cts.NanoAppBundleTest$AuthenticatorService"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/authenticator" />
+        </service>
+
+        <activity
             android:name="android.security.cts.SkiaJpegDecodingActivity"
             android:label="Test overflow in libskia JPG processing">
             <intent-filter>
@@ -58,6 +92,16 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
+
+        <receiver android:name="com.android.cts.install.lib.LocalIntentSender"
+                  android:exported="true" />
+        <receiver android:name="android.security.cts.PackageVerificationsBroadcastReceiver"
+                  android:permission="android.permission.BIND_PACKAGE_VERIFIER" >
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_NEEDS_VERIFICATION"/>
+                <data android:mimeType="application/vnd.android.package-archive" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
@@ -65,6 +109,10 @@
                      android:label="CTS tests of android.security.cts">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
+    </instrumentation>
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+                     android:targetPackage="android.security.cts"
+                     android:label="CTS tests of android.security.cts">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CrashParserRunListener" />
     </instrumentation>

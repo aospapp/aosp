@@ -52,6 +52,14 @@ public abstract class AbstractApiCheckerTest<T extends AbstractApiChecker> {
         return clz;
     }
 
+    protected static JDiffClassDescription createAbstractClass(String name) {
+        JDiffClassDescription clz = new JDiffClassDescription(
+                "android.signature.cts.tests.data", name);
+        clz.setType(JDiffClassDescription.JDiffType.CLASS);
+        clz.setModifier(Modifier.PUBLIC | Modifier.ABSTRACT);
+        return clz;
+    }
+
     void checkSignatureCompliance(JDiffClassDescription classDescription,
             String... excludedRuntimeClassNames) {
         ResultObserver resultObserver = new NoFailures();

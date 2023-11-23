@@ -16,12 +16,15 @@
 
 #include "art_method.h"
 
+#include <algorithm>
 #include <cstddef>
 
 #include "android-base/stringprintf.h"
 
 #include "arch/context.h"
 #include "art_method-inl.h"
+#include "base/enums.h"
+#include "base/stl_util.h"
 #include "class_linker-inl.h"
 #include "class_root.h"
 #include "debugger.h"
@@ -65,7 +68,7 @@ static_assert(ArtMethod::kRuntimeMethodDexMethodIndex == dex::kDexNoIndex,
               "Wrong runtime-method dex method index");
 
 ArtMethod* ArtMethod::GetCanonicalMethod(PointerSize pointer_size) {
-  if (LIKELY(!IsDefault())) {
+  if (LIKELY(!IsCopied())) {
     return this;
   } else {
     ObjPtr<mirror::Class> declaring_class = GetDeclaringClass();
@@ -106,26 +109,32 @@ ArtMethod* ArtMethod::FromReflectedMethod(const ScopedObjectAccessAlreadyRunnabl
 }
 
 ObjPtr<mirror::DexCache> ArtMethod::GetObsoleteDexCache() {
+  PointerSize pointer_size = kRuntimePointerSize;
   DCHECK(!Runtime::Current()->IsAotCompiler()) << PrettyMethod();
   DCHECK(IsObsolete());
   ObjPtr<mirror::ClassExt> ext(GetDeclaringClass()->GetExtData());
-  CHECK(!ext.IsNull());
-  ObjPtr<mirror::PointerArray> obsolete_methods(ext->GetObsoleteMethods());
-  CHECK(!obsolete_methods.IsNull());
-  DCHECK(ext->GetObsoleteDexCaches() != nullptr);
-  int32_t len = obsolete_methods->GetLength();
-  DCHECK_EQ(len, ext->GetObsoleteDexCaches()->GetLength());
+  ObjPtr<mirror::PointerArray> obsolete_methods(ext.IsNull() ? nullptr : ext->GetObsoleteMethods());
+  int32_t len = (obsolete_methods.IsNull() ? 0 : obsolete_methods->GetLength());
+  DCHECK(len == 0 || len == ext->GetObsoleteDexCaches()->GetLength())
+      << "len=" << len << " ext->GetObsoleteDexCaches()=" << ext->GetObsoleteDexCaches();
   // Using kRuntimePointerSize (instead of using the image's pointer size) is fine since images
   // should never have obsolete methods in them so they should always be the same.
-  PointerSize pointer_size = kRuntimePointerSize;
-  DCHECK_EQ(kRuntimePointerSize, Runtime::Current()->GetClassLinker()->GetImagePointerSize());
+  DCHECK_EQ(pointer_size, Runtime::Current()->GetClassLinker()->GetImagePointerSize());
   for (int32_t i = 0; i < len; i++) {
     if (this == obsolete_methods->GetElementPtrSize<ArtMethod*>(i, pointer_size)) {
       return ext->GetObsoleteDexCaches()->Get(i);
     }
   }
-  LOG(FATAL) << "This method does not appear in the obsolete map of its class!";
-  UNREACHABLE();
+  CHECK(GetDeclaringClass()->IsObsoleteObject())
+      << "This non-structurally obsolete method does not appear in the obsolete map of its class: "
+      << GetDeclaringClass()->PrettyClass() << " Searched " << len << " caches.";
+  CHECK_EQ(this,
+           std::clamp(this,
+                      &(*GetDeclaringClass()->GetMethods(pointer_size).begin()),
+                      &(*GetDeclaringClass()->GetMethods(pointer_size).end())))
+      << "class is marked as structurally obsolete method but not found in normal obsolete-map "
+      << "despite not being the original method pointer for " << GetDeclaringClass()->PrettyClass();
+  return GetDeclaringClass()->GetDexCache();
 }
 
 uint16_t ArtMethod::FindObsoleteDexClassDefIndex() {
@@ -323,8 +332,7 @@ void ArtMethod::Invoke(Thread* self, uint32_t* args, uint32_t args_size, JValue*
   // Invocation by the interpreter, explicitly forcing interpretation over JIT to prevent
   // cycling around the various JIT/Interpreter methods that handle method invocation.
   if (UNLIKELY(!runtime->IsStarted() ||
-               (self->IsForceInterpreter() && !IsNative() && !IsProxyMethod() && IsInvokable()) ||
-               Dbg::IsForcedInterpreterNeededForCalling(self, this))) {
+               (self->IsForceInterpreter() && !IsNative() && !IsProxyMethod() && IsInvokable()))) {
     if (IsStatic()) {
       art::interpreter::EnterInterpreterFromInvoke(
           self, this, nullptr, args, result, /*stay_in_interpreter=*/ true);
@@ -398,7 +406,8 @@ const void* ArtMethod::RegisterNative(const void* native_method) {
 void ArtMethod::UnregisterNative() {
   CHECK(IsNative()) << PrettyMethod();
   // restore stub to lookup native pointer via dlsym
-  SetEntryPointFromJni(GetJniDlsymLookupStub());
+  SetEntryPointFromJni(
+      IsCriticalNative() ? GetJniDlsymLookupCriticalStub() : GetJniDlsymLookupStub());
 }
 
 bool ArtMethod::IsOverridableByDefaultMethod() {
@@ -601,6 +610,11 @@ const OatQuickMethodHeader* ArtMethod::GetOatQuickMethodHeader(uintptr_t pc) {
     if (method_header->Contains(pc)) {
       return method_header;
     }
+  }
+
+  if (OatQuickMethodHeader::NterpMethodHeader != nullptr &&
+      OatQuickMethodHeader::NterpMethodHeader->Contains(pc)) {
+    return OatQuickMethodHeader::NterpMethodHeader;
   }
 
   // Check whether the pc is in the JIT code cache.

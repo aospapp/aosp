@@ -59,11 +59,16 @@
                 <item>bus5_alarm_out</item>
                 <item>bus6_notification_out</item>
                 <item>bus7_system_sound_out</item>
-                <item>bus100_rear_seat</item>
+                <!-- names with _audio_zone_# are used for defined an emulator rear seat audio zone
+                    where each number # is the zone id number -->
+                <item>bus100_audio_zone_1</item>
+                <item>bus200_audio_zone_2</item>
                 <item>Built-In Mic</item>
                 <item>Built-In Back Mic</item>
                 <item>Echo-Reference Mic</item>
                 <item>FM Tuner</item>
+                <item>Tone Generator 0</item>
+                <item>Tone Generator 1</item>
             </attachedDevices>
             <defaultOutputDevice>bus0_media_out</defaultOutputDevice>
             <mixPorts>
@@ -115,8 +120,14 @@
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus100_rear_seat" role="source"
+                <mixPort name="mixport_bus100_audio_zone_1" role="source"
                         flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                             samplingRates="48000"
+                             channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
+                </mixPort>
+                <mixPort name="mixport_bus200_audio_zone_2" role="source"
+                         flags="AUDIO_OUTPUT_FLAG_PRIMARY">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
@@ -127,6 +138,16 @@
                              channelMasks="AUDIO_CHANNEL_IN_MONO,AUDIO_CHANNEL_IN_STEREO,AUDIO_CHANNEL_IN_FRONT_BACK"/>
                 </mixPort>
                 <mixPort name="mixport_tuner0" role="sink">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                             samplingRates="48000"
+                             channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
+                </mixPort>
+                <mixPort name="mixport_input_bus_tone_zone_0" role="sink">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                             samplingRates="48000"
+                             channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
+                </mixPort>
+                <mixPort name="mixport_input_bus_tone_zone_1" role="sink">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
@@ -205,13 +226,22 @@
                                 minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
                     </gains>
                 </devicePort>
-                <devicePort tagName="bus100_rear_seat" role="sink" type="AUDIO_DEVICE_OUT_BUS"
-                        address="bus100_rear_seat">
+                <devicePort tagName="bus100_audio_zone_1" role="sink" type="AUDIO_DEVICE_OUT_BUS"
+                        address="bus100_audio_zone_1">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                             samplingRates="48000" channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                     <gains>
                         <gain name="" mode="AUDIO_GAIN_MODE_JOINT"
                                 minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
+                    </gains>
+                </devicePort>
+                <devicePort tagName="bus200_audio_zone_2" role="sink" type="AUDIO_DEVICE_OUT_BUS"
+                            address="bus200_audio_zone_2">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                             samplingRates="48000" channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
+                    <gains>
+                        <gain name="" mode="AUDIO_GAIN_MODE_JOINT"
+                              minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
                     </gains>
                 </devicePort>
                 <devicePort tagName="Built-In Mic" type="AUDIO_DEVICE_IN_BUILTIN_MIC" role="source">
@@ -238,6 +268,24 @@
                                 minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
                     </gains>
                 </devicePort>
+                <devicePort tagName="Tone Generator 0" type="AUDIO_DEVICE_IN_BUS" role="source"
+                            address="input_bus_tone_zone_0">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                             samplingRates="48000" channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
+                    <gains>
+                        <gain name="" mode="AUDIO_GAIN_MODE_JOINT"
+                              minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
+                    </gains>
+                </devicePort>
+                <devicePort tagName="Tone Generator 1" type="AUDIO_DEVICE_IN_BUS" role="source"
+                            address="input_bus_tone_zone_1">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                             samplingRates="48000" channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
+                    <gains>
+                        <gain name="" mode="AUDIO_GAIN_MODE_JOINT"
+                              minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
+                    </gains>
+                </devicePort>
             </devicePorts>
             <!-- route declaration, i.e. list all available sources for a given sink -->
             <routes>
@@ -249,9 +297,12 @@
                 <route type="mix" sink="bus5_alarm_out" sources="mixport_bus5_alarm_out"/>
                 <route type="mix" sink="bus6_notification_out" sources="mixport_bus6_notification_out"/>
                 <route type="mix" sink="bus7_system_sound_out" sources="mixport_bus7_system_sound_out"/>
-                <route type="mix" sink="bus100_rear_seat" sources="mixport_bus100_rear_seat"/>
+                <route type="mix" sink="bus100_audio_zone_1" sources="mixport_bus100_audio_zone_1"/>
+                <route type="mix" sink="bus200_audio_zone_2" sources="mixport_bus200_audio_zone_2"/>
                 <route type="mix" sink="primary input" sources="Built-In Mic,Built-In Back Mic,Echo-Reference Mic"/>
                 <route type="mix" sink="mixport_tuner0" sources="FM Tuner"/>
+                <route type="mix" sink="mixport_input_bus_tone_zone_0" sources="Tone Generator 0"/>
+                <route type="mix" sink="mixport_input_bus_tone_zone_1" sources="Tone Generator 1"/>
             </routes>
 
         </module>

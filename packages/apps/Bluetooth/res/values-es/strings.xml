@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"Aceptar"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"No se ha enviado el archivo a \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Archivo: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Volver a intentarlo"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Cerrar"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"Aceptar"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Archivo desconocido"</string>
@@ -122,7 +121,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Abrir"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Borrar de la lista"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Borrar"</string>
-    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Está Sonando"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Reproduciendo"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Guardar"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Cancelar"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Selecciona las cuentas que quieras compartir por Bluetooth. Tendrás que aceptar cualquier acceso a las cuentas al establecer conexión."</string>
@@ -134,4 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Audio por Bluetooth desconectado"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Audio por Bluetooth"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"No se pueden transferir archivos de más de 4 GB"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Conectarse a un dispositivo Bluetooth"</string>
 </resources>

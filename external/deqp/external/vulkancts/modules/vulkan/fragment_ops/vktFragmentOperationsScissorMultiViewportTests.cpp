@@ -136,27 +136,6 @@ Move<VkPipeline> makeGraphicsPipeline (const DeviceInterface&		vk,
 									VK_PRIMITIVE_TOPOLOGY_POINT_LIST);	// const VkPrimitiveTopology         topology
 }
 
-void zeroBuffer (const DeviceInterface& vk, const VkDevice device, const Allocation& alloc, const VkDeviceSize size)
-{
-	deMemset(alloc.getHostPtr(), 0, static_cast<std::size_t>(size));
-	flushAlloc(vk, device, alloc);
-}
-
-void requireFeatureMultiViewport (const InstanceInterface& vki, const VkPhysicalDevice physDevice)
-{
-	const VkPhysicalDeviceFeatures	features	= getPhysicalDeviceFeatures(vki, physDevice);
-	const VkPhysicalDeviceLimits	limits		= getPhysicalDeviceProperties(vki, physDevice).limits;
-
-	if (!features.geometryShader)
-		TCU_THROW(NotSupportedError, "Required feature is not supported: geometryShader");
-
-	if (!features.multiViewport)
-		TCU_THROW(NotSupportedError, "Required feature is not supported: multiViewport");
-
-	if (limits.maxViewports < MIN_MAX_VIEWPORTS)
-		TCU_THROW(NotSupportedError, "Implementation doesn't support minimum required number of viewports");
-}
-
 std::vector<IVec4> generateScissors (const int numScissors, const IVec2& renderSize)
 {
 	// Scissor rects will be arranged in a grid-like fashion.
@@ -344,7 +323,7 @@ public:
 		m_colorImageAlloc	= bindImage				(vk, device, allocator, *m_colorImage, MemoryRequirement::Any);
 		m_colorAttachment	= makeImageView			(vk, device, *m_colorImage, VK_IMAGE_VIEW_TYPE_2D, m_colorFormat, m_colorSubresourceRange);
 
-		m_vertexBuffer		= makeBuffer			(vk, device, makeBufferCreateInfo(m_vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		m_vertexBuffer		= makeBuffer			(vk, device, m_vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		m_vertexBufferAlloc	= bindBuffer			(vk, device, allocator, *m_vertexBuffer, MemoryRequirement::HostVisible);
 
 		{
@@ -356,7 +335,7 @@ public:
 		m_geometryModule	= createShaderModule	(vk, device, context.getBinaryCollection().get("geom"), 0u);
 		m_fragmentModule	= createShaderModule	(vk, device, context.getBinaryCollection().get("frag"), 0u);
 		m_renderPass		= makeRenderPass		(vk, device, m_colorFormat);
-		m_framebuffer		= makeFramebuffer		(vk, device, *m_renderPass, 1u, &m_colorAttachment.get(),
+		m_framebuffer		= makeFramebuffer		(vk, device, *m_renderPass, m_colorAttachment.get(),
 													 static_cast<deUint32>(m_renderSize.x()),  static_cast<deUint32>(m_renderSize.y()));
 		m_pipelineLayout	= makePipelineLayout	(vk, device);
 		m_pipeline			= makeGraphicsPipeline	(vk, device, *m_pipelineLayout, *m_renderPass, *m_vertexModule, *m_geometryModule, *m_fragmentModule,
@@ -419,8 +398,6 @@ private:
 
 tcu::TestStatus test (Context& context, const int numViewports)
 {
-	requireFeatureMultiViewport(context.getInstanceInterface(), context.getPhysicalDevice());
-
 	const DeviceInterface&			vk					= context.getDeviceInterface();
 	const VkDevice					device				= context.getDevice();
 	Allocator&						allocator			= context.getDefaultAllocator();
@@ -432,7 +409,7 @@ tcu::TestStatus test (Context& context, const int numViewports)
 	const std::vector<IVec4>		scissors			= generateScissors(numViewports, renderSize);
 
 	const VkDeviceSize				colorBufferSize		= renderSize.x() * renderSize.y() * tcu::getPixelSize(mapVkFormat(colorFormat));
-	const Unique<VkBuffer>			colorBuffer			(makeBuffer(vk, device, makeBufferCreateInfo(colorBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT)));
+	const Unique<VkBuffer>			colorBuffer			(makeBuffer(vk, device, colorBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT));
 	const UniquePtr<Allocation>		colorBufferAlloc	(bindBuffer(vk, device, allocator, *colorBuffer, MemoryRequirement::HostVisible));
 
 	zeroBuffer(vk, device, *colorBufferAlloc, colorBufferSize);
@@ -464,6 +441,15 @@ tcu::TestStatus test (Context& context, const int numViewports)
 	return tcu::TestStatus::pass("OK");
 }
 
+void checkSupport (Context& context, const int)
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER);
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_MULTI_VIEWPORT);
+
+	if (context.getDeviceProperties().limits.maxViewports < MIN_MAX_VIEWPORTS)
+		TCU_THROW(NotSupportedError, "Implementation doesn't support minimum required number of viewports");
+}
+
 } // anonymous
 
 tcu::TestCaseGroup* createScissorMultiViewportTests	(tcu::TestContext& testCtx)
@@ -471,7 +457,7 @@ tcu::TestCaseGroup* createScissorMultiViewportTests	(tcu::TestContext& testCtx)
 	MovePtr<tcu::TestCaseGroup> group (new tcu::TestCaseGroup(testCtx, "multi_viewport", ""));
 
 	for (int numViewports = 1; numViewports <= MIN_MAX_VIEWPORTS; ++numViewports)
-		addFunctionCaseWithPrograms(group.get(), "scissor_" + de::toString(numViewports), "", initPrograms, test, numViewports);
+		addFunctionCaseWithPrograms(group.get(), "scissor_" + de::toString(numViewports), "", checkSupport, initPrograms, test, numViewports);
 
 	return group.release();
 }

@@ -28,26 +28,7 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
     DELAY_BEFORE_RECORD_SECONDS = 0.5
     DELAY_AFTER_BINDING = 0.5
     RECORD_SECONDS = 5
-    SHORT_WAIT = 2
     PRC_RECONNECT_TIMEOUT = 60
-
-    def action_plug_jack(self, plug_state):
-        """Calls the audio interface API and plugs/unplugs.
-
-        @param plug_state: plug state to switch to
-
-        """
-        logging.debug('Plugging' if plug_state else 'Unplugging')
-        jack_plugger = self.audio_board.get_jack_plugger()
-        if jack_plugger == None:
-            logging.debug('Jack plugger is NOT present!')
-            return
-        if plug_state:
-            jack_plugger.plug()
-        else:
-            jack_plugger.unplug()
-        time.sleep(self.SHORT_WAIT)
-
 
     def play_and_record(self, source_widget, recorder_widget=None):
         """Plays and records (if needed) audio.
@@ -234,8 +215,9 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         else:
             recorder_widget = widget_factory.create_widget(recorder)
 
-        # Plug for external audio
-        self.action_plug_jack(not is_internal)
+        # Selects and checks the node selected by cras is correct.
+        audio_test_utils.check_and_set_chrome_active_node_types(
+                self.facade, audio_nodes[0][0], audio_nodes[1][0])
 
         # Play only, reboot, then play and record.
         if binder_widget != None:

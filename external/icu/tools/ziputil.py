@@ -23,10 +23,14 @@ except ImportError:
 
 from operator import attrgetter
 from zipfile import ZipFile
+import os
 
 
 def ZipCompare(path_a, path_b):
   """Compares the contents of two Zip archives, returns True if equal."""
+
+  if not os.path.isfile(path_a) or not os.path.isfile(path_b):
+    return False
 
   with ZipFile(path_a, 'r') as zip_a:
     info_a = zip_a.infolist()

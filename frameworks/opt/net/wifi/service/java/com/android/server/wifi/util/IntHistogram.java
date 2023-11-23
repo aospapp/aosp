@@ -19,7 +19,7 @@ package com.android.server.wifi.util;
 import android.annotation.NonNull;
 import android.util.SparseIntArray;
 
-import com.android.server.wifi.nano.WifiMetricsProto.HistogramBucketInt32;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.HistogramBucketInt32;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
@@ -140,6 +140,47 @@ public class IntHistogram implements Iterable<IntHistogram.Bucket> {
         int bucketKey = getBucketKey(value);
         int curBucketValue = mBuckets.get(bucketKey);
         mBuckets.put(bucketKey, curBucketValue + count);
+    }
+
+
+    /**
+     * Computes the inverse of the cumulative probability distribution for the histogram.
+     *
+     * This is the value v such that the probability of a randomly selected datum being
+     * less than or equal to v is the provided probability. The answer is constrained to
+     * lie in the interval [minimum..maximum].
+     */
+    public double quantileFunction(double probability, int minimum, int maximum) {
+        if (minimum > maximum) {
+            throw new IllegalArgumentException("bad bounds");
+        }
+        if (probability < 0.0 || probability > 1.0) {
+            throw new IllegalArgumentException("bad roll, try again");
+        }
+        long sum = 0;
+        for (Bucket bucket : this) {
+            sum += bucket.count;
+        }
+        final double target = sum * probability;
+        double partialSum = 0.0;
+        Bucket hitBucket = null;
+        for (Bucket bucket : this) {
+            if (partialSum + bucket.count >= target) {
+                hitBucket = bucket;
+                break;
+            }
+            partialSum += bucket.count;
+        }
+        if (hitBucket == null) {
+            // No data at all; assume uniform between given limits
+            return minimum + probability * (maximum - minimum);
+        }
+        double highValue = Math.min(hitBucket.end, maximum);
+        double value = Math.max(hitBucket.start, minimum);
+        if (value >= highValue - 1.0 || hitBucket.count == 0) return Math.min(value, highValue);
+        // interpolate to estimate the value
+        value += (highValue - value) * (target - partialSum) / hitBucket.count;
+        return Math.min(Math.max(value, minimum), maximum);
     }
 
     /**

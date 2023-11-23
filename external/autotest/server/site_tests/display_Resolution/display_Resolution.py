@@ -46,7 +46,7 @@ class display_Resolution(test.test):
            ('EDIDv1', 1280, 800),
            ('EDIDv1', 1600, 900),
     ]
-    INCOMPATIBLE_EDID_BOARDS = [ 'coral', 'eve', 'grunt', 'nami']
+    INCOMPATIBLE_EDID_BOARDS = [ 'coral', 'eve', 'grunt', 'nami', 'rammus' ]
 
     def run_once(self, host, test_mirrored=False, test_suspend_resume=False,
                  test_reboot=False, test_lid_close_open=False,

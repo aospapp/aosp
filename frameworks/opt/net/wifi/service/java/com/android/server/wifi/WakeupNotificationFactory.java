@@ -18,12 +18,11 @@ package com.android.server.wifi;
 
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.Icon;
 
-import com.android.internal.R;
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
-import com.android.internal.notification.SystemNotificationChannels;
+import com.android.wifi.resources.R;
 
 
 /** Factory for Wifi Wake notifications. */
@@ -41,11 +40,14 @@ public class WakeupNotificationFactory {
     /** Notification channel ID for onboarding messages. */
     public static final int ONBOARD_ID = SystemMessage.NOTE_WIFI_WAKE_ONBOARD;
 
-    private final Context mContext;
+    private final WifiContext mContext;
+    private final WifiInjector mWifiInjector;
     private final FrameworkFacade mFrameworkFacade;
 
-    WakeupNotificationFactory(Context context, FrameworkFacade frameworkFacade) {
+    WakeupNotificationFactory(WifiContext context, WifiInjector wifiInjector,
+                              FrameworkFacade frameworkFacade) {
         mContext = context;
+        mWifiInjector = wifiInjector;
         mFrameworkFacade = frameworkFacade;
     }
 
@@ -57,15 +59,16 @@ public class WakeupNotificationFactory {
         CharSequence content = mContext.getText(R.string.wifi_wakeup_onboarding_subtext);
         CharSequence disableText = mContext.getText(R.string.wifi_wakeup_onboarding_action_disable);
         int color = mContext.getResources()
-                .getColor(R.color.system_notification_accent_color, mContext.getTheme());
+                .getColor(android.R.color.system_notification_accent_color, mContext.getTheme());
 
         final Notification.Action disableAction = new Notification.Action.Builder(
                 null /* icon */, disableText, getPrivateBroadcast(ACTION_TURN_OFF_WIFI_WAKE))
                 .build();
 
         return mFrameworkFacade.makeNotificationBuilder(mContext,
-                SystemNotificationChannels.NETWORK_STATUS)
-                .setSmallIcon(R.drawable.ic_wifi_settings)
+                WifiService.NOTIFICATION_NETWORK_STATUS)
+                .setSmallIcon(Icon.createWithResource(mContext.getWifiOverlayApkPkgName(),
+                        R.drawable.ic_wifi_settings))
                 .setTicker(title)
                 .setContentTitle(title)
                 .setContentText(content)
@@ -80,7 +83,8 @@ public class WakeupNotificationFactory {
 
 
     private PendingIntent getPrivateBroadcast(String action) {
-        Intent intent = new Intent(action).setPackage("android");
+        Intent intent = new Intent(action)
+                .setPackage(mWifiInjector.getWifiStackPackageName());
         return mFrameworkFacade.getBroadcast(
                 mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     }

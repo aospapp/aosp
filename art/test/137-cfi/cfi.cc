@@ -25,6 +25,7 @@
 
 #include "jni.h"
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <backtrace/Backtrace.h>
@@ -32,9 +33,11 @@
 #include "base/file_utils.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/mutex.h"
 #include "base/utils.h"
 #include "gc/heap.h"
 #include "gc/space/image_space.h"
+#include "jit/debugger_interface.h"
 #include "oat_file.h"
 #include "runtime.h"
 
@@ -56,10 +59,11 @@ static void CauseSegfault() {
 }
 
 extern "C" JNIEXPORT jint JNICALL Java_Main_startSecondaryProcess(JNIEnv*, jclass) {
+  printf("Java_Main_startSecondaryProcess\n");
 #if __linux__
   // Get our command line so that we can use it to start identical process.
   std::string cmdline;  // null-separated and null-terminated arguments.
-  ReadFileToString("/proc/self/cmdline", &cmdline);
+  android::base::ReadFileToString("/proc/self/cmdline", &cmdline);
   cmdline = cmdline + "--secondary" + '\0';  // Let the child know it is a helper.
 
   // Split the string into individual arguments suitable for execv.
@@ -83,7 +87,9 @@ extern "C" JNIEXPORT jint JNICALL Java_Main_startSecondaryProcess(JNIEnv*, jclas
 }
 
 extern "C" JNIEXPORT jboolean JNICALL Java_Main_sigstop(JNIEnv*, jclass) {
+  printf("Java_Main_sigstop\n");
 #if __linux__
+  MutexLock mu(Thread::Current(), *GetNativeDebugInfoLock());  // Avoid races with the JIT thread.
   raise(SIGSTOP);
 #endif
   return true;  // Prevent the compiler from tail-call optimizing this method away.
@@ -118,8 +124,6 @@ static bool CheckStack(Backtrace* bt, const std::vector<std::string>& seq) {
 }
 
 static void MoreErrorInfo(pid_t pid, bool sig_quit_on_fail) {
-  printf("Secondary pid is %d\n", pid);
-
   PrintFileToLog(android::base::StringPrintf("/proc/%d/maps", pid), ::android::base::ERROR);
 
   if (sig_quit_on_fail) {
@@ -132,7 +136,10 @@ static void MoreErrorInfo(pid_t pid, bool sig_quit_on_fail) {
 #endif
 
 extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindInProcess(JNIEnv*, jclass) {
+  printf("Java_Main_unwindInProcess\n");
 #if __linux__
+  MutexLock mu(Thread::Current(), *GetNativeDebugInfoLock());  // Avoid races with the JIT thread.
+
   std::unique_ptr<Backtrace> bt(Backtrace::Create(BACKTRACE_CURRENT_PROCESS, GetTid()));
   if (!bt->Unwind(0, nullptr)) {
     printf("Cannot unwind in process.\n");
@@ -203,6 +210,7 @@ int wait_for_sigstop(pid_t tid, int* total_sleep_time_usec, bool* detach_failed 
 #endif
 
 extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindOtherProcess(JNIEnv*, jclass, jint pid_int) {
+  printf("Java_Main_unwindOtherProcess\n");
 #if __linux__
   pid_t pid = static_cast<pid_t>(pid_int);
 
@@ -219,7 +227,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindOtherProcess(JNIEnv*, jcla
   int total_sleep_time_usec = 0;
   int signal = wait_for_sigstop(pid, &total_sleep_time_usec, &detach_failed);
   if (signal != SIGSTOP) {
-    LOG(WARNING) << "wait_for_sigstop failed.";
+    printf("wait_for_sigstop failed.\n");
     return JNI_FALSE;
   }
 
@@ -248,10 +256,12 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindOtherProcess(JNIEnv*, jcla
 
   constexpr bool kSigQuitOnFail = true;
   if (!result) {
+    printf("Failed to unwind secondary with pid %d\n", pid);
     MoreErrorInfo(pid, kSigQuitOnFail);
   }
 
   if (ptrace(PTRACE_DETACH, pid, 0, 0) != 0) {
+    printf("Detach failed\n");
     PLOG(ERROR) << "Detach failed";
   }
 
@@ -265,6 +275,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_unwindOtherProcess(JNIEnv*, jcla
 
   return result ? JNI_TRUE : JNI_FALSE;
 #else
+  printf("Remote unwind supported only on linux\n");
   UNUSED(pid_int);
   return JNI_FALSE;
 #endif

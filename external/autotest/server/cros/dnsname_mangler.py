@@ -103,6 +103,7 @@ def get_pcap_addr(client_hostname,
     return get_companion_device_addr(
             client_hostname,
             '-pcap',
+            cmdline_override=cmdline_override,
             not_dnsname_msg=PCAP_FAILURE_MESSAGE,
             allow_failure=allow_failure)
 
@@ -143,6 +144,6 @@ def get_tester_addr(client_hostname, cmdline_override=None):
     """
     return get_companion_device_addr(
             client_hostname,
-            '-router',
+            '-chameleon',
             cmdline_override=cmdline_override,
             not_dnsname_msg=BLUETOOTH_TESTER_FAILURE_MESSAGE)

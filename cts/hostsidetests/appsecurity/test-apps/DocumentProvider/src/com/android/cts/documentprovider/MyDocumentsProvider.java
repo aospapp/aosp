@@ -137,7 +137,8 @@ public class MyDocumentsProvider extends DocumentsProvider {
         mLocalRoot = buildDoc("doc:local", null, Document.MIME_TYPE_DIR, null);
 
         mCreateRoot = buildDoc("doc:create", null, Document.MIME_TYPE_DIR, null);
-        mCreateRoot.flags = Document.FLAG_DIR_SUPPORTS_CREATE;
+        mCreateRoot.flags =
+                Document.FLAG_DIR_SUPPORTS_CREATE | Document.FLAG_DIR_BLOCKS_OPEN_DOCUMENT_TREE;
 
         {
             Doc file1 = buildDoc("doc:file1", "FILE1", "mime1/file1", null);

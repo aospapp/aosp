@@ -42,7 +42,9 @@ public class PreferenceActivityFlowLandscapeTest extends PreferenceActivityFlowT
     @Before
     public void setup() {
         requireLandscapeModeSupport();
-        mTestUtils = new TestUtils();
+        mActivity = launchActivity(null);
+        mTestUtils = new TestUtils(mActivityRule);
+        mActivity.finish();
     }
 
     /**

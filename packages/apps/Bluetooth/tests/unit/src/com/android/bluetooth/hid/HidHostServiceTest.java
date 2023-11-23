@@ -97,48 +97,40 @@ public class HidHostServiceTest {
         int badPriorityValue = 1024;
         int badBondState = 42;
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_NONE, BluetoothProfile.PRIORITY_UNDEFINED, false);
+                BluetoothDevice.BOND_NONE, BluetoothProfile.CONNECTION_POLICY_UNKNOWN, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_NONE, BluetoothProfile.PRIORITY_OFF, false);
+                BluetoothDevice.BOND_NONE, BluetoothProfile.CONNECTION_POLICY_FORBIDDEN, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_NONE, BluetoothProfile.PRIORITY_ON, false);
-        testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_NONE, BluetoothProfile.PRIORITY_AUTO_CONNECT, false);
+                BluetoothDevice.BOND_NONE, BluetoothProfile.CONNECTION_POLICY_ALLOWED, false);
         testOkToConnectCase(mTestDevice,
                 BluetoothDevice.BOND_NONE, badPriorityValue, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_UNDEFINED, false);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.CONNECTION_POLICY_UNKNOWN, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_OFF, false);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.CONNECTION_POLICY_FORBIDDEN, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_ON, false);
-        testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_AUTO_CONNECT, false);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.CONNECTION_POLICY_ALLOWED, false);
         testOkToConnectCase(mTestDevice,
                 BluetoothDevice.BOND_BONDING, badPriorityValue, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDED, BluetoothProfile.PRIORITY_UNDEFINED, true);
+                BluetoothDevice.BOND_BONDED, BluetoothProfile.CONNECTION_POLICY_UNKNOWN, true);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDED, BluetoothProfile.PRIORITY_OFF, false);
+                BluetoothDevice.BOND_BONDED, BluetoothProfile.CONNECTION_POLICY_FORBIDDEN, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDED, BluetoothProfile.PRIORITY_ON, true);
-        testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDED, BluetoothProfile.PRIORITY_AUTO_CONNECT, true);
+                BluetoothDevice.BOND_BONDED, BluetoothProfile.CONNECTION_POLICY_ALLOWED, true);
         testOkToConnectCase(mTestDevice,
                 BluetoothDevice.BOND_BONDED, badPriorityValue, false);
         testOkToConnectCase(mTestDevice,
-                badBondState, BluetoothProfile.PRIORITY_UNDEFINED, false);
+                badBondState, BluetoothProfile.CONNECTION_POLICY_UNKNOWN, false);
         testOkToConnectCase(mTestDevice,
-                badBondState, BluetoothProfile.PRIORITY_OFF, false);
+                badBondState, BluetoothProfile.CONNECTION_POLICY_FORBIDDEN, false);
         testOkToConnectCase(mTestDevice,
-                badBondState, BluetoothProfile.PRIORITY_ON, false);
-        testOkToConnectCase(mTestDevice,
-                badBondState, BluetoothProfile.PRIORITY_AUTO_CONNECT, false);
+                badBondState, BluetoothProfile.CONNECTION_POLICY_ALLOWED, false);
         testOkToConnectCase(mTestDevice,
                 badBondState, badPriorityValue, false);
         // Restore prirority to undefined for this test device
-        Assert.assertTrue(mService.setPriority(
-                mTestDevice, BluetoothProfile.PRIORITY_UNDEFINED));
+        Assert.assertTrue(mService.setConnectionPolicy(
+                mTestDevice, BluetoothProfile.CONNECTION_POLICY_UNKNOWN));
     }
 
     /**
@@ -153,7 +145,7 @@ public class HidHostServiceTest {
             boolean expected) {
         doReturn(bondState).when(mAdapterService).getBondState(device);
         when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
-        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.HID_HOST))
+        when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HID_HOST))
                 .thenReturn(priority);
 
         // Test when the AdapterService is in non-quiet mode.

@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include <wifi_hal.h>
-
 #include <stdint.h>
 #include <string>
+#include <hardware_legacy/wifi_hal.h>
 
 class Netlink;
 class NetlinkMessage;
@@ -71,6 +70,15 @@ public:
                                 size_t* numProvidedFates);
     wifi_error getPacketFilterCapabilities(u32* version, u32* maxLength);
     wifi_error getWakeReasonStats(WLAN_DRIVER_WAKE_REASON_CNT* wakeReasonCount);
+    wifi_error startSendingOffloadedPacket(wifi_request_id id,
+                                           u16 ether_type,
+                                           u8 *ip_packet,
+                                           u16 ip_packet_len,
+                                           u8 *src_mac_addr,
+                                           u8 *dst_mac_addr,
+                                           u32 period_msec);
+    wifi_error stopSendingOffloadedPacket(wifi_request_id id);
+
 private:
     Interface(const Interface&) = delete;
     Interface& operator=(const Interface&) = delete;

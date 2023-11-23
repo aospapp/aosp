@@ -27,6 +27,7 @@
     <uses-permission android:name="android.permission.SET_WALLPAPER_COMPONENT" />
     <uses-permission android:name="android.permission.BIND_WALLPAPER" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <uses-sdk android:minSdkVersion="14"/>
 
@@ -39,6 +40,7 @@
             android:label="@string/live_wallpaper_picker_label"
             android:theme="@style/LivePickerTheme"
             android:colorMode="wideColorGamut"
+            android:screenOrientation="portrait"
             android:hardwareAccelerated="true">
             <intent-filter>
                 <action android:name="android.service.wallpaper.LIVE_WALLPAPER_CHOOSER" />
@@ -52,6 +54,7 @@
         <activity android:name="LiveWallpaperChange"
             android:label="@string/live_wallpaper_preview_title"
             android:colorMode="wideColorGamut"
+            android:screenOrientation="portrait"
             android:theme="@style/Preview">
             <intent-filter>
                 <action android:name="android.service.wallpaper.CHANGE_LIVE_WALLPAPER" />
@@ -62,6 +65,7 @@
         <activity android:name="LiveWallpaperPreview"
             android:label="@string/live_wallpaper_preview_title"
             android:colorMode="wideColorGamut"
+            android:screenOrientation="portrait"
             android:theme="@style/Preview"/>
     </application>
 

@@ -15,8 +15,10 @@
  */
 package android.speech.tts.cts;
 
+import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.speech.tts.TextToSpeech;
 import android.test.AndroidTestCase;
 
@@ -61,28 +63,54 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
             int result =
                     getTts().synthesizeToFile(
                                     UTTERANCE, createParams("mocktofile"), sampleFile.getPath());
-            assertEquals("synthesizeToFile() failed", TextToSpeech.SUCCESS, result);
-
-            assertTrue("synthesizeToFile() completion timeout", mTts.waitForComplete("mocktofile"));
-            assertTrue("synthesizeToFile() didn't produce a file", sampleFile.exists());
-            assertTrue("synthesizeToFile() produced a non-sound file",
-                    TextToSpeechWrapper.isSoundFile(sampleFile.getPath()));
+            verifySynthesisFile(result, mTts, sampleFile);
         } finally {
             sampleFile.delete();
         }
-        mTts.verify("mocktofile");
+        verifySynthesisResults(mTts);
+    }
 
-        final Map<String, Integer> chunksReceived = mTts.chunksReceived();
-        final Map<String, List<Integer>> timePointsStart = mTts.timePointsStart();
-        final Map<String, List<Integer>> timePointsEnd = mTts.timePointsEnd();
-        final Map<String, List<Integer>> timePointsFrame = mTts.timePointsFrame();
-        assertEquals(Integer.valueOf(10), chunksReceived.get("mocktofile"));
-        // In the mock we set the start, end and frame to exactly these values for the time points.
-        for (int i = 0; i < 10; i++) {
-            assertEquals(Integer.valueOf(i * 5), timePointsStart.get("mocktofile").get(i));
-            assertEquals(Integer.valueOf(i * 5 + 5), timePointsEnd.get("mocktofile").get(i));
-            assertEquals(Integer.valueOf(i * 10), timePointsFrame.get("mocktofile").get(i));
+    public void testSynthesizeToFileWithFileObject() throws Exception {
+        File sampleFile = new File(getContext().getExternalFilesDir(null), SAMPLE_FILE_NAME);
+        try {
+            assertFalse(sampleFile.exists());
+
+            Bundle params = createParamsBundle("mocktofile");
+
+            int result =
+                    getTts().synthesizeToFile(
+                                    UTTERANCE,
+                                    params,
+                                    sampleFile,
+                                    params.getString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID));
+            verifySynthesisFile(result, mTts, sampleFile);
+        } finally {
+            sampleFile.delete();
         }
+        verifySynthesisResults(mTts);
+    }
+
+    public void testSynthesizeToFileWithFileDescriptor() throws Exception {
+        File sampleFile = new File(getContext().getExternalFilesDir(null), SAMPLE_FILE_NAME);
+        try {
+            assertFalse(sampleFile.exists());
+
+            ParcelFileDescriptor fileDescriptor = ParcelFileDescriptor.open(sampleFile,
+                ParcelFileDescriptor.MODE_WRITE_ONLY
+                | ParcelFileDescriptor.MODE_CREATE
+                | ParcelFileDescriptor.MODE_TRUNCATE);
+
+            Bundle params = createParamsBundle("mocktofile");
+
+            int result =
+                getTts().synthesizeToFile(
+                    UTTERANCE, params, fileDescriptor,
+                    params.getString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID));
+            verifySynthesisFile(result, mTts, sampleFile);
+        } finally {
+            sampleFile.delete();
+        }
+        verifySynthesisResults(mTts);
     }
 
     public void testMaxSpeechInputLength() {
@@ -182,6 +210,39 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
         HashMap<String, String> params = new HashMap<>();
         params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
         return params;
+    }
+
+    private Bundle createParamsBundle(String utteranceId) {
+        Bundle bundle = new Bundle();
+        bundle.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
+        return bundle;
+    }
+
+    private void verifySynthesisFile(int result, TextToSpeechWrapper mTts, File file)
+        throws InterruptedException {
+
+        assertEquals("synthesizeToFile() failed", TextToSpeech.SUCCESS, result);
+
+        assertTrue("synthesizeToFile() completion timeout", mTts.waitForComplete("mocktofile"));
+        assertTrue("synthesizeToFile() didn't produce a file", file.exists());
+        assertTrue("synthesizeToFile() produced a non-sound file",
+                TextToSpeechWrapper.isSoundFile(file.getPath()));
+    }
+
+    private void verifySynthesisResults(TextToSpeechWrapper mTts) {
+        mTts.verify("mocktofile");
+
+        final Map<String, Integer> chunksReceived = mTts.chunksReceived();
+        final Map<String, List<Integer>> timePointsStart = mTts.timePointsStart();
+        final Map<String, List<Integer>> timePointsEnd = mTts.timePointsEnd();
+        final Map<String, List<Integer>> timePointsFrame = mTts.timePointsFrame();
+        assertEquals(Integer.valueOf(10), chunksReceived.get("mocktofile"));
+        // In the mock we set the start, end and frame to exactly these values for the time points.
+        for (int i = 0; i < 10; i++) {
+            assertEquals(Integer.valueOf(i * 5), timePointsStart.get("mocktofile").get(i));
+            assertEquals(Integer.valueOf(i * 5 + 5), timePointsEnd.get("mocktofile").get(i));
+            assertEquals(Integer.valueOf(i * 10), timePointsFrame.get("mocktofile").get(i));
+        }
     }
 
     private boolean waitForUtterance(String utteranceId) throws InterruptedException {

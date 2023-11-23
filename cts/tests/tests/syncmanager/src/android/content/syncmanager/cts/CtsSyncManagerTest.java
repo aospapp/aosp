@@ -95,6 +95,8 @@ public class CtsSyncManagerTest {
         assertNetworkConnected(InstrumentationRegistry.getContext());
 
         BatteryUtils.runDumpsysBatteryUnplug();
+        BatteryUtils.enableAdaptiveBatterySaver(false);
+        BatteryUtils.enableBatterySaver(false);
 
         AmUtils.setStandbyBucket(APP1_PACKAGE, UsageStatsManager.STANDBY_BUCKET_ACTIVE);
 

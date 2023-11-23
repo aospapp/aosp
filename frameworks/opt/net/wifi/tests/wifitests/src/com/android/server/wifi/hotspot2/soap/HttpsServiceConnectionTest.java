@@ -27,6 +27,8 @@ import android.net.Network;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.ksoap2.HeaderProperty;
@@ -48,7 +50,7 @@ import javax.net.ssl.HttpsURLConnection;
  * Unit tests for {@link HttpsServiceConnection}.
  */
 @SmallTest
-public class HttpsServiceConnectionTest {
+public class HttpsServiceConnectionTest extends WifiBaseTest {
     private static final String TEST_URL = "https://127.0.0.1:12345/index.htm";
 
     private HttpsServiceConnection mHttpsServiceConnection;

@@ -1,0 +1,15 @@
+type oslo_app, domain;
+
+app_domain(oslo_app)
+
+allow oslo_app fwk_stats_hwservice:hwservice_manager find;
+binder_call(oslo_app, statsd)
+
+allow oslo_app app_api_service:service_manager find;
+allow oslo_app audioserver_service:service_manager find;
+allow oslo_app mediaserver_service:service_manager find;
+allow oslo_app radio_service:service_manager find;
+
+r_dir_file(oslo_app, persist_oslo_file)
+allow oslo_app mnt_vendor_file:dir search;
+allow oslo_app persist_file:dir search;

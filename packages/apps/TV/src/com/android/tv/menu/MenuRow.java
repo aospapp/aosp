@@ -31,6 +31,8 @@ public abstract class MenuRow {
 
     private MenuRowView mMenuRowView;
 
+    private boolean mIsReselected = false;
+
     // TODO: Check if the heightResId is really necessary.
     public MenuRow(Context context, Menu menu, int titleResId, int heightResId) {
         this(context, menu, context.getString(titleResId), heightResId);
@@ -99,5 +101,20 @@ public abstract class MenuRow {
     /** Returns whether to hide the title when the row is selected. */
     public boolean hideTitleWhenSelected() {
         return false;
+    }
+
+    /**
+     * Sets if menu row is reselected.
+     *
+     * @param isReselected {@code true} if row is reselected;
+     * else {@code false}.
+     */
+    public void setIsReselected(boolean isReselected) {
+        mIsReselected = isReselected;
+    }
+
+    /** Returns true if row is reselected. */
+    public boolean isReselected() {
+        return mIsReselected;
     }
 }

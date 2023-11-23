@@ -12,7 +12,7 @@ A cts shim apex has following restrictions:
 *   First version (i.e. `com.android.apex.cts.shim.apex`) should be
     pre-installed on the /system/partition.
 *   `apex_payload.img` of the pre-installed shim apexcontains a single text
-    file called `hash.txt` with a whitelist of SHA512 hashes of versions shim
+    file called `hash.txt` with a list of allowed SHA512 hashes of versions shim
     apex can be upgraded to.
 *   `apex_payload.img` of all other versions contains SHA512 hash of
     `/dev/null`.
@@ -30,11 +30,13 @@ m com.android.apex.cts.shim.v3 \
   com.android.apex.cts.shim.v2 \
   com.android.apex.cts.shim.v2_additional_file \
   com.android.apex.cts.shim.v2_additional_folder \
+  com.android.apex.cts.shim.v2_different_certificate \
+  com.android.apex.cts.shim.v2_different_package_name \
   com.android.apex.cts.shim.v2_with_pre_install_hook \
   com.android.apex.cts.shim.v2_with_post_install_hook \
-  com.android.apex.cts.shim.v1 \
   com.android.apex.cts.shim.v2_wrong_sha \
-  com.android.apex.cts.shim_not_pre_installed
+  com.android.apex.cts.shim.v1 \
+  com.android.apex.cts.shim_not_pre_installed \
 ```
 
 Generated apexes will be located in the following folders.

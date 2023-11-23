@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_EXPAND_DIMS_H
-#define FRAMEWORKS_ML_NN_EXPAND_DIMS_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_EXPAND_DIMS_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_EXPAND_DIMS_H
 
 #include "CpuOperationUtils.h"
 
@@ -32,4 +32,4 @@ bool eval(const uint8_t* inputData, const Shape& inputShape, int32_t axis, uint8
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_EXPAND_DIMS_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_EXPAND_DIMS_H

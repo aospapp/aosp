@@ -28,6 +28,8 @@ public interface Tuner extends AutoCloseable {
     int FILTER_TYPE_VIDEO = 2;
     int FILTER_TYPE_PCR = 3;
     String MODULATION_8VSB = "8VSB";
+    String MODULATION_QAM16 = "QAM16";
+    String MODULATION_QAM64 = "QAM64";
     String MODULATION_QAM256 = "QAM256";
     int DELIVERY_SYSTEM_UNDEFINED = 0;
     int DELIVERY_SYSTEM_ATSC = 1;
@@ -40,6 +42,7 @@ public interface Tuner extends AutoCloseable {
     int TUNER_TYPE_USB = 2;
     int TUNER_TYPE_NETWORK = 3;
     int BUILT_IN_TUNER_TYPE_LINUX_DVB = 1;
+    int BUILT_IN_TUNER_TYPE_ARCHER = 100;
 
     /** Check a delivery system is for DVB or not. */
     static boolean isDvbDeliverySystem(@DeliverySystemType int deliverySystemType) {
@@ -66,6 +69,11 @@ public interface Tuner extends AutoCloseable {
 
     boolean tune(int frequency, @ModulationType String modulation, String channelNumber);
 
+    default boolean tune(@DeliverySystemType int deliverySystemType, int frequency,
+                 @ModulationType String modulation, String channelNumber) {
+      return tune(frequency, modulation, channelNumber);
+    }
+
     boolean addPidFilter(int pid, @FilterType int filterType);
 
     void stopTune();
@@ -73,6 +81,10 @@ public interface Tuner extends AutoCloseable {
     void setHasPendingTune(boolean hasPendingTune);
 
     int getDeliverySystemType();
+    default int[] getDeliverySystemTypes() {
+      int[] deliverySystemTypes = {DELIVERY_SYSTEM_UNDEFINED};
+      return deliverySystemTypes;
+    };
 
     int readTsStream(byte[] javaBuffer, int javaBufferSize);
 
@@ -84,7 +96,7 @@ public interface Tuner extends AutoCloseable {
     public @interface FilterType {}
 
     /** Modulation Type */
-    @StringDef({MODULATION_8VSB, MODULATION_QAM256})
+    @StringDef({MODULATION_8VSB, MODULATION_QAM256, MODULATION_QAM16, MODULATION_QAM64})
     @Retention(RetentionPolicy.SOURCE)
     public @interface ModulationType {}
 
@@ -108,6 +120,7 @@ public interface Tuner extends AutoCloseable {
 
     /** Built in tuner type */
     @IntDef({
+        BUILT_IN_TUNER_TYPE_ARCHER,
         BUILT_IN_TUNER_TYPE_LINUX_DVB
     })
     @Retention(RetentionPolicy.SOURCE)

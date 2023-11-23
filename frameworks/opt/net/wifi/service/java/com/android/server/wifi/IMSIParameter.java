@@ -18,6 +18,8 @@ package com.android.server.wifi;
 
 import android.text.TextUtils;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * Class for storing an IMSI (International Mobile Subscriber Identity) parameter.  The IMSI
  * contains number (up to 15) of numerical digits.  When an IMSI ends with a '*', the specified
@@ -25,16 +27,19 @@ import android.text.TextUtils;
  */
 public class IMSIParameter {
     /**
-     * MCC (Mobile Country Code) is a 3 digit number and MNC (Mobile Network Code) is also a 3
-     * digit number.
+     * Per 2.2 of 3GPP TS 23.003
+     * MCC (Mobile Country Code) is a 3 digit number and MNC (Mobile Network Code) is a 2
+     * or 3 digit number;
+     * The max length of IMSI is 15;
      */
-    public static final int MCC_MNC_LENGTH = 6;
-
+    public static final int MCC_MNC_LENGTH_5 = 5;
+    public static final int MCC_MNC_LENGTH_6 = 6;
     private static final int MAX_IMSI_LENGTH = 15;
 
     private final String mImsi;
     private final boolean mPrefix;
 
+    @VisibleForTesting
     public IMSIParameter(String imsi, boolean prefix) {
         mImsi = imsi;
         mPrefix = prefix;
@@ -56,22 +61,22 @@ public class IMSIParameter {
         }
 
         // Detect the first non-digit character.
-        int nonDigit;
+        int nonDigitIndex;
         char stopChar = '\0';
-        for (nonDigit = 0; nonDigit < imsi.length(); nonDigit++) {
-            stopChar = imsi.charAt(nonDigit);
+        for (nonDigitIndex = 0; nonDigitIndex < imsi.length(); nonDigitIndex++) {
+            stopChar = imsi.charAt(nonDigitIndex);
             if (stopChar < '0' || stopChar > '9') {
                 break;
             }
         }
 
-        if (nonDigit == imsi.length()) {
+        if (nonDigitIndex == imsi.length()) {
             // Full IMSI.
             return new IMSIParameter(imsi, false);
-        }
-        else if (nonDigit == imsi.length()-1 && stopChar == '*') {
+        } else if (nonDigitIndex == imsi.length() - 1 && stopChar == '*'
+                && (nonDigitIndex == MCC_MNC_LENGTH_5 || nonDigitIndex == MCC_MNC_LENGTH_6)) {
             // IMSI prefix.
-            return new IMSIParameter(imsi.substring(0, nonDigit), true);
+            return new IMSIParameter(imsi.substring(0, nonDigitIndex), true);
         }
         return null;
     }
@@ -107,14 +112,23 @@ public class IMSIParameter {
         if (mccMnc == null) {
             return false;
         }
-        if (mccMnc.length() != MCC_MNC_LENGTH) {
+        if (mccMnc.length() != MCC_MNC_LENGTH_5 && mccMnc.length() != MCC_MNC_LENGTH_6) {
             return false;
         }
-        int checkLength = MCC_MNC_LENGTH;
-        if (mPrefix && mImsi.length() < MCC_MNC_LENGTH) {
-            checkLength = mImsi.length();
+        if (mPrefix && mccMnc.length() != mImsi.length()) {
+            return false;
         }
-        return mImsi.regionMatches(false, 0, mccMnc, 0, checkLength);
+
+        return mImsi.startsWith(mccMnc);
+    }
+
+    /**
+     * If the IMSI is full length.
+     *
+     * @return true If the length of IMSI is full, false otherwise.
+     */
+    public boolean isFullImsi() {
+        return !mPrefix;
     }
 
     @Override

@@ -26,15 +26,17 @@
 #include <utils/String8.h>
 #include <utils/Vector.h>
 
+#include <media/AudioResamplerPublic.h>
+#include <media/AudioSystem.h>
 #include <media/MediaPlayerInterface.h>
 #include <media/Metadata.h>
 #include <media/stagefright/foundation/ABase.h>
+
 
 #include <system/audio.h>
 
 namespace android {
 
-struct AudioPlaybackRate;
 class AudioTrack;
 struct AVSyncSettings;
 class DeathNotifier;

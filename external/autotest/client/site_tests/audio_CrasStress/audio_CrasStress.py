@@ -49,11 +49,6 @@ class audio_CrasStress(test.test):
 
         return subprocess.Popen(cmd)
 
-    def _dump_audio(self):
-        log_file = os.path.join(self.resultsdir, "audio_diagnostics.txt")
-        with open(log_file, 'w') as f:
-            f.write(audio_helper.get_audio_diagnostics())
-
     def _check_buffer_level(self, stream_type):
 
         buffer_level = self._get_buffer_level(stream_type)
@@ -61,14 +56,16 @@ class audio_CrasStress(test.test):
         if stream_type == _STREAM_TYPE_INPUT:
             logging.debug("Max input buffer level: %d", buffer_level)
             if buffer_level > self._INPUT_BUFFER_DRIFT_CRITERIA:
-                self._dump_audio()
+                audio_helper.dump_audio_diagnostics(
+                        os.path.join(self.resultsdir, "audio_diagnostics.txt"))
                 raise error.TestFail('Input buffer level %d drift too high' %
                                      buffer_level)
 
         if stream_type == _STREAM_TYPE_OUTPUT:
             logging.debug("Max output buffer level: %d", buffer_level)
             if buffer_level > self._OUTPUT_BUFFER_DRIFT_CRITERIA:
-                self._dump_audio()
+                audio_helper.dump_audio_diagnostics(
+                        os.path.join(self.resultsdir, "audio_diagnostics.txt"))
                 raise error.TestFail('Output buffer level %d drift too high' %
                                      buffer_level)
 

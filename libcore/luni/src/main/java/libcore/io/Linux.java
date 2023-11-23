@@ -23,7 +23,6 @@ import android.system.Int64Ref;
 import android.system.StructAddrinfo;
 import android.system.StructCapUserData;
 import android.system.StructCapUserHeader;
-import android.system.StructFlock;
 import android.system.StructGroupReq;
 import android.system.StructIfaddrs;
 import android.system.StructLinger;
@@ -76,7 +75,6 @@ public final class Linux implements Os {
     public native void execve(String filename, String[] argv, String[] envp) throws ErrnoException;
     public native void fchmod(FileDescriptor fd, int mode) throws ErrnoException;
     public native void fchown(FileDescriptor fd, int uid, int gid) throws ErrnoException;
-    public native int fcntlFlock(FileDescriptor fd, int cmd, StructFlock arg) throws ErrnoException, InterruptedIOException;
     public native int fcntlInt(FileDescriptor fd, int cmd, int arg) throws ErrnoException;
     public native int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException;
     public native void fdatasync(FileDescriptor fd) throws ErrnoException;
@@ -123,6 +121,7 @@ public final class Linux implements Os {
     public native String[] listxattr(String path) throws ErrnoException;
     public native long lseek(FileDescriptor fd, long offset, int whence) throws ErrnoException;
     public native StructStat lstat(String path) throws ErrnoException;
+    public native FileDescriptor memfd_create(String name, int flags) throws ErrnoException;
     public native void mincore(long address, long byteCount, byte[] vector) throws ErrnoException;
     public native void mkdir(String path, int mode) throws ErrnoException;
     public native void mkfifo(String path, int mode) throws ErrnoException;

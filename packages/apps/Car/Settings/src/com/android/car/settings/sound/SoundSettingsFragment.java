@@ -16,12 +16,17 @@
 
 package com.android.car.settings.sound;
 
+import android.provider.Settings;
+
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /** Fragment which shows the settings for sounds. */
+@SearchIndexable
 public class SoundSettingsFragment extends SettingsFragment {
 
     @Override
@@ -29,4 +34,8 @@ public class SoundSettingsFragment extends SettingsFragment {
     protected int getPreferenceScreenResId() {
         return R.xml.sound_settings_fragment;
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.sound_settings_fragment,
+                    Settings.ACTION_SOUND_SETTINGS);
 }

@@ -7,13 +7,11 @@
 import logging
 from contextlib import contextmanager
 
-from autotest_lib.client.cros.audio import audio_helper
 from autotest_lib.client.cros.chameleon import audio_widget
 from autotest_lib.client.cros.chameleon import audio_widget_arc
 from autotest_lib.client.cros.chameleon import audio_widget_link
 from autotest_lib.server.cros.bluetooth import bluetooth_device
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids as ids
-from autotest_lib.client.cros.chameleon import chameleon_info
 
 class AudioPort(object):
     """
@@ -281,7 +279,6 @@ class AudioWidgetFactory(object):
                     return audio_widget.ChameleonOutputWidgetHandler(
                             self._chameleon_board, audio_port.interface)
 
-
         def _create_cros_handler(audio_port):
             """Creates a CrosWidgetHandler for a given AudioPort.
 
@@ -291,53 +288,31 @@ class AudioWidgetFactory(object):
                       role of audio_port.
 
             """
-            is_usb = audio_port.port_id in [ids.CrosIds.USBIN,
-                                            ids.CrosIds.USBOUT]
-            is_audio_jack = audio_port.port_id in [ids.CrosIds.HEADPHONE,
-                                                   ids.CrosIds.EXTERNAL_MIC]
+            is_usb = audio_port.port_id in [
+                    ids.CrosIds.USBIN, ids.CrosIds.USBOUT
+            ]
             is_internal_mic = audio_port.port_id == ids.CrosIds.INTERNAL_MIC
             is_hotwording = audio_port.port_id == ids.CrosIds.HOTWORDING
-
-            # Determines the plug handler to be used.
-            # By default, the plug handler is DummyPlugHandler.
-            # If the port uses audio jack, and there is jack plugger available
-            # through audio board, then JackPluggerPlugHandler should be used.
-            audio_board = self._chameleon_board.get_audio_board()
-            if audio_board:
-                jack_plugger = audio_board.get_jack_plugger()
-            else:
-                jack_plugger = None
-
-            if jack_plugger and is_audio_jack:
-                plug_handler = audio_widget.JackPluggerPlugHandler(jack_plugger)
-            else:
-                plug_handler = audio_widget.DummyPlugHandler()
 
             if audio_port.role == 'sink':
                 if use_arc:
                     return audio_widget_arc.CrosInputWidgetARCHandler(
-                            self._audio_facade, plug_handler)
+                            self._audio_facade)
                 elif is_usb:
                     return audio_widget.CrosUSBInputWidgetHandler(
-                            self._audio_facade, plug_handler)
-                elif is_internal_mic:
-                    return audio_widget.CrosIntMicInputWidgetHandler(
-                            self._audio_facade, plug_handler,
-                            self._system_facade)
+                            self._audio_facade)
                 elif is_hotwording:
                     return audio_widget.CrosHotwordingWidgetHandler(
-                            self._audio_facade, plug_handler,
-                            self._system_facade)
+                            self._audio_facade, self._system_facade)
                 else:
                     return audio_widget.CrosInputWidgetHandler(
-                            self._audio_facade, plug_handler)
+                            self._audio_facade)
             else:
                 if use_arc:
                     return audio_widget_arc.CrosOutputWidgetARCHandler(
-                            self._audio_facade, plug_handler)
-                return audio_widget.CrosOutputWidgetHandler(self._audio_facade,
-                                                            plug_handler)
-
+                            self._audio_facade)
+                return audio_widget.CrosOutputWidgetHandler(
+                        self._audio_facade)
 
         def _create_audio_widget(audio_port, handler):
             """Creates an AudioWidget for given AudioPort using WidgetHandler.

@@ -14,10 +14,19 @@
  * limitations under the License.
  */
 
+const fs = require('fs');
 var path = require('path')
 var webpack = require('webpack')
 var HtmlWebpackPlugin = require('html-webpack-plugin')
 var HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin')
+
+function getWaylandSafePath() {
+  waylandPath = path.resolve(__dirname, '../../../vendor/google_arc/libs/wayland_service');
+  if (fs.existsSync(waylandPath)) {
+    return waylandPath;
+  }
+  return path.resolve(__dirname, 'src/stubs');
+}
 
 module.exports = {
   entry: './src/main.js',
@@ -61,6 +70,9 @@ module.exports = {
     ]
   },
   resolve: {
+    alias: {
+        WaylandSafePath: getWaylandSafePath(),
+    },
     modules: [
       'node_modules',
       path.resolve(__dirname, '../../..')

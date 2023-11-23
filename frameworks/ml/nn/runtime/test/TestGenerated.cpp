@@ -14,19 +14,27 @@
  * limitations under the License.
  */
 
-#include "TestGenerated.h"
-#include "TestHarness.h"
-
-#include <gtest/gtest.h>
-
+#include <android-base/logging.h>
 #include <ftw.h>
+#include <gtest/gtest.h>
 #include <unistd.h>
+
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
+
+#include "GeneratedTestUtils.h"
+#include "TestHarness.h"
+#include "TestNeuralNetworksWrapper.h"
+#include "TestUtils.h"
 
 // Systrace is not available from CTS tests due to platform layering
 // constraints. We reuse the NNTEST_ONLY_PUBLIC_API flag, as that should also be
@@ -39,214 +47,289 @@
 #define NNTRACE_APP_SWITCH(...)
 #endif
 
-namespace generated_tests {
-using namespace android::nn::test_wrapper;
+#ifdef NNTEST_CTS
+#define NNTEST_COMPUTE_MODE
+#endif
+
+namespace android::nn::generated_tests {
+using namespace test_wrapper;
 using namespace test_helper;
 
-namespace {
-template <typename T>
-void print(std::ostream& os, const std::map<int, std::vector<T>>& test) {
-    // dump T-typed inputs
-    for_each<T>(test, [&os](int idx, const std::vector<T>& f) {
-        os << "    aliased_output" << idx << ": [";
-        for (size_t i = 0; i < f.size(); ++i) {
-            os << (i == 0 ? "" : ", ") << +f[i];
-        }
-        os << "],\n";
-    });
-}
+class GeneratedTests : public GeneratedTestBase {
+   protected:
+    void SetUp() override;
+    void TearDown() override;
 
-// Specialized for _Float16 because it requires explicit conversion.
-template <>
-void print<_Float16>(std::ostream& os, const std::map<int, std::vector<_Float16>>& test) {
-    for_each<_Float16>(test, [&os](int idx, const std::vector<_Float16>& f) {
-        os << "    aliased_output" << idx << ": [";
-        for (size_t i = 0; i < f.size(); ++i) {
-            os << (i == 0 ? "" : ", ") << +static_cast<float>(f[i]);
-        }
-        os << "],\n";
-    });
-}
+    std::optional<Compilation> compileModel(const Model& model);
+    void executeWithCompilation(const Compilation& compilation, const TestModel& testModel);
+    void executeOnce(const Model& model, const TestModel& testModel);
+    void executeMultithreadedOwnCompilation(const Model& model, const TestModel& testModel);
+    void executeMultithreadedSharedCompilation(const Model& model, const TestModel& testModel);
+    // Test driver for those generated from ml/nn/runtime/test/spec
+    void execute(const TestModel& testModel);
 
-void printAll(std::ostream& os, const MixedTyped& test) {
-    print(os, test.float32Operands);
-    print(os, test.int32Operands);
-    print(os, test.quant8AsymmOperands);
-    print(os, test.quant16SymmOperands);
-    print(os, test.float16Operands);
-    print(os, test.bool8Operands);
-    print(os, test.quant8ChannelOperands);
-    print(os, test.quant16AsymmOperands);
-    print(os, test.quant8SymmOperands);
-    static_assert(9 == MixedTyped::kNumTypes,
-                  "Number of types in MixedTyped changed, but printAll function wasn't updated");
-}
-}  // namespace
+    std::string mCacheDir;
+    std::vector<uint8_t> mToken;
+    bool mTestCompilationCaching = false;
+    bool mTestDynamicOutputShape = false;
+    bool mExpectFailure = false;
+    bool mTestQuantizationCoupling = false;
+    bool mTestDeviceMemory = false;
+};
 
-Compilation GeneratedTests::compileModel(const Model* model) {
+// Tag for the dynamic output shape tests
+class DynamicOutputShapeTest : public GeneratedTests {
+   protected:
+    DynamicOutputShapeTest() { mTestDynamicOutputShape = true; }
+};
+
+// Tag for the fenced execute tests
+class FencedComputeTest : public GeneratedTests {};
+
+// Tag for the generated validation tests
+class GeneratedValidationTests : public GeneratedTests {
+   protected:
+    GeneratedValidationTests() { mExpectFailure = true; }
+};
+
+class QuantizationCouplingTest : public GeneratedTests {
+   protected:
+    QuantizationCouplingTest() { mTestQuantizationCoupling = true; }
+};
+
+class DeviceMemoryTest : public GeneratedTests {
+   protected:
+    DeviceMemoryTest() { mTestDeviceMemory = true; }
+};
+
+std::optional<Compilation> GeneratedTests::compileModel(const Model& model) {
     NNTRACE_APP(NNTRACE_PHASE_COMPILATION, "compileModel");
     if (mTestCompilationCaching) {
         // Compile the model twice with the same token, so that compilation caching will be
         // exercised if supported by the driver.
-        Compilation compilation1(model);
-        compilation1.setCaching(mCacheDir, mToken);
-        compilation1.finish();
-        Compilation compilation2(model);
-        compilation2.setCaching(mCacheDir, mToken);
-        compilation2.finish();
+        // No invalid model will be passed to this branch.
+        EXPECT_FALSE(mExpectFailure);
+        Compilation compilation1(&model);
+        EXPECT_EQ(compilation1.setCaching(mCacheDir, mToken), Result::NO_ERROR);
+        EXPECT_EQ(compilation1.finish(), Result::NO_ERROR);
+        Compilation compilation2(&model);
+        EXPECT_EQ(compilation2.setCaching(mCacheDir, mToken), Result::NO_ERROR);
+        EXPECT_EQ(compilation2.finish(), Result::NO_ERROR);
         return compilation2;
     } else {
-        Compilation compilation(model);
-        compilation.finish();
+        Compilation compilation(&model);
+        Result result = compilation.finish();
+
+        // For valid model, we check the compilation result == NO_ERROR.
+        // For invalid model, the driver may fail at compilation or execution, so any result code is
+        // permitted at this point.
+        if (mExpectFailure && result != Result::NO_ERROR) return std::nullopt;
+        EXPECT_EQ(result, Result::NO_ERROR);
         return compilation;
     }
 }
 
-void GeneratedTests::executeWithCompilation(const Model* model, Compilation* compilation,
-                                            std::function<bool(int)> isIgnored,
-                                            std::vector<MixedTypedExample>& examples,
-                                            std::string dumpFile) {
-    bool dumpToFile = !dumpFile.empty();
-    std::ofstream s;
-    if (dumpToFile) {
-        s.open(dumpFile, std::ofstream::trunc);
-        ASSERT_TRUE(s.is_open());
+static void computeWithPtrs(const TestModel& testModel, Execution* execution, Result* result,
+                            std::vector<TestBuffer>* outputs) {
+    {
+        NNTRACE_APP(NNTRACE_PHASE_INPUTS_AND_OUTPUTS, "computeWithPtrs example");
+        createRequest(testModel, execution, outputs);
     }
+    *result = execution->compute();
+}
 
-    int exampleNo = 0;
-    float fpAtol = 1e-5f;
-    float fpRtol = 5.0f * 1.1920928955078125e-7f;
-    for (auto& example : examples) {
-        NNTRACE_APP(NNTRACE_PHASE_EXECUTION, "executeWithCompilation example");
-        SCOPED_TRACE(exampleNo);
-        // TODO: We leave it as a copy here.
-        // Should verify if the input gets modified by the test later.
-        MixedTyped inputs = example.operands.first;
-        const MixedTyped& golden = example.operands.second;
+static ANeuralNetworksMemory* createDeviceMemoryForInput(const Compilation& compilation,
+                                                         uint32_t index) {
+    ANeuralNetworksMemoryDesc* desc = nullptr;
+    EXPECT_EQ(ANeuralNetworksMemoryDesc_create(&desc), ANEURALNETWORKS_NO_ERROR);
+    EXPECT_EQ(ANeuralNetworksMemoryDesc_addInputRole(desc, compilation.getHandle(), index, 1.0f),
+              ANEURALNETWORKS_NO_ERROR);
+    EXPECT_EQ(ANeuralNetworksMemoryDesc_finish(desc), ANEURALNETWORKS_NO_ERROR);
+    ANeuralNetworksMemory* memory = nullptr;
+    ANeuralNetworksMemory_createFromDesc(desc, &memory);
+    ANeuralNetworksMemoryDesc_free(desc);
+    return memory;
+}
 
-        const bool hasFloat16Inputs = !inputs.float16Operands.empty();
-        if (model->isRelaxed() || hasFloat16Inputs) {
-            // TODO: Adjust the error limit based on testing.
-            // If in relaxed mode, set the absolute tolerance to be 5ULP of FP16.
-            fpAtol = 5.0f * 0.0009765625f;
-            // Set the relative tolerance to be 5ULP of the corresponding FP precision.
-            fpRtol = 5.0f * 0.0009765625f;
-        }
+static ANeuralNetworksMemory* createDeviceMemoryForOutput(const Compilation& compilation,
+                                                          uint32_t index) {
+    ANeuralNetworksMemoryDesc* desc = nullptr;
+    EXPECT_EQ(ANeuralNetworksMemoryDesc_create(&desc), ANEURALNETWORKS_NO_ERROR);
+    EXPECT_EQ(ANeuralNetworksMemoryDesc_addOutputRole(desc, compilation.getHandle(), index, 1.0f),
+              ANEURALNETWORKS_NO_ERROR);
+    EXPECT_EQ(ANeuralNetworksMemoryDesc_finish(desc), ANEURALNETWORKS_NO_ERROR);
+    ANeuralNetworksMemory* memory = nullptr;
+    ANeuralNetworksMemory_createFromDesc(desc, &memory);
+    ANeuralNetworksMemoryDesc_free(desc);
+    return memory;
+}
 
-        Execution execution(compilation);
-        MixedTyped test;
-        {
-            NNTRACE_APP(NNTRACE_PHASE_INPUTS_AND_OUTPUTS, "executeWithCompilation example");
-            // Set all inputs
-            for_all(inputs, [&execution](int idx, const void* p, size_t s) {
-                const void* buffer = s == 0 ? nullptr : p;
-                ASSERT_EQ(Result::NO_ERROR, execution.setInput(idx, buffer, s));
-            });
+// Set result = Result::NO_ERROR and outputs = {} if the test should be skipped.
+static void computeWithDeviceMemories(const Compilation& compilation, const TestModel& testModel,
+                                      Execution* execution, Result* result,
+                                      std::vector<TestBuffer>* outputs) {
+    ASSERT_NE(execution, nullptr);
+    ASSERT_NE(result, nullptr);
+    ASSERT_NE(outputs, nullptr);
+    outputs->clear();
+    std::vector<Memory> inputMemories, outputMemories;
 
-            // Go through all typed outputs
-            resize_accordingly(golden, test);
-            for_all(test, [&execution](int idx, void* p, size_t s) {
-                void* buffer = s == 0 ? nullptr : p;
-                ASSERT_EQ(Result::NO_ERROR, execution.setOutput(idx, buffer, s));
-            });
-        }
-
-        Result r = execution.compute();
-        ASSERT_EQ(Result::NO_ERROR, r);
-        {
-            NNTRACE_APP(NNTRACE_PHASE_RESULTS, "executeWithCompilation example");
-
-            // Get output dimensions
-            for_each<uint32_t>(
-                    test.operandDimensions, [&execution](int idx, std::vector<uint32_t>& t) {
-                        ASSERT_EQ(Result::NO_ERROR, execution.getOutputOperandDimensions(idx, &t));
-                    });
-
-            // Dump all outputs for the slicing tool
-            if (dumpToFile) {
-                s << "output" << exampleNo << " = {\n";
-                printAll(s, test);
-                // all outputs are done
-                s << "}\n";
+    {
+        NNTRACE_APP(NNTRACE_PHASE_INPUTS_AND_OUTPUTS, "computeWithDeviceMemories example");
+        // Model inputs.
+        for (uint32_t i = 0; i < testModel.main.inputIndexes.size(); i++) {
+            SCOPED_TRACE("Input index: " + std::to_string(i));
+            const auto& operand = testModel.main.operands[testModel.main.inputIndexes[i]];
+            // Omitted input.
+            if (operand.data.size() == 0) {
+                ASSERT_EQ(Result::NO_ERROR, execution->setInput(i, nullptr, 0));
+                continue;
             }
 
-            // Filter out don't cares
-            MixedTyped filteredGolden = filter(golden, isIgnored);
-            MixedTyped filteredTest = filter(test, isIgnored);
-            // We want "close-enough" results for float
+            // Create device memory.
+            ANeuralNetworksMemory* memory = createDeviceMemoryForInput(compilation, i);
+            ASSERT_NE(memory, nullptr);
+            auto& wrapperMemory = inputMemories.emplace_back(memory);
 
-            compare(filteredGolden, filteredTest, fpAtol, fpRtol);
+            // Copy data from TestBuffer to device memory.
+            auto ashmem = TestAshmem::createFrom(operand.data);
+            ASSERT_NE(ashmem, nullptr);
+            ASSERT_EQ(ANeuralNetworksMemory_copy(ashmem->get()->get(), memory),
+                      ANEURALNETWORKS_NO_ERROR);
+            ASSERT_EQ(Result::NO_ERROR, execution->setInputFromMemory(i, &wrapperMemory, 0, 0));
         }
-        exampleNo++;
 
-        if (example.expectedMultinomialDistributionTolerance > 0) {
-            expectMultinomialDistributionWithinTolerance(test, example);
+        // Model outputs.
+        for (uint32_t i = 0; i < testModel.main.outputIndexes.size(); i++) {
+            SCOPED_TRACE("Output index: " + std::to_string(i));
+            ANeuralNetworksMemory* memory = createDeviceMemoryForOutput(compilation, i);
+            ASSERT_NE(memory, nullptr);
+            auto& wrapperMemory = outputMemories.emplace_back(memory);
+            ASSERT_EQ(Result::NO_ERROR, execution->setOutputFromMemory(i, &wrapperMemory, 0, 0));
         }
+    }
+
+    *result = execution->compute();
+
+    // Copy out output results.
+    for (uint32_t i = 0; i < testModel.main.outputIndexes.size(); i++) {
+        SCOPED_TRACE("Output index: " + std::to_string(i));
+        const auto& operand = testModel.main.operands[testModel.main.outputIndexes[i]];
+        const size_t bufferSize = operand.data.size();
+        auto& output = outputs->emplace_back(bufferSize);
+
+        auto ashmem = TestAshmem::createFrom(output);
+        ASSERT_NE(ashmem, nullptr);
+        ASSERT_EQ(ANeuralNetworksMemory_copy(outputMemories[i].get(), ashmem->get()->get()),
+                  ANEURALNETWORKS_NO_ERROR);
+        std::copy(ashmem->dataAs<uint8_t>(), ashmem->dataAs<uint8_t>() + bufferSize,
+                  output.getMutable<uint8_t>());
     }
 }
 
-void GeneratedTests::executeOnce(const Model* model, std::function<bool(int)> isIgnored,
-                                 std::vector<MixedTypedExample>& examples, std::string dumpFile) {
-    NNTRACE_APP(NNTRACE_PHASE_OVERALL, "executeOnce");
-    Compilation compilation = compileModel(model);
-    executeWithCompilation(model, &compilation, isIgnored, examples, dumpFile);
+void GeneratedTests::executeWithCompilation(const Compilation& compilation,
+                                            const TestModel& testModel) {
+    NNTRACE_APP(NNTRACE_PHASE_EXECUTION, "executeWithCompilation example");
+
+    Execution execution(&compilation);
+    Result result;
+    std::vector<TestBuffer> outputs;
+
+    if (mTestDeviceMemory) {
+        computeWithDeviceMemories(compilation, testModel, &execution, &result, &outputs);
+    } else {
+        computeWithPtrs(testModel, &execution, &result, &outputs);
+    }
+
+    if (result == Result::NO_ERROR && outputs.empty()) {
+        return;
+    }
+
+    {
+        NNTRACE_APP(NNTRACE_PHASE_RESULTS, "executeWithCompilation example");
+        if (mExpectFailure) {
+            ASSERT_NE(result, Result::NO_ERROR);
+            return;
+        } else {
+            ASSERT_EQ(result, Result::NO_ERROR);
+        }
+
+        // Check output dimensions.
+        for (uint32_t i = 0; i < testModel.main.outputIndexes.size(); i++) {
+            const auto& output = testModel.main.operands[testModel.main.outputIndexes[i]];
+            if (output.isIgnored) continue;
+            std::vector<uint32_t> actualDimensions;
+            ASSERT_EQ(Result::NO_ERROR, execution.getOutputOperandDimensions(i, &actualDimensions));
+            ASSERT_EQ(output.dimensions, actualDimensions);
+        }
+
+        checkResults(testModel, outputs);
+    }
 }
 
-void GeneratedTests::executeMultithreadedOwnCompilation(const Model* model,
-                                                        std::function<bool(int)> isIgnored,
-                                                        std::vector<MixedTypedExample>& examples) {
+void GeneratedTests::executeOnce(const Model& model, const TestModel& testModel) {
+    NNTRACE_APP(NNTRACE_PHASE_OVERALL, "executeOnce");
+    std::optional<Compilation> compilation = compileModel(model);
+    // Early return if compilation fails. The compilation result code is checked in compileModel.
+    if (!compilation) return;
+    executeWithCompilation(compilation.value(), testModel);
+}
+
+void GeneratedTests::executeMultithreadedOwnCompilation(const Model& model,
+                                                        const TestModel& testModel) {
     NNTRACE_APP(NNTRACE_PHASE_OVERALL, "executeMultithreadedOwnCompilation");
     SCOPED_TRACE("MultithreadedOwnCompilation");
     std::vector<std::thread> threads;
     for (int i = 0; i < 10; i++) {
-        threads.push_back(std::thread([&]() { executeOnce(model, isIgnored, examples, ""); }));
+        threads.push_back(std::thread([&]() { executeOnce(model, testModel); }));
     }
     std::for_each(threads.begin(), threads.end(), [](std::thread& t) { t.join(); });
 }
 
-void GeneratedTests::executeMultithreadedSharedCompilation(
-        const Model* model, std::function<bool(int)> isIgnored,
-        std::vector<MixedTypedExample>& examples) {
+void GeneratedTests::executeMultithreadedSharedCompilation(const Model& model,
+                                                           const TestModel& testModel) {
     NNTRACE_APP(NNTRACE_PHASE_OVERALL, "executeMultithreadedSharedCompilation");
     SCOPED_TRACE("MultithreadedSharedCompilation");
-    Compilation compilation = compileModel(model);
+    std::optional<Compilation> compilation = compileModel(model);
+    // Early return if compilation fails. The ompilation result code is checked in compileModel.
+    if (!compilation) return;
     std::vector<std::thread> threads;
     for (int i = 0; i < 10; i++) {
-        threads.push_back(std::thread(
-                [&]() { executeWithCompilation(model, &compilation, isIgnored, examples, ""); }));
+        threads.push_back(
+                std::thread([&]() { executeWithCompilation(compilation.value(), testModel); }));
     }
     std::for_each(threads.begin(), threads.end(), [](std::thread& t) { t.join(); });
 }
 
 // Test driver for those generated from ml/nn/runtime/test/spec
-void GeneratedTests::execute(std::function<void(Model*)> createModel,
-                             std::function<bool(int)> isIgnored,
-                             std::vector<MixedTypedExample>& examples,
-                             [[maybe_unused]] std::string dumpFile) {
+void GeneratedTests::execute(const TestModel& testModel) {
     NNTRACE_APP(NNTRACE_PHASE_OVERALL, "execute");
-    Model model;
-    createModel(&model);
-    model.finish();
-    auto executeInternal = [&model, &isIgnored, &examples,
-                            this]([[maybe_unused]] std::string dumpFile) {
+    GeneratedModel model;
+    createModel(testModel, mTestDynamicOutputShape, &model);
+    if (testModel.expectFailure && !model.isValid()) {
+        return;
+    }
+    ASSERT_EQ(model.finish(), Result::NO_ERROR);
+    ASSERT_TRUE(model.isValid());
+    auto executeInternal = [&testModel, &model, this]() {
         SCOPED_TRACE("TestCompilationCaching = " + std::to_string(mTestCompilationCaching));
 #ifndef NNTEST_MULTITHREADED
-        executeOnce(&model, isIgnored, examples, dumpFile);
+        executeOnce(model, testModel);
 #else   // defined(NNTEST_MULTITHREADED)
-        executeMultithreadedOwnCompilation(&model, isIgnored, examples);
-        executeMultithreadedSharedCompilation(&model, isIgnored, examples);
+        executeMultithreadedOwnCompilation(model, testModel);
+        executeMultithreadedSharedCompilation(model, testModel);
 #endif  // !defined(NNTEST_MULTITHREADED)
     };
     mTestCompilationCaching = false;
-    executeInternal(dumpFile);
-    mTestCompilationCaching = true;
-    executeInternal("");
+    executeInternal();
+    if (!mExpectFailure) {
+        mTestCompilationCaching = true;
+        executeInternal();
+    }
 }
 
 void GeneratedTests::SetUp() {
-#ifdef NNTEST_COMPUTE_MODE
-    mOldComputeMode = Execution::setComputeMode(GetParam());
-#endif
+    GeneratedTestBase::SetUp();
     char cacheDirTemp[] = "/data/local/tmp/TestCompilationCachingXXXXXX";
     char* cacheDir = mkdtemp(cacheDirTemp);
     ASSERT_NE(cacheDir, nullptr);
@@ -255,9 +338,6 @@ void GeneratedTests::SetUp() {
 }
 
 void GeneratedTests::TearDown() {
-#ifdef NNTEST_COMPUTE_MODE
-    Execution::setComputeMode(mOldComputeMode);
-#endif
     if (!::testing::Test::HasFailure()) {
         // TODO: Switch to std::filesystem::remove_all once libc++fs is made available in CTS.
         // Remove the cache directory specified by path recursively.
@@ -266,13 +346,85 @@ void GeneratedTests::TearDown() {
         };
         nftw(mCacheDir.c_str(), callback, 128, FTW_DEPTH | FTW_MOUNT | FTW_PHYS);
     }
+    GeneratedTestBase::TearDown();
 }
 
 #ifdef NNTEST_COMPUTE_MODE
-INSTANTIATE_TEST_SUITE_P(ComputeMode, GeneratedTests,
-                         testing::Values(Execution::ComputeMode::SYNC,
-                                         Execution::ComputeMode::ASYNC,
-                                         Execution::ComputeMode::BURST));
+TEST_P(GeneratedTests, Sync) {
+    const auto oldComputeMode = Execution::setComputeMode(Execution::ComputeMode::SYNC);
+    execute(testModel);
+    Execution::setComputeMode(oldComputeMode);
+}
+
+TEST_P(GeneratedTests, Async) {
+    const auto oldComputeMode = Execution::setComputeMode(Execution::ComputeMode::ASYNC);
+    execute(testModel);
+    Execution::setComputeMode(oldComputeMode);
+}
+
+TEST_P(GeneratedTests, Burst) {
+    const auto oldComputeMode = Execution::setComputeMode(Execution::ComputeMode::BURST);
+    execute(testModel);
+    Execution::setComputeMode(oldComputeMode);
+}
+#else
+TEST_P(GeneratedTests, Test) {
+    execute(testModel);
+}
 #endif
 
-}  // namespace generated_tests
+TEST_P(DynamicOutputShapeTest, Test) {
+    execute(testModel);
+}
+
+TEST_P(GeneratedValidationTests, Test) {
+    execute(testModel);
+}
+
+TEST_P(QuantizationCouplingTest, Test) {
+    execute(convertQuant8AsymmOperandsToSigned(testModel));
+}
+
+TEST_P(DeviceMemoryTest, Test) {
+    execute(testModel);
+}
+
+TEST_P(FencedComputeTest, Test) {
+    const auto oldComputeMode = Execution::setComputeMode(Execution::ComputeMode::FENCED);
+    execute(testModel);
+    Execution::setComputeMode(oldComputeMode);
+}
+
+INSTANTIATE_GENERATED_TEST(GeneratedTests,
+                           [](const TestModel& testModel) { return !testModel.expectFailure; });
+
+INSTANTIATE_GENERATED_TEST(DynamicOutputShapeTest, [](const TestModel& testModel) {
+    return !testModel.expectFailure && !testModel.hasScalarOutputs();
+});
+
+INSTANTIATE_GENERATED_TEST(GeneratedValidationTests, [](const TestModel& testModel) {
+    return testModel.expectFailure && !testModel.isInfiniteLoopTimeoutTest();
+});
+
+INSTANTIATE_GENERATED_TEST(QuantizationCouplingTest, [](const TestModel& testModel) {
+    return !testModel.expectFailure && testModel.main.operations.size() == 1 &&
+           testModel.referenced.size() == 0 && testModel.hasQuant8CoupledOperands();
+});
+
+INSTANTIATE_GENERATED_TEST(DeviceMemoryTest, [](const TestModel& testModel) {
+    return !testModel.expectFailure &&
+           std::all_of(testModel.main.outputIndexes.begin(), testModel.main.outputIndexes.end(),
+                       [&testModel](uint32_t index) {
+                           return testModel.main.operands[index].data.size() > 0;
+                       });
+});
+
+INSTANTIATE_GENERATED_TEST(FencedComputeTest, [](const TestModel& testModel) {
+    return !testModel.expectFailure &&
+           std::all_of(testModel.main.outputIndexes.begin(), testModel.main.outputIndexes.end(),
+                       [&testModel](uint32_t index) {
+                           return testModel.main.operands[index].data.size() > 0;
+                       });
+});
+
+}  // namespace android::nn::generated_tests

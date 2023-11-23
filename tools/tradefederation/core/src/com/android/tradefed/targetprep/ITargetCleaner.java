@@ -15,28 +15,14 @@
  */
 package com.android.tradefed.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
-
 /**
  * Cleans up the target device after the test run has finished.
- * <p/>
- * For example, removes software, collects metrics, remove temporary files etc.
- * <p/>
- * Note that multiple {@link ITargetCleaner}s can be specified in a configuration.
+ *
+ * <p>For example, removes software, collects metrics, remove temporary files etc.
+ *
+ * <p>Note that multiple {@link ITargetCleaner}s can be specified in a configuration.
+ *
+ * @deprecated tearDown has been moved to the base ITargetPreparer interface.
  */
-public interface ITargetCleaner extends ITargetPreparer {
-
-    /**
-     * Perform the target cleanup/teardown after testing.
-     *
-     * @param device the {@link ITestDevice} to prepare.
-     * @param buildInfo data about the build under test.
-     * @param e if the invocation ended with an exception, this will be the exception that was
-     *        caught at the Invocation level.  Otherwise, will be <code>null</code>.
-     * @throws DeviceNotAvailableException if device became unresponsive
-     */
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException;
-}
+@Deprecated
+public interface ITargetCleaner extends ITargetPreparer {}

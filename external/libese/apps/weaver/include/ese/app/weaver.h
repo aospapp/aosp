@@ -17,11 +17,11 @@
 #ifndef ESE_APP_WEAVER_H_
 #define ESE_APP_WEAVER_H_ 1
 
-#include "../../../../../libese/include/ese/ese.h"
-#include "../../../../../libese/include/ese/log.h"
-#include "../../../../../libese-sysdeps/include/ese/sysdeps.h"
+#include <ese/ese.h>
+#include <ese/log.h>
+#include <ese/sysdeps.h>
 
-#include "../../../../include/ese/app/result.h"
+#include <ese/app/result.h>
 
 #ifdef __cplusplus
 extern "C" {

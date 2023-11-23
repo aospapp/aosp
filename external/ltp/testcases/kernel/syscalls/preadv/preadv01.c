@@ -1,17 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
 * Copyright (c) 2015 Fujitsu Ltd.
 * Author: Xiao Yang <yangx.jy@cn.fujitsu.com>
-*
-* This program is free software; you can redistribute it and/or modify it
-* under the terms of version 2 of the GNU General Public License as
-* published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it would be useful, but
-* WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-*
-* You should have received a copy of the GNU General Public License
-* alone with this program.
 */
 
 /*
@@ -23,6 +13,8 @@
 * and after reading the file, the file offset is not changed.
 */
 
+#define _GNU_SOURCE
+
 #include <string.h>
 #include <sys/uio.h>
 
@@ -32,12 +24,8 @@
 #define CHUNK           64
 
 static int fd;
-static char buf[CHUNK];
 
-static struct iovec rd_iovec[] = {
-	{buf, CHUNK},
-	{NULL, 0},
-};
+static struct iovec *rd_iovec;
 
 static struct tcase {
 	int count;
@@ -119,4 +107,8 @@ static struct tst_test test = {
 	.test = verify_preadv,
 	.min_kver = "2.6.30",
 	.needs_tmpdir = 1,
+	.bufs = (struct tst_buffers []) {
+		{&rd_iovec, .iov_sizes = (int[]){CHUNK, 0, -1}},
+		{},
+	}
 };

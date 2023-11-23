@@ -10,7 +10,8 @@
 #include <memory>
 #include <vector>
 
-#include "core/fxge/ifx_renderdevicedriver.h"
+#include "build/build_config.h"
+#include "core/fxge/renderdevicedriver_iface.h"
 #include "third_party/agg23/agg_clip_liang_barsky.h"
 #include "third_party/agg23/agg_path_storage.h"
 #include "third_party/agg23/agg_rasterizer_scanline_aa.h"
@@ -30,18 +31,19 @@ class CAgg_PathData {
   agg::path_storage m_PathData;
 };
 
-class CFX_AggDeviceDriver : public IFX_RenderDeviceDriver {
+class CFX_AggDeviceDriver final : public RenderDeviceDriverIface {
  public:
   CFX_AggDeviceDriver(const RetainPtr<CFX_DIBitmap>& pBitmap,
                       bool bRgbByteOrder,
-                      const RetainPtr<CFX_DIBitmap>& pOriDevice,
+                      const RetainPtr<CFX_DIBitmap>& pBackdropBitmap,
                       bool bGroupKnockout);
   ~CFX_AggDeviceDriver() override;
 
   void InitPlatform();
   void DestroyPlatform();
 
-  // IFX_RenderDeviceDriver
+  // RenderDeviceDriverIface:
+  DeviceType GetDeviceType() const override;
   int GetDeviceCaps(int caps_id) const override;
   void SaveState() override;
   void RestoreState(bool bKeepSaved) override;
@@ -57,44 +59,44 @@ class CFX_AggDeviceDriver : public IFX_RenderDeviceDriver {
                 uint32_t fill_color,
                 uint32_t stroke_color,
                 int fill_mode,
-                int blend_type) override;
+                BlendMode blend_type) override;
   bool SetPixel(int x, int y, uint32_t color) override;
-  bool FillRectWithBlend(const FX_RECT* pRect,
+  bool FillRectWithBlend(const FX_RECT& rect,
                          uint32_t fill_color,
-                         int blend_type) override;
+                         BlendMode blend_type) override;
   bool GetClipBox(FX_RECT* pRect) override;
   bool GetDIBits(const RetainPtr<CFX_DIBitmap>& pBitmap,
                  int left,
                  int top) override;
   RetainPtr<CFX_DIBitmap> GetBackDrop() override;
-  bool SetDIBits(const RetainPtr<CFX_DIBSource>& pBitmap,
-                 uint32_t color,
-                 const FX_RECT* pSrcRect,
+  bool SetDIBits(const RetainPtr<CFX_DIBBase>& pBitmap,
+                 uint32_t argb,
+                 const FX_RECT& src_rect,
                  int left,
                  int top,
-                 int blend_type) override;
-  bool StretchDIBits(const RetainPtr<CFX_DIBSource>& pBitmap,
-                     uint32_t color,
+                 BlendMode blend_type) override;
+  bool StretchDIBits(const RetainPtr<CFX_DIBBase>& pSource,
+                     uint32_t argb,
                      int dest_left,
                      int dest_top,
                      int dest_width,
                      int dest_height,
                      const FX_RECT* pClipRect,
-                     uint32_t flags,
-                     int blend_type) override;
-  bool StartDIBits(const RetainPtr<CFX_DIBSource>& pBitmap,
+                     const FXDIB_ResampleOptions& options,
+                     BlendMode blend_type) override;
+  bool StartDIBits(const RetainPtr<CFX_DIBBase>& pSource,
                    int bitmap_alpha,
-                   uint32_t color,
-                   const CFX_Matrix* pMatrix,
-                   uint32_t flags,
+                   uint32_t argb,
+                   const CFX_Matrix& matrix,
+                   const FXDIB_ResampleOptions& options,
                    std::unique_ptr<CFX_ImageRenderer>* handle,
-                   int blend_type) override;
+                   BlendMode blend_type) override;
   bool ContinueDIBits(CFX_ImageRenderer* handle,
-                      IFX_PauseIndicator* pPause) override;
+                      PauseIndicatorIface* pPause) override;
   bool DrawDeviceText(int nChars,
-                      const FXTEXT_CHARPOS* pCharPos,
+                      const TextCharPos* pCharPos,
                       CFX_Font* pFont,
-                      const CFX_Matrix* pObject2Device,
+                      const CFX_Matrix& mtObject2Device,
                       float font_size,
                       uint32_t color) override;
   int GetDriverType() const override;
@@ -109,16 +111,16 @@ class CFX_AggDeviceDriver : public IFX_RenderDeviceDriver {
   virtual uint8_t* GetBuffer() const;
 
  private:
-  RetainPtr<CFX_DIBitmap> m_pBitmap;
+  RetainPtr<CFX_DIBitmap> const m_pBitmap;
   std::unique_ptr<CFX_ClipRgn> m_pClipRgn;
   std::vector<std::unique_ptr<CFX_ClipRgn>> m_StateStack;
-#if _FX_PLATFORM_ == _FX_PLATFORM_APPLE_
-  void* m_pPlatformGraphics;
+#if defined(OS_MACOSX)
+  void* m_pPlatformGraphics = nullptr;
 #endif
-  int m_FillFlags;
-  bool m_bRgbByteOrder;
-  RetainPtr<CFX_DIBitmap> m_pOriDevice;
-  bool m_bGroupKnockout;
+  int m_FillFlags = 0;
+  const bool m_bRgbByteOrder;
+  const bool m_bGroupKnockout;
+  RetainPtr<CFX_DIBitmap> m_pBackdropBitmap;
 };
 
 #endif  // CORE_FXGE_AGG_FX_AGG_DRIVER_H_

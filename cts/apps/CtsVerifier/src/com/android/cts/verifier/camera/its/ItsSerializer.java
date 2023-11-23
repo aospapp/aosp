@@ -483,6 +483,7 @@ public class ItsSerializer {
             CameraCharacteristics chars = (CameraCharacteristics) md;
             List<CameraCharacteristics.Key<?>> charsKeys = chars.getKeys();
             List<CaptureRequest.Key<?>> requestKeys = chars.getAvailableCaptureRequestKeys();
+            List<CaptureResult.Key<?>> resultKeys = chars.getAvailableCaptureResultKeys();
             Set<String> physicalCamIds = chars.getPhysicalCameraIds();
 
             try {
@@ -494,9 +495,14 @@ public class ItsSerializer {
                 for (CaptureRequest.Key<?> k : requestKeys) {
                     reqKeysArr.put(k.getName());
                 }
+                JSONArray resKeysArr = new JSONArray();
+                for (CaptureResult.Key<?> k : resultKeys) {
+                    resKeysArr.put(k.getName());
+                }
                 // Avoid using the hidden metadata key name here to prevent confliction
                 jsonObj.put("camera.characteristics.keys", charKeysArr);
                 jsonObj.put("camera.characteristics.requestKeys", reqKeysArr);
+                jsonObj.put("camera.characteristics.resultKeys", resKeysArr);
 
                 if (!physicalCamIds.isEmpty()) {
                     JSONArray physCamIdsArr = new JSONArray();

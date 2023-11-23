@@ -14,13 +14,16 @@
 
 #include "core/fxcrt/unowned_ptr.h"
 #include "core/fxcrt/widestring.h"
-#include "core/fxcrt/xml/cfx_xmlelement.h"
-#include "fxjs/CJX_Define.h"
+#include "fxjs/xfa/jse_define.h"
 #include "third_party/base/optional.h"
+#include "third_party/base/span.h"
 #include "xfa/fxfa/fxfa_basic.h"
+#include "xfa/fxfa/parser/cxfa_measurement.h"
 
+class CFX_XMLElement;
 class CFXJSE_Value;
-class CJS_V8;
+class CFX_V8;
+class CJX_Object;
 class CXFA_CalcData;
 class CXFA_Document;
 class CXFA_LayoutItem;
@@ -28,10 +31,11 @@ class CXFA_Node;
 class CXFA_Object;
 struct XFA_MAPMODULEDATA;
 
-typedef CJS_Return (*CJX_MethodCall)(
+typedef CJS_Result (*CJX_MethodCall)(
     CJX_Object* obj,
-    CJS_V8* runtime,
+    CFX_V8* runtime,
     const std::vector<v8::Local<v8::Value>>& params);
+
 struct CJX_MethodSpec {
   const char* pName;
   CJX_MethodCall pMethodCall;
@@ -53,42 +57,78 @@ enum XFA_SOM_MESSAGETYPE {
 
 class CJX_Object {
  public:
+  // Corresponds 1:1 with CJX_ subclasses.
+  enum class TypeTag {
+    Boolean,
+    Container,
+    DataWindow,
+    Delta,
+    Desc,
+    Draw,
+    Encrypt,
+    EventPseudoModel,
+    ExclGroup,
+    Extras,
+    Field,
+    Form,
+    Handler,
+    HostPseudoModel,
+    InstanceManager,
+    LayoutPseudoModel,
+    List,
+    LogPseudoModel,
+    Manifest,
+    Model,
+    Node,
+    Object,
+    Occur,
+    Packet,
+    Script,
+    SignaturePesudoModel,
+    Source,
+    Subform,
+    SubformSet,
+    Template,
+    TextNode,
+    Tree,
+    TreeList,
+    WsdlConnection,
+    Xfa,
+  };
+
   explicit CJX_Object(CXFA_Object* obj);
   virtual ~CJX_Object();
 
-  JS_PROP(className);
+  virtual bool DynamicTypeIs(TypeTag eType) const;
 
-  CXFA_Object* GetXFAObject() { return object_.Get(); }
-  const CXFA_Object* GetXFAObject() const { return object_.Get(); }
+  JSE_PROP(className);
 
   CXFA_Document* GetDocument() const;
+  CXFA_Object* GetXFAObject() const { return object_.Get(); }
 
   void SetCalcRecursionCount(size_t count) { calc_recursion_count_ = count; }
   size_t GetCalcRecursionCount() const { return calc_recursion_count_; }
 
-  void SetLayoutItem(CXFA_LayoutItem* item) { layout_item_ = item; }
+  void SetLayoutItem(CXFA_LayoutItem* item) { layout_item_.Reset(item); }
   CXFA_LayoutItem* GetLayoutItem() const { return layout_item_.Get(); }
 
   bool HasMethod(const WideString& func) const;
-  CJS_Return RunMethod(const WideString& func,
+  CJS_Result RunMethod(const WideString& func,
                        const std::vector<v8::Local<v8::Value>>& params);
 
   bool HasAttribute(XFA_Attribute eAttr);
-  bool SetAttribute(XFA_Attribute eAttr,
-                    const WideStringView& wsValue,
+  void SetAttribute(XFA_Attribute eAttr, WideStringView wsValue, bool bNotify);
+  void SetAttribute(WideStringView wsAttr,
+                    WideStringView wsValue,
                     bool bNotify);
-  bool SetAttribute(const WideStringView& wsAttr,
-                    const WideStringView& wsValue,
-                    bool bNotify);
-  void RemoveAttribute(const WideStringView& wsAttr);
-  WideString GetAttribute(const WideStringView& attr);
+  void RemoveAttribute(WideStringView wsAttr);
+  WideString GetAttribute(WideStringView attr);
   WideString GetAttribute(XFA_Attribute attr);
-  Optional<WideString> TryAttribute(const WideStringView& wsAttr,
-                                    bool bUseDefault);
+  Optional<WideString> TryAttribute(WideStringView wsAttr, bool bUseDefault);
   Optional<WideString> TryAttribute(XFA_Attribute eAttr, bool bUseDefault);
 
   Optional<WideString> TryContent(bool bScriptModify, bool bProto);
-  bool SetContent(const WideString& wsContent,
+  void SetContent(const WideString& wsContent,
                   const WideString& wsXMLValue,
                   bool bNotify,
                   bool bScriptModify,
@@ -112,94 +152,56 @@ class CJX_Object {
                          bool bNotify,
                          bool bScriptModify);
 
-  void Script_Attribute_String(CFXJSE_Value* pValue,
-                               bool bSetting,
-                               XFA_Attribute eAttribute);
-  void Script_Attribute_BOOL(CFXJSE_Value* pValue,
-                             bool bSetting,
-                             XFA_Attribute eAttribute);
-  void Script_Attribute_Integer(CFXJSE_Value* pValue,
-                                bool bSetting,
-                                XFA_Attribute eAttribute);
+  // Not actual properties, but invoked as property handlers to cover
+  // a broad range of underlying properties.
+  JSE_PROP(ScriptAttributeString);
+  JSE_PROP(ScriptAttributeBool);
+  JSE_PROP(ScriptAttributeInteger);
+  JSE_PROP(ScriptSomFontColor);
+  JSE_PROP(ScriptSomFillColor);
+  JSE_PROP(ScriptSomBorderColor);
+  JSE_PROP(ScriptSomBorderWidth);
+  JSE_PROP(ScriptSomValidationMessage);
+  JSE_PROP(ScriptSomMandatoryMessage);
+  JSE_PROP(ScriptSomDefaultValue);
+  JSE_PROP(ScriptSomDefaultValue_Read);
+  JSE_PROP(ScriptSomDataNode);
+  JSE_PROP(ScriptSomMandatory);
+  JSE_PROP(ScriptSomInstanceIndex);
+  JSE_PROP(ScriptSubmitFormatMode);
 
-  void Script_Som_FontColor(CFXJSE_Value* pValue,
-                            bool bSetting,
-                            XFA_Attribute eAttribute);
-  void Script_Som_FillColor(CFXJSE_Value* pValue,
-                            bool bSetting,
-                            XFA_Attribute eAttribute);
-  void Script_Som_BorderColor(CFXJSE_Value* pValue,
-                              bool bSetting,
-                              XFA_Attribute eAttribute);
-  void Script_Som_BorderWidth(CFXJSE_Value* pValue,
-                              bool bSetting,
-                              XFA_Attribute eAttribute);
-  void Script_Som_ValidationMessage(CFXJSE_Value* pValue,
-                                    bool bSetting,
-                                    XFA_Attribute eAttribute);
-  void Script_Som_MandatoryMessage(CFXJSE_Value* pValue,
-                                   bool bSetting,
-                                   XFA_Attribute eAttribute);
-  void Script_Field_Length(CFXJSE_Value* pValue,
-                           bool bSetting,
-                           XFA_Attribute eAttribute);
-  void Script_Som_DefaultValue(CFXJSE_Value* pValue,
-                               bool bSetting,
-                               XFA_Attribute eAttribute);
-  void Script_Som_DefaultValue_Read(CFXJSE_Value* pValue,
-                                    bool bSetting,
-                                    XFA_Attribute eAttribute);
-  void Script_Som_DataNode(CFXJSE_Value* pValue,
-                           bool bSetting,
-                           XFA_Attribute eAttribute);
-  void Script_Som_Mandatory(CFXJSE_Value* pValue,
-                            bool bSetting,
-                            XFA_Attribute eAttribute);
-  void Script_Som_InstanceIndex(CFXJSE_Value* pValue,
-                                bool bSetting,
-                                XFA_Attribute eAttribute);
-  void Script_Som_Message(CFXJSE_Value* pValue,
-                          bool bSetting,
-                          XFA_SOM_MESSAGETYPE iMessageType);
-  void Script_Subform_InstanceManager(CFXJSE_Value* pValue,
-                                      bool bSetting,
-                                      XFA_AttributeEnum eAttribute);
-  void Script_SubmitFormat_Mode(CFXJSE_Value* pValue,
-                                bool bSetting,
-                                XFA_Attribute eAttribute);
-  void Script_Form_Checksum(CFXJSE_Value* pValue,
-                            bool bSetting,
-                            XFA_Attribute eAttribute);
-  void Script_ExclGroup_ErrorText(CFXJSE_Value* pValue,
-                                  bool bSetting,
-                                  XFA_Attribute eAttribute);
+  void ScriptSomMessage(CFXJSE_Value* pValue,
+                        bool bSetting,
+                        XFA_SOM_MESSAGETYPE iMessageType);
 
   Optional<WideString> TryNamespace();
 
-  Optional<int32_t> TryInteger(XFA_Attribute eAttr, bool bUseDefault);
-  bool SetInteger(XFA_Attribute eAttr, int32_t iValue, bool bNotify);
-  int32_t GetInteger(XFA_Attribute eAttr);
+  Optional<int32_t> TryInteger(XFA_Attribute eAttr, bool bUseDefault) const;
+  void SetInteger(XFA_Attribute eAttr, int32_t iValue, bool bNotify);
+  int32_t GetInteger(XFA_Attribute eAttr) const;
 
-  Optional<WideString> TryCData(XFA_Attribute eAttr, bool bUseDefault);
-  bool SetCData(XFA_Attribute eAttr,
+  Optional<WideString> TryCData(XFA_Attribute eAttr, bool bUseDefault) const;
+  void SetCData(XFA_Attribute eAttr,
                 const WideString& wsValue,
                 bool bNotify,
                 bool bScriptModify);
-  WideString GetCData(XFA_Attribute eAttr);
+  WideString GetCData(XFA_Attribute eAttr) const;
 
-  Optional<XFA_AttributeEnum> TryEnum(XFA_Attribute eAttr, bool bUseDefault);
-  bool SetEnum(XFA_Attribute eAttr, XFA_AttributeEnum eValue, bool bNotify);
-  XFA_AttributeEnum GetEnum(XFA_Attribute eAttr);
+  Optional<XFA_AttributeValue> TryEnum(XFA_Attribute eAttr,
+                                       bool bUseDefault) const;
+  void SetEnum(XFA_Attribute eAttr, XFA_AttributeValue eValue, bool bNotify);
+  XFA_AttributeValue GetEnum(XFA_Attribute eAttr) const;
 
   Optional<bool> TryBoolean(XFA_Attribute eAttr, bool bUseDefault);
-  bool SetBoolean(XFA_Attribute eAttr, bool bValue, bool bNotify);
+  void SetBoolean(XFA_Attribute eAttr, bool bValue, bool bNotify);
   bool GetBoolean(XFA_Attribute eAttr);
 
   Optional<CXFA_Measurement> TryMeasure(XFA_Attribute eAttr,
                                         bool bUseDefault) const;
   Optional<float> TryMeasureAsFloat(XFA_Attribute attr) const;
-  bool SetMeasure(XFA_Attribute eAttr, CXFA_Measurement mValue, bool bNotify);
+  void SetMeasure(XFA_Attribute eAttr, CXFA_Measurement mValue, bool bNotify);
   CXFA_Measurement GetMeasure(XFA_Attribute eAttr) const;
+  float GetMeasureInUnit(XFA_Attribute eAttr, XFA_Unit unit) const;
 
   void MergeAllData(CXFA_Object* pDstModule);
 
@@ -217,22 +219,14 @@ class CJX_Object {
   void ThrowTooManyOccurancesException(const WideString& obj) const;
 
  protected:
-  void DefineMethods(const CJX_MethodSpec method_specs[], size_t count);
-
+  void DefineMethods(pdfium::span<const CJX_MethodSpec> methods);
   void MoveBufferMapData(CXFA_Object* pSrcModule, CXFA_Object* pDstModule);
-  void SetMapModuleString(void* pKey, const WideStringView& wsValue);
-  void ThrowException(const wchar_t* str, ...) const;
+  void SetMapModuleString(void* pKey, WideStringView wsValue);
+  void ThrowException(const WideString& str) const;
 
  private:
-  void Script_Boolean_DefaultValue(CFXJSE_Value* pValue,
-                                   bool bSetting,
-                                   XFA_Attribute eAttribute);
-  void Script_Draw_DefaultValue(CFXJSE_Value* pValue,
-                                bool bSetting,
-                                XFA_Attribute eAttribute);
-  void Script_Field_DefaultValue(CFXJSE_Value* pValue,
-                                 bool bSetting,
-                                 XFA_Attribute eAttribute);
+  using Type__ = CJX_Object;
+  static const TypeTag static_type__ = TypeTag::Object;
 
   std::pair<CXFA_Node*, int32_t> GetPropertyInternal(int32_t index,
                                                      XFA_Element eType) const;
@@ -240,31 +234,25 @@ class CJX_Object {
 
   void OnChanged(XFA_Attribute eAttr, bool bNotify, bool bScriptModify);
   void OnChanging(XFA_Attribute eAttr, bool bNotify);
-  bool SetUserData(void* pKey,
+  void SetUserData(void* pKey,
                    void* pData,
-                   XFA_MAPDATABLOCKCALLBACKINFO* pCallbackInfo);
+                   const XFA_MAPDATABLOCKCALLBACKINFO* pCallbackInfo);
 
   // Returns a pointer to the XML node that needs to be updated with the new
   // attribute value. |nullptr| if no update is needed.
-  CFX_XMLElement* SetValue(XFA_Attribute eAttr,
-                           XFA_AttributeType eType,
-                           void* pValue,
-                           bool bNotify);
+  CFX_XMLElement* SetValue(XFA_Attribute eAttr, void* pValue, bool bNotify);
   int32_t Subform_and_SubformSet_InstanceIndex();
 
   XFA_MAPMODULEDATA* CreateMapModuleData();
   XFA_MAPMODULEDATA* GetMapModuleData() const;
   void SetMapModuleValue(void* pKey, void* pValue);
-  bool GetMapModuleValue(void* pKey, void*& pValue);
-  bool GetMapModuleString(void* pKey, WideStringView& wsValue);
+  Optional<void*> GetMapModuleValue(void* pKey) const;
+  Optional<WideString> GetMapModuleString(void* pKey) const;
   void SetMapModuleBuffer(void* pKey,
                           void* pValue,
                           int32_t iBytes,
-                          XFA_MAPDATABLOCKCALLBACKINFO* pCallbackInfo);
-  bool GetMapModuleBuffer(void* pKey,
-                          void*& pValue,
-                          int32_t& iBytes,
-                          bool bProtoAlso) const;
+                          const XFA_MAPDATABLOCKCALLBACKINFO* pCallbackInfo);
+  bool GetMapModuleBuffer(void* pKey, void** pValue, int32_t* pBytes) const;
   bool HasMapModuleKey(void* pKey);
   void ClearMapModuleBuffer();
   void RemoveMapModuleKey(void* pKey);
@@ -277,5 +265,10 @@ class CJX_Object {
   std::map<ByteString, CJX_MethodCall> method_specs_;
   size_t calc_recursion_count_ = 0;
 };
+
+typedef void (*XFA_ATTRIBUTE_CALLBACK)(CJX_Object* pNode,
+                                       CFXJSE_Value* pValue,
+                                       bool bSetting,
+                                       XFA_Attribute eAttribute);
 
 #endif  // FXJS_XFA_CJX_OBJECT_H_

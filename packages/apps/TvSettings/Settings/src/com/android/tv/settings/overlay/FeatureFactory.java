@@ -24,6 +24,8 @@ import androidx.annotation.Keep;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsFragmentProvider;
+import com.android.tv.settings.help.SupportFeatureProvider;
+import com.android.tv.settings.offline.OfflineFeatureProvider;
 
 /**
  * Abstract class for creating feature controllers. Allows customization of the settings app. To
@@ -71,6 +73,12 @@ public abstract class FeatureFactory {
 
     /** Supplies a provider that can create settings fragments. */
     public abstract SettingsFragmentProvider getSettingsFragmentProvider();
+
+    /** Supplies a support provider. */
+    public abstract SupportFeatureProvider getSupportFeatureProvider();
+
+    /** Supplies a provider for offline feature. */
+    public abstract OfflineFeatureProvider getOfflineFeatureProvider();
 
     /** Determines whether the layout shows two panels or one. */
     public abstract boolean isTwoPanelLayout();

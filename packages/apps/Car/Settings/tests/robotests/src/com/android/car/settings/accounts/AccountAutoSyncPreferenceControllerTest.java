@@ -24,52 +24,41 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.RuntimeEnvironment.application;
 
-import android.car.userlib.CarUserManagerHelper;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.pm.UserInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.SwitchPreference;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
-import com.android.car.settings.testutils.ShadowCarUserManagerHelper;
 import com.android.car.settings.testutils.ShadowContentResolver;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link AccountAutoSyncPreferenceController}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowContentResolver.class, ShadowCarUserManagerHelper.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowContentResolver.class})
 public class AccountAutoSyncPreferenceControllerTest {
-    private static final int USER_ID = 0;
-    private static final UserHandle USER_HANDLE = new UserHandle(USER_ID);
+    private final int mUserId = UserHandle.myUserId();
+    private final UserHandle mUserHandle = new UserHandle(mUserId);
 
     private PreferenceControllerTestHelper<AccountAutoSyncPreferenceController> mHelper;
     private SwitchPreference mSwitchPreference;
     private AccountAutoSyncPreferenceController mController;
     private ConfirmationDialogFragment mDialog;
 
-    @Mock
-    private CarUserManagerHelper mMockCarUserManagerHelper;
-
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        ShadowCarUserManagerHelper.setMockInstance(mMockCarUserManagerHelper);
-        when(mMockCarUserManagerHelper.getCurrentProcessUserInfo())
-                .thenReturn(new UserInfo(USER_ID, "name", 0));
 
         Context context = RuntimeEnvironment.application;
         mSwitchPreference = new SwitchPreference(application);
@@ -77,11 +66,6 @@ public class AccountAutoSyncPreferenceControllerTest {
                 AccountAutoSyncPreferenceController.class, mSwitchPreference);
         mController = mHelper.getController();
         mDialog = new ConfirmationDialogFragment.Builder(context).build();
-    }
-
-    @After
-    public void tearDown() {
-        ShadowCarUserManagerHelper.reset();
     }
 
     @Test
@@ -96,7 +80,7 @@ public class AccountAutoSyncPreferenceControllerTest {
     @Test
     public void refreshUi_masterSyncOn_preferenceShouldBeChecked() {
         mHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-        ContentResolver.setMasterSyncAutomaticallyAsUser(true, USER_ID);
+        ContentResolver.setMasterSyncAutomaticallyAsUser(true, mUserId);
 
         mController.refreshUi();
 
@@ -105,7 +89,7 @@ public class AccountAutoSyncPreferenceControllerTest {
 
     @Test
     public void refreshUi_masterSyncOff_preferenceShouldNotBeChecked() {
-        ContentResolver.setMasterSyncAutomaticallyAsUser(false, USER_ID);
+        ContentResolver.setMasterSyncAutomaticallyAsUser(false, mUserId);
         mHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
 
         mController.refreshUi();
@@ -125,14 +109,14 @@ public class AccountAutoSyncPreferenceControllerTest {
     public void onConfirm_shouldTogglePreference() {
         // Set the preference as unchecked first so that the state is known
         mHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-        ContentResolver.setMasterSyncAutomaticallyAsUser(false, USER_ID);
+        ContentResolver.setMasterSyncAutomaticallyAsUser(false, mUserId);
         mController.refreshUi();
 
         assertThat(mSwitchPreference.isChecked()).isFalse();
 
         Bundle arguments = new Bundle();
         arguments.putBoolean(AccountAutoSyncPreferenceController.KEY_ENABLING, true);
-        arguments.putParcelable(AccountAutoSyncPreferenceController.KEY_USER_HANDLE, USER_HANDLE);
+        arguments.putParcelable(AccountAutoSyncPreferenceController.KEY_USER_HANDLE, mUserHandle);
         mController.mConfirmListener.onConfirm(arguments);
 
         assertThat(mSwitchPreference.isChecked()).isTrue();

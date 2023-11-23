@@ -23,7 +23,7 @@ import android.car.ICarBugreportCallback;
  *
  * @hide
  */
- interface ICarBugreportService {
+interface ICarBugreportService {
 
     /**
      * Starts bugreport service to capture a zipped bugreport. The caller needs to provide
@@ -34,4 +34,9 @@ import android.car.ICarBugreportCallback;
      */
     void requestBugreport(in ParcelFileDescriptor output,
             in ParcelFileDescriptor extraOutput, ICarBugreportCallback callback) = 1;
- }
+
+    /**
+     * Cancels the running bugreport.
+     */
+    void cancelBugreport() = 2;
+}

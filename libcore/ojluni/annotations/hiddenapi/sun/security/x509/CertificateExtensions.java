@@ -32,12 +32,12 @@ import sun.security.util.*;
 public class CertificateExtensions
         implements sun.security.x509.CertAttrSet<sun.security.x509.Extension> {
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateExtensions() {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CertificateExtensions(sun.security.util.DerInputStream in) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
@@ -55,18 +55,18 @@ public class CertificateExtensions
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void encode(java.io.OutputStream out, boolean isCertReq)
             throws java.security.cert.CertificateException, java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public void set(java.lang.String name, java.lang.Object obj) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public sun.security.x509.Extension get(java.lang.String name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

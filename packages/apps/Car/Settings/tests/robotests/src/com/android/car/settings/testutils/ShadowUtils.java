@@ -16,7 +16,11 @@
 
 package com.android.car.settings.testutils;
 
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.res.Resources;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 
 import com.android.settingslib.Utils;
 
@@ -38,6 +42,11 @@ public class ShadowUtils {
             String packageName) {
         return sDeviceProvisioningPackage != null && sDeviceProvisioningPackage.equals(
                 packageName);
+    }
+
+    @Implementation
+    protected static Drawable getBadgedIcon(Context context, ApplicationInfo appInfo) {
+        return new ColorDrawable(0);
     }
 
     public static void setDeviceProvisioningPackage(String deviceProvisioningPackage) {

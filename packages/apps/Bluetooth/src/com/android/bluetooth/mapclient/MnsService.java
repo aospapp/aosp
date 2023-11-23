@@ -17,6 +17,7 @@
 package com.android.bluetooth.mapclient;
 
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.os.Handler;
@@ -41,8 +42,8 @@ public class MnsService {
     private static final String TAG = "MnsService";
     private static final Boolean DBG = MapClientService.DBG;
     private static final Boolean VDBG = MapClientService.VDBG;
-    /* MAP version 1.1 */
-    private static final int MNS_VERSION = 0x0101;
+    /* MAP version 1.4 */
+    private static final int MNS_VERSION = 0x0104;
     /* these are shared across instances */
     private static SocketAcceptor sAcceptThread = null;
     private static Handler sSessionHandler = null;
@@ -66,7 +67,7 @@ public class MnsService {
             return;
         }
         mSdpHandle = sdpManager.createMapMnsRecord("MAP Message Notification Service",
-                sServerSockets.getRfcommChannel(), -1, MNS_VERSION,
+                sServerSockets.getRfcommChannel(), sServerSockets.getL2capPsm(), MNS_VERSION,
                 MasClient.MAP_SUPPORTED_FEATURES);
     }
 
@@ -128,6 +129,11 @@ public class MnsService {
             if (stateMachine == null) {
                 Log.e(TAG, "Error: NO statemachine for device: " + device.getAddress()
                         + " (name: " + device.getName());
+                return false;
+            } else if (stateMachine.getState() != BluetoothProfile.STATE_CONNECTED) {
+                Log.e(TAG, "Error: statemachine for device: " + device.getAddress()
+                        + " (name: " + device.getName() + ") is not currently CONNECTED : "
+                        + stateMachine.getCurrentState());
                 return false;
             }
             MnsObexServer srv = new MnsObexServer(stateMachine, sServerSockets);

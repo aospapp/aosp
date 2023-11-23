@@ -18,15 +18,13 @@ package com.google.common.collect;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.base.Predicate;
-
 import java.util.Map.Entry;
 import java.util.Set;
-
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Implementation of {@link Multimaps#filterKeys(SetMultimap, Predicate)}.
- * 
+ *
  * @author Louis Wasserman
  */
 @GwtCompatible
@@ -66,13 +64,13 @@ final class FilteredKeySetMultimap<K, V> extends FilteredKeyMultimap<K, V>
   Set<Entry<K, V>> createEntries() {
     return new EntrySet();
   }
-  
+
   class EntrySet extends Entries implements Set<Entry<K, V>> {
     @Override
     public int hashCode() {
       return Sets.hashCodeImpl(this);
     }
-    
+
     @Override
     public boolean equals(@Nullable Object o) {
       return Sets.equalsImpl(this, o);

@@ -553,7 +553,8 @@ string PathJoin(const char* dir_path, const char* file_name) {
 
 // Returns a string which remove given base_path from file_path if included.
 string RemoveBaseDir(const string& file_path, const string& base_path) {
-  if (strncmp(file_path.c_str(), base_path.c_str(), base_path.length())) {
+  if (base_path.empty() ||
+      strncmp(file_path.c_str(), base_path.c_str(), base_path.length())) {
     return file_path;
   }
   string result;

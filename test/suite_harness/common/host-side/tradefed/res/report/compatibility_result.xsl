@@ -132,6 +132,7 @@
                             <th>Ignored</th>
                             <th>Total Tests</th>
                             <th>Done</th>
+                            <th>Reason</th>
                         </tr>
                         <xsl:for-each select="Result/Module">
                             <tr>
@@ -156,6 +157,9 @@
                                 </td>
                                 <td>
                                     <xsl:value-of select="@done"/>
+                                </td>
+                                <td>
+                                    <xsl:value-of select="Reason/@message"/>
                                 </td>
                             </tr>
                         </xsl:for-each> <!-- end Module -->

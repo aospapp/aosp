@@ -224,6 +224,7 @@ public class GoogleApiClientUtil {
     private static class RetryResponseHandler implements HttpUnsuccessfulResponseHandler {
         // Initial interval to wait before retrying if a request fails.
         private static final int INITIAL_RETRY_INTERVAL = 1000;
+        private static final int MAX_RETRY_INTERVAL = 3 * 60000; // Set max interval to 3 minutes.
 
         private final HttpUnsuccessfulResponseHandler backOffHandler;
 
@@ -232,6 +233,7 @@ public class GoogleApiClientUtil {
                     new HttpBackOffUnsuccessfulResponseHandler(
                             new ExponentialBackOff.Builder()
                                     .setInitialIntervalMillis(INITIAL_RETRY_INTERVAL)
+                                    .setMaxIntervalMillis(MAX_RETRY_INTERVAL)
                                     .build());
         }
 

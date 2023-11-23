@@ -17,4 +17,8 @@
 <resources>
     <!-- Disable ETWS test channel for Sprint users -->
     <string-array name="etws_test_alerts_range_strings" translatable="false"></string-array>
+    <!-- Whether to show test settings -->
+    <bool name="show_test_settings">false</bool>
+    <!-- Whether allowing testing mode on user build or not -->
+    <bool name="allow_testing_mode_on_user_build">true</bool>
 </resources>

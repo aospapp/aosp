@@ -26,6 +26,7 @@ import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.PropertyItem
+import com.android.tools.metalava.model.VisitCandidate
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.android.tools.metalava.model.visitors.VisibleItemVisitor
 import com.intellij.util.containers.Stack
@@ -126,14 +127,28 @@ class CodebaseComparator {
                     when {
                         compare > 0 -> {
                             index2++
-                            visitAdded(new, oldParent, visitor, newTree)
+                            if (new.emit) {
+                                visitAdded(new, oldParent, visitor, newTree)
+                            }
                         }
                         compare < 0 -> {
                             index1++
-                            visitRemoved(visitor, old, newParent)
+                            if (old.emit) {
+                                visitRemoved(visitor, old, newParent)
+                            }
                         }
                         else -> {
-                            visitCompare(visitor, old, new)
+                            if (new.emit) {
+                                if (old.emit) {
+                                    visitCompare(visitor, old, new)
+                                } else {
+                                    visitAdded(new, oldParent, visitor, newTree)
+                                }
+                            } else {
+                                if (old.emit) {
+                                    visitRemoved(visitor, old, newParent)
+                                }
+                            }
 
                             // Compare the children (recurse)
                             compare(visitor, oldTree.children, newTree.children, newTree.item(), oldTree.item())
@@ -411,6 +426,9 @@ class CodebaseComparator {
             }
 
             override fun include(cls: ClassItem): Boolean = if (acceptAll) true else super.include(cls)
+
+            /** Include all classes in the tree, even implicitly defined classes (such as containing classes) */
+            override fun shouldEmitClass(vc: VisitCandidate): Boolean = true
 
             override fun afterVisitItem(item: Item) {
                 stack.pop()

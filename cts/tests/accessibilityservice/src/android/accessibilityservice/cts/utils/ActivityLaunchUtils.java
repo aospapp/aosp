@@ -14,14 +14,15 @@
 
 package android.accessibilityservice.cts.utils;
 
+import static android.accessibility.cts.common.ShellCommandBuilder.execShellCommand;
 import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
-import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
@@ -33,6 +34,8 @@ import android.os.PowerManager;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.SparseArray;
+import android.view.Display;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
@@ -55,6 +58,8 @@ import java.util.stream.Collectors;
  */
 public class ActivityLaunchUtils {
     private static final String LOG_TAG = "ActivityLaunchUtils";
+    private static final String AM_START_HOME_ACTIVITY_COMMAND =
+            "am start -a android.intent.action.MAIN -c android.intent.category.HOME";
 
     // Using a static variable so it can be used in lambdas. Not preserving state in it.
     private static Activity mTempActivity;
@@ -62,40 +67,42 @@ public class ActivityLaunchUtils {
     public static <T extends Activity> T launchActivityAndWaitForItToBeOnscreen(
             Instrumentation instrumentation, UiAutomation uiAutomation,
             ActivityTestRule<T> rule) throws Exception {
-        final int[] location = new int[2];
-        final StringBuilder activityPackage = new StringBuilder();
-        final Rect bounds = new Rect();
-        final StringBuilder activityTitle = new StringBuilder();
-        // Make sure we get window events, so we'll know when the window appears
-        AccessibilityServiceInfo info = uiAutomation.getServiceInfo();
-        info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
-        uiAutomation.setServiceInfo(info);
-        homeScreenOrBust(instrumentation.getContext(), uiAutomation);
-        final AccessibilityEvent awaitedEvent = uiAutomation.executeAndWaitForEvent(
-                () -> {
-                    mTempActivity = rule.launchActivity(null);
-                    final StringBuilder builder = new StringBuilder();
-                    instrumentation.runOnMainSync(() -> {
-                        mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
-                        activityPackage.append(mTempActivity.getPackageName());
-                    });
-                    instrumentation.waitForIdleSync();
-                    activityTitle.append(getActivityTitle(instrumentation, mTempActivity));
-                },
-                (event) -> {
-                    final AccessibilityWindowInfo window =
-                            findWindowByTitle(uiAutomation, activityTitle);
-                    if (window == null) return false;
-                    window.getBoundsInScreen(bounds);
-                    mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
-                    if (bounds.isEmpty()) {
-                        return false;
-                    }
-                    return (!bounds.isEmpty())
-                            && (bounds.left == location[0]) && (bounds.top == location[1]);
-                }, DEFAULT_TIMEOUT_MS);
-        assertNotNull(awaitedEvent);
-        return (T) mTempActivity;
+        ActivityLauncher activityLauncher = new ActivityLauncher() {
+            @Override
+            Activity launchActivity() {
+                return rule.launchActivity(null);
+            }
+        };
+        return launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen(instrumentation,
+                uiAutomation, activityLauncher, Display.DEFAULT_DISPLAY);
+    }
+
+    /**
+     * If this activity would be launched at virtual display, please finishes this activity before
+     * this test ended. Otherwise it will be displayed on default display and impacts the next test.
+     */
+    public static <T extends Activity> T launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen(
+            Instrumentation instrumentation, UiAutomation uiAutomation, Class<T> clazz,
+            int displayId) throws Exception {
+        final ActivityOptions options = ActivityOptions.makeBasic();
+        options.setLaunchDisplayId(displayId);
+        final Intent intent = new Intent(instrumentation.getTargetContext(), clazz);
+        // Add clear task because this activity may on other display.
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK|Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        ActivityLauncher activityLauncher = new ActivityLauncher() {
+            @Override
+            Activity launchActivity() {
+                uiAutomation.adoptShellPermissionIdentity();
+                try {
+                    return instrumentation.startActivitySync(intent, options.toBundle());
+                } finally {
+                    uiAutomation.dropShellPermissionIdentity();
+                }
+            }
+        };
+        return launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen(instrumentation,
+                uiAutomation, activityLauncher, displayId);
     }
 
     public static CharSequence getActivityTitle(
@@ -108,16 +115,15 @@ public class ActivityLaunchUtils {
     public static AccessibilityWindowInfo findWindowByTitle(
             UiAutomation uiAutomation, CharSequence title) {
         final List<AccessibilityWindowInfo> windows = uiAutomation.getWindows();
-        AccessibilityWindowInfo returnValue = null;
-        for (int i = 0; i < windows.size(); i++) {
-            final AccessibilityWindowInfo window = windows.get(i);
-            if (TextUtils.equals(title, window.getTitle())) {
-                returnValue = window;
-            } else {
-                window.recycle();
-            }
-        }
-        return returnValue;
+        return findWindowByTitleWithList(title, windows);
+    }
+
+    public static AccessibilityWindowInfo findWindowByTitleAndDisplay(
+            UiAutomation uiAutomation, CharSequence title, int displayId) {
+        final SparseArray<List<AccessibilityWindowInfo>> allWindows =
+                uiAutomation.getWindowsOnAllDisplays();
+        final List<AccessibilityWindowInfo> windowsOfDisplay = allWindows.get(displayId);
+        return findWindowByTitleWithList(title, windowsOfDisplay);
     }
 
     public static void homeScreenOrBust(Context context, UiAutomation uiAutomation) {
@@ -127,7 +133,7 @@ public class ActivityLaunchUtils {
         try {
             executeAndWaitOn(
                     uiAutomation,
-                    () -> uiAutomation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME),
+                    () -> execShellCommand(uiAutomation, AM_START_HOME_ACTIVITY_COMMAND),
                     () -> isHomeScreenShowing(context, uiAutomation),
                     DEFAULT_TIMEOUT_MS,
                     "home screen");
@@ -229,5 +235,75 @@ public class ActivityLaunchUtils {
         } finally {
             uiAutomation.setOnAccessibilityEventListener(null);
         }
+    }
+
+    private static <T extends Activity> T launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen(
+            Instrumentation instrumentation, UiAutomation uiAutomation,
+            ActivityLauncher activityLauncher, int displayId) throws Exception {
+        final int[] location = new int[2];
+        final StringBuilder activityPackage = new StringBuilder();
+        final Rect bounds = new Rect();
+        final StringBuilder activityTitle = new StringBuilder();
+        // Make sure we get window events, so we'll know when the window appears
+        AccessibilityServiceInfo info = uiAutomation.getServiceInfo();
+        info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        uiAutomation.setServiceInfo(info);
+        // There is no any window on virtual display even doing GLOBAL_ACTION_HOME, so only
+        // checking the home screen for default display.
+        if (displayId == Display.DEFAULT_DISPLAY) {
+            homeScreenOrBust(instrumentation.getContext(), uiAutomation);
+        }
+
+        final AccessibilityEvent awaitedEvent = uiAutomation.executeAndWaitForEvent(
+                () -> {
+                    mTempActivity = activityLauncher.launchActivity();
+                    instrumentation.runOnMainSync(() -> {
+                        mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
+                        activityPackage.append(mTempActivity.getPackageName());
+                    });
+                    instrumentation.waitForIdleSync();
+                    activityTitle.append(getActivityTitle(instrumentation, mTempActivity));
+                },
+                (event) -> {
+                    AccessibilityNodeInfo node = event.getSource();
+                    if (node != null) {
+                        final AccessibilityWindowInfo window = node.getWindow();
+                        if(TextUtils.equals(activityTitle, window.getTitle())) {
+                            return  true;
+                        }
+                    }
+                    final AccessibilityWindowInfo window =
+                            findWindowByTitleAndDisplay(uiAutomation, activityTitle, displayId);
+                    if (window == null) return false;
+                    window.getBoundsInScreen(bounds);
+                    mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
+                    if (bounds.isEmpty()) {
+                        return false;
+                    }
+                    return (!bounds.isEmpty())
+                            && (bounds.left == location[0]) && (bounds.top == location[1]);
+                }, DEFAULT_TIMEOUT_MS);
+        assertNotNull(awaitedEvent);
+        return (T) mTempActivity;
+    }
+
+    private static AccessibilityWindowInfo findWindowByTitleWithList(CharSequence title,
+            List<AccessibilityWindowInfo> windows) {
+        AccessibilityWindowInfo returnValue = null;
+        if (windows != null && windows.size() > 0) {
+            for (int i = 0; i < windows.size(); i++) {
+                final AccessibilityWindowInfo window = windows.get(i);
+                if (TextUtils.equals(title, window.getTitle())) {
+                    returnValue = window;
+                } else {
+                    window.recycle();
+                }
+            }
+        }
+        return returnValue;
+    }
+
+    private static abstract class ActivityLauncher {
+        abstract Activity launchActivity();
     }
 }

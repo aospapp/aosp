@@ -25,6 +25,7 @@ class Key(object):
     CROS_ANDROID_VERSION = 'cheets-version'
     FIRMWARE_RW_VERSION = 'fwrw-version'
     FIRMWARE_RO_VERSION = 'fwro-version'
+    FIRMWARE_CR50_RW_VERSION = 'cr50-rw-version'
 
 
 class LabelsMapping(collections.MutableMapping):

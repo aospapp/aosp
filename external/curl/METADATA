@@ -7,12 +7,12 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/curl/curl/releases/download/curl-7_64_1/curl-7.64.1.tar.xz"
+    value: "https://github.com/curl/curl/releases/download/curl-7_67_0/curl-7.67.0.tar.xz"
   }
-  version: "curl-7_64_1"
+  version: "curl-7_67_0"
   last_upgrade_date {
     year: 2019
-    month: 3
-    day: 27
+    month: 11
+    day: 6
   }
 }

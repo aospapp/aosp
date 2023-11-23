@@ -39,6 +39,7 @@
 #include "hlslGrammar.h"
 #include "hlslAttributes.h"
 
+#include "../glslang/Include/Common.h"
 #include "../glslang/MachineIndependent/Scan.h"
 #include "../glslang/MachineIndependent/preprocessor/PpContext.h"
 
@@ -68,7 +69,8 @@ HlslParseContext::HlslParseContext(TSymbolTable& symbolTable, TIntermediate& int
     clipDistanceOutput(nullptr),
     cullDistanceOutput(nullptr),
     clipDistanceInput(nullptr),
-    cullDistanceInput(nullptr)
+    cullDistanceInput(nullptr),
+    parsingEntrypointParameters(false)
 {
     globalUniformDefaults.clear();
     globalUniformDefaults.layoutMatrix = ElmRowMajor;
@@ -133,7 +135,7 @@ bool HlslParseContext::parseShaderStrings(TPpContext& ppContext, TInputScanner& 
         // Print a message formated such that if you click on the message it will take you right to
         // the line through most UIs.
         const glslang::TSourceLoc& sourceLoc = input.getSourceLoc();
-        infoSink.info << sourceLoc.name->c_str() << "(" << sourceLoc.line << "): error at column " << sourceLoc.column
+        infoSink.info << sourceLoc.getFilenameStr() << "(" << sourceLoc.line << "): error at column " << sourceLoc.column
                       << ", HLSL parsing failed.\n";
         ++numErrors;
         return false;
@@ -653,10 +655,6 @@ TIntermTyped* HlslParseContext::handleVariable(const TSourceLoc& loc, const TStr
         return nullptr;
     }
 
-    // Error check for requiring specific extensions present.
-    if (symbol && symbol->getNumExtensions())
-        requireExtensions(loc, symbol->getNumExtensions(), symbol->getExtensions(), symbol->getName().c_str());
-
     const TVariable* variable = nullptr;
     const TAnonMember* anon = symbol ? symbol->getAsAnonMember() : nullptr;
     TIntermTyped* node = nullptr;
@@ -759,9 +757,6 @@ TIntermTyped* HlslParseContext::handleBracketOperator(const TSourceLoc& loc, TIn
     // indexStructBufferContent returns nullptr if it isn't a structuredbuffer (SSBO).
     TIntermTyped* sbArray = indexStructBufferContent(loc, base);
     if (sbArray != nullptr) {
-        if (sbArray == nullptr)
-            return nullptr;
-
         // Now we'll apply the [] index to that array
         const TOperator idxOp = (index->getQualifier().storage == EvqConst) ? EOpIndexDirect : EOpIndexIndirect;
 
@@ -819,7 +814,8 @@ TIntermTyped* HlslParseContext::handleBracketDereference(const TSourceLoc& loc, 
                   base->getAsSymbolNode()->getName().c_str(), "");
         else
             error(loc, " left of '[' is not of type array, matrix, or vector ", "expression", "");
-    } else if (base->getType().getQualifier().storage == EvqConst && index->getQualifier().storage == EvqConst) {
+    } else if (base->getType().getQualifier().isFrontEndConstant() && 
+               index->getQualifier().isFrontEndConstant()) {
         // both base and index are front-end constants
         checkIndex(loc, base->getType(), indexValue);
         return intermediate.foldDereference(base, indexValue, loc);
@@ -1872,6 +1868,9 @@ void HlslParseContext::handleEntryPointAttributes(const TSourceLoc& loc, const T
             }
             break;
         }
+        case EatEarlyDepthStencil:
+            intermediate.setEarlyFragmentTests();
+            break;
         case EatBuiltIn:
         case EatLocation:
             // tolerate these because of dual use of entrypoint and type attributes
@@ -1899,13 +1898,16 @@ void HlslParseContext::transferTypeAttributes(const TSourceLoc& loc, const TAttr
             // location
             if (it->getInt(value))
                 type.getQualifier().layoutLocation = value;
+            else
+                error(loc, "needs a literal integer", "location", "");
             break;
         case EatBinding:
             // binding
             if (it->getInt(value)) {
                 type.getQualifier().layoutBinding = value;
                 type.getQualifier().layoutSet = 0;
-            }
+            } else
+                error(loc, "needs a literal integer", "binding", "");
             // set
             if (it->getInt(value, 1))
                 type.getQualifier().layoutSet = value;
@@ -1914,7 +1916,9 @@ void HlslParseContext::transferTypeAttributes(const TSourceLoc& loc, const TAttr
             // global cbuffer binding
             if (it->getInt(value))
                 globalUniformBinding = value;
-            // global cbuffer binding
+            else
+                error(loc, "needs a literal integer", "global binding", "");
+            // global cbuffer set
             if (it->getInt(value, 1))
                 globalUniformSet = value;
             break;
@@ -1922,6 +1926,8 @@ void HlslParseContext::transferTypeAttributes(const TSourceLoc& loc, const TAttr
             // input attachment
             if (it->getInt(value))
                 type.getQualifier().layoutAttachment = value;
+            else
+                error(loc, "needs a literal integer", "input attachment", "");
             break;
         case EatBuiltIn:
             // PointSize built-in
@@ -1942,6 +1948,52 @@ void HlslParseContext::transferTypeAttributes(const TSourceLoc& loc, const TAttr
                 setSpecConstantId(loc, type.getQualifier(), value);
             }
             break;
+
+        // image formats
+        case EatFormatRgba32f:      type.getQualifier().layoutFormat = ElfRgba32f;      break;
+        case EatFormatRgba16f:      type.getQualifier().layoutFormat = ElfRgba16f;      break;
+        case EatFormatR32f:         type.getQualifier().layoutFormat = ElfR32f;         break;
+        case EatFormatRgba8:        type.getQualifier().layoutFormat = ElfRgba8;        break;
+        case EatFormatRgba8Snorm:   type.getQualifier().layoutFormat = ElfRgba8Snorm;   break;
+        case EatFormatRg32f:        type.getQualifier().layoutFormat = ElfRg32f;        break;
+        case EatFormatRg16f:        type.getQualifier().layoutFormat = ElfRg16f;        break;
+        case EatFormatR11fG11fB10f: type.getQualifier().layoutFormat = ElfR11fG11fB10f; break;
+        case EatFormatR16f:         type.getQualifier().layoutFormat = ElfR16f;         break;
+        case EatFormatRgba16:       type.getQualifier().layoutFormat = ElfRgba16;       break;
+        case EatFormatRgb10A2:      type.getQualifier().layoutFormat = ElfRgb10A2;      break;
+        case EatFormatRg16:         type.getQualifier().layoutFormat = ElfRg16;         break;
+        case EatFormatRg8:          type.getQualifier().layoutFormat = ElfRg8;          break;
+        case EatFormatR16:          type.getQualifier().layoutFormat = ElfR16;          break;
+        case EatFormatR8:           type.getQualifier().layoutFormat = ElfR8;           break;
+        case EatFormatRgba16Snorm:  type.getQualifier().layoutFormat = ElfRgba16Snorm;  break;
+        case EatFormatRg16Snorm:    type.getQualifier().layoutFormat = ElfRg16Snorm;    break;
+        case EatFormatRg8Snorm:     type.getQualifier().layoutFormat = ElfRg8Snorm;     break;
+        case EatFormatR16Snorm:     type.getQualifier().layoutFormat = ElfR16Snorm;     break;
+        case EatFormatR8Snorm:      type.getQualifier().layoutFormat = ElfR8Snorm;      break;
+        case EatFormatRgba32i:      type.getQualifier().layoutFormat = ElfRgba32i;      break;
+        case EatFormatRgba16i:      type.getQualifier().layoutFormat = ElfRgba16i;      break;
+        case EatFormatRgba8i:       type.getQualifier().layoutFormat = ElfRgba8i;       break;
+        case EatFormatR32i:         type.getQualifier().layoutFormat = ElfR32i;         break;
+        case EatFormatRg32i:        type.getQualifier().layoutFormat = ElfRg32i;        break;
+        case EatFormatRg16i:        type.getQualifier().layoutFormat = ElfRg16i;        break;
+        case EatFormatRg8i:         type.getQualifier().layoutFormat = ElfRg8i;         break;
+        case EatFormatR16i:         type.getQualifier().layoutFormat = ElfR16i;         break;
+        case EatFormatR8i:          type.getQualifier().layoutFormat = ElfR8i;          break;
+        case EatFormatRgba32ui:     type.getQualifier().layoutFormat = ElfRgba32ui;     break;
+        case EatFormatRgba16ui:     type.getQualifier().layoutFormat = ElfRgba16ui;     break;
+        case EatFormatRgba8ui:      type.getQualifier().layoutFormat = ElfRgba8ui;      break;
+        case EatFormatR32ui:        type.getQualifier().layoutFormat = ElfR32ui;        break;
+        case EatFormatRgb10a2ui:    type.getQualifier().layoutFormat = ElfRgb10a2ui;    break;
+        case EatFormatRg32ui:       type.getQualifier().layoutFormat = ElfRg32ui;       break;
+        case EatFormatRg16ui:       type.getQualifier().layoutFormat = ElfRg16ui;       break;
+        case EatFormatRg8ui:        type.getQualifier().layoutFormat = ElfRg8ui;        break;
+        case EatFormatR16ui:        type.getQualifier().layoutFormat = ElfR16ui;        break;
+        case EatFormatR8ui:         type.getQualifier().layoutFormat = ElfR8ui;         break;
+        case EatFormatUnknown:      type.getQualifier().layoutFormat = ElfNone;         break;
+
+        case EatNonWritable:  type.getQualifier().readonly = true;   break;
+        case EatNonReadable:  type.getQualifier().writeonly = true;  break;
+
         default:
             if (! allowEntry)
                 warn(loc, "attribute does not apply to a type", "", "");
@@ -1995,7 +2047,7 @@ TIntermNode* HlslParseContext::transformEntryPoint(const TSourceLoc& loc, TFunct
     };
 
     // if we aren't in the entry point, fix the IO as such and exit
-    if (userFunction.getName().compare(intermediate.getEntryPointName().c_str()) != 0) {
+    if (! isEntrypointName(userFunction.getName())) {
         remapNonEntryPointIO(userFunction);
         return nullptr;
     }
@@ -3129,7 +3181,7 @@ TIntermAggregate* HlslParseContext::handleSamplerTextureCombine(const TSourceLoc
         if (textureShadowEntry != textureShadowVariant.end())
             newId = textureShadowEntry->second->get(shadowMode);
         else
-            textureShadowVariant[texSymbol->getId()] = new tShadowTextureSymbols;
+            textureShadowVariant[texSymbol->getId()] = NewPoolObject(tShadowTextureSymbols(), 1);
 
         // Sometimes we have to create another symbol (if this texture has been seen before,
         // and we haven't created the form for this shadow mode).
@@ -3208,7 +3260,7 @@ void HlslParseContext::declareStructBufferCounter(const TSourceLoc& loc, const T
     TType blockType;
     counterBufferType(loc, blockType);
 
-    TString* blockName = new TString(intermediate.addCounterBufferName(name));
+    TString* blockName = NewPoolTString(intermediate.addCounterBufferName(name).c_str());
 
     // Counter buffer is not yet in use
     structBufferCounter[*blockName] = false;
@@ -3255,7 +3307,8 @@ void HlslParseContext::decomposeStructBufferMethods(const TSourceLoc& loc, TInte
     if (argAggregate) {
         if (argAggregate->getSequence().empty())
             return;
-        bufferObj = argAggregate->getSequence()[0]->getAsTyped();
+        if (argAggregate->getSequence()[0])
+            bufferObj = argAggregate->getSequence()[0]->getAsTyped();
     } else {
         bufferObj = arguments->getAsSymbolNode();
     }
@@ -3754,7 +3807,8 @@ void HlslParseContext::decomposeSampleMethods(const TSourceLoc& loc, TIntermType
             if (arguments->getAsTyped()->getBasicType() != EbtSampler)
                 return;
         } else {
-            if (argAggregate->getSequence().size() == 0 ||
+            if (argAggregate->getSequence().size() == 0 || 
+                argAggregate->getSequence()[0] == nullptr ||
                 argAggregate->getSequence()[0]->getAsTyped()->getBasicType() != EbtSampler)
                 return;
         }
@@ -4605,7 +4659,7 @@ void HlslParseContext::decomposeIntrinsic(const TSourceLoc& loc, TIntermTyped*& 
         if (nullptr == symbol) {
             type.getQualifier().builtIn = builtin;
 
-            TVariable* variable = new TVariable(new TString(name), type);
+            TVariable* variable = new TVariable(NewPoolTString(name), type);
 
             symbolTable.insert(*variable);
 
@@ -5293,7 +5347,7 @@ TIntermTyped* HlslParseContext::handleFunctionCall(const TSourceLoc& loc, TFunct
 
             TIntermTyped* arg0 = nullptr;
 
-            if (aggregate && aggregate->getSequence().size() > 0)
+            if (aggregate && aggregate->getSequence().size() > 0 && aggregate->getSequence()[0])
                 arg0 = aggregate->getSequence()[0]->getAsTyped();
             else if (arguments->getAsSymbolNode())
                 arg0 = arguments->getAsSymbolNode();
@@ -5320,11 +5374,6 @@ TIntermTyped* HlslParseContext::handleFunctionCall(const TSourceLoc& loc, TFunct
             //  - a built-in operator,
             //  - a built-in function not mapped to an operator, or
             //  - a user function.
-
-            // Error check for a function requiring specific extensions present.
-            if (builtIn && fnCandidate->getNumExtensions())
-                requireExtensions(loc, fnCandidate->getNumExtensions(), fnCandidate->getExtensions(),
-                                  fnCandidate->getName().c_str());
 
             // turn an implicit member-function resolution into an explicit call
             TString callerName;
@@ -5767,7 +5816,7 @@ void HlslParseContext::addStructBuffArguments(const TSourceLoc& loc, TIntermAggr
         std::any_of(aggregate->getSequence().begin(),
                     aggregate->getSequence().end(),
                     [this](const TIntermNode* node) {
-                        return (node->getAsTyped() != nullptr) && hasStructBuffCounter(node->getAsTyped()->getType());
+                        return (node && node->getAsTyped() != nullptr) && hasStructBuffCounter(node->getAsTyped()->getType());
                     });
 
     // Nothing to do, if we didn't find one.
@@ -7520,7 +7569,7 @@ const TFunction* HlslParseContext::findFunction(const TSourceLoc& loc, TFunction
 
         if (args->getAsAggregate()) {
             // Handle aggregates: put all args into the new function call
-            for (int arg=0; arg<int(args->getAsAggregate()->getSequence().size()); ++arg) {
+            for (int arg = 0; arg < int(args->getAsAggregate()->getSequence().size()); ++arg) {
                 // TODO: But for constness, we could avoid the new & shallowCopy, and use the pointer directly.
                 TParameter param = { 0, new TType, nullptr };
                 param.type->shallowCopy(args->getAsAggregate()->getSequence()[arg]->getAsTyped()->getType());
@@ -8697,13 +8746,20 @@ void HlslParseContext::fixXfbOffsets(TQualifier& qualifier, TTypeList& typeList)
     int nextOffset = qualifier.layoutXfbOffset;
     for (unsigned int member = 0; member < typeList.size(); ++member) {
         TQualifier& memberQualifier = typeList[member].type->getQualifier();
-        bool containsDouble = false;
-        int memberSize = intermediate.computeTypeXfbSize(*typeList[member].type, containsDouble);
+        bool contains64BitType = false;
+        bool contains32BitType = false;
+        bool contains16BitType = false;
+        int memberSize = intermediate.computeTypeXfbSize(*typeList[member].type, contains64BitType, contains32BitType, contains16BitType);
         // see if we need to auto-assign an offset to this member
         if (! memberQualifier.hasXfbOffset()) {
-            // "if applied to an aggregate containing a double, the offset must also be a multiple of 8"
-            if (containsDouble)
+            // "if applied to an aggregate containing a double or 64-bit integer, the offset must also be a multiple of 8"
+            if (contains64BitType)
                 RoundToPow2(nextOffset, 8);
+            else if (contains32BitType)
+                RoundToPow2(nextOffset, 4);
+            // "if applied to an aggregate containing a half float or 16-bit integer, the offset must also be a multiple of 2"
+            else if (contains16BitType)
+                RoundToPow2(nextOffset, 2);
             memberQualifier.layoutXfbOffset = nextOffset;
         } else
             nextOffset = memberQualifier.layoutXfbOffset;
@@ -8826,6 +8882,10 @@ void HlslParseContext::addQualifierToExisting(const TSourceLoc& loc, TQualifier 
 //
 bool HlslParseContext::handleInputGeometry(const TSourceLoc& loc, const TLayoutGeometry& geometry)
 {
+    // these can be declared on non-entry-points, in which case they lose their meaning
+    if (! parsingEntrypointParameters)
+        return true;
+
     switch (geometry) {
     case ElgPoints:             // fall through
     case ElgLines:              // ...
@@ -8854,6 +8914,10 @@ bool HlslParseContext::handleOutputGeometry(const TSourceLoc& loc, const TLayout
     // If this is not a geometry shader, ignore.  It might be a mixed shader including several stages.
     // Since that's an OK situation, return true for success.
     if (language != EShLangGeometry)
+        return true;
+
+    // these can be declared on non-entry-points, in which case they lose their meaning
+    if (! parsingEntrypointParameters)
         return true;
 
     switch (geometry) {

@@ -15,7 +15,10 @@
  */
 package android.signature.cts;
 
+import android.signature.cts.JDiffClassDescription.JDiffConstructor;
+import android.signature.cts.JDiffClassDescription.JDiffMethod;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericArrayType;
@@ -29,7 +32,10 @@ import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Uses reflection to obtain runtime representations of elements in the API.
@@ -123,10 +129,12 @@ public class ReflectionHelper {
      *
      * @param runtimeClass the class in which to search.
      * @param jdiffDes constructor description to find.
+     * @param mismatchReasons a map from rejected constructor to the reason it was rejected.
      * @return reflected constructor, or null if not found.
      */
     static Constructor<?> findMatchingConstructor(Class<?> runtimeClass,
-            JDiffClassDescription.JDiffConstructor jdiffDes) {
+            JDiffConstructor jdiffDes, Map<Constructor, String> mismatchReasons) {
+
         for (Constructor<?> c : runtimeClass.getDeclaredConstructors()) {
             Type[] params = c.getGenericParameterTypes();
             boolean isStaticClass = ((runtimeClass.getModifiers() & Modifier.STATIC) != 0);
@@ -148,8 +156,15 @@ public class ReflectionHelper {
                 int i = 0;
                 int j = startParamOffset;
                 while (i < jdiffParamList.size()) {
-                    if (!compareParam(jdiffParamList.get(i), params[j],
+                    String expectedParameter = jdiffParamList.get(i);
+                    Type actualParameter = params[j];
+                    if (!compareParam(expectedParameter, actualParameter,
                             DefaultTypeComparator.INSTANCE)) {
+                        mismatchReasons.put(c,
+                                String.format("parameter %d mismatch: expected (%s), found (%s)",
+                                        i,
+                                        expectedParameter,
+                                        actualParameter));
                         isFound = false;
                         break;
                     }
@@ -159,6 +174,11 @@ public class ReflectionHelper {
                 if (isFound) {
                     return c;
                 }
+            } else {
+                mismatchReasons.put(c,
+                        String.format("parameter list length mismatch: expected %d, found %d",
+                                jdiffParamList.size(),
+                                params.length));
             }
         }
         return null;
@@ -204,25 +224,33 @@ public class ReflectionHelper {
      *
      * @param runtimeClass the class in which to search.
      * @param method description of the method to find
+     * @param mismatchReasons a map from rejected method to the reason it was rejected, only
+     *     contains methods with the same name.
      * @return the reflected method, or null if not found.
      */
-    static Method findMatchingMethod(Class<?> runtimeClass,
-            JDiffClassDescription.JDiffMethod method) {
+    static Method findMatchingMethod(
+            Class<?> runtimeClass, JDiffMethod method, Map<Method, String> mismatchReasons) {
 
         // Search through the class to find the methods just in case the method was actually
         // declared in a superclass which is not part of the API and so was made to appear as if
         // it was declared in each of the hidden class' subclasses. Cannot use getMethods() as that
         // will only return public methods and the API includes protected methods.
-        while (runtimeClass != null) {
-            Method[] methods = runtimeClass.getDeclaredMethods();
+        Class<?> currentClass = runtimeClass;
+        while (currentClass != null) {
+            Method[] reflectedMethods = currentClass.getDeclaredMethods();
 
-            for (Method m : methods) {
-                if (matches(method, m)) {
-                    return m;
+            for (Method reflectedMethod : reflectedMethods) {
+                // If the method names aren't equal, the methods can't match.
+                if (!method.mName.equals(reflectedMethod.getName())) {
+                    continue;
+                }
+
+                if (matchesSignature(method, reflectedMethod, mismatchReasons)) {
+                    return reflectedMethod;
                 }
             }
 
-            runtimeClass = runtimeClass.getSuperclass();
+            currentClass = currentClass.getSuperclass();
         }
 
         return null;
@@ -233,15 +261,12 @@ public class ReflectionHelper {
      *
      * @param jDiffMethod the jDiffMethod to compare
      * @param reflectedMethod the reflected method to compare
+     * @param mismatchReasons map from method to reason it did not match, used when reporting
+     *     missing methods.
      * @return true, if both methods are the same
      */
-    static boolean matches(JDiffClassDescription.JDiffMethod jDiffMethod,
-            Method reflectedMethod) {
-        // If the method names aren't equal, the methods can't match.
-        if (!jDiffMethod.mName.equals(reflectedMethod.getName())) {
-            return false;
-        }
-
+    static boolean matchesSignature(JDiffMethod jDiffMethod, Method reflectedMethod,
+            Map<Method, String> mismatchReasons) {
         // If the method is a bridge then use a special comparator for comparing types as
         // bridge methods created for generic methods may not have generic signatures.
         // See b/123558763 for more information.
@@ -250,19 +275,26 @@ public class ReflectionHelper {
 
         String jdiffReturnType = jDiffMethod.mReturnType;
         String reflectionReturnType = typeToString(reflectedMethod.getGenericReturnType());
-        List<String> jdiffParamList = jDiffMethod.mParamList;
 
         // Next, compare the return types of the two methods.  If
         // they aren't equal, the methods can't match.
         if (!typeComparator.compare(jdiffReturnType, reflectionReturnType)) {
+            mismatchReasons.put(reflectedMethod,
+                    String.format("return type mismatch: expected %s, found %s", jdiffReturnType,
+                            reflectionReturnType));
             return false;
         }
 
+        List<String> jdiffParamList = jDiffMethod.mParamList;
         Type[] params = reflectedMethod.getGenericParameterTypes();
 
         // Next, check the method parameters.  If they have different
         // parameter lengths, the two methods can't match.
         if (jdiffParamList.size() != params.length) {
+            mismatchReasons.put(reflectedMethod,
+                    String.format("parameter list length mismatch: expected %s, found %s",
+                            jdiffParamList.size(),
+                            params.length));
             return false;
         }
 
@@ -290,15 +322,25 @@ public class ReflectionHelper {
         StringBuilder reflectedMethodParams = new StringBuilder("");
         StringBuilder jdiffMethodParams = new StringBuilder("");
 
+        String sep = "";
         for (int i = 0; i < jdiffParamList.size(); i++) {
-            jdiffMethodParams.append(jdiffParamList.get(i));
-            reflectedMethodParams.append(params[i]);
+            jdiffMethodParams.append(sep).append(jdiffParamList.get(i));
+            reflectedMethodParams.append(sep).append(params[i].getTypeName());
+            sep = ", ";
         }
 
         String jDiffFName = jdiffMethodParams.toString();
         String refName = reflectedMethodParams.toString();
 
-        return jDiffFName.equals(refName);
+        boolean signatureMatches = jDiffFName.equals(refName);
+        if (!signatureMatches) {
+            mismatchReasons.put(reflectedMethod,
+                    String.format("parameter signature mismatch: expected (%s), found (%s)",
+                            jDiffFName,
+                            refName));
+        }
+
+        return signatureMatches;
     }
 
     /**
@@ -328,7 +370,7 @@ public class ReflectionHelper {
      * @param type the type to convert.
      * @return the jdiff formatted string.
      */
-    private static String typeToString(Type type) {
+    public static String typeToString(Type type) {
         if (type instanceof ParameterizedType) {
             ParameterizedType pt = (ParameterizedType) type;
 
@@ -341,7 +383,9 @@ public class ReflectionHelper {
             for (Type t : types) {
                 sb.append(typeToString(t));
                 if (++elementNum < types.length) {
-                    sb.append(", ");
+                    // Must match separator used in
+                    // android.signature.cts.KtHelper.toDefaultTypeString.
+                    sb.append(",");
                 }
             }
 
@@ -379,33 +423,38 @@ public class ReflectionHelper {
         }
     }
 
-    /**
-     * Returns a Class representing an annotation type of the given name.
-     */
-    @SuppressWarnings("unchecked")
-    public static Class<? extends Annotation> getAnnotationClass(String name) {
-        try {
-            Class<?> clazz = Class.forName(
-                    name, false, ReflectionHelper.class.getClassLoader());
-            if (clazz.isAnnotation()) {
-                return (Class<? extends Annotation>) clazz;
-            } else {
-                return null;
+    private final static Pattern REPEATING_ANNOTATION_PATTERN =
+            Pattern.compile("@.*\\(value=\\[(.*)\\]\\)");
+
+    public static boolean hasMatchingAnnotation(AnnotatedElement elem, String annotationSpec) {
+        for (Annotation a : elem.getAnnotations()) {
+            if (a.toString().equals(annotationSpec)) {
+                return true;
             }
-        } catch (ClassNotFoundException e) {
-            return null;
+            // It could be a repeating annotation. In that case, a.toString() returns
+            // "@MyAnnotation$Container(value=[@MyAnnotation(A), @MyAnnotation(B)])"
+            // Then, iterate over @MyAnnotation(A) and @MyAnnotation(B).
+            Matcher m = REPEATING_ANNOTATION_PATTERN.matcher(a.toString());
+            if (m.matches()) {
+                for (String token : m.group(1).split(", ")) {
+                    if (token.equals(annotationSpec)) {
+                        return true;
+                    }
+                }
+            }
         }
+        return false;
     }
 
     /**
      * Returns a list of constructors which are annotated with the given annotation class.
      */
     public static Set<Constructor<?>> getAnnotatedConstructors(Class<?> clazz,
-            Class<? extends Annotation> annotation) {
+            String annotationSpec) {
         Set<Constructor<?>> result = new HashSet<>();
-        if (annotation != null) {
+        if (annotationSpec != null) {
             for (Constructor<?> c : clazz.getDeclaredConstructors()) {
-                if (c.isAnnotationPresent(annotation)) {
+                if (hasMatchingAnnotation(c, annotationSpec)) {
                     // TODO(b/71630695): currently, some API members are not annotated, because
                     // a member is automatically added to the API set if it is in a class with
                     // annotation and it is not @hide. <member>.getDeclaringClass().
@@ -423,12 +472,11 @@ public class ReflectionHelper {
     /**
      * Returns a list of methods which are annotated with the given annotation class.
      */
-    public static Set<Method> getAnnotatedMethods(Class<?> clazz,
-            Class<? extends Annotation> annotation) {
+    public static Set<Method> getAnnotatedMethods(Class<?> clazz, String annotationSpec) {
         Set<Method> result = new HashSet<>();
-        if (annotation != null) {
+        if (annotationSpec != null) {
             for (Method m : clazz.getDeclaredMethods()) {
-                if (m.isAnnotationPresent(annotation)) {
+                if (hasMatchingAnnotation(m, annotationSpec)) {
                     // TODO(b/71630695): see getAnnotatedConstructors for details
                     result.add(m);
                 }
@@ -440,12 +488,11 @@ public class ReflectionHelper {
     /**
      * Returns a list of fields which are annotated with the given annotation class.
      */
-    public static Set<Field> getAnnotatedFields(Class<?> clazz,
-            Class<? extends Annotation> annotation) {
+    public static Set<Field> getAnnotatedFields(Class<?> clazz, String annotationSpec) {
         Set<Field> result = new HashSet<>();
-        if (annotation != null) {
+        if (annotationSpec != null) {
             for (Field f : clazz.getDeclaredFields()) {
-                if (f.isAnnotationPresent(annotation)) {
+                if (hasMatchingAnnotation(f, annotationSpec)) {
                     // TODO(b/71630695): see getAnnotatedConstructors for details
                     result.add(f);
                 }
@@ -454,46 +501,42 @@ public class ReflectionHelper {
         return result;
     }
 
-    private static boolean isInAnnotatedClass(Member m,
-            Class<? extends Annotation> annotationClass) {
+    private static boolean isInAnnotatedClass(Member m, String annotationSpec) {
         Class<?> clazz = m.getDeclaringClass();
         do {
-            if (clazz.isAnnotationPresent(annotationClass)) {
+            if (hasMatchingAnnotation(clazz, annotationSpec)) {
                 return true;
             }
         } while ((clazz = clazz.getDeclaringClass()) != null);
         return false;
     }
 
-    public static boolean isAnnotatedOrInAnnotatedClass(Field field,
-            Class<? extends Annotation> annotationClass) {
-        if (annotationClass == null) {
+    public static boolean isAnnotatedOrInAnnotatedClass(Field field, String annotationSpec) {
+        if (annotationSpec == null) {
             return true;
         }
-        return field.isAnnotationPresent(annotationClass)
-                || isInAnnotatedClass(field, annotationClass);
+        return hasMatchingAnnotation(field, annotationSpec)
+                || isInAnnotatedClass(field, annotationSpec);
     }
 
     public static boolean isAnnotatedOrInAnnotatedClass(Constructor<?> constructor,
-            Class<? extends Annotation> annotationClass) {
-        if (annotationClass == null) {
+            String annotationSpec) {
+        if (annotationSpec == null) {
             return true;
         }
-        return constructor.isAnnotationPresent(annotationClass)
-                || isInAnnotatedClass(constructor, annotationClass);
+        return hasMatchingAnnotation(constructor, annotationSpec)
+                || isInAnnotatedClass(constructor, annotationSpec);
     }
 
-    public static boolean isAnnotatedOrInAnnotatedClass(Method method,
-            Class<? extends Annotation> annotationClass) {
-        if (annotationClass == null) {
+    public static boolean isAnnotatedOrInAnnotatedClass(Method method, String annotationSpec) {
+        if (annotationSpec == null) {
             return true;
         }
-        return method.isAnnotationPresent(annotationClass)
-                || isInAnnotatedClass(method, annotationClass);
+        return hasMatchingAnnotation(method, annotationSpec)
+                || isInAnnotatedClass(method, annotationSpec);
     }
 
-    public static boolean isOverridingAnnotatedMethod(Method method,
-            Class<? extends Annotation> annotationClass) {
+    public static boolean isOverridingAnnotatedMethod(Method method, String annotationSpec) {
         Class<?> clazz = method.getDeclaringClass();
         while (!(clazz = clazz.getSuperclass()).equals(Object.class)) {
             try {
@@ -501,7 +544,7 @@ public class ReflectionHelper {
                 overriddenMethod = clazz.getDeclaredMethod(method.getName(),
                         method.getParameterTypes());
                 if (overriddenMethod != null) {
-                    return isAnnotatedOrInAnnotatedClass(overriddenMethod, annotationClass);
+                    return isAnnotatedOrInAnnotatedClass(overriddenMethod, annotationSpec);
                 }
             } catch (NoSuchMethodException e) {
                 continue;

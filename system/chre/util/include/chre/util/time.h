@@ -24,6 +24,8 @@ namespace chre {
 //! The number of milliseconds in one min.
 constexpr uint64_t kOneMinuteInMilliseconds(60000);
 
+constexpr uint64_t kOneMinuteInNanoseconds(60000000000);
+
 //! The number of milliseconds in one second.
 constexpr uint64_t kOneSecondInMilliseconds(1000);
 
@@ -43,7 +45,6 @@ constexpr uint64_t kOneMillisecondInMicroseconds(1000);
 class Milliseconds;
 class Microseconds;
 class Nanoseconds;
-
 
 class Seconds {
  public:
@@ -118,7 +119,7 @@ class Milliseconds {
    *
    * @return Returns true if this milliseconds object is equal to another.
    */
-  constexpr bool operator==(const Milliseconds& millis) const;
+  constexpr bool operator==(const Milliseconds &millis) const;
 
  private:
   //! Store the time duration.
@@ -211,14 +212,14 @@ class Nanoseconds {
    *
    * @return Returns true if this nanoseconds object is equal to another.
    */
-  constexpr bool operator==(const Nanoseconds& nanos) const;
+  constexpr bool operator==(const Nanoseconds &nanos) const;
 
   /**
    * Performs an inequality comparison to another Nanoseconds value.
    *
    * @return Returns true if this nanoseconds object is not equal to another.
    */
-  constexpr bool operator!=(const Nanoseconds& nanos) const;
+  constexpr bool operator!=(const Nanoseconds &nanos) const;
 
  private:
   uint64_t mNanoseconds;
@@ -231,7 +232,7 @@ class Nanoseconds {
  * @param nanoseconds the nanoseconds duration
  * @return the added time quantity expressed in nanoseconds
  */
-constexpr Nanoseconds operator+(const Seconds& secs, const Nanoseconds& nanos);
+constexpr Nanoseconds operator+(const Seconds &secs, const Nanoseconds &nanos);
 
 /**
  * Add nanoseconds to nanoseconds.
@@ -240,8 +241,8 @@ constexpr Nanoseconds operator+(const Seconds& secs, const Nanoseconds& nanos);
  * @param nanos_b The second nanoseconds duration
  * @return The added time quantity expressed in nanoseconds
  */
-constexpr Nanoseconds operator+(const Nanoseconds& nanos_a,
-                                const Nanoseconds& nanos_b);
+constexpr Nanoseconds operator+(const Nanoseconds &nanos_a,
+                                const Nanoseconds &nanos_b);
 
 /**
  * Subtract two nanosecond durations.
@@ -250,8 +251,8 @@ constexpr Nanoseconds operator+(const Nanoseconds& nanos_a,
  * @param nanos_b the second nanoseconds duration
  * @return the difference between the two durations
  */
-constexpr Nanoseconds operator-(const Nanoseconds& nanos_a,
-                                const Nanoseconds& nanos_b);
+constexpr Nanoseconds operator-(const Nanoseconds &nanos_a,
+                                const Nanoseconds &nanos_b);
 
 /**
  * Performs a greater than or equal to comparison on two nanoseconds values.
@@ -260,8 +261,8 @@ constexpr Nanoseconds operator-(const Nanoseconds& nanos_a,
  * @param nanos_b the second nanoseconds duration
  * @return Whether nanos_a is greater than or equal to nanos_b.
  */
-constexpr bool operator>=(const Nanoseconds& nanos_a,
-                          const Nanoseconds& nanos_b);
+constexpr bool operator>=(const Nanoseconds &nanos_a,
+                          const Nanoseconds &nanos_b);
 
 /**
  * Performs a less than or equal to comparison on two nanoseconds values.
@@ -270,8 +271,8 @@ constexpr bool operator>=(const Nanoseconds& nanos_a,
  * @param nanos_b the second nanoseconds duration
  * @return Whether nanos_a is less than or equal to nanos_b.
  */
-constexpr bool operator<=(const Nanoseconds& nanos_a,
-                          const Nanoseconds& nanos_b);
+constexpr bool operator<=(const Nanoseconds &nanos_a,
+                          const Nanoseconds &nanos_b);
 
 /**
  * Performs a less than comparison on two nanoseconds values.
@@ -280,8 +281,8 @@ constexpr bool operator<=(const Nanoseconds& nanos_a,
  * @param nanos_b the second nanoseconds duration
  * @return Whether nanos_a is less than nanos_b.
  */
-constexpr bool operator<(const Nanoseconds& nanos_a,
-                         const Nanoseconds& nanos_b);
+constexpr bool operator<(const Nanoseconds &nanos_a,
+                         const Nanoseconds &nanos_b);
 
 /**
  * Performs a greater than comparison on two nanoseconds values.
@@ -290,11 +291,11 @@ constexpr bool operator<(const Nanoseconds& nanos_a,
  * @param nanos_b the second nanoseconds duration
  * @return Whether nanos_a is less than nanos_b.
  */
-constexpr bool operator>(const Nanoseconds& nanos_a,
-                         const Nanoseconds& nanos_b);
+constexpr bool operator>(const Nanoseconds &nanos_a,
+                         const Nanoseconds &nanos_b);
 
 }  // namespace chre
 
 #include "chre/util/time_impl.h"
 
-#endif // CHRE_UTIL_TIME_H_
+#endif  // CHRE_UTIL_TIME_H_

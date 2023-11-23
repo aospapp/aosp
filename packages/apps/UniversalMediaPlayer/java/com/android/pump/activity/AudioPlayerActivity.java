@@ -27,7 +27,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.media2.UriMediaItem;
+import androidx.media.AudioAttributesCompat;
+import androidx.media2.common.UriMediaItem;
+import androidx.media2.player.MediaPlayer;
 import androidx.media2.widget.VideoView;
 
 import com.android.pump.R;
@@ -44,6 +46,7 @@ public class AudioPlayerActivity extends AppCompatActivity {
     private static final String TAG = Clog.tag(AudioPlayerActivity.class);
 
     private VideoView mVideoView;
+    private MediaPlayer mMediaPlayer;
 
     public static void start(@NonNull Context context, @NonNull Audio audio) {
         // TODO(b/123702587) Find a better URI (audio.getUri()?)
@@ -118,6 +121,14 @@ public class AudioPlayerActivity extends AppCompatActivity {
         setContentView(R.layout.activity_audio_player);
         mVideoView = findViewById(R.id.video_view);
 
+        mMediaPlayer = new MediaPlayer(AudioPlayerActivity.this);
+        AudioAttributesCompat audioAttributes = new AudioAttributesCompat.Builder()
+                .setUsage(AudioAttributesCompat.USAGE_MEDIA)
+                .setContentType(AudioAttributesCompat.CONTENT_TYPE_MOVIE).build();
+
+        mMediaPlayer.setAudioAttributes(audioAttributes);
+        mVideoView.setPlayer(mMediaPlayer);
+
         handleIntent();
     }
 
@@ -138,6 +149,16 @@ public class AudioPlayerActivity extends AppCompatActivity {
             return;
         }
         UriMediaItem mediaItem = new UriMediaItem.Builder(uri).build();
-        mVideoView.setMediaItem(mediaItem);
+        mMediaPlayer.setMediaItem(mediaItem);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        try {
+            if (mMediaPlayer != null) {
+                mMediaPlayer.close();
+            }
+        } catch (Exception e) { }
     }
 }

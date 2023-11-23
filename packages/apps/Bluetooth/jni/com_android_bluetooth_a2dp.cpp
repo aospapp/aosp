@@ -18,7 +18,6 @@
 
 #define LOG_NDEBUG 0
 
-#include "android_runtime/AndroidRuntime.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_av.h"
 #include "utils/Log.h"
@@ -30,6 +29,7 @@ namespace android {
 static jmethodID method_onConnectionStateChanged;
 static jmethodID method_onAudioStateChanged;
 static jmethodID method_onCodecConfigChanged;
+static jmethodID method_isMandatoryCodecPreferred;
 
 static struct {
   jclass clazz;
@@ -163,9 +163,33 @@ static void bta2dp_audio_config_callback(
       local_capabilities_array, selectable_capabilities_array);
 }
 
+static bool bta2dp_mandatory_codec_preferred_callback(
+    const RawAddress& bd_addr) {
+  ALOGI("%s", __func__);
+
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid() || mCallbacksObj == nullptr) return false;
+
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(RawAddress::kLength));
+  if (!addr.get()) {
+    ALOGE("%s: Fail to new jbyteArray bd addr", __func__);
+    return false;
+  }
+  sCallbackEnv->SetByteArrayRegion(
+      addr.get(), 0, RawAddress::kLength,
+      reinterpret_cast<const jbyte*>(bd_addr.address));
+  return sCallbackEnv->CallBooleanMethod(
+      mCallbacksObj, method_isMandatoryCodecPreferred, addr.get());
+}
+
 static btav_source_callbacks_t sBluetoothA2dpCallbacks = {
-    sizeof(sBluetoothA2dpCallbacks), bta2dp_connection_state_callback,
-    bta2dp_audio_state_callback, bta2dp_audio_config_callback,
+    sizeof(sBluetoothA2dpCallbacks),
+    bta2dp_connection_state_callback,
+    bta2dp_audio_state_callback,
+    bta2dp_audio_config_callback,
+    bta2dp_mandatory_codec_preferred_callback,
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
@@ -203,6 +227,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
                        "([BLandroid/bluetooth/BluetoothCodecConfig;"
                        "[Landroid/bluetooth/BluetoothCodecConfig;"
                        "[Landroid/bluetooth/BluetoothCodecConfig;)V");
+
+  method_isMandatoryCodecPreferred =
+      env->GetMethodID(clazz, "isMandatoryCodecPreferred", "([B)Z");
 
   ALOGI("%s: succeeds", __func__);
 }
@@ -260,7 +287,8 @@ static std::vector<btav_a2dp_codec_config_t> prepareCodecPreferences(
 
 static void initNative(JNIEnv* env, jobject object,
                        jint maxConnectedAudioDevices,
-                       jobjectArray codecConfigArray) {
+                       jobjectArray codecConfigArray,
+                       jobjectArray codecOffloadingArray) {
   std::unique_lock<std::shared_timed_mutex> interface_lock(interface_mutex);
   std::unique_lock<std::shared_timed_mutex> callbacks_lock(callbacks_mutex);
 
@@ -306,8 +334,12 @@ static void initNative(JNIEnv* env, jobject object,
   std::vector<btav_a2dp_codec_config_t> codec_priorities =
       prepareCodecPreferences(env, object, codecConfigArray);
 
+  std::vector<btav_a2dp_codec_config_t> codec_offloading =
+      prepareCodecPreferences(env, object, codecOffloadingArray);
+
   bt_status_t status = sBluetoothA2dpInterface->init(
-      &sBluetoothA2dpCallbacks, maxConnectedAudioDevices, codec_priorities);
+      &sBluetoothA2dpCallbacks, maxConnectedAudioDevices, codec_priorities,
+      codec_offloading);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("%s: Failed to initialize Bluetooth A2DP, status: %d", __func__,
           status);
@@ -475,7 +507,8 @@ static jboolean setCodecConfigPreferenceNative(JNIEnv* env, jobject object,
 
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "(I[Landroid/bluetooth/BluetoothCodecConfig;)V",
+    {"initNative",
+     "(I[Landroid/bluetooth/BluetoothCodecConfig;[Landroid/bluetooth/BluetoothCodecConfig;)V",
      (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"connectA2dpNative", "([B)Z", (void*)connectA2dpNative},

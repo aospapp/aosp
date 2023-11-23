@@ -86,6 +86,32 @@ public class Icu4jTransform {
       "android.icu.lang.UScript$ScriptUsage",
       "android.icu.math.BigDecimal",
       "android.icu.math.MathContext",
+      "android.icu.number.CompactNotation",
+      "android.icu.number.CurrencyPrecision",
+      "android.icu.number.FormattedNumber",
+      "android.icu.number.FormattedNumberRange",
+      "android.icu.number.FractionPrecision",
+      "android.icu.number.IntegerWidth",
+      "android.icu.number.LocalizedNumberFormatter",
+      "android.icu.number.LocalizedNumberRangeFormatter",
+      "android.icu.number.Notation",
+      "android.icu.number.NumberFormatter",
+      "android.icu.number.NumberFormatter$DecimalSeparatorDisplay",
+      "android.icu.number.NumberFormatter$GroupingStrategy",
+      "android.icu.number.NumberFormatter$SignDisplay",
+      "android.icu.number.NumberFormatter$UnitWidth",
+      "android.icu.number.NumberFormatterSettings",
+      "android.icu.number.NumberRangeFormatter",
+      "android.icu.number.NumberRangeFormatter$RangeCollapse",
+      "android.icu.number.NumberRangeFormatter$RangeIdentityFallback",
+      "android.icu.number.NumberRangeFormatter$RangeIdentityResult",
+      "android.icu.number.NumberRangeFormatterSettings",
+      "android.icu.number.Precision",
+      "android.icu.number.Scale",
+      "android.icu.number.ScientificNotation",
+      "android.icu.number.SimpleNotation",
+      "android.icu.number.UnlocalizedNumberFormatter",
+      "android.icu.number.UnlocalizedNumberRangeFormatter",
       "android.icu.text.AlphabeticIndex",
       "android.icu.text.AlphabeticIndex$Bucket",
       "android.icu.text.AlphabeticIndex$Bucket$LabelType",
@@ -117,6 +143,7 @@ public class Icu4jTransform {
       "android.icu.text.DateIntervalInfo",
       "android.icu.text.DateIntervalInfo$PatternInfo",
       "android.icu.text.DateTimePatternGenerator",
+      "android.icu.text.DateTimePatternGenerator$DisplayWidth",
       "android.icu.text.DateTimePatternGenerator$PatternInfo",
       "android.icu.text.DecimalFormat",
       "android.icu.text.DecimalFormatSymbols",
@@ -226,6 +253,7 @@ public class Icu4jTransform {
       "android.icu.util.ValueIterator",
       "android.icu.util.ValueIterator$Element",
       "android.icu.util.VersionInfo",
+
   };
 
   /**
@@ -642,6 +670,16 @@ public class Icu4jTransform {
       "field:android.icu.util.LocaleData#ES_INDEX",
       "field:android.icu.util.LocaleData#ES_PUNCTUATION",
       "field:android.icu.util.LocaleData#ES_STANDARD",
+      // Hide appendTo APIs until we find the value of these APIs.
+      // Particularly, the open question is throwing ICUUncheckedIOException/checked IOException.
+      "method:android.icu.number.FormattedNumber#appendTo(A)",
+      "method:android.icu.number.FormattedNumberRange#appendTo(A)",
+      // Skeleton syntax can evolve over time. Currently, the skeleton APIs are not prioritized to
+      // be public. Android developers could easily miss the API version check for new syntax and
+      // cause app crashing on older devices.
+      // See the syntax details in https://github.com/unicode-org/icu/blob/master/docs/userguide/format_parse/numbers/skeletons.md.
+      "method:android.icu.number.NumberFormatterSettings#toSkeleton()",
+      "method:android.icu.number.NumberFormatter#forSkeleton(String)",
       "method:android.icu.text.BreakIterator#registerInstance(BreakIterator,Locale,int)",
       "method:android.icu.text.BreakIterator#registerInstance(BreakIterator,ULocale,int)",
       "method:android.icu.text.BreakIterator#unregister(Object)",
@@ -650,6 +688,7 @@ public class Icu4jTransform {
       "method:android.icu.text.Collator#registerFactory(CollatorFactory)",
       "method:android.icu.text.Collator#registerInstance(Collator,ULocale)",
       "method:android.icu.text.Collator#unregister(Object)",
+      "method:android.icu.text.DecimalFormat#toNumberFormatter()",
       "method:android.icu.text.NumberFormat#registerFactory(NumberFormatFactory)",
       "method:android.icu.text.NumberFormat#unregister(Object)",
       "method:android.icu.text.RuleBasedCollator#getRawCollationKey(String,RawCollationKey)",
@@ -707,17 +746,20 @@ public class Icu4jTransform {
   private static final String[] ANDROID_DEPRECATED_SET = {
       /* ASCII order please. */
 
-      // See BreakIterator#getTitleInstance() below for deprecation reason.
-      "field:android.icu.text.BreakIterator#KIND_TITLE",
-
       // Unstable "constant" value - different values in different API levels. http://b/77850660.
       "field:android.icu.util.JapaneseCalendar#CURRENT_ERA",
+  };
 
-      // getTitleInstance(...) methods have been deprecated in Unicode 3.2 and are likely to be
-      // deprecated in ICU 64.
-      "method:android.icu.text.BreakIterator#getTitleInstance()",
-      "method:android.icu.text.BreakIterator#getTitleInstance(Locale)",
-      "method:android.icu.text.BreakIterator#getTitleInstance(ULocale)",
+  /**
+   * ICU APIs that are in the Android SDK API but are removed on Android and @stable in ICU.
+   * Entries can be removed if ICU also decide to remove the APIs.
+   * Entries are usually the result of Android mistakenly exposing an API, an ICU API problem,
+   * and/or ICU's stability guarantees differing from Android's requirements.
+   */
+  private static final String[] ANDROID_REMOVED_SET = {
+      /* ASCII order please. */
+      // Unstable "constant" value - different values in different API levels. http://b/77850660.
+      "field:android.icu.util.JapaneseCalendar#CURRENT_ERA",
   };
 
   // The declarations with JavaDocs that have @.jcite tags that should be transformed to doclava
@@ -788,7 +830,8 @@ public class Icu4jTransform {
     private static final String SOURCE_CODE_HEADER = "/* GENERATED SOURCE. DO NOT MODIFY. */\n";
     private static final String COMMAND_USAGE = "Usage: " + Icu4jTransform.class.getCanonicalName()
             + " [--hide-non-whitelisted-api <whitelisted-api-file>]"
-            + " <source-dir>+ <target-dir> <core-platform-api-file> <unsupported-app-usage-file>";
+            + " <source-dir>+ <target-dir> <core-platform-api-file> <intra-core-api-file>"
+            + " <unsupported-app-usage-file>";
 
     private final InputFileGenerator inputFileGenerator;
     private final List<Rule> rules;
@@ -801,7 +844,7 @@ public class Icu4jTransform {
       Path whitelistedApiPath = null;
       if ("--hide-non-whitelisted-api".equals(args[0])) {
         whitelistedApiPath = Paths.get(args[1]);
-        if (args.length < 5) {
+        if (args.length < 6) {
           throw new IllegalArgumentException(COMMAND_USAGE);
         }
         String[] newArgs = new String[args.length - 2];
@@ -810,14 +853,15 @@ public class Icu4jTransform {
       }
 
       // Extract the source directories.
-      String[] inputDirNames = new String[args.length - 3];
-      System.arraycopy(args, 0, inputDirNames, 0, args.length - 3);
+      String[] inputDirNames = new String[args.length - 4];
+      System.arraycopy(args, 0, inputDirNames, 0, args.length - 4);
       inputFileGenerator = Icu4jTransformRules.createInputFileGenerator(inputDirNames);
 
       // Extract the additional arguments.
       int argIndex = inputDirNames.length;
       String targetDir = args[argIndex++];
       Path corePlatformApiFile = Paths.get(args[argIndex++]);
+      Path intraCoreApiFile = Paths.get(args[argIndex++]);
       Path unsupportedAppUsageFile = Paths.get(args[argIndex++]);
 
       // Ensure that all the arguments were used.
@@ -825,8 +869,8 @@ public class Icu4jTransform {
         throw new IllegalArgumentException(COMMAND_USAGE);
       }
 
-      rules = createTransformRules(corePlatformApiFile, unsupportedAppUsageFile,
-          whitelistedApiPath);
+      rules = createTransformRules(corePlatformApiFile, intraCoreApiFile,
+          unsupportedAppUsageFile, whitelistedApiPath);
       outputSourceFileGenerator = Icu4jTransformRules.createOutputFileGenerator(targetDir);
     }
 
@@ -863,6 +907,7 @@ public class Icu4jTransform {
     }
 
     private static List<Rule> createTransformRules(Path corePlatformApiFile,
+            Path intraCoreApiFile,
             Path unsupportedAppUsagePath,
             Path whitelistedApiPath) {
       // The rules needed to repackage source code that declares or references com.ibm.icu code
@@ -902,6 +947,9 @@ public class Icu4jTransform {
           createMarkElementsWithDeprecatedAnnotationRule(),
           createMarkElementsWithDeprecatedJavadocTagRule(),
 
+          // AST change: Add @removed doc to removed API in Android
+          createMarkElementsWithRemovedJavadocTagRule(),
+
 
           // AST change: Remove JavaDoc tags that Android has no need of:
           // @hide has been added in place of @draft, @provisional and @internal
@@ -918,6 +966,10 @@ public class Icu4jTransform {
           // AST change: Add CorePlatformApi to specified classes and members
           createOptionalRule(AddAnnotation.markerAnnotationFromFlatFile(
               "libcore.api.CorePlatformApi", corePlatformApiFile)),
+
+          // AST change: Add CorePlatformApi to specified classes and members
+          createOptionalRule(AddAnnotation.markerAnnotationFromFlatFile(
+              "libcore.api.IntraCoreApi", intraCoreApiFile)),
 
           // AST change: Add default constructors, must come before processor to add
           // UnsupportedAppUsage.
@@ -960,6 +1012,13 @@ public class Icu4jTransform {
           BodyDeclarationLocators.createLocatorsFromStrings(ANDROID_DEPRECATED_SET);
       return createOptionalRule(new TagMatchingDeclarations(locators,
           "@deprecated on Android but not deprecated in ICU"));
+    }
+
+    private static Rule createMarkElementsWithRemovedJavadocTagRule() {
+      List<BodyDeclarationLocator> locators =
+          BodyDeclarationLocators.createLocatorsFromStrings(ANDROID_REMOVED_SET);
+      return createOptionalRule(new TagMatchingDeclarations(locators,
+          "@removed on Android but @stable in ICU"));
     }
 
     private static Rule createHideBlacklistedDeclarationsRule() {

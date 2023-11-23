@@ -16,11 +16,13 @@
 
 package dalvik.system;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.system.ErrnoException;
 import android.system.StructStat;
-import dalvik.annotation.compat.UnsupportedAppUsage;
+
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -219,30 +221,23 @@ public final class DexPathList {
                 suppressedExceptionList, definingContext, isTrusted);
 
         if (newElements != null && newElements.length > 0) {
-            final Element[] oldElements = dexElements;
-            dexElements = new Element[oldElements.length + newElements.length];
-            System.arraycopy(
-                    oldElements, 0, dexElements, 0, oldElements.length);
-            System.arraycopy(
-                    newElements, 0, dexElements, oldElements.length, newElements.length);
+            dexElements = concat(Element.class, dexElements, newElements);
         }
 
         if (suppressedExceptionList.size() > 0) {
-            final IOException[] newSuppressedExceptions = suppressedExceptionList.toArray(
+            final IOException[] newSuppExceptions = suppressedExceptionList.toArray(
                     new IOException[suppressedExceptionList.size()]);
-            if (dexElementsSuppressedExceptions != null) {
-                final IOException[] oldSuppressedExceptions = dexElementsSuppressedExceptions;
-                final int suppressedExceptionsLength = oldSuppressedExceptions.length +
-                        newSuppressedExceptions.length;
-                dexElementsSuppressedExceptions = new IOException[suppressedExceptionsLength];
-                System.arraycopy(oldSuppressedExceptions, 0, dexElementsSuppressedExceptions,
-                        0, oldSuppressedExceptions.length);
-                System.arraycopy(newSuppressedExceptions, 0, dexElementsSuppressedExceptions,
-                        oldSuppressedExceptions.length, newSuppressedExceptions.length);
-            } else {
-                dexElementsSuppressedExceptions = newSuppressedExceptions;
-            }
+            dexElementsSuppressedExceptions = dexElementsSuppressedExceptions != null
+                    ? concat(IOException.class, dexElementsSuppressedExceptions, newSuppExceptions)
+                    : newSuppExceptions;
         }
+    }
+
+    private static<T> T[] concat(Class<T> componentType, T[] inputA, T[] inputB) {
+        T[] output = (T[]) Array.newInstance(componentType, inputA.length + inputB.length);
+        System.arraycopy(inputA, 0, output, 0, inputA.length);
+        System.arraycopy(inputB, 0, output, inputA.length, inputB.length);
+        return output;
     }
 
     /**

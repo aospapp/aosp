@@ -37,8 +37,9 @@ public abstract class ActivityConfig {
     }
 
     /**
-     * When managed mode is enabled, active downloads will be visible in the UI.
-     * Presumably this should only be true when in the downloads directory.
+     * When managed mode is enabled, there will be special UI behaviors:
+     * 1) active downloads will be visible in the UI.
+     * 2) Android/[data|obb|sandbox] directories will not be hidden.
      */
     public boolean managedModeEnabled(DocumentStack stack) {
         return false;

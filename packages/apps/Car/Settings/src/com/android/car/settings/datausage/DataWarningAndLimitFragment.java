@@ -17,6 +17,7 @@
 package com.android.car.settings.datausage;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
 import android.net.NetworkPolicyManager;
 import android.net.NetworkTemplate;
 import android.os.Bundle;
@@ -28,12 +29,16 @@ import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.network.NetworkUtils;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
 import com.android.settingslib.NetworkPolicyEditor;
+import com.android.settingslib.search.SearchIndexable;
 
 import java.util.Arrays;
 import java.util.List;
 
 /** Screen to set data warning and limit thresholds. */
+@SearchIndexable
 public class DataWarningAndLimitFragment extends SettingsFragment {
 
     private TelephonyManager mTelephonyManager;
@@ -89,4 +94,14 @@ public class DataWarningAndLimitFragment extends SettingsFragment {
             preferenceController.setNetworkTemplate(mNetworkTemplate);
         }
     }
+
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.data_warning_and_limit_fragment,
+                    DataWarningAndLimitActivity.class) {
+                @Override
+                protected boolean isPageSearchEnabled(Context context) {
+                    return NetworkUtils.hasMobileNetwork(
+                            context.getSystemService(ConnectivityManager.class));
+                }
+            };
 }

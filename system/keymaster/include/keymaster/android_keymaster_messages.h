@@ -55,6 +55,7 @@ enum AndroidKeymasterCommand : uint32_t {
     DELETE_ALL_KEYS = 23,
     DESTROY_ATTESTATION_IDS = 24,
     IMPORT_WRAPPED_KEY = 25,
+    EARLY_BOOT_ENDED = 26,
 };
 
 /**
@@ -423,6 +424,10 @@ struct AbortOperationRequest : public KeymasterMessage {
 
 struct AbortOperationResponse : public KeymasterResponse {
     explicit AbortOperationResponse(int32_t ver = MAX_MESSAGE_VERSION) : KeymasterResponse(ver) {}
+    explicit AbortOperationResponse(keymaster_error_t error_, int32_t ver = MAX_MESSAGE_VERSION)
+        : KeymasterResponse(ver) {
+        error = error_;
+    }
 
     size_t NonErrorSerializedSize() const override { return 0; }
     uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t*) const override { return buf; }
@@ -899,7 +904,31 @@ struct VerifyAuthorizationResponse : public KeymasterResponse {
         return copy_uint32_from_buf(buf_ptr, end, &error) && token.Deserialize(buf_ptr, end);
     }
 
-    keymaster_error_t error{KM_ERROR_UNKNOWN_ERROR};
+    VerificationToken token;
+};
+
+// These return nothing but an error code, like AbortOperationResponse so might as well use that.
+using EarlyBootEndedResponse = AbortOperationResponse;
+using DeviceLockedResponse = AbortOperationResponse;
+
+struct DeviceLockedRequest : public KeymasterMessage {
+    explicit DeviceLockedRequest(int32_t ver = MAX_MESSAGE_VERSION) : KeymasterMessage(ver) {}
+    explicit DeviceLockedRequest(bool passwordOnly_, VerificationToken&& token_,
+                                 int32_t ver = MAX_MESSAGE_VERSION)
+        : KeymasterMessage(ver), passwordOnly(passwordOnly_), token(move(token_)) {}
+
+    size_t SerializedSize() const override { return 1; }
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        if (buf < end) *buf++ = passwordOnly ? 1 : 0;
+        return token.Serialize(buf, end);
+    }
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        if (*buf_ptr >= end) return false;
+        passwordOnly = !!*(*buf_ptr)++;
+        return token.Deserialize(buf_ptr, end);
+    }
+
+    bool passwordOnly;
     VerificationToken token;
 };
 

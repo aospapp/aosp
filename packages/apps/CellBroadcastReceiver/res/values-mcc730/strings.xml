@@ -18,6 +18,11 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Special Chile requirement for the presidential alert title -->
     <string name="cmas_presidential_level_alert" translatable="false">@string/emergency_alert</string>
+    <string name="public_safety_message" translatable="false">@string/emergency_alert</string>
+    <!-- CMAS dialog title for required monthly test. [CHAR LIMIT=50]
+         Dialog title used on devices with Spanish SIMs.
+         Required Spanish (es) translation for this message: "Mensaje de Prueba" -->
+    <string name="cmas_required_monthly_test">Test Message</string>
 </resources>
 
 

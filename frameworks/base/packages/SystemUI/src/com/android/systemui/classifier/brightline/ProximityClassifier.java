@@ -19,10 +19,13 @@ package com.android.systemui.classifier.brightline;
 import static com.android.internal.config.sysui.SystemUiDeviceConfigFlags.BRIGHTLINE_FALSING_PROXIMITY_PERCENT_COVERED_THRESHOLD;
 import static com.android.systemui.classifier.Classifier.QUICK_SETTINGS;
 
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
 import android.provider.DeviceConfig;
 import android.view.MotionEvent;
+
+import com.android.systemui.util.DeviceConfigProxy;
+import com.android.systemui.util.sensors.ProximitySensor;
+
+import java.util.Locale;
 
 
 /**
@@ -44,11 +47,11 @@ class ProximityClassifier extends FalsingClassifier {
     private float mPercentNear;
 
     ProximityClassifier(DistanceClassifier distanceClassifier,
-            FalsingDataProvider dataProvider) {
+            FalsingDataProvider dataProvider, DeviceConfigProxy deviceConfigProxy) {
         super(dataProvider);
         this.mDistanceClassifier = distanceClassifier;
 
-        mPercentCoveredThreshold = DeviceConfig.getFloat(
+        mPercentCoveredThreshold = deviceConfigProxy.getFloat(
                 DeviceConfig.NAMESPACE_SYSTEMUI,
                 BRIGHTLINE_FALSING_PROXIMITY_PERCENT_COVERED_THRESHOLD,
                 PERCENT_COVERED_THRESHOLD);
@@ -97,14 +100,12 @@ class ProximityClassifier extends FalsingClassifier {
     }
 
     @Override
-    public void onSensorEvent(SensorEvent sensorEvent) {
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_PROXIMITY) {
-            logDebug("Sensor is: " + (sensorEvent.values[0] < sensorEvent.sensor.getMaximumRange())
-                    + " at time " + sensorEvent.timestamp);
-            update(
-                    sensorEvent.values[0] < sensorEvent.sensor.getMaximumRange(),
-                    sensorEvent.timestamp);
-        }
+    public void onProximityEvent(
+            ProximitySensor.ProximityEvent proximityEvent) {
+        boolean near = proximityEvent.getNear();
+        long timestampNs = proximityEvent.getTimestampNs();
+        logDebug("Sensor is: " + near + " at time " + timestampNs);
+        update(near, timestampNs);
     }
 
     @Override
@@ -120,6 +121,16 @@ class ProximityClassifier extends FalsingClassifier {
         }
 
         return false;
+    }
+
+    @Override
+    String getReason() {
+        return String.format(
+                (Locale) null,
+                "{percentInProximity=%f, threshold=%f, distanceClassifier=%s}",
+                mPercentNear,
+                mPercentCoveredThreshold,
+                mDistanceClassifier.getReason());
     }
 
     /**

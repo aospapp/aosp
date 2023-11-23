@@ -14,16 +14,15 @@ TIME = 'MEDIUM'
 MAX_RESULT_SIZE_KB = 512000
 DOC = 'Run module CtsExternalServiceTestCases of the Android Compatibility Test Suite (CTS) using arm ABI in the ARC++ container.'
 
-def run_CTS(machine):
+def run_TS(machine):
     host_list = [hosts.create_host(machine)]
     job.run_test(
         'cheets_CTS_P',
         hosts=host_list,
         iterations=1,
-        needs_push_media=False,
         tag='arm.CtsExternalServiceTestCases',
         test_name='cheets_CTS_P.arm.CtsExternalServiceTestCases',
-        run_template=['run', 'commandAndExit', 'cts', '--include-filter', 'CtsExternalServiceTestCases'],
+        run_template=['run', 'commandAndExit', 'cts', '--module', 'CtsExternalServiceTestCases'],
         retry_template=['run', 'commandAndExit', 'retry', '--retry', '{session_id}'],
         target_module='CtsExternalServiceTestCases',
         target_plan=None,
@@ -32,4 +31,4 @@ def run_CTS(machine):
         warn_on_test_retry=False,
         timeout=3600)
 
-parallel_simple(run_CTS, machines)
+parallel_simple(run_TS, machines)

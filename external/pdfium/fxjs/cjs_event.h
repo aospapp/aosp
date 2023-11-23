@@ -7,105 +7,102 @@
 #ifndef FXJS_CJS_EVENT_H_
 #define FXJS_CJS_EVENT_H_
 
-#include "fxjs/JS_Define.h"
+#include "fxjs/cjs_object.h"
+#include "fxjs/js_define.h"
 
-class event : public CJS_EmbedObj {
+class CJS_Event final : public CJS_Object {
  public:
-  explicit event(CJS_Object* pJSObject);
-  ~event() override;
-
-  CJS_Return get_change(CJS_Runtime* pRuntime);
-  CJS_Return set_change(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_change_ex(CJS_Runtime* pRuntime);
-  CJS_Return set_change_ex(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_commit_key(CJS_Runtime* pRuntime);
-  CJS_Return set_commit_key(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_field_full(CJS_Runtime* pRuntime);
-  CJS_Return set_field_full(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_key_down(CJS_Runtime* pRuntime);
-  CJS_Return set_key_down(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_modifier(CJS_Runtime* pRuntime);
-  CJS_Return set_modifier(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_name(CJS_Runtime* pRuntime);
-  CJS_Return set_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_rc(CJS_Runtime* pRuntime);
-  CJS_Return set_rc(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_rich_change(CJS_Runtime* pRuntime);
-  CJS_Return set_rich_change(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_rich_change_ex(CJS_Runtime* pRuntime);
-  CJS_Return set_rich_change_ex(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_rich_value(CJS_Runtime* pRuntime);
-  CJS_Return set_rich_value(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_sel_end(CJS_Runtime* pRuntime);
-  CJS_Return set_sel_end(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_sel_start(CJS_Runtime* pRuntime);
-  CJS_Return set_sel_start(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_shift(CJS_Runtime* pRuntime);
-  CJS_Return set_shift(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_source(CJS_Runtime* pRuntime);
-  CJS_Return set_source(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_target(CJS_Runtime* pRuntime);
-  CJS_Return set_target(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_target_name(CJS_Runtime* pRuntime);
-  CJS_Return set_target_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_type(CJS_Runtime* pRuntime);
-  CJS_Return set_type(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_value(CJS_Runtime* pRuntime);
-  CJS_Return set_value(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  CJS_Return get_will_commit(CJS_Runtime* pRuntime);
-  CJS_Return set_will_commit(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-};
-
-class CJS_Event : public CJS_Object {
- public:
+  static int GetObjDefnID();
   static void DefineJSObjects(CFXJS_Engine* pEngine);
 
-  explicit CJS_Event(v8::Local<v8::Object> pObject) : CJS_Object(pObject) {}
-  ~CJS_Event() override {}
+  CJS_Event(v8::Local<v8::Object> pObject, CJS_Runtime* pRuntime);
+  ~CJS_Event() override;
 
-  JS_STATIC_PROP(change, change, event);
-  JS_STATIC_PROP(changeEx, change_ex, event);
-  JS_STATIC_PROP(commitKey, commit_key, event);
-  JS_STATIC_PROP(fieldFull, field_full, event);
-  JS_STATIC_PROP(keyDown, key_down, event);
-  JS_STATIC_PROP(modifier, modifier, event);
-  JS_STATIC_PROP(name, name, event);
-  JS_STATIC_PROP(rc, rc, event);
-  JS_STATIC_PROP(richChange, rich_change, event);
-  JS_STATIC_PROP(richChangeEx, rich_change_ex, event);
-  JS_STATIC_PROP(richValue, rich_value, event);
-  JS_STATIC_PROP(selEnd, sel_end, event);
-  JS_STATIC_PROP(selStart, sel_start, event);
-  JS_STATIC_PROP(shift, shift, event);
-  JS_STATIC_PROP(source, source, event);
-  JS_STATIC_PROP(target, target, event);
-  JS_STATIC_PROP(targetName, target_name, event);
-  JS_STATIC_PROP(type, type, event);
-  JS_STATIC_PROP(value, value, event);
-  JS_STATIC_PROP(willCommit, will_commit, event);
+  JS_STATIC_PROP(change, change, CJS_Event)
+  JS_STATIC_PROP(changeEx, change_ex, CJS_Event)
+  JS_STATIC_PROP(commitKey, commit_key, CJS_Event)
+  JS_STATIC_PROP(fieldFull, field_full, CJS_Event)
+  JS_STATIC_PROP(keyDown, key_down, CJS_Event)
+  JS_STATIC_PROP(modifier, modifier, CJS_Event)
+  JS_STATIC_PROP(name, name, CJS_Event)
+  JS_STATIC_PROP(rc, rc, CJS_Event)
+  JS_STATIC_PROP(richChange, rich_change, CJS_Event)
+  JS_STATIC_PROP(richChangeEx, rich_change_ex, CJS_Event)
+  JS_STATIC_PROP(richValue, rich_value, CJS_Event)
+  JS_STATIC_PROP(selEnd, sel_end, CJS_Event)
+  JS_STATIC_PROP(selStart, sel_start, CJS_Event)
+  JS_STATIC_PROP(shift, shift, CJS_Event)
+  JS_STATIC_PROP(source, source, CJS_Event)
+  JS_STATIC_PROP(target, target, CJS_Event)
+  JS_STATIC_PROP(targetName, target_name, CJS_Event)
+  JS_STATIC_PROP(type, type, CJS_Event)
+  JS_STATIC_PROP(value, value, CJS_Event)
+  JS_STATIC_PROP(willCommit, will_commit, CJS_Event)
 
  private:
   static int ObjDefnID;
+  static const char kName[];
   static const JSPropertySpec PropertySpecs[];
+
+  CJS_Result get_change(CJS_Runtime* pRuntime);
+  CJS_Result set_change(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_change_ex(CJS_Runtime* pRuntime);
+  CJS_Result set_change_ex(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_commit_key(CJS_Runtime* pRuntime);
+  CJS_Result set_commit_key(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_field_full(CJS_Runtime* pRuntime);
+  CJS_Result set_field_full(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_key_down(CJS_Runtime* pRuntime);
+  CJS_Result set_key_down(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_modifier(CJS_Runtime* pRuntime);
+  CJS_Result set_modifier(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_name(CJS_Runtime* pRuntime);
+  CJS_Result set_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_rc(CJS_Runtime* pRuntime);
+  CJS_Result set_rc(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_rich_change(CJS_Runtime* pRuntime);
+  CJS_Result set_rich_change(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_rich_change_ex(CJS_Runtime* pRuntime);
+  CJS_Result set_rich_change_ex(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_rich_value(CJS_Runtime* pRuntime);
+  CJS_Result set_rich_value(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_sel_end(CJS_Runtime* pRuntime);
+  CJS_Result set_sel_end(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_sel_start(CJS_Runtime* pRuntime);
+  CJS_Result set_sel_start(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_shift(CJS_Runtime* pRuntime);
+  CJS_Result set_shift(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_source(CJS_Runtime* pRuntime);
+  CJS_Result set_source(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_target(CJS_Runtime* pRuntime);
+  CJS_Result set_target(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_target_name(CJS_Runtime* pRuntime);
+  CJS_Result set_target_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_type(CJS_Runtime* pRuntime);
+  CJS_Result set_type(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_value(CJS_Runtime* pRuntime);
+  CJS_Result set_value(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  CJS_Result get_will_commit(CJS_Runtime* pRuntime);
+  CJS_Result set_will_commit(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
 };
 
 #endif  // FXJS_CJS_EVENT_H_

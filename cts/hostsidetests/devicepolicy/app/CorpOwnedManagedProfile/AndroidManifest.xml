@@ -45,6 +45,12 @@
         <service android:name=".UnprotectedCrossUserService"
                 android:exported="true">
         </service>
+
+        <receiver android:name=".WipeDataReceiver">
+            <intent-filter>
+                <action android:name="com.android.cts.comp.WIPE_DATA" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

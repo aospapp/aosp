@@ -168,6 +168,73 @@ public class CodecUtils  {
         return counter;
     }
 
+    /**
+     * This method verifies the rotation degrees of a bitmap by reading the colors on its corners.
+     * The bitmap without rotation (rotation degree == 0) looks like
+     * red    |    green
+     * -----------------
+     * blue   |    white
+     * with resolution equals to 320x240.
+     */
+    public static boolean VerifyFrameRotationFromBitmap(Bitmap bitmap, int targetRotation) {
+        if (targetRotation == 0 || targetRotation == 180) {
+            if (bitmap.getWidth() != 320 || bitmap.getHeight() != 240) {
+                return false;
+            }
+            Color left_top = Color.valueOf(bitmap.getPixel(10, 10));
+            Color right_top = Color.valueOf(bitmap.getPixel(310, 10));
+            Color left_bottom = Color.valueOf(bitmap.getPixel(10, 230));
+            Color right_bottom = Color.valueOf(bitmap.getPixel(310, 230));
+            if (targetRotation == 0) {
+                if (!isRed(left_top) || !isGreen(right_top)
+                        || !isBlue(left_bottom) || !isWhite(right_bottom)) {
+                    return false;
+                }
+            } else {
+                if (!isWhite(left_top) || !isBlue(right_top)
+                        || !isGreen(left_bottom) || !isRed(right_bottom)) {
+                    return false;
+                }
+            }
+        } else if (targetRotation == 90 || targetRotation == 270) {
+            if (bitmap.getWidth() != 240 || bitmap.getHeight() != 320) {
+                return false;
+            }
+            Color left_top = Color.valueOf(bitmap.getPixel(10, 10));
+            Color right_top = Color.valueOf(bitmap.getPixel(230, 10));
+            Color left_bottom = Color.valueOf(bitmap.getPixel(10, 310));
+            Color right_bottom = Color.valueOf(bitmap.getPixel(230, 310));
+            if (targetRotation == 90) {
+                if (!isBlue(left_top) || !isRed(right_top)
+                        || !isWhite(left_bottom) || !isGreen(right_bottom)) {
+                    return false;
+                }
+            } else {
+                if (!isGreen(left_top) || !isWhite(right_top)
+                        || !isRed(left_bottom) || !isBlue(right_bottom)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static boolean isRed(Color color) {
+        return color.red() > 0.95 && color.green() < 0.05 && color.blue() < 0.05;
+    }
+
+    private static boolean isGreen(Color color) {
+        return color.red() < 0.05 && color.green() > 0.95 && color.blue() < 0.05;
+    }
+
+    private static boolean isBlue(Color color) {
+        return color.red() < 0.05 && color.green() < 0.05 && color.blue() > 0.95;
+    }
+
+    private static boolean isWhite(Color color) {
+        return color.red() > 0.95 && color.green() > 0.95 && color.blue() > 0.95;
+    }
+
     public static void saveBitmapToFile(Bitmap bitmap, String filename) {
         try {
             File outputFile = new File(Environment.getExternalStorageDirectory(), filename);

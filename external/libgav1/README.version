@@ -1,0 +1,11 @@
+URL: https://chromium.googlesource.com/codecs/libgav1
+Version: cl/267700628
+BugComponent: 324837
+Local Modifications:
+- ab3390a external/libgav1,cosmetics: add license headers
+- backport cl/281117442: Fully use the frame border for reference block.
+- backport cl/289984918: convolve: Use the correct subsampling for ref frames
+- backport cl/289966078: Move initial_display_delay out of OperatingParamet
+- backport cl/290784565: Handle a change of sequence header parameters.
+- backport cl/291222461: Disallow change of sequence header during a frame.
+- backport cl/289910031: obu: Check for size validity in SetTileDataOffset

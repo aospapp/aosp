@@ -74,7 +74,7 @@ class BtCarMultiUserTest(BluetoothBaseTest):
         """
         laps = 10
         initial_bt_crashes = bt_test_utils.get_bluetooth_crash_count(self.droid_ad)
-        current_bt_crashes = initial_bt_crashes
+        crashes_since_start = initial_bt_crashes
 
         for count in range(laps):
             delay_interval = random.randint(0, 1000)
@@ -89,10 +89,10 @@ class BtCarMultiUserTest(BluetoothBaseTest):
             if not users.switch_user(self.droid_ad, self.userid_2):
                 return False
 
-            current_bt_crashes = abs(initial_bt_crashes - bt_test_utils.get_bluetooth_crash_count(self.droid_ad))
-            self.log.info("Current bluetooth crashes: {} over {} laps".format(current_bt_crashes, count))
+            crashes_since_start = abs(initial_bt_crashes - bt_test_utils.get_bluetooth_crash_count(self.droid_ad))
+            self.log.info("Current bluetooth crashes: {} over {} laps".format(crashes_since_start, count))
 
-        if initial_bt_crashes != current_bt_crashes:
-            self.log.error("Bluetooth stack crashed {} times over {} laps".format(current_bt_crashes, laps))
+        if crashes_since_start != 0:
+            self.log.error("Bluetooth stack crashed {} times over {} laps".format(crashes_since_start, laps))
             return False
         return True

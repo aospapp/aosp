@@ -31,7 +31,7 @@ struct FwmarkConnectInfo {
         sockaddr_in6 sin6;
     } addr;
 
-    FwmarkConnectInfo() {}
+    FwmarkConnectInfo() : error(0), latencyMs(0) {}
 
     FwmarkConnectInfo(const int connectErrno, const unsigned latency, const sockaddr* saddr) {
         error = connectErrno;
@@ -54,7 +54,7 @@ struct FwmarkConnectInfo {
 // TODO: rework this struct into a more flexible data structure such as union or
 // a hierarchy class.
 struct FwmarkCommand {
-    enum {
+    enum CmdId {
         ON_ACCEPT,
         ON_CONNECT,
         SELECT_NETWORK,
@@ -69,6 +69,9 @@ struct FwmarkCommand {
         // command.
         SET_COUNTERSET,
         DELETE_TAGDATA,
+        ON_SENDMMSG,
+        ON_SENDMSG,
+        ON_SENDTO,
     } cmdId;
     unsigned netId;  // used only in the SELECT_NETWORK command; ignored otherwise.
     uid_t uid;       // used in the SELECT_FOR_USER, QUERY_USER_ACCESS, TAG_SOCKET,

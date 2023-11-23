@@ -34,7 +34,6 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 
-import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.applications.specialaccess.AppStateAppOpsBridge.PermissionState;
 import com.android.car.settings.testutils.ShadowAppOpsManager;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
@@ -45,6 +44,7 @@ import org.junit.runner.RunWith;
 import org.mockito.AdditionalMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
@@ -56,7 +56,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Unit test for {@link AppStateAppOpsBridge}. */
-@RunWith(CarSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowAppOpsManager.class})
 public class AppStateAppOpsBridgeTest {
 

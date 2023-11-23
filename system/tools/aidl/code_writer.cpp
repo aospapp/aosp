@@ -89,12 +89,12 @@ bool CodeWriter::Close() {
 }
 
 CodeWriter& CodeWriter::operator<<(const char* s) {
-  Write(s);
+  Write("%s", s);
   return *this;
 }
 
 CodeWriter& CodeWriter::operator<<(const std::string& str) {
-  Write(str.c_str());
+  Write("%s", str.c_str());
   return *this;
 }
 

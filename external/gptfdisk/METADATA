@@ -9,10 +9,10 @@ third_party {
     type: GIT
     value: "https://git.code.sf.net/p/gptfdisk/code"
   }
-  version: "a920398fa393f9d6301b32b191bc01e086ab8bc8"
+  version: "d292ff36a3b350115835c62462911c3d8721704f"
   last_upgrade_date {
-    year: 2015
+    year: 2020
     month: 2
-    day: 20
+    day: 10
   }
 }

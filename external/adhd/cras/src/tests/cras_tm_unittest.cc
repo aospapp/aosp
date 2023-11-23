@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <stdio.h>
 #include <gtest/gtest.h>
+#include <stdio.h>
 
 extern "C" {
 #include "cras_tm.h"
@@ -12,29 +12,27 @@ extern "C" {
 
 namespace {
 
-class TimerTestSuite : public testing::Test{
-  protected:
-    virtual void SetUp() {
-      tm_ = cras_tm_init();
-      ASSERT_TRUE(tm_);
-    }
+class TimerTestSuite : public testing::Test {
+ protected:
+  virtual void SetUp() {
+    tm_ = cras_tm_init();
+    ASSERT_TRUE(tm_);
+  }
 
-    virtual void TearDown() {
-      cras_tm_deinit(tm_);
-    }
+  virtual void TearDown() { cras_tm_deinit(tm_); }
 
-  struct cras_tm *tm_;
+  struct cras_tm* tm_;
 };
 
 static struct timespec time_now;
 static unsigned int test_cb_called;
 static unsigned int test_cb2_called;
 
-void test_cb(struct cras_timer *t, void *data) {
+void test_cb(struct cras_timer* t, void* data) {
   test_cb_called++;
 }
 
-void test_cb2(struct cras_timer *t, void *data) {
+void test_cb2(struct cras_timer* t, void* data) {
   test_cb2_called++;
 }
 
@@ -47,7 +45,7 @@ TEST_F(TimerTestSuite, InitNoTimers) {
 }
 
 TEST_F(TimerTestSuite, AddTimer) {
-  struct cras_timer *t;
+  struct cras_timer* t;
 
   t = cras_tm_create_timer(tm_, 10, test_cb, this);
   EXPECT_TRUE(t);
@@ -55,7 +53,7 @@ TEST_F(TimerTestSuite, AddTimer) {
 
 TEST_F(TimerTestSuite, AddLongTimer) {
   struct timespec ts;
-  struct cras_timer *t;
+  struct cras_timer* t;
   int timers_active;
 
   time_now.tv_sec = 0;
@@ -83,7 +81,7 @@ TEST_F(TimerTestSuite, AddLongTimer) {
 
 TEST_F(TimerTestSuite, AddRemoveTimer) {
   struct timespec ts;
-  struct cras_timer *t;
+  struct cras_timer* t;
   int timers_active;
 
   time_now.tv_sec = 0;
@@ -185,7 +183,7 @@ TEST_F(TimerTestSuite, AddTwoTimers) {
 /* Stubs */
 extern "C" {
 
-int clock_gettime(clockid_t clk_id, struct timespec *tp) {
+int clock_gettime(clockid_t clk_id, struct timespec* tp) {
   *tp = time_now;
   return 0;
 }
@@ -194,7 +192,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

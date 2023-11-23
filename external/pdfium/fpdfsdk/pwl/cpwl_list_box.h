@@ -38,11 +38,12 @@ class CPWL_List_Notify {
 
 class CPWL_ListBox : public CPWL_Wnd {
  public:
-  CPWL_ListBox();
+  CPWL_ListBox(
+      const CreateParams& cp,
+      std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData);
   ~CPWL_ListBox() override;
 
   // CPWL_Wnd
-  ByteString GetClassName() const override;
   void OnCreated() override;
   void OnDestroy() override;
   void DrawThisAppearance(CFX_RenderDevice* pDevice,
@@ -55,7 +56,7 @@ class CPWL_ListBox : public CPWL_Wnd {
   bool OnMouseWheel(short zDelta,
                     const CFX_PointF& point,
                     uint32_t nFlag) override;
-  void KillFocus() override;
+  WideString GetText() override;
   void SetScrollInfo(const PWL_SCROLL_INFO& info) override;
   void SetScrollPosition(float pos) override;
   void ScrollWindowVertically(float pos) override;
@@ -63,8 +64,6 @@ class CPWL_ListBox : public CPWL_Wnd {
   CFX_FloatRect GetFocusRect() const override;
   void SetFontSize(float fFontSize) override;
   float GetFontSize() const override;
-
-  virtual WideString GetText() const;
 
   bool OnNotifySelectionChanged(bool bKeyDown, uint32_t nFlag);
 
@@ -74,6 +73,7 @@ class CPWL_ListBox : public CPWL_Wnd {
   void ResetContent();
   void Reset();
   void Select(int32_t nItemIndex);
+  void Deselect(int32_t nItemIndex);
   void SetCaret(int32_t nItemIndex);
   void SetHoverSel(bool bHoverSel);
 
@@ -95,10 +95,10 @@ class CPWL_ListBox : public CPWL_Wnd {
   void AttachFFLData(CFFL_FormFiller* pData) { m_pFormFiller = pData; }
 
  protected:
+  bool m_bMouseDown = false;
+  bool m_bHoverSel = false;
   std::unique_ptr<CPWL_ListCtrl> m_pList;
   std::unique_ptr<CPWL_List_Notify> m_pListNotify;
-  bool m_bMouseDown;
-  bool m_bHoverSel;
   UnownedPtr<IPWL_Filler_Notify> m_pFillerNotify;
 
  private:

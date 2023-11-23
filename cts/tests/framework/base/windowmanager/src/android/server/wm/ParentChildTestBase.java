@@ -16,6 +16,7 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
 import static android.server.wm.StateLogger.log;
 import static android.server.wm.DialogFrameTestActivity.EXTRA_TEST_CASE;
@@ -65,6 +66,10 @@ abstract class ParentChildTestBase<T extends Activity> extends ActivityManagerTe
         startTestCaseDocked(testCase);
         doSingleTest(t);
         activityRule().finishActivity();
+
+        mWmState.waitForWithAmState(amState -> !amState.containsStack(
+                WINDOWING_MODE_SPLIT_SCREEN_PRIMARY, ACTIVITY_TYPE_STANDARD),
+                "docked stack to be removed");
     }
 
     void doParentChildTest(String testCase, ParentChildTest t) throws Exception {

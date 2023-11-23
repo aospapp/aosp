@@ -49,9 +49,23 @@ namespace chre {
  *     both the current and other. The method returns true if the current
  *     request has changed.
  */
-template<typename RequestType>
+template <typename RequestType>
 class RequestMultiplexer : public NonCopyable {
  public:
+  RequestMultiplexer() = default;
+  RequestMultiplexer(RequestMultiplexer &&other) {
+    *this = std::move(other);
+  }
+
+  RequestMultiplexer &operator=(RequestMultiplexer &&other) {
+    mRequests = std::move(other.mRequests);
+
+    mCurrentMaximalRequest = other.mCurrentMaximalRequest;
+    other.mCurrentMaximalRequest = RequestType();
+
+    return *this;
+  }
+
   /**
    * Adds a request to the list of requests being managed by this multiplexer.
    *
@@ -65,7 +79,7 @@ class RequestMultiplexer : public NonCopyable {
    * @return Returns false if the request cannot be inserted into the
    *         multiplexer.
    */
-  bool addRequest(const RequestType& request, size_t *index,
+  bool addRequest(const RequestType &request, size_t *index,
                   bool *maximalRequestChanged);
 
   /**
@@ -80,7 +94,7 @@ class RequestMultiplexer : public NonCopyable {
    *        API must query the getCurrentMaximalRequest() method to get the new
    *        maximal request.
    */
-  void updateRequest(size_t index, const RequestType& request,
+  void updateRequest(size_t index, const RequestType &request,
                      bool *maximalRequestChanged);
 
   /**
@@ -108,12 +122,12 @@ class RequestMultiplexer : public NonCopyable {
   /**
    * @return The list of requests managed by this multiplexer.
    */
-  const DynamicVector<RequestType>& getRequests() const;
+  const DynamicVector<RequestType> &getRequests() const;
 
   /**
    * @return Returns the current maximal request.
    */
-  const RequestType& getCurrentMaximalRequest() const;
+  const RequestType &getCurrentMaximalRequest() const;
 
  private:
   //! The list of requests to track.

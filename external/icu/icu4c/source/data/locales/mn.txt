@@ -11,10 +11,11 @@ mn{
         word-medial{"{0} … {1}"}
     }
     ExemplarCharacters{"[а б в г д е ё ж з и й к л м н о ө п р с т у ү ф х ц ч ш щ ъ ы ь э ю я]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersIndex{"[А Б В Г Д Е Ж З И Й К Л М Н О Ө П Р С Т У Ү Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -214,7 +215,7 @@ mn{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.43.94"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -269,7 +270,7 @@ mn{
                 yyyyMEd{"GGGGG y.MM.dd. E"}
                 yyyyMMM{"G y 'оны' MMM"}
                 yyyyMMMEd{"G y 'оны' MMM'ын' d. E"}
-                yyyyMMMM{"G y 'оны' MMM"}
+                yyyyMMMM{"G y 'оны' MMMM"}
                 yyyyMMMd{"G y 'оны' MMM'ын' d"}
                 yyyyMd{"GGGGG y.MM.dd"}
                 yyyyQQQ{"G y 'оны' QQQ"}
@@ -389,8 +390,8 @@ mn{
                 "HH:mm:ss (z)",
                 "HH:mm:ss",
                 "HH:mm",
-                "y.MM.dd, EEEE",
-                "y.MM.dd",
+                "y 'оны' MMMM'ын' d, EEEE 'гараг'",
+                "y 'оны' MMMM'ын' d",
                 "y 'оны' MMM'ын' d",
                 "y.MM.dd",
                 "{1} {0}",
@@ -446,7 +447,7 @@ mn{
                 yMEd{"y.MM.dd. E"}
                 yMMM{"y 'оны' MMM"}
                 yMMMEd{"y 'оны' MMM'ын' d. E"}
-                yMMMM{"y 'оны' MMM"}
+                yMMMM{"y 'оны' MMMM"}
                 yMMMd{"y 'оны' MMM'ын' d"}
                 yMd{"y.MM.dd"}
                 yQQQ{"y 'оны' QQQ"}
@@ -617,6 +618,9 @@ mn{
                 }
             }
             intervalFormats{
+                GyMMM{
+                    M{"G y MMM – MMM"}
+                }
                 H{
                     H{"HH – HH 'ц'"}
                 }
@@ -1605,6 +1609,11 @@ mn{
         }
         week-narrow{
             dn{"7 хоног"}
+            relative{
+                "-1"{"өнгөрсөн 7 хоног"}
+                "0"{"энэ 7 хоног"}
+                "1"{"ирэх 7 хоног"}
+            }
             relativePeriod{"{0}-н 7 хоног"}
             relativeTime{
                 future{
@@ -1619,6 +1628,11 @@ mn{
         }
         week-short{
             dn{"7 хоног"}
+            relative{
+                "-1"{"өнгөрсөн 7 хоног"}
+                "0"{"энэ 7 хоног"}
+                "1"{"ирэх 7 хоног"}
+            }
             relativePeriod{"{0}-н 7 хоног"}
             relativeTime{
                 future{
@@ -1715,9 +1729,15 @@ mn{
     listPattern{
         or{
             2{"{0} эсвэл {1}"}
-            end{"{0}, эсвэл {1}"}
+            end{"{0}, {1} зэргийн аль нэг"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        or-narrow{
+            end{"{0}, {1} зэргийн аль нэг"}
+        }
+        or-short{
+            end{"{0}, {1} зэргийн аль нэг"}
         }
         standard{
             2{"{0}, {1}"}
@@ -1725,34 +1745,32 @@ mn{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
-        standard-short{
+        standard-narrow{
             2{"{0}, {1}"}
             end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         unit{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-narrow{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-short{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
     }
     measurementSystemNames{
         UK{"ИБ"}
         US{"АНУ"}
-        metric{"метрийн"}
+        metric{"метрийн систем"}
     }
 }

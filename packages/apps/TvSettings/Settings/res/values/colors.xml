@@ -159,4 +159,7 @@
     <color name="setup_primary_text_color">#FFEEEEEE</color>
 
     <color name="activity_progress_text">#FFEEEEEE</color>
+
+    <!-- Dialog background color -->
+    <color name="dialog_background">@*android:color/background_device_default_light</color>
 </resources>

@@ -5,13 +5,17 @@ cc_library_static {
         "common/cras_audio_format.c",
         "common/cras_config.c",
         "common/cras_file_wait.c",
+        "common/cras_shm.c",
         "common/cras_util.c",
         "common/edid_utils.c",
         "libcras/cras_client.c",
         "libcras/cras_helpers.c",
     ],
 
-    shared_libs: ["libtinyalsa"],
+    shared_libs: [
+        "libcutils",
+        "libtinyalsa",
+    ],
 
     export_include_dirs: [
         "common",
@@ -24,6 +28,7 @@ cc_library_static {
         "-Werror",
         "-Wno-error=missing-field-initializers",
         "-Wno-sign-compare",
+        "-Wno-unused-function",
         "-Wno-unused-parameter",
     ],
 }

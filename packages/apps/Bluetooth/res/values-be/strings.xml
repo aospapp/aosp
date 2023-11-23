@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Доступ да менеджэра спампоўванняў."</string>
+    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Доступ да Менеджара спамповак."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Дазваляе прыкладанням атрымліваць доступ да менеджэра BluetoothShare і выкарыстоўваць яго для перадачы файлаў."</string>
     <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Даданне прылад Bluetooth у белы спiс."</string>
     <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Дазваляе прыкладанням часова ўносiць у белы спіс прылады Bluetooth, дазваляючы iм адпраўляць файлы на гэту прыладу без пацверджання карыстальнiка."</string>
@@ -69,7 +69,6 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"ОК"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"Файл не адпраўлены атрымальніку \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Файл: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Паспрабаваць яшчэ раз"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Закрыць"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ОК"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Невядомы файл"</string>
@@ -138,4 +137,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth-аўдыя адключана"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth-аўдыя"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Немагчыма перадаць файлы, большыя за 4 ГБ"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"Падключыцца да Bluetooth"</string>
 </resources>

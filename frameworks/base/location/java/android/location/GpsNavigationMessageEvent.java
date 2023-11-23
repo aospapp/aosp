@@ -27,8 +27,11 @@ import java.security.InvalidParameterException;
  * A class implementing a container for data associated with a navigation message event.
  * Events are delivered to registered instances of {@link Listener}.
  *
+ * @deprecated use {@link GnssNavigationMessage} instead.
+ *
  * @hide
  */
+@Deprecated
 @SystemApi
 public class GpsNavigationMessageEvent implements Parcelable {
 
@@ -109,6 +112,7 @@ public class GpsNavigationMessageEvent implements Parcelable {
         parcel.writeParcelable(mNavigationMessage, flags);
     }
 
+    @NonNull
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder("[ GpsNavigationMessageEvent:\n\n");

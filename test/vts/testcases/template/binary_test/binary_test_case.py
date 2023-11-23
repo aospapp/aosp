@@ -52,6 +52,7 @@ class BinaryTestCase(object):
         name_appendix: string, appendix attached to the test name in display,
                        typically contains info of parameters used in the test,
                        e.e. service name used for hal hidl test.
+        filter_file: string, a path pointing to the file containing the filters.
     '''
 
     def __init__(self,
@@ -79,6 +80,7 @@ class BinaryTestCase(object):
         self.envp = envp
         self.args = args
         self.name_appendix = name_appendix
+        self.filter_file = None
 
     def __str__(self):
         return self._GenerateDisplayName()

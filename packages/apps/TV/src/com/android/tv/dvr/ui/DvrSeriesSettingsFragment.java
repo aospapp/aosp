@@ -21,17 +21,19 @@ import android.app.FragmentManager;
 import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
-import android.support.v17.leanback.widget.GuidedAction;
-import android.support.v17.leanback.widget.GuidedActionsStylist;
 import android.util.LongSparseArray;
+
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.GuidanceStylist.Guidance;
+import androidx.leanback.widget.GuidedAction;
+import androidx.leanback.widget.GuidedActionsStylist;
+
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ChannelImpl;
-import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
+import com.android.tv.data.api.Program;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
@@ -39,6 +41,7 @@ import com.android.tv.dvr.data.SeasonEpisodeNumber;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.data.SeriesRecording.ChannelOption;
 import com.android.tv.dvr.recorder.SeriesRecordingScheduler;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -69,6 +72,7 @@ public class DvrSeriesSettingsFragment extends GuidedStepFragment
     private Program mCurrentProgram;
 
     private String mFragmentTitle;
+    private String mSeriesRecordingTitle;
     private String mProrityActionTitle;
     private String mProrityActionHighestText;
     private String mProrityActionLowestText;
@@ -92,6 +96,7 @@ public class DvrSeriesSettingsFragment extends GuidedStepFragment
             getActivity().finish();
             return;
         }
+        mSeriesRecordingTitle = mSeriesRecording.getTitle();
         mShowViewScheduleOptionInDialog =
                 getArguments()
                         .getBoolean(DvrSeriesSettingsActivity.SHOW_VIEW_SCHEDULE_OPTION_IN_DIALOG);
@@ -161,9 +166,8 @@ public class DvrSeriesSettingsFragment extends GuidedStepFragment
 
     @Override
     public Guidance onCreateGuidance(Bundle savedInstanceState) {
-        String breadcrumb = mSeriesRecording.getTitle();
         String title = mFragmentTitle;
-        return new Guidance(title, null, breadcrumb, null);
+        return new Guidance(title, null, mSeriesRecordingTitle, null);
     }
 
     @Override

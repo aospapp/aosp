@@ -1,7 +1,6 @@
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """ This module provides convenience routines to access Flash ROM (EEPROM)
 
 saft_flashrom_util is based on utility 'flashrom'.
@@ -20,8 +19,11 @@ Currently the tool supports multiple partial write but not partial read.
 In the saft_flashrom_util, we provide read and partial write abilities.
 For more information, see help(saft_flashrom_util.flashrom_util).
 """
+import re
+
 
 class TestError(Exception):
+    """Represents an internal error, such as invalid arguments."""
     pass
 
 
@@ -30,38 +32,40 @@ class LayoutScraper(object):
 
     # The default conversion table for mosys.
     DEFAULT_CHROMEOS_FMAP_CONVERSION = {
-        "Boot Stub": "FV_BSTUB",
-        "GBB Area": "FV_GBB",
-        "Recovery Firmware": "FVDEV",
-        "RO VPD": "RO_VPD",
-        "Firmware A Key": "VBOOTA",
-        "Firmware A Data": "FVMAIN",
-        "Firmware B Key": "VBOOTB",
-        "Firmware B Data": "FVMAINB",
-        "Log Volume": "FV_LOG",
-        # New layout in Chrome OS Main Processor Firmware Specification,
-        # used by all newer (>2011) platforms except Mario.
-        "BOOT_STUB": "FV_BSTUB",
-        "RO_FRID": "RO_FRID",
-        "GBB": "FV_GBB",
-        "RECOVERY": "FVDEV",
-        "VBLOCK_A": "VBOOTA",
-        "VBLOCK_B": "VBOOTB",
-        "FW_MAIN_A": "FVMAIN",
-        "FW_MAIN_B": "FVMAINB",
-        "RW_FWID_A": "RW_FWID_A",
-        "RW_FWID_B": "RW_FWID_B",
-        # Memory Training data cache for recovery boots
-        # Added on Nov 09, 2016
-        "RECOVERY_MRC_CACHE": "RECOVERY_MRC_CACHE",
-        # New sections in Depthcharge.
-        "EC_MAIN_A": "ECMAINA",
-        "EC_MAIN_B": "ECMAINB",
-        # EC firmware layout
-        "EC_RW": "EC_RW",
-        "EC_RW_B": "EC_RW_B",
-        "RW_FWID": "RW_FWID",
-        }
+            "Boot Stub": "FV_BSTUB",
+            "GBB Area": "FV_GBB",
+            "Recovery Firmware": "FVDEV",
+            "RO VPD": "RO_VPD",
+            "Firmware A Key": "VBOOTA",
+            "Firmware A Data": "FVMAIN",
+            "Firmware B Key": "VBOOTB",
+            "Firmware B Data": "FVMAINB",
+            "Log Volume": "FV_LOG",
+            # New layout in Chrome OS Main Processor Firmware Specification,
+            # used by all newer (>2011) platforms except Mario.
+            "BOOT_STUB": "FV_BSTUB",
+            "RO_FRID": "RO_FRID",
+            "GBB": "FV_GBB",
+            "RECOVERY": "FVDEV",
+            "VBLOCK_A": "VBOOTA",
+            "VBLOCK_B": "VBOOTB",
+            "FW_MAIN_A": "FVMAIN",
+            "FW_MAIN_B": "FVMAINB",
+            "RW_FWID_A": "RW_FWID_A",
+            "RW_FWID_B": "RW_FWID_B",
+            # Memory Training data cache for recovery boots
+            # Added on Nov 09, 2016
+            "RECOVERY_MRC_CACHE": "RECOVERY_MRC_CACHE",
+            # New sections in Depthcharge.
+            "EC_MAIN_A": "ECMAINA",
+            "EC_MAIN_B": "ECMAINB",
+            # EC firmware layout
+            "EC_RW": "EC_RW",
+            "EC_RW_B": "EC_RW_B",
+            "RW_FWID": "RW_FWID",
+            "RW_LEGACY": "RW_LEGACY",
+    }
+
 
     def __init__(self, os_if):
         self.image = None
@@ -124,12 +128,12 @@ class LayoutScraper(object):
             if section_base <= base or section_end + 1 < section_base:
                 # Overlapped section is possible, like the fwid which is
                 # inside the main fw section.
-                self.os_if.log('overlapped section at 0x%x..0x%x' % (
-                        section_base, section_end))
+                self.os_if.log('overlapped section at 0x%x..0x%x' %
+                               (section_base, section_end))
             base = section_end
         if base > file_size:
-            raise TestError('Section end 0x%x exceeds file size %x' % (
-                    base, file_size))
+            raise TestError('Section end 0x%x exceeds file size %x' %
+                            (base, file_size))
 
     def get_layout(self, file_name):
         """Generate layout for a firmware file.
@@ -145,8 +149,8 @@ class LayoutScraper(object):
         caller.
         """
 
-        layout_data = {} # keyed by the section name, elements - tuples of
-                         # (<section start addr>, <section end addr>)
+        layout_data = {}  # keyed by the section name, elements - tuples of
+        # (<section start addr>, <section end addr>)
 
         for line in self._get_text_layout(file_name):
             d = self._line_to_dictionary(line)
@@ -164,6 +168,7 @@ class LayoutScraper(object):
 
         self.check_layout(layout_data, self.os_if.get_file_size(file_name))
         return layout_data
+
 
 # flashrom utility wrapper
 class flashrom_util(object):
@@ -196,7 +201,7 @@ class flashrom_util(object):
     stored locally, this map can be overwritten by an explicitly passed user
     map.
 
-   To perform a (partial) write:
+    To perform a (partial) write:
 
      1. Prepare a buffer storing an image to be written into the flashrom.
      2. Have the map generated automatically or prepare your own, for instance:
@@ -208,14 +213,20 @@ class flashrom_util(object):
           flashrom.write_partial(new_image, (<section_name>, ...))
         ex using explicitly provided map:
           flashrom.write_partial(new_image, layout_map_all, ('all',))
-
-    Attributes:
-        keep_temp_files: boolean flag to control cleaning of temporary files
     """
 
-    def __init__(self, os_if, keep_temp_files=False,
-                 target_is_ec=False):
-        """ constructor of flashrom_util. help(flashrom_util) for more info """
+    def __init__(self, os_if, keep_temp_files=False, target_is_ec=False):
+        """ constructor of flashrom_util. help(flashrom_util) for more info
+
+        @param os_if: an object providing interface to OS services
+        @param keep_temp_files: if true, preserve temp files after operations
+        @param target_is_ec: if false, target is BIOS/AP
+
+        @type os_if: client.cros.faft.utils.os_interface.OSInterface
+        @type keep_temp_files: bool
+        @type target_is_ec: bool
+        """
+
         self.os_if = os_if
         self.keep_temp_files = keep_temp_files
         self.firmware_layout = {}
@@ -226,14 +237,12 @@ class flashrom_util(object):
             self._enable_bios_access()
 
     def _enable_bios_access(self):
-        if not self.os_if.target_hosted():
-            return
-        self._target_command = '-p host'
+        if self.os_if.test_mode or self.os_if.target_hosted():
+            self._target_command = '-p host'
 
     def _enable_ec_access(self):
-        if not self.os_if.target_hosted():
-            return
-        self._target_command = '-p ec'
+        if self.os_if.test_mode or self.os_if.target_hosted():
+            self._target_command = '-p ec'
 
     def _get_temp_filename(self, prefix):
         """Returns name of a temporary file in /tmp."""
@@ -251,12 +260,26 @@ class flashrom_util(object):
 
         Returns the file name containing layout information.
         """
-        layout_text = ['0x%08lX:0x%08lX %s' % (v[0], v[1], k)
-            for k, v in layout_map.items()]
+        layout_text = [
+                '0x%08lX:0x%08lX %s' % (v[0], v[1], k)
+                for k, v in layout_map.items()
+        ]
         layout_text.sort()  # XXX unstable if range exceeds 2^32
         tmpfn = self._get_temp_filename('lay_')
         self.os_if.write_file(tmpfn, '\n'.join(layout_text) + '\n')
         return tmpfn
+
+    def check_target(self):
+        """Check if flashrom programmer is working, by specifying no commands.
+
+        The command executed is just 'flashrom -p <target>'.
+
+        @return: True if flashrom completed successfully
+        @raise autotest_lib.client.common_lib.error.CmdError: if flashrom failed
+        """
+        cmd = 'flashrom %s' % self._target_command
+        self.os_if.run_shell_command(cmd)
+        return True
 
     def get_section(self, base_image, section_name):
         """
@@ -267,9 +290,9 @@ class flashrom_util(object):
             return ''
         pos = self.firmware_layout[section_name]
         if pos[0] >= pos[1] or pos[1] >= len(base_image):
-            raise TestError('INTERNAL ERROR: invalid layout map: %s.' %
-                            section_name)
-        blob = base_image[pos[0] : pos[1] + 1]
+            raise TestError(
+                    'INTERNAL ERROR: invalid layout map: %s.' % section_name)
+        blob = base_image[pos[0]:pos[1] + 1]
         # Trim down the main firmware body to its actual size since the
         # signing utility uses the size of the input file as the size of
         # the data to sign. Make it the same way as firmware creation.
@@ -291,14 +314,14 @@ class flashrom_util(object):
             raise TestError('INTERNAL ERROR: invalid layout map.')
         if len(data) != pos[1] - pos[0] + 1:
             # Pad the main firmware body since we trimed it down before.
-            if (len(data) < pos[1] - pos[0] + 1 and section_name in
-                    ('FVMAIN', 'FVMAINB', 'ECMAINA', 'ECMAINB',
-                     'RW_FWID')):
+            if (len(data) < pos[1] - pos[0] + 1
+                        and section_name in ('FVMAIN', 'FVMAINB', 'ECMAINA',
+                                             'ECMAINB', 'RW_FWID')):
                 pad = base_image[pos[1]]
                 data = data + pad * (pos[1] - pos[0] + 1 - len(data))
             else:
                 raise TestError('INTERNAL ERROR: unmatched data size.')
-        return base_image[0 : pos[0]] + data + base_image[pos[1] + 1 :]
+        return base_image[0:pos[0]] + data + base_image[pos[1] + 1:]
 
     def get_size(self):
         """ Gets size of current flash ROM """
@@ -315,13 +338,110 @@ class flashrom_util(object):
         self.firmware_layout = scraper.get_layout(file_name)
 
     def enable_write_protect(self):
-        """Enable the write pretection of the flash chip."""
+        """Enable the write protection of the flash chip."""
+
+        # For MTD devices, this will fail: need both --wp-range and --wp-enable.
+        # See: https://crrev.com/c/275381
+
         cmd = 'flashrom %s --wp-enable' % self._target_command
-        self.os_if.run_shell_command(cmd)
+        self.os_if.run_shell_command(cmd, modifies_device=True)
 
     def disable_write_protect(self):
-        """Disable the write pretection of the flash chip."""
+        """Disable the write protection of the flash chip."""
         cmd = 'flashrom %s --wp-disable' % self._target_command
+        self.os_if.run_shell_command(cmd, modifies_device=True)
+
+    def set_write_protect_region(self, image_file, region, enabled=None):
+        """
+        Set write protection region, using specified image's layout.
+
+        The name should match those seen in `futility dump_fmap <image>`, and
+        is not checked against self.firmware_layout, due to different naming.
+
+        @param image_file: path of the image file to read regions from
+        @param region: Region to set (usually WP_RO)
+        @param enabled: if True, run --wp-enable; if False, run --wp-disable.
+        """
+        cmd = 'flashrom %s --image %s --wp-region %s' % (
+                self._target_command, image_file, region)
+        if enabled is not None:
+            cmd += ' '
+            cmd += '--wp-enable' if enabled else '--wp-disable'
+
+        self.os_if.run_shell_command(cmd, modifies_device=True)
+
+    def set_write_protect_range(self, start, length, enabled=None):
+        """
+        Set write protection range by offset, using current image's layout.
+
+        @param start: offset (bytes) from start of flash to start of range
+        @param length: offset (bytes) from start of range to end of range
+        @param enabled: If True, run --wp-enable; if False, run --wp-disable.
+                        If None (default), don't specify either one.
+        """
+        cmd = 'flashrom %s --wp-range %s %s' % (
+                self._target_command, start, length)
+        if enabled is not None:
+            cmd += ' '
+            cmd += '--wp-enable' if enabled else '--wp-disable'
+
+        self.os_if.run_shell_command(cmd, modifies_device=True)
+
+    def get_write_protect_status(self):
+        """Get a dict describing the status of the write protection
+
+        @return: {'enabled': True/False, 'start': '0x0', 'length': '0x0', ...}
+        @rtype: dict
+        """
+        # https://crrev.com/8ebbd500b5d8da9f6c1b9b44b645f99352ef62b4/writeprotect.c
+
+        status_pattern = re.compile(
+                r'WP: status: (.*)')
+        enabled_pattern = re.compile(
+                r'WP: write protect is (\w+)\.?')
+        range_pattern = re.compile(
+                r'WP: write protect range: start=(\w+), len=(\w+)')
+        range_err_pattern = re.compile(
+                r'WP: write protect range: (.+)')
+
+        output = self.os_if.run_shell_command_get_output(
+                'flashrom %s --wp-status' % self._target_command)
+
+        wp_status = {}
+        for line in output:
+            if not line.startswith('WP: '):
+                continue
+
+            found_enabled = re.match(enabled_pattern, line)
+            if found_enabled:
+                status_word = found_enabled.group(1)
+                wp_status['enabled'] = (status_word == 'enabled')
+                continue
+
+            found_range = re.match(range_pattern, line)
+            if found_range:
+                (start, length) = found_range.groups()
+                wp_status['start'] = int(start, 16)
+                wp_status['length'] = int(length, 16)
+                continue
+
+            found_range_err = re.match(range_err_pattern, line)
+            if found_range_err:
+                # WP: write protect range: (cannot resolve the range)
+                wp_status['error'] = found_range_err.group(1)
+                continue
+
+            found_status = re.match(status_pattern, line)
+            if found_status:
+                wp_status['status'] = found_status.group(1)
+                continue
+
+        return wp_status
+
+    def dump_flash(self, filename):
+        """Read the flash device's data into a file, but don't parse it."""
+        cmd = 'flashrom %s -r "%s"' % (self._target_command, filename)
+        self.os_if.log('flashrom_util.dump_flash(): %s' % cmd)
         self.os_if.run_shell_command(cmd)
 
     def read_whole(self):
@@ -355,16 +475,11 @@ class flashrom_util(object):
         self.os_if.write_file(tmpfn, base_image)
         layout_fn = self._create_layout_file(layout_map)
 
-        cmd = 'flashrom %s -l "%s" -i %s -w "%s"' % (
-                self._target_command, layout_fn, ' -i '.join(write_list), tmpfn)
-        self.os_if.log('flashrom.write_partial(): %s' % cmd)
-        self.os_if.run_shell_command(cmd)
-
-        # flashrom write will reboot the ec after corruption
-        # For Android, need to make sure ec is back online
-        # before continuing, or adb command will cause test failure
-        if self.os_if.is_android:
-            self.os_if.wait_for_device(60)
+        write_cmd = 'flashrom %s -l "%s" -i %s -w "%s"' % (
+                self._target_command, layout_fn, ' -i '.join(write_list),
+                tmpfn)
+        self.os_if.log('flashrom.write_partial(): %s' % write_cmd)
+        self.os_if.run_shell_command(write_cmd, modifies_device=True)
 
         # clean temporary resources
         self._remove_temp_file(tmpfn)
@@ -372,5 +487,5 @@ class flashrom_util(object):
 
     def write_whole(self, base_image):
         """Write the whole base image. """
-        layout_map = { 'all': (0, len(base_image) - 1) }
-        self.write_partial(base_image, ('all',), layout_map)
+        layout_map = {'all': (0, len(base_image) - 1)}
+        self.write_partial(base_image, ('all', ), layout_map)

@@ -18,7 +18,6 @@
 
 #define LOG_NDEBUG 0
 
-#include "android_runtime/AndroidRuntime.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_av.h"
 #include "utils/Log.h"
@@ -219,6 +218,29 @@ static void informAudioTrackGainNative(JNIEnv* env, jobject object,
   sBluetoothA2dpInterface->set_audio_track_gain((float)gain);
 }
 
+static jboolean setActiveDeviceNative(JNIEnv* env, jobject object,
+                                      jbyteArray address) {
+  if (!sBluetoothA2dpInterface) return JNI_FALSE;
+
+  ALOGI("%s: sBluetoothA2dpInterface: %p", __func__, sBluetoothA2dpInterface);
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
+  bt_status_t status = sBluetoothA2dpInterface->set_active_device(rawAddress);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed sending passthru command, status: %d", status);
+  }
+  env->ReleaseByteArrayElements(address, addr, 0);
+
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -227,6 +249,7 @@ static JNINativeMethod sMethods[] = {
     {"disconnectA2dpNative", "([B)Z", (void*)disconnectA2dpNative},
     {"informAudioFocusStateNative", "(I)V", (void*)informAudioFocusStateNative},
     {"informAudioTrackGainNative", "(F)V", (void*)informAudioTrackGainNative},
+    {"setActiveDeviceNative", "([B)Z", (void*)setActiveDeviceNative},
 };
 
 int register_com_android_bluetooth_a2dp_sink(JNIEnv* env) {

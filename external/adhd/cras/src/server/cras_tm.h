@@ -24,11 +24,10 @@ struct cras_timer;
  *    Pointer to a newly allocated timer, passed timer to cras_tm_cancel_timer
  *    to cancel before it fires.
  */
-struct cras_timer *cras_tm_create_timer(
-		struct cras_tm *tm,
-		unsigned int ms,
-		void (*cb)(struct cras_timer *t, void *data),
-		void *cb_data);
+struct cras_timer *cras_tm_create_timer(struct cras_tm *tm, unsigned int ms,
+					void (*cb)(struct cras_timer *t,
+						   void *data),
+					void *cb_data);
 
 /* Deletes a timer returned from cras_tm_create_timer. */
 void cras_tm_cancel_timer(struct cras_tm *tm, struct cras_timer *t);

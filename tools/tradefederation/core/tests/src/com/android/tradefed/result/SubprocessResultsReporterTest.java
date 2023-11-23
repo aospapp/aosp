@@ -15,23 +15,31 @@
  */
 package com.android.tradefed.result;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.error.InfraErrorIdentifier;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.SubprocessTestResultsParser;
 
+import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
 import java.io.File;
-import java.util.HashMap;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -69,13 +77,15 @@ public class SubprocessResultsReporterTest {
         File tmpReportFile = FileUtil.createTempFile("subprocess-reporter", "unittest");
         try {
             setter.setOptionValue("subprocess-report-file", tmpReportFile.getAbsolutePath());
-            mReporter.testRunStarted("TEST", 5);
+            mReporter.testRunStarted("TEST", 5, 1, 500);
             mReporter.testRunEnded(100, new HashMap<String, Metric>());
             String content = FileUtil.readStringFromFile(tmpReportFile);
-            assertEquals(
-                    "TEST_RUN_STARTED {\"testCount\":5,\"runName\":\"TEST\",\"runAttempt\":0}\n"
-                            + "TEST_RUN_ENDED {\"time\":100}\n",
-                    content);
+            assertTrue(content.contains("TEST_RUN_STARTED"));
+            assertTrue(content.contains("\"testCount\":5"));
+            assertTrue(content.contains("\"runName\":\"TEST\""));
+            assertTrue(content.contains("\"start_time\":500"));
+            assertTrue(content.contains("\"runAttempt\":1"));
+            assertTrue(content.contains("TEST_RUN_ENDED {\"time\":100}\n"));
         } finally {
             FileUtil.deleteFile(tmpReportFile);
         }
@@ -112,6 +122,7 @@ public class SubprocessResultsReporterTest {
         ITestInvocationListener mMockListener = EasyMock.createMock(ITestInvocationListener.class);
         SubprocessTestResultsParser receiver =
                 new SubprocessTestResultsParser(mMockListener, true, new InvocationContext());
+        Capture<FailureDescription> captured = new Capture<>();
         try {
             OptionSetter setter = new OptionSetter(mReporter);
             setter.setOptionValue("subprocess-report-port",
@@ -119,7 +130,7 @@ public class SubprocessResultsReporterTest {
             // mirror calls between receiver and sender.
             mMockListener.testIgnored(testId);
             mMockListener.testAssumptionFailure(testId, "fake trace");
-            mMockListener.testRunFailed("no reason");
+            mMockListener.testRunFailed(EasyMock.capture(captured));
             mMockListener.invocationFailed((Throwable)EasyMock.anyObject());
             EasyMock.replay(mMockListener);
             mReporter.testIgnored(testId);
@@ -132,6 +143,81 @@ public class SubprocessResultsReporterTest {
         } finally {
             receiver.close();
         }
+        FailureDescription capturedFailure = captured.getValue();
+        assertEquals("no reason", capturedFailure.getErrorMessage());
+        assertNull(capturedFailure.getFailureStatus());
+        assertEquals(ActionInProgress.UNSET, capturedFailure.getActionInProgress());
+        assertEquals("", capturedFailure.getOrigin());
+    }
+
+    /**
+     * Test that events sent through the socket reporting part are received on the other hand even
+     * with the new structured failures.
+     */
+    @Test
+    public void testPrintEvent_printToSocket_StructuredFailures() throws Exception {
+        TestDescription testId = new TestDescription("com.fakeclass", "faketest");
+        ITestInvocationListener mMockListener = EasyMock.createMock(ITestInvocationListener.class);
+        SubprocessTestResultsParser receiver =
+                new SubprocessTestResultsParser(mMockListener, true, new InvocationContext());
+        Capture<FailureDescription> captured = new Capture<>();
+        Capture<FailureDescription> invocationFailureCaptured = new Capture<>();
+        try {
+            OptionSetter setter = new OptionSetter(mReporter);
+            setter.setOptionValue(
+                    "subprocess-report-port", Integer.toString(receiver.getSocketServerPort()));
+            // mirror calls between receiver and sender.
+            mMockListener.testIgnored(testId);
+            mMockListener.testAssumptionFailure(testId, "fake trace");
+            mMockListener.testRunFailed(EasyMock.capture(captured));
+            mMockListener.invocationFailed(EasyMock.capture(invocationFailureCaptured));
+            EasyMock.replay(mMockListener);
+            mReporter.testIgnored(testId);
+            mReporter.testAssumptionFailure(testId, "fake trace");
+            FailureDescription runFailure =
+                    FailureDescription.create("no reason")
+                            .setFailureStatus(FailureStatus.TEST_FAILURE)
+                            .setOrigin("origin")
+                            .setActionInProgress(ActionInProgress.FETCHING_ARTIFACTS)
+                            .setErrorIdentifier(InfraErrorIdentifier.UNDETERMINED);
+            mReporter.testRunFailed(runFailure);
+            FailureDescription invocationFailure =
+                    FailureDescription.create("invoc error")
+                            .setCause(new Throwable("invoc erroc"))
+                            .setFailureStatus(FailureStatus.INFRA_FAILURE)
+                            .setActionInProgress(ActionInProgress.TEST)
+                            .setOrigin("invoc origin")
+                            .setErrorIdentifier(InfraErrorIdentifier.UNDETERMINED);
+            mReporter.invocationFailed(invocationFailure);
+            mReporter.close();
+            receiver.joinReceiver(LONG_TIMEOUT_MS);
+            EasyMock.verify(mMockListener);
+        } finally {
+            receiver.close();
+        }
+        FailureDescription capturedFailure = captured.getValue();
+        assertEquals("no reason", capturedFailure.getErrorMessage());
+        assertEquals(FailureStatus.TEST_FAILURE, capturedFailure.getFailureStatus());
+        assertEquals(ActionInProgress.FETCHING_ARTIFACTS, capturedFailure.getActionInProgress());
+        assertEquals("origin", capturedFailure.getOrigin());
+        assertEquals(
+                InfraErrorIdentifier.UNDETERMINED.name(),
+                capturedFailure.getErrorIdentifier().name());
+        assertEquals(
+                InfraErrorIdentifier.UNDETERMINED.code(),
+                capturedFailure.getErrorIdentifier().code());
+
+        FailureDescription capturedInvocation = invocationFailureCaptured.getValue();
+        assertEquals("invoc error", capturedInvocation.getErrorMessage());
+        assertEquals(FailureStatus.INFRA_FAILURE, capturedInvocation.getFailureStatus());
+        assertEquals(ActionInProgress.TEST, capturedInvocation.getActionInProgress());
+        assertEquals("invoc origin", capturedInvocation.getOrigin());
+        assertEquals(
+                InfraErrorIdentifier.UNDETERMINED.name(),
+                capturedInvocation.getErrorIdentifier().name());
+        assertEquals(
+                InfraErrorIdentifier.UNDETERMINED.code(),
+                capturedInvocation.getErrorIdentifier().code());
     }
 
     @Test
@@ -149,6 +235,7 @@ public class SubprocessResultsReporterTest {
                 };
         try (SubprocessTestResultsParser receiver =
                 new SubprocessTestResultsParser(mMockListener, true, new InvocationContext())) {
+            receiver.setIgnoreTestLog(false);
             OptionSetter setter = new OptionSetter(mReporter);
             setter.setOptionValue(
                     "subprocess-report-port", Integer.toString(receiver.getSocketServerPort()));

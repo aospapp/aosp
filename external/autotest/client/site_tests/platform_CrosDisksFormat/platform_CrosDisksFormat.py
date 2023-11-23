@@ -54,6 +54,15 @@ class CrosDisksFormatTester(CrosDisksTester):
                 if not test_content.verify(mount_path):
                     raise error.TestFail("Failed to verify test content")
 
+                try:
+                  label_idx = format_options.index("Label") + 1
+                  expected_label = format_options[label_idx]
+                except ValueError:
+                  # Label option not found in format options
+                  expected_label = "UNTITLED"
+                if expected_label != image.get_volume_label():
+                    raise error.TestFail("Failed to label the drive")
+
     def test_using_virtual_filesystem_image(self):
         for config in self._test_configs:
             self._run_test_config(config)

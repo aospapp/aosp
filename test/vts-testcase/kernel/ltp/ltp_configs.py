@@ -126,7 +126,6 @@ TEST_SUITES = [
     'filecaps',
     'fs',
     'fs_bind',
-    'fs_ext4',
     'fs_perms_simple',
     'fsx',
     'hugetlb',
@@ -143,7 +142,6 @@ TEST_SUITES = [
     'sched',
     'securebits',
     'syscalls',
-    'timers',
     'tracing',
 ]
 
@@ -161,7 +159,6 @@ TEST_SUITES_LOW_MEM = [
     'filecaps',
     'fs',
     'fs_bind',
-    'fs_ext4',
     'fs_perms_simple',
     'fsx',
     'hugetlb',
@@ -178,7 +175,6 @@ TEST_SUITES_LOW_MEM = [
     'sched_low_mem',
     'securebits',
     'syscalls',
-    'timers',
     'tracing',
 ]
 

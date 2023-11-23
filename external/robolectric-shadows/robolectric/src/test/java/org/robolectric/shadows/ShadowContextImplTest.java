@@ -16,6 +16,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.ServiceConnection;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Process;
 import android.view.LayoutInflater;
@@ -217,5 +218,18 @@ public class ShadowContextImplTest {
       @Override
       public void onServiceDisconnected(ComponentName name) {}
     };
+  }
+
+  @Test
+  @Config(minSdk = LOLLIPOP)
+  public void startActivityAsUser() {
+    Intent intent = new Intent();
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    Bundle options = new Bundle();
+
+    context.startActivityAsUser(intent, options, Process.myUserHandle());
+
+    Intent launchedActivityIntent = shadowOf(context).getNextStartedActivity();
+    assertThat(launchedActivityIntent).isEqualTo(intent);
   }
 }

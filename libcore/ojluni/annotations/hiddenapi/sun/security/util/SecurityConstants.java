@@ -51,7 +51,7 @@ public final class SecurityConstants {
         CREATE_ACC_PERMISSION = null;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final java.lang.RuntimePermission CREATE_CLASSLOADER_PERMISSION;
 
     static {
@@ -68,7 +68,7 @@ public final class SecurityConstants {
 
     public static final java.lang.String FILE_WRITE_ACTION = "write";
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final java.lang.RuntimePermission GET_CLASSLOADER_PERMISSION;
 
     static {
@@ -123,14 +123,14 @@ public final class SecurityConstants {
         LOCAL_LISTEN_PERMISSION = null;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final java.lang.RuntimePermission MODIFY_THREADGROUP_PERMISSION;
 
     static {
         MODIFY_THREADGROUP_PERMISSION = null;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public static final java.lang.RuntimePermission MODIFY_THREAD_PERMISSION;
 
     static {

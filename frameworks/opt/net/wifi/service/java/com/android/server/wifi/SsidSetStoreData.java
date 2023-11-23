@@ -16,8 +16,11 @@
 
 package com.android.server.wifi;
 
+import android.annotation.Nullable;
 import android.text.TextUtils;
+import android.util.Log;
 
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtil;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -37,6 +40,7 @@ import java.util.Set;
  * - Set of blacklisted SSIDs
  */
 public class SsidSetStoreData implements WifiConfigStore.StoreData {
+    private static final String TAG = "SsidSetStoreData";
     private static final String XML_TAG_SECTION_HEADER_SUFFIX = "ConfigData";
     private static final String XML_TAG_SSID_SET = "SSIDSet";
 
@@ -74,7 +78,8 @@ public class SsidSetStoreData implements WifiConfigStore.StoreData {
     }
 
     @Override
-    public void serializeData(XmlSerializer out)
+    public void serializeData(XmlSerializer out,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         Set<String> ssidSet = mDataSource.getSsids();
         if (ssidSet != null && !ssidSet.isEmpty()) {
@@ -83,7 +88,9 @@ public class SsidSetStoreData implements WifiConfigStore.StoreData {
     }
 
     @Override
-    public void deserializeData(XmlPullParser in, int outerTagDepth)
+    public void deserializeData(XmlPullParser in, int outerTagDepth,
+            @WifiConfigStore.Version int version,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         // Ignore empty reads.
         if (in == null) {
@@ -100,8 +107,8 @@ public class SsidSetStoreData implements WifiConfigStore.StoreData {
                     mDataSource.setSsids((Set<String>) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown tag under "
-                            + mTagName + ": " + valueName[0]);
+                    Log.w(TAG, "Ignoring unknown tag under " + mTagName + ": " + valueName[0]);
+                    break;
             }
         }
     }

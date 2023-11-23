@@ -13,7 +13,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.AttributedCharacterIterator;
 import java.text.FieldPosition;
 import java.text.Format;
 import java.util.HashMap;
@@ -25,6 +24,7 @@ import java.util.Set;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import android.icu.dev.test.format.FormattedValueTest;
 import android.icu.dev.test.serializable.SerializableTestUtility;
 import android.icu.impl.number.Grouper;
 import android.icu.impl.number.LocalizedNumberFormatterAsFormat;
@@ -68,6 +68,7 @@ public class NumberFormatterApiTest {
     private static final Currency CAD = Currency.getInstance("CAD");
     private static final Currency ESP = Currency.getInstance("ESP");
     private static final Currency PTE = Currency.getInstance("PTE");
+    private static final Currency RON = Currency.getInstance("RON");
 
     @Test
     public void notationSimple() {
@@ -179,6 +180,22 @@ public class NumberFormatterApiTest {
                 ULocale.ENGLISH,
                 -1000000,
                 "-1E6");
+
+        assertFormatSingle(
+                "Scientific Infinity",
+                "scientific",
+                NumberFormatter.with().notation(Notation.scientific()),
+                ULocale.ENGLISH,
+                Double.NEGATIVE_INFINITY,
+                "-∞");
+
+        assertFormatSingle(
+                "Scientific NaN",
+                "scientific",
+                NumberFormatter.with().notation(Notation.scientific()),
+                ULocale.ENGLISH,
+                Double.NaN,
+                "NaN");
     }
 
     @Test
@@ -388,8 +405,24 @@ public class NumberFormatterApiTest {
                 1e7,
                 "1000\u842C");
 
-        Map<String, Map<String, String>> compactCustomData = new HashMap<String, Map<String, String>>();
-        Map<String, String> entry = new HashMap<String, String>();
+        assertFormatSingle(
+                "Compact Infinity",
+                "compact-short",
+                NumberFormatter.with().notation(Notation.compactShort()),
+                ULocale.ENGLISH,
+                Double.NEGATIVE_INFINITY,
+                "-∞");
+
+        assertFormatSingle(
+                "Compact NaN",
+                "compact-short",
+                NumberFormatter.with().notation(Notation.compactShort()),
+                ULocale.ENGLISH,
+                Double.NaN,
+                "NaN");
+
+        Map<String, Map<String, String>> compactCustomData = new HashMap<>();
+        Map<String, String> entry = new HashMap<>();
         entry.put("one", "Kun");
         entry.put("other", "0KK");
         compactCustomData.put("1000", entry);
@@ -499,6 +532,15 @@ public class NumberFormatterApiTest {
                 "measure-unit/area-square-meter unit-width-narrow",
                 NumberFormatter.with().unit(MeasureUnit.SQUARE_METER).unitWidth(UnitWidth.NARROW),
                 ULocale.forLanguageTag("en-GB"),
+                5.43,
+                "5.43 m²");
+
+        // Try accessing a narrow unit directly from root.
+        assertFormatSingle(
+                "Interesting Data Fallback 4",
+                "measure-unit/area-square-meter unit-width-narrow",
+                NumberFormatter.with().unit(MeasureUnit.SQUARE_METER).unitWidth(UnitWidth.NARROW),
+                ULocale.forLanguageTag("root"),
                 5.43,
                 "5.43 m²");
 
@@ -722,7 +764,7 @@ public class NumberFormatterApiTest {
         // NOTE: This is a bit of a hack on CLDR's part. They set the currency symbol to U+200B (zero-
         // width space), and they set the decimal separator to the $ symbol.
         assertFormatSingle(
-                "Currency-dependent symbols (Test)",
+                "Currency-dependent symbols (Test Short)",
                 "currency/PTE unit-width-short",
                 NumberFormatter.with().unit(PTE).unitWidth(UnitWidth.SHORT),
                 ULocale.forLanguageTag("pt-PT"),
@@ -730,20 +772,28 @@ public class NumberFormatterApiTest {
                 "444,444$55 \u200B");
 
         assertFormatSingle(
-                "Currency-dependent symbols (Test)",
+                "Currency-dependent symbols (Test Narrow)",
                 "currency/PTE unit-width-narrow",
                 NumberFormatter.with().unit(PTE).unitWidth(UnitWidth.NARROW),
                 ULocale.forLanguageTag("pt-PT"),
                 444444.55,
-                "444,444$55 PTE");
+                "444,444$55 \u200B");
 
         assertFormatSingle(
-                "Currency-dependent symbols (Test)",
+                "Currency-dependent symbols (Test ISO Code)",
                 "currency/PTE unit-width-iso-code",
                 NumberFormatter.with().unit(PTE).unitWidth(UnitWidth.ISO_CODE),
                 ULocale.forLanguageTag("pt-PT"),
                 444444.55,
                 "444,444$55 PTE");
+
+        assertFormatSingle(
+                "Plural form depending on visible digits (ICU-20499)",
+                "currency/RON unit-width-full-name",
+                NumberFormatter.with().unit(RON).unitWidth(UnitWidth.FULL_NAME),
+                ULocale.forLanguageTag("ro-RO"),
+                24,
+                "24,00 lei românești");
     }
 
     @Test
@@ -1082,6 +1132,36 @@ public class NumberFormatterApiTest {
                 "0.00");
 
         assertFormatDescending(
+                "Strange Increment",
+                "precision-increment/3.140",
+                NumberFormatter.with().precision(Precision.increment(new BigDecimal("3.140"))),
+                ULocale.ENGLISH,
+                "87,649.960",
+                "8,763.740",
+                "876.060",
+                "87.920",
+                "9.420",
+                "0.000",
+                "0.000",
+                "0.000",
+                "0.000");
+
+        assertFormatDescending(
+                "Increment Resolving to Power of 10",
+                "precision-increment/0.010",
+                NumberFormatter.with().precision(Precision.increment(new BigDecimal("0.010"))),
+                ULocale.ENGLISH,
+                "87,650.000",
+                "8,765.000",
+                "876.500",
+                "87.650",
+                "8.760",
+                "0.880",
+                "0.090",
+                "0.010",
+                "0.000");
+
+        assertFormatDescending(
                 "Currency Standard",
                 "currency/CZK precision-currency-standard",
                 NumberFormatter.with().precision(Precision.currency(CurrencyUsage.STANDARD)).unit(CZK),
@@ -1250,17 +1330,18 @@ public class NumberFormatterApiTest {
                 "8.765",
                 "0");
 
-        // NOTE: Hungarian is interesting because it has minimumGroupingDigits=4 in locale data
+        // NOTE: Polish is interesting because it has minimumGroupingDigits=2 in locale data
+        // (Most locales have either 1 or 2)
         // If this test breaks due to data changes, find another locale that has minimumGroupingDigits.
         assertFormatDescendingBig(
-                "Hungarian Grouping",
+                "Polish Grouping",
                 "group-auto",
                 NumberFormatter.with().grouping(GroupingStrategy.AUTO),
-                new ULocale("hu"),
+                new ULocale("pl"),
                 "87 650 000",
                 "8 765 000",
-                "876500",
-                "87650",
+                "876 500",
+                "87 650",
                 "8765",
                 "876,5",
                 "87,65",
@@ -1268,14 +1349,14 @@ public class NumberFormatterApiTest {
                 "0");
 
         assertFormatDescendingBig(
-                "Hungarian Grouping, Min 2",
+                "Polish Grouping, Min 2",
                 "group-min2",
                 NumberFormatter.with().grouping(GroupingStrategy.MIN2),
-                new ULocale("hu"),
+                new ULocale("pl"),
                 "87 650 000",
                 "8 765 000",
-                "876500",
-                "87650",
+                "876 500",
+                "87 650",
                 "8765",
                 "876,5",
                 "87,65",
@@ -1283,10 +1364,10 @@ public class NumberFormatterApiTest {
                 "0");
 
         assertFormatDescendingBig(
-                "Hungarian Grouping, Always",
+                "Polish Grouping, Always",
                 "group-on-aligned",
                 NumberFormatter.with().grouping(GroupingStrategy.ON_ALIGNED),
-                new ULocale("hu"),
+                new ULocale("pl"),
                 "87 650 000",
                 "8 765 000",
                 "876 500",
@@ -1545,6 +1626,31 @@ public class NumberFormatterApiTest {
                 "00.8765",
                 "00.08765",
                 "00.008765",
+                "00");
+
+        assertFormatSingle(
+                "Integer Width Remove All A",
+                "integer-width/00",
+                NumberFormatter.with().integerWidth(IntegerWidth.zeroFillTo(2).truncateAt(2)),
+                ULocale.ENGLISH,
+                2500,
+                "00");
+
+        assertFormatSingle(
+                "Integer Width Remove All B",
+                "integer-width/00",
+                NumberFormatter.with().integerWidth(IntegerWidth.zeroFillTo(2).truncateAt(2)),
+                ULocale.ENGLISH,
+                25000,
+                "00");
+
+        assertFormatSingle(
+                "Integer Width Remove All B, Bytes Mode",
+                "integer-width/00",
+                NumberFormatter.with().integerWidth(IntegerWidth.zeroFillTo(2).truncateAt(2)),
+                ULocale.ENGLISH,
+                // Note: this double produces all 17 significant digits
+                10000000000000002000.0,
                 "00");
     }
 
@@ -1890,6 +1996,70 @@ public class NumberFormatterApiTest {
                 ULocale.ENGLISH,
                 -444444,
                 "(444,444.00)");
+
+        assertFormatSingle(
+                "Sign Accounting Negative Narrow",
+                "currency/USD unit-width-narrow sign-accounting",
+                NumberFormatter.with().sign(SignDisplay.ACCOUNTING).unit(USD).unitWidth(UnitWidth.NARROW),
+                ULocale.CANADA,
+                -444444,
+                "($444,444.00)");
+
+        assertFormatSingle(
+                "Sign Accounting Negative Short",
+                "currency/USD sign-accounting",
+                NumberFormatter.with().sign(SignDisplay.ACCOUNTING).unit(USD).unitWidth(UnitWidth.SHORT),
+                ULocale.CANADA,
+                -444444,
+                "(US$444,444.00)");
+
+        assertFormatSingle(
+                "Sign Accounting Negative Iso Code",
+                "currency/USD unit-width-iso-code sign-accounting",
+                NumberFormatter.with().sign(SignDisplay.ACCOUNTING).unit(USD).unitWidth(UnitWidth.ISO_CODE),
+                ULocale.CANADA,
+                -444444,
+                "(USD 444,444.00)");
+
+        // Note: CLDR does not provide an accounting pattern for long name currency.
+        // We fall back to normal currency format. This may change in the future.
+        assertFormatSingle(
+                "Sign Accounting Negative Full Name",
+                "currency/USD unit-width-full-name sign-accounting",
+                NumberFormatter.with().sign(SignDisplay.ACCOUNTING).unit(USD).unitWidth(UnitWidth.FULL_NAME),
+                ULocale.CANADA,
+                -444444,
+                "-444,444.00 US dollars");
+    }
+
+    @Test
+    public void signCoverage() {
+        // https://unicode-org.atlassian.net/browse/ICU-20708
+        Object[][][] cases = new Object[][][] {
+            { {SignDisplay.AUTO}, { "-∞", "-1", "-0", "0", "1", "∞", "NaN", "-NaN" } },
+            { {SignDisplay.ALWAYS}, { "-∞", "-1", "-0", "+0", "+1", "+∞", "+NaN", "-NaN" } },
+            { {SignDisplay.NEVER}, { "∞", "1", "0", "0", "1", "∞", "NaN", "NaN" } },
+            { {SignDisplay.EXCEPT_ZERO}, { "-∞", "-1", "-0", "0", "+1", "+∞", "NaN", "-NaN" } },
+        };
+        double negNaN = Math.copySign(Double.NaN, -0.0);
+        double inputs[] = new double[] {
+            Double.NEGATIVE_INFINITY, -1, -0.0, 0, 1, Double.POSITIVE_INFINITY, Double.NaN, negNaN
+        };
+        for (Object[][] cas : cases) {
+            SignDisplay sign = (SignDisplay) cas[0][0];
+            for (int i = 0; i < inputs.length; i++) {
+                double input = inputs[i];
+                String expected = (String) cas[1][i];
+                String actual = NumberFormatter.with()
+                    .sign(sign)
+                    .locale(Locale.US)
+                    .format(input)
+                    .toString();
+                assertEquals(
+                    input + " " + sign,
+                    expected, actual);
+            }
+        }
     }
 
     @Test
@@ -2083,9 +2253,16 @@ public class NumberFormatterApiTest {
     }
 
     @Test
-    public void fieldPosition() {
-        FormattedNumber fmtd = NumberFormatter.withLocale(ULocale.ENGLISH).format(-9876543210.12);
-        assertEquals("Should have expected format output", "-9,876,543,210.12", fmtd.toString());
+    public void fieldPositionLogic() {
+        String message = "Field position logic test";
+
+        FormattedNumber fmtd = assertFormatSingle(
+                message,
+                "",
+                NumberFormatter.with(),
+                ULocale.ENGLISH,
+                -9876543210.12,
+                "-9,876,543,210.12");
 
         Object[][] expectedFieldPositions = new Object[][]{
                 {NumberFormat.Field.SIGN, 0, 1},
@@ -2096,38 +2273,11 @@ public class NumberFormatterApiTest {
                 {NumberFormat.Field.DECIMAL_SEPARATOR, 14, 15},
                 {NumberFormat.Field.FRACTION, 15, 17}};
 
-        AttributedCharacterIterator fpi = fmtd.getFieldIterator();
-        Set<AttributedCharacterIterator.Attribute> allAttributes = fpi.getAllAttributeKeys();
-        assertEquals("All known fields should be in the iterator", 5, allAttributes.size());
-        assertEquals("Iterator should have length of string output", 17, fpi.getEndIndex());
-        int i = 0;
-        for (char c = fpi.first(); c != AttributedCharacterIterator.DONE; c = fpi.next(), i++) {
-            Set<AttributedCharacterIterator.Attribute> currentAttributes = fpi.getAttributes().keySet();
-            int attributesRemaining = currentAttributes.size();
-            for (Object[] cas : expectedFieldPositions) {
-                NumberFormat.Field expectedField = (NumberFormat.Field) cas[0];
-                int expectedBeginIndex = (Integer) cas[1];
-                int expectedEndIndex = (Integer) cas[2];
-                if (expectedBeginIndex > i || expectedEndIndex <= i) {
-                    // Field position does not overlap with the current character
-                    continue;
-                }
-
-                assertTrue("Current character should have expected field", currentAttributes.contains(expectedField));
-                assertTrue("Field should be a known attribute", allAttributes.contains(expectedField));
-                int actualBeginIndex = fpi.getRunStart(expectedField);
-                int actualEndIndex = fpi.getRunLimit(expectedField);
-                assertEquals(expectedField + " begin index @" + i, expectedBeginIndex, actualBeginIndex);
-                assertEquals(expectedField + " end index @" + i, expectedEndIndex, actualEndIndex);
-                attributesRemaining--;
-            }
-            assertEquals("Should have looked at every field", 0, attributesRemaining);
-        }
-        assertEquals("Should have looked at every character", 17, i);
+        assertNumberFieldPositions(message, fmtd, expectedFieldPositions);
 
         // Test the iteration functionality of nextFieldPosition
         FieldPosition actual = new FieldPosition(NumberFormat.Field.GROUPING_SEPARATOR);
-        i = 1;
+        int i = 1;
         while (fmtd.nextFieldPosition(actual)) {
             Object[] cas = expectedFieldPositions[i++];
             NumberFormat.Field expectedField = (NumberFormat.Field) cas[0];
@@ -2153,6 +2303,270 @@ public class NumberFormatterApiTest {
         actual = new FieldPosition(NumberFormat.Field.FRACTION);
         fmtd = NumberFormatter.withLocale(ULocale.ENGLISH).format(5);
         assertFalse("No fraction part in an integer", fmtd.nextFieldPosition(actual));
+    }
+
+    @Test
+    public void fieldPositionCoverage() {
+        {
+            String message = "Measure unit field position basic";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "measure-unit/temperature-fahrenheit",
+                    NumberFormatter.with().unit(MeasureUnit.FAHRENHEIT),
+                    ULocale.ENGLISH,
+                    68,
+                    "68°F");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    {NumberFormat.Field.MEASURE_UNIT, 2, 4}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Measure unit field position with compound unit";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "measure-unit/temperature-fahrenheit per-measure-unit/duration-day",
+                    NumberFormatter.with().unit(MeasureUnit.FAHRENHEIT).perUnit(MeasureUnit.DAY),
+                    ULocale.ENGLISH,
+                    68,
+                    "68°F/d");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    {NumberFormat.Field.MEASURE_UNIT, 2, 6}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Measure unit field position with spaces";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "measure-unit/length-meter unit-width-full-name",
+                    NumberFormatter.with().unit(MeasureUnit.METER).unitWidth(UnitWidth.FULL_NAME),
+                    ULocale.ENGLISH,
+                    68,
+                    "68 meters");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    // note: field starts after the space
+                    {NumberFormat.Field.MEASURE_UNIT, 3, 9}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Measure unit field position with prefix and suffix";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "measure-unit/length-meter per-measure-unit/duration-second unit-width-full-name",
+                    NumberFormatter.with().unit(MeasureUnit.METER).perUnit(MeasureUnit.SECOND).unitWidth(UnitWidth.FULL_NAME),
+                    new ULocale("ky"), // locale with the interesting data
+                    68,
+                    "секундасына 68 метр");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.MEASURE_UNIT, 0, 11},
+                    {NumberFormat.Field.INTEGER, 12, 14},
+                    {NumberFormat.Field.MEASURE_UNIT, 15, 19}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Measure unit field position with inner spaces";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "measure-unit/temperature-fahrenheit unit-width-full-name",
+                    NumberFormatter.with().unit(MeasureUnit.FAHRENHEIT).unitWidth(UnitWidth.FULL_NAME),
+                    new ULocale("vi"), // locale with the interesting data
+                    68,
+                    "68 độ F");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    // Should trim leading/trailing spaces, but not inner spaces:
+                    {NumberFormat.Field.MEASURE_UNIT, 3, 7}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            // Data: other{"‎{0} K"} == "\u200E{0} K"
+            // If that data changes, try to find another example of a non-empty unit prefix/suffix
+            // that is also all ignorables (whitespace and bidi control marks).
+            String message = "Measure unit field position with fully ignorable prefix";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "measure-unit/temperature-kelvin",
+                    NumberFormatter.with().unit(MeasureUnit.KELVIN),
+                    new ULocale("fa"), // locale with the interesting data
+                    68,
+                    "‎۶۸ K");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 1, 3},
+                    {NumberFormat.Field.MEASURE_UNIT, 4, 5}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Compact field basic";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "compact-short",
+                    NumberFormatter.with().notation(Notation.compactShort()),
+                    ULocale.US,
+                    65000,
+                    "65K");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    {NumberFormat.Field.COMPACT, 2, 3}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Compact field with spaces";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "compact-long",
+                    NumberFormatter.with().notation(Notation.compactLong()),
+                    ULocale.US,
+                    65000,
+                    "65 thousand");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    {NumberFormat.Field.COMPACT, 3, 11}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Compact field with inner space";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "compact-long",
+                    NumberFormatter.with().notation(Notation.compactLong()),
+                    new ULocale("fil"),  // locale with interesting data
+                    6000,
+                    "6 na libo");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 1},
+                    {NumberFormat.Field.COMPACT, 2, 9}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Compact field with bidi mark";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "compact-long",
+                    NumberFormatter.with().notation(Notation.compactLong()),
+                    new ULocale("he"),  // locale with interesting data
+                    6000,
+                    "\u200F6 אלף");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 1, 2},
+                    {NumberFormat.Field.COMPACT, 3, 6}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Compact with currency fields";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "compact-short currency/USD",
+                    NumberFormatter.with().notation(Notation.compactShort()).unit(USD),
+                    new ULocale("sr_Latn"),  // locale with interesting data
+                    65000,
+                    "65 hilj. US$");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    {NumberFormat.Field.COMPACT, 3, 8},
+                    {NumberFormat.Field.CURRENCY, 9, 12}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Currency long name fields";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "currency/USD unit-width-full-name",
+                    NumberFormatter.with().unit(USD)
+                        .unitWidth(UnitWidth.FULL_NAME),
+                    ULocale.ENGLISH,
+                    12345,
+                    "12,345.00 US dollars");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.GROUPING_SEPARATOR, 2, 3},
+                    {NumberFormat.Field.INTEGER, 0, 6},
+                    {NumberFormat.Field.DECIMAL_SEPARATOR, 6, 7},
+                    {NumberFormat.Field.FRACTION, 7, 9},
+                    {NumberFormat.Field.CURRENCY, 10, 20}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
+
+        {
+            String message = "Compact with measure unit fields";
+            FormattedNumber result = assertFormatSingle(
+                    message,
+                    "compact-long measure-unit/length-meter unit-width-full-name",
+                    NumberFormatter.with().notation(Notation.compactLong())
+                        .unit(MeasureUnit.METER)
+                        .unitWidth(UnitWidth.FULL_NAME),
+                    ULocale.US,
+                    65000,
+                    "65 thousand meters");
+            Object[][] expectedFieldPositions = new Object[][] {
+                    // field, begin index, end index
+                    {NumberFormat.Field.INTEGER, 0, 2},
+                    {NumberFormat.Field.COMPACT, 3, 11},
+                    {NumberFormat.Field.MEASURE_UNIT, 12, 18}};
+            assertNumberFieldPositions(
+                    message,
+                    result,
+                    expectedFieldPositions);
+        }
     }
 
     /** Handler for serialization compatibility test suite. */
@@ -2222,9 +2636,9 @@ public class NumberFormatterApiTest {
         Method[] methodsWithOneArgument = new Method[] { Precision.class.getDeclaredMethod("fixedFraction", Integer.TYPE),
                 Precision.class.getDeclaredMethod("minFraction", Integer.TYPE),
                 Precision.class.getDeclaredMethod("maxFraction", Integer.TYPE),
-                Precision.class.getDeclaredMethod("fixedDigits", Integer.TYPE),
-                Precision.class.getDeclaredMethod("minDigits", Integer.TYPE),
-                Precision.class.getDeclaredMethod("maxDigits", Integer.TYPE),
+                Precision.class.getDeclaredMethod("fixedSignificantDigits", Integer.TYPE),
+                Precision.class.getDeclaredMethod("minSignificantDigits", Integer.TYPE),
+                Precision.class.getDeclaredMethod("maxSignificantDigits", Integer.TYPE),
                 FractionPrecision.class.getDeclaredMethod("withMinDigits", Integer.TYPE),
                 FractionPrecision.class.getDeclaredMethod("withMaxDigits", Integer.TYPE),
                 ScientificNotation.class.getDeclaredMethod("withMinExponentDigits", Integer.TYPE),
@@ -2232,7 +2646,7 @@ public class NumberFormatterApiTest {
                 IntegerWidth.class.getDeclaredMethod("truncateAt", Integer.TYPE), };
         Method[] methodsWithTwoArguments = new Method[] {
                 Precision.class.getDeclaredMethod("minMaxFraction", Integer.TYPE, Integer.TYPE),
-                Precision.class.getDeclaredMethod("minMaxDigits", Integer.TYPE, Integer.TYPE), };
+                Precision.class.getDeclaredMethod("minMaxSignificantDigits", Integer.TYPE, Integer.TYPE), };
 
         final int EXPECTED_MAX_INT_FRAC_SIG = 999;
         final String expectedSubstring0 = "between 0 and 999 (inclusive)";
@@ -2242,10 +2656,10 @@ public class NumberFormatterApiTest {
         // We require that the upper bounds all be 999 inclusive.
         // The lower bound may be either -1, 0, or 1.
         Set<String> methodsWithLowerBound1 = new HashSet();
-        methodsWithLowerBound1.add("fixedDigits");
-        methodsWithLowerBound1.add("minDigits");
-        methodsWithLowerBound1.add("maxDigits");
-        methodsWithLowerBound1.add("minMaxDigits");
+        methodsWithLowerBound1.add("fixedSignificantDigits");
+        methodsWithLowerBound1.add("minSignificantDigits");
+        methodsWithLowerBound1.add("maxSignificantDigits");
+        methodsWithLowerBound1.add("minMaxSignificantDigits");
         methodsWithLowerBound1.add("withMinDigits");
         methodsWithLowerBound1.add("withMaxDigits");
         methodsWithLowerBound1.add("withMinExponentDigits");
@@ -2259,7 +2673,7 @@ public class NumberFormatterApiTest {
         methodsWithLowerBoundN1.add("truncateAt");
 
         // Some of the methods require an object to be called upon.
-        Map<String, Object> targets = new HashMap<String, Object>();
+        Map<String, Object> targets = new HashMap<>();
         targets.put("withMinDigits", Precision.integer());
         targets.put("withMaxDigits", Precision.integer());
         targets.put("withMinExponentDigits", Notation.scientific());
@@ -2280,7 +2694,8 @@ public class NumberFormatterApiTest {
                     assertTrue(message, argument < lowerBound || argument > EXPECTED_MAX_INT_FRAC_SIG);
                     // Ensure the exception message contains the expected substring
                     String actualMessage = e.getCause().getMessage();
-                    assertNotEquals(message + ": " + actualMessage, -1, actualMessage.indexOf(expectedSubstring));
+                    assertNotEquals(message + ": " + actualMessage + "; " + expectedSubstring
+                            , -1, actualMessage.indexOf(expectedSubstring));
                 }
             }
             for (Method method : methodsWithTwoArguments) {
@@ -2383,7 +2798,7 @@ public class NumberFormatterApiTest {
         }
     }
 
-    static void assertFormatSingle(
+    static FormattedNumber assertFormatSingle(
             String message,
             String skeleton,
             UnlocalizedNumberFormatter f,
@@ -2392,7 +2807,8 @@ public class NumberFormatterApiTest {
             String expected) {
         LocalizedNumberFormatter l1 = f.threshold(0L).locale(locale); // no self-regulation
         LocalizedNumberFormatter l2 = f.threshold(1L).locale(locale); // all self-regulation
-        String actual1 = l1.format(input).toString();
+        FormattedNumber result1 = l1.format(input);
+        String actual1 = result1.toString();
         assertEquals(message + ": Unsafe Path: " + input, expected, actual1);
         String actual2 = l2.format(input).toString();
         assertEquals(message + ": Safe Path: " + input, expected, actual2);
@@ -2407,6 +2823,7 @@ public class NumberFormatterApiTest {
         } else {
             assertUndefinedSkeleton(f);
         }
+        return result1;
     }
 
     static void assertFormatSingleMeasure(
@@ -2440,5 +2857,9 @@ public class NumberFormatterApiTest {
             String skeleton = f.toSkeleton();
             fail("Expected toSkeleton to fail, but it passed, producing: " + skeleton);
         } catch (UnsupportedOperationException expected) {}
+    }
+
+    private void assertNumberFieldPositions(String message, FormattedNumber result, Object[][] expectedFieldPositions) {
+        FormattedValueTest.checkFormattedValue(message, result, result.toString(), expectedFieldPositions);
     }
 }

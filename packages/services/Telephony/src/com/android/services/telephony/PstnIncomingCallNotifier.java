@@ -39,20 +39,31 @@ import com.android.internal.telephony.imsphone.ImsExternalConnection;
 import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 import com.android.phone.NumberVerificationManager;
 import com.android.phone.PhoneUtils;
+import com.android.telephony.Rlog;
 
-import com.google.common.base.Preconditions;
-
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Listens to incoming-call events from the associated phone object and notifies Telecom upon each
  * occurence. One instance of these exists for each of the telephony-based call services.
  */
 final class PstnIncomingCallNotifier {
+    private static final String LOG_TAG = "PstnIncomingCallNotifier";
+
     /** New ringing connection event code. */
     private static final int EVENT_NEW_RINGING_CONNECTION = 100;
     private static final int EVENT_CDMA_CALL_WAITING = 101;
     private static final int EVENT_UNKNOWN_CONNECTION = 102;
+
+    /**
+     * The max amount of time to wait before hanging up a call that was for number verification.
+     *
+     * The delay is so that the remote end has time to hang up the call after receiving the
+     * verification signal so that the call doesn't go to voicemail.
+     */
+    private static final int MAX_NUMBER_VERIFICATION_HANGUP_DELAY_MILLIS = 10000;
 
     /** The phone object to listen to. */
     private final Phone mPhone;
@@ -85,7 +96,9 @@ final class PstnIncomingCallNotifier {
      * @param phone The phone object for listening to incoming calls.
      */
     PstnIncomingCallNotifier(Phone phone) {
-        Preconditions.checkNotNull(phone);
+        if (phone == null) {
+            throw new NullPointerException();
+        }
 
         mPhone = phone;
 
@@ -131,12 +144,16 @@ final class PstnIncomingCallNotifier {
             if (connection.getAddress() != null) {
                 if (NumberVerificationManager.getInstance()
                         .checkIncomingCall(connection.getAddress())) {
-                    // Disconnect the call if it matches
-                    try {
-                        connection.hangup();
-                    } catch (CallStateException e) {
-                        Log.e(this, e, "Error hanging up potential number verification call");
-                    }
+                    // Disconnect the call if it matches, after a delay
+                    mHandler.postDelayed(() -> {
+                        try {
+                            connection.hangup();
+                        } catch (CallStateException e) {
+                            Log.i(this, "Remote end hung up call verification call");
+                        }
+                        // TODO: use an app-supplied delay (needs new API), not to exceed the
+                        // existing max.
+                    }, MAX_NUMBER_VERIFICATION_HANGUP_DELAY_MILLIS);
                     return;
                 }
             }
@@ -169,7 +186,7 @@ final class PstnIncomingCallNotifier {
                     // Presentation of the number is allowed, so we ensure the number matches the
                     // one in the call waiting information.
                     Log.i(this, "handleCdmaCallWaiting: inform telecom of waiting call; "
-                            + "number = %s", Log.pii(number));
+                            + "number = %s", Rlog.pii(LOG_TAG, number));
                     sendIncomingCallIntent(connection);
                 } else {
                     Log.w(this, "handleCdmaCallWaiting: presentation or number do not match, not"
@@ -236,7 +253,8 @@ final class PstnIncomingCallNotifier {
                     // connection already disconnected. Do nothing
                 }
             } else {
-                TelecomManager.from(mPhone.getContext()).addNewUnknownCall(handle, extras);
+                TelecomManager tm = mPhone.getContext().getSystemService(TelecomManager.class);
+                tm.addNewUnknownCall(handle, extras);
             }
         } else {
             Log.i(this, "swapped an old connection, new one is: %s", connection);
@@ -262,7 +280,12 @@ final class PstnIncomingCallNotifier {
             if (((ImsPhoneConnection) connection).isRttEnabledForCall()) {
                 extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_RTT, true);
             }
+            if (((ImsPhoneConnection) connection).isIncomingCallAutoRejected()) {
+                extras.putString(TelecomManager.EXTRA_CALL_DISCONNECT_MESSAGE,
+                        "Call Dropped by lower layers");
+            }
         }
+
         PhoneAccountHandle handle = findCorrectPhoneAccountHandle();
         if (handle == null) {
             try {
@@ -270,8 +293,49 @@ final class PstnIncomingCallNotifier {
             } catch (CallStateException e) {
                 // connection already disconnected. Do nothing
             }
+            Log.wtf(LOG_TAG, "sendIncomingCallIntent: failed to add new call because no phone"
+                    + " account could be found for the call");
         } else {
-            TelecomManager.from(mPhone.getContext()).addNewIncomingCall(handle, extras);
+            TelecomManager tm = mPhone.getContext().getSystemService(TelecomManager.class);
+            try {
+                if (connection.isMultiparty()) {
+                    tm.addNewIncomingConference(handle, extras);
+                } else {
+                    tm.addNewIncomingCall(handle, extras);
+                }
+            } catch (SecurityException se) {
+                // If we get a security exception, the most likely cause is:
+                // "This PhoneAccountHandle is not registered for this user"
+                // If this happens, then it means that for whatever reason the phone account which
+                // we are trying to use to add the new incoming call no longer exists in Telecom.
+                // This can happen if the handle of the phone account changes.  The likely root
+                // cause of this would be a change in active SIM profile for an MVNO style carrier
+                // which aggregates multiple carriers together.
+
+                // We will log a list of the available handles ourselves here; PhoneAccountHandle
+                // oscures the ID in the toString.  Rlog.pii will do a secure hash on userdebug
+                // builds so at least we could tell if the handle we tried is different from the one
+                // which we attempted to use.
+                List<PhoneAccountHandle> handles = tm.getCallCapablePhoneAccounts();
+                String availableHandles = handles.stream()
+                        .map(h -> "[" + h.getComponentName() + " "
+                                + Rlog.pii(LOG_TAG, h.getId()) + "]")
+                        .collect(Collectors.joining(","));
+                String attemptedHandle = "[" + handle.getComponentName() + " "
+                        + Rlog.pii(LOG_TAG, handle.getId()) + "]";
+                Log.wtf(LOG_TAG, "sendIncomingCallIntent: failed to add new call " + connection
+                        + " because the handle " + attemptedHandle
+                        + " is not in the list of registered handles " + availableHandles
+                        + " - call was rejected.");
+
+                // Since the phone account handle we're trying to use is not valid, we have no other
+                // recourse but to reject the incoming call.
+                try {
+                    connection.hangup();
+                } catch (CallStateException e) {
+                    // connection already disconnected. Do nothing
+                }
+            }
         }
     }
 

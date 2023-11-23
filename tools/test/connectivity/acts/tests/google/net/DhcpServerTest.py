@@ -1,5 +1,6 @@
 from acts import asserts
 from acts import base_test
+from acts import signals
 from acts.controllers import android_device
 from acts.test_decorators import test_tracker_info
 
@@ -19,20 +20,15 @@ NETADDR_PREFIX = '192.168.42.'
 OTHER_NETADDR_PREFIX = '192.168.43.'
 NETADDR_BROADCAST = '255.255.255.255'
 SUBNET_BROADCAST = NETADDR_PREFIX + '255'
+USB_CHARGE_MODE = 'svc usb setFunctions'
+USB_TETHERING_MODE = 'svc usb setFunctions rndis'
+DEVICE_IP_ADDRESS = 'ip address'
 
 
 OFFER = 2
 REQUEST = 3
 ACK = 5
 NAK = 6
-
-
-pmc_base_cmd = (
-    "am broadcast -a com.android.pmc.action.AUTOPOWER --es PowerAction ")
-start_pmc_cmd = (
-    "am start -S -n com.android.pmc/com.android.pmc.PMCMainActivity")
-pmc_start_usb_tethering_cmd = "%sStartUSBTethering" % pmc_base_cmd
-pmc_stop_usb_tethering_cmd = "%sStopUSBTethering" % pmc_base_cmd
 
 
 class DhcpServerTest(base_test.BaseTestClass):
@@ -47,8 +43,6 @@ class DhcpServerTest(base_test.BaseTestClass):
         # Allow using non-67 server ports as long as client uses 68
         bind_layers(UDP, BOOTP, dport=CLIENT_PORT)
 
-        self.dut.adb.shell(start_pmc_cmd)
-        self.dut.adb.shell("setprop log.tag.PMC VERBOSE")
         iflist_before = get_if_list()
         self._start_usb_tethering(self.dut)
         self.iface = self._wait_for_new_iface(iflist_before)
@@ -98,8 +92,11 @@ class DhcpServerTest(base_test.BaseTestClass):
         """
         self.log.info("Starting USB Tethering")
         dut.stop_services()
-        dut.adb.shell(pmc_start_usb_tethering_cmd)
-        self._wait_for_device(self.dut)
+        dut.adb.shell(USB_TETHERING_MODE, ignore_status=True)
+        dut.adb.wait_for_device()
+        dut.start_services()
+        if 'rndis' not in dut.adb.shell(DEVICE_IP_ADDRESS):
+            raise signals.TestFailure('Unable to enable USB tethering.')
         self.USB_TETHERED = True
 
     def _stop_usb_tethering(self, dut):
@@ -109,8 +106,9 @@ class DhcpServerTest(base_test.BaseTestClass):
             1. dut - ad object
         """
         self.log.info("Stopping USB Tethering")
-        dut.adb.shell(pmc_stop_usb_tethering_cmd)
-        self._wait_for_device(self.dut)
+        dut.stop_services()
+        dut.adb.shell(USB_CHARGE_MODE)
+        dut.adb.wait_for_device()
         dut.start_services()
         self.USB_TETHERED = False
 

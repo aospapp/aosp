@@ -59,9 +59,9 @@ import android.util.Log;
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
-import com.android.internal.util.IState;
-import com.android.internal.util.State;
-import com.android.internal.util.StateMachine;
+import com.android.bluetooth.statemachine.IState;
+import com.android.bluetooth.statemachine.State;
+import com.android.bluetooth.statemachine.StateMachine;
 
 import java.util.ArrayList;
 import java.util.List;

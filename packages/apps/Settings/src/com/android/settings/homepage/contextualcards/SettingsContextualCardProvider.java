@@ -56,20 +56,34 @@ public class SettingsContextualCardProvider extends ContextualCardProvider {
                         .setCardName(CustomSliceRegistry.BATTERY_FIX_SLICE_URI.toString())
                         .setCardCategory(ContextualCard.Category.IMPORTANT)
                         .build();
-        final String contextualNotificationChannelSliceUri =
-                CustomSliceRegistry.CONTEXTUAL_NOTIFICATION_CHANNEL_SLICE_URI.toString();
-        final ContextualCard notificationChannelCard =
+        final String contextualAdaptiveSleepSliceUri =
+                CustomSliceRegistry.CONTEXTUAL_ADAPTIVE_SLEEP_URI.toString();
+        final ContextualCard contextualAdaptiveSleepCard =
                 ContextualCard.newBuilder()
-                        .setSliceUri(contextualNotificationChannelSliceUri)
-                        .setCardName(contextualNotificationChannelSliceUri)
-                        .setCardCategory(ContextualCard.Category.POSSIBLE)
+                        .setSliceUri(contextualAdaptiveSleepSliceUri)
+                        .setCardName(contextualAdaptiveSleepSliceUri)
+                        .setCardCategory(ContextualCard.Category.DEFAULT)
+                        .build();
+        final ContextualCard contextualFaceSettingsCard =
+                ContextualCard.newBuilder()
+                        .setSliceUri(CustomSliceRegistry.FACE_ENROLL_SLICE_URI.toString())
+                        .setCardName(CustomSliceRegistry.FACE_ENROLL_SLICE_URI.toString())
+                        .setCardCategory(ContextualCard.Category.DEFAULT)
+                        .build();
+        final ContextualCard darkThemeCard =
+                ContextualCard.newBuilder()
+                        .setSliceUri(CustomSliceRegistry.DARK_THEME_SLICE_URI.toString())
+                        .setCardName(CustomSliceRegistry.DARK_THEME_SLICE_URI.toString())
+                        .setCardCategory(ContextualCard.Category.IMPORTANT)
                         .build();
         final ContextualCardList cards = ContextualCardList.newBuilder()
                 .addCard(wifiCard)
                 .addCard(connectedDeviceCard)
                 .addCard(lowStorageCard)
                 .addCard(batteryFixCard)
-                .addCard(notificationChannelCard)
+                .addCard(contextualAdaptiveSleepCard)
+                .addCard(contextualFaceSettingsCard)
+                .addCard(darkThemeCard)
                 .build();
 
         return cards;

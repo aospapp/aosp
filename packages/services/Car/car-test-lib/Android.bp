@@ -15,7 +15,7 @@
 java_library {
     name: "android.car.testapi",
     srcs: [
-        "src/**/*.java",
+        "src/android/car/testapi/*.java",
     ],
     product_variables: {
         pdk: {
@@ -24,7 +24,25 @@ java_library {
     },
     static_libs: [
         "android.car",
+        "car-service-test-lib",
+    ],
+    libs: [
         "mockito",
     ],
     installable: false,
+    dist: {
+        targets: ["dist_files"],
+    }
+}
+
+java_library {
+    name: "android.car.test.utils",
+    srcs: [
+        "src/android/car/test/**/*.java",
+    ],
+    libs: [
+        "android.hardware.automotive.vehicle-V2.0-java",
+        "mockito-target-extended",
+        "compatibility-device-util-axt",
+    ],
 }

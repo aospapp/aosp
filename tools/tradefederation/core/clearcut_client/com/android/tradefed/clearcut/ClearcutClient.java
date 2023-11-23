@@ -140,6 +140,20 @@ public class ClearcutClient {
         queueEvent(request.build());
     }
 
+    /** Send the event to notify that a Tradefed invocation was started. */
+    public void notifyTradefedInvocationStartEvent() {
+        if (mDisabled) {
+            return;
+        }
+        LogRequest.Builder request = createBaseLogRequest();
+        LogEvent.Builder logEvent = LogEvent.newBuilder();
+        logEvent.setEventTimeMs(System.currentTimeMillis());
+        logEvent.setSourceExtension(
+                ClearcutEventHelper.createRunStartEvent(getGroupingKey(), mRunId, mUserType));
+        request.addLogEvent(logEvent);
+        queueEvent(request.build());
+    }
+
     /** Stop the periodic sending of clearcut events */
     public void stop() {
         if (mExecutor != null) {

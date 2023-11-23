@@ -61,7 +61,7 @@ import java.util.regex.Pattern;
  * selection dialog.
  */
 public class BluetoothOppLauncherActivity extends Activity {
-    private static final String TAG = "BluetoothLauncherActivity";
+    private static final String TAG = "BluetoothOppLauncherActivity";
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
 
@@ -77,12 +77,6 @@ public class BluetoothOppLauncherActivity extends Activity {
         String action = intent.getAction();
         if (action == null) {
             Log.w(TAG, " Received " + intent + " with null action");
-            finish();
-            return;
-        }
-
-        if (action == null) {
-            Log.w(TAG, "action is null");
             finish();
             return;
         }
@@ -259,7 +253,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                 Settings.System.getString(resolver, Settings.Global.AIRPLANE_MODE_RADIOS);
         final boolean isAirplaneSensitive =
                 airplaneModeRadios == null || airplaneModeRadios.contains(
-                        Settings.System.RADIO_BLUETOOTH);
+                        Settings.Global.RADIO_BLUETOOTH);
         if (!isAirplaneSensitive) {
             return true;
         }

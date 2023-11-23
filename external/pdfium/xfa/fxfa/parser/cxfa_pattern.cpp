@@ -6,25 +6,26 @@
 
 #include "xfa/fxfa/parser/cxfa_pattern.h"
 
-#include "fxjs/xfa/cjx_pattern.h"
+#include "core/fxge/render_defines.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fxfa/parser/cxfa_color.h"
 #include "xfa/fxgraphics/cxfa_gepattern.h"
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {{XFA_Element::Color, 1, 0},
-                                                 {XFA_Element::Extras, 1, 0},
-                                                 {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::PropertyData kPatternPropertyData[] = {
+    {XFA_Element::Color, 1, 0},
+    {XFA_Element::Extras, 1, 0},
+};
+
+const CXFA_Node::AttributeData kPatternAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Type, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::CrossHatch},
+     (void*)XFA_AttributeValue::CrossHatch},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"pattern";
+};
 
 }  // namespace
 
@@ -34,18 +35,17 @@ CXFA_Pattern::CXFA_Pattern(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Pattern,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Pattern>(this)) {}
+                kPatternPropertyData,
+                kPatternAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Pattern::~CXFA_Pattern() {}
+CXFA_Pattern::~CXFA_Pattern() = default;
 
 CXFA_Color* CXFA_Pattern::GetColorIfExists() {
   return GetChild<CXFA_Color>(0, XFA_Element::Color, false);
 }
 
-XFA_AttributeEnum CXFA_Pattern::GetType() {
+XFA_AttributeValue CXFA_Pattern::GetType() {
   return JSObject()->GetEnum(XFA_Attribute::Type);
 }
 
@@ -59,19 +59,19 @@ void CXFA_Pattern::Draw(CXFA_Graphics* pGS,
 
   FX_HatchStyle iHatch = FX_HatchStyle::Cross;
   switch (GetType()) {
-    case XFA_AttributeEnum::CrossDiagonal:
+    case XFA_AttributeValue::CrossDiagonal:
       iHatch = FX_HatchStyle::DiagonalCross;
       break;
-    case XFA_AttributeEnum::DiagonalLeft:
+    case XFA_AttributeValue::DiagonalLeft:
       iHatch = FX_HatchStyle::ForwardDiagonal;
       break;
-    case XFA_AttributeEnum::DiagonalRight:
+    case XFA_AttributeValue::DiagonalRight:
       iHatch = FX_HatchStyle::BackwardDiagonal;
       break;
-    case XFA_AttributeEnum::Horizontal:
+    case XFA_AttributeValue::Horizontal:
       iHatch = FX_HatchStyle::Horizontal;
       break;
-    case XFA_AttributeEnum::Vertical:
+    case XFA_AttributeValue::Vertical:
       iHatch = FX_HatchStyle::Vertical;
       break;
     default:

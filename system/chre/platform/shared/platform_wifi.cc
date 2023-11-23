@@ -19,16 +19,16 @@
 #include <cinttypes>
 
 #include "chre/core/event_loop_manager.h"
-#include "chre/platform/shared/pal_system_api.h"
 #include "chre/platform/log.h"
+#include "chre/platform/shared/pal_system_api.h"
 
 namespace chre {
 
 const chrePalWifiCallbacks PlatformWifiBase::sWifiCallbacks = {
-  PlatformWifi::scanMonitorStatusChangeCallback,
-  PlatformWifiBase::scanResponseCallback,
-  PlatformWifiBase::scanEventCallback,
-  PlatformWifiBase::rangingEventCallback,
+    PlatformWifi::scanMonitorStatusChangeCallback,
+    PlatformWifiBase::scanResponseCallback,
+    PlatformWifiBase::scanEventCallback,
+    PlatformWifiBase::rangingEventCallback,
 };
 
 PlatformWifi::~PlatformWifi() {
@@ -75,8 +75,8 @@ bool PlatformWifi::configureScanMonitor(bool enable) {
 }
 
 bool PlatformWifi::requestRanging(const struct chreWifiRangingParams *params) {
-  if (mWifiApi != nullptr
-      && mWifiApi->moduleVersion >= CHRE_PAL_WIFI_API_V1_2) {
+  if (mWifiApi != nullptr &&
+      mWifiApi->moduleVersion >= CHRE_PAL_WIFI_API_V1_2) {
     prePalApiCall();
     return mWifiApi->requestRanging(params);
   } else {
@@ -105,24 +105,25 @@ void PlatformWifi::releaseScanEvent(struct chreWifiScanEvent *event) {
 
 void PlatformWifiBase::rangingEventCallback(
     uint8_t errorCode, struct chreWifiRangingEvent *event) {
-  EventLoopManagerSingleton::get()->getWifiRequestManager()
-      .handleRangingEvent(errorCode, event);
+  EventLoopManagerSingleton::get()->getWifiRequestManager().handleRangingEvent(
+      errorCode, event);
 }
 
 void PlatformWifiBase::scanMonitorStatusChangeCallback(bool enabled,
                                                        uint8_t errorCode) {
-  EventLoopManagerSingleton::get()->getWifiRequestManager()
+  EventLoopManagerSingleton::get()
+      ->getWifiRequestManager()
       .handleScanMonitorStateChange(enabled, errorCode);
 }
 
 void PlatformWifiBase::scanResponseCallback(bool pending, uint8_t errorCode) {
-  EventLoopManagerSingleton::get()->getWifiRequestManager()
-      .handleScanResponse(pending, errorCode);
+  EventLoopManagerSingleton::get()->getWifiRequestManager().handleScanResponse(
+      pending, errorCode);
 }
 
 void PlatformWifiBase::scanEventCallback(struct chreWifiScanEvent *event) {
-  EventLoopManagerSingleton::get()->getWifiRequestManager()
-      .handleScanEvent(event);
+  EventLoopManagerSingleton::get()->getWifiRequestManager().handleScanEvent(
+      event);
 }
 
 }  // namespace chre

@@ -7,43 +7,53 @@
 #ifndef CORE_FPDFAPI_FONT_CPDF_CMAPPARSER_H_
 #define CORE_FPDFAPI_FONT_CPDF_CMAPPARSER_H_
 
-#include <map>
 #include <utility>
 #include <vector>
 
 #include "core/fpdfapi/font/cpdf_cidfont.h"
 #include "core/fpdfapi/font/cpdf_cmap.h"
 #include "core/fxcrt/unowned_ptr.h"
+#include "third_party/base/optional.h"
 
 class CPDF_CMapParser {
  public:
-  explicit CPDF_CMapParser(CPDF_CMap* pMap);
+  explicit CPDF_CMapParser(CPDF_CMap* pCMap);
   ~CPDF_CMapParser();
 
-  void ParseWord(const ByteStringView& str);
-  bool HasAdditionalMappings() const {
-    return !m_AdditionalCharcodeToCIDMappings.empty();
-  }
-  std::vector<CPDF_CMap::CIDRange> TakeAdditionalMappings() {
-    return std::move(m_AdditionalCharcodeToCIDMappings);
-  }
+  void ParseWord(ByteStringView word);
 
-  uint32_t GetCode(const ByteStringView& word) const;
-  bool GetCodeRange(CPDF_CMap::CodeRange& range,
-                    const ByteStringView& first,
-                    const ByteStringView& second) const;
-
-  static CIDSet CharsetFromOrdering(const ByteStringView& ordering);
+  static CIDSet CharsetFromOrdering(ByteStringView ordering);
 
  private:
+  friend class cpdf_cmapparser_GetCode_Test;
+  friend class cpdf_cmapparser_GetCodeRange_Test;
 
+  enum Status {
+    kStart,
+    kProcessingCidChar,
+    kProcessingCidRange,
+    kProcessingRegistry,
+    kProcessingOrdering,
+    kProcessingSupplement,
+    kProcessingWMode,
+    kProcessingCodeSpaceRange,
+  };
+
+  void HandleCid(ByteStringView word);
+  void HandleCodeSpaceRange(ByteStringView word);
+
+  static uint32_t GetCode(ByteStringView word);
+  static Optional<CPDF_CMap::CodeRange> GetCodeRange(ByteStringView first,
+                                                     ByteStringView second);
+
+  Status m_Status = kStart;
+  int m_CodeSeq = 0;
   UnownedPtr<CPDF_CMap> const m_pCMap;
-  int m_Status;
-  int m_CodeSeq;
-  uint32_t m_CodePoints[4];
-  std::vector<CPDF_CMap::CodeRange> m_CodeRanges;
+  std::vector<CPDF_CMap::CodeRange> m_Ranges;
+  std::vector<CPDF_CMap::CodeRange> m_PendingRanges;
   std::vector<CPDF_CMap::CIDRange> m_AdditionalCharcodeToCIDMappings;
   ByteString m_LastWord;
+  uint32_t m_CodePoints[4];
 };
 
 #endif  // CORE_FPDFAPI_FONT_CPDF_CMAPPARSER_H_

@@ -30,6 +30,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <chre/toolchain.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -50,6 +52,16 @@ extern "C" {
  */
 #define CHRE_TIMER_INVALID  UINT32_C(-1)
 
+
+/**
+ * The maximum size, in characters including null terminator, guaranteed for
+ * logging debug data with one call of chreDebugDumpLog() without getting
+ * truncated.
+ *
+ * @see chreDebugDumpLog
+ * @since v1.4
+ */
+#define CHRE_DEBUG_DUMP_MINIMUM_MAX_SIZE 1000
 
 /**
  * Logging levels used to indicate severity level of logging messages.
@@ -113,7 +125,8 @@ uint32_t chreGetInstanceId(void);
  * and delivered when appropriate (e.g. the host wakes up). If done this way,
  * the internal buffer is recommended to be large enough (at least a few KB), so
  * that multiple messages can be buffered. When these logs are sent to the host,
- * they should be visible under the tag 'CHRE' in logcat.
+ * they are strongly recommended to be made visible under the tag 'CHRE' in
+ * logcat - a future version of the CHRE API may make this a hard requirement.
  *
  * A log entry can have a variety of levels (@see LogLevel).  This function
  * allows a variable number of arguments, in a printf-style format.
@@ -215,6 +228,7 @@ uint32_t chreGetInstanceId(void);
  * @param ...  A variable number of arguments necessary for the given
  *     'formatStr' (there may be no additional arguments for some 'formatStr's).
  */
+CHRE_PRINTF_ATTR(2, 3)
 void chreLog(enum chreLogLevel level, const char *formatStr, ...);
 
 /**
@@ -386,6 +400,34 @@ void *chreHeapAlloc(uint32_t bytes);
  */
 void chreHeapFree(void *ptr);
 
+/**
+ * Logs the nanoapp's debug data into debug dumps.
+ *
+ * A debug dump is a string representation of information that can be used to
+ * diagnose and debug issues. While chreLog() is useful for logging events as
+ * they happen, the debug dump is a complementary function typically used to
+ * output a snapshot of a nanoapp's state, history, vital statistics, etc. The
+ * CHRE framework is required to pass this information to the debug method in
+ * the Context Hub HAL, where it can be captured in Android bugreports, etc.
+ *
+ * This function must only be called while handling CHRE_DEBUG_DUMP_EVENT,
+ * otherwise it will have no effect. A nanoapp can call this function multiple
+ * times while handling the event. If the resulting formatted string from a
+ * single call to this function is longer than CHRE_DEBUG_DUMP_MINIMUM_MAX_SIZE
+ * characters, it may get truncated.
+ *
+ * @param formatStr A printf-style format string of the format documented in
+ *     chreLog().
+ * @param ... A variable number of arguments necessary for the given 'formatStr'
+ *     (there may be no additional arguments for some 'formatStr's).
+ *
+ * @see chreConfigureDebugDumpEvent
+ * @see chreLog
+ *
+ * @since v1.4
+ */
+CHRE_PRINTF_ATTR(1, 2)
+void chreDebugDumpLog(const char *formatStr, ...);
 
 #ifdef __cplusplus
 }

@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.wifi;
 
+import android.annotation.NonNull;
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.wifi.WifiManager;
@@ -30,6 +31,7 @@ import com.android.cts.verifier.R;
  */
 public abstract class BaseTestCase {
     private static final String TAG = "BaseTestCase";
+
     protected Context mContext;
     protected Resources mResources;
     protected Listener mListener;
@@ -39,6 +41,9 @@ public abstract class BaseTestCase {
     protected Handler mHandler;
     protected WifiManager mWifiManager;
     protected TestUtils mTestUtils;
+
+    protected String mSsid;
+    protected String mPsk;
 
     public BaseTestCase(Context context) {
         mContext = context;
@@ -95,8 +100,10 @@ public abstract class BaseTestCase {
      * <p>
      * Test case is executed in another thread.
      */
-    public void start(Listener listener) {
+    public void start(@NonNull Listener listener, @NonNull String ssid, @NonNull String psk) {
         mListener = listener;
+        mSsid = ssid;
+        mPsk = psk;
 
         stop();
         mHandlerThread = new HandlerThread("CtsVerifier-Wifi");

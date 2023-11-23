@@ -19,27 +19,28 @@ package android.permission.cts;
 import static com.android.ex.camera2.blocking.BlockingStateCallback.*;
 
 import android.content.Context;
-import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraCharacteristics.Key;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
-import java.util.List;
-
 import com.android.ex.camera2.blocking.BlockingCameraManager;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tests for Camera2 API related Permissions. Currently, this means
  * android.permission.CAMERA.
  */
 public class Camera2PermissionTest extends AndroidTestCase {
-    private static final String TAG = "CameraDeviceTest";
+    private static final String TAG = "Camera2PermissionTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private static final int CAMERA_CLOSE_TIMEOUT_MS = 2000;
 
@@ -99,6 +100,25 @@ public class Camera2PermissionTest extends AndroidTestCase {
     }
 
     /**
+     * Check that no system cameras can be discovered without
+     * {@link android.Manifest.permission#CAMERA} and android.permission.SYSTEM_CAMERA
+     */
+    public void testSystemCameraDiscovery() throws Exception {
+        for (String id : mCameraIds) {
+            Log.i(TAG, "testSystemCameraDiscovery for camera id " +  id);
+            CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(id);
+            assertNotNull("Camera characteristics shouldn't be null", characteristics);
+            int[] availableCapabilities =
+                    characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            assertTrue("Camera capabilities shouldn't be null", availableCapabilities != null);
+            List<Integer> capList = toList(availableCapabilities);
+            assertFalse("System camera device " + id + " should not be public",
+                    capList.contains(
+                            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_SYSTEM_CAMERA));
+        }
+    }
+
+    /**
      * Check the absence of camera characteristics keys that require Permission:
      * {@link android.Manifest.permission#CAMERA}.
      */
@@ -151,6 +171,14 @@ public class Camera2PermissionTest extends AndroidTestCase {
     private void openCamera(String cameraId) throws Exception {
         mCamera = (new BlockingCameraManager(mCameraManager)).openCamera(
                 cameraId, mCameraListener, mHandler);
+    }
+
+    private static List<Integer> toList(int[] array) {
+        List<Integer> list = new ArrayList<Integer>();
+        for (int i  : array) {
+            list.add(i);
+        }
+        return list;
     }
 
     private void closeCamera() {

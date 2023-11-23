@@ -28,7 +28,7 @@ Certificate:
         Version: 3 (0x2)
         Serial Number:
             84:82:2c:5f:1c:62:d0:40
-    Signature Algorithm: sha256WithRSAEncryption
+        Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor ECA-1
         Validity
             Not Before: Feb  4 12:32:33 2016 GMT
@@ -36,7 +36,7 @@ Certificate:
         Subject: C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor ECA-1
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
+                RSA Public-Key: (2048 bit)
                 Modulus:
                     00:cf:8f:e0:11:b5:9f:a8:76:76:db:df:0f:54:ef:
                     73:63:29:82:ad:47:c6:a3:6b:ed:fe:5f:33:f8:43:

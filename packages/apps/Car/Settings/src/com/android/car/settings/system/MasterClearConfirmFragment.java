@@ -26,13 +26,15 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.service.oemlock.OemLockManager;
 import android.service.persistentdata.PersistentDataBlockManager;
-import android.widget.Button;
 
-import androidx.annotation.LayoutRes;
 import androidx.preference.PreferenceManager;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.ui.toolbar.MenuItem;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Presents the user with a final warning before issuing the request to reset the head unit to its
@@ -40,7 +42,9 @@ import com.android.car.settings.common.SettingsFragment;
  */
 public class MasterClearConfirmFragment extends SettingsFragment {
 
-    private Button.OnClickListener mFinalClickListener = v -> {
+    private MenuItem mClearConfirmButton;
+
+    private MenuItem.OnClickListener mFinalClickListener = i -> {
         if (ActivityManager.isUserAMonkey()) {
             return;
         }
@@ -89,19 +93,18 @@ public class MasterClearConfirmFragment extends SettingsFragment {
     }
 
     @Override
-    @LayoutRes
-    protected int getActionBarLayoutId() {
-        return R.layout.action_bar_with_button;
+    protected List<MenuItem> getToolbarMenuItems() {
+        return Collections.singletonList(mClearConfirmButton);
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-        Button masterClearConfirmButton = requireActivity().findViewById(R.id.action_button1);
-        masterClearConfirmButton.setText(
-                requireContext().getString(R.string.master_clear_confirm_button_text));
-        masterClearConfirmButton.setOnClickListener(mFinalClickListener);
+        mClearConfirmButton = new MenuItem.Builder(getContext())
+                .setTitle(R.string.master_clear_confirm_button_text)
+                .setOnClickListener(mFinalClickListener)
+                .build();
     }
 
     private boolean isDeviceProvisioned() {

@@ -18,6 +18,7 @@
 #define UPDATE_ENGINE_COMMON_UTILS_H_
 
 #include <errno.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -304,6 +305,9 @@ bool ReadExtents(const std::string& path,
 // reboot. Returns whether it succeeded getting the boot_id.
 bool GetBootId(std::string* boot_id);
 
+// This function gets the file path of the file pointed to by FileDiscriptor.
+std::string GetFilePath(int fd);
+
 // Divide |x| by |y| and round up to the nearest integer.
 constexpr uint64_t DivRoundUp(uint64_t x, uint64_t y) {
   return (x + y - 1) / y;
@@ -325,6 +329,9 @@ int VersionPrefix(const std::string& version);
 void ParseRollbackKeyVersion(const std::string& raw_version,
                              uint16_t* high_version,
                              uint16_t* low_version);
+
+// Return a string representation of |utime| for log file names.
+std::string GetTimeAsString(time_t utime);
 
 }  // namespace utils
 

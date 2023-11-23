@@ -19,8 +19,12 @@ package com.android.car.apps.common;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Matrix;
+import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.view.View;
 import android.widget.ImageView;
+
+import java.util.Locale;
 
 /**
  * A {@link ImageView} that scales in a similar way as {@link ScaleType#CENTER_CROP} but aligning
@@ -29,8 +33,8 @@ import android.widget.ImageView;
 public class CropAlignedImageView extends ImageView {
 
     private static final int ALIGN_HORIZONTAL_CENTER = 0;
-    private static final int ALIGN_HORIZONTAL_LEFT = 1;
-    private static final int ALIGN_HORIZONTAL_RIGHT = 2;
+    private static final int ALIGN_HORIZONTAL_START = 1;
+    private static final int ALIGN_HORIZONTAL_END = 2;
 
     private int mAlignHorizontal;
     private float mAdditionalScale = 1f;
@@ -82,6 +86,8 @@ public class CropAlignedImageView extends ImageView {
             float fitHorizontallyScaleFactor = mFrameWidth / originalImageWidth;
             float fitVerticallyScaleFactor = mFrameHeight / originalImageHeight;
             float usedScaleFactor = Math.max(fitHorizontallyScaleFactor, fitVerticallyScaleFactor);
+            int layoutDirection = TextUtils.getLayoutDirectionFromLocale(Locale.getDefault());
+            boolean isRTL = layoutDirection == View.LAYOUT_DIRECTION_RTL;
 
             // mAdditionalScale isn't factored into the fittedImageWidth
             // because we want to scale from the center of the fitted image, so our translations
@@ -97,11 +103,11 @@ public class CropAlignedImageView extends ImageView {
                 case ALIGN_HORIZONTAL_CENTER:
                     dx = mFrameWidth / 2f;
                     break;
-                case ALIGN_HORIZONTAL_LEFT:
-                    dx = fittedImageWidth / 2f;
+                case ALIGN_HORIZONTAL_START:
+                    dx = isRTL ? (mFrameWidth - fittedImageWidth / 2f) : fittedImageWidth / 2f;
                     break;
-                case ALIGN_HORIZONTAL_RIGHT:
-                    dx = (mFrameWidth - fittedImageWidth / 2f);
+                case ALIGN_HORIZONTAL_END:
+                    dx = isRTL ? fittedImageWidth / 2f : (mFrameWidth - fittedImageWidth / 2f);
                     break;
             }
             matrix.postTranslate(dx, mFrameHeight / 2f);

@@ -16,7 +16,7 @@
 
 package android.util;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.GrowingArrayUtils;
@@ -101,6 +101,17 @@ public class SparseArray<E> implements Cloneable {
             /* ignore */
         }
         return clone;
+    }
+
+    /**
+     * Returns true if the key exists in the array. This is equivalent to
+     * {@link #indexOfKey(int)} >= 0.
+     *
+     * @param key Potential key in the mapping
+     * @return true if the key is defined in the mapping
+     */
+    public boolean contains(int key) {
+        return indexOfKey(key) >= 0;
     }
 
     /**

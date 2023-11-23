@@ -36,4 +36,10 @@
     <!-- The minimum velocity in pixels per second that is used to determine whether a swipe
     is moving in the same direction. -->
     <integer name="min_velocity_for_swipe_direction_detection">50</integer>
+
+    <!-- Milliseconds of interval between each notification dismiss animation on clear all notifications event-->
+    <integer name="clear_all_notifications_animation_delay_interval_ms">120</integer>
+
+    <!-- Milliseconds delay between clear all notifications animation end and the collapse shade panel animation -->
+    <integer name="delay_between_clear_all_notifications_end_and_collapse_shade_panel_ms">300</integer>
 </resources>

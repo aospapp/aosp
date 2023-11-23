@@ -60,6 +60,11 @@
     <string name="forget" msgid="892068061425802502">"Unudun"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct ilə qoşulur"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Cari şəbəkə ilə <xliff:g id="IP_ADDRESS">%1$s</xliff:g> ünvanında qoşulur"</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Defolt Çap Xidməti əsas seçimləri təmin edir. Bu printerin digər seçimləri başqa çap xidmətində əlçatan ola bilər."</string>
+    <string name="recommendations_heading" msgid="5086762263560605249">"Tövsiyə olunan xidmətlər"</string>
+    <string name="recommendation_install_summary" msgid="374785283809791669">"Quraşdırmaq üçün seçin"</string>
+    <string name="recommendation_enable_summary" msgid="3500907868251326224">"Aktiv etmək üçün seçin"</string>
+    <string name="recommendation_manage" msgid="4683640588502866284">"Xidmətləri idarə edin"</string>
     <string name="security" msgid="2279008326210305401">"Təhlükəsizlik"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"Bu printer yeni sertifikat təqdim etdi və ya digər cihaz onun şəxsiyyətini oğurlayır. Yeni sertifikat qəbul edilsin?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"Bu printer artıq şifrələnmiş işləri qəbul etmir. Çapa davam edilsin?"</string>
@@ -68,4 +73,5 @@
     <string name="connections" msgid="8895413761760117180">"Əlaqələr"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Defolt Çap Xidməti yaxınlıqdakı cihazları tapmaq üçün məkan icazəsi tələb edir."</string>
     <string name="fix" msgid="7784394272611365393">"Rəy icazələri"</string>
+    <string name="print" msgid="7851318072404916362">"Çap"</string>
 </resources>

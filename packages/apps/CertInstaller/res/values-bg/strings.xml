@@ -21,8 +21,8 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Извличане на сертификата"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Извличат се..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Извличане от %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Наименуване на сертификата"</string>
-    <string name="credential_name" msgid="1974979771369744378">"Име на сертификата:"</string>
+    <string name="name_credential_dialog_title" msgid="1481964824549786927">"Дайте име на този сертификат"</string>
+    <string name="certificate_name" msgid="8415893401368824792">"Име на сертификата"</string>
     <string name="credential_password" msgid="3520176519550993326">"Въведете паролата за извличане на сертификатите."</string>
     <string name="credential_info" msgid="2436768402308470397">"Съдържание на пакета:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Сертификати в хранилище за ключове във формат PKCS12"</string>
@@ -41,10 +41,24 @@
     <string name="invalid_cert" msgid="7704228670980743590">"Сертификатът е невалиден."</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"За инсталирането на сертификат се изисква частен ключ"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"За инсталирането на частен ключ се изисква сертификат"</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> е инсталиран."</string>
+    <string name="select_certificate_usage_title" msgid="8853023485944920851">"Изберете тип сертификат"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Инсталиране на сертификати от сертифициращ орган от настройките"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Този сертификат от <xliff:g id="REQUESTING_APP">%1$s</xliff:g> трябва да се инсталира от настройките. Инсталирайте само сертификати от сертифициращ орган от организации, на които имате доверие."</string>
+    <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Затваряне"</string>
+    <string name="invalid_certificate_title" msgid="6500315398016809635">"Този файл не може да се използва"</string>
+    <string name="invalid_certificate_close_button" msgid="350986774973653102">"Затваряне"</string>
+    <string name="invalid_certificate_message" msgid="3508065546083182733">"Този файл не може да се използва като <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g>"</string>
+    <string name="certificate" msgid="8790577925509962529">"Сертификат"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"Сертификат от сертифициращ орган"</string>
+    <string name="user_certificate" msgid="514888069820553128">"Виртуална частна мрежа (VPN) и потребителски сертификат за приложението"</string>
+    <string name="wifi_certificate" msgid="5356595832360140989">"Сертификат за Wi‑Fi"</string>
+    <string name="ca_cert_is_added" msgid="2847081843756291802">"Сертификатът от сертифициращ орган е инсталиран"</string>
+    <string name="user_cert_is_added" msgid="3088794616560630823">"Потребителският сертификат е инсталиран"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"Сертификатът за Wi‑Fi е инсталиран"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Не можа да се инсталира, защото размерът на сертификата е твърде голям."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Не можа да се инсталира, защото файлът със сертификата не можа да бъде намерен."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Не можа да се инсталира, защото файлът със сертификата не можа да бъде прочетен."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Временен неуспех. Моля, опитайте отново по-късно."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Само собственикът на това устройство може да инсталира сертификати."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Използв. на идент. данни"</string>
   <string-array name="credential_usage">

@@ -16,16 +16,12 @@
 
 package com.android.server.telecom.testapps;
 
-import android.content.Context;
 import android.content.Intent;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.telecom.InCallService;
 import android.telecom.Phone;
 import android.util.Log;
-
-import java.lang.Override;
-import java.lang.String;
 
 /**
  * Test In-Call service implementation.  Logs incoming events.  Mainly used to test binding to

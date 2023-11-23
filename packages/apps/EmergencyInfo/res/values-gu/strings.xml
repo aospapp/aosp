@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"કટોકટીની માહિતી"</string>
+    <string name="app_label" msgid="1090682794607161063">"ઇમર્જન્સીની માહિતી"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"તબીબી માહિતી"</string>
     <string name="add_medical_info" msgid="483921612415907139">"માહિતી ઉમેરો"</string>
     <string name="edit_info" msgid="5973929805855224805">"કટોકટીની માહિતી સંપાદિત કરો"</string>

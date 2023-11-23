@@ -18,11 +18,14 @@
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsDeviceOsTestApp.apk" />
         <option name="test-file-name" value="CtsHostProcfsTestApp.apk" />
+        <option name="test-file-name" value="CtsInattentiveSleepTestApp.apk" />
+        <option name="test-file-name" value="CtsHostEnvironmentTestApp.apk" />
     </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsOsHostTestCases.jar" />

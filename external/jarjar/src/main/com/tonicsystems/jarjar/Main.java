@@ -90,7 +90,11 @@ public class Main {
     List<PatternElement> rules = RulesFileParser.parse(rulesFile);
     boolean verbose = Boolean.getBoolean("verbose");
     boolean skipManifest = Boolean.getBoolean("skipManifest");
-    MainProcessor proc = new MainProcessor(rules, verbose, skipManifest);
+    // ANDROID-BEGIN: b/146418363 Add an Android-specific transformer to strip compat annotation
+    boolean removeAndroidCompatAnnotations = Boolean.getBoolean("removeAndroidCompatAnnotations");
+    MainProcessor proc = new MainProcessor(rules, verbose, skipManifest,
+            removeAndroidCompatAnnotations);
+    // ANDROID-END: b/146418363 Add an Android-specific transformer to strip compat annotation
     StandaloneJarProcessor.run(inJar, outJar, proc);
     proc.strip(outJar);
   }

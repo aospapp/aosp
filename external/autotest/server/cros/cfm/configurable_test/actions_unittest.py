@@ -67,7 +67,7 @@ class TestActions(unittest.TestCase):
         self.host_mock.reboot.assert_called_once_with()
         (self.cfm_facade_mock.restart_chrome_for_cfm
                 .assert_called_once_with())
-        (self.cfm_facade_mock.wait_for_meetings_telemetry_commands
+        (self.cfm_facade_mock.wait_for_telemetry_commands
                 .assert_called_once_with())
 
     def test_assert_usb_device_collector(self):

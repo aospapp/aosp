@@ -52,9 +52,8 @@ compiling and installing the whole testsuite.
 
 Shortcut to running a single test
 ---------------------------------
-
-If you need to execute a single test you actually does not need to compile
-whole LTP, if you want to run a syscall testcase following should work.
+If you need to execute a single test you actually do not need to compile
+the whole LTP, if you want to run a syscall testcase following should work.
 
 ```
 $ cd testcases/kernel/syscalls/foo
@@ -166,6 +165,9 @@ Note that all shell scripts need the `PATH` to be set. However this is not
 limited to shell scripts, many C based tests need environment variables as
 well.
 
+For more info see `doc/user-guide.txt` or online at
+https://github.com/linux-test-project/ltp/wiki/User-Guidelines.
+
 Developers corner
 =================
 
@@ -182,7 +184,14 @@ If something is not covered there don't hesitate to ask on the LTP mailing
 list. Also note that these documents are available online at:
 
 * https://github.com/linux-test-project/ltp/wiki/Test-Writing-Guidelines
-* https://github.com/linux-test-project/ltp/wiki/BuildSystem
+* https://github.com/linux-test-project/ltp/wiki/Style-Guide
+* https://github.com/linux-test-project/ltp/wiki/Build-System
 * https://github.com/linux-test-project/ltp/wiki/C-Test-Case-Tutorial
 
 Although we accept GitHub pull requests, the preferred way is sending patches to our mailing list.
+
+It's a good idea to test patches on Travis CI before posting to mailing
+list. Our travis setup covers various architectures and distributions in
+order to make sure LTP compiles cleanly on most common configurations.
+For testing you need to sign up to Travis CI, enable running builds on your LTP fork on
+https://travis-ci.org/account/repositories and push your branch.

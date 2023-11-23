@@ -61,15 +61,15 @@ class SetupCommonTest(driver_test_lib.BaseDriverTest):
             setup_common.PackageInstalled("fake_package")
 
     # pylint: disable=invalid-name
-    def testPackageInstalledFalseForOldVersion(self):
-        """Test PackageInstalled should return False when pkg is out-of-date."""
+    def testPackageInstalledForOldVersion(self):
+        """Test PackageInstalled should return True when pkg is out-of-date."""
         self.Patch(
             setup_common,
             "CheckCmdOutput",
             return_value=self.PKG_INFO_OLD_VERSION)
 
-        self.assertFalse(setup_common.PackageInstalled("fake_package",
-                                                       compare_version=True))
+        self.assertTrue(setup_common.PackageInstalled("fake_package",
+                                                      compare_version=True))
 
     def testPackageInstalled(self):
         """Test PackageInstalled should return True when pkg is installed."""

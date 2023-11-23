@@ -21,7 +21,7 @@ import java.util.List;
 public class XsdComplexContent extends XsdComplexType {
 
     public XsdComplexContent(String name, XsdType base, List<XsdAttribute> attributes,
-            List<XsdElement> elements) {
-        super(name, base, attributes, elements);
+            List<XsdAttributeGroup> attributeGroups, List<XsdElement> elements, XsdGroup group) {
+        super(name, base, attributes, attributeGroups, elements, group);
     }
 }

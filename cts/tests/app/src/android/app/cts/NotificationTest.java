@@ -38,11 +38,11 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
-import androidx.annotation.Nullable;
-
 import android.os.StrictMode;
 import android.test.AndroidTestCase;
 import android.widget.RemoteViews;
+
+import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,6 +64,7 @@ public class NotificationTest extends AndroidTestCase {
     private static final String ACTION_TITLE = "actionTitle";
     private static final int BUBBLE_HEIGHT = 300;
     private static final int BUBBLE_HEIGHT_RESID = 31415;
+    private static final String BUBBLE_SHORTCUT_ID = "bubbleShortcutId";
     private static final int TOLERANCE = 200;
     private static final long TIMEOUT = 4000;
     private static final NotificationChannel CHANNEL = new NotificationChannel("id", "name",
@@ -624,10 +625,8 @@ public class NotificationTest extends AndroidTestCase {
         PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
+                new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
                 .setDesiredHeight(BUBBLE_HEIGHT)
-                .setIcon(icon)
-                .setIntent(bubbleIntent)
                 .setDeleteIntent(deleteIntent);
 
         Notification.BubbleMetadata data = metadataBuilder.build();
@@ -644,12 +643,10 @@ public class NotificationTest extends AndroidTestCase {
         PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata metadata =
-                new Notification.BubbleMetadata.Builder()
+                new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
                         .setDesiredHeight(BUBBLE_HEIGHT)
                         .setAutoExpandBubble(true)
                         .setSuppressNotification(true)
-                        .setIcon(icon)
-                        .setIntent(bubbleIntent)
                         .setDeleteIntent(deleteIntent)
                         .build();
 
@@ -662,15 +659,47 @@ public class NotificationTest extends AndroidTestCase {
         assertTrue(metadata.isNotificationSuppressed());
     }
 
+    public void testBubbleMetadataBuilder_shortcutId() {
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        Notification.BubbleMetadata.Builder metadataBuilder =
+                new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
+                        .setDesiredHeight(BUBBLE_HEIGHT)
+                        .setDeleteIntent(deleteIntent);
+
+        Notification.BubbleMetadata data = metadataBuilder.build();
+        assertEquals(BUBBLE_HEIGHT, data.getDesiredHeight());
+        assertEquals(BUBBLE_SHORTCUT_ID, data.getShortcutId());
+        assertEquals(deleteIntent, data.getDeleteIntent());
+        assertFalse(data.isNotificationSuppressed());
+        assertFalse(data.getAutoExpandBubble());
+    }
+
+    public void testBubbleMetadataBuilder_parcelShortcutId() {
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+
+        Notification.BubbleMetadata metadata =
+                new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
+                        .setDesiredHeight(BUBBLE_HEIGHT)
+                        .setAutoExpandBubble(true)
+                        .setSuppressNotification(true)
+                        .setDeleteIntent(deleteIntent)
+                        .build();
+
+        writeAndReadParcelable(metadata);
+        assertEquals(BUBBLE_HEIGHT, metadata.getDesiredHeight());
+        assertEquals(deleteIntent, metadata.getDeleteIntent());
+        assertEquals(BUBBLE_SHORTCUT_ID, metadata.getShortcutId());
+        assertTrue(metadata.getAutoExpandBubble());
+        assertTrue(metadata.isNotificationSuppressed());
+    }
+
     public void testBubbleMetadata_parcelResId() {
         PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata metadata =
-                new Notification.BubbleMetadata.Builder()
+                new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
                         .setDesiredHeightResId(BUBBLE_HEIGHT_RESID)
-                        .setIcon(icon)
-                        .setIntent(bubbleIntent)
-                        .build();
+                .build();
         writeAndReadParcelable(metadata);
         assertEquals(BUBBLE_HEIGHT_RESID, metadata.getDesiredHeightResId());
         assertEquals(icon, metadata.getIcon());
@@ -679,46 +708,82 @@ public class NotificationTest extends AndroidTestCase {
         assertFalse(metadata.isNotificationSuppressed());
     }
 
-    public void testBubbleMetadataBuilder_throwForNoIntent() {
-        Icon icon = Icon.createWithResource(mContext, 1);
+    public void testBubbleMetadataBuilder_throwForNoIntentNoShortcut() {
         Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
-                .setDesiredHeight(BUBBLE_HEIGHT)
-                .setIcon(icon);
+                new Notification.BubbleMetadata.Builder();
         try {
             metadataBuilder.build();
-            fail("Should have thrown IllegalStateException, no pending intent");
-        } catch (IllegalStateException e) {
+            fail("Should have thrown exception, no pending intent or shortcutId");
+        } catch (NullPointerException e) {
             // expected
         }
     }
 
-    public void testBubbleMetadataBuilder_throwForNoIcon() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+    public void testBubbleMetadataBuilder_noThrowWithShortcut() {
         Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
-                .setDesiredHeight(BUBBLE_HEIGHT)
-                .setIntent(bubbleIntent);
-        try {
-            metadataBuilder.build();
-            fail("Should have thrown IllegalStateException, no icon");
-        } catch (IllegalStateException e) {
-            // expected
-        }
+                new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
+                        .setDesiredHeight(BUBBLE_HEIGHT);
+        Notification.BubbleMetadata metadata = metadataBuilder.build();
+        assertNotNull(metadata.getShortcutId());
+        assertNull(metadata.getIcon());
+        assertNull(metadata.getIntent());
     }
 
-    public void testBubbleMetadataBuilder_throwForBitmapIcon() {
-        Bitmap b = Bitmap.createBitmap(50, 25, Bitmap.Config.ARGB_8888);
-        new Canvas(b).drawColor(0xffff0000);
-        Icon icon = Icon.createWithBitmap(b);
-
+    public void testBubbleMetadataBuilder_shortcutBuilder_throwsForSetIntent() {
         PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         try {
             Notification.BubbleMetadata.Builder metadataBuilder =
-                    new Notification.BubbleMetadata.Builder()
-                            .setIcon(icon)
+                    new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
+                            .setDesiredHeightResId(BUBBLE_HEIGHT_RESID)
                             .setIntent(bubbleIntent);
-            fail("Should have thrown IllegalArgumentException, invalid icon type (bitmap)");
+            fail("Should have thrown exception, can't set intent on shortcut builder");
+        } catch (Exception e) {
+            // expected
+        }
+    }
+
+    public void testBubbleMetadataBuilder_shortcutBuilder_throwsForSetIcon() {
+        try {
+            Icon icon = Icon.createWithResource(mContext, 1);
+            Notification.BubbleMetadata.Builder metadataBuilder =
+                    new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
+                            .setDesiredHeightResId(BUBBLE_HEIGHT_RESID)
+                            .setIcon(icon);
+            fail("Should have thrown exception, can't set icon on shortcut builder");
+        } catch (Exception e) {
+            // expected
+        }
+    }
+
+    public void testBubbleMetadataBuilder_notifBubbleShortcutIds_match_noThrow() {
+        Notification.BubbleMetadata metadata =
+                new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID).build();
+
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                .setSmallIcon(1)
+                .setContentTitle(CONTENT_TITLE)
+                .setShortcutId(BUBBLE_SHORTCUT_ID)
+                .setBubbleMetadata(metadata)
+                .build();
+        assertEquals(mNotification.getShortcutId(), BUBBLE_SHORTCUT_ID);
+        assertEquals(mNotification.getBubbleMetadata().getShortcutId(),
+                mNotification.getShortcutId());
+    }
+
+    public void testBubbleMetadataBuilder_notifBubbleShortcutIds_different_throw() {
+        Notification.BubbleMetadata metadata =
+                new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID).build();
+
+        Notification.Builder nb = new Notification.Builder(mContext, CHANNEL.getId())
+                .setSmallIcon(1)
+                .setContentTitle(CONTENT_TITLE)
+                .setShortcutId("a different shortcut id")
+                .setBubbleMetadata(metadata);
+
+        try {
+            nb.build();
+            fail("Should have thrown IllegalArgumentException, "
+                    + "notif & bubble shortcutIds mismatch");
         } catch (IllegalArgumentException e) {
             // expected
         }
@@ -731,9 +796,7 @@ public class NotificationTest extends AndroidTestCase {
 
         PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
-                        .setIcon(icon)
-                        .setIntent(bubbleIntent);
+                new Notification.BubbleMetadata.Builder(bubbleIntent, icon);
         Notification.BubbleMetadata metadata = metadataBuilder.build();
         assertNotNull(metadata.getIcon());
         assertEquals(TYPE_ADAPTIVE_BITMAP, metadata.getIcon().getType());
@@ -744,9 +807,7 @@ public class NotificationTest extends AndroidTestCase {
 
         PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
-                        .setIcon(icon)
-                        .setIntent(bubbleIntent);
+                new Notification.BubbleMetadata.Builder(bubbleIntent, icon);
         Notification.BubbleMetadata metadata = metadataBuilder.build();
         assertNotNull(metadata.getIcon());
         assertEquals(TYPE_RESOURCE, metadata.getIcon().getType());
@@ -757,11 +818,9 @@ public class NotificationTest extends AndroidTestCase {
         PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
+                new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
                         .setDesiredHeight(BUBBLE_HEIGHT)
                         .setDesiredHeightResId(BUBBLE_HEIGHT_RESID)
-                        .setIcon(icon)
-                        .setIntent(bubbleIntent)
                         .setDeleteIntent(deleteIntent);
 
         Notification.BubbleMetadata data = metadataBuilder.build();
@@ -776,11 +835,9 @@ public class NotificationTest extends AndroidTestCase {
         PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata.Builder metadataBuilder =
-                new Notification.BubbleMetadata.Builder()
+                new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
                         .setDesiredHeightResId(BUBBLE_HEIGHT_RESID)
                         .setDesiredHeight(BUBBLE_HEIGHT)
-                        .setIcon(icon)
-                        .setIntent(bubbleIntent)
                         .setDeleteIntent(deleteIntent);
 
         Notification.BubbleMetadata data = metadataBuilder.build();
@@ -852,10 +909,9 @@ public class NotificationTest extends AndroidTestCase {
     private Notification.BubbleMetadata makeBubbleMetadata() {
         PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
 
-        return new Notification.BubbleMetadata.Builder()
-                        .setIntent(bubbleIntent)
-                        .setIcon(Icon.createWithResource(mContext, 1))
-                        .setDesiredHeight(BUBBLE_HEIGHT)
-                        .build();
+        return new Notification.BubbleMetadata.Builder(bubbleIntent,
+                Icon.createWithResource(mContext, 1))
+                .setDesiredHeight(BUBBLE_HEIGHT)
+                .build();
     }
 }

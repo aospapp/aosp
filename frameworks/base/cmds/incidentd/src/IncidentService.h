@@ -40,12 +40,16 @@ using namespace android::base;
 using namespace android::binder;
 using namespace android::os;
 
+class BringYourOwnSection;
+
 // ================================================================================
 class ReportHandler : public MessageHandler {
 public:
     ReportHandler(const sp<WorkDirectory>& workDirectory,
-            const sp<Broadcaster>& broadcaster, const sp<Looper>& handlerLooper,
-            const sp<Throttler>& throttler);
+                  const sp<Broadcaster>& broadcaster,
+                  const sp<Looper>& handlerLooper,
+                  const sp<Throttler>& throttler,
+                  const vector<BringYourOwnSection*>& registeredSections);
     virtual ~ReportHandler();
 
     virtual void handleMessage(const Message& message);
@@ -78,6 +82,8 @@ private:
     sp<Looper> mHandlerLooper;
     nsecs_t mBacklogDelay;
     sp<Throttler> mThrottler;
+
+    const vector<BringYourOwnSection*>& mRegisteredSections;
 
     sp<ReportBatch> mBatch;
 
@@ -121,7 +127,15 @@ public:
 
     virtual Status reportIncidentToStream(const IncidentReportArgs& args,
                                           const sp<IIncidentReportStatusListener>& listener,
-                                          const unique_fd& stream);
+                                          unique_fd stream);
+
+    virtual Status reportIncidentToDumpstate(unique_fd stream,
+            const sp<IIncidentReportStatusListener>& listener);
+
+    virtual Status registerSection(int id, const String16& name,
+            const sp<IIncidentDumpCallback>& callback);
+
+    virtual Status unregisterSection(int id);
 
     virtual Status systemRunning();
 
@@ -140,13 +154,13 @@ public:
     virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
                                 uint32_t flags) override;
     virtual status_t command(FILE* in, FILE* out, FILE* err, Vector<String8>& args);
-    virtual status_t dump(int fd, const Vector<String16>& args);
 
 private:
     sp<WorkDirectory> mWorkDirectory;
     sp<Broadcaster> mBroadcaster;
     sp<ReportHandler> mHandler;
     sp<Throttler> mThrottler;
+    vector<BringYourOwnSection*> mRegisteredSections;
 
     /**
      * Commands print out help.

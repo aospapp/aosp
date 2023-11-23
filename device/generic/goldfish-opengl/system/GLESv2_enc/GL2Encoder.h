@@ -16,10 +16,11 @@
 #ifndef _GL2_ENCODER_H_
 #define _GL2_ENCODER_H_
 
+#include <vector>
+
 #include "gl2_enc.h"
 #include "GLClientState.h"
 #include "GLSharedGroup.h"
-#include "FixedBuffer.h"
 
 #include <string>
 #include <vector>
@@ -28,6 +29,12 @@ class GL2Encoder : public gl2_encoder_context_t {
 public:
     GL2Encoder(IOStream *stream, ChecksumCalculator* protocol);
     virtual ~GL2Encoder();
+    void setDrawCallFlushInterval(uint32_t interval) {
+        m_drawCallFlushInterval = interval;
+    }
+    void setHasAsyncUnmapBuffer(int version) {
+        m_hasAsyncUnmapBuffer = version;
+    }
     void setNoHostError(bool noHostError) {
         m_noHostError = noHostError;
     }
@@ -98,6 +105,7 @@ private:
     std::string m_currExtensions;
     std::vector<std::string> m_currExtensionsArray;
 
+    bool    m_hasAsyncUnmapBuffer;
     bool    m_initialized;
     bool    m_noHostError;
     GLClientState *m_state;
@@ -129,9 +137,10 @@ private:
     GLuint m_ssbo_offset_align;
     GLuint m_ubo_offset_align;
 
-    FixedBuffer m_fixedBuffer;
+    std::vector<char> m_fixedBuffer;
 
-    int m_drawCallFlushCount;
+    uint32_t m_drawCallFlushInterval;
+    uint32_t m_drawCallFlushCount;
 
     bool m_primitiveRestartEnabled;
     GLuint m_primitiveRestartIndex;
@@ -752,6 +761,14 @@ private:
             GLsizei bufSize, GLfloat* params);
     static void s_glGetnUniformivEXT(void *self, GLuint program, GLint location,
             GLsizei bufSize, GLint* params);
+
+    // Invalidate framebuffer
+    static void s_glInvalidateFramebuffer(void* self, GLenum target, GLsizei numAttachments, const GLenum *attachments);
+    static void s_glInvalidateSubFramebuffer(void* self, GLenum target, GLsizei numAttachments, const GLenum *attachments, GLint x, GLint y, GLsizei width, GLsizei height);
+
+    glInvalidateFramebuffer_client_proc_t m_glInvalidateFramebuffer_enc;
+    glInvalidateSubFramebuffer_client_proc_t m_glInvalidateSubFramebuffer_enc;;
+
 public:
     glEGLImageTargetTexture2DOES_client_proc_t m_glEGLImageTargetTexture2DOES_enc;
 

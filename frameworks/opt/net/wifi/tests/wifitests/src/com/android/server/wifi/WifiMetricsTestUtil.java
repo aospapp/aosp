@@ -20,12 +20,12 @@ import static org.junit.Assert.assertEquals;
 
 import android.net.wifi.WifiManager;
 
-import com.android.server.wifi.nano.WifiMetricsProto.DeviceMobilityStatePnoScanStats;
-import com.android.server.wifi.nano.WifiMetricsProto.HistogramBucketInt32;
-import com.android.server.wifi.nano.WifiMetricsProto.Int32Count;
-import com.android.server.wifi.nano.WifiMetricsProto.LinkProbeStats.ExperimentProbeCounts;
-import com.android.server.wifi.nano.WifiMetricsProto.LinkProbeStats.LinkProbeFailureReasonCount;
-import com.android.server.wifi.nano.WifiMetricsProto.StaEvent;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.DeviceMobilityStatePnoScanStats;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.HistogramBucketInt32;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.Int32Count;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.LinkProbeStats.ExperimentProbeCounts;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.LinkProbeStats.LinkProbeFailureReasonCount;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.StaEvent;
 
 import java.util.Arrays;
 import java.util.Comparator;

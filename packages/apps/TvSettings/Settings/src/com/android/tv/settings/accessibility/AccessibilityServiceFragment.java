@@ -16,6 +16,7 @@
 
 package com.android.tv.settings.accessibility;
 
+import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -134,5 +135,24 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
     @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.ACCESSIBILITY_SERVICE;
+    }
+
+    @Override
+    protected int getPageId() {
+        // Partial matching of Service's Android componentName for logging a11y services.
+        String serviceName = getArguments().getString(ARG_SERVICE_NAME);
+        if (TextUtils.isEmpty(serviceName)) {
+            return TvSettingsEnums.PAGE_CLASSIC_DEFAULT;
+        } else if (serviceName.contains("TalkBack")) {
+            return TvSettingsEnums.SYSTEM_A11Y_TALKBACK;
+        } else if (serviceName.contains("AccessibilityMenu")) {
+            return TvSettingsEnums.SYSTEM_A11Y_A11Y_MENU;
+        } else if (serviceName.contains("SelectToSpeak")) {
+            return TvSettingsEnums.SYSTEM_A11Y_STS;
+        } else if (serviceName.contains("SwitchAccess")) {
+            return TvSettingsEnums.SYSTEM_A11Y_SWITCH_ACCESS;
+        } else {
+            return TvSettingsEnums.PAGE_CLASSIC_DEFAULT;
+        }
     }
 }

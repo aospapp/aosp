@@ -25,6 +25,7 @@
 #include <cctype>
 #include <memory>
 
+#include "core/fxcrt/fx_memory_wrappers.h"
 #include "fxbarcode/BC_Writer.h"
 #include "fxbarcode/oned/BC_OneDimWriter.h"
 
@@ -78,13 +79,12 @@ const int32_t CODE_STOP = 106;
 
 CBC_OnedCode128Writer::CBC_OnedCode128Writer(BC_TYPE type)
     : m_codeFormat(type) {
-  assert(m_codeFormat == BC_CODE128_B || m_codeFormat == BC_CODE128_C);
+  ASSERT(m_codeFormat == BC_CODE128_B || m_codeFormat == BC_CODE128_C);
 }
 
-CBC_OnedCode128Writer::~CBC_OnedCode128Writer() {}
+CBC_OnedCode128Writer::~CBC_OnedCode128Writer() = default;
 
-bool CBC_OnedCode128Writer::CheckContentValidity(
-    const WideStringView& contents) {
+bool CBC_OnedCode128Writer::CheckContentValidity(WideStringView contents) {
   for (const auto& ch : contents) {
     int32_t patternIndex = static_cast<int32_t>(ch);
     if (patternIndex < 32 || patternIndex > 126 || patternIndex == 34)
@@ -93,24 +93,21 @@ bool CBC_OnedCode128Writer::CheckContentValidity(
   return true;
 }
 
-WideString CBC_OnedCode128Writer::FilterContents(
-    const WideStringView& contents) {
-  WideString filterChineseChar;
+WideString CBC_OnedCode128Writer::FilterContents(WideStringView contents) {
+  const wchar_t limit = m_codeFormat == BC_CODE128_B ? 126 : 106;
+
+  WideString filtered;
+  filtered.Reserve(contents.GetLength());
   for (size_t i = 0; i < contents.GetLength(); i++) {
     wchar_t ch = contents[i];
     if (ch > 175) {
       i++;
       continue;
     }
-    filterChineseChar += ch;
-  }
-  const wchar_t limit = m_codeFormat == BC_CODE128_B ? 126 : 106;
-  WideString filtercontents;
-  for (const auto& ch : filterChineseChar) {
     if (ch >= 32 && ch <= limit)
-      filtercontents += ch;
+      filtered += ch;
   }
-  return filtercontents;
+  return filtered;
 }
 
 bool CBC_OnedCode128Writer::SetTextLocation(BC_TEXT_LOC location) {
@@ -159,10 +156,7 @@ uint8_t* CBC_OnedCode128Writer::EncodeImpl(const ByteString& contents,
   int32_t pos = 0;
   for (size_t i = 0; i < patterns.size(); ++i) {
     const int8_t* pattern = CODE_PATTERNS[patterns[i]];
-    int32_t e = BCExceptionNO;
-    pos += AppendPattern(result.get(), pos, pattern, kPatternSize, 1, e);
-    if (e != BCExceptionNO)
-      return nullptr;
+    pos += AppendPattern(result.get(), pos, pattern, kPatternSize, true);
   }
   return result.release();
 }
@@ -193,7 +187,7 @@ int32_t CBC_OnedCode128Writer::Encode128C(const ByteString& contents,
     char ch = contents[position];
     if (std::isdigit(ch)) {
       patternIndex = FXSYS_atoi(
-          contents.Mid(position, contents.IsValidIndex(position + 1) ? 2 : 1)
+          contents.Substr(position, contents.IsValidIndex(position + 1) ? 2 : 1)
               .c_str());
       ++position;
       if (position < contents.GetLength() && std::isdigit(contents[position]))

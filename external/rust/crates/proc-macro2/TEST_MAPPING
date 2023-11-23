@@ -1,0 +1,24 @@
+{
+  "presubmit": [
+    {
+      "name": "proc-macro2_tests_proc_macro2",
+      "host": true
+    },
+    {
+      "name": "proc-macro2_tests_features",
+      "host": true
+    },
+    {
+      "name": "proc-macro2_tests_marker",
+      "host": true
+    },
+    {
+      "name": "proc-macro2_tests_test",
+      "host": true
+    },
+    {
+      "name": "proc-macro2_tests_marker",
+      "host": true
+    }
+  ]
+}

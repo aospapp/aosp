@@ -22,7 +22,7 @@
 
 #include <gtest/gtest.h>
 
-#include "android/net/wifi/IWifiScannerImpl.h"
+#include "android/net/wifi/nl80211/IWifiScannerImpl.h"
 #include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/scanning/scan_result.h"
 #include "wificond/scanning/scan_utils.h"
@@ -40,8 +40,8 @@ using testing::Not;
 using testing::Return;
 using testing::_;
 
-using android::net::wifi::IWifiScannerImpl;
-using com::android::server::wifi::wificond::NativeScanResult;
+using android::net::wifi::nl80211::IWifiScannerImpl;
+using android::net::wifi::nl80211::NativeScanResult;
 
 namespace android {
 namespace wificond {
@@ -54,6 +54,7 @@ constexpr uint32_t kFakeSequenceNumber = 1984;
 constexpr int kFakeErrorCode = EIO;
 constexpr int32_t kFake2gRssiThreshold = -80;
 constexpr int32_t kFake5gRssiThreshold = -77;
+constexpr int32_t kFake6gRssiThreshold = -77;
 constexpr bool kFakeUseRandomMAC = true;
 constexpr bool kFakeRequestLowPower = true;
 constexpr bool kFakeRequestSchedScanRelativeRssi = true;
@@ -281,7 +282,7 @@ TEST_F(ScanUtilsTest, CanSendSchedScanRequest) {
   EXPECT_TRUE(scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       SchedScanIntervalSetting(),
-      kFake2gRssiThreshold, kFake5gRssiThreshold, req_flags, {}, {}, {},
+      kFake2gRssiThreshold, kFake5gRssiThreshold, kFake6gRssiThreshold, req_flags, {}, {}, {},
       &errno_ignored));
   // TODO(b/34231420): Add validation of requested scan ssids, threshold,
   // and frequencies.
@@ -302,7 +303,7 @@ TEST_F(ScanUtilsTest, CanHandleSchedScanRequestFailure) {
   EXPECT_FALSE(scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       SchedScanIntervalSetting(),
-      kFake2gRssiThreshold, kFake5gRssiThreshold,
+      kFake2gRssiThreshold, kFake5gRssiThreshold, kFake6gRssiThreshold,
       req_flags, {}, {}, {}, &error_code));
   EXPECT_EQ(kFakeErrorCode, error_code);
 }
@@ -324,7 +325,7 @@ TEST_F(ScanUtilsTest, CanSendSchedScanRequestForLowPowerScan) {
   scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       SchedScanIntervalSetting(),
-      kFake2gRssiThreshold, kFake5gRssiThreshold,
+      kFake2gRssiThreshold, kFake5gRssiThreshold, kFake6gRssiThreshold,
       req_flags, {}, {}, {}, &errno_ignored);
 }
 
@@ -348,7 +349,7 @@ TEST_F(ScanUtilsTest, CanSpecifyScanPlansForSchedScanRequest) {
   scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       interval_setting,
-      kFake2gRssiThreshold, kFake5gRssiThreshold,
+      kFake2gRssiThreshold, kFake5gRssiThreshold, kFake6gRssiThreshold,
       req_flags, {}, {}, {}, &errno_ignored);
 }
 
@@ -370,7 +371,7 @@ TEST_F(ScanUtilsTest, CanSpecifySingleIntervalForSchedScanRequest) {
   scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       interval_setting,
-      kFake2gRssiThreshold, kFake5gRssiThreshold,
+      kFake2gRssiThreshold, kFake5gRssiThreshold, kFake6gRssiThreshold,
       req_flags, {}, {}, {}, &errno_ignored);
 }
 

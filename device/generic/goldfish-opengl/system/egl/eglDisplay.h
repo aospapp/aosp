@@ -56,6 +56,11 @@ public:
     const EGLClient_glesInterface *gles2_iface() const { return m_gles2_iface; }
 
     int     getNumConfigs(){ return m_numConfigs; }
+
+    EGLConfig getConfigAtIndex(uint32_t index) const;
+    uint32_t getIndexOfConfig(EGLConfig config) const;
+    bool isValidConfig(EGLConfig cfg) const;
+
     EGLBoolean  getConfigAttrib(EGLConfig config, EGLint attrib, EGLint * value);
     EGLBoolean  setConfigAttrib(EGLConfig config, EGLint attrib, EGLint value);
     EGLBoolean getConfigGLPixelFormat(EGLConfig config, GLenum * format);

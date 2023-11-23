@@ -35,6 +35,12 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageButton;
 import android.widget.Toast;
+import android.app.ActionBar;
+import android.view.MenuItem;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * {@link Activity}s to handle clicks to the pass and fail buttons of the pass fail buttons layout.
@@ -99,14 +105,21 @@ public class PassFailButtons {
 
         /** @return A {@link ReportLog} that is used to record test metric data. */
         ReportLog getReportLog();
+
+        /**
+         * @return A {@link TestResultHistoryCollection} that is used to record test execution time.
+         */
+        TestResultHistoryCollection getHistoryCollection();
     }
 
     public static class Activity extends android.app.Activity implements PassFailActivity {
         private WakeLock mWakeLock;
         private final ReportLog reportLog;
+        private final TestResultHistoryCollection mHistoryCollection;
 
         public Activity() {
            this.reportLog = new CtsVerifierReportLog();
+           this.mHistoryCollection = new TestResultHistoryCollection();
         }
 
         @Override
@@ -160,19 +173,44 @@ public class PassFailButtons {
         @Override
         public void setTestResultAndFinish(boolean passed) {
             PassFailButtons.setTestResultAndFinishHelper(
-                    this, getTestId(), getTestDetails(), passed, getReportLog());
+                    this, getTestId(), getTestDetails(), passed, getReportLog(),
+                    getHistoryCollection());
         }
 
         @Override
         public ReportLog getReportLog() { return reportLog; }
+
+        @Override
+        public TestResultHistoryCollection getHistoryCollection() { return mHistoryCollection; }
+
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            ActionBar actBar = getActionBar();
+            if (actBar != null) {
+                actBar.setDisplayHomeAsUpEnabled(true);
+            }
+        }
+
+        @Override
+        public boolean onOptionsItemSelected(MenuItem item) {
+            if (item.getItemId() == android.R.id.home) {
+                onBackPressed();
+                return true;
+            }
+            return super.onOptionsItemSelected(item);
+        }
+
     }
 
     public static class ListActivity extends android.app.ListActivity implements PassFailActivity {
 
         private final ReportLog reportLog;
+        private final TestResultHistoryCollection mHistoryCollection;
 
         public ListActivity() {
             this.reportLog = new CtsVerifierReportLog();
+            this.mHistoryCollection = new TestResultHistoryCollection();
         }
 
         @Override
@@ -208,11 +246,34 @@ public class PassFailButtons {
         @Override
         public void setTestResultAndFinish(boolean passed) {
             PassFailButtons.setTestResultAndFinishHelper(
-                    this, getTestId(), getTestDetails(), passed, getReportLog());
+                    this, getTestId(), getTestDetails(), passed, getReportLog(),
+                    getHistoryCollection());
         }
 
         @Override
         public ReportLog getReportLog() { return reportLog; }
+
+        @Override
+        public TestResultHistoryCollection getHistoryCollection() { return mHistoryCollection; }
+
+
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            ActionBar actBar = getActionBar();
+            if (actBar != null) {
+                actBar.setDisplayHomeAsUpEnabled(true);
+            }
+        }
+
+        @Override
+        public boolean onOptionsItemSelected(MenuItem item) {
+            if (item.getItemId() == android.R.id.home) {
+                onBackPressed();
+                return true;
+            }
+            return super.onOptionsItemSelected(item);
+        }
     }
 
     public static class TestListActivity extends AbstractTestListActivity
@@ -257,14 +318,48 @@ public class PassFailButtons {
         @Override
         public void setTestResultAndFinish(boolean passed) {
             PassFailButtons.setTestResultAndFinishHelper(
-                    this, getTestId(), getTestDetails(), passed, getReportLog());
+                    this, getTestId(), getTestDetails(), passed, getReportLog(),
+                    getHistoryCollection());
         }
 
         @Override
         public ReportLog getReportLog() { return reportLog; }
 
+        /**
+         * Get existing test history to aggregate.
+         */
+        @Override
+        public TestResultHistoryCollection getHistoryCollection() {
+            List<TestResultHistoryCollection> histories =
+                IntStream.range(0, mAdapter.getCount())
+                .mapToObj(mAdapter::getHistoryCollection)
+                .collect(Collectors.toList());
+            TestResultHistoryCollection historyCollection = new TestResultHistoryCollection();
+            historyCollection.merge(getTestId(), histories);
+            return historyCollection;
+        }
+
         public void updatePassButton() {
             getPassButton().setEnabled(mAdapter.allTestsPassed());
+        }
+
+
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            ActionBar actBar = getActionBar();
+            if (actBar != null) {
+                actBar.setDisplayHomeAsUpEnabled(true);
+            }
+        }
+
+        @Override
+        public boolean onOptionsItemSelected(MenuItem item) {
+            if (item.getItemId() == android.R.id.home) {
+                onBackPressed();
+                return true;
+            }
+            return super.onOptionsItemSelected(item);
         }
     }
 
@@ -274,7 +369,7 @@ public class PassFailButtons {
             @Override
             public void onClick(View target) {
                 setTestResultAndFinish(activity, activity.getTestId(), activity.getTestDetails(),
-                        activity.getReportLog(), target);
+                        activity.getReportLog(), activity.getHistoryCollection(), target);
             }
         };
 
@@ -399,7 +494,8 @@ public class PassFailButtons {
 
     /** Set the test result corresponding to the button clicked and finish the activity. */
     protected static void setTestResultAndFinish(android.app.Activity activity, String testId,
-            String testDetails, ReportLog reportLog, View target) {
+            String testDetails, ReportLog reportLog, TestResultHistoryCollection historyCollection,
+            View target) {
         boolean passed;
         if (target.getId() == R.id.pass_button) {
             passed = true;
@@ -409,16 +505,17 @@ public class PassFailButtons {
             throw new IllegalArgumentException("Unknown id: " + target.getId());
         }
 
-        setTestResultAndFinishHelper(activity, testId, testDetails, passed, reportLog);
+        setTestResultAndFinishHelper(activity, testId, testDetails, passed, reportLog, historyCollection);
     }
 
     /** Set the test result and finish the activity. */
     protected static void setTestResultAndFinishHelper(android.app.Activity activity, String testId,
-            String testDetails, boolean passed, ReportLog reportLog) {
+            String testDetails, boolean passed, ReportLog reportLog,
+            TestResultHistoryCollection historyCollection) {
         if (passed) {
-            TestResult.setPassedResult(activity, testId, testDetails, reportLog);
+            TestResult.setPassedResult(activity, testId, testDetails, reportLog, historyCollection);
         } else {
-            TestResult.setFailedResult(activity, testId, testDetails, reportLog);
+            TestResult.setFailedResult(activity, testId, testDetails, reportLog, historyCollection);
         }
 
         activity.finish();

@@ -21,7 +21,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Before;
 
@@ -30,12 +30,13 @@ public class EndToEndImeTestBase {
     public void showStateInitializeActivity() {
         // TODO(b/37502066): Move this back to @BeforeClass once b/37502066 is fixed.
         assumeTrue("MockIme cannot be used for devices that do not support installable IMEs",
-                InstrumentationRegistry.getContext().getPackageManager().hasSystemFeature(
-                        PackageManager.FEATURE_INPUT_METHODS));
+                InstrumentationRegistry.getInstrumentation().getContext().getPackageManager()
+                        .hasSystemFeature(PackageManager.FEATURE_INPUT_METHODS));
 
         final Intent intent = new Intent()
                 .setAction(Intent.ACTION_MAIN)
-                .setClass(InstrumentationRegistry.getTargetContext(), StateInitializeActivity.class)
+                .setClass(InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        StateInitializeActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);

@@ -369,10 +369,6 @@
         <item name="themeTileMode">2</item>
     </style>
 
-    <style name="Theme_NoSwipeDismiss">
-        <item name="android:windowSwipeToDismiss">false</item>
-    </style>
-
     <style name="PopupEmptyStyle" />
 
     <style name="TabWidgetCustomStyle" parent="android:Widget.TabWidget">
@@ -404,8 +400,6 @@
     </style>
 
     <style name="Theme.PopupWindowCtsActivity" parent="@android:style/Theme.Holo">
-        <!-- Force swipe-to-dismiss to false. -->
-        <item name="android:windowSwipeToDismiss">false</item>
     </style>
 
     <style name="TextView_FontResource">

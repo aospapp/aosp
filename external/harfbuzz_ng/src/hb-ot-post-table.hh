@@ -71,28 +71,27 @@ struct postV2Tail
 
 struct post
 {
-  enum { tableTag = HB_OT_TAG_post };
+  static constexpr hb_tag_t tableTag = HB_OT_TAG_post;
 
-  bool subset (hb_subset_plan_t *plan) const
+  void serialize (hb_serialize_context_t *c) const
   {
-    unsigned int post_prime_length;
-    hb_blob_t *post_blob = hb_sanitize_context_t ().reference_table<post>(plan->source);
-    hb_blob_t *post_prime_blob = hb_blob_create_sub_blob (post_blob, 0, post::min_size);
-    post *post_prime = (post *) hb_blob_get_data_writable (post_prime_blob, &post_prime_length);
-    hb_blob_destroy (post_blob);
+    post *post_prime = c->allocate_min<post> ();
+    if (unlikely (!post_prime))  return;
 
-    if (unlikely (!post_prime || post_prime_length != post::min_size))
-    {
-      hb_blob_destroy (post_prime_blob);
-      DEBUG_MSG(SUBSET, nullptr, "Invalid source post table with length %d.", post_prime_length);
-      return false;
-    }
+    memcpy (post_prime, this, post::min_size);
+    post_prime->version.major = 3; // Version 3 does not have any glyph names.
+  }
 
-    post_prime->version.major.set (3); // Version 3 does not have any glyph names.
-    bool result = plan->add_table (HB_OT_TAG_post, post_prime_blob);
-    hb_blob_destroy (post_prime_blob);
+  bool subset (hb_subset_context_t *c) const
+  {
+    TRACE_SUBSET (this);
+    post *post_prime = c->serializer->start_embed<post> ();
+    if (unlikely (!post_prime)) return_trace (false);
 
-    return result;
+    serialize (c->serializer);
+    if (c->serializer->in_error () || c->serializer->ran_out_of_room) return_trace (false);
+
+    return_trace (true);
   }
 
   struct accelerator_t
@@ -114,7 +113,7 @@ struct post
 
       const uint8_t *end = (const uint8_t *) (const void *) table + table_length;
       for (const uint8_t *data = pool;
-	   index_to_offset.len < 65535 && data < end && data + *data < end;
+	   index_to_offset.length < 65535 && data < end && data + *data < end;
 	   data += 1 + *data)
 	index_to_offset.push (data - pool);
     }
@@ -129,9 +128,9 @@ struct post
 			 char *buf, unsigned int buf_len) const
     {
       hb_bytes_t s = find_glyph_name (glyph);
-      if (!s.len) return false;
+      if (!s.length) return false;
       if (!buf_len) return true;
-      unsigned int len = MIN (buf_len - 1, s.len);
+      unsigned int len = hb_min (buf_len - 1, s.length);
       strncpy (buf, s.arrayZ, len);
       buf[len] = '\0';
       return true;
@@ -158,7 +157,7 @@ struct post
 
 	for (unsigned int i = 0; i < count; i++)
 	  gids[i] = i;
-	hb_sort_r (gids, count, sizeof (gids[0]), cmp_gids, (void *) this);
+	hb_qsort (gids, count, sizeof (gids[0]), cmp_gids, (void *) this);
 
 	if (unlikely (!gids_sorted_by_name.cmpexch (nullptr, gids)))
 	{
@@ -168,8 +167,8 @@ struct post
       }
 
       hb_bytes_t st (name, len);
-      const uint16_t *gid = (const uint16_t *) hb_bsearch_r (hb_addressof (st), gids, count,
-							     sizeof (gids[0]), cmp_key, (void *) this);
+      const uint16_t *gid = (const uint16_t *) hb_bsearch (hb_addressof (st), gids, count,
+							   sizeof (gids[0]), cmp_key, (void *) this);
       if (gid)
       {
 	*glyph = *gid;
@@ -178,6 +177,8 @@ struct post
 
       return false;
     }
+
+    hb_blob_ptr_t<post> table;
 
     protected:
 
@@ -226,7 +227,7 @@ struct post
 	return format1_names (index);
       index -= NUM_FORMAT1_NAMES;
 
-      if (index >= index_to_offset.len)
+      if (index >= index_to_offset.length)
 	return hb_bytes_t ();
       unsigned int offset = index_to_offset[index];
 
@@ -238,13 +239,14 @@ struct post
     }
 
     private:
-    hb_blob_ptr_t<post> table;
     uint32_t version;
     const ArrayOf<HBUINT16> *glyphNameIndex;
-    hb_vector_t<uint32_t, 1> index_to_offset;
+    hb_vector_t<uint32_t> index_to_offset;
     const uint8_t *pool;
     hb_atomic_ptr_t<uint16_t *> gids_sorted_by_name;
   };
+
+  bool has_data () const { return version.to_int (); }
 
   bool sanitize (hb_sanitize_context_t *c) const
   {
@@ -260,7 +262,7 @@ struct post
 					 * 0x00020000 for version 2.0
 					 * 0x00025000 for version 2.5 (deprecated)
 					 * 0x00030000 for version 3.0 */
-  Fixed		italicAngle;		/* Italic angle in counter-clockwise degrees
+  HBFixed		italicAngle;		/* Italic angle in counter-clockwise degrees
 					 * from the vertical. Zero for upright text,
 					 * negative for text that leans to the right
 					 * (forward). */

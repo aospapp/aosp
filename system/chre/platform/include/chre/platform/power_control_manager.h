@@ -28,8 +28,7 @@ namespace chre {
  * An abstraction for an entity that performs power-related controls for the
  * underlying platform.
  */
-class PowerControlManager : public PowerControlManagerBase,
-                            public NonCopyable {
+class PowerControlManager : public PowerControlManagerBase, public NonCopyable {
  public:
   /**
    * Perform power-related control after a single process of the event loop.
@@ -44,6 +43,6 @@ class PowerControlManager : public PowerControlManagerBase,
   bool hostIsAwake();
 };
 
-} // namespace chre
+}  // namespace chre
 
-#endif // CHRE_PLATFORM_POWER_CONTROL_MANAGER_H
+#endif  // CHRE_PLATFORM_POWER_CONTROL_MANAGER_H

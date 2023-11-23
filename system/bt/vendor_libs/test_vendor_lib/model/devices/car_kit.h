@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "device.h"
+#include "hci/hci_packets.h"
 #include "model/controller/link_layer_controller.h"
 
 namespace {
@@ -45,7 +46,8 @@ class CarKit : public Device {
     return "car_kit";
   }
 
-  virtual void IncomingPacket(packets::LinkLayerPacketView packet) override;
+  virtual void IncomingPacket(
+      model::packets::LinkLayerPacketView packet) override;
 
   virtual void TimerTick() override;
 

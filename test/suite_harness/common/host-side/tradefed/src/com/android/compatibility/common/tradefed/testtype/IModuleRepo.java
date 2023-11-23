@@ -26,7 +26,10 @@ import java.util.Set;
 
 /**
  * Interface for accessing tests from the Compatibility repository.
+ *
+ * @deprecated This class is associated with {@link CompatibilityTest} which is deprecate
  */
+@Deprecated
 public interface IModuleRepo {
 
     /**

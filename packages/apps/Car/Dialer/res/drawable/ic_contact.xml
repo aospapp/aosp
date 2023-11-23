@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-        android:viewportWidth="48"
-        android:viewportHeight="48"
+        android:viewportWidth="24"
+        android:viewportHeight="24"
         android:width="@dimen/primary_icon_size"
         android:height="@dimen/primary_icon_size">
     <path
-        android:pathData="M6 10l0 28c0 2.21 1.79 4 4 4l28 0c2.21 0 4 -1.79 4 -4L42 10C42 7.79 40.21 6 38 6L10 6C7.79 6 6 7.79 6 10Zm24 8c0 3.32 -2.69 6 -6 6 -3.31 0 -6 -2.68 -6 -6 0 -3.31 2.69 -6 6 -6 3.31 0 6 2.69 6 6zM12 34c0 -4 8 -6.2 12 -6.2 4 0 12 2.2 12 6.2l0 2 -24 0 0 -2z"
+        android:pathData="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
         android:fillColor="#000000"/>
 </vector>

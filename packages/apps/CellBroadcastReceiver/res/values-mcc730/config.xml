@@ -15,21 +15,55 @@
 -->
 
 <resources>
-    <!-- Whether to enable CMAS settings (United States) -->
-    <!-- No need to show this for Chilean users -->
-    <bool name="show_cmas_settings">false</bool>
+    <!-- Whether to show extreme alert settings -->
+    <bool name="show_extreme_alert_settings">false</bool>
+    <!-- Whether to show severe alert settings -->
+    <bool name="show_severe_alert_settings">false</bool>
+    <!-- Whether to show amber alert settings -->
+    <bool name="show_amber_alert_settings">false</bool>
 
     <string-array name="public_safety_messages_channels_range_strings" translatable="false">
         <!-- Channel 919 and 921 are required by Chile -->
-        <item>0x0397:type=other, emergency=true</item>
+        <item>0x0397:type=other, emergency=true, alert_duration=86400000</item>
         <item>0x0399:type=other, emergency=false</item>
     </string-array>
+    <!-- 4370, 4383 -->
+    <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
+        <item>0x1112:rat=gsm, emergency=true, alert_duration=86400000</item>
+        <!-- additional language -->
+        <item>0x1120-0x1121:rat=gsm, emergency=true</item>
+    </string-array>
+    <!-- 4371~4372 -->
+    <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false">
+        <item>0x1113-0x1114:rat=gsm, emergency=true, alert_duration=86400000</item>
+    </string-array>
+    <!-- 4373~4378 -->
+    <string-array name="cmas_alerts_severe_range_strings" translatable="false">
+        <item>0x1115-0x111A:rat=gsm, emergency=true, alert_duration=86400000</item>
+    </string-array>
+    <!-- 4379 -->
+    <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false">
+        <item>0x111B:rat=gsm, emergency=true, alert_duration=86400000</item>
+    </string-array>
+    <!-- 4380~4382, 519 -->
+    <string-array name="required_monthly_test_range_strings" translatable="false">
+        <item>0x111C:rat=gsm, emergency=true, alert_duration=86400000</item>
+        <item>0x207:rat=gsm, emergency=true, alert_duration=86400000</item>
+    </string-array>
+    <string-array name="exercise_alert_range_strings" translatable="false">
+        <item>0x111D:rat=gsm, emergency=true, alert_duration=86400000</item>
+    </string-array>
+    <string-array name="operator_defined_alert_range_strings" translatable="false">
+        <item>0x111E:rat=gsm, emergency=true, alert_duration=86400000</item>
+    </string-array>
 
-    <!-- Always play alert at full volume for Chilean users -->
-    <bool name="use_full_volume">true</bool>
+    <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
+    <bool name="override_dnd_default">true</bool>
     <!-- Append date-time to the alert title -->
     <bool name="show_date_time_title">true</bool>
-    <!-- Emergecny alert tone duration set to 5 minutes for Chilean users -->
-    <integer name="alert_duration">300000</integer>
+    <!-- Link method -->
+    <string name="link_method" translatable="false">none</string>
+    <!-- Whether the user can mute the alert by physical button -->
+    <bool name="mute_by_physical_button">false</bool>
 </resources>
 

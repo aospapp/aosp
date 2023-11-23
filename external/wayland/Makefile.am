@@ -64,8 +64,6 @@ include_HEADERS =				\
 	src/wayland-server-core.h		\
 	src/wayland-client.h			\
 	src/wayland-client-core.h		\
-	src/wayland-egl.h			\
-	src/wayland-egl-core.h			\
 	src/wayland-version.h
 
 nodist_include_HEADERS =			\
@@ -97,13 +95,17 @@ nodist_libwayland_client_la_SOURCES =		\
 pkgconfig_DATA += src/wayland-client.pc src/wayland-server.pc
 
 protocol/%-protocol.c : $(top_srcdir)/protocol/%.xml
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) code < $< > $@
+if USE_HOST_SCANNER
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) code $< $@
+else
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) public-code $< $@
+endif
 
 protocol/%-server-protocol.h : $(top_srcdir)/protocol/%.xml
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) server-header < $< > $@
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) server-header $< $@
 
 protocol/%-client-protocol.h : $(top_srcdir)/protocol/%.xml
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) client-header < $< > $@
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) client-header $< $@
 
 protocol/%-server-protocol-core.h : $(top_srcdir)/protocol/%.xml
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) server-header -c < $< > $@
@@ -114,11 +116,12 @@ protocol/%-client-protocol-core.h : $(top_srcdir)/protocol/%.xml
 BUILT_SOURCES =					\
 	$(nodist_libwayland_server_la_SOURCES)	\
 	$(nodist_libwayland_client_la_SOURCES)	\
-	$(nodist_headers_test_SOURCES)
+	$(nodist_headers_test_SOURCES)		\
+	$(nodist_display_test_SOURCES)
 
 CLEANFILES = $(BUILT_SOURCES) doc/doxygen/doxygen_sqlite3.db
 DISTCLEANFILES = src/wayland-version.h
-EXTRA_DIST = src/wayland-version.h.in
+EXTRA_DIST = CONTRIBUTING.md
 
 
 
@@ -143,6 +146,19 @@ libwayland_cursor_la_CFLAGS =			\
 	-I$(top_srcdir)/src			\
 	-DICONDIR=\"$(ICONDIR)\"
 
+lib_LTLIBRARIES += libwayland-egl.la
+
+include_HEADERS += egl/wayland-egl.h
+include_HEADERS += egl/wayland-egl-core.h
+
+libwayland_egl_la_SOURCES = egl/wayland-egl.c
+libwayland_egl_la_LDFLAGS = -version-info 1
+
+pkgconfig_DATA += egl/wayland-egl.pc
+
+## XXX: backend interface
+include_HEADERS += egl/wayland-egl-backend.h
+pkgconfig_DATA += egl/wayland-egl-backend.pc
 
 built_test_programs =				\
 	array-test				\
@@ -151,6 +167,7 @@ built_test_programs =				\
 	connection-test				\
 	event-loop-test				\
 	fixed-test				\
+	interface-test				\
 	list-test				\
 	map-test				\
 	os-wrappers-test			\
@@ -158,31 +175,50 @@ built_test_programs =				\
 	socket-test				\
 	queue-test				\
 	signal-test				\
+	newsignal-test				\
 	resources-test				\
 	message-test				\
 	headers-test				\
 	compositor-introspection-test		\
-	protocol-logger-test
+	protocol-logger-test			\
+	wayland-egl-abi-check
+
+EXTRA_DIST += egl/wayland-egl-symbols-check
+
+check_PROGRAMS = wayland-egl-abi-check
+wayland_egl_abi_check_SOURCES = egl/wayland-egl-abi-check.c
 
 if ENABLE_CPP_TEST
 built_test_programs += cpp-compile-test
 endif
 
-TESTS = $(built_test_programs)
+AM_TESTS_ENVIRONMENT =							\
+	export WAYLAND_SCANNER='$(top_builddir)/wayland-scanner'	\
+	TEST_DATA_DIR='$(top_srcdir)/tests/data'			\
+	TEST_OUTPUT_DIR='$(top_builddir)/tests/output'			\
+	WAYLAND_EGL_LIB='$(top_builddir)/.libs/libwayland-egl.so'	\
+	SED=$(SED)							\
+	NM='$(NM)'							\
+	;
 
-check_PROGRAMS =				\
-	$(built_test_programs)			\
-	exec-fd-leak-checker
+TESTS = $(built_test_programs)			\
+	egl/wayland-egl-symbols-check		\
+	tests/scanner-test.sh
 
 noinst_PROGRAMS =				\
+	$(built_test_programs)			\
+	exec-fd-leak-checker			\
 	fixed-benchmark
 
-check_LTLIBRARIES = libtest-runner.la
+noinst_LTLIBRARIES +=				\
+	libtest-runner.la			\
+	libtest-helpers.la
+
+libtest_helpers_la_SOURCES = tests/test-helpers.c
 
 libtest_runner_la_SOURCES =			\
 	tests/test-runner.c			\
 	tests/test-runner.h			\
-	tests/test-helpers.c			\
 	tests/test-compositor.h			\
 	tests/test-compositor.c
 libtest_runner_la_LIBADD =			\
@@ -190,8 +226,8 @@ libtest_runner_la_LIBADD =			\
 	libwayland-util.la			\
 	libwayland-client.la			\
 	libwayland-server.la			\
+	libtest-helpers.la			\
 	-lrt -ldl $(FFI_LIBS)
-
 
 array_test_SOURCES = tests/array-test.c
 array_test_LDADD = libtest-runner.la
@@ -199,12 +235,18 @@ client_test_SOURCES = tests/client-test.c
 client_test_LDADD = libtest-runner.la
 display_test_SOURCES = tests/display-test.c
 display_test_LDADD = libtest-runner.la
+nodist_display_test_SOURCES =				\
+	protocol/tests-server-protocol.h		\
+	protocol/tests-client-protocol.h 		\
+	protocol/tests-protocol.c
 connection_test_SOURCES = tests/connection-test.c
 connection_test_LDADD = libtest-runner.la
 event_loop_test_SOURCES = tests/event-loop-test.c
 event_loop_test_LDADD = libtest-runner.la
 fixed_test_SOURCES = tests/fixed-test.c
 fixed_test_LDADD = libtest-runner.la
+interface_test_SOURCES = tests/interface-test.c
+interface_test_LDADD = libtest-runner.la
 list_test_SOURCES = tests/list-test.c
 list_test_LDADD = libtest-runner.la
 map_test_SOURCES = tests/map-test.c
@@ -217,6 +259,9 @@ queue_test_SOURCES = tests/queue-test.c
 queue_test_LDADD = libtest-runner.la
 signal_test_SOURCES = tests/signal-test.c
 signal_test_LDADD = libtest-runner.la
+# wayland-server.c is needed here to access wl_priv_* functions
+newsignal_test_SOURCES = tests/newsignal-test.c src/wayland-server.c
+newsignal_test_LDADD = libtest-runner.la
 resources_test_SOURCES = tests/resources-test.c
 resources_test_LDADD = libtest-runner.la
 message_test_SOURCES = tests/message-test.c
@@ -228,7 +273,6 @@ protocol_logger_test_LDADD = libtest-runner.la
 headers_test_SOURCES = tests/headers-test.c \
 		       tests/headers-protocol-test.c \
 		       tests/headers-protocol-core-test.c
-headers_test_LDADD = libtest-runner.la
 nodist_headers_test_SOURCES =			\
 	protocol/wayland-server-protocol-core.h	\
 	protocol/wayland-client-protocol-core.h
@@ -238,11 +282,31 @@ cpp_compile_test_SOURCES = tests/cpp-compile-test.cpp
 endif
 
 fixed_benchmark_SOURCES = tests/fixed-benchmark.c
-fixed_benchmark_LDADD = libtest-runner.la
 
 os_wrappers_test_SOURCES = tests/os-wrappers-test.c
 os_wrappers_test_LDADD = libtest-runner.la
 
 exec_fd_leak_checker_SOURCES = tests/exec-fd-leak-checker.c
-exec_fd_leak_checker_LDADD = libtest-runner.la
+exec_fd_leak_checker_LDADD = libtest-helpers.la
+
+EXTRA_DIST += tests/scanner-test.sh			\
+	protocol/tests.xml				\
+	tests/data/example.xml				\
+	tests/data/example-client.h			\
+	tests/data/example-server.h			\
+	tests/data/example-code.c			\
+	tests/data/small.xml				\
+	tests/data/small-code.c				\
+	tests/data/small-client.h			\
+	tests/data/small-server.h			\
+	tests/data/small-code-core.c			\
+	tests/data/small-client-core.h			\
+	tests/data/small-server-core.h			\
+	tests/data/small-private-code.c
+
+tests/scanner-test.sh: $(top_builddir)/wayland-scanner
+
+clean-local:
+	-rm -rf tests/output
+
 endif #ENABLE_LIBRARIES

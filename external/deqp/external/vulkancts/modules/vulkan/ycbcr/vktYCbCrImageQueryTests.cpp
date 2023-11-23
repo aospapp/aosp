@@ -2,7 +2,7 @@
  * Vulkan Conformance Tests
  * ------------------------
  *
- * Copyright (c) 2017 Google Inc.
+ * Copyright (c) 2019 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@
 #include "vkQueryUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkImageUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkBarrierUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuVectorUtil.hpp"
@@ -64,9 +66,6 @@ using de::MovePtr;
 using de::UniquePtr;
 using std::vector;
 using std::string;
-
-typedef de::SharedPtr<Allocation>				AllocationSp;
-typedef de::SharedPtr<vk::Unique<VkBuffer> >	VkBufferSp;
 
 enum QueryType
 {
@@ -201,7 +200,8 @@ Move<VkImageView> createImageView (const DeviceInterface&	vkd,
 class TestImage
 {
 public:
-								TestImage		(const DeviceInterface&		vkd,
+								TestImage		(const Context&				context,
+												 const DeviceInterface&		vkd,
 												 VkDevice					device,
 												 Allocator&					allocator,
 												 VkFormat					format,
@@ -219,7 +219,8 @@ private:
 	const Unique<VkImageView>	m_imageView;
 };
 
-TestImage::TestImage (const DeviceInterface&	vkd,
+TestImage::TestImage (const Context&			context,
+					  const DeviceInterface&	vkd,
 					  VkDevice					device,
 					  Allocator&				allocator,
 					  VkFormat					format,
@@ -231,6 +232,28 @@ TestImage::TestImage (const DeviceInterface&	vkd,
 	, m_allocations	(allocateAndBindImageMemory(vkd, device, allocator, *m_image, format, createFlags))
 	, m_imageView	(createImageView(vkd, device, *m_image, format, conversion))
 {
+	// Transition image layout
+	{
+		Move<VkCommandPool>		cmdPool;
+		Move<VkCommandBuffer>	cmdBuffer;
+		const VkQueue			queue				= context.getUniversalQueue();
+		const deUint32			queueFamilyIndex	= context.getUniversalQueueFamilyIndex();
+
+		cmdPool		= createCommandPool(vkd, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
+		cmdBuffer	= allocateCommandBuffer(vkd, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+		beginCommandBuffer(vkd, *cmdBuffer);
+
+		VkImageSubresourceRange subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u };
+		const VkImageMemoryBarrier imageBarrier = makeImageMemoryBarrier(0u, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *m_image, subresourceRange);
+
+		vkd.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
+			0u, DE_NULL, 0u, DE_NULL, 1u, &imageBarrier);
+
+		endCommandBuffer(vkd, *cmdBuffer);
+		submitCommandsAndWait(vkd, device, queue, *cmdBuffer);
+	}
 }
 
 typedef de::SharedPtr<TestImage> TestImageSp;
@@ -324,7 +347,7 @@ void bindImage (const DeviceInterface& vkd,
 
 UVec2 getMaxPlaneDivisor (const PlanarFormatDescription& formatDesc)
 {
-	UVec2	maxDivisor	(1u, 1u);
+	UVec2	maxDivisor	(formatDesc.blockWidth, formatDesc.blockHeight);
 
 	for (deUint32 ndx = 0; ndx < formatDesc.numPlanes; ++ndx)
 	{
@@ -415,10 +438,10 @@ tcu::TestStatus testImageQuery (Context& context, TestParameters params)
 		testImages.resize(testSizes.size());
 
 		for (size_t ndx = 0; ndx < testSizes.size(); ++ndx)
-			testImages[ndx] = TestImageSp(new TestImage(vkd, device, context.getDefaultAllocator(), params.format, testSizes[ndx], params.flags, *conversion));
+			testImages[ndx] = TestImageSp(new TestImage(context, vkd, device, context.getDefaultAllocator(), params.format, testSizes[ndx], params.flags, *conversion));
 	}
 	else
-		testImages.push_back(TestImageSp(new TestImage(vkd, device, context.getDefaultAllocator(), params.format, UVec2(16, 18), params.flags, *conversion)));
+		testImages.push_back(TestImageSp(new TestImage(context, vkd, device, context.getDefaultAllocator(), params.format, UVec2(16, 18), params.flags, *conversion)));
 
 	{
 		UniquePtr<ShaderExecutor>	executor	(createExecutor(context, params.shaderType, getShaderSpec(params), *descLayout));
@@ -569,7 +592,7 @@ tcu::TestStatus testImageQueryLod (Context& context, TestParameters params)
 		testImages.resize(testSizes.size());
 
 		for (size_t ndx = 0; ndx < testSizes.size(); ++ndx)
-			testImages[ndx] = TestImageSp(new TestImage(vkd, device, context.getDefaultAllocator(), params.format, testSizes[ndx], params.flags, *conversion));
+			testImages[ndx] = TestImageSp(new TestImage(context, vkd, device, context.getDefaultAllocator(), params.format, testSizes[ndx], params.flags, *conversion));
 	}
 
 	{
@@ -577,9 +600,9 @@ tcu::TestStatus testImageQueryLod (Context& context, TestParameters params)
 
 		struct LocalUtil
 		{
-			static DrawState getDrawState (UVec2 renderSize)
+			static DrawState getDrawState (UVec2 renderSize, const int subpixelBits)
 			{
-				DrawState state(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, renderSize.x(), renderSize.y());
+				DrawState state(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, renderSize.x(), renderSize.y(), subpixelBits);
 				state.colorFormat = VK_FORMAT_R32G32_SFLOAT;
 				return state;
 			}
@@ -615,7 +638,7 @@ tcu::TestStatus testImageQueryLod (Context& context, TestParameters params)
 
 		const UVec2					renderSize	(128, 256);
 		const vector<Vec4>			vertices	(LocalUtil::getVertices());
-		const DrawState				drawState	(LocalUtil::getDrawState(renderSize));
+		const DrawState				drawState	(LocalUtil::getDrawState(renderSize, context.getDeviceProperties().limits.subPixelPrecisionBits));
 		const DrawCallData			drawCallData(vertices);
 		const VulkanProgram			program		(LocalUtil::getProgram(context, *descLayout, *descSet));
 
@@ -765,6 +788,9 @@ void populateQueryGroup (tcu::TestCaseGroup* group, QueryType query)
 		const glu::ShaderType	shaderType	= (glu::ShaderType)shaderTypeNdx;
 
 		if (query == QUERY_TYPE_IMAGE_LOD && shaderType != glu::SHADERTYPE_FRAGMENT)
+			continue;
+
+		if (!executorSupported(shaderType))
 			continue;
 
 		addTestGroup(group, glu::getShaderTypeName(shaderType), "", populateQueryInShaderGroup, QueryGroupParams(query, shaderType));
